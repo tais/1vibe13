@@ -479,7 +479,7 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fIsSoldierDelayed = src.fIsSoldierDelayed;						//Is the soldier delayed Soldier
 	this->fSoldierUpdatedFromNetwork = src.fSoldierUpdatedFromNetwork;
 	this->fCheckForNewlyAddedItems = src.fCheckForNewlyAddedItems;
-	//this->fCheckForNewlyAddedItems = src.bEndDoorOpenCode;//dnl ch33 130909
+	// The transient v101 door continuation phase is deliberately not converted.
 	this->fMuzzleFlash = src.fMuzzleFlash;
 	this->fSoldierWasMoving = src.fSoldierWasMoving;
 	this->fSayAmmoQuotePending = src.fSayAmmoQuotePending;
@@ -620,6 +620,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		pendingAction().reset();
 		assignment().reset();
 		deployment().reset();
+		schedule().reset();
 		fireControl().reset();
 		combatResult().reset();
 		combatContribution().reset();
@@ -940,13 +941,13 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->uiUniqueSoldierIdValue = src.uiUniqueSoldierIdValue; // the unique value every instance of a soldier gets - 1 is the first valid value
 
-		this->ubScheduleID = src.ubScheduleID;
-		this->sEndDoorOpenCodeData = src.sEndDoorOpenCodeData;
+		this->schedule().id() = src.ubScheduleID;
+		this->schedule().doorGrid() = src.sEndDoorOpenCodeData;
 		this->movement().blockedDirection() = src.bBlockedByAnotherMercDirection;
 		this->attackSelection().weapon() = src.usAttackingWeapon;
 		this->attackSelection().weaponMode() = src.bWeaponMode;
 		this->targeting().targetId() = static_cast<UINT16>( src.ubTargetID );
-		this->bAIScheduleProgress = src.bAIScheduleProgress;
+		this->schedule().progress() = src.bAIScheduleProgress;
 		this->deployment().offWorldGrid() = src.sOffWorldGridNo;
 		this->pAniTile = src.pAniTile;
 		this->movement().absoluteDestination() = src.sAbsoluteFinalDestination;
@@ -1149,6 +1150,7 @@ void SOLDIERTYPE::initialize( )
 	employment().reset();
 	assignment().reset();
 	deployment().reset();
+	schedule().reset();
 	position().reset();
 	movementHistory().reset();
 	pathing().reset();
@@ -4691,11 +4693,10 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		this->position().gridNo() = sNewGridNo;
 
 		// OK, check for special code to close door...
-		if ( this->bEndDoorOpenCode == 2 )
+		if ( this->schedule().doorAnimationComplete() )
 		{
-			this->bEndDoorOpenCode = 0;
-
-			HandleDoorChangeFromGridNo( this, this->sEndDoorOpenCodeData, FALSE );
+			HandleDoorChangeFromGridNo(
+				this, this->schedule().consumeDoorGrid(), FALSE );
 		}
 
 		// OK, Update buddy's strategic insertion code....
@@ -14073,7 +14074,7 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 		this->pendingAction().clearAction();
 	}
 
-	this->bEndDoorOpenCode = 0;
+	this->schedule().cancelDoorContinuation();
 	this->animationActivity().turningFromProneMode() = 0;
 
 	// Cancel path data!
@@ -23944,7 +23945,7 @@ void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC )
 			pSoldier->animationActivity().turningFromProneMode() = FALSE;
 			pSoldier->animationIntent().clearPendingDirection();
 			pSoldier->pendingAction().clearAction();
-			pSoldier->bEndDoorOpenCode = 0;
+			pSoldier->schedule().cancelDoorContinuation();
 
 			// if this guy isn't under direct AI control, WHO GIVES A FLYING FLICK?
 			if ( pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL )

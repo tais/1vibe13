@@ -75,7 +75,7 @@ STR8 gStr8Knowledge[] = { "HEARD_3_TURNS_AGO", "HEARD_2_TURNS_AGO", "HEARD_LAST_
 void DoneScheduleAction( SOLDIERTYPE * pSoldier )
 {
 	pSoldier->aiData.fAIFlags &= (~AI_CHECK_SCHEDULE);
-	pSoldier->bAIScheduleProgress = 0;
+	pSoldier->schedule().resetProgress();
 	PostNextSchedule( pSoldier );
 }
 
@@ -91,7 +91,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 	BOOLEAN						fDoUseDoor;
 	DOOR_STATUS	*			pDoorStatus;
 
-	pSchedule = GetSchedule( pSoldier->ubScheduleID );
+	pSchedule = GetSchedule( pSoldier->schedule().id() );
 	if (!pSchedule)
 	{
 		return( AI_ACTION_NONE );
@@ -134,12 +134,12 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 		//the individual will walk off of the map.
 		//If this is a "merchant", make sure that nobody occupies the building/room.
 
-		switch( pSoldier->bAIScheduleProgress )
+		switch( pSoldier->schedule().progress() )
 		{
 		case 0: // move to gridno specified
 			if (pSoldier->position().gridNo() == usGridNo1)
 			{
-				pSoldier->bAIScheduleProgress++;
+				pSoldier->schedule().advanceProgress();
 				// fall through
 			}
 			else
@@ -214,7 +214,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			}
 
 			// the door is already in the desired state, or it doesn't exist!
-			pSoldier->bAIScheduleProgress++;
+			pSoldier->schedule().advanceProgress();
 			// fall through
 
 		case 2:			
@@ -250,12 +250,12 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 		//Uses first gridno for opening/closing/unlocking door, then second to move to after door is opened.
 		//It is possible that the second gridno will border the edge of the map, meaning that
 		//the individual will walk off of the map.
-		switch( pSoldier->bAIScheduleProgress )
+		switch( pSoldier->schedule().progress() )
 		{
 		case 0: // move to gridno specified
 			if (pSoldier->position().gridNo() == usGridNo1)
 			{
-				pSoldier->bAIScheduleProgress++;
+				pSoldier->schedule().advanceProgress();
 				// fall through
 			}
 			else
@@ -359,7 +359,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			}
 
 			// the door is already in the desired state, or it doesn't exist!
-			pSoldier->bAIScheduleProgress++;
+			pSoldier->schedule().advanceProgress();
 			// fall through
 
 		case 2:			
@@ -408,7 +408,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 		break;
 	case SCHEDULE_ACTION_LEAVESECTOR:
 		//Doesn't use any gridno data
-		switch( pSoldier->bAIScheduleProgress )
+		switch( pSoldier->schedule().progress() )
 		{
 		case 0: // start the action
 
@@ -426,7 +426,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			if ( pSoldier->position().gridNo() == pSoldier->aiData.usActionData )
 			{
 				// time to go off the map
-				pSoldier->bAIScheduleProgress++;
+				pSoldier->schedule().advanceProgress();
 			}
 			else
 			{
@@ -450,7 +450,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			else
 			{
 				pSoldier->dialogue().quoteActionId() = GetTraversalQuoteActionID( bDirection );
-				pSoldier->bAIScheduleProgress++;
+				pSoldier->schedule().advanceProgress();
 				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 				return( AI_ACTION_SCHEDULE_MOVE );
 			}
@@ -472,7 +472,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			DoneScheduleAction( pSoldier );
 			break;
 		}
-		switch( pSoldier->bAIScheduleProgress )
+		switch( pSoldier->schedule().progress() )
 		{
 		case 0:
 			ConvertGridNoToCenterCellXY(pSoldier->deployment().offWorldGrid(), &sX, &sY);
@@ -480,7 +480,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			pSoldier->bInSector = TRUE;
 			MoveSoldierFromAwayToMercSlot( pSoldier );
 			pSoldier->aiData.usActionData = usGridNo1;
-			pSoldier->bAIScheduleProgress++;
+			pSoldier->schedule().advanceProgress();
 			pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 			return( AI_ACTION_SCHEDULE_MOVE );
 		case 1:

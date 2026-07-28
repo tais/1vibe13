@@ -1085,6 +1085,14 @@ the engine must not contain SDL types in its public domain model.
   related values coherent. The existing strategic route and live group
   pointers remain boundary adapters rather than becoming component-owned
   content formats.
+  `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
+  by the editor, strategic events, tactical AI, animation, and movement:
+  schedule identity, current action progress, and the door grid/phase used to
+  resume a route after an open-door animation. Named begin, complete, consume,
+  cancel, and progress transitions keep paired door state coherent and bound
+  malformed progress instead of overflowing it. Placement records, schedule
+  nodes, editor map data, and multiplayer creation packets remain unchanged
+  adapters.
   Tactical world placement likewise has one private
   `SoldierPositionComponent` owner rather than fields split between
   `SOLDIERTYPE` and its pathing record. It owns precise and integer-projected

@@ -952,6 +952,41 @@ private:
 	UINT32 arrivalTime_ = 0;
 };
 
+// Canonical NPC schedule execution state. The schedule identifier and progress
+// are shared by the editor, strategic scheduler, and tactical AI. Door
+// continuation is kept here as part of that movement lifecycle so its phase
+// cannot silently drift away from the grid being operated.
+class SoldierScheduleComponent
+{
+public:
+	UINT8& id() noexcept { return id_; }
+	const UINT8& id() const noexcept { return id_; }
+	INT8& progress() noexcept { return progress_; }
+	const INT8& progress() const noexcept { return progress_; }
+	INT8& doorOpenPhase() noexcept { return doorOpenPhase_; }
+	const INT8& doorOpenPhase() const noexcept { return doorOpenPhase_; }
+	INT32& doorGrid() noexcept { return doorGrid_; }
+	const INT32& doorGrid() const noexcept { return doorGrid_; }
+
+	bool assigned() const noexcept { return id_ != 0; }
+	bool doorContinuationPending() const noexcept { return doorOpenPhase_ != 0; }
+	bool doorAnimationStarted() const noexcept { return doorOpenPhase_ == 1; }
+	bool doorAnimationComplete() const noexcept { return doorOpenPhase_ == 2; }
+	void resetProgress() noexcept { progress_ = 0; }
+	void advanceProgress() noexcept;
+	void beginDoorContinuation(INT32 gridNo) noexcept;
+	void completeDoorAnimation() noexcept;
+	INT32 consumeDoorGrid() noexcept;
+	void cancelDoorContinuation() noexcept { doorOpenPhase_ = 0; }
+	void reset() noexcept;
+
+private:
+	UINT8 id_ = 0;
+	INT8 progress_ = 0;
+	INT8 doorOpenPhase_ = 0;
+	INT32 doorGrid_ = 0;
+};
+
 // Canonical current tactical world-placement storage. Persistent adapters
 // serialize these values at their established, scattered schema positions; the
 // component itself is independent of the legacy SOLDIERTYPE declaration.

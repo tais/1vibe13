@@ -4063,7 +4063,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_sector_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bAIScheduleProgress\\);[ \t\r\n]*ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);"
+  "ar\\.i8\\(schedule\\.progress\\(\\)\\);[ \t\r\n]*ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);"
   serialized_soldier_deployment_off_world_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4091,6 +4091,188 @@ if(serialized_soldier_deployment_adapter EQUAL -1 OR
   message(FATAL_ERROR
     "Soldier deployment state moved in the portable save schema; keep all fifteen values at their established POD positions")
 endif()
+
+# NPC schedule execution has one live owner while schedule nodes, editor
+# placements, and creation packets remain compatibility adapters.
+foreach(retired_schedule_field IN ITEMS
+  bEndDoorOpenCode
+  ubScheduleID
+  sEndDoorOpenCodeData
+  bAIScheduleProgress)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_schedule_field}([^A-Za-z0-9_]|$)"
+    retired_current_schedule_field
+    "${current_soldier_contents}")
+  if(retired_current_schedule_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE schedule field '${retired_schedule_field}' returned; live schedule execution belongs to SoldierScheduleComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierScheduleComponent[ \t\r\n]+schedule_[ \t]*;"
+  soldier_schedule_owner
+  "${current_soldier_contents}")
+if(NOT soldier_schedule_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierScheduleComponent")
+endif()
+
+foreach(owned_schedule_field IN ITEMS
+  "UINT8;id"
+  "INT8;progress"
+  "INT8;doorOpenPhase"
+  "INT32;doorGrid")
+  string(REPLACE ";" ";" owned_schedule_parts
+    "${owned_schedule_field}")
+  list(GET owned_schedule_parts 0 owned_schedule_type)
+  list(GET owned_schedule_parts 1 owned_schedule_name)
+  string(REGEX MATCH
+    "${owned_schedule_type}[ \t]+${owned_schedule_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_schedule_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_schedule_field)
+    message(FATAL_ERROR
+      "SoldierScheduleComponent no longer owns initialized '${owned_schedule_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierScheduleComponent& schedule() noexcept"
+  soldier_schedule_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "schedule().reset();"
+  soldier_schedule_reset)
+if(soldier_schedule_accessor EQUAL -1 OR soldier_schedule_reset EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierScheduleComponent must remain directly accessible and reset with its soldier")
+endif()
+
+foreach(required_schedule_operation IN ITEMS
+  "bool assigned() const noexcept"
+  "bool doorContinuationPending() const noexcept"
+  "bool doorAnimationStarted() const noexcept"
+  "bool doorAnimationComplete() const noexcept"
+  "void resetProgress() noexcept"
+  "void advanceProgress() noexcept"
+  "void beginDoorContinuation(INT32 gridNo) noexcept"
+  "void completeDoorAnimation() noexcept"
+  "INT32 consumeDoorGrid() noexcept"
+  "void cancelDoorContinuation() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_schedule_operation}"
+    soldier_schedule_operation)
+  if(soldier_schedule_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierScheduleComponent lost lifecycle operation '${required_schedule_operation}'")
+  endif()
+endforeach()
+foreach(required_schedule_transition IN ITEMS
+  "if (progress_ < std::numeric_limits<INT8>::max())"
+  "doorOpenPhase_ = 1;"
+  "doorGrid_ = gridNo;"
+  "if (doorOpenPhase_ == 1)"
+  "doorOpenPhase_ = 2;"
+  "INT32 SoldierScheduleComponent::consumeDoorGrid() noexcept"
+  "*this = SoldierScheduleComponent{};")
+  string(FIND "${soldier_components_source_contents}"
+    "${required_schedule_transition}"
+    soldier_schedule_transition)
+  if(soldier_schedule_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierScheduleComponent lost bounded transition '${required_schedule_transition}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Scheduling.cpp"
+  strategic_scheduling_contents)
+file(READ "${SOURCE_ROOT}/TacticalAI/DecideAction.cpp"
+  tactical_decide_action_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Ani.cpp"
+  soldier_animation_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  tactical_overhead_source_contents)
+foreach(schedule_runtime_transition IN ITEMS
+  "pSoldier->schedule().beginDoorContinuation(sDoorGridNo);"
+  "pSoldier->schedule().cancelDoorContinuation();")
+  string(FIND "${tactical_overhead_source_contents}"
+    "${schedule_runtime_transition}"
+    schedule_runtime_transition_found)
+  if(schedule_runtime_transition_found EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical movement bypassed schedule transition '${schedule_runtime_transition}'")
+  endif()
+endforeach()
+string(FIND "${soldier_animation_source_contents}"
+  "pSoldier->schedule().completeDoorAnimation();"
+  schedule_door_animation_completion)
+string(FIND "${soldier_control_source_contents}"
+  "this->schedule().consumeDoorGrid()"
+  schedule_door_grid_consumption)
+string(FIND "${tactical_decide_action_contents}"
+  "pSoldier->schedule().advanceProgress();"
+  schedule_ai_progress)
+string(FIND "${strategic_scheduling_contents}"
+  "pSoldier->schedule().id()"
+  schedule_strategic_identity)
+if(schedule_door_animation_completion EQUAL -1 OR
+   schedule_door_grid_consumption EQUAL -1 OR
+   schedule_ai_progress EQUAL -1 OR
+   schedule_strategic_identity EQUAL -1)
+  message(FATAL_ERROR
+    "Editor/strategic/tactical schedule execution must use SoldierScheduleComponent")
+endif()
+
+# The component layout is not the schema. Keep all four values at the three
+# historical POD sites and preserve v101's intentionally transient door phase.
+string(FIND "${save_load_game_contents}"
+  "SoldierScheduleComponent& schedule = s.schedule();"
+  serialized_soldier_schedule_adapter)
+string(REGEX MATCH
+  "ar\\.u32\\(s\\.uiUniqueSoldierIdValue\\);[ \t]*ar\\.i8\\(schedule\\.doorOpenPhase\\(\\)\\);[ \t\r\n]*ar\\.u8\\(schedule\\.id\\(\\)\\);[ \t]*ar\\.i32\\(schedule\\.doorGrid\\(\\)\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.blockedDirection\\(\\)\\);"
+  serialized_soldier_schedule_door_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(targeting\\.targetId\\(\\)\\.i\\);[ \t]*ar\\.i8\\(schedule\\.progress\\(\\)\\);[ \t\r\n]*ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);"
+  serialized_soldier_schedule_progress_order
+  "${save_load_game_contents}")
+foreach(converted_schedule_value IN ITEMS
+  "this->schedule().id() = src.ubScheduleID;"
+  "this->schedule().doorGrid() = src.sEndDoorOpenCodeData;"
+  "this->schedule().progress() = src.bAIScheduleProgress;")
+  string(FIND "${soldier_control_source_contents}"
+    "${converted_schedule_value}"
+    converted_v101_schedule_value)
+  if(converted_v101_schedule_value EQUAL -1)
+    message(FATAL_ERROR
+      "v101 soldier conversion lost schedule mapping '${converted_schedule_value}'")
+  endif()
+endforeach()
+string(FIND "${soldier_control_source_contents}"
+  "this->schedule().doorOpenPhase() = src.bEndDoorOpenCode;"
+  converted_v101_transient_door_phase)
+if(serialized_soldier_schedule_adapter EQUAL -1 OR
+   NOT serialized_soldier_schedule_door_order OR
+   NOT serialized_soldier_schedule_progress_order OR
+   NOT converted_v101_transient_door_phase EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier schedule persistence changed; retain current byte order and v101's cleared transient door phase")
+endif()
+
+file(READ "${SOURCE_ROOT}/Multiplayer/client.cpp"
+  multiplayer_client_contents)
+foreach(schedule_packet_adapter IN ITEMS
+  "w.put8 ( s->ubScheduleID );"
+  "s.ubScheduleID         = r.get8();")
+  string(FIND "${multiplayer_client_contents}"
+    "${schedule_packet_adapter}"
+    schedule_packet_adapter_found)
+  if(schedule_packet_adapter_found EQUAL -1)
+    message(FATAL_ERROR
+      "Multiplayer soldier-creation schedule packet changed; retain adapter '${schedule_packet_adapter}'")
+  endif()
+endforeach()
 
 # Current tactical world placement has completed the same storage cut. The old
 # route sub-structure and scattered SOLDIERTYPE mirrors must not return as
@@ -4500,7 +4682,7 @@ string(REGEX MATCH
   serialized_soldier_movement_wait_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubScheduleID\\);[ \t]*ar\\.i32\\(s\\.sEndDoorOpenCodeData\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.blockedDirection\\(\\)\\);"
+  "ar\\.u8\\(schedule\\.id\\(\\)\\);[ \t]*ar\\.i32\\(schedule\\.doorGrid\\(\\)\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.blockedDirection\\(\\)\\);"
   serialized_soldier_movement_block_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4611,7 +4793,7 @@ string(REGEX MATCH
   serialized_soldier_target_geometry_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(attackSelection\\.weapon\\(\\)\\);[ \t]*ar\\.i8\\(attackSelection\\.weaponMode\\(\\)\\);[ \t]*ar\\.u16\\(targeting\\.targetId\\(\\)\\.i\\);[ \t]*ar\\.i8\\(s\\.bAIScheduleProgress\\);"
+  "ar\\.u16\\(attackSelection\\.weapon\\(\\)\\);[ \t]*ar\\.i8\\(attackSelection\\.weaponMode\\(\\)\\);[ \t]*ar\\.u16\\(targeting\\.targetId\\(\\)\\.i\\);[ \t]*ar\\.i8\\(schedule\\.progress\\(\\)\\);"
   serialized_soldier_target_identity_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_target_geometry_order OR
@@ -4695,7 +4877,7 @@ string(REGEX MATCH
   serialized_soldier_attack_location_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubScheduleID\\);[ \t]*ar\\.i32\\(s\\.sEndDoorOpenCodeData\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.blockedDirection\\(\\)\\);[ \t\r\n]*ar\\.u16\\(attackSelection\\.weapon\\(\\)\\);[ \t]*ar\\.i8\\(attackSelection\\.weaponMode\\(\\)\\);[ \t]*ar\\.u16\\(targeting\\.targetId\\(\\)\\.i\\);"
+  "ar\\.u8\\(schedule\\.id\\(\\)\\);[ \t]*ar\\.i32\\(schedule\\.doorGrid\\(\\)\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.blockedDirection\\(\\)\\);[ \t\r\n]*ar\\.u16\\(attackSelection\\.weapon\\(\\)\\);[ \t]*ar\\.i8\\(attackSelection\\.weaponMode\\(\\)\\);[ \t]*ar\\.u16\\(targeting\\.targetId\\(\\)\\.i\\);"
   serialized_soldier_attack_weapon_order
   "${save_load_game_contents}")
 string(REGEX MATCH

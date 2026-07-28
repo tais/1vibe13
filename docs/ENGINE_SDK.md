@@ -380,7 +380,12 @@ location boundary: strategic sector, movement group, vehicle, tactical
 insertion, traversal origin, off-world staging, and arrival bookkeeping.
 Strategic route/group objects remain adapters, and all existing sector,
 insertion, vehicle, and arrival gameplay entry points continue to operate on
-the same values. Precise and integer-projected world coordinates, turn-start
+the same values. `SoldierScheduleComponent` owns live NPC schedule identity,
+action progress, and the door continuation phase/grid shared by strategic
+scheduling and tactical movement. Named transitions atomically begin,
+complete, consume, or cancel the door continuation; editor placements,
+schedule nodes, and creation/network records keep their established public
+formats. Precise and integer-projected world coordinates, turn-start
 coordinates, initial/current grid, elevation and facing, current/desired
 height, temporary animation grid, room, and terrain history are privately
 owned by `SoldierPositionComponent` as one persistent storage domain.

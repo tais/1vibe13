@@ -2703,7 +2703,7 @@ void AddProfilesUsingProfileInsertionData()
 					if ( pSchedule )
 					{
 						pSchedule->ubSoldierID = pSoldier->ubID;
-						pSoldier->ubScheduleID = curr->pDetailedPlacement->ubScheduleID;
+						pSoldier->schedule().id() = curr->pDetailedPlacement->ubScheduleID;
 					}
 				}
 			}

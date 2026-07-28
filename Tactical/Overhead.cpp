@@ -2052,7 +2052,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
         {
             // Collapse!
             pSoldier->collapseState().markBreathCollapse();
-            pSoldier->bEndDoorOpenCode = FALSE;
+            pSoldier->schedule().cancelDoorContinuation();
 
             if ( fInitialMove )
             {
@@ -2069,7 +2069,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             // Collapse!
             DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: Has Collapsed") );
             pSoldier->collapseState().markBreathCollapse();
-            pSoldier->bEndDoorOpenCode = FALSE;
+            pSoldier->schedule().cancelDoorContinuation();
             return( FALSE );
         }
 
@@ -2168,7 +2168,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: Open door - invalid approach direction") );
 
             HaltGuyFromNewGridNoBecauseOfNoAPs( pSoldier );
-            pSoldier->bEndDoorOpenCode = FALSE;
+            pSoldier->schedule().cancelDoorContinuation();
             (*pfKeepMoving ) = FALSE;
             return( FALSE );
         }
@@ -2183,7 +2183,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 #endif
             DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: Door does not exist") );
             HaltGuyFromNewGridNoBecauseOfNoAPs( pSoldier );
-            pSoldier->bEndDoorOpenCode = FALSE;
+            pSoldier->schedule().cancelDoorContinuation();
             (*pfKeepMoving ) = FALSE;
             return( FALSE );
         }
@@ -2195,8 +2195,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
         // One needs to walk after....
         if ( (pSoldier->bTeam != gbPlayerNum) || (gTacticalStatus.fAutoBandageMode) || ( pSoldier->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL ) )
         {
-            pSoldier->bEndDoorOpenCode = 1;
-            pSoldier->sEndDoorOpenCodeData = sDoorGridNo;
+            pSoldier->schedule().beginDoorContinuation(sDoorGridNo);
         }
         (*pfKeepMoving ) = FALSE;
         return( FALSE );
@@ -2221,7 +2220,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
         //  ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NO_PATH_FOR_MERC ], pSoldier->GetName() );
         //}
 
-        pSoldier->bEndDoorOpenCode = FALSE;
+        pSoldier->schedule().cancelDoorContinuation();
         // GO on to next guy!
         return( FALSE );
     }
@@ -2310,13 +2309,13 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
     if ( pSoldier->flags.fNoAPToFinishMove && !fInitialMove )
     {
         DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: No APs to finish move set") );
-        pSoldier->bEndDoorOpenCode = FALSE;
+        pSoldier->schedule().cancelDoorContinuation();
         (*pfKeepMoving ) = FALSE;
     }
     else if ( pSoldier->pathing().pathIndex() == pSoldier->pathing().pathSize() && pSoldier->pathing().pathSize() == 0 )
     {
         DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: No Path") );
-        pSoldier->bEndDoorOpenCode = FALSE;
+        pSoldier->schedule().cancelDoorContinuation();
         (*pfKeepMoving ) = FALSE;
     }
     //else if ( gTacticalStatus.fEnemySightingOnTheirTurn )
@@ -2603,7 +2602,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
         // HALT GUY HERE
         DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: No APs %d %d", sAPCost, pSoldier->actionPoints().current() ) );
         HaltGuyFromNewGridNoBecauseOfNoAPs( pSoldier );
-        pSoldier->bEndDoorOpenCode = FALSE;
+        pSoldier->schedule().cancelDoorContinuation();
         (*pfKeepMoving ) = FALSE;
     }
 
