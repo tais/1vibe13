@@ -7363,6 +7363,18 @@ int main( int, char** )
 		condition.diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		condition.addDisability(2);
 		condition.addDisability(SoldierConditionComponent::DisabilityBitCount);
+		SoldierStatProgressComponent& statProgress = soldier.statProgress();
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Level, 1001);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Health, 1002);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Strength, 1003);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Dexterity, 1004);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Agility, 1005);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Wisdom, 1006);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Leadership, 1007);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Marksmanship, 1008);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Explosives, 1009);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Medical, 1010);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Mechanical, 1011);
 		SoldierLongActionComponent& longAction = soldier.longAction();
 		longAction.begin(MTA_FORTIFY, 1300, 37);
 		SoldierInteractionComponent& interaction = soldier.interaction();
@@ -7789,6 +7801,19 @@ int main( int, char** )
 		       constSoldier.condition().hasDisability(2) &&
 		       constSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier condition component owns temporary stats, nutrition, starvation, disease, and acquired disabilities" );
+		CHECK( constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 1001 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 1002 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 1003 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) == 1004 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) == 1005 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) == 1006 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) == 1007 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 1008 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 1009 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 1010 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 1011 &&
+		       constSoldier.statProgress().changedRecently(SoldierStatProgressComponent::Stat::Strength, 1050, 100),
+		       "soldier stat-progress component owns every persistent change timestamp and recent-change query" );
 		CHECK( constSoldier.longAction().active() &&
 		       constSoldier.longAction().action() == MTA_FORTIFY &&
 		       constSoldier.longAction().contextGrid() == 1300 &&
@@ -8491,6 +8516,23 @@ int main( int, char** )
 		       conditionLifecycle.diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       conditionLifecycle.disabilityFlags() == 0,
 		       "soldier condition reset clears scalar state and the complete fixed disease capacity" );
+		SoldierStatProgressComponent statProgressLifecycle;
+		statProgressLifecycle.recordChange(
+			SoldierStatProgressComponent::Stat::Strength,
+			std::numeric_limits<UINT32>::max() - 4);
+		CHECK( statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Strength) &&
+		       statProgressLifecycle.changedRecently(SoldierStatProgressComponent::Stat::Strength, 3, 9) &&
+		       !statProgressLifecycle.changedRecently(SoldierStatProgressComponent::Stat::Strength, 4, 9),
+		       "soldier stat-progress recent-change query remains correct across clock wraparound" );
+		statProgressLifecycle.recordChange(SoldierStatProgressComponent::Stat::Health, 500);
+		statProgressLifecycle.clear(SoldierStatProgressComponent::Stat::Health);
+		CHECK( !statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Health) &&
+		       statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Strength),
+		       "soldier stat-progress clear removes one timestamp without disturbing adjacent stats" );
+		statProgressLifecycle.reset();
+		CHECK( !statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Strength) &&
+		       statProgressLifecycle.changedAt(SoldierStatProgressComponent::Stat::Strength) == 0,
+		       "soldier stat-progress reset clears the complete change-timestamp lifecycle" );
 		SoldierLongActionComponent longActionLifecycle;
 		longActionLifecycle.begin(MTA_HACK, 1700, -5);
 		CHECK( longActionLifecycle.active() &&
@@ -8778,6 +8820,18 @@ int main( int, char** )
 		       copiedSoldier.condition().hasDisability(2) &&
 		       copiedSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier copies retain their owned persistent condition state" );
+		CHECK( copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 1001 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 1002 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 1003 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) == 1004 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) == 1005 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) == 1006 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) == 1007 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 1008 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 1009 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 1010 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 1011,
+		       "soldier copies retain every owned persistent stat-change timestamp" );
 		CHECK( copiedSoldier.longAction().active() &&
 		       copiedSoldier.longAction().action() == MTA_FORTIFY &&
 		       copiedSoldier.longAction().contextGrid() == 1300 &&
@@ -9884,6 +9938,17 @@ int main( int, char** )
 		       copiedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       copiedSoldier.condition().disabilityFlags() == 0,
 		       "soldier initialization resets the complete condition domain" );
+		bool initializedStatProgressCleared = true;
+		for (UINT8 statIndex = 0;
+		     statIndex < SoldierStatProgressComponent::StatCount;
+		     ++statIndex)
+		{
+			initializedStatProgressCleared &=
+				copiedSoldier.statProgress().changedAt(
+					static_cast<SoldierStatProgressComponent::Stat>(statIndex)) == 0;
+		}
+		CHECK( initializedStatProgressCleared,
+		       "soldier initialization resets every stat-progress timestamp" );
 		CHECK( !copiedSoldier.longAction().active() &&
 		       copiedSoldier.longAction().action() == MTA_NONE &&
 		       copiedSoldier.longAction().contextGrid() == -1 &&
@@ -10339,6 +10404,17 @@ int main( int, char** )
 		legacySoldier->bLastSkillCheck = -6;
 		legacySoldier->ubSkillCheckAttempts = 3;
 		legacySoldier->sSkillCheckGridNo = 1410;
+		legacySoldier->uiChangeLevelTime = 2101;
+		legacySoldier->uiChangeHealthTime = 2102;
+		legacySoldier->uiChangeStrengthTime = 2103;
+		legacySoldier->uiChangeDexterityTime = 2104;
+		legacySoldier->uiChangeAgilityTime = 2105;
+		legacySoldier->uiChangeWisdomTime = 2106;
+		legacySoldier->uiChangeLeadershipTime = 2107;
+		legacySoldier->uiChangeMarksmanshipTime = 2108;
+		legacySoldier->uiChangeExplosivesTime = 2109;
+		legacySoldier->uiChangeMedicalTime = 2110;
+		legacySoldier->uiChangeMechanicalTime = 2111;
 		legacySoldier->ubPendingAction = MERC_GIVEITEM;
 		legacySoldier->ubPendingActionAnimCount = 11;
 		legacySoldier->uiPendingActionData1 = 1411;
@@ -10579,6 +10655,8 @@ int main( int, char** )
 		convertedSoldier.condition().diseasePoints(NUM_DISEASES - 1) = 222;
 		convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		convertedSoldier.condition().addDisability(2);
+		convertedSoldier.statProgress().recordChange(
+			SoldierStatProgressComponent::Stat::Level, 9999);
 		convertedSoldier.longAction().begin(MTA_HACK, 1412, 31);
 		convertedSoldier.interaction().nonNpcTraderId() = 10;
 		convertedSoldier.interaction().draggedPerson() = SoldierID{ 26 };
@@ -10712,6 +10790,18 @@ int main( int, char** )
 		       convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       convertedSoldier.condition().disabilityFlags() == 0,
 		       "v101 soldier conversion clears condition state absent from that schema" );
+		CHECK( convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 2101 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 2102 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 2103 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) == 2104 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) == 2105 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) == 2106 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) == 2107 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 2108 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 2109 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 2110 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 2111,
+		       "v101 soldier conversion retains every historical stat-change timestamp" );
 		CHECK( !convertedSoldier.longAction().active() &&
 		       convertedSoldier.longAction().action() == MTA_NONE &&
 		       convertedSoldier.longAction().contextGrid() == -1 &&
@@ -11185,6 +11275,17 @@ int main( int, char** )
 		savedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		savedSoldier.condition().addDisability(5);
 		savedSoldier.condition().addDisability(SoldierConditionComponent::DisabilityBitCount);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Level, 3101);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, 3102);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, 3103);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, 3104);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, 3105);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, 3106);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Leadership, 3107);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Marksmanship, 3108);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Explosives, 3109);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Medical, 3110);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Mechanical, 3111);
 		savedSoldier.longAction().begin(MTA_REMOVE_FORTIFY, 1520, 34);
 		savedSoldier.interaction().nonNpcTraderId() = 11;
 		savedSoldier.interaction().draggedPerson() = SoldierID{ 29 };
@@ -11581,6 +11682,19 @@ int main( int, char** )
 		       loadedSoldier.condition().hasDisability(5) &&
 		       loadedSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier save/load round-trips condition state at every established schema position and fixed-capacity edge" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 3101 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 3102 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 3103 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) == 3104 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) == 3105 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) == 3106 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) == 3107 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 3108 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 3109 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 3110 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 3111,
+		       "soldier save/load round-trips all stat-progress timestamps at their established positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.longAction().active() &&
 		       loadedSoldier.longAction().action() == MTA_REMOVE_FORTIFY &&

@@ -453,21 +453,6 @@ void STRUCT_Drugs::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	}
 }
 
-void STRUCT_TimeChanges::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
-{
-	this->uiChangeLevelTime = src.uiChangeLevelTime;
-	this->uiChangeHealthTime = src.uiChangeHealthTime;
-	this->uiChangeStrengthTime = src.uiChangeStrengthTime;
-	this->uiChangeDexterityTime = src.uiChangeDexterityTime;
-	this->uiChangeAgilityTime = src.uiChangeAgilityTime;
-	this->uiChangeWisdomTime = src.uiChangeWisdomTime;
-	this->uiChangeLeadershipTime = src.uiChangeLeadershipTime;
-	this->uiChangeMarksmanshipTime = src.uiChangeMarksmanshipTime;
-	this->uiChangeExplosivesTime = src.uiChangeExplosivesTime;
-	this->uiChangeMedicalTime = src.uiChangeMedicalTime;
-	this->uiChangeMechanicalTime = src.uiChangeMechanicalTime;
-}
-
 void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 {
 	this->ZipperFlag = FALSE;
@@ -576,6 +561,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		aiPlanning().reset();
 		skillState().reset();
 		condition().reset();
+		statProgress().reset();
 		longAction().reset();
 		interaction().reset();
 		pendingAction().reset();
@@ -670,7 +656,17 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		movement().delayCounter() = src.fDelayedMovement;
 		movement().blockedByAnotherMerc() = src.fBlockedByAnotherMerc;
 		movement().usesMoveSpeedOverride() = src.fUseMoverrideMoveSpeed;
-		timeChanges.ConvertFrom_101_To_102( src );
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) = src.uiChangeLevelTime;
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) = src.uiChangeHealthTime;
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) = src.uiChangeStrengthTime;
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) = src.uiChangeDexterityTime;
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) = src.uiChangeAgilityTime;
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) = src.uiChangeWisdomTime;
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) = src.uiChangeLeadershipTime;
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) = src.uiChangeMarksmanshipTime;
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) = src.uiChangeExplosivesTime;
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) = src.uiChangeMedicalTime;
+		statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) = src.uiChangeMechanicalTime;
 		timeCounters.ConvertFrom_101_To_102( src );
 		//drugs.ConvertFrom_101_To_102( src );
 		stats.ConvertFrom_101_To_102( src );
@@ -1133,7 +1129,6 @@ void SOLDIERTYPE::initialize( )
 
 	memset( &aiData, 0, sizeof(STRUCT_AIData) );
 	memset( &flags, 0, sizeof(STRUCT_Flags) );
-	memset( &timeChanges, 0, sizeof(STRUCT_TimeChanges) );
 	memset( &timeCounters, 0, sizeof(STRUCT_TimeCounters) );
 	//memset( &drugs, 0, sizeof(STRUCT_Drugs) );
 	memset( &newdrugs, 0, sizeof(DRUGS) );
@@ -1147,6 +1142,7 @@ void SOLDIERTYPE::initialize( )
 	aiPlanning().reset();
 	skillState().reset();
 	condition().reset();
+	statProgress().reset();
 	longAction().reset();
 	interaction().reset();
 	pendingAction().reset();
@@ -23153,20 +23149,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginReloadRobot( INT32 sGridNo, UINT8 ubDirectio
 
 void SOLDIERTYPE::ResetSoldierChangeStatTimer( void )
 {
-	this->timeChanges.uiChangeLevelTime = 0;
-	this->timeChanges.uiChangeHealthTime = 0;
-	this->timeChanges.uiChangeStrengthTime = 0;
-	this->timeChanges.uiChangeDexterityTime = 0;
-	this->timeChanges.uiChangeAgilityTime = 0;
-	this->timeChanges.uiChangeWisdomTime = 0;
-	this->timeChanges.uiChangeLeadershipTime = 0;
-	this->timeChanges.uiChangeMarksmanshipTime = 0;
-	this->timeChanges.uiChangeExplosivesTime = 0;
-	this->timeChanges.uiChangeMedicalTime = 0;
-	this->timeChanges.uiChangeMechanicalTime = 0;
-
-
-	return;
+	this->statProgress().reset();
 }
 
 

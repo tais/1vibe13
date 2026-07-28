@@ -459,7 +459,8 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 	INT8 *pbStatPtr = NULL;
 	INT8 *pbSoldierStatPtr = NULL;
 	INT8 *pbStatDeltaPtr = NULL;
-	UINT32 *puiStatTimerPtr = NULL;
+	SoldierStatProgressComponent::Stat changedStat =
+		SoldierStatProgressComponent::Stat::Health;
 	BOOLEAN fChangeTypeIncrease;
 	BOOLEAN fChangeSalary;
 	UINT32 uiLevelCnt;
@@ -550,76 +551,76 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 		{
 		case HEALTHAMT:
 			pbSoldierStatPtr = &( pSoldier->vitals().maximumHealth() );
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeHealthTime);
+			changedStat = SoldierStatProgressComponent::Stat::Health;
 			usIncreaseValue = HEALTH_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_HEALTH;
 			break;
 
 		case AGILAMT:
 			pbSoldierStatPtr = &( pSoldier->stats.bAgility );
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeAgilityTime);
+			changedStat = SoldierStatProgressComponent::Stat::Agility;
 			usIncreaseValue = AGIL_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_AGILITY;
 			break;
 
 		case DEXTAMT:
 			pbSoldierStatPtr = &( pSoldier->stats.bDexterity );
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeDexterityTime);
+			changedStat = SoldierStatProgressComponent::Stat::Dexterity;
 			usIncreaseValue = DEX_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_DEXTERITY;
 			break;
 
 		case WISDOMAMT:
 			pbSoldierStatPtr = &( pSoldier->stats.bWisdom );
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeWisdomTime);
+			changedStat = SoldierStatProgressComponent::Stat::Wisdom;
 			usIncreaseValue = WIS_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_WISDOM;
 			break;
 
 		case MEDICALAMT:
 			pbSoldierStatPtr = &( pSoldier->stats.bMedical );
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeMedicalTime);
+			changedStat = SoldierStatProgressComponent::Stat::Medical;
 			usIncreaseValue = MED_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_MEDICAL;
 			break;
 
 		case EXPLODEAMT:
 			pbSoldierStatPtr = &( pSoldier->stats.bExplosive );
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeExplosivesTime);
+			changedStat = SoldierStatProgressComponent::Stat::Explosives;
 			usIncreaseValue = EXP_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_EXPLOSIVES;
 			break;
 
 		case MECHANAMT:
 			pbSoldierStatPtr = &( pSoldier->stats.bMechanical );
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeMechanicalTime);
+			changedStat = SoldierStatProgressComponent::Stat::Mechanical;
 			usIncreaseValue = MECH_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_MECHANICAL;
 			break;
 
 		case MARKAMT:
 			pbSoldierStatPtr = &( pSoldier->stats.bMarksmanship );
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeMarksmanshipTime);
+			changedStat = SoldierStatProgressComponent::Stat::Marksmanship;
 			usIncreaseValue = MRK_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_MARKSMANSHIP;
 			break;
 
 		case EXPERAMT:
 			pbSoldierStatPtr = &(pSoldier->stats.bExpLevel);
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeLevelTime );
+			changedStat = SoldierStatProgressComponent::Stat::Level;
 			usIncreaseValue = LVL_INCREASE;
 			break;
 
 		case STRAMT:
 			pbSoldierStatPtr = &(pSoldier->stats.bStrength);
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeStrengthTime);
+			changedStat = SoldierStatProgressComponent::Stat::Strength;
 			usIncreaseValue = STRENGTH_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_STRENGTH;
 			break;
 
 		case LDRAMT:
 			pbSoldierStatPtr = &( pSoldier->stats.bLeadership);
-			puiStatTimerPtr = &( pSoldier->timeChanges.uiChangeLeadershipTime);
+			changedStat = SoldierStatProgressComponent::Stat::Leadership;
 			usIncreaseValue = LDR_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_LEADERSHIP;
 			break;
@@ -712,7 +713,7 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 			fCharacterInfoPanelDirty = TRUE;
 
 			// remember what time it changed at, it's displayed in a different color for a while afterwards
-			*puiStatTimerPtr = GetJA2Clock();
+			pSoldier->statProgress().recordChange(changedStat, GetJA2Clock());
 
 			if( fChangeTypeIncrease )
 			{

@@ -1619,12 +1619,13 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(f.ZipperFlag); ar.boolean(f.DropPackFlag);
 }
 
-template<class Ar> static void XferTimeChanges( Ar& ar, STRUCT_TimeChanges& t )
+template<class Ar> static void XferStatProgress( Ar& ar, SoldierStatProgressComponent& progress )
 {
-	ar.u32(t.uiChangeLevelTime); ar.u32(t.uiChangeHealthTime); ar.u32(t.uiChangeStrengthTime);
-	ar.u32(t.uiChangeDexterityTime); ar.u32(t.uiChangeAgilityTime); ar.u32(t.uiChangeWisdomTime);
-	ar.u32(t.uiChangeLeadershipTime); ar.u32(t.uiChangeMarksmanshipTime); ar.u32(t.uiChangeExplosivesTime);
-	ar.u32(t.uiChangeMedicalTime); ar.u32(t.uiChangeMechanicalTime);
+	using Stat = SoldierStatProgressComponent::Stat;
+	ar.u32(progress.changedAt(Stat::Level)); ar.u32(progress.changedAt(Stat::Health)); ar.u32(progress.changedAt(Stat::Strength));
+	ar.u32(progress.changedAt(Stat::Dexterity)); ar.u32(progress.changedAt(Stat::Agility)); ar.u32(progress.changedAt(Stat::Wisdom));
+	ar.u32(progress.changedAt(Stat::Leadership)); ar.u32(progress.changedAt(Stat::Marksmanship)); ar.u32(progress.changedAt(Stat::Explosives));
+	ar.u32(progress.changedAt(Stat::Medical)); ar.u32(progress.changedAt(Stat::Mechanical));
 }
 
 template<class Ar> static void XferTimeCounters( Ar& ar, STRUCT_TimeCounters& t )
@@ -1871,7 +1872,7 @@ BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
 
 	XferAIData(ar, *this);
 	XferFlags(ar, *this);
-	XferTimeChanges(ar, this->timeChanges);
+	XferStatProgress(ar, this->statProgress());
 	XferTimeCounters(ar, this->timeCounters);
 	XferDrugs(ar, this->newdrugs);
 	XferStats(ar, *this);
@@ -1926,7 +1927,7 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 
 		XferAIData(ar, *this);
 		XferFlags(ar, *this);
-		XferTimeChanges(ar, this->timeChanges);
+		XferStatProgress(ar, this->statProgress());
 		XferTimeCounters(ar, this->timeCounters);
 		XferDrugs(ar, this->newdrugs);
 		XferStats(ar, *this);

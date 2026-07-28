@@ -356,6 +356,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   clears this whole later domain. The independent `NUM_DISEASES == 20`
   declaration is a C++ dependency cleanup, not a data-format change; no save,
   packet, map, XML, Lua, or installed-data bytes change.
+- All eleven unsigned 32-bit stat-change timestamps are now stored by
+  `SoldierStatProgressComponent`. The visitor still emits level, health,
+  strength, dexterity, agility, wisdom, leadership, marksmanship, explosives,
+  medical, and mechanical timestamps consecutively in that exact historical
+  order and width. v101 conversion maps every raw timestamp exactly. Profile
+  stats and the value-gone-up mask remain separate; no save, packet, map, XML,
+  Lua, or installed-data bytes change.
 - Multi-turn action kind, retained context grid, and remaining AP cost are now
   stored by `SoldierLongActionComponent`. The context grid continues to double
   as the return location for off-world intel assignments. The visitor still

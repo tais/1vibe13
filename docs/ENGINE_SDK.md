@@ -343,6 +343,15 @@ using an unsigned shift. Disease rules and installed content stay outside this
 owner, and the dependency-neutral disease-capacity header removes the former
 `Disease.h`/`SOLDIERTYPE` include cycle. The serializer retains every original
 position and width; v101 conversion clears this later domain.
+`SoldierStatProgressComponent` separately owns all eleven persistent
+stat-change timestamps. Gameplay records a change by stat identity, and
+tactical and strategic presentation code share its wrap-safe recent-change
+query. This retires `STRUCT_TimeChanges` without absorbing profile stat values
+or the established value-gone-up mask. The serializer retains all eleven
+unsigned 32-bit positions in their historical order, and v101 conversion maps
+every raw timestamp exactly. Food, water, and explosion health damage now
+record the health timestamp rather than an unrelated strength or dexterity
+timestamp.
 `SoldierLongActionComponent` owns the complementary extended-work lifecycle:
 the tactical action kind, its retained context grid, and the AP cost remaining
 across turns. The established grid slot also carries the return location while

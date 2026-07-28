@@ -820,24 +820,6 @@ public:
 
 };
 
-class STRUCT_TimeChanges//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-		// time changes...when a stat was changed according to GetJA2Clock();
-	UINT32											uiChangeLevelTime;
-	UINT32											uiChangeHealthTime;
-	UINT32											uiChangeStrengthTime;
-	UINT32											uiChangeDexterityTime;
-	UINT32											uiChangeAgilityTime;
-	UINT32											uiChangeWisdomTime;
-	UINT32											uiChangeLeadershipTime;
-	UINT32											uiChangeMarksmanshipTime;
-	UINT32											uiChangeExplosivesTime;
-	UINT32											uiChangeMedicalTime;
-	UINT32											uiChangeMechanicalTime;
-};
-
 class STRUCT_Drugs//last edited at version 102
 {
 public:
@@ -965,6 +947,8 @@ public:
 	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
 	SoldierConditionComponent& condition() noexcept { return condition_; }
 	const SoldierConditionComponent& condition() const noexcept { return condition_; }
+	SoldierStatProgressComponent& statProgress() noexcept { return statProgress_; }
+	const SoldierStatProgressComponent& statProgress() const noexcept { return statProgress_; }
 	SoldierLongActionComponent& longAction() noexcept { return longAction_; }
 	const SoldierLongActionComponent& longAction() const noexcept { return longAction_; }
 	SoldierInteractionComponent& interaction() noexcept { return interaction_; }
@@ -1150,7 +1134,6 @@ public:
 	//data from version 101 wrapped into structs
 	STRUCT_AIData			aiData;
 	STRUCT_Flags				flags;
-	STRUCT_TimeChanges		timeChanges;
 	STRUCT_TimeCounters		timeCounters;
 	//STRUCT_Drugs			drugs;			// Flugente: drug values are now in newdrugs
 	DRUGS					newdrugs;
@@ -1166,6 +1149,7 @@ private:
 	SoldierAiPlanningComponent	aiPlanning_;
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
+	SoldierStatProgressComponent	statProgress_;
 	SoldierLongActionComponent	longAction_;
 	SoldierInteractionComponent	interaction_;
 	SoldierPendingActionComponent	pendingAction_;

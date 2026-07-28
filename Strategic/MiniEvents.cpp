@@ -328,7 +328,7 @@ namespace MiniEventHelpers
 				merc->vitals().maximumHealth() += amount;
 				merc->vitals().health() += amount;
 				statId = HEALTHAMT;
-				merc->timeChanges.uiChangeHealthTime = GetJA2Clock();
+				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
 				
 				if (amount < 0)
 				{
@@ -347,7 +347,7 @@ namespace MiniEventHelpers
 				amount = max(min(100 - merc->stats.bStrength, amount), -merc->stats.bStrength);
 				merc->stats.bStrength += amount;
 				statId = STRAMT;
-				merc->timeChanges.uiChangeStrengthTime = GetJA2Clock();
+				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
 
 				if (amount < 0)
 				{
@@ -365,7 +365,7 @@ namespace MiniEventHelpers
 				amount = max(min(100 - merc->stats.bAgility, amount), -merc->stats.bAgility);
 				merc->stats.bAgility += amount;
 				statId = AGILAMT;
-				merc->timeChanges.uiChangeAgilityTime = GetJA2Clock();
+				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
 
 				if (amount < 0)
 				{
@@ -383,7 +383,7 @@ namespace MiniEventHelpers
 				amount = max(min(100 - merc->stats.bDexterity, amount), -merc->stats.bDexterity);
 				merc->stats.bDexterity += amount;
 				statId = DEXTAMT;
-				merc->timeChanges.uiChangeDexterityTime = GetJA2Clock();
+				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
 
 				if (amount < 0)
 				{
@@ -401,7 +401,7 @@ namespace MiniEventHelpers
 				amount = max(min(100 - merc->stats.bWisdom, amount), -merc->stats.bWisdom);
 				merc->stats.bWisdom += amount;
 				statId = WISDOMAMT;
-				merc->timeChanges.uiChangeWisdomTime = GetJA2Clock();
+				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
 
 				if (amount < 0)
 				{
@@ -419,7 +419,7 @@ namespace MiniEventHelpers
 				amount = max(min(100 - merc->stats.bLeadership, amount), -merc->stats.bLeadership);
 				merc->stats.bLeadership += amount;
 				statId = LDRAMT;
-				merc->timeChanges.uiChangeLeadershipTime = GetJA2Clock();
+				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Leadership, GetJA2Clock());
 
 				if (amount < 0)
 				{
@@ -436,7 +436,7 @@ namespace MiniEventHelpers
 				amount = max(min(100 - merc->stats.bMarksmanship, amount), -merc->stats.bMarksmanship);
 				merc->stats.bMarksmanship += amount;
 				statId = MARKAMT;
-				merc->timeChanges.uiChangeMarksmanshipTime = GetJA2Clock();
+				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Marksmanship, GetJA2Clock());
 
 				if (amount < 0)
 				{
@@ -453,7 +453,7 @@ namespace MiniEventHelpers
 				amount = max(min(100 - merc->stats.bMechanical, amount), -merc->stats.bMechanical);
 				merc->stats.bMechanical += amount;
 				statId = MECHANAMT;
-				merc->timeChanges.uiChangeMechanicalTime = GetJA2Clock();
+				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Mechanical, GetJA2Clock());
 
 				if (amount < 0)
 				{
@@ -470,7 +470,7 @@ namespace MiniEventHelpers
 				amount = max(min(100 - merc->stats.bExplosive, amount), -merc->stats.bExplosive);
 				merc->stats.bExplosive += amount;
 				statId = EXPLODEAMT;
-				merc->timeChanges.uiChangeExplosivesTime = GetJA2Clock();
+				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Explosives, GetJA2Clock());
 
 				if (amount < 0)
 				{
@@ -487,7 +487,7 @@ namespace MiniEventHelpers
 				amount = max(min(100 - merc->stats.bMedical, amount), -merc->stats.bMedical);
 				merc->stats.bMedical += amount;
 				statId = MEDICALAMT;
-				merc->timeChanges.uiChangeMedicalTime = GetJA2Clock();
+				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Medical, GetJA2Clock());
 
 				if (amount < 0)
 				{
@@ -640,7 +640,7 @@ namespace MiniEventHelpers
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
-					merc->timeChanges.uiChangeHealthTime = GetJA2Clock();
+					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
 					merc->usValueGoneUp &= ~( HEALTH_INCREASE );
 				}
 				break;
@@ -658,7 +658,7 @@ namespace MiniEventHelpers
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
-					merc->timeChanges.uiChangeStrengthTime = GetJA2Clock();
+					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
 					merc->usValueGoneUp &= ~( STRENGTH_INCREASE );
 				}
 				break;
@@ -676,7 +676,7 @@ namespace MiniEventHelpers
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
-					merc->timeChanges.uiChangeAgilityTime = GetJA2Clock();
+					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
 					merc->usValueGoneUp &= ~( AGIL_INCREASE );
 				}
 				break;
@@ -694,7 +694,7 @@ namespace MiniEventHelpers
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
-					merc->timeChanges.uiChangeDexterityTime = GetJA2Clock();
+					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
 					merc->usValueGoneUp &= ~( DEX_INCREASE );
 				}
 				break;
@@ -712,7 +712,7 @@ namespace MiniEventHelpers
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
-					merc->timeChanges.uiChangeWisdomTime = GetJA2Clock();
+					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
 					merc->usValueGoneUp &= ~( WIS_INCREASE );
 				}
 				break;
@@ -730,7 +730,7 @@ namespace MiniEventHelpers
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
-					merc->timeChanges.uiChangeLeadershipTime = GetJA2Clock();
+					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Leadership, GetJA2Clock());
 					merc->usValueGoneUp &= ~( LDR_INCREASE );
 				}
 				break;
@@ -748,7 +748,7 @@ namespace MiniEventHelpers
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
-					merc->timeChanges.uiChangeMarksmanshipTime = GetJA2Clock();
+					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Marksmanship, GetJA2Clock());
 					merc->usValueGoneUp &= ~( MRK_INCREASE );
 				}
 				break;
@@ -766,7 +766,7 @@ namespace MiniEventHelpers
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
-					merc->timeChanges.uiChangeMechanicalTime = GetJA2Clock();
+					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Mechanical, GetJA2Clock());
 					merc->usValueGoneUp &= ~( MECH_INCREASE );
 				}
 				break;
@@ -784,7 +784,7 @@ namespace MiniEventHelpers
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
-					merc->timeChanges.uiChangeExplosivesTime = GetJA2Clock();
+					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Explosives, GetJA2Clock());
 					merc->usValueGoneUp &= ~( EXP_INCREASE );
 				}
 				break;
@@ -802,7 +802,7 @@ namespace MiniEventHelpers
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
-					merc->timeChanges.uiChangeMedicalTime = GetJA2Clock();
+					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Medical, GetJA2Clock());
 					merc->usValueGoneUp &= ~( MED_INCREASE );
 				}
 				break;

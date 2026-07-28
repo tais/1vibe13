@@ -1037,6 +1037,16 @@ the engine must not contain SDL types in its public domain model.
   avoiding undefined behavior on invalid input. Every scalar, disease slot,
   field width, and serialized position remains unchanged; v101 conversion
   clears the whole domain because that record predates it.
+  `SoldierStatProgressComponent` owns all eleven persistent stat-change
+  timestamps and exposes them by stat identity. Gameplay records changes
+  through one operation, while tactical and strategic UI share a wrap-safe
+  recent-change query instead of duplicating clock arithmetic. The former
+  `STRUCT_TimeChanges` wrapper is retired; profile stat values and the
+  established value-gone-up mask remain separate concerns. All eleven
+  unsigned 32-bit save values retain their historical order and width, and
+  v101 conversion maps every raw timestamp exactly. Typed stat identities also
+  correct three legacy presentation-bookkeeping mistakes where food, water,
+  and explosion health damage recorded a strength or dexterity timestamp.
   `SoldierLongActionComponent` owns the action kind, retained context grid,
   and remaining AP cost for work spanning tactical turns. The same established
   grid slot deliberately retains a soldier's return location while intel work

@@ -8431,7 +8431,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 								{
 									// make stat RED for a while...
-									pTarget->timeChanges.uiChangeWisdomTime = GetJA2Clock();
+									pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
 									pTarget->usValueGoneUp &= ~( WIS_INCREASE );
 
 									if (bStatLoss == 1)
@@ -8486,7 +8486,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 									if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 									{
 										// make stat RED for a while...
-										pTarget->timeChanges.uiChangeHealthTime = GetJA2Clock();
+										pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
 										pTarget->usValueGoneUp &= ~( HEALTH_INCREASE );
 
 										if (bStatLoss == 1)
@@ -8526,7 +8526,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 										if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 										{
 											// make stat RED for a while...
-											pTarget->timeChanges.uiChangeDexterityTime = GetJA2Clock();
+											pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
 											pTarget->usValueGoneUp &= ~( DEX_INCREASE );
 
 											if (bStatLoss == 1)
@@ -8563,7 +8563,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 										if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 										{
 											// make stat RED for a while...
-											pTarget->timeChanges.uiChangeStrengthTime = GetJA2Clock();
+											pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
 											pTarget->usValueGoneUp &= ~( STRENGTH_INCREASE );
 
 											if (bStatLoss == 1)
@@ -8601,7 +8601,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 								{
 									// make stat RED for a while...
-									pTarget->timeChanges.uiChangeAgilityTime = GetJA2Clock();
+									pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
 									pTarget->usValueGoneUp &= ~( AGIL_INCREASE );
 
 									if (bStatLoss == 1)

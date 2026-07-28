@@ -197,6 +197,11 @@ void SoldierConditionComponent::reset() noexcept
 	*this = SoldierConditionComponent{};
 }
 
+void SoldierStatProgressComponent::reset() noexcept
+{
+	*this = SoldierStatProgressComponent{};
+}
+
 void SoldierLongActionComponent::begin(
 	UINT8 action, INT32 contextGrid, INT16 actionPoints) noexcept
 {

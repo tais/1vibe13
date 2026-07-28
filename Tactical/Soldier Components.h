@@ -600,6 +600,52 @@ private:
 	UINT32 disabilityFlags_ = 0;
 };
 
+// Canonical timestamps for persistent-stat changes. Gameplay records changes
+// through the stat identity; tactical and strategic UI share the same
+// wrap-safe recent-change query instead of duplicating clock arithmetic.
+class SoldierStatProgressComponent
+{
+public:
+	enum class Stat : UINT8
+	{
+		Level,
+		Health,
+		Strength,
+		Dexterity,
+		Agility,
+		Wisdom,
+		Leadership,
+		Marksmanship,
+		Explosives,
+		Medical,
+		Mechanical,
+		Count,
+	};
+
+	static constexpr UINT8 StatCount = static_cast<UINT8>(Stat::Count);
+
+	UINT32& changedAt(Stat stat) noexcept { return changeTimes_[index(stat)]; }
+	const UINT32& changedAt(Stat stat) const noexcept { return changeTimes_[index(stat)]; }
+
+	bool hasChange(Stat stat) const noexcept { return changedAt(stat) != 0; }
+	bool changedRecently(Stat stat, UINT32 now, UINT32 duration) const noexcept
+	{
+		const UINT32 changeTime = changedAt(stat);
+		return changeTime != 0 && now - changeTime < duration;
+	}
+	void recordChange(Stat stat, UINT32 now) noexcept { changedAt(stat) = now; }
+	void clear(Stat stat) noexcept { changedAt(stat) = 0; }
+	void reset() noexcept;
+
+private:
+	static constexpr UINT8 index(Stat stat) noexcept
+	{
+		return static_cast<UINT8>(stat);
+	}
+
+	UINT32 changeTimes_[StatCount] = {};
+};
+
 // Canonical state for work that spans tactical turns. The retained context
 // grid also carries the established return location while an intel assignment
 // temporarily removes a soldier from the tactical world; it deliberately

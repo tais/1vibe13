@@ -443,7 +443,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
 
 			// make stat RED for a while...
-			pSoldier->timeChanges.uiChangeStrengthTime = GetJA2Clock();
+			pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
 			pSoldier->usValueGoneUp &= ~( STRENGTH_INCREASE );
 
 			if ( foodsituation < FOOD_NORMAL )
@@ -492,8 +492,8 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			}
 
 			// make stat RED for a while...
-			pSoldier->timeChanges.uiChangeStrengthTime = GetJA2Clock();
-			pSoldier->usValueGoneUp &= ~( HEALTH_INCREASE );						
+			pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
+			pSoldier->usValueGoneUp &= ~( HEALTH_INCREASE );
 		}
 	}
 
@@ -522,7 +522,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
 
 			// make stat RED for a while...
-			pSoldier->timeChanges.uiChangeStrengthTime = GetJA2Clock();
+			pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
 			pSoldier->usValueGoneUp &= ~( STRENGTH_INCREASE );
 
 			if ( watersituation < FOOD_NORMAL )
@@ -573,8 +573,8 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			}
 
 			// make stat RED for a while...
-			pSoldier->timeChanges.uiChangeStrengthTime = GetJA2Clock();
-			pSoldier->usValueGoneUp &= ~( HEALTH_INCREASE );						
+			pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
+			pSoldier->usValueGoneUp &= ~( HEALTH_INCREASE );
 		}
 	}
 }

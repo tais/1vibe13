@@ -1855,7 +1855,7 @@ string(FIND "${soldier_control_header_contents}"
   "class STRUCT_Flags//last edited at version 102"
   current_soldier_flags_begin)
 string(FIND "${soldier_control_header_contents}"
-  "class STRUCT_TimeChanges//last edited at version 102"
+  "class STRUCT_Drugs//last edited at version 102"
   current_soldier_flags_end)
 string(FIND "${soldier_control_header_contents}"
   "enum class BackgroundVectorTypes;"
@@ -3706,6 +3706,237 @@ foreach(condition_save_position IN ITEMS
       "Soldier condition state moved in the portable save schema at '${condition_save_position}'")
   endif()
 endforeach()
+
+# Persistent stat-change presentation has one timestamp owner. Keep the
+# historical eleven-value save block and v101 mapping exact while preventing
+# the old STRUCT_TimeChanges shell and duplicated clock arithmetic from
+# returning.
+string(FIND "${soldier_control_header_contents}"
+  "class STRUCT_TimeChanges"
+  retired_stat_progress_wrapper)
+string(REGEX MATCH
+  "STRUCT_TimeChanges[ \t\r\n]+timeChanges[ \t]*;"
+  retired_stat_progress_member
+  "${current_soldier_contents}")
+if(NOT retired_stat_progress_wrapper EQUAL -1 OR
+   retired_stat_progress_member)
+  message(FATAL_ERROR
+    "Retired STRUCT_TimeChanges returned; persistent stat timestamps belong to SoldierStatProgressComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierStatProgressComponent[ \t\r\n]+statProgress_[ \t]*;"
+  soldier_stat_progress_owner
+  "${current_soldier_contents}")
+if(NOT soldier_stat_progress_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierStatProgressComponent")
+endif()
+
+string(REGEX MATCH
+  "enum class Stat : UINT8[ \t\r\n]*\\{[ \t\r\n]*Level,[ \t\r\n]*Health,[ \t\r\n]*Strength,[ \t\r\n]*Dexterity,[ \t\r\n]*Agility,[ \t\r\n]*Wisdom,[ \t\r\n]*Leadership,[ \t\r\n]*Marksmanship,[ \t\r\n]*Explosives,[ \t\r\n]*Medical,[ \t\r\n]*Mechanical,[ \t\r\n]*Count,"
+  soldier_stat_progress_stat_order
+  "${soldier_components_header_contents}")
+foreach(stat_progress_capacity IN ITEMS
+  "static constexpr UINT8 StatCount = static_cast<UINT8>(Stat::Count);"
+  "UINT32 changeTimes_[StatCount] = {};")
+  string(FIND "${soldier_components_header_contents}"
+    "${stat_progress_capacity}"
+    soldier_stat_progress_capacity)
+  if(soldier_stat_progress_capacity EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierStatProgressComponent lost fixed-capacity storage '${stat_progress_capacity}'")
+  endif()
+endforeach()
+if(NOT soldier_stat_progress_stat_order)
+  message(FATAL_ERROR
+    "SoldierStatProgressComponent stat identity order changed; it is coupled to the established save block")
+endif()
+
+foreach(stat_progress_operation IN ITEMS
+  "UINT32& changedAt(Stat stat) noexcept"
+  "const UINT32& changedAt(Stat stat) const noexcept"
+  "bool hasChange(Stat stat) const noexcept"
+  "bool changedRecently(Stat stat, UINT32 now, UINT32 duration) const noexcept"
+  "void recordChange(Stat stat, UINT32 now) noexcept"
+  "void clear(Stat stat) noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${stat_progress_operation}"
+    soldier_stat_progress_operation)
+  if(soldier_stat_progress_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierStatProgressComponent lost required operation '${stat_progress_operation}'")
+  endif()
+endforeach()
+string(FIND "${soldier_components_header_contents}"
+  "changeTime != 0 && now - changeTime < duration"
+  soldier_stat_progress_wrap_safe_query)
+if(soldier_stat_progress_wrap_safe_query EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierStatProgressComponent recent-change query must retain wrap-safe unsigned clock arithmetic")
+endif()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierStatProgressComponent& statProgress() noexcept"
+  soldier_stat_progress_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierStatProgressComponent{};"
+  soldier_stat_progress_default_reset)
+string(REGEX MATCHALL
+  "statProgress\\(\\)\\.reset\\(\\);"
+  soldier_stat_progress_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_stat_progress_reset_sites
+  soldier_stat_progress_reset_site_count)
+string(FIND "${soldier_control_source_contents}"
+  "void SOLDIERTYPE::ResetSoldierChangeStatTimer( void )"
+  soldier_stat_progress_legacy_reset_entry)
+if(soldier_stat_progress_accessor EQUAL -1 OR
+   soldier_stat_progress_default_reset EQUAL -1 OR
+   soldier_stat_progress_reset_site_count LESS 3 OR
+   soldier_stat_progress_legacy_reset_entry EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierStatProgressComponent must remain accessible and reset during v101 conversion, current initialization, and the established reset entry point")
+endif()
+
+foreach(stat_progress_conversion IN ITEMS
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) = src.uiChangeLevelTime;"
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) = src.uiChangeHealthTime;"
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) = src.uiChangeStrengthTime;"
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) = src.uiChangeDexterityTime;"
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) = src.uiChangeAgilityTime;"
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) = src.uiChangeWisdomTime;"
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) = src.uiChangeLeadershipTime;"
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) = src.uiChangeMarksmanshipTime;"
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) = src.uiChangeExplosivesTime;"
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) = src.uiChangeMedicalTime;"
+  "statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) = src.uiChangeMechanicalTime;")
+  string(FIND "${soldier_control_source_contents}"
+    "${stat_progress_conversion}"
+    soldier_stat_progress_conversion_site)
+  if(soldier_stat_progress_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost established stat-progress mapping '${stat_progress_conversion}'")
+  endif()
+endforeach()
+
+foreach(stat_progress_save_order IN ITEMS
+  "ar.u32(progress.changedAt(Stat::Level)); ar.u32(progress.changedAt(Stat::Health)); ar.u32(progress.changedAt(Stat::Strength));"
+  "ar.u32(progress.changedAt(Stat::Dexterity)); ar.u32(progress.changedAt(Stat::Agility)); ar.u32(progress.changedAt(Stat::Wisdom));"
+  "ar.u32(progress.changedAt(Stat::Leadership)); ar.u32(progress.changedAt(Stat::Marksmanship)); ar.u32(progress.changedAt(Stat::Explosives));"
+  "ar.u32(progress.changedAt(Stat::Medical)); ar.u32(progress.changedAt(Stat::Mechanical));")
+  string(FIND "${save_load_game_contents}"
+    "${stat_progress_save_order}"
+    soldier_stat_progress_save_order)
+  if(soldier_stat_progress_save_order EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier stat-progress timestamps moved in the portable save schema at '${stat_progress_save_order}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "XferStatProgress\\(ar, this->statProgress\\(\\)\\)"
+  soldier_stat_progress_xfer_sites
+  "${save_load_game_contents}")
+list(LENGTH soldier_stat_progress_xfer_sites
+  soldier_stat_progress_xfer_site_count)
+string(FIND "${save_load_game_contents}"
+  "XferTimeChanges"
+  retired_stat_progress_xfer)
+if(NOT soldier_stat_progress_xfer_site_count EQUAL 2 OR
+   NOT retired_stat_progress_xfer EQUAL -1)
+  message(FATAL_ERROR
+    "Current soldier save/load must visit the canonical stat-progress component exactly twice and must not restore XferTimeChanges")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Campaign.cpp"
+  soldier_stat_progress_campaign_contents)
+file(READ "${SOURCE_ROOT}/Strategic/MiniEvents.cpp"
+  soldier_stat_progress_mini_events_contents)
+file(READ "${SOURCE_ROOT}/Strategic/Facilities.cpp"
+  soldier_stat_progress_facilities_contents)
+file(READ "${SOURCE_ROOT}/TileEngine/Explosion Control.cpp"
+  soldier_stat_progress_explosion_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Food.cpp"
+  soldier_stat_progress_food_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Weapons.cpp"
+  soldier_stat_progress_weapons_contents)
+file(READ "${SOURCE_ROOT}/Strategic/mapscreen.cpp"
+  soldier_stat_progress_mapscreen_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Interface Panels.cpp"
+  soldier_stat_progress_panels_contents)
+foreach(stat_progress_writer IN ITEMS
+  soldier_stat_progress_campaign_contents
+  soldier_stat_progress_mini_events_contents
+  soldier_stat_progress_facilities_contents
+  soldier_stat_progress_explosion_contents
+  soldier_stat_progress_food_contents
+  soldier_stat_progress_weapons_contents)
+  string(FIND "${${stat_progress_writer}}"
+    "statProgress().recordChange("
+    soldier_stat_progress_writer_site)
+  if(soldier_stat_progress_writer_site EQUAL -1)
+    message(FATAL_ERROR
+      "Stat-changing runtime '${stat_progress_writer}' bypassed SoldierStatProgressComponent")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "recordChange\\(SoldierStatProgressComponent::Stat::Health, GetJA2Clock\\(\\)\\)"
+  soldier_stat_progress_food_health_sites
+  "${soldier_stat_progress_food_contents}")
+list(LENGTH soldier_stat_progress_food_health_sites
+  soldier_stat_progress_food_health_site_count)
+string(REGEX MATCHALL
+  "recordChange\\(SoldierStatProgressComponent::Stat::Health, GetJA2Clock\\(\\)\\)"
+  soldier_stat_progress_explosion_health_sites
+  "${soldier_stat_progress_explosion_contents}")
+list(LENGTH soldier_stat_progress_explosion_health_sites
+  soldier_stat_progress_explosion_health_site_count)
+if(soldier_stat_progress_food_health_site_count LESS 2 OR
+   soldier_stat_progress_explosion_health_site_count LESS 1)
+  message(FATAL_ERROR
+    "Food/water and explosion health damage must record the health timestamp, not an unrelated stat timestamp")
+endif()
+string(FIND "${soldier_stat_progress_mapscreen_contents}"
+  "statProgress().changedRecently("
+  soldier_stat_progress_strategic_query)
+string(FIND "${soldier_stat_progress_panels_contents}"
+  "statProgress().changedAt("
+  soldier_stat_progress_tactical_query)
+if(soldier_stat_progress_strategic_query EQUAL -1 OR
+   soldier_stat_progress_tactical_query EQUAL -1)
+  message(FATAL_ERROR
+    "Strategic and tactical stat presentation must consume SoldierStatProgressComponent")
+endif()
+
+foreach(stat_progress_test_fragment IN ITEMS
+  "soldier stat-progress recent-change query remains correct across clock wraparound"
+  "v101 soldier conversion retains every historical stat-change timestamp"
+  "soldier save/load round-trips all stat-progress timestamps at their established positions")
+  string(FIND "${headless_test_contents}"
+    "${stat_progress_test_fragment}"
+    soldier_stat_progress_test_site)
+  if(soldier_stat_progress_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierStatProgressComponent fixture '${stat_progress_test_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${engine_architecture_documentation}"
+  "SoldierStatProgressComponent"
+  soldier_stat_progress_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierStatProgressComponent"
+  soldier_stat_progress_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "All eleven unsigned 32-bit stat-change timestamps"
+  soldier_stat_progress_save_documented)
+if(soldier_stat_progress_architecture_documented EQUAL -1 OR
+   soldier_stat_progress_sdk_documented EQUAL -1 OR
+   soldier_stat_progress_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierStatProgressComponent ownership and compatibility guarantees must remain documented")
+endif()
 
 # Multi-turn tactical work and the retained grid used while intel assignments
 # temporarily remove a soldier share one established persistent context. Keep

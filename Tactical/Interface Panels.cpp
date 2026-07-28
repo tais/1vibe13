@@ -2845,61 +2845,61 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				mprintf( SM_CAMMO_PERCENT_X, SM_CAMMO_PERCENT_Y, L"%%" );
 			}
 
-				UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeAgilityTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & AGIL_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraAgility() != 0 ); // SANDRO
+				UpdateStatColor( GetSMCurrentMerc()->statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility), (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & AGIL_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraAgility() != 0 ); // SANDRO
 
 			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bAgility + GetSMCurrentMerc()->condition().extraAgility() );
 			FindFontRightCoordinates(SM_AGI_X, SM_AGI_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeDexterityTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & DEX_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraDexterity() != 0 ); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity), (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & DEX_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraDexterity() != 0 ); // SANDRO
 
 			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bDexterity + GetSMCurrentMerc()->condition().extraDexterity() );
 			FindFontRightCoordinates(SM_DEX_X, SM_DEX_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeStrengthTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & STRENGTH_INCREASE ? TRUE : FALSE), (BOOLEAN)(((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] > 0)) || ( UsingFoodSystem() && GetSMCurrentMerc()->condition().starvationStrengthDamage() > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraStrength() != 0 ); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength), (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & STRENGTH_INCREASE ? TRUE : FALSE), (BOOLEAN)(((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] > 0)) || ( UsingFoodSystem() && GetSMCurrentMerc()->condition().starvationStrengthDamage() > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraStrength() != 0 ); // SANDRO
 
 			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bStrength + GetSMCurrentMerc()->condition().extraStrength() );
 			FindFontRightCoordinates(SM_STR_X, SM_STR_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeLeadershipTime, ( BOOLEAN )( GetSMCurrentMerc()->usValueGoneUp & LDR_INCREASE? TRUE: FALSE ), ( BOOLEAN ) ( ( gGameOptions.fNewTraitSystem && ( GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_LEADERSHIP] > 0 )) ? TRUE : FALSE), FALSE); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership), ( BOOLEAN )( GetSMCurrentMerc()->usValueGoneUp & LDR_INCREASE? TRUE: FALSE ), ( BOOLEAN ) ( ( gGameOptions.fNewTraitSystem && ( GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_LEADERSHIP] > 0 )) ? TRUE : FALSE), FALSE); // SANDRO
 
 			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bLeadership );
 			FindFontRightCoordinates(SM_CHAR_X, SM_CHAR_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeWisdomTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & WIS_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraWisdom() != 0 ); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom), (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & WIS_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraWisdom() != 0 ); // SANDRO
 
 			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bWisdom + GetSMCurrentMerc()->condition().extraWisdom() );
 			FindFontRightCoordinates(SM_WIS_X, SM_WIS_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeLevelTime, ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & LVL_INCREASE? TRUE: FALSE ),  FALSE , FALSE);
+			UpdateStatColor( GetSMCurrentMerc()->statProgress().changedAt(SoldierStatProgressComponent::Stat::Level), ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & LVL_INCREASE? TRUE: FALSE ),  FALSE , FALSE);
 
 			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bExpLevel + GetSMCurrentMerc()->condition().extraExperienceLevel() );
 			FindFontRightCoordinates(SM_EXPLVL_X, SM_EXPLVL_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeMarksmanshipTime, ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & MRK_INCREASE? TRUE: FALSE ), ( BOOLEAN ) ( ( gGameOptions.fNewTraitSystem && ( GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_MARKSMANSHIP] > 0 )) ? TRUE : FALSE), FALSE); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship), ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & MRK_INCREASE? TRUE: FALSE ), ( BOOLEAN ) ( ( gGameOptions.fNewTraitSystem && ( GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_MARKSMANSHIP] > 0 )) ? TRUE : FALSE), FALSE); // SANDRO
 
 			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bMarksmanship );
 			FindFontRightCoordinates(SM_MRKM_X, SM_MRKM_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeMechanicalTime, ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & MECH_INCREASE ? TRUE: FALSE ), ( BOOLEAN ) ( ( gGameOptions.fNewTraitSystem && ( GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_MECHANICAL] > 0 )) ? TRUE : FALSE), FALSE); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical), ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & MECH_INCREASE ? TRUE: FALSE ), ( BOOLEAN ) ( ( gGameOptions.fNewTraitSystem && ( GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_MECHANICAL] > 0 )) ? TRUE : FALSE), FALSE); // SANDRO
 
 			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bMechanical );
 			FindFontRightCoordinates(SM_MECH_X, SM_MECH_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeExplosivesTime, ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & EXP_INCREASE? TRUE: FALSE ), ( BOOLEAN ) ( ( gGameOptions.fNewTraitSystem && ( GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_EXPLOSIVES] > 0 )) ? TRUE : FALSE), FALSE); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives), ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & EXP_INCREASE? TRUE: FALSE ), ( BOOLEAN ) ( ( gGameOptions.fNewTraitSystem && ( GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_EXPLOSIVES] > 0 )) ? TRUE : FALSE), FALSE); // SANDRO
 
 			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bExplosive );
 			FindFontRightCoordinates(SM_EXPL_X, SM_EXPL_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeMedicalTime, ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & MED_INCREASE? TRUE: FALSE ), ( BOOLEAN ) ( ( gGameOptions.fNewTraitSystem && ( GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] > 0 )) ? TRUE : FALSE), FALSE); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical), ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & MED_INCREASE? TRUE: FALSE ), ( BOOLEAN ) ( ( gGameOptions.fNewTraitSystem && ( GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] > 0 )) ? TRUE : FALSE), FALSE); // SANDRO
 
 			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bMedical );
 			FindFontRightCoordinates(SM_MED_X, SM_MED_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);

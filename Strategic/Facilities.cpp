@@ -1213,7 +1213,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							else
 							{
 								// make this stat RED for a while...
-								pSoldier->timeChanges.uiChangeStrengthTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( STRENGTH_INCREASE );
 							}
 							// Update Profile
@@ -1265,7 +1265,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							else
 							{
 								// make this stat RED for a while...
-								pSoldier->timeChanges.uiChangeAgilityTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( AGIL_INCREASE );
 							}
 							// Update Profile
@@ -1317,7 +1317,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							else
 							{
 								// make this stat RED for a while...
-								pSoldier->timeChanges.uiChangeDexterityTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( DEX_INCREASE );
 							}
 							// Update Profile
@@ -1369,7 +1369,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							else
 							{
 								// make this stat RED for a while...
-								pSoldier->timeChanges.uiChangeWisdomTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( WIS_INCREASE );
 							}
 							// Update Profile
@@ -1422,7 +1422,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							else
 							{
 								// make this stat RED for a while...
-								pSoldier->timeChanges.uiChangeHealthTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( HEALTH_INCREASE );
 							}
 							// Update Profile
@@ -1494,7 +1494,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							else
 							{
 								// make this stat RED for a while...
-								pSoldier->timeChanges.uiChangeMarksmanshipTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Marksmanship, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( MRK_INCREASE );
 							}
 							// Update Profile
@@ -1546,7 +1546,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							else
 							{
 								// make this stat RED for a while...
-								pSoldier->timeChanges.uiChangeLeadershipTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Leadership, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( LDR_INCREASE );
 							}
 							// Update Profile
@@ -1598,7 +1598,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							else
 							{
 								// make this stat RED for a while...
-								pSoldier->timeChanges.uiChangeMechanicalTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Mechanical, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( MECH_INCREASE );
 							}
 							// Update Profile
@@ -1650,7 +1650,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							else
 							{
 								// make this stat RED for a while...
-								pSoldier->timeChanges.uiChangeMedicalTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Medical, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( MED_INCREASE );
 							}
 							// Update Profile
@@ -1702,7 +1702,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							else
 							{
 								// make this stat RED for a while...
-								pSoldier->timeChanges.uiChangeExplosivesTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Explosives, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( EXP_INCREASE );
 							}
 							// Update Profile
@@ -1903,13 +1903,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 
 								// make those stats RED for a while...
 								// SANDRO - we don't need to do this with new system, as we simply show all damaged stats in red until healed
-								pSoldier->timeChanges.uiChangeWisdomTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( WIS_INCREASE );
-								pSoldier->timeChanges.uiChangeDexterityTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( DEX_INCREASE );
-								pSoldier->timeChanges.uiChangeStrengthTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( STRENGTH_INCREASE );
-								pSoldier->timeChanges.uiChangeAgilityTime = GetJA2Clock();
+								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
 								pSoldier->usValueGoneUp &= ~( AGIL_INCREASE );
 							}
 
