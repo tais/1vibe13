@@ -284,11 +284,9 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 			Assert( 0 );
 		}
 
-		pSoldier->fWaitingToGetupFromJA25Start = TRUE;
+		pSoldier->deployment().beginArrivalGetup();
 
-		pSoldier->fIgnoreGetupFromCollapseCheck = TRUE;
-
-		RESETTIMECOUNTER( pSoldier->GetupFromJA25StartCounter, GetInitialHeliRandomTime() );
+		RESETTIMECOUNTER( pSoldier->deployment().arrivalGetupCounter(), GetInitialHeliRandomTime() );
 		}
 		else
 		{
@@ -689,7 +687,7 @@ void HandleMercArrivesQuotes( SOLDIERTYPE *pSoldier )
 	SOLDIERTYPE	*pTeamSoldier;
 #ifdef JA2UB
 	//if we are at the begining of the game going through the initial heli scequence
-	if( pSoldier->fWaitingToGetupFromJA25Start )
+	if( pSoldier->deployment().arrivalGetupPending() )
 	{
 		//we can "leave" this function cause we dont want to do anything with buddy system
 		return;
@@ -1074,13 +1072,12 @@ void UpdateJerryMiloInInitialSector()
 		if ( gGameUBOptions.InJerry == TRUE )
 		{
 			//Set some variable so Jerry will be on the ground
-			pSoldier->fWaitingToGetupFromJA25Start = TRUE;
-			pSoldier->fIgnoreGetupFromCollapseCheck = TRUE;
+			pSoldier->deployment().beginArrivalGetup();
 
 			//pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO; // was disabled
 			//pSoldier->deployment().strategicInsertionData() = GetInitialHeliGridNo( ); // was disabled
 
-			RESETTIMECOUNTER( pSoldier->GetupFromJA25StartCounter, gsInitialHeliRandomTimes[6] + 800 + Random( 400 ) );
+			RESETTIMECOUNTER( pSoldier->deployment().arrivalGetupCounter(), gsInitialHeliRandomTimes[6] + 800 + Random( 400 ) );
 
 			//should we be on our back or tummy
 			if ( Random( 100 ) < 50 )

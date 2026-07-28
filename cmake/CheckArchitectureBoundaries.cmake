@@ -922,9 +922,7 @@ file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
   runtime_campaign_soldier_save_contents)
 foreach(required_runtime_soldier_state_fragment IN ITEMS
-    "fIgnoreGetupFromCollapseCheck"
-    "GetupFromJA25StartCounter"
-    "fWaitingToGetupFromJA25Start"
+    "SoldierDeploymentComponent"
     "SoldierCombatContributionComponent")
   string(FIND "${runtime_campaign_soldier_state_contents}"
     "${required_runtime_soldier_state_fragment}" runtime_soldier_state_fragment_position)
@@ -934,9 +932,9 @@ foreach(required_runtime_soldier_state_fragment IN ITEMS
   endif()
 endforeach()
 foreach(required_runtime_soldier_save_fragment IN ITEMS
-    "ar.boolean(s.fIgnoreGetupFromCollapseCheck)"
-    "ar.i32(s.GetupFromJA25StartCounter)"
-    "ar.boolean(s.fWaitingToGetupFromJA25Start)"
+    "ar.boolean(deployment.ignoreCollapseGetupCheck())"
+    "ar.i32(deployment.arrivalGetupCounter())"
+    "ar.boolean(deployment.waitingForArrivalGetup())"
     "ar.u8(combatContribution.damageByTeam()[i])")
   string(FIND "${runtime_campaign_soldier_save_contents}"
     "${required_runtime_soldier_save_fragment}" runtime_soldier_save_fragment_position)
@@ -4806,7 +4804,10 @@ foreach(retired_deployment_field IN ITEMS
   "UINT8;bUseExitGridForReentryDirection"
   "INT32;sPreTraversalGridNo"
   "UINT8;ubLeaveHistoryCode"
-  "UINT32;uiTimeSoldierWillArrive")
+  "UINT32;uiTimeSoldierWillArrive"
+  "BOOLEAN;fIgnoreGetupFromCollapseCheck"
+  "TIMECOUNTER;GetupFromJA25StartCounter"
+  "BOOLEAN;fWaitingToGetupFromJA25Start")
   string(REPLACE ";" ";" retired_deployment_parts
     "${retired_deployment_field}")
   list(GET retired_deployment_parts 0 retired_deployment_type)
@@ -4818,6 +4819,24 @@ foreach(retired_deployment_field IN ITEMS
   if(retired_current_deployment_field)
     message(FATAL_ERROR
       "Retired flat SOLDIERTYPE deployment field '${retired_deployment_name}' returned; strategic placement belongs to SoldierDeploymentComponent")
+  endif()
+endforeach()
+foreach(owned_arrival_getup_field IN ITEMS
+  "BOOLEAN;ignoreCollapseGetupCheck;FALSE"
+  "INT32;arrivalGetupCounter;0"
+  "BOOLEAN;waitingForArrivalGetup;FALSE")
+  string(REPLACE ";" ";" owned_arrival_getup_parts
+    "${owned_arrival_getup_field}")
+  list(GET owned_arrival_getup_parts 0 owned_arrival_getup_type)
+  list(GET owned_arrival_getup_parts 1 owned_arrival_getup_name)
+  list(GET owned_arrival_getup_parts 2 owned_arrival_getup_initializer)
+  string(REGEX MATCH
+    "${owned_arrival_getup_type}[ \t]+${owned_arrival_getup_name}_[ \t]*=[ \t]*${owned_arrival_getup_initializer}[ \t]*;"
+    owned_soldier_arrival_getup
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_arrival_getup)
+    message(FATAL_ERROR
+      "SoldierDeploymentComponent no longer owns initialized '${owned_arrival_getup_name}_' arrival-getup storage")
   endif()
 endforeach()
 
@@ -4880,7 +4899,11 @@ foreach(required_deployment_operation IN ITEMS
   "void clearVehicle() noexcept"
   "void setStrategicInsertion(UINT8 code, INT32 data) noexcept"
   "void setTraversalOrigin(UINT8 previousSectorId, INT32 gridNo) noexcept"
-  "void scheduleArrival(UINT32 time, UINT8 historyCode) noexcept")
+  "void scheduleArrival(UINT32 time, UINT8 historyCode) noexcept"
+  "bool arrivalGetupPending() const noexcept"
+  "void beginArrivalGetup() noexcept"
+  "void completeArrivalGetup() noexcept"
+  "void clearCollapseGetupOverride() noexcept")
   string(FIND "${soldier_components_header_contents}"
     "${required_deployment_operation}"
     soldier_deployment_operation)
@@ -4934,6 +4957,10 @@ string(REGEX MATCH
   "ar\\.ptr\\(s\\.pGroup\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);[ \t\r\n]*ar\\.u32\\(deployment\\.arrivalTime\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);"
   serialized_soldier_deployment_arrival_order
   "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(deployment\\.ignoreCollapseGetupCheck\\(\\)\\);[ \t\r\n]*ar\\.i32\\(deployment\\.arrivalGetupCounter\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(deployment\\.waitingForArrivalGetup\\(\\)\\);"
+  serialized_soldier_deployment_arrival_getup_order
+  "${save_load_game_contents}")
 if(serialized_soldier_deployment_adapter EQUAL -1 OR
    NOT serialized_soldier_deployment_direction_order OR
    NOT serialized_soldier_deployment_group_order OR
@@ -4943,9 +4970,89 @@ if(serialized_soldier_deployment_adapter EQUAL -1 OR
    NOT serialized_soldier_deployment_off_world_order OR
    NOT serialized_soldier_deployment_previous_sector_order OR
    NOT serialized_soldier_deployment_reentry_order OR
-   NOT serialized_soldier_deployment_arrival_order)
+   NOT serialized_soldier_deployment_arrival_order OR
+   NOT serialized_soldier_deployment_arrival_getup_order)
   message(FATAL_ERROR
-    "Soldier deployment state moved in the portable save schema; keep all fifteen values at their established POD positions")
+    "Soldier deployment state moved in the portable save schema; keep all eighteen values at their established POD positions")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Merc Hiring.cpp"
+  soldier_arrival_getup_hiring_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  soldier_arrival_getup_overhead_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  soldier_arrival_getup_dialogue_contents)
+file(READ "${SOURCE_ROOT}/Utils/Timer Control.cpp"
+  soldier_arrival_getup_timer_contents)
+foreach(arrival_getup_hiring_fragment IN ITEMS
+  "pSoldier->deployment().beginArrivalGetup();"
+  "RESETTIMECOUNTER( pSoldier->deployment().arrivalGetupCounter(),"
+  "pSoldier->deployment().arrivalGetupPending()")
+  string(FIND "${soldier_arrival_getup_hiring_contents}"
+    "${arrival_getup_hiring_fragment}"
+    soldier_arrival_getup_hiring_site)
+  if(soldier_arrival_getup_hiring_site EQUAL -1)
+    message(FATAL_ERROR
+      "Mercenary arrival bypassed deployment transition '${arrival_getup_hiring_fragment}'")
+  endif()
+endforeach()
+foreach(arrival_getup_overhead_fragment IN ITEMS
+  "pSoldier->deployment().arrivalGetupPending()"
+  "TIMECOUNTERDONE( pSoldier->deployment().arrivalGetupCounter(), 0 )"
+  "pSoldier->deployment().completeArrivalGetup();"
+  "pSoldier->deployment().arrivalGetupCounter() += giTimerDiag;")
+  string(FIND "${soldier_arrival_getup_overhead_contents}"
+    "${arrival_getup_overhead_fragment}"
+    soldier_arrival_getup_overhead_site)
+  if(soldier_arrival_getup_overhead_site EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical arrival handling bypassed deployment transition '${arrival_getup_overhead_fragment}'")
+  endif()
+endforeach()
+foreach(arrival_getup_dialogue_fragment IN ITEMS
+  "pSoldier->deployment().clearCollapseGetupOverride();"
+  "pSoldier->deployment().ignoreCollapseGetupCheck()")
+  string(FIND "${soldier_arrival_getup_dialogue_contents}"
+    "${arrival_getup_dialogue_fragment}"
+    soldier_arrival_getup_dialogue_site)
+  if(soldier_arrival_getup_dialogue_site EQUAL -1)
+    message(FATAL_ERROR
+      "Arrival dialogue bypassed deployment state '${arrival_getup_dialogue_fragment}'")
+  endif()
+endforeach()
+string(FIND "${soldier_arrival_getup_timer_contents}"
+  "UpdateTimeCounter( pSoldier->deployment().arrivalGetupCounter(), iTimeLeft );"
+  soldier_arrival_getup_timer_site)
+if(soldier_arrival_getup_timer_site EQUAL -1)
+  message(FATAL_ERROR
+    "The legacy clock must advance the component-owned arrival get-up timer")
+endif()
+foreach(arrival_getup_test_fragment IN ITEMS
+  "deployment completes arrival get-up while retaining the historical timer value"
+  "v101 soldier conversion retains deployment while clearing historically ignored arrival get-up state"
+  "loadedSoldier.deployment().arrivalGetupCounter() == 17000")
+  string(FIND "${headless_test_contents}"
+    "${arrival_getup_test_fragment}"
+    soldier_arrival_getup_test_site)
+  if(soldier_arrival_getup_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost arrival get-up fixture '${arrival_getup_test_fragment}'")
+  endif()
+endforeach()
+string(FIND "${engine_architecture_documentation}"
+  "arrival get-up"
+  soldier_arrival_getup_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "arrival get-up"
+  soldier_arrival_getup_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "arrival get-up"
+  soldier_arrival_getup_save_documented)
+if(soldier_arrival_getup_architecture_documented EQUAL -1 OR
+   soldier_arrival_getup_sdk_documented EQUAL -1 OR
+   soldier_arrival_getup_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "Engine and save documentation must describe component-owned arrival get-up state")
 endif()
 
 # NPC schedule execution has one live owner while schedule nodes, editor
@@ -6949,7 +7056,7 @@ string(REGEX MATCH
   serialized_soldier_suppression_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(fireControl\\.bulletsLeft\\(\\)\\);[ \t]*ar\\.u8\\(suppression\\.points\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiTimeOfLastRandomAction\\);"
+  "ar\\.i8\\(fireControl\\.bulletsLeft\\(\\)\\);[ \t]*ar\\.u8\\(suppression\\.points\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.animationActivity\\(\\)\\.randomActionCheckCounter\\(\\)\\);"
   serialized_soldier_suppression_points_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7182,7 +7289,7 @@ string(REGEX MATCH
   serialized_soldier_animation_previous_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiTimeOfLastRandomAction\\);[ \t]*ar\\.i16\\(s\\.usLastRandomAnim\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.surface\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.zLevel\\(\\)\\);"
+  "ar\\.u32\\(s\\.animationActivity\\(\\)\\.randomActionCheckCounter\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationActivity\\(\\)\\.lastRandomAnimation\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.surface\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.zLevel\\(\\)\\);"
   serialized_soldier_animation_render_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_animation_cursor_order OR
@@ -7230,9 +7337,11 @@ foreach(retired_animation_activity_field IN ITEMS
   bStartFallDir
   bTurningIncrement
   sForcastGridno
-  sZLevelOverride)
+  sZLevelOverride
+  uiTimeOfLastRandomAction
+  usLastRandomAnim)
   string(REGEX MATCH
-    "(^|[\r\n])[ \t]*(INT8|INT16|INT32)[ \t]+${retired_animation_activity_field}[ \t]*;"
+    "(^|[\r\n])[ \t]*(INT8|INT16|INT32|UINT32)[ \t]+${retired_animation_activity_field}[ \t]*;"
     retired_current_animation_activity_field
     "${current_soldier_contents}")
   if(retired_current_animation_activity_field)
@@ -7270,7 +7379,9 @@ foreach(owned_animation_activity_field IN ITEMS
   "INT8;fallDirection;0"
   "INT8;turningIncrement;0"
   "INT32;traversalForecastGrid;0"
-  "INT16;renderZOverride;0")
+  "INT16;renderZOverride;0"
+  "UINT32;randomActionCheckCounter;0"
+  "INT16;lastRandomAnimation;0")
   string(REPLACE ";" ";" owned_animation_activity_parts
     "${owned_animation_activity_field}")
   list(GET owned_animation_activity_parts 0 owned_animation_activity_type)
@@ -7288,9 +7399,12 @@ endforeach()
 
 foreach(traversal_activity_operation IN ITEMS
   "bool hasRenderZOverride() const noexcept"
+  "bool randomActionCheckDue(UINT32 threshold) const noexcept"
   "void forecastTraversalAt(INT32 grid) noexcept"
   "void setRenderZOverride(INT16 zLevel) noexcept"
-  "void clearRenderZOverride() noexcept")
+  "void clearRenderZOverride() noexcept"
+  "void advanceRandomActionCheck() noexcept"
+  "void resetRandomActionCheck() noexcept")
   string(FIND "${soldier_components_header_contents}"
     "${traversal_activity_operation}"
     soldier_traversal_activity_operation)
@@ -7301,7 +7415,9 @@ foreach(traversal_activity_operation IN ITEMS
 endforeach()
 foreach(traversal_activity_conversion IN ITEMS
   "this->animationActivity().traversalForecastGrid() = src.sForcastGridNo;"
-  "this->animationActivity().renderZOverride() = src.sZLevelOverride;")
+  "this->animationActivity().renderZOverride() = src.sZLevelOverride;"
+  "this->animationActivity().randomActionCheckCounter() = src.uiTimeOfLastRandomAction;"
+  "this->animationActivity().lastRandomAnimation() = src.usLastRandomAnim;")
   string(FIND "${soldier_control_source_contents}"
     "${traversal_activity_conversion}"
     soldier_traversal_activity_conversion_site)
@@ -7346,6 +7462,10 @@ string(REGEX MATCH
   "ar\\.i32\\(fireControl\\.spreadDragStartGrid\\(\\)\\);[ \t]*ar\\.i32\\(fireControl\\.spreadDragEndGrid\\(\\)\\);[ \t]*ar\\.i32\\(s\\.animationActivity\\(\\)\\.traversalForecastGrid\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationActivity\\(\\)\\.renderZOverride\\(\\)\\);[ \t\r\n]*ar\\.i8\\(interruptSnapshot\\.movedBeforeInterrupt\\(\\)\\);"
   serialized_soldier_animation_traversal_order
   "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(fireControl\\.bulletsLeft\\(\\)\\);[ \t]*ar\\.u8\\(suppression\\.points\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.animationActivity\\(\\)\\.randomActionCheckCounter\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationActivity\\(\\)\\.lastRandomAnimation\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.surface\\(\\)\\);"
+  serialized_soldier_animation_random_order
+  "${save_load_game_contents}")
 if(NOT serialized_soldier_animation_turn_activity_order OR
    NOT serialized_soldier_animation_hit_activity_order OR
    NOT serialized_soldier_animation_cost_activity_order OR
@@ -7353,7 +7473,8 @@ if(NOT serialized_soldier_animation_turn_activity_order OR
    NOT serialized_soldier_animation_realtime_activity_order OR
    NOT serialized_soldier_animation_fall_activity_order OR
    NOT serialized_soldier_animation_turn_increment_order OR
-   NOT serialized_soldier_animation_traversal_order)
+   NOT serialized_soldier_animation_traversal_order OR
+   NOT serialized_soldier_animation_random_order)
   message(FATAL_ERROR
     "Soldier animation activity moved in the portable save schema; keep every lifecycle value at its established byte position")
 endif()
@@ -7372,6 +7493,18 @@ foreach(traversal_activity_runtime_fragment IN ITEMS
       "Traversal animation lost component transition '${traversal_activity_runtime_fragment}'")
   endif()
 endforeach()
+foreach(random_animation_activity_runtime_fragment IN ITEMS
+  "pSoldier->animationActivity().advanceRandomActionCheck();"
+  "pSoldier->animationActivity().randomActionCheckDue(TIME_FOR_RANDOM_ANIM_CHECK)"
+  "pSoldier->animationActivity().resetRandomActionCheck();")
+  string(FIND "${soldier_animation_source_contents}"
+    "${random_animation_activity_runtime_fragment}"
+    soldier_random_animation_activity_runtime_site)
+  if(soldier_random_animation_activity_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Random animation cadence bypassed component transition '${random_animation_activity_runtime_fragment}'")
+  endif()
+endforeach()
 string(FIND "${soldier_animation_render_z_contents}"
   "pSoldier->animationActivity().hasRenderZOverride()"
   soldier_traversal_render_query)
@@ -7385,8 +7518,10 @@ if(soldier_traversal_render_query EQUAL -1 OR
 endif()
 foreach(traversal_activity_test_fragment IN ITEMS
   "SoldierAnimationActivityComponent traversalLifecycle;"
-  "v101 soldier conversion retains traversal forecast and render-depth state"
-  "loadedSoldier.animationActivity().traversalForecastGrid() == 1520")
+  "loadedSoldier.animationActivity().traversalForecastGrid() == 1520"
+  "animation activity advances the random-animation cadence through a named transition"
+  "v101 soldier conversion retains traversal, render-depth, and random-animation state"
+  "soldier save/load round-trips animation activity and random cadence without normalizing hit phase 2 to boolean 1")
   string(FIND "${headless_test_contents}"
     "${traversal_activity_test_fragment}"
     soldier_traversal_activity_test_site)
@@ -7395,6 +7530,21 @@ foreach(traversal_activity_test_fragment IN ITEMS
       "Headless coverage lost traversal activity fixture '${traversal_activity_test_fragment}'")
   endif()
 endforeach()
+string(FIND "${engine_architecture_documentation}"
+  "random-animation"
+  soldier_random_animation_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "random-animation"
+  soldier_random_animation_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "random-animation"
+  soldier_random_animation_save_documented)
+if(soldier_random_animation_architecture_documented EQUAL -1 OR
+   soldier_random_animation_sdk_documented EQUAL -1 OR
+   soldier_random_animation_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "Engine and save documentation must describe component-owned random-animation state")
+endif()
 
 # Animation surfaces are runtime resources, not serialized soldier state. The
 # former public AnimCache contained two raw owning pointers inside the memcpy

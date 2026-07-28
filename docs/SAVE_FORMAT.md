@@ -422,12 +422,15 @@ adapter, so save and load can never drift out of order. Extra methods:
   absent from v101. No save, packet, map, XML, Lua, or installed-data bytes
   change.
 - Strategic sector, movement-group and vehicle membership, tactical insertion,
-  traversal origin, off-world staging, and arrival bookkeeping are now stored
-  by `SoldierDeploymentComponent`. The visitor still emits all fifteen values
-  at their original scattered POD positions and widths, and v101 conversion
-  maps every historical field into that owner. Strategic path and group
-  pointers remain serialization adapters. No save, packet, map, XML, Lua, or
-  installed-data bytes change.
+  traversal origin, off-world staging, arrival bookkeeping, and the Unfinished
+  Business helicopter arrival get-up state are now stored by
+  `SoldierDeploymentComponent`. The visitor still emits all eighteen values at
+  their original scattered POD positions and widths; the arrival get-up tail
+  remains a boolean, signed 32-bit timer, and boolean. v101 conversion maps the
+  deployment fields it historically consumed and keeps its established
+  behavior of clearing the three ignored arrival get-up values. Strategic path
+  and group pointers remain serialization adapters. No save, packet, map, XML,
+  Lua, or installed-data bytes change.
 - NPC schedule identity and progress plus the open-door continuation phase and
   grid are now stored by `SoldierScheduleComponent`. The visitor still emits
   the four values at their three original POD sites and widths. v101
@@ -482,12 +485,15 @@ adapter, so save and load can never drift out of order. Extra methods:
 - The four walk-to-attack cache values are now stored by
   `SoldierMeleeApproachComponent`; the pre-interrupt moved snapshot is stored
   by `SoldierInterruptSnapshotComponent`; and traversal forecast/render-depth
-  state is stored by `SoldierAnimationActivityComponent`. The visitor emits
-  all seven values at their original signed/unsigned widths and scattered byte
-  positions. v101 conversion maps its historical grid, cost, drag, traversal,
-  and interrupt values while fields introduced after v101 retain their
-  established zero defaults. No current save, packet, map, XML, Lua, or
-  installed-data bytes change.
+  state plus random-animation cadence/selection are stored by
+  `SoldierAnimationActivityComponent`. The visitor emits all nine values at
+  their original signed/unsigned widths and scattered byte positions. The
+  random-animation pair remains an unsigned 32-bit counter followed by a
+  signed 16-bit animation value before playback surface/depth. v101 conversion
+  maps its historical grid, cost, drag, traversal, random-animation, and
+  interrupt values while fields introduced after v101 retain their established
+  zero defaults. No current save, packet, map, XML, Lua, or installed-data
+  bytes change.
 - Incoming attacker history, hit metadata, hit/pellet counters, and accumulated
   damage are now stored by `SoldierCombatResultComponent`. Floating-number
   flag, cursor, offsets, and direction are stored separately by

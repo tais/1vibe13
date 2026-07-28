@@ -1067,12 +1067,19 @@ public:
 	const UINT8& leaveHistoryCode() const noexcept { return leaveHistoryCode_; }
 	UINT32& arrivalTime() noexcept { return arrivalTime_; }
 	const UINT32& arrivalTime() const noexcept { return arrivalTime_; }
+	BOOLEAN& ignoreCollapseGetupCheck() noexcept { return ignoreCollapseGetupCheck_; }
+	const BOOLEAN& ignoreCollapseGetupCheck() const noexcept { return ignoreCollapseGetupCheck_; }
+	INT32& arrivalGetupCounter() noexcept { return arrivalGetupCounter_; }
+	const INT32& arrivalGetupCounter() const noexcept { return arrivalGetupCounter_; }
+	BOOLEAN& waitingForArrivalGetup() noexcept { return waitingForArrivalGetup_; }
+	const BOOLEAN& waitingForArrivalGetup() const noexcept { return waitingForArrivalGetup_; }
 
 	bool isInSector(INT16 x, INT16 y, INT8 z) const noexcept
 	{
 		return sectorX_ == x && sectorY_ == y && sectorZ_ == z;
 	}
 	bool hasVehicle() const noexcept { return vehicleId_ >= 0; }
+	bool arrivalGetupPending() const noexcept { return waitingForArrivalGetup_ != FALSE; }
 	void setSector(INT16 x, INT16 y, INT8 z) noexcept
 	{
 		sectorX_ = x;
@@ -1095,6 +1102,13 @@ public:
 		arrivalTime_ = time;
 		leaveHistoryCode_ = historyCode;
 	}
+	void beginArrivalGetup() noexcept
+	{
+		waitingForArrivalGetup_ = TRUE;
+		ignoreCollapseGetupCheck_ = TRUE;
+	}
+	void completeArrivalGetup() noexcept { waitingForArrivalGetup_ = FALSE; }
+	void clearCollapseGetupOverride() noexcept { ignoreCollapseGetupCheck_ = FALSE; }
 	void reset() noexcept;
 
 private:
@@ -1113,6 +1127,9 @@ private:
 	INT32 preTraversalGrid_ = 0;
 	UINT8 leaveHistoryCode_ = 0;
 	UINT32 arrivalTime_ = 0;
+	BOOLEAN ignoreCollapseGetupCheck_ = FALSE;
+	INT32 arrivalGetupCounter_ = 0;
+	BOOLEAN waitingForArrivalGetup_ = FALSE;
 };
 
 // Canonical NPC schedule execution state. The schedule identifier and progress
@@ -1977,9 +1994,17 @@ public:
 	const INT32& traversalForecastGrid() const noexcept { return traversalForecastGrid_; }
 	INT16& renderZOverride() noexcept { return renderZOverride_; }
 	const INT16& renderZOverride() const noexcept { return renderZOverride_; }
+	UINT32& randomActionCheckCounter() noexcept { return randomActionCheckCounter_; }
+	const UINT32& randomActionCheckCounter() const noexcept { return randomActionCheckCounter_; }
+	INT16& lastRandomAnimation() noexcept { return lastRandomAnimation_; }
+	const INT16& lastRandomAnimation() const noexcept { return lastRandomAnimation_; }
 
 	bool gettingHit() const noexcept { return hitPhase_ != 0; }
 	bool hasRenderZOverride() const noexcept { return renderZOverride_ != -1; }
+	bool randomActionCheckDue(UINT32 threshold) const noexcept
+	{
+		return randomActionCheckCounter_ > threshold;
+	}
 	void beginHit() noexcept { hitPhase_ = 1; }
 	void advanceHit() noexcept { hitPhase_ = 2; }
 	void clearHit() noexcept { hitPhase_ = 0; }
@@ -1992,6 +2017,8 @@ public:
 	void forecastTraversalAt(INT32 grid) noexcept { traversalForecastGrid_ = grid; }
 	void setRenderZOverride(INT16 zLevel) noexcept { renderZOverride_ = zLevel; }
 	void clearRenderZOverride() noexcept { renderZOverride_ = -1; }
+	void advanceRandomActionCheck() noexcept { ++randomActionCheckCounter_; }
+	void resetRandomActionCheck() noexcept { randomActionCheckCounter_ = 0; }
 	void reset() noexcept;
 
 private:
@@ -2015,6 +2042,8 @@ private:
 	INT8 turningIncrement_ = 0;
 	INT32 traversalForecastGrid_ = 0;
 	INT16 renderZOverride_ = 0;
+	UINT32 randomActionCheckCounter_ = 0;
+	INT16 lastRandomAnimation_ = 0;
 };
 
 struct SoldierPendingActionRuntimeState

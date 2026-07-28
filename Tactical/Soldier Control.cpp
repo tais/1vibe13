@@ -847,8 +847,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->fireControl().bulletsLeft() = src.bBulletsLeft;
 		this->suppression().points() = src.ubSuppressionPoints;
 
-		this->uiTimeOfLastRandomAction = src.uiTimeOfLastRandomAction;
-		this->usLastRandomAnim = src.usLastRandomAnim;
+		this->animationActivity().randomActionCheckCounter() = src.uiTimeOfLastRandomAction;
+		this->animationActivity().lastRandomAnimation() = src.usLastRandomAnim;
 
 		this->animationPlayback().surface() = src.usAnimSurface;
 		this->animationPlayback().zLevel() = src.sZLevel;
