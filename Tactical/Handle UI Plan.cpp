@@ -9,22 +9,42 @@
 	#include "message.h"
 	#include "Soldier Create.h"
 	#include "SoldierRepository.h"
+	#include "TacticalEntityHost.h"
 	#include "Interface.h"
 
 UINT8						gubNumUIPlannedMoves			= 0;
-SOLDIERTYPE			*gpUIPlannedSoldier			= NULL;
-SOLDIERTYPE			*gpUIStartPlannedSoldier = NULL;
 BOOLEAN					gfInUIPlanMode					= FALSE;
 
+namespace
+{
+Ja2TacticalEntityReference gUiPlannedSoldier;
+Ja2TacticalEntityReference gUiStartPlannedSoldier;
+
+void ResetUiPlanActors() noexcept
+{
+	gUiPlannedSoldier.reset();
+	gUiStartPlannedSoldier.reset();
+}
+}
 
 void SelectPausedFireAnimation( SOLDIERTYPE *pSoldier );
 
 
-BOOLEAN BeginUIPlan( SOLDIERTYPE *pSoldier )
+BOOLEAN BeginUIPlan( TacticalEntityId actor )
 {
+	Ja2TacticalEntityReference plannedSoldier;
+	Ja2TacticalEntityReference startSoldier;
+	if (!plannedSoldier.capture(actor) ||
+		!startSoldier.capture(actor))
+	{
+		ResetUiPlanActors();
+		gfInUIPlanMode = FALSE;
+		return FALSE;
+	}
+
 	gubNumUIPlannedMoves = 0;
-	gpUIPlannedSoldier				= pSoldier;
-	gpUIStartPlannedSoldier		= pSoldier;
+	gUiPlannedSoldier = plannedSoldier;
+	gUiStartPlannedSoldier = startSoldier;
 	gfInUIPlanMode			= TRUE;
 
 	gfPlotNewMovement	= TRUE;
@@ -36,7 +56,9 @@ BOOLEAN BeginUIPlan( SOLDIERTYPE *pSoldier )
 
 BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 {
-	SOLDIERTYPE				*pPlanSoldier;
+	SOLDIERTYPE				*pPlanSoldier = NULL;
+	SOLDIERTYPE				*pUiPlannedSoldier =
+		gUiPlannedSoldier.resolve();
 	INT16					sXPos, sYPos;
 	INT16					sAPCost = 0;
 	INT8						bDirection;
@@ -44,13 +66,16 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 	SOLDIERCREATE_STRUCT		MercCreateStruct;
 	SoldierID				ubNewIndex;
 
+	if (!gfInUIPlanMode || !pUiPlannedSoldier)
+		return FALSE;
+
 	// Depeding on stance and direction facing, add guy!
 
 	// If we have a planned action here, ignore!
 
 
 	// If not OK Dest, ignore!
-	if ( !NewOKDestination( gpUIPlannedSoldier, sGridNo, FALSE, (INT8)gsInterfaceLevel ) )
+	if ( !NewOKDestination( pUiPlannedSoldier, sGridNo, FALSE, (INT8)gsInterfaceLevel ) )
 	{
 		return( FALSE );
 	}
@@ -59,27 +84,32 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 	if ( ubPlanID == UIPLAN_ACTION_MOVETO )
 	{
 		// Calculate cost to move here
-		sAPCost = PlotPath( gpUIPlannedSoldier, sGridNo, COPYROUTE, NO_PLOT, TEMPORARY, (UINT16) gpUIPlannedSoldier->movement().mode(), NOT_STEALTH, FORWARD,	gpUIPlannedSoldier->actionPoints().current() );
+		sAPCost = PlotPath( pUiPlannedSoldier, sGridNo, COPYROUTE, NO_PLOT, TEMPORARY, (UINT16) pUiPlannedSoldier->movement().mode(), NOT_STEALTH, FORWARD,	pUiPlannedSoldier->actionPoints().current() );
 		// Adjust for running if we are not already running
-		if (	gpUIPlannedSoldier->movement().mode() == RUNNING )
+		if (	pUiPlannedSoldier->movement().mode() == RUNNING )
 		{
-			sAPCost += GetAPsStartRun( gpUIPlannedSoldier ); // changed by SANDRO
+			sAPCost += GetAPsStartRun( pUiPlannedSoldier ); // changed by SANDRO
 		}
 
-		if ( EnoughPoints( gpUIPlannedSoldier, sAPCost, 0, FALSE ) )
+		if ( EnoughPoints( pUiPlannedSoldier, sAPCost, 0, FALSE ) )
 		{
 			MercCreateStruct.initialize();
 			MercCreateStruct.bTeam				= SOLDIER_CREATE_AUTO_TEAM;
 			MercCreateStruct.ubProfile		= NO_PROFILE;
 			MercCreateStruct.fPlayerPlan	= TRUE;
-			MercCreateStruct.ubBodyType		= gpUIPlannedSoldier->identity().bodyType();
+			MercCreateStruct.ubBodyType		= pUiPlannedSoldier->identity().bodyType();
 			MercCreateStruct.sInsertionGridNo		= sGridNo;
 
 			// Get Grid Corrdinates of mouse
 			if ( TacticalCreateSoldier( &MercCreateStruct, &ubNewIndex ) )
 			{
 				// Get pointer to soldier
-				GetSoldier( &pPlanSoldier, ubNewIndex );
+				if (!GetSoldier( &pPlanSoldier, ubNewIndex ) ||
+					!pPlanSoldier)
+				{
+					TacticalRemoveSoldier(ubNewIndex);
+					return FALSE;
+				}
 
 				pPlanSoldier->uiPresentation().clearPlannedTarget();
 
@@ -87,9 +117,9 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				// Set ones we don't know about but do now back to old ( ie no new guys )
 				for (iLoop = 0; iLoop < MAX_NUM_SOLDIERS; iLoop++ )
 				{
-					if ( gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ] < 0 )
+					if ( pUiPlannedSoldier->awareness().opponentKnowledge()[ iLoop ] < 0 )
 					{
-							pPlanSoldier->awareness().opponentKnowledge()[ iLoop ] = gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ];
+							pPlanSoldier->awareness().opponentKnowledge()[ iLoop ] = pUiPlannedSoldier->awareness().opponentKnowledge()[ iLoop ];
 					}
 				}
 
@@ -99,15 +129,15 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				pPlanSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
 				pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) sGridNo ); // Hopefully this code is never used anymore because the second param is now direction, not grid
 				pPlanSoldier->awareness().markVisible();
-				pPlanSoldier->movement().mode() = gpUIPlannedSoldier->movement().mode();
+				pPlanSoldier->movement().mode() = pUiPlannedSoldier->movement().mode();
 
 
-				pPlanSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
+				pPlanSoldier->actionPoints().current() = pUiPlannedSoldier->actionPoints().current() - sAPCost;
 
 				pPlanSoldier->uiPresentation().plannedActionPointCost() = (UINT8)pPlanSoldier->actionPoints().current();
 
 				// Get direction
-				bDirection = (INT8)gpUIPlannedSoldier->pathing().path()[ gpUIPlannedSoldier->pathing().pathSize() - 1 ];
+				bDirection = (INT8)pUiPlannedSoldier->pathing().path()[ pUiPlannedSoldier->pathing().pathSize() - 1 ];
 
 				// Set direction
 				pPlanSoldier->position().direction() = bDirection;
@@ -116,11 +146,17 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				// Set walking animation
 				pPlanSoldier->ChangeSoldierState( pPlanSoldier->movement().mode(), 0, FALSE );
 
+				if (!gUiPlannedSoldier.capture(
+						GetJa2TacticalEntityId(*pPlanSoldier)))
+				{
+					TacticalRemoveSoldier(
+						pPlanSoldier->identity().id());
+					return FALSE;
+				}
+				pUiPlannedSoldier = pPlanSoldier;
+
 				// Change selected soldier
 				gusSelectedSoldier = pPlanSoldier->identity().id();
-
-				// Change global planned mode to this guy!
-				gpUIPlannedSoldier = pPlanSoldier;
 
 				gubNumUIPlannedMoves++;
 
@@ -137,30 +173,35 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 	}
 	else if ( ubPlanID == UIPLAN_ACTION_FIRE )
 	{
-	sAPCost = CalcTotalAPsToAttack( gpUIPlannedSoldier, sGridNo, TRUE, (INT16)(gpUIPlannedSoldier->aiPlanning().shownAimTime() ) );
+	sAPCost = CalcTotalAPsToAttack( pUiPlannedSoldier, sGridNo, TRUE, (INT16)(pUiPlannedSoldier->aiPlanning().shownAimTime() ) );
 
 		// Get XY from Gridno
 		ConvertGridNoToCenterCellXY( sGridNo, &sXPos, &sYPos );
 
 
 		// If this is a player guy, show message about no APS
-		if ( EnoughPoints( gpUIPlannedSoldier, sAPCost, 0, FALSE ) )
+		if ( EnoughPoints( pUiPlannedSoldier, sAPCost, 0, FALSE ) )
 		{
 			// CHECK IF WE ARE A PLANNED SOLDIER OR NOT< IF SO< CREATE!
-			if ( gpUIPlannedSoldier->identity().id() < MAX_NUM_SOLDIERS )
+			if ( pUiPlannedSoldier->identity().id() < MAX_NUM_SOLDIERS )
 			{
 				MercCreateStruct.initialize();
 				MercCreateStruct.bTeam				= SOLDIER_CREATE_AUTO_TEAM;
 				MercCreateStruct.ubProfile		= NO_PROFILE;
 				MercCreateStruct.fPlayerPlan	= TRUE;
-				MercCreateStruct.ubBodyType		= gpUIPlannedSoldier->identity().bodyType();
+				MercCreateStruct.ubBodyType		= pUiPlannedSoldier->identity().bodyType();
 				MercCreateStruct.sInsertionGridNo		= sGridNo;
 
 				// Get Grid Corrdinates of mouse
 				if ( TacticalCreateSoldier( &MercCreateStruct, &ubNewIndex ) )
 				{
 					// Get pointer to soldier
-					GetSoldier( &pPlanSoldier, ubNewIndex );
+					if (!GetSoldier( &pPlanSoldier, ubNewIndex ) ||
+						!pPlanSoldier)
+					{
+						TacticalRemoveSoldier(ubNewIndex);
+						return FALSE;
+					}
 
 					pPlanSoldier->uiPresentation().clearPlannedTarget();
 
@@ -168,24 +209,24 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					// Set ones we don't know about but do now back to old ( ie no new guys )
 					for (iLoop = 0; iLoop < MAX_NUM_SOLDIERS; iLoop++ )
 					{
-						if ( gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ] < 0 )
+						if ( pUiPlannedSoldier->awareness().opponentKnowledge()[ iLoop ] < 0 )
 						{
-								pPlanSoldier->awareness().opponentKnowledge()[ iLoop ] = gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ];
+								pPlanSoldier->awareness().opponentKnowledge()[ iLoop ] = pUiPlannedSoldier->awareness().opponentKnowledge()[ iLoop ];
 						}
 					}
 
-					pPlanSoldier->EVENT_SetSoldierPosition( gpUIPlannedSoldier->position().worldX(), gpUIPlannedSoldier->position().worldY() );
-					pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) gpUIPlannedSoldier->position().gridNo() );
+					pPlanSoldier->EVENT_SetSoldierPosition( pUiPlannedSoldier->position().worldX(), pUiPlannedSoldier->position().worldY() );
+					pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) pUiPlannedSoldier->position().gridNo() );
 					pPlanSoldier->awareness().markVisible();
-					pPlanSoldier->movement().mode() = gpUIPlannedSoldier->movement().mode();
+					pPlanSoldier->movement().mode() = pUiPlannedSoldier->movement().mode();
 
 
-					pPlanSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
+					pPlanSoldier->actionPoints().current() = pUiPlannedSoldier->actionPoints().current() - sAPCost;
 
 					pPlanSoldier->uiPresentation().plannedActionPointCost() = (UINT8)pPlanSoldier->actionPoints().current();
 
 					// Get direction
-					bDirection = (INT8)gpUIPlannedSoldier->pathing().path()[ gpUIPlannedSoldier->pathing().pathSize() - 1 ];
+					bDirection = (INT8)pUiPlannedSoldier->pathing().path()[ pUiPlannedSoldier->pathing().pathSize() - 1 ];
 
 					// Set direction
 					pPlanSoldier->position().direction() = bDirection;
@@ -194,11 +235,17 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					// Set walking animation
 					pPlanSoldier->ChangeSoldierState( pPlanSoldier->movement().mode(), 0, FALSE );
 
+					if (!gUiPlannedSoldier.capture(
+							GetJa2TacticalEntityId(*pPlanSoldier)))
+					{
+						TacticalRemoveSoldier(
+							pPlanSoldier->identity().id());
+						return FALSE;
+					}
+					pUiPlannedSoldier = pPlanSoldier;
+
 					// Change selected soldier
 					gusSelectedSoldier = pPlanSoldier->identity().id();
-
-					// Change global planned mode to this guy!
-					gpUIPlannedSoldier = pPlanSoldier;
 
 					gubNumUIPlannedMoves++;
 				}
@@ -206,23 +253,23 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 
 			}
 
-			gpUIPlannedSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
+			pUiPlannedSoldier->actionPoints().current() = pUiPlannedSoldier->actionPoints().current() - sAPCost;
 
-			gpUIPlannedSoldier->uiPresentation().plannedActionPointCost() = (UINT8)gpUIPlannedSoldier->actionPoints().current();
+			pUiPlannedSoldier->uiPresentation().plannedActionPointCost() = (UINT8)pUiPlannedSoldier->actionPoints().current();
 
 			// Get direction from gridno
-			bDirection = GetDirectionFromGridNo( sGridNo, gpUIPlannedSoldier );
+			bDirection = GetDirectionFromGridNo( sGridNo, pUiPlannedSoldier );
 
 			// Set direction
-			gpUIPlannedSoldier->position().direction() = bDirection;
-			gpUIPlannedSoldier->pathing().desiredDirection() = bDirection;
+			pUiPlannedSoldier->position().direction() = bDirection;
+			pUiPlannedSoldier->pathing().desiredDirection() = bDirection;
 
 			// Set to shooting animation
-			SelectPausedFireAnimation( gpUIPlannedSoldier );
+			SelectPausedFireAnimation( pUiPlannedSoldier );
 
-			gpUIPlannedSoldier->uiPresentation().setPlannedTarget(
+			pUiPlannedSoldier->uiPresentation().setPlannedTarget(
 				sXPos, sYPos,
-				gpUIPlannedSoldier->uiPresentation().plannedActionPointCost());
+				pUiPlannedSoldier->uiPresentation().plannedActionPointCost());
 
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Adding Merc Shoot to Plan" );
 
@@ -240,6 +287,8 @@ void EndUIPlan(	)
 {
 	int				cnt;
 	SOLDIERTYPE *pSoldier;
+	SOLDIERTYPE *pStartSoldier =
+		gUiStartPlannedSoldier.resolve();
 
 	// Zero out any planned soldiers
 	//FIXME
@@ -260,7 +309,11 @@ void EndUIPlan(	)
 
 	}
 	gfInUIPlanMode			= FALSE;
-	gusSelectedSoldier	= gpUIStartPlannedSoldier->identity().id();
+	gubNumUIPlannedMoves = 0;
+	ResetUiPlanActors();
+	gusSelectedSoldier = pStartSoldier
+		? pStartSoldier->identity().id()
+		: NOBODY;
 
 	gfPlotNewMovement	= TRUE;
 

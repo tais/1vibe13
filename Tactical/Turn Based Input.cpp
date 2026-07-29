@@ -154,8 +154,6 @@ extern DragSelection	gDragSelection;
 extern  MOUSE_REGION    gMPanelRegion;
 
 extern UINT32 guiNewUICursor;
-extern SOLDIERTYPE *pTMilitiaSoldier;
-
 void HandleTalkingMenuKeys( InputAtom *pInputEvent, UINT32 *puiNewEvent );
 void HandleMenuKeys( InputAtom *pInputEvent, UINT32 *puiNewEvent );
 void HandleItemMenuKeys( InputAtom *pInputEvent, UINT32 *puiNewEvent );
@@ -5452,16 +5450,20 @@ void TogglePlanningMode()
 				if ( gusSelectedSoldier != NOBODY )
 				{
 					GetSoldier( &pSoldier, gusSelectedSoldier );
-					BeginUIPlan( pSoldier );
-					AddUIPlan( usMapPos, UIPLAN_ACTION_MOVETO );
+					if (pSoldier &&
+						BeginUIPlan(
+							GetJa2TacticalEntityId(*pSoldier)))
+						AddUIPlan( usMapPos, UIPLAN_ACTION_MOVETO );
 				}
 				break;
 			case ACTION_MODE:
 				if ( gusSelectedSoldier != NOBODY )
 				{
 					GetSoldier( &pSoldier, gusSelectedSoldier );
-					BeginUIPlan( pSoldier );
-					AddUIPlan( usMapPos, UIPLAN_ACTION_FIRE );
+					if (pSoldier &&
+						BeginUIPlan(
+							GetJa2TacticalEntityId(*pSoldier)))
+						AddUIPlan( usMapPos, UIPLAN_ACTION_FIRE );
 				}
 				break;
 			}
@@ -5850,55 +5852,58 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( SOLDIERTYPE *pSoldier, UINT
 void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent)
 {
 	SOLDIERTYPE * pSoldier = NULL;
+	SOLDIERTYPE * pMilitiaSoldier =
+		ResolveMilitiaControlTarget();
 	GetSoldier(&pSoldier, gusSelectedSoldier);
 
 	if (pSoldier &&
-		pTMilitiaSoldier &&
-		pTMilitiaSoldier->roster().active() &&
-		pTMilitiaSoldier->roster().inSector() &&
-		pTMilitiaSoldier->vitals().health() >= OKLIFE)
+		pMilitiaSoldier &&
+		pMilitiaSoldier->roster().active() &&
+		pMilitiaSoldier->roster().inSector() &&
+		pMilitiaSoldier->vitals().health() >= OKLIFE)
 	{
 		INT32 sMoveSpot = usMapPos;
 		BOOLEAN fClimbingNecessary;
 		INT32 sClimbSpot;
-		INT32 iPathCost = EstimatePathCostToLocation(pTMilitiaSoldier, sMoveSpot, (INT8)gsInterfaceLevel, FALSE, &fClimbingNecessary, &sClimbSpot);
+		INT32 iPathCost = EstimatePathCostToLocation(pMilitiaSoldier, sMoveSpot, (INT8)gsInterfaceLevel, FALSE, &fClimbingNecessary, &sClimbSpot);
 
 		// See if we can get there
 		if (iPathCost > 0)
 		{
 			// sevenfm: change from stationary/patrol etc
-			pTMilitiaSoldier->aiBehavior().orders() = STATIONARY;
-			pTMilitiaSoldier->aiBehavior().attitude() = DEFENSIVE;
+			pMilitiaSoldier->aiBehavior().orders() = STATIONARY;
+			pMilitiaSoldier->aiBehavior().attitude() = DEFENSIVE;
 
 			// sevenfm: set this spot as original point
-			pTMilitiaSoldier->aiPlanning().patrolGrid()[0] = sMoveSpot;
+			pMilitiaSoldier->aiPlanning().patrolGrid()[0] = sMoveSpot;
 
-			CancelAIAction(pTMilitiaSoldier, TRUE);
+			CancelAIAction(pMilitiaSoldier, TRUE);
 			if (fClimbingNecessary)
 			{
-				pTMilitiaSoldier->aiPlanning().nextAction() = AI_ACTION_MOVE_TO_CLIMB;
-				pTMilitiaSoldier->aiPlanning().nextActionData() = sClimbSpot;
-				pTMilitiaSoldier->movement().absoluteDestination() = sMoveSpot;
+				pMilitiaSoldier->aiPlanning().nextAction() = AI_ACTION_MOVE_TO_CLIMB;
+				pMilitiaSoldier->aiPlanning().nextActionData() = sClimbSpot;
+				pMilitiaSoldier->movement().absoluteDestination() = sMoveSpot;
 
-				BeginMultiPurposeLocator(sClimbSpot, pTMilitiaSoldier->position().level(), FALSE);
+				BeginMultiPurposeLocator(sClimbSpot, pMilitiaSoldier->position().level(), FALSE);
 			}
 			else
 			{
-				pTMilitiaSoldier->aiPlanning().nextAction() = AI_ACTION_SEEK_OPPONENT;
-				pTMilitiaSoldier->aiPlanning().nextActionData() = sMoveSpot;
+				pMilitiaSoldier->aiPlanning().nextAction() = AI_ACTION_SEEK_OPPONENT;
+				pMilitiaSoldier->aiPlanning().nextActionData() = sMoveSpot;
 
-				BeginMultiPurposeLocator(sMoveSpot, pTMilitiaSoldier->position().level(), FALSE);
+				BeginMultiPurposeLocator(sMoveSpot, pMilitiaSoldier->position().level(), FALSE);
 			}
-			pTMilitiaSoldier->timing().start(SoldierTimingComponent::Timer::Ai, 100);
+			pMilitiaSoldier->timing().start(SoldierTimingComponent::Timer::Ai, 100);
 
-			//pTMilitiaSoldier->featureFlags().primaryFlags() |= SOLDIER_MILITIA_ORDER;
+			//pMilitiaSoldier->featureFlags().primaryFlags() |= SOLDIER_MILITIA_ORDER;
 		}
 		else
 		{
-			pTMilitiaSoldier->DoMercBattleSound(BATTLE_SOUND_CURSE1);
+			pMilitiaSoldier->DoMercBattleSound(BATTLE_SOUND_CURSE1);
 		}
 	}
 
+	ClearMilitiaControlTarget();
 	*puiNewEvent = A_CHANGE_TO_MOVE;
 
 	return;
@@ -6141,12 +6146,18 @@ void HandleHandCursorRightClick( INT32 usMapPos, UINT32 *puiNewEvent )
 				{
 					if( pSoldier->deployment().vehicleId() == pTSoldier->vehicleState().tacticalVehicleId() )
 					{
-						VehicleMenu(usMapPos, pSoldier, pTSoldier);
+						VehicleMenu(
+							usMapPos,
+							GetJa2TacticalEntityId(*pSoldier),
+							GetJa2TacticalEntityId(*pTSoldier));
 					}
 				}
 				else
 				{
-					VehicleMenu(usMapPos, pSoldier, pTSoldier);
+					VehicleMenu(
+						usMapPos,
+						GetJa2TacticalEntityId(*pSoldier),
+						GetJa2TacticalEntityId(*pTSoldier));
 				}
 				return;
 			}
@@ -6721,8 +6732,22 @@ void PopupAssignmentMenuInTactical( SOLDIERTYPE *pSoldier )
 }
 
 //lal
-void PopupMilitiaControlMenu( SOLDIERTYPE *pSoldier )
+void PopupMilitiaControlMenu( TacticalEntityId actor )
 {
+	if (!CaptureMilitiaControlTarget(actor))
+	{
+		fShowMilitiaControlMenu = FALSE;
+		return;
+	}
+	SOLDIERTYPE *pSoldier =
+		ResolveMilitiaControlTarget();
+	if (!pSoldier)
+	{
+		ClearMilitiaControlTarget();
+		fShowMilitiaControlMenu = FALSE;
+		return;
+	}
+
 	// do something
 	fShowMilitiaControlMenu = TRUE;
 	CreateDestroyMilitiaControlPopUpBoxes( );

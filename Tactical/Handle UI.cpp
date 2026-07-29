@@ -780,6 +780,11 @@ UINT32	HandleTacticalUI( void )
 		gOldUIMode = gCurrentUIMode;
 
 		gCurrentUIMode = gEvents[ uiNewEvent ].ChangeToUIMode;
+		if (gOldUIMode == RADIOCURSOR_MODE &&
+			gCurrentUIMode != RADIOCURSOR_MODE)
+		{
+			ClearMilitiaControlTarget();
+		}
 
 		// CHANGE MODE - DO SPECIAL THINGS IF WE ENTER THIS MODE
 		switch( gCurrentUIMode )

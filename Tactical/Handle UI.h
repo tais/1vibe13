@@ -1,6 +1,8 @@
 #ifndef _HANDLE_UI_
 #define _HANDLE_UI_
 
+#include <Engine/Adapters/JA2/TacticalEntity.h>
+
 #include "input.h"
 #include "Soldier Control.h"
 
@@ -368,7 +370,7 @@ void GotoHeigherStance( SOLDIERTYPE *pSoldier );
 BOOLEAN IsValidJumpLocation( SOLDIERTYPE *pSoldier, INT32 sGridNo , BOOLEAN fCheckForPath);
 
 void PopupAssignmentMenuInTactical( SOLDIERTYPE *pSoldier );
-void PopupMilitiaControlMenu( SOLDIERTYPE *pSoldier ); //lal
+void PopupMilitiaControlMenu( TacticalEntityId actor ); //lal
 
 void PreventFromTheFreezingBug(SOLDIERTYPE* pSoldier);
 

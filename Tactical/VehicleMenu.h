@@ -1,6 +1,8 @@
 #ifndef _VEHICLE_MENU_
 #define _VEHICLE_MENU_
 
+#include <Engine/Adapters/JA2/TacticalEntity.h>
+
 #include "popup_class.h"
 #include "Soldier Profile.h"
 
@@ -80,6 +82,9 @@ private:
 };
 
 
-void VehicleMenu( INT32 usMapPos, SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVehicle );
+void VehicleMenu(
+	INT32 usMapPos,
+	TacticalEntityId actor,
+	TacticalEntityId vehicle );
 
 #endif

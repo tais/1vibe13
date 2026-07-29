@@ -23,13 +23,46 @@ extern INT16 gsInterfaceLevel;
 UINT16 usVehicleMenuPosX = 0;
 UINT16 usVehicleMenuPosY = 0;
 
-INT32	sVehicleMenuTargetGridNo = NOWHERE;
+namespace
+{
+struct VehicleMenuContext
+{
+	Ja2TacticalEntityReference actor;
+	Ja2TacticalEntityReference vehicle;
+	INT32 targetGrid = NOWHERE;
 
-SOLDIERTYPE *pCurrentSoldier = NULL;
-SOLDIERTYPE *pCurrentVehicle = NULL;
+	bool capture(
+		TacticalEntityId selectedActor,
+		TacticalEntityId selectedVehicle,
+		INT32 selectedTargetGrid) noexcept
+	{
+		reset();
+		Ja2TacticalEntityReference capturedActor;
+		Ja2TacticalEntityReference capturedVehicle;
+		if (!capturedActor.capture(selectedActor) ||
+			!capturedVehicle.capture(selectedVehicle) ||
+			capturedActor.identity() == capturedVehicle.identity())
+			return false;
+		actor = capturedActor;
+		vehicle = capturedVehicle;
+		targetGrid = selectedTargetGrid;
+		return true;
+	}
+
+	void reset() noexcept
+	{
+		actor.reset();
+		vehicle.reset();
+		targetGrid = NOWHERE;
+	}
+};
+
+VehicleMenuContext gVehicleMenuContext;
+}
 
 void HideVehicleMenu( void )
 {
+	gVehicleMenuContext.reset();
 	// Dirty!
 	fMapPanelDirty = TRUE;
 }
@@ -63,17 +96,30 @@ VehicleSelection::Setup( UINT32 aVal )
 {
 	Destroy();
 
+	SOLDIERTYPE* pCurrentSoldier =
+		gVehicleMenuContext.actor.resolve();
+	SOLDIERTYPE* pCurrentVehicle =
+		gVehicleMenuContext.vehicle.resolve();
 	if ( pCurrentSoldier == NULL )
+	{
+		gVehicleMenuContext.reset();
 		return;
+	}
 
 	if ( pCurrentVehicle == NULL )
+	{
+		gVehicleMenuContext.reset();
 		return;
+	}
 
 	const INT32 bVehicleID = pCurrentVehicle->vehicleState().tacticalVehicleId();
 	const INT32 iSeatingCapacity =
 		GetVehicleSeatingCapacity( bVehicleID );
 	if ( iSeatingCapacity == 0 )
+	{
+		gVehicleMenuContext.reset();
 		return;
+	}
 	const INT8 bSeatIndex = GetSeatIndexFromSoldier( pCurrentSoldier );
 
 	SetupPopup("VehicleSelection");
@@ -86,7 +132,7 @@ VehicleSelection::Setup( UINT32 aVal )
 	{
 		swprintf( pStr, gNewVehicle[ pVehicleList[ bVehicleID ].ubVehicleType ].VehicleSeats[i].zSeatName );
 
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Function_VehicleSelection, i ));
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Function_VehicleSelection, i ));
 
 		// if seat is already taken, grey it out
 		if ( pVehicleList[ bVehicleID ].pPassengers[ i ] != NULL )
@@ -130,12 +176,12 @@ VehicleSelection::Setup( UINT32 aVal )
 
 	// cancel option
 	swprintf( pStr, pSkillMenuStrings[SKILLMENU_CANCEL] );
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_VehicleSelection, 0 ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_VehicleSelection, 0 ) );
 	GetPopup()->addOption( *pOption );
 		
 	// grab soldier's x,y screen position
 	INT16 sX, sY;
-	GetGridNoScreenPos( sVehicleMenuTargetGridNo, (UINT8)gsInterfaceLevel, &sX, &sY );
+	GetGridNoScreenPos( gVehicleMenuContext.targetGrid, (UINT8)gsInterfaceLevel, &sX, &sY );
 		
 	if( sX < 0 ) sX = 0;
 	if( sY < 0 ) sY = 0;
@@ -159,6 +205,10 @@ VehicleSelection::Functions( UINT32 aVal  )
 	UINT8 ubDirection;
 	INT16 sAPCost = 0;
 	INT32 sTempSelectedSoldier;
+	SOLDIERTYPE* pCurrentSoldier =
+		gVehicleMenuContext.actor.resolve();
+	SOLDIERTYPE* pCurrentVehicle =
+		gVehicleMenuContext.vehicle.resolve();
 
 	Cancel();
 
@@ -228,10 +278,14 @@ VehicleSelection::Functions( UINT32 aVal  )
 }
 /////////////////////////////// Vehicle Selection ////////////////////////////////////////////
 
-void VehicleMenu( INT32 usMapPos, SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVehicle )
+void VehicleMenu(
+	INT32 usMapPos,
+	TacticalEntityId actor,
+	TacticalEntityId vehicle )
 {
-	sVehicleMenuTargetGridNo = usMapPos;
-	pCurrentSoldier = pSoldier;
-	pCurrentVehicle = pVehicle;
+	gVehicleSelection.Destroy();
+	if (!gVehicleMenuContext.capture(
+			actor, vehicle, usMapPos))
+		return;
 	gVehicleSelection.Setup(0);
 }

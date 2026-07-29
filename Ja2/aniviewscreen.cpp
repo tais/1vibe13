@@ -17,7 +17,7 @@
 #include "Sys Globals.h"
 #include "english.h"
 #include "MessageBoxScreen.h"
-#include "SoldierRepository.h"
+#include "TacticalEntityHost.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -30,7 +30,7 @@ void BuildListFile( );
 BOOLEAN	gfAniEditMode = FALSE;
 static UINT16		usStartAnim = 0;
 static UINT8		ubStartHeight = 0;
-static SOLDIERTYPE *pSoldier;
+static Ja2TacticalEntityReference gAniEditSoldier;
 
 static BOOLEAN fOKFiles = FALSE;
 static UINT8	 ubNumStates = 0;
@@ -40,6 +40,9 @@ static INT8   ubCurLoadedState = 0;
 static void CycleAnimations( )
 {
 	INT32 cnt;
+	SOLDIERTYPE* pSoldier = gAniEditSoldier.resolve();
+	if (!pSoldier)
+		return;
 
 	// FInd the next animation with start height the same...
 	for ( cnt = usStartAnim + 1; cnt < NUMANIMATIONSTATES; cnt++ )
@@ -68,7 +71,7 @@ UINT32 AniEditScreenInit(void)
 
 UINT32 AniEditScreenShutdown(void)
 {
-
+	gAniEditSoldier.reset();
 	return TRUE;
 }
 
@@ -81,6 +84,22 @@ UINT32  AniEditScreenHandle(void)
 	static UINT16			usOldState;
 	static BOOLEAN		fToggle = FALSE;
 	static BOOLEAN		fToggle2 = FALSE;
+	SOLDIERTYPE* pSoldier = NULL;
+
+	auto leaveAniEditScreen = [&]()
+	{
+		fFirstTime = TRUE;
+		gfAniEditMode = FALSE;
+		fFirstTimeInGameScreen = TRUE;
+		gTacticalStatus.uiFlags &= (~LOADING_SAVED_GAME);
+		gAniEditSoldier.reset();
+		if ( fOKFiles )
+		{
+			MemFree( pusStates );
+			pusStates = NULL;
+		}
+		fOKFiles = FALSE;
+	};
 
 //	EV_S_SETPOSITION SSetPosition;
 
@@ -97,7 +116,20 @@ UINT32  AniEditScreenHandle(void)
 		fToggle2   = FALSE;
 		ubCurLoadedState = 0;
 
-		pSoldier = GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+		if (gusSelectedSoldier == NOBODY ||
+			!gAniEditSoldier.capture(
+				GetJa2TacticalEntityId(
+					gusSelectedSoldier.i)))
+		{
+			leaveAniEditScreen();
+			return GAME_SCREEN;
+		}
+		pSoldier = gAniEditSoldier.resolve();
+		if (!pSoldier)
+		{
+			leaveAniEditScreen();
+			return GAME_SCREEN;
+		}
 
 		gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;
 
@@ -105,6 +137,15 @@ UINT32  AniEditScreenHandle(void)
 
 		BuildListFile( );
 
+	}
+	else
+	{
+		pSoldier = gAniEditSoldier.resolve();
+		if (!pSoldier)
+		{
+			leaveAniEditScreen();
+			return GAME_SCREEN;
+		}
 	}
 
 
@@ -170,21 +211,7 @@ UINT32  AniEditScreenHandle(void)
   {
     if ((InputEvent.usEvent == KEY_DOWN)&&(InputEvent.usParam == ESC))
     {
-			 fFirstTime = TRUE;
-
-			 gfAniEditMode = FALSE;
-
-	  	 fFirstTimeInGameScreen = TRUE;
-
-			 gTacticalStatus.uiFlags &= (~LOADING_SAVED_GAME);
-
-			 if ( fOKFiles )
-			 {
-					 MemFree( pusStates );
-			 }
-
-			 fOKFiles = FALSE;
-
+			 leaveAniEditScreen();
 			 return( GAME_SCREEN );
     }
 

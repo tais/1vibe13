@@ -621,8 +621,6 @@ extern STR16 pBullseyeStrings[];
 
 extern OBJECTTYPE	*gpItemDescObject;
 
-extern SOLDIERTYPE *pProcessingSoldier;
-
 // faces stuff
 extern FACETYPE	*gpCurrentTalkingFace;
 

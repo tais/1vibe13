@@ -106,6 +106,7 @@
 #include "interface Dialogue.h"
 #include "Assignments.h"
 #include "Merc Contract.h"
+#include "Militia Control.h"
 #include "PreBattle Interface.h"
 #include "Game Clock.h"
 #include "Game Events.h"
@@ -4862,7 +4863,10 @@ int main( int, char** )
 			!GetContractRehireSoldier() &&
 			!CaptureTacticalTraversalChosenSoldier(
 				TacticalEntityId{} ) &&
-			!ResolveTacticalTraversalChosenSoldier();
+			!ResolveTacticalTraversalChosenSoldier() &&
+			!CaptureMilitiaControlTarget(
+				TacticalEntityId{} ) &&
+			!ResolveMilitiaControlTarget();
 		const bool dialogueDestinationCaptured =
 			SetDialogueDestinationSoldier( worldActorIdentity ) &&
 			GetDialogueDestinationSoldier() == &worldActor;
@@ -4873,6 +4877,10 @@ int main( int, char** )
 			CaptureTacticalTraversalChosenSoldier(
 				worldActorIdentity ) &&
 			ResolveTacticalTraversalChosenSoldier() == &worldActor;
+		const bool militiaControlActorCaptured =
+			CaptureMilitiaControlTarget(
+				worldActorIdentity ) &&
+			ResolveMilitiaControlTarget() == &worldActor;
 		SOLDIERTYPE* consumedCallbackActor =
 			liveCallbackActor.consume();
 		Ja2TacticalEntityReference releasedCallbackActor;
@@ -4934,6 +4942,8 @@ int main( int, char** )
 			GetContractRehireSoldier() == nullptr;
 		const bool releasedTraversalActorRejected =
 			ResolveTacticalTraversalChosenSoldier() == nullptr;
+		const bool releasedMilitiaControlActorRejected =
+			ResolveMilitiaControlTarget() == nullptr;
 		const bool releasedInventoryUiActorsRejected =
 			HasJa2TacticalInventoryActorContext(
 				TacticalInventoryActorRole::SelectedMerc) &&
@@ -4957,12 +4967,15 @@ int main( int, char** )
 			!GetItemPopupSoldier() &&
 			!GetItemPickupActor() &&
 			!GetItemPickupOpponent();
+		const bool replacementMilitiaControlActorRejected =
+			ResolveMilitiaControlTarget() == nullptr;
 		const bool replacementInventoryActorReleased =
 			ReleaseJa2TacticalEntity( worldActor );
 		ResetTacticalInventoryUiActorContexts();
 		worldActor.identity().incarnation() = 701;
 		ResetMercContractActorContexts();
 		ResetTacticalTraversalContext();
+		ClearMilitiaControlTarget();
 		const bool callbackActorReadopted =
 			AdoptJa2TacticalEntity( worldActor );
 		CHECK( callbackActorCaptured &&
@@ -4978,6 +4991,8 @@ int main( int, char** )
 		       releasedContractRehireRejected &&
 		       traversalActorCaptured &&
 		       releasedTraversalActorRejected &&
+		       militiaControlActorCaptured &&
+		       releasedMilitiaControlActorRejected &&
 		       detachedInventoryActorRejected &&
 		       emptyInventoryActorCopied &&
 		       invalidInventoryActorRoleRejected &&
@@ -4986,6 +5001,7 @@ int main( int, char** )
 		       releasedInventoryUiActorsRejected &&
 		       replacementInventoryActorAdopted &&
 		       replacementInventoryActorRejected &&
+		       replacementMilitiaControlActorRejected &&
 		       replacementInventoryActorReleased &&
 		       callbackActorReadopted,
 		       "inventory UI producers retain exact actor identities and delayed consumers reject released or reused incarnations" );

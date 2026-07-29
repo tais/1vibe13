@@ -210,7 +210,6 @@ INT8						gbDefaultDirection							= NORTHWEST;
 INT8						gubSoldierClass							= SOLDIER_CLASS_ARMY;
 UINT8						gubCivGroup											= NON_CIV_GROUP;
 
-SOLDIERTYPE			*pTempSoldier;
 BOOLEAN					gfRoofPlacement;
 
 //Below are all flags that have to do with editing detailed placement mercs:

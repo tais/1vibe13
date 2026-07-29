@@ -23202,7 +23202,6 @@ void AbandonBoxingDueToSurrenderCallback(UINT8 ubExitValue)
 	}
 }
 
-SOLDIERTYPE				*pTMilitiaSoldier;//global pointer
 BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fValidate )
 {
 	INT16		sFacingDir, sXPos, sYPos, sAPCost;
@@ -23263,8 +23262,6 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 		this->EVENT_StopMerc( this->position().gridNo(), this->position().direction() );
 	}
 
-	pTMilitiaSoldier = pTSoldier; //lal
-
 	//lal
 	// ATE; Check for normal civs...
 
@@ -23273,7 +23270,8 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 		//lal
 		if ( (pTSoldier->roster().team() == MILITIA_TEAM) && (gGameExternalOptions.fAllowTacticalMilitiaCommand == TRUE) && (this->roster().side() == pTSoldier->roster().side()) )
 		{
-			PopupMilitiaControlMenu( pTSoldier );
+			PopupMilitiaControlMenu(
+				GetJa2TacticalEntityId(*pTSoldier));
 			return(FALSE);
 		}
 		else

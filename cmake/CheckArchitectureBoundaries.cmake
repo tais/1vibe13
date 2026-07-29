@@ -1458,6 +1458,142 @@ foreach(delayed_actor_callback_file IN LISTS delayed_actor_callback_files)
   endif()
 endforeach()
 
+# Interactive tactical sessions and application tools may span frames or modal
+# callbacks just like delayed dialogue. Keep their former process-global actor
+# pointers retired, require ID-only producer boundaries, and keep synthetic
+# records out of dialogue APIs.
+set(global_actor_session_files
+  "${SOURCE_ROOT}/Tactical/Handle UI Plan.cpp"
+  "${SOURCE_ROOT}/Tactical/Handle UI Plan.h"
+  "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  "${SOURCE_ROOT}/Tactical/Handle UI.h"
+  "${SOURCE_ROOT}/Tactical/Militia Control.cpp"
+  "${SOURCE_ROOT}/Tactical/Militia Control.h"
+  "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
+  "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
+  "${SOURCE_ROOT}/Tactical/VehicleMenu.cpp"
+  "${SOURCE_ROOT}/Tactical/VehicleMenu.h"
+  "${SOURCE_ROOT}/Tactical/PATHAI.cpp"
+  "${SOURCE_ROOT}/Tactical/Points.cpp"
+  "${SOURCE_ROOT}/Tactical/Points.h"
+  "${SOURCE_ROOT}/Tactical/Air Raid.cpp"
+  "${SOURCE_ROOT}/Strategic/Quest Debug System.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Helicopter.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface Map.cpp"
+  "${SOURCE_ROOT}/Strategic/Strategic Merc Handler.cpp"
+  "${SOURCE_ROOT}/Strategic/Assignments.cpp"
+  "${SOURCE_ROOT}/Strategic/mapscreen.cpp"
+  "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  "${SOURCE_ROOT}/Ja2/aniviewscreen.cpp"
+  "${SOURCE_ROOT}/Editor/EditorMercs.cpp")
+set(retired_global_actor_session_names
+  gpUIPlannedSoldier
+  gpUIStartPlannedSoldier
+  pTMilitiaSoldier
+  gTalkingMercSoldier
+  gpPathingBackpackCacheSoldier
+  gpRaidSoldier
+  pSkyRider
+  SoldierSkyRider
+  pProcessingSoldier
+  fProcessingAMerc
+  pTempSoldier)
+set(global_actor_session_surface "")
+foreach(global_actor_session_file IN LISTS global_actor_session_files)
+  file(READ "${global_actor_session_file}"
+    global_actor_session_contents)
+  string(APPEND global_actor_session_surface
+    "\n${global_actor_session_contents}")
+  foreach(retired_global_actor_session_name
+      IN LISTS retired_global_actor_session_names)
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${retired_global_actor_session_name}([^A-Za-z0-9_]|$)"
+      retired_global_actor_session
+      "${global_actor_session_contents}")
+    if(retired_global_actor_session)
+      message(FATAL_ERROR
+        "Retired global actor session '${retired_global_actor_session_name}' returned in ${global_actor_session_file}")
+    endif()
+  endforeach()
+endforeach()
+
+set(stable_actor_session_headers
+  "${SOURCE_ROOT}/Tactical/Handle UI Plan.h"
+  "${SOURCE_ROOT}/Tactical/Handle UI.h"
+  "${SOURCE_ROOT}/Tactical/Militia Control.h"
+  "${SOURCE_ROOT}/Tactical/VehicleMenu.h"
+  "${SOURCE_ROOT}/Tactical/Points.h")
+set(stable_actor_session_producers
+  BeginUIPlan
+  PopupMilitiaControlMenu
+  CaptureMilitiaControlTarget
+  VehicleMenu
+  BeginPathingBackpackCache)
+set(stable_actor_session_header_surface "")
+foreach(stable_actor_session_header IN LISTS stable_actor_session_headers)
+  file(READ "${stable_actor_session_header}"
+    stable_actor_session_header_contents)
+  string(APPEND stable_actor_session_header_surface
+    "\n${stable_actor_session_header_contents}")
+  foreach(stable_actor_session_producer
+      IN LISTS stable_actor_session_producers)
+    string(REGEX MATCH
+      "${stable_actor_session_producer}[ \t\r\n]*\\([^\\)]*SOLDIERTYPE"
+      raw_actor_session_producer
+      "${stable_actor_session_header_contents}")
+    if(raw_actor_session_producer)
+      message(FATAL_ERROR
+        "Actor-session producer '${stable_actor_session_producer}' exposes SOLDIERTYPE in ${stable_actor_session_header}")
+    endif()
+  endforeach()
+endforeach()
+foreach(stable_actor_session_producer
+    IN LISTS stable_actor_session_producers)
+  string(REGEX MATCH
+    "${stable_actor_session_producer}[ \t\r\n]*\\([^\\)]*TacticalEntityId"
+    stable_actor_session_producer_found
+    "${stable_actor_session_header_surface}")
+  if(NOT stable_actor_session_producer_found)
+    message(FATAL_ERROR
+      "Actor-session producer '${stable_actor_session_producer}' lost its TacticalEntityId boundary")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Helicopter.cpp"
+  helicopter_dialogue_contents)
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Map.cpp"
+  helicopter_map_dialogue_contents)
+string(REGEX MATCH
+  "HeliCharacterDialogue[ \t\r\n]*\\([^\\)]*SOLDIERTYPE"
+  synthetic_helicopter_dialogue_actor
+  "${helicopter_dialogue_contents};${helicopter_map_dialogue_contents}")
+if(synthetic_helicopter_dialogue_actor)
+  message(FATAL_ERROR
+    "Helicopter dialogue regained a synthetic SOLDIERTYPE argument")
+endif()
+
+foreach(required_actor_session_fragment IN ITEMS
+    "Ja2TacticalEntityReference[ \t]+gUiPlannedSoldier"
+    "VehicleMenuContext[ \t]+gVehicleMenuContext"
+    "Ja2TacticalEntityReference[ \t]+gMilitiaControlTarget"
+    "BOOLEAN[ \t]+gfMilitiaControlTargetPendingMove"
+    "TacticalEntityId[ \t]+gPathingBackpackCacheActor"
+    "Ja2TacticalEntityReference[ \t]+gQdsTalkingMerc"
+    "Ja2TacticalEntityReference[ \t]+gAniEditSoldier"
+    "SoldierID[ \t]+gRaidSoldierSlot")
+  set(actor_session_fragment_found FALSE)
+  string(REGEX MATCH "${required_actor_session_fragment}"
+    actor_session_fragment
+    "${global_actor_session_surface}")
+  if(actor_session_fragment)
+    set(actor_session_fragment_found TRUE)
+  endif()
+  if(NOT actor_session_fragment_found)
+    message(FATAL_ERROR
+      "Stable actor-session ownership lost required fragment '${required_actor_session_fragment}'")
+  endif()
+endforeach()
+
 # Merc departure prompts and contract-screen transitions retain stable actor
 # incarnations. The save game continues to carry the legacy soldier slot, but
 # save/load code must pass that slot through the resolving contract boundary.
@@ -11604,7 +11740,7 @@ foreach(ui_presentation_runtime_fragment IN ITEMS
   "soldier->uiPresentation().startLocator(locateCycles);"
   "pSoldier->uiPresentation().setPanelFacePosition("
   "pPlanSoldier->uiPresentation().clearPlannedTarget();"
-  "gpUIPlannedSoldier->uiPresentation().setPlannedTarget("
+  "pUiPlannedSoldier->uiPresentation().setPlannedTarget("
   "pSoldier->uiPresentation().hasPlannedTarget()"
   "plannedSoldier->uiPresentation().hasPlannedTarget()")
   string(FIND

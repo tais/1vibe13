@@ -258,6 +258,11 @@ timer producers cross the canonical-record adapter before retaining an actor.
 Legacy callback bodies may resolve that identity at the point of use, but cannot
 store or recapture the originating `SOLDIERTYPE*`. This is application-only,
 runtime state and does not extend the package API or any persistent format.
+Planning mode, vehicle and militia menus, debug dialogue, and the animation
+viewer use that same ID-only ingress. Search-scoped pathing cache state stores
+the identity value rather than its record address. Synthetic systems that do
+not represent live entities, such as the fixed air-raid attacker, resolve their
+owned compatibility record on demand and are never exposed as package actors.
 
 Every `EngineRuntime` owns a bounded `TacticalEntityDirectory`. In addition to
 slot/incarnation liveness, a host can commit the latest public

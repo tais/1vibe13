@@ -368,6 +368,23 @@ the engine must not contain SDL types in its public domain model.
   a global `SOLDIERTYPE*`. Architecture checks reject pointer capture APIs from
   returning. These references are runtime-only and do not alter soldier, save,
   map, or content layouts.
+- Multi-frame tactical UI sessions follow the same rule. Planning mode,
+  vehicle-seat popups, militia command menus, and the follow-up radio cursor
+  accept exact actor identities and resolve them only while handling the
+  current frame or callback. Closing a menu clears its context, while a
+  released or slot-replaced actor closes or cancels the stale interaction
+  instead of operating on its replacement. The pathfinding backpack cache also
+  keys its search-scoped value by slot plus incarnation rather than retaining
+  the search actor pointer.
+- Debug and synthetic actors no longer bypass that ownership model. Quest
+  dialogue and the animation viewer retain exact live identities. The air-raid
+  attacker remains the established fixed compatibility record but stores only
+  its bounded slot and resolves the record at each use; its already-existing
+  save fields now restore an in-progress raid without a null actor. Helicopter
+  dialogue no longer creates or passes a fake Skyrider `SOLDIERTYPE` at all,
+  because the dialogue implementation consumes only the profile and quote.
+  None of these changes modifies map, XML, Lua, package, or installed-data
+  formats.
 - `Ja2TacticalWorldItemReference` provides the equivalent runtime-only handle
   for entries in the reusable `gWorldItems` storage. Booby-trap, buried-bomb,
   map-cursor trap, and mine-spotted dialogue chains now capture independent

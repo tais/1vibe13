@@ -10,6 +10,7 @@
 	#include <stdio.h>
 #include "TacticalWorldAdapter.h"
 #include "SoldierRepository.h"
+#include "TacticalEntityHost.h"
 	#include "stdlib.h"
 	#include "DEBUG.H"
 	#include "MemMan.h"
@@ -808,7 +809,8 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 	// candidate tile, which recomputes FindBackpackOnSoldier (an inner inventory
 	// double-loop) each time. The soldier's inventory is fixed for this search, so
 	// cache that path-invariant result once and reuse it for every neighbour.
-	BeginPathingBackpackCache( pSoldier );
+	BeginPathingBackpackCache(
+		GetJa2TacticalEntityId(*pSoldier));
 	int bestPath = AStar();
 	EndPathingBackpackCache();
 
