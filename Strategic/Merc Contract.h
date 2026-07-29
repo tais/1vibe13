@@ -1,6 +1,7 @@
 #ifndef _MERC_CONTRACT_H_
 #define _MERC_CONTRACT_H_
 
+#include <Engine/Adapters/JA2/TacticalEntity.h>
 
 #include "Soldier Control.h"
 
@@ -83,7 +84,7 @@ BOOLEAN SaveContractRenewalDataToSaveGameFile( HWFILE hFile );
 // rehiring of mercs from leave equipment pop up
 extern BOOLEAN	fEnterMapDueToContract;
 SOLDIERTYPE* GetContractRehireSoldier( void );
-BOOLEAN SetContractRehireSoldier( SOLDIERTYPE *pSoldier );
+BOOLEAN SetContractRehireSoldier( TacticalEntityId actor );
 void ClearContractRehireSoldier( void );
 void ResetMercContractActorContexts( void );
 extern UINT8 ubQuitType;

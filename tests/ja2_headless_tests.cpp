@@ -4834,6 +4834,8 @@ int main( int, char** )
 		worldActor.vitals().breath() = 64;
 		worldActor.vitals().maximumBreath() = 90;
 		const bool worldActorAdopted = AdoptJa2TacticalEntity( worldActor );
+		const TacticalEntityId worldActorIdentity =
+			GetJa2TacticalEntityId( worldActor );
 		const TacticalActorSnapshot* adoptedWorldActorState =
 			compiledContext.runtime().tacticalEntityDirectory().state(
 				TacticalEntityId{ 0, 701 } );
@@ -4847,26 +4849,35 @@ int main( int, char** )
 		       "legacy pool actors publish liveness and public state through the runtime-owned directory" );
 		Ja2TacticalEntityReference liveCallbackActor;
 		const bool callbackActorCaptured =
-			liveCallbackActor.capture( &worldActor ) &&
+			liveCallbackActor.capture( worldActorIdentity ) &&
 			liveCallbackActor.identity() ==
 				( TacticalEntityId{ 0, 701 } ) &&
 			liveCallbackActor.resolve() == &worldActor;
+		Ja2TacticalEntityReference invalidCallbackActor;
+		const bool invalidDelayedActorsRejected =
+			!invalidCallbackActor.capture( TacticalEntityId{} ) &&
+			!SetDialogueDestinationSoldier( TacticalEntityId{} ) &&
+			!GetDialogueDestinationSoldier() &&
+			!SetContractRehireSoldier( TacticalEntityId{} ) &&
+			!GetContractRehireSoldier() &&
+			!CaptureTacticalTraversalChosenSoldier(
+				TacticalEntityId{} ) &&
+			!ResolveTacticalTraversalChosenSoldier();
 		const bool dialogueDestinationCaptured =
-			SetDialogueDestinationSoldier( &worldActor ) &&
+			SetDialogueDestinationSoldier( worldActorIdentity ) &&
 			GetDialogueDestinationSoldier() == &worldActor;
 		const bool contractRehireCaptured =
-			SetContractRehireSoldier( &worldActor ) &&
+			SetContractRehireSoldier( worldActorIdentity ) &&
 			GetContractRehireSoldier() == &worldActor;
 		const bool traversalActorCaptured =
-			CaptureTacticalTraversalChosenSoldier( &worldActor ) &&
+			CaptureTacticalTraversalChosenSoldier(
+				worldActorIdentity ) &&
 			ResolveTacticalTraversalChosenSoldier() == &worldActor;
 		SOLDIERTYPE* consumedCallbackActor =
 			liveCallbackActor.consume();
 		Ja2TacticalEntityReference releasedCallbackActor;
 		const bool releasedCallbackCaptured =
-			releasedCallbackActor.capture( &worldActor );
-		const TacticalEntityId worldActorIdentity =
-			GetJa2TacticalEntityId( worldActor );
+			releasedCallbackActor.capture( worldActorIdentity );
 		const SOLDIERTYPE detachedInventoryActor = worldActor;
 		const bool detachedInventoryActorRejected =
 			!GetJa2TacticalEntityId( detachedInventoryActor ).valid() &&
@@ -4912,6 +4923,9 @@ int main( int, char** )
 			SetItemPickupOpponent( worldActorIdentity );
 		const bool callbackActorReleased =
 			ReleaseJa2TacticalEntity( worldActor );
+		Ja2TacticalEntityReference staleCallbackActor;
+		const bool releasedActorRecaptureRejected =
+			!staleCallbackActor.capture( worldActorIdentity );
 		const bool releasedCallbackRejected =
 			releasedCallbackActor.resolve() == nullptr;
 		const bool releasedDialogueDestinationRejected =
@@ -4956,7 +4970,9 @@ int main( int, char** )
 		       contractRehireCaptured &&
 		       consumedCallbackActor == &worldActor &&
 		       !liveCallbackActor.valid() &&
+		       invalidDelayedActorsRejected &&
 		       releasedCallbackCaptured && callbackActorReleased &&
+		       releasedActorRecaptureRejected &&
 		       releasedCallbackRejected &&
 		       releasedDialogueDestinationRejected &&
 		       releasedContractRehireRejected &&

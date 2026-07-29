@@ -48,16 +48,9 @@ typedef struct MERCPLACEMENT
 	UINT8			ubStrategicInsertionCode;
 	BOOLEAN			fPlaced;
 
-	bool capture( SOLDIERTYPE *pSoldier )
+	bool capture( TacticalEntityId actor )
 	{
-		if (!pSoldier)
-			return false;
-
-		const TacticalEntityId actor =
-			GetJa2TacticalEntityId(
-				static_cast<UINT16>(pSoldier->identity().id()));
-		if (!actor.valid() ||
-			ResolveJa2TacticalEntity(actor) != pSoldier)
+		if (!actor.valid() || !ResolveJa2TacticalEntity(actor))
 			return false;
 
 		usSoldierSlot = actor.slot;
@@ -67,9 +60,13 @@ typedef struct MERCPLACEMENT
 
 	SOLDIERTYPE *soldier() const
 	{
-		return ResolveJa2TacticalEntity(
-			TacticalEntityId{
-				usSoldierSlot, uiSoldierIncarnation});
+		return ResolveJa2TacticalEntity(actor());
+	}
+
+	TacticalEntityId actor() const
+	{
+		return TacticalEntityId{
+			usSoldierSlot, uiSoldierIncarnation};
 	}
 }MERCPLACEMENT;
 
@@ -136,14 +133,18 @@ namespace
 Ja2TacticalEntityReference gTacticalPlacementSelectedSoldier;
 Ja2TacticalEntityReference gTacticalPlacementHighlightedSoldier;
 
-void CaptureTacticalPlacementSelectedSoldier( SOLDIERTYPE *pSoldier )
+void CaptureTacticalPlacementSelectedSoldier( TacticalEntityId actor )
 {
-	(void)gTacticalPlacementSelectedSoldier.capture(pSoldier);
+	gTacticalPlacementSelectedSoldier.reset();
+	if (actor.valid())
+		(void)gTacticalPlacementSelectedSoldier.capture(actor);
 }
 
-void CaptureTacticalPlacementHighlightedSoldier( SOLDIERTYPE *pSoldier )
+void CaptureTacticalPlacementHighlightedSoldier( TacticalEntityId actor )
 {
-	(void)gTacticalPlacementHighlightedSoldier.capture(pSoldier);
+	gTacticalPlacementHighlightedSoldier.reset();
+	if (actor.valid())
+		(void)gTacticalPlacementHighlightedSoldier.capture(actor);
 }
 }
 
@@ -792,7 +793,8 @@ void InitTacticalPlacementGUI()
 			{
 				pSoldier->deployment().strategicInsertionCode() = (UINT8)pSoldier->deployment().strategicInsertionData();
 			}
-			if (!gMercPlacement[ giPlacements ].capture(pSoldier))
+			if (!gMercPlacement[ giPlacements ].capture(
+					GetJa2TacticalEntityId(*pSoldier)))
 				continue;
 			gMercPlacement[ giPlacements ].ubStrategicInsertionCode = pSoldier->deployment().strategicInsertionCode();
 			gMercPlacement[ giPlacements ].fPlaced = FALSE;
@@ -898,7 +900,7 @@ void InitTacticalPlacementGUI()
 				gfTacticalPlacementGUIDirty = TRUE;
 				SetCursorMerc( (INT8)i );
 				CaptureTacticalPlacementSelectedSoldier(
-					gMercPlacement[ i ].soldier() );
+					gMercPlacement[ i ].actor() );
 				break;
 			}
 		}
@@ -2032,7 +2034,7 @@ void MercMoveCallback( MOUSE_REGION *reg, INT32 reason )
 						gubHilightedGroupID = gMercPlacement[ i ].soldier()->deployment().groupId();
 					SetCursorMerc( i );
 					CaptureTacticalPlacementHighlightedSoldier(
-						gMercPlacement[ i ].soldier() );
+						gMercPlacement[ i ].actor() );
 				}
 				return;
 			}
@@ -2058,7 +2060,7 @@ void MercClickCallback( MOUSE_REGION *reg, INT32 reason )
 
 						gbSelectedMercID = i;
 						CaptureTacticalPlacementSelectedSoldier(
-							gMercPlacement[ i ].soldier() );
+							gMercPlacement[ i ].actor() );
 						if( gubDefaultButton == GROUP_BUTTON )
 						{
 							gubSelectedGroupID =
@@ -2091,7 +2093,7 @@ void SelectNextUnplacedUnit()
 			gfTacticalPlacementGUIDirty = TRUE;
 			SetCursorMerc( (INT8)i );
 			CaptureTacticalPlacementSelectedSoldier(
-				gMercPlacement[ i ].soldier() );
+				gMercPlacement[ i ].actor() );
 			return;
 		}
 	}
@@ -2106,7 +2108,7 @@ void SelectNextUnplacedUnit()
 			gfTacticalPlacementGUIDirty = TRUE;
 			SetCursorMerc( (INT8)i );
 			CaptureTacticalPlacementSelectedSoldier(
-				gMercPlacement[ i ].soldier() );
+				gMercPlacement[ i ].actor() );
 			return;
 		}
 	}

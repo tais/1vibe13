@@ -1,5 +1,6 @@
-	#include "builddefines.h"
+#include "builddefines.h"
 #include "SoldierRepository.h"
+#include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdlib.h>
 	#include "Strategic Movement.h"
@@ -1158,7 +1159,10 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 				ubMercsInGroup[ ubChosenMerc ] );
 			if( gfTacticalTraversal )
 			{
-				CaptureTacticalTraversalChosenSoldier( pSoldier );
+				CaptureTacticalTraversalChosenSoldier(
+					pSoldier
+						? GetJa2TacticalEntityId(*pSoldier)
+						: TacticalEntityId{});
 			}
 			else
 			{

@@ -257,8 +257,8 @@ struct PendingConversationContext
 	uintptr_t approachData = 0;
 
 	bool capture(
-		SOLDIERTYPE* selectedDestination,
-		SOLDIERTYPE* selectedSource,
+		TacticalEntityId selectedDestination,
+		TacticalEntityId selectedSource,
 		INT8 selectedApproach,
 		uintptr_t selectedApproachData) noexcept
 	{
@@ -311,10 +311,10 @@ SOLDIERTYPE* GetDialogueDestinationSoldier( void )
 	return gDialogueActors.destination.resolve();
 }
 
-BOOLEAN SetDialogueDestinationSoldier( SOLDIERTYPE *pSoldier )
+BOOLEAN SetDialogueDestinationSoldier( TacticalEntityId actor )
 {
 	Ja2TacticalEntityReference destination;
-	if (!destination.capture(pSoldier))
+	if (!destination.capture(actor))
 	{
 		gDialogueActors.destination.reset();
 		return FALSE;
@@ -359,7 +359,9 @@ BOOLEAN InitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldie
 	{
 		// Wait.....
 		if (!gPendingConversation.capture(
-				pDestSoldier, pSrcSoldier, bApproach, uiApproachData))
+				GetJa2TacticalEntityId(*pDestSoldier),
+				GetJa2TacticalEntityId(*pSrcSoldier),
+				bApproach, uiApproachData))
 		{
 			return FALSE;
 		}
@@ -410,8 +412,11 @@ BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pS
 	BOOLEAN	fFromPending = gfConversationPending;
 	Ja2TacticalEntityReference destination;
 	Ja2TacticalEntityReference source;
-	if (!destination.capture(pDestSoldier) ||
-		!source.capture(pSrcSoldier))
+	if (!pDestSoldier || !pSrcSoldier ||
+		!destination.capture(
+			GetJa2TacticalEntityId(*pDestSoldier)) ||
+		!source.capture(
+			GetJa2TacticalEntityId(*pSrcSoldier)))
 	{
 		gfConversationPending = FALSE;
 		if ( fFromPending )

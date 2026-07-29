@@ -355,14 +355,19 @@ the engine must not contain SDL types in its public domain model.
   original intent. Each command is processed at the existing synchronous
   boundary before invoking its legacy executor.
 - `Ja2TacticalEntityReference` is the pointer-free compatibility handle for
-  delayed legacy callbacks that have not yet become simulation commands. Bomb
-  setup, corpse actions, switch confirmation, tactical utility selection,
-  delayed ownership checks, and friendly-fire/surgery confirmation now keep
-  separate actor-incarnation contexts tied to the loaded world generation.
-  A released/reused actor, changed hand item, or world transition therefore
-  cancels the stale callback instead of dereferencing or retargeting a global
-  `SOLDIERTYPE*`. These references are runtime-only and do not alter soldier,
-  save, map, or content layouts.
+  delayed legacy callbacks that have not yet become simulation commands. Its
+  capture API accepts only a complete `TacticalEntityId`; UI and strategic
+  producers must verify a canonical soldier record before any identity becomes
+  retained state. Dialogue, contracts, traversal, tactical placement, militia
+  training, bomb setup, corpse actions, switch confirmation, tactical utility
+  selection, delayed ownership checks, and friendly-fire/surgery confirmation
+  now keep separate actor-incarnation contexts tied to the loaded world
+  generation where applicable. Raw records are resolved only when compatibility
+  work resumes. A released/reused actor, changed hand item, or world transition
+  therefore cancels the stale callback instead of dereferencing or retargeting
+  a global `SOLDIERTYPE*`. Architecture checks reject pointer capture APIs from
+  returning. These references are runtime-only and do not alter soldier, save,
+  map, or content layouts.
 - `Ja2TacticalWorldItemReference` provides the equivalent runtime-only handle
   for entries in the reusable `gWorldItems` storage. Booby-trap, buried-bomb,
   map-cursor trap, and mine-spotted dialogue chains now capture independent

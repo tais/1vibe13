@@ -69,12 +69,12 @@ struct EndGameDeathCallbackContext
 	INT8 level = 0;
 
 	void capture(
-		SOLDIERTYPE* selectedKiller,
+		TacticalEntityId selectedKiller,
 		INT32 selectedGrid,
 		INT8 selectedLevel) noexcept
 	{
 		reset();
-		if (selectedKiller)
+		if (selectedKiller.valid())
 			(void)killer.capture(selectedKiller);
 		grid = selectedGrid;
 		level = selectedLevel;
@@ -185,7 +185,10 @@ static void DeidrannaTimerCallback( void )
 void BeginHandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
 {
 	gEndGameDeathCallback.capture(
-		pKillerSoldier, sGridNo, bLevel);
+		pKillerSoldier
+			? GetJa2TacticalEntityId(*pKillerSoldier)
+			: TacticalEntityId{},
+		sGridNo, bLevel);
 
 	// Lock the UI.....
 	gTacticalStatus.uiFlags |= ENGAGED_IN_CONV;
@@ -667,7 +670,10 @@ void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT
 
 
 	gEndGameDeathCallback.capture(
-		pKillerSoldier, sGridNo, bLevel);
+		pKillerSoldier
+			? GetJa2TacticalEntityId(*pKillerSoldier)
+			: TacticalEntityId{},
+		sGridNo, bLevel);
 
 	// Lock the UI.....
 	gTacticalStatus.uiFlags |= ENGAGED_IN_CONV;

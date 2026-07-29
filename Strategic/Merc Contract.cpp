@@ -83,11 +83,11 @@ struct InsuranceConfirmationContext
 	UINT8 contractLength = 0;
 
 	bool capture(
-		SOLDIERTYPE* selectedSoldier,
+		TacticalEntityId selectedActor,
 		UINT8 selectedContractLength) noexcept
 	{
 		Ja2TacticalEntityReference capturedSoldier;
-		if (!capturedSoldier.capture(selectedSoldier))
+		if (!capturedSoldier.capture(selectedActor))
 			return false;
 		soldier = capturedSoldier;
 		contractLength = selectedContractLength;
@@ -109,10 +109,10 @@ SOLDIERTYPE* GetContractRehireSoldier( void )
 	return gContractRehireSoldier.resolve();
 }
 
-BOOLEAN SetContractRehireSoldier( SOLDIERTYPE *pSoldier )
+BOOLEAN SetContractRehireSoldier( TacticalEntityId actor )
 {
 	Ja2TacticalEntityReference soldier;
-	if (!soldier.capture(pSoldier))
+	if (!soldier.capture(actor))
 	{
 		gContractRehireSoldier.reset();
 		return FALSE;
@@ -955,7 +955,9 @@ BOOLEAN BeginStrategicRemoveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fAddRehireButto
 		return FALSE;
 
 	Ja2TacticalEntityReference departureSoldier;
-	if (!departureSoldier.capture(pSoldier))
+	if (!pSoldier ||
+		!departureSoldier.capture(
+			GetJa2TacticalEntityId(*pSoldier)))
 		return FALSE;
 
 	InterruptTime( );
@@ -1456,7 +1458,9 @@ BOOLEAN HandleFiredDeadMerc( SOLDIERTYPE *pSoldier )
 
 void HandleExtendMercsContract( SOLDIERTYPE *pSoldier )
 {
-	if (!SetContractRehireSoldier(pSoldier))
+	if (!pSoldier ||
+		!SetContractRehireSoldier(
+			GetJa2TacticalEntityId(*pSoldier)))
 		return;
 
 	if ( !(guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) )
@@ -1605,15 +1609,17 @@ void HandleNotifyPlayerCanAffordInsurance( SOLDIERTYPE *pSoldier, UINT8 ubLength
 	CHAR16 sString[ 128 ];
 
 	swprintf( sString, zMarksMapScreenText[ 10 ], pSoldier->GetName(), FormatMoney(iCost).data(), ubLength );
+	const TacticalEntityId actor =
+		GetJa2TacticalEntityId(*pSoldier);
 
-	if (!gInsuranceConfirmation.capture(pSoldier, ubLength))
+	if (!gInsuranceConfirmation.capture(actor, ubLength))
 	{
 		if ( gfInContractMenuFromRenewSequence )
 			EndCurrentContractRenewal();
 		return;
 	}
 
-	if (!SetContractRehireSoldier(pSoldier))
+	if (!SetContractRehireSoldier(actor))
 	{
 		gInsuranceConfirmation.reset();
 		if ( gfInContractMenuFromRenewSequence )

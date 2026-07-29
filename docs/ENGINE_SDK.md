@@ -251,6 +251,14 @@ surface through `TacticalCommandService`. Legacy delayed-action completion
 helpers that must inspect pending fields remain isolated behind
 `Simulation Command Legacy.h` and are not SDK command ingress.
 
+Application callbacks that cannot yet become simulation commands follow the
+same producer rule. `Ja2TacticalEntityReference::capture` accepts only
+`TacticalEntityId`; dialogue, contract, traversal, placement, confirmation, and
+timer producers cross the canonical-record adapter before retaining an actor.
+Legacy callback bodies may resolve that identity at the point of use, but cannot
+store or recapture the originating `SOLDIERTYPE*`. This is application-only,
+runtime state and does not extend the package API or any persistent format.
+
 Every `EngineRuntime` owns a bounded `TacticalEntityDirectory`. In addition to
 slot/incarnation liveness, a host can commit the latest public
 `TacticalActorSnapshot` with `publishState` and retrieve it only through the

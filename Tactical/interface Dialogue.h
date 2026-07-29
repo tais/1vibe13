@@ -1,6 +1,7 @@
 #ifndef __INTERFACE_DIALOGUE_H
 #define __INTERFACE_DIALOGUE_H
 
+#include <Engine/Adapters/JA2/TacticalEntity.h>
 
 #include "mousesystem.h"
 #include "NPC.h"
@@ -53,7 +54,7 @@ extern NPC_DIALOGUE_TYPE		gTalkPanel;
 // quest work resumes.
 SOLDIERTYPE* GetDialogueSourceSoldier( void );
 SOLDIERTYPE* GetDialogueDestinationSoldier( void );
-BOOLEAN SetDialogueDestinationSoldier( SOLDIERTYPE *pSoldier );
+BOOLEAN SetDialogueDestinationSoldier( TacticalEntityId actor );
 
 
 // uiApproachData is pointer-wide: APPROACH_GIVINGITEM passes an OBJECTTYPE*
