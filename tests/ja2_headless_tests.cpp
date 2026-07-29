@@ -163,6 +163,14 @@ static_assert(
 		std::is_same<decltype( gWorldSectorY ), const INT16&>::value &&
 		std::is_same<decltype( gbWorldSectorZ ), const INT8&>::value,
 	"legacy tactical-sector names must remain compiler-enforced read-only projections" );
+static_assert(
+	std::is_same<
+		decltype(std::declval<SOLDIERTYPE&>().inventory()),
+		SoldierInventory&>::value &&
+		std::is_same<
+			decltype(std::declval<const SOLDIERTYPE&>().inventory()),
+			const SoldierInventory&>::value,
+	"live soldier inventories must remain privately owned behind typed accessors" );
 
 static UINT64 InjectedLegacyClockTime()
 {
@@ -7627,12 +7635,15 @@ int main( int, char** )
 			SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_XRAYED;
 		featureFlags.primaryFlags() = SOLDIER_COVERT_CIV | SOLDIER_POW;
 		featureFlags.secondaryFlags() = SOLDIER_TRAIT_FOCUS | SOLDIER_TURNCOAT;
-		SoldierInventoryStateComponent& inventoryState =
-			soldier.inventoryState();
-		inventoryState.keyAccess() = -3;
-		inventoryState.checkForNewItems() = TRUE;
-		inventoryState.zipperFlag() = TRUE;
-		inventoryState.dropPackFlag() = TRUE;
+		SoldierInventory& inventory = soldier.inventory();
+		inventory[HANDPOS].usItem = 321;
+		inventory[HANDPOS].ubNumberOfObjects = 2;
+		inventory.newItemCount(HANDPOS) = 4;
+		inventory.newItemCycleCount(HANDPOS) = 5;
+		inventory.keyAccess() = -3;
+		inventory.checkForNewItems() = TRUE;
+		inventory.zipperFlag() = TRUE;
+		inventory.dropPackFlag() = TRUE;
 		soldier.keyRing().activate();
 		soldier.keyRing()[17].ubKeyID = 42;
 		soldier.keyRing()[17].ubNumber = 3;
@@ -8154,10 +8165,15 @@ int main( int, char** )
 		       constSoldier.featureFlags().hasPrimary(SOLDIER_POW) &&
 		       constSoldier.featureFlags().hasSecondary(SOLDIER_TRAIT_FOCUS) &&
 		       constSoldier.featureFlags().hasSecondary(SOLDIER_TURNCOAT) &&
-		       constSoldier.inventoryState().keyAccess() == -3 &&
-		       constSoldier.inventoryState().checkForNewItems() &&
-		       constSoldier.inventoryState().zipperFlag() &&
-		       constSoldier.inventoryState().dropPackFlag() &&
+		       constSoldier.inventory().coherent() &&
+		       constSoldier.inventory()[HANDPOS].usItem == 321 &&
+		       constSoldier.inventory()[HANDPOS].ubNumberOfObjects == 2 &&
+		       constSoldier.inventory().newItemCount(HANDPOS) == 4 &&
+		       constSoldier.inventory().newItemCycleCount(HANDPOS) == 5 &&
+		       constSoldier.inventory().keyAccess() == -3 &&
+		       constSoldier.inventory().checkForNewItems() &&
+		       constSoldier.inventory().zipperFlag() &&
+		       constSoldier.inventory().dropPackFlag() &&
 		       constSoldier.replication().updatedFromNetwork() &&
 		       constSoldier.aiPlanning().lastFlankLeft() &&
 		       constSoldier.condition().gasHitFlags() == 0xA5 &&
@@ -8167,7 +8183,7 @@ int main( int, char** )
 		       constSoldier.fireControl().aimPaused() &&
 		       constSoldier.animationActivity().reactingFromShot() &&
 		       constSoldier.animationActivity().externalDeath(),
-		       "soldier components own status, feature, inventory, replication, AI, condition, targeting, fire-control, and animation flags" );
+		       "soldier owns coherent inventory slots, counters, flags, and adjacent tactical state" );
 		CHECK( constSoldier.service().active() &&
 		       constSoldier.service().providerCount() == 2 &&
 		       constSoldier.service().hasProviders() &&
@@ -8784,17 +8800,45 @@ int main( int, char** )
 		       featureFlagsLifecycle.primaryFlags() == 0 &&
 		       featureFlagsLifecycle.secondaryFlags() == 0,
 		       "soldier feature-flag reset clears all three persisted compatibility banks" );
-		SoldierInventoryStateComponent inventoryStateLifecycle;
-		inventoryStateLifecycle.keyAccess() = -8;
-		inventoryStateLifecycle.checkForNewItems() = TRUE;
-		inventoryStateLifecycle.zipperFlag() = TRUE;
-		inventoryStateLifecycle.dropPackFlag() = TRUE;
-		inventoryStateLifecycle.reset();
-		CHECK( inventoryStateLifecycle.keyAccess() == 0 &&
-		       !inventoryStateLifecycle.checkForNewItems() &&
-		       !inventoryStateLifecycle.zipperFlag() &&
-		       !inventoryStateLifecycle.dropPackFlag(),
-		       "soldier inventory-state reset clears key access, refresh, zipper, and drop-pack state" );
+		SoldierInventory inventoryLifecycle(3);
+		inventoryLifecycle[1].usItem = 91;
+		inventoryLifecycle.newItemCount(1) = 7;
+		inventoryLifecycle.newItemCycleCount(1) = 8;
+		inventoryLifecycle.keyAccess() = -8;
+		inventoryLifecycle.checkForNewItems() = TRUE;
+		inventoryLifecycle.zipperFlag() = TRUE;
+		inventoryLifecycle.dropPackFlag() = TRUE;
+		InventorySlots replacementSlots(2);
+		replacementSlots[0].usItem = 92;
+		replacementSlots.newItemCount(0) = 9;
+		replacementSlots.newItemCycleCount(0) = 10;
+		inventoryLifecycle = replacementSlots;
+		CHECK( inventoryLifecycle.coherent() &&
+		       inventoryLifecycle.size() == 2 &&
+		       inventoryLifecycle[0].usItem == 92 &&
+		       inventoryLifecycle.newItemCount(0) == 9 &&
+		       inventoryLifecycle.newItemCycleCount(0) == 10 &&
+		       inventoryLifecycle.keyAccess() == -8 &&
+		       inventoryLifecycle.checkForNewItems() &&
+		       inventoryLifecycle.zipperFlag() &&
+		       inventoryLifecycle.dropPackFlag(),
+		       "slot-only inventory transfers preserve live soldier inventory state" );
+		inventoryLifecycle.clear();
+		CHECK( inventoryLifecycle.coherent() &&
+		       inventoryLifecycle.size() == 2 &&
+		       inventoryLifecycle[0].usItem == NOTHING &&
+		       inventoryLifecycle.newItemCount(0) == 0 &&
+		       inventoryLifecycle.newItemCycleCount(0) == 0 &&
+		       inventoryLifecycle.keyAccess() == -8,
+		       "soldier inventory clear reconstructs coherent slots without resetting adjacent state" );
+		inventoryLifecycle.reset();
+		CHECK( inventoryLifecycle.coherent() &&
+		       inventoryLifecycle.size() == 2 &&
+		       inventoryLifecycle.keyAccess() == 0 &&
+		       !inventoryLifecycle.checkForNewItems() &&
+		       !inventoryLifecycle.zipperFlag() &&
+		       !inventoryLifecycle.dropPackFlag(),
+		       "soldier inventory reset clears slots, counters, key access, refresh, zipper, and drop-pack state" );
 		SoldierKeyRingComponent keyRingLifecycle;
 		CHECK( !keyRingLifecycle.active() &&
 		       keyRingLifecycle.data() == nullptr,
@@ -9481,6 +9525,20 @@ int main( int, char** )
 		vitals.regenerationBoostersUsedToday() = 3;
 		vitals.lastBleedGruntAt() = 12341;
 		SOLDIERTYPE copiedSoldier = soldier;
+		const bool copiedSoldierInventoryIsIndependent =
+			copiedSoldier.inventory().coherent() &&
+			copiedSoldier.inventory().items().data() !=
+				soldier.inventory().items().data() &&
+			copiedSoldier.inventory()[HANDPOS].usItem == 321 &&
+			copiedSoldier.inventory()[HANDPOS].ubNumberOfObjects == 2 &&
+			copiedSoldier.inventory().newItemCount(HANDPOS) == 4 &&
+			copiedSoldier.inventory().newItemCycleCount(HANDPOS) == 5;
+		copiedSoldier.inventory()[HANDPOS].usItem = 322;
+		copiedSoldier.inventory().newItemCount(HANDPOS) = 6;
+		CHECK( copiedSoldierInventoryIsIndependent &&
+		       soldier.inventory()[HANDPOS].usItem == 321 &&
+		       soldier.inventory().newItemCount(HANDPOS) == 4,
+		       "soldier copies retain inventory slots and counters without aliasing storage" );
 		const bool copiedSoldierKeyRingIsIndependent =
 			copiedSoldier.keyRing().active() &&
 			copiedSoldier.keyRing().data() != soldier.keyRing().data() &&
@@ -9568,10 +9626,10 @@ int main( int, char** )
 		           (SOLDIER_COVERT_CIV | SOLDIER_POW) &&
 		       copiedSoldier.featureFlags().secondaryFlags() ==
 		           (SOLDIER_TRAIT_FOCUS | SOLDIER_TURNCOAT) &&
-		       copiedSoldier.inventoryState().keyAccess() == -3 &&
-		       copiedSoldier.inventoryState().checkForNewItems() &&
-		       copiedSoldier.inventoryState().zipperFlag() &&
-		       copiedSoldier.inventoryState().dropPackFlag() &&
+		       copiedSoldier.inventory().keyAccess() == -3 &&
+		       copiedSoldier.inventory().checkForNewItems() &&
+		       copiedSoldier.inventory().zipperFlag() &&
+		       copiedSoldier.inventory().dropPackFlag() &&
 		       copiedSoldier.replication().updatedFromNetwork() &&
 		       copiedSoldier.aiPlanning().lastFlankLeft() &&
 		       copiedSoldier.condition().gasHitFlags() == 0xA5 &&
@@ -10766,6 +10824,12 @@ int main( int, char** )
 		       scheduleLifecycle.doorGrid() == 0,
 		       "schedule reset clears identity, progress, and door continuation state" );
 		copiedSoldier.initialize();
+		CHECK( copiedSoldier.inventory().coherent() &&
+		       copiedSoldier.inventory().size() == NUM_INV_SLOTS &&
+		       copiedSoldier.inventory()[HANDPOS].usItem == NOTHING &&
+		       copiedSoldier.inventory().newItemCount(HANDPOS) == 0 &&
+		       copiedSoldier.inventory().newItemCycleCount(HANDPOS) == 0,
+		       "soldier initialization reconstructs coherent empty inventory storage" );
 		CHECK( !copiedSoldier.keyRing().active() &&
 		       copiedSoldier.keyRing().data() == nullptr &&
 		       copiedSoldier.keyRing()[17].ubKeyID == INVALID_KEY_NUMBER &&
@@ -10832,10 +10896,10 @@ int main( int, char** )
 		       copiedSoldier.featureFlags().eventFlags() == 0 &&
 		       copiedSoldier.featureFlags().primaryFlags() == 0 &&
 		       copiedSoldier.featureFlags().secondaryFlags() == 0 &&
-		       copiedSoldier.inventoryState().keyAccess() == 0 &&
-		       !copiedSoldier.inventoryState().checkForNewItems() &&
-		       !copiedSoldier.inventoryState().zipperFlag() &&
-		       !copiedSoldier.inventoryState().dropPackFlag() &&
+		       copiedSoldier.inventory().keyAccess() == 0 &&
+		       !copiedSoldier.inventory().checkForNewItems() &&
+		       !copiedSoldier.inventory().zipperFlag() &&
+		       !copiedSoldier.inventory().dropPackFlag() &&
 		       !copiedSoldier.replication().updatedFromNetwork() &&
 		       !copiedSoldier.aiPlanning().lastFlankLeft() &&
 		       copiedSoldier.condition().gasHitFlags() == 0 &&
@@ -11634,6 +11698,15 @@ int main( int, char** )
 		legacySoldier->bScientific = 90;
 		legacySoldier->ubSkillTrait1 = 11;
 		legacySoldier->ubSkillTrait2 = 12;
+		legacySoldier->DO_NOT_USE_Inv[
+			OldInventory::HANDPOS].usItem = 401;
+		legacySoldier->DO_NOT_USE_Inv[
+			OldInventory::HANDPOS].ubNumberOfObjects = 3;
+		legacySoldier->DO_NOT_USE_bNewItemCount[
+			OldInventory::HANDPOS] = 12;
+		legacySoldier->DO_NOT_USE_bNewItemCycleCount[
+			OldInventory::HANDPOS] = 13;
+		legacySoldier->CopyOldInventoryToNew();
 		legacySoldier->bHasKeys = -6;
 		legacySoldier->fIntendedTarget = TRUE;
 		legacySoldier->fReloading = TRUE;
@@ -11898,10 +11971,10 @@ int main( int, char** )
 		convertedSoldier.statistics().skillTrait(
 			SoldierStatisticsComponent::SkillTraitCapacity - 1) = 99;
 		convertedSoldier.status().flags() = SOLDIER_DEAD;
-		convertedSoldier.inventoryState().keyAccess() = 99;
-		convertedSoldier.inventoryState().checkForNewItems() = FALSE;
-		convertedSoldier.inventoryState().zipperFlag() = TRUE;
-		convertedSoldier.inventoryState().dropPackFlag() = TRUE;
+		convertedSoldier.inventory().keyAccess() = 99;
+		convertedSoldier.inventory().checkForNewItems() = FALSE;
+		convertedSoldier.inventory().zipperFlag() = TRUE;
+		convertedSoldier.inventory().dropPackFlag() = TRUE;
 		convertedSoldier.keyRing().activate();
 		convertedSoldier.keyRing()[4].ubKeyID = 44;
 		convertedSoldier.keyRing()[4].ubNumber = 4;
@@ -12183,10 +12256,15 @@ int main( int, char** )
 		       "v101 soldier conversion maps all historical base statistics and clears later trait slots" );
 		CHECK( convertedSoldier.status().flags() ==
 			       (SOLDIER_PC | SOLDIER_MUTE) &&
-		       convertedSoldier.inventoryState().keyAccess() == -6 &&
-		       convertedSoldier.inventoryState().checkForNewItems() &&
-		       !convertedSoldier.inventoryState().zipperFlag() &&
-		       !convertedSoldier.inventoryState().dropPackFlag() &&
+		       convertedSoldier.inventory().coherent() &&
+		       convertedSoldier.inventory()[HANDPOS].usItem == 401 &&
+		       convertedSoldier.inventory()[HANDPOS].ubNumberOfObjects == 3 &&
+		       convertedSoldier.inventory().newItemCount(HANDPOS) == 12 &&
+		       convertedSoldier.inventory().newItemCycleCount(HANDPOS) == 13 &&
+		       convertedSoldier.inventory().keyAccess() == -6 &&
+		       convertedSoldier.inventory().checkForNewItems() &&
+		       !convertedSoldier.inventory().zipperFlag() &&
+		       !convertedSoldier.inventory().dropPackFlag() &&
 		       convertedSoldier.replication().updatedFromNetwork() &&
 		       convertedSoldier.aiPlanning().lastFlankLeft() &&
 		       convertedSoldier.condition().gasHitFlags() == 0x5A &&
@@ -12196,7 +12274,7 @@ int main( int, char** )
 		       convertedSoldier.fireControl().aimPaused() &&
 		       convertedSoldier.animationActivity().reactingFromShot() &&
 		       convertedSoldier.animationActivity().externalDeath(),
-		       "v101 soldier conversion maps every historical general flag to its domain and clears zipper/drop-pack state absent from that schema" );
+		       "v101 soldier conversion maps inventory slots, counters, and historical flags without cross-domain overwrites" );
 		CHECK( !convertedSoldier.keyRing().active() &&
 		       convertedSoldier.keyRing().data() == nullptr &&
 		       convertedSoldier.keyRing()[4].ubKeyID == INVALID_KEY_NUMBER &&
@@ -12892,10 +12970,14 @@ int main( int, char** )
 			SOLDIER_COVERT_SOLDIER | SOLDIER_BATTLE_PARTICIPATION;
 		savedSoldier.featureFlags().secondaryFlags() =
 			SOLDIER_TRAIT_FOCUS | SOLDIER_SURGERY_BOOSTED;
-		savedSoldier.inventoryState().keyAccess() = -7;
-		savedSoldier.inventoryState().checkForNewItems() = TRUE;
-		savedSoldier.inventoryState().zipperFlag() = TRUE;
-		savedSoldier.inventoryState().dropPackFlag() = TRUE;
+		savedSoldier.inventory()[HANDPOS].usItem = 402;
+		savedSoldier.inventory()[HANDPOS].ubNumberOfObjects = 4;
+		savedSoldier.inventory().newItemCount(HANDPOS) = 14;
+		savedSoldier.inventory().newItemCycleCount(HANDPOS) = 15;
+		savedSoldier.inventory().keyAccess() = -7;
+		savedSoldier.inventory().checkForNewItems() = TRUE;
+		savedSoldier.inventory().zipperFlag() = TRUE;
+		savedSoldier.inventory().dropPackFlag() = TRUE;
 		savedSoldier.replication().updatedFromNetwork() = TRUE;
 		savedSoldier.aiPlanning().lastFlankLeft() = TRUE;
 		savedSoldier.condition().gasHitFlags() = 0xA6;
@@ -13479,10 +13561,15 @@ int main( int, char** )
 		           (SOLDIER_COVERT_SOLDIER | SOLDIER_BATTLE_PARTICIPATION) &&
 		       loadedSoldier.featureFlags().secondaryFlags() ==
 		           (SOLDIER_TRAIT_FOCUS | SOLDIER_SURGERY_BOOSTED) &&
-		       loadedSoldier.inventoryState().keyAccess() == -7 &&
-		       loadedSoldier.inventoryState().checkForNewItems() &&
-		       loadedSoldier.inventoryState().zipperFlag() &&
-		       loadedSoldier.inventoryState().dropPackFlag() &&
+		       loadedSoldier.inventory().coherent() &&
+		       loadedSoldier.inventory()[HANDPOS].usItem == 402 &&
+		       loadedSoldier.inventory()[HANDPOS].ubNumberOfObjects == 4 &&
+		       loadedSoldier.inventory().newItemCount(HANDPOS) == 14 &&
+		       loadedSoldier.inventory().newItemCycleCount(HANDPOS) == 15 &&
+		       loadedSoldier.inventory().keyAccess() == -7 &&
+		       loadedSoldier.inventory().checkForNewItems() &&
+		       loadedSoldier.inventory().zipperFlag() &&
+		       loadedSoldier.inventory().dropPackFlag() &&
 		       loadedSoldier.replication().updatedFromNetwork() &&
 		       loadedSoldier.aiPlanning().lastFlankLeft() &&
 		       loadedSoldier.condition().gasHitFlags() == 0xA6 &&
@@ -13492,7 +13579,7 @@ int main( int, char** )
 		       loadedSoldier.fireControl().aimPaused() &&
 		       loadedSoldier.animationActivity().reactingFromShot() &&
 		       loadedSoldier.animationActivity().externalDeath(),
-		       "soldier save/load round-trips all status and feature flags through established byte positions" );
+		       "soldier save/load round-trips inventory slots, counters, and flags through established byte positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.vitals().health() == 71 &&
 		       loadedSoldier.vitals().maximumHealth() == 89 &&

@@ -58,10 +58,10 @@ void LoadWeaponIfNeeded(SOLDIERTYPE *pSoldier)
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("LoadWeaponIfNeeded"));
 
-	usInHand = pSoldier->inv[HANDPOS].usItem;
+	usInHand = pSoldier->inventory()[HANDPOS].usItem;
 
-	if ( IsGrenadeLauncherAttached(&pSoldier->inv[HANDPOS]) )
-		usInHand = GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS]);
+	if ( IsGrenadeLauncherAttached(&pSoldier->inventory()[HANDPOS]) )
+		usInHand = GetAttachedGrenadeLauncher(&pSoldier->inventory()[HANDPOS]);
 
 	// if he's got a MORTAR in his hand, make sure he has a MORTARSHELL avail.
 	if (ItemIsMortar(usInHand))
@@ -80,7 +80,7 @@ void LoadWeaponIfNeeded(SOLDIERTYPE *pSoldier)
 	else if (ItemIsGrenadeLauncher(usInHand))
 	{
 		bPayloadPocket = FindGLGrenade( pSoldier );
-		if (bPayloadPocket == NO_SLOT || FindNonSmokeLaunchableAttachment( &pSoldier->inv[HANDPOS],usInHand ) != 0 )
+		if (bPayloadPocket == NO_SLOT || FindNonSmokeLaunchableAttachment( &pSoldier->inventory()[HANDPOS],usInHand ) != 0 )
 		{
 #ifdef BETAVERSION
 			NumMessage("LoadWeaponIfNeeded: ERROR - no grenades found to load GLAUNCHER!	Guynum",pSoldier->identity().id());
@@ -117,17 +117,17 @@ void LoadWeaponIfNeeded(SOLDIERTYPE *pSoldier)
 	if ( ARMED_VEHICLE( pSoldier ) || ENEMYROBOT( pSoldier ) )
 	{
 		// don't remove ammo
-		gTempObject = pSoldier->inv[bPayloadPocket];
+		gTempObject = pSoldier->inventory()[bPayloadPocket];
 		if (gTempObject.ubNumberOfObjects > 1) {
 			gTempObject.RemoveObjectsFromStack(gTempObject.ubNumberOfObjects - 1);
 		}
-		pSoldier->inv[HANDPOS].AttachObject(pSoldier,&gTempObject,FALSE);
+		pSoldier->inventory()[HANDPOS].AttachObject(pSoldier,&gTempObject,FALSE);
 	}
-	else if (pSoldier->inv[bPayloadPocket].MoveThisObjectTo(gTempObject, 1) == 0) {
-		if(pSoldier->inv[HANDPOS].AttachObject(pSoldier, &gTempObject, FALSE))//dnl ch63 250813 return back rest of object or drop it if not proper attachment
+	else if (pSoldier->inventory()[bPayloadPocket].MoveThisObjectTo(gTempObject, 1) == 0) {
+		if(pSoldier->inventory()[HANDPOS].AttachObject(pSoldier, &gTempObject, FALSE))//dnl ch63 250813 return back rest of object or drop it if not proper attachment
 		{
 			if(gTempObject.ubNumberOfObjects == 1 && gTempObject[0]->data.objectStatus > 0)
-				gTempObject.MoveThisObjectTo(pSoldier->inv[bPayloadPocket], 1);
+				gTempObject.MoveThisObjectTo(pSoldier->inventory()[bPayloadPocket], 1);
 		}
 		else
 			AddItemToPool(pSoldier->position().gridNo(), &gTempObject, 0, pSoldier->position().level(), WORLD_ITEM_DROPPED_FROM_ENEMY, -1);
@@ -152,13 +152,13 @@ void ResetWeaponMode( SOLDIERTYPE * pSoldier )
 //	gfDisplayFullCountRing = FALSE;
 //	gfDisplayFullCountRingBurst = FALSE;
 //</DR>
-//	pSoldier->fireControl().burstCounter() = Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].mode[WM_NORMAL].usROF > 0;
+//	pSoldier->fireControl().burstCounter() = Weapon[Item[pSoldier->inventory()[HANDPOS].usItem].ubClassIndex].mode[WM_NORMAL].usROF > 0;
 
 //	DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 //	gfUIForceReExamineCursorData = TRUE;
 
-//	gfShowBurstLength = Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].mode[pSoldier->attackSelection().weaponMode()].usROF > 0;
-//	gfShowBurstLength = Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].mode[pSoldier->attackSelection().weaponMode()].ubBullets > 1;
+//	gfShowBurstLength = Weapon[Item[pSoldier->inventory()[HANDPOS].usItem].ubClassIndex].mode[pSoldier->attackSelection().weaponMode()].usROF > 0;
+//	gfShowBurstLength = Weapon[Item[pSoldier->inventory()[HANDPOS].usItem].ubClassIndex].mode[pSoldier->attackSelection().weaponMode()].ubBullets > 1;
 
 }
 //</SB>
@@ -210,13 +210,13 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 	// sevenfm: set attacking hand and target
 	pSoldier->attackSelection().selectWeapon(
-		HANDPOS, pSoldier->inv[HANDPOS].usItem);
+		HANDPOS, pSoldier->inventory()[HANDPOS].usItem);
 	pSoldier->targeting().targetId() = NOBODY;
 
 	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	std::map<INT8, OBJECTTYPE*> ObjList;
-	GetScopeLists(pSoldier, &pSoldier->inv[HANDPOS], ObjList);
+	GetScopeLists(pSoldier, &pSoldier->inventory()[HANDPOS], ObjList);
 	pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
 	pSoldier->fireControl().selectSingleShot();
 
@@ -875,7 +875,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	BOOLEAN fGrenadeLauncher = FALSE;
 	BOOLEAN fRocketLauncher = FALSE;
 
-	usInHand = pSoldier->inv[HANDPOS].usItem;
+	usInHand = pSoldier->inventory()[HANDPOS].usItem;
 	usGrenade = NOTHING;
 
 	// sevenfm: initialize
@@ -883,9 +883,9 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	pBestThrow->ubChanceToReallyHit = 0;
 	pBestThrow->iAttackValue = 0;
 
-	if (IsGrenadeLauncherAttached(&pSoldier->inv[HANDPOS]))
+	if (IsGrenadeLauncherAttached(&pSoldier->inventory()[HANDPOS]))
 	{
-		usInHand = GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS]);
+		usInHand = GetAttachedGrenadeLauncher(&pSoldier->inventory()[HANDPOS]);
 	}
 
 	// if he's got a MORTAR in his hand, make sure he has a MORTARSHELL avail.
@@ -908,7 +908,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		if (pSoldier->perception().isBlinded())
 			return;
 
-		usGrenade = pSoldier->inv[bPayloadPocket].usItem;
+		usGrenade = pSoldier->inventory()[bPayloadPocket].usItem;
 		ubSafetyMargin = (UINT8)(1 + max(Explosive[Item[usGrenade].ubClassIndex].ubRadius, min((UINT8)TACTICAL_RANGE / 2, Explosive[Item[usGrenade].ubClassIndex].ubFragRange / CELL_X_SIZE)));
 		fMortar = TRUE;
 	}
@@ -927,8 +927,8 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 
 		//dnl ch63 240813 Check if grenade is already attach or find one in pockets
 		bPayloadPocket = HANDPOS;
-		pObjGL = FindAttachment_GrenadeLauncher(&pSoldier->inv[bPayloadPocket]);
-		OBJECTTYPE *pAttachment = FindLaunchableAttachment(&pSoldier->inv[bPayloadPocket], usInHand);
+		pObjGL = FindAttachment_GrenadeLauncher(&pSoldier->inventory()[bPayloadPocket]);
+		OBJECTTYPE *pAttachment = FindLaunchableAttachment(&pSoldier->inventory()[bPayloadPocket], usInHand);
 		if(pAttachment->exists())
 		{
 			usGrenade = pAttachment->usItem;
@@ -936,7 +936,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		}
 		else if((bPayloadPocket=FindAmmoToReload(pSoldier, bPayloadPocket, NO_SLOT)) != NO_SLOT)
 		{
-			usGrenade = pSoldier->inv[bPayloadPocket].usItem;
+			usGrenade = pSoldier->inventory()[bPayloadPocket].usItem;
 			ubSafetyMargin = (UINT8)(1 + max(Explosive[Item[usGrenade].ubClassIndex].ubRadius, min((UINT8)TACTICAL_RANGE / 2, Explosive[Item[usGrenade].ubClassIndex].ubFragRange / CELL_X_SIZE)));
 		}
 		else
@@ -980,7 +980,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			{
 				return;	// no ammo, can't fire
 			}
-			usGrenade = pSoldier->inv[bPayloadPocket].usItem;
+			usGrenade = pSoldier->inventory()[bPayloadPocket].usItem;
 			ubSafetyMargin = (UINT8)(1 + max(Explosive[Item[usGrenade].ubClassIndex].ubRadius, min((UINT8)TACTICAL_RANGE / 2, Explosive[Item[usGrenade].ubClassIndex].ubFragRange / CELL_X_SIZE)));
 		}
 		fRocketLauncher = TRUE;
@@ -997,8 +997,8 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		{
 			return;	// no ammo, can't fire
 		}
-		usGrenade = pSoldier->inv[bPayloadPocket].usItem;
-		ubSafetyMargin = (UINT8)(1 + max(Explosive[Item[pSoldier->inv[bPayloadPocket].usItem].ubClassIndex].ubRadius, min((UINT8)TACTICAL_RANGE / 2, Explosive[Item[pSoldier->inv[bPayloadPocket].usItem].ubClassIndex].ubFragRange / CELL_X_SIZE)));
+		usGrenade = pSoldier->inventory()[bPayloadPocket].usItem;
+		ubSafetyMargin = (UINT8)(1 + max(Explosive[Item[pSoldier->inventory()[bPayloadPocket].usItem].ubClassIndex].ubRadius, min((UINT8)TACTICAL_RANGE / 2, Explosive[Item[pSoldier->inventory()[bPayloadPocket].usItem].ubClassIndex].ubFragRange / CELL_X_SIZE)));
 		fCannon = TRUE;
 
 	}
@@ -1007,7 +1007,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		// else it's a plain old grenade, now in his hand
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"calcbestthrow: buddy's got a grenade");
 		bPayloadPocket = HANDPOS;
-		usGrenade = pSoldier->inv[bPayloadPocket].usItem;
+		usGrenade = pSoldier->inventory()[bPayloadPocket].usItem;
 		ubSafetyMargin = (UINT8)(1 + max(Explosive[Item[usGrenade].ubClassIndex].ubRadius, min((UINT8)TACTICAL_RANGE / 4, Explosive[Item[usGrenade].ubClassIndex].ubFragRange / CELL_X_SIZE)));
 
 		if (ItemIsFlare(usGrenade))
@@ -1132,7 +1132,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			(FindAIUsableObjClass(pOpponent, IC_GUN) == NO_SLOT ||
 			(pSoldier->animationPlayback().state() == COWERING || pSoldier->animationPlayback().state() == COWERING_PRONE) ||
 			pOpponent->ShockLevelPercent() > 50 ||
-			EffectiveMarksmanship(pOpponent) < 90 && !IsScoped(&pOpponent->inv[HANDPOS]) && !pOpponent->combatResult().lastAttackHit()))
+			EffectiveMarksmanship(pOpponent) < 90 && !IsScoped(&pOpponent->inventory()[HANDPOS]) && !pOpponent->combatResult().lastAttackHit()))
 		{
 			continue;
 		}
@@ -1555,7 +1555,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 				else
 				{
 					DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"calcbestthrow: checking chance for launcher to beat cover");
-					ubChanceToGetThrough = 100 * CalculateLaunchItemChanceToGetThrough( pSoldier, (pObjGL ? pObjGL : &pSoldier->inv[bPayloadPocket]), sGridNo, bOpponentLevel[ubLoop], 0, &sEndGridNo, TRUE, &bEndLevel, FALSE );//dnl ch63 240813
+					ubChanceToGetThrough = 100 * CalculateLaunchItemChanceToGetThrough( pSoldier, (pObjGL ? pObjGL : &pSoldier->inventory()[bPayloadPocket]), sGridNo, bOpponentLevel[ubLoop], 0, &sEndGridNo, TRUE, &bEndLevel, FALSE );//dnl ch63 240813
 					ubFriendlyFireChance = 0;
 
 					//NumMessage("Chance to get through = ",ubChanceToGetThrough);
@@ -1583,7 +1583,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 							PythSpacesAway(sGridNo, sEndGridNo) < (INT16)(TACTICAL_RANGE / 4))
 						{
 							// calc new chance to hit roof above spot
-							ubChanceToGetThrough = 100 * CalculateLaunchItemChanceToGetThrough(pSoldier, (pObjGL ? pObjGL : &pSoldier->inv[bPayloadPocket]), sGridNo, 1, 0, &sEndGridNo, TRUE, &bEndLevel, FALSE);
+							ubChanceToGetThrough = 100 * CalculateLaunchItemChanceToGetThrough(pSoldier, (pObjGL ? pObjGL : &pSoldier->inventory()[bPayloadPocket]), sGridNo, 1, 0, &sEndGridNo, TRUE, &bEndLevel, FALSE);
 						}
 						
 						// if still cannot hit, skip location
@@ -1737,7 +1737,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 	INT16 ubBestChanceToHit;
 	//InitAttackType(pBestStab);		// set all structure fields to defaults//dnl ch69 150913
 
-	pSoldier->attackSelection().weapon() = pSoldier->inv[HANDPOS].usItem;
+	pSoldier->attackSelection().weapon() = pSoldier->inventory()[HANDPOS].usItem;
 	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	// sevenfm: initialize
@@ -1978,7 +1978,7 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 
 	//InitAttackType(pBestStab);		// set all structure fields to defaults//dnl ch69 150913
 
-	pSoldier->attackSelection().weapon() = pSoldier->inv[HANDPOS].usItem;
+	pSoldier->attackSelection().weapon() = pSoldier->inventory()[HANDPOS].usItem;
 
 	// determine which attack against which target has the greatest attack value
 
@@ -2168,7 +2168,7 @@ INT32 EstimateShotDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ub
 	}
 	*/
 
-	pObj = &(pSoldier->inv[pSoldier->attackSelection().hand()]);
+	pObj = &(pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 	usItem = pObj->usItem;
 
 	if ( Item[ usItem ].usItemClass & IC_THROWING_KNIFE )
@@ -2202,25 +2202,25 @@ INT32 EstimateShotDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ub
 	//NumMessage("Pre-protection damage: ",damage);
 
 	// if opponent is wearing a helmet
-	if (pOpponent->inv[HELMETPOS].usItem)
+	if (pOpponent->inventory()[HELMETPOS].usItem)
 	{
-		iHeadProt += (INT32) Armour[Item[pOpponent->inv[HELMETPOS].usItem].ubClassIndex].ubProtection *
-			(INT32) pOpponent->inv[HELMETPOS][0]->data.objectStatus / 100;
+		iHeadProt += (INT32) Armour[Item[pOpponent->inventory()[HELMETPOS].usItem].ubClassIndex].ubProtection *
+			(INT32) pOpponent->inventory()[HELMETPOS][0]->data.objectStatus / 100;
 	}
 
 	// if opponent is wearing a protective vest
 	if ( !AmmoTypes[ubAmmoType].ignoreArmour )
 	{
 		// monster spit and knives ignore kevlar vests
-		if (pOpponent->inv[VESTPOS].usItem)
+		if (pOpponent->inventory()[VESTPOS].usItem)
 		{
-			iTorsoProt += (INT32) Armour[Item[pOpponent->inv[VESTPOS].usItem].ubClassIndex].ubProtection *
-				(INT32) pOpponent->inv[VESTPOS][0]->data.objectStatus / 100;
+			iTorsoProt += (INT32) Armour[Item[pOpponent->inventory()[VESTPOS].usItem].ubClassIndex].ubProtection *
+				(INT32) pOpponent->inventory()[VESTPOS][0]->data.objectStatus / 100;
 		}
 	}
 
 	// check for ceramic plates; these do affect monster spit
-	for (attachmentList::iterator iter = pOpponent->inv[VESTPOS][0]->attachments.begin(); iter != pOpponent->inv[VESTPOS][0]->attachments.end(); ++iter) {
+	for (attachmentList::iterator iter = pOpponent->inventory()[VESTPOS][0]->attachments.begin(); iter != pOpponent->inventory()[VESTPOS][0]->attachments.end(); ++iter) {
 		if (Item[iter->usItem].usItemClass == IC_ARMOUR && (*iter)[0]->data.objectStatus > 0 && iter->exists() )
 		{
 			iTorsoProt += (INT32) Armour[Item[iter->usItem].ubClassIndex].ubProtection *
@@ -2231,10 +2231,10 @@ INT32 EstimateShotDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ub
 	// if opponent is wearing armoured leggings (LEGPOS)
 	if ( !AmmoTypes[ubAmmoType].ignoreArmour )
 	{	// monster spit and knives ignore kevlar leggings
-		if (pOpponent->inv[LEGPOS].usItem)
+		if (pOpponent->inventory()[LEGPOS].usItem)
 		{
-			iLegProt += (INT32) Armour[Item[pOpponent->inv[LEGPOS].usItem].ubClassIndex].ubProtection *
-				(INT32) pOpponent->inv[LEGPOS][0]->data.objectStatus / 100;
+			iLegProt += (INT32) Armour[Item[pOpponent->inventory()[LEGPOS].usItem].ubClassIndex].ubProtection *
+				(INT32) pOpponent->inventory()[LEGPOS][0]->data.objectStatus / 100;
 		}
 	}
 
@@ -2300,14 +2300,14 @@ INT32 EstimateThrowDamage( SOLDIERTYPE *pSoldier, UINT8 ubItemPos, SOLDIERTYPE *
 	INT8	bSlot;
 
 
-	if( pSoldier == NULL || pOpponent == NULL || ubItemPos > pSoldier->inv.size() || sGridNo > giNumberOfTiles )
+	if( pSoldier == NULL || pOpponent == NULL || ubItemPos > pSoldier->inventory().size() || sGridNo > giNumberOfTiles )
 		return 0;
 
-	if( pSoldier->inv[ubItemPos].exists() == false )
+	if( pSoldier->inventory()[ubItemPos].exists() == false )
 		return 0;
 
 
-	//switch ( pSoldier->inv[ ubItemPos ].usItem )
+	//switch ( pSoldier->inventory()[ ubItemPos ].usItem )
 	//{
 	//case GL_SMOKE_GRENADE:
 	//case SMOKE_GRENADE:
@@ -2320,34 +2320,34 @@ INT32 EstimateThrowDamage( SOLDIERTYPE *pSoldier, UINT8 ubItemPos, SOLDIERTYPE *
 	//	ubExplosiveIndex = Item[ C1 ].ubClassIndex;
 	//	break;
 	//default:
-	UINT16 usItem = pSoldier->inv[ubItemPos].usItem;
+	UINT16 usItem = pSoldier->inventory()[ubItemPos].usItem;
 	if (ItemIsSingleShotRocketLauncher(usItem))
 		ubExplosiveIndex = Item[ C1 ].ubClassIndex;
 	else if (ItemIsRocketLauncher(usItem) || ItemIsGrenadeLauncher(usItem) || ItemIsMortar(usItem) )
 	{
-		OBJECTTYPE* pAttachment = FindLaunchableAttachment(&pSoldier->inv[ ubItemPos ],usItem ) ;
+		OBJECTTYPE* pAttachment = FindLaunchableAttachment(&pSoldier->inventory()[ ubItemPos ],usItem ) ;
 		if ( pAttachment->exists() )
 			ubExplosiveIndex = Item[pAttachment->usItem].ubClassIndex;
 		else
 			return 0;
 	}
-	else if(IsGrenadeLauncherAttached(&pSoldier->inv[ubItemPos]))//dnl ch63 240813 situation when grenade is already in launcher
+	else if(IsGrenadeLauncherAttached(&pSoldier->inventory()[ubItemPos]))//dnl ch63 240813 situation when grenade is already in launcher
 	{
-		OBJECTTYPE *pAttachment = FindLaunchableAttachment(&pSoldier->inv[ubItemPos], GetAttachedGrenadeLauncher(&pSoldier->inv[ubItemPos]));
+		OBJECTTYPE *pAttachment = FindLaunchableAttachment(&pSoldier->inventory()[ubItemPos], GetAttachedGrenadeLauncher(&pSoldier->inventory()[ubItemPos]));
 		if(pAttachment->exists())
 			ubExplosiveIndex = Item[pAttachment->usItem].ubClassIndex;
 		else
 			return(0);
 	}
-	else if ( Explosive[Item[pSoldier->inv[ubItemPos].usItem].ubClassIndex].ubType == EXPLOSV_SMOKE || Explosive[Item[pSoldier->inv[ubItemPos].usItem].ubClassIndex].ubType == EXPLOSV_SMOKE_DEBRIS )
+	else if ( Explosive[Item[pSoldier->inventory()[ubItemPos].usItem].ubClassIndex].ubType == EXPLOSV_SMOKE || Explosive[Item[pSoldier->inventory()[ubItemPos].usItem].ubClassIndex].ubType == EXPLOSV_SMOKE_DEBRIS )
 		return 5;
 	else
-		ubExplosiveIndex = Item[ pSoldier->inv[ubItemPos].usItem ].ubClassIndex;
+		ubExplosiveIndex = Item[ pSoldier->inventory()[ubItemPos].usItem ].ubClassIndex;
 
 	//		break;
 	//}
 	// JA2Gold: added
-	if (ItemIsFlare(pSoldier->inv[ubItemPos].usItem))
+	if (ItemIsFlare(pSoldier->inventory()[ubItemPos].usItem))
 	{
 		return( 5 * ( LightTrueLevel( pOpponent->position().gridNo(), pOpponent->position().level() ) - NORMAL_LIGHTLEVEL_DAY ) );
 	}
@@ -2377,10 +2377,10 @@ INT32 EstimateThrowDamage( SOLDIERTYPE *pSoldier, UINT8 ubItemPos, SOLDIERTYPE *
 			iBreathDamage /= 2;		// reduce effective breath damage by 1/2
 
 		bSlot = FindGasMask(pOpponent); //FindObj( pOpponent, GASMASK );
-		if ( (bSlot == HEAD1POS || bSlot == HEAD2POS || bSlot == HELMETPOS) && pSoldier->inv[bSlot][0]->data.objectStatus >= GASMASK_MIN_STATUS )
+		if ( (bSlot == HEAD1POS || bSlot == HEAD2POS || bSlot == HELMETPOS) && pSoldier->inventory()[bSlot][0]->data.objectStatus >= GASMASK_MIN_STATUS )
 		{
 			// take condition of the gas mask into account - it could be leaking
-			iBreathDamage = (iBreathDamage * (100 - pOpponent->inv[bSlot][0]->data.objectStatus)) / 100;
+			iBreathDamage = (iBreathDamage * (100 - pOpponent->inventory()[bSlot][0]->data.objectStatus)) / 100;
 			//NumMessage("damage after GAS MASK: ",iBreathDamage);
 		}
 
@@ -2419,7 +2419,7 @@ INT32 EstimateThrowDamage( SOLDIERTYPE *pSoldier, UINT8 ubItemPos, SOLDIERTYPE *
 
 	// approximate chance of the grenade going off (Ian's formulas are too funky)
 	// then use that to reduce the expected damage because thing may not blow!
-	iDamage = (iDamage * pSoldier->inv[ubItemPos][0]->data.objectStatus) / 100;
+	iDamage = (iDamage * pSoldier->inventory()[ubItemPos][0]->data.objectStatus) / 100;
 
 	// if the target gridno is in water, grenade may not blow (guess 50% of time)
 	/*
@@ -2438,11 +2438,11 @@ INT32 EstimateStabDamage( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 u
 	CHECKF(pSoldier);
 	CHECKF(pOpponent);
 
-	usItem = pSoldier->inv[HANDPOS].usItem;
+	usItem = pSoldier->inventory()[HANDPOS].usItem;
 
 	if (fBladeAttack)
 	{
-		iImpact = GetDamage(&(pSoldier->inv[HANDPOS]));
+		iImpact = GetDamage(&(pSoldier->inventory()[HANDPOS]));
 		iImpact += EffectiveStrength(pSoldier, FALSE) / 20; // 0 to 5 for strength, adjusted by damage taken
 
 		if (AM_A_ROBOT(pOpponent))
@@ -2459,7 +2459,7 @@ INT32 EstimateStabDamage( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 u
 		{
 			if (gGameOptions.fNewTraitSystem)
 			{
-				iImpact += GetDamage(&(pSoldier->inv[HANDPOS]));
+				iImpact += GetDamage(&(pSoldier->inventory()[HANDPOS]));
 
 				if (AM_A_ROBOT(pOpponent))
 				{
@@ -2470,7 +2470,7 @@ INT32 EstimateStabDamage( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 u
 			{
 				if (!HAS_SKILL_TRAIT(pSoldier, MARTIALARTS_OT))
 				{
-					iImpact += GetDamage(&(pSoldier->inv[HANDPOS]));
+					iImpact += GetDamage(&(pSoldier->inventory()[HANDPOS]));
 				}
 				if (AM_A_ROBOT(pOpponent))
 				{
@@ -2600,20 +2600,20 @@ INT8 TryToReload( SOLDIERTYPE * pSoldier )
 	OBJECTTYPE *pObj, *pObj2;
 
 	// HEADROCK HAM 3.3: Attempt to reload now takes magazine type into account. Prefernace will be given to magazines of similar type.
-	pObj = &(pSoldier->inv[HANDPOS]);
-	pWeapon = &(Weapon[pSoldier->inv[HANDPOS].usItem]);
+	pObj = &(pSoldier->inventory()[HANDPOS]);
+	pWeapon = &(Weapon[pSoldier->inventory()[HANDPOS].usItem]);
 	bSlot = FindAmmo( pSoldier, pWeapon->ubCalibre, pWeapon->ubMagSize, GetAmmoType(pObj), NO_SLOT );
 
 	//if (bSlot != NO_SLOT)
 	//{
-	//	if (ReloadGun( pSoldier, &(pSoldier->inv[HANDPOS]), &(pSoldier->inv[bSlot]) ))
+	//	if (ReloadGun( pSoldier, &(pSoldier->inventory()[HANDPOS]), &(pSoldier->inventory()[bSlot]) ))
 	//	{
 	//		return( TRUE );
 	//	}
 	//}
 
 	//<SB> manual recharge
-	//pObj = &(pSoldier->inv[HANDPOS]);
+	//pObj = &(pSoldier->inventory()[HANDPOS]);
 
 	if ((*pObj)[0]->data.gun.ubGunShotsLeft && !((*pObj)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) )
 	{
@@ -2651,7 +2651,7 @@ INT8 TryToReload( SOLDIERTYPE * pSoldier )
 
 		if ( pSoldier->IsValidSecondHandShot( ) )
 		{
-			pObj2 = &(pSoldier->inv[SECONDHANDPOS]);
+			pObj2 = &(pSoldier->inventory()[SECONDHANDPOS]);
 
 			if ((*pObj2)[0]->data.gun.ubGunShotsLeft && !((*pObj2)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) )
 			{
@@ -2666,7 +2666,7 @@ INT8 TryToReload( SOLDIERTYPE * pSoldier )
 	{
 		if ( pSoldier->IsValidSecondHandShot( ) )
 		{
-			pObj2 = &(pSoldier->inv[SECONDHANDPOS]);
+			pObj2 = &(pSoldier->inventory()[SECONDHANDPOS]);
 
 			if ((*pObj2)[0]->data.gun.ubGunShotsLeft && !((*pObj2)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) )
 			{
@@ -2707,7 +2707,7 @@ INT8 TryToReload( SOLDIERTYPE * pSoldier )
 	}
 	//</SB>
 
-	if (bSlot != NO_SLOT && ReloadGun( pSoldier, &(pSoldier->inv[HANDPOS]), &(pSoldier->inv[bSlot]) ))
+	if (bSlot != NO_SLOT && ReloadGun( pSoldier, &(pSoldier->inventory()[HANDPOS]), &(pSoldier->inventory()[bSlot]) ))
 	{
 		return( TRUE );
 	}
@@ -2721,7 +2721,7 @@ INT8 TryToReloadLauncher( SOLDIERTYPE * pSoldier )
 UINT16	usWeapon;
 INT8		bSlot;
 
-usWeapon = pSoldier->inv[HANDPOS].usItem;
+usWeapon = pSoldier->inventory()[HANDPOS].usItem;
 
 if ( usWeapon == TANK_CANNON )
 {
@@ -2762,12 +2762,12 @@ INT8 CanNPCAttack(SOLDIERTYPE *pSoldier)
 		bCanAttack = TryToReload( pSoldier );
 		if( bCanAttack == TRUE )
 		{
-			if (Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) || GetMagSize(&(pSoldier->inv[HANDPOS])) > 4)
+			if (Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) || GetMagSize(&(pSoldier->inventory()[HANDPOS])) > 4)
 				PossiblyStartEnemyTaunt( pSoldier, TAUNT_RELOAD );
 		}
 		else
 		{
-			if (Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) || GetMagSize(&(pSoldier->inv[HANDPOS])) > 4)
+			if (Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) || GetMagSize(&(pSoldier->inventory()[HANDPOS])) > 4)
 				PossiblyStartEnemyTaunt( pSoldier, TAUNT_OUT_OF_AMMO );
 		}
 	}
@@ -2780,14 +2780,14 @@ INT8 CanNPCAttack(SOLDIERTYPE *pSoldier)
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"cannpcattack: swapping weapon into hand");
 			RearrangePocket( pSoldier, HANDPOS, bWeaponIn, FOREVER );
 			// look for another weapon if this one is 1-handed
-			//			if ( (Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass == IC_GUN) && !(Item[ pSoldier->inv[ HANDPOS ].usItem ].fFlags & ITEM_TWO_HANDED ) )
-			if ( (Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass == IC_GUN) && !ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem) )
+			//			if ( (Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass == IC_GUN) && !(Item[ pSoldier->inventory()[ HANDPOS ].usItem ].fFlags & ITEM_TWO_HANDED ) )
+			if ( (Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass == IC_GUN) && !ItemIsTwoHanded(pSoldier->inventory()[ HANDPOS ].usItem) )
 			{
 				// look for another pistol/SMG if available
 				// CHRISL: Change final parameter to use dynamic pocket definition
 				bWeaponIn = FindAIUsableObjClassWithin( pSoldier, IC_WEAPON, BIGPOCKSTART, NUM_INV_SLOTS );
-				//				if (bWeaponIn != NO_SLOT && (Item[ pSoldier->inv[ bWeaponIn ].usItem ].usItemClass == IC_GUN) && !(Item[ pSoldier->inv[ bWeaponIn ].usItem ].fFlags & ITEM_TWO_HANDED ) )
-				if (bWeaponIn != NO_SLOT && (Item[ pSoldier->inv[ bWeaponIn ].usItem ].usItemClass == IC_GUN) && !ItemIsTwoHanded(pSoldier->inv[ bWeaponIn ].usItem) )
+				//				if (bWeaponIn != NO_SLOT && (Item[ pSoldier->inventory()[ bWeaponIn ].usItem ].usItemClass == IC_GUN) && !(Item[ pSoldier->inventory()[ bWeaponIn ].usItem ].fFlags & ITEM_TWO_HANDED ) )
+				if (bWeaponIn != NO_SLOT && (Item[ pSoldier->inventory()[ bWeaponIn ].usItem ].usItemClass == IC_GUN) && !ItemIsTwoHanded(pSoldier->inventory()[ bWeaponIn ].usItem) )
 				{
 					DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"cannpcattack: swapping weapon into holster");
 					RearrangePocket( pSoldier, SECONDHANDPOS, bWeaponIn, FOREVER );
@@ -2836,7 +2836,7 @@ void CheckIfTossPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 				// no rocket launcher (or empty) -- let's look for an underslung/attached GL and a launchable grenade!
 				INT8 bGunSlot = FindAIUsableObjClass(pSoldier, IC_GUN);
 				pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;// So that EnoughAmmo will check for a grenade not a bullet, also need in calculation during CalcBestThrow
-				if(bGunSlot != NO_SLOT && IsGrenadeLauncherAttached(&pSoldier->inv[bGunSlot]) && (EnoughAmmo(pSoldier, FALSE, bGunSlot) || FindAmmoToReload(pSoldier, bGunSlot, NO_SLOT) != NO_SLOT))
+				if(bGunSlot != NO_SLOT && IsGrenadeLauncherAttached(&pSoldier->inventory()[bGunSlot]) && (EnoughAmmo(pSoldier, FALSE, bGunSlot) || FindAmmoToReload(pSoldier, bGunSlot, NO_SLOT) != NO_SLOT))
 					pBestThrow->bWeaponIn = bGunSlot;
 				else
 				{
@@ -3308,16 +3308,16 @@ BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * 
 		return( FALSE );
 	}
 
-	if( (pOpponent->inv[HANDPOS].exists() != true) )	
+	if( (pOpponent->inventory()[HANDPOS].exists() != true) )
 	{
 		return( FALSE );
 	}
-	if ( !(Item[pOpponent->inv[HANDPOS].usItem].usItemClass & IC_WEAPON) )
+	if ( !(Item[pOpponent->inventory()[HANDPOS].usItem].usItemClass & IC_WEAPON) )
 	{
-		UINT16 dfgvdfv = Item[pOpponent->inv[HANDPOS].usItem].usItemClass;
+		UINT16 dfgvdfv = Item[pOpponent->inventory()[HANDPOS].usItem].usItemClass;
 		return( FALSE );
 	}
-	if (HasAttachmentOfClass(&(pOpponent->inv[HANDPOS]), AC_SLING))
+	if (HasAttachmentOfClass(&(pOpponent->inventory()[HANDPOS]), AC_SLING))
 	{
 		return FALSE;
 	}
@@ -4049,7 +4049,7 @@ void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpo
 	UINT16	usTrueState = pSoldier->animationPlayback().state();
 	UINT8	ubStance = gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight;
 
-	usInHand = pSoldier->inv[HANDPOS].usItem;
+	usInHand = pSoldier->inventory()[HANDPOS].usItem;
 
 	// initialize
 	pBestThrow->ubPossible = FALSE;
@@ -4057,8 +4057,8 @@ void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpo
 	pBestThrow->iAttackValue = 0;
 
 	iTossRange = CalcMaxTossRange(pSoldier, usInHand, TRUE);
-	usGrenade = pSoldier->inv[HANDPOS].usItem;
-	ubChanceToGetThrough = 100 * CalculateLaunchItemChanceToGetThrough(pSoldier, &pSoldier->inv[HANDPOS], sTargetSpot, bTargetLevel, 0, &sEndSpot, TRUE, &bEndLevel, FALSE);
+	usGrenade = pSoldier->inventory()[HANDPOS].usItem;
+	ubChanceToGetThrough = 100 * CalculateLaunchItemChanceToGetThrough(pSoldier, &pSoldier->inventory()[HANDPOS], sTargetSpot, bTargetLevel, 0, &sEndSpot, TRUE, &bEndLevel, FALSE);
 	ubAPCost = (UINT8)MinAPsToThrow(pSoldier, sTargetSpot, TRUE) + CalcAPCostForAiming(pSoldier, sTargetSpot, ubMaxPossibleAimTime);
 	ubChanceToHit = (UINT8)CalcThrownChanceToHit(pSoldier, sTargetSpot, 0, AIM_SHOT_TORSO);
 	ubChanceToReallyHit = (ubChanceToHit * ubChanceToGetThrough) / 100;
@@ -4075,8 +4075,8 @@ void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpo
 
 		iTossRange = CalcMaxTossRange(pSoldier, usInHand, TRUE);
 
-		usGrenade = pSoldier->inv[HANDPOS].usItem;
-		ubChanceToGetThrough = 100 * CalculateLaunchItemChanceToGetThrough(pSoldier, &pSoldier->inv[HANDPOS], sTargetSpot, bTargetLevel, 0, &sEndSpot, TRUE, &bEndLevel, FALSE);
+		usGrenade = pSoldier->inventory()[HANDPOS].usItem;
+		ubChanceToGetThrough = 100 * CalculateLaunchItemChanceToGetThrough(pSoldier, &pSoldier->inventory()[HANDPOS], sTargetSpot, bTargetLevel, 0, &sEndSpot, TRUE, &bEndLevel, FALSE);
 		ubAPCost = (UINT8)MinAPsToThrow(pSoldier, sTargetSpot, TRUE) + CalcAPCostForAiming(pSoldier, sTargetSpot, ubMaxPossibleAimTime);
 		ubChanceToHit = (UINT8)CalcThrownChanceToHit(pSoldier, sTargetSpot, 0, AIM_SHOT_TORSO);
 		ubChanceToReallyHit = (ubChanceToHit * ubChanceToGetThrough) / 100;

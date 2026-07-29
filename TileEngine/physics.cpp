@@ -1936,7 +1936,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 	//MM: Replacement:
 	OBJECTTYPE *pObj = NULL;
 	usLauncher = 0;
-	pObj = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] );
+	pObj = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 	if ( pObj != NULL )
 	{
 		if (Item[pObj->usItem].usItemClass == IC_LAUNCHER)
@@ -2420,7 +2420,7 @@ void CalculateLaunchItemParamsForThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UI
 	//MM: Replacement:
 	OBJECTTYPE *pObj = NULL;
 	usLauncher = 0;
-	pObj = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] );
+	pObj = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 	if ( pObj != NULL )
 	{
 		if (Item[pObj->usItem].usItemClass == IC_LAUNCHER)

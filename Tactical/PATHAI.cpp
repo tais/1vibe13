@@ -2618,7 +2618,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			UINT16 usBPPenalty = APBPConstants[AP_MODIFIER_PACK];
 			if (bSlot == BPACKPOCKPOS) //Backpack carried on back
 			{
-				OBJECTTYPE * pObj = &(s->inv[BPACKPOCKPOS]);
+				OBJECTTYPE * pObj = &(s->inventory()[BPACKPOCKPOS]);
 				UINT16 usBackPackWeight = CalculateObjectWeight(pObj);
 				// CalculateObjectWeight checks for active LBE gear. Unfortunately our backpack is not active since we are carrying it.
 				// Sounds not intuitive at all, active means the LBE caries items (marked with blue *), but when put on the LBE adittional slots of our soldier
@@ -2627,7 +2627,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 				GetLBESlots(BPACKPOCKPOS, vbLBESlots);
 				for (UINT8 i = 0; i < vbLBESlots.size(); i++)
 				{
-					pObj = &(s->inv[vbLBESlots[i]]);
+					pObj = &(s->inventory()[vbLBESlots[i]]);
 					usBackPackWeight += CalculateObjectWeight(pObj);
 				}
 				usBPPenalty = min((usBackPackWeight / 50), usBPPenalty); //1 AP penalty for each 5kg of weight up to the penalty defined by AP_MODIFIER_PACK (default = 4)
@@ -2643,7 +2643,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 	// sevenfm: moved calculations out of loop
 	// these soldier-invariant trait/equipment checks don't depend on the candidate tile/direction
 	const bool fAthleticsReduce = ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( s, ATHLETICS_NT ) );
-	const bool fHasScubaFins = ( s->inv[LEGPOS].exists() && HasItemFlag( s->inv[LEGPOS].usItem, SCUBA_FINS ) );
+	const bool fHasScubaFins = ( s->inventory()[LEGPOS].exists() && HasItemFlag( s->inventory()[LEGPOS].usItem, SCUBA_FINS ) );
 	const bool fRiotShield = s->IsRiotShieldEquipped( );
 	const bool fDragging = s->IsDragging( );
 
@@ -3111,7 +3111,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 									pDoor = FindDoorInfoAtGridNo( iDoorGridNo );
 									if (pDoor)
 									{
-										if (!pDoor->fLocked || s->inventoryState().keyAccess())
+										if (!pDoor->fLocked || s->inventory().keyAccess())
 										{
 											// add to AP cost
 											if (gubNPCAPBudget)
@@ -4278,7 +4278,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 				UINT16 usBPPenalty = APBPConstants[AP_MODIFIER_PACK];
 				if (bSlot == BPACKPOCKPOS) //Backpack carried on back
 				{
-					OBJECTTYPE * pObj = &(pSold->inv[BPACKPOCKPOS]);
+					OBJECTTYPE * pObj = &(pSold->inventory()[BPACKPOCKPOS]);
 					UINT16 usBackPackWeight = CalculateObjectWeight(pObj);
 					// CalculateObjectWeight checks for active LBE gear. Unfortunately our backpack is not active since we are carrying it.
 					// Sounds not intuitive at all, active means the LBE caries items (marked with blue *), but when put on the LBE adittional slots of our soldier
@@ -4287,7 +4287,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 					GetLBESlots(BPACKPOCKPOS, vbLBESlots);
 					for (UINT8 i = 0; i < vbLBESlots.size(); i++)
 					{
-						pObj = &(pSold->inv[vbLBESlots[i]]);
+						pObj = &(pSold->inventory()[vbLBESlots[i]]);
 						usBackPackWeight += CalculateObjectWeight(pObj);
 					}
 					usBPPenalty = min((usBackPackWeight / 50), usBPPenalty); //1 AP penalty for each 5kg of weight up to the penalty defined by AP_MODIFIER_PACK (default = 4)
@@ -4483,7 +4483,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 					}
 
 					// Moa: scuba fins and swimming background
-					if ( pSold->inv[LEGPOS].exists() && HasItemFlag( pSold->inv[LEGPOS].usItem, SCUBA_FINS ) )
+					if ( pSold->inventory()[LEGPOS].exists() && HasItemFlag( pSold->inventory()[LEGPOS].usItem, SCUBA_FINS ) )
 					{
 						if ( TERRAIN_IS_HIGH_WATER( ubTerrainID) )
 							sMovementAPsCost /= 2;
@@ -4571,7 +4571,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 				}
 
 				// Moa: scuba fins and swimming background
-				if ( pSold->inv[LEGPOS].exists() && HasItemFlag( pSold->inv[LEGPOS].usItem, SCUBA_FINS ) )
+				if ( pSold->inventory()[LEGPOS].exists() && HasItemFlag( pSold->inventory()[LEGPOS].usItem, SCUBA_FINS ) )
 				{
 					if ( TERRAIN_IS_HIGH_WATER( ubTerrainID) )
 					{
@@ -5048,7 +5048,7 @@ UINT8 InternalDoorTravelCost( SOLDIERTYPE * pSoldier, INT32 iGridNo, UINT8 ubMov
 					pDoor = FindDoorInfoAtGridNo( iDoorGridNo );
 					if ( pDoor )
 					{
-						if ( ( !pDoor->fLocked || (pSoldier && pSoldier->inventoryState().keyAccess()) ) && !fReturnDoorCost )
+						if ( ( !pDoor->fLocked || (pSoldier && pSoldier->inventory().keyAccess()) ) && !fReturnDoorCost )
 						{
 							ubMovementCost = gTileTypeMovementCost[ gpWorldLevelData[ iGridNo ].ubTerrainID ];
 						}

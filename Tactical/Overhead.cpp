@@ -2085,10 +2085,10 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
         // CHRISL: Added penalty for jumping a fence while wearing a backpack
         // Do we have APs?
         // SANDRO - changed the static values to precise calculation here
-/*		if ((UsingNewInventorySystem() == true) && pSoldier->inv[BPACKPOCKPOS].exists() == true
+/*		if ((UsingNewInventorySystem() == true) && pSoldier->inventory()[BPACKPOCKPOS].exists() == true
 			//JMich.BackpackClimb
-			&& ((gGameExternalOptions.sBackpackWeightToClimb == -1) || (INT16)pSoldier->inv[BPACKPOCKPOS].GetWeightOfObjectInStack() + Item[pSoldier->inv[BPACKPOCKPOS].usItem].sBackpackWeightModifier > gGameExternalOptions.sBackpackWeightToClimb)
-			&& ((gGameExternalOptions.fUseGlobalBackpackSettings == TRUE) || (Item[pSoldier->inv[BPACKPOCKPOS].usItem].fAllowClimbing == FALSE)))
+			&& ((gGameExternalOptions.sBackpackWeightToClimb == -1) || (INT16)pSoldier->inventory()[BPACKPOCKPOS].GetWeightOfObjectInStack() + Item[pSoldier->inventory()[BPACKPOCKPOS].usItem].sBackpackWeightModifier > gGameExternalOptions.sBackpackWeightToClimb)
+			&& ((gGameExternalOptions.fUseGlobalBackpackSettings == TRUE) || (Item[pSoldier->inventory()[BPACKPOCKPOS].usItem].fAllowClimbing == FALSE)))
 
         {
             sAPCost = GetAPsToJumpFence( pSoldier, TRUE );
@@ -2991,7 +2991,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 				pOpponent->position().level() != pSoldier->position().level() ||
 				!SoldierToSoldierLineOfSightTest(pOpponent, pSoldier, TRUE, CALC_FROM_WANTED_DIR) ||
 				pOpponent->actionPoints().current() <= 0 ||
-				pOpponent->inv[HANDPOS].exists() && pOpponent->inv[SECONDHANDPOS].exists() && !(Item[pOpponent->inv[HANDPOS].usItem].usItemClass & (IC_BLADE | IC_THROWING_KNIFE | IC_PUNCH)))
+				pOpponent->inventory()[HANDPOS].exists() && pOpponent->inventory()[SECONDHANDPOS].exists() && !(Item[pOpponent->inventory()[HANDPOS].usItem].usItemClass & (IC_BLADE | IC_THROWING_KNIFE | IC_PUNCH)))
 			{
 				continue;			// next merc
 			}
@@ -3012,12 +3012,12 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 				continue;
 			}
 
-			if (!(Item[pOpponent->inv[HANDPOS].usItem].usItemClass & (IC_BLADE | IC_THROWING_KNIFE | IC_PUNCH)) &&
-				!pOpponent->inv[SECONDHANDPOS].exists())
+			if (!(Item[pOpponent->inventory()[HANDPOS].usItem].usItemClass & (IC_BLADE | IC_THROWING_KNIFE | IC_PUNCH)) &&
+				!pOpponent->inventory()[SECONDHANDPOS].exists())
 			{
-				UINT16 usOldHandItem = pOpponent->inv[HANDPOS].usItem;
+				UINT16 usOldHandItem = pOpponent->inventory()[HANDPOS].usItem;
 				SwapHandItems(pOpponent);
-				pOpponent->ReLoadSoldierAnimationDueToHandItemChange(usOldHandItem, pOpponent->inv[HANDPOS].usItem);
+				pOpponent->ReLoadSoldierAnimationDueToHandItemChange(usOldHandItem, pOpponent->inventory()[HANDPOS].usItem);
 				HandleSight(pOpponent, SIGHT_LOOK);
 
 				if (pOpponent->roster().team() == gbPlayerNum)
@@ -3049,7 +3049,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 					pOpponent->attackSelection().shotLocation() = AIM_SHOT_TORSO;
 			}
 
-			HandleItem(pOpponent, pSoldier->position().gridNo(), pOpponent->position().level(), pOpponent->inv[HANDPOS].usItem, FALSE);
+			HandleItem(pOpponent, pSoldier->position().gridNo(), pOpponent->position().level(), pOpponent->inventory()[HANDPOS].usItem, FALSE);
 		}
 	}
 
@@ -6169,7 +6169,7 @@ void HandleTeamServices( UINT8 ubTeamNum )
                     {
                         BOOLEAN fThrowMessage = (pTargetSoldier->vitals().bleeding() ? TRUE : FALSE); // added by SANDRO
 
-                        usKitPts = TotalPoints( &(pTeamSoldier->inv[ HANDPOS ] ) );
+                        usKitPts = TotalPoints( &(pTeamSoldier->inventory()[ HANDPOS ] ) );
 
                         uiPointsUsed = pTeamSoldier->SoldierDressWound( pTargetSoldier, usKitPts, usKitPts );
 
@@ -6184,10 +6184,10 @@ void HandleTeamServices( UINT8 ubTeamNum )
                             fDone = TRUE;
                         }
 
-                        UseKitPoints( &(pTeamSoldier->inv[ HANDPOS ] ), (UINT16)uiPointsUsed, pTeamSoldier );
+                        UseKitPoints( &(pTeamSoldier->inventory()[ HANDPOS ] ), (UINT16)uiPointsUsed, pTeamSoldier );
 
                         // Get new total
-                        usKitPts = TotalPoints( &(pTeamSoldier->inv[ HANDPOS ] ) );
+                        usKitPts = TotalPoints( &(pTeamSoldier->inventory()[ HANDPOS ] ) );
 
                         // WHETHER OR NOT recipient is all bandaged, check if we've used them up!
                         if ( usKitPts <= 0)  // no more bandages
@@ -6254,7 +6254,7 @@ void HandlePlayerServices( SOLDIERTYPE *pTeamSoldier )
                 {
                     BOOLEAN fThrowMessage = (pTargetSoldier->vitals().bleeding() ? TRUE : FALSE); // added by SANDRO
 
-                    usKitPts = TotalPoints( &(pTeamSoldier->inv[ HANDPOS ] ) );
+                    usKitPts = TotalPoints( &(pTeamSoldier->inventory()[ HANDPOS ] ) );
 
                     uiPointsUsed = pTeamSoldier->SoldierDressWound( pTargetSoldier, usKitPts, usKitPts );
 
@@ -6269,10 +6269,10 @@ void HandlePlayerServices( SOLDIERTYPE *pTeamSoldier )
                         fDone = TRUE;
                     }
 
-                    UseKitPoints( &(pTeamSoldier->inv[ HANDPOS ] ), (UINT16)uiPointsUsed, pTeamSoldier );
+                    UseKitPoints( &(pTeamSoldier->inventory()[ HANDPOS ] ), (UINT16)uiPointsUsed, pTeamSoldier );
 
                     // Get new total
-                    usKitPts = TotalPoints( &(pTeamSoldier->inv[ HANDPOS ] ) );
+                    usKitPts = TotalPoints( &(pTeamSoldier->inventory()[ HANDPOS ] ) );
 
                     // WHETHER OR NOT recipient is all bandaged, check if we've used them up!
                     if ( usKitPts <= 0)  // no more bandages
@@ -7242,10 +7242,10 @@ static void RemoveCapturedEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 
                         SOLDIERTYPE* attacker =
                             GetJa2SoldierRepository().resolve(
                                 pTeamSoldier->combatResult().currentAttacker().i);
-						UINT8 size = pTeamSoldier->inv.size( );
+						UINT8 size = pTeamSoldier->inventory().size( );
 					for ( UINT8 cnt = 0; cnt < size; ++cnt )
 					{
-						OBJECTTYPE* pObj = &(pTeamSoldier->inv[cnt]);
+						OBJECTTYPE* pObj = &(pTeamSoldier->inventory()[cnt]);
 
 						if ( pObj->exists( ) == true )
 						{
@@ -8825,9 +8825,9 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
     // SANDRO - modify suppression effectiveness based on weapon caliber (i.e. damage)
     INT16 sFinalSuppressionEffectiveness = gGameExternalOptions.sSuppressionEffectiveness;
 	pAttacker = GetJa2SoldierRepository().resolve(ubCausedAttacker.i);
-	if (pAttacker && pAttacker->inv[pAttacker->attackSelection().hand()].exists() && Item[pAttacker->inv[pAttacker->attackSelection().hand()].usItem].usItemClass == IC_GUN)
+	if (pAttacker && pAttacker->inventory()[pAttacker->attackSelection().hand()].exists() && Item[pAttacker->inventory()[pAttacker->attackSelection().hand()].usItem].usItemClass == IC_GUN)
     {
-		OBJECTTYPE *pWeapon = &pAttacker->inv[pAttacker->attackSelection().hand()];
+		OBJECTTYPE *pWeapon = &pAttacker->inventory()[pAttacker->attackSelection().hand()];
 		UINT8 ubDamage = GetBasicDamage(pWeapon);
 		UINT8 ubAmmoType = (*pWeapon)[0]->data.gun.ubGunAmmoType;
 		UINT8 ubBullets = AmmoTypes[ubAmmoType].numberOfBullets;
@@ -8863,8 +8863,8 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
         }
 
         // add a small bonus to effectiveness based on weapon loudness
-		UINT8 ubGunVolume = Weapon[pAttacker->inv[pAttacker->attackSelection().hand()].usItem].ubAttackVolume;
-		ubGunVolume = __max(1, (ubGunVolume * GetPercentNoiseVolume(pAttacker->GetUsedWeapon(&pAttacker->inv[pAttacker->attackSelection().hand()]))) / 100);
+		UINT8 ubGunVolume = Weapon[pAttacker->inventory()[pAttacker->attackSelection().hand()].usItem].ubAttackVolume;
+		ubGunVolume = __max(1, (ubGunVolume * GetPercentNoiseVolume(pAttacker->GetUsedWeapon(&pAttacker->inventory()[pAttacker->attackSelection().hand()]))) / 100);
         if ( ubGunVolume >= 50 )
         {
             if ( ubGunVolume < 70 ) // up to 5%
@@ -9536,21 +9536,21 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
                 // ATE: Depending on personality, fire back.....
 
                 // Do we have a gun in a\hand?
-                if ( Item[ pTarget->inv[ HANDPOS ].usItem ].usItemClass == IC_GUN )
+                if ( Item[ pTarget->inventory()[ HANDPOS ].usItem ].usItemClass == IC_GUN )
                 {
                     // Toggle burst capable...
                     if ( !pTarget->fireControl().burstCounter() )
                     {
                         // Changed by ADB, 1513
                         //if ( IsGunBurstCapable( pTarget, HANDPOS , FALSE ) )
-                        if ( IsGunBurstCapable( &pTarget->inv[HANDPOS], FALSE, pTarget ) )
+                        if ( IsGunBurstCapable( &pTarget->inventory()[HANDPOS], FALSE, pTarget ) )
                         {
                             ChangeWeaponMode( pTarget );
                         }
                     }
 
                     // Fire back!
-                    HandleItem( pTarget, pSoldier->position().gridNo(), pSoldier->position().level(), pTarget->inv[ HANDPOS ].usItem, FALSE );
+                    HandleItem( pTarget, pSoldier->position().gridNo(), pSoldier->position().level(), pTarget->inventory()[ HANDPOS ].usItem, FALSE );
 
                 }
 
@@ -9917,7 +9917,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
 
     if ( pSoldier && (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ))
     {
-        if ( !Weapon[pSoldier->inv[HANDPOS].usItem].NoSemiAuto )
+        if ( !Weapon[pSoldier->inventory()[HANDPOS].usItem].NoSemiAuto )
         {
             // change back to single shot
             pSoldier->attackSelection().weaponMode() = WM_NORMAL;
@@ -9929,7 +9929,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
             pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
             pSoldier->fireControl().selectAutofire();
         }
-        if (ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem) && Weapon[pSoldier->inv[ HANDPOS ].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
+        if (ItemIsTwoHanded(pSoldier->inventory()[ HANDPOS ].usItem) && Weapon[pSoldier->inventory()[ HANDPOS ].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
             pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
         else
             pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
@@ -11545,12 +11545,12 @@ void TeamRestock(UINT8 bTeam)
 			SOLDIERCREATE_STRUCT createstruct;
 						
 			// we first have to copy over all our currently equipped items, otherwise we might overwrite them later
-			createstruct.Inv = pSoldier->inv;
+			createstruct.Inv = pSoldier->inventory();
 
             TakeMilitiaEquipmentfromSector(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), &createstruct, pSoldier->roster().soldierClass());
 
 			// replace our inventory with the new one
-			pSoldier->inv = createstruct.Inv;
+			pSoldier->inventory() = createstruct.Inv;
 
 			// we took new gear, so we can drop it again
 			pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_EQUIPMENT_DROPPED;

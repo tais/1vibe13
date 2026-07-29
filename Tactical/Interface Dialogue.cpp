@@ -1600,7 +1600,7 @@ void HandleNPCItemGiven( UINT8 ubNPC, INT8 bInvPos )
 	{
 		return;
 	}
-	OBJECTTYPE * pObject = &(pNPC->inv[ bInvPos ]);
+	OBJECTTYPE * pObject = &(pNPC->inventory()[ bInvPos ]);
 	SOLDIERTYPE* destination =
 		GetDialogueDestinationSoldier();
 	SOLDIERTYPE* source =
@@ -1615,7 +1615,7 @@ void HandleNPCItemGiven( UINT8 ubNPC, INT8 bInvPos )
 			destination ) )
 	{
 		// just drop it (walk up to the merc closest to ubNPC)
-		AddItemToPool( pNPC->position().gridNo(), &(pNPC->inv[bInvPos]), TRUE, 0, 0, 0 );
+		AddItemToPool( pNPC->position().gridNo(), &(pNPC->inventory()[bInvPos]), TRUE, 0, 0, 0 );
 		TriggerNPCWithGivenApproach( ubNPC, APPROACH_DONE_GIVING_ITEM, TRUE );
 	}
 	else
@@ -2170,7 +2170,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 					AssertMsg( bInvPos != NO_SLOT, "Interface Dialogue.C:	Gift item does not exist in NPC." );
 
-					SoldierGiveItem( pSoldier, pSoldier2, &(pSoldier->inv[ bInvPos ] ), bInvPos );
+					SoldierGiveItem( pSoldier, pSoldier2, &(pSoldier->inventory()[ bInvPos ] ), bInvPos );
 				}
 				break;
 
@@ -2216,15 +2216,15 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					return;
 				}
 
-				if (pSoldier->inv[HANDPOS].exists() == true)
+				if (pSoldier->inventory()[HANDPOS].exists() == true)
 				{
 					UINT16	usGun;
 					INT8		bNewSlot, bOldSlot;
 
-					usGun = pSoldier->inv[HANDPOS].usItem;
+					usGun = pSoldier->inventory()[HANDPOS].usItem;
 
-					pSoldier->ReLoadSoldierAnimationDueToHandItemChange( pSoldier->inv[HANDPOS].usItem, NOTHING );
-					AutoPlaceObject( pSoldier, &(pSoldier->inv[HANDPOS]), FALSE );
+					pSoldier->ReLoadSoldierAnimationDueToHandItemChange( pSoldier->inventory()[HANDPOS].usItem, NOTHING );
+					AutoPlaceObject( pSoldier, &(pSoldier->inventory()[HANDPOS]), FALSE );
 
 					bNewSlot = FindObj( pSoldier, usGun );
 					if ( bNewSlot != NO_SLOT && gMercProfiles[ ubTargetNPC ].inv[ bNewSlot ] == NOTHING )
@@ -2252,7 +2252,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 			case NPC_ACTION_READY_GUN:
 				// Get pointer for player
 				pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
-				if (pSoldier && pSoldier->inv[HANDPOS].exists() == true)
+				if (pSoldier && pSoldier->inventory()[HANDPOS].exists() == true)
 				{
 					sGridNo = pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() );
 					pSoldier->SoldierReadyWeapon( (INT16) (sGridNo % WORLD_COLS), (INT16) (sGridNo / WORLD_COLS), FALSE, FALSE );
@@ -3057,8 +3057,8 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					bItemIn = FindObj( pSoldier, DEED );
 					if (bItemIn != NO_SLOT)
 					{
-						AddItemToPool( 12541, &(pSoldier->inv[bItemIn]), -1, 0, 0, 0 );
-						DeleteObj( &(pSoldier->inv[ bItemIn ]) );
+						AddItemToPool( 12541, &(pSoldier->inventory()[bItemIn]), -1, 0, 0, 0 );
+						DeleteObj( &(pSoldier->inventory()[ bItemIn ]) );
 						RemoveObjectFromSoldierProfile( ubTargetNPC, DEED );
 					}
 				}
@@ -3417,7 +3417,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					bSlot = FindObjClass( pSoldier, IC_GUN );
 					if ( bSlot != NO_SLOT )
 					{
-						AutoPlaceObject( pSoldier2, &( pSoldier->inv[ bSlot ] ) , FALSE );
+						AutoPlaceObject( pSoldier2, &( pSoldier->inventory()[ bSlot ] ) , FALSE );
 					}
 				}
 
@@ -3482,17 +3482,17 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						// times 2 (returning the player's money, after all!)
 						if (bMoneySlot != NO_SLOT && bEmptySlot != NO_SLOT)
 						{
-							CreateMoney( gMercProfiles[ ubTargetNPC ].iBalance * 2, &(pSoldier->inv[ bEmptySlot ] ) );
-							pSoldier->inv[ bMoneySlot ][0]->data.money.uiMoneyAmount -= gMercProfiles[ ubTargetNPC ].iBalance * 2;
+							CreateMoney( gMercProfiles[ ubTargetNPC ].iBalance * 2, &(pSoldier->inventory()[ bEmptySlot ] ) );
+							pSoldier->inventory()[ bMoneySlot ][0]->data.money.uiMoneyAmount -= gMercProfiles[ ubTargetNPC ].iBalance * 2;
 							if (bMoneySlot < bEmptySlot)
 							{
 								// move main stash to later in inventory!
 								SwapObjs( pSoldier, bEmptySlot, bMoneySlot, TRUE );
-								SoldierGiveItem( pSoldier, pSoldier2, &(pSoldier->inv[ bMoneySlot ] ), bMoneySlot );
+								SoldierGiveItem( pSoldier, pSoldier2, &(pSoldier->inventory()[ bMoneySlot ] ), bMoneySlot );
 							}
 							else
 							{
-								SoldierGiveItem( pSoldier, pSoldier2, &(pSoldier->inv[ bEmptySlot ] ), bEmptySlot );
+								SoldierGiveItem( pSoldier, pSoldier2, &(pSoldier->inventory()[ bEmptySlot ] ), bEmptySlot );
 							}
 						}
 					}
@@ -3681,7 +3681,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						pSoldier->attackSelection().shotLocation() = AIM_SHOT_HEAD;
 
 						// Add gun to inventory.....
-						CreateItem( (UINT16) (DESERTEAGLE), 100, &( pSoldier->inv[ HANDPOS ] ) );
+						CreateItem( (UINT16) (DESERTEAGLE), 100, &( pSoldier->inventory()[ HANDPOS ] ) );
 
 						// Make shoot
 						pSoldier->aiPlanning().nextAction() = AI_ACTION_FIRE_GUN;

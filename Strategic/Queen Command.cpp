@@ -114,7 +114,7 @@ void ValidateEnemiesHaveWeapons()
 			if ( pSoldier->IsZombie() )
 				continue;
 
-			if( !pSoldier->inv[ HANDPOS ].usItem )
+			if( !pSoldier->inventory()[ HANDPOS ].usItem )
 			{
 				++iNumInvalid;
 			}
@@ -2976,10 +2976,10 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		// OK, drop all items!
 		WORLDITEM WorldItem;
 		std::vector<WORLDITEM> pWorldItem;
-		UINT32 invsize = pSoldier->inv.size();
+		UINT32 invsize = pSoldier->inventory().size();
 		for (UINT32 i = 0; i < invsize; ++i )
 		{
-			if ( pSoldier->inv[i].exists() )
+			if ( pSoldier->inventory()[i].exists() )
 			{
 				WorldItem.fExists = TRUE;
 				WorldItem.sGridNo = itemdropoffgridno;
@@ -2987,7 +2987,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 				WorldItem.usFlags = 0;
 				WorldItem.bVisible = FALSE;
 				WorldItem.bRenderZHeightAboveLevel = 0;
-				pSoldier->inv[i].MoveThisObjectTo( WorldItem.object );
+				pSoldier->inventory()[i].MoveThisObjectTo( WorldItem.object );
 				pWorldItem.push_back( WorldItem );
 			}
 		}

@@ -1328,7 +1328,7 @@ void HandleRetreatBandaging()
 				{
 					while ( pSoldier->vitals().bleeding() )
 					{
-						pKit = &pSoldier->inv[bSlot];
+						pKit = &pSoldier->inventory()[bSlot];
 						usKitPts = TotalPoints( pKit );
 						if ( !usKitPts )
 						{
@@ -1392,7 +1392,7 @@ void HandleRetreatBandaging()
 					{
 						while ( pSoldier->vitals().bleeding() )
 						{
-							pKit = &pDoctor->inv[bSlot];
+							pKit = &pDoctor->inventory()[bSlot];
 							usKitPts = TotalPoints( pKit );
 							if ( !usKitPts )
 							{

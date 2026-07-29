@@ -422,7 +422,7 @@ MilitiaPersonalInventoryTable::Display( )
 
 		for ( UINT8 pocketIndex = HELMETPOS; pocketIndex < NUM_INV_SLOTS; ++pocketIndex )
 		{
-			OBJECTTYPE* pObj = &(pSoldier)->inv[pocketIndex];
+			OBJECTTYPE* pObj = &(pSoldier)->inventory()[pocketIndex];
 
 			if ( pObj == NULL || pObj->ubNumberOfObjects == NOTHING || pObj->usItem == NOTHING )
 				continue;

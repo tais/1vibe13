@@ -1658,22 +1658,22 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 			// Start by direct copy of all BODYPOS items (armor, hands, head and LBE)
 			for(cnt = 0; cnt < (UINT32)BODYPOSFINAL; ++cnt)
 			{
-				pNewSoldier->inv[cnt] = pSoldier->inv[cnt];
+				pNewSoldier->inventory()[cnt] = pSoldier->inventory()[cnt];
 			}
 
 			// Next, direct copy of the gunsling and knife pockets
-			pNewSoldier->inv[GUNSLINGPOCKPOS] = pSoldier->inv[GUNSLINGPOCKPOS];
-			pNewSoldier->inv[KNIFEPOCKPOS] = pSoldier->inv[KNIFEPOCKPOS];
+			pNewSoldier->inventory()[GUNSLINGPOCKPOS] = pSoldier->inventory()[GUNSLINGPOCKPOS];
+			pNewSoldier->inventory()[KNIFEPOCKPOS] = pSoldier->inventory()[KNIFEPOCKPOS];
 			// Then, try to autoplace everything else
-			UINT32 invsize = pNewSoldier->inv.size();
+			UINT32 invsize = pNewSoldier->inventory().size();
 			for(cnt = BIGPOCKSTART; cnt < invsize; ++cnt )
 			{
-				if(pSoldier->inv[cnt].exists() == true)
+				if(pSoldier->inventory()[cnt].exists() == true)
 				{
-					success = PlaceInAnyPocket(pNewSoldier, &pSoldier->inv[cnt], FALSE);
+					success = PlaceInAnyPocket(pNewSoldier, &pSoldier->inventory()[cnt], FALSE);
 					if(!success)
 					{
-						PlaceObject( pNewSoldier, cnt, &pSoldier->inv[cnt] );
+						PlaceObject( pNewSoldier, cnt, &pSoldier->inventory()[cnt] );
 					}
 				}
 			}
@@ -1819,7 +1819,7 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 
 	DirtyMercPanelInterface( pNewSoldier, DIRTYLEVEL2 );
 
-	if ( pNewSoldier->inv[ HANDPOS ].exists() == false )
+	if ( pNewSoldier->inventory()[ HANDPOS ].exists() == false )
 	{
 		// empty handed - swap in first available weapon
 		INT8		bSlot;
@@ -1827,13 +1827,13 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 		bSlot = FindObjClass( pNewSoldier, IC_WEAPON );
 		if ( bSlot != NO_SLOT )
 		{
-//			if ( Item[ pNewSoldier->inv[ bSlot ].usItem ].fFlags & ITEM_TWO_HANDED )
-			if (ItemIsTwoHanded(pNewSoldier->inv[ bSlot ].usItem))
+//			if ( Item[ pNewSoldier->inventory()[ bSlot ].usItem ].fFlags & ITEM_TWO_HANDED )
+			if (ItemIsTwoHanded(pNewSoldier->inventory()[ bSlot ].usItem))
 			{
-				if ( bSlot != SECONDHANDPOS && pNewSoldier->inv[ SECONDHANDPOS ].exists() == true )
+				if ( bSlot != SECONDHANDPOS && pNewSoldier->inventory()[ SECONDHANDPOS ].exists() == true )
 				{
 					// need to move second hand item out first
-					AutoPlaceObject( pNewSoldier, &(pNewSoldier->inv[ SECONDHANDPOS ]), FALSE );
+					AutoPlaceObject( pNewSoldier, &(pNewSoldier->inventory()[ SECONDHANDPOS ]), FALSE );
 				}
 			}
 			// swap item to hand

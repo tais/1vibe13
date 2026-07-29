@@ -1431,7 +1431,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	////////////////////////////////////////////////////////////////////////////
 	// SANDRO - occasionally, allow regular soldiers to scan around too
-	if (IsScoped(&pSoldier->inv[HANDPOS]))
+	if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 	{
 		if (!WeaponReady(pSoldier) && 
 			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
@@ -1684,7 +1684,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 			{
 				// if we are close, we can release this guy
 				// possible only if not handcuffed (binders can be opened, handcuffs not)
-				if ( !HasItemFlag( (&(person->inv[HANDPOS]))->usItem, HANDCUFFS ) )
+				if ( !HasItemFlag( (&(person->inventory()[HANDPOS]))->usItem, HANDCUFFS ) )
 				{
 					if ( PythSpacesAway(pSoldier->position().gridNo(), person->position().gridNo()) < 2 )
 					{
@@ -1862,7 +1862,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 				}
 				////////////////////////////////////////////////////////////////////////////
 				// SANDRO - allow regular soldiers to raise scoped weapons to see farther away too
-				if (IsScoped(&pSoldier->inv[HANDPOS]))
+				if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 				{
 					if (!WeaponReady(pSoldier) && 
 						PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
@@ -2421,7 +2421,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 			{
 				if (!gfTurnBasedAI || (((GetAPsToReadyWeapon( pSoldier, PickSoldierReadyAnimation( pSoldier, FALSE, FALSE ) ) ) + GetAPsToChangeStance( pSoldier, ANIM_CROUCH )) <= pSoldier->actionPoints().current()))
 				{
-					if (IsScoped(&pSoldier->inv[HANDPOS]))
+					if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 					{
 						pSoldier->aiPlanning().nextAction() = AI_ACTION_RAISE_GUN;
 					}
@@ -2444,7 +2444,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		{
 			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->animationPlayback().state() ) <= pSoldier->actionPoints().current())
 			{
-				if (IsScoped(&pSoldier->inv[HANDPOS]))
+				if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 				{
 					if ( Random(100) < 35 ) 
 					{
@@ -2764,7 +2764,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		if (BestThrow.ubPossible)
 		{
 			// sevenfm: allow using mortars, grenade launchers, flares and grenades in RED state
-			UINT16 usItem = pSoldier->inv[BestThrow.bWeaponIn].usItem;
+			UINT16 usItem = pSoldier->inventory()[BestThrow.bWeaponIn].usItem;
 			if (ItemIsMortar(usItem) ||
 				//Item[usItem].cannon ||
 				ItemIsRocketLauncher(usItem) ||
@@ -2836,7 +2836,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					}
 
 					// sevenfm: correctly set weapon mode for attached GL
-					if (IsGrenadeLauncherAttached(&pSoldier->inv[HANDPOS]))
+					if (IsGrenadeLauncherAttached(&pSoldier->inventory()[HANDPOS]))
 					{
 						DebugAI(AI_MSG_INFO, pSoldier, String("set attached GL mode"));
 						pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;
@@ -2872,7 +2872,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			// spotters haven't already been called for, then DO SO!
 
 			if ((BestThrow.bWeaponIn != NO_SLOT) &&
-				(CalcMaxTossRange(pSoldier, pSoldier->inv[BestThrow.bWeaponIn].usItem, TRUE) > MaxNormalDistanceVisible()) &&
+				(CalcMaxTossRange(pSoldier, pSoldier->inventory()[BestThrow.bWeaponIn].usItem, TRUE) > MaxNormalDistanceVisible()) &&
 				(gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
 				(gTacticalStatus.ubSpottersCalledForBy == NOBODY))
 			{
@@ -2978,7 +2978,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				pSoldier->aiPlanning().aimTime() = BestShot.ubAimTime;
 				pSoldier->attackSelection().scopeMode() = BestShot.bScopeMode;
 				// check if using sniper rifle
-				if (Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].ubWeaponType == GUN_SN_RIFLE)
+				if (Weapon[Item[pSoldier->inventory()[HANDPOS].usItem].ubClassIndex].ubWeaponType == GUN_SN_RIFLE)
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_SNIPER]);
 				return(AI_ACTION_FIRE_GUN);
 			}
@@ -2992,7 +2992,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("decideactionred: weapon in slot #%d", BestShot.bWeaponIn));
 				// WDS - Fix problem when there is no "best shot" weapon (i.e., BestShot.bWeaponIn == NO_SLOT)
 				if (BestShot.bWeaponIn != NO_SLOT) {
-					OBJECTTYPE * gun = &pSoldier->inv[BestShot.bWeaponIn];
+					OBJECTTYPE * gun = &pSoldier->inventory()[BestShot.bWeaponIn];
 					DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("decideactionred: men in sector %d, ubspotters called by %d, nobody %d", gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector, gTacticalStatus.ubSpottersCalledForBy, NOBODY));
 					if (((IsScoped(gun) && GunRange(gun, pSoldier) > MaxNormalDistanceVisible()) || pSoldier->aiBehavior().orders() == SNIPER) && // SANDRO - added argument
 						(gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
@@ -3023,20 +3023,20 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			// This means we need to reload. Also reload if we're just plainly low on bullets.
 			if (BestShot.bWeaponIn != NO_SLOT &&
 				pSoldier->actionPoints().current() > APBPConstants[AP_MINIMUM] &&
-				IsGunAutofireCapable(&pSoldier->inv[BestShot.bWeaponIn]) &&
-				Weapon[pSoldier->inv[BestShot.bWeaponIn].usItem].swapClips &&
+				IsGunAutofireCapable(&pSoldier->inventory()[BestShot.bWeaponIn]) &&
+				Weapon[pSoldier->inventory()[BestShot.bWeaponIn].usItem].swapClips &&
 				(!pSoldier->suppression().underFire() && !GuySawEnemy(pSoldier, SEEN_LAST_TURN) && (TileIsOutOfBounds(sClosestOpponent) || PythSpacesAway(pSoldier->position().gridNo(), sClosestOpponent) > TACTICAL_RANGE / 2) || AICheckIsMachinegunner(pSoldier) && Chance(25) || Chance(10)) &&
-				pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft < gGameExternalOptions.ubAISuppressionMinimumAmmo && 
-				GetMagSize(&pSoldier->inv[BestShot.bWeaponIn]) >= gGameExternalOptions.ubAISuppressionMinimumMagSize)
-				// || pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft < (UINT8)(GetMagSize(&pSoldier->inv[BestShot.bWeaponIn]) / 4)))
+				pSoldier->inventory()[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft < gGameExternalOptions.ubAISuppressionMinimumAmmo &&
+				GetMagSize(&pSoldier->inventory()[BestShot.bWeaponIn]) >= gGameExternalOptions.ubAISuppressionMinimumMagSize)
+				// || pSoldier->inventory()[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft < (UINT8)(GetMagSize(&pSoldier->inventory()[BestShot.bWeaponIn]) / 4)))
 			{
 				// HEADROCK HAM 5: Fixed an issue where no ammo was found, leading to a crash when overloading the
 				// inventory vector (bAmmoSlot = -1...)
 				INT8 bAmmoSlot = FindAmmoToReload(pSoldier, BestShot.bWeaponIn, NO_SLOT);
 				if (bAmmoSlot > -1)
 				{
-					OBJECTTYPE * pAmmo = &(pSoldier->inv[bAmmoSlot]);
-					if ((*pAmmo)[0]->data.ubShotsLeft > pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft && GetAPsToReloadGunWithAmmo(pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pAmmo) <= (INT16)pSoldier->actionPoints().current())
+					OBJECTTYPE * pAmmo = &(pSoldier->inventory()[bAmmoSlot]);
+					if ((*pAmmo)[0]->data.ubShotsLeft > pSoldier->inventory()[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft && GetAPsToReloadGunWithAmmo(pSoldier, &(pSoldier->inventory()[BestShot.bWeaponIn]), pAmmo) <= (INT16)pSoldier->actionPoints().current())
 					{
 						pSoldier->aiPlanning().actionData() = BestShot.bWeaponIn;
 						return AI_ACTION_RELOAD_GUN;
@@ -3064,9 +3064,9 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				bestShotOpponent &&
 				Chance(100 - bestShotOpponent->ShockLevelPercent() / 2) &&
 				// check weapon/ammo requirements
-				IsGunAutofireCapable(&pSoldier->inv[BestShot.bWeaponIn]) &&
-				GetMagSize(&pSoldier->inv[BestShot.bWeaponIn]) >= gGameExternalOptions.ubAISuppressionMinimumMagSize &&
-				pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumAmmo &&
+				IsGunAutofireCapable(&pSoldier->inventory()[BestShot.bWeaponIn]) &&
+				GetMagSize(&pSoldier->inventory()[BestShot.bWeaponIn]) >= gGameExternalOptions.ubAISuppressionMinimumMagSize &&
+				pSoldier->inventory()[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumAmmo &&
 				// check soldier and weapon
 				pSoldier->aiBehavior().orders() != SNIPER &&
 				BestShot.ubFriendlyFireChance <= MIN_CHANCE_TO_ACCIDENTALLY_HIT_SOMEONE &&
@@ -3089,9 +3089,9 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				ENEMYROBOT(pSoldier) ||
 				AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) ||
 				pSoldier->suppression().underFire() && (pSoldier->combatResult().previousAttacker() == BestShot.ubOpponent || pSoldier->combatResult().earlierAttacker() == BestShot.ubOpponent || bestShotOpponent->targeting().lastGridNo() == pSoldier->position().gridNo()) ||	// return fire
-				(PythSpacesAway(pSoldier->position().gridNo(), BestShot.sTarget) <= 0 || Chance(100 * (GunRange(&pSoldier->inv[BestShot.bWeaponIn], pSoldier) / CELL_X_SIZE) / PythSpacesAway(pSoldier->position().gridNo(), BestShot.sTarget)))) &&
+				(PythSpacesAway(pSoldier->position().gridNo(), BestShot.sTarget) <= 0 || Chance(100 * (GunRange(&pSoldier->inventory()[BestShot.bWeaponIn], pSoldier) / CELL_X_SIZE) / PythSpacesAway(pSoldier->position().gridNo(), BestShot.sTarget)))) &&
 				// check that we have spare ammo
-				(fExtraClip || pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumMagSize))
+				(fExtraClip || pSoldier->inventory()[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumMagSize))
 			{
 				// then do it!
 
@@ -3141,22 +3141,22 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					do
 					{
 						pSoldier->fireControl().autofireShots()++;
-						dTotalRecoil += AICalcRecoilForShot(pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots());
-						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
+						dTotalRecoil += AICalcRecoilForShot(pSoldier, &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots());
+						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
 					} while (pSoldier->actionPoints().current() >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP &&
-						pSoldier->inv[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() &&
+						pSoldier->inventory()[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() &&
 						pSoldier->fireControl().autofireShots() <= 30 &&
 						(dTotalRecoil <= 20.0f || pSoldier->fireControl().autofireShots() < ubMinAuto));
 				}
 				else
 				{
-					ubAutoPenalty = GetAutoPenalty(&pSoldier->inv[pSoldier->attackSelection().hand()], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE);
+					ubAutoPenalty = GetAutoPenalty(&pSoldier->inventory()[pSoldier->attackSelection().hand()], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE);
 					do
 					{
 						pSoldier->fireControl().autofireShots()++;
-						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
+						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
 					} while (pSoldier->actionPoints().current() >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP &&
-						pSoldier->inv[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() &&
+						pSoldier->inventory()[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() &&
 						pSoldier->fireControl().autofireShots() <= 30 &&
 						(ubAutoPenalty * pSoldier->fireControl().autofireShots() <= 80 || pSoldier->fireControl().autofireShots() < ubMinAuto));
 				}
@@ -3164,7 +3164,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				pSoldier->fireControl().autofireShots()--;
 
 				// Make sure we decided to fire at least one shot!
-				ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
+				ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
 				DebugAI(AI_MSG_INFO, pSoldier, String("autofire shots %d APcost %d burst AP %d aimtime %d reserve AP %d", pSoldier->fireControl().autofireShots(), BestShot.ubAPCost, ubBurstAPs, sActualAimAP, sReserveAP));
 
 				// minimum 3 bullets
@@ -3320,7 +3320,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			{
 				// if we are close, we can release this guy
 				// possible only if not handcuffed (binders can be opened, handcuffs not)
-				if ( !HasItemFlag( (&(person->inv[HANDPOS]))->usItem, HANDCUFFS ) )
+				if ( !HasItemFlag( (&(person->inventory()[HANDPOS]))->usItem, HANDCUFFS ) )
 				{
 					if ( PythSpacesAway(pSoldier->position().gridNo(), person->position().gridNo()) < 2 )
 					{
@@ -4598,7 +4598,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					}
 					////////////////////////////////////////////////////////////////////////////
 					// SANDRO - allow regular soldiers to raise scoped weapons to see rather away too
-					else if (IsScoped(&pSoldier->inv[HANDPOS]))
+					else if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 					{
 						if (!WeaponReady(pSoldier) && 
 							PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
@@ -4630,7 +4630,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					{
 						return AI_ACTION_RAISE_GUN;
 					}
-					else if (IsScoped(&pSoldier->inv[HANDPOS]))
+					else if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 					{
 						if ( Random(100) < 40 ) 
 						{
@@ -4717,7 +4717,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 	if ( ubCanMove && !pSoldier->aiBehavior().neutral() && (gfTurnBasedAI || pSoldier->roster().team() == ENEMY_TEAM ) )
 	{
-		pSoldier->aiPlanning().action() = SearchForItems( pSoldier, SEARCH_GENERAL_ITEMS, pSoldier->inv[HANDPOS].usItem );
+		pSoldier->aiPlanning().action() = SearchForItems( pSoldier, SEARCH_GENERAL_ITEMS, pSoldier->inventory()[HANDPOS].usItem );
 
 		// sevenfm: check that location is safe
 		if( pSoldier->aiPlanning().action() != AI_ACTION_NONE &&
@@ -4808,7 +4808,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 							pSoldier->position().direction() == ubOpponentDir &&
 							PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
 						{
-							if (IsScoped(&pSoldier->inv[HANDPOS]))
+							if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 							{
 								if ( Random(100) < 40 ) 
 								{
@@ -4890,7 +4890,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		{
 			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->animationPlayback().state() ) <= pSoldier->actionPoints().current())
 			{
-				if (IsScoped(&pSoldier->inv[HANDPOS]))
+				if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 				{
 					if ( Random(100) < 35 ) 
 					{
@@ -5275,22 +5275,22 @@ INT16 ubMinAPCost;
 				{
 					int handPOS;
 					//CHRISL: We need to know which weapon has no ammo in case the soldier is holding a weapoin in SECONDHANDPOS
-					if(pSoldier->inv[SECONDHANDPOS].exists() == true && pSoldier->inv[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft == 0)
+					if(pSoldier->inventory()[SECONDHANDPOS].exists() == true && pSoldier->inventory()[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft == 0)
 						handPOS = SECONDHANDPOS;
 					else
 						handPOS = HANDPOS;
 
 					// try to find more ammo
-					pSoldier->aiPlanning().action() = SearchForItems( pSoldier, SEARCH_AMMO, pSoldier->inv[handPOS].usItem );
+					pSoldier->aiPlanning().action() = SearchForItems( pSoldier, SEARCH_AMMO, pSoldier->inventory()[handPOS].usItem );
 
 					if (pSoldier->aiPlanning().action() == AI_ACTION_NONE)
 					{
 						// the current weapon appears is useless right now!
 						// (since we got a return code of noammo, we know the hand usItem
 						// is our gun)
-						pSoldier->inv[handPOS].fFlags |= OBJECT_AI_UNUSABLE;
+						pSoldier->inventory()[handPOS].fFlags |= OBJECT_AI_UNUSABLE;
 						// move the gun into another pocket...
-						if (!AutoPlaceObject( pSoldier, &(pSoldier->inv[handPOS]), FALSE ) )
+						if (!AutoPlaceObject( pSoldier, &(pSoldier->inventory()[handPOS]), FALSE ) )
 						{
 							// If there's no room in his pockets for the useless gun, just throw it away
 							return AI_ACTION_DROP_ITEM;
@@ -5386,7 +5386,7 @@ INT16 ubMinAPCost;
 	if (FindAIUsableObjClass( pSoldier, IC_GUN ) == ITEM_NOT_FOUND && ubCanMove && !pSoldier->aiBehavior().neutral())
 	{
 		// look around for a gun...
-		pSoldier->aiPlanning().action() = SearchForItems( pSoldier, SEARCH_WEAPONS, pSoldier->inv[HANDPOS].usItem );
+		pSoldier->aiPlanning().action() = SearchForItems( pSoldier, SEARCH_WEAPONS, pSoldier->inventory()[HANDPOS].usItem );
 		if (pSoldier->aiPlanning().action() != AI_ACTION_NONE )
 		{
 			return( pSoldier->aiPlanning().action() );
@@ -5549,7 +5549,7 @@ INT16 ubMinAPCost;
 		if (BestThrow.ubPossible)
 		{
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"good throw possible");
-			if (ItemIsMortar(pSoldier->inv[ BestThrow.bWeaponIn ].usItem))
+			if (ItemIsMortar(pSoldier->inventory()[ BestThrow.bWeaponIn ].usItem))
 			{
 				ubOpponentDir = AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget);
 
@@ -5611,7 +5611,7 @@ INT16 ubMinAPCost;
 			if (pSoldier->actionPoints().current() >= ubMinAPCost)
 			{
 				// NB throwing knife in hand now
-				if ( Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & IC_THROWING_KNIFE )
+				if ( Item[ pSoldier->inventory()[HANDPOS].usItem ].usItemClass & IC_THROWING_KNIFE )
 				{
 					// throwing knife code works like shooting
 
@@ -5884,12 +5884,12 @@ INT16 ubMinAPCost;
 		if (BestStab.ubPossible && ((BestStab.iAttackValue > BestAttack.iAttackValue) || (ubBestAttackAction == AI_ACTION_NONE)))
 		{
 			BestAttack.iAttackValue = BestStab.iAttackValue;
-			if ( Item[ pSoldier->inv[BestStab.bWeaponIn].usItem ].usItemClass & IC_THROWING_KNIFE )
+			if ( Item[ pSoldier->inventory()[BestStab.bWeaponIn].usItem ].usItemClass & IC_THROWING_KNIFE )
 			{
 				ubBestAttackAction = AI_ACTION_THROW_KNIFE;
 				DebugAI(AI_MSG_INFO, pSoldier, String("best action = throw knife, iAttackValue = %d", BestAttack.iAttackValue));
 			}
-			else if ( Item[ pSoldier->inv[BestStab.bWeaponIn].usItem ].usItemClass & IC_BLADE ) // SANDRO - check specifically for blade attack
+			else if ( Item[ pSoldier->inventory()[BestStab.bWeaponIn].usItem ].usItemClass & IC_BLADE ) // SANDRO - check specifically for blade attack
 			{
 				ubBestAttackAction = AI_ACTION_KNIFE_MOVE;
 				DebugAI(AI_MSG_INFO, pSoldier, String("best action = move to stab, iAttackValue = %d", BestAttack.iAttackValue));
@@ -5991,7 +5991,7 @@ INT16 ubMinAPCost;
 		}
 	}	
 
-	UINT16 usRange = BestAttack.bWeaponIn==NO_SLOT ? 0 : GetModifiedGunRange(pSoldier->inv[BestAttack.bWeaponIn].usItem);//dnl ch69 150913
+	UINT16 usRange = BestAttack.bWeaponIn==NO_SLOT ? 0 : GetModifiedGunRange(pSoldier->inventory()[BestAttack.bWeaponIn].usItem);//dnl ch69 150913
 	INT32 sClosestThreat = ClosestKnownOpponent(pSoldier, NULL, NULL);
 
 	DebugAI(AI_MSG_TOPIC, pSoldier, String("[Black Retreat]"));
@@ -6352,15 +6352,15 @@ INT16 ubMinAPCost;
 			// IF ENOUGH APs TO BURST, RANDOM CHANCE OF DOING SO
 			//////////////////////////////////////////////////////////////////////////
 
-			if (IsGunBurstCapable( &pSoldier->inv[BestAttack.bWeaponIn], FALSE, pSoldier ) &&
+			if (IsGunBurstCapable( &pSoldier->inventory()[BestAttack.bWeaponIn], FALSE, pSoldier ) &&
 				bestShotOpponent &&
 				!(bestShotOpponent->vitals().health() < OKLIFE) && // don't burst at downed targets
-				pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
+				pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
 				(pSoldier->roster().team() != gbPlayerNum || pSoldier->aiBehavior().realtimeCombat() == RTP_COMBAT_AGGRESSIVE) )
 			{
 				DebugAI(AI_MSG_INFO, pSoldier, String("enough APs to burst, random chance of doing so"));
 
-				ubBurstAPs = CalcAPsToBurst( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier );
+				ubBurstAPs = CalcAPsToBurst( pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier );
 
 				// HEADROCK HAM 3.6: Use Actual Aiming Time.
 				if (pSoldier->actionPoints().current() >= BestAttack.ubAPCost + sActualAimAP + ubBurstAPs )
@@ -6385,12 +6385,12 @@ INT16 ubMinAPCost;
 						}
 
 						// SANDRO: more likely to burst when firing from hip
-						if ( BestAttack.bScopeMode == USE_ALT_WEAPON_HOLD && ItemIsTwoHanded(pSoldier->inv[BestAttack.bWeaponIn].usItem) )
+						if ( BestAttack.bScopeMode == USE_ALT_WEAPON_HOLD && ItemIsTwoHanded(pSoldier->inventory()[BestAttack.bWeaponIn].usItem) )
 							iChance += 40;
 
 						// CHRISL: Changed from a simple flag to two externalized values for more modder control over AI suppression
-						if ( GetMagSize(&pSoldier->inv[BestAttack.bWeaponIn], 0) >= gGameExternalOptions.ubAISuppressionMinimumMagSize && 
-							pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumAmmo )
+						if ( GetMagSize(&pSoldier->inventory()[BestAttack.bWeaponIn], 0) >= gGameExternalOptions.ubAISuppressionMinimumMagSize &&
+							pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumAmmo )
 							iChance += 20;
 
 						// increase chance based on proximity and difficulty of enemy
@@ -6427,11 +6427,11 @@ INT16 ubMinAPCost;
 				}
 			}
 
-			if (IsGunAutofireCapable( &pSoldier->inv[BestAttack.bWeaponIn] ) &&
+			if (IsGunAutofireCapable( &pSoldier->inventory()[BestAttack.bWeaponIn] ) &&
 				bestShotOpponent &&
 				!(bestShotOpponent->vitals().health() < OKLIFE) && // don't burst at downed targets
-				(( pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
-				!pSoldier->fireControl().burstCounter() ) || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
+				(( pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
+				!pSoldier->fireControl().burstCounter() ) || Weapon[pSoldier->inventory()[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
 			{
 				DebugAI(AI_MSG_INFO, pSoldier, String("enough APs to autofire, random chance of doing so"));
 L_NEWAIM:
@@ -6442,19 +6442,19 @@ L_NEWAIM:
 					do
 					{
 						pSoldier->fireControl().autofireShots()++;
-						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots() );
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots() );
+						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 					}
-					while(	pSoldier->actionPoints().current() >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
+					while(	pSoldier->actionPoints().current() >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inventory()[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
 				} 
 				else 
 				{
 					do
 					{
 						pSoldier->fireControl().autofireShots()++;
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 					}
-					while(	pSoldier->actionPoints().current() >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && GetAutoPenalty(&pSoldier->inv[ BestAttack.bWeaponIn ], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)*pSoldier->fireControl().autofireShots() <= 80);//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
+					while(	pSoldier->actionPoints().current() >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inventory()[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && GetAutoPenalty(&pSoldier->inventory()[ BestAttack.bWeaponIn ], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)*pSoldier->fireControl().autofireShots() <= 80);//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
 				}
 
 				pSoldier->fireControl().autofireShots()--;
@@ -6466,7 +6466,7 @@ L_NEWAIM:
 				if ((!UsingNewCTHSystem() || gGameCTHConstants.LIMIT_MAX_DEVIATION) &&
 					pSoldier->fireControl().autofireShots() < 3 &&
 					pSoldier->aiPlanning().aimTime() > 0 &&
-					pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= 3 &&
+					pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= 3 &&
 					Chance(gGameExternalOptions.sSuppressionEffectiveness) &&
 					(!gGameExternalOptions.fAISafeSuppression || CheckSuppressionDirection(pSoldier, BestShot.sTarget, BestShot.bTargetLevel)))
 				{
@@ -6478,7 +6478,7 @@ L_NEWAIM:
 
 				if (pSoldier->fireControl().autofireShots() > 0)
 				{
-					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 
 					if (pSoldier->actionPoints().current() >= BestAttack.ubAPCost + sActualAimAP + ubBurstAPs )
 					{
@@ -6502,12 +6502,12 @@ L_NEWAIM:
 							}
 
 							// SANDRO: more likely to burst when firing from hip
-							if ( BestAttack.bScopeMode == USE_ALT_WEAPON_HOLD && ItemIsTwoHanded(pSoldier->inv[BestAttack.bWeaponIn].usItem) )
+							if ( BestAttack.bScopeMode == USE_ALT_WEAPON_HOLD && ItemIsTwoHanded(pSoldier->inventory()[BestAttack.bWeaponIn].usItem) )
 								iChance += 40;
 
 							// CHRISL: Changed from a simple flag to two externalized values for more modder control over AI suppression
-							if ( GetMagSize(&pSoldier->inv[BestAttack.bWeaponIn], 0) >= gGameExternalOptions.ubAISuppressionMinimumMagSize &&
-								pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumAmmo )
+							if ( GetMagSize(&pSoldier->inventory()[BestAttack.bWeaponIn], 0) >= gGameExternalOptions.ubAISuppressionMinimumMagSize &&
+								pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumAmmo )
 								iChance += 30;
 
 							if ( bInGas )
@@ -6533,25 +6533,25 @@ L_NEWAIM:
 
 						DebugAI(AI_MSG_INFO, pSoldier, String("chance for autofire %d", iChance));
 
-						if ((INT32) PreRandom( 100 ) < iChance || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto)
+						if ((INT32) PreRandom( 100 ) < iChance || Weapon[pSoldier->inventory()[BestAttack.bWeaponIn].usItem].NoSemiAuto)
 						{
 							//dnl ch69 140913 return aiming for autofire with halfautofire fix
 							pSoldier->fireControl().burstCounter() = 1;
 							INT16 ubHalfBurstAPs = 256;
-							if (pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft < 4)
+							if (pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft < 4)
 							{
 								iChance = 0;
 							}
 							else
 							{
-								ubHalfBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &pSoldier->inv[BestAttack.bWeaponIn], 2, pSoldier);
+								ubHalfBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &pSoldier->inventory()[BestAttack.bWeaponIn], 2, pSoldier);
 								
 								if (!CheckSuppressionDirection(pSoldier, BestAttack.sTarget, BestAttack.bTargetLevel))
 									iChance = 100;
 								else
 									iChance = BestAttack.ubChanceToReallyHit / 2;
 
-								if (Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto || pSoldier->awareness().opponentCount() > 1)
+								if (Weapon[pSoldier->inventory()[BestAttack.bWeaponIn].usItem].NoSemiAuto || pSoldier->awareness().opponentCount() > 1)
 									iChance += (100 - iChance) / 2;
 							}
 
@@ -6678,7 +6678,7 @@ L_NEWAIM:
 			pSoldier->aiPlanning().aimTime() = 0;
 			iChance = 0;
 
-			if (Item[pSoldier->inv[BestAttack.bWeaponIn].usItem].usItemClass == IC_PUNCH)
+			if (Item[pSoldier->inventory()[BestAttack.bWeaponIn].usItem].usItemClass == IC_PUNCH)
 			{
 				if ( gGameExternalOptions.fEnhancedCloseCombatSystem )
 					iChance += 30;
@@ -6758,7 +6758,7 @@ L_NEWAIM:
 			DebugAI(AI_MSG_INFO, pSoldier, String("toss attack, disable burst/autofire"));
 			pSoldier->fireControl().selectSingleShot();
 
-			if (IsGrenadeLauncherAttached(&pSoldier->inv[HANDPOS]))	//dnl ch63 240813
+			if (IsGrenadeLauncherAttached(&pSoldier->inventory()[HANDPOS]))	//dnl ch63 240813
 			{
 				DebugAI(AI_MSG_INFO, pSoldier, String("using attached GL"));
 					pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;
@@ -8461,7 +8461,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 		if ( BestThrow.ubPossible )
 		{
 			// if firing mortar make sure we have room
-			UINT16 usItem = pSoldier->inv[BestThrow.bWeaponIn].usItem;
+			UINT16 usItem = pSoldier->inventory()[BestThrow.bWeaponIn].usItem;
 			if (ItemIsMortar(usItem)
 				 || ItemIsGrenadeLauncher(usItem)
 				 || ItemIsFlare(usItem) )
@@ -8511,7 +8511,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			// spotters haven't already been called for, then DO SO!
 
 			if ( (BestThrow.bWeaponIn != NO_SLOT) &&
-				 (CalcMaxTossRange( pSoldier, pSoldier->inv[BestThrow.bWeaponIn].usItem, TRUE ) > MaxNormalDistanceVisible( )) &&
+				 (CalcMaxTossRange( pSoldier, pSoldier->inventory()[BestThrow.bWeaponIn].usItem, TRUE ) > MaxNormalDistanceVisible( )) &&
 				 (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
 				 (gTacticalStatus.ubSpottersCalledForBy == NOBODY) )
 			{
@@ -8565,7 +8565,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "ArmedVehicleDecideActionRed: weapon in slot #%d", BestShot.bWeaponIn ) );
 			// WDS - Fix problem when there is no "best shot" weapon (i.e., BestShot.bWeaponIn == NO_SLOT)
 			if ( BestShot.bWeaponIn != NO_SLOT ) {
-				OBJECTTYPE * gun = &pSoldier->inv[BestShot.bWeaponIn];
+				OBJECTTYPE * gun = &pSoldier->inventory()[BestShot.bWeaponIn];
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "ArmedVehicleDecideActionRed: men in sector %d, ubspotters called by %d, nobody %d", gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector, gTacticalStatus.ubSpottersCalledForBy, NOBODY ) );
 				if ( ((IsScoped( gun ) && GunRange( gun, pSoldier ) > MaxNormalDistanceVisible( )) || pSoldier->aiBehavior().orders() == SNIPER) && // SANDRO - added argument
 					 (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
@@ -8591,16 +8591,16 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 		// WarmSteel - Because of suppression fire, we need enough ammo to even consider suppressing
 		// This means we need to reload. Also reload if we're just plainly low on bullets.
 		if ( BestShot.bWeaponIn != NO_SLOT
-			 && ((pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft < gGameExternalOptions.ubAISuppressionMinimumAmmo && GetMagSize( &pSoldier->inv[BestShot.bWeaponIn] ) >= gGameExternalOptions.ubAISuppressionMinimumMagSize)
-			 || pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft < (UINT8)(GetMagSize( &pSoldier->inv[BestShot.bWeaponIn] ) / 4)) )
+			 && ((pSoldier->inventory()[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft < gGameExternalOptions.ubAISuppressionMinimumAmmo && GetMagSize( &pSoldier->inventory()[BestShot.bWeaponIn] ) >= gGameExternalOptions.ubAISuppressionMinimumMagSize)
+			 || pSoldier->inventory()[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft < (UINT8)(GetMagSize( &pSoldier->inventory()[BestShot.bWeaponIn] ) / 4)) )
 		{
 			// HEADROCK HAM 5: Fixed an issue where no ammo was found, leading to a crash when overloading the
 			// inventory vector (bAmmoSlot = -1...)
 			INT8 bAmmoSlot = FindAmmoToReload( pSoldier, BestShot.bWeaponIn, NO_SLOT );
 			if ( bAmmoSlot > -1 )
 			{
-				OBJECTTYPE * pAmmo = &(pSoldier->inv[bAmmoSlot]);
-				if ( (*pAmmo)[0]->data.ubShotsLeft > pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft && GetAPsToReloadGunWithAmmo( pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pAmmo ) <= (INT16)pSoldier->actionPoints().current() )
+				OBJECTTYPE * pAmmo = &(pSoldier->inventory()[bAmmoSlot]);
+				if ( (*pAmmo)[0]->data.ubShotsLeft > pSoldier->inventory()[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft && GetAPsToReloadGunWithAmmo( pSoldier, &(pSoldier->inventory()[BestShot.bWeaponIn]), pAmmo ) <= (INT16)pSoldier->actionPoints().current() )
 				{
 					pSoldier->aiPlanning().actionData() = BestShot.bWeaponIn;
 					return AI_ACTION_RELOAD_GUN;
@@ -8636,8 +8636,8 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 		// WarmSteel - Don't *always* try to suppress when under 50 CTH
 		if ( BestShot.bWeaponIn != -1
 			 && BestShot.ubPossible
-			 && GetMagSize( &pSoldier->inv[BestShot.bWeaponIn] ) >= gGameExternalOptions.ubAISuppressionMinimumMagSize
-			 && pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumAmmo
+			 && GetMagSize( &pSoldier->inventory()[BestShot.bWeaponIn] ) >= gGameExternalOptions.ubAISuppressionMinimumMagSize
+			 && pSoldier->inventory()[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumAmmo
 			 //&& BestShot.ubChanceToReallyHit < (INT16)(PreRandom(50))
 			 && pSoldier->aiBehavior().orders() != SNIPER &&
 			 BestShot.ubFriendlyFireChance < 5 &&
@@ -8645,8 +8645,8 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			 !bestShotOpponent->IsCowering() &&
 			 !AICheckIsFlanking( pSoldier ) &&
 			 LocationToLocationLineOfSightTest( pSoldier->position().gridNo(), pSoldier->position().level(), bestShotOpponent->position().gridNo(), bestShotOpponent->position().level(), TRUE, NO_DISTANCE_LIMIT ) &&
-			 //Weapon[pSoldier->inv[BestShot.bWeaponIn].usItem].ubWeaponType == GUN_LMG ) &&	//Weapon[usInHand].ubWeaponClass == MGCLASS
-			 (fExtraClip || pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft > gGameExternalOptions.ubAISuppressionMinimumMagSize) )
+			 //Weapon[pSoldier->inventory()[BestShot.bWeaponIn].usItem].ubWeaponType == GUN_LMG ) &&	//Weapon[usInHand].ubWeaponClass == MGCLASS
+			 (fExtraClip || pSoldier->inventory()[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft > gGameExternalOptions.ubAISuppressionMinimumMagSize) )
 		{
 			// then do it!
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionRed: suppression fire possible!" );
@@ -8659,7 +8659,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			INT16 ubBurstAPs = 0;
 			INT16 totalUsedAPs = 0;
 			FLOAT dTotalRecoil = 0;
-			auto& weapon = pSoldier->inv[BestShot.bWeaponIn];
+			auto& weapon = pSoldier->inventory()[BestShot.bWeaponIn];
 			const auto remainingAmmo = weapon[0]->data.gun.ubGunShotsLeft;
 
 			if ( UsingNewCTHSystem( ) )
@@ -9676,22 +9676,22 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 				{
 					int handPOS;
 					//CHRISL: We need to know which weapon has no ammo in case the soldier is holding a weapoin in SECONDHANDPOS
-					if ( pSoldier->inv[SECONDHANDPOS].exists( ) == true && pSoldier->inv[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft == 0 )
+					if ( pSoldier->inventory()[SECONDHANDPOS].exists( ) == true && pSoldier->inventory()[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft == 0 )
 						handPOS = SECONDHANDPOS;
 					else
 						handPOS = HANDPOS;
 
 					// try to find more ammo
-					pSoldier->aiPlanning().action() = SearchForItems( pSoldier, SEARCH_AMMO, pSoldier->inv[handPOS].usItem );
+					pSoldier->aiPlanning().action() = SearchForItems( pSoldier, SEARCH_AMMO, pSoldier->inventory()[handPOS].usItem );
 
 					if ( pSoldier->aiPlanning().action() == AI_ACTION_NONE )
 					{
 						// the current weapon appears is useless right now!
 						// (since we got a return code of noammo, we know the hand usItem
 						// is our gun)
-						pSoldier->inv[handPOS].fFlags |= OBJECT_AI_UNUSABLE;
+						pSoldier->inventory()[handPOS].fFlags |= OBJECT_AI_UNUSABLE;
 						// move the gun into another pocket...
-						if ( !AutoPlaceObject( pSoldier, &(pSoldier->inv[handPOS]), FALSE ) )
+						if ( !AutoPlaceObject( pSoldier, &(pSoldier->inventory()[handPOS]), FALSE ) )
 						{
 							// If there's no room in his pockets for the useless gun, just throw it away
 							return AI_ACTION_DROP_ITEM;
@@ -9726,7 +9726,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 	if ( FindAIUsableObjClass( pSoldier, IC_GUN ) == ITEM_NOT_FOUND && ubCanMove && !pSoldier->aiBehavior().neutral() )
 	{
 		// look around for a gun...
-		pSoldier->aiPlanning().action() = SearchForItems( pSoldier, SEARCH_WEAPONS, pSoldier->inv[HANDPOS].usItem );
+		pSoldier->aiPlanning().action() = SearchForItems( pSoldier, SEARCH_WEAPONS, pSoldier->inventory()[HANDPOS].usItem );
 		if ( pSoldier->aiPlanning().action() != AI_ACTION_NONE )
 		{
 			return(pSoldier->aiPlanning().action());
@@ -9761,7 +9761,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			}
 
 			// now it better be a gun, or the guy can't shoot (but has other attack(s))
-			if ( Item[pSoldier->inv[HANDPOS].usItem].usItemClass == IC_GUN && pSoldier->inv[HANDPOS][0]->data.gun.bGunStatus >= USABLE )
+			if ( Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_GUN && pSoldier->inventory()[HANDPOS][0]->data.gun.bGunStatus >= USABLE )
 			{
 				// get the minimum cost to attack the same target with this gun
 				ubMinAPCost = MinAPsToAttack( pSoldier, pSoldier->targeting().lastGridNo(), ADDTURNCOST, 0 );
@@ -9870,7 +9870,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 		if ( BestThrow.ubPossible )
 		{
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "good throw possible" );
-			if (ItemIsMortar(pSoldier->inv[BestThrow.bWeaponIn].usItem))
+			if (ItemIsMortar(pSoldier->inventory()[BestThrow.bWeaponIn].usItem))
 			{
 				ubOpponentDir = (UINT8)GetDirectionFromGridNo( BestThrow.sTarget, pSoldier );
 
@@ -9952,7 +9952,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 	}
 
 	// NB a desire of 4 or more is only achievable by brave/aggressive guys with high morale
-	UINT16 usRange = BestAttack.bWeaponIn == NO_SLOT ? 0 : GetModifiedGunRange( pSoldier->inv[BestAttack.bWeaponIn].usItem );//dnl ch69 150913
+	UINT16 usRange = BestAttack.bWeaponIn == NO_SLOT ? 0 : GetModifiedGunRange( pSoldier->inventory()[BestAttack.bWeaponIn].usItem );//dnl ch69 150913
 
 	if ( (pSoldier->actionPoints().current() == pSoldier->actionPoints().initial()) &&
 		 (ubBestAttackAction == AI_ACTION_FIRE_GUN) &&
@@ -10103,15 +10103,15 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			// IF ENOUGH APs TO BURST, RANDOM CHANCE OF DOING SO
 			//////////////////////////////////////////////////////////////////////////
 
-			if ( IsGunBurstCapable( &pSoldier->inv[BestAttack.bWeaponIn], FALSE, pSoldier ) &&
+			if ( IsGunBurstCapable( &pSoldier->inventory()[BestAttack.bWeaponIn], FALSE, pSoldier ) &&
 				 bestShotOpponent &&
 				 !(bestShotOpponent->vitals().health() < OKLIFE) && // don't burst at downed targets
-				 pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
+				 pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
 				 (pSoldier->roster().team() != gbPlayerNum || pSoldier->aiBehavior().realtimeCombat() == RTP_COMBAT_AGGRESSIVE) )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "DecideActionBlack: ENOUGH APs TO BURST, RANDOM CHANCE OF DOING SO" );
 
-				ubBurstAPs = CalcAPsToBurst( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier );
+				ubBurstAPs = CalcAPsToBurst( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier );
 
 				// HEADROCK HAM 3.6: Use Actual Aiming Time.
 				if ( pSoldier->actionPoints().current() >= BestAttack.ubAPCost + sActualAimAP + ubBurstAPs )
@@ -10132,11 +10132,11 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 				}
 			}
 
-			if ( IsGunAutofireCapable( &pSoldier->inv[BestAttack.bWeaponIn] ) &&
+			if ( IsGunAutofireCapable( &pSoldier->inventory()[BestAttack.bWeaponIn] ) &&
 				 bestShotOpponent &&
 				 !(bestShotOpponent->vitals().health() < OKLIFE) && // don't burst at downed targets
-				 ((pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
-				 !pSoldier->fireControl().burstCounter()) || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
+				 ((pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
+				 !pSoldier->fireControl().burstCounter()) || Weapon[pSoldier->inventory()[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "DecideActionBlack: ENOUGH APs TO AUTOFIRE, RANDOM CHANCE OF DOING SO" );
 			L_NEWAIM:
@@ -10146,20 +10146,20 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 					do
 					{
 						pSoldier->fireControl().autofireShots()++;
-						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots() );
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
-					} while ( pSoldier->actionPoints().current() >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
+						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots() );
+						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+					} while ( pSoldier->actionPoints().current() >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
 				}
 				else {
 					do
 					{
 						pSoldier->fireControl().autofireShots()++;
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
-					} while ( pSoldier->actionPoints().current() >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && GetAutoPenalty( &pSoldier->inv[BestAttack.bWeaponIn], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->fireControl().autofireShots() <= 80 );//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
+						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+					} while ( pSoldier->actionPoints().current() >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && GetAutoPenalty( &pSoldier->inventory()[BestAttack.bWeaponIn], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->fireControl().autofireShots() <= 80 );//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
 				}
 
 				pSoldier->fireControl().autofireShots()--;
-				if ( !UsingNewCTHSystem( ) && pSoldier->fireControl().autofireShots() < 3 && pSoldier->aiPlanning().aimTime() > 0 && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= 3 )//dnl ch69 130913 let try increase autofire rate for aim cost
+				if ( !UsingNewCTHSystem( ) && pSoldier->fireControl().autofireShots() < 3 && pSoldier->aiPlanning().aimTime() > 0 && pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= 3 )//dnl ch69 130913 let try increase autofire rate for aim cost
 				{
 					pSoldier->aiPlanning().aimTime()--;
 					sActualAimAP = CalcAPCostForAiming( pSoldier, BestAttack.sTarget, (INT8)pSoldier->aiPlanning().aimTime() );
@@ -10167,23 +10167,23 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 				}
 				if ( pSoldier->fireControl().autofireShots() > 0 )
 				{
-					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 
 					if ( pSoldier->actionPoints().current() >= BestAttack.ubAPCost + sActualAimAP + ubBurstAPs )
 					{
 						iChance = 100;
 
-						if ( (INT32)PreRandom( 100 ) < iChance || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto )
+						if ( (INT32)PreRandom( 100 ) < iChance || Weapon[pSoldier->inventory()[BestAttack.bWeaponIn].usItem].NoSemiAuto )
 						{
 							//dnl ch69 140913 return aiming for autofire with halfautofire fix
 							pSoldier->fireControl().burstCounter() = 1;
 							INT16 ubHalfBurstAPs = 256;
-							if ( pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft < 4 )
+							if ( pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft < 4 )
 								iChance = 0;
 							else
 							{
-								ubHalfBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &pSoldier->inv[BestAttack.bWeaponIn], 4, pSoldier );
-								if ( Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto )
+								ubHalfBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &pSoldier->inventory()[BestAttack.bWeaponIn], 4, pSoldier );
+								if ( Weapon[pSoldier->inventory()[BestAttack.bWeaponIn].usItem].NoSemiAuto )
 									iChance = 35;
 							}
 							if ( (INT32)PreRandom( 100 ) < iChance && pSoldier->actionPoints().current() > (2 * BestAttack.ubAPCost + ubHalfBurstAPs + sActualAimAP) )
@@ -10287,18 +10287,18 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 
 			//DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("DecideActionBlack: Check for GL Bursts, is launcher capable? = %d, rtpcombat? = %d, bestattackaction = %d",IsGunBurstCapable( pSoldier, BestAttack.bWeaponIn, FALSE ),pSoldier->aiBehavior().realtimeCombat(),ubBestAttackAction ));
 			//should be a bug
-			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "ArmedVehicleDecideActionBlack: Check for GL Bursts, is launcher capable? = %d, rtpcombat? = %d, bestattackaction = %d", IsGunBurstCapable( &pSoldier->inv[BestAttack.bWeaponIn], FALSE, pSoldier ), pSoldier->aiBehavior().realtimeCombat(), ubBestAttackAction ) );
-			if ( ubBestAttackAction == AI_ACTION_TOSS_PROJECTILE && (Item[pSoldier->inv[BestAttack.bWeaponIn].usItem].usItemClass == IC_LAUNCHER && IsGunBurstCapable( &pSoldier->inv[BestAttack.bWeaponIn], FALSE, pSoldier )) &&
+			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "ArmedVehicleDecideActionBlack: Check for GL Bursts, is launcher capable? = %d, rtpcombat? = %d, bestattackaction = %d", IsGunBurstCapable( &pSoldier->inventory()[BestAttack.bWeaponIn], FALSE, pSoldier ), pSoldier->aiBehavior().realtimeCombat(), ubBestAttackAction ) );
+			if ( ubBestAttackAction == AI_ACTION_TOSS_PROJECTILE && (Item[pSoldier->inventory()[BestAttack.bWeaponIn].usItem].usItemClass == IC_LAUNCHER && IsGunBurstCapable( &pSoldier->inventory()[BestAttack.bWeaponIn], FALSE, pSoldier )) &&
 				 (pSoldier->roster().team() != gbPlayerNum || pSoldier->aiBehavior().realtimeCombat() == RTP_COMBAT_AGGRESSIVE) )
 			{
 
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionBlack: Doing burst calc" );
-				ubBurstAPs = CalcAPsToBurst( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier );
+				ubBurstAPs = CalcAPsToBurst( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier );
 
 				if ( (pSoldier->actionPoints().current() - BestAttack.ubAPCost) >= ubBurstAPs )
 				{
 					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionBlack: Doing GL burst" );
-					BestAttack.ubAPCost = BestAttack.ubAPCost + CalcAPsToBurst( pSoldier->CalcActionPoints( ), &(pSoldier->inv[HANDPOS]), pSoldier );
+					BestAttack.ubAPCost = BestAttack.ubAPCost + CalcAPsToBurst( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[HANDPOS]), pSoldier );
 					// check for spread burst possibilities
 					if ( pSoldier->aiBehavior().attitude() != ATTACKSLAYONLY )
 					{
@@ -10309,7 +10309,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 				}
 			}
 
-			if ( ubBestAttackAction == AI_ACTION_TOSS_PROJECTILE && IsGrenadeLauncherAttached( &pSoldier->inv[HANDPOS] ) )//dnl ch63 240813
+			if ( ubBestAttackAction == AI_ACTION_TOSS_PROJECTILE && IsGrenadeLauncherAttached( &pSoldier->inventory()[HANDPOS] ) )//dnl ch63 240813
 				pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;
 
 			return(ubBestAttackAction);

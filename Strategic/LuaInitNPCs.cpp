@@ -5691,7 +5691,7 @@ static int l_SetKeySoldier(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->inventoryState().keyAccess() = Bool;
+			pSoldier->inventory().keyAccess() = Bool;
 		}
 	}
 
@@ -7776,8 +7776,8 @@ static int l_FindItemSoldier(lua_State* L)
 			INT8 bItemIn = FindObj(pSoldier, ItemIndex);
 			if (bItemIn != NO_SLOT)
 			{
-				AddItemToPool(GridNo, &(pSoldier->inv[bItemIn]), -1, 0, 0, 0);
-				DeleteObj(&(pSoldier->inv[bItemIn]));
+				AddItemToPool(GridNo, &(pSoldier->inventory()[bItemIn]), -1, 0, 0, 0);
+				DeleteObj(&(pSoldier->inventory()[bItemIn]));
 				RemoveObjectFromSoldierProfile(ubTargetNPC, ItemIndex);
 			}
 		}
@@ -7818,7 +7818,7 @@ static int l_CreateItemInv(lua_State* L)
 			SOLDIERTYPE* pSoldier = FindSoldierByProfileID(ubID, FALSE);
 			if (pSoldier)
 			{
-				CreateItem((UINT16)(BItemId), 100, &(pSoldier->inv[slot]));
+				CreateItem((UINT16)(BItemId), 100, &(pSoldier->inventory()[slot]));
 			}
 		}
 	}
@@ -8293,7 +8293,7 @@ static int l_SoldierGiveItem(lua_State* L)
 
 			AssertMsg(bInvPos != NO_SLOT, "Interface Dialogue.C:	Gift item does not exist in NPC.");
 
-			SoldierGiveItem(pSoldier, pSoldier2, &(pSoldier->inv[bInvPos]), bInvPos);
+			SoldierGiveItem(pSoldier, pSoldier2, &(pSoldier->inventory()[bInvPos]), bInvPos);
 		}
 	}
 

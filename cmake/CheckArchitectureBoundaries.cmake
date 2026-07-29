@@ -1873,6 +1873,14 @@ file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.h"
   soldier_components_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
   soldier_control_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Inventory.h"
+  soldier_inventory_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Inventory.cpp"
+  soldier_inventory_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.h"
+  soldier_create_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
+  tactical_cmake_contents)
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
   save_load_game_contents)
 file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
@@ -4769,10 +4777,11 @@ if(soldier_statistics_architecture_documented EQUAL -1 OR
     "SoldierStatisticsComponent ownership and byte-compatibility guarantees must remain documented")
 endif()
 
-# The final generic flag bucket is retired. Keep the general status mask and
-# inventory-adjacent values in narrow owners, and keep each remaining value in
-# the behavioral component that already controls its lifecycle. The visitor
-# order and widths remain the compatibility contract.
+# The final generic flag bucket is retired. Keep the general status mask in its
+# narrow owner, consolidate inventory-adjacent values with the actual live
+# inventory owner, and keep each remaining value in the behavioral component
+# that already controls its lifecycle. The visitor order and widths remain the
+# compatibility contract.
 string(FIND "${soldier_control_header_contents}"
   "class STRUCT_Flags"
   retired_soldier_flags_aggregate)
@@ -4808,7 +4817,7 @@ endforeach()
 
 foreach(soldier_flag_owner_pattern IN ITEMS
   "SoldierStatusComponent[ \t\r\n]+status_[ \t]*;"
-  "SoldierInventoryStateComponent[ \t\r\n]+inventoryState_[ \t]*;")
+  "SoldierInventory[ \t\r\n]+inventory_[ \t]*;")
   string(REGEX MATCH
     "${soldier_flag_owner_pattern}"
     soldier_flag_owner
@@ -4821,8 +4830,8 @@ endforeach()
 foreach(soldier_flag_accessor IN ITEMS
   "SoldierStatusComponent& status() noexcept"
   "const SoldierStatusComponent& status() const noexcept"
-  "SoldierInventoryStateComponent& inventoryState() noexcept"
-  "const SoldierInventoryStateComponent& inventoryState() const noexcept")
+  "SoldierInventory& inventory() noexcept"
+  "const SoldierInventory& inventory() const noexcept")
   string(FIND "${soldier_control_header_contents}"
     "${soldier_flag_accessor}"
     soldier_flag_accessor_site)
@@ -4834,10 +4843,6 @@ endforeach()
 
 foreach(soldier_flag_storage IN ITEMS
   "UINT32 flags_ = 0;"
-  "INT8 keyAccess_ = 0;"
-  "BOOLEAN checkForNewItems_ = FALSE;"
-  "BOOLEAN zipperFlag_ = FALSE;"
-  "BOOLEAN dropPackFlag_ = FALSE;"
   "BOOLEAN updatedFromNetwork_ = FALSE;"
   "BOOLEAN lastFlankLeft_ = FALSE;"
   "UINT8 gasHitFlags_ = 0;"
@@ -4856,17 +4861,13 @@ foreach(soldier_flag_storage IN ITEMS
   endif()
 endforeach()
 
-foreach(soldier_flag_reset_type IN ITEMS
-  SoldierStatusComponent
-  SoldierInventoryStateComponent)
-  string(FIND "${soldier_components_source_contents}"
-    "*this = ${soldier_flag_reset_type}{};"
-    soldier_flag_default_reset)
-  if(soldier_flag_default_reset EQUAL -1)
-    message(FATAL_ERROR
-      "${soldier_flag_reset_type} must reset through its complete default state")
-  endif()
-endforeach()
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierStatusComponent{};"
+  soldier_status_default_reset)
+if(soldier_status_default_reset EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierStatusComponent must reset through its complete default state")
+endif()
 string(REGEX MATCHALL
   "status\\(\\)\\.reset\\(\\)"
   soldier_status_reset_sites
@@ -4874,7 +4875,7 @@ string(REGEX MATCHALL
 list(LENGTH soldier_status_reset_sites
   soldier_status_reset_site_count)
 string(REGEX MATCHALL
-  "inventoryState\\(\\)\\.reset\\(\\)"
+  "inventory\\(\\)\\.reset\\(\\)"
   soldier_inventory_state_reset_sites
   "${soldier_control_source_contents}")
 list(LENGTH soldier_inventory_state_reset_sites
@@ -4886,10 +4887,10 @@ if(NOT soldier_status_reset_site_count EQUAL 2 OR
 endif()
 
 foreach(soldier_flag_v101_mapping IN ITEMS
-  "inventoryState().keyAccess() = src.bHasKeys;"
+  "inventory().keyAccess() = src.bHasKeys;"
   "condition().gasHitFlags() = src.fHitByGasFlags;"
   "replication().updatedFromNetwork() = src.fSoldierUpdatedFromNetwork;"
-  "inventoryState().checkForNewItems() = src.fCheckForNewlyAddedItems;"
+  "inventory().checkForNewItems() = src.fCheckForNewlyAddedItems;"
   "animationActivity().externalDeath() = src.fDoingExternalDeath;"
   "fireControl().reloading() = src.fReloading;"
   "fireControl().aimPaused() = src.fPauseAim;"
@@ -4918,7 +4919,7 @@ foreach(soldier_flag_v101_split_mapping IN ITEMS
 endforeach()
 
 string(FIND "${save_load_game_contents}"
-  "ar.i8(inventoryState.keyAccess());"
+  "ar.i8(inventory.keyAccess());"
   soldier_flag_save_key_access)
 string(FIND "${save_load_game_contents}"
   "ar.boolean(targeting.intendedTarget());"
@@ -4933,7 +4934,7 @@ string(FIND "${save_load_game_contents}"
   "ar.boolean(animationActivity.reactingFromShot());"
   soldier_flag_save_reacting_from_shot)
 string(FIND "${save_load_game_contents}"
-  "ar.boolean(inventoryState.checkForNewItems());"
+  "ar.boolean(inventory.checkForNewItems());"
   soldier_flag_save_check_for_new_items)
 string(FIND "${save_load_game_contents}"
   "ar.boolean(replication.updatedFromNetwork());"
@@ -4954,10 +4955,10 @@ string(FIND "${save_load_game_contents}"
   "ar.u32(status.flags());"
   soldier_flag_save_status_mask)
 string(FIND "${save_load_game_contents}"
-  "ar.boolean(inventoryState.zipperFlag());"
+  "ar.boolean(inventory.zipperFlag());"
   soldier_flag_save_zipper)
 string(FIND "${save_load_game_contents}"
-  "ar.boolean(inventoryState.dropPackFlag());"
+  "ar.boolean(inventory.dropPackFlag());"
   soldier_flag_save_drop_pack)
 if(soldier_flag_save_key_access EQUAL -1 OR
    soldier_flag_save_intended_target EQUAL -1 OR
@@ -4994,13 +4995,13 @@ if(NOT soldier_flag_save_key_access LESS soldier_flag_save_intended_target OR
 endif()
 
 foreach(soldier_flag_test_fragment IN ITEMS
-  "soldier components own status, feature, inventory, replication, AI, condition, targeting, fire-control, and animation flags"
+  "soldier owns coherent inventory slots, counters, flags, and adjacent tactical state"
   "soldier status component provides explicit bit-mask queries and mutations"
-  "soldier inventory-state reset clears key access, refresh, zipper, and drop-pack state"
+  "soldier inventory reset clears slots, counters, key access, refresh, zipper, and drop-pack state"
   "soldier copies retain every status and feature compatibility flag"
   "soldier initialization resets every status and feature compatibility flag"
-  "v101 soldier conversion maps every historical general flag to its domain and clears zipper/drop-pack state absent from that schema"
-  "soldier save/load round-trips all status and feature flags through established byte positions")
+  "v101 soldier conversion maps inventory slots, counters, and historical flags without cross-domain overwrites"
+  "soldier save/load round-trips inventory slots, counters, and flags through established byte positions")
   string(FIND "${headless_test_contents}"
     "${soldier_flag_test_fragment}"
     soldier_flag_test_site)
@@ -5017,7 +5018,7 @@ foreach(soldier_flag_documentation IN ITEMS
     "SoldierStatusComponent"
     soldier_status_documented)
   string(FIND "${soldier_flag_documentation}"
-    "SoldierInventoryStateComponent"
+    "SoldierInventory"
     soldier_inventory_state_documented)
   if(soldier_status_documented EQUAL -1 OR
      soldier_inventory_state_documented EQUAL -1)
@@ -5031,6 +5032,165 @@ string(FIND "${save_format_documentation}"
 if(soldier_flags_save_documented EQUAL -1)
   message(FATAL_ERROR
     "Former general-flag byte compatibility must remain documented")
+endif()
+
+# Live soldier inventory storage is private and coherent. Creation, map, and
+# v101 records retain a neutral slot payload so transferring those records
+# cannot overwrite separately visited live state.
+string(REGEX MATCH
+  "class[ \t\r\n]+Inventory[ \t\r\n]*\\{"
+  retired_generic_inventory_declaration
+  "${soldier_control_header_contents}")
+if(retired_generic_inventory_declaration)
+  message(FATAL_ERROR
+    "Retired generic Inventory declaration returned to Soldier Control.h; keep inventory storage in its dedicated module")
+endif()
+string(FIND "${soldier_components_header_contents}"
+  "class SoldierInventoryStateComponent"
+  retired_inventory_state_component)
+if(NOT retired_inventory_state_component EQUAL -1)
+  message(FATAL_ERROR
+    "Retired SoldierInventoryStateComponent returned; live inventory state belongs to SoldierInventory")
+endif()
+foreach(soldier_inventory_declaration IN ITEMS
+  "class InventorySlots"
+  "class SoldierInventory final : public InventorySlots"
+  "SoldierInventory& operator=(const InventorySlots& slots);"
+  "const std::vector<OBJECTTYPE>& items() const noexcept"
+  "std::vector<OBJECTTYPE> items_;"
+  "std::vector<int> newItemCounts_;"
+  "std::vector<int> newItemCycleCounts_;"
+  "INT8 keyAccess_ = 0;"
+  "BOOLEAN checkForNewItems_ = FALSE;"
+  "BOOLEAN zipperFlag_ = FALSE;"
+  "BOOLEAN dropPackFlag_ = FALSE;")
+  string(FIND "${soldier_inventory_header_contents}"
+    "${soldier_inventory_declaration}"
+    soldier_inventory_declaration_site)
+  if(soldier_inventory_declaration_site EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier inventory boundary lost declaration '${soldier_inventory_declaration}'")
+  endif()
+endforeach()
+foreach(soldier_inventory_definition IN ITEMS
+  "bool InventorySlots::coherent() const noexcept"
+  "void InventorySlots::resize(size_type slotCount)"
+  "SoldierInventory& SoldierInventory::operator=(const InventorySlots& slots)"
+  "InventorySlots::operator=(slots);"
+  "void SoldierInventory::reset()"
+  "BOOLEAN InventorySlots::Load"
+  "BOOLEAN InventorySlots::Save")
+  string(FIND
+    "${soldier_inventory_source_contents}${save_load_game_contents}"
+    "${soldier_inventory_definition}"
+    soldier_inventory_definition_site)
+  if(soldier_inventory_definition_site EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier inventory boundary lost definition '${soldier_inventory_definition}'")
+  endif()
+endforeach()
+foreach(soldier_inventory_reset_fragment IN ITEMS
+  "clear();"
+  "keyAccess_ = 0;"
+  "checkForNewItems_ = FALSE;"
+  "zipperFlag_ = FALSE;"
+  "dropPackFlag_ = FALSE;")
+  string(FIND "${soldier_inventory_source_contents}"
+    "${soldier_inventory_reset_fragment}"
+    soldier_inventory_reset_fragment_site)
+  if(soldier_inventory_reset_fragment_site EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierInventory reset lost '${soldier_inventory_reset_fragment}'")
+  endif()
+endforeach()
+string(FIND "${tactical_cmake_contents}"
+  "Soldier Inventory.cpp"
+  soldier_inventory_module_compiled)
+if(soldier_inventory_module_compiled EQUAL -1)
+  message(FATAL_ERROR
+    "Dedicated Soldier Inventory.cpp is not compiled into the tactical engine")
+endif()
+string(REGEX MATCHALL
+  "InventorySlots[ \t\r\n]+Inv"
+  neutral_create_inventory_owners
+  "${soldier_create_header_contents}")
+list(LENGTH neutral_create_inventory_owners
+  neutral_create_inventory_owner_count)
+if(NOT neutral_create_inventory_owner_count EQUAL 3)
+  message(FATAL_ERROR
+    "Soldier creation/map records must retain exactly three neutral InventorySlots payloads")
+endif()
+string(REGEX MATCH
+  "InventorySlots[ \t\r\n]+inv"
+  neutral_v101_inventory_owner
+  "${soldier_control_header_contents}")
+if(NOT neutral_v101_inventory_owner)
+  message(FATAL_ERROR
+    "OLDSOLDIERTYPE_101 must retain a neutral InventorySlots payload")
+endif()
+string(REGEX MATCH
+  "InventorySlots[ \t\r\n]+inv[ \t]*;[ \t\r\n]+std::vector<int>[ \t]+bNewItemCount"
+  v101_shadow_inventory_counters
+  "${soldier_control_header_contents}")
+if(v101_shadow_inventory_counters)
+  message(FATAL_ERROR
+    "OLDSOLDIERTYPE_101 regained shadow inventory-counter vectors; its neutral InventorySlots payload is the single compatibility owner")
+endif()
+foreach(v101_inventory_conversion_fragment IN ITEMS
+  "inv.newItemCount(HELMETPOS)"
+  "inv.newItemCycleCount(HELMETPOS)")
+  string(FIND "${soldier_control_source_contents}"
+    "${v101_inventory_conversion_fragment}"
+    v101_inventory_conversion_site)
+  if(v101_inventory_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 inventory conversion must populate the neutral slot payload through '${v101_inventory_conversion_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*(Inventory|InventorySlots|SoldierInventory)[ \t]+inv[ \t]*;"
+  current_public_inventory_owner
+  "${current_soldier_contents}")
+if(current_public_inventory_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE regained a public inventory field; use private SoldierInventory inventory_")
+endif()
+foreach(soldier_inventory_test_fragment IN ITEMS
+  "live soldier inventories must remain privately owned behind typed accessors"
+  "slot-only inventory transfers preserve live soldier inventory state"
+  "soldier inventory clear reconstructs coherent slots without resetting adjacent state"
+  "soldier copies retain inventory slots and counters without aliasing storage"
+  "soldier initialization reconstructs coherent empty inventory storage")
+  string(FIND "${headless_test_contents}"
+    "${soldier_inventory_test_fragment}"
+    soldier_inventory_test_site)
+  if(soldier_inventory_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost soldier inventory fixture '${soldier_inventory_test_fragment}'")
+  endif()
+endforeach()
+foreach(soldier_inventory_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${soldier_inventory_documentation}"
+    "SoldierInventory"
+    soldier_inventory_owner_documented)
+  string(FIND "${soldier_inventory_documentation}"
+    "InventorySlots"
+    neutral_inventory_owner_documented)
+  if(soldier_inventory_owner_documented EQUAL -1 OR
+     neutral_inventory_owner_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Live and neutral inventory ownership must remain documented")
+  endif()
+endforeach()
+string(FIND "${save_format_documentation}"
+  "one `sizeof(int)` slot count"
+  soldier_inventory_wire_documented)
+if(soldier_inventory_wire_documented EQUAL -1)
+  message(FATAL_ERROR
+    "Established soldier inventory wire encoding must remain documented")
 endif()
 
 # The optional key-ring payload is soldier-owned inline storage. Preserve the
@@ -5553,7 +5713,7 @@ foreach(required_feature_tail_test IN ITEMS
   "soldier copies retain every status and feature compatibility flag"
   "soldier initialization resets every status and feature compatibility flag"
   "v101 soldier conversion maps historical event flags and clears later feature banks"
-  "soldier save/load round-trips all status and feature flags through established byte positions"
+  "soldier save/load round-trips inventory slots, counters, and flags through established byte positions"
   "v101 soldier conversion maps AI communication and every morale channel"
   "soldier save/load round-trips component-owned AI communication and morale")
   string(FIND "${headless_test_contents}"
@@ -9001,7 +9161,7 @@ string(REGEX MATCH
   serialized_soldier_movement_facing_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(inventoryState\\.keyAccess\\(\\)\\);[ \t\r\n]*ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.turnInProgress\\(\\)\\);"
+  "ar\\.i8\\(inventory\\.keyAccess\\(\\)\\);[ \t\r\n]*ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.turnInProgress\\(\\)\\);"
   serialized_soldier_movement_delay_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -9029,7 +9189,7 @@ string(REGEX MATCH
   serialized_soldier_movement_axis_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(inventoryState\\.checkForNewItems\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.blockedByAnotherMerc\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(employment\\.contractPriceIncreasedState\\(\\)\\);"
+  "ar\\.boolean\\(inventory\\.checkForNewItems\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.blockedByAnotherMerc\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(employment\\.contractPriceIncreasedState\\(\\)\\);"
   serialized_soldier_movement_block_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH

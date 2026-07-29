@@ -463,9 +463,9 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 			/*
 			memset( &TempObj, 0, sizeof( OBJECTTYPE ) );
 			// move the med kit out to temp obj
-			SwapObjs( &TempObj, &(pSoldier->inv[bSlot]) );
+			SwapObjs( &TempObj, &(pSoldier->inventory()[bSlot]) );
 			// swap the med kit with whatever was in the hand
-			SwapObjs( &TempObj, &(pSoldier->inv[HANDPOS]) );
+			SwapObjs( &TempObj, &(pSoldier->inventory()[HANDPOS]) );
 			// replace whatever was in the hand somewhere in inventory
 			AutoPlaceObject( pSoldier, &TempObj, FALSE );
 			*/

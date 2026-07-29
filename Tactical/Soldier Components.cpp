@@ -62,11 +62,6 @@ void SoldierFeatureFlagsComponent::reset() noexcept
 	*this = SoldierFeatureFlagsComponent{};
 }
 
-void SoldierInventoryStateComponent::reset() noexcept
-{
-	*this = SoldierInventoryStateComponent{};
-}
-
 void SoldierKeyRingComponent::activate() noexcept
 {
 	active_ = true;

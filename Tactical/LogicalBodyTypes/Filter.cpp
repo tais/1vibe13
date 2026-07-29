@@ -6,9 +6,9 @@ INT32 CompareAttachment(SOLDIERTYPE* pSoldier, INVENTORY_SLOT slot,  UINT8 index
 {
 	INT32 cmp_val = 0;
 
-	if (pSoldier->inv[slot].objectStack.size() > 0)
+	if (pSoldier->inventory()[slot].objectStack.size() > 0)
 	{
-		OBJECTTYPE* const attachment = pSoldier->inv[slot].objectStack.front().GetAttachmentAtIndex(index);
+		OBJECTTYPE* const attachment = pSoldier->inventory()[slot].objectStack.front().GetAttachmentAtIndex(index);
 		if (attachment) { cmp_val = attachment->usItem; }
 		else { cmp_val = 0; }
 	}
@@ -199,40 +199,40 @@ bool Filter::Match(SOLDIERTYPE* pSoldier) {
 					cmp_val = pSoldier->employment().mercenaryType();
 					break;
 				case REQ_WEAPON_CLASS:
-					cmp_val = Weapon[pSoldier->inv[HANDPOS].usItem].ubWeaponClass;
+					cmp_val = Weapon[pSoldier->inventory()[HANDPOS].usItem].ubWeaponClass;
 					break;
 				case REQ_LEFT_WEAPON_CLASS:
-					cmp_val = Weapon[pSoldier->inv[SECONDHANDPOS].usItem].ubWeaponClass;
+					cmp_val = Weapon[pSoldier->inventory()[SECONDHANDPOS].usItem].ubWeaponClass;
 					break;
 				case REQ_WEAPON_TYPE:
-					cmp_val = Weapon[pSoldier->inv[HANDPOS].usItem].ubWeaponType;
+					cmp_val = Weapon[pSoldier->inventory()[HANDPOS].usItem].ubWeaponType;
 					break;
 				case REQ_LEFT_WEAPON_TYPE:
-					cmp_val = Weapon[pSoldier->inv[SECONDHANDPOS].usItem].ubWeaponType;
+					cmp_val = Weapon[pSoldier->inventory()[SECONDHANDPOS].usItem].ubWeaponType;
 					break;
 				case REQ_CALIBRE:
-					cmp_val = Weapon[pSoldier->inv[HANDPOS].usItem].ubCalibre;
+					cmp_val = Weapon[pSoldier->inventory()[HANDPOS].usItem].ubCalibre;
 					break;
 				case REQ_WEAPON_TWOHANDED:
-					cmp_val = ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem);
+					cmp_val = ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem);
 					break;
 				case REQ_LEFT_WEAPON_TWOHANDED:
-					cmp_val = ItemIsTwoHanded(pSoldier->inv[SECONDHANDPOS].usItem);
+					cmp_val = ItemIsTwoHanded(pSoldier->inventory()[SECONDHANDPOS].usItem);
 					break;
 				case REQ_VEST_AMOR_PROTECTION:
-					cmp_val = Armour[Item[pSoldier->inv[VESTPOS].usItem].ubClassIndex].ubProtection;
+					cmp_val = Armour[Item[pSoldier->inventory()[VESTPOS].usItem].ubClassIndex].ubProtection;
 					break;
 				case REQ_VEST_AMOR_COVERAGE:
-					cmp_val = Armour[Item[pSoldier->inv[VESTPOS].usItem].ubClassIndex].ubCoverage;
+					cmp_val = Armour[Item[pSoldier->inventory()[VESTPOS].usItem].ubClassIndex].ubCoverage;
 					break;
 				case REQ_HELMET_AMOR_PROTECTION:
-					cmp_val = Armour[Item[pSoldier->inv[HELMETPOS].usItem].ubClassIndex].ubProtection;
+					cmp_val = Armour[Item[pSoldier->inventory()[HELMETPOS].usItem].ubClassIndex].ubProtection;
 					break;
 				case REQ_HELMET_AMOR_COVERAGE:
-					cmp_val = Armour[Item[pSoldier->inv[HELMETPOS].usItem].ubClassIndex].ubCoverage;
+					cmp_val = Armour[Item[pSoldier->inventory()[HELMETPOS].usItem].ubClassIndex].ubCoverage;
 					break;
 				case REQ_WEARING_BACKPACK:
-					cmp_val = pSoldier->inv[BPACKPOCKPOS].exists();
+					cmp_val = pSoldier->inventory()[BPACKPOCKPOS].exists();
 					break;
 				case REQ_HELMETPOSATTACHMENT0:
 					cmp_val = CompareAttachment(pSoldier, HELMETPOS, 0);
@@ -272,7 +272,7 @@ bool Filter::Match(SOLDIERTYPE* pSoldier) {
 					break;
 				default:
 					if (q < NUM_REQTYPESINV) {
-						cmp_val = pSoldier->inv[q].usItem;
+						cmp_val = pSoldier->inventory()[q].usItem;
 					} else {
 						// not implemented. We should log this somehow(must be cached).
 						return false;

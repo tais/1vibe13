@@ -305,9 +305,18 @@ adapter, so save and load can never drift out of order. Extra methods:
   every historical attribute and its first two trait bytes and clears the 28
   later slots. No save, profile, packet, map, trait rule, XML, Lua,
   multiplayer, package, or installed-data bytes change.
+- The live soldier's objects and two new-item counter banks are now privately
+  owned by `SoldierInventory`; `InventorySlots` carries the same neutral slot
+  payload through creation, map, and v101 conversion records. The existing
+  inventory encoding is unchanged: one `sizeof(int)` slot count, followed for
+  every slot by the established `OBJECTTYPE` payload, one `sizeof(int)`
+  new-item count, and one `sizeof(int)` cycle count. Slot-only transfers do not
+  overwrite the separately visited key, refresh, zipper, or drop-pack values.
+  Item XML, pocket layouts, profiles, maps, multiplayer records, Lua, packages,
+  installed data, and current save bytes do not change.
 - The former 14-field `STRUCT_Flags` aggregate has been divided by ownership
   without changing its visitor. The signed 8-bit key-access value is stored by
-  `SoldierInventoryStateComponent`; the unsigned 32-bit general mask is stored
+  `SoldierInventory`; the unsigned 32-bit general mask is stored
   by `SoldierStatusComponent`; new-item refresh, zipper, and drop-pack booleans
   stay with inventory; and the remaining booleans plus the unsigned 8-bit gas
   mask live with targeting, fire control, animation activity, replication,

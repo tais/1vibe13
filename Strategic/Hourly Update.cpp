@@ -380,12 +380,12 @@ void HourlyLarryUpdate()
 			if ( pSoldier->assignment().current() < ON_DUTY && !pSoldier->deployment().isBetweenSectors() && !( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) )
 			{
 				// Flugente: reworked this for the new drug system. We now loop over our entire inventory
-				INT8 invsize = (INT8)pSoldier->inv.size();										// remember inventorysize, so we don't call size() repeatedly
+				INT8 invsize = (INT8)pSoldier->inventory().size();										// remember inventorysize, so we don't call size() repeatedly
 				for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)									// ... for all items in our inventory ...
 				{
-					if (pSoldier->inv[bLoop].exists())
+					if (pSoldier->inventory()[bLoop].exists())
 					{
-						INT16 sCurrentItemId = pSoldier->inv[bLoop].usItem;
+						INT16 sCurrentItemId = pSoldier->inventory()[bLoop].usItem;
 						INT16 sCurrentDrugType = Item[sCurrentItemId].drugtype;
 						if (Item[sCurrentItemId].drugtype > 0 && Item[sCurrentItemId].usItemClass & (IC_KIT | IC_MISC))
 						{
@@ -394,7 +394,7 @@ void HourlyLarryUpdate()
 								(!drugItems.empty() && std::find(drugItems.begin(), drugItems.end(), sCurrentItemId) != drugItems.end()) ||
 								(!drugTypes.empty() && std::find(drugTypes.begin(), drugTypes.end(), sCurrentDrugType) != drugTypes.end()))
 							{
-								pObj = &(pSoldier->inv[bLoop]);
+								pObj = &(pSoldier->inventory()[bLoop]);
 								usTemptation = INVENTORY_DRUG_TEMPTATION;
 								break;
 							}
@@ -549,9 +549,9 @@ void HourlyLarryUpdate()
 								if (drugItem.usPortionSize > 0 && drugItem.usPortionSize < 25)
 									portionsize = drugItem.usPortionSize;
 
-								CreateItem( sBarDrugItemId, portionsize, &( pSoldier->inv[bBoozeSlot] ) );
+								CreateItem( sBarDrugItemId, portionsize, &( pSoldier->inventory()[bBoozeSlot] ) );
 
-								ApplyConsumable( pSoldier, &( pSoldier->inv[bBoozeSlot] ), TRUE, FALSE );
+								ApplyConsumable( pSoldier, &( pSoldier->inventory()[bBoozeSlot] ), TRUE, FALSE );
 							}
 						}
 						else
@@ -620,12 +620,12 @@ void HourlySmokerUpdate( )
 			// if we are a smoker, there is a chance that we will look fo cigarettes in our inventory, and consume them if we find any
 			if ( Chance(33) && pSoldier->GetBackgroundValue( BG_SMOKERTYPE ) == 1 )
 			{
-				INT8 invsize = (INT8)pSoldier->inv.size( );											// remember inventorysize, so we don't call size() repeatedly
+				INT8 invsize = (INT8)pSoldier->inventory().size( );											// remember inventorysize, so we don't call size() repeatedly
 				for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )									// ... for all items in our inventory ...
 				{
-					if ( pSoldier->inv[bLoop].exists( ) && ItemIsCigarette(pSoldier->inv[bLoop].usItem) )
+					if ( pSoldier->inventory()[bLoop].exists( ) && ItemIsCigarette(pSoldier->inventory()[bLoop].usItem) )
 					{
-						pObj = &(pSoldier->inv[bLoop]);
+						pObj = &(pSoldier->inventory()[bLoop]);
 
 						if ( ApplyConsumable( pSoldier, pObj, FALSE, FALSE ) )
 						{

@@ -1578,7 +1578,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	SoldierDialogueComponent& dialogue = soldier.dialogue();
 	SoldierEmploymentComponent& employment = soldier.employment();
 	SoldierAssignmentComponent& assignment = soldier.assignment();
-	SoldierInventoryStateComponent& inventoryState = soldier.inventoryState();
+	SoldierInventory& inventory = soldier.inventory();
 	SoldierStatusComponent& status = soldier.status();
 	SoldierMovementComponent& movement = soldier.movement();
 	SoldierReplicationComponent& replication = soldier.replication();
@@ -1592,7 +1592,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	SoldierUiPresentationComponent& uiPresentation = soldier.uiPresentation();
 	SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 	SoldierAnimationActivityComponent& animationActivity = soldier.animationActivity();
-	ar.i8(inventoryState.keyAccess());
+	ar.i8(inventory.keyAccess());
 	ar.u8(movement.delayCounter()); ar.boolean(movement.turnInProgress()); ar.u8(renderState.fadeMode());
 	ar.i8(animationActivity.turningFromProneMode());
 	ar.boolean(animationActivity.readyCostWaived()); ar.boolean(movement.previousInWater());
@@ -1610,7 +1610,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(uiPresentation.closeMercUiPendingState()); ar.boolean(uiPresentation.firstNoActionPointsState()); ar.boolean(uiPresentation.firstUnconsciousState());
 	ar.boolean(fireControl.reloading()); ar.boolean(fireControl.aimPaused()); ar.boolean(deployment.inMissionExitNode());
 	ar.boolean(deployment.betweenSectors()); ar.boolean(animationActivity.reactingFromShot());
-	ar.boolean(inventoryState.checkForNewItems()); ar.boolean(movement.blockedByAnotherMerc());
+	ar.boolean(inventory.checkForNewItems()); ar.boolean(movement.blockedByAnotherMerc());
 	ar.boolean(employment.contractPriceIncreasedState()); ar.boolean(assignment.fixingSamSiteState()); ar.boolean(assignment.fixingRobotState());
 	ar.boolean(employment.signedAnotherContractState()); ar.boolean(animationActivity.turningCostWaived());
 	ar.boolean(animationActivity.suppressionStanceChange()); ar.boolean(assignment.forcedAwakeState()); ar.boolean(fireControl.spreadIndex());
@@ -1626,7 +1626,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(animationActivity.fallClockwise()); ar.boolean(animationActivity.externalDeath());
 	ar.boolean(fireControl.autofireLastStep()); ar.boolean(aiPlanning.lastFlankLeft());
 	ar.u32(status.flags());
-	ar.boolean(inventoryState.zipperFlag()); ar.boolean(inventoryState.dropPackFlag());
+	ar.boolean(inventory.zipperFlag()); ar.boolean(inventory.dropPackFlag());
 }
 
 template<class Ar> static void XferStatProgress( Ar& ar, SoldierStatProgressComponent& progress )
@@ -1912,7 +1912,7 @@ BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
 	if (!wr.good()) return(FALSE);
 
 	//save OO data like inventory
-	if ( !this->inv.Save(hFile, FALSE) )
+	if ( !this->inventory().Save(hFile, FALSE) )
 	{
 		return(FALSE);
 	}
@@ -1977,7 +1977,7 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 		if (!rd.good()) return(FALSE);
 
 		//load OO data like inventory
-		if ( !this->inv.Load(hFile) ) return(FALSE);
+		if ( !this->inventory().Load(hFile) ) return(FALSE);
 
 		XferAIData(ar, *this);
 		XferFlags(ar, *this);
@@ -2499,7 +2499,7 @@ BOOLEAN OBJECTTYPE::Save( HWFILE hFile, bool fSavingMap )
 	return TRUE;
 }
 
-BOOLEAN Inventory::Load( HWFILE hFile )
+BOOLEAN InventorySlots::Load( HWFILE hFile )
 {
 
 	UINT32 uiNumBytesRead;
@@ -2514,22 +2514,20 @@ BOOLEAN Inventory::Load( HWFILE hFile )
 		return(FALSE);
 	}
 
-	inv.resize(sizeInventory);
-	bNewItemCount.resize(sizeInventory);
-	bNewItemCycleCount.resize(sizeInventory);
+	resize(static_cast<size_type>(sizeInventory));
 	for (int x = 0; x < sizeInventory; ++x) {
 		//load the OO OBJECTTYPE
-		if ( !inv[x].Load(hFile) )
+		if ( !items_[x].Load(hFile) )
 		{
 			return FALSE;
 		}
 
 		UINT32 uiNumBytesRead;
-		if ( !FileRead( hFile, &bNewItemCount[x], sizeof(int), &uiNumBytesRead ) )
+		if ( !FileRead( hFile, &newItemCounts_[x], sizeof(int), &uiNumBytesRead ) )
 		{
 			return(FALSE);
 		}
-		if ( !FileRead( hFile, &bNewItemCycleCount[x], sizeof(int), &uiNumBytesRead ) )
+		if ( !FileRead( hFile, &newItemCycleCounts_[x], sizeof(int), &uiNumBytesRead ) )
 		{
 			return(FALSE);
 		}
@@ -2537,7 +2535,7 @@ BOOLEAN Inventory::Load( HWFILE hFile )
 	return (TRUE);
 }
 
-BOOLEAN Inventory::Load(INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorMapVersion)
+BOOLEAN InventorySlots::Load(INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorMapVersion)
 {
 	int sizeInventory;
 	LOADDATA(&sizeInventory, *hBuffer, sizeof(int) );
@@ -2546,24 +2544,22 @@ BOOLEAN Inventory::Load(INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorMap
 		return(FALSE);
 	}
 
-	inv.resize(sizeInventory);
-	bNewItemCount.resize(sizeInventory);
-	bNewItemCycleCount.resize(sizeInventory);
+	resize(static_cast<size_type>(sizeInventory));
 
 	for (int x = 0; x < sizeInventory; ++x) {
 		//load the OO OBJECTTYPE
-		if ( !inv[x].Load(hBuffer, dMajorMapVersion, ubMinorMapVersion) )
+		if ( !items_[x].Load(hBuffer, dMajorMapVersion, ubMinorMapVersion) )
 		{
 			return FALSE;
 		}
 
-		LOADDATA( &bNewItemCount[x], *hBuffer, sizeof(int) );
-		LOADDATA( &bNewItemCycleCount[x], *hBuffer, sizeof(int) );
+		LOADDATA( &newItemCounts_[x], *hBuffer, sizeof(int) );
+		LOADDATA( &newItemCycleCounts_[x], *hBuffer, sizeof(int) );
 	}
 	return TRUE;
 }
 
-BOOLEAN Inventory::Save( HWFILE hFile, bool fSavingMap )
+BOOLEAN InventorySlots::Save( HWFILE hFile, bool fSavingMap )
 {
 	UINT32 uiNumBytesWritten;
 	int sizeInventory = size();//how many items are in the stack?
@@ -2574,16 +2570,16 @@ BOOLEAN Inventory::Save( HWFILE hFile, bool fSavingMap )
 
 	for (int x = 0; x < sizeInventory; ++x) {
 		//save the OO OBJECTTYPE
-		if ( !inv[x].Save(hFile, fSavingMap) )
+		if ( !items_[x].Save(hFile, fSavingMap) )
 		{
 			return (FALSE);
 		}
 
-		if ( !FileWrite( hFile, &(bNewItemCount[x]), sizeof(int), &uiNumBytesWritten ) )
+		if ( !FileWrite( hFile, &(newItemCounts_[x]), sizeof(int), &uiNumBytesWritten ) )
 		{
 			return(FALSE);
 		}
-		if ( !FileWrite( hFile, &(bNewItemCycleCount[x]), sizeof(int), &uiNumBytesWritten ) )
+		if ( !FileWrite( hFile, &(newItemCycleCounts_[x]), sizeof(int), &uiNumBytesWritten ) )
 		{
 			return(FALSE);
 		}
@@ -6465,9 +6461,9 @@ if( g_lang == i18n::Lang::de ) {
 			SOLDIERTYPE* pSoldier = FindSoldierByProfileID( ROBOT, FALSE );
 			if ( pSoldier )
 			{
-				pSoldier->inv[ VESTPOS ].usItem = SPECTRA_VEST_18;
-				pSoldier->inv[ HELMETPOS ].usItem = SPECTRA_HELMET_18;
-				pSoldier->inv[ LEGPOS ].usItem = SPECTRA_LEGGINGS_18;
+				pSoldier->inventory()[ VESTPOS ].usItem = SPECTRA_VEST_18;
+				pSoldier->inventory()[ HELMETPOS ].usItem = SPECTRA_HELMET_18;
+				pSoldier->inventory()[ LEGPOS ].usItem = SPECTRA_LEGGINGS_18;
 				pSoldier->statistics().agility() = 50;
 			}
 		}

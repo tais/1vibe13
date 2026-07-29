@@ -2612,20 +2612,20 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 
 	//go through and and find out how many items there are
 	uiNumberOfItems = 0;
-	UINT8 invsize = pSoldier->inv.size();
+	UINT8 invsize = pSoldier->inventory().size();
 	for ( i = 0; i < invsize; ++i )
 	{
-		if( pSoldier->inv[ i ].exists() == true )
+		if( pSoldier->inventory()[ i ].exists() == true )
 		{
 			// Flugente: if we don't want items to drop in autoresolve, this is the place to set that
 			if ( pSoldier->roster().team() != gbPlayerNum && !gGameExternalOptions.fNPCAutoresolveItemDrop )
 			{
 				// mark it undroppable...
-				pSoldier->inv[i].fFlags |= OBJECT_UNDROPPABLE;
+				pSoldier->inventory()[i].fFlags |= OBJECT_UNDROPPABLE;
 			}
 
 			//if the item can be dropped
-			if( !( pSoldier->inv[ i ].fFlags & OBJECT_UNDROPPABLE ) || pSoldier->roster().team() == gbPlayerNum )
+			if( !( pSoldier->inventory()[ i ].fFlags & OBJECT_UNDROPPABLE ) || pSoldier->roster().team() == gbPlayerNum )
 			{
 				++uiNumberOfItems;
 			}
@@ -2648,10 +2648,10 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 		bCount = 0;
 		for ( i = 0; i < invsize; ++i )
 		{
-			if( pSoldier->inv[ i ].exists() == true )
+			if( pSoldier->inventory()[ i ].exists() == true )
 			{
 				//if the item can be dropped
-				if( !(pSoldier->inv[ i ].fFlags & OBJECT_UNDROPPABLE) || pSoldier->roster().team() == gbPlayerNum )
+				if( !(pSoldier->inventory()[ i ].fFlags & OBJECT_UNDROPPABLE) || pSoldier->roster().team() == gbPlayerNum )
 				{
 					ReduceAmmoDroppedByNonPlayerSoldiers( pSoldier, i );
 
@@ -2662,14 +2662,14 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 					pWorldItems[ bCount ].bVisible = TRUE;
 					pWorldItems[ bCount ].bRenderZHeightAboveLevel = 0;
 
-					if (ItemIsDamageable(pSoldier->inv[i].usItem)) // Madd: drop crappier items on higher difficulty levels
+					if (ItemIsDamageable(pSoldier->inventory()[i].usItem)) // Madd: drop crappier items on higher difficulty levels
 					{
 						// silversurfer: externalized this
-						//pSoldier->inv[i][0]->data.objectStatus -= (gGameOptions.ubDifficultyLevel - 1) * Random(20);
-						pSoldier->inv[i][0]->data.objectStatus -= Random( zDiffSetting[gGameOptions.ubDifficultyLevel].usLootStatusModifier );
-						pSoldier->inv[i][0]->data.objectStatus = max(pSoldier->inv[i][0]->data.objectStatus,1); // never below 1%
+						//pSoldier->inventory()[i][0]->data.objectStatus -= (gGameOptions.ubDifficultyLevel - 1) * Random(20);
+						pSoldier->inventory()[i][0]->data.objectStatus -= Random( zDiffSetting[gGameOptions.ubDifficultyLevel].usLootStatusModifier );
+						pSoldier->inventory()[i][0]->data.objectStatus = max(pSoldier->inventory()[i][0]->data.objectStatus,1); // never below 1%
 					}
-					pWorldItems[ bCount ].object = pSoldier->inv[i];
+					pWorldItems[ bCount ].object = pSoldier->inventory()[i];
 					++bCount;
 				}
 			}
@@ -2682,9 +2682,9 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 		//	actually duplicated the items and there's a chance that these duplicated items will again find their way to sector.
 		for ( i = 0; i < invsize; ++i )
 		{
-			if( pSoldier->inv[ i ].exists() == true )
+			if( pSoldier->inventory()[ i ].exists() == true )
 			{
-				pSoldier->inv[i].initialize();
+				pSoldier->inventory()[i].initialize();
 			}
 		}
 	}

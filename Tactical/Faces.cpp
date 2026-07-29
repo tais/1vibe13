@@ -1686,9 +1686,9 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 		if (gGameSettings.fOptions[TOPTION_SHOW_TACTICAL_FACE_GEAR] && pSoldier->vitals().health() > 0 && !(pFace->uiFlags & FACE_BIGFACE))
 		{
-			if (pSoldier->inv[HELMETPOS].usItem > 0)
+			if (pSoldier->inventory()[HELMETPOS].usItem > 0)
 			{
-				uiFaceItemOne = pSoldier->inv[HELMETPOS].usItem;
+				uiFaceItemOne = pSoldier->inventory()[HELMETPOS].usItem;
 
 				if (uiFaceItemOne != NONE && zNewFaceGear[uiFaceItemOne].Type == 1) //back
 				{
@@ -1698,17 +1698,17 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 			// this section chooses the pictures for gas mask and NV goggles if the ini setting "SHOW_TACTICAL_FACE_GEAR" is TRUE
 			// and the merc actually wears something to be shown
-			if (pSoldier->inv[HEAD1POS].usItem + pSoldier->inv[HEAD2POS].usItem > 0)
+			if (pSoldier->inventory()[HEAD1POS].usItem + pSoldier->inventory()[HEAD2POS].usItem > 0)
 			{
 				// WANNE: Removed the limitation
 				// silversurfer: don't overwrite icons if they shall be shown!
 				//if ( !gGameSettings.fOptions[ SHOW_TACTICAL_FACE_ICONS ] )
 				{
-					uiFaceItemOne = pSoldier->inv[HEAD1POS].usItem;
-					uiFaceItemTwo = pSoldier->inv[HEAD2POS].usItem;
+					uiFaceItemOne = pSoldier->inventory()[HEAD1POS].usItem;
+					uiFaceItemTwo = pSoldier->inventory()[HEAD2POS].usItem;
 
-					uiFaceOne = pSoldier->inv[HEAD1POS].usItem;
-					uiFaceTwo = pSoldier->inv[HEAD2POS].usItem;
+					uiFaceOne = pSoldier->inventory()[HEAD1POS].usItem;
+					uiFaceTwo = pSoldier->inventory()[HEAD2POS].usItem;
 
 					// check first face slot
 					if (uiFaceItemOne != NONE)
@@ -1847,11 +1847,11 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				}
 			}
 
-			if (pSoldier->inv[HELMETPOS].usItem > 0)
+			if (pSoldier->inventory()[HELMETPOS].usItem > 0)
 				// dirty hack for IMPs because they don't have pictures for face gear
 				// && ( pSoldier->identity().profile() < 51 || pSoldier->identity().profile() > 56 )
 			{
-				uiFaceItemOne = pSoldier->inv[HELMETPOS].usItem;
+				uiFaceItemOne = pSoldier->inventory()[HELMETPOS].usItem;
 
 				if (uiFaceItemOne != NONE)
 				{
@@ -1998,10 +1998,10 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			// this section chooses the icons for face gear if the ini setting "SHOW_TACTICAL_FACE_ICONS" is TRUE 
 			// and the merc actually wears something to be shown
 			if (gGameSettings.fOptions[TOPTION_SHOW_TACTICAL_FACE_ICONS] &&
-				(pSoldier->inv[HEAD1POS].usItem + pSoldier->inv[HEAD2POS].usItem) > 0)
+				(pSoldier->inventory()[HEAD1POS].usItem + pSoldier->inventory()[HEAD2POS].usItem) > 0)
 			{
-				uiFaceItemOne = pSoldier->inv[HEAD1POS].usItem;
-				uiFaceItemTwo = pSoldier->inv[HEAD2POS].usItem;
+				uiFaceItemOne = pSoldier->inventory()[HEAD1POS].usItem;
+				uiFaceItemTwo = pSoldier->inventory()[HEAD2POS].usItem;
 
 				//MM: fixing the hardcoded craziness here...
 				// check first face slot
@@ -2307,7 +2307,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				sIconIndex_Assignment = 0;
 				fDoIcon_Assignment = TRUE;
 				// Show repair points if merc has a toolkit in his hand. Otherwise show cleaning points.
-				if (ItemIsToolkit(pSoldier->inv[HANDPOS].usItem))
+				if (ItemIsToolkit(pSoldier->inventory()[HANDPOS].usItem))
 					sPtsAvailable = CalculateRepairPointsForRepairman(pSoldier, &usMaximumPts, FALSE);
 				else
 					sPtsAvailable = CalculateCleaningPointsForRepairman(pSoldier, &usMaximumPts);

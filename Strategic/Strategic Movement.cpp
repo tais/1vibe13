@@ -5040,7 +5040,7 @@ void AddFuelToVehicle( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVehicle )
 {
 	OBJECTTYPE *pItem;
 	INT16 sFuelNeeded, sFuelAvailable, sFuelAdded;
-	pItem = &pSoldier->inv[ HANDPOS ];
+	pItem = &pSoldier->inventory()[ HANDPOS ];
 	if( !ItemIsGascan(pItem->usItem))
 	{
 		#ifdef JA2BETAVERSION

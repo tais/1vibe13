@@ -2502,7 +2502,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 						if(vehicleInv[x] == FALSE)
 							continue;
 
-						if(pSoldier->inv[x].usItem == gpItemPointer->usItem)
+						if(pSoldier->inventory()[x].usItem == gpItemPointer->usItem)
 						{
 							if(TryToStackInSlot(pSoldier, gpItemPointer, x) == true)
 							{
@@ -2522,9 +2522,9 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 							if(vehicleInv[x] == FALSE)
 								continue;
 
-							if(pSoldier->inv[x].exists() == false)
+							if(pSoldier->inventory()[x].exists() == false)
 							{
-								gpItemPointer->MoveThisObjectTo(pSoldier->inv[x], gpItemPointer->ubNumberOfObjects, pSoldier, x);
+								gpItemPointer->MoveThisObjectTo(pSoldier->inventory()[x], gpItemPointer->ubNumberOfObjects, pSoldier, x);
 								
 								if(gpItemPointer->ubNumberOfObjects == 0)
 								{								

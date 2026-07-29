@@ -919,7 +919,7 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 	if (WeaponInHand(pSoldier))
 	{
 		// Flugente: we might be equipped with an underbarrel gun....
-		OBJECTTYPE* pObjhand = pSoldier->GetUsedWeapon(&pSoldier->inv[HANDPOS]);
+		OBJECTTYPE* pObjhand = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
 		UINT32 usItemClass = Item[pObjhand->usItem].usItemClass;
 
 		pSoldier->attackSelection().weapon() = pObjhand->usItem;
@@ -943,7 +943,7 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 		else if (ubItemCursor == TOSSCURS)
 		{
 			uiHitChance = CalcThrownChanceToHit(pSoldier, sTargetGridNo, pSoldier->aiPlanning().shownAimTime(), pSoldier->attackSelection().shotLocation());
-			usGunRange = CalcMaxTossRange(pSoldier, pSoldier->inv[HANDPOS].usItem, TRUE) * CELL_X_SIZE;
+			usGunRange = CalcMaxTossRange(pSoldier, pSoldier->inventory()[HANDPOS].usItem, TRUE) * CELL_X_SIZE;
 			swprintf(zOutputString, gzDisplayCoverText[DC_MSG__GUN_RANGE_INFORMATION], usRange / 10, usGunRange / 10, uiHitChance);
 		}
 		else
@@ -959,17 +959,17 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 			swprintf(zOutputString, gzDisplayCoverText[title], usRange / 10, usGunRange / 10, uiHitChance);
 		}		
 	}
-	else if (pSoldier->inv[HANDPOS].exists() && ubItemCursor == TOSSCURS)
+	else if (pSoldier->inventory()[HANDPOS].exists() && ubItemCursor == TOSSCURS)
 	{
-		pSoldier->attackSelection().weapon() = pSoldier->inv[HANDPOS].usItem;
+		pSoldier->attackSelection().weapon() = pSoldier->inventory()[HANDPOS].usItem;
 		uiHitChance = CalcThrownChanceToHit(pSoldier, sTargetGridNo, pSoldier->aiPlanning().shownAimTime(), pSoldier->attackSelection().shotLocation());
-		usGunRange = CalcMaxTossRange(pSoldier, pSoldier->inv[HANDPOS].usItem, TRUE) * CELL_X_SIZE;
+		usGunRange = CalcMaxTossRange(pSoldier, pSoldier->inventory()[HANDPOS].usItem, TRUE) * CELL_X_SIZE;
 		swprintf(zOutputString, gzDisplayCoverText[DC_MSG__GUN_RANGE_INFORMATION], usRange / 10, usGunRange / 10, uiHitChance);
 	}
-	else if ((!pSoldier->inv[HANDPOS].exists() || Item[pSoldier->inv[HANDPOS].usItem].usItemClass == IC_PUNCH) && pFullTarget)
+	else if ((!pSoldier->inventory()[HANDPOS].exists() || Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_PUNCH) && pFullTarget)
 	{
-		if (pSoldier->inv[HANDPOS].exists())
-			pSoldier->attackSelection().weapon() = pSoldier->inv[HANDPOS].usItem;
+		if (pSoldier->inventory()[HANDPOS].exists())
+			pSoldier->attackSelection().weapon() = pSoldier->inventory()[HANDPOS].usItem;
 		else
 			pSoldier->attackSelection().weapon() = 0;
 		uiHitChance = CalcChanceToPunch(pSoldier, pFullTarget, pSoldier->aiPlanning().shownAimTime());
@@ -1697,13 +1697,13 @@ void CalculateWeapondata()
 	OBJECTTYPE* pObjPlatform = NULL;
 	OBJECTTYPE* pObjUsed = NULL;
 
-	if ( &pSoldier->inv[HANDPOS] && Item[(pSoldier->inv[HANDPOS]).usItem].usItemClass & IC_WEAPON )
+	if ( &pSoldier->inventory()[HANDPOS] && Item[(pSoldier->inventory()[HANDPOS]).usItem].usItemClass & IC_WEAPON )
 	{
-		pObjPlatform = pSoldier->GetUsedWeapon(&pSoldier->inv[HANDPOS]);
+		pObjPlatform = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
 
 		if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 		{
-			pObjUsed = FindAttachment_GrenadeLauncher(&pSoldier->inv[HANDPOS]);
+			pObjUsed = FindAttachment_GrenadeLauncher(&pSoldier->inventory()[HANDPOS]);
 			// GL weapon-mode can desync from the actual attachment; FindAttachment_*
 			// returns NULL if no launcher is really attached. Fall back to the platform
 			// weapon so the pObjUsed->usItem / GunRange(pObjUsed) derefs below are safe.
@@ -1730,9 +1730,9 @@ void CalculateWeapondata()
 			}
 		}
 	}
-	else if ( &pSoldier->inv[HANDPOS] && Item[(pSoldier->inv[HANDPOS]).usItem].usItemClass & IC_EXPLOSV )
+	else if ( &pSoldier->inventory()[HANDPOS] && Item[(pSoldier->inventory()[HANDPOS]).usItem].usItemClass & IC_EXPLOSV )
 	{
-		pObjPlatform = &pSoldier->inv[HANDPOS];
+		pObjPlatform = &pSoldier->inventory()[HANDPOS];
 
 		pObjUsed = pObjPlatform;
 

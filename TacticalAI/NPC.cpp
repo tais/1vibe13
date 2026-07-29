@@ -775,9 +775,9 @@ INT32 CalcThreateningEffectiveness( UINT8 ubMerc )
 
 	iStrength = EffectiveStrength( pSoldier, TRUE );
 
-	if ( Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & IC_WEAPON )
+	if ( Item[ pSoldier->inventory()[HANDPOS].usItem ].usItemClass & IC_WEAPON )
 	{
-		iDeadliness = Weapon[ pSoldier->inv[HANDPOS].usItem ].ubDeadliness;
+		iDeadliness = Weapon[ pSoldier->inventory()[HANDPOS].usItem ].ubDeadliness;
 	}
 	else
 	{
@@ -2310,8 +2310,8 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 						if ( pSoldier->roster().team() == gbPlayerNum )
 						{
 							for (int x = INV_START_POS; x < NUM_INV_SLOTS; ++x) {
-								if (&(pSoldier->inv[x]) == pObj) {
-									DeleteObj(&pSoldier->inv[x]);
+								if (&(pSoldier->inventory()[x]) == pObj) {
+									DeleteObj(&pSoldier->inventory()[x]);
 									DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 									break;
 								}
@@ -2428,9 +2428,9 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 						bInvPos = FindObj( pSoldier, pQuotePtr->usGiftItem );
 
 						// AssertMsg is a release no-op: a re-armed gift record whose item was already given
-						// leaves bInvPos == NO_SLOT -> pSoldier->inv[-1] OOB. Guard it for real.
+						// leaves bInvPos == NO_SLOT -> pSoldier->inventory()[-1] OOB. Guard it for real.
 						if ( pSoldier != NULL && bInvPos != NO_SLOT )
-							TalkingMenuGiveItem( ubNPC, &(pSoldier->inv[ bInvPos ] ), bInvPos );
+							TalkingMenuGiveItem( ubNPC, &(pSoldier->inventory()[ bInvPos ] ), bInvPos );
 					}
 				}
 				// Action before movement?
@@ -2469,7 +2469,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 					    if (ubNPC == KYLE)
 					    {
 						    // make sure he has keys
-						    pSoldier->inventoryState().keyAccess() = TRUE;
+						    pSoldier->inventory().keyAccess() = TRUE;
 					    }
 
 					    if (pSoldier->position().gridNo() == pQuotePtr->usGoToGridNo )

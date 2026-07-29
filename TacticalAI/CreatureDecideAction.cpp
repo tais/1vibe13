@@ -1073,7 +1073,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 		{
 			if ( bCanAttack == NOSHOOT_NOAMMO )
 			{
-				pSoldier->inv[HANDPOS].fFlags |= OBJECT_AI_UNUSABLE;
+				pSoldier->inventory()[HANDPOS].fFlags |= OBJECT_AI_UNUSABLE;
 
 				// try to find a bladed weapon
 				if (pSoldier->identity().bodyType() == QUEENMONSTER)
@@ -1129,9 +1129,9 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 
 	if (bWeaponIn != NO_SLOT)
 	{
-		if (Item[pSoldier->inv[bWeaponIn].usItem].usItemClass == IC_GUN && pSoldier->inv[bWeaponIn][0]->data.gun.bGunStatus >= USABLE)
+		if (Item[pSoldier->inventory()[bWeaponIn].usItem].usItemClass == IC_GUN && pSoldier->inventory()[bWeaponIn][0]->data.gun.bGunStatus >= USABLE)
 		{
-			if (pSoldier->inv[bWeaponIn][0]->data.gun.ubGunShotsLeft > 0)
+			if (pSoldier->inventory()[bWeaponIn][0]->data.gun.ubGunShotsLeft > 0)
 			{
 				bSpitIn = bWeaponIn;
 				// if it's in another pocket, swap it into his hand temporarily

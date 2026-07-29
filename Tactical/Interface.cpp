@@ -954,12 +954,12 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	else
 	{
-		if (ItemIsToolkit(pSoldier->inv[ HANDPOS ].usItem))
+		if (ItemIsToolkit(pSoldier->inventory()[ HANDPOS ].usItem))
 		{
 			uiActionImages = TOOLKITACTIONC_IMAGES;
 			swprintf( zActionString, TacticalStr[ NOT_APPLICABLE_POPUPTEXT ] );
 		}
-		else if (ItemIsWirecutters(pSoldier->inv[ HANDPOS ].usItem))
+		else if (ItemIsWirecutters(pSoldier->inventory()[ HANDPOS ].usItem))
 		{
 			uiActionImages = WIRECUTACTIONC_IMAGES;
 			swprintf( zActionString, TacticalStr[ NOT_APPLICABLE_POPUPTEXT ] );
@@ -967,7 +967,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 		else
 		{
 			// Create button based on what is in our hands at the moment!
-			switch( Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass )
+			switch( Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass )
 			{
 				case IC_PUNCH:
 
@@ -2402,7 +2402,7 @@ BOOLEAN DrawCTHIndicator()
 	SOLDIERTYPE *pTarget;
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
-	OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
+	OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 
 	// Create a Background Rect for us to draw our indicator on. With NCTH, the size and position of this rectangle
 	// is equal exactly to the size of the tactical screen viewport. Unlike the OCTH indicator, the NCTH one can grow
@@ -2566,14 +2566,14 @@ BOOLEAN DrawCTHIndicator()
 
 	/////////////////////////////////////////////
 	// Factor in Weapon "Effective Range".
-	UINT16 sEffRange = Weapon[Item[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubClassIndex].usRange + GetRangeBonus(&(pSoldier->inv[ pSoldier->attackSelection().hand() ]));
+	UINT16 sEffRange = Weapon[Item[pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem].ubClassIndex].usRange + GetRangeBonus(&(pSoldier->inventory()[ pSoldier->attackSelection().hand() ]));
 	FLOAT iRangeRatio = __max(1.0f, (FLOAT)(d2DDistance / sEffRange));
 	FLOAT iDistanceRatio = (FLOAT)(d2DDistance / gGameCTHConstants.NORMAL_SHOOTING_DISTANCE);
 	
 	/////////////////////////////////////////////
 	// Factor in Gun Accuracy.
 	
-	INT16 sAccuracy = GetGunAccuracy( &(pSoldier->inv[ pSoldier->attackSelection().hand() ]) );
+	INT16 sAccuracy = GetGunAccuracy( &(pSoldier->inventory()[ pSoldier->attackSelection().hand() ]) );
 
 	sAccuracy = __max(0, sAccuracy);
 	sAccuracy = __min(100, sAccuracy);
@@ -2774,7 +2774,7 @@ BOOLEAN DrawCTHIndicator()
 		gprintfdirty( curX, curY, pStr );
 		mprintf( curX, curY, pStr);
 
-		if( gGameExternalOptions.ubImprovedNCTHCursor > 0 && Item[pSoldier->inv[HANDPOS].usItem].usItemClass == IC_GUN )
+		if( gGameExternalOptions.ubImprovedNCTHCursor > 0 && Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_GUN )
 		{
 			// sevenfm: show scope mode icon
 			NCTHDrawScopeModeIcon( pSoldier, curX + usWidth + 2, curY );
@@ -2868,10 +2868,10 @@ BOOLEAN DrawCTHIndicator()
 			ubNumBullets = pSoldier->fireControl().autofireShots();
 
 			// How many bullets are left in the gun?
-			UINT32 uiBulletsLeft = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
+			UINT32 uiBulletsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 			if (pSoldier->IsValidSecondHandBurst()) 
 			{
-				uiBulletsLeft = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), uiBulletsLeft );
+				uiBulletsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), uiBulletsLeft );
 			}
 
 			UINT32 uiCurBullet = uiBulletsLeft;
@@ -2918,7 +2918,7 @@ BOOLEAN DrawCTHIndicator()
 		else
 		{
 			// Number of COLORED bullets to display is the number of bullets we want to fire.
-			ubNumBullets = GetShotsPerBurst( &(pSoldier->inv[ pSoldier->attackSelection().hand() ]) );
+			ubNumBullets = GetShotsPerBurst( &(pSoldier->inventory()[ pSoldier->attackSelection().hand() ]) );
 
 			// Display no more than X bullets on screen!
 			uiMaxBulletsToDisplay = __min(ubNumBullets, 15);
@@ -5387,7 +5387,7 @@ void CalculateAimCubeUIPhysics( )
 			gCubeUIData.dForce = gCubeUIData.dMaxForce;
 		}
 
-		gCubeUIData.dDegrees = (FLOAT)CalculateLaunchItemAngle( gCubeUIData.pSoldier, gCubeUIData.sGridNo, ubHeight, gCubeUIData.dForce, &(gCubeUIData.pSoldier->inv[ HANDPOS ] ), &(gCubeUIData.sTargetGridNo ) );
+		gCubeUIData.dDegrees = (FLOAT)CalculateLaunchItemAngle( gCubeUIData.pSoldier, gCubeUIData.sGridNo, ubHeight, gCubeUIData.dForce, &(gCubeUIData.pSoldier->inventory()[ HANDPOS ] ), &(gCubeUIData.sTargetGridNo ) );
 	}
 
 }
@@ -5886,16 +5886,16 @@ void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  )
 		switch( pSoldier->attackSelection().shotLocation() )
 		{
 		case AIM_SHOT_HEAD:
-			if( pTargetSoldier->inv[HELMETPOS].exists() )
-				usItemID = pTargetSoldier->inv[HELMETPOS].usItem;
+			if( pTargetSoldier->inventory()[HELMETPOS].exists() )
+				usItemID = pTargetSoldier->inventory()[HELMETPOS].usItem;
 			break;
 		case AIM_SHOT_TORSO:
-			if( pTargetSoldier->inv[VESTPOS].exists() )
-				usItemID = pTargetSoldier->inv[VESTPOS].usItem;
+			if( pTargetSoldier->inventory()[VESTPOS].exists() )
+				usItemID = pTargetSoldier->inventory()[VESTPOS].usItem;
 			break;
 		case AIM_SHOT_LEGS:
-			if( pTargetSoldier->inv[LEGPOS].exists() )
-				usItemID = pTargetSoldier->inv[LEGPOS].usItem;
+			if( pTargetSoldier->inventory()[LEGPOS].exists() )
+				usItemID = pTargetSoldier->inventory()[LEGPOS].usItem;
 			break;
 		}
 		if( usItemID )
@@ -5915,9 +5915,9 @@ void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  )
 			// show item in hands
 			if( pSoldier->attackSelection().shotLocation() == AIM_SHOT_TORSO )
 			{
-				if( pTargetSoldier->inv[HANDPOS].exists() )
+				if( pTargetSoldier->inventory()[HANDPOS].exists() )
 				{
-					usItemID = pTargetSoldier->inv[HANDPOS].usItem;
+					usItemID = pTargetSoldier->inventory()[HANDPOS].usItem;
 					GetItemDimensions( &(Item[ usItemID ]), sWidth, sHeight );
 					if( sWidth > 30 )
 						sXOffset = 10;
@@ -5933,9 +5933,9 @@ void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  )
 			// show items in head slots
 			else if( pSoldier->attackSelection().shotLocation() == AIM_SHOT_HEAD )
 			{
-				if( pTargetSoldier->inv[HEAD2POS].exists() )
+				if( pTargetSoldier->inventory()[HEAD2POS].exists() )
 				{
-					usItemID = pTargetSoldier->inv[HEAD2POS].usItem;
+					usItemID = pTargetSoldier->inventory()[HEAD2POS].usItem;
 					GetItemDimensions( &(Item[ usItemID ]), sWidth, sHeight );
 					sX = sStartScreenX - 25 - sWidth;
 					sY = sStartScreenY - 3;
@@ -5946,13 +5946,13 @@ void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  )
 					LeftRect.bottom = sY + sHeight;
 				}
 
-				if( pTargetSoldier->inv[HEAD1POS].exists() )
+				if( pTargetSoldier->inventory()[HEAD1POS].exists() )
 				{					
-					usItemID = pTargetSoldier->inv[HEAD1POS].usItem;
+					usItemID = pTargetSoldier->inventory()[HEAD1POS].usItem;
 					GetItemDimensions( &(Item[ usItemID ]), sWidth, sHeight );					
 					sX = sStartScreenX - 25 - sWidth;
 					sY = sStartScreenY - 3;
-					if( pTargetSoldier->inv[HEAD2POS].exists() )
+					if( pTargetSoldier->inventory()[HEAD2POS].exists() )
 						sX -= LeftRect.right - LeftRect.left;
 					DrawItemPic(&(Item[ usItemID ] ), sX, sY );
 					LeftRect2.left = sX;
@@ -5979,16 +5979,16 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 		switch( pSelectedSoldier->attackSelection().shotLocation() )
 		{
 		case AIM_SHOT_HEAD:
-			if( pTargetSoldier->inv[HELMETPOS].exists() )
-				usItemID = pTargetSoldier->inv[HELMETPOS].usItem;
+			if( pTargetSoldier->inventory()[HELMETPOS].exists() )
+				usItemID = pTargetSoldier->inventory()[HELMETPOS].usItem;
 			break;
 		case AIM_SHOT_TORSO:
-			if( pTargetSoldier->inv[VESTPOS].exists() )
-				usItemID = pTargetSoldier->inv[VESTPOS].usItem;
+			if( pTargetSoldier->inventory()[VESTPOS].exists() )
+				usItemID = pTargetSoldier->inventory()[VESTPOS].usItem;
 			break;
 		case AIM_SHOT_LEGS:
-			if( pTargetSoldier->inv[LEGPOS].exists() )
-				usItemID = pTargetSoldier->inv[LEGPOS].usItem;
+			if( pTargetSoldier->inventory()[LEGPOS].exists() )
+				usItemID = pTargetSoldier->inventory()[LEGPOS].usItem;
 			break;
 		}
 		if( usItemID )
@@ -6024,33 +6024,33 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 		{
 			// show face items
 			SetFontForeground( FONT_ORANGE );
-			if( pTargetSoldier->inv[HEAD1POS].exists() )
+			if( pTargetSoldier->inventory()[HEAD1POS].exists() )
 			{
 				if(gGameExternalOptions.fShowEnemyExtendedInfo)
 				{	// show exact name
-					wcscat( NameStr, ItemNames[ pTargetSoldier->inv[HEAD1POS].usItem ] );
+					wcscat( NameStr, ItemNames[ pTargetSoldier->inventory()[HEAD1POS].usItem ] );
 				}
 				else
 				{	// show general name
-					if(ItemIsGasmask(pTargetSoldier->inv[HEAD1POS].usItem))
+					if(ItemIsGasmask(pTargetSoldier->inventory()[HEAD1POS].usItem))
 						wcscat( NameStr, TacticalStr[ GENERAL_INFO_MASK ] );
-					else if( Item[pTargetSoldier->inv[HEAD1POS].usItem].nightvisionrangebonus || Item[pTargetSoldier->inv[HEAD1POS].usItem].cavevisionrangebonus )
+					else if( Item[pTargetSoldier->inventory()[HEAD1POS].usItem].nightvisionrangebonus || Item[pTargetSoldier->inventory()[HEAD1POS].usItem].cavevisionrangebonus )
 						wcscat( NameStr, TacticalStr[ GENERAL_INFO_NVG ] );
 				}				
 			}
-			if( pTargetSoldier->inv[HEAD2POS].exists() )
+			if( pTargetSoldier->inventory()[HEAD2POS].exists() )
 			{
-				if( pTargetSoldier->inv[HEAD1POS].exists() )
+				if( pTargetSoldier->inventory()[HEAD1POS].exists() )
 					wcscat( NameStr, L", " );
 				if(gGameExternalOptions.fShowEnemyExtendedInfo)
 				{	// show exact name
-					wcscat( NameStr, ItemNames[ pTargetSoldier->inv[HEAD2POS].usItem ] );
+					wcscat( NameStr, ItemNames[ pTargetSoldier->inventory()[HEAD2POS].usItem ] );
 				}
 				else
 				{	// show general name
-					if(ItemIsGasmask(pTargetSoldier->inv[HEAD1POS].usItem))
+					if(ItemIsGasmask(pTargetSoldier->inventory()[HEAD1POS].usItem))
 						wcscat( NameStr, TacticalStr[ GENERAL_INFO_MASK ] );
-					else if( Item[pTargetSoldier->inv[HEAD1POS].usItem].nightvisionrangebonus || Item[pTargetSoldier->inv[HEAD1POS].usItem].cavevisionrangebonus )
+					else if( Item[pTargetSoldier->inventory()[HEAD1POS].usItem].nightvisionrangebonus || Item[pTargetSoldier->inventory()[HEAD1POS].usItem].cavevisionrangebonus )
 						wcscat( NameStr, TacticalStr[ GENERAL_INFO_NVG ] );
 				}
 			}
@@ -6063,12 +6063,12 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 			{
 				if ( showExactInfo )
 				{
-					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", ShortItemNames[ pTargetSoldier->inv[ HANDPOS ].usItem ] );
+					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", ShortItemNames[ pTargetSoldier->inventory()[ HANDPOS ].usItem ] );
 				}
 				else
 				{
 					// display general weapon class
-					switch( Weapon[pTargetSoldier->inv[ HANDPOS ].usItem].ubWeaponClass )
+					switch( Weapon[pTargetSoldier->inventory()[ HANDPOS ].usItem].ubWeaponClass )
 					{
 					case HANDGUNCLASS:
 						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_HANDGUN] );
@@ -6098,14 +6098,14 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 			{
 				if( showExactInfo )
 				{							
-					if( pTargetSoldier->inv[ HANDPOS ].usItem )
-						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", Item[ pTargetSoldier->inv[ HANDPOS ].usItem ].szItemName );
+					if( pTargetSoldier->inventory()[ HANDPOS ].usItem )
+						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", Item[ pTargetSoldier->inventory()[ HANDPOS ].usItem ].szItemName );
 					else
 						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_NO_WEAPON] );
 				}
 				else
 				{
-					if( pTargetSoldier->inv[ HANDPOS ].usItem )
+					if( pTargetSoldier->inventory()[ HANDPOS ].usItem )
 						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", TacticalStr[ GENERAL_INFO_ITEM ] );
 					else
 						sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", L"" );
@@ -6532,7 +6532,7 @@ void NCTHDrawScopeModeIcon( SOLDIERTYPE* pSoldier, INT16 sNewX, INT16 sNewY )
 {
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 0 )
 	{
-		if ( gGameExternalOptions.fScopeModes && Item[pSoldier->inv[HANDPOS].usItem].usItemClass == IC_GUN )
+		if ( gGameExternalOptions.fScopeModes && Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_GUN )
 		{
 			UINT32 uiItemInfoAdvancedIcon = 0;
 			VOBJECT_DESC    VObjectDesc;
@@ -6541,7 +6541,7 @@ void NCTHDrawScopeModeIcon( SOLDIERTYPE* pSoldier, INT16 sNewX, INT16 sNewY )
 			AddVideoObject( &VObjectDesc, &uiItemInfoAdvancedIcon);
 
 			std::map<INT8, OBJECTTYPE*> ObjList;
-			GetScopeLists(pSoldier, &pSoldier->inv[HANDPOS], ObjList);
+			GetScopeLists(pSoldier, &pSoldier->inventory()[HANDPOS], ObjList);
 
 			if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD )
 			{		
@@ -6604,7 +6604,7 @@ void NCTHShowMounted( SOLDIERTYPE* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, INT1
 {
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 2 )
 	{
-		OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
+		OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 		INVTYPE	*pItem = &Item[ pWeapon->usItem ];
 		PIXEL usCMountedBar	= Get16BPPColor( FROMRGB( 192, 0, 0 ) );
 		PIXEL usCMountedBorder	= Get16BPPColor( FROMRGB( 10, 10, 10 ) );

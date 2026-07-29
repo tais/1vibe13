@@ -816,7 +816,7 @@ BOOLEAN AddPlacementToWorld( SOLDIERINITNODE *curr, GROUP *pGroup = NULL )
 
 		AddSoldierToSectorNoCalculateDirection( ubID );
 
-		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->roster().team() == ENEMY_TEAM && !pSoldier->inv[ HANDPOS ].usItem )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->roster().team() == ENEMY_TEAM && !pSoldier->inventory()[ HANDPOS ].usItem )
 		{
 			pSoldier = pSoldier;
 		}
@@ -829,9 +829,9 @@ BOOLEAN AddPlacementToWorld( SOLDIERINITNODE *curr, GROUP *pGroup = NULL )
 		{
 				if ( gGameOptions.ubInventorySystem == INVENTORY_OLD && gGameOptions.ubAttachmentSystem == ATTACHMENT_OLD )
 				{
-					if( pSoldier->inv[ iCnt ].usItem == 97 || pSoldier->inv[ iCnt ].usItem == 1346 || pSoldier->inv[ iCnt ].usItem == 99 
-						|| pSoldier->inv[ iCnt ].usItem == 1347 || pSoldier->inv[ iCnt ].usItem == 584 || pSoldier->inv[ iCnt ].usItem == 551 ) //43
-						pSoldier->inv[ iCnt ].usItem = 129; //335		
+					if( pSoldier->inventory()[ iCnt ].usItem == 97 || pSoldier->inventory()[ iCnt ].usItem == 1346 || pSoldier->inventory()[ iCnt ].usItem == 99
+						|| pSoldier->inventory()[ iCnt ].usItem == 1347 || pSoldier->inventory()[ iCnt ].usItem == 584 || pSoldier->inventory()[ iCnt ].usItem == 551 ) //43
+						pSoldier->inventory()[ iCnt ].usItem = 129; //335
 				}
 		}	
 		#endif	

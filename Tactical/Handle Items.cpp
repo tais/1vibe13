@@ -162,7 +162,7 @@ struct TacticalActorCallbackContext
 		grid = selectedGrid;
 		level = selectedLevel;
 		handItem = captureHandItem
-			? soldier->inv[HANDPOS].usItem : NOTHING;
+			? soldier->inventory()[HANDPOS].usItem : NOTHING;
 		worldGeneration = world.worldGeneration;
 		return true;
 	}
@@ -177,8 +177,8 @@ struct TacticalActorCallbackContext
 		SOLDIERTYPE* soldier = actor.resolve();
 		if (!soldier ||
 			(requireHandItem &&
-				(!soldier->inv[HANDPOS].exists() ||
-					soldier->inv[HANDPOS].usItem != handItem)))
+				(!soldier->inventory()[HANDPOS].exists() ||
+					soldier->inventory()[HANDPOS].usItem != handItem)))
 			return nullptr;
 		return soldier;
 	}
@@ -795,7 +795,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( Item[ usHandItem ].usItemClass == IC_GUN || Item[ usHandItem ].usItemClass == IC_THROWING_KNIFE )
 	{
 		// WEAPONS
-		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: checking for fingerprintID, item id = %d,id required = %d, imprint id = %d, soldier id = %d",usHandItem, ItemHasFingerPrintID(usHandItem), pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID,pSoldier->identity().profile()));
+		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: checking for fingerprintID, item id = %d,id required = %d, imprint id = %d, soldier id = %d",usHandItem, ItemHasFingerPrintID(usHandItem), pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID,pSoldier->identity().profile()));
 		if (ItemHasFingerPrintID(usHandItem))
 		{
 			// check imprint ID
@@ -803,12 +803,12 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			// imprinted value is profile for mercs & NPCs and NO_PROFILE + 1 for generic dudes
 			if (pSoldier->identity().profile() != NO_PROFILE)
 			{
-				if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != pSoldier->identity().profile() )
+				if ( pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != pSoldier->identity().profile() )
 				{
-					if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID == NO_PROFILE )
+					if ( pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID == NO_PROFILE )
 					{
 						// first shot using "virgin" gun... set imprint ID
-						pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID = pSoldier->identity().profile();
+						pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID = pSoldier->identity().profile();
 												
 						// this could be an NPC (Krott)
 						if (pSoldier->roster().team() == gbPlayerNum)
@@ -843,11 +843,11 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			else
 			{
 				// guaranteed not to be controlled by the player, so no feedback required
-				if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != (NO_PROFILE + 1) )
+				if ( pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != (NO_PROFILE + 1) )
 				{
-					if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID == NO_PROFILE )
+					if ( pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID == NO_PROFILE )
 					{
-						pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID = (NO_PROFILE + 1);
+						pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID = (NO_PROFILE + 1);
 					}
 					else
 					{
@@ -954,7 +954,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				// but have not a gun capable for it
 				if ( PreRandom( 3 + pSoldier->aiPlanning().aimTime() ) == 0 && !pSoldier->fireControl().burstCounter() )
 				{
-					if ( IsGunBurstCapable( &pSoldier->inv[HANDPOS], FALSE, pSoldier ) )
+					if ( IsGunBurstCapable( &pSoldier->inventory()[HANDPOS], FALSE, pSoldier ) )
 					{
 						// chance of firing burst if we have points... chance decreasing when ordered to do aimed shot
 
@@ -974,7 +974,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 26 ], pSoldier->GetName() );
 						}
 					}
-					else if ( !IsGunAutofireCapable( &pSoldier->inv[HANDPOS] ) )
+					else if ( !IsGunAutofireCapable( &pSoldier->inventory()[HANDPOS] ) )
 					{
 						// reduce morale for we are using a gun without burst or autofire and cannot go psycho
 						//HandleMoraleEventForSoldier( pSoldier, MORALE_PSYCHO_UNABLE_TO_PSYCHO );
@@ -1010,8 +1010,8 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				UINT32 chanceToMisfire = (UINT32)(((DOUBLE)diceSides*(2.0f*avgAPadded+1.0f-sqrt(4.0f*avgAPadded+1.0f)))/(2.0f*avgAPadded)); //derive the chace to misfire from the desired average AP overspent, derived suing
 				UINT32 chanceToMisfireDry = (UINT32)(((DOUBLE)diceSides*(avgAPadded+1.0f-sqrt(2.0f*avgAPadded+1.0f)))/(avgAPadded)); //chance to misfire if weapon is dry.	Designed to waste avgAPadded/2 APs
 				//soldiers get better at controlling bursts with levels, and reflex time (agility)
-				UINT32 misfirePenaltyConst = (GetAutofireShotsPerFiveAPs(&pSoldier->inv[HANDPOS]))/5;
-				UINT32 misfirePenaltyRand = ((GetAutofireShotsPerFiveAPs(&pSoldier->inv[HANDPOS]))%5)*20; //this is the remainder translated to a probability
+				UINT32 misfirePenaltyConst = (GetAutofireShotsPerFiveAPs(&pSoldier->inventory()[HANDPOS]))/5;
+				UINT32 misfirePenaltyRand = ((GetAutofireShotsPerFiveAPs(&pSoldier->inventory()[HANDPOS]))%5)*20; //this is the remainder translated to a probability
 				UINT32 misfirePenalty;
 				UINT32 startAuto = pSoldier->fireControl().autofireShots();
 				//UINT32 startAPcost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, 0 );
@@ -1034,7 +1034,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				chanceToMisfireDry = __max(1, chanceToMisfireDry); //cap the misfire chance, no-one has reflexes this good
 
 				//CHRISL: Since LMGs can only use autofire, give them slightly better control over misfire
-				if(Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubWeaponClass == MGCLASS && Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubWeaponType == GUN_LMG){
+				if(Weapon[pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem].ubWeaponClass == MGCLASS && Weapon[pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem].ubWeaponType == GUN_LMG){
 					chanceToMisfire = (INT32)(chanceToMisfire * .75f);
 					chanceToMisfireDry = (INT32)(chanceToMisfireDry * .75f);
 				}
@@ -1045,14 +1045,14 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"HandleItem: auto fire - Rolling dice");
 					roll = PreRandom(diceSides); // changed Random to PreRandom - SANDRO
 					//roll = rand();//Random(diceSides);
-					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Rolled %d vs %d", roll, ((pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots())?chanceToMisfire:chanceToMisfireDry));
+					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Rolled %d vs %d", roll, ((pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots())?chanceToMisfire:chanceToMisfireDry));
 
 					misfirePenalty = misfirePenaltyConst + (Chance(misfirePenaltyRand)?1:0); //apply the base integral cost and the fractional cost (in the form of probablilite)
 
 					pSoldier->fireControl().autofireShots() += misfirePenalty;
 					sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime() );
 				}
-				while(EnoughPoints( pSoldier, sAPCost, 0, FALSE ) && roll < ((pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots())?chanceToMisfire:chanceToMisfireDry));
+				while(EnoughPoints( pSoldier, sAPCost, 0, FALSE ) && roll < ((pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots())?chanceToMisfire:chanceToMisfireDry));
 				//note that we could misfire more bullets than we have rounds
 				//this represents the soldier running out of ammo and not noticing
 				//the max that can be lost this way is 1AP
@@ -1060,7 +1060,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				pSoldier->fireControl().autofireShots() -= misfirePenalty;
 				sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime() );
 
-				if((__min(pSoldier->fireControl().autofireShots(),pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto) > 0 && pSoldier->roster().team() == OUR_TEAM)
+				if((__min(pSoldier->fireControl().autofireShots(),pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto) > 0 && pSoldier->roster().team() == OUR_TEAM)
 				{
 					if (gGameExternalOptions.usBulletHideIntensity > 0)
 					{
@@ -1069,9 +1069,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					}
 					else
 					{// More than 1 round
-						if (__min(pSoldier->fireControl().autofireShots(),pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto > 1)
+						if (__min(pSoldier->fireControl().autofireShots(),pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto > 1)
 						{
-							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 62 ], pSoldier->GetName(), __min(pSoldier->fireControl().autofireShots(),pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto );
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 62 ], pSoldier->GetName(), __min(pSoldier->fireControl().autofireShots(),pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto );
 						}
 						// 1 round
 						else
@@ -2068,7 +2068,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( Item[ usHandItem ].ubCursor == INVALIDCURS )
 	{
 		// Found detonator...
-		if ( HasAttachmentOfClass( &(pSoldier->inv[ pSoldier->attackSelection().hand() ] ), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) )
+		if ( HasAttachmentOfClass( &(pSoldier->inventory()[ pSoldier->attackSelection().hand() ] ), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) )
 		{
 			fDropBomb = TRUE;
 		}
@@ -2304,7 +2304,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( Item[ usHandItem ].ubCursor == INVALIDCURS )
 	{
 		// Found detonator...
-		if ( HasAttachmentOfClass( &(pSoldier->inv[pSoldier->attackSelection().hand()]), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) || ItemIsTripwire(usHandItem))
+		if ( HasAttachmentOfClass( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) || ItemIsTripwire(usHandItem))
 		{
 			StartBombMessageBox( pSoldier, sGridNo );
 
@@ -2324,18 +2324,18 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 void HandleSoldierDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 {
 	// Does this have detonator that needs info?
-	if ( HasAttachmentOfClass( &(pSoldier->inv[ HANDPOS ] ), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) || ItemIsTripwire((&(pSoldier->inv[ HANDPOS ] ))->usItem) )
+	if ( HasAttachmentOfClass( &(pSoldier->inventory()[ HANDPOS ] ), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) || ItemIsTripwire((&(pSoldier->inventory()[ HANDPOS ] ))->usItem) )
 	{
 		StartBombMessageBox( pSoldier, sGridNo );
 	}
 	else
 	{
 		// We have something... all we do is place...
-		if ( ArmBomb( &(pSoldier->inv[ HANDPOS ]), 0 ) )
+		if ( ArmBomb( &(pSoldier->inventory()[ HANDPOS ]), 0 ) )
 		{
 			INT32 iResult = 0;
 
-			if ( HasItemFlag( (pSoldier->inv[HANDPOS]).usItem, BEARTRAP ) )
+			if ( HasItemFlag( (pSoldier->inventory()[HANDPOS]).usItem, BEARTRAP ) )
 			{
 				iResult = SkillCheck( pSoldier, PLANTING_MECHANICAL_BOMB_CHECK, 0 );
 			}
@@ -2347,9 +2347,9 @@ void HandleSoldierDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 			if ( iResult >= 0 )
 			{
 				// Less explosives gain for placing tripwire
-				if (ItemIsTripwire(pSoldier->inv[ HANDPOS ].usItem))
+				if (ItemIsTripwire(pSoldier->inventory()[ HANDPOS ].usItem))
 					StatChange( pSoldier, EXPLODEAMT, 1, FALSE );
-				else if ( HasItemFlag( (pSoldier->inv[HANDPOS]).usItem, BEARTRAP ) )
+				else if ( HasItemFlag( (pSoldier->inventory()[HANDPOS]).usItem, BEARTRAP ) )
 					StatChange( pSoldier, MECHANAMT, 10, FALSE );
 				else
 					// EXPLOSIVES GAIN (25):	Place a bomb, or buried and armed a mine
@@ -2359,29 +2359,29 @@ void HandleSoldierDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 				if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, DEMOLITIONS_NT ))
 				{
 					// +5 trap level for Demolitions trait
-					pSoldier->inv[ HANDPOS ][0]->data.bTrap = __min( max( 10, (8 + gSkillTraitValues.ubDEPlacedBombLevelBonus)), (( EffectiveExplosive( pSoldier ) / 20) + (EffectiveExpLevel( pSoldier ) / 3) + gSkillTraitValues.ubDEPlacedBombLevelBonus) );
+					pSoldier->inventory()[ HANDPOS ][0]->data.bTrap = __min( max( 10, (8 + gSkillTraitValues.ubDEPlacedBombLevelBonus)), (( EffectiveExplosive( pSoldier ) / 20) + (EffectiveExpLevel( pSoldier ) / 3) + gSkillTraitValues.ubDEPlacedBombLevelBonus) );
 				}
 				else
 				{
-					pSoldier->inv[ HANDPOS ][0]->data.bTrap = __min( 10, ( EffectiveExplosive( pSoldier ) / 20) + (EffectiveExpLevel( pSoldier ) / 3) );
+					pSoldier->inventory()[ HANDPOS ][0]->data.bTrap = __min( 10, ( EffectiveExplosive( pSoldier ) / 20) + (EffectiveExpLevel( pSoldier ) / 3) );
 				}
 
 				// Flugente: backgrounds
 				if ( pSoldier->HasBackgroundFlag( BACKGROUND_TRAPLEVEL ) )
-					pSoldier->inv[ HANDPOS ][0]->data.bTrap++;
+					pSoldier->inventory()[ HANDPOS ][0]->data.bTrap++;
 
 				// anv: additional tile properties - modify trap level depending on its placement
-				if(gGameExternalOptions.fAdditionalTileProperties && !ItemIsTripwire(pSoldier->inv[ HANDPOS ].usItem))
+				if(gGameExternalOptions.fAdditionalTileProperties && !ItemIsTripwire(pSoldier->inventory()[ HANDPOS ].usItem))
 				{
 					ADDITIONAL_TILE_PROPERTIES_VALUES zAllTileValues = GetAllAdditonalTilePropertiesForGrid( sGridNo, pSoldier->position().level() );
-					pSoldier->inv[ HANDPOS ][0]->data.bTrap += zAllTileValues.bTrapBonus;
+					pSoldier->inventory()[ HANDPOS ][0]->data.bTrap += zAllTileValues.bTrapBonus;
 				}
-				pSoldier->inv[ HANDPOS ][0]->data.bTrap = __max( 0, pSoldier->inv[ HANDPOS ][0]->data.bTrap );
+				pSoldier->inventory()[ HANDPOS ][0]->data.bTrap = __max( 0, pSoldier->inventory()[ HANDPOS ][0]->data.bTrap );
 
-				pSoldier->inv[ HANDPOS ][0]->data.misc.ubBombOwner = pSoldier->identity().id() + 2;
+				pSoldier->inventory()[ HANDPOS ][0]->data.misc.ubBombOwner = pSoldier->identity().id() + 2;
 
 				// Flugente: determine the direction we are looking at and apply that direction to our explosive
-				pSoldier->inv[ HANDPOS ][0]->data.ubDirection = pSoldier->position().direction();
+				pSoldier->inventory()[ HANDPOS ][0]->data.ubDirection = pSoldier->position().direction();
 
 				// no frequency known... give a default value, so we don't defuse it by accident
 				gTempObject[0]->data.ubWireNetworkFlag = (TRIPWIRE_NETWORK_OWNER_ENEMY|TRIPWIRE_NETWORK_NET_1|TRIPWIRE_NETWORK_LVL_1);
@@ -2390,37 +2390,37 @@ void HandleSoldierDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 				// we now know there is something nasty here
 				gpWorldLevelData[ sGridNo ].uiFlags |= MAPELEMENT_PLAYER_MINE_PRESENT;
 
-				if (pSoldier->inv[ HANDPOS ].MoveThisObjectTo(gTempObject, 1) == 0) 
+				if (pSoldier->inventory()[ HANDPOS ].MoveThisObjectTo(gTempObject, 1) == 0)
 				{
 					AddItemToPool( sGridNo, &gTempObject, BURIED, pSoldier->position().level(), WORLD_ITEM_ARMED_BOMB, 0 );
 					// sevenfm: take another item with same id from inventory, only REALTIME
                    HandleTakeNewBombFromInventory(pSoldier, &gTempObject);
 					// sevenfm: change cursor back to action if successfully taken new bomb
-					if ( gfShiftBombPlant && pSoldier->inv[ pSoldier->attackSelection().hand() ].exists() )
+					if ( gfShiftBombPlant && pSoldier->inventory()[ pSoldier->attackSelection().hand() ].exists() )
 						guiPendingOverrideEvent = M_CHANGE_TO_ACTION;
 				}
 
 				// Flugente: additional dialogue
-				AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_BOMB_HAS_BEEN_PLANTED, pSoldier->inv[HANDPOS].usItem, 1 );
+				AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_BOMB_HAS_BEEN_PLANTED, pSoldier->inventory()[HANDPOS].usItem, 1 );
 			}
 			else
 			{
 				// Flugente: additional dialogue
-				AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_BOMB_HAS_BEEN_PLANTED, pSoldier->inv[HANDPOS].usItem, 0 );
+				AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_BOMB_HAS_BEEN_PLANTED, pSoldier->inventory()[HANDPOS].usItem, 0 );
 
 				// beartraps don't explode...
-				if ( HasItemFlag( (pSoldier->inv[HANDPOS]).usItem, BEARTRAP ) )
+				if ( HasItemFlag( (pSoldier->inventory()[HANDPOS]).usItem, BEARTRAP ) )
 					return;
 
 				// EXPLOSIVES GAIN (10):	Failed to place a bomb, or bury and arm a mine
 				StatChange( pSoldier, EXPLODEAMT, 10, FROM_FAILURE );
 
 				// oops!	How badly did we screw up?
-				if ( iResult < -20 && !ItemIsTripwire(pSoldier->inv[ HANDPOS ].usItem) )
+				if ( iResult < -20 && !ItemIsTripwire(pSoldier->inventory()[ HANDPOS ].usItem) )
 				{
 					// OOPS! ... BOOM!
-					IgniteExplosion( NOBODY, pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), (INT16) (gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), pSoldier->inv[ HANDPOS ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ HANDPOS ] );
-					pSoldier->inv[ HANDPOS ].MoveThisObjectTo(gTempObject, 1);
+					IgniteExplosion( NOBODY, pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), (INT16) (gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), pSoldier->inventory()[ HANDPOS ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inventory()[ HANDPOS ] );
+					pSoldier->inventory()[ HANDPOS ].MoveThisObjectTo(gTempObject, 1);
 				}
 			}
 		}
@@ -5337,7 +5337,7 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 
 					if ( bInvPos != NO_SLOT )
 					{
-						pSoldier->inv[ bInvPos ].initialize();
+						pSoldier->inventory()[ bInvPos ].initialize();
 					}
 
 					DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
@@ -5376,7 +5376,7 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 				// Erase!
 				if ( bInvPos != NO_SLOT )
 				{
-					DeleteObj( &( pSoldier->inv[ bInvPos ] ) );
+					DeleteObj( &( pSoldier->inventory()[ bInvPos ] ) );
 					DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 				}
 
@@ -5395,7 +5395,7 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 				// Erase!
 				if ( bInvPos != NO_SLOT )
 				{
-					DeleteObj( &( pSoldier->inv[ bInvPos ] ) );
+					DeleteObj( &( pSoldier->inventory()[ bInvPos ] ) );
 					DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 				}
 
@@ -5432,7 +5432,7 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 			// Erase!
 //			if ( bInvPos != NO_SLOT )
 //			{
-//				DeleteObj(&pSoldier->inv[ bInvPos ]);
+//				DeleteObj(&pSoldier->inventory()[ bInvPos ]);
 //				DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 //			}
 
@@ -5522,7 +5522,7 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 	UINT16 usRoom;
 
 	// sevenfm: cannot arm already armed bomb (for example, in inventory)
-	if( pSoldier->inv[HANDPOS].fFlags & OBJECT_ARMED_BOMB )
+	if( pSoldier->inventory()[HANDPOS].fFlags & OBJECT_ARMED_BOMB )
 	{
 		DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ ARM_MESSAGE_ALREADY_ARMED ] , GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, NULL, NULL );
 		return;
@@ -5534,7 +5534,7 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		return;
 	}
 	BOOLEAN fCallbackScheduled = FALSE;
-	if (ItemIsRemoteTrigger(pSoldier->inv[HANDPOS].usItem))
+	if (ItemIsRemoteTrigger(pSoldier->inventory()[HANDPOS].usItem))
 	{
 		wcscpy( gzUserDefinedButton[0], L"1" );
 		wcscpy( gzUserDefinedButton[1], L"2" );
@@ -5548,15 +5548,15 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, TacticalStr[ CHOOSE_BOMB_OR_DEFUSE_FREQUENCY_STR ], GAME_SCREEN, MSG_BOX_FLAG_GENERIC_EIGHT_BUTTONS, BombMessageBoxCallBack, NULL );
 		fCallbackScheduled = TRUE;
 	}
-	else if (pSoldier->inv[HANDPOS].usItem == REMOTETRIGGER)
+	else if (pSoldier->inventory()[HANDPOS].usItem == REMOTETRIGGER)
 	{
 		// ATE ignore the commented-out code and add stuff to open the secret passage here
 		/*
-		switch( pSoldier->inv[HANDPOS].ubLocationID )
+		switch( pSoldier->inventory()[HANDPOS].ubLocationID )
 		{
 		// check to make sure the appropriate sector is loaded
 		}
-		SetOffBombsByFrequency( pSoldier->identity().id(), pSoldier->inv[HANDPOS][0]->data.misc.bFrequency );
+		SetOffBombsByFrequency( pSoldier->identity().id(), pSoldier->inventory()[HANDPOS][0]->data.misc.bFrequency );
 		*/
 
 		// PLay sound....
@@ -5585,7 +5585,7 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		}
 		gBombCallbackContext.reset();
 	}
-	else if ( HasAttachmentOfClass( &(pSoldier->inv[HANDPOS]), AC_DEFUSE ) )
+	else if ( HasAttachmentOfClass( &(pSoldier->inventory()[HANDPOS]), AC_DEFUSE ) )
 	{
 		wcscpy( gzUserDefinedButton[0], L"1-A" );
 		wcscpy( gzUserDefinedButton[1], L"1-B" );
@@ -5608,12 +5608,12 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
        for( INT32 cnt = 0; cnt< NUM_CUSTOM_BUTTONS; cnt++)
        	gzUserDefinedButtonColor[cnt] = 0;
 
-		if ( HasAttachmentOfClass( &(pSoldier->inv[ HANDPOS ] ), (AC_DETONATOR ) ) )
+		if ( HasAttachmentOfClass( &(pSoldier->inventory()[ HANDPOS ] ), (AC_DETONATOR ) ) )
 		{
 			DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, TacticalStr[ CHOOSE_DETONATE_AND_REMOTE_DEFUSE_FREQUENCY_STR ], GAME_SCREEN, MSG_BOX_FLAG_GENERIC_SIXTEEN_BUTTONS, BombMessageBoxCallBack, NULL );
 			fCallbackScheduled = TRUE;
 		}
-		else if ( HasAttachmentOfClass( &(pSoldier->inv[ HANDPOS ] ), (AC_REMOTEDET) ) )
+		else if ( HasAttachmentOfClass( &(pSoldier->inventory()[ HANDPOS ] ), (AC_REMOTEDET) ) )
 		{
 			DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS,  TacticalStr[ CHOOSE_REMOTE_DETONATE_AND_REMOTE_DEFUSE_FREQUENCY_STR ], GAME_SCREEN, MSG_BOX_FLAG_GENERIC_SIXTEEN_BUTTONS, BombMessageBoxCallBack, NULL );
 			fCallbackScheduled = TRUE;
@@ -5625,17 +5625,17 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 			DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ ARM_MESSAGE_NO_DETONATOR ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, NULL, NULL );
 		}
 	}
-	else if ( HasAttachmentOfClass( &(pSoldier->inv[ HANDPOS ] ), (AC_DETONATOR ) )	)
+	else if ( HasAttachmentOfClass( &(pSoldier->inventory()[ HANDPOS ] ), (AC_DETONATOR ) )	)
 	{
 		DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, TacticalStr[ CHOOSE_TIMER_STR ], GAME_SCREEN, MSG_BOX_FLAG_FOUR_NUMBERED_BUTTONS, BombMessageBoxCallBack, NULL );
 		fCallbackScheduled = TRUE;
 	}
-	else if ( HasAttachmentOfClass( &(pSoldier->inv[ HANDPOS ] ), (AC_REMOTEDET) ) )
+	else if ( HasAttachmentOfClass( &(pSoldier->inventory()[ HANDPOS ] ), (AC_REMOTEDET) ) )
 	{
 		DoMessageBox( MSG_BOX_BASIC_SMALL_BUTTONS, TacticalStr[ CHOOSE_REMOTE_FREQUENCY_STR ], GAME_SCREEN, MSG_BOX_FLAG_FOUR_NUMBERED_BUTTONS, BombMessageBoxCallBack, NULL );
 		fCallbackScheduled = TRUE;
 	}
-	else if (ItemIsTripwire((&(pSoldier->inv[HANDPOS]))->usItem))
+	else if (ItemIsTripwire((&(pSoldier->inventory()[HANDPOS]))->usItem))
 	{
 		wcscpy( gzUserDefinedButton[0], L"1-A" );
 		wcscpy( gzUserDefinedButton[1], L"1-B" );
@@ -5807,13 +5807,13 @@ void UpdateGear()
 		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 		{
 			// loop over inventory
-			INT8 invsize = (INT8)pSoldier->inv.size( );									// remember inventorysize, so we don't call size() repeatedly
+			INT8 invsize = (INT8)pSoldier->inventory().size( );									// remember inventorysize, so we don't call size() repeatedly
 
 			for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )								// ... for all items in our inventory ...
 			{
-				if ( pSoldier->inv[bLoop].exists( ) )
+				if ( pSoldier->inventory()[bLoop].exists( ) )
 				{
-					OBJECTTYPE* pObj = &(pSoldier->inv[bLoop]);							// ... get pointer for this item ...
+					OBJECTTYPE* pObj = &(pSoldier->inventory()[bLoop]);							// ... get pointer for this item ...
 
 					if ( pObj != NULL )													// ... if pointer is not obviously useless ...
 					{
@@ -5979,10 +5979,10 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 	if (gpTempSoldier)
 	{
 		// sevenfm: remember last tripwire network settings
-		if(ItemIsTripwire(gpTempSoldier->inv[HANDPOS].usItem))
+		if(ItemIsTripwire(gpTempSoldier->inventory()[HANDPOS].usItem))
 			gubLastTripwire = ubExitValue;
 
-		if (ItemIsRemoteTrigger(gpTempSoldier->inv[HANDPOS].usItem))
+		if (ItemIsRemoteTrigger(gpTempSoldier->inventory()[HANDPOS].usItem))
 		{
 			// Flugente: jamming can prevent bomb activation
 			if ( !gSkillTraitValues.fVOJammingBlocksRemoteBombs || !SectorJammed() )
@@ -5992,11 +5992,11 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 		{
 			INT32 iResult;
 			
-			if ( HasAttachmentOfClass( &(gpTempSoldier->inv[HANDPOS]), AC_REMOTEDET ) )
+			if ( HasAttachmentOfClass( &(gpTempSoldier->inventory()[HANDPOS]), AC_REMOTEDET ) )
 			{
 				iResult = SkillCheck( gpTempSoldier, PLANTING_REMOTE_BOMB_CHECK, 0 );
 			}
-			else  if ( HasItemFlag( (gpTempSoldier->inv[HANDPOS]).usItem, BEARTRAP ) )
+			else  if ( HasItemFlag( (gpTempSoldier->inventory()[HANDPOS]).usItem, BEARTRAP ) )
 			{
 				iResult = SkillCheck( gpTempSoldier, PLANTING_MECHANICAL_BOMB_CHECK, 0 );
 			}
@@ -6008,24 +6008,24 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 			if ( iResult >= 0 )
 			{
 				// Less explosives gain for placing tripwire
-				if (ItemIsTripwire(gpTempSoldier->inv[ HANDPOS ].usItem))
+				if (ItemIsTripwire(gpTempSoldier->inventory()[ HANDPOS ].usItem))
 					StatChange( gpTempSoldier, EXPLODEAMT, 5, FALSE );
-				else if ( HasItemFlag( (gpTempSoldier->inv[HANDPOS]).usItem, BEARTRAP ) )
+				else if ( HasItemFlag( (gpTempSoldier->inventory()[HANDPOS]).usItem, BEARTRAP ) )
 					StatChange( gpTempSoldier, MECHANAMT, 10, FALSE );
 				else
 					// EXPLOSIVES GAIN (25):	Place a bomb, or buried and armed a mine
 					StatChange( gpTempSoldier, EXPLODEAMT, 25, FALSE );
 
 				// Flugente: additional dialogue
-				AdditionalTacticalCharacterDialogue_CallsLua( gpTempSoldier, ADE_BOMB_HAS_BEEN_PLANTED, gpTempSoldier->inv[HANDPOS].usItem, 1 );
+				AdditionalTacticalCharacterDialogue_CallsLua( gpTempSoldier, ADE_BOMB_HAS_BEEN_PLANTED, gpTempSoldier->inventory()[HANDPOS].usItem, 1 );
 			}
 			else
 			{
 				// Flugente: additional dialogue
-				AdditionalTacticalCharacterDialogue_CallsLua( gpTempSoldier, ADE_BOMB_HAS_BEEN_PLANTED, gpTempSoldier->inv[HANDPOS].usItem, 0 );
+				AdditionalTacticalCharacterDialogue_CallsLua( gpTempSoldier, ADE_BOMB_HAS_BEEN_PLANTED, gpTempSoldier->inventory()[HANDPOS].usItem, 0 );
 
 				// beartraps don't explode...
-				if ( HasItemFlag( (gpTempSoldier->inv[HANDPOS]).usItem, BEARTRAP ) )
+				if ( HasItemFlag( (gpTempSoldier->inventory()[HANDPOS]).usItem, BEARTRAP ) )
 					return;
 
 				// EXPLOSIVES GAIN (10):	Failed to place a bomb, or bury and arm a mine
@@ -6049,10 +6049,10 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 				else
 				{
 					// we can't blow up tripwire, no matter how bad we fail
-					if ( !ItemIsTripwire(gpTempSoldier->inv[ HANDPOS ].usItem))
+					if ( !ItemIsTripwire(gpTempSoldier->inventory()[ HANDPOS ].usItem))
 					{
 						// OOPS! ... BOOM!
-						IgniteExplosion( NOBODY, gpTempSoldier->position().worldXInt(), gpTempSoldier->position().worldYInt(), (INT16) (gpWorldLevelData[gpTempSoldier->position().gridNo()].sHeight), gpTempSoldier->position().gridNo(), gpTempSoldier->inv[ HANDPOS ].usItem, gpTempSoldier->position().level(), gpTempSoldier->position().direction(), &gpTempSoldier->inv[ HANDPOS ] );
+						IgniteExplosion( NOBODY, gpTempSoldier->position().worldXInt(), gpTempSoldier->position().worldYInt(), (INT16) (gpWorldLevelData[gpTempSoldier->position().gridNo()].sHeight), gpTempSoldier->position().gridNo(), gpTempSoldier->inventory()[ HANDPOS ].usItem, gpTempSoldier->position().level(), gpTempSoldier->position().direction(), &gpTempSoldier->inventory()[ HANDPOS ] );
 					}
 
 					return;
@@ -6060,8 +6060,8 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 			}
 
 			// Flugente: tripwire rolls are not planted - instead we spawn tripwire and plant that
-			OBJECTTYPE* pObj = &(gpTempSoldier->inv[HANDPOS]);
-			if ( HasItemFlag( gpTempSoldier->inv[HANDPOS].usItem, TRIPWIREROLL ) && Item[ gpTempSoldier->inv[ HANDPOS ].usItem ].usBuddyItem != NOTHING )
+			OBJECTTYPE* pObj = &(gpTempSoldier->inventory()[HANDPOS]);
+			if ( HasItemFlag( gpTempSoldier->inventory()[HANDPOS].usItem, TRIPWIREROLL ) && Item[ gpTempSoldier->inventory()[ HANDPOS ].usItem ].usBuddyItem != NOTHING )
 			{
 				(*pObj)[0]->data.objectStatus--;
 
@@ -6074,7 +6074,7 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 					DirtyMercPanelInterface( gpTempSoldier, DIRTYLEVEL2 );
 				}
 
-				CreateItem( Item[ gpTempSoldier->inv[ HANDPOS ].usItem ].usBuddyItem, 100, &gTempObject );
+				CreateItem( Item[ gpTempSoldier->inventory()[ HANDPOS ].usItem ].usBuddyItem, 100, &gTempObject );
 
 				pObj = &gTempObject;
 			}
@@ -6099,7 +6099,7 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 				// HACK IMMINENT!
 				// value of 1 is stored in maps for SIDE of bomb owner... when we want to use IDs!
 				// so we add 2 to all owner IDs passed through here and subtract 2 later
-				if ( pObj != &(gpTempSoldier->inv[HANDPOS]) || gpTempSoldier->inv[HANDPOS].MoveThisObjectTo(gTempObject, 1) == 0) 
+				if ( pObj != &(gpTempSoldier->inventory()[HANDPOS]) || gpTempSoldier->inventory()[HANDPOS].MoveThisObjectTo(gTempObject, 1) == 0)
 				{
 					gTempObject[0]->data.misc.ubBombOwner = gpTempSoldier->identity().id() + 2;
 					gTempObject[0]->data.ubDirection = gpTempSoldier->position().direction();		// Flugente: direction of bomb is direction of soldier
@@ -6112,7 +6112,7 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 						gpWorldLevelData[ gsTempGridNo ].uiFlags |= MAPELEMENT_PLAYER_MINE_PRESENT;
                        HandleTakeNewBombFromInventory(gpTempSoldier, &gTempObject);
 						// sevenfm: change cursor back to action if successfully taken new bomb (also change mode back to action if using tripwire roll)
-						if ( gfShiftBombPlant && gpTempSoldier->inv[ gpTempSoldier->attackSelection().hand() ].exists() )
+						if ( gfShiftBombPlant && gpTempSoldier->inventory()[ gpTempSoldier->attackSelection().hand() ].exists() )
 							guiPendingOverrideEvent = M_CHANGE_TO_ACTION;
 					}
 					else
@@ -6217,13 +6217,13 @@ void CorpseMessageBoxCallBack( UINT8 ubExitValue )
 		// 35% chance to damage our knife a bit
 		if ( fDamageKnife && Chance(35) )
 		{
-			if ( Item[ gpTempSoldier->inv[HANDPOS].usItem ].usItemClass & IC_BLADE )
+			if ( Item[ gpTempSoldier->inventory()[HANDPOS].usItem ].usItemClass & IC_BLADE )
 			{
-				gpTempSoldier->inv[HANDPOS][0]->data.objectStatus--;
+				gpTempSoldier->inventory()[HANDPOS][0]->data.objectStatus--;
 
-				if ( Random(100) < Item[ gpTempSoldier->inv[HANDPOS].usItem ].usDamageChance )
+				if ( Random(100) < Item[ gpTempSoldier->inventory()[HANDPOS].usItem ].usDamageChance )
 				{
-					gpTempSoldier->inv[HANDPOS][0]->data.sRepairThreshold--;
+					gpTempSoldier->inventory()[HANDPOS][0]->data.sRepairThreshold--;
 				}
 			}
 		}
@@ -6243,7 +6243,7 @@ BOOLEAN HandItemWorks( SOLDIERTYPE *pSoldier, INT8 bSlot )
 	BOOLEAN							fItemJustBroke = FALSE, fItemWorks = TRUE;
 	OBJECTTYPE *				pObj;
 
-	pObj = &( pSoldier->inv[ bSlot ] );
+	pObj = &( pSoldier->inventory()[ bSlot ] );
 
 	// if the item can be damaged, than we must check that it's in good enough
 	// shape to be usable, and doesn't break during use.
@@ -6286,9 +6286,9 @@ BOOLEAN HandItemWorks( SOLDIERTYPE *pSoldier, INT8 bSlot )
 	if ( fItemWorks && bSlot == HANDPOS && Item[ pObj->usItem ].usItemClass == IC_GUN )
 	{
 		// are we using two guns at once?
-		if ( Item[ pSoldier->inv[SECONDHANDPOS].usItem ].usItemClass == IC_GUN &&
-			pSoldier->inv[SECONDHANDPOS][0]->data.gun.bGunStatus >= USABLE &&
-			pSoldier->inv[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft > 0)
+		if ( Item[ pSoldier->inventory()[SECONDHANDPOS].usItem ].usItemClass == IC_GUN &&
+			pSoldier->inventory()[SECONDHANDPOS][0]->data.gun.bGunStatus >= USABLE &&
+			pSoldier->inventory()[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft > 0)
 		{
 			// check the second gun for breakage, and if IT breaks, return false
 			return( HandItemWorks( pSoldier, SECONDHANDPOS ) );
@@ -7564,17 +7564,17 @@ INT32 FindNearestAvailableGridNoForItem( INT32 sSweetGridNo, INT8 ubRadius )
 
 BOOLEAN CanPlayerUseRocketRifle( SOLDIERTYPE *pSoldier, BOOLEAN fDisplay )
 {
-	if (ItemHasFingerPrintID(pSoldier->inv[ pSoldier->attackSelection().hand() ].usItem))
+	if (ItemHasFingerPrintID(pSoldier->inventory()[ pSoldier->attackSelection().hand() ].usItem))
 	{
 		// check imprint ID
 		// NB not-imprinted value is NO_PROFILE
 		// imprinted value is profile for mercs & NPCs and NO_PROFILE + 1 for generic dudes
 		if (pSoldier->identity().profile() != NO_PROFILE)
 		{
-			if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != pSoldier->identity().profile() )
+			if ( pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != pSoldier->identity().profile() )
 			{
 				// NOT a virgin gun...
-				if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != NO_PROFILE )
+				if ( pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != NO_PROFILE )
 				{
 					// access denied!
 					if (pSoldier->roster().team() == gbPlayerNum)
@@ -7610,12 +7610,12 @@ UINT8 StealItems(SOLDIERTYPE* pSoldier,SOLDIERTYPE* pOpponent, UINT8* ubIndexRet
 
 	//Create a temporary item pool, with index in Opponent's inventory as index
 	pItemPool=NULL;
-	UINT8 invsize = pOpponent->inv.size();
+	UINT8 invsize = pOpponent->inventory().size();
 	for(i=0 ; i<invsize; ++i)
 	{
 		fStealItem = FALSE;
 
-		pObject=&pOpponent->inv[i];
+		pObject=&pOpponent->inventory()[i];
 		if ((pObject->exists() == true) && !ItemIsUndroppableByDefault(pObject->usItem)) // CHECK! Undroppable items cannot be stolen - SANDRO
 		{
 			// Is the enemy collapsed
@@ -7797,7 +7797,7 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 					if (pSoldier->actionPoints().current() >= GetBasicAPsToPickupItem( pSoldier ) )
 					{					
 						// Make copy of item
-						gTempObject = pOpponent->inv[pTempItemPool->iItemIndex];
+						gTempObject = pOpponent->inventory()[pTempItemPool->iItemIndex];
 						if ( ItemIsCool( &gTempObject ) )
 						{
 							fShouldSayCoolQuote = TRUE;
@@ -7806,7 +7806,7 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 						{
 							AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), 0, -1 );
 						}
-						DeleteObj(&pOpponent->inv[pTempItemPool->iItemIndex]);
+						DeleteObj(&pOpponent->inventory()[pTempItemPool->iItemIndex]);
 
 						// add to merc records
 						if ( pSoldier->identity().profile() != NO_PROFILE )
@@ -7822,7 +7822,7 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 				else // original code
 				{
 					// Make copy of item
-					gTempObject = pOpponent->inv[pTempItemPool->iItemIndex];
+					gTempObject = pOpponent->inventory()[pTempItemPool->iItemIndex];
 					if ( ItemIsCool( &gTempObject ) )
 					{
 						fShouldSayCoolQuote = TRUE;
@@ -7831,7 +7831,7 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 					{
 						AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), 0, -1 );
 					}
-					DeleteObj(&pOpponent->inv[pTempItemPool->iItemIndex]);
+					DeleteObj(&pOpponent->inventory()[pTempItemPool->iItemIndex]);
 				}
 				////////////////////////////////////////////////////////////////////
 			}
@@ -8081,7 +8081,7 @@ BOOLEAN BuildFortification( INT32 sGridNo, SOLDIERTYPE *pSoldier, OBJECTTYPE *pO
 			UINT16 usItem = pObj->usItem;
 
 			// Erase 'material' item from our hand - we 'use' it to build the structure
-			DeleteObj( &(pSoldier->inv[HANDPOS]) );
+			DeleteObj( &(pSoldier->inventory()[HANDPOS]) );
 
 			// sevenfm: auto-taking of items
 			if ( !(IsJa2TacticalTurnBasedCombat()) && gfShiftBombPlant )
@@ -9963,7 +9963,7 @@ void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 void HandleTakeNewBombFromInventory(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj)
 {
 	if( !( IsJa2TacticalTurnBasedCombat() ) &&
-			!pSoldier->inv[HANDPOS].exists() && gfShiftBombPlant )
+			!pSoldier->inventory()[HANDPOS].exists() && gfShiftBombPlant )
 	{	
        pSoldier->TakeNewBombFromInventory(pObj->usItem);
 	}
@@ -10150,19 +10150,19 @@ BOOLEAN SpendMoney( SOLDIERTYPE *pSoldier, UINT32 aAmount )
 	if ( !pSoldier )
 		return FALSE;
 
-	INT8 invsize = (INT8)pSoldier->inv.size( );
+	INT8 invsize = (INT8)pSoldier->inventory().size( );
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )
 	{
-		if ( pSoldier->inv[bLoop].exists( ) == true && pSoldier->inv[bLoop].usItem == MONEY )
+		if ( pSoldier->inventory()[bLoop].exists( ) == true && pSoldier->inventory()[bLoop].usItem == MONEY )
 		{
-			OBJECTTYPE* pObj = &(pSoldier->inv[bLoop]);
+			OBJECTTYPE* pObj = &(pSoldier->inventory()[bLoop]);
 
 			UINT32 remove = min( aAmount, (*pObj)[0]->data.money.uiMoneyAmount );
 			(*pObj)[0]->data.money.uiMoneyAmount -= remove;
 			aAmount -= remove;
 
 			if ( (*pObj)[0]->data.money.uiMoneyAmount <= 0 )
-				DeleteObj( &(pSoldier->inv[bLoop]) );
+				DeleteObj( &(pSoldier->inventory()[bLoop]) );
 
 			if ( aAmount <= 0 )
 				break;
@@ -10318,22 +10318,22 @@ void WriteEquipmentTemplate(SOLDIERTYPE* pSoldier, STR16 name)
 	{
 		std::vector<GEAR_NODE> vec;
 
-		INT8 invsize = (INT8)pSoldier->inv.size();									// remember inventorysize, so we don't call size() repeatedly
+		INT8 invsize = (INT8)pSoldier->inventory().size();									// remember inventorysize, so we don't call size() repeatedly
 
 		for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)								// ... for all items in our inventory ...
 		{
-			if (pSoldier->inv[bLoop].exists())
+			if (pSoldier->inventory()[bLoop].exists())
 			{
 				// if this item is a gun, note what magazine is currently loaded
 				UINT16 ammoitem = 0;
-				if ( Item[(pSoldier->inv[bLoop]).usItem].usItemClass & IC_GUN )
-					ammoitem = (pSoldier->inv[bLoop])[0]->data.gun.usGunAmmoItem;
+				if ( Item[(pSoldier->inventory()[bLoop]).usItem].usItemClass & IC_GUN )
+					ammoitem = (pSoldier->inventory()[bLoop])[0]->data.gun.usGunAmmoItem;
 
-				GEAR_NODE node( bLoop, (pSoldier->inv[bLoop]).usItem, ammoitem );
+				GEAR_NODE node( bLoop, (pSoldier->inventory()[bLoop]).usItem, ammoitem );
 
 				// add all attachments
-				attachmentList::iterator iterend = (pSoldier->inv[bLoop])[0]->attachments.end( );
-				for ( attachmentList::iterator iter = (pSoldier->inv[bLoop])[0]->attachments.begin( ); iter != iterend; ++iter )
+				attachmentList::iterator iterend = (pSoldier->inventory()[bLoop])[0]->attachments.end( );
+				for ( attachmentList::iterator iter = (pSoldier->inventory()[bLoop])[0]->attachments.begin( ); iter != iterend; ++iter )
 				{
 					if ( iter->exists( ) )
 						node.attachments.push_back( iter->usItem );
@@ -10456,9 +10456,9 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 			if ( node.slot >= 0 && node.slot < NUM_INV_SLOTS && node.item != NOTHING )
 			{
 				// is there already an item here?
-				if (pSoldier->inv[node.slot].exists())
+				if (pSoldier->inventory()[node.slot].exists())
 				{
-					if ( (pSoldier->inv[node.slot]).usItem != node.item )
+					if ( (pSoldier->inventory()[node.slot]).usItem != node.item )
 					{
 						// can we get the requested item in the first place?
 						UINT32 poolslot = 0;
@@ -10475,26 +10475,26 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 								// remove everything inside LBE
 								for ( std::vector<INT8>::iterator lbeslotit = pocketKey.begin( ); lbeslotit != pocketKey.end( ); ++lbeslotit )
 								{
-									if ( pSoldier->inv[(*lbeslotit)].exists( ) )
+									if ( pSoldier->inventory()[(*lbeslotit)].exists( ) )
 									{
-										AutoPlaceObjectInInventoryStash( &pSoldier->inv[(*lbeslotit)], pSoldier->position().gridNo(), pSoldier->position().level() );
-										DeleteObj( &pSoldier->inv[(*lbeslotit)] );
+										AutoPlaceObjectInInventoryStash( &pSoldier->inventory()[(*lbeslotit)], pSoldier->position().gridNo(), pSoldier->position().level() );
+										DeleteObj( &pSoldier->inventory()[(*lbeslotit)] );
 									}
 								}
 							}
 							// if we want to equip a two-handed item in our first hand, also drop whatever we have in the second hand
-							else if ( node.slot == HANDPOS && ItemIsTwoHanded(node.item) && pSoldier->inv[SECONDHANDPOS].exists( ) )
+							else if ( node.slot == HANDPOS && ItemIsTwoHanded(node.item) && pSoldier->inventory()[SECONDHANDPOS].exists( ) )
 							{
-								AutoPlaceObjectInInventoryStash( &pSoldier->inv[SECONDHANDPOS], pSoldier->position().gridNo(), pSoldier->position().level() );
-								DeleteObj( &pSoldier->inv[SECONDHANDPOS] );
+								AutoPlaceObjectInInventoryStash( &pSoldier->inventory()[SECONDHANDPOS], pSoldier->position().gridNo(), pSoldier->position().level() );
+								DeleteObj( &pSoldier->inventory()[SECONDHANDPOS] );
 							}
 							// if we are Nails and are ordered to drop our vest, refuse and complain!
 							else if ( node.slot == VESTPOS && HandleNailsVestFetish( pSoldier, node.slot, NOTHING ) )
 								continue;
 
 							// drop item
-							AutoPlaceObjectInInventoryStash( &pSoldier->inv[node.slot], pSoldier->position().gridNo(), pSoldier->position().level() );
-							DeleteObj( &pSoldier->inv[node.slot] );
+							AutoPlaceObjectInInventoryStash( &pSoldier->inventory()[node.slot], pSoldier->position().gridNo(), pSoldier->position().level() );
+							DeleteObj( &pSoldier->inventory()[node.slot] );
 						}
 					}
 				}
@@ -10509,7 +10509,7 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 			if ( node.slot >= 0 && node.slot < NUM_INV_SLOTS )
 			{
 				// only if slot is still empty...
-				if ( !pSoldier->inv[node.slot].exists( ) && node.item != NOTHING )
+				if ( !pSoldier->inventory()[node.slot].exists( ) && node.item != NOTHING )
 				{
 					// see if we can find a better object in this sector and put it into our slot
 					UINT32 poolslot = 0;
@@ -10562,18 +10562,18 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 							}
 						}
 
-						//if ( !pSoldier->inv[node.slot].exists( ) )
+						//if ( !pSoldier->inventory()[node.slot].exists( ) )
 							//ScreenMsg( color, MSG_INTERFACE, L"%s found no %s to equip.", pSoldier->GetName( ), Item[node.item].szItemName );
 					}
 				}
 
 				// if this slot is a LBE slot, we need to add attachments here. Otherwise we add the attachments after we fail to pick up other items as their LBE slots won't exist
-				if ( pSoldier->inv[node.slot].exists() && node.slot >= VESTPOCKPOS && node.slot <= BPACKPOCKPOS )
+				if ( pSoldier->inventory()[node.slot].exists() && node.slot >= VESTPOCKPOS && node.slot <= BPACKPOCKPOS )
 				{
 					// try to add attachments if nod entry fits the item, or if the node item is NOTHING (essentially a wildcard for this)
-					if ( !node.attachments.empty( ) && (pSoldier->inv[node.slot]).usItem == node.item || NOTHING == node.item )
+					if ( !node.attachments.empty( ) && (pSoldier->inventory()[node.slot]).usItem == node.item || NOTHING == node.item )
 					{
-						OBJECTTYPE* pObj = &(pSoldier->inv[node.slot]);
+						OBJECTTYPE* pObj = &(pSoldier->inventory()[node.slot]);
 
 						for ( INT16 i = 0; i < pObj->ubNumberOfObjects; ++i )
 						{
@@ -10619,9 +10619,9 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 		// 3. loop over all slots (not just those of the gear vector), improve, merge and fill stacks
 		for ( int slot = HELMETPOS; slot < NUM_INV_SLOTS; ++slot )
 		{
-			if (pSoldier->inv[slot].exists())
+			if (pSoldier->inventory()[slot].exists())
 			{
-				OBJECTTYPE* pObj = &(pSoldier->inv[slot]);
+				OBJECTTYPE* pObj = &(pSoldier->inventory()[slot]);
 
 				if ( Item[pObj->usItem].usItemClass & (IC_KIT | IC_MEDKIT) && pObj->ubNumberOfObjects > 1 )
 				{
@@ -10836,10 +10836,10 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 			// try to add attachments if nod entry fits the item, or if the node item is NOTHING (essentially a wildcard for this)
 			if ( node.slot >= 0 && node.slot < NUM_INV_SLOTS && 
 				 (node.slot < VESTPOCKPOS || node.slot > BPACKPOCKPOS) &&		// we already did that for LBE slots though, no need to repeat
-				 !node.attachments.empty( ) && pSoldier->inv[node.slot].exists( ) &&
-				 ((pSoldier->inv[node.slot]).usItem == node.item || NOTHING == node.item) )
+				 !node.attachments.empty( ) && pSoldier->inventory()[node.slot].exists( ) &&
+				 ((pSoldier->inventory()[node.slot]).usItem == node.item || NOTHING == node.item) )
 			{
-				OBJECTTYPE* pObj = &(pSoldier->inv[node.slot]);
+				OBJECTTYPE* pObj = &(pSoldier->inventory()[node.slot]);
 
 				for ( INT16 i = 0; i < pObj->ubNumberOfObjects; ++i )
 				{
@@ -10883,22 +10883,22 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 		// 5. reload guns, fill mags
 		for ( int slot = HELMETPOS; slot < NUM_INV_SLOTS; ++slot )
 		{
-			if ( pSoldier->inv[slot].exists( ) )
+			if ( pSoldier->inventory()[slot].exists( ) )
 			{
-				if ( Item[(pSoldier->inv[slot]).usItem].usItemClass & (IC_KIT | IC_MEDKIT) )
+				if ( Item[(pSoldier->inventory()[slot]).usItem].usItemClass & (IC_KIT | IC_MEDKIT) )
 				{
 					UINT32 poolslot = 0;
 					UINT8 index = 0;
-					if ( GetBetterObject_InventoryPool( (pSoldier->inv[slot]).usItem, 0, poolslot, index ) )
+					if ( GetBetterObject_InventoryPool( (pSoldier->inventory()[slot]).usItem, 0, poolslot, index ) )
 					{
-						DistributeStatus( &(pInventoryPoolList[poolslot].object), &(pSoldier->inv[slot]), 100);
+						DistributeStatus( &(pInventoryPoolList[poolslot].object), &(pSoldier->inventory()[slot]), 100);
 					}
 				}
 
 				// if there is water in this sector, refill canteens
-				if ( refillwaterfromsector && ItemIsCanteen(pSoldier->inv[slot].usItem) && Food[Item[(pSoldier->inv[slot]).usItem].foodtype].bDrinkPoints > 0 )
+				if ( refillwaterfromsector && ItemIsCanteen(pSoldier->inventory()[slot].usItem) && Food[Item[(pSoldier->inventory()[slot]).usItem].foodtype].bDrinkPoints > 0 )
 				{
-					OBJECTTYPE* pObj = &(pSoldier->inv[slot]);
+					OBJECTTYPE* pObj = &(pSoldier->inventory()[slot]);
 
 					for ( INT16 i = 0; i < pObj->ubNumberOfObjects; ++i )
 					{
@@ -10911,15 +10911,15 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 					}
 				}
 				
-				if ( (Item[(pSoldier->inv[slot]).usItem].usItemClass & (IC_GUN | IC_AMMO)))
+				if ( (Item[(pSoldier->inventory()[slot]).usItem].usItemClass & (IC_GUN | IC_AMMO)))
 				{
-					OBJECTTYPE* pObj = &(pSoldier->inv[slot]);
+					OBJECTTYPE* pObj = &(pSoldier->inventory()[slot]);
 
 					for ( INT16 i = 0; i < pObj->ubNumberOfObjects; ++i )
 					{
-						UINT16 ammoitem = (pSoldier->inv[slot]).usItem;
+						UINT16 ammoitem = (pSoldier->inventory()[slot]).usItem;
 
-						if ( (Item[(pSoldier->inv[slot]).usItem].usItemClass & IC_GUN) )
+						if ( (Item[(pSoldier->inventory()[slot]).usItem].usItemClass & IC_GUN) )
 						{
 							UINT8 calibre = Weapon[pObj->usItem].ubCalibre;
 							UINT16 magsize = GetMagSize( pObj, i );
@@ -10967,7 +10967,7 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 						UINT16 usMagIndex = Item[ammoitem].ubClassIndex;
 
 						UINT16 neededammo = Magazine[usMagIndex].ubMagSize - (*pObj)[i]->data.ubShotsLeft;
-						if ( (Item[(pSoldier->inv[slot]).usItem].usItemClass & IC_GUN) )
+						if ( (Item[(pSoldier->inventory()[slot]).usItem].usItemClass & IC_GUN) )
 							neededammo = Magazine[usMagIndex].ubMagSize - (*pObj)[i]->data.gun.ubGunShotsLeft;
 						
 						while ( neededammo > 0 )
@@ -10983,7 +10983,7 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 									
 									pInventoryPoolList[poolslot].object[j]->data.ubShotsLeft -= takeammo;
 
-									if ( (Item[(pSoldier->inv[slot]).usItem].usItemClass & IC_GUN) )
+									if ( (Item[(pSoldier->inventory()[slot]).usItem].usItemClass & IC_GUN) )
 									{
 										(*pObj)[i]->data.gun.usGunAmmoItem = ammoitem;
 										(*pObj)[i]->data.gun.ubGunAmmoType = Magazine[usMagIndex].ubAmmoType;
@@ -11010,7 +11010,7 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 								break;
 							}
 
-							if ( (Item[(pSoldier->inv[slot]).usItem].usItemClass & IC_GUN) )
+							if ( (Item[(pSoldier->inventory()[slot]).usItem].usItemClass & IC_GUN) )
 								neededammo = Magazine[usMagIndex].ubMagSize - (*pObj)[i]->data.gun.ubGunShotsLeft;
 							else
 								neededammo = Magazine[usMagIndex].ubMagSize - (*pObj)[i]->data.ubShotsLeft;

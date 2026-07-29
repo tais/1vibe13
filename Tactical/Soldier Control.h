@@ -22,6 +22,7 @@
 #include "Disease.h"		// added by Flugente
 #include "Render Palette Bank.h"
 #include "Soldier Components.h"
+#include "Soldier Inventory.h"
 
 static_assert(MAXPATROLGRIDS == SOLDIER_PATROL_GRID_COUNT,
 	"Soldier patrol storage must retain the established save-schema capacity");
@@ -682,45 +683,6 @@ struct LEVELNODE;
 //forward declarations for versioning, it's so long I want it at the end
 class OLDSOLDIERTYPE_101;
 
-//ADB inventory needs a little work, for instance, how to get objects and counts to agree on sizes?
-//also makes things more bloated when saving
-class Inventory {
-public:
-	// Constructors
-	// Create an inventory with a fixed maximum number of slots
-	Inventory(int slotCount = NUM_INV_SLOTS);
-
-	// Copy Constructor
-	Inventory(const Inventory&);
-
-	// Assignment operator
-	Inventory& operator=(const Inventory&);
-
-	// Destructor
-	~Inventory();
-
-	// Index operator
-	OBJECTTYPE& operator [] (unsigned int idx);
-
-	BOOLEAN	Load( HWFILE hFile );
-	BOOLEAN	Load( INT8** hBuffer, float dMajorMapVersion, UINT8 ubMinorMapVersion);
-	BOOLEAN	Save( HWFILE hFile, bool fSavingMap );
-
-	// Removes all items from the inventory
-	void clear();
-
-	// How any slots are there in this inventory?
-	unsigned int size() const;
-
-	// const-only accessor
-	auto get() const -> const std::vector<OBJECTTYPE>&;
-
-	//temporarily? public
-	std::vector<int>			bNewItemCount;
-	std::vector<int>			bNewItemCycleCount;
-private:
-	std::vector<OBJECTTYPE>	inv;
-};
 enum class BackgroundVectorTypes;
 
 class SOLDIERTYPE//last edited at version 102
@@ -755,8 +717,8 @@ public:
 	const SoldierStatusComponent& status() const noexcept { return status_; }
 	SoldierFeatureFlagsComponent& featureFlags() noexcept { return featureFlags_; }
 	const SoldierFeatureFlagsComponent& featureFlags() const noexcept { return featureFlags_; }
-	SoldierInventoryStateComponent& inventoryState() noexcept { return inventoryState_; }
-	const SoldierInventoryStateComponent& inventoryState() const noexcept { return inventoryState_; }
+	SoldierInventory& inventory() noexcept { return inventory_; }
+	const SoldierInventory& inventory() const noexcept { return inventory_; }
 	SoldierKeyRingComponent& keyRing() noexcept { return keyRing_; }
 	const SoldierKeyRingComponent& keyRing() const noexcept { return keyRing_; }
 	SoldierPendingItemComponent& pendingItem() noexcept { return pendingItem_; }
@@ -894,8 +856,6 @@ public:
 	// files (maps, save files, etc.).	If you change it then that code will not work 
 	// properly until it is all fixed and the files updated.
 
-	Inventory inv;
-
 private:
 	SoldierIdentityComponent	identity_;
 	SoldierRosterComponent	roster_;
@@ -903,7 +863,7 @@ private:
 	SoldierStatisticsComponent	statistics_;
 	SoldierStatusComponent	status_;
 	SoldierFeatureFlagsComponent	featureFlags_;
-	SoldierInventoryStateComponent	inventoryState_;
+	SoldierInventory	inventory_;
 	SoldierKeyRingComponent	keyRing_;
 	SoldierPendingItemComponent	pendingItem_;
 	SoldierServiceComponent	service_;
@@ -1563,12 +1523,6 @@ class OLDSOLDIERTYPE_101
 public:
 	UINT32 GetChecksum();
 	OLDSOLDIERTYPE_101() {
-		bNewItemCount.reserve(inv.size());
-		bNewItemCycleCount.reserve(inv.size());
-		for (int idx=0; idx < (int)inv.size(); ++idx) {
-			bNewItemCount.push_back(0);
-			bNewItemCycleCount.push_back(0);
-		}
 		initialize();
 	};
 
@@ -1576,8 +1530,6 @@ public:
 	OLDSOLDIERTYPE_101(const OLDSOLDIERTYPE_101& src) {
 		memcpy((void*)this, &src, SIZEOF_OLDSOLDIERTYPE_101_POD); // POD prefix only (STL members copied below); (void*) silences -Wnontrivial-memcall
 		inv = src.inv;
-		bNewItemCount = src.bNewItemCount;
-		bNewItemCycleCount = src.bNewItemCycleCount;
 	};
 
 	// Assignment operator
@@ -1586,8 +1538,6 @@ public:
 		if (this != &src) {
 			memcpy((void*)this, &src, SIZEOF_OLDSOLDIERTYPE_101_POD); // POD prefix only (STL members copied below); (void*) silences -Wnontrivial-memcall
 			inv = src.inv;
-			bNewItemCount = src.bNewItemCount;
-			bNewItemCycleCount = src.bNewItemCycleCount;
 		}
 		return *this;
 	};
@@ -1602,10 +1552,6 @@ public:
 	void initialize() {
 		memset( (void*)this, 0, SIZEOF_OLDSOLDIERTYPE_101_POD); // POD prefix only (STL members reset below); (void*) silences -Wnontrivial-memcall
 		inv.clear();
-		for (int idx=0; idx < (int)inv.size(); ++idx) {
-			bNewItemCount[idx] = 0;
-			bNewItemCycleCount[idx] = 0;
-		}
 	};
 
 	// Ugly temporary solution
@@ -2250,10 +2196,7 @@ public:
 
 	char endOfPOD;	// marker for end of POD (plain old data)
 
-	Inventory inv;
-
-	std::vector<int>	bNewItemCount;
-	std::vector<int> bNewItemCycleCount;
+	InventorySlots inv;
 
 	// Debugging data - not saved
 	INT32 sPlotSrcGrid;

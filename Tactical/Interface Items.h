@@ -218,7 +218,7 @@ BOOLEAN HandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, INT8 bInvPos, BOOLEAN fOn
 // THIS FUNCTION IS CALLED TO RENDER AN ITEM.
 // uiBuffer - The Dest Video Surface - can only be FRAME_BUFFER or guiSAVEBUFFER
 // pSoldier - used for determining whether burst mode needs display
-// pObject	- Usually taken from pSoldier->inv[HANDPOS]
+// pObject	- Usually taken from pSoldier->inventory()[HANDPOS]
 // sX, sY, Width, Height,	- Will Center it in the Width
 // fDirtyLevel	if == DIRTYLEVEL2 will render everything
 //							if == DIRTYLEVEL1 will render bullets and status only

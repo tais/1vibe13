@@ -1372,29 +1372,29 @@ UINT16 StandardGunListReplacement( UINT16 usGun )
 
 BOOLEAN WeaponInHand( SOLDIERTYPE * pSoldier )
 {
-	if ( Item[pSoldier->inv[HANDPOS].usItem].usItemClass & (IC_WEAPON | IC_THROWN) && pSoldier->inv[HANDPOS].exists() == true)
+	if ( Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & (IC_WEAPON | IC_THROWN) && pSoldier->inventory()[HANDPOS].exists() == true)
 	{
-		if (ItemHasFingerPrintID(pSoldier->inv[HANDPOS].usItem))
+		if (ItemHasFingerPrintID(pSoldier->inventory()[HANDPOS].usItem))
 		{
-			if (pSoldier->inv[HANDPOS][0]->data.ubImprintID != NO_PROFILE)
+			if (pSoldier->inventory()[HANDPOS][0]->data.ubImprintID != NO_PROFILE)
 			{
 				if (pSoldier->identity().profile() != NO_PROFILE && pSoldier->identity().profile() != MADLAB )
 				{
-					if (pSoldier->inv[HANDPOS][0]->data.ubImprintID != pSoldier->identity().profile())
+					if (pSoldier->inventory()[HANDPOS][0]->data.ubImprintID != pSoldier->identity().profile())
 					{
 						return( FALSE );
 					}
 				}
 				else
 				{
-					if (pSoldier->inv[HANDPOS][0]->data.ubImprintID != (NO_PROFILE + 1) )
+					if (pSoldier->inventory()[HANDPOS][0]->data.ubImprintID != (NO_PROFILE + 1) )
 					{
 						return( FALSE );
 					}
 				}
 			}
 		}
-		if (pSoldier->inv[HANDPOS][0]->data.gun.bGunStatus >= USABLE)
+		if (pSoldier->inventory()[HANDPOS][0]->data.gun.bGunStatus >= USABLE)
 		{
 			return( TRUE );
 		}
@@ -1502,16 +1502,16 @@ UINT8 ItemSlotLimit( OBJECTTYPE * pObject, INT16 bSlot, SOLDIERTYPE *pSoldier, B
 	{
 		Assert(icLBE[bSlot] != -1 && icDefault[bSlot] != -1 && icPocket[bSlot] != -1);
 		//find the class of the LBE, then find what size the pocket of the slot in the LBE is
-		if (pSoldier == NULL || !pSoldier->inv[icLBE[bSlot]].exists() ) 
+		if (pSoldier == NULL || !pSoldier->inventory()[icLBE[bSlot]].exists() )
 		{
 			pIndex = LoadBearingEquipment[Item[icDefault[bSlot]].ubClassIndex].lbePocketIndex[icPocket[bSlot]];
 		}
 		else
 		{
-			pIndex = LoadBearingEquipment[Item[pSoldier->inv[icLBE[bSlot]].usItem].ubClassIndex].lbePocketIndex[icPocket[bSlot]];
-			if( pIndex == 0 && LoadBearingEquipment[Item[pSoldier->inv[icLBE[bSlot]].usItem].ubClassIndex].lbePocketsAvailable & (UINT16)(1u << icPocket[bSlot]))
+			pIndex = LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[bSlot]].usItem].ubClassIndex].lbePocketIndex[icPocket[bSlot]];
+			if( pIndex == 0 && LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[bSlot]].usItem].ubClassIndex].lbePocketsAvailable & (UINT16)(1u << icPocket[bSlot]))
 			{
-				pIndex = GetPocketFromAttachment(&pSoldier->inv[icLBE[bSlot]], icPocket[bSlot]);
+				pIndex = GetPocketFromAttachment(&pSoldier->inventory()[icLBE[bSlot]], icPocket[bSlot]);
 			}
 		}
 	}
@@ -1525,9 +1525,9 @@ UINT8 ItemSlotLimit( OBJECTTYPE * pObject, INT16 bSlot, SOLDIERTYPE *pSoldier, B
 	if(cntAttach == TRUE)
 	{
 		iSize = CalculateItemSize(pObject);
-		if(pSoldier != NULL && pSoldier->inv[bSlot].usItem == usItem)
+		if(pSoldier != NULL && pSoldier->inventory()[bSlot].usItem == usItem)
 		{
-			sSize = CalculateItemSize(&pSoldier->inv[bSlot]);
+			sSize = CalculateItemSize(&pSoldier->inventory()[bSlot]);
 			if(LBEPocketType[pIndex].ItemCapacityPerSize[sSize] < LBEPocketType[pIndex].ItemCapacityPerSize[iSize])
 				iSize = sSize;
 		}
@@ -1559,7 +1559,7 @@ UINT32 MoneySlotLimit( INT8 bSlot )
 INT8 FindBestWeaponIfCurrentIsOutOfRange(SOLDIERTYPE * pSoldier, INT8 bCurrentWeaponIndex, UINT16 bWantedRange)
 {
 	//assuming current weapon is in the handpos
-	if (GunRange(&pSoldier->inv[bCurrentWeaponIndex], pSoldier) >= bWantedRange)  // SANDRO - added argument
+	if (GunRange(&pSoldier->inventory()[bCurrentWeaponIndex], pSoldier) >= bWantedRange)  // SANDRO - added argument
 	{
 		//our current weapon is good enough
 		return( bCurrentWeaponIndex );
@@ -1571,20 +1571,20 @@ INT8 FindBestWeaponIfCurrentIsOutOfRange(SOLDIERTYPE * pSoldier, INT8 bCurrentWe
 	INT8 secondBestWeapon = 0;
 	//search for weapons that meet the range, then sort by damage.
 	//if there are no weapons that meet the range, then use the longest range we can find
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
 		//if this is a weapon
-		if (Item[pSoldier->inv[bLoop].usItem].usItemClass & (IC_WEAPON | IC_THROWN) && pSoldier->inv[bLoop].exists() == true)
+		if (Item[pSoldier->inventory()[bLoop].usItem].usItemClass & (IC_WEAPON | IC_THROWN) && pSoldier->inventory()[bLoop].exists() == true)
 		{
-			range = GunRange(&pSoldier->inv[bLoop], pSoldier);  // SANDRO - added argument
+			range = GunRange(&pSoldier->inventory()[bLoop], pSoldier);  // SANDRO - added argument
 			if (range >= bWantedRange)
 			{
 				if (bestWeaponThatMeetsRange == 0)
 				{
 					bestWeaponThatMeetsRange = bLoop;
 				}
-				else if (GetDamage(&pSoldier->inv[bLoop]) > GetDamage(&pSoldier->inv[bestWeaponThatMeetsRange]))
+				else if (GetDamage(&pSoldier->inventory()[bLoop]) > GetDamage(&pSoldier->inventory()[bestWeaponThatMeetsRange]))
 				{
 					//does this weapon have more damage?
 					bestWeaponThatMeetsRange = bLoop;
@@ -1604,7 +1604,7 @@ INT8 FindBestWeaponIfCurrentIsOutOfRange(SOLDIERTYPE * pSoldier, INT8 bCurrentWe
 					//this if can happen if range of bLoop is 0!
 					secondBestWeapon = bLoop;
 				}
-				else if (GetDamage(&pSoldier->inv[bLoop]) > GetDamage(&pSoldier->inv[secondBestWeapon]))
+				else if (GetDamage(&pSoldier->inventory()[bLoop]) > GetDamage(&pSoldier->inventory()[secondBestWeapon]))
 				{
 					secondBestWeapon = bLoop;
 				}
@@ -1625,18 +1625,18 @@ INT8 FindBestWeaponIfCurrentIsOutOfRange(SOLDIERTYPE * pSoldier, INT8 bCurrentWe
 
 INT8 FindMetalDetectorInHand( SOLDIERTYPE * pSoldier )
 {
-	if ( (&(pSoldier->inv[HANDPOS] ))->exists() && ItemIsMetalDetector(pSoldier->inv[HANDPOS].usItem))
+	if ( (&(pSoldier->inventory()[HANDPOS] ))->exists() && ItemIsMetalDetector(pSoldier->inventory()[HANDPOS].usItem))
 	{
 		return( HANDPOS );
 	}
 	
-	if ( (&(pSoldier->inv[SECONDHANDPOS] ))->exists() && ItemIsMetalDetector(pSoldier->inv[SECONDHANDPOS].usItem))
+	if ( (&(pSoldier->inventory()[SECONDHANDPOS] ))->exists() && ItemIsMetalDetector(pSoldier->inventory()[SECONDHANDPOS].usItem))
 	{
 		return( SECONDHANDPOS );
 	}
 
 	// rftr: a metal detector can be installed into the robot
-	if ( pSoldier && AM_A_ROBOT(pSoldier) && (&(pSoldier->inv[ROBOT_UTILITY_SLOT]))->exists() && ItemIsMetalDetector(pSoldier->inv[ROBOT_UTILITY_SLOT].usItem))
+	if ( pSoldier && AM_A_ROBOT(pSoldier) && (&(pSoldier->inventory()[ROBOT_UTILITY_SLOT]))->exists() && ItemIsMetalDetector(pSoldier->inventory()[ROBOT_UTILITY_SLOT].usItem))
 	{
 		return( ROBOT_UTILITY_SLOT );
 	}
@@ -1646,10 +1646,10 @@ INT8 FindMetalDetectorInHand( SOLDIERTYPE * pSoldier )
 
 INT8 FindLockBomb( SOLDIERTYPE * pSoldier )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (ItemIsLockBomb(pSoldier->inv[bLoop].usItem) && pSoldier->inv[bLoop].exists() == true)
+		if (ItemIsLockBomb(pSoldier->inventory()[bLoop].usItem) && pSoldier->inventory()[bLoop].exists() == true)
 		{
 			return( bLoop );
 		}
@@ -1659,12 +1659,12 @@ INT8 FindLockBomb( SOLDIERTYPE * pSoldier )
 
 INT8 FindUsableObj( SOLDIERTYPE * pSoldier, UINT16 usItem )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if ( pSoldier->inv[bLoop].usItem == usItem
-			&& pSoldier->inv[bLoop].exists() == true
-			&& pSoldier->inv[bLoop][0]->data.objectStatus >= USABLE )
+		if ( pSoldier->inventory()[bLoop].usItem == usItem
+			&& pSoldier->inventory()[bLoop].exists() == true
+			&& pSoldier->inventory()[bLoop][0]->data.objectStatus >= USABLE )
 		{
 			return( bLoop );
 		}
@@ -1675,14 +1675,14 @@ INT8 FindUsableObj( SOLDIERTYPE * pSoldier, UINT16 usItem )
 
 INT8 FindObjExcludingSlot( SOLDIERTYPE * pSoldier, UINT16 usItem, INT8 bExcludeSlot )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
 		if (bLoop == bExcludeSlot)
 		{
 			continue;
 		}
-		if (pSoldier->inv[bLoop].usItem == usItem && pSoldier->inv[bLoop].exists() == true)
+		if (pSoldier->inventory()[bLoop].usItem == usItem && pSoldier->inventory()[bLoop].exists() == true)
 		{
 			return( bLoop );
 		}
@@ -1697,11 +1697,11 @@ INT8 FindObj( SOLDIERTYPE * pSoldier, UINT16 usItem, INT8 bLower, INT8 bUpper )
 	for (bLoop = bLower; bLoop < bUpper; bLoop++)
 	{
 		//CHRISL: If in NIV, in combat and backpack is closed, don't look inside
-		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->inventoryState().zipperFlag() == FALSE)
+		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->inventory().zipperFlag() == FALSE)
 			continue;
 
 		//CHRISL: If we check exists() then we can't search for an empty pocket with this function, which is done.
-		if (pSoldier->inv[bLoop].usItem == usItem/* && pSoldier->inv[bLoop].exists() == true*/)
+		if (pSoldier->inventory()[bLoop].usItem == usItem/* && pSoldier->inventory()[bLoop].exists() == true*/)
 		{
 			return( bLoop );
 		}
@@ -1721,11 +1721,11 @@ INT8 FindObjInObjRange( SOLDIERTYPE * pSoldier, UINT16 usItem1, UINT16 usItem2 )
 		usItem1 = usTemp;
 	}
 
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		usTemp = pSoldier->inv[bLoop].usItem;
-		if ( usTemp >= usItem1 && usTemp <= usItem2 && pSoldier->inv[bLoop].exists() == true)
+		usTemp = pSoldier->inventory()[bLoop].usItem;
+		if ( usTemp >= usItem1 && usTemp <= usItem2 && pSoldier->inventory()[bLoop].exists() == true)
 		{
 			return( bLoop );
 		}
@@ -1737,10 +1737,10 @@ INT8 FindObjInObjRange( SOLDIERTYPE * pSoldier, UINT16 usItem1, UINT16 usItem2 )
 
 INT8 FindObjClass( SOLDIERTYPE * pSoldier, 	UINT32 usItemClass )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (Item[pSoldier->inv[bLoop].usItem].usItemClass & usItemClass && pSoldier->inv[bLoop].exists() == true)
+		if (Item[pSoldier->inventory()[bLoop].usItem].usItemClass & usItemClass && pSoldier->inventory()[bLoop].exists() == true)
 		{
 			return( bLoop );
 		}
@@ -1755,18 +1755,18 @@ INT8 FindAIUsableObjClass(SOLDIERTYPE * pSoldier, UINT32 usItemClass, BOOLEAN fS
 	// uses & rather than == so that this function can search for any weapon
 
 	INT8 bBestSlot = NO_SLOT;
-	INT8 bInvSize = (INT8)pSoldier->inv.size();
+	INT8 bInvSize = (INT8)pSoldier->inventory().size();
 
 	for (INT8 bLoop = 0; bLoop < bInvSize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists())
+		if (pSoldier->inventory()[bLoop].exists())
 		{
-			if ((Item[pSoldier->inv[bLoop].usItem].usItemClass & usItemClass) &&
-				!(pSoldier->inv[bLoop].fFlags & OBJECT_AI_UNUSABLE) &&
-				(pSoldier->inv[bLoop][0]->data.objectStatus >= USABLE))
+			if ((Item[pSoldier->inventory()[bLoop].usItem].usItemClass & usItemClass) &&
+				!(pSoldier->inventory()[bLoop].fFlags & OBJECT_AI_UNUSABLE) &&
+				(pSoldier->inventory()[bLoop][0]->data.objectStatus >= USABLE))
 			{
 				// Do not consider tank cannons or rocket launchers to be "guns" for AI
-				if (usItemClass == IC_GUN && EXPLOSIVE_GUN(pSoldier->inv[bLoop].usItem))
+				if (usItemClass == IC_GUN && EXPLOSIVE_GUN(pSoldier->inventory()[bLoop].usItem))
 				{
 					continue;
 				}
@@ -1779,10 +1779,10 @@ INT8 FindAIUsableObjClass(SOLDIERTYPE * pSoldier, UINT32 usItemClass, BOOLEAN fS
 				// we are searching for gun
 				if (bBestSlot == NO_SLOT ||		// haven't found any gun yet
 					// by default, search for weapon with longest range
-					!fSidearm && Weapon[pSoldier->inv[bLoop].usItem].usRange > Weapon[pSoldier->inv[bBestSlot].usItem].usRange ||
+					!fSidearm && Weapon[pSoldier->inventory()[bLoop].usItem].usRange > Weapon[pSoldier->inventory()[bBestSlot].usItem].usRange ||
 					// when searching for sidearm, find fastest weapon
-					fSidearm && Weapon[Item[pSoldier->inv[bLoop].usItem].ubClassIndex].ubReadyTime + BaseAPsToShootOrStab(APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], &pSoldier->inv[bLoop], pSoldier) <
-					Weapon[Item[pSoldier->inv[bBestSlot].usItem].ubClassIndex].ubReadyTime + BaseAPsToShootOrStab(APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], &pSoldier->inv[bBestSlot], pSoldier))
+					fSidearm && Weapon[Item[pSoldier->inventory()[bLoop].usItem].ubClassIndex].ubReadyTime + BaseAPsToShootOrStab(APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], &pSoldier->inventory()[bLoop], pSoldier) <
+					Weapon[Item[pSoldier->inventory()[bBestSlot].usItem].ubClassIndex].ubReadyTime + BaseAPsToShootOrStab(APBPConstants[DEFAULT_APS], APBPConstants[DEFAULT_AIMSKILL], &pSoldier->inventory()[bBestSlot], pSoldier))
 				{
 					bBestSlot = bLoop;
 				}
@@ -1801,10 +1801,10 @@ INT8 FindAIUsableObjClassWithin( SOLDIERTYPE * pSoldier, 	UINT32 usItemClass, IN
 
 	for (bLoop = bLower; bLoop < bUpper; bLoop++)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if ( (Item[pSoldier->inv[bLoop].usItem].usItemClass & usItemClass) && !(pSoldier->inv[bLoop].fFlags & OBJECT_AI_UNUSABLE) && (pSoldier->inv[bLoop][0]->data.objectStatus >= USABLE ) )
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if ( (Item[pSoldier->inventory()[bLoop].usItem].usItemClass & usItemClass) && !(pSoldier->inventory()[bLoop].fFlags & OBJECT_AI_UNUSABLE) && (pSoldier->inventory()[bLoop][0]->data.objectStatus >= USABLE ) )
 			{
-				if ( usItemClass == IC_GUN && EXPLOSIVE_GUN( pSoldier->inv[bLoop].usItem ) )
+				if ( usItemClass == IC_GUN && EXPLOSIVE_GUN( pSoldier->inventory()[bLoop].usItem ) )
 				{
 					continue;
 				}
@@ -1828,9 +1828,9 @@ INT8 FindEmptySlotWithin( SOLDIERTYPE * pSoldier, INT8 bLower, INT8 bUpper )
 			continue;
 		if(AM_A_ROBOT(pSoldier) && !robotInv[bLoop])
 			continue;
-		if (pSoldier->inv[bLoop].exists() == false)
+		if (pSoldier->inventory()[bLoop].exists() == false)
 		{
-			if (bLoop == SECONDHANDPOS && ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) )
+			if (bLoop == SECONDHANDPOS && ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) )
 			{
 				continue;
 			}
@@ -1845,11 +1845,11 @@ INT8 FindEmptySlotWithin( SOLDIERTYPE * pSoldier, INT8 bLower, INT8 bUpper )
 
 BOOLEAN GLGrenadeInSlot(SOLDIERTYPE *pSoldier, INT8 bSlot )
 {
-	if (pSoldier->inv[bSlot].exists() == true) {
-		if (ItemIsGLgrenade(pSoldier->inv[bSlot].usItem))
+	if (pSoldier->inventory()[bSlot].exists() == true) {
+		if (ItemIsGLgrenade(pSoldier->inventory()[bSlot].usItem))
 			return TRUE;
 	}
-	//switch (pSoldier->inv[bSlot].usItem)
+	//switch (pSoldier->inventory()[bSlot].usItem)
 	//{
 	//	case GL_HE_GRENADE:
 	//	case GL_TEARGAS_GRENADE:
@@ -1865,7 +1865,7 @@ BOOLEAN GLGrenadeInSlot(SOLDIERTYPE *pSoldier, INT8 bSlot )
 // for grenade launchers
 INT8 FindGLGrenade( SOLDIERTYPE * pSoldier )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
 		if (GLGrenadeInSlot( pSoldier, bLoop ))
@@ -1881,7 +1881,7 @@ INT8 FindThrowableGrenade(SOLDIERTYPE * pSoldier, UINT8 ubGrenadeType, UINT8 ubM
 	INT8 bLoop;
 	BOOLEAN fCheckForFlares = FALSE;
 	UINT16 usItem;
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	UINT8 ubDamage;
 
 	// JA2Gold: give some priority to looking for flares when at night
@@ -1901,9 +1901,9 @@ INT8 FindThrowableGrenade(SOLDIERTYPE * pSoldier, UINT8 ubGrenadeType, UINT8 ubM
 
 	for (bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true)
+		if (pSoldier->inventory()[bLoop].exists() == true)
 		{
-			usItem = pSoldier->inv[bLoop].usItem;
+			usItem = pSoldier->inventory()[bLoop].usItem;
 			ubType = (UINT8)Explosive[Item[usItem].ubClassIndex].ubType;
 			ubDamage = Explosive[Item[usItem].ubClassIndex].ubDamage;
 
@@ -1948,7 +1948,7 @@ UINT8 CountThrowableGrenades(SOLDIERTYPE * pSoldier, UINT8 ubGrenadeType, UINT8 
 {
 	INT8 bLoop;
 	UINT16 usItem;
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	UINT8 ubDamage;
 
 	INT8 bFoundSlot = NO_SLOT;
@@ -1958,9 +1958,9 @@ UINT8 CountThrowableGrenades(SOLDIERTYPE * pSoldier, UINT8 ubGrenadeType, UINT8 
 
 	for (bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true)
+		if (pSoldier->inventory()[bLoop].exists() == true)
 		{
-			usItem = pSoldier->inv[bLoop].usItem;
+			usItem = pSoldier->inventory()[bLoop].usItem;
 			ubType = (UINT8)Explosive[Item[usItem].ubClassIndex].ubType;
 			ubDamage = Explosive[Item[usItem].ubClassIndex].ubDamage;
 
@@ -2035,11 +2035,11 @@ INT8 FindLaunchable( SOLDIERTYPE * pSoldier, UINT16 usWeapon )
 {
 	INT8	bLoop;
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("FindLaunchable: weapon=%d",usWeapon));
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if ( ValidLaunchable( pSoldier->inv[ bLoop ].usItem , usWeapon ) )
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if ( ValidLaunchable( pSoldier->inventory()[ bLoop ].usItem , usWeapon ) )
 			{
 				DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("FindLaunchable: returning slot %d",bLoop));
 				return( bLoop );
@@ -2055,11 +2055,11 @@ INT8 FindNonSmokeLaunchable( SOLDIERTYPE * pSoldier, UINT16 usWeapon )
 {
 	INT8	bLoop;
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("FindNonSmokeLaunchable: weapon=%d",usWeapon));
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if ( ValidLaunchable( pSoldier->inv[ bLoop ].usItem , usWeapon ) && Explosive[Item[pSoldier->inv[ bLoop ].usItem].ubClassIndex].ubType != EXPLOSV_SMOKE )
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if ( ValidLaunchable( pSoldier->inventory()[ bLoop ].usItem , usWeapon ) && Explosive[Item[pSoldier->inventory()[ bLoop ].usItem].ubClassIndex].ubType != EXPLOSV_SMOKE )
 			{
 				DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("FindNonSmokeLaunchable: returning slot %d",bLoop));
 				return( bLoop );
@@ -3157,11 +3157,11 @@ UINT32 GetTotalWeight( SOLDIERTYPE* pSoldier )
 {
 	UINT32	uiTotalWeight = 0;
 
-	UINT8 invsize = pSoldier->inv.size( );
+	UINT8 invsize = pSoldier->inventory().size( );
 	for ( UINT8 ubLoop = 0; ubLoop < invsize; ++ubLoop )
 	{
 		//ADB the weight of the object is already counting stacked objects, attachments, et al
-		uiTotalWeight += CalculateObjectWeight( &pSoldier->inv[ubLoop] );
+		uiTotalWeight += CalculateObjectWeight( &pSoldier->inventory()[ubLoop] );
 	}
 
 	return uiTotalWeight;
@@ -3249,23 +3249,23 @@ void SwapObjs( OBJECTTYPE * pObj1, OBJECTTYPE * pObj2 )
 //but never handles the effects of that swap!
 void SwapObjs(SOLDIERTYPE* pSoldier, int leftSlot, int rightSlot, BOOLEAN fPermanent)
 {
-	SwapObjs(&pSoldier->inv[ leftSlot ], &pSoldier->inv[ rightSlot ]);
+	SwapObjs(&pSoldier->inventory()[ leftSlot ], &pSoldier->inventory()[ rightSlot ]);
 
 	if ( fPermanent && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) )//dnl ch64 290813 for current tank don't go further as it lead to invalid animation
 	{
 		//old usItem for the left slot is now stored in the right slot, and vice versa
-		HandleTacticalEffectsOfEquipmentChange(pSoldier, leftSlot, pSoldier->inv[ rightSlot ].usItem, pSoldier->inv[ leftSlot ].usItem);
-		HandleTacticalEffectsOfEquipmentChange(pSoldier, rightSlot, pSoldier->inv[ leftSlot ].usItem, pSoldier->inv[ rightSlot ].usItem);
+		HandleTacticalEffectsOfEquipmentChange(pSoldier, leftSlot, pSoldier->inventory()[ rightSlot ].usItem, pSoldier->inventory()[ leftSlot ].usItem);
+		HandleTacticalEffectsOfEquipmentChange(pSoldier, rightSlot, pSoldier->inventory()[ leftSlot ].usItem, pSoldier->inventory()[ rightSlot ].usItem);
 	}
 }
 
 void SwapObjs(SOLDIERTYPE* pSoldier, int slot, OBJECTTYPE* pObject, BOOLEAN fPermanent)
 {
-	SwapObjs(&pSoldier->inv[ slot ], pObject);
+	SwapObjs(&pSoldier->inventory()[ slot ], pObject);
 
 	if (fPermanent)
 	{
-		HandleTacticalEffectsOfEquipmentChange(pSoldier, slot, pObject->usItem, pSoldier->inv[ slot ].usItem);
+		HandleTacticalEffectsOfEquipmentChange(pSoldier, slot, pObject->usItem, pSoldier->inventory()[ slot ].usItem);
 	}
 }
 
@@ -3759,19 +3759,19 @@ INT8 FindAmmo( SOLDIERTYPE * pSoldier, UINT8 ubCalibre, UINT16 ubMagSize, UINT8 
 	INVTYPE *		pItem;
 
 	//CHRISL: Update this to search for the largest appropriate mag if ubMagSize = ANY_MAGSIZE
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (bLoop = HANDPOS; bLoop < invsize; ++bLoop)
 	{
 		//CHRISL: If in NIV, in combat and backpack is closed, don't look inside
-		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->inventoryState().zipperFlag() == FALSE)
+		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->inventory().zipperFlag() == FALSE)
 			continue;
 
-		if (pSoldier->inv[bLoop].exists() == true) {
+		if (pSoldier->inventory()[bLoop].exists() == true) {
 			if (bLoop == bExcludeSlot)
 			{
 				continue;
 			}
-			pItem = &(Item[pSoldier->inv[bLoop].usItem]);
+			pItem = &(Item[pSoldier->inventory()[bLoop].usItem]);
 			if (pItem->usItemClass == IC_AMMO)
 			{
 				if (Magazine[pItem->ubClassIndex].ubCalibre == ubCalibre)
@@ -3781,9 +3781,9 @@ INT8 FindAmmo( SOLDIERTYPE * pSoldier, UINT8 ubCalibre, UINT16 ubMagSize, UINT8 
 						found = TRUE;
 						// looking for specific size.  return if found
 						// Find fullest mag
-						for(int i = 0; i<pSoldier->inv[bLoop].ubNumberOfObjects; i++)
+						for(int i = 0; i<pSoldier->inventory()[bLoop].ubNumberOfObjects; i++)
 						{
-							stackCap = __max(stackCap, pSoldier->inv[bLoop][i]->data.ubShotsLeft);
+							stackCap = __max(stackCap, pSoldier->inventory()[bLoop][i]->data.ubShotsLeft);
 						}
 						// If found a similar-sized magazine to the best one found so far, but this new one
 						// has the same ammotype as specified in the arguments, then this is a better choice!
@@ -3828,7 +3828,7 @@ INT8 FindAmmoToReload( SOLDIERTYPE * pSoldier, INT8 bWeaponIn, INT8 bExcludeSlot
 
 	if (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO)//dnl ch63 230813
 	{
-		pObj = FindAttachment_GrenadeLauncher(&pSoldier->inv[bWeaponIn]);
+		pObj = FindAttachment_GrenadeLauncher(&pSoldier->inventory()[bWeaponIn]);
 		AssertMsg(pObj, "FindAmmoToReload: could not find attached grenade launcher.");
 		// AssertMsg is a no-op in release; FindAttachment_* can return NULL if the
 		// GL weapon-mode desynced from the actual attachment. Bail rather than deref.
@@ -3838,7 +3838,7 @@ INT8 FindAmmoToReload( SOLDIERTYPE * pSoldier, INT8 bWeaponIn, INT8 bExcludeSlot
 	else
 	{
 		// Flugente: check for underbarrel weapons and use that object if necessary
-		pObj = pSoldier->GetUsedWeapon(&(pSoldier->inv[bWeaponIn]));
+		pObj = pSoldier->GetUsedWeapon(&(pSoldier->inventory()[bWeaponIn]));
 		AssertMsg(pObj, "FindAmmoToReload: could not find underbarrel weapon.");
 
 		//<SB> manual recharge
@@ -3910,7 +3910,7 @@ BOOLEAN AutoReload( SOLDIERTYPE * pSoldier, bool aReloadEvenIfNotEmpty )
 	CHECKF( pSoldier );
 
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	pObj = pSoldier->GetUsedWeapon( &(pSoldier->inv[HANDPOS]) );
+	pObj = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
 
 //<SB> manual recharge
 	if ((*pObj)[0]->data.gun.ubGunShotsLeft && !((*pObj)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) )
@@ -3949,7 +3949,7 @@ BOOLEAN AutoReload( SOLDIERTYPE * pSoldier, bool aReloadEvenIfNotEmpty )
 
 		if ( pSoldier->IsValidSecondHandShot( ) )
 		{
-			pObj2 = &(pSoldier->inv[SECONDHANDPOS]);
+			pObj2 = &(pSoldier->inventory()[SECONDHANDPOS]);
 
 			if ((*pObj2)[0]->data.gun.ubGunShotsLeft && !((*pObj2)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) )
 			{
@@ -3964,7 +3964,7 @@ BOOLEAN AutoReload( SOLDIERTYPE * pSoldier, bool aReloadEvenIfNotEmpty )
 	{
 		if ( pSoldier->IsValidSecondHandShot( ) )
 		{
-			pObj2 = &(pSoldier->inv[SECONDHANDPOS]);
+			pObj2 = &(pSoldier->inventory()[SECONDHANDPOS]);
 
 			if ((*pObj2)[0]->data.gun.ubGunShotsLeft && !((*pObj2)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) )
 			{
@@ -4014,7 +4014,7 @@ BOOLEAN AutoReload( SOLDIERTYPE * pSoldier, bool aReloadEvenIfNotEmpty )
 			if ( bSlot != NO_SLOT )
 			{
 				// reload using this ammo!
-				fRet = ReloadGun( pSoldier, pObj, &( pSoldier->inv[bSlot] ) );
+				fRet = ReloadGun( pSoldier, pObj, &( pSoldier->inventory()[bSlot] ) );
 			}
 		}
 
@@ -4025,17 +4025,17 @@ BOOLEAN AutoReload( SOLDIERTYPE * pSoldier, bool aReloadEvenIfNotEmpty )
 			&& ( aReloadEvenIfNotEmpty || !EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS ) ) )
 		{
 			// Flugente: check for underbarrel weapons and use that object if necessary
-			pObj = pSoldier->GetUsedWeapon( &( pSoldier->inv[SECONDHANDPOS] ) );
+			pObj = pSoldier->GetUsedWeapon( &( pSoldier->inventory()[SECONDHANDPOS] ) );
 
 			bSlot = FindAmmoToReload( pSoldier, SECONDHANDPOS, NO_SLOT );
 			if ( bSlot != NO_SLOT )
 			{
 				// ce would reload using this ammo!
-				bAPCost = GetAPsToReloadGunWithAmmo( pSoldier, pObj, &( pSoldier->inv[bSlot] ) );
+				bAPCost = GetAPsToReloadGunWithAmmo( pSoldier, pObj, &( pSoldier->inventory()[bSlot] ) );
 				if ( EnoughPoints( pSoldier, (INT16)bAPCost, 0, FALSE ) )
 				{
 					// reload the 2nd gun too
-					fRet = ReloadGun( pSoldier, pObj, &( pSoldier->inv[bSlot] ) );
+					fRet = ReloadGun( pSoldier, pObj, &( pSoldier->inventory()[bSlot] ) );
 				}
 				else
 				{
@@ -5119,7 +5119,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 				}*/
 
 				// Flugente: if this is a gun that we have in our first hand and it has a rifle grenade device
-				if ( pSoldier && HasAttachmentOfClass( this, AC_RIFLEGRENADE) && Item[this->usItem].usItemClass == IC_GUN && this == &(pSoldier->inv[ HANDPOS ]) )
+				if ( pSoldier && HasAttachmentOfClass( this, AC_RIFLEGRENADE) && Item[this->usItem].usItemClass == IC_GUN && this == &(pSoldier->inventory()[ HANDPOS ]) )
 				{
 					// get rifle grenade device
 					OBJECTTYPE* pRifleGrenadeDeviceObj = FindAttachment_GrenadeLauncher( this );
@@ -6242,7 +6242,7 @@ BOOLEAN CanItemFitInVehicle( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos,
 	ubSlotLimit = ItemSlotLimit( pObj, bPos, pSoldier );
 
 	if ( ubSlotLimit == 0 )
-		return ( CompatibleAmmoForGun(pObj, &pSoldier->inv[bPos]) );
+		return ( CompatibleAmmoForGun(pObj, &pSoldier->inventory()[bPos]) );
 
 	return( TRUE );
 }
@@ -6262,7 +6262,7 @@ BOOLEAN CanItemFitInRobot(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj, INT8 bPos, BO
 			(Item[pObj->usItem].usItemClass & IC_AMMO) &&
 			(Magazine[Item[pObj->usItem].ubClassIndex].ubMagType != AMMO_BOX) &&
 			(Magazine[Item[pObj->usItem].ubClassIndex].ubMagType != AMMO_CRATE) &&
-			(Magazine[Item[pObj->usItem].ubClassIndex].ubCalibre == Weapon[pSoldier->inv[HANDPOS].usItem].ubCalibre);
+			(Magazine[Item[pObj->usItem].ubClassIndex].ubCalibre == Weapon[pSoldier->inventory()[HANDPOS].usItem].ubCalibre);
 
 	case ROBOT_TARGETING_SLOT:
 		if (ItemProvidesRobotLaserBonus(pObj->usItem))
@@ -6345,7 +6345,7 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 				&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
 				return FALSE;
 
-			if (ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem))
+			if (ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem))
 			{
 				return( FALSE );
 			}
@@ -6359,10 +6359,10 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 					&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
 					return FALSE;
 
-				if ( pSoldier->inv[HANDPOS].exists() && pSoldier->inv[SECONDHANDPOS].exists() )
+				if ( pSoldier->inventory()[HANDPOS].exists() && pSoldier->inventory()[SECONDHANDPOS].exists() )
 				{
 					// two items in hands; try moving the second one so we can swap
-					if ( FitsInSmallPocket(&pSoldier->inv[SECONDHANDPOS]) )
+					if ( FitsInSmallPocket(&pSoldier->inventory()[SECONDHANDPOS]) )
 					{
 						bNewPos = FindEmptySlotWithin( pSoldier, BIGPOCKSTART, NUM_INV_SLOTS );
 					}
@@ -6380,7 +6380,7 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 					if ( fDoingPlacement )
 					{
 						// otherwise move it, forget about bNewPos!
-						PlaceInAnyPocket(pSoldier, &pSoldier->inv[SECONDHANDPOS], FALSE);
+						PlaceInAnyPocket(pSoldier, &pSoldier->inventory()[SECONDHANDPOS], FALSE);
 					}
 				}
 			}
@@ -6441,11 +6441,11 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 			{
 				return( FALSE );
 			}
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true)
+			if(pSoldier->inventory()[BPACKPOCKPOS].exists() == true)
 			{
 				//DBrot: changed to bitwise comparison
-				if(((LoadBearingEquipment[Item[pSoldier->inv[BPACKPOCKPOS].usItem].ubClassIndex].lbeCombo & LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbeCombo) == 0) ||
-				LoadBearingEquipment[Item[pSoldier->inv[BPACKPOCKPOS].usItem].ubClassIndex].lbeCombo == 0)
+				if(((LoadBearingEquipment[Item[pSoldier->inventory()[BPACKPOCKPOS].usItem].ubClassIndex].lbeCombo & LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbeCombo) == 0) ||
+				LoadBearingEquipment[Item[pSoldier->inventory()[BPACKPOCKPOS].usItem].ubClassIndex].lbeCombo == 0)
 				{
 					return( FALSE );
 				}
@@ -6457,13 +6457,13 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 				return( FALSE );
 			}
 			// Removed backpack/gunsling restrictions
-			//if(pSoldier->inv[GUNSLINGPOCKPOS].exists() == true)
+			//if(pSoldier->inventory()[GUNSLINGPOCKPOS].exists() == true)
 			//	return( FALSE );
-			if ( pSoldier->inv[CPACKPOCKPOS].exists() )
+			if ( pSoldier->inventory()[CPACKPOCKPOS].exists() )
 			{
 				//DBrot: changed to bitwise comparison
-				if( ((LoadBearingEquipment[Item[pSoldier->inv[CPACKPOCKPOS].usItem].ubClassIndex].lbeCombo & LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbeCombo) ==0) ||
-				LoadBearingEquipment[Item[pSoldier->inv[CPACKPOCKPOS].usItem].ubClassIndex].lbeCombo == 0)
+				if( ((LoadBearingEquipment[Item[pSoldier->inventory()[CPACKPOCKPOS].usItem].ubClassIndex].lbeCombo & LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbeCombo) ==0) ||
+				LoadBearingEquipment[Item[pSoldier->inventory()[CPACKPOCKPOS].usItem].ubClassIndex].lbeCombo == 0)
 				{
 					return( FALSE );
 				}
@@ -6475,17 +6475,17 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 				return( FALSE );
 
 			if ( Item[pObj->usItem].usItemClass & (IC_AMMO | IC_GRENADE) )
-				return(CompatibleAmmoForGun(pObj, &pSoldier->inv[GUNSLINGPOCKPOS]) || ValidAttachment(pObj->usItem, &(pSoldier->inv[GUNSLINGPOCKPOS]) ) || ValidLaunchable(pObj->usItem, pSoldier->inv[GUNSLINGPOCKPOS].usItem));
+				return(CompatibleAmmoForGun(pObj, &pSoldier->inventory()[GUNSLINGPOCKPOS]) || ValidAttachment(pObj->usItem, &(pSoldier->inventory()[GUNSLINGPOCKPOS]) ) || ValidLaunchable(pObj->usItem, pSoldier->inventory()[GUNSLINGPOCKPOS].usItem));
 
 			// Removed backpack/gunsling restrictions
-			//if(pSoldier->inv[BPACKPOCKPOS].exists() == true)
-			//	return(CompatibleAmmoForGun(pObj, &pSoldier->inv[GUNSLINGPOCKPOS]));
+			//if(pSoldier->inventory()[BPACKPOCKPOS].exists() == true)
+			//	return(CompatibleAmmoForGun(pObj, &pSoldier->inventory()[GUNSLINGPOCKPOS]));
 			break;
 		case KNIFEPOCKPOS:	// Knife sheath
 			if(pObj->usItem == MONEY)
 				return( FALSE );
 			if (Item[pObj->usItem].usItemClass != IC_BLADE && Item[pObj->usItem].usItemClass != IC_THROWING_KNIFE )
-				return(CompatibleAmmoForGun(pObj, &pSoldier->inv[KNIFEPOCKPOS]) || ValidAttachment(pObj->usItem, &(pSoldier->inv[KNIFEPOCKPOS]) ) || ValidLaunchable(pObj->usItem, pSoldier->inv[KNIFEPOCKPOS].usItem));
+				return(CompatibleAmmoForGun(pObj, &pSoldier->inventory()[KNIFEPOCKPOS]) || ValidAttachment(pObj->usItem, &(pSoldier->inventory()[KNIFEPOCKPOS]) ) || ValidLaunchable(pObj->usItem, pSoldier->inventory()[KNIFEPOCKPOS].usItem));
 			break;
 		// IC Pockets
 		case BIGPOCK1POS:
@@ -6531,14 +6531,14 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 		case SMALLPOCK30POS:
 			if( UsingNewInventorySystem() )
 			{
-				if (icLBE[bPos] == BPACKPOCKPOS && (!(pSoldier->inventoryState().zipperFlag()) || (pSoldier->inventoryState().zipperFlag() && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && fDoingPlacement)
+				if (icLBE[bPos] == BPACKPOCKPOS && (!(pSoldier->inventory().zipperFlag()) || (pSoldier->inventory().zipperFlag() && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && fDoingPlacement)
 					return( FALSE );
 
-				lbePocket = ( !pSoldier->inv[icLBE[bPos]].exists() ) ? LoadBearingEquipment[Item[icDefault[bPos]].ubClassIndex].lbePocketIndex[icPocket[bPos]] : LoadBearingEquipment[Item[pSoldier->inv[icLBE[bPos]].usItem].ubClassIndex].lbePocketIndex[icPocket[bPos]];
+				lbePocket = ( !pSoldier->inventory()[icLBE[bPos]].exists() ) ? LoadBearingEquipment[Item[icDefault[bPos]].ubClassIndex].lbePocketIndex[icPocket[bPos]] : LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[bPos]].usItem].ubClassIndex].lbePocketIndex[icPocket[bPos]];
 				
-				if( lbePocket == 0 && LoadBearingEquipment[Item[pSoldier->inv[icLBE[bPos]].usItem].ubClassIndex].lbePocketsAvailable & (UINT16)(1u << icPocket[bPos]))
+				if( lbePocket == 0 && LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[bPos]].usItem].ubClassIndex].lbePocketsAvailable & (UINT16)(1u << icPocket[bPos]))
 				{
-					lbePocket = GetPocketFromAttachment(&pSoldier->inv[icLBE[bPos]], icPocket[bPos]);
+					lbePocket = GetPocketFromAttachment(&pSoldier->inventory()[icLBE[bPos]], icPocket[bPos]);
 				}
 				
 				pRestrict = LBEPocketType[lbePocket].pRestriction;
@@ -6571,7 +6571,7 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 	{
 		// CHRISL: lbePocket==0 means pocket disabled.  ubSlotLimit==0 means pocket can't hold item
 		if ( lbePocket == 0 )
-			return ( CompatibleAmmoForGun(pObj, &pSoldier->inv[bPos]) || ValidAttachment(pObj->usItem, &(pSoldier->inv[bPos]) ) || ValidLaunchable(pObj->usItem, pSoldier->inv[bPos].usItem) );
+			return ( CompatibleAmmoForGun(pObj, &pSoldier->inventory()[bPos]) || ValidAttachment(pObj->usItem, &(pSoldier->inventory()[bPos]) ) || ValidLaunchable(pObj->usItem, pSoldier->inventory()[bPos].usItem) );
 		else
 		{
 			// Flugente: we call this function a lot. As ItemSlotLimit is somewhat expensive, limiting the amount of calls helps avoid a fps drop if the inventory is open
@@ -6582,7 +6582,7 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 				ubSlotLimit = ItemSlotLimit( pObj, bPos, pSoldier );
 
 			if ( !ubSlotLimit )
-				return (CompatibleAmmoForGun( pObj, &pSoldier->inv[bPos] ) || ValidAttachment( pObj->usItem, &(pSoldier->inv[bPos]) ) || ValidLaunchable( pObj->usItem, pSoldier->inv[bPos].usItem ));
+				return (CompatibleAmmoForGun( pObj, &pSoldier->inventory()[bPos] ) || ValidAttachment( pObj->usItem, &(pSoldier->inventory()[bPos]) ) || ValidLaunchable( pObj->usItem, pSoldier->inventory()[bPos].usItem ));
 		}
 	}
 
@@ -6620,7 +6620,7 @@ BOOLEAN FreeUpSlotIfPossibleThenPlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, 
 	//or if it simply doesn't fit, if it doesn't fit return false to prevent recursion
 
 	// try autoplacing item in bSlot elsewhere, excluding the slot it came from, then do a placement
-	if ( pSoldier->inv[bPos].exists() == true && AutoPlaceObject( pSoldier, &(pSoldier->inv[bPos]), FALSE , bPos) )
+	if ( pSoldier->inventory()[bPos].exists() == true && AutoPlaceObject( pSoldier, &(pSoldier->inventory()[bPos]), FALSE , bPos) )
 	{
 		//the old object has been placed somewhere, it's safe to place this one
 		return( PlaceObject( pSoldier, bPos, pObj ) );
@@ -6639,20 +6639,20 @@ INT32 PickPocket(SOLDIERTYPE *pSoldier, UINT8 ppStart, UINT8 ppStop, UINT16 usIt
 	AssertMsg( Item[usItem].ItemSize < gGameExternalOptions.guiMaxItemSize + 1, String( "Size of item %d (%d) exceeds max item size (%d)!", usItem, Item[usItem].ItemSize, gGameExternalOptions.guiMaxItemSize + 1 ) );
 
 	for(UINT32 uiPos=ppStart; uiPos<ppStop; ++uiPos){
-		if(pSoldier->inv[icLBE[uiPos]].exists() == false){
+		if(pSoldier->inventory()[icLBE[uiPos]].exists() == false){
 			pIndex=LoadBearingEquipment[Item[icDefault[uiPos]].ubClassIndex].lbePocketIndex[icPocket[uiPos]];
 		}
 		else {
-			pIndex=LoadBearingEquipment[Item[pSoldier->inv[icLBE[uiPos]].usItem].ubClassIndex].lbePocketIndex[icPocket[uiPos]];
-			if (pIndex == 0 && LoadBearingEquipment[Item[pSoldier->inv[icLBE[uiPos]].usItem].ubClassIndex].lbePocketsAvailable & (UINT16)(1u << icPocket[uiPos]))
+			pIndex=LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[uiPos]].usItem].ubClassIndex].lbePocketIndex[icPocket[uiPos]];
+			if (pIndex == 0 && LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[uiPos]].usItem].ubClassIndex].lbePocketsAvailable & (UINT16)(1u << icPocket[uiPos]))
 			{
-				pIndex = GetPocketFromAttachment(&pSoldier->inv[icLBE[uiPos]], icPocket[uiPos]);
+				pIndex = GetPocketFromAttachment(&pSoldier->inventory()[icLBE[uiPos]], icPocket[uiPos]);
 			}
 		}
 		// Here's were we get complicated.  We should look for the smallest pocket all items can fit in
 		if(LBEPocketType[pIndex].ItemCapacityPerSize[Item[usItem].ItemSize] >= iNumber &&
 			LBEPocketType[pIndex].ItemCapacityPerSize[Item[usItem].ItemSize] < capacity &&
-			pSoldier->inv[uiPos].exists() == false && uiPos != bExcludeSlot) {
+			pSoldier->inventory()[uiPos].exists() == false && uiPos != bExcludeSlot) {
 				if((LBEPocketType[pIndex].pRestriction != 0 && (LBEPocketType[pIndex].pRestriction & Item[usItem].usItemClass)) ||
 					LBEPocketType[pIndex].pRestriction == 0) {
 						capacity = LBEPocketType[pIndex].ItemCapacityPerSize[Item[usItem].ItemSize];
@@ -6766,12 +6766,12 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 	// CanItemFitInPosition).
 	if ( bPos == HEAD1POS )
 	{
-		if ( !CompatibleFaceItem( pObj->usItem, pSoldier->inv[ HEAD2POS ].usItem ) )
+		if ( !CompatibleFaceItem( pObj->usItem, pSoldier->inventory()[ HEAD2POS ].usItem ) )
 		{
 			if (gpItemPointer)
 			{
 				CHAR16	zTemp[150];
-				swprintf(zTemp, Message[STR_CANT_USE_TWO_ITEMS], ItemNames[pObj->usItem], ItemNames[pSoldier->inv[HEAD2POS].usItem]);
+				swprintf(zTemp, Message[STR_CANT_USE_TWO_ITEMS], ItemNames[pObj->usItem], ItemNames[pSoldier->inventory()[HEAD2POS].usItem]);
 				ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, zTemp);
 			}
 			
@@ -6780,12 +6780,12 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 	}
 	else if ( bPos == HEAD2POS )
 	{
-		if ( !CompatibleFaceItem( pObj->usItem, pSoldier->inv[ HEAD1POS ].usItem ) )
+		if ( !CompatibleFaceItem( pObj->usItem, pSoldier->inventory()[ HEAD1POS ].usItem ) )
 		{
 			if (gpItemPointer)
 			{
 				CHAR16	zTemp[150];
-				swprintf(zTemp, Message[STR_CANT_USE_TWO_ITEMS], ItemNames[pObj->usItem], ItemNames[pSoldier->inv[HEAD1POS].usItem]);
+				swprintf(zTemp, Message[STR_CANT_USE_TWO_ITEMS], ItemNames[pObj->usItem], ItemNames[pSoldier->inventory()[HEAD1POS].usItem]);
 				ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, zTemp);
 			}
 			
@@ -6827,7 +6827,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 	//handle the placing up of a new ja25 gun
 	HandleNewGunComment( pSoldier, pObj->usItem, FALSE );
 #endif	
-	pInSlot = &(pSoldier->inv[bPos]);
+	pInSlot = &(pSoldier->inventory()[bPos]);
 
 	//we are placing an object, how we handle this depends on what is in the slot already
 	if (pInSlot->exists() == false)
@@ -6841,10 +6841,10 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 			{
 				// We just performed a successful drop of a two-handed object into the
 				// main hand
-				if (pSoldier->inv[SECONDHANDPOS].exists() == true)
+				if (pSoldier->inventory()[SECONDHANDPOS].exists() == true)
 				{
 					// swap what WAS in the second hand into the cursor
-					pSoldier->inv[SECONDHANDPOS].MoveThisObjectTo(*pObj);
+					pSoldier->inventory()[SECONDHANDPOS].MoveThisObjectTo(*pObj);
 				}
 			}
 		 }
@@ -6916,7 +6916,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 										pocket = PickPocket(pSoldier, BIGPOCKSTART, SMALLPOCKFINAL, tempStack.usItem, bLoop, &capacity, -1);
 										if(pocket != -1)
 										{
-											pSoldier->inv[pocket].AddObjectsToStack(tempStack, bLoop, pSoldier, pocket);
+											pSoldier->inventory()[pocket].AddObjectsToStack(tempStack, bLoop, pSoldier, pocket);
 										}
 										else
 										{
@@ -7035,7 +7035,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 
 		else if (ItemIsTwoHanded(pObj->usItem) && (bPos == HANDPOS) )
 		{
-			if (pSoldier->inv[SECONDHANDPOS].exists() == true) {
+			if (pSoldier->inventory()[SECONDHANDPOS].exists() == true) {
 				// both pockets have something in them, so we can't swap
 				return( FALSE );
 			}
@@ -7094,15 +7094,15 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 bool TryToStackInSlot(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj, int bSlot)
 {
 	// CHRISL: Use new ItemSlotLimit function if we're using the new inventory system
-	if (pSoldier->inv[bSlot].usItem == pObj->usItem && pSoldier->inv[bSlot].exists() == true)
+	if (pSoldier->inventory()[bSlot].usItem == pObj->usItem && pSoldier->inventory()[bSlot].exists() == true)
 	{
-		if (pSoldier->inv[bSlot].ubNumberOfObjects < ItemSlotLimit( pObj, bSlot, pSoldier ) )
+		if (pSoldier->inventory()[bSlot].ubNumberOfObjects < ItemSlotLimit( pObj, bSlot, pSoldier ) )
 		{
 			// NEW: If in SKI, don't auto-PLACE anything into a stackable slot that's currently hatched out!  Such slots
 			// will disappear in their entirety if sold/moved, causing anything added through here to vanish also!
 			if( !( ( guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE ) && ShouldSoldierDisplayHatchOnItem( pSoldier->identity().profile(), bSlot ) ) )
 			{
-				pSoldier->inv[bSlot].AddObjectsToStack(*pObj, -1, pSoldier, bSlot);
+				pSoldier->inventory()[bSlot].AddObjectsToStack(*pObj, -1, pSoldier, bSlot);
 				if (pObj->exists() == false) {
 					return true;
 				}
@@ -7116,7 +7116,7 @@ bool TryToPlaceInSlot(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj, bool fNewItem, in
 {
 	//bSlot = FindEmptySlotWithin( pSoldier, bSlot, endSlot );
 	//CHRISL: If something already exists, we want to fail since we can't place an object in this slot
-	if (CanItemFitInPosition(pSoldier, pObj, bSlot, false) == false || pSoldier->inv[bSlot].exists() == true) {
+	if (CanItemFitInPosition(pSoldier, pObj, bSlot, false) == false || pSoldier->inventory()[bSlot].exists() == true) {
 		//bSlot = endSlot;
 		return false;
 	}
@@ -7127,7 +7127,7 @@ bool TryToPlaceInSlot(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj, bool fNewItem, in
 	}
 
 	if (bSlot == SECONDHANDPOS) {
-		if (pSoldier->inv[HANDPOS].exists() == true && ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem)) {
+		if (pSoldier->inventory()[HANDPOS].exists() == true && ItemIsTwoHanded(pSoldier->inventory()[ HANDPOS ].usItem)) {
 			return false;
 		}
 	}
@@ -7455,7 +7455,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 		case IC_LAUNCHER:
 		case IC_BOMB:
 		case IC_GRENADE:
-			if (pSoldier->inv[HANDPOS].exists() == false)
+			if (pSoldier->inventory()[HANDPOS].exists() == false)
 			{
 				// put the one-handed weapon in the guy's hand...
 				if( PlaceObject( pSoldier, HANDPOS, pObj, fNewItem ) )
@@ -7464,7 +7464,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 						return( TRUE );
 				}
 			}
-			else if ( !ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) && pSoldier->inv[SECONDHANDPOS].exists() == false)
+			else if ( !ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) && pSoldier->inventory()[SECONDHANDPOS].exists() == false)
 			{
 				// put the one-handed weapon in the guy's 2nd hand...
 				if( PlaceObject( pSoldier, SECONDHANDPOS, pObj, fNewItem ) )
@@ -7482,7 +7482,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 				switch (pItem->usItemClass)
 				{
 					case IC_GUN:
-						if(pSoldier->inv[GUNSLINGPOCKPOS].exists() == false)	// Long Gun use Gun Sling
+						if(pSoldier->inventory()[GUNSLINGPOCKPOS].exists() == false)	// Long Gun use Gun Sling
 						{
 							if( PlaceObject( pSoldier, GUNSLINGPOCKPOS, pObj, fNewItem ) )
 							{
@@ -7493,7 +7493,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 						break;
 					case IC_THROWING_KNIFE:
 					case IC_BLADE:
-						if(pSoldier->inv[KNIFEPOCKPOS].exists() == false)	// Knife
+						if(pSoldier->inventory()[KNIFEPOCKPOS].exists() == false)	// Knife
 						{
 							if( PlaceObject( pSoldier, KNIFEPOCKPOS, pObj, fNewItem ) )
 							{
@@ -7509,7 +7509,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 			switch (Armour[Item[pObj->usItem].ubClassIndex].ubArmourClass)
 			{
 				case ARMOURCLASS_VEST:
-					if (pSoldier->inv[VESTPOS].exists() == false)
+					if (pSoldier->inventory()[VESTPOS].exists() == false)
 					{
 						// put on the armour!
 						if( PlaceObject( pSoldier, VESTPOS, pObj, fNewItem ) )
@@ -7524,12 +7524,12 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 					This is only an issue during merc hiring when leggings will often be placed after leg protectors.
 					However, this isn't as big an issue at this point because of the redesigns in the profile item sorting
 					functions.*/
-					if(ItemIsAttachment(pSoldier->inv[LEGPOS].usItem))
+					if(ItemIsAttachment(pSoldier->inventory()[LEGPOS].usItem))
 					{
 						SwapObjs(pSoldier, LEGPOS, pObj, TRUE);
-						pSoldier->inv[LEGPOS].AttachObject(pSoldier, pObj, FALSE);
+						pSoldier->inventory()[LEGPOS].AttachObject(pSoldier, pObj, FALSE);
 					}
-					if (pSoldier->inv[LEGPOS].exists() == false)
+					if (pSoldier->inventory()[LEGPOS].exists() == false)
 					{
 						// put on the armour!
 						if( PlaceObject( pSoldier, LEGPOS, pObj, fNewItem ) )
@@ -7540,7 +7540,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 					}
 					break;
 				case ARMOURCLASS_HELMET:
-					if (pSoldier->inv[HELMETPOS].exists() == false)
+					if (pSoldier->inventory()[HELMETPOS].exists() == false)
 					{
 						// put on the armour!
 						if( PlaceObject( pSoldier, HELMETPOS, pObj, fNewItem ) )
@@ -7556,7 +7556,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 			// otherwise stuff it in a slot somewhere
 			break;
 		case IC_FACE:
-			if ( (pSoldier->inv[HEAD1POS].exists() == false) && CompatibleFaceItem( pObj->usItem, pSoldier->inv[HEAD2POS].usItem ) )
+			if ( (pSoldier->inventory()[HEAD1POS].exists() == false) && CompatibleFaceItem( pObj->usItem, pSoldier->inventory()[HEAD2POS].usItem ) )
 			{
 				if( PlaceObject( pSoldier, HEAD1POS, pObj, fNewItem ) )
 				{
@@ -7564,7 +7564,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 						return( TRUE );
 				}
 			}
-			else if ( (pSoldier->inv[HEAD2POS].exists() == false) && CompatibleFaceItem( pObj->usItem, pSoldier->inv[HEAD1POS].usItem ) )
+			else if ( (pSoldier->inventory()[HEAD2POS].exists() == false) && CompatibleFaceItem( pObj->usItem, pSoldier->inventory()[HEAD1POS].usItem ) )
 			{
 				if( PlaceObject( pSoldier, HEAD2POS, pObj, fNewItem ) )
 				{
@@ -7581,7 +7581,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 			lbeClass = LoadBearingEquipment[pItem->ubClassIndex].lbeClass;
 			if(lbeClass == THIGH_PACK)	// Thigh pack
 			{
-				if (pSoldier->inv[LTHIGHPOCKPOS].exists() == false)
+				if (pSoldier->inventory()[LTHIGHPOCKPOS].exists() == false)
 				{
 					if( PlaceObject( pSoldier, LTHIGHPOCKPOS, pObj, fNewItem ) )
 					{
@@ -7589,7 +7589,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 							return( TRUE );
 					}
 				}
-				if (pSoldier->inv[RTHIGHPOCKPOS].exists() == false)
+				if (pSoldier->inventory()[RTHIGHPOCKPOS].exists() == false)
 				{
 					if( PlaceObject( pSoldier, RTHIGHPOCKPOS, pObj, fNewItem ) )
 					{
@@ -7598,7 +7598,7 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 					}
 				}
 			}
-			else if(pSoldier->inv[VESTPOCKPOS].exists() == false && lbeClass == VEST_PACK)	// Vest pack
+			else if(pSoldier->inventory()[VESTPOCKPOS].exists() == false && lbeClass == VEST_PACK)	// Vest pack
 			{
 				if( PlaceObject( pSoldier, VESTPOCKPOS, pObj, fNewItem ) )
 				{
@@ -7606,12 +7606,12 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 						return( TRUE );
 				}
 			}
-			else if(pSoldier->inv[CPACKPOCKPOS].exists() == false && lbeClass == COMBAT_PACK)	// Combat pack
+			else if(pSoldier->inventory()[CPACKPOCKPOS].exists() == false && lbeClass == COMBAT_PACK)	// Combat pack
 			{
 				packCombo = LoadBearingEquipment[pItem->ubClassIndex].lbeCombo;
-				backCombo = LoadBearingEquipment[Item[pSoldier->inv[BPACKPOCKPOS].usItem].ubClassIndex].lbeCombo;
+				backCombo = LoadBearingEquipment[Item[pSoldier->inventory()[BPACKPOCKPOS].usItem].ubClassIndex].lbeCombo;
 				//DBrot: changed to bitwise comparison
-				if((pSoldier->inv[BPACKPOCKPOS].exists() == true && packCombo != 0 && (backCombo & packCombo)) || pSoldier->inv[BPACKPOCKPOS].exists() == false)
+				if((pSoldier->inventory()[BPACKPOCKPOS].exists() == true && packCombo != 0 && (backCombo & packCombo)) || pSoldier->inventory()[BPACKPOCKPOS].exists() == false)
 				{
 					if( PlaceObject( pSoldier, CPACKPOCKPOS, pObj, fNewItem ) )
 					{
@@ -7620,20 +7620,20 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 					}
 				}
 			}
-			else if(pSoldier->inv[BPACKPOCKPOS].exists() == false && lbeClass == BACKPACK)	// Backpack
+			else if(pSoldier->inventory()[BPACKPOCKPOS].exists() == false && lbeClass == BACKPACK)	// Backpack
 			{
 				//CHRISL: We're no longer restricting backpacks and gunslings from being used together
-				//if(pSoldier->inv[GUNSLINGPOCKPOS].exists() == false)
+				//if(pSoldier->inventory()[GUNSLINGPOCKPOS].exists() == false)
 				//{
-					packCombo = LoadBearingEquipment[Item[pSoldier->inv[CPACKPOCKPOS].usItem].ubClassIndex].lbeCombo;
+					packCombo = LoadBearingEquipment[Item[pSoldier->inventory()[CPACKPOCKPOS].usItem].ubClassIndex].lbeCombo;
 					backCombo = LoadBearingEquipment[pItem->ubClassIndex].lbeCombo;
 					//DBrot: changed to bitwise comparison
-					if((pSoldier->inv[CPACKPOCKPOS].exists() == true && backCombo != 0 && (backCombo & packCombo)) || pSoldier->inv[CPACKPOCKPOS].exists() == false)
+					if((pSoldier->inventory()[CPACKPOCKPOS].exists() == true && backCombo != 0 && (backCombo & packCombo)) || pSoldier->inventory()[CPACKPOCKPOS].exists() == false)
 					{
 						if( PlaceObject( pSoldier, BPACKPOCKPOS, pObj, fNewItem ) )
 						{
-							pSoldier->inventoryState().dropPackFlag() = FALSE;
-							pSoldier->inventoryState().zipperFlag() = FALSE;
+							pSoldier->inventory().dropPackFlag() = FALSE;
+							pSoldier->inventory().zipperFlag() = FALSE;
 							RenderBackpackButtons(ACTIVATE_BUTTON);	/* CHRISL: Needed for new inventory backpack buttons */
 							if(pObj->exists() == false || fStackOrSingleSlot)
 								return( TRUE );
@@ -7698,7 +7698,7 @@ BOOLEAN RemoveKeysFromSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, UINT8
 	}
 	else
 	{
-		//*pObj = pSoldier->inv[bPos];
+		//*pObj = pSoldier->inventory()[bPos];
 
 		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber < ubNumberOfKeys )
 		{
@@ -8729,11 +8729,11 @@ BOOLEAN OBJECTTYPE::RemoveAttachment( OBJECTTYPE * pAttachment, OBJECTTYPE * pNe
 	if (pSoldier != NULL)
 	{
 		// if in attached weapon mode and don't have weapon with GL attached in hand, reset weapon mode
-		if ( ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ) && !IsGrenadeLauncherAttached( &(pSoldier->inv[ HANDPOS ] ) ) ) ||
-			 ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO ) && !IsWeaponAttached( &(pSoldier->inv[ HANDPOS ]), IC_GUN   ) ) ||
-			 ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_BAYONET )																							   && !IsWeaponAttached( &(pSoldier->inv[ HANDPOS ]), IC_BLADE ) ) )
+		if ( ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ) && !IsGrenadeLauncherAttached( &(pSoldier->inventory()[ HANDPOS ] ) ) ) ||
+			 ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO ) && !IsWeaponAttached( &(pSoldier->inventory()[ HANDPOS ]), IC_GUN   ) ) ||
+			 ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_BAYONET )																							   && !IsWeaponAttached( &(pSoldier->inventory()[ HANDPOS ]), IC_BLADE ) ) )
 		{
-			if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
+			if ( !Weapon[pSoldier->inventory()[ HANDPOS ].usItem].NoSemiAuto )
 			{
 				pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 				pSoldier->fireControl().selectSingleShot();
@@ -8743,7 +8743,7 @@ BOOLEAN OBJECTTYPE::RemoveAttachment( OBJECTTYPE * pAttachment, OBJECTTYPE * pNe
 				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
 				pSoldier->fireControl().selectAutofire();
 			}
-			if (ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem) && Weapon[pSoldier->inv[ HANDPOS ].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
+			if (ItemIsTwoHanded(pSoldier->inventory()[ HANDPOS ].usItem) && Weapon[pSoldier->inventory()[ HANDPOS ].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 				pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
 			else
 				pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
@@ -8832,9 +8832,9 @@ void SetNewItem( SOLDIERTYPE *pSoldier, UINT8 ubInvPos, BOOLEAN fNewItem )
 {
 	if( fNewItem )
 	{
-		pSoldier->inv.bNewItemCount[ ubInvPos ]						 = -1;
-		pSoldier->inv.bNewItemCycleCount[ ubInvPos ]			 = NEW_ITEM_CYCLE_COUNT;
-		pSoldier->inventoryState().checkForNewItems()             = TRUE;
+		pSoldier->inventory().newItemCount(ubInvPos)						 = -1;
+		pSoldier->inventory().newItemCycleCount(ubInvPos)			 = NEW_ITEM_CYCLE_COUNT;
+		pSoldier->inventory().checkForNewItems()             = TRUE;
 	}
 }
 
@@ -8862,7 +8862,7 @@ BOOLEAN PlaceObjectInSoldierProfile( UINT8 ubProfile, OBJECTTYPE *pObject )
 	// CHRISL:
 	for (bLoop = BIGPOCKSTART; bLoop < NUM_INV_SLOTS; bLoop++)
 	{
-		if ( gMercProfiles[ ubProfile ].bInvNumber[ bLoop ] == 0 && (pSoldier == NULL || pSoldier->inv[ bLoop ].exists() == false ) )
+		if ( gMercProfiles[ ubProfile ].bInvNumber[ bLoop ] == 0 && (pSoldier == NULL || pSoldier->inventory()[ bLoop ].exists() == false ) )
 		{
 
 			// CJC: Deal with money by putting money into # stored in profile
@@ -8896,7 +8896,7 @@ BOOLEAN PlaceObjectInSoldierProfile( UINT8 ubProfile, OBJECTTYPE *pObject )
 			// OK, place in soldier...
 			if ( usItem == MONEY )
 			{
-				CreateMoney( gMercProfiles[ ubProfile ].uiMoney, &(pSoldier->inv[ bLoop ] ) );
+				CreateMoney( gMercProfiles[ ubProfile ].uiMoney, &(pSoldier->inventory()[ bLoop ] ) );
 			}
 			else
 			{
@@ -8933,7 +8933,7 @@ BOOLEAN PlaceObjectInSoldierProfile( UINT8 ubProfile, OBJECTTYPE *pObject )
 					}
 				}
 
-				CreateItem( usItem, bStatus, &(pSoldier->inv[ bLoop ] ) );
+				CreateItem( usItem, bStatus, &(pSoldier->inventory()[ bLoop ] ) );
 			}
 		}
 	}
@@ -9033,7 +9033,7 @@ void RemoveInvObject( SOLDIERTYPE *pSoldier, UINT16 usItem )
 	if (bInvPos != NO_SLOT)
 	{
 		// Erase!
-		DeleteObj(&pSoldier->inv[ bInvPos ]);
+		DeleteObj(&pSoldier->inventory()[ bInvPos ]);
 
 		//Dirty!
 		DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
@@ -9258,10 +9258,10 @@ void CheckEquipmentForDamage( SOLDIERTYPE *pSoldier, INT32 iDamage )
 		return;
 	}
 
-	UINT8 invsize = pSoldier->inv.size();
+	UINT8 invsize = pSoldier->inventory().size();
 	for (UINT8 bSlot = 0; bSlot < invsize; ++bSlot)
 	{
-		if (pSoldier->inv[bSlot].exists() == false){
+		if (pSoldier->inventory()[bSlot].exists() == false){
 			continue;
 		}
 
@@ -9287,13 +9287,13 @@ void CheckEquipmentForDamage( SOLDIERTYPE *pSoldier, INT32 iDamage )
 
 			if ( VESTPOCKPOS <= lbeslot && lbeslot <= BPACKPOCKPOS )
 			{
-				if ( pSoldier->inv[lbeslot].exists( ) && HasItemFlag( pSoldier->inv[lbeslot].usItem, LBE_EXPLOSIONPROOF ) )
+				if ( pSoldier->inventory()[lbeslot].exists( ) && HasItemFlag( pSoldier->inventory()[lbeslot].usItem, LBE_EXPLOSIONPROOF ) )
 					continue;
 			}
 		}
 
-		ubNumberOfObjects = pSoldier->inv[bSlot].ubNumberOfObjects;
-		fBlowsUp = DamageItem( &(pSoldier->inv[bSlot]), iDamage, FALSE );
+		ubNumberOfObjects = pSoldier->inventory()[bSlot].ubNumberOfObjects;
+		fBlowsUp = DamageItem( &(pSoldier->inventory()[bSlot]), iDamage, FALSE );
 		if (fBlowsUp)
 		{
 			// blow it up!
@@ -9302,20 +9302,20 @@ void CheckEquipmentForDamage( SOLDIERTYPE *pSoldier, INT32 iDamage )
 
 			if ( GetJa2PendingTacticalCombatActions() )
 			{
-				IgniteExplosion( pSoldier->combatResult().currentAttacker(), sX, sY, 0, pSoldier->position().gridNo(), pSoldier->inv[ bSlot ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ bSlot ] );
+				IgniteExplosion( pSoldier->combatResult().currentAttacker(), sX, sY, 0, pSoldier->position().gridNo(), pSoldier->inventory()[ bSlot ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inventory()[ bSlot ] );
 			}
 			else
 			{
-				IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), pSoldier->inv[ bSlot ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ bSlot ] );
+				IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), pSoldier->inventory()[ bSlot ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inventory()[ bSlot ] );
 			}
 
 			//ADB when something in a stack blows up the whole stack goes, so no need to worry about number of items
 			// Remove item!
-			DeleteObj( &(pSoldier->inv[ bSlot ]) );
+			DeleteObj( &(pSoldier->inventory()[ bSlot ]) );
 
 			DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 		}
-		else if ( ubNumberOfObjects != pSoldier->inv[bSlot].ubNumberOfObjects )
+		else if ( ubNumberOfObjects != pSoldier->inventory()[bSlot].ubNumberOfObjects )
 		{
 			DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 		}
@@ -9328,21 +9328,21 @@ void CheckEquipmentForFragileItemDamage( SOLDIERTYPE *pSoldier, INT32 iDamage )
 	UINT8				ubNumberOfObjects;
 	BOOLEAN			fPlayedGlassBreak = FALSE;
 
-	UINT8 invsize = pSoldier->inv.size();
+	UINT8 invsize = pSoldier->inventory().size();
 	for (UINT8 bSlot = 0; bSlot < invsize; ++bSlot)
 	{
-		if (pSoldier->inv[bSlot].exists() == false) {
+		if (pSoldier->inventory()[bSlot].exists() == false) {
 			continue;
 		}
-		switch( pSoldier->inv[bSlot].usItem )
+		switch( pSoldier->inventory()[bSlot].usItem )
 		{
 			case JAR_CREATURE_BLOOD:
 			case JAR:
 			case JAR_HUMAN_BLOOD:
 			case JAR_ELIXIR:
-				ubNumberOfObjects = pSoldier->inv[bSlot].ubNumberOfObjects;
-				DamageItem( &(pSoldier->inv[bSlot]), iDamage, FALSE );
-				if ( !fPlayedGlassBreak && (ubNumberOfObjects != pSoldier->inv[bSlot].ubNumberOfObjects) )
+				ubNumberOfObjects = pSoldier->inventory()[bSlot].ubNumberOfObjects;
+				DamageItem( &(pSoldier->inventory()[bSlot]), iDamage, FALSE );
+				if ( !fPlayedGlassBreak && (ubNumberOfObjects != pSoldier->inventory()[bSlot].ubNumberOfObjects) )
 				{
 					PlayJA2Sample( GLASS_CRACK, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 					fPlayedGlassBreak = TRUE;
@@ -9428,10 +9428,10 @@ void SwapHandItems( SOLDIERTYPE * pSoldier )
 		&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
 	{
 		// if we only have one usable hand, drop item in main hand to inventory
-		if ( pSoldier->inv[HANDPOS].exists() )
+		if ( pSoldier->inventory()[HANDPOS].exists() )
 		{
 			// must move the item in the main hand elsewhere in the inventory
-			fOk = AutoPlaceObject( pSoldier, &( pSoldier->inv[HANDPOS] ), FALSE, HANDPOS );
+			fOk = AutoPlaceObject( pSoldier, &( pSoldier->inventory()[HANDPOS] ), FALSE, HANDPOS );
 			if ( !fOk )
 			{
 				return;
@@ -9439,10 +9439,10 @@ void SwapHandItems( SOLDIERTYPE * pSoldier )
 		}
 
 		// if we somehow had an item in our second hand (which shouldn't be possible to begin with), drop it to inventory if twohanded
-		if ( ItemIsTwoHanded( pSoldier->inv[SECONDHANDPOS].usItem ) )
+		if ( ItemIsTwoHanded( pSoldier->inventory()[SECONDHANDPOS].usItem ) )
 		{
 			// must move the item in the main hand elsewhere in the inventory
-			fOk = AutoPlaceObject( pSoldier, &( pSoldier->inv[SECONDHANDPOS] ), FALSE, SECONDHANDPOS );
+			fOk = AutoPlaceObject( pSoldier, &( pSoldier->inventory()[SECONDHANDPOS] ), FALSE, SECONDHANDPOS );
 			if ( !fOk )
 			{
 				return;
@@ -9454,7 +9454,7 @@ void SwapHandItems( SOLDIERTYPE * pSoldier )
 		SwapObjs( pSoldier, HANDPOS, SECONDHANDPOS, TRUE );
 		DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 	}	
-	else if (pSoldier->inv[HANDPOS].exists() == false || pSoldier->inv[SECONDHANDPOS].exists() == false)
+	else if (pSoldier->inventory()[HANDPOS].exists() == false || pSoldier->inventory()[SECONDHANDPOS].exists() == false)
 	{
 		// whatever is in the second hand can be swapped to the main hand!
 		SwapObjs( pSoldier, HANDPOS, SECONDHANDPOS, TRUE );
@@ -9462,10 +9462,10 @@ void SwapHandItems( SOLDIERTYPE * pSoldier )
 	}
 	else
 	{
-		if (ItemIsTwoHanded( pSoldier->inv[SECONDHANDPOS].usItem ) )
+		if (ItemIsTwoHanded( pSoldier->inventory()[SECONDHANDPOS].usItem ) )
 		{
 			// must move the item in the main hand elsewhere in the inventory
-			fOk = AutoPlaceObject( pSoldier, &(pSoldier->inv[HANDPOS]), FALSE, HANDPOS );
+			fOk = AutoPlaceObject( pSoldier, &(pSoldier->inventory()[HANDPOS]), FALSE, HANDPOS );
 			if (!fOk)
 			{
 				return;
@@ -9487,9 +9487,9 @@ void SwapOutHandItem( SOLDIERTYPE * pSoldier )
 	CHECKV( pSoldier );
 
 	// puts away the item in the main hand
-	if (pSoldier->inv[HANDPOS].exists() == true )
+	if (pSoldier->inventory()[HANDPOS].exists() == true )
 	{
-		if (pSoldier->inv[SECONDHANDPOS].exists() == false)
+		if (pSoldier->inventory()[SECONDHANDPOS].exists() == false)
 		{
 			// just swap the hand item to the second hand
 			SwapObjs( pSoldier, HANDPOS, SECONDHANDPOS, TRUE );
@@ -9499,7 +9499,7 @@ void SwapOutHandItem( SOLDIERTYPE * pSoldier )
 		else
 		{
 			// try placing it somewhere else in our inventory
-			fOk = AutoPlaceObject( pSoldier, &(pSoldier->inv[HANDPOS]), FALSE );
+			fOk = AutoPlaceObject( pSoldier, &(pSoldier->inventory()[HANDPOS]), FALSE );
 			if (fOk)
 			{
 				DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
@@ -9520,14 +9520,14 @@ void WaterDamage( SOLDIERTYPE *pSoldier )
 
 	if ( pSoldier->MercInDeepWater( ) )
 	{
-		INT8 invsize = (INT8) pSoldier->inv.size();
+		INT8 invsize = (INT8) pSoldier->inventory().size();
 		for ( bLoop = 0; bLoop < invsize; ++bLoop )
 		{
-			if (pSoldier->inv[bLoop].exists() == false) {
+			if (pSoldier->inventory()[bLoop].exists() == false) {
 				continue;
 			}
 			// if there's an item here that can get water damaged...
-			if (pSoldier->inv[ bLoop ].usItem && ItemIsDamagedByWater(pSoldier->inv[bLoop].usItem) )
+			if (pSoldier->inventory()[ bLoop ].usItem && ItemIsDamagedByWater(pSoldier->inventory()[bLoop].usItem) )
 			{
 				// roll the 'ol 100-sided dice
 				uiRoll = PreRandom(100);
@@ -9539,15 +9539,15 @@ void WaterDamage( SOLDIERTYPE *pSoldier )
 					bDamage = (INT8) (10 - uiRoll);
 
 					// but don't let anything drop lower than 1%
-					pSoldier->inv[bLoop][0]->data.objectStatus -= bDamage;
-					if (pSoldier->inv[bLoop][0]->data.objectStatus < 1)
+					pSoldier->inventory()[bLoop][0]->data.objectStatus -= bDamage;
+					if (pSoldier->inventory()[bLoop][0]->data.objectStatus < 1)
 					{
-						pSoldier->inv[bLoop][0]->data.objectStatus = 1;
+						pSoldier->inventory()[bLoop][0]->data.objectStatus = 1;
 					}
 
-					if ( Random(100) < Item[pSoldier->inv[ bLoop ].usItem].usDamageChance )
+					if ( Random(100) < Item[pSoldier->inventory()[ bLoop ].usItem].usDamageChance )
 					{
-						pSoldier->inv[bLoop][0]->data.sRepairThreshold = max(1, pSoldier->inv[bLoop][0]->data.sRepairThreshold - 1);
+						pSoldier->inventory()[bLoop][0]->data.sRepairThreshold = max(1, pSoldier->inventory()[bLoop][0]->data.sRepairThreshold - 1);
 					}
 				}
 			}
@@ -10191,10 +10191,10 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 	SOLDIERTYPE *	pSoldier2;
 	UINT32				uiSlot;
 
-	if (ItemNeedsBatteries(pSoldier->inv[ HANDPOS ].usItem) && pSoldier->inv[ HANDPOS ].exists() == true && !AM_A_ROBOT(pSoldier) )
+	if (ItemNeedsBatteries(pSoldier->inventory()[ HANDPOS ].usItem) && pSoldier->inventory()[ HANDPOS ].exists() == true && !AM_A_ROBOT(pSoldier) )
 	{
 		// check for batteries
-		OBJECTTYPE* pBatteries = FindAttachedBatteries( &(pSoldier->inv[HANDPOS]) );
+		OBJECTTYPE* pBatteries = FindAttachedBatteries( &(pSoldier->inventory()[HANDPOS]) );
 		if ( pBatteries == 0 )
 		{
 			// doesn't work without batteries!
@@ -10211,7 +10211,7 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 			// destroy batteries
 			pBatteries->RemoveObjectsFromStack(1);
 			if (pBatteries->exists() == false) {
-				pSoldier->inv[HANDPOS].RemoveAttachment(pBatteries);
+				pSoldier->inventory()[HANDPOS].RemoveAttachment(pBatteries);
 			}
 		}
 	}
@@ -10463,7 +10463,7 @@ INT16 GetAimBonus( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, INT32 iRange, INT1
 			GetScopeLists(pSoldier, pObj, ObjList);
 		
 			// only use scope mode if gun is in hand, otherwise an error might occur!
-			if ( (&pSoldier->inv[HANDPOS]) == pObj && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD)
+			if ( (&pSoldier->inventory()[HANDPOS]) == pObj && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD)
 				bonus = BonusReduceMore( GetItemAimBonus( &Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem], iRange, ubAimTime ), (*ObjList[pSoldier->attackSelection().scopeMode()])[0]->data.objectStatus );
 		}
 		else
@@ -10513,9 +10513,9 @@ INT16 GetGearAimBonus( SOLDIERTYPE * pSoldier, INT32 iRange, INT16 sAimTime  )
 
 	for (int j = HELMETPOS; j <= HEAD2POS; j++)
 	{
-		OBJECTTYPE* pObj = &pSoldier->inv[j];
+		OBJECTTYPE* pObj = &pSoldier->inventory()[j];
 		if (pObj->exists() == true) {
-			bonus += GetItemAimBonus( &Item[pSoldier->inv[j].usItem], iRange, sAimTime );
+			bonus += GetItemAimBonus( &Item[pSoldier->inventory()[j].usItem], iRange, sAimTime );
 			for (attachmentList::iterator iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter) {
 				if(iter->exists()){
 					bonus += GetItemAimBonus(&Item[iter->usItem],iRange, sAimTime);
@@ -10534,9 +10534,9 @@ INT16 GetGearToHitBonus( SOLDIERTYPE * pSoldier )
 
 	for (int j = HELMETPOS; j <= HEAD2POS; j++)
 	{
-		OBJECTTYPE* pObj = &pSoldier->inv[j];
+		OBJECTTYPE* pObj = &pSoldier->inventory()[j];
 		if (pObj->exists() == true) {
-			bonus += Item[pSoldier->inv[j].usItem].tohitbonus;
+			bonus += Item[pSoldier->inventory()[j].usItem].tohitbonus;
 			for (attachmentList::iterator iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter) {
 				if(iter->exists()){
 					bonus += Item[iter->usItem].tohitbonus;
@@ -10555,9 +10555,9 @@ INT16 GetGearAPBonus( SOLDIERTYPE * pSoldier )
 
 	for (int j = HELMETPOS; j <= HEAD2POS; ++j)
 	{
-		if (pSoldier->inv[j].exists() == true) 
+		if (pSoldier->inventory()[j].exists() == true)
 		{
-			OBJECTTYPE* pObj = &pSoldier->inv[j];
+			OBJECTTYPE* pObj = &pSoldier->inventory()[j];
 
 			for (attachmentList::iterator iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter) 
 			{
@@ -10756,7 +10756,7 @@ INT32 GetObjectModifier( SOLDIERTYPE* pSoldier, OBJECTTYPE *pObj, UINT8 ubStance
 				GetScopeLists(pSoldier, pObj, ObjList);
 
 				// only use scope mode if gun is in hand, otherwise an error might occur!
-				if ( (&pSoldier->inv[HANDPOS]) == pObj && ObjList[pSoldier->attackSelection().scopeMode()] != NULL )
+				if ( (&pSoldier->inventory()[HANDPOS]) == pObj && ObjList[pSoldier->attackSelection().scopeMode()] != NULL )
 					// Do not apply weapon bonus/penalty because this will be added one step below. We don't want to apply it twice.
 					if ( pObj->usItem != ObjList[pSoldier->attackSelection().scopeMode()]->usItem )
 						iModifier += GetItemModifier(ObjList[pSoldier->attackSelection().scopeMode()], ubRef, usType);
@@ -10831,7 +10831,7 @@ void GetRecoil( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, FLOAT *bRecoilX, FLOAT 
 
 	// Flugente: get weapon actually used (might be an underbarrel shotgun)
 	OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon(pObj);
-	OBJECTTYPE* pObjUsedInHand = pSoldier->GetUsedWeapon( &(pSoldier->inv[HANDPOS]) );
+	OBJECTTYPE* pObjUsedInHand = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
  
 	// silversurfer: The first bullet should never return recoil. If function CalcPreRecoilOffset( ) in LOS.cpp wants to know
 	// what recoil to expect for the second bullet in the volley it should ask for the second bullet and does so from now on.
@@ -10872,7 +10872,7 @@ void GetRecoil( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, FLOAT *bRecoilX, FLOAT 
 
 	//GetFlatRecoilModifier( pObj, &bRecoilAdjustX, &bRecoilAdjustY );
 	GetBaseFlatRecoilModifier( pObj, &bRecoilAdjustX, &bRecoilAdjustY );
-	GetAttachmentFlatRecoilModifier( &pSoldier->inv[HANDPOS], &bRecoilAdjustX, &bRecoilAdjustY);
+	GetAttachmentFlatRecoilModifier( &pSoldier->inventory()[HANDPOS], &bRecoilAdjustX, &bRecoilAdjustY);
 	//JMich TODO: Currently no check for dual wielding
 	// silversurfer: I don't think that we need a check for dual wielding here. This function is supposed to return weapon recoil value.
 	// It doesn't matter if this gun is wielded by someone else, with right, left hand or with the toes. The gun always produces the same recoil.
@@ -11097,7 +11097,7 @@ INT16 GetPercentAPReduction( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj )
 				GetScopeLists(pSoldier, pObj, ObjList);
 
 				// only use scope mode if gun is in hand, otherwise an error might occur!
-				if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+				if ( (&pSoldier->inventory()[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 					bonus += BonusReduceMore( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].percentapreduction, (*ObjList[pSoldier->attackSelection().scopeMode()])[0]->data.objectStatus );
 			}
 		}
@@ -11290,7 +11290,7 @@ INT16 GetVisionRangeBonus( SOLDIERTYPE * pSoldier )
 	for (int i = BODYPOSSTART; i < BODYPOSFINAL; i++)
 	{
 		// Okay, it's time for some optimization here too
-		pObj = &( pSoldier->inv[i]);
+		pObj = &( pSoldier->inventory()[i]);
 		if (pObj->exists() == true) {
 			usItem = pObj->usItem;
 			pItem = &(Item[usItem]);
@@ -11322,7 +11322,7 @@ INT16 GetVisionRangeBonus( SOLDIERTYPE * pSoldier )
 	{
 		// SANDRO - added scouting check
 		INT16 sScopebonus = 0;
-		pObj = &( pSoldier->inv[HANDPOS]);
+		pObj = &( pSoldier->inventory()[HANDPOS]);
 		if (pObj->exists() == true) 
 		{
 			if ( gGameExternalOptions.fScopeModes && pSoldier )
@@ -11343,7 +11343,7 @@ INT16 GetVisionRangeBonus( SOLDIERTYPE * pSoldier )
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inventory()[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
 						sScopebonus += BonusReduceMore( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].visionrangebonus, (*ObjList[pSoldier->attackSelection().scopeMode()])[0]->data.objectStatus );
 				}
@@ -11390,11 +11390,11 @@ INT16 GetNightVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 	UINT16 usItem;
 	INVTYPE *pItem;
 
-	if (AM_A_ROBOT(pSoldier) && ItemProvidesRobotNightvision(pSoldier->inv[ROBOT_TARGETING_SLOT].usItem))
+	if (AM_A_ROBOT(pSoldier) && ItemProvidesRobotNightvision(pSoldier->inventory()[ROBOT_TARGETING_SLOT].usItem))
 	{
 		return bonus += BonusReduceMore(
-			NightBonusScale( Item[pSoldier->inv[ROBOT_TARGETING_SLOT].usItem].nightvisionrangebonus, bLightLevel ),
-			(pSoldier->inv[ROBOT_TARGETING_SLOT])[0]->data.objectStatus );
+			NightBonusScale( Item[pSoldier->inventory()[ROBOT_TARGETING_SLOT].usItem].nightvisionrangebonus, bLightLevel ),
+			(pSoldier->inventory()[ROBOT_TARGETING_SLOT])[0]->data.objectStatus );
 	}
 
 	//ADB and AXP 28.03.2007: CtH bug fix: We also want to check on a firing weapon, "raised" alone is not enough ;)
@@ -11403,7 +11403,7 @@ INT16 GetNightVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 	for (int i = BODYPOSSTART; i < BODYPOSFINAL; ++i )
 	{
 		// More optimization
-		pObj = &( pSoldier->inv[i]);
+		pObj = &( pSoldier->inventory()[i]);
 		if (pObj->exists() == true) {
 			usItem = pObj->usItem;
 			pItem = &(Item[usItem]);
@@ -11435,7 +11435,7 @@ INT16 GetNightVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 	{
 		// SANDRO - added scouting check
 		INT16 sScopebonus = 0;
-		pObj = &( pSoldier->inv[HANDPOS]);
+		pObj = &( pSoldier->inventory()[HANDPOS]);
 		if (pObj->exists() == true) 
 		{
 			if ( gGameExternalOptions.fScopeModes && pSoldier )
@@ -11458,7 +11458,7 @@ INT16 GetNightVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inventory()[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
 						sScopebonus += BonusReduceMore(
 								NightBonusScale( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].nightvisionrangebonus, bLightLevel ),
@@ -11495,11 +11495,11 @@ INT16 GetCaveVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 	UINT16 usItem;
 	INVTYPE *pItem;
 
-	if (AM_A_ROBOT(pSoldier) && ItemProvidesRobotNightvision(pSoldier->inv[ROBOT_TARGETING_SLOT].usItem))
+	if (AM_A_ROBOT(pSoldier) && ItemProvidesRobotNightvision(pSoldier->inventory()[ROBOT_TARGETING_SLOT].usItem))
 	{
 		return bonus += BonusReduceMore(
-			NightBonusScale( Item[pSoldier->inv[ROBOT_TARGETING_SLOT].usItem].cavevisionrangebonus, bLightLevel ),
-			(pSoldier->inv[ROBOT_TARGETING_SLOT])[0]->data.objectStatus );
+			NightBonusScale( Item[pSoldier->inventory()[ROBOT_TARGETING_SLOT].usItem].cavevisionrangebonus, bLightLevel ),
+			(pSoldier->inventory()[ROBOT_TARGETING_SLOT])[0]->data.objectStatus );
 	}
 
 	//ADB and AXP 28.03.2007: CtH bug fix: We also want to check on a firing weapon, "raised" alone is not enough ;)
@@ -11508,7 +11508,7 @@ INT16 GetCaveVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 	for (int i = BODYPOSSTART; i < BODYPOSFINAL; i++)
 	{
 		// More optimization
-		pObj = &( pSoldier->inv[i]);
+		pObj = &( pSoldier->inventory()[i]);
 		if (pObj->exists() == true) {
 			usItem = pObj->usItem;
 			pItem = &(Item[usItem]);
@@ -11541,7 +11541,7 @@ INT16 GetCaveVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 	{
 		// SANDRO - added scouting check
 		INT16 sScopebonus = 0;
-		pObj = &( pSoldier->inv[HANDPOS]);
+		pObj = &( pSoldier->inventory()[HANDPOS]);
 		if (pObj->exists() == true) 
 		{
 			if ( gGameExternalOptions.fScopeModes && pSoldier )
@@ -11564,7 +11564,7 @@ INT16 GetCaveVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inventory()[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
 						sScopebonus += BonusReduceMore(
 								NightBonusScale( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].cavevisionrangebonus, bLightLevel ),
@@ -11619,7 +11619,7 @@ INT16 GetDayVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 	for (int i = BODYPOSSTART; i < BODYPOSFINAL; i++)
 	{
 		// More optimization
-		pObj = &( pSoldier->inv[i]);
+		pObj = &( pSoldier->inventory()[i]);
 		if (pObj->exists() == true) {
 			usItem = pObj->usItem;
 			pItem = &(Item[usItem]);
@@ -11652,7 +11652,7 @@ INT16 GetDayVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 	{
 		// SANDRO - added scouting check
 		INT16 sScopebonus = 0;
-		pObj = &( pSoldier->inv[HANDPOS]);
+		pObj = &( pSoldier->inventory()[HANDPOS]);
 		
 		if (pObj->exists() == true) 
 		{
@@ -11676,7 +11676,7 @@ INT16 GetDayVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inventory()[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
 						sScopebonus += BonusReduceMore( idiv( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].dayvisionrangebonus
 								* lightlevelmultiplier, lightleveldivisor ),
@@ -11721,7 +11721,7 @@ INT16 GetBrightLightVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel 
 	for (int i = BODYPOSSTART; i < BODYPOSFINAL; i++)
 	{
 		// More optimization
-		pObj = &( pSoldier->inv[i]);
+		pObj = &( pSoldier->inventory()[i]);
 		if (pObj->exists() == true) {
 			usItem = pObj->usItem;
 			pItem = &(Item[usItem]);
@@ -11754,7 +11754,7 @@ INT16 GetBrightLightVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel 
 	{
 		// SANDRO - added scouting check
 		INT16 sScopebonus = 0;
-		pObj = &( pSoldier->inv[HANDPOS]);
+		pObj = &( pSoldier->inventory()[HANDPOS]);
 		if (pObj->exists() == true) 
 		{
 			if ( gGameExternalOptions.fScopeModes && pSoldier )
@@ -11777,7 +11777,7 @@ INT16 GetBrightLightVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel 
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inventory()[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
 						sScopebonus += BonusReduceMore( idiv( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].brightlightvisionrangebonus
 									* (NORMAL_LIGHTLEVEL_DAY - bLightLevel), NORMAL_LIGHTLEVEL_DAY ),
@@ -11848,7 +11848,7 @@ INT16 GetTotalVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 	// SANDRO - STOMP traits - Scouting bonus for sight range with binoculars and similar
 	if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->deployment().sectorZ() == 0 )
 	{
-		OBJECTTYPE *pObj = &( pSoldier->inv[HANDPOS]);
+		OBJECTTYPE *pObj = &( pSoldier->inventory()[HANDPOS]);
 		if (pObj->exists() == true) 
 		{
 			// we have no pointer to binoculars, so just check any misc items in hands which have some vision bonus
@@ -11877,9 +11877,9 @@ UINT8 GetPercentTunnelVision( SOLDIERTYPE * pSoldier )
 	for (int i = BODYPOSSTART; i < BODYPOSFINAL; ++i)
 	{
 		// Okay, it's time for some optimization here
-		if (pSoldier->inv[i].exists() == true)
+		if (pSoldier->inventory()[i].exists() == true)
 		{
-			usItem = pSoldier->inv[i].usItem;
+			usItem = pSoldier->inventory()[i].usItem;
 			pItem = &(Item[usItem]);
 
 			if ( (i == HANDPOS || i == SECONDHANDPOS) && (pItem->usItemClass & IC_ARMOUR || pItem->usItemClass & IC_FACE ))
@@ -11903,7 +11903,7 @@ UINT8 GetPercentTunnelVision( SOLDIERTYPE * pSoldier )
 	// Snap: check only attachments on a raised weapon!
 	if ( usingGunScope == true )
 	{
-		OBJECTTYPE *pObj = &(pSoldier->inv[HANDPOS]);
+		OBJECTTYPE *pObj = &(pSoldier->inventory()[HANDPOS]);
 		if (pObj->exists() == true) 
 		{
 			usItem = pObj->usItem;
@@ -11930,7 +11930,7 @@ UINT8 GetPercentTunnelVision( SOLDIERTYPE * pSoldier )
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inventory()[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
 						bonus_gun += Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].percenttunnelvision;
 				}
@@ -11954,7 +11954,7 @@ UINT8 GetPercentTunnelVision( SOLDIERTYPE * pSoldier )
 	// SANDRO - STOMP traits - Scouting tunnel vision reduction with binoculars and similar
 	if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->deployment().sectorZ() == 0 )
 	{
-		OBJECTTYPE *pObj = &( pSoldier->inv[HANDPOS]);
+		OBJECTTYPE *pObj = &( pSoldier->inventory()[HANDPOS]);
 		if (pObj->exists() == true) 
 		{
 			// we have no pointer to binoculars, so just check any misc items in hands which have some vision bonus
@@ -12000,16 +12000,16 @@ BOOLEAN HasThermalOptics( SOLDIERTYPE * pSoldier )
 	bool usingGunScope = WeaponReady(pSoldier);
 	for (int i = BODYPOSSTART; i < BODYPOSFINAL; i++)
 	{
-		if (pSoldier->inv[i].exists() == true) {
+		if (pSoldier->inventory()[i].exists() == true) {
 			if ( (i == HANDPOS || i == SECONDHANDPOS) &&
-				   (Item[pSoldier->inv[i].usItem].usItemClass & IC_ARMOUR || Item[pSoldier->inv[i].usItem].usItemClass & IC_FACE ))
+				   (Item[pSoldier->inventory()[i].usItem].usItemClass & IC_ARMOUR || Item[pSoldier->inventory()[i].usItem].usItemClass & IC_FACE ))
 			{
 				continue;
 			}
 
-			if (!IsWeapon(pSoldier->inv[i].usItem) || (IsWeapon(pSoldier->inv[i].usItem) && usingGunScope == true) )
+			if (!IsWeapon(pSoldier->inventory()[i].usItem) || (IsWeapon(pSoldier->inventory()[i].usItem) && usingGunScope == true) )
 			{
-				if (ItemIsThermalOptics(pSoldier->inv[i].usItem))
+				if (ItemIsThermalOptics(pSoldier->inventory()[i].usItem))
 				{
 					return TRUE;
 				}
@@ -12020,7 +12020,7 @@ BOOLEAN HasThermalOptics( SOLDIERTYPE * pSoldier )
 	// Snap: check only attachments on a raised weapon!
 	if ( usingGunScope == true )
 	{
-		OBJECTTYPE* pObj = &pSoldier->inv[HANDPOS];
+		OBJECTTYPE* pObj = &pSoldier->inventory()[HANDPOS];
 		if (pObj->exists() == true) {
 			for (attachmentList::iterator iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter) {
 				if (ItemIsThermalOptics(iter->usItem) && iter->exists() )
@@ -12037,14 +12037,14 @@ INT8 FindHearingAid( SOLDIERTYPE * pSoldier )
 {
 	for (INT8 i = BODYPOSSTART; i < BODYPOSFINAL; i++)
 	{
-		if (pSoldier->inv[i].exists() == true) {
+		if (pSoldier->inventory()[i].exists() == true) {
 			if ( (i == HANDPOS || i == SECONDHANDPOS) &&
-				   (Item[pSoldier->inv[i].usItem].usItemClass & IC_ARMOUR || Item[pSoldier->inv[i].usItem].usItemClass & IC_FACE ))
+				   (Item[pSoldier->inventory()[i].usItem].usItemClass & IC_ARMOUR || Item[pSoldier->inventory()[i].usItem].usItemClass & IC_FACE ))
 			{
 				continue;
 			}
 
-			if ( Item[pSoldier->inv[i].usItem].hearingrangebonus > 0 )
+			if ( Item[pSoldier->inventory()[i].usItem].hearingrangebonus > 0 )
 			{
 				return( i );
 			}
@@ -12059,14 +12059,14 @@ INT16 GetHearingRangeBonus( SOLDIERTYPE * pSoldier )
 
 	for (int i = BODYPOSSTART; i < BODYPOSFINAL; i++)
 	{
-		if (pSoldier->inv[i].exists() == true) {
+		if (pSoldier->inventory()[i].exists() == true) {
 			if ( (i == HANDPOS || i == SECONDHANDPOS) &&
-				   (Item[pSoldier->inv[i].usItem].usItemClass & IC_ARMOUR || Item[pSoldier->inv[i].usItem].usItemClass & IC_FACE ))
+				   (Item[pSoldier->inventory()[i].usItem].usItemClass & IC_ARMOUR || Item[pSoldier->inventory()[i].usItem].usItemClass & IC_FACE ))
 			{
 				continue;
 			}
 
-			bonus += BonusReduceMore( Item[pSoldier->inv[i].usItem].hearingrangebonus, pSoldier->inv[i][0]->data.objectStatus );
+			bonus += BonusReduceMore( Item[pSoldier->inventory()[i].usItem].hearingrangebonus, pSoldier->inventory()[i][0]->data.objectStatus );
 		}
 	}
 	return( bonus );
@@ -12113,8 +12113,8 @@ INT8 FindGasMask( SOLDIERTYPE * pSoldier )
 
 	for (bLoop = 0; bLoop < NUM_INV_SLOTS; bLoop++)//dnl ch40 041009
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if (ItemIsGasmask(pSoldier->inv[bLoop].usItem))
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if (ItemIsGasmask(pSoldier->inventory()[bLoop].usItem))
 			{
 				return( bLoop );
 			}
@@ -12366,11 +12366,11 @@ BOOLEAN EXPLOSIVE_GUN ( UINT16 x)
 
 INT8 FindRocketLauncherOrCannon( SOLDIERTYPE * pSoldier )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if (ItemIsRocketLauncher(pSoldier->inv[bLoop].usItem) || ItemIsCannon(pSoldier->inv[bLoop].usItem) )
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if (ItemIsRocketLauncher(pSoldier->inventory()[bLoop].usItem) || ItemIsCannon(pSoldier->inventory()[bLoop].usItem) )
 			{
 				return( bLoop );
 			}
@@ -12381,11 +12381,11 @@ INT8 FindRocketLauncherOrCannon( SOLDIERTYPE * pSoldier )
 
 INT8 FindCannon( SOLDIERTYPE * pSoldier )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if (ItemIsCannon(pSoldier->inv[bLoop].usItem))
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if (ItemIsCannon(pSoldier->inventory()[bLoop].usItem))
 			{
 				return( bLoop );
 			}
@@ -12401,13 +12401,13 @@ INT8 FindUsableCrowbar( SOLDIERTYPE * pSoldier )
 	FoundCrowbar = NO_SLOT;
 	bonus = -101;
 
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if (ItemIsCrowbar(pSoldier->inv[bLoop].usItem) && pSoldier->inv[bLoop][0]->data.objectStatus >= USABLE && Item[pSoldier->inv[bLoop].usItem].CrowbarModifier > bonus)
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if (ItemIsCrowbar(pSoldier->inventory()[bLoop].usItem) && pSoldier->inventory()[bLoop][0]->data.objectStatus >= USABLE && Item[pSoldier->inventory()[bLoop].usItem].CrowbarModifier > bonus)
 			{
-				bonus = Item[pSoldier->inv[bLoop].usItem].CrowbarModifier;
+				bonus = Item[pSoldier->inventory()[bLoop].usItem].CrowbarModifier;
 				FoundCrowbar = bLoop;
 			}
 		}
@@ -12430,11 +12430,11 @@ OBJECTTYPE* FindAttachedBatteries( OBJECTTYPE * pObj )
 
 INT8 FindToolkit( SOLDIERTYPE * pSoldier )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if (ItemIsToolkit(pSoldier->inv[bLoop].usItem))
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if (ItemIsToolkit(pSoldier->inventory()[bLoop].usItem))
 			{
 				return( bLoop );
 			}
@@ -12445,11 +12445,11 @@ INT8 FindToolkit( SOLDIERTYPE * pSoldier )
 
 INT8 FindMedKit( SOLDIERTYPE * pSoldier )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if (ItemIsMedicalKit(pSoldier->inv[bLoop].usItem))
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if (ItemIsMedicalKit(pSoldier->inventory()[bLoop].usItem))
 			{
 				return( bLoop );
 			}
@@ -12460,11 +12460,11 @@ INT8 FindMedKit( SOLDIERTYPE * pSoldier )
 
 INT8 FindFirstAidKit( SOLDIERTYPE * pSoldier )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if (ItemIsFirstAidKit(pSoldier->inv[bLoop].usItem))
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if (ItemIsFirstAidKit(pSoldier->inventory()[bLoop].usItem))
 			{
 				return( bLoop );
 			}
@@ -12475,11 +12475,11 @@ INT8 FindFirstAidKit( SOLDIERTYPE * pSoldier )
 
 INT8 FindCamoKit( SOLDIERTYPE * pSoldier )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if (ItemIsCamoKit(pSoldier->inv[bLoop].usItem))
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if (ItemIsCamoKit(pSoldier->inventory()[bLoop].usItem))
 			{
 				return( bLoop );
 			}
@@ -12495,13 +12495,13 @@ INT8 FindDisarmKit( SOLDIERTYPE * pSoldier )
 	FoundKit = NO_SLOT;
 	bonus = 0;
 
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if ( ( ( Item[pSoldier->inv[bLoop].usItem].DisarmModifier * pSoldier->inv[bLoop][0]->data.objectStatus ) / 100 ) > bonus )
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if ( ( ( Item[pSoldier->inventory()[bLoop].usItem].DisarmModifier * pSoldier->inventory()[bLoop][0]->data.objectStatus ) / 100 ) > bonus )
 			{
-				bonus = Item[pSoldier->inv[bLoop].usItem].DisarmModifier * pSoldier->inv[bLoop][0]->data.objectStatus / 100;
+				bonus = Item[pSoldier->inventory()[bLoop].usItem].DisarmModifier * pSoldier->inventory()[bLoop][0]->data.objectStatus / 100;
 				FoundKit = bLoop;
 			}
 		}
@@ -12516,19 +12516,19 @@ INT8 FindLocksmithKit( SOLDIERTYPE * pSoldier )
 	FoundKit = NO_SLOT;
 	bonus = -101;
 
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true)
+		if (pSoldier->inventory()[bLoop].exists() == true)
 		{
-			if (ItemIsLocksmithKit(pSoldier->inv[bLoop].usItem))
+			if (ItemIsLocksmithKit(pSoldier->inventory()[bLoop].usItem))
 			{
 				//JMich_SkillModifiers: If the locksmith kit has a bonus, reduce it based on the status, so we use the best bonus.
-				if (Item[pSoldier->inv[bLoop].usItem].LockPickModifier > 0 )
+				if (Item[pSoldier->inventory()[bLoop].usItem].LockPickModifier > 0 )
 				{	
-					if ( ( Item[pSoldier->inv[bLoop].usItem].LockPickModifier * pSoldier->inv[bLoop][0]->data.objectStatus / 100 ) > bonus  ) 
+					if ( ( Item[pSoldier->inventory()[bLoop].usItem].LockPickModifier * pSoldier->inventory()[bLoop][0]->data.objectStatus / 100 ) > bonus  )
 					{
-						bonus = ( Item[pSoldier->inv[bLoop].usItem].LockPickModifier * pSoldier->inv[bLoop][0]->data.objectStatus / 100 );
+						bonus = ( Item[pSoldier->inventory()[bLoop].usItem].LockPickModifier * pSoldier->inventory()[bLoop][0]->data.objectStatus / 100 );
 						FoundKit = bLoop;
 					}
 
@@ -12536,9 +12536,9 @@ INT8 FindLocksmithKit( SOLDIERTYPE * pSoldier )
 				//JMich_SkillModifiers: If on the other hand the locksmith is a shoddy one, keep that penalty regardless of status.
 				else
 				{
-					if ( Item[pSoldier->inv[bLoop].usItem].LockPickModifier > bonus  ) 
+					if ( Item[pSoldier->inventory()[bLoop].usItem].LockPickModifier > bonus  )
 					{
-						bonus = Item[pSoldier->inv[bLoop].usItem].LockPickModifier;
+						bonus = Item[pSoldier->inventory()[bLoop].usItem].LockPickModifier;
 						FoundKit = bLoop;
 					}
 				}
@@ -12553,7 +12553,7 @@ INT8 FindWalkman(SOLDIERTYPE * pSoldier)
 	// sevenfm: walkman only works from head slot
 	for (INT8 bLoop = HEAD1POS; bLoop <= HEAD2POS; bLoop++)
 	{
-		if (pSoldier->inv[bLoop].exists() && ItemIsWalkman(pSoldier->inv[bLoop].usItem))
+		if (pSoldier->inventory()[bLoop].exists() && ItemIsWalkman(pSoldier->inventory()[bLoop].usItem))
 		{
 			return(bLoop);
 		}
@@ -12563,12 +12563,12 @@ INT8 FindWalkman(SOLDIERTYPE * pSoldier)
 
 INT8 FindTrigger( SOLDIERTYPE * pSoldier )
 {
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true)
+		if (pSoldier->inventory()[bLoop].exists() == true)
 		{
-			if (ItemIsRemoteTrigger(pSoldier->inv[bLoop].usItem))
+			if (ItemIsRemoteTrigger(pSoldier->inventory()[bLoop].usItem))
 			{
 				return( bLoop );
 			}
@@ -12581,8 +12581,8 @@ INT8 FindRemoteControl( SOLDIERTYPE * pSoldier )
 {
 	for (INT8 bLoop = BODYPOSSTART; bLoop < BODYPOSFINAL; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() == true) {
-			if (ItemIsRobotRemote(pSoldier->inv[bLoop].usItem))
+		if (pSoldier->inventory()[bLoop].exists() == true) {
+			if (ItemIsRobotRemote(pSoldier->inventory()[bLoop].usItem))
 			{
 				return( bLoop );
 			}
@@ -12703,34 +12703,34 @@ INT16 GetWornCamo( SOLDIERTYPE * pSoldier )
 
 	if (AM_A_ROBOT(pSoldier))
 	{
-		if (ItemProvidesRobotCamo(pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem))
+		if (ItemProvidesRobotCamo(pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem))
 		{
-			ttl += GetCamoBonus(&pSoldier->inv[ROBOT_CHASSIS_SLOT]);
+			ttl += GetCamoBonus(&pSoldier->inventory()[ROBOT_CHASSIS_SLOT]);
 		}
 	}
 	else
 	{
 		for (bLoop = HELMETPOS; bLoop <= LEGPOS; ++bLoop)
 		{
-			if ( pSoldier->inv[bLoop].exists() )
+			if ( pSoldier->inventory()[bLoop].exists() )
 			{
-				ttl += GetCamoBonus(&pSoldier->inv[bLoop]);
+				ttl += GetCamoBonus(&pSoldier->inventory()[bLoop]);
 				if ( UsingNewInventorySystem() )
  {
-					if ( bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists() )
+					if ( bLoop == VESTPOS && pSoldier->inventory()[VESTPOCKPOS].exists() )
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
-						ttl -= (INT16)( ( 1.0 - gItemSettings.fCamoLBEoverVestModifier ) * Item[ pSoldier->inv[bLoop].usItem ].camobonus );
+						ttl -= (INT16)( ( 1.0 - gItemSettings.fCamoLBEoverVestModifier ) * Item[ pSoldier->inventory()[bLoop].usItem ].camobonus );
 					}
 					else if ( bLoop == LEGPOS )
 					{
 						FLOAT fLegPenalty = 0;
 						// depending on how many leg LBE we use the camo effect of the armor pants is higher or lower
-						fLegPenalty += pSoldier->inv[LTHIGHPOCKPOS].exists();
-						fLegPenalty += pSoldier->inv[RTHIGHPOCKPOS].exists();
+						fLegPenalty += pSoldier->inventory()[LTHIGHPOCKPOS].exists();
+						fLegPenalty += pSoldier->inventory()[RTHIGHPOCKPOS].exists();
 						// Using thigh rigs. Only apply partial bonus from armor pants.
 						if ( fLegPenalty > 0 )
-							ttl -= (INT16)( ( 1.0 - gItemSettings.fCamoLBEoverPantsModifier ) * Item[ pSoldier->inv[bLoop].usItem ].camobonus * fLegPenalty / 2 );
+							ttl -= (INT16)( ( 1.0 - gItemSettings.fCamoLBEoverPantsModifier ) * Item[ pSoldier->inventory()[bLoop].usItem ].camobonus * fLegPenalty / 2 );
 					}
 				}
 			}
@@ -12741,17 +12741,17 @@ INT16 GetWornCamo( SOLDIERTYPE * pSoldier )
 		{
 			for (bLoop = VESTPOCKPOS; bLoop <= BPACKPOCKPOS; ++bLoop)
 			{
-				if ( pSoldier->inv[bLoop].exists() == true )
-					ttl += GetCamoBonus(&pSoldier->inv[bLoop]);
+				if ( pSoldier->inventory()[bLoop].exists() == true )
+					ttl += GetCamoBonus(&pSoldier->inventory()[bLoop]);
 			}
 
 			//tais: guns can be camouflaged, this will make gun camo have effect when in main/second hand or on gunsling, did a check for guns and nothing else, hope that's enough.
-			if (pSoldier->inv[HANDPOS].exists() == true && Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetCamoBonus(&pSoldier->inv[HANDPOS]);
-			if (pSoldier->inv[SECONDHANDPOS].exists() == true && Item[pSoldier->inv[SECONDHANDPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetCamoBonus(&pSoldier->inv[SECONDHANDPOS]);
-			if (pSoldier->inv[GUNSLINGPOCKPOS].exists() == true && Item[pSoldier->inv[GUNSLINGPOCKPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetCamoBonus(&pSoldier->inv[GUNSLINGPOCKPOS]);
+			if (pSoldier->inventory()[HANDPOS].exists() == true && Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetCamoBonus(&pSoldier->inventory()[HANDPOS]);
+			if (pSoldier->inventory()[SECONDHANDPOS].exists() == true && Item[pSoldier->inventory()[SECONDHANDPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetCamoBonus(&pSoldier->inventory()[SECONDHANDPOS]);
+			if (pSoldier->inventory()[GUNSLINGPOCKPOS].exists() == true && Item[pSoldier->inventory()[GUNSLINGPOCKPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetCamoBonus(&pSoldier->inventory()[GUNSLINGPOCKPOS]);
 		}
 	}
 
@@ -12764,34 +12764,34 @@ INT16 GetWornUrbanCamo( SOLDIERTYPE * pSoldier )
 
 	if (AM_A_ROBOT(pSoldier))
 	{
-		if (ItemProvidesRobotCamo(pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem))
+		if (ItemProvidesRobotCamo(pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem))
 		{
-			ttl += GetUrbanCamoBonus(&pSoldier->inv[ROBOT_CHASSIS_SLOT]);
+			ttl += GetUrbanCamoBonus(&pSoldier->inventory()[ROBOT_CHASSIS_SLOT]);
 		}
 	}
 	else
 	{
 		for (bLoop = HELMETPOS; bLoop <= LEGPOS; ++bLoop)
 		{
-			if (pSoldier->inv[bLoop].exists())
+			if (pSoldier->inventory()[bLoop].exists())
 			{
-				ttl += GetUrbanCamoBonus(&pSoldier->inv[bLoop]);
+				ttl += GetUrbanCamoBonus(&pSoldier->inventory()[bLoop]);
 				if (UsingNewInventorySystem())
  {
-					if (bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists())
+					if (bLoop == VESTPOS && pSoldier->inventory()[VESTPOCKPOS].exists())
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
-						ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverVestModifier) * Item[pSoldier->inv[bLoop].usItem].urbanCamobonus);
+						ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverVestModifier) * Item[pSoldier->inventory()[bLoop].usItem].urbanCamobonus);
 					}
 					else if (bLoop == LEGPOS)
 					{
 						FLOAT fLegPenalty = 0;
 						// depending on how many leg LBE we use the camo effect of the armor pants is higher or lower
-						fLegPenalty += pSoldier->inv[LTHIGHPOCKPOS].exists();
-						fLegPenalty += pSoldier->inv[RTHIGHPOCKPOS].exists();
+						fLegPenalty += pSoldier->inventory()[LTHIGHPOCKPOS].exists();
+						fLegPenalty += pSoldier->inventory()[RTHIGHPOCKPOS].exists();
 						// Using thigh rigs. Only apply partial bonus from armor pants.
 						if (fLegPenalty > 0)
-							ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverPantsModifier) * Item[pSoldier->inv[bLoop].usItem].urbanCamobonus * fLegPenalty / 2);
+							ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverPantsModifier) * Item[pSoldier->inventory()[bLoop].usItem].urbanCamobonus * fLegPenalty / 2);
 					}
 				}
 			}
@@ -12802,17 +12802,17 @@ INT16 GetWornUrbanCamo( SOLDIERTYPE * pSoldier )
 		{
 			for (bLoop = VESTPOCKPOS; bLoop <= BPACKPOCKPOS; ++bLoop)
 			{
-				if (pSoldier->inv[bLoop].exists() == true)
-					ttl += GetUrbanCamoBonus(&pSoldier->inv[bLoop]);
+				if (pSoldier->inventory()[bLoop].exists() == true)
+					ttl += GetUrbanCamoBonus(&pSoldier->inventory()[bLoop]);
 			}
 
 			//tais: guns can be camouflaged, this will make gun camo have effect when in main/second hand or on gunsling, did a check for guns and nothing else, hope that's enough.
-			if (pSoldier->inv[HANDPOS].exists() == true && Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetUrbanCamoBonus(&pSoldier->inv[HANDPOS]);
-			if (pSoldier->inv[SECONDHANDPOS].exists() == true && Item[pSoldier->inv[SECONDHANDPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetUrbanCamoBonus(&pSoldier->inv[SECONDHANDPOS]);
-			if (pSoldier->inv[GUNSLINGPOCKPOS].exists() == true && Item[pSoldier->inv[GUNSLINGPOCKPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetUrbanCamoBonus(&pSoldier->inv[GUNSLINGPOCKPOS]);
+			if (pSoldier->inventory()[HANDPOS].exists() == true && Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetUrbanCamoBonus(&pSoldier->inventory()[HANDPOS]);
+			if (pSoldier->inventory()[SECONDHANDPOS].exists() == true && Item[pSoldier->inventory()[SECONDHANDPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetUrbanCamoBonus(&pSoldier->inventory()[SECONDHANDPOS]);
+			if (pSoldier->inventory()[GUNSLINGPOCKPOS].exists() == true && Item[pSoldier->inventory()[GUNSLINGPOCKPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetUrbanCamoBonus(&pSoldier->inventory()[GUNSLINGPOCKPOS]);
 		}
 	}
 
@@ -12825,34 +12825,34 @@ INT16 GetWornDesertCamo( SOLDIERTYPE * pSoldier )
 
 	if (AM_A_ROBOT(pSoldier))
 	{
-		if (ItemProvidesRobotCamo(pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem))
+		if (ItemProvidesRobotCamo(pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem))
 		{
-			ttl += GetDesertCamoBonus(&pSoldier->inv[ROBOT_CHASSIS_SLOT]);
+			ttl += GetDesertCamoBonus(&pSoldier->inventory()[ROBOT_CHASSIS_SLOT]);
 		}
 	}
 	else
 	{
 		for (bLoop = HELMETPOS; bLoop <= LEGPOS; bLoop++)
 		{
-			if (pSoldier->inv[bLoop].exists() == true)
+			if (pSoldier->inventory()[bLoop].exists() == true)
 			{
-				ttl += GetDesertCamoBonus(&pSoldier->inv[bLoop]);
+				ttl += GetDesertCamoBonus(&pSoldier->inventory()[bLoop]);
 				if (UsingNewInventorySystem())
  {
-					if (bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists())
+					if (bLoop == VESTPOS && pSoldier->inventory()[VESTPOCKPOS].exists())
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
-						ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverVestModifier) * Item[pSoldier->inv[bLoop].usItem].desertCamobonus);
+						ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverVestModifier) * Item[pSoldier->inventory()[bLoop].usItem].desertCamobonus);
 					}
 					else if (bLoop == LEGPOS)
 					{
 						FLOAT fLegPenalty = 0;
 						// depending on how many leg LBE we use the camo effect of the armor pants is higher or lower
-						fLegPenalty += pSoldier->inv[LTHIGHPOCKPOS].exists();
-						fLegPenalty += pSoldier->inv[RTHIGHPOCKPOS].exists();
+						fLegPenalty += pSoldier->inventory()[LTHIGHPOCKPOS].exists();
+						fLegPenalty += pSoldier->inventory()[RTHIGHPOCKPOS].exists();
 						// Using thigh rigs. Only apply partial bonus from armor pants.
 						if (fLegPenalty > 0)
-							ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverPantsModifier) * Item[pSoldier->inv[bLoop].usItem].desertCamobonus * fLegPenalty / 2);
+							ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverPantsModifier) * Item[pSoldier->inventory()[bLoop].usItem].desertCamobonus * fLegPenalty / 2);
 					}
 				}
 			}
@@ -12863,17 +12863,17 @@ INT16 GetWornDesertCamo( SOLDIERTYPE * pSoldier )
 		{
 			for (bLoop = VESTPOCKPOS; bLoop <= BPACKPOCKPOS; bLoop++)
 			{
-				if (pSoldier->inv[bLoop].exists() == true)
-					ttl += GetDesertCamoBonus(&pSoldier->inv[bLoop]);
+				if (pSoldier->inventory()[bLoop].exists() == true)
+					ttl += GetDesertCamoBonus(&pSoldier->inventory()[bLoop]);
 			}
 
 			//tais: guns can be camouflaged, this will make gun camo have effect when in main/second hand or on gunsling, did a check for guns and nothing else, hope that's enough.
-			if (pSoldier->inv[HANDPOS].exists() == true && Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetDesertCamoBonus(&pSoldier->inv[HANDPOS]);
-			if (pSoldier->inv[SECONDHANDPOS].exists() == true && Item[pSoldier->inv[SECONDHANDPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetDesertCamoBonus(&pSoldier->inv[SECONDHANDPOS]);
-			if (pSoldier->inv[GUNSLINGPOCKPOS].exists() == true && Item[pSoldier->inv[GUNSLINGPOCKPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetDesertCamoBonus(&pSoldier->inv[GUNSLINGPOCKPOS]);
+			if (pSoldier->inventory()[HANDPOS].exists() == true && Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetDesertCamoBonus(&pSoldier->inventory()[HANDPOS]);
+			if (pSoldier->inventory()[SECONDHANDPOS].exists() == true && Item[pSoldier->inventory()[SECONDHANDPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetDesertCamoBonus(&pSoldier->inventory()[SECONDHANDPOS]);
+			if (pSoldier->inventory()[GUNSLINGPOCKPOS].exists() == true && Item[pSoldier->inventory()[GUNSLINGPOCKPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetDesertCamoBonus(&pSoldier->inventory()[GUNSLINGPOCKPOS]);
 		}
 	}
 	return __max(0, __min( ttl, ( 100 - gGameExternalOptions.bCamoKitArea ) ) );
@@ -12885,34 +12885,34 @@ INT16 GetWornSnowCamo( SOLDIERTYPE * pSoldier )
 
 	if (AM_A_ROBOT(pSoldier))
 	{
-		if (ItemProvidesRobotCamo(pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem))
+		if (ItemProvidesRobotCamo(pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem))
 		{
-			ttl += GetSnowCamoBonus(&pSoldier->inv[ROBOT_CHASSIS_SLOT]);
+			ttl += GetSnowCamoBonus(&pSoldier->inventory()[ROBOT_CHASSIS_SLOT]);
 		}
 	}
 	else
 	{
 		for (bLoop = HELMETPOS; bLoop <= LEGPOS; ++bLoop)
 		{
-			if (pSoldier->inv[bLoop].exists() == true)
+			if (pSoldier->inventory()[bLoop].exists() == true)
 			{
-				ttl += GetSnowCamoBonus(&pSoldier->inv[bLoop]);
+				ttl += GetSnowCamoBonus(&pSoldier->inventory()[bLoop]);
 				if (UsingNewInventorySystem())
  {
-					if (bLoop == VESTPOS && pSoldier->inv[VESTPOCKPOS].exists())
+					if (bLoop == VESTPOS && pSoldier->inventory()[VESTPOCKPOS].exists())
 					{
 						// silversurfer: Using LBE vest. Only apply partial bonus from armor vest.
-						ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverVestModifier) * Item[pSoldier->inv[bLoop].usItem].snowCamobonus);
+						ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverVestModifier) * Item[pSoldier->inventory()[bLoop].usItem].snowCamobonus);
 					}
 					else if (bLoop == LEGPOS)
 					{
 						FLOAT fLegPenalty = 0;
 						// depending on how many leg LBE we use the camo effect of the armor pants is higher or lower
-						fLegPenalty += pSoldier->inv[LTHIGHPOCKPOS].exists();
-						fLegPenalty += pSoldier->inv[RTHIGHPOCKPOS].exists();
+						fLegPenalty += pSoldier->inventory()[LTHIGHPOCKPOS].exists();
+						fLegPenalty += pSoldier->inventory()[RTHIGHPOCKPOS].exists();
 						// Using thigh rigs. Only apply partial bonus from armor pants.
 						if (fLegPenalty > 0)
-							ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverPantsModifier) * Item[pSoldier->inv[bLoop].usItem].snowCamobonus * fLegPenalty / 2);
+							ttl -= (INT16)((1.0 - gItemSettings.fCamoLBEoverPantsModifier) * Item[pSoldier->inventory()[bLoop].usItem].snowCamobonus * fLegPenalty / 2);
 					}
 				}
 			}
@@ -12923,17 +12923,17 @@ INT16 GetWornSnowCamo( SOLDIERTYPE * pSoldier )
 		{
 			for (bLoop = VESTPOCKPOS; bLoop <= BPACKPOCKPOS; bLoop++)
 			{
-				if (pSoldier->inv[bLoop].exists() == true)
-					ttl += GetSnowCamoBonus(&pSoldier->inv[bLoop]);
+				if (pSoldier->inventory()[bLoop].exists() == true)
+					ttl += GetSnowCamoBonus(&pSoldier->inventory()[bLoop]);
 			}
 
 			//tais: guns can be camouflaged, this will make gun camo have effect when in main/second hand or on gunsling, did a check for guns and nothing else, hope that's enough.
-			if (pSoldier->inv[HANDPOS].exists() == true && Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetSnowCamoBonus(&pSoldier->inv[HANDPOS]);
-			if (pSoldier->inv[SECONDHANDPOS].exists() == true && Item[pSoldier->inv[SECONDHANDPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetSnowCamoBonus(&pSoldier->inv[SECONDHANDPOS]);
-			if (pSoldier->inv[GUNSLINGPOCKPOS].exists() == true && Item[pSoldier->inv[GUNSLINGPOCKPOS].usItem].usItemClass & IC_WEAPON)
-				ttl += GetSnowCamoBonus(&pSoldier->inv[GUNSLINGPOCKPOS]);
+			if (pSoldier->inventory()[HANDPOS].exists() == true && Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetSnowCamoBonus(&pSoldier->inventory()[HANDPOS]);
+			if (pSoldier->inventory()[SECONDHANDPOS].exists() == true && Item[pSoldier->inventory()[SECONDHANDPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetSnowCamoBonus(&pSoldier->inventory()[SECONDHANDPOS]);
+			if (pSoldier->inventory()[GUNSLINGPOCKPOS].exists() == true && Item[pSoldier->inventory()[GUNSLINGPOCKPOS].usItem].usItemClass & IC_WEAPON)
+				ttl += GetSnowCamoBonus(&pSoldier->inventory()[GUNSLINGPOCKPOS]);
 		}
 	}
 	return __max(0, __min( ttl, ( 100 - gGameExternalOptions.bCamoKitArea ) ) );
@@ -13069,18 +13069,18 @@ OBJECTTYPE* FindSunGogglesInInv( SOLDIERTYPE * pSoldier, INT8 * bSlot, BOOLEAN *
 	// silversurfer: use the sum of day vision bonus and bright light bonus because both help at daytime
 	// but make sure that day vision bonus is > 0 because we are not always looking at bright lights
 	for (bLoop = (searchAllInventory ? HELMETPOS : HANDPOS); bLoop < NUM_INV_SLOTS; bLoop++) {
-		if ( pSoldier->inv[bLoop].exists() == true ) {
-			if ( Item[pSoldier->inv[bLoop].usItem].dayvisionrangebonus > 0 && 
-					( Item[pSoldier->inv[bLoop].usItem].dayvisionrangebonus + Item[pSoldier->inv[bLoop].usItem].brightlightvisionrangebonus ) > bonusToBeat && 
-					  Item[pSoldier->inv[bLoop].usItem].usItemClass == IC_FACE ) {
-				pGoggles = &(pSoldier->inv[bLoop]);
+		if ( pSoldier->inventory()[bLoop].exists() == true ) {
+			if ( Item[pSoldier->inventory()[bLoop].usItem].dayvisionrangebonus > 0 &&
+					( Item[pSoldier->inventory()[bLoop].usItem].dayvisionrangebonus + Item[pSoldier->inventory()[bLoop].usItem].brightlightvisionrangebonus ) > bonusToBeat &&
+					  Item[pSoldier->inventory()[bLoop].usItem].usItemClass == IC_FACE ) {
+				pGoggles = &(pSoldier->inventory()[bLoop]);
 				*bSlot = bLoop;
 				*isAttach = FALSE;
-				bonusToBeat = Item[pSoldier->inv[bLoop].usItem].dayvisionrangebonus + Item[pSoldier->inv[bLoop].usItem].brightlightvisionrangebonus;
+				bonusToBeat = Item[pSoldier->inventory()[bLoop].usItem].dayvisionrangebonus + Item[pSoldier->inventory()[bLoop].usItem].brightlightvisionrangebonus;
 			}
 			if (searchAllInventory) {
-				for (UINT8 loop = 0; loop < pSoldier->inv[bLoop].ubNumberOfObjects; loop ++){
-					for (attachmentList::iterator iter = pSoldier->inv[bLoop][loop]->attachments.begin(); iter != pSoldier->inv[bLoop][loop]->attachments.end(); ++iter) {
+				for (UINT8 loop = 0; loop < pSoldier->inventory()[bLoop].ubNumberOfObjects; loop ++){
+					for (attachmentList::iterator iter = pSoldier->inventory()[bLoop][loop]->attachments.begin(); iter != pSoldier->inventory()[bLoop][loop]->attachments.end(); ++iter) {
 						if ( iter->exists() && Item[ iter->usItem ].dayvisionrangebonus > 0 &&
 							( Item[ iter->usItem ].dayvisionrangebonus + Item[ iter->usItem ].brightlightvisionrangebonus ) > bonusToBeat &&
 							   Item[ iter->usItem ].usItemClass == IC_FACE ) {
@@ -13107,16 +13107,16 @@ OBJECTTYPE* FindNightGogglesInInv( SOLDIERTYPE * pSoldier, INT8 * bSlot, BOOLEAN
 	if ( pSoldier->deployment().sectorZ() == 0 )
 	{
 		for (bLoop = (searchAllInventory ? HELMETPOS : HANDPOS); bLoop < NUM_INV_SLOTS; bLoop++) {
-			if ( pSoldier->inv[bLoop].exists() == true ) {
-				if (Item[pSoldier->inv[bLoop].usItem].nightvisionrangebonus > bonusToBeat && Item[pSoldier->inv[bLoop].usItem].usItemClass == IC_FACE ) {
-					pGoggles = &(pSoldier->inv[bLoop]);
+			if ( pSoldier->inventory()[bLoop].exists() == true ) {
+				if (Item[pSoldier->inventory()[bLoop].usItem].nightvisionrangebonus > bonusToBeat && Item[pSoldier->inventory()[bLoop].usItem].usItemClass == IC_FACE ) {
+					pGoggles = &(pSoldier->inventory()[bLoop]);
 					*bSlot = bLoop;
 					*isAttach = FALSE;
-					bonusToBeat = Item[pSoldier->inv[bLoop].usItem].nightvisionrangebonus;
+					bonusToBeat = Item[pSoldier->inventory()[bLoop].usItem].nightvisionrangebonus;
 				}
 				if (searchAllInventory) {
-					for (UINT8 loop = 0; loop < pSoldier->inv[bLoop].ubNumberOfObjects; loop ++){
-						for (attachmentList::iterator iter = pSoldier->inv[bLoop][loop]->attachments.begin(); iter != pSoldier->inv[bLoop][loop]->attachments.end(); ++iter) {
+					for (UINT8 loop = 0; loop < pSoldier->inventory()[bLoop].ubNumberOfObjects; loop ++){
+						for (attachmentList::iterator iter = pSoldier->inventory()[bLoop][loop]->attachments.begin(); iter != pSoldier->inventory()[bLoop][loop]->attachments.end(); ++iter) {
 							if ( iter->exists() && Item[ iter->usItem ].nightvisionrangebonus > bonusToBeat && Item[ iter->usItem ].usItemClass == IC_FACE ) {
 								pGoggles = &(*iter);
 								*bSlot = bLoop;
@@ -13133,16 +13133,16 @@ OBJECTTYPE* FindNightGogglesInInv( SOLDIERTYPE * pSoldier, INT8 * bSlot, BOOLEAN
 	else
 	{
 		for (bLoop = (searchAllInventory ? HELMETPOS : HANDPOS); bLoop < NUM_INV_SLOTS; bLoop++) {
-			if ( pSoldier->inv[bLoop].exists() == true ) {
-				if (Item[pSoldier->inv[bLoop].usItem].cavevisionrangebonus > bonusToBeat && Item[pSoldier->inv[bLoop].usItem].usItemClass == IC_FACE ) {
-					pGoggles = &(pSoldier->inv[bLoop]);
+			if ( pSoldier->inventory()[bLoop].exists() == true ) {
+				if (Item[pSoldier->inventory()[bLoop].usItem].cavevisionrangebonus > bonusToBeat && Item[pSoldier->inventory()[bLoop].usItem].usItemClass == IC_FACE ) {
+					pGoggles = &(pSoldier->inventory()[bLoop]);
 					*bSlot = bLoop;
 					*isAttach = FALSE;
-					bonusToBeat = Item[pSoldier->inv[bLoop].usItem].cavevisionrangebonus;
+					bonusToBeat = Item[pSoldier->inventory()[bLoop].usItem].cavevisionrangebonus;
 				}
 				if (searchAllInventory) {
-					for (UINT8 loop = 0; loop < pSoldier->inv[bLoop].ubNumberOfObjects; loop ++){
-						for (attachmentList::iterator iter = pSoldier->inv[bLoop][loop]->attachments.begin(); iter != pSoldier->inv[bLoop][loop]->attachments.end(); ++iter) {
+					for (UINT8 loop = 0; loop < pSoldier->inventory()[bLoop].ubNumberOfObjects; loop ++){
+						for (attachmentList::iterator iter = pSoldier->inventory()[bLoop][loop]->attachments.begin(); iter != pSoldier->inventory()[bLoop][loop]->attachments.end(); ++iter) {
 							if ( Item[ iter->usItem ].cavevisionrangebonus > bonusToBeat && Item[ iter->usItem ].usItemClass == IC_FACE && iter->exists() ) {
 								pGoggles = &(*iter);
 								*bSlot = bLoop;
@@ -13191,7 +13191,7 @@ INT16 GetMinRangeForAimBonus( SOLDIERTYPE* pSoldier, OBJECTTYPE * pObj )
 			GetScopeLists(pSoldier, pObj, ObjList);
 		
 			// only use scope mode if gun is in hand, otherwise an error might occur!
-			if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+			if ( (&pSoldier->inventory()[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 				bonus = Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].minrangeforaimbonus;
 		}
 		else
@@ -13227,7 +13227,7 @@ FLOAT GetScopeMagnificationFactor( SOLDIERTYPE *pSoldier, OBJECTTYPE * pObj, FLO
 		GetScopeLists(pSoldier, pObj, ObjList);
 		
 		// only use scope mode if gun is in hand, otherwise an error might occur!
-		if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+		if ( (&pSoldier->inventory()[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 			// now apply the bonus from the scope we use
 			BestFactor = Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].scopemagfactor;
 
@@ -13258,9 +13258,9 @@ FLOAT GetBestScopeMagnificationFactor( SOLDIERTYPE *pSoldier, OBJECTTYPE * pObj,
 {
 	// Flugente: if this weapon is an underbarrel weapon, use the 'carrier' weapon instead
 	OBJECTTYPE* pObjUsed = pObj;
-	if ( pObj == pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] ) )
+	if ( pObj == pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] ) )
 	{
-		pObjUsed = &pSoldier->inv[pSoldier->attackSelection().hand()];
+		pObjUsed = &pSoldier->inventory()[pSoldier->attackSelection().hand()];
 	}
 		
 	FLOAT BestFactor = 1.0;
@@ -13287,7 +13287,7 @@ FLOAT GetBestScopeMagnificationFactor( SOLDIERTYPE *pSoldier, OBJECTTYPE * pObj,
 		GetScopeLists(pSoldier, pObjUsed, ObjList);
 		
 		// only use scope mode if gun is in hand, otherwise an error might occur!
-		if ( (&pSoldier->inv[HANDPOS]) == pObjUsed  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+		if ( (&pSoldier->inventory()[HANDPOS]) == pObjUsed  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 			// now apply the bonus from the scope we use
 			CurrentFactor =  max(1.0f, Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].scopemagfactor);
 		else
@@ -13472,7 +13472,7 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	BOOLEAN fTwoHanded, fUsingBipod;
 
 	UINT32 uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
-	rangeMultiplier = GetScopeRangeMultiplier(pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()], (FLOAT)uiRange);
+	rangeMultiplier = GetScopeRangeMultiplier(pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()], (FLOAT)uiRange);
 
 	// HEADROCK HAM 4: This function has been radically altered AGAIN for the NCTH project.
 	// Weapons can now have a tag that defines how many aim clicks they should have. Under the NCTH
@@ -13482,11 +13482,11 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	// out how much it should have using its class and range.
 
 	// Read from item
-	aimLevels = Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubAimLevels;
-	fTwoHanded = ItemIsTwoHanded(pSoldier->inv[pSoldier->attackSelection().hand()].usItem);
-	weaponRange = ( Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].usRange * GetPercentRangeBonus(&pSoldier->inv[pSoldier->attackSelection().hand()]) ) / 10000;
-	weaponRange += GetRangeBonus(&pSoldier->inv[pSoldier->attackSelection().hand()]);
-	weaponType = Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubWeaponType;
+	aimLevels = Weapon[pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem].ubAimLevels;
+	fTwoHanded = ItemIsTwoHanded(pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem);
+	weaponRange = ( Weapon[pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem].usRange * GetPercentRangeBonus(&pSoldier->inventory()[pSoldier->attackSelection().hand()]) ) / 10000;
+	weaponRange += GetRangeBonus(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
+	weaponType = Weapon[pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem].ubWeaponType;
 	fUsingBipod = FALSE;
 
 	// SANDRO - throwing knives are a special case, allow 2 aiming clicks for them
@@ -13494,7 +13494,7 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	{
 		aimLevels = 2;
 
-		if ( Item[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].usItemClass == IC_THROWING_KNIFE )
+		if ( Item[pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem].usItemClass == IC_THROWING_KNIFE )
 		{
 			// minus the bonus for Throwing trait
 			if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, THROWING_NT ) )
@@ -13551,12 +13551,12 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 		if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
 			stance = ANIM_PRONE;
 
-		INT32 moda = GetObjectModifier( pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()], stance, ITEMMODIFIER_AIMLEVELS );
-		INT32 modb = GetObjectModifier( pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_AIMLEVELS );
+		INT32 moda = GetObjectModifier( pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()], stance, ITEMMODIFIER_AIMLEVELS );
+		INT32 modb = GetObjectModifier( pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_AIMLEVELS );
 		aimLevels += (INT32) ((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 	}
 
-	aimLevels += GetAimLevelsTraitModifier( pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()]);
+	aimLevels += GetAimLevelsTraitModifier( pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 
 	// however, the alternative stance, reduces number of aim levels on its own
 	if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD )
@@ -13582,7 +13582,7 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 
 	INT32 uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 
-	weaponType = Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubWeaponType;
+	weaponType = Weapon[pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem].ubWeaponType;
 
 	if ( gGameExternalOptions.fAimLevelRestriction ) // Extra aiming on/off 
 	{
@@ -13593,7 +13593,7 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 			// SANDRO - throwing knives are a special case, allow two aiming clicks for them
 			if( weaponType == NOT_GUN ) 
 			{
-				if ( Item[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].usItemClass == IC_THROWING_KNIFE )
+				if ( Item[pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem].usItemClass == IC_THROWING_KNIFE )
 				{
 					aimLevels = 2;
 					if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, THROWING_NT ) )
@@ -13613,12 +13613,12 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 			BOOLEAN fTwoHanded, fUsingBipod;
 			
 			// Read weapon data
-			fTwoHanded = ItemIsTwoHanded(pSoldier->inv[pSoldier->attackSelection().hand()].usItem);
+			fTwoHanded = ItemIsTwoHanded(pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem);
 
-			UINT16 usRange = GetModifiedGunRange(pSoldier->inv[pSoldier->attackSelection().hand()].usItem);
+			UINT16 usRange = GetModifiedGunRange(pSoldier->inventory()[pSoldier->attackSelection().hand()].usItem);
 
-			weaponRange = ( usRange * GetPercentRangeBonus(&pSoldier->inv[pSoldier->attackSelection().hand()]) ) / 10000;
-			weaponRange += GetRangeBonus(&pSoldier->inv[pSoldier->attackSelection().hand()]);
+			weaponRange = ( usRange * GetPercentRangeBonus(&pSoldier->inventory()[pSoldier->attackSelection().hand()]) ) / 10000;
+			weaponRange += GetRangeBonus(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 			fUsingBipod = FALSE;
 
 			maxAimWithoutBipod = 4;
@@ -13729,7 +13729,7 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 			if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
 				stance = ANIM_PRONE;
 
-			if (GetBipodBonus(&pSoldier->inv[pSoldier->attackSelection().hand()])>0 && stance == ANIM_PRONE )
+			if (GetBipodBonus(&pSoldier->inventory()[pSoldier->attackSelection().hand()])>0 && stance == ANIM_PRONE )
 			{
 				fUsingBipod = TRUE;
 			}
@@ -13746,22 +13746,22 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 				//I've externalized the scope types.
 				else if ( gGameExternalOptions.fAimLevelsDependOnDistance )
 				{
-					if ( gGameExternalOptions.fScopeModes && pSoldier && (&pSoldier->inv[pSoldier->attackSelection().hand()])->exists() == true && Item[(&pSoldier->inv[pSoldier->attackSelection().hand()])->usItem].usItemClass == IC_GUN)
+					if ( gGameExternalOptions.fScopeModes && pSoldier && (&pSoldier->inventory()[pSoldier->attackSelection().hand()])->exists() == true && Item[(&pSoldier->inventory()[pSoldier->attackSelection().hand()])->usItem].usItemClass == IC_GUN)
 					{
 						// Flugente: check for scope mode
 						std::map<INT8, OBJECTTYPE*> ObjList;
-						GetScopeLists(pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()], ObjList);
+						GetScopeLists(pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()], ObjList);
 			
 						// only use scope mode if gun is in hand, otherwise an error might occur!
-						if ( (&pSoldier->inv[HANDPOS]) == &pSoldier->inv[pSoldier->attackSelection().hand()] && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+						if ( (&pSoldier->inventory()[HANDPOS]) == &pSoldier->inventory()[pSoldier->attackSelection().hand()] && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 							sScopeBonus = Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].aimbonus;
 					}
 					else
-						sScopeBonus = GetBaseScopeAimBonus( &pSoldier->inv[pSoldier->attackSelection().hand()], uiRange );
+						sScopeBonus = GetBaseScopeAimBonus( &pSoldier->inventory()[pSoldier->attackSelection().hand()], uiRange );
 				}
 				else
 				{
-					sScopeBonus = GetMinRangeForAimBonus( pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()]);
+					sScopeBonus = GetMinRangeForAimBonus( pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 				}
 
 				if ( sScopeBonus >= gGameExternalOptions.sVeryHighPowerScope ) 
@@ -13801,7 +13801,7 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 		}
 		else // JA2 1.13 Basic aiming restrictions (8 levels for 10x scope, 6 levels for 7x scope)
 		{
-			OBJECTTYPE* pAttackingWeapon = &pSoldier->inv[pSoldier->attackSelection().hand()];
+			OBJECTTYPE* pAttackingWeapon = &pSoldier->inventory()[pSoldier->attackSelection().hand()];
 			if ( !IsScoped( pAttackingWeapon ) )
 			{
 				// No scope. 4 Allowed.
@@ -13828,7 +13828,7 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 						GetScopeLists(pSoldier, pAttackingWeapon, ObjList);
 			
 						// only use scope mode if gun is in hand, otherwise an error might occur!
-						if ( (&pSoldier->inv[HANDPOS]) == pAttackingWeapon  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+						if ( (&pSoldier->inventory()[HANDPOS]) == pAttackingWeapon  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 							sScopeBonus = Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].aimbonus;
 					}
 					else
@@ -13981,8 +13981,8 @@ INT16 GetWornStealth( SOLDIERTYPE * pSoldier )
 
 	for (bLoop = HELMETPOS; bLoop <= LEGPOS; ++bLoop)
 	{
-		if ( pSoldier->inv[bLoop].exists() )
-			ttl += GetStealthBonus(&pSoldier->inv[bLoop]);
+		if ( pSoldier->inventory()[bLoop].exists() )
+			ttl += GetStealthBonus(&pSoldier->inventory()[bLoop]);
 	}
 
 	// Add some default stealth ability to mercs with STEALTHY trait - SANDRO 
@@ -14371,17 +14371,17 @@ INT8 FindBackpackOnSoldier( SOLDIERTYPE * pSoldier )
 {
 	for ( INT8 bLoop = 0; bLoop < NUM_INV_SLOTS; ++bLoop )
 	{
-		if (pSoldier->inv[bLoop].exists())
+		if (pSoldier->inventory()[bLoop].exists())
 		{
 			if( bLoop == BPACKPOCKPOS )
 				return( bLoop );
 
-			if (Item[pSoldier->inv[bLoop].usItem].usItemClass & IC_LBEGEAR &&
-				LoadBearingEquipment[Item[pSoldier->inv[bLoop].usItem].ubClassIndex].lbeClass == BACKPACK)
+			if (Item[pSoldier->inventory()[bLoop].usItem].usItemClass & IC_LBEGEAR &&
+				LoadBearingEquipment[Item[pSoldier->inventory()[bLoop].usItem].ubClassIndex].lbeClass == BACKPACK)
 			{
-				for (INT8 bLoop2 = 0; bLoop2 < pSoldier->inv[bLoop].ubNumberOfObjects; ++bLoop2)
+				for (INT8 bLoop2 = 0; bLoop2 < pSoldier->inventory()[bLoop].ubNumberOfObjects; ++bLoop2)
 				{
-					if ( pSoldier->inv[bLoop].IsActiveLBE(bLoop2) )
+					if ( pSoldier->inventory()[bLoop].IsActiveLBE(bLoop2) )
 						return( bLoop );
 				}
 			}
@@ -14573,13 +14573,13 @@ INT16 ReduceCamoFromSoldier( SOLDIERTYPE * pSoldier, INT16 iCamoToRemove, INT16 
 BOOLEAN HasExtendedEarOn( SOLDIERTYPE * pSoldier )
 {
 	// optimistically assume, that anything electronic with hearing range bonus serves as extended ear as well
-	if ( pSoldier->inv[HEAD1POS].exists() && (pSoldier->inv[HEAD1POS].usItem == EXTENDEDEAR ||
-		(Item[pSoldier->inv[HEAD1POS].usItem].hearingrangebonus > 0 && ItemIsElectronic(pSoldier->inv[HEAD1POS].usItem))) )
+	if ( pSoldier->inventory()[HEAD1POS].exists() && (pSoldier->inventory()[HEAD1POS].usItem == EXTENDEDEAR ||
+		(Item[pSoldier->inventory()[HEAD1POS].usItem].hearingrangebonus > 0 && ItemIsElectronic(pSoldier->inventory()[HEAD1POS].usItem))) )
 	{
 		return( TRUE );
 	}
-	else if ( pSoldier->inv[HEAD2POS].exists() && (pSoldier->inv[HEAD2POS].usItem == EXTENDEDEAR ||
-		(Item[pSoldier->inv[HEAD2POS].usItem].hearingrangebonus > 0 && ItemIsElectronic(pSoldier->inv[HEAD2POS].usItem))) )
+	else if ( pSoldier->inventory()[HEAD2POS].exists() && (pSoldier->inventory()[HEAD2POS].usItem == EXTENDEDEAR ||
+		(Item[pSoldier->inventory()[HEAD2POS].usItem].hearingrangebonus > 0 && ItemIsElectronic(pSoldier->inventory()[HEAD2POS].usItem))) )
 	{
 		return( TRUE );
 	}
@@ -14597,9 +14597,9 @@ BOOLEAN UseTotalMedicalKitPoints( SOLDIERTYPE * pSoldier, UINT16 usPointsToConsu
 	// CHRISL: Changed to dynamically determine max inventory locations.
 	for (ubPocket = HANDPOS; ubPocket < NUM_INV_SLOTS; ++ubPocket)
 	{
-		if ( IsMedicalKitItem( &( pSoldier->inv[ ubPocket ] ) ) )
+		if ( IsMedicalKitItem( &( pSoldier->inventory()[ ubPocket ] ) ) )
 		{
-			pObj = &(pSoldier->inv[ ubPocket ]);
+			pObj = &(pSoldier->inventory()[ ubPocket ]);
 			// start consuming from the last kit in, so we end up with fewer fuller kits rather than
 			// lots of half-empty ones.
 			for (bLoop = pObj->ubNumberOfObjects - 1; bLoop >= 0; bLoop--)
@@ -14645,7 +14645,7 @@ UINT16 OldWayOfCalculatingScopeBonus(SOLDIERTYPE *pSoldier)
 	// Yes, this may look stupid, maybe it IS stupid, but this is purely an option
 	// to use code that was checked in before.
 	// Please, do not trash it again.
-	return max(0, GetMinRangeForAimBonus( pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()])
+	return max(0, GetMinRangeForAimBonus( pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()])
 		* gGameExternalOptions.iAimLevelsCompatibilityOption / gGameExternalOptions.ubStraightSightRange);
 }
 
@@ -14698,8 +14698,8 @@ void  GetScopeLists( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, std::map<INT8, O
 	// dual wielding only allows iron sights or similar attachments
 	BOOLEAN bDualWielding = FALSE;
 
-	if( (Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_GUN && !ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem))
-		&& (Item[pSoldier->inv[SECONDHANDPOS].usItem].usItemClass & IC_GUN && !ItemIsTwoHanded(pSoldier->inv[SECONDHANDPOS].usItem)) )
+	if( (Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_GUN && !ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem))
+		&& (Item[pSoldier->inventory()[SECONDHANDPOS].usItem].usItemClass & IC_GUN && !ItemIsTwoHanded(pSoldier->inventory()[SECONDHANDPOS].usItem)) )
 		bDualWielding = TRUE;
 
 	// certain attachments prohibit the use of an iron sight once they are installed (flip-up built-in sights)
@@ -15080,7 +15080,7 @@ BOOLEAN OBJECTTYPE::TransformObject( SOLDIERTYPE * pSoldier, UINT8 ubStatusIndex
 	{
 		for (INT8 bPocket = HELMETPOS; bPocket < NUM_INV_SLOTS; bPocket++)
 		{
-			if (&(pSoldier->inv[bPocket]) == this)
+			if (&(pSoldier->inventory()[bPocket]) == this)
 			{
 				// Found our item. Does it fit in this slot?
 				if (!CanItemFitInPosition(pSoldier, this, bPocket, FALSE) )
@@ -15093,9 +15093,9 @@ BOOLEAN OBJECTTYPE::TransformObject( SOLDIERTYPE * pSoldier, UINT8 ubStatusIndex
 
 						//Unfortunately the above function will not erase the item in tactical mode, so lets
 						//double-check.
-						if (pSoldier->inv[bPocket].exists() )
+						if (pSoldier->inventory()[bPocket].exists() )
 						{
-							DeleteObj( &(pSoldier->inv[bPocket]) );
+							DeleteObj( &(pSoldier->inventory()[bPocket]) );
 						}
 					}
 					// Whatever we've done with it, THIS is no longer a valid item, so lets
@@ -15113,22 +15113,22 @@ BOOLEAN OBJECTTYPE::TransformObject( SOLDIERTYPE * pSoldier, UINT8 ubStatusIndex
 	{
 		for (INT8 bPocket = HELMETPOS; bPocket < NUM_INV_SLOTS; ++bPocket)
 		{
-			if (pSoldier->inv[bPocket].exists())
+			if (pSoldier->inventory()[bPocket].exists())
 			{
 				// Found an item. Does it still fit inside its own slot?
-				if (!CanItemFitInPosition(pSoldier, &(pSoldier->inv[bPocket]), bPocket, FALSE) )
+				if (!CanItemFitInPosition(pSoldier, &(pSoldier->inventory()[bPocket]), bPocket, FALSE) )
 				{
-					if (!AutoPlaceObject( pSoldier, &(pSoldier->inv[bPocket]), TRUE ))
+					if (!AutoPlaceObject( pSoldier, &(pSoldier->inventory()[bPocket]), TRUE ))
 					{
 						fDropped = TRUE;
 
-						AutoPlaceObjectToWorld( pSoldier, &(pSoldier->inv[bPocket]), TRUE );
+						AutoPlaceObjectToWorld( pSoldier, &(pSoldier->inventory()[bPocket]), TRUE );
 
 						//Unfortunately the above function will not erase the item in tactical mode, so lets
 						//double-check.
-						if (pSoldier->inv[bPocket].exists() )
+						if (pSoldier->inventory()[bPocket].exists() )
 						{
-							DeleteObj( &(pSoldier->inv[bPocket]) );
+							DeleteObj( &(pSoldier->inventory()[bPocket]) );
 						}
 					}
 				}
@@ -15362,13 +15362,13 @@ BOOLEAN ObjectIsExternalFeeder(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject)
 		SOLDIERTYPE* pTargetSoldier =
 			GetJa2SoldierRepository().resolve( usSoldierFeedingTarget1 );
 
-		if ( pTargetSoldier && &(pSoldier->inv[usAmmoSlot1]) == pObject )
+		if ( pTargetSoldier && &(pSoldier->inventory()[usAmmoSlot1]) == pObject )
 			return( TRUE );
 
 		pTargetSoldier =
 			GetJa2SoldierRepository().resolve( usSoldierFeedingTarget2 );
 
-		if ( pTargetSoldier && &(pSoldier->inv[usAmmoSlot2]) == pObject )
+		if ( pTargetSoldier && &(pSoldier->inventory()[usAmmoSlot2]) == pObject )
 			return( TRUE );
 	}
 		
@@ -15422,20 +15422,20 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 			UINT16 usAmmoSlot2 = 0;
 			if ( pTeamSoldier->IsFeedingExternal(&usTeamSoldierFeedingTarget1, &usGunSlot1, &usAmmoSlot1, &usTeamSoldierFeedingTarget2, &usGunSlot2, &usAmmoSlot2)  )
 			{
-				if ( usTeamSoldierFeedingTarget1 == pSoldier->identity().id() && pSoldier->inv[usGunSlot1] == (*pObject) )
+				if ( usTeamSoldierFeedingTarget1 == pSoldier->identity().id() && pSoldier->inventory()[usGunSlot1] == (*pObject) )
 				{
-					if ( pTeamSoldier->inv[usAmmoSlot1].exists() && Item [ pTeamSoldier->inv[usAmmoSlot1].usItem ].usItemClass != IC_AMMO || pTeamSoldier->inv[usAmmoSlot1][0]->data.ubShotsLeft > 0 )
+					if ( pTeamSoldier->inventory()[usAmmoSlot1].exists() && Item [ pTeamSoldier->inventory()[usAmmoSlot1].usItem ].usItemClass != IC_AMMO || pTeamSoldier->inventory()[usAmmoSlot1][0]->data.ubShotsLeft > 0 )
 					{
-						pObjExtMag = &(pTeamSoldier->inv[usAmmoSlot1]);
+						pObjExtMag = &(pTeamSoldier->inventory()[usAmmoSlot1]);
 						return( pObjExtMag );
 					}
 				}
 
-				if ( usTeamSoldierFeedingTarget2 == pSoldier->identity().id() && pSoldier->inv[usGunSlot2] == (*pObject) )
+				if ( usTeamSoldierFeedingTarget2 == pSoldier->identity().id() && pSoldier->inventory()[usGunSlot2] == (*pObject) )
 				{
-					if ( pTeamSoldier->inv[usAmmoSlot2].exists() && Item [ pTeamSoldier->inv[usAmmoSlot2].usItem ].usItemClass != IC_AMMO || pTeamSoldier->inv[usAmmoSlot2][0]->data.ubShotsLeft > 0 )
+					if ( pTeamSoldier->inventory()[usAmmoSlot2].exists() && Item [ pTeamSoldier->inventory()[usAmmoSlot2].usItem ].usItemClass != IC_AMMO || pTeamSoldier->inventory()[usAmmoSlot2][0]->data.ubShotsLeft > 0 )
 					{
-						pObjExtMag = &(pTeamSoldier->inv[usAmmoSlot2]);
+						pObjExtMag = &(pTeamSoldier->inventory()[usAmmoSlot2]);
 						return( pObjExtMag );
 					}
 				}
@@ -15490,7 +15490,7 @@ INT8 GetNumberAltFireAimLevels( SOLDIERTYPE * pSoldier, INT32 iGridNo )
 		return -1;
 	}
 
-	UINT16 usInHand = pSoldier->inv[ HANDPOS ].usItem;
+	UINT16 usInHand = pSoldier->inventory()[ HANDPOS ].usItem;
 
 	// If we are in water and having a pistol, don't allow alternative fire at all
 	if ( !ItemIsTwoHanded(usInHand) && pSoldier->MercInWater() )
@@ -15862,12 +15862,12 @@ UINT8 GetInventorySleepModifier( SOLDIERTYPE *pSoldier )
 {
 	UINT8 modifier = 0;
 
-	UINT8 invsize = pSoldier->inv.size();
+	UINT8 invsize = pSoldier->inventory().size();
 	for ( UINT8 i = 0; i < invsize; ++i )
 	{
-		if( pSoldier->inv[ i ].exists() == true && Item[ pSoldier->inv[i].usItem ].ubSleepModifier > 0 )
+		if( pSoldier->inventory()[ i ].exists() == true && Item[ pSoldier->inventory()[i].usItem ].ubSleepModifier > 0 )
 		{
-			modifier = __max(modifier, BonusReduce( Item[ pSoldier->inv[i].usItem ].ubSleepModifier, pSoldier->inv[i][0]->data.objectStatus ));
+			modifier = __max(modifier, BonusReduce( Item[ pSoldier->inventory()[i].usItem ].ubSleepModifier, pSoldier->inventory()[i][0]->data.objectStatus ));
 		}
 	}
 

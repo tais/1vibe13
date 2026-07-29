@@ -303,9 +303,18 @@ unsigned trait bytes. v101 conversion maps every historical attribute and its
 first two trait slots while clearing the 28 slots absent from that record.
 Profile structures, trait rules, XML, Lua, multiplayer, installed data, and save
 bytes do not change.
+Live carried objects now have one private `SoldierInventory` owner. It keeps
+the object slots, both new-item counter banks, key access, refresh request,
+zipper flag, and drop-pack flag coherent and gives copied soldiers independent
+storage. `InventorySlots` is the neutral transfer type used by creation, map,
+and v101 records; a slot-only transfer cannot overwrite live inventory flags.
+The established inventory stream—slot count, then each `OBJECTTYPE` and its two
+`int` counters—is unchanged. Item XML, pocket layouts, profiles, maps,
+multiplayer records, Lua, packages, and installed data keep their existing
+formats.
 The retired `STRUCT_Flags` does not gain a replacement generic bucket.
 `SoldierStatusComponent` owns the established 32-bit status mask and supplies
-explicit mask operations, while `SoldierInventoryStateComponent` owns key
+explicit mask operations, while `SoldierInventory` owns key
 access, new-item refresh, zipper, and drop-pack state. Target intent and
 retention, reload and aim pauses, hit/death reactions, network refresh, gas
 hits, and flank orientation live in their existing targeting, fire-control,

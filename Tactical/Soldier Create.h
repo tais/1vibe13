@@ -252,7 +252,7 @@ public:
 
 	char endOfPOD;	// marker for end of POD (plain old data)
 
-	Inventory				Inv;
+	InventorySlots		Inv;
 }; // OLD_SOLDIERCREATE_STRUCT_101;
 
 // WANNE - BMP: DONE!
@@ -365,7 +365,7 @@ public:
 	//
 	char endOfPOD;	// marker for end of POD (plain old data)
 
-	Inventory				Inv;
+	InventorySlots		Inv;
 }; // SOLDIERCREATE_STRUCT;
 
 // WANNE - BMP: DONE!
@@ -457,7 +457,7 @@ public:
 	//
 	char endOfPOD;	// marker for end of POD (plain old data)
 
-	Inventory				Inv;
+	InventorySlots		Inv;
 }; // _OLD_SOLDIERCREATE_STRUCT;
 
 #define SIZEOF_OLD_SOLDIERCREATE_STRUCT_101_POD offsetof( OLD_SOLDIERCREATE_STRUCT_101, endOfPOD )

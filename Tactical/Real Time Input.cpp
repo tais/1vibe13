@@ -1478,7 +1478,7 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 				UINT8					ubItemCursor;
 
 				// Alrighty, check what's in our hands = if a 'friendly thing', like med kit, look for our own guys
-				usItem = pSoldier->inv[HANDPOS].usItem;
+				usItem = pSoldier->inventory()[HANDPOS].usItem;
 
 				// get cursor for item
 				ubItemCursor	=	GetActionModeCursor( pSoldier );

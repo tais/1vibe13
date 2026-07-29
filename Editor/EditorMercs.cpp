@@ -3070,7 +3070,7 @@ void UpdateMercItemSlots()
 	{
 		if( gpSelected->pDetailedPlacement->ubProfile != NO_PROFILE )
 		{
-			gpSelected->pDetailedPlacement->Inv = gpSelected->pSoldier->inv;
+			gpSelected->pDetailedPlacement->Inv = gpSelected->pSoldier->inventory();
 		}
 		for( x = 0; x < 9; x++ )
 		{
@@ -3170,14 +3170,14 @@ void SetEnemyDroppableStatus( UINT32 uiSlot, BOOLEAN fDroppable )
 			if( gpSelected->pDetailedPlacement )
 				gpSelected->pDetailedPlacement->Inv[ uiSlot ].fFlags &= (~OBJECT_UNDROPPABLE);
 			if( gpSelected->pSoldier )
-				gpSelected->pSoldier->inv[ uiSlot ].fFlags &= (~OBJECT_UNDROPPABLE);
+				gpSelected->pSoldier->inventory()[ uiSlot ].fFlags &= (~OBJECT_UNDROPPABLE);
 		}
 		else
 		{
 			if( gpSelected->pDetailedPlacement )
 				gpSelected->pDetailedPlacement->Inv[ uiSlot ].fFlags |= OBJECT_UNDROPPABLE;
 			if( gpSelected->pSoldier )
-				gpSelected->pSoldier->inv[ uiSlot ].fFlags |= OBJECT_UNDROPPABLE;
+				gpSelected->pSoldier->inventory()[ uiSlot ].fFlags |= OBJECT_UNDROPPABLE;
 		}
 	}
 	if( gbCurrSelect != -1 && uiSlot == (UINT32)gbMercSlotTypes[ gbCurrSelect ] )

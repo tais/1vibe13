@@ -2283,7 +2283,7 @@ void RenderHandPosItem( void )
 	SetFontForeground(CHAR_INFO_PANEL_BLOCK_COLOR);
 	SetFontBackground(FONT_BLACK);
 
-	INVRenderItem( guiSAVEBUFFER, pSoldier, &(pSoldier->inv[HANDPOS]), UI_CHARPANEL.HandItem.x, UI_CHARPANEL.HandItem.y,	58, 23, DIRTYLEVEL2, NULL, 0, FALSE, 0);
+	INVRenderItem( guiSAVEBUFFER, pSoldier, &(pSoldier->inventory()[HANDPOS]), UI_CHARPANEL.HandItem.x, UI_CHARPANEL.HandItem.y,	58, 23, DIRTYLEVEL2, NULL, 0, FALSE, 0);
 }
 
 
@@ -7371,9 +7371,9 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							if ( bSelectedInfoChar != -1 )
 							{
 								SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
-								if ( pSoldier->inv[ HANDPOS ].exists() == true )
+								if ( pSoldier->inventory()[ HANDPOS ].exists() == true )
 								{
-									pSoldier->inv[ HANDPOS ][0]->data.objectStatus = 2;
+									pSoldier->inventory()[ HANDPOS ][0]->data.objectStatus = 2;
 								}
 							}
 						}
@@ -7382,9 +7382,9 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							if ( bSelectedInfoChar != -1 )
 							{
 								SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
-								if ( pSoldier->inv[ HANDPOS ].exists() == true )
+								if ( pSoldier->inventory()[ HANDPOS ].exists() == true )
 								{
-									pSoldier->inv[ HANDPOS ].usItem = GUN_BARREL_EXTENDER;
+									pSoldier->inventory()[ HANDPOS ].usItem = GUN_BARREL_EXTENDER;
 								}
 							}
 						}
@@ -7857,22 +7857,22 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 										{
 											if (pInventoryPoolList[i].fExists == TRUE && (pInventoryPoolList[i].usFlags & WORLD_ITEM_REACHABLE))
 											{
-												INT8 invsize = (INT8)pSoldier->inv.size();									// remember inventorysize, so we don't call size() repeatedly
+												INT8 invsize = (INT8)pSoldier->inventory().size();									// remember inventorysize, so we don't call size() repeatedly
 												for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 												{
 													if ( CanItemFitInPosition( pSoldier, &pInventoryPoolList[i].object, bLoop, FALSE ) )
 													{
 														// TODO: do not add LBE if we would then have to move existing items
 
-														if (pSoldier->inv[bLoop].exists())
+														if (pSoldier->inventory()[bLoop].exists())
 														{
-															if (pSoldier->inv[bLoop].usItem != pInventoryPoolList[i].object.usItem)
+															if (pSoldier->inventory()[bLoop].usItem != pInventoryPoolList[i].object.usItem)
 																continue;
 															else
-																pInventoryPoolList[i].object.AddObjectsToStack(pSoldier->inv[bLoop], -1, pSoldier, bLoop, 0, FALSE);
+																pInventoryPoolList[i].object.AddObjectsToStack(pSoldier->inventory()[bLoop], -1, pSoldier, bLoop, 0, FALSE);
 														}
 														else
-															pInventoryPoolList[i].object.MoveThisObjectTo(pSoldier->inv[bLoop], -1, pSoldier, bLoop);
+															pInventoryPoolList[i].object.MoveThisObjectTo(pSoldier->inventory()[bLoop], -1, pSoldier, bLoop);
 
 														if (pInventoryPoolList[i].object.ubNumberOfObjects < 0)
 														{
@@ -7897,19 +7897,19 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 								{
 									for(int i = BIGPOCK4POS; i<=BIGPOCK7POS; i++)
 									{
-										if(pSoldier->inv[i].exists() == true)
+										if(pSoldier->inventory()[i].exists() == true)
 										{
-											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->position().gridNo(), pSoldier->position().level());
-											DeleteObj(&pSoldier->inv[i]);
+											AutoPlaceObjectInInventoryStash(&pSoldier->inventory()[i], pSoldier->position().gridNo(), pSoldier->position().level());
+											DeleteObj(&pSoldier->inventory()[i]);
 										}
 									}
 
 									for(int i = SMALLPOCK23POS; i<NUM_INV_SLOTS; i++)
 									{
-										if(pSoldier->inv[i].exists() == true)
+										if(pSoldier->inventory()[i].exists() == true)
 										{
-											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->position().gridNo(), pSoldier->position().level());
-											DeleteObj(&pSoldier->inv[i]);
+											AutoPlaceObjectInInventoryStash(&pSoldier->inventory()[i], pSoldier->position().gridNo(), pSoldier->position().level());
+											DeleteObj(&pSoldier->inventory()[i]);
 										}
 									}
 
@@ -7925,10 +7925,10 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 								{
 									for(int i = BODYPOSFINAL; i<NUM_INV_SLOTS; ++i)
 									{
-										if(pSoldier->inv[i].exists() == true)
+										if(pSoldier->inventory()[i].exists() == true)
 										{
-											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->position().gridNo(), pSoldier->position().level());
-											DeleteObj(&pSoldier->inv[i]);
+											AutoPlaceObjectInInventoryStash(&pSoldier->inventory()[i], pSoldier->position().gridNo(), pSoldier->position().level());
+											DeleteObj(&pSoldier->inventory()[i]);
 										}
 									}
 
@@ -8020,7 +8020,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					if ( bSelectedInfoChar != -1 && fShowInventoryFlag && !AM_A_ROBOT( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID) ))
 					{
 						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
-						UINT16 usOldHandItem = pSoldier->inv[HANDPOS].usItem;
+						UINT16 usOldHandItem = pSoldier->inventory()[HANDPOS].usItem;
 						SwapHandItems( pSoldier );
 						
 						fTeamPanelDirty = TRUE;
@@ -8526,14 +8526,14 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 								{
 									for ( int i = HELMETPOS; i<NUM_INV_SLOTS; ++i )
 									{
-										if( pSoldier->inv[i].exists() == true)
+										if( pSoldier->inventory()[i].exists() == true)
 										{
 											// if we are Nails and are ordered to drop our vest, refuse and complain!
 											if ( HandleNailsVestFetish( pSoldier, i, NOTHING ) )
 												continue;
 
-											AutoPlaceObjectInInventoryStash(&pSoldier->inv[i], pSoldier->position().gridNo(), pSoldier->position().level());
-											DeleteObj(&pSoldier->inv[i]);
+											AutoPlaceObjectInInventoryStash(&pSoldier->inventory()[i], pSoldier->position().gridNo(), pSoldier->position().level());
+											DeleteObj(&pSoldier->inventory()[i]);
 										}
 									}
 
@@ -9835,19 +9835,19 @@ void BltCharInvPanel()
 		UINT32 fontColour = FONT_MCOLOR_RED;
 
 		// robot targeting bonus
-		if (ItemProvidesRobotLaserBonus(pSoldier->inv[ROBOT_TARGETING_SLOT].usItem))
+		if (ItemProvidesRobotLaserBonus(pSoldier->inventory()[ROBOT_TARGETING_SLOT].usItem))
 		{
 			swprintf(text, szRobotText[ROBOT_TEXT_LASER]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
-		else if (ItemProvidesRobotNightvision(pSoldier->inv[ROBOT_TARGETING_SLOT].usItem))
+		else if (ItemProvidesRobotNightvision(pSoldier->inventory()[ROBOT_TARGETING_SLOT].usItem))
 		{
 			swprintf(text, szRobotText[ROBOT_TEXT_NIGHT_VISION]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
-		else if (Item[pSoldier->inv[ROBOT_TARGETING_SLOT].usItem].bRobotTargetingSkillGrant > 0)
+		else if (Item[pSoldier->inventory()[ROBOT_TARGETING_SLOT].usItem].bRobotTargetingSkillGrant > 0)
 		{
-			swprintf(text, szRobotText[ROBOT_TEXT_SKILL_GRANTED], gzMercSkillTextNew[Item[pSoldier->inv[ROBOT_TARGETING_SLOT].usItem].bRobotTargetingSkillGrant]);
+			swprintf(text, szRobotText[ROBOT_TEXT_SKILL_GRANTED], gzMercSkillTextNew[Item[pSoldier->inventory()[ROBOT_TARGETING_SLOT].usItem].bRobotTargetingSkillGrant]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
 		else
@@ -9858,24 +9858,24 @@ void BltCharInvPanel()
 		DisplayWrappedString(UI_CHARINV.Text.RobotTargetingBonus.iX, UI_CHARINV.Text.RobotTargetingBonus.iY, 170, 2, FONT10ARIAL, fontColour, text, FONT_MCOLOR_BLACK, FALSE, 0);
 
 		// robot chassis bonus
-		if (Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotStrBonus > 0 || Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotAgiBonus > 0 || Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotDexBonus > 0)
+		if (Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotStrBonus > 0 || Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotAgiBonus > 0 || Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotDexBonus > 0)
 		{
 			swprintf(text, szRobotText[ROBOT_TEXT_STAT_BONUSES]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
-		else if (ItemProvidesRobotCamo(pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem))
+		else if (ItemProvidesRobotCamo(pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem))
 		{
 			swprintf(text, szRobotText[ROBOT_TEXT_CAMO]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
-		else if (Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].fRobotDamageReductionModifier > 0.0f && Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].fRobotDamageReductionModifier < 1.0f)
+		else if (Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].fRobotDamageReductionModifier > 0.0f && Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].fRobotDamageReductionModifier < 1.0f)
 		{
 			swprintf(text, szRobotText[ROBOT_TEXT_PLATE]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
-		else if (Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotChassisSkillGrant > 0)
+		else if (Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotChassisSkillGrant > 0)
 		{
-			swprintf(text, szRobotText[ROBOT_TEXT_SKILL_GRANTED], gzMercSkillTextNew[Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotChassisSkillGrant]);
+			swprintf(text, szRobotText[ROBOT_TEXT_SKILL_GRANTED], gzMercSkillTextNew[Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotChassisSkillGrant]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
 		else
@@ -9886,29 +9886,29 @@ void BltCharInvPanel()
 		DisplayWrappedString(UI_CHARINV.Text.RobotChassisBonus.iX, UI_CHARINV.Text.RobotChassisBonus.iY, 170, 2, FONT10ARIAL, fontColour, text, FONT_MCOLOR_BLACK, FALSE, 0);
 
 		// robot utility bonus
-		if ( HasItemFlag( pSoldier->inv[ROBOT_UTILITY_SLOT].usItem, CLEANING_KIT ) )
+		if ( HasItemFlag( pSoldier->inventory()[ROBOT_UTILITY_SLOT].usItem, CLEANING_KIT ) )
 		{
 			swprintf(text, L"%s", szRobotText[ROBOT_TEXT_CLEANING_KIT]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
-		else if ( HasItemFlag(pSoldier->inv[ROBOT_UTILITY_SLOT].usItem, RADIO_SET ) )
+		else if ( HasItemFlag(pSoldier->inventory()[ROBOT_UTILITY_SLOT].usItem, RADIO_SET ) )
 		{
 			swprintf(text, L"%s", szRobotText[ROBOT_TEXT_RADIO]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
-		else if (ItemIsMetalDetector(pSoldier->inv[ROBOT_UTILITY_SLOT].usItem))
+		else if (ItemIsMetalDetector(pSoldier->inventory()[ROBOT_UTILITY_SLOT].usItem))
 		{
 			swprintf(text, L"%s", szRobotText[ROBOT_TEXT_METAL_DETECTOR]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
-		else if (ItemHasXRay(pSoldier->inv[ROBOT_UTILITY_SLOT].usItem))
+		else if (ItemHasXRay(pSoldier->inventory()[ROBOT_UTILITY_SLOT].usItem))
 		{
 			swprintf(text, L"%s", szRobotText[ROBOT_TEXT_XRAY]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
-		else if (Item[pSoldier->inv[ROBOT_UTILITY_SLOT].usItem].bRobotUtilitySkillGrant > 0)
+		else if (Item[pSoldier->inventory()[ROBOT_UTILITY_SLOT].usItem].bRobotUtilitySkillGrant > 0)
 		{
-			swprintf(text, szRobotText[ROBOT_TEXT_SKILL_GRANTED], gzMercSkillTextNew[Item[pSoldier->inv[ROBOT_UTILITY_SLOT].usItem].bRobotUtilitySkillGrant]);
+			swprintf(text, szRobotText[ROBOT_TEXT_SKILL_GRANTED], gzMercSkillTextNew[Item[pSoldier->inventory()[ROBOT_UTILITY_SLOT].usItem].bRobotUtilitySkillGrant]);
 			fontColour = FONT_MCOLOR_LTGREEN;
 		}
 		else
@@ -10057,7 +10057,7 @@ void MAPInvMoveCallback( MOUSE_REGION *pRegion, INT32 iReason )
 
 	uiHandPos = MSYS_GetRegionUserData( pRegion, 0 );
 
-	if (pSoldier->inv[uiHandPos].exists() == false)
+	if (pSoldier->inventory()[uiHandPos].exists() == false)
 		return;
 
 	if (iReason == MSYS_CALLBACK_REASON_MOVE)
@@ -10144,7 +10144,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 
 	// CHRISL: Are we in combat, wearing a backpack with the zipper closed?  Don't allow access to backpack items
 	if((UsingNewInventorySystem() == true))
-		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(pSoldier->inventoryState().zipperFlag()) || (pSoldier->inventoryState().zipperFlag() && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ))
+		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(pSoldier->inventory().zipperFlag()) || (pSoldier->inventory().zipperFlag() && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ))
 			iReason = MSYS_CALLBACK_REASON_NONE;
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
 	{
@@ -10152,7 +10152,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 		if ( gpItemPointer == NULL )
 		{
 			
-			if ( pSoldier->inv[ uiHandPos ].exists() == false )
+			if ( pSoldier->inventory()[ uiHandPos ].exists() == false )
 			{
 				if ( gGameSettings.fOptions[TOPTION_ENABLE_INVENTORY_POPUPS] == TRUE && !IsVehicle( pSoldier ) && !AM_A_ROBOT(pSoldier)) // the_bob : enable popups for picking items from sector inv
 				{
@@ -10193,7 +10193,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				if(uiHandPos == BPACKPOCKPOS)
 				{
 					// Deal with the zipper before we do anything
-					if(pSoldier->inventoryState().zipperFlag())
+					if(pSoldier->inventory().zipperFlag())
 						if(!ChangeZipperStatus(pSoldier, FALSE))
 							return;
 					// Do we still have a linked backpack?  If so, reset droppackflag
@@ -10201,14 +10201,14 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 					{
 						if(gWorldItems[wi].soldierID == pSoldier->identity().id() && gWorldItems[wi].object.exists() == true)
 						{
-							pSoldier->inventoryState().dropPackFlag() = TRUE;
+							pSoldier->inventory().dropPackFlag() = TRUE;
 						}
 					}
 				}
 			}
 
 			// remember what it was
-			usOldItemIndex = pSoldier->inv[ uiHandPos ].usItem;
+			usOldItemIndex = pSoldier->inventory()[ uiHandPos ].usItem;
 			iLastHandPos = uiHandPos;
 
 			// pick it up
@@ -10241,14 +10241,14 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				usCostToMoveItem = (usCostToMoveItem * (100 + pSoldier->GetBackgroundValue(BG_INVENTORY))) / 100;
 
 				//we dont have enough APs to move it to this slot, show a warning message
-				if (usCostToMoveItem > 0 && pSoldier->actionPoints().current() < usCostToMoveItem && pSoldier->inv[iLastHandPos].usItem == NULL)
+				if (usCostToMoveItem > 0 && pSoldier->actionPoints().current() < usCostToMoveItem && pSoldier->inventory()[iLastHandPos].usItem == NULL)
 				{
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[NOT_ENOUGH_APS_STR]);
 					return;
 				}
 			}
 
-			usOldItemIndex = pSoldier->inv[uiHandPos].usItem;
+			usOldItemIndex = pSoldier->inventory()[uiHandPos].usItem;
 			usNewItemIndex = gpItemPointer->usItem;
 
 			//ATE: Put this here to handle Nails refusal....
@@ -10259,13 +10259,13 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 
 			if ( _KeyDown(CTRL) )
 			{
-				if ( pSoldier->inv[ uiHandPos ].exists() && gpItemPointer->exists() )
+				if ( pSoldier->inventory()[ uiHandPos ].exists() && gpItemPointer->exists() )
 				{
-					if (pSoldier->inv[ uiHandPos ].usItem == gpItemPointer->usItem)
-						CleanUpStack( &( pSoldier->inv[ uiHandPos ] ), gpItemPointer );
+					if (pSoldier->inventory()[ uiHandPos ].usItem == gpItemPointer->usItem)
+						CleanUpStack( &( pSoldier->inventory()[ uiHandPos ] ), gpItemPointer );
 					else //Madd: attach / merge object, merge only works on single objects for now
 					{
-						UINT8 cnt = pSoldier->inv[ uiHandPos ].ubNumberOfObjects;
+						UINT8 cnt = pSoldier->inventory()[ uiHandPos ].ubNumberOfObjects;
 						if ( gpItemPointer->ubNumberOfObjects < cnt ) 
 							cnt = gpItemPointer->ubNumberOfObjects;
 						
@@ -10274,7 +10274,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 							if ((IsJa2TacticalCombatActive()) && pSoldier->roster().inSector())
 							{
 								// silversurfer: This didn't cost any AP. Why? CTRL + LeftClick should deduct the same AP as manual attachment in the EDB.
-								usCostToMoveItem = AttachmentAPCost(gpItemPointer->usItem, pSoldier->inv[uiHandPos].usItem, pSoldier);
+								usCostToMoveItem = AttachmentAPCost(gpItemPointer->usItem, pSoldier->inventory()[uiHandPos].usItem, pSoldier);
 								// Flugente: backgrounds
 								usCostToMoveItem = (usCostToMoveItem * (100 + pSoldier->GetBackgroundValue(BG_INVENTORY))) / 100;
 								// do we have enough AP?
@@ -10284,7 +10284,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 								//this will force redraw APs shown at merc portrait
 								fCharacterInfoPanelDirty = TRUE;								
 							}
-							if(pSoldier->inv[uiHandPos].AttachObject(pSoldier, gpItemPointer, TRUE, i))
+							if(pSoldier->inventory()[uiHandPos].AttachObject(pSoldier, gpItemPointer, TRUE, i))
 								fTeamPanelDirty = TRUE;//this will fix merged items not updating when we hold stack of items in hand
 						}
 					}
@@ -10323,7 +10323,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 					}
 					else
 					{
-						MAPInternalInitItemDescriptionBox( &(pSoldier->inv[ uiHandPos ]), 0, pSoldier );
+						MAPInternalInitItemDescriptionBox( &(pSoldier->inventory()[ uiHandPos ]), 0, pSoldier );
 					}
 				}
 				return;
@@ -10348,7 +10348,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 						else
 						{
 							bJustOpenedItemDescPanel = true; // OJW - 20090319 - fix merging on mapscreen - see top of function
-							MAPInternalInitItemDescriptionBox( &(pSoldier->inv[ uiHandPos ]), 0, pSoldier );
+							MAPInternalInitItemDescriptionBox( &(pSoldier->inventory()[ uiHandPos ]), 0, pSoldier );
 						}
 					}
 
@@ -10373,11 +10373,11 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 					if(uiHandPos == BPACKPOCKPOS)
 					{
 						// First, deal with the zipper
-						if(pSoldier->inventoryState().zipperFlag())
+						if(pSoldier->inventory().zipperFlag())
 							if(!ChangeZipperStatus(pSoldier, FALSE))
 								return;
-						if(pSoldier->inventoryState().dropPackFlag())
-							pSoldier->inventoryState().dropPackFlag() = FALSE;
+						if(pSoldier->inventory().dropPackFlag())
+							pSoldier->inventory().dropPackFlag() = FALSE;
 					}
 				}
 			}
@@ -10458,7 +10458,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 		fRightDown = FALSE;
 
 		// Return if empty
-		if (pSoldier->inv[ uiHandPos ].exists() == false )
+		if (pSoldier->inventory()[ uiHandPos ].exists() == false )
 		{
 			return;
 		}
@@ -10473,16 +10473,16 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 		// Some global stuff here - for esc, etc
 		// Check for # of slots in item
 		// CHRISL: Use new ItemSlotLimit function if we're using the new inventory system
-		UINT8 isLimit = ItemSlotLimit(&pSoldier->inv[uiHandPos], uiHandPos, pSoldier);
+		UINT8 isLimit = ItemSlotLimit(&pSoldier->inventory()[uiHandPos], uiHandPos, pSoldier);
 
 		// access description box directly if CTRL is pressed for stack items
-		if (!( ( pSoldier->inv[ uiHandPos ].ubNumberOfObjects > 1 ) && ( isLimit > 0 ) ) || _KeyDown( CTRL ) )
+		if (!( ( pSoldier->inventory()[ uiHandPos ].ubNumberOfObjects > 1 ) && ( isLimit > 0 ) ) || _KeyDown( CTRL ) )
 		{
 			if ( !InItemDescriptionBox( ) )
 			{
-				if ( _KeyDown(SHIFT) && gpItemPointer == NULL && Item[pSoldier->inv[ uiHandPos ].usItem].usItemClass == IC_GUN && (pSoldier->inv[ uiHandPos ])[uiHandPos]->data.gun.ubGunShotsLeft > 0 && !ItemIsSingleShotRocketLauncher(pSoldier->inv[ uiHandPos ].usItem) )
+				if ( _KeyDown(SHIFT) && gpItemPointer == NULL && Item[pSoldier->inventory()[ uiHandPos ].usItem].usItemClass == IC_GUN && (pSoldier->inventory()[ uiHandPos ])[uiHandPos]->data.gun.ubGunShotsLeft > 0 && !ItemIsSingleShotRocketLauncher(pSoldier->inventory()[ uiHandPos ].usItem) )
 				{
-					EmptyWeaponMagazine( &(pSoldier->inv[ uiHandPos ]), &gItemPointer, uiHandPos );
+					EmptyWeaponMagazine( &(pSoldier->inventory()[ uiHandPos ]), &gItemPointer, uiHandPos );
 					InternalMAPBeginItemPointer( pSoldier );
 				}
 				else
@@ -10566,13 +10566,13 @@ void MAPBeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
 	{
 		// Remove all from soldier's slot
 		numToMove = ALL_OBJECTS;
-		pSoldier->inv[ubHandPos].MoveThisObjectTo(gItemPointer, numToMove, pSoldier, ubHandPos);
+		pSoldier->inventory()[ubHandPos].MoveThisObjectTo(gItemPointer, numToMove, pSoldier, ubHandPos);
 		if ( gItemPointer.exists() == false )
 		{
 			//oops, the move failed.  It might have failed because the object was force placed
 			//to a slot where the ItemSizeLimit is 0, try again
 			//this method won't work with LBEs in LBE pockets
-			pSoldier->inv[ubHandPos].MoveThisObjectTo(gItemPointer, numToMove);
+			pSoldier->inventory()[ubHandPos].MoveThisObjectTo(gItemPointer, numToMove);
 		}
 
 		if ( gItemPointer.exists() == true )
@@ -10589,7 +10589,7 @@ void MAPBeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
 		numToMove = 1;
 	}
 
-	pSoldier->inv[ubHandPos].MoveThisObjectTo(gItemPointer, numToMove, pSoldier, ubHandPos);
+	pSoldier->inventory()[ubHandPos].MoveThisObjectTo(gItemPointer, numToMove, pSoldier, ubHandPos);
 	
 	//Autoplace to map sector inventory
 	if ( _KeyDown(CTRL) )
@@ -10616,7 +10616,7 @@ void MAPBeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
 		//oops, the move failed.  It might have failed because the object was force placed
 		//to a slot where the ItemSizeLimit is 0, try again
 		//this method won't work with LBEs in LBE pockets
-		pSoldier->inv[ubHandPos].MoveThisObjectTo(gItemPointer, numToMove);
+		pSoldier->inventory()[ubHandPos].MoveThisObjectTo(gItemPointer, numToMove);
 	}
 
 	if ( gItemPointer.exists() == true )
@@ -17923,22 +17923,22 @@ bool placeItemInVehicle(SOLDIERTYPE *pSoldier, OBJECTTYPE &item) {
 		if (vehicleInv[x] == FALSE)
 			continue;
 
-		if (pSoldier->inv[x].exists() == true)
+		if (pSoldier->inventory()[x].exists() == true)
 		{
-			if (pSoldier->inv[x].usItem != item.usItem)
+			if (pSoldier->inventory()[x].usItem != item.usItem)
 			{
 				continue;
 			}
 			else
 			{
 				//ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Stacking %s * %i in car slot %i", sectorItemType.szItemName, item.ubNumberOfObjects, x);
-				pSoldier->inv[x].AddObjectsToStack(item, -1, pSoldier, x);
+				pSoldier->inventory()[x].AddObjectsToStack(item, -1, pSoldier, x);
 			}
 		}
 		else
 		{
 			//ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Placing %s * %i in car slot %i", sectorItemType.szItemName, item.ubNumberOfObjects, x);
-			int result = item.MoveThisObjectTo(pSoldier->inv[x], -1, pSoldier, x);
+			int result = item.MoveThisObjectTo(pSoldier->inventory()[x], -1, pSoldier, x);
 		}
 
 		if (item.ubNumberOfObjects < 0)

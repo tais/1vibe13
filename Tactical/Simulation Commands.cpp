@@ -496,7 +496,7 @@ namespace
 			else if constexpr (std::is_same<Command, CycleWeaponModeCommand>::value)
 			{
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				if (!soldier || !soldier->inv[HANDPOS].exists() ||
+				if (!soldier || !soldier->inventory()[HANDPOS].exists() ||
 					(gAnimControl[soldier->animationPlayback().state()].uiFlags & ANIM_FIRE) != 0)
 					return CommandDisposition::Discard;
 				ChangeWeaponMode(soldier);
@@ -505,7 +505,7 @@ namespace
 			else if constexpr (std::is_same<Command, CycleScopeModeCommand>::value)
 			{
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				if (!soldier || !soldier->inv[HANDPOS].exists() ||
+				if (!soldier || !soldier->inventory()[HANDPOS].exists() ||
 					(gAnimControl[soldier->animationPlayback().state()].uiFlags & ANIM_FIRE) != 0)
 					return CommandDisposition::Discard;
 				ChangeScopeMode(soldier, value.targetGrid);
@@ -515,7 +515,7 @@ namespace
 			else if constexpr (std::is_same<Command, ReloadWeaponCommand>::value)
 			{
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				if (!soldier || !soldier->inv[HANDPOS].exists())
+				if (!soldier || !soldier->inventory()[HANDPOS].exists())
 					return CommandDisposition::Discard;
 				return AutoReload(soldier, value.reloadEvenIfNotEmpty)
 					? CommandDisposition::Applied

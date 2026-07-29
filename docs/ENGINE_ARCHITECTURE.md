@@ -977,11 +977,22 @@ the engine must not contain SDL types in its public domain model.
   every historical attribute and its two trait slots, then clears the 28 later
   slots. Profiles, trait rules, XML, Lua, multiplayer, installed game data, and
   save bytes are unchanged.
+  `SoldierInventory` now privately owns the live soldier's carried-object
+  slots, new-item counters, key access, refresh request, zipper state, and
+  drop-pack state behind one typed accessor. Its object and counter vectors
+  resize and clear as one coherent unit, and whole-soldier copies receive
+  independent storage. Neutral `InventorySlots` records remain available for
+  creation, map, and v101 transfers; assigning one to a live inventory replaces
+  only slots and counters, preserving the historically separate live flags.
+  The existing inventory stream remains an `int` slot count followed by each
+  `OBJECTTYPE` and its two `int` counters. Item XML, pocket layouts, profiles,
+  maps, multiplayer records, Lua, packages, installed data, and save bytes are
+  unchanged.
   The final `STRUCT_Flags` bucket is retired rather than becoming another
   catch-all component. `SoldierStatusComponent` privately owns only the
   established 32-bit general soldier mask, with explicit query/set/clear
-  operations. `SoldierInventoryStateComponent` owns key access, new-item
-  refresh, zipper, and drop-pack state. The remaining former fields now live
+  operations. `SoldierInventory` owns key access, new-item refresh, zipper, and
+  drop-pack state. The remaining former fields now live
   with replication, AI planning, conditions, targeting, fire control, and
   animation activity. Zero-cost reference accessors preserve the hot mutation
   paths. The current visitor emits all fourteen values at their exact previous

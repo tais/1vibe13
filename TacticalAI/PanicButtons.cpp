@@ -107,10 +107,10 @@ void MakeClosestEnemyChosenOne()
 		}
 
 		// remember whether this guy had keys before
-		//bOldKeys = pSoldier->inventoryState().keyAccess();
+		//bOldKeys = pSoldier->inventory().keyAccess();
 
 		// give him keys to see if with them he can get to the panic trigger
-		pSoldier->inventoryState().keyAccess() = (pSoldier->inventoryState().keyAccess() << 1) | 1;
+		pSoldier->inventory().keyAccess() = (pSoldier->inventory().keyAccess() << 1) | 1;
 
 		// we now path directly to the panic trigger
 
@@ -119,7 +119,7 @@ void MakeClosestEnemyChosenOne()
 			/*
 			if ( FindAdjacentGridEx( pSoldier, gTacticalStatus.sPanicTriggerGridno, &ubDirection, &sAdjSpot, FALSE, FALSE ) == -1 )
 			{
-				pSoldier->inventoryState().keyAccess() = bOldKeys;
+				pSoldier->inventory().keyAccess() = bOldKeys;
 				continue;			// next merc
 			}
 			*/
@@ -139,7 +139,7 @@ void MakeClosestEnemyChosenOne()
 		}
 
 		// set his keys value back to what it was before this hack
-		pSoldier->inventoryState().keyAccess() = (pSoldier->inventoryState().keyAccess() >> 1 );
+		pSoldier->inventory().keyAccess() = (pSoldier->inventory().keyAccess() >> 1 );
 
 		// if he can get there (or is already there!)
 		if (sPathCost || (pSoldier->position().gridNo() == sPanicTriggerGridNo))
@@ -171,8 +171,8 @@ void MakeClosestEnemyChosenOne()
 			CheckForChangingOrders( pSoldier );
 		}
 		SetNewSituation( pSoldier );	// set new situation for the chosen one
-		pSoldier->inventoryState().keyAccess() = (pSoldier->inventoryState().keyAccess() << 1) | 1; // cheat and give him keys to every door
-		//pSoldier->inventoryState().keyAccess() = TRUE;
+		pSoldier->inventory().keyAccess() = (pSoldier->inventory().keyAccess() << 1) | 1; // cheat and give him keys to every door
+		//pSoldier->inventory().keyAccess() = TRUE;
 	}
 #ifdef TESTVERSION
 	else
@@ -216,8 +216,8 @@ void PossiblyMakeThisEnemyChosenOne( SOLDIERTYPE * pSoldier )
 		return;
 	}
 
-	//bOldKeys = pSoldier->inventoryState().keyAccess();
-	pSoldier->inventoryState().keyAccess() = (pSoldier->inventoryState().keyAccess() << 1) | 1;
+	//bOldKeys = pSoldier->inventory().keyAccess();
+	pSoldier->inventory().keyAccess() = (pSoldier->inventory().keyAccess() << 1) | 1;
 
 	// if he can't get to a spot where he could get at the panic trigger
 	iAPCost = APBPConstants[AP_PULL_TRIGGER];
@@ -226,8 +226,8 @@ void PossiblyMakeThisEnemyChosenOne( SOLDIERTYPE * pSoldier )
 		iPathCost = PlotPath( pSoldier, sPanicTriggerGridNo, FALSE, FALSE, FALSE, RUNNING, FALSE, FALSE, 0);
 		if (iPathCost == 0)
 		{
-			//pSoldier->inventoryState().keyAccess() = bOldKeys;
-			pSoldier->inventoryState().keyAccess() = (pSoldier->inventoryState().keyAccess() >> 1);
+			//pSoldier->inventory().keyAccess() = bOldKeys;
+			pSoldier->inventory().keyAccess() = (pSoldier->inventory().keyAccess() >> 1);
 			return;
 		}
 		iAPCost += iPathCost;
@@ -241,8 +241,8 @@ void PossiblyMakeThisEnemyChosenOne( SOLDIERTYPE * pSoldier )
 		return;
 	}
 	// else return keys to normal
-	//pSoldier->inventoryState().keyAccess() = bOldKeys;
-	pSoldier->inventoryState().keyAccess() = (pSoldier->inventoryState().keyAccess() >> 1);
+	//pSoldier->inventory().keyAccess() = bOldKeys;
+	pSoldier->inventory().keyAccess() = (pSoldier->inventory().keyAccess() >> 1);
 }
 
 

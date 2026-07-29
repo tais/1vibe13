@@ -1089,10 +1089,10 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 			attacker != nullptr && attacker->roster().team() == OUR_TEAM;
 
 		// OK, Place what objects this guy was carrying on the ground!
-		UINT32 invsize = pSoldier->inv.size();
+		UINT32 invsize = pSoldier->inventory().size();
 		for ( cnt = 0; cnt < invsize; ++cnt )
 		{
-			pObj = &( pSoldier->inv[ cnt ] );
+			pObj = &( pSoldier->inventory()[ cnt ] );
 
 			if ( pObj->exists() == true )
 			{
@@ -2188,7 +2188,7 @@ BOOLEAN TakeCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel )
 		{
 			// we have to make sure this can be placed in our hands, as corpses can only be carried in hands.
 			// At this point, we will have a knife in our first hand, so check if our second hand is free
-			if ( !(pSoldier->inv[SECONDHANDPOS].exists()) )
+			if ( !(pSoldier->inventory()[SECONDHANDPOS].exists()) )
 			{
 				CreateItem( corpseitem, 100, &gTempObject );
 
@@ -2327,7 +2327,7 @@ BOOLEAN TakeCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel )
 						break;
 					}
 
-					gTempObject.MoveThisObjectTo(pSoldier->inv[SECONDHANDPOS], ALL_OBJECTS, pSoldier, SECONDHANDPOS);
+					gTempObject.MoveThisObjectTo(pSoldier->inventory()[SECONDHANDPOS], ALL_OBJECTS, pSoldier, SECONDHANDPOS);
 
 					if ( pCorpse->def.ubType != 0 )
 					{
@@ -2565,12 +2565,12 @@ void GetBloodFromCorpse( SOLDIERTYPE *pSoldier )
 void ReduceAmmoDroppedByNonPlayerSoldiers( SOLDIERTYPE *pSoldier, INT32 iInvSlot )
 {
 	Assert( pSoldier );
-	Assert( ( iInvSlot >= 0 ) && ( iInvSlot < (INT32)pSoldier->inv.size() ) );
+	Assert( ( iInvSlot >= 0 ) && ( iInvSlot < (INT32)pSoldier->inventory().size() ) );
 
 	// if not a player soldier
 	if ( pSoldier->roster().team() != gbPlayerNum )
 	{
-		OBJECTTYPE *pObj = &( pSoldier->inv[ iInvSlot ] );
+		OBJECTTYPE *pObj = &( pSoldier->inventory()[ iInvSlot ] );
 
 		// if it's ammo
 		if ( Item[ pObj->usItem ].usItemClass == IC_AMMO

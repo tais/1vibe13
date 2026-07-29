@@ -189,12 +189,12 @@ BOOLEAN KeyExistsInKeyRing( SOLDIERTYPE *pSoldier, UINT8 ubKeyID, UINT8 * pubPos
 
 BOOLEAN KeyExistsInInventory( SOLDIERTYPE *pSoldier, UINT8 ubKeyID )
 {
-	UINT8 invsize = pSoldier->inv.size();
+	UINT8 invsize = pSoldier->inventory().size();
 	for (UINT8 ubLoop = 0; ubLoop < invsize; ++ubLoop)
 	{
-		if (Item[pSoldier->inv[ubLoop].usItem].usItemClass == IC_KEY)
+		if (Item[pSoldier->inventory()[ubLoop].usItem].usItemClass == IC_KEY)
 		{
-			if ( (pSoldier->inv[ubLoop][0]->data.key.ubKeyID == ubKeyID) || (ubKeyID == ANYKEY) )
+			if ( (pSoldier->inventory()[ubLoop][0]->data.key.ubKeyID == ubKeyID) || (ubKeyID == ANYKEY) )
 			{
 				// there's the key we want!
 				return( TRUE );
@@ -336,7 +336,7 @@ BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	// possibly damage crowbar
 	bStress = __min( EffectiveStrength( pSoldier, FALSE ), LockTable[pDoor->ubLockID].ubSmashDifficulty + 30 );
 	// reduce crowbar status by random % between 0 and 5%
-	DamageObj( &(pSoldier->inv[ bSlot ]), (INT8) PreRandom( bStress / 20 ) );
+	DamageObj( &(pSoldier->inventory()[ bSlot ]), (INT8) PreRandom( bStress / 20 ) );
 
 	// did we succeed?
 
@@ -742,12 +742,12 @@ BOOLEAN AttemptToBlowUpLock(SOLDIERTYPE * pSoldier, DOOR * pDoor)
 	}
 
 	// sevenfm: remember damage as item will be removed
-	UINT16 usDamage = Explosive[Item[pSoldier->inv[bSlot].usItem].ubClassIndex].ubDamage;
-	UINT16 usItem = pSoldier->inv[bSlot].usItem;
-	UINT8 ubVolume = Explosive[Item[pSoldier->inv[bSlot].usItem].ubClassIndex].ubVolume;
+	UINT16 usDamage = Explosive[Item[pSoldier->inventory()[bSlot].usItem].ubClassIndex].ubDamage;
+	UINT16 usItem = pSoldier->inventory()[bSlot].usItem;
+	UINT8 ubVolume = Explosive[Item[pSoldier->inventory()[bSlot].usItem].ubClassIndex].ubVolume;
 
 	// Remove the explosive.....
-	pSoldier->inv[bSlot].RemoveObjectsFromStack(1);
+	pSoldier->inventory()[bSlot].RemoveObjectsFromStack(1);
 	DirtyMercPanelInterface(pSoldier, DIRTYLEVEL2);
 
 	// Flugente: flat bonus to using door breaching charges
