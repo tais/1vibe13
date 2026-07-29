@@ -803,18 +803,22 @@ the engine must not contain SDL types in its public domain model.
   preallocated storage; erasure, stable compaction, and identity sorting also
   perform no hot-path allocation. The JA2 tactical host owns separate active
   and away scheduler rosters, while `StrategicSquadHost` owns the 40 bounded
-  strategic squad rosters. Readers resolve one exact slot/incarnation only at
-  the point of use, and stale entries fail closed. Whole-record portrait swaps
-  rebuild directory identities and rebind every scheduler and squad roster by
-  canonical repository slot in the same operation, preserving the established
-  fixed-address behavior without retaining `SOLDIERTYPE*`. Deletion captures
-  identity before release and removes that exact actor even after directory
-  resolution rejects it. The former `MercSlots`, `AwaySlots`, mutable
-  high-water globals, and global `Squad[][]` pointer matrix are deleted, and
-  architecture checks prevent their return. Squad save/load still emits and
-  consumes the established 40-by-10 legacy soldier-ID block, reconstructing
-  exact runtime identities after soldiers load; soldier/map content, saves,
-  Lua, and network formats are unchanged.
+  strategic squad rosters and `VehiclePassengerHost` owns ten fixed passenger
+  seats plus an exact driver per vehicle. Readers resolve one exact
+  slot/incarnation only at the point of use, and stale entries fail closed.
+  Whole-record portrait swaps rebuild directory identities and rebind every
+  scheduler, squad, passenger, and driver reference by canonical repository
+  slot in the same operation, preserving the established fixed-address
+  behavior without retaining `SOLDIERTYPE*`. Deletion captures identity before
+  release and removes that exact actor even after directory resolution rejects
+  it. The former `MercSlots`, `AwaySlots`, mutable high-water globals, global
+  `Squad[][]` pointer matrix, and `VEHICLETYPE::pPassengers` matrix are deleted,
+  and architecture checks prevent their return. Squad save/load still emits
+  and consumes the established 40-by-10 legacy soldier-ID block. Vehicle
+  save/load likewise retains ten 32-bit passenger profile IDs and its 16-bit
+  driver slot, but reconstructs exact runtime identities without casting
+  numeric data through pointers. Soldier/map content, saves, Lua, and network
+  formats are unchanged.
 - `Ja2SoldierRepository` is the application-owned live-storage seam paired with
   that directory. `GameContext` owns the repository, and its fixed record
   allocation and slot table are private implementation storage in

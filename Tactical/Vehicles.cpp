@@ -1,4 +1,5 @@
 	#include "Vehicles.h"
+#include <array>
 #include "TacticalWorldAdapter.h"
 	#include "SaveLoadGame.h"
 	#include "SaveSerializer.h"
@@ -10,6 +11,8 @@
 	#include "Game Clock.h"
 	#include "Overhead.h"
 #include "SoldierRepository.h"
+#include "TacticalEntityHost.h"
+#include "VehiclePassengerHost.h"
 	#include "Soldier Profile.h"
 	#include "Sound Control.h"
 	#include "Soldier Add.h"
@@ -48,11 +51,33 @@ VEHICLETYPE *pVehicleList = NULL;
 // number of vehicle slots on the list
 UINT8 ubNumberOfVehicles = 0;
 
+static_assert(
+	MAX_VEHICLES == kJa2VehicleSlotCount,
+	"JA2 vehicle count must match its pointer-free occupant host");
+static_assert(
+	MAXPASSENGERS == kJa2VehiclePassengerCapacity,
+	"JA2 vehicle capacity must match its pointer-free occupant host");
+
 // the squad mvt groups
 extern INT8 SquadMovementGroups[ ];
 
 
 NEW_CAR gNewVehicle[NUM_PROFILES];
+
+SOLDIERTYPE* ResolveVehiclePassenger(
+	INT32 iVehicleId, INT32 iSeatIndex )
+{
+	if( pVehicleList == NULL ||
+		iVehicleId < 0 || iVehicleId >= ubNumberOfVehicles ||
+		iSeatIndex < 0 || iSeatIndex >= MAXPASSENGERS ||
+		pVehicleList[ iVehicleId ].fValid == FALSE )
+	{
+		return nullptr;
+	}
+	return ResolveJa2VehiclePassengerActor(
+		static_cast<std::size_t>( iVehicleId ),
+		static_cast<std::size_t>( iSeatIndex ) );
+}
 
 INT32 GetVehicleSeatingCapacity( INT32 iId )
 {
@@ -280,6 +305,11 @@ INT32 AddVehicleToList( INT16 sMapX, INT16 sMapY, INT32 sGridNo, UINT8 ubType )
 		iCount = ubNumberOfVehicles;
 	}
 
+	if( iCount >= MAX_VEHICLES )
+	{
+		return( -1 );
+	}
+
 	if( iCount == 0 )
 	{
 		pVehicleList = (VEHICLETYPE *) MemAlloc( sizeof( VEHICLETYPE ) );
@@ -324,7 +354,8 @@ INT32 AddVehicleToList( INT16 sMapX, INT16 sMapY, INT32 sGridNo, UINT8 ubType )
 	pVehicleList[ iCount ].sSectorY = sMapY;
 	pVehicleList[ iCount ].sSectorZ = 0;
 	pVehicleList[ iCount ].sGridNo = sGridNo;
-	memset( pVehicleList[ iCount ].pPassengers, 0, 10 * sizeof( SOLDIERTYPE * ) );
+	(void)ResetJa2VehicleOccupants(
+		static_cast<std::size_t>( iCount ) );
 	pVehicleList[ iCount ].fValid = TRUE;
 	pVehicleList[ iCount ].ubVehicleType = ubType;
 	pVehicleList[ iCount ].pMercPath = NULL;
@@ -334,7 +365,6 @@ INT32 AddVehicleToList( INT16 sMapX, INT16 sMapY, INT32 sGridNo, UINT8 ubType )
 	pVehicleList[ iCount ].iOutOfSound			= gNewVehicle[ ubType ].iNewEnterVehicleSndID;
 	pVehicleList[ iCount ].ubProfileID			= ubType; //gNewVehicle[ ubType ].ubNewVehicleTypeProfileID;//gNewVehicle[ ubType ].uiIndex;  //gNewVehicle[ ubType ].ubNewVehicleTypeProfileID;  //
 	pVehicleList[ iCount ].ubMovementGroup	= gubVehicleMovementGroups[ iCount ];
-	pVehicleList[ iCount ].ubDriver = NOBODY;
 
 	// ATE: Add movement mask to group...
 	pGroup = GetGroup( pVehicleList[ iCount ].ubMovementGroup );
@@ -406,6 +436,8 @@ BOOLEAN RemoveVehicleFromList( INT32 iId )
 
 	// zero out mem
 	memset( &( pVehicleList[ iId ] ), 0, sizeof( VEHICLETYPE ) );
+	(void)ResetJa2VehicleOccupants(
+		static_cast<std::size_t>( iId ) );
 
 	return( TRUE );
 }
@@ -435,6 +467,7 @@ void ClearOutVehicleList( void )
 		pVehicleList = NULL;
 		ubNumberOfVehicles = 0;
 	}
+	ResetJa2VehicleOccupants();
 
 /*
 	// empty out the vehicle list
@@ -496,7 +529,14 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 	UINT8 ubFinalSeatIndex = 0;
 	BOOLEAN fFoundPlace = FALSE;
 	SOLDIERTYPE *pVehicleSoldier = NULL;
+	const TacticalEntityId passengerActor =
+		pSoldier ? GetJa2TacticalEntityId( *pSoldier ) :
+			TacticalEntityId{};
 
+	if( !passengerActor.valid() )
+	{
+		return( FALSE );
+	}
 
 	// Add Soldierto Vehicle
 	if( ( iId >= ubNumberOfVehicles ) || ( iId < 0 ) )
@@ -574,7 +614,10 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 	// check if the grunt is already here
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
-		if( pVehicleList[ iId ].pPassengers[ iCounter ] == pSoldier )
+		if( GetJa2VehiclePassengerActor(
+				static_cast<std::size_t>( iId ),
+				static_cast<std::size_t>( iCounter ) ) ==
+			passengerActor )
 		{
 			// guy found, no need to add
 			return( TRUE );
@@ -596,7 +639,9 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 	}
 
 
-	if( pVehicleList[ iId ].pPassengers[ ubSeatIndex ] == NULL )
+	if( !GetJa2VehiclePassengerActor(
+			static_cast<std::size_t>( iId ),
+			static_cast<std::size_t>( ubSeatIndex ) ).valid() )
 	{
 		ubFinalSeatIndex = ubSeatIndex;
 		fFoundPlace = TRUE;
@@ -605,7 +650,9 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 	{
 		for( iCounter = 0; !fFoundPlace && iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 		{
-			if( pVehicleList[ iId ].pPassengers[ iCounter ] == NULL )
+			if( !GetJa2VehiclePassengerActor(
+					static_cast<std::size_t>( iId ),
+					static_cast<std::size_t>( iCounter ) ).valid() )
 			{
 				ubFinalSeatIndex = iCounter;
 				fFoundPlace = TRUE;
@@ -617,20 +664,31 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 	if( fFoundPlace )
 	{
 		// check if slot free
-		if( pVehicleList[ iId ].pPassengers[ ubFinalSeatIndex ] == NULL )
+		if( !GetJa2VehiclePassengerActor(
+				static_cast<std::size_t>( iId ),
+				static_cast<std::size_t>( ubFinalSeatIndex ) ).valid() )
 		{
-			// anv: since now they can shoot it's important to set passenger to proper stance
-			SendChangeSoldierStanceEvent( pSoldier, ANIM_CROUCH );
-
-			// add person in
-			pVehicleList[ iId ].pPassengers[ ubFinalSeatIndex ] = pSoldier;
-
 			if( pSoldier->assignment().current() == VEHICLE )
 			{
-				TakeSoldierOutOfVehicle( pSoldier );
+				if( !TakeSoldierOutOfVehicle( pSoldier ) )
+				{
+					return( FALSE );
+				}
 				// NOTE: This will leave the soldier on a squad.	Must be done PRIOR TO and in AS WELL AS the call
 				// to RemoveCharacterFromSquads() that's coming up, to permit direct vehicle->vehicle reassignment!
 			}
+
+			if( !AssignJa2VehiclePassengerActor(
+					static_cast<std::size_t>( iId ),
+					static_cast<std::size_t>( ubFinalSeatIndex ),
+					passengerActor ) )
+			{
+				return( FALSE );
+			}
+
+			// anv: since now they can shoot it's important to set passenger to
+			// the proper stance after any direct vehicle-to-vehicle exit.
+			SendChangeSoldierStanceEvent( pSoldier, ANIM_CROUCH );
 
 			// if in a squad, remove from squad, if not, check if in vehicle, if so remove, if not, then check if in mvt group..if so, move and destroy group
 			if( pSoldier->roster().team() == gbPlayerNum && pSoldier->assignment().current() < ON_DUTY )
@@ -790,12 +848,14 @@ BOOLEAN RemoveSoldierFromVehicle( SOLDIERTYPE *pSoldier, INT32 iId )
 	INT32 iCounter = 0;
 	BOOLEAN fSoldierLeft = FALSE;
 	BOOLEAN	fSoldierFound = FALSE;
-	BOOLEAN	fNewDriverNeeded = FALSE;
 	SOLDIERTYPE *pVehicleSoldier;
 	UINT8	iOldGroupID=0;
+	const TacticalEntityId passengerActor =
+		pSoldier ? GetJa2TacticalEntityId( *pSoldier ) :
+			TacticalEntityId{};
 
-
-	if( ( iId >= ubNumberOfVehicles ) || ( iId < 0 ) )
+	if( !passengerActor.valid() ||
+		( iId >= ubNumberOfVehicles ) || ( iId < 0 ) )
 	{
 		return( FALSE );
 	}
@@ -809,23 +869,29 @@ BOOLEAN RemoveSoldierFromVehicle( SOLDIERTYPE *pSoldier, INT32 iId )
 	// now look for the grunt
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
-		if( pVehicleList[ iId ].pPassengers[ iCounter ] == pSoldier )
+		if( GetJa2VehiclePassengerActor(
+				static_cast<std::size_t>( iId ),
+				static_cast<std::size_t>( iCounter ) ) ==
+			passengerActor )
 		{
 			fSoldierFound = TRUE;
 
-			iOldGroupID = pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().groupId();
-			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().groupId() = 0;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorY() = pVehicleList[ iId ].sSectorY;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorX() = pVehicleList[ iId ].sSectorX;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorZ() = ( INT8 )pVehicleList[ iId ].sSectorZ;
-			pVehicleList[ iId ].pPassengers[ iCounter ] = NULL;
+			iOldGroupID = pSoldier->deployment().groupId();
+			pSoldier->deployment().groupId() = 0;
+			pSoldier->deployment().sectorY() = pVehicleList[ iId ].sSectorY;
+			pSoldier->deployment().sectorX() = pVehicleList[ iId ].sSectorX;
+			pSoldier->deployment().sectorZ() = ( INT8 )pVehicleList[ iId ].sSectorZ;
+			(void)RemoveJa2VehiclePassengerSeat(
+				static_cast<std::size_t>( iId ),
+				static_cast<std::size_t>( iCounter ) );
 
 
 			// anv: make sure someone else becomes driver if he was the previous one
 			if( pSoldier->status().flags() & SOLDIER_DRIVER )
 			{
-				fNewDriverNeeded = TRUE;
-				pVehicleList[ iId ].ubDriver = NOBODY;
+				(void)SetJa2VehicleDriverActor(
+					static_cast<std::size_t>( iId ),
+					TacticalEntityId{} );
 			}
 
 			pSoldier->status().flags() &= ( ~( SOLDIER_DRIVER | SOLDIER_PASSENGER ) );
@@ -834,12 +900,13 @@ BOOLEAN RemoveSoldierFromVehicle( SOLDIERTYPE *pSoldier, INT32 iId )
 			fSoldierLeft = FALSE;
 			for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 			{
-				if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
+				if( ResolveVehiclePassenger( iId, iCounter ) != NULL )
 				{
 					fSoldierLeft = TRUE;
 					//if( fNewDriverNeeded )
 					//{
-					//	SOLDIERTYPE* pNewDriver = pVehicleList[ iId ].pPassengers[ iCounter ];
+					//	SOLDIERTYPE* pNewDriver =
+					//		ResolveVehiclePassenger( iId, iCounter );
 					//	pNewDriver->status().flags() |= SOLDIER_DRIVER;
 					//	pNewDriver->status().flags() &= ~(SOLDIER_PASSENGER);
 					//	SetDriver( iId, pNewDriver->identity().id() );
@@ -1227,10 +1294,12 @@ BOOLEAN SetUpMvtGroupForVehicle( SOLDIERTYPE *pSoldier )
 		// add everyone in vehicle to this mvt group
 		//for( iCounter = 0; iCounter < gNewVehicle.iNewSeatingCapacities[ pVehicleList[ iId ].ubVehicleType ]; iCounter++ )
 		//{
-		//	if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
+		//	if( ResolveVehiclePassenger( iId, iCounter ) != NULL )
 		//	{
 		//			// add character
-		//		AddPlayerToGroup( pVehicleList[ iId ].ubMovementGroup, pVehicleList[ iId ].pPassengers[ iCounter ] );
+		//		AddPlayerToGroup(
+		//			pVehicleList[ iId ].ubMovementGroup,
+		//			ResolveVehiclePassenger( iId, iCounter ) );
 		//	}
 		//}
 	//}
@@ -1303,11 +1372,13 @@ void UpdatePositionOfMercsInVehicle( INT32 iId )
 	// go through list of mercs in vehicle and set all thier states as arrived
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
-		if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
+		SOLDIERTYPE* passenger =
+			ResolveVehiclePassenger( iId, iCounter );
+		if( passenger != NULL )
 		{
-			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorY() = pVehicleList[ iId ].sSectorY;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorX() = pVehicleList[ iId ].sSectorX;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().completeStrategicTransit();
+			passenger->deployment().sectorY() = pVehicleList[ iId ].sSectorY;
+			passenger->deployment().sectorX() = pVehicleList[ iId ].sSectorX;
+			passenger->deployment().completeStrategicTransit();
 		}
 	}
 
@@ -1357,9 +1428,12 @@ BOOLEAN AddVehicleMembersToMvtGroup( INT32 iId )
 	// go through list of mercs in vehicle and set all thier states as arrived
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
-		if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
+		SOLDIERTYPE* passenger =
+			ResolveVehiclePassenger( iId, iCounter );
+		if( passenger != NULL )
 		{
-			AddPlayerToGroup( pVehicleList[ iId ].ubMovementGroup , pVehicleList[ iId ].pPassengers[ iCounter ] );
+			AddPlayerToGroup(
+				pVehicleList[ iId ].ubMovementGroup, passenger );
 		}
 	}
 
@@ -1445,9 +1519,11 @@ BOOLEAN KillAllInVehicle( INT32 iId )
 	// go through list of occupants and kill them
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
-		if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
+		SOLDIERTYPE* passenger =
+			ResolveVehiclePassenger( iId, iCounter );
+		if( passenger != NULL )
 		{
-			if( KillPersonInVehicle( iId , pVehicleList[ iId ].pPassengers[ iCounter ] ) == FALSE )
+			if( KillPersonInVehicle( iId, passenger ) == FALSE )
 			{
 				return( FALSE );
 			}
@@ -1469,11 +1545,13 @@ BOOLEAN HurtPassengersInHelicopter( INT32 iId )
 	// go through list of occupants and hurt them
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
-		if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
+		SOLDIERTYPE* passenger =
+			ResolveVehiclePassenger( iId, iCounter );
+		if( passenger != NULL )
 		{
 			if( PreRandom(100) < gHelicopterSettings.ubHelicopterPassengerHitChance )
 			{
-				if( InjurePersonInVehicle( iId , pVehicleList[ iId ].pPassengers[ iCounter ], 
+				if( InjurePersonInVehicle( iId, passenger,
 					gHelicopterSettings.ubHelicopterPassengerHitMinDamage + PreRandom( gHelicopterSettings.ubHelicopterPassengerHitMaxDamage - gHelicopterSettings.ubHelicopterPassengerHitMinDamage ) ) == FALSE )
 				{
 					return( FALSE );
@@ -1486,26 +1564,24 @@ BOOLEAN HurtPassengersInHelicopter( INT32 iId )
 
 INT32 GetNumberInVehicle( INT32 iId )
 {
-	// go through list of occupants in vehicles and count them
-	INT32 iCounter = 0;
-	INT32 iCount = 0;
-
 	// find if vehicle is valid
 	if( VehicleIdIsValid( iId ) == FALSE )
 	{
 		return ( 0 );
 	}
 
+	INT32 count = 0;
 	const INT32 seatingCapacity = GetVehicleSeatingCapacity( iId );
-	for( iCounter = 0; iCounter < seatingCapacity; iCounter++ )
+	for( INT32 seat = 0; seat < seatingCapacity; ++seat )
 	{
-		if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
+		if( GetJa2VehiclePassengerActor(
+				static_cast<std::size_t>( iId ),
+				static_cast<std::size_t>( seat ) ).valid() )
 		{
-			iCount++;
+			++count;
 		}
 	}
-
-	return( iCount );
+	return count;
 }
 
 INT32 GetNumberOfNonEPCsInVehicle( INT32 iId )
@@ -1522,7 +1598,9 @@ INT32 GetNumberOfNonEPCsInVehicle( INT32 iId )
 
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
-		if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL && !AM_AN_EPC( pVehicleList[ iId ].pPassengers[ iCounter ] ) )
+		SOLDIERTYPE* passenger =
+			ResolveVehiclePassenger( iId, iCounter );
+		if( passenger != NULL && !AM_AN_EPC( passenger ) )
 		{
 			iCount++;
 		}
@@ -1545,7 +1623,7 @@ BOOLEAN IsRobotControllerInVehicle( INT32 iId )
 
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
-		pSoldier = pVehicleList[ iId ].pPassengers[ iCounter ];
+		pSoldier = ResolveVehiclePassenger( iId, iCounter );
 		if ( pSoldier != NULL && pSoldier->ControllingRobot( ) )
 		{
 			return( TRUE );
@@ -1578,19 +1656,26 @@ BOOLEAN AnyAccessibleVehiclesInSoldiersSector( SOLDIERTYPE *pSoldier )
 SOLDIERTYPE *GetDriver( INT32 iID )
 {
 	INT32 iCounter;
-	if( pVehicleList[ iID ].ubDriver != NOBODY )
+	if( VehicleIdIsValid( iID ) == FALSE )
 	{
-		return GetJa2SoldierRepository().resolve(
-			pVehicleList[iID].ubDriver.i);
+		return( NULL );
+	}
+	SOLDIERTYPE* driver = ResolveJa2VehicleDriverActor(
+		static_cast<std::size_t>( iID ) );
+	if( driver != NULL )
+	{
+		return driver;
 	}
 	else
 	{
 		// anv: if vehicle has no driver, return any passenger
 		for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iID ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 		{
-			if( pVehicleList[ iID ].pPassengers[ iCounter ] != NULL )
+			SOLDIERTYPE* passenger =
+				ResolveVehiclePassenger( iID, iCounter );
+			if( passenger != NULL )
 			{
-				return( pVehicleList[ iID ].pPassengers[ iCounter ] );
+				return( passenger );
 			}
 		}
 	}
@@ -1600,12 +1685,14 @@ SOLDIERTYPE *GetDriver( INT32 iID )
 
 void SetDriver( INT32 iID, SoldierID ubID )
 {
+	if( VehicleIdIsValid( iID ) == FALSE )
+	{
+		return;
+	}
 	// anv: first make sure previous driver won't be driver anymore
-	SoldierID previousDriverId = pVehicleList[iID].ubDriver;
 	SOLDIERTYPE* prevDriver =
-		previousDriverId != NOBODY
-			? GetJa2SoldierRepository().resolve(previousDriverId.i)
-			: nullptr;
+		ResolveJa2VehicleDriverActor(
+			static_cast<std::size_t>( iID ) );
 
 	if( prevDriver && prevDriver->deployment().vehicleId() == iID )
 	{
@@ -1618,15 +1705,26 @@ void SetDriver( INT32 iID, SoldierID ubID )
 			}
 		}
 	}
+	(void)SetJa2VehicleDriverActor(
+		static_cast<std::size_t>( iID ),
+		TacticalEntityId{} );
 	// set proper flags
 	if( ubID != NOBODY )
 	{
 		SOLDIERTYPE* driver =
 			GetJa2SoldierRepository().resolve(ubID.i);
+		if( !driver ) return;
+		const TacticalEntityId driverActor =
+			GetJa2TacticalEntityId( *driver );
+		if( !SetJa2VehicleDriverActor(
+				static_cast<std::size_t>( iID ),
+				driverActor ) )
+		{
+			return;
+		}
 		driver->status().flags() |= SOLDIER_DRIVER;
 		driver->status().flags() &= ~(SOLDIER_PASSENGER);
 	}
-	pVehicleList[ iID ].ubDriver = ubID;
 }
 
 
@@ -1730,7 +1828,9 @@ BOOLEAN EnterVehicle( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 ubSeat
 		if ( IsEnoughSpaceInVehicle( pVehicle->vehicleState().tacticalVehicleId() ) )
 		{
 			// anv: check if preferred seat is already taken, if so automatically choose another
-			if ( pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].pPassengers[ubSeatIndex] != NULL )
+			if ( ResolveVehiclePassenger(
+					pVehicle->vehicleState().tacticalVehicleId(),
+					ubSeatIndex ) != NULL )
 			{
 				ubSeatIndex = 0;
 			}
@@ -1896,7 +1996,10 @@ BOOLEAN ChangeVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 u
 	if ( pVehicle->status().flags() & SOLDIER_VEHICLE )
 	{
 		// anv: check if preferred seat is available
-		if ( pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].pPassengers[ubSeatIndex] == NULL )
+		const INT32 vehicleId =
+			pVehicle->vehicleState().tacticalVehicleId();
+		if ( ResolveVehiclePassenger(
+				vehicleId, ubSeatIndex ) == NULL )
 		{
 
 			INT8 bCurrentSeatIndex = GetSeatIndexFromSoldier( pSoldier );
@@ -1924,8 +2027,13 @@ BOOLEAN ChangeVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 u
 					return( FALSE );
 			}
 
-			pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].pPassengers[ubSeatIndex] = pSoldier;
-			pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].pPassengers[bCurrentSeatIndex] = NULL;
+			if( !MoveJa2VehiclePassengerActor(
+					static_cast<std::size_t>( vehicleId ),
+					static_cast<std::size_t>( bCurrentSeatIndex ),
+					static_cast<std::size_t>( ubSeatIndex ) ) )
+			{
+				return( FALSE );
+			}
 
 			if( gNewVehicle[pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].ubVehicleType].VehicleSeats[bCurrentSeatIndex].fDriver )
 			{
@@ -1962,7 +2070,10 @@ BOOLEAN SwapVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 ubS
 	// TEST IF IT'S VALID...
 	if ( pVehicle->status().flags() & SOLDIER_VEHICLE )
 	{
-		SOLDIERTYPE *pSoldier2 = pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].pPassengers[ubSeatIndex];
+		const INT32 vehicleId =
+			pVehicle->vehicleState().tacticalVehicleId();
+		SOLDIERTYPE *pSoldier2 =
+			ResolveVehiclePassenger( vehicleId, ubSeatIndex );
 
 		if ( pSoldier2 != NULL )
 		{
@@ -1994,8 +2105,13 @@ BOOLEAN SwapVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 ubS
 					return( FALSE );
 			}
 
-			pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].pPassengers[ubSeatIndex] = pSoldier;
-			pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].pPassengers[bCurrentSeatIndex] = pSoldier2;
+			if( !SwapJa2VehiclePassengerActors(
+					static_cast<std::size_t>( vehicleId ),
+					static_cast<std::size_t>( bCurrentSeatIndex ),
+					static_cast<std::size_t>( ubSeatIndex ) ) )
+			{
+				return( FALSE );
+			}
 
 			if( gNewVehicle[pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].ubVehicleType].VehicleSeats[bCurrentSeatIndex].fDriver )
 			{
@@ -2035,10 +2151,13 @@ void AddPassangersToTeamPanel( INT32 iId )
 
 	for( cnt = 0; cnt < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; cnt++ )
 	{
-		if( pVehicleList[ iId ].pPassengers[ cnt ] != NULL )
+		SOLDIERTYPE* passenger =
+			ResolveVehiclePassenger( iId, cnt );
+		if( passenger != NULL )
 		{
 			// add character
-			AddPlayerToInterfaceTeamSlot( pVehicleList[ iId ].pPassengers[ cnt ]->identity().id() );
+			AddPlayerToInterfaceTeamSlot(
+				passenger->identity().id() );
 		}
 	}
 }
@@ -2357,9 +2476,9 @@ BOOLEAN SaveVehicleInformationToSaveGameFile( HWFILE hFile )
 		if( pVehicleList[cnt].fValid )
 		{
 			// Portable save-format v2: write the vehicle field-by-field. pMercPath
-			// is a runtime pointer (path saved separately below); pPassengers hold
-			// soldier pointers, persisted as their profile IDs (NO_PROFILE if empty)
-			// at a fixed 32-bit width rather than as platform-sized pointers.
+			// is a runtime pointer (path saved separately below). Pointer-free
+			// passenger identities retain the established profile-ID representation
+			// (NO_PROFILE if empty) at its fixed 32-bit width.
 			VEHICLETYPE& v = pVehicleList[cnt];
 			SaveWriter w(hFile);
 			w.u8 (v.ubMovementGroup);
@@ -2369,12 +2488,17 @@ BOOLEAN SaveVehicleInformationToSaveGameFile( HWFILE hFile )
 			w.i32(v.sGridNo);
 			for( ubPassengerCnt = 0; ubPassengerCnt < MAXPASSENGERS; ++ubPassengerCnt )
 			{
-				UINT32 uiPassengerID = v.pPassengers[ ubPassengerCnt ]
-					? (UINT32)v.pPassengers[ ubPassengerCnt ]->identity().profile()
-					: (UINT32)(uintptr_t)NO_PROFILE;
+				SOLDIERTYPE* passenger =
+					ResolveVehiclePassenger( cnt, ubPassengerCnt );
+				UINT32 uiPassengerID = passenger
+					? (UINT32)passenger->identity().profile()
+					: (UINT32)NO_PROFILE;
 				w.u32(uiPassengerID);
 			}
-			w.u16(v.ubDriver.i);
+			SOLDIERTYPE* driver =
+				ResolveJa2VehicleDriverActor(
+					static_cast<std::size_t>( cnt ) );
+			w.u16(driver ? driver->identity().id().i : NOBODY.i);
 			for( UINT8 i = 0; i < NUMBER_OF_EXTERNAL_HIT_LOCATIONS_ON_VEHICLE; ++i ) w.i16(v.sInternalHitLocations[i]);
 			w.i16(v.sArmourType);
 			for( UINT8 i = 0; i < NUMBER_OF_EXTERNAL_HIT_LOCATIONS_ON_VEHICLE; ++i ) w.i16(v.sExternalArmorLocationsStatus[i]);
@@ -2436,6 +2560,11 @@ BOOLEAN LoadVehicleInformationFromSavedGameFile( HWFILE hFile, UINT32 uiSavedGam
 	{
 		return( FALSE );
 	}
+	if( ubNumberOfVehicles > MAX_VEHICLES )
+	{
+		ubNumberOfVehicles = 0;
+		return( FALSE );
+	}
 
 	if( ubNumberOfVehicles != 0 )
 	{
@@ -2458,6 +2587,9 @@ BOOLEAN LoadVehicleInformationFromSavedGameFile( HWFILE hFile, UINT32 uiSavedGam
 
 			if( pVehicleList[cnt].fValid )
 			{
+				std::array<UINT32, MAXPASSENGERS>
+					savedPassengerProfiles{};
+				UINT16 savedDriverSlot = NOBODY.i;
 				//load the vehicle info (portable v2 -- matches SaveVehicleInformation...)
 				{
 					VEHICLETYPE& v = pVehicleList[cnt];
@@ -2467,11 +2599,9 @@ BOOLEAN LoadVehicleInformationFromSavedGameFile( HWFILE hFile, UINT32 uiSavedGam
 					v.sSectorX = r.i16(); v.sSectorY = r.i16(); v.sSectorZ = r.i16();
 					v.fBetweenSectors = r.boolean();
 					v.sGridNo = r.i32();
-					// passenger profile IDs reconstructed into the pointer slots; the
-					// fixup loop below converts them to real SOLDIERTYPE* pointers.
 					for( ubPassengerCnt = 0; ubPassengerCnt < MAXPASSENGERS; ++ubPassengerCnt )
-						v.pPassengers[ ubPassengerCnt ] = (SOLDIERTYPE*)(uintptr_t)r.u32();
-					v.ubDriver.i = r.u16();
+						savedPassengerProfiles[ ubPassengerCnt ] = r.u32();
+					savedDriverSlot = r.u16();
 					for( UINT8 i = 0; i < NUMBER_OF_EXTERNAL_HIT_LOCATIONS_ON_VEHICLE; ++i ) v.sInternalHitLocations[i] = r.i16();
 					v.sArmourType = r.i16();
 					for( UINT8 i = 0; i < NUMBER_OF_EXTERNAL_HIT_LOCATIONS_ON_VEHICLE; ++i ) v.sExternalArmorLocationsStatus[i] = r.i16();
@@ -2494,29 +2624,32 @@ BOOLEAN LoadVehicleInformationFromSavedGameFile( HWFILE hFile, UINT32 uiSavedGam
 				//loop through all the passengers
 				for(ubPassengerCnt=0; ubPassengerCnt<10; ubPassengerCnt++)
 				{
-					if ( uiSavedGameVersion < 86 )
+					const UINT32 savedProfile =
+						savedPassengerProfiles[ ubPassengerCnt ];
+					const bool occupied =
+						uiSavedGameVersion < 86
+							? savedProfile != 0
+							: savedProfile != NO_PROFILE;
+					if( occupied )
 					{
-						if( pVehicleList[cnt].pPassengers[ubPassengerCnt] != 0 )
+						SOLDIERTYPE* passenger =
+							FindSoldierByProfileID(
+								static_cast<UINT8>( savedProfile ),
+								FALSE );
+						if( passenger )
 						{
-							// ! The id of the soldier was saved in the passenger pointer.	The passenger pointer is converted back
-							// ! to a UINT8 so we can get the REAL pointer to the soldier.
-							pVehicleList[cnt].pPassengers[ubPassengerCnt] = FindSoldierByProfileID( (UINT8)(uintptr_t)(pVehicleList[cnt].pPassengers[ ubPassengerCnt ]), FALSE );
-						}
-					}
-					else
-					{
-						if( pVehicleList[cnt].pPassengers[ubPassengerCnt] != ( SOLDIERTYPE * )NO_PROFILE )
-						{
-							// ! The id of the soldier was saved in the passenger pointer.	The passenger pointer is converted back
-							// ! to a UINT8 so we can get the REAL pointer to the soldier.
-							pVehicleList[cnt].pPassengers[ubPassengerCnt] = FindSoldierByProfileID( (UINT8)(uintptr_t)(pVehicleList[cnt].pPassengers[ ubPassengerCnt ]), FALSE );
-						}
-						else
-						{
-							pVehicleList[cnt].pPassengers[ubPassengerCnt] = NULL;
+							(void)AssignJa2VehiclePassengerActor(
+								static_cast<std::size_t>( cnt ),
+								static_cast<std::size_t>(
+									ubPassengerCnt ),
+								GetJa2TacticalEntityId(
+									*passenger ) );
 						}
 					}
 				}
+				(void)SetJa2VehicleDriverActor(
+					static_cast<std::size_t>( cnt ),
+					GetJa2TacticalEntityId( savedDriverSlot ) );
 
 
 				//Load the number of nodes
@@ -2614,10 +2747,9 @@ void UpdateAllVehiclePassengersGridNo( SOLDIERTYPE *pSoldier )
 	// Loop through passengers and update each guy's position
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
-		if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
+		pPassenger = ResolveVehiclePassenger( iId, iCounter );
+		if( pPassenger != NULL )
 		{
-			pPassenger = pVehicleList[ iId ].pPassengers[ iCounter ];
-
 			INT8 bOffsetX = gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].VehicleSeats[ iCounter ].bOffsetX;
 			INT8 bOffsetY = gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].VehicleSeats[ iCounter ].bOffsetY;
 
@@ -3057,7 +3189,14 @@ INT8 GetSeatIndexFromSoldier( SOLDIERTYPE *pSoldier )
 {
 	INT32 iVehicleId;
 	SOLDIERTYPE *pVehicleSoldier;
-	INT32 iCounter;
+	const TacticalEntityId passengerActor =
+		pSoldier ? GetJa2TacticalEntityId( *pSoldier ) :
+			TacticalEntityId{};
+
+	if( !passengerActor.valid() )
+	{
+		return( -1 );
+	}
 
 	iVehicleId = pSoldier->deployment().vehicleId();
 
@@ -3073,16 +3212,12 @@ INT8 GetSeatIndexFromSoldier( SOLDIERTYPE *pSoldier )
 		return( -1 );
 	}
 
-	// Loop through passengers
-	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iVehicleId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
-	{
-		if( pVehicleList[ iVehicleId ].pPassengers[ iCounter ] == pSoldier )
-		{
-			return( iCounter );
-		}
-	}
-
-	return( -1 );
+	const std::int32_t seat = FindJa2VehiclePassengerSeat(
+		static_cast<std::size_t>( iVehicleId ),
+		passengerActor );
+	return seat >= 0
+		? static_cast<INT8>( seat )
+		: static_cast<INT8>( -1 );
 }
 
 SOLDIERTYPE*	PickRandomPassengerFromVehicle( SOLDIERTYPE *pSoldier )
@@ -3105,7 +3240,7 @@ SOLDIERTYPE*	PickRandomPassengerFromVehicle( SOLDIERTYPE *pSoldier )
 	// Loop through passengers and update each guy's position
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
-		if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
+		if( ResolveVehiclePassenger( iId, iCounter ) != NULL )
 		{
 			ubMercsInSector[ ubNumMercs ] = (UINT8)iCounter;
 			ubNumMercs++;
@@ -3117,7 +3252,8 @@ SOLDIERTYPE*	PickRandomPassengerFromVehicle( SOLDIERTYPE *pSoldier )
 		ubChosenMerc = (UINT8)Random( ubNumMercs );
 
 		// If we are air raid, AND red exists somewhere...
-	return( pVehicleList[ iId ].pPassengers[ ubChosenMerc ] );
+		return ResolveVehiclePassenger(
+			iId, ubMercsInSector[ ubChosenMerc ] );
 	}
 
 	return( NULL );

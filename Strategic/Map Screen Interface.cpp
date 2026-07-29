@@ -3464,7 +3464,8 @@ void SelectVehicleForMovement( INT32 iVehicleId, BOOLEAN fAndAllOnBoard )
 
 			for( iCount = 0; iCount < 10; iCount++ )
 			{
-				pPassenger = pVehicleList[ iVehicleId ].pPassengers[ iCount ];
+				pPassenger =
+					ResolveVehiclePassenger( iVehicleId, iCount );
 
 				if ( fAndAllOnBoard )
 				{
@@ -3521,7 +3522,8 @@ void DeselectVehicleForMovement( INT32 iVehicleId )
 			// now deselect everyone in vehicle
 			for( iCount = 0; iCount < MAXPASSENGERS ; iCount++ )
 			{
-				pPassenger = pVehicleList[ iVehicleId ].pPassengers[ iCount ];
+				pPassenger =
+					ResolveVehiclePassenger( iVehicleId, iCount );
 
 				if ( pPassenger && pPassenger->roster().active() )
 				{

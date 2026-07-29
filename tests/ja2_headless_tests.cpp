@@ -102,6 +102,7 @@
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
 #include "TacticalInventoryUiLegacy.h"
+#include "VehiclePassengerHost.h"
 #include "TacticalWorldItemHost.h"
 #include "TacticalWorldObserverHost.h"
 #include "interface Dialogue.h"
@@ -5019,6 +5020,7 @@ int main( int, char** )
 			GetJa2TacticalEntityId( swapTarget );
 		ResetJa2TacticalActorRosters();
 		ResetJa2StrategicSquadRosters();
+		ResetJa2VehicleOccupants();
 		const bool tacticalActorRostersSeeded =
 			AddJa2ActiveTacticalActor( worldActorIdentity ) == 0 &&
 			AddJa2ActiveTacticalActor( worldActorIdentity ) == 0 &&
@@ -5074,6 +5076,75 @@ int main( int, char** )
 				kJa2StrategicSquadCount ) &&
 			!SortJa2StrategicSquadByIdentity(
 				kJa2StrategicSquadCount );
+		constexpr std::size_t vehicleFixture = 0;
+		const bool vehicleOccupantsSeeded =
+			AssignJa2VehiclePassengerActor(
+				vehicleFixture, 0, swapTargetIdentity ) &&
+			AssignJa2VehiclePassengerActor(
+				vehicleFixture, 2, worldActorIdentity ) &&
+			Ja2VehiclePassengerCount( vehicleFixture ) == 2 &&
+			FindJa2VehiclePassengerSeat(
+				vehicleFixture, worldActorIdentity ) == 2 &&
+			MoveJa2VehiclePassengerActor(
+				vehicleFixture, 2, 4 ) &&
+			SwapJa2VehiclePassengerActors(
+				vehicleFixture, 0, 4 ) &&
+			ResolveJa2VehiclePassengerActor(
+				vehicleFixture, 0 ) == &worldActor &&
+			ResolveJa2VehiclePassengerActor(
+				vehicleFixture, 4 ) == &swapTarget &&
+			SetJa2VehicleDriverActor(
+				vehicleFixture, worldActorIdentity ) &&
+			ResolveJa2VehicleDriverActor(
+				vehicleFixture ) == &worldActor &&
+			AssignJa2VehiclePassengerActor(
+				vehicleFixture, 0, worldActorIdentity ) &&
+			!AssignJa2VehiclePassengerActor(
+				vehicleFixture, 0, swapTargetIdentity ) &&
+			!RemoveJa2VehiclePassengerActor(
+				TacticalEntityId{} ) &&
+			!AssignJa2VehiclePassengerActor(
+				vehicleFixture + 1, 0, worldActorIdentity ) &&
+			!AssignJa2VehiclePassengerActor(
+				kJa2VehicleSlotCount, 0, swapTargetIdentity ) &&
+			!AssignJa2VehiclePassengerActor(
+				vehicleFixture,
+				kJa2VehiclePassengerCapacity,
+				swapTargetIdentity ) &&
+			!MoveJa2VehiclePassengerActor(
+				vehicleFixture, 0, 4 ) &&
+			!SwapJa2VehiclePassengerActors(
+				vehicleFixture, 0, 1 ) &&
+			!SetJa2VehicleDriverActor(
+				vehicleFixture + 1, swapTargetIdentity ) &&
+			Ja2VehiclePassengerCount(
+				kJa2VehicleSlotCount ) == 0;
+		VEHICLETYPE* const previousVehicleList = pVehicleList;
+		const UINT8 previousVehicleCount = ubNumberOfVehicles;
+		const INT32 previousVehicleCapacity =
+			gNewVehicle[0].iNewSeatingCapacities;
+		VEHICLETYPE vehicleRecord = {};
+		vehicleRecord.fValid = TRUE;
+		vehicleRecord.ubVehicleType = 0;
+		pVehicleList = &vehicleRecord;
+		ubNumberOfVehicles = 1;
+		gNewVehicle[0].iNewSeatingCapacities = 5;
+		SOLDIERTYPE vehicleView;
+		vehicleView.status().flags() |= SOLDIER_VEHICLE;
+		vehicleView.vehicleState().tacticalVehicleId() = 0;
+		const bool sparseVehiclePassengerSelection =
+			RemoveJa2VehiclePassengerSeat(
+				vehicleFixture, 0 ) &&
+			PickRandomPassengerFromVehicle(
+				&vehicleView ) == &swapTarget &&
+			AssignJa2VehiclePassengerActor(
+				vehicleFixture, 0, worldActorIdentity ) &&
+			SetJa2VehicleDriverActor(
+				vehicleFixture, worldActorIdentity );
+		pVehicleList = previousVehicleList;
+		ubNumberOfVehicles = previousVehicleCount;
+		gNewVehicle[0].iNewSeatingCapacities =
+			previousVehicleCapacity;
 		const bool entitySlotsSwapped = SwapJa2TacticalEntitySlots( 0, 1 );
 		const bool swappedEntitiesResolvable =
 			GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 702 } ) &&
@@ -5101,6 +5172,19 @@ int main( int, char** )
 			GetJa2StrategicSquadActor(
 				strategicSquadFixture, 1 ) ==
 				( TacticalEntityId{ 1, 701 } );
+		const bool swappedVehicleOccupantsRebound =
+			ResolveJa2VehiclePassengerActor(
+				vehicleFixture, 0 ) == &worldActor &&
+			GetJa2VehiclePassengerActor(
+				vehicleFixture, 0 ) ==
+				( TacticalEntityId{ 0, 702 } ) &&
+			ResolveJa2VehiclePassengerActor(
+				vehicleFixture, 4 ) == &swapTarget &&
+			GetJa2VehiclePassengerActor(
+				vehicleFixture, 4 ) ==
+				( TacticalEntityId{ 1, 701 } ) &&
+			ResolveJa2VehicleDriverActor(
+				vehicleFixture ) == &worldActor;
 		const bool entitySlotsRestored = SwapJa2TacticalEntitySlots( 0, 1 );
 		const bool restoredActorRostersRebound =
 			ResolveJa2ActiveTacticalActorSlot( 0 ) == &worldActor &&
@@ -5110,6 +5194,13 @@ int main( int, char** )
 				strategicSquadFixture, 0 ) == &worldActor &&
 			ResolveJa2StrategicSquadActor(
 				strategicSquadFixture, 1 ) == &swapTarget;
+		const bool restoredVehicleOccupantsRebound =
+			ResolveJa2VehiclePassengerActor(
+				vehicleFixture, 0 ) == &worldActor &&
+			ResolveJa2VehiclePassengerActor(
+				vehicleFixture, 4 ) == &swapTarget &&
+			ResolveJa2VehicleDriverActor(
+				vehicleFixture ) == &worldActor;
 		const TacticalEntityId rosterDeletionActor =
 			GetJa2TacticalEntityId( worldActor );
 		const bool rosterActorReleased =
@@ -5119,35 +5210,53 @@ int main( int, char** )
 		const bool releasedSquadEntryFailsClosed =
 			ResolveJa2StrategicSquadActor(
 				strategicSquadFixture, 0 ) == nullptr;
+		const bool releasedVehicleOccupantFailsClosed =
+			ResolveJa2VehiclePassengerActor(
+				vehicleFixture, 0 ) == nullptr &&
+			ResolveJa2VehicleDriverActor(
+				vehicleFixture ) == nullptr;
 		const bool releasedRosterEntryRemoved =
 			RemoveJa2ActiveTacticalActor( rosterDeletionActor ) &&
 			Ja2ActiveTacticalActorSlotCount() == 0;
 		const bool releasedSquadEntryRemoved =
 			RemoveJa2StrategicSquadActor( rosterDeletionActor ) &&
 			Ja2StrategicSquadSize( strategicSquadFixture ) == 1;
+		const bool releasedVehicleOccupantRemoved =
+			RemoveJa2VehiclePassengerActor(
+				rosterDeletionActor ) &&
+			Ja2VehiclePassengerCount( vehicleFixture ) == 1 &&
+			!GetJa2VehicleDriverActor(
+				vehicleFixture ).valid();
 		const bool rosterActorReadopted =
 			AdoptJa2TacticalEntity( worldActor );
 		CHECK( swapTargetInstalled && swapTargetAdopted &&
 		       tacticalActorRostersSeeded &&
 		       strategicSquadRosterSeeded &&
+		       vehicleOccupantsSeeded &&
+		       sparseVehiclePassengerSelection &&
 		       entitySlotsSwapped && swappedEntitiesResolvable &&
 		       swappedActorRostersRebound &&
 		       swappedSquadRosterRebound &&
+		       swappedVehicleOccupantsRebound &&
 		       entitySlotsRestored &&
 		       restoredActorRostersRebound &&
 		       restoredSquadRosterRebound &&
+		       restoredVehicleOccupantsRebound &&
 		       rosterActorReleased &&
 		       releasedRosterEntryFailsClosed &&
 		       releasedSquadEntryFailsClosed &&
+		       releasedVehicleOccupantFailsClosed &&
 		       releasedRosterEntryRemoved &&
 		       releasedSquadEntryRemoved &&
+		       releasedVehicleOccupantRemoved &&
 		       rosterActorReadopted &&
 		       GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 701 } ) &&
 		       !SwapJa2TacticalEntitySlots( 0, 0 ) &&
 		       !SwapJa2TacticalEntitySlots( TOTAL_SOLDIERS, 0 ),
-		       "scheduler and strategic squad rosters rebind whole-record swaps and remove released exact actors without retaining pointers" );
+		       "scheduler, strategic squad, and vehicle occupant rosters rebind whole-record swaps and remove released exact actors without retaining pointers" );
 		ResetJa2TacticalActorRosters();
 		ResetJa2StrategicSquadRosters();
+		ResetJa2VehicleOccupants();
 		(void)soldierRepository.replace( 1, previousSwapTarget );
 		RebuildJa2TacticalEntityDirectory();
 
@@ -13025,6 +13134,165 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+
+	{
+		std::array<
+			std::array<TacticalEntityId,
+				kJa2VehiclePassengerCapacity>,
+			kJa2VehicleSlotCount> previousPassengers{};
+		std::array<TacticalEntityId,
+			kJa2VehicleSlotCount> previousDrivers{};
+		for( std::size_t vehicle = 0;
+			vehicle < kJa2VehicleSlotCount; ++vehicle )
+		{
+			for( std::size_t seat = 0;
+				seat < kJa2VehiclePassengerCapacity; ++seat )
+			{
+				previousPassengers[vehicle][seat] =
+					GetJa2VehiclePassengerActor(vehicle, seat);
+			}
+			previousDrivers[vehicle] =
+				GetJa2VehicleDriverActor(vehicle);
+		}
+
+		VEHICLETYPE* const previousVehicleList = pVehicleList;
+		const UINT8 previousVehicleCount = ubNumberOfVehicles;
+		Ja2SoldierRepository& productionRepository =
+			GetJa2SoldierRepository();
+		SOLDIERTYPE records[2];
+		SOLDIERTYPE* slots[2] = { nullptr, nullptr };
+		Ja2SoldierRepository repository(records, slots, 2);
+		repository.initializeSlots();
+		for( std::size_t slot = 0; slot < 2; ++slot )
+		{
+			records[slot].identity().id() = SoldierID{ slot };
+			records[slot].identity().incarnation() =
+				static_cast<UINT32>( 810 + slot );
+			records[slot].identity().profile() =
+				static_cast<UINT8>( 21 + slot );
+			records[slot].roster().active() = TRUE;
+		}
+		BindJa2SoldierRepository(repository);
+		RebuildJa2TacticalEntityDirectory();
+		ResetJa2VehicleOccupants();
+
+		pVehicleList = static_cast<VEHICLETYPE*>(
+			MemAlloc( sizeof( VEHICLETYPE ) ) );
+		memset( pVehicleList, 0, sizeof( VEHICLETYPE ) );
+		ubNumberOfVehicles = 1;
+		pVehicleList[0].fValid = TRUE;
+		pVehicleList[0].ubMovementGroup = 7;
+		pVehicleList[0].ubVehicleType = 0;
+		pVehicleList[0].sSectorX = 4;
+		pVehicleList[0].sSectorY = 5;
+		pVehicleList[0].sSectorZ = 1;
+		pVehicleList[0].fBetweenSectors = TRUE;
+		pVehicleList[0].sGridNo = 456;
+		pVehicleList[0].fFunctional = TRUE;
+		pVehicleList[0].ubProfileID = 19;
+		const TacticalEntityId firstPassenger =
+			GetJa2TacticalEntityId(records[0]);
+		const TacticalEntityId secondPassenger =
+			GetJa2TacticalEntityId(records[1]);
+		const bool fixtureBound =
+			AssignJa2VehiclePassengerActor(
+				0, 1, firstPassenger ) &&
+			AssignJa2VehiclePassengerActor(
+				0, 4, secondPassenger ) &&
+			SetJa2VehicleDriverActor(
+				0, secondPassenger );
+
+		const std::string path =
+			"vehicle_occupant_roundtrip_test.bin";
+		HWFILE output = FileOpen(
+			const_cast<char*>(path.c_str()),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+		const bool saved =
+			output && SaveVehicleInformationToSaveGameFile(output);
+		if( output ) FileClose(output);
+		std::string bytes;
+		const bool bytesRead =
+			ReadFileManagerText(path, bytes);
+		const std::size_t vehiclePayloadOffset =
+			1 + sizeof(BOOLEAN);
+		const std::size_t passengerOffset =
+			vehiclePayloadOffset + 13;
+		const std::size_t driverOffset =
+			passengerOffset + MAXPASSENGERS * sizeof(UINT32);
+		const auto readU32 = [&](std::size_t offset)
+		{
+			return static_cast<UINT32>(
+				static_cast<UINT8>(bytes[offset])) |
+				(static_cast<UINT32>(
+					static_cast<UINT8>(bytes[offset + 1])) << 8) |
+				(static_cast<UINT32>(
+					static_cast<UINT8>(bytes[offset + 2])) << 16) |
+				(static_cast<UINT32>(
+					static_cast<UINT8>(bytes[offset + 3])) << 24);
+		};
+		const auto readU16 = [&](std::size_t offset)
+		{
+			return static_cast<UINT16>(
+				static_cast<UINT8>(bytes[offset])) |
+				static_cast<UINT16>(
+					static_cast<UINT8>(bytes[offset + 1]) << 8);
+		};
+		const bool establishedBytes =
+			bytesRead && bytes.size() ==
+				vehiclePayloadOffset + 122 &&
+			readU32(passengerOffset) == NO_PROFILE &&
+			readU32(passengerOffset + sizeof(UINT32)) == 21 &&
+			readU32(passengerOffset + 4 * sizeof(UINT32)) == 22 &&
+			readU32(passengerOffset + 9 * sizeof(UINT32)) ==
+				NO_PROFILE &&
+			readU16(driverOffset) == 1;
+
+		HWFILE input = FileOpen(
+			const_cast<char*>(path.c_str()),
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+		const bool loaded =
+			input && LoadVehicleInformationFromSavedGameFile(
+				input, SAVE_GAME_VERSION);
+		if( input ) FileClose(input);
+		const bool restored =
+			loaded && ubNumberOfVehicles == 1 &&
+			pVehicleList != nullptr &&
+			pVehicleList[0].fValid == TRUE &&
+			pVehicleList[0].ubMovementGroup == 7 &&
+			pVehicleList[0].sSectorX == 4 &&
+			pVehicleList[0].sSectorY == 5 &&
+			pVehicleList[0].sSectorZ == 1 &&
+			pVehicleList[0].sGridNo == 456 &&
+			ResolveVehiclePassenger(0, 1) == &records[0] &&
+			ResolveVehiclePassenger(0, 4) == &records[1] &&
+			ResolveJa2VehicleDriverActor(0) == &records[1];
+		CHECK( fixtureBound && saved && establishedBytes && restored,
+		       "vehicle occupancy preserves ten 32-bit passenger profiles and the 16-bit driver slot while reconstructing exact identities" );
+
+		ClearOutVehicleList();
+		FileDelete(const_cast<char*>(path.c_str()));
+		pVehicleList = previousVehicleList;
+		ubNumberOfVehicles = previousVehicleCount;
+		BindJa2SoldierRepository(productionRepository);
+		RebuildJa2TacticalEntityDirectory();
+		ResetJa2VehicleOccupants();
+		for( std::size_t vehicle = 0;
+			vehicle < kJa2VehicleSlotCount; ++vehicle )
+		{
+			for( std::size_t seat = 0;
+				seat < kJa2VehiclePassengerCapacity; ++seat )
+			{
+				if( previousPassengers[vehicle][seat].valid() )
+				{
+					(void)AssignJa2VehiclePassengerActor(
+						vehicle, seat,
+						previousPassengers[vehicle][seat] );
+				}
+			}
+			(void)SetJa2VehicleDriverActor(
+				vehicle, previousDrivers[vehicle] );
+		}
+	}
 
 	{
 		SOLDIERTYPE records[1];

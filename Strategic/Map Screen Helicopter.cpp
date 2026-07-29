@@ -1477,10 +1477,15 @@ void SetUpHelicopterForMovement( void )
 		// add everyone in vehicle to this mvt group
 		for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iHelicopterVehicleId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 		{
-			if( pVehicleList[ iHelicopterVehicleId ].pPassengers[ iCounter ] != NULL )
+			SOLDIERTYPE* passenger =
+				ResolveVehiclePassenger(
+					iHelicopterVehicleId, iCounter );
+			if( passenger != NULL )
 			{
 				// add character
-				AddPlayerToGroup( pVehicleList[ iHelicopterVehicleId ].ubMovementGroup, pVehicleList[ iHelicopterVehicleId ].pPassengers[ iCounter ] );
+				AddPlayerToGroup(
+					pVehicleList[ iHelicopterVehicleId ].ubMovementGroup,
+					passenger );
 			}
 		}
 	}
@@ -1611,7 +1616,8 @@ UINT8 MoveAllInHelicopterToFootMovementGroup( INT8 bNewSquad )
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iHelicopterVehicleId ].ubVehicleType ].iNewSeatingCapacities; ++iCounter )
 	{
 		// get passenger
-		pSoldier = pVehicleList[ iHelicopterVehicleId ].pPassengers[ iCounter ];
+		pSoldier = ResolveVehiclePassenger(
+			iHelicopterVehicleId, iCounter );
 
 		if( pSoldier != NULL )
 		{

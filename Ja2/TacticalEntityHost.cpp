@@ -10,6 +10,7 @@
 #include "SoldierRepository.h"
 #include "Soldier Control.h"
 #include "StrategicSquadHost.h"
+#include "VehiclePassengerHost.h"
 
 namespace
 {
@@ -238,6 +239,7 @@ bool SwapJa2TacticalEntitySlots(
 	RebindRosterAfterRecordSwap(ActiveActorRoster());
 	RebindRosterAfterRecordSwap(AwayActorRoster());
 	RebindJa2StrategicSquadRostersAfterRecordSwap();
+	RebindJa2VehicleOccupantsAfterRecordSwap();
 	return true;
 }
 
