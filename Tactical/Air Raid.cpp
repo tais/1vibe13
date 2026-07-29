@@ -122,7 +122,42 @@ typedef	struct
 
 
 // END SERIALIZATION
-SOLDIERTYPE		*gpRaidSoldier;
+
+namespace
+{
+SoldierID gRaidSoldierSlot = NOBODY;
+
+SOLDIERTYPE* ResolveRaidSoldierRecord() noexcept
+{
+	if (gRaidSoldierSlot == NOBODY)
+		return nullptr;
+	return GetJa2SoldierRepository().resolve(
+		gRaidSoldierSlot.i);
+}
+
+SOLDIERTYPE* InitializeRaidSoldierRecord(
+	SoldierID slot) noexcept
+{
+	SOLDIERTYPE* raidSoldier =
+		GetJa2SoldierRepository().resolve(slot.i);
+	if (!raidSoldier)
+	{
+		gRaidSoldierSlot = NOBODY;
+		return nullptr;
+	}
+
+	gRaidSoldierSlot = slot;
+	raidSoldier->initialize();
+	raidSoldier->position().level() = 0;
+	raidSoldier->roster().team() = 1;
+	raidSoldier->roster().side() = 1;
+	raidSoldier->identity().id() = slot;
+	raidSoldier->combatResult().currentAttacker() = NOBODY;
+	raidSoldier->attackSelection().weapon() = HK21E;
+	CreateItem(HK21E, 100, &raidSoldier->inventory()[HANDPOS]);
+	return raidSoldier;
+}
+}
 
 
 typedef struct
@@ -245,6 +280,11 @@ BOOLEAN BeginAirRaid( )
 		{
 			return( FALSE );
 		}
+		if (!GetJa2SoldierRepository().resolve(
+				MAX_NUM_SOLDIERS - 1))
+		{
+			return( FALSE );
+		}
 
 		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"BeginAirRaid: change to the right sector");
 		ChangeSelectedMapSector( gAirRaidDef.sSectorX, gAirRaidDef.sSectorY, ( INT8 )gAirRaidDef.sSectorZ );
@@ -281,17 +321,12 @@ BOOLEAN BeginAirRaid( )
 
 		gbNumDives				= 0;
 		gfAirRaidHasHadTurn = FALSE;
-
-		gpRaidSoldier =
-			GetJa2SoldierRepository().resolve(MAX_NUM_SOLDIERS - 1);
-		gpRaidSoldier->initialize();
-		gpRaidSoldier->position().level() = 0;
-		gpRaidSoldier->roster().team() = 1;
-		gpRaidSoldier->roster().side() = 1;
-		gpRaidSoldier->identity().id()	= MAX_NUM_SOLDIERS - 1;
-		gpRaidSoldier->combatResult().currentAttacker() = NOBODY;
-		gpRaidSoldier->attackSelection().weapon() = HK21E;
-		CreateItem(HK21E, 100, &gpRaidSoldier->inventory()[HANDPOS]);
+		if (!InitializeRaidSoldierRecord(
+				SoldierID{MAX_NUM_SOLDIERS - 1}))
+		{
+			EndAirRaid();
+			return FALSE;
+		}
 
 		// Determine how many dives this one will be....
 		gbMaxDives				= (INT8)( gAirRaidDef.bIntensity + Random( gAirRaidDef.bIntensity - 1 ) );
@@ -708,6 +743,8 @@ static void DoDive(	)
 {
 	INT16		sRange;
 	INT32 sGridNo, sOldGridNo;
+	SOLDIERTYPE* pRaidSoldier =
+		ResolveRaidSoldierRecord();
 
 	INT16		sTargetX, sTargetY;
 	INT16		sStrafeX, sStrafeY;
@@ -715,6 +752,11 @@ static void DoDive(	)
 	INT16		sX, sY;
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"DoDive");
+	if (!pRaidSoldier)
+	{
+		EndAirRaid();
+		return;
+	}
 
 	// Delay for a specific perion of time to allow sound to Q up...
 	if ( TIMECOUNTERDONE( giTimerAirRaidDiveStarted, 0 ) )
@@ -772,11 +814,11 @@ static void DoDive(	)
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"DoDive: move plane");
 			MoveDiveAirplane( dAngle );
 
-			gpRaidSoldier->position().setWorldCoordinates(gsDiveX, gsDiveY);
+			pRaidSoldier->position().setWorldCoordinates(gsDiveX, gsDiveY);
 
 			// Figure gridno....
 			sGridNo = GETWORLDINDEXFROMWORLDCOORDS( gsDiveY, gsDiveX );
-			gpRaidSoldier->position().gridNo() = sGridNo;
+			pRaidSoldier->position().gridNo() = sGridNo;
 
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DoDive: figure out grid number, sgridno = %d, soldgridno = %d", sGridNo, sOldGridNo));
 			if ( sOldGridNo != sGridNo )
@@ -817,22 +859,22 @@ static void DoDive(	)
 						//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( fire gun ), attack count now %d", GetJa2PendingTacticalCombatActions()) );
 
 						// INcrement bullet fired...
-						// gpRaidSoldier->fireControl().bulletsLeft()++;
+						// pRaidSoldier->fireControl().bulletsLeft()++;
 					}
 
 					// For now use first position....
 
 
-					gpRaidSoldier->targeting().targetId() = NOBODY;
-					FireBulletGivenTarget( gpRaidSoldier, sStrafeX, sStrafeY, 0, gpRaidSoldier->attackSelection().weapon(), 10, FALSE, FALSE );
+					pRaidSoldier->targeting().targetId() = NOBODY;
+					FireBulletGivenTarget( pRaidSoldier, sStrafeX, sStrafeY, 0, pRaidSoldier->attackSelection().weapon(), 10, FALSE, FALSE );
 				}
 
 				// Do second one.... ( ll )
 				sX = (INT16)( gsDiveX + ( (FLOAT)sin( dAngle + ( PI/2) ) * 40 ) );
 				sY = (INT16)( gsDiveY + ( (FLOAT)cos( dAngle + ( PI/2) ) * 40 ) );
 
-				gpRaidSoldier->position().setWorldCoordinates(sX, sY);
-				gpRaidSoldier->position().gridNo() = GETWORLDINDEXFROMWORLDCOORDS( sY, sX );
+				pRaidSoldier->position().setWorldCoordinates(sX, sY);
+				pRaidSoldier->position().gridNo() = GETWORLDINDEXFROMWORLDCOORDS( sY, sX );
 
 				// Get target.....
 				sStrafeX = (INT16)( sX + dDeltaXPos );
@@ -849,12 +891,12 @@ static void DoDive(	)
 						//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( second one ), attack count now %d", GetJa2PendingTacticalCombatActions()) );
 
 						// INcrement bullet fired...
-						// gpRaidSoldier->fireControl().bulletsLeft()++;
+						// pRaidSoldier->fireControl().bulletsLeft()++;
 
 					}
 
 					// For now use first position....
-					FireBulletGivenTarget( gpRaidSoldier, sStrafeX, sStrafeY, 0, gpRaidSoldier->attackSelection().weapon(), 10, FALSE, FALSE );
+					FireBulletGivenTarget( pRaidSoldier, sStrafeX, sStrafeY, 0, pRaidSoldier->attackSelection().weapon(), 10, FALSE, FALSE );
 				}
 
 			}
@@ -878,6 +920,8 @@ static void DoBombing(	)
 {
 	INT16		sRange;
 	INT32		sGridNo, sOldGridNo, sBombGridNo;
+	SOLDIERTYPE* pRaidSoldier =
+		ResolveRaidSoldierRecord();
 
 	INT16		sTargetX, sTargetY, sBombX, sBombY;
 	UINT16	usItem;
@@ -886,6 +930,11 @@ static void DoBombing(	)
 	BOOLEAN	fLocate = FALSE;
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"DoBombing");
+	if (!pRaidSoldier)
+	{
+		EndAirRaid();
+		return;
+	}
 
 	// Delay for a specific perion of time to allow sound to Q up...
 	if ( TIMECOUNTERDONE( giTimerAirRaidDiveStarted, 0 ) )
@@ -937,11 +986,11 @@ static void DoBombing(	)
 
 			MoveDiveAirplane( dAngle );
 
-			gpRaidSoldier->position().setWorldCoordinates(gsDiveX, gsDiveY);
+			pRaidSoldier->position().setWorldCoordinates(gsDiveX, gsDiveY);
 
 			// Figure gridno....
 			sGridNo = GETWORLDINDEXFROMWORLDCOORDS( gsDiveY, gsDiveX );
-			gpRaidSoldier->position().gridNo() = sGridNo;
+			pRaidSoldier->position().gridNo() = sGridNo;
 
 			if ( sOldGridNo != sGridNo )
 			{
@@ -1298,7 +1347,7 @@ BOOLEAN HandleAirRaidEndTurn( UINT8 ubTeam )
 BOOLEAN SaveAirRaidInfoToSaveGameFile( HWFILE hFile )
 {
 	UINT32	uiNumBytesWritten;
-	AIR_RAID_SAVE_STRUCT sAirRaidSaveStruct;
+	AIR_RAID_SAVE_STRUCT sAirRaidSaveStruct{};
 
 	// Put all the globals into the save struct
 	sAirRaidSaveStruct.fInAirRaid = gfInAirRaid;
@@ -1327,24 +1376,37 @@ BOOLEAN SaveAirRaidInfoToSaveGameFile( HWFILE hFile )
 	sAirRaidSaveStruct.iNumFrames = giNumFrames;
 
 
-//	if( gpRaidSoldier )
-//	{
-//		sAirRaidSaveStruct.bLevel = gpRaidSoldier->position().level();
-//		sAirRaidSaveStruct.bTeam = gpRaidSoldier->roster().team();
-//		sAirRaidSaveStruct.bSide = gpRaidSoldier->roster().side();
-//		sAirRaidSaveStruct.ubAttackerID = gpRaidSoldier->combatResult().currentAttacker();
-//		sAirRaidSaveStruct.usAttackingWeapon = gpRaidSoldier->attackSelection().weapon();
-//		sAirRaidSaveStruct.dXPos = gpRaidSoldier->position().worldX();
-//		sAirRaidSaveStruct.dYPos = gpRaidSoldier->position().worldY();
-//		sAirRaidSaveStruct.sX = gpRaidSoldier->position().worldXInt();
-//		sAirRaidSaveStruct.sY = gpRaidSoldier->position().worldYInt();
-//		sAirRaidSaveStruct.sGridNo = gpRaidSoldier->sGridNo;
-//
-//		sAirRaidSaveStruct.sRaidSoldierID = MAX_NUM_SOLDIERS - 1;
-////		sAirRaidSaveStruct.sRaidSoldierID = gpRaidSoldier->identity().id();
-//	}
-//	else
+	SOLDIERTYPE* pRaidSoldier =
+		ResolveRaidSoldierRecord();
+	if (gfInAirRaid && pRaidSoldier)
+	{
+		sAirRaidSaveStruct.bLevel =
+			pRaidSoldier->position().level();
+		sAirRaidSaveStruct.bTeam =
+			pRaidSoldier->roster().team();
+		sAirRaidSaveStruct.bSide =
+			pRaidSoldier->roster().side();
+		sAirRaidSaveStruct.ubAttackerID =
+			pRaidSoldier->combatResult().currentAttacker();
+		sAirRaidSaveStruct.usAttackingWeapon =
+			pRaidSoldier->attackSelection().weapon();
+		sAirRaidSaveStruct.dXPos =
+			pRaidSoldier->position().worldX();
+		sAirRaidSaveStruct.dYPos =
+			pRaidSoldier->position().worldY();
+		sAirRaidSaveStruct.sX =
+			pRaidSoldier->position().worldXInt();
+		sAirRaidSaveStruct.sY =
+			pRaidSoldier->position().worldYInt();
+		sAirRaidSaveStruct.sGridNo =
+			pRaidSoldier->position().gridNo();
+		sAirRaidSaveStruct.sRaidSoldierID =
+			gRaidSoldierSlot;
+	}
+	else
+	{
 		sAirRaidSaveStruct.sRaidSoldierID = NOBODY;
+	}
 
 
 	memcpy( &sAirRaidSaveStruct.AirRaidDef, &gAirRaidDef, sizeof( AIR_RAID_DEFINITION	) );
@@ -1402,24 +1464,54 @@ BOOLEAN LoadAirRaidInfoFromSaveGameFile( HWFILE hFile )
 	giNumFrames = sAirRaidSaveStruct.iNumFrames;
 
 
-	if( sAirRaidSaveStruct.sRaidSoldierID != NOBODY )
+	gRaidSoldierSlot = NOBODY;
+	if (gfInAirRaid ||
+		sAirRaidSaveStruct.sRaidSoldierID != NOBODY)
 	{
-		gpRaidSoldier = GetJa2SoldierRepository().resolve(
-			sAirRaidSaveStruct.sRaidSoldierID.i);
+		// The air-raid attacker is a fixed compatibility record, not a
+		// live tactical entity. Never trust serialized input to select a
+		// different repository slot.
+		const SoldierID raidSlot{
+			MAX_NUM_SOLDIERS - 1};
+		SOLDIERTYPE* pRaidSoldier =
+			InitializeRaidSoldierRecord(raidSlot);
+		if (!pRaidSoldier)
+		{
+			gfInAirRaid = FALSE;
+			return FALSE;
+		}
 
-		gpRaidSoldier->position().level() = sAirRaidSaveStruct.bLevel;
-		gpRaidSoldier->roster().team() = sAirRaidSaveStruct.bTeam;
-		gpRaidSoldier->roster().side() = sAirRaidSaveStruct.bSide;
-		gpRaidSoldier->combatResult().currentAttacker() = sAirRaidSaveStruct.ubAttackerID;
-		gpRaidSoldier->attackSelection().weapon() = sAirRaidSaveStruct.usAttackingWeapon;
-		gpRaidSoldier->position().setWorldCoordinates(
-			sAirRaidSaveStruct.dXPos, sAirRaidSaveStruct.dYPos);
-		gpRaidSoldier->position().worldXInt() = sAirRaidSaveStruct.sX;
-		gpRaidSoldier->position().worldYInt() = sAirRaidSaveStruct.sY;
-		gpRaidSoldier->position().gridNo() = sAirRaidSaveStruct.sGridNo;
+		if (sAirRaidSaveStruct.sRaidSoldierID != NOBODY)
+		{
+			pRaidSoldier->position().level() =
+				sAirRaidSaveStruct.bLevel;
+			pRaidSoldier->roster().team() =
+				sAirRaidSaveStruct.bTeam;
+			pRaidSoldier->roster().side() =
+				sAirRaidSaveStruct.bSide;
+			pRaidSoldier->combatResult().currentAttacker() =
+				sAirRaidSaveStruct.ubAttackerID;
+			pRaidSoldier->attackSelection().weapon() =
+				sAirRaidSaveStruct.usAttackingWeapon;
+			pRaidSoldier->position().setWorldCoordinates(
+				sAirRaidSaveStruct.dXPos,
+				sAirRaidSaveStruct.dYPos);
+			pRaidSoldier->position().worldXInt() =
+				sAirRaidSaveStruct.sX;
+			pRaidSoldier->position().worldYInt() =
+				sAirRaidSaveStruct.sY;
+			pRaidSoldier->position().gridNo() =
+				sAirRaidSaveStruct.sGridNo;
+		}
+		else
+		{
+			pRaidSoldier->position().setWorldCoordinates(
+				gsDiveX, gsDiveY);
+			pRaidSoldier->position().gridNo() =
+				GETWORLDINDEXFROMWORLDCOORDS(
+					gsDiveY, gsDiveX);
+		}
 	}
-	else
-		gpRaidSoldier = NULL;
 
 	memcpy( &gAirRaidDef, &sAirRaidSaveStruct.AirRaidDef, sizeof( AIR_RAID_DEFINITION	) );
 
@@ -1431,6 +1523,7 @@ BOOLEAN LoadAirRaidInfoFromSaveGameFile( HWFILE hFile )
 void EndAirRaid( )
 {
 	gfInAirRaid = FALSE;
+	gRaidSoldierSlot = NOBODY;
 
 	// Stop sound
 	SoundStop( guiSoundSample );

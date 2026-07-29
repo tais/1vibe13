@@ -498,10 +498,19 @@ INT32				giHaveSelectedNPC=-1;			// If it is not the first time in, dont reset t
 
 
 INT32				giSelectedMercCurrentQuote=-1;
-SOLDIERTYPE *gTalkingMercSoldier=NULL;
 BOOLEAN			gfPauseTalkingMercPopup=FALSE;
 extern			BOOLEAN			gfFacePanelActive;
 BOOLEAN			gfAddNpcToTeam=FALSE;
+
+namespace
+{
+Ja2TacticalEntityReference gQdsTalkingMerc;
+
+SOLDIERTYPE* ResolveQdsTalkingMerc() noexcept
+{
+	return gQdsTalkingMerc.resolve();
+}
+}
 BOOLEAN			gfRpcToSaySectorDesc=FALSE;
 BOOLEAN			gfNpcPanelIsUsedForTalkingMerc=FALSE;
 
@@ -1298,6 +1307,12 @@ void		GetUserInput()
 {
 	InputAtom Event;
 	POINT	MousePos;
+	SOLDIERTYPE* pTalkingMerc = ResolveQdsTalkingMerc();
+	if (giSelectedMercCurrentQuote != -1 &&
+		!pTalkingMerc)
+	{
+		EndMercTalking();
+	}
 	UINT8	ubPanelMercShouldUse = WhichPanelShouldTalkingMercUse( /*giSelectedMercCurrentQuote*/ ); // doesn't take parameters (jonathanl)
 
 
@@ -1332,8 +1347,9 @@ void		GetUserInput()
 				case LEFTARROW:
 					if( giSelectedMercCurrentQuote != -1 )
 					{
-						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-							ShutupaYoFace( gTalkingMercSoldier->renderBindings().faceIndex() );
+						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL &&
+							pTalkingMerc )
+							ShutupaYoFace( pTalkingMerc->renderBindings().faceIndex() );
 						else
 							ShutupaYoFace( gTalkPanel.iFaceIndex );
 
@@ -1354,8 +1370,9 @@ void		GetUserInput()
 				case RIGHTARROW:
 					if( giSelectedMercCurrentQuote != -1 )
 					{
-						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-							ShutupaYoFace( gTalkingMercSoldier->renderBindings().faceIndex() );
+						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL &&
+							pTalkingMerc )
+							ShutupaYoFace( pTalkingMerc->renderBindings().faceIndex() );
 						else
 							ShutupaYoFace( gTalkPanel.iFaceIndex );
 
@@ -1467,8 +1484,9 @@ void		GetUserInput()
 				case LEFTARROW:
 					if( giSelectedMercCurrentQuote != -1 )
 					{
-						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-							ShutupaYoFace( gTalkingMercSoldier->renderBindings().faceIndex() );
+						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL &&
+							pTalkingMerc )
+							ShutupaYoFace( pTalkingMerc->renderBindings().faceIndex() );
 						else
 							ShutupaYoFace( gTalkPanel.iFaceIndex );
 
@@ -1490,8 +1508,9 @@ void		GetUserInput()
 					{
 						DisplayQDSCurrentlyQuoteNum( );
 
-						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-							ShutupaYoFace( gTalkingMercSoldier->renderBindings().faceIndex() );
+						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL &&
+							pTalkingMerc )
+							ShutupaYoFace( pTalkingMerc->renderBindings().faceIndex() );
 						else
 							ShutupaYoFace( gTalkPanel.iFaceIndex );
 
@@ -3776,6 +3795,7 @@ void EndMercTalking()
 	}
 
 	giSelectedMercCurrentQuote = -1;
+	gQdsTalkingMerc.reset();
 
 	//make sure we can dirty the button
 	if( !gfQuestDebugExit )
@@ -3791,11 +3811,15 @@ void HandleQDSTalkingMerc()
 //	static BOOLEAN	fWas
 	BOOLEAN fIsTheMercTalking=FALSE;
 	UINT8		ubPanelMercShouldUse;
+	SOLDIERTYPE* pTalkingMerc = ResolveQdsTalkingMerc();
 
 	if( giSelectedMercCurrentQuote != -1 )
 	{
-		if( gTalkingMercSoldier == NULL )
+		if( pTalkingMerc == NULL )
+		{
+			EndMercTalking();
 			return;
+		}
 
 		//Call this function to enable or disable the flags in the faces struct ( without modifing the pause state )
 		SetTalkingMercPauseState( gfPauseTalkingMercPopup );
@@ -3804,7 +3828,7 @@ void HandleQDSTalkingMerc()
 
 		//find out if the merc is talking
 		if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-			fIsTheMercTalking = gFacesData[ gTalkingMercSoldier->renderBindings().faceIndex() ].fTalking;
+			fIsTheMercTalking = gFacesData[ pTalkingMerc->renderBindings().faceIndex() ].fTalking;
 		else
 			fIsTheMercTalking = gFacesData[ gTalkPanel.iFaceIndex ].fTalking;
 
@@ -3823,14 +3847,14 @@ void HandleQDSTalkingMerc()
 
 				//Start the merc talking
 				if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-					TacticalCharacterDialogue( gTalkingMercSoldier, (UINT16)giSelectedMercCurrentQuote );
-				else if( gfRpcToSaySectorDesc && gTalkingMercSoldier->identity().profile() >=57 && gTalkingMercSoldier->identity().profile() <= 60 )
+					TacticalCharacterDialogue( pTalkingMerc, (UINT16)giSelectedMercCurrentQuote );
+				else if( gfRpcToSaySectorDesc && pTalkingMerc->identity().profile() >=57 && pTalkingMerc->identity().profile() <= 60 )
 				{
 					//ATE: Trigger the sector desc here
-					CharacterDialogueWithSpecialEvent( gTalkingMercSoldier->identity().profile(), (UINT16)giSelectedMercCurrentQuote, gTalkPanel.iFaceIndex, DIALOGUE_NPC_UI, TRUE, FALSE, DIALOGUE_SPECIAL_EVENT_USE_ALTERNATE_FILES, FALSE, FALSE );
+					CharacterDialogueWithSpecialEvent( pTalkingMerc->identity().profile(), (UINT16)giSelectedMercCurrentQuote, gTalkPanel.iFaceIndex, DIALOGUE_NPC_UI, TRUE, FALSE, DIALOGUE_SPECIAL_EVENT_USE_ALTERNATE_FILES, FALSE, FALSE );
 				}
 				else
-					CharacterDialogue( gTalkingMercSoldier->identity().profile(), (UINT16)giSelectedMercCurrentQuote, gTalkPanel.iFaceIndex, DIALOGUE_NPC_UI, FALSE, FALSE );
+					CharacterDialogue( pTalkingMerc->identity().profile(), (UINT16)giSelectedMercCurrentQuote, gTalkPanel.iFaceIndex, DIALOGUE_NPC_UI, FALSE, FALSE );
 
 				//Incremenet the current quote number
 				giSelectedMercCurrentQuote++;
@@ -3862,19 +3886,20 @@ void HandleQDSTalkingMerc()
 
 void SetTalkingMercPauseState( BOOLEAN fState )
 {
+	SOLDIERTYPE* pTalkingMerc = ResolveQdsTalkingMerc();
 	if( fState )
 	{
 		gfPauseTalkingMercPopup = TRUE;
 
-		if( gTalkingMercSoldier )
-			gFacesData[ gTalkingMercSoldier->renderBindings().faceIndex() ].uiFlags |= FACE_POTENTIAL_KEYWAIT;
+		if( pTalkingMerc )
+			gFacesData[ pTalkingMerc->renderBindings().faceIndex() ].uiFlags |= FACE_POTENTIAL_KEYWAIT;
 	}
 	else
 	{
 		gfPauseTalkingMercPopup = FALSE;
 
-		if( gTalkingMercSoldier )
-			gFacesData[ gTalkingMercSoldier->renderBindings().faceIndex() ].uiFlags &= ~FACE_POTENTIAL_KEYWAIT;
+		if( pTalkingMerc )
+			gFacesData[ pTalkingMerc->renderBindings().faceIndex() ].uiFlags &= ~FACE_POTENTIAL_KEYWAIT;
 	}
 }
 
@@ -3882,19 +3907,23 @@ void SetTalkingMercPauseState( BOOLEAN fState )
 
 void SetQDSMercProfile()
 {
+	SOLDIERTYPE* pTalkingMerc = NULL;
 	// Get selected soldier
-	if	( GetSoldier( &gTalkingMercSoldier, gusSelectedSoldier ) )
+	if	( GetSoldier( &pTalkingMerc, gusSelectedSoldier ) &&
+		pTalkingMerc &&
+		gQdsTalkingMerc.capture(
+			GetJa2TacticalEntityId(*pTalkingMerc)) )
 	{
 		// Change guy!
-		ForceSoldierProfileID( gTalkingMercSoldier, (UINT8)gNpcListBox.sCurSelectedItem );
+		ForceSoldierProfileID( pTalkingMerc, (UINT8)gNpcListBox.sCurSelectedItem );
 
 		//if it is an rpc
-		if( gTalkingMercSoldier->identity().profile() >= 57 && gTalkingMercSoldier->identity().profile() <= 72 )
+		if( pTalkingMerc->identity().profile() >= 57 && pTalkingMerc->identity().profile() <= 72 )
 		{
 			if( gfAddNpcToTeam )
-				gMercProfiles[ gTalkingMercSoldier->identity().profile() ].ubMiscFlags |= PROFILE_MISC_FLAG_RECRUITED;
+				gMercProfiles[ pTalkingMerc->identity().profile() ].ubMiscFlags |= PROFILE_MISC_FLAG_RECRUITED;
 			else
-				gMercProfiles[ gTalkingMercSoldier->identity().profile() ].ubMiscFlags &= ~PROFILE_MISC_FLAG_RECRUITED;
+				gMercProfiles[ pTalkingMerc->identity().profile() ].ubMiscFlags &= ~PROFILE_MISC_FLAG_RECRUITED;
 		}
 		else
 		{
@@ -3908,10 +3937,14 @@ void SetQDSMercProfile()
 
 			gfNpcPanelIsUsedForTalkingMerc = TRUE;
 
-			InternalInitTalkingMenu( gTalkingMercSoldier->identity().profile(), 10, 10 );
+			InternalInitTalkingMenu( pTalkingMerc->identity().profile(), 10, 10 );
 			(void)SetDialogueDestinationSoldier(
-				GetJa2TacticalEntityId(*gTalkingMercSoldier));
+				GetJa2TacticalEntityId(*pTalkingMerc));
 		}
+	}
+	else
+	{
+		gQdsTalkingMerc.reset();
 	}
 }
 
@@ -3921,11 +3954,14 @@ void DisplayQDSCurrentlyQuoteNum( )
 	CHAR16	zTemp[512];
 	UINT16	usPosY;
 	UINT16	usFontHeight = GetFontHeight( QUEST_DBS_FONT_TEXT_ENTRY ) + 2;
+	SOLDIERTYPE* pTalkingMerc = ResolveQdsTalkingMerc();
+	if (!pTalkingMerc)
+		return;
 
 	//Display the box frame
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, QDS_CURRENT_QUOTE_NUM_BOX_X, QDS_CURRENT_QUOTE_NUM_BOX_Y, QDS_CURRENT_QUOTE_NUM_BOX_X+QDS_CURRENT_QUOTE_NUM_BOX_WIDTH,	QDS_CURRENT_QUOTE_NUM_BOX_Y+QDS_CURRENT_QUOTE_NUM_BOX_HEIGHT, Get16BPPColor( FROMRGB(	32,	41,	53 ) ) );
 
-	swprintf( zTemp, L"'%s' is currently saying quote #%d", gMercProfiles[ gTalkingMercSoldier->identity().profile() ].zNickname, giSelectedMercCurrentQuote-1 );
+	swprintf( zTemp, L"'%s' is currently saying quote #%d", gMercProfiles[ pTalkingMerc->identity().profile() ].zNickname, giSelectedMercCurrentQuote-1 );
 
 	//Display the text box caption
 	usPosY = QDS_CURRENT_QUOTE_NUM_BOX_Y+4;
@@ -3982,14 +4018,15 @@ void BtnQuestDebugRPCSaySectorDescToggleCallback( GUI_BUTTON *btn, INT32 reason 
 
 UINT8	WhichPanelShouldTalkingMercUse( )
 {
-	if ( gTalkingMercSoldier == NULL )
+	SOLDIERTYPE* pTalkingMerc = ResolveQdsTalkingMerc();
+	if ( pTalkingMerc == NULL )
 	{
 		return( QDS_NO_PANEL );
 	}
 
-	if ( gMercProfiles[gTalkingMercSoldier->identity().profile()].Type == PROFILETYPE_AIM ||
-		gMercProfiles[gTalkingMercSoldier->identity().profile()].Type == PROFILETYPE_MERC ||
-		gMercProfiles[gTalkingMercSoldier->identity().profile()].Type == PROFILETYPE_IMP )
+	if ( gMercProfiles[pTalkingMerc->identity().profile()].Type == PROFILETYPE_AIM ||
+		gMercProfiles[pTalkingMerc->identity().profile()].Type == PROFILETYPE_MERC ||
+		gMercProfiles[pTalkingMerc->identity().profile()].Type == PROFILETYPE_IMP )
 	{
 		return( QDS_REGULAR_PANEL );
 	}

@@ -1,5 +1,8 @@
 #ifndef __POINTS_H_
 #define __POINTS_H_
+
+#include <Engine/Adapters/JA2/TacticalEntity.h>
+
 #include "Init.h"
 
 /*THESE ARE EXTERNALIZED NOW! AN ENUM WILL REFERENCE A CONSTANT ARRAY! 7/1/08 GOTTHARD
@@ -286,7 +289,7 @@ INT16 ActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 u
 INT16 EstimateActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode, INT8 bPathIndex, INT8 bPathLength );
 // M-PF2: bracket one A* pathfinding search to cache the path-invariant
 // FindBackpackOnSoldier() result used by the per-neighbour AP cost helpers.
-void BeginPathingBackpackCache( SOLDIERTYPE* pSoldier );
+void BeginPathingBackpackCache( TacticalEntityId actor );
 void EndPathingBackpackCache( void );
 BOOLEAN SelectedMercCanAffordMove(	);
 

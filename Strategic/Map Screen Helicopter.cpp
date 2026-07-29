@@ -165,15 +165,8 @@ UINT8 gubHelicopterTimeToFullRefuel = 0;
 BOOLEAN gfSkyriderSaidCongratsOnTakingSAM = FALSE;
 UINT8 gubPlayerProgressSkyriderLastCommentedOn = 0;
 
-// skyrider placeholder
-SOLDIERTYPE SoldierSkyRider;
-
-SOLDIERTYPE *pSkyRider;
-
-
-
 // helicopter char dialogue
-BOOLEAN HeliCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum );
+BOOLEAN HeliCharacterDialogue( UINT16 usQuoteNum );
 
 // does skyrider notice bad guys in sector?
 BOOLEAN DoesSkyriderNoticeEnemiesInSector( UINT8 ubNumEnemies );
@@ -529,8 +522,6 @@ void InitializeHelicopter( void )
 
 	fSkyRiderAvailable = FALSE;
 	fSkyRiderSetUp = FALSE;
-	pSkyRider = NULL;
-	SoldierSkyRider.initialize();
 
 	fHelicopterIsAirBorne = FALSE;
 	fHeliReturnStraightToBase = FALSE;
@@ -654,11 +645,11 @@ BOOLEAN HandleHeliEnteringSector( INT16 sX, INT16 sY )
 
 					if( Random( 2 ) )
 					{
-						HeliCharacterDialogue( pSkyRider, ENEMIES_SPOTTED_EN_ROUTE_IN_FRIENDLY_SECTOR_A );
+						HeliCharacterDialogue( ENEMIES_SPOTTED_EN_ROUTE_IN_FRIENDLY_SECTOR_A );
 					}
 					else
 					{
-						HeliCharacterDialogue( pSkyRider, ENEMIES_SPOTTED_EN_ROUTE_IN_FRIENDLY_SECTOR_B );
+						HeliCharacterDialogue( ENEMIES_SPOTTED_EN_ROUTE_IN_FRIENDLY_SECTOR_B );
 					}
 				}
 
@@ -694,7 +685,7 @@ BOOLEAN HandleHeliEnteringSector( INT16 sX, INT16 sY )
 			if ( ( GetNumberOfPassengersInHelicopter() > 0 ) /*|| !fHeliReturnStraightToBase*/ )
 			{
 				// arrived at destination
-				if(gGameSettings.fOptions[ TOPTION_SILENT_SKYRIDER ] == FALSE) HeliCharacterDialogue( pSkyRider, ARRIVED_IN_NON_HOSTILE_SECTOR );
+				if(gGameSettings.fOptions[ TOPTION_SILENT_SKYRIDER ] == FALSE) HeliCharacterDialogue( ARRIVED_IN_NON_HOSTILE_SECTOR );
 				//StopTimeCompression();
 			}
 
@@ -711,9 +702,9 @@ BOOLEAN HandleHeliEnteringSector( INT16 sX, INT16 sY )
 			//CHRISL: Whether skyrider is set to silent or not, we should still say this if we aren't allowing landing in a hot lz.
 			//if(gGameSettings.fOptions[ TOPTION_SILENT_SKYRIDER ] == FALSE) 
 			if(gGameExternalOptions.ubSkyriderHotLZ == 0)
-				HeliCharacterDialogue( pSkyRider, ARRIVED_IN_HOSTILE_SECTOR );
+				HeliCharacterDialogue( ARRIVED_IN_HOSTILE_SECTOR );
 			else
-				HeliCharacterDialogue( pSkyRider, HELI_HOT_DROP );
+				HeliCharacterDialogue( HELI_HOT_DROP );
 			
 			if( gGameExternalOptions.fPaySkyriderInBase == FALSE || CheckForArrivalAtRefuelPoint( ) )
 				PaySkyriderBill();
@@ -738,7 +729,7 @@ BOOLEAN CheckIfHelicopterHasEnoughFuelToReturn( INT16 sX, INT16 sY )
 	if( !CheckForArrivalAtRefuelPoint() && fHeliReturnStraightToBase == FALSE && gHelicopterSettings.ubHelicopterDistanceWithoutRefuel - iTotalHeliDistanceSinceRefuel < DistanceToNearestRefuelPoint(sX, sY) )
 	{
 		// hovered too long, inform player heli is returning to base
-		HeliCharacterDialogue( pSkyRider, RETURN_TO_BASE );
+		HeliCharacterDialogue( RETURN_TO_BASE );
 
 		// If the sector is safe
 		if ( NumNonPlayerTeamMembersInSector( pVehicleList[iHelicopterVehicleId].sSectorX, pVehicleList[iHelicopterVehicleId].sSectorY, ENEMY_TEAM ) == 0 )
@@ -1120,7 +1111,6 @@ void SkyriderDestroyed( void )
 
 	// kill skyrider
 	fSkyRiderAvailable = FALSE;
-	SoldierSkyRider.vitals().health() = 0;
 	gMercProfiles[ SKYRIDER ].bLife = 0;
 
 	// heli no longer available
@@ -1321,7 +1311,7 @@ void HandleHeliHoverForAMinute( void )
 			// since now heli can stay hovering longer, reminder every 10 minutes would get irritating
 			if( iTotalHeliDistanceSinceRefuel % 3 == 0 && iTotalHeliDistanceSinceRefuel < gHelicopterSettings.ubHelicopterDistanceWithoutRefuel )
 				// inform player
-				HeliCharacterDialogue( pSkyRider, HOVERING_A_WHILE );
+				HeliCharacterDialogue( HOVERING_A_WHILE );
 		}
 	
 	}
@@ -1337,7 +1327,7 @@ void HandleHeliHoverLong( void )
 		AddStrategicEvent( EVENT_HELICOPTER_HOVER_WAY_TOO_LONG, uiStartHoverTime + gHelicopterSettings.ubHelicopterTimeDelayForHoverWaitTooLong, 0 );
 
 		// inform player
-		HeliCharacterDialogue( pSkyRider, HOVERING_A_WHILE );
+		HeliCharacterDialogue( HOVERING_A_WHILE );
 
 		// stop time compression if it's on
 		StopTimeCompression( );
@@ -1362,7 +1352,7 @@ void HandleHeliHoverTooLong( void )
 
 
 	// hovered too long, inform player heli is returning to base
-	HeliCharacterDialogue( pSkyRider, RETURN_TO_BASE );
+	HeliCharacterDialogue( RETURN_TO_BASE );
 
 	// If the sector is safe
 	if ( NumNonPlayerTeamMembersInSector( pVehicleList[iHelicopterVehicleId].sSectorX, pVehicleList[iHelicopterVehicleId].sSectorY, ENEMY_TEAM ) == 0 )
@@ -1497,7 +1487,7 @@ void SetUpHelicopterForMovement( void )
 }
 
 
-BOOLEAN HeliCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
+BOOLEAN HeliCharacterDialogue( UINT16 usQuoteNum )
 {
 	// ARM: we could just return, but since various flags are often being set it's safer to honk so it gets fixed right!
 	Assert( fSkyRiderAvailable );
@@ -1581,12 +1571,6 @@ void SetUpHelicopterForPlayer( INT16 sX, INT16 sY , UINT8 SkyDrive, UINT8 Vehicl
 		iHelicopterVehicleId = AddVehicleToList( sX, sY, 0, VehicleID ); //HELICOPTER
 
 		Assert( iHelicopterVehicleId != -1 );
-
-		SoldierSkyRider.initialize();
-		SoldierSkyRider.identity().profile() = SkyDrive; //SKYRIDER;
-		SoldierSkyRider.vitals().health() = 80;
-
-		pSkyRider = &( SoldierSkyRider );
 
 		// set up for movement
 		SetUpHelicopterForMovement( );
@@ -1705,7 +1689,7 @@ UINT8 MoveAllInHelicopterToFootMovementGroup( INT8 bNewSquad )
 void SkyRiderTalk( UINT16 usQuoteNum )
 {
 	// have skyrider talk to player
-	HeliCharacterDialogue( pSkyRider, usQuoteNum );
+	HeliCharacterDialogue( usQuoteNum );
 
 	fTeamPanelDirty = TRUE;
 
@@ -2469,7 +2453,7 @@ BOOLEAN HandleSAMSiteAttackOfHelicopterInSector( INT16 sSectorX, INT16 sSectorY 
 				// first hit?
 				if ( gubHelicopterHitsTaken == 1 )
 				{
-					HeliCharacterDialogue( pSkyRider, HELI_TOOK_MINOR_DAMAGE );
+					HeliCharacterDialogue( HELI_TOOK_MINOR_DAMAGE );
 					if ( gGameExternalOptions.fHelicopterPassengersCanGetHit == TRUE )
 						HurtPassengersInHelicopter( iHelicopterVehicleId );
 				}
@@ -2477,7 +2461,7 @@ BOOLEAN HandleSAMSiteAttackOfHelicopterInSector( INT16 sSectorX, INT16 sSectorY 
 				else if ( gubHelicopterHitsTaken == 2 )
 				{
 					// going back to base (no choice, dialogue says so)
-					HeliCharacterDialogue( pSkyRider, HELI_TOOK_MAJOR_DAMAGE );
+					HeliCharacterDialogue( HELI_TOOK_MAJOR_DAMAGE );
 					MakeHeliReturnToBase( HELICOPTER_RETURN_REASON_DAMAGE );
 					if ( gGameExternalOptions.fHelicopterPassengersCanGetHit == TRUE )
 						HurtPassengersInHelicopter( iHelicopterVehicleId );
@@ -2486,7 +2470,7 @@ BOOLEAN HandleSAMSiteAttackOfHelicopterInSector( INT16 sSectorX, INT16 sSectorY 
 				else
 				{
 					// Important: Skyrider must still be alive when he talks, so must do this before heli is destroyed!
-					HeliCharacterDialogue( pSkyRider, HELI_GOING_DOWN );
+					HeliCharacterDialogue( HELI_GOING_DOWN );
 
 					// everyone die die die
 					// play sound
@@ -2913,7 +2897,7 @@ void PaySkyriderBill( void)
 				gMercProfiles[ SKYRIDER ].iBalance = - iTotalAccumulatedCostByPlayer;
 			}
 
-			HeliCharacterDialogue( pSkyRider, OWED_MONEY_TO_SKYRIDER );
+			HeliCharacterDialogue( OWED_MONEY_TO_SKYRIDER );
 			ScreenMsg( FONT_MCOLOR_DKRED, MSG_INTERFACE, pSkyriderText[ 1 ], -gMercProfiles[ SKYRIDER ].iBalance );
 
 			// kick everyone out! (we know we're in a safe sector if we're paying)
@@ -2955,7 +2939,7 @@ void PayOffSkyriderDebtIfAny( )
 		if ( iAmountOwed > 0 )
 		{
 			ScreenMsg( FONT_MCOLOR_DKRED, MSG_INTERFACE, pSkyriderText[ 1 ], iAmountOwed );
-			HeliCharacterDialogue( pSkyRider, OWED_MONEY_TO_SKYRIDER );
+			HeliCharacterDialogue( OWED_MONEY_TO_SKYRIDER );
 		}
 	}
 }

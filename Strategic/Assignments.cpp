@@ -287,9 +287,6 @@ extern BOOLEAN fShowTownInfo;
 
 extern INT32 giMapBorderButtons[];
 
-extern BOOLEAN fProcessingAMerc;
-extern SOLDIERTYPE *pProcessingSoldier ;
-
 BOOLEAN gfAddDisplayBoxToWaitingQueue = FALSE;
 
 // redraw character list
@@ -11730,15 +11727,6 @@ void CreateDestroyMouseRegionsForContractMenu( void )
 		}
 
 		fShownContractMenu = FALSE;
-		//if( ( fProcessingAMerc ) && ( pProcessingSoldier ) )
-		//{
-		//	if( (UINT32)(pProcessingSoldier->employment().endTime()) == GetWorldTotalMin() )
-		//	{
-		//		StrategicRemoveMerc( pProcessingSoldier, MERC_FIRED );
-		//		pProcessingSoldier = NULL;
-		//		fProcessingAMerc = FALSE;
-		//	}
-		//}
 
 		fMapPanelDirty = TRUE;
 		fCharacterInfoPanelDirty= TRUE;
@@ -13016,8 +13004,6 @@ void ContractMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			break;
 		}
 
-		pProcessingSoldier = NULL;
-		fProcessingAMerc = FALSE;
 	}
 
 

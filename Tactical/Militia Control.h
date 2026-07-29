@@ -1,6 +1,8 @@
 #ifndef __MILITIA_CONTROL_H
 #define __MILITIA_CONTROL_H
 
+#include <Engine/Adapters/JA2/TacticalEntity.h>
+
 #include "types.h"
 #include "Soldier Control.h"
 #include "mousesystem.h"
@@ -27,5 +29,9 @@ void SetTacticalPopUpMilitiaControlBoxXY( SOLDIERTYPE *pSoldier );
 BOOLEAN CreateDestroyMilitiaControlPopUpBoxes( void );
 
 BOOLEAN CheckIfRadioIsEquipped( void );
+
+BOOLEAN CaptureMilitiaControlTarget( TacticalEntityId actor );
+SOLDIERTYPE *ResolveMilitiaControlTarget( void );
+void ClearMilitiaControlTarget( void );
 
 #endif

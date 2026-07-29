@@ -38,6 +38,7 @@
 
 #include "GameInitOptionsScreen.h"
 #include "SoldierRepository.h"
+#include "TacticalEntityHost.h"
 
 //rain
 //#define BREATH_GAIN_REDUCTION_PER_RAIN_INTENSITY 25
@@ -62,26 +63,40 @@ INT16 GetBreathPerAP( SOLDIERTYPE *pSoldier, UINT16 usAnimState );
 // when the queried soldier matches the one it was primed for. Every other caller
 // (combat AP, UI estimates, RecalculatePathCost, ...) therefore computes exactly
 // as before -- bit-identical results.
-static const SOLDIERTYPE*	gpPathingBackpackCacheSoldier	= NULL;
+static TacticalEntityId		gPathingBackpackCacheActor;
 static INT8					gbPathingBackpackCacheSlot		= ITEM_NOT_FOUND;
 
-void BeginPathingBackpackCache( SOLDIERTYPE* pSoldier )
+void BeginPathingBackpackCache( TacticalEntityId actor )
 {
-	gpPathingBackpackCacheSoldier	= pSoldier;
-	gbPathingBackpackCacheSlot		= FindBackpackOnSoldier( pSoldier );
+	gPathingBackpackCacheActor = {};
+	gbPathingBackpackCacheSlot = ITEM_NOT_FOUND;
+
+	SOLDIERTYPE* pSoldier = ResolveJa2TacticalEntity(actor);
+	if (!pSoldier)
+		return;
+
+	gPathingBackpackCacheActor = actor;
+	gbPathingBackpackCacheSlot = FindBackpackOnSoldier( pSoldier );
 }
 
 void EndPathingBackpackCache( void )
 {
-	gpPathingBackpackCacheSoldier	= NULL;
-	gbPathingBackpackCacheSlot		= ITEM_NOT_FOUND;
+	gPathingBackpackCacheActor = {};
+	gbPathingBackpackCacheSlot = ITEM_NOT_FOUND;
 }
 
 // Returns FindBackpackOnSoldier(pSoldier), served from the A*-search cache when it
 // is active for exactly this soldier; otherwise computed fresh (identical result).
 static inline INT8 PathingFindBackpackOnSoldier( SOLDIERTYPE* pSoldier )
 {
-	if ( pSoldier == gpPathingBackpackCacheSoldier )
+	if (pSoldier &&
+		gPathingBackpackCacheActor.valid() &&
+		static_cast<std::uint16_t>(pSoldier->identity().id()) ==
+			gPathingBackpackCacheActor.slot &&
+		pSoldier->identity().incarnation() ==
+			gPathingBackpackCacheActor.incarnation &&
+		GetJa2SoldierRepository().contains(
+			gPathingBackpackCacheActor.slot, *pSoldier))
 		return gbPathingBackpackCacheSlot;
 	return FindBackpackOnSoldier( pSoldier );
 }

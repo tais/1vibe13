@@ -115,8 +115,6 @@ typedef struct
 extern INT32 giMapInvPrev;
 extern INT32 giMapInvNext;
 extern BOOLEAN gfSKIScreenExit;
-extern SOLDIERTYPE *pProcessingSoldier;
-extern BOOLEAN fProcessingAMerc;
 extern BOOLEAN fReDrawFace;
 extern BOOLEAN gfWaitingForTriggerTimer;
 
@@ -984,8 +982,6 @@ void HandleDialogue( )
 			fShowContractMenu = TRUE;
 			RebuildContractBoxForMerc( pSoldier );
 			bSelectedContractChar = bSelectedInfoChar;
-			pProcessingSoldier = pSoldier;
-			fProcessingAMerc = TRUE;
 		}
 		else if ( QItem.uiSpecialEventFlag & DIALOGUE_SPECIAL_EVENT_DO_BATTLE_SND )
 		{
