@@ -2389,7 +2389,8 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 					// Loop through passengers and update each guy's AP
 					for( INT32 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 					{
-						SOLDIERTYPE *pPassenger = pVehicleList[ iId ].pPassengers[ iCounter ];
+						SOLDIERTYPE *pPassenger =
+							ResolveVehiclePassenger( iId, iCounter );
 						if( pPassenger != NULL )
 						{
 							//INT16 sPassengerAPCost = pPassenger->actionPoints().initial() * sAPCost / max(1, pSoldier->actionPoints().initial()) * gGameExternalOptions.ubAPSharedAmongPassengersAndVehicleScale / 100;

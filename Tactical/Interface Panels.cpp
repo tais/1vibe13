@@ -7063,7 +7063,10 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 			{
 				for( UINT8 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ soldier->deployment().vehicleId() ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 				{
-					SOLDIERTYPE *pPassenger = pVehicleList[ soldier->deployment().vehicleId() ].pPassengers[ iCounter ];
+					SOLDIERTYPE *pPassenger =
+						ResolveVehiclePassenger(
+							soldier->deployment().vehicleId(),
+							iCounter );
 					if( pPassenger != NULL && pPassenger->identity().id() == ubID )
 					{
 						gTeamPanel[ iCounter ].fOccupied = TRUE;

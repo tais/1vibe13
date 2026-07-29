@@ -13062,7 +13062,8 @@ foreach(required_actor_projection_fragment IN ITEMS
     "TacticalEntityRoster& AwayActorRoster()"
     "RebindRosterAfterRecordSwap(ActiveActorRoster())"
     "RebindRosterAfterRecordSwap(AwayActorRoster())"
-    "RebindJa2StrategicSquadRostersAfterRecordSwap()")
+    "RebindJa2StrategicSquadRostersAfterRecordSwap()"
+    "RebindJa2VehicleOccupantsAfterRecordSwap()")
   string(FIND "${tactical_entity_host_contents}"
     "${required_actor_projection_fragment}" required_actor_projection_position)
   if(required_actor_projection_position EQUAL -1)
@@ -13078,6 +13079,12 @@ string(FIND "${ja2_application_build_contents}"
 if(strategic_squad_host_build_position EQUAL -1)
   message(FATAL_ERROR
     "JA2 application no longer builds StrategicSquadHost.cpp")
+endif()
+string(FIND "${ja2_application_build_contents}"
+  "VehiclePassengerHost.cpp" vehicle_passenger_host_build_position)
+if(vehicle_passenger_host_build_position EQUAL -1)
+  message(FATAL_ERROR
+    "JA2 application no longer builds VehiclePassengerHost.cpp")
 endif()
 
 file(READ "${SOURCE_ROOT}/Ja2/StrategicSquadHost.cpp"
@@ -13095,6 +13102,27 @@ foreach(required_strategic_squad_host_fragment IN ITEMS
   if(required_strategic_squad_host_position EQUAL -1)
     message(FATAL_ERROR
       "StrategicSquadHost lost exact-ID ownership fragment '${required_strategic_squad_host_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/VehiclePassengerHost.cpp"
+  vehicle_passenger_host_contents)
+foreach(required_vehicle_passenger_host_fragment IN ITEMS
+    "TacticalEntityRoster(kJa2VehiclePassengerCapacity)"
+    "ResetJa2VehicleOccupants"
+    "ResolveJa2VehiclePassengerActor"
+    "AssignJa2VehiclePassengerActor"
+    "MoveJa2VehiclePassengerActor"
+    "SwapJa2VehiclePassengerActors"
+    "SetJa2VehicleDriverActor"
+    "ActorBelongsToAnotherVehicle"
+    "RebindJa2VehicleOccupantsAfterRecordSwap")
+  string(FIND "${vehicle_passenger_host_contents}"
+    "${required_vehicle_passenger_host_fragment}"
+    required_vehicle_passenger_host_position)
+  if(required_vehicle_passenger_host_position EQUAL -1)
+    message(FATAL_ERROR
+      "VehiclePassengerHost lost exact-ID ownership fragment '${required_vehicle_passenger_host_fragment}'")
   endif()
 endforeach()
 
@@ -13127,6 +13155,39 @@ if(strategic_squad_delete_cleanup EQUAL -1)
   message(FATAL_ERROR
     "Soldier deletion no longer removes exact strategic squad membership")
 endif()
+string(FIND "${soldier_lifecycle_contents}"
+  "RemoveJa2VehiclePassengerActor(actor)"
+  vehicle_passenger_delete_cleanup)
+if(vehicle_passenger_delete_cleanup EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier deletion no longer removes exact vehicle occupancy")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Vehicles.cpp"
+  vehicle_compatibility_contents)
+foreach(required_vehicle_compatibility_fragment IN ITEMS
+    "MAX_VEHICLES == kJa2VehicleSlotCount"
+    "MAXPASSENGERS == kJa2VehiclePassengerCapacity"
+    "ResolveJa2VehiclePassengerActor("
+    "AssignJa2VehiclePassengerActor("
+    "RemoveJa2VehiclePassengerSeat("
+    "MoveJa2VehiclePassengerActor("
+    "SwapJa2VehiclePassengerActors("
+    "ResolveJa2VehicleDriverActor("
+    "SetJa2VehicleDriverActor("
+    "savedPassengerProfiles[ ubPassengerCnt ] = r.u32()"
+    "savedDriverSlot = r.u16()"
+    "w.u32(uiPassengerID)"
+    "driver ? driver->identity().id().i : NOBODY.i"
+    "ubNumberOfVehicles > MAX_VEHICLES")
+  string(FIND "${vehicle_compatibility_contents}"
+    "${required_vehicle_compatibility_fragment}"
+    required_vehicle_compatibility_position)
+  if(required_vehicle_compatibility_position EQUAL -1)
+    message(FATAL_ERROR
+      "Vehicles.cpp bypasses pointer-free exact occupancy or changed its established persistence projection; missing '${required_vehicle_compatibility_fragment}'")
+  endif()
+endforeach()
 
 # The application composition root exposes one repository object to JA2
 # systems. Its fixed-capacity backing records and slot table are private to the
@@ -13303,6 +13364,12 @@ foreach(source_file IN LISTS soldier_storage_sources)
   if(retired_strategic_squad_pointer_matrix)
     message(FATAL_ERROR
       "Retired raw strategic Squad pointer matrix returned in ${source_file}; use ResolveSquadMember or StrategicSquadHost exact-ID gateways")
+  endif()
+  string(FIND "${contents}" "pPassengers"
+    retired_vehicle_passenger_pointer_storage)
+  if(NOT retired_vehicle_passenger_pointer_storage EQUAL -1)
+    message(FATAL_ERROR
+      "Retired raw vehicle passenger pointer storage returned in ${source_file}; use ResolveVehiclePassenger or VehiclePassengerHost exact-ID gateways")
   endif()
   string(REGEX MATCH
     "(p(Soldier|TeamSoldier|TSoldier|TargetSoldier|Merc)|get_npc[ \t\r\n]*\\([ \t\r\n]*\\)|GetSMCurrentMerc[ \t\r\n]*\\([ \t\r\n]*\\)|GetItemPointerSoldier[ \t\r\n]*\\([ \t\r\n]*\\)|MercSlots[ \t\r\n]*\\[[^]]+\\]|AwaySlots[ \t\r\n]*\\[[^]]+\\])[ \t\r\n]*->[ \t\r\n]*(ubID|name|ubBodyType|ubProfile|uiUniqueSoldierIdValue|usSoldierProfile|usIndividualMilitiaID|bActive|bTeam|bInSector|bSide|ubSoldierClass|ubCivilianGroup)([^A-Za-z0-9_]|$)"

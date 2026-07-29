@@ -135,11 +135,13 @@ VehicleSelection::Setup( UINT32 aVal )
 		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Function_VehicleSelection, i ));
 
 		// if seat is already taken, grey it out
-		if ( pVehicleList[ bVehicleID ].pPassengers[ i ] != NULL )
-		{			
+		SOLDIERTYPE* seatPassenger =
+			ResolveVehiclePassenger( bVehicleID, i );
+		if ( seatPassenger != NULL )
+		{
 			if( pCurrentSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 			{
-				if( pVehicleList[ bVehicleID ].pPassengers[ i ] == pCurrentSoldier )
+				if( seatPassenger == pCurrentSoldier )
 				{
 					// Set this option off.
 					pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_VehicleMenuOptionOff, NULL ));

@@ -107,6 +107,7 @@
 #include "Simulation Commands.h"
 #include "StrategicSquadHost.h"
 #include "TacticalEntityHost.h"
+#include "VehiclePassengerHost.h"
 
 
 #ifdef JA2UB
@@ -2567,8 +2568,9 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 	}
 	// Tactical removal normally performs the strategic side effects first.
 	// This exact-ID cleanup also covers teardown paths that release the record
-	// directly, so a reused repository slot cannot inherit squad membership.
+	// directly, so a reused repository slot cannot inherit retained membership.
 	(void)RemoveJa2StrategicSquadActor(actor);
+	(void)RemoveJa2VehiclePassengerActor(actor);
 
 	return(TRUE);
 }
@@ -8358,10 +8360,15 @@ void SOLDIERTYPE::TurnSoldier( void )
 			// Loop through passengers and update each guy's rotation
 			for ( INT32 iCounter = 0; iCounter < gNewVehicle[pVehicleList[iId].ubVehicleType].iNewSeatingCapacities; iCounter++ )
 			{
-				if ( pVehicleList[iId].pPassengers[iCounter] != NULL )
+				SOLDIERTYPE* passenger =
+					ResolveVehiclePassenger( iId, iCounter );
+				if ( passenger != NULL )
 				{
-					pVehicleList[iId].pPassengers[iCounter]->animationActivity().turningCostWaived() = TRUE;
-					pVehicleList[iId].pPassengers[iCounter]->EVENT_SetSoldierDesiredDirection( (pVehicleList[iId].pPassengers[iCounter]->pathing().desiredDirection() + bDirectionChange + NUM_WORLD_DIRECTIONS) % NUM_WORLD_DIRECTIONS );
+					passenger->animationActivity().turningCostWaived() = TRUE;
+					passenger->EVENT_SetSoldierDesiredDirection(
+						(passenger->pathing().desiredDirection() +
+							bDirectionChange + NUM_WORLD_DIRECTIONS) %
+						NUM_WORLD_DIRECTIONS );
 				}
 			}
 			UpdateAllVehiclePassengersGridNo( this );

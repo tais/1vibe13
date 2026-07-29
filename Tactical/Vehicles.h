@@ -13,7 +13,7 @@ extern std::vector<INT8>	gubVehicleMovementGroups;
 #define MAX_MAIN_VEHICLE_CHARS 500
 typedef struct
 {
-	UINT8	ubSeatIndex;		// index inside a vehicle (corresponding to .pPassengers[counter])
+	UINT8	ubSeatIndex;		// index inside a vehicle passenger manifest
 	CHAR16	zSeatName[20];		// name (to display on entering menu and on team panel)
 	BOOLEAN	fDriver;			// seat has to be taken to steer the vehicle
 	BOOLEAN	fBlockedView;		// can't look out of vehicle
@@ -288,8 +288,6 @@ typedef struct
  INT16	 sSectorZ;
  BOOLEAN fBetweenSectors;	// between sectors?
  INT32 sGridNo;   // location in tactical
- SOLDIERTYPE *pPassengers[ MAXPASSENGERS ];
- SoldierID	ubDriver;
  INT16		sInternalHitLocations[ NUMBER_OF_EXTERNAL_HIT_LOCATIONS_ON_VEHICLE ];
  INT16		sArmourType;
  INT16		sExternalArmorLocationsStatus[ NUMBER_OF_EXTERNAL_HIT_LOCATIONS_ON_VEHICLE ];
@@ -314,6 +312,11 @@ extern VEHICLETYPE *pVehicleList;
 
 // number of vehicles on the list
 extern UINT8 ubNumberOfVehicles;
+
+// Resolve a transient compatibility record from pointer-free vehicle
+// occupancy. Callers must not retain the returned pointer across lifecycle
+// boundaries.
+SOLDIERTYPE* ResolveVehiclePassenger( INT32 iVehicleId, INT32 iSeatIndex );
 
 extern INT32 iMvtTypes[];
 
