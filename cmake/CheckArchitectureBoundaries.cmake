@@ -2162,6 +2162,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.cpp"
   tactical_actor_conditions_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDragging.h"
+  tactical_actor_dragging_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
   tactical_build_contents)
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.h"
@@ -2477,6 +2479,64 @@ string(FIND "${headless_test_contents}"
 if(covert_operation_coverage EQUAL -1)
   message(FATAL_ERROR
     "Tactical actor covert operations lost their data-free headless coverage")
+endif()
+
+foreach(retired_dragging_method IN ITEMS
+  "CanDragInPrinciple"
+  "CanDragPerson"
+  "CanDragCorpse"
+  "CanDragStructure"
+  "IsDragging"
+  "SetDragOrderPerson"
+  "SetDragOrderCorpse"
+  "SetDragOrderStructure"
+  "CancelDrag"
+  "CanStartDrag"
+  "StartDrag")
+  string(FIND "${tactical_actor_contents}"
+    "${retired_dragging_method}("
+    retired_dragging_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActor::${retired_dragging_method}"
+    retired_dragging_definition)
+  if(NOT retired_dragging_declaration EQUAL -1 OR
+     NOT retired_dragging_definition EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalActor regained dragging facade '${retired_dragging_method}'")
+  endif()
+endforeach()
+
+foreach(required_dragging_operation IN ITEMS
+  "canDrag"
+  "canDragPerson"
+  "canDragCorpse"
+  "canDragStructure"
+  "isDragging"
+  "dragPerson"
+  "dragCorpse"
+  "dragStructure"
+  "cancel"
+  "canStart"
+  "start")
+  string(FIND "${tactical_actor_dragging_header_contents}"
+    "${required_dragging_operation}("
+    dragging_operation_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActorDragging::${required_dragging_operation}("
+    dragging_operation_definition)
+  if(dragging_operation_declaration EQUAL -1 OR
+     dragging_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor dragging operation '${required_dragging_operation}' lost its domain declaration or definition")
+  endif()
+endforeach()
+
+string(FIND "${headless_test_contents}"
+  "TacticalActorDragging::cancel"
+  dragging_operation_coverage)
+if(dragging_operation_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor dragging lost its data-free headless coverage")
 endif()
 
 foreach(required_persistence_fragment IN ITEMS

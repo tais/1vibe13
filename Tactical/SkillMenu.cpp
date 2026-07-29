@@ -5,6 +5,7 @@
 
 #include "SkillMenu.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDragging.h"
 #include "soldier profile type.h"
 #include "Overhead.h"
 #include "Text.h"
@@ -872,7 +873,8 @@ DragSelection::Setup( UINT32 aVal )
 		// loop through all soldiers around
 		for ( SoldierID cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID; cnt <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++cnt )
 		{
-			if ( cnt != pSoldier->identity().id() && pSoldier->CanDragPerson(cnt) )
+			if (cnt != pSoldier->identity().id() &&
+				TacticalActorDragging::canDragPerson(*pSoldier, cnt))
 			{
 				swprintf(
 					pStr, L"%s",
@@ -909,7 +911,7 @@ DragSelection::Setup( UINT32 aVal )
 			UINT16 structurenumber;
 			UINT8 hitpoints;
 			UINT8 decalflag;
-			if ( pSoldier->CanDragStructure( sTempGridNo )
+			if (TacticalActorDragging::canDragStructure(*pSoldier, sTempGridNo)
 				&& IsDragStructurePresent( sTempGridNo, pSoldier->position().level(), tiletype, structurenumber, hitpoints, decalflag ) )
 			{
 				int xmlentry;

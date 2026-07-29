@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorDragging.h"
 #include "TacticalWorldAdapter.h"
 #include <stdio.h>
 #include "stdlib.h"
@@ -2254,7 +2255,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 
 			// sevenfm: also stop dragging
 			if (selectedSoldier &&
-				selectedSoldier->IsDragging())
+				TacticalActorDragging::isDragging(*selectedSoldier))
 			{
 				if (TryDispatchCancelDragCommandNow(
 						GetJa2TacticalEntityId(*selectedSoldier)))
@@ -2958,14 +2959,14 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if (EnoughPoints(pSoldier, GetAPsToBreakWindow(pSoldier, TRUE), BP_USE_CROWBAR, TRUE))
 								pSoldier->BreakWindow();
 						}
-						else if (pSoldier->CanStartDrag())
+						else if (TacticalActorDragging::canStart(*pSoldier))
 						{
 							INT32 sNewGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(pSoldier->position().direction()));
 
 							if (!TileIsOutOfBounds(sNewGridNo) && sNewGridNo != pSoldier->position().gridNo())
 							{
 								if (EnoughPoints(pSoldier, GetAPsToStartDrag(pSoldier, sNewGridNo), 0, TRUE))
-									pSoldier->StartDrag();
+									TacticalActorDragging::start(*pSoldier);
 							}
 						}
 					}

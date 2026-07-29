@@ -1,6 +1,7 @@
 #include "Soldier Functions.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDragging.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "builddefines.h"
@@ -8176,7 +8177,7 @@ void CalculateSoldierAniSpeed( TacticalActor *pSoldier, TacticalActor *pStatsSol
 	}
 
 	// Flugente: drag people
-	if ( pSoldier->IsDragging() )
+	if (TacticalActorDragging::isDragging(*pSoldier))
 	{
 		pSoldier->animationPlayback().delay() = gItemSettings.fDragAPCostModifier * pSoldier->animationPlayback().delay();
 	}
@@ -8951,7 +8952,7 @@ void TacticalActor::BeginSoldierGetup( void )
 					ResolveJa2ActiveTacticalActorSlot(uiLoop);
 				if (pSoldier && pSoldier->interaction().draggedPerson() == this->identity().id())
 				{
-					pSoldier->CancelDrag();
+					TacticalActorDragging::cancel(*pSoldier);
 				}
 			}
 
@@ -10646,7 +10647,7 @@ void TacticalActor::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fChec
 
 	// Flugente: as we move a tile, we would now be too far away to drag someone.
 	// So remember whether we were dragging (we have to set our position now, otherwise the person we drag woul soon occupy our gridno).
-	BOOLEAN currentlydragging = this->IsDragging(true);
+	BOOLEAN currentlydragging = TacticalActorDragging::isDragging(*this, true);
 	INT32 sOldGridNo = this->position().gridNo();
 
 	// OK, set new position
@@ -10803,7 +10804,7 @@ void TacticalActor::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fChec
 			}
 			else
 			{
-				this->CancelDrag();
+				TacticalActorDragging::cancel(*this);
 
 				dragaborted = true;
 			}
@@ -10842,7 +10843,7 @@ void TacticalActor::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fChec
 		}
 		else
 		{
-			this->CancelDrag();
+			TacticalActorDragging::cancel(*this);
 		}
 	}
 	
@@ -17271,7 +17272,8 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 
 		// TODO: a better check would be whether we can drag anything at the moment - CanDrag is more used for a specific person
 		// sevenfm: added AP check to crouch before starting to drag
-		if ((!fAPCheck || EnoughPoints(this, GetAPsToStartDrag(this, sGridNo), 0, FALSE)) && CanDragInPrinciple())
+		if ((!fAPCheck || EnoughPoints(this, GetAPsToStartDrag(this, sGridNo), 0, FALSE)) &&
+			TacticalActorDragging::canDrag(*this))
 			canuse = TRUE;
 		break;
 
@@ -17422,11 +17424,11 @@ BOOLEAN TacticalActor::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
 			HandleStanceChangeFromUIKeys(ANIM_CROUCH);
 		}
 		if ( usMapPos != NOWHERE )
-			SetDragOrderStructure( usMapPos );
+			TacticalActorDragging::dragStructure(*this, usMapPos);
 		else if ( ID < NOBODY )
-			SetDragOrderPerson( ID );
+			TacticalActorDragging::dragPerson(*this, ID);
 		else
-			SetDragOrderCorpse( ID - NOBODY );
+			TacticalActorDragging::dragCorpse(*this, ID - NOBODY);
 
 		return TRUE;
 		break;
@@ -19613,37 +19615,44 @@ void	TacticalActor::RiotShieldTakeDamage( INT32 sDamage )
 }
 
 // Flugente: drag people
-BOOLEAN		TacticalActor::CanDragInPrinciple(BOOLEAN fCheckStance)
+bool TacticalActorDragging::canDrag(TacticalActor& actor, bool checkStance)
 {
+	auto* const self = &actor;
+
 	// only allow while crouched
-	if (fCheckStance && gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_CROUCH)
+	if (checkStance && gAnimControl[self->animationPlayback().state()].ubEndHeight != ANIM_CROUCH)
 		return FALSE;
 
 	// not in water
-	if ( TERRAIN_IS_HIGH_WATER( this->position().gridNo() ) )
+	if (TERRAIN_IS_HIGH_WATER(self->position().terrainType()))
 		return FALSE;
 
 	// main hand must be free
-	if ( this->inventory()[HANDPOS].exists( ) )
+	if ( self->inventory()[HANDPOS].exists( ) )
 		return FALSE;
 
 	return TRUE;
 }
 
-BOOLEAN		TacticalActor::CanDragPerson(SoldierID usID, BOOLEAN fCheckStance)
+bool TacticalActorDragging::canDragPerson(
+	TacticalActor& actor,
+	SoldierID targetId,
+	bool checkStance)
 {
-	if (!CanDragInPrinciple(fCheckStance))
+	auto* const self = &actor;
+
+	if (!canDrag(actor, checkStance))
 		return FALSE;
 		
 	// check whether this guy exists etc.
 	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(
-			usID );
+			targetId );
 
 	if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() )
 	{
 		// must be on same level
-		if ( pSoldier->position().level() != this->position().level() )
+		if ( pSoldier->position().level() != self->position().level() )
 			return FALSE;
 
 		// only prone people can be dragged
@@ -19651,7 +19660,7 @@ BOOLEAN		TacticalActor::CanDragPerson(SoldierID usID, BOOLEAN fCheckStance)
 			return FALSE;
 
 		// not in water
-		if ( TERRAIN_IS_HIGH_WATER( pSoldier->position().gridNo() ) )
+		if (TERRAIN_IS_HIGH_WATER(pSoldier->position().terrainType()))
 			return FALSE;
 
 		// don't drag nonsense around
@@ -19659,12 +19668,12 @@ BOOLEAN		TacticalActor::CanDragPerson(SoldierID usID, BOOLEAN fCheckStance)
 			return FALSE;
 
 		// must be near us 
-		if ( PythSpacesAway( pSoldier->position().gridNo(), this->position().gridNo() ) > 1 )
+		if ( PythSpacesAway( pSoldier->position().gridNo(), self->position().gridNo() ) > 1 )
 			return FALSE;
 
 		// we must be able to see the other guy even if if both would be prone. This is to stop the player from dragging someone through solid structures
-		//if ( !LocationToLocationLineOfSightTest(pSoldier->sGridNo, pSoldier->position().level(), this->sGridNo, this->position().level(), TRUE, CALC_FROM_ALL_DIRS, PRONE_LOS_POS, PRONE_LOS_POS))
-		if (gubWorldMovementCosts[pSoldier->position().gridNo()][AIDirection(this->position().gridNo(), pSoldier->position().gridNo())][this->position().level()] >= TRAVELCOST_BLOCKED)
+		//if ( !LocationToLocationLineOfSightTest(pSoldier->sGridNo, pSoldier->position().level(), self->sGridNo, self->position().level(), TRUE, CALC_FROM_ALL_DIRS, PRONE_LOS_POS, PRONE_LOS_POS))
+		if (gubWorldMovementCosts[pSoldier->position().gridNo()][AIDirection(self->position().gridNo(), pSoldier->position().gridNo())][self->position().level()] >= TRAVELCOST_BLOCKED)
 			return FALSE;
 
 		return TRUE;
@@ -19673,17 +19682,22 @@ BOOLEAN		TacticalActor::CanDragPerson(SoldierID usID, BOOLEAN fCheckStance)
 	return FALSE;
 }
 
-BOOLEAN		TacticalActor::CanDragCorpse(UINT16 usCorpseNum, BOOLEAN fCheckStance)
+bool TacticalActorDragging::canDragCorpse(
+	TacticalActor& actor,
+	std::uint16_t corpseId,
+	bool checkStance)
 {
-	if (!CanDragInPrinciple(fCheckStance))
+	auto* const self = &actor;
+
+	if (!canDrag(actor, checkStance))
 		return FALSE;
 
-	ROTTING_CORPSE* pCorpse = GetRottingCorpse( usCorpseNum );
+	ROTTING_CORPSE* pCorpse = GetRottingCorpse(corpseId);
 
 	if ( pCorpse )
 	{
 		// must be on same level
-		if ( pCorpse->def.bLevel != this->position().level() )
+		if ( pCorpse->def.bLevel != self->position().level() )
 			return FALSE;
 
 		// don't drag nonsense around
@@ -19691,12 +19705,12 @@ BOOLEAN		TacticalActor::CanDragCorpse(UINT16 usCorpseNum, BOOLEAN fCheckStance)
 			return FALSE;
 				
 		// must be near us 
-		if ( PythSpacesAway( pCorpse->def.sGridNo, this->position().gridNo() ) > 2 )
+		if ( PythSpacesAway( pCorpse->def.sGridNo, self->position().gridNo() ) > 2 )
 			return FALSE;
 
 		// we must be able to see the other guy even if if both would be prone. This is to stop the player from dragging someone through solid structures
-		//if (!LocationToLocationLineOfSightTest(pCorpse->def.sGridNo, this->position().level(), this->sGridNo, this->position().level(), TRUE, CALC_FROM_ALL_DIRS, PRONE_LOS_POS, PRONE_LOS_POS))
-		if (this->position().gridNo() != pCorpse->def.sGridNo && gubWorldMovementCosts[pCorpse->def.sGridNo][AIDirection(this->position().gridNo(), pCorpse->def.sGridNo)][this->position().level()] >= TRAVELCOST_BLOCKED)
+		//if (!LocationToLocationLineOfSightTest(pCorpse->def.sGridNo, self->position().level(), self->sGridNo, self->position().level(), TRUE, CALC_FROM_ALL_DIRS, PRONE_LOS_POS, PRONE_LOS_POS))
+		if (self->position().gridNo() != pCorpse->def.sGridNo && gubWorldMovementCosts[pCorpse->def.sGridNo][AIDirection(self->position().gridNo(), pCorpse->def.sGridNo)][self->position().level()] >= TRAVELCOST_BLOCKED)
 			return FALSE;
 
 		return TRUE;
@@ -19705,53 +19719,58 @@ BOOLEAN		TacticalActor::CanDragCorpse(UINT16 usCorpseNum, BOOLEAN fCheckStance)
 	return FALSE;
 }
 
-BOOLEAN		TacticalActor::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
+bool TacticalActorDragging::canDragStructure(
+	TacticalActor& actor,
+	std::int32_t gridNo,
+	bool checkStance)
 {
-	if (!CanDragInPrinciple(fCheckStance))
+	auto* const self = &actor;
+
+	if (!canDrag(actor, checkStance))
 		return FALSE;
 	
-	if ( sGridNo == NOWHERE )
+	if (TileIsOutOfBounds(gridNo))
 		return FALSE;
 
 	// not on the same tile
-	if ( sGridNo == this->position().gridNo() )
+	if ( gridNo == self->position().gridNo() )
 		return FALSE;
 
 	// not in water
-	if ( TERRAIN_IS_HIGH_WATER( sGridNo ) )
+	if (TERRAIN_IS_HIGH_WATER(GetTerrainType(gridNo)))
 		return FALSE;
 		
 	// must be near us 
-	if ( PythSpacesAway( sGridNo, this->position().gridNo() ) > 1 )
+	if ( PythSpacesAway(gridNo, self->position().gridNo()) > 1 )
 		return FALSE;
 
 	UINT32 tiletype;
 	UINT16 structurenumber;
 	UINT8 hitpoints;
 	UINT8 decalflag;
-	if ( !IsDragStructurePresent( sGridNo, this->position().level(), tiletype, structurenumber, hitpoints, decalflag ) )
+	if ( !IsDragStructurePresent(gridNo, self->position().level(), tiletype, structurenumber, hitpoints, decalflag) )
 		return FALSE;
 
 	// Now we need to check if there is not a wall between the two middle tiles
-	UINT8 ubDragDirection = GetDirectionToGridNoFromGridNo( this->position().gridNo(), sGridNo );
+	UINT8 ubDragDirection = GetDirectionToGridNoFromGridNo(self->position().gridNo(), gridNo);
 	
 	{
 		switch ( ubDragDirection )
 		{
 		case NORTH:
-			if ( WallOrClosedDoorExistsOfTopLeftOrientation( sGridNo ) )
+			if ( WallOrClosedDoorExistsOfTopLeftOrientation(gridNo) )
 				return FALSE;
 			break;
 		case EAST:
-			if ( WallOrClosedDoorExistsOfTopRightOrientation( this->position().gridNo() ) )
+			if ( WallOrClosedDoorExistsOfTopRightOrientation( self->position().gridNo() ) )
 				return FALSE;
 			break;
 		case SOUTH:
-			if ( WallOrClosedDoorExistsOfTopLeftOrientation( this->position().gridNo() ) )
+			if ( WallOrClosedDoorExistsOfTopLeftOrientation( self->position().gridNo() ) )
 				return FALSE;
 			break;
 		case WEST:
-			if ( WallOrClosedDoorExistsOfTopRightOrientation( sGridNo ) )
+			if ( WallOrClosedDoorExistsOfTopRightOrientation(gridNo) )
 				return FALSE;
 			break;
 
@@ -19763,7 +19782,7 @@ BOOLEAN		TacticalActor::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
 				// two possibilities:
 				// A) check whether there is no wall to our north, and no wall from there to the east	
 				{
-					INT32 midpointgridno = NewGridNo( this->position().gridNo(), DirectionInc( NORTH ) );
+					INT32 midpointgridno = NewGridNo( self->position().gridNo(), DirectionInc( NORTH ) );
 
 					if ( WallOrClosedDoorExistsOfTopLeftOrientation( midpointgridno )
 						|| WallOrClosedDoorExistsOfTopRightOrientation( midpointgridno ) )
@@ -19774,10 +19793,10 @@ BOOLEAN		TacticalActor::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
 
 				// B) check whether there is no wall to our east, and no wall from there to the north
 				{
-					INT32 midpointgridno = NewGridNo( this->position().gridNo(), DirectionInc( EAST ) );
+					INT32 midpointgridno = NewGridNo( self->position().gridNo(), DirectionInc( EAST ) );
 
-					if ( WallOrClosedDoorExistsOfTopRightOrientation( this->position().gridNo() )
-						|| WallOrClosedDoorExistsOfTopLeftOrientation( sGridNo ) )
+					if ( WallOrClosedDoorExistsOfTopRightOrientation( self->position().gridNo() )
+						|| WallOrClosedDoorExistsOfTopLeftOrientation(gridNo) )
 					{
 						successB = false;
 					}
@@ -19795,9 +19814,9 @@ BOOLEAN		TacticalActor::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
 				// two possibilities:
 				// A) check whether there is no wall to our south, and no wall from there to the east	
 				{
-					INT32 midpointgridno = NewGridNo( this->position().gridNo(), DirectionInc( SOUTH ) );
+					INT32 midpointgridno = NewGridNo( self->position().gridNo(), DirectionInc( SOUTH ) );
 
-					if ( WallOrClosedDoorExistsOfTopLeftOrientation( this->position().gridNo() )
+					if ( WallOrClosedDoorExistsOfTopLeftOrientation( self->position().gridNo() )
 						|| WallOrClosedDoorExistsOfTopRightOrientation( midpointgridno ) )
 					{
 						successA = false;
@@ -19806,9 +19825,9 @@ BOOLEAN		TacticalActor::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
 
 				// B) check whether there is no wall to our east, and no wall from there to the south
 				{
-					INT32 midpointgridno = NewGridNo( this->position().gridNo(), DirectionInc( EAST ) );
+					INT32 midpointgridno = NewGridNo( self->position().gridNo(), DirectionInc( EAST ) );
 
-					if ( WallOrClosedDoorExistsOfTopRightOrientation( this->position().gridNo() )
+					if ( WallOrClosedDoorExistsOfTopRightOrientation( self->position().gridNo() )
 						|| WallOrClosedDoorExistsOfTopLeftOrientation( midpointgridno ) )
 					{
 						successB = false;
@@ -19827,10 +19846,10 @@ BOOLEAN		TacticalActor::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
 				// two possibilities:
 				// A) check whether there is no wall to our south, and no wall from there to the west	
 				{
-					INT32 midpointgridno = NewGridNo( this->position().gridNo(), DirectionInc( SOUTH ) );
+					INT32 midpointgridno = NewGridNo( self->position().gridNo(), DirectionInc( SOUTH ) );
 
-					if ( WallOrClosedDoorExistsOfTopLeftOrientation( this->position().gridNo() )
-						|| WallOrClosedDoorExistsOfTopRightOrientation( sGridNo ) )
+					if ( WallOrClosedDoorExistsOfTopLeftOrientation( self->position().gridNo() )
+						|| WallOrClosedDoorExistsOfTopRightOrientation(gridNo) )
 					{
 						successA = false;
 					}
@@ -19838,7 +19857,7 @@ BOOLEAN		TacticalActor::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
 
 				// B) check whether there is no wall to our west, and no wall from there to the south
 				{
-					INT32 midpointgridno = NewGridNo( this->position().gridNo(), DirectionInc( WEST ) );
+					INT32 midpointgridno = NewGridNo( self->position().gridNo(), DirectionInc( WEST ) );
 
 					if ( WallOrClosedDoorExistsOfTopRightOrientation( midpointgridno )
 						|| WallOrClosedDoorExistsOfTopLeftOrientation( midpointgridno ) )
@@ -19859,10 +19878,10 @@ BOOLEAN		TacticalActor::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
 				// two possibilities:
 				// A) check whether there is no wall to our north, and no wall from there to the west	
 				{
-					INT32 midpointgridno = NewGridNo( this->position().gridNo(), DirectionInc( NORTH ) );
+					INT32 midpointgridno = NewGridNo( self->position().gridNo(), DirectionInc( NORTH ) );
 
 					if ( WallOrClosedDoorExistsOfTopLeftOrientation( midpointgridno )
-						|| WallOrClosedDoorExistsOfTopRightOrientation( sGridNo ) )
+						|| WallOrClosedDoorExistsOfTopRightOrientation(gridNo) )
 					{
 						successA = false;
 					}
@@ -19870,10 +19889,10 @@ BOOLEAN		TacticalActor::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
 
 				// B) check whether there is no wall to our west, and no wall from there to the north
 				{
-					INT32 midpointgridno = NewGridNo( this->position().gridNo(), DirectionInc( WEST ) );
+					INT32 midpointgridno = NewGridNo( self->position().gridNo(), DirectionInc( WEST ) );
 
 					if ( WallOrClosedDoorExistsOfTopRightOrientation( midpointgridno )
-						|| WallOrClosedDoorExistsOfTopLeftOrientation( sGridNo ) )
+						|| WallOrClosedDoorExistsOfTopLeftOrientation(gridNo) )
 					{
 						successB = false;
 					}
@@ -19892,36 +19911,40 @@ BOOLEAN		TacticalActor::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
 	return TRUE;
 }
 
-BOOLEAN		TacticalActor::IsDragging( bool aStopIfConditionNotSatisfied )
+bool TacticalActorDragging::isDragging(TacticalActor& actor, bool cancelIfInvalid)
 {
-	if (this->interaction().draggingCorpse())
+	auto* const self = &actor;
+
+	if (self->interaction().draggingCorpse())
 	{
-		if (this->CanDragCorpse(this->interaction().draggedCorpse(), TRUE))
+		if (canDragCorpse(actor, self->interaction().draggedCorpse(), true))
 			return TRUE;
-		else if (aStopIfConditionNotSatisfied)
-			CancelDrag();
+		else if (cancelIfInvalid)
+			cancel(actor);
 	}
-	else if (this->interaction().draggingPerson())
+	else if (self->interaction().draggingPerson())
 	{
-		if (this->CanDragPerson(this->interaction().draggedPerson(), TRUE))
+		if (canDragPerson(actor, self->interaction().draggedPerson(), true))
 			return TRUE;
-		else if (aStopIfConditionNotSatisfied)
-			CancelDrag();
+		else if (cancelIfInvalid)
+			cancel(actor);
 	}
-	else if (this->interaction().draggingStructure())
+	else if (self->interaction().draggingStructure())
 	{
-		if (this->CanDragStructure(this->interaction().draggedStructureGrid(), TRUE))
+		if (canDragStructure(actor, self->interaction().draggedStructureGrid(), true))
 			return TRUE;
-		else if (aStopIfConditionNotSatisfied)
-			CancelDrag();
+		else if (cancelIfInvalid)
+			cancel(actor);
 	}
 
 	return FALSE;
 }
 
-void	TacticalActor::SetDragOrderPerson( SoldierID usID )
+void TacticalActorDragging::dragPerson(TacticalActor& actor, SoldierID targetId)
 {
-	if ( CanDragPerson( usID ) )
+	auto* const self = &actor;
+
+	if (canDragPerson(actor, targetId))
 	{
 		// sevenfm: if someone is dragging this soldier, cancel drag
 		TacticalActor *pSoldier;
@@ -19929,21 +19952,25 @@ void	TacticalActor::SetDragOrderPerson( SoldierID usID )
 		{
 			pSoldier =
 				ResolveJa2ActiveTacticalActorSlot(uiLoop);
-			if (pSoldier && pSoldier->interaction().draggedPerson() == usID)
+			if (pSoldier && pSoldier->interaction().draggedPerson() == targetId)
 			{
-				pSoldier->CancelDrag();
+				cancel(*pSoldier);
 			}
 		}
 
-		CancelDrag();
+		cancel(actor);
 
-		this->interaction().dragPerson( usID );
+		self->interaction().dragPerson(targetId);
 	}
 }
 
-void	TacticalActor::SetDragOrderCorpse( UINT32 uiCorpseID )
+void TacticalActorDragging::dragCorpse(
+	TacticalActor& actor,
+	std::uint16_t corpseId)
 {
-	if ( CanDragCorpse( uiCorpseID ) )
+	auto* const self = &actor;
+
+	if (canDragCorpse(actor, corpseId))
 	{
 		// sevenfm: if someone is dragging this corpse, cancel drag
 		TacticalActor *pSoldier;
@@ -19952,54 +19979,60 @@ void	TacticalActor::SetDragOrderCorpse( UINT32 uiCorpseID )
 			pSoldier =
 				ResolveJa2ActiveTacticalActorSlot(uiLoop);
 			if (pSoldier && pSoldier->interaction().draggingCorpse() &&
-				static_cast<UINT32>( pSoldier->interaction().draggedCorpse() ) == uiCorpseID)
+				static_cast<UINT32>(pSoldier->interaction().draggedCorpse()) == corpseId)
 			{
-				pSoldier->CancelDrag();
+				cancel(*pSoldier);
 			}
 		}
 
-		CancelDrag();
+		cancel(actor);
 
-		this->interaction().dragCorpse( static_cast<INT16>( uiCorpseID ) );
+		self->interaction().dragCorpse(static_cast<INT16>(corpseId));
 	}
 }
 
-void	TacticalActor::SetDragOrderStructure( INT32 sGridNo )
+void TacticalActorDragging::dragStructure(
+	TacticalActor& actor,
+	std::int32_t gridNo)
 {
-	if ( CanDragStructure( sGridNo ) )
+	auto* const self = &actor;
+
+	if (canDragStructure(actor, gridNo))
 	{
-		// sevenfm: if someone is dragging this corpse, cancel drag
+		// sevenfm: if someone is dragging this structure, cancel drag
 		TacticalActor *pSoldier;
 		for ( UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
 		{
 			pSoldier =
 				ResolveJa2ActiveTacticalActorSlot(uiLoop);
-			if ( pSoldier && pSoldier->interaction().draggedStructureGrid() == sGridNo )
+			if ( pSoldier && pSoldier->interaction().draggedStructureGrid() == gridNo )
 			{
-				pSoldier->CancelDrag();
+				cancel(*pSoldier);
 			}
 		}
 
-		CancelDrag();
+		cancel(actor);
 
-		this->interaction().dragStructure( sGridNo );
+		self->interaction().dragStructure(gridNo);
 	}
 }
 
-void	TacticalActor::CancelDrag()
+void TacticalActorDragging::cancel(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// sevenfm: update face icon
-	if (this->interaction().dragging())
+	if (self->interaction().dragging())
 	{
 		fInterfacePanelDirty = DIRTYLEVEL2;
 	}
 
 	// if we are dragging a person, set them to the center of their gridno, otherwise their position might be off
-	if (this->interaction().draggingPerson())
+	if (self->interaction().draggingPerson())
 	{
 		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(
-				this->interaction().draggedPerson() );
+				self->interaction().draggedPerson() );
 
 		if ( pSoldier && !TileIsOutOfBounds(pSoldier->position().gridNo()) )
 		{
@@ -20011,7 +20044,7 @@ void	TacticalActor::CancelDrag()
 		}
 	}
 
-	this->interaction().clearDrag();
+	self->interaction().clearDrag();
 }
 
 // Flugente: spy assignments
@@ -23361,13 +23394,15 @@ BOOLEAN TacticalActor::CanBreakWindow(void)
 	return FALSE;
 }
 
-BOOLEAN TacticalActor::CanStartDrag(void)
+bool TacticalActorDragging::canStart(TacticalActor& actor)
 {
-	if (!this->IsDragging() && this->CanDragInPrinciple())
-	{
-		INT32 sNewGridNo = NewGridNo(this->position().gridNo(), DirectionInc(this->position().direction()));
+	auto* const self = &actor;
 
-		if (!TileIsOutOfBounds(sNewGridNo) && sNewGridNo != this->position().gridNo())
+	if (!isDragging(actor) && canDrag(actor))
+	{
+		INT32 sNewGridNo = NewGridNo(self->position().gridNo(), DirectionInc(self->position().direction()));
+
+		if (!TileIsOutOfBounds(sNewGridNo) && sNewGridNo != self->position().gridNo())
 		{
 			// soldiers
 			for ( SoldierID  cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID; cnt <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++cnt)
@@ -23375,10 +23410,10 @@ BOOLEAN TacticalActor::CanStartDrag(void)
 				TacticalActor* dragCandidate =
 					GetJa2SoldierRepository().resolve(
 						cnt );
-				if (cnt != this->identity().id() &&
+				if (cnt != self->identity().id() &&
 					dragCandidate != nullptr &&
 					dragCandidate->position().gridNo() == sNewGridNo &&
-					this->CanDragPerson(cnt))
+					canDragPerson(actor, cnt))
 				{
 					return TRUE;
 				}
@@ -23392,9 +23427,9 @@ BOOLEAN TacticalActor::CanStartDrag(void)
 
 				if (pCorpse &&
 					pCorpse->fActivated &&
-					pCorpse->def.bLevel == this->position().level() &&
+					pCorpse->def.bLevel == self->position().level() &&
 					sNewGridNo == pCorpse->def.sGridNo &&
-					this->CanDragCorpse(pCorpse->iID))
+					canDragCorpse(actor, pCorpse->iID))
 				{
 					return TRUE;
 				}
@@ -23406,8 +23441,8 @@ BOOLEAN TacticalActor::CanStartDrag(void)
 			UINT8 hitpoints;
 			UINT8 decalflag;
 
-			if (this->CanDragStructure(sNewGridNo) &&
-				IsDragStructurePresent(sNewGridNo, this->position().level(), tiletype, structurenumber, hitpoints, decalflag))
+			if (canDragStructure(actor, sNewGridNo) &&
+				IsDragStructurePresent(sNewGridNo, self->position().level(), tiletype, structurenumber, hitpoints, decalflag))
 			{
 				int xmlentry;
 				GetDragStructureXmlEntry(tiletype, structurenumber, xmlentry);
@@ -23423,18 +23458,20 @@ BOOLEAN TacticalActor::CanStartDrag(void)
 	return FALSE;
 }
 
-void TacticalActor::StartDrag(void)
+void TacticalActorDragging::start(TacticalActor& actor)
 {
-	if (this->CanDragInPrinciple())
+	auto* const self = &actor;
+
+	if (canDrag(actor))
 	{
-		if (gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_CROUCH)
+		if (gAnimControl[self->animationPlayback().state()].ubEndHeight != ANIM_CROUCH)
 		{
 			HandleStanceChangeFromUIKeys(ANIM_CROUCH);
 		}
 
-		INT32 sNewGridNo = NewGridNo(this->position().gridNo(), DirectionInc(this->position().direction()));
+		INT32 sNewGridNo = NewGridNo(self->position().gridNo(), DirectionInc(self->position().direction()));
 
-		if (!TileIsOutOfBounds(sNewGridNo) && sNewGridNo != this->position().gridNo())
+		if (!TileIsOutOfBounds(sNewGridNo) && sNewGridNo != self->position().gridNo())
 		{
 			// soldiers
 			for ( SoldierID  cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID; cnt <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++cnt)
@@ -23442,12 +23479,12 @@ void TacticalActor::StartDrag(void)
 				TacticalActor* dragCandidate =
 					GetJa2SoldierRepository().resolve(
 						cnt );
-				if (cnt != this->identity().id() &&
+				if (cnt != self->identity().id() &&
 					dragCandidate != nullptr &&
 					dragCandidate->position().gridNo() == sNewGridNo &&
-					this->CanDragPerson(cnt))
+					canDragPerson(actor, cnt))
 				{
-					SetDragOrderPerson(cnt);
+					dragPerson(actor, cnt);
 					fInterfacePanelDirty = DIRTYLEVEL2;
 				}
 			}
@@ -23460,11 +23497,11 @@ void TacticalActor::StartDrag(void)
 
 				if (pCorpse &&
 					pCorpse->fActivated &&
-					pCorpse->def.bLevel == this->position().level() &&
+					pCorpse->def.bLevel == self->position().level() &&
 					sNewGridNo == pCorpse->def.sGridNo &&
-					this->CanDragCorpse(pCorpse->iID))
+					canDragCorpse(actor, pCorpse->iID))
 				{
-					SetDragOrderCorpse(pCorpse->iID);
+					dragCorpse(actor, pCorpse->iID);
 					fInterfacePanelDirty = DIRTYLEVEL2;
 				}
 			}
@@ -23475,15 +23512,15 @@ void TacticalActor::StartDrag(void)
 			UINT8 hitpoints;
 			UINT8 decalflag;
 
-			if (this->CanDragStructure(sNewGridNo) &&
-				IsDragStructurePresent(sNewGridNo, this->position().level(), tiletype, structurenumber, hitpoints, decalflag))
+			if (canDragStructure(actor, sNewGridNo) &&
+				IsDragStructurePresent(sNewGridNo, self->position().level(), tiletype, structurenumber, hitpoints, decalflag))
 			{
 				int xmlentry;
 				GetDragStructureXmlEntry(tiletype, structurenumber, xmlentry);
 
 				if (xmlentry >= 0)
 				{
-					SetDragOrderStructure(sNewGridNo);
+					dragStructure(actor, sNewGridNo);
 					fInterfacePanelDirty = DIRTYLEVEL2;
 				}
 			}

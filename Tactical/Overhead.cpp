@@ -1,6 +1,7 @@
 #include <cstdio>
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDragging.h"
 #include "TacticalWorldAdapter.h"
 #include <string.h>
 #include <random>
@@ -9144,7 +9145,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 				}
 
 				// sevenfm: stop dragging when changing stance/cowering under suppression
-				pSoldier->CancelDrag();
+				TacticalActorDragging::cancel(*pSoldier);
 
                 DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: change stance"));
                 pSoldier->ChangeSoldierStance( ubNewStance );

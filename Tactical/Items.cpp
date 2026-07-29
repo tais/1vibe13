@@ -1,6 +1,7 @@
 	#include "Items.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDragging.h"
 #include "TacticalWorldAdapter.h"
 	#include "Action Items.h"
 	#include "Weapons.h"
@@ -3174,7 +3175,7 @@ UINT32 CalculateCarriedWeight( TacticalActor * pSoldier, BOOLEAN fConsiderDraggi
 	UINT32	uiTotalWeight = GetTotalWeight( pSoldier );
 
 	// Flugente: if we drag someone, add their weight to ours
-	if ( fConsiderDragging && pSoldier->IsDragging() )
+	if (fConsiderDragging && TacticalActorDragging::isDragging(*pSoldier))
 	{
 		if (pSoldier->interaction().draggingPerson())
 		{

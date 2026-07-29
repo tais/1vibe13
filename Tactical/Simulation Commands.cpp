@@ -1,6 +1,7 @@
 #include "Simulation Commands.h"
 #include "Simulation Command Legacy.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDragging.h"
 #include "TacticalWorldAdapter.h"
 
 #include <array>
@@ -472,9 +473,9 @@ namespace
 			else if constexpr (std::is_same<Command, CancelDragCommand>::value)
 			{
 				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
-				if (!soldier || !soldier->IsDragging())
+				if (!soldier || !TacticalActorDragging::isDragging(*soldier))
 					return CommandDisposition::Discard;
-				soldier->CancelDrag();
+				TacticalActorDragging::cancel(*soldier);
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (std::is_same<Command, CycleWeaponModeCommand>::value)

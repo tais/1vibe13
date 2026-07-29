@@ -1,6 +1,7 @@
 	#include "sgp.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDragging.h"
 #include "TacticalWorldAdapter.h"
 	#include "Isometric Utils.h"
 	#include "Overhead.h"
@@ -5620,7 +5621,7 @@ UINT8 MovementNoise(TacticalActor *pSoldier)
 	}
 
 	// sevenfm: if dragging something, add dragging sound volume
-	if(pSoldier->IsDragging())
+	if (TacticalActorDragging::isDragging(*pSoldier))
 	{
 		sVolume = max(sVolume, MAX_MOVEMENT_NOISE / 2 + Random(MAX_MOVEMENT_NOISE) + bGroundVolumeModifier);
 	}

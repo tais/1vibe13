@@ -1,5 +1,6 @@
 	#include "sgp.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalActorDragging.h"
 	#include "worlddef.h"
 	#include "Points.h"
 	#include "Overhead.h"
@@ -606,7 +607,7 @@ static INT16 ActionPointCostFromTileCost( TacticalActor *pSoldier, INT32 sGridNo
 			sPoints *= gItemSettings.fShieldMovementAPCostModifier;
 
 		// Flugente: dragging someone
-		if ( pSoldier->IsDragging( ) )
+		if (TacticalActorDragging::isDragging(*pSoldier))
 			sPoints *= gItemSettings.fDragAPCostModifier;
 
 		// Flugente: scuba fins reduce movement cost in water, but increase cost on land
@@ -4064,7 +4065,7 @@ INT16 GetAPsStartRun( TacticalActor *pSoldier )
 	if ( pSoldier->IsRiotShieldEquipped( ) )
 		val *= gItemSettings.fShieldMovementAPCostModifier;
 
-	if ( pSoldier->IsDragging( ) )
+	if (TacticalActorDragging::isDragging(*pSoldier))
 		val *= gItemSettings.fDragAPCostModifier;
 
 	// Athletics trait

@@ -1021,8 +1021,6 @@ public:
 	// sevenfm
 	void BreakWindow(void);
 	BOOLEAN CanBreakWindow(void);
-	BOOLEAN CanStartDrag(void);
-	void StartDrag(void);
 
 	void UpdateRobotControllerGivenController( void );
 	void UpdateRobotControllerGivenRobot( void );
@@ -1227,21 +1225,6 @@ public:
 	BOOLEAN		IsRiotShieldEquipped();
 	void		DestroyEquippedRiotShield();
 	void		RiotShieldTakeDamage(INT32 sDamage);
-
-	// Flugente: drag people
-	BOOLEAN		CanDragInPrinciple(BOOLEAN fCheckStance = FALSE);
-	BOOLEAN		CanDragPerson(SoldierID usID, BOOLEAN fCheckStance = FALSE);
-	BOOLEAN		CanDragCorpse(UINT16 usCorpseNum, BOOLEAN fCheckStance = FALSE);
-	BOOLEAN		CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance = FALSE);
-	// Default is a pure query. Pass true only where you want the side effect of
-	// cancelling an in-progress drag when its conditions are no longer met (e.g.
-	// MoveMerc); the old default of true made ordinary query calls silently abort
-	// drags, causing "ghost" dragging behaviour.
-	BOOLEAN		IsDragging(bool aStopIfConditionNotSatisfied = false);
-	void		SetDragOrderPerson( SoldierID usID );
-	void		SetDragOrderCorpse( UINT32 uiCorpseID );
-	void		SetDragOrderStructure( INT32 sGridNo );
-	void		CancelDrag();
 
 	void		StopChatting();
 	void		DrugAutoUse();

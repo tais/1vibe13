@@ -10,6 +10,7 @@
 	#include <stdio.h>
 #include "TacticalWorldAdapter.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDragging.h"
 #include "TacticalEntityHost.h"
 	#include "stdlib.h"
 	#include "DEBUG.H"
@@ -1421,7 +1422,7 @@ INT16 AStarPathfinder::CalcAP(int const terrainCost, UINT8 const direction)
 	}
 
 	// Flugente: dragging someone
-	if ( pSoldier->IsDragging() )
+	if (TacticalActorDragging::isDragging(*pSoldier))
 	{
 		movementAPCost *= gItemSettings.fDragAPCostModifier;
 	}
@@ -2647,7 +2648,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 	const bool fAthleticsReduce = ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( s, ATHLETICS_NT ) );
 	const bool fHasScubaFins = ( s->inventory()[LEGPOS].exists() && HasItemFlag( s->inventory()[LEGPOS].usItem, SCUBA_FINS ) );
 	const bool fRiotShield = s->IsRiotShieldEquipped( );
-	const bool fDragging = s->IsDragging( );
+	const bool fDragging = TacticalActorDragging::isDragging(*s);
 
 	do
 	{
@@ -4521,7 +4522,7 @@ INT32 PlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 b
 					}
 				
 					// Flugente: dragging someone
-					if ( pSold->IsDragging( ) )
+					if (TacticalActorDragging::isDragging(*pSold))
 					{
 						sMovementAPsCost *= gItemSettings.fDragAPCostModifier;
 					}
@@ -4632,7 +4633,7 @@ INT32 PlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 b
 				}
 
 				// Flugente: dragging someone
-				if ( pSold->IsDragging() )
+				if (TacticalActorDragging::isDragging(*pSold))
 				{
 					sPointsWalk *= gItemSettings.fDragAPCostModifier;
 					sPointsCrawl *= gItemSettings.fDragAPCostModifier;

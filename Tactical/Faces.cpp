@@ -2,6 +2,7 @@
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDragging.h"
 	#include <stdio.h>
 	#include "sgp_logger.h"
 	
@@ -2225,7 +2226,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// Flugente: drag stuff
-			if (pSoldier->IsDragging())
+			if (TacticalActorDragging::isDragging(*pSoldier))
 			{
 				DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 31);
 				++bNumRightIcons;

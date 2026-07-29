@@ -117,6 +117,7 @@
 #include "Soldier Profile.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDragging.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
 #include "Plan.h"
@@ -7925,6 +7926,25 @@ int main( int, char** )
 		CHECK( TacticalActorCovertOps::looksLikeSoldier(covertActor) &&
 		       TacticalActorCovertOps::recognizesCombatant(covertActor, NOBODY),
 		       "tactical actor covert rules execute through the domain API without record methods" );
+	}
+
+	{
+		TacticalActor draggingActor;
+		const bool readyToDrag =
+			TacticalActorDragging::canDrag(draggingActor);
+		draggingActor.position().terrainType() = DEEP_WATER;
+		const bool canDragInDeepWater =
+			TacticalActorDragging::canDrag(draggingActor);
+		draggingActor.position().terrainType() = FLAT_GROUND;
+		const bool initiallyDragging =
+			TacticalActorDragging::isDragging(draggingActor);
+		draggingActor.interaction().dragStructure(123);
+		TacticalActorDragging::cancel(draggingActor);
+		CHECK( readyToDrag &&
+		       !canDragInDeepWater &&
+		       !initiallyDragging &&
+		       !draggingActor.interaction().dragging(),
+		       "tactical actor dragging exposes validation and cancellation without record methods" );
 	}
 
 	{
