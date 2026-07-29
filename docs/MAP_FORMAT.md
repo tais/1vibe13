@@ -59,7 +59,7 @@ there (see header below).
 | world cols | `INT32` | `major >= 7.0` |
 | `uiFlags` | `UINT32` | always — section presence bitmask (below) |
 | tileset ID | `INT32` | always |
-| soldier POD size | `UINT32` | always (`SIZEOF_SOLDIERTYPE_POD`; informational) |
+| reserved actor-size marker | `UINT32` | always; ignored by readers and written as zero |
 
 > Note the write side (`SaveWorld`) emits rows/cols when the map is *not* exactly
 > vanilla `5.0.25`, but the read side keys strictly on `major >= 7.0`. Only matters

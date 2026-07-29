@@ -314,6 +314,11 @@ Architecture checks reject retired global names and contiguous soldier-pointer
 walks across production code and the headless harness. Numeric soldier slots
 and every external data format remain stable.
 
+The component notes below include historical v101 mapping details from the
+staged migration. Baseline 1003 removed that mirror record and converter; those
+details are provenance, not a supported load path. Current tactical-actor saves
+use only explicit component visitors.
+
 Inside the JA2 application, transient soldier state is also being separated by
 behavior. Pending-action scratch and deferred work, combat-feedback counters,
 and quick-item retention are owned by a resettable runtime component rather
@@ -325,9 +330,8 @@ incarnation, and individual-militia identity. `SoldierRosterComponent`
 separately owns activity, team and side, tactical-sector presence, soldier
 class, and civilian group. Application code uses `identity()` and `roster()`;
 packages continue to use pointer-free `TacticalEntityId` and snapshots rather
-than importing either application component. The established current/v101
-save stream, multiplayer creation records, maps, profiles, XML, Lua, packages,
-and installed data do not change.
+than importing either application component. Multiplayer creation records,
+maps, profiles, XML, Lua, packages, and installed data do not change.
 `SoldierVitalsComponent` privately owns the application soldier's complete
 persistent health, breath, wound, and recovery lifecycle: current/max values,
 previous-turn and fractional health, breath reduction, treatable injury and
@@ -368,7 +372,7 @@ The separately persisted optional key ring now has one inline
 `SoldierKeyRingComponent` owner. Its fixed 255-slot `KEY_ON_RING` representation
 and presence semantics are unchanged, but soldier copies and repository swaps
 receive independent storage instead of sharing a raw heap pointer. Creation,
-deletion, initialization, v101 conversion, and current loading use explicit
+deletion, initialization, and current loading use explicit
 activate/reset transitions. The outer soldier save adapter still emits the
 same presence byte and fixed payload; content-facing key tables, items, maps,
 XML, Lua, multiplayer, packages, and installed data do not change.
@@ -385,10 +389,10 @@ Modular tactical-AI plan trees are likewise process-local and now belong to
 `TacticalActor` that created it, application record copies, repository
 replacement, and slot swaps discard the plan instead of copying its address;
 the selected factory recreates it lazily on the next AI decision. Initialization,
-deletion, loading, and v101 conversion also release it deterministically. This
-is an application ownership boundary, not an SDK or package API. The former
-pointer was after `endOfPOD` and had no save-schema position, so saves, maps,
-XML, Lua, multiplayer packets, packages, and installed data do not change.
+deletion, and loading also release it deterministically. This is an application
+ownership boundary, not an SDK or package API. Plans are runtime-only and never
+enter `XferTacticalActor`, so maps, XML, Lua, multiplayer packets, packages, and
+installed data do not change.
 Soldier routes now have a separate `SoldierStrategicPathComponent` ownership
 boundary. Copying an application soldier clones its `PathSt` chain; moving or
 swapping records transfers the node storage, and record reset/destruction

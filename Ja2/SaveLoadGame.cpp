@@ -1707,7 +1707,7 @@ template<class Ar> static void XferPathing( Ar& ar, TacticalActor& soldier )
 	ar.i32(p.blackListGrid()); ar.i8(p.stored());
 }
 
-template<class Ar> static void XferSoldierTypePOD( Ar& ar, TacticalActor& s )
+template<class Ar> static void XferTacticalActor( Ar& ar, TacticalActor& s )
 {
 	int i;
 	UINT8 retiredDelayedMovementCauseMerc = 0;
@@ -1891,7 +1891,6 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, TacticalActor& s )
 	for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));
 	for (i = 0; i < NUM_DISEASES; ++i) ar.i16(condition.diseasePoints(i));
 	for (i = 0; i < NUM_DISEASES; ++i) ar.u8(condition.diseaseFlags(i));
-	for (i = 0; i < 10; ++i) ar.u8(s.compatibilityBytes()[i]);
 	ar.u16(assignment.miniEventHoursRemaining());
 	ar.u8(fireControl.grenadeLauncherDelayMode()); ar.u8(fireControl.barrelMode()); ar.u8(fireControl.barrelCounter());
 	ar.i32(skillState.focusGrid()); ar.u32(s.featureFlags().secondaryFlags()); ar.u32(s.identity().individualMilitiaId());
@@ -1902,29 +1901,52 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, TacticalActor& s )
 	for (i = 0; i < NUM_ASSIST_SLOTS; ++i) ar.u8(combatContribution.damageByTeam()[i]);
 }
 
-BOOLEAN TacticalActor::Save(HWFILE hFile)
+UINT32 ComputeTacticalActorChecksum( const TacticalActor& actor )
 {
-	// calculate checksum for soldier
-	this->replication().recordChecksum( this->GetChecksum() );
+	UINT32 checksum = 1;
+
+	checksum += actor.vitals().health() + 1;
+	checksum *= actor.vitals().maximumHealth() + 1;
+	checksum += actor.statistics().agility() + 1;
+	checksum *= actor.statistics().dexterity() + 1;
+	checksum += actor.statistics().strength() + 1;
+	checksum *= actor.statistics().marksmanship() + 1;
+	checksum += actor.statistics().medical() + 1;
+	checksum *= actor.statistics().mechanical() + 1;
+	checksum += actor.statistics().explosives() + 1;
+	checksum *= actor.statistics().experienceLevel() + 1;
+	checksum += actor.identity().profile() + 1;
+
+	for ( UINT32 slot = 0; slot < actor.inventory().size(); ++slot )
+	{
+		checksum += actor.inventory()[slot].usItem;
+		checksum += actor.inventory()[slot].ubNumberOfObjects;
+	}
+
+	return checksum;
+}
+
+BOOLEAN SaveTacticalActor( HWFILE hFile, TacticalActor& actor )
+{
+	actor.replication().recordChecksum( ComputeTacticalActorChecksum( actor ) );
 
 	SaveWriter wr(hFile);
 	SaveFieldWriter ar(wr);
-	XferSoldierTypePOD(ar, *this);
+	XferTacticalActor(ar, actor);
 	if (!wr.good()) return(FALSE);
 
-	//save OO data like inventory
-	if ( !this->inventory().Save(hFile, FALSE) )
+	if ( !actor.inventory().Save(hFile, FALSE) )
 	{
 		return(FALSE);
 	}
 
-	XferAIData(ar, *this);
-	XferFlags(ar, *this);
-	XferStatProgress(ar, this->statProgress());
-	XferTiming(ar, this->timing());
-	XferDrugState(ar, this->drugState());
-	XferStats(ar, *this);
-	XferPathing(ar, *this);
+	XferAIData(ar, actor);
+	XferFlags(ar, actor);
+	XferStatProgress(ar, actor.statProgress());
+	XferTiming(ar, actor.timing());
+	XferDrugState(ar, actor.drugState());
+	XferStats(ar, actor);
+	XferPathing(ar, actor);
 	return wr.good() ? TRUE : FALSE;
 }
 
@@ -1955,95 +1977,34 @@ INT32 ReadFieldByField(HWFILE hFile, PTR pDest, UINT32 uiFieldSize, UINT32 uiEle
 	return uiBytesRead;
 }
 
-BOOLEAN TacticalActor::Load(HWFILE hFile)
+BOOLEAN LoadTacticalActor( HWFILE hFile, TacticalActor& actor )
 {
-	UINT32 uiNumBytesRead;
+	// Loading is a replacement operation. Reset every component first so fields
+	// that are intentionally runtime-only cannot leak from an earlier actor.
+	actor.initialize();
 
-	// Modular AI plans are process-local and retain a back-reference to this
-	// record. Never carry one across an in-place load.
-	this->aiPlan().reset();
-	// Route nodes are restored from the separate path payload after this
-	// record. Loading into a reused temporary must release its previous route.
-	this->strategicPath().reset();
+	SaveReader rd(hFile);
+	SaveFieldReader ar(rd);
+	XferTacticalActor(ar, actor);
+	if (!rd.good()) return(FALSE);
 
-	//if we are at the most current version, then fine
-	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
+	if ( !actor.inventory().Load(hFile) ) return(FALSE);
+
+	XferAIData(ar, actor);
+	XferFlags(ar, actor);
+	XferStatProgress(ar, actor.statProgress());
+	XferTiming(ar, actor.timing());
+	XferDrugState(ar, actor.drugState());
+	XferStats(ar, actor);
+	XferPathing(ar, actor);
+	if (!rd.good()) return(FALSE);
+
+	if ( ComputeTacticalActorChecksum( actor ) != actor.replication().checksum() )
 	{
-		// Portable save-format v2 (savegame path). The legacy/encrypted < NIV
-		// path is the else branch below. One field list (XferSoldierTypePOD plus
-		// the sub-struct Xfers) drives both save and load.
-		SaveReader rd(hFile);
-		SaveFieldReader ar(rd);
-		XferSoldierTypePOD(ar, *this);
-		if (!rd.good()) return(FALSE);
-
-		//load OO data like inventory
-		if ( !this->inventory().Load(hFile) ) return(FALSE);
-
-		XferAIData(ar, *this);
-		XferFlags(ar, *this);
-		XferStatProgress(ar, this->statProgress());
-		XferTiming(ar, this->timing());
-		XferDrugState(ar, this->drugState());
-		XferStats(ar, *this);
-		XferPathing(ar, *this);
-		if (!rd.good()) return(FALSE);
-
-		// check checksum
-		if ( this->GetChecksum() != this->replication().checksum() )
-		{
-			return( FALSE );
-		}
-	}
-	else
-	{
-		OLDSOLDIERTYPE_101 OldSavedSoldierInfo101;
-		//we are loading an older version (only load once, so use "else if")
-		//first load the data based on what version was stored
-		typedef BOOLEAN (*functionPtr) ( HWFILE hFile, PTR pDest, UINT32 uiBytesToRead, UINT32 *puiBytesRead );
-		functionPtr pLoadingFunction;
-		if ( guiCurrentSaveGameVersion < 87 )
-		{
-			pLoadingFunction = &JA2EncryptedFileRead;
-		}
-		else
-		{
-			pLoadingFunction = &NewJA2EncryptedFileRead;
-		}
-
-		if ( guiCurrentSaveGameVersion < NIV_SAVEGAME_DATATYPE_CHANGE )
-		{
-			OldSavedSoldierInfo101.initialize();
-			if ( !(*pLoadingFunction)( hFile, &OldSavedSoldierInfo101, SIZEOF_OLDSOLDIERTYPE_101_POD, &uiNumBytesRead ) )
-			{
-				return(FALSE);
-			}
-		}
-		/*
-		else if ( guiCurrentSaveGameVersion < SECOND_SAVEGAME_DATATYPE_CHANGE )
-			OldSavedSoldierInfo999.initialize();
-			(*pLoadingFunction)( hFile, &OldSavedSoldierInfo999, SIZEOF_OLDSOLDIERTYPE_999_POD, &uiNumBytesRead );
-		*/
-
-		//now we have the data that needs to be converted (keep on converting up, so use "if")
-		if ( guiCurrentSaveGameVersion < NIV_SAVEGAME_DATATYPE_CHANGE )
-		{
-			OldSavedSoldierInfo101.CopyOldInventoryToNew();
-			(*this) = OldSavedSoldierInfo101;
-			//OldSavedSoldierInfo999 = OldSavedSoldierInfo101;
-		}
-		//change this when changing the file version again
-		/*
-		if ( guiCurrentSaveGameVersion < SECOND_SAVEGAME_DATATYPE_CHANGE )
-		{
-			*this = OldSavedSoldierInfo999;
-		}
-		*/
-		//assume checksum is ok
+		return(FALSE);
 	}
 
-	// sevenfm: initialize other TacticalActor data
-	this->InitializeExtraData();
+	actor.InitializeExtraData();
 
 	return TRUE;
 }
@@ -6255,7 +6216,7 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 			}
 
 			// Save the soldier structure
-			if ( !soldier.Save(hFile) )
+			if ( !SaveTacticalActor(hFile, soldier) )
 			{
 				return FALSE;
 			}
@@ -6338,7 +6299,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 		if( ubActive )
 		{
 			//Read in the saved soldier info into a Temp structure
-			if ( !SavedSoldierInfo.Load(hFile) )
+			if ( !LoadTacticalActor(hFile, SavedSoldierInfo) )
 			{
 				return FALSE;
 			}

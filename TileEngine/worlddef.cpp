@@ -1858,9 +1858,10 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 	// Write tileset ID
 	FileWrite( hfile, &giCurrentTilesetID, sizeof( INT32 ), &uiBytesWritten );
 
-	// WDS - Clean up inventory handling
-	// Write SOLDIER CONTROL SIZE
-	uiSoldierSize = SIZEOF_SOLDIERTYPE_POD; //SIZEOF_SOLDIERTYPE;
+	// This four-byte slot is part of the established map header, but readers
+	// have always treated its old in-memory actor size as informational. Keep
+	// the stream shape stable without coupling maps to a C++ object layout.
+	uiSoldierSize = 0;
 	FileWrite( hfile, &uiSoldierSize, sizeof( INT32 ), &uiBytesWritten );
 
 

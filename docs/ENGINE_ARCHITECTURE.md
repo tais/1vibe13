@@ -1019,6 +1019,12 @@ the engine must not contain SDL types in its public domain model.
   existing formats and paths.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
+
+  The component notes below record the sequence of the storage migration.
+  References to v101 conversion describe the retired converter's final mapping
+  for historical review; baseline 1003 deleted that record and converter.
+  Current saves use only explicit component visitors.
+
 - soldier components now own the first real storage cut: pending-action
   scratch, combat feedback, and quick-item retention live in one resettable
   runtime aggregate instead of unrelated flat `TacticalActor` tail fields.
@@ -1089,12 +1095,12 @@ the engine must not contain SDL types in its public domain model.
   tree. A plan retains a back-reference to the exact soldier record that
   created it, so whole-record copies, replacements, and swaps intentionally
   discard this cache and rebuild it lazily for the destination rather than
-  shallow-copying an invalid owner. Initialization, deletion, current loading,
-  and v101 conversion release any existing plan through the same boundary.
+  shallow-copying an invalid owner. Initialization, deletion, and current
+  loading release any existing plan through the same boundary.
   The legacy factory's raw result is confined to the `adopt` transfer point;
   callers query and execute through the component and tolerate a factory that
-  returns no plan. The retired pointer followed `endOfPOD` and was never part
-  of the save visitor, so no save, map, XML, Lua, multiplayer, package, or
+  returns no plan. Plans are runtime-only and never enter
+  `XferTacticalActor`, so no map, XML, Lua, multiplayer, package, or
   installed-data format changes.
   `SoldierStrategicPathComponent` now owns each soldier's doubly-linked
   strategic route. Whole-soldier copies deep-copy the route, moves transfer it,
@@ -1484,25 +1490,16 @@ the engine must not contain SDL types in its public domain model.
   `SoldierRuntimeComponents` is likewise private to `TacticalActor` and exposed
   only through `runtime()`, so the record has no meaningful mutable public
   storage left.
-  The old face, level-node, shadow, roof, unblit-background, and animation-tile
-  POD slots remain as private opaque placeholders of the same types and in the
-  same order. They preserve `offsetof(TacticalActor, endOfPOD)` without acting as
-  second sources of truth. The face value retains its established serialized
-  position, live level-node and animation-tile visits remain zero-byte runtime
-  pointer landmarks, retired pointers remain zero-byte `retiredPtr()` markers,
-  and the ten compatibility bytes retain their exact sequence.
-  These components are independent of the legacy soldier declaration;
-  old-save conversion and the explicit serializer still emit every value at
-  its established byte position. Fade mode, continuation mode, and hit phase
-  are transferred as their real 8-bit values, so valid mode/phase `2` is no
-  longer normalized to boolean `1`. Retired cache-pointer transfers emitted
-  no bytes, so load simply resets the inline working set. The unused legacy
-  8-bit delayed-cause-merc slot remains a zero compatibility byte rather than
-  live state. The v101 conversion path now copies all six 32-bit spread targets
-  instead of only the first three. Incoming combat and damage-display values,
-  target values, and all animation values remain at their established portable
-  save positions. Map placements, Lua values, multiplayer packets, and content
-  formats retain their existing schemas.
+  The former actor POD prefix is gone. Face, level-node, shadow, roof,
+  background, and animation-tile placeholders no longer occupy fake storage in
+  `TacticalActor`; the ten-byte compatibility tail and v101 mirror record are
+  gone as well. `SaveTacticalActor` and `LoadTacticalActor` visit component
+  values explicitly through `XferTacticalActor`, while process-local pointer
+  visits remain zero-byte serializer operations and are detached on load.
+  Baseline 1003 intentionally rejects earlier saves rather than preserving the
+  discarded object layout. Map placements, XML, Lua, multiplayer packets,
+  packages, and installed content retain their existing schemas; the ignored
+  actor-size map-header slot remains present and is written as zero.
 
 ## Compatibility policy
 

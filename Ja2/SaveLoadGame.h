@@ -86,6 +86,10 @@ BOOLEAN LoadPathNodeFromFile( HWFILE hFile, struct path* p );
 BOOLEAN SaveMercPathFromSoldierStruct( HWFILE hFile, UINT16 ubID );
 BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID );
 
+UINT32 ComputeTacticalActorChecksum( const TacticalActor& actor );
+BOOLEAN SaveTacticalActor( HWFILE hFile, TacticalActor& actor );
+BOOLEAN LoadTacticalActor( HWFILE hFile, TacticalActor& actor );
+
 BOOLEAN CopySavedSoldierInfoToNewSoldier( TacticalActor *pDestSourceInfo, TacticalActor *pSourceInfo );
 
 BOOLEAN		SaveFilesToSavedGame( STR pSrcFileName, HWFILE hFile );
