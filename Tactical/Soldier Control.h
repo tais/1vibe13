@@ -1070,40 +1070,6 @@ public:
 	// Flugente: return first found object with a specific flag from our inventory
 	OBJECTTYPE* GetObjectWithFlag( UINT64 aFlag );
 
-	// Flugente: functions for the covert ops trait
-
-	// do we look like a civilian?
-	BOOLEAN		LooksLikeACivilian( void );
-
-	// do we look like a soldier?
-	BOOLEAN		LooksLikeASoldier( void );
-
-	// what kind of uniform are we wearing? returns -1 if none is worn
-	INT8		GetUniformType();
-
-	// is our equipment too good for a soldier?
-	BOOLEAN		EquipmentTooGood( BOOLEAN fCloselook );
-	
-	// does soldier ubObserverID recognize us as his enemy?
-	BOOLEAN		SeemsLegit( SoldierID ubObserverID );
-
-	// do we recognize someone else as a combatant?
-	BOOLEAN		RecognizeAsCombatant(SoldierID ubTargetID);
-
-	// loose covert property
-	void		LooseDisguise( void );	
-
-	// sevenfm: auto disguise if have correct clothes
-	void		Disguise();
-
-	void		ApplyCovert(BOOLEAN aWithMessage);
-
-	// lose disguise or take off any clothes item and switch back to original clothes
-	void		Strip();
-
-	// check whether our disguise is any good
-	void		SpySelfTest();
-
 	// sevenfm: service functions
 	BOOLEAN		IsFlanking(void);
 	BOOLEAN		CheckInitialAP(void);
@@ -1276,10 +1242,6 @@ public:
 	void		SetDragOrderCorpse( UINT32 uiCorpseID );
 	void		SetDragOrderStructure( INT32 sGridNo );
 	void		CancelDrag();
-
-	// Flugente: spy assignments
-	UINT8		GetUncoverRisk();
-	FLOAT		GetIntelGain();
 
 	void		StopChatting();
 	void		DrugAutoUse();

@@ -1,5 +1,6 @@
 #include "types.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalActorCovertOps.h"
 #include "Soldier Profile.h"
 #include "FileMan.h"
 #include "SaveSerializer.h"
@@ -6063,7 +6064,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		// silversurfer: check for covert flags that shouldn't be active on a robot/vehicle and when playing with old traits
 		if ( (pTeamSoldier->status().flags() & (SOLDIER_ROBOT | SOLDIER_VEHICLE) && pTeamSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL))
 			|| (!gGameOptions.fNewTraitSystem && pTeamSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL)) )
-			pTeamSoldier->LooseDisguise( );
+			TacticalActorCovertOps::loseDisguise(*pTeamSoldier);
 	}
 
 	// Reinforcement parameter is not stored in the savegame so we have to reset it here.

@@ -1,5 +1,6 @@
 	#include "sgp.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
 #include "TacticalWorldAdapter.h"
 	#include "Isometric Utils.h"
 	#include "Overhead.h"
@@ -453,7 +454,7 @@ void ReevaluateBestSightingPosition( TacticalActor * pSoldier, INT8 bInterruptDu
 				const bool emptySlot =
 					currentId == NOBODY || current == nullptr;
 				if ( (emptySlot &&
-						pSoldier->RecognizeAsCombatant( currentId )) ||
+						TacticalActorCovertOps::recognizesCombatant(*pSoldier, currentId)) ||
 					(current != nullptr &&
 						bInterruptDuelPts >
 							current->turnState().interruptDuelPoints()) )
@@ -1960,7 +1961,7 @@ void HandleManNoLongerSeen( TacticalActor * pSoldier, TacticalActor * pOpponent,
 {
 	// if neither side is neutral AND
 	// if this soldier is an opponent (fights for different side)
-	if (pSoldier->roster().active() && pOpponent->roster().active() && !CONSIDERED_NEUTRAL( pOpponent, pSoldier ) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->roster().side() != pOpponent->roster().side()) && pSoldier->RecognizeAsCombatant(pOpponent->identity().id()) )
+	if (pSoldier->roster().active() && pOpponent->roster().active() && !CONSIDERED_NEUTRAL( pOpponent, pSoldier ) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->roster().side() != pOpponent->roster().side()) && TacticalActorCovertOps::recognizesCombatant(*pSoldier, pOpponent->identity().id()) )
 	{
 		RemoveOneOpponent(pSoldier);
 	}
@@ -2343,7 +2344,7 @@ void ManSeesMan(TacticalActor *pSoldier, TacticalActor *pOpponent, INT32 sOppGri
 	if ( pOpponent->UsesScubaGear() )
 		return;
 	// Flugente: update our sight concerning this guy, otherwise we could get way with open attacks because this does not get updated
-	if ( pSoldier->RecognizeAsCombatant(pOpponent->identity().id()) )
+	if (TacticalActorCovertOps::recognizesCombatant(*pSoldier, pOpponent->identity().id()))
 	{
 		// Flugente: note that this enemy has been seen by mercs this turn
 		if ( pOpponent->roster().team() == ENEMY_TEAM && pSoldier->roster().team() == OUR_TEAM )
@@ -2579,7 +2580,7 @@ void ManSeesMan(TacticalActor *pSoldier, TacticalActor *pOpponent, INT32 sOppGri
 							}
 						}
 					}
-					else if ( pSoldier->roster().civilianGroup() == HICKS_CIV_GROUP && CheckFact( FACT_HICKS_MARRIED_PLAYER_MERC, 0 ) == FALSE && pSoldier->RecognizeAsCombatant( pOpponent->identity().id() ) )
+					else if ( pSoldier->roster().civilianGroup() == HICKS_CIV_GROUP && CheckFact( FACT_HICKS_MARRIED_PLAYER_MERC, 0 ) == FALSE && TacticalActorCovertOps::recognizesCombatant(*pSoldier, pOpponent->identity().id()) )
 					{
 						UINT32	uiTime;
 						INT16	sX, sY;
@@ -2705,7 +2706,7 @@ void ManSeesMan(TacticalActor *pSoldier, TacticalActor *pOpponent, INT32 sOppGri
 		// Flugente: reworked this to account for covert ops and assassin mechanisms
 		// if we are not neutral against this guy, we are truly opponents (we're not on the same side) and recognize him as an opponent...
 		BOOLEAN fAddAsOpponent = FALSE;
-		if ( !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->roster().side() != pOpponent->roster().side()) && pSoldier->RecognizeAsCombatant(pOpponent->identity().id()) )
+		if ( !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->roster().side() != pOpponent->roster().side()) && TacticalActorCovertOps::recognizesCombatant(*pSoldier, pOpponent->identity().id()) )
 		{
 			// ... check wether he is not neutral against us (account for the fact that we might be covert!)
 			// if we are an NPC assassin
@@ -3237,7 +3238,7 @@ void RemoveManAsTarget(TacticalActor *pSoldier)
 			{
 				// Flugente: we consider enemies to be neutral if they are prisoners of war (otherwise the AI would kill prisoners). Bu as we want to remove them, we have to account for that
 				// we also move RecognizeAsCombatant to be the last condition checked, because it is the most computationally expensive one
-				if ( ( !CONSIDERED_NEUTRAL( pOpponent, pSoldier ) || pSoldier->featureFlags().primaryFlags() & SOLDIER_POW ) && pOpponent->RecognizeAsCombatant(pSoldier->identity().id()) )
+				if ( ( !CONSIDERED_NEUTRAL( pOpponent, pSoldier ) || pSoldier->featureFlags().primaryFlags() & SOLDIER_POW ) && TacticalActorCovertOps::recognizesCombatant(*pOpponent, pSoldier->identity().id()) )
 					RemoveOneOpponent(pOpponent);
 			}
 			UpdatePersonal(pOpponent, ubTarget, NOT_HEARD_OR_SEEN, NOWHERE, 0);
@@ -7244,7 +7245,7 @@ void DecayIndividualOpplist(TacticalActor *pSoldier)
 			{
 				// they are NOT visible now!
 				(*pPersOL)++;
-				if (!CONSIDERED_NEUTRAL( pOpponent, pSoldier ) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->roster().side() != pOpponent->roster().side()) && pSoldier->RecognizeAsCombatant(pOpponent->identity().id()) )
+				if (!CONSIDERED_NEUTRAL( pOpponent, pSoldier ) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->roster().side() != pOpponent->roster().side()) && TacticalActorCovertOps::recognizesCombatant(*pSoldier, pOpponent->identity().id()) )
 				{
 					RemoveOneOpponent(pSoldier);
 				}
@@ -7508,7 +7509,7 @@ void RecalculateOppCntsDueToBecomingNeutral( TacticalActor * pSoldier )
 			pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 			// for every active, living soldier on ANOTHER team
-			if (pOpponent && pOpponent->vitals().health() && !pOpponent->aiBehavior().neutral() && (pOpponent->roster().team() != pSoldier->roster().team()) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->roster().side() != pOpponent->roster().side()) && pSoldier->RecognizeAsCombatant(pOpponent->identity().id()) )
+			if (pOpponent && pOpponent->vitals().health() && !pOpponent->aiBehavior().neutral() && (pOpponent->roster().team() != pSoldier->roster().team()) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->roster().side() != pOpponent->roster().side()) && TacticalActorCovertOps::recognizesCombatant(*pSoldier, pOpponent->identity().id()) )
 			{
 				if ( pOpponent->awareness().opponentKnowledge()[pSoldier->identity().id()] == SEEN_CURRENTLY )
 				{

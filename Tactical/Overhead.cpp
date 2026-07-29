@@ -1,5 +1,6 @@
 #include <cstdio>
 #include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
 #include "TacticalWorldAdapter.h"
 #include <string.h>
 #include <random>
@@ -10894,7 +10895,7 @@ void HandleTurncoatAttempt( TacticalActor* pSoldier )
 		&& pSoldier->identity().profile() == NO_PROFILE
 		&& !( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 		&& !gTacticalStatus.Team[ENEMY_TEAM].bAwareOfOpposition
-		&& !pSoldier->RecognizeAsCombatant( gusSelectedSoldier ) )
+		&& !TacticalActorCovertOps::recognizesCombatant(*pSoldier, gusSelectedSoldier) )
 	{
 		// remember the target's ID
 		prisonerdialoguetargetID = pSoldier->identity().id();
@@ -11210,10 +11211,10 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
             // if asking for surrender while undercover and the enemy refuses, he learns who you are, so he uncovers you
             if ( selectedSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
             {
-                selectedSoldier->LooseDisguise();
+                TacticalActorCovertOps::loseDisguise(*selectedSoldier);
 
 				if ( gSkillTraitValues.fCOStripIfUncovered )
-					selectedSoldier->Strip();
+					TacticalActorCovertOps::strip(*selectedSoldier);
 
                 ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_SURRENDER_FAILED]  );
                 ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNCOVER_SINGLE], selectedSoldier->GetName()  );
@@ -11245,7 +11246,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 			pSoldierToSurrender->roster().team() == ENEMY_TEAM &&
 			pSoldierToSurrender->identity().profile() == NO_PROFILE &&
 			pSoldierToSurrender->aiBehavior().alertStatus() < STATUS_RED &&
-			!pSoldierToSurrender->RecognizeAsCombatant( gusSelectedSoldier ) )
+			!TacticalActorCovertOps::recognizesCombatant(*pSoldierToSurrender, gusSelectedSoldier) )
 		{
 			// both soldiers face each other
 			pSoldier->EVENT_SetSoldierDesiredDirection( GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pSoldierToSurrender->position().gridNo() ) );
@@ -11269,7 +11270,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 			pSoldierToSurrender->roster().team() == ENEMY_TEAM &&
 			pSoldierToSurrender->identity().profile() == NO_PROFILE &&
 			pSoldierToSurrender->aiBehavior().alertStatus() < STATUS_RED &&
-			!pSoldierToSurrender->RecognizeAsCombatant( gusSelectedSoldier ) )
+			!TacticalActorCovertOps::recognizesCombatant(*pSoldierToSurrender, gusSelectedSoldier) )
 		{
 			MSYS_RemoveRegion(&(gMsgBox.BackRegion));
 			pSoldier->UseSkill(SKILLS_CREATE_TURNCOAT, pSoldierToSurrender->position().gridNo(), pSoldierToSurrender->identity().id());
@@ -11363,7 +11364,7 @@ void HandleSurrenderOffer( TacticalActor* pSoldier )
 	if ( pSoldier->roster().team() == ENEMY_TEAM &&
 		pSoldier->identity().profile() == NO_PROFILE &&
 		pSoldier->aiBehavior().alertStatus() < STATUS_RED &&
-		!pSoldier->RecognizeAsCombatant( gusSelectedSoldier ) )
+		!TacticalActorCovertOps::recognizesCombatant(*pSoldier, gusSelectedSoldier) )
 	{
 		wcscpy( gzUserDefinedButton[2], TacticalStr[PRISONER_DISTRACT_STR] );
 		wcscpy( gzUserDefinedButton[3], TacticalStr[gSkillTraitValues.fCOTurncoats == TRUE ? PRISONER_RECRUIT_TURNCOAT_STR : PRISONER_TALK_STR] );

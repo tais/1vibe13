@@ -1,5 +1,6 @@
 #include "connect.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
 #include "TacticalWorldAdapter.h"
 #ifndef _WIN32
 #include <dirent.h>
@@ -6159,7 +6160,7 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 			break;
 		case 2:
 		// undisguise or take off custom clothes
-			gpTempSoldier->Strip();
+			TacticalActorCovertOps::strip(*gpTempSoldier);
 			break;
        case 3:
 			// clean weapons - in realtime of the entire team, in turnbased only for the selected merc
@@ -6181,7 +6182,7 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 		case 7:
 			// test our disguise
 			if (gpTempSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER))
-				gpTempSoldier->SpySelfTest();
+				TacticalActorCovertOps::runSelfTest(*gpTempSoldier);
 			break;
 
 		case 8:

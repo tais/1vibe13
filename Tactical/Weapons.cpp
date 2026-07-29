@@ -1,5 +1,6 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 #include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
@@ -4193,10 +4194,10 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 			// Flugente: if we are disguised and try to steal from a conscious enemy, there is a chance that he notices us and we lose our disguise. If he can see us this always happens
 			if ( fNoticed && pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
 			{
-				pSoldier->LooseDisguise();
+				TacticalActorCovertOps::loseDisguise(*pSoldier);
 				
 				if ( gSkillTraitValues.fCOStripIfUncovered )
-					pSoldier->Strip( );
+					TacticalActorCovertOps::strip(*pSoldier);
 
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_STEAL_FAIL], pSoldier->GetName()  );
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNCOVERED], pTargetSoldier->GetName(), pSoldier->GetName()  );

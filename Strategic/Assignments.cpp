@@ -1,5 +1,6 @@
 #include "Assignments.h"
 #include "SoldierRepository.h"
+#include "TacticalActorCovertOps.h"
 #include "TacticalWorldAdapter.h"
 #include "strategic.h"
 #include "Items.h"
@@ -6812,7 +6813,7 @@ void HandleSpyAssignments()
 				else
 				{
 					// first, check whether we will be uncovered
-					UINT8 uncoverrisk = pSoldier->GetUncoverRisk();
+					UINT8 uncoverrisk = TacticalActorCovertOps::uncoverRisk(*pSoldier);
 
 					// TODO: prerandom numbers to stop players from savescumming?
 					if ( Chance( uncoverrisk ) )
@@ -6830,7 +6831,7 @@ void HandleSpyAssignments()
 					}
 
 					if ( EnoughTimeOnAssignment( pSoldier ) )
-						intelgained += pSoldier->GetIntelGain();
+						intelgained += TacticalActorCovertOps::intelGain(*pSoldier);
 				}
 			}
 

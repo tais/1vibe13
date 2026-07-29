@@ -1,6 +1,7 @@
 	#include "builddefines.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalActorCovertOps.h"
 	#include <stdio.h>
 	#include "sgp_logger.h"
 	
@@ -2443,8 +2444,8 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				}
 				else
 				{
-					bPtsAvailable = pSoldier->GetIntelGain();
-					usMaximumPts = (UINT16)(pSoldier->GetUncoverRisk());
+					bPtsAvailable = TacticalActorCovertOps::intelGain(*pSoldier);
+					usMaximumPts = (UINT16)TacticalActorCovertOps::uncoverRisk(*pSoldier);
 
 					swprintf(sString, L"%4.2f/%d%%%%", bPtsAvailable, usMaximumPts);
 

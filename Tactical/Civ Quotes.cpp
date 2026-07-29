@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
 #include "TacticalWorldAdapter.h"
 #include <stdio.h>
 #include "types.h"
@@ -1009,7 +1010,7 @@ void StartCivQuote( TacticalActor *pCiv )
 	// Flugente: if we are an assassin, we speak like the militia we emulate
 	if ( pCiv->featureFlags().primaryFlags() & SOLDIER_ASSASSIN )
 	{
-		switch ( pCiv->GetUniformType() )
+		switch (TacticalActorCovertOps::uniformType(*pCiv))
 		{
 		case UNIFORM_MILITIA_REGULAR:
 			ubCivQuoteID = CIV_QUOTE_MEDIUM_MILITIA;

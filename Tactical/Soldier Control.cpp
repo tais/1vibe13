@@ -1,5 +1,6 @@
 #include "Soldier Functions.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "builddefines.h"
@@ -14605,26 +14606,28 @@ OBJECTTYPE* TacticalActor::GetObjectWithFlag( UINT64 aFlag )
 extern INT16 uiNIVSlotType[NUM_INV_SLOTS];
 
 // do we look like a civilian?
-BOOLEAN		TacticalActor::LooksLikeACivilian( void )
+bool TacticalActorCovertOps::looksLikeCivilian(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// if we have any camo: not covert
-	if ( GetWornCamo( this ) > 0 || GetWornUrbanCamo( this ) > 0 || GetWornDesertCamo( this ) > 0 || GetWornSnowCamo( this ) > 0 )
+	if ( GetWornCamo( self ) > 0 || GetWornUrbanCamo( self ) > 0 || GetWornDesertCamo( self ) > 0 || GetWornSnowCamo( self ) > 0 )
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_CAMOFOUND], this->GetName( ) );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_CAMOFOUND], self->GetName( ) );
 		return FALSE;
 	}
 
 	if ( UsingNewInventorySystem( ) )
 	{
-		INT8 invsize = (INT8)this->inventory().size( );
+		INT8 invsize = (INT8)self->inventory().size( );
 		for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )									// ... for all items in our inventory ...
 		{
-			if ( this->inventory()[bLoop].exists( ) )
+			if ( self->inventory()[bLoop].exists( ) )
 			{
 				/*// if we have a back pack: not covert
 				if ( bLoop == BPACKPOCKPOS )
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_BACKPACKFOUND], this->GetName( ) );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_BACKPACKFOUND], self->GetName( ) );
 					return FALSE;
 				}*/
 
@@ -14633,19 +14636,19 @@ BOOLEAN		TacticalActor::LooksLikeACivilian( void )
 					continue;
 
 				// seriously? a corpse? of course this is suspicious!
-				if ( HasItemFlag( this->inventory()[bLoop].usItem, CORPSE ) )
+				if ( HasItemFlag( self->inventory()[bLoop].usItem, CORPSE ) )
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_CARRYCORPSEFOUND], this->GetName( ) );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_CARRYCORPSEFOUND], self->GetName( ) );
 					return FALSE;
 				}
 
 				BOOLEAN checkfurther = FALSE;
 
 				// guns/launchers in our hands will always be noticed, even if covert
-				if ( (Item[this->inventory()[bLoop].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) && (bLoop == HANDPOS || bLoop == SECONDHANDPOS) )
+				if ( (Item[self->inventory()[bLoop].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) && (bLoop == HANDPOS || bLoop == SECONDHANDPOS) )
 					checkfurther = TRUE;
 				// further checks it item is not covert. This means that a gun that has that tag will not be detected if its inside a pocket!
-				else if ( !HasItemFlag( this->inventory()[bLoop].usItem, COVERT ) )
+				else if ( !HasItemFlag( self->inventory()[bLoop].usItem, COVERT ) )
 				{
 					checkfurther = TRUE;
 
@@ -14679,7 +14682,7 @@ BOOLEAN		TacticalActor::LooksLikeACivilian( void )
 							break;
 						default:
 							{
-								//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEM_SUSPICIOUS], this->GetName(), Item[this->inventory()[bLoop].usItem].szItemName );
+								//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEM_SUSPICIOUS], self->GetName(), Item[self->inventory()[bLoop].usItem].szItemName );
 								//return FALSE;
 							}
 							break;
@@ -14689,7 +14692,7 @@ BOOLEAN		TacticalActor::LooksLikeACivilian( void )
 						if ( checkslot > 0 )
 						{
 							// if LBE is covert
-							if ( this->inventory()[checkslot].exists() && HasItemFlag( this->inventory()[checkslot].usItem, COVERT ) )
+							if ( self->inventory()[checkslot].exists() && HasItemFlag( self->inventory()[checkslot].usItem, COVERT ) )
 								// pass for this item
 								checkfurther = FALSE;
 						}
@@ -14699,12 +14702,12 @@ BOOLEAN		TacticalActor::LooksLikeACivilian( void )
 				if ( checkfurther )
 				{
 					// if that item is a gun, explosives, military armour or facewear, we're screwed
-					if ( (Item[this->inventory()[bLoop].usItem].usItemClass & (IC_WEAPON | IC_GRENADE | IC_BOMB)) ||
-						 ((Item[this->inventory()[bLoop].usItem].usItemClass & (IC_ARMOUR)) && !ItemIsLeatherJacket(this->inventory()[bLoop].usItem) && Armour[Item[this->inventory()[bLoop].usItem].ubClassIndex].ubProtection > 10) ||
-						 (Item[this->inventory()[bLoop].usItem].nightvisionrangebonus > 0 || Item[this->inventory()[bLoop].usItem].hearingrangebonus > 0)
+					if ( (Item[self->inventory()[bLoop].usItem].usItemClass & (IC_WEAPON | IC_GRENADE | IC_BOMB)) ||
+						 ((Item[self->inventory()[bLoop].usItem].usItemClass & (IC_ARMOUR)) && !ItemIsLeatherJacket(self->inventory()[bLoop].usItem) && Armour[Item[self->inventory()[bLoop].usItem].ubClassIndex].ubProtection > 10) ||
+						 (Item[self->inventory()[bLoop].usItem].nightvisionrangebonus > 0 || Item[self->inventory()[bLoop].usItem].hearingrangebonus > 0)
 						 )
 					{
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_MILITARYGEARFOUND], this->GetName( ), Item[this->inventory()[bLoop].usItem].szItemName );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_MILITARYGEARFOUND], self->GetName( ), Item[self->inventory()[bLoop].usItem].szItemName );
 						return FALSE;
 					}
 				}
@@ -14713,20 +14716,20 @@ BOOLEAN		TacticalActor::LooksLikeACivilian( void )
 	}
 	else	// old inventory system. No LBE here, nothing fancy
 	{
-		INT8 invsize = (INT8)this->inventory().size( );
+		INT8 invsize = (INT8)self->inventory().size( );
 		for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )									// ... for all items in our inventory ...
 		{
-			if ( this->inventory()[bLoop].exists( ) )
+			if ( self->inventory()[bLoop].exists( ) )
 			{
-				if ( !HasItemFlag( this->inventory()[bLoop].usItem, COVERT ) )
+				if ( !HasItemFlag( self->inventory()[bLoop].usItem, COVERT ) )
 				{
 					// if that item is a gun, explosives, military armour or facewear, we're screwed
-					if ( (Item[this->inventory()[bLoop].usItem].usItemClass & (IC_WEAPON | IC_GRENADE | IC_BOMB)) ||
-						 ((Item[this->inventory()[bLoop].usItem].usItemClass & (IC_ARMOUR)) && !ItemIsLeatherJacket(this->inventory()[bLoop].usItem) && Armour[Item[this->inventory()[bLoop].usItem].ubClassIndex].ubProtection > 10) ||
-						 (Item[this->inventory()[bLoop].usItem].nightvisionrangebonus > 0 || Item[this->inventory()[bLoop].usItem].hearingrangebonus > 0)
+					if ( (Item[self->inventory()[bLoop].usItem].usItemClass & (IC_WEAPON | IC_GRENADE | IC_BOMB)) ||
+						 ((Item[self->inventory()[bLoop].usItem].usItemClass & (IC_ARMOUR)) && !ItemIsLeatherJacket(self->inventory()[bLoop].usItem) && Armour[Item[self->inventory()[bLoop].usItem].ubClassIndex].ubProtection > 10) ||
+						 (Item[self->inventory()[bLoop].usItem].nightvisionrangebonus > 0 || Item[self->inventory()[bLoop].usItem].hearingrangebonus > 0)
 						 )
 					{
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_MILITARYGEARFOUND], this->GetName( ), Item[this->inventory()[bLoop].usItem].szItemName );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_MILITARYGEARFOUND], self->GetName( ), Item[self->inventory()[bLoop].usItem].szItemName );
 						return FALSE;
 					}
 				}
@@ -14738,17 +14741,19 @@ BOOLEAN		TacticalActor::LooksLikeACivilian( void )
 }
 
 // do we look like a soldier?
-BOOLEAN		TacticalActor::LooksLikeASoldier( void )
+bool TacticalActorCovertOps::looksLikeSoldier(TacticalActor& actor)
 {
-	INT8 invsize = (INT8)this->inventory().size( );
+	auto* const self = &actor;
+
+	INT8 invsize = (INT8)self->inventory().size( );
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )									// ... for all items in our inventory ...
 	{
-		if ( this->inventory()[bLoop].exists( ) )
+		if ( self->inventory()[bLoop].exists( ) )
 		{
 			// seriously? a corpse? of course this is suspicious!
-			if ( HasItemFlag( this->inventory()[bLoop].usItem, CORPSE ) )
+			if ( HasItemFlag( self->inventory()[bLoop].usItem, CORPSE ) )
 			{
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_CARRYCORPSEFOUND], this->GetName( ) );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_CARRYCORPSEFOUND], self->GetName( ) );
 				return FALSE;
 			}
 		}
@@ -14757,13 +14762,15 @@ BOOLEAN		TacticalActor::LooksLikeASoldier( void )
 	return TRUE;
 }
 
-INT8		TacticalActor::GetUniformType( )
+std::int8_t TacticalActorCovertOps::uniformType(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// we determine wether we are currently wearing civilian or military clothes
 	for ( UINT8 i = UNIFORM_ENEMY_ADMIN; i < NUM_UNIFORMS; ++i )
 	{
 		// both parts have to fit. We cant mix different uniforms and get soldier disguise
-		if ( COMPARE_PALETTEREP_ID( this->renderState().vestPalette(), gUniformColors[i].vest ) && COMPARE_PALETTEREP_ID( this->renderState().pantsPalette(), gUniformColors[i].pants ) )
+		if ( COMPARE_PALETTEREP_ID( self->renderState().vestPalette(), gUniformColors[i].vest ) && COMPARE_PALETTEREP_ID( self->renderState().pantsPalette(), gUniformColors[i].pants ) )
 		{
 			return i;
 		}
@@ -14773,11 +14780,13 @@ INT8		TacticalActor::GetUniformType( )
 }
 
 // is our equipment too good for a soldier?
-BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
+bool TacticalActorCovertOps::equipmentTooGood(TacticalActor& actor, bool closeLook)
 {
+	auto* const self = &actor;
+
 	// if militia is equipped from sector inventory(and thu by the player itself), then its item selection is no longer bound to any progress calculation
-	// we thus canno check for equipment - the only way to find out is to look at this guy sharply, and to eventually realise that this gear did not come from the player
-	if ( gGameExternalOptions.fMilitiaUseSectorInventory && TacticalActorConditions::isAssassin(*this) )
+	// we thus cannot check for equipment - the only way to find out is to look at this guy sharply, and to eventually realise that this gear did not come from the player
+	if ( gGameExternalOptions.fMilitiaUseSectorInventory && TacticalActorConditions::isAssassin(*self) )
 		return FALSE;
 
 	// check the guns in our hands and rifle sling
@@ -14786,7 +14795,7 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 	UINT8 ubCurrentProgress = CurrentPlayerProgressPercentage( );
 	UINT8 maxcoolnessallowed = 1 + ubCurrentProgress / 10;
 
-	INT8 uniformtype = GetUniformType( );
+	INT8 uniformtype = uniformType(actor);
 
 	// adjust max coolness depending on uniform
 	// enemy spies get a small bonus here
@@ -14808,22 +14817,22 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 		break;
 	default:
 		// we do not wear a proper army uniform, uncover us. Note: This should never happen - if this message shows, somewhere, something is wrong
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNIFORM_NOORDER], this->GetName( ) );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNIFORM_NOORDER], self->GetName( ) );
 		return TRUE;
 		break;
 	}
 
 	if ( UsingNewInventorySystem( ) )
 	{
-		INT8 invsize = (INT8)this->inventory().size( );
+		INT8 invsize = (INT8)self->inventory().size( );
 		for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )									// ... for all items in our inventory ...
 		{
-			if ( this->inventory()[bLoop].exists( ) )
+			if ( self->inventory()[bLoop].exists( ) )
 			{
 				// if we have a back pack: not covert
 				if ( bLoop == BPACKPOCKPOS )
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_BACKPACKFOUND], this->GetName( ) );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_BACKPACKFOUND], self->GetName( ) );
 					return TRUE;
 				}
 
@@ -14831,15 +14840,15 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 				if ( bLoop == HANDPOS || bLoop == SECONDHANDPOS )
 					;
 				// other covert items are simply ignored
-				else if ( HasItemFlag( this->inventory()[bLoop].usItem, COVERT ) )
+				else if ( HasItemFlag( self->inventory()[bLoop].usItem, COVERT ) )
 					continue;
 				// further checks it item is not covert. This means that an item that has that tag will not be detected if it is inside a pocket!
 				else if ( (bLoop == GUNSLINGPOCKPOS || bLoop == HELMETPOS || bLoop == VESTPOS || bLoop == LEGPOS || bLoop == HEAD1POS || bLoop == HEAD2POS || bLoop == KNIFEPOCKPOS) )
 					;
 				else
 				{
-					// if we're not that close, we wont even see this, so don't check
-					if ( !fCloselook )
+					// if we're not that close, we won't even see this, so don't check
+					if ( !closeLook )
 						continue;
 
 					// item will be detected if someone looks - check for the LBE item that gave us this slot. If that one is covert, this item is also covert
@@ -14863,7 +14872,7 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 						break;
 					default:
 					{
-							   //ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEM_SUSPICIOUS], this->GetName(), Item[this->inventory()[bLoop].usItem].szItemName );
+							   //ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEM_SUSPICIOUS], self->GetName(), Item[self->inventory()[bLoop].usItem].szItemName );
 							   //return FALSE;
 					}
 						break;
@@ -14873,27 +14882,27 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 					if ( checkslot > 0 )
 					{
 						// if LBE is covert
-						if ( this->inventory()[checkslot].exists( ) && HasItemFlag( this->inventory()[checkslot].usItem, COVERT ) )
+						if ( self->inventory()[checkslot].exists( ) && HasItemFlag( self->inventory()[checkslot].usItem, COVERT ) )
 							// pass for this item
 							continue;
 					}
 				}
 
 				// if that item is a gun, explosives, military armour or facewear, investigate further
-				if ( (Item[this->inventory()[bLoop].usItem].usItemClass & (IC_GUN | IC_LAUNCHER | IC_ARMOUR | IC_FACE)) )
+				if ( (Item[self->inventory()[bLoop].usItem].usItemClass & (IC_GUN | IC_LAUNCHER | IC_ARMOUR | IC_FACE)) )
 				{
-					if ( Item[this->inventory()[bLoop].usItem].usItemClass & (IC_GUN | IC_LAUNCHER) && !HasItemFlag( this->inventory()[bLoop].usItem, COVERT ) )
+					if ( Item[self->inventory()[bLoop].usItem].usItemClass & (IC_GUN | IC_LAUNCHER) && !HasItemFlag( self->inventory()[bLoop].usItem, COVERT ) )
 					{
 						++numberofguns;
 
 						if ( numberofguns > 2 )
 						{
-							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOOMANYGUNS], this->GetName( ) );
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOOMANYGUNS], self->GetName( ) );
 							return TRUE;
 						}
 					}
 
-					OBJECTTYPE * pObj = &(this->inventory()[bLoop]);								// ... get pointer for this item ...
+					OBJECTTYPE * pObj = &(self->inventory()[bLoop]);								// ... get pointer for this item ...
 
 					if ( pObj != NULL )
 					{
@@ -14902,7 +14911,7 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 							// loop over every item and its attachments
 							if ( Item[pObj->usItem].ubCoolness > maxcoolnessallowed )
 							{
-								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEMSTOOGOOD], this->GetName( ), Item[pObj->usItem].szItemName, pCountryNames[COUNTRY_NOUN] );
+								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEMSTOOGOOD], self->GetName( ), Item[pObj->usItem].szItemName, pCountryNames[COUNTRY_NOUN] );
 								return TRUE;
 							}
 
@@ -14916,16 +14925,16 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 									// loop over every item and its attachments
 									if ( Item[iter->usItem].ubCoolness > maxcoolnessallowed )
 									{
-										ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEMSTOOGOOD], this->GetName( ), Item[iter->usItem].szItemName, pCountryNames[COUNTRY_NOUN] );
+										ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEMSTOOGOOD], self->GetName( ), Item[iter->usItem].szItemName, pCountryNames[COUNTRY_NOUN] );
 										return TRUE;
 									}
 
 									++numberofattachments;
 									
 									// no ordinary soldier is allowed that many attachments -> not covert
-									if ( fCloselook && numberofattachments > gGameExternalOptions.iMaxEnemyAttachments )
+									if ( closeLook && numberofattachments > gGameExternalOptions.iMaxEnemyAttachments )
 									{
-										ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOOMANYATTACHMENTS], this->GetName( ), Item[pObj->usItem].szItemName );
+										ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOOMANYATTACHMENTS], self->GetName( ), Item[pObj->usItem].szItemName );
 										return TRUE;
 									}
 								}
@@ -14938,25 +14947,25 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 	}
 	else	// old inventory system. No LBE here, nothing fancy
 	{
-		INT8 invsize = (INT8)this->inventory().size( );
+		INT8 invsize = (INT8)self->inventory().size( );
 		for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )									// ... for all items in our inventory ...
 		{
-			if ( this->inventory()[bLoop].exists( ) )
+			if ( self->inventory()[bLoop].exists( ) )
 			{
 				// if that item is a gun, explosives, military armour or facewear, investigate further
-				if ( !HasItemFlag( this->inventory()[bLoop].usItem, COVERT ) && (Item[this->inventory()[bLoop].usItem].usItemClass & (IC_GUN | IC_LAUNCHER | IC_ARMOUR | IC_FACE)) )
+				if ( !HasItemFlag( self->inventory()[bLoop].usItem, COVERT ) && (Item[self->inventory()[bLoop].usItem].usItemClass & (IC_GUN | IC_LAUNCHER | IC_ARMOUR | IC_FACE)) )
 				{
-					if ( (Item[this->inventory()[bLoop].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
+					if ( (Item[self->inventory()[bLoop].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
 					{
 						++numberofguns;
 
 						if ( numberofguns > 2 )
 						{
-							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOOMANYGUNS], this->GetName( ) );
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOOMANYGUNS], self->GetName( ) );
 							return TRUE;
 						}
 
-						OBJECTTYPE * pObj = &(this->inventory()[bLoop]);								// ... get pointer for this item ...
+						OBJECTTYPE * pObj = &(self->inventory()[bLoop]);								// ... get pointer for this item ...
 
 						if ( pObj != NULL )
 						{
@@ -14965,7 +14974,7 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 								// loop over every item and its attachments
 								if ( Item[pObj->usItem].ubCoolness > maxcoolnessallowed )
 								{
-									ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEMSTOOGOOD], this->GetName( ), Item[pObj->usItem].szItemName, pCountryNames[COUNTRY_NOUN] );
+									ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEMSTOOGOOD], self->GetName( ), Item[pObj->usItem].szItemName, pCountryNames[COUNTRY_NOUN] );
 									return TRUE;
 								}
 
@@ -14979,7 +14988,7 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 										// loop over every item and its attachments
 										if ( Item[iter->usItem].ubCoolness > maxcoolnessallowed )
 										{
-											ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEMSTOOGOOD], this->GetName( ), Item[iter->usItem].szItemName, pCountryNames[COUNTRY_NOUN] );
+											ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ITEMSTOOGOOD], self->GetName( ), Item[iter->usItem].szItemName, pCountryNames[COUNTRY_NOUN] );
 											return TRUE;
 										}
 
@@ -14988,9 +14997,9 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 								}
 								
 								// no ordinary soldier is allowed that many attachments > not covert
-								if ( fCloselook && numberofattachments > gGameExternalOptions.iMaxEnemyAttachments )
+								if ( closeLook && numberofattachments > gGameExternalOptions.iMaxEnemyAttachments )
 								{
-									ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOOMANYATTACHMENTS], this->GetName( ), Item[pObj->usItem].szItemName );
+									ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOOMANYATTACHMENTS], self->GetName( ), Item[pObj->usItem].szItemName );
 									return TRUE;
 								}
 							}
@@ -15006,10 +15015,12 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 
 
 // are we in covert mode? we need to have the correct flag set, and not wear anything suspicious, or behave in a suspicious way
-BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
+bool TacticalActorCovertOps::seemsLegitimate(TacticalActor& actor, SoldierID observerId)
 {
+	auto* const self = &actor;
+
 	TacticalActor* pSoldier =
-		GetJa2SoldierRepository().resolve( ubObserverID );
+		GetJa2SoldierRepository().resolve(observerId);
 
 	if ( !pSoldier )
 		return TRUE;
@@ -15020,47 +15031,47 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 
 	// if we don't have the Flag: not covert
 	// important: no messages up to this point. the function will get called a lot, up to this point there is nothing unusual
-	if ( !(this->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER)) )
+	if ( !(self->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER)) )
 		return FALSE;
 
 	// if we perform suspicious actions, we are easier to uncover for a short time (but not by ourselves if we test the disguise)
-	if ( ubObserverID != this->identity().id() && this->featureFlags().primaryFlags() & SOLDIER_COVERT_TEMPORARY_OVERT )
+	if ( observerId != self->identity().id() && self->featureFlags().primaryFlags() & SOLDIER_COVERT_TEMPORARY_OVERT )
 	{
 		// if enough time has passed, or we have spend enough AP, lose the flag
-		if ( this->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) == 0 || GetWorldTotalSeconds( ) >= this->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) )
+		if ( self->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) == 0 || GetWorldTotalSeconds( ) >= self->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) )
 		{
-			this->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) = 0;
-			this->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) = 0;
-			this->featureFlags().primaryFlags() &= ~SOLDIER_COVERT_TEMPORARY_OVERT;
+			self->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) = 0;
+			self->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) = 0;
+			self->featureFlags().primaryFlags() &= ~SOLDIER_COVERT_TEMPORARY_OVERT;
 		}
 		else
 		{
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ACTIVITIES], this->GetName( ) );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ACTIVITIES], self->GetName( ) );
 			return FALSE;
 		}
 	}
 
 	// if we are trying to dress like a civilian, but aren't successful: not covert
-	if ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_CIV && !(this->LooksLikeACivilian( )) )
+	if ( self->featureFlags().primaryFlags() & SOLDIER_COVERT_CIV && !looksLikeCivilian(actor) )
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NO_CIV], this->GetName( ) );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NO_CIV], self->GetName( ) );
 		return FALSE;
 	}
 
 	// if we are trying to dress like a soldier, but aren't successful: not covert
-	if ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER && !(this->LooksLikeASoldier( )) )
+	if ( self->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER && !looksLikeSoldier(actor) )
 	{
 		return FALSE;
 	}
 
-	UINT8 covertlevel = NUM_SKILL_TRAITS( this, COVERT_NT );	// our level in covert operations
-	INT32 distance = PythSpacesAway( this->position().gridNo(), pSoldier->position().gridNo() );
+	UINT8 covertlevel = NUM_SKILL_TRAITS( self, COVERT_NT );	// our level in covert operations
+	INT32 distance = PythSpacesAway( self->position().gridNo(), pSoldier->position().gridNo() );
 
 	// if we are closer than this, our cover will always break if we do not have the skill
 	// if we have the skill, our cover will blow if we dress up as a soldier, but not if we are dressed like a civilian
 	INT32 discoverrange = gSkillTraitValues.sCOCloseDetectionRange;
 
-	if ( ubObserverID != this->identity().id() && distance < discoverrange )
+	if ( observerId != self->identity().id() && distance < discoverrange )
 	{
 		switch ( covertlevel )
 		{
@@ -15069,15 +15080,15 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 			// exceptions: we are discovered if we are close and bleeding, or if we are drunk while dressed as a soldier
 			{
 				// if we are openly bleeding: not covert
-				if ( gSkillTraitValues.fCODetectIfBleeding && this->vitals().bleeding() > 0 )
+				if ( gSkillTraitValues.fCODetectIfBleeding && self->vitals().bleeding() > 0 )
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_BLEEDING], this->GetName( ) );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_BLEEDING], self->GetName( ) );
 					return FALSE;
 				}
 
-				if ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER && GetDrunkLevel( this ) != SOBER )
+				if ( self->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER && GetDrunkLevel( self ) != SOBER )
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_DRUNKEN_SOLDIER], this->GetName( ) );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_DRUNKEN_SOLDIER], self->GetName( ) );
 					return FALSE;
 				}
 			}
@@ -15087,15 +15098,15 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 			// however, if we are dressed up as a civilian, we can get as close as we like, we won't be discovered
 			{
 				// if we are openly bleeding: not covert
-				if ( gSkillTraitValues.fCODetectIfBleeding && this->vitals().bleeding() > 0 )
+				if ( gSkillTraitValues.fCODetectIfBleeding && self->vitals().bleeding() > 0 )
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_BLEEDING], this->GetName( ) );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_BLEEDING], self->GetName( ) );
 					return FALSE;
 				}
 
-				if ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
+				if ( self->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOO_CLOSE], this->GetName( ) );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOO_CLOSE], self->GetName( ) );
 					return FALSE;
 				}
 			}
@@ -15104,34 +15115,34 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 		default:
 			// without the covert ops skill, we can only dress up as civilians. We will be discovered if we get too close to the enemy
 			// exception: special NPCs and EPCs can still get close (the Kulbas, for example, ARE civilians, so they apply)
-			if ( (this->featureFlags().primaryFlags() & SOLDIER_COVERT_NPC_SPECIAL) == 0 )
+			if ( (self->featureFlags().primaryFlags() & SOLDIER_COVERT_NPC_SPECIAL) == 0 )
 			{
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOO_CLOSE], this->GetName( ) );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOO_CLOSE], self->GetName( ) );
 				return FALSE;
 			}
 			break;
 		}
 
 		// if we are disguised as a soldier, elites and officers can uncover us if they are close
-		if ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER && distance < gSkillTraitValues.usCOEliteUncoverRadius && EffectiveExpLevel( pSoldier ) >= EffectiveExpLevel( this ) + covertlevel )
+		if ( self->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER && distance < gSkillTraitValues.usCOEliteUncoverRadius && EffectiveExpLevel( pSoldier ) >= EffectiveExpLevel( self ) + covertlevel )
 		{
 			// officers can uncover us even if we are disguised as an elite
 			if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_ENEMY_OFFICER )
 			{
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOO_CLOSE_TO_OFFICER], this->GetName( ) );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOO_CLOSE_TO_OFFICER], self->GetName( ) );
 				return FALSE;
 			}
 
 			// elites uncover us if we a disguised as an admin or regular
-			if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE && GetUniformType( ) < UNIFORM_ENEMY_ELITE )
+			if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE && uniformType(actor) < UNIFORM_ENEMY_ELITE )
 			{
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOO_CLOSE_TO_ELITE], this->GetName( ) );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TOO_CLOSE_TO_ELITE], self->GetName( ) );
 				return FALSE;
 			}
 		}
 	}
 
-	if ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_CIV )
+	if ( self->featureFlags().primaryFlags() & SOLDIER_COVERT_CIV )
 	{
 		// civilians are suspicious if they are found in certain sectors. Especially at night
 		// sector specific value:
@@ -15140,32 +15151,32 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 		// 2 - civilians are always suspicious
 		// if underground, we still use the surface value
 
-		UINT8 ubSectorId = SECTOR( this->deployment().sectorX(), this->deployment().sectorY() );
+		UINT8 ubSectorId = SECTOR( self->deployment().sectorX(), self->deployment().sectorY() );
 		UINT8 sectordata = SectorExternalData[ubSectorId][0].usCurfewValue;
 		
 		if ( sectordata > 1 )
 		{
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_CURFEW_BROKEN], this->GetName( ) );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_CURFEW_BROKEN], self->GetName( ) );
 			return FALSE;
 		}
 		// is it night?
 		else if ( sectordata == 1 && GetTimeOfDayAmbientLightLevel( ) < NORMAL_LIGHTLEVEL_DAY + 2 )
 		{
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_CURFEW_BROKEN_NIGHT], this->GetName( ) );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_CURFEW_BROKEN_NIGHT], self->GetName( ) );
 			return FALSE;
 		}
 
 		// do this check only if we are in the currently loaded sector
-		if ( this->deployment().sectorX() == gWorldSectorX && this->deployment().sectorY() == gWorldSectorY && this->deployment().sectorZ() == gbWorldSectorZ )
+		if ( self->deployment().sectorX() == gWorldSectorX && self->deployment().sectorY() == gWorldSectorY && self->deployment().sectorZ() == gbWorldSectorZ )
 		{
-			// check wether we are around a fresh corpse - this will make us much more suspicious
+			// check whether we are around a fresh corpse - this will make us much more suspicious
 			INT32				cnt;
 			ROTTING_CORPSE *	pCorpse;
 			for ( cnt = 0; cnt < giNumRottingCorpse; ++cnt )
 			{
 				pCorpse = &( gRottingCorpse[cnt] );
 
-				if ( pCorpse && pCorpse->fActivated && pCorpse->def.ubAIWarningValue > 0 && PythSpacesAway( this->position().gridNo(), pCorpse->def.sGridNo ) <= 5 )
+				if ( pCorpse && pCorpse->fActivated && pCorpse->def.ubAIWarningValue > 0 && PythSpacesAway( self->position().gridNo(), pCorpse->def.sGridNo ) <= 5 )
 				{
 					// check: is this corpse that of an ally of the observing soldier?
 					BOOLEAN fCorpseOFAlly = FALSE;
@@ -15197,7 +15208,7 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 					// a corpse was found near our position. If the soldier observing us can see it, he will be alarmed 
 					if ( fCorpseOFAlly && SoldierTo3DLocationLineOfSightTest( pSoldier, pCorpse->def.sGridNo, pCorpse->def.bLevel, 3, TRUE, CALC_FROM_WANTED_DIR ) )
 					{
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NEAR_CORPSE], this->GetName() );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NEAR_CORPSE], self->GetName() );
 						return FALSE;
 					}
 				}
@@ -15205,38 +15216,38 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 		}
 	}
 
-	if ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
+	if ( self->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
 	{
 		// if our equipment is too good, that is suspicious... not covert!
-		if ( this->EquipmentTooGood( (distance < discoverrange) ) )
+		if ( equipmentTooGood(actor, distance < discoverrange) )
 		{
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_SUSPICIOUS_EQUIPMENT], this->GetName( ) );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_SUSPICIOUS_EQUIPMENT], self->GetName( ) );
 			return FALSE;
 		}
 
 		// do this check only if we are in the currently loaded sector
-		if ( this->deployment().sectorX() == gWorldSectorX && this->deployment().sectorY() == gWorldSectorY && this->deployment().sectorZ() == gbWorldSectorZ )
+		if ( self->deployment().sectorX() == gWorldSectorX && self->deployment().sectorY() == gWorldSectorY && self->deployment().sectorZ() == gbWorldSectorZ )
 		{
 			TacticalActor* target =
 				GetJa2SoldierRepository().resolve(
-					this->targeting().targetId() );
+					self->targeting().targetId() );
 
 			// are we targeting a buddy of our observer?
 			if ( target != nullptr && target->roster().team() == pSoldier->roster().team() )
 			{
 				// if we are aiming at a soldier, others will notice our intent... not covert!
-				if ( WeaponReady( this ) )
+				if ( WeaponReady( self ) )
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TARGETTING_SOLDIER], this->GetName(), target->GetName() );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TARGETTING_SOLDIER], self->GetName(), target->GetName() );
 					return FALSE;
 				}
 			}
 
 			// even as a soldier, we will be caught around fresh corpses
 			// assassins will not be uncovered around corpses, as the AI cannot willingly evade them... one could 'ward' against assassins by surrounding yourself with fresh corpses
-			if ( distance < gSkillTraitValues.sCOCloseDetectionRangeSoldierCorpse && !TacticalActorConditions::isAssassin(*this) )
+			if ( distance < gSkillTraitValues.sCOCloseDetectionRangeSoldierCorpse && !TacticalActorConditions::isAssassin(*self) )
 			{
-				// check wether we are around a fresh corpse - this will make us much more suspicious
+				// check whether we are around a fresh corpse - this will make us much more suspicious
 				// I deem this necessary, to avoid cheap exploits by nefarious players :-)
 				INT32				cnt;
 				ROTTING_CORPSE *	pCorpse;
@@ -15244,7 +15255,7 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 				{
 					pCorpse = &( gRottingCorpse[cnt] );
 
-					if ( pCorpse && pCorpse->fActivated && pCorpse->def.ubAIWarningValue > 0 && PythSpacesAway( this->position().gridNo(), pCorpse->def.sGridNo ) <= 5 )
+					if ( pCorpse && pCorpse->fActivated && pCorpse->def.ubAIWarningValue > 0 && PythSpacesAway( self->position().gridNo(), pCorpse->def.sGridNo ) <= 5 )
 					{
 						// check: is this corpse that of an ally of the observing soldier?
 						BOOLEAN fCorpseOFAlly = FALSE;
@@ -15276,7 +15287,7 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 						// a corpse was found near our position. If the soldier observing us can see it, he will be alarmed 
 						if ( fCorpseOFAlly && SoldierTo3DLocationLineOfSightTest( pSoldier, pCorpse->def.sGridNo, pCorpse->def.bLevel, 3, TRUE, CALC_FROM_WANTED_DIR ) )
 						{
-							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NEAR_CORPSE], this->GetName() );
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NEAR_CORPSE], self->GetName() );
 							return FALSE;
 						}
 					}
@@ -15288,10 +15299,10 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 	// uncover if merc is using flashlight and alert is raised
 	if ( pSoldier->roster().team() == ENEMY_TEAM &&
 		 pSoldier->aiBehavior().alertStatus() >= STATUS_RED &&
-		 (NightTime( ) || this->deployment().sectorZ() > 0) &&
-		 this->GetBestEquippedFlashLightRange( ) > 0 )
+		 (NightTime( ) || self->deployment().sectorZ() > 0) &&
+		 self->GetBestEquippedFlashLightRange( ) > 0 )
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s has a flashlight!", this->GetName( ) );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s has a flashlight!", self->GetName( ) );
 		return FALSE;
 	}
 
@@ -15299,23 +15310,25 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 }
 
 // do we recognize someone else as a combatant?
-BOOLEAN		TacticalActor::RecognizeAsCombatant( SoldierID ubTargetID )
+bool TacticalActorCovertOps::recognizesCombatant(TacticalActor& actor, SoldierID targetId)
 {
+	auto* const self = &actor;
+
 	// this will only work with the new trait system
 	if ( !gGameOptions.fNewTraitSystem )
 		return TRUE;
 
-	if ( ubTargetID == NOBODY )
+	if ( targetId == NOBODY )
 		return TRUE;
 
 	TacticalActor* pSoldier =
-		GetJa2SoldierRepository().resolve( ubTargetID );
+		GetJa2SoldierRepository().resolve(targetId);
 
 	if ( !pSoldier )
 		return TRUE;
 
 	// zombies don't care about disguises
-	if ( TacticalActorConditions::isZombie(*this) )
+	if ( TacticalActorConditions::isZombie(*self) )
 		return TRUE;
 
 	// not in covert mode: we recognize him
@@ -15323,25 +15336,25 @@ BOOLEAN		TacticalActor::RecognizeAsCombatant( SoldierID ubTargetID )
 		return TRUE;
 
 	// neutral characters just dont care
-	if ( this->aiBehavior().neutral() )
+	if ( self->aiBehavior().neutral() )
 		return TRUE;
 
 	// check for for vehicles and creatures... weird things happen
-	if ( IsVehicle( pSoldier ) || pSoldier->roster().team() == CREATURE_TEAM || this->roster().team() == CREATURE_TEAM )
+	if ( IsVehicle( pSoldier ) || pSoldier->roster().team() == CREATURE_TEAM || self->roster().team() == CREATURE_TEAM )
 		return TRUE;
 
 	// if from same team, do not uncover
-	if ( this->roster().team() == pSoldier->roster().team() || this->roster().side() == pSoldier->roster().side() )
+	if ( self->roster().team() == pSoldier->roster().team() || self->roster().side() == pSoldier->roster().side() )
 		return TRUE;
 
 	// hack: if this is attacking us at this very moment by punching, do not recognize him...
 	// this resolves the problem that we attack someone from behind and kill him instantly, but the game mechanic forces him to turn before
-	// only allow this if we are not yet alerted (we are suprised, so we don't recognize him in the moment of the attack)
+	// only allow this if we are not yet alerted (we are surprised, so we don't recognize him in the moment of the attack)
 	// also: only allow if he's next to us
-	if ( this->aiBehavior().alertStatus() < STATUS_RED && pSoldier->targeting().targetId() == this->identity().id() )
+	if ( self->aiBehavior().alertStatus() < STATUS_RED && pSoldier->targeting().targetId() == self->identity().id() )
 	{
 		INT32 nextGridNoinSight = NewGridNo( pSoldier->position().gridNo(), DirectionInc( pSoldier->position().direction() ) );
-		if ( nextGridNoinSight == this->position().gridNo() && this->position().level() == pSoldier->position().level() )
+		if ( nextGridNoinSight == self->position().gridNo() && self->position().level() == pSoldier->position().level() )
 		{
 			if ( pSoldier->animationPlayback().state() == PUNCH )
 				return FALSE;
@@ -15357,26 +15370,26 @@ BOOLEAN		TacticalActor::RecognizeAsCombatant( SoldierID ubTargetID )
 		gCurrentIncident.usIncidentFlags |= INCIDENT_SPYACTION_PLAYERSIDE;
 
 	// do we recognize this guy as an enemy?
-	if ( !pSoldier->SeemsLegit( this->identity().id() ) )
+	if ( !seemsLegitimate(*pSoldier, self->identity().id()) )
 	{
 		// aha, he/she's a spy! Blow cover
 		if ( pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 		{
-			pSoldier->LooseDisguise();
+			loseDisguise(*pSoldier);
 
 			if ( gSkillTraitValues.fCOStripIfUncovered )
-				pSoldier->Strip();
+				strip(*pSoldier);
 
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNCOVERED], this->GetName(), pSoldier->GetName()  );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNCOVERED], self->GetName(), pSoldier->GetName()  );
 
 			// we have uncovered a spy! Get alerted, if we aren't already
-			if ( this->aiBehavior().alertStatus() < STATUS_BLACK )
-				this->aiBehavior().alertStatus() = STATUS_BLACK;
+			if ( self->aiBehavior().alertStatus() < STATUS_BLACK )
+				self->aiBehavior().alertStatus() = STATUS_BLACK;
 
 			// reset our sight of this guy
-			this->awareness().opponentKnowledge()[pSoldier->identity().id()] = NOT_HEARD_OR_SEEN;
+			self->awareness().opponentKnowledge()[pSoldier->identity().id()] = NOT_HEARD_OR_SEEN;
 
-			ManSeesMan( this, pSoldier, pSoldier->position().gridNo(), pSoldier->position().level(), 0, 0 );
+			ManSeesMan( self, pSoldier, pSoldier->position().gridNo(), pSoldier->position().level(), 0, 0 );
 
 			// campaign stats
 			gCurrentIncident.usIncidentFlags |= INCIDENT_SPYACTION_UNCOVERED;
@@ -15389,10 +15402,12 @@ BOOLEAN		TacticalActor::RecognizeAsCombatant( SoldierID ubTargetID )
 }
 
 // loose covert property
-void	TacticalActor::LooseDisguise( void )
+void TacticalActorCovertOps::loseDisguise(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// loose any covert flags
-	this->featureFlags().primaryFlags() &= ~(SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL);
+	self->featureFlags().primaryFlags() &= ~(SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL);
 
 	// rehandle sight for everybody
 	TacticalActor*		pSoldier;
@@ -15412,167 +15427,175 @@ void	TacticalActor::LooseDisguise( void )
 	}
 }
 
-void TacticalActor::Disguise()
+void TacticalActorCovertOps::disguise(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// this will only work with the new trait system
 	if (!gGameOptions.fNewTraitSystem)
 		return;
 
 	// check if we already disguised
-	if( this->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL) )
+	if( self->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL) )
 		return;
 
 	// check that soldier is active and in sector
-	if ( !this->roster().active() || !this->roster().inSector() )
+	if ( !self->roster().active() || !self->roster().inSector() )
 		return;
 
-	// if this flag is set, do not apply the disgusie properties
-	if ( this->featureFlags().secondaryFlags() & SOLDIER_COVERT_NOREDISGUISE )
+	// if this flag is set, do not apply the disguise properties
+	if ( self->featureFlags().secondaryFlags() & SOLDIER_COVERT_NOREDISGUISE )
 		return;
 
-	ApplyCovert( FALSE );
+	applyCovert(actor, FALSE);
 }
 
-void	TacticalActor::ApplyCovert( BOOLEAN aWithMessage )
+void TacticalActorCovertOps::applyCovert(TacticalActor& actor, bool withMessage)
 {
+	auto* const self = &actor;
+
 	// check that we have correct clothes
-	if ( this->featureFlags().primaryFlags() & SOLDIER_NEW_VEST && this->featureFlags().primaryFlags() & SOLDIER_NEW_PANTS )
+	if ( self->featureFlags().primaryFlags() & SOLDIER_NEW_VEST && self->featureFlags().primaryFlags() & SOLDIER_NEW_PANTS )
 	{
 		// first, remove the covert flags, and then reapply the correct ones, in case we switch between civilian and military clothes
-		this->featureFlags().primaryFlags() &= ~(SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER);
+		self->featureFlags().primaryFlags() &= ~(SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER);
 
 		// if we apply the disguise property, remove the marker that we don't want this to happen
 		// the idea is that if we explicitly remove a disguise, but not our new colours, we don't want to regain the disguise
 		// we can then lose this marker again if we explicitly put on a disguise
-		this->featureFlags().secondaryFlags() &= ~SOLDIER_COVERT_NOREDISGUISE;
+		self->featureFlags().secondaryFlags() &= ~SOLDIER_COVERT_NOREDISGUISE;
 
 		// we can only disguise successfully if we are not seen
-		if ( !EnemySeenSoldierRecently( this ) )
+		if ( !EnemySeenSoldierRecently( self ) )
 		{
 			// we now have to determine wether we are currently wearing civilian or military clothes
 			for ( UINT8 i = UNIFORM_ENEMY_ADMIN; i <= UNIFORM_ENEMY_ELITE; ++i )
 			{
 				// both parts have to fit. We cant mix different uniforms and get soldier disguise
-				if ( COMPARE_PALETTEREP_ID( this->renderState().vestPalette(), gUniformColors[i].vest ) && COMPARE_PALETTEREP_ID( this->renderState().pantsPalette(), gUniformColors[i].pants ) )
+				if ( COMPARE_PALETTEREP_ID( self->renderState().vestPalette(), gUniformColors[i].vest ) && COMPARE_PALETTEREP_ID( self->renderState().pantsPalette(), gUniformColors[i].pants ) )
 				{
-					this->featureFlags().primaryFlags() |= SOLDIER_COVERT_SOLDIER;
+					self->featureFlags().primaryFlags() |= SOLDIER_COVERT_SOLDIER;
 
-					if ( aWithMessage && this->roster().team() == OUR_TEAM )
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_DISGUISED_AS_SOLDIER], this->GetName( ) );
+					if ( withMessage && self->roster().team() == OUR_TEAM )
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_DISGUISED_AS_SOLDIER], self->GetName( ) );
 
 					break;
 				}
 			}
 
 			// if not dressed as a soldier, we must be dressed as a civilian
-			if ( !(this->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER) )
+			if ( !(self->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER) )
 			{
-				this->featureFlags().primaryFlags() |= SOLDIER_COVERT_CIV;
+				self->featureFlags().primaryFlags() |= SOLDIER_COVERT_CIV;
 
-				if ( aWithMessage && this->roster().team() == OUR_TEAM )
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_DISGUISED_AS_CIVILIAN], this->GetName( ) );
+				if ( withMessage && self->roster().team() == OUR_TEAM )
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_DISGUISED_AS_CIVILIAN], self->GetName( ) );
 			}
 		}
 		
 		// reevaluate sight - otherwise we could hide by changing clothes in plain sight!
-		OtherTeamsLookForMan( this );
+		OtherTeamsLookForMan( self );
 	}
 }
 
 // undisguise or take off any clothes item and switch back to original clothes
 // no - this function does not do what you think it does. Leave Fox alone, you perv.
-void	TacticalActor::Strip()
+void TacticalActorCovertOps::strip(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// if covert, loose that ability
-	if ( this->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+	if ( self->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 	{
-		LooseDisguise( );
+		loseDisguise(actor);
 
 		// if we explicitly lose the disguise property, add a flag so that we aren't redisguised again immediately
-		this->featureFlags().secondaryFlags() |= SOLDIER_COVERT_NOREDISGUISE;
+		self->featureFlags().secondaryFlags() |= SOLDIER_COVERT_NOREDISGUISE;
 	}
 	// if already not covert, take off clothes
-	else if ( this->featureFlags().primaryFlags() & (SOLDIER_NEW_VEST|SOLDIER_NEW_PANTS) )
+	else if ( self->featureFlags().primaryFlags() & (SOLDIER_NEW_VEST|SOLDIER_NEW_PANTS) )
 	{
 		// if we have undamaged clothes, spawn them, the graphic will be removed anyway
-		if ( (this->featureFlags().primaryFlags() & SOLDIER_NEW_VEST) && !(this->featureFlags().primaryFlags() & SOLDIER_DAMAGED_VEST) )
+		if ( (self->featureFlags().primaryFlags() & SOLDIER_NEW_VEST) && !(self->featureFlags().primaryFlags() & SOLDIER_DAMAGED_VEST) )
 		{
 			UINT16 vestitem = 0;
-			if ( GetFirstClothesItemWithSpecificData( &vestitem, this->renderState().vestPalette(), "blank" ) )
+			if ( GetFirstClothesItemWithSpecificData( &vestitem, self->renderState().vestPalette(), "blank" ) )
 			{
 				CreateItem( vestitem, 100, &gTempObject );
-				if ( !AutoPlaceObject( this, &gTempObject, FALSE ) )
-					AddItemToPool( this->position().gridNo(), &gTempObject, 1, this->position().level(), 0, -1 );
+				if ( !AutoPlaceObject( self, &gTempObject, FALSE ) )
+					AddItemToPool( self->position().gridNo(), &gTempObject, 1, self->position().level(), 0, -1 );
 			}
 			else
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NO_CLOTHES_ITEM] );
 		}
 
-		if ( (this->featureFlags().primaryFlags() & SOLDIER_NEW_PANTS) && !(this->featureFlags().primaryFlags() & SOLDIER_DAMAGED_PANTS) )
+		if ( (self->featureFlags().primaryFlags() & SOLDIER_NEW_PANTS) && !(self->featureFlags().primaryFlags() & SOLDIER_DAMAGED_PANTS) )
 		{
 			UINT16 pantsitem = 0;
-			if ( GetFirstClothesItemWithSpecificData( &pantsitem, "blank", this->renderState().pantsPalette() ) )
+			if ( GetFirstClothesItemWithSpecificData( &pantsitem, "blank", self->renderState().pantsPalette() ) )
 			{
 				CreateItem( pantsitem, 100, &gTempObject );
-				if ( !AutoPlaceObject( this, &gTempObject, FALSE ) )
-					AddItemToPool(this->position().gridNo(), &gTempObject, 1, this->position().level(), 0, -1);
+				if ( !AutoPlaceObject( self, &gTempObject, FALSE ) )
+					AddItemToPool(self->position().gridNo(), &gTempObject, 1, self->position().level(), 0, -1);
 			}
 			else
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NO_CLOTHES_ITEM] );
 		}
 
 		// loose any clothes flags
-		this->featureFlags().primaryFlags() &= ~(SOLDIER_NEW_VEST | SOLDIER_NEW_PANTS);
+		self->featureFlags().primaryFlags() &= ~(SOLDIER_NEW_VEST | SOLDIER_NEW_PANTS);
 
 		// show our true colours
-		UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( this, this->animationPlayback().state() );
+		UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( self, self->animationPlayback().state() );
 
 		if ( usPaletteAnimSurface != INVALID_ANIMATION_SURFACE )
 		{
-			if ( this->roster().team() == OUR_TEAM )
+			if ( self->roster().team() == OUR_TEAM )
 			{
 				UINT8				ubProfileIndex;
 				MERCPROFILESTRUCT * pProfile;
 
-				ubProfileIndex = this->identity().profile();
+				ubProfileIndex = self->identity().profile();
 				pProfile = &(gMercProfiles[ubProfileIndex]);
 
-				SET_PALETTEREP_ID( this->renderState().vestPalette(), pProfile->VEST );
-				SET_PALETTEREP_ID( this->renderState().pantsPalette(), pProfile->PANTS );
+				SET_PALETTEREP_ID( self->renderState().vestPalette(), pProfile->VEST );
+				SET_PALETTEREP_ID( self->renderState().pantsPalette(), pProfile->PANTS );
 			}
-			else if ( this->featureFlags().primaryFlags() & SOLDIER_ASSASSIN )
+			else if ( self->featureFlags().primaryFlags() & SOLDIER_ASSASSIN )
 			{
-				SET_PALETTEREP_ID( this->renderState().vestPalette(), gUniformColors[UNIFORM_ENEMY_ELITE].vest );
-				SET_PALETTEREP_ID( this->renderState().pantsPalette(), gUniformColors[UNIFORM_ENEMY_ELITE].pants );
+				SET_PALETTEREP_ID( self->renderState().vestPalette(), gUniformColors[UNIFORM_ENEMY_ELITE].vest );
+				SET_PALETTEREP_ID( self->renderState().pantsPalette(), gUniformColors[UNIFORM_ENEMY_ELITE].pants );
 			}
 
 			// Use palette from HVOBJECT, then use substitution for pants, etc
-			memcpy( this->palette().base8(), gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
+			memcpy( self->palette().base8(), gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
-			SetPaletteReplacement( this->palette().base8(), this->renderState().headPalette() );
-			SetPaletteReplacement( this->palette().base8(), this->renderState().vestPalette() );
-			SetPaletteReplacement( this->palette().base8(), this->renderState().pantsPalette() );
-			SetPaletteReplacement( this->palette().base8(), this->renderState().skinPalette() );
+			SetPaletteReplacement( self->palette().base8(), self->renderState().headPalette() );
+			SetPaletteReplacement( self->palette().base8(), self->renderState().vestPalette() );
+			SetPaletteReplacement( self->palette().base8(), self->renderState().pantsPalette() );
+			SetPaletteReplacement( self->palette().base8(), self->renderState().skinPalette() );
 
-			this->CreateSoldierPalettes( );
+			self->CreateSoldierPalettes( );
 		}
 	}
 	else
 	{
 		// if the player is an annoying little perv, tell them so, girls!
 		// Flugente: additional dialogue
-		AdditionalTacticalCharacterDialogue_CallsLua(this, ADE_SEXUALHARASSMENT );
-		this->morale().morale() = max( 0, this->morale().morale() - 1 );
+		AdditionalTacticalCharacterDialogue_CallsLua(self, ADE_SEXUALHARASSMENT );
+		self->morale().morale() = max( 0, self->morale().morale() - 1 );
 	}
 }
 
 // check wether our disguise is any good
-void		TacticalActor::SpySelfTest( )
+void TacticalActorCovertOps::runSelfTest(TacticalActor& actor)
 {
-	if ( SeemsLegit( this->identity().id() ) )
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TEST_OK], this->GetName( ) );
+	auto* const self = &actor;
+
+	if ( seemsLegitimate(actor, self->identity().id()) )
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TEST_OK], self->GetName( ) );
 	else
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TEST_FAIL], this->GetName( ) );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_TEST_FAIL], self->GetName( ) );
 }
 
 // can we process prisoners in this sector?
@@ -16972,10 +16995,10 @@ void TacticalActor::SoldierPropertyUpkeep( )
 		this->featureFlags().secondaryFlags() &= ~SOLDIER_CONCEALINSERTION_DISCOVERED;
 
 		// we loose our disguise
-		this->LooseDisguise();
+		TacticalActorCovertOps::loseDisguise(*this);
 
 		if ( gSkillTraitValues.fCOStripIfUncovered )
-			this->Strip();
+			TacticalActorCovertOps::strip(*this);
 
 		HandleInitialRedAlert( ENEMY_TEAM, FALSE );
 	}
@@ -17058,7 +17081,7 @@ void TacticalActor::SoldierPropertyUpkeep( )
 
 	// sevenfm: disguise automatically
 	if ( !gSkillTraitValues.fCOStripIfUncovered )
-		this->Disguise();
+		TacticalActorCovertOps::disguise(*this);
 }
 
 // check if Soldier can use the spell skillwise, with fAPCheck = TRUE also check current APs
@@ -17148,7 +17171,7 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 			if ( canuse && NumEnemiesInAnySector( this->deployment().sectorX(), this->deployment().sectorY(), sectorz ) > 0 &&
 				NumPlayerTeamMembersInSector( this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() ) == 1 &&
 				( sectorz || NumNonPlayerTeamMembersInSector( this->deployment().sectorX(), this->deployment().sectorY(), MILITIA_TEAM ) == 0 ) &&
-				SeemsLegit( this->identity().id() ) )
+				TacticalActorCovertOps::seemsLegitimate(*this, this->identity().id()) )
 			{
 				// additional checks if we are in the currently loaded sector
 				if ( this->deployment().sectorX() == gWorldSectorX && this->deployment().sectorY() == gWorldSectorY && this->deployment().sectorZ() == gbWorldSectorZ )
@@ -17354,20 +17377,20 @@ BOOLEAN TacticalActor::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
 		break;
 
 	case SKILLS_DISGUISE_APPLY_DISGUISE:
-		this->Disguise();
-		this->SpySelfTest();
+		TacticalActorCovertOps::disguise(*this);
+		TacticalActorCovertOps::runSelfTest(*this);
 		return TRUE;
 
 	case SKILLS_DISGUISE_REMOVE_DISGUISE:
-		this->LooseDisguise();
+		TacticalActorCovertOps::loseDisguise(*this);
 		return TRUE;
 
 	case SKILLS_DISGUISE_TEST_DISGUISE:
-		this->SpySelfTest();
+		TacticalActorCovertOps::runSelfTest(*this);
 		return TRUE;
 
 	case SKILLS_DISGUISE_REMOVE_CLOTHES:
-		this->Strip();
+		TacticalActorCovertOps::strip(*this);
 		return TRUE;
 
 	case SKILLS_SPOTTER:
@@ -19994,44 +20017,46 @@ void	TacticalActor::CancelDrag()
 // Flugente: spy assignments
 extern UINT32 gCoolnessBySector[256];
 
-UINT8		TacticalActor::GetUncoverRisk()
+std::uint8_t TacticalActorCovertOps::uncoverRisk(TacticalActor& actor)
 {
-	if ( this->vitals().health() < OKLIFE || ( this->featureFlags().primaryFlags() & SOLDIER_POW ) )
+	auto* const self = &actor;
+
+	if ( self->vitals().health() < OKLIFE || ( self->featureFlags().primaryFlags() & SOLDIER_POW ) )
 		return 0;
 
-	if ( !SPY_LOCATION(this->assignment().current()) )
+	if ( !SPY_LOCATION(self->assignment().current()) )
 		return 100;
 
 	// base value:
 	// 15% level
 	// 15% stealth
 	// 70% covert trait
-	UINT32 val = 15 * EffectiveExpLevel ( this, FALSE )
-		+ 1.5f * GetWornStealth( this )
-		+ 350 * NUM_SKILL_TRAITS( this, COVERT_NT );
+	UINT32 val = 15 * EffectiveExpLevel ( self, FALSE )
+		+ 1.5f * GetWornStealth( self )
+		+ 350 * NUM_SKILL_TRAITS( self, COVERT_NT );
 
-	ReducePointsForFatigue( this, &val );
+	ReducePointsForFatigue( self, &val );
 
 	// personality/disability modifiers
 	FLOAT modifier = 1.0f;
-	if ( DoesMercHaveDisability( this, NERVOUS ) )					modifier -= 0.05f;
+	if ( DoesMercHaveDisability( self, NERVOUS ) )					modifier -= 0.05f;
 
-	if ( DoesMercHavePersonality( this, CHAR_TRAIT_SOCIABLE ) )		modifier += 0.05f;
-	if ( DoesMercHavePersonality( this, CHAR_TRAIT_COWARD ) )		modifier -= 0.05f;
+	if ( DoesMercHavePersonality( self, CHAR_TRAIT_SOCIABLE ) )		modifier += 0.05f;
+	if ( DoesMercHavePersonality( self, CHAR_TRAIT_COWARD ) )		modifier -= 0.05f;
 
 	// personal value in [0; 100]
 	int personalvalue = (FLOAT)(val * modifier) / 10.0f;
 	personalvalue = min( 100, max( 0, personalvalue ) );
 	
-	// if we do this disguised as a soldier, risk will be much higer, as we are under much more scrutiny. This makes up for the increased gain in soldier disguise
+	// if we do this disguised as a soldier, risk will be much higher, as we are under much more scrutiny. This makes up for the increased gain in soldier disguise
 	// less risk if we are asleep, just hiding or forced to hide
-	UINT8 typemultiplier = ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER ) ? 5 : 2;
-	if ( ( this->assignment().current() == CONCEALED ) || this->assignment().isAsleep() || this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
+	UINT8 typemultiplier = ( self->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER ) ? 5 : 2;
+	if ( ( self->assignment().current() == CONCEALED ) || self->assignment().isAsleep() || self->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
 		typemultiplier = 1;
 		
 	// we now take the sector coolness as a measurement of how important the sector is, and thus how intel we gain
 	// correct outliers - value in[0; 100]
-	UINT32 sectorvalue = typemultiplier * min( 20, gCoolnessBySector[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )] );
+	UINT32 sectorvalue = typemultiplier * min( 20, gCoolnessBySector[SECTOR( self->deployment().sectorX(), self->deployment().sectorY() )] );
 	
 	UINT8 totalvalue = sectorvalue * ( 110 - personalvalue ) / 100;
 	totalvalue = min(100, max(0, totalvalue ) );
@@ -20042,17 +20067,19 @@ UINT8		TacticalActor::GetUncoverRisk()
 	return totalvalue;
 }
 
-FLOAT		TacticalActor::GetIntelGain()
+float TacticalActorCovertOps::intelGain(TacticalActor& actor)
 {
-	if ( this->vitals().health() < OKLIFE || ( this->featureFlags().primaryFlags() & SOLDIER_POW ) )
+	auto* const self = &actor;
+
+	if ( self->vitals().health() < OKLIFE || ( self->featureFlags().primaryFlags() & SOLDIER_POW ) )
 		return 0.0f;
 
 	// if not on correct assignments, no gain
-	if ( this->assignment().current() != GATHERINTEL )
+	if ( self->assignment().current() != GATHERINTEL )
 		return 0.0f;
 
 	// if we're asleep, or on a penalty, we accomplish nothing
-	if ( this->assignment().isAsleep() || this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
+	if ( self->assignment().isAsleep() || self->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
 		return 0.0f;
 
 	// the covert trait isn't that important in determining the intel gain. It is much more important in mitigating the risk of exposure, however
@@ -20062,40 +20089,40 @@ FLOAT		TacticalActor::GetIntelGain()
 	// 5% scout trait
 	// 15% covert trait
 	// 20% snitch trait
-	UINT32 val = 5 * EffectiveWisdom( this )
-		+ 10 * EffectiveExpLevel ( this, FALSE ) 
-		+ 50 * NUM_SKILL_TRAITS( this, SCOUTING_NT ) 
-		+ 75 * NUM_SKILL_TRAITS( this, COVERT_NT ) 
-		+ 200 * NUM_SKILL_TRAITS( this, SNITCH_NT );
+	UINT32 val = 5 * EffectiveWisdom( self )
+		+ 10 * EffectiveExpLevel ( self, FALSE )
+		+ 50 * NUM_SKILL_TRAITS( self, SCOUTING_NT )
+		+ 75 * NUM_SKILL_TRAITS( self, COVERT_NT )
+		+ 200 * NUM_SKILL_TRAITS( self, SNITCH_NT );
 
-	ReducePointsForFatigue( this, &val );
+	ReducePointsForFatigue( self, &val );
 
 	// personality/disability modifiers
 	FLOAT modifier = 1.0f;
-	if ( DoesMercHaveDisability( this, FORGETFUL ) )	modifier -= 0.15f;
-	if ( DoesMercHaveDisability( this, PSYCHO ) )		modifier -= 0.05f;
+	if ( DoesMercHaveDisability( self, FORGETFUL ) )	modifier -= 0.15f;
+	if ( DoesMercHaveDisability( self, PSYCHO ) )		modifier -= 0.05f;
 	
-	if ( DoesMercHavePersonality( this, CHAR_TRAIT_SOCIABLE ) )		modifier += 0.10f;
-	if ( DoesMercHavePersonality( this, CHAR_TRAIT_LONER ) )		modifier -= 0.10f;
-	if ( DoesMercHavePersonality( this, CHAR_TRAIT_ASSERTIVE ) )	modifier += 0.05f;
-	if ( DoesMercHavePersonality( this, CHAR_TRAIT_PRIMITIVE ) )	modifier -= 0.10f;
+	if ( DoesMercHavePersonality( self, CHAR_TRAIT_SOCIABLE ) )		modifier += 0.10f;
+	if ( DoesMercHavePersonality( self, CHAR_TRAIT_LONER ) )		modifier -= 0.10f;
+	if ( DoesMercHavePersonality( self, CHAR_TRAIT_ASSERTIVE ) )	modifier += 0.05f;
+	if ( DoesMercHavePersonality( self, CHAR_TRAIT_PRIMITIVE ) )	modifier -= 0.10f;
 		
 	FLOAT personalvalue = (FLOAT)(val * modifier) / 1000.0f;
 
 	// we now take the sector coolness as a measurement of how important the sector is, and thus how intel we gain
 	// correct outliers
-	UINT32 ubLocationModifier = 1 + max(2, min(20, gCoolnessBySector[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )] ) );
+	UINT32 ubLocationModifier = 1 + max(2, min(20, gCoolnessBySector[SECTOR( self->deployment().sectorX(), self->deployment().sectorY() )] ) );
 
 	// in order not to make the differences to great, alter these values - will now be in [0.6; 4.63]
 	FLOAT sectorvalue = log( (FLOAT)ubLocationModifier );
 	sectorvalue *= sectorvalue / 2.0f;
 
-	FLOAT administrationmodifier = GetAdministrationModifier();
+	FLOAT administrationmodifier = self->GetAdministrationModifier();
 
 	FLOAT totalvalue = personalvalue * sectorvalue * administrationmodifier;
 
 	// if we do this disguised as a soldier, we get more info
-	if ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
+	if ( self->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
 		totalvalue *= 2;
 
 	// A most awesome merc in Meduna palace, disguised as a soldier, would have a value of 1.15 * 4.63 * 2 = 10.649 at this point.
@@ -20475,7 +20502,7 @@ BOOLEAN	TacticalActor::InPositionForTurncoatAttempt( SoldierID usID )
 		|| pSoldier->collapseState().tactical()
 		|| ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 		|| !SOLDIER_CLASS_ENEMY( pSoldier->roster().soldierClass() )
-		|| !SeemsLegit( pSoldier->identity().id() ) )
+		|| !TacticalActorCovertOps::seemsLegitimate(*this, pSoldier->identity().id()) )
 		return FALSE;
 
 	// additional checks if we want to know wether we can target a specific location
@@ -21746,10 +21773,10 @@ void TacticalActor::EVENT_SoldierHandcuffPerson( INT32 sGridNo, UINT8 ubDirectio
 			// if we are disguised, there is a chance that he'll uncover us
 			if ( this->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
 			{
-				this->LooseDisguise();
+				TacticalActorCovertOps::loseDisguise(*this);
 
 				if ( gSkillTraitValues.fCOStripIfUncovered )
-					this->Strip();
+					TacticalActorCovertOps::strip(*this);
 														
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_ACTIVITIES], this->GetName() );
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNCOVERED], pSoldier->GetName(), this->GetName()  );
@@ -21808,10 +21835,10 @@ void TacticalActor::EVENT_SoldierApplyItemToPerson( INT32 sGridNo, UINT8 ubDirec
 						// if we are disguised, there is a chance that he'll uncover us
 						if ( this->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
 						{
-							this->LooseDisguise();
+							TacticalActorCovertOps::loseDisguise(*this);
 							
 							if ( gSkillTraitValues.fCOStripIfUncovered )
-								this->Strip();
+								TacticalActorCovertOps::strip(*this);
 														
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_APPLYITEM_STEAL_FAIL], this->GetName(), pSoldier->GetName() );
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNCOVERED], pSoldier->GetName(), this->GetName()  );

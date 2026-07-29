@@ -1,5 +1,6 @@
 	#include "Items.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
 #include "TacticalWorldAdapter.h"
 	#include "Action Items.h"
 	#include "Weapons.h"
@@ -10140,11 +10141,11 @@ BOOLEAN ApplyClothes( TacticalActor * pSoldier, UINT16 usItem, UINT16 usPointsTo
 		}
 
 		// apply covert properties depending on our disguise
-		pSoldier->ApplyCovert( TRUE );
+		TacticalActorCovertOps::applyCovert(*pSoldier, TRUE);
 
 		// to inform the player on whether this will work, test the disguise immediately (but only if we are now disguised in the first place)
 		if ( pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
-			pSoldier->SpySelfTest();
+			TacticalActorCovertOps::runSelfTest(*pSoldier);
 	}
 		
 	return( TRUE );

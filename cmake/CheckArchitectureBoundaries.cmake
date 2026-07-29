@@ -2160,6 +2160,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.h"
   tactical_actor_conditions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.cpp"
   tactical_actor_conditions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
+  tactical_actor_covert_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
   tactical_build_contents)
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.h"
@@ -2413,6 +2415,68 @@ string(FIND "${tactical_build_contents}"
 if(tactical_actor_conditions_build_entry EQUAL -1)
   message(FATAL_ERROR
     "Tactical actor conditions must remain a compiled tactical domain boundary")
+endif()
+
+foreach(retired_covert_method IN ITEMS
+  "LooksLikeACivilian"
+  "LooksLikeASoldier"
+  "GetUniformType"
+  "EquipmentTooGood"
+  "SeemsLegit"
+  "RecognizeAsCombatant"
+  "LooseDisguise"
+  "Disguise"
+  "ApplyCovert"
+  "Strip"
+  "SpySelfTest"
+  "GetUncoverRisk"
+  "GetIntelGain")
+  string(FIND "${tactical_actor_contents}"
+    "${retired_covert_method}("
+    retired_covert_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActor::${retired_covert_method}"
+    retired_covert_definition)
+  if(NOT retired_covert_declaration EQUAL -1 OR
+     NOT retired_covert_definition EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalActor regained covert-operations facade '${retired_covert_method}'")
+  endif()
+endforeach()
+
+foreach(required_covert_operation IN ITEMS
+  "looksLikeCivilian"
+  "looksLikeSoldier"
+  "uniformType"
+  "equipmentTooGood"
+  "seemsLegitimate"
+  "recognizesCombatant"
+  "loseDisguise"
+  "disguise"
+  "applyCovert"
+  "strip"
+  "runSelfTest"
+  "uncoverRisk"
+  "intelGain")
+  string(FIND "${tactical_actor_covert_header_contents}"
+    "${required_covert_operation}("
+    covert_operation_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActorCovertOps::${required_covert_operation}("
+    covert_operation_definition)
+  if(covert_operation_declaration EQUAL -1 OR
+     covert_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor covert operation '${required_covert_operation}' lost its domain declaration or definition")
+  endif()
+endforeach()
+
+string(FIND "${headless_test_contents}"
+  "TacticalActorCovertOps::recognizesCombatant"
+  covert_operation_coverage)
+if(covert_operation_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor covert operations lost their data-free headless coverage")
 endif()
 
 foreach(required_persistence_fragment IN ITEMS

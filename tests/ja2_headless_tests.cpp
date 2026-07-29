@@ -116,6 +116,7 @@
 #include "Soldier Control.h"
 #include "Soldier Profile.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
 #include "Plan.h"
@@ -7917,6 +7918,13 @@ int main( int, char** )
 		gGameExternalOptions.ubMaxSuppressionShock = previousMaximumShock;
 		CHECK( quarterShock == 25 && disabledShock == 0,
 		       "tactical actor conditions preserve suppression percentage semantics and the disabled limit" );
+	}
+
+	{
+		TacticalActor covertActor;
+		CHECK( TacticalActorCovertOps::looksLikeSoldier(covertActor) &&
+		       TacticalActorCovertOps::recognizesCombatant(covertActor, NOBODY),
+		       "tactical actor covert rules execute through the domain API without record methods" );
 	}
 
 	{
