@@ -41,6 +41,7 @@ set(Ja2Src
 "${CMAKE_CURRENT_SOURCE_DIR}/Screens.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/SoldierRepository.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/StrategicGroupHost.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/StrategicSquadHost.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Sys Globals.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalCommandHost.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalEntityHost.cpp"

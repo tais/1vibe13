@@ -1007,7 +1007,7 @@ void StartInterrupt( void )
 				{
 					for ( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 					{
-						pTempSoldier = Squad[ iSquad ][ iCounter ];
+						pTempSoldier = ResolveSquadMember( iSquad, iCounter );
 						if ( pTempSoldier && pTempSoldier->roster().active() && pTempSoldier->roster().inSector() && !pTempSoldier->turnState().moved() )
 						{
 							INT16 ubMinAPcost = MinAPsToAttack(pSoldier,pInterruptedSoldier->position().gridNo(),ADDTURNCOST, 0);
@@ -1036,7 +1036,7 @@ void StartInterrupt( void )
 			{
 				for ( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 				{
-					pTempSoldier = Squad[ iSquad ][ iCounter ];
+					pTempSoldier = ResolveSquadMember( iSquad, iCounter );
 					if ( pTempSoldier && pTempSoldier->roster().active() && pTempSoldier->roster().inSector() && !pTempSoldier->turnState().moved() )
 					{
 						// then this guy got an interrupt...

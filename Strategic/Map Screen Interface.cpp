@@ -3358,7 +3358,7 @@ void SelectSquadForMovement( INT32 iSquadNumber, BOOLEAN fCheckCanMove = TRUE )
 			// try to select everyone in squad
 			for( iCount = 0; iCount < NUMBER_OF_SOLDIERS_PER_SQUAD; iCount++ )
 			{
-				pSoldier = Squad[ iSquadNumber ][ iCount ];
+				pSoldier = ResolveSquadMember( iSquadNumber, iCount );
 
 				if ( pSoldier && pSoldier->roster().active() )
 				{
@@ -3404,7 +3404,7 @@ void DeselectSquadForMovement( INT32 iSquadNumber )
 			// now deselect everyone in squad
 			for( iCount = 0; iCount < NUMBER_OF_SOLDIERS_PER_SQUAD; iCount++ )
 			{
-				pSoldier = Squad[ iSquadNumber ][ iCount ];
+				pSoldier = ResolveSquadMember( iSquadNumber, iCount );
 
 				if ( pSoldier && pSoldier->roster().active() )
 				{
@@ -5219,13 +5219,17 @@ void HandleSettingTheSelectedListOfMercs( void )
 		INT8 pbErrorNumber = -1;
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 		INT8 bSquadValue = pSoldier->assignment().current();
-		if (bSquadValue == VEHICLE)
-		{
-			for (INT8 bCounter = 0; bCounter < NUMBER_OF_SQUADS; ++bCounter)
+			if (bSquadValue == VEHICLE)
 			{
-				if (Squad[bCounter][0] != NULL && IsVehicle(Squad[bCounter][0]) &&
-					Squad[bCounter][0]->vehicleState().tacticalVehicleId() == pSoldier->deployment().vehicleId())
+				for (INT8 bCounter = 0; bCounter < NUMBER_OF_SQUADS; ++bCounter)
 				{
+					SOLDIERTYPE* firstSquadMember =
+						ResolveSquadMember( bCounter, 0 );
+					if (firstSquadMember != NULL &&
+						IsVehicle(firstSquadMember) &&
+						firstSquadMember->vehicleState().tacticalVehicleId() ==
+							pSoldier->deployment().vehicleId())
+					{
 					bSquadValue = bCounter;
 					break;
 				}
@@ -5243,10 +5247,14 @@ void HandleSettingTheSelectedListOfMercs( void )
 		}
 
 		// find number of characters in particular squad.
-		for (INT8 bCounter = 0; bCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; ++bCounter)
-		{
-			// valid slot?
-			if (Squad[bSquadValue][bCounter] != NULL && !CanCharacterMoveInStrategic(Squad[bSquadValue][bCounter], &pbErrorNumber))
+			for (INT8 bCounter = 0; bCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; ++bCounter)
+			{
+				SOLDIERTYPE* squadMember =
+					ResolveSquadMember( bSquadValue, bCounter );
+				// valid slot?
+				if (squadMember != NULL &&
+					!CanCharacterMoveInStrategic(
+						squadMember, &pbErrorNumber))
 			{
 				if (pbErrorNumber != -1)
 				{
@@ -5358,8 +5366,10 @@ INT8 FindSquadThatSoldierCanJoin( SOLDIERTYPE *pSoldier )
 	// run through the list of squads
 	for( bCounter = 0; bCounter < NUMBER_OF_SQUADS; bCounter++ )
 	{
+		SOLDIERTYPE* firstSquadMember =
+			ResolveSquadMember( bCounter, 0 );
 		// anv: don't automatically put people in vehicle squads
-		if (Squad[bCounter][0] == NULL || !IsVehicle(Squad[bCounter][0]))
+		if (firstSquadMember == NULL || !IsVehicle(firstSquadMember))
 		{
 			// is this squad in this sector
 			if (IsThisSquadInThisSector(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), bCounter))

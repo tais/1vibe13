@@ -9,6 +9,7 @@
 #include "Animation Control.h"
 #include "SoldierRepository.h"
 #include "Soldier Control.h"
+#include "StrategicSquadHost.h"
 
 namespace
 {
@@ -236,6 +237,7 @@ bool SwapJa2TacticalEntitySlots(
 	// to preserve that behavior without retaining stale incarnations.
 	RebindRosterAfterRecordSwap(ActiveActorRoster());
 	RebindRosterAfterRecordSwap(AwayActorRoster());
+	RebindJa2StrategicSquadRostersAfterRecordSwap();
 	return true;
 }
 

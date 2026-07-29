@@ -878,6 +878,36 @@ int main()
 		!entityRoster.insert(TacticalEntityId{5, 17}),
 		"tactical entity rosters shrink trailing vacancies and reject capacity overflow");
 	entityRoster.clear();
+	check(entityRoster.assign(2, TacticalEntityId{4, 16}) &&
+		entityRoster.assign(0, TacticalEntityId{3, 15}) &&
+		entityRoster.size() == 2 &&
+		entityRoster.highWaterMark() == 3 &&
+		!entityRoster.assign(1, TacticalEntityId{3, 15}) &&
+		!entityRoster.assign(3, TacticalEntityId{5, 17}) &&
+		entityRoster.eraseAt(0) &&
+		!entityRoster.eraseAt(0) &&
+		entityRoster.size() == 1 &&
+		entityRoster.highWaterMark() == 3,
+		"tactical entity rosters reconstruct exact slots and erase membership by slot");
+	check(entityRoster.assign(0, TacticalEntityId{7, 18}) &&
+		entityRoster.assign(1, TacticalEntityId{2, 19}),
+		"tactical entity roster fixtures can repopulate sparse slots");
+	entityRoster.sortByIdentity();
+	check(entityRoster.size() == 3 &&
+		entityRoster.highWaterMark() == 3 &&
+		entityRoster.actor(0) == (TacticalEntityId{2, 19}) &&
+		entityRoster.actor(1) == (TacticalEntityId{4, 16}) &&
+		entityRoster.actor(2) == (TacticalEntityId{7, 18}),
+		"tactical entity rosters compact and sort exact identities deterministically");
+	check(entityRoster.eraseAt(1), "tactical entity roster creates a compaction vacancy");
+	entityRoster.compact();
+	check(entityRoster.size() == 2 &&
+		entityRoster.highWaterMark() == 2 &&
+		entityRoster.actor(0) == (TacticalEntityId{2, 19}) &&
+		entityRoster.actor(1) == (TacticalEntityId{7, 18}) &&
+		!entityRoster.actor(2).valid(),
+		"tactical entity roster compaction preserves relative membership order");
+	entityRoster.clear();
 	check(entityRoster.empty() && entityRoster.size() == 0 &&
 		entityRoster.highWaterMark() == 0 &&
 		!entityRoster.actor(0).valid(),

@@ -152,6 +152,22 @@ foreach(required_roster_build_fragment IN ITEMS
   endif()
 endforeach()
 
+file(READ
+  "${SOURCE_ROOT}/Engine/Adapters/JA2/TacticalEntityRoster.h"
+  tactical_entity_roster_header_contents)
+foreach(required_roster_operation IN ITEMS
+    "assign(Slot slot"
+    "eraseAt(Slot slot"
+    "compact()"
+    "sortByIdentity()")
+  string(FIND "${tactical_entity_roster_header_contents}"
+    "${required_roster_operation}" required_roster_operation_position)
+  if(required_roster_operation_position EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalEntityRoster lost fixed-layout operation '${required_roster_operation}'")
+  endif()
+endforeach()
+
 # Application package layers reach process-lifetime work through separate host
 # ports, not one another's C++ interface. Campaigns may require rules through
 # their manifest; a source include would recreate compile-time identity behind
@@ -13045,7 +13061,8 @@ foreach(required_actor_projection_fragment IN ITEMS
     "TacticalEntityRoster& ActiveActorRoster()"
     "TacticalEntityRoster& AwayActorRoster()"
     "RebindRosterAfterRecordSwap(ActiveActorRoster())"
-    "RebindRosterAfterRecordSwap(AwayActorRoster())")
+    "RebindRosterAfterRecordSwap(AwayActorRoster())"
+    "RebindJa2StrategicSquadRostersAfterRecordSwap()")
   string(FIND "${tactical_entity_host_contents}"
     "${required_actor_projection_fragment}" required_actor_projection_position)
   if(required_actor_projection_position EQUAL -1)
@@ -13053,6 +13070,63 @@ foreach(required_actor_projection_fragment IN ITEMS
       "TacticalEntityHost no longer commits live actor state; missing '${required_actor_projection_fragment}'")
   endif()
 endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/CMakeLists.txt"
+  ja2_application_build_contents)
+string(FIND "${ja2_application_build_contents}"
+  "StrategicSquadHost.cpp" strategic_squad_host_build_position)
+if(strategic_squad_host_build_position EQUAL -1)
+  message(FATAL_ERROR
+    "JA2 application no longer builds StrategicSquadHost.cpp")
+endif()
+
+file(READ "${SOURCE_ROOT}/Ja2/StrategicSquadHost.cpp"
+  strategic_squad_host_contents)
+foreach(required_strategic_squad_host_fragment IN ITEMS
+    "TacticalEntityRoster(kJa2StrategicSquadCapacity)"
+    "ResetJa2StrategicSquadRosters"
+    "ResolveJa2StrategicSquadActor"
+    "AssignJa2StrategicSquadActor"
+    "ActorBelongsToAnotherSquad"
+    "RebindJa2StrategicSquadRostersAfterRecordSwap")
+  string(FIND "${strategic_squad_host_contents}"
+    "${required_strategic_squad_host_fragment}"
+    required_strategic_squad_host_position)
+  if(required_strategic_squad_host_position EQUAL -1)
+    message(FATAL_ERROR
+      "StrategicSquadHost lost exact-ID ownership fragment '${required_strategic_squad_host_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Squads.cpp"
+  strategic_squad_compatibility_contents)
+foreach(required_strategic_squad_compatibility_fragment IN ITEMS
+    "legacy squad save record layout must remain unchanged"
+    "ResetJa2StrategicSquadRosters();"
+    "ResolveJa2StrategicSquadActor("
+    "GetJa2StrategicSquadActor("
+    "AssignJa2StrategicSquadActor("
+    "GetJa2TacticalEntityId("
+    "CompactJa2StrategicSquad("
+    "SortJa2StrategicSquadByIdentity(")
+  string(FIND "${strategic_squad_compatibility_contents}"
+    "${required_strategic_squad_compatibility_fragment}"
+    required_strategic_squad_compatibility_position)
+  if(required_strategic_squad_compatibility_position EQUAL -1)
+    message(FATAL_ERROR
+      "Squads.cpp bypasses pointer-free strategic membership; missing '${required_strategic_squad_compatibility_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
+  soldier_lifecycle_contents)
+string(FIND "${soldier_lifecycle_contents}"
+  "RemoveJa2StrategicSquadActor(actor)"
+  strategic_squad_delete_cleanup)
+if(strategic_squad_delete_cleanup EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier deletion no longer removes exact strategic squad membership")
+endif()
 
 # The application composition root exposes one repository object to JA2
 # systems. Its fixed-capacity backing records and slot table are private to the
@@ -13221,6 +13295,14 @@ foreach(source_file IN LISTS soldier_storage_sources)
   if(retired_tactical_actor_roster_api)
     message(FATAL_ERROR
       "Retired raw tactical actor roster API returned in ${source_file}; use TacticalEntityHost exact-ID roster gateways")
+  endif()
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])Squad[ \t\r\n]*\\[[^]]+\\][ \t\r\n]*\\["
+    retired_strategic_squad_pointer_matrix
+    "${contents}")
+  if(retired_strategic_squad_pointer_matrix)
+    message(FATAL_ERROR
+      "Retired raw strategic Squad pointer matrix returned in ${source_file}; use ResolveSquadMember or StrategicSquadHost exact-ID gateways")
   endif()
   string(REGEX MATCH
     "(p(Soldier|TeamSoldier|TSoldier|TargetSoldier|Merc)|get_npc[ \t\r\n]*\\([ \t\r\n]*\\)|GetSMCurrentMerc[ \t\r\n]*\\([ \t\r\n]*\\)|GetItemPointerSoldier[ \t\r\n]*\\([ \t\r\n]*\\)|MercSlots[ \t\r\n]*\\[[^]]+\\]|AwaySlots[ \t\r\n]*\\[[^]]+\\])[ \t\r\n]*->[ \t\r\n]*(ubID|name|ubBodyType|ubProfile|uiUniqueSoldierIdValue|usSoldierProfile|usIndividualMilitiaID|bActive|bTeam|bInSector|bSide|ubSoldierClass|ubCivilianGroup)([^A-Za-z0-9_]|$)"

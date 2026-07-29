@@ -19130,9 +19130,11 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 							pSoldier->assignment().previous() = pSoldier->assignment().current();
 
 							// is the squad between sectors
-							if( Squad[ bAssignment ][ 0 ] )
+							SOLDIERTYPE* firstSquadMember =
+								ResolveSquadMember( bAssignment, 0 );
+							if( firstSquadMember )
 							{
-								if( Squad[ bAssignment ][ 0 ]->deployment().isBetweenSectors() )
+								if( firstSquadMember->deployment().isBetweenSectors() )
 								{
 									// between sectors, remove from old mvt group
 									if ( pSoldier->assignment().previous() >= ON_DUTY )

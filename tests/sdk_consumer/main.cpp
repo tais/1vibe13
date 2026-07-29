@@ -660,7 +660,14 @@ int main()
 		externalRoster.actor(0) != actorId ||
 		!externalRoster.erase(actorId) ||
 		externalRoster.highWaterMark() != 2 ||
-		externalRoster.insert(TacticalEntityId{9, 4}) != actorRosterSlot)
+		externalRoster.insert(TacticalEntityId{9, 4}) != actorRosterSlot ||
+		!externalRoster.eraseAt(1) ||
+		!externalRoster.assign(1, earlierId))
+		return 63;
+	externalRoster.compact();
+	externalRoster.sortByIdentity();
+	if (externalRoster.actor(0) != earlierId ||
+		externalRoster.actor(1) != (TacticalEntityId{9, 4}))
 		return 63;
 
 	TacticalSimulationSnapshot externalSimulationState;

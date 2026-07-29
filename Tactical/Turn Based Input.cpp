@@ -6396,7 +6396,12 @@ void ChangeCurrentSquad( INT32 iSquad )
 		{
 			for( cnt2 = 0; cnt2 < NUMBER_OF_SOLDIERS_PER_SQUAD; cnt2++ )
 			{
-				if ( Squad[ cnt ][ cnt2 ] != NULL && Squad[ cnt ][ cnt2 ]->roster().inSector() && OK_INTERRUPT_MERC( Squad[ cnt ][ cnt2 ] ) && OK_CONTROLLABLE_MERC( Squad[ cnt ][ cnt2 ] ) )
+				SOLDIERTYPE* squadMember =
+					ResolveSquadMember( cnt, cnt2 );
+				if ( squadMember != NULL &&
+					squadMember->roster().inSector() &&
+					OK_INTERRUPT_MERC( squadMember ) &&
+					OK_CONTROLLABLE_MERC( squadMember ) )
 				{
 					cnt3++;
 					break;

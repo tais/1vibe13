@@ -799,20 +799,22 @@ the engine must not contain SDL types in its public domain model.
   incarnation counter has been deleted; pre-composition allocations transfer
   the fallback directory's sequence directly when `EngineRuntime` is bound.
 - `TacticalEntityRoster` provides fixed-capacity, pointer-free ordered
-  membership above that directory. The JA2 tactical host owns separate active
-  and away scheduler rosters because tactical scheduling is neither the set of
-  every live entity nor strategic squad membership. Inserts reuse the lowest
-  vacancy without allocating, atomically retire membership in the opposite
-  roster, readers resolve one exact slot/incarnation at the point of use, and
-  stale entries fail closed. Whole-record portrait swaps
-  rebuild directory identities and rebind both rosters by canonical repository
-  slot in the same host operation, preserving the established fixed-address
-  behavior without retaining `SOLDIERTYPE*`. Deletion captures the identity
-  before releasing it and can then erase that exact roster entry after the
-  directory rejects resolution. The former `MercSlots`, `AwaySlots`, and
-  mutable high-water globals are deleted and architecture checks prevent their
-  return. These rosters are preallocated runtime scheduling state only: squad
-  layout, soldier/map content, saves, Lua, and network formats are unchanged.
+  membership above that directory. Inserts and exact-slot reconstruction reuse
+  preallocated storage; erasure, stable compaction, and identity sorting also
+  perform no hot-path allocation. The JA2 tactical host owns separate active
+  and away scheduler rosters, while `StrategicSquadHost` owns the 40 bounded
+  strategic squad rosters. Readers resolve one exact slot/incarnation only at
+  the point of use, and stale entries fail closed. Whole-record portrait swaps
+  rebuild directory identities and rebind every scheduler and squad roster by
+  canonical repository slot in the same operation, preserving the established
+  fixed-address behavior without retaining `SOLDIERTYPE*`. Deletion captures
+  identity before release and removes that exact actor even after directory
+  resolution rejects it. The former `MercSlots`, `AwaySlots`, mutable
+  high-water globals, and global `Squad[][]` pointer matrix are deleted, and
+  architecture checks prevent their return. Squad save/load still emits and
+  consumes the established 40-by-10 legacy soldier-ID block, reconstructing
+  exact runtime identities after soldiers load; soldier/map content, saves,
+  Lua, and network formats are unchanged.
 - `Ja2SoldierRepository` is the application-owned live-storage seam paired with
   that directory. `GameContext` owns the repository, and its fixed record
   allocation and slot table are private implementation storage in
