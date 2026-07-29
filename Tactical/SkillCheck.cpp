@@ -47,9 +47,9 @@ INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer )
 
 	if (AM_A_ROBOT(pSoldier))
 	{
-		if (Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotStrBonus > 0)
+		if (Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotStrBonus > 0)
 		{
-			iEffStrength += Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotStrBonus;
+			iEffStrength += Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotStrBonus;
 		}
 	}
 
@@ -98,9 +98,9 @@ INT16 EffectiveAgility( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 
 	if (AM_A_ROBOT(pSoldier))
 	{
-		if (Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotAgiBonus > 0)
+		if (Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotAgiBonus > 0)
 		{
-			iEffAgility += Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotAgiBonus;
+			iEffAgility += Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotAgiBonus;
 		}
 	}
 
@@ -280,9 +280,9 @@ INT16 EffectiveDexterity( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 
 	if (AM_A_ROBOT(pSoldier))
 	{
-		if (Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotDexBonus > 0)
+		if (Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotDexBonus > 0)
 		{
-			iEffDexterity += Item[pSoldier->inv[ROBOT_CHASSIS_SLOT].usItem].bRobotDexBonus;
+			iEffDexterity += Item[pSoldier->inventory()[ROBOT_CHASSIS_SLOT].usItem].bRobotDexBonus;
 		}
 	}
 
@@ -406,12 +406,12 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 			else
 			{
 				//JMich_SkillsModifiers: Modifying the skill by the bonus from the lockpick, then reducing due to status
-				iSkill += Item[pSoldier->inv[bSlot].usItem].LockPickModifier;
+				iSkill += Item[pSoldier->inventory()[bSlot].usItem].LockPickModifier;
 			}
 			//JMich_SkillsModifiers: If skill goes negative due to crappy lockpicks, the status of them doesn't matter.
 			if (iSkill > 0)
 			{
-				iSkill = (iSkill * pSoldier->inv[bSlot][0]->data.objectStatus) / 100;
+				iSkill = (iSkill * pSoldier->inventory()[bSlot][0]->data.objectStatus) / 100;
 			}
 			break;
 		case ATTACHING_DETONATOR_CHECK:
@@ -535,7 +535,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 			bSlot = FindDisarmKit( pSoldier);
 			if (bSlot != NO_SLOT)
 			{
-				iSkill += Item[pSoldier->inv[bSlot].usItem].DisarmModifier * pSoldier->inv[bSlot][0]->data.objectStatus / 100;
+				iSkill += Item[pSoldier->inventory()[bSlot].usItem].DisarmModifier * pSoldier->inventory()[bSlot][0]->data.objectStatus / 100;
 			}
 
 			// SANDRO - STOMP traits - Demolitions trait removing traps bonus
@@ -585,7 +585,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 			bSlot = FindDisarmKit( pSoldier);
 			if (bSlot != NO_SLOT)
 			{
-				iSkill += Item[pSoldier->inv[bSlot].usItem].DisarmModifier * pSoldier->inv[bSlot][0]->data.objectStatus / 100;
+				iSkill += Item[pSoldier->inventory()[bSlot].usItem].DisarmModifier * pSoldier->inventory()[bSlot][0]->data.objectStatus / 100;
 			}
 			// penalty based on poor wisdom
 			iSkill -= (100 - EffectiveWisdom( pSoldier ) ) / 5;
@@ -646,7 +646,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 			bSlot = FindDisarmKit( pSoldier);
 			if (bSlot != NO_SLOT)
 			{
-				iSkill += Item[pSoldier->inv[bSlot].usItem].DisarmModifier * pSoldier->inv[bSlot][0]->data.objectStatus / 100;
+				iSkill += Item[pSoldier->inventory()[bSlot].usItem].DisarmModifier * pSoldier->inventory()[bSlot][0]->data.objectStatus / 100;
 			}
 			break;
 
@@ -656,7 +656,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 			bSlot = FindUsableCrowbar( pSoldier );
 			if (bSlot != NO_SLOT)
 			{
-				iSkill = EffectiveStrength( pSoldier, FALSE ) + Item[pSoldier->inv[bSlot].usItem].CrowbarModifier;
+				iSkill = EffectiveStrength( pSoldier, FALSE ) + Item[pSoldier->inventory()[bSlot].usItem].CrowbarModifier;
 			}
 			else //how are we trying to force with a crowbar, without having one??
 			{

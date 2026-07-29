@@ -361,30 +361,6 @@ private:
 	UINT32 secondaryFlags_ = 0;
 };
 
-// Canonical persistent inventory-adjacent state. Key access, new-item refresh,
-// and load-bearing-equipment zipper/drop-pack flags share the inventory
-// lifecycle without exposing another generic soldier flag bucket.
-class SoldierInventoryStateComponent
-{
-public:
-	INT8& keyAccess() noexcept { return keyAccess_; }
-	const INT8& keyAccess() const noexcept { return keyAccess_; }
-	BOOLEAN& checkForNewItems() noexcept { return checkForNewItems_; }
-	const BOOLEAN& checkForNewItems() const noexcept { return checkForNewItems_; }
-	BOOLEAN& zipperFlag() noexcept { return zipperFlag_; }
-	const BOOLEAN& zipperFlag() const noexcept { return zipperFlag_; }
-	BOOLEAN& dropPackFlag() noexcept { return dropPackFlag_; }
-	const BOOLEAN& dropPackFlag() const noexcept { return dropPackFlag_; }
-
-	void reset() noexcept;
-
-private:
-	INT8 keyAccess_ = 0;
-	BOOLEAN checkForNewItems_ = FALSE;
-	BOOLEAN zipperFlag_ = FALSE;
-	BOOLEAN dropPackFlag_ = FALSE;
-};
-
 // Canonical key-ring storage. Only eligible soldiers activate a ring, retaining
 // the historical null/non-null distinction, while the fixed-capacity slots are
 // inline so whole-soldier copies cannot alias one heap allocation.

@@ -270,7 +270,7 @@ void InternalIgniteExplosion( SoldierID ubOwner, INT16 sX, INT16 sY, INT16 sZ, I
 	{
 		OBJECTTYPE* pUsedGun =
 			owner->GetUsedWeapon(
-				&( owner->inv[owner->attackSelection().hand()] ) );
+				&( owner->inventory()[owner->attackSelection().hand()] ) );
 
 		ammotype = (*pUsedGun)[0]->data.gun.ubGunAmmoType;
 
@@ -2033,25 +2033,25 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 		bPosOfMask = FindGasMask(pSoldier);
 		if(!DoesSoldierWearGasMask(pSoldier))//dnl ch40 200909
 			bPosOfMask = NO_SLOT;
-		if (	bPosOfMask == NO_SLOT || pSoldier->inv[ bPosOfMask ][0]->data.objectStatus < USABLE )
+		if (	bPosOfMask == NO_SLOT || pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus < USABLE )
 		{
 			bPosOfMask = NO_SLOT;
 		}
-		//if ( pSoldier->inv[ HEAD1POS ].usItem == GASMASK && pSoldier->inv[ HEAD1POS ][0]->data.objectStatus >= USABLE )
+		//if ( pSoldier->inventory()[ HEAD1POS ].usItem == GASMASK && pSoldier->inventory()[ HEAD1POS ][0]->data.objectStatus >= USABLE )
 		//{
 		// bPosOfMask = HEAD1POS;
 		//}
-		//else if ( pSoldier->inv[ HEAD2POS ].usItem == GASMASK && pSoldier->inv[ HEAD2POS ][0]->data.objectStatus >= USABLE )
+		//else if ( pSoldier->inventory()[ HEAD2POS ].usItem == GASMASK && pSoldier->inventory()[ HEAD2POS ][0]->data.objectStatus >= USABLE )
 		//{
 		// bPosOfMask = HEAD2POS;
 		//}
 
 		if ( bPosOfMask != NO_SLOT	)
 		{
-			if ( pSoldier->inv[ bPosOfMask ][0]->data.objectStatus < GASMASK_MIN_STATUS )
+			if ( pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus < GASMASK_MIN_STATUS )
 			{
 				// GAS MASK reduces breath loss by its work% (it leaks if not at least 70%)
-				sBreathAmt = ( sBreathAmt * ( 100 - pSoldier->inv[ bPosOfMask ][0]->data.objectStatus ) ) / 100;
+				sBreathAmt = ( sBreathAmt * ( 100 - pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus ) ) / 100;
 				if ( sBreathAmt > 500 )
 				{
 					// if at least 500 of breath damage got through
@@ -2065,14 +2065,14 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 
 					if ( sWoundAmt > 1 )
 					{
-						pSoldier->inv[ bPosOfMask ][0]->data.objectStatus =
-							pSoldier->inv[ bPosOfMask ][0]->data.objectStatus - (INT8) Random( 4 );
-						sWoundAmt = ( sWoundAmt * ( 100 -	pSoldier->inv[ bPosOfMask ][0]->data.objectStatus ) ) / 100;
+						pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus =
+							pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus - (INT8) Random( 4 );
+						sWoundAmt = ( sWoundAmt * ( 100 -	pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus ) ) / 100;
 					}
 					else if ( sWoundAmt == 1 )
 					{
-						pSoldier->inv[ bPosOfMask ][0]->data.objectStatus =
-							pSoldier->inv[ bPosOfMask ][0]->data.objectStatus - (INT8) Random( 2 );
+						pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus =
+							pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus - (INT8) Random( 2 );
 					}
 				}
 			}
@@ -2083,14 +2083,14 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 				{
 					if ( sWoundAmt == 1 )
 					{
-						pSoldier->inv[ bPosOfMask ][0]->data.objectStatus =
-							pSoldier->inv[ bPosOfMask ][0]->data.objectStatus - (INT8) Random( 2 );
+						pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus =
+							pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus - (INT8) Random( 2 );
 					}
 					else
 					{
 						// use up gas mask
-						pSoldier->inv[ bPosOfMask ][0]->data.objectStatus =
-							pSoldier->inv[ bPosOfMask ][0]->data.objectStatus - (INT8) Random( 4 );
+						pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus =
+							pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus - (INT8) Random( 4 );
 					}
 				}
 				sWoundAmt = 0;
@@ -2609,21 +2609,21 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 			}
 
 
-			if ( pSoldier->inv[ HEAD1POS ].usItem == GASMASK && pSoldier->inv[ HEAD1POS ][0]->data.objectStatus >= USABLE )
+			if ( pSoldier->inventory()[ HEAD1POS ].usItem == GASMASK && pSoldier->inventory()[ HEAD1POS ][0]->data.objectStatus >= USABLE )
 			{
 			bPosOfMask = HEAD1POS;
 			}
-			else if ( pSoldier->inv[ HEAD2POS ].usItem == GASMASK && pSoldier->inv[ HEAD2POS ][0]->data.objectStatus >= USABLE )
+			else if ( pSoldier->inventory()[ HEAD2POS ].usItem == GASMASK && pSoldier->inventory()[ HEAD2POS ][0]->data.objectStatus >= USABLE )
 			{
 			bPosOfMask = HEAD2POS;
 			}
 
 			if ( bPosOfMask != NO_SLOT	)
 			{
-			if ( pSoldier->inv[ bPosOfMask ][0]->data.objectStatus < GASMASK_MIN_STATUS )
+			if ( pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus < GASMASK_MIN_STATUS )
 			{
 			// GAS MASK reduces breath loss by its work% (it leaks if not at least 70%)
-			sBreathAmt = ( sBreathAmt * ( 100 - pSoldier->inv[ bPosOfMask ][0]->data.objectStatus ) ) / 100;
+			sBreathAmt = ( sBreathAmt * ( 100 - pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus ) ) / 100;
 			if ( sBreathAmt > 500 )
 			{
 			// if at least 500 of breath damage got through
@@ -2634,12 +2634,12 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 
 			if ( sWoundAmt > 1 )
 			{
-			pSoldier->inv[ bPosOfMask ][0]->data.objectStatus -= (INT8) Random( 4 );
-			sWoundAmt = ( sWoundAmt * ( 100 -	pSoldier->inv[ bPosOfMask ][0]->data.objectStatus ) ) / 100;
+			pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus -= (INT8) Random( 4 );
+			sWoundAmt = ( sWoundAmt * ( 100 -	pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus ) ) / 100;
 			}
 			else if ( sWoundAmt == 1 )
 			{
-			pSoldier->inv[ bPosOfMask ][0]->data.objectStatus -= (INT8) Random( 2 );
+			pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus -= (INT8) Random( 2 );
 			}
 			}
 			else
@@ -2649,12 +2649,12 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 			{
 			if ( sWoundAmt == 1 )
 			{
-			pSoldier->inv[ bPosOfMask ][0]->data.objectStatus -= (INT8) Random( 2 );
+			pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus -= (INT8) Random( 2 );
 			}
 			else
 			{
 			// use up gas mask
-			pSoldier->inv[ bPosOfMask ][0]->data.objectStatus -= (INT8) Random( 4 );
+			pSoldier->inventory()[ bPosOfMask ][0]->data.objectStatus -= (INT8) Random( 4 );
 			}
 			}
 			sWoundAmt = 0;
@@ -4335,14 +4335,14 @@ void HandleExplosionWarningAnimations( )
 			{
 				if ( pSoldier->roster().inSector() && pSoldier->roster().active() && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 				{
-					INT8 invsize = (INT8)pSoldier->inv.size( );								// remember inventorysize, so we don't call size() repeatedly
+					INT8 invsize = (INT8)pSoldier->inventory().size( );								// remember inventorysize, so we don't call size() repeatedly
 
 					for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )							// ... for all items in our inventory ...
 					{
 						// ... if Item is a bomb ...
-						if ( pSoldier->inv[bLoop].exists( ) && (Item[pSoldier->inv[bLoop].usItem].usItemClass & (IC_BOMB | IC_GRENADE)) )
+						if ( pSoldier->inventory()[bLoop].exists( ) && (Item[pSoldier->inventory()[bLoop].usItem].usItemClass & (IC_BOMB | IC_GRENADE)) )
 						{
-							OBJECTTYPE * pObj = &(pSoldier->inv[bLoop]);					// ... get pointer for this item ...
+							OBJECTTYPE * pObj = &(pSoldier->inventory()[bLoop]);					// ... get pointer for this item ...
 
 							if ( (*pObj)[0]->data.misc.bDetonatorType == BOMB_TIMED && (*pObj)[0]->data.misc.bDelay )
 							{
@@ -4614,14 +4614,14 @@ void DecayBombTimers( void )
 		{
 			if ( pSoldier->roster().inSector() && pSoldier->roster().active() )
 			{
-				INT8 invsize = (INT8)pSoldier->inv.size();								// remember inventorysize, so we don't call size() repeatedly
+				INT8 invsize = (INT8)pSoldier->inventory().size();								// remember inventorysize, so we don't call size() repeatedly
 							  
 				for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)							// ... for all items in our inventory ...
 			    {
 					// ... if Item is a bomb ...
-					if (pSoldier->inv[bLoop].exists() == true && ( Item[pSoldier->inv[bLoop].usItem].usItemClass & (IC_BOMB|IC_GRENADE) ) )
+					if (pSoldier->inventory()[bLoop].exists() == true && ( Item[pSoldier->inventory()[bLoop].usItem].usItemClass & (IC_BOMB|IC_GRENADE) ) )
 					{
-						OBJECTTYPE * pObj = &(pSoldier->inv[bLoop]);					// ... get pointer for this item ...
+						OBJECTTYPE * pObj = &(pSoldier->inventory()[bLoop]);					// ... get pointer for this item ...
 
 						if ( (*pObj)[0]->data.misc.bDetonatorType == BOMB_TIMED )
 						{
@@ -4785,14 +4785,14 @@ void SetOffBombsByFrequency( SoldierID ubID, INT8 bFrequency )
 		{
 			if ( pSoldier->roster().inSector() && pSoldier->roster().active() )
 			{
-				INT8 invsize = (INT8)pSoldier->inv.size();								// remember inventorysize, so we don't call size() repeatedly
+				INT8 invsize = (INT8)pSoldier->inventory().size();								// remember inventorysize, so we don't call size() repeatedly
 							  
 				for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)							// ... for all items in our inventory ...
 			    {
 					// ... if Item is a bomb ...
-					if (pSoldier->inv[bLoop].exists() == true && ( Item[pSoldier->inv[bLoop].usItem].usItemClass & (IC_BOMB) ) )
+					if (pSoldier->inventory()[bLoop].exists() == true && ( Item[pSoldier->inventory()[bLoop].usItem].usItemClass & (IC_BOMB) ) )
 					{
-						OBJECTTYPE * pObj = &(pSoldier->inv[bLoop]);					// ... get pointer for this item ...
+						OBJECTTYPE * pObj = &(pSoldier->inventory()[bLoop]);					// ... get pointer for this item ...
 
 						if ( (*pObj)[0]->data.misc.bDetonatorType == BOMB_REMOTE )
 						{
@@ -5426,8 +5426,8 @@ UINT8 DetermineFlashbangEffect( SOLDIERTYPE *pSoldier, INT8 ubExplosionDir, BOOL
 	UINT16 usHeadItem1, usHeadItem2;
 
 	bNumTurns	= FindNumTurnsBetweenDirs(pSoldier->position().direction(), ubExplosionDir);
-	usHeadItem1 = pSoldier->inv[ HEAD1POS ].usItem;
-	usHeadItem2 = pSoldier->inv[ HEAD2POS ].usItem;
+	usHeadItem1 = pSoldier->inventory()[ HEAD1POS ].usItem;
+	usHeadItem2 = pSoldier->inventory()[ HEAD2POS ].usItem;
 
 	// if soldier got in explosion area check if he is affected by flash
 	// if soldier wears sun goggles OR grenade behind him OR

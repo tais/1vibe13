@@ -675,15 +675,15 @@ void EatFromInventory( SOLDIERTYPE *pSoldier, BOOLEAN fcanteensonly )
 		return;
 
 	// search for food in our inventory
-	INT8 invsize = (INT8)pSoldier->inv.size();									// remember inventorysize, so we don't call size() repeatedly
+	INT8 invsize = (INT8)pSoldier->inventory().size();									// remember inventorysize, so we don't call size() repeatedly
 
 	// on the first loop, we omit food in bad condition, and refillable canteens and canned food
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)							// ... for all items in our inventory ...
 	{
 		// ... if Item exists and is food ...
-		if ( pSoldier->inv[bLoop].exists() && Item[pSoldier->inv[bLoop].usItem].foodtype )
+		if ( pSoldier->inventory()[bLoop].exists() && Item[pSoldier->inventory()[bLoop].usItem].foodtype )
 		{
-			OBJECTTYPE * pObj = &(pSoldier->inv[bLoop]);						// ... get pointer for this item ...
+			OBJECTTYPE * pObj = &(pSoldier->inventory()[bLoop]);						// ... get pointer for this item ...
 
 			if ( pObj != NULL )													// ... if pointer is not obviously useless ...
 			{
@@ -729,9 +729,9 @@ void EatFromInventory( SOLDIERTYPE *pSoldier, BOOLEAN fcanteensonly )
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)							// ... for all items in our inventory ...
 	{
 		// ... if Item exists and is food ...
-		if ( pSoldier->inv[bLoop].exists() && Item[pSoldier->inv[bLoop].usItem].foodtype )
+		if ( pSoldier->inventory()[bLoop].exists() && Item[pSoldier->inventory()[bLoop].usItem].foodtype )
 		{
-			OBJECTTYPE * pObj = &(pSoldier->inv[bLoop]);						// ... get pointer for this item ...
+			OBJECTTYPE * pObj = &(pSoldier->inventory()[bLoop]);						// ... get pointer for this item ...
 
 			if ( pObj != NULL )													// ... if pointer is not obviously useless ...
 			{
@@ -842,14 +842,14 @@ void SectorFillCanteens( void )
 			//if the merc is in this sector
 			if ( pSoldier->roster().active() && pSoldier->identity().profile() != NO_PROFILE && pSoldier->roster().inSector() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 			{
-				INT8 invsize = (INT8)pSoldier->inv.size();									// remember inventorysize, so we don't call size() repeatedly
+				INT8 invsize = (INT8)pSoldier->inventory().size();									// remember inventorysize, so we don't call size() repeatedly
 
 				for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)								// ... for all items in our inventory ...
 				{
 					// ... if Item exists and is canteen (that can have drink points) ...
-					if (pSoldier->inv[bLoop].exists() == true && ItemIsCanteen(pSoldier->inv[bLoop].usItem) && Food[Item[pSoldier->inv[bLoop].usItem].foodtype].bDrinkPoints > 0)
+					if (pSoldier->inventory()[bLoop].exists() == true && ItemIsCanteen(pSoldier->inventory()[bLoop].usItem) && Food[Item[pSoldier->inventory()[bLoop].usItem].foodtype].bDrinkPoints > 0)
 					{
-						OBJECTTYPE* pObj = &(pSoldier->inv[bLoop]);							// ... get pointer for this item ...
+						OBJECTTYPE* pObj = &(pSoldier->inventory()[bLoop]);							// ... get pointer for this item ...
 
 						if ( pObj != NULL )													// ... if pointer is not obviously useless ...
 						{
@@ -917,14 +917,14 @@ void SectorFillCanteens( void )
 			//if the merc is in this sector
 			if ( pSoldier->roster().active() && pSoldier->identity().profile() != NO_PROFILE && pSoldier->roster().inSector() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 			{
-				INT8 invsize = (INT8)pSoldier->inv.size();								// remember inventorysize, so we don't call size() repeatedly
+				INT8 invsize = (INT8)pSoldier->inventory().size();								// remember inventorysize, so we don't call size() repeatedly
 
 				for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)							// ... for all items in our inventory ...
 				{
 					// ... if Item exists and is canteen and is NOT a water drum...
-					if (pSoldier->inv[bLoop].exists() == true && ItemIsCanteen(pSoldier->inv[bLoop].usItem) && (Food[Item[pSoldier->inv[bLoop].usItem].foodtype].bDrinkPoints > 0) && !HasItemFlag(pSoldier->inv[bLoop].usItem, (WATER_DRUM)))
+					if (pSoldier->inventory()[bLoop].exists() == true && ItemIsCanteen(pSoldier->inventory()[bLoop].usItem) && (Food[Item[pSoldier->inventory()[bLoop].usItem].foodtype].bDrinkPoints > 0) && !HasItemFlag(pSoldier->inventory()[bLoop].usItem, (WATER_DRUM)))
 					{
-						OBJECTTYPE* pObj = &(pSoldier->inv[bLoop]);							// ... get pointer for this item ...
+						OBJECTTYPE* pObj = &(pSoldier->inventory()[bLoop]);							// ... get pointer for this item ...
 
 						if ( pObj != NULL && pObj->exists() )								// ... if pointer is not obviously useless ...
 						{
@@ -1075,13 +1075,13 @@ void SoldierAutoFillCanteens(SOLDIERTYPE *pSoldier)
 		FLOAT addtemperature = OVERHEATING_MAX_TEMPERATURE;
 
 		// first step: fill all canteens in inventories	
-		INT8 invsize = (INT8)pSoldier->inv.size();									// remember inventorysize, so we don't call size() repeatedly
+		INT8 invsize = (INT8)pSoldier->inventory().size();									// remember inventorysize, so we don't call size() repeatedly
 		for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop)								// ... for all items in our inventory ...
 		{
 			// ... if Item exists and is canteen (that can have drink points) ...
-			if (pSoldier->inv[bLoop].exists() == true && ItemIsCanteen(pSoldier->inv[bLoop].usItem) && Food[Item[pSoldier->inv[bLoop].usItem].foodtype].bDrinkPoints > 0)
+			if (pSoldier->inventory()[bLoop].exists() == true && ItemIsCanteen(pSoldier->inventory()[bLoop].usItem) && Food[Item[pSoldier->inventory()[bLoop].usItem].foodtype].bDrinkPoints > 0)
 			{
-				OBJECTTYPE* pObj = &(pSoldier->inv[bLoop]);							// ... get pointer for this item ...
+				OBJECTTYPE* pObj = &(pSoldier->inventory()[bLoop]);							// ... get pointer for this item ...
 
 				if ( pObj != NULL )													// ... if pointer is not obviously useless ...
 				{
@@ -1109,21 +1109,21 @@ BOOLEAN HasFoodInInventory( SOLDIERTYPE *pSoldier, BOOLEAN fCheckFood, BOOLEAN f
 		return TRUE;
 
 	// search for food in our inventory
-	INT8 invsize = (INT8)pSoldier->inv.size( );									// remember inventorysize, so we don't call size() repeatedly
+	INT8 invsize = (INT8)pSoldier->inventory().size( );									// remember inventorysize, so we don't call size() repeatedly
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )							// ... for all items in our inventory ...
 	{
 		// ... if Item exists and is food ...
-		if ( pSoldier->inv[bLoop].exists( ) && Item[pSoldier->inv[bLoop].usItem].foodtype > 0 )
+		if ( pSoldier->inventory()[bLoop].exists( ) && Item[pSoldier->inventory()[bLoop].usItem].foodtype > 0 )
 		{
-			if ( fCheckFood && Food[Item[pSoldier->inv[bLoop].usItem].foodtype].bFoodPoints )
+			if ( fCheckFood && Food[Item[pSoldier->inventory()[bLoop].usItem].foodtype].bFoodPoints )
 				return TRUE;
 
-			if ( fCheckDrink && Food[Item[pSoldier->inv[bLoop].usItem].foodtype].bDrinkPoints )
+			if ( fCheckDrink && Food[Item[pSoldier->inventory()[bLoop].usItem].foodtype].bDrinkPoints )
 			{
-				if (ItemIsCanteen(pSoldier->inv[bLoop].usItem))
+				if (ItemIsCanteen(pSoldier->inventory()[bLoop].usItem))
 				{
 					// empty canteens retain 1% status, so check ether something is in them
-					if ( pSoldier->inv[bLoop][0]->data.objectStatus > 1 )
+					if ( pSoldier->inventory()[bLoop][0]->data.objectStatus > 1 )
 						return TRUE;
 				}
 				else
@@ -1168,13 +1168,13 @@ void DrinkFromWaterTap( SOLDIERTYPE* pSoldier )
 		FLOAT addtemperature = OVERHEATING_MAX_TEMPERATURE;
 
 		// first step: fill all canteens in inventories	
-		INT8 invsize = (INT8)pSoldier->inv.size();									// remember inventorysize, so we don't call size() repeatedly
+		INT8 invsize = (INT8)pSoldier->inventory().size();									// remember inventorysize, so we don't call size() repeatedly
 		for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)								// ... for all items in our inventory ...
 		{
 			// ... if Item exists and is canteen (that can have drink points) ...
-			if (pSoldier->inv[bLoop].exists() == true && ItemIsCanteen(pSoldier->inv[bLoop].usItem) && Food[Item[pSoldier->inv[bLoop].usItem].foodtype].bDrinkPoints > 0)
+			if (pSoldier->inventory()[bLoop].exists() == true && ItemIsCanteen(pSoldier->inventory()[bLoop].usItem) && Food[Item[pSoldier->inventory()[bLoop].usItem].foodtype].bDrinkPoints > 0)
 			{
-				OBJECTTYPE* pObj = &(pSoldier->inv[bLoop]);							// ... get pointer for this item ...
+				OBJECTTYPE* pObj = &(pSoldier->inventory()[bLoop]);							// ... get pointer for this item ...
 
 				if (pObj != NULL)													// ... if pointer is not obviously useless ...
 				{

@@ -954,7 +954,7 @@ BOOLEAN CanCharacterDoctor( SOLDIERTYPE *pSoldier )
 	for (bPocket = HANDPOS; bPocket < NUM_INV_SLOTS; ++bPocket)
 	{
 		// doctoring is allowed using either type of med kit (but first aid kit halves doctoring effectiveness)
-		if( IsMedicalKitItem( &( pSoldier -> inv[ bPocket ] ) ) )
+		if( IsMedicalKitItem( &( pSoldier->inventory()[ bPocket ] ) ) )
 		{
 			fFoundMedKit = TRUE;
 			break;
@@ -1223,7 +1223,7 @@ BOOLEAN IsAnythingAroundForSoldierToClean( SOLDIERTYPE * pSoldier )
 	// Iterate over all pocket slots and add items in need of repair
 	for (UINT8 pocketIndex = HANDPOS; pocketIndex < NUM_INV_SLOTS; ++pocketIndex)
 	{
-		const OBJECTTYPE* pObj = &(const_cast<SOLDIERTYPE *>(pSoldier)->inv[pocketIndex]);
+		const OBJECTTYPE* pObj = &(pSoldier->inventory()[pocketIndex]);
 		if(pObj == NULL || pObj->ubNumberOfObjects == NOTHING || pObj->usItem == NOTHING)
 			continue;
 
@@ -1249,7 +1249,7 @@ BOOLEAN IsAnythingAroundForSoldierToClean( SOLDIERTYPE * pSoldier )
 			// Iterate over all pocket slots and add items in need of repair
 			for (UINT8 pocketIndex = HANDPOS; pocketIndex < NUM_INV_SLOTS; ++pocketIndex)
 			{
-				const OBJECTTYPE* pObj = &(const_cast<SOLDIERTYPE *>(GetJa2SoldierRepository().resolve(teamMember))->inv[pocketIndex]);
+				const OBJECTTYPE* pObj = &(GetJa2SoldierRepository().resolve(teamMember)->inventory()[pocketIndex]);
 				if(pObj == NULL || pObj->ubNumberOfObjects == NOTHING || pObj->usItem == NOTHING)
 					continue;
 
@@ -1313,13 +1313,13 @@ BOOLEAN DoesCharacterHaveAnyItemsToRepair( SOLDIERTYPE *pSoldier, INT8 bHighestP
 	// CHRISL: Changed to dynamically determine max inventory locations.
 	for (bPocket = HELMETPOS; bPocket < NUM_INV_SLOTS; ++bPocket)
 	{
-		ubItemsInPocket = pSoldier->inv[ bPocket ].ubNumberOfObjects;
+		ubItemsInPocket = pSoldier->inventory()[ bPocket ].ubNumberOfObjects;
 		// unjam any jammed weapons
 		// run through pocket and repair
 		for( ubObjectInPocketCounter = 0; ubObjectInPocketCounter < ubItemsInPocket; ++ubObjectInPocketCounter )
 		{
 			// jammed gun?
-			if ( ( Item[ pSoldier->inv[ bPocket ].usItem ].usItemClass == IC_GUN ) && ( pSoldier->inv[ bPocket ][0]->data.gun.bGunAmmoStatus < 0 ) )
+			if ( ( Item[ pSoldier->inventory()[ bPocket ].usItem ].usItemClass == IC_GUN ) && ( pSoldier->inventory()[ bPocket ][0]->data.gun.bGunAmmoStatus < 0 ) )
 			{
 				return( TRUE );
 			}
@@ -1331,17 +1331,17 @@ BOOLEAN DoesCharacterHaveAnyItemsToRepair( SOLDIERTYPE *pSoldier, INT8 bHighestP
 	for( bPocket = HELMETPOS; bPocket < NUM_INV_SLOTS; ++bPocket )
 	{
 		// run through pocket
-		for( ubObjectInPocketCounter = 0; ubObjectInPocketCounter < pSoldier->inv[ bPocket ].ubNumberOfObjects; ++ubObjectInPocketCounter )
+		for( ubObjectInPocketCounter = 0; ubObjectInPocketCounter < pSoldier->inventory()[ bPocket ].ubNumberOfObjects; ++ubObjectInPocketCounter )
 		{
-			pObj = FindRepairableItemInSpecificPocket(pSoldier, &(pSoldier->inv[ bPocket ]), ubObjectInPocketCounter);
+			pObj = FindRepairableItemInSpecificPocket(pSoldier, &(pSoldier->inventory()[ bPocket ]), ubObjectInPocketCounter);
 			// if it's repairable and NEEDS repairing
 			if(pObj != 0)
 			{
 				return( TRUE );
 			}
-			if(UsingNewInventorySystem() == true && Item[pSoldier->inv[ bPocket ].usItem].usItemClass == IC_LBEGEAR)
+			if(UsingNewInventorySystem() == true && Item[pSoldier->inventory()[ bPocket ].usItem].usItemClass == IC_LBEGEAR)
 			{
-				pObj = FindRepairableItemInLBENODE(pSoldier, &pSoldier->inv[ bPocket ], ubObjectInPocketCounter);
+				pObj = FindRepairableItemInLBENODE(pSoldier, &pSoldier->inventory()[ bPocket ], ubObjectInPocketCounter);
 				if(pObj != 0)
 				{
 					return( TRUE );
@@ -1366,7 +1366,7 @@ BOOLEAN DoesCharacterHaveAnyItemsToRepair( SOLDIERTYPE *pSoldier, INT8 bHighestP
 				for ( bPocket = HANDPOS; bPocket < NUM_INV_SLOTS; ++bPocket )
 				{
 					// the object a weapon? and jammed?
-					if ( ( Item[ other->inv[ bPocket ].usItem ].usItemClass == IC_GUN ) && ( other->inv[ bPocket ][0]->data.gun.bGunAmmoStatus < 0 ) )
+					if ( ( Item[ other->inventory()[ bPocket ].usItem ].usItemClass == IC_GUN ) && ( other->inventory()[ bPocket ][0]->data.gun.bGunAmmoStatus < 0 ) )
 					{
 						return( TRUE );
 					}
@@ -3341,7 +3341,7 @@ UINT16 CalculateHealingPointsForDoctor(SOLDIERTYPE *pDoctor, UINT16 *pusMaxPts, 
 	}
 
 	// get the type of medkit being used
-	bMedFactor = IsMedicalKitItem( &( pDoctor->inv[ HANDPOS ] ) );
+	bMedFactor = IsMedicalKitItem( &( pDoctor->inventory()[ HANDPOS ] ) );
 
 	if( bMedFactor != 0 )
 	{
@@ -3374,14 +3374,14 @@ UINT8 CalculateRepairPointsForRepairman(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts
 	}
 
 	// can't repair at all without a toolkit
-	if (!ItemIsToolkit(pSoldier->inv[HANDPOS].usItem))
+	if (!ItemIsToolkit(pSoldier->inventory()[HANDPOS].usItem))
 	{
 		*pusMaxPts = 0;
 		return(0);
 	}
 
 	//JMich_SkillsModifiers: We should have the best repair kit in hands, so the effectiveness is 100 + kit's effectiveness.
-	ubKitEffectiveness = 100 + Item[pSoldier->inv[HANDPOS].usItem].RepairModifier;
+	ubKitEffectiveness = 100 + Item[pSoldier->inventory()[HANDPOS].usItem].RepairModifier;
 
 	// calculate effective repair rate (adjusted for drugs, alcohol, etc.)
 	usRepairPts = (UINT16) ((EffectiveMechanical( pSoldier ) * EffectiveDexterity( pSoldier, FALSE ) * (100 + ( 5 * EffectiveExpLevel( pSoldier, FALSE) ) ) ) / ( gGameExternalOptions.ubRepairRateDivisor * gGameExternalOptions.ubAssignmentUnitsPerDay ));
@@ -4091,9 +4091,9 @@ UINT16 ToolKitPoints(SOLDIERTYPE *pSoldier)
 	// CHRISL: Changed to dynamically determine max inventory locations.
 	for (int ubPocket=HANDPOS; ubPocket < NUM_INV_SLOTS; ++ubPocket)
 	{
-		if(ItemIsToolkit(pSoldier->inv[ ubPocket ].usItem))
+		if(ItemIsToolkit(pSoldier->inventory()[ ubPocket ].usItem))
 		{
-			usKitpts += TotalPoints( &( pSoldier->inv[ ubPocket ] ) );
+			usKitpts += TotalPoints( &( pSoldier->inventory()[ ubPocket ] ) );
 		}
 	}
 
@@ -4108,9 +4108,9 @@ UINT16 CleaningKitPoints(SOLDIERTYPE *pSoldier)
 	// CHRISL: Changed to dynamically determine max inventory locations.
 	for (int ubPocket=HANDPOS; ubPocket < NUM_INV_SLOTS; ++ubPocket)
 	{
-		if( HasItemFlag( pSoldier->inv[ubPocket].usItem, CLEANING_KIT ) )
+		if( HasItemFlag( pSoldier->inventory()[ubPocket].usItem, CLEANING_KIT ) )
 		{
-			usKitpts += TotalPoints( &( pSoldier->inv[ ubPocket ] ) );
+			usKitpts += TotalPoints( &( pSoldier->inventory()[ ubPocket ] ) );
 		}
 	}
 
@@ -4126,9 +4126,9 @@ UINT16 TotalMedicalKitPoints(SOLDIERTYPE *pSoldier)
 	for (int ubPocket = HANDPOS; ubPocket < NUM_INV_SLOTS; ++ubPocket)
 	{
 		// NOTE: Here, we don't care whether these are MEDICAL BAGS or FIRST AID KITS!
-		if ( IsMedicalKitItem( &( pSoldier->inv[ ubPocket ] ) ) )
+		if ( IsMedicalKitItem( &( pSoldier->inventory()[ ubPocket ] ) ) )
 		{
-			usKitpts += TotalPoints( &( pSoldier->inv[ ubPocket ] ) );
+			usKitpts += TotalPoints( &( pSoldier->inventory()[ ubPocket ] ) );
 		}
 	}
 
@@ -4981,7 +4981,7 @@ static void CollectRepairableItems(SOLDIERTYPE* pRepairSoldier, SOLDIERTYPE* pSo
 	bool foundItem = false;
 	// Iterate over all pocket slots and add items in need of repair
 	for (UINT8 pocketIndex = HELMETPOS; pocketIndex < NUM_INV_SLOTS; ++pocketIndex) {
-		const OBJECTTYPE* pObj = &(const_cast<SOLDIERTYPE *>(pSoldier)->inv[pocketIndex]);
+		const OBJECTTYPE* pObj = &(pSoldier->inventory()[pocketIndex]);
 		if(pObj == NULL || pObj->ubNumberOfObjects == NOTHING || pObj->usItem == NOTHING)
 			continue;
 
@@ -5017,7 +5017,7 @@ static void CollectCleanableItems(SOLDIERTYPE* pRepairSoldier, SOLDIERTYPE* pSol
 	// Iterate over all pocket slots and add items in need of repair
 	for (UINT8 pocketIndex = HANDPOS; pocketIndex < NUM_INV_SLOTS; ++pocketIndex)
 	{
-		const OBJECTTYPE* pObj = &(const_cast<SOLDIERTYPE *>(pSoldier)->inv[pocketIndex]);
+		const OBJECTTYPE* pObj = &(pSoldier->inventory()[pocketIndex]);
 		if(pObj == NULL || pObj->ubNumberOfObjects == NOTHING || pObj->usItem == NOTHING)
 			continue;
 
@@ -5057,18 +5057,18 @@ OBJECTTYPE* FindRepairableItemOnOtherSoldier( SOLDIERTYPE * pSoldier, SOLDIERTYP
 		bSlotToCheck = pPassList->bSlot[ bLoop ];
 		AssertNE( bSlotToCheck, -1 );
 
-		for ( bLoop2 = 0; bLoop2 < pOtherSoldier->inv[ bSlotToCheck ].ubNumberOfObjects; ++bLoop2 )
+		for ( bLoop2 = 0; bLoop2 < pOtherSoldier->inventory()[ bSlotToCheck ].ubNumberOfObjects; ++bLoop2 )
 		{
-			pObj = FindRepairableItemInSpecificPocket(pSoldier, &( pOtherSoldier->inv[ bSlotToCheck ] ), bLoop2);
+			pObj = FindRepairableItemInSpecificPocket(pSoldier, &( pOtherSoldier->inventory()[ bSlotToCheck ] ), bLoop2);
 			if(pObj != 0)
 			{
 				return( pObj );
 			}
 
 			//CHRISL: In NewInv, we should also repair items stored in LBENODE items
-			if(UsingNewInventorySystem() == true && Item[pOtherSoldier->inv[ bSlotToCheck ].usItem].usItemClass == IC_LBEGEAR)
+			if(UsingNewInventorySystem() == true && Item[pOtherSoldier->inventory()[ bSlotToCheck ].usItem].usItemClass == IC_LBEGEAR)
 			{
-				pObj = FindRepairableItemInLBENODE(pSoldier, &pOtherSoldier->inv[ bSlotToCheck ], bLoop2);
+				pObj = FindRepairableItemInLBENODE(pSoldier, &pOtherSoldier->inventory()[ bSlotToCheck ], bLoop2);
 				if(pObj != 0)
 				{
 					return( pObj );
@@ -5669,7 +5669,7 @@ void HandleRepairBySoldier( SOLDIERTYPE *pSoldier )
 						//	continue;
 						//if(UsingNewInventorySystem() == true && bLoop == 1 && bPocket==SECONDHANDPOS)
 						//	continue;
-						pObj = &(pSoldier->inv[ bPocket ]);
+						pObj = &(pSoldier->inventory()[ bPocket ]);
 
 						if ( RepairObject( pSoldier, pSoldier, pObj, &ubRepairPtsLeft ) )
 						{
@@ -5736,7 +5736,7 @@ void HandleRepairBySoldier( SOLDIERTYPE *pSoldier )
 		if( ( Random( 100 ) ) < (UINT32) __max(1,((ubRepairPtsUsed * 5 * usKitDegrade) / 100)) ) // CJC: added a x5 as this wasn't going down anywhere fast enough
 		{
 			// kit item damaged/depleted, burn up points of toolkit..which is in right hand
-			UseKitPoints( &( pSoldier->inv[ HANDPOS ] ), 1, pSoldier );
+			UseKitPoints( &( pSoldier->inventory()[ HANDPOS ] ), 1, pSoldier );
 		}
 	}
 
@@ -6460,13 +6460,13 @@ void HandleDiseaseDiagnosis()
 
 					// loop over the inventory and check for contaminated items
 					BOOLEAN contaminationfound = FALSE;
-					INT8 invsize = (INT8)pTeamSoldier->inv.size();									// remember inventorysize, so we don't call size() repeatedly
+					INT8 invsize = (INT8)pTeamSoldier->inventory().size();									// remember inventorysize, so we don't call size() repeatedly
 
 					for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )							// ... for all items in our inventory ...
 					{
-						if ( pTeamSoldier->inv[bLoop].exists() )
+						if ( pTeamSoldier->inventory()[bLoop].exists() )
 						{
-							OBJECTTYPE * pObj = &( pTeamSoldier->inv[bLoop] );							// ... get pointer for this item ...
+							OBJECTTYPE * pObj = &( pTeamSoldier->inventory()[bLoop] );							// ... get pointer for this item ...
 
 							if ( pObj != NULL )													// ... if pointer is not obviously useless ...
 							{
@@ -10510,9 +10510,9 @@ BOOLEAN MakeSureToolKitIsInHand( SOLDIERTYPE *pSoldier )
 	INT8 bPocket = 0, bonus = -101, bToolkitPocket = NO_SLOT;
 
 	// if there isn't a toolkit in his hand
-	if(ItemIsToolkit(pSoldier->inv[ HANDPOS].usItem))
+	if(ItemIsToolkit(pSoldier->inventory()[ HANDPOS].usItem))
 	{
-		bonus = Item[pSoldier->inv[ HANDPOS].usItem].RepairModifier;
+		bonus = Item[pSoldier->inventory()[ HANDPOS].usItem].RepairModifier;
 		bToolkitPocket = HANDPOS;
 	}
 		
@@ -10520,9 +10520,9 @@ BOOLEAN MakeSureToolKitIsInHand( SOLDIERTYPE *pSoldier )
 	// CHRISL: Changed to dynamically determine max inventory locations.
 	for (bPocket = SECONDHANDPOS; bPocket < NUM_INV_SLOTS; ++bPocket)
 	{
-		if(ItemIsToolkit(pSoldier->inv[ bPocket ].usItem) && Item[pSoldier->inv[ bPocket ].usItem].RepairModifier > bonus)
+		if(ItemIsToolkit(pSoldier->inventory()[ bPocket ].usItem) && Item[pSoldier->inventory()[ bPocket ].usItem].RepairModifier > bonus)
 		{
-			bonus = Item[pSoldier->inv[ bPocket ].usItem].RepairModifier;
+			bonus = Item[pSoldier->inventory()[ bPocket ].usItem].RepairModifier;
 			bToolkitPocket = bPocket;
 		}
 	}
@@ -10534,12 +10534,12 @@ BOOLEAN MakeSureToolKitIsInHand( SOLDIERTYPE *pSoldier )
 	// HEADROCK HAM B2.8: These new conditions will create a bias for swapping an item out of our hand. 
 				
 	//If the second hand is free, the item will go to the SECONDHANDPOS while the toolkit goes into the HANDPOS
-	if( Item[pSoldier->inv[HANDPOS].usItem].usItemClass & (IC_WEAPON | IC_PUNCH) && !pSoldier->inv[SECONDHANDPOS].exists())
+	if( Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & (IC_WEAPON | IC_PUNCH) && !pSoldier->inventory()[SECONDHANDPOS].exists())
 		SwapObjs(pSoldier, HANDPOS, SECONDHANDPOS, TRUE);
 	// Else, if the gun sling slot is free, and the item can go there, it will.
-	else if( UsingNewInventorySystem() && !pSoldier->inv[GUNSLINGPOCKPOS].exists() && CanItemFitInPosition(pSoldier, &pSoldier->inv[HANDPOS], GUNSLINGPOCKPOS, FALSE) )
+	else if( UsingNewInventorySystem() && !pSoldier->inventory()[GUNSLINGPOCKPOS].exists() && CanItemFitInPosition(pSoldier, &pSoldier->inventory()[HANDPOS], GUNSLINGPOCKPOS, FALSE) )
 		SwapObjs(pSoldier, HANDPOS, GUNSLINGPOCKPOS, TRUE);
-	else if(!CanItemFitInPosition(pSoldier, &pSoldier->inv[HANDPOS], bToolkitPocket, FALSE))
+	else if(!CanItemFitInPosition(pSoldier, &pSoldier->inventory()[HANDPOS], bToolkitPocket, FALSE))
 		SwapObjs(pSoldier, HANDPOS, SECONDHANDPOS, TRUE);
 	
 	SwapObjs( pSoldier, HANDPOS, bToolkitPocket, TRUE );
@@ -10554,7 +10554,7 @@ BOOLEAN MakeSureMedKitIsInHand( SOLDIERTYPE *pSoldier , bool bAllow1stAidKit)
 	fTeamPanelDirty = TRUE;
 
 	// if there is a MEDICAL BAG in his hand, we're set
-	if (ItemIsMedicalKit(pSoldier->inv[ HANDPOS ].usItem))
+	if (ItemIsMedicalKit(pSoldier->inventory()[ HANDPOS ].usItem))
 	{
 		return(TRUE);
 	}
@@ -10562,7 +10562,7 @@ BOOLEAN MakeSureMedKitIsInHand( SOLDIERTYPE *pSoldier , bool bAllow1stAidKit)
 	// run through rest of inventory looking 1st for MEDICAL BAGS, swap the first one into hand if found
 	for (bPocket = SECONDHANDPOS; bPocket < NUM_INV_SLOTS; ++bPocket)
 	{
-		if (ItemIsMedicalKit(pSoldier->inv[ bPocket ].usItem))
+		if (ItemIsMedicalKit(pSoldier->inventory()[ bPocket ].usItem))
 		{
 			medkit_found = true;
 			can_swap = true;
@@ -10576,13 +10576,13 @@ BOOLEAN MakeSureMedKitIsInHand( SOLDIERTYPE *pSoldier , bool bAllow1stAidKit)
 				return(TRUE);
 			}
 			//nothing in main hand
-			else if (!pSoldier->inv[HANDPOS].exists())
+			else if (!pSoldier->inventory()[HANDPOS].exists())
 			{				
 				SwapObjs(pSoldier, HANDPOS, bPocket, TRUE);//todo: this should probably be more robust and handle potentional custom medical kit that uses both hands
 				return(TRUE);
 			}
 			//nothing in offhand
-			else if (!pSoldier->inv[SECONDHANDPOS].exists())
+			else if (!pSoldier->inventory()[SECONDHANDPOS].exists())
 			{
 				SwapObjs(pSoldier, HANDPOS, SECONDHANDPOS, TRUE);
 				SwapObjs(pSoldier, HANDPOS, bPocket, TRUE);
@@ -10591,30 +10591,30 @@ BOOLEAN MakeSureMedKitIsInHand( SOLDIERTYPE *pSoldier , bool bAllow1stAidKit)
 			else if (UsingNewInventorySystem())
 			{
 				// Else, if the gun sling slot is free, and the item can go there, it will.
-				if (!pSoldier->inv[GUNSLINGPOCKPOS].exists() && CanItemFitInPosition(pSoldier, &pSoldier->inv[HANDPOS], GUNSLINGPOCKPOS, FALSE))
+				if (!pSoldier->inventory()[GUNSLINGPOCKPOS].exists() && CanItemFitInPosition(pSoldier, &pSoldier->inventory()[HANDPOS], GUNSLINGPOCKPOS, FALSE))
 					SwapObjs(pSoldier, HANDPOS, GUNSLINGPOCKPOS, TRUE);
-				else if (!pSoldier->inv[GUNSLINGPOCKPOS].exists() && CanItemFitInPosition(pSoldier, &pSoldier->inv[SECONDHANDPOS], GUNSLINGPOCKPOS, FALSE))
+				else if (!pSoldier->inventory()[GUNSLINGPOCKPOS].exists() && CanItemFitInPosition(pSoldier, &pSoldier->inventory()[SECONDHANDPOS], GUNSLINGPOCKPOS, FALSE))
 					SwapObjs(pSoldier, SECONDHANDPOS, GUNSLINGPOCKPOS, TRUE);
-				else if (CanItemFitInPosition(pSoldier, &pSoldier->inv[HANDPOS], bPocket, FALSE))
+				else if (CanItemFitInPosition(pSoldier, &pSoldier->inventory()[HANDPOS], bPocket, FALSE))
 					SwapObjs(pSoldier, HANDPOS, bPocket, TRUE);
-				else if (CanItemFitInPosition(pSoldier, &pSoldier->inv[SECONDHANDPOS], bPocket, FALSE))
+				else if (CanItemFitInPosition(pSoldier, &pSoldier->inventory()[SECONDHANDPOS], bPocket, FALSE))
 					SwapObjs(pSoldier, SECONDHANDPOS, bPocket, TRUE);
-				else if (!AutoPlaceObject(pSoldier, &pSoldier->inv[HANDPOS], FALSE, GUNSLINGPOCKPOS, FALSE) && !AutoPlaceObject(pSoldier, &pSoldier->inv[SECONDHANDPOS], FALSE, GUNSLINGPOCKPOS, FALSE))
+				else if (!AutoPlaceObject(pSoldier, &pSoldier->inventory()[HANDPOS], FALSE, GUNSLINGPOCKPOS, FALSE) && !AutoPlaceObject(pSoldier, &pSoldier->inventory()[SECONDHANDPOS], FALSE, GUNSLINGPOCKPOS, FALSE))
 					can_swap = false;
 			}
 			else
 			{
-				if (CanItemFitInPosition(pSoldier, &pSoldier->inv[HANDPOS], bPocket, FALSE))
+				if (CanItemFitInPosition(pSoldier, &pSoldier->inventory()[HANDPOS], bPocket, FALSE))
 					SwapObjs(pSoldier, HANDPOS, bPocket, TRUE);
-				else if (CanItemFitInPosition(pSoldier, &pSoldier->inv[SECONDHANDPOS], bPocket, FALSE))
+				else if (CanItemFitInPosition(pSoldier, &pSoldier->inventory()[SECONDHANDPOS], bPocket, FALSE))
 					SwapObjs(pSoldier, SECONDHANDPOS, bPocket, TRUE);
-				else if (!AutoPlaceObject(pSoldier, &pSoldier->inv[HANDPOS], FALSE, GUNSLINGPOCKPOS, FALSE) && !AutoPlaceObject(pSoldier, &pSoldier->inv[SECONDHANDPOS], FALSE, GUNSLINGPOCKPOS, FALSE))
+				else if (!AutoPlaceObject(pSoldier, &pSoldier->inventory()[HANDPOS], FALSE, GUNSLINGPOCKPOS, FALSE) && !AutoPlaceObject(pSoldier, &pSoldier->inventory()[SECONDHANDPOS], FALSE, GUNSLINGPOCKPOS, FALSE))
 					can_swap = false;
 			}
 
-			if (can_swap && (!pSoldier->inv[HANDPOS].exists() || !pSoldier->inv[SECONDHANDPOS].exists()))
+			if (can_swap && (!pSoldier->inventory()[HANDPOS].exists() || !pSoldier->inventory()[SECONDHANDPOS].exists()))
 			{
-				if (pSoldier->inv[HANDPOS].exists())
+				if (pSoldier->inventory()[HANDPOS].exists())
 				{
 					SwapObjs(pSoldier, HANDPOS, SECONDHANDPOS, TRUE);
 				}
@@ -10630,7 +10630,7 @@ BOOLEAN MakeSureMedKitIsInHand( SOLDIERTYPE *pSoldier , bool bAllow1stAidKit)
 		return FALSE;
 
 	// we didn't find a medical bag, so settle for a FIRST AID KIT
-	if (ItemIsFirstAidKit(pSoldier->inv[ HANDPOS ].usItem))
+	if (ItemIsFirstAidKit(pSoldier->inventory()[ HANDPOS ].usItem))
 	{
 		return(TRUE);
 	}
@@ -10639,10 +10639,10 @@ BOOLEAN MakeSureMedKitIsInHand( SOLDIERTYPE *pSoldier , bool bAllow1stAidKit)
 	// CHRISL: Changed to dynamically determine max inventory locations.
 	for (bPocket = SECONDHANDPOS; bPocket < NUM_INV_SLOTS; ++bPocket)
 	{
-		if (ItemIsFirstAidKit(pSoldier->inv[ bPocket ].usItem))
+		if (ItemIsFirstAidKit(pSoldier->inventory()[ bPocket ].usItem))
 		{
 			// CHRISL: This needs to start with the first "non-big" pocket.
-			if( (ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) && (bPocket >= SMALLPOCKSTART)))
+			if( (ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) && (bPocket >= SMALLPOCKSTART)))
 			{
 				// first move from hand to second hand
 				SwapObjs( pSoldier, HANDPOS, SECONDHANDPOS, TRUE );
@@ -18557,7 +18557,7 @@ void BandageBleedingDyingPatientsBeingTreated( )
 					iKitSlot = FindObjClass( pDoctor, IC_MEDKIT );
 					if( iKitSlot != NO_SLOT )
 					{
-						pKit = &( pDoctor->inv[ iKitSlot ] );
+						pKit = &( pDoctor->inventory()[ iKitSlot ] );
 
 						usKitPts = TotalPoints( pKit );
 						if( usKitPts )
@@ -19750,13 +19750,13 @@ BOOLEAN UnjamGunsOnSoldier( SOLDIERTYPE *pOwnerSoldier, SOLDIERTYPE *pRepairSold
 	for ( INT8 bPocket = HANDPOS; bPocket < NUM_INV_SLOTS; ++bPocket)
 	{
 		// the object a weapon? and jammed?
-		if ( ( Item[ pOwnerSoldier->inv[ bPocket ].usItem ].usItemClass == IC_GUN ) && ( pOwnerSoldier->inv[ bPocket ][0]->data.gun.bGunAmmoStatus < 0 ) )
+		if ( ( Item[ pOwnerSoldier->inventory()[ bPocket ].usItem ].usItemClass == IC_GUN ) && ( pOwnerSoldier->inventory()[ bPocket ][0]->data.gun.bGunAmmoStatus < 0 ) )
 		{
 			if ( *pubRepairPtsLeft >= gGameExternalOptions.ubRepairCostPerJam )
 			{
 				*pubRepairPtsLeft -= gGameExternalOptions.ubRepairCostPerJam;
 
-				pOwnerSoldier->inv [ bPocket ][0]->data.gun.bGunAmmoStatus *= -1;
+				pOwnerSoldier->inventory() [ bPocket ][0]->data.gun.bGunAmmoStatus *= -1;
 
 				// MECHANICAL/DEXTERITY GAIN: Unjammed a gun
 				StatChange( pRepairSoldier, MECHANAMT, 5, FALSE );
@@ -19765,12 +19765,12 @@ BOOLEAN UnjamGunsOnSoldier( SOLDIERTYPE *pOwnerSoldier, SOLDIERTYPE *pRepairSold
 				// report it as unjammed
 				if ( pRepairSoldier == pOwnerSoldier )
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 53 ], pRepairSoldier->GetName(), ItemNames[ pOwnerSoldier->inv[ bPocket ].usItem ] );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 53 ], pRepairSoldier->GetName(), ItemNames[ pOwnerSoldier->inventory()[ bPocket ].usItem ] );
 				}
 				else
 				{
 					// NOTE: may need to be changed for localized versions
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 54 ], pRepairSoldier->GetName(), pOwnerSoldier->GetName(), ItemNames[ pOwnerSoldier->inv[ bPocket ].usItem ] );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 54 ], pRepairSoldier->GetName(), pOwnerSoldier->GetName(), ItemNames[ pOwnerSoldier->inventory()[ bPocket ].usItem ] );
 				}
 
 				fAnyGunsWereUnjammed = TRUE;
@@ -20912,7 +20912,7 @@ BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8
 		for (bPocket = HANDPOS; bPocket < NUM_INV_SLOTS; bPocket++)
 		{
 			// doctoring is allowed using either type of med kit (but first aid kit halves doctoring effectiveness)
-			if( IsMedicalKitItem( &( pSoldier -> inv[ bPocket ] ) ) )
+			if( IsMedicalKitItem( &( pSoldier->inventory()[ bPocket ] ) ) )
 			{
 				fFoundMedKit = TRUE;
 				break;
@@ -21287,7 +21287,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 		for (bPocket = HANDPOS; bPocket < NUM_INV_SLOTS; bPocket++)
 		{
 			// doctoring is allowed using either type of med kit (but first aid kit halves doctoring effectiveness)
-			if( IsMedicalKitItem( &( pSoldier -> inv[ bPocket ] ) ) )
+			if( IsMedicalKitItem( &( pSoldier->inventory()[ bPocket ] ) ) )
 			{
 				fFoundMedKit = TRUE;
 				break;
@@ -22378,7 +22378,7 @@ BOOLEAN MakeAutomaticSurgery( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pDoctor )
 		bSlot = FindMedKit( pDoctor );
 		if ( bSlot != NO_SLOT )
 		{
-			pKit = &pDoctor->inv[ bSlot ];
+			pKit = &pDoctor->inventory()[ bSlot ];
 		}
 		else
 		{

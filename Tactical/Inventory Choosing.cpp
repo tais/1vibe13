@@ -3047,59 +3047,59 @@ void AssignCreatureInventory( SOLDIERTYPE *pSoldier )
 	switch( pSoldier->identity().bodyType())
 	{
 		case ADULTFEMALEMONSTER:
-			CreateItem( CREATURE_OLD_FEMALE_CLAWS,	100, &(pSoldier->inv[HANDPOS]) );
-			CreateItem( CREATURE_OLD_FEMALE_HIDE,		100, &(pSoldier->inv[HELMETPOS]) );
-			CreateItem( CREATURE_OLD_FEMALE_HIDE,		100, &(pSoldier->inv[VESTPOS]) );
-			CreateItem( CREATURE_OLD_FEMALE_HIDE,		100, &(pSoldier->inv[LEGPOS]) );
+			CreateItem( CREATURE_OLD_FEMALE_CLAWS,	100, &(pSoldier->inventory()[HANDPOS]) );
+			CreateItem( CREATURE_OLD_FEMALE_HIDE,		100, &(pSoldier->inventory()[HELMETPOS]) );
+			CreateItem( CREATURE_OLD_FEMALE_HIDE,		100, &(pSoldier->inventory()[VESTPOS]) );
+			CreateItem( CREATURE_OLD_FEMALE_HIDE,		100, &(pSoldier->inventory()[LEGPOS]) );
 			uiChanceToDrop = 30;
 			break;
 		case AM_MONSTER:
-			CreateItem( CREATURE_OLD_MALE_CLAWS,		100, &(pSoldier->inv[HANDPOS]) );
-			CreateItem( CREATURE_OLD_MALE_SPIT,			100, &(pSoldier->inv[SECONDHANDPOS]) );
-			CreateItem( CREATURE_OLD_MALE_HIDE,			100, &(pSoldier->inv[HELMETPOS]) );
-			CreateItem( CREATURE_OLD_MALE_HIDE,			100, &(pSoldier->inv[VESTPOS]) );
-			CreateItem( CREATURE_OLD_MALE_HIDE,			100, &(pSoldier->inv[LEGPOS]) );
+			CreateItem( CREATURE_OLD_MALE_CLAWS,		100, &(pSoldier->inventory()[HANDPOS]) );
+			CreateItem( CREATURE_OLD_MALE_SPIT,			100, &(pSoldier->inventory()[SECONDHANDPOS]) );
+			CreateItem( CREATURE_OLD_MALE_HIDE,			100, &(pSoldier->inventory()[HELMETPOS]) );
+			CreateItem( CREATURE_OLD_MALE_HIDE,			100, &(pSoldier->inventory()[VESTPOS]) );
+			CreateItem( CREATURE_OLD_MALE_HIDE,			100, &(pSoldier->inventory()[LEGPOS]) );
 			uiChanceToDrop = 30;
 			fMaleCreature = TRUE;
 			break;
 		case YAF_MONSTER:
-			CreateItem( CREATURE_YOUNG_FEMALE_CLAWS,		100, &(pSoldier->inv[HANDPOS]) );
-			CreateItem( CREATURE_YOUNG_FEMALE_HIDE,			100, &(pSoldier->inv[HELMETPOS]) );
-			CreateItem( CREATURE_YOUNG_FEMALE_HIDE,			100, &(pSoldier->inv[VESTPOS]) );
-			CreateItem( CREATURE_YOUNG_FEMALE_HIDE,			100, &(pSoldier->inv[LEGPOS]) );
+			CreateItem( CREATURE_YOUNG_FEMALE_CLAWS,		100, &(pSoldier->inventory()[HANDPOS]) );
+			CreateItem( CREATURE_YOUNG_FEMALE_HIDE,			100, &(pSoldier->inventory()[HELMETPOS]) );
+			CreateItem( CREATURE_YOUNG_FEMALE_HIDE,			100, &(pSoldier->inventory()[VESTPOS]) );
+			CreateItem( CREATURE_YOUNG_FEMALE_HIDE,			100, &(pSoldier->inventory()[LEGPOS]) );
 			uiChanceToDrop = 15;
 			break;
 		case YAM_MONSTER:
-			CreateItem( CREATURE_YOUNG_MALE_CLAWS,		100, &(pSoldier->inv[HANDPOS]) );
-			CreateItem( CREATURE_YOUNG_MALE_SPIT,			100, &(pSoldier->inv[SECONDHANDPOS]) );
-			CreateItem( CREATURE_YOUNG_MALE_HIDE,			100, &(pSoldier->inv[HELMETPOS]) );
-			CreateItem( CREATURE_YOUNG_MALE_HIDE,			100, &(pSoldier->inv[VESTPOS]) );
-			CreateItem( CREATURE_YOUNG_MALE_HIDE,			100, &(pSoldier->inv[LEGPOS]) );
+			CreateItem( CREATURE_YOUNG_MALE_CLAWS,		100, &(pSoldier->inventory()[HANDPOS]) );
+			CreateItem( CREATURE_YOUNG_MALE_SPIT,			100, &(pSoldier->inventory()[SECONDHANDPOS]) );
+			CreateItem( CREATURE_YOUNG_MALE_HIDE,			100, &(pSoldier->inventory()[HELMETPOS]) );
+			CreateItem( CREATURE_YOUNG_MALE_HIDE,			100, &(pSoldier->inventory()[VESTPOS]) );
+			CreateItem( CREATURE_YOUNG_MALE_HIDE,			100, &(pSoldier->inventory()[LEGPOS]) );
 			uiChanceToDrop = 15;
 			fMaleCreature = TRUE;
 			break;
 		case INFANT_MONSTER:
-			CreateItem( CREATURE_INFANT_SPIT,			100, &(pSoldier->inv[HANDPOS]) );
-			CreateItem( CREATURE_INFANT_HIDE,			100, &(pSoldier->inv[HELMETPOS]) );
-			CreateItem( CREATURE_INFANT_HIDE,			100, &(pSoldier->inv[VESTPOS]) );
-			CreateItem( CREATURE_INFANT_HIDE,			100, &(pSoldier->inv[LEGPOS]) );
+			CreateItem( CREATURE_INFANT_SPIT,			100, &(pSoldier->inventory()[HANDPOS]) );
+			CreateItem( CREATURE_INFANT_HIDE,			100, &(pSoldier->inventory()[HELMETPOS]) );
+			CreateItem( CREATURE_INFANT_HIDE,			100, &(pSoldier->inventory()[VESTPOS]) );
+			CreateItem( CREATURE_INFANT_HIDE,			100, &(pSoldier->inventory()[LEGPOS]) );
 			uiChanceToDrop = 5;
 			break;
 		case LARVAE_MONSTER:
 			uiChanceToDrop = 0;
 			break;
 		case QUEENMONSTER:
-			CreateItem( CREATURE_QUEEN_SPIT,			100, &(pSoldier->inv[HANDPOS]) );
-			CreateItem( CREATURE_QUEEN_TENTACLES, 100, &(pSoldier->inv[SECONDHANDPOS]) );
-			CreateItem( CREATURE_QUEEN_HIDE,			100, &(pSoldier->inv[HELMETPOS]) );
-			CreateItem( CREATURE_QUEEN_HIDE,			100, &(pSoldier->inv[VESTPOS]) );
-			CreateItem( CREATURE_QUEEN_HIDE,			100, &(pSoldier->inv[LEGPOS]) );
+			CreateItem( CREATURE_QUEEN_SPIT,			100, &(pSoldier->inventory()[HANDPOS]) );
+			CreateItem( CREATURE_QUEEN_TENTACLES, 100, &(pSoldier->inventory()[SECONDHANDPOS]) );
+			CreateItem( CREATURE_QUEEN_HIDE,			100, &(pSoldier->inventory()[HELMETPOS]) );
+			CreateItem( CREATURE_QUEEN_HIDE,			100, &(pSoldier->inventory()[VESTPOS]) );
+			CreateItem( CREATURE_QUEEN_HIDE,			100, &(pSoldier->inventory()[LEGPOS]) );
 			// she can't drop anything, because the items are unreachable anyways (she's too big!)
 			uiChanceToDrop = 0;
 			break;
 		case BLOODCAT:
-			CreateItem( BLOODCAT_CLAW_ATTACK,		100, &(pSoldier->inv[HANDPOS]) );
-			CreateItem( BLOODCAT_BITE,		100, &(pSoldier->inv[SECONDHANDPOS]) );
+			CreateItem( BLOODCAT_CLAW_ATTACK,		100, &(pSoldier->inventory()[HANDPOS]) );
+			CreateItem( BLOODCAT_BITE,		100, &(pSoldier->inventory()[SECONDHANDPOS]) );
 			fBloodcat = TRUE;
 			uiChanceToDrop = 30;
 			break;
@@ -3112,12 +3112,12 @@ void AssignCreatureInventory( SOLDIERTYPE *pSoldier )
 	// decide if the creature will drop any REAL bodyparts
 	if (Random(100) < uiChanceToDrop)
 	{
-		CreateItem( (UINT16)(fBloodcat ? BLOODCAT_CLAWS : CREATURE_PART_CLAWS), (INT8) (80 + Random(21)), &(pSoldier->inv[BIGPOCK1POS]) );
+		CreateItem( (UINT16)(fBloodcat ? BLOODCAT_CLAWS : CREATURE_PART_CLAWS), (INT8) (80 + Random(21)), &(pSoldier->inventory()[BIGPOCK1POS]) );
 	}
 
 	if (Random(100) < uiChanceToDrop)
 	{
-		CreateItem( (UINT16)(fBloodcat ? BLOODCAT_TEETH : CREATURE_PART_FLESH), (INT8) (80 + Random(21)), &(pSoldier->inv[BIGPOCK2POS]) );
+		CreateItem( (UINT16)(fBloodcat ? BLOODCAT_TEETH : CREATURE_PART_FLESH), (INT8) (80 + Random(21)), &(pSoldier->inventory()[BIGPOCK2POS]) );
 	}
 
 	// as requested by ATE, males are more likely to drop their "organs" (he actually suggested this, I'm serious!)
@@ -3129,7 +3129,7 @@ void AssignCreatureInventory( SOLDIERTYPE *pSoldier )
 
 	if (Random(100) < uiChanceToDrop)
 	{
-		CreateItem( (UINT16)(fBloodcat ? BLOODCAT_PELT : CREATURE_PART_ORGAN), (INT8) (80 + Random(21)), &(pSoldier->inv[BIGPOCK3POS]) );
+		CreateItem( (UINT16)(fBloodcat ? BLOODCAT_PELT : CREATURE_PART_ORGAN), (INT8) (80 + Random(21)), &(pSoldier->inventory()[BIGPOCK3POS]) );
 	}
 }
 

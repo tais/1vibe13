@@ -2341,7 +2341,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 
 			for ( i = 0; selectedSoldier && i < 1000; i++ )
 			{
-				CalculateLaunchItemChanceToGetThrough( selectedSoldier, &(selectedSoldier->inv[ HANDPOS ] ), usMapPos, 0, 0, &sGridNo, TRUE, (INT8 *)&ubLevel, TRUE );
+				CalculateLaunchItemChanceToGetThrough( selectedSoldier, &(selectedSoldier->inventory()[ HANDPOS ] ), usMapPos, 0, 0, &sGridNo, TRUE, (INT8 *)&ubLevel, TRUE );
 			}
 
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_TESTVERSION, L"Physics 100 times: %d", ( GetJA2Clock( ) - iTime )	);
@@ -3539,11 +3539,11 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					SOLDIERTYPE *pSoldier = selectedSoldier;
 					for(int i = BODYPOSFINAL; i<NUM_INV_SLOTS; i++)
 					{
-						if(pSoldier->inv[i].exists() == true)
+						if(pSoldier->inventory()[i].exists() == true)
 						{
-							AddItemToPool(pSoldier->position().gridNo(), &pSoldier->inv[i], 1, pSoldier->position().level(), 0, -1);
-							//pSoldier->inv[i].initialize();
-							DeleteObj(&pSoldier->inv[i]);
+							AddItemToPool(pSoldier->position().gridNo(), &pSoldier->inventory()[i], 1, pSoldier->position().level(), 0, -1);
+							//pSoldier->inventory()[i].initialize();
+							DeleteObj(&pSoldier->inventory()[i]);
 						}
 					}
 					fCharacterInfoPanelDirty = TRUE;
@@ -4191,9 +4191,9 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						}
 						if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
 						{
-							if ( pTeamSoldier->inv[HEAD1POS].exists() || pTeamSoldier->inv[HEAD2POS].exists() )
+							if ( pTeamSoldier->inventory()[HEAD1POS].exists() || pTeamSoldier->inventory()[HEAD2POS].exists() )
 							{
-								fToNightVision = (Item[pTeamSoldier->inv[HEAD1POS].usItem].brightlightvisionrangebonus > 0 || Item[pTeamSoldier->inv[HEAD2POS].usItem].brightlightvisionrangebonus > 0);
+								fToNightVision = (Item[pTeamSoldier->inventory()[HEAD1POS].usItem].brightlightvisionrangebonus > 0 || Item[pTeamSoldier->inventory()[HEAD2POS].usItem].brightlightvisionrangebonus > 0);
 								break;
 							}
 							if ( id == gTacticalStatus.Team[gbPlayerNum].bLastID )
@@ -4665,7 +4665,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						{
 							CreateItem(
 								FLAMETHROWER, 100,
-								&( selectedSoldier->inv[ HANDPOS ]));
+								&( selectedSoldier->inventory()[ HANDPOS ]));
 						}
 					}
 				}
@@ -5244,14 +5244,14 @@ void CycleSelectedMercsItem()
 		// Get soldier...
 		pSoldier = selectedSoldier;
 
-		UINT16 usOldHandItem = pSoldier->inv[HANDPOS].usItem;
+		UINT16 usOldHandItem = pSoldier->inventory()[HANDPOS].usItem;
 
 		// Cycle item....
-		usOldItem = CycleItems(pSoldier->inv[ HANDPOS ].usItem);
+		usOldItem = CycleItems(pSoldier->inventory()[ HANDPOS ].usItem);
 
-		CreateItem( (UINT16)usOldItem, 100, &( pSoldier->inv[ HANDPOS ]) );
+		CreateItem( (UINT16)usOldItem, 100, &( pSoldier->inventory()[ HANDPOS ]) );
 
-		pSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, pSoldier->inv[HANDPOS].usItem );
+		pSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, pSoldier->inventory()[HANDPOS].usItem );
 
 		DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 	}
@@ -5327,7 +5327,7 @@ void ChangeSoldiersBodyType( UINT8 ubBodyType, BOOLEAN fCreateNewPalette )
 
 					pSoldier->status().flags() |= SOLDIER_MONSTER;
 					AssignCreatureInventory( pSoldier );
-					CreateItem( CREATURE_YOUNG_MALE_SPIT,		100, &(pSoldier->inv[HANDPOS]) );
+					CreateItem( CREATURE_YOUNG_MALE_SPIT,		100, &(pSoldier->inventory()[HANDPOS]) );
 
 					break;
 
@@ -5336,9 +5336,9 @@ void ChangeSoldiersBodyType( UINT8 ubBodyType, BOOLEAN fCreateNewPalette )
 				case COMBAT_JEEP:
 
 					pSoldier->status().flags() |= SOLDIER_VEHICLE;
-					//pSoldier->inv[ HANDPOS ].usItem = TANK_CANNON;
+					//pSoldier->inventory()[ HANDPOS ].usItem = TANK_CANNON;
 
-					pSoldier->inv[ HANDPOS ].usItem = MINIMI;
+					pSoldier->inventory()[ HANDPOS ].usItem = MINIMI;
 					pSoldier->vehicleState().tacticalVehicleId() = (INT8)AddVehicleToList( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), HUMMER );
 
 					break;
@@ -6749,7 +6749,7 @@ bool BadGoggles(SOLDIERTYPE *pTeamSoldier)
 			if ( pTeamSoldier->deployment().sectorZ() > 0 )
 			{
 				// we don't want a cave vision penalty
-				if ( Item[pTeamSoldier->inv[headSlot].usItem].cavevisionrangebonus < 0 )
+				if ( Item[pTeamSoldier->inventory()[headSlot].usItem].cavevisionrangebonus < 0 )
 					return true;
 			}
 			
@@ -6759,13 +6759,13 @@ bool BadGoggles(SOLDIERTYPE *pTeamSoldier)
 				// at night we don't want a night vision penalty
 				if ( NightTime() )
 				{
-					if ( Item[pTeamSoldier->inv[headSlot].usItem].nightvisionrangebonus < 0 )
+					if ( Item[pTeamSoldier->inventory()[headSlot].usItem].nightvisionrangebonus < 0 )
 						return true;
 				}
 				// at daytime we don't want a day vision penalty
 				// also if we have a bright light penalty make sure that is doesn't exceed the day vision bonus
-				else if ( Item[pTeamSoldier->inv[headSlot].usItem].dayvisionrangebonus < 0 || 
-					( Item[pTeamSoldier->inv[headSlot].usItem].dayvisionrangebonus + Item[pTeamSoldier->inv[headSlot].usItem].brightlightvisionrangebonus ) < 0 )
+				else if ( Item[pTeamSoldier->inventory()[headSlot].usItem].dayvisionrangebonus < 0 ||
+					( Item[pTeamSoldier->inventory()[headSlot].usItem].dayvisionrangebonus + Item[pTeamSoldier->inventory()[headSlot].usItem].brightlightvisionrangebonus ) < 0 )
 					return true;
 			}
 		}
@@ -6785,27 +6785,27 @@ void SwapGoggles(SOLDIERTYPE *pTeamSoldier)
 
 	for (int headSlot = HEAD1POS; headSlot <= HEAD2POS; ++headSlot) 
 	{
-		if ( (Item[pTeamSoldier->inv[headSlot].usItem].brightlightvisionrangebonus != 0) ) 
+		if ( (Item[pTeamSoldier->inventory()[headSlot].usItem].brightlightvisionrangebonus != 0) )
 		{
 			slotToUse = headSlot;
 			break;
 		} 
-		if ( (Item[pTeamSoldier->inv[headSlot].usItem].dayvisionrangebonus != 0) ) 
+		if ( (Item[pTeamSoldier->inventory()[headSlot].usItem].dayvisionrangebonus != 0) )
 		{
 			slotToUse = headSlot;
 			break;
 		} 
-		else if ( (Item[pTeamSoldier->inv[headSlot].usItem].nightvisionrangebonus != 0) ) 
+		else if ( (Item[pTeamSoldier->inventory()[headSlot].usItem].nightvisionrangebonus != 0) )
 		{
 			slotToUse = headSlot;
 			break;
 		} 
-		else if ( (Item[pTeamSoldier->inv[headSlot].usItem].cavevisionrangebonus != 0) ) 
+		else if ( (Item[pTeamSoldier->inventory()[headSlot].usItem].cavevisionrangebonus != 0) )
 		{
 			slotToUse = headSlot;
 			break;
 		} 
-		else if (pTeamSoldier->inv[headSlot].exists() == false) 
+		else if (pTeamSoldier->inventory()[headSlot].exists() == false)
 		{
 			slotToUse = headSlot;
 		}
@@ -6832,46 +6832,46 @@ void SwapGoggles(SOLDIERTYPE *pTeamSoldier)
 	{
 		// We need to check that pGoggles is compatible with whatever is in the other face slot
 		int otherFaceSlot = (slotToUse == HEAD1POS?HEAD2POS:HEAD1POS);
-		if(pTeamSoldier->inv[otherFaceSlot].exists() == true && !CompatibleFaceItem(pGoggles->usItem, pTeamSoldier->inv[otherFaceSlot].usItem))
+		if(pTeamSoldier->inventory()[otherFaceSlot].exists() == true && !CompatibleFaceItem(pGoggles->usItem, pTeamSoldier->inventory()[otherFaceSlot].usItem))
 			pGoggles = NULL;
 	}
 
 	if (pGoggles) 
 	{
 		// Now either swap or equip the best one that was found
-		if (pTeamSoldier->inv[slotToUse].exists()) 
+		if (pTeamSoldier->inventory()[slotToUse].exists())
 		{
-			if(CanItemFitInPosition(pTeamSoldier, &pTeamSoldier->inv[slotToUse], swapSlot, TRUE))
+			if(CanItemFitInPosition(pTeamSoldier, &pTeamSoldier->inventory()[slotToUse], swapSlot, TRUE))
 				SwapObjs( pTeamSoldier, slotToUse, pGoggles, TRUE );
 			else if (swapSlot == HELMETPOS)
 				SwapObjs(pTeamSoldier, slotToUse, pGoggles, TRUE);
-			else if((pTeamSoldier->inv[HELMETPOS].exists()== true && pTeamSoldier->inv[HELMETPOS].AttachObject(pTeamSoldier, &pTeamSoldier->inv[slotToUse], FALSE)) ||
-				AutoPlaceObject(pTeamSoldier, &pTeamSoldier->inv[slotToUse], FALSE))
-				pGoggles->MoveThisObjectTo(pTeamSoldier->inv[slotToUse], 1, pTeamSoldier, slotToUse);
+			else if((pTeamSoldier->inventory()[HELMETPOS].exists()== true && pTeamSoldier->inventory()[HELMETPOS].AttachObject(pTeamSoldier, &pTeamSoldier->inventory()[slotToUse], FALSE)) ||
+				AutoPlaceObject(pTeamSoldier, &pTeamSoldier->inventory()[slotToUse], FALSE))
+				pGoggles->MoveThisObjectTo(pTeamSoldier->inventory()[slotToUse], 1, pTeamSoldier, slotToUse);
 			else
 			{
 				CHAR16	zTemp[ 100 ];
-				swprintf( zTemp, Message[ STR_CANNOT_ATTACH_ANY_SLOT ], ItemNames[ pTeamSoldier->inv[slotToUse].usItem ] );
+				swprintf( zTemp, Message[ STR_CANNOT_ATTACH_ANY_SLOT ], ItemNames[ pTeamSoldier->inventory()[slotToUse].usItem ] );
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, zTemp );
 			}
 		} 
 		else 
 		{
-			pGoggles->MoveThisObjectTo(pTeamSoldier->inv[slotToUse], 1, pTeamSoldier, slotToUse);
+			pGoggles->MoveThisObjectTo(pTeamSoldier->inventory()[slotToUse], 1, pTeamSoldier, slotToUse);
 		}
 	} 
 	else 
 	{
 		// No goggles to equip, should the current ones be unequiped?
-		if (pTeamSoldier->inv[slotToUse].exists()) 
+		if (pTeamSoldier->inventory()[slotToUse].exists())
 		{
-			if ((DayTime() && Item[pTeamSoldier->inv[slotToUse].usItem].nightvisionrangebonus > 0 && pTeamSoldier->deployment().sectorZ() == 0) ||
-			    ((!DayTime() || pTeamSoldier->deployment().sectorZ() > 0) && (Item[pTeamSoldier->inv[slotToUse].usItem].brightlightvisionrangebonus > 0)))
+			if ((DayTime() && Item[pTeamSoldier->inventory()[slotToUse].usItem].nightvisionrangebonus > 0 && pTeamSoldier->deployment().sectorZ() == 0) ||
+			    ((!DayTime() || pTeamSoldier->deployment().sectorZ() > 0) && (Item[pTeamSoldier->inventory()[slotToUse].usItem].brightlightvisionrangebonus > 0)))
 			{
 				// It's day and we're wearing night goggles (or vice-versa), find a place to stash them
-				if (pTeamSoldier->inv[ HELMETPOS ].exists()) 
+				if (pTeamSoldier->inventory()[ HELMETPOS ].exists())
 				{
-					if (pTeamSoldier->inv[ HELMETPOS ].AttachObject( NULL, &pTeamSoldier->inv[slotToUse] )) 
+					if (pTeamSoldier->inventory()[ HELMETPOS ].AttachObject( NULL, &pTeamSoldier->inventory()[slotToUse] ))
 					{
 						// It worked!
 					} 
@@ -6879,16 +6879,16 @@ void SwapGoggles(SOLDIERTYPE *pTeamSoldier)
 					{
 						/* //If we're here we already know we can't attach, don't we?
 						// Try dumping it anywhere in inventory because it doesn't attach to the helmet
-						if (NASValidAttachment( pTeamSoldier->inv[slotToUse].usItem, pTeamSoldier->inv[HELMETPOS].usItem ) &&
-							pTeamSoldier->inv[slotToUse][0]->attachments.size() < MAX_ATTACHMENTS)
+						if (NASValidAttachment( pTeamSoldier->inventory()[slotToUse].usItem, pTeamSoldier->inventory()[HELMETPOS].usItem ) &&
+							pTeamSoldier->inventory()[slotToUse][0]->attachments.size() < MAX_ATTACHMENTS)
 						{
-							pTeamSoldier->inv[HELMETPOS].AttachObject( pTeamSoldier, &pTeamSoldier->inv[slotToUse], FALSE, 0 );
+							pTeamSoldier->inventory()[HELMETPOS].AttachObject( pTeamSoldier, &pTeamSoldier->inventory()[slotToUse], FALSE, 0 );
 						}
 						else
 						*/
 						//{
 							// Remove sungoggles.
-							PlaceInAnyPocket(pTeamSoldier, &pTeamSoldier->inv[slotToUse], FALSE);
+							PlaceInAnyPocket(pTeamSoldier, &pTeamSoldier->inventory()[slotToUse], FALSE);
 						//}
 					}
 				} 
@@ -6896,16 +6896,16 @@ void SwapGoggles(SOLDIERTYPE *pTeamSoldier)
 				{
 					/* //again useless?
 					// Try dumping it anywhere in inventory given there's no helemt
-					if (NASValidAttachment( pTeamSoldier->inv[slotToUse].usItem, pTeamSoldier->inv[HELMETPOS].usItem ) &&
-						pTeamSoldier->inv[slotToUse][0]->attachments.size() < MAX_ATTACHMENTS)
+					if (NASValidAttachment( pTeamSoldier->inventory()[slotToUse].usItem, pTeamSoldier->inventory()[HELMETPOS].usItem ) &&
+						pTeamSoldier->inventory()[slotToUse][0]->attachments.size() < MAX_ATTACHMENTS)
 					{
-						pTeamSoldier->inv[HELMETPOS].AttachObject( pTeamSoldier, &pTeamSoldier->inv[slotToUse], FALSE, 0 );
+						pTeamSoldier->inventory()[HELMETPOS].AttachObject( pTeamSoldier, &pTeamSoldier->inventory()[slotToUse], FALSE, 0 );
 					}
 					else
 					*/
 					//{
 						// Remove sungoggles.
-						PlaceInAnyPocket(pTeamSoldier, &pTeamSoldier->inv[slotToUse], FALSE);
+						PlaceInAnyPocket(pTeamSoldier, &pTeamSoldier->inventory()[slotToUse], FALSE);
 					//}
 				}
 			}
@@ -6940,16 +6940,16 @@ void SwapGogglesUniformly(SOLDIERTYPE *pTeamSoldier, BOOLEAN fToNightVision)
 	//CHRISL: Before doing anything, we should look at both head slots to see if either slot has some sort of goggles
 	for(bSlot1 = HEAD1POS; bSlot1 <= HEAD2POS; bSlot1++)
 	{
-		if(Item[pTeamSoldier->inv[bSlot1].usItem].brightlightvisionrangebonus > 0)
+		if(Item[pTeamSoldier->inventory()[bSlot1].usItem].brightlightvisionrangebonus > 0)
 			itemFound = true;
-		if(Item[pTeamSoldier->inv[bSlot1].usItem].nightvisionrangebonus > 0)
+		if(Item[pTeamSoldier->inventory()[bSlot1].usItem].nightvisionrangebonus > 0)
 			itemFound = true;
 	}
 	//2 head slots
 	for (bSlot1 = HEAD1POS; bSlot1 <= HEAD2POS; bSlot1++)
 	{
 		// if wearing sungoggles
-		if ( Item[pTeamSoldier->inv[bSlot1].usItem].brightlightvisionrangebonus > 0	)
+		if ( Item[pTeamSoldier->inventory()[bSlot1].usItem].brightlightvisionrangebonus > 0	)
 		{
 			if (fToNightVision == TRUE) // Only if we want to switch to nightvision!
 			{
@@ -6964,7 +6964,7 @@ void SwapGogglesUniformly(SOLDIERTYPE *pTeamSoldier, BOOLEAN fToNightVision)
 				//search helmet and vest
 				for(UINT8 gear = HELMETPOS; gear <= VESTPOS; gear++)
 				{
-					pObj = &(pTeamSoldier->inv[gear]);
+					pObj = &(pTeamSoldier->inventory()[gear]);
 					for (attachmentList::iterator iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter)
 					{
 						if ( Item[ iter->usItem ].nightvisionrangebonus > bestBonus && Item[ iter->usItem ].usItemClass == IC_FACE && iter->exists())
@@ -6979,25 +6979,25 @@ void SwapGogglesUniformly(SOLDIERTYPE *pTeamSoldier, BOOLEAN fToNightVision)
 					SwapObjs( pTeamSoldier, bSlot1, pGoggles, TRUE );
 					break;
 				}
-				else if (Item[pTeamSoldier->inv[bSlot1].usItem].nightvisionrangebonus <= 0)
+				else if (Item[pTeamSoldier->inventory()[bSlot1].usItem].nightvisionrangebonus <= 0)
 				{	//WarmSteel - just try and see if it works
-					//if (NASValidAttachment( pTeamSoldier->inv[bSlot1].usItem, pTeamSoldier->inv[HELMETPOS].usItem ) &&
-					//	pTeamSoldier->inv[bSlot1][0]->attachments.size() < MAX_ATTACHMENTS)
-					if ( pTeamSoldier->inv[HELMETPOS].AttachObject( pTeamSoldier, &pTeamSoldier->inv[bSlot1], FALSE, 0 ) )
+					//if (NASValidAttachment( pTeamSoldier->inventory()[bSlot1].usItem, pTeamSoldier->inventory()[HELMETPOS].usItem ) &&
+					//	pTeamSoldier->inventory()[bSlot1][0]->attachments.size() < MAX_ATTACHMENTS)
+					if ( pTeamSoldier->inventory()[HELMETPOS].AttachObject( pTeamSoldier, &pTeamSoldier->inventory()[bSlot1], FALSE, 0 ) )
 					{
 						break;
 					}
 					else
 					{
 						// Remove nightgoggles.
-						PlaceInAnyPocket(pTeamSoldier, &pTeamSoldier->inv[bSlot1], FALSE);
+						PlaceInAnyPocket(pTeamSoldier, &pTeamSoldier->inventory()[bSlot1], FALSE);
 						break;
 					}
 				}
 			}
 		}
 		// else if wearing NVGs
-		else if(Item[pTeamSoldier->inv[bSlot1].usItem].nightvisionrangebonus > 0)
+		else if(Item[pTeamSoldier->inventory()[bSlot1].usItem].nightvisionrangebonus > 0)
 		{
 			if (fToNightVision == FALSE) // Only if we want to switch to dayvision!
 			{
@@ -7012,7 +7012,7 @@ void SwapGogglesUniformly(SOLDIERTYPE *pTeamSoldier, BOOLEAN fToNightVision)
 				//search helmet and vest
 				for(UINT8 gear = HELMETPOS; gear <= VESTPOS; gear++)
 				{
-					pObj = &(pTeamSoldier->inv[gear]);
+					pObj = &(pTeamSoldier->inventory()[gear]);
 					for (attachmentList::iterator iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter)
 					{
 						if ( Item[ iter->usItem ].brightlightvisionrangebonus > bestBonus && Item[ iter->usItem ].usItemClass == IC_FACE && iter->exists())
@@ -7027,31 +7027,31 @@ void SwapGogglesUniformly(SOLDIERTYPE *pTeamSoldier, BOOLEAN fToNightVision)
 					SwapObjs( pTeamSoldier, bSlot1, pGoggles, TRUE );
 					break;
 				}
-				else if (Item[pTeamSoldier->inv[bSlot1].usItem].brightlightvisionrangebonus <= 0)
+				else if (Item[pTeamSoldier->inventory()[bSlot1].usItem].brightlightvisionrangebonus <= 0)
 				{	//WarmSteel - try
-					//if (NASValidAttachment( pTeamSoldier->inv[bSlot1].usItem, pTeamSoldier->inv[HELMETPOS].usItem ) &&
-					//	pTeamSoldier->inv[bSlot1][0]->attachments.size() < MAX_ATTACHMENTS)
-					if ( pTeamSoldier->inv[HELMETPOS].AttachObject( pTeamSoldier, &pTeamSoldier->inv[bSlot1], FALSE, 0 ) )
+					//if (NASValidAttachment( pTeamSoldier->inventory()[bSlot1].usItem, pTeamSoldier->inventory()[HELMETPOS].usItem ) &&
+					//	pTeamSoldier->inventory()[bSlot1][0]->attachments.size() < MAX_ATTACHMENTS)
+					if ( pTeamSoldier->inventory()[HELMETPOS].AttachObject( pTeamSoldier, &pTeamSoldier->inventory()[bSlot1], FALSE, 0 ) )
 					{
 						break;
 					}
 					else
 					{
 						// Remove nightgoggles.
-						PlaceInAnyPocket(pTeamSoldier, &pTeamSoldier->inv[bSlot1], FALSE);
+						PlaceInAnyPocket(pTeamSoldier, &pTeamSoldier->inventory()[bSlot1], FALSE);
 						break;
 					}
 				}
 			}
 		}
 		// else if not wearing anything and no goggles found
-		else if(itemFound == false && pTeamSoldier->inv[bSlot1].exists() == false)
+		else if(itemFound == false && pTeamSoldier->inventory()[bSlot1].exists() == false)
 		{
 			bestBonus = 0;
 			// search helmet and vest for goggles of some kind
 			for(UINT8 gear = HELMETPOS; gear <= VESTPOS; gear++)
 			{
-				pObj = &(pTeamSoldier->inv[gear]);
+				pObj = &(pTeamSoldier->inventory()[gear]);
 				for(attachmentList::iterator iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter)
 				{
 					if(iter->exists()){
@@ -7069,12 +7069,12 @@ void SwapGogglesUniformly(SOLDIERTYPE *pTeamSoldier, BOOLEAN fToNightVision)
 				}
 				if(pGoggles)
 				{
-					pGoggles->MoveThisObjectTo(pTeamSoldier->inv[bSlot1], 1, pTeamSoldier, bSlot1);
+					pGoggles->MoveThisObjectTo(pTeamSoldier->inventory()[bSlot1], 1, pTeamSoldier, bSlot1);
 					pObj->RemoveAttachment(pGoggles);
 					break;
 				}
 			}
-			if(pTeamSoldier->inv[bSlot1].exists() == false)
+			if(pTeamSoldier->inventory()[bSlot1].exists() == false)
 			{
 				if(fToNightVision == FALSE)
 					pGoggles = FindSunGogglesInInv( pTeamSoldier, &swapSlot, &isAttach );
@@ -8080,9 +8080,9 @@ void HandleTBSwapHands( void )
 			: nullptr;
 	if ( pSoldier && !AM_A_ROBOT( pSoldier ))
 	{
-		UINT16 usOldHandItem = pSoldier->inv[HANDPOS].usItem;
+		UINT16 usOldHandItem = pSoldier->inventory()[HANDPOS].usItem;
 		SwapHandItems( pSoldier );
-		pSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, pSoldier->inv[HANDPOS].usItem );
+		pSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, pSoldier->inventory()[HANDPOS].usItem );
 
 		fCharacterInfoPanelDirty = TRUE;
 		fInterfacePanelDirty = DIRTYLEVEL2;
@@ -8257,12 +8257,12 @@ void HandleTBReloadAll( void )
 			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
 			{
 				// Search for gun in soldier inventory
-				UINT32 invsize = pTeamSoldier->inv.size();
+				UINT32 invsize = pTeamSoldier->inventory().size();
 				for ( UINT32 bLoop2 = 0; bLoop2 < invsize; ++bLoop2 )
 				{
-					if ( (Item[pTeamSoldier->inv[bLoop2].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
+					if ( (Item[pTeamSoldier->inventory()[bLoop2].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
 					{
-						pGun = &(pTeamSoldier->inv[bLoop2]);
+						pGun = &(pTeamSoldier->inventory()[bLoop2]);
 
 						UINT16 gunmagsize = GetMagSize( pGun );
 
@@ -8321,12 +8321,12 @@ void HandleTBReloadAll( void )
 			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
 			{
 				// Search for ammo in soldier inventory
-				UINT32 invsize = pTeamSoldier->inv.size();
+				UINT32 invsize = pTeamSoldier->inventory().size();
 				for ( UINT32 bLoop2 = 0; bLoop2 < invsize; ++bLoop2 )
 				{
-					if ( Item[pTeamSoldier->inv[bLoop2].usItem].usItemClass & IC_AMMO )
+					if ( Item[pTeamSoldier->inventory()[bLoop2].usItem].usItemClass & IC_AMMO )
 					{
-						pAmmoMags = &(pTeamSoldier->inv[bLoop2]);
+						pAmmoMags = &(pTeamSoldier->inventory()[bLoop2]);
 
 						for ( UINT16 stackMag = 0; stackMag < (*pAmmoMags).ubNumberOfObjects; stackMag++ )
 						{
@@ -8370,12 +8370,12 @@ void HandleTBReloadAll( void )
 								//MM: if magazines still are partly empty, look through inventory for boxes and crates
 								if ( (*pAmmoMags)[stackMag]->data.ubShotsLeft < Magazine[Item[pAmmoMags->usItem].ubClassIndex].ubMagSize )
 								{
-									UINT32 invsize = pTeamSoldier->inv.size();
+									UINT32 invsize = pTeamSoldier->inventory().size();
 									for ( UINT32 uiLoop = 0; uiLoop < invsize; ++uiLoop )
 									{
-										if ( (Item[pTeamSoldier->inv[uiLoop].usItem].usItemClass & IC_AMMO) && Magazine[Item[pTeamSoldier->inv[uiLoop].usItem].ubClassIndex].ubMagType >= AMMO_BOX )
+										if ( (Item[pTeamSoldier->inventory()[uiLoop].usItem].usItemClass & IC_AMMO) && Magazine[Item[pTeamSoldier->inventory()[uiLoop].usItem].ubClassIndex].ubMagType >= AMMO_BOX )
 										{
-											pAmmo = &(pTeamSoldier->inv[uiLoop]);
+											pAmmo = &(pTeamSoldier->inventory()[uiLoop]);
 
 											if ( Magazine[Item[pAmmoMags->usItem].ubClassIndex].ubCalibre == Magazine[Item[pAmmo->usItem].ubClassIndex].ubCalibre ) // same calibre
 											{
@@ -8469,12 +8469,12 @@ void HandleTBReloadAll( void )
 			}
 			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
 			{
-				if ( (Item[pTeamSoldier->inv[HANDPOS].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
+				if ( (Item[pTeamSoldier->inventory()[HANDPOS].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
 				{
 					if ( (IsJa2TacticalCombatActive()) )
 					{
 						// Flugente: check for underbarrel weapons and use that object if necessary
-						pGun = pTeamSoldier->GetUsedWeapon( &(pTeamSoldier->inv[HANDPOS]) );
+						pGun = pTeamSoldier->GetUsedWeapon( &(pTeamSoldier->inventory()[HANDPOS]) );
 
 						//magazine is not full
 						if ( (*pGun)[0]->data.gun.ubGunShotsLeft < GetMagSize( pGun ) )
@@ -8485,12 +8485,12 @@ void HandleTBReloadAll( void )
 					else
 					{
 						// Search for gun in soldier inventory
-						UINT32 invsize = pTeamSoldier->inv.size();
+						UINT32 invsize = pTeamSoldier->inventory().size();
 						for ( UINT32 bLoop2 = 0; bLoop2 < invsize; ++bLoop2 )
 						{
-							if ( (Item[pTeamSoldier->inv[bLoop2].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
+							if ( (Item[pTeamSoldier->inventory()[bLoop2].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
 							{
-								pGun = &(pTeamSoldier->inv[bLoop2]);
+								pGun = &(pTeamSoldier->inventory()[bLoop2]);
 
 								UINT16 gunmagsize = GetMagSize( pGun );
 
@@ -8500,9 +8500,9 @@ void HandleTBReloadAll( void )
 									// Search for ammo in soldier inventory
 									for ( UINT32 uiLoop = 0; uiLoop < invsize; ++uiLoop )
 									{
-										if ( (Item[pTeamSoldier->inv[uiLoop].usItem].usItemClass & IC_AMMO) ) // the item is ammo
+										if ( (Item[pTeamSoldier->inventory()[uiLoop].usItem].usItemClass & IC_AMMO) ) // the item is ammo
 										{
-											pAmmo = &(pTeamSoldier->inv[uiLoop]);
+											pAmmo = &(pTeamSoldier->inventory()[uiLoop]);
 
 											if ( CompatibleAmmoForGun( pAmmo, pGun ) ) // can use the ammo with this gun
 											{
@@ -8651,7 +8651,7 @@ void HandleTBBackpacks(void)
 				continue;
 			}
 
-			if (OK_CONTROLLABLE_MERC(pTeamSoldier) && pTeamSoldier->inventoryState().dropPackFlag())
+			if (OK_CONTROLLABLE_MERC(pTeamSoldier) && pTeamSoldier->inventory().dropPackFlag())
 			{
 				backpackDropped = true;
 				break;
@@ -8695,8 +8695,8 @@ void HandleTBDropBackpacks( void )
 				EnoughPoints( pTeamSoldier, sAPCost, iBPCost, FALSE ) &&
 				//pTeamSoldier->assignment().current() == pSoldier->assignment().current() &&
 				pTeamSoldier->assignment().current() < ON_DUTY &&
-				pTeamSoldier->inv[BPACKPOCKPOS].exists() &&
-				!pTeamSoldier->inventoryState().dropPackFlag() )
+				pTeamSoldier->inventory()[BPACKPOCKPOS].exists() &&
+				!pTeamSoldier->inventory().dropPackFlag() )
 			{
 				if ( ChangeDropPackStatus( pTeamSoldier, TRUE ) )
 				{
@@ -8737,8 +8737,8 @@ void HandleTBPickUpBackpacks( void )
 				EnoughPoints(pTeamSoldier, sAPCost, iBPCost, FALSE) &&
 				//pTeamSoldier->assignment().current() == pSoldier->assignment().current() &&
 				pTeamSoldier->assignment().current() < ON_DUTY &&
-				!pTeamSoldier->inv[BPACKPOCKPOS].exists() &&
-				pTeamSoldier->inventoryState().dropPackFlag() )
+				!pTeamSoldier->inventory()[BPACKPOCKPOS].exists() &&
+				pTeamSoldier->inventory().dropPackFlag() )
 			{				
 				if( ChangeDropPackStatus(pTeamSoldier, FALSE) )
 				{
@@ -8863,12 +8863,12 @@ void HandleTacticalAmmoCrates( UINT8 magType )
 								GetJa2SoldierRepository().resolve(loop);
 							if(teamSoldier && teamSoldier->roster().active() && teamSoldier->roster().inSector())
 							{
-								UINT32 invsize = teamSoldier->inv.size();
+								UINT32 invsize = teamSoldier->inventory().size();
 								for(UINT32 pocket=0; pocket < invsize; ++pocket)
 								{
-									if(teamSoldier->inv[pocket].usItem == crateItem)
+									if(teamSoldier->inventory()[pocket].usItem == crateItem)
 									{
-										DistributeStatus(&gWorldItems[wItem].object, &teamSoldier->inv[pocket], Magazine[Item[crateItem].ubClassIndex].ubMagSize);
+										DistributeStatus(&gWorldItems[wItem].object, &teamSoldier->inventory()[pocket], Magazine[Item[crateItem].ubClassIndex].ubMagSize);
 										if(gWorldItems[wItem].object.ubNumberOfObjects < 1)
 										{
 											mergeSuccessful = true;
@@ -9129,7 +9129,7 @@ void HandleTacticalTransformItem(void)
 	if (!GetSoldier(&pSoldier, gusSelectedSoldier))
 		return;
 
-	if (!pSoldier->inv[HANDPOS].exists())
+	if (!pSoldier->inventory()[HANDPOS].exists())
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
@@ -9140,7 +9140,7 @@ void HandleTacticalTransformItem(void)
 	if (gpItemDescObject)
 		return;
 
-	usItem = pSoldier->inv[HANDPOS].usItem;
+	usItem = pSoldier->inventory()[HANDPOS].usItem;
 
 	if (FindTransformation(usItem, &pTransformation, TRUE))
 	{
@@ -9150,7 +9150,7 @@ void HandleTacticalTransformItem(void)
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pTransformation->szMenuRowText);
 
 		// let's pretend we are calling this from EDB
-		gpItemDescObject = &pSoldier->inv[HANDPOS];
+		gpItemDescObject = &pSoldier->inventory()[HANDPOS];
 
 		gpItemDescObject->TransformObject(pSoldier, 0, pTransformation, NULL);
 
@@ -9227,21 +9227,21 @@ void HandleTacticalStoreInvItem( void )
 		return;
 	}
 	
-	if( !pSoldier->inv[HANDPOS].exists() )
+	if( !pSoldier->inventory()[HANDPOS].exists() )
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ QUICK_ITEMS_NO_ITEM_IN_HAND ] );
 		return;
 	}
 
-	if( pSoldier->runtime.quickItem.itemId == pSoldier->inv[HANDPOS].usItem &&
-		( CanItemFitInPosition(pSoldier, &pSoldier->inv[HANDPOS], pSoldier->runtime.quickItem.slot, FALSE) && !pSoldier->inv[pSoldier->runtime.quickItem.slot].exists() ) )
+	if( pSoldier->runtime.quickItem.itemId == pSoldier->inventory()[HANDPOS].usItem &&
+		( CanItemFitInPosition(pSoldier, &pSoldier->inventory()[HANDPOS], pSoldier->runtime.quickItem.slot, FALSE) && !pSoldier->inventory()[pSoldier->runtime.quickItem.slot].exists() ) )
 		ubStoreSlot = pSoldier->runtime.quickItem.slot;
 
 	// find slot to store HANDPOS in
 	for(UINT8 i = GUNSLINGPOCKPOS; i < NUM_INV_SLOTS && ubStoreSlot == 0; ++i)
 	{
 		// take first slot that hand item would fit
-		if ( ( CanItemFitInPosition(pSoldier, &pSoldier->inv[HANDPOS], i, FALSE) && !pSoldier->inv[i].exists() ) )
+		if ( ( CanItemFitInPosition(pSoldier, &pSoldier->inventory()[HANDPOS], i, FALSE) && !pSoldier->inventory()[i].exists() ) )
 		{
 			ubStoreSlot = i;
 			break;
@@ -9257,7 +9257,7 @@ void HandleTacticalStoreInvItem( void )
 	// calculate needed APs
 	if ( UsingInventoryCostsAPSystem() )
 	{		
-		APTotalCost += GetInvMovementCost(&pSoldier->inv[HANDPOS], HANDPOS, ubStoreSlot  );
+		APTotalCost += GetInvMovementCost(&pSoldier->inventory()[HANDPOS], HANDPOS, ubStoreSlot  );
 		if( !EnoughPoints( pSoldier, APTotalCost, 0, TRUE ) )
 			return;
 
@@ -9265,10 +9265,10 @@ void HandleTacticalStoreInvItem( void )
 		DeductPoints( pSoldier, APTotalCost, 0 );
 	}
 
-	pSoldier->inv[HANDPOS].MoveThisObjectTo(pSoldier->inv[ubStoreSlot], 1, pSoldier);
+	pSoldier->inventory()[HANDPOS].MoveThisObjectTo(pSoldier->inventory()[ubStoreSlot], 1, pSoldier);
 	
 	// swap hands
-	if( pSoldier->inv[SECONDHANDPOS].exists() )
+	if( pSoldier->inventory()[SECONDHANDPOS].exists() )
 		SwapHandItems( pSoldier );
 
 	// update interface
@@ -9303,18 +9303,18 @@ void HandleTacticalTakeInvItem( INT32 iType )
 	}
 
 	// check if item is already in main hand
-	if ( pSoldier->inv[HANDPOS].exists() &&		
-		( iType > 0 ? ( pSoldier->inv[HANDPOS].usItem == iType ) : ( InvItemType( pSoldier->inv[HANDPOS].usItem ) == iType ) ) )
+	if ( pSoldier->inventory()[HANDPOS].exists() &&
+		( iType > 0 ? ( pSoldier->inventory()[HANDPOS].usItem == iType ) : ( InvItemType( pSoldier->inventory()[HANDPOS].usItem ) == iType ) ) )
 		return;
 
-	if( pSoldier->inv[HANDPOS].exists() && pSoldier->inv[SECONDHANDPOS].exists() )
+	if( pSoldier->inventory()[HANDPOS].exists() && pSoldier->inventory()[SECONDHANDPOS].exists() )
 	{
 		// try to free HANDPOS for new item
 		HandleTacticalStoreInvItem();
 	}
 
 	// both hands are full
-	if( pSoldier->inv[HANDPOS].exists() && pSoldier->inv[SECONDHANDPOS].exists() )
+	if( pSoldier->inventory()[HANDPOS].exists() && pSoldier->inventory()[SECONDHANDPOS].exists() )
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ QUICK_ITEM_NO_FREE_HAND ] );
 		return;
@@ -9323,9 +9323,9 @@ void HandleTacticalTakeInvItem( INT32 iType )
 	// search for type of item
 	for(UINT8 i = GUNSLINGPOCKPOS; i < NUM_INV_SLOTS; ++i)
 	{
-		if ( pSoldier->inv[i].exists() &&
-			!ItemIsTwoHanded(pSoldier->inv[i].usItem) &&
-			( iType > 0 ? ( pSoldier->inv[i].usItem == iType ) : ( InvItemType( pSoldier->inv[i].usItem ) == iType ) ) )
+		if ( pSoldier->inventory()[i].exists() &&
+			!ItemIsTwoHanded(pSoldier->inventory()[i].usItem) &&
+			( iType > 0 ? ( pSoldier->inventory()[i].usItem == iType ) : ( InvItemType( pSoldier->inventory()[i].usItem ) == iType ) ) )
 		{
 			ubItemSlot = i;
 			break;
@@ -9339,30 +9339,30 @@ void HandleTacticalTakeInvItem( INT32 iType )
 	}
 
 	// remember item slot and id
-	pSoldier->runtime.quickItem.itemId = pSoldier->inv[ubItemSlot].usItem;
+	pSoldier->runtime.quickItem.itemId = pSoldier->inventory()[ubItemSlot].usItem;
 	pSoldier->runtime.quickItem.slot = ubItemSlot;
 
 	if ( UsingInventoryCostsAPSystem() )
 	{		
-		APTotalCost += GetInvMovementCost(&pSoldier->inv[ubItemSlot], ubItemSlot, HANDPOS);
+		APTotalCost += GetInvMovementCost(&pSoldier->inventory()[ubItemSlot], ubItemSlot, HANDPOS);
 		if( !EnoughPoints( pSoldier, APTotalCost, 0, TRUE ) )
 			return;
 	}
 
-	if( !CanItemFitInPosition( pSoldier, &pSoldier->inv[ubItemSlot], HANDPOS, FALSE ) )
+	if( !CanItemFitInPosition( pSoldier, &pSoldier->inventory()[ubItemSlot], HANDPOS, FALSE ) )
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ QUICK_ITEM_CANNOT_TAKE ] );
 		return;
 	}
 
 	// if item in main hand exists -> move it to second hand
-	if( pSoldier->inv[HANDPOS].exists() )
+	if( pSoldier->inventory()[HANDPOS].exists() )
 		HandleTBSwapHands();
 
 	// move item to handpos
 	if ( UsingInventoryCostsAPSystem() )
 		DeductPoints( pSoldier, APTotalCost, 0 );
-	pSoldier->inv[ubItemSlot].MoveThisObjectTo(pSoldier->inv[HANDPOS], 1, pSoldier);
+	pSoldier->inventory()[ubItemSlot].MoveThisObjectTo(pSoldier->inventory()[HANDPOS], 1, pSoldier);
 
 	// update interface
 	fCharacterInfoPanelDirty = TRUE;
@@ -9408,19 +9408,19 @@ void HandleTacticalDropItem( UINT8 ubSlot )
 	if( !pSoldier )
 		return;
 
-	if( pSoldier->inv[ ubSlot ].exists() )
+	if( pSoldier->inventory()[ ubSlot ].exists() )
 	{		
 		if ( UsingInventoryCostsAPSystem() )
 		{		
-			APTotalCost += GetInvMovementCost(&pSoldier->inv[ubSlot], ubSlot, HANDPOS);
+			APTotalCost += GetInvMovementCost(&pSoldier->inventory()[ubSlot], ubSlot, HANDPOS);
 			APTotalCost += GetBasicAPsToPickupItem( pSoldier );
 			if( !EnoughPoints( pSoldier, APTotalCost, 0, TRUE ) )
 				return;
 			DeductPoints( pSoldier, APTotalCost, 0 );
 		}
 
-		SoldierDropItem( pSoldier, &pSoldier->inv[ ubSlot ] );
-		DeleteObj( &(pSoldier->inv[ ubSlot ]) );
+		SoldierDropItem( pSoldier, &pSoldier->inventory()[ ubSlot ] );
+		DeleteObj( &(pSoldier->inventory()[ ubSlot ]) );
 	}
 }
 
@@ -9438,9 +9438,9 @@ void HandleTacticalTakeItem( void )
 	if( gpItemPointer == NULL )
 	{
 		//not holding anything
-		if( pSoldier->inv[HANDPOS].exists() )
+		if( pSoldier->inventory()[HANDPOS].exists() )
 		{
-			pSoldier->inv[HANDPOS].MoveThisObjectTo(gItemPointer);
+			pSoldier->inventory()[HANDPOS].MoveThisObjectTo(gItemPointer);
 			gpItemPointer = &gItemPointer;
 		}
 	}
@@ -9511,7 +9511,7 @@ void HandleTacticalTransformScope(void)
 	if (!GetSoldier(&pSoldier, gusSelectedSoldier))
 		return;
 
-	if (!pSoldier->inv[HANDPOS].exists())
+	if (!pSoldier->inventory()[HANDPOS].exists())
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
@@ -9522,12 +9522,12 @@ void HandleTacticalTransformScope(void)
 	if (gpItemDescObject)
 		return;
 
-	usItem = pSoldier->inv[HANDPOS].usItem;
+	usItem = pSoldier->inventory()[HANDPOS].usItem;
 	//GetMouseMapPos(&usGridNo);
 
 	// check attachments
 	attachmentList::iterator iter;
-	pObj = &(pSoldier->inv[HANDPOS]);
+	pObj = &(pSoldier->inventory()[HANDPOS]);
 
 	// check all attachments, search for available transformations
 	for (iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter)
@@ -9576,7 +9576,7 @@ void HandleTacticalTransformLaser(void)
 	if (!GetSoldier(&pSoldier, gusSelectedSoldier))
 		return;
 
-	if (!pSoldier->inv[HANDPOS].exists())
+	if (!pSoldier->inventory()[HANDPOS].exists())
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
@@ -9587,11 +9587,11 @@ void HandleTacticalTransformLaser(void)
 	if (gpItemDescObject)
 		return;
 
-	usItem = pSoldier->inv[HANDPOS].usItem;
+	usItem = pSoldier->inventory()[HANDPOS].usItem;
 
 	// check attachments
 	attachmentList::iterator iter;
-	pObj = &(pSoldier->inv[HANDPOS]);
+	pObj = &(pSoldier->inventory()[HANDPOS]);
 
 	// check all attachments, search for available transformations
 	for (iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter)
@@ -9639,7 +9639,7 @@ void HandleTacticalTransformStock(void)
 	if (!GetSoldier(&pSoldier, gusSelectedSoldier))
 		return;
 
-	if (!pSoldier->inv[HANDPOS].exists())
+	if (!pSoldier->inventory()[HANDPOS].exists())
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
@@ -9650,7 +9650,7 @@ void HandleTacticalTransformStock(void)
 	if (gpItemDescObject)
 		return;
 
-	usItem = pSoldier->inv[HANDPOS].usItem;
+	usItem = pSoldier->inventory()[HANDPOS].usItem;
 
 	// check if can transform item
 	if (FindStockTransformation(usItem, &pTransformation))
@@ -9661,7 +9661,7 @@ void HandleTacticalTransformStock(void)
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pTransformation->szMenuRowText);
 
 		// let's pretend we are calling this from EDB
-		gpItemDescObject = &pSoldier->inv[HANDPOS];
+		gpItemDescObject = &pSoldier->inventory()[HANDPOS];
 		gpItemDescObject->TransformObject(pSoldier, 0, pTransformation, NULL);
 
 		// cleanup
@@ -9675,7 +9675,7 @@ void HandleTacticalTransformStock(void)
 
 	// check attachments
 	attachmentList::iterator iter;
-	pObj = &(pSoldier->inv[HANDPOS]);
+	pObj = &(pSoldier->inventory()[HANDPOS]);
 
 	// check all attachments, search for available transformations
 	for (iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter)
@@ -9722,7 +9722,7 @@ void HandleTacticalTransformFlashlight(void)
 	if (!GetSoldier(&pSoldier, gusSelectedSoldier))
 		return;
 
-	if (!pSoldier->inv[HANDPOS].exists())
+	if (!pSoldier->inventory()[HANDPOS].exists())
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
@@ -9733,7 +9733,7 @@ void HandleTacticalTransformFlashlight(void)
 	if (gpItemDescObject)
 		return;
 
-	usItem = pSoldier->inv[HANDPOS].usItem;
+	usItem = pSoldier->inventory()[HANDPOS].usItem;
 
 	// first try a transformation of item
 	if (FindFlashlightTransformation(usItem, &pTransformation))
@@ -9744,7 +9744,7 @@ void HandleTacticalTransformFlashlight(void)
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pTransformation->szMenuRowText);
 
 		// let's pretend we are calling this from EDB
-		gpItemDescObject = &pSoldier->inv[HANDPOS];
+		gpItemDescObject = &pSoldier->inventory()[HANDPOS];
 
 		gpItemDescObject->TransformObject(pSoldier, 0, pTransformation, NULL);
 
@@ -9759,7 +9759,7 @@ void HandleTacticalTransformFlashlight(void)
 
 	// check attachments
 	attachmentList::iterator iter;
-	pObj = &(pSoldier->inv[HANDPOS]);
+	pObj = &(pSoldier->inventory()[HANDPOS]);
 
 	// check all attachments, search for available transformations
 	for (iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter)
@@ -10006,8 +10006,8 @@ void HandleTBPickUpBackpacks(BOOLEAN fAll)
 				//!pTeamSoldier->IsBoxer() &&
 				EnoughPoints(pTeamSoldier, sAPCost, iBPCost, FALSE) &&
 				(fAll || pTeamSoldier->assignment().current() == pSoldier->assignment().current()) &&
-				!pTeamSoldier->inv[BPACKPOCKPOS].exists() &&
-				pTeamSoldier->inventoryState().dropPackFlag())
+				!pTeamSoldier->inventory()[BPACKPOCKPOS].exists() &&
+				pTeamSoldier->inventory().dropPackFlag())
 			{
 				if (ChangeDropPackStatus(pTeamSoldier, FALSE))
 				{

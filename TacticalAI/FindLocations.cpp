@@ -2056,12 +2056,12 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 									DebugAI(AI_MSG_INFO, pSoldier, String("jammed or out of ammo, skip it!"));
 									iTempValue = 0;
 								}
-								else if ( Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_WEAPON )
+								else if ( Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_WEAPON )
 								{
 									DebugAI(AI_MSG_INFO, pSoldier, String("compare with gun in hand"));
-									if (Weapon[pObj->usItem].ubDeadliness > Weapon[pSoldier->inv[HANDPOS].usItem].ubDeadliness)
+									if (Weapon[pObj->usItem].ubDeadliness > Weapon[pSoldier->inventory()[HANDPOS].usItem].ubDeadliness)
 									{
-										iTempValue = 100 * Weapon[pObj->usItem].ubDeadliness / Weapon[pSoldier->inv[HANDPOS].usItem].ubDeadliness;
+										iTempValue = 100 * Weapon[pObj->usItem].ubDeadliness / Weapon[pSoldier->inventory()[HANDPOS].usItem].ubDeadliness;
 									}
 									else
 									{
@@ -2107,14 +2107,14 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 									DebugAI(AI_MSG_INFO, pSoldier, String("jammed or out of ammo, skip it!"));
 									iTempValue = 0;
 								}
-								else if (pSoldier->inv[HANDPOS].exists() && (Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_WEAPON))
+								else if (pSoldier->inventory()[HANDPOS].exists() && (Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_WEAPON))
 								{
 									DebugAI(AI_MSG_INFO, pSoldier, String("compare with weapon in hand"));
-									if (Weapon[pObj->usItem].ubDeadliness > Weapon[pSoldier->inv[HANDPOS].usItem].ubDeadliness)
+									if (Weapon[pObj->usItem].ubDeadliness > Weapon[pSoldier->inventory()[HANDPOS].usItem].ubDeadliness)
 									{
-										if ((Weapon[pSoldier->inv[HANDPOS].usItem].ubDeadliness != NULL) && (Weapon[pSoldier->inv[HANDPOS].usItem].ubDeadliness > 0))
+										if ((Weapon[pSoldier->inventory()[HANDPOS].usItem].ubDeadliness != NULL) && (Weapon[pSoldier->inventory()[HANDPOS].usItem].ubDeadliness > 0))
 										{
-											iTempValue = 100 * Weapon[pObj->usItem].ubDeadliness / Weapon[pSoldier->inv[HANDPOS].usItem].ubDeadliness;
+											iTempValue = 100 * Weapon[pObj->usItem].ubDeadliness / Weapon[pSoldier->inventory()[HANDPOS].usItem].ubDeadliness;
 										}
 										else
 										{
@@ -2141,37 +2141,37 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 								{
 									case ARMOURCLASS_HELMET:
 										DebugAI(AI_MSG_INFO, pSoldier, String("ARMOURCLASS_HELMET"));
-										if (pSoldier->inv[HELMETPOS].exists() == false)
+										if (pSoldier->inventory()[HELMETPOS].exists() == false)
 										{
 											iTempValue = 200 + EffectiveArmour( pObj );
 										}
-										else if ( EffectiveArmour( &(pSoldier->inv[HELMETPOS]) ) < EffectiveArmour( pObj ) )
+										else if ( EffectiveArmour( &(pSoldier->inventory()[HELMETPOS]) ) < EffectiveArmour( pObj ) )
 										{
-											iTempValue = 100 * EffectiveArmour( pObj ) / (EffectiveArmour( &(pSoldier->inv[HELMETPOS]) ) + 1);
+											iTempValue = 100 * EffectiveArmour( pObj ) / (EffectiveArmour( &(pSoldier->inventory()[HELMETPOS]) ) + 1);
 										}
 										DebugAI(AI_MSG_INFO, pSoldier, String("iTempValue %d", iTempValue));
 										break;
 									case ARMOURCLASS_VEST:
 										DebugAI(AI_MSG_INFO, pSoldier, String("ARMOURCLASS_VEST"));
-										if (pSoldier->inv[VESTPOS].exists() == false)
+										if (pSoldier->inventory()[VESTPOS].exists() == false)
 										{
 											iTempValue = 200 + EffectiveArmour( pObj );
 										}
-										else if ( EffectiveArmour( &(pSoldier->inv[VESTPOS]) ) < EffectiveArmour( pObj ) )
+										else if ( EffectiveArmour( &(pSoldier->inventory()[VESTPOS]) ) < EffectiveArmour( pObj ) )
 										{
-											iTempValue = 100 * EffectiveArmour( pObj ) / (EffectiveArmour( &(pSoldier->inv[VESTPOS]) ) + 1);
+											iTempValue = 100 * EffectiveArmour( pObj ) / (EffectiveArmour( &(pSoldier->inventory()[VESTPOS]) ) + 1);
 										}
 										DebugAI(AI_MSG_INFO, pSoldier, String("iTempValue %d", iTempValue));
 										break;
 									case ARMOURCLASS_LEGGINGS:
 										DebugAI(AI_MSG_INFO, pSoldier, String("ARMOURCLASS_LEGGINGS"));
-										if (pSoldier->inv[LEGPOS].exists() == false)
+										if (pSoldier->inventory()[LEGPOS].exists() == false)
 										{
 											iTempValue = 200 + EffectiveArmour( pObj );
 										}
-										else if ( EffectiveArmour( &(pSoldier->inv[LEGPOS]) ) < EffectiveArmour( pObj ) )
+										else if ( EffectiveArmour( &(pSoldier->inventory()[LEGPOS]) ) < EffectiveArmour( pObj ) )
 										{
-											iTempValue = 100 * EffectiveArmour( pObj ) / (EffectiveArmour( &(pSoldier->inv[LEGPOS]) ) + 1);
+											iTempValue = 100 * EffectiveArmour( pObj ) / (EffectiveArmour( &(pSoldier->inventory()[LEGPOS]) ) + 1);
 										}
 										DebugAI(AI_MSG_INFO, pSoldier, String("iTempValue %d", iTempValue));
 										break;
@@ -2225,24 +2225,24 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 		if (Item[gWorldItems[ iBestItemIndex ].object.usItem].usItemClass == IC_GUN)
 		{
 			//CHRISL: This is the line from ADB's code but I removed it, for now, to match what 0verhaul has been working on
-			//if (pSoldier->inv[HANDPOS].exists() == true && PlaceInAnyPocket(pSoldier, &pSoldier->inv[HANDPOS], false) == false)
+			//if (pSoldier->inventory()[HANDPOS].exists() == true && PlaceInAnyPocket(pSoldier, &pSoldier->inventory()[HANDPOS], false) == false)
 			if (FindBetterSpotForItem( pSoldier, HANDPOS ) == FALSE)
 			{
 				if (pSoldier->actionPoints().current() < GetBasicAPsToPickupItem( pSoldier ) + GetBasicAPsToPickupItem( pSoldier ))
 				{
 					return( AI_ACTION_NONE );
 				}
-				if (pSoldier->inv[HANDPOS].fFlags & OBJECT_UNDROPPABLE)
+				if (pSoldier->inventory()[HANDPOS].fFlags & OBJECT_UNDROPPABLE)
 				{
 					// destroy this item!
-					DebugAI(AI_MSG_INFO, pSoldier, String("%d decides he must drop %S first so destroys it", pSoldier->identity().id(), ItemNames[pSoldier->inv[HANDPOS].usItem]));
-					DeleteObj( &(pSoldier->inv[HANDPOS]) );
+					DebugAI(AI_MSG_INFO, pSoldier, String("%d decides he must drop %S first so destroys it", pSoldier->identity().id(), ItemNames[pSoldier->inventory()[HANDPOS].usItem]));
+					DeleteObj( &(pSoldier->inventory()[HANDPOS]) );
 					DeductPoints( pSoldier, GetBasicAPsToPickupItem( pSoldier ), 0, AFTERACTION_INTERRUPT );
 				}
 				else
 				{
 					// we want to drop this item!
-					DebugAI(AI_MSG_INFO, pSoldier, String("%d decides he must drop %S first", pSoldier->identity().id(), ItemNames[pSoldier->inv[HANDPOS].usItem]));
+					DebugAI(AI_MSG_INFO, pSoldier, String("%d decides he must drop %S first", pSoldier->identity().id(), ItemNames[pSoldier->inventory()[HANDPOS].usItem]));
 
 					pSoldier->aiPlanning().nextAction() = AI_ACTION_PICKUP_ITEM;
 					pSoldier->aiPlanning().nextActionData() = sBestSpot;

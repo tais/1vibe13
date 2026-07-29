@@ -3173,15 +3173,15 @@ void CreateDestroyDisplayNPCInventoryPopup( UINT8 ubAction )
 
 				usPosY = QUEST_DBS_NPC_INV_POPUP_Y + 40;
 
-				UINT16 invsize = pSoldier->inv.size();
+				UINT16 invsize = pSoldier->inventory().size();
 				for( i=0; i<invsize; ++i)
 				{
-					if (pSoldier->inv[i].exists() == false)
+					if (pSoldier->inventory()[i].exists() == false)
 						continue;
 
-//					if ( !LoadItemInfo( pSoldier->inv[ i ].usItem, zItemName, zItemDesc ) )
+//					if ( !LoadItemInfo( pSoldier->inventory()[ i ].usItem, zItemName, zItemDesc ) )
 //						Assert(0);
-						wcscpy( zItemName, ShortItemNames[ pSoldier->inv[ i ].usItem ] );
+						wcscpy( zItemName, ShortItemNames[ pSoldier->inventory()[ i ].usItem ] );
 
 
 					//Display Name of the pocket
@@ -3703,7 +3703,7 @@ void RefreshAllNPCInventory()
 				gMercProfiles[usCnt].Type == PROFILETYPE_VEHICLE )
 			{
 				//refresh the mercs inventory
-				UINT16 invsize = soldier.inv.size();
+				UINT16 invsize = soldier.inventory().size();
 				for ( usItemCnt = 0; usItemCnt< invsize; ++usItemCnt )
 				{
 					if ( gMercProfiles[ soldier.identity().profile() ].inv[ usItemCnt ] != NOTHING )
@@ -3712,11 +3712,11 @@ void RefreshAllNPCInventory()
 						usItem = gMercProfiles[ soldier.identity().profile() ].inv[ usItemCnt ];
 
 						//Create the object
-						CreateItem( usItem, 100, &soldier.inv[ usItemCnt ] );
+						CreateItem( usItem, 100, &soldier.inventory()[ usItemCnt ] );
 					}
 					else {
 						//null out the items in the npc inventory
-						DeleteObj(&soldier.inv[ usItemCnt ]);
+						DeleteObj(&soldier.inventory()[ usItemCnt ]);
 					}
 				}
 			}

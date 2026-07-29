@@ -274,7 +274,7 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	this->ubBodyType							= Soldier.identity().bodyType();
 	this->ubCivilianGroup				= Soldier.roster().civilianGroup();
 	this->ubScheduleID					= Soldier.schedule().id();
-	this->fHasKeys							= Soldier.inventoryState().keyAccess();
+	this->fHasKeys							= Soldier.inventory().keyAccess();
 	this->sSectorX							= Soldier.deployment().sectorX();
 	this->sSectorY							= Soldier.deployment().sectorY();
 	this->bSectorZ							= Soldier.deployment().sectorZ();
@@ -299,7 +299,7 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	strcpy(this->MiscPal, Soldier.renderState().miscPalette());
 
 	//copy soldier's inventory
-	this->Inv = Soldier.inv;
+	this->Inv = Soldier.inventory();
 	return *this;
 }
 
@@ -750,7 +750,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			//CHRISL: make sure nails gets his jacket no matter what
 			if(pCreateStruct->ubProfile == 34 && pCreateStruct->fCopyProfileItemsOver == FALSE)
 			{
-				CreateItem(LEATHER_JACKET, 100, &Soldier.inv[VESTPOS]);
+				CreateItem(LEATHER_JACKET, 100, &Soldier.inventory()[VESTPOS]);
 			}
 		}
 
@@ -973,18 +973,18 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			// CHRISL:
 			for( i = BIGPOCKSTART; i < BIGPOCKFINAL; i++ )
 			{
-				if( Item[ Soldier.inv[ i ].usItem ].usItemClass & IC_FACE )
+				if( Item[ Soldier.inventory()[ i ].usItem ].usItemClass & IC_FACE )
 				{
 					if( !fSecondFaceItem )
 					{ //Don't check for compatibility...	automatically assume there are no head positions filled.
 						fSecondFaceItem = TRUE;
-						Soldier.inv[ i ].MoveThisObjectTo(Soldier.inv[ HEAD1POS ], ALL_OBJECTS, &Soldier, HEAD1POS);
+						Soldier.inventory()[ i ].MoveThisObjectTo(Soldier.inventory()[ HEAD1POS ], ALL_OBJECTS, &Soldier, HEAD1POS);
 					}
 					else
 					{ //if there is a second item, compare it to the first one we already added.
-						if( CompatibleFaceItem( Soldier.inv[ HEAD1POS ].usItem, Soldier.inv[ i ].usItem ) )
+						if( CompatibleFaceItem( Soldier.inventory()[ HEAD1POS ].usItem, Soldier.inventory()[ i ].usItem ) )
 						{
-							Soldier.inv[ i ].MoveThisObjectTo(Soldier.inv[ HEAD2POS ], ALL_OBJECTS, &Soldier, HEAD2POS);
+							Soldier.inventory()[ i ].MoveThisObjectTo(Soldier.inventory()[ HEAD2POS ], ALL_OBJECTS, &Soldier, HEAD2POS);
 							break;
 						}
 					}
@@ -1001,10 +1001,10 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 					if ( i != NO_SLOT && Random( 5 ) < SoldierDifficultyLevel( &Soldier ))
 					{
 						// start camouflaged
-						Soldier.camouflage().jungleApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].camobonus );
-						Soldier.camouflage().urbanApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].urbanCamobonus );
-						Soldier.camouflage().desertApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].desertCamobonus );
-						Soldier.camouflage().snowApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].snowCamobonus );
+						Soldier.camouflage().jungleApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inventory()[ i ].usItem].camobonus );
+						Soldier.camouflage().urbanApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inventory()[ i ].usItem].urbanCamobonus );
+						Soldier.camouflage().desertApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inventory()[ i ].usItem].desertCamobonus );
+						Soldier.camouflage().snowApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inventory()[ i ].usItem].snowCamobonus );
 
 						// silversurfer: With the new balance setting for kit camo we would probably not see camouflaged soldiers anymore
 						// (the default for gGameExternalOptions.bCamoKitArea is 5 which is less than the required 50 to be shown as camouflaged).
@@ -1284,7 +1284,7 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	// Set profile index!
 	pSoldier->identity().profile()									= ubProfileIndex;
 	pSoldier->schedule().id()						= pCreateStruct->ubScheduleID;
-	pSoldier->inventoryState().keyAccess()									= pCreateStruct->fHasKeys;
+	pSoldier->inventory().keyAccess()									= pCreateStruct->fHasKeys;
 
 	wcscpy( pSoldier->identity().name(), pProfile->zNickname );
 
@@ -1761,7 +1761,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	pSoldier->roster().civilianGroup()				= pCreateStruct->ubCivilianGroup;
 
 	pSoldier->schedule().id()				= pCreateStruct->ubScheduleID;
-	pSoldier->inventoryState().keyAccess()							= pCreateStruct->fHasKeys;
+	pSoldier->inventory().keyAccess()							= pCreateStruct->fHasKeys;
 	pSoldier->roster().soldierClass()				= pCreateStruct->ubSoldierClass;
 
 	pSoldier->deployment().sectorX() = pCreateStruct->sSectorX;
@@ -2072,7 +2072,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	GeneratePaletteForSoldier( pSoldier, pCreateStruct->ubSoldierClass, pCreateStruct->bTeam );
 
 	// Copy item info over
-	pSoldier->inv = pCreateStruct->Inv;
+	pSoldier->inventory() = pCreateStruct->Inv;
 
 	return( TRUE );
 }
@@ -2919,7 +2919,7 @@ void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_S
 	s->schedule().id()	=	spp->ubScheduleID;
 
 	//Copy over the current inventory list.
-	s->inv = spp->Inv;
+	s->inventory() = spp->Inv;
 }
 
 //In the case of setting a profile ID in order to extract a soldier from the profile array, we
@@ -4179,8 +4179,8 @@ void CopyProfileItems( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruc
 					else {
 						success = PlaceObject( pSoldier, cnt, &gTempObject );
 					}
-					if (success == FALSE && pSoldier->inv[cnt].exists() == false) {
-						pSoldier->inv[cnt] = gTempObject;
+					if (success == FALSE && pSoldier->inventory()[cnt].exists() == false) {
+						pSoldier->inventory()[cnt] = gTempObject;
 					}
 				}
 			}
@@ -4200,9 +4200,9 @@ void CopyProfileItems( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruc
 				{
 					for ( cnt2 = INV_START_POS; cnt2 < NUM_INV_SLOTS; cnt2++ )
 					{
-						if ( pSoldier->inv[ cnt2 ].exists() == true && ValidAttachment( gTempObject.usItem, &(pSoldier->inv[ cnt2 ]) ) )
+						if ( pSoldier->inventory()[ cnt2 ].exists() == true && ValidAttachment( gTempObject.usItem, &(pSoldier->inventory()[ cnt2 ]) ) )
 						{
-							if(pSoldier->inv[ cnt2 ].AttachObject( NULL, &gTempObject, FALSE ))
+							if(pSoldier->inventory()[ cnt2 ].AttachObject( NULL, &gTempObject, FALSE ))
 							{
 								break;
 							}
@@ -4228,8 +4228,8 @@ void CopyProfileItems( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruc
 								}
 							}
 						}
-						if (success == FALSE && pSoldier->inv[cnt].exists() == false) {
-							pSoldier->inv[cnt] = gTempObject;
+						if (success == FALSE && pSoldier->inventory()[cnt].exists() == false) {
+							pSoldier->inventory()[cnt] = gTempObject;
 						}
 					}
 				}
@@ -4257,11 +4257,11 @@ void CopyProfileItems( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruc
 								if ( pProfile->inv[ cnt ] >= KEY_1 && pProfile->inv[ cnt ] <= KEY_32)
 								{
 									fRet = CreateKeyObject( &gTempObject , pProfile->bInvNumber[ cnt ], 32 );
-									//CreateKeyObject( &(pSoldier->inv[ cnt ] ), pProfile->bInvNumber[ cnt ], 32 );
+									//CreateKeyObject( &(pSoldier->inventory()[ cnt ] ), pProfile->bInvNumber[ cnt ], 32 );
 								}
 								//else
 								//{
-								//	memset( &(pSoldier->inv[cnt]), 0, sizeof( OBJECTTYPE ) );
+								//	memset( &(pSoldier->inventory()[cnt]), 0, sizeof( OBJECTTYPE ) );
 								//}
 							}
 						#endif
@@ -4295,7 +4295,7 @@ void CopyProfileItems( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruc
 					}
 					if(fRet)
 					{
-						pSoldier->inv[cnt] = gTempObject;
+						pSoldier->inventory()[cnt] = gTempObject;
 						if (ItemHasFingerPrintID(gTempObject.usItem))
 						{
 							for (int x = 0; x < pProfile->bInvNumber[ cnt ]; ++x) {
@@ -5269,7 +5269,7 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 		BOOLEAN fMedKitFound = FALSE;
 
 		// FIRST FIND OUT THE COMPOSITION OF OUR GEAR
-		INT8 invsize = (INT8)pSoldier->inv.size( );
+		INT8 invsize = (INT8)pSoldier->inventory().size( );
 		for ( bLoop = 0; bLoop < invsize; ++bLoop )
 		{
 			if ( pCreateStruct->Inv[bLoop].exists( ) == true )

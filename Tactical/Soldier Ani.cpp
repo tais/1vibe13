@@ -372,9 +372,9 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 430:
 				{
 					// sevenfm: breaking window with crowbar code
-					if (pSoldier->inv[HANDPOS].exists() &&
-						(ItemIsCrowbar(pSoldier->inv[HANDPOS].usItem) &&	Item[pSoldier->inv[HANDPOS].usItem].usItemClass & (IC_PUNCH) ||
-						Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_GUN && ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) && ItemIsMetal(pSoldier->inv[HANDPOS].usItem)))
+					if (pSoldier->inventory()[HANDPOS].exists() &&
+						(ItemIsCrowbar(pSoldier->inventory()[HANDPOS].usItem) &&	Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & (IC_PUNCH) ||
+						Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_GUN && ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) && ItemIsMetal(pSoldier->inventory()[HANDPOS].usItem)))
 					{
 						INT32 sWindowGridNo = pSoldier->targeting().gridNo();
 						if (pSoldier->position().direction() == NORTH || pSoldier->position().direction() == WEST)
@@ -389,12 +389,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								// intact window found. Smash it!
 								WindowHit(sWindowGridNo, pStructure->usStructureID, (pSoldier->position().direction() == SOUTH || pSoldier->position().direction() == EAST), TRUE);
 								// damage weapon
-								if (Chance(50 - 10 * min(5, Item[pSoldier->inv[HANDPOS].usItem].bReliability)))
+								if (Chance(50 - 10 * min(5, Item[pSoldier->inventory()[HANDPOS].usItem].bReliability)))
 								{
-									pSoldier->inv[HANDPOS][0]->data.objectStatus--;
-									if (Random(100) < Item[pSoldier->inv[HANDPOS].usItem].usDamageChance)
+									pSoldier->inventory()[HANDPOS][0]->data.objectStatus--;
+									if (Random(100) < Item[pSoldier->inventory()[HANDPOS].usItem].usDamageChance)
 									{
-										pSoldier->inv[HANDPOS][0]->data.sRepairThreshold--;
+										pSoldier->inventory()[HANDPOS][0]->data.sRepairThreshold--;
 									}
 								}
 							}
@@ -419,13 +419,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							send_fireweapon( &SFireWeapon );
 					}
 
-					OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inv[HANDPOS] );
+					OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inventory()[HANDPOS] );
 
 					//DIGICRAB: Burst UnCap
 					//Loop around in the animation if we still have burst rounds to fire
 					if (pSoldier->fireControl().burstCounter() && !(pSoldier->IsValidSecondHandBurst())
 						&& ( pSoldier->fireControl().burstCounter() <= ( (pSoldier->fireControl().autofireShots())?(pSoldier->fireControl().autofireShots()):(GetShotsPerBurst( pObjHand ))	)
-						|| (( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->fireControl().burstCounter() <= Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst)) ))
+						|| (( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->fireControl().burstCounter() <= Weapon[GetAttachedGrenadeLauncher(&pSoldier->inventory()[HANDPOS])].ubShotsPerBurst)) ))
 					{
 						if(pSoldier->animationPlayback().state() == STANDING_BURST || pSoldier->animationPlayback().state() == CROUCHED_BURST || pSoldier->animationPlayback().state() == PRONE_BURST || pSoldier->animationPlayback().state() == BURST_ALTERNATIVE_STAND && pSoldier->animationPlayback().code() == 33) //we are standing, crounching or prone, firing the fast shot
 							pSoldier->animationPlayback().code() = 3;
@@ -447,8 +447,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 					}
 
-					OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
-					UINT16 usedGun = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
+					OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+					UINT16 usedGun = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 					//DIGICRAB: Burst Sound
 					//This code is stolen from Tactical\Weapons.c - UseGun(...)
 					if (pSoldier->fireControl().burstCounter() &&
@@ -617,7 +617,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 441:
 				// CODE: Show muzzle flash
 				{
-					OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon(&pSoldier->inv[pSoldier->attackSelection().hand()]);
+					OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 					if (IsFlashSuppressor(pObjAttHand, pSoldier) || (*pObjAttHand)[0]->data.gun.bGunAmmoStatus < 0)
 					{
 						pSoldier->renderState().hideMuzzleFlash();
@@ -830,9 +830,9 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					// FIRST CHECK IF WE'VE REACHED MAX FOR GUN
 					fStop = FALSE;
 
-					OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inv[HANDPOS] );
+					OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inventory()[HANDPOS] );
 
-					if ( ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->fireControl().burstCounter() > Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst) )
+					if ( ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->fireControl().burstCounter() > Weapon[GetAttachedGrenadeLauncher(&pSoldier->inventory()[HANDPOS])].ubShotsPerBurst) )
 					{
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because gl max burst size reached");
 						fStop = TRUE;
@@ -1095,7 +1095,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// CODE: CHANGE ATTACKING TO FIRST HAND
 				pSoldier->attackSelection().selectWeapon(
-					HANDPOS, pSoldier->inv[HANDPOS].usItem);
+					HANDPOS, pSoldier->inventory()[HANDPOS].usItem);
 				// Clear the fire-control reload state.
 				pSoldier->fireControl().reloading() = FALSE;
 				break;
@@ -1104,7 +1104,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// CODE: CHANGE ATTACKING TO SECOND HAND
 				pSoldier->attackSelection().selectWeapon(
-					SECONDHANDPOS, pSoldier->inv[SECONDHANDPOS].usItem);
+					SECONDHANDPOS, pSoldier->inventory()[SECONDHANDPOS].usItem);
 				// Clear the fire-control reload state.
 				pSoldier->fireControl().reloading() = FALSE;
 				break;
@@ -1167,7 +1167,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					}
 
 					// Remove object
-					//RemoveObjFrom( &(pSoldier->inv[ HANDPOS ] ), 0 );
+					//RemoveObjFrom( &(pSoldier->inventory()[ HANDPOS ] ), 0 );
 
 					// Update UI
 					DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
@@ -1442,7 +1442,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 						else if ( bGoBackToAimAfterHit == GO_TO_HTH_BREATH_AFTER_HIT && (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND))
 						{						
-							if ( Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & (IC_NONE | IC_PUNCH) )
+							if ( Item[ pSoldier->inventory()[HANDPOS].usItem ].usItemClass & (IC_NONE | IC_PUNCH) )
 							{
 								if ((((NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT ) >= ((gSkillTraitValues.fPermitExtraAnimationsOnlyToMA) ? 2 : 1 )) && gGameOptions.fNewTraitSystem ) ||
 									(HAS_SKILL_TRAIT( pSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) && pSoldier->identity().bodyType() == REGMALE )
@@ -1460,7 +1460,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 										pSoldier->EVENT_InitNewSoldierAnim( PUNCH_BREATH, 0 , FALSE );
 								}
 							}
-							else if ( Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & (IC_BLADE) )
+							else if ( Item[ pSoldier->inventory()[HANDPOS].usItem ].usItemClass & (IC_BLADE) )
 							{
 								if(is_networked)
 									pSoldier->ChangeSoldierState( KNIFE_BREATH, 0 , FALSE );
@@ -1752,12 +1752,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// CODE: HANDLE END ITEM PICKUP
 				//LOOK INTO HAND, RAISE RIFLE IF WE HAVE ONE....
 				/*
-				if ( pSoldier->inv[ HANDPOS ].exists() == true )
+				if ( pSoldier->inventory()[ HANDPOS ].exists() == true )
 				{
 				// CHECK IF GUN
-				if ( Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass == IC_GUN )
+				if ( Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass == IC_GUN )
 				{
-				if ( Weapon[ pSoldier->inv[ HANDPOS ].usItem ].ubWeaponClass != HANDGUNCLASS )
+				if ( Weapon[ pSoldier->inventory()[ HANDPOS ].usItem ].ubWeaponClass != HANDGUNCLASS )
 				{
 				// RAISE
 				pSoldier->ChangeSoldierState( RAISE_RIFLE, 0 , FALSE );
@@ -1795,12 +1795,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								ubDiceRoll = (UINT8)Random( 100 );
 
 								// Determine what is in our hand;
-								usItem = pSoldier->inv[ HANDPOS ].usItem;
+								usItem = pSoldier->inventory()[ HANDPOS ].usItem;
 
 								// Default to nothing in hand ( nothing in quotes, we do have something but not just visible )
 								ubRandomHandIndex = RANDOM_ANIM_NOTHINGINHAND;
 
-								if ( pSoldier->inv[ HANDPOS ].exists() == true )
+								if ( pSoldier->inventory()[ HANDPOS ].exists() == true )
 								{
 									if ( Item[ usItem ].usItemClass == IC_GUN )
 									{
@@ -2070,7 +2070,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									}
 
 									// SANDRO - Set goback to aim after hit flag
-									if (( Item[ pTSoldier->inv[HANDPOS].usItem ].usItemClass & (IC_BLADE | IC_PUNCH | IC_NONE) ) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (gAnimControl[ pTSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND) )
+									if (( Item[ pTSoldier->inventory()[HANDPOS].usItem ].usItemClass & (IC_BLADE | IC_PUNCH | IC_NONE) ) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (gAnimControl[ pTSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND) )
 									{
 										if ( pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 )
 										{
@@ -2103,7 +2103,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									pTSoldier->ChangeSoldierState( DODGE_ONE, 0 , FALSE );
 
 									// SANDRO - after dodging melee attack go to apropriate stance
-									//if ( (gAnimControl[ pTSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (Item[pTSoldier->inv[HANDPOS].usItem].usItemClass == IC_PUNCH || Item[pTSoldier->inv[HANDPOS].usItem].usItemClass == IC_NONE))
+									//if ( (gAnimControl[ pTSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (Item[pTSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_PUNCH || Item[pTSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_NONE))
 									//{
 									//	if ((((NUM_SKILL_TRAITS( pTSoldier, MARTIAL_ARTS_NT ) >= ((gSkillTraitValues.fPermitExtraAnimationsOnlyToMA) ? 2 : 1 )) && gGameOptions.fNewTraitSystem ) ||
 									//		(HAS_SKILL_TRAIT( pTSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) &&
@@ -2117,7 +2117,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									//		pTSoldier->animationIntent().pendingAnimation() = PUNCH_BREATH ;
 									//	}
 									//}
-									//else if ( (gAnimControl[ pTSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (Item[pTSoldier->inv[HANDPOS].usItem].usItemClass == IC_BLADE))
+									//else if ( (gAnimControl[ pTSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (Item[pTSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_BLADE))
 									//{
 									//	//pTSoldier->animationIntent().pendingAnimation() = KNIFE_GOTOBREATH;
 									//	pTSoldier->animationIntent().pendingAnimation() = KNIFE_BREATH ;
@@ -2450,7 +2450,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							}
 							else if ( bGoBackToAimAfterHit == GO_TO_HTH_BREATH_AFTER_HIT && (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND))
 							{						
-								if ( Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & (IC_NONE | IC_PUNCH) )
+								if ( Item[ pSoldier->inventory()[HANDPOS].usItem ].usItemClass & (IC_NONE | IC_PUNCH) )
 								{
 									if ((((NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT ) >= ((gSkillTraitValues.fPermitExtraAnimationsOnlyToMA) ? 2 : 1 )) && gGameOptions.fNewTraitSystem ) ||
 										(HAS_SKILL_TRAIT( pSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) && pSoldier->identity().bodyType() == REGMALE )
@@ -2468,7 +2468,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 											pSoldier->EVENT_InitNewSoldierAnim( PUNCH_BREATH, 0 , FALSE );
 									}
 								}
-								else if ( Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & (IC_BLADE) )
+								else if ( Item[ pSoldier->inventory()[HANDPOS].usItem ].usItemClass & (IC_BLADE) )
 								{
 									if(is_networked)
 										pSoldier->ChangeSoldierState( KNIFE_BREATH, 0 , FALSE );
@@ -2714,7 +2714,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case BIGBUY_STRECH:
 			case FEM_KICKSN:
 			case FEM_WIPE: 
-				if ( pSoldier->inv[ HANDPOS ].exists() == true && Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass == IC_GUN && ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem) )
+				if ( pSoldier->inventory()[ HANDPOS ].exists() == true && Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass == IC_GUN && ItemIsTwoHanded(pSoldier->inventory()[ HANDPOS ].usItem) )
 				{
 					pSoldier->EVENT_InitNewSoldierAnim( RAISE_RIFLE, 0 , FALSE );
 					return( TRUE );
@@ -2778,10 +2778,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					UINT16	usItem;
 					UINT16	usSoundID;
 
-					usItem = pSoldier->inv[ HANDPOS ].usItem;
+					usItem = pSoldier->inventory()[ HANDPOS ].usItem;
 
-					OBJECTTYPE* pObjUsed =  pSoldier->GetUsedWeapon( &pSoldier->inv[ HANDPOS ] );
-					UINT16 usItemUsemUsed = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ HANDPOS ] );
+					OBJECTTYPE* pObjUsed =  pSoldier->GetUsedWeapon( &pSoldier->inventory()[ HANDPOS ] );
+					UINT16 usItemUsemUsed = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ HANDPOS ] );
 
 					if ( pObjUsed->exists() == true )
 					{
@@ -2801,7 +2801,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Knife throw sound...
 				// anv: possiblity to use custom sounds for throwing knives
 				{
-					UINT16 usedWeapon = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
+					UINT16 usedWeapon = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 					if ( Weapon[ usedWeapon ].sSound != 0 )
 					{
 						PlayJA2Sample( Weapon[ usedWeapon ].sSound, 44100-Random(5000)-Random(5000)-Random(5000), SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
@@ -3007,7 +3007,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Swoosh
 				// anv: possiblity to use custom sounds for melee weapons
 				{
-					UINT16 usedWeapon = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
+					UINT16 usedWeapon = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 					if ( Weapon[ usedWeapon ].sSound != 0 )
 					{
 						PlayJA2Sample( Weapon[ usedWeapon ].sSound, 44100-Random(5000)-Random(5000)-Random(5000), SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
@@ -3133,7 +3133,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					if ( pRobot != nullptr &&
 						(pRobot->status().flags() & SOLDIER_ROBOT) )
 					{
-						ReloadGun( pRobot, &(pRobot->inv[ HANDPOS ] ), pSoldier->pendingItem().object() );
+						ReloadGun( pRobot, &(pRobot->inventory()[ HANDPOS ] ), pSoldier->pendingItem().object() );
 
 						// OK, check what was returned and place in inventory if it's non-zero
 						if ( pSoldier->pendingItem().object()->exists() == true )
@@ -3213,7 +3213,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					}
 					// any AI guy has been specially given keys for this, now take them
 					// away
-					pSoldier->inventoryState().keyAccess() = pSoldier->inventoryState().keyAccess() >> 1;
+					pSoldier->inventory().keyAccess() = pSoldier->inventory().keyAccess() >> 1;
 				}
 				break;
 
@@ -3478,7 +3478,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 1101:
 				// SANDRO - dual burst check for repeating animation
 			{
-				OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] );
+				OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 
 				if (pSoldier->fireControl().burstCounter() && ( pSoldier->fireControl().burstCounter() <= ( (pSoldier->fireControl().autofireShots())?(2*pSoldier->fireControl().autofireShots()):(2*GetShotsPerBurst( pObjHand ))	) ))
 				{
@@ -4478,7 +4478,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 			{
 				if ( HAS_SKILL_TRAIT( attacker, MARTIAL_ARTS_NT ) &&
 					(!attacker->attackSelection().weapon() ||
-					 ItemIsBrassKnuckles(attacker->inv[HANDPOS].usItem)) )
+					 ItemIsBrassKnuckles(attacker->inventory()[HANDPOS].usItem)) )
 				{
 					fAlwaysFallBack = TRUE;
 				}
@@ -4728,9 +4728,9 @@ BOOLEAN CheckForImproperFireGunEnd( SOLDIERTYPE *pSoldier )
 	BOOLEAN outOfAmmo;
 
 	if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO)
-		pObjHand = FindAttachment_GrenadeLauncher(&pSoldier->inv[HANDPOS]);
+		pObjHand = FindAttachment_GrenadeLauncher(&pSoldier->inventory()[HANDPOS]);
 	else
-		pObjHand = pSoldier->GetUsedWeapon(&pSoldier->inv[HANDPOS]);
+		pObjHand = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
 
 	// Extracted from EnoughAmmo() to avoid double calculation of pObjHand
 	if (Item[ pObjHand->usItem ].usItemClass & IC_LAUNCHER)
@@ -4742,7 +4742,7 @@ BOOLEAN CheckForImproperFireGunEnd( SOLDIERTYPE *pSoldier )
 	if ( (*pObjHand)[0]->data.gun.bGunAmmoStatus < 0 || outOfAmmo )
 	{
 		// If we have 2 pistols, donot go back!
-		if ( Item[ pSoldier->inv[ SECONDHANDPOS ].usItem ].usItemClass != IC_GUN )
+		if ( Item[ pSoldier->inventory()[ SECONDHANDPOS ].usItem ].usItemClass != IC_GUN )
 		{
 			// OK, put gun down....
 			pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), TRUE, FALSE );

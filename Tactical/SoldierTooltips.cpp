@@ -157,7 +157,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		{
 			SOLDIERTYPE* selectedSoldier =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
-			OBJECTTYPE* pObject = &(selectedSoldier->inv[HANDPOS]);
+			OBJECTTYPE* pObject = &(selectedSoldier->inventory()[HANDPOS]);
 			for (attachmentList::iterator iter = (*pObject)[0]->attachments.begin(); iter != (*pObject)[0]->attachments.end(); ++iter) {
 				if ( Item[iter->usItem].visionrangebonus > 0 && iter->exists())
 				{
@@ -188,8 +188,8 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 				//if ( gGameExternalOptions.gfAllowLimitedVision )
 				//	uiMaxTooltipDistance *= 1 - (gGameExternalOptions.ubVisDistDecreasePerRainIntensity / 100);
 
-				if ( !(Item[selectedSoldier->inv[HEAD1POS].usItem].nightvisionrangebonus > 0) &&
-					!(Item[selectedSoldier->inv[HEAD2POS].usItem].nightvisionrangebonus > 0) &&
+				if ( !(Item[selectedSoldier->inventory()[HEAD1POS].usItem].nightvisionrangebonus > 0) &&
+					!(Item[selectedSoldier->inventory()[HEAD2POS].usItem].nightvisionrangebonus > 0) &&
  					!DayTime() )
 				{
 					// if night reduce max tooltip viewing distance by a factor of 4 if merc is not wearing NVG
@@ -435,32 +435,32 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		{
 			if ( gGameExternalOptions.fEnableSoldierTooltipHelmet )
 			{
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_HELMET], pStrInfo, pSoldier->inv[HELMETPOS].usItem ? ItemNames[ pSoldier->inv[HELMETPOS].usItem ] : gzTooltipStrings[STR_TT_NO_HELMET] );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_HELMET], pStrInfo, pSoldier->inventory()[HELMETPOS].usItem ? ItemNames[ pSoldier->inventory()[HELMETPOS].usItem ] : gzTooltipStrings[STR_TT_NO_HELMET] );
 
 #ifdef ENCYCLOPEDIA_WORKS
 				//Moa: encyclopedia item visibility
-				if ( pSoldier->inv[HELMETPOS].usItem )
-					EncyclopediaSetItemAsVisible( pSoldier->inv[HELMETPOS].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
+				if ( pSoldier->inventory()[HELMETPOS].usItem )
+					EncyclopediaSetItemAsVisible( pSoldier->inventory()[HELMETPOS].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
 #endif
 			}
 			if ( gGameExternalOptions.fEnableSoldierTooltipVest )
 			{
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_VEST], pStrInfo, pSoldier->inv[VESTPOS].usItem ? ItemNames[ pSoldier->inv[VESTPOS].usItem ] : gzTooltipStrings[STR_TT_NO_VEST] );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_VEST], pStrInfo, pSoldier->inventory()[VESTPOS].usItem ? ItemNames[ pSoldier->inventory()[VESTPOS].usItem ] : gzTooltipStrings[STR_TT_NO_VEST] );
 
 #ifdef ENCYCLOPEDIA_WORKS
 				//Moa: encyclopedia item visibility
-				if ( pSoldier->inv[VESTPOS].usItem )
-					EncyclopediaSetItemAsVisible( pSoldier->inv[VESTPOS].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
+				if ( pSoldier->inventory()[VESTPOS].usItem )
+					EncyclopediaSetItemAsVisible( pSoldier->inventory()[VESTPOS].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
 #endif
 			}
 			if ( gGameExternalOptions.fEnableSoldierTooltipLeggings )
 			{
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_LEGGINGS], pStrInfo, pSoldier->inv[LEGPOS].usItem ? ItemNames[ pSoldier->inv[LEGPOS].usItem ] : gzTooltipStrings[STR_TT_NO_LEGGING] );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_LEGGINGS], pStrInfo, pSoldier->inventory()[LEGPOS].usItem ? ItemNames[ pSoldier->inventory()[LEGPOS].usItem ] : gzTooltipStrings[STR_TT_NO_LEGGING] );
 
 #ifdef ENCYCLOPEDIA_WORKS
 				//Moa: encyclopedia item visibility
-				if ( pSoldier->inv[LEGPOS].usItem )
-					EncyclopediaSetItemAsVisible( pSoldier->inv[LEGPOS].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
+				if ( pSoldier->inventory()[LEGPOS].usItem )
+					EncyclopediaSetItemAsVisible( pSoldier->inventory()[LEGPOS].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
 #endif
 			}
 		}
@@ -476,11 +476,11 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 					swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ARMOR] );
 					if ( ubTooltipDetailLevel == DL_Basic )
 					{
-						if ( gGameExternalOptions.fEnableSoldierTooltipHelmet && pSoldier->inv[HELMETPOS].usItem  )
+						if ( gGameExternalOptions.fEnableSoldierTooltipHelmet && pSoldier->inventory()[HELMETPOS].usItem  )
 							swprintf( pStrInfo, L"%s%s ", pStrInfo, gzTooltipStrings[STR_TT_HELMET] );
-						if ( gGameExternalOptions.fEnableSoldierTooltipVest && pSoldier->inv[VESTPOS].usItem )
+						if ( gGameExternalOptions.fEnableSoldierTooltipVest && pSoldier->inventory()[VESTPOS].usItem )
 							swprintf( pStrInfo, L"%s%s ", pStrInfo, gzTooltipStrings[STR_TT_VEST] );
-						if ( gGameExternalOptions.fEnableSoldierTooltipLeggings && pSoldier->inv[LEGPOS].usItem )
+						if ( gGameExternalOptions.fEnableSoldierTooltipLeggings && pSoldier->inventory()[LEGPOS].usItem )
 							swprintf( pStrInfo, L"%s%s", pStrInfo, gzTooltipStrings[STR_TT_LEGGINGS] );
 						wcscat( pStrInfo, L"\n" );
 					}
@@ -501,9 +501,9 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		if ( ubTooltipDetailLevel != DL_Debug )
 		{
 
-			if( Item[pSoldier->inv[HEAD1POS].usItem].nightvisionrangebonus > 0 )
+			if( Item[pSoldier->inventory()[HEAD1POS].usItem].nightvisionrangebonus > 0 )
 				iNVG = HEAD1POS;
-			else if( Item[pSoldier->inv[HEAD2POS].usItem].nightvisionrangebonus > 0 )
+			else if( Item[pSoldier->inventory()[HEAD2POS].usItem].nightvisionrangebonus > 0 )
 				iNVG = HEAD2POS;
 
 			if ( !(	!gGameExternalOptions.fEnableSoldierTooltipHeadItem1 &&
@@ -513,12 +513,12 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 				if ( ubTooltipDetailLevel >= DL_Full )
 				{
 					swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_NVG], pStrInfo,
-						iNVG ? ItemNames[ pSoldier->inv[ iNVG ].usItem ] : gzTooltipStrings[STR_TT_NO_NVG] );
+						iNVG ? ItemNames[ pSoldier->inventory()[ iNVG ].usItem ] : gzTooltipStrings[STR_TT_NO_NVG] );
 
 #ifdef ENCYCLOPEDIA_WORKS
 					//Moa: encyclopedia item visibility
 					if ( iNVG )
-						EncyclopediaSetItemAsVisible( pSoldier->inv[ iNVG ].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
+						EncyclopediaSetItemAsVisible( pSoldier->inventory()[ iNVG ].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
 #endif
 				}
 				else
@@ -533,22 +533,22 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		{
 			if ( gGameExternalOptions.fEnableSoldierTooltipHeadItem1 )
 			{
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_HEAD_POS_1], pStrInfo, ItemNames[ pSoldier->inv[HEAD1POS].usItem ] );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_HEAD_POS_1], pStrInfo, ItemNames[ pSoldier->inventory()[HEAD1POS].usItem ] );
 
 #ifdef ENCYCLOPEDIA_WORKS
 				//Moa: encyclopedia item visibility
-				if ( pSoldier->inv[HEAD1POS].usItem )
-					EncyclopediaSetItemAsVisible( pSoldier->inv[ HEAD1POS ].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
+				if ( pSoldier->inventory()[HEAD1POS].usItem )
+					EncyclopediaSetItemAsVisible( pSoldier->inventory()[ HEAD1POS ].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
 #endif
 			}
 			if ( gGameExternalOptions.fEnableSoldierTooltipHeadItem2 )
 			{
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_HEAD_POS_2], pStrInfo, ItemNames[ pSoldier->inv[HEAD2POS].usItem ] );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_HEAD_POS_2], pStrInfo, ItemNames[ pSoldier->inventory()[HEAD2POS].usItem ] );
 
 #ifdef ENCYCLOPEDIA_WORKS
 				//Moa: encyclopedia item visibility
-				if ( pSoldier->inv[HEAD2POS].usItem )
-					EncyclopediaSetItemAsVisible( pSoldier->inv[ HEAD2POS ].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
+				if ( pSoldier->inventory()[HEAD2POS].usItem )
+					EncyclopediaSetItemAsVisible( pSoldier->inventory()[ HEAD2POS ].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
 #endif
 			}
 		}
@@ -564,7 +564,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		// weapon in off hand info code block start
 		if ( gGameExternalOptions.fEnableSoldierTooltipSecondHand )
 		{
-			if ( pSoldier->inv[SECONDHANDPOS].usItem )
+			if ( pSoldier->inventory()[SECONDHANDPOS].usItem )
 			{
 				// if there's something in the slot display it
 				wcscat( pStrInfo, L"\n" );
@@ -576,7 +576,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		// large objects in big inventory slots info code block start
 		for ( UINT8 BigSlot = BIGPOCKSTART; BigSlot < BIGPOCKFINAL; BigSlot++ )
 		{
-			if ( pSoldier->inv[ BigSlot ].exists() == false )
+			if ( pSoldier->inventory()[ BigSlot ].exists() == false )
 				continue; // slot is empty, move on to the next slot
 
 			switch( BigSlot )
@@ -613,15 +613,15 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 				    break;
 			}
 
-			if (ItemIsRocketLauncher(pSoldier->inv[ BigSlot ].usItem))
-				iCarriedRL = pSoldier->inv[ BigSlot ].usItem; // remember that enemy is carrying a rocket launcher when check for rocket ammo is made later on
+			if (ItemIsRocketLauncher(pSoldier->inventory()[ BigSlot ].usItem))
+				iCarriedRL = pSoldier->inventory()[ BigSlot ].usItem; // remember that enemy is carrying a rocket launcher when check for rocket ammo is made later on
 
-			if ( (	Item[ pSoldier->inv[ BigSlot ].usItem ].usItemClass == IC_LAUNCHER ) ||
-				(	Item[ pSoldier->inv[ BigSlot ].usItem ].usItemClass == IC_GUN ) )
+			if ( (	Item[ pSoldier->inventory()[ BigSlot ].usItem ].usItemClass == IC_LAUNCHER ) ||
+				(	Item[ pSoldier->inventory()[ BigSlot ].usItem ].usItemClass == IC_GUN ) )
 			{
 				// it's a firearm
-				if ( (	Weapon[pSoldier->inv[ BigSlot ].usItem].ubWeaponClass != HANDGUNCLASS ) &&
-					(	Weapon[pSoldier->inv[ BigSlot ].usItem].ubWeaponClass != SMGCLASS ) )
+				if ( (	Weapon[pSoldier->inventory()[ BigSlot ].usItem].ubWeaponClass != HANDGUNCLASS ) &&
+					(	Weapon[pSoldier->inventory()[ BigSlot ].usItem].ubWeaponClass != SMGCLASS ) )
 				{
 					// it's a long gun or heavy weapon
 					fDisplayBigSlotItem = TRUE;
@@ -631,7 +631,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			{
 				// check for rocket ammo
 				if ( ( iCarriedRL != 0 ) &&												// soldier is carrying a RL ...
-					ValidLaunchable( pSoldier->inv[ BigSlot ].usItem, iCarriedRL ) )	// this item is launchable by the RL
+					ValidLaunchable( pSoldier->inventory()[ BigSlot ].usItem, iCarriedRL ) )	// this item is launchable by the RL
 				{
 					fDisplayBigSlotItem = TRUE;
 				}
@@ -671,12 +671,12 @@ void DisplayWeaponInfo( SOLDIERTYPE* pSoldier, CHAR16* pStrInfo, UINT8 ubSlot, U
 	{
 		// display exact weapon model
 		sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo,
-			WeaponInHand( pSoldier ) ? ItemNames[ pSoldier->inv[ubSlot].usItem ] : gzTooltipStrings[STR_TT_NO_WEAPON] );
+			WeaponInHand( pSoldier ) ? ItemNames[ pSoldier->inventory()[ubSlot].usItem ] : gzTooltipStrings[STR_TT_NO_WEAPON] );
 
 #ifdef ENCYCLOPEDIA_WORKS
 		//Moa: encyclopedia item visibility
-		if ( pSoldier->inv[ubSlot].usItem )
-			EncyclopediaSetItemAsVisible( pSoldier->inv[ ubSlot ].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
+		if ( pSoldier->inventory()[ubSlot].usItem )
+			EncyclopediaSetItemAsVisible( pSoldier->inventory()[ ubSlot ].usItem, ENC_ITEM_DISCOVERED_NOT_REACHABLE );
 #endif
 	}
 	else
@@ -684,7 +684,7 @@ void DisplayWeaponInfo( SOLDIERTYPE* pSoldier, CHAR16* pStrInfo, UINT8 ubSlot, U
 		if ( ubTooltipDetailLevel == DL_Limited )
 		{
 			// display general weapon class
-			switch( Weapon[pSoldier->inv[ubSlot].usItem].ubWeaponClass )
+			switch( Weapon[pSoldier->inventory()[ubSlot].usItem].ubWeaponClass )
 			{
 				case HANDGUNCLASS:
 					sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo, gzTooltipStrings[STR_TT_HANDGUN] );
@@ -713,14 +713,14 @@ void DisplayWeaponInfo( SOLDIERTYPE* pSoldier, CHAR16* pStrInfo, UINT8 ubSlot, U
 		{
 			// display general weapon type
 			sgp_swprintf( pStrInfo, 256, gzTooltipStrings[STR_TT_CAT_WEAPON], pStrInfo,
-				WeaponInHand( pSoldier) ? WeaponType[Weapon[pSoldier->inv[ubSlot].usItem].ubWeaponType] : gzTooltipStrings[STR_TT_NO_WEAPON] );
+				WeaponInHand( pSoldier) ? WeaponType[Weapon[pSoldier->inventory()[ubSlot].usItem].ubWeaponType] : gzTooltipStrings[STR_TT_NO_WEAPON] );
 		}
 	}
 
 	if ( gGameExternalOptions.ubSoldierTooltipDetailLevel >= DL_Basic )
 	{
 		// display weapon attachments
-		for (attachmentList::iterator iter = pSoldier->inv[ubSlot][0]->attachments.begin(); iter != pSoldier->inv[ubSlot][0]->attachments.end(); ++iter) {
+		for (attachmentList::iterator iter = pSoldier->inventory()[ubSlot][0]->attachments.begin(); iter != pSoldier->inventory()[ubSlot][0]->attachments.end(); ++iter) {
 			if(iter->exists()){
 				fDisplayAttachment = FALSE; //Madd: changed this, it was incorrectly showing attachments when it shouldn't be
 

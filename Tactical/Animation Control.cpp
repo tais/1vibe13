@@ -4289,10 +4289,10 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 	if ( pSoldier->MercInWater( ) )
 	{
 		// Default it to the 1 ( ie: no rifle )
-		if ( pSoldier->inv[ HANDPOS ].exists() == true )
+		if ( pSoldier->inventory()[ HANDPOS ].exists() == true )
 		{
 			// ADJUST BASED ON ITEM IN HAND....
-			usItem = pSoldier->inv[ HANDPOS ].usItem;
+			usItem = pSoldier->inventory()[ HANDPOS ].usItem;
 
 			if ( ( Item[ usItem ].usItemClass == IC_GUN || Item[ usItem ].usItemClass == IC_LAUNCHER ) && !ItemIsRocketLauncher(usItem) )
 			{
@@ -4316,7 +4316,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 	else
 	{
 		// ADJUST BASED ON ITEM IN HAND....
-		usItem = pSoldier->inv[ HANDPOS ].usItem;
+		usItem = pSoldier->inventory()[ HANDPOS ].usItem;
 
 		if ( !(Item[ usItem ].usItemClass == IC_GUN ) && !(Item[ usItem ].usItemClass == IC_LAUNCHER ) || ItemIsRocketLauncher(usItem) )
 		{
@@ -4373,7 +4373,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 					if ( gDoubleHandledSub.usAnimState == usAnimState )
 					{
 						// Do we carry two pistols...
-						//if ( Item[ pSoldier->inv[ SECONDHANDPOS ].usItem ].usItemClass == IC_GUN )
+						//if ( Item[ pSoldier->inventory()[ SECONDHANDPOS ].usItem ].usItemClass == IC_GUN )
 						if ( pSoldier->IsValidSecondHandShot() )
 						{
 							usAltAnimSurface = gDoubleHandledSub.usAnimationSurfaces[ pSoldier->identity().bodyType() ];

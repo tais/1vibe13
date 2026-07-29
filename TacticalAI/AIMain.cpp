@@ -1923,7 +1923,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 	pSoldier->combatResult().lastAttackHit() = FALSE;
 
 	// WANNE.TANK: Choose cannon or rocket
-	UINT16 usHandItem = pSoldier->inv[HANDPOS].usItem;
+	UINT16 usHandItem = pSoldier->inventory()[HANDPOS].usItem;
 
 	INT8 bSlot;
 	SoldierID usSoldierIndex; // added by SANDRO
@@ -1996,15 +1996,15 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 
         case AI_ACTION_DROP_ITEM:					 // drop item in hand
             //CHRISL: If we have a weapon in both hands, we need to drop the weapon that isn't usable
-            if(pSoldier->inv[HANDPOS].fFlags & OBJECT_AI_UNUSABLE)
+            if(pSoldier->inventory()[HANDPOS].fFlags & OBJECT_AI_UNUSABLE)
             {
-                SoldierDropItem( pSoldier, &(pSoldier->inv[HANDPOS]) );
-                DeleteObj( &(pSoldier->inv[HANDPOS]) );
+                SoldierDropItem( pSoldier, &(pSoldier->inventory()[HANDPOS]) );
+                DeleteObj( &(pSoldier->inventory()[HANDPOS]) );
             }
-            if(pSoldier->inv[SECONDHANDPOS].exists() == true && Item[pSoldier->inv[SECONDHANDPOS].usItem].usItemClass == IC_GUN && pSoldier->inv[SECONDHANDPOS].fFlags & OBJECT_AI_UNUSABLE)
+            if(pSoldier->inventory()[SECONDHANDPOS].exists() == true && Item[pSoldier->inventory()[SECONDHANDPOS].usItem].usItemClass == IC_GUN && pSoldier->inventory()[SECONDHANDPOS].fFlags & OBJECT_AI_UNUSABLE)
             {
-                SoldierDropItem( pSoldier, &(pSoldier->inv[SECONDHANDPOS]) );
-                DeleteObj( &(pSoldier->inv[SECONDHANDPOS]) );
+                SoldierDropItem( pSoldier, &(pSoldier->inventory()[SECONDHANDPOS]) );
+                DeleteObj( &(pSoldier->inventory()[SECONDHANDPOS]) );
             }
             // 0verhaul:  Moved into PickDropAnimation because when something is dropped while crouched there's nothing to wait for
             // pSoldier->aiPlanning().action() = AI_ACTION_PENDING_ACTION;
@@ -2256,7 +2256,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 		case AI_ACTION_THROW_KNIFE:						// throw knife at nearby opponent
 			// randomly decide whether to say civ quote
 		{
-			UINT16 usItem = pSoldier->inv[HANDPOS].usItem;
+			UINT16 usItem = pSoldier->inventory()[HANDPOS].usItem;
 			if (Item[usItem].usItemClass == IC_GUN)
 				PossiblyStartEnemyTaunt(pSoldier, TAUNT_FIRE_GUN, pSoldier->targeting().engagedOpponent());
 			else if (ItemIsGrenadeLauncher(usItem) || ItemIsMortar(usItem) || ItemIsRocketLauncher(usItem))
@@ -2282,7 +2282,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 			}
 #ifdef RECORDNET
             fprintf(NetDebugFile,"\tExecuteAction: %d calling HandleItem(), inHand %d, actionData %d, anitype %d, oldani %d\n",
-                pSoldier->identity().id(),pSoldier->inv[HANDPOS].item,pSoldier->aiPlanning().actionData(),pSoldier->anitype[pSoldier->anim],pSoldier->oldani);
+                pSoldier->identity().id(),pSoldier->inventory()[HANDPOS].item,pSoldier->aiPlanning().actionData(),pSoldier->anitype[pSoldier->anim],pSoldier->oldani);
 #endif
 
 #ifdef TESTVERSION
@@ -2296,8 +2296,8 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             }
 #endif
 
-            if ( pSoldier->aiPlanning().action() == AI_ACTION_TOSS_PROJECTILE && IsGrenadeLauncherAttached(&pSoldier->inv[HANDPOS]) )
-                usHandItem = GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS]);
+            if ( pSoldier->aiPlanning().action() == AI_ACTION_TOSS_PROJECTILE && IsGrenadeLauncherAttached(&pSoldier->inventory()[HANDPOS]) )
+                usHandItem = GetAttachedGrenadeLauncher(&pSoldier->inventory()[HANDPOS]);
 
             iRetCode = HandleItem( pSoldier, pSoldier->aiPlanning().actionData(), pSoldier->targeting().level(), usHandItem, FALSE );
             if ( iRetCode != ITEM_HANDLE_OK)
@@ -2491,7 +2491,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 
         case AI_ACTION_GIVE_AID:              // help injured/dying friend
             //pSoldier->movement().mode() = RUNNING;
-            iRetCode = HandleItem( pSoldier, pSoldier->aiPlanning().actionData(), 0, pSoldier->inv[HANDPOS].usItem, FALSE );
+            iRetCode = HandleItem( pSoldier, pSoldier->aiPlanning().actionData(), 0, pSoldier->inventory()[HANDPOS].usItem, FALSE );
             if ( iRetCode != ITEM_HANDLE_OK)
             {
 				DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: AI_ACTION_GIVE_AID: !ITEM_HANDLE_OK"));
@@ -2634,8 +2634,8 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             bSlot = FindAmmoToReload( pSoldier, pSoldier->aiPlanning().actionData(), NO_SLOT );
             if(bSlot != NO_SLOT)
             {
-                ReloadGun( pSoldier, &(pSoldier->inv[pSoldier->aiPlanning().actionData()]), &(pSoldier->inv[bSlot]) );
-				if (Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) || GetMagSize(&(pSoldier->inv[pSoldier->aiPlanning().actionData()])) > 4)
+                ReloadGun( pSoldier, &(pSoldier->inventory()[pSoldier->aiPlanning().actionData()]), &(pSoldier->inventory()[bSlot]) );
+				if (Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) || GetMagSize(&(pSoldier->inventory()[pSoldier->aiPlanning().actionData()])) > 4)
 					PossiblyStartEnemyTaunt( pSoldier, TAUNT_RELOAD );
                 ActionDone( pSoldier );
             }

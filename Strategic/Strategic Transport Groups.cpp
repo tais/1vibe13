@@ -487,9 +487,9 @@ void UpdateTransportGroupInventory()
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if (pSoldier->roster().active() && !(pSoldier->status().flags() & SOLDIER_VEHICLE))
 			{
-				for (int j = 0 ; j < pSoldier->inv.size(); ++j)
+				for (int j = 0 ; j < pSoldier->inventory().size(); ++j)
 				{
-					OBJECTTYPE& obj = pSoldier->inv[j];
+					OBJECTTYPE& obj = pSoldier->inventory()[j];
 					if (obj.exists()
 					&& Item[obj.usItem].usItemClass == IC_GUN)
 					{
@@ -581,9 +581,9 @@ void UpdateTransportGroupInventory()
 		{
 			for(INT8 i = SMALLPOCKSTART; i < SMALLPOCKFINAL; i++ )
 			{
-				if( pSoldier->inv[ i ].exists() == false && !(pSoldier->inv[ i ].fFlags & OBJECT_NO_OVERWRITE) )
+				if( pSoldier->inventory()[ i ].exists() == false && !(pSoldier->inventory()[ i ].fFlags & OBJECT_NO_OVERWRITE) )
 				{
-					pSoldier->inv[ i ] = itemToAdd;
+					pSoldier->inventory()[ i ] = itemToAdd;
 					break;
 				}
 			}
@@ -592,9 +592,9 @@ void UpdateTransportGroupInventory()
 		{
 			for(INT8 i = BIGPOCKSTART; i < BIGPOCKFINAL; i++ )
 			{ //no space free in small pockets, so put it into a large pocket.
-				if( pSoldier->inv[ i ].exists() == false && !(pSoldier->inv[ i ].fFlags & OBJECT_NO_OVERWRITE) )
+				if( pSoldier->inventory()[ i ].exists() == false && !(pSoldier->inventory()[ i ].fFlags & OBJECT_NO_OVERWRITE) )
 				{
-					pSoldier->inv[ i ] = itemToAdd;
+					pSoldier->inventory()[ i ] = itemToAdd;
 					break;
 				}
 			}
@@ -770,13 +770,13 @@ void UpdateTransportGroupInventory()
 						OBJECTTYPE obj;
 						CreateItem(itemMap[BACKPACKS][Random(itemMap[BACKPACKS].size())], 100, &obj);
 						obj.fFlags |= OBJECT_UNDROPPABLE;
-						pSoldier->inv[BPACKPOCKPOS] = obj;
+						pSoldier->inventory()[BPACKPOCKPOS] = obj;
 					}
 
 					// force inventory to be dropped!
-					for (int i = 0; i < pSoldier->inv.size(); ++i)
+					for (int i = 0; i < pSoldier->inventory().size(); ++i)
 					{
-						OBJECTTYPE* item = &pSoldier->inv[i];
+						OBJECTTYPE* item = &pSoldier->inventory()[i];
 						if (item->exists() && ItemIsUndroppableByDefault(item->usItem) == FALSE)
 						{
 							item->fFlags &= ~OBJECT_UNDROPPABLE;
@@ -824,7 +824,7 @@ void UpdateTransportGroupInventory()
 												OBJECTTYPE obj;
 												CreateItem(id, 100, &obj);
 												obj.fFlags |= OBJECT_UNDROPPABLE;
-												pSoldier->inv[BPACKPOCKPOS] = obj;
+												pSoldier->inventory()[BPACKPOCKPOS] = obj;
 											}
 										}
 										break;
@@ -862,9 +862,9 @@ void UpdateTransportGroupInventory()
 						}
 
 						// force inventory to be dropped!
-						for (int i = 0; i < pSoldier->inv.size(); ++i)
+						for (int i = 0; i < pSoldier->inventory().size(); ++i)
 						{
-							OBJECTTYPE* item = &pSoldier->inv[i];
+							OBJECTTYPE* item = &pSoldier->inventory()[i];
 							if (item->exists() && ItemIsUndroppableByDefault(item->usItem) == FALSE)
 							{
 								item->fFlags &= ~OBJECT_UNDROPPABLE;

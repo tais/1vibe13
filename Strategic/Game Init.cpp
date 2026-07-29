@@ -873,7 +873,7 @@ void QuickSetupOfMercProfileItems( UINT32 uiCount, UINT8 ubProfileIndex )
 
 	if ( uiCount == 0 )
 	{
-		//CreateGun( GLOCK_17, &(pSoldier->inv[ HANDPOS ] ) );
+		//CreateGun( GLOCK_17, &(pSoldier->inventory()[ HANDPOS ] ) );
 		//gMercProfiles[ ubProfileIndex ].inv[ HANDPOS ] = HAND_GRENADE;
 		//gMercProfiles[ ubProfileIndex ].bInvStatus[ HANDPOS ] = 100;
 		//gMercProfiles[ ubProfileIndex ].bInvNumber[ HANDPOS ] = 3;

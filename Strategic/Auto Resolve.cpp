@@ -1538,7 +1538,7 @@ static OBJECTTYPE* FindMedicalKit()
 		iSlot = FindObjClass( gpMercs[ i ].pSoldier, IC_MEDKIT );
 		if( iSlot != NO_SLOT )
 		{
-			return( &gpMercs[ i ].pSoldier->inv[ iSlot ] );
+			return( &gpMercs[ i ].pSoldier->inventory()[ iSlot ] );
 		}
 	}
 	return NULL;
@@ -1570,7 +1570,7 @@ static UINT32 AutoBandageMercs()
 			cnt = 0;
 			while( gpMercs[ i ].pSoldier->vitals().bleeding() )
 			{
-				pKit = &gpMercs[ i ].pSoldier->inv[ bSlot ];
+				pKit = &gpMercs[ i ].pSoldier->inventory()[ bSlot ];
 				usKitPts = TotalPoints( pKit );
 				if( !usKitPts )
 				{ //attempt to find another kit before stopping
@@ -4196,10 +4196,10 @@ static BOOLEAN FireAShot( SOLDIERCELL *pAttacker )
 		return TRUE;
 	}
 
-	UINT8 invsize = pSoldier->inv.size();
+	UINT8 invsize = pSoldier->inventory().size();
 	for( UINT8 i = 0; i < invsize; ++i )
 	{
-		pItem = &pSoldier->inv[ i ];
+		pItem = &pSoldier->inventory()[ i ];
 
 		if( Item[ pItem->usItem ].usItemClass == IC_GUN )
 		{
@@ -4251,10 +4251,10 @@ static BOOLEAN FireTankCannon( SOLDIERCELL *pAttacker )
 	//if ( Chance(33) )
 		//return FALSE;
 	
-	UINT8 invsize = pSoldier->inv.size();
+	UINT8 invsize = pSoldier->inventory().size();
 	for ( UINT8 i = 0; i < invsize; ++i )
 	{
-		pItem = &pSoldier->inv[i];
+		pItem = &pSoldier->inventory()[i];
 
 		if (ItemIsCannon(pItem->usItem))
 		{
@@ -4285,10 +4285,10 @@ static BOOLEAN FireAntiTankWeapon( SOLDIERCELL *pAttacker )
 
 	pSoldier = pAttacker->pSoldier;
 	
-	UINT8 invsize = pSoldier->inv.size( );
+	UINT8 invsize = pSoldier->inventory().size( );
 	for ( UINT8 i = 0; i < invsize; ++i )
 	{
-		pItem = &pSoldier->inv[i];
+		pItem = &pSoldier->inventory()[i];
 
 		if ( Item[pItem->usItem].usItemClass == IC_LAUNCHER || ItemIsCannon(pItem->usItem))
 		{
@@ -4299,7 +4299,7 @@ static BOOLEAN FireAntiTankWeapon( SOLDIERCELL *pAttacker )
 				return TRUE;
 			}
 
-			if ( FindLaunchable( pSoldier, pSoldier->inv[pAttacker->bWeaponSlot].usItem ) == NO_SLOT )
+			if ( FindLaunchable( pSoldier, pSoldier->inventory()[pAttacker->bWeaponSlot].usItem ) == NO_SLOT )
 				continue;
 
 			DeductAmmo( pSoldier, pAttacker->bWeaponSlot );
@@ -4308,7 +4308,7 @@ static BOOLEAN FireAntiTankWeapon( SOLDIERCELL *pAttacker )
 			{
 				INT8 ammoslot = FindAmmoToReload( pSoldier, pAttacker->bWeaponSlot, NO_SLOT );
 
-				BOOLEAN fRet = ReloadGun( pSoldier, pItem, &(pSoldier->inv[ammoslot]) );
+				BOOLEAN fRet = ReloadGun( pSoldier, pItem, &(pSoldier->inventory()[ammoslot]) );
 
 				if ( fRet && ( *pItem )[0]->data.gun.ubGunShotsLeft && Weapon[pItem->usItem].sLocknLoadSound )
 				{
@@ -4335,10 +4335,10 @@ static BOOLEAN FireAntiTankWeapon( SOLDIERCELL *pAttacker )
 
 static BOOLEAN AttackerHasKnife( SOLDIERCELL *pAttacker )
 {
-	UINT8 invsize = pAttacker->pSoldier->inv.size();
+	UINT8 invsize = pAttacker->pSoldier->inventory().size();
 	for( UINT8 i = 0; i < invsize; ++i )
 	{
-		if( Item[ pAttacker->pSoldier->inv[ i ].usItem ].usItemClass == IC_BLADE )
+		if( Item[ pAttacker->pSoldier->inventory()[ i ].usItem ].usItemClass == IC_BLADE )
 		{
 			pAttacker->bWeaponSlot = (INT8)i;
 			return TRUE;
@@ -4351,10 +4351,10 @@ static BOOLEAN AttackerHasKnife( SOLDIERCELL *pAttacker )
 static BOOLEAN TargetHasLoadedGun( SOLDIERTYPE *pSoldier )
 {
 	OBJECTTYPE *pItem;
-	UINT8 invsize = pSoldier->inv.size();
+	UINT8 invsize = pSoldier->inventory().size();
 	for( UINT8 i = 0; i < invsize; ++i )
 	{
-		pItem = &pSoldier->inv[ i ];
+		pItem = &pSoldier->inventory()[ i ];
 		if( Item[ pItem->usItem ].usItemClass == IC_GUN )
 		{
 			if( gpAR->fUnlimitedAmmo )
@@ -4590,7 +4590,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 	// hit with a tank
 	if ( fCannon )
 	{
-		ubImpact = (UINT8)GetDamage( &pAttacker->pSoldier->inv[pAttacker->bWeaponSlot] ); 
+		ubImpact = (UINT8)GetDamage( &pAttacker->pSoldier->inventory()[pAttacker->bWeaponSlot] );
 		
 		ubLocation = AIM_SHOT_TORSO;
 
@@ -4654,9 +4654,9 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 	// attack a tank with heavy weapons
 	else if ( fAntiTank )
 	{
-		ubImpact = (UINT8)GetDamage( &pAttacker->pSoldier->inv[pAttacker->bWeaponSlot] ) / 3;
+		ubImpact = (UINT8)GetDamage( &pAttacker->pSoldier->inventory()[pAttacker->bWeaponSlot] ) / 3;
 
-		UINT8 ubAmmoType = Magazine[Item[(&pAttacker->pSoldier->inv[pAttacker->bWeaponSlot])->usItem].ubClassIndex].ubAmmoType;
+		UINT8 ubAmmoType = Magazine[Item[(&pAttacker->pSoldier->inventory()[pAttacker->bWeaponSlot])->usItem].ubClassIndex].ubAmmoType;
 				
 		ubImpact = (UINT8)(ubImpact * AmmoTypes[ubAmmoType].dDamageModifierTank);
 
@@ -4696,8 +4696,8 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 	else if( !fMelee )
 	{
 		// silversurfer: We want to use the function instead of the raw value because it applies the modifiers that we configured in the ini.
-		ubImpact = (UINT8) GetDamage(&pAttacker->pSoldier->inv[ pAttacker->bWeaponSlot ]);
-		//ubImpact = Weapon[ pAttacker->pSoldier->inv[ pAttacker->bWeaponSlot ].usItem ].ubImpact;
+		ubImpact = (UINT8) GetDamage(&pAttacker->pSoldier->inventory()[ pAttacker->bWeaponSlot ]);
+		//ubImpact = Weapon[ pAttacker->pSoldier->inventory()[ pAttacker->bWeaponSlot ].usItem ].ubImpact;
 		iRandom = PreRandom( 100 );
 		if( iRandom < 15 )
 			ubLocation = AIM_SHOT_HEAD;
@@ -4759,9 +4759,9 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		pAttacker->pSoldier->attackSelection().weapon() = 0;
 		if( pAttacker->bWeaponSlot != -1 )
 		{
-			pItem = &pAttacker->pSoldier->inv[ pAttacker->bWeaponSlot ];
+			pItem = &pAttacker->pSoldier->inventory()[ pAttacker->bWeaponSlot ];
 			if( Item[ pItem->usItem ].usItemClass & IC_WEAPON )
-				pAttacker->pSoldier->attackSelection().weapon() = pAttacker->pSoldier->inv[ pAttacker->bWeaponSlot ].usItem;
+				pAttacker->pSoldier->attackSelection().weapon() = pAttacker->pSoldier->inventory()[ pAttacker->bWeaponSlot ].usItem;
 		}
 
         // WDS - make number of mercenaries, etc. be configurable
@@ -4769,11 +4769,11 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		if( pAttacker->bWeaponSlot != HANDPOS && pAttacker->bWeaponSlot != -1)
 		{
 			//switch items
-			tempItem = pAttacker->pSoldier->inv[ HANDPOS ];
-			pAttacker->pSoldier->inv[ HANDPOS ] = pAttacker->pSoldier->inv[ pAttacker->bWeaponSlot ]; //CTD
+			tempItem = pAttacker->pSoldier->inventory()[ HANDPOS ];
+			pAttacker->pSoldier->inventory()[ HANDPOS ] = pAttacker->pSoldier->inventory()[ pAttacker->bWeaponSlot ]; //CTD
 			iImpact = HTHImpact( pAttacker->pSoldier, pTarget->pSoldier, sAccuracy, (BOOLEAN)(fKnife || fClaw) );
-			pAttacker->pSoldier->inv[ pAttacker->bWeaponSlot ] = pAttacker->pSoldier->inv[ HANDPOS ];
-			pAttacker->pSoldier->inv[ HANDPOS ] = tempItem;
+			pAttacker->pSoldier->inventory()[ pAttacker->bWeaponSlot ] = pAttacker->pSoldier->inventory()[ HANDPOS ];
+			pAttacker->pSoldier->inventory()[ HANDPOS ] = tempItem;
 		}
 		else
 		{

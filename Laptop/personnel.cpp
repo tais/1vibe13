@@ -2794,7 +2794,7 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 		return;
 	}
 
-	UINT8 invsize = pSoldier->inv.size();
+	UINT8 invsize = pSoldier->inventory().size();
 	for( ubCounter = 0; ubCounter < invsize; ++ubCounter )
 	{
 		PosX = iScreenWidthOffset + 397 + 3;
@@ -2806,7 +2806,7 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 			continue;
 		}
 
-		if( pSoldier->inv[ ubCounter ].exists() == true )
+		if( pSoldier->inventory()[ ubCounter ].exists() == true )
 		{
 			if( uiCurrentInventoryIndex > ubUpToCount )
 			{
@@ -2814,7 +2814,7 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 			}
 			else
 			{
-				sIndex = ( pSoldier->inv[ ubCounter ].usItem );
+				sIndex = ( pSoldier->inventory()[ ubCounter ].usItem );
 				pItem = &Item[ sIndex ];
 
 				GetVideoObject( &hHandle, GetInterfaceGraphicForItem( pItem ) );
@@ -2851,22 +2851,22 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 				mprintf( PosX + 65, PosY + 3, sString );
 
 				// condition
-				if ( Item[pSoldier->inv[ ubCounter ].usItem ].usItemClass & IC_AMMO )
+				if ( Item[pSoldier->inventory()[ ubCounter ].usItem ].usItemClass & IC_AMMO )
 				{
 					// Ammo
 					iTotalAmmo = 0;
-					for( cnt = 0; cnt < pSoldier->inv[ ubCounter ].ubNumberOfObjects; cnt++ )
+					for( cnt = 0; cnt < pSoldier->inventory()[ ubCounter ].ubNumberOfObjects; cnt++ )
 					{
 						// get total ammo
-						iTotalAmmo += pSoldier->inv[ ubCounter ][cnt]->data.ubShotsLeft;
+						iTotalAmmo += pSoldier->inventory()[ ubCounter ][cnt]->data.ubShotsLeft;
 					}
-					swprintf( sString, L"%d/%d", iTotalAmmo, ( pSoldier->inv[ ubCounter ].ubNumberOfObjects * Magazine[ Item[pSoldier->inv[ ubCounter ].usItem ].ubClassIndex ].ubMagSize ) );
+					swprintf( sString, L"%d/%d", iTotalAmmo, ( pSoldier->inventory()[ ubCounter ].ubNumberOfObjects * Magazine[ Item[pSoldier->inventory()[ ubCounter ].usItem ].ubClassIndex ].ubMagSize ) );
 					FindFontRightCoordinates( ( INT16 )( PosX + 65 ), ( INT16 ) ( PosY + 15 ), ( INT16 ) ( 171 - 75 ),
 					( INT16 )( GetFontHeight( FONT10ARIAL ) ), sString, FONT10ARIAL, &sX, &sY );
 				}
 				else
 				{
-						swprintf( sString, L"%2d%%%%", pSoldier->inv[ ubCounter ][0]->data.objectStatus );
+						swprintf( sString, L"%2d%%%%", pSoldier->inventory()[ ubCounter ][0]->data.objectStatus );
 						FindFontRightCoordinates( ( INT16 )( PosX + 65 ), ( INT16 ) ( PosY + 15 ), ( INT16 ) ( 171 - 75 ),
 							( INT16 )( GetFontHeight( FONT10ARIAL ) ), sString, FONT10ARIAL, &sX, &sY );
 
@@ -2877,9 +2877,9 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 
 				mprintf( sX, sY, sString );
 
-				if ( Item[pSoldier->inv[ ubCounter ].usItem ].usItemClass & IC_GUN )
+				if ( Item[pSoldier->inventory()[ ubCounter ].usItem ].usItemClass & IC_GUN )
 				{
-					swprintf( sString, L"%s", AmmoCaliber[ Weapon[ Item[	pSoldier->inv[ ubCounter ].usItem ].ubClassIndex ].ubCalibre ]);
+					swprintf( sString, L"%s", AmmoCaliber[ Weapon[ Item[	pSoldier->inventory()[ ubCounter ].usItem ].ubClassIndex ].ubCalibre ]);
 
 					// shorten if needed
 					if( StringPixLength( sString, FONT10ARIAL) > ( 171 - 75 ) )
@@ -2894,9 +2894,9 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 				}
 
 				// if more than 1?
-				if( pSoldier->inv[ ubCounter ].ubNumberOfObjects > 1 )
+				if( pSoldier->inventory()[ ubCounter ].ubNumberOfObjects > 1 )
 				{
-					swprintf( sString, L"x%d",	pSoldier->inv[ ubCounter ].ubNumberOfObjects );
+					swprintf( sString, L"x%d",	pSoldier->inventory()[ ubCounter ].ubNumberOfObjects );
 					FindFontRightCoordinates( ( INT16 )( PosX ), ( INT16 ) ( PosY + 15 ), ( INT16 ) ( 58 ),
 						( INT16 )( GetFontHeight( FONT10ARIAL ) ), sString, FONT10ARIAL, &sX, &sY );
 					mprintf( sX, sY, sString );
@@ -3055,10 +3055,10 @@ INT32 GetNumberOfInventoryItemsOnCurrentMerc( void )
 		return 0;
 
 	INT32 ubCount = 0;
-	UINT8 invsize = pSoldier->inv.size();
+	UINT8 invsize = pSoldier->inventory().size();
 	for (UINT8 ubCounter = 0; ubCounter < invsize; ++ubCounter)
 	{
-		if( ( pSoldier->inv[ ubCounter ].exists() == true) )
+		if( ( pSoldier->inventory()[ ubCounter ].exists() == true) )
 			++ubCount;
 	}
 
@@ -5925,12 +5925,12 @@ INT32 GetFundsOnMerc( SOLDIERTYPE *pSoldier )
 	}
 
 	// run through grunts pockets and count all the spare change
-	UINT32 invsize = pSoldier->inv.size();
+	UINT32 invsize = pSoldier->inventory().size();
 	for( iCurrentPocket = 0; iCurrentPocket < invsize; ++iCurrentPocket )
 	{
-		if ( Item[ pSoldier->inv[ iCurrentPocket ] .usItem ].usItemClass == IC_MONEY )
+		if ( Item[ pSoldier->inventory()[ iCurrentPocket ] .usItem ].usItemClass == IC_MONEY )
 		{
-			iCurrentAmount += pSoldier->inv[ iCurrentPocket ][0]->data.money.uiMoneyAmount;
+			iCurrentAmount += pSoldier->inventory()[ iCurrentPocket ][0]->data.money.uiMoneyAmount;
 		}
 	}
 

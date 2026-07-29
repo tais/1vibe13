@@ -198,12 +198,12 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 			{
 				if (UsingNewInventorySystem())
 				{
-					newMerc->inv[NUM_INV_SLOTS-1] = gTempObject;
+					newMerc->inventory()[NUM_INV_SLOTS-1] = gTempObject;
 					fReturn=TRUE;
 				}
 				else
 				{
-					newMerc->inv[SMALLPOCK8POS] = gTempObject;
+					newMerc->inventory()[SMALLPOCK8POS] = gTempObject;
 					fReturn = TRUE;
 				}
 			}
@@ -1124,7 +1124,7 @@ void AddItemToMerc( UINT8 ubNewMerc, INT16 sItemType )
 	
 			if(!fReturn && (UsingNewInventorySystem() == true))
 			{
-				newMerc->inv[NUM_INV_SLOTS-1] = gTempObject;
+				newMerc->inventory()[NUM_INV_SLOTS-1] = gTempObject;
 				fReturn=TRUE;
 			}
 	Assert( fReturn );

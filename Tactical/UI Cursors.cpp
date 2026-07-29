@@ -151,9 +151,9 @@ UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMa
 	// ATE: Update attacking weapon!
 	// CC has added this attackingWeapon stuff and I need to update it constantly for
 	// CTGH algorithms
-	if ( GetJa2PendingTacticalCombatActions() == 0 && Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & IC_WEAPON )
+	if ( GetJa2PendingTacticalCombatActions() == 0 && Item[ pSoldier->inventory()[HANDPOS].usItem ].usItemClass & IC_WEAPON )
 	{
-		pSoldier->attackSelection().weapon() = pSoldier->inv[HANDPOS].usItem;
+		pSoldier->attackSelection().weapon() = pSoldier->inventory()[HANDPOS].usItem;
 	}
 
 	// Calculate target gridno!
@@ -358,7 +358,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 	// HEADROCK HAM 4: Required for new Aiming Level Limit function
 	UINT8 maxAimLevels = AllowedAimingLevels(pSoldier, usMapPos);
 
-		usInHand = pSoldier->inv[ HANDPOS ].usItem;
+		usInHand = pSoldier->inventory()[ HANDPOS ].usItem;
 
 		if ( Item[ usInHand ].usItemClass != IC_THROWING_KNIFE )
 		{
@@ -406,10 +406,10 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 				if( !gfAutofireInitBulletNum ) 
 				{
 					INT16 sCurAPCosts, sAPCosts;
-					UINT16 usShotsLeft = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
+					UINT16 usShotsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 					if (pSoldier->IsValidSecondHandBurst()) 
 					{
-						usShotsLeft = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
+						usShotsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 					}
 					bMaxAim = pSoldier->aiPlanning().shownAimTime();
 
@@ -436,10 +436,10 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 				gfUIAutofireBulletCount = TRUE;
 				gsBulletCount = pSoldier->fireControl().autofireShots();
-				gsTotalBulletCount = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
+				gsTotalBulletCount = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 				if (pSoldier->IsValidSecondHandBurst()) 
 				{
-					gsTotalBulletCount = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), gsTotalBulletCount );
+					gsTotalBulletCount = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), gsTotalBulletCount );
 				}
 
 				if(pSoldier->fireControl().autofireLastStep()) //set the orange tint on the numbers if we at the last step
@@ -615,10 +615,10 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			if(gbNumBurstLocations > pSoldier->fireControl().autofireShots())
 			{
 				INT16	sAPCosts;
-				UINT16 usShotsLeft = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
+				UINT16 usShotsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 				if (pSoldier->IsValidSecondHandBurst()) 
 				{
-					usShotsLeft = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
+					usShotsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 				}
 
 				do
@@ -703,7 +703,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 						{
 							// Burst mode only
 							OBJECTTYPE * pInHand;
-							pInHand = &(pSoldier->inv[pSoldier->attackSelection().hand()]);
+							pInHand = &(pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 							// Burst size
 							gbCtHBurstCount = GetShotsPerBurst(pInHand);
 							UINT8 i, saveDoBurst;
@@ -1273,7 +1273,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 {
 	UINT16				usInHand;
 
-	usInHand = pSoldier->inv[ HANDPOS ].usItem;
+	usInHand = pSoldier->inventory()[ HANDPOS ].usItem;
 
 	if ( Item[ usInHand ].usItemClass != IC_THROWING_KNIFE )
 	{
@@ -1290,7 +1290,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 
 		//CHRISL: We need to only check the second hand if the weapon in the second hand is onehanded
 		// Check for enough ammo...
-		if ( !EnoughAmmo( pSoldier, FALSE, HANDPOS ) || (pSoldier->IsValidSecondHandShotForReloadingPurposes( ) && !ItemIsTwoHanded(pSoldier->inv[SECONDHANDPOS].usItem) && !EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS) ) )
+		if ( !EnoughAmmo( pSoldier, FALSE, HANDPOS ) || (pSoldier->IsValidSecondHandShotForReloadingPurposes( ) && !ItemIsTwoHanded(pSoldier->inventory()[SECONDHANDPOS].usItem) && !EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS) ) )
 		{
 			// Check if ANY ammo exists.....
 			if ( FindAmmoToReload( pSoldier, HANDPOS, NO_SLOT ) == NO_SLOT )
@@ -1636,7 +1636,7 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 				case AIM_SHOT_HEAD:
 
 					// If we have a knife in hand, change string
-					if ( Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass == IC_BLADE )
+					if ( Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass == IC_BLADE )
 					{
 						wcscpy( gzLocation, TacticalStr[ NECK_HIT_LOCATION_STR ] );
 					}
@@ -2002,7 +2002,7 @@ UINT8 HandleNonActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEA
 		{
 			// Flugente: if we are using an underbarrel GL, we aren't even supposed to be able to reload via leftclick here
 			// recalculate the correct firing mode and be done
-			if ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO) && IsGrenadeLauncherAttached( &(pSoldier->inv[HANDPOS]) ) )
+			if ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO) && IsGrenadeLauncherAttached( &(pSoldier->inventory()[HANDPOS]) ) )
 			{
 				ChangeWeaponMode( pSoldier );
 
@@ -2070,10 +2070,10 @@ UINT8 HandleNonActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEA
 		}
 		else
 		{
-			UINT16 glItem = GetAttachedGrenadeLauncher( &(pSoldier->inv[HANDPOS]));
+			UINT16 glItem = GetAttachedGrenadeLauncher( &(pSoldier->inventory()[HANDPOS]));
 			if ((pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )&& glItem != NONE )
 			{
-				OBJECTTYPE* pAttachment = FindAttachment( &(pSoldier->inv[HANDPOS]), glItem );
+				OBJECTTYPE* pAttachment = FindAttachment( &(pSoldier->inventory()[HANDPOS]), glItem );
 
 				if ( pAttachment )
 				{
@@ -2090,9 +2090,9 @@ UINT8 HandleNonActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEA
 			}
 			else
 			{
-				OBJECTTYPE* pObject = &(pSoldier->inv[HANDPOS]);
+				OBJECTTYPE* pObject = &(pSoldier->inventory()[HANDPOS]);
 				// Do we have a launcable?
-				pObj = &(pSoldier->inv[HANDPOS]);
+				pObj = &(pSoldier->inventory()[HANDPOS]);
 				//sevenfm this should be checked only for guns because we can throw items with attached explosives
 				if(Item[pObj->usItem].usItemClass & IC_WEAPON )
 				for (attachmentList::iterator iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter) {
@@ -2134,7 +2134,7 @@ UINT8 HandleWirecutterCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCur
 	{
 		return( GOOD_WIRECUTTER_UICURSOR );
 	}
-	else if (IsStructureDeconstructItem(pSoldier->inv[HANDPOS].usItem, sGridNo, pSoldier))
+	else if (IsStructureDeconstructItem(pSoldier->inventory()[HANDPOS].usItem, sGridNo, pSoldier))
 	{
 		if (FindStructure(sGridNo, (STRUCTURE_GENERIC | STRUCTURE_WIREFENCE)))
 		{
@@ -2256,7 +2256,7 @@ UINT8 HandleCameraCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_CAMERA );
 
 	// do we have handcuffs in our hand?
-	if ( HasItemFlag( ( &( pSoldier->inv[HANDPOS] ) )->usItem, CAMERA ) && SoldierTo3DLocationLineOfSightTest( pSoldier, sGridNo, gsInterfaceLevel, 0, TRUE, CALC_FROM_WANTED_DIR, TRUE ) )
+	if ( HasItemFlag( ( &( pSoldier->inventory()[HANDPOS] ) )->usItem, CAMERA ) && SoldierTo3DLocationLineOfSightTest( pSoldier, sGridNo, gsInterfaceLevel, 0, TRUE, CALC_FROM_WANTED_DIR, TRUE ) )
 	{
 		return CAMERA_GREY_UICURSOR;
 	}
@@ -2273,7 +2273,7 @@ UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActiv
 	// DRAW PATH TO GUY
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_APPLYITEM );
 
-	if ( HasItemFlag( ( &( pSoldier->inv[HANDPOS] ) )->usItem, EMPTY_BLOOD_BAG ) )
+	if ( HasItemFlag( ( &( pSoldier->inventory()[HANDPOS] ) )->usItem, EMPTY_BLOOD_BAG ) )
 	{
 		// is there a person here?
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
@@ -2298,7 +2298,7 @@ UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 	// DRAW PATH TO GUY
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_APPLYITEM );
 
-	if ( HasItemFlag( ( &( pSoldier->inv[HANDPOS] ) )->usItem, MEDICAL_SPLINT ) )
+	if ( HasItemFlag( ( &( pSoldier->inventory()[HANDPOS] ) )->usItem, MEDICAL_SPLINT ) )
 	{
 		// are we actually qualified to use this?
 		if ( gGameOptions.fNewTraitSystem )
@@ -2371,11 +2371,11 @@ UINT8 HandleFortificationCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 ui
 	if ( pSoldier->position().level() != 0 )
 		return( FORTIFICATION_RED_UICURSOR );
 	
-	if ( IsFortificationPossibleAtGridNo( sGridNo ) && IsStructureConstructItem( pSoldier->inv[HANDPOS].usItem, sGridNo, pSoldier ) )
+	if ( IsFortificationPossibleAtGridNo( sGridNo ) && IsStructureConstructItem( pSoldier->inventory()[HANDPOS].usItem, sGridNo, pSoldier ) )
 	{
 		return( FORTIFICATION_GREY_UICURSOR );
 	}
-	else if ( IsStructureDeconstructItem( pSoldier->inv[HANDPOS].usItem, sGridNo, pSoldier ) )
+	else if ( IsStructureDeconstructItem( pSoldier->inventory()[HANDPOS].usItem, sGridNo, pSoldier ) )
 	{
 		STRUCTURE* pStruct = FindStructure( sGridNo, (STRUCTURE_GENERIC | STRUCTURE_WIREFENCE));
 
@@ -2398,7 +2398,7 @@ UINT8 HandleHandcuffCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_HANDCUFF );
 	
 	// do we have handcuffs in our hand?
-	if ( HasItemFlag( (&(pSoldier->inv[HANDPOS]))->usItem, HANDCUFFS ) )
+	if ( HasItemFlag( (&(pSoldier->inventory()[HANDPOS]))->usItem, HANDCUFFS ) )
 	{
 		// is there a person here?
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
@@ -2426,7 +2426,7 @@ UINT8 HandleApplyItemCursor(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 	// DRAW PATH TO GUY
 	HandleUIMovementCursor(pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_APPLYITEM);
 
-	if (ItemCanBeAppliedToOthers((&(pSoldier->inv[HANDPOS]))->usItem))
+	if (ItemCanBeAppliedToOthers((&(pSoldier->inventory()[HANDPOS]))->usItem))
 	{
 		// is there a person here?
 		SoldierID ubPerson = WhoIsThere2(sGridNo, pSoldier->position().level());
@@ -2476,7 +2476,7 @@ void HandleEndConfirmCursor( SOLDIERTYPE *pSoldier )
 	UINT8					ubItemCursor;
 
 	// LOOK IN GUY'S HAND TO CHECK LOCATION
-	usInHand = pSoldier->inv[HANDPOS].usItem;
+	usInHand = pSoldier->inventory()[HANDPOS].usItem;
 
 	ubItemCursor	=	GetActionModeCursor( pSoldier );
 
@@ -2493,7 +2493,7 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 	INT32 usGridNo;
 
 	// LOOK IN GUY'S HAND TO CHECK LOCATION
-	usInHand = pSoldier->inv[HANDPOS].usItem;
+	usInHand = pSoldier->inventory()[HANDPOS].usItem;
 
 	ubItemCursor	=	GetActionModeCursor( pSoldier );
 
@@ -2598,7 +2598,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 	INT8					bTargetLevel;
 
 
-	usInHand = pSoldier->inv[HANDPOS].usItem;
+	usInHand = pSoldier->inventory()[HANDPOS].usItem;
 
 	ubCursor =	GetActionModeCursor( pSoldier );
 
@@ -2693,10 +2693,10 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 				else
 				{
 					INT16	sCurAPCosts;
-					UINT16 usShotsLeft = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
+					UINT16 usShotsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 					if (pSoldier->IsValidSecondHandBurst()) 
 					{
-						usShotsLeft = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
+						usShotsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 					}
 
 					if(pSoldier->fireControl().autofireLastStep())
@@ -2955,9 +2955,9 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 	if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL )
 	{
 		// Flugente: if using a rifle grenade, only allow firing if there is a bullet in the gun's magazine (required for firing)
-		if ( HasAttachmentOfClass( &(pSoldier->inv[HANDPOS]), AC_RIFLEGRENADE) )
+		if ( HasAttachmentOfClass( &(pSoldier->inventory()[HANDPOS]), AC_RIFLEGRENADE) )
 		{
-			OBJECTTYPE* pObj = &(pSoldier->inv[HANDPOS]);
+			OBJECTTYPE* pObj = &(pSoldier->inventory()[HANDPOS]);
 			if ( (*pObj)[0]->data.gun.ubGunShotsLeft> 0 )
 				return( TRAJECTORYCURS );
 			else
@@ -2967,14 +2967,14 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 		return( TRAJECTORYCURS );
 	}
 
-	if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || ( pSoldier->attackSelection().weaponMode() == WM_BURST && ItemIsGrenadeLauncher(pSoldier->inv[HANDPOS].usItem) ) )
+	if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || ( pSoldier->attackSelection().weaponMode() == WM_BURST && ItemIsGrenadeLauncher(pSoldier->inventory()[HANDPOS].usItem) ) )
 	{
 		if ( gGameSettings.fOptions [ TOPTION_GL_BURST_CURSOR ] )
 			return( TARGETCURS );
 		else
 			return ( TRAJECTORYCURS );	
 	}
-	else if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO || ( pSoldier->attackSelection().weaponMode() == WM_AUTOFIRE && ItemIsGrenadeLauncher(pSoldier->inv[HANDPOS].usItem) ) )
+	else if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO || ( pSoldier->attackSelection().weaponMode() == WM_AUTOFIRE && ItemIsGrenadeLauncher(pSoldier->inventory()[HANDPOS].usItem) ) )
 	{
 		if ( gGameSettings.fOptions [ TOPTION_GL_BURST_CURSOR ] )
 			return( TARGETCURS );
@@ -2982,7 +2982,7 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 			return ( TRAJECTORYCURS );
 	}
 
-	usInHand = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[HANDPOS] );
+	usInHand = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[HANDPOS] );
 	// Start off with what is in our hand
 	ubCursor = Item[ usInHand ].ubCursor;
 
@@ -2990,15 +2990,15 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 	// Detonators can only be on invalidcurs things...
 	if ( ubCursor == INVALIDCURS )
 	{
-		if ( HasAttachmentOfClass( &(pSoldier->inv[HANDPOS]), AC_DETONATOR ) )
+		if ( HasAttachmentOfClass( &(pSoldier->inventory()[HANDPOS]), AC_DETONATOR ) )
 		{
 			ubCursor = BOMBCURS;
 		}
-		else if ( HasAttachmentOfClass( &(pSoldier->inv[HANDPOS]), AC_REMOTEDET ) )
+		else if ( HasAttachmentOfClass( &(pSoldier->inventory()[HANDPOS]), AC_REMOTEDET ) )
 		{
 			ubCursor = BOMBCURS;
 		}
-		else if ( HasAttachmentOfClass( &(pSoldier->inv[HANDPOS]), AC_DEFUSE) )
+		else if ( HasAttachmentOfClass( &(pSoldier->inventory()[HANDPOS]), AC_DEFUSE) )
 		{
 			ubCursor = BOMBCURS;
 		}
@@ -3100,7 +3100,7 @@ void HandleUICursorRTFeedback( SOLDIERTYPE *pSoldier )
 			}
 			else
 			{
-				if ( Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass == IC_THROWING_KNIFE )
+				if ( Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass == IC_THROWING_KNIFE )
 				{
 					BeginDisplayTimedCursor( RED_THROW_UICURSOR, 500 );
 				}
@@ -3179,9 +3179,9 @@ BOOLEAN CanSoldierAffordBurstBullets( SOLDIERTYPE *pSoldier, INT16 usMapPos )
 		return FALSE;
 	}
 	
-	if ( pSoldier->fireControl().autofireShots() > pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft )
+	if ( pSoldier->fireControl().autofireShots() > pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft )
 	{
-		pSoldier->fireControl().autofireShots() = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
+		pSoldier->fireControl().autofireShots() = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 		return FALSE;
 	}
 
@@ -3400,7 +3400,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 	INT8					bTargetLevel;
 
 
-	usInHand = pSoldier->inv[HANDPOS].usItem;
+	usInHand = pSoldier->inventory()[HANDPOS].usItem;
 
 	ubCursor =	GetActionModeCursor( pSoldier );
 
@@ -3430,11 +3430,11 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 
 				if(pSoldier->fireControl().autofireShots()==1 && sDelta<0) return;
 
-				if(pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft > pSoldier->fireControl().autofireShots() )
+				if(pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft > pSoldier->fireControl().autofireShots() )
 				{
 					//Calculate how many bullets we need to fire to add at least one more AP
 					sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
-					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft > pSoldier->fireControl().autofireShots())	//Increment the bullet count until we run out of APs or we spend the whole AP
+					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft > pSoldier->fireControl().autofireShots())	//Increment the bullet count until we run out of APs or we spend the whole AP
 					{
 						pSoldier->fireControl().autofireShots()++;
 						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
@@ -3449,7 +3449,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 						pSoldier->fireControl().autofireShots()+=sDelta;
 						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
 					}
-					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots());
+					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots());
 					pSoldier->fireControl().autofireShots()--;
 
 					sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
@@ -3636,13 +3636,13 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 	INT32					sGridNo;
 	INT8					bTargetLevel;
 
-	UINT16 usShotsLeft = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
+	UINT16 usShotsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 	if (pSoldier->IsValidSecondHandBurst()) 
 	{
-		usShotsLeft = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
+		usShotsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 	}
 
-	usInHand = pSoldier->inv[HANDPOS].usItem;
+	usInHand = pSoldier->inventory()[HANDPOS].usItem;
 
 	ubCursor =	GetActionModeCursor( pSoldier );
 
@@ -3866,13 +3866,13 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 	INT32					sGridNo;
 	INT8					bTargetLevel;
 
-	UINT16 usShotsLeft = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
+	UINT16 usShotsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 	if (pSoldier->IsValidSecondHandBurst()) 
 	{
-		usShotsLeft = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
+		usShotsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 	}
 
-	usInHand = pSoldier->inv[HANDPOS].usItem;
+	usInHand = pSoldier->inventory()[HANDPOS].usItem;
 
 	ubCursor =	GetActionModeCursor( pSoldier );
 
@@ -4061,10 +4061,10 @@ UINT8 DefaultAutofireBulletsByGunClass( SOLDIERTYPE* pSoldier )
 	
 	if( !pSoldier )
 		return 1;
-	if( !pSoldier->inv[ pSoldier->attackSelection().hand() ].exists() )
+	if( !pSoldier->inventory()[ pSoldier->attackSelection().hand() ].exists() )
 		return 1;
 
-	usItem = pSoldier->inv[ pSoldier->attackSelection().hand() ].usItem;
+	usItem = pSoldier->inventory()[ pSoldier->attackSelection().hand() ].usItem;
 	usItemClass = Item[ usItem ].usItemClass;
 
 	if( usItemClass != IC_GUN )

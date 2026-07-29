@@ -683,11 +683,11 @@ UINT32	ShopKeeperScreenHandle()
 	GetShopKeeperInterfaceUserInput();
 	
 	// Check for any newly added items...
-	if ( GetSMCurrentMerc()->inventoryState().checkForNewItems() )
+	if ( GetSMCurrentMerc()->inventory().checkForNewItems() )
 	{
 		// Startup any newly added items....
 		CheckForAnyNewlyAddedItems( GetSMCurrentMerc() );
-		GetSMCurrentMerc()->inventoryState().checkForNewItems() = FALSE;
+		GetSMCurrentMerc()->inventory().checkForNewItems() = FALSE;
 	}
 
 	HandleShopKeeperInterface();
@@ -3669,7 +3669,7 @@ void DisplayPlayersOfferArea()
 							sSoldierID.i);
 					PlayersOfferArea[ sCnt ].ItemObject[0]
 						->data.money.uiMoneyAmount =
-						owner->inv[
+						owner->inventory()[
 							PlayersOfferArea[sCnt]
 								.bSlotIdInOtherLocation
 						][0]->data.money.uiMoneyAmount;
@@ -4422,10 +4422,10 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 			
 		case PLAYERS_INVENTORY:
 			// better be a valid merc pocket index, or -1
-			Assert( ( bSlotNum >= -1 ) && ( bSlotNum < (INT8)GetSMCurrentMerc()->inv.size() ) );
+			Assert( ( bSlotNum >= -1 ) && ( bSlotNum < (INT8)GetSMCurrentMerc()->inventory().size() ) );
 
 			// if we're supposed to store the original pocket #, but that pocket still holds more of these
-			if ( ( bSlotNum != -1 ) && ( GetSMCurrentMerc()->inv[ bSlotNum ].exists() == true ) )
+			if ( ( bSlotNum != -1 ) && ( GetSMCurrentMerc()->inventory()[ bSlotNum ].exists() == true ) )
 			{
 				// then we can't store the pocket #, because our system can't return stacked objects
 				bSlotNum = -1;
@@ -5542,11 +5542,11 @@ BOOLEAN RemoveRepairItemFromDealersOfferArea( INT16	bSlot )
 INT8	GetInvSlotOfUnfullMoneyInMercInventory( SOLDIERTYPE *pSoldier )
 {
 	//loop through the soldier's inventory
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for( INT8 bCnt=0; bCnt < invsize; ++bCnt)
 	{
 		// Look for MONEY only, not Gold or Silver!!!  And look for a slot not already full
-		if( ( pSoldier->inv[ bCnt ].usItem == MONEY ) && ( pSoldier->inv[ bCnt ][0]->data.money.uiMoneyAmount < MoneySlotLimit( bCnt ) ) )
+		if( ( pSoldier->inventory()[ bCnt ].usItem == MONEY ) && ( pSoldier->inventory()[ bCnt ][0]->data.money.uiMoneyAmount < MoneySlotLimit( bCnt ) ) )
 		{
 			return( bCnt );
 		}
@@ -6503,12 +6503,12 @@ void IfMercOwnedCopyItemToMercInv( INVENTORY_IN_SLOT *pInv )
 
 		// then it better be a valid slot #
 		Assert(
-			pInv->bSlotIdInOtherLocation < (INT8)(owner->inv.size()) );
+			pInv->bSlotIdInOtherLocation < (INT8)(owner->inventory().size()) );
 		// and it better have a valid merc who owned it
 		Assert( pInv->ubIdOfMercWhoOwnsTheItem != NO_PROFILE );
 		
 		//Copy the object back into that merc's original inventory slot
-		owner->inv[ pInv->bSlotIdInOtherLocation ] = pInv->ItemObject;
+		owner->inventory()[ pInv->bSlotIdInOtherLocation ] = pInv->ItemObject;
 	}
 }
 
@@ -6529,12 +6529,12 @@ void IfMercOwnedRemoveItemFromMercInv2( UINT8 ubOwnerProfileId, INT16 bOwnerSlot
 		SOLDIERTYPE* owner =
 			GetJa2SoldierRepository().resolve(sSoldierID.i);
 		// then it better be a valid slot #
-		Assert( bOwnerSlotId < (INT8)(owner->inv.size() ));
+		Assert( bOwnerSlotId < (INT8)(owner->inventory().size() ));
 
 		Assert( CanMercInteractWithSelectedShopkeeper( owner ) );
 
 		//remove the object from that merc's original inventory slot
-		DeleteObj(&(owner->inv[bOwnerSlotId]));
+		DeleteObj(&(owner->inventory()[bOwnerSlotId]));
 	}
 }
 
@@ -6835,7 +6835,7 @@ void ReturnItemToPlayerSomehow( INVENTORY_IN_SLOT *pInvSlot, SOLDIERTYPE *pDropS
 	// trying to return the item, simply drop the item to the ground.
 	if(UsingNewInventorySystem() == true && pInvSlot->ItemObject.IsActiveLBE(0) == true)
 	{
-		pDropSoldier->inv[pInvSlot->bSlotIdInOtherLocation].initialize();
+		pDropSoldier->inventory()[pInvSlot->bSlotIdInOtherLocation].initialize();
 		ShopkeeperAddItemToPool( pDropSoldier->position().gridNo(), &pInvSlot->ItemObject, VISIBLE, pDropSoldier->position().level(), 0, 0 );
 	}
 }

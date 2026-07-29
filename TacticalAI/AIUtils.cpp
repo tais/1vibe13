@@ -102,30 +102,30 @@ INT8 OKToAttack(SOLDIERTYPE * pSoldier, int target)
 
 	// JUST PUT THIS IN ON JULY 13 TO TRY AND FIX OUT-OF-AMMO SITUATIONS
 
-	if ( Item[pSoldier->inv[HANDPOS].usItem].usItemClass == IC_GUN)
+	if ( Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_GUN)
 	{
-		if (ItemIsCannon(pSoldier->inv[HANDPOS].usItem))
+		if (ItemIsCannon(pSoldier->inventory()[HANDPOS].usItem))
 		{
 			// look for another tank shell ELSEWHERE IN INVENTORY
-			if ( FindLaunchable( pSoldier, pSoldier->inv[HANDPOS].usItem ) == NO_SLOT )
-			//if ( !ItemHasAttachments( &(pSoldier->inv[HANDPOS]) ) )
+			if ( FindLaunchable( pSoldier, pSoldier->inventory()[HANDPOS].usItem ) == NO_SLOT )
+			//if ( !ItemHasAttachments( &(pSoldier->inventory()[HANDPOS]) ) )
 			{
 				return(NOSHOOT_NOLOAD);
 			}
 		}
-		else if (pSoldier->inv[HANDPOS][0]->data.gun.ubGunShotsLeft == 0 /*SB*/ || 
-			!(pSoldier->inv[HANDPOS][0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) ||
+		else if (pSoldier->inventory()[HANDPOS][0]->data.gun.ubGunShotsLeft == 0 /*SB*/ ||
+			!(pSoldier->inventory()[HANDPOS][0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) ||
 			(pSoldier->IsValidSecondHandShotForReloadingPurposes( ) && 
-			(pSoldier->inv[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft == 0 || 
-			!(pSoldier->inv[SECONDHANDPOS][0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER))))
+			(pSoldier->inventory()[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft == 0 ||
+			!(pSoldier->inventory()[SECONDHANDPOS][0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER))))
 		{
 			return(NOSHOOT_NOAMMO);
 		}
 	}
-	else if (Item[pSoldier->inv[HANDPOS].usItem].usItemClass == IC_LAUNCHER)
+	else if (Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_LAUNCHER)
 	{
-		if ( FindLaunchable( pSoldier, pSoldier->inv[HANDPOS].usItem ) == NO_SLOT )
-		//if ( !ItemHasAttachments( &(pSoldier->inv[HANDPOS]) ) )
+		if ( FindLaunchable( pSoldier, pSoldier->inventory()[HANDPOS].usItem ) == NO_SLOT )
+		//if ( !ItemHasAttachments( &(pSoldier->inventory()[HANDPOS]) ) )
 		{
 			return(NOSHOOT_NOLOAD);
 		}
@@ -2347,11 +2347,11 @@ BOOLEAN WearGasMaskIfAvailable( SOLDIERTYPE * pSoldier )
 	{
 		return( FALSE );
 	}
-	if ( pSoldier->inv[ HEAD1POS ].exists() == false )
+	if ( pSoldier->inventory()[ HEAD1POS ].exists() == false )
 	{
 		bNewSlot = HEAD1POS;
 	}
-	else if ( pSoldier->inv[ HEAD2POS ].exists() == false )
+	else if ( pSoldier->inventory()[ HEAD2POS ].exists() == false )
 	{
 		bNewSlot = HEAD2POS;
 	}
@@ -2709,10 +2709,10 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 			// ADD 1/5 of man's marksmanship skill (0-20)
 			iThreatValue += (pEnemy->statistics().marksmanship() / 5);
 
-			if ( Item[ pEnemy->inv[HANDPOS].usItem ].usItemClass & IC_WEAPON )
+			if ( Item[ pEnemy->inventory()[HANDPOS].usItem ].usItemClass & IC_WEAPON )
 			{
 				// ADD the deadliness of the item(weapon) he's holding (0-50)
-				iThreatValue += Weapon[pEnemy->inv[HANDPOS].usItem].ubDeadliness;
+				iThreatValue += Weapon[pEnemy->inventory()[HANDPOS].usItem].ubDeadliness;
 			}
 		}
 
@@ -2952,7 +2952,7 @@ void RearrangePocket(SOLDIERTYPE *pSoldier, INT8 bPocket1, INT8 bPocket2, UINT8 
 	// NB there's no such thing as a temporary swap for now...
 	// 0verhaul:  There is now!  If not permanent, don't lose weapon ready status because the
 	// weapon will be restored after the trial situation is finished.
-	//SwapObjs( &(pSoldier->inv[bPocket1]), &(pSoldier->inv[bPocket2]) );
+	//SwapObjs( &(pSoldier->inventory()[bPocket1]), &(pSoldier->inventory()[bPocket2]) );
 	SwapObjs( pSoldier, bPocket1, bPocket2, bPermanent );
 
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"RearrangePocket done");
@@ -2966,13 +2966,13 @@ BOOLEAN FindBetterSpotForItem( SOLDIERTYPE * pSoldier, INT8 bSlot )
 	{
 		return( FALSE );
 	}
-	if (pSoldier->inv[bSlot].exists() == false)
+	if (pSoldier->inventory()[bSlot].exists() == false)
 	{
 		// well that's just fine then!
 		return( TRUE );
 	}
 
-	if(FitsInSmallPocket(&pSoldier->inv[bSlot]) == false)
+	if(FitsInSmallPocket(&pSoldier->inventory()[bSlot]) == false)
 	{
 		// then we're looking for a big pocket
 		bSlot = FindEmptySlotWithin( pSoldier, BIGPOCKSTART, MEDPOCKFINAL );
@@ -3424,10 +3424,10 @@ INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy )
 			// ADD 1/5 of man's marksmanship skill (0-20)
 			iThreatValue += (pEnemy->statistics().marksmanship() / 5);
 
-			if ( Item[ pEnemy->inv[HANDPOS].usItem ].usItemClass & IC_WEAPON )
+			if ( Item[ pEnemy->inventory()[HANDPOS].usItem ].usItemClass & IC_WEAPON )
 			{
 				// ADD the deadliness of the item(weapon) he's holding (0-50)
-				iThreatValue += Weapon[pEnemy->inv[HANDPOS].usItem].ubDeadliness;
+				iThreatValue += Weapon[pEnemy->inventory()[HANDPOS].usItem].ubDeadliness;
 			}
 		}
 
@@ -5165,7 +5165,7 @@ BOOLEAN AICheckIsGLOperator(SOLDIERTYPE *pSoldier)
 	INT8 bRealWeaponMode = pSoldier->attackSelection().weaponMode();
 	pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;		// So that EnoughAmmo will check for a grenade not a bullet
 	if (bGunSlot != NO_SLOT &&
-		IsGrenadeLauncherAttached(&pSoldier->inv[bGunSlot]) &&
+		IsGrenadeLauncherAttached(&pSoldier->inventory()[bGunSlot]) &&
 		(EnoughAmmo(pSoldier, FALSE, bGunSlot) || FindAmmoToReload(pSoldier, bGunSlot, NO_SLOT) != NO_SLOT))
 	{
 		pSoldier->attackSelection().weaponMode() = bRealWeaponMode;
@@ -5230,12 +5230,12 @@ BOOLEAN AIGunInHandScoped(SOLDIERTYPE *pSoldier)
 {
 	CHECKF(pSoldier);
 
-	if (UsingNewCTHSystem() == false && IsScoped(&pSoldier->inv[HANDPOS]))
+	if (UsingNewCTHSystem() == false && IsScoped(&pSoldier->inventory()[HANDPOS]))
 	{
 		return TRUE;
 	}
 
-	if (UsingNewCTHSystem() == true && NCTHIsScoped(&pSoldier->inv[HANDPOS]))
+	if (UsingNewCTHSystem() == true && NCTHIsScoped(&pSoldier->inventory()[HANDPOS]))
 	{
 		return TRUE;
 	}
@@ -5256,15 +5256,15 @@ BOOLEAN AIGunScoped(SOLDIERTYPE *pSoldier)
 		return FALSE;
 	}
 
-	if (pSoldier->inv[bWeaponIn].exists())
+	if (pSoldier->inventory()[bWeaponIn].exists())
 	{
 		if (UsingNewCTHSystem())
 		{
-			return NCTHIsScoped(&pSoldier->inv[bWeaponIn]);
+			return NCTHIsScoped(&pSoldier->inventory()[bWeaponIn]);
 		}
 		else
 		{
-			return IsScoped(&pSoldier->inv[bWeaponIn]);
+			return IsScoped(&pSoldier->inventory()[bWeaponIn]);
 		}
 	}
 
@@ -5285,9 +5285,9 @@ UINT16 AIGunRange(SOLDIERTYPE *pSoldier)
 		return 0;
 	}
 
-	if (pSoldier->inv[bWeaponIn].exists())
+	if (pSoldier->inventory()[bWeaponIn].exists())
 	{
-		return GunRange(&pSoldier->inv[bWeaponIn], pSoldier) / CELL_X_SIZE;
+		return GunRange(&pSoldier->inventory()[bWeaponIn], pSoldier) / CELL_X_SIZE;
 	}
 	return 0;
 }
@@ -5305,9 +5305,9 @@ UINT16 AIGunClass(SOLDIERTYPE *pSoldier)
 		return 0;
 	}
 
-	if (pSoldier->inv[bWeaponIn].exists())
+	if (pSoldier->inventory()[bWeaponIn].exists())
 	{
-		return Weapon[pSoldier->inv[bWeaponIn].usItem].ubWeaponClass;
+		return Weapon[pSoldier->inventory()[bWeaponIn].usItem].ubWeaponClass;
 	}
 	return 0;
 }
@@ -5325,9 +5325,9 @@ UINT16 AIGunType(SOLDIERTYPE *pSoldier)
 		return 0;
 	}
 
-	if (pSoldier->inv[bWeaponIn].exists())
+	if (pSoldier->inventory()[bWeaponIn].exists())
 	{
-		return Weapon[pSoldier->inv[bWeaponIn].usItem].ubWeaponType;
+		return Weapon[pSoldier->inventory()[bWeaponIn].usItem].ubWeaponType;
 	}
 	return 0;
 }
@@ -5345,9 +5345,9 @@ UINT8 AIGunDeadliness(SOLDIERTYPE *pSoldier)
 		return 0;
 	}
 
-	if (pSoldier->inv[bWeaponIn].exists())
+	if (pSoldier->inventory()[bWeaponIn].exists())
 	{
-		return Weapon[pSoldier->inv[bWeaponIn].usItem].ubDeadliness;
+		return Weapon[pSoldier->inventory()[bWeaponIn].usItem].ubDeadliness;
 	}
 
 	return 0;
@@ -5364,9 +5364,9 @@ UINT16 AIGunAmmo(SOLDIERTYPE *pSoldier)
 		return 0;
 	}
 
-	if (pSoldier->inv[bWeaponIn].exists())
+	if (pSoldier->inventory()[bWeaponIn].exists())
 	{
-		return pSoldier->inv[bWeaponIn][0]->data.gun.ubGunShotsLeft;
+		return pSoldier->inventory()[bWeaponIn][0]->data.gun.ubGunShotsLeft;
 	}
 
 	return 0;
@@ -5383,9 +5383,9 @@ BOOLEAN AIGunAutofireCapable(SOLDIERTYPE *pSoldier)
 		return FALSE;
 	}
 
-	if (pSoldier->inv[bWeaponIn].exists())
+	if (pSoldier->inventory()[bWeaponIn].exists())
 	{
-		return IsGunAutofireCapable(&pSoldier->inv[bWeaponIn]);
+		return IsGunAutofireCapable(&pSoldier->inventory()[bWeaponIn]);
 	}
 
 	return FALSE;
@@ -5627,12 +5627,12 @@ BOOLEAN AICheckHasWeaponOfType(SOLDIERTYPE *pSoldier, UINT8 ubWeaponType)
 {
 	CHECKF(pSoldier);
 
-	INT8 invsize = (INT8)pSoldier->inv.size();
+	INT8 invsize = (INT8)pSoldier->inventory().size();
 	for (INT8 bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (pSoldier->inv[bLoop].exists() &&
-			Item[pSoldier->inv[bLoop].usItem].usItemClass == IC_GUN &&
-			Weapon[Item[pSoldier->inv[bLoop].usItem].ubClassIndex].ubWeaponType == ubWeaponType)
+		if (pSoldier->inventory()[bLoop].exists() &&
+			Item[pSoldier->inventory()[bLoop].usItem].usItemClass == IC_GUN &&
+			Weapon[Item[pSoldier->inventory()[bLoop].usItem].ubClassIndex].ubWeaponType == ubWeaponType)
 		{
 			return TRUE;
 		}

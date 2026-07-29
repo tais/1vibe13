@@ -56,8 +56,8 @@ bool checkLBEArrayIntegrity(bool verbose) {
 
 		if (verbose)ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"LBENODE integrity check start: checking soldier items (%s)...", soldier->identity().name());
 
-		for (int j = 0; j < soldier->inv.size(); j++) {
-			OBJECTTYPE * object = &(soldier->inv[j]);
+		for (int j = 0; j < soldier->inventory().size(); j++) {
+			OBJECTTYPE * object = &(soldier->inventory()[j]);
 			if (object->HasAnyActiveLBEs()) {
 
 				if (!checkObjectLBEIntegrity(object)) {
@@ -219,11 +219,11 @@ void MoveItemsInSlotsToLBE( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBESlots, 
 	size_t plbesize = pLBE->inv.size();
 	for( size_t i=0, lbesize = LBESlots.size(); i<lbesize; ++i)	// Go through default pockets one by one
 	{
-		if(pSoldier->inv[LBESlots[i]].exists() == false)	// No item in this pocket
+		if(pSoldier->inventory()[LBESlots[i]].exists() == false)	// No item in this pocket
 			continue;
 
 		// Found an item in a default pocket so get it's ItemSize
-		UINT16 dSize = CalculateItemSize(&pSoldier->inv[LBESlots[i]]);
+		UINT16 dSize = CalculateItemSize(&pSoldier->inventory()[LBESlots[i]]);
 		for( size_t j=0; j<plbesize; ++j)	// Search through LBE and see if item fits anywhere
 		{
 			if(pLBE->inv[j].exists() == true)	// Item already stored in LBENODE pocket
@@ -232,7 +232,7 @@ void MoveItemsInSlotsToLBE( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBESlots, 
 			if(LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbePocketIndex[j] == NONE)	// Pocket is inactive
 				continue;
 			//dnl Pocket is active, so check if there is restriction of type for default item
-			if(LBEPocketType[LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbePocketIndex[j]].pRestriction != 0 && LBEPocketType[LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbePocketIndex[j]].pRestriction != Item[pSoldier->inv[LBESlots[i]].usItem].ubClassIndex)
+			if(LBEPocketType[LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbePocketIndex[j]].pRestriction != 0 && LBEPocketType[LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbePocketIndex[j]].pRestriction != Item[pSoldier->inventory()[LBESlots[i]].usItem].ubClassIndex)
 				continue;
 			// Pocket is active, can default item fit in this pocket?
 			if(LBEPocketType[LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbePocketIndex[j]].ItemCapacityPerSize[dSize] == NONE)	// Pocket can't hold this item size
@@ -241,13 +241,13 @@ void MoveItemsInSlotsToLBE( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBESlots, 
 			// Default item will fit in this pocket.  Setup the LBENODE if necessary
 
 			//ADB the object is already in the LBE, we are just moving it from soldier inv to LBE inv
-			pSoldier->inv[LBESlots[i]].MoveThisObjectTo(pLBE->inv[j], ALL_OBJECTS, NULL, STACK_SIZE_LIMIT, dCap);
-			if (pSoldier->inv[LBESlots[i]].exists() == false) {
+			pSoldier->inventory()[LBESlots[i]].MoveThisObjectTo(pLBE->inv[j], ALL_OBJECTS, NULL, STACK_SIZE_LIMIT, dCap);
+			if (pSoldier->inventory()[LBESlots[i]].exists() == false) {
 				break;
 			}
 			else {
 				//move didn't work, maybe it was a stack?
-				dSize = CalculateItemSize(&pSoldier->inv[LBESlots[i]]);
+				dSize = CalculateItemSize(&pSoldier->inventory()[LBESlots[i]]);
 			}
 		}
 	}
@@ -272,7 +272,7 @@ BOOLEAN MoveItemsToActivePockets( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBES
 	// We've put everything into the LBENODE that we could, now search other pockets for openings
 	for(unsigned int x=0; x<LBESlots.size(); x++)
 	{
-		if(pSoldier->inv[LBESlots[x]].exists() == false)
+		if(pSoldier->inventory()[LBESlots[x]].exists() == false)
 			continue;
 		for(int i=INV_START_POS; i<NUM_INV_SLOTS; i++)
 		{
@@ -289,25 +289,25 @@ BOOLEAN MoveItemsToActivePockets( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBES
 				continue;
 			//CHRISL: If we're putting on a BackPack or Combat Pack, we need to make sure we don't accidently break the
 			//	pack rules since, at this stage, our new pack actually hasn't been placed.
-			if(pSoldier->inv[i].exists() == false)	// No item in this pocket.  Place the item.
+			if(pSoldier->inventory()[i].exists() == false)	// No item in this pocket.  Place the item.
 			{
 				if((i == CPACKPOCKPOS && uiHandPos == BPACKPOCKPOS) || (i == BPACKPOCKPOS && uiHandPos == CPACKPOCKPOS))
 				{	
 					//DBrot: changed to bitwise comparison
 					UINT32 newPack = LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbeCombo;
-					UINT32 chkPack = LoadBearingEquipment[Item[pSoldier->inv[i].usItem].ubClassIndex].lbeCombo;
+					UINT32 chkPack = LoadBearingEquipment[Item[pSoldier->inventory()[i].usItem].ubClassIndex].lbeCombo;
 					if(newPack == 0 || (newPack & chkPack) == 0)
 						continue;
 				}
-				if(CanItemFitInPosition(pSoldier, &(pSoldier->inv[LBESlots[x]]), i, FALSE))
+				if(CanItemFitInPosition(pSoldier, &(pSoldier->inventory()[LBESlots[x]]), i, FALSE))
 				{
-					pSoldier->inv[LBESlots[x]].MoveThisObjectTo(pSoldier->inv[i], ALL_OBJECTS, pSoldier, i);
+					pSoldier->inventory()[LBESlots[x]].MoveThisObjectTo(pSoldier->inventory()[i], ALL_OBJECTS, pSoldier, i);
 					break;
 				}
 			}
-			else if(pSoldier->inv[i].usItem == pSoldier->inv[LBESlots[x]].usItem)	// Item is identical so maybe it can stack
+			else if(pSoldier->inventory()[i].usItem == pSoldier->inventory()[LBESlots[x]].usItem)	// Item is identical so maybe it can stack
 			{
-				pSoldier->inv[i].AddObjectsToStack(pSoldier->inv[LBESlots[x]], ALL_OBJECTS, pSoldier, i);
+				pSoldier->inventory()[i].AddObjectsToStack(pSoldier->inventory()[LBESlots[x]], ALL_OBJECTS, pSoldier, i);
 				break;
 			}
 		}
@@ -316,19 +316,19 @@ BOOLEAN MoveItemsToActivePockets( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBES
 	// now drop everything that wouldn't fit anywhere else
 	for(unsigned int i=0; i<LBESlots.size() ;i++)
 	{
-		if(pSoldier->inv[LBESlots[i]].exists() == false)	// No item in pocket
+		if(pSoldier->inventory()[LBESlots[i]].exists() == false)	// No item in pocket
 			continue;
-		AutoPlaceObjectToWorld(pSoldier, &pSoldier->inv[LBESlots[i]]);
+		AutoPlaceObjectToWorld(pSoldier, &pSoldier->inventory()[LBESlots[i]]);
 		/*if(guiCurrentItemDescriptionScreen == MAP_SCREEN && fShowMapInventoryPool)
 		{
-			AutoPlaceObjectInInventoryStash(&pSoldier->inv[LBESlots[i]], pSoldier->sGridNo);
+			AutoPlaceObjectInInventoryStash(&pSoldier->inventory()[LBESlots[i]], pSoldier->sGridNo);
 		}
 		else
 		{
-			AddItemToPool( pSoldier->sGridNo, &pSoldier->inv[LBESlots[i]], 1, pSoldier->position().level(), 0 , -1 );
+			AddItemToPool( pSoldier->sGridNo, &pSoldier->inventory()[LBESlots[i]], 1, pSoldier->position().level(), 0 , -1 );
 			NotifySoldiersToLookforItems( );
 		}*/
-		DeleteObj(&pSoldier->inv[LBESlots[i]]);
+		DeleteObj(&pSoldier->inventory()[LBESlots[i]]);
 	}
 
 	return(TRUE);
@@ -405,19 +405,19 @@ BOOLEAN MoveItemToLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos )
 	// Determine which LBE item we're removing so we can associate the correct pockets with it.
 	GetLBESlots(uiHandPos, LBESlots);
 
-	CreateLBE(&(pSoldier->inv[uiHandPos]), pSoldier->identity().id(), LBESlots.size());
-	LBENODE* pLBE = pSoldier->inv[uiHandPos].GetLBEPointer(0);
+	CreateLBE(&(pSoldier->inventory()[uiHandPos]), pSoldier->identity().id(), LBESlots.size());
+	LBENODE* pLBE = pSoldier->inventory()[uiHandPos].GetLBEPointer(0);
 	for(unsigned int i=0; pLBE && i<LBESlots.size(); i++)
 	{
 		// Is there an item in this pocket?
-		if(pSoldier->inv[LBESlots[i]].exists() == true)
+		if(pSoldier->inventory()[LBESlots[i]].exists() == true)
 		{
 			//ADB the object is already in the LBE, we are just moving it from soldier inv to LBE inv
-			pSoldier->inv[LBESlots[i]].MoveThisObjectTo(pLBE->inv[i], -1, pSoldier, LBESlots[i]);
+			pSoldier->inventory()[LBESlots[i]].MoveThisObjectTo(pLBE->inv[i], -1, pSoldier, LBESlots[i]);
 		}
 	}
 
-	if (DestroyLBEIfEmpty(&pSoldier->inv[uiHandPos]) == true) {
+	if (DestroyLBEIfEmpty(&pSoldier->inventory()[uiHandPos]) == true) {
 		return(FALSE);
 	}
 
@@ -432,7 +432,7 @@ BOOLEAN MoveItemFromLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, OBJECTTYPE
 	// Determine which LBE item we're adding so we can associate the correct pockets with it.
 	GetLBESlots(uiHandPos, LBESlots);
 
-	if(pSoldier->inv[uiHandPos].exists() == false)
+	if(pSoldier->inventory()[uiHandPos].exists() == false)
 		MoveItemsToActivePockets(pSoldier, LBESlots, uiHandPos, pObj);
 	if(pObj->IsActiveLBE(0) == false) {
 		return (FALSE);
@@ -444,14 +444,14 @@ BOOLEAN MoveItemFromLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, OBJECTTYPE
 		// Is there an item in this LBE pocket?
 		if(pLBE->inv[i].exists() == true)
 		{
-			pLBE->inv[i].MoveThisObjectTo(pSoldier->inv[LBESlots[i]], ALL_OBJECTS, pSoldier, LBESlots[i]);
+			pLBE->inv[i].MoveThisObjectTo(pSoldier->inventory()[LBESlots[i]], ALL_OBJECTS, pSoldier, LBESlots[i]);
 			//check to make sure item was moved.  If not, try placing item in an active pocket
 			if(pLBE->inv[i].exists() == true)
 			{
-				if(!AutoPlaceObject(pSoldier, &pLBE->inv[i], FALSE) && pSoldier->inv[LBESlots[i]].exists() == false)
+				if(!AutoPlaceObject(pSoldier, &pLBE->inv[i], FALSE) && pSoldier->inventory()[LBESlots[i]].exists() == false)
 				{
 					//still can't place the item?  Force move to the pocket associated with the LBE if empty
-					pSoldier->inv[LBESlots[i]].ForceAddObjectsToStack(pLBE->inv[i]);
+					pSoldier->inventory()[LBESlots[i]].ForceAddObjectsToStack(pLBE->inv[i]);
 				}
 			}
 		}
@@ -462,16 +462,16 @@ BOOLEAN MoveItemFromLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, OBJECTTYPE
 		//we should have copied all the items from the LBE to the soldier
 		//which means the LBE should be empty and destroyed.  However, if it's not empty, we need to force place
 		//some items so that we can empty the LBE without losing anything.
-		size_t invsize = pSoldier->inv.size();
+		size_t invsize = pSoldier->inventory().size();
 		for(size_t i = 0, lbesize = LBESlots.size(); i < lbesize; ++i)
 		{
 			if(pLBE->inv[i].exists() == true)
 			{
 				for( size_t j = BIGPOCKSTART; j < invsize; ++j)
 				{
-					if(pSoldier->inv[j].exists() == false)
+					if(pSoldier->inventory()[j].exists() == false)
 					{
-						pSoldier->inv[j].ForceAddObjectsToStack(pLBE->inv[i]);
+						pSoldier->inventory()[j].ForceAddObjectsToStack(pLBE->inv[i]);
 						break;
 					}
 				}
@@ -826,7 +826,7 @@ int OBJECTTYPE::PrivateRemoveObjectsFromStack(int howMany, OBJECTTYPE* destObjec
 			//we know this must be an LBE because of the slot and ubNumberOfObjects
 			//but are we taking the LBE out of the pocket or putting it in?
 
-			if (pSoldier->inv[slot].exists() == true) {
+			if (pSoldier->inventory()[slot].exists() == true) {
 				//the object exists and it is an LBE, so we must be taking it out of the pocket
 				//since we are moving this LBE, it needs to have the items in its pockets moved
 				//from the soldier's inv to the LBE's inv

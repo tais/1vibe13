@@ -1673,22 +1673,22 @@ void HandleRenderInvSlots( SOLDIERTYPE *pSoldier, UINT8 fDirtyLevel )
 	}
 	else
 	{
-		UINT32 invsize = pSoldier->inv.size();
+		UINT32 invsize = pSoldier->inventory().size();
 		for ( UINT32 cnt = 0; cnt < invsize; ++cnt )
 		{
 			if ( fDirtyLevel == DIRTYLEVEL2 )
 			{
 #if defined( _DEBUG ) /* Sergeant_Kolja, to be removed later again */
-				if ( pSoldier->inv[cnt][0]->data.gun.ubGunAmmoType >= gMAXITEMS_READ )
+				if ( pSoldier->inventory()[cnt][0]->data.gun.ubGunAmmoType >= gMAXITEMS_READ )
 				{
-					DebugMsg( TOPIC_JA2, DBG_LEVEL_1, String( "pObject (%S) corrupted! GetHelpTextForItem() can crash.",	(pSoldier->inv[cnt].usItem<gMAXITEMS_READ) ? Item[pSoldier->inv[cnt].usItem].szItemName : L"???" ) );
-					ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"pObject (%s) corrupted! GetHelpTextForItem() can crash.",			(pSoldier->inv[cnt].usItem<gMAXITEMS_READ) ? Item[pSoldier->inv[cnt].usItem].szItemName : L"???" );
+					DebugMsg( TOPIC_JA2, DBG_LEVEL_1, String( "pObject (%S) corrupted! GetHelpTextForItem() can crash.",	(pSoldier->inventory()[cnt].usItem<gMAXITEMS_READ) ? Item[pSoldier->inventory()[cnt].usItem].szItemName : L"???" ) );
+					ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"pObject (%s) corrupted! GetHelpTextForItem() can crash.",			(pSoldier->inventory()[cnt].usItem<gMAXITEMS_READ) ? Item[pSoldier->inventory()[cnt].usItem].szItemName : L"???" );
 					DebugBreak();
 					AssertMsg( 0, "pObject corrupted! GetHelpTextForItem() can crash." );
 				}
 #endif
 
-				GetHelpTextForItem( pStr, &( pSoldier->inv[ cnt ] ), pSoldier );
+				GetHelpTextForItem( pStr, &( pSoldier->inventory()[ cnt ] ), pSoldier );
 
 				SetRegionFastHelpText( &(gSMInvRegion[ cnt ]), pStr );
 			}
@@ -1725,12 +1725,12 @@ BOOLEAN CheckActivationStatus(SOLDIERTYPE *pSoldier, INT16 cSlot, INT16 bSlot, I
 {
 	INT8	cLevel, bLevel;
 
-	cLevel = LoadBearingEquipment[Item[pSoldier->inv[cSlot].usItem].ubClassIndex].lbeCombo;
-	bLevel = LoadBearingEquipment[Item[pSoldier->inv[bSlot].usItem].ubClassIndex].lbeCombo;
+	cLevel = LoadBearingEquipment[Item[pSoldier->inventory()[cSlot].usItem].ubClassIndex].lbeCombo;
+	bLevel = LoadBearingEquipment[Item[pSoldier->inventory()[bSlot].usItem].ubClassIndex].lbeCombo;
 	
 	if(sPocket==cSlot)
 	{
-		if(pSoldier->inv[bSlot].exists() == true)
+		if(pSoldier->inventory()[bSlot].exists() == true)
 		{
 			if(bLevel == NOTHING)
 			{
@@ -1740,7 +1740,7 @@ BOOLEAN CheckActivationStatus(SOLDIERTYPE *pSoldier, INT16 cSlot, INT16 bSlot, I
 	}
 	if(sPocket==bSlot)
 	{
-		if(pSoldier->inv[cSlot].exists() == true)
+		if(pSoldier->inventory()[cSlot].exists() == true)
 		{
 			if(cLevel == NOTHING)
 			{
@@ -1758,13 +1758,13 @@ std::vector<OBJECTTYPE *> * getSoldierGuns( SOLDIERTYPE *pTeamSoldier )
 	std::vector<OBJECTTYPE *> * guns = new std::vector<OBJECTTYPE *>;
 
 	// Search for gun in soldier inventory
-	UINT32 invsize = pTeamSoldier->inv.size();
+	UINT32 invsize = pTeamSoldier->inventory().size();
 	for (bLoop = 0; bLoop < invsize; ++bLoop)
 	{
-		if (	(Item[pTeamSoldier->inv[bLoop].usItem].usItemClass & IC_GUN) 
-			||  (Item[pTeamSoldier->inv[bLoop].usItem].usItemClass == IC_LAUNCHER) )
+		if (	(Item[pTeamSoldier->inventory()[bLoop].usItem].usItemClass & IC_GUN)
+			||  (Item[pTeamSoldier->inventory()[bLoop].usItem].usItemClass == IC_LAUNCHER) )
 		{
-			guns->push_back( &(pTeamSoldier->inv[bLoop]) );
+			guns->push_back( &(pTeamSoldier->inventory()[bLoop]) );
 		}
 	}
 
@@ -1795,9 +1795,9 @@ INT16 pocketTypeInSlot(SOLDIERTYPE *pSoldier, INT16 sPocket){
 		case COMBAT_PACK:
 		case BACKPACK:
 			lbePocket = 
-				(pSoldier->inv[icLBE[sPocket]].exists() == false) 
+				(pSoldier->inventory()[icLBE[sPocket]].exists() == false)
 				? LoadBearingEquipment[Item[icDefault[sPocket]].ubClassIndex].lbePocketIndex[icPocket[sPocket]] 
-				: LoadBearingEquipment[Item[pSoldier->inv[icLBE[sPocket]].usItem].ubClassIndex].lbePocketIndex[icPocket[sPocket]];
+				: LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[sPocket]].usItem].ubClassIndex].lbePocketIndex[icPocket[sPocket]];
 
 			break;
 		// silversurfer: LBE slots are NOT pockets!
@@ -1913,7 +1913,7 @@ void popupCallbackAmmo(UINT16 item, UINT16 pocket, SOLDIERTYPE* pSoldier ){
 			{
 				if(pocket != -1)
 				{
-					pSoldier->inv[pocket].AddObjectsToStack(tempStack, bLoop, pSoldier, pocket);
+					pSoldier->inventory()[pocket].AddObjectsToStack(tempStack, bLoop, pSoldier, pocket);
 				}
 				else
 				{
@@ -1961,7 +1961,7 @@ void popupCallbackAmmo(UINT16 item, UINT16 pocket, SOLDIERTYPE* pSoldier ){
 void popupCallbackPlaceLeastDamagedFromStack(OBJECTTYPE * pObj, UINT16 pocket, SOLDIERTYPE* pSoldier ){
 
 	// can't be sure enough that it will fit
-	if ( CanItemFitInPosition(pSoldier, pObj, pocket, false) && !pSoldier->inv[pocket].exists() ) {
+	if ( CanItemFitInPosition(pSoldier, pObj, pocket, false) && !pSoldier->inventory()[pocket].exists() ) {
 
 		// if this is a stack, try to find the least damaged object
 		
@@ -2577,7 +2577,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 	//Assign the screen
 	guiCurrentItemDescriptionScreen = GetCurrentScreen();
 
-	pObject = &(pSoldier->inv[ sPocket ]);
+	pObject = &(pSoldier->inventory()[ sPocket ]);
 
 	sX = gSMInvData[ sPocket ].sX;
 	sY = gSMInvData[ sPocket ].sY;
@@ -2594,22 +2594,22 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 				case COMBAT_PACK:
 				case BACKPACK:
 
-					if ( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->inventoryState().zipperFlag()) && (IsJa2TacticalCombatActive()) )
+					if ( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->inventory().zipperFlag()) && (IsJa2TacticalCombatActive()) )
 						lbePocket = 0;
-					else if( !pSoldier->inv[icLBE[sPocket]].exists() )
+					else if( !pSoldier->inventory()[icLBE[sPocket]].exists() )
 					{
 						lbePocket =	LoadBearingEquipment[Item[icDefault[sPocket]].ubClassIndex].lbePocketIndex[icPocket[sPocket]];
 					}
 					else
 					{
-						lbePocket = LoadBearingEquipment[Item[pSoldier->inv[icLBE[sPocket]].usItem].ubClassIndex].lbePocketIndex[icPocket[sPocket]];
-						if( lbePocket == 0 && LoadBearingEquipment[Item[pSoldier->inv[icLBE[sPocket]].usItem].ubClassIndex].lbePocketsAvailable & (UINT16)pow((double)2, icPocket[sPocket]))
+						lbePocket = LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[sPocket]].usItem].ubClassIndex].lbePocketIndex[icPocket[sPocket]];
+						if( lbePocket == 0 && LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[sPocket]].usItem].ubClassIndex].lbePocketsAvailable & (UINT16)pow((double)2, icPocket[sPocket]))
 						{
-							lbePocket = GetPocketFromAttachment(&pSoldier->inv[icLBE[sPocket]], icPocket[sPocket]);
+							lbePocket = GetPocketFromAttachment(&pSoldier->inventory()[icLBE[sPocket]], icPocket[sPocket]);
 						}
 					}
 
-					iClass = Item[pSoldier->inv[sPocket].usItem].usItemClass;
+					iClass = Item[pSoldier->inventory()[sPocket].usItem].usItemClass;
 					
 					if (lbePocket == 0)	// Deactivate Pocket
 					{
@@ -2672,7 +2672,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 		}
 
 		// IF it's the second hand and this hand cannot contain anything, remove the second hand position graphic
-		if (sPocket == SECONDHANDPOS && ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem))
+		if (sPocket == SECONDHANDPOS && ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem))
 		{
 			// CHRISL: Change coords for STI that covers 2nd hand location when carrying a 2handed weapon
 			if( guiCurrentItemDescriptionScreen != MAP_SCREEN )
@@ -2694,7 +2694,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 	}
 
 	// If we have a new item and we are in the right panel...
-	if ( pSoldier->inv.bNewItemCount[ sPocket ] > 0 && gsCurInterfacePanel == SM_PANEL && fInterfacePanelDirty != DIRTYLEVEL2 )
+	if ( pSoldier->inventory().newItemCount(sPocket) > 0 && gsCurInterfacePanel == SM_PANEL && fInterfacePanelDirty != DIRTYLEVEL2 )
 	{
 		fRenderDirtyLevel = DIRTYLEVEL0;
 		//fRenderDirtyLevel = fDirtyLevel;
@@ -2716,7 +2716,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 		fHatchItOut = TRUE;
 	}
 	// CHRISL: Don't hatch second hand position if we're holding a two handed item
-	else if ( sPocket == SECONDHANDPOS && ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) )
+	else if ( sPocket == SECONDHANDPOS && ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) )
 	{
 		fHatchItOut = FALSE;
 	}
@@ -2728,7 +2728,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 			if ( UsingNewInventorySystem( ) )
 			{
 				UINT8 itemSlotLimit = ItemSlotLimit( gpItemPointer, sPocket, pSoldier );
-				RenderPocketItemCapacity( guiSAVEBUFFER, itemSlotLimit, sPocket, pSoldier, &pSoldier->inv[sPocket], sX, sY );
+				RenderPocketItemCapacity( guiSAVEBUFFER, itemSlotLimit, sPocket, pSoldier, &pSoldier->inventory()[sPocket], sX, sY );
 
 				if ( itemSlotLimit == 0 )
 					fHatchItOut = TRUE;
@@ -2746,7 +2746,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 					usCostToMoveItem = (usCostToMoveItem * (100 + pSoldier->GetBackgroundValue(BG_INVENTORY))) / 100;
 
 					//we dont have enough APs to move it to this slot
-					if (usCostToMoveItem > 0 && pSoldier->actionPoints().current() < usCostToMoveItem && pSoldier->inv[iLastHandPos].usItem == NULL)
+					if (usCostToMoveItem > 0 && pSoldier->actionPoints().current() < usCostToMoveItem && pSoldier->inventory()[iLastHandPos].usItem == NULL)
 					{
 						fHatchItOut = 2;
 					}
@@ -2856,10 +2856,10 @@ BOOLEAN SoldierContainsAnyCompatibleStuff( SOLDIERTYPE *pSoldier, OBJECTTYPE *pT
 
 	if( ( Item [ pTestObject->usItem ].usItemClass & IC_GUN ) )
 	{
-		UINT32 invsize = pSoldier->inv.size();
+		UINT32 invsize = pSoldier->inventory().size();
 		for ( cnt = 0; cnt < invsize; ++cnt )
 		{
-			pObject = &(pSoldier->inv[ cnt ]);
+			pObject = &(pSoldier->inventory()[ cnt ]);
 
 			if ( CompatibleAmmoForGun( pObject, pTestObject ) )
 			{
@@ -2870,10 +2870,10 @@ BOOLEAN SoldierContainsAnyCompatibleStuff( SOLDIERTYPE *pSoldier, OBJECTTYPE *pT
 
 	if( ( Item [ pTestObject->usItem ].usItemClass & IC_AMMO ) )
 	{
-		UINT32 invsize = pSoldier->inv.size();
+		UINT32 invsize = pSoldier->inventory().size();
 		for ( cnt = 0; cnt < invsize; ++cnt )
 		{
-			pObject = &(pSoldier->inv[ cnt ]);
+			pObject = &(pSoldier->inventory()[ cnt ]);
 
 			if ( CompatibleGunForAmmo( pObject, pTestObject ) )
 			{
@@ -2960,17 +2960,17 @@ BOOLEAN HandleCompatibleAmmoUIForMapScreen( SOLDIERTYPE *pSoldier, INT32 bInvPos
 		}
 		else
 		{
-			pTestObject = &(pSoldier->inv[ bInvPos ]);
+			pTestObject = &(pSoldier->inventory()[ bInvPos ]);
 		}
 	}
 
 	// ATE: If pTest object is NULL, test only for existence of syringes, etc...
 	if ( pTestObject == NULL )
 	{
-		UINT32 invsize = pSoldier->inv.size();
+		UINT32 invsize = pSoldier->inventory().size();
 		for ( cnt = 0; cnt < invsize; ++cnt )
 		{
-			pObject = &(pSoldier->inv[ cnt ]);
+			pObject = &(pSoldier->inventory()[ cnt ]);
 
 			if ( CompatibleItemForApplyingOnMerc( pObject ) )
 			{
@@ -3014,13 +3014,13 @@ BOOLEAN HandleCompatibleAmmoUIForMapScreen( SOLDIERTYPE *pSoldier, INT32 bInvPos
 		return( fFound );
 	}
 
-	UINT32 invsize = pSoldier->inv.size();
+	UINT32 invsize = pSoldier->inventory().size();
 	// First test attachments, which almost any type of item can have....
 	if ( !(ItemIsHiddenAddon(pTestObject->usItem)) )
 	{
 		for ( cnt = 0; cnt < invsize; ++cnt )
 		{
-			pObject = &(pSoldier->inv[ cnt ]);
+			pObject = &(pSoldier->inventory()[ cnt ]);
 
 			if (pObject == pTestObject || ItemIsHiddenAddon(pObject->usItem) || (!ItemIsAttachment(pObject->usItem) &&
 				!Item[pObject->usItem].attachmentclass && !Item[pObject->usItem].nasAttachmentClass && !ItemIsAttachment(pTestObject->usItem) &&
@@ -3052,7 +3052,7 @@ BOOLEAN HandleCompatibleAmmoUIForMapScreen( SOLDIERTYPE *pSoldier, INT32 bInvPos
 	{
 		for ( cnt = 0; cnt < invsize; ++cnt )
 		{
-			pObject = &(pSoldier->inv[ cnt ]);
+			pObject = &(pSoldier->inventory()[ cnt ]);
 
 			if ( CompatibleAmmoForGun( pObject, pTestObject ) )
 			{
@@ -3071,7 +3071,7 @@ BOOLEAN HandleCompatibleAmmoUIForMapScreen( SOLDIERTYPE *pSoldier, INT32 bInvPos
 	{
 		for ( cnt = 0; cnt < invsize; ++cnt )
 		{
-			pObject = &(pSoldier->inv[ cnt ]);
+			pObject = &(pSoldier->inventory()[ cnt ]);
 
 			if ( CompatibleGunForAmmo( pObject, pTestObject ) )
 			{
@@ -3117,7 +3117,7 @@ BOOLEAN HandleCompatibleAmmoUIForMapInventory(SOLDIERTYPE *pSoldier, INT32 bInvP
 		}
 		else
 		{
-			pTestObject = &(pSoldier->inv[ bInvPos ]);
+			pTestObject = &(pSoldier->inventory()[ bInvPos ]);
 		}
 	}
 
@@ -3227,10 +3227,10 @@ BOOLEAN InternalHandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, OBJECTTYPE *pTest
 	// ATE: If pTest object is NULL, test only for existence of syringes, etc...
 	if ( pTestObject == NULL )
 	{
-		UINT32 invsize = pSoldier->inv.size();
+		UINT32 invsize = pSoldier->inventory().size();
 		for ( cnt = 0; cnt < invsize; ++cnt )
 		{
-			pObject = &(pSoldier->inv[ cnt ]);
+			pObject = &(pSoldier->inventory()[ cnt ]);
 
 			if ( CompatibleItemForApplyingOnMerc( pObject ) )
 			{
@@ -3274,13 +3274,13 @@ BOOLEAN InternalHandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, OBJECTTYPE *pTest
 		return( fFound );
 	}
 
-	UINT32 invsize = pSoldier->inv.size();
+	UINT32 invsize = pSoldier->inventory().size();
 	// First test attachments, which almost any type of item can have....
 	if (!(ItemIsHiddenAddon(pTestObject->usItem)))
 	{
 		for (cnt = 0; cnt < invsize; ++cnt)
 		{
-			pObject = &(pSoldier->inv[cnt]);
+			pObject = &(pSoldier->inventory()[cnt]);
 
 			if (pObject == pTestObject || ItemIsHiddenAddon(pObject->usItem) || (!ItemIsAttachment(pObject->usItem) &&
 				!Item[pObject->usItem].attachmentclass && !Item[pObject->usItem].nasAttachmentClass && !ItemIsAttachment(pTestObject->usItem) &&
@@ -3314,7 +3314,7 @@ BOOLEAN InternalHandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, OBJECTTYPE *pTest
 		{
 			for ( cnt = 0; cnt < invsize; ++cnt )
 			{
-				pObject = &(pSoldier->inv[ cnt ]);
+				pObject = &(pSoldier->inventory()[ cnt ]);
 
 				if ( CompatibleAmmoForGun( pObject, pTestObject ) )
 				{
@@ -3333,7 +3333,7 @@ BOOLEAN InternalHandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, OBJECTTYPE *pTest
 		{
 			for ( cnt = 0; cnt < invsize; ++cnt )
 			{
-				pObject = &(pSoldier->inv[ cnt ]);
+				pObject = &(pSoldier->inventory()[ cnt ]);
 
 				if ( CompatibleGunForAmmo( pObject, pTestObject ) )
 				{
@@ -3443,12 +3443,12 @@ BOOLEAN HandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, INT8 bInvPos, BOOLEAN fOn
 		{
 			if( fOn )
 			{
-				pTestObject = &(pSoldier->inv[ bInvPos ]);
+				pTestObject = &(pSoldier->inventory()[ bInvPos ]);
 				gpHighLightedItemObject = pTestObject;
 			}
 			else
 			{
-				pTestObject = &(pSoldier->inv[ bInvPos ]);
+				pTestObject = &(pSoldier->inventory()[ bInvPos ]);
 				gpHighLightedItemObject = NULL;
 				gubSkiDirtyLevel = SKI_DIRTY_LEVEL1;
 			}
@@ -3466,7 +3466,7 @@ BOOLEAN HandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, INT8 bInvPos, BOOLEAN fOn
 		}
 		else
 		{
-			pTestObject = &(pSoldier->inv[ bInvPos ]);
+			pTestObject = &(pSoldier->inventory()[ bInvPos ]);
 		}
 	}
 
@@ -3496,21 +3496,21 @@ void HandleNewlyAddedItems( SOLDIERTYPE *pSoldier, BOOLEAN *fDirtyLevel )
 	INT16  sX, sY;
 	OBJECTTYPE		*pObject;
 
-	UINT32 invsize = pSoldier->inv.size();
+	UINT32 invsize = pSoldier->inventory().size();
 	for ( UINT32 cnt = 0; cnt < invsize; ++cnt )
 	{
-		if ( pSoldier->inv.bNewItemCount[ cnt ] == -2 )
+		if ( pSoldier->inventory().newItemCount(cnt) == -2 )
 		{
 			// Stop
 			*fDirtyLevel = DIRTYLEVEL2;
-			pSoldier->inv.bNewItemCount[ cnt ] = 0;
+			pSoldier->inventory().newItemCount(cnt) = 0;
 		}
-		else if ( pSoldier->inv.bNewItemCount[ cnt ] > 0 )
+		else if ( pSoldier->inventory().newItemCount(cnt) > 0 )
 		{
 			sX = gSMInvData[ cnt ].sX;
 			sY = gSMInvData[ cnt ].sY;
 
-			pObject = &(pSoldier->inv[ cnt ]);
+			pObject = &(pSoldier->inventory()[ cnt ]);
 
 			if ( !pObject->exists() )
 			{
@@ -3518,7 +3518,7 @@ void HandleNewlyAddedItems( SOLDIERTYPE *pSoldier, BOOLEAN *fDirtyLevel )
 				continue;
 			}
 
-			INVRenderItem( guiSAVEBUFFER, pSoldier, pObject, sX, sY, gSMInvData[ cnt ].sWidth, gSMInvData[ cnt ].sHeight, DIRTYLEVEL2, NULL, 0, TRUE, us16BPPItemCyclePlacedItemColors[ pSoldier->inv.bNewItemCycleCount[ cnt ] ] );
+			INVRenderItem( guiSAVEBUFFER, pSoldier, pObject, sX, sY, gSMInvData[ cnt ].sWidth, gSMInvData[ cnt ].sHeight, DIRTYLEVEL2, NULL, 0, TRUE, us16BPPItemCyclePlacedItemColors[ pSoldier->inventory().newItemCycleCount(cnt) ] );
 		}
 	}
 }
@@ -3526,12 +3526,12 @@ void HandleNewlyAddedItems( SOLDIERTYPE *pSoldier, BOOLEAN *fDirtyLevel )
 void CheckForAnyNewlyAddedItems( SOLDIERTYPE *pSoldier )
 {
 	// OK, l0ok for any new...
-	UINT32 invsize = pSoldier->inv.size();
+	UINT32 invsize = pSoldier->inventory().size();
 	for ( UINT32 cnt = 0; cnt < invsize; ++cnt )
 	{
-		if ( pSoldier->inv.bNewItemCount[ cnt ] == -1 )
+		if ( pSoldier->inventory().newItemCount(cnt) == -1 )
 		{
-			pSoldier->inv.bNewItemCount[ cnt ]	= NEW_ITEM_CYCLES - 1;
+			pSoldier->inventory().newItemCount(cnt)	= NEW_ITEM_CYCLES - 1;
 		}
 	}
 }
@@ -3560,28 +3560,28 @@ void DegradeNewlyAddedItems( )
 					continue;
 				}
 
-				UINT32 invsize = pSoldier->inv.size();
+				UINT32 invsize = pSoldier->inventory().size();
 				for ( UINT32 cnt = 0; cnt < invsize; ++cnt )
 				{
-					if ( pSoldier->inv.bNewItemCount[ cnt ] > 0 )
+					if ( pSoldier->inventory().newItemCount(cnt) > 0 )
 					{
 						// Decrement all the time!
-						pSoldier->inv.bNewItemCycleCount[ cnt ]--;
+						pSoldier->inventory().newItemCycleCount(cnt)--;
 
-						if ( pSoldier->inv.bNewItemCycleCount[ cnt ] == 0 )
+						if ( pSoldier->inventory().newItemCycleCount(cnt) == 0 )
 						{
 							// OK, cycle down....
-							pSoldier->inv.bNewItemCount[ cnt ]--;
+							pSoldier->inventory().newItemCount(cnt)--;
 
-							if ( pSoldier->inv.bNewItemCount[ cnt ] == 0 )
+							if ( pSoldier->inventory().newItemCount(cnt) == 0 )
 							{
 								// Stop...
-								pSoldier->inv.bNewItemCount[ cnt ] = -2;
+								pSoldier->inventory().newItemCount(cnt) = -2;
 							}
 							else
 							{
 								// Reset!
-								pSoldier->inv.bNewItemCycleCount[ cnt ]	= NEW_ITEM_CYCLE_COUNT;
+								pSoldier->inventory().newItemCycleCount(cnt)	= NEW_ITEM_CYCLE_COUNT;
 								continue;
 							}
 						}
@@ -3615,7 +3615,7 @@ void RenderPocketItemCapacity( UINT32 uiWhichBuffer, INT8 pCapacity, INT16 bPos,
 	if(pSoldier != NULL && !CanItemFitInPosition( pSoldier, gpItemPointer, (INT8)bPos, FALSE ))
 	{
 		// Further check to see if the cursor item is valid ammo or a valid attachment
-		if(!CompatibleAmmoForGun(gpItemPointer, &pSoldier->inv[bPos]) && !ValidAttachment(gpItemPointer->usItem, &(pSoldier->inv[bPos])))
+		if(!CompatibleAmmoForGun(gpItemPointer, &pSoldier->inventory()[bPos]) && !ValidAttachment(gpItemPointer->usItem, &(pSoldier->inventory()[bPos])))
 		{
 			return;
 		}
@@ -3640,13 +3640,13 @@ void RenderPocketItemCapacity( UINT32 uiWhichBuffer, INT8 pCapacity, INT16 bPos,
 		else
 			swprintf( pStr, L"%d", pCapacity );
 	}
-	else if(CompatibleAmmoForGun(gpItemPointer, &pSoldier->inv[bPos]) || ValidLaunchable(gpItemPointer->usItem, pSoldier->inv[bPos].usItem))
+	else if(CompatibleAmmoForGun(gpItemPointer, &pSoldier->inventory()[bPos]) || ValidLaunchable(gpItemPointer->usItem, pSoldier->inventory()[bPos].usItem))
 	{
 		SetFontForeground( FONT_YELLOW );
 		swprintf( pStr, L"L" );
 	}
-	else if((UsingNewAttachmentSystem()==false && ValidAttachment(gpItemPointer->usItem, &(pSoldier->inv[bPos]) )) ||
-		(UsingNewAttachmentSystem()==true && ValidItemAttachmentSlot(&(pSoldier->inv[bPos]), gpItemPointer->usItem, FALSE, FALSE)))
+	else if((UsingNewAttachmentSystem()==false && ValidAttachment(gpItemPointer->usItem, &(pSoldier->inventory()[bPos]) )) ||
+		(UsingNewAttachmentSystem()==true && ValidItemAttachmentSlot(&(pSoldier->inventory()[bPos]), gpItemPointer->usItem, FALSE, FALSE)))
 	{
 		SetFontForeground( FONT_YELLOW );
 		swprintf( pStr, L"A" );
@@ -3998,7 +3998,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 
 			// display symbol if we are leaning our weapon on something
 			// display only if eapon resting is allowed, display is allowed, item is a gun/launcher, we are a person, we hold the gun in our hand, and we are resting the gun
-			if ( gGameExternalOptions.fWeaponResting && pItem->usItemClass & (IC_GUN | IC_LAUNCHER) && pSoldier &&  &(pSoldier->inv[pSoldier->attackSelection().hand()]) == pObject && pSoldier->IsWeaponMounted() )
+			if ( gGameExternalOptions.fWeaponResting && pItem->usItemClass & (IC_GUN | IC_LAUNCHER) && pSoldier &&  &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) == pObject && pSoldier->IsWeaponMounted() )
 			{
 				SetRGBFontForeground( 95, 160, 154 );
 												
@@ -4038,7 +4038,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 				RestoreExternBackgroundRect( sNewX, sNewY, 15, 15 );
 			}
 
-			if ( gGameExternalOptions.fScopeModes && pSoldier && pObject == &(pSoldier->inv[HANDPOS] ) && ( Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_BOBBY_GUN ) )
+			if ( gGameExternalOptions.fScopeModes && pSoldier && pObject == &(pSoldier->inventory()[HANDPOS] ) && ( Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_BOBBY_GUN ) )
 			{
 				sNewX = sX + 5; // rather arbitrary
 				sNewY = sY;
@@ -4057,7 +4057,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 				}
 
 				std::map<INT8, OBJECTTYPE*> ObjList;
-				GetScopeLists(pSoldier, &pSoldier->inv[HANDPOS], ObjList);
+				GetScopeLists(pSoldier, &pSoldier->inventory()[HANDPOS], ObjList);
 				
 				if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD )
 				{		
@@ -4156,7 +4156,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 				}
 			}
 
-			if ( pSoldier && pObject == &(pSoldier->inv[HANDPOS] ) && Item[pSoldier->inv[HANDPOS].usItem].usItemClass & (IC_GUN|IC_LAUNCHER) )
+			if ( pSoldier && pObject == &(pSoldier->inventory()[HANDPOS] ) && Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & (IC_GUN|IC_LAUNCHER) )
 			{
 				sNewY = sY + 13; // rather arbitrary
 
@@ -4212,7 +4212,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 				}
 
 				if ( ( ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ) ||
-					( Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_LAUNCHER && !ItemIsRocketLauncher(pSoldier->inv[HANDPOS].usItem)) ) &&
+					( Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_LAUNCHER && !ItemIsRocketLauncher(pSoldier->inventory()[HANDPOS].usItem)) ) &&
 					pSoldier->fireControl().delaysGrenadeLauncherExplosion() )
 				{
 					wcscat( pStr, New113Message[MSG113_FIREMODE_GL_DELAYED] );
@@ -4239,10 +4239,10 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 			}
 
 			// SANDRO - display BRST/AUTO on the second weapon too, if we are going to fire dual bursts
-			if ( pSoldier && pObject == &(pSoldier->inv[SECONDHANDPOS] ) && 
+			if ( pSoldier && pObject == &(pSoldier->inventory()[SECONDHANDPOS] ) &&
 				(pSoldier->attackSelection().weaponMode() == WM_BURST || pSoldier->attackSelection().weaponMode() == WM_AUTOFIRE) &&
-				Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_GUN &&
-				!ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) &&
+				Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_GUN &&
+				!ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) &&
 				pSoldier->IsValidSecondHandBurst() )
 			{
 				sNewY = sY + 13; // rather arbitrary
@@ -4967,11 +4967,11 @@ void CycleItemDescriptionItem( INT16 sX, INT16 sY )
 	DeleteItemDescriptionBox( );
 
 	// Cycle item....
-	usOldItem = CycleItems(descriptionOwner->inv[ HANDPOS ].usItem);
+	usOldItem = CycleItems(descriptionOwner->inventory()[ HANDPOS ].usItem);
 
-	CreateItem( (UINT16)usOldItem, 100, &( descriptionOwner->inv[ HANDPOS ] ) );
+	CreateItem( (UINT16)usOldItem, 100, &( descriptionOwner->inventory()[ HANDPOS ] ) );
 
-	InternalInitItemDescriptionBox( &( descriptionOwner->inv[ HANDPOS ] ), sX, sY, gubItemDescStatusIndex, descriptionOwner );
+	InternalInitItemDescriptionBox( &( descriptionOwner->inventory()[ HANDPOS ] ), sX, sY, gubItemDescStatusIndex, descriptionOwner );
 }
 
 INT16 CycleItems( UINT16 usOldItem )
@@ -5027,7 +5027,7 @@ BOOLEAN InitItemDescriptionBox( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 s
 	//else use item from the hand position
 	else
 	{
-		pObject = &(pSoldier->inv[ ubPosition ] );
+		pObject = &(pSoldier->inventory()[ ubPosition ] );
 	}
 
 	return( InternalInitItemDescriptionBox( pObject, sX, sY, ubStatusIndex, pSoldier, ubPosition ) );
@@ -6478,11 +6478,11 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 							else // the soldier is wearing the LBE
 							{
 								// we have an item in this pocket
-								if( GetItemDescSoldier()->inv[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]].exists() )
+								if( GetItemDescSoldier()->inventory()[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]].exists() )
 									// place in soldiers inventory
-									if( !AutoPlaceObject(GetItemDescSoldier(), &GetItemDescSoldier()->inv[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]], FALSE) )
+									if( !AutoPlaceObject(GetItemDescSoldier(), &GetItemDescSoldier()->inventory()[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]], FALSE) )
 										// that didn't work. Place on ground instead.
-										AutoPlaceObjectToWorld(GetItemDescSoldier(), &GetItemDescSoldier()->inv[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]], TRUE);
+										AutoPlaceObjectToWorld(GetItemDescSoldier(), &GetItemDescSoldier()->inventory()[pocketKey[(AttachmentSlots[usAttachmentSlotIndexVector[slotCount]].ubPocketMapping -1)]], TRUE);
 							}
 							break;
 						}
@@ -8149,7 +8149,7 @@ void RenderLBENODEItems( OBJECTTYPE *pObj, int subObject )
 	// Is the object we're looking at currently worn
 	for(unsigned int x = VESTPOCKPOS; x <= BPACKPOCKPOS; x++)
 	{
-		if(pObj == &pSoldier->inv[x])
+		if(pObj == &pSoldier->inventory()[x])
 		{
 			wornItem = true;
 			break;
@@ -8181,7 +8181,7 @@ void RenderLBENODEItems( OBJECTTYPE *pObj, int subObject )
 	switch (lClass)
 	{
 		case THIGH_PACK:
-			if(pObj->IsActiveLBE(subObject) == false && pObj == &pSoldier->inv[RTHIGHPOCKPOS])
+			if(pObj->IsActiveLBE(subObject) == false && pObj == &pSoldier->inventory()[RTHIGHPOCKPOS])
 				GetLBESlots(RTHIGHPOCKPOS, pocketKey);
 			else
 				GetLBESlots(LTHIGHPOCKPOS, pocketKey);
@@ -8257,7 +8257,7 @@ void RenderLBENODEItems( OBJECTTYPE *pObj, int subObject )
 		if( lbePocket == 0 && LoadBearingEquipment[Item[pObj->usItem].ubClassIndex].lbePocketsAvailable & (UINT16)pow((double)2, icPocket[pocketKey[cnt]]))
 		{
 			if( wornItem )
-				lbePocket = GetPocketFromAttachment(&pSoldier->inv[icLBE[pocketKey[cnt]]], icPocket[pocketKey[cnt]], subObject);
+				lbePocket = GetPocketFromAttachment(&pSoldier->inventory()[icLBE[pocketKey[cnt]]], icPocket[pocketKey[cnt]], subObject);
 			else
 				lbePocket = GetPocketFromAttachment( pObj, icPocket[pocketKey[cnt]], subObject);
 		}
@@ -8266,8 +8266,8 @@ void RenderLBENODEItems( OBJECTTYPE *pObj, int subObject )
 		pObject = NULL;
 		if(wornItem == true)
 		{
-			if(pSoldier->inv[pocketKey[cnt]].exists() == true)
-				pObject = &(pSoldier->inv[pocketKey[cnt]]);
+			if(pSoldier->inventory()[pocketKey[cnt]].exists() == true)
+				pObject = &(pSoldier->inventory()[pocketKey[cnt]]);
 		}
 		else if(activeNode == true)
 		{
@@ -8694,14 +8694,14 @@ void BeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
 	{
 		numToMove = 1;
 	}
-	pSoldier->inv[ubHandPos].MoveThisObjectTo(gTempObject, numToMove, pSoldier, ubHandPos);
+	pSoldier->inventory()[ubHandPos].MoveThisObjectTo(gTempObject, numToMove, pSoldier, ubHandPos);
 
 	if ( gTempObject.exists() == false )
 	{
 		//oops, the move failed.  It might have failed because the object was force placed
 		//to a slot where the ItemSizeLimit is 0, try again
 		//this method won't work with LBEs in LBE pockets
-		pSoldier->inv[ubHandPos].MoveThisObjectTo(gTempObject, numToMove);
+		pSoldier->inventory()[ubHandPos].MoveThisObjectTo(gTempObject, numToMove);
 	}
 
 	if ( gTempObject.exists() == true )
@@ -9180,10 +9180,10 @@ void DrawItemTileCursor( )
 
 BOOLEAN IsValidAmmoToReloadRobot( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject )
 {
-	if ( !CompatibleAmmoForGun( pObject, &( pSoldier->inv[ HANDPOS ] ) ) )
+	if ( !CompatibleAmmoForGun( pObject, &( pSoldier->inventory()[ HANDPOS ] ) ) )
 	{
 		// Build string...
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ ROBOT_NEEDS_GIVEN_CALIBER_STR ], AmmoCaliber[ Weapon[ pSoldier->inv[ HANDPOS ].usItem ].ubCalibre ] );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ ROBOT_NEEDS_GIVEN_CALIBER_STR ], AmmoCaliber[ Weapon[ pSoldier->inventory()[ HANDPOS ].usItem ].ubCalibre ] );
 
 		return( FALSE );
 	}
@@ -9361,7 +9361,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 							GetItemPointerSoldier()->pendingItem().copyObject(gTempObject);
 
 							// Remove from soldier's inv...
-							GetItemPointerSoldier()->inv[ gbItemPointerSrcSlot ].RemoveObjectsFromStack(1);
+							GetItemPointerSoldier()->inventory()[ gbItemPointerSrcSlot ].RemoveObjectsFromStack(1);
 
 							GetItemPointerSoldier()->pendingAction().secondaryData()  = sAdjustedGridNo;
 							GetItemPointerSoldier()->pendingAction().primaryData() = gbItemPointerSrcSlot;
@@ -9870,7 +9870,7 @@ BOOLEAN InitItemStackPopup( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sInvX
 		return FALSE;
 
 	// Determine # of items
-	gpItemPopupObject = &(pSoldier->inv[ ubPosition ] );
+	gpItemPopupObject = &(pSoldier->inventory()[ ubPosition ] );
 	// CHRISL:
 	gubNumItemPopups = ItemSlotLimit( gpItemPopupObject, ubPosition, pSoldier );
 
@@ -9950,7 +9950,7 @@ BOOLEAN InitItemStackPopup( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sInvX
 		MSYS_AddRegion( &gItemPopupRegions[cnt]);
 		MSYS_SetRegionUserData( &gItemPopupRegions[cnt], 0, cnt );
 		//CHRISL: Include the pockets capacity as UserData 1
-		int cap = ItemSlotLimit( &pSoldier->inv[ubPosition], ubPosition, pSoldier );
+		int cap = ItemSlotLimit( &pSoldier->inventory()[ubPosition], ubPosition, pSoldier );
 		MSYS_SetRegionUserData( &gItemPopupRegions[cnt], 1, cap );
 		//CHRISL: Let's also include the ubID for this merc as UserData so we can find the merc again if needed
 		MSYS_SetRegionUserData( &gItemPopupRegions[cnt], 2, pSoldier->identity().id());
@@ -9959,12 +9959,12 @@ BOOLEAN InitItemStackPopup( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sInvX
 		
 		//OK, for each item, set dirty text if applicable!
 		//CHRISL:
-		if(cnt < pSoldier->inv[ubPosition].ubNumberOfObjects && pSoldier->inv[ubPosition].exists() == true){
-			GetHelpTextForItem( pStr, &( pSoldier->inv[ ubPosition ] ), pSoldier, cnt );
+		if(cnt < pSoldier->inventory()[ubPosition].ubNumberOfObjects && pSoldier->inventory()[ubPosition].exists() == true){
+			GetHelpTextForItem( pStr, &( pSoldier->inventory()[ ubPosition ] ), pSoldier, cnt );
 			SetRegionFastHelpText( &(gItemPopupRegions[ cnt ]), pStr );
 		}
 		else{
-			SetRegionFastHelpText( &(gItemPopupRegions[ cnt ]), ItemNames[ pSoldier->inv[ ubPosition ].usItem ] );
+			SetRegionFastHelpText( &(gItemPopupRegions[ cnt ]), ItemNames[ pSoldier->inventory()[ ubPosition ].usItem ] );
 		}
 		SetRegionHelpEndCallback( &(gItemPopupRegions[ cnt ]), HelpTextDoneCallback );
 		gfItemPopupRegionCallbackEndFix = FALSE;
@@ -11349,7 +11349,7 @@ void SetupPickupPage( INT8 bPage )
 		{
 			gItemPickupMenu.ItemPoolSlots[ cnt - iStart ] = pTempItemPool;
 
-			pObject = (gfStealing)? &GetItemPickupOpponent()->inv[pTempItemPool->iItemIndex]
+			pObject = (gfStealing)? &GetItemPickupOpponent()->inventory()[pTempItemPool->iItemIndex]
 				:&(gWorldItems[ pTempItemPool->iItemIndex ].object );
 
 		  sValue = (*pObject)[0]->data.objectStatus;
@@ -11540,7 +11540,7 @@ void RenderItemPickupMenu( )
 			if ( gItemPickupMenu.ItemPoolSlots[ cnt ] != NULL )
 			{
 				// Get item to render
-				pObject = (gfStealing)? &GetItemPickupOpponent()->inv[gItemPickupMenu.ItemPoolSlots[ cnt ]->iItemIndex]
+				pObject = (gfStealing)? &GetItemPickupOpponent()->inventory()[gItemPickupMenu.ItemPoolSlots[ cnt ]->iItemIndex]
 					:&(gWorldItems[ gItemPickupMenu.ItemPoolSlots[ cnt ]->iItemIndex ].object );
 				pItem = &( Item[ pObject->usItem ] );
 
@@ -11888,10 +11888,10 @@ void ItemPickupOK( GUI_BUTTON *btn, INT32 reason )
 
 		if (gfStealing)	//jackaians modif
 		{
-			usLastItem=pickupOpponent->inv[HANDPOS].usItem;
+			usLastItem=pickupOpponent->inventory()[HANDPOS].usItem;
 			SoldierStealItemFromSoldier( pickupActor, pickupOpponent, gItemPickupMenu.pItemPool, ITEM_PICKUP_SELECTION, gItemPickupMenu.sGridNo, gItemPickupMenu.bZLevel, gItemPickupMenu.pfSelectedArray );
 			DeletePool(gItemPickupMenu.pItemPool);
-			if ((pickupOpponent->inv[HANDPOS].exists() == false ) && (usLastItem!=NOTHING))
+			if ((pickupOpponent->inventory()[HANDPOS].exists() == false ) && (usLastItem!=NOTHING))
 				pickupOpponent->ReLoadSoldierAnimationDueToHandItemChange( usLastItem, NOTHING );
 
 //			PreventFromTheFreezingBug(pickupActor);
@@ -14262,7 +14262,7 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 			// HACK IMMINENT!
 			// value of 1 is stored in maps for SIDE of bomb owner... when we want to use IDs!
 			// so we add 2 to all owner IDs passed through here and subtract 2 later
-			//if (GetItemDescSoldier()->inv[HANDPOS].MoveThisObjectTo(gTempObject, 1) == 0)
+			//if (GetItemDescSoldier()->inventory()[HANDPOS].MoveThisObjectTo(gTempObject, 1) == 0)
 			{
 				(*gpItemDescObject)[0]->data.misc.ubBombOwner = GetItemDescSoldier()->identity().id() + 2;
 				(*gpItemDescObject)[0]->data.ubDirection = GetItemDescSoldier()->position().direction();		// Flugente: direction of bomb is direction of soldier
@@ -14308,7 +14308,7 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 		if ( (*gpItemDescObject)[0]->data.misc.ubBombOwner > 1 && ( (INT32)(*gpItemDescObject)[0]->data.misc.ubBombOwner - 2 >= gTacticalStatus.Team[ OUR_TEAM ].bFirstID && (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2 <= gTacticalStatus.Team[ OUR_TEAM ].bLastID ) )
 		{
 			// Flugente: get a tripwire-related bonus if we have a wire cutter in our hands
-			if ( ( (&GetItemDescSoldier()->inv[HANDPOS])->exists() && ItemIsWirecutters(GetItemDescSoldier()->inv[HANDPOS].usItem) ) || ( (&GetItemDescSoldier()->inv[SECONDHANDPOS])->exists() && ItemIsWirecutters(GetItemDescSoldier()->inv[SECONDHANDPOS].usItem) ) )
+			if ( ( (&GetItemDescSoldier()->inventory()[HANDPOS])->exists() && ItemIsWirecutters(GetItemDescSoldier()->inventory()[HANDPOS].usItem) ) || ( (&GetItemDescSoldier()->inventory()[SECONDHANDPOS])->exists() && ItemIsWirecutters(GetItemDescSoldier()->inventory()[SECONDHANDPOS].usItem) ) )
 			{
 				// + 10 if item gets activated by tripwire
 				if (ItemHasTripwireActivation(gpItemDescObject->usItem))
@@ -14551,7 +14551,7 @@ void TransformationMenuPopup_SplitCrateInInventory( )
 
 		UINT16 usMagazineToCreate = 0;
 
-		OBJECTTYPE *pObjInPocket = &(GetItemDescSoldier()->inv[sPocket]);
+		OBJECTTYPE *pObjInPocket = &(GetItemDescSoldier()->inventory()[sPocket]);
 		if ( pObjInPocket->exists() == true )
 		{
 			if (Magazine[Item[pObjInPocket->usItem].ubClassIndex].ubAmmoType == ubAmmoType &&
@@ -14809,7 +14809,7 @@ BOOLEAN CheckPocketEmpty( SOLDIERTYPE *pSoldier, INT16 sPocket )
 	INT16		lbePocket = ITEM_NOT_FOUND;
 	OBJECTTYPE  *pObject;
 
-	pObject = &(pSoldier->inv[ sPocket ]);
+	pObject = &(pSoldier->inventory()[ sPocket ]);
 
 	// If sPocket is not an equiped pocket, gather pocket information
 	if(icClass[sPocket] != ITEM_NOT_FOUND)
@@ -14821,19 +14821,19 @@ BOOLEAN CheckPocketEmpty( SOLDIERTYPE *pSoldier, INT16 sPocket )
 			case COMBAT_PACK:
 			case BACKPACK:
 					 
-				if(pSoldier->inv[icLBE[sPocket]].exists() == false)
+				if(pSoldier->inventory()[icLBE[sPocket]].exists() == false)
 				{
 					lbePocket =	LoadBearingEquipment[Item[icDefault[sPocket]].ubClassIndex].lbePocketIndex[icPocket[sPocket]];
 				}
 				else
 				{
-					lbePocket = LoadBearingEquipment[Item[pSoldier->inv[icLBE[sPocket]].usItem].ubClassIndex].lbePocketIndex[icPocket[sPocket]];
-					if( lbePocket == 0 && LoadBearingEquipment[Item[pSoldier->inv[icLBE[sPocket]].usItem].ubClassIndex].lbePocketsAvailable & (UINT16)pow((double)2, icPocket[sPocket]))
+					lbePocket = LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[sPocket]].usItem].ubClassIndex].lbePocketIndex[icPocket[sPocket]];
+					if( lbePocket == 0 && LoadBearingEquipment[Item[pSoldier->inventory()[icLBE[sPocket]].usItem].ubClassIndex].lbePocketsAvailable & (UINT16)pow((double)2, icPocket[sPocket]))
 					{
-						lbePocket = GetPocketFromAttachment(&pSoldier->inv[icLBE[sPocket]], icPocket[sPocket]);
+						lbePocket = GetPocketFromAttachment(&pSoldier->inventory()[icLBE[sPocket]], icPocket[sPocket]);
 					}
 				}
-				if( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->inventoryState().zipperFlag()) && (IsJa2TacticalCombatActive()) )
+				if( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->inventory().zipperFlag()) && (IsJa2TacticalCombatActive()) )
 					lbePocket = 0;
 				// pocket exists and not occupied
 				if ( lbePocket != 0 && pObject->exists() == false )

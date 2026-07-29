@@ -1597,7 +1597,7 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 		}
 	}
 
-	Inventory &inv = pSoldier->inv;
+	SoldierInventory &inv = pSoldier->inventory();
 	const UINT32 invsize = inv.size();
 
 	if( x != gWorldSectorX || y != gWorldSectorY || sectorz != gbWorldSectorZ )
@@ -1617,7 +1617,7 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 		}
 		else
 		{
-			Inventory invTemporaryBeforeDrop;
+			InventorySlots invTemporaryBeforeDrop;
 			UINT32 uiFoundItems = 0;
 
 			for (UINT32 iCounter = 0; iCounter < invsize; ++iCounter)
@@ -1907,15 +1907,15 @@ INT32 SetUpDropItemListForMerc( SoldierID uiMercId )
 		return( -1 );
 	}
 
-	UINT32 invsize = pSoldier->inv.size();
+	UINT32 invsize = pSoldier->inventory().size();
 	for( UINT32 iCounter = 0; iCounter < invsize; ++iCounter )
 	{
 		// slot found,
 		// check if actual item
-		if(	pSoldier->inv[ iCounter ].exists() == true )
+		if(	pSoldier->inventory()[ iCounter ].exists() == true )
 		{
 			// make a linked list of the items left behind, with the ptr to its head in this free slot
-			AddItemToLeaveIndex( &( pSoldier->inv[ iCounter ] ), iSlotIndex );
+			AddItemToLeaveIndex( &( pSoldier->inventory()[ iCounter ] ), iSlotIndex );
 
 			// store owner's profile id for the items added to this leave slot index
 			SetUpMercAboutToLeaveEquipment( pSoldier->identity().profile(), iSlotIndex );

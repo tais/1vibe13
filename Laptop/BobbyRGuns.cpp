@@ -3726,14 +3726,14 @@ UINT8 CheckPlayersInventoryForGunMatchingGivenAmmoID( INT16 sItemID )
 		if( pSoldier && pSoldier->roster().active() )
 		{
 			//loop through all the pockets on the merc
-			UINT8 invsize = pSoldier->inv.size();
+			UINT8 invsize = pSoldier->inventory().size();
 			for( ubPocketCount=0; ubPocketCount<invsize; ++ubPocketCount)
 			{
 				//if there is a weapon here
-				if( Item[ pSoldier->inv[ ubPocketCount ].usItem ].usItemClass == IC_GUN )
+				if( Item[ pSoldier->inventory()[ ubPocketCount ].usItem ].usItemClass == IC_GUN )
 				{
 					//if the weapon uses the same kind of ammo as the one passed in, return true
-					if( Weapon[ pSoldier->inv[ ubPocketCount ].usItem ].ubCalibre == Magazine[ Item[ sItemID ].ubClassIndex ].ubCalibre )
+					if( Weapon[ pSoldier->inventory()[ ubPocketCount ].usItem ].ubCalibre == Magazine[ Item[ sItemID ].ubClassIndex ].ubCalibre )
 					{
 						++ubItemCount;
 					}

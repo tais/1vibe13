@@ -2155,13 +2155,13 @@ UINT8 HighestInventoryCoolness( SOLDIERTYPE* pSoldier )
 		return coolness;
 
 	// search for food in our inventory
-	INT8 invsize = (INT8)pSoldier->inv.size( );									// remember inventorysize, so we don't call size() repeatedly
+	INT8 invsize = (INT8)pSoldier->inventory().size( );									// remember inventorysize, so we don't call size() repeatedly
 	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )							// ... for all items in our inventory ...
 	{
 		// ... if Item exists
-		if ( pSoldier->inv[bLoop].exists( ) )
+		if ( pSoldier->inventory()[bLoop].exists( ) )
 		{
-			coolness = max( coolness, Item[pSoldier->inv[bLoop].usItem].ubCoolness );
+			coolness = max( coolness, Item[pSoldier->inventory()[bLoop].usItem].ubCoolness );
 		}
 	}
 

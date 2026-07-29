@@ -95,7 +95,7 @@ extern BOOLEAN gfAutofireInitBulletNum;
 extern UINT16 PickSoldierReadyAnimation( SOLDIERTYPE *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
 
 //#define AP_TO_AIM_TILE_IF_GETTING_READY 1
-#define AP_TO_AIM_TILE_IF_ALREADY_READY ( Weapon[ Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex ].ubReadyTime ? 2 : 1 )
+#define AP_TO_AIM_TILE_IF_ALREADY_READY ( Weapon[ Item[pSoldier->inventory()[HANDPOS].usItem].ubClassIndex ].ubReadyTime ? 2 : 1 )
 #define AP_TO_AIM_TILE_IF_GETTING_READY AP_TO_AIM_TILE_IF_ALREADY_READY
 
 #define MAX_ON_DUTY_SOLDIERS 6
@@ -2043,7 +2043,7 @@ UINT32 UIHandleAOnTerrain( UI_EVENT *pUIEvent )
 			}
 		}
 
-		guiNewUICursor = GetProperItemCursor( gusSelectedSoldier, pSoldier->inv[ HANDPOS ].usItem, usMapPos, FALSE );
+		guiNewUICursor = GetProperItemCursor( gusSelectedSoldier, pSoldier->inventory()[ HANDPOS ].usItem, usMapPos, FALSE );
 
 		// Show UI ON GUY
 		UIHandleOnMerc( FALSE );
@@ -2308,15 +2308,15 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				if((UsingNewInventorySystem() == true))
 				{
 					// CHRISL: If we're in combat and zipper is active, don't allow movement
-					if((IsJa2TacticalCombatActive()) && pSoldier->inventoryState().zipperFlag())
+					if((IsJa2TacticalCombatActive()) && pSoldier->inventory().zipperFlag())
 					{
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_ZIPPER_NO_MOVE] );
 						return( GAME_SCREEN );
 					}
 					// CHRISL: If we're not in combat but the zipper is active and we're moving, deactivate the zipper
-					if(!(IsJa2TacticalCombatActive()) && pSoldier->inventoryState().zipperFlag())
+					if(!(IsJa2TacticalCombatActive()) && pSoldier->inventory().zipperFlag())
 					{
-						pSoldier->inventoryState().zipperFlag()=FALSE;
+						pSoldier->inventory().zipperFlag()=FALSE;
 						RenderBackpackButtons(ACTIVATE_BUTTON);
 					}
 				}
@@ -2827,7 +2827,7 @@ UINT32 UIHandleCAOnTerrain( UI_EVENT *pUIEvent )
 
 	if ( GetSoldier( &pSoldier, gusSelectedSoldier ) )
 	{
-		guiNewUICursor = GetProperItemCursor( gusSelectedSoldier, pSoldier->inv[ HANDPOS ].usItem, usMapPos, TRUE );
+		guiNewUICursor = GetProperItemCursor( gusSelectedSoldier, pSoldier->inventory()[ HANDPOS ].usItem, usMapPos, TRUE );
 
 		UIHandleOnMerc( FALSE );
 	}
@@ -2851,10 +2851,10 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 	// get cursor
 	ubItemCursor	=	GetActionModeCursor( pSoldier );
 
-	OBJECTTYPE* pObj = pSoldier->GetUsedWeapon(&pSoldier->inv[HANDPOS]);
-	usItem  = pSoldier->GetUsedWeaponNumber(&pSoldier->inv[HANDPOS]);
+	OBJECTTYPE* pObj = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
+	usItem  = pSoldier->GetUsedWeaponNumber(&pSoldier->inventory()[HANDPOS]);
 
-	if ( !(IsJa2TacticalCombatActive()) && pTargetSoldier && Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass & IC_WEAPON )
+	if ( !(IsJa2TacticalCombatActive()) && pTargetSoldier && Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass & IC_WEAPON )
 	{
 		if ( NPCFirstDraw( pSoldier, pTargetSoldier ) )
 		{
@@ -3100,7 +3100,7 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 			if ( pTSoldier != NULL )
 			{
 				// If this is one of our own guys.....pop up requiester...
-				UINT16 usItem = pSoldier->inv[HANDPOS].usItem;
+				UINT16 usItem = pSoldier->inventory()[HANDPOS].usItem;
 				if ( ( pTSoldier->roster().team() == gbPlayerNum || pTSoldier->roster().team() == MILITIA_TEAM )
 					&& Item[ usItem ].usItemClass != IC_MEDKIT 
 					&& !ItemIsGascan(usItem)
@@ -3453,7 +3453,7 @@ BOOLEAN SelectedMercCanAffordAttack( )
 		if ( GetSoldier( &pSoldier, gusSelectedSoldier ) )
 		{
 			// LOOK IN GUY'S HAND TO CHECK LOCATION
-			usInHand = pSoldier->inv[HANDPOS].usItem;
+			usInHand = pSoldier->inventory()[HANDPOS].usItem;
 
 			// Get cursor value
 			ubItemCursor	=	GetActionModeCursor( pSoldier );
@@ -4001,9 +4001,9 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 			//dnl ch71 180913 when we go to crouch or prone for now there is no alternative fire mode option
 			if (pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && bNewStance != ANIM_STAND ||
 				gGameExternalOptions.ubAllowAlternativeWeaponHolding &&
-				pSoldier->inv[HANDPOS].exists() &&
-				Weapon[pSoldier->inv[HANDPOS].usItem].HeavyGun &&
-				ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) &&
+				pSoldier->inventory()[HANDPOS].exists() &&
+				Weapon[pSoldier->inventory()[HANDPOS].usItem].HeavyGun &&
+				ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) &&
 				bNewStance == ANIM_STAND)
 			{
 				(void)TryDispatchCycleScopeModeCommandNow(
@@ -4025,9 +4025,9 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		// sevenfm: switch from alt weapon holding when changing stance in realtime
 		if (pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && bNewStance != ANIM_STAND ||
 			gGameExternalOptions.ubAllowAlternativeWeaponHolding &&
-			pSoldier->inv[HANDPOS].exists() &&
-			Weapon[pSoldier->inv[HANDPOS].usItem].HeavyGun &&
-			ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) &&
+			pSoldier->inventory()[HANDPOS].exists() &&
+			Weapon[pSoldier->inventory()[HANDPOS].usItem].HeavyGun &&
+			ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) &&
 			bNewStance == ANIM_STAND)
 		{
 			(void)TryDispatchCycleScopeModeCommandNow(
@@ -4733,7 +4733,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 	}
 	else if ( uiFlags == MOVEUI_TARGET_BOMB )
 	{
-		if(ItemIsMine(pSoldier->inv[HANDPOS].usItem))
+		if(ItemIsMine(pSoldier->inventory()[HANDPOS].usItem))
 			sAPCost += GetAPsToPlantMine( pSoldier );
 		else
 			sAPCost += GetAPsToDropBomb( pSoldier );
@@ -4891,7 +4891,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 		: NULL;
 
 	// LOOK IN GUY'S HAND TO CHECK LOCATION
-	usInHand = pSoldier->inv[HANDPOS].usItem;
+	usInHand = pSoldier->inventory()[HANDPOS].usItem;
 
 	// Get cursor value
 	ubItemCursor	=	GetActionModeCursor( pSoldier );
@@ -4907,7 +4907,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 		{
 			return( TRUE );
 		}
-		else if (IsStructureDeconstructItem(pSoldier->inv[HANDPOS].usItem, usMapPos, pSoldier))
+		else if (IsStructureDeconstructItem(pSoldier->inventory()[HANDPOS].usItem, usMapPos, pSoldier))
 		{
 			if (FindStructure(usMapPos, (STRUCTURE_GENERIC | STRUCTURE_WIREFENCE)))
 			{
@@ -4974,11 +4974,11 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 
 		if ( pSoldier->position().level() == 0 )
 		{
-			if ( IsFortificationPossibleAtGridNo( usMapPos ) && IsStructureConstructItem( pSoldier->inv[HANDPOS].usItem, usMapPos, pSoldier ) )
+			if ( IsFortificationPossibleAtGridNo( usMapPos ) && IsStructureConstructItem( pSoldier->inventory()[HANDPOS].usItem, usMapPos, pSoldier ) )
 			{
 				return(TRUE);
 			}
-			else if ( IsStructureDeconstructItem( pSoldier->inv[HANDPOS].usItem, usMapPos, pSoldier ) )
+			else if ( IsStructureDeconstructItem( pSoldier->inventory()[HANDPOS].usItem, usMapPos, pSoldier ) )
 			{
 				STRUCTURE* pStruct = FindStructure( usMapPos, (STRUCTURE_GENERIC | STRUCTURE_WIREFENCE) );
 
@@ -5013,7 +5013,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 
 	if ( ubItemCursor == HANDCUFFCURS )
 	{
-		if ( HasItemFlag( (&(pSoldier->inv[HANDPOS]))->usItem, HANDCUFFS ) )
+		if ( HasItemFlag( (&(pSoldier->inventory()[HANDPOS]))->usItem, HANDCUFFS ) )
 		{
 			if ( gfUIFullTargetFound )
 			{
@@ -5030,7 +5030,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 
 	if ( ubItemCursor == CAMERACURS )
 	{
-		if ( HasItemFlag( ( &( pSoldier->inv[HANDPOS] ) )->usItem, CAMERA ) && SoldierTo3DLocationLineOfSightTest( pSoldier, usMapPos, gsInterfaceLevel, 0, TRUE, CALC_FROM_WANTED_DIR, TRUE ) )
+		if ( HasItemFlag( ( &( pSoldier->inventory()[HANDPOS] ) )->usItem, CAMERA ) && SoldierTo3DLocationLineOfSightTest( pSoldier, usMapPos, gsInterfaceLevel, 0, TRUE, CALC_FROM_WANTED_DIR, TRUE ) )
 			return TRUE;
 
 		return FALSE;
@@ -5038,7 +5038,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 
 	if ( ubItemCursor == BLOODBAGCURS )
 	{
-		if ( HasItemFlag( ( &( pSoldier->inv[HANDPOS] ) )->usItem, EMPTY_BLOOD_BAG ) )
+		if ( HasItemFlag( ( &( pSoldier->inventory()[HANDPOS] ) )->usItem, EMPTY_BLOOD_BAG ) )
 		{
 			if ( gfUIFullTargetFound )
 			{
@@ -5053,7 +5053,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 
 	if ( ubItemCursor == SPLINTCURS )
 	{
-		if ( HasItemFlag( ( &( pSoldier->inv[HANDPOS] ) )->usItem, MEDICAL_SPLINT ) )
+		if ( HasItemFlag( ( &( pSoldier->inventory()[HANDPOS] ) )->usItem, MEDICAL_SPLINT ) )
 		{
 			if ( gfUIFullTargetFound )
 			{
@@ -5068,7 +5068,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 
 	if ( ubItemCursor == APPLYITEMCURS )
 	{
-		if ( ItemCanBeAppliedToOthers( (&(pSoldier->inv[HANDPOS]))->usItem ) )
+		if ( ItemCanBeAppliedToOthers( (&(pSoldier->inventory()[HANDPOS]))->usItem ) )
 		{
 			if ( gfUIFullTargetFound )
 			{
@@ -5144,7 +5144,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 		}
 
 		// SANDRO - doctor with medical bag trying to do the surgery
-		if ((NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) && ItemIsMedicalKit(pSoldier->inv[ HANDPOS ].usItem) && GetGameContext().options().fNewTraitSystem
+		if ((NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) && ItemIsMedicalKit(pSoldier->inventory()[ HANDPOS ].usItem) && GetGameContext().options().fNewTraitSystem
 			&& (pTSoldier->vitals().health() != pTSoldier->vitals().maximumHealth()) && (pTSoldier->vitals().healableInjury() >= 100))
 		{
 			// should come a question first if you really want to do the surgery
@@ -5215,42 +5215,42 @@ BOOLEAN SoldierCanAffordNewStance( SOLDIERTYPE *pSoldier, UINT8 ubDesiredStance 
 	{
 	case ANIM_STAND - ANIM_CROUCH:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
+			if(pSoldier->inventory()[BPACKPOCKPOS].exists() == true && !pSoldier->inventory().zipperFlag())
 				bAP = bBP = 1;
 		bAP += GetAPsCrouch(pSoldier, FALSE);
 		bBP += APBPConstants[BP_CROUCH];
 		break;
 	case ANIM_CROUCH - ANIM_STAND:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
+			if(pSoldier->inventory()[BPACKPOCKPOS].exists() == true && !pSoldier->inventory().zipperFlag())
 				bAP = bBP = 2;
 		bAP += GetAPsCrouch(pSoldier, FALSE);
 		bBP += APBPConstants[BP_CROUCH];
 		break;
 	case ANIM_STAND - ANIM_PRONE:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
+			if(pSoldier->inventory()[BPACKPOCKPOS].exists() == true && !pSoldier->inventory().zipperFlag())
 				bAP = bBP = 2;
 		bAP += GetAPsCrouch(pSoldier, FALSE) + GetAPsProne(pSoldier, FALSE);
 		bBP += APBPConstants[BP_CROUCH] + APBPConstants[BP_PRONE];
 		break;
 	case ANIM_PRONE - ANIM_STAND:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
+			if(pSoldier->inventory()[BPACKPOCKPOS].exists() == true && !pSoldier->inventory().zipperFlag())
 				bAP = bBP = 4;
 		bAP += GetAPsCrouch(pSoldier, FALSE) + GetAPsProne(pSoldier, FALSE);
 		bBP += APBPConstants[BP_CROUCH] + APBPConstants[BP_PRONE];
 		break;
 	case ANIM_CROUCH - ANIM_PRONE:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
+			if(pSoldier->inventory()[BPACKPOCKPOS].exists() == true && !pSoldier->inventory().zipperFlag())
 				bAP = bBP = 1;
 		bAP += GetAPsProne(pSoldier, FALSE);
 		bBP += APBPConstants[BP_PRONE];
 		break;
 	case ANIM_PRONE - ANIM_CROUCH:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
+			if(pSoldier->inventory()[BPACKPOCKPOS].exists() == true && !pSoldier->inventory().zipperFlag())
 				bAP = bBP = 2;
 		bAP += GetAPsProne(pSoldier, FALSE);
 		bBP += APBPConstants[BP_PRONE];

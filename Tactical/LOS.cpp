@@ -732,29 +732,29 @@ INT8 GetSightAdjustmentBasedOnLBE( SOLDIERTYPE* pSoldier )
 
 	if(UsingNewInventorySystem() == true)
 	{
-		if (pSoldier->inv[HANDPOS].exists())
+		if (pSoldier->inventory()[HANDPOS].exists())
 		{
-			ubScale += min( 10, CalculateItemSize( &pSoldier->inv[HANDPOS] ) );
+			ubScale += min( 10, CalculateItemSize( &pSoldier->inventory()[HANDPOS] ) );
 		}
 
-		if (pSoldier->inv[SECONDHANDPOS].exists())
+		if (pSoldier->inventory()[SECONDHANDPOS].exists())
 		{
-			ubScale += max( 0, min( 10, CalculateItemSize( &pSoldier->inv[SECONDHANDPOS] ) ) - 5 );
+			ubScale += max( 0, min( 10, CalculateItemSize( &pSoldier->inventory()[SECONDHANDPOS] ) ) - 5 );
 		}
 		
-		if (pSoldier->inv[CPACKPOCKPOS].exists())
+		if (pSoldier->inventory()[CPACKPOCKPOS].exists())
 		{
 			ubScale += 5;
 		}
 
-		if (pSoldier->inv[BPACKPOCKPOS].exists())
+		if (pSoldier->inventory()[BPACKPOCKPOS].exists())
 		{
 			ubScale += 15;
 		}
 
-		if (pSoldier->inv[GUNSLINGPOCKPOS].exists())
+		if (pSoldier->inventory()[GUNSLINGPOCKPOS].exists())
 		{
-			ubScale += max( 0, min( 10, CalculateItemSize( &pSoldier->inv[GUNSLINGPOCKPOS] ) ) - 5 );
+			ubScale += max( 0, min( 10, CalculateItemSize( &pSoldier->inventory()[GUNSLINGPOCKPOS] ) ) - 5 );
 		}
 	}
 
@@ -2638,7 +2638,7 @@ BOOLEAN DamageRiotShield_Bullet( SOLDIERTYPE* pSoldier, BULLET* pBullet )
 		ubAmmoType = AMMO_REGULAR;
 
 		if ( pFirer )
-			ubAmmoType = pFirer->inv[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType;
+			ubAmmoType = pFirer->inventory()[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType;
 	}
 
 	INT32 impact_original = max(0, pBullet->iImpact - pBullet->iImpactReduction);
@@ -2726,11 +2726,11 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		}
 		else
 		{
-			CreateItem(usItem, usItemStatus, &pTarget->inv[bSlot]);
+			CreateItem(usItem, usItemStatus, &pTarget->inventory()[bSlot]);
 
 			// Flugente: if this guy has the disease, or the blade was already infected, the new one will be too
 			if ( pTarget->condition().infected(0) || pBullet->usFlags & BULLET_FLAG_INFECTED )
-				pTarget->inv[bSlot][0]->data.sObjectFlag |= INFECTED;
+				pTarget->inventory()[bSlot][0]->data.sObjectFlag |= INFECTED;
 		}
 
 		ubAmmoType = AMMO_KNIFE;
@@ -2745,7 +2745,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		if ( pFirer == nullptr )
 			return FALSE;
 
-		ubAmmoType = pFirer->inv[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType;
+		ubAmmoType = pFirer->inventory()[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType;
 	}
 
 	// Flugente: if bullet is infected, give us disease (this is intended for throwing knifes)
@@ -2980,12 +2980,12 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 
 			if ( ubOppositeDirection == pTarget->position().direction() || ubOppositeDirection == gOneCCDirection[ pTarget->position().direction() ] || ubOppositeDirection == gOneCDirection[ pTarget->position().direction() ] )
 			{				
-				if ( (pTarget->inv[HEAD1POS].exists() == true) && ( PreRandom( 100 ) < (UINT32) (pTarget->inv[HEAD1POS][0]->data.objectStatus) ) && AmmoTypes[ubAmmoType].monsterSpit )
+				if ( (pTarget->inventory()[HEAD1POS].exists() == true) && ( PreRandom( 100 ) < (UINT32) (pTarget->inventory()[HEAD1POS][0]->data.objectStatus) ) && AmmoTypes[ubAmmoType].monsterSpit )
 				{
 					// lucky bastard was wearing protective stuff
 					bHeadSlot = HEAD1POS;
 				}
-				else if ( (pTarget->inv[HEAD2POS].exists() == true) && ( PreRandom( 100 ) < (UINT32) (pTarget->inv[HEAD2POS][0]->data.objectStatus) ) && AmmoTypes[ubAmmoType].monsterSpit )
+				else if ( (pTarget->inventory()[HEAD2POS].exists() == true) && ( PreRandom( 100 ) < (UINT32) (pTarget->inventory()[HEAD2POS][0]->data.objectStatus) ) && AmmoTypes[ubAmmoType].monsterSpit )
 				{
 					// lucky bastard was wearing protective stuff
 					bHeadSlot = HEAD2POS;
@@ -3130,12 +3130,12 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	{
 		if (bHeadSlot != NO_SLOT)
 		{
-			pTarget->inv[ bHeadSlot ][0]->data.objectStatus -= (INT8) ( (iImpact / 2) + Random( (iImpact / 2) ) );
-			if ( pTarget->inv[ bHeadSlot ][0]->data.objectStatus <= USABLE )
+			pTarget->inventory()[ bHeadSlot ][0]->data.objectStatus -= (INT8) ( (iImpact / 2) + Random( (iImpact / 2) ) );
+			if ( pTarget->inventory()[ bHeadSlot ][0]->data.objectStatus <= USABLE )
 			{
-				if ( pTarget->inv[ bHeadSlot ][0]->data.objectStatus <= 0 )
+				if ( pTarget->inventory()[ bHeadSlot ][0]->data.objectStatus <= 0 )
 				{
-					DeleteObj( &(pTarget->inv[ bHeadSlot ]) );
+					DeleteObj( &(pTarget->inventory()[ bHeadSlot ]) );
 					DirtyMercPanelInterface( pTarget, DIRTYLEVEL2 );
 				}
 				// say curse?
@@ -3146,17 +3146,17 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	{
 		// bullet to the head may damage any head item
 		bHeadSlot = HEAD1POS + (INT8) Random( 2 );
-		if ( pTarget->inv[ bHeadSlot ].exists() == true )
+		if ( pTarget->inventory()[ bHeadSlot ].exists() == true )
 		{
-			pTarget->inv[ bHeadSlot ][0]->data.objectStatus -= (INT8) ( Random( iImpact / 2 ) );
-			if ( pTarget->inv[ bHeadSlot ][0]->data.objectStatus < 0 )
+			pTarget->inventory()[ bHeadSlot ][0]->data.objectStatus -= (INT8) ( Random( iImpact / 2 ) );
+			if ( pTarget->inventory()[ bHeadSlot ][0]->data.objectStatus < 0 )
 			{
 				// just break it...
-				pTarget->inv[ bHeadSlot ][0]->data.objectStatus = 1;
+				pTarget->inventory()[ bHeadSlot ][0]->data.objectStatus = 1;
 			}
 
 			// Flugente: also lower the repair threshold
-			pTarget->inv[ bHeadSlot ][0]->data.sRepairThreshold = max(pTarget->inv[ bHeadSlot ][0]->data.objectStatus, pTarget->inv[ bHeadSlot ][0]->data.sRepairThreshold - iImpact / 6);
+			pTarget->inventory()[ bHeadSlot ][0]->data.sRepairThreshold = max(pTarget->inventory()[ bHeadSlot ][0]->data.objectStatus, pTarget->inventory()[ bHeadSlot ][0]->data.sRepairThreshold - iImpact / 6);
 		}
 	}
 
@@ -3579,7 +3579,7 @@ INT32 HandleBulletStructureInteraction( BULLET * pBullet, STRUCTURE * pStructure
 	}
 	else
 	{
-		ubAmmoType = pBullet->pFirer->inv[ pBullet->pFirer->attackSelection().hand() ][0]->data.gun.ubGunAmmoType;
+		ubAmmoType = pBullet->pFirer->inventory()[ pBullet->pFirer->attackSelection().hand() ][0]->data.gun.ubGunAmmoType;
 	}
 
 	INT32 iCurrImpact;
@@ -3696,7 +3696,7 @@ INT32 HandleBulletStructureInteraction( BULLET * pBullet, STRUCTURE * pStructure
 
 		iImpactReduction = (INT32) (iImpactReduction * AmmoTypes[ubAmmoType].structureImpactReductionMultiplier / max(1,AmmoTypes[ubAmmoType].structureImpactReductionDivisor));
 		
-		//switch (pBullet->pFirer->inv[ pBullet->pFirer->attackSelection().hand() ][0]->data.gun.ubGunAmmoType)
+		//switch (pBullet->pFirer->inventory()[ pBullet->pFirer->attackSelection().hand() ][0]->data.gun.ubGunAmmoType)
 		//{
 		//	case AMMO_HP:
 		//		iImpactReduction = AMMO_STRUCTURE_ADJUSTMENT_HP( iImpactReduction );
@@ -3748,7 +3748,7 @@ INT32 CTGTHandleBulletStructureInteraction( BULLET * pBullet, STRUCTURE * pStruc
 	//else if ( pBullet->usFlags & BULLET_FLAG_SMALL_MISSILE )
 	//{
 	// stops if using HE ammo
-	else if ( AmmoTypes[pBullet->pFirer->inv[pBullet->pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType].highExplosive && AmmoTypes[pBullet->pFirer->inv[pBullet->pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType].dDamageModifierTank < 0.1f )
+	else if ( AmmoTypes[pBullet->pFirer->inventory()[pBullet->pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType].highExplosive && AmmoTypes[pBullet->pFirer->inventory()[pBullet->pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType].dDamageModifierTank < 0.1f )
 	{
 		return( pBullet->iImpact );
 	}
@@ -3775,9 +3775,9 @@ INT32 CTGTHandleBulletStructureInteraction( BULLET * pBullet, STRUCTURE * pStruc
 	iImpactReduction = gubMaterialArmour[ pStructure->pDBStructureRef->pDBStructure->ubArmour ] * pStructure->pDBStructureRef->pDBStructure->ubDensity / 100;
 	iImpactReduction = StructureResistanceIncreasedByRange( iImpactReduction, pBullet->iRange, pBullet->iLoop );
 
-	iImpactReduction = (INT32)(iImpactReduction * AmmoTypes[pBullet->pFirer->inv[ pBullet->pFirer->attackSelection().hand() ][0]->data.gun.ubGunAmmoType].structureImpactReductionMultiplier / max(1,AmmoTypes[pBullet->pFirer->inv[ pBullet->pFirer->attackSelection().hand() ][0]->data.gun.ubGunAmmoType].structureImpactReductionDivisor));
+	iImpactReduction = (INT32)(iImpactReduction * AmmoTypes[pBullet->pFirer->inventory()[ pBullet->pFirer->attackSelection().hand() ][0]->data.gun.ubGunAmmoType].structureImpactReductionMultiplier / max(1,AmmoTypes[pBullet->pFirer->inventory()[ pBullet->pFirer->attackSelection().hand() ][0]->data.gun.ubGunAmmoType].structureImpactReductionDivisor));
 
-	//switch (pBullet->pFirer->inv[ pBullet->pFirer->attackSelection().hand() ][0]->data.gun.ubGunAmmoType)
+	//switch (pBullet->pFirer->inventory()[ pBullet->pFirer->attackSelection().hand() ][0]->data.gun.ubGunAmmoType)
 	//{
 	//	case AMMO_HP:
 	//		iImpactReduction = AMMO_STRUCTURE_ADJUSTMENT_HP( iImpactReduction );
@@ -4720,10 +4720,10 @@ INT8 FireBullet( SoldierID ubFirer, BULLET * pBullet, BOOLEAN fFake )
 		{
 			//afp-start  //always a fast bullet 
 			if ( pBullet->usFlags & ( BULLET_FLAG_CREATURE_SPIT | BULLET_FLAG_KNIFE | BULLET_FLAG_MISSILE | BULLET_FLAG_SMALL_MISSILE | BULLET_FLAG_TANK_CANNON | BULLET_FLAG_FLAME | BULLET_FLAG_WHITESMOKE /*| BULLET_FLAG_TRACER*/ ) )
-				pBullet->usClockTicksPerUpdate = (Weapon[ pBullet->pFirer->attackSelection().weapon() ].ubBulletSpeed + GetBulletSpeedBonus(&pBullet->pFirer->inv[pBullet->pFirer->attackSelection().hand()]) ) / 10;
+				pBullet->usClockTicksPerUpdate = (Weapon[ pBullet->pFirer->attackSelection().weapon() ].ubBulletSpeed + GetBulletSpeedBonus(&pBullet->pFirer->inventory()[pBullet->pFirer->attackSelection().hand()]) ) / 10;
 			else
 				if (gGameSettings.fOptions[TOPTION_ALTERNATE_BULLET_GRAPHICS])				
-					pBullet->usClockTicksPerUpdate = (Weapon[ pBullet->pFirer->attackSelection().weapon() ].ubBulletSpeed + GetBulletSpeedBonus(&pBullet->pFirer->inv[pBullet->pFirer->attackSelection().hand()]) ) / 10;
+					pBullet->usClockTicksPerUpdate = (Weapon[ pBullet->pFirer->attackSelection().weapon() ].ubBulletSpeed + GetBulletSpeedBonus(&pBullet->pFirer->inventory()[pBullet->pFirer->attackSelection().hand()]) ) / 10;
 				else
 					pBullet->usClockTicksPerUpdate = 1;
 			//afp-end
@@ -4800,7 +4800,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 	int n=0;
 	INT16 sXPos, sYPos;
 
-	OBJECTTYPE* pObjAttHand = pFirer->GetUsedWeapon( &(pFirer->inv[pFirer->attackSelection().hand()]) );
+	OBJECTTYPE* pObjAttHand = pFirer->GetUsedWeapon( &(pFirer->inventory()[pFirer->attackSelection().hand()]) );
 
 	BOOLEAN fSecondHandBurst = FALSE;
 	if ( pFirer->attackSelection().hand() == SECONDHANDPOS && pFirer->IsValidSecondHandBurst() )
@@ -4897,7 +4897,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 	if ( (*pObjAttHand)[0]->data.sObjectFlag & INFECTED )
 		usBulletFlags |= BULLET_FLAG_INFECTED;
 
-	ubImpact =(UINT8) GetDamage(&pFirer->inv[pFirer->attackSelection().hand()]);
+	ubImpact =(UINT8) GetDamage(&pFirer->inventory()[pFirer->attackSelection().hand()]);
 	//zilpin: Begin new code block for spread patterns, number of projectiles, impact adjustment, etc.
 	{
 		ObjectData *weapon = &((*pObjAttHand)[0]->data);
@@ -5297,7 +5297,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 	int n=0;
 	INT16 sXPos, sYPos;
 
-	OBJECTTYPE* pObjAttHand = pFirer->GetUsedWeapon( &(pFirer->inv[pFirer->attackSelection().hand()]) );
+	OBJECTTYPE* pObjAttHand = pFirer->GetUsedWeapon( &(pFirer->inventory()[pFirer->attackSelection().hand()]) );
 
 	BOOLEAN fSecondHandBurst = FALSE;
 	if ( pFirer->attackSelection().hand() == SECONDHANDPOS && pFirer->IsValidSecondHandBurst() )
@@ -5382,7 +5382,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 			fTracer = FALSE;
 		}
 	}
-	else if ( AmmoTypes[ pFirer->inv[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType ].tracerEffect && (pFirer->fireControl().burstCounter() || gGameSettings.fOptions[ TOPTION_TRACERS_FOR_SINGLE_FIRE ]) )
+	else if ( AmmoTypes[ pFirer->inventory()[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType ].tracerEffect && (pFirer->fireControl().burstCounter() || gGameSettings.fOptions[ TOPTION_TRACERS_FOR_SINGLE_FIRE ]) )
 	{
 		//usBulletFlags |= BULLET_FLAG_TRACER;
 		fTracer = TRUE;
@@ -5408,13 +5408,13 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 			// shotgun pellets fire 9 bullets doing 1/4 damage each
 			if (!fFake)
 			{
-				ubShots = AmmoTypes[pFirer->inv[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType].numberOfBullets;
+				ubShots = AmmoTypes[pFirer->inventory()[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType].numberOfBullets;
 				// but you can't really aim the damn things very well!
 				if (sHitBy > 0)
 				{
 					sHitBy = sHitBy / 2;
 				}
-				if ( IsDuckbill( &(pFirer->inv[pFirer->attackSelection().hand()])) )
+				if ( IsDuckbill( &(pFirer->inventory()[pFirer->attackSelection().hand()])) )
 				{
 					ubSpreadIndex = 1;
 				}
@@ -5430,7 +5430,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 
 			}
 			//			ubImpact = AMMO_DAMAGE_ADJUSTMENT_BUCKSHOT( ubImpact );
-			ubImpact = (UINT8) (ubImpact * AmmoTypes[pFirer->inv[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType].multipleBulletDamageMultiplier / max(1,AmmoTypes[pFirer->inv[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType].multipleBulletDamageDivisor) );
+			ubImpact = (UINT8) (ubImpact * AmmoTypes[pFirer->inventory()[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType].multipleBulletDamageMultiplier / max(1,AmmoTypes[pFirer->inventory()[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType].multipleBulletDamageDivisor) );
 		}
 	}
 	*/
@@ -6933,7 +6933,7 @@ INT8 FireBulletGivenTarget_NoObjectNoSoldier( UINT16 usItem, UINT8 ammotype, UIN
 
 INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ)
 {
-	OBJECTTYPE* pObjHand = pFirer->GetUsedWeapon(&(pFirer->inv[pFirer->attackSelection().hand()]));
+	OBJECTTYPE* pObjHand = pFirer->GetUsedWeapon(&(pFirer->inventory()[pFirer->attackSelection().hand()]));
 
 	// sevenfm: check that weapon exists!
 	if (pObjHand->exists() &&
@@ -6942,7 +6942,7 @@ INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dE
 	{
 		BOOLEAN fBuckShot = FALSE;
 
-		//OBJECTTYPE* pObjHand = pFirer->GetUsedWeapon(&pFirer->inv[HANDPOS]);
+		//OBJECTTYPE* pObjHand = pFirer->GetUsedWeapon(&pFirer->inventory()[HANDPOS]);
 
 		// if shotgun, shotgun would have to be in main hand
 		if (pObjHand->usItem == pFirer->attackSelection().weapon())
@@ -6961,7 +6961,7 @@ INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dE
 		// fake it
 
 		//store the current item then replace it with a Glock 17
-		OBJECTTYPE oldItemInHand(pFirer->inv[HANDPOS]);
+		OBJECTTYPE oldItemInHand(pFirer->inventory()[HANDPOS]);
 
 		// sevenfm: additionally initialize usAttackingWeapon, ubTargetID, bDoBurst and bDoAutofire which are used by FireBulletGivenTarget()
 		UINT16 oldAttackingWeapon = pFirer->attackSelection().weapon();
@@ -6977,7 +6977,7 @@ INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dE
 		if (GLOCK_17_ForUseWithLOS.usItem != usItem)//dnl ch86 120214
 			CreateItem(usItem, 100, &GLOCK_17_ForUseWithLOS);
 
-		pFirer->inv[HANDPOS] = GLOCK_17_ForUseWithLOS;
+		pFirer->inventory()[HANDPOS] = GLOCK_17_ForUseWithLOS;
 
 		pFirer->attackSelection().selectWeapon(HANDPOS, usItem);
 		pFirer->targeting().targetId() = NOBODY;
@@ -6986,7 +6986,7 @@ INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dE
 		// HEADROCK HAM 4: Changed argument from "Hitby"->"Aperture". Value 0->100.
 		INT8 retVal = FireBulletGivenTarget(pFirer, dEndX, dEndY, dEndZ, usItem, (UsingNewCTHSystem() ? 100 : 0), FALSE, TRUE);
 
-		pFirer->inv[HANDPOS] = oldItemInHand;
+		pFirer->inventory()[HANDPOS] = oldItemInHand;
 		pFirer->attackSelection().selectWeapon(
 			oldAttackingHand, oldAttackingWeapon);
 		pFirer->targeting().targetId() = oldTargetID;
@@ -8657,7 +8657,7 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 	iBasicAperture = CalcBasicAperture( );
 
 	// magnification (1.0 or higher if scope is used)
-	//FLOAT dMagFactor = CalcMagFactor(pShooter, &(pShooter->inv[pShooter->attackSelection().hand()]), d2DDistance, iTargetGridNo, (UINT8)pShooter->aiPlanning().aimTime());
+	//FLOAT dMagFactor = CalcMagFactor(pShooter, &(pShooter->inventory()[pShooter->attackSelection().hand()]), d2DDistance, iTargetGridNo, (UINT8)pShooter->aiPlanning().aimTime());
 	FLOAT dMagFactor = CalcMagFactor(pShooter, pWeapon, d2DDistance, iTargetGridNo, (UINT8)pShooter->aiPlanning().aimTime());
 
 	// silversurfer: New functionality for iron sights - There have been many complaints that iron sights lose their usefulness
@@ -8676,11 +8676,11 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 		iBasicAperture = iBasicAperture * (FLOAT)((100 - gGameCTHConstants.IRON_SIGHT_PERFORMANCE_BONUS) / 100);
 	}
 
-	//INT32 iLaserRange = GetBestLaserRange(&(pShooter->inv[pSoldier->attackSelection().hand()]));
+	//INT32 iLaserRange = GetBestLaserRange(&(pShooter->inventory()[pSoldier->attackSelection().hand()]));
 	INT16 sLaserRange = GetBestLaserRange(pWeapon);
-	if (AM_A_ROBOT(pShooter) && ItemProvidesRobotLaserBonus(pShooter->inv[ROBOT_TARGETING_SLOT].usItem))
+	if (AM_A_ROBOT(pShooter) && ItemProvidesRobotLaserBonus(pShooter->inventory()[ROBOT_TARGETING_SLOT].usItem))
 	{
-		sLaserRange = max(sLaserRange, GetBestLaserRange(&pShooter->inv[ROBOT_TARGETING_SLOT]));
+		sLaserRange = max(sLaserRange, GetBestLaserRange(&pShooter->inventory()[ROBOT_TARGETING_SLOT]));
 	}
 	// laser pointers can provide a percentage bonus to base aperture
 	if (sLaserRange > 0
@@ -9037,9 +9037,9 @@ FLOAT CalcProjectionFactor( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT d2
 
 	// Flugente: if this weapon is an underbarrel weapon, use the 'carrier' weapon instead
 	OBJECTTYPE* pObjUsed = pWeapon;
-	if ( pWeapon == pShooter->GetUsedWeapon( &pShooter->inv[pShooter->attackSelection().hand()] ) )
+	if ( pWeapon == pShooter->GetUsedWeapon( &pShooter->inventory()[pShooter->attackSelection().hand()] ) )
 	{
-		pObjUsed = &pShooter->inv[pShooter->attackSelection().hand()];
+		pObjUsed = &pShooter->inventory()[pShooter->attackSelection().hand()];
 	}
 
 	if ( gGameExternalOptions.fScopeModes && pShooter && pObjUsed->exists() == true && Item[pObjUsed->usItem].usItemClass == IC_GUN )
@@ -9610,7 +9610,7 @@ FLOAT CalcBulletDeviation( SOLDIERTYPE *pShooter, FLOAT *dShotOffsetX, FLOAT *dS
 	// We start by reading the gun's Accuracy value. We'll use that as the basis for everything else.
 
 	// Flugente: determine used gun
-	OBJECTTYPE* pObjAttHand = pShooter->GetUsedWeapon( &pShooter->inv[ pShooter->attackSelection().hand() ] );
+	OBJECTTYPE* pObjAttHand = pShooter->GetUsedWeapon( &pShooter->inventory()[ pShooter->attackSelection().hand() ] );
 
 	INT16 sAccuracy = GetGunAccuracy( pWeapon );
 	UINT16 sEffRange = (Weapon[Item[pObjAttHand->usItem].ubClassIndex].usRange *GetPercentRangeBonus(pObjAttHand)) / 10000; 

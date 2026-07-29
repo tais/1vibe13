@@ -959,12 +959,12 @@ void UpdateSMPanel( )
 	CheckForReEvaluateDisabledINVPanelButtons( );
 
 	// Check for any newly added items we need.....
-	if ( GetSMCurrentMerc()->inventoryState().checkForNewItems() )
+	if ( GetSMCurrentMerc()->inventory().checkForNewItems() )
 	{
 		// Startup any newly added items....
 		CheckForAnyNewlyAddedItems( GetSMCurrentMerc() );
 
-		GetSMCurrentMerc()->inventoryState().checkForNewItems() = FALSE;
+		GetSMCurrentMerc()->inventory().checkForNewItems() = FALSE;
 	}
 
 
@@ -1131,12 +1131,12 @@ void UpdateSMPanel( )
 	{
 		// Enable some buttons!
 		// Changed by ADB, rev 1513
-		//if ( ((IsGunAutofireCapable( GetSMCurrentMerc(), HANDPOS ) || IsGunBurstCapable( GetSMCurrentMerc(), HANDPOS , FALSE )) && !Weapon[GetSMCurrentMerc()->inv[HANDPOS].usItem].NoSemiAuto ) || IsGrenadeLauncherAttached ( &(GetSMCurrentMerc()->inv[HANDPOS]) ) )
-		if ( ( ( IsGunAutofireCapable( &GetSMCurrentMerc()->inv[HANDPOS] ) || IsGunBurstCapable( &GetSMCurrentMerc()->inv[HANDPOS], FALSE, GetSMCurrentMerc() ) ) && !Weapon[GetSMCurrentMerc()->inv[HANDPOS].usItem].NoSemiAuto )
-			|| IsGrenadeLauncherAttached ( &(GetSMCurrentMerc()->inv[HANDPOS]) )
-			|| IsWeaponAttached( &(GetSMCurrentMerc()->inv[HANDPOS]), IC_GUN )
-			|| IsWeaponAttached( &( GetSMCurrentMerc()->inv[HANDPOS] ), IC_BLADE )
-			|| HasSeveralBarrelConfigurations( GetSMCurrentMerc()->inv[HANDPOS].usItem ) )
+		//if ( ((IsGunAutofireCapable( GetSMCurrentMerc(), HANDPOS ) || IsGunBurstCapable( GetSMCurrentMerc(), HANDPOS , FALSE )) && !Weapon[GetSMCurrentMerc()->inventory()[HANDPOS].usItem].NoSemiAuto ) || IsGrenadeLauncherAttached ( &(GetSMCurrentMerc()->inventory()[HANDPOS]) ) )
+		if ( ( ( IsGunAutofireCapable( &GetSMCurrentMerc()->inventory()[HANDPOS] ) || IsGunBurstCapable( &GetSMCurrentMerc()->inventory()[HANDPOS], FALSE, GetSMCurrentMerc() ) ) && !Weapon[GetSMCurrentMerc()->inventory()[HANDPOS].usItem].NoSemiAuto )
+			|| IsGrenadeLauncherAttached ( &(GetSMCurrentMerc()->inventory()[HANDPOS]) )
+			|| IsWeaponAttached( &(GetSMCurrentMerc()->inventory()[HANDPOS]), IC_GUN )
+			|| IsWeaponAttached( &( GetSMCurrentMerc()->inventory()[HANDPOS] ), IC_BLADE )
+			|| HasSeveralBarrelConfigurations( GetSMCurrentMerc()->inventory()[HANDPOS].usItem ) )
 		{
 			EnableButton( iSMPanelButtons[ BURSTMODE_BUTTON ] );
 		}
@@ -1179,7 +1179,7 @@ void ReevaluateItemHatches( SOLDIERTYPE *pSoldier, BOOLEAN fAllValid )
 	if ( ( gpItemPointer != NULL ) && !fAllValid )
 	{
 		// check all inventory positions and mark the ones where cursor item won't fit as invalid
-		UINT32 invsize = pSoldier->inv.size();
+		UINT32 invsize = pSoldier->inventory().size();
 		for ( cnt = 0; cnt < invsize; ++cnt )
 		{
 			gbInvalidPlacementSlot[ cnt ] = !CanItemFitInPosition( pSoldier, gpItemPointer, (INT8)cnt, FALSE );
@@ -1189,12 +1189,12 @@ void ReevaluateItemHatches( SOLDIERTYPE *pSoldier, BOOLEAN fAllValid )
 			//if( GetCurrentScreen() != MAP_SCREEN )
 			{
 				// Check attachments, override to valid placement if valid merge...
-				if ( ValidAttachment( gpItemPointer->usItem, &(pSoldier->inv[ cnt ]) ) )
+				if ( ValidAttachment( gpItemPointer->usItem, &(pSoldier->inventory()[ cnt ]) ) )
 				{
 					gbInvalidPlacementSlot[ cnt ] = FALSE;
 				}
 
-				if ( ValidMerge( gpItemPointer->usItem, pSoldier->inv[ cnt ].usItem ) )
+				if ( ValidMerge( gpItemPointer->usItem, pSoldier->inventory()[ cnt ].usItem ) )
 				{
 					gbInvalidPlacementSlot[ cnt ] = FALSE;
 				}
@@ -1244,21 +1244,21 @@ void RenderBackpackButtons(int bpAction)
 				RemoveButton( giSMDropPackButton );
 			if(giSMDropPackImages != -1)
 				UnloadButtonImage( giSMDropPackImages );
-			GetSMCurrentMerc()->inventoryState().dropPackFlag() = FALSE;
-			if(GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == FALSE)
+			GetSMCurrentMerc()->inventory().dropPackFlag() = FALSE;
+			if(GetSMCurrentMerc()->inventory()[BPACKPOCKPOS].exists() == FALSE)
 			{
 				for(unsigned int wi = 0; wi < guiNumWorldItems; wi++)
 				{
 					if(gWorldItems[wi].soldierID == GetSMCurrentMerc()->identity().id() && gWorldItems[wi].object.exists() == true)
 					{
-						GetSMCurrentMerc()->inventoryState().dropPackFlag() = TRUE;
+						GetSMCurrentMerc()->inventory().dropPackFlag() = TRUE;
 						break;
 					}
 				}
 			}
-			giSMZipperImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,-1 ,gbZipperButPos[ GetSMCurrentMerc()->inventoryState().zipperFlag() ][0],-1,gbZipperButPos[ GetSMCurrentMerc()->inventoryState().zipperFlag() ][1],-1 );
-			giSMDropPackImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,-1 ,gbDropPackButPos[ GetSMCurrentMerc()->inventoryState().dropPackFlag() ][0],-1,gbDropPackButPos[ GetSMCurrentMerc()->inventoryState().dropPackFlag() ][1],-1 );
-			//giSMDropPackImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,gbDropPackButPos[ GetSMCurrentMerc()->inventoryState().dropPackFlag() ][0] ,gbDropPackButPos[ GetSMCurrentMerc()->inventoryState().dropPackFlag() ][0],-1,gbDropPackButPos[ GetSMCurrentMerc()->inventoryState().dropPackFlag() ][1],-1 );
+			giSMZipperImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,-1 ,gbZipperButPos[ GetSMCurrentMerc()->inventory().zipperFlag() ][0],-1,gbZipperButPos[ GetSMCurrentMerc()->inventory().zipperFlag() ][1],-1 );
+			giSMDropPackImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,-1 ,gbDropPackButPos[ GetSMCurrentMerc()->inventory().dropPackFlag() ][0],-1,gbDropPackButPos[ GetSMCurrentMerc()->inventory().dropPackFlag() ][1],-1 );
+			//giSMDropPackImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,gbDropPackButPos[ GetSMCurrentMerc()->inventory().dropPackFlag() ][0] ,gbDropPackButPos[ GetSMCurrentMerc()->inventory().dropPackFlag() ][0],-1,gbDropPackButPos[ GetSMCurrentMerc()->inventory().dropPackFlag() ][1],-1 );
 
 			giSMZipperButton	= QuickCreateButton( giSMZipperImages, SM_ZIPPER_X, SM_ZIPPER_Y,
 													BUTTON_TOGGLE, MSYS_PRIORITY_HIGH - 1,
@@ -3314,7 +3314,7 @@ void SMInvMoveCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	
 	UINT32 uiHandPos = MSYS_GetRegionUserData( pRegion, 0 );
 
-	if ( GetSMCurrentMerc()->inv[ uiHandPos ].exists() == false )
+	if ( GetSMCurrentMerc()->inventory()[ uiHandPos ].exists() == false )
 		return;
 
 	if (iReason == MSYS_CALLBACK_REASON_MOVE)
@@ -3722,7 +3722,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	//else if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP && fLeftDown )
 	// CHRISL: Are we in combat, wearing a backpack with the zipper closed?  Don't allow access to backpack items
 	if((UsingNewInventorySystem() == true))
-		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(GetSMCurrentMerc()->inventoryState().zipperFlag()) || (GetSMCurrentMerc()->inventoryState().zipperFlag() && gAnimControl[GetSMCurrentMerc()->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN ))
+		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(GetSMCurrentMerc()->inventory().zipperFlag()) || (GetSMCurrentMerc()->inventory().zipperFlag() && gAnimControl[GetSMCurrentMerc()->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN ))
 			iReason = MSYS_CALLBACK_REASON_NONE;
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{
@@ -3733,7 +3733,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		{
 
 			// Return if empty
-			if ( GetSMCurrentMerc()->inv[ uiHandPos ].exists() == false )
+			if ( GetSMCurrentMerc()->inventory()[ uiHandPos ].exists() == false )
 				return;
 
 			if ( GetSMCurrentMerc()->identity().id() != gusSelectedSoldier )
@@ -3749,7 +3749,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 			if ( _KeyDown(CTRL) )
 			{
-				CleanUpStack( &( GetSMCurrentMerc()->inv[ uiHandPos ] ), NULL );
+				CleanUpStack( &( GetSMCurrentMerc()->inventory()[ uiHandPos ] ), NULL );
 				return;
 			}
 			
@@ -3760,7 +3760,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				if(uiHandPos == BPACKPOCKPOS)
 				{
 					// Deal with the zipper before we do anything
-					if(GetSMCurrentMerc()->inventoryState().zipperFlag())
+					if(GetSMCurrentMerc()->inventory().zipperFlag())
 						if(!ChangeZipperStatus(GetSMCurrentMerc(), FALSE))
 							return;
 					// Do we still have a linked backpack?  If so, reset droppackflag
@@ -3768,7 +3768,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					{
 						if(gWorldItems[wi].soldierID == GetSMCurrentMerc()->identity().id() && gWorldItems[wi].object.exists() == true)
 						{
-							GetSMCurrentMerc()->inventoryState().dropPackFlag() = TRUE;
+							GetSMCurrentMerc()->inventory().dropPackFlag() = TRUE;
 							break;
 						}
 					}
@@ -3777,9 +3777,9 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			}
 
 			// Turn off new item glow!
-			GetSMCurrentMerc()->inv.bNewItemCount[ uiHandPos ] = 0;
+			GetSMCurrentMerc()->inventory().newItemCount(uiHandPos) = 0;
 
-			usOldItemIndex = GetSMCurrentMerc()->inv[ uiHandPos ].usItem;
+			usOldItemIndex = GetSMCurrentMerc()->inventory()[ uiHandPos ].usItem;
 
 			//Jenilee: remember our last selected slot
 			iLastHandPos = uiHandPos;
@@ -3830,7 +3830,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					// silversurfer: What if our old slot is occupied now (could happen when we swap items)?
 					// We will be stuck with an item at the hand cursor and nowhere to put it -> bad. :-(
 					// So let's check if our old slot is empty and if it is not allow item placement anyway.
-					if ( GetSMCurrentMerc()->inv[ iLastHandPos ].usItem == NULL )
+					if ( GetSMCurrentMerc()->inventory()[ iLastHandPos ].usItem == NULL )
 					{
 						ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[NOT_ENOUGH_APS_STR]);
 						fOKToGo = FALSE;
@@ -3879,7 +3879,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 			if ( fOKToGo )
 			{
-				usOldItemIndex = GetSMCurrentMerc()->inv[ uiHandPos ].usItem;
+				usOldItemIndex = GetSMCurrentMerc()->inventory()[ uiHandPos ].usItem;
 				usNewItemIndex = gpItemPointer->usItem;
 
 				// OK, check if this is Nails, and we're in the vest position , don't allow it to come off....
@@ -3890,13 +3890,13 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 				if ( _KeyDown(CTRL) )
 				{
-					if ( gpItemPointer->exists() && GetSMCurrentMerc()->inv[ uiHandPos ].exists() )
+					if ( gpItemPointer->exists() && GetSMCurrentMerc()->inventory()[ uiHandPos ].exists() )
 					{
-						if ( gpItemPointer->usItem == GetSMCurrentMerc()->inv[ uiHandPos ].usItem )
-							CleanUpStack( &( GetSMCurrentMerc()->inv[ uiHandPos ] ), gpItemPointer );
+						if ( gpItemPointer->usItem == GetSMCurrentMerc()->inventory()[ uiHandPos ].usItem )
+							CleanUpStack( &( GetSMCurrentMerc()->inventory()[ uiHandPos ] ), gpItemPointer );
 						else // Madd: attach / merge object, merge only works on single objects for now
 						{
-							UINT8 cnt = GetSMCurrentMerc()->inv[ uiHandPos ].ubNumberOfObjects;
+							UINT8 cnt = GetSMCurrentMerc()->inventory()[ uiHandPos ].ubNumberOfObjects;
 							if ( gpItemPointer->ubNumberOfObjects < cnt ) 
 								cnt = gpItemPointer->ubNumberOfObjects;
 
@@ -3905,7 +3905,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 								if ((IsJa2TacticalCombatActive()))
 								{
 									// silversurfer: This didn't cost any AP. Why? CTRL + LeftClick should deduct the same AP as manual attachment in the EDB.
-									usCostToMoveItem = AttachmentAPCost(gpItemPointer->usItem, GetSMCurrentMerc()->inv[uiHandPos].usItem, GetSMCurrentMerc());
+									usCostToMoveItem = AttachmentAPCost(gpItemPointer->usItem, GetSMCurrentMerc()->inventory()[uiHandPos].usItem, GetSMCurrentMerc());
 									// Flugente: backgrounds
 									usCostToMoveItem = (usCostToMoveItem * (100 + GetSMCurrentMerc()->GetBackgroundValue(BG_INVENTORY))) / 100;
 									// do we have enough AP?
@@ -3913,7 +3913,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 										return;
 									GetSMCurrentMerc()->actionPoints().current() -= usCostToMoveItem;
 								}
-								GetSMCurrentMerc()->inv[uiHandPos].AttachObject(GetSMCurrentMerc(), gpItemPointer, TRUE, i);
+								GetSMCurrentMerc()->inventory()[uiHandPos].AttachObject(GetSMCurrentMerc(), gpItemPointer, TRUE, i);
 							}
 						}
 					}
@@ -3931,7 +3931,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					// do nothing
 				}
 				// we allow attaching on items in any slot
-				else if ( ValidAttachment( usNewItemIndex, &(GetSMCurrentMerc()->inv[uiHandPos]) ) )
+				else if ( ValidAttachment( usNewItemIndex, &(GetSMCurrentMerc()->inventory()[uiHandPos]) ) )
 				{
 					// it's an attempt to attach; bring up the inventory panel
 					if ( !InItemDescriptionBox( ) )
@@ -3980,11 +3980,11 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					if(uiHandPos == BPACKPOCKPOS && CanItemFitInPosition(GetSMCurrentMerc(), gpItemPointer, uiHandPos, FALSE))
 					{
 						// First, deal with the zipper
-						if(GetSMCurrentMerc()->inventoryState().zipperFlag())
+						if(GetSMCurrentMerc()->inventory().zipperFlag())
 							if(!ChangeZipperStatus(GetSMCurrentMerc(), FALSE))
 								return;
-						if(GetSMCurrentMerc()->inventoryState().dropPackFlag())
-							GetSMCurrentMerc()->inventoryState().dropPackFlag() = FALSE;
+						if(GetSMCurrentMerc()->inventory().dropPackFlag())
+							GetSMCurrentMerc()->inventory().dropPackFlag() = FALSE;
 						RenderBackpackButtons(ACTIVATE_BUTTON);	/* CHRISL: Needed for new inventory backpack buttons */
 					}
 				}
@@ -4096,7 +4096,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		fRightDown = FALSE;
 
 		// Return if empty
-		if ( GetSMCurrentMerc()->inv[ uiHandPos ].exists() == false )
+		if ( GetSMCurrentMerc()->inventory()[ uiHandPos ].exists() == false )
 			return;
 
 		// CJC: OK, get source, dest guy if different, don't allow panels to be brought up
@@ -4108,21 +4108,21 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		*/
 
 		// Turn off new item glow!
-		GetSMCurrentMerc()->inv.bNewItemCount[ uiHandPos ] = 0;
+		GetSMCurrentMerc()->inventory().newItemCount(uiHandPos) = 0;
 
 		// Some global stuff here - for esc, etc
 		// Check for # of slots in item
 		// CHRISL: Use new ItemSlotLimit function if we're using the new inventory system
-		UINT8 isLimit = ItemSlotLimit( &GetSMCurrentMerc()->inv[ uiHandPos ], uiHandPos, GetSMCurrentMerc() );
+		UINT8 isLimit = ItemSlotLimit( &GetSMCurrentMerc()->inventory()[ uiHandPos ], uiHandPos, GetSMCurrentMerc() );
 
 		// access description box directly if CTRL is pressed for stack items
-		if( !( ( GetSMCurrentMerc()->inv[ uiHandPos ].ubNumberOfObjects > 1 && isLimit > 0 ) && ( GetCurrentScreen() != MAP_SCREEN ) ) || _KeyDown( CTRL ) )
+		if( !( ( GetSMCurrentMerc()->inventory()[ uiHandPos ].ubNumberOfObjects > 1 && isLimit > 0 ) && ( GetCurrentScreen() != MAP_SCREEN ) ) || _KeyDown( CTRL ) )
 		{
 			if ( !InItemDescriptionBox( ) )
 			{
-				if ( _KeyDown(SHIFT) && gpItemPointer == NULL && Item[GetSMCurrentMerc()->inv[ uiHandPos ].usItem].usItemClass == IC_GUN && (GetSMCurrentMerc()->inv[ uiHandPos ])[uiHandPos]->data.gun.ubGunShotsLeft > 0 && !ItemIsSingleShotRocketLauncher(GetSMCurrentMerc()->inv[ uiHandPos ].usItem) && !( guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE ) )
+				if ( _KeyDown(SHIFT) && gpItemPointer == NULL && Item[GetSMCurrentMerc()->inventory()[ uiHandPos ].usItem].usItemClass == IC_GUN && (GetSMCurrentMerc()->inventory()[ uiHandPos ])[uiHandPos]->data.gun.ubGunShotsLeft > 0 && !ItemIsSingleShotRocketLauncher(GetSMCurrentMerc()->inventory()[ uiHandPos ].usItem) && !( guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE ) )
 				{
-					EmptyWeaponMagazine( &(GetSMCurrentMerc()->inv[ uiHandPos ]), &gItemPointer, uiHandPos );
+					EmptyWeaponMagazine( &(GetSMCurrentMerc()->inventory()[ uiHandPos ]), &gItemPointer, uiHandPos );
 					gpItemPointer = &gItemPointer;
 					(void)SetItemPointerSoldier(GetSMCurrentMerc());
 				}
@@ -4197,13 +4197,13 @@ BOOLEAN  ChangeZipperStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 			bNewStance = ANIM_CROUCH;
 			UIHandleSoldierStanceChange( pSoldier->identity().id(), bNewStance );
 		}
-		pSoldier->inventoryState().zipperFlag() = newStatus;
+		pSoldier->inventory().zipperFlag() = newStatus;
 		gfUIStanceDifferent = TRUE;
 	}
 	// Closing a pack?
 	else
 	{
-		pSoldier->inventoryState().zipperFlag() = newStatus;
+		pSoldier->inventory().zipperFlag() = newStatus;
 		gfUIStanceDifferent = TRUE;
 	}
 	fCharacterInfoPanelDirty = TRUE;
@@ -4220,7 +4220,7 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 	INT32	worldKey=1, iRange=0;
 
 	// Are we dropping a pack that has the zipper open?
-	if(newStatus && pSoldier->inventoryState().zipperFlag())
+	if(newStatus && pSoldier->inventory().zipperFlag())
 	{
 		sAPCost = 0;
 		if(!ChangeZipperStatus(pSoldier, FALSE))
@@ -4289,13 +4289,13 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 			}
 		}
 		MoveItemToLBEItem( pSoldier, BPACKPOCKPOS );
-		AddItemToPoolAndGetIndex(pSoldier->position().gridNo(), &pSoldier->inv[BPACKPOCKPOS], 1, pSoldier->position().level(), 0, -1, pSoldier->identity().id(), &worldKey );
+		AddItemToPoolAndGetIndex(pSoldier->position().gridNo(), &pSoldier->inventory()[BPACKPOCKPOS], 1, pSoldier->position().level(), 0, -1, pSoldier->identity().id(), &worldKey );
 		// Item successfully added to world
 		if(worldKey != ITEM_NOT_FOUND)
 		{
 			NotifySoldiersToLookforItems( );
-			DeleteObj(&pSoldier->inv[BPACKPOCKPOS]);
-			pSoldier->inventoryState().dropPackFlag() = newStatus;
+			DeleteObj(&pSoldier->inventory()[BPACKPOCKPOS]);
+			pSoldier->inventory().dropPackFlag() = newStatus;
 			gfUIStanceDifferent = TRUE;
 		}
 	}
@@ -4320,7 +4320,7 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 							if(AutoPlaceObject(pSoldier, &(gWorldItems[wi].object ), TRUE ))
 							{
 								RemoveItemFromPool(gWorldItems[wi].sGridNo, wi, gWorldItems[wi].ubLevel);
-								pSoldier->inventoryState().dropPackFlag() = newStatus;
+								pSoldier->inventory().dropPackFlag() = newStatus;
 								gfUIStanceDifferent = TRUE;
 								return TRUE;
 							}
@@ -4349,7 +4349,7 @@ void MergeMessageBoxCallBack( UINT8 ubExitValue )
 	{
 		//ADB see what happens here
 		DebugBreakpoint();
-		GetSMCurrentMerc()->inv[ gubHandPos ].AttachObject( GetItemPointerSoldier(), gpItemPointer, FALSE );
+		GetSMCurrentMerc()->inventory()[ gubHandPos ].AttachObject( GetItemPointerSoldier(), gpItemPointer, FALSE );
 
 		// re-evaluate repairs
 		gfReEvaluateEveryonesNothingToDo = TRUE;
@@ -4597,13 +4597,13 @@ void BtnDropPackCallback(GUI_BUTTON *btn,INT32 reason)
 				}
 				/* Is drop-pack state currently false and is there something in the backpack pocket?  If so, we haven't
 				dropped a pack yet and apparently want to*/
-				if(pSoldier->assignment().current() == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().dropPackFlag())
+				if(pSoldier->assignment().current() == bAssignment && pSoldier->inventory()[BPACKPOCKPOS].exists() == true && !pSoldier->inventory().dropPackFlag())
 				{
 					ChangeDropPackStatus(pSoldier, TRUE);
 				}
 				/* Is drop-pack state currently true, is nothing in the backpack pocket and have we dropped a pack?  If so, we
 				must want to retreive a backpack we previously dropped.*/
-				else if(pSoldier->assignment().current() == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == false && pSoldier->inventoryState().dropPackFlag())
+				else if(pSoldier->assignment().current() == bAssignment && pSoldier->inventory()[BPACKPOCKPOS].exists() == false && pSoldier->inventory().dropPackFlag())
 				{
 					ChangeDropPackStatus(pSoldier, FALSE);
 				}
@@ -4613,13 +4613,13 @@ void BtnDropPackCallback(GUI_BUTTON *btn,INT32 reason)
 		{
 			/* Is drop-pack state currently false and is there something in the backpack pocket?  If so, we haven't
 			dropped a pack yet and apparently want to*/
-			if(GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == true && !GetSMCurrentMerc()->inventoryState().dropPackFlag())
+			if(GetSMCurrentMerc()->inventory()[BPACKPOCKPOS].exists() == true && !GetSMCurrentMerc()->inventory().dropPackFlag())
 			{
 				ChangeDropPackStatus(GetSMCurrentMerc(), TRUE);
 			}
 			/* Is drop-pack state currently true, is nothing in the backpack pocket and have we dropped a pack?  If so, we
 			must want to retreive a backpack we previously dropped.*/
-			else if(GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == false && GetSMCurrentMerc()->inventoryState().dropPackFlag())
+			else if(GetSMCurrentMerc()->inventory()[BPACKPOCKPOS].exists() == false && GetSMCurrentMerc()->inventory().dropPackFlag())
 			{
 				ChangeDropPackStatus(GetSMCurrentMerc(), FALSE);
 			}
@@ -4644,12 +4644,12 @@ void BtnZipperCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 		//Are we in combat, do we have a backpack on and is the pack closed? Open it
-		if((IsJa2TacticalCombatActive()) && GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == true && !GetSMCurrentMerc()->inventoryState().zipperFlag())
+		if((IsJa2TacticalCombatActive()) && GetSMCurrentMerc()->inventory()[BPACKPOCKPOS].exists() == true && !GetSMCurrentMerc()->inventory().zipperFlag())
 		{
 			ChangeZipperStatus(GetSMCurrentMerc(), TRUE);
 		}
 		//Is the pack open?
-		else if(GetSMCurrentMerc()->inventoryState().zipperFlag())
+		else if(GetSMCurrentMerc()->inventory().zipperFlag())
 		{
 			ChangeZipperStatus(GetSMCurrentMerc(), FALSE);
 		}
@@ -5547,7 +5547,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				// Add text for first hand popup
 				else
 				{
-					GetHelpTextForItem( pStr, &( pSoldier->inv[ HANDPOS ] ), pSoldier );
+					GetHelpTextForItem( pStr, &( pSoldier->inventory()[ HANDPOS ] ), pSoldier );
 
 					//OK, for each item, set dirty text if applicable!
 					SetRegionFastHelpText( &(gTEAM_FirstHandInv[ cnt ]), pStr );
@@ -5561,7 +5561,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				}
 				else
 				{
-					GetHelpTextForItem( pStr, &( pSoldier->inv[ SECONDHANDPOS ]	), pSoldier );
+					GetHelpTextForItem( pStr, &( pSoldier->inventory()[ SECONDHANDPOS ]	), pSoldier );
 
 					//OK, for each item, set dirty text if applicable!
 					SetRegionFastHelpText( &(gTEAM_SecondHandInv[ cnt ]), pStr );
@@ -6775,7 +6775,7 @@ void RenderSoldierTeamInv( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY, UINT8 ubPa
 		else
 		{
 			// Look in primary hand
-			INVRenderItem( guiSAVEBUFFER, pSoldier, &(pSoldier->inv[ HANDPOS ]), sX, sY, TM_INV_WIDTH, TM_INV_HEIGHT, fDirty, &(gfTEAM_HandInvDispText[ ubPanelNum ][ HANDPOS ] ), 0 , FALSE, 0);
+			INVRenderItem( guiSAVEBUFFER, pSoldier, &(pSoldier->inventory()[ HANDPOS ]), sX, sY, TM_INV_WIDTH, TM_INV_HEIGHT, fDirty, &(gfTEAM_HandInvDispText[ ubPanelNum ][ HANDPOS ] ), 0 , FALSE, 0);
 		}
 
 		if ( pSoldier->status().flags() & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
@@ -6786,7 +6786,7 @@ void RenderSoldierTeamInv( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY, UINT8 ubPa
 		else
 		{
 			// Do secondary hand
-			INVRenderItem( guiSAVEBUFFER, pSoldier, &(pSoldier->inv[ SECONDHANDPOS ]), sX, (INT16)(sY + TM_INV_HAND_SEPY), TM_INV_WIDTH, TM_INV_HEIGHT, fDirty, &(gfTEAM_HandInvDispText[ ubPanelNum ][ SECONDHANDPOS ] ), 0 , FALSE, 0);
+			INVRenderItem( guiSAVEBUFFER, pSoldier, &(pSoldier->inventory()[ SECONDHANDPOS ]), sX, (INT16)(sY + TM_INV_HAND_SEPY), TM_INV_WIDTH, TM_INV_HEIGHT, fDirty, &(gfTEAM_HandInvDispText[ ubPanelNum ][ SECONDHANDPOS ] ), 0 , FALSE, 0);
 		}
 
 	}
@@ -6886,10 +6886,10 @@ void TMClickFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	{
 		if ( !AM_A_ROBOT( soldier ) )
 		{
-			usOldHandItem = soldier->inv[HANDPOS].usItem;
+			usOldHandItem = soldier->inventory()[HANDPOS].usItem;
 			//SwapOutHandItem( ubSoldierID );
 			SwapHandItems( soldier );
-			soldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, soldier->inv[HANDPOS].usItem );
+			soldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, soldier->inventory()[HANDPOS].usItem );
 			fInterfacePanelDirty = DIRTYLEVEL2;
 		}
 	}
@@ -6938,9 +6938,9 @@ void TMClickSecondHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		{
 			if ( !AM_A_ROBOT( soldier ) )
 			{
-				usOldHandItem = soldier->inv[HANDPOS].usItem;
+				usOldHandItem = soldier->inventory()[HANDPOS].usItem;
 				SwapHandItems( soldier );
-				soldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, soldier->inv[HANDPOS].usItem );
+				soldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, soldier->inventory()[HANDPOS].usItem );
 				fInterfacePanelDirty = DIRTYLEVEL2;
 			}
 		}
@@ -7576,15 +7576,15 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			else
 			{
 				// Return if empty
-				//if ( GetSMCurrentMerc()->inv[ uiHandPos ].exists() == false )
+				//if ( GetSMCurrentMerc()->inventory()[ uiHandPos ].exists() == false )
 				//	return;
 
 
 				// Fill out the inv slot for the item
-				//InvSlot.sItemIndex = GetSMCurrentMerc()->inv[ uiHandPos ].usItem;
-//			InvSlot.ubNumberOfItems = GetSMCurrentMerc()->inv[ uiHandPos ].ubNumberOfObjects;
-//			InvSlot.ubItemQuality = GetSMCurrentMerc()->inv[ uiHandPos ].gun.bGunStatus;
-				//InvSlot.ItemObject = GetSMCurrentMerc()->inv[ uiHandPos ];
+				//InvSlot.sItemIndex = GetSMCurrentMerc()->inventory()[ uiHandPos ].usItem;
+//			InvSlot.ubNumberOfItems = GetSMCurrentMerc()->inventory()[ uiHandPos ].ubNumberOfObjects;
+//			InvSlot.ubItemQuality = GetSMCurrentMerc()->inventory()[ uiHandPos ].gun.bGunStatus;
+				//InvSlot.ItemObject = GetSMCurrentMerc()->inventory()[ uiHandPos ];
 				//InvSlot.ubLocationOfObject = PLAYERS_INVENTORY;
 
 				//InvSlot.ubIdOfMercWhoOwnsTheItem = GetSMCurrentMerc()->identity().profile();
@@ -7689,7 +7689,7 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 			if ( fOKToGo )
 			{
-				//usOldItemIndex = GetSMCurrentMerc()->inv[ uiHandPos ].usItem;
+				//usOldItemIndex = GetSMCurrentMerc()->inventory()[ uiHandPos ].usItem;
 				//usNewItemIndex = gpItemPointer->usItem;
 
 				if ( GetItemPopupSoldier()->keyRing()[ uiKeyRing ].ubKeyID == INVALID_KEY_NUMBER || GetItemPopupSoldier()->keyRing()[ uiKeyRing ].ubKeyID == (*gpItemPointer)[0]->data.key.ubKeyID)
@@ -8100,9 +8100,9 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 /*void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem )
 {
 	// if in attached weapon mode and don't have weapon with GL attached in hand, reset weapon mode
-	if ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )&& !IsGrenadeLauncherAttached( &(pSoldier->inv[ HANDPOS ]) ) )
+	if ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )&& !IsGrenadeLauncherAttached( &(pSoldier->inventory()[ HANDPOS ]) ) )
 	{
-		if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
+		if ( !Weapon[pSoldier->inventory()[ HANDPOS ].usItem].NoSemiAuto )
 		{
 			pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 			pSoldier->fireControl().selectSingleShot();
@@ -8135,9 +8135,9 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 	else
 	{
 		// as a minimum
-		if ( (Item[ pSoldier->inv[ HANDPOS ].usItem ].usItemClass & IC_WEAPON) && GetShotsPerBurst(&pSoldier->inv[ HANDPOS ]) == 0 )
+		if ( (Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass & IC_WEAPON) && GetShotsPerBurst(&pSoldier->inventory()[ HANDPOS ]) == 0 )
 		{
-			if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
+			if ( !Weapon[pSoldier->inventory()[ HANDPOS ].usItem].NoSemiAuto )
 			{
 				pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 				pSoldier->fireControl().selectSingleShot();

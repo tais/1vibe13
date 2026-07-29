@@ -3822,9 +3822,9 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 			// the remote copy of the thrower keeps a phantom grenade in hand. Only
 			// touch the hand slot when it still holds the same item, so a diverged
 			// inventory is left untouched rather than corrupted.
-			if ( pThrower->inv[ HANDPOS ].exists() && pThrower->inv[ HANDPOS ].usItem == gren->usItem )
+			if ( pThrower->inventory()[ HANDPOS ].exists() && pThrower->inventory()[ HANDPOS ].usItem == gren->usItem )
 			{
-				pThrower->inv[ HANDPOS ].RemoveObjectsFromStack( ubNumObjects );
+				pThrower->inventory()[ HANDPOS ].RemoveObjectsFromStack( ubNumObjects );
 			}
 			// this will create a grenade and launch it
 			INT32 i = CreatePhysicalObject( pendingItem.object(), gren->dLifeSpan, gren->dX, gren->dY, gren->dZ, gren->dForceX, gren->dForceY, gren->dForceZ, pThrower->identity().id(), gren->ubActionCode, gren->uiActionData, false);

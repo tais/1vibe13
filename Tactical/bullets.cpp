@@ -141,7 +141,7 @@ void HandleBulletSpecialFlags( INT32 iBulletIndex )
 				strcpy( AniParams.zCachedFile, "TILECACHE\\KNIFING.STI" );
 
 				if ( pBullet->ubFirerID != NOBODY )
-					pBullet->ubItemStatus = pBullet->pFirer->inv[ HANDPOS ][0]->data.objectStatus;
+					pBullet->ubItemStatus = pBullet->pFirer->inventory()[ HANDPOS ][0]->data.objectStatus;
 				else
 					pBullet->ubItemStatus = 100;
 			}
