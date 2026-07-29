@@ -256,13 +256,6 @@ INT8 ubLevelMoveLink[ 10 ] =
 };
 
 
-SOLDIERTYPE*    MercSlots[ TOTAL_SOLDIERS ];
-UINT32          guiNumMercSlots = 0;
-
-SOLDIERTYPE*    AwaySlots[ TOTAL_SOLDIERS ];
-UINT32          guiNumAwaySlots = 0;
-
-
 // DEF: changed to have client wait for gPlayerNum assigned from host
 UINT8           gbPlayerNum = 0;
 
@@ -421,128 +414,10 @@ UINT32  guiWaitingForAllMercsToExitData[3];
 UINT32  guiWaitingForAllMercsToExitTimer = 0;
 BOOLEAN gfKillingGuysForLosingBattle = FALSE;
 
-INT32 GetFreeMercSlot()
+INT32 MoveSoldierFromMercToAwaySlot(TacticalEntityId actor)
 {
-    UINT32 uiCount;
-    for(uiCount=0; uiCount < guiNumMercSlots; uiCount++)
-    {
-        if(( MercSlots[uiCount] == NULL ) )
-            return((INT32)uiCount);
-    }
-    if(guiNumMercSlots < TOTAL_SOLDIERS )
-        return((INT32)guiNumMercSlots++);
-    return(-1);
-}
-
-// WTF?
-static void RecountMercSlots( )
-{
-    INT32 iCount;
-    if ( guiNumMercSlots > 0 )
-    {
-        for (iCount = guiNumMercSlots - 1; iCount >=0 ; iCount--)
-        {
-            if ( ( MercSlots[iCount] != NULL ) )
-            {
-                guiNumMercSlots=(UINT32)(iCount+1);
-                return;
-            }
-        }
-        // no mercs found
-        guiNumMercSlots = 0;
-    }
-}
-
-INT32 AddMercSlot( SOLDIERTYPE *pSoldier )
-{
-    INT32 iMercIndex;
-
-    if( ( iMercIndex = GetFreeMercSlot() )==(-1) )
-        return(-1);
-    MercSlots[ iMercIndex ] = pSoldier;
-    return( iMercIndex );
-}
-
-BOOLEAN RemoveMercSlot( SOLDIERTYPE *pSoldier )
-{
-    UINT32 uiCount;
-    CHECKF( pSoldier != NULL );
-    for( uiCount=0; uiCount < guiNumMercSlots; uiCount++)
-    {
-        if ( MercSlots[ uiCount ] == pSoldier )
-        {
-            MercSlots[ uiCount ] = NULL;
-            RecountMercSlots( );
-            return( TRUE );
-        }
-    }
-    // TOLD TO DELETE NON-EXISTANT SOLDIER
-    return( FALSE );
-}
-
-static INT32 GetFreeAwaySlot( )
-{
-    UINT32 uiCount;
-    for(uiCount=0; uiCount < guiNumAwaySlots; uiCount++)
-    {
-        if(( AwaySlots[uiCount] == NULL ) )
-            return((INT32)uiCount);
-    }
-    if(guiNumAwaySlots < TOTAL_SOLDIERS )
-        return((INT32)guiNumAwaySlots++);
-    return(-1);
-}
-
-static void RecountAwaySlots( )
-{
-    INT32 iCount;
-    if ( guiNumAwaySlots > 0 )
-    {
-        for (iCount = guiNumAwaySlots - 1; (iCount >=0) ; iCount--)
-        {
-            if ( ( AwaySlots[iCount] != NULL ) )
-            {
-                guiNumAwaySlots = (UINT32)(iCount + 1);
-                return;
-            }
-        }
-        // no mercs found
-        guiNumAwaySlots = 0;
-    }
-}
-
-INT32 AddAwaySlot( SOLDIERTYPE *pSoldier )
-{
-    INT32 iAwayIndex;
-    if( ( iAwayIndex = GetFreeAwaySlot() )==(-1) )
-        return(-1);
-    AwaySlots[ iAwayIndex ] = pSoldier;
-    return( iAwayIndex );
-}
-
-BOOLEAN RemoveAwaySlot( SOLDIERTYPE *pSoldier )
-{
-    UINT32 uiCount;
-    CHECKF( pSoldier != NULL );
-    for( uiCount=0; uiCount < guiNumAwaySlots; uiCount++)
-    {
-        if ( AwaySlots[ uiCount ] == pSoldier )
-        {
-            AwaySlots[ uiCount ] = NULL;
-            RecountAwaySlots( );
-            return( TRUE );
-        }
-    }
-    // TOLD TO DELETE NON-EXISTANT SOLDIER
-    return( FALSE );
-}
-
-INT32 MoveSoldierFromMercToAwaySlot( SOLDIERTYPE * pSoldier )
-{
-    BOOLEAN fRet;
-
-    fRet = RemoveMercSlot( pSoldier );
-    if (!fRet)
+    SOLDIERTYPE* pSoldier = ResolveJa2TacticalEntity(actor);
+    if (!pSoldier || !RemoveJa2ActiveTacticalActor(actor))
     {
         return( -1 );
     }
@@ -554,15 +429,13 @@ INT32 MoveSoldierFromMercToAwaySlot( SOLDIERTYPE * pSoldier )
 
     pSoldier->roster().inSector() = FALSE;
     pSoldier->status().flags() |= SOLDIER_OFF_MAP;
-    return( AddAwaySlot( pSoldier ) );
+    return AddJa2AwayTacticalActor(actor);
 }
 
-INT32 MoveSoldierFromAwayToMercSlot( SOLDIERTYPE * pSoldier )
+INT32 MoveSoldierFromAwayToMercSlot(TacticalEntityId actor)
 {
-    BOOLEAN fRet;
-
-    fRet = RemoveAwaySlot( pSoldier );
-    if (!fRet)
+    SOLDIERTYPE* pSoldier = ResolveJa2TacticalEntity(actor);
+    if (!pSoldier || !RemoveJa2AwayTacticalActor(actor))
     {
         return( -1 );
     }
@@ -571,7 +444,7 @@ INT32 MoveSoldierFromAwayToMercSlot( SOLDIERTYPE * pSoldier )
 
     pSoldier->roster().inSector() = TRUE;
     pSoldier->status().flags() &= (~SOLDIER_OFF_MAP);
-    return( AddMercSlot( pSoldier ) );
+    return AddJa2ActiveTacticalActor(actor);
 }
 
 BOOLEAN InitTacticalEngine( )
@@ -646,16 +519,10 @@ BOOLEAN InitOverhead( )
     UINT32  cnt;
 
     ResetJa2TacticalEntityDirectory();
+    ResetJa2TacticalActorRosters();
     ResetTacticalInventoryUiActorContexts();
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
     soldiers.initializeSlots();
-
-    // Set pointers list
-    for( cnt = 0; cnt < soldiers.capacity(); cnt++ )
-    {
-        // Zero out merc slots!
-        MercSlots[cnt] = NULL;
-    }
     memset( &gTacticalStatus, 0, sizeof( TacticalStatusType ) );
     UINT8 maxteams;
     if (!is_networked)
@@ -838,7 +705,7 @@ static BOOLEAN NextAIToHandle( UINT32 uiCurrAISlot )
 {
     UINT32  cnt;
 
-    if (uiCurrAISlot >= guiNumMercSlots)
+    if (uiCurrAISlot >= Ja2ActiveTacticalActorSlotCount())
     {
         // last person to handle was an off-map merc, so now we start looping at the beginning again
         cnt = 0;
@@ -849,9 +716,13 @@ static BOOLEAN NextAIToHandle( UINT32 uiCurrAISlot )
         cnt = uiCurrAISlot + 1;
     }
 
-    for ( ; cnt < guiNumMercSlots; cnt++ )
+    for ( ; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
     {
-        if ( MercSlots[ cnt ] && ( (MercSlots[ cnt ]->roster().team() != gbPlayerNum) || (MercSlots[ cnt ]->status().flags() & SOLDIER_PCUNDERAICONTROL) ) )
+        SOLDIERTYPE* soldier =
+            ResolveJa2ActiveTacticalActorSlot(cnt);
+        if ( soldier &&
+            (soldier->roster().team() != gbPlayerNum ||
+             soldier->status().flags() & SOLDIER_PCUNDERAICONTROL) )
         {
             // aha! found an AI guy!
             guiAISlotToHandle = cnt;
@@ -864,9 +735,9 @@ static BOOLEAN NextAIToHandle( UINT32 uiCurrAISlot )
 
     // didn't find an AI guy to handle after the last one handled and the # of slots
     // it's time to check for an off-map merc... maybe
-    if (guiNumAwaySlots > 0)
+    if (Ja2AwayTacticalActorSlotCount() > 0)
     {
-        if ( (guiAIAwaySlotToHandle + 1) >= guiNumAwaySlots)
+        if ( (guiAIAwaySlotToHandle + 1) >= Ja2AwayTacticalActorSlotCount())
         {
             // start looping from the beginning
             cnt = 0;
@@ -876,9 +747,11 @@ static BOOLEAN NextAIToHandle( UINT32 uiCurrAISlot )
             // continue on from the last person we handled
             cnt = guiAIAwaySlotToHandle + 1;
         }
-        for ( ; cnt < guiNumAwaySlots; cnt++ )
+        for ( ; cnt < Ja2AwayTacticalActorSlotCount(); cnt++ )
         {
-            if (AwaySlots[ cnt ] && AwaySlots[ cnt ]->roster().team() != gbPlayerNum)
+            SOLDIERTYPE* soldier =
+                ResolveJa2AwayTacticalActorSlot(cnt);
+            if (soldier && soldier->roster().team() != gbPlayerNum)
             {
                 // aha! found an AI guy!
                 guiAIAwaySlotToHandle = cnt;
@@ -994,9 +867,9 @@ BOOLEAN ExecuteOverhead( )
 		checkBonusMilitia = FALSE;
 	}
 
-    for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+    for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
     {
-        pSoldier = MercSlots[ cnt ];
+        pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
         if ( pSoldier && pSoldier->roster().active() && (pSoldier->roster().team() == OUR_TEAM) ) {
             if (!gogglewarning && BadGoggles(pSoldier)) {
                 gogglewarning = TRUE;
@@ -1844,9 +1717,9 @@ BOOLEAN ExecuteOverhead( )
         }
     }
 
-    if ( guiNumAwaySlots > 0 && !gfPauseAllAI && !(IsJa2TacticalCombatActive()) && guiAISlotToHandle == HANDLE_OFF_MAP_MERC && guiAIAwaySlotToHandle != RESET_HANDLE_OF_OFF_MAP_MERCS )
+    if ( Ja2AwayTacticalActorSlotCount() > 0 && !gfPauseAllAI && !(IsJa2TacticalCombatActive()) && guiAISlotToHandle == HANDLE_OFF_MAP_MERC && guiAIAwaySlotToHandle != RESET_HANDLE_OF_OFF_MAP_MERCS )
     {
-        pSoldier = AwaySlots[ guiAIAwaySlotToHandle ];
+        pSoldier = ResolveJa2AwayTacticalActorSlot(guiAIAwaySlotToHandle);
 
         // Syncronize for upcoming soldier counters
         SYNCTIMECOUNTER( );
@@ -1914,9 +1787,9 @@ BOOLEAN ExecuteOverhead( )
 			gusNumMercsUntilWaitingOver = 0;
 
             // Reset all waitng codes
-            for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+            for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
             {
-                pSoldier = MercSlots[ cnt ];
+                pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
                 if ( pSoldier != NULL )
                 {
                     pSoldier->movement().clearWaitAction();
@@ -2976,9 +2849,9 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 		UINT8 ubDirection;
 
 		//loop through all the enemies
-		for (uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop)
+		for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop)
 		{
-			pOpponent = MercSlots[uiLoop];
+			pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 			if (!pOpponent ||
 				SpacesAway(pSoldier->position().gridNo(), pOpponent->position().gridNo()) > 1 ||
@@ -6771,9 +6644,9 @@ BOOLEAN WeSeeNoOne( )
     UINT32      uiLoop;
     SOLDIERTYPE * pSoldier;
 
-    for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++ )
+    for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++ )
     {
-        pSoldier = MercSlots[ uiLoop ];
+        pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
         if ( pSoldier != NULL )
         {
             if ( pSoldier->roster().team() == gbPlayerNum )
@@ -6794,9 +6667,9 @@ BOOLEAN NobodyAlerted( )
     UINT32      uiLoop;
     SOLDIERTYPE * pSoldier;
 
-    for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++ )
+    for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++ )
     {
-        pSoldier = MercSlots[ uiLoop ];
+        pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
         if ( pSoldier != NULL )
         {
             if ( ( pSoldier->roster().team() != gbPlayerNum ) && ( ! pSoldier->aiBehavior().neutral() ) && (pSoldier->vitals().health() >= OKLIFE) && (pSoldier->aiBehavior().alertStatus() >= STATUS_RED) )
@@ -6815,9 +6688,9 @@ static BOOLEAN WeSawSomeoneThisTurn( )
     UINT32      uiLoop, uiLoop2;
     SOLDIERTYPE * pSoldier;
 
-    for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++ )
+    for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++ )
     {
-        pSoldier = MercSlots[ uiLoop ];
+        pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
         if ( pSoldier != NULL )
         {
             if ( pSoldier->roster().team() == gbPlayerNum )
@@ -6925,9 +6798,9 @@ BOOLEAN CheckForEndOfCombatMode( BOOLEAN fIncrementTurnsNotSeen )
 
         // we have to loop through EVERYONE to see if anyone sees a hostile... if so, stay in turnbased...
 
-        for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+        for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
         {
-            pTeamSoldier = MercSlots[ cnt ];
+            pTeamSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
             if ( pTeamSoldier && pTeamSoldier->vitals().health() >= OKLIFE && !pTeamSoldier->aiBehavior().neutral() )
             {
                 if ( SoldierHasSeenEnemiesLastFewTurns( pTeamSoldier ) )
@@ -8208,11 +8081,12 @@ UINT16 NumPCsInSector( )
 
     // Check if the battle is won!
     // Loop through all mercs and make go
-    for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+    for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
     {
-        if ( MercSlots[ cnt ] )
+        pTeamSoldier =
+            ResolveJa2ActiveTacticalActorSlot(cnt);
+        if ( pTeamSoldier )
         {
-            pTeamSoldier = MercSlots[ cnt ];
             if ( pTeamSoldier->roster().team() == gbPlayerNum && pTeamSoldier->vitals().health() > 0 )
             {
                 ubNumPlayers++;
@@ -8642,9 +8516,9 @@ static BOOLEAN AttackOnGroupWitnessed( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTa
     SOLDIERTYPE *       pGroupMember;
 
     // look for all group members... rebels could be on the civ team or ours!
-    for ( uiSlot = 0; uiSlot < guiNumMercSlots; uiSlot++ )
+    for ( uiSlot = 0; uiSlot < Ja2ActiveTacticalActorSlotCount(); uiSlot++ )
     {
-        pGroupMember = MercSlots[ uiSlot ];
+        pGroupMember = ResolveJa2ActiveTacticalActorSlot(uiSlot);
         if (pGroupMember && (pGroupMember->roster().civilianGroup() == pTarget->roster().civilianGroup()) && pGroupMember != pTarget)
         {
             if (pGroupMember->awareness().opponentKnowledge()[pSoldier->identity().id()] == SEEN_CURRENTLY || pGroupMember->awareness().opponentKnowledge()[pTarget->identity().id()] == SEEN_CURRENTLY)
@@ -8883,10 +8757,14 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Loop through every character.
-    for (uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop )
+    for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
     {
-        DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: loop = %d, numslots = %d ",uiLoop, guiNumMercSlots));
-        pSoldier = MercSlots[uiLoop];
+        DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String(
+            "HandleSuppressionFire: loop = %u, numslots = %u ",
+            static_cast<unsigned>(uiLoop),
+            static_cast<unsigned>(
+                Ja2ActiveTacticalActorSlotCount())));
+        pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
         // Flugente: zombies do not receive any suppression at all!
         if ( pSoldier != NULL && pSoldier->IsZombie() )
@@ -9964,9 +9842,9 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Reset various flags and values that should be 0 once the action is overwith
-    for (UINT32 cnt = 0; cnt < guiNumMercSlots; cnt++)
+    for (UINT32 cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++)
     {
-        pSoldier = MercSlots[ cnt ];
+        pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
         if ( pSoldier )
         {
             pSoldier->combatResult().pelletsHitBy() = 0;
@@ -10183,7 +10061,8 @@ void RemoveSoldierFromTacticalSector( SOLDIERTYPE *pSoldier, BOOLEAN fAdjustSele
     // Remove!
     pSoldier->RemoveSoldierFromGridNo( );
 
-    RemoveMercSlot( pSoldier );
+    RemoveJa2ActiveTacticalActor(
+        GetJa2TacticalEntityId(*pSoldier));
 
     pSoldier->roster().inSector() = FALSE;
 

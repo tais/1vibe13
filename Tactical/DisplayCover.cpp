@@ -576,9 +576,9 @@ void CalculateCoverFromEnemies()
 	bCowering.reserve(TOTAL_SOLDIERS);
 	tunnelVision.reserve(TOTAL_SOLDIERS);
 
-	for ( UINT32 i = 0; i < guiNumMercSlots; ++i )
+	for ( UINT32 i = 0; i < Ja2ActiveTacticalActorSlotCount(); ++i )
 	{
-		SOLDIERTYPE* pOpponent = MercSlots[i];
+		SOLDIERTYPE* pOpponent = ResolveJa2ActiveTacticalActorSlot(i);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if ( !pOpponent || pOpponent->vitals().health() < OKLIFE )

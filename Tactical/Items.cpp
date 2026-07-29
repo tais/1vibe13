@@ -10217,9 +10217,9 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 	}
 	// first, scan through all mercs and turn off xrayed flag for anyone
 	// previously xrayed by this guy
-	for ( uiSlot = 0; uiSlot < guiNumMercSlots; uiSlot++ )
+	for ( uiSlot = 0; uiSlot < Ja2ActiveTacticalActorSlotCount(); uiSlot++ )
 	{
-		pSoldier2 = MercSlots[ uiSlot ];
+		pSoldier2 = ResolveJa2ActiveTacticalActorSlot(uiSlot);
 		if ( pSoldier2 )
 		{
 			if ( (pSoldier2->featureFlags().eventFlags() & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
@@ -10230,9 +10230,9 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 		}
 	}
 	// now turn on xray for anyone within range
-	for ( uiSlot = 0; uiSlot < guiNumMercSlots; uiSlot++ )
+	for ( uiSlot = 0; uiSlot < Ja2ActiveTacticalActorSlotCount(); uiSlot++ )
 	{
-		pSoldier2 = MercSlots[ uiSlot ];
+		pSoldier2 = ResolveJa2ActiveTacticalActorSlot(uiSlot);
 		if ( pSoldier2 )
 		{
 			if ( pSoldier2->roster().team() != pSoldier->roster().team() && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
@@ -10252,9 +10252,9 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 
 	// first, scan through all mercs and turn off xrayed flag for anyone
 	// previously xrayed by this guy
-	for ( uiSlot = 0; uiSlot < guiNumMercSlots; ++uiSlot )
+	for ( uiSlot = 0; uiSlot < Ja2ActiveTacticalActorSlotCount(); ++uiSlot )
 	{
-		pSoldier2 = MercSlots[ uiSlot ];
+		pSoldier2 = ResolveJa2ActiveTacticalActorSlot(uiSlot);
 		if ( pSoldier2 )
 		{
 			if ( (pSoldier2->featureFlags().eventFlags() & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
@@ -10265,9 +10265,9 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 		}
 	}
 	// now turn on xray for anyone within range
-	for ( uiSlot = 0; uiSlot < guiNumMercSlots; ++uiSlot )
+	for ( uiSlot = 0; uiSlot < Ja2ActiveTacticalActorSlotCount(); ++uiSlot )
 	{
-		pSoldier2 = MercSlots[ uiSlot ];
+		pSoldier2 = ResolveJa2ActiveTacticalActorSlot(uiSlot);
 		if ( pSoldier2 )
 		{
 			if ( pSoldier2->roster().team() != pSoldier->roster().team() && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
@@ -10292,9 +10292,9 @@ void TurnOffXRayEffects( SOLDIERTYPE * pSoldier )
 
 	// scan through all mercs and turn off xrayed flag for anyone
 	// xrayed by this guy
-	for ( uiSlot = 0; uiSlot < guiNumMercSlots; uiSlot++ )
+	for ( uiSlot = 0; uiSlot < Ja2ActiveTacticalActorSlotCount(); uiSlot++ )
 	{
-		pSoldier2 = MercSlots[ uiSlot ];
+		pSoldier2 = ResolveJa2ActiveTacticalActorSlot(uiSlot);
 		if ( pSoldier2 )
 		{
 			if ( (pSoldier2->featureFlags().eventFlags() & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )

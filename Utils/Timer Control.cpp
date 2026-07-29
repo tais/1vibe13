@@ -239,9 +239,9 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 		}
 		else
 		{
-			for ( UINT32 cnt = 0; cnt < guiNumMercSlots; cnt++ )
+			for ( UINT32 cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 			{
-				SOLDIERTYPE* pSoldier = MercSlots[ cnt ];
+				SOLDIERTYPE* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 				if ( pSoldier != NULL )
 				{

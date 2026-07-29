@@ -1681,9 +1681,9 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 		// OK, loop through all active merc slots, change
 		// Change ANY attacker's target if they were once on this guy.....
-		for ( uiSlot = 0; uiSlot < guiNumMercSlots; uiSlot++ )
+		for ( uiSlot = 0; uiSlot < Ja2ActiveTacticalActorSlotCount(); uiSlot++ )
 		{
-			pGroupMember = MercSlots[ uiSlot ];
+			pGroupMember = ResolveJa2ActiveTacticalActorSlot(uiSlot);
 
 			if ( pGroupMember != NULL )
 			{
@@ -2089,9 +2089,9 @@ void UpdateSoldierPointerDataIntoProfile( BOOLEAN fPlayerMercs )
 	MERCPROFILESTRUCT * pProfile;
 	BOOLEAN				fDoCopy = FALSE;
 
-	for( UINT32 uiCount=0; uiCount < guiNumMercSlots; ++uiCount)
+	for( UINT32 uiCount=0; uiCount < Ja2ActiveTacticalActorSlotCount(); ++uiCount)
 	{
-		pSoldier = MercSlots[ uiCount ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiCount);
 
 		if ( pSoldier != NULL )
 		{

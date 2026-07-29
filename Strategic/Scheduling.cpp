@@ -831,7 +831,8 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			{
 				// civ should go off map; this tells us where the civ will return
 				pSoldier->deployment().offWorldGrid() = pSchedule->usData2[ index ];
-				MoveSoldierFromMercToAwaySlot( pSoldier );
+				MoveSoldierFromMercToAwaySlot(
+					GetJa2TacticalEntityId(*pSoldier));
 				pSoldier->roster().inSector() = FALSE;
 			}
 			else
@@ -856,7 +857,8 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			BumpAnyExistingMerc( pSchedule->usData1[ index ] );
 			ConvertGridNoToCellXY( pSchedule->usData1[ index ], &sCellX, &sCellY );
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
-			MoveSoldierFromAwayToMercSlot( pSoldier );
+			MoveSoldierFromAwayToMercSlot(
+				GetJa2TacticalEntityId(*pSoldier));
 			pSoldier->roster().inSector() = TRUE;
 			// let this person patrol from here from now on
 			pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData1[ index ];
@@ -889,7 +891,8 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 
 			// ok, that tells us where the civ will return
 			pSoldier->deployment().offWorldGrid() = sGridNo;
-			MoveSoldierFromMercToAwaySlot( pSoldier );
+			MoveSoldierFromMercToAwaySlot(
+				GetJa2TacticalEntityId(*pSoldier));
 			pSoldier->roster().inSector() = FALSE;
 			break;
 	}

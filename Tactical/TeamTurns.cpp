@@ -70,9 +70,9 @@ void RecalculateSoldiersAniSpeed()
 
 //	if( gubSpeedUpAnimationFactor == 1 )return;
 
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pSoldier)

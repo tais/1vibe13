@@ -154,9 +154,9 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 	UINT8 sectordata = SectorExternalData[ubSectorId][0].usCurfewValue;
 
 	// look through this man's personal & public opplists for opponents heard
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop)
 	{
-		pTemp = MercSlots[ uiLoop ];
+		pTemp = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pTemp || !pTemp->vitals().health())
@@ -350,9 +350,9 @@ INT16 WhatIKnowThatPublicDont(SOLDIERTYPE *pSoldier, UINT8 ubInSightOnly)
 //	pTemp = GetJa2SoldierRepository().resolve(iLoop);
 
 
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pTemp = MercSlots[ uiLoop ];
+		pTemp = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pTemp)

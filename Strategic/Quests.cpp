@@ -281,9 +281,9 @@ UINT32 NumWoundedMercsNearby( UINT8 ubProfileID )
 
 	INT32 sGridNo = pNPC->position().gridNo();
 
-	for ( UINT32 uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop )
+	for ( UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pSoldier && pSoldier->roster().team() == gbPlayerNum && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL
 			 && pSoldier->deployment().sectorX() == pNPC->deployment().sectorX() && pSoldier->deployment().sectorY() == pNPC->deployment().sectorY() && pSoldier->deployment().sectorZ() == pNPC->deployment().sectorZ() )
@@ -313,9 +313,9 @@ UINT16 NumMercsNear( UINT8 ubProfileID, UINT8 ubMaxDist )
 	}
 	sGridNo = pNPC->position().gridNo();
 
-	for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pSoldier && pSoldier->roster().team() == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE )
 		{
@@ -495,9 +495,9 @@ INT8 NumMalesPresent( UINT8 ubProfileID )
 	}
 	sGridNo = pNPC->position().gridNo();
 
-	for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pSoldier && pSoldier->roster().team() == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE)
 		{
@@ -529,9 +529,9 @@ BOOLEAN FemalePresent( UINT8 ubProfileID )
 	}
 	sGridNo = pNPC->position().gridNo();
 
-	for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pSoldier && pSoldier->roster().team() == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE)
 		{
@@ -601,9 +601,9 @@ BOOLEAN AIMMercWithin( INT32 sGridNo, INT16 sDistance )
 	UINT32					uiLoop;
 	SOLDIERTYPE *		pSoldier;
 
-	for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pSoldier && (pSoldier->roster().team() == gbPlayerNum) && (pSoldier->vitals().health() >= OKLIFE) && ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) )
 		{

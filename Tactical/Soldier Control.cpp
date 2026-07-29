@@ -2496,9 +2496,11 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 	INT32			iGridNo;
 	INT8			bDir;
 	BOOLEAN		fRet;
+	TacticalEntityId actor;
 
 	if ( this != NULL )
 	{
+		actor = GetJa2TacticalEntityId(*this);
 		// Invalidate the exact incarnation before dismantling its legacy
 		// resources. A late delete for a reused slot cannot remove its successor.
 		(void)ReleaseJa2TacticalEntity(*this);
@@ -2556,11 +2558,11 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 	}
 
 	// REMOVE SOLDIER FROM SLOT!
-	fRet = RemoveMercSlot( this );
+	fRet = RemoveJa2ActiveTacticalActor(actor);
 
 	if ( !fRet )
 	{
-		RemoveAwaySlot( this );
+		RemoveJa2AwayTacticalActor(actor);
 	}
 
 	return(TRUE);
@@ -9699,10 +9701,10 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 
 			// sevenfm: if someone is dragging this soldier, cancel drag
 			SOLDIERTYPE *pSoldier;
-			for (UINT32 uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+			for (UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 			{
 				pSoldier =
-					GetJa2SoldierRepository().resolve( uiLoop );
+					ResolveJa2ActiveTacticalActorSlot(uiLoop);
 				if (pSoldier && pSoldier->interaction().draggedPerson() == this->identity().id())
 				{
 					pSoldier->CancelDrag();
@@ -20798,10 +20800,10 @@ void	SOLDIERTYPE::SetDragOrderPerson( SoldierID usID )
 	{
 		// sevenfm: if someone is dragging this soldier, cancel drag
 		SOLDIERTYPE *pSoldier;
-		for (UINT32 uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop)
+		for (UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop)
 		{
 			pSoldier =
-				GetJa2SoldierRepository().resolve( uiLoop );
+				ResolveJa2ActiveTacticalActorSlot(uiLoop);
 			if (pSoldier && pSoldier->interaction().draggedPerson() == usID)
 			{
 				pSoldier->CancelDrag();
@@ -20820,10 +20822,10 @@ void	SOLDIERTYPE::SetDragOrderCorpse( UINT32 uiCorpseID )
 	{
 		// sevenfm: if someone is dragging this corpse, cancel drag
 		SOLDIERTYPE *pSoldier;
-		for (UINT32 uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+		for (UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 		{
 			pSoldier =
-				GetJa2SoldierRepository().resolve( uiLoop );
+				ResolveJa2ActiveTacticalActorSlot(uiLoop);
 			if (pSoldier && pSoldier->interaction().draggingCorpse() &&
 				static_cast<UINT32>( pSoldier->interaction().draggedCorpse() ) == uiCorpseID)
 			{
@@ -20843,10 +20845,10 @@ void	SOLDIERTYPE::SetDragOrderStructure( INT32 sGridNo )
 	{
 		// sevenfm: if someone is dragging this corpse, cancel drag
 		SOLDIERTYPE *pSoldier;
-		for ( UINT32 uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop )
+		for ( UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
 		{
 			pSoldier =
-				GetJa2SoldierRepository().resolve( uiLoop );
+				ResolveJa2ActiveTacticalActorSlot(uiLoop);
 			if ( pSoldier && pSoldier->interaction().draggedStructureGrid() == sGridNo )
 			{
 				pSoldier->CancelDrag();

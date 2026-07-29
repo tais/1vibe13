@@ -7,6 +7,7 @@
 #include <EditorMercs.h>
 #include "Soldier Find.h"
 #include "Campaign Types.h"		// added by Flugente for SECTORINFO and UNDERGROUND_SECTORINFO
+#include "TacticalEntityHost.h"
 #define             ADD_SOLDIER_NO_PROFILE_ID       200
 
 #define MAX_REALTIME_SPEED_VAL                      10
@@ -187,10 +188,6 @@ extern UINT8    gubCurrentScene;
 extern CHAR8    *GetSceneFilename(  );
 extern INT8     ubLevelMoveLink[ 10 ];
 
-// MERC SLOTS - A LIST OF ALL ACTIVE MERCS
-extern SOLDIERTYPE  *MercSlots[ TOTAL_SOLDIERS ];
-extern UINT32       guiNumMercSlots;
-
 extern BOOLEAN      gfMovingAnimation;
 
 
@@ -263,15 +260,10 @@ void SelectNextAvailSoldier( SOLDIERTYPE *pSoldier );
 BOOLEAN TeamMemberNear(INT8 bTeam, INT32 sGridNo, INT32 iRange);
 BOOLEAN IsValidTargetMerc( SoldierID ubSoldierID );
 
-// FUNCTIONS FOR MANIPULATING MERC SLOTS - A LIST OF ALL ACTIVE MERCS
-INT32 GetFreeMercSlot( );
-INT32 AddMercSlot( SOLDIERTYPE *pSoldier );
-BOOLEAN RemoveMercSlot( SOLDIERTYPE *pSoldier   );
-
-INT32   AddAwaySlot( SOLDIERTYPE *pSoldier );
-BOOLEAN RemoveAwaySlot( SOLDIERTYPE *pSoldier );
-INT32   MoveSoldierFromMercToAwaySlot( SOLDIERTYPE * pSoldier );
-INT32   MoveSoldierFromAwayToMercSlot( SOLDIERTYPE * pSoldier );
+// Moves preserve the established tactical/away scheduler behavior while
+// accepting an exact actor identity rather than retaining a record pointer.
+INT32 MoveSoldierFromMercToAwaySlot(TacticalEntityId actor);
+INT32 MoveSoldierFromAwayToMercSlot(TacticalEntityId actor);
 
 void EnterCombatMode( UINT8 ubStartingTeam );
 void ExitCombatMode( );

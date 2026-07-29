@@ -112,9 +112,9 @@ void HandleFlashLights()
 
 	SOLDIERTYPE* pSoldier = NULL;
 
-	for (UINT32 uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop )
+	for (UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pSoldier != NULL && pSoldier->featureFlags().primaryFlags() & SOLDIER_REDOFLASHLIGHT )
 		{
@@ -906,9 +906,9 @@ void RenderTopmostTacticalInterface( )
 	RenderAccumulatedBurstLocations( );
 
 	// Loop through all mercs and make go
-	for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 	{
-		pSoldier = MercSlots[ cnt ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 		if (pSoldier != NULL )
 		{

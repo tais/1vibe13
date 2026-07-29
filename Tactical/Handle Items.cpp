@@ -4452,9 +4452,9 @@ void NotifySoldiersToLookforItems( )
 	UINT32 cnt;
 	SOLDIERTYPE *pSoldier;
 
-	for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 	{
-		pSoldier = MercSlots[ cnt ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 		if ( pSoldier != NULL )
 		{
@@ -4470,9 +4470,9 @@ void AllSoldiersLookforItems( BOOLEAN fShowLocators )
 	UINT32 cnt;
 	SOLDIERTYPE *pSoldier;
 
-	for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 	{
-		pSoldier = MercSlots[ cnt ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 		if ( pSoldier != NULL )
 		{

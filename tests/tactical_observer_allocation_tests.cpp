@@ -1,13 +1,16 @@
+#include <Engine/Adapters/JA2/TacticalEntityRoster.h>
 #include <Engine/Adapters/JA2/TacticalWorldObserver.h>
 #include <Engine/Adapters/JA2/TacticalWorldService.h>
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <new>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -170,6 +173,42 @@ int main()
 {
 	constexpr std::size_t ActorCount = 16;
 	constexpr std::size_t EventLimit = 3;
+	TacticalEntityRoster roster(ActorCount);
+	std::array<TacticalEntityId, ActorCount> rosterActors;
+	for (std::size_t slot = 0; slot < ActorCount; ++slot)
+	{
+		rosterActors[slot] = TacticalEntityId{
+			static_cast<std::uint16_t>(slot),
+			static_cast<std::uint32_t>(2000 + slot)};
+	}
+	bool stableRoster = true;
+	allocation_probe::count.store(0, std::memory_order_relaxed);
+	allocation_probe::enabled.store(true, std::memory_order_relaxed);
+	for (std::size_t slot = 0; slot < ActorCount; ++slot)
+	{
+		const auto inserted = roster.insert(rosterActors[slot]);
+		if (!inserted || *inserted != slot)
+		{
+			stableRoster = false;
+			break;
+		}
+	}
+	for (std::size_t iteration = 0;
+		stableRoster && iteration < 4096; ++iteration)
+	{
+		const std::size_t slot = iteration % ActorCount;
+		if (!roster.erase(rosterActors[slot]) ||
+			roster.insert(rosterActors[slot]) !=
+				std::optional<TacticalEntityRoster::Slot>{slot})
+		{
+			stableRoster = false;
+		}
+	}
+	allocation_probe::enabled.store(false, std::memory_order_relaxed);
+	check(stableRoster && roster.full() &&
+		allocation_probe::count.load(std::memory_order_relaxed) == 0,
+		"preallocated tactical roster mutation performs zero heap allocations");
+
 	ReusableTacticalWorldService source(ActorCount);
 	TacticalWorldObserver observer(
 		source, TacticalWorldObserverLimits{ActorCount, EventLimit});

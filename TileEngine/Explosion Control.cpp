@@ -3204,11 +3204,14 @@ void SpreadEffect( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID ubOwn
 	if (fAnyMercHit)
 	{
 		// reset explosion hit flag so we can damage mercs again
-		for ( cnt = 0; cnt < (INT32)guiNumMercSlots; cnt++ )
+		for ( cnt = 0; cnt < (INT32)Ja2ActiveTacticalActorSlotCount(); cnt++ )
 		{
-			if ( MercSlots[ cnt ] )
+			SOLDIERTYPE* soldier =
+				ResolveJa2ActiveTacticalActorSlot(cnt);
+			if ( soldier )
 			{
-				MercSlots[ cnt ]->featureFlags().eventFlags() &= ~SOLDIER_MISC_HURT_BY_EXPLOSION;
+				soldier->featureFlags().eventFlags() &=
+					~SOLDIER_MISC_HURT_BY_EXPLOSION;
 			}
 		}
 	}
@@ -4327,9 +4330,9 @@ void HandleExplosionWarningAnimations( )
 		}
 
 		// Flugente: we have to check every inventory for armed bombs and do the countdown for them, too
-		for ( UINT32 cnt = 0; cnt < guiNumMercSlots; ++cnt )
+		for ( UINT32 cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); ++cnt )
 		{
-			SOLDIERTYPE* pSoldier = MercSlots[cnt];
+			SOLDIERTYPE* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 			if ( pSoldier != NULL )
 			{
@@ -4498,9 +4501,9 @@ void HandleExplosionWarningAnimations( )
 				INT8 bLevel;
 
 				// look through this man's personal & public opplists for opponents known
-				for (UINT32 uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+				for (UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 				{
-					pOpponent = MercSlots[uiLoop];
+					pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 					// if this merc is inactive, at base, on assignment, or dead
 					if (!pOpponent || !ValidOpponent(pSoldier, pOpponent))
@@ -4606,9 +4609,9 @@ void DecayBombTimers( void )
 	// Flugente: we have to check every inventory for armed bombs and do the countdown for them, too
 	// Flugente: new stuff: we can now also arm bombs in our inventory, and detonate/defuse those bombs remotely
 	// So we have to look at every item in every inventory in this sector
-	for (UINT32 cnt = 0; cnt < guiNumMercSlots; ++cnt )
+	for (UINT32 cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); ++cnt )
 	{
-		SOLDIERTYPE* pSoldier = MercSlots[ cnt ];
+		SOLDIERTYPE* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 		if ( pSoldier != NULL )
 		{
@@ -4777,9 +4780,9 @@ void SetOffBombsByFrequency( SoldierID ubID, INT8 bFrequency )
 
 	// Flugente: new stuff: we can now also arm bombs in our inventory, and detonate/defuse those bombs remotely
 	// So we have to look at every item in every inventory in this sector
-	for (UINT32 cnt = 0; cnt < guiNumMercSlots; ++cnt )
+	for (UINT32 cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); ++cnt )
 	{
-		SOLDIERTYPE* pSoldier = MercSlots[ cnt ];
+		SOLDIERTYPE* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 		if ( pSoldier != NULL )
 		{

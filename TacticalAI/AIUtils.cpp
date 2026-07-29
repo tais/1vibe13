@@ -865,9 +865,9 @@ INT16 RandomFriendWithin(SOLDIERTYPE *pSoldier)
 	// build a list of the guynums of all active, eligible friendly mercs
 
 	// go through each soldier, looking for "friends" (soldiers on same side)
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pFriend = MercSlots[ uiLoop ];
+		pFriend = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, not in sector, or dead
 		if (!pFriend)
@@ -1167,9 +1167,9 @@ INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel
 //	psLastLoc = &(gsLastKnownOppLoc[pSoldier->identity().id()][0]);
 
 	// look through this man's personal & public opplists for opponents known
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pOpponent)
@@ -1294,9 +1294,9 @@ INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel
 		// if we are there (at the noise gridno)
 		if (sGridNo == pSoldier->position().gridNo())
 		{
-			for(uiLoop=0; uiLoop<guiNumMercSlots; uiLoop++)//dnl ch58 160813
+			for(uiLoop=0; uiLoop<Ja2ActiveTacticalActorSlotCount(); uiLoop++)//dnl ch58 160813
 			{
-				pOpponent = MercSlots[uiLoop];
+				pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 				if(pOpponent && pSoldier->roster().side() == pOpponent->roster().side() && pSoldier->identity().id() != pOpponent->identity().id()&& pSoldier->perception().noiseGrid() == pOpponent->perception().noiseGrid())
 				{
 					pOpponent->perception().noiseGrid() = NOWHERE;// Erase for all from the same team as it not useful anymore, this will avoid others to check already tested location
@@ -1415,9 +1415,9 @@ INT32 ClosestKnownOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLev
 	pbPublOL = &(gbPublicOpplist[pSoldier->roster().team()][0]);
 
 	// look through this man's personal & public opplists for opponents known
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pOpponent)
@@ -1529,9 +1529,9 @@ INT32 ClosestSeenOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLeve
 	bClosestLevel = -1;
 
 	// look through this man's personal & public opplists for opponents known
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpp = MercSlots[ uiLoop ];
+		pOpp = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pOpp)
@@ -1625,9 +1625,9 @@ INT32 ClosestSeenOpponentWithRoof(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 
 	bClosestLevel = -1;
 
 	// look through this man's personal & public opplists for opponents known
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpp = MercSlots[ uiLoop ];
+		pOpp = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pOpp)
@@ -2095,9 +2095,9 @@ INT32 ClosestReachableFriendInTrouble(SOLDIERTYPE *pSoldier, BOOLEAN * pfClimbin
 	}
 
 	// consider every friend of this soldier (locations assumed to be known)
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pFriend = MercSlots[ uiLoop ];
+		pFriend = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pFriend)
@@ -2441,9 +2441,9 @@ INT8 CalcMorale(SOLDIERTYPE *pSoldier)
 	pSeenOpp = (UINT8 *)&(gbSeenOpponents[pSoldier->identity().id()][0]);
 
 	// loop through every one of my possible opponents
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[uiLoop];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pOpponent || (pOpponent->vitals().health() < OKLIFE))
@@ -2499,9 +2499,9 @@ INT8 CalcMorale(SOLDIERTYPE *pSoldier)
 		// THROUGH THEIR PERSONAL OPPLISTS AND CHECK WHICH OF MY FRIENDS KNOW
 		// SOMETHING ABOUT HIM AND WHAT THEIR THREAT VALUE TO HIM IS.
 
-		for (uiLoop2 = 0; uiLoop2 < guiNumMercSlots; uiLoop2++)
+		for (uiLoop2 = 0; uiLoop2 < Ja2ActiveTacticalActorSlotCount(); uiLoop2++)
 		{
-			pFriend = MercSlots[uiLoop2];
+			pFriend = ResolveJa2ActiveTacticalActorSlot(uiLoop2);
 
 			// if this merc is inactive, at base, on assignment, dead, unconscious
 			if (!pFriend || (pFriend->vitals().health() < OKLIFE))
@@ -3736,9 +3736,9 @@ INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
 	pSeenOpp	= (UINT8 *) &(gbSeenOpponents[pSoldier->identity().id()][0]);
 
 	// loop through every one of my possible opponents
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pOpponent || (pOpponent->vitals().health() < OKLIFE))
@@ -3794,9 +3794,9 @@ INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
 		// THROUGH THEIR PERSONAL OPPLISTS AND CHECK WHICH OF MY FRIENDS KNOW
 		// SOMETHING ABOUT HIM AND WHAT THEIR THREAT VALUE TO HIM IS.
 
-		for (uiLoop2 = 0; uiLoop2 < guiNumMercSlots; uiLoop2++)
+		for (uiLoop2 = 0; uiLoop2 < Ja2ActiveTacticalActorSlotCount(); uiLoop2++)
 		{
-			pFriend = MercSlots[ uiLoop2 ];
+			pFriend = ResolveJa2ActiveTacticalActorSlot(uiLoop2);
 
 			// if this merc is inactive, at base, on assignment, dead, unconscious
 			if (!pFriend || (pFriend->vitals().health() < OKLIFE))
@@ -4204,9 +4204,9 @@ BOOLEAN ProneSightCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot, BOOLEAN fUnlim
 	INT32 iDistanceVisible;
 
 	// look through all opponents for those we know of
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
@@ -4294,9 +4294,9 @@ BOOLEAN SightCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot, BOOLEAN fUnlimited)
 	INT32 iDistanceVisible;
 
 	// look through all opponents for those we know of
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
@@ -4371,9 +4371,9 @@ BOOLEAN EnemySeenSoldierRecently( SOLDIERTYPE *pSoldier, UINT8 ubMax )
 	SOLDIERTYPE *pOpponent;
 
 	//loop through all the enemies and determine the cover
-	for ( uiLoop = 0; uiLoop<guiNumMercSlots; ++uiLoop )
+	for ( uiLoop = 0; uiLoop<Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
 	{
-		pOpponent = MercSlots[uiLoop];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if ( !pOpponent || pOpponent->vitals().health() < OKLIFE )
@@ -4756,9 +4756,9 @@ INT16 DistanceToClosestActiveOpponent(SOLDIERTYPE *pSoldier, INT32 sSpot)
 	}
 
 	// look through this man's personal & public opplists for opponents known
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[uiLoop];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pOpponent)
@@ -5568,9 +5568,9 @@ BOOLEAN AnyCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot)
 	INT8		iThreatLevel;
 
 	// look through all opponents for those we know of
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[uiLoop];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
@@ -6045,9 +6045,9 @@ UINT32 PrepareThreatlist(SOLDIERTYPE *pSoldier)
 		return 0;
 
 	// look through all opponents for those we know of
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[uiLoop];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
@@ -6136,9 +6136,9 @@ UINT16 CountPublicKnownEnemies(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 sDist
 	UINT16		ubNum = 0;
 
 	// loop through all the enemies
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop)
 	{
-		pOpponent = MercSlots[uiLoop];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
@@ -6190,9 +6190,9 @@ UINT16 CountPublicKnownEnemies(SOLDIERTYPE *pSoldier)
 	UINT16		ubNum = 0;
 
 	// loop through all the enemies
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop)
 	{
-		pOpponent = MercSlots[uiLoop];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pOpponent || pOpponent->vitals().health() < OKLIFE)
@@ -6237,9 +6237,9 @@ BOOLEAN CheckSuppressionDirection(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, IN
 
 	ubShootingDir = AIDirection(pSoldier->position().gridNo(), sTargetGridNo);
 
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop)
 	{
-		pFriend = MercSlots[uiLoop];
+		pFriend = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if (pFriend &&
 			pFriend != pSoldier &&

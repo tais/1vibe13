@@ -1181,9 +1181,9 @@ SoldierID GetMostThreateningOpponent( SOLDIERTYPE *pSoldier )
 
 	// Loop through all mercs
 
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pTargetSoldier = MercSlots[ uiLoop ];
+		pTargetSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if (!pTargetSoldier)
 		{
@@ -2846,9 +2846,9 @@ void ManChecksOnFriends(SOLDIERTYPE *pSoldier)
 	// THIS ROUTINE SHOULD ONLY BE CALLED FOR SOLDIERS ON STATUS GREEN or YELLOW
 
 	// go through each soldier, looking for "friends" (soldiers on same side)
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pFriend = MercSlots[ uiLoop ];
+		pFriend = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if (!pFriend)
 		{
@@ -2960,7 +2960,8 @@ void HandleAITacticalTraversal( SOLDIERTYPE * pSoldier )
 	RemoveManAsTarget( pSoldier );
 	if (pSoldier->roster().team() == CIV_TEAM && pSoldier->aiBehavior().flags() & AI_CHECK_SCHEDULE)
 	{
-		MoveSoldierFromMercToAwaySlot( pSoldier );
+		MoveSoldierFromMercToAwaySlot(
+			GetJa2TacticalEntityId(*pSoldier));
 		pSoldier->roster().inSector() = FALSE;
 	}
 	else

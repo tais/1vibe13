@@ -332,10 +332,10 @@ BOOLEAN BuildAIListForTeam( INT8 bTeam )
 	ClearAIList();
 
 	// create a new list
-	for( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++ )
+	for( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++ )
 	{
 		// non-null merc slot ensures active
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 		if ( pSoldier && pSoldier->roster().team() == bTeam )
 		{
 			if ( !SatisfiesAIListConditions( pSoldier, &ubDoneCount, TRUE ) )

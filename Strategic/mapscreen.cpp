@@ -7648,17 +7648,22 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 				case '\''://dnl ch75 021113
 #ifdef _DEBUG
 					// temporary add soldiers to your list for equipment inspection and general testing
-					for(UINT32 ubLoop=0; ubLoop<guiNumMercSlots&&gGameExternalOptions.fEnableInventoryPoolQ; ubLoop++)
+					for(UINT32 ubLoop=0; ubLoop<Ja2ActiveTacticalActorSlotCount()&&gGameExternalOptions.fEnableInventoryPoolQ; ubLoop++)
 					{
-						if(MercSlots[ubLoop] != NULL && MercSlots[ubLoop]->roster().team() == ENEMY_TEAM && MercSlots[ubLoop]->roster().active())
+						SOLDIERTYPE* soldier =
+							ResolveJa2ActiveTacticalActorSlot(ubLoop);
+						if(soldier != NULL &&
+							soldier->roster().team() == ENEMY_TEAM &&
+							soldier->roster().active())
 						{
 							for(int i=0; i<CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS; i++)
 							{
-								if(gCharactersList[i].usSolID == MercSlots[ubLoop]->identity().id())
+								if(gCharactersList[i].usSolID == soldier->identity().id())
 									break;
 								if(gCharactersList[i].usSolID == 0 && gCharactersList[i].fValid == FALSE)
 								{
-									gCharactersList[i].usSolID = MercSlots[ubLoop]->identity().id();
+									gCharactersList[i].usSolID =
+										soldier->identity().id();
 									gCharactersList[i].fValid = TRUE;
 									break;
 								}

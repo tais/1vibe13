@@ -1562,8 +1562,8 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 	iMyThreatValue = CalcManThreatValue(pSoldier, NOWHERE, FALSE, pSoldier);
 
 	// look through all opponents for those we know of
-	for (UINT32 uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++) {
-		SOLDIERTYPE* pOpponent = MercSlots[ uiLoop ];
+	for (UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++) {
+		SOLDIERTYPE* pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pOpponent || pOpponent->vitals().health() < OKLIFE) {

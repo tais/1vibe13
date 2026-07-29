@@ -1899,9 +1899,9 @@ void SaveNPCInformationToProfileStruct( )
 		return;
 	}
 
-	for ( cnt = 0; cnt < guiNumMercSlots; cnt++)
+	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++)
 	{
-		pSoldier = MercSlots[ cnt ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 		//if it is an active NPC
 		if ( pSoldier && pSoldier->identity().profile() != NO_PROFILE && pSoldier->roster().team() == CIV_TEAM )

@@ -11,6 +11,7 @@
 #include <Engine/Adapters/JA2/TacticalCommandResultCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandResultPublisher.h>
 #include <Engine/Adapters/JA2/TacticalEntity.h>
+#include <Engine/Adapters/JA2/TacticalEntityRoster.h>
 #include <Engine/Adapters/JA2/TacticalInventoryUiSession.h>
 #include <Engine/Adapters/JA2/TacticalWorldDelta.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
@@ -839,6 +840,48 @@ int main()
 		entityDirectory.activeCount() == 0 &&
 		entityDirectory.nextIncarnation() == 1,
 		"tactical entity directories are bounded and start empty");
+	TacticalEntityRoster entityRoster(3);
+	const TacticalEntityId firstRosterActor{0, 11};
+	const TacticalEntityId secondRosterActor{1, 12};
+	const TacticalEntityId reboundRosterActor{1, 13};
+	const auto firstRosterSlot = entityRoster.insert(firstRosterActor);
+	const auto secondRosterSlot = entityRoster.insert(secondRosterActor);
+	check(firstRosterSlot && *firstRosterSlot == 0 &&
+		secondRosterSlot && *secondRosterSlot == 1 &&
+		entityRoster.insert(firstRosterActor) == firstRosterSlot &&
+		entityRoster.size() == 2 &&
+		entityRoster.highWaterMark() == 2 &&
+		entityRoster.contains(firstRosterActor) &&
+		entityRoster.actor(1) == secondRosterActor,
+		"tactical entity rosters retain unique exact identities in stable lowest slots");
+	check(entityRoster.erase(firstRosterActor) &&
+		!entityRoster.contains(firstRosterActor) &&
+		entityRoster.size() == 1 &&
+		entityRoster.highWaterMark() == 2 &&
+		entityRoster.insert(TacticalEntityId{0, 14}) == firstRosterSlot &&
+		!entityRoster.erase(firstRosterActor) &&
+		entityRoster.contains(TacticalEntityId{0, 14}) &&
+		entityRoster.size() == 2,
+		"tactical entity rosters reuse vacancies without letting stale incarnations erase their replacements");
+	check(entityRoster.replace(1, reboundRosterActor) &&
+		entityRoster.actor(1) == reboundRosterActor &&
+		!entityRoster.replace(1, entityRoster.actor(0)) &&
+		!entityRoster.replace(2, firstRosterActor) &&
+		!entityRoster.insert({}) &&
+		!entityRoster.erase(firstRosterActor),
+		"tactical entity roster rebinding rejects invalid, vacant, and duplicate identities");
+	check(entityRoster.erase(reboundRosterActor) &&
+		entityRoster.highWaterMark() == 1 &&
+		entityRoster.insert(TacticalEntityId{3, 15}) &&
+		entityRoster.insert(TacticalEntityId{4, 16}) &&
+		entityRoster.full() &&
+		!entityRoster.insert(TacticalEntityId{5, 17}),
+		"tactical entity rosters shrink trailing vacancies and reject capacity overflow");
+	entityRoster.clear();
+	check(entityRoster.empty() && entityRoster.size() == 0 &&
+		entityRoster.highWaterMark() == 0 &&
+		!entityRoster.actor(0).valid(),
+		"tactical entity roster reset clears all runtime membership");
 	const std::uint32_t failedCreateIncarnation =
 		entityDirectory.issueIncarnation();
 	check(failedCreateIncarnation == 1 && entityDirectory.activeCount() == 0 &&

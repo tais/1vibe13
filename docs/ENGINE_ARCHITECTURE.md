@@ -798,6 +798,21 @@ the engine must not contain SDL types in its public domain model.
   animation tables as a parallel package-facing state path. The former exported
   incarnation counter has been deleted; pre-composition allocations transfer
   the fallback directory's sequence directly when `EngineRuntime` is bound.
+- `TacticalEntityRoster` provides fixed-capacity, pointer-free ordered
+  membership above that directory. The JA2 tactical host owns separate active
+  and away scheduler rosters because tactical scheduling is neither the set of
+  every live entity nor strategic squad membership. Inserts reuse the lowest
+  vacancy without allocating, atomically retire membership in the opposite
+  roster, readers resolve one exact slot/incarnation at the point of use, and
+  stale entries fail closed. Whole-record portrait swaps
+  rebuild directory identities and rebind both rosters by canonical repository
+  slot in the same host operation, preserving the established fixed-address
+  behavior without retaining `SOLDIERTYPE*`. Deletion captures the identity
+  before releasing it and can then erase that exact roster entry after the
+  directory rejects resolution. The former `MercSlots`, `AwaySlots`, and
+  mutable high-water globals are deleted and architecture checks prevent their
+  return. These rosters are preallocated runtime scheduling state only: squad
+  layout, soldier/map content, saves, Lua, and network formats are unchanged.
 - `Ja2SoldierRepository` is the application-owned live-storage seam paired with
   that directory. `GameContext` owns the repository, and its fixed record
   allocation and slot table are private implementation storage in

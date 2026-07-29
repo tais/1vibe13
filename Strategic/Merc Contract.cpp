@@ -1073,7 +1073,8 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 			else
 			{
 				// remove him from any existing merc slot he could be in
-				RemoveMercSlot( pSoldier );
+				RemoveJa2ActiveTacticalActor(
+					GetJa2TacticalEntityId(*pSoldier));
 				TakeSoldierOutOfVehicle( pSoldier );
 			}
 		}
