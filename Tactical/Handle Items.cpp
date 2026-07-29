@@ -151,7 +151,7 @@ struct TacticalActorCallbackContext
 	std::uint64_t worldGeneration = 0;
 
 	bool capture(
-		SOLDIERTYPE* soldier,
+		TacticalEntityId selectedActor,
 		INT32 selectedGrid = NOWHERE,
 		INT8 selectedLevel = 0,
 		bool captureHandItem = false) noexcept
@@ -160,8 +160,14 @@ struct TacticalActorCallbackContext
 		const TacticalWorldSession::Snapshot& world =
 			CaptureJa2TacticalWorld();
 		if (!world.loaded || world.worldGeneration == 0 ||
-			!actor.capture(soldier))
+			!actor.capture(selectedActor))
 			return false;
+		SOLDIERTYPE* soldier = actor.resolve();
+		if (!soldier)
+		{
+			reset();
+			return false;
+		}
 		grid = selectedGrid;
 		level = selectedLevel;
 		handItem = captureHandItem
@@ -202,13 +208,15 @@ struct SwitchCallbackContext
 	INT8 frequency = 0;
 	std::uint64_t worldGeneration = 0;
 
-	bool capture(SOLDIERTYPE* soldier, INT8 selectedFrequency) noexcept
+	bool capture(
+		TacticalEntityId selectedActor,
+		INT8 selectedFrequency) noexcept
 	{
 		reset();
 		const TacticalWorldSession::Snapshot& world =
 			CaptureJa2TacticalWorld();
 		if (!world.loaded || world.worldGeneration == 0 ||
-			!actor.capture(soldier))
+			!actor.capture(selectedActor))
 			return false;
 		frequency = selectedFrequency;
 		worldGeneration = world.worldGeneration;
@@ -254,7 +262,7 @@ struct BoobyTrapCallbackContext
 	std::uint64_t worldGeneration = 0;
 
 	bool captureTactical(
-		SOLDIERTYPE* soldier,
+		TacticalEntityId selectedActor,
 		INT32 itemIndex,
 		INT32 selectedGrid,
 		INT8 selectedLevel,
@@ -265,7 +273,7 @@ struct BoobyTrapCallbackContext
 			CaptureJa2TacticalWorld();
 		if (!world.loaded || world.worldGeneration == 0 ||
 			itemIndex < 0 ||
-			!actor.capture(soldier) ||
+			!actor.capture(selectedActor) ||
 			!worldItem.capture(
 				static_cast<std::uint32_t>(itemIndex)))
 		{
@@ -291,12 +299,13 @@ struct BoobyTrapCallbackContext
 	}
 
 	bool captureMapCursor(
-		SOLDIERTYPE* soldier,
+		TacticalEntityId selectedActor,
 		const OBJECTTYPE* item)
 	{
 		reset();
-		if (!item || item != gpItemPointer || !item->exists() ||
-			!actor.capture(soldier))
+		if (!item || item != gpItemPointer ||
+			!item->exists() ||
+			!actor.capture(selectedActor))
 		{
 			reset();
 			return false;
@@ -2450,7 +2459,8 @@ void HandleSoldierUseCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel )
 void HandleSoldierDefuseTripwire( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT32 sItem )
 {
 	if ( !gBoobyTrapCallbackContext.captureTactical(
-			pSoldier, sItem, sGridNo,
+			GetJa2TacticalEntityId(*pSoldier),
+			sItem, sGridNo,
 			pSoldier->position().level(), false ) )
 	{
 		return;
@@ -2813,7 +2823,7 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 						{
 							// ask about activating the switch!
 							if ( gSwitchCallbackContext.capture(
-									pSoldier,
+									GetJa2TacticalEntityId(*pSoldier),
 									gWorldItems[ pItemPool->iItemIndex ].object[0]->data.misc.bFrequency ) )
 							{
 								DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ ACTIVATE_SWITCH_PROMPT ] , GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, SwitchMessageBoxCallBack, NULL );
@@ -2944,7 +2954,8 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 			if ( gWorldItems[ iItemIndex ].object.exists() && gWorldItems[ iItemIndex ].object.fFlags & OBJECT_ARMED_BOMB && ItemHasTripwireActivation(gWorldItems[ iItemIndex ].object.usItem) )
 			{
 				if ( gBoobyTrapCallbackContext.captureTactical(
-						pSoldier, iItemIndex, sGridNo,
+						GetJa2TacticalEntityId(*pSoldier),
+						iItemIndex, sGridNo,
 						pSoldier->position().level(), false ) )
 				{
 					DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ DISARM_BOOBYTRAP_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, BoobyTrapMessageBoxCallBack, NULL );
@@ -2961,7 +2972,7 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 				{
 					// handle switch
 					if ( gSwitchCallbackContext.capture(
-							pSoldier,
+							GetJa2TacticalEntityId(*pSoldier),
 							gWorldItems[ iItemIndex ].object[0]->data.misc.bFrequency ) )
 					{
 						DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ ACTIVATE_SWITCH_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, SwitchMessageBoxCallBack, NULL );
@@ -3100,7 +3111,8 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 	}
 
 	if ( gOwnershipCallbackContext.capture(
-			pSoldier, sGridNo, pSoldier->position().level() ) )
+			GetJa2TacticalEntityId(*pSoldier),
+			sGridNo, pSoldier->position().level() ) )
 	{
 		SetCustomizableTimerCallbackAndDelay(
 			1000, CheckForPickedOwnership, TRUE );
@@ -3152,7 +3164,8 @@ void HandleSoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 #endif
 
 				if ( !gBoobyTrapCallbackContext.captureTactical(
-						pSoldier, iItemIndex, sGridNo,
+						GetJa2TacticalEntityId(*pSoldier),
+						iItemIndex, sGridNo,
 						pSoldier->position().level(), true ) )
 				{
 					return;
@@ -5507,7 +5520,8 @@ INT32 AdjustGridNoForItemPlacement( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 void StartCorpseMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo,  INT8 bLevel )
 {
 	if ( !gCorpseCallbackContext.capture(
-			pSoldier, sGridNo, bLevel, true ) )
+			GetJa2TacticalEntityId(*pSoldier),
+			sGridNo, bLevel, true ) )
 	{
 		return;
 	}
@@ -5532,7 +5546,8 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 	}
 
 	if ( !gBombCallbackContext.capture(
-			pSoldier, sGridNo, pSoldier->position().level(), true ) )
+			GetJa2TacticalEntityId(*pSoldier),
+			sGridNo, pSoldier->position().level(), true ) )
 	{
 		return;
 	}
@@ -5686,7 +5701,8 @@ void StartTacticalFunctionSelectionMessageBox( SOLDIERTYPE * pSoldier, INT32 sGr
 		return;
 
 	if ( !gTacticalFunctionCallbackContext.capture(
-			pSoldier, sGridNo, bLevel ) )
+			GetJa2TacticalEntityId(*pSoldier),
+			sGridNo, bLevel ) )
 	{
 		return;
 	}
@@ -6372,7 +6388,8 @@ BOOLEAN ContinuePastBoobyTrap( SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bLeve
 					// Make him warn us:
 
 					if ( !gBoobyTrapCallbackContext.captureTactical(
-							pSoldier, iItemIndex, sGridNo,
+							GetJa2TacticalEntityId(*pSoldier),
+							iItemIndex, sGridNo,
 							pSoldier->position().level(), false ) )
 					{
 						return( FALSE );
@@ -6392,7 +6409,8 @@ BOOLEAN ContinuePastBoobyTrap( SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bLeve
 			{
 				// have the computer ask us if we want to proceed
 				if ( !gBoobyTrapCallbackContext.captureTactical(
-						pSoldier, iItemIndex, sGridNo,
+						GetJa2TacticalEntityId(*pSoldier),
+						iItemIndex, sGridNo,
 						pSoldier->position().level(), false ) )
 				{
 					return( FALSE );
@@ -6718,7 +6736,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 		if (gfDisarmingBuriedBomb)
 		{
 			if ( gRemoveBlueFlagCallbackContext.capture(
-					gpBoobyTrapSoldier,
+					GetJa2TacticalEntityId(*gpBoobyTrapSoldier),
 					gsBoobyTrapGridNo,
 					gbBoobyTrapLevel ) )
 			{
@@ -7057,7 +7075,8 @@ void BeginMineSpottedDialogue(
 		return;
 	}
 	if ( !gMineSpottedCallbackContext.captureTactical(
-			pSoldier, mineItemIndex, sGridNo,
+			GetJa2TacticalEntityId(*pSoldier),
+			mineItemIndex, sGridNo,
 			pSoldier->position().level(), true ) )
 	{
 		gTacticalStatus.fLockItemLocators = FALSE;
@@ -7440,7 +7459,8 @@ BOOLEAN ContinuePastBoobyTrapInMapScreen( OBJECTTYPE *pObject, SOLDIERTYPE *pSol
 
 					// Make him warn us:
 					if ( !gBoobyTrapCallbackContext.captureMapCursor(
-							pSoldier, pObject ) )
+							GetJa2TacticalEntityId(*pSoldier),
+							pObject ) )
 					{
 						return( FALSE );
 					}
@@ -7457,7 +7477,8 @@ BOOLEAN ContinuePastBoobyTrapInMapScreen( OBJECTTYPE *pObject, SOLDIERTYPE *pSol
 			{
 				// have the computer ask us if we want to proceed
 				if ( !gBoobyTrapCallbackContext.captureMapCursor(
-						pSoldier, pObject ) )
+						GetJa2TacticalEntityId(*pSoldier),
+						pObject ) )
 				{
 					return( FALSE );
 				}
@@ -7873,7 +7894,8 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 	}
 
 	if ( gOwnershipCallbackContext.capture(
-			pSoldier, sGridNo, pSoldier->position().level() ) )
+			GetJa2TacticalEntityId(*pSoldier),
+			sGridNo, pSoldier->position().level() ) )
 	{
 		SetCustomizableTimerCallbackAndDelay(
 			1000, CheckForPickedOwnership, TRUE );

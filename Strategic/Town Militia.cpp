@@ -64,7 +64,7 @@ struct MilitiaTrainingPromptContext
 	INT32 costMultiplier = 1;
 
 	bool begin(
-		SOLDIERTYPE* selectedTrainer,
+		TacticalEntityId selectedTrainer,
 		BOOLEAN isContinuation,
 		UINT8 selectedMilitiaType) noexcept
 	{
@@ -74,12 +74,15 @@ struct MilitiaTrainingPromptContext
 		Ja2TacticalEntityReference capturedTrainer;
 		if (!capturedTrainer.capture(selectedTrainer))
 			return false;
+		SOLDIERTYPE* trainerRecord = capturedTrainer.resolve();
+		if (!trainerRecord)
+			return false;
 
 		trainer = capturedTrainer;
 		continuation = isContinuation;
 		militiaType = selectedMilitiaType;
-		sectorX = selectedTrainer->deployment().sectorX();
-		sectorY = selectedTrainer->deployment().sectorY();
+		sectorX = trainerRecord->deployment().sectorX();
+		sectorY = trainerRecord->deployment().sectorY();
 		totalCost = 0;
 		costMultiplier = 1;
 		return true;
@@ -949,7 +952,8 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia2");
 		}
 
 	if (!gMilitiaTrainingPrompt.begin(
-			pSoldier, FALSE, ubMilitiaType))
+			GetJa2TacticalEntityId(*pSoldier),
+			FALSE, ubMilitiaType))
 		return;
 	gMilitiaTrainingPrompt.setPayment(
 		totalCost, costMultiplier);
@@ -1020,7 +1024,8 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia3");
 	const UINT8 ubMilitiaType = TOWN_MILITIA;
 
 	if (!gMilitiaTrainingPrompt.begin(
-			pSoldier, TRUE, ubMilitiaType))
+			GetJa2TacticalEntityId(*pSoldier),
+			TRUE, ubMilitiaType))
 		return;
 
 	const UINT8 ubSector = SECTOR( sSectorX, sSectorY );

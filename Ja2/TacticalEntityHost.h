@@ -38,11 +38,13 @@ SOLDIERTYPE* ResolveJa2TacticalEntity(TacticalEntityId entity) noexcept;
 
 // Legacy callbacks often outlive the stack frame that selected an actor. This
 // value-only reference retains the reusable slot plus its incarnation and
-// resolves only while that exact SOLDIERTYPE is still live.
+// resolves only while that exact SOLDIERTYPE is still live. Producers must
+// cross the canonical record boundary before retention; the reference itself
+// never accepts a raw record.
 class Ja2TacticalEntityReference
 {
 public:
-	bool capture(const SOLDIERTYPE* soldier) noexcept;
+	bool capture(TacticalEntityId entity) noexcept;
 	SOLDIERTYPE* resolve() const noexcept;
 	SOLDIERTYPE* consume() noexcept;
 

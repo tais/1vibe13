@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include "SoldierRepository.h"
+#include "TacticalEntityHost.h"
 
 	#include	"types.h"
 	#include	"Quest Debug System.h"
@@ -3909,7 +3910,7 @@ void SetQDSMercProfile()
 
 			InternalInitTalkingMenu( gTalkingMercSoldier->identity().profile(), 10, 10 );
 			(void)SetDialogueDestinationSoldier(
-				gTalkingMercSoldier);
+				GetJa2TacticalEntityId(*gTalkingMercSoldier));
 		}
 	}
 }

@@ -307,13 +307,13 @@ struct SurgeryConfirmationContext
 	Ja2TacticalEntityReference patient;
 
 	bool capture(
-		SOLDIERTYPE* selectedDoctor,
-		SOLDIERTYPE* selectedPatient = NULL) noexcept
+		TacticalEntityId selectedDoctor,
+		TacticalEntityId selectedPatient = {}) noexcept
 	{
 		Ja2TacticalEntityReference capturedDoctor;
 		Ja2TacticalEntityReference capturedPatient;
 		if (!capturedDoctor.capture(selectedDoctor) ||
-			(selectedPatient &&
+			(selectedPatient.valid() &&
 				!capturedPatient.capture(selectedPatient)))
 			return false;
 		doctor = capturedDoctor;
@@ -12988,7 +12988,9 @@ void ContractMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			case( CONTRACT_MENU_TERMINATE ):
 				{
 					Ja2TacticalEntityReference dismissalSoldier;
-					if (!dismissalSoldier.capture(pSoldier))
+					if (!pSoldier ||
+						!dismissalSoldier.capture(
+							GetJa2TacticalEntityId(*pSoldier)))
 					{
 						fOkToClose = TRUE;
 						break;
@@ -13879,7 +13881,8 @@ static void CheckForSurgery(SOLDIERTYPE *pSoldier)
 		{
 			CHAR16	zStr[200];
 			if (!gSurgeryConfirmation.capture(
-					pBestMedic, pSoldier))
+					GetJa2TacticalEntityId(*pBestMedic),
+					GetJa2TacticalEntityId(*pSoldier)))
 				return;
 
 			INT32 healwithout_bloodbag = pSoldier->vitals().healableInjury() * (gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pBestMedic, DOCTOR_NT )) / 10000;
@@ -14113,7 +14116,11 @@ void AssignmentMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 								}
 
 								if (!gSurgeryConfirmation.capture(
-										pSoldier, pSurgeryPatient))
+										GetJa2TacticalEntityId(*pSoldier),
+										pSurgeryPatient
+											? GetJa2TacticalEntityId(
+												*pSurgeryPatient)
+											: TacticalEntityId{}))
 								{
 									break;
 								}
@@ -21446,7 +21453,8 @@ void HandleInterfaceMessageForCostOfOperatingFacility( SOLDIERTYPE *pSoldier, UI
 	// Only one modal prompt may own the facility actor. If another prompt is
 	// already active, undo this new assignment instead of redirecting it.
 	if (gFacilityStaffer.valid() ||
-		!gFacilityStaffer.capture(pSoldier))
+		!gFacilityStaffer.capture(
+			GetJa2TacticalEntityId(*pSoldier)))
 	{
 		pSoldier->assignment().clearFacility();
 		AddCharacterToAnySquad(pSoldier);

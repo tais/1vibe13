@@ -115,9 +115,9 @@ GROUP *ResolveTacticalTraversalGroup( void )
 	return gTacticalTraversalGroup.resolve();
 }
 
-BOOLEAN CaptureTacticalTraversalChosenSoldier( SOLDIERTYPE *pSoldier )
+BOOLEAN CaptureTacticalTraversalChosenSoldier( TacticalEntityId actor )
 {
-	return gTacticalTraversalChosenSoldier.capture(pSoldier)
+	return gTacticalTraversalChosenSoldier.capture(actor)
 		? TRUE : FALSE;
 }
 

@@ -204,12 +204,11 @@ TacticalEntityId GetJa2TacticalEntityId(
 }
 
 bool Ja2TacticalEntityReference::capture(
-	const SOLDIERTYPE* soldier) noexcept
+	TacticalEntityId entity) noexcept
 {
 	reset();
-	if (!soldier) return false;
-	const TacticalEntityId entity = GetJa2TacticalEntityId(*soldier);
-	if (!entity.valid()) return false;
+	if (!entity.valid() || !ResolveJa2TacticalEntity(entity))
+		return false;
 	entity_ = entity;
 	return true;
 }

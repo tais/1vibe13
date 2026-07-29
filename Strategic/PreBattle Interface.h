@@ -1,6 +1,8 @@
 #ifndef __PREBATTLE_INTERFACE_H
 #define __PREBATTLE_INTERFACE_H
 
+#include <Engine/Adapters/JA2/TacticalEntity.h>
+
 #include "types.h"
 #include "Strategic Movement.h"
 
@@ -22,7 +24,7 @@ void ResetPreBattleGroup( void );
 extern BOOLEAN gfTacticalTraversal;
 BOOLEAN CaptureTacticalTraversalGroup( GROUP *pGroup );
 GROUP *ResolveTacticalTraversalGroup( void );
-BOOLEAN CaptureTacticalTraversalChosenSoldier( SOLDIERTYPE *pSoldier );
+BOOLEAN CaptureTacticalTraversalChosenSoldier( TacticalEntityId actor );
 SOLDIERTYPE *ResolveTacticalTraversalChosenSoldier( void );
 void ResetTacticalTraversalContext( void );
 

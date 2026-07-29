@@ -281,8 +281,8 @@ struct TacticalRequesterCallbackContext
 	std::uint64_t worldGeneration = 0;
 
 	bool capture(
-		SOLDIERTYPE* selectedRequester,
-		SOLDIERTYPE* selectedTarget,
+		TacticalEntityId selectedRequester,
+		TacticalEntityId selectedTarget,
 		INT32 selectedGrid) noexcept
 	{
 		reset();
@@ -3112,7 +3112,9 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 					CHAR16	zStr[200];
 
 					if ( !gRequesterCallbackContext.capture(
-							pSoldier, pTSoldier, usMapPos ) )
+							GetJa2TacticalEntityId(*pSoldier),
+							GetJa2TacticalEntityId(*pTSoldier),
+							usMapPos ) )
 					{
 						return( GAME_SCREEN );
 					}
@@ -3134,7 +3136,9 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 					CHAR16	zStr[200];
 
 					if ( !gRequesterCallbackContext.capture(
-							pSoldier, pTSoldier, usMapPos ) )
+							GetJa2TacticalEntityId(*pSoldier),
+							GetJa2TacticalEntityId(*pTSoldier),
+							usMapPos ) )
 					{
 						return( GAME_SCREEN );
 					}

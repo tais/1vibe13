@@ -8440,9 +8440,14 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	if( sGeneralInfo.sContractRehireSoldierID == NOBODY )
 		ClearContractRehireSoldier();
 	else
-		(void)SetContractRehireSoldier(
-			GetJa2SoldierRepository().resolve(
-				sGeneralInfo.sContractRehireSoldierID.i));
+	{
+		const TacticalEntityId contractActor =
+			GetJa2TacticalEntityId(
+				static_cast<std::uint16_t>(
+					sGeneralInfo.sContractRehireSoldierID.i));
+		if (!SetContractRehireSoldier(contractActor))
+			ClearContractRehireSoldier();
+	}
 
 	memcpy( &gGameOptions, &sGeneralInfo.GameOptions, sizeof( GAME_OPTIONS ) );
 #ifndef BMP_RANDOM//dnl ch55 111009

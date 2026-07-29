@@ -1380,6 +1380,66 @@ endif()
 # Delayed conversations, end-game timers, insurance prompts, and dismissal
 # prompts resolve exact tactical-entity incarnations when work resumes. Their
 # former raw callback globals must not return.
+file(READ "${SOURCE_ROOT}/Ja2/TacticalEntityHost.h"
+  tactical_entity_reference_header_contents)
+string(REGEX MATCH
+  "capture[ \t\r\n]*\\([^\\)]*SOLDIERTYPE"
+  raw_tactical_entity_reference_capture
+  "${tactical_entity_reference_header_contents}")
+if(raw_tactical_entity_reference_capture)
+  message(FATAL_ERROR
+    "Ja2TacticalEntityReference captures SOLDIERTYPE; producers must cross to TacticalEntityId before retention")
+endif()
+string(REGEX MATCH
+  "bool[ \t\r\n]+capture[ \t\r\n]*\\([ \t\r\n]*TacticalEntityId"
+  stable_tactical_entity_reference_capture
+  "${tactical_entity_reference_header_contents}")
+if(NOT stable_tactical_entity_reference_capture)
+  message(FATAL_ERROR
+    "Ja2TacticalEntityReference is missing its TacticalEntityId capture boundary")
+endif()
+
+set(delayed_actor_capture_boundary_files
+  "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
+  "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  "${SOURCE_ROOT}/Tactical/End Game.cpp"
+  "${SOURCE_ROOT}/Strategic/Assignments.cpp"
+  "${SOURCE_ROOT}/Strategic/Merc Contract.cpp"
+  "${SOURCE_ROOT}/Strategic/PreBattle Interface.cpp"
+  "${SOURCE_ROOT}/Strategic/Town Militia.cpp"
+  "${SOURCE_ROOT}/TileEngine/Tactical Placement GUI.cpp")
+foreach(delayed_actor_capture_boundary_file
+    IN LISTS delayed_actor_capture_boundary_files)
+  file(READ "${delayed_actor_capture_boundary_file}"
+    delayed_actor_capture_boundary_contents)
+  string(REGEX MATCH
+    "(bool|void)[ \t\r\n]+(capture|captureTactical|captureMapCursor|begin)[ \t\r\n]*\\([^\\)]*SOLDIERTYPE"
+    raw_delayed_actor_capture_boundary
+    "${delayed_actor_capture_boundary_contents}")
+  if(raw_delayed_actor_capture_boundary)
+    message(FATAL_ERROR
+      "Delayed actor context captures SOLDIERTYPE in ${delayed_actor_capture_boundary_file}; retain TacticalEntityId")
+  endif()
+endforeach()
+
+set(delayed_actor_public_headers
+  "${SOURCE_ROOT}/Tactical/interface Dialogue.h"
+  "${SOURCE_ROOT}/Strategic/Merc Contract.h"
+  "${SOURCE_ROOT}/Strategic/PreBattle Interface.h")
+foreach(delayed_actor_public_header IN LISTS delayed_actor_public_headers)
+  file(READ "${delayed_actor_public_header}"
+    delayed_actor_public_header_contents)
+  string(REGEX MATCH
+    "(SetDialogueDestinationSoldier|SetContractRehireSoldier|CaptureTacticalTraversalChosenSoldier)[ \t\r\n]*\\([^\\)]*SOLDIERTYPE"
+    raw_delayed_actor_public_producer
+    "${delayed_actor_public_header_contents}")
+  if(raw_delayed_actor_public_producer)
+    message(FATAL_ERROR
+      "Delayed actor producer exposes SOLDIERTYPE in ${delayed_actor_public_header}; use TacticalEntityId")
+  endif()
+endforeach()
+
 set(delayed_actor_callback_files
   "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
   "${SOURCE_ROOT}/Tactical/End Game.cpp"
