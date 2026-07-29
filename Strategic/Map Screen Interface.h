@@ -1,6 +1,7 @@
 #ifndef MAP_SCREEN_INTERFACE_H
 #define MAP_SCREEN_INTERFACE_H
 
+#include <Engine/Adapters/JA2/TacticalEntity.h>
 
 #include "types.h"
 #include "Soldier Control.h"
@@ -648,13 +649,13 @@ void ResetAssignmentOfMercsThatWereTrainingMilitiaInThisSector( INT16 sSectorX, 
 // the sector move box
 void DeselectSquadForMovement( INT32 iSquadNumber );
 void SelectedSquadForMovement( INT32 iSquadNumber );
-void DeselectSoldierForMovement( SOLDIERTYPE *pSoldier );
-void SelectSoldierForMovement( SOLDIERTYPE *pSoldier );
+void DeselectSoldierForMovement( TacticalEntityId actor );
+void SelectSoldierForMovement( TacticalEntityId actor );
 void SelectVehicleForMovement( INT32 iVehicleId, BOOLEAN fAndAllOnBoard );
 void DeselectVehicleForMovement( INT32 iVehicleId );
 void AddVehicleToMovingLists( INT32 iVehicleId );
 void AddSquadToMovingLists( INT32 iSquadNumber );
-void AddSoldierToMovingLists( SOLDIERTYPE *pSoldier );
+void AddSoldierToMovingLists( TacticalEntityId actor );
 void CreateDestroyMovementBox( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ );
 void SetUpMovingListsForSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ );
 void ReBuildMoveBox( void );
@@ -664,7 +665,7 @@ BOOLEAN IsCharacterSelectedForSleep( INT16 sCharNumber );
 // the update box
 void CreateDestroyTheUpdateBox( void );
 void SetSoldierUpdateBoxReason( INT32 iReason );
-void AddSoldierToUpdateBox( SOLDIERTYPE *pSoldier );
+void AddSoldierToUpdateBox( TacticalEntityId actor );
 void ResetSoldierUpdateBox( void );
 void DisplaySoldierUpdateBox( );
 BOOLEAN IsThePopUpBoxEmpty( void );
@@ -715,7 +716,7 @@ void ShutDownUserDefineHelpTextRegions( void );
 void ShowUpdateBox( void );
 
 // add special events
-void AddSoldierToWaitingListQueue( SOLDIERTYPE *pSoldier );
+void AddSoldierToWaitingListQueue( TacticalEntityId actor );
 void AddReasonToWaitingListQueue( INT32 iReason );
 void AddDisplayBoxToWaitingQueue( void );
 

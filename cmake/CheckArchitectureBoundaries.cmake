@@ -1479,6 +1479,8 @@ set(global_actor_session_files
   "${SOURCE_ROOT}/Tactical/Air Raid.cpp"
   "${SOURCE_ROOT}/Strategic/Quest Debug System.cpp"
   "${SOURCE_ROOT}/Strategic/Map Screen Helicopter.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface.h"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Map.cpp"
   "${SOURCE_ROOT}/Strategic/Strategic Merc Handler.cpp"
   "${SOURCE_ROOT}/Strategic/Assignments.cpp"
@@ -1497,7 +1499,11 @@ set(retired_global_actor_session_names
   SoldierSkyRider
   pProcessingSoldier
   fProcessingAMerc
-  pTempSoldier)
+  pTempSoldier
+  pSoldierMovingList
+  fSoldierIsMoving
+  pUpdateSoldierBox
+  giUpdateSoldierFaces)
 set(global_actor_session_surface "")
 foreach(global_actor_session_file IN LISTS global_actor_session_files)
   file(READ "${global_actor_session_file}"
@@ -1522,13 +1528,19 @@ set(stable_actor_session_headers
   "${SOURCE_ROOT}/Tactical/Handle UI.h"
   "${SOURCE_ROOT}/Tactical/Militia Control.h"
   "${SOURCE_ROOT}/Tactical/VehicleMenu.h"
-  "${SOURCE_ROOT}/Tactical/Points.h")
+  "${SOURCE_ROOT}/Tactical/Points.h"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface.h")
 set(stable_actor_session_producers
   BeginUIPlan
   PopupMilitiaControlMenu
   CaptureMilitiaControlTarget
   VehicleMenu
-  BeginPathingBackpackCache)
+  BeginPathingBackpackCache
+  AddSoldierToMovingLists
+  SelectSoldierForMovement
+  DeselectSoldierForMovement
+  AddSoldierToUpdateBox
+  AddSoldierToWaitingListQueue)
 set(stable_actor_session_header_surface "")
 foreach(stable_actor_session_header IN LISTS stable_actor_session_headers)
   file(READ "${stable_actor_session_header}"
@@ -1580,7 +1592,9 @@ foreach(required_actor_session_fragment IN ITEMS
     "TacticalEntityId[ \t]+gPathingBackpackCacheActor"
     "Ja2TacticalEntityReference[ \t]+gQdsTalkingMerc"
     "Ja2TacticalEntityReference[ \t]+gAniEditSoldier"
-    "SoldierID[ \t]+gRaidSoldierSlot")
+    "SoldierID[ \t]+gRaidSoldierSlot"
+    "struct[ \t]+MapScreenMovementActorEntry"
+    "struct[ \t]+MapScreenUpdateActorEntry")
   set(actor_session_fragment_found FALSE)
   string(REGEX MATCH "${required_actor_session_fragment}"
     actor_session_fragment
@@ -1593,6 +1607,36 @@ foreach(required_actor_session_fragment IN ITEMS
       "Stable actor-session ownership lost required fragment '${required_actor_session_fragment}'")
   endif()
 endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface.cpp"
+  map_screen_actor_session_contents)
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])giMercPanelImage([^A-Za-z0-9_]|$)"
+  shared_map_screen_update_panel
+  "${map_screen_actor_session_contents}")
+if(shared_map_screen_update_panel)
+  message(FATAL_ERROR
+    "Map-screen update UI regained the tactical-placement panel handle")
+endif()
+string(REGEX MATCH
+  "SpecialCharacterDialogueEvent[ \t\r\n]*\\([^;]*actor\\.slot[ \t\r\n]*,[ \t\r\n]*actor\\.incarnation"
+  stable_update_dialogue_producer
+  "${map_screen_actor_session_contents}")
+if(NOT stable_update_dialogue_producer)
+  message(FATAL_ERROR
+    "Map-screen update dialogue no longer queues the complete actor incarnation")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  dialogue_actor_session_contents)
+string(REGEX MATCH
+  "AddSoldierToUpdateBox[ \t\r\n]*\\([ \t\r\n]*TacticalEntityId[ \t\r\n]*\\{[^}]*uiSpecialEventData2[^}]*uiSpecialEventData3"
+  stable_update_dialogue_consumer
+  "${dialogue_actor_session_contents}")
+if(NOT stable_update_dialogue_consumer)
+  message(FATAL_ERROR
+    "Map-screen update dialogue no longer consumes the complete actor incarnation")
+endif()
 
 # Merc departure prompts and contract-screen transitions retain stable actor
 # incarnations. The save game continues to carry the legacy soldier slot, but

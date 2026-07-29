@@ -1550,7 +1550,8 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 				}
 
 				// Add to list!
-				AddSoldierToWaitingListQueue( pSoldier );
+				AddSoldierToWaitingListQueue(
+					GetJa2TacticalEntityId(*pSoldier));
 
 			}
 		}

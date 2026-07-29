@@ -9433,7 +9433,8 @@ void AssignmentDone( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo )
 		}
 
 		AddReasonToWaitingListQueue( ASSIGNMENT_FINISHED_FOR_UPDATE );
-		AddSoldierToWaitingListQueue( pSoldier );
+		AddSoldierToWaitingListQueue(
+			GetJa2TacticalEntityId(*pSoldier));
 
 		// trigger a single call AddDisplayBoxToWaitingQueue for assignments done
 		gfAddDisplayBoxToWaitingQueue = TRUE;
@@ -16559,7 +16560,8 @@ void HandleRestFatigueAndSleepStatus( void )
 									fReasonAdded = TRUE;
 								}
 
-								AddSoldierToWaitingListQueue( pSoldier );
+								AddSoldierToWaitingListQueue(
+									GetJa2TacticalEntityId(*pSoldier));
 								fBoxSetUp = TRUE;
 							}
 
@@ -16655,7 +16657,8 @@ void HandleRestFatigueAndSleepStatus( void )
 									fReasonAdded = TRUE;
 								}
 
-								AddSoldierToWaitingListQueue( pSoldier );
+								AddSoldierToWaitingListQueue(
+									GetJa2TacticalEntityId(*pSoldier));
 								fBoxSetUp = TRUE;
 							}
 							// HEADROCK HAM 2.8/HAM 3.6: If a trainer wakes up, we may need to wake up all his trainees as well.
@@ -19831,7 +19834,8 @@ BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 					if( gGameSettings.fOptions[ TOPTION_SLEEPWAKE_NOTIFICATION ] )
 					{
 						// tell player about it
-						AddSoldierToWaitingListQueue( pTrainer );
+						AddSoldierToWaitingListQueue(
+							GetJa2TacticalEntityId(*pTrainer));
 					}
 					
 					// seems unnecessary now?	ARM
@@ -19889,7 +19893,8 @@ BOOLEAN SetTraineesSleepWhenTrainerSleeps( SOLDIERTYPE *pTrainer)
 				if( gGameSettings.fOptions[ TOPTION_SLEEPWAKE_NOTIFICATION ] )
 				{
 					// tell player about it
-					AddSoldierToWaitingListQueue( pTrainee );
+					AddSoldierToWaitingListQueue(
+						GetJa2TacticalEntityId(*pTrainee));
 				}
 				
 				// seems unnecessary now?	ARM
@@ -19954,7 +19959,8 @@ BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 					if( gGameSettings.fOptions[ TOPTION_SLEEPWAKE_NOTIFICATION ] )
 					{
 						// tell player about it
-						AddSoldierToWaitingListQueue( pTrainer );
+						AddSoldierToWaitingListQueue(
+							GetJa2TacticalEntityId(*pTrainer));
 					}
 					
 					// seems unnecessary now?	ARM
@@ -20003,7 +20009,8 @@ BOOLEAN SetTraineesWakeWhenTrainerWakes( SOLDIERTYPE *pTrainer)
 				if( gGameSettings.fOptions[ TOPTION_SLEEPWAKE_NOTIFICATION ] )
 				{
 					// tell player about it
-					AddSoldierToWaitingListQueue( pTrainee );
+					AddSoldierToWaitingListQueue(
+						GetJa2TacticalEntityId(*pTrainee));
 				}
 				
 				// seems unnecessary now?	ARM
