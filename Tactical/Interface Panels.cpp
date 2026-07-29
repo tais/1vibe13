@@ -4384,7 +4384,7 @@ void HandleMouseOverSoldierFaceForContMove( SOLDIERTYPE *pSoldier, BOOLEAN fOn )
 		{
 			// Display 'cont' on face....
 			// Get face
-			pFace = &gFacesData[ pSoldier->iFaceIndex ];
+			pFace = &gFacesData[ pSoldier->renderBindings().faceIndex() ];
 
 			pFace->fDisplayTextOver = FACE_DRAW_TEXT_OVER;
 			wcscpy( pFace->zDisplayText, TacticalStr[ CONTINUE_OVER_FACE_STR ] );
@@ -4404,7 +4404,7 @@ void HandleMouseOverSoldierFaceForContMove( SOLDIERTYPE *pSoldier, BOOLEAN fOn )
 	{
 		// Remove 'cont' on face....
 		// Get face
-		pFace = &gFacesData[ pSoldier->iFaceIndex ];
+		pFace = &gFacesData[ pSoldier->renderBindings().faceIndex() ];
 
 		pFace->fDisplayTextOver = FACE_ERASE_TEXT_OVER;
 
@@ -5646,8 +5646,8 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 			if ( pSoldier->uiPresentation().panelClosing() || pSoldier->uiPresentation().panelClosingForDeath() )
 			{
 				pSoldier->uiPresentation().setPanelFacePosition(
-					gFacesData[ pSoldier->iFaceIndex ].usFaceX,
-					gFacesData[ pSoldier->iFaceIndex ].usFaceY);
+					gFacesData[ pSoldier->renderBindings().faceIndex() ].usFaceX,
+					gFacesData[ pSoldier->renderBindings().faceIndex() ].usFaceY);
 			}
 
 
@@ -6112,7 +6112,7 @@ void HandleMouseOverTeamFaceForContMove( BOOLEAN fOn )
 		{
 			// Display 'cont' on face....
 			// Get face
-			pFace = &gFacesData[ GetSMCurrentMerc()->iFaceIndex ];
+			pFace = &gFacesData[ GetSMCurrentMerc()->renderBindings().faceIndex() ];
 
 			pFace->fDisplayTextOver = FACE_DRAW_TEXT_OVER;
 			wcscpy( pFace->zDisplayText, TacticalStr[ CONTINUE_OVER_FACE_STR ] );
@@ -6125,7 +6125,7 @@ void HandleMouseOverTeamFaceForContMove( BOOLEAN fOn )
 	{
 		// Remove 'cont' on face....
 		// Get face
-		pFace = &gFacesData[ GetSMCurrentMerc()->iFaceIndex ];
+		pFace = &gFacesData[ GetSMCurrentMerc()->renderBindings().faceIndex() ];
 
 		pFace->fDisplayTextOver = FACE_ERASE_TEXT_OVER;
 
@@ -6621,8 +6621,8 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 	if ( pSoldier->uiPresentation().deadMercUiPending() )
 	{
 		pSoldier->uiPresentation().setPanelFacePosition(
-			gFacesData[ pSoldier->iFaceIndex ].usFaceX,
-			gFacesData[ pSoldier->iFaceIndex ].usFaceY);
+			gFacesData[ pSoldier->renderBindings().faceIndex() ].usFaceX,
+			gFacesData[ pSoldier->renderBindings().faceIndex() ].usFaceY);
 
 		pSoldier->uiPresentation().beginDeathPanelTransition();
 		pSoldier->timing().start(SoldierTimingComponent::Timer::PanelAnimation, 160);
@@ -6642,7 +6642,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 					}
 					else
 					{
-						if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
+						if ( !gFacesData[ pSoldier->renderBindings().faceIndex() ].fDisabled )
 						{
 							RestoreExternBackgroundRect( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), TM_FACE_WIDTH, TM_FACE_HEIGHT );
 						}
@@ -6657,7 +6657,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 		// Render panel!
 		//if(gbPixelDepth==16)
 		//{
-			if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
+			if ( !gFacesData[ pSoldier->renderBindings().faceIndex() ].fDisabled )
 			{
 				RestoreExternBackgroundRect( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), TM_FACE_WIDTH, TM_FACE_HEIGHT );
 				BltVideoObjectFromIndex( FRAME_BUFFER, guiCLOSE, pSoldier->uiPresentation().closePanelFrame(), pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), VO_BLT_SRCTRANSPARENCY, NULL );
@@ -6686,7 +6686,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 					pSoldier->uiPresentation().completeDeadPanel(5);
 
 					// Finish!
-					if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
+					if ( !gFacesData[ pSoldier->renderBindings().faceIndex() ].fDisabled )
 					{
 						BltVideoObjectFromIndex( guiSAVEBUFFER, guiDEAD, pSoldier->uiPresentation().deadPanelFrame(), pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), VO_BLT_SRCTRANSPARENCY, NULL );
 
@@ -6707,7 +6707,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 		// Render panel!
 		//if(gbPixelDepth==16)
 		//{
-				if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
+				if ( !gFacesData[ pSoldier->renderBindings().faceIndex() ].fDisabled )
 				{
 					BltVideoObjectFromIndex( FRAME_BUFFER, guiDEAD, pSoldier->uiPresentation().deadPanelFrame(), pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), VO_BLT_SRCTRANSPARENCY, NULL );
 
@@ -6730,7 +6730,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 				{
 					pSoldier->uiPresentation().completePanelOpen();
 
-					if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
+					if ( !gFacesData[ pSoldier->renderBindings().faceIndex() ].fDisabled )
 					{
 						RestoreExternBackgroundRect( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), TM_FACE_WIDTH, TM_FACE_HEIGHT );
 					}
@@ -6744,7 +6744,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 		// Render panel!
 		//if(gbPixelDepth==16)
 		//{
-				if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
+				if ( !gFacesData[ pSoldier->renderBindings().faceIndex() ].fDisabled )
 				{
 					RestoreExternBackgroundRect( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), TM_FACE_WIDTH, TM_FACE_HEIGHT );
 					BltVideoObjectFromIndex( FRAME_BUFFER, guiCLOSE, pSoldier->uiPresentation().openPanelFrame(), pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), VO_BLT_SRCTRANSPARENCY, NULL );
@@ -7144,7 +7144,7 @@ BOOLEAN RemovePlayerFromInterfaceTeamSlot( UINT8 ubPanelSlot )
 			}
 
 			// Set face to inactive...
-			SetAutoFaceInActive( soldier->iFaceIndex );
+			SetAutoFaceInActive( soldier->renderBindings().faceIndex() );
 		}
 
 

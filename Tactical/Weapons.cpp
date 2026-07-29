@@ -4890,12 +4890,12 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	UINT16 usItem = pSoldier->GetUsedWeaponNumber(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 	UINT8 ubVolume = Weapon[usItem].ubAttackVolume;
 
-	pSoldier->runtime.pendingAction.grenadeItem = 0;
+	pSoldier->runtime().pendingAction.grenadeItem = 0;
 
 	// grenade pin sound
 	if (usItem && Item[usItem].usItemClass != IC_THROWING_KNIFE)
 	{
-		pSoldier->runtime.pendingAction.grenadeItem = usItem;
+		pSoldier->runtime().pendingAction.grenadeItem = usItem;
 		ubVolume = 10;
 	}
 
@@ -8092,7 +8092,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	}
 
 	// sevenfm: store original impact
-	pTarget->runtime.combatFeedback.lastBulletImpact += iOrigImpact;
+	pTarget->runtime().combatFeedback.lastBulletImpact += iOrigImpact;
 
 	if (pubSpecial && (*pubSpecial == FIRE_WEAPON_BLINDED_BY_SPIT_SPECIAL || *pubSpecial == FIRE_WEAPON_BLINDED_SPECIAL) )
 	{
@@ -8104,7 +8104,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 		iImpact = iOrigImpact - iTotalArmourProtection;
 		
 		// sevenfm: store armour protection
-		pTarget->runtime.combatFeedback.lastArmourProtection += iTotalArmourProtection;
+		pTarget->runtime().combatFeedback.lastArmourProtection += iTotalArmourProtection;
 	}
 
 	// calc minimum damage
@@ -8140,7 +8140,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	{
 		pTarget->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) += 2;
 
-		ShutupaYoFace( pTarget->iFaceIndex );
+		ShutupaYoFace( pTarget->renderBindings().faceIndex() );
 	}
 			
 	if ( iImpact > 0 && !ARMED_VEHICLE( pTarget ) && !ENEMYROBOT( pTarget ) )

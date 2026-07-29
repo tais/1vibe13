@@ -717,7 +717,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movementMetrics().lastRealtimeMovementAnimation() = src.usLastMovementAnimPerRTBreathUpdate;
 
 		this->uiPresentation().locatorFrame() = src.sLocatorFrame;
-		this->iFaceIndex = src.iFaceIndex;
+		this->renderBindings().reset();
+		this->renderBindings().faceIndex() = src.iFaceIndex;
 
 
 		// V101 palette pointers identify allocations in the saving process and
@@ -728,12 +729,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		// Temporary objects and ballistic parameters are process-local action
 		// state. V101 pointer values are deliberately not adopted.
 		this->movement().reverse() = src.bReverse;
-		this->pLevelNode = src.pLevelNode;
-		this->pExternShadowLevelNode = src.pExternShadowLevelNode;
-		this->pRoofUILevelNode = src.pRoofUILevelNode;
-
-		this->pBackGround = src.pBackGround;
-		this->pZBackground = src.pZBackground;
+		// Every v101 render/world address belonged to the process that wrote
+		// the save. Keep its schema positions, but never attach those addresses
+		// to the converted live record.
 		this->renderState().setUnblitRect(
 			src.usUnblitX, src.usUnblitY, src.usUnblitWidth, src.usUnblitHeight);
 
@@ -864,7 +862,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->targeting().targetId() = static_cast<UINT16>( src.ubTargetID );
 		this->schedule().progress() = src.bAIScheduleProgress;
 		this->deployment().offWorldGrid() = src.sOffWorldGridNo;
-		this->pAniTile = src.pAniTile;
 		this->movement().absoluteDestination() = src.sAbsoluteFinalDestination;
 		this->movement().highResolutionDirection() = src.ubHiResDirection;
 		this->movement().highResolutionDesiredDirection() = src.ubHiResDesiredDirection;
@@ -1093,6 +1090,8 @@ void SOLDIERTYPE::initialize( )
 	animationPlayback().reset();
 	animationActivity().reset();
 	animationCache().reset();
+	renderBindings().reset();
+	runtime().reset();
 
 	// sevenfm:initialize additional data
 	this->InitializeExtraData();
@@ -1817,15 +1816,15 @@ void HandleCrowShadowVisibility( SOLDIERTYPE *pSoldier )
 	{
 		if ( pSoldier->animationPlayback().state() == CROW_FLY )
 		{
-			if ( pSoldier->pAniTile != NULL )
+			if ( pSoldier->renderBindings().animationTile() != NULL )
 			{
 				if ( pSoldier->awareness().lastRenderedVisibility() != -1 )
 				{
-					HideAniTile( pSoldier->pAniTile, FALSE );
+					HideAniTile( pSoldier->renderBindings().animationTile(), FALSE );
 				}
 				else
 				{
-					HideAniTile( pSoldier->pAniTile, TRUE );
+					HideAniTile( pSoldier->renderBindings().animationTile(), TRUE );
 				}
 			}
 		}
@@ -1840,10 +1839,10 @@ void HandleCrowShadowNewGridNo( SOLDIERTYPE *pSoldier )
 
 	if ( pSoldier->identity().bodyType() == CROW )
 	{
-		if ( pSoldier->pAniTile != NULL )
+		if ( pSoldier->renderBindings().animationTile() != NULL )
 		{
-			DeleteAniTile( pSoldier->pAniTile );
-			pSoldier->pAniTile = NULL;
+			DeleteAniTile( pSoldier->renderBindings().animationTile() );
+			pSoldier->renderBindings().animationTile() = NULL;
 		}
 
 		if ( !TileIsOutOfBounds( pSoldier->position().gridNo() ) )
@@ -1862,7 +1861,7 @@ void HandleCrowShadowNewGridNo( SOLDIERTYPE *pSoldier )
 
 				AniParams.uiUserData3 = pSoldier->position().direction();
 
-				pSoldier->pAniTile = CreateAnimationTile( &AniParams );
+				pSoldier->renderBindings().animationTile() = CreateAnimationTile( &AniParams );
 
 				HandleCrowShadowVisibility( pSoldier );
 			}
@@ -1877,10 +1876,10 @@ void HandleCrowShadowRemoveGridNo( SOLDIERTYPE *pSoldier )
 	{
 		if ( pSoldier->animationPlayback().state() == CROW_FLY )
 		{
-			if ( pSoldier->pAniTile != NULL )
+			if ( pSoldier->renderBindings().animationTile() != NULL )
 			{
-				DeleteAniTile( pSoldier->pAniTile );
-				pSoldier->pAniTile = NULL;
+				DeleteAniTile( pSoldier->renderBindings().animationTile() );
+				pSoldier->renderBindings().animationTile() = NULL;
 			}
 		}
 	}
@@ -1893,9 +1892,9 @@ void HandleCrowShadowNewDirection( SOLDIERTYPE *pSoldier )
 	{
 		if ( pSoldier->animationPlayback().state() == CROW_FLY )
 		{
-			if ( pSoldier->pAniTile != NULL )
+			if ( pSoldier->renderBindings().animationTile() != NULL )
 			{
-				pSoldier->pAniTile->uiUserData3 = pSoldier->position().direction();
+				pSoldier->renderBindings().animationTile()->uiUserData3 = pSoldier->position().direction();
 			}
 		}
 	}
@@ -1907,10 +1906,10 @@ void HandleCrowShadowNewPosition( SOLDIERTYPE *pSoldier )
 	{
 		if ( pSoldier->animationPlayback().state() == CROW_FLY )
 		{
-			if ( pSoldier->pAniTile != NULL )
+			if ( pSoldier->renderBindings().animationTile() != NULL )
 			{
-				pSoldier->pAniTile->sRelativeX = pSoldier->position().worldXInt();
-				pSoldier->pAniTile->sRelativeY = pSoldier->position().worldYInt();
+				pSoldier->renderBindings().animationTile()->sRelativeX = pSoldier->position().worldXInt();
+				pSoldier->renderBindings().animationTile()->sRelativeY = pSoldier->position().worldYInt();
 			}
 		}
 	}
@@ -2364,7 +2363,7 @@ void	SOLDIERTYPE::DoNinjaAttack( void )
 			if ( this->identity().profile() != NO_PROFILE )
 			{
 				// Get soldier's face ID
-				iFaceIndex = this->iFaceIndex;
+				iFaceIndex = this->renderBindings().faceIndex();
 
 				// Check face index
 				if ( iFaceIndex != -1 )
@@ -2469,24 +2468,6 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 		}
 
 
-		//if ( this->pBackGround != NULL )
-		//	MemFree( this->pBackGround );
-
-		// INIT ANIMATION DATA
-		//if((this->pBackGround=MemAlloc(SOLDIER_UNBLIT_SIZE))==NULL)
-		//{
-		//	DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier: Failed unblit memory allocation" ) );
-		//	break;
-		//}
-		//memset(this->pBackGround, 0, SOLDIER_UNBLIT_SIZE);
-
-		//if((this->pZBackground=MemAlloc(SOLDIER_UNBLIT_SIZE))==NULL)
-		//{
-		//	DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier: Failed unblit memory allocation" ) );
-		//	break;
-		//}
-		//memset(this->pZBackground, 0, SOLDIER_UNBLIT_SIZE);
-
 		// Init palettes
 		if ( this->CreateSoldierPalettes( ) == FALSE )
 		{
@@ -2520,12 +2501,6 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 		// Invalidate the exact incarnation before dismantling its legacy
 		// resources. A late delete for a reused slot cannot remove its successor.
 		(void)ReleaseJa2TacticalEntity(*this);
-
-		//if(this->pBackGround!=NULL)
-		//MemFree(this->pBackGround);
-
-		//if(this->pZBackground!=NULL)
-		//MemFree(this->pZBackground);
 
 		if ( !TileIsOutOfBounds( this->position().gridNo() ) )
 		{
@@ -2928,7 +2903,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 
 	if (usNewState == THROW_GRENADE_STANCE || usNewState == LOB_GRENADE_STANCE || usNewState == THROW_ITEM || usNewState == THROW_ITEM_CROUCHED)
 	{
-		UINT16 usItem = this->runtime.pendingAction.grenadeItem;
+		UINT16 usItem = this->runtime().pendingAction.grenadeItem;
 		UINT8 ubVolume = Weapon[usItem].ubAttackVolume;
 
 		// play grenade pin sound
@@ -3941,10 +3916,10 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		case CROW_DIE:
 
 			// Delete shadow of crow....
-			if ( this->pAniTile != NULL )
+			if ( this->renderBindings().animationTile() != NULL )
 			{
-				DeleteAniTile( this->pAniTile );
-				this->pAniTile = NULL;
+				DeleteAniTile( this->renderBindings().animationTile() );
+				this->renderBindings().animationTile() = NULL;
 			}
 			break;
 
@@ -4065,7 +4040,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 										  usNewGridNo = NewGridNo( this->position().gridNo(), DirectionInc( this->position().direction() ) );
 										  usNewGridNo = NewGridNo( usNewGridNo, DirectionInc( this->position().direction() ) );
 
-										  this->runtime.pendingAction.pathSearchSourceGrid = this->position().gridNo();
+										  this->runtime().pendingAction.pathSearchSourceGrid = this->position().gridNo();
 										  this->movement().clearPastDestination();
 										  this->pathing().pathSize() = 0;
 										  this->pathing().pathIndex() = 0;
@@ -4090,7 +4065,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 						  usNewGridNo = NewGridNo( usNewGridNo, DirectionInc( this->position().direction() ) );
 						  usNewGridNo = NewGridNo( usNewGridNo, DirectionInc( this->position().direction() ) );
 
-						  this->runtime.pendingAction.pathSearchSourceGrid = this->position().gridNo();
+						  this->runtime().pendingAction.pathSearchSourceGrid = this->position().gridNo();
 						  this->movement().clearPastDestination();
 						  this->pathing().pathSize() = 0;
 						  this->pathing().pathIndex() = 0;
@@ -4463,19 +4438,19 @@ void SOLDIERTYPE::InternalSetSoldierHeight( FLOAT dNewHeight, BOOLEAN fUpdateLev
 		//LightHideTrees((INT16)(this->position().worldX()/CELL_X_SIZE), (INT16)(this->position().worldY()/CELL_Y_SIZE));
 		//ConcealAllWalls();
 
-		//this->pLevelNode->ubShadeLevel=gpWorldLevelData[this->sGridNo].pRoofHead->ubShadeLevel;
-		//this->pLevelNode->ubSumLights=gpWorldLevelData[this->sGridNo].pRoofHead->ubSumLights;
-		//this->pLevelNode->ubMaxLights=gpWorldLevelData[this->sGridNo].pRoofHead->ubMaxLights;
-		//this->pLevelNode->ubNaturalShadeLevel=gpWorldLevelData[this->sGridNo].pRoofHead->ubNaturalShadeLevel;
+		//this->renderBindings().levelNode()->ubShadeLevel=gpWorldLevelData[this->sGridNo].pRoofHead->ubShadeLevel;
+		//this->renderBindings().levelNode()->ubSumLights=gpWorldLevelData[this->sGridNo].pRoofHead->ubSumLights;
+		//this->renderBindings().levelNode()->ubMaxLights=gpWorldLevelData[this->sGridNo].pRoofHead->ubMaxLights;
+		//this->renderBindings().levelNode()->ubNaturalShadeLevel=gpWorldLevelData[this->sGridNo].pRoofHead->ubNaturalShadeLevel;
 	}
 	else
 	{
 		this->position().level() = FIRST_LEVEL;
 
-		//this->pLevelNode->ubShadeLevel=gpWorldLevelData[this->sGridNo].pLandHead->ubShadeLevel;
-		//this->pLevelNode->ubSumLights=gpWorldLevelData[this->sGridNo].pLandHead->ubSumLights;
-		//this->pLevelNode->ubMaxLights=gpWorldLevelData[this->sGridNo].pLandHead->ubMaxLights;
-		//this->pLevelNode->ubNaturalShadeLevel=gpWorldLevelData[this->sGridNo].pLandHead->ubNaturalShadeLevel;
+		//this->renderBindings().levelNode()->ubShadeLevel=gpWorldLevelData[this->sGridNo].pLandHead->ubShadeLevel;
+		//this->renderBindings().levelNode()->ubSumLights=gpWorldLevelData[this->sGridNo].pLandHead->ubSumLights;
+		//this->renderBindings().levelNode()->ubMaxLights=gpWorldLevelData[this->sGridNo].pLandHead->ubMaxLights;
+		//this->renderBindings().levelNode()->ubNaturalShadeLevel=gpWorldLevelData[this->sGridNo].pLandHead->ubNaturalShadeLevel;
 
 
 	}
@@ -4514,7 +4489,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		return;
 	}
 
-	if ( sNewGridNo != this->position().gridNo() || this->pLevelNode == NULL )
+	if ( sNewGridNo != this->position().gridNo() || this->renderBindings().levelNode() == NULL )
 	{
 		// Check if we are moving AND this is our next dest gridno....
 		if ( gAnimControl[this->animationPlayback().state()].uiFlags & (ANIM_MOVING | ANIM_SPECIALMOVE) )
@@ -5667,12 +5642,12 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 		{
 			HandleMoraleEvent( attacker, MORALE_DID_LOTS_OF_DAMAGE,
 				attacker->deployment().sectorX(), attacker->deployment().sectorY(), attacker->deployment().sectorZ() );
-			this->runtime.combatFeedback.lastMoraleFromHit++;
+			this->runtime().combatFeedback.lastMoraleFromHit++;
 		}
 		if ( this->roster().team() == gbPlayerNum )
 		{
 			HandleMoraleEvent( this, MORALE_TOOK_LOTS_OF_DAMAGE, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
-			this->runtime.combatFeedback.lastMoraleFromHit++;
+			this->runtime().combatFeedback.lastMoraleFromHit++;
 		}
 	}
 
@@ -7371,9 +7346,9 @@ INT8 MultiTiledTurnDirection( SOLDIERTYPE * pSoldier, INT8 bStartDirection, INT8
 	}
 
 	// ATE: Only if we have a levelnode...
-	if ( pSoldier->pLevelNode != NULL && pSoldier->pLevelNode->pStructureData != NULL )
+	if ( pSoldier->renderBindings().levelNode() != NULL && pSoldier->renderBindings().levelNode()->pStructureData != NULL )
 	{
-		usStructureID = pSoldier->pLevelNode->pStructureData->usStructureID;
+		usStructureID = pSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
 	}
 	else
 	{
@@ -7908,15 +7883,15 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		// HEADROCK HAM 3.5: After considerable testing, suppression is now cleared after every attack. Total APs lost
 		// is cleared every turn (here) and only acts as reference now (no effect on AP loss).
 		this->suppression().beginTurn();
-		this->runtime.combatFeedback.lastShock = 0;
-		this->runtime.combatFeedback.lastSuppression = 0;
-		this->runtime.combatFeedback.lastActionPoints = 0;
-		this->runtime.combatFeedback.lastMorale = 0;
-		this->runtime.combatFeedback.lastActionPointsFromHit = 0;
-		this->runtime.combatFeedback.lastShockFromHit = 0;
-		this->runtime.combatFeedback.lastMoraleFromHit = 0;
-		this->runtime.combatFeedback.lastBulletImpact = 0;
-		this->runtime.combatFeedback.lastArmourProtection = 0;
+		this->runtime().combatFeedback.lastShock = 0;
+		this->runtime().combatFeedback.lastSuppression = 0;
+		this->runtime().combatFeedback.lastActionPoints = 0;
+		this->runtime().combatFeedback.lastMorale = 0;
+		this->runtime().combatFeedback.lastActionPointsFromHit = 0;
+		this->runtime().combatFeedback.lastShockFromHit = 0;
+		this->runtime().combatFeedback.lastMoraleFromHit = 0;
+		this->runtime().combatFeedback.lastBulletImpact = 0;
+		this->runtime().combatFeedback.lastArmourProtection = 0;
 
 		this->perception().clearMovementDirections();
 
@@ -10295,7 +10270,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	if ( !AM_A_ROBOT( this ) )
 	{
 		DeductPoints( this, sAPCost, sBreathLoss, DISABLED_INTERRUPT );
-		this->runtime.combatFeedback.lastActionPointsFromHit += sAPCost;
+		this->runtime().combatFeedback.lastActionPointsFromHit += sAPCost;
 	}
 
 	ubCombinedLoss = (UINT8)sLifeDeduct / 10 + sBreathLoss / 2000;
@@ -10304,7 +10279,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	if ( !AM_A_ROBOT( this ) )
 	{
 		this->suppression().shock() += ubCombinedLoss;
-		this->runtime.combatFeedback.lastShockFromHit += ubCombinedLoss;
+		this->runtime().combatFeedback.lastShockFromHit += ubCombinedLoss;
 	}
 
 	// start the stopwatch - the blood is gushing!
@@ -10337,12 +10312,12 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			// sevenfm: moved code to function
 			SetDamageDisplayCounter( this );
 			// zero suppression values stored from last attack
-			this->runtime.combatFeedback.lastShock = 0;
-			this->runtime.combatFeedback.lastSuppression = 0;
-			this->runtime.combatFeedback.lastMorale = 0;
-			this->runtime.combatFeedback.lastActionPoints = 0;
-			//this->runtime.combatFeedback.lastBulletImpact = 0;
-			//this->runtime.combatFeedback.lastArmourProtection = 0;
+			this->runtime().combatFeedback.lastShock = 0;
+			this->runtime().combatFeedback.lastSuppression = 0;
+			this->runtime().combatFeedback.lastMorale = 0;
+			this->runtime().combatFeedback.lastActionPoints = 0;
+			//this->runtime().combatFeedback.lastBulletImpact = 0;
+			//this->runtime().combatFeedback.lastArmourProtection = 0;
 		}
 	}
 	
@@ -10556,7 +10531,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	// Check if we are < unconscious, and shutup if so! also wipe sight
 	if ( this->vitals().health() < CONSCIOUSNESS )
 	{
-		ShutupaYoFace( this->iFaceIndex );
+		ShutupaYoFace( this->renderBindings().faceIndex() );
 	}
 
 	if ( this->vitals().health() < OKLIFE )
@@ -10618,7 +10593,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 
 void SOLDIERTYPE::SoldierTakeDelayedDamage(INT8 bHeight, INT16 sLifeDeduct, INT16 sBreathLoss, UINT8 ubReason, SoldierID ubAttacker, INT32 sSourceGrid, INT16 sSubsequent, BOOLEAN fShowDamage)
 {
-	runtime.pendingAction.delayedDamage = [this, bHeight, sLifeDeduct, sBreathLoss, ubReason, ubAttacker, sSourceGrid, sSubsequent, fShowDamage]()
+	runtime().pendingAction.delayedDamage = [this, bHeight, sLifeDeduct, sBreathLoss, ubReason, ubAttacker, sSourceGrid, sSubsequent, fShowDamage]()
 	{
 		this->SoldierTakeDamage(bHeight, sLifeDeduct, sBreathLoss, ubReason, ubAttacker, sSourceGrid, sSubsequent, fShowDamage);
 	};
@@ -10626,10 +10601,10 @@ void SOLDIERTYPE::SoldierTakeDelayedDamage(INT8 bHeight, INT16 sLifeDeduct, INT1
 
 void SOLDIERTYPE::ResolveDelayedDamage()
 {
-	if (runtime.pendingAction.delayedDamage)
+	if (runtime().pendingAction.delayedDamage)
 	{
-		runtime.pendingAction.delayedDamage();
-		runtime.pendingAction.delayedDamage = nullptr;
+		runtime().pendingAction.delayedDamage();
+		runtime().pendingAction.delayedDamage = nullptr;
 	}
 }
 
@@ -11053,7 +11028,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 		if ( pSoldier->identity().profile() != NO_PROFILE )
 		{
 			// Get soldier's face ID
-			iFaceIndex = pSoldier->iFaceIndex;
+			iFaceIndex = pSoldier->renderBindings().faceIndex();
 
 			// Check face index
 			if ( iFaceIndex != -1 )
@@ -14286,9 +14261,9 @@ void ContinueMercMovement( SOLDIERTYPE *pSoldier )
 				pSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
 
 				// If we have a face, tell text in it to go away!
-				if ( pSoldier->iFaceIndex != -1 )
+				if ( pSoldier->renderBindings().faceIndex() != -1 )
 				{
-					gFacesData[pSoldier->iFaceIndex].fDisplayTextOver = FACE_ERASE_TEXT_OVER;
+					gFacesData[pSoldier->renderBindings().faceIndex()].fDisplayTextOver = FACE_ERASE_TEXT_OVER;
 				}
 			}
 
@@ -14427,9 +14402,9 @@ BOOLEAN SOLDIERTYPE::InternalIsValidStance( INT8 bDirection, INT8 bNewStance )
 	}
 
 	// Check if we can do this....
-	if ( this->pLevelNode && this->pLevelNode->pStructureData != NULL )
+	if ( this->renderBindings().levelNode() && this->renderBindings().levelNode()->pStructureData != NULL )
 	{
-		usOKToAddStructID = this->pLevelNode->pStructureData->usStructureID;
+		usOKToAddStructID = this->renderBindings().levelNode()->pStructureData->usStructureID;
 	}
 	else
 	{
@@ -23055,7 +23030,7 @@ void SOLDIERTYPE::ChangeToFlybackAnimation( UINT8 flyBackDirection )
 	// Remove any previous actions
 	this->pendingAction().clearAction();
 
-	this->runtime.pendingAction.pathSearchSourceGrid = this->position().gridNo();
+	this->runtime().pendingAction.pathSearchSourceGrid = this->position().gridNo();
 
 	// Since we're manually setting our path, we have to reset these @#$@# flags too.  Otherwise we don't reach the
 	// destination a lot of the time
@@ -23101,7 +23076,7 @@ void SOLDIERTYPE::ChangeToFallbackAnimation( UINT8 fallBackDirection )
 	// Remove any previous actions
 	this->pendingAction().clearAction();
 
-	this->runtime.pendingAction.pathSearchSourceGrid = this->position().gridNo();
+	this->runtime().pendingAction.pathSearchSourceGrid = this->position().gridNo();
 
 	// Since we're manually setting our path, we have to reset these @#$@# flags too.  Otherwise we don't reach the
 	// destination a lot of the time
@@ -23185,7 +23160,7 @@ BOOLEAN MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 		pSoldier->pendingAction().secondaryData() = pTarget->position().gridNo();
 		pSoldier->pendingAction().tertiaryData() = ubDirection;
 		pSoldier->pendingAction().quaternaryData() = 0;
-		pSoldier->runtime.pendingAction.targetIncarnation =
+		pSoldier->runtime().pendingAction.targetIncarnation =
 			pTarget->identity().incarnation();
 		pSoldier->pendingAction().resetAnimationCount();
 
@@ -26161,7 +26136,7 @@ BOOLEAN ApplyConsumable(SOLDIERTYPE* pSoldier, OBJECTTYPE *pObj, BOOLEAN fForce,
 			// Flugente: refresh face regardless of result of SetCamoFace(), otherwise applying a rag will not clean the picture
 			SetCamoFace( pSoldier );
 			DeleteSoldierFace( pSoldier );// remove face
-			pSoldier->iFaceIndex = InitSoldierFace( pSoldier );// create new face
+			pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );// create new face
 		}
 	}
 	
@@ -26360,5 +26335,5 @@ void SOLDIERTYPE::StartRadioAnimation(void)
 
 void SOLDIERTYPE::InitializeExtraData(void)
 {
-	this->runtime.reset();
+	this->runtime().reset();
 }

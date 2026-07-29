@@ -1332,7 +1332,7 @@ void		GetUserInput()
 					if( giSelectedMercCurrentQuote != -1 )
 					{
 						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-							ShutupaYoFace( gTalkingMercSoldier->iFaceIndex );
+							ShutupaYoFace( gTalkingMercSoldier->renderBindings().faceIndex() );
 						else
 							ShutupaYoFace( gTalkPanel.iFaceIndex );
 
@@ -1354,7 +1354,7 @@ void		GetUserInput()
 					if( giSelectedMercCurrentQuote != -1 )
 					{
 						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-							ShutupaYoFace( gTalkingMercSoldier->iFaceIndex );
+							ShutupaYoFace( gTalkingMercSoldier->renderBindings().faceIndex() );
 						else
 							ShutupaYoFace( gTalkPanel.iFaceIndex );
 
@@ -1467,7 +1467,7 @@ void		GetUserInput()
 					if( giSelectedMercCurrentQuote != -1 )
 					{
 						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-							ShutupaYoFace( gTalkingMercSoldier->iFaceIndex );
+							ShutupaYoFace( gTalkingMercSoldier->renderBindings().faceIndex() );
 						else
 							ShutupaYoFace( gTalkPanel.iFaceIndex );
 
@@ -1490,7 +1490,7 @@ void		GetUserInput()
 						DisplayQDSCurrentlyQuoteNum( );
 
 						if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-							ShutupaYoFace( gTalkingMercSoldier->iFaceIndex );
+							ShutupaYoFace( gTalkingMercSoldier->renderBindings().faceIndex() );
 						else
 							ShutupaYoFace( gTalkPanel.iFaceIndex );
 
@@ -3803,7 +3803,7 @@ void HandleQDSTalkingMerc()
 
 		//find out if the merc is talking
 		if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
-			fIsTheMercTalking = gFacesData[ gTalkingMercSoldier->iFaceIndex ].fTalking;
+			fIsTheMercTalking = gFacesData[ gTalkingMercSoldier->renderBindings().faceIndex() ].fTalking;
 		else
 			fIsTheMercTalking = gFacesData[ gTalkPanel.iFaceIndex ].fTalking;
 
@@ -3866,14 +3866,14 @@ void SetTalkingMercPauseState( BOOLEAN fState )
 		gfPauseTalkingMercPopup = TRUE;
 
 		if( gTalkingMercSoldier )
-			gFacesData[ gTalkingMercSoldier->iFaceIndex ].uiFlags |= FACE_POTENTIAL_KEYWAIT;
+			gFacesData[ gTalkingMercSoldier->renderBindings().faceIndex() ].uiFlags |= FACE_POTENTIAL_KEYWAIT;
 	}
 	else
 	{
 		gfPauseTalkingMercPopup = FALSE;
 
 		if( gTalkingMercSoldier )
-			gFacesData[ gTalkingMercSoldier->iFaceIndex ].uiFlags &= ~FACE_POTENTIAL_KEYWAIT;
+			gFacesData[ gTalkingMercSoldier->renderBindings().faceIndex() ].uiFlags &= ~FACE_POTENTIAL_KEYWAIT;
 	}
 }
 

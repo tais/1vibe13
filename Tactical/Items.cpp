@@ -12992,7 +12992,7 @@ void ApplyEquipmentBonuses(SOLDIERTYPE * pSoldier)
 	if (SetCamoFace( pSoldier ))
 	{
 		DeleteSoldierFace( pSoldier );// remove face
-		pSoldier->iFaceIndex = InitSoldierFace( pSoldier );// create new face
+		pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );// create new face
 	}
 	*/
 

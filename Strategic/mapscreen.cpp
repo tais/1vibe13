@@ -13172,7 +13172,7 @@ BOOLEAN ContinueDialogue(SoldierID id, BOOLEAN fDone )
 			{
 				ChangeSelectedInfoChar( bOldSelectedInfoChar, TRUE );
 
-				SetAutoFaceInActive( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->iFaceIndex );
+				SetAutoFaceInActive( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->renderBindings().faceIndex() );
 			}
 
 	*/

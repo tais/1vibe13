@@ -2373,7 +2373,7 @@ SOLDIERTYPE* SwapToProfile( SOLDIERTYPE * pSoldier, UINT8 ubDestProfile )
 	pSoldier->identity().profile() = ubDestProfile;
 
 	// create new face
-	pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
+	pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );
 
 	// replace profile in group
 	ReplaceSoldierProfileInPlayerGroup( pSoldier->deployment().groupId(), ubSrcProfile, ubDestProfile );

@@ -4058,7 +4058,7 @@ int main( int, char** )
 		commandHostActor.pendingAction().action() = MERC_TALK;
 		commandHostActor.pendingAction().primaryData() = staleActor.slot;
 		commandHostActor.pendingAction().quaternaryData() = 0;
-		commandHostActor.runtime.pendingAction.targetIncarnation =
+		commandHostActor.runtime().pendingAction.targetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingConversationCompleted =
 			TryCompletePendingConversationCommand( commandHostActor );
@@ -4069,7 +4069,7 @@ int main( int, char** )
 		commandHostActor.pendingAction().secondaryData() = staleActor.slot;
 		commandHostActor.pendingAction().tertiaryData() = 3;
 		commandHostActor.pendingAction().quaternaryData() = 0;
-		commandHostActor.runtime.pendingAction.targetIncarnation =
+		commandHostActor.runtime().pendingAction.targetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingVehicleCompleted =
 			TryCompletePendingVehicleCommand( commandHostActor );
@@ -4081,13 +4081,13 @@ int main( int, char** )
 		commandHostActor.pendingAction().tertiaryData() = 3;
 		commandHostActor.pendingAction().quaternaryData() = 0;
 		commandHostActor.targeting().level() = FIRST_LEVEL;
-		commandHostActor.runtime.pendingAction.targetIncarnation =
+		commandHostActor.runtime().pendingAction.targetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingStealCompleted =
 			TryCompletePendingStealCommand( commandHostActor );
 		const bool stalePendingStealCleared =
 			commandHostActor.pendingAction().action() == NO_PENDING_ACTION &&
-			commandHostActor.runtime.pendingAction.targetIncarnation == 0;
+			commandHostActor.runtime().pendingAction.targetIncarnation == 0;
 
 		std::vector<WORLDITEM> previousWorldItems = std::move( gWorldItems );
 		const UINT32 previousWorldItemCount = guiNumWorldItems;
@@ -4124,13 +4124,13 @@ int main( int, char** )
 		commandHostActor.pendingAction().secondaryData() = 123;
 		commandHostActor.pendingAction().tertiaryData() = 5;
 		commandHostActor.pendingAction().quaternaryData() = 123;
-		commandHostActor.runtime.pendingAction.targetIncarnation =
+		commandHostActor.runtime().pendingAction.targetIncarnation =
 			firstWorldItem.incarnation;
 		const bool livePendingWorldItemAccepted =
 			TryValidatePendingWorldItemPickup( commandHostActor ) &&
 			TryConsumePendingWorldItemPickup(
 				commandHostActor, 0, 123, 5 ) &&
-			commandHostActor.runtime.pendingAction.targetIncarnation == 0;
+			commandHostActor.runtime().pendingAction.targetIncarnation == 0;
 		commandHostActor.pendingAction().action() = NO_PENDING_ACTION;
 		WORLDITEM copiedWorldItem = gWorldItems[0];
 		RemoveItemFromWorld( -1 );
@@ -4210,13 +4210,13 @@ int main( int, char** )
 		commandHostActor.pendingAction().secondaryData() = 123;
 		commandHostActor.pendingAction().tertiaryData() = 0;
 		commandHostActor.pendingAction().quaternaryData() = 123;
-		commandHostActor.runtime.pendingAction.targetIncarnation =
+		commandHostActor.runtime().pendingAction.targetIncarnation =
 			firstWorldItem.incarnation;
 		const bool stalePendingWorldItemRejected =
 			!TryValidatePendingWorldItemPickup( commandHostActor );
 		const bool stalePendingWorldItemCleared =
 			commandHostActor.pendingAction().action() == NO_PENDING_ACTION &&
-			commandHostActor.runtime.pendingAction.targetIncarnation == 0;
+			commandHostActor.runtime().pendingAction.targetIncarnation == 0;
 		const bool worldItemIdentityLifecycle =
 			firstWorldItemAssigned && firstWorldItem.valid() &&
 			liveWorldItemReferenceCaptured &&
@@ -7371,7 +7371,24 @@ int main( int, char** )
 		source.roster().active() = TRUE;
 		source.position().gridNo() = 4321;
 		source.vitals().health() = 73;
-		source.runtime.pendingAction.pathSearchSourceGrid = 99;
+		source.runtime().pendingAction.pathSearchSourceGrid = 99;
+		int sourceLevelNodeStorage = 0;
+		int sourceAnimationTileStorage = 0;
+		LEVELNODE* const sourceLevelNode =
+			reinterpret_cast<LEVELNODE*>(&sourceLevelNodeStorage);
+		TAG_anitile* const sourceAnimationTile =
+			reinterpret_cast<TAG_anitile*>(&sourceAnimationTileStorage);
+		source.renderBindings().faceIndex() = 41;
+		source.renderBindings().levelNode() = sourceLevelNode;
+		source.renderBindings().animationTile() = sourceAnimationTile;
+		const SOLDIERTYPE detachedSource = source;
+		CHECK( detachedSource.renderBindings().faceIndex() == -1 &&
+		       detachedSource.renderBindings().levelNode() == nullptr &&
+		       detachedSource.renderBindings().animationTile() == nullptr &&
+		       source.renderBindings().faceIndex() == 41 &&
+		       source.renderBindings().levelNode() == sourceLevelNode &&
+		       source.renderBindings().animationTile() == sourceAnimationTile,
+		       "ordinary soldier copies detach process-local render and world bindings" );
 		PathSt sourceRouteTail{ 202, 2200, TRUE, nullptr, nullptr };
 		PathSt sourceRouteHead{
 			101, 1100, FALSE, &sourceRouteTail, nullptr };
@@ -7386,7 +7403,11 @@ int main( int, char** )
 		CHECK( replaced == &records[1] &&
 		       records[1].position().gridNo() == 4321 &&
 		       records[1].vitals().health() == 73 &&
-		       records[1].runtime.pendingAction.pathSearchSourceGrid == 0 &&
+		       records[1].runtime().pendingAction.pathSearchSourceGrid == 0 &&
+		       records[1].renderBindings().faceIndex() == 41 &&
+		       records[1].renderBindings().levelNode() == sourceLevelNode &&
+		       records[1].renderBindings().animationTile() ==
+		           sourceAnimationTile &&
 		       records[1].strategicPath().head() !=
 		           source.strategicPath().head() &&
 		       records[1].strategicPath().head()->uiSectorId == 101 &&
@@ -7404,6 +7425,24 @@ int main( int, char** )
 		records[0].position().gridNo() = 100;
 		records[1].identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
 		records[1].position().gridNo() = 200;
+		int firstLevelNodeStorage = 0;
+		int secondLevelNodeStorage = 0;
+		int firstAnimationTileStorage = 0;
+		int secondAnimationTileStorage = 0;
+		LEVELNODE* const firstLevelNode =
+			reinterpret_cast<LEVELNODE*>(&firstLevelNodeStorage);
+		LEVELNODE* const secondLevelNode =
+			reinterpret_cast<LEVELNODE*>(&secondLevelNodeStorage);
+		TAG_anitile* const firstAnimationTile =
+			reinterpret_cast<TAG_anitile*>(&firstAnimationTileStorage);
+		TAG_anitile* const secondAnimationTile =
+			reinterpret_cast<TAG_anitile*>(&secondAnimationTileStorage);
+		records[0].renderBindings().faceIndex() = 51;
+		records[0].renderBindings().levelNode() = firstLevelNode;
+		records[0].renderBindings().animationTile() = firstAnimationTile;
+		records[1].renderBindings().faceIndex() = 52;
+		records[1].renderBindings().levelNode() = secondLevelNode;
+		records[1].renderBindings().animationTile() = secondAnimationTile;
 		PathSt firstRoute{ 303, 3300, FALSE, nullptr, nullptr };
 		PathSt secondRoute{ 404, 4400, TRUE, nullptr, nullptr };
 		records[0].strategicPath().copyFrom(&firstRoute);
@@ -7430,6 +7469,14 @@ int main( int, char** )
 		       records[1].identity().id() == SoldierID{ static_cast<UINT16>( 1 ) } &&
 		       records[0].position().gridNo() == 200 &&
 		       records[1].position().gridNo() == 100 &&
+		       records[0].renderBindings().faceIndex() == 52 &&
+		       records[1].renderBindings().faceIndex() == 51 &&
+		       records[0].renderBindings().levelNode() == secondLevelNode &&
+		       records[1].renderBindings().levelNode() == firstLevelNode &&
+		       records[0].renderBindings().animationTile() ==
+		           secondAnimationTile &&
+		       records[1].renderBindings().animationTile() ==
+		           firstAnimationTile &&
 		       records[0].strategicPath().head() == secondOwnedRoute &&
 		       records[1].strategicPath().head() == firstOwnedRoute &&
 		       records[0].palette().base16() == secondOwnedPalette &&
@@ -12729,6 +12776,20 @@ int main( int, char** )
 		       "soldier combat-feedback runtime component resets as one domain" );
 		CHECK( runtime.quickItem.itemId == 0 && runtime.quickItem.slot == 0,
 		       "soldier quick-item runtime component resets retained UI state" );
+
+		SOLDIERTYPE boundSoldier;
+		boundSoldier.renderBindings().faceIndex() = 61;
+		boundSoldier.renderBindings().levelNode() =
+			reinterpret_cast<LEVELNODE*>(&runtime);
+		boundSoldier.renderBindings().animationTile() =
+			reinterpret_cast<TAG_anitile*>(&runtime);
+		boundSoldier.runtime().pendingAction.pathSearchSourceGrid = 4321;
+		boundSoldier.initialize();
+		CHECK( boundSoldier.renderBindings().faceIndex() == -1 &&
+		       boundSoldier.renderBindings().levelNode() == nullptr &&
+		       boundSoldier.renderBindings().animationTile() == nullptr &&
+		       boundSoldier.runtime().pendingAction.pathSearchSourceGrid == 0,
+		       "soldier initialization detaches every process-local binding and transient callback domain" );
 	}
 
 	// MemAlloc round-trip -- exercises the allocator whose 500+ unchecked call
@@ -13049,6 +13110,20 @@ int main( int, char** )
 		savedSoldier.renderState().startMuzzleFlashSprite(802);
 		savedSoldier.renderState().muzzleFlashFrame() = 5;
 		savedSoldier.renderState().setBoundingBox(71, 72, -9, -10);
+		int savedLevelNodeStorage = 0;
+		int savedAnimationTileStorage = 0;
+		savedSoldier.renderBindings().faceIndex() = 731;
+		savedSoldier.renderBindings().levelNode() =
+			reinterpret_cast<LEVELNODE*>(&savedLevelNodeStorage);
+		savedSoldier.renderBindings().animationTile() =
+			reinterpret_cast<TAG_anitile*>(&savedAnimationTileStorage);
+		for (UINT8 compatibilityByte = 0;
+		     compatibilityByte < 10;
+		     ++compatibilityByte)
+		{
+			savedSoldier.compatibilityBytes()[compatibilityByte] =
+				static_cast<UINT8>(0xA0 + compatibilityByte);
+		}
 		savedSoldier.uiPresentation().portraitFlashFrame() = -5;
 		savedSoldier.uiPresentation().startLocator(8);
 		savedSoldier.uiPresentation().locatorFrame() = 6;
@@ -13419,6 +13494,13 @@ int main( int, char** )
 		if ( output ) FileClose( output );
 
 		SOLDIERTYPE loadedSoldier;
+		int staleLevelNodeStorage = 0;
+		int staleAnimationTileStorage = 0;
+		loadedSoldier.renderBindings().faceIndex() = 999;
+		loadedSoldier.renderBindings().levelNode() =
+			reinterpret_cast<LEVELNODE*>(&staleLevelNodeStorage);
+		loadedSoldier.renderBindings().animationTile() =
+			reinterpret_cast<TAG_anitile*>(&staleAnimationTileStorage);
 		OBJECTTYPE staleLoadedObject;
 		staleLoadedObject.usItem = 95;
 		loadedSoldier.pendingItem().prepareThrow(staleLoadedObject);
@@ -14081,6 +14163,20 @@ int main( int, char** )
 		       loadedSoldier.renderState().boundingBoxOffsetX() == -9 &&
 		       loadedSoldier.renderState().boundingBoxOffsetY() == -10,
 		       "soldier save/load round-trips render state while preserving fade mode 2" );
+		bool loadedCompatibilityBytesMatch = saved && loaded;
+		for (UINT8 compatibilityByte = 0;
+		     compatibilityByte < 10;
+		     ++compatibilityByte)
+		{
+			loadedCompatibilityBytesMatch &=
+				loadedSoldier.compatibilityBytes()[compatibilityByte] ==
+					static_cast<UINT8>(0xA0 + compatibilityByte);
+		}
+		CHECK( loadedCompatibilityBytesMatch &&
+		       loadedSoldier.renderBindings().faceIndex() == 731 &&
+		       loadedSoldier.renderBindings().levelNode() == nullptr &&
+		       loadedSoldier.renderBindings().animationTile() == nullptr,
+		       "soldier save/load preserves the face and compatibility bytes while detaching process-local world bindings" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.suppression().underFire() == 2 &&
 		       loadedSoldier.suppression().shock() == 10 &&

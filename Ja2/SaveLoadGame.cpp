@@ -1749,6 +1749,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierDamageDisplayComponent& damageDisplay = s.damageDisplay();
 	SoldierRenderStateComponent& renderState = s.renderState();
 	SoldierUiPresentationComponent& uiPresentation = s.uiPresentation();
+	SoldierRenderBindingsComponent& renderBindings = s.renderBindings();
 	ar.u16(s.identity().id().i);
 	ar.wstr(s.identity().name(), 10);
 	ar.u8(s.identity().bodyType());
@@ -1788,7 +1789,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.f32(fireControl.initialMuzzleOffsetX()); ar.f32(fireControl.initialMuzzleOffsetY());
 	ar.i8(movementMetrics.tilesMoved()); ar.f32(vitals.nextBleedAt());
 	ar.u8(movementMetrics.realtimeBreathTiles()); ar.u16(movementMetrics.lastRealtimeMovementAnimation());
-	ar.i16(uiPresentation.locatorFrame()); ar.i32(s.iFaceIndex);
+	ar.i16(uiPresentation.locatorFrame()); ar.i32(renderBindings.faceIndex());
 	for (i = 0; i < SoldierFrontArcComponent::DirectionCount; ++i)
 		ar.u16(frontArc.tileIndex(i));
 	for (i = 0; i < SoldierFrontArcComponent::DirectionCount; ++i)
@@ -1802,8 +1803,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.retiredPtr();
 	ar.u8(renderState.fadeLevel()); ar.u8(service.providerCount()); ar.u16(service.partner().i);
 	ar.retiredPtr(); ar.i8(movement.reverse());
-	ar.ptr(s.pLevelNode); ar.ptr(s.pExternShadowLevelNode); ar.ptr(s.pRoofUILevelNode);
-	ar.ptr(s.pBackGround); ar.ptr(s.pZBackground);
+	ar.ptr(renderBindings.levelNode()); ar.retiredPtr(); ar.retiredPtr();
+	ar.retiredPtr(); ar.retiredPtr();
 	ar.u16(renderState.unblitX()); ar.u16(renderState.unblitY()); ar.u16(renderState.unblitWidth()); ar.u16(renderState.unblitHeight());
 	ar.u8(deployment.strategicInsertionCode()); ar.i32(deployment.strategicInsertionData());
 	ar.i32(renderState.lightSprite()); ar.i32(renderState.muzzleFlashSprite()); ar.i8(renderState.muzzleFlashFrame());
@@ -1843,7 +1844,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(s.identity().incarnation()); ar.i8(schedule.doorOpenPhase());
 	ar.u8(schedule.id()); ar.i32(schedule.doorGrid()); ar.i8(s.movement().blockedDirection());
 	ar.u16(attackSelection.weapon()); ar.i8(attackSelection.weaponMode()); ar.u16(targeting.targetId().i); ar.i8(schedule.progress());
-	ar.i32(deployment.offWorldGrid()); ar.ptr(s.pAniTile); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
+	ar.i32(deployment.offWorldGrid()); ar.ptr(renderBindings.animationTile()); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
 	ar.u8(movement.highResolutionDirection()); ar.u8(movement.highResolutionDesiredDirection()); ar.u8(audio.lastFootstepVariant());
 	ar.i8(s.vehicleState().tacticalVehicleId()); ar.i8(movement.animationDirection()); ar.i32(movementHistory.previousGrid());
 	ar.u16(movement.gridUpdatePolicy());
@@ -1890,7 +1891,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));
 	for (i = 0; i < NUM_DISEASES; ++i) ar.i16(condition.diseasePoints(i));
 	for (i = 0; i < NUM_DISEASES; ++i) ar.u8(condition.diseaseFlags(i));
-	for (i = 0; i < 10; ++i) ar.u8(s.ubFiller[i]);
+	for (i = 0; i < 10; ++i) ar.u8(s.compatibilityBytes()[i]);
 	ar.u16(assignment.miniEventHoursRemaining());
 	ar.u8(fireControl.grenadeLauncherDelayMode()); ar.u8(fireControl.barrelMode()); ar.u8(fireControl.barrelCounter());
 	ar.i32(skillState.focusGrid()); ar.u32(s.featureFlags().secondaryFlags()); ar.u32(s.identity().individualMilitiaId());
@@ -5715,7 +5716,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 			if (SetCamoFace( soldier ))
 			{
 				DeleteSoldierFace( soldier );// remove face
-				soldier->iFaceIndex = InitSoldierFace( soldier );// create new face
+				soldier->renderBindings().faceIndex() = InitSoldierFace( soldier );// create new face
 			}
 		}
 	}
@@ -6346,11 +6347,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			SavedSoldierInfo.pendingItem().reset();
 			SavedSoldierInfo.keyRing().reset();
 			SavedSoldierInfo.palette().reset();
-			SavedSoldierInfo.pLevelNode	= NULL;
-			SavedSoldierInfo.pExternShadowLevelNode	= NULL;
-			SavedSoldierInfo.pRoofUILevelNode	= NULL;
-			SavedSoldierInfo.pBackGround	= NULL;
-			SavedSoldierInfo.pZBackground	= NULL;
+			SavedSoldierInfo.renderBindings().reset();
 			SavedSoldierInfo.strategicPath().reset();
 			
 			//Create the new merc
@@ -8697,7 +8694,7 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 				gCamoFace[profile].gSnowCamoface = ( soldier->camouflage().snowApplied() > 0 );
 
 				DeleteSoldierFace( soldier );
-				soldier->iFaceIndex = InitSoldierFace( soldier );
+				soldier->renderBindings().faceIndex() = InitSoldierFace( soldier );
 			}
 		}
 	}

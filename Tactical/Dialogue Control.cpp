@@ -453,7 +453,7 @@ void HandleDialogueUIAdjustments( )
 
 
 						// Setup UI again!
-						CreateTalkingUI( gbUIHandlerID, pSoldier->iFaceIndex, pSoldier->identity().profile(), pSoldier, gzQuoteStr );
+						CreateTalkingUI( gbUIHandlerID, pSoldier->renderBindings().faceIndex(), pSoldier->identity().profile(), pSoldier, gzQuoteStr );
 					}
 				}
 			}
@@ -1492,7 +1492,7 @@ BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteN
 	if( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND)
 		return( FALSE );
 
-	return( CharacterDialogue( pSoldier->identity().profile(), usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, TRUE ) );
+	return( CharacterDialogue( pSoldier->identity().profile(), usQuoteNum, pSoldier->renderBindings().faceIndex(), DIALOGUE_TACTICAL_UI, TRUE, TRUE ) );
 }
 
 
@@ -1515,7 +1515,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEvent( SOLDIERTYPE *pSoldier, UINT16
 			return( FALSE );
 	}
 
-	return( CharacterDialogueWithSpecialEvent( pSoldier->identity().profile(), usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, FALSE, uiFlag, uiData1, uiData2 ) );
+	return( CharacterDialogueWithSpecialEvent( pSoldier->identity().profile(), usQuoteNum, pSoldier->renderBindings().faceIndex(), DIALOGUE_TACTICAL_UI, TRUE, FALSE, uiFlag, uiData1, uiData2 ) );
 }
 
 BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2, UINT32 uiData3 )
@@ -1556,7 +1556,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT
 			return( FALSE );
 	}
 
-	return( CharacterDialogueWithSpecialEventEx( pSoldier->identity().profile(), usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, FALSE, uiFlag, uiData1, uiData2, uiData3 ) );
+	return( CharacterDialogueWithSpecialEventEx( pSoldier->identity().profile(), usQuoteNum, pSoldier->renderBindings().faceIndex(), DIALOGUE_TACTICAL_UI, TRUE, FALSE, uiFlag, uiData1, uiData2, uiData3 ) );
 }
 
 
@@ -1571,7 +1571,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	{
 		return( FALSE );
 	}
-	if ( pSoldier->iFaceIndex <= -1 )	// mirror TacticalCharacterDialogue: no allocated face -> would OOB gFacesData[]
+	if ( pSoldier->renderBindings().faceIndex() <= -1 )	// mirror TacticalCharacterDialogue: no allocated face -> would OOB gFacesData[]
 	{
 		return( FALSE );
 	}
@@ -1655,10 +1655,10 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	}
 
 	// Flugente: if we don't have a face index, then don't do a dialogue here...
-	if ( pSoldier->iFaceIndex <= -1 )
+	if ( pSoldier->renderBindings().faceIndex() <= -1 )
 		return( FALSE );
 
-	return( CharacterDialogue( pSoldier->identity().profile(), usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, FALSE ) );
+	return( CharacterDialogue( pSoldier->identity().profile(), usQuoteNum, pSoldier->renderBindings().faceIndex(), DIALOGUE_TACTICAL_UI, TRUE, FALSE ) );
 }
 
 BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT8 ubEventType, UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile )
@@ -1672,7 +1672,7 @@ BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNu
 	{
 		return( FALSE );
 	}
-	if ( pSoldier->iFaceIndex <= -1 )	// mirror TacticalCharacterDialogue: no allocated face -> would OOB gFacesData[]
+	if ( pSoldier->renderBindings().faceIndex() <= -1 )	// mirror TacticalCharacterDialogue: no allocated face -> would OOB gFacesData[]
 	{
 		return( FALSE );
 	}
@@ -1720,7 +1720,7 @@ BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNu
 	if ( AM_AN_EPC( pSoldier ) && !(gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags & PROFILE_MISC_FLAG_FORCENPCQUOTE) )
 		return( FALSE );
 
-	return( SnitchCharacterDialogue( pSoldier->identity().profile(), usQuoteNum, pSoldier->iFaceIndex,
+	return( SnitchCharacterDialogue( pSoldier->identity().profile(), usQuoteNum, pSoldier->renderBindings().faceIndex(),
 		DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, MULTIPURPOSE_SPECIAL_EVENT_SNITCH_DIALOGUE,
 		ubTargetProfile, ubTargetProfile, ubSecondaryTargetProfile,
 		DIALOGUE_TACTICAL_UI, TRUE, FALSE ) );
@@ -1771,7 +1771,7 @@ BOOLEAN AdditionalTacticalCharacterDialogue_CallsLua( SOLDIERTYPE *pSoldier, UIN
 		return( FALSE );
 
 	// we actually use the snitch function here, and simply deviate later on due to marking this with MULTIPURPOSE_SPECIAL_EVENT_ADDITIONAL_DIALOGUE
-	return( SnitchCharacterDialogue( pSoldier->identity().profile(), usEventNr, pSoldier->iFaceIndex,
+	return( SnitchCharacterDialogue( pSoldier->identity().profile(), usEventNr, pSoldier->renderBindings().faceIndex(),
 		DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, MULTIPURPOSE_SPECIAL_EVENT_ADDITIONAL_DIALOGUE,
 		aData1, aData2, aData3,
 		DIALOGUE_TACTICAL_UI, TRUE, FALSE ) );
@@ -2266,14 +2266,14 @@ BOOLEAN LuaCallsToDoDialogueStuff( UINT8 ubProfile, INT32 iFaceIndex, const char
 void SpecialDialogue( SOLDIERTYPE* pSoldier, STR8 azSoundString, STR16 azTextString )
 {
 	// if possible, set up a proper dialogue. Otherwise just play the file
-	if ( !DialogueActive() && pSoldier->identity().profile() != NO_PROFILE && pSoldier->iFaceIndex >= 0 )	// iFaceIndex >= 0: else gFacesData[-1] OOB; falls through to just playing the sound file
+	if ( !DialogueActive() && pSoldier->identity().profile() != NO_PROFILE && pSoldier->renderBindings().faceIndex() >= 0 )	// iFaceIndex >= 0: else gFacesData[-1] OOB; falls through to just playing the sound file
 	{
-		gpCurrentTalkingFace = &gFacesData[pSoldier->iFaceIndex];
+		gpCurrentTalkingFace = &gFacesData[pSoldier->renderBindings().faceIndex()];
 		gubCurrentTalkingID = pSoldier->identity().id();
 
 		SetQuoteStr( azTextString );
 
-		LuaCallsToDoDialogueStuff( pSoldier->identity().profile(), pSoldier->iFaceIndex, azSoundString );
+		LuaCallsToDoDialogueStuff( pSoldier->identity().profile(), pSoldier->renderBindings().faceIndex(), azSoundString );
 	}
 	else
 	{

@@ -347,11 +347,11 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 					STRUCTURE_FILE_REF * pStructureFileRef;
 					UINT16							usAnimSurface;
 
-					if ( pSoldier->pLevelNode != NULL )
+					if ( pSoldier->renderBindings().levelNode() != NULL )
 					{
-						if ( pSoldier->pLevelNode->pStructureData != NULL )
+						if ( pSoldier->renderBindings().levelNode()->pStructureData != NULL )
 						{
-							usOKToAddStructID = pSoldier->pLevelNode->pStructureData->usStructureID;
+							usOKToAddStructID = pSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
 						}
 						else
 						{
@@ -510,11 +510,11 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 					STRUCTURE_FILE_REF * pStructureFileRef;
 					UINT16							usAnimSurface;
 
-					if ( pSoldier->pLevelNode != NULL )
+					if ( pSoldier->renderBindings().levelNode() != NULL )
 					{
-						if ( pSoldier->pLevelNode->pStructureData != NULL )
+						if ( pSoldier->renderBindings().levelNode()->pStructureData != NULL )
 						{
-							usOKToAddStructID = pSoldier->pLevelNode->pStructureData->usStructureID;
+							usOKToAddStructID = pSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
 						}
 						else
 						{
@@ -682,9 +682,9 @@ INT32 FindGridNoFromSweetSpotWithStructDataFromSoldier( SOLDIERTYPE *pSoldier, U
 
 					if ( fClosestToMerc != 3 )
 					{
-						if ( pSoldier->pLevelNode != NULL && pSoldier->pLevelNode->pStructureData != NULL )
+						if ( pSoldier->renderBindings().levelNode() != NULL && pSoldier->renderBindings().levelNode()->pStructureData != NULL )
 						{
-							usOKToAddStructID = pSoldier->pLevelNode->pStructureData->usStructureID;
+							usOKToAddStructID = pSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
 						}
 						else
 						{

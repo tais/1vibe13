@@ -800,7 +800,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		// LOAD MERC's FACE!
 		if ( pCreateStruct->ubProfile != NO_PROFILE && Soldier.roster().team() == OUR_TEAM )
 		{
-			Soldier.iFaceIndex = InitSoldierFace( &Soldier );
+			Soldier.renderBindings().faceIndex() = InitSoldierFace( &Soldier );
 		}
 
 		Soldier.actionPoints().beginTurn( Soldier.CalcActionPoints() );
@@ -1200,8 +1200,8 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			return( FALSE );
 
 		//Reset the face index
-		Soldier.iFaceIndex = -1;
-		Soldier.iFaceIndex = InitSoldierFace( &Soldier );
+		Soldier.renderBindings().faceIndex() = -1;
+		Soldier.renderBindings().faceIndex() = InitSoldierFace( &Soldier );
 
 		// ATE: Reset soldier's light value to -1....
 		Soldier.renderState().lightSprite() = -1;
@@ -2085,7 +2085,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 
 	// Set default values
 	pSoldier->awareness().markHidden();
-	pSoldier->iFaceIndex	 = -1;
+	pSoldier->renderBindings().faceIndex()	 = -1;
 
 	// Set morale default
 	//pSoldier->morale().morale() = DEFAULT_MORALE;
@@ -2097,7 +2097,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->timing().aiDelay() = 100;
 
 	pSoldier->renderState().lightSprite() = -1;
-	pSoldier->iFaceIndex = -1;
+	pSoldier->renderBindings().faceIndex() = -1;
 
 	// Set update time to new speed
 	pSoldier->animationIntent().clearDesiredHeight();
@@ -2203,10 +2203,10 @@ BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehi
 			pSoldier->RemoveSoldierFromGridNo( );
 
 		// Delete shadow of crow....
-			if ( pSoldier->pAniTile != NULL )
+			if ( pSoldier->renderBindings().animationTile() != NULL )
 			{
-				DeleteAniTile( pSoldier->pAniTile );
-				pSoldier->pAniTile = NULL;
+				DeleteAniTile( pSoldier->renderBindings().animationTile() );
+				pSoldier->renderBindings().animationTile() = NULL;
 			}
 
 			if ( ! (pSoldier->status().flags() & SOLDIER_OFF_MAP) )
@@ -3010,7 +3010,7 @@ void ForceSoldierProfileID( SOLDIERTYPE *pSoldier, UINT8 ubProfileID )
 	DeleteSoldierFace( pSoldier );
 
 	// Init face
-	pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
+	pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );
 
 	// Update animation, palettes
 	SetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );

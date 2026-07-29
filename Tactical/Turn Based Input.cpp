@@ -7475,8 +7475,8 @@ void SwapMercPortraits ( SOLDIERTYPE *pSoldier, INT8 bDirection )
 		}
 
 		// store face indexes
-		iSourceFace = sourceSoldier->iFaceIndex;
-		iTargetFace = targetSoldier->iFaceIndex;
+		iSourceFace = sourceSoldier->renderBindings().faceIndex();
+		iTargetFace = targetSoldier->renderBindings().faceIndex();
 		FACETYPE TempFace = gFacesData[ iSourceFace ];
 
 		// Swap through the entity host so slot incarnations remain resolvable.
@@ -7504,8 +7504,8 @@ void SwapMercPortraits ( SOLDIERTYPE *pSoldier, INT8 bDirection )
 		gFacesData[ iTargetFace ].ubSoldierID = ubTargetMerc;
 
 		// update face index in merc data
-		sourceSlot->iFaceIndex = iSourceFace;
-		targetSlot->iFaceIndex = iTargetFace;
+		sourceSlot->renderBindings().faceIndex() = iSourceFace;
+		targetSlot->renderBindings().faceIndex() = iTargetFace;
 
 		// update group info
 		RemovePlayerFromGroup( ubGroupID, sourceSlot );
@@ -9233,9 +9233,9 @@ void HandleTacticalStoreInvItem( void )
 		return;
 	}
 
-	if( pSoldier->runtime.quickItem.itemId == pSoldier->inventory()[HANDPOS].usItem &&
-		( CanItemFitInPosition(pSoldier, &pSoldier->inventory()[HANDPOS], pSoldier->runtime.quickItem.slot, FALSE) && !pSoldier->inventory()[pSoldier->runtime.quickItem.slot].exists() ) )
-		ubStoreSlot = pSoldier->runtime.quickItem.slot;
+	if( pSoldier->runtime().quickItem.itemId == pSoldier->inventory()[HANDPOS].usItem &&
+		( CanItemFitInPosition(pSoldier, &pSoldier->inventory()[HANDPOS], pSoldier->runtime().quickItem.slot, FALSE) && !pSoldier->inventory()[pSoldier->runtime().quickItem.slot].exists() ) )
+		ubStoreSlot = pSoldier->runtime().quickItem.slot;
 
 	// find slot to store HANDPOS in
 	for(UINT8 i = GUNSLINGPOCKPOS; i < NUM_INV_SLOTS && ubStoreSlot == 0; ++i)
@@ -9339,8 +9339,8 @@ void HandleTacticalTakeInvItem( INT32 iType )
 	}
 
 	// remember item slot and id
-	pSoldier->runtime.quickItem.itemId = pSoldier->inventory()[ubItemSlot].usItem;
-	pSoldier->runtime.quickItem.slot = ubItemSlot;
+	pSoldier->runtime().quickItem.itemId = pSoldier->inventory()[ubItemSlot].usItem;
+	pSoldier->runtime().quickItem.slot = ubItemSlot;
 
 	if ( UsingInventoryCostsAPSystem() )
 	{		

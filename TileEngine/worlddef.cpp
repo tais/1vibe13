@@ -3437,7 +3437,7 @@ void TrashWorld( void )
 			if ( pSoldier->roster().team() == gbPlayerNum )
 			{
 				// Just delete levelnode
-				pSoldier->pLevelNode = NULL;
+				pSoldier->renderBindings().levelNode() = NULL;
 			}
 			else
 			{

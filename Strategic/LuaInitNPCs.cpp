@@ -5413,9 +5413,9 @@ static int l_InitFace(lua_State* L)
 			DeleteSoldierFace(pSoldier);
 			// create new face
 			if (IDFace > -1)
-				pSoldier->iFaceIndex = IDFace;//InitSoldierFace( pSoldier );
+				pSoldier->renderBindings().faceIndex() = IDFace;//InitSoldierFace( pSoldier );
 			else
-				pSoldier->iFaceIndex = InitSoldierFace(pSoldier);
+				pSoldier->renderBindings().faceIndex() = InitSoldierFace(pSoldier);
 		}
 	}
 
