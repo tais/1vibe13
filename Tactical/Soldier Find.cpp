@@ -204,9 +204,9 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 
 
 	// Loop through all mercs and make go
-	for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 	{
-		pSoldier			= MercSlots[ cnt ];
+		pSoldier			= ResolveJa2ActiveTacticalActorSlot(cnt);
 		fInScreenRect	= FALSE;
 		fInGridNo		= FALSE;
 
@@ -1006,9 +1006,9 @@ SoldierID QuickFindSoldier( INT32 sGridNo )
 	SOLDIERTYPE *pSoldier = NULL;
 
 	// Loop through all mercs and make go
-	for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 	{
-		pSoldier = MercSlots[ cnt ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 		if ( pSoldier != NULL )
 		{

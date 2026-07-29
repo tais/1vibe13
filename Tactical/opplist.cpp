@@ -533,9 +533,9 @@ void HandleBestSightingPositionInRealtime( void )
 		{
 			SOLDIERTYPE* pSighter = bestSighter;
 			SOLDIERTYPE* pSeen = NULL; INT16 sBest = 9999;
-			for ( UINT32 uiL = 0; uiL < guiNumMercSlots; uiL++ )
+			for ( UINT32 uiL = 0; uiL < Ja2ActiveTacticalActorSlotCount(); uiL++ )
 			{
-				SOLDIERTYPE* pE = MercSlots[ uiL ];
+				SOLDIERTYPE* pE = ResolveJa2ActiveTacticalActorSlot(uiL);
 				if ( pE && pE->roster().active() && pE->roster().inSector() && pE->vitals().health() > 0
 				    && pE->roster().team() != pSighter->roster().team()
 				    && pSighter->awareness().opponentKnowledge()[ pE->identity().id() ] == SEEN_CURRENTLY )
@@ -637,11 +637,18 @@ void HandleBestSightingPositionInRealtime( void )
 			}
 		}
 
-		for ( ubLoop = 0; ubLoop < guiNumMercSlots; ubLoop++ )
+		for ( ubLoop = 0; ubLoop < Ja2ActiveTacticalActorSlotCount(); ubLoop++ )
 		{
-			if ( MercSlots[ ubLoop ] )
+			SOLDIERTYPE* soldier =
+				ResolveJa2ActiveTacticalActorSlot(ubLoop);
+			if ( soldier )
 			{
-				AssertMsg( MercSlots[ ubLoop ]->turnState().interruptDuelPoints() == NO_INTERRUPT, String( "%S (%d) still has interrupt pts!", MercSlots[ ubLoop ]->identity().name(), MercSlots[ ubLoop ]->identity().id() ) );
+				AssertMsg(
+					soldier->turnState().interruptDuelPoints() ==
+						NO_INTERRUPT,
+					String("%S (%d) still has interrupt pts!",
+						soldier->identity().name(),
+						soldier->identity().id()));
 			}
 		}
 	}
@@ -730,11 +737,18 @@ void HandleBestSightingPositionInTurnbased( void )
 			}
 		}
 
-		for ( ubLoop = 0; ubLoop < guiNumMercSlots; ubLoop++ )
+		for ( ubLoop = 0; ubLoop < Ja2ActiveTacticalActorSlotCount(); ubLoop++ )
 		{
-			if ( MercSlots[ ubLoop ] )
+			SOLDIERTYPE* soldier =
+				ResolveJa2ActiveTacticalActorSlot(ubLoop);
+			if ( soldier )
 			{
-				AssertMsg( MercSlots[ ubLoop ]->turnState().interruptDuelPoints() == NO_INTERRUPT, String( "%S (%d) still has interrupt pts!", MercSlots[ ubLoop ]->identity().name(), MercSlots[ ubLoop ]->identity().id() ) );
+				AssertMsg(
+					soldier->turnState().interruptDuelPoints() ==
+						NO_INTERRUPT,
+					String("%S (%d) still has interrupt pts!",
+						soldier->identity().name(),
+						soldier->identity().id()));
 			}
 		}
 
@@ -759,11 +773,13 @@ void InitSightArrays( void )
 	// I do not fully grok the interrupt system, but it IS possible for this function to be called when there are
 	// still soldiers on the sighting list, which gives them lingering interrupt points.	So the best course of
 	// action is to reset their points.	However, I think I'll just do a clean sweep here to make sure I get them all.
-	for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++ )
+	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++ )
 	{
-		if (MercSlots[ uiLoop ] )
+		SOLDIERTYPE* soldier =
+			ResolveJa2ActiveTacticalActorSlot(uiLoop);
+		if (soldier)
 		{
-			MercSlots[ uiLoop ]->turnState().interruptDuelPoints() = NO_INTERRUPT;
+			soldier->turnState().interruptDuelPoints() = NO_INTERRUPT;
 		}
 	}
 }
@@ -1059,9 +1075,9 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 		// all non-humans under our control would now radio, if they were allowed
 		// to radio automatically (but they're not).	So just nuke new opp cnt
 		// NEW: under LOCALOPPLIST, humans on other teams now also radio in here
-		for (uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop)
+		for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop)
 		{
-			pThem = MercSlots[ uiLoop ];
+			pThem = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 			if (pThem != NULL && pThem->vitals().health() >= OKLIFE)
 			{
@@ -1589,9 +1605,9 @@ else
 
 
 
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOtherSoldier = MercSlots[ uiLoop ];
+		pOtherSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pOtherSoldier != NULL )
 		{
@@ -1649,9 +1665,9 @@ void TurnOffEveryonesMuzzleFlashes( void )
 	UINT32					uiLoop;
 	SOLDIERTYPE *		pSoldier;
 
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pSoldier != NULL && pSoldier->renderState().muzzleFlashVisible() )
 		{
@@ -1801,9 +1817,9 @@ void AllTeamsLookForAll(UINT8 ubAllowInterrupts)
 		}
 	}
 
-	for ( UINT16 uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop )
+	for ( UINT16 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
 	{
-		pSoldier = MercSlots[uiLoop];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pSoldier != NULL && pSoldier->vitals().health() >= OKLIFE )
 		{
@@ -1909,9 +1925,9 @@ void ManLooksForOtherTeams(SOLDIERTYPE *pSoldier)
 	// one soldier (pSoldier) looks for every soldier on another team (pOpponent)
 
 
- for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+ for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
  {
-	pOpponent = MercSlots[ uiLoop ];
+	pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 	// if this soldier is around and alive
 	if (pOpponent && pOpponent->vitals().health())
@@ -3064,9 +3080,9 @@ else
 
 
 	// all soldiers not on oppPtr's team now look for him
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is active, in this sector, and well enough to look
 		if (pSoldier != NULL && pSoldier->vitals().health() >= OKLIFE	&& (pSoldier->identity().bodyType() != LARVAE_MONSTER))
@@ -3208,9 +3224,9 @@ void RemoveManAsTarget(SOLDIERTYPE *pSoldier)
 
 
 	// clean up all opponent's opplists
-	for (ubLoop = 0; ubLoop < guiNumMercSlots; ubLoop++)
+	for (ubLoop = 0; ubLoop < Ja2ActiveTacticalActorSlotCount(); ubLoop++)
 	{
-		pOpponent = MercSlots[ ubLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(ubLoop);
 
 	// if the target is active, a true opponent and currently seen by this merc
 		if (pOpponent)
@@ -3354,9 +3370,9 @@ INT8 OurMaxPublicOpplist()
 	UINT8 ubOppValue,ubHighestValue = 0;
 	SOLDIERTYPE * pSoldier;
 
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pSoldier || !pSoldier->vitals().health())
@@ -3438,14 +3454,18 @@ void ResetLastKnownLocs(SOLDIERTYPE *pSoldier)
 {
 	UINT32 uiLoop;
 
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		if (MercSlots[uiLoop])
+		SOLDIERTYPE* opponent =
+			ResolveJa2ActiveTacticalActorSlot(uiLoop);
+		if (opponent)
 		{
-			gsLastKnownOppLoc[pSoldier->identity().id()][MercSlots[uiLoop]->identity().id()] = NOWHERE;
+			gsLastKnownOppLoc[pSoldier->identity().id()]
+				[opponent->identity().id()] = NOWHERE;
 
 			// IAN added this June 14/97
-			gsPublicLastKnownOppLoc[pSoldier->roster().team()][MercSlots[uiLoop]->identity().id()] = NOWHERE;
+			gsPublicLastKnownOppLoc[pSoldier->roster().team()]
+				[opponent->identity().id()] = NOWHERE;
 		}
 	}
 }
@@ -3534,9 +3554,9 @@ void BetweenTurnsVisibilityAdjustments(void)
 
 	// make all soldiers on other teams that are no longer seen not visible
 	// iterate only the active merc slots (skips the inactive backing records)
-	for (cnt = 0; cnt < guiNumMercSlots; cnt++)
+	for (cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++)
 	{
-		pSoldier = MercSlots[ cnt ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 		if (pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health())
 		{
@@ -3601,9 +3621,9 @@ void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirgin
 	{
 		// Get total enemies.
 		// Loop through all mercs in sector and count # of enemies
-		for ( cnt = 0; cnt < guiNumMercSlots; ++cnt )
+		for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); ++cnt )
 		{
-			pTeamSoldier = MercSlots[ cnt ];
+			pTeamSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 			if ( pTeamSoldier != NULL )
 			{
@@ -3615,9 +3635,9 @@ void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirgin
 		}
 
 		// OK, after this, check our guys
-		for ( cnt = 0; cnt < guiNumMercSlots; ++cnt )
+		for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); ++cnt )
 		{
-			pTeamSoldier = MercSlots[ cnt ];
+			pTeamSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 			if ( pTeamSoldier != NULL )
 			{
@@ -3656,9 +3676,9 @@ void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirgin
 
 				// Get total enemies.
 				// Loop through all mercs in sector and count # of enemies
-				for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+				for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 				{
-					pTeamSoldier = MercSlots[ cnt ];
+					pTeamSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 					if ( pTeamSoldier != NULL )
 					{
@@ -7102,9 +7122,9 @@ void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
 	}
 
 	// man looks for each of his opponents WHO ARE ALREADY KNOWN TO HIM
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is active, here, and alive
 		if (pOpponent != NULL && pOpponent->vitals().health())
@@ -7203,9 +7223,9 @@ void DecayIndividualOpplist(SOLDIERTYPE *pSoldier)
 	}
 
 	// man looks for each of his opponents WHO IS CURRENTLY SEEN
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop)
 	{
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is active, here, and alive
 		if (pOpponent != NULL && pOpponent->vitals().health())
@@ -7254,13 +7274,13 @@ void VerifyPublicOpplistDueToDeath(SOLDIERTYPE *pSoldier)
 
 
 	// Deceased looks for each of his opponents who is "seen currently"
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
 		// first, initialize flag since this will be a "new" opponent
 		bOpponentStillSeen = FALSE;
 
 		// grab a pointer to the "opponent"
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this opponent is active, here, and alive
 		if (pOpponent != NULL && pOpponent->vitals().health())
@@ -7280,10 +7300,10 @@ void VerifyPublicOpplistDueToDeath(SOLDIERTYPE *pSoldier)
 			{
 				// then we need to know if any teammates ALSO see this opponent, so loop through
 				// trying to find ONE witness to the death...
-				for (uiTeamMateLoop = 0; uiTeamMateLoop < guiNumMercSlots; uiTeamMateLoop++)
+				for (uiTeamMateLoop = 0; uiTeamMateLoop < Ja2ActiveTacticalActorSlotCount(); uiTeamMateLoop++)
 				{
 					// grab a pointer to the potential teammate
-					pTeamMate = MercSlots[ uiTeamMateLoop ];
+					pTeamMate = ResolveJa2ActiveTacticalActorSlot(uiTeamMateLoop);
 
 					// if this teammate is active, here, and alive
 					if (pTeamMate != NULL && pTeamMate->vitals().health())
@@ -7350,9 +7370,9 @@ void DecayPublicOpplist(INT8 bTeam)
 	}
 
 	// decay the team's Public Opplist
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pSoldier = MercSlots[uiLoop];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// for every active, living soldier on ANOTHER team
 		if (pSoldier && pSoldier->vitals().health() && (pSoldier->roster().team() != bTeam))
@@ -7417,11 +7437,13 @@ void NonCombatDecayPublicOpplist( UINT32 uiTime )
 	if ( uiTime - gTacticalStatus.uiTimeSinceLastOpplistDecay >= TIME_BETWEEN_RT_OPPLIST_DECAYS)
 	{
 		// decay!
-		for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+		for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 		{
-			if ( MercSlots[ cnt ] )
+			SOLDIERTYPE* soldier =
+				ResolveJa2ActiveTacticalActorSlot(cnt);
+			if ( soldier )
 			{
-				VerifyAndDecayOpplist( MercSlots[ cnt ] );
+				VerifyAndDecayOpplist(soldier);
 			}
 		}
 
@@ -7448,9 +7470,9 @@ void RecalculateOppCntsDueToNoLongerNeutral( SOLDIERTYPE * pSoldier )
 
 	if (!pSoldier->aiBehavior().neutral())
 	{
-		for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+		for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 		{
-			pOpponent = MercSlots[uiLoop];
+			pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 			// for every active, living soldier on ANOTHER team
 			if (pOpponent && pOpponent->vitals().health() && !pOpponent->aiBehavior().neutral() && (pOpponent->roster().team() != pSoldier->roster().team()) && (!CONSIDERED_NEUTRAL( pOpponent, pSoldier ) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->roster().side() != pOpponent->roster().side())) )
@@ -7480,9 +7502,9 @@ void RecalculateOppCntsDueToBecomingNeutral( SOLDIERTYPE * pSoldier )
 	{
 		pSoldier->awareness().opponentCount() = 0;
 
-		for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+		for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 		{
-			pOpponent = MercSlots[uiLoop];
+			pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 			// for every active, living soldier on ANOTHER team
 			if (pOpponent && pOpponent->vitals().health() && !pOpponent->aiBehavior().neutral() && (pOpponent->roster().team() != pSoldier->roster().team()) && !CONSIDERED_NEUTRAL( pSoldier, pOpponent ) && (pSoldier->roster().side() != pOpponent->roster().side()) && pSoldier->RecognizeAsCombatant(pOpponent->identity().id()) )

@@ -4260,9 +4260,9 @@ void UpdateTreeVisibility()
 					// find visible soldier near spot
 					if (!TileIsOutOfBounds(sSpot) && !fHideTree)
 					{
-						for (UINT16 uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+						for (UINT16 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 						{
-							pOpponent = MercSlots[uiLoop];
+							pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 							if (pOpponent &&
 								pOpponent->awareness().visibility() != -1 &&

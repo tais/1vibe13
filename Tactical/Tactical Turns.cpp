@@ -294,9 +294,9 @@ void HandleTacticalEndTurn( )
 		// OK, loop through the mercs to perform 'end turn' events on each...
 		// We're looping through only mercs in tactical engine, ignoring our mercs
 		// because they were done earilier...
-		for ( UINT32 cnt = 0; cnt < guiNumMercSlots; cnt++ )
+		for ( UINT32 cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 		{
-			pSoldier = MercSlots[ cnt ];
+			pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 			if ( pSoldier != NULL )
 			{

@@ -281,6 +281,17 @@ remaining legacy animation/vitals changes at its completed-frame boundary.
 than exposing or rereading `SOLDIERTYPE`. The projection is runtime-only and
 does not change soldier, map, save, content, or tactical-delta formats.
 
+`TacticalEntityRoster` is the SDK's fixed-capacity ordered-membership
+primitive for exact tactical identities. It preallocates its storage, inserts
+into the lowest vacant slot without hot-path allocation, retains a sparse
+high-water traversal bound, and never stores application pointers. `insert`,
+`erase`, and `replace` are identity-exact, so reusable soldier slots cannot
+silently redirect retained membership to a later incarnation. The JA2
+application uses two host-owned instances for active and away tactical
+scheduling and its host gateways keep those memberships mutually exclusive;
+this does not expose its scheduler as a package service and does
+not alter strategic squads or persistent/mod data.
+
 `GameContext` also owns the application-only `Ja2SoldierRepository` that
 connects this pointer-free runtime identity to JA2's current fixed soldier
 records. The repository is not part of the SDK and does not expose

@@ -1958,9 +1958,9 @@ BOOLEAN LightSetBaseLevel(UINT8 iIntensity)
 	if( !gfEditMode )
 	{
 		// Loop for all good guys in tactical map and add a light if required
-		for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
+		for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 		{
-			pSoldier = MercSlots[ cnt ];
+			pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 			if ( pSoldier != NULL )
 			{

@@ -7234,7 +7234,8 @@ void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
 				pSoldier->RemoveSoldierFromGridNo( );
 
 				// Remove slot from tactical
-				RemoveMercSlot( pSoldier );
+				RemoveJa2ActiveTacticalActor(
+					GetJa2TacticalEntityId(*pSoldier));
 
 			}
 		}

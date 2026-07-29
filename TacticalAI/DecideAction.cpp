@@ -478,7 +478,8 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			ConvertGridNoToCenterCellXY(pSoldier->deployment().offWorldGrid(), &sX, &sY);
 			pSoldier->EVENT_SetSoldierPosition( sX, sY );
 			pSoldier->roster().inSector() = TRUE;
-			MoveSoldierFromAwayToMercSlot( pSoldier );
+			MoveSoldierFromAwayToMercSlot(
+				GetJa2TacticalEntityId(*pSoldier));
 			pSoldier->aiPlanning().actionData() = usGridNo1;
 			pSoldier->schedule().advanceProgress();
 			pSoldier->movement().absoluteDestination() = pSoldier->aiPlanning().actionData();

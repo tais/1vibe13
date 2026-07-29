@@ -194,9 +194,9 @@ UINT8 CountPeopleInBoxingRing( void )
 	UINT16	usRoom;
 	UINT8 ubTotalInRing = 0;
 
-	for ( uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop )
+	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pSoldier != NULL )
 		{
@@ -221,9 +221,9 @@ static void CountPeopleInBoxingRingAndDoActions( void )
 	SOLDIERTYPE *		pInRing[2] = { NULL, NULL };
 	SOLDIERTYPE *		pNonBoxingPlayer = NULL;
 
-	for ( uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop )
+	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		if ( pSoldier != NULL )
 		{
@@ -584,19 +584,22 @@ void SetBoxingState( INT8 bNewState )
 
 void ClearAllBoxerFlags( void )
 {
-	for (UINT32 uiSlot = 0; uiSlot < guiNumMercSlots; ++uiSlot)
+	for (UINT32 uiSlot = 0; uiSlot < Ja2ActiveTacticalActorSlotCount(); ++uiSlot)
 	{
-		if ( MercSlots[ uiSlot ] && MercSlots[ uiSlot ]->status().flags() & SOLDIER_BOXER )
+		SOLDIERTYPE* soldier =
+			ResolveJa2ActiveTacticalActorSlot(uiSlot);
+		if ( soldier && soldier->status().flags() & SOLDIER_BOXER )
 		{
 			// Flugente: nuke the entire opponent count, remove boxing flag, reevaluate opponent list
-			DecayIndividualOpplist(MercSlots[uiSlot]);
-			
-			MercSlots[ uiSlot ]->DeleteBoxingFlag();
+			DecayIndividualOpplist(soldier);
 
-			ManLooksForOtherTeams(MercSlots[uiSlot]);
+			soldier->DeleteBoxingFlag();
 
-			if ( MercSlots[uiSlot]->roster().team() == gbPlayerNum )
-				MercSlots[uiSlot]->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
+			ManLooksForOtherTeams(soldier);
+
+			if ( soldier->roster().team() == gbPlayerNum )
+				soldier->status().flags() &=
+					(~SOLDIER_PCUNDERAICONTROL);
 		}
 	}
 }

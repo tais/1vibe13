@@ -1158,9 +1158,11 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 		}
 #endif
 		// ADD SOLDIER TO SLOT!
+		const TacticalEntityId actor =
+			GetJa2TacticalEntityId(*pSoldier);
 		if (pSoldier->status().flags() & SOLDIER_OFF_MAP)
 		{
-			AddAwaySlot( pSoldier );
+			AddJa2AwayTacticalActor(actor);
 
 			// Guy is NOT "in sector"
 			pSoldier->roster().inSector() = FALSE;
@@ -1168,7 +1170,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 		}
 		else
 		{
-			AddMercSlot( pSoldier );
+			AddJa2ActiveTacticalActor(actor);
 
 			// Add guy to sector flag
 			pSoldier->roster().inSector() = TRUE;

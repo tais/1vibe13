@@ -9,6 +9,7 @@
 #include <Engine/Adapters/JA2/SimulationCommand.h>
 #include <Engine/Adapters/JA2/SimulationCommandCodec.h>
 #include <Engine/Adapters/JA2/TacticalCommandService.h>
+#include <Engine/Adapters/JA2/TacticalEntityRoster.h>
 #include <Engine/Adapters/JA2/TacticalInventoryUiSession.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaCodec.h>
 #include <Engine/Adapters/JA2/TacticalWorldDeltaPublisher.h>
@@ -651,6 +652,16 @@ int main()
 	const TacticalEntityId earlierId{2, 9};
 	if (!actorId.valid() || !earlierId.valid() || actorId == TacticalEntityId{7, 2} ||
 		!(earlierId < actorId)) return 15;
+	TacticalEntityRoster externalRoster(2);
+	const auto actorRosterSlot = externalRoster.insert(actorId);
+	const auto earlierRosterSlot = externalRoster.insert(earlierId);
+	if (!actorRosterSlot || *actorRosterSlot != 0 ||
+		!earlierRosterSlot || *earlierRosterSlot != 1 ||
+		externalRoster.actor(0) != actorId ||
+		!externalRoster.erase(actorId) ||
+		externalRoster.highWaterMark() != 2 ||
+		externalRoster.insert(TacticalEntityId{9, 4}) != actorRosterSlot)
+		return 63;
 
 	TacticalSimulationSnapshot externalSimulationState;
 	externalSimulationState.actors = {

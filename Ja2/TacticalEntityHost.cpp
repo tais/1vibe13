@@ -1,6 +1,10 @@
 #include "TacticalEntityHost.h"
 
 #include <cstddef>
+#include <limits>
+#include <optional>
+
+#include <Engine/Adapters/JA2/TacticalEntityRoster.h>
 
 #include "Animation Control.h"
 #include "SoldierRepository.h"
@@ -19,6 +23,20 @@ TacticalEntityDirectory*& BoundDirectory() noexcept
 {
 	static TacticalEntityDirectory* directory = &StandaloneDirectory();
 	return directory;
+}
+
+TacticalEntityRoster& ActiveActorRoster() noexcept
+{
+	static TacticalEntityRoster roster(
+		GetJa2SoldierRepository().capacity());
+	return roster;
+}
+
+TacticalEntityRoster& AwayActorRoster() noexcept
+{
+	static TacticalEntityRoster roster(
+		GetJa2SoldierRepository().capacity());
+	return roster;
 }
 
 TacticalEntityId LegacyIdentity(const SOLDIERTYPE& soldier) noexcept
@@ -60,6 +78,47 @@ TacticalActorSnapshot LegacyState(
 		soldier.vitals().maximumBreath(),
 		soldier.roster().active() != FALSE,
 		soldier.roster().inSector() != FALSE};
+}
+
+void RebindRosterAfterRecordSwap(
+	TacticalEntityRoster& roster) noexcept
+{
+	for (std::size_t slot = 0;
+		slot < roster.highWaterMark(); ++slot)
+	{
+		const TacticalEntityId previous = roster.actor(slot);
+		if (!previous.valid()) continue;
+
+		const TacticalEntityId rebound =
+			GetJa2TacticalEntityId(previous.slot);
+		if (!rebound.valid())
+		{
+			(void)roster.erase(previous);
+			continue;
+		}
+		if (!roster.replace(slot, rebound))
+		{
+			// A malformed duplicate must not leave an exact reference pointing
+			// at the actor that occupied this repository slot before the swap.
+			(void)roster.erase(previous);
+		}
+	}
+}
+
+std::int32_t AddActor(
+	TacticalEntityRoster& roster,
+	TacticalEntityId actor) noexcept
+{
+	if (!ResolveJa2TacticalEntity(actor)) return -1;
+	const std::optional<TacticalEntityRoster::Slot> slot =
+		roster.insert(actor);
+	if (!slot ||
+		*slot > static_cast<std::size_t>(
+			std::numeric_limits<std::int32_t>::max()))
+	{
+		return -1;
+	}
+	return static_cast<std::int32_t>(*slot);
 }
 }
 
@@ -171,6 +230,12 @@ bool SwapJa2TacticalEntitySlots(
 			firstSlot, secondSlot))
 		return false;
 	RebuildJa2TacticalEntityDirectory();
+	// The compatibility pool keeps fixed record addresses. Historically a
+	// roster entry therefore followed the identity newly occupying that
+	// address after a whole-record swap. Rebind exact IDs by repository slot
+	// to preserve that behavior without retaining stale incarnations.
+	RebindRosterAfterRecordSwap(ActiveActorRoster());
+	RebindRosterAfterRecordSwap(AwayActorRoster());
 	return true;
 }
 
@@ -201,6 +266,66 @@ TacticalEntityId GetJa2TacticalEntityId(
 	return ResolveJa2TacticalEntity(entity) == &soldier
 		? entity
 		: TacticalEntityId{};
+}
+
+void ResetJa2TacticalActorRosters() noexcept
+{
+	ActiveActorRoster().clear();
+	AwayActorRoster().clear();
+}
+
+std::size_t Ja2ActiveTacticalActorSlotCount() noexcept
+{
+	return ActiveActorRoster().highWaterMark();
+}
+
+std::size_t Ja2AwayTacticalActorSlotCount() noexcept
+{
+	return AwayActorRoster().highWaterMark();
+}
+
+SOLDIERTYPE* ResolveJa2ActiveTacticalActorSlot(
+	std::size_t rosterSlot) noexcept
+{
+	return ResolveJa2TacticalEntity(
+		ActiveActorRoster().actor(rosterSlot));
+}
+
+SOLDIERTYPE* ResolveJa2AwayTacticalActorSlot(
+	std::size_t rosterSlot) noexcept
+{
+	return ResolveJa2TacticalEntity(
+		AwayActorRoster().actor(rosterSlot));
+}
+
+std::int32_t AddJa2ActiveTacticalActor(
+	TacticalEntityId actor) noexcept
+{
+	const std::int32_t slot =
+		AddActor(ActiveActorRoster(), actor);
+	if (slot >= 0) (void)AwayActorRoster().erase(actor);
+	return slot;
+}
+
+std::int32_t AddJa2AwayTacticalActor(
+	TacticalEntityId actor) noexcept
+{
+	const std::int32_t slot =
+		AddActor(AwayActorRoster(), actor);
+	if (slot >= 0) (void)ActiveActorRoster().erase(actor);
+	return slot;
+}
+
+bool RemoveJa2ActiveTacticalActor(
+	TacticalEntityId actor) noexcept
+{
+	return ActiveActorRoster().erase(actor);
+}
+
+bool RemoveJa2AwayTacticalActor(
+	TacticalEntityId actor) noexcept
+{
+	return AwayActorRoster().erase(actor);
 }
 
 bool Ja2TacticalEntityReference::capture(

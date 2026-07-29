@@ -2590,9 +2590,9 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 	pNPCQuoteInfoArray = gpNPCQuoteInfoArray[ubNPC];
 
 	// loop through all mercs
-	for ( ubMerc = 0; ubMerc < guiNumMercSlots; ubMerc++ )
+	for ( ubMerc = 0; ubMerc < Ja2ActiveTacticalActorSlotCount(); ubMerc++ )
 	{
-		pMerc = MercSlots[ ubMerc ];
+		pMerc = ResolveJa2ActiveTacticalActorSlot(ubMerc);
 		if (pMerc != NULL)
 		{
 			// only look for mercs on the side of the player
@@ -2622,17 +2622,18 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 				{
 					ubHighestTalkDesire = ubTalkDesire;
 					ubDesiredMerc = ubMerc;
-					pDesiredMerc = MercSlots[ubMerc];
+					pDesiredMerc = pMerc;
 					sDesiredMercDist = PythSpacesAway( sMyGridNo, pDesiredMerc->position().gridNo() );
 				}
 				else if (ubTalkDesire == ubHighestTalkDesire)
 				{
-					sDist = PythSpacesAway( sMyGridNo, MercSlots[ubMerc]->position().gridNo() );
+					sDist = PythSpacesAway(
+						sMyGridNo, pMerc->position().gridNo());
 					if (sDist < sDesiredMercDist)
 					{
 						// we can say the same thing to this merc, and they're closer!
 						ubDesiredMerc = ubMerc;
-						pDesiredMerc = MercSlots[ubMerc];
+						pDesiredMerc = pMerc;
 						sDesiredMercDist = sDist;
 					}
 				}

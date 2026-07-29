@@ -139,6 +139,19 @@ foreach(adapter_file IN LISTS ja2_adapter_files)
   endforeach()
 endforeach()
 
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/CMakeLists.txt"
+  ja2_runtime_adapter_build_contents)
+foreach(required_roster_build_fragment IN ITEMS
+    "TacticalEntityRoster.h"
+    "TacticalEntityRoster.cpp")
+  string(FIND "${ja2_runtime_adapter_build_contents}"
+    "${required_roster_build_fragment}" required_roster_build_position)
+  if(required_roster_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "RuntimeAdapter no longer builds or installs ${required_roster_build_fragment}")
+  endif()
+endforeach()
+
 # Application package layers reach process-lifetime work through separate host
 # ports, not one another's C++ interface. Campaigns may require rules through
 # their manifest; a source include would recreate compile-time identity behind
@@ -13028,7 +13041,11 @@ file(READ "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp"
   tactical_entity_host_contents)
 foreach(required_actor_projection_fragment IN ITEMS
     "TacticalActorSnapshot LegacyState"
-    "publishState(LegacyState(soldier))")
+    "publishState(LegacyState(soldier))"
+    "TacticalEntityRoster& ActiveActorRoster()"
+    "TacticalEntityRoster& AwayActorRoster()"
+    "RebindRosterAfterRecordSwap(ActiveActorRoster())"
+    "RebindRosterAfterRecordSwap(AwayActorRoster())")
   string(FIND "${tactical_entity_host_contents}"
     "${required_actor_projection_fragment}" required_actor_projection_position)
   if(required_actor_projection_position EQUAL -1)
@@ -13198,6 +13215,14 @@ list(REMOVE_DUPLICATES soldier_storage_sources)
 foreach(source_file IN LISTS soldier_storage_sources)
   file(READ "${source_file}" contents)
   string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(MercSlots|AwaySlots|guiNumMercSlots|guiNumAwaySlots|GetFreeMercSlot|AddMercSlot|RemoveMercSlot|AddAwaySlot|RemoveAwaySlot)([^A-Za-z0-9_]|$)"
+    retired_tactical_actor_roster_api
+    "${contents}")
+  if(retired_tactical_actor_roster_api)
+    message(FATAL_ERROR
+      "Retired raw tactical actor roster API returned in ${source_file}; use TacticalEntityHost exact-ID roster gateways")
+  endif()
+  string(REGEX MATCH
     "(p(Soldier|TeamSoldier|TSoldier|TargetSoldier|Merc)|get_npc[ \t\r\n]*\\([ \t\r\n]*\\)|GetSMCurrentMerc[ \t\r\n]*\\([ \t\r\n]*\\)|GetItemPointerSoldier[ \t\r\n]*\\([ \t\r\n]*\\)|MercSlots[ \t\r\n]*\\[[^]]+\\]|AwaySlots[ \t\r\n]*\\[[^]]+\\])[ \t\r\n]*->[ \t\r\n]*(ubID|name|ubBodyType|ubProfile|uiUniqueSoldierIdValue|usSoldierProfile|usIndividualMilitiaID|bActive|bTeam|bInSector|bSide|ubSoldierClass|ubCivilianGroup)([^A-Za-z0-9_]|$)"
     direct_retired_identity_roster_access
     "${contents}")
@@ -13285,13 +13310,30 @@ file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   tactical_overhead_contents)
 foreach(required_overhead_repository_fragment IN ITEMS
     "soldiers.initializeSlots()"
-    "soldiers.resolve(cnt)")
+    "soldiers.resolve(cnt)"
+    "ResetJa2TacticalActorRosters()")
   string(FIND "${tactical_overhead_contents}"
     "${required_overhead_repository_fragment}"
     required_overhead_repository_position)
   if(required_overhead_repository_position EQUAL -1)
     message(FATAL_ERROR
       "Tactical overhead lifecycle bypasses Ja2SoldierRepository; missing '${required_overhead_repository_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
+  soldier_control_contents)
+foreach(required_exact_roster_deletion_fragment IN ITEMS
+    "actor = GetJa2TacticalEntityId(*this)"
+    "(void)ReleaseJa2TacticalEntity(*this)"
+    "RemoveJa2ActiveTacticalActor(actor)"
+    "RemoveJa2AwayTacticalActor(actor)")
+  string(FIND "${soldier_control_contents}"
+    "${required_exact_roster_deletion_fragment}"
+    required_exact_roster_deletion_position)
+  if(required_exact_roster_deletion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier deletion no longer captures and removes exact tactical roster membership; missing '${required_exact_roster_deletion_fragment}'")
   endif()
 endforeach()
 

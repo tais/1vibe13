@@ -221,9 +221,9 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 	pSoldier->fireControl().selectSingleShot();
 
 	// determine which attack against which target has the greatest attack value
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 		fSuppression = FALSE;
 		fReturnFire = FALSE;
 
@@ -1043,9 +1043,9 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	ubDiff = SoldierDifficultyLevel( pSoldier );
 
 	// make a list of tiles one's friends are positioned in
-	for (ubLoop = 0; ubLoop < guiNumMercSlots; ubLoop++)
+	for (ubLoop = 0; ubLoop < Ja2ActiveTacticalActorSlotCount(); ubLoop++)
 	{
-		pFriend = MercSlots[ubLoop];
+		pFriend = ResolveJa2ActiveTacticalActorSlot(ubLoop);
 
 		if ( !pFriend )
 		{
@@ -1073,9 +1073,9 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	//NumMessage("ubFriendCnt = ",ubFriendCnt);
 
 	// make a list of tiles one's CURRENTLY SEEN opponents are positioned in
-	for (ubLoop = 0; ubLoop < guiNumMercSlots; ubLoop++)
+	for (ubLoop = 0; ubLoop < Ja2ActiveTacticalActorSlotCount(); ubLoop++)
 	{
-		pOpponent = MercSlots[ubLoop];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(ubLoop);
 
 		if (!pOpponent)
 		{
@@ -1753,9 +1753,9 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 
 	// determine which attack against which target has the greatest attack value
 
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pOpponent || !pOpponent->vitals().health())
@@ -1982,9 +1982,9 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 
 	// determine which attack against which target has the greatest attack value
 
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pOpponent = MercSlots[ uiLoop ];
+		pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pOpponent || !pOpponent->vitals().health())
@@ -2130,9 +2130,9 @@ UINT8 NumMercsCloseTo( INT32 sGridNo, UINT8 ubMaxDist )
 	UINT32					uiLoop;
 	SOLDIERTYPE *		pSoldier;
 
-	for ( uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
+	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		pSoldier = MercSlots[ uiLoop ];
+		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// sevenfm: count all teams except creatures
 		if (pSoldier && pSoldier->roster().team() != CREATURE_TEAM && pSoldier->vitals().health() >= OKLIFE)
@@ -3515,9 +3515,9 @@ BOOLEAN GetBestAoEGridNo(SOLDIERTYPE *pSoldier, INT32* pGridNo, INT16 aRadius, U
 	INT32 highestY = 0;
 	
 	// make lists of enemies and friends
-	for (ubLoop = 0; ubLoop < guiNumMercSlots; ++ubLoop)
+	for (ubLoop = 0; ubLoop < Ja2ActiveTacticalActorSlotCount(); ++ubLoop)
 	{
-		pFriend = MercSlots[ubLoop];
+		pFriend = ResolveJa2ActiveTacticalActorSlot(ubLoop);
 
 		if ( !pFriend || !pFriend->roster().active() || !pFriend->roster().inSector() )
 			continue;
@@ -3704,9 +3704,9 @@ BOOLEAN GetFarthestOpponent(SOLDIERTYPE *pSoldier, SoldierID *puID, INT16 sRange
 	*puID = NOBODY;
 
 	// look through this man's personal & public opplists for opponents known
-	for (uiLoop = 0; uiLoop < guiNumMercSlots; ++uiLoop)
+	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop)
 	{
-		pOpp = MercSlots[ uiLoop ];
+		pOpp = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, or dead
 		if (!pOpp)

@@ -700,12 +700,14 @@ void DecaySmokeEffects( UINT32 uiTime )
 	INT8	bLevel;
 	UINT16	usNumUpdates = 1;
 
-	for ( cnt = 0; cnt < guiNumMercSlots; ++cnt )
+	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); ++cnt )
 	{
-		if ( MercSlots[ cnt ] )
+		SOLDIERTYPE* soldier =
+			ResolveJa2ActiveTacticalActorSlot(cnt);
+		if ( soldier )
 		{
 			// reset 'hit by gas' flags
-			MercSlots[ cnt ]->condition().gasHitFlags() = 0;
+			soldier->condition().gasHitFlags() = 0;
 		}
 	}
 

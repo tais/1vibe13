@@ -3009,7 +3009,8 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 				continue;
 			}
 			// Remove old merc, if exists
-			RemoveMercSlot( pSoldier );
+			RemoveJa2ActiveTacticalActor(
+				GetJa2TacticalEntityId(*pSoldier));
 
 			pSoldier->roster().inSector() = FALSE;
 
