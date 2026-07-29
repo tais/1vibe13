@@ -52,6 +52,7 @@
 	#include "Animation Control.h"	// added by Flugente
 	#include "Town Militia.h"		// added by Flugente
 	#include "Simulation Commands.h"
+	#include "TacticalEntityHost.h"
 
 #ifdef JA2UB
 #include "Ja25_Tactical.h"
@@ -809,8 +810,8 @@ BOOLEAN EnterShopKeeperInterface()
 			gfNPCCircularDistLimit = FALSE;
 
 			(void)TryDispatchApproachConversationCommandNow(
-				*pSoldier,
-				*pShopkeeper,
+				GetJa2TacticalEntityId(*pSoldier),
+				GetJa2TacticalEntityId(*pShopkeeper),
 				sGoodGridNo,
 				pSoldier->movement().mode(),
 				pSoldier->movement().outOfActionPoints() != FALSE);

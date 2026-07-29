@@ -466,13 +466,18 @@ the engine must not contain SDL types in its public domain model.
   AP, pathing, structure, vehicle, dialogue, and animation mechanics. Traversal
   and interaction availability, backpack, and AP checks remain at their
   existing player-input sites while the command records only the chosen action.
-  Local UI ingress passes the exact live `SOLDIERTYPE` reference to one
-  application adapter, which captures and verifies its complete
-  `TacticalEntityId` before queue submission. UI sites no longer assemble a
-  reusable slot and incarnation as unrelated integers; a detached object or
-  mismatched peer is rejected without consuming a command sequence or frame
-  budget. Replay, network, and package ingress remain pointer-free and submit
-  the same public command values.
+  The application command API is now pointer-free at every producer:
+  local UI, AI, dialogue, and network receive sites capture a complete
+  `TacticalEntityId` from the exact live `SOLDIERTYPE` through
+  `TacticalEntityHost` before dispatch. The public header contains neither a
+  soldier record nor split slot/incarnation overloads. A detached object
+  therefore captures an invalid identity and is rejected without consuming a
+  command sequence or frame budget. Only the compatibility executor resolves
+  command identities back to live records. Delayed actions that still store
+  pending state on `SOLDIERTYPE` are isolated in
+  `Simulation Command Legacy.h`; they are completion seams, not command
+  producer APIs. Replay and package ingress submit the same public values
+  directly.
   The stance executor also owns the established real-time moving-animation
   transition; UI code no longer rewrites movement mode, desired height, and
   animation bookkeeping after deciding on a stance.

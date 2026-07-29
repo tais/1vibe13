@@ -95,6 +95,7 @@
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
 #include "RuntimeSaveState.h"
+#include "Simulation Command Legacy.h"
 #include "Simulation Commands.h"
 #include "StrategicGroupHost.h"
 #include "TacticalCommandHost.h"
@@ -3768,6 +3769,8 @@ int main( int, char** )
 		       commandHostInitialState && commandHostInitialState->active &&
 		       commandHostInitialState->inSector,
 		       "runtime entity directory rejects stale incarnations and owns the adopted actor projection" );
+		const TacticalEntityId commandHostActorId =
+			GetJa2TacticalEntityId( commandHostActor );
 		const TacticalCommandSubmissionResult staleRequest =
 			tacticalCommands.service->submit( packageId, staleMove );
 		beginCommandTestFrame();
@@ -3817,12 +3820,16 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult detachedActorRejected =
 			TryDispatchSetStealthModeCommandNow(
-				detachedCommandActor, true, SimulationCommandSource::System );
+				GetJa2TacticalEntityId( detachedCommandActor ),
+				true, SimulationCommandSource::System );
 		const SimulationCommandDispatchResult detachedTargetRejected =
 			TryDispatchStartConversationCommandNow(
-				commandHostActor, detachedCommandActor,
+				commandHostActorId,
+				GetJa2TacticalEntityId( detachedCommandActor ),
 				SimulationCommandSource::System );
 		CHECK(
+			commandHostActorId ==
+				( TacticalEntityId{ 0, 0x12345678u } ) &&
 			detachedActorRejected.status ==
 				SimulationCommandDispatchStatus::InvalidActor &&
 			!detachedActorRejected.submitted &&
@@ -3832,14 +3839,14 @@ int main( int, char** )
 			compiledContext.commandJournal().size() ==
 				journalBeforeDetachedActor &&
 			compiledContext.commands().empty(),
-			"actor-reference ingress rejects a detached object even when its slot and incarnation fields match a live merc" );
+			"exact actor capture rejects a detached object even when its slot and incarnation fields match a live merc" );
 
 		commandHostActor.movement().mode() = WALKING;
 		commandHostActor.movement().setReverse(false);
 		commandHostActor.pendingAction().action() = 7;
 		const SimulationCommandDispatchResult invalidImmediateMove =
 			TryDispatchMoveToGridCommandNow(
-				commandHostActor, -1, RUNNING,
+				commandHostActorId, -1, RUNNING,
 				true, true, SimulationCommandSource::System );
 		const std::uint64_t invalidImmediateMoveSequence =
 			invalidImmediateMove.sequence;
@@ -3867,7 +3874,7 @@ int main( int, char** )
 		commandHostActor.movement().setStealth(false);
 		const SimulationCommandDispatchResult stealthEnabled =
 			TryDispatchSetStealthModeCommandNow(
-				commandHostActor, true,
+				commandHostActorId, true,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		commandHostActor.position().gridNo() = 77;
@@ -3876,11 +3883,11 @@ int main( int, char** )
 		commandHostActor.animationPlayback().state() = STANDING;
 		const SimulationCommandDispatchResult movementStopped =
 			TryDispatchStopMovementCommandNow(
-				commandHostActor, SimulationCommandSource::System );
+				commandHostActorId, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult facingQueued =
 			TryDispatchSetFacingCommandNow(
-				commandHostActor, 3,
+				commandHostActorId, 3,
 				SimulationCommandSource::System );
 		const TacticalActorSnapshot* commandHostExecutedState =
 			compiledContext.runtime().tacticalEntityDirectory().state(
@@ -3935,7 +3942,7 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult movingStanceChanged =
 			TryDispatchChangeStanceCommandNow(
-				commandHostActor, ANIM_CROUCH,
+				commandHostActorId, ANIM_CROUCH,
 				SimulationCommandSource::System );
 		const bool animationCacheHit =
 			commandHostActor.animationCache().contains(
@@ -3979,80 +3986,74 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult cancelWithoutDrag =
 			TryDispatchCancelDragCommandNow(
-				commandHostActor, SimulationCommandSource::System );
+				commandHostActorId, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult weaponModeWithoutWeapon =
 			TryDispatchCycleWeaponModeCommandNow(
-				0, commandHostActor.identity().incarnation(),
+				commandHostActorId,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult scopeModeWithoutWeapon =
 			TryDispatchCycleScopeModeCommandNow(
-				0, commandHostActor.identity().incarnation(),
+				commandHostActorId,
 				TacticalNoTargetGrid, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult reloadWithoutWeapon =
 			TryDispatchReloadWeaponCommandNow(
-				0, commandHostActor.identity().incarnation(),
+				commandHostActorId,
 				false, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult readyWithoutWeapon =
 			TryDispatchSetWeaponReadyCommandNow(
-				commandHostActor, 3, true, false,
+				commandHostActorId, 3, true, false,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleTraversal =
 			TryDispatchTraverseObstacleCommandNow(
-				staleActor.slot, staleActor.incarnation,
+				staleActor,
 				TacticalTraversalKind::JumpFence,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleActivation =
 			TryDispatchActivateWorldObjectCommandNow(
-				staleActor.slot, staleActor.incarnation,
+				staleActor,
 				100, 7, 3, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleApproach =
 			TryDispatchApproachWorldObjectCommandNow(
-				staleActor.slot, staleActor.incarnation,
+				staleActor,
 				100, 7, 3, 101, WALKING, false, false,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleConversationTarget =
 			TryDispatchStartConversationCommandNow(
-				0, commandHostActor.identity().incarnation(),
-				staleActor.slot, staleActor.incarnation,
+				commandHostActorId, staleActor,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleConversationApproachTarget =
 			TryDispatchApproachConversationCommandNow(
-				0, commandHostActor.identity().incarnation(),
-				staleActor.slot, staleActor.incarnation,
+				commandHostActorId, staleActor,
 				101, WALKING, false, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleVehicleTarget =
 			TryDispatchEnterVehicleCommandNow(
-				0, commandHostActor.identity().incarnation(),
-				staleActor.slot, staleActor.incarnation,
+				commandHostActorId, staleActor,
 				3, 0, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleVehicleApproachTarget =
 			TryDispatchApproachVehicleCommandNow(
-				0, commandHostActor.identity().incarnation(),
-				staleActor.slot, staleActor.incarnation,
+				commandHostActorId, staleActor,
 				3, 0, 101, WALKING, false,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleStealTarget =
 			TryDispatchStealFromActorCommandNow(
-				0, commandHostActor.identity().incarnation(),
-				staleActor.slot, staleActor.incarnation,
+				commandHostActorId, staleActor,
 				100, FIRST_LEVEL, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleExchangeTarget =
 			TryDispatchExchangePositionsCommandNow(
-				0, commandHostActor.identity().incarnation(),
-				staleActor.slot, staleActor.incarnation,
+				commandHostActorId, staleActor,
 				99, 100, FIRST_LEVEL,
 				SimulationCommandSource::System );
 		commandHostActor.pendingAction().action() = MERC_TALK;
@@ -4200,7 +4201,7 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleWorldItemPickup =
 			TryDispatchPickupWorldItemCommandNow(
-				0, commandHostActor.identity().incarnation(),
+				commandHostActorId,
 				firstWorldItem, 123, 0,
 				TacticalWorldItemPickupKind::SpecificItem,
 				SimulationCommandSource::System );
@@ -4287,17 +4288,17 @@ int main( int, char** )
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );
 		const SimulationCommandDispatchResult firstBudgetedImmediate =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.identity().incarnation(), -1, WALKING,
+				commandHostActorId, -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );
 		const SimulationCommandDispatchResult sameFrameBudgetExhausted =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.identity().incarnation(), -1, WALKING,
+				commandHostActorId, -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		BeginSimulationCommandFrameBudget( ++commandTestFrameSequence, 1 );
 		const SimulationCommandDispatchResult nextFrameBudgetReset =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.identity().incarnation(), -1, WALKING,
+				commandHostActorId, -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		CHECK( firstBudgetedImmediate.processed() &&
 		       sameFrameBudgetExhausted.status ==
@@ -4309,7 +4310,7 @@ int main( int, char** )
 		BeginSimulationCommandFrameBudget( ++commandTestFrameSequence, 1 );
 		const SimulationCommandDispatchResult inboxBudgetConsumer =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.identity().incarnation(), -1, WALKING,
+				commandHostActorId, -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		const TacticalCommandSubmissionResult heldByExhaustedFrame =
 			tacticalCommands.service->submit( packageId, staleStance );
@@ -4342,8 +4343,8 @@ int main( int, char** )
 			GetJa2TacticalCommandHostDiagnostics();
 		const SimulationCommandDispatchResult backpressuredImmediateMove =
 			TryDispatchMoveToGridCommandNow(
-			0, commandHostActor.identity().incarnation(), -1, RUNNING,
-			false, false, SimulationCommandSource::System );
+				commandHostActorId, -1, RUNNING,
+				false, false, SimulationCommandSource::System );
 		const SimulationCommandDispatchResult retainedNetworkPacket =
 			TryDispatchNetworkSimulationCommand(
 				SimulationCommand{ ChangeStanceCommand{
@@ -4464,7 +4465,7 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult currentAheadOfFuture =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.identity().incarnation(), -1, RUNNING,
+				commandHostActorId, -1, RUNNING,
 				false, false, SimulationCommandSource::System );
 		const bool futureRetainedAfterCurrent =
 			compiledContext.commands().containsSequence( futureCommandSequence );

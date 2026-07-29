@@ -37,6 +37,7 @@
 	#include "strategicmap.h"
 	#include "Soldier Functions.h"
 	#include "Simulation Commands.h"
+	#include "TacticalEntityHost.h"
 	#include "gamescreen.h"
 	#include "Assignments.h"
 	#include "Points.h"
@@ -4721,7 +4722,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 			}
 
 			TryDispatchTraverseObstacleCommandNow(
-				*GetSMCurrentMerc(),
+				GetJa2TacticalEntityId(*GetSMCurrentMerc()),
 				TacticalTraversalKind::ClimbDownRoof );
 		}
 
@@ -4734,7 +4735,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 			}
 
 			TryDispatchTraverseObstacleCommandNow(
-				*GetSMCurrentMerc(),
+				GetJa2TacticalEntityId(*GetSMCurrentMerc()),
 				TacticalTraversalKind::ClimbUpRoof );
 		}
 		
@@ -4751,7 +4752,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( FindWallJumpDirection( GetSMCurrentMerc(), GetSMCurrentMerc()->position().gridNo(), GetSMCurrentMerc()->position().direction(), &bDirection ) )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					*GetSMCurrentMerc(),
+					GetJa2TacticalEntityId(*GetSMCurrentMerc()),
 					TacticalTraversalKind::ClimbWall );
 			}
 		}
@@ -4767,7 +4768,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 			}
 
 			TryDispatchTraverseObstacleCommandNow(
-				*GetSMCurrentMerc(),
+				GetJa2TacticalEntityId(*GetSMCurrentMerc()),
 				TacticalTraversalKind::JumpFence );
 		}
 	}
@@ -4829,7 +4830,8 @@ void BtnStealthModeCallback(GUI_BUTTON *btn,INT32 reason)
 
 		SOLDIERTYPE* const soldier = GetSMCurrentMerc();
 		if (soldier && TryDispatchSetStealthModeCommandNow(
-				*soldier, soldier->movement().stealthMode() == FALSE))
+				GetJa2TacticalEntityId(*soldier),
+				soldier->movement().stealthMode() == FALSE))
 		{
 			gfUIStanceDifferent = TRUE;
 			gfPlotNewMovement = TRUE;
@@ -5083,7 +5085,7 @@ void BtnBurstModeCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		if ( GetSMCurrentMerc() )
 			TryDispatchCycleWeaponModeCommandNow(
-				*GetSMCurrentMerc() );
+				GetJa2TacticalEntityId(*GetSMCurrentMerc()) );
 //		btn->ImageNum = iBurstButtonImages[ GetSMCurrentMerc()->attackSelection().weaponMode() ];
 //		btn->uiFlags |= BUTTON_DIRTY;
 

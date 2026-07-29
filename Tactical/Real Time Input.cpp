@@ -32,6 +32,7 @@
 #include "Interface Panels.h"
 #include "Soldier Functions.h"
 #include "Simulation Commands.h"
+#include "TacticalEntityHost.h"
 #include "SkillMenu.h"			// sevenfm: need this for TraitsMenu
 #include "DisplayCover.h"		// added by Sevenfm
 #include "Vehicles.h"	// anv: for switching from soldier to vehicle
@@ -2100,8 +2101,9 @@ void HandleMouseRTMButton( UINT32 *puiNewEvent )
 		if ( ( gpItemPointer == NULL ) && ( gusSelectedSoldier != NOBODY ) &&
 			( ( gsCurInterfacePanel != SM_PANEL ) || ( ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->uiFlags & BUTTON_ENABLED ) ) )
 			TryDispatchCycleWeaponModeCommandNow(
-				*GetJa2SoldierRepository().resolve(
-					gusSelectedSoldier.i) );
+				GetJa2TacticalEntityId(
+					*GetJa2SoldierRepository().resolve(
+						gusSelectedSoldier.i)) );
 			}
 	else
 		*puiNewEvent = LC_LOOK;
@@ -2127,7 +2129,7 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 						if ( FindWindowJumpDirection( lSoldier, lSoldier->position().gridNo(), lSoldier->position().direction(), &bDirection ) )
 						{
 							TryDispatchTraverseObstacleCommandNow(
-								*lSoldier,
+								GetJa2TacticalEntityId(*lSoldier),
 								TacticalTraversalKind::JumpWindow );
 						}
 					}
@@ -2159,17 +2161,17 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 
 					if ( fNearLowerLevel )
 						TryDispatchTraverseObstacleCommandNow(
-							*pjSoldier,
+							GetJa2TacticalEntityId(*pjSoldier),
 							TacticalTraversalKind::ClimbDownRoof );
 
 					if ( fNearHeigherLevel )
 						TryDispatchTraverseObstacleCommandNow(
-							*pjSoldier,
+							GetJa2TacticalEntityId(*pjSoldier),
 							TacticalTraversalKind::ClimbUpRoof );
 
 					if ( FindFenceJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 						TryDispatchTraverseObstacleCommandNow(
-							*pjSoldier,
+							GetJa2TacticalEntityId(*pjSoldier),
 							TacticalTraversalKind::JumpFence );
 				}
 			}
@@ -2181,8 +2183,9 @@ void HandleMouseRTX2Button( UINT32 *puiNewEvent )
 	{
 		if ( gusSelectedSoldier != NOBODY )
 			TryDispatchReloadWeaponCommandNow(
-				*GetJa2SoldierRepository().resolve(
-					gusSelectedSoldier.i),
+				GetJa2TacticalEntityId(
+					*GetJa2SoldierRepository().resolve(
+						gusSelectedSoldier.i)),
 				true );
 	}
 	else
@@ -2222,17 +2225,17 @@ void HandleRTJump( void )
 
 		if ( fNearLowerLevel )
 			TryDispatchTraverseObstacleCommandNow(
-				*pjSoldier,
+				GetJa2TacticalEntityId(*pjSoldier),
 				TacticalTraversalKind::ClimbDownRoof );
 
 		if ( fNearHeigherLevel )
 			TryDispatchTraverseObstacleCommandNow(
-				*pjSoldier,
+				GetJa2TacticalEntityId(*pjSoldier),
 				TacticalTraversalKind::ClimbUpRoof );
 
 		if ( FindFenceJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 			TryDispatchTraverseObstacleCommandNow(
-				*pjSoldier,
+				GetJa2TacticalEntityId(*pjSoldier),
 				TacticalTraversalKind::JumpFence );
 	}
 }
@@ -2248,7 +2251,7 @@ void HandleRTJumpThroughWindow( void )
 			if ( FindWindowJumpDirection( lSoldier, lSoldier->position().gridNo(), lSoldier->position().direction(), &bDirection ) )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					*lSoldier,
+					GetJa2TacticalEntityId(*lSoldier),
 					TacticalTraversalKind::JumpWindow );
             }
 		}
@@ -2262,8 +2265,9 @@ void HandleRTToggleFireMode( void )
 	if ( ( gpItemPointer == NULL ) && ( gusSelectedSoldier != NOBODY ) &&
 		( ( gsCurInterfacePanel != SM_PANEL ) || ( ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->uiFlags & BUTTON_ENABLED ) ) )
 		TryDispatchCycleWeaponModeCommandNow(
-			*GetJa2SoldierRepository().resolve(
-				gusSelectedSoldier.i) );
+			GetJa2TacticalEntityId(
+				*GetJa2SoldierRepository().resolve(
+					gusSelectedSoldier.i)) );
 }
 void HandleRTLocateSoldier( void )
 {

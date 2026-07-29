@@ -24,6 +24,7 @@
 #include "message.h"
 #include "TeamTurns.h"
 #include "Simulation Commands.h"
+#include "TacticalEntityHost.h"
 #include "NPC.h"
 #include "Dialogue Control.h"
 #include "Soldier Profile.h"
@@ -1980,7 +1981,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             DebugAI (tempstr);
 #endif
 			if (!TryDispatchSystemSetFacingCommand(
-					*pSoldier,
+					GetJa2TacticalEntityId(*pSoldier),
 					static_cast<UINT8>(
 						pSoldier->aiPlanning().actionData())).accepted())
 			{
@@ -2325,12 +2326,12 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             if ( FindStructure( pSoldier->position().gridNo() + DirectionInc( NORTH ), STRUCTURE_SWITCH ) )
             {
 				(void)TryDispatchSystemSetFacingCommand(
-					*pSoldier, NORTH);
+					GetJa2TacticalEntityId(*pSoldier), NORTH);
             }
             else
             {
 				(void)TryDispatchSystemSetFacingCommand(
-					*pSoldier, WEST);
+					GetJa2TacticalEntityId(*pSoldier), WEST);
             }
 
             pSoldier->EVENT_InitNewSoldierAnim( AI_PULL_SWITCH, 0 , FALSE );
@@ -2422,7 +2423,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             DebugAI (tempstr);
 #endif
 			if (!TryDispatchSystemChangeStanceCommand(
-					*pSoldier,
+					GetJa2TacticalEntityId(*pSoldier),
 					static_cast<UINT8>(
 						pSoldier->aiPlanning().actionData())).accepted())
 			{

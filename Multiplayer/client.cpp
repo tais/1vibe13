@@ -73,6 +73,7 @@
 #include "MPChatScreen.h"
 #include "sgp_logger.h"
 #include "Simulation Commands.h"
+#include "TacticalEntityHost.h"
 
 #include "MessageIdentifiers.h"
 #include "RakNetworkFactory.h"
@@ -1236,7 +1237,8 @@ void recievePATH(RPCParameters *rpcParameters)
 	}
 
 	(void)TryDispatchNetworkActorPathCommand(
-		*pSoldier, SNetPath->sAtGridNo, SNetPath->sDestGridNo,
+		GetJa2TacticalEntityId(*pSoldier),
+		SNetPath->sAtGridNo, SNetPath->sDestGridNo,
 		SNetPath->ubNewState, SNetPath->usCurrentPathIndex,
 		SNetPath->usPathData, SNetPath->usPathDataSize );
 }
@@ -1284,7 +1286,8 @@ void recieveSTANCE(RPCParameters *rpcParameters)
 	}
 	
 		(void)TryDispatchNetworkChangeStanceCommand(
-			*pSoldier, SChangeStance->ubNewStance );
+			GetJa2TacticalEntityId(*pSoldier),
+			SChangeStance->ubNewStance );
 
 		//SendChangeSoldierStanceEvent( pSoldier, SChangeStance->ubNewStance );
 		//AddGameEvent( S_CHANGESTANCE, 0, &SChangeStance );
@@ -1335,7 +1338,7 @@ void recieveDIR(RPCParameters *rpcParameters)
 		return;
 
 		(void)TryDispatchNetworkSetFacingCommand(
-			*pSoldier,
+			GetJa2TacticalEntityId(*pSoldier),
 			static_cast<UINT8>( SSetDesiredDirection->usDesiredDirection ) );
 
 		//AddGameEvent( S_SETDESIREDDIRECTION, 0, &SSetDesiredDirection );
@@ -1381,7 +1384,8 @@ void recieveFIRE(RPCParameters *rpcParameters)
 	}
 
 	(void)TryDispatchNetworkActorFireCommand(
-		*pSoldier, SBeginFireWeapon->sTargetGridNo,
+		GetJa2TacticalEntityId(*pSoldier),
+		SBeginFireWeapon->sTargetGridNo,
 		SBeginFireWeapon->bTargetLevel,
 		SBeginFireWeapon->bTargetCubeLevel,
 		SBeginFireWeapon->uiUniqueId );
@@ -2482,7 +2486,8 @@ void recieveSTOP (RPCParameters *rpcParameters)
 	}
 
 	(void)TryDispatchNetworkActorStopCommand(
-		*pSoldier, SStopMerc->sGridNo,
+		GetJa2TacticalEntityId(*pSoldier),
+		SStopMerc->sGridNo,
 		SStopMerc->sXPos, SStopMerc->sYPos,
 		SStopMerc->ubDirection, SStopMerc->fset != FALSE );
 }

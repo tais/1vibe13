@@ -103,6 +103,7 @@
 #include "DynamicDialogue.h"	// added by Flugente for HandleDynamicOpinions()
 #include "Strategic Town Loyalty.h"		// added by Flugente for gTownLoyalty
 #include "Rebel Command.h"
+#include "Simulation Command Legacy.h"
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
 

@@ -193,16 +193,23 @@ TacticalEntityId GetJa2TacticalEntityId(std::uint16_t slot) noexcept
 	return ResolveJa2TacticalEntity(entity) ? entity : TacticalEntityId{};
 }
 
+TacticalEntityId GetJa2TacticalEntityId(
+	const SOLDIERTYPE& soldier) noexcept
+{
+	const TacticalEntityId entity = GetJa2TacticalEntityId(
+		static_cast<std::uint16_t>(soldier.identity().id()));
+	return ResolveJa2TacticalEntity(entity) == &soldier
+		? entity
+		: TacticalEntityId{};
+}
+
 bool Ja2TacticalEntityReference::capture(
 	const SOLDIERTYPE* soldier) noexcept
 {
 	reset();
 	if (!soldier) return false;
-	const std::uint16_t slot =
-		static_cast<std::uint16_t>(soldier->identity().id());
-	const TacticalEntityId entity = GetJa2TacticalEntityId(slot);
-	if (!entity.valid() || ResolveJa2TacticalEntity(entity) != soldier)
-		return false;
+	const TacticalEntityId entity = GetJa2TacticalEntityId(*soldier);
+	if (!entity.valid()) return false;
 	entity_ = entity;
 	return true;
 }

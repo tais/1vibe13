@@ -1,4 +1,5 @@
 #include "Simulation Commands.h"
+#include "Simulation Command Legacy.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
@@ -75,14 +76,6 @@ namespace
 		return soldier;
 	}
 
-	bool CaptureCommandActor(
-		const SOLDIERTYPE& soldier, TacticalEntityId& actor) noexcept
-	{
-		actor = GetJa2TacticalEntityId(
-			static_cast<std::uint16_t>(soldier.identity().id()));
-		return actor.valid() && ResolveJa2TacticalEntity(actor) == &soldier;
-	}
-
 	SimulationCommandDispatchResult InvalidCommandActorResult() noexcept
 	{
 		SimulationCommandDispatchResult result;
@@ -94,50 +87,41 @@ namespace
 
 	template <typename Builder>
 	SimulationCommandDispatchResult DispatchActorCommand(
-		SOLDIERTYPE& soldier, Builder&& builder) noexcept
+		TacticalEntityId actor, Builder&& builder) noexcept
 	{
-		TacticalEntityId actor;
-		if (!CaptureCommandActor(soldier, actor))
-			return InvalidCommandActorResult();
+		if (!actor.valid()) return InvalidCommandActorResult();
 		return TryDispatchSimulationCommandNow(
 			SimulationCommand{builder(actor)});
 	}
 
 	template <typename Builder>
 	SimulationCommandDispatchResult DispatchNetworkActorCommand(
-		SOLDIERTYPE& soldier, Builder&& builder) noexcept
+		TacticalEntityId actor, Builder&& builder) noexcept
 	{
-		TacticalEntityId actor;
-		if (!CaptureCommandActor(soldier, actor))
-			return InvalidCommandActorResult();
+		if (!actor.valid()) return InvalidCommandActorResult();
 		return TryDispatchNetworkSimulationCommand(
 			SimulationCommand{builder(actor)});
 	}
 
 	template <typename Builder>
 	SimulationCommandDispatchResult DispatchSystemActorCommand(
-		SOLDIERTYPE& soldier, Builder&& builder) noexcept
+		TacticalEntityId actor, Builder&& builder) noexcept
 	{
-		TacticalEntityId actor;
-		if (!CaptureCommandActor(soldier, actor))
-			return InvalidCommandActorResult();
+		if (!actor.valid()) return InvalidCommandActorResult();
 		return TryDispatchSystemSimulationCommand(
 			SimulationCommand{builder(actor)});
 	}
 
 	template <typename Builder>
 	SimulationCommandDispatchResult DispatchActorPairCommand(
-		SOLDIERTYPE& soldier,
-		SOLDIERTYPE& target,
+		TacticalEntityId actor,
+		TacticalEntityId target,
 		Builder&& builder) noexcept
 	{
-		TacticalEntityId actor;
-		TacticalEntityId targetActor;
-		if (!CaptureCommandActor(soldier, actor) ||
-			!CaptureCommandActor(target, targetActor))
+		if (!actor.valid() || !target.valid())
 			return InvalidCommandActorResult();
 		return TryDispatchSimulationCommandNow(
-			SimulationCommand{builder(actor, targetActor)});
+			SimulationCommand{builder(actor, target)});
 	}
 
 	STRUCTURE* ResolveLiveWorldObject(TacticalWorldObjectId object) noexcept
@@ -1441,10 +1425,10 @@ SimulationCommandDispatchResult TryDispatchSystemSimulationCommand(
 }
 
 SimulationCommandDispatchResult TryDispatchNetworkChangeStanceCommand(
-	SOLDIERTYPE& soldier, std::uint8_t stance) noexcept
+	TacticalEntityId actor, std::uint8_t stance) noexcept
 {
 	return DispatchNetworkActorCommand(
-		soldier, [stance](TacticalEntityId actor) {
+		actor, [stance](TacticalEntityId actor) {
 			return ChangeStanceCommand{
 				actor, stance, SimulationCommandSource::NetworkPeer,
 				TacticalEventPolicy::LocalOnly};
@@ -1452,10 +1436,10 @@ SimulationCommandDispatchResult TryDispatchNetworkChangeStanceCommand(
 }
 
 SimulationCommandDispatchResult TryDispatchNetworkSetFacingCommand(
-	SOLDIERTYPE& soldier, std::uint8_t direction) noexcept
+	TacticalEntityId actor, std::uint8_t direction) noexcept
 {
 	return DispatchNetworkActorCommand(
-		soldier, [direction](TacticalEntityId actor) {
+		actor, [direction](TacticalEntityId actor) {
 			return SetFacingCommand{
 				actor, direction, SimulationCommandSource::NetworkPeer,
 				TacticalEventPolicy::LocalOnly};
@@ -1463,7 +1447,7 @@ SimulationCommandDispatchResult TryDispatchNetworkSetFacingCommand(
 }
 
 SimulationCommandDispatchResult TryDispatchNetworkActorPathCommand(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::int32_t reportedGrid,
 	std::int32_t destinationGrid,
 	std::uint16_t movementState,
@@ -1484,7 +1468,7 @@ SimulationCommandDispatchResult TryDispatchNetworkActorPathCommand(
 	for (std::size_t index = 0; index < pathSize; ++index)
 		captured[index] = path[index];
 	return DispatchNetworkActorCommand(
-		soldier,
+		actor,
 		[reportedGrid, destinationGrid, movementState, currentPathIndex,
 			pathSize, captured](TacticalEntityId actor) {
 			return SynchronizeActorPathCommand{
@@ -1495,14 +1479,14 @@ SimulationCommandDispatchResult TryDispatchNetworkActorPathCommand(
 }
 
 SimulationCommandDispatchResult TryDispatchNetworkActorFireCommand(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::int32_t targetGrid,
 	std::int8_t targetLevel,
 	std::int8_t targetCubeLevel,
 	std::uint32_t attackingWeapon) noexcept
 {
 	return DispatchNetworkActorCommand(
-		soldier,
+		actor,
 		[targetGrid, targetLevel, targetCubeLevel, attackingWeapon](
 			TacticalEntityId actor) {
 			return SynchronizeActorFireCommand{
@@ -1512,7 +1496,7 @@ SimulationCommandDispatchResult TryDispatchNetworkActorFireCommand(
 }
 
 SimulationCommandDispatchResult TryDispatchNetworkActorStopCommand(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::int32_t reportedGrid,
 	std::int16_t positionX,
 	std::int16_t positionY,
@@ -1520,7 +1504,7 @@ SimulationCommandDispatchResult TryDispatchNetworkActorStopCommand(
 	bool stop) noexcept
 {
 	return DispatchNetworkActorCommand(
-		soldier,
+		actor,
 		[reportedGrid, positionX, positionY, direction, stop](
 			TacticalEntityId actor) {
 			return SynchronizeActorStopCommand{
@@ -1541,38 +1525,38 @@ SimulationCommandDispatchResult TryDispatchNetworkTurnCommand(
 }
 
 SimulationCommandDispatchResult TryDispatchSystemChangeStanceCommand(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::uint8_t stance,
 	TacticalEventPolicy eventPolicy) noexcept
 {
 	return DispatchSystemActorCommand(
-		soldier, [stance, eventPolicy](TacticalEntityId actor) {
+		actor, [stance, eventPolicy](TacticalEntityId actor) {
 			return ChangeStanceCommand{
 				actor, stance, SimulationCommandSource::System, eventPolicy};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchSystemSetFacingCommand(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::uint8_t direction,
 	TacticalEventPolicy eventPolicy) noexcept
 {
 	return DispatchSystemActorCommand(
-		soldier, [direction, eventPolicy](TacticalEntityId actor) {
+		actor, [direction, eventPolicy](TacticalEntityId actor) {
 			return SetFacingCommand{
 				actor, direction, SimulationCommandSource::System, eventPolicy};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchSystemMoveToGridCommand(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::int32_t destinationGrid,
 	std::uint16_t movementMode,
 	bool reverse,
 	bool forceRestart) noexcept
 {
 	return DispatchSystemActorCommand(
-		soldier,
+		actor,
 		[destinationGrid, movementMode, reverse, forceRestart](
 			TacticalEntityId actor) {
 			return MoveToGridCommand{
@@ -1585,7 +1569,7 @@ SimulationCommandDispatchResult TryDispatchSystemMoveToGridCommand(
 
 SimulationCommandDispatchResult
 TryDispatchSystemBeginSelectedFireWeaponCommand(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::int32_t targetGrid,
 	std::int8_t targetLevel,
 	std::int8_t targetCubeLevel,
@@ -1593,7 +1577,7 @@ TryDispatchSystemBeginSelectedFireWeaponCommand(
 	std::uint32_t attackingWeapon) noexcept
 {
 	return DispatchSystemActorCommand(
-		soldier,
+		actor,
 		[targetGrid, targetLevel, targetCubeLevel, attackingHand,
 			attackingWeapon](TacticalEntityId actor) {
 			return BeginSelectedFireWeaponCommand{
@@ -1611,25 +1595,25 @@ SimulationCommandDispatchResult TryDispatchEndTurnCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchChangeStanceCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::uint8_t stance,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier, [stance, source](TacticalEntityId actor) {
+		actor, [stance, source](TacticalEntityId actor) {
 			return ChangeStanceCommand{actor, stance, source};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchBeginFireWeaponCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::int32_t targetGrid,
 	std::int8_t targetLevel,
 	std::int8_t targetCubeLevel,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier,
+		actor,
 		[targetGrid, targetLevel, targetCubeLevel, source](
 			TacticalEntityId actor) {
 			return BeginFireWeaponCommand{
@@ -1638,7 +1622,7 @@ SimulationCommandDispatchResult TryDispatchBeginFireWeaponCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchMoveToGridCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::int32_t destinationGrid,
 	std::uint16_t movementMode,
 	bool reverse,
@@ -1646,7 +1630,7 @@ SimulationCommandDispatchResult TryDispatchMoveToGridCommandNow(
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier,
+		actor,
 		[destinationGrid, movementMode, reverse, forceRestart, source](
 			TacticalEntityId actor) {
 			return MoveToGridCommand{
@@ -1656,89 +1640,89 @@ SimulationCommandDispatchResult TryDispatchMoveToGridCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchSetFacingCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::uint8_t direction,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier, [direction, source](TacticalEntityId actor) {
+		actor, [direction, source](TacticalEntityId actor) {
 			return SetFacingCommand{actor, direction, source};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchSetStealthModeCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	bool enabled,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier, [enabled, source](TacticalEntityId actor) {
+		actor, [enabled, source](TacticalEntityId actor) {
 			return SetStealthModeCommand{actor, enabled, source};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier, [source](TacticalEntityId actor) {
+		actor, [source](TacticalEntityId actor) {
 			return StopMovementCommand{actor, source};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchCancelDragCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier, [source](TacticalEntityId actor) {
+		actor, [source](TacticalEntityId actor) {
 			return CancelDragCommand{actor, source};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchCycleWeaponModeCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier, [source](TacticalEntityId actor) {
+		actor, [source](TacticalEntityId actor) {
 			return CycleWeaponModeCommand{actor, source};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchCycleScopeModeCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::int32_t targetGrid,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier, [targetGrid, source](TacticalEntityId actor) {
+		actor, [targetGrid, source](TacticalEntityId actor) {
 			return CycleScopeModeCommand{actor, targetGrid, source};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	bool reloadEvenIfNotEmpty,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier, [reloadEvenIfNotEmpty, source](TacticalEntityId actor) {
+		actor, [reloadEvenIfNotEmpty, source](TacticalEntityId actor) {
 			return ReloadWeaponCommand{
 				actor, reloadEvenIfNotEmpty, source};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchSetWeaponReadyCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::uint8_t direction,
 	bool ready,
 	bool alternativeHold,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier,
+		actor,
 		[direction, ready, alternativeHold, source](
 			TacticalEntityId actor) {
 			return SetWeaponReadyCommand{
@@ -1747,25 +1731,25 @@ SimulationCommandDispatchResult TryDispatchSetWeaponReadyCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	TacticalTraversalKind kind,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier, [kind, source](TacticalEntityId actor) {
+		actor, [kind, source](TacticalEntityId actor) {
 			return TraverseObstacleCommand{actor, kind, source};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchActivateWorldObjectCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::int32_t objectGrid,
 	std::uint16_t structureId,
 	std::uint8_t direction,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier,
+		actor,
 		[objectGrid, structureId, direction, source](
 			TacticalEntityId actor) {
 			return ActivateWorldObjectCommand{
@@ -1775,7 +1759,7 @@ SimulationCommandDispatchResult TryDispatchActivateWorldObjectCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchApproachWorldObjectCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	std::int32_t objectGrid,
 	std::uint16_t structureId,
 	std::uint8_t direction,
@@ -1786,7 +1770,7 @@ SimulationCommandDispatchResult TryDispatchApproachWorldObjectCommandNow(
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier,
+		actor,
 		[objectGrid, structureId, direction, destinationGrid, movementMode,
 		 reverse, forceRestart, source](TacticalEntityId actor) {
 			return ApproachWorldObjectCommand{
@@ -1797,27 +1781,27 @@ SimulationCommandDispatchResult TryDispatchApproachWorldObjectCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchStartConversationCommandNow(
-	SOLDIERTYPE& soldier,
-	SOLDIERTYPE& target,
+	TacticalEntityId actor,
+	TacticalEntityId target,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorPairCommand(
-		soldier, target,
-		[source](TacticalEntityId actor, TacticalEntityId targetActor) {
-			return StartConversationCommand{actor, targetActor, source};
+		actor, target,
+		[source](TacticalEntityId commandActor, TacticalEntityId commandTarget) {
+			return StartConversationCommand{commandActor, commandTarget, source};
 		});
 }
 
 SimulationCommandDispatchResult TryDispatchApproachConversationCommandNow(
-	SOLDIERTYPE& soldier,
-	SOLDIERTYPE& target,
+	TacticalEntityId actor,
+	TacticalEntityId target,
 	std::int32_t destinationGrid,
 	std::uint16_t movementMode,
 	bool forceRestart,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorPairCommand(
-		soldier, target,
+		actor, target,
 		[destinationGrid, movementMode, forceRestart, source](
 			TacticalEntityId actor, TacticalEntityId targetActor) {
 			return ApproachConversationCommand{
@@ -1827,14 +1811,14 @@ SimulationCommandDispatchResult TryDispatchApproachConversationCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchEnterVehicleCommandNow(
-	SOLDIERTYPE& soldier,
-	SOLDIERTYPE& vehicle,
+	TacticalEntityId actor,
+	TacticalEntityId vehicle,
 	std::uint8_t direction,
 	std::uint8_t seatIndex,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorPairCommand(
-		soldier, vehicle,
+		actor, vehicle,
 		[direction, seatIndex, source](
 			TacticalEntityId actor, TacticalEntityId vehicleActor) {
 			return EnterVehicleCommand{
@@ -1843,8 +1827,8 @@ SimulationCommandDispatchResult TryDispatchEnterVehicleCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchApproachVehicleCommandNow(
-	SOLDIERTYPE& soldier,
-	SOLDIERTYPE& vehicle,
+	TacticalEntityId actor,
+	TacticalEntityId vehicle,
 	std::uint8_t direction,
 	std::uint8_t seatIndex,
 	std::int32_t destinationGrid,
@@ -1853,7 +1837,7 @@ SimulationCommandDispatchResult TryDispatchApproachVehicleCommandNow(
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorPairCommand(
-		soldier, vehicle,
+		actor, vehicle,
 		[direction, seatIndex, destinationGrid, movementMode,
 		 forceRestart, source](
 			TacticalEntityId actor, TacticalEntityId vehicleActor) {
@@ -1864,7 +1848,7 @@ SimulationCommandDispatchResult TryDispatchApproachVehicleCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchPickupWorldItemCommandNow(
-	SOLDIERTYPE& soldier,
+	TacticalEntityId actor,
 	TacticalWorldItemId item,
 	std::int32_t grid,
 	std::int8_t renderHeight,
@@ -1872,7 +1856,7 @@ SimulationCommandDispatchResult TryDispatchPickupWorldItemCommandNow(
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorCommand(
-		soldier, [item, grid, renderHeight, kind, source](
+		actor, [item, grid, renderHeight, kind, source](
 			TacticalEntityId actor) {
 			return PickupWorldItemCommand{
 				actor, item, grid, renderHeight, kind, source};
@@ -1880,14 +1864,14 @@ SimulationCommandDispatchResult TryDispatchPickupWorldItemCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchStealFromActorCommandNow(
-	SOLDIERTYPE& soldier,
-	SOLDIERTYPE& target,
+	TacticalEntityId actor,
+	TacticalEntityId target,
 	std::int32_t targetGrid,
 	std::int8_t targetLevel,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorPairCommand(
-		soldier, target,
+		actor, target,
 		[targetGrid, targetLevel, source](
 			TacticalEntityId actor, TacticalEntityId targetActor) {
 			return StealFromActorCommand{
@@ -1896,308 +1880,20 @@ SimulationCommandDispatchResult TryDispatchStealFromActorCommandNow(
 }
 
 SimulationCommandDispatchResult TryDispatchExchangePositionsCommandNow(
-	SOLDIERTYPE& soldier,
-	SOLDIERTYPE& target,
+	TacticalEntityId actor,
+	TacticalEntityId target,
 	std::int32_t soldierGrid,
 	std::int32_t targetGrid,
 	std::int8_t level,
 	SimulationCommandSource source) noexcept
 {
 	return DispatchActorPairCommand(
-		soldier, target,
+		actor, target,
 		[soldierGrid, targetGrid, level, source](
 			TacticalEntityId actor, TacticalEntityId targetActor) {
 			return ExchangePositionsCommand{
 				actor, targetActor, soldierGrid, targetGrid, level, source};
 		});
-}
-
-SimulationCommandDispatchResult TryDispatchChangeStanceCommandNow(
-	std::uint16_t soldierId, std::uint8_t stance,
-	SimulationCommandSource source) noexcept
-{
-	const TacticalEntityId soldier = GetJa2TacticalEntityId(soldierId);
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{ChangeStanceCommand{soldier, stance, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchBeginFireWeaponCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::int32_t targetGrid,
-	std::int8_t targetLevel,
-	std::int8_t targetCubeLevel,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{BeginFireWeaponCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			targetGrid, targetLevel, targetCubeLevel, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchMoveToGridCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::int32_t destinationGrid,
-	std::uint16_t movementMode,
-	bool reverse,
-	bool forceRestart,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{MoveToGridCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId}, destinationGrid,
-			movementMode, reverse, forceRestart, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchSetFacingCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::uint8_t direction,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{SetFacingCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId}, direction, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchSetStealthModeCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	bool enabled,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{SetStealthModeCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId}, enabled, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchStopMovementCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{StopMovementCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId}, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchCancelDragCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{CancelDragCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId}, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchCycleWeaponModeCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{CycleWeaponModeCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId}, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchCycleScopeModeCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::int32_t targetGrid,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{CycleScopeModeCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId}, targetGrid, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	bool reloadEvenIfNotEmpty,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{ReloadWeaponCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			reloadEvenIfNotEmpty, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchSetWeaponReadyCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::uint8_t direction,
-	bool ready,
-	bool alternativeHold,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{SetWeaponReadyCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			direction, ready, alternativeHold, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchTraverseObstacleCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	TacticalTraversalKind kind,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{TraverseObstacleCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId}, kind, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchActivateWorldObjectCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::int32_t objectGrid,
-	std::uint16_t structureId,
-	std::uint8_t direction,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{ActivateWorldObjectCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			TacticalWorldObjectId{objectGrid, structureId},
-			direction, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchApproachWorldObjectCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::int32_t objectGrid,
-	std::uint16_t structureId,
-	std::uint8_t direction,
-	std::int32_t destinationGrid,
-	std::uint16_t movementMode,
-	bool reverse,
-	bool forceRestart,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{ApproachWorldObjectCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			TacticalWorldObjectId{objectGrid, structureId},
-			direction, destinationGrid, movementMode,
-			reverse, forceRestart, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchStartConversationCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::uint16_t targetId,
-	std::uint32_t targetUniqueSoldierId,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{StartConversationCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			TacticalEntityId{targetId, targetUniqueSoldierId},
-			source}});
-}
-
-SimulationCommandDispatchResult TryDispatchApproachConversationCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::uint16_t targetId,
-	std::uint32_t targetUniqueSoldierId,
-	std::int32_t destinationGrid,
-	std::uint16_t movementMode,
-	bool forceRestart,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{ApproachConversationCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			TacticalEntityId{targetId, targetUniqueSoldierId},
-			destinationGrid, movementMode, forceRestart, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchEnterVehicleCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::uint16_t vehicleId,
-	std::uint32_t vehicleUniqueSoldierId,
-	std::uint8_t direction,
-	std::uint8_t seatIndex,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{EnterVehicleCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			TacticalEntityId{vehicleId, vehicleUniqueSoldierId},
-			direction, seatIndex, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchApproachVehicleCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::uint16_t vehicleId,
-	std::uint32_t vehicleUniqueSoldierId,
-	std::uint8_t direction,
-	std::uint8_t seatIndex,
-	std::int32_t destinationGrid,
-	std::uint16_t movementMode,
-	bool forceRestart,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{ApproachVehicleCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			TacticalEntityId{vehicleId, vehicleUniqueSoldierId},
-			direction, seatIndex, destinationGrid, movementMode,
-			forceRestart, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchPickupWorldItemCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	TacticalWorldItemId item,
-	std::int32_t grid,
-	std::int8_t renderHeight,
-	TacticalWorldItemPickupKind kind,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{PickupWorldItemCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			item, grid, renderHeight, kind, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchStealFromActorCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::uint16_t targetId,
-	std::uint32_t targetUniqueSoldierId,
-	std::int32_t targetGrid,
-	std::int8_t targetLevel,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{StealFromActorCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			TacticalEntityId{targetId, targetUniqueSoldierId},
-			targetGrid, targetLevel, source}});
-}
-
-SimulationCommandDispatchResult TryDispatchExchangePositionsCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
-	std::uint16_t targetId,
-	std::uint32_t targetUniqueSoldierId,
-	std::int32_t soldierGrid,
-	std::int32_t targetGrid,
-	std::int8_t level,
-	SimulationCommandSource source) noexcept
-{
-	return TryDispatchSimulationCommandNow(
-		SimulationCommand{ExchangePositionsCommand{
-			TacticalEntityId{soldierId, uniqueSoldierId},
-			TacticalEntityId{targetId, targetUniqueSoldierId},
-			soldierGrid, targetGrid, level, source}});
 }
 
 bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept
@@ -2381,27 +2077,24 @@ std::uint64_t DispatchEndTurnCommandNow(
 }
 
 std::uint64_t DispatchChangeStanceCommandNow(
-	std::uint16_t soldierId, std::uint8_t stance, SimulationCommandSource source)
+	TacticalEntityId actor, std::uint8_t stance, SimulationCommandSource source)
 {
-	return TryDispatchChangeStanceCommandNow(soldierId, stance, source).sequence;
+	return TryDispatchChangeStanceCommandNow(actor, stance, source).sequence;
 }
 
 std::uint64_t DispatchBeginFireWeaponCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
+	TacticalEntityId actor,
 	std::int32_t targetGrid,
 	std::int8_t targetLevel,
 	std::int8_t targetCubeLevel,
 	SimulationCommandSource source)
 {
 	return TryDispatchBeginFireWeaponCommandNow(
-		soldierId, uniqueSoldierId, targetGrid, targetLevel,
-		targetCubeLevel, source).sequence;
+		actor, targetGrid, targetLevel, targetCubeLevel, source).sequence;
 }
 
 std::uint64_t DispatchMoveToGridCommandNow(
-	std::uint16_t soldierId,
-	std::uint32_t uniqueSoldierId,
+	TacticalEntityId actor,
 	std::int32_t destinationGrid,
 	std::uint16_t movementMode,
 	bool reverse,
@@ -2409,6 +2102,6 @@ std::uint64_t DispatchMoveToGridCommandNow(
 	SimulationCommandSource source)
 {
 	return TryDispatchMoveToGridCommandNow(
-		soldierId, uniqueSoldierId, destinationGrid, movementMode,
+		actor, destinationGrid, movementMode,
 		reverse, forceRestart, source).sequence;
 }

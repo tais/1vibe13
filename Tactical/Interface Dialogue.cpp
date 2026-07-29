@@ -2057,7 +2057,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 			if (pSoldier->position().direction() != ubDesiredMercDir)
 			{
 				(void)TryDispatchSystemSetFacingCommand(
-					*pSoldier, ubDesiredMercDir,
+					GetJa2TacticalEntityId(*pSoldier), ubDesiredMercDir,
 					TacticalEventPolicy::LocalOnly);
 			}
 		}
@@ -2296,7 +2296,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if (pSoldier)
 				{
 					(void)TryDispatchSystemSetFacingCommand(
-						*pSoldier, NORTHWEST);
+						GetJa2TacticalEntityId(*pSoldier), NORTHWEST);
 				}
 				break;
 
@@ -2312,7 +2312,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					// screen NORTHEAST corresponds to in-game NORTH
 					(void)TryDispatchSystemSetFacingCommand(
-						*pSoldier,
+						GetJa2TacticalEntityId(*pSoldier),
 						static_cast<UINT8>(
 							NORTH +
 							(usActionCode -
@@ -2556,7 +2556,8 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						if (pSoldier->position().direction() != ubDesiredMercDir)
 						{
 							(void)TryDispatchSystemSetFacingCommand(
-								*pSoldier, ubDesiredMercDir,
+								GetJa2TacticalEntityId(*pSoldier),
+								ubDesiredMercDir,
 								TacticalEventPolicy::LocalOnly);
 						}
 					}
