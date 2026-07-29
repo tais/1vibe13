@@ -3779,10 +3779,11 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 			pPlayer = pGroup->pPlayerList;
 			while ( pPlayer )
 			{
-				if ( pPlayer->pSoldier != pValidSoldier )
+				SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+				if ( member && member != pValidSoldier )
 				{
-					pPlayer->pSoldier->assignment().mergeTraversalAllowance() = 100;
-					pPlayer->pSoldier->assignment().desiredSquad() = NO_ASSIGNMENT;
+					member->assignment().mergeTraversalAllowance() = 100;
+					member->assignment().desiredSquad() = NO_ASSIGNMENT;
 				}
 				pPlayer = pPlayer->next;
 			}
@@ -3867,42 +3868,49 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		curr = pGroup->pPlayerList;
 		while ( curr )
 		{
-			// anv: passengers can't move anyway
-			if ( curr->pSoldier->assignment().current() == VEHICLE )
+			SOLDIERTYPE* const member = ResolvePlayerGroupMember( curr );
+			if ( !member )
 			{
-				curr->pSoldier->movement().clearWaitAction();
+				curr = curr->next;
+				continue;
 			}
-			else if ( OK_CONTROLLABLE_MERC( curr->pSoldier ) )
+
+			// anv: passengers can't move anyway
+			if ( member->assignment().current() == VEHICLE )
+			{
+				member->movement().clearWaitAction();
+			}
+			else if ( OK_CONTROLLABLE_MERC( member ) )
 			{
 				if ( ubTacticalDirection != 255 )
 				{
-					sGridNo = PickGridNoNearestEdge( curr->pSoldier, ubTacticalDirection );
+					sGridNo = PickGridNoNearestEdge( member, ubTacticalDirection );
 
-					curr->pSoldier->deployment().preTraversalGrid() = curr->pSoldier->position().gridNo();
+					member->deployment().preTraversalGrid() = member->position().gridNo();
 
 					if ( !TileIsOutOfBounds( sGridNo ) )
 					{
 						// Save wait code - this will make buddy walk off screen into oblivion
-						curr->pSoldier->movement().requestWaitAction( 2 );
+						member->movement().requestWaitAction( 2 );
 						// This will set the direction so we know now to move into oblivion
-						curr->pSoldier->pendingAction().primaryData() = ubTacticalDirection;
+						member->pendingAction().primaryData() = ubTacticalDirection;
 					}
 					else
 					{
 						AssertMsg( 0, String( "Failed to get good exit location for adjacentmove" ) );
 					}
 
-					curr->pSoldier->EVENT_GetNewSoldierPath( sGridNo, WALKING );
+					member->EVENT_GetNewSoldierPath( sGridNo, WALKING );
 				}
 				else
 				{
 					// Here, get closest location for exit grid....
-					sGridNo = FindGridNoFromSweetSpotCloseToExitGrid( curr->pSoldier, sAdditionalData, 10, &ubDirection );
+					sGridNo = FindGridNoFromSweetSpotCloseToExitGrid( member, sAdditionalData, 10, &ubDirection );
 
 					if ( !TileIsOutOfBounds( sGridNo ) )
 					{
 						// Save wait code - this will make buddy walk off screen into oblivion
-						//	curr->pSoldier->movement().requestWaitAction( 2 );
+						// member->movement().requestWaitAction( 2 );
 					}
 					else
 					{
@@ -3910,11 +3918,11 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 					}
 
 					// Don't worry about walk off screen, just stay at gridno...
-					curr->pSoldier->movement().requestWaitAction( 1 );
+					member->movement().requestWaitAction( 1 );
 
 					// Set buddy go!
 					gfPlotPathToExitGrid = TRUE;
-					curr->pSoldier->EVENT_GetNewSoldierPath( sGridNo, WALKING );
+					member->EVENT_GetNewSoldierPath( sGridNo, WALKING );
 					gfPlotPathToExitGrid = FALSE;
 
 				}
@@ -3934,16 +3942,17 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		curr = pGroup->pPlayerList;
 		while ( curr )
 		{
-			if ( !OK_CONTROLLABLE_MERC( curr->pSoldier ) )
+			SOLDIERTYPE* const member = ResolvePlayerGroupMember( curr );
+			if ( member && !OK_CONTROLLABLE_MERC( member ) )
 			{
-				if ( OK_CONTROL_MERC( curr->pSoldier ) && curr->pSoldier->assignment().current() == VEHICLE && pGroup->fVehicle )
+				if ( OK_CONTROL_MERC( member ) && member->assignment().current() == VEHICLE && pGroup->fVehicle )
 				{
 					//CHRISL: passengers in a vehicle movement group will not pass the OK_CONTROLLABLE_MERC check because their assignment is not "ON_DUTY".
 					//	The above conditions should allow passengers in a vehicle movement group to remain in the group.
 				}
 				else
 				{
-					RemoveCharacterFromSquads( curr->pSoldier );
+					RemoveCharacterFromSquads( member );
 					goto BEGINNING_LOOP;
 				}
 			}
@@ -4111,15 +4120,22 @@ void AllMercsWalkedToExitGrid( )
 		pPlayer = adjacentGroup->pPlayerList;
 		while ( pPlayer )
 		{
+			SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+			if ( !member )
+			{
+				pPlayer = pPlayer->next;
+				continue;
+			}
+
 			/////////////////////////////////////////////////////////////////////////////////
 			// SANDRO - merc records - times retreated counter
-			if ( fEnemiesInLoadedSector && pPlayer->pSoldier->identity().profile() != NO_PROFILE )
-				gMercProfiles[pPlayer->pSoldier->identity().profile()].records.usBattlesRetreated++;
+			if ( fEnemiesInLoadedSector && member->identity().profile() != NO_PROFILE )
+				gMercProfiles[member->identity().profile()].records.usBattlesRetreated++;
 			/////////////////////////////////////////////////////////////////////////////////
 
-			SetInsertionDataFromAdjacentMoveDirection( pPlayer->pSoldier, gubTacticalDirection, gsAdditionalData );
+			SetInsertionDataFromAdjacentMoveDirection( member, gubTacticalDirection, gsAdditionalData );
 
-			RemoveSoldierFromTacticalSector( pPlayer->pSoldier, TRUE );
+			RemoveSoldierFromTacticalSector( member, TRUE );
 
 			pPlayer = pPlayer->next;
 		}
@@ -4157,12 +4173,16 @@ void AllMercsWalkedToExitGrid( )
 			pPlayer = adjacentGroup->pPlayerList;
 			while ( pPlayer )
 			{
-				if ( pPlayer->pSoldier->vitals().health() < OKLIFE )
+				SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+				if ( member && member->vitals().health() < OKLIFE )
 				{
-					AddCharacterToUniqueSquad( pPlayer->pSoldier );
+					AddCharacterToUniqueSquad( member );
 					break;
 				}
-				InitSoldierOppList( pPlayer->pSoldier );
+				if ( member )
+				{
+					InitSoldierOppList( member );
+				}
 				pPlayer = pPlayer->next;
 			}
 			if ( !pPlayer )
@@ -4175,13 +4195,20 @@ void AllMercsWalkedToExitGrid( )
 		pPlayer = adjacentGroup->pPlayerList;
 		while ( pPlayer )
 		{
+			SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+			if ( !member )
+			{
+				pPlayer = pPlayer->next;
+				continue;
+			}
+
 			/////////////////////////////////////////////////////////////////////////////////
 			// SANDRO - merc records - times retreated counter
-			if ( fEnemiesInLoadedSector && pPlayer->pSoldier->identity().profile() != NO_PROFILE )
-				gMercProfiles[pPlayer->pSoldier->identity().profile()].records.usBattlesRetreated++;
+			if ( fEnemiesInLoadedSector && member->identity().profile() != NO_PROFILE )
+				gMercProfiles[member->identity().profile()].records.usBattlesRetreated++;
 			/////////////////////////////////////////////////////////////////////////////////
 
-			SetInsertionDataFromAdjacentMoveDirection( pPlayer->pSoldier, gubTacticalDirection, gsAdditionalData );
+			SetInsertionDataFromAdjacentMoveDirection( member, gubTacticalDirection, gsAdditionalData );
 
 			pPlayer = pPlayer->next;
 		}
@@ -4215,7 +4242,12 @@ void SetupTacticalTraversalInformation( )
 	pPlayer = adjacentGroup->pPlayerList;
 	while ( pPlayer )
 	{
-		pSoldier = pPlayer->pSoldier;
+		pSoldier = ResolvePlayerGroupMember( pPlayer );
+		if ( !pSoldier )
+		{
+			pPlayer = pPlayer->next;
+			continue;
+		}
 
 		SetInsertionDataFromAdjacentMoveDirection( pSoldier, gubTacticalDirection, gsAdditionalData );
 
@@ -4306,12 +4338,19 @@ void AllMercsHaveWalkedOffSector( )
 		pPlayer = adjacentGroup->pPlayerList;
 		while ( pPlayer )
 		{
+			SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+			if ( !member )
+			{
+				pPlayer = pPlayer->next;
+				continue;
+			}
+
 			/////////////////////////////////////////////////////////////////////////////////
 			// SANDRO - merc records - times retreated counter
-			if ( fEnemiesInLoadedSector && pPlayer->pSoldier->identity().profile() != NO_PROFILE )
-				gMercProfiles[pPlayer->pSoldier->identity().profile()].records.usBattlesRetreated++;
+			if ( fEnemiesInLoadedSector && member->identity().profile() != NO_PROFILE )
+				gMercProfiles[member->identity().profile()].records.usBattlesRetreated++;
 			/////////////////////////////////////////////////////////////////////////////////
-			RemoveSoldierFromTacticalSector( pPlayer->pSoldier, TRUE );
+			RemoveSoldierFromTacticalSector( member, TRUE );
 			pPlayer = pPlayer->next;
 		}
 		SetDefaultSquadOnSectorEntry( TRUE );
@@ -4335,8 +4374,9 @@ void AllMercsHaveWalkedOffSector( )
 			pPlayer = adjacentGroup->pPlayerList;
 			while ( pPlayer )
 			{
-				if ( fEnemiesInLoadedSector && pPlayer->pSoldier->identity().profile() != NO_PROFILE )
-					gMercProfiles[pPlayer->pSoldier->identity().profile()].records.usBattlesRetreated++;
+				SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+				if ( member && fEnemiesInLoadedSector && member->identity().profile() != NO_PROFILE )
+					gMercProfiles[member->identity().profile()].records.usBattlesRetreated++;
 				pPlayer = pPlayer->next;
 			}
 			/////////////////////////////////////////////////////////////////////////////////
@@ -4464,11 +4504,18 @@ void DoneFadeOutAdjacentSector( )
 		curr = adjacentGroup->pPlayerList;
 		while ( curr )
 		{
-			if ( !(curr->pSoldier->status().flags() & SOLDIER_IS_TACTICALLY_VALID) )
+			SOLDIERTYPE* const member = ResolvePlayerGroupMember( curr );
+			if ( !member )
 			{
-				if ( !TileIsOutOfBounds( curr->pSoldier->position().gridNo() ) )
+				curr = curr->next;
+				continue;
+			}
+
+			if ( !(member->status().flags() & SOLDIER_IS_TACTICALLY_VALID) )
+			{
+				if ( !TileIsOutOfBounds( member->position().gridNo() ) )
 				{
-					sGridNo = PickGridNoToWalkIn( curr->pSoldier, ubDirection, &uiAttempts );
+					sGridNo = PickGridNoToWalkIn( member, ubDirection, &uiAttempts );
 
 					//If the search algorithm failed due to too many attempts, simply reset the
 					//the gridno as the destination is a reserved gridno and we will place the
@@ -4476,20 +4523,20 @@ void DoneFadeOutAdjacentSector( )
 
 					if ( TileIsOutOfBounds( sGridNo ) && uiAttempts == MAX_ATTEMPTS )
 					{
-						sGridNo = curr->pSoldier->position().gridNo();
+						sGridNo = member->position().gridNo();
 					}
 
 					if ( !TileIsOutOfBounds( sGridNo ) )
 					{
-						curr->pSoldier->movement().requestWaitAction( 1 );
+						member->movement().requestWaitAction( 1 );
 						// OK, here we have been given a position, a gridno has been given to use as well....
-						sOldGridNo = curr->pSoldier->position().gridNo();
+						sOldGridNo = member->position().gridNo();
 						ConvertGridNoToCenterCellXY(sGridNo, &sWorldX, &sWorldY);
 
-						curr->pSoldier->EVENT_SetSoldierPosition( sWorldX, sWorldY );
+						member->EVENT_SetSoldierPosition( sWorldX, sWorldY );
 						if ( sGridNo != sOldGridNo )
 						{
-							curr->pSoldier->EVENT_GetNewSoldierPath( sOldGridNo, WALKING );
+							member->EVENT_GetNewSoldierPath( sOldGridNo, WALKING );
 						}
 						ubNum++;
 					}
@@ -4498,7 +4545,7 @@ void DoneFadeOutAdjacentSector( )
 				{
 #ifdef JA2BETAVERSION
 					CHAR8 str[256];
-					sprintf( str, "%S's gridno is NOWHERE, and is attempting to walk into sector.", curr->pSoldier->identity().name() );
+					sprintf( str, "%S's gridno is NOWHERE, and is attempting to walk into sector.", member->identity().name() );
 					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, str );
 #endif
 				}

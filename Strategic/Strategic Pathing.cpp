@@ -1622,10 +1622,11 @@ void VerifyAllMercsInGroupAreOnSameSquad( GROUP *pGroup )
 
 	while( pPlayer != NULL )
 	{
-		pSoldier = pPlayer->pSoldier;
+		pSoldier = ResolvePlayerGroupMember( pPlayer );
 		Assert( pSoldier );
 
-		if ( pSoldier->assignment().current() < ON_DUTY )
+		if ( pSoldier &&
+			pSoldier->assignment().current() < ON_DUTY )
 		{
 			if ( bSquad == -1 )
 			{
@@ -2024,10 +2025,13 @@ PathStPtr GetGroupMercPathPtr( GROUP *pGroup )
 	else
 	{
 		// value returned will be NULL if there's nobody in the group!
-		if ( pGroup->pPlayerList && pGroup->pPlayerList->pSoldier )
+		SOLDIERTYPE* firstMember =
+			ResolvePlayerGroupMember(
+				pGroup->pPlayerList );
+		if ( firstMember )
 		{
 			pMercPath =
-				pGroup->pPlayerList->pSoldier->strategicPath().head();
+				firstMember->strategicPath().head();
 		}
 	}
 
@@ -2071,7 +2075,7 @@ void ClearMercPathsAndWaypointsForAllInGroup( GROUP *pGroup )
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			pSoldier = pPlayer->pSoldier;
+			pSoldier = ResolvePlayerGroupMember( pPlayer );
 
 			if ( pSoldier != NULL )
 			{
@@ -2154,7 +2158,7 @@ void AddSectorToFrontOfMercPathForAllSoldiersInGroup( GROUP *pGroup, UINT8 ubSec
 	pPlayer = pGroup->pPlayerList;
 	while( pPlayer )
 	{
-		pSoldier = pPlayer->pSoldier;
+		pSoldier = ResolvePlayerGroupMember( pPlayer );
 
 		if ( pSoldier != NULL )
 		{

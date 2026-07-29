@@ -5013,6 +5013,7 @@ int main( int, char** )
 			soldierRepository.replace( 1, worldActor ) == &swapTarget;
 		swapTarget.identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
 		swapTarget.identity().incarnation() = 702;
+		swapTarget.identity().profile() = 13;
 		swapTarget.position().gridNo() = 678;
 		const bool swapTargetAdopted =
 			swapTargetInstalled && AdoptJa2TacticalEntity( swapTarget );
@@ -5119,6 +5120,37 @@ int main( int, char** )
 				vehicleFixture + 1, swapTargetIdentity ) &&
 			Ja2VehiclePassengerCount(
 				kJa2VehicleSlotCount ) == 0;
+		PLAYERGROUP* firstMovementGroupMember =
+			static_cast<PLAYERGROUP*>(MemAlloc(sizeof(PLAYERGROUP)));
+		PLAYERGROUP* secondMovementGroupMember =
+			static_cast<PLAYERGROUP*>(MemAlloc(sizeof(PLAYERGROUP)));
+		CHECK(firstMovementGroupMember && secondMovementGroupMember,
+		      "strategic movement member lifecycle fixture allocates");
+		if (!firstMovementGroupMember || !secondMovementGroupMember)
+		{
+			if (firstMovementGroupMember) MemFree(firstMovementGroupMember);
+			if (secondMovementGroupMember) MemFree(secondMovementGroupMember);
+			return EXIT_FAILURE;
+		}
+		std::memset(firstMovementGroupMember, 0, sizeof(PLAYERGROUP));
+		std::memset(secondMovementGroupMember, 0, sizeof(PLAYERGROUP));
+		firstMovementGroupMember->ubProfileID = 12;
+		firstMovementGroupMember->actor = worldActorIdentity;
+		firstMovementGroupMember->next = secondMovementGroupMember;
+		secondMovementGroupMember->ubProfileID = 13;
+		secondMovementGroupMember->actor = swapTargetIdentity;
+		GROUP movementGroupFixture{};
+		movementGroupFixture.usGroupTeam = OUR_TEAM;
+		movementGroupFixture.ubGroupSize = 2;
+		movementGroupFixture.pPlayerList = firstMovementGroupMember;
+		GROUP* const previousMovementGroupList = gpGroupList;
+		movementGroupFixture.next = previousMovementGroupList;
+		gpGroupList = &movementGroupFixture;
+		const bool movementGroupMembersSeeded =
+			ResolvePlayerGroupMember(firstMovementGroupMember) ==
+				&worldActor &&
+			ResolvePlayerGroupMember(secondMovementGroupMember) ==
+				&swapTarget;
 		VEHICLETYPE* const previousVehicleList = pVehicleList;
 		const UINT8 previousVehicleCount = ubNumberOfVehicles;
 		const INT32 previousVehicleCapacity =
@@ -5185,6 +5217,17 @@ int main( int, char** )
 				( TacticalEntityId{ 1, 701 } ) &&
 			ResolveJa2VehicleDriverActor(
 				vehicleFixture ) == &worldActor;
+		const bool swappedMovementGroupMembersRebound =
+			ResolvePlayerGroupMember(firstMovementGroupMember) ==
+				&worldActor &&
+			GetPlayerGroupMemberActor(firstMovementGroupMember) ==
+				( TacticalEntityId{ 0, 702 } ) &&
+			firstMovementGroupMember->ubProfileID == 13 &&
+			ResolvePlayerGroupMember(secondMovementGroupMember) ==
+				&swapTarget &&
+			GetPlayerGroupMemberActor(secondMovementGroupMember) ==
+				( TacticalEntityId{ 1, 701 } ) &&
+			secondMovementGroupMember->ubProfileID == 12;
 		const bool entitySlotsRestored = SwapJa2TacticalEntitySlots( 0, 1 );
 		const bool restoredActorRostersRebound =
 			ResolveJa2ActiveTacticalActorSlot( 0 ) == &worldActor &&
@@ -5201,6 +5244,17 @@ int main( int, char** )
 				vehicleFixture, 4 ) == &swapTarget &&
 			ResolveJa2VehicleDriverActor(
 				vehicleFixture ) == &worldActor;
+		const bool restoredMovementGroupMembersRebound =
+			ResolvePlayerGroupMember(firstMovementGroupMember) ==
+				&worldActor &&
+			GetPlayerGroupMemberActor(firstMovementGroupMember) ==
+				( TacticalEntityId{ 0, 701 } ) &&
+			firstMovementGroupMember->ubProfileID == 12 &&
+			ResolvePlayerGroupMember(secondMovementGroupMember) ==
+				&swapTarget &&
+			GetPlayerGroupMemberActor(secondMovementGroupMember) ==
+				( TacticalEntityId{ 1, 702 } ) &&
+			secondMovementGroupMember->ubProfileID == 13;
 		const TacticalEntityId rosterDeletionActor =
 			GetJa2TacticalEntityId( worldActor );
 		const bool rosterActorReleased =
@@ -5215,6 +5269,9 @@ int main( int, char** )
 				vehicleFixture, 0 ) == nullptr &&
 			ResolveJa2VehicleDriverActor(
 				vehicleFixture ) == nullptr;
+		const bool releasedMovementGroupMemberFailsClosed =
+			ResolvePlayerGroupMember(firstMovementGroupMember) ==
+				nullptr;
 		const bool releasedRosterEntryRemoved =
 			RemoveJa2ActiveTacticalActor( rosterDeletionActor ) &&
 			Ja2ActiveTacticalActorSlotCount() == 0;
@@ -5227,33 +5284,53 @@ int main( int, char** )
 			Ja2VehiclePassengerCount( vehicleFixture ) == 1 &&
 			!GetJa2VehicleDriverActor(
 				vehicleFixture ).valid();
+		const bool releasedMovementGroupMemberRemoved =
+			!RemovePlayerFromStrategicGroups(TacticalEntityId{}) &&
+			RemovePlayerFromStrategicGroups(rosterDeletionActor) &&
+			movementGroupFixture.ubGroupSize == 1 &&
+			movementGroupFixture.pPlayerList ==
+				secondMovementGroupMember &&
+			secondMovementGroupMember->next == nullptr;
 		const bool rosterActorReadopted =
 			AdoptJa2TacticalEntity( worldActor );
 		CHECK( swapTargetInstalled && swapTargetAdopted &&
 		       tacticalActorRostersSeeded &&
 		       strategicSquadRosterSeeded &&
 		       vehicleOccupantsSeeded &&
+		       movementGroupMembersSeeded &&
 		       sparseVehiclePassengerSelection &&
 		       entitySlotsSwapped && swappedEntitiesResolvable &&
 		       swappedActorRostersRebound &&
 		       swappedSquadRosterRebound &&
 		       swappedVehicleOccupantsRebound &&
+		       swappedMovementGroupMembersRebound &&
 		       entitySlotsRestored &&
 		       restoredActorRostersRebound &&
 		       restoredSquadRosterRebound &&
 		       restoredVehicleOccupantsRebound &&
+		       restoredMovementGroupMembersRebound &&
 		       rosterActorReleased &&
 		       releasedRosterEntryFailsClosed &&
 		       releasedSquadEntryFailsClosed &&
 		       releasedVehicleOccupantFailsClosed &&
+		       releasedMovementGroupMemberFailsClosed &&
 		       releasedRosterEntryRemoved &&
 		       releasedSquadEntryRemoved &&
 		       releasedVehicleOccupantRemoved &&
+		       releasedMovementGroupMemberRemoved &&
 		       rosterActorReadopted &&
 		       GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 701 } ) &&
 		       !SwapJa2TacticalEntitySlots( 0, 0 ) &&
 		       !SwapJa2TacticalEntitySlots( TOTAL_SOLDIERS, 0 ),
-		       "scheduler, strategic squad, and vehicle occupant rosters rebind whole-record swaps and remove released exact actors without retaining pointers" );
+		       "scheduler, strategic squad, vehicle occupant, and strategic movement rosters rebind whole-record swaps and remove released exact actors without retaining pointers" );
+		gpGroupList = previousMovementGroupList;
+		while (movementGroupFixture.pPlayerList)
+		{
+			PLAYERGROUP* const member =
+				movementGroupFixture.pPlayerList;
+			movementGroupFixture.pPlayerList = member->next;
+			MemFree(member);
+		}
 		ResetJa2TacticalActorRosters();
 		ResetJa2StrategicSquadRosters();
 		ResetJa2VehicleOccupants();
@@ -13134,6 +13211,70 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+
+	{
+		PLAYERGROUP secondMember{};
+		secondMember.ubProfileID = 22;
+		secondMember.actor = TacticalEntityId{ 1, 812 };
+		PLAYERGROUP firstMember{};
+		firstMember.ubProfileID = 21;
+		firstMember.actor = TacticalEntityId{ 0, 811 };
+		firstMember.next = &secondMember;
+		GROUP group{};
+		group.usGroupTeam = OUR_TEAM;
+		group.ubGroupID = 37;
+		group.ubGroupSize = 2;
+		group.ubSectorX = 4;
+		group.ubSectorY = 5;
+		group.pPlayerList = &firstMember;
+
+		GROUP* const previousGroupList = gpGroupList;
+		gpGroupList = &group;
+		const std::string path =
+			"strategic_group_member_format_test.bin";
+		HWFILE output = FileOpen(
+			const_cast<char*>(path.c_str()),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+		const bool saved =
+			output &&
+			SaveStrategicMovementGroupsToSaveGameFile(output);
+		if( output ) FileClose(output);
+		gpGroupList = previousGroupList;
+
+		std::string bytes;
+		const bool bytesRead = ReadFileManagerText(path, bytes);
+		const auto readU32 = [&](std::size_t offset)
+		{
+			return static_cast<UINT32>(
+				static_cast<UINT8>(bytes[offset])) |
+				(static_cast<UINT32>(
+					static_cast<UINT8>(bytes[offset + 1])) << 8) |
+				(static_cast<UINT32>(
+					static_cast<UINT8>(bytes[offset + 2])) << 16) |
+				(static_cast<UINT32>(
+					static_cast<UINT8>(bytes[offset + 3])) << 24);
+		};
+		constexpr std::size_t groupNodeSize = 67;
+		const std::size_t memberCountOffset =
+			sizeof(UINT32) + groupNodeSize;
+		const std::size_t memberProfilesOffset =
+			memberCountOffset + sizeof(UINT32);
+		const std::size_t waypointCountOffset =
+			memberProfilesOffset + 2 * sizeof(UINT32);
+		const std::size_t establishedSize =
+			waypointCountOffset + sizeof(UINT32) +
+			8 * sizeof(UINT32);
+		const bool establishedBytes =
+			bytesRead && bytes.size() == establishedSize &&
+			readU32(0) == 1 &&
+			readU32(memberCountOffset) == 2 &&
+			readU32(memberProfilesOffset) == 21 &&
+			readU32(memberProfilesOffset + sizeof(UINT32)) == 22 &&
+			readU32(waypointCountOffset) == 0;
+		FileDelete(const_cast<char*>(path.c_str()));
+		CHECK(saved && establishedBytes,
+		      "strategic movement members retain the established count plus 32-bit profile-only save payload" );
+	}
 
 	{
 		std::array<

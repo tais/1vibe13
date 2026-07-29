@@ -782,7 +782,12 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 			if( GetEnemyEncounterCode() != BLOODCAT_AMBUSH_CODE && GetEnemyEncounterCode() != ENTERING_BLOODCAT_LAIR_CODE )
 			{
 				// Flugente: if the group that causes a battle is a result of a merc no longer being concealed, special code
-				if ( pBattleGroup->pPlayerList->pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
+				SOLDIERTYPE* firstMember =
+					ResolvePlayerGroupMember(
+						pBattleGroup->pPlayerList );
+				if ( firstMember &&
+					( firstMember->featureFlags().secondaryFlags() &
+						SOLDIER_CONCEALINSERTION ) )
 				{
 					SetEnemyEncounterCode( CONCEALINSERTION_CODE );
 				}
@@ -943,9 +948,18 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		}
 
 		// haxx
-		if ( pBattleGroup && pBattleGroup->usGroupTeam == OUR_TEAM && pBattleGroup->pPlayerList->pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
+		if ( pBattleGroup &&
+			pBattleGroup->usGroupTeam == OUR_TEAM )
 		{
-			//SetEnemyEncounterCode( CONCEALINSERTION_CODE );
+			SOLDIERTYPE* firstMember =
+				ResolvePlayerGroupMember(
+					pBattleGroup->pPlayerList );
+			if( firstMember &&
+				( firstMember->featureFlags().secondaryFlags() &
+					SOLDIER_CONCEALINSERTION ) )
+			{
+				//SetEnemyEncounterCode( CONCEALINSERTION_CODE );
+			}
 		}
 	}
 
@@ -2286,11 +2300,15 @@ void PutNonSquadMercsInPlayerGroupOnSquads( GROUP *pGroup, BOOLEAN fExitVehicles
 
 	while( pPlayer )
 	{
-		pSoldier = pPlayer->pSoldier;
-		Assert( pSoldier );
-
 		// store ptr to next soldier in group, once removed from group, his info will get memfree'd!
 		pNextPlayer = pPlayer->next;
+		pSoldier = ResolvePlayerGroupMember( pPlayer );
+		Assert( pSoldier );
+		if( !pSoldier )
+		{
+			pPlayer = pNextPlayer;
+			continue;
+		}
 
 		if ( pSoldier->roster().active() && pSoldier->vitals().health() && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{

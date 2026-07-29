@@ -13321,6 +13321,95 @@ foreach(source_file IN LISTS tactical_soldier_pool_consumers)
   endif()
 endforeach()
 
+# Strategic player movement groups retain exact tactical identities, not
+# SOLDIERTYPE addresses or reusable numeric slots. The legacy save payload
+# remains profile-only and load reconstructs the current exact incarnation.
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement.h"
+  strategic_movement_header_contents)
+string(REGEX MATCH
+  "typedef struct PLAYERGROUP[^}]*}PLAYERGROUP;"
+  player_group_declaration
+  "${strategic_movement_header_contents}")
+if(NOT player_group_declaration)
+  message(FATAL_ERROR
+    "PLAYERGROUP declaration is missing from Strategic Movement.h")
+endif()
+string(REGEX MATCH
+  "TacticalEntityId[ \t\r\n]+actor"
+  exact_player_group_member_identity
+  "${player_group_declaration}")
+if(NOT exact_player_group_member_identity)
+  message(FATAL_ERROR
+    "PLAYERGROUP must retain TacticalEntityId actor")
+endif()
+string(REGEX MATCH
+  "SOLDIERTYPE[ \t\r\n]*\\*[ \t\r\n]*pSoldier"
+  raw_player_group_member_pointer
+  "${player_group_declaration}")
+string(REGEX MATCH
+  "SoldierID[ \t\r\n]+ubID"
+  reusable_player_group_member_slot
+  "${player_group_declaration}")
+if(NOT "${raw_player_group_member_pointer}" STREQUAL "" OR
+   NOT "${reusable_player_group_member_slot}" STREQUAL "")
+  message(FATAL_ERROR
+    "PLAYERGROUP regained raw or reusable soldier member storage")
+endif()
+
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
+  strategic_movement_source_contents)
+foreach(required_group_identity_fragment IN ITEMS
+    "ResolvePlayerGroupMember"
+    "ResolveJa2TacticalEntity"
+    "RemovePlayerFromStrategicGroups"
+    "RebindStrategicGroupMembersAfterRecordSwap"
+    "FindSoldierByProfileID"
+    "uiProfileID = pTemp->ubProfileID"
+    "uiNumberOfNodes != pTempGroup->ubGroupSize")
+  string(FIND "${strategic_movement_source_contents}"
+    "${required_group_identity_fragment}"
+    required_group_identity_fragment_position)
+  if(required_group_identity_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic movement exact-member lifecycle lost '${required_group_identity_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/TacticalEntityHost.cpp"
+  tactical_entity_host_source_contents)
+string(FIND "${tactical_entity_host_source_contents}"
+  "RebindStrategicGroupMembersAfterRecordSwap();"
+  strategic_group_swap_rebind)
+if(strategic_group_swap_rebind EQUAL -1)
+  message(FATAL_ERROR
+    "Whole-record tactical actor swaps no longer rebind strategic movement members")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
+  soldier_control_source_contents)
+string(FIND "${soldier_control_source_contents}"
+  "RemovePlayerFromStrategicGroups(actor);"
+  strategic_group_deletion_cleanup)
+if(strategic_group_deletion_cleanup EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier deletion no longer removes the released exact actor from strategic movement groups")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  ja2_headless_test_contents)
+foreach(required_group_identity_test IN ITEMS
+    "swappedMovementGroupMembersRebound"
+    "releasedMovementGroupMemberRemoved"
+    "strategic movement members retain the established count plus 32-bit profile-only save payload")
+  string(FIND "${ja2_headless_test_contents}"
+    "${required_group_identity_test}"
+    required_group_identity_test_position)
+  if(required_group_identity_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic movement identity coverage lost '${required_group_identity_test}'")
+  endif()
+endforeach()
+
 set(soldier_storage_source_directories
   Editor
   Engine

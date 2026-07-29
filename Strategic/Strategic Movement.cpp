@@ -74,6 +74,19 @@ extern UINT32		guiLastTacticalRealTime;
 
 GROUP *gpGroupList;
 
+TacticalEntityId GetPlayerGroupMemberActor(
+	const PLAYERGROUP* member) noexcept
+{
+	return member ? member->actor : TacticalEntityId{};
+}
+
+SOLDIERTYPE* ResolvePlayerGroupMember(
+	const PLAYERGROUP* member) noexcept
+{
+	return ResolveJa2TacticalEntity(
+		GetPlayerGroupMemberActor(member));
+}
+
 namespace
 {
 Ja2StrategicGroupReference gPendingSimultaneousGroup;
@@ -249,12 +262,30 @@ BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 	PLAYERGROUP *pPlayer, *curr;
 	pGroup = GetGroup( ubGroupID );
 	Assert( pGroup );
+	if( !pGroup || !pSoldier )
+	{
+		return FALSE;
+	}
+	const TacticalEntityId actor =
+		GetJa2TacticalEntityId( *pSoldier );
+	if( !actor.valid() )
+	{
+		return FALSE;
+	}
 	pPlayer = (PLAYERGROUP*)MemAlloc( sizeof( PLAYERGROUP ) );
 	Assert( pPlayer );
+	if( !pPlayer )
+	{
+		return FALSE;
+	}
 	AssertMsg( pGroup->usGroupTeam == OUR_TEAM, "Attempting AddPlayerToGroup() on an ENEMY group!" );
-	pPlayer->pSoldier = pSoldier;
+	if( pGroup->usGroupTeam != OUR_TEAM )
+	{
+		MemFree( pPlayer );
+		return FALSE;
+	}
+	pPlayer->actor = actor;
 	pPlayer->ubProfileID = pSoldier->identity().profile();
-	pPlayer->ubID = pSoldier->identity().id();
 	pPlayer->bFlags = 0;
 	pPlayer->next = NULL;
 
@@ -282,12 +313,35 @@ BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 	else
 	{
 		curr = pGroup->pPlayerList;
-		pSoldier->assignment().mergeTraversalAllowance() = curr->pSoldier->assignment().mergeTraversalAllowance();
-		pSoldier->assignment().desiredSquad() = curr->pSoldier->assignment().desiredSquad();
-		while( curr->next )
+		SOLDIERTYPE* firstMember =
+			ResolvePlayerGroupMember( curr );
+		if( !firstMember )
 		{
+			MemFree( pPlayer );
+			return FALSE;
+		}
+		pSoldier->assignment().mergeTraversalAllowance() =
+			firstMember->assignment().mergeTraversalAllowance();
+		pSoldier->assignment().desiredSquad() =
+			firstMember->assignment().desiredSquad();
+		while( curr )
+		{
+			if( curr->actor == actor )
+			{
+				MemFree( pPlayer );
+				pSoldier->deployment().groupId() = ubGroupID;
+				return TRUE;
+			}
 			if( curr->ubProfileID == pSoldier->identity().profile() )
+			{
 				AssertMsg( 0, String( "Attempting to add an already existing merc to group (ubProfile=%d).", pSoldier->identity().profile() ) );
+				MemFree( pPlayer );
+				return FALSE;
+			}
+			if( !curr->next )
+			{
+				break;
+			}
 			curr = curr->next;
 		}
 		curr->next = pPlayer;
@@ -311,6 +365,10 @@ BOOLEAN RemoveAllPlayersFromGroup( UINT8 ubGroupId )
 
 	// init errors checks
 	AssertMsg( pGroup, String( "Attempting to RemovePlayerFromGroup( %d ) from non-existant group", ubGroupId) );
+	if( !pGroup )
+	{
+		return FALSE;
+	}
 
 	return RemoveAllPlayersFromPGroup( pGroup );
 }
@@ -319,15 +377,29 @@ BOOLEAN RemoveAllPlayersFromPGroup( GROUP *pGroup )
 {
 	PLAYERGROUP *curr;
 
+	if( !pGroup )
+	{
+		return FALSE;
+	}
 	AssertMsg( pGroup->usGroupTeam == OUR_TEAM, "Attempting RemovePlayerFromGroup() on an ENEMY group!" );
+	if( pGroup->usGroupTeam != OUR_TEAM )
+	{
+		return FALSE;
+	}
 
 	curr = pGroup->pPlayerList;
 	while( curr )
 	{
 		pGroup->pPlayerList = pGroup->pPlayerList->next;
 
-		curr->pSoldier->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
-		curr->pSoldier->deployment().groupId() = 0;
+		SOLDIERTYPE* member =
+			ResolvePlayerGroupMember( curr );
+		if( member )
+		{
+			member->deployment().previousSectorId() =
+				(UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
+			member->deployment().groupId() = 0;
+		}
 
 		MemFree( curr );
 
@@ -350,6 +422,16 @@ BOOLEAN RemoveAllPlayersFromPGroup( GROUP *pGroup )
 BOOLEAN RemovePlayerFromPGroup( GROUP *pGroup, SOLDIERTYPE *pSoldier )
 {
 	PLAYERGROUP *prev, *curr;
+	if( !pGroup || !pSoldier )
+	{
+		return FALSE;
+	}
+	const TacticalEntityId actor =
+		GetJa2TacticalEntityId( *pSoldier );
+	if( !actor.valid() )
+	{
+		return FALSE;
+	}
 	AssertMsg( pGroup->usGroupTeam == OUR_TEAM, "Attempting RemovePlayerFromGroup() on an ENEMY group!" );
 
 	curr = pGroup->pPlayerList;
@@ -359,7 +441,7 @@ BOOLEAN RemovePlayerFromPGroup( GROUP *pGroup, SOLDIERTYPE *pSoldier )
 		return FALSE;
 	}
 
-	if( curr->pSoldier == pSoldier )
+	if( curr->actor == actor )
 	{ //possibly the only node
 		pGroup->pPlayerList = pGroup->pPlayerList->next;
 
@@ -391,7 +473,7 @@ BOOLEAN RemovePlayerFromPGroup( GROUP *pGroup, SOLDIERTYPE *pSoldier )
 	while( curr )
 	{ //definately more than one node
 
-		if( curr->pSoldier == pSoldier )
+		if( curr->actor == actor )
 		{
 			//detach and delete the node
 			if( prev )
@@ -431,9 +513,109 @@ BOOLEAN RemovePlayerFromGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 	}
 	//end
 
+	if( !pSoldier )
+	{
+		return FALSE;
+	}
+
 	AssertMsg( pGroup, String( "Attempting to RemovePlayerFromGroup( %d, %d ) from non-existant group", ubGroupID, pSoldier->identity().profile() ) );
 
 	return RemovePlayerFromPGroup( pGroup, pSoldier );
+}
+
+bool RemovePlayerFromStrategicGroups(
+	TacticalEntityId actor) noexcept
+{
+	if( !actor.valid() )
+	{
+		return false;
+	}
+
+	bool removed = false;
+	GROUP* group = gpGroupList;
+	while( group )
+	{
+		GROUP* const nextGroup = group->next;
+		if( group->usGroupTeam == OUR_TEAM )
+		{
+			bool removedFromGroup = false;
+			PLAYERGROUP* previous = nullptr;
+			PLAYERGROUP* member = group->pPlayerList;
+			while( member )
+			{
+				PLAYERGROUP* const nextMember = member->next;
+				if( member->actor == actor )
+				{
+					if( previous )
+					{
+						previous->next = nextMember;
+					}
+					else
+					{
+						group->pPlayerList = nextMember;
+					}
+					MemFree( member );
+					if( group->ubGroupSize > 0 )
+					{
+						--group->ubGroupSize;
+					}
+					removed = true;
+					removedFromGroup = true;
+				}
+				else
+				{
+					previous = member;
+				}
+				member = nextMember;
+			}
+
+			if( removedFromGroup &&
+				group->pPlayerList == nullptr )
+			{
+				group->ubGroupSize = 0;
+				if( group->fPersistant )
+				{
+					CancelEmptyPersistentGroupMovement( group );
+				}
+				else
+				{
+					RemovePGroup( group );
+				}
+			}
+		}
+		group = nextGroup;
+	}
+	return removed;
+}
+
+void RebindStrategicGroupMembersAfterRecordSwap() noexcept
+{
+	for( GROUP* group = gpGroupList;
+		group != nullptr; group = group->next )
+	{
+		if( group->usGroupTeam != OUR_TEAM )
+		{
+			continue;
+		}
+		for( PLAYERGROUP* member = group->pPlayerList;
+			member != nullptr; member = member->next )
+		{
+			const TacticalEntityId previous = member->actor;
+			if( !previous.valid() )
+			{
+				continue;
+			}
+			member->actor =
+				GetJa2TacticalEntityId( previous.slot );
+			SOLDIERTYPE* rebound =
+				ResolvePlayerGroupMember( member );
+			if( rebound )
+			{
+				member->ubProfileID =
+					rebound->identity().profile();
+			}
+		}
+	}
 }
 
 
@@ -677,7 +859,12 @@ BOOLEAN AddWaypointToPGroup( GROUP* pGroup, UINT8 ubSectorX, UINT8 ubSectorY ) /
 		curr = pGroup->pPlayerList;
 		while( curr )
 		{
-			curr->pSoldier->deployment().strategicInsertionCode() = 0;
+			SOLDIERTYPE* member =
+				ResolvePlayerGroupMember( curr );
+			if( member )
+			{
+				member->deployment().strategicInsertionCode() = 0;
+			}
 			curr = curr->next;
 		}
 	}
@@ -1102,9 +1289,10 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 
 	while( pPlayer != NULL )
 	{
-		pSoldier = pPlayer->pSoldier;
+		pSoldier = ResolvePlayerGroupMember( pPlayer );
 
-		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
+		if ( pSoldier &&
+			pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !is_client )
 		{
 			ubMercsInGroup[ ubNumMercs ] = pSoldier->identity().id();
@@ -1277,8 +1465,10 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 						pPlayer = curr->pPlayerList;
 						while( pPlayer )
 						{
-							pSoldier = pPlayer->pSoldier;
-							if( !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
+							pSoldier =
+								ResolvePlayerGroupMember( pPlayer );
+							if( pSoldier &&
+								!(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 							{
 								if( !AM_A_ROBOT( pSoldier ) &&
 										!AM_AN_EPC( pSoldier ) &&
@@ -1596,7 +1786,8 @@ void AwardExperienceForTravelling( GROUP * pGroup )
 	pPlayerGroup = pGroup->pPlayerList;
 	while ( pPlayerGroup )
 	{
-		pSoldier = pPlayerGroup->pSoldier;
+		pSoldier =
+			ResolvePlayerGroupMember( pPlayerGroup );
 		if( pSoldier	&& !AM_A_ROBOT( pSoldier ) &&
 				!AM_AN_EPC( pSoldier ) && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 		{
@@ -1745,15 +1936,25 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 		curr = pGroup->pPlayerList;
 		if( curr )
 		{
-			if( curr->pSoldier->assignment().current() < ON_DUTY )
+			SOLDIERTYPE* firstMember =
+				ResolvePlayerGroupMember( curr );
+			if( firstMember &&
+				firstMember->assignment().current() < ON_DUTY )
 			{
-				ResetDeadSquadMemberList( curr->pSoldier->assignment().current() );
+				ResetDeadSquadMemberList(
+					firstMember->assignment().current() );
 			}
 		}
 
 		while( curr )
 		{
-			curr->pSoldier->status().flags() &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
+			SOLDIERTYPE* member =
+				ResolvePlayerGroupMember( curr );
+			if( member )
+			{
+				member->status().flags() &=
+					~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
+			}
 			curr = curr->next;
 		}
 
@@ -1917,6 +2118,9 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				SetSAMSiteAsFound( GetSAMIdFromSector( pGroup->ubSectorX, pGroup->ubSectorY, 0 ) );
 		}
 
+		SOLDIERTYPE* const firstGroupMember =
+			ResolvePlayerGroupMember(
+				pGroup->pPlayerList );
 		if( pGroup->ubSectorX < pGroup->ubPrevX )
 		{
 			ubInsertionDirection = SOUTHWEST;
@@ -1937,7 +2141,9 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			ubInsertionDirection = SOUTHEAST;
 			ubStrategicInsertionCode = INSERTION_CODE_NORTH;
 		}
-		else if ( pGroup->usGroupTeam == OUR_TEAM && pGroup->pPlayerList->pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
+		else if ( firstGroupMember &&
+			( firstGroupMember->featureFlags().secondaryFlags() &
+				SOLDIER_CONCEALINSERTION ) )
 		{
 			ubInsertionDirection = DIRECTION_IRRELEVANT;
 			ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
@@ -1955,33 +2161,40 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			curr = pGroup->pPlayerList;
 			while( curr )
 			{
-				curr->pSoldier->deployment().completeStrategicTransit();
-				curr->pSoldier->deployment().sectorX() = pGroup->ubSectorX;
-				curr->pSoldier->deployment().sectorY() = pGroup->ubSectorY;
-				curr->pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
-				curr->pSoldier->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
-				curr->pSoldier->deployment().insertionDirection() = ubInsertionDirection;
+				SOLDIERTYPE* member =
+					ResolvePlayerGroupMember( curr );
+				if( !member )
+				{
+					curr = curr->next;
+					continue;
+				}
+				member->deployment().completeStrategicTransit();
+				member->deployment().sectorX() = pGroup->ubSectorX;
+				member->deployment().sectorY() = pGroup->ubSectorY;
+				member->deployment().sectorZ() = pGroup->ubSectorZ;
+				member->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
+				member->deployment().insertionDirection() = ubInsertionDirection;
 
 				// don't override if a tactical traversal
-				if( curr->pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_PRIMARY_EDGEINDEX &&
-						curr->pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_SECONDARY_EDGEINDEX )
+				if( member->deployment().strategicInsertionCode() != INSERTION_CODE_PRIMARY_EDGEINDEX &&
+						member->deployment().strategicInsertionCode() != INSERTION_CODE_SECONDARY_EDGEINDEX )
 				{
-					curr->pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
+					member->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 				}
 
-				if( !curr->pSoldier->strategicPath().empty() )
+				if( !member->strategicPath().empty() )
 				{
 					// remove head from their mapscreen path list
-					curr->pSoldier->strategicPath().rebind(
+					member->strategicPath().rebind(
 						RemoveHeadFromStrategicPath(
-							curr->pSoldier->strategicPath().head()));
+							member->strategicPath().head()));
 				}
 
 				// ATE: Alrighty, check if this sector is currently loaded, if so,
 				// add them to the tactical engine!
 				if ( pGroup->ubSectorX == gWorldSectorX && pGroup->ubSectorY == gWorldSectorY && pGroup->ubSectorZ == gbWorldSectorZ )
 				{
-					UpdateMercInSector( curr->pSoldier, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
+					UpdateMercInSector( member, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 				}
 				curr = curr->next;
 			}
@@ -1989,24 +2202,28 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			// if there's anybody in the group
 			if( pGroup->pPlayerList )
 			{
+				SOLDIERTYPE* firstMember =
+					ResolvePlayerGroupMember(
+						pGroup->pPlayerList );
 				// don't print any messages when arriving underground (there's no delay involved) or if we never left (cancel)
-				if ( GroupAtFinalDestination( pGroup ) && ( pGroup->ubSectorZ == 0 ) && !fNeverLeft )
+				if ( firstMember &&
+					GroupAtFinalDestination( pGroup ) && ( pGroup->ubSectorZ == 0 ) && !fNeverLeft )
 				{
 					// if assigned to a squad
-					if( pGroup->pPlayerList->pSoldier->assignment().current() < ON_DUTY )
+					if( firstMember->assignment().current() < ON_DUTY )
 					{
 						// squad
 						// HEADROCK HAM 3.6: Messages are no longer yellow by default.
-						if ( gGameExternalOptions.fUseXMLSquadNames && pGroup->pPlayerList->pSoldier->assignment().current() < gSquadNameVector.size() )
-							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], gSquadNameVector[pGroup->pPlayerList->pSoldier->assignment().current()].c_str(), pMapVertIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorY() ], pMapHortIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorX() ]);
+						if ( gGameExternalOptions.fUseXMLSquadNames && firstMember->assignment().current() < gSquadNameVector.size() )
+							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], gSquadNameVector[firstMember->assignment().current()].c_str(), pMapVertIndex[ firstMember->deployment().sectorY() ], pMapHortIndex[ firstMember->deployment().sectorX() ]);
 						else
-							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pAssignmentStrings[ pGroup->pPlayerList->pSoldier->assignment().current() ], pMapVertIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorY() ], pMapHortIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorX() ]);
+							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pAssignmentStrings[ firstMember->assignment().current() ], pMapVertIndex[ firstMember->deployment().sectorY() ], pMapHortIndex[ firstMember->deployment().sectorX() ]);
 					}
 					else
 					{
 						// a loner
 						// HEADROCK HAM 3.6: Messages are no longer yellow by default.
-						ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pGroup->pPlayerList->pSoldier->identity().name(), pMapVertIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorY()	], pMapHortIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorX()	] );
+						ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], firstMember->identity().name(), pMapVertIndex[ firstMember->deployment().sectorY()	], pMapHortIndex[ firstMember->deployment().sectorX()	] );
 					}
 				}
 			}
@@ -2056,22 +2273,29 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				curr = pGroup->pPlayerList;
 				while( curr )
 				{
-					curr->pSoldier->deployment().completeStrategicTransit();
-					curr->pSoldier->deployment().sectorX() = pGroup->ubSectorX;
-					curr->pSoldier->deployment().sectorY() = pGroup->ubSectorY;
-					curr->pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
-					curr->pSoldier->deployment().insertionDirection() = ubInsertionDirection;
+					SOLDIERTYPE* member =
+						ResolvePlayerGroupMember( curr );
+					if( !member )
+					{
+						curr = curr->next;
+						continue;
+					}
+					member->deployment().completeStrategicTransit();
+					member->deployment().sectorX() = pGroup->ubSectorX;
+					member->deployment().sectorY() = pGroup->ubSectorY;
+					member->deployment().sectorZ() = pGroup->ubSectorZ;
+					member->deployment().insertionDirection() = ubInsertionDirection;
 
 					// ATE: Removed, may 21 - sufficient to use insertion direction...
 					// curr->pSoldier->pathing().desiredDirection() = ubInsertionDirection;
 
-					curr->pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
+					member->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 
 					// if this sector is currently loaded
 					if ( pGroup->ubSectorX == gWorldSectorX && pGroup->ubSectorY == gWorldSectorY && pGroup->ubSectorZ == gbWorldSectorZ )
 					{
 						// add passenger to the tactical engine!
-						UpdateMercInSector( curr->pSoldier, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
+						UpdateMercInSector( member, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 					}
 
 					curr = curr->next;
@@ -2836,10 +3060,17 @@ void InitiateGroupMovementToNextSector( GROUP *pGroup )
 		curr = pGroup->pPlayerList;
 		while ( curr )
 		{
-			curr->pSoldier->deployment().beginStrategicTransit();
+			SOLDIERTYPE* const member = ResolvePlayerGroupMember( curr );
+			if ( !member )
+			{
+				curr = curr->next;
+				continue;
+			}
+
+			member->deployment().beginStrategicTransit();
 
 			// OK, Remove the guy from tactical engine!
-			RemoveSoldierFromTacticalSector( curr->pSoldier, TRUE );
+			RemoveSoldierFromTacticalSector( member, TRUE );
 
 			curr = curr->next;
 		}
@@ -3035,11 +3266,15 @@ void SetGroupSectorValue( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, UINT8 
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			pPlayer->pSoldier->deployment().sectorX() = sSectorX;
-			pPlayer->pSoldier->deployment().sectorY() = sSectorY;
-			pPlayer->pSoldier->deployment().sectorZ() = (UINT8)sSectorZ;
-			pPlayer->pSoldier->deployment().completeStrategicTransit();
-			pPlayer->pSoldier->status().flags() &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
+			SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+			if ( member )
+			{
+				member->deployment().sectorX() = sSectorX;
+				member->deployment().sectorY() = sSectorY;
+				member->deployment().sectorZ() = (UINT8)sSectorZ;
+				member->deployment().completeStrategicTransit();
+				member->status().flags() &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
+			}
 			pPlayer = pPlayer->next;
 		}
 	}
@@ -3356,7 +3591,13 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 
 				while ( curr )
 				{
-					pSoldier = curr->pSoldier;
+					pSoldier = ResolvePlayerGroupMember( curr );
+					if ( !pSoldier )
+					{
+						curr = curr->next;
+						continue;
+					}
+
 					if ( pSoldier->assignment().current() != VEHICLE )
 					{
 						//Soldier is on foot and travelling. Factor encumbrance into movement rate.
@@ -3539,8 +3780,9 @@ UINT8 PlayerMercsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ )
 				pPlayer = pGroup->pPlayerList;
 				while( pPlayer )
 				{
+					SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
 					// robots count as mercs here, because they can fight, but vehicles don't
-					if( ( pPlayer->pSoldier->vitals().health() ) && !( pPlayer->pSoldier->status().flags() & SOLDIER_VEHICLE ) )
+					if( member && member->vitals().health() && !( member->status().flags() & SOLDIER_VEHICLE ) )
 					{
 						++ubNumMercs;
 					}
@@ -3569,7 +3811,8 @@ UINT8 PlayerGroupsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ )
 				pPlayer = pGroup->pPlayerList;
 				while( pPlayer )
 				{
-					if( pPlayer->pSoldier->vitals().health() )
+					SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+					if( member && member->vitals().health() )
 					{
 						++ubNumGroups;
 						break;
@@ -3668,8 +3911,12 @@ void HandleArrivalOfReinforcements( GROUP *pGroup )
 
 		while( pPlayer )
 		{
-			pSoldier = pPlayer->pSoldier;
-			Assert( pSoldier );
+			pSoldier = ResolvePlayerGroupMember( pPlayer );
+			if ( !pSoldier )
+			{
+				pPlayer = pPlayer->next;
+				continue;
+			}
 			pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			UpdateMercInSector( pSoldier, pGroup->ubSectorX, pGroup->ubSectorY, 0 );
 			pPlayer = pPlayer->next;
@@ -3827,10 +4074,14 @@ void MoveAllGroupsInCurrentSectorToSector( UINT8 ubSectorX, UINT8 ubSectorY, UIN
 			pPlayer = pGroup->pPlayerList;
 			while( pPlayer )
 			{
-				pPlayer->pSoldier->deployment().sectorX() = ubSectorX;
-				pPlayer->pSoldier->deployment().sectorY() = ubSectorY;
-				pPlayer->pSoldier->deployment().sectorZ() = ubSectorZ;
-				pPlayer->pSoldier->deployment().completeStrategicTransit();
+				SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+				if ( member )
+				{
+					member->deployment().sectorX() = ubSectorX;
+					member->deployment().sectorY() = ubSectorY;
+					member->deployment().sectorZ() = ubSectorZ;
+					member->deployment().completeStrategicTransit();
+				}
 				pPlayer = pPlayer->next;
 			}
 		}
@@ -3902,7 +4153,10 @@ void SetGroupPosition( UINT8 ubNextX, UINT8 ubNextY, UINT8 ubPrevX, UINT8 ubPrev
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			pPlayer->pSoldier->deployment().beginStrategicTransit();
+			if ( SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer ) )
+			{
+				member->deployment().beginStrategicTransit();
+			}
 			pPlayer = pPlayer->next;
 		}
 	}
@@ -3995,7 +4249,10 @@ BOOLEAN SaveStrategicMovementGroupsToSaveGameFile( HWFILE hFile )
 			if( pGroup->ubGroupSize )
 			{
 				//Save the player group list
-				SavePlayerGroupList( hFile, pGroup );
+				if( !SavePlayerGroupList( hFile, pGroup ) )
+				{
+					return FALSE;
+				}
 			}
 		}
 		else //else its an enemy group
@@ -4004,11 +4261,17 @@ BOOLEAN SaveStrategicMovementGroupsToSaveGameFile( HWFILE hFile )
 			Assert( pGroup->pEnemyGroup );
 
 			//
-			SaveEnemyGroupStruct( hFile, pGroup );
+			if( !SaveEnemyGroupStruct( hFile, pGroup ) )
+			{
+				return FALSE;
+			}
 		}
 
 		//Save the waypoint list for the group, if they have one
-		SaveWayPointList( hFile, pGroup );
+		if( !SaveWayPointList( hFile, pGroup ) )
+		{
+			return FALSE;
+		}
 		
 		pGroup = pGroup->next;
 	}
@@ -4102,8 +4365,11 @@ BOOLEAN LoadStrategicMovementGroupsFromSavedGameFile( HWFILE hFile )
 			//if there is a player list, add it
 			if( pTemp->ubGroupSize )
 			{
-				//Save the player group list
-				LoadPlayerGroupList( hFile, &pTemp );
+				if( !LoadPlayerGroupList( hFile, &pTemp ) )
+				{
+					MemFree( pTemp );
+					return FALSE;
+				}
 			}
 		}
 		else //else its an enemy group
@@ -4198,6 +4464,11 @@ BOOLEAN SavePlayerGroupList( HWFILE hFile, GROUP *pGroup )
 		uiNumberOfNodesInList++;
 		pTemp = pTemp->next;
 	}
+	if( uiNumberOfNodesInList != pGroup->ubGroupSize ||
+		uiNumberOfNodesInList > TOTAL_SOLDIERS )
+	{
+		return FALSE;
+	}
 
 	//Save the number of nodes in the list
 	FileWrite( hFile, &uiNumberOfNodesInList, sizeof( UINT32 ), &uiNumBytesWritten );
@@ -4237,18 +4508,32 @@ BOOLEAN LoadPlayerGroupList( HWFILE hFile, GROUP **pGroup )
 	UINT32			uiProfileID=0;
 	UINT32			uiNumBytesRead;
 	UINT32			cnt=0;
-	SoldierID		sTempID;
 	GROUP			*pTempGroup = *pGroup;
 
-//	pTemp = pGroup;
-
-//	pHead = *pGroup->pPlayerList;
+	const auto clearLoadedMembers = [&]()
+	{
+		while( pTempGroup->pPlayerList )
+		{
+			PLAYERGROUP* member =
+				pTempGroup->pPlayerList;
+			pTempGroup->pPlayerList = member->next;
+			MemFree( member );
+		}
+	};
 
 	// Load the number of nodes in the player list
 	FileRead( hFile, &uiNumberOfNodes, sizeof( UINT32 ), &uiNumBytesRead );
 	if( uiNumBytesRead != sizeof( UINT32 ) )
 	{
 		//Error Writing size of L.L. to disk
+		return( FALSE );
+	}
+	if( uiNumberOfNodes > TOTAL_SOLDIERS )
+	{
+		return( FALSE );
+	}
+	if( uiNumberOfNodes != pTempGroup->ubGroupSize )
+	{
 		return( FALSE );
 	}
 
@@ -4258,26 +4543,42 @@ BOOLEAN LoadPlayerGroupList( HWFILE hFile, GROUP **pGroup )
 		//allcate space for the current node
 		pTemp = (PLAYERGROUP *) MemAlloc( sizeof( PLAYERGROUP ) );
 		if( pTemp == NULL )
+		{
+			clearLoadedMembers();
 			return( FALSE );
+		}
 
 		// Load the ubProfile ID for this node
 		FileRead( hFile, &uiProfileID, sizeof( UINT32 ), &uiNumBytesRead );
 		if( uiNumBytesRead != sizeof( UINT32 ) )
 		{
-			//Error Writing size of L.L. to disk
+			MemFree( pTemp );
+			clearLoadedMembers();
+			return( FALSE );
+		}
+		if( uiProfileID > 0xffu )
+		{
+			MemFree( pTemp );
+			clearLoadedMembers();
 			return( FALSE );
 		}
 
 		//Set up the current node
 		pTemp->ubProfileID = (UINT8)uiProfileID;
-		sTempID = GetSoldierIDFromMercID( pTemp->ubProfileID );
+		SOLDIERTYPE* member =
+			FindSoldierByProfileID(
+				pTemp->ubProfileID, TRUE );
+		pTemp->actor = member
+			? GetJa2TacticalEntityId( *member )
+			: TacticalEntityId{};
+		if( !pTemp->actor.valid() )
+		{
+			MemFree( pTemp );
+			clearLoadedMembers();
+			return( FALSE );
+		}
 
-		//Should never happen
-		Assert( sTempID != NOBODY );
-		pTemp->ubID = sTempID;
-
-		pTemp->pSoldier = GetJa2SoldierRepository().resolve(pTemp->ubID);
-
+		pTemp->bFlags = 0;
 		pTemp->next = NULL;
 
 		//if its the first time through
@@ -4378,9 +4679,9 @@ void CheckMembersOfMvtGroupAndComplainAboutBleeding( SOLDIERTYPE *pSoldier )
 
 	while( pPlayer )
 	{
-		pCurrentSoldier = pPlayer->pSoldier;
+		pCurrentSoldier = ResolvePlayerGroupMember( pPlayer );
 
-		if( pCurrentSoldier->vitals().bleeding() > 0 )
+		if( pCurrentSoldier && pCurrentSoldier->vitals().bleeding() > 0 )
 		{
 			// complain about bleeding
 			TacticalCharacterDialogue( pCurrentSoldier, QUOTE_STARTING_TO_BLEED );
@@ -4549,7 +4850,10 @@ void CalculateGroupRetreatSector( GROUP *pGroup )
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			pPlayer->pSoldier->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
+			if ( SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer ) )
+			{
+				member->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
+			}
 			pPlayer = pPlayer->next;
 		}
 	}
@@ -4639,10 +4943,17 @@ void RetreatGroupToPreviousSector( GROUP *pGroup )
 
 		while( curr )
 		{
-			curr->pSoldier->deployment().beginStrategicTransit();
+			SOLDIERTYPE* const member = ResolvePlayerGroupMember( curr );
+			if ( !member )
+			{
+				curr = curr->next;
+				continue;
+			}
+
+			member->deployment().beginStrategicTransit();
 
 			// OK, Remove the guy from tactical engine!
-			RemoveSoldierFromTacticalSector( curr->pSoldier, TRUE );
+			RemoveSoldierFromTacticalSector( member, TRUE );
 
 			curr = curr->next;
 		}
@@ -5095,7 +5406,7 @@ void SetLocationOfAllPlayerSoldiersInGroup( GROUP *pGroup, INT16 sSectorX, INT16
 	pPlayer = pGroup->pPlayerList;
 	while( pPlayer )
 	{
-		pSoldier = pPlayer->pSoldier;
+		pSoldier = ResolvePlayerGroupMember( pPlayer );
 
 		if ( pSoldier != NULL )
 		{
@@ -5640,16 +5951,22 @@ BOOLEAN HandlePlayerGroupEnteringSectorToCheckForNPCsOfNote( GROUP *pGroup )
 	}
 
 
-	if (!gGroupPrompting.capture(pGroup))
-		return FALSE;
-
 	// build string for squad
 	GetSectorIDString( sSectorX, sSectorY, bSectorZ, wSectorName, FALSE );
 
-	if ( gGameExternalOptions.fUseXMLSquadNames && pGroup->pPlayerList->pSoldier->assignment().current() < min(ON_DUTY, gSquadNameVector .size()) )
-		swprintf( sString, pLandMarkInSectorString[ 1 ], gSquadNameVector[pGroup->pPlayerList->pSoldier->assignment().current()].c_str(), wSectorName );
+	SOLDIERTYPE* const firstMember = ResolvePlayerGroupMember( pGroup->pPlayerList );
+	if ( !firstMember )
+	{
+		return FALSE;
+	}
+
+	if (!gGroupPrompting.capture(pGroup))
+		return FALSE;
+
+	if ( gGameExternalOptions.fUseXMLSquadNames && firstMember->assignment().current() < min(ON_DUTY, gSquadNameVector .size()) )
+		swprintf( sString, pLandMarkInSectorString[ 1 ], gSquadNameVector[firstMember->assignment().current()].c_str(), wSectorName );
 	else
-		swprintf( sString, pLandMarkInSectorString[ 0 ], pGroup->pPlayerList->pSoldier->assignment().current() + 1, wSectorName );
+		swprintf( sString, pLandMarkInSectorString[ 0 ], firstMember->assignment().current() + 1, wSectorName );
 
 	if ( GroupAtFinalDestination( pGroup ) )
 	{
@@ -5763,9 +6080,24 @@ BOOLEAN DoesPlayerExistInPGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 {
 	GROUP *pGroup;
 	PLAYERGROUP *curr;
+	if ( !pSoldier )
+	{
+		return FALSE;
+	}
+
+	const TacticalEntityId actor = GetJa2TacticalEntityId( *pSoldier );
+
+	if ( !actor.valid() )
+	{
+		return FALSE;
+	}
 
 	pGroup = GetGroup( ubGroupID );
 	Assert( pGroup );
+	if( !pGroup || pGroup->usGroupTeam != OUR_TEAM )
+	{
+		return FALSE;
+	}
 
 	curr = pGroup->pPlayerList;
 
@@ -5777,7 +6109,7 @@ BOOLEAN DoesPlayerExistInPGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 	while( curr )
 	{ //definately more than one node
 
-		if( curr->pSoldier == pSoldier )
+		if( curr->actor == actor )
 		{
 			return TRUE;
 		}
@@ -5797,14 +6129,14 @@ BOOLEAN GroupHasInTransitDeadOrPOWMercs( GROUP *pGroup )
 	pPlayer = pGroup->pPlayerList;
 	while( pPlayer )
 	{
-		if ( pPlayer->pSoldier )
+		if ( SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer ) )
 		{
-			if( ( pPlayer->pSoldier->assignment().current() == IN_TRANSIT ) ||
-				( pPlayer->pSoldier->assignment().current() == ASSIGNMENT_POW ) ||
-				( pPlayer->pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
-				( pPlayer->pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) ||
-				SPY_LOCATION( pPlayer->pSoldier->assignment().current() ) ||
-				( pPlayer->pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
+			if( ( member->assignment().current() == IN_TRANSIT ) ||
+				( member->assignment().current() == ASSIGNMENT_POW ) ||
+				( member->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
+				( member->assignment().current() == ASSIGNMENT_REBELCOMMAND ) ||
+				SPY_LOCATION( member->assignment().current() ) ||
+				( member->assignment().current() == ASSIGNMENT_DEAD ) )
 			{
 				// yup!
 				return( TRUE );
@@ -6013,7 +6345,12 @@ void CheckCombatInSectorDueToUnusualEnemyArrival( UINT8 aTeam, INT16 sX, INT16 s
 						pPlayer = curr->pPlayerList;
 						while ( pPlayer )
 						{
-							pSoldier = pPlayer->pSoldier;
+							pSoldier = ResolvePlayerGroupMember( pPlayer );
+							if ( !pSoldier )
+							{
+								pPlayer = pPlayer->next;
+								continue;
+							}
 							if ( !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 							{
 								if ( !AM_A_ROBOT( pSoldier ) &&

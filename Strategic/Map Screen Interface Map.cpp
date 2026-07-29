@@ -2261,10 +2261,13 @@ void CancelPathForGroup( GROUP *pGroup )
 	{
 		if( pGroup->pPlayerList )
 		{
-			if( pGroup->pPlayerList->pSoldier )
+			SOLDIERTYPE* member =
+				ResolvePlayerGroupMember(
+					pGroup->pPlayerList );
+			if( member )
 			{
 				// clearing one merc should be enough, it copies changes to his squad on its own
-				CancelPathForCharacter( pGroup->pPlayerList->pSoldier );
+				CancelPathForCharacter( member );
 			}
 		}
 	}

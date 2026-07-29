@@ -2541,10 +2541,11 @@ void RandomMercInGroupSaysQuote( GROUP *pGroup, UINT16 usQuoteNum )
 
 	while( pPlayer != NULL )
 	{
-		pSoldier = pPlayer->pSoldier;
+		pSoldier = ResolvePlayerGroupMember( pPlayer );
 		Assert( pSoldier );
 
-		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
+		if ( pSoldier &&
+			pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->assignment().isAsleep() )
 		{
 			ubMercsInGroup[ ubNumMercs ] = pSoldier->identity().id();

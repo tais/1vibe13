@@ -90,8 +90,12 @@ BOOLEAN PlayerMercsInSector_MSE( UINT8 ubSectorX, UINT8 ubSectorY, BOOLEAN fDont
 				pPlayer = pGroup->pPlayerList;
 				while( pPlayer )
 				{
+					SOLDIERTYPE* member =
+						ResolvePlayerGroupMember( pPlayer );
 					// robots count as mercs here, because they can fight, but vehicles don't
-					if( ( pPlayer->pSoldier->vitals().health() ) && !( pPlayer->pSoldier->status().flags() & SOLDIER_VEHICLE ) )
+					if( member &&
+						member->vitals().health() &&
+						!( member->status().flags() & SOLDIER_VEHICLE ) )
 					{
 						ubNumMercs++;
 					}

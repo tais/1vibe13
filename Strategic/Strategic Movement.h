@@ -5,6 +5,7 @@
 #include "Soldier Control.h"
 #include "FileMan.h"
 
+#include <Engine/Adapters/JA2/TacticalEntity.h>
 
 enum //enemy intentions,
 {
@@ -52,12 +53,19 @@ typedef struct WAYPOINT
 
 typedef struct PLAYERGROUP
 {
-	UINT8		ubProfileID;						//SAVE THIS VALUE ONLY.	The others are temp (for quick access)
-	SoldierID	ubID;										//repository slot
-	SOLDIERTYPE *pSoldier;				//direct access to the soldier pointer
+	UINT8		ubProfileID;						//persistence-only profile value
+	TacticalEntityId actor;				//exact runtime member identity; resolved only at use
 	UINT8		bFlags;									//flags referring to individual player soldiers
 	struct PLAYERGROUP *next;			//next player in list
 }PLAYERGROUP;
+
+TacticalEntityId GetPlayerGroupMemberActor(
+	const PLAYERGROUP* member) noexcept;
+SOLDIERTYPE* ResolvePlayerGroupMember(
+	const PLAYERGROUP* member) noexcept;
+bool RemovePlayerFromStrategicGroups(
+	TacticalEntityId actor) noexcept;
+void RebindStrategicGroupMembersAfterRecordSwap() noexcept;
 
 
 typedef struct ENEMYGROUP

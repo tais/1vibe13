@@ -886,7 +886,7 @@ void RemovePlayersFromAllMismatchGroups( SOLDIERTYPE *pSoldier )
 			pPlayer = pGroup->pPlayerList;
 			while( pPlayer )
 			{
-				if( pPlayer->pSoldier == pSoldier )
+				if( ResolvePlayerGroupMember( pPlayer ) == pSoldier )
 				{
 					if( pSoldier->deployment().groupId() != pGroup->ubGroupID )
 					{
@@ -949,7 +949,7 @@ void ValidatePlayersAreInOneGroupOnly()
 				pPlayer = pGroup->pPlayerList;
 				while( pPlayer )
 				{
-					if( pPlayer->pSoldier == pSoldier )
+					if( ResolvePlayerGroupMember( pPlayer ) == pSoldier )
 					{
 						if( pSoldier->deployment().groupId() != pGroup->ubGroupID )
 						{
@@ -987,7 +987,7 @@ void ValidatePlayersAreInOneGroupOnly()
 							pPlayer = pGroup->pPlayerList;
 							while( pPlayer )
 							{
-								if( pPlayer->pSoldier == pSoldier )
+								if( ResolvePlayerGroupMember( pPlayer ) == pSoldier )
 								{
 									if( pSoldier->deployment().groupId() != pGroup->ubGroupID )
 									{
@@ -1034,7 +1034,7 @@ void ValidatePlayersAreInOneGroupOnly()
 							pPlayer = pGroup->pPlayerList;
 							while( pPlayer )
 							{
-								if( pPlayer->pSoldier == pSoldier )
+								if( ResolvePlayerGroupMember( pPlayer ) == pSoldier )
 								{
 									if( pSoldier->deployment().groupId() != pGroup->ubGroupID )
 									{

@@ -18271,10 +18271,9 @@ BOOLEAN AnyMercInGroupCantContinueMoving( GROUP *pGroup )
 	while( pPlayer )
 	{
 		// if group has player list...	and a valid first soldier
-		if( pPlayer->pSoldier )
+		pSoldier = ResolvePlayerGroupMember( pPlayer );
+		if( pSoldier )
 		{
-			pSoldier = pPlayer->pSoldier;
-
 			if ( PlayerSoldierTooTiredToTravel( pSoldier ) )
 			{
 				// NOTE: we only complain about it if it's gonna force the group to stop moving!
