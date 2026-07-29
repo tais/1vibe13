@@ -10128,12 +10128,12 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 			}
 
 			// Use palette from HVOBJECT, then use substitution for pants, etc
-			memcpy( pSoldier->p8BPPPalette, gAnimSurfaceDatabase[ usPaletteAnimSurface ].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
+			memcpy( pSoldier->palette().base8(), gAnimSurfaceDatabase[ usPaletteAnimSurface ].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().headPalette() );
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().vestPalette() );
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().pantsPalette() );
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().skinPalette() );
+			SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().headPalette() );
+			SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().vestPalette() );
+			SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().pantsPalette() );
+			SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().skinPalette() );
 
 			pSoldier->CreateSoldierPalettes();
 		}

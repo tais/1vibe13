@@ -1,171 +1,163 @@
 #include "PaletteTable.h"
-#include "render_palette_registry.h"
 
-#include <cstring>  // libstdc++ doesn't transitively expose strcpy/memset/memcpy the way MSVC's STL does
+#include "FileMan.h"
+#include "MemMan.h"
 
-namespace LogicalBodyTypes {
+#include <cstring>
+#include <utility>
 
-PaletteTable::PaletteTable() {
-}
+namespace LogicalBodyTypes
+{
 
-PaletteTable::~PaletteTable() {
-	// FREE PALETTES
-	if (this->p8BPPPalette != NULL)
-	{
-		MemFree(this->p8BPPPalette);
-		this->p8BPPPalette = NULL;
-	}
+PaletteTable::PaletteTable() = default;
 
-	if (this->p16BPPPalette != NULL)
-	{
-		UnregisterLegacyRenderPalette(this->p16BPPPalette);
-		MemFree(this->p16BPPPalette);
-		this->p16BPPPalette = NULL;
-	}
+PaletteTable::~PaletteTable() = default;
 
-	for (int cnt = 0; cnt < NUM_SOLDIER_SHADES; cnt++)
-	{
-		if (this->pShades[cnt] != NULL)
-		{
-			UnregisterLegacyRenderPalette(this->pShades[cnt]);
-			MemFree(this->pShades[cnt]);
-			this->pShades[cnt] = NULL;
-		}
-	}
-
-	for (int cnt = 0; cnt < NUM_SOLDIER_EFFECTSHADES; cnt++)
-	{
-		if (this->pEffectShades[cnt] != NULL)
-		{
-			UnregisterLegacyRenderPalette(
-				this->pEffectShades[cnt]);
-			MemFree(this->pEffectShades[cnt]);
-			this->pEffectShades[cnt] = NULL;
-		}
-	}
-
-	// Delete glows
-	for (int cnt = 0; cnt < 20; cnt++)
-	{
-		if (this->pGlowShades[cnt] != NULL)
-		{
-			UnregisterLegacyRenderPalette(this->pGlowShades[cnt]);
-			MemFree(this->pGlowShades[cnt]);
-			this->pGlowShades[cnt] = NULL;
-		}
-
-	}
-}
-
-bool PaletteTable::CreateSGPPaletteFromActFile(SGPPaletteEntry *pPalette, std::string fileName) {
-	HWFILE hFileHandle;
-	UINT32 cnt;
+bool PaletteTable::CreateSGPPaletteFromActFile(
+	SGPPaletteEntry* palette, std::string fileName)
+{
 	char* colFileName = new char[fileName.size() + 1];
-	strcpy(colFileName, fileName.c_str());
-	if (!FileExists(colFileName)) {
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Cannot find COL file");
+	std::strcpy(colFileName, fileName.c_str());
+	if (!FileExists(colFileName))
+	{
+		DebugMsg(
+			TOPIC_JA2, DBG_LEVEL_3,
+			"Cannot find COL file");
 		delete[] colFileName;
 		return false;
 	}
-	if ((hFileHandle = FileOpen(colFileName, FILE_ACCESS_READ, FALSE)) == 0) {
-		DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Cannot open COL file");
+
+	HWFILE file = FileOpen(
+		colFileName, FILE_ACCESS_READ, FALSE);
+	if (file == 0)
+	{
+		DebugMsg(
+			TOPIC_JA2, DBG_LEVEL_3,
+			"Cannot open COL file");
 		delete[] colFileName;
 		return false;
 	}
-	// Zero the whole palette first so a short/truncated .col file degrades
-	// to black instead of leaving entries uninitialized.
-	memset(pPalette, 0, sizeof(SGPPaletteEntry) * 256);
-	for (cnt = 0; cnt < 256; cnt++) {
-		if (!FileRead(hFileHandle, &pPalette[cnt].peRed, sizeof(UINT8), NULL) ||
-			!FileRead(hFileHandle, &pPalette[cnt].peGreen, sizeof(UINT8), NULL) ||
-			!FileRead(hFileHandle, &pPalette[cnt].peBlue, sizeof(UINT8), NULL)) {
-			DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Short read on COL file");
-			FileClose(hFileHandle);
+
+	std::memset(
+		palette, 0,
+		sizeof(SGPPaletteEntry) *
+		RenderPaletteBank::EntryCount);
+	for (std::size_t index = 0;
+	     index < RenderPaletteBank::EntryCount;
+	     ++index)
+	{
+		if (!FileRead(
+				file, &palette[index].peRed,
+				sizeof(UINT8), nullptr) ||
+			!FileRead(
+				file, &palette[index].peGreen,
+				sizeof(UINT8), nullptr) ||
+			!FileRead(
+				file, &palette[index].peBlue,
+				sizeof(UINT8), nullptr))
+		{
+			DebugMsg(
+				TOPIC_JA2, DBG_LEVEL_3,
+				"Short read on COL file");
+			FileClose(file);
 			delete[] colFileName;
 			return false;
 		}
 	}
-	FileClose(hFileHandle);
+
+	FileClose(file);
 	delete[] colFileName;
 	return true;
 }
 
-bool PaletteTable::Load(std::string fileName) {
-	INT32 iWhich;
-	INT32 cnt;
-	SGPPaletteEntry	Temp8BPPPalette[256];
-
-	if (this->p8BPPPalette != NULL) {
-		MemFree(this->p8BPPPalette);
-		this->p8BPPPalette = NULL;
-	}
-	this->p8BPPPalette = (SGPPaletteEntry*)MemAlloc(sizeof(SGPPaletteEntry) * 256);
-	memset(this->p8BPPPalette, 0, sizeof(SGPPaletteEntry) * 256);
-	if (CreateSGPPaletteFromActFile(Temp8BPPPalette, (CHAR8*)fileName.c_str())) {
-		// NB: 'sizeof(this->p8BPPPalette)' is sizeof(pointer), which on
-		// 32-bit happens to equal sizeof(SGPPaletteEntry) (both 4) and
-		// hides the bug; on 64-bit it doubles the copy length and
-		// smashes the heap right past p8BPPPalette. Use the element
-		// size explicitly.
-		memcpy(this->p8BPPPalette, Temp8BPPPalette, sizeof(SGPPaletteEntry) * 256);
-	} else {
+bool PaletteTable::Load(std::string fileName)
+{
+	SGPPaletteEntry sourcePalette[
+		RenderPaletteBank::EntryCount]{};
+	if (!CreateSGPPaletteFromActFile(
+			sourcePalette, std::move(fileName)))
+	{
 		return false;
 	}
 
-	if (this->p16BPPPalette != NULL ) {
-		UnregisterLegacyRenderPalette(this->p16BPPPalette);
-		MemFree(this->p16BPPPalette);
-		this->p16BPPPalette = NULL;
+	RenderPaletteBank loadedPalette;
+	SGPPaletteEntry* base8 =
+		static_cast<SGPPaletteEntry*>(
+			MemAlloc(
+				sizeof(SGPPaletteEntry) *
+				RenderPaletteBank::EntryCount));
+	if (base8 == nullptr)
+	{
+		return false;
 	}
-	this->p16BPPPalette = Create16BPPPalette(this->p8BPPPalette);
+	loadedPalette.adoptBase8(base8);
+	std::memcpy(
+		loadedPalette.base8(), sourcePalette,
+		sizeof(SGPPaletteEntry) *
+		RenderPaletteBank::EntryCount);
+	loadedPalette.adoptBase16(
+		Create16BPPPalette(loadedPalette.base8()));
 
-	for (iWhich = 0; iWhich < NUM_SOLDIER_SHADES; iWhich++) {
-		if (this->pShades[ iWhich ] != NULL) {
-			UnregisterLegacyRenderPalette(this->pShades[iWhich]);
-			MemFree(this->pShades[iWhich]);
-			this->pShades[ iWhich ] = NULL;
-		}
-	}
-	for (iWhich = 0; iWhich < NUM_SOLDIER_EFFECTSHADES; iWhich++) {
-		if (this->pEffectShades[iWhich] != NULL) {
-			UnregisterLegacyRenderPalette(
-				this->pEffectShades[iWhich]);
-			MemFree(this->pEffectShades[iWhich]);
-			this->pEffectShades[iWhich] = NULL;
-		}
-	}
-	for (iWhich = 0; iWhich < 20; iWhich++) {
-		if (this->pGlowShades[iWhich] != NULL) {
-			UnregisterLegacyRenderPalette(
-				this->pGlowShades[iWhich]);
-			MemFree(this->pGlowShades[iWhich]);
-			this->pGlowShades[iWhich] = NULL;
-		}
-	}
+	CreateRenderPaletteTables(
+		loadedPalette, HVOBJECT_GLOW_GREEN);
 
-	CreateSoldierPaletteTables(this, HVOBJECT_GLOW_GREEN);
+	loadedPalette.adoptEffectShade(
+		0, Create16BPPPaletteShaded(
+			loadedPalette.base8(), 100, 100, 100, TRUE));
+	loadedPalette.adoptEffectShade(
+		1, Create16BPPPaletteShaded(
+			loadedPalette.base8(), 100, 150, 100, TRUE));
 
-	this->pEffectShades[0] = Create16BPPPaletteShaded(this->p8BPPPalette, 100, 100, 100, TRUE);
-	this->pEffectShades[1] = Create16BPPPaletteShaded(this->p8BPPPalette, 100, 150, 100, TRUE);
-	this->pGlowShades[0] = Create16BPPPaletteShaded(this->p8BPPPalette, 255, 255, 255, FALSE);
-	for (cnt = 1; cnt < 10; cnt++) {
-		this->pGlowShades[cnt] = CreateEnemyGlow16BPPPalette(this->p8BPPPalette, gRedGlowR[cnt], 255, FALSE);
+	loadedPalette.adoptGlowShade(
+		0, Create16BPPPaletteShaded(
+			loadedPalette.base8(), 255, 255, 255, FALSE));
+	for (std::size_t index = 1; index < 10; ++index)
+	{
+		loadedPalette.adoptGlowShade(
+			index, CreateEnemyGlow16BPPPalette(
+				loadedPalette.base8(), gRedGlowR[index],
+				255, FALSE));
 	}
-	this->pGlowShades[10] = Create16BPPPaletteShaded(this->p8BPPPalette, 100, 100, 100, TRUE);
-	for (cnt = 11; cnt < 19; cnt++) {
-		this->pGlowShades[cnt] = CreateEnemyGreyGlow16BPPPalette(this->p8BPPPalette, gRedGlowR[cnt], 0, FALSE);
+	loadedPalette.adoptGlowShade(
+		10, Create16BPPPaletteShaded(
+			loadedPalette.base8(), 100, 100, 100, TRUE));
+	for (std::size_t index = 11; index < 19; ++index)
+	{
+		loadedPalette.adoptGlowShade(
+			index, CreateEnemyGreyGlow16BPPPalette(
+				loadedPalette.base8(), gRedGlowR[index],
+				0, FALSE));
 	}
-	this->pGlowShades[19] = CreateEnemyGreyGlow16BPPPalette(this->p8BPPPalette, gRedGlowR[18], 0, FALSE);
-	this->pShades[20] = Create16BPPPaletteShaded(this->p8BPPPalette, 255, 255, 255, FALSE);
-	for (cnt = 21; cnt < 30; cnt++) {
-		this->pShades[cnt] = CreateEnemyGlow16BPPPalette(this->p8BPPPalette, gOrangeGlowR[(cnt - 20)], gOrangeGlowG[(cnt - 20)], TRUE);
-	}
-	this->pShades[30] = Create16BPPPaletteShaded(this->p8BPPPalette, 100, 100, 100, TRUE);
-	for (cnt = 31; cnt < 39; cnt++) {
-		this->pShades[cnt] = CreateEnemyGreyGlow16BPPPalette(this->p8BPPPalette, gOrangeGlowR[( cnt - 20)], gOrangeGlowG[(cnt - 20)], TRUE);
-	}
-	this->pShades[39] = CreateEnemyGreyGlow16BPPPalette(this->p8BPPPalette, gOrangeGlowR[18], gOrangeGlowG[18], TRUE);
+	loadedPalette.adoptGlowShade(
+		19, CreateEnemyGreyGlow16BPPPalette(
+			loadedPalette.base8(), gRedGlowR[18], 0, FALSE));
 
+	loadedPalette.adoptShade(
+		20, Create16BPPPaletteShaded(
+			loadedPalette.base8(), 255, 255, 255, FALSE));
+	for (std::size_t index = 21; index < 30; ++index)
+	{
+		loadedPalette.adoptShade(
+			index, CreateEnemyGlow16BPPPalette(
+				loadedPalette.base8(), gOrangeGlowR[index - 20],
+				gOrangeGlowG[index - 20], TRUE));
+	}
+	loadedPalette.adoptShade(
+		30, Create16BPPPaletteShaded(
+			loadedPalette.base8(), 100, 100, 100, TRUE));
+	for (std::size_t index = 31; index < 39; ++index)
+	{
+		loadedPalette.adoptShade(
+			index, CreateEnemyGreyGlow16BPPPalette(
+				loadedPalette.base8(), gOrangeGlowR[index - 20],
+				gOrangeGlowG[index - 20], TRUE));
+	}
+	loadedPalette.adoptShade(
+		39, CreateEnemyGreyGlow16BPPPalette(
+			loadedPalette.base8(), gOrangeGlowR[18],
+			gOrangeGlowG[18], TRUE));
+
+	palette_.swapStorage(loadedPalette);
 	return true;
 }
 

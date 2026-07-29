@@ -82,6 +82,8 @@ bool Ja2SoldierRepository::swapRecords(
 	SoldierAnimationCacheComponent secondSlotCache;
 	SoldierStrategicPathComponent firstStrategicPath;
 	SoldierStrategicPathComponent secondStrategicPath;
+	RenderPaletteBank firstPalette;
+	RenderPaletteBank secondPalette;
 	firstSlotCache.swapStorage(
 		records_[firstSlot].animationCache());
 	secondSlotCache.swapStorage(
@@ -90,6 +92,8 @@ bool Ja2SoldierRepository::swapRecords(
 		records_[firstSlot].strategicPath());
 	secondStrategicPath.swapStorage(
 		records_[secondSlot].strategicPath());
+	firstPalette.swapStorage(records_[firstSlot].palette());
+	secondPalette.swapStorage(records_[secondSlot].palette());
 
 	SOLDIERTYPE first = records_[firstSlot];
 	records_[firstSlot] = records_[secondSlot];
@@ -102,6 +106,8 @@ bool Ja2SoldierRepository::swapRecords(
 		records_[firstSlot].strategicPath());
 	firstStrategicPath.swapStorage(
 		records_[secondSlot].strategicPath());
+	secondPalette.swapStorage(records_[firstSlot].palette());
+	firstPalette.swapStorage(records_[secondSlot].palette());
 	records_[firstSlot].identity().id() = SoldierID{firstSlot};
 	records_[secondSlot].identity().id() = SoldierID{secondSlot};
 	return true;

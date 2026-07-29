@@ -1755,7 +1755,10 @@ void RenderSetShadows(BOOLEAN fShadows)
 }
 }
 
-inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, SOLDIERTYPE * pPaletteTable, UINT32 uiFlags, INT16 * gsForceSoldierZLevel)
+inline static PIXEL * GetShadeTable(
+	LEVELNODE * pNode, SOLDIERTYPE * pSoldier,
+	RenderPaletteBank& palette, UINT32 uiFlags,
+	INT16 * gsForceSoldierZLevel)
 {
 	PIXEL * pShadeTable;
 	// Shade guy always lighter than scene default!
@@ -1763,7 +1766,8 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 		const auto GridNo = pSoldier->position().gridNo();
 		if (GridNo == NOWHERE)
 		{
-			pShadeTable = pPaletteTable->pCurrentShade = pPaletteTable->pShades[DEFAULT_SHADE_LEVEL];
+			pShadeTable = palette.shade(DEFAULT_SHADE_LEVEL);
+			palette.setCurrentShade(pShadeTable);
 			return pShadeTable;
 		}
 		UINT8 ubShadeLevel = gpWorldLevelData[GridNo].pLandHead->ubShadeLevel;
@@ -1780,12 +1784,14 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 
 		if (pSoldier->renderState().fadeMode())
 		{
-			pShadeTable = pPaletteTable->pCurrentShade = pPaletteTable->pShades[pSoldier->renderState().fadeLevel()];
+			pShadeTable =
+				palette.shade(pSoldier->renderState().fadeLevel());
 		}
 		else
 		{
-			pShadeTable = pPaletteTable->pCurrentShade = pPaletteTable->pShades[ubShadeLevel];
+			pShadeTable = palette.shade(ubShadeLevel);
 		}
+		palette.setCurrentShade(pShadeTable);
 	}
 	if (!pSoldier->renderState().fadeMode())
 	{
@@ -1824,15 +1830,15 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 					}
 				}
 			}
-			PIXEL ** pShadeStart;
-			if (pSoldier->position().level() == 0)
-			{
-				pShadeStart = (PIXEL **) & (pPaletteTable->pGlowShades[0]);
-			}
-			else
-			{
-				pShadeStart = (PIXEL **) & (pPaletteTable->pShades[20]);
-			}
+			const bool useGroundGlow =
+				pSoldier->position().level() == 0;
+			const auto selectGlowShade =
+				[&palette, useGroundGlow](std::size_t index)
+				{
+					return useGroundGlow
+						? palette.glowShade(index)
+						: palette.shade(20 + index);
+				};
 			// Set shade
 			// If a bad guy is highlighted
 			SOLDIERTYPE* selectedGuy =
@@ -1842,7 +1848,9 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			{
 				if (gsSelectedGuy == pSoldier->identity().id())
 				{
-					pShadeTable = (PIXEL *)pShadeStart[gsGlowFrames[gsCurrentGlowFrame] + bGlowShadeOffset];
+					pShadeTable = selectGlowShade(
+						gsGlowFrames[gsCurrentGlowFrame] +
+						bGlowShadeOffset);
 					*gsForceSoldierZLevel = TOPMOST_Z_LEVEL;
 				}
 				else
@@ -1850,7 +1858,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 					// Are we dealing with a not-so visible merc?
 					if (bGlowShadeOffset == 10)
 					{
-						pShadeTable = pPaletteTable->pEffectShades[0];
+						pShadeTable = palette.effectShade(0);
 					}
 				}
 			}
@@ -1863,7 +1871,9 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 					// Do he have baton?
 					if ((pSoldier->status().flags() & SOLDIER_UNDERAICONTROL))
 					{
-						pShadeTable = (PIXEL *)pShadeStart[gpGlowFramePointer[gsCurrentGlowFrame] + bGlowShadeOffset];
+						pShadeTable = selectGlowShade(
+							gpGlowFramePointer[gsCurrentGlowFrame] +
+							bGlowShadeOffset);
 						if (gpGlowFramePointer[gsCurrentGlowFrame] >= 7)
 						{
 							*gsForceSoldierZLevel = TOPMOST_Z_LEVEL;
@@ -1872,7 +1882,9 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 				}
 				else
 				{
-					pShadeTable = (PIXEL *)pShadeStart[gpGlowFramePointer[gsCurrentGlowFrame] + bGlowShadeOffset];
+					pShadeTable = selectGlowShade(
+						gpGlowFramePointer[gsCurrentGlowFrame] +
+						bGlowShadeOffset);
 					if (gpGlowFramePointer[gsCurrentGlowFrame] >= 7)
 					{
 						*gsForceSoldierZLevel = TOPMOST_Z_LEVEL;
@@ -1886,7 +1898,6 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			//  if ( pSoldier->awareness().visibility() == 0 || ( pSelSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == 0  ) )
 			//  {
 			// Shade gray
-			//      pShadeTable = pSoldier->pGlowShades[ gpGlowFramePointer[ gsCurrentGlowFrame ] + 10 ];
 			//  }
 			//}
 		}
@@ -1895,14 +1906,14 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 	{
 		if (pSoldier->renderState().forceShade())
 		{
-			pShadeTable = pSoldier->pForcedShade;
+			pShadeTable = pSoldier->palette().forcedShade();
 		}
 	}
 	// check if we are a merc duplicate, if so, only do minimal stuff!
 	if (pSoldier->identity().id() >= MAX_NUM_SOLDIERS)
 	{
 		// Shade gray
-		pShadeTable = pPaletteTable->pEffectShades[1];
+		pShadeTable = palette.effectShade(1);
 	}
 
 	// Flugente: frozen soldiers appear to be in ice, which we simulate by having the soldier be fully white
@@ -2814,7 +2825,9 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								// Handle shade stuff....
 								// bio: put the logic for determining the right shade table into inline fuction (called again for logical bodytype implementation)
 								// TODO: in case of a logical bodytype being used, the function does not have to be called here (if determining of log. bodytype is moved to the render entry fun.
-								pShadeTable = GetShadeTable(pNode, pSoldier, pSoldier, uiFlags, &gsForceSoldierZLevel);
+								pShadeTable = GetShadeTable(
+									pNode, pSoldier, pSoldier->palette(),
+									uiFlags, &gsForceSoldierZLevel);
 
 								// Calculate Z level
 								SoldierZLevel(pSoldier, iTempPosX_M, iTempPosY_M);
@@ -2987,7 +3000,10 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 											}
 											if (logSurfaceType->paletteTable != NULL)
 											{
-												pShadeTable = GetShadeTable(pNode, pSoldier, (SOLDIERTYPE *)logSurfaceType->paletteTable, uiFlags, &gsForceSoldierZLevel);
+												pShadeTable = GetShadeTable(
+													pNode, pSoldier,
+													logSurfaceType->paletteTable->palette(),
+													uiFlags, &gsForceSoldierZLevel);
 											}
 											else
 											{

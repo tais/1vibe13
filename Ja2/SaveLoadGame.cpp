@@ -1796,10 +1796,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.str8(renderState.headPalette(), sizeof(renderState.headPalette())); ar.str8(renderState.pantsPalette(), sizeof(renderState.pantsPalette()));
 	ar.str8(renderState.vestPalette(), sizeof(renderState.vestPalette())); ar.str8(renderState.skinPalette(), sizeof(renderState.skinPalette()));
 	ar.str8(renderState.miscPalette(), sizeof(renderState.miscPalette()));
-	ar.ptr(s.p8BPPPalette); ar.ptr(s.p16BPPPalette);
-	for (i = 0; i < NUM_SOLDIER_SHADES; ++i) ar.ptr(s.pShades[i]);
-	for (i = 0; i < 20; ++i) ar.ptr(s.pGlowShades[i]);
-	ar.ptr(s.pCurrentShade);
+	ar.retiredPtr(); ar.retiredPtr();
+	for (i = 0; i < NUM_SOLDIER_SHADES; ++i) ar.retiredPtr();
+	for (i = 0; i < 20; ++i) ar.retiredPtr();
+	ar.retiredPtr();
 	ar.u8(renderState.fadeLevel()); ar.u8(service.providerCount()); ar.u16(service.partner().i);
 	ar.retiredPtr(); ar.i8(movement.reverse());
 	ar.ptr(s.pLevelNode); ar.ptr(s.pExternShadowLevelNode); ar.ptr(s.pRoofUILevelNode);
@@ -1812,7 +1812,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(s.animationActivity().randomActionCheckCounter()); ar.i16(s.animationActivity().lastRandomAnimation());
 	ar.u16(s.animationPlayback().surface()); ar.u16(s.animationPlayback().zLevel());
 	ar.i16(meleeApproach.movementMode()); ar.i32(meleeApproach.grid()); ar.i16(meleeApproach.cost());
-	ar.i16(uiPresentation.locatorOffsetX()); ar.i16(uiPresentation.locatorOffsetY()); ar.ptr(s.pForcedShade);
+	ar.i16(uiPresentation.locatorOffsetX()); ar.i16(uiPresentation.locatorOffsetY()); ar.retiredPtr();
 	ar.i8(damageDisplay.counter()); ar.u8(meleeApproach.endDirection());
 	ar.i16(combatResult.accumulatedDamage()); ar.i16(damageDisplay.offsetX()); ar.i16(damageDisplay.offsetY()); ar.i8(damageDisplay.direction()); ar.i8(fireControl.burstCounter());
 	ar.i16(movement.mode()); ar.i8(uiPresentation.interfaceLevel());
@@ -1823,7 +1823,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(dialogue.vocalVolume()); ar.i8(s.animationActivity().fallDirection());
 	ar.u8(s.animationIntent().pendingDirection()); ar.u32(s.animationPlayback().subFlags());
 	ar.u8(attackSelection.shotLocation()); ar.u8(combatResult.hitLocation()); ar.u8(attackSelection.meleeLocation());
-	for (i = 0; i < NUM_SOLDIER_EFFECTSHADES; ++i) ar.ptr(s.pEffectShades[i]);
+	for (i = 0; i < NUM_SOLDIER_EFFECTSHADES; ++i) ar.retiredPtr();
 	ar.u8(uiPresentation.plannedActionPointCost()); ar.i16(uiPresentation.plannedTargetX()); ar.i16(uiPresentation.plannedTargetY());
 	for (i = 0; i < MAX_BURST_SPREAD_TARGETS; ++i) ar.i32(fireControl.spreadLocations()[i]);
 	ar.i32(fireControl.spreadDragStartGrid()); ar.i32(fireControl.spreadDragEndGrid()); ar.i32(s.animationActivity().traversalForecastGrid()); ar.i16(s.animationActivity().renderZOverride());
@@ -6349,19 +6349,13 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			//Make sure all the pointer references are NULL'ed out.	
 			SavedSoldierInfo.pendingItem().reset();
 			SavedSoldierInfo.keyRing().reset();
-			SavedSoldierInfo.p8BPPPalette	= NULL;
-			SavedSoldierInfo.p16BPPPalette	= NULL;
-			memset( SavedSoldierInfo.pShades, 0, sizeof( UINT16* ) * NUM_SOLDIER_SHADES );
-			memset( SavedSoldierInfo.pGlowShades, 0, sizeof( UINT16* ) * 20 );
-			SavedSoldierInfo.pCurrentShade	= NULL;
+			SavedSoldierInfo.palette().reset();
 			SavedSoldierInfo.pLevelNode	= NULL;
 			SavedSoldierInfo.pExternShadowLevelNode	= NULL;
 			SavedSoldierInfo.pRoofUILevelNode	= NULL;
 			SavedSoldierInfo.pBackGround	= NULL;
 			SavedSoldierInfo.pZBackground	= NULL;
-			SavedSoldierInfo.pForcedShade	= NULL;
 			SavedSoldierInfo.strategicPath().reset();
-			memset( SavedSoldierInfo.pEffectShades, 0, sizeof( UINT16* ) * NUM_SOLDIER_EFFECTSHADES );
 			
 			//Create the new merc
 			SOLDIERCREATE_STRUCT CreateStruct;

@@ -3415,14 +3415,16 @@ void HandleObjectHighlighting( )
 			case IDLE_MODE:
 
 				// Set as selected
-				//pSoldier->pCurrentShade = pSoldier->pShades[ 1 ];
+				//pSoldier->palette().setCurrentShade(
+				//	pSoldier->palette().shade(1));
 				break;
 			}
 		}
 		else if ( guiUIFullTargetFlags & OWNED_MERC )
 		{
 			// Check for selected
-			pSoldier->pCurrentShade = pSoldier->pShades[ 0 ];
+			pSoldier->palette().setCurrentShade(
+				pSoldier->palette().shade(0));
 			gfUIDoNotHighlightSelMerc = TRUE;
 		}
 	}

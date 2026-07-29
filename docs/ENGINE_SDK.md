@@ -605,9 +605,16 @@ coordinates cannot leak into those rules.
 palette-replacement identities, fade mode/level/origin, forced colour and shade
 policy, muzzle-flash visibility and light handles, the unblit rectangle, and
 projected bounds. Use `renderState()` and its named fade, flash, shade, redraw,
-and light-lifetime operations from tactical graphics adapters. Raw palette,
-shade, surface, level-node, and background pointers remain with the legacy
-graphics adapter and are not component or package API.
+and light-lifetime operations from tactical graphics adapters.
+`RenderPaletteBank`, available through `palette()`, owns the generated 8-bit
+base, 16-bit base, lighting, glow, and effect tables and tracks the active and
+forced aliases. It provides deep-copy, transfer, transactional replacement,
+registry cleanup, and reset semantics for both soldiers and composed
+logical-body palette tables. Lighting accepts this narrow owner directly;
+logical palette data therefore no longer masquerades as a `SOLDIERTYPE`.
+The installed `.col` palette format is unchanged. Surface, level-node, and
+background pointers remain with the legacy graphics adapter and are not
+component or package API.
 `SoldierUiPresentationComponent` owns the remaining pointer-free tactical view
 model for a soldier: portrait animation and flash phase, locator animation,
 cycle and visibility, interface elevation, panel placement and lifecycle,
@@ -1023,8 +1030,8 @@ object receives a stable opaque render identity without changing its legacy
 manager handle; deletion retires that identity before releasing image storage.
 Generated render palettes receive their own opaque identities above the legacy
 32-bit manager range. Re-registering the same live pointer is idempotent,
-retired identities are never reused, and palette owners retire their borrowed
-registry entry before replacement or destruction.
+retired identities are never reused, and palette owners retire each owned
+table's registry entry before replacement or destruction.
 Rejecting hosts and manually assembled fixtures fall back to the exact old
 blitter. Basic non-depth transparent, shadow, and intensity tactical sprites
 use the regular image command with the same fallback. Ordinary merc and corpse

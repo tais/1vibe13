@@ -67,6 +67,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Rain.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/RandomMerc.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Real Time Input.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/Render Palette Bank.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Rotting Corpses.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/ShopKeeper Interface.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Simulation Commands.cpp"

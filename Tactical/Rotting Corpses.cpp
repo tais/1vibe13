@@ -3142,7 +3142,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		{
 			HVOBJECT cachedObject = GetCachedTileVideoObject( pCorpse->iCachedTileID );
 			if ( cachedObject != NULL && cachedObject->pPaletteEntry != NULL )
-				memcpy( pNewSoldier->p8BPPPalette, cachedObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
+				memcpy( pNewSoldier->palette().base8(), cachedObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 		}
 		else if ( pCorpse->def.usFlags & ROTTING_CORPSE_USE_CAMO_PALETTE )
 		{

@@ -461,6 +461,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		combatContribution().reset();
 		suppression().reset();
 		damageDisplay().reset();
+		palette().reset();
 		renderState().reset();
 		uiPresentation().reset();
 		memcpy( awareness().opponentKnowledge(), src.bOppList,
@@ -656,9 +657,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		//arrays
 		memcpy( &(this->identity().name()), &(src.name), sizeof(CHAR16)* 10 );
-		memcpy( &(this->pShades), &(src.pShades), sizeof(UINT16)* NUM_SOLDIER_SHADES ); // Shading tables
-		memcpy( &(this->pGlowShades), &(src.pGlowShades), sizeof(UINT16)* 20 ); //
-		memcpy( &(this->pEffectShades), &(src.pEffectShades), sizeof(UINT16)* NUM_SOLDIER_EFFECTSHADES ); // Shading tables for effects
 		memcpy(
 			fireControl().spreadLocations(), src.sSpreadLocations,
 			sizeof(src.sSpreadLocations));
@@ -785,9 +783,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->iFaceIndex = src.iFaceIndex;
 
 
-		this->p8BPPPalette = src.p8BPPPalette; // 4
-		this->p16BPPPalette = src.p16BPPPalette;
-		this->pCurrentShade = src.pCurrentShade;
+		// V101 palette pointers identify allocations in the saving process and
+		// cannot be reused. Tactical creation regenerates the complete bank.
 		this->renderState().fadeLevel() = src.ubFadeLevel;
 		this->service().providerCount() = src.ubServiceCount;
 		this->service().partner() = static_cast<UINT16>( src.ubServicePartner );
@@ -833,7 +830,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->uiPresentation().locatorOffsetX() = src.sLocatorOffX;
 		this->uiPresentation().locatorOffsetY() = src.sLocatorOffY;
-		this->pForcedShade = src.pForcedShade;
 
 		this->damageDisplay().counter() = src.bDisplayDamageCount;
 		this->combatResult().accumulatedDamage() = src.sDamage;
@@ -1154,6 +1150,7 @@ void SOLDIERTYPE::initialize( )
 	combatContribution().reset();
 	suppression().reset();
 	damageDisplay().reset();
+	palette().reset();
 	renderState().reset();
 	uiPresentation().reset();
 	animationIntent().reset();
@@ -2578,7 +2575,6 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 
 BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 {
-	UINT32		cnt;
 	INT32			iGridNo;
 	INT8			bDir;
 	BOOLEAN		fRet;
@@ -2621,52 +2617,9 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 		// Delete faces
 		DeleteSoldierFace( this );
 
-		// FREE PALETTES
-		if ( this->p8BPPPalette != NULL )
-		{
-			MemFree( this->p8BPPPalette );
-			this->p8BPPPalette = NULL;
-		}
-
-		if ( this->p16BPPPalette != NULL )
-		{
-			UnregisterLegacyRenderPalette(this->p16BPPPalette);
-			MemFree( this->p16BPPPalette );
-			this->p16BPPPalette = NULL;
-		}
-
-		for ( cnt = 0; cnt < NUM_SOLDIER_SHADES; cnt++ )
-		{
-			if ( this->pShades[cnt] != NULL )
-			{
-				UnregisterLegacyRenderPalette(this->pShades[cnt]);
-				MemFree( this->pShades[cnt] );
-				this->pShades[cnt] = NULL;
-			}
-		}
-		for ( cnt = 0; cnt < NUM_SOLDIER_EFFECTSHADES; cnt++ )
-		{
-			if ( this->pEffectShades[cnt] != NULL )
-			{
-				UnregisterLegacyRenderPalette(
-					this->pEffectShades[cnt]);
-				MemFree( this->pEffectShades[cnt] );
-				this->pEffectShades[cnt] = NULL;
-			}
-		}
-
-		// Delete glows
-		for ( cnt = 0; cnt < 20; cnt++ )
-		{
-			if ( this->pGlowShades[cnt] != NULL )
-			{
-				UnregisterLegacyRenderPalette(
-					this->pGlowShades[cnt]);
-				MemFree( this->pGlowShades[cnt] );
-				this->pGlowShades[cnt] = NULL;
-			}
-
-		}
+		// Release all registered palette storage and borrowed active aliases as
+		// one owned graphics boundary.
+		this->palette().reset();
 
 
 		if ( this->identity().bodyType() == QUEENMONSTER )
@@ -8624,25 +8577,21 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 {
 	UINT16 usAnimSurface, usPaletteAnimSurface;
 	CHAR8	zColFilename[100];
-	INT32 iWhich;
 	INT32 cnt;
 	INT8	bBodyTypePalette;
 	SGPPaletteEntry							Temp8BPPPalette[256];
+	RenderPaletteBank rebuiltPalette;
 
-	//NT32 uiCount;
-	//PPaletteEntry Pal[256];
-
-	if ( this->p8BPPPalette != NULL )
-	{
-		MemFree( this->p8BPPPalette );
-		this->p8BPPPalette = NULL;
-	}
-
-	// Allocate mem for new palette
-	this->p8BPPPalette = (SGPPaletteEntry *)MemAlloc( sizeof(SGPPaletteEntry)* 256 );
-	memset( this->p8BPPPalette, 0, sizeof(SGPPaletteEntry)* 256 );
-
-	CHECKF( this->p8BPPPalette != NULL );
+	SGPPaletteEntry* base8 = static_cast<SGPPaletteEntry*>(
+		MemAlloc(
+			sizeof(SGPPaletteEntry) *
+			RenderPaletteBank::EntryCount));
+	CHECKF(base8 != nullptr);
+	rebuiltPalette.adoptBase8(base8);
+	memset(
+		rebuiltPalette.base8(), 0,
+		sizeof(SGPPaletteEntry) *
+		RenderPaletteBank::EntryCount);
 
 	// --- TAKE FROM CURRENT ANIMATION HVOBJECT!
 	usAnimSurface = GetSoldierAnimationSurface( this, this->animationPlayback().state() );
@@ -8657,19 +8606,29 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 		if ( usPaletteAnimSurface != INVALID_ANIMATION_SURFACE )
 		{
 			// Use palette from HVOBJECT, then use substitution for pants, etc
-			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
+			memcpy(
+				rebuiltPalette.base8(),
+				gAnimSurfaceDatabase[usPaletteAnimSurface].
+					hVideoObject->pPaletteEntry,
+				sizeof(SGPPaletteEntry) *
+				RenderPaletteBank::EntryCount);
 
 			// Substitute based on head, etc
-			SetPaletteReplacement( this->p8BPPPalette, this->renderState().headPalette() );
-			SetPaletteReplacement( this->p8BPPPalette, this->renderState().vestPalette() );
-			SetPaletteReplacement( this->p8BPPPalette, this->renderState().pantsPalette() );
-			SetPaletteReplacement( this->p8BPPPalette, this->renderState().skinPalette() );
+			SetPaletteReplacement( rebuiltPalette.base8(), this->renderState().headPalette() );
+			SetPaletteReplacement( rebuiltPalette.base8(), this->renderState().vestPalette() );
+			SetPaletteReplacement( rebuiltPalette.base8(), this->renderState().pantsPalette() );
+			SetPaletteReplacement( rebuiltPalette.base8(), this->renderState().skinPalette() );
 		}
 	}
 	else if ( bBodyTypePalette == 0 )
 	{
 		// Use palette from hvobject
-		memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
+		memcpy(
+			rebuiltPalette.base8(),
+			gAnimSurfaceDatabase[usAnimSurface].
+				hVideoObject->pPaletteEntry,
+			sizeof(SGPPaletteEntry) *
+			RenderPaletteBank::EntryCount);
 	}
 	else
 	{
@@ -8677,103 +8636,96 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 		if ( CreateSGPPaletteFromCOLFile( Temp8BPPPalette, zColFilename ) )
 		{
 			// Copy into palette
-			memcpy( this->p8BPPPalette, Temp8BPPPalette, sizeof(SGPPaletteEntry) * 256 );
+			memcpy(
+				rebuiltPalette.base8(), Temp8BPPPalette,
+				sizeof(SGPPaletteEntry) *
+				RenderPaletteBank::EntryCount);
 		}
 		else
 		{
 			// Use palette from hvobject
-			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
+			memcpy(
+				rebuiltPalette.base8(),
+				gAnimSurfaceDatabase[usAnimSurface].
+					hVideoObject->pPaletteEntry,
+				sizeof(SGPPaletteEntry) *
+				RenderPaletteBank::EntryCount);
 		}
-	}
-
-	if ( this->p16BPPPalette != NULL )
-	{
-		UnregisterLegacyRenderPalette(this->p16BPPPalette);
-		MemFree( this->p16BPPPalette );
-		this->p16BPPPalette = NULL;
 	}
 
 	// -- BUILD 16BPP Palette from this
-	this->p16BPPPalette = Create16BPPPalette( this->p8BPPPalette );
+	rebuiltPalette.adoptBase16(
+		Create16BPPPalette(rebuiltPalette.base8()));
+	CreateRenderPaletteTables(
+		rebuiltPalette, HVOBJECT_GLOW_GREEN);
 
-	for ( iWhich = 0; iWhich < NUM_SOLDIER_SHADES; ++iWhich )
-	{
-		if ( this->pShades[iWhich] != NULL )
-		{
-			UnregisterLegacyRenderPalette(this->pShades[iWhich]);
-			MemFree( this->pShades[iWhich] );
-			this->pShades[iWhich] = NULL;
-		}
-	}
-
-	for ( iWhich = 0; iWhich < NUM_SOLDIER_EFFECTSHADES; ++iWhich )
-	{
-		if ( this->pEffectShades[iWhich] != NULL )
-		{
-			UnregisterLegacyRenderPalette(
-				this->pEffectShades[iWhich]);
-			MemFree( this->pEffectShades[iWhich] );
-			this->pEffectShades[iWhich] = NULL;
-		}
-	}
-
-	for ( iWhich = 0; iWhich < 20; ++iWhich )
-	{
-		if ( this->pGlowShades[iWhich] != NULL )
-		{
-			UnregisterLegacyRenderPalette(
-				this->pGlowShades[iWhich]);
-			MemFree( this->pGlowShades[iWhich] );
-			this->pGlowShades[iWhich] = NULL;
-		}
-	}
-
-	CreateSoldierPaletteTables( this, HVOBJECT_GLOW_GREEN );
-
-	// Build a grayscale palette for testing grayout of mercs
-	//for(uiCount=0; uiCount < 256; uiCount++)
-	//{
-	//	Pal[uiCount].peRed=(UINT8)(uiCount%128)+128;
-	//	Pal[uiCount].peGreen=(UINT8)(uiCount%128)+128;
-	//	Pal[uiCount].peBlue=(UINT8)(uiCount%128)+128;
-	//}
-	this->pEffectShades[0] = Create16BPPPaletteShaded( this->p8BPPPalette, 100, 100, 100, TRUE );
-	this->pEffectShades[1] = Create16BPPPaletteShaded( this->p8BPPPalette, 100, 150, 100, TRUE );
+	rebuiltPalette.adoptEffectShade(
+		0, Create16BPPPaletteShaded(
+			rebuiltPalette.base8(), 100, 100, 100, TRUE));
+	rebuiltPalette.adoptEffectShade(
+		1, Create16BPPPaletteShaded(
+			rebuiltPalette.base8(), 100, 150, 100, TRUE));
 
 	// Build shades for glowing visible bad guy
 
 	// First do visible guy
-	this->pGlowShades[0] = Create16BPPPaletteShaded( this->p8BPPPalette, 255, 255, 255, FALSE );
+	rebuiltPalette.adoptGlowShade(
+		0, Create16BPPPaletteShaded(
+			rebuiltPalette.base8(), 255, 255, 255, FALSE));
 	for ( cnt = 1; cnt < 10; ++cnt )
 	{
-		this->pGlowShades[cnt] = CreateEnemyGlow16BPPPalette( this->p8BPPPalette, gRedGlowR[cnt], 255, FALSE );
+		rebuiltPalette.adoptGlowShade(
+			cnt, CreateEnemyGlow16BPPPalette(
+				rebuiltPalette.base8(), gRedGlowR[cnt],
+				255, FALSE));
 	}
 
 	// Now for gray guy...
-	this->pGlowShades[10] = Create16BPPPaletteShaded( this->p8BPPPalette, 100, 100, 100, TRUE );
+	rebuiltPalette.adoptGlowShade(
+		10, Create16BPPPaletteShaded(
+			rebuiltPalette.base8(), 100, 100, 100, TRUE));
 	for ( cnt = 11; cnt < 19; ++cnt )
 	{
-		this->pGlowShades[cnt] = CreateEnemyGreyGlow16BPPPalette( this->p8BPPPalette, gRedGlowR[cnt], 0, FALSE );
+		rebuiltPalette.adoptGlowShade(
+			cnt, CreateEnemyGreyGlow16BPPPalette(
+				rebuiltPalette.base8(), gRedGlowR[cnt],
+				0, FALSE));
 	}
-	this->pGlowShades[19] = CreateEnemyGreyGlow16BPPPalette( this->p8BPPPalette, gRedGlowR[18], 0, FALSE );
+	rebuiltPalette.adoptGlowShade(
+		19, CreateEnemyGreyGlow16BPPPalette(
+			rebuiltPalette.base8(), gRedGlowR[18], 0, FALSE));
 
 
 	// ATE: OK, piggyback on the shades we are not using for 2 colored lighting....
 	// ORANGE, VISIBLE GUY
-	this->pShades[20] = Create16BPPPaletteShaded( this->p8BPPPalette, 255, 255, 255, FALSE );
+	rebuiltPalette.adoptShade(
+		20, Create16BPPPaletteShaded(
+			rebuiltPalette.base8(), 255, 255, 255, FALSE));
 	for ( cnt = 21; cnt < 30; ++cnt )
 	{
-		this->pShades[cnt] = CreateEnemyGlow16BPPPalette( this->p8BPPPalette, gOrangeGlowR[(cnt - 20)], gOrangeGlowG[(cnt - 20)], TRUE );
+		rebuiltPalette.adoptShade(
+			cnt, CreateEnemyGlow16BPPPalette(
+				rebuiltPalette.base8(), gOrangeGlowR[cnt - 20],
+				gOrangeGlowG[cnt - 20], TRUE));
 	}
 
 	// ORANGE, GREY GUY
-	this->pShades[30] = Create16BPPPaletteShaded( this->p8BPPPalette, 100, 100, 100, TRUE );
+	rebuiltPalette.adoptShade(
+		30, Create16BPPPaletteShaded(
+			rebuiltPalette.base8(), 100, 100, 100, TRUE));
 	for ( cnt = 31; cnt < 39; ++cnt )
 	{
-		this->pShades[cnt] = CreateEnemyGreyGlow16BPPPalette( this->p8BPPPalette, gOrangeGlowR[(cnt - 20)], gOrangeGlowG[(cnt - 20)], TRUE );
+		rebuiltPalette.adoptShade(
+			cnt, CreateEnemyGreyGlow16BPPPalette(
+				rebuiltPalette.base8(), gOrangeGlowR[cnt - 20],
+				gOrangeGlowG[cnt - 20], TRUE));
 	}
-	this->pShades[39] = CreateEnemyGreyGlow16BPPPalette( this->p8BPPPalette, gOrangeGlowR[18], gOrangeGlowG[18], TRUE );
+	rebuiltPalette.adoptShade(
+		39, CreateEnemyGreyGlow16BPPPalette(
+			rebuiltPalette.base8(), gOrangeGlowR[18],
+			gOrangeGlowG[18], TRUE));
 
+	this->palette().swapStorage(rebuiltPalette);
 	return(TRUE);
 }
 
@@ -16480,12 +16432,12 @@ void	SOLDIERTYPE::Strip()
 			}
 
 			// Use palette from HVOBJECT, then use substitution for pants, etc
-			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
+			memcpy( this->palette().base8(), gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
-			SetPaletteReplacement( this->p8BPPPalette, this->renderState().headPalette() );
-			SetPaletteReplacement( this->p8BPPPalette, this->renderState().vestPalette() );
-			SetPaletteReplacement( this->p8BPPPalette, this->renderState().pantsPalette() );
-			SetPaletteReplacement( this->p8BPPPalette, this->renderState().skinPalette() );
+			SetPaletteReplacement( this->palette().base8(), this->renderState().headPalette() );
+			SetPaletteReplacement( this->palette().base8(), this->renderState().vestPalette() );
+			SetPaletteReplacement( this->palette().base8(), this->renderState().pantsPalette() );
+			SetPaletteReplacement( this->palette().base8(), this->renderState().skinPalette() );
 
 			this->CreateSoldierPalettes( );
 		}

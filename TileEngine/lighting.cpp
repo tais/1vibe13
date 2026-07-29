@@ -28,6 +28,7 @@
 	#include "Shade Table Util.h"
 	#include "Rotting Corpses.h"
 	#include "PATHAI.H"
+#include "Render Palette Bank.h"
 #include "SoldierRepository.h"
 
 #define LVL1_L1_PER			(50)
@@ -3561,19 +3562,26 @@ UINT32 uiCount;
 	return(TRUE);
 }
 
-BOOLEAN CreateSoldierShadedPalette( SOLDIERTYPE *pSoldier, UINT32 uiBase, SGPPaletteEntry *pShadePal)
+BOOLEAN CreateRenderShadedPalette(
+	RenderPaletteBank& palette, UINT32 uiBase,
+	SGPPaletteEntry *pShadePal)
 {
 	UINT32 uiCount;
 
-	pSoldier->pShades[uiBase]=Create16BPPPaletteShaded( pShadePal, gusShadeLevels[0][0],
-																															gusShadeLevels[0][1],
-																															gusShadeLevels[0][2], TRUE);
+	palette.adoptShade(
+		uiBase,
+		Create16BPPPaletteShaded(
+			pShadePal, gusShadeLevels[0][0],
+			gusShadeLevels[0][1], gusShadeLevels[0][2], TRUE));
 
 	for(uiCount=1; uiCount < 16; uiCount++)
 	{
-		pSoldier->pShades[uiBase+uiCount]=Create16BPPPaletteShaded( pShadePal, gusShadeLevels[uiCount][0],
-																																				gusShadeLevels[uiCount][1],
-																																				gusShadeLevels[uiCount][2], FALSE);
+		palette.adoptShade(
+			uiBase + uiCount,
+			Create16BPPPaletteShaded(
+				pShadePal, gusShadeLevels[uiCount][0],
+				gusShadeLevels[uiCount][1],
+				gusShadeLevels[uiCount][2], FALSE));
 	}
 
 	return(TRUE);
@@ -3667,7 +3675,8 @@ UINT16 CreateTilePaletteTables(HVOBJECT pObj, UINT32 uiTileIndex, BOOLEAN fForce
 }
 
 
-UINT16 CreateSoldierPaletteTables(SOLDIERTYPE *pSoldier, UINT32 uiType)
+UINT16 CreateRenderPaletteTables(
+	RenderPaletteBank& palette, UINT32 uiType)
 {
 	SGPPaletteEntry LightPal[256];
 	UINT32 uiCount;
@@ -3676,12 +3685,12 @@ UINT16 CreateSoldierPaletteTables(SOLDIERTYPE *pSoldier, UINT32 uiType)
 	for(uiCount=0; uiCount < 256; uiCount++)
 	{
 		// combine the rgb of the light color with the object's palette
-		LightPal[uiCount].peRed=(UINT8)(__min((UINT16)pSoldier->p8BPPPalette[uiCount].peRed+(UINT16)gpLightColors[0].peRed, 255));
-		LightPal[uiCount].peGreen=(UINT8)(__min((UINT16)pSoldier->p8BPPPalette[uiCount].peGreen+(UINT16)gpLightColors[0].peGreen, 255));
-		LightPal[uiCount].peBlue=(UINT8)(__min((UINT16)pSoldier->p8BPPPalette[uiCount].peBlue+(UINT16)gpLightColors[0].peBlue, 255));
+		LightPal[uiCount].peRed=(UINT8)(__min((UINT16)palette.base8()[uiCount].peRed+(UINT16)gpLightColors[0].peRed, 255));
+		LightPal[uiCount].peGreen=(UINT8)(__min((UINT16)palette.base8()[uiCount].peGreen+(UINT16)gpLightColors[0].peGreen, 255));
+		LightPal[uiCount].peBlue=(UINT8)(__min((UINT16)palette.base8()[uiCount].peBlue+(UINT16)gpLightColors[0].peBlue, 255));
 	}
 	// build the shade tables
-	CreateSoldierShadedPalette(pSoldier, 0, LightPal);
+	CreateRenderShadedPalette(palette, 0, LightPal);
 
 	// if two lights are active
 	if(gubNumLightColors==2)
@@ -3689,27 +3698,25 @@ UINT16 CreateSoldierPaletteTables(SOLDIERTYPE *pSoldier, UINT32 uiType)
 		// build the second light's palette and table
 		for(uiCount=0; uiCount < 256; uiCount++)
 		{
-			LightPal[uiCount].peRed=(UINT8)(__min((UINT16)pSoldier->p8BPPPalette[uiCount].peRed+(UINT16)gpLightColors[1].peRed, 255));
-			LightPal[uiCount].peGreen=(UINT8)(__min((UINT16)pSoldier->p8BPPPalette[uiCount].peGreen+(UINT16)gpLightColors[1].peGreen, 255));
-			LightPal[uiCount].peBlue=(UINT8)(__min((UINT16)pSoldier->p8BPPPalette[uiCount].peBlue+(UINT16)gpLightColors[1].peBlue, 255));
+			LightPal[uiCount].peRed=(UINT8)(__min((UINT16)palette.base8()[uiCount].peRed+(UINT16)gpLightColors[1].peRed, 255));
+			LightPal[uiCount].peGreen=(UINT8)(__min((UINT16)palette.base8()[uiCount].peGreen+(UINT16)gpLightColors[1].peGreen, 255));
+			LightPal[uiCount].peBlue=(UINT8)(__min((UINT16)palette.base8()[uiCount].peBlue+(UINT16)gpLightColors[1].peBlue, 255));
 		}
-		CreateSoldierShadedPalette(pSoldier, 16, LightPal);
+		CreateRenderShadedPalette(palette, 16, LightPal);
 
 		// build a table that is a mix of the first two
 		for(uiCount=0; uiCount < 256; uiCount++)
 		{
-			LightPal[uiCount].peRed=(UINT8)(__min((UINT16)pSoldier->p8BPPPalette[uiCount].peRed+(UINT16)gpLightColors[2].peRed, 255));
-			LightPal[uiCount].peGreen=(UINT8)(__min((UINT16)pSoldier->p8BPPPalette[uiCount].peGreen+(UINT16)gpLightColors[2].peGreen, 255));
-			LightPal[uiCount].peBlue=(UINT8)(__min((UINT16)pSoldier->p8BPPPalette[uiCount].peBlue+(UINT16)gpLightColors[2].peBlue, 255));
+			LightPal[uiCount].peRed=(UINT8)(__min((UINT16)palette.base8()[uiCount].peRed+(UINT16)gpLightColors[2].peRed, 255));
+			LightPal[uiCount].peGreen=(UINT8)(__min((UINT16)palette.base8()[uiCount].peGreen+(UINT16)gpLightColors[2].peGreen, 255));
+			LightPal[uiCount].peBlue=(UINT8)(__min((UINT16)palette.base8()[uiCount].peBlue+(UINT16)gpLightColors[2].peBlue, 255));
 		}
-		CreateSoldierShadedPalette(pSoldier, 32, LightPal);
+		CreateRenderShadedPalette(palette, 32, LightPal);
 	}
 
 	// build neutral palette as well!
 	// Set current shade table to neutral color
-	pSoldier->pCurrentShade=pSoldier->pShades[4];
-	//pSoldier->pGlow=pSoldier->pShades[0];
-
+	palette.setCurrentShade(palette.shade(4));
 	return(TRUE);
 
 }

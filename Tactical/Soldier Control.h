@@ -20,6 +20,7 @@
 #include <iterator>
 #include "GameSettings.h"	// added by Flugente
 #include "Disease.h"		// added by Flugente
+#include "Render Palette Bank.h"
 #include "Soldier Components.h"
 
 static_assert(MAXPATROLGRIDS == SOLDIER_PATROL_GRID_COUNT,
@@ -846,6 +847,8 @@ public:
 	const SoldierSuppressionComponent& suppression() const noexcept { return suppression_; }
 	SoldierDamageDisplayComponent& damageDisplay() noexcept { return damageDisplay_; }
 	const SoldierDamageDisplayComponent& damageDisplay() const noexcept { return damageDisplay_; }
+	RenderPaletteBank& palette() noexcept { return palette_; }
+	const RenderPaletteBank& palette() const noexcept { return palette_; }
 	SoldierRenderStateComponent& renderState() noexcept { return renderState_; }
 	const SoldierRenderStateComponent& renderState() const noexcept { return renderState_; }
 	SoldierUiPresentationComponent& uiPresentation() noexcept { return uiPresentation_; }
@@ -868,12 +871,6 @@ public:
 
 	INT32			iFaceIndex;
 
-	// PALETTE MANAGEMENT STUFF
-	SGPPaletteEntry	*p8BPPPalette; // 4
-	PIXEL			*p16BPPPalette;
-	PIXEL			*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
-	PIXEL			*pGlowShades[ 20 ]; // 
-	PIXEL			*pCurrentShade;
 	LEVELNODE		*pLevelNode;
 	LEVELNODE		*pExternShadowLevelNode;
 	LEVELNODE		*pRoofUILevelNode;
@@ -882,10 +879,6 @@ public:
 	// UNBLIT BACKGROUND
 	UINT16			*pBackGround;
 	UINT16			*pZBackground;
-
-	PIXEL			*pForcedShade;
-
-	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
 	struct TAG_anitile	*pAniTile;	
 
@@ -956,6 +949,7 @@ private:
 	SoldierCombatContributionComponent	combatContribution_;
 	SoldierSuppressionComponent	suppression_;
 	SoldierDamageDisplayComponent	damageDisplay_;
+	RenderPaletteBank	palette_;
 	SoldierRenderStateComponent	renderState_;
 	SoldierUiPresentationComponent	uiPresentation_;
 	SoldierAnimationIntentComponent	animationIntent_;
