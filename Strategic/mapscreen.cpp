@@ -1,5 +1,6 @@
 	#include "mapscreen.h"
 #include "SoldierRepository.h"
+#include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include <stdarg.h>
@@ -1037,7 +1038,7 @@ void BeginSellAllCallBack( UINT8 bExitValue )
 				// HEADROCK HAM 5: Added argument
 				iPrice += SellItem( gItemPointer, TRUE );
 				gpItemPointer = NULL;
-				(void)SetItemPointerSoldier(NULL);
+				ClearItemPointerSoldier();
 				fMapInventoryItem = FALSE;
 				// HEADROCK HAM 5: Sale of $0 now re-enabled.
 				//if (iPrice == 0) {
@@ -1076,7 +1077,7 @@ void BeginDeleteAllCallBack( UINT8 bExitValue )
 				gpItemPointer = &gItemPointer;
 				// Delete Item
 				gpItemPointer = NULL;
-				(void)SetItemPointerSoldier(NULL);
+				ClearItemPointerSoldier();
 				fMapInventoryItem = FALSE;
 			}
 		}
@@ -10419,7 +10420,8 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 					// remember which gridno the object came from
 					sObjectSourceGridNo = pSoldier->position().gridNo();
 					// and who owned it last
-					(void)SetItemPointerSoldier(pSoldier);
+					(void)SetItemPointerSoldier(
+						GetJa2TacticalEntityId(*pSoldier));
 
 					ReevaluateItemHatches( pSoldier, FALSE );
 				}
@@ -10526,7 +10528,7 @@ void InternalMAPBeginItemPointer( SOLDIERTYPE *pSoldier )
 
 	// Set global indicator
 	gpItemPointer = &gItemPointer;
-	(void)SetItemPointerSoldier(pSoldier);
+	(void)SetItemPointerSoldier(GetJa2TacticalEntityId(*pSoldier));
 
 	// Set mouse
 	guiExternVo = GetInterfaceGraphicForItem( &(Item[ gpItemPointer->usItem ]) );
@@ -10649,7 +10651,7 @@ void MAPEndItemPointer( )
 	if ( gpItemPointer != NULL )
 	{
 		gpItemPointer = NULL;
-		(void)SetItemPointerSoldier(NULL);
+		ClearItemPointerSoldier();
 		MSYS_ChangeRegionCursor( &gMPanelRegion , CURSOR_NORMAL );
 		MSYS_SetCurrentCursor( CURSOR_NORMAL );
 		fMapInventoryItem=FALSE;
@@ -10665,7 +10667,7 @@ void MAPEndItemPointer( )
 			ReevaluateItemHatches( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID), FALSE );
 		}
 	}
-	(void)SetItemPointerSoldier(NULL);
+	ClearItemPointerSoldier();
 }
 
 
@@ -13694,7 +13696,7 @@ void DestroyTheItemInCursor( )
 	// End Item pickup
 	MAPEndItemPointer( );
 	gpItemPointer = NULL;
-	(void)SetItemPointerSoldier(NULL);
+	ClearItemPointerSoldier();
 }
 
 

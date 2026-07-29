@@ -1439,7 +1439,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 
 							PlayJA2Sample( COMPUTER_BEEP2_IN, RATE_11025, 15, 1, MIDDLEPAN );
 							gpItemPointer = NULL;
-							(void)SetItemPointerSoldier(NULL);
+							ClearItemPointerSoldier();
 							fMapInventoryItem = FALSE;
 
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szSMilitiaResourceText[0], Item[usItem].szItemName );
@@ -2556,7 +2556,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 					fInterfacePanelDirty = DIRTYLEVEL2;
 					fMapInventoryItem = FALSE;
 					gpItemPointer = NULL;
-					(void)SetItemPointerSoldier(NULL);
+					ClearItemPointerSoldier();
 				}
 				else 
 				{
@@ -2570,11 +2570,11 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 						fInterfacePanelDirty = DIRTYLEVEL2;
 						fMapInventoryItem = FALSE;
 						gpItemPointer = NULL;
-						(void)SetItemPointerSoldier(NULL);
+						ClearItemPointerSoldier();
 					}
 					else // pick item up to indicate no more room for autoplace
 					{
-						(void)SetItemPointerSoldier(NULL);
+						ClearItemPointerSoldier();
 
 						// now set the cursor
 						guiExternVo = GetInterfaceGraphicForItem( &(Item[ gpItemPointer->usItem ]) );
@@ -2601,7 +2601,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 			INT32 iPrice = SellItem( gItemPointer, TRUE );
 			PlayJA2Sample( COMPUTER_BEEP2_IN, RATE_11025, 15, 1, MIDDLEPAN );
 			gpItemPointer = NULL;
-			(void)SetItemPointerSoldier(NULL);
+			ClearItemPointerSoldier();
 			fMapInventoryItem = FALSE;
 			if ( _KeyDown( 89 ) ) //Lalien: sell all items of this type on Alt+Y
 			{
@@ -2643,7 +2643,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 		}
 		else
 		{
-			(void)SetItemPointerSoldier(NULL);
+			ClearItemPointerSoldier();
 
 			// now set the cursor
 			guiExternVo = GetInterfaceGraphicForItem( &(Item[ gpItemPointer->usItem ]) );

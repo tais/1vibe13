@@ -607,7 +607,8 @@ static SOLDIERTYPE* EnsureSMCurrentMerc()
 		}
 	}
 
-	if (!candidate || !SetSMCurrentMerc(candidate))
+	if (!candidate ||
+		!SetSMCurrentMerc(GetJa2TacticalEntityId(*candidate)))
 	{
 		gusSMCurrentMerc = NOBODY;
 		return NULL;
@@ -748,11 +749,11 @@ void SetSMPanelCurrentMerc( SoldierID ubNewID )
 
 	SOLDIERTYPE* newMerc =
 		GetJa2SoldierRepository().resolve(ubNewID.i);
-	if (ubNewID == NOBODY || !newMerc || !SetSMCurrentMerc(newMerc))
+	if (ubNewID == NOBODY || !newMerc ||
+		!SetSMCurrentMerc(GetJa2TacticalEntityId(*newMerc)))
 	{
 		gusSMCurrentMerc = NOBODY;
-		ClearJa2TacticalInventoryActor(
-			TacticalInventoryActorRole::SelectedMerc);
+		ClearSMCurrentMerc();
 		return;
 	}
 	gusSMCurrentMerc = newMerc->identity().id();
@@ -2533,8 +2534,7 @@ BOOLEAN ShutdownSMPanel( )
 
 	//CHRISL: Following line is to make sure that team panel buttons activate
 	DisableTacticalTeamPanelButtons( FALSE );
-	ClearJa2TacticalInventoryActor(
-		TacticalInventoryActorRole::SelectedMerc);
+	ClearSMCurrentMerc();
 	gusSMCurrentMerc = NOBODY;
 
 	return( TRUE );
@@ -3510,7 +3510,9 @@ BOOLEAN UIHandleItemPlacement( UINT8 ubHandPos, UINT16 usOldItemIndex, UINT16 us
 		}
 
 		// UPDATE ITEM POINTER.....
-		(void)SetItemPointerSoldier(GetSMCurrentMerc());
+		(void)CopyJa2TacticalInventoryActor(
+			TacticalInventoryActorRole::SelectedMerc,
+			TacticalInventoryActorRole::ItemCursorOwner);
 
 		if ( gpItemPointer != NULL )
 		{
@@ -4125,7 +4127,9 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				{
 					EmptyWeaponMagazine( &(GetSMCurrentMerc()->inventory()[ uiHandPos ]), &gItemPointer, uiHandPos );
 					gpItemPointer = &gItemPointer;
-					(void)SetItemPointerSoldier(GetSMCurrentMerc());
+					(void)CopyJa2TacticalInventoryActor(
+						TacticalInventoryActorRole::SelectedMerc,
+						TacticalInventoryActorRole::ItemCursorOwner);
 				}
 				else
 					InitItemDescriptionBox( GetSMCurrentMerc(), (UINT8)uiHandPos, ITEMDESC_START_X, ITEMDESC_START_Y, 0 );

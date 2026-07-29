@@ -1,4 +1,4 @@
-#include "TacticalInventoryUiHost.h"
+#include "TacticalInventoryUiLegacy.h"
 
 #include "Soldier Control.h"
 #include "TacticalEntityHost.h"
@@ -15,6 +15,12 @@ TacticalInventoryUiSession*& BoundSession() noexcept
 {
 	static TacticalInventoryUiSession* session = &StandaloneSession();
 	return session;
+}
+
+bool ValidActorRole(TacticalInventoryActorRole role) noexcept
+{
+	return static_cast<std::uint8_t>(role) <
+		static_cast<std::uint8_t>(TacticalInventoryActorRole::Count);
 }
 }
 
@@ -33,27 +39,43 @@ TacticalInventoryUiSession& GetJa2TacticalInventoryUiSession() noexcept
 
 bool SetJa2TacticalInventoryActor(
 	TacticalInventoryActorRole role,
-	SOLDIERTYPE* soldier) noexcept
+	TacticalEntityId actor) noexcept
 {
-	if (static_cast<std::uint8_t>(role) >=
-		static_cast<std::uint8_t>(TacticalInventoryActorRole::Count))
+	if (!ValidActorRole(role)) return false;
+	if (!actor.valid() || !ResolveJa2TacticalEntity(actor)) return false;
+	return BoundSession()->setActor(role, actor);
+}
+
+TacticalEntityId GetJa2TacticalInventoryActor(
+	TacticalInventoryActorRole role) noexcept
+{
+	return BoundSession()->actor(role);
+}
+
+bool CopyJa2TacticalInventoryActor(
+	TacticalInventoryActorRole source,
+	TacticalInventoryActorRole destination) noexcept
+{
+	if (!ValidActorRole(source) || !ValidActorRole(destination))
 		return false;
-	if (!soldier)
+	const TacticalEntityId actor = GetJa2TacticalInventoryActor(source);
+	if (!actor.valid())
 	{
-		BoundSession()->clearActor(role);
+		ClearJa2TacticalInventoryActor(destination);
 		return true;
 	}
-	const TacticalEntityId actor = GetJa2TacticalEntityId(
-		static_cast<std::uint16_t>(soldier->identity().id()));
-	if (!actor.valid() || ResolveJa2TacticalEntity(actor) != soldier)
+	if (!SetJa2TacticalInventoryActor(destination, actor))
+	{
+		ClearJa2TacticalInventoryActor(destination);
 		return false;
-	return BoundSession()->setActor(role, actor);
+	}
+	return true;
 }
 
 SOLDIERTYPE* ResolveJa2TacticalInventoryActor(
 	TacticalInventoryActorRole role) noexcept
 {
-	return ResolveJa2TacticalEntity(BoundSession()->actor(role));
+	return ResolveJa2TacticalEntity(GetJa2TacticalInventoryActor(role));
 }
 
 bool HasJa2TacticalInventoryActorContext(
@@ -74,9 +96,13 @@ void ResetTacticalInventoryUiActorContexts() noexcept
 }
 
 #define JA2_INVENTORY_ACTOR_ACCESSORS(Name, Role) \
-	bool Set##Name(SOLDIERTYPE* soldier) noexcept \
+	bool Set##Name(TacticalEntityId actor) noexcept \
 	{ \
-		return SetJa2TacticalInventoryActor(Role, soldier); \
+		return SetJa2TacticalInventoryActor(Role, actor); \
+	} \
+	void Clear##Name() noexcept \
+	{ \
+		ClearJa2TacticalInventoryActor(Role); \
 	} \
 	SOLDIERTYPE* Get##Name() noexcept \
 	{ \

@@ -100,7 +100,7 @@
 #include "StrategicGroupHost.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
-#include "TacticalInventoryUiHost.h"
+#include "TacticalInventoryUiLegacy.h"
 #include "TacticalWorldItemHost.h"
 #include "TacticalWorldObserverHost.h"
 #include "interface Dialogue.h"
@@ -4865,16 +4865,51 @@ int main( int, char** )
 		Ja2TacticalEntityReference releasedCallbackActor;
 		const bool releasedCallbackCaptured =
 			releasedCallbackActor.capture( &worldActor );
+		const TacticalEntityId worldActorIdentity =
+			GetJa2TacticalEntityId( worldActor );
+		const SOLDIERTYPE detachedInventoryActor = worldActor;
+		const bool detachedInventoryActorRejected =
+			!GetJa2TacticalEntityId( detachedInventoryActor ).valid() &&
+			!SetSMCurrentMerc(
+				GetJa2TacticalEntityId( detachedInventoryActor ) );
 		ResetTacticalInventoryUiActorContexts();
+		const bool emptyInventoryActorCopied =
+			CopyJa2TacticalInventoryActor(
+				TacticalInventoryActorRole::ItemDescriptionOwner,
+				TacticalInventoryActorRole::ItemCursorOwner) &&
+			!HasJa2TacticalInventoryActorContext(
+				TacticalInventoryActorRole::ItemCursorOwner);
+		const TacticalInventoryActorRole invalidInventoryActorRole =
+			TacticalInventoryActorRole::Count;
+		const bool invalidInventoryActorRoleRejected =
+			!SetJa2TacticalInventoryActor(
+				invalidInventoryActorRole, worldActorIdentity) &&
+			!CopyJa2TacticalInventoryActor(
+				TacticalInventoryActorRole::SelectedMerc,
+				invalidInventoryActorRole) &&
+			!CopyJa2TacticalInventoryActor(
+				invalidInventoryActorRole,
+				TacticalInventoryActorRole::SelectedMerc);
 		const bool inventoryUiActorsCaptured =
-			SetSMCurrentMerc( &worldActor ) &&
-			SetItemPointerSoldier( &worldActor ) &&
-			SetItemDescSoldier( &worldActor ) &&
-			SetAttachSoldier( &worldActor ) &&
-			SetItemPopupSoldier( &worldActor ) &&
-			SetItemPickupActor( &worldActor ) &&
-			SetItemPickupOpponent( &worldActor ) &&
+			worldActorIdentity == ( TacticalEntityId{ 0, 701 } ) &&
+			SetSMCurrentMerc( worldActorIdentity ) &&
+			CopyJa2TacticalInventoryActor(
+				TacticalInventoryActorRole::SelectedMerc,
+				TacticalInventoryActorRole::ItemCursorOwner) &&
+			SetItemDescSoldier( worldActorIdentity ) &&
+			SetAttachSoldier( worldActorIdentity ) &&
+			SetItemPopupSoldier( worldActorIdentity ) &&
+			SetItemPickupActor( worldActorIdentity ) &&
+			SetItemPickupOpponent( worldActorIdentity ) &&
+			GetJa2TacticalInventoryActor(
+				TacticalInventoryActorRole::ItemCursorOwner) ==
+				worldActorIdentity &&
 			GetJa2TacticalInventoryUiSession().actorContextCount() == 7;
+		ClearItemPickupOpponent();
+		const bool inventoryUiActorCleared =
+			!HasJa2TacticalInventoryActorContext(
+				TacticalInventoryActorRole::PickupOpponent) &&
+			SetItemPickupOpponent( worldActorIdentity );
 		const bool callbackActorReleased =
 			ReleaseJa2TacticalEntity( worldActor );
 		const bool releasedCallbackRejected =
@@ -4927,13 +4962,17 @@ int main( int, char** )
 		       releasedContractRehireRejected &&
 		       traversalActorCaptured &&
 		       releasedTraversalActorRejected &&
+		       detachedInventoryActorRejected &&
+		       emptyInventoryActorCopied &&
+		       invalidInventoryActorRoleRejected &&
 		       inventoryUiActorsCaptured &&
+		       inventoryUiActorCleared &&
 		       releasedInventoryUiActorsRejected &&
 		       replacementInventoryActorAdopted &&
 		       replacementInventoryActorRejected &&
 		       replacementInventoryActorReleased &&
 		       callbackActorReadopted,
-		       "delayed callbacks and inventory UI roles reject released and reused actor incarnations" );
+		       "inventory UI producers retain exact actor identities and delayed consumers reject released or reused incarnations" );
 		SOLDIERTYPE& swapTarget = soldierRepository.record( 1 );
 		const SOLDIERTYPE previousSwapTarget = swapTarget;
 		const bool swapTargetInstalled =

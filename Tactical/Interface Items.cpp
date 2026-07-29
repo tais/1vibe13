@@ -24,6 +24,7 @@
 	#include "Animation Control.h"
 	#include "Soldier Control.h"
 	#include "SoldierRepository.h"
+	#include "TacticalEntityHost.h"
 	#include "PATHAI.H"
 	#include "Weapons.h"
 	#include "lighting.h"
@@ -677,7 +678,7 @@ void popupCallbackItem(INT16 itemId){
 		gpItemPointer = bestStack;									// pick up the object (or stack)
 		DoAttachment((UINT8)gubPopupStatusIndex, guiPopupItemPos);	// try to attach it
 		gpItemPointer = NULL;										// and drop it
-		(void)SetItemPointerSoldier(NULL);
+		ClearItemPointerSoldier();
 
 		gItemDescAttachmentPopups[giActiveAttachmentPopup]->hide();
 		RenderItemDescriptionBox();
@@ -5196,7 +5197,7 @@ BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY,
 
 	gpItemDescObject = pObject;
 	gubItemDescStatusIndex = ubStatusIndex;
-	(void)SetItemDescSoldier(pSoldier);
+	(void)SetItemDescSoldier(GetJa2TacticalEntityId(*pSoldier));
 	fItemDescDelete		= FALSE;
 
 	// Build a mouse region here that is over any others.....
@@ -5611,11 +5612,13 @@ BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY,
 
 	if ( gpItemPointer )
 	{
-		(void)SetAttachSoldier(GetItemPointerSoldier());
+		(void)CopyJa2TacticalInventoryActor(
+			TacticalInventoryActorRole::ItemCursorOwner,
+			TacticalInventoryActorRole::AttachmentOwner);
 	}
 	else
 	{
-		(void)SetAttachSoldier(pSoldier);
+		(void)SetAttachSoldier(GetJa2TacticalEntityId(*pSoldier));
 	}
 	//CHRISL: Instead of using attachments on item 0, use attachments on item we right clicked on using ubStatusIndex
 	// store attachments that item originally had
@@ -6168,7 +6171,9 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 			// OK, END the description box
 			//fItemDescDelete = TRUE;
 			fInterfacePanelDirty = DIRTYLEVEL2;
-			(void)SetItemPointerSoldier(GetItemDescSoldier());
+			(void)CopyJa2TacticalInventoryActor(
+				TacticalInventoryActorRole::ItemDescriptionOwner,
+				TacticalInventoryActorRole::ItemCursorOwner);
 
 			RenderBulletIcon(gpItemDescObject, ubStatusIndex);
 
@@ -6226,7 +6231,9 @@ void ItemDescAmmoCallback(GUI_BUTTON *btn,INT32 reason)
 					}
 				}
 			}
-			(void)SetItemPointerSoldier(GetItemDescSoldier());
+			(void)CopyJa2TacticalInventoryActor(
+				TacticalInventoryActorRole::ItemDescriptionOwner,
+				TacticalInventoryActorRole::ItemCursorOwner);
 
 			// if in SKI, load item into SKI's item pointer
 			if( guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE )
@@ -6268,7 +6275,7 @@ void DoAttachment( UINT8 subObject, INT32 iItemPos )
 			{
 				// End Item pickup
 				gpItemPointer = NULL;
-				(void)SetItemPointerSoldier(NULL);
+				ClearItemPointerSoldier();
 				EnableSMPanelButtons( TRUE , TRUE );
 
 				MSYS_ChangeRegionCursor( &gSMPanelRegion , CURSOR_NORMAL );
@@ -6494,7 +6501,9 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				if ( gpItemDescObject->RemoveAttachment( pAttachment, &gItemPointer, ubStatusIndex, GetItemDescSoldier() ) )
 				{
 					gpItemPointer = &gItemPointer;
-					(void)SetItemPointerSoldier(GetItemDescSoldier());
+					(void)CopyJa2TacticalInventoryActor(
+						TacticalInventoryActorRole::ItemDescriptionOwner,
+						TacticalInventoryActorRole::ItemCursorOwner);
 
 					if( guiCurrentItemDescriptionScreen == MAP_SCREEN )
 					{
@@ -6503,7 +6512,7 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 						{
 							AutoPlaceObjectToWorld(GetItemPointerSoldier(), gpItemPointer);
 							gpItemPointer = NULL;
-							(void)SetItemPointerSoldier(NULL);
+							ClearItemPointerSoldier();
 						}
 						else {
 							// Set mouse
@@ -8326,10 +8335,8 @@ void DeleteItemDescriptionBox( )
 
 	if( gfInItemDescBox == FALSE )
 	{
-		ClearJa2TacticalInventoryActor(
-			TacticalInventoryActorRole::ItemDescriptionOwner);
-		ClearJa2TacticalInventoryActor(
-			TacticalInventoryActorRole::AttachmentOwner);
+		ClearItemDescSoldier();
+		ClearAttachSoldier();
 		return;
 	}
 
@@ -8615,10 +8622,8 @@ void DeleteItemDescriptionBox( )
 		gpItemDescObject = NULL;
 		fShowDescriptionFlag = FALSE;
 		fInterfacePanelDirty = DIRTYLEVEL2;
-		ClearJa2TacticalInventoryActor(
-			TacticalInventoryActorRole::ItemDescriptionOwner);
-		ClearJa2TacticalInventoryActor(
-			TacticalInventoryActorRole::AttachmentOwner);
+		ClearItemDescSoldier();
+		ClearAttachSoldier();
 		return;
 	}
 
@@ -8644,10 +8649,8 @@ void DeleteItemDescriptionBox( )
 	gpItemDescPrevObject = NULL;
 	// HEADROCK HAM 5: This stores an attachment object while we're looking at its copy.
 	gpItemDescOrigAttachmentObject = NULL;
-	ClearJa2TacticalInventoryActor(
-		TacticalInventoryActorRole::ItemDescriptionOwner);
-	ClearJa2TacticalInventoryActor(
-		TacticalInventoryActorRole::AttachmentOwner);
+	ClearItemDescSoldier();
+	ClearAttachSoldier();
 
 }
 
@@ -8668,7 +8671,7 @@ void InternalBeginItemPointer( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, INT8 
 	// Dirty interface
 	fInterfacePanelDirty = DIRTYLEVEL2;
 	gpItemPointer = &gItemPointer;
-	(void)SetItemPointerSoldier(pSoldier);
+	(void)SetItemPointerSoldier(GetJa2TacticalEntityId(*pSoldier));
 	gbItemPointerSrcSlot = bHandPos;
 	gbItemPointerLocateGood = TRUE;
 
@@ -8740,7 +8743,7 @@ void BeginKeyRingItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubKeyRingPosition )
 		// Dirty interface
 		fInterfacePanelDirty = DIRTYLEVEL2;
 		gpItemPointer = &gItemPointer;
-		(void)SetItemPointerSoldier(pSoldier);
+		(void)SetItemPointerSoldier(GetJa2TacticalEntityId(*pSoldier));
 		gbItemPointerSrcSlot = ubKeyRingPosition;
 
 		if ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) )
@@ -8787,8 +8790,7 @@ void EndItemPointer( )
 		// re-evaluate repairs
 		gfReEvaluateEveryonesNothingToDo = TRUE;
 	}
-	ClearJa2TacticalInventoryActor(
-		TacticalInventoryActorRole::ItemCursorOwner);
+	ClearItemPointerSoldier();
 }
 
 void DrawItemFreeCursor( )
@@ -9745,7 +9747,7 @@ BOOLEAN InitSectorStackPopup( SOLDIERTYPE *pSoldier, WORLDITEM *pInventoryPoolLi
 	gsItemPopupInvWidth		= sInvWidth;
 	gsItemPopupInvHeight	= sInvHeight;
 	// Capture an exact actor identity before the popup retains inventory state.
-	if (!SetItemPopupSoldier(pSoldier))
+	if (!SetItemPopupSoldier(GetJa2TacticalEntityId(*pSoldier)))
 		return FALSE;
 	// Determine # of items
 	gpItemPopupObject		= &(pInventoryPoolList->object );
@@ -9866,7 +9868,7 @@ BOOLEAN InitItemStackPopup( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sInvX
 	gsItemPopupInvWidth				= sInvWidth;
 	gsItemPopupInvHeight			= sInvHeight;
 
-	if (!SetItemPopupSoldier(pSoldier))
+	if (!SetItemPopupSoldier(GetJa2TacticalEntityId(*pSoldier)))
 		return FALSE;
 
 	// Determine # of items
@@ -10182,8 +10184,7 @@ void DeleteItemStackPopup( )
 	//CHRISL: if neither item or sector stack popups are open, just return.
 	if(!gfInItemStackPopup && !gfInSectorStackPopup)
 	{
-		ClearJa2TacticalInventoryActor(
-			TacticalInventoryActorRole::ItemPopupOwner);
+		ClearItemPopupSoldier();
 		return;
 	}
 	//Remove
@@ -10214,8 +10215,7 @@ void DeleteItemStackPopup( )
 	}
 
 	FreeMouseCursor( TRUE );
-	ClearJa2TacticalInventoryActor(
-		TacticalInventoryActorRole::ItemPopupOwner);
+	ClearItemPopupSoldier();
 
 }
 
@@ -10251,7 +10251,7 @@ BOOLEAN InitKeyRingPopup( SOLDIERTYPE *pSoldier, INT16 sInvX, INT16 sInvY, INT16
 	gsKeyRingPopupInvWidth				= sInvWidth;
 	gsKeyRingPopupInvHeight				= sInvHeight;
 
-	if (!SetItemPopupSoldier(pSoldier))
+	if (!SetItemPopupSoldier(GetJa2TacticalEntityId(*pSoldier)))
 		return FALSE;
 
 	// Load graphics
@@ -10444,8 +10444,7 @@ void DeleteKeyRingPopup( )
 	if( gfInKeyRingPopup == FALSE )
 	{
 		// done,
-		ClearJa2TacticalInventoryActor(
-			TacticalInventoryActorRole::ItemPopupOwner);
+		ClearItemPopupSoldier();
 		return;
 	}
 
@@ -10474,8 +10473,7 @@ void DeleteKeyRingPopup( )
 	}
 
 	FreeMouseCursor( TRUE );
-	ClearJa2TacticalInventoryActor(
-		TacticalInventoryActorRole::ItemPopupOwner);
+	ClearItemPopupSoldier();
 }
 
 UINT32 GetInterfaceGraphicForItem( INVTYPE *pItem )
@@ -10778,7 +10776,7 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				else
 				{
 					gpItemPointer = NULL;
-					(void)SetItemPointerSoldier(NULL);
+					ClearItemPointerSoldier();
 					MSYS_ChangeRegionCursor( &gSMPanelRegion , CURSOR_NORMAL );
 					SetCurrentCursorFromDatabase( CURSOR_NORMAL );
 
@@ -10805,7 +10803,8 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				// remember which gridno the object came from
 				sObjectSourceGridNo = popupSoldier->position().gridNo();
 				// and who owned it last
-				(void)SetItemPointerSoldier(popupSoldier);
+				(void)SetItemPointerSoldier(
+					GetJa2TacticalEntityId(*popupSoldier));
 
 				ReevaluateItemHatches( popupSoldier, FALSE );
 			}
@@ -10831,7 +10830,9 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				{
 					gpItemPopupObject->RemoveObjectAtIndex( uiItemPos, &gItemPointer );
 					gpItemPointer = &gItemPointer;
-					(void)SetItemPointerSoldier(GetItemPopupSoldier());
+					(void)CopyJa2TacticalInventoryActor(
+						TacticalInventoryActorRole::ItemPopupOwner,
+						TacticalInventoryActorRole::ItemCursorOwner);
 				}
 
 				//if we are in the shop keeper interface
@@ -10907,7 +10908,9 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				{
 					EmptyWeaponMagazine( gpItemPopupObject, &gItemPointer, uiItemPos );
 					gpItemPointer = &gItemPointer;
-					(void)SetItemPointerSoldier(GetItemPopupSoldier());
+					(void)CopyJa2TacticalInventoryActor(
+						TacticalInventoryActorRole::ItemPopupOwner,
+						TacticalInventoryActorRole::ItemCursorOwner);
 				}
 				else
 					InternalInitItemDescriptionBox( gpItemPopupObject, (INT16) ITEMDESC_START_X, (INT16) ITEMDESC_START_Y, (UINT8)uiItemPos, GetItemPopupSoldier() );
@@ -11061,8 +11064,8 @@ BOOLEAN InitializeItemPickupMenu( SOLDIERTYPE *pSoldier, INT32 sGridNo, ITEM_POO
 	EraseInterfaceMenus( TRUE );
 
 	gfStealing = FALSE;
-	(void)SetItemPickupOpponent(NULL);
-	if (!SetItemPickupActor(pSoldier))
+	ClearItemPickupOpponent();
+	if (!SetItemPickupActor(GetJa2TacticalEntityId(*pSoldier)))
 		return FALSE;
 
 	// Make sure menu is located if not on screen
@@ -11783,8 +11786,8 @@ void RemoveItemPickupMenu( )
 
 	}
 
-	ClearJa2TacticalInventoryActor(TacticalInventoryActorRole::PickupActor);
-	ClearJa2TacticalInventoryActor(TacticalInventoryActorRole::PickupOpponent);
+	ClearItemPickupActor();
+	ClearItemPickupOpponent();
 	gfStealing = FALSE;
 }
 
@@ -12287,7 +12290,9 @@ void RemoveMoney()
 
 			gItemPointer = InvSlot.ItemObject;
 			gpItemPointer = &gItemPointer;
-			(void)SetItemPointerSoldier(GetSMCurrentMerc());
+			(void)CopyJa2TacticalInventoryActor(
+				TacticalInventoryActorRole::SelectedMerc,
+				TacticalInventoryActorRole::ItemCursorOwner);
 
 			// Set mouse
 			SetSkiCursor( EXTERN_CURSOR );
@@ -12309,7 +12314,9 @@ void RemoveMoney()
 				gpItemPointer = &gItemPointer;
 			}
 			//Asign the soldier to be the currently selected soldier
-			(void)SetItemPointerSoldier(GetItemDescSoldier());
+			(void)CopyJa2TacticalInventoryActor(
+				TacticalInventoryActorRole::ItemDescriptionOwner,
+				TacticalInventoryActorRole::ItemCursorOwner);
 
 			//Remove the money from the money in the pocket
 			//if we are removing money from the players account
@@ -13085,12 +13092,15 @@ BOOLEAN LoadItemCursorFromSavedGame( HWFILE hFile )
 	// Copy soldier ID
 	if ( SaveStruct.ubSoldierID == NOBODY )
 	{
-		(void)SetItemPointerSoldier(NULL);
+		ClearItemPointerSoldier();
 	}
 	else
 	{
-		(void)SetItemPointerSoldier(
-			GetJa2SoldierRepository().resolve(SaveStruct.ubSoldierID.i));
+		const TacticalEntityId actor =
+			GetJa2TacticalEntityId(
+				static_cast<std::uint16_t>(SaveStruct.ubSoldierID.i));
+		if (!SetItemPointerSoldier(actor))
+			ClearItemPointerSoldier();
 	}
 
 	// Inv slot
@@ -13105,7 +13115,7 @@ BOOLEAN LoadItemCursorFromSavedGame( HWFILE hFile )
 	else
 	{
 		gpItemPointer = NULL;
-		(void)SetItemPointerSoldier(NULL);
+		ClearItemPointerSoldier();
 	}
 
 	return( TRUE );
@@ -13191,10 +13201,11 @@ BOOLEAN InitializeStealItemPickupMenu( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOppo
 	// Erase other menus....
 	EraseInterfaceMenus( TRUE );
 
-	if (!SetItemPickupActor(pSoldier) || !SetItemPickupOpponent(pOpponent))
+	if (!SetItemPickupActor(GetJa2TacticalEntityId(*pSoldier)) ||
+		!SetItemPickupOpponent(GetJa2TacticalEntityId(*pOpponent)))
 	{
-		ClearJa2TacticalInventoryActor(TacticalInventoryActorRole::PickupActor);
-		ClearJa2TacticalInventoryActor(TacticalInventoryActorRole::PickupOpponent);
+		ClearItemPickupActor();
+		ClearItemPickupOpponent();
 		return FALSE;
 	}
 	gfStealing = TRUE;

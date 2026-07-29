@@ -1,7 +1,7 @@
 #ifndef __INTERFACE_PANELS
 #define __INTERFACE_PANELS
 
-#include "TacticalInventoryUiHost.h"
+#include "TacticalInventoryUiLegacy.h"
 
 enum
 {

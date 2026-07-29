@@ -1279,6 +1279,29 @@ endif()
 # Inventory panels and their modal children retain actor incarnations in the
 # runtime-owned TacticalInventoryUiSession. Keep the retired pointer globals
 # and pickup-menu member from returning under another call path.
+file(READ "${SOURCE_ROOT}/Ja2/TacticalInventoryUiHost.h"
+  tactical_inventory_host_contents)
+if(tactical_inventory_host_contents MATCHES "SOLDIERTYPE")
+  message(FATAL_ERROR
+    "TacticalInventoryUiHost exposes SOLDIERTYPE; stable producers must use TacticalEntityId")
+endif()
+string(REGEX MATCH
+  "(GetSMCurrentMerc|GetItemPointerSoldier|GetItemDescSoldier|GetAttachSoldier|GetItemPopupSoldier|GetItemPickupActor|GetItemPickupOpponent)[ \t\r\n]*\\("
+  tactical_inventory_raw_getter
+  "${tactical_inventory_host_contents}")
+if(tactical_inventory_raw_getter)
+  message(FATAL_ERROR
+    "TacticalInventoryUiHost exposes raw actor resolution; keep it in TacticalInventoryUiLegacy")
+endif()
+
+file(READ "${SOURCE_ROOT}/Ja2/TacticalInventoryUiLegacy.h"
+  tactical_inventory_legacy_contents)
+if(NOT tactical_inventory_legacy_contents MATCHES
+    "ResolveJa2TacticalInventoryActor")
+  message(FATAL_ERROR
+    "TacticalInventoryUiLegacy must retain the isolated compatibility resolver")
+endif()
+
 set(tactical_inventory_ui_files
   "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Map Inventory.cpp"
@@ -1306,6 +1329,14 @@ foreach(tactical_inventory_ui_file IN LISTS tactical_inventory_ui_files)
   if(raw_tactical_inventory_ui_actor)
     message(FATAL_ERROR
       "Inventory UI retains a retired raw actor in ${tactical_inventory_ui_file}; use TacticalInventoryUiHost")
+  endif()
+  string(REGEX MATCH
+    "Set(SMCurrentMerc|ItemPointerSoldier|ItemDescSoldier|AttachSoldier|ItemPopupSoldier|ItemPickupActor|ItemPickupOpponent)[ \t\r\n]*\\([ \t\r\n]*(NULL|nullptr|Get(SMCurrentMerc|ItemPointerSoldier|ItemDescSoldier|AttachSoldier|ItemPopupSoldier|ItemPickupActor|ItemPickupOpponent)[ \t\r\n]*\\()"
+    raw_tactical_inventory_ui_producer
+    "${contents}")
+  if(raw_tactical_inventory_ui_producer)
+    message(FATAL_ERROR
+      "Inventory UI producer passes a raw actor in ${tactical_inventory_ui_file}; capture or copy TacticalEntityId and clear roles explicitly")
   endif()
 endforeach()
 

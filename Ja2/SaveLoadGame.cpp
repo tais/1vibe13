@@ -8460,11 +8460,16 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 
 	// Restore the selected merc
 	if( sGeneralInfo.ubSMCurrentMercID == NOBODY)
-		(void)SetSMCurrentMerc(NULL);
+		ClearSMCurrentMerc();
 	else
-		(void)SetSMCurrentMerc(
-			GetJa2SoldierRepository().resolve(
-				sGeneralInfo.ubSMCurrentMercID.i));
+	{
+		const TacticalEntityId selectedMerc =
+			GetJa2TacticalEntityId(
+				static_cast<std::uint16_t>(
+					sGeneralInfo.ubSMCurrentMercID.i));
+		if (!SetSMCurrentMerc(selectedMerc))
+			ClearSMCurrentMerc();
+	}
 
 	//Set the interface panel to the team panel
 	ShutdownCurrentPanel( );
