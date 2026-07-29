@@ -1037,20 +1037,16 @@ void HandleDialogue( )
 		if( QItem.uiSpecialEventFlag & DIALOGUE_ADD_EVENT_FOR_SOLDIER_UPDATE_BOX )
 		{
 			INT32 iReason = 0;
-			SOLDIERTYPE *pUpdateSoldier = NULL;
 
 			iReason = QItem.uiSpecialEventData;
 
 			switch( iReason )
 			{
 				case( UPDATE_BOX_REASON_ADDSOLDIER ):
-					pUpdateSoldier =
-						GetJa2SoldierRepository().resolve(
-							QItem.uiSpecialEventData2);
-					if( pUpdateSoldier && pUpdateSoldier->roster().active() == TRUE )
-					{
-						AddSoldierToUpdateBox( pUpdateSoldier );
-					}
+					AddSoldierToUpdateBox(TacticalEntityId{
+						static_cast<UINT16>(
+							QItem.uiSpecialEventData2),
+						QItem.uiSpecialEventData3});
 				break;
 				case( UPDATE_BOX_REASON_SET_REASON ):
 					SetSoldierUpdateBoxReason( QItem.uiSpecialEventData2 );

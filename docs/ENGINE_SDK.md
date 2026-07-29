@@ -263,6 +263,12 @@ viewer use that same ID-only ingress. Search-scoped pathing cache state stores
 the identity value rather than its record address. Synthetic systems that do
 not represent live entities, such as the fixed air-raid attacker, resolve their
 owned compatibility record on demand and are never exposed as package actors.
+Map-screen movement and assignment-update sessions also accept only complete
+actor identities. Movement rows fail closed as one immutable callback-indexed
+snapshot, while non-interactive update rows discard stale incarnations and
+their owned face resources. Queued update dialogue transports both identity
+fields; none of this runtime-only state changes game-data or persistence
+formats.
 
 Every `EngineRuntime` owns a bounded `TacticalEntityDirectory`. In addition to
 slot/incarnation liveness, a host can commit the latest public

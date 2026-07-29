@@ -1,6 +1,8 @@
 #include "Map Screen Interface.h"
 #include "SoldierRepository.h"
+#include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
+#include <array>
 	#include "Map Screen Interface Map.h"
 	#include "Render Dirty.h"
 	#include "Font Control.h"
@@ -133,7 +135,6 @@ BOOLEAN fShowMapScreenHelpText = FALSE;
 BOOLEAN fScreenMaskForMoveCreated = FALSE;
 BOOLEAN fLockOutMapScreenInterface = FALSE;
 
-extern INT32 giMercPanelImage;
 extern BOOLEAN fShowDescriptionFlag;
 extern BOOLEAN fInMapMode;
 
@@ -197,13 +198,41 @@ extern INT32 giMapContractButton;
 extern INT32 giCharInfoButton[];
 extern STR16 pUpdatePanelButtons[];
 
-// the list of soldiers that are moving
-SOLDIERTYPE * pSoldierMovingList[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
-BOOLEAN fSoldierIsMoving[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
+namespace
+{
+struct MapScreenMovementActorEntry
+{
+	Ja2TacticalEntityReference actor;
+	BOOLEAN selected = FALSE;
 
-SOLDIERTYPE *pUpdateSoldierBox[ SIZE_OF_UPDATE_BOX ];
+	void reset() noexcept
+	{
+		actor.reset();
+		selected = FALSE;
+	}
+};
 
-INT32 giUpdateSoldierFaces[ SIZE_OF_UPDATE_BOX ];
+struct MapScreenUpdateActorEntry
+{
+	Ja2TacticalEntityReference actor;
+	INT32 face = 0;
+	BOOLEAN faceLoaded = FALSE;
+
+	void reset() noexcept
+	{
+		actor.reset();
+		face = 0;
+		faceLoaded = FALSE;
+	}
+};
+
+std::array<MapScreenMovementActorEntry,
+	CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS> gMapScreenMovementActors;
+std::array<MapScreenUpdateActorEntry,
+	SIZE_OF_UPDATE_BOX> gMapScreenUpdateActors;
+UINT32 gMapScreenUpdatePanelImage = 0;
+BOOLEAN gMapScreenUpdatePanelLoaded = FALSE;
+}
 
 // the squads thata re moving
 INT32 iSquadMovingList[ NUMBER_OF_SQUADS ];
@@ -228,6 +257,80 @@ extern MOUSE_REGION	gMPanelRegion;
 // has the inventory pool been selected to be on or off?
 BOOLEAN fMapInventoryPoolInited = FALSE;
 BOOLEAN fShowMapScreenMovementList = FALSE;
+
+namespace
+{
+SOLDIERTYPE* ResolveMovementActor(INT32 index) noexcept
+{
+	if (index < 0 ||
+		index >= static_cast<INT32>(
+			gMapScreenMovementActors.size()))
+		return nullptr;
+
+	MapScreenMovementActorEntry& entry =
+		gMapScreenMovementActors[
+			static_cast<std::size_t>(index)];
+	SOLDIERTYPE* soldier = entry.actor.resolve();
+	if (!soldier && entry.actor.valid())
+	{
+		// Mouse-region indices and displayed rows are built from one
+		// actor snapshot. Close the modal instead of silently binding
+		// that row to a reused slot or a different compacted entry.
+		entry.selected = FALSE;
+		fShowMapScreenMovementList = FALSE;
+	}
+	return soldier;
+}
+
+SOLDIERTYPE* ResolveUpdateBoxActor(INT32 index) noexcept
+{
+	if (index < 0 ||
+		index >= static_cast<INT32>(
+			gMapScreenUpdateActors.size()))
+		return nullptr;
+	return gMapScreenUpdateActors[
+		static_cast<std::size_t>(index)].actor.resolve();
+}
+
+INT32 CompactUpdateBoxActors() noexcept
+{
+	std::size_t writeIndex = 0;
+	for (std::size_t readIndex = 0;
+		 readIndex < gMapScreenUpdateActors.size();
+		 ++readIndex)
+	{
+		MapScreenUpdateActorEntry& entry =
+			gMapScreenUpdateActors[readIndex];
+		if (!entry.actor.valid() || !entry.actor.resolve())
+		{
+			if (entry.faceLoaded)
+				DeleteVideoObjectFromIndex(entry.face);
+			entry.reset();
+			continue;
+		}
+
+		if (writeIndex != readIndex)
+		{
+			gMapScreenUpdateActors[writeIndex] = entry;
+			entry.reset();
+		}
+		++writeIndex;
+	}
+	return static_cast<INT32>(writeIndex);
+}
+
+BOOLEAN ValidateMovementActorSession() noexcept
+{
+	for (INT32 index = 0;
+		 index < giNumberOfSoldiersInSectorMoving;
+		 ++index)
+	{
+		if (!ResolveMovementActor(index))
+			return FALSE;
+	}
+	return TRUE;
+}
+}
 
 
 MapScreenCharacterSt gCharactersList[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS+1];
@@ -3131,14 +3234,19 @@ void MapScreenHelpTextScreenMaskBtnCallback( MOUSE_REGION * pRegion, INT32 iReas
 }
 
 
-BOOLEAN IsSoldierSelectedForMovement( SOLDIERTYPE *pSoldier )
+BOOLEAN IsSoldierSelectedForMovement( TacticalEntityId actor )
 {
 	INT32 iCounter = 0;
 
 	// run through the list and turn this soldiers value on
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( ( pSoldierMovingList[ iCounter ] == pSoldier ) && ( fSoldierIsMoving[ iCounter ] ) )
+		const MapScreenMovementActorEntry& entry =
+			gMapScreenMovementActors[
+				static_cast<std::size_t>(iCounter)];
+		if (entry.actor.identity() == actor &&
+			entry.selected &&
+			ResolveMovementActor(iCounter))
 		{
 			return ( TRUE );
 		}
@@ -3180,11 +3288,11 @@ BOOLEAN IsVehicleSelectedForMovement( INT32 iVehicleId )
 
 
 
-void SelectSoldierForMovement( SOLDIERTYPE *pSoldier )
+void SelectSoldierForMovement( TacticalEntityId actor )
 {
 	INT32 iCounter = 0;
 
-	if( pSoldier == NULL )
+	if (!actor.valid())
 	{
 		return;
 	}
@@ -3192,20 +3300,24 @@ void SelectSoldierForMovement( SOLDIERTYPE *pSoldier )
 	// run through the list and turn this soldiers value on
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( pSoldierMovingList[ iCounter ] == pSoldier )
+		MapScreenMovementActorEntry& entry =
+			gMapScreenMovementActors[
+				static_cast<std::size_t>(iCounter)];
+		if (entry.actor.identity() == actor &&
+			ResolveMovementActor(iCounter))
 		{
 			// turn the selected soldier ON
-			fSoldierIsMoving[ iCounter ] = TRUE;
+			entry.selected = TRUE;
 			break;
 		}
 	}
 }
 
-void DeselectSoldierForMovement( SOLDIERTYPE *pSoldier )
+void DeselectSoldierForMovement( TacticalEntityId actor )
 {
 	INT32 iCounter = 0;
 
-	if( pSoldier == NULL )
+	if (!actor.valid())
 	{
 		return;
 	}
@@ -3213,10 +3325,13 @@ void DeselectSoldierForMovement( SOLDIERTYPE *pSoldier )
 	// run through the list and turn this soldier's value on
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( pSoldierMovingList[ iCounter ] == pSoldier )
+		MapScreenMovementActorEntry& entry =
+			gMapScreenMovementActors[
+				static_cast<std::size_t>(iCounter)];
+		if (entry.actor.identity() == actor)
 		{
 			// turn the selected soldier off
-			fSoldierIsMoving[ iCounter ] = FALSE;
+			entry.selected = FALSE;
 			break;
 		}
 	}
@@ -3250,7 +3365,8 @@ void SelectSquadForMovement( INT32 iSquadNumber, BOOLEAN fCheckCanMove = TRUE )
 					// is he able & allowed to move?	(Report only the first reason for failure encountered)
 					if (!fCheckCanMove || CanMoveBoxSoldierMoveStrategically( pSoldier, fFirstFailure ) )
 					{
-						SelectSoldierForMovement( pSoldier );
+						SelectSoldierForMovement(
+							GetJa2TacticalEntityId(*pSoldier));
 					}
 					else
 					{
@@ -3292,7 +3408,8 @@ void DeselectSquadForMovement( INT32 iSquadNumber )
 
 				if ( pSoldier && pSoldier->roster().active() )
 				{
-					DeselectSoldierForMovement( pSoldier );
+					DeselectSoldierForMovement(
+						GetJa2TacticalEntityId(*pSoldier));
 				}
 			}
 
@@ -3309,9 +3426,14 @@ BOOLEAN AllSoldiersInSquadSelected( INT32 iSquadNumber )
 	// is everyone on this squad moving?
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( pSoldierMovingList[ iCounter ]->assignment().current() == ( INT8 )iSquadNumber )
+		SOLDIERTYPE* pSoldier =
+			ResolveMovementActor(iCounter);
+		if (!pSoldier)
+			continue;
+		if( pSoldier->assignment().current() == ( INT8 )iSquadNumber )
 		{
-			if( fSoldierIsMoving[ iCounter ] == FALSE )
+			if (!gMapScreenMovementActors[
+					static_cast<std::size_t>(iCounter)].selected)
 			{
 				return( FALSE );
 			}
@@ -3353,7 +3475,8 @@ void SelectVehicleForMovement( INT32 iVehicleId, BOOLEAN fAndAllOnBoard )
 						// is he able & allowed to move?
 						if ( CanMoveBoxSoldierMoveStrategically( pPassenger, fFirstFailure ) )
 						{
-							SelectSoldierForMovement( pPassenger );
+							SelectSoldierForMovement(
+								GetJa2TacticalEntityId(*pPassenger));
 						}
 						else
 						{
@@ -3362,7 +3485,9 @@ void SelectVehicleForMovement( INT32 iVehicleId, BOOLEAN fAndAllOnBoard )
 					}
 				}
 
-				if( IsSoldierSelectedForMovement( pPassenger ) )
+				if (pPassenger &&
+					IsSoldierSelectedForMovement(
+						GetJa2TacticalEntityId(*pPassenger)))
 				{
 					fHasDriver = TRUE;
 				}
@@ -3400,7 +3525,8 @@ void DeselectVehicleForMovement( INT32 iVehicleId )
 
 				if ( pPassenger && pPassenger->roster().active() )
 				{
-					DeselectSoldierForMovement( pPassenger );
+					DeselectSoldierForMovement(
+						GetJa2TacticalEntityId(*pPassenger));
 				}
 			}
 
@@ -3416,11 +3542,16 @@ INT32 HowManyMovingSoldiersInVehicle( INT32 iVehicleId )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
+		SOLDIERTYPE* pSoldier =
+			ResolveMovementActor(iCounter);
+		if (!pSoldier)
+			continue;
 		// is he in the right vehicle
-		if( ( pSoldierMovingList[ iCounter ]->assignment().current() == VEHICLE )&&( pSoldierMovingList[ iCounter ]->deployment().vehicleId() == iVehicleId ) )
+		if( ( pSoldier->assignment().current() == VEHICLE )&&( pSoldier->deployment().vehicleId() == iVehicleId ) )
 		{
 			// if he moving?
-			if ( fSoldierIsMoving[ iCounter ] )
+			if (gMapScreenMovementActors[
+					static_cast<std::size_t>(iCounter)].selected)
 			{
 				// ok, another one in the vehicle that is going to move
 				iNumber++;
@@ -3437,11 +3568,16 @@ INT32 HowManyMovingSoldiersInSquad( INT32 iSquadNumber )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
+		SOLDIERTYPE* pSoldier =
+			ResolveMovementActor(iCounter);
+		if (!pSoldier)
+			continue;
 		// is he in the right squad
-		if( pSoldierMovingList[ iCounter ]->assignment().current() == iSquadNumber )
+		if( pSoldier->assignment().current() == iSquadNumber )
 		{
 			// if he moving?
-			if ( fSoldierIsMoving[ iCounter ] )
+			if (gMapScreenMovementActors[
+					static_cast<std::size_t>(iCounter)].selected)
 			{
 				// ok, another one in the squad that is going to move
 				iNumber++;
@@ -3454,22 +3590,25 @@ INT32 HowManyMovingSoldiersInSquad( INT32 iSquadNumber )
 
 
 // try to add this soldier to the moving lists
-void AddSoldierToMovingLists( SOLDIERTYPE *pSoldier )
+void AddSoldierToMovingLists( TacticalEntityId actor )
 {
-	INT32 iCounter = 0;
+	Ja2TacticalEntityReference capturedActor;
+	if (!capturedActor.capture(actor))
+		return;
 
-	for( iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounter++ )
+	for (MapScreenMovementActorEntry& entry :
+		gMapScreenMovementActors)
 	{
-		if( pSoldierMovingList[ iCounter ] == pSoldier )
+		if( entry.actor.identity() == actor )
 		{
 			// found
 			return;
 		}
-		else if( pSoldierMovingList[ iCounter ] == NULL )
+		else if( !entry.actor.valid() )
 		{
 			// found a free slot
-			pSoldierMovingList[ iCounter ] = pSoldier;
-			fSoldierIsMoving[ iCounter ] = FALSE;
+			entry.actor = capturedActor;
+			entry.selected = FALSE;
 
 			giNumberOfSoldiersInSectorMoving++;
 			return;
@@ -3554,12 +3693,10 @@ void InitializeMovingLists( void )
 	giNumberOfVehiclesInSectorMoving = 0;
 
 	// init the soldiers
-	for( iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounter++ )
+	for (MapScreenMovementActorEntry& entry :
+		gMapScreenMovementActors)
 	{
-		// soldier is NOT moving
-		pSoldierMovingList[ iCounter ] = NULL;
-		// turn the selected soldier off
-		fSoldierIsMoving[ iCounter ] = FALSE;
+		entry.reset();
 	}
 
 
@@ -3592,9 +3729,12 @@ BOOLEAN	IsAnythingSelectedForMoving( void )
 
 
 	// check soldiers
-	for( iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounter++ )
+	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if ( ( pSoldierMovingList[ iCounter ] != NULL ) && fSoldierIsMoving[ iCounter ] )
+		MapScreenMovementActorEntry& entry =
+			gMapScreenMovementActors[
+				static_cast<std::size_t>(iCounter)];
+		if (entry.selected && ResolveMovementActor(iCounter))
 		{
 			return( TRUE );
 		}
@@ -3631,6 +3771,11 @@ void CreateDestroyMovementBox( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 
 	// not allowed for underground movement!
 	Assert( sSectorZ == 0 );
+	if (fShowMapScreenMovementList &&
+		!ValidateMovementActorSession())
+	{
+		fShowMapScreenMovementList = FALSE;
+	}
 
 	if( ( fShowMapScreenMovementList == TRUE ) && ( fCreated == FALSE ) )
 	{
@@ -3702,7 +3847,8 @@ void SetUpMovingListsForSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 							( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->deployment().vehicleId() != iHelicopterVehicleId ) ) )
 					{
 						// add soldier
-						AddSoldierToMovingLists( pSoldier );
+						AddSoldierToMovingLists(
+							GetJa2TacticalEntityId(*pSoldier));
 
 						// if on a squad,
 						if ( pSoldier->assignment().current() < ON_DUTY )
@@ -3905,16 +4051,23 @@ void AddStringsToMoveBox( void )
 		// now add all the grunts in it
 		for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 		{
-			if( pSoldierMovingList[ iCountB ]->assignment().current() == iSquadMovingList[ iCount ] )
+			SOLDIERTYPE* pMovingSoldier =
+				ResolveMovementActor(iCountB);
+			if (!pMovingSoldier)
+				continue;
+			if( pMovingSoldier->assignment().current() == iSquadMovingList[ iCount ] )
 			{
 				// add mercs in squads
-				if( IsSoldierSelectedForMovement( pSoldierMovingList[ iCountB ] ) == TRUE )
+				if( IsSoldierSelectedForMovement(
+						gMapScreenMovementActors[
+							static_cast<std::size_t>(
+								iCountB)].actor.identity()) == TRUE )
 				{
-					swprintf( sString, L"  *%s*", pSoldierMovingList[ iCountB ]->identity().name() );
+					swprintf( sString, L"  *%s*", pMovingSoldier->identity().name() );
 				}
 				else
 				{
-					swprintf( sString, L"  %s", pSoldierMovingList[ iCountB ]->identity().name() );
+					swprintf( sString, L"  %s", pMovingSoldier->identity().name() );
 				}
 
 				if ( !isFirstColumnFull )
@@ -3993,16 +4146,23 @@ void AddStringsToMoveBox( void )
 		// now add all the grunts in it
 		for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 		{
-			if( ( pSoldierMovingList[ iCountB ]->assignment().current() == VEHICLE ) &&( pSoldierMovingList[ iCountB ]->deployment().vehicleId() == iVehicleMovingList[ iCount ] ) )
+			SOLDIERTYPE* pMovingSoldier =
+				ResolveMovementActor(iCountB);
+			if (!pMovingSoldier)
+				continue;
+			if( ( pMovingSoldier->assignment().current() == VEHICLE ) &&( pMovingSoldier->deployment().vehicleId() == iVehicleMovingList[ iCount ] ) )
 			{
 				// add mercs in vehicles
-				if( IsSoldierSelectedForMovement( pSoldierMovingList[ iCountB ] ) == TRUE )
+				if( IsSoldierSelectedForMovement(
+						gMapScreenMovementActors[
+							static_cast<std::size_t>(
+								iCountB)].actor.identity()) == TRUE )
 				{
-					swprintf( sString, L"  *%s*", pSoldierMovingList[ iCountB ]->identity().name() );
+					swprintf( sString, L"  *%s*", pMovingSoldier->identity().name() );
 				}
 				else
 				{
-					swprintf( sString, L"  %s", pSoldierMovingList[ iCountB ]->identity().name() );
+					swprintf( sString, L"  %s", pMovingSoldier->identity().name() );
 				}
 
 				if ( !isFirstColumnFull )
@@ -4050,8 +4210,12 @@ void AddStringsToMoveBox( void )
 	// add "other" soldiers heading, once, if there are any
 	for( iCount = 0; iCount < giNumberOfSoldiersInSectorMoving; iCount++ )
 	{
+		SOLDIERTYPE* pMovingSoldier =
+			ResolveMovementActor(iCount);
+		if (!pMovingSoldier)
+			continue;
 		// not on duty, not in a vehicle
-		if( ( pSoldierMovingList[ iCount ]->assignment().current() >= ON_DUTY ) && ( pSoldierMovingList[ iCount ]->assignment().current() != VEHICLE ) )
+		if( ( pMovingSoldier->assignment().current() >= ON_DUTY ) && ( pMovingSoldier->assignment().current() != VEHICLE ) )
 		{
 			if ( fFirstOne )
 			{
@@ -4070,13 +4234,16 @@ void AddStringsToMoveBox( void )
 			}
 
 			// add OTHER soldiers (not on duty nor in a vehicle)
-			if( IsSoldierSelectedForMovement( pSoldierMovingList[ iCount ] ) == TRUE )
+			if( IsSoldierSelectedForMovement(
+					gMapScreenMovementActors[
+						static_cast<std::size_t>(
+							iCount)].actor.identity()) == TRUE )
 			{
-				swprintf( sString, L" *%s ( %s )*", pSoldierMovingList[ iCount ]->identity().name(), pAssignmentStrings[	pSoldierMovingList[ iCount ]->assignment().current() ] );
+				swprintf( sString, L" *%s ( %s )*", pMovingSoldier->identity().name(), pAssignmentStrings[	pMovingSoldier->assignment().current() ] );
 			}
 			else
 			{
-				swprintf( sString, L" %s ( %s )", pSoldierMovingList[ iCount ]->identity().name(), pAssignmentStrings[	pSoldierMovingList[ iCount ]->assignment().current() ] );
+				swprintf( sString, L" %s ( %s )", pMovingSoldier->identity().name(), pAssignmentStrings[	pMovingSoldier->assignment().current() ] );
 			}
 			AddMonoString(&hStringHandle, sString );
 		}
@@ -4244,7 +4411,11 @@ void BuildMouseRegionsForMoveBox( void )
 			// Squad soldiers
 			for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 			{
-				if( pSoldierMovingList[ iCountB ]->assignment().current() == iSquadMovingList[ iCount ] )
+				SOLDIERTYPE* pMovingSoldier =
+					ResolveMovementActor(iCountB);
+				if (!pMovingSoldier)
+					continue;
+				if( pMovingSoldier->assignment().current() == iSquadMovingList[ iCount ] )
 				{
 					tlx = iBoxXPosition;
 					tly = iBoxYPosition + iFontHeight * iCounter;
@@ -4386,7 +4557,11 @@ void BuildMouseRegionsForMoveBox( void )
 			// Soldiers inside a vehicle
 			for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 			{
-				if( ( pSoldierMovingList[ iCountB ]->assignment().current() == VEHICLE ) &&( pSoldierMovingList[ iCountB ]->deployment().vehicleId() == iVehicleMovingList[ iCount ] ) )
+				SOLDIERTYPE* pMovingSoldier =
+					ResolveMovementActor(iCountB);
+				if (!pMovingSoldier)
+					continue;
+				if( ( pMovingSoldier->assignment().current() == VEHICLE ) &&( pMovingSoldier->deployment().vehicleId() == iVehicleMovingList[ iCount ] ) )
 				{
 					tlx = iBoxXPosition;
 					tly = iBoxYPosition + iFontHeight * iCounter;
@@ -4466,8 +4641,12 @@ void BuildMouseRegionsForMoveBox( void )
 		// define regions for "other" soldiers
 		for( iCount = 0; iCount < giNumberOfSoldiersInSectorMoving; iCount++ )
 		{
+			SOLDIERTYPE* pMovingSoldier =
+				ResolveMovementActor(iCount);
+			if (!pMovingSoldier)
+				continue;
 			// this guy is not in a squad or vehicle
-			if( ( pSoldierMovingList[ iCount ]->assignment().current() >= ON_DUTY )&&( pSoldierMovingList[ iCount ]->assignment().current() != VEHICLE ) )
+			if( ( pMovingSoldier->assignment().current() >= ON_DUTY )&&( pMovingSoldier->assignment().current() != VEHICLE ) )
 			{
 				// this line gets place only once...
 				if( !fDefinedOtherRegion )
@@ -4681,7 +4860,16 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 			}
 			else if( iRegionType == SOLDIER_REGION )
 			{
-				pSoldier = pSoldierMovingList[ iListIndex ];
+				pSoldier = ResolveMovementActor(iListIndex);
+				if (!pSoldier)
+				{
+					fShowMapScreenMovementList = FALSE;
+					return;
+				}
+				const TacticalEntityId actor =
+					gMapScreenMovementActors[
+						static_cast<std::size_t>(
+							iListIndex)].actor.identity();
 
 				if ( pSoldier->deployment().isBetweenSectors() )
 				{
@@ -4692,7 +4880,7 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 				}
 
 				// if soldier is currently selected to move
-				if( IsSoldierSelectedForMovement( pSoldier ) )
+				if( IsSoldierSelectedForMovement( actor ) )
 				{
 					// change him to NOT move instead
 
@@ -4707,7 +4895,7 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 						else
 						{
 							// soldier is staying behind
-							DeselectSoldierForMovement( pSoldier );
+							DeselectSoldierForMovement( actor );
 						}
 					}
 					else if( pSoldier->assignment().current() < ON_DUTY )
@@ -4721,13 +4909,13 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 						else
 						{
 							// soldier is staying behind
-							DeselectSoldierForMovement( pSoldier );
+							DeselectSoldierForMovement( actor );
 						}
 					}
 					else
 					{
 						// soldier is staying behind
-						DeselectSoldierForMovement( pSoldier );
+						DeselectSoldierForMovement( actor );
 					}
 				}
 				else	// currently NOT moving
@@ -4736,7 +4924,7 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 					if ( CanMoveBoxSoldierMoveStrategically( pSoldier, TRUE ) )
 					{
 						// change him to move instead
-						SelectSoldierForMovement( pSoldier );
+						SelectSoldierForMovement( actor );
 
 						if( pSoldier->assignment().current() < ON_DUTY )
 						{
@@ -4825,11 +5013,17 @@ void SelectAllOtherSoldiersInList( void )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( ( pSoldierMovingList[ iCounter ]->assignment().current() >= ON_DUTY ) && ( pSoldierMovingList[ iCounter ]->assignment().current() != VEHICLE ) )
+		SOLDIERTYPE* pSoldier =
+			ResolveMovementActor(iCounter);
+		if (!pSoldier)
+			continue;
+		if( ( pSoldier->assignment().current() >= ON_DUTY ) && ( pSoldier->assignment().current() != VEHICLE ) )
 		{
-			if ( CanMoveBoxSoldierMoveStrategically( pSoldierMovingList[ iCounter ], FALSE ) )
+			if ( CanMoveBoxSoldierMoveStrategically( pSoldier, FALSE ) )
 			{
-				fSoldierIsMoving[ iCounter ] = TRUE;
+				gMapScreenMovementActors[
+					static_cast<std::size_t>(
+						iCounter)].selected = TRUE;
 			}
 			else
 			{
@@ -4853,9 +5047,15 @@ void DeselectAllOtherSoldiersInList( void )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( ( pSoldierMovingList[ iCounter ]->assignment().current() >= ON_DUTY ) && ( pSoldierMovingList[ iCounter ]->assignment().current() != VEHICLE ) )
+		SOLDIERTYPE* pSoldier =
+			ResolveMovementActor(iCounter);
+		if (!pSoldier)
+			continue;
+		if( ( pSoldier->assignment().current() >= ON_DUTY ) && ( pSoldier->assignment().current() != VEHICLE ) )
 		{
-			fSoldierIsMoving[ iCounter ] = FALSE;
+			gMapScreenMovementActors[
+				static_cast<std::size_t>(
+					iCounter)].selected = FALSE;
 		}
 	}
 }
@@ -4876,7 +5076,12 @@ void HandleMoveoutOfSectorMovementTroops( void )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		pSoldier = pSoldierMovingList[ iCounter ];
+		MapScreenMovementActorEntry& entry =
+			gMapScreenMovementActors[
+				static_cast<std::size_t>(iCounter)];
+		pSoldier = ResolveMovementActor(iCounter);
+		if (!pSoldier)
+			continue;
 
 		fCheckForCompatibleSquad = FALSE;
 
@@ -4884,7 +5089,7 @@ void HandleMoveoutOfSectorMovementTroops( void )
 		if( pSoldier->assignment().current() < ON_DUTY )
 		{
 			// if he and his squad are parting ways (soldier is staying behind, but squad is leaving, or vice versa)
-			if( fSoldierIsMoving[ iCounter ] != IsSquadSelectedForMovement( pSoldier->assignment().current() ) )
+			if( entry.selected != IsSquadSelectedForMovement( pSoldier->assignment().current() ) )
 			{
 				// split the guy from his squad to any other compatible squad
 				fCheckForCompatibleSquad = TRUE;
@@ -4894,7 +5099,7 @@ void HandleMoveoutOfSectorMovementTroops( void )
 		else if( pSoldier->assignment().current() == VEHICLE )
 		{
 			// if he and his vehicle are parting ways (soldier is staying behind, but vehicle is leaving, or vice versa)
-			if( fSoldierIsMoving[ iCounter ] != IsVehicleSelectedForMovement( pSoldier->deployment().vehicleId() ) )
+			if( entry.selected != IsVehicleSelectedForMovement( pSoldier->deployment().vehicleId() ) )
 			{
 				// split the guy from his vehicle to any other compatible squad
 				fCheckForCompatibleSquad = TRUE;
@@ -4903,7 +5108,7 @@ void HandleMoveoutOfSectorMovementTroops( void )
 		else	// on his own - not on a squad or in a vehicle
 		{
 			// if he's going anywhere
-			if( fSoldierIsMoving[ iCounter ] )
+			if( entry.selected )
 			{
 				// find out if anyone is going with this guy...see if he can tag along
 				fCheckForCompatibleSquad = TRUE;
@@ -4921,7 +5126,7 @@ void HandleMoveoutOfSectorMovementTroops( void )
 				{
 					AssertMsg( 0, String( "HandleMoveoutOfSectorMovementTroops: AddCharacterToSquad %d failed, iCounter %d", iSquadNumber, iCounter ) );
 					// toggle whether he's going or not to try and recover somewhat gracefully
-					fSoldierIsMoving[ iCounter ] = !fSoldierIsMoving[ iCounter ];
+					entry.selected = !entry.selected;
 				}
 			}
 			else
@@ -4934,7 +5139,7 @@ void HandleMoveoutOfSectorMovementTroops( void )
 					AddSquadToMovingLists( iSquadNumber );
 
 					// If this guy is moving
-					if( fSoldierIsMoving[ iCounter ] )
+					if( entry.selected )
 					{
 						// mark this new squad as moving too, so those moving can join it
 						SelectSquadForMovement( iSquadNumber , FALSE);
@@ -4945,7 +5150,7 @@ void HandleMoveoutOfSectorMovementTroops( void )
 					// failed - should never happen!
 					AssertMsg( 0, String( "HandleMoveoutOfSectorMovementTroops: AddCharacterToUniqueSquad failed, iCounter %d", iCounter ) );
 					// toggle whether he's going or not to try and recover somewhat gracefully
-					fSoldierIsMoving[ iCounter ] = !fSoldierIsMoving[ iCounter ];
+					entry.selected = !entry.selected;
 				}
 			}
 		}
@@ -4983,7 +5188,8 @@ void HandleSettingTheSelectedListOfMercs( void )
 			}
 			else
 			{
-				fSelected = IsSoldierSelectedForMovement( pSoldier );
+				fSelected = IsSoldierSelectedForMovement(
+					GetJa2TacticalEntityId(*pSoldier));
 			}
 
 			// is he/she selected for movement?
@@ -5089,9 +5295,15 @@ BOOLEAN AllOtherSoldiersInListAreSelected( void )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( ( pSoldierMovingList[ iCounter ]->assignment().current() >= ON_DUTY ) && (	pSoldierMovingList[ iCounter ]->assignment().current() >= VEHICLE ) )
+		SOLDIERTYPE* pSoldier =
+			ResolveMovementActor(iCounter);
+		if (!pSoldier)
+			continue;
+		if( ( pSoldier->assignment().current() >= ON_DUTY ) && (	pSoldier->assignment().current() >= VEHICLE ) )
 		{
-			if( fSoldierIsMoving[ iCounter ] == FALSE )
+			if (!gMapScreenMovementActors[
+					static_cast<std::size_t>(
+						iCounter)].selected)
 			{
 				return( FALSE );
 			}
@@ -5156,7 +5368,9 @@ INT8 FindSquadThatSoldierCanJoin( SOLDIERTYPE *pSoldier )
 				if (IsThisSquadFull(bCounter) == FALSE)
 				{
 					// is it doing the same thing as the soldier is (staying or going) ?
-					if (IsSquadSelectedForMovement(bCounter) == IsSoldierSelectedForMovement(pSoldier))
+					if (IsSquadSelectedForMovement(bCounter) ==
+						IsSoldierSelectedForMovement(
+							GetJa2TacticalEntityId(*pSoldier)))
 					{
 						// go ourselves a match, then
 						return(bCounter);
@@ -5241,79 +5455,46 @@ void MoveScreenMaskBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 
 void ResetSoldierUpdateBox( void )
 {
-	INT32 iCounter = 0;
-
-	// delete any loaded faces
-	for( iCounter = 0; iCounter < SIZE_OF_UPDATE_BOX; iCounter++ )
+	for (MapScreenUpdateActorEntry& entry :
+		gMapScreenUpdateActors)
 	{
-		if( pUpdateSoldierBox[ iCounter ] != NULL )
-		{
-			DeleteVideoObjectFromIndex( giUpdateSoldierFaces[ iCounter ] );
-		}
+		if (entry.faceLoaded)
+			DeleteVideoObjectFromIndex(entry.face);
+		entry.reset();
 	}
 
-	if( giMercPanelImage != 0 )
+	if (gMapScreenUpdatePanelLoaded)
 	{
-		DeleteVideoObjectFromIndex( giMercPanelImage );
+		DeleteVideoObjectFromIndex(
+			gMapScreenUpdatePanelImage);
+		gMapScreenUpdatePanelImage = 0;
+		gMapScreenUpdatePanelLoaded = FALSE;
 	}
-
-	// reset the soldier ptrs in the update box
-	for( iCounter = 0; iCounter < SIZE_OF_UPDATE_BOX; iCounter++ )
-	{
-		pUpdateSoldierBox[ iCounter ] = NULL;
-	}
-
-
-	return;
 }
 
 
 INT32 GetNumberOfMercsInUpdateList( void )
 {
-	INT32 iCounter = 0, iCount = 0;
-
-	// run through the non-empty slots
-	for( iCounter = 0; iCounter < SIZE_OF_UPDATE_BOX; iCounter++ )
-	{
-		// valid guy here
-		if( pUpdateSoldierBox[ iCounter ] != NULL )
-		{
-			iCount++;
-		}
-	}
-
-	return( iCount );
+	return CompactUpdateBoxActors();
 }
 
 BOOLEAN IsThePopUpBoxEmpty( void )
 {
-	INT32 iCounter = 0;
-	BOOLEAN fEmpty = TRUE;
-
-	// run through the non-empty slots
-	for( iCounter = 0; iCounter < SIZE_OF_UPDATE_BOX; iCounter++ )
-	{
-		// valid guy here
-		if( pUpdateSoldierBox[ iCounter ] != NULL )
-		{
-			fEmpty = FALSE;
-		}
-	}
-
-	return( fEmpty );
+	return GetNumberOfMercsInUpdateList() == 0;
 }
 
 
-void AddSoldierToWaitingListQueue( SOLDIERTYPE *pSoldier )
+void AddSoldierToWaitingListQueue( TacticalEntityId actor )
 {
-	INT32 iSoldierId = 0;
-
-
-	// get soldier profile
-	iSoldierId = pSoldier->identity().id();
-
-	SpecialCharacterDialogueEvent( DIALOGUE_ADD_EVENT_FOR_SOLDIER_UPDATE_BOX, UPDATE_BOX_REASON_ADDSOLDIER, iSoldierId, 0, 0, 0 );
-	return;
+	if (!ResolveJa2TacticalEntity(actor))
+		return;
+	SpecialCharacterDialogueEvent(
+		DIALOGUE_ADD_EVENT_FOR_SOLDIER_UPDATE_BOX,
+		UPDATE_BOX_REASON_ADDSOLDIER,
+		actor.slot,
+		actor.incarnation,
+		0,
+		0);
 }
 
 
@@ -5339,14 +5520,15 @@ void ShowUpdateBox( void )
 	fShowUpdateBox = TRUE;
 }
 
-void AddSoldierToUpdateBox( SOLDIERTYPE *pSoldier )
+void AddSoldierToUpdateBox( TacticalEntityId actor )
 {
-	INT32 iCounter = 0;
-	VOBJECT_DESC VObjectDesc;
-
-
-
-	// going to load face
+	Ja2TacticalEntityReference capturedActor;
+	if (!capturedActor.capture(actor))
+		return;
+	SOLDIERTYPE* pSoldier = capturedActor.resolve();
+	if (!pSoldier)
+		return;
+	VOBJECT_DESC VObjectDesc{};
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 
 	if( pSoldier->vitals().health() == 0 )
@@ -5359,64 +5541,63 @@ void AddSoldierToUpdateBox( SOLDIERTYPE *pSoldier )
 		return;
 	}
 
-	// if update
-	if( pUpdateSoldierBox[ iCounter ] == NULL )
+	CompactUpdateBoxActors();
+	if (!gMapScreenUpdatePanelLoaded)
 	{
-		sprintf( VObjectDesc.ImageFile, "Interface\\panels.sti" );
-		if( !AddVideoObject( &VObjectDesc, (UINT32 *)&giMercPanelImage ) )
+		snprintf(
+			VObjectDesc.ImageFile,
+			sizeof(VObjectDesc.ImageFile),
+			"%s",
+			"Interface\\panels.sti");
+		if (!AddVideoObject(
+				&VObjectDesc,
+				&gMapScreenUpdatePanelImage))
 		{
 			AssertMsg( 0, "Failed to load Interface\\panels.sti" );
+			return;
 		}
+		gMapScreenUpdatePanelLoaded = TRUE;
 	}
 
 	// run thought list of update soldiers
-	for( iCounter = 0; iCounter < SIZE_OF_UPDATE_BOX; iCounter++ )
+	for (MapScreenUpdateActorEntry& entry :
+		gMapScreenUpdateActors)
 	{
 		// find a free slot
-		if( pUpdateSoldierBox[ iCounter ] == NULL )
+		if (!entry.actor.valid())
 		{
-			// add to box
-			pUpdateSoldierBox[ iCounter ] = pSoldier;
-			
-			
-			
-		if ( ( gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex < 100 ) && gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP )
-		{
-			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%02d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
-		} 
-		else if ( ( gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex > 99 ) && gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP )
-		{			
-			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%03d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
-		}
-		else if( gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex < 100 )
-		{			
-			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
-		}
-		else if( gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex > 99 )
-		{			
-			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%03d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
-		}
-			
-			
-/*
-			if( gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex < 100 )
+			const auto& profile =
+				gMercProfiles[pSoldier->identity().profile()];
+			if (profile.Type == PROFILETYPE_IMP)
 			{
-				// grab filename of face
-				sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
+				snprintf(
+					VObjectDesc.ImageFile,
+					sizeof(VObjectDesc.ImageFile),
+					profile.ubFaceIndex < 100
+						? "IMPFaces\\65Face\\%02d.sti"
+						: "IMPFaces\\65Face\\%03d.sti",
+					profile.ubFaceIndex);
 			}
 			else
 			{
-				// grab filename of face
-				sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%03d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
+				snprintf(
+					VObjectDesc.ImageFile,
+					sizeof(VObjectDesc.ImageFile),
+					profile.ubFaceIndex < 100
+						? "Faces\\65Face\\%02d.sti"
+						: "Faces\\65Face\\%03d.sti",
+					profile.ubFaceIndex);
 			}
-*/
-			// load the face
-			AddVideoObject( &VObjectDesc, (UINT32 *)&giUpdateSoldierFaces[ iCounter ] );
 
+			UINT32 face = 0;
+			if (!AddVideoObject(&VObjectDesc, &face))
+				return;
+			entry.actor = capturedActor;
+			entry.face = static_cast<INT32>(face);
+			entry.faceLoaded = TRUE;
 			return;
 		}
 	}
-	return;
 }
 
 void SetSoldierUpdateBoxReason( INT32 iReason )
@@ -5566,6 +5747,8 @@ void DisplaySoldierUpdateBox( )
 	//loop through the mercs to be displayed
 	for( iCounter = 0; iCounter < ( iNumberOfMercsOnUpdatePanel <= NUMBER_OF_MERC_COLUMNS_FOR_TWO_WIDE_MODE ? NUMBER_OF_MERC_COLUMNS_FOR_TWO_WIDE_MODE : iNumberOfMercsOnUpdatePanel ); iCounter++ )
 	{
+		SOLDIERTYPE* pUpdateSoldier =
+			ResolveUpdateBoxActor(iCounter);
 		//
 		// blt the face and name
 		//
@@ -5575,7 +5758,7 @@ void DisplaySoldierUpdateBox( )
 		iFaceY = iY + ( iCounter / iNumberWide ) * TACT_UPDATE_MERC_FACE_X_HEIGHT +	REASON_FOR_SOLDIER_UPDATE_OFFSET_Y;
 
 		// now get the face
-		if( pUpdateSoldierBox[ iCounter ] )
+		if( pUpdateSoldier )
 		{
 			iFaceX += TACT_UPDATE_MERC_FACE_X_OFFSET;
 			iFaceY += TACT_UPDATE_MERC_FACE_Y_OFFSET;
@@ -5584,7 +5767,7 @@ void DisplaySoldierUpdateBox( )
 			RenderSoldierSmallFaceForUpdatePanel( iCounter, iFaceX, iFaceY );
 
 			// display the mercs name
-			swprintf( sString, L"%s", pUpdateSoldierBox[ iCounter ]->identity().name() );
+			swprintf( sString, L"%s", pUpdateSoldier->identity().name() );
 			DrawTextToScreen( sString, (UINT16)(iFaceX-5), (UINT16)(iFaceY + 31), 57, TINYFONT1, FONT_LTRED, FONT_BLACK, 0, CENTER_JUSTIFIED );
 		}
 	}
@@ -5785,10 +5968,12 @@ void CreateUpdateBoxStrings( void )
 
 	for( iCounter = 0; iCounter < SIZE_OF_UPDATE_BOX; iCounter++ )
 	{
+		SOLDIERTYPE* pUpdateSoldier =
+			ResolveUpdateBoxActor(iCounter);
 		// find valid soldier, add name
-		if( pUpdateSoldierBox[ iCounter ] )
+		if( pUpdateSoldier )
 		{
-			swprintf( sString, L"%s", pUpdateSoldierBox[ iCounter ]->name );
+			swprintf( sString, L"%s", pUpdateSoldier->identity().name() );
 			AddMonoString(&hStringHandle, sString );
 		}
 	}
@@ -5844,6 +6029,7 @@ void CreateDestroyTheUpdateBox( void )
 
 		if( GetNumberOfMercsInUpdateList( ) == 0 )
 		{
+			ResetSoldierUpdateBox();
 			fShowUpdateBox = FALSE;
 			return;
 		}
@@ -5911,19 +6097,34 @@ void UpdateButtonsDuringCharacterDialogueSubTitles( void )
 void RenderSoldierSmallFaceForUpdatePanel( INT32 iIndex, INT32 iX, INT32 iY )
 {
 	INT32 iStartY = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	SOLDIERTYPE *pSoldier =
+		ResolveUpdateBoxActor(iIndex);
+	if (!pSoldier ||
+		iIndex < 0 ||
+		iIndex >= static_cast<INT32>(
+			gMapScreenUpdateActors.size()))
+		return;
+	const MapScreenUpdateActorEntry& entry =
+		gMapScreenUpdateActors[
+			static_cast<std::size_t>(iIndex)];
+	if (!entry.faceLoaded)
+		return;
 
 	// fill the background for the info bars black
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+36, iY+2, iX+44,	iY+30, 0 );
 
 	// put down the background
-	BltVideoObjectFromIndex( guiSAVEBUFFER, giMercPanelImage, 0, iX, iY, VO_BLT_SRCTRANSPARENCY, NULL );
+	BltVideoObjectFromIndex(
+		guiSAVEBUFFER,
+		gMapScreenUpdatePanelImage,
+		0,
+		iX,
+		iY,
+		VO_BLT_SRCTRANSPARENCY,
+		NULL);
 
 	// grab the face
-	BltVideoObjectFromIndex( guiSAVEBUFFER , giUpdateSoldierFaces[ iIndex ], 0, iX+2, iY+2, VO_BLT_SRCTRANSPARENCY, NULL );
-
-	//HEALTH BAR
-	pSoldier = pUpdateSoldierBox[ iIndex ];
+	BltVideoObjectFromIndex( guiSAVEBUFFER , entry.face, 0, iX+2, iY+2, VO_BLT_SRCTRANSPARENCY, NULL );
 
 	// is the merc alive?
 	if( !pSoldier->vitals().health() )

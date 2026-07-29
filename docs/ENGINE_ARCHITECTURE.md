@@ -376,6 +376,15 @@ the engine must not contain SDL types in its public domain model.
   instead of operating on its replacement. The pathfinding backpack cache also
   keys its search-scoped value by slot plus incarnation rather than retaining
   the search actor pointer.
+- Strategic map UI sessions use the same exact-identity boundary. Movement-box
+  rows retain actor incarnations for the lifetime of the modal and close the
+  snapshot if any row becomes stale, preserving the row-to-mouse-region
+  mapping instead of silently compacting it onto another merc. Assignment
+  update rows may compact safely because they are not callback-indexed; stale
+  rows release their face resources, while the dialogue queue carries both the
+  actor slot and incarnation to the consumer. These contexts remain
+  runtime-only and do not alter save, map, XML, Lua, package, or installed-data
+  formats.
 - Debug and synthetic actors no longer bypass that ownership model. Quest
   dialogue and the animation viewer retain exact live identities. The air-raid
   attacker remains the established fixed compatibility record but stores only
