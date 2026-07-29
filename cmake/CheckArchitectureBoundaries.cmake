@@ -2156,6 +2156,12 @@ file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
   tactical_actor_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.h"
   tactical_actor_components_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.h"
+  tactical_actor_conditions_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.cpp"
+  tactical_actor_conditions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
+  tactical_build_contents)
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.h"
   tactical_actor_persistence_header_contents)
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
@@ -2352,6 +2358,62 @@ foreach(retired_persistence_method IN ITEMS
       "TacticalActor regained persistence facade '${retired_persistence_method}'")
   endif()
 endforeach()
+
+foreach(retired_condition_method IN ITEMS
+  "IsZombie"
+  "IsAssassin"
+  "CanBeCaptured"
+  "IsCowering"
+  "IsUnconscious"
+  "IsGivingAid"
+  "TakenLargeHit"
+  "ShockLevelPercent")
+  string(FIND "${tactical_actor_contents}"
+    "${retired_condition_method}("
+    retired_condition_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActor::${retired_condition_method}"
+    retired_condition_definition)
+  if(NOT retired_condition_declaration EQUAL -1 OR
+     NOT retired_condition_definition EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalActor regained condition facade '${retired_condition_method}'")
+  endif()
+endforeach()
+
+foreach(required_condition_query IN ITEMS
+  "isZombie"
+  "isAssassin"
+  "canBeCaptured"
+  "isCowering"
+  "isUnconscious"
+  "isGivingAid"
+  "hasTakenLargeHit"
+  "suppressionShockPercent")
+  string(FIND "${tactical_actor_conditions_header_contents}"
+    "${required_condition_query}(const TacticalActor& actor)"
+    condition_query_declaration)
+  string(FIND "${tactical_actor_conditions_source_contents}"
+    "${required_condition_query}(const TacticalActor& actor)"
+    condition_query_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorConditions::${required_condition_query}"
+    condition_query_coverage)
+  if(condition_query_declaration EQUAL -1 OR
+     condition_query_definition EQUAL -1 OR
+     condition_query_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor condition query '${required_condition_query}' lost its domain declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+string(FIND "${tactical_build_contents}"
+  "TacticalActorConditions.cpp"
+  tactical_actor_conditions_build_entry)
+if(tactical_actor_conditions_build_entry EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor conditions must remain a compiled tactical domain boundary")
+endif()
 
 foreach(required_persistence_fragment IN ITEMS
   "ComputeTacticalActorChecksum"

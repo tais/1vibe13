@@ -1,4 +1,5 @@
 	#include "types.h"
+	#include "TacticalActorConditions.h"
 	#include "SoldierRepository.h"
 	#include "FileMan.h"
 	#include "himage.h"
@@ -1713,7 +1714,7 @@ void DetermineOtherCreatureTownCompositionBasedOnTacticalInformation( UINT16* pu
 		pSoldier = GetJa2SoldierRepository().resolve(i);
 		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() )
 		{
-			if ( pSoldier->IsZombie() )
+			if ( TacticalActorConditions::isZombie(*pSoldier) )
 			{
 				( *pubNumCreatures )++;
 				( *pubNumZombies )++;

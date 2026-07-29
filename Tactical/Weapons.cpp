@@ -1,4 +1,5 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include "TacticalActorConditions.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
@@ -4714,7 +4715,7 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 				UINT8 ubCounterattackChance = EffectiveDexterity(pTargetSoldier, FALSE) * (100 + pTargetSoldier->vitals().breath()) / 200;
 
 				// halve chance for counterattack if boxer was hit recently
-				if (pTargetSoldier->TakenLargeHit())
+				if (TacticalActorConditions::hasTakenLargeHit(*pTargetSoldier))
 					ubCounterattackChance /= 2;
 
 				// sevenfm: possibly counterattack when boxing
@@ -7981,7 +7982,7 @@ INT32 BulletImpact( TacticalActor *pFirer, BULLET *pBullet, TacticalActor * pTar
 	INT8					bStatLoss = 0;
 	UINT8					ubAmmoType;
 
-	if ( pTarget->IsZombie() )
+	if ( TacticalActorConditions::isZombie(*pTarget) )
 	{
 		// if bullet does not hits anything other than the head, it doesn't do any damage
 		if ( gGameExternalOptions.fZombieOnlyHeadshotsWork && ubHitLocation != AIM_SHOT_HEAD )
@@ -8022,7 +8023,7 @@ INT32 BulletImpact( TacticalActor *pFirer, BULLET *pBullet, TacticalActor * pTar
 	// Flugente: ammotype can alter the damage dealt
 	FLOAT damagefactor = AmmoTypes[ubAmmoType].dDamageModifierLife;
 
-	if ( pTarget->IsZombie( ) )
+	if ( TacticalActorConditions::isZombie(*pTarget) )
 	{
 		damagefactor *= AmmoTypes[ubAmmoType].dDamageModifierZombie;
 	}
@@ -8910,7 +8911,7 @@ INT32 HTHImpact( TacticalActor * pSoldier, TacticalActor * pTarget, INT32 iHitBy
 	iImpact = max( 1, (INT32)(iImpact * (100 - pTarget->GetDamageResistance(autoresolve, FALSE)) / 100 ) );
 
 	// Flugente: if the target is a zombie, any melee attack, regardless of hit location, will set the headshot flag. Thus any zombie killed in melee will stay dead (if you play with that option)
-	if ( pTarget->IsZombie() )
+	if ( TacticalActorConditions::isZombie(*pTarget) )
 	{
 		// set a flag if this was a headshot, unset if it wasn't. Thus we can determine if this was a headshot kill (only if life > 0, ignore if already dead)
 		if ( gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && pTarget->vitals().health() > 0 )

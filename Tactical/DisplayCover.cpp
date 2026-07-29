@@ -1,4 +1,5 @@
 #include "types.h"
+#include "TacticalActorConditions.h"
 #include "Isometric Utils.h"
 #include "Overhead.h"
 #include "DisplayCover.h"
@@ -602,7 +603,7 @@ void CalculateCoverFromEnemies()
 		}
 
 		pOpponents.push_back(pOpponent);
-		bCowering.push_back(pOpponent->IsCowering());
+		bCowering.push_back(TacticalActorConditions::isCowering(*pOpponent));
 		tunnelVision.push_back(GetPercentTunnelVision(pOpponent));
 	}
 

@@ -1,4 +1,5 @@
 	#include "Items.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 	#include "Action Items.h"
 	#include "Weapons.h"
@@ -11972,7 +11973,7 @@ UINT8 GetPercentTunnelVision( TacticalActor * pSoldier )
 		IS_MERC_BODY_TYPE(pSoldier) && (pSoldier->roster().team() == ENEMY_TEAM || pSoldier->roster().team() == MILITIA_TEAM || pSoldier->roster().team() == gbPlayerNum) )
 	{
 		// Make sure character is cowering.
-		if ( pSoldier->IsCowering() && gGameExternalOptions.ubMaxSuppressionShock > 0 && 
+		if ( TacticalActorConditions::isCowering(*pSoldier) && gGameExternalOptions.ubMaxSuppressionShock > 0 &&
 			bonus < 100 )
 		{
 			// Calculates a "Flat" tunnel vision percentage

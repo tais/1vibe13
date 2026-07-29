@@ -1,4 +1,5 @@
 #include "Soldier Functions.h"
+#include "TacticalActorConditions.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "builddefines.h"
@@ -6162,7 +6163,7 @@ BOOLEAN TacticalActor::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT1
 	if (fFromUI &&
 		IS_MERC_BODY_TYPE(this) &&
 		//!(this->status().flags() & SOLDIER_COWERING) &&
-		this->IsCowering())
+		TacticalActorConditions::isCowering(*this))
 	{
 		this->StopCoweringAnimation();
 	}
@@ -9408,7 +9409,7 @@ UINT8 TacticalActor::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 s
 			}
 		}
 	}
-	else if ( this->IsZombie( ) && this->vitals().health() > 0 && this->vitals().health() < OKLIFE )
+	else if ( TacticalActorConditions::isZombie(*this) && this->vitals().health() > 0 && this->vitals().health() < OKLIFE )
 	{
 		// a zombie doesn't automatically die, so he would normally stand up again after being hit. 
 		// We don't want that, because he is dying, so we manually skip that animation
@@ -10185,7 +10186,7 @@ BOOLEAN TacticalActor::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bS
 		}
 		
 		int entrynum = 0;
-		if ( pSoldier->IsZombie() ) // Madd: add zombie sounds
+		if ( TacticalActorConditions::isZombie(*pSoldier) ) // Madd: add zombie sounds
 		{
 			entrynum = 2;
 			pSoldier->dialogue().battleSoundSet() = 0;		// atm only one soundset for zombies
@@ -11911,7 +11912,7 @@ void TacticalActor::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirect
 #ifdef JA2UB
 	if ( fMartialArtist && !ItemIsCrowbar(usItem) && this->identity().bodyType() == REGMALE )
 #else
-	if ( fMartialArtist && !AreInMeanwhile( ) && !ItemIsCrowbar(usItem) && this->identity().bodyType() == REGMALE && !IsZombie( )
+	if ( fMartialArtist && !AreInMeanwhile( ) && !ItemIsCrowbar(usItem) && this->identity().bodyType() == REGMALE && !TacticalActorConditions::isZombie(*this)
 		&& !( gGameExternalOptions.fDiseaseSevereLimitations && this->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ))  ) // SANDRO - added check for body type
 #endif
 	{
@@ -11929,7 +11930,7 @@ void TacticalActor::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirect
 	{
 		// Flugente: civilians can be zombies too, but they do not have a 'punch' animation. Simple fix: They 'attack' without animation...
 		// CHECK IF WE CAN DO THIS ANIMATION!
-		if ( this->IsZombie( ) && IsAnimationValidForBodyType( this, PUNCH ) == FALSE )
+		if ( TacticalActorConditions::isZombie(*this) && IsAnimationValidForBodyType( this, PUNCH ) == FALSE )
 		{
 			if ( gGameExternalOptions.fZombieExplodingCivs )
 			{
@@ -11995,7 +11996,7 @@ void TacticalActor::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirect
 		{
 			// Flugente: zombies do not kick
 			BOOLEAN nokick = FALSE;
-			if ( this->IsZombie( ) || !IS_MERC_BODY_TYPE(this))//shadooow: fix for endless clock issue with Elliot in interrogation cutscene 
+			if ( TacticalActorConditions::isZombie(*this) || !IS_MERC_BODY_TYPE(this))//shadooow: fix for endless clock issue with Elliot in interrogation cutscene
 				nokick = TRUE;
 
 			// sevenfm: don't use kick when attacking with any weapon in hand
@@ -14130,7 +14131,7 @@ INT32 TacticalActor::GetDamageResistance( BOOLEAN fAutoResolve, BOOLEAN fCalcBre
 			resistance += gGameExternalOptions.sEnemyRegularDamageResistance;
 		else if ( this->roster().soldierClass() == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteDamageResistance != 0 )
 			resistance += gGameExternalOptions.sEnemyEliteDamageResistance;
-		else if ( IsZombie( ) )
+		else if ( TacticalActorConditions::isZombie(*this) )
 		{
 			if ( fCalcBreathLoss )
 				resistance += gGameExternalOptions.sEnemyZombieBreathDamageResistance;
@@ -14238,11 +14239,6 @@ INT16	TacticalActor::GetSightRangeBonus( )
 	return bonus;
 }
 
-
-BOOLEAN TacticalActor::IsZombie( void )
-{
-	return(roster().soldierClass() == SOLDIER_CLASS_ZOMBIE);
-}
 
 // reset the extra stat variables
 void	TacticalActor::ResetExtraStats( )
@@ -14781,7 +14777,7 @@ BOOLEAN		TacticalActor::EquipmentTooGood( BOOLEAN fCloselook )
 {
 	// if militia is equipped from sector inventory(and thu by the player itself), then its item selection is no longer bound to any progress calculation
 	// we thus canno check for equipment - the only way to find out is to look at this guy sharply, and to eventually realise that this gear did not come from the player
-	if ( gGameExternalOptions.fMilitiaUseSectorInventory && this->IsAssassin( ) )
+	if ( gGameExternalOptions.fMilitiaUseSectorInventory && TacticalActorConditions::isAssassin(*this) )
 		return FALSE;
 
 	// check the guns in our hands and rifle sling
@@ -15238,7 +15234,7 @@ BOOLEAN		TacticalActor::SeemsLegit( SoldierID ubObserverID )
 
 			// even as a soldier, we will be caught around fresh corpses
 			// assassins will not be uncovered around corpses, as the AI cannot willingly evade them... one could 'ward' against assassins by surrounding yourself with fresh corpses
-			if ( distance < gSkillTraitValues.sCOCloseDetectionRangeSoldierCorpse && !this->IsAssassin() )
+			if ( distance < gSkillTraitValues.sCOCloseDetectionRangeSoldierCorpse && !TacticalActorConditions::isAssassin(*this) )
 			{
 				// check wether we are around a fresh corpse - this will make us much more suspicious
 				// I deem this necessary, to avoid cheap exploits by nefarious players :-)
@@ -15319,7 +15315,7 @@ BOOLEAN		TacticalActor::RecognizeAsCombatant( SoldierID ubTargetID )
 		return TRUE;
 
 	// zombies don't care about disguises
-	if ( IsZombie( ) )
+	if ( TacticalActorConditions::isZombie(*this) )
 		return TRUE;
 
 	// not in covert mode: we recognize him
@@ -15680,35 +15676,6 @@ BOOLEAN		TacticalActor::FreePrisoner( )
 	return FALSE;
 }
 
-// can this guy be captured (by handcuffing or asking him to surrender)?
-BOOLEAN		TacticalActor::CanBeCaptured( )
-{
-	// if this guy is not already handcuffed, and is not an NPC
-	if ( !(this->featureFlags().primaryFlags() & SOLDIER_POW) && this->identity().profile() == NO_PROFILE )
-	{
-		// armed vehicles and robots cannot be captured
-		if ( ARMED_VEHICLE(this) || ENEMYROBOT(this) )
-			return FALSE;
-
-		// enemies can be captured
-		if ( this->roster().team() == ENEMY_TEAM )
-			return TRUE;
-
-		// bandits can be captured
-		if ( this->roster().team() == CREATURE_TEAM && this->roster().soldierClass() == SOLDIER_CLASS_BANDIT )
-			return TRUE;
-
-		// civilians can be captured if their faction can, and if they are hostile
-		if ( this->roster().team() == CIV_TEAM && zCivGroupName[this->roster().civilianGroup()].fCanBeCaptured )
-		{
-			if ( !this->aiBehavior().neutral() && this->roster().side() == 1 )
-				return TRUE;
-		}
-	}
-	
-	return FALSE;
-}
-
 // Flugente: scuba gear
 BOOLEAN		TacticalActor::UsesScubaGear( )
 {
@@ -15724,20 +15691,6 @@ BOOLEAN		TacticalActor::UsesScubaGear( )
 		return FALSE;
 
 	return TRUE;
-}
-
-// Flugente: are we an assassin?
-BOOLEAN		TacticalActor::IsAssassin( )
-{
-	// kingpin's hitmen are assassins
-	if ( this->identity().profile() >= JIM && this->identity().profile() <= TYRONE )
-		return TRUE;
-
-	// there can be non-NPC assassins too
-	if ( this->featureFlags().primaryFlags() & SOLDIER_ASSASSIN )
-		return TRUE;
-
-	return FALSE;
 }
 
 UINT8	TacticalActor::GetMultiTurnAction( )
@@ -21678,7 +21631,7 @@ void TacticalActor::EVENT_SoldierHandcuffPerson( INT32 sGridNo, UINT8 ubDirectio
 		GetJa2SoldierRepository().resolve(
 			ubPerson );
 
-	if ( pSoldier != nullptr && pSoldier->CanBeCaptured( ) )
+	if ( pSoldier != nullptr && TacticalActorConditions::canBeCaptured(*pSoldier) )
 	{
 		// we found someone we can handcuff
 		// check wether we will be successful
@@ -22403,7 +22356,7 @@ BOOLEAN TacticalActor::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN 
 		else
 		{
 			// Flugente: if we are talking to an enemy, we have the option to offer them surrender... we can also ask them to become a turncoat
-			if ( (gSkillTraitValues.fCOTurncoats || gGameExternalOptions.fEnemyCanSurrender || gGameExternalOptions.fPlayerCanAsktoSurrender) && pTSoldier->CanBeCaptured( ) )
+			if ( (gSkillTraitValues.fCOTurncoats || gGameExternalOptions.fEnemyCanSurrender || gGameExternalOptions.fPlayerCanAsktoSurrender) && TacticalActorConditions::canBeCaptured(*pTSoldier) )
 			{
 				// AP costs are handled inside the callback (PrisonerSurrenderMessageBoxCallBack)
 				if (gTacticalStatus.bBoxingState != NOT_BOXING)
@@ -22475,7 +22428,7 @@ BOOLEAN TacticalActor::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN 
 	}
 	else if ( pTSoldier->aiBehavior().neutral() )
 	{
-		if ( pTSoldier->IsAssassin( ) )
+		if ( TacticalActorConditions::isAssassin(*pTSoldier) )
 		{
 			// Start combat etc
 			DeleteTalkingMenu( );
@@ -23354,7 +23307,7 @@ void TacticalActor::BreakWindow(void)
 BOOLEAN TacticalActor::CanBreakWindow(void)
 {
 	if (this->vitals().health() >= OKLIFE &&
-		!this->IsUnconscious() &&
+		!TacticalActorConditions::isUnconscious(*this) &&
 		IS_MERC_BODY_TYPE(this) &&
 		this->inventory()[HANDPOS].exists() &&
 		this->inventory()[HANDPOS][0]->data.objectStatus >= USABLE &&
@@ -25352,38 +25305,6 @@ BOOLEAN TacticalActor::IsFlanking(void)
 	return TRUE;
 }
 
-UINT8 TacticalActor::ShockLevelPercent(void)
-{
-	if (gGameExternalOptions.ubMaxSuppressionShock == 0)
-		return 0;
-
-	return min(100, 100 * this->suppression().shock() / gGameExternalOptions.ubMaxSuppressionShock);
-}
-
-BOOLEAN TacticalActor::TakenLargeHit(void)
-{
-	if (this->featureFlags().secondaryFlags() & SOLDIER_TAKEN_LARGE_HIT)
-		return TRUE;
-
-	return FALSE;
-}
-
-BOOLEAN TacticalActor::IsCowering(void)
-{
-	if (this->animationPlayback().state() == COWERING || this->animationPlayback().state() == COWERING_PRONE)
-		return TRUE;
-
-	return FALSE;
-}
-
-BOOLEAN TacticalActor::IsUnconscious(void)
-{
-	if (this->collapseState().tactical() && this->vitals().breath() < OKBREATH)
-		return TRUE;
-
-	return FALSE;
-}
-
 void TacticalActor::StopCoweringAnimation(void)
 {
 	if (this->animationPlayback().state() == COWERING)
@@ -25410,14 +25331,6 @@ void TacticalActor::StopCoweringAnimation(void)
 
 	// remove AI cowering flag
 	this->status().flags() &= ~SOLDIER_COWERING;
-}
-
-BOOLEAN	TacticalActor::IsGivingAid(void)
-{
-	if (this->animationPlayback().state() == GIVING_AID || this->animationPlayback().state() == GIVING_AID_PRN || this->animationPlayback().state() == START_AID || this->animationPlayback().state() == START_AID_PRN)
-		return TRUE;
-
-	return FALSE;
 }
 
 void	TacticalActor::RetreatCounterStart(UINT16 usValue)

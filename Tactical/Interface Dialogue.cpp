@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp.h"
@@ -2367,7 +2368,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					//MakeCivHostile(pSoldier);
 				}
-				if ( ( pSoldier->identity().profile() != NO_PROFILE || pSoldier->IsAssassin() ) && pSoldier->vitals().health() >= OKLIFE )
+				if ( ( pSoldier->identity().profile() != NO_PROFILE || TacticalActorConditions::isAssassin(*pSoldier) ) && pSoldier->vitals().health() >= OKLIFE )
 				{
 					// trigger quote!
 					//TriggerNPCWithIHateYouQuote( pSoldier->identity().profile() );

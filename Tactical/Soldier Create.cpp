@@ -1,4 +1,5 @@
 	#include "sgp.h"
+	#include "TacticalActorConditions.h"
 	#include "Soldier Create.h"
 	#include "Overhead.h"
 	#include "WCheck.h"
@@ -1365,7 +1366,7 @@ BOOLEAN TacticalCopySoldierFromProfile( TacticalActor *pSoldier, SOLDIERCREATE_S
 	}
 
 	// Flugente: if playing with the covert trait, the assassins come covert, so they are tougher to find	
-	if ( gGameExternalOptions.fAssassinsAreDisguised && gGameOptions.fNewTraitSystem && pSoldier->IsAssassin() )
+	if ( gGameExternalOptions.fAssassinsAreDisguised && gGameOptions.fNewTraitSystem && TacticalActorConditions::isAssassin(*pSoldier) )
 	{
 		pSoldier->featureFlags().primaryFlags() |= (SOLDIER_COVERT_SOLDIER|SOLDIER_COVERT_NPC_SPECIAL|SOLDIER_NEW_VEST|SOLDIER_NEW_PANTS);
 
@@ -2053,7 +2054,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( TacticalActor *pSoldier, SOLDIERCRE
 			{
 				swprintf( pSoldier->identity().name(), gzLateLocalizedString[ 36 ] );
 			}
-			else if ( pSoldier->IsZombie() )
+			else if ( TacticalActorConditions::isZombie(*pSoldier) )
 			{
 				swprintf( pSoldier->identity().name(), TacticalStr[ ZOMBIE_TEAM_MERC_NAME ] );
 			}

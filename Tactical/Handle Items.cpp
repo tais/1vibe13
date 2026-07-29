@@ -1,4 +1,5 @@
 #include "connect.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 #ifndef _WIN32
 #include <dirent.h>
@@ -1647,7 +1648,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 	// Flugente: handcuffing people
 	if (gGameExternalOptions.fAllowPrisonerSystem && HasItemFlag(usHandItem, HANDCUFFS) && pTargetSoldier && pTargetSoldier->awareness().visibility() >= 0)
 	{
-		if (!pTargetSoldier->CanBeCaptured())
+		if (!TacticalActorConditions::canBeCaptured(*pTargetSoldier))
 			return ITEM_HANDLE_REFUSAL;
 
 		// ATE: AI CANNOT GO THROUGH HERE!

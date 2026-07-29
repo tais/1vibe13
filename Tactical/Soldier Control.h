@@ -1058,9 +1058,6 @@ public:
 	INT8	GetHearingBonus();
 	INT16	GetSightRangeBonus();
 
-	// Flugente: Zombies
-	BOOLEAN IsZombie( void );
-			
 	// reset the extra stat variables
 	void	ResetExtraStats();
 
@@ -1110,11 +1107,6 @@ public:
 	// sevenfm: service functions
 	BOOLEAN		IsFlanking(void);
 	BOOLEAN		CheckInitialAP(void);
-	UINT8		ShockLevelPercent(void);
-	BOOLEAN		TakenLargeHit(void);
-	BOOLEAN		IsCowering(void);
-	BOOLEAN		IsUnconscious(void);
-	BOOLEAN		IsGivingAid(void);
 
 	// sevenfm: for player mercs
 	void StopCoweringAnimation(void);
@@ -1130,13 +1122,8 @@ public:
 	BOOLEAN		CanProcessPrisoners();
 	UINT32		GetSurrenderStrength();
 	BOOLEAN		FreePrisoner();					// used for an enemy liberating fellow prisoners 
-	BOOLEAN		CanBeCaptured();				// can this guy be captured (by handcuffing or asking him to surrender)?
-
 	// Flugente: scuba gear
 	BOOLEAN		UsesScubaGear();
-
-	// Flugente: are we an assassin?
-	BOOLEAN		IsAssassin();
 
 	// Flugente: multi-turn actions
 	UINT8		GetMultiTurnAction();

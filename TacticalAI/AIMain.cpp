@@ -1,4 +1,5 @@
 #include "sgp.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 #include "ai.h"
 #include "Isometric Utils.h"
@@ -2035,7 +2036,7 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 					else if (pSoldier->aiPlanning().action() == AI_ACTION_RUN_AWAY )
 						PossiblyStartEnemyTaunt( pSoldier, TAUNT_RUN_AWAY );
 
-					if ( !Random( 5 ) && pSoldier->IsZombie( ) )
+					if ( !Random( 5 ) && TacticalActorConditions::isZombie(*pSoldier) )
 					{
 						// Madd:  Zombies randomly moan...
 						pSoldier->DoMercBattleSound( (INT8)( BATTLE_SOUND_LAUGH1 ) );
@@ -2687,7 +2688,7 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 			if (pSoldier->vitals().health() >= OKLIFE &&
 				pSoldier->vitals().breath() > 0 &&
 				!pSoldier->collapseState().tactical() &&
-				pSoldier->IsGivingAid())
+				TacticalActorConditions::isGivingAid(*pSoldier))
 			{
 				if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 					pSoldier->ChangeSoldierState(END_AID_PRN, 0, 0);

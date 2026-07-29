@@ -89,6 +89,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Strategic Exit GUI.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Structure Wrap.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Tactical Save.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorConditions.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Tactical Turns.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TeamTurns.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Turn Based Input.cpp"

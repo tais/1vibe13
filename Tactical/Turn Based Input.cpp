@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 #include <stdio.h>
 #include "stdlib.h"
@@ -6609,7 +6610,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 				}
 				else
 				{
-					if (pSoldier->IsCowering())
+					if (TacticalActorConditions::isCowering(*pSoldier))
 					{
 						pSoldier->StopCoweringAnimation();
 						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubAnimHeight);
@@ -6623,7 +6624,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 			}
 			else
 			{
-				if (pSoldier->IsCowering())
+				if (TacticalActorConditions::isCowering(*pSoldier))
 				{
 					pSoldier->StopCoweringAnimation();
 					UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubAnimHeight);
@@ -8815,7 +8816,7 @@ void HandleTBSoldierRun( void )
 		}
 		else
 		{
-			if (pSoldier->IsCowering())
+			if (TacticalActorConditions::isCowering(*pSoldier))
 			{
 				pSoldier->StopCoweringAnimation();
 				UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_STAND);

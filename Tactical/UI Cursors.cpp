@@ -1,4 +1,5 @@
 	#include "Items.h"
+	#include "TacticalActorConditions.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "Weapons.h"
@@ -2407,7 +2408,7 @@ UINT8 HandleHandcuffCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCur
 			TacticalActor* target =
 				GetJa2SoldierRepository().resolve(
 					usSoldierIndex.i);
-			if (target->awareness().visibility() >= 0 && target->CanBeCaptured())
+			if (target->awareness().visibility() >= 0 && TacticalActorConditions::canBeCaptured(*target))
 			{
 				return( HANDCUFF_GREY_UICURSOR );
 			}

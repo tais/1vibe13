@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+	#include "TacticalActorConditions.h"
 	#include <stdio.h>
 	#include <string.h>
 	#include "WCheck.h"
@@ -964,7 +965,7 @@ BOOLEAN TurnSoldierIntoCorpse( TacticalActor *pSoldier, BOOLEAN fRemoveMerc, BOO
 	{	
 		case 3:
 			// a zombie might rise again
-			if ( pSoldier->IsZombie() && Random( 2 ) > 0 )
+			if ( TacticalActorConditions::isZombie(*pSoldier) && Random( 2 ) > 0 )
 				Corpse.usFlags |= ROTTING_CORPSE_NEVER_RISE_AGAIN;
 			break;
 
@@ -981,13 +982,13 @@ BOOLEAN TurnSoldierIntoCorpse( TacticalActor *pSoldier, BOOLEAN fRemoveMerc, BOO
 		case 0:
 		default:
 			// a killed zombie won't rise again
-			if ( pSoldier->IsZombie() )
+			if ( TacticalActorConditions::isZombie(*pSoldier) )
 				Corpse.usFlags |= ROTTING_CORPSE_NEVER_RISE_AGAIN;
 			break;
 	}
 
 	// if zombie and headshots are required, forbid rising if killed by headshot
-	if ( pSoldier->IsZombie() && gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && (pSoldier->featureFlags().primaryFlags() & SOLDIER_HEADSHOT) )
+	if ( TacticalActorConditions::isZombie(*pSoldier) && gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && (pSoldier->featureFlags().primaryFlags() & SOLDIER_HEADSHOT) )
 		Corpse.usFlags |= ROTTING_CORPSE_NEVER_RISE_AGAIN;
 
 	// Flugente: copy name of soldier...

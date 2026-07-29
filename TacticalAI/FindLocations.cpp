@@ -1,4 +1,5 @@
 	#include <stdlib.h>
+	#include "TacticalActorConditions.h"
 	#include "Isometric Utils.h"
 	#include "ai.h"
 	#include "AIInternals.h"
@@ -437,7 +438,7 @@ INT32 CalcCoverValue(TacticalActor *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32
 	if (gGameExternalOptions.fAIBetterCover)
 	{
 		// sevenfm: special calculations for zombies: zombie is very dangerous at close range
-		if (pHim->IsZombie() || !AICheckHasGun(pHim))
+		if (TacticalActorConditions::isZombie(*pHim) || !AICheckHasGun(pHim))
 		{
 			if (sDist < (INT32)(TACTICAL_RANGE / 2))
 			{
@@ -452,7 +453,7 @@ INT32 CalcCoverValue(TacticalActor *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32
 		}
 
 		// sevenfm: if soldier has no gun, use different calculation
-		if (pMe->IsZombie() || !AICheckHasGun(pMe))
+		if (TacticalActorConditions::isZombie(*pMe) || !AICheckHasGun(pMe))
 		{
 			if (sDist < (INT32)(TACTICAL_RANGE / 2))
 			{
@@ -478,12 +479,12 @@ INT32 CalcCoverValue(TacticalActor *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32
 		{
 			ubCoverBonus = ubCoverBonus * 2 * sDist / TACTICAL_RANGE;
 		}
-		if (!pHim->IsZombie() && AICheckHasGun(pHim) && AnyCoverFromSpot(sMyGridNo, bMyLevel, sHisGridNo, bHisLevel))
+		if (!TacticalActorConditions::isZombie(*pHim) && AICheckHasGun(pHim) && AnyCoverFromSpot(sMyGridNo, bMyLevel, sHisGridNo, bHisLevel))
 		{
 			iHisPosValue -= iHisPosValue * ubCoverBonus / 100;
 			iMyPosValue += iMyPosValue * ubCoverBonus / 100;
 		}
-		if (!pMe->IsZombie() && AICheckHasGun(pMe) && AnyCoverFromSpot(sHisGridNo, bHisLevel, sMyGridNo, bMyLevel))
+		if (!TacticalActorConditions::isZombie(*pMe) && AICheckHasGun(pMe) && AnyCoverFromSpot(sHisGridNo, bHisLevel, sMyGridNo, bMyLevel))
 		{
 			iHisPosValue += iHisPosValue * ubCoverBonus / 100;
 			iMyPosValue -= iMyPosValue * ubCoverBonus / 100;
@@ -1013,7 +1014,7 @@ INT32 FindBestNearbyCover(TacticalActor *pSoldier, INT32 morale, INT32 *piPercen
 			}
 
 			// zombies only want to hide
-			if (pSoldier->IsZombie() && !SightCoverAtSpot(pSoldier, sGridNo, TRUE))
+			if (TacticalActorConditions::isZombie(*pSoldier) && !SightCoverAtSpot(pSoldier, sGridNo, TRUE))
 			{
 				//DebugCover(pSoldier, String("zombie: no sight cover at new spot, skip"));
 				continue;
@@ -3309,14 +3310,14 @@ INT32 FindAdvanceSpot(TacticalActor *pSoldier, INT32 sTargetSpot, INT8 bAction, 
 			}
 
 			// avoid locations near fresh corpses
-			if (!pSoldier->IsZombie() && GetNearestRottingCorpseAIWarning(sGridNo) > 0)
+			if (!TacticalActorConditions::isZombie(*pSoldier) && GetNearestRottingCorpseAIWarning(sGridNo) > 0)
 				//if (CorpseWarning(pSoldier, sGridNo, pSoldier->position().level(), TRUE))
 			{
 				continue;
 			}
 
 			// avoid overcrowding
-			if (!pSoldier->IsZombie() && NumberOfTeamMatesAdjacent(pSoldier, sGridNo) > 1)
+			if (!TacticalActorConditions::isZombie(*pSoldier) && NumberOfTeamMatesAdjacent(pSoldier, sGridNo) > 1)
 			{
 				continue;
 			}
@@ -3544,13 +3545,13 @@ INT32 FindRetreatSpot(TacticalActor *pSoldier)
 			}
 
 			// avoid locations near fresh corpses
-			if (!pSoldier->IsZombie() && GetNearestRottingCorpseAIWarning(sGridNo) > 0)
+			if (!TacticalActorConditions::isZombie(*pSoldier) && GetNearestRottingCorpseAIWarning(sGridNo) > 0)
 				//if (CorpseWarning(pSoldier, sGridNo, pSoldier->position().level(), TRUE))
 			{
 				continue;
 			}
 
-			if (!pSoldier->IsZombie() && NumberOfTeamMatesAdjacent(pSoldier, sGridNo) > 0)
+			if (!TacticalActorConditions::isZombie(*pSoldier) && NumberOfTeamMatesAdjacent(pSoldier, sGridNo) > 0)
 			{
 				continue;
 			}

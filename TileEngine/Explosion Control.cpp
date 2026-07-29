@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 #include "WorldDat.h"
 #include "DEBUG.H"
@@ -1977,7 +1978,7 @@ BOOLEAN DishOutGasDamage( TacticalActor * pSoldier, EXPLOSIVETYPE * pExplosive, 
 		if ( pExplosive->ubType == EXPLOSV_TEARGAS )
 		{
 			// zombies and robots are unaffected by tear gas
-			if ( AM_A_ROBOT( pSoldier ) || pSoldier->IsZombie() )
+			if ( AM_A_ROBOT( pSoldier ) || TacticalActorConditions::isZombie(*pSoldier) )
 			{
 				return( fRecompileMovementCosts );
 			}
@@ -1995,7 +1996,7 @@ BOOLEAN DishOutGasDamage( TacticalActor * pSoldier, EXPLOSIVETYPE * pExplosive, 
 		else if ( pExplosive->ubType == EXPLOSV_MUSTGAS )
 		{
 			// zombies and robots are unaffected by mustard gas
-			if ( AM_A_ROBOT( pSoldier ) || pSoldier->IsZombie() )
+			if ( AM_A_ROBOT( pSoldier ) || TacticalActorConditions::isZombie(*pSoldier) )
 			{
 				return( fRecompileMovementCosts );
 			}
@@ -4438,7 +4439,7 @@ void HandleExplosionWarningAnimations( )
 									!Water(candidate->position().gridNo(), candidate->position().level()) &&
 									pSoldier->identity().bodyType() <= REGFEMALE &&
 									(candidate->roster().team() == pSoldier->roster().team() ||
-										candidate->IsUnconscious() ||
+										TacticalActorConditions::isUnconscious(*candidate) ||
 										candidate->vitals().health() < OKLIFE))
 								{
 									fShow = TRUE;
@@ -4491,7 +4492,7 @@ void HandleExplosionWarningAnimations( )
 				GetJa2TacticalCurrentTeam() == gbPlayerNum &&
 				!gTacticalStatus.fAtLeastOneGuyOnMultiSelect &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!pSoldier->IsUnconscious() &&
+				!TacticalActorConditions::isUnconscious(*pSoldier) &&
 				IS_MERC_BODY_TYPE(pSoldier) &&
 				!pSoldier->IsSpotting())
 			{

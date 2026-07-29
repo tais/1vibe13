@@ -1,4 +1,5 @@
 #include "connect.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 #include <wchar.h>
 #include <cmath>
@@ -1912,7 +1913,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					}
 					else
 					{
-						if (pSoldier->IsCowering())
+						if (TacticalActorConditions::isCowering(*pSoldier))
 						{
 							pSoldier->StopCoweringAnimation();
 							UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_STAND);
@@ -1934,7 +1935,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					}
 					else
 					{
-						if (pSoldier->IsCowering())
+						if (TacticalActorConditions::isCowering(*pSoldier))
 						{
 							pSoldier->StopCoweringAnimation();
 							UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_STAND);
@@ -1948,7 +1949,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					break;
 
 				case MOVEMENT_MENU_SWAT:
-					if (pSoldier->IsCowering())
+					if (TacticalActorConditions::isCowering(*pSoldier))
 					{
 						pSoldier->StopCoweringAnimation();
 						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_CROUCH);
@@ -1962,7 +1963,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					break;
 
 				case MOVEMENT_MENU_PRONE:
-					if (pSoldier->IsCowering())
+					if (TacticalActorConditions::isCowering(*pSoldier))
 					{
 						pSoldier->StopCoweringAnimation();
 						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_PRONE);
@@ -3315,7 +3316,7 @@ UINT32 UIHandlePADJAdjustStance( UI_EVENT *pUIEvent )
 			}
 			else
 			{
-				if (pSoldier->IsCowering())
+				if (TacticalActorConditions::isCowering(*pSoldier))
 				{
 					pSoldier->StopCoweringAnimation();
 					UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubNewStance);

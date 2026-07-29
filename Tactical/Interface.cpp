@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+	#include "TacticalActorConditions.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
@@ -2247,7 +2248,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		//-----------------	
 		if ( pSoldier->roster().inSector() && pSoldier->identity().profile() == NO_PROFILE )
 		{
-			if ( pSoldier->IsZombie() )
+			if ( TacticalActorConditions::isZombie(*pSoldier) )
 			{
 				swprintf(NameStr, pSoldier->identity().name());
 							

@@ -1,4 +1,5 @@
 #include "ai.h"
+#include "TacticalActorConditions.h"
 #include "Weapons.h"
 #include "opplist.h"
 #include "AIInternals.h"
@@ -331,9 +332,9 @@ void CalcBestShot(TacticalActor *pSoldier, ATTACKTYPE *pBestShot)
 		if (fSuppression &&
 			(pOpponent->vitals().health() < OKLIFE ||
 			pOpponent->collapseState().tactical() && pOpponent->vitals().breath() == 0 ||
-			pOpponent->IsCowering() ||
-			pOpponent->IsCowering() ||
-			pOpponent->IsZombie() ||
+			TacticalActorConditions::isCowering(*pOpponent) ||
+			TacticalActorConditions::isCowering(*pOpponent) ||
+			TacticalActorConditions::isZombie(*pOpponent) ||
 			!IS_MERC_BODY_TYPE(pOpponent)))
 		{
 			continue;
@@ -681,7 +682,7 @@ void CalcBestShot(TacticalActor *pSoldier, ATTACKTYPE *pBestShot)
 		}
 
 		// special stuff for assassins to ignore militia more
-		if ( pSoldier->IsAssassin() && pOpponent->roster().team() == MILITIA_TEAM )
+		if ( TacticalActorConditions::isAssassin(*pSoldier) && pOpponent->roster().team() == MILITIA_TEAM )
 		{
 			iAttackValue /= 2;
 		}
@@ -1121,7 +1122,7 @@ void CalcBestThrow(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow)
 			Explosive[Item[usGrenade].ubClassIndex].ubType != EXPLOSV_NORMAL &&
 			Explosive[Item[usGrenade].ubClassIndex].ubType != EXPLOSV_CREATUREGAS &&
 			Explosive[Item[usGrenade].ubClassIndex].ubType != EXPLOSV_BURNABLEGAS &&
-			pOpponent->IsZombie())
+			TacticalActorConditions::isZombie(*pOpponent))
 		{
 			continue;
 		}
@@ -1131,7 +1132,7 @@ void CalcBestThrow(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow)
 			Explosive[Item[usGrenade].ubClassIndex].ubType == EXPLOSV_SMOKE &&
 			(FindAIUsableObjClass(pOpponent, IC_GUN) == NO_SLOT ||
 			(pSoldier->animationPlayback().state() == COWERING || pSoldier->animationPlayback().state() == COWERING_PRONE) ||
-			pOpponent->ShockLevelPercent() > 50 ||
+			TacticalActorConditions::suppressionShockPercent(*pOpponent) > 50 ||
 			EffectiveMarksmanship(pOpponent) < 90 && !IsScoped(&pOpponent->inventory()[HANDPOS]) && !pOpponent->combatResult().lastAttackHit()))
 		{
 			continue;
@@ -1150,7 +1151,7 @@ void CalcBestThrow(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow)
 		}
 
 		// don't use grenades against dying enemies
-		if (pOpponent->vitals().health() < OKLIFE && !pOpponent->IsZombie())
+		if (pOpponent->vitals().health() < OKLIFE && !TacticalActorConditions::isZombie(*pOpponent))
 		{
 			continue;
 		}
@@ -3943,7 +3944,7 @@ void CheckTossFriendSmoke(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow)
 					pFriend->vitals().health() >= OKLIFE &&
 					RangeChangeDesire(pFriend) <= 3 &&
 					(pFriend->IsFlanking() && !TileIsOutOfBounds(pFriend->aiPlanning().flankAnchorGrid()) && PythSpacesAway(pFriend->position().gridNo(), pFriend->aiPlanning().flankAnchorGrid()) < (INT16)(MAX_VISION_RANGE) && LocationToLocationLineOfSightTest(pFriend->position().gridNo(), pFriend->position().level(), pFriend->aiPlanning().flankAnchorGrid(), pFriend->position().level(), TRUE, NO_DISTANCE_LIMIT) ||
-					pFriend->suppression().underFire() && (pFriend->IsCowering() || pFriend->TakenLargeHit() || pFriend->suppression().underFire() && pFriend->ShockLevelPercent() > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
+					pFriend->suppression().underFire() && (TacticalActorConditions::isCowering(*pFriend) || TacticalActorConditions::hasTakenLargeHit(*pFriend) || pFriend->suppression().underFire() && TacticalActorConditions::suppressionShockPercent(*pFriend) > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
 					)
 				{
 					sFriendSpot = pFriend->position().gridNo();
@@ -3961,7 +3962,7 @@ void CheckTossFriendSmoke(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow)
 						//!SightCoverAtSpot(pFriend, sFriendSpot, FALSE) &&
 						//!AnyCoverAtSpot(pFriend, sFriendSpot) &&
 						(TileIsOutOfBounds(sClosestFriendSpot) || PythSpacesAway(sSpot, sFriendSpot) < PythSpacesAway(sSpot, sClosestFriendSpot)) &&
-						(pFriend->TakenLargeHit() || pFriend->ShockLevelPercent() > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
+						(TacticalActorConditions::hasTakenLargeHit(*pFriend) || TacticalActorConditions::suppressionShockPercent(*pFriend) > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
 					{
 						// check that we can toss grenade
 						CheckTossAt(pSoldier, pBestThrow, sFriendSpot, bFriendLevel, pFriend->identity().id());

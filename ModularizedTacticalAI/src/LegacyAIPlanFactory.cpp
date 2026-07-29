@@ -3,6 +3,7 @@
  * @author feynman (bears-pit.com)
  */
 #include "../include/LegacyAIPlanFactory.h"
+#include "TacticalActorConditions.h"
 #include "../include/LegacyAIPlan.h"
 #include "../include/LegacyCreaturePlan.h"
 #include "../include/LegacyZombiePlan.h"
@@ -40,7 +41,7 @@ namespace AI
 			if ( ARMED_VEHICLE( npc ) )
 				return new LegacyArmedVehiclePlan( npc );
 
-            if(npc->IsZombie())
+            if(TacticalActorConditions::isZombie(*npc))
                 return new LegacyZombiePlan(npc);
 
             return new LegacyAIPlan(npc);               // no special plan for other cases yet, return default legacy AI wrapper

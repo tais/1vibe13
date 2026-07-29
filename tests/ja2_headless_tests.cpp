@@ -114,6 +114,8 @@
 #include "Game Events.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
+#include "Soldier Profile.h"
+#include "TacticalActorConditions.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
 #include "Plan.h"
@@ -7866,6 +7868,55 @@ int main( int, char** )
 		       !repository.swapRecords(0, 0) &&
 		       !repository.swapRecords(0, 2),
 		       "soldier repository relocates records, preserves slot identities, and rebuilds owner-bound plans lazily" );
+	}
+
+	{
+		TacticalActor conditionActor;
+		conditionActor.identity().bodyType() = REGMALE;
+		conditionActor.identity().profile() = NO_PROFILE;
+		conditionActor.roster().team() = ENEMY_TEAM;
+		conditionActor.roster().soldierClass() = SOLDIER_CLASS_ZOMBIE;
+		CHECK( TacticalActorConditions::isZombie(conditionActor) &&
+		       TacticalActorConditions::canBeCaptured(conditionActor),
+		       "tactical actor conditions classify capturable enemy zombies from component state" );
+
+		conditionActor.identity().profile() = JIM;
+		conditionActor.roster().soldierClass() = SOLDIER_CLASS_ARMY;
+		CHECK( TacticalActorConditions::isAssassin(conditionActor) &&
+		       !TacticalActorConditions::isZombie(conditionActor) &&
+		       !TacticalActorConditions::canBeCaptured(conditionActor),
+		       "tactical actor identity conditions recognize profiled assassins and exclude NPC capture" );
+
+		conditionActor.identity().profile() = NO_PROFILE;
+		conditionActor.featureFlags().primaryFlags() = SOLDIER_ASSASSIN;
+		conditionActor.featureFlags().secondaryFlags() = SOLDIER_TAKEN_LARGE_HIT;
+		conditionActor.animationPlayback().state() = COWERING_PRONE;
+		conditionActor.collapseState().tactical() = TRUE;
+		conditionActor.vitals().breath() = OKBREATH - 1;
+		CHECK( TacticalActorConditions::isAssassin(conditionActor) &&
+		       TacticalActorConditions::isCowering(conditionActor) &&
+		       TacticalActorConditions::isUnconscious(conditionActor) &&
+		       TacticalActorConditions::hasTakenLargeHit(conditionActor),
+		       "tactical actor conditions expose flag, animation, and consciousness state without record methods" );
+
+		conditionActor.animationPlayback().state() = START_AID;
+		conditionActor.featureFlags().primaryFlags() = SOLDIER_POW;
+		CHECK( TacticalActorConditions::isGivingAid(conditionActor) &&
+		       !TacticalActorConditions::canBeCaptured(conditionActor),
+		       "tactical actor conditions recognize aid animations and prisoner capture exclusion" );
+
+		const UINT8 previousMaximumShock =
+			gGameExternalOptions.ubMaxSuppressionShock;
+		gGameExternalOptions.ubMaxSuppressionShock = 40;
+		conditionActor.suppression().shock() = 10;
+		const auto quarterShock =
+			TacticalActorConditions::suppressionShockPercent(conditionActor);
+		gGameExternalOptions.ubMaxSuppressionShock = 0;
+		const auto disabledShock =
+			TacticalActorConditions::suppressionShockPercent(conditionActor);
+		gGameExternalOptions.ubMaxSuppressionShock = previousMaximumShock;
+		CHECK( quarterShock == 25 && disabledShock == 0,
+		       "tactical actor conditions preserve suppression percentage semantics and the disabled limit" );
 	}
 
 	{

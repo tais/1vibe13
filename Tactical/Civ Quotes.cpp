@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 #include <stdio.h>
 #include "types.h"
@@ -1315,7 +1316,7 @@ void StartEnemyTaunt( TacticalActor *pCiv, TAUNTTYPE iTauntType, TacticalActor *
 	UINT16	iApplicableTaunts = 0;
 
 	// Flugente: zombies don't talk
-	if ( pCiv->IsZombie() )
+	if ( TacticalActorConditions::isZombie(*pCiv) )
 		return;
 
 	// sevenfm: play audio taunt if possible
@@ -1766,7 +1767,7 @@ void StartEnemyTaunt( TacticalActor *pCiv, TAUNTTYPE iTauntType, TacticalActor *
 			if( zTaunt[ i ].uiFlags2 & TAUNT_T_ZOMBIE )
 			{
 			// anv: moved ifdef - if zombies are off, we want to skip any taunts with TAUNT_T_ZOMBIE flag
-				if( !pTarget->IsZombie() )
+				if( !TacticalActorConditions::isZombie(*pTarget) )
 					continue;
 			}
 

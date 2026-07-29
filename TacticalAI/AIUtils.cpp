@@ -1,4 +1,5 @@
 	#include "ai.h"
+	#include "TacticalActorConditions.h"
 	#include "Weapons.h"
 	#include "opplist.h"
 	#include "Points.h"
@@ -355,7 +356,7 @@ UINT16 DetermineMovementMode( TacticalActor * pSoldier, INT8 bAction )
 	}
 	// zombies always run if they know enemy location
 	else if (gGameExternalOptions.fAIMovementMode &&
-			pSoldier->IsZombie() &&
+			TacticalActorConditions::isZombie(*pSoldier) &&
 			IS_MERC_BODY_TYPE(pSoldier))
 	{
 		if (!TileIsOutOfBounds(ClosestKnownOpponent(pSoldier, NULL, NULL)))
@@ -1237,13 +1238,13 @@ INT32 ClosestReachableDisturbance(TacticalActor *pSoldier, BOOLEAN * pfChangeLev
 		}
 
 		// sevenfm: if soldier is zombie and he cannot climb, skip location
-		if (pSoldier->IsZombie() && pSoldier->position().level() != bLevel && !gGameExternalOptions.fZombieCanClimb)
+		if (TacticalActorConditions::isZombie(*pSoldier) && pSoldier->position().level() != bLevel && !gGameExternalOptions.fZombieCanClimb)
 		{
 			continue;
 		}
 
 		// sevenfm: zombies do not attack vehicles (rftr: or robots)
-		if (pSoldier->IsZombie() && (AM_A_ROBOT(pOpponent) || ENEMYROBOT(pOpponent) || ARMED_VEHICLE(pOpponent) || (pOpponent->status().flags() & SOLDIER_VEHICLE)))
+		if (TacticalActorConditions::isZombie(*pSoldier) && (AM_A_ROBOT(pOpponent) || ENEMYROBOT(pOpponent) || ARMED_VEHICLE(pOpponent) || (pOpponent->status().flags() & SOLDIER_VEHICLE)))
 		{
 			continue;
 		}
@@ -1265,7 +1266,7 @@ INT32 ClosestReachableDisturbance(TacticalActor *pSoldier, BOOLEAN * pfChangeLev
 				(!pClosestOpponent || pClosestOpponent->vitals().health() < OKLIFE || pOpponent->vitals().health() >= OKLIFE) &&
 				(TileIsOutOfBounds(sClosestDisturbance) || 
 				iPathCost < iShortestPath ||
-				pClosestOpponent && !pClosestOpponent->IsZombie() && pClosestOpponent->vitals().health() < OKLIFE && pOpponent->vitals().health() >= OKLIFE))
+				pClosestOpponent && !TacticalActorConditions::isZombie(*pClosestOpponent) && pClosestOpponent->vitals().health() < OKLIFE && pOpponent->vitals().health() >= OKLIFE))
 			{
 				if (fClimbingNecessary)
 				{
@@ -1486,7 +1487,7 @@ INT32 ClosestKnownOpponent(TacticalActor *pSoldier, INT32 * psGridNo, INT8 * pbL
 
 		if (sClosestOpponent == NOWHERE ||
 			iRange < iClosestRange ||
-			pClosestOpponent && !pClosestOpponent->IsZombie() && !(pSoldier->status().flags() & SOLDIER_BOXER) && pClosestOpponent->vitals().health() < OKLIFE && pOpponent->vitals().health() >= OKLIFE)
+			pClosestOpponent && !TacticalActorConditions::isZombie(*pClosestOpponent) && !(pSoldier->status().flags() & SOLDIER_BOXER) && pClosestOpponent->vitals().health() < OKLIFE && pOpponent->vitals().health() >= OKLIFE)
 		{
 			iClosestRange = iRange;
 			sClosestOpponent = sGridNo;
@@ -1674,7 +1675,7 @@ INT32 ClosestSeenOpponentWithRoof(TacticalActor *pSoldier, INT32 * psGridNo, INT
 		// this function is used only for turning towards closest opponent or changing stance
 		// as such, if they AI is in a building,
 		// we should ignore people who are on the roof of the same building as the AI
-		/*if ( !pSoldier->IsZombie() && (bLevel != pSoldier->position().level()) && SameBuilding( pSoldier->sGridNo, sGridNo ) )
+		/*if ( !TacticalActorConditions::isZombie(*pSoldier) && (bLevel != pSoldier->position().level()) && SameBuilding( pSoldier->sGridNo, sGridNo ) )
 		{
 			continue;
 		}*/
@@ -1972,7 +1973,7 @@ INT16 EstimatePathCostToLocation( TacticalActor * pSoldier, INT32 sDestGridNo, I
 	else
 	{
 		// sevenfm: check if zombie cannot climb
-		if (pSoldier->IsZombie() && !gGameExternalOptions.fZombieCanClimb)
+		if (TacticalActorConditions::isZombie(*pSoldier) && !gGameExternalOptions.fZombieCanClimb)
 		{
 			return 0;
 		}
@@ -2129,7 +2130,7 @@ INT32 ClosestReachableFriendInTrouble(TacticalActor *pSoldier, BOOLEAN * pfClimb
 		}
 
 		// zombies always call for help if they know enemy position
-		if (pSoldier->IsZombie() && pFriend->IsZombie() && !TileIsOutOfBounds(sClosestKnownOpponent))
+		if (TacticalActorConditions::isZombie(*pSoldier) && TacticalActorConditions::isZombie(*pFriend) && !TileIsOutOfBounds(sClosestKnownOpponent))
 		{
 			fCallHelp = TRUE;
 		}
@@ -2809,7 +2810,7 @@ INT16 RoamingRange(TacticalActor *pSoldier, INT32 * pusFromGridNo)
 		}
 	}
 	// sevenfm: no limits for zombies
-	if (pSoldier->IsZombie())
+	if (TacticalActorConditions::isZombie(*pSoldier))
 	{
 		*pusFromGridNo = pSoldier->position().gridNo(); // from current position!
 		return(MAX_ROAMING_RANGE);
@@ -3703,7 +3704,7 @@ INT8 CalcMoraleNew(TacticalActor *pSoldier)
 	TacticalActor *pOpponent, *pFriend;
 
 	// zombies always have high morale
-	if (pSoldier->IsZombie())
+	if (TacticalActorConditions::isZombie(*pSoldier))
 	{
 		return MORALE_FEARLESS;
 	}
@@ -3938,13 +3939,13 @@ INT8 CalcMoraleNew(TacticalActor *pSoldier)
 	}
 
 	// limit AI morale when soldier is under heavy fire
-	/*if (pSoldier->ShockLevelPercent() > 75)
+	/*if (TacticalActorConditions::suppressionShockPercent(*pSoldier) > 75)
 		bMoraleCategory = min(bMoraleCategory, MORALE_NORMAL);
-	else if (pSoldier->ShockLevelPercent() > 50)
+	else if (TacticalActorConditions::suppressionShockPercent(*pSoldier) > 50)
 		bMoraleCategory = min(bMoraleCategory, MORALE_CONFIDENT);*/
 
 	// limit AI morale depending on morale and shock level
-	bMoraleCategory = min(bMoraleCategory, max(MORALE_WORRIED, ((pSoldier->aiBehavior().orders() == SEEKENEMY ? pSoldier->morale().morale() + 20 : pSoldier->morale().morale()) * 100 / (100 + pSoldier->ShockLevelPercent())) / 20));
+	bMoraleCategory = min(bMoraleCategory, max(MORALE_WORRIED, ((pSoldier->aiBehavior().orders() == SEEKENEMY ? pSoldier->morale().morale() + 20 : pSoldier->morale().morale()) * 100 / (100 + TacticalActorConditions::suppressionShockPercent(*pSoldier))) / 20));
 
 	// prevent hopeless morale when not under attack
 	if (bMoraleCategory == MORALE_HOPELESS && !pSoldier->suppression().underFire())
@@ -4261,7 +4262,7 @@ BOOLEAN ProneSightCoverAtSpot(TacticalActor *pSoldier, INT32 sSpot, BOOLEAN fUnl
 		else
 		{
 			gbForceWeaponReady = true;
-			iDistanceVisible = DistanceVisible(pSoldier, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sSpot, pSoldier->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier));
+			iDistanceVisible = DistanceVisible(pSoldier, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sSpot, pSoldier->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier));
 			gbForceWeaponReady = false;
 			//iDistanceVisible = pSoldier->GetMaxDistanceVisible(sSpot, pSoldier->position().level(), CALC_FROM_WANTED_DIR);
 		}
@@ -4351,7 +4352,7 @@ BOOLEAN SightCoverAtSpot(TacticalActor *pSoldier, INT32 sSpot, BOOLEAN fUnlimite
 		else
 		{
 			gbForceWeaponReady = true;
-			iDistanceVisible = DistanceVisible(pSoldier, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sSpot, pSoldier->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier));
+			iDistanceVisible = DistanceVisible(pSoldier, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sSpot, pSoldier->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier));
 			gbForceWeaponReady = false;
 			//iDistanceVisible = pSoldier->GetMaxDistanceVisible(sSpot, pSoldier->position().level(), CALC_FROM_WANTED_DIR);
 		}		
@@ -6252,7 +6253,7 @@ BOOLEAN CheckSuppressionDirection(TacticalActor *pSoldier, INT32 sTargetGridNo, 
 			PythSpacesAway(pSoldier->position().gridNo(), pFriend->position().gridNo()) > 1 &&
 			PythSpacesAway(pSoldier->position().gridNo(), pFriend->position().gridNo()) < 2 * TACTICAL_RANGE &&
 			(gAnimControl[pFriend->animationPlayback().state()].ubHeight == ANIM_STAND || gGameExternalOptions.fAllowTargetHeadAndLegIfProne) &&
-			//!pFriend->IsCowering() &&
+			//!TacticalActorConditions::isCowering(*pFriend) &&
 			AISoldierToSoldierChanceToGetThrough(pSoldier, pFriend) > 25)
 			//LocationToLocationLineOfSightTest(pSoldier->sGridNo, pSoldier->position().level(), pFriend->sGridNo, pFriend->position().level(), TRUE, NO_DISTANCE_LIMIT))
 		{

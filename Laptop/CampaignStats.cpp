@@ -4,6 +4,7 @@
  */
 
 #include "CampaignStats.h"
+#include "TacticalActorConditions.h"
 #include "message.h"
 #include "SaveLoadGame.h"
 #include "GameVersion.h"
@@ -168,7 +169,7 @@ Incident_Stats::AddStat( TacticalActor* pSoldier, UINT8 aType )
 		break;
 
 		case CREATURE_TEAM:
-			if ( pSoldier->IsZombie() )
+			if ( TacticalActorConditions::isZombie(*pSoldier) )
 				group = CAMPAIGNHISTORY_SD_ZOMBIE;
 			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_BANDIT )
 				group = CAMPAIGNHISTORY_SD_ENEMY_ADMIN;

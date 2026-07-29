@@ -1,4 +1,5 @@
 #include <cstdio>
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 #include <string.h>
 #include <random>
@@ -3005,7 +3006,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
         }
 
     }
-    else if ( pSoldier->roster().team() == CIV_TEAM && pSoldier->IsAssassin() && pSoldier->aiBehavior().neutral() )
+    else if ( pSoldier->roster().team() == CIV_TEAM && TacticalActorConditions::isAssassin(*pSoldier) && pSoldier->aiBehavior().neutral() )
     {
         INT32 sDesiredMercDist;
 
@@ -8148,7 +8149,7 @@ UINT16 NumZombiesInSector( )
         pTeamSoldier = &soldiers.record(cnt);
         if ( pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() && pTeamSoldier->vitals().health() > 0 )
         {
-            if ( pTeamSoldier->IsZombie() )
+            if ( TacticalActorConditions::isZombie(*pTeamSoldier) )
             {
                 ++ubNumZombies;
             }
@@ -8778,7 +8779,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
         pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
         // Flugente: zombies do not receive any suppression at all!
-        if ( pSoldier != NULL && pSoldier->IsZombie() )
+        if ( pSoldier != NULL && TacticalActorConditions::isZombie(*pSoldier) )
             continue;
 
         // Has this character received any Suppression Points since the last attack?
@@ -10378,7 +10379,7 @@ BOOLEAN HostileZombiesPresent( )
     {
         pSoldier = GetJa2SoldierRepository().resolve(iLoop.i);
 
-		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 && pSoldier->IsZombie( ) )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 && TacticalActorConditions::isZombie(*pSoldier) )
         {
             return( TRUE );
         }
@@ -10652,7 +10653,7 @@ INT8 CheckStatusNearbyFriendliesSimple(TacticalActor *pSoldier)
 	INT16 sDistance;
 	INT16 sMinDistance = TACTICAL_RANGE / 4;
 
-	if (!pSoldier || !pSoldier->roster().active() || TileIsOutOfBounds(pSoldier->position().gridNo()) || !IS_MERC_BODY_TYPE(pSoldier) || pSoldier->vitals().health() < OKLIFE || pSoldier->IsCowering() || pSoldier->IsUnconscious())
+	if (!pSoldier || !pSoldier->roster().active() || TileIsOutOfBounds(pSoldier->position().gridNo()) || !IS_MERC_BODY_TYPE(pSoldier) || pSoldier->vitals().health() < OKLIFE || TacticalActorConditions::isCowering(*pSoldier) || TacticalActorConditions::isUnconscious(*pSoldier))
 	{
 		return 0;
 	}
@@ -10680,7 +10681,7 @@ INT8 CheckStatusNearbyFriendliesSimple(TacticalActor *pSoldier)
 				// dying, negative effect
 				iModifier = -1.0f;
 			}
-			else if (pFriend->IsCowering() || pFriend->IsUnconscious())
+			else if (TacticalActorConditions::isCowering(*pFriend) || TacticalActorConditions::isUnconscious(*pFriend))
 			{
 				// suppressed, negative modifier
 				iModifier = -0.5f;
@@ -11145,7 +11146,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 						fNoSurrender = TRUE;
 
 					// a civilian can only be captured if his faction is allowed to. This should prevent the player from exploiting a huge numerical superiority against small enemy groups, like lone assassins.
-					if (!pSoldier->CanBeCaptured())
+					if (!TacticalActorConditions::canBeCaptured(*pSoldier))
 						continue;
 
 					// if a civilian is not neutral and on the enemy side, add his strength to the team
@@ -11181,7 +11182,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
                 if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
                 {
 					// can this guy be captured?
-					if ( !pSoldier->CanBeCaptured( ) )
+					if ( !TacticalActorConditions::canBeCaptured(*pSoldier) )
 						continue;
 
                     // only if not dying
@@ -11338,13 +11339,13 @@ void CheckChatPartners()
 void HandleSurrenderOffer( TacticalActor* pSoldier )
 {
     // abort if bad pointer, or not an enemy and not a capturable civilian
-	if ( !pSoldier || !pSoldier->CanBeCaptured( ) )
+	if ( !pSoldier || !TacticalActorConditions::canBeCaptured(*pSoldier) )
         return;
 
     // remember the target's ID
     prisonerdialoguetargetID = pSoldier->identity().id();
 
-	if (gGameExternalOptions.fEnemyCanSurrender && pSoldier->CanBeCaptured())
+	if (gGameExternalOptions.fEnemyCanSurrender && TacticalActorConditions::canBeCaptured(*pSoldier))
 	{
 		// open a dialogue box and see whether we really want to offer this, or just talk
 		wcscpy(gzUserDefinedButton[0], TacticalStr[PRISONER_DEMAND_SURRENDER_STR]);

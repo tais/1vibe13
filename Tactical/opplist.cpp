@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 	#include "Isometric Utils.h"
 	#include "Overhead.h"
@@ -1323,10 +1324,10 @@ INT16 TacticalActor::GetMaxDistanceVisible(INT32 sGridNo, INT8 bLevel, int calcA
 
 	if (calcAsType == CALC_FROM_ALL_DIRS)
 	{
-		return DistanceVisible( this, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sGridNo, bLevel, this->IsCowering(), GetPercentTunnelVision(this), pKnownSubject );
+		return DistanceVisible( this, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sGridNo, bLevel, TacticalActorConditions::isCowering(*this), GetPercentTunnelVision(this), pKnownSubject );
 	}
 
-	return DistanceVisible( this, (SoldierHasLimitedVision(this) ? this->pathing().desiredDirection() : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sGridNo, bLevel, this->IsCowering(), GetPercentTunnelVision(this), pKnownSubject);
+	return DistanceVisible( this, (SoldierHasLimitedVision(this) ? this->pathing().desiredDirection() : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sGridNo, bLevel, TacticalActorConditions::isCowering(*this), GetPercentTunnelVision(this), pKnownSubject);
 }
 
 INT16 DistanceVisible(TacticalActor *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, INT32 sSubjectGridNo, INT8 bLevel, const BOOLEAN& isCowering, const UINT8& tunnelVision, TacticalActor *pKnownSubject)
@@ -2240,7 +2241,7 @@ INT16 ManLooksForMan(TacticalActor *pSoldier, TacticalActor *pOpponent, UINT8 ub
 		// BIG NOTE: must use desdir instead of direction, since in a projected
 		// situation, the direction may still be changing if it's one of the first
 		// few animation steps when this guy's turn to do his stepped look comes up
-		sDistVisible = DistanceVisible(pSoldier, pSoldier->pathing().desiredDirection(), bDir, pOpponent->position().gridNo(), pOpponent->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier), pOpponent);
+		sDistVisible = DistanceVisible(pSoldier, pSoldier->pathing().desiredDirection(), bDir, pOpponent->position().gridNo(), pOpponent->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier), pOpponent);
 		//if (pSoldier->identity().id() == 0)
 		//sprintf(gDebugStr,"dist visible %d: my dir %d to him %d",sDistVisible,pSoldier->bDesiredDirection,bDir);
 	}
@@ -2501,7 +2502,7 @@ void ManSeesMan(TacticalActor *pSoldier, TacticalActor *pOpponent, INT32 sOppGri
 				}
 			}
 			// Flugente: for assassins without profiles
-			else if ( pSoldier->IsAssassin() && pSoldier->roster().team() == CIV_TEAM )
+			else if ( TacticalActorConditions::isAssassin(*pSoldier) && pSoldier->roster().team() == CIV_TEAM )
 			{
 				// if we are an assassin and still neutral and undercover, approach target and then become hostile
 				if ( pSoldier->aiBehavior().neutral() && pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
@@ -2708,7 +2709,7 @@ void ManSeesMan(TacticalActor *pSoldier, TacticalActor *pOpponent, INT32 sOppGri
 		{
 			// ... check wether he is not neutral against us (account for the fact that we might be covert!)
 			// if we are an NPC assassin
-			if ( pSoldier->IsAssassin() && pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+			if ( TacticalActorConditions::isAssassin(*pSoldier) && pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 			{
 				// check wether our opponent would see us as an opponent if we weren't covert
 				if ( !( (pSoldier->aiBehavior().neutral() || pSoldier->featureFlags().primaryFlags() & SOLDIER_POW) && ( pOpponent->roster().team() != CREATURE_TEAM || pOpponent->status().flags() & SOLDIER_VEHICLE ) ) )
@@ -7684,7 +7685,7 @@ void CheckForAlertWhenEnemyDies( TacticalActor * pDyingSoldier )
 
 			// distance we "see" then depends on the direction he is located from us
 			bDir = atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),pDyingSoldier->position().worldXInt(),pDyingSoldier->position().worldYInt());
-			sDistVisible = DistanceVisible( pSoldier, pSoldier->pathing().desiredDirection(), bDir, pDyingSoldier->position().gridNo(), pDyingSoldier->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier));
+			sDistVisible = DistanceVisible( pSoldier, pSoldier->pathing().desiredDirection(), bDir, pDyingSoldier->position().gridNo(), pDyingSoldier->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier));
 			sDistAway = PythSpacesAway( pSoldier->position().gridNo(), pDyingSoldier->position().gridNo() );
 
 			// if we see close enough to see the soldier

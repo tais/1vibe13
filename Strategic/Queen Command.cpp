@@ -1,6 +1,7 @@
 //Queen Command.c
 
 	#include "Queen Command.h"
+#include "TacticalActorConditions.h"
 #include "SoldierRepository.h"
 	#include "SaveSerializer.h"
 	#include "Overhead Types.h"
@@ -111,7 +112,7 @@ void ValidateEnemiesHaveWeapons()
 			}
 
 			// Flugente: zombies are fine with having no weapons...
-			if ( pSoldier->IsZombie() )
+			if ( TacticalActorConditions::isZombie(*pSoldier) )
 				continue;
 
 			if( !pSoldier->inventory()[ HANDPOS ].usItem )

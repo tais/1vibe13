@@ -1,4 +1,5 @@
 #include "ai.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 #include "AIInternals.h"
 #include "Isometric Utils.h"
@@ -670,7 +671,7 @@ INT8 DecideActionNamedNPC( TacticalActor * pSoldier )
 		}
 	}
 
-	if ( pSoldier->IsAssassin() )
+	if ( TacticalActorConditions::isAssassin(*pSoldier) )
 	{
 		sDesiredMercLoc = ClosestPC( pSoldier, &sDesiredMercDist );
 		
@@ -856,7 +857,7 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 				}
 			}
 
-			if ( pSoldier->identity().profile() != NO_PROFILE || pSoldier->IsAssassin() )
+			if ( pSoldier->identity().profile() != NO_PROFILE || TacticalActorConditions::isAssassin(*pSoldier) )
 			{
 				if ( pSoldier->identity().profile() != NO_PROFILE )
 					pSoldier->aiPlanning().action() = DecideActionNamedNPC( pSoldier );
@@ -1601,7 +1602,7 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 			// ******************
 			// REAL TIME NPC CODE
 			// ******************
-			if (pSoldier->identity().profile() != NO_PROFILE || pSoldier->IsAssassin() )
+			if (pSoldier->identity().profile() != NO_PROFILE || TacticalActorConditions::isAssassin(*pSoldier) )
 			{
 				if ( pSoldier->identity().profile() != NO_PROFILE )
 					pSoldier->aiPlanning().action() = DecideActionNamedNPC( pSoldier );
@@ -2558,7 +2559,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->collapseState().tactical() &&
 		!pSoldier->collapseState().breathTriggered() &&
-		pSoldier->IsCowering())
+		TacticalActorConditions::isCowering(*pSoldier))
 	{
 		return AI_ACTION_STOP_COWERING;
 	}
@@ -2569,7 +2570,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->collapseState().tactical() &&
 		!pSoldier->collapseState().breathTriggered() &&
-		pSoldier->IsGivingAid())
+		TacticalActorConditions::isGivingAid(*pSoldier))
 	{
 		return AI_ACTION_STOP_MEDIC;
 	}
@@ -3063,7 +3064,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 				// check valid target
 				!TileIsOutOfBounds(BestShot.sTarget) &&
 				bestShotOpponent &&
-				Chance(100 - bestShotOpponent->ShockLevelPercent() / 2) &&
+				Chance(100 - TacticalActorConditions::suppressionShockPercent(*bestShotOpponent) / 2) &&
 				// check weapon/ammo requirements
 				IsGunAutofireCapable(&pSoldier->inventory()[BestShot.bWeaponIn]) &&
 				GetMagSize(&pSoldier->inventory()[BestShot.bWeaponIn]) >= gGameExternalOptions.ubAISuppressionMinimumMagSize &&
@@ -3661,8 +3662,8 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 		(!NightLight() || InLightAtNight(pSoldier->position().gridNo(), pSoldier->position().level())) &&
 		!TileIsOutOfBounds(sClosestOpponent) &&
 		PythSpacesAway(pSoldier->position().gridNo(), sClosestOpponent) > TACTICAL_RANGE / 4 &&
-		(!fProneSightCover && !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || pSoldier->TakenLargeHit()) &&
-		(pSoldier->TakenLargeHit() || pSoldier->ShockLevelPercent() > 20 + Random(80)))
+		(!fProneSightCover && !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || TacticalActorConditions::hasTakenLargeHit(*pSoldier)) &&
+		(TacticalActorConditions::hasTakenLargeHit(*pSoldier) || TacticalActorConditions::suppressionShockPercent(*pSoldier) > 20 + Random(80)))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("check if soldier can cover himself with smoke"));
 
@@ -4988,7 +4989,7 @@ INT16 ubMinAPCost;
 		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->collapseState().tactical() &&
 		!pSoldier->collapseState().breathTriggered() &&
-		pSoldier->IsCowering())
+		TacticalActorConditions::isCowering(*pSoldier))
 	{
 		return AI_ACTION_STOP_COWERING;
 	}
@@ -4999,7 +5000,7 @@ INT16 ubMinAPCost;
 		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->collapseState().tactical() &&
 		!pSoldier->collapseState().breathTriggered() &&
-		pSoldier->IsGivingAid())
+		TacticalActorConditions::isGivingAid(*pSoldier))
 	{
 		return AI_ACTION_STOP_MEDIC;
 	}
@@ -5340,8 +5341,8 @@ INT16 ubMinAPCost;
 		(!NightLight() || InLightAtNight(pSoldier->position().gridNo(), pSoldier->position().level())) &&
 		!TileIsOutOfBounds(sClosestOpponent) &&
 		PythSpacesAway(pSoldier->position().gridNo(), sClosestOpponent) > TACTICAL_RANGE / 4 &&
-		(!ProneSightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), FALSE) && !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || pSoldier->TakenLargeHit()) &&
-		(pSoldier->TakenLargeHit() || pSoldier->ShockLevelPercent() > 20 + Random(80)))
+		(!ProneSightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), FALSE) && !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || TacticalActorConditions::hasTakenLargeHit(*pSoldier)) &&
+		(TacticalActorConditions::hasTakenLargeHit(*pSoldier) || TacticalActorConditions::suppressionShockPercent(*pSoldier) > 20 + Random(80)))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("check if soldier can cover himself with smoke"));
 
@@ -6005,7 +6006,7 @@ INT16 ubMinAPCost;
 		pSoldier->aiBehavior().orders() != STATIONARY &&
 		pSoldier->aiBehavior().orders() != SNIPER &&
 		pSoldier->RetreatCounterValue() > 0 &&
-		(ubBestAttackAction == AI_ACTION_NONE || ubBestAttackAction == AI_ACTION_FIRE_GUN && (UINT8)BestAttack.ubChanceToReallyHit < Random(10 + pSoldier->ShockLevelPercent() / 4)) &&
+		(ubBestAttackAction == AI_ACTION_NONE || ubBestAttackAction == AI_ACTION_FIRE_GUN && (UINT8)BestAttack.ubChanceToReallyHit < Random(10 + TacticalActorConditions::suppressionShockPercent(*pSoldier) / 4)) &&
 		(pSoldier->CheckInitialAP() || !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || pSoldier->suppression().underFire()))
 	{
 		DebugAI(AI_MSG_TOPIC, pSoldier, String("search for retreat spot"));
@@ -6960,7 +6961,7 @@ L_NEWAIM:
 				}
 				else if (pSoldier->vitals().breath() < OKBREATH ||
 					pSoldier->vitals().breath() < pSoldier->vitals().maximumBreath() &&
-					(pSoldier->vitals().breath() < boxerOpponent->vitals().breath() || !pSoldier->combatResult().lastAttackHit() && pSoldier->TakenLargeHit()))
+					(pSoldier->vitals().breath() < boxerOpponent->vitals().breath() || !pSoldier->combatResult().lastAttackHit() && TacticalActorConditions::hasTakenLargeHit(*pSoldier)))
 				{
 					// maybe move away from opponent
 					UINT8 ubOpponentDir = AIDirection(pSoldier->position().gridNo(), sClosestOpponent);
@@ -8643,7 +8644,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 			 && pSoldier->aiBehavior().orders() != SNIPER &&
 			 BestShot.ubFriendlyFireChance < 5 &&
 			 bestShotOpponent &&
-			 !bestShotOpponent->IsCowering() &&
+			 !TacticalActorConditions::isCowering(*bestShotOpponent) &&
 			 !AICheckIsFlanking( pSoldier ) &&
 			 LocationToLocationLineOfSightTest( pSoldier->position().gridNo(), pSoldier->position().level(), bestShotOpponent->position().gridNo(), bestShotOpponent->position().level(), TRUE, NO_DISTANCE_LIMIT ) &&
 			 //Weapon[pSoldier->inventory()[BestShot.bWeaponIn].usItem].ubWeaponType == GUN_LMG ) &&	//Weapon[usInHand].ubWeaponClass == MGCLASS
@@ -9340,7 +9341,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 		if ( pSoldier->suppression().underFire() )
 		{
 			// Flugente: see if we are equipped with a smoke screen. If so, use it do hide us
-			if (pSoldier->TakenLargeHit() && pSoldier->HasItem(SMOKE_GRENADE) && IsActionAffordable(pSoldier, AI_ACTION_SELFDETONATE))
+			if (TacticalActorConditions::hasTakenLargeHit(*pSoldier) && pSoldier->HasItem(SMOKE_GRENADE) && IsActionAffordable(pSoldier, AI_ACTION_SELFDETONATE))
 			{
 				pSoldier->aiPlanning().actionData() = SMOKE_GRENADE;
 
@@ -10422,11 +10423,11 @@ void LogDecideInfo(TacticalActor *pSoldier)
 	DebugAI(AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->morale().aiMorale(), pSoldier->morale().morale()));
 	DebugAI(AI_MSG_INFO, pSoldier, String("Spot %d level %d opponents %d", pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->awareness().opponentCount()));
 	DebugAI(AI_MSG_INFO, pSoldier, String("ubServiceCount %d ubServicePartner %d fDoingSurgery %d", pSoldier->service().providerCount(), pSoldier->service().partner().i, pSoldier->vitals().undergoingSurgery()));
-	if (pSoldier->IsCowering())
+	if (TacticalActorConditions::isCowering(*pSoldier))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("Cowering"));
 	}
-	if (pSoldier->IsGivingAid())
+	if (TacticalActorConditions::isGivingAid(*pSoldier))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("Giving aid"));
 	}
