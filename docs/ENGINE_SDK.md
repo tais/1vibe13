@@ -290,12 +290,13 @@ high-water traversal bound, and never stores application pointers. `insert`,
 so reusable soldier slots cannot silently redirect retained membership to a
 later incarnation. The JA2 application uses host-owned instances for active
 and away tactical scheduling, bounded strategic squad membership, and fixed
-vehicle passenger seats. Vehicle driver ownership is exact as well. These
-remain application runtime details, not package services. Strategic squad
-saves still write the established 40-by-10 legacy soldier-ID block. Vehicle
-saves retain their ten 32-bit passenger profile IDs and 16-bit driver slot;
-both loaders reconstruct exact runtime identities. No save, game-data, Lua,
-or network format changes.
+vehicle passenger seats. Vehicle driver ownership and strategic movement-group
+membership are exact as well. These remain application runtime details, not
+package services. Strategic squad saves still write the established 40-by-10
+legacy soldier-ID block. Vehicle saves retain their ten 32-bit passenger
+profile IDs and 16-bit driver slot, while movement groups retain their count
+plus 32-bit profile-only member payload. Their loaders reconstruct exact
+runtime identities. No save, game-data, Lua, or network format changes.
 
 `GameContext` also owns the application-only `Ja2SoldierRepository` that
 connects this pointer-free runtime identity to JA2's current fixed soldier

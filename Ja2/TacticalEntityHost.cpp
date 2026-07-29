@@ -9,6 +9,7 @@
 #include "Animation Control.h"
 #include "SoldierRepository.h"
 #include "Soldier Control.h"
+#include "Strategic Movement.h"
 #include "StrategicSquadHost.h"
 #include "VehiclePassengerHost.h"
 
@@ -240,6 +241,7 @@ bool SwapJa2TacticalEntitySlots(
 	RebindRosterAfterRecordSwap(AwayActorRoster());
 	RebindJa2StrategicSquadRostersAfterRecordSwap();
 	RebindJa2VehicleOccupantsAfterRecordSwap();
+	RebindStrategicGroupMembersAfterRecordSwap();
 	return true;
 }
 

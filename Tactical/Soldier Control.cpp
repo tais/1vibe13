@@ -105,6 +105,7 @@
 #include "Rebel Command.h"
 #include "Simulation Command Legacy.h"
 #include "Simulation Commands.h"
+#include "Strategic Movement.h"
 #include "StrategicSquadHost.h"
 #include "TacticalEntityHost.h"
 #include "VehiclePassengerHost.h"
@@ -2571,6 +2572,7 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 	// directly, so a reused repository slot cannot inherit retained membership.
 	(void)RemoveJa2StrategicSquadActor(actor);
 	(void)RemoveJa2VehiclePassengerActor(actor);
+	(void)RemovePlayerFromStrategicGroups(actor);
 
 	return(TRUE);
 }

@@ -3111,20 +3111,23 @@ void CalculateAutoResolveInfo()
 			pPlayer = pGroup->pPlayerList;
 			while( pPlayer )
 			{
+				SOLDIERTYPE* member =
+					ResolvePlayerGroupMember( pPlayer );
 				// NOTE: Must check each merc individually, e.g. Robot without controller is an uninvolved merc on an involved group!
-				if ( PlayerMercInvolvedInThisCombat( pPlayer->pSoldier ) )
+				if ( member &&
+					PlayerMercInvolvedInThisCombat( member ) )
 				{
-					gpMercs[ gpAR->ubMercs ].pSoldier = pPlayer->pSoldier;
+					gpMercs[ gpAR->ubMercs ].pSoldier = member;
 
 					//!!! CLEAR OPPCOUNT HERE.	All of these soldiers are guaranteed to not be in tactical anymore.
-					//ClearOppCount( pPlayer->pSoldier );
+					//ClearOppCount( member );
 
 					gpAR->ubMercs++;
-					if( AM_AN_EPC( pPlayer->pSoldier ) )
+					if( AM_AN_EPC( member ) )
 					{
 						gpAR->fCaptureNotPermittedDueToEPCs = TRUE;
 					}
-					if( AM_A_ROBOT( pPlayer->pSoldier ) )
+					if( AM_A_ROBOT( member ) )
 					{
 						gpAR->pRobotCell = &gpMercs[ gpAR->ubMercs - 1 ];
 						gpAR->pRobotCell->pSoldier->UpdateRobotControllerGivenRobot( );
