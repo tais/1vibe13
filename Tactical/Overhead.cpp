@@ -778,7 +778,7 @@ BOOLEAN InitOverhead( )
 
     // Reset cursor
     gpItemPointer = NULL;
-    (void)SetItemPointerSoldier(NULL);
+    ClearItemPointerSoldier();
     memset( gbInvalidPlacementSlot, 0, sizeof( gbInvalidPlacementSlot ) );
 
     InitCivQuoteSystem( );

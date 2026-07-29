@@ -3,7 +3,7 @@
 
 #include "Items.h"
 #include "Handle Items.h"
-#include "TacticalInventoryUiHost.h"
+#include "TacticalInventoryUiLegacy.h"
 #include "popup_class.h"
 
 // DEFINES FOR ITEM SLOT SIZES IN PIXELS

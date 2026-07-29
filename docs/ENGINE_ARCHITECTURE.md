@@ -798,12 +798,17 @@ the engine must not contain SDL types in its public domain model.
   Lua values, network packets, and mod data remain unchanged.
 - `TacticalInventoryUiSession` owns the actor identities retained by the
   selected-merc panel, item cursor, item description and attachment view,
-  stack/keyring popup, and pickup/stealing menu. The application host resolves
-  each role through `TacticalEntityDirectory`; if an actor is released or its
-  pool slot is reused, the modal closes instead of following the replacement
-  soldier or dereferencing stale inventory. Panel, cursor, world, and load
-  teardown clear these runtime-only roles. No soldier, inventory, map, save, or
-  content representation changes.
+  stack/keyring popup, and pickup/stealing menu. Its stable application host is
+  a pointer-free producer boundary: callers capture a complete
+  `TacticalEntityId`, copy identities directly between UI roles, and explicitly
+  clear absent actors. Raw `SOLDIERTYPE` resolution is isolated in
+  `TacticalInventoryUiLegacy.h` at compatibility consumption sites. Each
+  resolution passes through `TacticalEntityDirectory`; if an actor is released
+  or its pool slot is reused, the modal closes instead of following the
+  replacement soldier or dereferencing stale inventory. Panel, cursor, world,
+  and load teardown clear these runtime-only roles. Architecture checks prevent
+  pointer setters or raw getters from returning to the stable host. No soldier,
+  inventory, map, save, or content representation changes.
 - `TacticalWorldItemDirectory` gives reusable `gWorldItems` slots the same
   bounded incarnation protection without moving or reformatting game data.
   Storage grows only through an activated slot and is capped before allocation.

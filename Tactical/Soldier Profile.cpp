@@ -27,7 +27,7 @@
 	#include "GameSettings.h"
 	#include "strategic town reputation.h"
 	#include "Interface Utils.h"
-	#include "TacticalInventoryUiHost.h"
+	#include "TacticalInventoryUiLegacy.h"
 	#include "Game Event Hook.h"
 	#include "Map Information.h"
 	#include "history.h"

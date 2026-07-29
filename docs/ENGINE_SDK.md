@@ -700,10 +700,12 @@ runtime-only and does not add fields to serialized soldiers.
 Every `EngineRuntime` also owns one `TacticalInventoryUiSession`. It is a
 pointer-free table of `TacticalInventoryActorRole` to `TacticalEntityId` for
 application inventory panels and modal children. Hosts can set, query, clear,
-count, or reset these value-only roles without importing `SOLDIERTYPE`.
-Resolution and stale-modal cancellation remain responsibilities of the JA2
-application adapter, so this SDK type grants neither inventory mutation nor UI
-control and changes no game-data or persistence format.
+copy, count, or reset these value-only roles without importing `SOLDIERTYPE`.
+JA2 producers capture canonical identities before retaining them; legacy
+consumers resolve records only through the separately named compatibility
+header. Resolution and stale-modal cancellation remain responsibilities of the
+JA2 application adapter, so this SDK type grants neither inventory mutation nor
+UI control and changes no game-data or persistence format.
 
 The command journal has one current wire layout. It retains a version field so
 a genuinely published format can evolve later, but unsupported versions are

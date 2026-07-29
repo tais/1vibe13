@@ -4343,15 +4343,25 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 			//if there is an owner of the item
 			if( gMoveingItem.ubIdOfMercWhoOwnsTheItem != -1 )
 			{
-				(void)SetItemPointerSoldier(FindSoldierByProfileID( gMoveingItem.ubIdOfMercWhoOwnsTheItem, TRUE ));
+				SOLDIERTYPE* owner = FindSoldierByProfileID(
+					gMoveingItem.ubIdOfMercWhoOwnsTheItem, TRUE);
+				if (owner)
+					(void)SetItemPointerSoldier(
+						GetJa2TacticalEntityId(*owner));
+				else
+					ClearItemPointerSoldier();
 				//make sure the soldier is not null
 				if( GetItemPointerSoldier() == NULL )
 				{
-					(void)SetItemPointerSoldier(GetSMCurrentMerc());
+					(void)CopyJa2TacticalInventoryActor(
+						TacticalInventoryActorRole::SelectedMerc,
+						TacticalInventoryActorRole::ItemCursorOwner);
 				}
 			}
 			else
-				(void)SetItemPointerSoldier(GetSMCurrentMerc());
+				(void)CopyJa2TacticalInventoryActor(
+					TacticalInventoryActorRole::SelectedMerc,
+					TacticalInventoryActorRole::ItemCursorOwner);
 
 			break;
 
@@ -4389,15 +4399,25 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 			//if there is an owner of the item
 			if( gMoveingItem.ubIdOfMercWhoOwnsTheItem != -1 )
 			{
-				(void)SetItemPointerSoldier(FindSoldierByProfileID( gMoveingItem.ubIdOfMercWhoOwnsTheItem, TRUE ));
+				SOLDIERTYPE* owner = FindSoldierByProfileID(
+					gMoveingItem.ubIdOfMercWhoOwnsTheItem, TRUE);
+				if (owner)
+					(void)SetItemPointerSoldier(
+						GetJa2TacticalEntityId(*owner));
+				else
+					ClearItemPointerSoldier();
 				//make sure the soldier is not null
 				if( GetItemPointerSoldier() == NULL )
 				{
-					(void)SetItemPointerSoldier(GetSMCurrentMerc());
+					(void)CopyJa2TacticalInventoryActor(
+						TacticalInventoryActorRole::SelectedMerc,
+						TacticalInventoryActorRole::ItemCursorOwner);
 				}
 			}
 			else
-				(void)SetItemPointerSoldier(GetSMCurrentMerc());
+				(void)CopyJa2TacticalInventoryActor(
+					TacticalInventoryActorRole::SelectedMerc,
+					TacticalInventoryActorRole::ItemCursorOwner);
 #ifdef JA2UB				
 				//ja25 ub
 			//if the dealer is Raul
@@ -4475,7 +4495,9 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 				}
 
 				gpItemPointer = &gMoveingItem.ItemObject;
-				(void)SetItemPointerSoldier(GetSMCurrentMerc());
+				(void)CopyJa2TacticalInventoryActor(
+					TacticalInventoryActorRole::SelectedMerc,
+					TacticalInventoryActorRole::ItemCursorOwner);
 			}
 
 			break;
@@ -4582,7 +4604,7 @@ void SetSkiCursor( UINT16	usCursor )
 
 //		gpSkiItemPointer = NULL;
 		gpItemPointer = NULL;
-		(void)SetItemPointerSoldier(NULL);
+		ClearItemPointerSoldier();
 
 		DisableTacticalTeamPanelButtons( FALSE );
 
