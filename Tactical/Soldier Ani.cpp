@@ -490,7 +490,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 431:
 
 				// FLASH FRAME WHITE
-				pSoldier->pForcedShade = White16BPPPalette;
+				pSoldier->palette().setForcedShade(White16BPPPalette);
 				break;
 
 			case 432:

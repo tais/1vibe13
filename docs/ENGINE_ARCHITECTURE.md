@@ -1344,9 +1344,15 @@ the engine must not contain SDL types in its public domain model.
   forced-colour and shade policy, muzzle-flash visibility and light handles,
   the unblit rectangle, and the projected bounding box. Named fade,
   muzzle-flash, shade, redraw, and light-lifetime operations keep paired state
-  coherent. Raw palette, shade, surface, level-node, and background pointers
-  remain legacy render-adapter resources; they are rebuilt or retired by their
-  existing owners rather than copied into the component.
+  coherent. `RenderPaletteBank` separately owns the base 8-bit and 16-bit
+  palettes, 48 lighting shades, 20 glow shades, two effect shades, and the
+  borrowed active/forced aliases as one RAII render resource. Copies clone
+  owned tables and remap aliases, repository relocation transfers the bank
+  without cloning, and palette rebuilds publish only a complete replacement.
+  Logical-body palette tables compose the same owner instead of inheriting a
+  fake `SOLDIERTYPE`, so lighting and rendering now consume one palette
+  boundary for actors and layers. Surface, level-node, and background pointers
+  remain legacy render-adapter resources.
   `SoldierUiPresentationComponent` owns the wider soldier-local tactical view
   state: portrait flash frame and phase, locator animation/cycles/visibility
   and offsets, interface elevation, panel animation/lifecycle and face

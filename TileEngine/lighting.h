@@ -2,7 +2,7 @@
 #define _LIGHTING_H_
 
 #include "vobject.h"
-class SOLDIERTYPE;
+class RenderPaletteBank;
 
 /****************************************************************************************
 * JA2 Lighting Module
@@ -168,8 +168,8 @@ BOOLEAN		LightHideRays(INT16 iX, INT16 iY);
 
 // makes the 16-bit palettes
 UINT16		CreateTilePaletteTables(HVOBJECT pObj, UINT32 uiType, BOOLEAN fForce );
-BOOLEAN		CreateSoldierShadedPalette( SOLDIERTYPE *pSoldier, UINT32 uiBase, SGPPaletteEntry *pShadePal);
-UINT16		CreateSoldierPaletteTables(SOLDIERTYPE *pSoldier, UINT32 uiType);
+BOOLEAN		CreateRenderShadedPalette(RenderPaletteBank& palette, UINT32 uiBase, SGPPaletteEntry *pShadePal);
+UINT16		CreateRenderPaletteTables(RenderPaletteBank& palette, UINT32 uiType);
 
 // returns the true light value at a tile (ignoring fake/merc lights)
 UINT8 LightTrueLevel( INT32 sGridNo, INT16 bLevel );

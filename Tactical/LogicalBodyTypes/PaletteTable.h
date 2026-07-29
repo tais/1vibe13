@@ -3,7 +3,7 @@
 #ifndef _LBT_PALETTETABLE__H_
 #define _LBT_PALETTETABLE__H_
 
-#include "Soldier Control.h"
+#include "Render Palette Bank.h"
 #include "Utilities.h"
 #include "lighting.h"
 
@@ -15,15 +15,18 @@ extern PIXEL* CreateEnemyGreyGlow16BPPPalette(SGPPaletteEntry* pPalette, UINT32 
 
 namespace LogicalBodyTypes {
 
-class PaletteTable : public SOLDIERTYPE {
+class PaletteTable {
 
 public:
 	PaletteTable();
 	~PaletteTable(void);
 	bool Load(std::string fileName);
+	RenderPaletteBank& palette() noexcept { return palette_; }
+	const RenderPaletteBank& palette() const noexcept { return palette_; }
 
 private:
 	bool CreateSGPPaletteFromActFile(SGPPaletteEntry *pPalette, std::string fileName);
+	RenderPaletteBank palette_;
 
 };
 

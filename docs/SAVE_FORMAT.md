@@ -636,9 +636,19 @@ adapter, so save and load can never drift out of order. Extra methods:
   all 23 values at their established scattered positions and widths, and v101
   conversion maps every historical value. Fade mode remains one unsigned byte;
   mode `2` is now preserved instead of being normalized to boolean `1`.
-  Palette/shade/surface pointers remain non-persisted legacy adapters, and the
-  `SOLDIERCREATE_STRUCT` palette bytes used by multiplayer remain unchanged.
+  Palette/shade tables remain non-persisted render resources, surface pointers
+  remain legacy adapters, and the `SOLDIERCREATE_STRUCT` palette bytes used by
+  multiplayer remain unchanged.
   Save layout, maps, XML, Lua, and installed data are unchanged.
+- The process-local soldier base palette, generated lighting/glow/effect
+  tables, and active shade aliases are now owned together by
+  `RenderPaletteBank`. Its RAII copy, move, reset, and registry behavior is an
+  in-memory lifetime change only: `XferSoldierTypePOD` emits the same zero
+  bytes at every former pointer position through `retiredPtr()`, and loaded or
+  v101 soldiers rebuild the bank as before. Logical-body palette tables compose
+  the same owner rather than inheriting `SOLDIERTYPE`; their existing 256-entry
+  RGB `.col` input remains byte-for-byte unchanged. Current saves, multiplayer
+  packets, maps, XML, Lua, packages, and installed data are unchanged.
 - The central identity and roster values now have two independent live owners.
   `SoldierIdentityComponent` stores slot ID, the ten-character display name,
   body type, profile links, incarnation, and individual-militia ID;
@@ -656,9 +666,10 @@ adapter, so save and load can never drift out of order. Extra methods:
   values at their original scattered positions and widths, including the
   widened current `SoldierID` cursor. The twelve historical `BOOLEAN` lifecycle
   slots keep their established boolean encoding, while v101 conversion maps
-  every raw historical value. Palette, shade, surface, and level-node pointers
-  remain separate legacy render resources. No save, packet, map, XML, Lua, or
-  installed-data bytes change.
+  every raw historical value. Palette/shade tables remain in their separate
+  `RenderPaletteBank`, while surface and level-node pointers remain legacy
+  render resources. No save, packet, map, XML, Lua, or installed-data bytes
+  change.
 - Militia kills, militia assists, and the fixed 156-entry player-team damage
   attribution table are now stored by `SoldierCombatContributionComponent`.
   The visitor emits the two unsigned 8-bit counters and every unsigned 8-bit

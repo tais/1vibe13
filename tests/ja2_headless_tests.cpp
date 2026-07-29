@@ -110,6 +110,8 @@
 #include "Game Events.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
+#include "LogicalBodyTypes/PaletteTable.h"
+#include "render_palette_registry.h"
 #include "Plan.h"
 #include "Animation Control.h"
 #include "Map Information.h"
@@ -175,6 +177,35 @@ static BOOLEAN InjectedLegacyClockKeyState( INT32 key )
 #define CHECK( cond, msg ) \
 	do { if ( !( cond ) ) { ++g_failures; std::printf( "FAIL  %s\n", msg ); } \
 	     else std::printf( "ok    %s\n", msg ); } while ( 0 )
+
+static SGPPaletteEntry* AllocateTestPalette8( UINT8 seed )
+{
+	SGPPaletteEntry* const palette = static_cast<SGPPaletteEntry*>(
+		MemAlloc( sizeof( SGPPaletteEntry ) * RenderPaletteBank::EntryCount ) );
+	if ( palette == nullptr )
+		throw std::bad_alloc();
+	for ( std::size_t index = 0;
+	      index < RenderPaletteBank::EntryCount; ++index )
+	{
+		palette[index].peRed = static_cast<UINT8>( seed + index );
+		palette[index].peGreen = static_cast<UINT8>( seed + index * 2 );
+		palette[index].peBlue = static_cast<UINT8>( seed + index * 3 );
+		palette[index].peFlags = 0;
+	}
+	return palette;
+}
+
+static PIXEL* AllocateTestPalette16( PIXEL seed )
+{
+	PIXEL* const palette = static_cast<PIXEL*>(
+		MemAlloc( sizeof( PIXEL ) * RenderPaletteBank::EntryCount ) );
+	if ( palette == nullptr )
+		throw std::bad_alloc();
+	for ( std::size_t index = 0;
+	      index < RenderPaletteBank::EntryCount; ++index )
+		palette[index] = static_cast<PIXEL>( seed + index );
+	return palette;
+}
 
 class HeadlessOwnedAiPlan final : public AI::tactical::Plan
 {
@@ -7225,6 +7256,82 @@ int main( int, char** )
 	CHECK( InitializeMemoryManager(), "InitializeMemoryManager()" );
 
 	{
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().palette()),
+			RenderPaletteBank&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().palette()),
+			const RenderPaletteBank&>);
+		static_assert(!std::is_base_of_v<
+			SOLDIERTYPE, LogicalBodyTypes::PaletteTable>);
+
+		const std::size_t registryBefore = LegacyRenderPaletteCount();
+		PIXEL externalForcedShade[RenderPaletteBank::EntryCount]{};
+		{
+			RenderPaletteBank original;
+			original.adoptBase8( AllocateTestPalette8( 7 ) );
+			original.adoptBase16( AllocateTestPalette16( 100 ) );
+			original.adoptShade( 3, AllocateTestPalette16( 200 ) );
+			original.adoptGlowShade( 4, AllocateTestPalette16( 300 ) );
+			original.adoptEffectShade( 1, AllocateTestPalette16( 400 ) );
+			original.setCurrentShade( original.shade( 3 ) );
+			original.setForcedShade( externalForcedShade );
+
+			RenderPaletteBank copy = original;
+			const bool copiedStorageIsIndependent =
+				copy.base8() != original.base8() &&
+				copy.base16() != original.base16() &&
+				copy.shade( 3 ) != original.shade( 3 ) &&
+				copy.glowShade( 4 ) != original.glowShade( 4 ) &&
+				copy.effectShade( 1 ) != original.effectShade( 1 ) &&
+				copy.base8()[0].peRed == original.base8()[0].peRed &&
+				copy.base16()[8] == original.base16()[8] &&
+				copy.currentShade() == copy.shade( 3 ) &&
+				copy.forcedShade() == externalForcedShade;
+			copy.shade( 3 )[0] = 999;
+			CHECK( copiedStorageIsIndependent &&
+			       original.shade( 3 )[0] == 200 &&
+			       LegacyRenderPaletteCount() == registryBefore + 8,
+			       "render palette banks deep-copy owned tables, remap internal aliases, and preserve borrowed forced shades" );
+
+			RenderPaletteBank moved = std::move( copy );
+			CHECK( copy.empty() &&
+			       moved.currentShade() == moved.shade( 3 ) &&
+			       moved.forcedShade() == externalForcedShade,
+			       "render palette bank moves transfer ownership and active aliases atomically" );
+
+			SOLDIERTYPE paletteOwner;
+			paletteOwner.palette() = original;
+			SOLDIERTYPE paletteClone = paletteOwner;
+			paletteClone.palette().base8()[0].peRed = 91;
+			paletteClone.palette().shade( 3 )[1] = 777;
+			paletteOwner.initialize();
+			CHECK( paletteOwner.palette().empty() &&
+			       paletteClone.palette().base8()[0].peRed == 91 &&
+			       paletteClone.palette().shade( 3 )[1] == 777 &&
+			       paletteClone.palette().currentShade() ==
+			           paletteClone.palette().shade( 3 ),
+			       "whole-soldier copies own independent render palettes and record reuse releases only the destination bank" );
+		}
+		CHECK( LegacyRenderPaletteCount() == registryBefore,
+		       "render palette bank destruction unregisters every owned 16-bit palette" );
+
+		{
+			RenderPaletteBank aliasedOwner;
+			PIXEL* const sharedPalette = AllocateTestPalette16( 500 );
+			aliasedOwner.adoptBase16( sharedPalette );
+			aliasedOwner.adoptShade( 0, sharedPalette );
+			aliasedOwner.setCurrentShade( sharedPalette );
+			CHECK( LegacyRenderPaletteCount() == registryBefore + 1,
+			       "render palette registration remains unique when legacy slots share one allocation" );
+			aliasedOwner.clearShade( 0 );
+			CHECK( aliasedOwner.empty() &&
+			       LegacyRenderPaletteCount() == registryBefore,
+			       "clearing a shared render palette invalidates every owned and active alias without a double free" );
+		}
+	}
+
+	{
 		SOLDIERTYPE records[2];
 		SOLDIERTYPE* slots[2] = { nullptr, nullptr };
 		Ja2SoldierRepository repository(records, slots, 2);
@@ -7295,6 +7402,14 @@ int main( int, char** )
 		records[1].strategicPath().copyFrom(&secondRoute);
 		PathSt* firstOwnedRoute = records[0].strategicPath().head();
 		PathSt* secondOwnedRoute = records[1].strategicPath().head();
+		records[0].palette().adoptBase16(
+			AllocateTestPalette16( 600 ) );
+		records[1].palette().adoptBase16(
+			AllocateTestPalette16( 700 ) );
+		PIXEL* const firstOwnedPalette =
+			records[0].palette().base16();
+		PIXEL* const secondOwnedPalette =
+			records[1].palette().base16();
 		records[0].aiPlan().adopt(new HeadlessOwnedAiPlan(
 			&records[0], repositoryPlanDestructions,
 			repositoryPlanExecutions));
@@ -7309,6 +7424,8 @@ int main( int, char** )
 		       records[1].position().gridNo() == 100 &&
 		       records[0].strategicPath().head() == secondOwnedRoute &&
 		       records[1].strategicPath().head() == firstOwnedRoute &&
+		       records[0].palette().base16() == secondOwnedPalette &&
+		       records[1].palette().base16() == firstOwnedPalette &&
 		       records[0].strategicPath().head()->uiSectorId == 404 &&
 		       records[1].strategicPath().head()->uiSectorId == 303 &&
 		       !records[0].aiPlan().hasPlan() &&

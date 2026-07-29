@@ -20,7 +20,7 @@ public:
 	struct LogicalSurfaceType {
 		LogicalSurfaceType(AnimationSurfaceType* physicalSurfaceType, AnimationSurfaceType* alphaSurfaceType, UINT32 alphaSurfaceIdx, PaletteTable* paletteTable)
 			: paletteTable(paletteTable), physicalSurfaceType(physicalSurfaceType), alphaSurfaceType(alphaSurfaceType), alphaSurfaceIdx(alphaSurfaceIdx) {};
-		const PaletteTable* paletteTable;
+		PaletteTable* paletteTable;
 		const AnimationSurfaceType* physicalSurfaceType;
 		const AnimationSurfaceType* alphaSurfaceType;
 		UINT32 alphaSurfaceIdx;

@@ -10271,7 +10271,7 @@ string(REGEX MATCH
   serialized_soldier_attacker_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(uiPresentation\\.locatorOffsetX\\(\\)\\);[ \t]*ar\\.i16\\(uiPresentation\\.locatorOffsetY\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pForcedShade\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.counter\\(\\)\\);[ \t]*ar\\.u8\\(meleeApproach\\.endDirection\\(\\)\\);[ \t\r\n]*ar\\.i16\\(combatResult\\.accumulatedDamage\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetX\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetY\\(\\)\\);[ \t]*ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);"
+  "ar\\.i16\\(uiPresentation\\.locatorOffsetX\\(\\)\\);[ \t]*ar\\.i16\\(uiPresentation\\.locatorOffsetY\\(\\)\\);[ \t]*ar\\.retiredPtr\\(\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.counter\\(\\)\\);[ \t]*ar\\.u8\\(meleeApproach\\.endDirection\\(\\)\\);[ \t\r\n]*ar\\.i16\\(combatResult\\.accumulatedDamage\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetX\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetY\\(\\)\\);[ \t]*ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);"
   serialized_soldier_damage_display_payload_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -10589,11 +10589,11 @@ string(REGEX MATCH
   serialized_render_flash_visibility_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.str8\\(renderState\\.headPalette\\(\\),[ \t]*sizeof\\(renderState\\.headPalette\\(\\)\\)\\);[ \t]*ar\\.str8\\(renderState\\.pantsPalette\\(\\),[ \t]*sizeof\\(renderState\\.pantsPalette\\(\\)\\)\\);[ \t\r\n]*ar\\.str8\\(renderState\\.vestPalette\\(\\),[ \t]*sizeof\\(renderState\\.vestPalette\\(\\)\\)\\);[ \t]*ar\\.str8\\(renderState\\.skinPalette\\(\\),[ \t]*sizeof\\(renderState\\.skinPalette\\(\\)\\)\\);[ \t\r\n]*ar\\.str8\\(renderState\\.miscPalette\\(\\),[ \t]*sizeof\\(renderState\\.miscPalette\\(\\)\\)\\);[ \t\r\n]*ar\\.ptr\\(s\\.p8BPPPalette\\);[ \t]*ar\\.ptr\\(s\\.p16BPPPalette\\);"
+  "ar\\.str8\\(renderState\\.headPalette\\(\\),[ \t]*sizeof\\(renderState\\.headPalette\\(\\)\\)\\);[ \t]*ar\\.str8\\(renderState\\.pantsPalette\\(\\),[ \t]*sizeof\\(renderState\\.pantsPalette\\(\\)\\)\\);[ \t\r\n]*ar\\.str8\\(renderState\\.vestPalette\\(\\),[ \t]*sizeof\\(renderState\\.vestPalette\\(\\)\\)\\);[ \t]*ar\\.str8\\(renderState\\.skinPalette\\(\\),[ \t]*sizeof\\(renderState\\.skinPalette\\(\\)\\)\\);[ \t\r\n]*ar\\.str8\\(renderState\\.miscPalette\\(\\),[ \t]*sizeof\\(renderState\\.miscPalette\\(\\)\\)\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t]*ar\\.retiredPtr\\(\\);[ \t\r\n]*for \\(i = 0; i < NUM_SOLDIER_SHADES; \\+\\+i\\) ar\\.retiredPtr\\(\\);[ \t\r\n]*for \\(i = 0; i < 20; \\+\\+i\\) ar\\.retiredPtr\\(\\);"
   serialized_render_palette_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pCurrentShade\\);[ \t\r\n]*ar\\.u8\\(renderState\\.fadeLevel\\(\\)\\);[ \t]*ar\\.u8\\(service\\.providerCount\\(\\)\\);"
+  "ar\\.retiredPtr\\(\\);[ \t\r\n]*ar\\.u8\\(renderState\\.fadeLevel\\(\\)\\);[ \t]*ar\\.u8\\(service\\.providerCount\\(\\)\\);"
   serialized_render_fade_level_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -10674,6 +10674,200 @@ foreach(render_control_transition IN ITEMS
   if(soldier_render_control_transition EQUAL -1)
     message(FATAL_ERROR
       "Soldier rendering lost component-owned transition '${render_control_transition}'")
+  endif()
+endforeach()
+
+# Generated actor palettes are one owned render resource rather than a group of
+# public pointers with shallow whole-record copy semantics. The same narrow
+# owner is composed by logical-body layers; those tables must never regain the
+# historical fake-SOLDIERTYPE inheritance or renderer cast.
+file(READ "${SOURCE_ROOT}/Tactical/Render Palette Bank.h"
+  render_palette_bank_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Render Palette Bank.cpp"
+  render_palette_bank_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/LogicalBodyTypes/PaletteTable.h"
+  logical_palette_table_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/LogicalBodyTypes/PaletteTable.cpp"
+  logical_palette_table_source_contents)
+file(READ "${SOURCE_ROOT}/TileEngine/lighting.h"
+  tactical_lighting_header_contents)
+file(READ "${SOURCE_ROOT}/TileEngine/lighting.cpp"
+  tactical_lighting_source_contents)
+file(READ "${SOURCE_ROOT}/TileEngine/renderworld.cpp"
+  tactical_renderworld_contents)
+file(READ "${SOURCE_ROOT}/Ja2/SoldierRepository.cpp"
+  soldier_repository_contents)
+
+foreach(retired_soldier_palette_field IN ITEMS
+  p8BPPPalette
+  p16BPPPalette
+  pShades
+  pGlowShades
+  pCurrentShade
+  pForcedShade
+  pEffectShades)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_soldier_palette_field}([^A-Za-z0-9_]|$)"
+    retired_current_soldier_palette_field
+    "${current_soldier_contents}")
+  if(retired_current_soldier_palette_field)
+    message(FATAL_ERROR
+      "Raw palette field '${retired_soldier_palette_field}' returned to current SOLDIERTYPE; keep generated render tables in RenderPaletteBank")
+  endif()
+endforeach()
+
+foreach(required_soldier_palette_fragment IN ITEMS
+  "RenderPaletteBank& palette() noexcept"
+  "const RenderPaletteBank& palette() const noexcept")
+  string(FIND "${soldier_control_header_contents}"
+    "${required_soldier_palette_fragment}"
+    required_soldier_palette_owner)
+  if(required_soldier_palette_owner EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost its private RenderPaletteBank boundary '${required_soldier_palette_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "RenderPaletteBank[ \t]+palette_[ \t]*;"
+  soldier_palette_private_owner
+  "${current_soldier_contents}")
+string(REGEX MATCHALL
+  "palette\\(\\)\\.reset\\(\\);"
+  soldier_palette_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_palette_reset_sites soldier_palette_reset_site_count)
+string(FIND "${soldier_control_source_contents}"
+  "this->palette().swapStorage(rebuiltPalette);"
+  soldier_palette_transactional_publish)
+if(NOT soldier_palette_private_owner OR
+   soldier_palette_reset_site_count LESS 3 OR
+   soldier_palette_transactional_publish EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier palette ownership must be private, reset on conversion/reuse/deletion, and publish rebuilt tables transactionally")
+endif()
+
+foreach(required_palette_bank_fragment IN ITEMS
+  "RenderPaletteBank(const RenderPaletteBank& source);"
+  "RenderPaletteBank& operator=(const RenderPaletteBank& source);"
+  "RenderPaletteBank(RenderPaletteBank&& source) noexcept;"
+  "void adoptBase8(SGPPaletteEntry* palette) noexcept;"
+  "void adoptBase16(PIXEL* palette) noexcept;"
+  "void swapStorage(RenderPaletteBank& other) noexcept;"
+  "void reset() noexcept;"
+  "PIXEL* shades_[ShadeCount]{};"
+  "PIXEL* glowShades_[GlowShadeCount]{};"
+  "PIXEL* effectShades_[EffectShadeCount]{};")
+  string(FIND "${render_palette_bank_header_contents}"
+    "${required_palette_bank_fragment}"
+    required_palette_bank_contract)
+  if(required_palette_bank_contract EQUAL -1)
+    message(FATAL_ERROR
+      "RenderPaletteBank lost owned copy/move/reset contract '${required_palette_bank_fragment}'")
+  endif()
+endforeach()
+foreach(required_palette_bank_lifetime IN ITEMS
+  "PaletteCloneMap"
+  "RegisterLegacyRenderPalette(copy)"
+  "UnregisterLegacyRenderPalette(palette)"
+  "clearOwnedAliases(palette);"
+  "currentShade_ = clones.remapAlias(source.currentShade_);"
+  "forcedShade_ = clones.remapAlias(source.forcedShade_);")
+  string(FIND "${render_palette_bank_source_contents}"
+    "${required_palette_bank_lifetime}"
+    required_palette_bank_lifetime_site)
+  if(required_palette_bank_lifetime_site EQUAL -1)
+    message(FATAL_ERROR
+      "RenderPaletteBank lost registry-safe deep-copy behavior '${required_palette_bank_lifetime}'")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "class[ \t]+PaletteTable[ \t\r\n]*:[^{]*SOLDIERTYPE"
+  logical_palette_fake_soldier
+  "${logical_palette_table_header_contents}")
+string(FIND "${logical_palette_table_header_contents}"
+  "RenderPaletteBank palette_;"
+  logical_palette_composition)
+string(FIND "${logical_palette_table_source_contents}"
+  "palette_.swapStorage(loadedPalette);"
+  logical_palette_transactional_publish)
+string(FIND "${tactical_lighting_header_contents}"
+  "CreateRenderPaletteTables(RenderPaletteBank& palette"
+  palette_only_lighting_contract)
+string(FIND "${tactical_renderworld_contents}"
+  "logSurfaceType->paletteTable->palette()"
+  logical_palette_renderer_use)
+string(REGEX MATCH
+  "\\(SOLDIERTYPE[ \t]*\\*\\)[ \t]*logSurfaceType->paletteTable"
+  logical_palette_soldier_cast
+  "${tactical_renderworld_contents}")
+set(retired_soldier_palette_helpers
+  "${tactical_lighting_header_contents}${tactical_lighting_source_contents}${logical_palette_table_source_contents}")
+string(REGEX MATCH
+  "CreateSoldier(ShadedPalette|PaletteTables)"
+  retired_soldier_palette_helper
+  "${retired_soldier_palette_helpers}")
+if(logical_palette_fake_soldier OR
+   logical_palette_soldier_cast OR
+   logical_palette_composition EQUAL -1 OR
+   logical_palette_transactional_publish EQUAL -1 OR
+   palette_only_lighting_contract EQUAL -1 OR
+   logical_palette_renderer_use EQUAL -1 OR
+   retired_soldier_palette_helper)
+  message(FATAL_ERROR
+    "Logical-body palettes must compose RenderPaletteBank and use palette-only lighting/rendering without fake SOLDIERTYPE inheritance")
+endif()
+
+foreach(required_palette_swap_fragment IN ITEMS
+  "firstPalette.swapStorage(records_[firstSlot].palette());"
+  "secondPalette.swapStorage(records_[secondSlot].palette());"
+  "secondPalette.swapStorage(records_[firstSlot].palette());"
+  "firstPalette.swapStorage(records_[secondSlot].palette());")
+  string(FIND "${soldier_repository_contents}"
+    "${required_palette_swap_fragment}"
+    required_palette_swap_site)
+  if(required_palette_swap_site EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier repository swaps must transfer exact palette storage without cloning '${required_palette_swap_fragment}'")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "ar\\.u8\\(attackSelection\\.meleeLocation\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < NUM_SOLDIER_EFFECTSHADES; \\+\\+i\\) ar\\.retiredPtr\\(\\);[ \t\r\n]*ar\\.u8\\(uiPresentation\\.plannedActionPointCost\\(\\)\\);"
+  serialized_render_effect_pointer_order
+  "${save_load_game_contents}")
+string(FIND "${save_load_game_contents}"
+  "SavedSoldierInfo.palette().reset();"
+  loaded_soldier_palette_reset)
+if(NOT serialized_render_effect_pointer_order OR
+   loaded_soldier_palette_reset EQUAL -1)
+  message(FATAL_ERROR
+    "Render palette ownership changed a retired pointer slot or failed to discard process-local tables during load")
+endif()
+
+foreach(palette_ownership_test_fragment IN ITEMS
+  "render palette banks deep-copy owned tables, remap internal aliases, and preserve borrowed forced shades"
+  "render palette bank destruction unregisters every owned 16-bit palette"
+  "whole-soldier copies own independent render palettes and record reuse releases only the destination bank"
+  "soldier repository relocates records, preserves slot identities, and rebuilds owner-bound plans lazily")
+  string(FIND "${headless_test_contents}"
+    "${palette_ownership_test_fragment}"
+    palette_ownership_test_site)
+  if(palette_ownership_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost RenderPaletteBank fixture '${palette_ownership_test_fragment}'")
+  endif()
+endforeach()
+foreach(palette_ownership_document IN ITEMS
+  engine_architecture_documentation
+  engine_sdk_documentation
+  save_format_documentation)
+  string(FIND "${${palette_ownership_document}}"
+    "RenderPaletteBank"
+    palette_ownership_documented)
+  if(palette_ownership_documented EQUAL -1)
+    message(FATAL_ERROR
+      "RenderPaletteBank ownership and data-format compatibility must remain documented")
   endif()
 endforeach()
 
@@ -10933,7 +11127,7 @@ string(FIND "${save_load_game_contents}"
 foreach(ui_presentation_save_position IN ITEMS
   "ar.u8(s.roster().inSector()); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());"
   "ar.i16(uiPresentation.locatorFrame()); ar.i32(s.iFaceIndex);"
-  "ar.i16(uiPresentation.locatorOffsetX()); ar.i16(uiPresentation.locatorOffsetY()); ar.ptr(s.pForcedShade);"
+  "ar.i16(uiPresentation.locatorOffsetX()); ar.i16(uiPresentation.locatorOffsetY()); ar.retiredPtr();"
   "ar.i16(movement.mode()); ar.i8(uiPresentation.interfaceLevel());"
   "ar.u8(uiPresentation.closePanelFrame()); ar.u8(uiPresentation.deadPanelFrame()); ar.i8(uiPresentation.openPanelFrame());"
   "ar.i16(uiPresentation.panelFaceX()); ar.i16(uiPresentation.panelFaceY());"
