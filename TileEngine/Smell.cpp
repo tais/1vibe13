@@ -273,7 +273,7 @@ void DecayBloodAndSmells( UINT32 uiTime )
 	}
 }
 
-void DropSmell( SOLDIERTYPE * pSoldier )
+void DropSmell( TacticalActor * pSoldier )
 {
 	MAP_ELEMENT *		pMapElement;
 	UINT8				ubOldSmell;
@@ -474,7 +474,7 @@ void InternalDropBlood( INT32 sGridNo, INT8 bLevel, UINT8 ubType, UINT8 ubStreng
 	}
 }
 
-void DropBlood( SOLDIERTYPE * pSoldier, UINT8 ubStrength, INT8 bVisible )
+void DropBlood( TacticalActor * pSoldier, UINT8 ubStrength, INT8 bVisible )
 {
 	UINT8						ubType;
 	/*

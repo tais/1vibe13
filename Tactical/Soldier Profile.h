@@ -234,7 +234,7 @@ BOOLEAN LoadMercProfiles(void);
 
 // This function will overload the default for the face index ( which is the ubCharNum )
 void SetProfileFaceData( UINT8 ubCharNum, UINT8 ubFaceIndex, UINT16 usEyesX, UINT16 usEyesY, UINT16 usMouthX, UINT16 usMouthY );
-SOLDIERTYPE * FindSoldierByProfileID( UINT8 ubProfileID, BOOLEAN fPlayerMercsOnly );
+TacticalActor * FindSoldierByProfileID( UINT8 ubProfileID, BOOLEAN fPlayerMercsOnly );
 
 BOOLEAN RecruitRPC( UINT8 ubCharNum );
 
@@ -244,7 +244,7 @@ BOOLEAN UnRecruitEPC( UINT8 ubCharNum );
 INT8 WhichBuddy( UINT8 ubCharNum, UINT8 ubBuddy );
 INT8 WhichHated( UINT8 ubCharNum, UINT8 ubHated );
 
-SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam );
+TacticalActor *ChangeSoldierTeam( TacticalActor *pSoldier, UINT8 ubTeam );
 
 BOOLEAN IsProfileATerrorist( UINT8 ubProfile );
 BOOLEAN IsProfileAHeadMiner( UINT8 ubProfile );
@@ -254,8 +254,8 @@ void UpdateSoldierPointerDataIntoProfile( BOOLEAN fPlayerMercs );
 
 // Returns true if a buddy of the merc is on team
 BOOLEAN DoesMercHaveABuddyOnTheTeam( UINT8 ubMercID );
-BOOLEAN MercIsHot( SOLDIERTYPE * pSoldier ); // added by SANDRO
-BOOLEAN MercIsInTropicalSector( SOLDIERTYPE * pSoldier ); // added by SANDRO
+BOOLEAN MercIsHot( TacticalActor * pSoldier ); // added by SANDRO
+BOOLEAN MercIsInTropicalSector( TacticalActor * pSoldier ); // added by SANDRO
 
 void StartSomeMercsOnAssignment( void );
 
@@ -265,9 +265,9 @@ extern BOOLEAN gubNumTerrorists;
 
 void MakeRemainingTerroristsTougher( void );
 void MakeRemainingAssassinsTougher( void );
-SOLDIERTYPE* SwapToProfile( SOLDIERTYPE * pSoldier, UINT8 ubDestProfile );
+TacticalActor* SwapToProfile( TacticalActor * pSoldier, UINT8 ubDestProfile );
 
-BOOLEAN DoesNPCOwnBuilding( SOLDIERTYPE *pSoldier, INT32 sGridNo );
+BOOLEAN DoesNPCOwnBuilding( TacticalActor *pSoldier, INT32 sGridNo );
 
 typedef struct
 {

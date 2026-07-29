@@ -106,7 +106,7 @@ enum
 
 typedef struct
 {
-	SOLDIERTYPE		*pOpponent;
+	TacticalActor		*pOpponent;
 	INT32			sGridNo;
 	INT32			iValue;
 	INT32			iAPs;
@@ -185,122 +185,122 @@ typedef enum
 
 #define STOPSHORTDIST 5
 
-INT16 AdvanceToFiringRange( SOLDIERTYPE * pSoldier, INT16 sClosestOpponent );
+INT16 AdvanceToFiringRange( TacticalActor * pSoldier, INT16 sClosestOpponent );
 
-BOOLEAN AimingGun(SOLDIERTYPE *pSoldier);
-void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot);
-void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAttack);
-void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow);
-void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab );
+BOOLEAN AimingGun(TacticalActor *pSoldier);
+void CalcBestShot(TacticalActor *pSoldier, ATTACKTYPE *pBestShot);
+void CalcBestStab(TacticalActor *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAttack);
+void CalcBestThrow(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow);
+void CalcTentacleAttack(TacticalActor *pSoldier, ATTACKTYPE *pBestStab );
 
-INT16 CalcSpreadBurst( SOLDIERTYPE * pSoldier, INT16 sFirstTarget, INT8 bTargetLevel );
-INT32 CalcManThreatValue(SOLDIERTYPE *pSoldier, INT32 sMyGrid, UINT8 ubReduceForCover, SOLDIERTYPE * pMe );
-INT8 CanNPCAttack(SOLDIERTYPE *pSoldier);
-void CheckIfTossPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow);
-BOOLEAN ClimbingNecessary( SOLDIERTYPE * pSoldier, INT32 sDestGridNo, INT8 bDestLevel );
-INT8 ClosestPanicTrigger( SOLDIERTYPE * pSoldier );
-INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel );
-INT32 ClosestReachableFriendInTrouble(SOLDIERTYPE *pSoldier, BOOLEAN * pfClimbingNecessary);
-INT32 ClosestSeenOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLevel);
-void CreatureCall( SOLDIERTYPE * pCaller );
-INT8 CreatureDecideAction( SOLDIERTYPE * pCreature );
-void CreatureDecideAlertStatus( SOLDIERTYPE *pCreature );
+INT16 CalcSpreadBurst( TacticalActor * pSoldier, INT16 sFirstTarget, INT8 bTargetLevel );
+INT32 CalcManThreatValue(TacticalActor *pSoldier, INT32 sMyGrid, UINT8 ubReduceForCover, TacticalActor * pMe );
+INT8 CanNPCAttack(TacticalActor *pSoldier);
+void CheckIfTossPossible(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow);
+BOOLEAN ClimbingNecessary( TacticalActor * pSoldier, INT32 sDestGridNo, INT8 bDestLevel );
+INT8 ClosestPanicTrigger( TacticalActor * pSoldier );
+INT32 ClosestReachableDisturbance(TacticalActor *pSoldier, BOOLEAN * pfChangeLevel );
+INT32 ClosestReachableFriendInTrouble(TacticalActor *pSoldier, BOOLEAN * pfClimbingNecessary);
+INT32 ClosestSeenOpponent(TacticalActor *pSoldier, INT32 * psGridNo, INT8 * pbLevel);
+void CreatureCall( TacticalActor * pCaller );
+INT8 CreatureDecideAction( TacticalActor * pCreature );
+void CreatureDecideAlertStatus( TacticalActor *pCreature );
 
 // sevenfm:
-void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow);
-void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow);
-void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpot, INT8 bTargetLevel, SoldierID ubOpponentID);
+void CheckTossSelfSmoke(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow);
+void CheckTossFriendSmoke(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow);
+void CheckTossAt(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpot, INT8 bTargetLevel, SoldierID ubOpponentID);
 INT32 FindTossSpotInDirection(INT32 sSpot, INT8 bLevel, INT32 sTargetSpot, BOOLEAN fCheckAdjacentDirections, BOOLEAN fCheckFarther);
-void CheckTossGrenadeAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpot, INT8 bTargetLevel, UINT8 ubGrenadeType);
+void CheckTossGrenadeAt(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpot, INT8 bTargetLevel, UINT8 ubGrenadeType);
 
 // Flugente: AI
-INT8 ZombieDecideAction( SOLDIERTYPE* pSoldier );
-INT8 ArmedVehicleDecideAction( SOLDIERTYPE* pSoldier );
+INT8 ZombieDecideAction( TacticalActor* pSoldier );
+INT8 ArmedVehicleDecideAction( TacticalActor* pSoldier );
 
 // a variant of ClosestSeenOpponent(...), that allows to find enemies on a roof 
-INT32 ClosestSeenOpponentWithRoof(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLevel);
+INT32 ClosestSeenOpponentWithRoof(TacticalActor *pSoldier, INT32 * psGridNo, INT8 * pbLevel);
 
-INT8 CrowDecideAction( SOLDIERTYPE * pSoldier );
-void DecideAlertStatus( SOLDIERTYPE *pSoldier );
-INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier );
-UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction );
+INT8 CrowDecideAction( TacticalActor * pSoldier );
+void DecideAlertStatus( TacticalActor *pSoldier );
+INT8 DecideAutoBandage( TacticalActor * pSoldier );
+UINT16 DetermineMovementMode( TacticalActor * pSoldier, INT8 bAction );
 
-INT32 EstimateShotDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ubChanceToHit);
-INT32 EstimateStabDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,	INT16 ubChanceToHit, BOOLEAN fBladeAttack);
-INT32 EstimateThrowDamage(SOLDIERTYPE *pSoldier, UINT8 ubItemPos, SOLDIERTYPE *pOpponent, INT32 sGridNo);
-INT16 EstimatePathCostToLocation( SOLDIERTYPE * pSoldier, INT32 sDestGridNo, INT8 bDestLevel, BOOLEAN fAddCostAfterClimbingUp, BOOLEAN * pfClimbingNecessary, INT32 * psClimbGridNo );
+INT32 EstimateShotDamage(TacticalActor *pSoldier, TacticalActor *pOpponent, INT16 ubChanceToHit);
+INT32 EstimateStabDamage(TacticalActor *pSoldier, TacticalActor *pOpponent,	INT16 ubChanceToHit, BOOLEAN fBladeAttack);
+INT32 EstimateThrowDamage(TacticalActor *pSoldier, UINT8 ubItemPos, TacticalActor *pOpponent, INT32 sGridNo);
+INT16 EstimatePathCostToLocation( TacticalActor * pSoldier, INT32 sDestGridNo, INT8 bDestLevel, BOOLEAN fAddCostAfterClimbingUp, BOOLEAN * pfClimbingNecessary, INT32 * psClimbGridNo );
 
-BOOLEAN FindBetterSpotForItem( SOLDIERTYPE * pSoldier, INT8 bSlot );
-INT32 FindClosestClimbPointAvailableToAI( SOLDIERTYPE * pSoldier, INT32 sStartGridNo, INT32 sDesiredGridNo, BOOLEAN fClimbUp );
-INT32 FindRouteBackOntoMap( SOLDIERTYPE * pSoldier, INT32 sDestGridNo );
-INT32 FindClosestBoxingRingSpot( SOLDIERTYPE * pSoldier, BOOLEAN fInRing );
-INT32 GetInterveningClimbingLocation( SOLDIERTYPE * pSoldier, INT32 sDestGridNo, INT8 bDestLevel, BOOLEAN * pfClimbingNecessary );
+BOOLEAN FindBetterSpotForItem( TacticalActor * pSoldier, INT8 bSlot );
+INT32 FindClosestClimbPointAvailableToAI( TacticalActor * pSoldier, INT32 sStartGridNo, INT32 sDesiredGridNo, BOOLEAN fClimbUp );
+INT32 FindRouteBackOntoMap( TacticalActor * pSoldier, INT32 sDestGridNo );
+INT32 FindClosestBoxingRingSpot( TacticalActor * pSoldier, BOOLEAN fInRing );
+INT32 GetInterveningClimbingLocation( TacticalActor * pSoldier, INT32 sDestGridNo, INT8 bDestLevel, BOOLEAN * pfClimbingNecessary );
 UINT8 GetTraversalQuoteActionID( INT8 bDirection );
-INT32 GoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, INT8 bAction);
+INT32 GoAsFarAsPossibleTowards(TacticalActor *pSoldier, INT32 sDesGrid, INT8 bAction);
 
-INT8 HeadForTheStairCase( SOLDIERTYPE * pSoldier );
+INT8 HeadForTheStairCase( TacticalActor * pSoldier );
 
 BOOLEAN InSmoke(INT32 sGridNo, INT8 bLevel);
-BOOLEAN InGas( SOLDIERTYPE *pSoldier, INT32 sGridNo );
-BOOLEAN InGasOrSmoke( SOLDIERTYPE *pSoldier, INT32 sGridNo );
-BOOLEAN InWaterGasOrSmoke( SOLDIERTYPE *pSoldier, INT32 sGridNo );
-BOOLEAN InGasSpot(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel);
+BOOLEAN InGas( TacticalActor *pSoldier, INT32 sGridNo );
+BOOLEAN InGasOrSmoke( TacticalActor *pSoldier, INT32 sGridNo );
+BOOLEAN InWaterGasOrSmoke( TacticalActor *pSoldier, INT32 sGridNo );
+BOOLEAN InGasSpot(TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel);
 
-INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, INT16 bReserveAPs, INT8 bAction, INT8 fFlags );
+INT32 InternalGoAsFarAsPossibleTowards(TacticalActor *pSoldier, INT32 sDesGrid, INT16 bReserveAPs, INT8 bAction, INT8 fFlags );
 
-int LegalNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridno, UINT8 ubPathMode, UINT8 ubWaterOK, UINT8 fFlags);
-void LoadWeaponIfNeeded(SOLDIERTYPE *pSoldier);
-INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN * pfClimbingNecessary, BOOLEAN * pfReachable );
-INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc );
-void NPCDoesAct(SOLDIERTYPE *pSoldier);
-void NPCDoesNothing(SOLDIERTYPE *pSoldier);
-INT8 OKToAttack(SOLDIERTYPE *ptr, int target);
+int LegalNPCDestination(TacticalActor *pSoldier, INT32 sGridno, UINT8 ubPathMode, UINT8 ubWaterOK, UINT8 fFlags);
+void LoadWeaponIfNeeded(TacticalActor *pSoldier);
+INT32 MostImportantNoiseHeard( TacticalActor *pSoldier, INT32 *piRetValue, BOOLEAN * pfClimbingNecessary, BOOLEAN * pfReachable );
+INT32 NPCConsiderInitiatingConv( TacticalActor * pNPC, SoldierID * pubDesiredMerc );
+void NPCDoesAct(TacticalActor *pSoldier);
+void NPCDoesNothing(TacticalActor *pSoldier);
+INT8 OKToAttack(TacticalActor *ptr, int target);
 BOOLEAN NeedToRadioAboutPanicTrigger( void );
-INT8 PointPatrolAI(SOLDIERTYPE *pSoldier);
-void PossiblyMakeThisEnemyChosenOne( SOLDIERTYPE * pSoldier );
-INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier);
-INT32 RangeChangeDesire( SOLDIERTYPE * pSoldier );
-UINT16 RealtimeDelay( SOLDIERTYPE * pSoldier );
-void RearrangePocket(SOLDIERTYPE *pSoldier, INT8 bPocket1, INT8 bPocket2, UINT8 bPermanent);
-void RTHandleAI( SOLDIERTYPE * pSoldier );
-UINT16 RunAway( SOLDIERTYPE * pSoldier );
-INT8	SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem );
-UINT8 ShootingStanceChange( SOLDIERTYPE * pSoldier, ATTACKTYPE * pAttack, INT8 bDesiredDirection );
-UINT8 StanceChange( SOLDIERTYPE * pSoldier, INT16 ubAttackAPCost );
-INT32 TrackScent( SOLDIERTYPE * pSoldier );
-void RefreshAI(SOLDIERTYPE *pSoldier);
+INT8 PointPatrolAI(TacticalActor *pSoldier);
+void PossiblyMakeThisEnemyChosenOne( TacticalActor * pSoldier );
+INT8 RandomPointPatrolAI(TacticalActor *pSoldier);
+INT32 RangeChangeDesire( TacticalActor * pSoldier );
+UINT16 RealtimeDelay( TacticalActor * pSoldier );
+void RearrangePocket(TacticalActor *pSoldier, INT8 bPocket1, INT8 bPocket2, UINT8 bPermanent);
+void RTHandleAI( TacticalActor * pSoldier );
+UINT16 RunAway( TacticalActor * pSoldier );
+INT8	SearchForItems( TacticalActor * pSoldier, INT8 bReason, UINT16 usItem );
+UINT8 ShootingStanceChange( TacticalActor * pSoldier, ATTACKTYPE * pAttack, INT8 bDesiredDirection );
+UINT8 StanceChange( TacticalActor * pSoldier, INT16 ubAttackAPCost );
+INT32 TrackScent( TacticalActor * pSoldier );
+void RefreshAI(TacticalActor *pSoldier);
 BOOLEAN InLightAtNight( INT32 sGridNo, INT8 bLevel );
-INT32 FindNearbyDarkerSpot( SOLDIERTYPE *pSoldier );
+INT32 FindNearbyDarkerSpot( TacticalActor *pSoldier );
 
 BOOLEAN ArmySeesOpponents( void );
 
-void CheckIfShotPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot);
+void CheckIfShotPossible(TacticalActor *pSoldier, ATTACKTYPE *pBestShot);
 
-INT32 FindBestCoverNearTheGridNo(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubSearchRadius );
+INT32 FindBestCoverNearTheGridNo(TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubSearchRadius );
 
-INT8 FindDirectionForClimbing( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel);
+INT8 FindDirectionForClimbing( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel);
 
 // HEADROCK HAM B2.7: Functions to assist group AI
 // WANNE: Headrock informed me that I should disable these 3 functions in code, because they need a lot of CPU during AI calculation.
 /*
 INT16 AssessTacticalSituation( INT8 bSide );
-BOOLEAN TeamSeesOpponent( INT8 bSide, SOLDIERTYPE * pOpponent );
-INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy );
+BOOLEAN TeamSeesOpponent( INT8 bSide, TacticalActor * pOpponent );
+INT32 CalcStraightThreatValue( TacticalActor *pEnemy );
 */
 
 // SANDRO - added following functions
-BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentCheck );
-BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * ubOpponent );
+BOOLEAN DoctorIsPresent( TacticalActor * pPatient, BOOLEAN fOnDoctorAssignmentCheck );
+BOOLEAN AIDetermineStealingWeaponAttempt( TacticalActor * pSoldier, TacticalActor * ubOpponent );
 
 // HEADROCK HAM 4: Calculate average recoil offset for a shot.
-FLOAT AICalcRecoilForShot( SOLDIERTYPE *pSoldier, OBJECTTYPE *pWeapon, UINT8 ubShotNum);
+FLOAT AICalcRecoilForShot( TacticalActor *pSoldier, OBJECTTYPE *pWeapon, UINT8 ubShotNum);
 
 
 // HEADROCK HAM 4: Calculate average recoil offset for a shot.
-FLOAT AICalcRecoilForShot( SOLDIERTYPE *pSoldier, OBJECTTYPE *pWeapon, UINT8 ubShotNum);
+FLOAT AICalcRecoilForShot( TacticalActor *pSoldier, OBJECTTYPE *pWeapon, UINT8 ubShotNum);
 
 // Flugente AI functions
-typedef BOOLEAN (*SOLDIER_CONDITION)( SOLDIERTYPE *pSoldier );
+typedef BOOLEAN (*SOLDIER_CONDITION)( TacticalActor *pSoldier );
 
 // determine a gridno that would allow us to hit as many enemies as possible given an effect with radius aRadius tiles
 // return true if sufficent gridno is found
@@ -310,12 +310,12 @@ typedef BOOLEAN (*SOLDIER_CONDITION)( SOLDIERTYPE *pSoldier );
 // sucess only if at a rating of at least aMinRating can be achieved
 // any enemy soldiers not fulfilling cond will be excluded from this calculation
 // if an enemy soldier fulfils taboo, make sure to not hit him at all!
-BOOLEAN GetBestAoEGridNo(SOLDIERTYPE *pSoldier, INT32* pGridNo, INT16 aRadius, UINT8 uCheckFriends, UINT8 aMinRating, SOLDIER_CONDITION cond, SOLDIER_CONDITION taboo);
+BOOLEAN GetBestAoEGridNo(TacticalActor *pSoldier, INT32* pGridNo, INT16 aRadius, UINT8 uCheckFriends, UINT8 aMinRating, SOLDIER_CONDITION cond, SOLDIER_CONDITION taboo);
 
 // Get the ID of the farthest opponent  we can see, with an optional minimum range
 // puID - ID of the farthest opponent pSoldier can see
 // sRange - only return true and give an idea if opponent found is further away than this
-BOOLEAN GetFarthestOpponent(SOLDIERTYPE *pSoldier, SoldierID *puID, INT16 sRange);
+BOOLEAN GetFarthestOpponent(TacticalActor *pSoldier, SoldierID *puID, INT16 sRange);
 
 // are there more allies than friends in adjacent sectors?
 BOOLEAN MoreFriendsThanEnemiesinNearbysectors(UINT8 ausTeam, INT16 aX, INT16 aY, INT8 aZ);

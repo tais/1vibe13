@@ -672,7 +672,7 @@ INT32 AddItemToWorld( INT32 sGridNo, OBJECTTYPE *pObject, UINT8 ubLevel, UINT16 
 			// OJW - 20091002 - Explosives
 			if (is_networked && is_client)
 			{
-				SOLDIERTYPE* pSoldier = NULL;
+				TacticalActor* pSoldier = NULL;
 
 				if (soldierID == NOBODY)
 				{

@@ -120,8 +120,8 @@ extern UINT16 CivLastNames[MAXCIVLASTNAMES][10];
 // SANDRO was here, messed this..
 //#define HAS_SKILL_TRAIT( s, t ) (s->stats.ubSkillTrait1 == t || s->stats.ubSkillTrait2 == t)
 //#define NUM_SKILL_TRAITS( s, t ) ( (s->stats.ubSkillTrait1 == t) ? ( (s->stats.ubSkillTrait2 == t) ? 2 : 1 ) : ( (s->stats.ubSkillTrait2 == t) ? 1 : 0 ) )
-BOOLEAN HAS_SKILL_TRAIT( SOLDIERTYPE * pSoldier, UINT8 uiSkillTraitNumber );
-INT8 NUM_SKILL_TRAITS( SOLDIERTYPE * pSoldier, UINT8 uiSkillTraitNumber );
+BOOLEAN HAS_SKILL_TRAIT( TacticalActor * pSoldier, UINT8 uiSkillTraitNumber );
+INT8 NUM_SKILL_TRAITS( TacticalActor * pSoldier, UINT8 uiSkillTraitNumber );
 
 #define	SOLDIER_QUOTE_SAID_IN_SHIT										0x0001
 #define	SOLDIER_QUOTE_SAID_LOW_BREATH									0x0002
@@ -685,16 +685,16 @@ class OLDSOLDIERTYPE_101;
 
 enum class BackgroundVectorTypes;
 
-class SOLDIERTYPE//last edited at version 102
+class TacticalActor//last edited at version 102
 {
 public:
 	// Conversion operator
-	SOLDIERTYPE& operator=(const OLDSOLDIERTYPE_101&);
+	TacticalActor& operator=(const OLDSOLDIERTYPE_101&);
 
 	// Constructor
-	SOLDIERTYPE();
+	TacticalActor();
 	// Destructor
-	~SOLDIERTYPE();
+	~TacticalActor();
 
 	BOOLEAN Load(HWFILE hFile);
 	BOOLEAN Save(HWFILE hFile);
@@ -835,7 +835,7 @@ public:
 	// files (maps, save files, etc.).	If you change it then that code will not work 
 	// properly until it is all fixed and the files updated.
 public:
-	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, SOLDIERTYPE *pKnownSubject = NULL);
+	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, TacticalActor *pKnownSubject = NULL);
 
 private:
 	// These opaque slots preserve the exact legacy POD footprint. The values
@@ -1005,7 +1005,7 @@ public:
 	INT16 CalcActionPoints( void );
 	BOOLEAN IsActionInterruptable( void );
 	// This function is now obsolete.	Call ReduceAttackBusyCount instead.
-	// void ReleaseSoldiersAttacker( SOLDIERTYPE *pSoldier );
+	// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
 	BOOLEAN MercInWater( void );
 	BOOLEAN MercInShallowWater( void );
 	BOOLEAN MercInDeepWater( void );
@@ -1024,7 +1024,7 @@ public:
 
 
 
-	UINT32 SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT16 sStatus );
+	UINT32 SoldierDressWound( TacticalActor *pVictim, INT16 sKitPts, INT16 sStatus );
 	void ReceivingSoldierCancelServices( void );
 	void GivingSoldierCancelServices( void );
 	void InternalReceivingSoldierCancelServices( BOOLEAN fPlayEndAnim );
@@ -1077,7 +1077,7 @@ public:
 
 	void UpdateRobotControllerGivenController( void );
 	void UpdateRobotControllerGivenRobot( void );
-	SOLDIERTYPE *GetRobotController( void );
+	TacticalActor *GetRobotController( void );
 	BOOLEAN CanRobotBeControlled( void );
 	BOOLEAN ControllingRobot( void );
 
@@ -1384,9 +1384,9 @@ public:
 	bool		IsFastMovement();
 	//////////////////////////////////////////////////////////////////////////////
 
-}; // SOLDIERTYPE;	
+}; // TacticalActor;
 
-#define SIZEOF_SOLDIERTYPE_POD offsetof( SOLDIERTYPE, endOfPOD )
+#define SIZEOF_SOLDIERTYPE_POD offsetof( TacticalActor, endOfPOD )
 #define SIZEOF_OLDSOLDIERTYPE_101_POD offsetof( OLDSOLDIERTYPE_101, endOfPOD )
 
 #define HEALTH_INCREASE			0x0001
@@ -1471,47 +1471,47 @@ BOOLEAN LoadPaletteData( );
 BOOLEAN DeletePaletteData( );
 
 // UTILITY FUNCTUIONS
-void MoveMercFacingDirection( SOLDIERTYPE *pSoldier, BOOLEAN fReverse, FLOAT dMovementDist );
-UINT8 GetDirectionFromXY( INT16 sXPos, INT16 sYPos, SOLDIERTYPE *pSoldier );
-BOOLEAN GetDirectionChangeAmount( INT32 sGridNo, SOLDIERTYPE *pSoldier, UINT8 uiTurnAmount);
-UINT8 GetDirectionFromGridNo( INT32 sGridNo, SOLDIERTYPE *pSoldier );
+void MoveMercFacingDirection( TacticalActor *pSoldier, BOOLEAN fReverse, FLOAT dMovementDist );
+UINT8 GetDirectionFromXY( INT16 sXPos, INT16 sYPos, TacticalActor *pSoldier );
+BOOLEAN GetDirectionChangeAmount( INT32 sGridNo, TacticalActor *pSoldier, UINT8 uiTurnAmount);
+UINT8 GetDirectionFromGridNo( INT32 sGridNo, TacticalActor *pSoldier );
 UINT8 atan8( INT16 sXPos, INT16 sYPos, INT16 sXPos2, INT16 sYPos2 );
 UINT8 atan8FromAngle( DOUBLE dAngle );
 INT16 GetDirectionToGridNoFromGridNo(INT32 sGridNoDest, INT32 sGridNoSrc);
 INT16 GetDirectionFromCenterCellXYGridNo(INT32 EndGridNo, INT32 StartGridNo);
 // This function is now obsolete.	Call ReduceAttackBusyCount instead.
-// void ReleaseSoldiersAttacker( SOLDIERTYPE *pSoldier );
+// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
 
 
 
 // WRAPPERS FOR SOLDIER EVENTS
-void SendSoldierPositionEvent( SOLDIERTYPE *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos );
-void SendSoldierDestinationEvent( SOLDIERTYPE *pSoldier, UINT16 usNewDestination );
-void SendGetNewSoldierPathEvent( SOLDIERTYPE *pSoldier, INT32 sDestGridNo, UINT16 usMovementAnim );
-void SendSoldierSetDirectionEvent( SOLDIERTYPE *pSoldier, UINT16 usNewDirection );
-void SendSoldierSetDesiredDirectionEvent( SOLDIERTYPE *pSoldier, UINT16 usDesiredDirection );
-void SendChangeSoldierStanceEvent( SOLDIERTYPE *pSoldier, UINT8 ubNewStance );
-void SendBeginFireWeaponEvent( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo );
+void SendSoldierPositionEvent( TacticalActor *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos );
+void SendSoldierDestinationEvent( TacticalActor *pSoldier, UINT16 usNewDestination );
+void SendGetNewSoldierPathEvent( TacticalActor *pSoldier, INT32 sDestGridNo, UINT16 usMovementAnim );
+void SendSoldierSetDirectionEvent( TacticalActor *pSoldier, UINT16 usNewDirection );
+void SendSoldierSetDesiredDirectionEvent( TacticalActor *pSoldier, UINT16 usDesiredDirection );
+void SendChangeSoldierStanceEvent( TacticalActor *pSoldier, UINT8 ubNewStance );
+void SendBeginFireWeaponEvent( TacticalActor *pSoldier, INT32 sTargetGridNo );
 void SendBeginFireWeaponEvent(
-	SOLDIERTYPE *pSoldier, INT32 sTargetGridNo,
+	TacticalActor *pSoldier, INT32 sTargetGridNo,
 	INT8 bTargetLevel, INT8 bTargetCubeLevel );
 
 
 
-void HandleAnimationProfile( SOLDIERTYPE *pSoldier, UINT16	usAnimState, BOOLEAN fRemove );
-BOOLEAN GetProfileFlagsFromGridno( SOLDIERTYPE *pSoldier, UINT16 usAnimState, INT32 sTestGridNo, UINT16 *usFlags );
-BOOLEAN PreloadSoldierBattleSounds( SOLDIERTYPE *pSoldier, BOOLEAN fRemove );
+void HandleAnimationProfile( TacticalActor *pSoldier, UINT16	usAnimState, BOOLEAN fRemove );
+BOOLEAN GetProfileFlagsFromGridno( TacticalActor *pSoldier, UINT16 usAnimState, INT32 sTestGridNo, UINT16 *usFlags );
+BOOLEAN PreloadSoldierBattleSounds( TacticalActor *pSoldier, BOOLEAN fRemove );
 void CrowsFlyAway( UINT8 ubTeam );
 void DebugValidateSoldierData( );
 void HandlePlayerTogglingLightEffects( BOOLEAN fToggleValue );
 
 // added by SANDRO
-UINT8 GetSquadleadersCountInVicinity( SOLDIERTYPE * pSoldier, BOOLEAN fWithHigherLevel, BOOLEAN fDontCheckDistance );
-UINT16 NumberOfDamagedStats( SOLDIERTYPE * pSoldier );
-UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundredths );
-BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType );
-BOOLEAN AIDecideHipOrShoulderStance( SOLDIERTYPE * pSoldier, INT32 iGridNo );
-BOOLEAN DecideAltAnimForBigMerc( SOLDIERTYPE * pSoldier );
+UINT8 GetSquadleadersCountInVicinity( TacticalActor * pSoldier, BOOLEAN fWithHigherLevel, BOOLEAN fDontCheckDistance );
+UINT16 NumberOfDamagedStats( TacticalActor * pSoldier );
+UINT8 RegainDamagedStats( TacticalActor * pSoldier, UINT16 usAmountRegainedHundredths );
+BOOLEAN ResolvePendingInterrupt( TacticalActor * pSoldier, UINT8 ubInterruptType );
+BOOLEAN AIDecideHipOrShoulderStance( TacticalActor * pSoldier, INT32 iGridNo );
+BOOLEAN DecideAltAnimForBigMerc( TacticalActor * pSoldier );
 
 // added by Flugente
 BOOLEAN TwoStagedTrait( UINT8 uiSkillTraitNumber );						// determine if this (new) trait has two stages
@@ -1520,7 +1520,7 @@ BOOLEAN GetRadioOperatorSignal( SoldierID usOwner, INT32* psTargetGridNo);	// re
 BOOLEAN IsValidArtilleryOrderSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, UINT8 bTeam );		// can an artillery strike be ordered FROM this sector
 BOOLEAN SectorJammed();
 BOOLEAN PlayerTeamIsScanning();
-UINT16	GridNoSpotterCTHBonus( SOLDIERTYPE* pSniper, INT32 sGridNo, INT8 bTeam);				// bonus for snipers firing at this location (we get this if there are spotters)
+UINT16	GridNoSpotterCTHBonus( TacticalActor* pSniper, INT32 sGridNo, INT8 bTeam);				// bonus for snipers firing at this location (we get this if there are spotters)
 UINT16	GetSuspiciousAnimationAPDuration( UINT16 usAnimation );			// get overt penalty duration in AP for using an animation
 
 //typedef struct
@@ -2209,17 +2209,17 @@ public:
 }; // OLDSOLDIERTYPE_101;	
 
 
-void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReason );
+void HandleTakeDamageDeath( TacticalActor *pSoldier, UINT8 bOldLife, UINT8 ubReason );
 
-void SetDamageDisplayCounter(SOLDIERTYPE* pSoldier);
+void SetDamageDisplayCounter(TacticalActor* pSoldier);
 
 // SANDRO - This whole procedure was merged with the surgery ability of the doctor trait
-UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OBJECTTYPE *pKit, INT16 sKitPts, INT16 sStatus, BOOLEAN fOnSurgery );
+UINT32 VirtualSoldierDressWound( TacticalActor *pSoldier, TacticalActor *pVictim, OBJECTTYPE *pKit, INT16 sKitPts, INT16 sStatus, BOOLEAN fOnSurgery );
 
 // Flugente: decide whether pRecruiter can successfully recruit pTarget to be a volunteer
-void HandleVolunteerRecruitment( SOLDIERTYPE* pRecruiter, SOLDIERTYPE* pTarget );
+void HandleVolunteerRecruitment( TacticalActor* pRecruiter, TacticalActor* pTarget );
 
 // Flugente: apply a consumable item on a soldier. Returns true if item was successfully interacted with
-BOOLEAN ApplyConsumable( SOLDIERTYPE* pSoldier, OBJECTTYPE *pObject, BOOLEAN fForce, BOOLEAN fUseAPs );
+BOOLEAN ApplyConsumable( TacticalActor* pSoldier, OBJECTTYPE *pObject, BOOLEAN fForce, BOOLEAN fUseAPs );
 
 #endif

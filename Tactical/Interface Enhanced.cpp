@@ -27,7 +27,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 // HEADROCK: Defined two new color pointers for the Enhanced Description Box
 #define		ITEMDESC_FONTPOSITIVE		FONT_MCOLOR_LTGREEN

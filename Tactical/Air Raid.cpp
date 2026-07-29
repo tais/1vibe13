@@ -127,7 +127,7 @@ namespace
 {
 SoldierID gRaidSoldierSlot = NOBODY;
 
-SOLDIERTYPE* ResolveRaidSoldierRecord() noexcept
+TacticalActor* ResolveRaidSoldierRecord() noexcept
 {
 	if (gRaidSoldierSlot == NOBODY)
 		return nullptr;
@@ -135,10 +135,10 @@ SOLDIERTYPE* ResolveRaidSoldierRecord() noexcept
 		gRaidSoldierSlot.i);
 }
 
-SOLDIERTYPE* InitializeRaidSoldierRecord(
+TacticalActor* InitializeRaidSoldierRecord(
 	SoldierID slot) noexcept
 {
-	SOLDIERTYPE* raidSoldier =
+	TacticalActor* raidSoldier =
 		GetJa2SoldierRepository().resolve(slot.i);
 	if (!raidSoldier)
 	{
@@ -223,7 +223,7 @@ void ScheduleAirRaid( AIR_RAID_DEFINITION *pAirRaidDef )
 BOOLEAN BeginAirRaid( )
 {
 	BOOLEAN fOK = FALSE;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	gfQuoteSaid = FALSE;
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"BeginAirRaid");
 
@@ -344,7 +344,7 @@ static INT32 PickLocationNearAnyMercInSector( )
 	UINT16	ubMercsInSector[ 20 ] = { 0 };
 	UINT16	ubNumMercs = 0;
 	UINT16	ubChosenMerc;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 
 	// Loop through all our guys and randomly say one from someone in our sector
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"PickLocationNearAnyMercInSector");
@@ -743,7 +743,7 @@ static void DoDive(	)
 {
 	INT16		sRange;
 	INT32 sGridNo, sOldGridNo;
-	SOLDIERTYPE* pRaidSoldier =
+	TacticalActor* pRaidSoldier =
 		ResolveRaidSoldierRecord();
 
 	INT16		sTargetX, sTargetY;
@@ -920,7 +920,7 @@ static void DoBombing(	)
 {
 	INT16		sRange;
 	INT32		sGridNo, sOldGridNo, sBombGridNo;
-	SOLDIERTYPE* pRaidSoldier =
+	TacticalActor* pRaidSoldier =
 		ResolveRaidSoldierRecord();
 
 	INT16		sTargetX, sTargetY, sBombX, sBombY;
@@ -1098,7 +1098,7 @@ void HandleAirRaid( )
 
 		// Madd - handle running out of the sector
 		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: check for mercs: first id = %d, last id = %d ",gTacticalStatus.Team[ gbPlayerNum ].bFirstID, gTacticalStatus.Team[ gbPlayerNum ].bLastID));
-		SOLDIERTYPE * pSoldier;
+		TacticalActor * pSoldier;
 		BOOLEAN fOK = FALSE;
 		SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
@@ -1376,7 +1376,7 @@ BOOLEAN SaveAirRaidInfoToSaveGameFile( HWFILE hFile )
 	sAirRaidSaveStruct.iNumFrames = giNumFrames;
 
 
-	SOLDIERTYPE* pRaidSoldier =
+	TacticalActor* pRaidSoldier =
 		ResolveRaidSoldierRecord();
 	if (gfInAirRaid && pRaidSoldier)
 	{
@@ -1473,7 +1473,7 @@ BOOLEAN LoadAirRaidInfoFromSaveGameFile( HWFILE hFile )
 		// different repository slot.
 		const SoldierID raidSlot{
 			MAX_NUM_SOLDIERS - 1};
-		SOLDIERTYPE* pRaidSoldier =
+		TacticalActor* pRaidSoldier =
 			InitializeRaidSoldierRecord(raidSlot);
 		if (!pRaidSoldier)
 		{
@@ -1535,7 +1535,7 @@ void EndAirRaid( )
 
 		if ( !gTacticalStatus.Team[ ENEMY_TEAM ].bTeamActive && !gTacticalStatus.Team[ CREATURE_TEAM ].bTeamActive )
 		{
-			SOLDIERTYPE * pTeamSoldier;
+			TacticalActor * pTeamSoldier;
 
 			// Loop through all militia and restore them to peaceful status
 			SoldierID cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID;
@@ -1596,7 +1596,7 @@ static void CheckForAndSetupAirRaid ()
 	//SECTORINFO * pSector;
 	//INT16 sMenInSector;
 	//INT16 sMinMenForRaid;
-	//SOLDIERTYPE * pSoldier;
+	//TacticalActor * pSoldier;
 	//INT16 cnt=0;
 
 	//DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"CheckForAndSetupAirRaid");

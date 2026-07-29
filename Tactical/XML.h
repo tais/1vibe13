@@ -18,7 +18,7 @@
 #include "Inventory Choosing.h"		// added by Flugente
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 enum

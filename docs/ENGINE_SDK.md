@@ -238,14 +238,14 @@ pointers, AP calculations, and animation constants outside the package-facing
 contract.
 
 The JA2 application captures actors through
-`GetJa2TacticalEntityId(const SOLDIERTYPE&)` at each local UI, AI, dialogue, or
+`GetJa2TacticalEntityId(const TacticalActor&)` at each local UI, AI, dialogue, or
 network producer. That host adapter atomically reads the referenced merc's slot
 and incarnation and verifies that the runtime directory resolves the identity
 back to the same object. Detached or forged objects return an invalid
 `TacticalEntityId`, which produces
 `SimulationCommandDispatchStatus::InvalidActor` before queue submission.
 `Simulation Commands.h` accepts only complete `TacticalEntityId` values; it
-does not expose `SOLDIERTYPE` or separate slot/incarnation parameters. Packages,
+does not expose `TacticalActor` or separate slot/incarnation parameters. Packages,
 replay tools, and network hosts therefore use the same pointer-free command
 surface through `TacticalCommandService`. Legacy delayed-action completion
 helpers that must inspect pending fields remain isolated behind
@@ -256,7 +256,7 @@ same producer rule. `Ja2TacticalEntityReference::capture` accepts only
 `TacticalEntityId`; dialogue, contract, traversal, placement, confirmation, and
 timer producers cross the canonical-record adapter before retaining an actor.
 Legacy callback bodies may resolve that identity at the point of use, but cannot
-store or recapture the originating `SOLDIERTYPE*`. This is application-only,
+store or recapture the originating `TacticalActor*`. This is application-only,
 runtime state and does not extend the package API or any persistent format.
 Planning mode, vehicle and militia menus, debug dialogue, and the animation
 viewer use that same ID-only ingress. Search-scoped pathing cache state stores
@@ -278,7 +278,7 @@ its state atomically. This is host authority, not a package mutation service.
 The JA2 host publishes creation and command results immediately and reconciles
 remaining legacy animation/vitals changes at its completed-frame boundary.
 `TacticalWorldService` is built from this committed pointer-free state rather
-than exposing or rereading `SOLDIERTYPE`. The projection is runtime-only and
+than exposing or rereading `TacticalActor`. The projection is runtime-only and
 does not change soldier, map, save, content, or tactical-delta formats.
 
 `TacticalEntityRoster` is the SDK's fixed-capacity ordered-membership
@@ -301,7 +301,7 @@ runtime identities. No save, game-data, Lua, or network format changes.
 `GameContext` also owns the application-only `Ja2SoldierRepository` that
 connects this pointer-free runtime identity to JA2's current fixed soldier
 records. The repository is not part of the SDK and does not expose
-`SOLDIERTYPE` to packages. It centralizes bounded slot resolution,
+`TacticalActor` to packages. It centralizes bounded slot resolution,
 whole-record creation/replacement, save/load access, and record swaps while
 legacy consumers are migrated. Its fixed records and slot table are private to
 `SoldierRepository.cpp`; no process-global storage declaration remains.
@@ -317,7 +317,7 @@ and every external data format remain stable.
 Inside the JA2 application, transient soldier state is also being separated by
 behavior. Pending-action scratch and deferred work, combat-feedback counters,
 and quick-item retention are owned by a resettable runtime component rather
-than independent flat `SOLDIERTYPE` fields. This component is not exposed
+than independent flat `TacticalActor` fields. This component is not exposed
 through the SDK and is deliberately absent from soldier persistence.
 `SoldierIdentityComponent` privately owns the application actor's slot,
 fixed-width display name, body type, legacy and data profile links, exact
@@ -382,7 +382,7 @@ remain zero-byte serializer landmarks, and multiplayer packets and all
 content-facing formats remain unchanged.
 Modular tactical-AI plan trees are likewise process-local and now belong to
 `SoldierAiPlanComponent`. Because each plan points back to the exact
-`SOLDIERTYPE` that created it, application record copies, repository
+`TacticalActor` that created it, application record copies, repository
 replacement, and slot swaps discard the plan instead of copying its address;
 the selected factory recreates it lazily on the next AI decision. Initialization,
 deletion, loading, and v101 conversion also release it deterministically. This
@@ -468,7 +468,7 @@ operations give tactical, strategic, UI, and persistence code one authority.
 Acquired-disability operations validate the persisted 1..32 bit domain before
 using an unsigned shift. Disease rules and installed content stay outside this
 owner, and the dependency-neutral disease-capacity header removes the former
-`Disease.h`/`SOLDIERTYPE` include cycle. The serializer retains every original
+`Disease.h`/`TacticalActor` include cycle. The serializer retains every original
 position and width; v101 conversion clears this later domain.
 `SoldierDrugStateComponent` separately owns the 20 persistent effect durations
 and magnitudes, temporary personality and disability lifetimes, and accumulated
@@ -661,7 +661,7 @@ base, 16-bit base, lighting, glow, and effect tables and tracks the active and
 forced aliases. It provides deep-copy, transfer, transactional replacement,
 registry cleanup, and reset semantics for both soldiers and composed
 logical-body palette tables. Lighting accepts this narrow owner directly;
-logical palette data therefore no longer masquerades as a `SOLDIERTYPE`.
+logical palette data therefore no longer masquerades as a `TacticalActor`.
 The installed `.col` palette format is unchanged. Surface, level-node, and
 background pointers remain with the legacy graphics adapter and are not
 component or package API.
@@ -714,7 +714,7 @@ changes content, map, packet, Lua, or save schemas.
 
 `SoldierRenderBindingsComponent` owns the application-only attachment between a
 soldier record and the face, tactical-world, and animation-tile registries.
-Normal `SOLDIERTYPE` copies deliberately receive no face index, `LEVELNODE*`, or
+Normal `TacticalActor` copies deliberately receive no face index, `LEVELNODE*`, or
 `TAG_anitile*`; only the bounded soldier repository may transfer those bindings
 when committing or swapping canonical records. The component does not destroy
 registry objects, so existing face/world/tile teardown remains authoritative.
@@ -723,7 +723,7 @@ the typed persistent domains above, this leaves no meaningful mutable public
 storage in the live soldier class. Compatibility code still sees the same POD
 footprint and save order through opaque legacy slots and explicit field
 visitors; packages receive neither these process-local bindings nor raw
-`SOLDIERTYPE` access.
+`TacticalActor` access.
 
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is
@@ -736,7 +736,7 @@ runtime-only and does not add fields to serialized soldiers.
 Every `EngineRuntime` also owns one `TacticalInventoryUiSession`. It is a
 pointer-free table of `TacticalInventoryActorRole` to `TacticalEntityId` for
 application inventory panels and modal children. Hosts can set, query, clear,
-copy, count, or reset these value-only roles without importing `SOLDIERTYPE`.
+copy, count, or reset these value-only roles without importing `TacticalActor`.
 JA2 producers capture canonical identities before retaining them; legacy
 consumers resolve records only through the separately named compatibility
 header. Resolution and stale-modal cancellation remain responsibilities of the

@@ -4,7 +4,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 #define			FIND_SOLDIER_FULL				0x000000002
@@ -33,7 +33,7 @@ class SOLDIERTYPE;
 BOOLEAN FindSoldierFromMouse( SoldierID *pusSoldierIndex, UINT32 *pMercFlags );
 BOOLEAN SelectiveFindSoldierFromMouse( SoldierID *pusSoldierIndex, UINT32 *pMercFlags );
 BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFlags , UINT32 uiFlags );
-SOLDIERTYPE * SimpleFindSoldier( INT32 sGridNo, INT8 bLevel );
+TacticalActor * SimpleFindSoldier( INT32 sGridNo, INT8 bLevel );
 
 BOOLEAN CycleSoldierFindStack( INT32 usMapPos );
 
@@ -41,12 +41,12 @@ BOOLEAN GridNoOnScreen( INT32 sGridNo );
 
 BOOLEAN SoldierOnScreen( SoldierID usID );
 BOOLEAN SoldierLocationRelativeToScreen( INT32 sGridNo, INT8 *pbDirection, UINT32 *puiScrollFlags );
-void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScreenY );
-void GetSoldierAnimDims( SOLDIERTYPE *pSoldier, INT16 *psHeight, INT16 *psWidth );
-void GetSoldierAnimOffsets( SOLDIERTYPE *pSoldier, INT16 *sOffsetX, INT16 *sOffsetY );
-void GetSoldierTRUEScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScreenY );
-BOOLEAN IsPointInSoldierBoundingBox( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY );
-BOOLEAN FindRelativeSoldierPosition( SOLDIERTYPE *pSoldier, UINT16 *usFlags, INT16 sX, INT16 sY );
+void GetSoldierScreenPos( TacticalActor *pSoldier, INT16 *psScreenX, INT16 *psScreenY );
+void GetSoldierAnimDims( TacticalActor *pSoldier, INT16 *psHeight, INT16 *psWidth );
+void GetSoldierAnimOffsets( TacticalActor *pSoldier, INT16 *sOffsetX, INT16 *sOffsetY );
+void GetSoldierTRUEScreenPos( TacticalActor *pSoldier, INT16 *psScreenX, INT16 *psScreenY );
+BOOLEAN IsPointInSoldierBoundingBox( TacticalActor *pSoldier, INT16 sX, INT16 sY );
+BOOLEAN FindRelativeSoldierPosition( TacticalActor *pSoldier, UINT16 *usFlags, INT16 sX, INT16 sY );
 
 SoldierID QuickFindSoldier( INT32 sGridNo );
 void GetGridNoScreenPos( INT32 sGridNo, UINT8 ubLevel, INT16 *psScreenX, INT16 *psScreenY );

@@ -84,7 +84,7 @@ BOOLEAN HasNewGunQuoteBeenPlayedForThisGun( INT32 iItemIndex );
 BOOLEAN IsThisGunANewJa25Gun( INT32 iItemIndex );
 BOOLEAN SaveNewGunQuotesArrayToSaveGameFile( HWFILE hFile );
 BOOLEAN LoadNewGunQuotesArrayToSaveGameFile( HWFILE hFile );
-void		HandlePickingUpMorrisInstructionNote( SOLDIERTYPE *pSoldier, INT32 iIndex );
+void		HandlePickingUpMorrisInstructionNote( TacticalActor *pSoldier, INT32 iIndex );
 BOOLEAN IsSoldierAliveWithInitListGridNo( INT16 sInitListID );
 
 void		Ja25ScaleAllEnemiesByValue( INT8 bExpScaleValue );
@@ -93,7 +93,7 @@ INT8		JA25HighestExpLevelOnTeam( INT8 bTeam );
 INT8		JA25SecondHighestExpLevelOnEnemiesTeam( );
 INT8		CountNumberOfMercsOnSameTeamOfSameExpLevel( INT8 bTeam, INT8 bExpLevel );
 
-BOOLEAN	IsSoldierQualifiedGunCommenterMerc( SOLDIERTYPE *pSoldier );
+BOOLEAN	IsSoldierQualifiedGunCommenterMerc( TacticalActor *pSoldier );
 UINT32	GetNumberOfTurnsPowerGenFanWillBeStoppedFor();
 void HandleInitialEventsInHeliCrash();
 
@@ -375,7 +375,7 @@ void InitGridNoUB()
 	CALICO_900_UB  = gGameUBOptions.ubCALICO_900_UB;
 }
 	
-BOOLEAN	IsSoldierQualifiedMerc( SOLDIERTYPE *pSoldier )
+BOOLEAN	IsSoldierQualifiedMerc( TacticalActor *pSoldier )
 {
 	if( pSoldier->identity().profile() == 	GASTON_UB	||  ///  GASTON
 			pSoldier->identity().profile() == STOGIE_UB ||  // STOGIE
@@ -394,7 +394,7 @@ BOOLEAN	IsSoldierQualifiedMerc( SOLDIERTYPE *pSoldier )
 	}
 }
 
-BOOLEAN	IsSoldierQualifiedMercForSeeingPowerGenFan( SOLDIERTYPE *pSoldier )
+BOOLEAN	IsSoldierQualifiedMercForSeeingPowerGenFan( TacticalActor *pSoldier )
 {
 	if( pSoldier->identity().profile() == MANUEL_UB ||//MANUEL		||
 			pSoldier->identity().profile() ==  53 || //PGCMale3
@@ -410,7 +410,7 @@ BOOLEAN	IsSoldierQualifiedMercForSeeingPowerGenFan( SOLDIERTYPE *pSoldier )
 	}
 }
 
-BOOLEAN	IsSoldierQualifiedGunCommenterMerc( SOLDIERTYPE *pSoldier )
+BOOLEAN	IsSoldierQualifiedGunCommenterMerc( TacticalActor *pSoldier )
 {
 	if( pSoldier->identity().profile() == 	GASTON_UB	||  //  GASTON
 			pSoldier->identity().profile() == 	STOGIE_UB	|| //   STOGIE
@@ -426,7 +426,7 @@ BOOLEAN	IsSoldierQualifiedGunCommenterMerc( SOLDIERTYPE *pSoldier )
 	}
 }
 
-BOOLEAN	IsSoldierQualifiedInitialHireMerc( SOLDIERTYPE *pSoldier )
+BOOLEAN	IsSoldierQualifiedInitialHireMerc( TacticalActor *pSoldier )
 {
 	if( pSoldier->identity().profile() == 	GASTON_UB	|| //  GASTON
 			pSoldier->identity().profile() == 	STOGIE_UB	||  // STOGIE
@@ -443,7 +443,7 @@ BOOLEAN	IsSoldierQualifiedInitialHireMerc( SOLDIERTYPE *pSoldier )
 
 UINT8 GetNumSoldierIdAndProfileIdOfTheNewMercsOnPlayerTeam( SoldierID *pSoldierIdArray, UINT8 *pProfileIdArray )
 {
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	UINT8		usNumMercsPresent=0;
 
 	if( pSoldierIdArray )
@@ -671,7 +671,7 @@ void HandleWhenCertainPercentageOfEnemiesDie()
 void StopPowerGenFan()
 {
 	UINT16 usTileIndex;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 
 	// ATE: If destroyed, don't go into here
 	if( gJa25SaveStruct.ubStateOfFanInPowerGenSector == PGF__BLOWN_UP )
@@ -869,15 +869,15 @@ void HandlePowerGenAlarm()
 			{
 				SoldierID bSoldierId1, bSoldierId2, bSoldierId3;
 				Get3RandomQualifiedMercs( &bSoldierId1, &bSoldierId2, &bSoldierId3 );
-				SOLDIERTYPE* firstSoldier =
+				TacticalActor* firstSoldier =
 					bSoldierId1 != NOBODY
 						? GetJa2SoldierRepository().resolve(bSoldierId1.i)
 						: nullptr;
-				SOLDIERTYPE* secondSoldier =
+				TacticalActor* secondSoldier =
 					bSoldierId2 != NOBODY
 						? GetJa2SoldierRepository().resolve(bSoldierId2.i)
 						: nullptr;
-				SOLDIERTYPE* thirdSoldier =
+				TacticalActor* thirdSoldier =
 					bSoldierId3 != NOBODY
 						? GetJa2SoldierRepository().resolve(bSoldierId3.i)
 						: nullptr;
@@ -952,11 +952,11 @@ void AddExitGridForFanToPowerGenSector()
 	AddExitGridToWorld( POWERGENSECTOREXITGRID_SRC_GRIDNO, &ExitGrid );
 }
 
-BOOLEAN HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel( SOLDIERTYPE *pSoldierAtDoor, BOOLEAN fSayQuoteOnlyOnce )
+BOOLEAN HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel( TacticalActor *pSoldierAtDoor, BOOLEAN fSayQuoteOnlyOnce )
 {
 	INT8					bSlot;
 	UINT32				cnt;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	
 	//is this the right sector K14-1
 	if( !( gWorldSectorX == SECTOR_OPEN_GATE_IN_TUNNEL_X && gWorldSectorY == SECTOR_OPEN_GATE_IN_TUNNEL_Y && gbWorldSectorZ == SECTOR_OPEN_GATE_IN_TUNNEL_Z ) )
@@ -1069,7 +1069,7 @@ BOOLEAN SayQuoteFromAllNewHiredMercButDoGastonLast( UINT8 ubProfile, UINT32 uiQu
 {
 	UINT8		usNumMercsPresent;
 	SoldierID	SoldierIdArray[NUM_MERCS_WITH_NEW_QUOTES];
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 
 	//Get an array of the mercs on the team
 	usNumMercsPresent = GetNumSoldierIdAndProfileIdOfTheNewMercsOnPlayerTeam( SoldierIdArray, NULL );
@@ -1081,7 +1081,7 @@ BOOLEAN SayQuoteFromAllNewHiredMercButDoGastonLast( UINT8 ubProfile, UINT32 uiQu
 
 	for ( UINT8 iCnt=0; iCnt<usNumMercsPresent; ++iCnt )
 	{
-		SOLDIERTYPE* quoteSoldier =
+		TacticalActor* quoteSoldier =
 			GetJa2SoldierRepository().resolve(SoldierIdArray[iCnt].i);
 		//Do Gaston and the newly hired RPC last
 		if( quoteSoldier->identity().profile() == GASTON_UB ||
@@ -1114,7 +1114,7 @@ BOOLEAN SayQuoteFromAllNewHiredMercButDoGastonLast( UINT8 ubProfile, UINT32 uiQu
 }
 
 //returns false if a new merc is not going to handle saying the new quote
-BOOLEAN HandleNewGunComment( SOLDIERTYPE *pSoldier, INT32 iItemIndex, BOOLEAN fFromGround )
+BOOLEAN HandleNewGunComment( TacticalActor *pSoldier, INT32 iItemIndex, BOOLEAN fFromGround )
 {
 	BOOLEAN fNewMerc = IsSoldierQualifiedGunCommenterMerc( pSoldier );
 
@@ -1300,7 +1300,7 @@ void SetNewGunQuoteToBePlayedForThisGun( INT32 iItemIndex )
 	}
 }
 
-void HandlePickingUpMorrisInstructionNote( SOLDIERTYPE *pSoldier, INT32 iIndex )
+void HandlePickingUpMorrisInstructionNote( TacticalActor *pSoldier, INT32 iIndex )
 {
 	if( iIndex != MORRIS_INSTRUCTION_NOTE )
 	{
@@ -1372,7 +1372,7 @@ void HandlePickingUpMorrisInstructionNote( SOLDIERTYPE *pSoldier, INT32 iIndex )
 	}
 }
 
-void HandleDeathInPowerGenSector( SOLDIERTYPE *pSoldier )
+void HandleDeathInPowerGenSector( TacticalActor *pSoldier )
 {
 	//if this is NOT the power gen sector J13
 	if( gWorldSectorX != SECTOR_FAN_X || gWorldSectorY != SECTOR_FAN_Y || gbWorldSectorZ != SECTOR_FAN_Z )
@@ -1595,7 +1595,7 @@ void HandleJa25EnemyExpLevelModifier( )
 INT8 JA25HighestExpLevelOnTeam( INT8 bTeam )
 {
 	INT32 cnt;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	INT8	bHighestExpLevel=0;
 
 	cnt = gTacticalStatus.Team[ bTeam ].bFirstID;
@@ -1618,7 +1618,7 @@ INT8 JA25HighestExpLevelOnTeam( INT8 bTeam )
 INT8 JA25SecondHighestExpLevelOnPlayersTeam( )
 {
 	INT32 cnt;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	INT8	bHighestExpLevel=0;
 	INT8	b2ndHighestExpLevel=0;
 	INT8  bNumber=0;
@@ -1663,7 +1663,7 @@ INT8 JA25SecondHighestExpLevelOnPlayersTeam( )
 INT8 JA25SecondHighestExpLevelOnEnemiesTeam( )
 {
 	INT32 cnt;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	INT8	bHighestExpLevel=0;
 	INT8	b2ndHighestExpLevel=0;
 	INT8	bNumber=0;
@@ -1709,7 +1709,7 @@ INT8 JA25SecondHighestExpLevelOnEnemiesTeam( )
 void Ja25ScaleAllEnemiesByValue( INT8 bExpScaleValue )
 {
 	INT32 cnt;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	INT8		bNewExpLevel=0;
 
 	cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID;
@@ -1745,7 +1745,7 @@ void Ja25ScaleAllEnemiesByValue( INT8 bExpScaleValue )
 INT8 CountNumberOfMercsOnSameTeamOfSameExpLevel( INT8 bTeam, INT8 bExpLevel )
 {
 	INT8	bNumber=0;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	INT32 cnt;
 
 	cnt = gTacticalStatus.Team[ bTeam ].bFirstID;
@@ -1769,7 +1769,7 @@ INT8 RandomSoldierIdForAnyMercInSector()
 	UINT8 SoldierIdArray[18];
 	UINT8	ubNumMercsInSector=0;
 	INT32	cnt;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	UINT8 ubCount=0;
 
 	ubNumMercsInSector = PlayerMercsInSector( (UINT8)gWorldSectorX, (UINT8)gWorldSectorY, gbWorldSectorZ );
@@ -1822,7 +1822,7 @@ void HandleFanStartingAtEndOfCombat()
 
 void HandleInitialEventsInHeliCrash()
 {
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	INT32 cnt;
 
 	//first, loop through all the mercs and injure them
@@ -1853,7 +1853,7 @@ UINT32 GetNumberOfTurnsPowerGenFanWillBeStoppedFor()
 }
 
 
-void DisplayCommanderMorrisNote( SOLDIERTYPE *pSoldier )
+void DisplayCommanderMorrisNote( TacticalActor *pSoldier )
 {
 	CHAR16	zString[1024];
 
@@ -1939,7 +1939,7 @@ void HandleShowingRadioLocatorsInMorrisArea()
 	}
 }
 
-void HandleNewMercSayingContentsOfMorrisNote( SOLDIERTYPE *pSoldier )
+void HandleNewMercSayingContentsOfMorrisNote( TacticalActor *pSoldier )
 {
 	TacticalCharacterDialogue( pSoldier, QUOTE_MERC_LEAVING_ALSUCO_SOON );
 
@@ -1950,7 +1950,7 @@ void HandleNewMercSayingContentsOfMorrisNote( SOLDIERTYPE *pSoldier )
 void HandlePlayerHittingSwitchToLaunchMissles()
 {
 	INT32 cnt;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 
 	//
 	// The player Just won the game, remeber this

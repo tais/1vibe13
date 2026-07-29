@@ -345,7 +345,7 @@ BOOLEAN EnterMercCompareAnalyze()
 	SoldierID lastid  = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; id <= lastid; ++id)
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(id.i);
 		if ( soldier && soldier->roster().active() &&
 			soldier->identity().profile() != NO_PROFILE )
@@ -463,9 +463,9 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 	if ( idA == NOBODY || idB == NOBODY )
 		return FALSE;
 
-	SOLDIERTYPE* pSoldierA =
+	TacticalActor* pSoldierA =
 		GetJa2SoldierRepository().resolve(idA.i);
-	SOLDIERTYPE* pSoldierB =
+	TacticalActor* pSoldierB =
 		GetJa2SoldierRepository().resolve(idB.i);
 
 	if ( !pSoldierA || !pSoldierB )
@@ -987,7 +987,7 @@ BOOLEAN EnterMercCompareMatrix( )
 	SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; id <= lastid; ++id )
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(id.i);
 		if ( soldier && soldier->roster().active() &&
 			soldier->identity().profile() != NO_PROFILE &&
@@ -1094,7 +1094,7 @@ void RenderMercCompareMatrix( )
 		SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 		for ( ; id <= lastid; ++id )
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				GetJa2SoldierRepository().resolve(id.i);
 			if ( soldier && soldier->roster().active() &&
 				soldier->identity().profile() != NO_PROFILE &&
@@ -1136,7 +1136,7 @@ void RenderMercCompareMatrix( )
 			if ( idA == NOBODY )
 				continue;
 
-			SOLDIERTYPE* pSoldierA =
+			TacticalActor* pSoldierA =
 				GetJa2SoldierRepository().resolve(idA.i);
 			if ( !pSoldierA )
 				continue;
@@ -1165,7 +1165,7 @@ void RenderMercCompareMatrix( )
 					continue;
 				}
 
-				SOLDIERTYPE* pSoldierB =
+				TacticalActor* pSoldierB =
 					GetJa2SoldierRepository().resolve(idB.i);
 				if ( !pSoldierB )
 					continue;

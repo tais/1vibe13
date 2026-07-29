@@ -154,18 +154,18 @@ enum TAUNTTYPE//enemy taunts - SANDRO
 	TAUNT_RIPOSTE	
 };
 
-void PossiblyStartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SoldierID uiTargetID = NOBODY );
-void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTarget = NULL ); //enemy taunts - SANDRO // anv: added pTarget argument
-void ShowTauntPopupBox( SOLDIERTYPE *pCiv, STR16 gzTauntQuote );
+void PossiblyStartEnemyTaunt( TacticalActor *pCiv, TAUNTTYPE iTauntType, SoldierID uiTargetID = NOBODY );
+void StartEnemyTaunt( TacticalActor *pCiv, TAUNTTYPE iTauntType, TacticalActor *pTarget = NULL ); //enemy taunts - SANDRO // anv: added pTarget argument
+void ShowTauntPopupBox( TacticalActor *pCiv, STR16 gzTauntQuote );
 
 // sevenfm: voice taunts
-BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTarget);
+BOOLEAN PlayVoiceTaunt(TacticalActor *pCiv, TAUNTTYPE iTauntType, TacticalActor *pTarget);
 
 void InitCivQuoteSystem( );
 
-void StartCivQuote( SOLDIERTYPE *pCiv );
+void StartCivQuote( TacticalActor *pCiv );
 
-INT8 GetCivType( SOLDIERTYPE *pCiv );
+INT8 GetCivType( TacticalActor *pCiv );
 
 void HandleCivQuote( );
 
@@ -174,8 +174,8 @@ BOOLEAN LoadCivQuotesFromLoadGameFile( HWFILE hFile );
 
 BOOLEAN ShutDownQuoteBoxIfActive( );
 
-void BeginCivQuote( SOLDIERTYPE *pCiv, UINT16 ubCivQuoteID, UINT16 ubEntryID, INT16 sX, INT16 sY );
-void BeginChatQuote( SOLDIERTYPE *pCiv, INT16 sX, INT16 sY );
+void BeginCivQuote( TacticalActor *pCiv, UINT16 ubCivQuoteID, UINT16 ubEntryID, INT16 sX, INT16 sY );
+void BeginChatQuote( TacticalActor *pCiv, INT16 sX, INT16 sY );
 
 BOOLEAN CivQuoteActive();
 

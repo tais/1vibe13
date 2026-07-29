@@ -287,7 +287,7 @@ void ExamineSlantRoofFOVSlots( )
 
 }
 
-void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLocators, UINT8 ubLevel, BOOLEAN fForce )
+void RevealRoofsAndItems(TacticalActor *pSoldier, UINT32 itemsToo, BOOLEAN fShowLocators, UINT8 ubLevel, BOOLEAN fForce )
 {
 	INT32		maincnt,markercnt,marker,tilesLeftToSee,prevmarker;
 	UINT8		cnt;

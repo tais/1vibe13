@@ -35,13 +35,13 @@ extern UINT8	gubWaitingForAllMercsToExitCode;
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 #define NEXT_TILE_CHECK_DELAY		700
 
 #ifdef JA2BETAVERSION
 
-void OutputDebugInfoForTurnBasedNextTileWaiting( SOLDIERTYPE * pSoldier )
+void OutputDebugInfoForTurnBasedNextTileWaiting( TacticalActor * pSoldier )
 {
 	if ( (IsJa2TacticalCombatActive()) && (pSoldier->pathing().pathSize() > 0) )
 	{
@@ -79,7 +79,7 @@ void OutputDebugInfoForTurnBasedNextTileWaiting( SOLDIERTYPE * pSoldier )
 
 
 
-void SetDelayedTileWaiting( SOLDIERTYPE *pSoldier, INT32 sCauseGridNo, UINT8 bValue )
+void SetDelayedTileWaiting( TacticalActor *pSoldier, INT32 sCauseGridNo, UINT8 bValue )
 {
 	// Cancel AI Action
 	// CancelAIAction( pSoldier, TRUE );
@@ -100,7 +100,7 @@ void SetDelayedTileWaiting( SOLDIERTYPE *pSoldier, INT32 sCauseGridNo, UINT8 bVa
 
 	if ( ubPerson != NOBODY )
 	{
-		SOLDIERTYPE* blockingPerson =
+		TacticalActor* blockingPerson =
 			GetJa2SoldierRepository().resolve(ubPerson.i);
 		// if they are our own team members ( both )
 		if ( blockingPerson != nullptr &&
@@ -115,7 +115,7 @@ void SetDelayedTileWaiting( SOLDIERTYPE *pSoldier, INT32 sCauseGridNo, UINT8 bVa
 }
 
 
-void SetFinalTile( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fGivenUp )
+void SetFinalTile( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fGivenUp )
 {
 	// OK, If we were waiting for stuff, do it here...
 
@@ -144,7 +144,7 @@ void SetFinalTile( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fGivenUp )
 }
 
 
-void MarkMovementReserved( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+void MarkMovementReserved( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	// Check if we have one reserrved already, and free it first!	
 	if (!TileIsOutOfBounds(pSoldier->movement().reservedGrid()))
@@ -161,7 +161,7 @@ void MarkMovementReserved( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	pSoldier->movement().reservedGrid() = sGridNo;
 }
 
-void UnMarkMovementReserved( SOLDIERTYPE *pSoldier )
+void UnMarkMovementReserved( TacticalActor *pSoldier )
 {
 	INT32 sNewGridNo;
 
@@ -188,7 +188,7 @@ void UnMarkMovementReserved( SOLDIERTYPE *pSoldier )
 	}
 }
 
-INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 bLevel )
+INT8 TileIsClear( TacticalActor *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 bLevel )
 {
 	INT32		sTempDestGridNo;
 	INT32 sNewGridNo;
@@ -214,7 +214,7 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 
 	if ( ubPerson != NOBODY )
 	{
-		SOLDIERTYPE* blockingPerson =
+		TacticalActor* blockingPerson =
 			GetJa2SoldierRepository().resolve(ubPerson.i);
 		// If this us?
 		if ( blockingPerson != nullptr && ubPerson != pSoldier->identity().id() )
@@ -360,7 +360,7 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 
 
 
-BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, INT32 sFinalDestTile )//dnl ch53 111009
+BOOLEAN HandleNextTile( TacticalActor *pSoldier, INT8 bDirection, INT32 sGridNo, INT32 sFinalDestTile )//dnl ch53 111009
 {
 	INT8 bBlocked;
 	INT16	bOverTerrainType;
@@ -487,7 +487,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 
 
 
-BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
+BOOLEAN HandleNextTileWaiting( TacticalActor *pSoldier )
 {
 	// Buddy is waiting to continue his path
 	INT8			bBlocked, bPathBlocked;
@@ -652,7 +652,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 				{
 					// with person who is in the way?
 					ubPerson = WhoIsThere2( pSoldier->movement().delayedCauseGrid(), pSoldier->position().level() );
-					SOLDIERTYPE* blockingPerson =
+					TacticalActor* blockingPerson =
 						GetJa2SoldierRepository().resolve(ubPerson.i);
 
 					// if either on a mission from god, or two AI guys not on stationary...
@@ -737,7 +737,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 }
 
 
-BOOLEAN TeleportSoldier( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fForce )
+BOOLEAN TeleportSoldier( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fForce )
 {
 	INT16 sX, sY;
 
@@ -777,7 +777,7 @@ BOOLEAN TeleportSoldier( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fForce )
 }
 
 // Swaps 2 soldier positions...
-BOOLEAN SwapMercPositions( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2 )
+BOOLEAN SwapMercPositions( TacticalActor *pSoldier1, TacticalActor *pSoldier2 )
 {
 	INT32 sGridNo1, sGridNo2;
 
@@ -812,7 +812,7 @@ BOOLEAN SwapMercPositions( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2 )
 }
 
 
-BOOLEAN CanExchangePlaces( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2, BOOLEAN fShow )
+BOOLEAN CanExchangePlaces( TacticalActor *pSoldier1, TacticalActor *pSoldier2, BOOLEAN fShow )
 {
 	// NB checks outside of this function
 	if ( EnoughPoints( pSoldier1, APBPConstants[AP_EXCHANGE_PLACES], 0, fShow ) ){

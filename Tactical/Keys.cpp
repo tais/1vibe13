@@ -147,7 +147,7 @@ BOOLEAN LoadLockTable( void )
 }
 
 
-BOOLEAN SoldierHasKey( SOLDIERTYPE *pSoldier, UINT8 ubKeyID )
+BOOLEAN SoldierHasKey( TacticalActor *pSoldier, UINT8 ubKeyID )
 {
 	if ( KeyExistsInKeyRing( pSoldier, ubKeyID, NULL ) || KeyExistsInInventory( pSoldier, ubKeyID ) )
 	{
@@ -157,7 +157,7 @@ BOOLEAN SoldierHasKey( SOLDIERTYPE *pSoldier, UINT8 ubKeyID )
 	return( FALSE );
 }
 
-BOOLEAN KeyExistsInKeyRing( SOLDIERTYPE *pSoldier, UINT8 ubKeyID, UINT8 * pubPos )
+BOOLEAN KeyExistsInKeyRing( TacticalActor *pSoldier, UINT8 ubKeyID, UINT8 * pubPos )
 {
 	// returns the index into the key ring where the key can be found
 	UINT8 ubLoop;
@@ -187,7 +187,7 @@ BOOLEAN KeyExistsInKeyRing( SOLDIERTYPE *pSoldier, UINT8 ubKeyID, UINT8 * pubPos
 	return( FALSE );
 }
 
-BOOLEAN KeyExistsInInventory( SOLDIERTYPE *pSoldier, UINT8 ubKeyID )
+BOOLEAN KeyExistsInInventory( TacticalActor *pSoldier, UINT8 ubKeyID )
 {
 	UINT8 invsize = pSoldier->inventory().size();
 	for (UINT8 ubLoop = 0; ubLoop < invsize; ++ubLoop)
@@ -243,7 +243,7 @@ BOOLEAN DoUnlockDoor( DOOR * pDoor, UINT8 ubKeyID )
 	}
 }
 
-BOOLEAN AttemptToUnlockDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
+BOOLEAN AttemptToUnlockDoor( TacticalActor * pSoldier, DOOR * pDoor )
 {
 	UINT8 ubLoop;
 	UINT8		ubKeyID;
@@ -271,7 +271,7 @@ BOOLEAN AttemptToUnlockDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	return( FALSE );
 }
 
-BOOLEAN AttemptToLockDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
+BOOLEAN AttemptToLockDoor( TacticalActor * pSoldier, DOOR * pDoor )
 {
 	UINT8 ubLoop;
 	UINT8		ubKeyID;
@@ -297,7 +297,7 @@ BOOLEAN AttemptToLockDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 }
 
 
-BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
+BOOLEAN AttemptToCrowbarLock( TacticalActor * pSoldier, DOOR * pDoor )
 {
 	INT32		iResult;
 	INT16		bStress;
@@ -392,7 +392,7 @@ BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 }
 
 
-BOOLEAN AttemptToSmashDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
+BOOLEAN AttemptToSmashDoor( TacticalActor * pSoldier, DOOR * pDoor )
 {
 	INT32		iResult;
 
@@ -473,7 +473,7 @@ BOOLEAN AttemptToSmashDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	}
 }
 
-BOOLEAN AttemptToPickLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
+BOOLEAN AttemptToPickLock( TacticalActor * pSoldier, DOOR * pDoor )
 {
 	INT32	iResult;
 	INT8 bReason;
@@ -544,7 +544,7 @@ BOOLEAN AttemptToPickLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	}
 }
 
-BOOLEAN AttemptToUntrapDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
+BOOLEAN AttemptToUntrapDoor( TacticalActor * pSoldier, DOOR * pDoor )
 {
 	INT32		iResult;
 
@@ -589,7 +589,7 @@ BOOLEAN AttemptToUntrapDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	}
 }
 
-BOOLEAN ExamineDoorForTraps( SOLDIERTYPE * pSoldier, DOOR * pDoor )
+BOOLEAN ExamineDoorForTraps( TacticalActor * pSoldier, DOOR * pDoor )
 {
 	// Check to see if there is a trap or not on this door
 	INT16 bDetectLevel;
@@ -624,7 +624,7 @@ BOOLEAN ExamineDoorForTraps( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	return( FALSE );
 }
 
-BOOLEAN HasDoorTrapGoneOff( SOLDIERTYPE * pSoldier, DOOR * pDoor )
+BOOLEAN HasDoorTrapGoneOff( TacticalActor * pSoldier, DOOR * pDoor )
 {
 	// Check to see if the soldier causes the trap to go off
 	INT16 bDetectLevel;
@@ -643,7 +643,7 @@ BOOLEAN HasDoorTrapGoneOff( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 }
 
 
-void HandleDoorTrap( SOLDIERTYPE * pSoldier, DOOR * pDoor )
+void HandleDoorTrap( TacticalActor * pSoldier, DOOR * pDoor )
 {
 	if ( !( DoorTrapTable[ pDoor->ubTrapID ].fFlags & DOOR_TRAP_SILENT )	)
 	{
@@ -725,7 +725,7 @@ void HandleDoorTrap( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 
 }
 
-BOOLEAN AttemptToBlowUpLock(SOLDIERTYPE * pSoldier, DOOR * pDoor)
+BOOLEAN AttemptToBlowUpLock(TacticalActor * pSoldier, DOOR * pDoor)
 {
 	INT32	iResult;
 	INT8	bSlot;
@@ -1394,7 +1394,7 @@ BOOLEAN AllMercsLookForDoor( INT32 sGridNo, BOOLEAN fUpdateValue )
 {
 	INT32		cnt2;
 	INT8			bDirs[ 8 ] = { NORTH, SOUTH, EAST, WEST, NORTHEAST, NORTHWEST, SOUTHEAST, SOUTHWEST };
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	DOOR_STATUS	*pDoorStatus;
 	INT32		usNewGridNo;
 
@@ -1451,7 +1451,7 @@ BOOLEAN AllMercsLookForDoor( INT32 sGridNo, BOOLEAN fUpdateValue )
 }
 
 
-BOOLEAN MercLooksForDoors( SOLDIERTYPE *pSoldier, BOOLEAN fUpdateValue )
+BOOLEAN MercLooksForDoors( TacticalActor *pSoldier, BOOLEAN fUpdateValue )
 {
 	INT32					cnt, cnt2;
 	INT32 sGridNo;
@@ -2084,7 +2084,7 @@ BOOLEAN LoadKeyTableFromSaveedGameFile( HWFILE hFile, UINT32 uiSaveGameVersion )
 void ExamineDoorsOnEnteringSector( )
 {
 	DOOR_STATUS	*pDoorStatus;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	BOOLEAN		fOK = FALSE;
 	INT8			bTownId;
 
@@ -2140,7 +2140,7 @@ void ExamineDoorsOnEnteringSector( )
 void HandleDoorsChangeWhenEnteringSectorCurrentlyLoaded( )
 {
 	DOOR_STATUS	*pDoorStatus;
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	BOOLEAN		fOK = FALSE;
 	INT32		iNumNewMercs = 0;
 	INT8			bTownId;
@@ -2220,7 +2220,7 @@ void HandleDoorsChangeWhenEnteringSectorCurrentlyLoaded( )
 }
 
 
-void DropKeysInKeyRing( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, INT8 bVisible, BOOLEAN fAddToDropList, INT32 iDropListSlot, BOOLEAN fUseUnLoaded )
+void DropKeysInKeyRing( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, INT8 bVisible, BOOLEAN fAddToDropList, INT32 iDropListSlot, BOOLEAN fUseUnLoaded )
 {
 	if (!pSoldier->keyRing().active())
 	{

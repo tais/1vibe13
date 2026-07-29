@@ -121,7 +121,7 @@ BOOLEAN CaptureTacticalTraversalChosenSoldier( TacticalEntityId actor )
 		? TRUE : FALSE;
 }
 
-SOLDIERTYPE *ResolveTacticalTraversalChosenSoldier( void )
+TacticalActor *ResolveTacticalTraversalChosenSoldier( void )
 {
 	return gTacticalTraversalChosenSoldier.resolve();
 }
@@ -184,7 +184,7 @@ void AutoResolveBattleCallback( GUI_BUTTON *btn, INT32 reason );
 void GoToSectorCallback( GUI_BUTTON *btn, INT32 reason );
 void RetreatMercsCallback( GUI_BUTTON *btn, INT32 reason );
 
-void GetSoldierConditionInfo( SOLDIERTYPE *pSoldier, CHAR16 *szCondition, UINT8 *pubHPPercent, UINT8 *pubBPPercent );
+void GetSoldierConditionInfo( TacticalActor *pSoldier, CHAR16 *szCondition, UINT8 *pubHPPercent, UINT8 *pubBPPercent );
 
 void CheckForRobotAndIfItsControlled( void );
 
@@ -197,8 +197,8 @@ void InvolvedClickCallback( MOUSE_REGION *reg, INT32 reason );
 void UninvolvedMoveCallback( MOUSE_REGION *reg, INT32 reason );
 void UninvolvedClickCallback( MOUSE_REGION *reg, INT32 reason );
 
-SOLDIERTYPE* InvolvedSoldier( INT32 index );
-SOLDIERTYPE* UninvolvedSoldier( INT32 index );
+TacticalActor* InvolvedSoldier( INT32 index );
+TacticalActor* UninvolvedSoldier( INT32 index );
 */
 
 
@@ -276,10 +276,10 @@ INT32 giHilitedUninvolved = 0;
 
 extern void CalculateGroupRetreatSector( GROUP *pGroup );
 
-extern void GetMapscreenMercAssignmentString( SOLDIERTYPE *pSoldier, CHAR16 sString[] );
-extern void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] );
-extern void GetMapscreenMercDestinationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] );
-extern void GetMapscreenMercDepartureString( SOLDIERTYPE *pSoldier, CHAR16 sString[], UINT8 *pubFontColor );
+extern void GetMapscreenMercAssignmentString( TacticalActor *pSoldier, CHAR16 sString[] );
+extern void GetMapscreenMercLocationString( TacticalActor *pSoldier, CHAR16 sString[] );
+extern void GetMapscreenMercDestinationString( TacticalActor *pSoldier, CHAR16 sString[] );
+extern void GetMapscreenMercDepartureString( TacticalActor *pSoldier, CHAR16 sString[], UINT8 *pubFontColor );
 
 
 
@@ -661,7 +661,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 	guiNumInvolved = 0;
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 		{
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
@@ -782,7 +782,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 			if( GetEnemyEncounterCode() != BLOODCAT_AMBUSH_CODE && GetEnemyEncounterCode() != ENTERING_BLOODCAT_LAIR_CODE )
 			{
 				// Flugente: if the group that causes a battle is a result of a merc no longer being concealed, special code
-				SOLDIERTYPE* firstMember =
+				TacticalActor* firstMember =
 					ResolvePlayerGroupMember(
 						pBattleGroup->pPlayerList );
 				if ( firstMember &&
@@ -951,7 +951,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		if ( pBattleGroup &&
 			pBattleGroup->usGroupTeam == OUR_TEAM )
 		{
-			SOLDIERTYPE* firstMember =
+			TacticalActor* firstMember =
 				ResolvePlayerGroupMember(
 					pBattleGroup->pPlayerList );
 			if( firstMember &&
@@ -971,7 +971,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 	{
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{
-			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 			{
 				if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->identity().profile() != NO_PROFILE )
@@ -1665,7 +1665,7 @@ void RenderPreBattleInterface()
 		y = TOP_Y + TOP_Y_TEXT_BUFFER - bListOffset;
 		for( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id)
 		{
-			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
+			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
 			if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 			{
 				if( PlayerMercInvolvedInThisCombat( pSoldier ) )
@@ -1711,7 +1711,7 @@ void RenderPreBattleInterface()
 			y = TOP_Y + TOP_Y_TEXT_BUFFER + ubUninvolvedStartY + UNINVOLVED_RELEVANT_HEIGHT - bListOffset;
 			for( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
 			{
-				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
+				TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
 				if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 				{
 					if( !PlayerMercInvolvedInThisCombat(pSoldier) )
@@ -1906,7 +1906,7 @@ void RetreatMercsCallback( GUI_BUTTON *btn, INT32 reason )
 			// SANDRO - merc records - times retreated counter
 			for( SoldierID i = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; i <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++i )
 			{
-				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+				TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 				if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE )
 				{
 					if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->identity().profile() != NO_PROFILE )
@@ -1961,7 +1961,7 @@ enum
 	COND_DEAD
 };
 
-void GetSoldierConditionInfo( SOLDIERTYPE *pSoldier, CHAR16 *szCondition, UINT8 *pubHPPercent, UINT8 *pubBPPercent )
+void GetSoldierConditionInfo( TacticalActor *pSoldier, CHAR16 *szCondition, UINT8 *pubHPPercent, UINT8 *pubBPPercent )
 {
 	Assert( pSoldier );
 	*pubHPPercent = (UINT8)(pSoldier->vitals().health() * 100 / pSoldier->vitals().maximumHealth());
@@ -2022,7 +2022,7 @@ void InvolvedClickCallback( MOUSE_REGION *reg, INT32 reason )
 {
 	if( reason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{
-		SOLDIERTYPE *pSoldier;
+		TacticalActor *pSoldier;
 		INT16 y;
 		pSoldier = InvolvedSoldier( giHilitedInvolved );
 		if( !pSoldier )
@@ -2052,7 +2052,7 @@ void UninvolvedClickCallback( MOUSE_REGION *reg, INT32 reason )
 {
 	if( reason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{
-		SOLDIERTYPE *pSoldier;
+		TacticalActor *pSoldier;
 		INT16 y;
 		pSoldier = UninvolvedSoldier( giHilitedUninvolved );
 		if( !pSoldier )
@@ -2076,7 +2076,7 @@ void UninvolvedClickCallback( MOUSE_REGION *reg, INT32 reason )
 	}
 }
 
-SOLDIERTYPE* InvolvedSoldier( INT32 index )
+TacticalActor* InvolvedSoldier( INT32 index )
 {
 	GROUP *pGroup;
 	PLAYERGROUP *pPlayer=NULL;
@@ -2107,7 +2107,7 @@ SOLDIERTYPE* InvolvedSoldier( INT32 index )
 	return pPlayer->pSoldier;
 }
 
-SOLDIERTYPE* UninvolvedSoldier( INT32 index )
+TacticalActor* UninvolvedSoldier( INT32 index )
 {
 	GROUP *pGroup;
 	PLAYERGROUP *pPlayer=NULL;
@@ -2280,7 +2280,7 @@ void PutNonSquadMercsInBattleSectorOnSquads( BOOLEAN fExitVehicles )
 void PutNonSquadMercsInPlayerGroupOnSquads( GROUP *pGroup, BOOLEAN fExitVehicles )
 {
 	PLAYERGROUP *pPlayer, *pNextPlayer;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT8 bUniqueVehicleSquad = -1;
 	BOOLEAN fSuccess = FALSE;
 
@@ -2366,7 +2366,7 @@ void PutNonSquadMercsInPlayerGroupOnSquads( GROUP *pGroup, BOOLEAN fExitVehicles
 void WakeUpAllMercsInSectorUnderAttack( void )
 {
 	INT32 iCounter = 0, iNumberOfMercsOnTeam = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	// get number of possible grunts on team
@@ -2556,7 +2556,7 @@ void RetreatAllInvolvedMilitiaGroups()
 }
 
 
-BOOLEAN PlayerMercInvolvedInThisCombat( SOLDIERTYPE *pSoldier )
+BOOLEAN PlayerMercInvolvedInThisCombat( TacticalActor *pSoldier )
 {
 	Assert( pSoldier );
 	Assert( pSoldier->roster().active() );
@@ -2653,7 +2653,7 @@ void CheckForRobotAndIfItsControlled( void )
 	// search for the robot on player's team
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->roster().active() && pSoldier->vitals().health() && AM_A_ROBOT( pSoldier ))
 		{
 			// check whether it has a valid controller with it. This sets its ubRobotRemoteHolderID field.
@@ -2662,7 +2662,7 @@ void CheckForRobotAndIfItsControlled( void )
 			// if he has a controller, set controllers
 			if ( pSoldier->vehicleState().robotRemoteHolder() != NOBODY )
 			{
-				SOLDIERTYPE* controller =
+				TacticalActor* controller =
 					GetJa2SoldierRepository().resolve(
 						pSoldier->vehicleState().robotRemoteHolder());
 				if (controller)

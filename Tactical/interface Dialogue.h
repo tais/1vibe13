@@ -49,17 +49,17 @@ typedef struct
 // GLOBAL NPC STRUCT
 extern NPC_DIALOGUE_TYPE		gTalkPanel;
 
-// Conversation participants are reusable SOLDIERTYPE slots. Resolve them
+// Conversation participants are reusable TacticalActor slots. Resolve them
 // through the stable tactical-entity directory each time delayed dialogue or
 // quest work resumes.
-SOLDIERTYPE* GetDialogueSourceSoldier( void );
-SOLDIERTYPE* GetDialogueDestinationSoldier( void );
+TacticalActor* GetDialogueSourceSoldier( void );
+TacticalActor* GetDialogueDestinationSoldier( void );
 BOOLEAN SetDialogueDestinationSoldier( TacticalEntityId actor );
 
 
 // uiApproachData is pointer-wide: APPROACH_GIVINGITEM passes an OBJECTTYPE*
 // through it, so a UINT32 truncated the pointer on 64-bit (crash on cast back).
-BOOLEAN InitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData );
+BOOLEAN InitiateConversation( TacticalActor *pDestSoldier, TacticalActor *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData );
 
 // THis fuction will allocate and setup an NPCDiaogue structure. Loads the face for the character..
 BOOLEAN InitTalkingMenu( UINT8 ubCharacterNum, INT32 sGridNo );
@@ -425,7 +425,7 @@ extern INT32 giHospitalTempBalance;
 extern INT32 giHospitalRefund;
 extern INT8 gbHospitalPriceModifier;
 
-extern UINT32 CalcPatientMedicalCost( SOLDIERTYPE * pSoldier );
+extern UINT32 CalcPatientMedicalCost( TacticalActor * pSoldier );
 extern UINT32 CalcMedicalCost( UINT8 ubId );
 extern void StartDialogueMessageBox( UINT8 ubProfileID, UINT16 usMessageBoxType );
 

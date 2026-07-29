@@ -63,7 +63,7 @@ void HandleDisease()
 	if ( !gGameExternalOptions.fDisease )
 		return;
 
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	UINT32 uiCnt = 0;
 	auto& soldiers = GetJa2SoldierRepository();
 
@@ -105,7 +105,7 @@ void HandleDisease()
 		if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0 )
 		{
 			// loop over all other soldiers and determine the chance that they will infect us
-			SOLDIERTYPE *pTeamSoldier = NULL;
+			TacticalActor *pTeamSoldier = NULL;
 			UINT32 uiCnt2 = 0;
 
 			// chance for infection due to proximity to other mercs
@@ -197,7 +197,7 @@ void HandleDisease()
 }
 
 // chance gets modified by aModifier (contextual modifier)
-void HandlePossibleInfection( SOLDIERTYPE *pSoldier, SOLDIERTYPE* pOtherSoldier, UINT8 aInfectionType, FLOAT aModifier, BOOLEAN fStrategicOnly )
+void HandlePossibleInfection( TacticalActor *pSoldier, TacticalActor* pOtherSoldier, UINT8 aInfectionType, FLOAT aModifier, BOOLEAN fStrategicOnly )
 {
 	if ( !gGameExternalOptions.fDisease )
 		return;

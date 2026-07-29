@@ -25,7 +25,7 @@
 AILIST		gAIList[ AI_LIST_SIZE ];
 AILIST *	gpFirstAIListEntry = NULL;
 
-BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount, BOOLEAN fDoRandomChecks );
+BOOLEAN SatisfiesAIListConditions( TacticalActor * pSoldier, UINT16 * pubDoneCount, BOOLEAN fDoRandomChecks );
 
 void ClearAIList( void )
 {
@@ -181,7 +181,7 @@ BOOLEAN InsertIntoAIList( SoldierID ubID, INT8 bPriority )
 	return( FALSE );
 }
 
-BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount, BOOLEAN fDoRandomChecks )
+BOOLEAN SatisfiesAIListConditions( TacticalActor * pSoldier, UINT16 * pubDoneCount, BOOLEAN fDoRandomChecks )
 {
 	if ( (gTacticalStatus.bBoxingState == BOXING) && !(pSoldier->status().flags() & SOLDIER_BOXER) )
 	{
@@ -319,7 +319,7 @@ BOOLEAN BuildAIListForTeam( INT8 bTeam )
 	// loop through all non-player-team guys and add to list
 	UINT32					uiLoop;
 	BOOLEAN					fInsertRet;
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pSoldier;
 	BOOLEAN					fRet = FALSE;
 	UINT16						ubCount = 0;
 	UINT16						ubDoneCount = 0;

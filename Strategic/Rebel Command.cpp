@@ -2168,10 +2168,10 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 	UINT8 *pDestBuf;
 
 	// temp/fixme
-	std::vector<SOLDIERTYPE*> mercs;
+	std::vector<TacticalActor*> mercs;
 	for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 	{
-		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
+		TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(i);
 
 		if (pSoldier && pSoldier->roster().active()
 			&& !(pSoldier->status().flags() & SOLDIER_VEHICLE)
@@ -2813,10 +2813,10 @@ void PrepareMission(INT8 index)
 	}
 
 	// confirmation popup
-	std::vector<SOLDIERTYPE*> mercs;
+	std::vector<TacticalActor*> mercs;
 	for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 	{
-		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
+		TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(i);
 
 		if (pSoldier && pSoldier->roster().active()
 			&& !(pSoldier->status().flags() & SOLDIER_VEHICLE)
@@ -2981,7 +2981,7 @@ void PrepareMission(INT8 index)
 			{
 				for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 				{
-					SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
+					TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(i);
 					if (pSoldier->identity().profile() == evt.mercProfileId)
 					{
 						TakeSoldierOutOfVehicle(pSoldier);
@@ -3015,12 +3015,12 @@ void PrepareMission(INT8 index)
 }
 // end website
 
-void ApplyEnemyPenalties(SOLDIERTYPE* pSoldier)
+void ApplyEnemyPenalties(TacticalActor* pSoldier)
 {
 	if (!gGameExternalOptions.fRebelCommandEnabled)
 		return;
 
-	const auto applyPenalties = [](SOLDIERTYPE* pSoldier, UINT8 level)
+	const auto applyPenalties = [](TacticalActor* pSoldier, UINT8 level)
 	{
 		pSoldier->vitals().health() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->vitals().maximumHealth() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
@@ -3105,7 +3105,7 @@ void ApplyEnemyPenalties(SOLDIERTYPE* pSoldier)
 		applyPenalties(pSoldier, foundLevel);
 }
 
-void ApplyMilitiaBonuses(SOLDIERTYPE* pMilitia)
+void ApplyMilitiaBonuses(TacticalActor* pMilitia)
 {
 	if (!gGameExternalOptions.fRebelCommandEnabled)
 		return;
@@ -3546,7 +3546,7 @@ FLOAT GetPathfindersSpeedBonus(UINT8 sector)
 	return 0.f;
 }
 
-BOOLEAN NeutraliseRole(const SOLDIERTYPE* pSoldier)
+BOOLEAN NeutraliseRole(const TacticalActor* pSoldier)
 {
 	if (!gGameExternalOptions.fRebelCommandEnabled || !gGameExternalOptions.fEnemyRoles)
 		return FALSE;
@@ -4435,7 +4435,7 @@ void UpgradeMilitiaStats()
 		});
 }
 
-void ApplySoldierBounty(const SOLDIERTYPE* pSoldier)
+void ApplySoldierBounty(const TacticalActor* pSoldier)
 {
 	if (!gGameExternalOptions.fRebelCommandEnabled)
 		return;
@@ -4494,7 +4494,7 @@ void ApplySoldierBounty(const SOLDIERTYPE* pSoldier)
 	rebelCommandSaveInfo.cachedBountyPayout += payout;
 }
 
-void ApplyEnemyMechanicalUnitPenalties(SOLDIERTYPE* pSoldier)
+void ApplyEnemyMechanicalUnitPenalties(TacticalActor* pSoldier)
 {
 	if (!gGameExternalOptions.fRebelCommandEnabled)
 		return;
@@ -4534,7 +4534,7 @@ void ApplyEnemyMechanicalUnitPenalties(SOLDIERTYPE* pSoldier)
 	}
 }
 
-void ApplyMilitiaTraits(SOLDIERTYPE* pSoldier)
+void ApplyMilitiaTraits(TacticalActor* pSoldier)
 {
 	if (!gGameExternalOptions.fRebelCommandEnabled)
 		return;
@@ -4542,7 +4542,7 @@ void ApplyMilitiaTraits(SOLDIERTYPE* pSoldier)
 	// rftr todo: check bitmask for specific possible traits
 }
 
-void ApplyVisionModifier(const SOLDIERTYPE* pSoldier, INT32& sight)
+void ApplyVisionModifier(const TacticalActor* pSoldier, INT32& sight)
 {
 	if (!gGameExternalOptions.fRebelCommandEnabled)
 		return;
@@ -4886,7 +4886,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 		BOOLEAN foundMerc = FALSE;
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
-			const SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
+			const TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(i);
 
 			if (pSoldier->identity().profile() == evt1.mercProfileId && pSoldier->roster().active())
 			{
@@ -4957,7 +4957,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 				{
 					for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 					{
-						SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
+						TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(i);
 						if (pSoldier->identity().profile() == evt1.mercProfileId)
 						{
 							if (mission == RCAM_FORGE_TRANSPORT_ORDERS)
@@ -4984,7 +4984,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 			{
 				for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 				{
-					SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
+					TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(i);
 					if (pSoldier->identity().profile() == evt1.mercProfileId)
 					{
 						// mission failed! we tried, give some pity exp
@@ -5006,7 +5006,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 		{
 			for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 			{
-				SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
+				TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(i);
 				if (pSoldier->identity().profile() == evt1.mercProfileId)
 				{
 					// merc ready for reassignment

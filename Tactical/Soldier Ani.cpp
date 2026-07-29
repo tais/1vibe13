@@ -69,7 +69,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 #define		NO_JUMP											0
@@ -79,7 +79,7 @@ class SOLDIERTYPE;
 
 SoldierID gfLastMercTalkedAboutKillingID = NOBODY;
 
-extern void AddFuelToVehicle( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVehicle );
+extern void AddFuelToVehicle( TacticalActor *pSoldier, TacticalActor *pVehicle );
 
 
 DOUBLE		gHopFenceForwardSEDist[ NUMSOLDIERBODYTYPES ] = { 2.2, 0.7, 3.2, 0.7 };
@@ -94,21 +94,21 @@ DOUBLE		gClimbUpRoofDistGoingLower[ NUMSOLDIERBODYTYPES ] = { 0.9, 0.0, 1, 0.9 }
 
 
 
-BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse );
+BOOLEAN HandleSoldierDeath( TacticalActor *pSoldier , BOOLEAN *pfMadeCorpse );
 
-void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier );
-BOOLEAN CheckForImproperFireGunEnd( SOLDIERTYPE *pSoldier );
-BOOLEAN OKHeightDest( SOLDIERTYPE *pSoldier, INT32 sNewGridNo );
-BOOLEAN HandleUnjamAnimation( SOLDIERTYPE *pSoldier );
+void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier );
+BOOLEAN CheckForImproperFireGunEnd( TacticalActor *pSoldier );
+BOOLEAN OKHeightDest( TacticalActor *pSoldier, INT32 sNewGridNo );
+BOOLEAN HandleUnjamAnimation( TacticalActor *pSoldier );
 
-extern void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC );
-extern void PlaySoldierFootstepSound( SOLDIERTYPE *pSoldier );
+extern void HandleSystemNewAISituation( TacticalActor *pSoldier, BOOLEAN fResetABC );
+extern void PlaySoldierFootstepSound( TacticalActor *pSoldier );
 extern UINT16 NumCapableEnemyInSector( );
 extern BOOLEAN gfKillingGuysForLosingBattle;
 
 extern SoldierID gubInterruptProvoker;
 
-extern UINT16 PickSoldierReadyAnimation( SOLDIERTYPE *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
+extern UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
 
 extern bool RemoveOneTurncoat( INT16 sSectorX, INT16 sSectorY, UINT8 aSoldierClass, BOOLEAN alsoRemoveFromGroup );
 extern void PlaySplashSound(INT32 sGridNo);
@@ -123,7 +123,7 @@ extern void PlaySplashSound(INT32 sGridNo);
 // 800-999:	Jump to new state x-700, frame 0 (starts with 100)
 //
 
-BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
+BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 {
 	EV_S_FIREWEAPON			SFireWeapon;
 
@@ -1552,7 +1552,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				{
 					if ( pSoldier->roster().team() != gbPlayerNum )
 					{
-						const SOLDIERTYPE* target =
+						const TacticalActor* target =
 							GetJa2SoldierRepository().resolve( pSoldier->targeting().targetId() );
 
 						// only locate if the enemy is visible or he's aiming at a player
@@ -2044,7 +2044,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// ATE: Only do if we're not inspecial case...
 				if ( !( pSoldier->status().flags() & SOLDIER_NPC_DOING_PUNCH ) )
 				{
-					SOLDIERTYPE *pTSoldier;
+					TacticalActor *pTSoldier;
 					UINT32 uiMercFlags;
 					SoldierID usSoldierIndex;
 
@@ -3127,7 +3127,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Reload robot....
 				{
 					SoldierID ubPerson = WhoIsThere2( pSoldier->pendingAction().secondaryData(), pSoldier->position().level() );
-					SOLDIERTYPE* pRobot =
+					TacticalActor* pRobot =
 						GetJa2SoldierRepository().resolve( ubPerson );
 
 					if ( pRobot != nullptr &&
@@ -3165,7 +3165,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// Getting hit by slap
 				{
-					SOLDIERTYPE *pTarget;
+					TacticalActor *pTarget;
 
 					pTarget = FindSoldierByProfileID( ELLIOT, FALSE );
 
@@ -3195,7 +3195,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				{
 					// Dish out damage!
-					SOLDIERTYPE* target =
+					TacticalActor* target =
 						GetJa2SoldierRepository().resolve(
 							pSoldier->pendingAction().quaternaryData() );
 					if ( target )
@@ -3306,7 +3306,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				{
 					// Get pointer to vehicle...
 					SoldierID ubPerson = WhoIsThere2( pSoldier->pendingAction().secondaryData(), pSoldier->position().level() );
-					SOLDIERTYPE* pVehicle =
+					TacticalActor* pVehicle =
 						GetJa2SoldierRepository().resolve( ubPerson );
 					if ( pVehicle != nullptr )
 					{
@@ -3522,7 +3522,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 #define MIN_DEADLINESS_FOR_LIKE_GUN_QUOTE			20
 
-BOOLEAN ShouldMercSayHappyWithGunQuote( SOLDIERTYPE *pSoldier )
+BOOLEAN ShouldMercSayHappyWithGunQuote( TacticalActor *pSoldier )
 {
 	// How do we do this....
 
@@ -3553,7 +3553,7 @@ BOOLEAN ShouldMercSayHappyWithGunQuote( SOLDIERTYPE *pSoldier )
 }
 
 
-void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
+void SayBuddyWitnessedQuoteFromKill( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
 {
 // WDS - make number of mercenaries, etc. be configurable
 	std::vector<UINT16>	ubMercsInSector (CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS, 0);
@@ -3563,7 +3563,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 	INT8	bTempBuddyIndex;
 	UINT16	ubNumMercs = 0;
 	UINT16	ubChosenMerc;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	UINT16	usQuoteNum;
 	BOOLEAN buddyquoteused = FALSE;
 
@@ -3664,7 +3664,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 	if ( ubNumMercs > 0 )
 	{
 		ubChosenMerc = (UINT16)Random( ubNumMercs );
-		SOLDIERTYPE *pChosen = GetJa2SoldierRepository().resolve(
+		TacticalActor *pChosen = GetJa2SoldierRepository().resolve(
 			ubMercsInSector[ubChosenMerc] );
 		if ( pChosen == nullptr )
 			return;
@@ -3758,9 +3758,9 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 }
 
 
-void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
+void HandleKilledQuote( TacticalActor *pKilledSoldier, TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
 {
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 // WDS - make number of mercenaries, etc. be configurable
 	std::vector<UINT16>	ubMercsInSector (CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS, 0);
 	UINT16	ubNumMercs = 0;
@@ -3861,7 +3861,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 						}
 					}
 
-					SOLDIERTYPE* witness =
+					TacticalActor* witness =
 						GetJa2SoldierRepository().resolve(
 							ubMercsInSector[ ubChosenMerc ] );
 					if ( witness )
@@ -3938,7 +3938,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 	}
 }
 
-BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
+BOOLEAN HandleSoldierDeath( TacticalActor *pSoldier , BOOLEAN *pfMadeCorpse )
 {
 	BOOLEAN fBuddyJustDead = FALSE;
 	*pfMadeCorpse = FALSE;
@@ -3955,7 +3955,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		}
 
 		// anv: enemy taunts after kill
-		SOLDIERTYPE *pKillerSoldier = NULL;
+		TacticalActor *pKillerSoldier = NULL;
 		if(pSoldier->combatResult().currentAttacker() != NOBODY)
 		{
 			pKillerSoldier =
@@ -4047,11 +4047,11 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 			}
 
 			//////////////////////////////////////////////////////////////
-			SOLDIERTYPE* attacker =
+			TacticalActor* attacker =
 				GetJa2SoldierRepository().resolve( attackerId );
-			SOLDIERTYPE* assister =
+			TacticalActor* assister =
 				GetJa2SoldierRepository().resolve( assisterId );
-			const SOLDIERTYPE* directAttacker =
+			const TacticalActor* directAttacker =
 				GetJa2SoldierRepository().resolve( pSoldier->combatResult().currentAttacker() );
 
 			{
@@ -4160,7 +4160,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 							else
 							{
 								// if this enemy was attacking a freshly wounded merc, it is likely they posed a real threat - the merc will be thankful for saving their life
-								const SOLDIERTYPE* target =
+								const TacticalActor* target =
 									GetJa2SoldierRepository().resolve( pSoldier->targeting().targetId() );
 								if (target != nullptr && target->vitals().bleeding() > 10)
 								{
@@ -4303,7 +4303,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 }
 
 
-void HandlePlayerTeamMemberDeathAfterSkullAnimation( SOLDIERTYPE *pSoldier )
+void HandlePlayerTeamMemberDeathAfterSkullAnimation( TacticalActor *pSoldier )
 {
 	// 0verhaul:	This is now handled in the death state transition.
 	// Release attacker
@@ -4319,7 +4319,7 @@ void HandlePlayerTeamMemberDeathAfterSkullAnimation( SOLDIERTYPE *pSoldier )
 	RemoveCharacterFromSquads( pSoldier );
 }
 
-BOOLEAN CheckForAndHandleSoldierDeath( SOLDIERTYPE *pSoldier, BOOLEAN *pfMadeCorpse )
+BOOLEAN CheckForAndHandleSoldierDeath( TacticalActor *pSoldier, BOOLEAN *pfMadeCorpse )
 {
 
 	if ( HandleSoldierDeath( pSoldier, pfMadeCorpse ) )
@@ -4387,7 +4387,7 @@ BOOLEAN CheckForAndHandleSoldierDeath( SOLDIERTYPE *pSoldier, BOOLEAN *pfMadeCor
 //#define TESTFALLBACK
 //#define TESTFALLFORWARD
 
-void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
+void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 {
 	INT32					sNewGridNo;
 
@@ -4424,7 +4424,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 #else
 		if ( AreInMeanwhile( ) )
 		{
-			SOLDIERTYPE *pQueen;
+			TacticalActor *pQueen;
 
 			pQueen = FindSoldierByProfileID( QUEEN, FALSE );
 
@@ -4461,7 +4461,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 			BOOLEAN		fForceDirection = FALSE;
 			BOOLEAN		fDoFallback		= FALSE;
 			BOOLEAN		fAlwaysFallBack = FALSE; // added by SANDRO
-			SOLDIERTYPE* attacker =
+			TacticalActor* attacker =
 				GetJa2SoldierRepository().resolve( pSoldier->combatResult().currentAttacker() );
 
 
@@ -4604,7 +4604,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 }
 
 
-BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( SOLDIERTYPE *pSoldier )
+BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( TacticalActor *pSoldier )
 {
 	if ( pSoldier->vitals().health() == 0 )
 	{
@@ -4715,7 +4715,7 @@ BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( SOLDIERTYPE *pSoldier )
 }
 
 
-BOOLEAN CheckForImproperFireGunEnd( SOLDIERTYPE *pSoldier )
+BOOLEAN CheckForImproperFireGunEnd( TacticalActor *pSoldier )
 {
 
 	if ( AM_A_ROBOT( pSoldier ) )
@@ -4781,7 +4781,7 @@ BOOLEAN CheckForImproperFireGunEnd( SOLDIERTYPE *pSoldier )
 }
 
 
-BOOLEAN OKHeightDest( SOLDIERTYPE *pSoldier, INT32 sNewGridNo )
+BOOLEAN OKHeightDest( TacticalActor *pSoldier, INT32 sNewGridNo )
 {
 	if ( pSoldier->position().level() == 0 )
 	{
@@ -4798,7 +4798,7 @@ BOOLEAN OKHeightDest( SOLDIERTYPE *pSoldier, INT32 sNewGridNo )
 }
 
 
-BOOLEAN HandleUnjamAnimation( SOLDIERTYPE *pSoldier )
+BOOLEAN HandleUnjamAnimation( TacticalActor *pSoldier )
 {
 	// OK, play intermediate animation here..... save in pending animation data, the current
 	// code we are at!
@@ -4879,7 +4879,7 @@ BOOLEAN HandleUnjamAnimation( SOLDIERTYPE *pSoldier )
 
 
 
-BOOLEAN OKFallDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubTestDirection, UINT16 usAnimState )
+BOOLEAN OKFallDirection( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubTestDirection, UINT16 usAnimState )
 {
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"OKFallDirection");
 	STRUCTURE_FILE_REF *	pStructureFileRef;
@@ -4943,7 +4943,7 @@ BOOLEAN OKFallDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT
 	return( TRUE );
 }
 
-BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
+BOOLEAN HandleCheckForDeathCommonCode( TacticalActor *pSoldier )
 {
 	//shadooow: fix for going back to cower animation after collapsing
 	if (pSoldier->CheckForBreathCollapse() || pSoldier->collapseState().tactical())
@@ -5082,7 +5082,7 @@ BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 }
 
 
-void KickOutWheelchair( SOLDIERTYPE *pSoldier )
+void KickOutWheelchair( TacticalActor *pSoldier )
 {
 	INT32 sNewGridNo;
 

@@ -45,7 +45,7 @@
 // RoamingRange - point patrol stuff
 
 // sevenfm
-extern UINT16 PickSoldierReadyAnimation(SOLDIERTYPE *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance);
+extern UINT16 PickSoldierReadyAnimation(TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance);
 extern SECTOR_EXT_DATA	SectorExternalData[256][4];
 
 UINT8 Urgency[NUM_STATUS_STATES][NUM_MORALE_STATES] =
@@ -86,7 +86,7 @@ UINT16 MovementMode[LAST_MOVEMENT_ACTION + 1][NUM_URGENCY_STATES] =
 	{RUNNING,	 RUNNING,  RUNNING},	// AI_ACTION_MOVE_TO_CLIMB
 };
 
-INT8 OKToAttack(SOLDIERTYPE * pSoldier, int target)
+INT8 OKToAttack(TacticalActor * pSoldier, int target)
 {
 	// can't shoot yourself
 	if (target == pSoldier->position().gridNo())
@@ -135,7 +135,7 @@ INT8 OKToAttack(SOLDIERTYPE * pSoldier, int target)
 	return(TRUE);
 }
 
-BOOLEAN ConsiderProne( SOLDIERTYPE * pSoldier )
+BOOLEAN ConsiderProne( TacticalActor * pSoldier )
 {
 	INT32		sOpponentGridNo;
 	INT8		bOpponentLevel;
@@ -158,7 +158,7 @@ BOOLEAN ConsiderProne( SOLDIERTYPE * pSoldier )
 	}
 }
 
-UINT8 StanceChange( SOLDIERTYPE * pSoldier, INT16 ubAttackAPCost )
+UINT8 StanceChange( TacticalActor * pSoldier, INT16 ubAttackAPCost )
 {
 	// consider crouching or going prone
 
@@ -186,7 +186,7 @@ UINT8 StanceChange( SOLDIERTYPE * pSoldier, INT16 ubAttackAPCost )
 	return( 0 );
 }
 
-UINT8 ShootingStanceChange( SOLDIERTYPE * pSoldier, ATTACKTYPE * pAttack, INT8 bDesiredDirection )
+UINT8 ShootingStanceChange( TacticalActor * pSoldier, ATTACKTYPE * pAttack, INT8 bDesiredDirection )
 {
 	// Figure out the best stance for this attack
 
@@ -340,7 +340,7 @@ UINT8 ShootingStanceChange( SOLDIERTYPE * pSoldier, ATTACKTYPE * pAttack, INT8 b
 }
 
 
-UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
+UINT16 DetermineMovementMode( TacticalActor * pSoldier, INT8 bAction )
 {
 	if ( pSoldier->IsFastMovement() )
 	{
@@ -574,7 +574,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 }
 
 SimulationCommandDispatchResult NewDest(
-	SOLDIERTYPE *pSoldier, INT32 usGridNo)
+	TacticalActor *pSoldier, INT32 usGridNo)
 {
 	// sevenfm: always use DetermineMovementMode with new code
 	if (gGameExternalOptions.fAIMovementMode)
@@ -662,7 +662,7 @@ SimulationCommandDispatchResult NewDest(
 }
 
 
-BOOLEAN IsActionAffordable(SOLDIERTYPE *pSoldier, INT8 bAction)
+BOOLEAN IsActionAffordable(TacticalActor *pSoldier, INT8 bAction)
 {
 	INT16	bMinPointsNeeded = 0;
 	
@@ -834,7 +834,7 @@ BOOLEAN IsActionAffordable(SOLDIERTYPE *pSoldier, INT8 bAction)
 	}
 }
 
-INT16 RandomFriendWithin(SOLDIERTYPE *pSoldier)
+INT16 RandomFriendWithin(TacticalActor *pSoldier)
 {
 	UINT32				uiLoop;
 	UINT16				usMaxDist;
@@ -845,7 +845,7 @@ INT16 RandomFriendWithin(SOLDIERTYPE *pSoldier)
 	BOOLEAN				fDirChecked[8];
 	BOOLEAN				fFound = FALSE;
 	INT32				usDest, usOrigin;
-	SOLDIERTYPE *	pFriend;
+	TacticalActor *	pFriend;
 
 
 	// obtain maximum roaming distance from soldier's origin
@@ -899,7 +899,7 @@ INT16 RandomFriendWithin(SOLDIERTYPE *pSoldier)
 	{
 		// randomly select one of the remaining friends in the list
 		ubFriendID = ubFriendIDs[PreRandom(ubFriendCount)];
-		SOLDIERTYPE* selectedFriend =
+		TacticalActor* selectedFriend =
 			GetJa2SoldierRepository().resolve(ubFriendID.i);
 
 		// if our movement range is NOT restricted, or this friend's within range
@@ -975,7 +975,7 @@ INT16 RandomFriendWithin(SOLDIERTYPE *pSoldier)
 }
 
 
-INT32 RandDestWithinRange(SOLDIERTYPE *pSoldier)
+INT32 RandDestWithinRange(TacticalActor *pSoldier)
 {
 	INT32 sRandDest = NOWHERE;
 	INT32 usOrigin, usMaxDist;
@@ -1130,7 +1130,7 @@ INT32 RandDestWithinRange(SOLDIERTYPE *pSoldier)
 	return(sRandDest); // defaults to NOWHERE
 }
 
-INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel )
+INT32 ClosestReachableDisturbance(TacticalActor *pSoldier, BOOLEAN * pfChangeLevel )
 {
 	INT32		*psLastLoc, *pusNoiseGridNo;
 	INT8		*pbLastLevel;
@@ -1147,8 +1147,8 @@ INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel
 	INT8		*pbNoiseLevel;
 	INT8		*pbPersOL,*pbPublOL;
 	INT32		sClimbGridNo;
-	SOLDIERTYPE *pOpponent;
-	SOLDIERTYPE	*pClosestOpponent = NULL;
+	TacticalActor *pOpponent;
+	TacticalActor	*pClosestOpponent = NULL;
 	INT32		sDistToEnemy, sDistToClosestEnemy = 10000;
 
 	// sevenfm: safety check
@@ -1390,15 +1390,15 @@ INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel
 }
 
 
-INT32 ClosestKnownOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLevel, SoldierID * pubOpponentID)
+INT32 ClosestKnownOpponent(TacticalActor *pSoldier, INT32 * psGridNo, INT8 * pbLevel, SoldierID * pubOpponentID)
 {
 	INT32 *psLastLoc,sGridNo, sClosestOpponent = NOWHERE;
 	UINT32 uiLoop;
 	INT32 iRange, iClosestRange = 1500;
 	INT8	*pbPersOL,*pbPublOL;
 	INT8	bLevel, bClosestLevel;
-	SOLDIERTYPE *pOpponent;
-	SOLDIERTYPE *pClosestOpponent = NULL;
+	TacticalActor *pOpponent;
+	TacticalActor *pClosestOpponent = NULL;
 
 	bClosestLevel = -1;
 
@@ -1517,14 +1517,14 @@ INT32 ClosestKnownOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLev
 	return( sClosestOpponent );
 }
 
-INT32 ClosestSeenOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLevel)
+INT32 ClosestSeenOpponent(TacticalActor *pSoldier, INT32 * psGridNo, INT8 * pbLevel)
 {
 	INT32 sGridNo, sClosestOpponent = NOWHERE;
 	UINT32 uiLoop;
 	INT32 iRange, iClosestRange = 1500;
 	INT8	*pbPersOL;
 	INT8	bLevel, bClosestLevel;
-	SOLDIERTYPE * pOpp;
+	TacticalActor * pOpp;
 
 	bClosestLevel = -1;
 
@@ -1613,14 +1613,14 @@ INT32 ClosestSeenOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLeve
 
 
 // special variant with a minor twist
-INT32 ClosestSeenOpponentWithRoof(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLevel)
+INT32 ClosestSeenOpponentWithRoof(TacticalActor *pSoldier, INT32 * psGridNo, INT8 * pbLevel)
 {
 	INT32 sGridNo, sClosestOpponent = NOWHERE;
 	UINT32 uiLoop;
 	INT32 iRange, iClosestRange = 1500;
 	INT8	*pbPersOL;
 	INT8	bLevel, bClosestLevel;
-	SOLDIERTYPE * pOpp;
+	TacticalActor * pOpp;
 
 	bClosestLevel = -1;
 
@@ -1709,13 +1709,13 @@ INT32 ClosestSeenOpponentWithRoof(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 
 	return( sClosestOpponent );
 }
 
-INT32 ClosestPC( SOLDIERTYPE *pSoldier, INT32 * psDistance )
+INT32 ClosestPC( TacticalActor *pSoldier, INT32 * psDistance )
 {
 	// used by NPCs... find the closest PC
 
 	// NOTE: skips EPCs!
 
-	SOLDIERTYPE		*pTargetSoldier;
+	TacticalActor		*pTargetSoldier;
 	INT32					sMinDist = WORLD_MAX;
 	INT32					sDist;
 	INT32					sGridNo = NOWHERE;
@@ -1769,12 +1769,12 @@ INT32 ClosestPC( SOLDIERTYPE *pSoldier, INT32 * psDistance )
 }
 
 // Flugente: like ClosestPC(...), but does not account for covert or not visible mercs
-INT32 ClosestUnDisguisedPC( SOLDIERTYPE *pSoldier, INT32 * psDistance )
+INT32 ClosestUnDisguisedPC( TacticalActor *pSoldier, INT32 * psDistance )
 {
 	// used by NPCs... find the closest PC
 	// NOTE: skips EPCs!
 
-	SOLDIERTYPE		*pTargetSoldier;
+	TacticalActor		*pTargetSoldier;
 	INT32					sMinDist = WORLD_MAX;
 	INT32					sDist;
 	INT32					sGridNo = NOWHERE;
@@ -1821,7 +1821,7 @@ INT32 ClosestUnDisguisedPC( SOLDIERTYPE *pSoldier, INT32 * psDistance )
 	return( sGridNo );
 }
 
-INT32 FindClosestClimbPointAvailableToAI( SOLDIERTYPE * pSoldier, INT32 sStartGridNo, INT32 sDesiredGridNo, BOOLEAN fClimbUp )
+INT32 FindClosestClimbPointAvailableToAI( TacticalActor * pSoldier, INT32 sStartGridNo, INT32 sDesiredGridNo, BOOLEAN fClimbUp )
 {
 	// sevenfm: safety check
 	if (!pSoldier)
@@ -1862,7 +1862,7 @@ INT32 FindClosestClimbPointAvailableToAI( SOLDIERTYPE * pSoldier, INT32 sStartGr
 	}*/
 }
 
-BOOLEAN ClimbingNecessary( SOLDIERTYPE * pSoldier, INT32 sDestGridNo, INT8 bDestLevel )
+BOOLEAN ClimbingNecessary( TacticalActor * pSoldier, INT32 sDestGridNo, INT8 bDestLevel )
 {
 	if (pSoldier->position().level() == bDestLevel)
 	{
@@ -1881,7 +1881,7 @@ BOOLEAN ClimbingNecessary( SOLDIERTYPE * pSoldier, INT32 sDestGridNo, INT8 bDest
 	}
 }
 
-INT32 GetInterveningClimbingLocation( SOLDIERTYPE * pSoldier, INT32 sDestGridNo, INT8 bDestLevel, BOOLEAN * pfClimbingNecessary )
+INT32 GetInterveningClimbingLocation( TacticalActor * pSoldier, INT32 sDestGridNo, INT8 bDestLevel, BOOLEAN * pfClimbingNecessary )
 {
 	if (pSoldier->position().level() == bDestLevel)
 	{
@@ -1916,7 +1916,7 @@ INT32 GetInterveningClimbingLocation( SOLDIERTYPE * pSoldier, INT32 sDestGridNo,
 	}
 }
 
-INT16 EstimatePathCostToLocation( SOLDIERTYPE * pSoldier, INT32 sDestGridNo, INT8 bDestLevel, BOOLEAN fAddCostAfterClimbingUp, BOOLEAN * pfClimbingNecessary, INT32 * psClimbGridNo )
+INT16 EstimatePathCostToLocation( TacticalActor * pSoldier, INT32 sDestGridNo, INT8 bDestLevel, BOOLEAN fAddCostAfterClimbingUp, BOOLEAN * pfClimbingNecessary, INT32 * psClimbGridNo )
 {
 	INT16	sPathCost;
 	INT32 sClimbGridNo;
@@ -2030,10 +2030,10 @@ INT16 EstimatePathCostToLocation( SOLDIERTYPE * pSoldier, INT32 sDestGridNo, INT
 	return( sPathCost );
 }
 
-BOOLEAN GuySawEnemy( SOLDIERTYPE * pSoldier, UINT8 ubMax )
+BOOLEAN GuySawEnemy( TacticalActor * pSoldier, UINT8 ubMax )
 {
 	UINT8		ubTeamLoop;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 
 	for ( ubTeamLoop = 0; ubTeamLoop < MAXTEAMS; ++ubTeamLoop )
 	{
@@ -2079,12 +2079,12 @@ BOOLEAN GuySawEnemy( SOLDIERTYPE * pSoldier, UINT8 ubMax )
 	return( FALSE );
 }
 
-INT32 ClosestReachableFriendInTrouble(SOLDIERTYPE *pSoldier, BOOLEAN * pfClimbingNecessary)
+INT32 ClosestReachableFriendInTrouble(TacticalActor *pSoldier, BOOLEAN * pfClimbingNecessary)
 {
 	UINT32 uiLoop;
 	INT32 sPathCost, sClosestFriend = NOWHERE, sShortestPath = 1000, sClimbGridNo;
 	BOOLEAN fClimbingNecessary, fClosestClimbingNecessary = FALSE;
-	SOLDIERTYPE *pFriend;
+	TacticalActor *pFriend;
 	INT32 sClosestKnownOpponent;
 	BOOLEAN fCallHelp;
 
@@ -2183,10 +2183,10 @@ INT32 ClosestReachableFriendInTrouble(SOLDIERTYPE *pSoldier, BOOLEAN * pfClimbin
 	return(sClosestFriend);
 }
 
-INT16 DistanceToClosestFriend( SOLDIERTYPE * pSoldier )
+INT16 DistanceToClosestFriend( TacticalActor * pSoldier )
 {
 	// find the distance to the closest person on the same team
-	SOLDIERTYPE		*pTargetSoldier;
+	TacticalActor		*pTargetSoldier;
 	INT16					sMinDist = 1000;
 	INT16					sDist;
 
@@ -2250,7 +2250,7 @@ INT16 DistanceToClosestFriend( SOLDIERTYPE * pSoldier )
 	return( sMinDist );
 }
 
-BOOLEAN InWaterGasOrSmoke( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+BOOLEAN InWaterGasOrSmoke( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	if (WaterTooDeepForAttacks( sGridNo, pSoldier->position().level() ))
 	{
@@ -2266,7 +2266,7 @@ BOOLEAN InWaterGasOrSmoke( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	return InGas( pSoldier, sGridNo );
 }
 
-BOOLEAN InGasOrSmoke( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+BOOLEAN InGasOrSmoke( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	// smoke
 	if ( gpWorldLevelData[sGridNo].ubExtFlags[pSoldier->position().level()] & (MAPELEMENT_EXT_SMOKE | MAPELEMENT_EXT_SIGNAL_SMOKE | MAPELEMENT_EXT_DEBRIS_SMOKE | MAPELEMENT_EXT_FIRERETARDANT_SMOKE ) )
@@ -2276,7 +2276,7 @@ BOOLEAN InGasOrSmoke( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 }
 
 
-INT16 InWaterOrGas(SOLDIERTYPE *pSoldier, INT32 sGridNo)
+INT16 InWaterOrGas(TacticalActor *pSoldier, INT32 sGridNo)
 {
 	if (WaterTooDeepForAttacks( sGridNo, pSoldier->position().level() ))
 	{
@@ -2286,7 +2286,7 @@ INT16 InWaterOrGas(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 	return (INT16)InGas( pSoldier, sGridNo );
 }
 
-BOOLEAN InGasSpot(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel)
+BOOLEAN InGasSpot(TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel)
 {
 	CHECKF(pSoldier);
 
@@ -2308,7 +2308,7 @@ BOOLEAN InGasSpot(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel)
 	return FALSE;
 }
 
-BOOLEAN InGas(SOLDIERTYPE *pSoldier, INT32 sGridNo)
+BOOLEAN InGas(TacticalActor *pSoldier, INT32 sGridNo)
 {
 	CHECKF(pSoldier);
 
@@ -2336,7 +2336,7 @@ BOOLEAN InGas(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 	return(FALSE);
 }
 
-BOOLEAN WearGasMaskIfAvailable( SOLDIERTYPE * pSoldier )
+BOOLEAN WearGasMaskIfAvailable( TacticalActor * pSoldier )
 {
 	INT8		bSlot, bNewSlot;
 
@@ -2409,7 +2409,7 @@ BOOLEAN InLightAtNight( INT32 sGridNo, INT8 bLevel )
 	return( FALSE );
 }
 
-INT8 CalcMorale(SOLDIERTYPE *pSoldier)
+INT8 CalcMorale(TacticalActor *pSoldier)
 {
 	UINT32 uiLoop, uiLoop2;
 	INT32 iOurTotalThreat = 0, iTheirTotalThreat = 0;
@@ -2419,7 +2419,7 @@ INT8 CalcMorale(SOLDIERTYPE *pSoldier)
 	INT8 bMoraleCategory;
 	UINT8 *pSeenOpp; //,*friendOlPtr;
 	INT8	*pbPersOL, *pbPublOL;
-	SOLDIERTYPE *pOpponent, *pFriend;
+	TacticalActor *pOpponent, *pFriend;
 
 	// sevenfm: use new calculation:
 	if (gGameExternalOptions.fAINewMorale)
@@ -2659,7 +2659,7 @@ INT8 CalcMorale(SOLDIERTYPE *pSoldier)
 	return(bMoraleCategory);
 }
 
-INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForCover, SOLDIERTYPE * pMe )
+INT32 CalcManThreatValue( TacticalActor *pEnemy, INT32 sMyGrid, UINT8 ubReduceForCover, TacticalActor * pMe )
 {
 	INT32	iThreatValue = 0;
 	BOOLEAN fForCreature = CREATURE_OR_BLOODCAT( pMe );
@@ -2797,7 +2797,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 	return(iThreatValue);
 }
 
-INT16 RoamingRange(SOLDIERTYPE *pSoldier, INT32 * pusFromGridNo)
+INT16 RoamingRange(TacticalActor *pSoldier, INT32 * pusFromGridNo)
 {
 	BOOL OppPosKnown = FALSE;
 	if (CREATURE_OR_BLOODCAT(pSoldier))
@@ -2948,7 +2948,7 @@ INT16 RoamingRange(SOLDIERTYPE *pSoldier, INT32 * pusFromGridNo)
 }
 
 
-void RearrangePocket(SOLDIERTYPE *pSoldier, INT8 bPocket1, INT8 bPocket2, UINT8 bPermanent)
+void RearrangePocket(TacticalActor *pSoldier, INT8 bPocket1, INT8 bPocket2, UINT8 bPermanent)
 {
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"RearrangePocket");
 	// NB there's no such thing as a temporary swap for now...
@@ -2960,7 +2960,7 @@ void RearrangePocket(SOLDIERTYPE *pSoldier, INT8 bPocket1, INT8 bPocket2, UINT8 
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"RearrangePocket done");
 }
 
-BOOLEAN FindBetterSpotForItem( SOLDIERTYPE * pSoldier, INT8 bSlot )
+BOOLEAN FindBetterSpotForItem( TacticalActor * pSoldier, INT8 bSlot )
 {
 	// looks for a place in the slots to put an item in a hand or armour
 	// position, and moves it there.
@@ -3018,7 +3018,7 @@ UINT8 GetTraversalQuoteActionID( INT8 bDirection )
 	}
 }
 
-UINT8 SoldierDifficultyLevel( SOLDIERTYPE * pSoldier )
+UINT8 SoldierDifficultyLevel( TacticalActor * pSoldier )
 {
 	INT8 bDifficultyBase;
 	INT8 bDifficulty;
@@ -3081,7 +3081,7 @@ UINT8 SoldierDifficultyLevel( SOLDIERTYPE * pSoldier )
 	return( (UINT8) bDifficulty );
 }
 
-BOOLEAN ValidCreatureTurn( SOLDIERTYPE * pCreature, INT8 bNewDirection )
+BOOLEAN ValidCreatureTurn( TacticalActor * pCreature, INT8 bNewDirection )
 {
 	INT8	bDirChange;
 	INT8	bTempDir;
@@ -3135,7 +3135,7 @@ BOOLEAN ValidCreatureTurn( SOLDIERTYPE * pCreature, INT8 bNewDirection )
 	return( TRUE );
 }
 
-INT32 RangeChangeDesire( SOLDIERTYPE * pSoldier )
+INT32 RangeChangeDesire( TacticalActor * pSoldier )
 {
 	INT32 iRangeFactorMultiplier;
 
@@ -3183,7 +3183,7 @@ INT32 RangeChangeDesire( SOLDIERTYPE * pSoldier )
 
 BOOLEAN ArmySeesOpponents( void )
 {
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pSoldier;
 
 	for ( SoldierID cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++cnt )
 	{
@@ -3219,7 +3219,7 @@ void AINumMessage(const STR8	str, INT32 num)
 	DebugAI(tempstr);
 }
 
-void AINameMessage(SOLDIERTYPE * pSoldier,const STR8	str,INT32 num)
+void AINameMessage(TacticalActor * pSoldier,const STR8	str,INT32 num)
 {
 	STR tempstr;
 	sprintf( tempstr,"%d %s %d",pSoldier->GetName() , str, num);
@@ -3242,7 +3242,7 @@ INT16 AssessTacticalSituation( INT8 bTeam )
 	UINT8 ubSoldierTacticalThreat;
 	INT16 ubTacticalSituation;
 	UINT16 cnt;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	
 	// begin loop through all MERCs.
 	for ( cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
@@ -3319,9 +3319,9 @@ INT16 AssessTacticalSituation( INT8 bTeam )
 */
 
 // HEADROCK: Function to check whether a team can see the specified soldier.
-BOOLEAN TeamSeesOpponent( INT8 bTeam, SOLDIERTYPE * pOpponent )
+BOOLEAN TeamSeesOpponent( INT8 bTeam, TacticalActor * pOpponent )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	SoldierID cnt;
 
 	// This assertion can be safely removed, assuming the program does what it should. It simply checks
@@ -3392,7 +3392,7 @@ BOOLEAN TeamSeesOpponent( INT8 bTeam, SOLDIERTYPE * pOpponent )
 }
 
 // HEADROCK: Function to assess an enemy's threat value without "me" argument.
-INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy )
+INT32 CalcStraightThreatValue( TacticalActor *pEnemy )
 {
 	INT32	iThreatValue = 0;
 
@@ -3464,10 +3464,10 @@ INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy )
 }
 
 // Flugente: get the id of the closest soldier with a specific flag that we can currently see
-SoldierID GetClosestFlaggedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT8 auTeam, UINT32 aFlag, BOOLEAN fCheckSight )
+SoldierID GetClosestFlaggedSoldierID( TacticalActor * pSoldier, INT16 aRange, UINT8 auTeam, UINT32 aFlag, BOOLEAN fCheckSight )
 {
 	SoldierID			id = NOBODY;
-	SOLDIERTYPE *		pFriend;
+	TacticalActor *		pFriend;
 	INT16				range = aRange;
 
 	// go through each soldier, looking for "friends" (soldiers on same team)
@@ -3516,10 +3516,10 @@ SoldierID GetClosestFlaggedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT
 }
 
 // get the id of the closest soldier (closer than x tiles) of a specific team that is wounded that we can currently see
-SoldierID GetClosestWoundedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT8 auTeam )
+SoldierID GetClosestWoundedSoldierID( TacticalActor * pSoldier, INT16 aRange, UINT8 auTeam )
 {
 	SoldierID			id = NOBODY;
-	SOLDIERTYPE *		pFriend;
+	TacticalActor *		pFriend;
 	INT16				range = aRange;
 
 	// go through each soldier, looking for "friends" (soldiers on same team)
@@ -3564,10 +3564,10 @@ SoldierID GetClosestWoundedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT
 }
 
 // get the id of the closest medic (closer than x tiles) of a specific team
-SoldierID GetClosestMedicSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT8 auTeam )
+SoldierID GetClosestMedicSoldierID( TacticalActor * pSoldier, INT16 aRange, UINT8 auTeam )
 {
 	SoldierID			id = NOBODY;
-	SOLDIERTYPE *		pFriend;
+	TacticalActor *		pFriend;
 	INT16				range = aRange;
 
 	// go through each soldier, looking for "friends" (soldiers on same team)
@@ -3627,9 +3627,9 @@ INT16 MaxNormalVisionDistance( void )
 
 // sevenfm: check friendly soldiers between me and noise gridno
 // count only friends that are active and not stationary/onguard/sniper
-UINT16 CountFriendsInDirection( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
+UINT16 CountFriendsInDirection( TacticalActor *pSoldier, INT32 sTargetGridNo )
 {
-	SOLDIERTYPE * pFriend;
+	TacticalActor * pFriend;
 	UINT8 ubFriendDir, ubMyDir;
 	UINT16 ubFriends = 0;
 
@@ -3664,9 +3664,9 @@ UINT16 CountFriendsInDirection( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 }
 
 // sevenfm: count nearby friend soldiers
-UINT16 CountNearbyFriends( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDistance )
+UINT16 CountNearbyFriends( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubDistance )
 {
-	SOLDIERTYPE * pFriend;
+	TacticalActor * pFriend;
 	UINT16 ubFriendCount = 0;
 
 	// safety check
@@ -3690,7 +3690,7 @@ UINT16 CountNearbyFriends( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDistanc
 }
 
 // sevenfm: new AI morale calculation
-INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
+INT8 CalcMoraleNew(TacticalActor *pSoldier)
 {
 	UINT32	uiLoop, uiLoop2;
 	INT32	iOurTotalThreat = 0, iTheirTotalThreat = 0;
@@ -3700,7 +3700,7 @@ INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
 	INT8	bMoraleCategory;
 	UINT8	*pSeenOpp; //,*friendOlPtr;
 	INT8	*pbPersOL, *pbPublOL;
-	SOLDIERTYPE *pOpponent, *pFriend;
+	TacticalActor *pOpponent, *pFriend;
 
 	// zombies always have high morale
 	if (pSoldier->IsZombie())
@@ -3959,7 +3959,7 @@ INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
 	return(bMoraleCategory);
 }
 
-BOOLEAN AICheckSpecialRole(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckSpecialRole(TacticalActor *pSoldier)
 {
 	if (AICheckIsSniper(pSoldier) || AICheckIsMachinegunner(pSoldier) || AICheckIsMortarOperator(pSoldier) || AICheckIsRadioOperator(pSoldier) || AICheckIsCommander(pSoldier))
 		return TRUE;
@@ -3980,7 +3980,7 @@ BOOLEAN WeAttack(INT8 bTeam)
 	}
 
 	// check that every soldier has SEEKENEMY order
-	SOLDIERTYPE * pFriend;
+	TacticalActor * pFriend;
 
 	// Run through each friendly.
 	for ( SoldierID iCounter = gTacticalStatus.Team[bTeam].bFirstID; iCounter <= gTacticalStatus.Team[bTeam].bLastID; ++iCounter )
@@ -3999,11 +3999,11 @@ BOOLEAN WeAttack(INT8 bTeam)
 	return TRUE;
 }
 
-UINT8 CountNearbyFriendsLastAttackHit( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDistance )
+UINT8 CountNearbyFriendsLastAttackHit( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubDistance )
 {
 	CHECKF(pSoldier);
 
-	SOLDIERTYPE * pFriend;
+	TacticalActor * pFriend;
 	UINT8 ubFriendCount = 0;
 
 	// Run through each friendly.
@@ -4026,11 +4026,11 @@ UINT8 CountNearbyFriendsLastAttackHit( SOLDIERTYPE *pSoldier, INT32 sGridNo, UIN
 	return ubFriendCount;
 }
 
-UINT8 CountFriendsFlankSameSpot(SOLDIERTYPE *pSoldier, INT32 sSpot)
+UINT8 CountFriendsFlankSameSpot(TacticalActor *pSoldier, INT32 sSpot)
 {
 	CHECKF(pSoldier);
 
-	SOLDIERTYPE * pFriend;
+	TacticalActor * pFriend;
 	UINT8 ubFriendCount = 0;
 
 	UINT8 ubFlankLeft = 0;
@@ -4079,7 +4079,7 @@ UINT8 CountFriendsFlankSameSpot(SOLDIERTYPE *pSoldier, INT32 sSpot)
 }
 
 // check that soldier is flanking
-BOOLEAN AICheckIsFlanking( SOLDIERTYPE *pSoldier )
+BOOLEAN AICheckIsFlanking( TacticalActor *pSoldier )
 {
 	CHECKF(pSoldier);
 
@@ -4094,7 +4094,7 @@ BOOLEAN AICheckIsFlanking( SOLDIERTYPE *pSoldier )
 }
 
 // sevenfm: determine minimum flanking directions to stop flanking depending on soldier's attitude
-UINT8 MinFlankDirections( SOLDIERTYPE *pSoldier )
+UINT8 MinFlankDirections( TacticalActor *pSoldier )
 {
 	CHECKF(pSoldier);
 
@@ -4109,11 +4109,11 @@ UINT8 MinFlankDirections( SOLDIERTYPE *pSoldier )
 
 // count mobile friends that are in BLACK state and not in a dangerous place or have 3/4 APs or hit enemy recently
 // this is mostly used to check if we can cross dangerous area (in light at night or fresh corpses)
-UINT8 CountFriendsBlack( SOLDIERTYPE *pSoldier, INT32 sClosestOpponent )
+UINT8 CountFriendsBlack( TacticalActor *pSoldier, INT32 sClosestOpponent )
 {
 	CHECKF(pSoldier);
 
-	SOLDIERTYPE * pFriend;
+	TacticalActor * pFriend;
 	UINT8 ubFriendCount = 0;
 	INT32 sFriendClosestOpponent;
 
@@ -4160,7 +4160,7 @@ UINT8 CountFriendsBlack( SOLDIERTYPE *pSoldier, INT32 sClosestOpponent )
 // count friends under fire or with shock
 UINT16 CountTeamUnderAttack(INT8 bTeam, INT32 sGridNo, INT16 sDistance)
 {
-	SOLDIERTYPE * pFriend;
+	TacticalActor * pFriend;
 	UINT16 ubFriendCount = 0;
 
 	// safety check
@@ -4186,12 +4186,12 @@ UINT16 CountTeamUnderAttack(INT8 bTeam, INT32 sGridNo, INT16 sDistance)
 }
 
 // check if we have a prone sight cover from known enemies at spot
-BOOLEAN ProneSightCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot, BOOLEAN fUnlimited)
+BOOLEAN ProneSightCoverAtSpot(TacticalActor *pSoldier, INT32 sSpot, BOOLEAN fUnlimited)
 {
 	CHECKF(pSoldier);
 
 	UINT32		uiLoop;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 	INT32		*pusLastLoc;
 	INT8		*pbPersOL;
 	INT8		*pbPublOL;
@@ -4276,12 +4276,12 @@ BOOLEAN ProneSightCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot, BOOLEAN fUnlim
 }
 
 // check if we have a sight cover from known enemies at spot
-BOOLEAN SightCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot, BOOLEAN fUnlimited)
+BOOLEAN SightCoverAtSpot(TacticalActor *pSoldier, INT32 sSpot, BOOLEAN fUnlimited)
 {
 	CHECKF(pSoldier);
 
 	UINT32		uiLoop;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 	INT32		*pusLastLoc;
 	INT8		*pbPersOL;
 	INT8		*pbPublOL;
@@ -4365,10 +4365,10 @@ BOOLEAN SightCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot, BOOLEAN fUnlimited)
 	return TRUE;
 }
 
-BOOLEAN EnemySeenSoldierRecently( SOLDIERTYPE *pSoldier, UINT8 ubMax )
+BOOLEAN EnemySeenSoldierRecently( TacticalActor *pSoldier, UINT8 ubMax )
 {
 	UINT32		uiLoop;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 
 	//loop through all the enemies and determine the cover
 	for ( uiLoop = 0; uiLoop<Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
@@ -4410,9 +4410,9 @@ BOOLEAN EnemySeenSoldierRecently( SOLDIERTYPE *pSoldier, UINT8 ubMax )
 	return FALSE;
 }
 
-UINT16 CountTeamSeeSoldier( INT8 bTeam, SOLDIERTYPE *pSoldier )
+UINT16 CountTeamSeeSoldier( INT8 bTeam, TacticalActor *pSoldier )
 {
-	SOLDIERTYPE *pFriend;
+	TacticalActor *pFriend;
 	UINT16 ubFriends = 0;
 
 	CHECKF( pSoldier );
@@ -4483,7 +4483,7 @@ BOOLEAN CheckDoorNearGridno(UINT32 usGridNo)
 	return FALSE;
 }
 
-BOOLEAN FindBombNearby( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDistance )
+BOOLEAN FindBombNearby( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubDistance )
 {
 	UINT32	uiBombIndex;
 
@@ -4742,12 +4742,12 @@ UINT8 TerrainDensity(INT32 sSpot, INT8 bLevel, UINT8 ubDistance, BOOLEAN fGrass)
 		return 0;
 }
 
-INT16 DistanceToClosestActiveOpponent(SOLDIERTYPE *pSoldier, INT32 sSpot)
+INT16 DistanceToClosestActiveOpponent(TacticalActor *pSoldier, INT32 sSpot)
 {
 	INT32		sGridNo;
 	UINT32		uiLoop;
 	INT8		bLevel;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 	INT16		sDistance, sClosestDistance = -1;
 
 	if (!pSoldier || TileIsOutOfBounds(sSpot))
@@ -4803,7 +4803,7 @@ INT16 DistanceToClosestActiveOpponent(SOLDIERTYPE *pSoldier, INT32 sSpot)
 	return sClosestDistance;
 }
 
-BOOLEAN ValidOpponent(SOLDIERTYPE* pSoldier, SOLDIERTYPE* pOpponent)
+BOOLEAN ValidOpponent(TacticalActor* pSoldier, TacticalActor* pOpponent)
 {
 	if (!pSoldier || !pOpponent)
 	{
@@ -4865,7 +4865,7 @@ BOOLEAN AnyCoverFromSpot( INT32 sSpot, INT8 bLevel, INT32 sThreatLoc, INT8 bThre
 	return FALSE;
 }
 
-UINT16 CountSeenEnemiesLastTurn( SOLDIERTYPE* pSoldier )
+UINT16 CountSeenEnemiesLastTurn( TacticalActor* pSoldier )
 {
 	CHECKF(pSoldier);
 
@@ -4915,7 +4915,7 @@ BOOLEAN NorthSpot(INT32 sSpot, INT8 bLevel)
 }
 
 // use soldier AI - merc bodytype, no robots/tanks/boxers/etc
-BOOLEAN SoldierAI(SOLDIERTYPE *pSoldier)
+BOOLEAN SoldierAI(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -4936,7 +4936,7 @@ BOOLEAN SoldierAI(SOLDIERTYPE *pSoldier)
 	return TRUE;
 }
 
-UINT8 SpotDangerLevel(SOLDIERTYPE *pSoldier, INT32 sGridNo)
+UINT8 SpotDangerLevel(TacticalActor *pSoldier, INT32 sGridNo)
 {
 	if (!pSoldier)
 		return 0;
@@ -4983,7 +4983,7 @@ UINT8 SpotDangerLevel(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 	return ubLevel;
 }
 
-BOOLEAN CheckNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridNo)
+BOOLEAN CheckNPCDestination(TacticalActor *pSoldier, INT32 sGridNo)
 {
 	if (!pSoldier)
 		return FALSE;
@@ -5003,7 +5003,7 @@ BOOLEAN CheckNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 	return TRUE;
 }
 
-BOOLEAN AllowDeepWaterFlanking(SOLDIERTYPE *pSoldier)
+BOOLEAN AllowDeepWaterFlanking(TacticalActor *pSoldier)
 {
 	if (SoldierAI(pSoldier) &&
 		pSoldier->roster().team() == ENEMY_TEAM &&
@@ -5029,7 +5029,7 @@ UINT8 AIDirection(INT32 sSpot1, INT32 sSpot2)
 	return GetDirectionFromCenterCellXYGridNo(sSpot1, sSpot2);
 }
 
-BOOLEAN AICheckIsSniper(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckIsSniper(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5055,7 +5055,7 @@ BOOLEAN AICheckIsSniper(SOLDIERTYPE *pSoldier)
 	return FALSE;
 }
 
-BOOLEAN AICheckIsMarksman(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckIsMarksman(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5085,7 +5085,7 @@ BOOLEAN AICheckIsMarksman(SOLDIERTYPE *pSoldier)
 	return FALSE;
 }
 
-BOOLEAN AICheckIsRadioOperator(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckIsRadioOperator(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5100,7 +5100,7 @@ BOOLEAN AICheckIsRadioOperator(SOLDIERTYPE *pSoldier)
 	return FALSE;
 }
 
-BOOLEAN AICheckIsMedic(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckIsMedic(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5128,7 +5128,7 @@ BOOLEAN AICheckIsMedic(SOLDIERTYPE *pSoldier)
 	return FALSE;
 }
 
-BOOLEAN AICheckIsMortarOperator(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckIsMortarOperator(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5145,7 +5145,7 @@ BOOLEAN AICheckIsMortarOperator(SOLDIERTYPE *pSoldier)
 	return FALSE;
 }
 
-BOOLEAN AICheckIsGLOperator(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckIsGLOperator(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5178,7 +5178,7 @@ BOOLEAN AICheckIsGLOperator(SOLDIERTYPE *pSoldier)
 	return FALSE;
 }
 
-BOOLEAN AICheckIsOfficer(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckIsOfficer(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5195,7 +5195,7 @@ BOOLEAN AICheckIsOfficer(SOLDIERTYPE *pSoldier)
 	return FALSE;
 }
 
-BOOLEAN AICheckIsCommander(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckIsCommander(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5212,7 +5212,7 @@ BOOLEAN AICheckIsCommander(SOLDIERTYPE *pSoldier)
 	return FALSE;
 }
 
-BOOLEAN AICheckIsMachinegunner(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckIsMachinegunner(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5228,7 +5228,7 @@ BOOLEAN AICheckIsMachinegunner(SOLDIERTYPE *pSoldier)
 	return FALSE;
 }
 
-BOOLEAN AIGunInHandScoped(SOLDIERTYPE *pSoldier)
+BOOLEAN AIGunInHandScoped(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5245,7 +5245,7 @@ BOOLEAN AIGunInHandScoped(SOLDIERTYPE *pSoldier)
 }
 
 // check if gun that AI can use is scoped
-BOOLEAN AIGunScoped(SOLDIERTYPE *pSoldier)
+BOOLEAN AIGunScoped(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5274,7 +5274,7 @@ BOOLEAN AIGunScoped(SOLDIERTYPE *pSoldier)
 }
 
 // return range for the AI gun in tiles
-UINT16 AIGunRange(SOLDIERTYPE *pSoldier)
+UINT16 AIGunRange(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5294,7 +5294,7 @@ UINT16 AIGunRange(SOLDIERTYPE *pSoldier)
 	return 0;
 }
 
-UINT16 AIGunClass(SOLDIERTYPE *pSoldier)
+UINT16 AIGunClass(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5314,7 +5314,7 @@ UINT16 AIGunClass(SOLDIERTYPE *pSoldier)
 	return 0;
 }
 
-UINT16 AIGunType(SOLDIERTYPE *pSoldier)
+UINT16 AIGunType(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5334,7 +5334,7 @@ UINT16 AIGunType(SOLDIERTYPE *pSoldier)
 	return 0;
 }
 
-UINT8 AIGunDeadliness(SOLDIERTYPE *pSoldier)
+UINT8 AIGunDeadliness(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5355,7 +5355,7 @@ UINT8 AIGunDeadliness(SOLDIERTYPE *pSoldier)
 	return 0;
 }
 
-UINT16 AIGunAmmo(SOLDIERTYPE *pSoldier)
+UINT16 AIGunAmmo(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5374,7 +5374,7 @@ UINT16 AIGunAmmo(SOLDIERTYPE *pSoldier)
 	return 0;
 }
 
-BOOLEAN AIGunAutofireCapable(SOLDIERTYPE *pSoldier)
+BOOLEAN AIGunAutofireCapable(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5477,7 +5477,7 @@ BOOLEAN InSmokeNearby(INT32 sGridNo, INT8 bLevel)
 	return FALSE;
 }
 
-BOOLEAN CorpseWarning(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel)
+BOOLEAN CorpseWarning(TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel)
 {
 	CHECKF(pSoldier);
 
@@ -5552,12 +5552,12 @@ BOOLEAN AICheckUnderground(void)
 }
 
 // check if we have any sight cover from known enemies at spot
-BOOLEAN AnyCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot)
+BOOLEAN AnyCoverAtSpot(TacticalActor *pSoldier, INT32 sSpot)
 {
 	CHECKF(pSoldier);
 
 	UINT32		uiLoop;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 	INT32		*pusLastLoc;
 	INT8		*pbPersOL;
 	INT8		*pbPublOL;
@@ -5625,7 +5625,7 @@ BOOLEAN AnyCoverAtSpot(SOLDIERTYPE *pSoldier, INT32 sSpot)
 	return TRUE;
 }
 
-BOOLEAN AICheckHasWeaponOfType(SOLDIERTYPE *pSoldier, UINT8 ubWeaponType)
+BOOLEAN AICheckHasWeaponOfType(TacticalActor *pSoldier, UINT8 ubWeaponType)
 {
 	CHECKF(pSoldier);
 
@@ -5644,7 +5644,7 @@ BOOLEAN AICheckHasWeaponOfType(SOLDIERTYPE *pSoldier, UINT8 ubWeaponType)
 
 }
 
-BOOLEAN AICheckHasGun(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckHasGun(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5656,7 +5656,7 @@ BOOLEAN AICheckHasGun(SOLDIERTYPE *pSoldier)
 	return FALSE;
 }
 
-BOOLEAN AICheckShortWeaponRange(SOLDIERTYPE *pSoldier)
+BOOLEAN AICheckShortWeaponRange(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
@@ -5695,7 +5695,7 @@ BOOLEAN DuskLight(void)
 	return FALSE;
 }
 
-BOOLEAN UsePersonalKnowledge(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
+BOOLEAN UsePersonalKnowledge(TacticalActor *pSoldier, SoldierID ubOpponentID)
 {
 	INT8		bPersonalKnowledge;
 	INT8		bPublicKnowledge;
@@ -5719,7 +5719,7 @@ BOOLEAN UsePersonalKnowledge(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
 	return FALSE;
 }
 
-INT8 Knowledge(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
+INT8 Knowledge(TacticalActor *pSoldier, SoldierID ubOpponentID)
 {
 	if (!pSoldier || ubOpponentID == NOBODY)
 	{
@@ -5734,7 +5734,7 @@ INT8 Knowledge(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
 	return PublicKnowledge(pSoldier->roster().team(), ubOpponentID);
 }
 
-INT32 KnownLocation(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
+INT32 KnownLocation(TacticalActor *pSoldier, SoldierID ubOpponentID)
 {
 	if (!pSoldier || ubOpponentID == NOBODY)
 	{
@@ -5749,7 +5749,7 @@ INT32 KnownLocation(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
 	return KnownPublicLocation(pSoldier->roster().team(), ubOpponentID);
 }
 
-INT8 KnownLevel(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
+INT8 KnownLevel(TacticalActor *pSoldier, SoldierID ubOpponentID)
 {
 	if (!pSoldier || ubOpponentID == NOBODY)
 	{
@@ -5764,7 +5764,7 @@ INT8 KnownLevel(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
 	return KnownPublicLevel(pSoldier->roster().team(), ubOpponentID);
 }
 
-INT8 PersonalKnowledge(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
+INT8 PersonalKnowledge(TacticalActor *pSoldier, SoldierID ubOpponentID)
 {
 	if (!pSoldier || ubOpponentID == NOBODY)
 	{
@@ -5774,7 +5774,7 @@ INT8 PersonalKnowledge(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
 	return pSoldier->awareness().opponentKnowledge()[ubOpponentID];
 }
 
-INT32 KnownPersonalLocation(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
+INT32 KnownPersonalLocation(TacticalActor *pSoldier, SoldierID ubOpponentID)
 {
 	if (!pSoldier || ubOpponentID == NOBODY)
 	{
@@ -5788,7 +5788,7 @@ INT32 KnownPersonalLocation(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
 	return gsLastKnownOppLoc[pSoldier->identity().id()][ubOpponentID];
 }
 
-INT8 KnownPersonalLevel(SOLDIERTYPE *pSoldier, SoldierID ubOpponentID)
+INT8 KnownPersonalLevel(TacticalActor *pSoldier, SoldierID ubOpponentID)
 {
 	if (!pSoldier || ubOpponentID == NOBODY)
 	{
@@ -5884,7 +5884,7 @@ UINT8 SectorCurfew(BOOLEAN fNight)
 	return ubSectorData;
 }
 
-INT32	RandomizeLocation(INT32 sSpot, INT8 bLevel, UINT8 ubTimes, SOLDIERTYPE *pSightSoldier)
+INT32	RandomizeLocation(INT32 sSpot, INT8 bLevel, UINT8 ubTimes, TacticalActor *pSightSoldier)
 {
 	if (TileIsOutOfBounds(sSpot))
 	{
@@ -5933,7 +5933,7 @@ INT32	RandomizeLocation(INT32 sSpot, INT8 bLevel, UINT8 ubTimes, SOLDIERTYPE *pS
 	return sSpot;
 }
 
-INT32	RandomizeOpponentLocation(INT32 sSpot, SOLDIERTYPE *pOpponent, INT16 sMaxDistance)
+INT32	RandomizeOpponentLocation(INT32 sSpot, TacticalActor *pOpponent, INT16 sMaxDistance)
 {
 	if (TileIsOutOfBounds(sSpot))
 	{
@@ -5963,7 +5963,7 @@ INT32	RandomizeOpponentLocation(INT32 sSpot, SOLDIERTYPE *pOpponent, INT16 sMaxD
 }
 
 // first call PrepareThreatlist to make threat list
-SoldierID ClosestKnownThreatID(SOLDIERTYPE *pSoldier, UINT32 uiThreatCnt)
+SoldierID ClosestKnownThreatID(TacticalActor *pSoldier, UINT32 uiThreatCnt)
 {
 	CHECKF(pSoldier);
 
@@ -5993,7 +5993,7 @@ SoldierID ClosestKnownThreatID(SOLDIERTYPE *pSoldier, UINT32 uiThreatCnt)
 }
 
 // first call PrepareThreatlist to make threat list
-SoldierID ClosestSeenThreatID(SOLDIERTYPE *pSoldier, UINT32 uiThreatCnt, UINT8 ubMax)
+SoldierID ClosestSeenThreatID(TacticalActor *pSoldier, UINT32 uiThreatCnt, UINT8 ubMax)
 {
 	CHECKF(pSoldier);
 
@@ -6026,9 +6026,9 @@ SoldierID ClosestSeenThreatID(SOLDIERTYPE *pSoldier, UINT32 uiThreatCnt, UINT8 u
 	return(ubClosestOpponentID);
 }
 
-UINT32 PrepareThreatlist(SOLDIERTYPE *pSoldier)
+UINT32 PrepareThreatlist(TacticalActor *pSoldier)
 {
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 	INT32	iThreatRange, iClosestThreatRange = 1500;
 	UINT32	uiLoop;
 	INT8	bPersonalKnowledge;
@@ -6123,12 +6123,12 @@ UINT32 PrepareThreatlist(SOLDIERTYPE *pSoldier)
 	return uiThreatCnt;
 }
 
-UINT16 CountPublicKnownEnemies(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 sDistance)
+UINT16 CountPublicKnownEnemies(TacticalActor *pSoldier, INT32 sGridNo, INT16 sDistance)
 {
 	CHECKF(pSoldier);
 
 	UINT32		uiLoop;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 
 	INT32		sThreatLoc;
 	INT8		iThreatLevel;
@@ -6177,12 +6177,12 @@ UINT16 CountPublicKnownEnemies(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 sDist
 	return ubNum;
 }
 
-UINT16 CountPublicKnownEnemies(SOLDIERTYPE *pSoldier)
+UINT16 CountPublicKnownEnemies(TacticalActor *pSoldier)
 {
 	CHECKF(pSoldier);
 
 	UINT32		uiLoop;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 
 	INT32		sThreatLoc;
 	INT8		iThreatLevel;
@@ -6226,9 +6226,9 @@ UINT16 CountPublicKnownEnemies(SOLDIERTYPE *pSoldier)
 }
 
 // sevenfm: check if suppression is possible (count friends in the fire direction)
-BOOLEAN CheckSuppressionDirection(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, INT8 bTargetLevel)
+BOOLEAN CheckSuppressionDirection(TacticalActor *pSoldier, INT32 sTargetGridNo, INT8 bTargetLevel)
 {
-	SOLDIERTYPE * pFriend;
+	TacticalActor * pFriend;
 	UINT8 ubShootingDir;
 	UINT32 uiLoop;
 

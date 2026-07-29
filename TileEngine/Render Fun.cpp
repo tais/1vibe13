@@ -257,7 +257,7 @@ void ExamineGridNoForSlantRoofExtraGraphic( INT32 sCheckGridNo )
 }
 
 //DBrot: More Rooms
-void RemoveRoomRoof( INT32 sGridNo, UINT16 usRoomNum, SOLDIERTYPE *pSoldier )
+void RemoveRoomRoof( INT32 sGridNo, UINT16 usRoomNum, TacticalActor *pSoldier )
 {
 	INT32			cnt;
 	ITEM_POOL					*pItemPool;

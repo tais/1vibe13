@@ -393,7 +393,7 @@ struct ExchangePositionsCommand
 // Multiplayer movement packets are authoritative path snapshots, not local
 // pathfinding intent. Keeping the fixed legacy capacity in a value command
 // lets network and replay ingress preserve the exact remote path without
-// exposing SOLDIERTYPE storage or re-running pathfinding on the receiver.
+// exposing TacticalActor storage or re-running pathfinding on the receiver.
 inline constexpr std::size_t TacticalReplicatedPathCapacity = 30;
 
 struct SynchronizeActorPathCommand

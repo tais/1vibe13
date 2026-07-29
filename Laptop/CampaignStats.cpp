@@ -142,7 +142,7 @@ Incident_Stats::Load( HWFILE hwFile )
 }
 
 void
-Incident_Stats::AddStat( SOLDIERTYPE* pSoldier, UINT8 aType )
+Incident_Stats::AddStat( TacticalActor* pSoldier, UINT8 aType )
 {
 	UINT8 group = CAMPAIGNHISTORY_SD_MERC;
 

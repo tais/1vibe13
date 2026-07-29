@@ -3841,7 +3841,7 @@ BOOLEAN LoadAnimationStateInstructions( )
 	return( TRUE );
 }
 
-BOOLEAN IsAnimationValidForBodyType( SOLDIERTYPE *pSoldier, UINT16 usNewState )
+BOOLEAN IsAnimationValidForBodyType( TacticalActor *pSoldier, UINT16 usNewState )
 {
 	UINT16		usAnimSurface;
 
@@ -3858,7 +3858,7 @@ BOOLEAN IsAnimationValidForBodyType( SOLDIERTYPE *pSoldier, UINT16 usNewState )
 	return( TRUE );
 }
 
-BOOLEAN SubstituteBodyTypeAnimation( SOLDIERTYPE *pSoldier, UINT16 usTestState, UINT16 *pusSubState )
+BOOLEAN SubstituteBodyTypeAnimation( TacticalActor *pSoldier, UINT16 usTestState, UINT16 *pusSubState )
 {
 	BOOLEAN fSubFound = FALSE;
 
@@ -4003,7 +4003,7 @@ BOOLEAN SubstituteBodyTypeAnimation( SOLDIERTYPE *pSoldier, UINT16 usTestState, 
 }
 
 
-INT8	GetBodyTypePaletteSubstitutionCode( SOLDIERTYPE *pSoldier, UINT8 ubBodyType, CHAR8 *zColFilename )
+INT8	GetBodyTypePaletteSubstitutionCode( TacticalActor *pSoldier, UINT8 ubBodyType, CHAR8 *zColFilename )
 {
 	switch( ubBodyType )
 	{
@@ -4095,7 +4095,7 @@ INT8	GetBodyTypePaletteSubstitutionCode( SOLDIERTYPE *pSoldier, UINT8 ubBodyType
 
 
 
-BOOLEAN SetSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
+BOOLEAN SetSoldierAnimationSurface( TacticalActor *pSoldier, UINT16 usAnimState )
 {
 	UINT16 usAnimSurface;
 
@@ -4127,7 +4127,7 @@ BOOLEAN SetSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 }
 
 
-UINT16 LoadSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
+UINT16 LoadSoldierAnimationSurface( TacticalActor *pSoldier, UINT16 usAnimState )
 {
 	UINT16 usAnimSurface;
 
@@ -4162,7 +4162,7 @@ UINT16	gusQueenMonsterSpitAnimPerDir[] =
 };
 
 
-UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
+UINT16	DetermineSoldierAnimationSurface( TacticalActor *pSoldier, UINT16 usAnimState )
 {
 	UINT16 usAnimSurface;
 	UINT16 usAltAnimSurface;
@@ -4439,7 +4439,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 }
 
 
-UINT16 GetSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
+UINT16 GetSoldierAnimationSurface( TacticalActor *pSoldier, UINT16 usAnimState )
 {
 	UINT16 usAnimSurface;
 

@@ -9,7 +9,7 @@
 
 // Pointer-free actor roles retained by JA2 inventory panels and their modal
 // children. The host resolves each role through TacticalEntityDirectory, so a
-// recycled SOLDIERTYPE slot cannot inherit an open panel, cursor, or callback.
+// recycled TacticalActor slot cannot inherit an open panel, cursor, or callback.
 enum class TacticalInventoryActorRole : std::uint8_t
 {
 	SelectedMerc,

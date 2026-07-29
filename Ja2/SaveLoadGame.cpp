@@ -1527,13 +1527,13 @@ BOOLEAN MERCPROFILESTRUCT::Save(HWFILE hFile)
 	return wr.good() ? TRUE : FALSE;
 }
 
-// --- Portable (save-format v2) field lists for SOLDIERTYPE + its sub-structs.
+// --- Portable (save-format v2) field lists for TacticalActor + its sub-structs.
 // One templated list per struct, visited by SaveFieldWriter or SaveFieldReader
 // so save and load can never drift. Runtime pointers use ar.ptr() (written as
 // nothing, cleared to NULL on load; the game re-derives them via
 // InitializeExtraData / palette+world rebuild). SoldierID is serialized through
 // its public UINT16 member `.i`.
-template<class Ar> static void XferAIData( Ar& ar, SOLDIERTYPE& soldier )
+template<class Ar> static void XferAIData( Ar& ar, TacticalActor& soldier )
 {
 	SoldierAiPlanningComponent& planning = soldier.aiPlanning();
 	SoldierAiBehaviorComponent& behavior = soldier.aiBehavior();
@@ -1571,7 +1571,7 @@ template<class Ar> static void XferAIData( Ar& ar, SOLDIERTYPE& soldier )
 	for (i = 0; i < MAX_NUM_SOLDIERS; ++i) ar.u8(turnState.interruptCounters()[i]);
 }
 
-template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
+template<class Ar> static void XferFlags( Ar& ar, TacticalActor& soldier )
 {
 	SoldierCollapseComponent& collapseState = soldier.collapseState();
 	SoldierDeploymentComponent& deployment = soldier.deployment();
@@ -1670,7 +1670,7 @@ template<class Ar> static void XferDrugState(
 	ar.f32(drugState.alcoholLevel());
 }
 
-template<class Ar> static void XferStats( Ar& ar, SOLDIERTYPE& soldier )
+template<class Ar> static void XferStats( Ar& ar, TacticalActor& soldier )
 {
 	SoldierStatisticsComponent& statistics = soldier.statistics();
 	SoldierVitalsComponent& vitals = soldier.vitals();
@@ -1695,7 +1695,7 @@ template<class Ar> static void XferStats( Ar& ar, SOLDIERTYPE& soldier )
 	}
 }
 
-template<class Ar> static void XferPathing( Ar& ar, SOLDIERTYPE& soldier )
+template<class Ar> static void XferPathing( Ar& ar, TacticalActor& soldier )
 {
 	SoldierPathingComponent& p = soldier.pathing();
 	int i;
@@ -1707,7 +1707,7 @@ template<class Ar> static void XferPathing( Ar& ar, SOLDIERTYPE& soldier )
 	ar.i32(p.blackListGrid()); ar.i8(p.stored());
 }
 
-template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
+template<class Ar> static void XferSoldierTypePOD( Ar& ar, TacticalActor& s )
 {
 	int i;
 	UINT8 retiredDelayedMovementCauseMerc = 0;
@@ -1902,7 +1902,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < NUM_ASSIST_SLOTS; ++i) ar.u8(combatContribution.damageByTeam()[i]);
 }
 
-BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
+BOOLEAN TacticalActor::Save(HWFILE hFile)
 {
 	// calculate checksum for soldier
 	this->replication().recordChecksum( this->GetChecksum() );
@@ -1955,7 +1955,7 @@ INT32 ReadFieldByField(HWFILE hFile, PTR pDest, UINT32 uiFieldSize, UINT32 uiEle
 	return uiBytesRead;
 }
 
-BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
+BOOLEAN TacticalActor::Load(HWFILE hFile)
 {
 	UINT32 uiNumBytesRead;
 
@@ -2042,7 +2042,7 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 		//assume checksum is ok
 	}
 
-	// sevenfm: initialize other SOLDIERTYPE data
+	// sevenfm: initialize other TacticalActor data
 	this->InitializeExtraData();
 
 	return TRUE;
@@ -2957,7 +2957,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	else
 	{
 		INT16					sSoldierCnt;
-		SOLDIERTYPE		*pSoldier;
+		TacticalActor		*pSoldier;
 		INT16					bLastTeamID;
 		INT8					bCount=0;
 		BOOLEAN				fFoundAMerc=FALSE;
@@ -5708,7 +5708,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	// CHRISL: To set camo faces correctly from the start
 	for( UINT16 cnt=0; cnt< CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS; cnt++)
 	{
-		SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(cnt);
+		TacticalActor* soldier = GetJa2SoldierRepository().resolve(cnt);
 		if(soldier && soldier->identity().id() == cnt)
 		{
 			// WANNE: We should only delete the face, if there was a camo we applied.
@@ -5904,7 +5904,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	// ATE: if we are within this window where skyridder was foobared, fix!
 	if ( guiCurrentSaveGameVersion >= 61 && guiCurrentSaveGameVersion <= 65 )
 	{
-		SOLDIERTYPE				*pSoldier;
+		TacticalActor				*pSoldier;
 		MERCPROFILESTRUCT *pProfile;
 
 		if ( !fSkyRiderSetUp )
@@ -5962,7 +5962,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	}
 
 
-	//Update the MERC merc contract lenght.	Before save version 77 the data was stored in the SOLDIERTYPE, 
+	//Update the MERC merc contract lenght.	Before save version 77 the data was stored in the TacticalActor,
 	//after 77 the data is stored in the profile
 	if ( guiCurrentSaveGameVersion < 77 )
 	{
@@ -6084,7 +6084,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
 
 	// player team character fixes
-	SOLDIERTYPE	*pTeamSoldier;
+	TacticalActor	*pTeamSoldier;
 	for (SoldierID bLoop = gTacticalStatus.Team[gbPlayerNum].bFirstID; bLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++bLoop)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(bLoop.i);
@@ -6234,7 +6234,7 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 	//Loop through all the soldier structs to save
 	for( cnt=0; cnt< TOTAL_SOLDIERS; ++cnt)
 	{
-		SOLDIERTYPE& soldier = soldiers.record(cnt);
+		TacticalActor& soldier = soldiers.record(cnt);
 		//if the soldier isnt active, dont add them to the saved game file.
 		if( !soldier.roster().active() )
 		{
@@ -6311,7 +6311,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 	UINT8		ubOne = 1;
 	UINT8		ubActive = 1;
 	UINT32		uiPercentage;
-	SOLDIERTYPE SavedSoldierInfo;
+	TacticalActor SavedSoldierInfo;
 	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 	//Loop through all the soldier and delete them all
@@ -6359,7 +6359,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 
 			if( !TacticalCreateSoldier( &CreateStruct, &ubId ) )
 				return( FALSE );
-			SOLDIERTYPE& soldier = soldiers.record(cnt);
+			TacticalActor& soldier = soldiers.record(cnt);
 
 			// Load the pMercPath
 			if( !LoadMercPathToSoldierStruct( hFile, ubId ) )
@@ -6455,7 +6455,7 @@ if( g_lang == i18n::Lang::de ) {
 			gMercProfiles[ ROBOT ].inv[ LEGPOS ] = SPECTRA_LEGGINGS_18;
 			gMercProfiles[ ROBOT ].bAgility = 50;
 
-			SOLDIERTYPE* pSoldier = FindSoldierByProfileID( ROBOT, FALSE );
+			TacticalActor* pSoldier = FindSoldierByProfileID( ROBOT, FALSE );
 			if ( pSoldier )
 			{
 				pSoldier->inventory()[ VESTPOS ].usItem = SPECTRA_VEST_18;
@@ -7290,7 +7290,7 @@ BOOLEAN LoadTacticalStatusFromSavedGame( HWFILE hFile )
 
 
 
-BOOLEAN CopySavedSoldierInfoToNewSoldier( SOLDIERTYPE *pDestSourceInfo, SOLDIERTYPE *pSourceInfo )
+BOOLEAN CopySavedSoldierInfoToNewSoldier( TacticalActor *pDestSourceInfo, TacticalActor *pSourceInfo )
 {
 	*pDestSourceInfo = *pSourceInfo;
 	return( TRUE );
@@ -7305,7 +7305,7 @@ BOOLEAN SetMercsInsertionGridNo( )
 	// loop through all the mercs
 	for ( cnt=0; cnt < TOTAL_SOLDIERS; cnt++ )
 	{
-		SOLDIERTYPE& soldier = soldiers.record(cnt);
+		TacticalActor& soldier = soldiers.record(cnt);
 		//if the soldier is active
 		if( soldier.roster().active() )
 		{
@@ -7606,7 +7606,7 @@ void CreateSavedGameFileNameFromNumber( UINT8 ubSaveGameID, CHAR8 *pzNewFileName
 BOOLEAN SaveMercPathFromSoldierStruct( HWFILE hFile, UINT16 ubID )
 {
 	UINT32	uiNumOfNodes=0;
-	SOLDIERTYPE& soldier = GetJa2SoldierRepository().record(ubID);
+	TacticalActor& soldier = GetJa2SoldierRepository().record(ubID);
 	PathStPtr	pTempPath = soldier.strategicPath().head();
 	UINT32	uiNumBytesWritten=0;
 
@@ -7651,7 +7651,7 @@ BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID )
 	PathStPtr	pTemp = NULL;
 	UINT32	uiNumBytesRead=0;
 	UINT32	cnt;
-	SOLDIERTYPE& soldier = GetJa2SoldierRepository().record(ubID);
+	TacticalActor& soldier = GetJa2SoldierRepository().record(ubID);
 	SoldierStrategicPathComponent loadedPath;
 
 	//Load the number of the nodes
@@ -7887,7 +7887,7 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 	sGeneralInfo.fEnterMapDueToContract = fEnterMapDueToContract;
 	sGeneralInfo.ubQuitType = ubQuitType;
 
-	SOLDIERTYPE* contractRehireSoldier =
+	TacticalActor* contractRehireSoldier =
 		GetContractRehireSoldier();
 	if( contractRehireSoldier != NULL )
 		sGeneralInfo.sContractRehireSoldierID =
@@ -8693,7 +8693,7 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 		SoldierID bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 		for ( ; Soldier <= bLastTeamID; ++Soldier)
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				GetJa2SoldierRepository().resolve(Soldier.i);
 			if ( soldier )
 			{
@@ -8907,7 +8907,7 @@ void WriteTempFileNameToFile( STR pFileName, UINT32 uiSizeOfFile, HWFILE hSaveFi
 
 void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *pbSectorZ )
 {
-	SOLDIERTYPE* currentSquadMember =
+	TacticalActor* currentSquadMember =
 		ResolveSquadMember( iCurrentTacticalSquad, 0 );
 	//if the current sector is valid
 	if( IsJa2TacticalWorldLoaded() )
@@ -8929,7 +8929,7 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 	{
 		SoldierID sSoldierCnt;
 		SoldierID bLastTeamID;
-		SOLDIERTYPE *pSoldier;
+		TacticalActor *pSoldier;
 		BOOLEAN fFoundAMerc = FALSE;
 
 		// Set locator to first merc
@@ -9068,7 +9068,7 @@ void ValidateStrategicGroups()
 void UpdateMercMercContractInfo()
 {
 	UINT8	ubCnt;
-	SOLDIERTYPE				*pSoldier;
+	TacticalActor				*pSoldier;
 
 	for( ubCnt=BIFF; ubCnt<= BUBBA; ubCnt++ )
 	{

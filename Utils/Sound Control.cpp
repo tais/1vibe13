@@ -580,7 +580,7 @@ UINT32 PlaySoldierJA2Sample( SoldierID usID, UINT32 usNum, UINT32 usRate, UINT32
 {
 	if( !( gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(usID.i);
 		// CHECK IF GUY IS ON SCREEN BEFORE PLAYING!
 		if ( soldier && ( !soldier->awareness().fullyHidden() || !fCheck ) )
@@ -1067,7 +1067,7 @@ void SetPositionSndsVolumeAndPanning()
 	POSITIONSND *pPositionSnd;
 	INT8		bVolume;
 	UINT8		ubPan;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	for ( cnt = 0; cnt < guiNumPositionSnds; cnt++ )
 	{

@@ -120,7 +120,7 @@ void			BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDeal
 
 void			DeleteShopKeeperItemDescBox();
 
-BOOLEAN		CanMercInteractWithSelectedShopkeeper( SOLDIERTYPE *pSoldier );
+BOOLEAN		CanMercInteractWithSelectedShopkeeper( TacticalActor *pSoldier );
 
 void			DealerGetsBribed( UINT8 ubProfileId, UINT32 uiMoneyAmount );
 

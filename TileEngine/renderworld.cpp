@@ -1286,7 +1286,7 @@ void DeleteFromWorld( UINT16 usTileIndex, UINT32 uiRenderTiles, UINT16 usIndex )
 
 
 // Flugente: display a riot shield
-static void ShowRiotShield( SOLDIERTYPE* pSoldier, PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue )
+static void ShowRiotShield( TacticalActor* pSoldier, PIXEL *pBuffer, UINT32 uiDestPitchBYTES, UINT16 *pZBuffer, UINT16 usZValue )
 {
 	if (pSoldier)
 	{
@@ -1756,7 +1756,7 @@ void RenderSetShadows(BOOLEAN fShadows)
 }
 
 inline static PIXEL * GetShadeTable(
-	LEVELNODE * pNode, SOLDIERTYPE * pSoldier,
+	LEVELNODE * pNode, TacticalActor * pSoldier,
 	RenderPaletteBank& palette, UINT32 uiFlags,
 	INT16 * gsForceSoldierZLevel)
 {
@@ -1799,7 +1799,7 @@ inline static PIXEL * GetShadeTable(
 		// ATE: Todo: setup flag for 'bad-guy' - can releive some checks in renderer
 		if (!pSoldier->aiBehavior().neutral() && (pSoldier->roster().side() != gbPlayerNum))
 		{
-			SOLDIERTYPE * pSelSoldier;
+			TacticalActor * pSelSoldier;
 			if (gusSelectedSoldier != NOBODY)
 			{
 				pSelSoldier =
@@ -1841,7 +1841,7 @@ inline static PIXEL * GetShadeTable(
 				};
 			// Set shade
 			// If a bad guy is highlighted
-			SOLDIERTYPE* selectedGuy =
+			TacticalActor* selectedGuy =
 				GetJa2SoldierRepository().resolve(gsSelectedGuy.i);
 			if (gfUIHandleSelectionAboveGuy == TRUE &&
 				selectedGuy && selectedGuy->roster().side() != gbPlayerNum)
@@ -1951,7 +1951,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 	//#if 0
 
 	LEVELNODE		*pNode; //, *pLand, *pStruct; //*pObject, *pTopmost, *pMerc;
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	HVOBJECT		hVObject = NULL;
 	ETRLEObject *pTrav;
 	TILE_ELEMENT *TileElem = NULL;

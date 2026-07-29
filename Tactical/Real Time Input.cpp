@@ -48,7 +48,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 extern UIKEYBOARD_HOOK					gUIKeyboardHook;
@@ -162,8 +162,8 @@ void	GetRTMouseButtonInput( UINT32 *puiNewEvent )
 void	QueryRTLeftButton( UINT32 *puiNewEvent )
 {
 	SoldierID usSoldierIndex;
-	SOLDIERTYPE *pSoldier;
-	SOLDIERTYPE *pVehicle;
+	TacticalActor *pSoldier;
+	TacticalActor *pVehicle;
 	UINT32	uiMercFlags;
 	static	UINT32 uiSingleClickTime;
 	INT32 usMapPos;
@@ -172,7 +172,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 	static BOOLEAN	fCanCheckForSpeechAdvance = FALSE;
 	static INT32		sMoveClickGridNo					= 0;
 	SoldierID usSubjectSoldier = gusSelectedSoldier;
-	SOLDIERTYPE* subjectSoldier =
+	TacticalActor* subjectSoldier =
 		GetJa2SoldierRepository().resolve(usSubjectSoldier.i);
 
 	// LEFT MOUSE BUTTON
@@ -972,7 +972,7 @@ void	QueryRTRightButton( UINT32 *puiNewEvent )
 	static BOOLEAN	fDoubleClickIntercepted = FALSE;
 	static BOOLEAN	fValidDoubleClickPossible = FALSE;
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 usMapPos;
 
 	if ( gViewportRegion.uiFlags & MSYS_MOUSE_IN_AREA )
@@ -1243,7 +1243,7 @@ void	QueryRTRightButton( UINT32 *puiNewEvent )
 													gusSelectedSoldier.i);
 											if( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 											{
-												SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
+												TacticalActor *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 												INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
 												if( gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].VehicleSeats[bSeatIndex].fBlockedShots == TRUE )
 												{
@@ -1338,7 +1338,7 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 	INT32 usMapPos;
 	static INT32			usOldMapPos = 0;
 	static UINT32			uiMoveTargetSoldierId = NOBODY;
-	SOLDIERTYPE								*pSoldier;
+	TacticalActor								*pSoldier;
 	static BOOLEAN		fOnValidGuy = FALSE;
 
 
@@ -1786,7 +1786,7 @@ void	QueryRTMButton( UINT32 *puiNewEvent )
 
 void	QueryRTWheels( UINT32 *puiNewEvent )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32		sMapPos=0;
 
 	gViewportRegion.WheelState = gViewportRegion.WheelState * ( gGameSettings.fOptions[TOPTION_INVERT_WHEEL] ? -1 : 1 );
@@ -2122,7 +2122,7 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 				if (gGameExternalOptions.fCanJumpThroughWindows == TRUE )
 				{
 					INT8	bDirection;
-			       	SOLDIERTYPE *lSoldier;
+					TacticalActor *lSoldier;
 
                     if ( GetSoldier( &lSoldier, gusSelectedSoldier ) )
 					{
@@ -2138,7 +2138,7 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 			else if (_KeyDown( ALT ) )
 			{
 				// Climb on roofs
-				SOLDIERTYPE *pjSoldier;
+				TacticalActor *pjSoldier;
 				if ( GetSoldier( &pjSoldier, gusSelectedSoldier ) )
 				{
 					BOOLEAN	fNearHeigherLevel;
@@ -2202,7 +2202,7 @@ void HandleRTLook( UINT32 *puiNewEvent )
 void HandleRTJump( void )
 {
 	// Climb on roofs
-	SOLDIERTYPE *pjSoldier;
+	TacticalActor *pjSoldier;
 	if ( GetSoldier( &pjSoldier, gusSelectedSoldier ) )
 	{
 		BOOLEAN	fNearHeigherLevel;
@@ -2244,7 +2244,7 @@ void HandleRTJumpThroughWindow( void )
 	if (gGameExternalOptions.fCanJumpThroughWindows == TRUE )
 	{
 		INT8	bDirection;
-     	SOLDIERTYPE *lSoldier;
+		TacticalActor *lSoldier;
 
         if ( GetSoldier( &lSoldier, gusSelectedSoldier ) )
 		{

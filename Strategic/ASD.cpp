@@ -1162,7 +1162,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 		// this requires an armed SAM in the first place. The mercs have to be in the heli's sector or adjacent to it
 		// sleeping or travelling mercs are excluded
 		UINT16 uiCnt = 0;
-		SOLDIERTYPE* pSoldier = NULL;
+		TacticalActor* pSoldier = NULL;
 
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{

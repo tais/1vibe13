@@ -19,7 +19,7 @@
 #include "SoldierRepository.h"
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 // from strategic
@@ -33,7 +33,7 @@ extern INT16 DirYIncrementer[8];
 // GoAsFarAsPossibleTowards - C.O. stuff related to current animation esp first aid
 // SetCivilianDestination - C.O. stuff for if we don't control the civ
 
-int LegalNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubPathMode, UINT8 ubWaterOK, UINT8 fFlags)
+int LegalNPCDestination(TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubPathMode, UINT8 ubWaterOK, UINT8 fFlags)
 {
 	BOOLEAN fSkipTilesWithMercs;
 
@@ -119,7 +119,7 @@ int LegalNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubPathMode, 
 	return(FALSE);			// illegal destination
 }
 
-int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
+int TryToResumeMovement(TacticalActor *pSoldier, INT32 sGridNo)
 {
 	UINT8 ubGottaCancel = FALSE;
 	UINT8 ubSuccess = FALSE;
@@ -241,7 +241,7 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 
 
 
-INT32 NextPatrolPoint(SOLDIERTYPE *pSoldier)
+INT32 NextPatrolPoint(TacticalActor *pSoldier)
 {
  // patrol slot 0 is UNUSED, so max patrolCnt is actually only 9
  if ((pSoldier->aiPlanning().patrolCount() < 1) || (pSoldier->aiPlanning().patrolCount() >= MAXPATROLGRIDS))
@@ -267,7 +267,7 @@ INT32 NextPatrolPoint(SOLDIERTYPE *pSoldier)
 
 
 
-INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
+INT8 PointPatrolAI(TacticalActor *pSoldier)
 {
  INT32 sPatrolPoint;
  INT8	bOldOrders;
@@ -344,7 +344,7 @@ INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
  return(TRUE);
 }
 
-INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
+INT8 RandomPointPatrolAI(TacticalActor *pSoldier)
 {
 #ifdef DEBUGDECISIONS
  STR16 tempstr;
@@ -436,7 +436,7 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 
 
 
-INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, INT16 bReserveAPs, INT8 bAction, INT8 fFlags )
+INT32 InternalGoAsFarAsPossibleTowards(TacticalActor *pSoldier, INT32 sDesGrid, INT16 bReserveAPs, INT8 bAction, INT8 fFlags )
 {
 #ifdef DEBUGDECISIONS
  STR16 tempstr;
@@ -749,12 +749,12 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	}
 }
 
-INT32 GoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, INT8 bAction)
+INT32 GoAsFarAsPossibleTowards(TacticalActor *pSoldier, INT32 sDesGrid, INT8 bAction)
 {
 	return( InternalGoAsFarAsPossibleTowards( pSoldier, sDesGrid, -1, bAction, 0 ) );
 }
 
-void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
+void SoldierTriesToContinueAlongPath(TacticalActor *pSoldier)
 {
 	INT32 usNewGridNo,bAPCost;
 
@@ -859,7 +859,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 	}
 }
 
-void HaltMoveForSoldierOutOfPoints(SOLDIERTYPE *pSoldier)
+void HaltMoveForSoldierOutOfPoints(TacticalActor *pSoldier)
 {
 	// If a special move, ignore this!
 	if ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_SPECIALMOVE ) )
@@ -909,7 +909,7 @@ void SetCivilianDestination(SoldierID ubWho, INT32 sGridNo)
 		return;
 	}
 
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		GetJa2SoldierRepository().resolve(ubWho.i);
 	if ( !pSoldier )
 		return;
@@ -958,7 +958,7 @@ void SetCivilianDestination(SoldierID ubWho, INT32 sGridNo)
 
 #define RADIUS 3
 
-INT32 TrackScent( SOLDIERTYPE * pSoldier )
+INT32 TrackScent( TacticalActor * pSoldier )
 {
 	// This function returns the best gridno to go to based on the scent being followed,
 	// and the soldier (creature/animal)'s current direction (which is used to resolve
@@ -1078,7 +1078,7 @@ INT32 TrackScent( SOLDIERTYPE * pSoldier )
 }
 
 /*
-UINT16 RunAway( SOLDIERTYPE * pSoldier )
+UINT16 RunAway( TacticalActor * pSoldier )
 {
 	// "Run away! Run away!!!"
 	// This code should figure out which directions are safe for the enemy
@@ -1095,7 +1095,7 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 	INT32	iSector, iSectorX, iSectorY;
 	INT32 iNewSectorX, iNewSectorY, iNewSector;
 	INT32	iRunX, iRunY, iRunGridNo;
-	SOLDIERTYPE * pOpponent;
+	TacticalActor * pOpponent;
 
 	iSector = pSoldier->deployment().sectorX() + pSoldier->deployment().sectorY() * MAP_WORLD_X;
 

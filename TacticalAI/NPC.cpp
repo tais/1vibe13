@@ -62,7 +62,7 @@
 	
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 // WANNE - BMP: DONE!
 //SB: new .npc format
@@ -408,7 +408,7 @@ BOOLEAN EnsureQuoteFileLoaded( UINT8 ubNPC )
 			// make sure we're not trying to load NOPROFILE for some stupid reason
 			if ( ubNPC != NO_PROFILE )
 			{
-				SOLDIERTYPE * pNull = NULL;
+				TacticalActor * pNull = NULL;
 				pNull->vitals().health() = 0; // crash!
 			}
 #else
@@ -432,7 +432,7 @@ BOOLEAN EnsureQuoteFileLoaded( UINT8 ubNPC )
 		if ( gpNPCQuoteInfoArray[ubNPC][ 0 ].ubIdentifier[2] != '5')
 		{
 			// crash!
-			SOLDIERTYPE * pNull = NULL;
+			TacticalActor * pNull = NULL;
 			pNull->vitals().health() = 0;
 		}
 	}
@@ -761,7 +761,7 @@ void SetQuoteRecordAsUsed( UINT8 ubNPC, UINT8 ubRecord )
 
 INT32 CalcThreateningEffectiveness( UINT8 ubMerc )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	INT32					iStrength, iDeadliness;
 
 	// effective threat is 1/3 strength, 1/3 weapon deadliness, 1/3 leadership
@@ -842,7 +842,7 @@ INT32 GetEffectiveApproachValue( UINT8 usProfile, UINT8 usApproach, CHAR16* apSt
 	val *= approachfactor;
 
 	// Flugente: backgrounds
-	SOLDIERTYPE* pSoldier = FindSoldierByProfileID( usProfile, TRUE );
+	TacticalActor* pSoldier = FindSoldierByProfileID( usProfile, TRUE );
 
 	if ( pSoldier )
 	{
@@ -913,7 +913,7 @@ UINT8 CalcDesireToTalk( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach )
 		SoldierID id = GetSoldierIDFromMercID( ubMerc );
 		if ( id != NOBODY )
 		{
-			SOLDIERTYPE* merc =
+			TacticalActor* merc =
 				GetJa2SoldierRepository().resolve(id.i);
 			if ( DoesMercHavePersonality(
 				merc, CHAR_TRAIT_ASSERTIVE ) )
@@ -987,7 +987,7 @@ UINT8 NPCConsiderTalking( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, UINT8 ubRec
 	BOOLEAN								fQuoteFound = FALSE;
 	UINT32								uiDay;
 	UINT8									ubFirstQuoteRecord, ubLastQuoteRecord;
-	SOLDIERTYPE						*pSoldier=NULL;
+	TacticalActor						*pSoldier=NULL;
 
 	ubTalkDesire = ubQuote = 0;
 
@@ -1254,7 +1254,7 @@ UINT8 NPCConsiderReceivingItemFromMerc( UINT8 ubNPC, UINT8 ubMerc, OBJECTTYPE * 
 								/*
 								{
 
-									SOLDIERTYPE *					pSoldier;
+									TacticalActor *					pSoldier;
 									INT8									bMoney;
 									INT8									bEmptySlot;
 
@@ -1279,7 +1279,7 @@ UINT8 NPCConsiderReceivingItemFromMerc( UINT8 ubNPC, UINT8 ubMerc, OBJECTTYPE * 
 								else
 								{
 									// find Kingpin, if he's in his house, invoke the script to move him to the bar
-									SOLDIERTYPE *		pKingpin;
+									TacticalActor *		pKingpin;
 									//DBrot: More Rooms
 									//UINT8						ubKingpinRoom;
 									UINT16 usKingpinRoom;
@@ -1904,7 +1904,7 @@ void ResetOncePerConvoRecordsForAllNPCsInLoadedSector( void )
 void ReturnItemToPlayerIfNecessary( UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachData, NPCQuoteInfo * pQuotePtr )
 {
 	OBJECTTYPE  *		pObj;
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pSoldier;
 
 	// if the approach was changed, always return the item
 	// otherwise check to see if the record in question specified refusal
@@ -1931,10 +1931,10 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 	NPCQuoteInfo *				pNPCQuoteInfoArray=NULL;
 	MERCPROFILESTRUCT *		pProfile=NULL;
 	UINT8									ubLoop, ubQuoteNum, ubRecordNum;
-	SOLDIERTYPE *					pSoldier=NULL;
+	TacticalActor *					pSoldier=NULL;
 	UINT32								uiDay;
 	OBJECTTYPE *					pObj=NULL;
-	SOLDIERTYPE *					pNPC;
+	TacticalActor *					pNPC;
 	BOOLEAN								fAttemptingToGiveItem;
 
 	DebugQuestInfo(String("Converse: merc <%d> to NPC <%d> approach %d data %d", ubMerc, ubNPC, bApproach, (UINT32)uiApproachData));
@@ -2567,15 +2567,15 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 	}
 }
 
-INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc )
+INT32 NPCConsiderInitiatingConv( TacticalActor * pNPC, SoldierID * pubDesiredMerc )
 {
 	INT32		sMyGridNo, sDist, sDesiredMercDist = 100;
 	UINT8		ubNPC;
 	UINT16		ubMerc;
 	SoldierID	ubDesiredMerc = NOBODY;
 	UINT8		ubTalkDesire, ubHighestTalkDesire = 0;
-	SOLDIERTYPE *		pMerc;
-	SOLDIERTYPE *		pDesiredMerc = NULL;
+	TacticalActor *		pMerc;
+	TacticalActor *		pDesiredMerc = NULL;
 	NPCQuoteInfo *	pNPCQuoteInfoArray;
 
 	CHECKF( pubDesiredMerc );
@@ -2652,13 +2652,13 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 	}
 }
 
-UINT8 NPCTryToInitiateConv( SOLDIERTYPE * pNPC )
+UINT8 NPCTryToInitiateConv( TacticalActor * pNPC )
 { // assumes current action is ACTION_APPROACH_MERC
 	if (pNPC->aiPlanning().action() != AI_ACTION_APPROACH_MERC)
 	{
 		return( AI_ACTION_NONE );
 	}
-	SOLDIERTYPE* desiredMerc =
+	TacticalActor* desiredMerc =
 		GetJa2SoldierRepository().resolve(
 			pNPC->aiPlanning().actionData());
 	if (desiredMerc &&
@@ -2709,7 +2709,7 @@ BOOLEAN NPCOkToGiveItem( UINT8 ubNPC, UINT8 ubMerc, UINT16 usItem )
 	}
 }
 */
-void NPCReachedDestination( SOLDIERTYPE * pNPC, BOOLEAN fAlreadyThere )
+void NPCReachedDestination( TacticalActor * pNPC, BOOLEAN fAlreadyThere )
 {
 	// perform action or whatever after reaching our destination
 	UINT8		ubNPC;
@@ -2854,7 +2854,7 @@ void PCsNearNPC( UINT8 ubNPC )
 {
 	UINT8 ubLoop;
 	NPCQuoteInfo *				pNPCQuoteInfoArray;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	NPCQuoteInfo *				pQuotePtr;
 
 
@@ -2895,7 +2895,7 @@ BOOLEAN PCDoesFirstAidOnNPC( UINT8 ubNPC )
 {
 	UINT8 ubLoop;
 	NPCQuoteInfo *				pNPCQuoteInfoArray;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	NPCQuoteInfo *				pQuotePtr;
 
 	if (EnsureQuoteFileLoaded( ubNPC ) == FALSE)
@@ -2935,7 +2935,7 @@ void TriggerClosestMercWhoCanSeeNPC( UINT8 ubNPC, NPCQuoteInfo *pQuotePtr )
 	SoldierID	ubMercsInSector[CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS] = {}; //std::vector would probably be better here
 	UINT16	ubNumMercs = 0;
 	UINT16	ubChosenMerc;
-	SOLDIERTYPE *pTeamSoldier, *pSoldier;
+	TacticalActor *pTeamSoldier, *pSoldier;
 
 	// First get pointer to NPC
 	pSoldier = FindSoldierByProfileID( ubNPC, FALSE );
@@ -3678,8 +3678,8 @@ void TriggerFriendWithHostileQuote( UINT8 ubNPC )
 {
 	UINT16 ubMercsAvailable[CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS] = { 0 };
 	UINT16 ubNumMercsAvailable = 0, ubChosenMerc;
-	SOLDIERTYPE * pTeamSoldier;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pTeamSoldier;
+	TacticalActor * pSoldier;
 	INT8 bTeam;
 
 	// First get pointer to NPC
@@ -3773,7 +3773,7 @@ UINT8 ActionIDForMovementRecord( UINT8 ubNPC, UINT8 ubRecord )
 	}
 }
 
-void HandleNPCChangesForTacticalTraversal( SOLDIERTYPE * pSoldier )
+void HandleNPCChangesForTacticalTraversal( TacticalActor * pSoldier )
 {
 	if ( !pSoldier || pSoldier->identity().profile() == NO_PROFILE || (pSoldier->aiBehavior().flags() & AI_CHECK_SCHEDULE) )
 	{
@@ -3907,13 +3907,13 @@ void ToggleNPCRecordDisplay( void )
 }
 #endif
 
-void UpdateDarrelScriptToGoTo( SOLDIERTYPE * pSoldier )
+void UpdateDarrelScriptToGoTo( TacticalActor * pSoldier )
 {
 	// change destination in Darrel record 10 to go to a gridno adjacent to the
 	// soldier's gridno, and destination in record 11
 	INT32 sAdjustedGridNo;
 	UINT8 ubDummyDirection;
-	SOLDIERTYPE *		pDarrel;
+	TacticalActor *		pDarrel;
 
 	pDarrel = FindSoldierByProfileID( DARREL, FALSE );
 	if ( !pDarrel )

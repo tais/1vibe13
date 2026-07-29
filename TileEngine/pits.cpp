@@ -209,7 +209,7 @@ void SearchForOtherMembersWithinPitRadiusAndMakeThemFall( INT32 sGridNo, INT16 s
 {
 	INT32 x, y, sNewGridNo;
 	SoldierID	ubID;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 
 	PlayJA2Sample( CAVE_COLLAPSE, RATE_11025, SoundVolume( HIGHVOLUME, sGridNo ), 1, SoundDir( sGridNo ) );
@@ -245,7 +245,7 @@ void SearchForOtherMembersWithinPitRadiusAndMakeThemFall( INT32 sGridNo, INT16 s
 
 void HandleFallIntoPitFromAnimation( SoldierID ubID )
 {
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		GetJa2SoldierRepository().resolve(ubID.i);
 	if (!pSoldier)
 	{

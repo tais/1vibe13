@@ -250,7 +250,7 @@ void ValidateWeights( INT32 iID );
 void ValidateGroup( GROUP *pGroup );
 void ValidateLargeGroup( GROUP *pGroup );
 
-extern BOOLEAN TeleportSoldier( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fForce );
+extern BOOLEAN TeleportSoldier( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fForce );
 
 
 //The army composition defines attributes for the various garrisons.	The priority reflects how important the sector is
@@ -873,7 +873,7 @@ void ValidateLargeGroup( GROUP *pGroup )
 }
 
 #ifdef JA2BETAVERSION
-void RemovePlayersFromAllMismatchGroups( SOLDIERTYPE *pSoldier )
+void RemovePlayersFromAllMismatchGroups( TacticalActor *pSoldier )
 {
 	GROUP *pGroup, *pTempGroup = NULL;
 	PLAYERGROUP *pPlayer;
@@ -916,7 +916,7 @@ void ValidatePlayersAreInOneGroupOnly()
 	INT32 iNumErrors;
 	GROUP *pGroup, *pOtherGroup;
 	PLAYERGROUP *pPlayer;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	CHAR16 str[ 1024 ];
 	UINT8 ubGroupID;
 	//Go through each merc slot in the player team

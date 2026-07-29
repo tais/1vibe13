@@ -512,7 +512,7 @@ void UpdateTownLoyaltyBasedOnFriendliesInTown( INT8 bTownId )
 {
 	// check if valid town
 	INT32 iUnderControl = 0;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 iCounter = 0;
 	INT32 iSoldierCount = 0;
 	INT32 iLocalNPCBonus = 0;
@@ -671,13 +671,13 @@ void UpdateTownLoyaltyBasedOnBadGuysInTown( INT8 bTownId )
 
 
 
-void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
+void HandleMurderOfCivilian( TacticalActor *pSoldier, BOOLEAN fIntentional )
 {
 	// handle the impact on loyalty of the murder of a civilian
 	INT8 bTownId = 0;
 	INT32 iLoyaltyChange = 0;
 	INT8 bSeenState = 0;
-	SOLDIERTYPE *pCivSoldier = NULL;
+	TacticalActor *pCivSoldier = NULL;
 	UINT32 uiChanceFalseAccusal = 0;
 	INT8 bKillerTeam = 0;
 	BOOLEAN fIncrement = FALSE;
@@ -687,7 +687,7 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	{
 		return;
 	}
-	SOLDIERTYPE* pKiller =
+	TacticalActor* pKiller =
 		GetJa2SoldierRepository().resolve(pSoldier->combatResult().currentAttacker());
 	if (!pKiller)
 	{
@@ -994,7 +994,7 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 
 
 // check town and raise loyalty value for hiring a merc from a town...not a lot of a gain, but some
-void HandleTownLoyaltyForNPCRecruitment( SOLDIERTYPE *pSoldier )
+void HandleTownLoyaltyForNPCRecruitment( TacticalActor *pSoldier )
 {
 	INT8 bTownId = 0;
 	UINT32 uiLoyaltyValue = 0;
@@ -1019,7 +1019,7 @@ void HandleTownLoyaltyForNPCRecruitment( SOLDIERTYPE *pSoldier )
 }
 
 
-BOOLEAN HandleLoyaltyAdjustmentForRobbery( SOLDIERTYPE *pSoldier )
+BOOLEAN HandleLoyaltyAdjustmentForRobbery( TacticalActor *pSoldier )
 {
 	// not to be implemented at this time
 	return( FALSE );
@@ -1045,7 +1045,7 @@ BOOLEAN HandleLoyaltyAdjustmentForRobbery( SOLDIERTYPE *pSoldier )
 
 
 // handle loyalty adjustment for dmg inflicted on a building
-void HandleLoyaltyForDemolitionOfBuilding( SOLDIERTYPE *pSoldier, INT16 sPointsDmg )
+void HandleLoyaltyForDemolitionOfBuilding( TacticalActor *pSoldier, INT16 sPointsDmg )
 {
 	// find this soldier's team and decrement the loyalty rating for them and for the people who police the sector
 	// more penalty for the people who did it, a lesser one for those who should have stopped it
@@ -2123,7 +2123,7 @@ BOOLEAN DidFirstBattleTakePlaceInThisTown( INT8 bTownId )
 
 UINT32 PlayerStrength( void )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT32 uiStrength, uiTotal = 0;
 
 	for ( SoldierID ubLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; ubLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++ubLoop )
@@ -2144,7 +2144,7 @@ UINT32 PlayerStrength( void )
 
 UINT32 EnemyStrength( void )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	UINT32 uiStrength, uiTotal = 0;
 
 		for ( SoldierID ubLoop = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; ubLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++ubLoop )

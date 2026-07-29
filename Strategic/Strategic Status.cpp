@@ -141,7 +141,7 @@ BOOLEAN MercThinksBadReputationTooHigh( UINT8 ubProfileID )
 
 
 // only meaningful for already hired mercs
-BOOLEAN MercThinksHisMoraleIsTooLow( SOLDIERTYPE *pSoldier )
+BOOLEAN MercThinksHisMoraleIsTooLow( TacticalActor *pSoldier )
 {
 	INT8	bRepTolerance;
 	INT8	bMoraleTolerance;

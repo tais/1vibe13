@@ -34,7 +34,7 @@ struct TacticalTurnSnapshot
 	std::uint64_t serial = 0;
 };
 
-// Pointer-free view of one SOLDIERTYPE. Numeric team/profile/animation values
+// Pointer-free view of one TacticalActor. Numeric team/profile/animation values
 // remain adapter data so Core and package code never depend on legacy headers.
 struct TacticalActorSnapshot
 {

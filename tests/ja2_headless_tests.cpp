@@ -169,10 +169,10 @@ static_assert(
 	"legacy tactical-sector names must remain compiler-enforced read-only projections" );
 static_assert(
 	std::is_same<
-		decltype(std::declval<SOLDIERTYPE&>().inventory()),
+		decltype(std::declval<TacticalActor&>().inventory()),
 		SoldierInventory&>::value &&
 		std::is_same<
-			decltype(std::declval<const SOLDIERTYPE&>().inventory()),
+			decltype(std::declval<const TacticalActor&>().inventory()),
 			const SoldierInventory&>::value,
 	"live soldier inventories must remain privately owned behind typed accessors" );
 
@@ -223,7 +223,7 @@ class HeadlessOwnedAiPlan final : public AI::tactical::Plan
 {
 public:
 	HeadlessOwnedAiPlan(
-		SOLDIERTYPE* soldier, int& destructionCount, int& executionCount)
+		TacticalActor* soldier, int& destructionCount, int& executionCount)
 		: Plan(soldier),
 		  destructionCount_(destructionCount),
 		  executionCount_(executionCount)
@@ -2427,10 +2427,10 @@ int main( int, char** )
 		pVehicleList = &vehicleRecord;
 		ubNumberOfVehicles = 1;
 		gNewVehicle[0].iNewSeatingCapacities = 2;
-		SOLDIERTYPE vehicle;
+		TacticalActor vehicle;
 		vehicle.status().flags() |= SOLDIER_VEHICLE;
 		vehicle.vehicleState().tacticalVehicleId() = 0;
-		SOLDIERTYPE passenger;
+		TacticalActor passenger;
 		const bool acceptedBoundedCapacity =
 			GetVehicleSeatingCapacity( 0 ) == 2;
 		const bool rejectedLegacyEntrySeat =
@@ -3629,11 +3629,11 @@ int main( int, char** )
 			SimulationCommandSource::System } };
 		const TacticalWorldSession::Snapshot previousCommandWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
-		const SOLDIERTYPE previousCommandActor = soldierRepository.record( 0 );
-		SOLDIERTYPE& commandHostActor = soldierRepository.record( 0 );
+		const TacticalActor previousCommandActor = soldierRepository.record( 0 );
+		TacticalActor& commandHostActor = soldierRepository.record( 0 );
 		const TacticalEntityId previousCommandEntity =
 			GetJa2TacticalEntityId( 0 );
-		SOLDIERTYPE commandHostActorFixture;
+		TacticalActor commandHostActorFixture;
 		commandHostActorFixture.identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
 		commandHostActorFixture.identity().incarnation() = 0x12345678u;
 		commandHostActorFixture.roster().active() = TRUE;
@@ -3812,7 +3812,7 @@ int main( int, char** )
 		       compiledContext.commands().empty(),
 		       "safe-frame command host validates movement domains and journals stale move identities as discarded" );
 
-		SOLDIERTYPE detachedCommandActor;
+		TacticalActor detachedCommandActor;
 		detachedCommandActor.identity().id() = commandHostActor.identity().id();
 		detachedCommandActor.identity().incarnation() =
 			commandHostActor.identity().incarnation();
@@ -3955,7 +3955,7 @@ int main( int, char** )
 				commandHostActor.animationPlayback().state() ) &&
 			commandHostActor.animationCache().hitCount(
 				movingStanceSurface ) == 1;
-		const SOLDIERTYPE copiedCacheOwner = commandHostActor;
+		const TacticalActor copiedCacheOwner = commandHostActor;
 		const bool copiedCacheStartsEmpty =
 			copiedCacheOwner.animationCache().empty();
 		const bool repositoryRetainsSlotCache =
@@ -4737,7 +4737,7 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0,
 		       "receipt reserve saturation fixture drains all retained terminal results" );
 		(void)ReleaseJa2TacticalEntity( commandHostActor );
-		SOLDIERTYPE* const restoredCommandActor =
+		TacticalActor* const restoredCommandActor =
 			soldierRepository.replace( 0, previousCommandActor );
 		if ( previousCommandEntity.valid() && restoredCommandActor )
 			(void)AdoptJa2TacticalEntity( *restoredCommandActor );
@@ -4812,8 +4812,8 @@ int main( int, char** )
 		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 3 } ),
 		       "tactical world composition transfers pre-runtime state without a generation mirror" );
 
-		const SOLDIERTYPE previousWorldActor = soldierRepository.record( 0 );
-		SOLDIERTYPE& worldActor = soldierRepository.record( 0 );
+		const TacticalActor previousWorldActor = soldierRepository.record( 0 );
+		TacticalActor& worldActor = soldierRepository.record( 0 );
 		const TacticalEntityId previousWorldEntity =
 			GetJa2TacticalEntityId( 0 );
 		const TacticalWorldSession::Snapshot previousWorldSession =
@@ -4883,12 +4883,12 @@ int main( int, char** )
 			CaptureMilitiaControlTarget(
 				worldActorIdentity ) &&
 			ResolveMilitiaControlTarget() == &worldActor;
-		SOLDIERTYPE* consumedCallbackActor =
+		TacticalActor* consumedCallbackActor =
 			liveCallbackActor.consume();
 		Ja2TacticalEntityReference releasedCallbackActor;
 		const bool releasedCallbackCaptured =
 			releasedCallbackActor.capture( worldActorIdentity );
-		const SOLDIERTYPE detachedInventoryActor = worldActor;
+		const TacticalActor detachedInventoryActor = worldActor;
 		const bool detachedInventoryActorRejected =
 			!GetJa2TacticalEntityId( detachedInventoryActor ).valid() &&
 			!SetSMCurrentMerc(
@@ -5007,8 +5007,8 @@ int main( int, char** )
 		       replacementInventoryActorReleased &&
 		       callbackActorReadopted,
 		       "inventory UI producers retain exact actor identities and delayed consumers reject released or reused incarnations" );
-		SOLDIERTYPE& swapTarget = soldierRepository.record( 1 );
-		const SOLDIERTYPE previousSwapTarget = swapTarget;
+		TacticalActor& swapTarget = soldierRepository.record( 1 );
+		const TacticalActor previousSwapTarget = swapTarget;
 		const bool swapTargetInstalled =
 			soldierRepository.replace( 1, worldActor ) == &swapTarget;
 		swapTarget.identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
@@ -5161,7 +5161,7 @@ int main( int, char** )
 		pVehicleList = &vehicleRecord;
 		ubNumberOfVehicles = 1;
 		gNewVehicle[0].iNewSeatingCapacities = 5;
-		SOLDIERTYPE vehicleView;
+		TacticalActor vehicleView;
 		vehicleView.status().flags() |= SOLDIER_VEHICLE;
 		vehicleView.vehicleState().tacticalVehicleId() = 0;
 		const bool sparseVehiclePassengerSelection =
@@ -5925,7 +5925,7 @@ int main( int, char** )
 		       worldActor.vitals().health() == 75,
 		       "world unload invalidates publication and stale retry without mutating legacy state" );
 		(void)ReleaseJa2TacticalEntity( worldActor );
-		SOLDIERTYPE* const restoredWorldActor =
+		TacticalActor* const restoredWorldActor =
 			soldierRepository.replace( 0, previousWorldActor );
 		if ( previousWorldEntity.valid() && restoredWorldActor )
 			(void)AdoptJa2TacticalEntity( *restoredWorldActor );
@@ -7642,13 +7642,13 @@ int main( int, char** )
 
 	{
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().palette()),
+			decltype(std::declval<TacticalActor&>().palette()),
 			RenderPaletteBank&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().palette()),
+			decltype(std::declval<const TacticalActor&>().palette()),
 			const RenderPaletteBank&>);
 		static_assert(!std::is_base_of_v<
-			SOLDIERTYPE, LogicalBodyTypes::PaletteTable>);
+			TacticalActor, LogicalBodyTypes::PaletteTable>);
 
 		const std::size_t registryBefore = LegacyRenderPaletteCount();
 		PIXEL externalForcedShade[RenderPaletteBank::EntryCount]{};
@@ -7685,9 +7685,9 @@ int main( int, char** )
 			       moved.forcedShade() == externalForcedShade,
 			       "render palette bank moves transfer ownership and active aliases atomically" );
 
-			SOLDIERTYPE paletteOwner;
+			TacticalActor paletteOwner;
 			paletteOwner.palette() = original;
-			SOLDIERTYPE paletteClone = paletteOwner;
+			TacticalActor paletteClone = paletteOwner;
 			paletteClone.palette().base8()[0].peRed = 91;
 			paletteClone.palette().shade( 3 )[1] = 777;
 			paletteOwner.initialize();
@@ -7717,8 +7717,8 @@ int main( int, char** )
 	}
 
 	{
-		SOLDIERTYPE records[2];
-		SOLDIERTYPE* slots[2] = { nullptr, nullptr };
+		TacticalActor records[2];
+		TacticalActor* slots[2] = { nullptr, nullptr };
 		Ja2SoldierRepository repository(records, slots, 2);
 		CHECK( repository.capacity() == 2 &&
 		       repository.resolve(0) == nullptr &&
@@ -7743,7 +7743,7 @@ int main( int, char** )
 		       &GetJa2SoldierRepository() == &productionRepository,
 		       "soldier repository binding is independent and restores the composed application owner" );
 
-		SOLDIERTYPE source;
+		TacticalActor source;
 		source.identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
 		source.roster().active() = TRUE;
 		source.position().gridNo() = 4321;
@@ -7758,7 +7758,7 @@ int main( int, char** )
 		source.renderBindings().faceIndex() = 41;
 		source.renderBindings().levelNode() = sourceLevelNode;
 		source.renderBindings().animationTile() = sourceAnimationTile;
-		const SOLDIERTYPE detachedSource = source;
+		const TacticalActor detachedSource = source;
 		CHECK( detachedSource.renderBindings().faceIndex() == -1 &&
 		       detachedSource.renderBindings().levelNode() == nullptr &&
 		       detachedSource.renderBindings().animationTile() == nullptr &&
@@ -7776,7 +7776,7 @@ int main( int, char** )
 		records[1].aiPlan().adopt(new HeadlessOwnedAiPlan(
 			&records[1], repositoryPlanDestructions,
 			repositoryPlanExecutions));
-		SOLDIERTYPE* replaced = repository.replace(1, source);
+		TacticalActor* replaced = repository.replace(1, source);
 		CHECK( replaced == &records[1] &&
 		       records[1].position().gridNo() == 4321 &&
 		       records[1].vitals().health() == 73 &&
@@ -7870,63 +7870,63 @@ int main( int, char** )
 
 	{
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().identity()),
+			decltype(std::declval<TacticalActor&>().identity()),
 			SoldierIdentityComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().identity()),
+			decltype(std::declval<const TacticalActor&>().identity()),
 			const SoldierIdentityComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().roster()),
+			decltype(std::declval<TacticalActor&>().roster()),
 			SoldierRosterComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().roster()),
+			decltype(std::declval<const TacticalActor&>().roster()),
 			const SoldierRosterComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().vehicleState()),
+			decltype(std::declval<TacticalActor&>().vehicleState()),
 			SoldierVehicleStateComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().vehicleState()),
+			decltype(std::declval<const TacticalActor&>().vehicleState()),
 			const SoldierVehicleStateComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().featureFlags()),
+			decltype(std::declval<TacticalActor&>().featureFlags()),
 			SoldierFeatureFlagsComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().featureFlags()),
+			decltype(std::declval<const TacticalActor&>().featureFlags()),
 			const SoldierFeatureFlagsComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().keyRing()),
+			decltype(std::declval<TacticalActor&>().keyRing()),
 			SoldierKeyRingComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().keyRing()),
+			decltype(std::declval<const TacticalActor&>().keyRing()),
 			const SoldierKeyRingComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().pendingItem()),
+			decltype(std::declval<TacticalActor&>().pendingItem()),
 			SoldierPendingItemComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().pendingItem()),
+			decltype(std::declval<const TacticalActor&>().pendingItem()),
 			const SoldierPendingItemComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().aiPlan()),
+			decltype(std::declval<TacticalActor&>().aiPlan()),
 			SoldierAiPlanComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().aiPlan()),
+			decltype(std::declval<const TacticalActor&>().aiPlan()),
 			const SoldierAiPlanComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().frontArc()),
+			decltype(std::declval<TacticalActor&>().frontArc()),
 			SoldierFrontArcComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().frontArc()),
+			decltype(std::declval<const TacticalActor&>().frontArc()),
 			const SoldierFrontArcComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().strategicPath()),
+			decltype(std::declval<TacticalActor&>().strategicPath()),
 			SoldierStrategicPathComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().strategicPath()),
+			decltype(std::declval<const TacticalActor&>().strategicPath()),
 			const SoldierStrategicPathComponent&>);
 
 		int aiPlanDestructions = 0;
 		int aiPlanExecutions = 0;
-		SOLDIERTYPE aiPlanOwner;
+		TacticalActor aiPlanOwner;
 		aiPlanOwner.aiPlan().adopt(new HeadlessOwnedAiPlan(
 			&aiPlanOwner, aiPlanDestructions, aiPlanExecutions));
 		AI::tactical::PlanInputData aiPlanInput(false, gTacticalStatus);
@@ -7935,8 +7935,8 @@ int main( int, char** )
 		       aiPlanExecutions == 1 &&
 		       aiPlanDestructions == 0,
 		       "soldier AI-plan ownership executes an adopted modular plan" );
-		SOLDIERTYPE copiedAiPlanOwner = aiPlanOwner;
-		SOLDIERTYPE assignedAiPlanOwner;
+		TacticalActor copiedAiPlanOwner = aiPlanOwner;
+		TacticalActor assignedAiPlanOwner;
 		assignedAiPlanOwner.aiPlan().adopt(new HeadlessOwnedAiPlan(
 			&assignedAiPlanOwner, aiPlanDestructions, aiPlanExecutions));
 		assignedAiPlanOwner = aiPlanOwner;
@@ -7975,9 +7975,9 @@ int main( int, char** )
 		           movedRouteOwner.head() &&
 		       assignedRouteOwner.empty(),
 		       "soldier strategic-path owners deep-copy route nodes and transfer moves without aliases" );
-		SOLDIERTYPE copiedRouteSoldier;
+		TacticalActor copiedRouteSoldier;
 		copiedRouteSoldier.strategicPath().copyFrom(routeOwner.head());
-		SOLDIERTYPE routeSoldierClone = copiedRouteSoldier;
+		TacticalActor routeSoldierClone = copiedRouteSoldier;
 		routeSoldierClone.strategicPath().head()->uiEta = 8800;
 		copiedRouteSoldier.initialize();
 		CHECK( copiedRouteSoldier.strategicPath().empty() &&
@@ -7999,7 +7999,7 @@ int main( int, char** )
 		       frontArcLifecycle.gridNo(1) == 0,
 		       "soldier front-arc occluders bind and clear tile/grid pairs atomically" );
 
-		SOLDIERTYPE soldier;
+		TacticalActor soldier;
 		SoldierIdentityComponent& identity = soldier.identity();
 		identity.id() = SoldierID{ 37 };
 		identity.name()[0] = L'J';
@@ -8529,7 +8529,7 @@ int main( int, char** )
 		       soldier.vitals().health() == 75 &&
 		       soldier.vitals().breath() == 60,
 		       "soldier vitals component owns health, breath, and recovery state" );
-		const SOLDIERTYPE& constSoldier = soldier;
+		const TacticalActor& constSoldier = soldier;
 		CHECK( constSoldier.identity().id() == SoldierID{ 37 } &&
 		       constSoldier.identity().name()[0] == L'J' &&
 		       constSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'X' &&
@@ -9948,7 +9948,7 @@ int main( int, char** )
 		vitals.regenerationCounter() = -2;
 		vitals.regenerationBoostersUsedToday() = 3;
 		vitals.lastBleedGruntAt() = 12341;
-		SOLDIERTYPE copiedSoldier = soldier;
+		TacticalActor copiedSoldier = soldier;
 		const bool copiedSoldierInventoryIsIndependent =
 			copiedSoldier.inventory().coherent() &&
 			copiedSoldier.inventory().items().data() !=
@@ -11799,7 +11799,7 @@ int main( int, char** )
 	}
 
 	{
-		SOLDIERTYPE aiOwnedSoldier;
+		TacticalActor aiOwnedSoldier;
 		SoldierAiPlanningComponent& planning = aiOwnedSoldier.aiPlanning();
 		planning.lastAction() = -11;
 		planning.action() = 12;
@@ -11864,7 +11864,7 @@ int main( int, char** )
 		aiOwnedSoldier.turnState().interruptCounters()[0] = 27;
 		aiOwnedSoldier.turnState().interruptCounters()[MAX_NUM_SOLDIERS - 1] = 28;
 
-		const SOLDIERTYPE& constAiOwnedSoldier = aiOwnedSoldier;
+		const TacticalActor& constAiOwnedSoldier = aiOwnedSoldier;
 		CHECK( constAiOwnedSoldier.aiPlanning().lastAction() == -11 &&
 		       constAiOwnedSoldier.aiPlanning().action() == 12 &&
 		       constAiOwnedSoldier.aiPlanning().actionData() == 13001 &&
@@ -11929,7 +11929,7 @@ int main( int, char** )
 			       MAX_NUM_SOLDIERS - 1] == 28,
 		       "soldier awareness, perception, position, combat, and turn owners retain the former AI aggregate state" );
 
-		SOLDIERTYPE copiedAiOwnedSoldier = aiOwnedSoldier;
+		TacticalActor copiedAiOwnedSoldier = aiOwnedSoldier;
 		CHECK( copiedAiOwnedSoldier.aiPlanning().actionData() == 13001 &&
 		       copiedAiOwnedSoldier.aiBehavior().bypassToGreen() == 30 &&
 		       copiedAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 21 } &&
@@ -12384,7 +12384,7 @@ int main( int, char** )
 		for (UINT8 i = 0; i < SoldierFireControlComponent::SpreadTargetCapacity; ++i)
 			legacySoldier->sSpreadLocations[i] = 22001 + i;
 
-		SOLDIERTYPE convertedSoldier;
+		TacticalActor convertedSoldier;
 		convertedSoldier.vitals().healableInjury() = 900;
 		convertedSoldier.vitals().beginSurgery();
 		convertedSoldier.vitals().unregainableBreath() = 333;
@@ -13154,7 +13154,7 @@ int main( int, char** )
 		CHECK( runtime.quickItem.itemId == 0 && runtime.quickItem.slot == 0,
 		       "soldier quick-item runtime component resets retained UI state" );
 
-		SOLDIERTYPE boundSoldier;
+		TacticalActor boundSoldier;
 		boundSoldier.renderBindings().faceIndex() = 61;
 		boundSoldier.renderBindings().levelNode() =
 			reinterpret_cast<LEVELNODE*>(&runtime);
@@ -13300,8 +13300,8 @@ int main( int, char** )
 		const UINT8 previousVehicleCount = ubNumberOfVehicles;
 		Ja2SoldierRepository& productionRepository =
 			GetJa2SoldierRepository();
-		SOLDIERTYPE records[2];
-		SOLDIERTYPE* slots[2] = { nullptr, nullptr };
+		TacticalActor records[2];
+		TacticalActor* slots[2] = { nullptr, nullptr };
 		Ja2SoldierRepository repository(records, slots, 2);
 		repository.initializeSlots();
 		for( std::size_t slot = 0; slot < 2; ++slot )
@@ -13436,8 +13436,8 @@ int main( int, char** )
 	}
 
 	{
-		SOLDIERTYPE records[1];
-		SOLDIERTYPE* slots[1] = { nullptr };
+		TacticalActor records[1];
+		TacticalActor* slots[1] = { nullptr };
 		Ja2SoldierRepository repository(records, slots, 1);
 		repository.initializeSlots();
 		Ja2SoldierRepository& productionRepository =
@@ -13535,7 +13535,7 @@ int main( int, char** )
 		const UINT32 previousSaveVersion = guiCurrentSaveGameVersion;
 		guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
 
-		SOLDIERTYPE savedSoldier;
+		TacticalActor savedSoldier;
 		savedSoldier.identity().id() = SoldierID{ 47 };
 		savedSoldier.identity().name()[0] = L'S';
 		savedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] = L'R';
@@ -14093,7 +14093,7 @@ int main( int, char** )
 		const bool saved = output && savedSoldier.Save( output );
 		if ( output ) FileClose( output );
 
-		SOLDIERTYPE loadedSoldier;
+		TacticalActor loadedSoldier;
 		int staleLevelNodeStorage = 0;
 		int staleAnimationTileStorage = 0;
 		loadedSoldier.renderBindings().faceIndex() = 999;

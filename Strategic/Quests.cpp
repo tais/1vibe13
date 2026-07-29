@@ -105,7 +105,7 @@ BOOLEAN CheckForNewShipment( void )
 
 BOOLEAN CheckNPCWounded( UINT8 ubProfileID, BOOLEAN fByPlayerOnly )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// is the NPC is wounded at all?
 	pSoldier = FindSoldierByProfileID( ubProfileID, FALSE );
@@ -136,7 +136,7 @@ BOOLEAN CheckNPCWounded( UINT8 ubProfileID, BOOLEAN fByPlayerOnly )
 
 BOOLEAN CheckNPCInOkayHealth( UINT8 ubProfileID )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// is the NPC at better than half health?
 	pSoldier = FindSoldierByProfileID( ubProfileID, FALSE );
@@ -152,7 +152,7 @@ BOOLEAN CheckNPCInOkayHealth( UINT8 ubProfileID )
 
 BOOLEAN CheckNPCBleeding( UINT8 ubProfileID )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// the NPC is wounded...
 	pSoldier = FindSoldierByProfileID( ubProfileID, FALSE );
@@ -169,7 +169,7 @@ BOOLEAN CheckNPCBleeding( UINT8 ubProfileID )
 
 BOOLEAN CheckNPCWithin( UINT8 ubFirstNPC, UINT8 ubSecondNPC, UINT8 ubMaxDistance )
 {
-	SOLDIERTYPE * pFirstNPC, * pSecondNPC;
+	TacticalActor * pFirstNPC, * pSecondNPC;
 
 	pFirstNPC = FindSoldierByProfileID( ubFirstNPC, FALSE );
 	pSecondNPC = FindSoldierByProfileID( ubSecondNPC, FALSE );
@@ -183,7 +183,7 @@ BOOLEAN CheckNPCWithin( UINT8 ubFirstNPC, UINT8 ubSecondNPC, UINT8 ubMaxDistance
 BOOLEAN CheckGuyVisible( UINT16 ubNPC, UINT16 ubGuy )
 {
 	// NB ONLY WORKS IF ON DIFFERENT TEAMS
-	SOLDIERTYPE * pNPC, * pGuy;
+	TacticalActor * pNPC, * pGuy;
 
 	pNPC = FindSoldierByProfileID( ubNPC, FALSE );
 	pGuy = FindSoldierByProfileID( ubGuy, FALSE );
@@ -203,7 +203,7 @@ BOOLEAN CheckGuyVisible( UINT16 ubNPC, UINT16 ubGuy )
 
 BOOLEAN CheckNPCAt( UINT8 ubNPC, INT32 sGridNo )
 {
-	SOLDIERTYPE * pNPC;
+	TacticalActor * pNPC;
 
 	pNPC = FindSoldierByProfileID( ubNPC, FALSE );
 	if (!pNPC)
@@ -215,7 +215,7 @@ BOOLEAN CheckNPCAt( UINT8 ubNPC, INT32 sGridNo )
 
 BOOLEAN CheckNPCIsEnemy( UINT8 ubProfileID )
 {
-	SOLDIERTYPE * pNPC;
+	TacticalActor * pNPC;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
 	if (!pNPC)
@@ -240,9 +240,9 @@ BOOLEAN CheckNPCIsEnemy( UINT8 ubProfileID )
 	}
 }
 
-BOOLEAN CheckIfMercIsNearNPC( SOLDIERTYPE *pMerc, UINT8 ubProfileId )
+BOOLEAN CheckIfMercIsNearNPC( TacticalActor *pMerc, UINT8 ubProfileId )
 {
-	SOLDIERTYPE *		pNPC;
+	TacticalActor *		pNPC;
 	INT32 sGridNo;
 
 	// no merc nearby?
@@ -271,9 +271,9 @@ BOOLEAN CheckIfMercIsNearNPC( SOLDIERTYPE *pMerc, UINT8 ubProfileId )
 UINT32 NumWoundedMercsNearby( UINT8 ubProfileID )
 {
 	UINT32				bNumber = 0;
-	SOLDIERTYPE*		pSoldier;
+	TacticalActor*		pSoldier;
 
-	SOLDIERTYPE* pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
+	TacticalActor* pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
 	if (!pNPC)
 	{
 		return( FALSE );
@@ -302,8 +302,8 @@ UINT16 NumMercsNear( UINT8 ubProfileID, UINT8 ubMaxDist )
 {
 	UINT16 bNumber = 0;
 	UINT32 uiLoop;
-	SOLDIERTYPE *pNPC;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pNPC;
+	TacticalActor *pSoldier;
 	INT32 sGridNo;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
@@ -331,7 +331,7 @@ UINT16 NumMercsNear( UINT8 ubProfileID, UINT8 ubMaxDist )
 
 BOOLEAN CheckNPCIsEPC( UINT8 ubProfileID )
 {
-	SOLDIERTYPE *		pNPC;
+	TacticalActor *		pNPC;
 
 	if ( gMercProfiles[ ubProfileID ].bMercStatus == MERC_IS_DEAD )
 	{
@@ -348,7 +348,7 @@ BOOLEAN CheckNPCIsEPC( UINT8 ubProfileID )
 
 BOOLEAN CheckNPCIsRPC( UINT8 ubProfileID )
 {
-	SOLDIERTYPE *		pNPC;
+	TacticalActor *		pNPC;
 
 	if ( gMercProfiles[ ubProfileID ].bMercStatus == MERC_IS_DEAD )
 	{
@@ -365,7 +365,7 @@ BOOLEAN CheckNPCIsRPC( UINT8 ubProfileID )
 //DBrot: More Rooms
 BOOLEAN NPCInRoom( UINT8 ubProfileID, UINT16 usRoomID )
 {
-	SOLDIERTYPE *		pNPC;
+	TacticalActor *		pNPC;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
 	if ( !pNPC || (gusWorldRoomInfo[ pNPC->position().gridNo() ] != usRoomID) )
@@ -377,7 +377,7 @@ BOOLEAN NPCInRoom( UINT8 ubProfileID, UINT16 usRoomID )
 //DBrot: More Rooms
 BOOLEAN NPCInRoomRange( UINT8 ubProfileID, UINT16 usRoomID1, UINT16 usRoomID2 )
 {
-	SOLDIERTYPE *		pNPC;
+	TacticalActor *		pNPC;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
 	if ( !pNPC || (gusWorldRoomInfo[ pNPC->position().gridNo() ] < usRoomID1) || (gusWorldRoomInfo[ pNPC->position().gridNo() ] > usRoomID2) )
@@ -389,12 +389,12 @@ BOOLEAN NPCInRoomRange( UINT8 ubProfileID, UINT16 usRoomID1, UINT16 usRoomID2 )
 
 BOOLEAN PCInSameRoom( UINT8 ubProfileID )
 {
-	SOLDIERTYPE *		pNPC;
+	TacticalActor *		pNPC;
 	//DBrot: More Rooms
 	//UINT8						ubRoom;
 	UINT16 usRoom;
 	SoldierID		bLoop;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
 	if ( !pNPC )
@@ -421,8 +421,8 @@ BOOLEAN PCInSameRoom( UINT8 ubProfileID )
 
 BOOLEAN CheckTalkerStrong( void )
 {
-	SOLDIERTYPE* source = GetDialogueSourceSoldier();
-	SOLDIERTYPE* destination =
+	TacticalActor* source = GetDialogueSourceSoldier();
+	TacticalActor* destination =
 		GetDialogueDestinationSoldier();
 	if (source && source->roster().team() == gbPlayerNum)
 	{
@@ -438,8 +438,8 @@ BOOLEAN CheckTalkerStrong( void )
 
 BOOLEAN CheckTalkerFemale( void )
 {
-	SOLDIERTYPE* source = GetDialogueSourceSoldier();
-	SOLDIERTYPE* destination =
+	TacticalActor* source = GetDialogueSourceSoldier();
+	TacticalActor* destination =
 		GetDialogueDestinationSoldier();
 	if (source && source->roster().team() == gbPlayerNum &&
 		source->identity().profile() != NO_PROFILE)
@@ -457,8 +457,8 @@ BOOLEAN CheckTalkerFemale( void )
 
 BOOLEAN CheckTalkerUnpropositionedFemale( void )
 {
-	SOLDIERTYPE* source = GetDialogueSourceSoldier();
-	SOLDIERTYPE* destination =
+	TacticalActor* source = GetDialogueSourceSoldier();
+	TacticalActor* destination =
 		GetDialogueDestinationSoldier();
 	if (source && source->roster().team() == gbPlayerNum &&
 		source->identity().profile() != NO_PROFILE)
@@ -484,8 +484,8 @@ INT8 NumMalesPresent( UINT8 ubProfileID )
 {
 	INT8						bNumber = 0;
 	UINT32					uiLoop;
-	SOLDIERTYPE *		pNPC;
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pNPC;
+	TacticalActor *		pSoldier;
 	INT32 sGridNo;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
@@ -518,8 +518,8 @@ INT8 NumMalesPresent( UINT8 ubProfileID )
 BOOLEAN FemalePresent( UINT8 ubProfileID )
 {
 	UINT32					uiLoop;
-	SOLDIERTYPE *		pNPC;
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pNPC;
+	TacticalActor *		pSoldier;
 	INT32 sGridNo;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
@@ -551,7 +551,7 @@ BOOLEAN FemalePresent( UINT8 ubProfileID )
 
 BOOLEAN CheckPlayerHasHead( void )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	for ( SoldierID bLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; bLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++bLoop )
 	{
@@ -572,7 +572,7 @@ BOOLEAN CheckPlayerHasHead( void )
 
 BOOLEAN CheckNPCSector( UINT8 ubProfileID, INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	pSoldier = FindSoldierByProfileID( ubProfileID, TRUE );
 
@@ -599,7 +599,7 @@ BOOLEAN CheckNPCSector( UINT8 ubProfileID, INT16 sSectorX, INT16 sSectorY, INT8 
 BOOLEAN AIMMercWithin( INT32 sGridNo, INT16 sDistance )
 {
 	UINT32					uiLoop;
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pSoldier;
 
 	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
@@ -619,7 +619,7 @@ BOOLEAN AIMMercWithin( INT32 sGridNo, INT16 sDistance )
 
 BOOLEAN CheckNPCCowering( UINT8 ubProfileID )
 {
-	SOLDIERTYPE *		pNPC;
+	TacticalActor *		pNPC;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
 	if ( !pNPC )
@@ -646,7 +646,7 @@ UINT8 CountBartenders( void )
 
 BOOLEAN CheckNPCIsUnderFire( UINT8 ubProfileID )
 {
-	SOLDIERTYPE *		pNPC;
+	TacticalActor *		pNPC;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
 	if ( !pNPC )
@@ -658,7 +658,7 @@ BOOLEAN CheckNPCIsUnderFire( UINT8 ubProfileID )
 
 BOOLEAN NPCHeardShot( UINT8 ubProfileID )
 {
-	SOLDIERTYPE *		pNPC;
+	TacticalActor *		pNPC;
 
 	pNPC = FindSoldierByProfileID( ubProfileID, FALSE );
 	if ( !pNPC )
@@ -953,7 +953,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 		}
 		case FACT_SHANK_IN_SQUAD_BUT_NOT_SPEAKING:
 		{
-			SOLDIERTYPE* dialogueSource =
+			TacticalActor* dialogueSource =
 				GetDialogueSourceSoldier();
 			gubFact[usFact] = ( ( FindSoldierByProfileID( SHANK, TRUE ) != NULL) && ( gMercProfiles[ SHANK ].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) && ( dialogueSource == NULL || dialogueSource->identity().profile() != SHANK ) );
 			break;
@@ -995,7 +995,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 		case FACT_DYNAMO_SPEAKING_OR_NEARBY:
 		{
-			SOLDIERTYPE* dialogueSource =
+			TacticalActor* dialogueSource =
 				GetDialogueSourceSoldier();
 			gubFact[usFact] = ( dialogueSource != NULL && (dialogueSource->identity().profile() == DYNAMO || ( CheckNPCWithin( dialogueSource->identity().profile(), DYNAMO, 10 ) && CheckGuyVisible( dialogueSource->identity().profile(), DYNAMO ) ) ) );
 			break;
@@ -1105,7 +1105,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 
 		case FACT_SPEAKER_AIM_OR_AIM_NEARBY:
 		{
-			SOLDIERTYPE* dialogueDestination =
+			TacticalActor* dialogueDestination =
 				GetDialogueDestinationSoldier();
 			gubFact[usFact] = dialogueDestination &&
 				AIMMercWithin(
@@ -1232,7 +1232,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			// anv: added !BoxersAvailable, otherwise van Haussen would offer fight even when all boxers are dead
 			// silversurfer: additional fix - the check below failed when we killed all boxers because BoxersAvailable() returns 0 in this case.
 			// Added additional check for Kingpins location so that the three initial fights can be completed. As soon as Kingpin is gone the original check will apply again.
-			SOLDIERTYPE * pKingpin;
+			TacticalActor * pKingpin;
 			pKingpin = FindSoldierByProfileID( KINGPIN, FALSE );
 			if ( pKingpin )
 				gubFact[usFact] = ( gubQuest[ QUEST_KINGPIN_MONEY ] == QUESTINPROGRESS || gfBoxersResting || ( !BoxersAvailable() && PythSpacesAway(pKingpin->position().gridNo(), gModSettings.iKingpinRingTile) > 2 ) );// plus other conditions
@@ -1246,7 +1246,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 
 		case FACT_PC_HAS_CONRADS_RECRUIT_OPINION:
 		{
-			SOLDIERTYPE* dialogueDestination =
+			TacticalActor* dialogueDestination =
 				GetDialogueDestinationSoldier();
 			gubFact[usFact] = ( dialogueDestination && (CalcDesireToTalk( dialogueDestination->identity().profile(), gubSrcSoldierProfile, APPROACH_RECRUIT ) >= 50) );
 			break;
@@ -1263,7 +1263,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 
 		case FACT_SHANK_SPEAKING:
 		{
-			SOLDIERTYPE* dialogueSource =
+			TacticalActor* dialogueSource =
 				GetDialogueSourceSoldier();
 			gubFact[usFact] = ( dialogueSource && dialogueSource->identity().profile() == SHANK );
 			break;
@@ -1391,7 +1391,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 
 		case FACT_DYNAMO_NOT_SPEAKER:
 		{
-			SOLDIERTYPE* dialogueSource =
+			TacticalActor* dialogueSource =
 				GetDialogueSourceSoldier();
 			gubFact[usFact] = !( dialogueSource != NULL && (dialogueSource->identity().profile() == DYNAMO ) );
 			break;
@@ -1637,7 +1637,7 @@ void InternalEndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY, BOOLEAN fU
 
 		//Manuel
 		{
-			SOLDIERTYPE *pSoldier=NULL;
+			TacticalActor *pSoldier=NULL;
 
 			pSoldier = FindSoldierByProfileID( MANUEL_UB , TRUE ); //MANUEL
 
@@ -1816,7 +1816,7 @@ void GiveQuestRewardPoint( INT16 sQuestSectorX, INT16 sQuestsSectorY, INT8 bExpR
 
 	for ( SoldierID id = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; id <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++id )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if( pSoldier->roster().active() && pSoldier->vitals().health() >= CONSCIOUSNESS && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && pSoldier->identity().profile() != NO_PROFILE &&
 			pSoldier->deployment().sectorX() == sQuestSectorX && pSoldier->deployment().sectorY() == sQuestsSectorY && !pSoldier->deployment().isBetweenSectors() && pSoldier->roster().team() == gbPlayerNum &&
 			pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD && gMercProfiles[ pSoldier->identity().profile() ].ubBodyType != 21 ) // != ROBOTNOWEAPON )

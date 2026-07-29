@@ -667,7 +667,7 @@ static void sendDEATH(RPCParameters* p)
 // Hits & misses for the scoreboard. Unlike deaths (where the victim reports and the
 // struct carries an explicit attacker_team), a shot is reported by the FIRER's own
 // client -- it simulates its own bullet -- so the sender IS the attacker. ja2server
-// is stateless and can't deref the wire attacker id into a SOLDIERTYPE the way the
+// is stateless and can't deref the wire attacker id into a TacticalActor the way the
 // old in-game host did, so attribute the shot to the sender's scoreboard slot. That
 // slot (0-based) is exactly the death path's (attacker_team-1) row, so a player's
 // hits and kills accumulate together. A bullet hitting a structure/window/nothing is

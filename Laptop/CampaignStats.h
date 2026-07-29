@@ -186,7 +186,7 @@ public:
 	BOOLEAN		Save( HWFILE hFile );
 	BOOLEAN		Load( HWFILE hwFile );
 
-	void	AddStat( SOLDIERTYPE* pSoldier, UINT8 aType );
+	void	AddStat( TacticalActor* pSoldier, UINT8 aType );
 
 	STR16	GetAttackerDirString( BOOLEAN fAttacker );
 

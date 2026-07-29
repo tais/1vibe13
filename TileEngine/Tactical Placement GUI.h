@@ -4,7 +4,7 @@
 //#include "Soldier Control.h"
 //#include "mousesystem.h"
 typedef struct _MOUSE_REGION MOUSE_REGION;
-class SOLDIERTYPE;
+class TacticalActor;
 
 void InitTacticalPlacementGUI();
 void KillTacticalPlacementGUI();
@@ -20,8 +20,8 @@ extern BOOLEAN gfTacticalPlacementGUIActive;
 extern BOOLEAN gfEnterTacticalPlacementGUI;
 extern BOOLEAN gfTacticalPlacementGUIDirty;//dnl ch45 071009
 
-BOOLEAN IsTacticalPlacementSelectedSoldier( const SOLDIERTYPE *pSoldier );
-BOOLEAN IsTacticalPlacementHighlightedSoldier( const SOLDIERTYPE *pSoldier );
+BOOLEAN IsTacticalPlacementSelectedSoldier( const TacticalActor *pSoldier );
+BOOLEAN IsTacticalPlacementHighlightedSoldier( const TacticalActor *pSoldier );
 void ResetTacticalPlacementActorContexts( void );
 
 //Saved value.	Contains the last choice for future battles.

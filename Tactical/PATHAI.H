@@ -56,7 +56,7 @@ public:
 	AStarPathfinder			();
 	~AStarPathfinder		()	{ delete[] AStarData; AStarData = nullptr; }
 	static AStarPathfinder&	GetInstance();
-	int				GetPath	(SOLDIERTYPE *s ,
+	int				GetPath	(TacticalActor *s ,
 							INT32 dest,
 							INT8 ubLevel,
 							INT16 usMovementMode,
@@ -87,7 +87,7 @@ private:
 	UINT8	lastDir;
 	bool	startingLoop;
 
-	SOLDIERTYPE*	pSoldier;
+	TacticalActor*	pSoldier;
 	INT8	onRooftop;//aka ubLevel, not sure if this bool is logically reversed yet
 	bool	fNonSwimmer;
 	bool	fPathingForPlayer;
@@ -159,7 +159,7 @@ private:
 
 			//including THREATTYPE was a pain, so pass by value
 	int		CalcCoverValue	(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyAPsLeft,
-							INT32 myThreatsiOrigRange, INT32 myThreatssGridNo, SOLDIERTYPE* myThreatspOpponent,
+							INT32 myThreatsiOrigRange, INT32 myThreatssGridNo, TacticalActor* myThreatspOpponent,
 							INT32 myThreatsiValue, INT32 myThreatsiAPs, INT32 myThreatsiCertainty);
 
 	// status/cost are virtualized by the generation stamp: a node not touched in the
@@ -211,21 +211,21 @@ private:
 
 BOOLEAN InitPathAI( void );
 void ShutDownPathAI( void );
-INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget);
-INT32 UIPlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget);
-INT32 EstimatePlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget);
+INT32 PlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget);
+INT32 UIPlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget);
+INT32 EstimatePlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget);
 
 void ErasePath(char bEraseOldOne);
-INT32 FindBestPath(SOLDIERTYPE *s , INT32 sDestination, INT8 ubLevel, INT16 usMovementMode, INT8 bCopy, UINT8 fFlags );
+INT32 FindBestPath(TacticalActor *s , INT32 sDestination, INT8 ubLevel, INT16 usMovementMode, INT8 bCopy, UINT8 fFlags );
 void GlobalReachableTest( INT32 sStartGridNo );
 void GlobalItemsReachableTest( INT32 sStartGridNo1, INT32 sStartGridNo2 );
 void RoofReachableTest( INT32 sStartGridNo, UINT8 ubBuildingID );
 void LocalReachableTest( INT32 sStartGridNo, INT8 bRadius );
 
-UINT8 DoorTravelCost( SOLDIERTYPE * pSoldier, INT32 iGridNo, UINT8 ubMovementCost, BOOLEAN fReturnPerceivedValue, INT32 * piDoorGridNo );
-UINT8 InternalDoorTravelCost( SOLDIERTYPE * pSoldier, INT32 iGridNo, UINT8 ubMovementCost, BOOLEAN fReturnPerceivedValue, INT32 * piDoorGridNo, BOOLEAN fReturnDoorCost );
+UINT8 DoorTravelCost( TacticalActor * pSoldier, INT32 iGridNo, UINT8 ubMovementCost, BOOLEAN fReturnPerceivedValue, INT32 * piDoorGridNo );
+UINT8 InternalDoorTravelCost( TacticalActor * pSoldier, INT32 iGridNo, UINT8 ubMovementCost, BOOLEAN fReturnPerceivedValue, INT32 * piDoorGridNo, BOOLEAN fReturnDoorCost );
 
-INT16 RecalculatePathCost( SOLDIERTYPE *pSoldier, UINT16 usMovementMode );
+INT16 RecalculatePathCost( TacticalActor *pSoldier, UINT16 usMovementMode );
 
 //dnl ch50 071009
 // ABSOLUTE maximums

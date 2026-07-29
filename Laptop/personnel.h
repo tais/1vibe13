@@ -63,16 +63,16 @@ void RenderPersonnel();
 // add character to:
 
 // leaving for odd reasons
-void AddCharacterToOtherList( SOLDIERTYPE *pSoldier );
+void AddCharacterToOtherList( TacticalActor *pSoldier );
 
 // killed and removed
-void AddCharacterToDeadList( SOLDIERTYPE *pSoldier );
+void AddCharacterToDeadList( TacticalActor *pSoldier );
 
 // simply fired...but alive
-void AddCharacterToFiredList( SOLDIERTYPE *pSoldier );
+void AddCharacterToFiredList( TacticalActor *pSoldier );
 
 // get the total amt of money on this guy
-INT32 GetFundsOnMerc( SOLDIERTYPE *pSoldier );
+INT32 GetFundsOnMerc( TacticalActor *pSoldier );
 
 BOOLEAN RemoveNewlyHiredMercFromPersonnelDepartedList( UINT8 ubProfile );
 

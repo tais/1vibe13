@@ -431,7 +431,7 @@ BOOLEAN DrawMercsFaceToScreen(UINT8 ubMercID, UINT16 usPosX, UINT16 usPosY, UINT
 {
 	HVOBJECT	hMugShotBorderHandle;
 	HVOBJECT	hFaceHandle;
-	SOLDIERTYPE	*pSoldier=NULL;
+	TacticalActor	*pSoldier=NULL;
 
 	//pSoldier = FindSoldierByProfileID( AimMercArray[ubMercID], TRUE );
 	pSoldier = FindSoldierByProfileID( AimMercArray[ubMercID + START_MERC], TRUE );

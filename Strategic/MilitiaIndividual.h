@@ -153,7 +153,7 @@ BOOLEAN GetMilitia( UINT32 aId, MILITIA* apMilitia );
 // update data
 void UpdateMilitia( MILITIA aMilitia );
 
-SOLDIERTYPE* GetUsedSoldierToIndividualMilitia( UINT32 aMilitiaId );
+TacticalActor* GetUsedSoldierToIndividualMilitia( UINT32 aMilitiaId );
 
 // apply tactical life ratio to militia health ratio
 void ApplyTacticalLifeRatioToMilitia();
@@ -168,7 +168,7 @@ UINT32 CreateRandomIndividualMilitia( UINT8 aMilitiaRank, UINT8 aOrigin, UINT8 a
 
 UINT32 CreateNewIndividualMilitia( UINT8 aMilitiaRank, UINT8 aOrigin, UINT8 aSector );
 
-UINT32 CreateNewIndividualMilitiaFromSoldier( SOLDIERTYPE* pSoldier, UINT8 aOrigin );
+UINT32 CreateNewIndividualMilitiaFromSoldier( TacticalActor* pSoldier, UINT8 aOrigin );
 
 UINT32 GetIdOfUnusedIndividualMilitia( UINT8 aSoldierClass, UINT8 aSector );
 
@@ -177,7 +177,7 @@ BOOLEAN GetIdOfIndividualMilitiaWithClassSector( UINT8 aSoldierClass, UINT8 aSec
 FLOAT PromoteIndividualMilitiaInSector( UINT8 aSector, FLOAT aPointsToAdd );
 
 // handle possible militia promotion and individual militia update
-void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve );
+void HandlePossibleMilitiaPromotion( TacticalActor* pSoldier, BOOLEAN aAutoResolve );
 
 void MoveIndividualMilitiaProfiles( UINT8 aSourceSector, UINT8 aTargetSector, UINT16 usGreens, UINT16 usRegulars, UINT16 usElites );
 

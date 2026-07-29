@@ -46,7 +46,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 extern	UINT8	gbPlayerNum;
@@ -86,7 +86,7 @@ UINT16 TotalVisitableSurfaceSectors( void );
 
 
 // give pSoldier usNumChances to improve ubStat.  If it's from training, it doesn't count towards experience level gain
-void StatChange(SOLDIERTYPE *pSoldier, UINT8 ubStat, UINT16 usNumChances, UINT8 ubReason)
+void StatChange(TacticalActor *pSoldier, UINT8 ubStat, UINT16 usNumChances, UINT8 ubReason)
 {
 	if (pSoldier == NULL || pSoldier->roster().active() == FALSE)
 		return;	// THIS SHOULD NEVER HAPPEN
@@ -439,7 +439,7 @@ void ProcessStatChange(MERCPROFILESTRUCT *pProfile, UINT8 ubStat, UINT16 usNumCh
 
 
 // convert hired mercs' stats subpoint changes into actual point changes where warranted
-void UpdateStats( SOLDIERTYPE *pSoldier, UINT8 ubReason )
+void UpdateStats( TacticalActor *pSoldier, UINT8 ubReason )
 {
 	ProcessUpdateStats( &( gMercProfiles[ pSoldier->identity().profile() ] ), pSoldier, ubReason );
 }
@@ -452,7 +452,7 @@ void ProfileUpdateStats( MERCPROFILESTRUCT *pProfile, UINT8 ubReason )
 }
 
 
-void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubStat, INT16 sPtsChanged, UINT8 ubReason )
+void ChangeStat( MERCPROFILESTRUCT *pProfile, TacticalActor *pSoldier, UINT8 ubStat, INT16 sPtsChanged, UINT8 ubReason )
 {
 	// this function changes the stat a given amount...
 	INT16 *psStatGainPtr = NULL;
@@ -836,7 +836,7 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 
 
 // pSoldier may be NULL!
-void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubReason )
+void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, TacticalActor *pSoldier, UINT8 ubReason )
 {
 	// this function will run through the soldier's profile and update their stats based on any accumulated gain pts.
 	UINT8 ubStat = 0;
@@ -1059,9 +1059,9 @@ void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UIN
 void HandleAnyStatChangesAfterAttack( void )
 {
   INT32 cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	auto& soldiers = GetJa2SoldierRepository();
-	SOLDIERTYPE* firstSoldier = soldiers.resolve(0);
+	TacticalActor* firstSoldier = soldiers.resolve(0);
 
 	// must check everyone on player's team, not just the shooter
 	for ( cnt = 0; cnt <= gTacticalStatus.Team[ firstSoldier->roster().team() ].bLastID; ++cnt )
@@ -1856,7 +1856,7 @@ void AwardExperienceBonusToActiveSquad( UINT8 ubExpBonusType )
 				soldierId <= gTacticalStatus.Team[ gbPlayerNum ].bLastID;
 				++soldierId)
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
 		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
 				 !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )

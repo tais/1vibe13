@@ -87,7 +87,7 @@ TacticalEntityId GetJa2StrategicSquadActor(
 	return roster ? roster->actor(slot) : TacticalEntityId{};
 }
 
-SOLDIERTYPE* ResolveJa2StrategicSquadActor(
+TacticalActor* ResolveJa2StrategicSquadActor(
 	std::size_t squad, std::size_t slot) noexcept
 {
 	return ResolveJa2TacticalEntity(

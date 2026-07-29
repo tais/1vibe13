@@ -1023,7 +1023,7 @@ UINT32 MiniGame_Handle_Tetris()
 								if ( gusSelectedSoldier != NOBODY )
 								{
 									// Set to current
-									SOLDIERTYPE* pSoldier = NULL;
+									TacticalActor* pSoldier = NULL;
 									GetSoldier( &pSoldier, gusSelectedSoldier );
 
 									if ( pSoldier )
@@ -1107,7 +1107,7 @@ UINT32 MiniGame_Handle_Tetris()
 								if ( gusSelectedSoldier != NOBODY )
 								{
 									// Set to current
-									SOLDIERTYPE* pSoldier = NULL;
+									TacticalActor* pSoldier = NULL;
 									GetSoldier( &pSoldier, gusSelectedSoldier );
 
 									if ( pSoldier )
@@ -1739,7 +1739,7 @@ UINT32 MiniGame_Handle_Pong()
 				if ( gPongBallsToUse > 3 && gusSelectedSoldier != NOBODY )
 				{
 					// Set to current
-					SOLDIERTYPE* pSoldier = NULL;
+					TacticalActor* pSoldier = NULL;
 					GetSoldier( &pSoldier, gusSelectedSoldier );
 
 					if ( pSoldier )
@@ -2015,7 +2015,7 @@ UINT32 MiniGame_Handle_Pong()
 				BOOLEAN foundplayer_3 = FALSE;
 				BOOLEAN foundplayer_4 = FALSE;
 				INT32 player1gridno = NOWHERE;
-				SOLDIERTYPE*		pSoldier = NULL;
+				TacticalActor*		pSoldier = NULL;
 				if ( gusSelectedSoldier != NOBODY )
 				{
 					GetSoldier( &pSoldier, gusSelectedSoldier );

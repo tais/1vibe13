@@ -96,9 +96,9 @@ VehicleSelection::Setup( UINT32 aVal )
 {
 	Destroy();
 
-	SOLDIERTYPE* pCurrentSoldier =
+	TacticalActor* pCurrentSoldier =
 		gVehicleMenuContext.actor.resolve();
-	SOLDIERTYPE* pCurrentVehicle =
+	TacticalActor* pCurrentVehicle =
 		gVehicleMenuContext.vehicle.resolve();
 	if ( pCurrentSoldier == NULL )
 	{
@@ -135,7 +135,7 @@ VehicleSelection::Setup( UINT32 aVal )
 		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Function_VehicleSelection, i ));
 
 		// if seat is already taken, grey it out
-		SOLDIERTYPE* seatPassenger =
+		TacticalActor* seatPassenger =
 			ResolveVehiclePassenger( bVehicleID, i );
 		if ( seatPassenger != NULL )
 		{
@@ -207,9 +207,9 @@ VehicleSelection::Functions( UINT32 aVal  )
 	UINT8 ubDirection;
 	INT16 sAPCost = 0;
 	INT32 sTempSelectedSoldier;
-	SOLDIERTYPE* pCurrentSoldier =
+	TacticalActor* pCurrentSoldier =
 		gVehicleMenuContext.actor.resolve();
-	SOLDIERTYPE* pCurrentVehicle =
+	TacticalActor* pCurrentVehicle =
 		gVehicleMenuContext.vehicle.resolve();
 
 	Cancel();

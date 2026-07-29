@@ -72,7 +72,7 @@ void ChooseLocationSpecificGearForSoldierCreateStruct( SOLDIERCREATE_STRUCT *pp 
 
 BOOLEAN PlaceObjectInSoldierCreateStruct( SOLDIERCREATE_STRUCT *pp, OBJECTTYPE *pObject );
 
-void AssignCreatureInventory( SOLDIERTYPE *pSoldier );
+void AssignCreatureInventory( TacticalActor *pSoldier );
 
 void ReplaceExtendedGuns( SOLDIERCREATE_STRUCT *pp, INT8 bSoldierClass );
 

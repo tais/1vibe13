@@ -23,7 +23,7 @@ namespace AI
         {
             private:
             public:
-                LegacyAIPlan(SOLDIERTYPE* npc);
+                LegacyAIPlan(TacticalActor* npc);
                 virtual void execute(PlanInputData& environment);
                 virtual bool done() const {return false;}
         };

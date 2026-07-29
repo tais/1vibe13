@@ -368,7 +368,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot );
 // MERC merc: Returns the amount of time the merc has worked
 // IMP merc:	Returns the amount of time the merc has worked
 // else:			returns -1
-INT32 CalcTimeLeftOnMercContract( SOLDIERTYPE *pSoldier );
+INT32 CalcTimeLeftOnMercContract( TacticalActor *pSoldier );
 
 
 // what state is the past merc in?
@@ -404,7 +404,7 @@ BOOLEAN fAddedTraitRegion[13] = { FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALS
 
 void AssignPersonnelCharacterTraitHelpText( UINT8 ubCharacterNumber );
 void AssignPersonnelDisabilityHelpText( UINT8 ubDisabilityNumber );
-void AssignPersonnelMultipleDisabilityHelpText( const SOLDIERTYPE* pSoldier );
+void AssignPersonnelMultipleDisabilityHelpText( const TacticalActor* pSoldier );
 void AssignPersonnelKillsHelpText( INT32 ubProfile );
 void AssignPersonnelAssistsHelpText( INT32 ubProfile );
 void AssignPersonnelHitPercentageHelpText( INT32 ubProfile );
@@ -414,7 +414,7 @@ void AssignPersonnelWoundsHelpText( INT32 ubProfile );
 INT8 CalculateMercsAchievementPercentage( INT32 ubProfile );
 
 // Flugente: personality info
-void AssignPersonalityHelpText( const SOLDIERTYPE* pSoldier, MOUSE_REGION* pMouseregion );
+void AssignPersonalityHelpText( const TacticalActor* pSoldier, MOUSE_REGION* pMouseregion );
 
 BOOLEAN fShowRecordsIfZero = TRUE;
 
@@ -519,7 +519,7 @@ void EnterPersonnel( void )
 
 	// Fill in the current team list
 	maxCurrentTeamIndex = -1;
-	SOLDIERTYPE *pTeamSoldier =
+	TacticalActor *pTeamSoldier =
 		GetJa2SoldierRepository().resolve(0);
 	if ( !pTeamSoldier )
 		return;
@@ -775,7 +775,7 @@ void RenderPersonnelStats( INT32 iId, INT32 iSlot )
 // -> bei departed Merc wird die MercId anstatt der fortlaufenden ID übergeben!!
 void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFired, BOOLEAN fOther )
 {
-	SOLDIERTYPE* activeSoldier =
+	TacticalActor* activeSoldier =
 		GetJa2SoldierRepository().resolve(iSlot);
 	// Get the profile id (from profileId or slotId)
 	INT32 profileId = iId;
@@ -1237,7 +1237,7 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 {
 	// get merc's nickName, assignment, and sector location info
 	INT16 sX, sY;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	CHAR16 sString[ 64 ];
 	CHAR16 sTownName[ 256 ];
 	INT8 bTownId =	-1;
@@ -1394,7 +1394,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 	CHAR16	apStr[5000];
 	CHAR16 sString[50];
 	INT16 sX, sY;
-	const SOLDIERTYPE *pSoldier =
+	const TacticalActor *pSoldier =
 		GetJa2SoldierRepository().resolve(iId.i);
 	if ( !pSoldier )
 		return;
@@ -2098,7 +2098,7 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 {
 	INT32 iCounter=0;
 	INT16 sX, sY;
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		GetJa2SoldierRepository().resolve(iId.i);
 	if ( !pSoldier )
 		return;
@@ -2477,12 +2477,12 @@ void CreateDestroyButtonsForPersonnelDepartures( void )
 
 INT32 GetNumberOfMercsOnPlayersTeam( void )
 {
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	INT32 cnt=0;
 	INT32 iCounter = 0;
 
 	// grab number on team
-	SOLDIERTYPE* pSoldier =
+	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(0);
 	if ( !pSoldier )
 		return 0;
@@ -2562,7 +2562,7 @@ void DisplayPicturesOfCurrentTeam( void )
 			return;
 		} // if
 
-		SOLDIERTYPE *pSoldier =
+		TacticalActor *pSoldier =
 			GetJa2SoldierRepository().resolve(
 				currentTeamList[currentOnSreenIndex].i);
 		if ( !pSoldier )
@@ -2623,7 +2623,7 @@ void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			currentTeamIndex = iPortraitId + currentTeamFirstIndex;
 			fReDrawScreenFlag = TRUE;
 			// if the selected merc is valid, and they are a POW, change to the inventory display
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				currentTeamIndex != -1
 					? GetJa2SoldierRepository().resolve(
 						currentTeamList[currentTeamIndex].i)
@@ -2674,7 +2674,7 @@ void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			guiSliderPosition = 0;
 
 			//if the selected merc is valid, and they are a POW, change to the inventory display
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				currentTeamIndex != -1
 					? GetJa2SoldierRepository().resolve(
 						currentTeamList[currentTeamIndex].i)
@@ -2750,7 +2750,7 @@ void DisplayInventoryForSelectedChar( void )
 void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 {
 	UINT8 ubCounter = 0;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT16 sIndex;
 	HVOBJECT hHandle;
 	ETRLEObject	*pTrav;
@@ -3048,7 +3048,7 @@ INT32 GetNumberOfInventoryItemsOnCurrentMerc( void )
 	if (!fCurrentTeamMode)
 		return( 0 );
 
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		GetJa2SoldierRepository().resolve(
 			currentTeamList[currentTeamIndex].i);
 	if ( !pSoldier )
@@ -3161,7 +3161,7 @@ INT32 GetTotalDailyCostOfCurrentTeam( void )
 {
 	// will return the total daily cost of the current team
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 cnt=0;
 	INT32 iCostOfTeam = 0;
 
@@ -3212,7 +3212,7 @@ INT32 GetLowestDailyCostOfCurrentTeam( void )
 {
 	// will return the lowest daily cost of the current team
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 cnt=0;
 	INT32 iLowest = 999999;
 //	INT32 iId =0;
@@ -3279,7 +3279,7 @@ INT32 GetHighestDailyCostOfCurrentTeam( void )
 {
 	// will return the lowest daily cost of the current team
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 cnt=0;
 	INT32 iHighest = 0;
 //	INT32 iId =0;
@@ -3384,7 +3384,7 @@ INT32 GetIdOfDepartedMercWithHighestStat( INT32 iStat )
 	INT8 bCurrentList = 0;
 	INT16 *bCurrentListValue = LaptopSaveInfo.ubDeadCharactersList;
 	BOOLEAN fNotDone = TRUE;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT32 uiLoopCounter;
 
 	// run through active soldiers
@@ -3546,7 +3546,7 @@ INT32 GetIdOfDepartedMercWithLowestStat( INT32 iStat )
 	INT8 bCurrentList = 0;
 	INT16 *bCurrentListValue = LaptopSaveInfo.ubDeadCharactersList;
 	BOOLEAN fNotDone = TRUE;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	UINT32 uiLoopCounter;
 
 	// run through active soldiers
@@ -3714,7 +3714,7 @@ SoldierID GetIdOfMercWithHighestStat( INT32 iStat )
 	// will return the id value of the merc on the players team with highest in this stat
 	INT32 iId = NOBODY;
 	INT32 iValue =0;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	INT32 cnt=0;
 
 	// run through active soldiers
@@ -3836,7 +3836,7 @@ SoldierID GetIdOfMercWithLowestStat( INT32 iStat )
 	// will return the id value of the merc on the players team with highest in this stat
 	SoldierID iId = NOBODY;
 	INT32 iValue =999999;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	INT32 cnt=0;
 
 	// run through active soldiers
@@ -3960,7 +3960,7 @@ INT32 GetAvgStatOfCurrentTeamStat( INT32 iStat )
 {
 	// will return the id value of the merc on the players team with highest in this stat
 	// -1 means error
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	INT32 cnt=0;
 	INT32 iTotalStatValue = 0;
 	INT8	bNumberOfPows = 0;
@@ -4336,7 +4336,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			SetFontForeground( PERS_TEXT_FONT_COLOR );
 		}
 
-		SOLDIERTYPE* currentSoldier =
+		TacticalActor* currentSoldier =
 			fCurrentTeamMode
 				? GetJa2SoldierRepository().resolve(iId.i)
 				: NULL;
@@ -4511,7 +4511,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			SetFontForeground( PERS_TEXT_FONT_COLOR );
 		}
 
-		SOLDIERTYPE* currentSoldier =
+		TacticalActor* currentSoldier =
 			fCurrentTeamMode
 				? GetJa2SoldierRepository().resolve(iId.i)
 				: NULL;
@@ -5611,7 +5611,7 @@ BOOLEAN DisplayHighLightBox( void )
 }
 
 // add to dead list
-void AddCharacterToDeadList( SOLDIERTYPE *pSoldier )
+void AddCharacterToDeadList( TacticalActor *pSoldier )
 {
 	for ( INT32 iCounter = 0; iCounter < 256; ++iCounter )
 	{
@@ -5633,7 +5633,7 @@ void AddCharacterToDeadList( SOLDIERTYPE *pSoldier )
 }
 
 
-void AddCharacterToFiredList( SOLDIERTYPE *pSoldier )
+void AddCharacterToFiredList( TacticalActor *pSoldier )
 {
 	for ( INT32 iCounter = 0; iCounter < 256; ++iCounter )
 	{
@@ -5654,7 +5654,7 @@ void AddCharacterToFiredList( SOLDIERTYPE *pSoldier )
 	}
 }
 
-void AddCharacterToOtherList( SOLDIERTYPE *pSoldier )
+void AddCharacterToOtherList( TacticalActor *pSoldier )
 {
 	for ( INT32 iCounter = 0; iCounter < 256; ++iCounter )
 	{
@@ -5912,7 +5912,7 @@ void PersonnelDataButtonCallback( GUI_BUTTON *btn, INT32 reason )
 	}
 }
 
-INT32 GetFundsOnMerc( SOLDIERTYPE *pSoldier )
+INT32 GetFundsOnMerc( TacticalActor *pSoldier )
 {
 	INT32 iCurrentAmount = 0;
 	UINT32 iCurrentPocket = 0;
@@ -5954,7 +5954,7 @@ void UpDateStateOfStartButton( void )
 			EnableButton( giPersonnelATMStartButton[ i ] );
 
 		SoldierID iId = currentTeamList[currentTeamIndex];
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(iId.i);
 
 		if (iId != NOBODY && soldier &&
@@ -5980,7 +5980,7 @@ void UpDateStateOfStartButton( void )
 void DisplayAmountOnCurrentMerc( void )
 {
 	// will display the amount that the merc is carrying on him or herself
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	std::wstring sString{};
 	INT16 sX, sY;
 
@@ -6042,7 +6042,7 @@ void HandlePersonnelKeyboard( void )
 						guiSliderPosition = 0;
 
 						//if the selected merc is valid, and they are a POW, change to the inventory display
-						SOLDIERTYPE* selectedSoldier =
+						TacticalActor* selectedSoldier =
 							currentTeamIndex != -1
 								? GetJa2SoldierRepository().resolve(
 									currentTeamList[currentTeamIndex].i)
@@ -6071,7 +6071,7 @@ void HandlePersonnelKeyboard( void )
 						guiSliderPosition = 0;
 
 						//if the selected merc is valid, and they are a POW, change to the inventory display
-						SOLDIERTYPE* selectedSoldier =
+						TacticalActor* selectedSoldier =
 							currentTeamIndex != -1
 								? GetJa2SoldierRepository().resolve(
 									currentTeamList[currentTeamIndex].i)
@@ -6227,7 +6227,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 		}
 	}
 
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		GetJa2SoldierRepository().resolve(iId.i);
 	if ( !pSoldier )
 		return;
@@ -6615,7 +6615,7 @@ DEF:3/19/99:
 // MERC merc: Returns the amount of time the merc has worked
 // IMP merc:	Returns the amount of time the merc has worked
 // else:			returns -1
-INT32 CalcTimeLeftOnMercContract( SOLDIERTYPE *pSoldier )
+INT32 CalcTimeLeftOnMercContract( TacticalActor *pSoldier )
 {
 	INT32 iTimeLeftOnContract = -1;
 
@@ -8020,7 +8020,7 @@ void AssignPersonnelDisabilityHelpText( UINT8 ubDisabilityNumber )
 	SetRegionHelpEndCallback( &gSkillTraitHelpTextRegion[6], MSYS_NO_CALLBACK );
 }
 
-void AssignPersonnelMultipleDisabilityHelpText( const SOLDIERTYPE* pSoldier )
+void AssignPersonnelMultipleDisabilityHelpText( const TacticalActor* pSoldier )
 {
 	CHAR16	apStr[1000];
 
@@ -8409,7 +8409,7 @@ void AssignPersonnelWoundsHelpText( INT32 ubProfile )
 
 INT8 CalculateMercsAchievementPercentage( INT32 ubProfile )
 {
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	UINT32 uiMercPoints, uiMercPercentage; 
 	unsigned long ulTotalMercPoints = 0;
 
@@ -8507,7 +8507,7 @@ INT8 CalculateMercsAchievementPercentage( INT32 ubProfile )
 }
 
 // Flugente: personality info
-void AssignPersonalityHelpText( const SOLDIERTYPE* pSoldier, MOUSE_REGION* pMouseregion )
+void AssignPersonalityHelpText( const TacticalActor* pSoldier, MOUSE_REGION* pMouseregion )
 {
 	CHAR16	apStr[ 4500 ];
 	CHAR16	atStr[  260 ];

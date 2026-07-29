@@ -28,7 +28,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 #ifdef JA2EDITOR
@@ -162,7 +162,7 @@ void DeleteSchedule( UINT8 ubScheduleID )
 void ProcessTacticalSchedule( UINT8 ubScheduleID )
 {
 	SCHEDULENODE *pSchedule;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 iScheduleIndex=0;
 	BOOLEAN fAutoProcess;
 
@@ -727,7 +727,7 @@ BOOLEAN SortSchedule( SCHEDULENODE *pSchedule )
 BOOLEAN BumpAnyExistingMerc( INT32 sGridNo ) 
 {
 	SoldierID	ubID;
-	SOLDIERTYPE *pSoldier; // NB this is the person already in the location,
+	TacticalActor *pSoldier; // NB this is the person already in the location,
 	INT32		sNewGridNo;
 	UINT8		ubDir;
 	INT16		sCellX, sCellY;
@@ -770,7 +770,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 	INT16						sCellX, sCellY;
 	INT32 sGridNo;
 	INT8						bDirection;
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pSoldier;
 
 	if ( gTacticalStatus.uiFlags & LOADING_SAVED_GAME )
 	{
@@ -898,7 +898,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 	}
 }
 
-void PostSchedule( SOLDIERTYPE *pSoldier )
+void PostSchedule( TacticalActor *pSoldier )
 {
 	UINT32 uiStartTime, uiEndTime;
 	INT32 i;
@@ -1076,7 +1076,7 @@ void PrepareScheduleForAutoProcessing( SCHEDULENODE *pSchedule, UINT32 uiStartTi
 
 //Leave at night, come back in the morning.	The time variances are a couple hours, so
 //the town doesn't turn into a ghost town in 5 minutes.
-void PostDefaultSchedule( SOLDIERTYPE *pSoldier )
+void PostDefaultSchedule( TacticalActor *pSoldier )
 {
 	INT32 i;
 	SCHEDULENODE *curr;
@@ -1207,7 +1207,7 @@ void PerformActionOnDoorAdjacentToGridNo( UINT8 ubScheduleAction, INT32 usGridNo
 
 //Assumes that a schedule has just been processed.	This takes the current time, and compares it to the
 //schedule, and looks for the next schedule action that would get processed and posts it.
-void PostNextSchedule( SOLDIERTYPE *pSoldier )
+void PostNextSchedule( TacticalActor *pSoldier )
 {
 	SCHEDULENODE *pSchedule;
 	INT32 i, iBestIndex;
@@ -1252,7 +1252,7 @@ void PostNextSchedule( SOLDIERTYPE *pSoldier )
 
 
 
-BOOLEAN ExtractScheduleEntryAndExitInfo( SOLDIERTYPE * pSoldier, UINT32 * puiEntryTime, UINT32 * puiExitTime )
+BOOLEAN ExtractScheduleEntryAndExitInfo( TacticalActor * pSoldier, UINT32 * puiEntryTime, UINT32 * puiExitTime )
 {
 	INT32			iLoop;
 	BOOLEAN		fFoundEntryTime = FALSE, fFoundExitTime = FALSE;
@@ -1297,7 +1297,7 @@ BOOLEAN ExtractScheduleEntryAndExitInfo( SOLDIERTYPE * pSoldier, UINT32 * puiEnt
 
 
 // This is for determining shopkeeper's opening/closing hours
-BOOLEAN ExtractScheduleDoorLockAndUnlockInfo( SOLDIERTYPE * pSoldier, UINT32 * puiOpeningTime, UINT32 * puiClosingTime )
+BOOLEAN ExtractScheduleDoorLockAndUnlockInfo( TacticalActor * pSoldier, UINT32 * puiOpeningTime, UINT32 * puiClosingTime )
 {
 	INT32			iLoop;
 	BOOLEAN		fFoundOpeningTime = FALSE, fFoundClosingTime = FALSE;
@@ -1401,7 +1401,7 @@ INT8 GetEmptyScheduleEntry( SCHEDULENODE *pSchedule )
 void ReconnectSchedules( void )
 {
 	UINT32						uiLoop;
-	SOLDIERTYPE *			pSoldier;
+	TacticalActor *			pSoldier;
 	SCHEDULENODE *		pSchedule;
 
 	for ( uiLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
@@ -1455,9 +1455,9 @@ void ReplaceSleepSpot( SCHEDULENODE * pSchedule, UINT16 usNewSpot )
 }
 
 
-void SecureSleepSpot( SOLDIERTYPE * pSoldier, UINT32 usSleepSpot )
+void SecureSleepSpot( TacticalActor * pSoldier, UINT32 usSleepSpot )
 {
-	SOLDIERTYPE *pSoldier2;
+	TacticalActor *pSoldier2;
 	UINT32		usSleepSpot2;
 	UINT16		uiLoop;
 	SCHEDULENODE *pSchedule;
@@ -1495,7 +1495,7 @@ void SecureSleepSpots( void )
 	// make sure no one else has the same sleep dest as another merc, and if they do
 	// move extras away!
 	UINT32						uiLoop;
-	SOLDIERTYPE *			pSoldier;
+	TacticalActor *			pSoldier;
 	SCHEDULENODE *		pSchedule;
 	UINT16						usSleepSpot;
 

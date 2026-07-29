@@ -41,13 +41,13 @@
 
 BOOLEAN gfSetPerceivedDoorState = FALSE;
 
-BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * pStructure, BOOLEAN fNoAnimations );
+BOOLEAN HandleDoorsOpenClose( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE * pStructure, BOOLEAN fNoAnimations );
 
 #ifdef JA2UB
 void HandleForceingTheTunnelGate( UINT32 sGridNo ); //Ja25 UB
 #endif
 
-void HandleDoorChangeFromGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fNoAnimations )
+void HandleDoorChangeFromGridNo( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fNoAnimations )
 {
 	STRUCTURE *			pStructure;
 	DOOR_STATUS *		pDoorStatus;
@@ -91,7 +91,7 @@ void HandleDoorChangeFromGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN f
 		pSoldier->HandleFlashLights();
 }
 
-UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 usAnimState )
+UINT16 GetAnimStateForInteraction( TacticalActor *pSoldier, BOOLEAN fDoor, UINT16 usAnimState )
 {
 	switch( usAnimState )
 	{
@@ -249,7 +249,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 }
 
 
-void InteractWithClosedDoor( SOLDIERTYPE *pSoldier, UINT8 ubHandleCode )
+void InteractWithClosedDoor( TacticalActor *pSoldier, UINT8 ubHandleCode )
 {
 	pSoldier->pendingAction().doorHandleCode() = ubHandleCode;
 
@@ -279,7 +279,7 @@ void InteractWithClosedDoor( SOLDIERTYPE *pSoldier, UINT8 ubHandleCode )
 
 }
 
-BOOLEAN DoTrapCheckOnStartingMenu( SOLDIERTYPE * pSoldier, DOOR * pDoor )
+BOOLEAN DoTrapCheckOnStartingMenu( TacticalActor * pSoldier, DOOR * pDoor )
 {
 	INT16	bDetectLevel;
 
@@ -300,7 +300,7 @@ BOOLEAN DoTrapCheckOnStartingMenu( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	return( FALSE );
 }
 
-void InteractWithOpenableStruct( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fDoor )
+void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fDoor )
 {
 	STRUCTURE *			pBaseStructure;
 	BOOLEAN					fDoMenu = FALSE;
@@ -427,12 +427,12 @@ void InteractWithOpenableStruct( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, U
 
 }
 
-void ProcessImplicationsOfPCMessingWithDoor( SOLDIERTYPE * pSoldier )
+void ProcessImplicationsOfPCMessingWithDoor( TacticalActor * pSoldier )
 {
 	//DBrot: More Rooms
 	//UINT8						ubRoom;
 	UINT16	usRoom;
-	SOLDIERTYPE *		pGoon;
+	TacticalActor *		pGoon;
 	// if player is hacking at a door in the brothel and a kingpin guy can see him
 	if ( (InARoom( pSoldier->position().gridNo(), &usRoom ) && IN_BROTHEL( usRoom )) || (gWorldSectorX == 5 && gWorldSectorY == MAP_ROW_D && gbWorldSectorZ == 0 && (pSoldier->position().gridNo() == gModSettings.iBrothelDoor1 || pSoldier->position().gridNo() == gModSettings.iBrothelDoor2 || pSoldier->position().gridNo() == gModSettings.iBrothelDoor3 ) ) )//11010,11177,11176
 	{
@@ -467,7 +467,7 @@ void ProcessImplicationsOfPCMessingWithDoor( SOLDIERTYPE * pSoldier )
 
 
 
-BOOLEAN HandleOpenableStruct( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE *pStructure )
+BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE *pStructure )
 {
 	BOOLEAN fHandleDoor = FALSE;
 	INT16		sAPCost = 0, sBPCost = 0;
@@ -1074,7 +1074,7 @@ BOOLEAN HandleOpenableStruct( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE *p
 }
 
 
-BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * pStructure, BOOLEAN fNoAnimations  )
+BOOLEAN HandleDoorsOpenClose( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE * pStructure, BOOLEAN fNoAnimations  )
 {
 	LEVELNODE *pShadowNode;
 	LEVELNODE *pNode;

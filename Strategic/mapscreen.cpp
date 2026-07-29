@@ -117,7 +117,7 @@
 #include "LuaInitNPCs.h"
 #endif
 
-std::vector<SOLDIERTYPE*> gSelectedSoldiers{};
+std::vector<TacticalActor*> gSelectedSoldiers{};
 
 // Flugente: militia movement
 
@@ -520,10 +520,10 @@ extern BOOLEAN gfDeductPoints;
 extern INT32 iLastHandPos;
 
 extern void CleanUpStack( OBJECTTYPE * pObj, OBJECTTYPE * pCursorObj );
-extern void SwapGoggles(SOLDIERTYPE *pTeamSoldier);
+extern void SwapGoggles(TacticalActor *pTeamSoldier);
 // HEADROCK HAM B2.8: Function to switch team's goggles uniformly
-extern void SwapGogglesUniformly(SOLDIERTYPE *pTeamSoldier, BOOLEAN fToNightVision);
-extern void InternalMAPBeginItemPointer( SOLDIERTYPE *pSoldier );
+extern void SwapGogglesUniformly(TacticalActor *pTeamSoldier, BOOLEAN fToNightVision);
+extern void InternalMAPBeginItemPointer( TacticalActor *pSoldier );
 extern BOOLEAN ValidSelectableCharForNextOrPrev(INT32 iNewCharSlot);
 
 
@@ -765,7 +765,7 @@ void HandleCharBarRender( void );
 // rebuild waypoints for selected character list
 void RebuildWayPointsForAllSelectedCharsGroups( void );
 
-extern BOOLEAN HandleNailsVestFetish( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 usReplaceItem );
+extern BOOLEAN HandleNailsVestFetish( TacticalActor *pSoldier, UINT32 uiHandPos, UINT16 usReplaceItem );
 
 BOOLEAN CharacterIsInTransitAndHasItemPickedUp( INT8 bCharacterNumber );
 
@@ -774,7 +774,7 @@ void InterruptTimeForMenus( void );
 // Pop Up Boxes
 void CreateAttributeBox( void );
 void CreateVehicleBox( void );
-void CreateContractBox( SOLDIERTYPE *pCharacter );
+void CreateContractBox( TacticalActor *pCharacter );
 void CreateContractBoxMultiSelect(INT32 DailySalaries, INT32 WeeklySalaries, INT32 BiweeklySalaries);
 void CreateAssignmentsBox( void );
 void CreateTrainingBox( void );
@@ -847,7 +847,7 @@ void InvmaskRegionBtnCallBack( MOUSE_REGION *pRegion, INT32 iReason );
 void TrashCanBtnCallback( MOUSE_REGION *pRegion, INT32 iReason);
 
 extern void KeyRingItemPanelButtonCallback( MOUSE_REGION *pRegion, INT32 iReason );
-extern BOOLEAN CanPlayerUseSectorInventory( SOLDIERTYPE *pSelectedSoldier );
+extern BOOLEAN CanPlayerUseSectorInventory( TacticalActor *pSelectedSoldier );
 
 // handle talking
 void HandleSpontanousTalking( void );
@@ -878,7 +878,7 @@ void DoneInventoryMapBtnCallback( GUI_BUTTON *btn,INT32 reason );
 // handle cursor for invenetory mode..update to object selected, if needed
 void HandleMapInventoryCursor( );
 void MAPEndItemPointer( );
-void MAPBeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos );
+void MAPBeginItemPointer( TacticalActor *pSoldier, UINT8 ubHandPos );
 
 // create/destroy inventory button as needed
 void CreateDestroyMapInvButton();
@@ -903,7 +903,7 @@ void UpDateStatusOfContractBox( void );
 void DrawMPPlayerList (); // OJW - 20081201
 
 // get which index in the mapscreen character list is this guy
-INT32 GetIndexForthis( SOLDIERTYPE *pSoldier );
+INT32 GetIndexForthis( TacticalActor *pSoldier );
 
 void CheckForAndRenderNewMailOverlay();
 
@@ -915,7 +915,7 @@ void CancelOrShortenPlottedPath( void );
 // HEADROCK HAM B2.8: Added argument to enable multi-selecting entire squads
 BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClickAssignments );
 
-INT32 GetContractExpiryTime( SOLDIERTYPE *pSoldier );
+INT32 GetContractExpiryTime( TacticalActor *pSoldier );
 
 INT32 GetGroundTravelTimeOfCharacter( INT8 bCharNumber );
 
@@ -948,10 +948,10 @@ void BullsEyeOrChopperSelectionPopupCallback( UINT8 ubExitValue );
 
 void WakeUpAnySleepingSelectedMercsOnFootOrDriving( void );
 
-void GetMapscreenMercAssignmentString( SOLDIERTYPE *pSoldier, CHAR16 sString[] );
-void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] );
-void GetMapscreenMercDestinationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] );
-void GetMapscreenMercDepartureString( SOLDIERTYPE *pSoldier, CHAR16 sString[], UINT8 *pubFontColor );
+void GetMapscreenMercAssignmentString( TacticalActor *pSoldier, CHAR16 sString[] );
+void GetMapscreenMercLocationString( TacticalActor *pSoldier, CHAR16 sString[] );
+void GetMapscreenMercDestinationString( TacticalActor *pSoldier, CHAR16 sString[] );
+void GetMapscreenMercDepartureString( TacticalActor *pSoldier, CHAR16 sString[], UINT8 *pubFontColor );
 
 void InitPreviousPaths( void );
 void RememberPreviousPathForAllSelectedChars( void );
@@ -971,12 +971,12 @@ void ChangeCharacterListSortMethod( INT32 iValue );
 void MapscreenMarkButtonsDirty();
 
 // Bob: functions for packing vehicles with filled LBE items
-void moveSectorInventoryToVehicle(SOLDIERTYPE *pSoldier);
-void fillCurrentSectorLBEItems(SOLDIERTYPE *pSoldier);
+void moveSectorInventoryToVehicle(TacticalActor *pSoldier);
+void fillCurrentSectorLBEItems(TacticalActor *pSoldier);
 void fillLBEWithSectorItems(OBJECTTYPE * LBEObject);
-void moveCurrentSectorItemsToVehicle(SOLDIERTYPE *pSoldier);
-bool placeItemInVehicle(SOLDIERTYPE *pSoldier, WORLDITEM &worldItem);
-bool placeItemInVehicle(SOLDIERTYPE *pSoldier, OBJECTTYPE &item);
+void moveCurrentSectorItemsToVehicle(TacticalActor *pSoldier);
+bool placeItemInVehicle(TacticalActor *pSoldier, WORLDITEM &worldItem);
+bool placeItemInVehicle(TacticalActor *pSoldier, OBJECTTYPE &item);
 
 extern BOOLEAN CanRedistributeMilitiaInSector( INT16 sClickedSectorX, INT16 sClickedSectorY, INT8 bClickedTownId );
 
@@ -996,7 +996,7 @@ void DumpItemsList( void );
 #endif
 
 
-BOOLEAN IsMercInActiveSector(SOLDIERTYPE * pSoldier)
+BOOLEAN IsMercInActiveSector(TacticalActor * pSoldier)
 {
 	if(pSoldier->deployment().sectorX() != sSelMapX)
 		return( FALSE );
@@ -2207,7 +2207,7 @@ void GlowTrashCan( void )
 
 void DrawFace( INT16 sCharNumber )
 {
-	SOLDIERTYPE	*pSoldier = NULL;
+	TacticalActor	*pSoldier = NULL;
 	static SoldierID sOldId = NOBODY;
 
 	// draws the face of the currently selected merc, being displayed int he upper left hand corner
@@ -2248,7 +2248,7 @@ void DrawFace( INT16 sCharNumber )
 
 void RenderHandPosItem( void )
 {
-	SOLDIERTYPE	*pSoldier = NULL;
+	TacticalActor	*pSoldier = NULL;
 	// renders the inventory item in char's right hand
 
 	// ARM: if already in the inventory panel, don't show the item again here, seeing it twice is confusing. Same for widescreen UI, where the inventory panel is always visible.
@@ -2357,7 +2357,7 @@ void DrawPay(INT16 sCharNumber)
 void DrawCharBars( void )
 {
 	SoldierID usSoldierID;
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 
 	// will draw the heath, morale and breath bars for a character being displayed in the upper left hand corner
 
@@ -2426,7 +2426,7 @@ void DrawCharStats( INT16 sCharNum )
 	CHAR16 sString[9];
 	INT16 usX, usY;
 	//HVOBJECT hCrossHandle;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[sCharNum].usSolID);
 
@@ -2802,7 +2802,7 @@ void DrawCharHealth( INT16 sCharNum )
 	UINT32 uiHealthPercent = 0;
 	CHAR16 sString[9];
 	INT16 usX, usY;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	const auto x = UI_CHARPANEL.Text.CurrentHitpoints.x;
 	const auto y = UI_CHARPANEL.Text.CurrentHitpoints.y;
 	const auto width = UI_CHARPANEL.Text.CurrentHitpoints.width;
@@ -2911,7 +2911,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	INT16 usMercProfileID;
 	INT32 iTimeRemaining=0;
 	INT32 iDailyCost = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	UINT32 uiArrivalTime;
 
 
@@ -3335,7 +3335,7 @@ void DisplayCharacterInfo( void )
 	// This section draws STRATEGIC info pages. Another section is in Interface Panels.cpp and draws TACTICAL info pages.
 	// The feature is toggled by Options-Menu switch, and its color is determined in the INI files.
 	{ 
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 	
 		UINT8	*pDestBuf;
 		UINT32 uiDestPitchBYTES = 0;
@@ -3561,7 +3561,7 @@ INT32 GetPathTravelTimeDuringPlotting( PathStPtr pPath )
 	else
 	{
 		// plotting for a character...
-		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
+		TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 
 		if( pSoldier->assignment().current() == VEHICLE )
 		{
@@ -3933,7 +3933,7 @@ void HighLightSleepLine()
 
 
 
-void AddCharacter( SOLDIERTYPE *pCharacter )
+void AddCharacter( TacticalActor *pCharacter )
 {
 	UINT16 usCount=0;
 	UINT16 usVehicleCount = 0, usVehicleLoop = 0;
@@ -4002,7 +4002,7 @@ void RemoveCharacter(UINT16 uiCharPosition)
 void LoadCharacters( void )
 {
 	UINT16 uiCount=0;
-	SOLDIERTYPE *pSoldier, *pTeamSoldier;
+	TacticalActor *pSoldier, *pTeamSoldier;
 	INT32 cnt=0;
 
 	pSoldier = GetJa2SoldierRepository().resolve(0);
@@ -4043,7 +4043,7 @@ void LoadCharacters( void )
 
 void DisplayCharacterList()
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT16 sCount=0;
 	UINT8 ubForegroundColor = 0;
 
@@ -5428,7 +5428,7 @@ UINT32 MapScreenHandle(void)
 
 		if( fEnterMapDueToContract == TRUE )
 		{
-			SOLDIERTYPE* contractRehireSoldier =
+			TacticalActor* contractRehireSoldier =
 				GetContractRehireSoldier();
 			if( contractRehireSoldier )
 			{
@@ -6267,7 +6267,7 @@ void DrawAssignment(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 	INT16 usX=0;
 	INT16 usY=0;
 	CHAR16 sString[32];
-	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[sCharNumber].usSolID);
+	TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[sCharNumber].usSolID);
 
 
 	GetMapscreenMercAssignmentString( pSoldier, sString );
@@ -7369,7 +7369,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						{
 							if ( bSelectedInfoChar != -1 )
 							{
-								SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
+								TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 								if ( pSoldier->inventory()[ HANDPOS ].exists() == true )
 								{
 									pSoldier->inventory()[ HANDPOS ][0]->data.objectStatus = 2;
@@ -7380,7 +7380,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						{
 							if ( bSelectedInfoChar != -1 )
 							{
-								SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
+								TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 								if ( pSoldier->inventory()[ HANDPOS ].exists() == true )
 								{
 									pSoldier->inventory()[ HANDPOS ].usItem = GUN_BARREL_EXTENDER;
@@ -7650,7 +7650,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					// temporary add soldiers to your list for equipment inspection and general testing
 					for(UINT32 ubLoop=0; ubLoop<Ja2ActiveTacticalActorSlotCount()&&gGameExternalOptions.fEnableInventoryPoolQ; ubLoop++)
 					{
-						SOLDIERTYPE* soldier =
+						TacticalActor* soldier =
 							ResolveJa2ActiveTacticalActorSlot(ubLoop);
 						if(soldier != NULL &&
 							soldier->roster().team() == ENEMY_TEAM &&
@@ -7822,7 +7822,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 				case 'E':
 					if(bSelectedInfoChar != -1)
 					{
-						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
+						TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 						pSoldier->roster().inSector() = FALSE;
 
 						//CHRISL: Try to update InSector value so we don't have to "activate" a sector
@@ -7949,7 +7949,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					// CTRL-F: Refuel vehicle
 					if( ( fCtrl ) && ( bSelectedInfoChar != -1 ) )
 					{
-						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
+						TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 						if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 						{
@@ -8023,7 +8023,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					// swap primary & secondary hand
 					if ( bSelectedInfoChar != -1 && fShowInventoryFlag && !AM_A_ROBOT( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID) ))
 					{
-						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
+						TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 						UINT16 usOldHandItem = pSoldier->inventory()[HANDPOS].usItem;
 						SwapHandItems( pSoldier );
 						
@@ -8059,7 +8059,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					//CHRISL: Swap gunsling
 					if ( bSelectedInfoChar != -1 && fShowInventoryFlag && UsingNewInventorySystem() == true )
 					{
-						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
+						TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 						if (fAlt)
 							// switch to knife, or from knife to gun
 							pSoldier->SwitchWeapons(TRUE);
@@ -8167,7 +8167,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 				case 'N':
 					if ( bSelectedInfoChar != -1 && fShowInventoryFlag )
 					{
-						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
+						TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 						SwapGoggles(pSoldier);
 					}
 					break;
@@ -8207,7 +8207,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						// ALT-P: Make the selected character a POW!
 						if( ( fAlt ) && ( bSelectedInfoChar != -1 ) )
 						{
-							SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
+							TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 							EnemyCapturesPlayerSoldier( pSoldier );
 
@@ -8342,7 +8342,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						{
 							INT16 sDeltaX, sDeltaY;
 							INT16 sPrevX = 0, sPrevY = 0;
-							SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
+							TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 
 							// can't teleport to where we already are
 							if ( ( sMapX == pSoldier->deployment().sectorX() ) && ( sMapY == pSoldier->deployment().sectorY() ) )
@@ -8506,7 +8506,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					{
 						if(bSelectedInfoChar != -1)
 						{
-							SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
+							TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 							//CHRISL: Try to update InSector value so we don't have to "activate" a sector
 							if (pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ && !pSoldier->deployment().isBetweenSectors())
@@ -9506,7 +9506,7 @@ void CreateDestroyMapInvButton()
 
 		if (bSelectedInfoChar != -1 && gCharactersList[bSelectedInfoChar].fValid)
 		{
-			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
+			TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 			if (!(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
 			{
 				InitInvSlotInterface(gMapScreenInvPocketXY, &gSCamoXY, MAPInvMoveCallback, MAPInvClickCallback, MAPInvMoveCamoCallback, MAPInvClickCamoCallback, FALSE);
@@ -9572,7 +9572,7 @@ void BltCharInvPanel()
 	UINT32 uiDestPitchBYTES;
 	PIXEL	*pDestBuf;
 	HVOBJECT hCharListHandle;
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	CHAR16 sString[ 32 ];
 	INT16 usX, usY;
 	UINT8 mapInvIndex = 0;
@@ -9987,7 +9987,7 @@ void MAPInvClickCamoCallback( MOUSE_REGION *pRegion, INT32 iReason )
 	{
 		// Apply camo ( if we have something in cursor... )
 		// If we do not have an item in hand, start moving it
-		SOLDIERTYPE* pSoldier = NULL;
+		TacticalActor* pSoldier = NULL;
 		if( (bSelectedInfoChar != -1) && (gCharactersList[bSelectedInfoChar].fValid == TRUE) )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
@@ -10037,7 +10037,7 @@ void MAPInvMoveCamoCallback( MOUSE_REGION *pRegion, INT32 iReason )
 // this is Map Screen's version of SMInvMoveCallback()
 void MAPInvMoveCallback( MOUSE_REGION *pRegion, INT32 iReason )
 {
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	UINT32 uiHandPos;
 
 
@@ -10092,7 +10092,7 @@ void MAPInvMoveCallback( MOUSE_REGION *pRegion, INT32 iReason )
 }
 
 // mapscreen wrapper to init the item description box
-BOOLEAN MAPInternalInitItemDescriptionBox( OBJECTTYPE *pObject, UINT8 ubStatusIndex, SOLDIERTYPE *pSoldier )
+BOOLEAN MAPInternalInitItemDescriptionBox( OBJECTTYPE *pObject, UINT8 ubStatusIndex, TacticalActor *pSoldier )
 {
 	BOOLEAN fRet;
 
@@ -10106,12 +10106,12 @@ BOOLEAN MAPInternalInitItemDescriptionBox( OBJECTTYPE *pObject, UINT8 ubStatusIn
 }
 
 //CHRISL: functons for LBENODE system
-extern BOOLEAN ChangeZipperStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus);
+extern BOOLEAN ChangeZipperStatus(TacticalActor *pSoldier, BOOLEAN newStatus);
 
 // this is Map Screen's version of SMInvClickCallback()
 void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 {
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	UINT32 uiHandPos;
 	UINT16 usOldItemIndex, usNewItemIndex, usCostToMoveItem = 0;
 	static BOOLEAN	fRightDown = FALSE;
@@ -10521,7 +10521,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 }
 
 
-void InternalMAPBeginItemPointer( SOLDIERTYPE *pSoldier )
+void InternalMAPBeginItemPointer( TacticalActor *pSoldier )
 {
 	// If not null return
 	if ( gpItemPointer != NULL )
@@ -10550,7 +10550,7 @@ void InternalMAPBeginItemPointer( SOLDIERTYPE *pSoldier )
 }
 
 
-void MAPBeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
+void MAPBeginItemPointer( TacticalActor *pSoldier, UINT8 ubHandPos )
 {
 
 	// If not null return
@@ -10631,7 +10631,7 @@ void MAPBeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
 }
 
 
-void MAPBeginKeyRingItemPointer( SOLDIERTYPE *pSoldier, UINT8 uiKeySlot )
+void MAPBeginKeyRingItemPointer( TacticalActor *pSoldier, UINT8 uiKeySlot )
 {
 	// If not null return
 	if ( gpItemPointer != NULL )
@@ -10686,7 +10686,7 @@ void HandleMapInventoryCursor()
 void RenderAttributeStringsForUpperLeftHandCorner( UINT32 uiBufferToRenderTo )
 {
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	if ( ( bSelectedInfoChar != - 1) && ( gCharactersList[ bSelectedInfoChar ].fValid ) )
@@ -10810,7 +10810,7 @@ void SetUpCursorForStrategicMap( void )
 			else	// yes - by character
 			{
 				// set cursor based on foot or vehicle
-				SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
+				TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 				if( ( pSoldier->assignment().current() != VEHICLE ) && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 				{
 					ChangeMapScreenMaskCursor( CURSOR_STRATEGIC_FOOT );
@@ -11345,7 +11345,7 @@ void ContractButtonCallback(GUI_BUTTON *btn,INT32 reason)
 void TeamListInfoRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 {
 	INT32 iValue = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	if( fLockOutMapScreenInterface || gfPreBattleInterfaceActive )
@@ -11500,7 +11500,7 @@ void TeamListInfoRegionMvtCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 {
 	INT32 iValue = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	if( fLockOutMapScreenInterface || gfPreBattleInterfaceActive )
@@ -11916,7 +11916,7 @@ void TeamListDestinationRegionMvtCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 void TeamListSleepRegionBtnCallBack( MOUSE_REGION *pRegion, INT32 iReason )
 {
 	INT32 iValue = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	if( fLockOutMapScreenInterface || gfPreBattleInterfaceActive )
@@ -12064,7 +12064,7 @@ static void HandleSelectedMercsContract()
 	INT32 DailySalaries = 0;
 	INT32 WeeklySalaries = 0;
 	INT32 BiweeklySalaries = 0;
-	SOLDIERTYPE* pSoldier = nullptr;
+	TacticalActor* pSoldier = nullptr;
 	gSelectedSoldiers.clear();
 
 	for (iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; ++iCounter)
@@ -12220,7 +12220,7 @@ void TeamListContractRegionMvtCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 
 
 
-INT32 GetIndexForthis( SOLDIERTYPE *pSoldier )
+INT32 GetIndexForthis( TacticalActor *pSoldier )
 {
 	INT32 iLastGuy;
 	INT32 iIndex = 0;
@@ -12660,7 +12660,7 @@ void CheckIfPlottingForCharacterWhileAirCraft( void )
 
 void ContractRegionBtnCallback( MOUSE_REGION *pRegion, INT32 iReason )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	// btn callback handler for contract region
 
@@ -12784,7 +12784,7 @@ void HandleShadingOfLinesForContractMenu( void )
 	Assert( CanExtendContractForCharSlot( bSelectedContractChar ) );
 
 	// grab the character
-	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedContractChar ].usSolID);
+	TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedContractChar ].usSolID);
 	const bool multipleMercsSelected = (gSelectedSoldiers.size() > 0) ? true : false;
 
 	bool atLeastOneAIMmerc = false;
@@ -12977,7 +12977,7 @@ void HandleChangeOfInfoChar( void )
 }
 
 
-void RebuildContractBoxForMerc( SOLDIERTYPE *pCharacter )
+void RebuildContractBoxForMerc( TacticalActor *pCharacter )
 {
 	// rebuild contractbox for this merc
 	RemoveBox( ghContractBox );
@@ -13303,7 +13303,7 @@ BOOLEAN CheckIfClickOnLastSectorInPath( INT16 sX, INT16 sY )
 			return( FALSE );
 		}
 
-		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
+		TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 
 		if ( CALCULATE_STRATEGIC_INDEX( sX, sY ) == GetLastSectorIdInCharactersPath( pSoldier ) )
 		{
@@ -13379,7 +13379,7 @@ void RebuildWayPointsForAllSelectedCharsGroups( void )
 	// rebuild the waypoints for everyone in the selected character list
 	INT32 iCounter = 0;
 	BOOLEAN fGroupIDRebuilt[ 256 ];
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT32 iVehicleId;
 	PathStPtr *ppMovePath = NULL;
 	UINT8 ubGroupId;
@@ -13675,7 +13675,7 @@ void UpDateStatusOfContractBox( void )
 	if( fShowContractMenu == TRUE )
 	{
 		ForceUpDateOfBox( ghContractBox );
-		SOLDIERTYPE* selectedSoldier = bSelectedInfoChar >= 0
+		TacticalActor* selectedSoldier = bSelectedInfoChar >= 0
 			? GetJa2SoldierRepository().resolve(
 				gCharactersList[ bSelectedInfoChar ].usSolID)
 			: nullptr;
@@ -13834,8 +13834,8 @@ void UpdateStatusOfMapSortButtons( void )
 INT16 GetLastValidCharacterInTeamPanelList( void )
 {
 	INT16 iCounter = 0, iValue = 0;
-	SOLDIERTYPE* pSoldier;
-	SOLDIERTYPE* pSelectedSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
+	TacticalActor* pSoldier;
+	TacticalActor* pSelectedSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 
 	// run through the list and find the last valid guy in the list
 	for( iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounter++ )
@@ -14349,7 +14349,7 @@ BOOLEAN CharacterIsInLoadedSectorAndWantsToMoveInventoryButIsNotAllowed( INT16 b
 
 	// get the soldier id
 	SoldierID usSoldierId = gCharactersList[ bCharId ].usSolID;
-	SOLDIERTYPE* pSoldier =
+	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(usSoldierId);
 	if (!pSoldier)
 		return( FALSE );
@@ -14724,9 +14724,9 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 	INT16 sEndSectorA, sEndSectorB;
 	INT32 iExpiryTime, iExpiryTimeA;
 	SoldierID uiID, uiIDA;
-	SOLDIERTYPE *pSelectedSoldier[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
-	SOLDIERTYPE *pCurrentSoldier = NULL;
-	SOLDIERTYPE *pPreviousSelectedInfoChar = NULL;
+	TacticalActor *pSelectedSoldier[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
+	TacticalActor *pCurrentSoldier = NULL;
+	TacticalActor *pPreviousSelectedInfoChar = NULL;
 
 
 	if ( fRetainSelectedMercs )
@@ -14792,10 +14792,10 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 					//if( ( wcscmp( GetJa2SoldierRepository().resolve(gCharactersList[ iCounterA ].usSolID)->name, GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->name ) > 0 ) && ( iCounterA < iCounter ) )
 					if( iCounterA < iCounter )
 					{
-						SOLDIERTYPE* first =
+						TacticalActor* first =
 							GetJa2SoldierRepository().resolve(
 								gCharactersList[ iCounterA ].usSolID);
-						SOLDIERTYPE* second =
+						TacticalActor* second =
 							GetJa2SoldierRepository().resolve(
 								gCharactersList[ iCounter ].usSolID);
 						if (!first || !second)
@@ -14818,10 +14818,10 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 					{
 						break;
 					}
-					SOLDIERTYPE* first =
+					TacticalActor* first =
 						GetJa2SoldierRepository().resolve(
 							gCharactersList[ iCounterA ].usSolID);
-					SOLDIERTYPE* second =
+					TacticalActor* second =
 						GetJa2SoldierRepository().resolve(
 							gCharactersList[ iCounter ].usSolID);
 					if (!first || !second)
@@ -14866,10 +14866,10 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 					{
 						break;
 					}
-					SOLDIERTYPE* first =
+					TacticalActor* first =
 						GetJa2SoldierRepository().resolve(
 							gCharactersList[ iCounterA ].usSolID);
-					SOLDIERTYPE* second =
+					TacticalActor* second =
 						GetJa2SoldierRepository().resolve(
 							gCharactersList[ iCounter ].usSolID);
 					if (!first || !second)
@@ -15141,7 +15141,7 @@ void HandleAssignmentsDoneAndAwaitingFurtherOrders( void )
 {
 	// run through list of grunts and handle awating further orders
 	INT32 iCounter = 0, iCurrentTime = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	// update "nothing to do" flags if necessary
@@ -15187,7 +15187,7 @@ void DisplayIconsForMercsAsleep( void )
 	// run throught he list of grunts to see who is asleep and who isn't
 	HVOBJECT hHandle;
 	INT32 iCounter;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	// if we are in inventory
 	if( fShowInventoryFlag == TRUE )
@@ -15259,7 +15259,7 @@ void CheckForAndRenderNewMailOverlay()
 
 BOOLEAN CanToggleSelectedCharInventory( void )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	if( gfPreBattleInterfaceActive == TRUE )
@@ -15312,7 +15312,7 @@ BOOLEAN CanToggleSelectedCharInventory( void )
 
 BOOLEAN MapCharacterHasAccessibleInventory( INT16 bCharNumber )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	//Assert( bCharNumber >= 0 );
 	//Assert( bCharNumber < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS );
@@ -15429,7 +15429,7 @@ BOOLEAN CanChangeDestinationForCharSlot( INT16 bCharNumber, BOOLEAN fShowErrorMe
 	if ( gCharactersList[ bCharNumber ].fValid == FALSE )
 		return (FALSE);
 
-	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
+	TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
 
 	// valid soldier?
 	Assert( pSoldier );
@@ -15462,7 +15462,7 @@ BOOLEAN CanExtendContractForCharSlot( INT16 bCharNumber )
 	if ( gCharactersList[ bCharNumber ].fValid == FALSE )
 		return (FALSE);
 
-	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
+	TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
 
 	// valid soldier?
 	Assert( pSoldier );
@@ -15504,7 +15504,7 @@ BOOLEAN CanChangeSleepStatusForCharSlot( INT16 bCharNumber )
 }
 
 
-BOOLEAN CanChangeSleepStatusForSoldier( SOLDIERTYPE *pSoldier )
+BOOLEAN CanChangeSleepStatusForSoldier( TacticalActor *pSoldier )
 {
 	// valid soldier?
 	Assert( pSoldier );
@@ -15659,8 +15659,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 						// if not already selected
 						if( fSelectedListOfMercsForMapScreen[ iCounter ] == FALSE )
 						{
-							SOLDIERTYPE * pSelected = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
-							SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
+							TacticalActor * pSelected = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
+							TacticalActor * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 							// if on a squad, or in a vehicle, or IS a vehicle
 							if ( pSoldier->assignment().current() == VEHICLE )
@@ -15714,8 +15714,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 						// if not already selected
 						if( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE )
 						{
-							SOLDIERTYPE * pSelected = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
-							SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
+							TacticalActor * pSelected = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
+							TacticalActor * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 							// if on a squad, or in a vehicle, or IS a vehicle
 							if ( pSoldier->assignment().current() == VEHICLE )
@@ -15796,7 +15796,7 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 }
 
 
-INT32 GetContractExpiryTime( SOLDIERTYPE *pSoldier )
+INT32 GetContractExpiryTime( TacticalActor *pSoldier )
 {
 #ifdef JA2UB
 /* JA25 UB  */
@@ -15918,7 +15918,7 @@ void ChangeSelectedInfoChar( INT16 bCharNumber, BOOLEAN fResetSelectedList )
 void CopyPathToAllSelectedCharacters( PathStPtr pPath )
 {
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	// run through list and copy paths for each selected character
@@ -15955,7 +15955,7 @@ void CopyPathToAllSelectedCharacters( PathStPtr pPath )
 void CancelPathsOfAllSelectedCharacters()
 {
 	INT16 bCounter = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	BOOLEAN fSkyriderMsgShown = FALSE;
 
 	// cancel destination for the clicked and ALL other valid & selected characters with a route set
@@ -16055,7 +16055,7 @@ INT32 GetGroundTravelTimeOfMilitia( )
 
 INT16 CalcLocationValueForChar( INT32 iCounter )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT16 sLocValue = 0;
 
 	Assert( iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS );
@@ -16094,7 +16094,7 @@ void CancelChangeArrivalSectorMode( )
 
 void MakeMapModesSuitableForDestPlotting( INT8 bCharNumber )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	if( gCharactersList[ bCharNumber ].fValid == TRUE )
 	{
@@ -16140,7 +16140,7 @@ void MakeMapModesSuitableForDestPlotting( INT8 bCharNumber )
 
 BOOLEAN AnyMovableCharsInOrBetweenThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	// to speed it up a little?
 	SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 	SoldierID iLastId = gTacticalStatus.Team[ OUR_TEAM ].bLastID;
@@ -16387,7 +16387,7 @@ void HandleNewDestConfirmation( INT16 sMapX, INT16 sMapY )
 
 void RandomAwakeSelectedMercConfirmsStrategicMove( void )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT32 iCounter;
 // WDS - make number of mercenaries, etc. be configurable
 	SoldierID	ubSelectedMercID[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
@@ -16654,7 +16654,7 @@ void BullsEyeOrChopperSelectionPopupCallback( UINT8 ubExitValue )
 // wake up anybody who needs to be awake to travel
 void WakeUpAnySleepingSelectedMercsOnFootOrDriving( void )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT32 iCounter;
 	BOOLEAN fSuccess = FALSE;
 
@@ -16722,7 +16722,7 @@ void HandlePostAutoresolveMessages()
 }
 
 
-void GetMapscreenMercAssignmentString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
+void GetMapscreenMercAssignmentString( TacticalActor *pSoldier, CHAR16 sString[] )
 {
 	if ( pSoldier->assignment().current() == VEHICLE )
 	{
@@ -16746,7 +16746,7 @@ void GetMapscreenMercAssignmentString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 }
 
 
-void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
+void GetMapscreenMercLocationString( TacticalActor *pSoldier, CHAR16 sString[] )
 {
 	CHAR16 pTempString[32];
 
@@ -16800,7 +16800,7 @@ void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 }
 
 
-void GetMapscreenMercDestinationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
+void GetMapscreenMercDestinationString( TacticalActor *pSoldier, CHAR16 sString[] )
 {
 	INT32 iSectorX, iSectorY;
 	INT16 sSector=0;
@@ -16861,7 +16861,7 @@ void GetMapscreenMercDestinationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] 
 }
 
 
-void GetMapscreenMercDepartureString( SOLDIERTYPE *pSoldier, CHAR16 sString[], UINT8 *pubFontColor )
+void GetMapscreenMercDepartureString( TacticalActor *pSoldier, CHAR16 sString[], UINT8 *pubFontColor )
 {
 	INT32 iMinsRemaining = 0;
 	INT32 iDaysRemaining = 0;
@@ -16950,7 +16950,7 @@ void InitPreviousPaths( void )
 void RememberPreviousPathForAllSelectedChars( void )
 {
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	for( iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounter++ )
 	{
@@ -16968,7 +16968,7 @@ void RememberPreviousPathForAllSelectedChars( void )
 void RestorePreviousPaths( void )
 {
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	PathStPtr *ppMovePath = NULL;
 	UINT8 ubGroupId = 0;
 	BOOLEAN fPathChanged = FALSE;
@@ -17159,7 +17159,7 @@ void SelectAllCharactersInSquad( INT8 bSquadNumber )
 {
 	INT16 bCounter;
 	BOOLEAN fFirstOne = TRUE;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	// ignore if that squad is empty
 	if( SquadIsEmpty( bSquadNumber ) == TRUE )
@@ -17403,7 +17403,7 @@ INT32 GetTotalContractExpenses ( void )
 	}
 
 	UINT8 ubCounter = 0;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 iTotalCost = 0;
 
 	while(gCharactersList[ubCounter].fValid)
@@ -17744,7 +17744,7 @@ BOOLEAN CanGiveStrategicMilitiaMoveOrder( INT16 sMapX, INT16 sMapY )
 	SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
 	for ( ; id <= lastid; ++id)
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE )
 		{
 			BOOLEAN fRadioOperator = pSoldier->CanUseRadio( FALSE );
@@ -17794,7 +17794,7 @@ void RetreatBandageCallback( UINT8 ubResult )
 
 // Bob: moved here to expand what CHRISL did
 // try to move all items in sector into the vehicle inventory. Try to use LBE items in sector to store as much stuff as possible
-void moveSectorInventoryToVehicle(SOLDIERTYPE *pSoldier) {
+void moveSectorInventoryToVehicle(TacticalActor *pSoldier) {
 
 	fillCurrentSectorLBEItems(pSoldier);	// puts LBE items in vehicle
 	// ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"---------------------------------------------");
@@ -17807,7 +17807,7 @@ void moveSectorInventoryToVehicle(SOLDIERTYPE *pSoldier) {
 }
 
 // fills all empty LBE items in currebt sector with other sector items then tries to place all LBE items in the vehicle (pSoldier)
-void fillCurrentSectorLBEItems(SOLDIERTYPE *pSoldier) {
+void fillCurrentSectorLBEItems(TacticalActor *pSoldier) {
 	std::vector<OBJECTTYPE*> LBEObjects; // list of LBE objects found in sector
 
 	// build a list of LBE objects in sector. Stacks are split into separate items.
@@ -17904,7 +17904,7 @@ void fillLBEWithSectorItems(OBJECTTYPE * LBEObject) {
 	}
 }
 
-void moveCurrentSectorItemsToVehicle(SOLDIERTYPE *pSoldier) {
+void moveCurrentSectorItemsToVehicle(TacticalActor *pSoldier) {
 	for (unsigned int i = 0; i < pInventoryPoolList.size(); i++)
 	{
 		if (pInventoryPoolList[i].fExists == TRUE && (pInventoryPoolList[i].usFlags & WORLD_ITEM_REACHABLE))
@@ -17914,11 +17914,11 @@ void moveCurrentSectorItemsToVehicle(SOLDIERTYPE *pSoldier) {
 	}
 }
 
-bool placeItemInVehicle(SOLDIERTYPE *pSoldier, WORLDITEM &worldItem) {
+bool placeItemInVehicle(TacticalActor *pSoldier, WORLDITEM &worldItem) {
 	return placeItemInVehicle(pSoldier, worldItem.object);
 }
 
-bool placeItemInVehicle(SOLDIERTYPE *pSoldier, OBJECTTYPE &item) {
+bool placeItemInVehicle(TacticalActor *pSoldier, OBJECTTYPE &item) {
 	if (item.usItem < 1) return false;
 
 	INVTYPE sectorItemType = Item[item.usItem];

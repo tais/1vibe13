@@ -15,9 +15,9 @@
 	#include "Interface.h"				// added by Flugente for zBackground
 	#include "DynamicDialogue.h"		// added by Flugente
 
-extern void ReducePointsForHunger( SOLDIERTYPE *pSoldier, UINT32 *pusPoints );
+extern void ReducePointsForHunger( TacticalActor *pSoldier, UINT32 *pusPoints );
 
-INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer )
+INT16 EffectiveStrength( TacticalActor *pSoldier, BOOLEAN fTrainer )
 {
 	INT8	bBandaged;
 	INT32	iEffStrength;
@@ -70,7 +70,7 @@ INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer )
 }
 
 
-INT16 EffectiveWisdom( SOLDIERTYPE * pSoldier)
+INT16 EffectiveWisdom( TacticalActor * pSoldier)
 {
 	INT32	iEffWisdom;
 
@@ -90,7 +90,7 @@ INT16 EffectiveWisdom( SOLDIERTYPE * pSoldier)
 	return( (INT16) iEffWisdom );
 }
 
-INT16 EffectiveAgility( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
+INT16 EffectiveAgility( TacticalActor * pSoldier, BOOLEAN fTrainer )
 {
 	INT32	iEffAgility;
 
@@ -126,7 +126,7 @@ INT16 EffectiveAgility( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 }
 
 
-INT8 EffectiveMechanical( SOLDIERTYPE * pSoldier )
+INT8 EffectiveMechanical( TacticalActor * pSoldier )
 {
 	INT32	iEffMechanical;
 
@@ -140,7 +140,7 @@ INT8 EffectiveMechanical( SOLDIERTYPE * pSoldier )
 }
 
 
-INT8 EffectiveExplosive( SOLDIERTYPE * pSoldier )
+INT8 EffectiveExplosive( TacticalActor * pSoldier )
 {
 	INT32	iEffExplosive;
 
@@ -154,7 +154,7 @@ INT8 EffectiveExplosive( SOLDIERTYPE * pSoldier )
 }
 
 
-INT8 EffectiveMedical( SOLDIERTYPE * pSoldier )
+INT8 EffectiveMedical( TacticalActor * pSoldier )
 {
 	INT32	iEffMedical;
 
@@ -167,7 +167,7 @@ INT8 EffectiveMedical( SOLDIERTYPE * pSoldier )
 	return( (INT8) iEffMedical );
 }
 
-INT8 EffectiveLeadership( SOLDIERTYPE * pSoldier )
+INT8 EffectiveLeadership( TacticalActor * pSoldier )
 {
 	INT32	iEffLeadership;
 	INT8	bDrunkLevel;
@@ -188,7 +188,7 @@ INT8 EffectiveLeadership( SOLDIERTYPE * pSoldier )
 }
 
 // Flugente: modifiers that depend on physical position (squadleader, afraid of heights) only apply if fTactical is TRUE
-INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
+INT8 EffectiveExpLevel( TacticalActor * pSoldier, BOOLEAN fTactical )
 {
 	INT32	iEffExpLevel;
 	INT8	bDrunkLevel;
@@ -259,7 +259,7 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 	return( (INT8) iEffExpLevel );
 }
 
-INT8 EffectiveMarksmanship( SOLDIERTYPE * pSoldier )
+INT8 EffectiveMarksmanship( TacticalActor * pSoldier )
 {
 	INT32	iEffMarksmanship;
 
@@ -272,7 +272,7 @@ INT8 EffectiveMarksmanship( SOLDIERTYPE * pSoldier )
 	return( (INT8) iEffMarksmanship );
 }
 
-INT16 EffectiveDexterity( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
+INT16 EffectiveDexterity( TacticalActor * pSoldier, BOOLEAN fTrainer )
 {
 	INT32	iEffDexterity;
 
@@ -303,7 +303,7 @@ INT16 EffectiveDexterity( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 
 
 
-UINT8 GetPenaltyForFatigue( SOLDIERTYPE *pSoldier )
+UINT8 GetPenaltyForFatigue( TacticalActor *pSoldier )
 {
 	UINT8 ubPercentPenalty;
 
@@ -318,28 +318,28 @@ UINT8 GetPenaltyForFatigue( SOLDIERTYPE *pSoldier )
 	return( ubPercentPenalty );
 }
 
-void ReducePointsForFatigue( SOLDIERTYPE *pSoldier, UINT32 *pusPoints )
+void ReducePointsForFatigue( TacticalActor *pSoldier, UINT32 *pusPoints )
 {
 	*pusPoints -= (*pusPoints * GetPenaltyForFatigue( pSoldier )) / 100;
 }
 
-void ReducePointsForFatigue( SOLDIERTYPE *pSoldier, INT32 *psPoints )
+void ReducePointsForFatigue( TacticalActor *pSoldier, INT32 *psPoints )
 {
 	*psPoints -= ( *psPoints * GetPenaltyForFatigue( pSoldier ) ) / 100;
 }
 
-INT32 GetSkillCheckPenaltyForFatigue( SOLDIERTYPE *pSoldier, INT32 iSkill )
+INT32 GetSkillCheckPenaltyForFatigue( TacticalActor *pSoldier, INT32 iSkill )
 {
 	// use only half the full effect of fatigue for skill checks
 	return( ( (iSkill * GetPenaltyForFatigue( pSoldier ) ) / 100) / 2 );
 }
 
-INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
+INT32 SkillCheck( TacticalActor * pSoldier, INT8 bReason, INT8 bChanceMod )
 {
 	INT32	iSkill;
 	INT32	iChance, iReportChance;
 	INT32	iRoll, iMadeItBy;
-	SOLDIERTYPE * pTeamSoldier;
+	TacticalActor * pTeamSoldier;
 	INT8	bBuddyIndex;
 	BOOLEAN fForceDamnSound = FALSE;
 
@@ -1006,7 +1006,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 }
 
 
-INT16 CalcTrapDetectLevel( SOLDIERTYPE * pSoldier, BOOLEAN fExamining )
+INT16 CalcTrapDetectLevel( TacticalActor * pSoldier, BOOLEAN fExamining )
 {
 	// return the level of trap which the guy is able to detect
 

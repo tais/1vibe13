@@ -18,7 +18,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 extern BOOLEAN gfAutoBandageFailed;
@@ -32,10 +32,10 @@ extern BOOLEAN gfAutoBandageFailed;
 #define NOT_GOING_TO_COLLAPSE -1
 
 // can this grunt be bandaged by a teammate?
-BOOLEAN CanCharacterBeAutoBandagedByTeammate( SOLDIERTYPE *pSoldier );
+BOOLEAN CanCharacterBeAutoBandagedByTeammate( TacticalActor *pSoldier );
 
 //c an this grunt help anyone else out?
-BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier );
+BOOLEAN CanCharacterAutoBandageTeammate( TacticalActor *pSoldier );
 
 BOOLEAN FindAutobandageClimbPoint( INT32 sDesiredGridNo, BOOLEAN fClimbUp )
 {
@@ -77,9 +77,9 @@ BOOLEAN FindAutobandageClimbPoint( INT32 sDesiredGridNo, BOOLEAN fClimbUp )
 	return( FALSE );
 }
 
-BOOLEAN FullPatientCheck( SOLDIERTYPE * pPatient )
+BOOLEAN FullPatientCheck( TacticalActor * pPatient )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	if ( CanCharacterAutoBandageTeammate( pPatient ) )
 	{
@@ -128,7 +128,7 @@ BOOLEAN CanAutoBandage( BOOLEAN fDoFullCheck )
 {
 	// returns false if we should stop being in auto-bandage mode
 	UINT16 ubMedics = 0, ubPatients = 0;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	static SoldierID 	ubIDForFullCheck = NOBODY;
 
 	// run though the list of chars on team
@@ -198,7 +198,7 @@ BOOLEAN CanAutoBandage( BOOLEAN fDoFullCheck )
 }
 
 
-BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier )
+BOOLEAN CanCharacterAutoBandageTeammate( TacticalActor *pSoldier )
 // can this soldier autobandage others in sector
 {
 	// if the soldier isn't active or in sector, we have problems..leave
@@ -218,7 +218,7 @@ BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier )
 
 
 // can this soldier autobandage others in sector
-BOOLEAN CanCharacterBeAutoBandagedByTeammate( SOLDIERTYPE *pSoldier )
+BOOLEAN CanCharacterBeAutoBandagedByTeammate( TacticalActor *pSoldier )
 {
 	// if the soldier isn't active or in sector, we have problems..leave
 	if ( !(pSoldier->roster().active()) || !(pSoldier->roster().inSector()) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
@@ -235,15 +235,15 @@ BOOLEAN CanCharacterBeAutoBandagedByTeammate( SOLDIERTYPE *pSoldier )
 	return( FALSE );
 }
 
-INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
+INT8 FindBestPatient( TacticalActor * pSoldier, BOOLEAN * pfDoClimb )
 {
 	UINT8 cnt2;
 	INT32 bBestPriority = 0, sBestAdjGridNo = NOWHERE;
 	INT32 sPatientGridNo = NOWHERE, sBestPatientGridNo = NOWHERE;
 	INT16 sShortestPath = 1000, sPathCost, sOtherMedicPathCost;
-	SOLDIERTYPE * pPatient;
-	SOLDIERTYPE * pBestPatient = NULL;
-	SOLDIERTYPE * pOtherMedic;
+	TacticalActor * pPatient;
+	TacticalActor * pBestPatient = NULL;
+	TacticalActor * pOtherMedic;
 	INT8 bPatientPriority;
 	UINT8 ubDirection;
 	INT32 sAdjustedGridNo, sAdjacentGridNo, sOtherAdjacentGridNo;
@@ -394,7 +394,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 		if (pBestPatient->service().hasAutoBandagingMedic())
 		{
 			// cancel that medic
-			SOLDIERTYPE* previousMedic =
+			TacticalActor* previousMedic =
 				GetJa2SoldierRepository().resolve(
 					pBestPatient->service().autoBandagingMedic().i);
 			DebugAI(AI_MSG_INFO, previousMedic,
@@ -427,7 +427,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 	}
 }
 
-INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
+INT8 DecideAutoBandage( TacticalActor * pSoldier )
 {
 	INT8					bSlot;
 	BOOLEAN				fDoClimb;
@@ -492,9 +492,9 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 }
 
 // SANDRO - added a function
-BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentCheck )
+BOOLEAN DoctorIsPresent( TacticalActor * pPatient, BOOLEAN fOnDoctorAssignmentCheck )
 {
-	SOLDIERTYPE *	pMedic = NULL;
+	TacticalActor *	pMedic = NULL;
 	INT8			bSlot;
 	BOOLEAN			fDoctorHasBeenFound = FALSE;
 

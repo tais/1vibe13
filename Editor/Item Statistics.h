@@ -63,7 +63,7 @@ enum
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 //Handles the dynamic changing of text input fields and button modes depending on the currently edited

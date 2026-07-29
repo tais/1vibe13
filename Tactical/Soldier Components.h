@@ -336,7 +336,7 @@ private:
 
 // Canonical owner for the three compatibility masks added by later gameplay
 // features. The named banks retain their established bit definitions and save
-// widths without leaving generic extension storage public on SOLDIERTYPE.
+// widths without leaving generic extension storage public on TacticalActor.
 class SoldierFeatureFlagsComponent
 {
 public:
@@ -2042,7 +2042,7 @@ private:
 
 // Canonical current tactical world-placement storage. Persistent adapters
 // serialize these values at their established, scattered schema positions; the
-// component itself is independent of the legacy SOLDIERTYPE declaration.
+// component itself is independent of the legacy TacticalActor declaration.
 class SoldierPositionComponent
 {
 public:
@@ -2109,7 +2109,7 @@ private:
 
 // Canonical three-direction tactical occlusion overlay. Tile indices and the
 // grids that own their topmost nodes are a paired cache: callers bind or clear
-// one direction atomically instead of mutating parallel SOLDIERTYPE arrays.
+// one direction atomically instead of mutating parallel TacticalActor arrays.
 class SoldierFrontArcComponent
 {
 public:
@@ -2167,7 +2167,7 @@ private:
 
 // Canonical tactical route ownership. The fixed-capacity path and its cursor
 // deliberately retain the established JA2 representation, while private
-// storage prevents unrelated SOLDIERTYPE fields from becoming a second route
+// storage prevents unrelated TacticalActor fields from becoming a second route
 // authority.
 class SoldierPathingComponent
 {
@@ -2424,7 +2424,7 @@ private:
 
 // Canonical tactical target selection. Attack execution, UI, AI, and network
 // adapters all observe this same target geometry and identity; keeping it
-// private prevents the legacy SOLDIERTYPE field list from becoming a second
+// private prevents the legacy TacticalActor field list from becoming a second
 // mutable authority.
 class SoldierTargetingComponent
 {
@@ -2481,7 +2481,7 @@ private:
 // Canonical weapon and aim selection for one tactical actor. Target geometry
 // belongs to SoldierTargetingComponent; this component owns how that target is
 // attacked so UI, AI, replay, and network adapters cannot diverge through
-// independent flat SOLDIERTYPE fields.
+// independent flat TacticalActor fields.
 class SoldierAttackSelectionComponent
 {
 public:
@@ -3358,7 +3358,7 @@ private:
 // tactical-world registries. The registries own the pointed-to objects; this
 // component owns only the bindings and therefore never destroys them.
 //
-// Ordinary SOLDIERTYPE copies deliberately start detached. Repository commit
+// Ordinary TacticalActor copies deliberately start detached. Repository commit
 // and slot-swap operations are the only places allowed to transfer bindings
 // explicitly, which prevents temporary soldier clones from aliasing live
 // faces, level nodes, or animation tiles.
@@ -3473,7 +3473,7 @@ struct SoldierRuntimeComponents
 
 	SoldierRuntimeComponents() = default;
 
-	// A SOLDIERTYPE clone represents a new runtime object. Never copy deferred
+	// A TacticalActor clone represents a new runtime object. Never copy deferred
 	// callbacks that capture the source soldier, stale target incarnations, or
 	// presentation/UI scratch into that clone.
 	SoldierRuntimeComponents(const SoldierRuntimeComponents&) noexcept {}

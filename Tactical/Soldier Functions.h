@@ -4,25 +4,25 @@
 #include "Soldier Control.h"
 
 
-void ContinueMercMovement( SOLDIERTYPE *pSoldier );
+void ContinueMercMovement( TacticalActor *pSoldier );
 
-BOOLEAN IsValidStance( SOLDIERTYPE *pSoldier, INT8 bNewStance );
-void SelectMoveAnimationFromStance( SOLDIERTYPE *pSoldier );
-BOOLEAN IsValidMovementMode( SOLDIERTYPE *pSoldier, INT16 usMovementMode );
-FLOAT CalcSoldierNextBleed( SOLDIERTYPE *pSoldier );
-FLOAT CalcSoldierNextUnmovingBleed( SOLDIERTYPE *pSoldier );
-void SoldierCollapse( SOLDIERTYPE *pSoldier );
+BOOLEAN IsValidStance( TacticalActor *pSoldier, INT8 bNewStance );
+void SelectMoveAnimationFromStance( TacticalActor *pSoldier );
+BOOLEAN IsValidMovementMode( TacticalActor *pSoldier, INT16 usMovementMode );
+FLOAT CalcSoldierNextBleed( TacticalActor *pSoldier );
+FLOAT CalcSoldierNextUnmovingBleed( TacticalActor *pSoldier );
+void SoldierCollapse( TacticalActor *pSoldier );
 
-BOOLEAN ReevaluateEnemyStance( SOLDIERTYPE *pSoldier, UINT16 usAnimState );
+BOOLEAN ReevaluateEnemyStance( TacticalActor *pSoldier, UINT16 usAnimState );
 
-void HandlePlacingRoofMarker( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fSet, BOOLEAN fForce );
+void HandlePlacingRoofMarker( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fSet, BOOLEAN fForce );
 
-void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel );
+void PickPickupAnimation( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel );
 
-BOOLEAN MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget );
+BOOLEAN MercStealFromMerc( TacticalActor *pSoldier, TacticalActor *pTarget );
 
-void HandleCrowShadowVisibility( SOLDIERTYPE *pSoldier );
+void HandleCrowShadowVisibility( TacticalActor *pSoldier );
 
-BOOLEAN DoesSoldierWearGasMask(SOLDIERTYPE *pSoldier);//dnl ch40 200909
+BOOLEAN DoesSoldierWearGasMask(TacticalActor *pSoldier);//dnl ch40 200909
 
 #endif

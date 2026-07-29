@@ -53,7 +53,7 @@ public:
 	~BodyTypeDB(void);
 	void Add(BodyType* bodyType);
 
-	inline BodyType* Find(SOLDIERTYPE* pSoldier) {
+	inline BodyType* Find(TacticalActor* pSoldier) {
 		BodyTypeList::iterator end = bodyTypes.end();
 		for (BodyTypeList::iterator i = bodyTypes.begin(); i != end; i++) {
 			// if we find a bodytype, but it does not have any surfaces, it is meant to exclude objects

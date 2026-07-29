@@ -17,7 +17,7 @@ namespace AI
             event_type_ = auditive_event;
         }
 
-        AIInputData::AIInputData(Visual, SOLDIERTYPE* opponent, int grid_no, int level, int caller1, int caller2)
+        AIInputData::AIInputData(Visual, TacticalActor* opponent, int grid_no, int level, int caller1, int caller2)
             : opponent_(opponent),
               grid_no_(grid_no),
               level_(level),

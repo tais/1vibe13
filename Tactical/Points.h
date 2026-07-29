@@ -278,127 +278,127 @@
 //Just so the compiler will be able to use it in init.cpp, I'm a careful person.  Gotthard 1/18/07
 extern INT16 APBPConstants[TOTAL_APBP_VALUES];
 
-INT16 BaseAPsToShootOrStab( INT16 bAPs, INT16 bAimSkill, OBJECTTYPE * pObj, SOLDIERTYPE *pSoldier );
+INT16 BaseAPsToShootOrStab( INT16 bAPs, INT16 bAimSkill, OBJECTTYPE * pObj, TacticalActor *pSoldier );
 // HEADROCK HAM 4: Same function as above, except no modifier.
 INT16 BaseAPsToShootOrStabNoModifier( INT16 bAPs, INT16 bAimSkill, OBJECTTYPE * pObj );
 // HEADROCK HAM 4: Same function as above, except no modifier.
 INT16 BaseAPsToShootOrStabNoModifier( INT16 bAPs, INT16 bAimSkill, OBJECTTYPE * pObj );
 
-INT16 TerrainActionPoints( SOLDIERTYPE *pSoldier, INT32 sGridno, INT8 bDir, INT8 bLevel );
-INT16 ActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode	);
-INT16 EstimateActionPointCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode, INT8 bPathIndex, INT8 bPathLength );
+INT16 TerrainActionPoints( TacticalActor *pSoldier, INT32 sGridno, INT8 bDir, INT8 bLevel );
+INT16 ActionPointCost( TacticalActor *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode	);
+INT16 EstimateActionPointCost( TacticalActor *pSoldier, INT32 sGridNo, INT8 bDir, UINT16 usMovementMode, INT8 bPathIndex, INT8 bPathLength );
 // M-PF2: bracket one A* pathfinding search to cache the path-invariant
 // FindBackpackOnSoldier() result used by the per-neighbour AP cost helpers.
 void BeginPathingBackpackCache( TacticalEntityId actor );
 void EndPathingBackpackCache( void );
 BOOLEAN SelectedMercCanAffordMove(	);
 
-BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLEAN fDisplayMsg );
-void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ubInterruptType = 2 ); // SANDRO - change for improved interrupt system (ubInterruptType = 2 = UNDEFINED_INTERRUPT)
-INT32 AdjustBreathPts( SOLDIERTYPE * pSoldier , INT32 iBPCost );
-void UnusedAPsToBreath( SOLDIERTYPE * pSoldier );
-INT16 TerrainBreathPoints(SOLDIERTYPE * pSoldier, INT32 sGridNo,INT8 bDir, UINT16 usMovementMode);
-INT16 MinAPsToAttack(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost, INT16 bAimTime, UINT8 ubForceRaiseGunCost = 0 );
-INT16  MinPtsToMove(SOLDIERTYPE *pSoldier);
-INT8 MinAPsToStartMovement( SOLDIERTYPE * pSoldier, UINT16 usMovementMode );
-INT8	PtsToMoveDirection(SOLDIERTYPE *pSoldier, INT8 bDirection );
-UINT16 CalculateActionTurningCost(SOLDIERTYPE *pSoldier, INT32 sActionGridNo, INT32 sAdjustedGridNo, UINT8 ubDirection);
-UINT16 CalculateTurningCost(SOLDIERTYPE *pSoldier, UINT16 usItem, BOOLEAN fAddingTurningCost, INT8 bDesiredHeight=0);//dnl ch72 190913
-UINT16 CalculateRaiseGunCost(SOLDIERTYPE *pSoldier, BOOLEAN fAddingRaiseGunCost, INT32 iTargetGridNum, INT16 bAimTime );
-INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, UINT8 ubAddTurningCost, UINT8 ubForceRaiseGunCost = 0 );
-BOOLEAN EnoughAmmo( SOLDIERTYPE *pSoldier, BOOLEAN fDisplay, INT8 bInvPos );
-void DeductAmmo( SOLDIERTYPE *pSoldier, INT8 bInvPos );
-void DeductAmmo( SOLDIERTYPE *pSoldier, OBJECTTYPE* pObj );
+BOOLEAN EnoughPoints( TacticalActor *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLEAN fDisplayMsg );
+void DeductPoints( TacticalActor *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ubInterruptType = 2 ); // SANDRO - change for improved interrupt system (ubInterruptType = 2 = UNDEFINED_INTERRUPT)
+INT32 AdjustBreathPts( TacticalActor * pSoldier , INT32 iBPCost );
+void UnusedAPsToBreath( TacticalActor * pSoldier );
+INT16 TerrainBreathPoints(TacticalActor * pSoldier, INT32 sGridNo,INT8 bDir, UINT16 usMovementMode);
+INT16 MinAPsToAttack(TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost, INT16 bAimTime, UINT8 ubForceRaiseGunCost = 0 );
+INT16  MinPtsToMove(TacticalActor *pSoldier);
+INT8 MinAPsToStartMovement( TacticalActor * pSoldier, UINT16 usMovementMode );
+INT8	PtsToMoveDirection(TacticalActor *pSoldier, INT8 bDirection );
+UINT16 CalculateActionTurningCost(TacticalActor *pSoldier, INT32 sActionGridNo, INT32 sAdjustedGridNo, UINT8 ubDirection);
+UINT16 CalculateTurningCost(TacticalActor *pSoldier, UINT16 usItem, BOOLEAN fAddingTurningCost, INT8 bDesiredHeight=0);//dnl ch72 190913
+UINT16 CalculateRaiseGunCost(TacticalActor *pSoldier, BOOLEAN fAddingRaiseGunCost, INT32 iTargetGridNum, INT16 bAimTime );
+INT16 MinAPsToShootOrStab(TacticalActor *pSoldier, INT32 sGridNo, INT16 bAimTime, UINT8 ubAddTurningCost, UINT8 ubForceRaiseGunCost = 0 );
+BOOLEAN EnoughAmmo( TacticalActor *pSoldier, BOOLEAN fDisplay, INT8 bInvPos );
+void DeductAmmo( TacticalActor *pSoldier, INT8 bInvPos );
+void DeductAmmo( TacticalActor *pSoldier, OBJECTTYPE* pObj );
 
-UINT16 GetAPsToPickupItem( SOLDIERTYPE *pSoldier, INT32 usMapPos );
-INT16 MinAPsToPunch(SOLDIERTYPE *pSoldier, INT32 sGridNo);
-INT16 ApsToPunch( SOLDIERTYPE *pSoldier ); // SANDRO added this
-INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost, INT16 bAimTime );
-INT16 CalcAPsToBurst( INT16 bBaseActionPoints, OBJECTTYPE * pObj, SOLDIERTYPE* pSoldier );
+UINT16 GetAPsToPickupItem( TacticalActor *pSoldier, INT32 usMapPos );
+INT16 MinAPsToPunch(TacticalActor *pSoldier, INT32 sGridNo);
+INT16 ApsToPunch( TacticalActor *pSoldier ); // SANDRO added this
+INT16 CalcTotalAPsToAttack( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost, INT16 bAimTime );
+INT16 CalcAPsToBurst( INT16 bBaseActionPoints, OBJECTTYPE * pObj, TacticalActor* pSoldier );
 // HEADROCK HAM 4: Same as above, without percent modifiers.
 INT16 CalcAPsToBurstNoModifier( INT16 bBaseActionPoints, OBJECTTYPE * pObj );
-INT16 CalcAPsToAutofire( INT16 bBaseActionPoints, OBJECTTYPE * pObj, UINT8 bDoAutofire, SOLDIERTYPE* pSoldier );
+INT16 CalcAPsToAutofire( INT16 bBaseActionPoints, OBJECTTYPE * pObj, UINT8 bDoAutofire, TacticalActor* pSoldier );
 // HEADROCK HAM 4: Same as above, without modifiers
 INT16 CalcAPsToAutofireNoModifier( INT16 bBaseActionPoints, OBJECTTYPE * pObj, UINT8 bDoAutofire );
-INT16 GetAPsToChangeStance( SOLDIERTYPE *pSoldier, INT8 bDesiredHeight );
+INT16 GetAPsToChangeStance( TacticalActor *pSoldier, INT8 bDesiredHeight );
 // SANDRO - actually this procedure is  nowhere used in the entire JA2 code - commented out
-//INT16 GetBPsToChangeStance( SOLDIERTYPE *pSoldier, INT8 bDesiredHeight );
+//INT16 GetBPsToChangeStance( TacticalActor *pSoldier, INT8 bDesiredHeight );
 
-INT16 GetAPsToLook( SOLDIERTYPE *pSoldier );
-UINT16 GetAPsToGiveItem( SOLDIERTYPE *pSoldier, INT32 usMapPos );
+INT16 GetAPsToLook( TacticalActor *pSoldier );
+UINT16 GetAPsToGiveItem( TacticalActor *pSoldier, INT32 usMapPos );
 
-BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier );
+BOOLEAN CheckForMercContMove( TacticalActor *pSoldier );
 
-INT16 GetAPsToReadyWeapon( SOLDIERTYPE *pSoldier, UINT16 usAnimState );
+INT16 GetAPsToReadyWeapon( TacticalActor *pSoldier, UINT16 usAnimState );
 
-INT16 GetAPsToClimbRoof( SOLDIERTYPE *pSoldier, BOOLEAN fClimbDown );
-INT16 GetBPsToClimbRoof( SOLDIERTYPE *pSoldier, BOOLEAN fClimbDown );
+INT16 GetAPsToClimbRoof( TacticalActor *pSoldier, BOOLEAN fClimbDown );
+INT16 GetBPsToClimbRoof( TacticalActor *pSoldier, BOOLEAN fClimbDown );
 
-INT16 GetAPsToJumpThroughWindows( SOLDIERTYPE *pSoldier, BOOLEAN fWithBackpack ); //Jump
-INT16 GetBPsToJumpThroughWindows( SOLDIERTYPE *pSoldier, BOOLEAN fWithBackpack ); //Jump
+INT16 GetAPsToJumpThroughWindows( TacticalActor *pSoldier, BOOLEAN fWithBackpack ); //Jump
+INT16 GetBPsToJumpThroughWindows( TacticalActor *pSoldier, BOOLEAN fWithBackpack ); //Jump
 
 // SANDRO - changed these 2
-INT16 GetAPsToJumpFence( SOLDIERTYPE *pSoldier, BOOLEAN fWithBackpack );
-INT16 GetBPsToJumpFence( SOLDIERTYPE *pSoldier, BOOLEAN fWithBackpack );
+INT16 GetAPsToJumpFence( TacticalActor *pSoldier, BOOLEAN fWithBackpack );
+INT16 GetBPsToJumpFence( TacticalActor *pSoldier, BOOLEAN fWithBackpack );
 
-INT16 GetAPsToCutFence( SOLDIERTYPE *pSoldier );
-INT16 GetAPsToBeginFirstAid( SOLDIERTYPE *pSoldier );
-INT16 GetAPsToBeginRepair( SOLDIERTYPE *pSoldier );
-INT16 GetAPsToRefuelVehicle( SOLDIERTYPE *pSoldier );
+INT16 GetAPsToCutFence( TacticalActor *pSoldier );
+INT16 GetAPsToBeginFirstAid( TacticalActor *pSoldier );
+INT16 GetAPsToBeginRepair( TacticalActor *pSoldier );
+INT16 GetAPsToRefuelVehicle( TacticalActor *pSoldier );
 
-INT16 MinAPsToThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost );
+INT16 MinAPsToThrow( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost );
 
-INT16 GetAPsToDropBomb( SOLDIERTYPE *pSoldier );
-INT16 GetAPsToPlantMine( SOLDIERTYPE *pSoldier );
-UINT16 GetTotalAPsToDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo );
-INT16 GetAPsToUseRemote( SOLDIERTYPE *pSoldier );
+INT16 GetAPsToDropBomb( TacticalActor *pSoldier );
+INT16 GetAPsToPlantMine( TacticalActor *pSoldier );
+UINT16 GetTotalAPsToDropBomb( TacticalActor *pSoldier, INT32 sGridNo );
+INT16 GetAPsToUseRemote( TacticalActor *pSoldier );
 
-INT16 GetAPsToStealItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, INT16 sMapPos ); // SANDRO - added target
-INT16 GetBPsToStealItem( SOLDIERTYPE *pSoldier );
+INT16 GetAPsToStealItem( TacticalActor *pSoldier, TacticalActor *pTargetSoldier, INT16 sMapPos ); // SANDRO - added target
+INT16 GetBPsToStealItem( TacticalActor *pSoldier );
 
-INT16 GetAPsToUseJar( SOLDIERTYPE *pSoldier, INT32 usMapPos );
-INT16 GetAPsToUseCan( SOLDIERTYPE *pSoldier, INT32 usMapPos );
+INT16 GetAPsToUseJar( TacticalActor *pSoldier, INT32 usMapPos );
+INT16 GetAPsToUseCan( TacticalActor *pSoldier, INT32 usMapPos );
 
-INT16 GetAPsToHandcuff( SOLDIERTYPE *pSoldier, INT32 usMapPos );	// added by Flugente
-INT16 GetAPsToApplyItem( SOLDIERTYPE *pSoldier, INT32 usMapPos );	// added by Flugente
-INT16 GetAPsToFillBloodbag( SOLDIERTYPE *pSoldier, INT32 usMapPos );	// added by Flugente
-INT16 GetAPsForMultiTurnAction( SOLDIERTYPE *pSoldier, UINT8 usActionType );	// added by Flugente
+INT16 GetAPsToHandcuff( TacticalActor *pSoldier, INT32 usMapPos );	// added by Flugente
+INT16 GetAPsToApplyItem( TacticalActor *pSoldier, INT32 usMapPos );	// added by Flugente
+INT16 GetAPsToFillBloodbag( TacticalActor *pSoldier, INT32 usMapPos );	// added by Flugente
+INT16 GetAPsForMultiTurnAction( TacticalActor *pSoldier, UINT8 usActionType );	// added by Flugente
 
-INT16 GetAPsForInteractiveAction( SOLDIERTYPE *pSoldier, UINT16 usActionType );	// added by Flugente
+INT16 GetAPsForInteractiveAction( TacticalActor *pSoldier, UINT16 usActionType );	// added by Flugente
 
-INT16 GetAPsToJumpOver( SOLDIERTYPE *pSoldier );
+INT16 GetAPsToJumpOver( TacticalActor *pSoldier );
 
-void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost, BOOLEAN *pfChargeTurning, BOOLEAN *pfChargeRaise, INT16 bAimTime );
+void GetAPChargeForShootOrStabWRTGunRaises( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost, BOOLEAN *pfChargeTurning, BOOLEAN *pfChargeRaise, INT16 bAimTime );
 
-UINT16 GetAPsToReloadRobot( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pRobot );
-INT16 GetAPsToReloadGunWithAmmo( SOLDIERTYPE *pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo, BOOLEAN usAllAPs = TRUE );
-INT16 GetAPsToAutoReload( SOLDIERTYPE * pSoldier, bool aReloadEvenIfNotEmpty = true );
+UINT16 GetAPsToReloadRobot( TacticalActor *pSoldier, TacticalActor *pRobot );
+INT16 GetAPsToReloadGunWithAmmo( TacticalActor *pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo, BOOLEAN usAllAPs = TRUE );
+INT16 GetAPsToAutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty = true );
 
-INT32 CalcAPCostForAiming( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, INT8 bAimTime );
-INT8 CalcAimingLevelsAvailableWithAP( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, INT8 bAPsLeft );
+INT32 CalcAPCostForAiming( TacticalActor *pSoldier, INT32 sTargetGridNo, INT8 bAimTime );
+INT8 CalcAimingLevelsAvailableWithAP( TacticalActor *pSoldier, INT32 sTargetGridNo, INT8 bAPsLeft );
 
 // SANDRO - added these: 
-INT16 GetAPsCrouch( SOLDIERTYPE *pSoldier, BOOLEAN fBackpackCheck  );
-INT16 GetAPsProne( SOLDIERTYPE *pSoldier, BOOLEAN fBackpackCheck  );
-INT16 GetAPsStartRun( SOLDIERTYPE *pSoldier );
-INT16 GetAPsToOpenDoor( SOLDIERTYPE *pSoldier );
-INT16 GetAPsToPicklock( SOLDIERTYPE *pSoldier );
-INT16 GetAPsToBombDoor( SOLDIERTYPE *pSoldier );
-INT16 GetAPsToUntrapDoor( SOLDIERTYPE *pSoldier );
-INT16 GetBasicAPsToPickupItem( SOLDIERTYPE *pSoldier );
-INT16 GetAPsToDisarmMine( SOLDIERTYPE *pSoldier );
+INT16 GetAPsCrouch( TacticalActor *pSoldier, BOOLEAN fBackpackCheck  );
+INT16 GetAPsProne( TacticalActor *pSoldier, BOOLEAN fBackpackCheck  );
+INT16 GetAPsStartRun( TacticalActor *pSoldier );
+INT16 GetAPsToOpenDoor( TacticalActor *pSoldier );
+INT16 GetAPsToPicklock( TacticalActor *pSoldier );
+INT16 GetAPsToBombDoor( TacticalActor *pSoldier );
+INT16 GetAPsToUntrapDoor( TacticalActor *pSoldier );
+INT16 GetBasicAPsToPickupItem( TacticalActor *pSoldier );
+INT16 GetAPsToDisarmMine( TacticalActor *pSoldier );
 
-INT16 GetAPsToJumpWall( SOLDIERTYPE *pSoldier, BOOLEAN fClimbDown );
-INT16 GetBPsToJumpWall( SOLDIERTYPE *pSoldier, BOOLEAN fClimbDown );
+INT16 GetAPsToJumpWall( TacticalActor *pSoldier, BOOLEAN fClimbDown );
+INT16 GetBPsToJumpWall( TacticalActor *pSoldier, BOOLEAN fClimbDown );
 
-INT32 GetBPCostPer10APsForGunHolding( SOLDIERTYPE * pSoldier, BOOLEAN fEstimate = FALSE );
-INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier );
+INT32 GetBPCostPer10APsForGunHolding( TacticalActor * pSoldier, BOOLEAN fEstimate = FALSE );
+INT32 GetBPCostForRecoilkick( TacticalActor * pSoldier );
 
 // sevenfm
-INT16 GetAPsToBreakWindow(SOLDIERTYPE *pSoldier, BOOLEAN fStance);
-INT16 GetAPsToStartDrag(SOLDIERTYPE *pSoldier, BOOLEAN fStance);
+INT16 GetAPsToBreakWindow(TacticalActor *pSoldier, BOOLEAN fStance);
+INT16 GetAPsToStartDrag(TacticalActor *pSoldier, BOOLEAN fStance);
 
 // Buscher
-INT16 GetBackbackAPPenaltyFromBackpack(SOLDIERTYPE *pSoldier);
+INT16 GetBackbackAPPenaltyFromBackpack(TacticalActor *pSoldier);
 
 #endif

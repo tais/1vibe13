@@ -28,14 +28,14 @@ extern UINT8			gubBoxingMatchesWon;
 extern UINT8			gubBoxersRests;
 extern BOOLEAN		gfBoxersResting;
 
-extern void BoxingPlayerDisqualified( SOLDIERTYPE * pOffender, INT8 bReason );
+extern void BoxingPlayerDisqualified( TacticalActor * pOffender, INT8 bReason );
 extern BOOLEAN PickABoxer( void );
 extern BOOLEAN CheckOnBoxers( void );
-extern void EndBoxingMatch( SOLDIERTYPE * pLoser );
+extern void EndBoxingMatch( TacticalActor * pLoser );
 extern BOOLEAN BoxerAvailable( void );
 extern BOOLEAN AnotherFightPossible( void );
-extern void TriggerEndOfBoxingRecord( SOLDIERTYPE * pSolier );
-extern void BoxingMovementCheck( SOLDIERTYPE * pSoldier );
+extern void TriggerEndOfBoxingRecord( TacticalActor * pSolier );
+extern void BoxingMovementCheck( TacticalActor * pSoldier );
 extern void ExitBoxing( void );
 extern UINT8 BoxersAvailable( void );
 extern void SetBoxingState( INT8 bNewState );

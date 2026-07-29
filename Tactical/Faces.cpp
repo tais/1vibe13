@@ -50,14 +50,14 @@
 FACETYPE	gFacesData[ NUM_FACE_SLOTS ];
 UINT32 guiNumFaces = 0;
 extern UINT32		guiTacticalInterfaceFlags;
-extern BOOLEAN EnoughPoints(SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLEAN fDisplayMsg);
-extern INT16 MinAPsToAttack(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost, INT16 bAimTime, UINT8 ubForceRaiseGunCost = 0);
+extern BOOLEAN EnoughPoints(TacticalActor *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLEAN fDisplayMsg);
+extern INT16 MinAPsToAttack(TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost, INT16 bAimTime, UINT8 ubForceRaiseGunCost = 0);
 // LOCAL FUNCTIONS
 void NewEye( FACETYPE *pFace );
 void NewMouth( FACETYPE *pFace );
 INT32 GetFreeFace(void);
 void RecountFaces(void);
-UINT32 GetFaceShade(SOLDIERTYPE *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit);
+UINT32 GetFaceShade(TacticalActor *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit);
 void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLEAN fUseExternBuffer, UINT32 uiBuffer, INT16 sFaceX, INT16 sFaceY, UINT16 usEyesX, UINT16 usEyesY, UINT32 uiFaceShade);
 
 extern BOOLEAN	gfInItemPickupMenu;
@@ -115,7 +115,7 @@ INT32 uiCount;
 }
 
 
-INT32	InitSoldierFace( SOLDIERTYPE *pSoldier )
+INT32	InitSoldierFace( TacticalActor *pSoldier )
 {
 	INT32							iFaceIndex;
 
@@ -542,7 +542,7 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 }
 
 
-void DeleteSoldierFace( SOLDIERTYPE *pSoldier )
+void DeleteSoldierFace( TacticalActor *pSoldier )
 {
 	DeleteFace( pSoldier->renderBindings().faceIndex() );
 
@@ -808,7 +808,7 @@ void SetAutoFaceInActiveFromSoldier( SoldierID ubSoldierID )
 void SetAutoFaceInActive(INT32 iFaceIndex )
 {
 	FACETYPE				*pFace;
-	SOLDIERTYPE			*pSoldier;
+	TacticalActor			*pSoldier;
 
 	// Check face index
 	CHECKV( iFaceIndex != -1 );
@@ -872,7 +872,7 @@ void SetAutoFaceInActive(INT32 iFaceIndex )
 
 }
 
-BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
+BOOLEAN SetCamoFace(TacticalActor * pSoldier)
 {
 	// silversurfer: Worn camo is not relevant for the face anymore. Only camo kits can paint our face.
 //	INT8	worn = -1;
@@ -987,7 +987,7 @@ void BlinkAutoFace( INT32 iFaceIndex )
 		// CHECK IF BUDDY IS DEAD, UNCONSCIOUS, ASLEEP, OR POW!
 		if ( pFace->ubSoldierID != NOBODY )
 		{
-			SOLDIERTYPE* faceSoldier =
+			TacticalActor* faceSoldier =
 				GetJa2SoldierRepository().resolve(
 					pFace->ubSoldierID.i);
 			uiFaceShade = GetFaceShade(faceSoldier, pFace, FALSE);
@@ -1130,7 +1130,7 @@ void HandleFaceHilights( FACETYPE *pFace, UINT32 uiBuffer, INT16 sFaceX, INT16 s
 	 {
 		 if ( pFace->ubSoldierID != NOBODY )
 		 {
-			 SOLDIERTYPE* faceSoldier =
+			 TacticalActor* faceSoldier =
 				 GetJa2SoldierRepository().resolve(
 					 pFace->ubSoldierID.i);
 			 if ( faceSoldier->vitals().health() >= OKLIFE )
@@ -1383,7 +1383,7 @@ void SetFaceShade(FACETYPE *pFace, UINT32 uiFaceShade)
 	SetObjectHandleShade(pFace->uiVideoObject, uiFaceShade);
 }
 
-UINT32 GetFaceShade(SOLDIERTYPE *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit)
+UINT32 GetFaceShade(TacticalActor *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit)
 {
 	if (pFace->iVideoOverlay == -1 && !fExternBlit)
 	{
@@ -1632,7 +1632,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 	BOOLEAN					fShowNumber = FALSE;
 	BOOLEAN					fShowMaximum = FALSE;
 	BOOLEAN					fShowCustomText = FALSE;
-	SOLDIERTYPE			*pSoldier;
+	TacticalActor			*pSoldier;
 	INT16						sFontX, sFontY;
 	INT16						sX1, sY1, sY2, sX2;
 	UINT32					uiDestPitchBYTES;
@@ -2898,7 +2898,7 @@ void HandleAutoFaces( )
 	BOOLEAN	fRerender = FALSE;
 	BOOLEAN	fHandleFace;
 	BOOLEAN	fHandleUIHatch;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 
 	for ( uiCount = 0; uiCount < guiNumFaces; uiCount++ )

@@ -1474,7 +1474,7 @@ void POPUP::MenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 	INT32 iValue = -1;
 	INT32 iType = 0;
 	INT32 iTotal = 0;
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 	UINT8 ubVolume = 10;
 
 	// sanity check #1

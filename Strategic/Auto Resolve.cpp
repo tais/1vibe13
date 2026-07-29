@@ -84,7 +84,7 @@ extern UINT8 gubReinforcementMinEnemyStaticGroupSize;
 extern BOOLEAN gfStrategicMilitiaChangesMade;
 
 extern void ResetMilitia();
-extern BOOLEAN AutoReload( SOLDIERTYPE *pSoldier, bool aReloadEvenIfNotEmpty );
+extern BOOLEAN AutoReload( TacticalActor *pSoldier, bool aReloadEvenIfNotEmpty );
 extern HVSURFACE ghFrameBuffer;
 BOOLEAN gfTransferTacticalOppositionToAutoResolve = FALSE;
 
@@ -107,7 +107,7 @@ enum
 
 typedef struct SOLDIERCELL
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	MOUSE_REGION *pRegion; //only used for player mercs.
 	UINT32 uiVObjectID;
 	UINT16 usIndex;
@@ -731,7 +731,7 @@ UINT32 AutoResolveScreenHandle()
 	return AUTORESOLVE_SCREEN;
 }
 
-static void RefreshMerc( SOLDIERTYPE *pSoldier )
+static void RefreshMerc( TacticalActor *pSoldier )
 {
 	pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
 	pSoldier->vitals().bleeding() = 0;
@@ -1854,7 +1854,7 @@ void RenderAutoResolve()
 					const SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
 					for ( ; id <= lastid; ++id )
 					{
-						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
+						TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
 
 						if ( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 						{ //Merc is active and alive, and not a vehicle or robot
@@ -3111,7 +3111,7 @@ void CalculateAutoResolveInfo()
 			pPlayer = pGroup->pPlayerList;
 			while( pPlayer )
 			{
-				SOLDIERTYPE* member =
+				TacticalActor* member =
 					ResolvePlayerGroupMember( pPlayer );
 				// NOTE: Must check each merc individually, e.g. Robot without controller is an uninvolved merc on an involved group!
 				if ( member &&
@@ -3835,7 +3835,7 @@ static void ResetNextAttackCounter( SOLDIERCELL *pCell )
 	}
 }
 
-static FLOAT CalcClassBonusOrPenalty( SOLDIERTYPE *pSoldier )
+static FLOAT CalcClassBonusOrPenalty( TacticalActor *pSoldier )
 {
 	switch( pSoldier->roster().soldierClass() )
 	{
@@ -3858,7 +3858,7 @@ void CalculateAttackValues()
 {
 	INT32 i;
 	SOLDIERCELL *pCell;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT16 usBonus;
 	UINT16 usBestAttack = 0xffff;
 	UINT16 usBreathStrengthPercentage;
@@ -4188,7 +4188,7 @@ static SOLDIERCELL* ChooseTarget( SOLDIERCELL *pAttacker )
 static BOOLEAN FireAShot( SOLDIERCELL *pAttacker )
 {
 	OBJECTTYPE *pItem;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	pSoldier = pAttacker->pSoldier;
 
@@ -4242,7 +4242,7 @@ static BOOLEAN FireAShot( SOLDIERCELL *pAttacker )
 static BOOLEAN FireTankCannon( SOLDIERCELL *pAttacker )
 {
 	OBJECTTYPE *pItem;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	pSoldier = pAttacker->pSoldier;
 
@@ -4284,7 +4284,7 @@ static BOOLEAN FireTankCannon( SOLDIERCELL *pAttacker )
 static BOOLEAN FireAntiTankWeapon( SOLDIERCELL *pAttacker )
 {
 	OBJECTTYPE *pItem;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	pSoldier = pAttacker->pSoldier;
 	
@@ -4351,7 +4351,7 @@ static BOOLEAN AttackerHasKnife( SOLDIERCELL *pAttacker )
 	return FALSE;
 }
 
-static BOOLEAN TargetHasLoadedGun( SOLDIERTYPE *pSoldier )
+static BOOLEAN TargetHasLoadedGun( TacticalActor *pSoldier )
 {
 	OBJECTTYPE *pItem;
 	UINT8 invsize = pSoldier->inventory().size();
@@ -5357,7 +5357,7 @@ BOOLEAN IsBattleOver()
 	if( gpAR->pRobotCell )
 	{
 		//Do special robot checks
-		SOLDIERTYPE *pRobot;
+		TacticalActor *pRobot;
 		pRobot = gpAR->pRobotCell->pSoldier;
 		if( pRobot->vehicleState().robotRemoteHolder() == NOBODY )
 		{
@@ -5966,7 +5966,7 @@ void CheckForSoldiersWhoRetreatedIntoMilitiaHeldSectors()
 				const SoldierID lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
 				for ( ; id <= lastid; ++id )
 				{
-					SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
+					TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
 
 					if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 					{

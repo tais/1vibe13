@@ -51,7 +51,7 @@ extern INT16 DirIncrementer[8];
 // this define should go in soldier control.h
 
 
-void LoadWeaponIfNeeded(SOLDIERTYPE *pSoldier)
+void LoadWeaponIfNeeded(TacticalActor *pSoldier)
 {
 	UINT16 usInHand;
 	INT8 bPayloadPocket;
@@ -135,7 +135,7 @@ void LoadWeaponIfNeeded(SOLDIERTYPE *pSoldier)
 }
 
 // FROM SB JA2005
-void ResetWeaponMode( SOLDIERTYPE * pSoldier )
+void ResetWeaponMode( TacticalActor * pSoldier )
 {
 	// ATE: Don't do this if in a fire amimation.....
 	if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIRE )
@@ -163,7 +163,7 @@ void ResetWeaponMode( SOLDIERTYPE * pSoldier )
 }
 //</SB>
 
-void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
+void CalcBestShot(TacticalActor *pSoldier, ATTACKTYPE *pBestShot)
 {
 	UINT32 uiLoop;
 	INT32 iAttackValue, iThreatValue, iHitRate, iBestHitRate, iPercentBetter, iEstDamage, iTrueLastTarget;
@@ -185,7 +185,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 	BOOLEAN fAddingTurningCost, fAddingRaiseGunCost;
 	UINT8 ubStance, ubBestStance, ubChanceToReallyHit;
 	INT8 bScopeMode;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 
 	// sevenfm:
 	BOOLEAN fSuppression = FALSE;
@@ -704,7 +704,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 		// if we can hurt the guy, OR probably not, but at least it's our best
 		// chance to actually hit him and maybe scare him, knock him down, etc.
-		SOLDIERTYPE* previousBestOpponent =
+		TacticalActor* previousBestOpponent =
 			GetJa2SoldierRepository().resolve(pBestShot->ubOpponent.i);
 		if ((iAttackValue > 0) || (ubChanceToReallyHit > pBestShot->ubChanceToReallyHit))
 		{
@@ -836,7 +836,7 @@ BOOLEAN CloseEnoughForGrenadeToss( INT32 sGridNo, INT32 sGridNo2 )
 	return( TRUE );
 }
 
-void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
+void CalcBestThrow(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow)
 {
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"calcbestthrow");
 	// September 9, 1998: added code for LAWs (CJC)
@@ -861,7 +861,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	INT8	bPayloadPocket;
 	INT8	bMaxLeft,bMaxRight,bMaxUp,bMaxDown,bXOffset,bYOffset;
 	INT8	bPersonalKnowledge, bPublicKnowledge, bKnowledge;
-	SOLDIERTYPE *pOpponent, *pFriend;
+	TacticalActor *pOpponent, *pFriend;
 	static INT16	sExcludeTile[100]; // This array is for storing tiles that we have
 	UINT8	ubNumExcludedTiles = 0;		// already considered, to prevent duplication of effort
 	INT32	iTossRange;
@@ -1345,7 +1345,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	for (ubLoop = 0; ubLoop < ubOpponentCnt; ubLoop++)
 	{
 		//NumMessage("Checking Guy#",ubOpponentID[ubLoop]);
-		SOLDIERTYPE* targetOpponent =
+		TacticalActor* targetOpponent =
 			GetJa2SoldierRepository().resolve(ubOpponentID[ubLoop].i);
 		if (!targetOpponent)
 		{
@@ -1477,7 +1477,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 					// if this opponent is close enough to the target gridno
 					if (usOppDist <= 3)
 					{
-						SOLDIERTYPE* affectedOpponent =
+						TacticalActor* affectedOpponent =
 							GetJa2SoldierRepository().resolve(ubOpponentID[ubLoop2].i);
 						if (!affectedOpponent)
 						{
@@ -1696,7 +1696,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 
 	// this is try to minimize enemies wasting their (limited) toss attacks:	
 	UINT8 ubMinChanceToReallyHit;
-	SOLDIERTYPE* bestThrowOpponent =
+	TacticalActor* bestThrowOpponent =
 		GetJa2SoldierRepository().resolve(pBestThrow->ubOpponent.i);
 
 	if( usGrenade != NOTHING && ItemIsFlare(usGrenade) )
@@ -1723,7 +1723,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"calcbestthrow done");
 }
 
-void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAttack )
+void CalcBestStab(TacticalActor *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAttack )
 {
 	UINT32 uiLoop;
 	INT32 iAttackValue;
@@ -1732,7 +1732,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 	INT16 ubRawAPCost,ubMinAPCost,ubMaxPossibleAimTime = 0;
 	INT16 ubChanceToReallyHit = 0;
 	INT16 ubAimTime,ubChanceToHit,ubBestAimTime;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 	UINT16 usTrueMovementMode;
 	INT16 ubBestChanceToHit;
 	//InitAttackType(pBestStab);		// set all structure fields to defaults//dnl ch69 150913
@@ -1917,7 +1917,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 
 		// if we can hurt the guy, OR probably not, but at least it's our best
 		// chance to actually hit him and maybe scare him, knock him down, etc.
-		SOLDIERTYPE* previousBestOpponent =
+		TacticalActor* previousBestOpponent =
 			GetJa2SoldierRepository().resolve(pBestStab->ubOpponent.i);
 		if ((iAttackValue > 0) || (ubChanceToReallyHit > pBestStab->ubChanceToReallyHit))
 		{
@@ -1964,7 +1964,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 	pSoldier->movement().mode() = usTrueMovementMode;
 }
 
-void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
+void CalcTentacleAttack(TacticalActor *pSoldier, ATTACKTYPE *pBestStab )
 {
 	UINT32 uiLoop;
 	INT32 iAttackValue;
@@ -1973,7 +1973,7 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 	UINT8 ubMaxPossibleAimTime = 0;
 	INT16 ubBestChanceToHit,ubAimTime,ubMinAPCost,ubChanceToHit,ubBestAimTime,ubRawAPCost;
 	INT16 ubChanceToReallyHit = 0;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 
 
 	//InitAttackType(pBestStab);		// set all structure fields to defaults//dnl ch69 150913
@@ -2128,7 +2128,7 @@ UINT8 NumMercsCloseTo( INT32 sGridNo, UINT8 ubMaxDist )
 {
 	INT8						bNumber = 0;
 	UINT32					uiLoop;
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pSoldier;
 
 	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
@@ -2148,7 +2148,7 @@ UINT8 NumMercsCloseTo( INT32 sGridNo, UINT8 ubMaxDist )
 	return( bNumber );
 }
 
-INT32 EstimateShotDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ubChanceToHit)
+INT32 EstimateShotDamage(TacticalActor *pSoldier, TacticalActor *pOpponent, INT16 ubChanceToHit)
 {
 	INT32 iRange,iMaxRange,iPowerLost;
 	INT32 iDamage;
@@ -2293,7 +2293,7 @@ INT32 EstimateShotDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ub
 	return( iDamage );
 }
 
-INT32 EstimateThrowDamage( SOLDIERTYPE *pSoldier, UINT8 ubItemPos, SOLDIERTYPE *pOpponent, INT32 sGridNo )
+INT32 EstimateThrowDamage( TacticalActor *pSoldier, UINT8 ubItemPos, TacticalActor *pOpponent, INT32 sGridNo )
 {
 	UINT16	ubExplosiveIndex;
 	INT32	iExplosDamage, iBreathDamage, iArmourAmount, iDamage = 0;
@@ -2430,7 +2430,7 @@ INT32 EstimateThrowDamage( SOLDIERTYPE *pSoldier, UINT8 ubItemPos, SOLDIERTYPE *
 	return( iDamage);
 }
 
-INT32 EstimateStabDamage( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ubChanceToHit, BOOLEAN fBladeAttack )
+INT32 EstimateStabDamage( TacticalActor *pSoldier, TacticalActor *pOpponent, INT16 ubChanceToHit, BOOLEAN fBladeAttack )
 {
 	INT32 iImpact, iBonus;
 	UINT16 usItem;
@@ -2593,7 +2593,7 @@ INT32 EstimateStabDamage( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 u
 	return iImpact;
 }
 
-INT8 TryToReload( SOLDIERTYPE * pSoldier )
+INT8 TryToReload( TacticalActor * pSoldier )
 {
 	INT8		bSlot;
 	WEAPONTYPE *pWeapon;
@@ -2716,7 +2716,7 @@ INT8 TryToReload( SOLDIERTYPE * pSoldier )
 }
 
 /*
-INT8 TryToReloadLauncher( SOLDIERTYPE * pSoldier )
+INT8 TryToReloadLauncher( TacticalActor * pSoldier )
 {
 UINT16	usWeapon;
 INT8		bSlot;
@@ -2739,7 +2739,7 @@ return( NOSHOOT_NOAMMO );
 }
 */
 
-INT8 CanNPCAttack(SOLDIERTYPE *pSoldier)
+INT8 CanNPCAttack(TacticalActor *pSoldier)
 {
 	INT8		bCanAttack;
 	INT8		bWeaponIn;
@@ -2811,7 +2811,7 @@ INT8 CanNPCAttack(SOLDIERTYPE *pSoldier)
 	return( bCanAttack );
 }
 
-void CheckIfTossPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
+void CheckIfTossPossible(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow)
 {
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"CheckIfTossPossible");
 	INT16 ubMinAPcost;
@@ -2891,13 +2891,13 @@ void CheckIfTossPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	pSoldier->attackSelection().weaponMode() = WM_NORMAL;//dnl ch63 240813
 }
 
-INT8 CountAdjacentSpreadTargets( SOLDIERTYPE * pSoldier, INT16 sFirstTarget, INT8 bTargetLevel )
+INT8 CountAdjacentSpreadTargets( TacticalActor * pSoldier, INT16 sFirstTarget, INT8 bTargetLevel )
 {
 	// return the number of people next to this guy for burst-spread purposes
 
 	INT8	bDirLoop, bDir, bCheckDir, bTargetIndex, bTargets;
 	INT16	sTarget;
-	SOLDIERTYPE * pTarget, * pTargets[5] = {NULL};
+	TacticalActor * pTarget, * pTargets[5] = {NULL};
 
 	bTargetIndex = -1;
 	bCheckDir = -1;
@@ -3020,11 +3020,11 @@ INT8 CountAdjacentSpreadTargets( SOLDIERTYPE * pSoldier, INT16 sFirstTarget, INT
 	return( bTargets - 1 );
 }
 
-INT16 CalcSpreadBurst( SOLDIERTYPE * pSoldier, INT16 sFirstTarget, INT8 bTargetLevel )
+INT16 CalcSpreadBurst( TacticalActor * pSoldier, INT16 sFirstTarget, INT8 bTargetLevel )
 {
 	INT8	bDirLoop, bDir, bCheckDir, bTargetIndex = 0, bLoop, bTargets;
 	INT16	sTarget;
-	SOLDIERTYPE * pTarget, * pTargets[5] = {NULL};
+	TacticalActor * pTarget, * pTargets[5] = {NULL};
 	INT8 bAdjacents, bOtherAdjacents;
 
 
@@ -3191,7 +3191,7 @@ INT16 CalcSpreadBurst( SOLDIERTYPE * pSoldier, INT16 sFirstTarget, INT8 bTargetL
 	return( sFirstTarget );
 }
 
-INT16 AdvanceToFiringRange( SOLDIERTYPE * pSoldier, INT16 sClosestOpponent )
+INT16 AdvanceToFiringRange( TacticalActor * pSoldier, INT16 sClosestOpponent )
 {
 	// see how far we can go down a path and still shoot
 
@@ -3219,7 +3219,7 @@ INT16 AdvanceToFiringRange( SOLDIERTYPE * pSoldier, INT16 sClosestOpponent )
 
 }
 
-void CheckIfShotPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
+void CheckIfShotPossible(TacticalActor *pSoldier, ATTACKTYPE *pBestShot)
 {
 	INT16 ubMinAPcost;
 	pBestShot->ubPossible = FALSE;
@@ -3283,7 +3283,7 @@ void CheckIfShotPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 }
 
 // SANDRO - function to determine if we should try to steal the enemy gun
-BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent )
+BOOLEAN AIDetermineStealingWeaponAttempt( TacticalActor * pSoldier, TacticalActor * pOpponent )
 {
 	INT16 sChance = 0;
 	UINT32 uiSuccessChance = 0;
@@ -3414,7 +3414,7 @@ BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * 
 
 // HEADROCK HAM 4: This is required for the AI to be able to assess the length of autofire volleys using the new
 // recoil system. 
-FLOAT AICalcRecoilForShot( SOLDIERTYPE *pSoldier, OBJECTTYPE *pWeapon, UINT8 ubShotNum)
+FLOAT AICalcRecoilForShot( TacticalActor *pSoldier, OBJECTTYPE *pWeapon, UINT8 ubShotNum)
 {
 	FLOAT bRecoilX = 0;
 	FLOAT bRecoilY = 0;
@@ -3462,7 +3462,7 @@ UINT16 UnderFire::Count(INT8 bTeam)
 	UINT16 cnt = 0;
 	for (UINT16 i = 0; i < usUnderFireCnt; i++)
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(usUnderFireID[i].i);
 		if (soldier && soldier->roster().team() == bTeam)
 			++cnt;
@@ -3475,7 +3475,7 @@ UINT8 UnderFire::Chance(INT8 bTeam, INT8 bSide, BOOLEAN fCheckNeutral)
 	UINT8 cth = 0;
 	for (UINT16 i = 0; i < usUnderFireCnt; i++)
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(usUnderFireID[i].i);
 		if (soldier &&
 			(soldier->roster().team() == bTeam || soldier->roster().side() == bSide ||
@@ -3497,7 +3497,7 @@ UINT8 UnderFire::Chance(INT8 bTeam, INT8 bSide, BOOLEAN fCheckNeutral)
 // sucess only if at a rating of at least aMinRating can be achieved
 // any enemy soldiers not fulfilling cond will be excluded from this calculation
 // if an enemy soldier fulfils taboo, make sure to not hit him at all!
-BOOLEAN GetBestAoEGridNo(SOLDIERTYPE *pSoldier, INT32* pGridNo, INT16 aRadius, UINT8 uCheckFriends, UINT8 aMinRating, SOLDIER_CONDITION cond, SOLDIER_CONDITION taboo)
+BOOLEAN GetBestAoEGridNo(TacticalActor *pSoldier, INT32* pGridNo, INT16 aRadius, UINT8 uCheckFriends, UINT8 aMinRating, SOLDIER_CONDITION cond, SOLDIER_CONDITION taboo)
 {
 	UINT16 ubLoop, ubLoop2;
 	INT32 sGridNo, sFriendTile[MAXMERCS], sOpponentTile[MAXMERCS], sTabooTile[MAXMERCS];
@@ -3505,7 +3505,7 @@ BOOLEAN GetBestAoEGridNo(SOLDIERTYPE *pSoldier, INT32* pGridNo, INT16 aRadius, U
 	SoldierID ubOpponentID[MAXMERCS];
 	INT32	bMaxLeft,bMaxRight,bMaxUp,bMaxDown, i, j;
 	INT8	bPersOL, bPublOL;
-	SOLDIERTYPE *pFriend;
+	TacticalActor *pFriend;
 	static INT16	sExcludeTile[100]; // This array is for storing tiles that we have
 	UINT8 ubNumExcludedTiles = 0;		// already considered, to prevent duplication of effort
 
@@ -3692,13 +3692,13 @@ BOOLEAN GetBestAoEGridNo(SOLDIERTYPE *pSoldier, INT32* pGridNo, INT16 aRadius, U
 // Get the ID of the farthest opponent  we can see, with an optional minimum range
 // puID - ID of the farthest opponent pSoldier can see
 // sRange - only return an true and give an idea if opponent found is further away than this
-BOOLEAN GetFarthestOpponent(SOLDIERTYPE *pSoldier, SoldierID *puID, INT16 sRange)
+BOOLEAN GetFarthestOpponent(TacticalActor *pSoldier, SoldierID *puID, INT16 sRange)
 {
 	INT32 sGridNo;
 	UINT32 uiLoop;
 	INT32 iRange = 0;;
 	INT8	*pbPersOL;
-	SOLDIERTYPE * pOpp;
+	TacticalActor * pOpp;
 	BOOLEAN found = FALSE;
 	
 	*puID = NOBODY;
@@ -3771,7 +3771,7 @@ BOOLEAN MoreFriendsThanEnemiesinNearbysectors(UINT8 ausTeam, INT16 aX, INT16 aY,
 }
 
 // sevenfm: new attack functions
-void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
+void CheckTossSelfSmoke(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow)
 {
 	INT16 ubMinAPcost;
 	INT8 bGrenadeIn = NO_SLOT;
@@ -3818,7 +3818,7 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 
 			INT32 sClosestThreat;
 			SoldierID ubClosestThreatID = pSoldier->combatResult().previousAttacker();
-			SOLDIERTYPE* closestThreat =
+			TacticalActor* closestThreat =
 				GetJa2SoldierRepository().resolve(ubClosestThreatID.i);
 
 			// try to find good spot for smoke
@@ -3876,7 +3876,7 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 }
 
-void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
+void CheckTossFriendSmoke(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow)
 {
 	INT16 ubMinAPcost;
 	INT8 bGrenadeIn = NO_SLOT;
@@ -3916,7 +3916,7 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			INT8	bLevel = pSoldier->position().level();
 
 			// check all friends
-			SOLDIERTYPE *pFriend;
+			TacticalActor *pFriend;
 			INT32		sClosestFriendSpot = NOWHERE;
 			INT8			bClosestFriendLevel = 0;
 			SoldierID	ubClosestFriendID = NOBODY;
@@ -4030,7 +4030,7 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 
 // check if we can toss grenade at spot, and prepare attack data
 // grenade should be in hand
-void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpot, INT8 bTargetLevel, SoldierID ubOpponentID)
+void CheckTossAt(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpot, INT8 bTargetLevel, SoldierID ubOpponentID)
 {
 	UINT16	usInHand, usGrenade;
 	INT32	iTossRange;
@@ -4211,7 +4211,7 @@ INT32 FindTossSpotInDirection(INT32 sSpot, INT8 bLevel, INT32 sTargetSpot, BOOLE
 	return NOWHERE;
 }
 
-void CheckTossGrenadeAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpot, INT8 bTargetLevel, UINT8 ubGrenadeType)
+void CheckTossGrenadeAt(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpot, INT8 bTargetLevel, UINT8 ubGrenadeType)
 {
 	INT16 ubMinAPcost;
 	INT8 bGrenadeIn = NO_SLOT;

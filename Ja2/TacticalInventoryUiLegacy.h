@@ -3,20 +3,20 @@
 
 #include "TacticalInventoryUiHost.h"
 
-class SOLDIERTYPE;
+class TacticalActor;
 
 // Compatibility consumers that still operate on JA2 soldier records resolve
 // the stable UI-session identity only at the point of use. New producers store
 // TacticalEntityId through TacticalInventoryUiHost.h.
-SOLDIERTYPE* ResolveJa2TacticalInventoryActor(
+TacticalActor* ResolveJa2TacticalInventoryActor(
 	TacticalInventoryActorRole role) noexcept;
 
-SOLDIERTYPE* GetSMCurrentMerc() noexcept;
-SOLDIERTYPE* GetItemPointerSoldier() noexcept;
-SOLDIERTYPE* GetItemDescSoldier() noexcept;
-SOLDIERTYPE* GetAttachSoldier() noexcept;
-SOLDIERTYPE* GetItemPopupSoldier() noexcept;
-SOLDIERTYPE* GetItemPickupActor() noexcept;
-SOLDIERTYPE* GetItemPickupOpponent() noexcept;
+TacticalActor* GetSMCurrentMerc() noexcept;
+TacticalActor* GetItemPointerSoldier() noexcept;
+TacticalActor* GetItemDescSoldier() noexcept;
+TacticalActor* GetAttachSoldier() noexcept;
+TacticalActor* GetItemPopupSoldier() noexcept;
+TacticalActor* GetItemPickupActor() noexcept;
+TacticalActor* GetItemPickupOpponent() noexcept;
 
 #endif

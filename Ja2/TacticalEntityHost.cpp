@@ -42,14 +42,14 @@ TacticalEntityRoster& AwayActorRoster() noexcept
 	return roster;
 }
 
-TacticalEntityId LegacyIdentity(const SOLDIERTYPE& soldier) noexcept
+TacticalEntityId LegacyIdentity(const TacticalActor& soldier) noexcept
 {
 	return TacticalEntityId{
 		static_cast<std::uint16_t>(soldier.identity().id()),
 		soldier.identity().incarnation()};
 }
 
-TacticalStance LegacyStance(const SOLDIERTYPE& soldier) noexcept
+TacticalStance LegacyStance(const TacticalActor& soldier) noexcept
 {
 	if (soldier.animationPlayback().state() >= NUMANIMATIONSTATES)
 		return TacticalStance::Unknown;
@@ -63,7 +63,7 @@ TacticalStance LegacyStance(const SOLDIERTYPE& soldier) noexcept
 }
 
 TacticalActorSnapshot LegacyState(
-	const SOLDIERTYPE& soldier) noexcept
+	const TacticalActor& soldier) noexcept
 {
 	return TacticalActorSnapshot{
 		LegacyIdentity(soldier),
@@ -156,7 +156,7 @@ void RestoreJa2TacticalEntityIncarnationSequence(
 	BoundDirectory()->restoreNextIncarnation(nextIncarnation);
 }
 
-bool AdoptJa2TacticalEntity(SOLDIERTYPE& soldier) noexcept
+bool AdoptJa2TacticalEntity(TacticalActor& soldier) noexcept
 {
 	const TacticalEntityId entity = LegacyIdentity(soldier);
 	if (!entity.valid() ||
@@ -169,7 +169,7 @@ bool AdoptJa2TacticalEntity(SOLDIERTYPE& soldier) noexcept
 	return false;
 }
 
-bool ReleaseJa2TacticalEntity(const SOLDIERTYPE& soldier) noexcept
+bool ReleaseJa2TacticalEntity(const TacticalActor& soldier) noexcept
 {
 	const TacticalEntityId entity = LegacyIdentity(soldier);
 	if (!GetJa2SoldierRepository().contains(entity.slot, soldier))
@@ -178,7 +178,7 @@ bool ReleaseJa2TacticalEntity(const SOLDIERTYPE& soldier) noexcept
 }
 
 bool SynchronizeJa2TacticalEntityState(
-	const SOLDIERTYPE& soldier) noexcept
+	const TacticalActor& soldier) noexcept
 {
 	const TacticalEntityId entity = LegacyIdentity(soldier);
 	if (!entity.valid() ||
@@ -196,7 +196,7 @@ bool SynchronizeJa2TacticalEntityStates() noexcept
 	for (std::size_t slot = 0;
 		slot < soldiers.capacity(); ++slot)
 	{
-		const SOLDIERTYPE* soldier = soldiers.resolve(slot);
+		const TacticalActor* soldier = soldiers.resolve(slot);
 		if (!soldier || !soldier->roster().active())
 		{
 			if (BoundDirectory()->identity(slot).valid()) return false;
@@ -221,7 +221,7 @@ void RebuildJa2TacticalEntityDirectory() noexcept
 	for (std::size_t slot = 0;
 		slot < soldiers.capacity(); ++slot)
 	{
-		SOLDIERTYPE* soldier = soldiers.resolve(slot);
+		TacticalActor* soldier = soldiers.resolve(slot);
 		if (soldier) (void)AdoptJa2TacticalEntity(*soldier);
 	}
 }
@@ -245,11 +245,11 @@ bool SwapJa2TacticalEntitySlots(
 	return true;
 }
 
-SOLDIERTYPE* ResolveJa2TacticalEntity(TacticalEntityId entity) noexcept
+TacticalActor* ResolveJa2TacticalEntity(TacticalEntityId entity) noexcept
 {
 	if (!BoundDirectory()->contains(entity))
 		return nullptr;
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(entity.slot);
 	if (!soldier || !soldier->roster().active() ||
 		static_cast<std::uint16_t>(soldier->identity().id()) != entity.slot ||
@@ -265,7 +265,7 @@ TacticalEntityId GetJa2TacticalEntityId(std::uint16_t slot) noexcept
 }
 
 TacticalEntityId GetJa2TacticalEntityId(
-	const SOLDIERTYPE& soldier) noexcept
+	const TacticalActor& soldier) noexcept
 {
 	const TacticalEntityId entity = GetJa2TacticalEntityId(
 		static_cast<std::uint16_t>(soldier.identity().id()));
@@ -290,14 +290,14 @@ std::size_t Ja2AwayTacticalActorSlotCount() noexcept
 	return AwayActorRoster().highWaterMark();
 }
 
-SOLDIERTYPE* ResolveJa2ActiveTacticalActorSlot(
+TacticalActor* ResolveJa2ActiveTacticalActorSlot(
 	std::size_t rosterSlot) noexcept
 {
 	return ResolveJa2TacticalEntity(
 		ActiveActorRoster().actor(rosterSlot));
 }
 
-SOLDIERTYPE* ResolveJa2AwayTacticalActorSlot(
+TacticalActor* ResolveJa2AwayTacticalActorSlot(
 	std::size_t rosterSlot) noexcept
 {
 	return ResolveJa2TacticalEntity(
@@ -344,14 +344,14 @@ bool Ja2TacticalEntityReference::capture(
 	return true;
 }
 
-SOLDIERTYPE* Ja2TacticalEntityReference::resolve() const noexcept
+TacticalActor* Ja2TacticalEntityReference::resolve() const noexcept
 {
 	return ResolveJa2TacticalEntity(entity_);
 }
 
-SOLDIERTYPE* Ja2TacticalEntityReference::consume() noexcept
+TacticalActor* Ja2TacticalEntityReference::consume() noexcept
 {
-	SOLDIERTYPE* soldier = resolve();
+	TacticalActor* soldier = resolve();
 	reset();
 	return soldier;
 }

@@ -225,7 +225,7 @@ void FillMapColoursForTransportGroups(INT32(&colorMap)[MAXIMUM_VALID_Y_COORDINAT
 	std::map<UINT8, MonitoredSectorState> monitoredTowns;
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 
 		if( pSoldier->roster().active() &&
 			pSoldier->vitals().health() >= OKLIFE &&
@@ -484,7 +484,7 @@ void UpdateTransportGroupInventory()
 		std::set<UINT8> playerCalibres;
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
-			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if (pSoldier->roster().active() && !(pSoldier->status().flags() & SOLDIER_VEHICLE))
 			{
 				for (int j = 0 ; j < pSoldier->inventory().size(); ++j)
@@ -570,7 +570,7 @@ void UpdateTransportGroupInventory()
 		}
 	}
 
-	auto addItemToInventory = [](SOLDIERTYPE* pSoldier, UINT16 itemId, UINT8 amount)
+	auto addItemToInventory = [](TacticalActor* pSoldier, UINT16 itemId, UINT8 amount)
 	{
 		OBJECTTYPE itemToAdd;
 		CreateItems(itemId, 100, amount, &itemToAdd);
@@ -605,7 +605,7 @@ void UpdateTransportGroupInventory()
 	std::map<UINT8, int> cachedGroupJeepCount;
 	for ( SoldierID slot = firstSlot; (slot <= lastSlot); ++slot)
 	{
-		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(slot);
+		TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(slot);
 
 		const std::map<UINT8, std::map<int, UINT16>>::iterator groupIter = transportGroupIdToSoldierMap.find(pSoldier->deployment().groupId());
 		if (groupIter != transportGroupIdToSoldierMap.end())

@@ -6,7 +6,7 @@
 
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 
-class SOLDIERTYPE;
+class TacticalActor;
 
 inline constexpr std::size_t kJa2StrategicSquadCount = 40;
 inline constexpr std::size_t kJa2StrategicSquadCapacity = 10;
@@ -19,7 +19,7 @@ void ResetJa2StrategicSquadRosters() noexcept;
 std::size_t Ja2StrategicSquadSize(std::size_t squad) noexcept;
 TacticalEntityId GetJa2StrategicSquadActor(
 	std::size_t squad, std::size_t slot) noexcept;
-SOLDIERTYPE* ResolveJa2StrategicSquadActor(
+TacticalActor* ResolveJa2StrategicSquadActor(
 	std::size_t squad, std::size_t slot) noexcept;
 
 std::int32_t AddJa2StrategicSquadActor(

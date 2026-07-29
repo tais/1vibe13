@@ -30,13 +30,13 @@ Saving is done by writing raw struct bytes to disk, e.g.
 
 ```cpp
 FileWrite( hFile, this, SIZEOF_SOLDIERTYPE_POD, &uiNumBytesWritten );
-// SIZEOF_SOLDIERTYPE_POD == offsetof( SOLDIERTYPE, endOfPOD )
+// SIZEOF_SOLDIERTYPE_POD == offsetof( TacticalActor, endOfPOD )
 ```
 
 `offsetof(…, endOfPOD)` is the in-memory size of the struct's "plain old data"
 prefix **on the building compiler/platform**. That makes the on-disk layout
 depend on platform ABI details. There are **22 such `SIZEOF_*_POD` structs**
-(SOLDIERTYPE, MERCPROFILESTRUCT, OBJECTTYPE, WORLDITEM, MILITIA, REAL_OBJECT,
+(TacticalActor, MERCPROFILESTRUCT, OBJECTTYPE, WORLDITEM, MILITIA, REAL_OBJECT,
 INVENTORY_IN_SLOT, …) plus their nested structs.
 
 ### Three independent portability breakers
@@ -72,7 +72,7 @@ INVENTORY_IN_SLOT, …) plus their nested structs.
   (`NIV_SAVEGAME_DATATYPE_CHANGE = 102`, "before this we used the old structure
   system"). So a clean new-format baseline at a new version number is idiomatic.
 - `ReadFieldByField()` (padding-aware) and a half-finished field-by-field
-  migration in `MERCPROFILESTRUCT`/`SOLDIERTYPE` load paths.
+  migration in `MERCPROFILESTRUCT`/`TacticalActor` load paths.
 
 ---
 
@@ -134,7 +134,7 @@ pattern). Track as related work — the `wstr` reader helper is reused.
 1. Land the serializer core + helpers (no behaviour change yet).
 2. Convert the leaf structs first (OBJECTTYPE, REAL_OBJECT, INVENTORY_IN_SLOT,
    WORLDITEM, MILITIA) — small, high-reuse.
-3. Convert MERCPROFILESTRUCT, SOLDIERCREATE_STRUCT, SOLDIERTYPE (finish the
+3. Convert MERCPROFILESTRUCT, SOLDIERCREATE_STRUCT, TacticalActor (finish the
    half-done work) — the big ones.
 4. Convert the remaining containers / sector data.
 5. Bump `SAVE_GAME_VERSION`; verify **save → quit → reload** on macOS, and a
@@ -203,7 +203,7 @@ on every platform, which also makes saves shareable across Win/Lin/Mac.
   PaletteRepID → `str8`, inventory vectors, `STRUCT_Records`, dynamic-opinion
   2D arrays, growth modifiers as full INT16). The legacy/encrypted Prof.dat
   load path (`forceLoadOldVersion=true`) is preserved untouched.
-- ☑ **`SOLDIERTYPE`** (the central record), ~550 fields, via the field
+- ☑ **`TacticalActor`** (the central record), ~550 fields, via the field
   visitor. Its former generic AI/flags/timing/drug/statistics/pathing wrappers
   are live domain components while the visitor retains their historical stream
   sections and ordering. ~20 interleaved runtime
@@ -665,7 +665,7 @@ adapter, so save and load can never drift out of order. Extra methods:
   in-memory lifetime change only: `XferSoldierTypePOD` emits the same zero
   bytes at every former pointer position through `retiredPtr()`, and loaded or
   v101 soldiers rebuild the bank as before. Logical-body palette tables compose
-  the same owner rather than inheriting `SOLDIERTYPE`; their existing 256-entry
+  the same owner rather than inheriting `TacticalActor`; their existing 256-entry
   RGB `.col` input remains byte-for-byte unchanged. Current saves, multiplayer
   packets, maps, XML, Lua, packages, and installed data are unchanged.
 - The central identity and roster values now have two independent live owners.
@@ -829,7 +829,7 @@ pointer-alignment padding differs between 32- and 64-bit):
 |---|---|---|
 | `SAVED_GAME_HEADER` | CHAR16 desc + GAME_OPTIONS | `wstr` desc; scalar GAME_OPTIONS as bytes; read before version gate |
 | `TacticalStatusType` | CHAR16 top-message | `wstr`; SoldierID via `.i`; scalar `Team[]` as bytes |
-| `MERCPROFILESTRUCT`, `SOLDIERTYPE`, `SOLDIERCREATE_STRUCT` | CHAR16 names | (original migration) `wstr` |
+| `MERCPROFILESTRUCT`, `TacticalActor`, `SOLDIERCREATE_STRUCT` | CHAR16 names | (original migration) `wstr` |
 | email subject, map-screen messages | CHAR16 `*2` | `sizeof(CHAR16)` + bounded reads |
 | `VEHICLETYPE` | ptrs (pMercPath, pPassengers) | skip; passenger profile IDs as fixed `u32` |
 | `PathSt` (vehicle/militia/merc paths) | ptrs (pNext/pPrev) | shared node helper; links rebuilt |
@@ -839,7 +839,7 @@ pointer-alignment padding differs between 32- and 64-bit):
 | `BULLET` | ptrs (firer/tracer/anitiles) | skip; firer re-derived from ID |
 | `GROUP` + `WAYPOINT` | ptrs (waypoints/union/next) | skip; sub-lists saved separately, links rebuilt |
 
-`signed long` fields (e.g. SOLDIERTYPE's `lUnregainableBreath`) are pinned to
+`signed long` fields (e.g. TacticalActor's `lUnregainableBreath`) are pinned to
 32-bit (`ar.slong`). Same-platform saves were always fine; this pass makes saves
 **shareable across Win/Lin/Mac**. Verification remains by playtest until a test
 framework lands (golden-byte cross-platform tests are the ideal coverage).
@@ -866,10 +866,10 @@ kid + Fatima never spawned in A9, and giving Fatima the letter crashed.
 
 | Version path | Struct | Breaker | Fix |
 |---|---|---|---|
-| v5.0 detailed placement | `OLD_SOLDIERCREATE_STRUCT_101` | `CHAR16 name[10]` + `SOLDIERTYPE* pExistingSoldier` scrambled every field after `name` → `LoadSoldiersFromMap` derailed at first CIV → no NPCs | `UINT16 name` + `UINT32` slot; widen/NULL at operators |
+| v5.0 detailed placement | `OLD_SOLDIERCREATE_STRUCT_101` | `CHAR16 name[10]` + `TacticalActor* pExistingSoldier` scrambled every field after `name` → `LoadSoldiersFromMap` derailed at first CIV → no NPCs | `UINT16 name` + `UINT32` slot; widen/NULL at operators |
 | v<8.0 NPC schedules | `_OLD_SCHEDULENODE`, `_OLD_SCHEDULENODE_PRE_ITS` | leading `next` pointer (8 vs 4) shifted every schedule field by 4 | `next` → `UINT32` slot (transient link, rebuilt on load) |
 | give-item dialogue | `uiApproachData` carrier | smuggles an `OBJECTTYPE*` but typed `UINT32` → pointer truncated at `InitiateConversation`, crash on cast-back in `Converse`/`ReturnItemToPlayerIfNecessary` | widen to `uintptr_t` end-to-end |
-| v6.0.27–6.0.30 detailed placement | `_OLD_SOLDIERCREATE_STRUCT` | same `CHAR16 name` + `SOLDIERTYPE*` as v5.0 | `UINT16 name` + `UINT32` slot (branch `fix-v6x-map-soldier-load`) |
+| v6.0.27–6.0.30 detailed placement | `_OLD_SOLDIERCREATE_STRUCT` | same `CHAR16 name` + `TacticalActor*` as v5.0 | `UINT16 name` + `UINT32` slot (branch `fix-v6x-map-soldier-load`) |
 
 ### Audit — version-branched map structs verified safe (no change needed)
 

@@ -212,67 +212,67 @@ enum
 
 typedef struct TOWN_TRAINER_TYPE
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT16	sTrainingPts;
 
 } TOWN_TRAINER_TYPE;
 
 
 // can character do this assignment?
-//BOOLEAN CanSoldierAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment );
+//BOOLEAN CanSoldierAssignment( TacticalActor *pSoldier, INT8 bAssignment );
 
 // can this character be assigned as a doctor?
-BOOLEAN CanCharacterDoctor( SOLDIERTYPE *pCharacter );
+BOOLEAN CanCharacterDoctor( TacticalActor *pCharacter );
 
 // can this character doctor militia (assignmentwise)?
-BOOLEAN CanCharacterDoctorMilitia( SOLDIERTYPE *pSoldier );
+BOOLEAN CanCharacterDoctorMilitia( TacticalActor *pSoldier );
 
 // can this character diagnose diseases?
-BOOLEAN CanCharacterDiagnoseDisease( SOLDIERTYPE *pSoldier );
+BOOLEAN CanCharacterDiagnoseDisease( TacticalActor *pSoldier );
 
 // can this character treat diseases of the population (NOT mercs)?
-BOOLEAN CanCharacterTreatSectorDisease( SOLDIERTYPE *pSoldier );
+BOOLEAN CanCharacterTreatSectorDisease( TacticalActor *pSoldier );
 
-BOOLEAN CanCharacterFortify( SOLDIERTYPE *pSoldier );
+BOOLEAN CanCharacterFortify( TacticalActor *pSoldier );
 
-BOOLEAN CanCharacterSpyAssignment( SOLDIERTYPE *pSoldier );
+BOOLEAN CanCharacterSpyAssignment( TacticalActor *pSoldier );
 
-BOOLEAN CanCharacterBurial( SOLDIERTYPE *pSoldier );
-BOOLEAN CanCharacterAdministration( SOLDIERTYPE *pSoldier );
-BOOLEAN CanCharacterExplore( SOLDIERTYPE *pSoldier );
+BOOLEAN CanCharacterBurial( TacticalActor *pSoldier );
+BOOLEAN CanCharacterAdministration( TacticalActor *pSoldier );
+BOOLEAN CanCharacterExplore( TacticalActor *pSoldier );
 
 // can this character be assigned as a repairman?
-BOOLEAN CanCharacterRepair( SOLDIERTYPE *pCharacter );
+BOOLEAN CanCharacterRepair( TacticalActor *pCharacter );
 
 // can character be patient?
-BOOLEAN CanCharacterPatient( SOLDIERTYPE *pCharacter );
+BOOLEAN CanCharacterPatient( TacticalActor *pCharacter );
 
 // can character train militia?
-BOOLEAN CanCharacterDrillMilitia( SOLDIERTYPE *pSoldier, BOOLEAN aErrorReport = FALSE );
-BOOLEAN CanCharacterTrainMilitia( SOLDIERTYPE *pCharacter );
+BOOLEAN CanCharacterDrillMilitia( TacticalActor *pSoldier, BOOLEAN aErrorReport = FALSE );
+BOOLEAN CanCharacterTrainMilitia( TacticalActor *pCharacter );
 
-BOOLEAN CanCharacterTrainWorkers( SOLDIERTYPE *pSoldier );
+BOOLEAN CanCharacterTrainWorkers( TacticalActor *pSoldier );
 
 // can character train stat?..as train self or as trainer?
-BOOLEAN CanCharacterTrainStat( SOLDIERTYPE *pSoldier, INT8 bStat, BOOLEAN fTrainSelf, BOOLEAN fTrainTeammate );
+BOOLEAN CanCharacterTrainStat( TacticalActor *pSoldier, INT8 bStat, BOOLEAN fTrainSelf, BOOLEAN fTrainTeammate );
 
 // is character capable of practising at all?
-BOOLEAN CanCharacterPractise( SOLDIERTYPE *pCharacter );
+BOOLEAN CanCharacterPractise( TacticalActor *pCharacter );
 
 // can this character train others?
-BOOLEAN CanCharacterTrainTeammates( SOLDIERTYPE *pSoldier );
-BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8 ubAssignmentType );
+BOOLEAN CanCharacterTrainTeammates( TacticalActor *pSoldier );
+BOOLEAN CanCharacterFacility( TacticalActor *pSoldier, UINT8 ubFacilityType, UINT8 ubAssignmentType );
 
 // put character on duty?
-BOOLEAN CanCharacterOnDuty( SOLDIERTYPE *pCharacter );
+BOOLEAN CanCharacterOnDuty( TacticalActor *pCharacter );
 
 // put character to sleep?
-BOOLEAN CanCharacterSleep( SOLDIERTYPE *pCharacter, BOOLEAN fExplainWhyNot );
+BOOLEAN CanCharacterSleep( TacticalActor *pCharacter, BOOLEAN fExplainWhyNot );
 
-BOOLEAN CanCharacterBeAwakened( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot );
+BOOLEAN CanCharacterBeAwakened( TacticalActor *pSoldier, BOOLEAN fExplainWhyNot );
 
 // put character in vehicle?
-BOOLEAN CanCharacterVehicle( SOLDIERTYPE *pCharacter );
+BOOLEAN CanCharacterVehicle( TacticalActor *pCharacter );
 
 constexpr auto CHARACTER_CANT_JOIN_SQUAD_ALREADY_IN_IT = -6;
 constexpr auto CHARACTER_CANT_JOIN_SQUAD_SQUAD_MOVING = -5;
@@ -284,17 +284,17 @@ constexpr auto CHARACTER_CANT_JOIN_SQUAD = 0;
 constexpr auto CHARACTER_CAN_JOIN_SQUAD = 1;
 
 // can character be added to squad
-INT8 CanCharacterSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue );
+INT8 CanCharacterSquad( TacticalActor *pCharacter, INT8 bSquadValue );
 
 // can character snitch
-BOOLEAN CanCharacterSnitch( SOLDIERTYPE *pCharacter );
+BOOLEAN CanCharacterSnitch( TacticalActor *pCharacter );
 
 // if merc could train militia here, do they have sufficient loyalty?
-BOOLEAN DoesSectorMercIsInHaveSufficientLoyaltyToTrainMilitia( SOLDIERTYPE *pSoldier );
+BOOLEAN DoesSectorMercIsInHaveSufficientLoyaltyToTrainMilitia( TacticalActor *pSoldier );
 BOOLEAN DoesTownHaveRatingToTrainMilitia( INT8 bTownId );
 
 // is the character in transit?
-BOOLEAN IsCharacterInTransit( SOLDIERTYPE *pCharacter );
+BOOLEAN IsCharacterInTransit( TacticalActor *pCharacter );
 
 // handler for assignments -- called once per hour via event
 void UpdateAssignments();
@@ -302,7 +302,7 @@ void UpdateAssignments();
 // how many people in this secotr have this assignment?
 UINT8 FindNumberInSectorWithAssignment( INT16 sX, INT16 sY, INT8 bAssignment );
 
-void MakeSoldiersTacticalAnimationReflectAssignment( SOLDIERTYPE *pSoldier );
+void MakeSoldiersTacticalAnimationReflectAssignment( TacticalActor *pSoldier );
 
 // build list of sectors with mercs
 void BuildSectorsWithSoldiersList( void );
@@ -313,7 +313,7 @@ void InitSectorsWithSoldiersList( void );
 // is there a soldier in this sector?..only use after BuildSectorsWithSoldiersList is called
 BOOLEAN IsThereASoldierInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ );
 
-void CheckIfSoldierUnassigned( SOLDIERTYPE *pSoldier );
+void CheckIfSoldierUnassigned( TacticalActor *pSoldier );
 
 // figure out the assignment menu pop up box positions
 void DetermineBoxPositions( void );
@@ -322,28 +322,28 @@ void DetermineBoxPositions( void );
 void SetTacticalPopUpAssignmentBoxXY( void );
 
 // get number of pts that are being used this strategic turn
-INT16 GetTownTrainPtsForCharacter( SOLDIERTYPE *pTrainer, UINT16 *pusMaxPts );
+INT16 GetTownTrainPtsForCharacter( TacticalActor *pTrainer, UINT16 *pusMaxPts );
 
 
 // find number of healing pts 
-UINT16 CalculateHealingPointsForDoctor(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts, BOOLEAN fMakeSureKitIsInHand );
+UINT16 CalculateHealingPointsForDoctor(TacticalActor *pSoldier, UINT16 *pusMaxPts, BOOLEAN fMakeSureKitIsInHand );
 
 // find number of repair pts repairman has available
-UINT8 CalculateRepairPointsForRepairman(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts, BOOLEAN fMakeSureKitIsInHand );
+UINT8 CalculateRepairPointsForRepairman(TacticalActor *pSoldier, UINT16 *pusMaxPts, BOOLEAN fMakeSureKitIsInHand );
 
 // find number of cleaning pts repairman has available
-UINT8 CalculateCleaningPointsForRepairman(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts );
+UINT8 CalculateCleaningPointsForRepairman(TacticalActor *pSoldier, UINT16 *pusMaxPts );
 
 // Flugente: calculate interrogation and prison guard values
-UINT32 CalculateInterrogationValue(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts );
-UINT32 CalculatePrisonGuardValue(SOLDIERTYPE *pSoldier );
+UINT32 CalculateInterrogationValue(TacticalActor *pSoldier, UINT16 *pusMaxPts );
+UINT32 CalculatePrisonGuardValue(TacticalActor *pSoldier );
 
-UINT32 CalculateSnitchInterrogationValue(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts );
+UINT32 CalculateSnitchInterrogationValue(TacticalActor *pSoldier, UINT16 *pusMaxPts );
 
 // Flugente: Determine the best cth with SAMs in a sector, and which merc has that cth if present
 FLOAT GetBestSAMOperatorCTH_Player( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, SoldierID *pubID );
 
-INT16 GetTrainWorkerPts(SOLDIERTYPE *pSoldier);
+INT16 GetTrainWorkerPts(TacticalActor *pSoldier);
 
 // Flugente: intel shenanigans
 void BuildIntelInfoArray();
@@ -354,20 +354,20 @@ void BuyIntelInfo( int aInfoNumber );
 
 // get bonus tarining pts due to an instructor for this student
 // HEADROCK HAM 3.5: Three functions below have lost an argument which is no longer required ("uiAtGunRange", which was "uiAtFacility" in HAM 3.4)
-INT16 GetBonusTrainingPtsDueToInstructor( SOLDIERTYPE *pInstructor, SOLDIERTYPE *pStudent, INT8 bTrainStat, UINT16 *pusMaxPts );
+INT16 GetBonusTrainingPtsDueToInstructor( TacticalActor *pInstructor, TacticalActor *pStudent, INT8 bTrainStat, UINT16 *pusMaxPts );
 
 // get training pts for this soldier
-INT16 GetSoldierTrainingPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pusMaxPts );
+INT16 GetSoldierTrainingPts( TacticalActor *pSoldier, INT8 bTrainStat, UINT16 *pusMaxPts );
 
 // pts for being a student for this soldier
-INT16 GetSoldierStudentPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pusMaxPts );
+INT16 GetSoldierStudentPts( TacticalActor *pSoldier, INT8 bTrainStat, UINT16 *pusMaxPts );
 
 // HEADROCK HAM 3.6: Completely unused.
 // reset these soldiers
-//void ResetAssignmentsForAllSoldiersInSectorWhoAreTrainingTown( SOLDIERTYPE *pSoldier );
+//void ResetAssignmentsForAllSoldiersInSectorWhoAreTrainingTown( TacticalActor *pSoldier );
 
 // Handle assignment done
-void AssignmentDone( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo );
+void AssignmentDone( TacticalActor *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo );
 
 extern INT32 ghAssignmentBox;
 extern INT32 ghEpcBox;
@@ -515,7 +515,7 @@ void PrisonerMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason );
 void CreateDestroyMouseRegionsForContractMenu( void );
 void ContractMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason );
 void ContractMenuMvtCallback( MOUSE_REGION * pRegion, INT32 iReason );
-void RebuildContractBoxForMerc( SOLDIERTYPE *pCharacter );
+void RebuildContractBoxForMerc( TacticalActor *pCharacter );
 
 // remove merc from team menu callback
 void RemoveMercMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason );
@@ -524,27 +524,27 @@ void CreateDestroyMouseRegionsForRemoveMenu( void );
 
 // misc assignment GUI functions
 void HandleShadingOfLinesForAssignmentMenus( void );
-BOOLEAN IsCharacterAliveAndConscious( SOLDIERTYPE *pCharacter );
+BOOLEAN IsCharacterAliveAndConscious( TacticalActor *pCharacter );
 void CreateDestroyScreenMaskForAssignmentAndContractMenus( void );
 
 
 BOOLEAN CreateDestroyAssignmentPopUpBoxes( void );
-void SetSoldierAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment, INT32 iParam1, INT32 iParam2, INT32 iParam3 );
+void SetSoldierAssignment( TacticalActor *pSoldier, INT8 bAssignment, INT32 iParam1, INT32 iParam2, INT32 iParam3 );
 
 // set merc asleep and awake under the new sleep system implemented June 29, 1998
 // if give warning is false, the function can be used as an internal function
-BOOLEAN SetMercAwake( SOLDIERTYPE *pSoldier, BOOLEAN fGiveWarning, BOOLEAN fForceHim );
-BOOLEAN SetMercAsleep( SOLDIERTYPE *pSoldier, BOOLEAN fGiveWarning );
-BOOLEAN PutMercInAsleepState( SOLDIERTYPE *pSoldier );
-BOOLEAN PutMercInAwakeState( SOLDIERTYPE *pSoldier );
+BOOLEAN SetMercAwake( TacticalActor *pSoldier, BOOLEAN fGiveWarning, BOOLEAN fForceHim );
+BOOLEAN SetMercAsleep( TacticalActor *pSoldier, BOOLEAN fGiveWarning );
+BOOLEAN PutMercInAsleepState( TacticalActor *pSoldier );
+BOOLEAN PutMercInAwakeState( TacticalActor *pSoldier );
 
-BOOLEAN AssignMercToAMovementGroup( SOLDIERTYPE *pSoldier );
+BOOLEAN AssignMercToAMovementGroup( TacticalActor *pSoldier );
 
 // set what time this merc undertook this assignment 
-void SetTimeOfAssignmentChangeForMerc( SOLDIERTYPE *pSoldier );
+void SetTimeOfAssignmentChangeForMerc( TacticalActor *pSoldier );
 
 // enough time on assignment for it to count?
-BOOLEAN EnoughTimeOnAssignment( SOLDIERTYPE *pSoldier );
+BOOLEAN EnoughTimeOnAssignment( TacticalActor *pSoldier );
 
 // check if any merc in group is too tired to keep moving
 BOOLEAN AnyMercInGroupCantContinueMoving( GROUP *pGroup );
@@ -566,30 +566,30 @@ void ReEvaluateEveryonesNothingToDo(BOOLEAN aDoExtensiveCheck = FALSE);
 void SetAssignmentForList( INT8 bAssignment, INT8 bParam );
 
 // is this area maxed out on militia?
-BOOLEAN IsMilitiaTrainableFromSoldiersSectorMaxed( SOLDIERTYPE *pSoldier, INT8 iMilitiaType );
+BOOLEAN IsMilitiaTrainableFromSoldiersSectorMaxed( TacticalActor *pSoldier, INT8 iMilitiaType );
 
 // function where we actually set someone's assignment so we can trap certain situations
-void ChangeSoldiersAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment );
+void ChangeSoldiersAssignment( TacticalActor *pSoldier, INT8 bAssignment );
 
-void UnEscortEPC( SOLDIERTYPE *pSoldier );
+void UnEscortEPC( TacticalActor *pSoldier );
 
-SOLDIERTYPE *AnyDoctorWhoCanHealThisPatient( SOLDIERTYPE *pPatient, BOOLEAN fThisHour );
+TacticalActor *AnyDoctorWhoCanHealThisPatient( TacticalActor *pPatient, BOOLEAN fThisHour );
 
 // HEADROCK HAM B2.8: A set of functions to synchronize sleeping periods of trainers and trainees
-BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pTrainee);
-BOOLEAN SetTraineesSleepWhenTrainerSleeps( SOLDIERTYPE *pTrainer );
-BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pTrainee );
-BOOLEAN SetTraineesWakeWhenTrainerWakes( SOLDIERTYPE *pTrainer );
-void HandleTrainingSleepSynchronize( SOLDIERTYPE *pSoldier );
-void HandleTrainingWakeSynchronize( SOLDIERTYPE *pSoldier );
-BOOLEAN FindAnyAwakeTrainers( SOLDIERTYPE *pTrainee );
-BOOLEAN FindAnyAwakeTrainees( SOLDIERTYPE *pTrainer );
+BOOLEAN SetTrainerSleepWhenTraineesSleep( TacticalActor *pTrainee);
+BOOLEAN SetTraineesSleepWhenTrainerSleeps( TacticalActor *pTrainer );
+BOOLEAN SetTrainerWakeWhenTraineesWake( TacticalActor *pTrainee );
+BOOLEAN SetTraineesWakeWhenTrainerWakes( TacticalActor *pTrainer );
+void HandleTrainingSleepSynchronize( TacticalActor *pSoldier );
+void HandleTrainingWakeSynchronize( TacticalActor *pSoldier );
+BOOLEAN FindAnyAwakeTrainers( TacticalActor *pTrainee );
+BOOLEAN FindAnyAwakeTrainees( TacticalActor *pTrainer );
 
 // HEADROCK HAM 3.6: Functions for testing and reporting reasons why character can't train here.
-BOOLEAN CanCharacterTrainMilitiaWithErrorReport( SOLDIERTYPE *pSoldier );
+BOOLEAN CanCharacterTrainMilitiaWithErrorReport( TacticalActor *pSoldier );
 // HEADROCK HAM 3.6: Function for testing and reporting reasons why character can't staff a facility.
-BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8 ubAssignmentType );
-void HandleInterfaceMessageForCostOfOperatingFacility( SOLDIERTYPE *pSoldier, UINT8 ubAssignmentType );
+BOOLEAN CanCharacterFacilityWithErrorReport( TacticalActor *pSoldier, UINT8 ubFacilityType, UINT8 ubAssignmentType );
+void HandleInterfaceMessageForCostOfOperatingFacility( TacticalActor *pSoldier, UINT8 ubAssignmentType );
 void PayFacilityCostsYesNoBoxCallback( UINT8 bExitValue );
 void FacilityStaffingRejected( void );
 void ResetFacilityStaffingPromptContext( void );
@@ -604,13 +604,13 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 sZ, UINT8 ubMilit
 // anv: decrease town loyalty hits
 UINT32 HandlePropagandaBlockingBadNewsInTown( INT8 bTownId, UINT32 uiLoyaltyDecrease );
 
-void HandleGatheringInformationBySoldier( SOLDIERTYPE* pSoldier );
+void HandleGatheringInformationBySoldier( TacticalActor* pSoldier );
 
 BOOLEAN MercStaffsMilitaryHQ();
 
-BOOLEAN MakeSureMedKitIsInHand( SOLDIERTYPE *pSoldier, bool bAllow1stAidKit = false);
+BOOLEAN MakeSureMedKitIsInHand( TacticalActor *pSoldier, bool bAllow1stAidKit = false);
 
-UINT8 CalcSoldierNeedForSleep( SOLDIERTYPE *pSoldier );
+UINT8 CalcSoldierNeedForSleep( TacticalActor *pSoldier );
 
 // Flugente: administration assignment
 FLOAT GetAdministrationPercentage( INT16 sX, INT16 sY );

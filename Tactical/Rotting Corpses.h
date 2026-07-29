@@ -170,12 +170,12 @@ void RemoveCorpse( INT32 iCorpseID );
 void RemoveCorpses( );
 
 
-BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLEAN fCheckForLOS );
+BOOLEAN TurnSoldierIntoCorpse( TacticalActor *pSoldier, BOOLEAN fRemoveMerc, BOOLEAN fCheckForLOS );
 
-INT16 FindNearestRottingCorpse( SOLDIERTYPE *pSoldier );
+INT16 FindNearestRottingCorpse( TacticalActor *pSoldier );
 
 void AllMercsOnTeamLookForCorpse( ROTTING_CORPSE *pCorpse, INT8 bTeam );
-void MercLooksForCorpses( SOLDIERTYPE *pSoldier );
+void MercLooksForCorpses( TacticalActor *pSoldier );
 void RebuildAllCorpseShadeTables( );
 
 UINT16				CreateCorpsePaletteTables( ROTTING_CORPSE *pCorpse );
@@ -189,9 +189,9 @@ void AddCrowToCorpse( ROTTING_CORPSE *pCorpse );
 void VaporizeCorpse( INT32 sGridNo, INT8 asLevel, UINT16 usStructureID );
 void CorpseHit( INT32 sGridNo, INT8 asLevel, UINT16 usStructureID );
 
-void HandleCrowLeave( SOLDIERTYPE *pSoldier );
+void HandleCrowLeave( TacticalActor *pSoldier );
 
-void HandleCrowFlyAway( SOLDIERTYPE *pSoldier );
+void HandleCrowFlyAway( TacticalActor *pSoldier );
 
 // WDS - increase number of corpses
 // HEADROCK HAM 3.6: Increase again (250->500).
@@ -204,26 +204,26 @@ extern UINT8					gb4DirectionsFrom8[8];
 
 ROTTING_CORPSE *GetCorpseAtGridNo( INT32 sGridNo , INT8 bLevel );
 BOOLEAN IsValidDecapitationCorpse( ROTTING_CORPSE *pCorpse );
-BOOLEAN DecapitateCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo,  INT8 bLevel );
+BOOLEAN DecapitateCorpse( TacticalActor *pSoldier, INT32 sGridNo,  INT8 bLevel );
 
 // Flugente: move all corpses on sGridNo level bLevel to level 1 - bLevel
 void ShiftCorpse( INT32 sGridNo, INT8 bLevel );
 
 // Flugente: actions for the covert opts trait
 BOOLEAN IsValidGutCorpse( ROTTING_CORPSE *pCorpse );
-BOOLEAN GutCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo,  INT8 bLevel );
+BOOLEAN GutCorpse( TacticalActor *pSoldier, INT32 sGridNo,  INT8 bLevel );
 BOOLEAN IsValidStripCorpse( ROTTING_CORPSE *pCorpse );
-BOOLEAN StripCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo,  INT8 bLevel );
+BOOLEAN StripCorpse( TacticalActor *pSoldier, INT32 sGridNo,  INT8 bLevel );
 BOOLEAN IsValidTakeCorpse( ROTTING_CORPSE *pCorpse );
-BOOLEAN TakeCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo,  INT8 bLevel );
+BOOLEAN TakeCorpse( TacticalActor *pSoldier, INT32 sGridNo,  INT8 bLevel );
 
 BOOLEAN AddCorpseFromObject(OBJECTTYPE* pObj, INT32 sGridNo, INT8 bLevel );
 
-void GetBloodFromCorpse( SOLDIERTYPE *pSoldier );
+void GetBloodFromCorpse( TacticalActor *pSoldier );
 
 UINT16 GetCorpseStructIndex( ROTTING_CORPSE_DEFINITION *pCorpseDef, BOOLEAN fForImage );
 
-void LookForAndMayCommentOnSeeingCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubLevel );
+void LookForAndMayCommentOnSeeingCorpse( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubLevel );
 
 INT32 GetGridNoOfCorpseGivenProfileID( UINT8 ubProfileID );
 

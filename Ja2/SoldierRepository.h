@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-class SOLDIERTYPE;
+class TacticalActor;
 class Ja2SoldierRepository;
 
 void BindJa2SoldierRepository(Ja2SoldierRepository& repository) noexcept;
@@ -18,33 +18,33 @@ class Ja2SoldierRepository
 public:
 	Ja2SoldierRepository() noexcept;
 	Ja2SoldierRepository(
-		SOLDIERTYPE* records, SOLDIERTYPE** slots,
+		TacticalActor* records, TacticalActor** slots,
 		std::size_t capacity) noexcept;
 
 	std::size_t capacity() const noexcept { return capacity_; }
 
-	SOLDIERTYPE& record(std::size_t slot) noexcept;
-	const SOLDIERTYPE& record(std::size_t slot) const noexcept;
-	SOLDIERTYPE* resolve(std::size_t slot) noexcept
+	TacticalActor& record(std::size_t slot) noexcept;
+	const TacticalActor& record(std::size_t slot) const noexcept;
+	TacticalActor* resolve(std::size_t slot) noexcept
 	{
 		return slot < capacity_ ? slots_[slot] : nullptr;
 	}
-	const SOLDIERTYPE* resolve(std::size_t slot) const noexcept
+	const TacticalActor* resolve(std::size_t slot) const noexcept
 	{
 		return slot < capacity_ ? slots_[slot] : nullptr;
 	}
-	bool contains(std::size_t slot, const SOLDIERTYPE& soldier) const noexcept;
+	bool contains(std::size_t slot, const TacticalActor& soldier) const noexcept;
 
 	// Restores the established one-record-per-slot compatibility layout.
 	void initializeSlots() noexcept;
 
 	// Whole-record mutation is deliberately centralized. Callers retain the
-	// established persistent SOLDIERTYPE copy semantics while the repository
+	// established persistent TacticalActor copy semantics while the repository
 	// validates that the reusable slot still points at its canonical backing
 	// record. Runtime animation surface ownership stays with the slot because
 	// the legacy usage-history table is indexed by that identity.
-	SOLDIERTYPE* replace(
-		std::size_t slot, const SOLDIERTYPE& soldier) noexcept;
+	TacticalActor* replace(
+		std::size_t slot, const TacticalActor& soldier) noexcept;
 	bool swapRecords(std::uint16_t firstSlot, std::uint16_t secondSlot);
 
 private:
@@ -56,8 +56,8 @@ private:
 	static Ja2SoldierRepository& standalone() noexcept;
 
 	static Ja2SoldierRepository* boundRepository_;
-	SOLDIERTYPE* records_ = nullptr;
-	SOLDIERTYPE** slots_ = nullptr;
+	TacticalActor* records_ = nullptr;
+	TacticalActor** slots_ = nullptr;
 	std::size_t capacity_ = 0;
 };
 

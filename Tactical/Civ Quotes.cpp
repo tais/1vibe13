@@ -126,7 +126,7 @@ typedef struct
 	INT32					iDialogueBox;
 	UINT32				uiTimeOfCreation;
 	UINT32				uiDelayTime;
-	SOLDIERTYPE *	pCiv;
+	TacticalActor *	pCiv;
 } QUOTE_SYSTEM_STRUCT;
 
 
@@ -258,7 +258,7 @@ BOOLEAN ShutDownQuoteBoxIfActive( )
 }
 
 
-INT8 GetCivType( SOLDIERTYPE *pCiv )
+INT8 GetCivType( TacticalActor *pCiv )
 {
 	if ( pCiv->identity().profile() != NO_PROFILE )
 	{
@@ -364,7 +364,7 @@ void QuoteOverlayClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 }
 
 
-void BeginCivQuote( SOLDIERTYPE *pCiv, UINT16 ubCivQuoteID, UINT16 ubEntryID, INT16 sX, INT16 sY )
+void BeginCivQuote( TacticalActor *pCiv, UINT16 ubCivQuoteID, UINT16 ubEntryID, INT16 sX, INT16 sY )
 {
 	VIDEO_OVERLAY_DESC		VideoOverlayDesc;
 	CHAR16					zQuote[ 320 ];	
@@ -455,7 +455,7 @@ void BeginCivQuote( SOLDIERTYPE *pCiv, UINT16 ubCivQuoteID, UINT16 ubEntryID, IN
 	gCivQuoteData.pCiv = pCiv;
 }
 
-void BeginChatQuote( SOLDIERTYPE *pCiv, INT16 sX, INT16 sY )
+void BeginChatQuote( TacticalActor *pCiv, INT16 sX, INT16 sY )
 {
 	VIDEO_OVERLAY_DESC		VideoOverlayDesc;
 
@@ -535,7 +535,7 @@ void BeginChatQuote( SOLDIERTYPE *pCiv, INT16 sX, INT16 sY )
 	gCivQuoteData.pCiv = pCiv;
 }
 
-UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLEAN fCanUseHints )
+UINT16 DetermineCivQuoteEntry( TacticalActor *pCiv, UINT16 *pubCivHintToUse, BOOLEAN fCanUseHints )
 {
 	UINT8	ubCivType;
 #ifdef JA2UB
@@ -927,7 +927,7 @@ void HandleCivQuote( )
 	}
 }
 
-void StartCivQuote( SOLDIERTYPE *pCiv )
+void StartCivQuote( TacticalActor *pCiv )
 {
 	UINT16 ubCivQuoteID;
 	UINT16	ubEntryID = 0;
@@ -1093,9 +1093,9 @@ BOOLEAN LoadCivQuotesFromLoadGameFile( HWFILE hFile )
 }
 //--------------------------------------------------------------
 // anv: start enemy taunt with probabilty depending on taunt settings
-void PossiblyStartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SoldierID uiTargetID )
+void PossiblyStartEnemyTaunt( TacticalActor *pCiv, TAUNTTYPE iTauntType, SoldierID uiTargetID )
 {
-	SOLDIERTYPE *pTarget = NULL;
+	TacticalActor *pTarget = NULL;
 	if( uiTargetID != NOBODY )
 	{
 		pTarget = GetJa2SoldierRepository().resolve(uiTargetID);
@@ -1308,7 +1308,7 @@ void PossiblyStartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SoldierID
 }
 
 // SANDRO - soldier taunts 
-void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTarget )
+void StartEnemyTaunt( TacticalActor *pCiv, TAUNTTYPE iTauntType, TacticalActor *pTarget )
 {
 	CHAR16	sTauntText[ 320 ];	
 	CHAR16	gzTauntQuote[ 320 ];
@@ -1990,7 +1990,7 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 
 }
 
-void ShowTauntPopupBox( SOLDIERTYPE *pCiv, STR16 gzTauntQuote )
+void ShowTauntPopupBox( TacticalActor *pCiv, STR16 gzTauntQuote )
 {
 	INT16	sX, sY;
 	INT16	sScreenX, sScreenY;
@@ -2155,7 +2155,7 @@ STR VoiceTauntFileName[] =
 };
 
 // sevenfm: voice taunts
-BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTarget)
+BOOLEAN PlayVoiceTaunt(TacticalActor *pCiv, TAUNTTYPE iTauntType, TacticalActor *pTarget)
 {
 	CHAR8 filename[1024];
 	CHAR8 filenameExtra[1024];

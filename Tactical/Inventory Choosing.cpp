@@ -3036,7 +3036,7 @@ else
 }
 
 
-void AssignCreatureInventory( SOLDIERTYPE *pSoldier )
+void AssignCreatureInventory( TacticalActor *pSoldier )
 {
 	UINT32 uiChanceToDrop = 0;
 	BOOLEAN fMaleCreature = FALSE;

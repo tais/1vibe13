@@ -595,7 +595,7 @@ void DisplayHiredMercs()
 
 void SettleMercAccounts()
 {
-//	SOLDIERTYPE *pSoldier;
+//	TacticalActor *pSoldier;
 	INT16	i;
 	UINT8 ubMercID;
 	INT32	iPartialPayment=0;
@@ -690,7 +690,7 @@ void SettleMercAccounts()
 	{
 		INT32	iPartialPayment=0;
 		INT32	iContractCharge=0;
-		SOLDIERTYPE *pSoldier;
+		TacticalActor *pSoldier;
 
 		//try to make a partial payment by looping through all the mercs and settling them 1 at a time
 		for(i=0; i<NUMBER_OF_MERCS; i++)

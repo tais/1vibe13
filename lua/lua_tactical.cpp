@@ -13,8 +13,8 @@
 
 static int LuaGetSoldierName( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) lua_touserdata( L, 1 );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) lua_touserdata( L, 1 );
+	TacticalActor *pSoldier = *ppSoldier;
 	if (!pSoldier)
 	{
 		lua_pushnil( L );
@@ -28,8 +28,8 @@ static int LuaGetSoldierName( lua_State *L )
 
 static int LuaGetSoldierFullName( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) lua_touserdata( L, 1 );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) lua_touserdata( L, 1 );
+	TacticalActor *pSoldier = *ppSoldier;
 	if (!pSoldier)
 	{
 		lua_pushnil( L );
@@ -50,8 +50,8 @@ static int LuaGetSoldierFullName( lua_State *L )
 
 static int LuaGetSoldierGrid( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) lua_touserdata( L, 1 );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) lua_touserdata( L, 1 );
+	TacticalActor *pSoldier = *ppSoldier;
 	if (!pSoldier)
 	{
 		lua_pushnil( L );
@@ -65,8 +65,8 @@ static int LuaGetSoldierGrid( lua_State *L )
 
 static int LuaSetSoldierGrid( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) lua_touserdata( L, 1 );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) lua_touserdata( L, 1 );
+	TacticalActor *pSoldier = *ppSoldier;
 	int newgrid = luaL_checkinteger( L, 3);
 	luaL_argcheck( L, newgrid > 0 && newgrid < MAX_MAP_POS, 2, "The grid number must be on map" );
 	TeleportSoldier( pSoldier, (INT16) newgrid, TRUE);
@@ -75,8 +75,8 @@ static int LuaSetSoldierGrid( lua_State *L )
 
 static int LuaGetSoldierLevel( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) lua_touserdata( L, 1 );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) lua_touserdata( L, 1 );
+	TacticalActor *pSoldier = *ppSoldier;
 	if (!pSoldier)
 	{
 		lua_pushnil( L );
@@ -90,8 +90,8 @@ static int LuaGetSoldierLevel( lua_State *L )
 
 static int LuaSetSoldierLevel( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) lua_touserdata( L, 1 );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) lua_touserdata( L, 1 );
+	TacticalActor *pSoldier = *ppSoldier;
 	int newlevel = luaL_checkinteger( L, 3);
 	luaL_argcheck( L, newlevel >= 0 && newlevel <= 1, 2, "The level must be 1 or 0" );
 	HandlePlacingRoofMarker( pSoldier, pSoldier->position().gridNo(), (BOOLEAN) newlevel, TRUE );
@@ -102,8 +102,8 @@ static int LuaSetSoldierLevel( lua_State *L )
 
 static int LuaGetSoldierAPs( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) lua_touserdata( L, 1 );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) lua_touserdata( L, 1 );
+	TacticalActor *pSoldier = *ppSoldier;
 	if (!pSoldier)
 	{
 		lua_pushnil( L );
@@ -117,8 +117,8 @@ static int LuaGetSoldierAPs( lua_State *L )
 
 static int LuaSetSoldierAPs( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) lua_touserdata( L, 1 );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) lua_touserdata( L, 1 );
+	TacticalActor *pSoldier = *ppSoldier;
 	int newaps = luaL_checkinteger( L, 3);
 	luaL_argcheck( L, newaps > 0 && newaps < 256, 2, "The grid number must be on screen!" );
 	pSoldier->actionPoints().current() = (INT8) newaps;
@@ -127,8 +127,8 @@ static int LuaSetSoldierAPs( lua_State *L )
 
 static int LuaSoldierWalkTo( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) luaL_checkudata( L, 1, SOLDIER_CLASS );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) luaL_checkudata( L, 1, SOLDIER_CLASS );
+	TacticalActor *pSoldier = *ppSoldier;
 	int newgrid = luaL_checkinteger( L, 2);
 	luaL_argcheck( L, newgrid > 0 && newgrid < MAX_MAP_POS, 2, "The grid number must be on screen!" );
 	pSoldier->aiPlanning().action() = AI_ACTION_WALK;
@@ -140,8 +140,8 @@ static int LuaSoldierWalkTo( lua_State *L )
 
 static int LuaSoldierRunTo( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) luaL_checkudata( L, 1, SOLDIER_CLASS );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) luaL_checkudata( L, 1, SOLDIER_CLASS );
+	TacticalActor *pSoldier = *ppSoldier;
 	int newgrid = luaL_checkinteger( L, 2);
 	luaL_argcheck( L, newgrid > 0 && newgrid < MAX_MAP_POS, 2, "The grid number must be on screen!" );
 	pSoldier->aiPlanning().action() = AI_ACTION_RUN;
@@ -153,8 +153,8 @@ static int LuaSoldierRunTo( lua_State *L )
 
 static int LuaSoldierChangeStance( lua_State *L )
 {
-	SOLDIERTYPE **ppSoldier = (SOLDIERTYPE**) luaL_checkudata( L, 1, SOLDIER_CLASS );
-	SOLDIERTYPE *pSoldier = *ppSoldier;
+	TacticalActor **ppSoldier = (TacticalActor**) luaL_checkudata( L, 1, SOLDIER_CLASS );
+	TacticalActor *pSoldier = *ppSoldier;
 	int newstance = luaL_checkinteger( L, 2);
 	pSoldier->ChangeSoldierStance( (UINT8) newstance);
 	return 0;
@@ -184,7 +184,7 @@ void LuaTacticalSetup(lua_State *L)
 	for ( int sold = 0; sold < TOTAL_SOLDIERS; ++sold )
 	{
 		lua_pushinteger( L, sold);
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(sold);
 		if (soldier)
 		{

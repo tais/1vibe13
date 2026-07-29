@@ -6,13 +6,13 @@
 #include "../include/LegacyCreaturePlan.h"
 #include "../../Tactical/Soldier Control.h"
 
-INT8 CreatureDecideAction( SOLDIERTYPE *pSoldier );
+INT8 CreatureDecideAction( TacticalActor *pSoldier );
 
 namespace AI
 {
     namespace tactical
     {
-        LegacyCreaturePlan::LegacyCreaturePlan(SOLDIERTYPE* npc)
+        LegacyCreaturePlan::LegacyCreaturePlan(TacticalActor* npc)
             : Plan(npc)
         {
         }

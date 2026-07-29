@@ -1944,7 +1944,7 @@ BOOLEAN DisplayMercsFace()
 	STR							sFaceLoc = "FACES\\BIGFACES\\";
 	char						sTemp[100];
 	VOBJECT_DESC	VObjectDesc;
-	SOLDIERTYPE			*pSoldier=NULL;
+	TacticalActor			*pSoldier=NULL;
 
 	//See if the merc is currently hired
 	pSoldier = FindSoldierByProfileID( gbCurrentSoldier, TRUE );
@@ -2523,7 +2523,7 @@ INT8 AimMemberHireMerc()
 	if( sSoldierID == NOBODY )
 		return( FALSE );
 
-	SOLDIERTYPE* hiredSoldier =
+	TacticalActor* hiredSoldier =
 		GetJa2SoldierRepository().resolve(sSoldierID.i);
 	if ( !hiredSoldier )
 		return( FALSE );
@@ -5481,7 +5481,7 @@ void DemoHiringOfMercs( )
 void DisplayPopUpBoxExplainingMercArrivalLocationAndTime( )
 {
 	CHAR16	szLocAndTime[512];
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	CHAR16		zTimeString[128];
 	CHAR16		zSectorIDString[512];
 	UINT32		uiHour;

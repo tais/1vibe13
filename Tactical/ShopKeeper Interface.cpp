@@ -543,7 +543,7 @@ UINT32		CalculateHowMuchMoneyIsInPlayersOfferArea( );
 void			MovePlayersItemsToBeRepairedToArmsDealersInventory();
 BOOLEAN		RemoveRepairItemFromDealersOfferArea( INT16	bSlot );
 
-INT8			GetInvSlotOfUnfullMoneyInMercInventory( SOLDIERTYPE *pSoldier );
+INT8			GetInvSlotOfUnfullMoneyInMercInventory( TacticalActor *pSoldier );
 void			ClearPlayersOfferSlot( INT32 ubSlotToClear );
 void			ClearArmsDealerOfferSlot( INT32 ubSlotToClear );
 
@@ -557,7 +557,7 @@ void			HandleCheckIfEnoughOnTheTable( void );
 void			InitShopKeeperItemDescBox( OBJECTTYPE *pObject, UINT16 ubPocket, UINT8	ubFromLocation );
 void			StartSKIDescriptionBox( void );
 
-BOOLEAN		ShopkeeperAutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNewItem );
+BOOLEAN		ShopkeeperAutoPlaceObject( TacticalActor * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNewItem );
 void			ShopkeeperAddItemToPool( INT32 sGridNo, OBJECTTYPE *pObject, INT8 bVisible, UINT8 ubLevel, UINT16 usFlags, INT8 bRenderZHeightAboveLevel );
 
 void			IfMercOwnedCopyItemToMercInv( INVENTORY_IN_SLOT *pInv );
@@ -570,7 +570,7 @@ BOOLEAN		AddObjectForEvaluation(OBJECTTYPE *pObject, UINT8 ubOwnerProfileId, INT
 BOOLEAN		OfferObjectToDealer( OBJECTTYPE *pComplexObject, UINT8 ubOwnerProfileId, INT16 bOwnerSlotId );
 
 BOOLEAN		SKITryToReturnInvToOwnerOrCurrentMerc( INVENTORY_IN_SLOT *pInv );
-BOOLEAN		SKITryToAddInvToMercsInventory( INVENTORY_IN_SLOT *pInv, SOLDIERTYPE *pSoldier );
+BOOLEAN		SKITryToAddInvToMercsInventory( INVENTORY_IN_SLOT *pInv, TacticalActor *pSoldier );
 
 void			ExitSKIRequested();
 void			EvaluateItemAddedToPlayersOfferArea( INT8 bSlotID, BOOLEAN fFirstOne );
@@ -579,7 +579,7 @@ void			ResetAllQuoteSaidFlags();
 INVENTORY_IN_SLOT	*GetPtrToOfferSlotWhereThisItemIs( UINT8 ubProfileID, INT16 bInvPocket );
 
 void			DealWithItemsStillOnTheTable();
-void			ReturnItemToPlayerSomehow( INVENTORY_IN_SLOT *pInvSlot, SOLDIERTYPE *pDropSoldier );
+void			ReturnItemToPlayerSomehow( INVENTORY_IN_SLOT *pInvSlot, TacticalActor *pDropSoldier );
 void			GivePlayerSomeChange( UINT32 uiAmount );
 
 void			HandlePossibleRepairDelays();
@@ -760,9 +760,9 @@ BOOLEAN EnterShopKeeperInterface()
 	//ADB if we are here, we must be able to talk with an extended ear (CheckIfRadioIsEquipped())
 	//but if we are physically too far away, we don't have extended arms!
 
-	SOLDIERTYPE* pSoldier =
+	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
-	SOLDIERTYPE* pShopkeeper = NULL;
+	TacticalActor* pShopkeeper = NULL;
 	
 	if ( gusIDOfCivTrader != NOBODY )
 		pShopkeeper =
@@ -1065,7 +1065,7 @@ BOOLEAN EnterShopKeeperInterface()
 
 BOOLEAN InitShopKeepersFace( UINT8 usProfileID )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	// if this is a non-NPC, don't set this up
 	if ( gusIDOfCivTrader == NOBODY )
@@ -1473,7 +1473,7 @@ BOOLEAN RenderShopKeeperInterface()
 	// Flugente: if this is a non-NPC dealer, we instead show their body in their current animation
 	else if ( gusIDOfCivTrader != NOBODY )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(gusIDOfCivTrader.i);
 
 		if ( pSoldier )
@@ -3665,7 +3665,7 @@ void DisplayPlayersOfferArea()
 					SoldierID sSoldierID = GetSoldierIDFromMercID( PlayersOfferArea[ sCnt ].ubIdOfMercWhoOwnsTheItem );
 					Assert(sSoldierID != NOBODY);
 
-					SOLDIERTYPE* owner =
+					TacticalActor* owner =
 						GetJa2SoldierRepository().resolve(
 							sSoldierID.i);
 					PlayersOfferArea[ sCnt ].ItemObject[0]
@@ -4343,7 +4343,7 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 			//if there is an owner of the item
 			if( gMoveingItem.ubIdOfMercWhoOwnsTheItem != -1 )
 			{
-				SOLDIERTYPE* owner = FindSoldierByProfileID(
+				TacticalActor* owner = FindSoldierByProfileID(
 					gMoveingItem.ubIdOfMercWhoOwnsTheItem, TRUE);
 				if (owner)
 					(void)SetItemPointerSoldier(
@@ -4399,7 +4399,7 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 			//if there is an owner of the item
 			if( gMoveingItem.ubIdOfMercWhoOwnsTheItem != -1 )
 			{
-				SOLDIERTYPE* owner = FindSoldierByProfileID(
+				TacticalActor* owner = FindSoldierByProfileID(
 					gMoveingItem.ubIdOfMercWhoOwnsTheItem, TRUE);
 				if (owner)
 					(void)SetItemPointerSoldier(
@@ -5562,7 +5562,7 @@ BOOLEAN RemoveRepairItemFromDealersOfferArea( INT16	bSlot )
 	return( TRUE );
 }
 
-INT8	GetInvSlotOfUnfullMoneyInMercInventory( SOLDIERTYPE *pSoldier )
+INT8	GetInvSlotOfUnfullMoneyInMercInventory( TacticalActor *pSoldier )
 {
 	//loop through the soldier's inventory
 	INT8 invsize = (INT8)pSoldier->inventory().size();
@@ -6469,7 +6469,7 @@ BOOLEAN AddObjectForEvaluation(OBJECTTYPE *pObject, UINT8 ubOwnerProfileId, INT1
 
 // The Shopkeeper interface *MUST* use this intermediary function instead of calling AutoPlaceObject() directly!
 // This is because the OBJECTTYPEs used within Shopkeeper may contain an illegal ubNumberOfObjects
-BOOLEAN ShopkeeperAutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObject, BOOLEAN fNewItem )
+BOOLEAN ShopkeeperAutoPlaceObject( TacticalActor * pSoldier, OBJECTTYPE * pObject, BOOLEAN fNewItem )
 {
 	// the entire pObj will get memset to 0 by RemoveObjs() if all the items are successfully placed,
 	// so we have to keep a copy to retrieve with every iteration of the loop
@@ -6520,7 +6520,7 @@ void IfMercOwnedCopyItemToMercInv( INVENTORY_IN_SLOT *pInv )
 		// get soldier
 		SoldierID sSoldierID = GetSoldierIDFromMercID( pInv->ubIdOfMercWhoOwnsTheItem );
 		Assert( sSoldierID != NOBODY );
-		SOLDIERTYPE* owner =
+		TacticalActor* owner =
 			GetJa2SoldierRepository().resolve(sSoldierID.i);
 		Assert( CanMercInteractWithSelectedShopkeeper( owner ) );
 
@@ -6549,7 +6549,7 @@ void IfMercOwnedRemoveItemFromMercInv2( UINT8 ubOwnerProfileId, INT16 bOwnerSlot
 		Assert( ubOwnerProfileId != NO_PROFILE );
 		SoldierID sSoldierID = GetSoldierIDFromMercID( ubOwnerProfileId );
 		Assert( sSoldierID != NOBODY );
-		SOLDIERTYPE* owner =
+		TacticalActor* owner =
 			GetJa2SoldierRepository().resolve(sSoldierID.i);
 		// then it better be a valid slot #
 		Assert( bOwnerSlotId < (INT8)(owner->inventory().size() ));
@@ -6578,7 +6578,7 @@ BOOLEAN SKITryToReturnInvToOwnerOrCurrentMerc( INVENTORY_IN_SLOT *pInv )
 
 		// For owners of repaired items, this checks that owner is still hired, in sector,
 		// on current squad, close enough to the shopkeeper, etc.
-		SOLDIERTYPE* owner =
+		TacticalActor* owner =
 			GetJa2SoldierRepository().resolve(sSoldierID.i);
 		if ( !CanMercInteractWithSelectedShopkeeper( owner ) )
 		{
@@ -6608,7 +6608,7 @@ BOOLEAN SKITryToReturnInvToOwnerOrCurrentMerc( INVENTORY_IN_SLOT *pInv )
 	return( FALSE );
 }
 
-BOOLEAN SKITryToAddInvToMercsInventory( INVENTORY_IN_SLOT *pInv, SOLDIERTYPE *pSoldier )
+BOOLEAN SKITryToAddInvToMercsInventory( INVENTORY_IN_SLOT *pInv, TacticalActor *pSoldier )
 {
 	INT8	bMoneyInvPos;
 	BOOLEAN fNewItem = FALSE;
@@ -6648,9 +6648,9 @@ BOOLEAN SKITryToAddInvToMercsInventory( INVENTORY_IN_SLOT *pInv, SOLDIERTYPE *pS
 	return(TRUE);
 }
 
-BOOLEAN CanMercInteractWithSelectedShopkeeper( SOLDIERTYPE *pSoldier )
+BOOLEAN CanMercInteractWithSelectedShopkeeper( TacticalActor *pSoldier )
 {
-	SOLDIERTYPE *pShopkeeper;
+	TacticalActor *pShopkeeper;
 	INT32 sDestGridNo;
 	INT8			bDestLevel;
 	UINT32		uiRange;
@@ -6795,7 +6795,7 @@ void ResetAllQuoteSaidFlags()
 
 void DealWithItemsStillOnTheTable()
 {
-	SOLDIERTYPE *pDropSoldier;
+	TacticalActor *pDropSoldier;
 	
 	// in case we have have to drop stuff off at someone's feet, figure out where it's all gonna go
 
@@ -6840,7 +6840,7 @@ void DealWithItemsStillOnTheTable()
 	}
 }
 
-void ReturnItemToPlayerSomehow( INVENTORY_IN_SLOT *pInvSlot, SOLDIERTYPE *pDropSoldier )
+void ReturnItemToPlayerSomehow( INVENTORY_IN_SLOT *pInvSlot, TacticalActor *pDropSoldier )
 {
 	//if the item doesn't have a duplicate copy in its owner merc's inventory slot
 	if( pInvSlot->bSlotIdInOtherLocation == -1 )
@@ -7041,7 +7041,7 @@ void SelectArmsDealersDropItemToGroundRegionCallBack(MOUSE_REGION * pRegion, INT
 	}
 	else if(iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
 	{
-		SOLDIERTYPE *pDropSoldier;
+		TacticalActor *pDropSoldier;
 
 		// use the current merc, unless he's ineligible, then use the selected merc instead.
 		if( !gfSMDisableForItems )

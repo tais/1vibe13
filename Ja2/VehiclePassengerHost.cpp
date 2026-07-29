@@ -108,7 +108,7 @@ TacticalEntityId GetJa2VehiclePassengerActor(
 	return roster ? roster->actor(seat) : TacticalEntityId{};
 }
 
-SOLDIERTYPE* ResolveJa2VehiclePassengerActor(
+TacticalActor* ResolveJa2VehiclePassengerActor(
 	std::size_t vehicle, std::size_t seat) noexcept
 {
 	return ResolveJa2TacticalEntity(
@@ -243,7 +243,7 @@ TacticalEntityId GetJa2VehicleDriverActor(
 		: TacticalEntityId{};
 }
 
-SOLDIERTYPE* ResolveJa2VehicleDriverActor(
+TacticalActor* ResolveJa2VehicleDriverActor(
 	std::size_t vehicle) noexcept
 {
 	return ResolveJa2TacticalEntity(

@@ -4,7 +4,7 @@
  */
 
 #include "../include/CrowPlan.h"
-#include "../../Tactical/Soldier Control.h"     // defines SOLDIERTYPE
+#include "../../Tactical/Soldier Control.h"     // defines TacticalActor
 #include "../../Tactical/Animation Control.h"   // defines CROW_FLY
 #include "../../Tactical/Soldier Add.h"         // FindGridNoFromSweetSpot()
 #include "../../TacticalAI/ai.h"                // AI_ACTION_...
@@ -16,7 +16,7 @@ namespace AI
 {
     namespace tactical
     {
-        CrowFlyAwayPlan::CrowFlyAwayPlan(SOLDIERTYPE* npc)
+        CrowFlyAwayPlan::CrowFlyAwayPlan(TacticalActor* npc)
             : Plan(npc)
         {
         }
@@ -26,7 +26,7 @@ namespace AI
             CrowsFlyAway( get_npc()->roster().team() );
         }
 
-        CrowSeekCorpsePlan::CrowSeekCorpsePlan(SOLDIERTYPE* npc)
+        CrowSeekCorpsePlan::CrowSeekCorpsePlan(TacticalActor* npc)
             : Plan(npc),
               corpse_grid_(FindNearestRottingCorpse(npc))
         {
@@ -55,7 +55,7 @@ namespace AI
             return corpse_grid_;
         }
 
-        CrowPeckPlan::CrowPeckPlan(SOLDIERTYPE* npc, int corpse_grid)
+        CrowPeckPlan::CrowPeckPlan(TacticalActor* npc, int corpse_grid)
             : Plan(npc), corpse_grid_(corpse_grid)
         {
         }

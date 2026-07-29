@@ -44,7 +44,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 #define		NUM_DAYS_TILL_UNPAID_RPC_QUITS				3
@@ -56,12 +56,12 @@ BOOLEAN fContractOverAndIWontRenewMeTooFlag = FALSE;
 extern BOOLEAN gfFirstMercSayingQuoteWillLeaveNoMatterWhat = FALSE;
 
 // build a list of mercs based on departure time
-void BuildMercQuitList( SOLDIERTYPE *pMercList );
+void BuildMercQuitList( TacticalActor *pMercList );
 
 
-void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
+void StrategicHandlePlayerTeamMercDeath( TacticalActor *pSoldier )
 {
-	SOLDIERTYPE *pKiller = NULL;
+	TacticalActor *pKiller = NULL;
 	INT16 sSectorX, sSectorY;
 
 	//if the soldier HAS a profile
@@ -178,8 +178,8 @@ void MercDailyUpdate()
 {
 	SoldierID		id;
 	SoldierID		lastid;
-	SOLDIERTYPE		*pSoldier;
-	//SOLDIERTYPE *pQuitList[ 21 ];
+	TacticalActor		*pSoldier;
+	//TacticalActor *pQuitList[ 21 ];
 	MERCPROFILESTRUCT *pProfile;
 	UINT32 uiChance;
 	INT32 iOffset = 0;
@@ -593,7 +593,7 @@ void MercDailyUpdate()
 }
 
 /*
-void HandleMercsAboutToLeave( SOLDIERTYPE *pMercList )
+void HandleMercsAboutToLeave( TacticalActor *pMercList )
 {
 	// run from top of list to bottom..if merc is gonna leave within a defined time frame of the previous guy and they are leaving the same day (today)
 	// then post then with the quote at the same time
@@ -642,7 +642,7 @@ void HandleMercsAboutToLeave( SOLDIERTYPE *pMercList )
 // NOT AIM renewals....
 void MercsContractIsFinished( SoldierID ubID )
 {
-	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
+	TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 	//if the soldier was removed before getting into this function, return
 	if( !pSoldier->roster().active() )
@@ -694,7 +694,7 @@ void MercsContractIsFinished( SoldierID ubID )
 // ATE: Called for RPCs who should now complain about no pay...
 void RPCWhineAboutNoPay( SoldierID ubID )
 {
-	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
+	TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 	//if the soldier was removed before getting into this function, return
 	if( !pSoldier->roster().active() )
@@ -709,7 +709,7 @@ void RPCWhineAboutNoPay( SoldierID ubID )
 
 
 // OK loop through and check!
-BOOLEAN SoldierHasWorseEquipmentThanUsedTo( SOLDIERTYPE *pSoldier )
+BOOLEAN SoldierHasWorseEquipmentThanUsedTo( TacticalActor *pSoldier )
 {
 	UINT16	usItem;
 	INT32		bBestArmour = -1;
@@ -772,7 +772,7 @@ BOOLEAN SoldierHasWorseEquipmentThanUsedTo( SOLDIERTYPE *pSoldier )
 
 void MercComplainAboutEquipment( UINT8 ubProfile )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	if ( ubProfile == LARRY_NORMAL	)
 	{
@@ -822,8 +822,8 @@ void UpdateBuddyAndHatedCounters( void )
 	SoldierID bMercID, bOtherID, bLastTeamID;
 	INT32 iLoop;
 	UINT8 ubOtherProfileID;
-	SOLDIERTYPE *pSoldier;
-	SOLDIERTYPE *pOtherSoldier;
+	TacticalActor *pSoldier;
+	TacticalActor *pOtherSoldier;
 	MERCPROFILESTRUCT *pProfile;
 	BOOLEAN fSameGroupOnly;
 	BOOLEAN fUpdatedTimeTillNextHatedComplaint = FALSE;
@@ -1169,7 +1169,7 @@ void UpdateBuddyAndHatedCounters( void )
 void HourlyCamouflageUpdate( void )
 {
 	SoldierID bMercID, bLastTeamID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	BOOLEAN camoWoreOff = FALSE;
 	bMercID = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	bLastTeamID = gTacticalStatus.Team[ gbPlayerNum ].bLastID;

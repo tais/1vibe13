@@ -44,7 +44,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 // WDS - make number of mercenaries, etc. be configurable
 #define		MAX_MERC_IN_HELI		CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS
@@ -497,7 +497,7 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 			// Loop through all mercs not yet placed
 			for ( cnt = gbCurDrop; cnt < gbNumHeliSeatsOccupied; cnt++ )
 			{
-				SOLDIERTYPE* heliMerc = GetJa2SoldierRepository().resolve(
+				TacticalActor* heliMerc = GetJa2SoldierRepository().resolve(
 					gusHeliSeats[cnt].i);
 				// Add merc to sector
 				#ifdef JA2UB
@@ -563,7 +563,7 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 			// Loop through all mercs not yet placed
 			for ( cnt = gbCurDrop; cnt < gbNumHeliSeatsOccupied; cnt++ )
 			{
-				SOLDIERTYPE* heliMerc = GetJa2SoldierRepository().resolve(
+				TacticalActor* heliMerc = GetJa2SoldierRepository().resolve(
 					gusHeliSeats[cnt].i);
 				// Add merc to sector
 #ifdef JA2UB
@@ -716,7 +716,7 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 						// OK, Check if we have anybody left to send!
 						if ( gbCurDrop < bEndVal )
 						{
-							SOLDIERTYPE* heliMerc =
+							TacticalActor* heliMerc =
 								GetJa2SoldierRepository().resolve(
 									gusHeliSeats[gbCurDrop].i);
 							// Flugente: it is now possible to use airdrops with soldiers after they have arrived in Arulco. In that case, they might have an animation that breaks EVENT_InitNewSoldierAnim prematurely.
@@ -990,7 +990,7 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 }
 
 
-void BeginMercEntering( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+void BeginMercEntering( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	ResetHeliSeats( );
 
@@ -1060,7 +1060,7 @@ void HandleFirstHeliDropOfGame( )
 
 SoldierID SpawnAirDropElite( INT32 sGridNo )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	// not underground!
 	if ( gbWorldSectorZ )
@@ -1224,7 +1224,7 @@ void HandleEnemyAirdrop( )
 						// OK, Check if we have anybody left to send!
 						if ( gbCurDrop < bEndVal )
 						{
-							SOLDIERTYPE* heliMerc =
+							TacticalActor* heliMerc =
 								GetJa2SoldierRepository().resolve(
 									gusHeliSeats[gbCurDrop].i);
 							// Flugente: it is now possible to use airdrops with soldiers after they have arrived in Arulco. In that case, they might have an animation that breaks EVENT_InitNewSoldierAnim prematurely.

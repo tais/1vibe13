@@ -183,8 +183,8 @@ void RenderWebsite();
 void HandleWebsite();
 
 // admin actions
-void ApplyEnemyPenalties(SOLDIERTYPE* pSoldier);
-void ApplyMilitiaBonuses(SOLDIERTYPE* pMilitia);
+void ApplyEnemyPenalties(TacticalActor* pSoldier);
+void ApplyMilitiaBonuses(TacticalActor* pMilitia);
 UINT8 GetApproximateEnemyLocationResolutionIndex();
 FLOAT GetAssignmentBonus(INT16 x, INT16 y);
 INT32 GetMiningPolicyBonus(INT16 townId);
@@ -197,15 +197,15 @@ INT16 GetMilitiaTrainingSpeedBonus();
 FLOAT GetMilitiaTrainingCostModifier();
 FLOAT GetMilitiaUpkeepCostModifier();
 FLOAT GetPathfindersSpeedBonus(UINT8 sector);
-BOOLEAN NeutraliseRole(const SOLDIERTYPE* pSoldier);
+BOOLEAN NeutraliseRole(const TacticalActor* pSoldier);
 void RaidMines(INT32 &playerIncome, INT32 &enemyIncome);
 BOOLEAN ShowApproximateEnemyLocations();
 
 // agent missions
-void ApplySoldierBounty(const SOLDIERTYPE* pSoldier);
-void ApplyEnemyMechanicalUnitPenalties(SOLDIERTYPE* pSoldier);
-void ApplyMilitiaTraits(SOLDIERTYPE* pSoldier);
-void ApplyVisionModifier(const SOLDIERTYPE* pSoldier, INT32& sight);
+void ApplySoldierBounty(const TacticalActor* pSoldier);
+void ApplyEnemyMechanicalUnitPenalties(TacticalActor* pSoldier);
+void ApplyMilitiaTraits(TacticalActor* pSoldier);
+void ApplyVisionModifier(const TacticalActor* pSoldier, INT32& sight);
 BOOLEAN CanAssignTraitsToMilitia();
 BOOLEAN CanTrainMilitiaAnywhere();
 UINT8 GetMaxTrainersForTrainMilitiaAnywhere();

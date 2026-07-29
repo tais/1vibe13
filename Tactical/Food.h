@@ -75,23 +75,23 @@ typedef enum
 	WATER_POISONOUS			// there is water, but it is poisoned (swamps and polluted sectors)
 } FoodSectorWaterSupply;
 
-BOOLEAN DoesSoldierRefuseToEat( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj );
+BOOLEAN DoesSoldierRefuseToEat( TacticalActor *pSoldier, OBJECTTYPE *pObj );
 
 // eat a food object. if fForce = FALSE, the soldier can reject to eat this once
 // if fForceFromDrugs = TRUE, we HAVE to eat this, because we already got the effects from the ApplyDrugs-function (item is both drug and food)
-BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsToUse );
+BOOLEAN ApplyFood( TacticalActor *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsToUse );
 
-void GetFoodSituation( SOLDIERTYPE *pSoldier, UINT8* pFoodSituation, UINT8* pWaterSituation );
-void FoodMaxMoraleModifiy( SOLDIERTYPE *pSoldier, UINT8* pubMaxMorale );
-void FoodNeedForSleepModifiy( SOLDIERTYPE *pSoldier, UINT8* pubNeedForSleep );
-void ReducePointsForHunger( SOLDIERTYPE *pSoldier, UINT32 *pusPoints );
-void ReduceBPRegenForHunger( SOLDIERTYPE *pSoldier, INT32 *psPoints );
+void GetFoodSituation( TacticalActor *pSoldier, UINT8* pFoodSituation, UINT8* pWaterSituation );
+void FoodMaxMoraleModifiy( TacticalActor *pSoldier, UINT8* pubMaxMorale );
+void FoodNeedForSleepModifiy( TacticalActor *pSoldier, UINT8* pubNeedForSleep );
+void ReducePointsForHunger( TacticalActor *pSoldier, UINT32 *pusPoints );
+void ReduceBPRegenForHunger( TacticalActor *pSoldier, INT32 *psPoints );
 
-void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier );
-void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier );
+void HourlyFoodSituationUpdate( TacticalActor *pSoldier );
+void HourlyFoodAutoDigestion( TacticalActor *pSoldier );
 
 // eat stuff from the inventory. if fcanteensonly = TRUE, only drink from canteen items
-void EatFromInventory( SOLDIERTYPE *pSoldier, BOOLEAN fcanteensonly = FALSE );
+void EatFromInventory( TacticalActor *pSoldier, BOOLEAN fcanteensonly = FALSE );
 
 void HourlyFoodUpdate( void );
 
@@ -103,10 +103,10 @@ void SectorFillCanteens( void );
 OBJECTTYPE* GetUsableWaterDrumInSector( void );
 
 // soldier refills canteen while auto-consuming. Only clean sector water souces are consumed, an sector inventory is not touched (sector is likely not loaded)
-void SoldierAutoFillCanteens(SOLDIERTYPE *pSoldier);
+void SoldierAutoFillCanteens(TacticalActor *pSoldier);
 
-BOOLEAN HasFoodInInventory( SOLDIERTYPE *pSoldier, BOOLEAN fCheckFood, BOOLEAN fCheckDrink );
+BOOLEAN HasFoodInInventory( TacticalActor *pSoldier, BOOLEAN fCheckFood, BOOLEAN fCheckDrink );
 
-void DrinkFromWaterTap( SOLDIERTYPE *pSoldier );
+void DrinkFromWaterTap( TacticalActor *pSoldier );
 
 #endif

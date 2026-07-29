@@ -44,7 +44,7 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 void AddPossiblePendingEnemiesToBattle();
 void EndTacticalBattleForEnemy();
 
-void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier );
+void ProcessQueenCmdImplicationsOfDeath( TacticalActor *pSoldier );
 
 BOOLEAN SaveUnderGroundSectorInfoToSaveGame( HWFILE hFile );
 BOOLEAN LoadUnderGroundSectorInfoFromSavedGame( HWFILE hFile );
@@ -52,7 +52,7 @@ BOOLEAN LoadUnderGroundSectorInfoFromSavedGame( HWFILE hFile );
 //Finds and returns the specified underground structure ( DONT MODIFY IT ).	Else returns NULL
 UNDERGROUND_SECTORINFO* FindUnderGroundSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ );
 
-void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier );
+void EnemyCapturesPlayerSoldier( TacticalActor *pSoldier );
 void BeginCaptureSquence( );
 void EndCaptureSequence( );
 

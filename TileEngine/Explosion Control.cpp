@@ -53,7 +53,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 //DBrot: More Rooms
 BOOLEAN HookerInRoom( UINT16 usRoom );
 
@@ -63,18 +63,18 @@ BOOLEAN HookerInRoom( UINT16 usRoom );
 BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usItem, SoldierID ubOwner, INT16 sSubsequent, BOOLEAN *pfMercHit, INT8 bLevel, INT32 iSmokeEffectID );
 
 // Flashbang effect on soldier
-UINT8 DetermineFlashbangEffect( SOLDIERTYPE *pSoldier, INT8 ubExplosionDir, BOOLEAN fInBuilding);
+UINT8 DetermineFlashbangEffect( TacticalActor *pSoldier, INT8 ubExplosionDir, BOOLEAN fInBuilding);
 
 // HEADROCK HAM 5.1: Explosion Fragments launcher
 void FireFragments( SoldierID ubOwner, INT16 sX, INT16 sY, INT16 sZ, UINT16 usItem, UINT8 ubDirection = DIRECTION_IRRELEVANT );
 
 // Flugente: shoot a gun without anyone operating it (used for makeshift traps wih guns)
-void FireFragmentsTrapGun( SOLDIERTYPE* pThrower, INT32 gridno, INT16 sZ, OBJECTTYPE* pObj, UINT8 ubDirection = NORTH );
+void FireFragmentsTrapGun( TacticalActor* pThrower, INT32 gridno, INT16 sZ, OBJECTTYPE* pObj, UINT8 ubDirection = NORTH );
 
 extern INT8	gbSAMGraphicList[ MAX_NUMBER_OF_SAMS ];
 extern	void AddToShouldBecomeHostileOrSayQuoteList( UINT16 ubID );
 extern void RecompileLocalMovementCostsForWall( INT32 sGridNo, UINT8 ubOrientation );
-void FatigueCharacter( SOLDIERTYPE *pSoldier );
+void FatigueCharacter( TacticalActor *pSoldier );
 
 void HandleSeeingFortifiedDoor( UINT32 sGridNo );//Ja25 UB
 
@@ -235,7 +235,7 @@ void RecountExplosions( void )
 }
 
 
-extern void HandleLoyaltyForDemolitionOfBuilding( SOLDIERTYPE *pSoldier, INT16 sPointsDmg );
+extern void HandleLoyaltyForDemolitionOfBuilding( TacticalActor *pSoldier, INT16 sPointsDmg );
 
 // GENERATE EXPLOSION
 void InternalIgniteExplosion( SoldierID ubOwner, INT16 sX, INT16 sY, INT16 sZ, INT32 sGridNo, UINT16 usItem, BOOLEAN fLocate, INT8 bLevel, UINT8 ubDirection, OBJECTTYPE * pObj )
@@ -249,7 +249,7 @@ void InternalIgniteExplosion( SoldierID ubOwner, INT16 sX, INT16 sY, INT16 sZ, I
 #endif
 
 	EXPLOSION_PARAMS ExpParams ;
-	SOLDIERTYPE* owner =
+	TacticalActor* owner =
 		GetJa2SoldierRepository().resolve(ubOwner.i);
 
 	// Callahan start
@@ -1513,9 +1513,9 @@ void ExplosiveDamageGridNo( INT32 sGridNo, INT16 sWoundAmt, UINT32 uiDist,
 
 BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBombGridNo, INT16 sWoundAmt, INT16 sBreathAmt, UINT32 uiDist, UINT16 usItem, INT16 sSubsequent, BOOLEAN fFromRemoteClient )
 {
-	SOLDIERTYPE* pSoldier =
+	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(ubPerson.i);
-	SOLDIERTYPE* owner =
+	TacticalActor* owner =
 		GetJa2SoldierRepository().resolve(ubOwner.i);
 
 	// OJW - 20091028
@@ -1908,9 +1908,9 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	return( TRUE );
 }
 
-BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, INT16 sSubsequent, BOOLEAN fRecompileMovementCosts, INT16 sWoundAmt, INT16 sBreathAmt, SoldierID ubOwner, BOOLEAN fFromRemoteClient )
+BOOLEAN DishOutGasDamage( TacticalActor * pSoldier, EXPLOSIVETYPE * pExplosive, INT16 sSubsequent, BOOLEAN fRecompileMovementCosts, INT16 sWoundAmt, INT16 sBreathAmt, SoldierID ubOwner, BOOLEAN fFromRemoteClient )
 {
-	SOLDIERTYPE* owner =
+	TacticalActor* owner =
 		GetJa2SoldierRepository().resolve(ubOwner.i);
 					// OJW - 20091028
 	if (is_networked && is_client)
@@ -2188,7 +2188,7 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 
 	INT16 sWoundAmt = 0,sBreathAmt = 0, /* sNewWoundAmt = 0, sNewBreathAmt = 0, */ sStructDmgAmt;
 	SoldierID ubPerson;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	EXPLOSIVETYPE *pExplosive;
 	INT16 sX, sY;
 	BOOLEAN fRecompileMovementCosts = FALSE;
@@ -2940,7 +2940,7 @@ void SpreadEffect( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID ubOwn
 {
 	if (is_networked && is_client)
 	{
-		SOLDIERTYPE* pAttacker =
+		TacticalActor* pAttacker =
 			GetJa2SoldierRepository().resolve(ubOwner.i);
 		if (pAttacker != NULL)
 		{
@@ -3206,7 +3206,7 @@ void SpreadEffect( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID ubOwn
 		// reset explosion hit flag so we can damage mercs again
 		for ( cnt = 0; cnt < (INT32)Ja2ActiveTacticalActorSlotCount(); cnt++ )
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				ResolveJa2ActiveTacticalActorSlot(cnt);
 			if ( soldier )
 			{
@@ -3306,7 +3306,7 @@ BOOLEAN HookerInRoom( UINT16 usRoom )
 {
 	//DBrot: More Rooms
 	UINT16		usTempRoom;
-	SOLDIERTYPE *	pSoldier;
+	TacticalActor *	pSoldier;
 
 	for ( SoldierID ubLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; ubLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++ubLoop )
 	{
@@ -3507,7 +3507,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 
 			for ( ubID = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; ubID <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ubID++ )
 			{
-				SOLDIERTYPE* civilian =
+				TacticalActor* civilian =
 					GetJa2SoldierRepository().resolve(ubID);
 				if ( civilian && civilian->roster().active() &&
 					civilian->roster().inSector() &&
@@ -3548,7 +3548,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 			UINT16 usRoom, usOldRoom;
 
 			ubID = WhoIsThere2( sGridNo, 0 );
-			SOLDIERTYPE* participant =
+			TacticalActor* participant =
 				GetJa2SoldierRepository().resolve(ubID);
 			if ( participant && participant->roster().team() == gbPlayerNum )
 			{
@@ -3748,10 +3748,10 @@ void AddBombToQueue( UINT32 uiWorldBombIndex, UINT32 uiTimeStamp, BOOLEAN fFromR
 			SoldierID soldierID = wi.soldierID; // bomb's owner
 			if (soldierID == NOBODY)
 				soldierID = wi.object[0]->data.misc.ubBombOwner - 2; // undo the hack
-			SOLDIERTYPE* triggeringSoldier =
+			TacticalActor* triggeringSoldier =
 				GetJa2SoldierRepository().resolve(
 					gubPersonToSetOffExplosions.i);
-			SOLDIERTYPE* bombOwner =
+			TacticalActor* bombOwner =
 				GetJa2SoldierRepository().resolve(soldierID.i);
 
 			if ((triggeringSoldier && IsOurSoldier(triggeringSoldier)) ||
@@ -3786,7 +3786,7 @@ BOOLEAN ActivateSurroundingTripwire( SoldierID ubID, INT32 sGridNo, INT8 bLevel,
 {
 	UINT32	uiTimeStamp= GetJA2Clock();
 	BOOLEAN	fFoundMine = FALSE;
-	SOLDIERTYPE* triggeringSoldier =
+	TacticalActor* triggeringSoldier =
 		GetJa2SoldierRepository().resolve(ubID.i);
 		
 	UINT8 feasibletripwiredirections[4] =
@@ -3886,7 +3886,7 @@ BOOLEAN ActivateSurroundingTripwire( SoldierID ubID, INT32 sGridNo, INT8 bLevel,
 						else
 						{
 							gubPersonToSetOffExplosions = ubID;
-							SOLDIERTYPE* bombOwner =
+							TacticalActor* bombOwner =
 								GetJa2SoldierRepository().resolve(
 									(*pObj)[0]->data.misc.ubBombOwner - 2);
 
@@ -3947,7 +3947,7 @@ void CheckAndFireTripwireGun( OBJECTTYPE* pObj, INT32 sGridNo, INT8 bLevel, Sold
 			gTacticalStatus.uiFlags |= (DISALLOW_SIGHT | CHECK_SIGHT_AT_END_OF_ATTACK);
 		}
 
-		SOLDIERTYPE* thrower =
+		TacticalActor* thrower =
 			GetJa2SoldierRepository().resolve(ubId.i);
 		if (thrower)
 		{
@@ -4029,7 +4029,7 @@ void HandleExplosionQueue( void )
 						PlayJA2Sample( sSoundID, RATE_11025, SoundVolume( HIGHVOLUME, sGridNo ), 1, SoundDir( sGridNo ) );
 					
 					SoldierID ubID = WhoIsThere2( sGridNo, ubLevel );
-					SOLDIERTYPE* pSoldier =
+					TacticalActor* pSoldier =
 						GetJa2SoldierRepository().resolve(ubID.i);
 
 					if ( pSoldier )
@@ -4257,7 +4257,7 @@ void HandleExplosionQueue( void )
 
 		// re-enable sight
 		gTacticalStatus.uiFlags &= (~DISALLOW_SIGHT);
-		SOLDIERTYPE* triggeringSoldier =
+		TacticalActor* triggeringSoldier =
 			GetJa2SoldierRepository().resolve(
 				gubPersonToSetOffExplosions.i);
 
@@ -4270,7 +4270,7 @@ void HandleExplosionQueue( void )
 		if (gfExplosionQueueMayHaveChangedSight)
 		{
 			SoldierID ubLoop;
-			SOLDIERTYPE * pTeamSoldier;
+			TacticalActor * pTeamSoldier;
 
 			// set variable so we may at least have someone to resolve interrupts vs
 			gubInterruptProvoker = gubPersonToSetOffExplosions;
@@ -4332,7 +4332,7 @@ void HandleExplosionWarningAnimations( )
 		// Flugente: we have to check every inventory for armed bombs and do the countdown for them, too
 		for ( UINT32 cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); ++cnt )
 		{
-			SOLDIERTYPE* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
+			TacticalActor* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 			if ( pSoldier != NULL )
 			{
@@ -4367,7 +4367,7 @@ void HandleExplosionWarningAnimations( )
 	// show focus area if skill is active
 	if ( gusSelectedSoldier != NOBODY )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(
 				gusSelectedSoldier.i);
 
@@ -4426,7 +4426,7 @@ void HandleExplosionWarningAnimations( )
 						{
 							for ( SoldierID ubID = gTacticalStatus.Team[OUR_TEAM].bFirstID; ubID <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++ubID)
 							{
-								SOLDIERTYPE* candidate =
+								TacticalActor* candidate =
 									GetJa2SoldierRepository().resolve(
 										ubID.i);
 								if (candidate &&
@@ -4495,7 +4495,7 @@ void HandleExplosionWarningAnimations( )
 				IS_MERC_BODY_TYPE(pSoldier) &&
 				!pSoldier->IsSpotting())
 			{
-				SOLDIERTYPE *pOpponent;
+				TacticalActor *pOpponent;
 				INT8 bKnowledge;
 				INT32 sSpot;
 				INT8 bLevel;
@@ -4576,7 +4576,7 @@ void DecayBombTimers( void )
 					if ( (*pObj)[0]->data.misc.ubBombOwner > 1 )
 					{
 						gubPersonToSetOffExplosions = ((*pObj)[0]->data.misc.ubBombOwner - 2);
-						SOLDIERTYPE* detonator =
+						TacticalActor* detonator =
 							GetJa2SoldierRepository().resolve(
 								gubPersonToSetOffExplosions.i);
 						// SANDRO - merc records - detonating explosives
@@ -4611,7 +4611,7 @@ void DecayBombTimers( void )
 	// So we have to look at every item in every inventory in this sector
 	for (UINT32 cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); ++cnt )
 	{
-		SOLDIERTYPE* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
+		TacticalActor* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 		if ( pSoldier != NULL )
 		{
@@ -4636,7 +4636,7 @@ void DecayBombTimers( void )
 								if ( (*pObj)[0]->data.misc.ubBombOwner > 1 )
 								{
 									gubPersonToSetOffExplosions = ((*pObj)[0]->data.misc.ubBombOwner - 2);
-									SOLDIERTYPE* detonator =
+									TacticalActor* detonator =
 										GetJa2SoldierRepository().resolve(
 											gubPersonToSetOffExplosions.i);
 									// SANDRO - merc records - detonating explosives
@@ -4703,7 +4703,7 @@ void SetOffBombsByFrequency( SoldierID ubID, INT8 bFrequency )
 						// SANDRO - added merc records and some exp
 						if ( ((*pObj)[0]->data.misc.ubBombOwner) > 1 )
 						{
-							SOLDIERTYPE* bombOwner =
+							TacticalActor* bombOwner =
 								GetJa2SoldierRepository().resolve(
 									(*pObj)[0]->data.misc.ubBombOwner - 2);
 							if ( bombOwner &&
@@ -4782,7 +4782,7 @@ void SetOffBombsByFrequency( SoldierID ubID, INT8 bFrequency )
 	// So we have to look at every item in every inventory in this sector
 	for (UINT32 cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); ++cnt )
 	{
-		SOLDIERTYPE* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
+		TacticalActor* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 		if ( pSoldier != NULL )
 		{
@@ -4808,7 +4808,7 @@ void SetOffBombsByFrequency( SoldierID ubID, INT8 bFrequency )
 									// SANDRO - added merc records and some exp
 									if ( ((*pObj)[0]->data.misc.ubBombOwner) > 1 )
 									{
-										SOLDIERTYPE* bombOwner =
+										TacticalActor* bombOwner =
 											GetJa2SoldierRepository().resolve(
 												(*pObj)[0]->data.misc.ubBombOwner - 2);
 										if ( bombOwner &&
@@ -4908,7 +4908,7 @@ BOOLEAN SetOffBombsInGridNo( SoldierID ubID, INT32 sGridNo, BOOLEAN fAllBombs, I
 	UINT32	uiTimeStamp;
 	OBJECTTYPE * pObj;
 	BOOLEAN	fFoundMine = FALSE;
-	SOLDIERTYPE* triggeringSoldier =
+	TacticalActor* triggeringSoldier =
 		GetJa2SoldierRepository().resolve(ubID.i);
 
 	uiTimeStamp = GetJA2Clock();
@@ -4970,7 +4970,7 @@ BOOLEAN SetOffBombsInGridNo( SoldierID ubID, INT32 sGridNo, BOOLEAN fAllBombs, I
 					else
 					{
 						gubPersonToSetOffExplosions = ubID;
-						SOLDIERTYPE* bombOwner =
+						TacticalActor* bombOwner =
 							GetJa2SoldierRepository().resolve(
 								(*pObj)[0]->data.misc.ubBombOwner - 2);
 
@@ -5322,8 +5322,8 @@ void UpdateSAMDoneRepair( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ	)
 // see if they get angry
 void HandleBuldingDestruction( INT32 sGridNo, SoldierID ubOwner )
 {
-	SOLDIERTYPE *	pSoldier;
-	SOLDIERTYPE* owner =
+	TacticalActor *	pSoldier;
+	TacticalActor* owner =
 		GetJa2SoldierRepository().resolve(ubOwner.i);
 
 	if ( !owner )
@@ -5423,7 +5423,7 @@ void RemoveActiveExplosionMarkers( )
 	gubElementsOnExplosionQueue = 0;
 }
 
-UINT8 DetermineFlashbangEffect( SOLDIERTYPE *pSoldier, INT8 ubExplosionDir, BOOLEAN fInBuilding)
+UINT8 DetermineFlashbangEffect( TacticalActor *pSoldier, INT8 ubExplosionDir, BOOLEAN fInBuilding)
 {
 	INT8 bNumTurns;
 	UINT16 usHeadItem1, usHeadItem2;
@@ -5545,7 +5545,7 @@ void FireFragments( SoldierID ubOwner, INT16 sX, INT16 sY, INT16 sZ, UINT16 usIt
 }
 
 // Flugente: shoot a gun without anyone operating it (used for makeshift traps wih guns)
-void FireFragmentsTrapGun( SOLDIERTYPE* pThrower, INT32 gridno, INT16 sZ, OBJECTTYPE* pObj, UINT8 ubDirection )
+void FireFragmentsTrapGun( TacticalActor* pThrower, INT32 gridno, INT16 sZ, OBJECTTYPE* pObj, UINT8 ubDirection )
 {
 	if ( !pObj )
 		return;
@@ -5642,7 +5642,7 @@ void HavePersonAtGridnoStop( UINT32 sGridNo )
 
 	//Sewe if there is a person at the gridno
 	SoldierID ubID = WhoIsThere2( sGridNo, 0 );
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(ubID.i);
 
 	//is it a valid person
@@ -5661,7 +5661,7 @@ BOOLEAN ShouldThePlayerStopWhenWalkingOnBiggensActionItem( UINT8 ubRecordNum )
 	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
 		return( FALSE );
 
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 
 	pSoldier = FindSoldierByProfileID( BIGGENS_UB, TRUE ); //BIGGENS
 
@@ -5764,7 +5764,7 @@ void HandleDestructionOfPowerGenFan()
 	//
 	//Get a random qualified merc to say the quote
 	SoldierID bID = RandomSoldierIdFromNewMercsOnPlayerTeam();
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(bID.i);
 	if( soldier )
 	{
@@ -5816,7 +5816,7 @@ void HandleSeeingFortifiedDoor( UINT32 sGridNo )
 
 	//find out whos is the one walking across the trap
 	SoldierID sID = WhoIsThere2( sGridNo, 0 );
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(sID.i);
 	if( soldier && IsSoldierQualifiedMerc( soldier ) )
 	{
@@ -5852,7 +5852,7 @@ void HandleSwitchToOpenFortifiedDoor( UINT32 sGridNo )
 	gJa25SaveStruct.ubStatusOfFortifiedDoor = FD__OPEN;
 
 	SoldierID bID = RandomSoldierIdFromNewMercsOnPlayerTeam();
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(bID.i);
 
 	if( soldier )
@@ -5870,8 +5870,8 @@ void HandleSeeingPowerGenFan( UINT32 sGridNo )
 	SoldierID ubPerson;
 	BOOLEAN fFanIsStopped;
 	BOOLEAN	fFanHasBeenStopped;
-	SOLDIERTYPE *pSoldier;
-	SOLDIERTYPE *pOtherSoldier;
+	TacticalActor *pSoldier;
+	TacticalActor *pOtherSoldier;
 	INT32	cnt;
 	BOOLEAN	fSaidQuote=FALSE;
 
@@ -6121,7 +6121,7 @@ typedef std::pair<INT32, UINT8> gridnoarmourpair;
 typedef std::vector< gridnoarmourpair > gridnoarmourvector;
 typedef std::map<UINT32, gridnoarmourvector> gridnoarmournetworkmap;
 
-void SoldierDropThroughRoof( SOLDIERTYPE* pSoldier, INT32 sGridNo )
+void SoldierDropThroughRoof( TacticalActor* pSoldier, INT32 sGridNo )
 {
 	if ( !pSoldier || TileIsOutOfBounds( sGridNo ) )
 		return;
@@ -6297,7 +6297,7 @@ gridnoarmourvector GetArmourSharedRoofNetwork( gridnoarmourvector& arNetwork )
 // handle destroying if a single roof tile
 void RoofDestruction( INT32 sGridNo, BOOLEAN fWithExplosion )
 {
-	SOLDIERTYPE* pSoldier = NULL;
+	TacticalActor* pSoldier = NULL;
 
 	if ( TileIsOutOfBounds( sGridNo ) || !IsRoofPresentAtGridNo( sGridNo ) )
 		return;

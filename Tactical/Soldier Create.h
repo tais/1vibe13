@@ -13,7 +13,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 class SOLDIERCREATE_STRUCT;//dnl ch33 130909
 class _OLD_SOLDIERCREATE_STRUCT;//dnl ch42 250909
 
@@ -267,8 +267,8 @@ public:
 	SOLDIERCREATE_STRUCT& operator=(const SOLDIERCREATE_STRUCT&);
 	// Conversion operator from old to new
 	SOLDIERCREATE_STRUCT& operator=(const OLD_SOLDIERCREATE_STRUCT_101&);
-	// Conversion operator from SOLDIERTYPE to SOLDIERCREATE_STRUCT
-	SOLDIERCREATE_STRUCT& operator=(const SOLDIERTYPE&);
+	// Conversion operator from TacticalActor to SOLDIERCREATE_STRUCT
+	SOLDIERCREATE_STRUCT& operator=(const TacticalActor&);
 	// Destructor
 	~SOLDIERCREATE_STRUCT();
 
@@ -349,7 +349,7 @@ public:
 
 	INT8						bSectorZ;
 
-	SOLDIERTYPE					*pExistingSoldier;
+	TacticalActor					*pExistingSoldier;
 	BOOLEAN						fUseExistingSoldier;
 	UINT8						ubCivilianGroup;
 
@@ -531,38 +531,38 @@ struct MAPDISK_SOLDIERCREATE_STRUCT
 
 //Original functions currently used throughout the game.
 BOOLEAN TacticalRemoveSoldier( SoldierID usSoldierIndex );
-BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehicle );
+BOOLEAN TacticalRemoveSoldierPointer( TacticalActor *pSoldier, BOOLEAN fRemoveVehicle );
 
 INT8 CalcDifficultyModifier( UINT8 ubSoldierClass );
 
 void RandomizeNewSoldierStats( SOLDIERCREATE_STRUCT *pCreateStruct );
 
 //Kris:
-//Modified return type from BOOLEAN to SOLDIERTYPE*
-SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, SoldierID *pubID );
+//Modified return type from BOOLEAN to TacticalActor*
+TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, SoldierID *pubID );
 
 //Randomly generated enemies used by strategic AI.
-SOLDIERTYPE* TacticalCreateAdministrator();
-SOLDIERTYPE* TacticalCreateEliteEnemy();
-SOLDIERTYPE* TacticalCreateArmyTroop();
-SOLDIERTYPE* TacticalCreateZombie();		// Flugente Zombies
-SOLDIERTYPE* TacticalCreateMilitia( UINT8 ubMilitiaClass, INT16 sX, INT16 sY );	// Flugente: added sector coordinates
-SOLDIERTYPE* TacticalCreateCreature( INT8 bCreatureBodyType );
-SOLDIERTYPE* TacticalCreateEnemyTank();
-SOLDIERTYPE* TacticalCreateEnemyJeep( );
-SOLDIERTYPE* TacticalCreateEnemyRobot();
+TacticalActor* TacticalCreateAdministrator();
+TacticalActor* TacticalCreateEliteEnemy();
+TacticalActor* TacticalCreateArmyTroop();
+TacticalActor* TacticalCreateZombie();		// Flugente Zombies
+TacticalActor* TacticalCreateMilitia( UINT8 ubMilitiaClass, INT16 sX, INT16 sY );	// Flugente: added sector coordinates
+TacticalActor* TacticalCreateCreature( INT8 bCreatureBodyType );
+TacticalActor* TacticalCreateEnemyTank();
+TacticalActor* TacticalCreateEnemyJeep( );
+TacticalActor* TacticalCreateEnemyRobot();
 
 // Flugente: create an armed civilian
-SOLDIERTYPE* TacticalCreateArmedCivilian( UINT8 usSoldierClass = SOLDIER_CLASS_ARMY );
+TacticalActor* TacticalCreateArmedCivilian( UINT8 usSoldierClass = SOLDIER_CLASS_ARMY );
 
-SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 usTraderID,
+TacticalActor* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 usTraderID,
 									 INT8 sBodyType, INT8 aVest, INT8 aPants, INT8 aHair, INT8 aSkin, 
 									 INT16 sItem1, INT16 sItem2, INT16 sItem3, INT16 sItem4 );
 
 // Flugente: assassins are elite soldiers of the civ team that go hostile on a certain event, otherwise they just blend in
-SOLDIERTYPE* TacticalCreateEnemyAssassin(UINT8 disguisetype);
+TacticalActor* TacticalCreateEnemyAssassin(UINT8 disguisetype);
 
-SOLDIERTYPE* TacticalCreateBandit();
+TacticalActor* TacticalCreateBandit();
 
 void CreateAssassin(UINT8 disguisetype);
 
@@ -624,7 +624,7 @@ void CreateDetailedPlacementGivenStaticDetailedPlacementAndBasicPlacementInfo(
 //by the editor upon exiting the editor into the game, to update the existing soldiers with new information.
 //This gives flexibility of testing mercs.	Upon entering the editor again, this call will reset all the 
 //mercs to their original states.
-void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_STRUCT *spp );
+void UpdateSoldierWithStaticDetailedInformation( TacticalActor *s, SOLDIERCREATE_STRUCT *spp );
 
 //In the case of setting a profile ID in order to extract a soldier from the profile array, we
 //also want to copy that information to the static detailed placement, for editor viewing purposes.
@@ -632,12 +632,12 @@ void UpdateStaticDetailedPlacementWithProfileInformation( SOLDIERCREATE_STRUCT *
 
 //When the editor modifies the soldier's relative attribute level,
 //this function is called to update that information.
-void ModifySoldierAttributesWithNewRelativeLevel( SOLDIERTYPE *s, INT8 bLevel );
+void ModifySoldierAttributesWithNewRelativeLevel( TacticalActor *s, INT8 bLevel );
 
 // Force the soldier to be a different ID
-void ForceSoldierProfileID( SOLDIERTYPE *pSoldier, UINT8 ubProfileID );
+void ForceSoldierProfileID( TacticalActor *pSoldier, UINT8 ubProfileID );
 
-void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UINT8 ubTeam );
+void GeneratePaletteForSoldier( TacticalActor *pSoldier, UINT8 ubSoldierClass, UINT8 ubTeam );
 
 void QuickCreateProfileMerc( INT8 bTeam, UINT8 ubProfileID );
 
@@ -652,8 +652,8 @@ void OkayToUpgradeEliteToSpecialProfiledEnemy( SOLDIERCREATE_STRUCT *pp );
 extern BOOLEAN gfProfiledEnemyAdded; //needs to be saved (used by the above function)
 
 //Legion by Jazz
-//void BeginSoldierClimbUpOkno( SOLDIERTYPE *pSoldier );
-void BeginSoldierFenceUp( SOLDIERTYPE *pSoldier );
+//void BeginSoldierClimbUpOkno( TacticalActor *pSoldier );
+void BeginSoldierFenceUp( TacticalActor *pSoldier );
 //dnl ch27 240909
 typedef enum
 {
@@ -672,11 +672,11 @@ BOOLEAN TranslateArrayFields(void* out, const void* inp, int len, int cmd);
 #define CENTRAL_RADIUS (min(WORLD_ROWS,WORLD_COLS)/5)
 
 void ResetNumSquadleadersInArmyGroup( void ); // added by SANDRO
-BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct ); // Added a function to add traits to soldiers - SANDRO
+BOOLEAN AssignTraitsToSoldier( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct ); // Added a function to add traits to soldiers - SANDRO
 
 INT32 ChooseHairColor( UINT8 usBodyType, INT32 skin );
 
 // Flugente: set palettes for vest/shirt
-void SetClothes( SOLDIERTYPE* pSoldier, INT8 aVest, INT8 aPants, INT8 aHair = -1, INT8 aSkin = -1 );
+void SetClothes( TacticalActor* pSoldier, INT8 aVest, INT8 aPants, INT8 aHair = -1, INT8 aSkin = -1 );
 
 #endif

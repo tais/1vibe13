@@ -576,7 +576,7 @@ BOOLEAN AddPlacementToWorld( SOLDIERINITNODE *curr, GROUP *pGroup = NULL )
 {
 	UINT8 ubProfile;
 	SOLDIERCREATE_STRUCT tempDetailedPlacement;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	SoldierID ubID;
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("AddPlacementToWorld"));
@@ -1887,7 +1887,7 @@ void AddSoldierInitListMilitia( UINT16 ubNumGreen, UINT16 ubNumRegs, UINT16 ubNu
 		UINT16 tacticalmilitia = 0;
 		for ( SoldierID i = gTacticalStatus.Team[MILITIA_TEAM].bFirstID; i <= gTacticalStatus.Team[MILITIA_TEAM ].bLastID; ++i )
 		{
-			SOLDIERTYPE* militia =
+			TacticalActor* militia =
 				GetJa2SoldierRepository().resolve(i.i);
 			if ( militia->roster().inSector() && militia->roster().active() )
 				++tacticalmilitia;
@@ -1899,7 +1899,7 @@ void AddSoldierInitListMilitia( UINT16 ubNumGreen, UINT16 ubNumRegs, UINT16 ubNu
 
 		while ( tacticalmilitia < militiamax )
 		{
-			SOLDIERTYPE* pSoldier = NULL;
+			TacticalActor* pSoldier = NULL;
 
 			if ( ubNumElites )
 			{
@@ -2285,7 +2285,7 @@ void UseEditorAlternateList()
 //Any killed people that used detailed placement information must prevent that from occurring
 //again in the future.	Otherwise, the sniper guy with 99 marksmanship could appear again
 //if the map was loaded again!
-void EvaluateDeathEffectsToSoldierInitList( SOLDIERTYPE *pSoldier )
+void EvaluateDeathEffectsToSoldierInitList( TacticalActor *pSoldier )
 {
 	UINT16 ubNodeID = 0;
 	SOLDIERINITNODE* curr = gSoldierInitHead;
@@ -2626,7 +2626,7 @@ SOLDIERINITNODE * FindSoldierInitListNodeByProfile( UINT8 ubProfile )
 void AddProfilesUsingProfileInsertionData()
 {
 	INT32 i;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	SOLDIERINITNODE * curr;
 
 	//for( i = FIRST_RPC; i < ( PROF_HUMMER ); i++ )
@@ -2987,7 +2987,7 @@ void StripEnemyDetailedPlacementsIfSectorWasPlayerLiberated()
 
 void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubNumGreen, UINT16 ubNumReg, UINT16 ubNumElites )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	MAPEDGEPOINTINFO MapEdgepointInfo;
 	UINT16 ubCurrSlot;
 	UINT16 ubTotalSoldiers;
@@ -3206,7 +3206,7 @@ void SectorAddAssassins( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 
 	// count current number of civilians
 	UINT16 numberofcivs = 0;
-	SOLDIERTYPE* pTeamSoldier = NULL;
+	TacticalActor* pTeamSoldier = NULL;
 	SoldierID  cnt = gTacticalStatus.Team[ CIV_TEAM ].bFirstID;
 	SoldierID  lastid = gTacticalStatus.Team[ CIV_TEAM ].bLastID;
 	for ( ; cnt < lastid; ++cnt )
@@ -3279,7 +3279,7 @@ void SectorAddPrisonersofWar( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 	// count current number of civilians and already placed pows
 	UINT16 numberofcivs = 0;
 	UINT16 numberofpows = 0;
-	SOLDIERTYPE* pTeamSoldier = NULL;
+	TacticalActor* pTeamSoldier = NULL;
 	SoldierID  cnt = gTacticalStatus.Team[ CIV_TEAM ].bFirstID;
 	SoldierID  lastid = gTacticalStatus.Team[ CIV_TEAM ].bLastID;
 	for ( ; cnt < lastid; ++cnt )

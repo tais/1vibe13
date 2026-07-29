@@ -83,7 +83,7 @@ extern CPostalService gPostalService;
 extern void initMapViewAndBorderCoordinates(void);
 
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 // Temp function
 void QuickSetupOfMercProfileItems( UINT32 uiCount, UINT8 ubProfileIndex );

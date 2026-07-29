@@ -22,7 +22,7 @@ extern void GetEquipmentTemplates( );
 
 std::vector<std::string> gTemplateVector;
 
-extern void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name );
+extern void ReadEquipmentTable( TacticalActor* pSoldier, std::string name );
 
 extern INT16 bSelectedInfoChar;
 
@@ -137,7 +137,7 @@ TraitSelection::Setup( UINT32 aVal )
 {
 	Destroy();
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -216,7 +216,7 @@ SkillSelection::Setup( UINT32 aVal )
 {
 	Destroy();
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -389,7 +389,7 @@ SkillSelection::Functions( UINT32 aVal )
 {
 	Cancel();
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -414,7 +414,7 @@ ArtillerySector::Setup( UINT32 aVal )
 {
 	Destroy();
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -480,7 +480,7 @@ ArtilleryTeam::Setup( UINT32 aVal )
 {
 	Destroy();
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -547,7 +547,7 @@ ArtilleryTeam::Functions( UINT32 aVal )
 {
 	Cancel();
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -572,7 +572,7 @@ ReinforcementSector::Setup( UINT32 aVal )
 {
 	Destroy();
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -633,7 +633,7 @@ ReinforcementNumber::Setup( UINT32 aVal )
 {
 	Destroy();
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -741,7 +741,7 @@ ReinforcementNumber::Functions( UINT32 aVal )
 {
 	Cancel();
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 		
@@ -766,7 +766,7 @@ SoldierSelection::Setup( UINT32 aVal )
 {
 	Destroy();
 	
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -787,7 +787,7 @@ SoldierSelection::Setup( UINT32 aVal )
 		// loop through all soldiers around
 		for ( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID ; id <= gTacticalStatus.Team[ CIV_TEAM ].bLastID ; ++id )
 		{
-			SOLDIERTYPE* candidate =
+			TacticalActor* candidate =
 				GetJa2SoldierRepository().resolve(id.i);
 			INT32 iRange = GetRangeInCellCoordsFromGridNoDiff(
 				sTraitsMenuTargetGridNo,
@@ -827,7 +827,7 @@ SoldierSelection::Functions( UINT32 aVal )
 {
 	Cancel();
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -851,7 +851,7 @@ DragSelection::Setup( UINT32 aVal )
 {
 	Destroy( );
 
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -942,7 +942,7 @@ DragSelection::Setup( UINT32 aVal )
 void
 DragSelection::Functions( UINT32 aVal )
 {
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -962,7 +962,7 @@ DragSelection::Functions( UINT32 aVal )
 void
 DragSelection::FunctionsGridNo( INT32 aVal )
 {
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
@@ -1108,7 +1108,7 @@ EquipmentSelection::Functions(UINT32 aVal)
 	{
 		const SoldierID soldierId =
 			gCharactersList[bSelectedInfoChar].usSolID;
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
 		if ( pSoldier )
 		{

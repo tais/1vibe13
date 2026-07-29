@@ -43,7 +43,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 extern BOOLEAN gubWorldTileInLight[MAX_ALLOWED_WORLD_MAX];
 extern BOOLEAN gubIsCorpseThere[MAX_ALLOWED_WORLD_MAX];
@@ -53,8 +53,8 @@ extern INT32 gubMerkCanSeeThisTile[MAX_ALLOWED_WORLD_MAX];
 extern UINT16 gubAnimSurfaceIndex[ TOTALBODYTYPES ][ NUMANIMATIONSTATES ];
 
 // sevenfm:
-extern BOOLEAN InGas( SOLDIERTYPE *pSoldier, INT32 sGridNo );
-extern BOOLEAN InGasSpot(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel);
+extern BOOLEAN InGas( TacticalActor *pSoldier, INT32 sGridNo );
+extern BOOLEAN InGasSpot(TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel);
 
 //extern UINT8 gubDiagCost[20];
 // skiplist has extra level of pointers every 4 elements, so a level 5is optimized for
@@ -448,7 +448,7 @@ UINT32 guiUnsuccessfulPathChecks = 0;
 #endif
 
 
-static auto canJumpFences(SOLDIERTYPE* pSoldier) -> bool {
+static auto canJumpFences(TacticalActor* pSoldier) -> bool {
 	return IS_MERC_BODY_TYPE(pSoldier) && pSoldier->CanClimbWithCurrentBackpack();
 }
 
@@ -601,7 +601,7 @@ INT16 AStarPathfinder::SpacesAway(const INT32 node1,
 	return (INT16)(__max(sRows, sCols));
 }
 
-int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
+int AStarPathfinder::GetPath(TacticalActor *s ,
 							INT32 dest,
 							INT8 ubLevel,
 							INT16 usMovementMode,
@@ -1563,7 +1563,7 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 
 	// look through all opponents for those we know of
 	for (UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++) {
-		SOLDIERTYPE* pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
+		TacticalActor* pOpponent = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if (!pOpponent || pOpponent->vitals().health() < OKLIFE) {
@@ -1667,10 +1667,10 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 }
 
 int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyAPsLeft,
-									INT32 myThreatsiOrigRange, INT32 myThreatssGridNo, SOLDIERTYPE* myThreatspOpponent,
+									INT32 myThreatsiOrigRange, INT32 myThreatssGridNo, TacticalActor* myThreatspOpponent,
 									INT32 myThreatsiValue, INT32 myThreatsiAPs, INT32 myThreatsiCertainty)
 {
-	SOLDIERTYPE* pMe = this->pSoldier;
+	TacticalActor* pMe = this->pSoldier;
 	INT32	morale = pSoldier->morale().aiMorale();
 
 	INT32	iRange = myThreatsiOrigRange;
@@ -1679,7 +1679,7 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 	INT16 sTempX, sTempY;
 	FLOAT dMyX, dMyY, dHisX, dHisY;
 	INT8	bHisBestCTGT, bHisActualCTGT, bHisCTGT, bMyCTGT;
-	SOLDIERTYPE *pHim;
+	TacticalActor *pHim;
 
 	dMyX = dMyY = dHisX = dHisY = -1.0;
 
@@ -2191,7 +2191,7 @@ void ShutDownPathAI(void)
 ///////////////////////////////////////////////////////////////////////
 //	FINDBESTPATH													/
 ////////////////////////////////////////////////////////////////////////
-INT32 FindBestPath(SOLDIERTYPE *s , INT32 sDestination, INT8 bLevel, INT16 usMovementMode, INT8 bCopy, UINT8 fFlags )
+INT32 FindBestPath(TacticalActor *s , INT32 sDestination, INT8 bLevel, INT16 usMovementMode, INT8 bCopy, UINT8 fFlags )
 {
 	s->runtime().pendingAction.pathSearchSourceGrid = s->position().gridNo();
 	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
@@ -3173,7 +3173,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			{
 				// ATE: ONLY cancel if they are moving.....
 				ubMerc = WhoIsThere2( newLoc, s->position().level());
-				SOLDIERTYPE* blockingSoldier =
+				TacticalActor* blockingSoldier =
 					soldiers.resolve(ubMerc.i);
 
 				// sevenfm: for player mercs, ignore invisible opponents
@@ -3991,7 +3991,7 @@ ENDOFLOOP:
 
 void GlobalReachableTest( INT32 sStartGridNo )
 {
-	SOLDIERTYPE s;
+	TacticalActor s;
 	INT32 iCurrentGridNo =0;
 
 	// WDS - Clean up inventory handling
@@ -4015,7 +4015,7 @@ void GlobalReachableTest( INT32 sStartGridNo )
 
 void LocalReachableTest( INT32 sStartGridNo, INT8 bRadius )
 {
-	SOLDIERTYPE s;
+	TacticalActor s;
 	INT32 iCurrentGridNo = 0;
 	INT32	iX, iY;
 
@@ -4059,7 +4059,7 @@ void LocalReachableTest( INT32 sStartGridNo, INT8 bRadius )
 
 void GlobalItemsReachableTest( INT32 sStartGridNo1, INT32 sStartGridNo2 )
 {
-	SOLDIERTYPE s;
+	TacticalActor s;
 	INT32 iCurrentGridNo =0;
 
 	// WDS - Clean up inventory handling
@@ -4088,7 +4088,7 @@ void GlobalItemsReachableTest( INT32 sStartGridNo1, INT32 sStartGridNo2 )
 
 void RoofReachableTest( INT32 sStartGridNo, UINT8 ubBuildingID )
 {
-	SOLDIERTYPE s;
+	TacticalActor s;
 	INT32 sGridNo;
 
 	// WDS - Clean up inventory handling
@@ -4183,7 +4183,7 @@ void ErasePath(char bEraseOldOne)
 
 
 
-INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget)
+INT32 PlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget)
 {
 	INT16 sTileCost,sPoints=0,sAnimCost=0;
 	INT16 sPointsWalk=0,sPointsCrawl=0,sPointsRun=0,sPointsSwat=0;
@@ -4823,7 +4823,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 
 }
 
-INT32 UIPlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget)
+INT32 UIPlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget)
 {
 	// This function is specifically for UI calls to the pathing routine, to
 	// check whether the shift key is pressed, etc.
@@ -4850,7 +4850,7 @@ INT32 UIPlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 b
 	return( sRet );
 }
 
-INT16 RecalculatePathCost( SOLDIERTYPE *pSoldier, UINT16 usMovementMode )
+INT16 RecalculatePathCost( TacticalActor *pSoldier, UINT16 usMovementMode )
 {
 	// AI function for a soldier already with a path; this will return the cost of that path using the given movement mode
 	INT16	sRet;
@@ -4866,7 +4866,7 @@ INT16 RecalculatePathCost( SOLDIERTYPE *pSoldier, UINT16 usMovementMode )
 	return( sRet );
 }
 
-INT32 EstimatePlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget)
+INT32 EstimatePlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPlot, INT8 bStayOn, UINT16 usMovementMode, INT8 bStealth, INT8 bReverse , INT16 sAPBudget)
 {
 	// This function is specifically for AI calls to estimate path cost to a location
 	// It sets stuff up to ignore all people
@@ -4882,7 +4882,7 @@ INT32 EstimatePlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, 
 }
 
 
-UINT8 InternalDoorTravelCost( SOLDIERTYPE * pSoldier, INT32 iGridNo, UINT8 ubMovementCost, BOOLEAN fReturnPerceivedValue, INT32 * piDoorGridNo, BOOLEAN fReturnDoorCost )
+UINT8 InternalDoorTravelCost( TacticalActor * pSoldier, INT32 iGridNo, UINT8 ubMovementCost, BOOLEAN fReturnPerceivedValue, INT32 * piDoorGridNo, BOOLEAN fReturnDoorCost )
 {
 	// This function will return either TRAVELCOST_DOOR (in place of closed door cost),
 	// TRAVELCOST_OBSTACLE, or the base ground terrain
@@ -5076,7 +5076,7 @@ UINT8 InternalDoorTravelCost( SOLDIERTYPE * pSoldier, INT32 iGridNo, UINT8 ubMov
 
 }
 
-UINT8 DoorTravelCost( SOLDIERTYPE * pSoldier, INT32 iGridNo, UINT8 ubMovementCost, BOOLEAN fReturnPerceivedValue, INT32 * piDoorGridNo )
+UINT8 DoorTravelCost( TacticalActor * pSoldier, INT32 iGridNo, UINT8 ubMovementCost, BOOLEAN fReturnPerceivedValue, INT32 * piDoorGridNo )
 {
 	return( InternalDoorTravelCost( pSoldier, iGridNo, ubMovementCost, fReturnPerceivedValue, piDoorGridNo, FALSE ) );
 }

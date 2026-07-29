@@ -83,7 +83,7 @@ BOOLEAN AddInteractiveTile( INT32 sGridNo, LEVELNODE *pLevelNode, UINT32 uiFlags
 	return( TRUE );
 }
 
-BOOLEAN StartInteractiveObject( INT32 sGridNo, UINT16 usStructureID, SOLDIERTYPE *pSoldier, UINT8 ubDirection )
+BOOLEAN StartInteractiveObject( INT32 sGridNo, UINT16 usStructureID, TacticalActor *pSoldier, UINT8 ubDirection )
 {
 	STRUCTURE * pStructure;
 
@@ -125,7 +125,7 @@ BOOLEAN StartInteractiveObject( INT32 sGridNo, UINT16 usStructureID, SOLDIERTYPE
 }
 
 
-BOOLEAN CalcInteractiveObjectAPs( SOLDIERTYPE * pSoldier, INT32 sGridNo, STRUCTURE * pStructure, INT16 *psAPCost, INT16 *psBPCost ) // SANDRO - added argument
+BOOLEAN CalcInteractiveObjectAPs( TacticalActor * pSoldier, INT32 sGridNo, STRUCTURE * pStructure, INT16 *psAPCost, INT16 *psBPCost ) // SANDRO - added argument
 {
 	if (pStructure == NULL)
 	{
@@ -158,7 +158,7 @@ BOOLEAN CalcInteractiveObjectAPs( SOLDIERTYPE * pSoldier, INT32 sGridNo, STRUCTU
 }
 
 
-BOOLEAN InteractWithInteractiveObject( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection )
+BOOLEAN InteractWithInteractiveObject( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection )
 {
 	BOOLEAN	fDoor = FALSE;
 
@@ -178,7 +178,7 @@ BOOLEAN InteractWithInteractiveObject( SOLDIERTYPE *pSoldier, STRUCTURE *pStruct
 }
 
 
-BOOLEAN SoldierHandleInteractiveObject( SOLDIERTYPE *pSoldier )
+BOOLEAN SoldierHandleInteractiveObject( TacticalActor *pSoldier )
 {
 	STRUCTURE			*pStructure;
 	UINT16				usStructureID;
@@ -198,7 +198,7 @@ BOOLEAN SoldierHandleInteractiveObject( SOLDIERTYPE *pSoldier )
 	return( HandleOpenableStruct( pSoldier, sGridNo, pStructure ) );
 }
 
-void HandleStructChangeFromGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+void HandleStructChangeFromGridNo( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	STRUCTURE			*pStructure, *pNewStructure;
 	ITEM_POOL			*pItemPool;
@@ -510,7 +510,7 @@ void LogMouseOverInteractiveTile( INT32 sGridNo )
 	SGPRect				aRect;
 	INT16					sXMapPos, sYMapPos, sScreenX, sScreenY;
 	LEVELNODE			*pNode;
-	SOLDIERTYPE* selectedSoldier =
+	TacticalActor* selectedSoldier =
 		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
 	// OK, for now, don't allow any interactive tiles on higher interface level!
@@ -777,7 +777,7 @@ BOOLEAN RefineLogicOnStruct( INT32 sGridNo, LEVELNODE *pNode )
 {
 	TILE_ELEMENT *TileElem;
 	STRUCTURE		*pStructure;
-	SOLDIERTYPE* selectedSoldier =
+	TacticalActor* selectedSoldier =
 		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
 

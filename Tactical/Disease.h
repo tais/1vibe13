@@ -9,7 +9,7 @@
 #include "types.h"
 #include "Disease Types.h"
 
-class SOLDIERTYPE;
+class TacticalActor;
 
 // infection types - how can we be infected
 enum
@@ -116,7 +116,7 @@ void HandleDisease();
 // handle possible infection of type aInfectionType to pSoldier. Possible related to pOtherSoldier (can be NULL !)
 // chance gets modified by aModifier (contextual modifier)
 // if fStrategicOnly == TRUE, then we only handle disease 0
-void HandlePossibleInfection( SOLDIERTYPE *pSoldier, SOLDIERTYPE* pOtherSoldier, UINT8 aInfectionType, FLOAT aModifier = 1.0f, BOOLEAN fStrategicOnly = FALSE );
+void HandlePossibleInfection( TacticalActor *pSoldier, TacticalActor* pOtherSoldier, UINT8 aInfectionType, FLOAT aModifier = 1.0f, BOOLEAN fStrategicOnly = FALSE );
 
 ////////////// STRATEGIC DISEASE //////////////////////////
 

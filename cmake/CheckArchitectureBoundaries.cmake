@@ -1168,11 +1168,11 @@ endif()
 # reassembled independently at UI, AI, dialogue, or network ingress.
 file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.h"
   simulation_command_api)
-string(FIND "${simulation_command_api}" "SOLDIERTYPE"
+string(FIND "${simulation_command_api}" "TacticalActor"
   simulation_command_record_index)
 if(NOT simulation_command_record_index EQUAL -1)
   message(FATAL_ERROR
-    "Tactical/Simulation Commands.h exposes SOLDIERTYPE; keep the public command boundary pointer-free")
+    "Tactical/Simulation Commands.h exposes TacticalActor; keep the public command boundary pointer-free")
 endif()
 string(REGEX MATCH
   "uniqueSoldierId|uiUniqueSoldierIdValue"
@@ -1282,16 +1282,16 @@ foreach(player_peer_interaction_file IN LISTS player_peer_interaction_files)
 endforeach()
 
 # Tactical modal requests must retain actor incarnations rather than raw
-# SOLDIERTYPE globals.
+# TacticalActor globals.
 file(READ "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
   tactical_item_callback_contents)
 string(REGEX MATCH
-  "static[ \t]+SOLDIERTYPE[ \t]*\\*[ \t]*gpTempSoldier"
+  "static[ \t]+TacticalActor[ \t]*\\*[ \t]*gpTempSoldier"
   raw_tactical_item_callback_actor
   "${tactical_item_callback_contents}")
 if(raw_tactical_item_callback_actor)
   message(FATAL_ERROR
-    "Tactical item callbacks retain a raw SOLDIERTYPE global")
+    "Tactical item callbacks retain a raw TacticalActor global")
 endif()
 
 file(READ "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
@@ -1302,7 +1302,7 @@ string(REGEX MATCH
   "${tactical_requester_callback_contents}")
 if(raw_tactical_requester_callback_actor)
   message(FATAL_ERROR
-    "Tactical requester callbacks retain raw SOLDIERTYPE globals")
+    "Tactical requester callbacks retain raw TacticalActor globals")
 endif()
 
 # Inventory panels and their modal children retain actor incarnations in the
@@ -1310,9 +1310,9 @@ endif()
 # and pickup-menu member from returning under another call path.
 file(READ "${SOURCE_ROOT}/Ja2/TacticalInventoryUiHost.h"
   tactical_inventory_host_contents)
-if(tactical_inventory_host_contents MATCHES "SOLDIERTYPE")
+if(tactical_inventory_host_contents MATCHES "TacticalActor")
   message(FATAL_ERROR
-    "TacticalInventoryUiHost exposes SOLDIERTYPE; stable producers must use TacticalEntityId")
+    "TacticalInventoryUiHost exposes TacticalActor; stable producers must use TacticalEntityId")
 endif()
 string(REGEX MATCH
   "(GetSMCurrentMerc|GetItemPointerSoldier|GetItemDescSoldier|GetAttachSoldier|GetItemPopupSoldier|GetItemPickupActor|GetItemPickupOpponent)[ \t\r\n]*\\("
@@ -1373,7 +1373,7 @@ endforeach()
 # actor/item-pool/location globals. Callback-local compatibility aliases have
 # initializers and therefore do not match these retired declarations.
 string(REGEX MATCH
-  "SOLDIERTYPE[ \t]*\\*[ \t]*gpBoobyTrapSoldier[ \t]*;|ITEM_POOL[ \t]*\\*[ \t]*gpBoobyTrapItemPool[ \t]*;|INT32[ \t]+gsBoobyTrapGridNo[ \t]*;|INT8[ \t]+gbBoobyTrapLevel[ \t]*;|BOOLEAN[ \t]+gfDisarmingBuriedBomb[ \t]*;|INT8[ \t]+gbTrapDifficulty[ \t]*;|BOOLEAN[ \t]+gfJustFoundBoobyTrap"
+  "TacticalActor[ \t]*\\*[ \t]*gpBoobyTrapSoldier[ \t]*;|ITEM_POOL[ \t]*\\*[ \t]*gpBoobyTrapItemPool[ \t]*;|INT32[ \t]+gsBoobyTrapGridNo[ \t]*;|INT8[ \t]+gbBoobyTrapLevel[ \t]*;|BOOLEAN[ \t]+gfDisarmingBuriedBomb[ \t]*;|INT8[ \t]+gbTrapDifficulty[ \t]*;|BOOLEAN[ \t]+gfJustFoundBoobyTrap"
   raw_booby_trap_callback_state
   "${tactical_item_callback_contents}")
 if(raw_booby_trap_callback_state)
@@ -1412,12 +1412,12 @@ endif()
 file(READ "${SOURCE_ROOT}/Ja2/TacticalEntityHost.h"
   tactical_entity_reference_header_contents)
 string(REGEX MATCH
-  "capture[ \t\r\n]*\\([^\\)]*SOLDIERTYPE"
+  "capture[ \t\r\n]*\\([^\\)]*TacticalActor"
   raw_tactical_entity_reference_capture
   "${tactical_entity_reference_header_contents}")
 if(raw_tactical_entity_reference_capture)
   message(FATAL_ERROR
-    "Ja2TacticalEntityReference captures SOLDIERTYPE; producers must cross to TacticalEntityId before retention")
+    "Ja2TacticalEntityReference captures TacticalActor; producers must cross to TacticalEntityId before retention")
 endif()
 string(REGEX MATCH
   "bool[ \t\r\n]+capture[ \t\r\n]*\\([ \t\r\n]*TacticalEntityId"
@@ -1443,12 +1443,12 @@ foreach(delayed_actor_capture_boundary_file
   file(READ "${delayed_actor_capture_boundary_file}"
     delayed_actor_capture_boundary_contents)
   string(REGEX MATCH
-    "(bool|void)[ \t\r\n]+(capture|captureTactical|captureMapCursor|begin)[ \t\r\n]*\\([^\\)]*SOLDIERTYPE"
+    "(bool|void)[ \t\r\n]+(capture|captureTactical|captureMapCursor|begin)[ \t\r\n]*\\([^\\)]*TacticalActor"
     raw_delayed_actor_capture_boundary
     "${delayed_actor_capture_boundary_contents}")
   if(raw_delayed_actor_capture_boundary)
     message(FATAL_ERROR
-      "Delayed actor context captures SOLDIERTYPE in ${delayed_actor_capture_boundary_file}; retain TacticalEntityId")
+      "Delayed actor context captures TacticalActor in ${delayed_actor_capture_boundary_file}; retain TacticalEntityId")
   endif()
 endforeach()
 
@@ -1460,12 +1460,12 @@ foreach(delayed_actor_public_header IN LISTS delayed_actor_public_headers)
   file(READ "${delayed_actor_public_header}"
     delayed_actor_public_header_contents)
   string(REGEX MATCH
-    "(SetDialogueDestinationSoldier|SetContractRehireSoldier|CaptureTacticalTraversalChosenSoldier)[ \t\r\n]*\\([^\\)]*SOLDIERTYPE"
+    "(SetDialogueDestinationSoldier|SetContractRehireSoldier|CaptureTacticalTraversalChosenSoldier)[ \t\r\n]*\\([^\\)]*TacticalActor"
     raw_delayed_actor_public_producer
     "${delayed_actor_public_header_contents}")
   if(raw_delayed_actor_public_producer)
     message(FATAL_ERROR
-      "Delayed actor producer exposes SOLDIERTYPE in ${delayed_actor_public_header}; use TacticalEntityId")
+      "Delayed actor producer exposes TacticalActor in ${delayed_actor_public_header}; use TacticalEntityId")
   endif()
 endforeach()
 
@@ -1483,7 +1483,7 @@ foreach(delayed_actor_callback_file IN LISTS delayed_actor_callback_files)
     "${delayed_actor_callback_contents}")
   if(raw_delayed_callback_actor)
     message(FATAL_ERROR
-      "Delayed callback retains a raw SOLDIERTYPE global in ${delayed_actor_callback_file}")
+      "Delayed callback retains a raw TacticalActor global in ${delayed_actor_callback_file}")
   endif()
 endforeach()
 
@@ -1579,12 +1579,12 @@ foreach(stable_actor_session_header IN LISTS stable_actor_session_headers)
   foreach(stable_actor_session_producer
       IN LISTS stable_actor_session_producers)
     string(REGEX MATCH
-      "${stable_actor_session_producer}[ \t\r\n]*\\([^\\)]*SOLDIERTYPE"
+      "${stable_actor_session_producer}[ \t\r\n]*\\([^\\)]*TacticalActor"
       raw_actor_session_producer
       "${stable_actor_session_header_contents}")
     if(raw_actor_session_producer)
       message(FATAL_ERROR
-        "Actor-session producer '${stable_actor_session_producer}' exposes SOLDIERTYPE in ${stable_actor_session_header}")
+        "Actor-session producer '${stable_actor_session_producer}' exposes TacticalActor in ${stable_actor_session_header}")
     endif()
   endforeach()
 endforeach()
@@ -1605,12 +1605,12 @@ file(READ "${SOURCE_ROOT}/Strategic/Map Screen Helicopter.cpp"
 file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Map.cpp"
   helicopter_map_dialogue_contents)
 string(REGEX MATCH
-  "HeliCharacterDialogue[ \t\r\n]*\\([^\\)]*SOLDIERTYPE"
+  "HeliCharacterDialogue[ \t\r\n]*\\([^\\)]*TacticalActor"
   synthetic_helicopter_dialogue_actor
   "${helicopter_dialogue_contents};${helicopter_map_dialogue_contents}")
 if(synthetic_helicopter_dialogue_actor)
   message(FATAL_ERROR
-    "Helicopter dialogue regained a synthetic SOLDIERTYPE argument")
+    "Helicopter dialogue regained a synthetic TacticalActor argument")
 endif()
 
 foreach(required_actor_session_fragment IN ITEMS
@@ -1684,7 +1684,7 @@ foreach(contract_actor_lifetime_file IN LISTS contract_actor_lifetime_files)
     "${contract_actor_lifetime_contents}")
   if(raw_contract_lifetime_actor)
     message(FATAL_ERROR
-      "Contract lifecycle retains a raw SOLDIERTYPE global in ${contract_actor_lifetime_file}")
+      "Contract lifecycle retains a raw TacticalActor global in ${contract_actor_lifetime_file}")
   endif()
 endforeach()
 
@@ -1705,7 +1705,7 @@ foreach(active_dialogue_actor_file IN LISTS active_dialogue_actor_files)
     "${active_dialogue_actor_contents}")
   if(raw_dialogue_session_actor)
     message(FATAL_ERROR
-      "Dialogue session retains a raw SOLDIERTYPE global in ${active_dialogue_actor_file}")
+      "Dialogue session retains a raw TacticalActor global in ${active_dialogue_actor_file}")
   endif()
 endforeach()
 
@@ -2146,7 +2146,7 @@ foreach(source_file IN LISTS world_state_declaration_files)
 endforeach()
 
 # Transient soldier behavior is owned by SoldierRuntimeComponents. Keep the
-# retired flat tail names from returning to the current SOLDIERTYPE. The v101
+# retired flat tail names from returning to the current TacticalActor. The v101
 # conversion record must retain its one historical sPlotSrcGrid member, so
 # count that compatibility occurrence instead of banning the name outright.
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
@@ -2173,7 +2173,7 @@ foreach(retired_field IN LISTS retired_flat_soldier_runtime_fields)
     "${soldier_control_header_contents}")
   if(retired_flat_soldier_runtime_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE runtime field '${retired_field}' returned; keep transient state in SoldierRuntimeComponents")
+      "Retired flat TacticalActor runtime field '${retired_field}' returned; keep transient state in SoldierRuntimeComponents")
   endif()
 endforeach()
 string(REGEX MATCHALL
@@ -2192,7 +2192,7 @@ endif()
 # but the live values must have exactly one in-memory owner:
 # SoldierVitalsComponent.
 string(FIND "${soldier_control_header_contents}"
-  "class SOLDIERTYPE//last edited at version 102"
+  "class TacticalActor//last edited at version 102"
   current_soldier_begin)
 string(FIND "${soldier_control_header_contents}"
   "#define SIZEOF_SOLDIERTYPE_POD"
@@ -2263,7 +2263,7 @@ foreach(required_ai_owner_pattern IN ITEMS
     "${current_soldier_contents}")
   if(NOT required_soldier_ai_owner)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost a private owner required by the retired AI-data boundary: '${required_ai_owner_pattern}'")
+      "TacticalActor lost a private owner required by the retired AI-data boundary: '${required_ai_owner_pattern}'")
   endif()
 endforeach()
 
@@ -2291,7 +2291,7 @@ foreach(required_ai_accessor IN ITEMS
     required_soldier_ai_accessor)
   if(required_soldier_ai_accessor EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost const/mutable AI-domain accessor '${required_ai_accessor}'")
+      "TacticalActor lost const/mutable AI-domain accessor '${required_ai_accessor}'")
   endif()
 endforeach()
 
@@ -2506,7 +2506,7 @@ endforeach()
 
 # Soldier identity and tactical-roster membership are independent live
 # domains. Their historical fields remain at the same explicit serializer
-# positions, but current SOLDIERTYPE must not recreate public compatibility
+# positions, but current TacticalActor must not recreate public compatibility
 # aliases that would split ownership again.
 foreach(retired_identity_roster_field IN ITEMS
   ubID
@@ -2528,7 +2528,7 @@ foreach(retired_identity_roster_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_identity_roster_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE identity/roster field '${retired_identity_roster_field}' returned")
+      "Retired flat TacticalActor identity/roster field '${retired_identity_roster_field}' returned")
   endif()
 endforeach()
 
@@ -2541,7 +2541,7 @@ string(FIND "${soldier_control_source_contents}"
   retired_debug_identity_access)
 if(NOT retired_debug_identity_access EQUAL -1)
   message(FATAL_ERROR
-    "SOLDIERTYPE debug code accesses retired raw ubID; use identity().id()")
+    "TacticalActor debug code accesses retired raw ubID; use identity().id()")
 endif()
 
 foreach(required_identity_roster_owner IN ITEMS
@@ -2553,7 +2553,7 @@ foreach(required_identity_roster_owner IN ITEMS
     "${current_soldier_contents}")
   if(NOT identity_roster_owner)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost canonical identity/roster owner '${required_identity_roster_owner}'")
+      "TacticalActor lost canonical identity/roster owner '${required_identity_roster_owner}'")
   endif()
 endforeach()
 
@@ -2567,7 +2567,7 @@ foreach(required_identity_roster_accessor IN ITEMS
     identity_roster_accessor)
   if(identity_roster_accessor EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost identity/roster accessor '${required_identity_roster_accessor}'")
+      "TacticalActor lost identity/roster accessor '${required_identity_roster_accessor}'")
   endif()
 endforeach()
 
@@ -2722,7 +2722,7 @@ foreach(retired_vital_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_soldier_vital)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE vital '${retired_vital_field}' returned; canonical vitals belong to SoldierVitalsComponent")
+      "Retired flat TacticalActor vital '${retired_vital_field}' returned; canonical vitals belong to SoldierVitalsComponent")
   endif()
 endforeach()
 string(REGEX MATCH
@@ -2731,7 +2731,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_vitals_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierVitalsComponent")
+    "TacticalActor must own one private SoldierVitalsComponent")
 endif()
 
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.h"
@@ -2885,7 +2885,7 @@ endif()
 # Tactical service activity, patient provider counts, provider-to-patient
 # relationships, automatic-bandage reservations, and borrowed inventory slots
 # form one persistent relationship domain. Keep the old save sites but never
-# return them to the public SOLDIERTYPE field list.
+# return them to the public TacticalActor field list.
 foreach(retired_service_field IN ITEMS
   bService
   ubServiceCount
@@ -2898,7 +2898,7 @@ foreach(retired_service_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_service_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE service field '${retired_service_field}' returned; tactical service relationships belong to SoldierServiceComponent")
+      "Retired flat TacticalActor service field '${retired_service_field}' returned; tactical service relationships belong to SoldierServiceComponent")
   endif()
 endforeach()
 
@@ -2908,7 +2908,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_service_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierServiceComponent")
+    "TacticalActor must own one private SoldierServiceComponent")
 endif()
 
 foreach(owned_service_pattern IN ITEMS
@@ -3039,7 +3039,7 @@ foreach(retired_dialogue_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_dialogue_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE dialogue field '${retired_dialogue_field}' returned; spoken state belongs to SoldierDialogueComponent")
+      "Retired flat TacticalActor dialogue field '${retired_dialogue_field}' returned; spoken state belongs to SoldierDialogueComponent")
   endif()
 endforeach()
 foreach(retired_dialogue_flag IN ITEMS
@@ -3064,7 +3064,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_dialogue_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierDialogueComponent")
+    "TacticalActor must own one private SoldierDialogueComponent")
 endif()
 
 foreach(owned_dialogue_pattern IN ITEMS
@@ -3311,7 +3311,7 @@ foreach(retired_audio_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_audio_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE audio field '${retired_audio_field}' returned; non-dialogue audio state belongs to SoldierAudioComponent")
+      "Retired flat TacticalActor audio field '${retired_audio_field}' returned; non-dialogue audio state belongs to SoldierAudioComponent")
   endif()
 endforeach()
 
@@ -3321,7 +3321,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_audio_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierAudioComponent")
+    "TacticalActor must own one private SoldierAudioComponent")
 endif()
 
 foreach(owned_audio_pattern IN ITEMS
@@ -3575,7 +3575,7 @@ foreach(retired_replication_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_replication_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE replication field '${retired_replication_field}' returned; synchronization state belongs to SoldierReplicationComponent")
+      "Retired flat TacticalActor replication field '${retired_replication_field}' returned; synchronization state belongs to SoldierReplicationComponent")
   endif()
 endforeach()
 
@@ -3585,7 +3585,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_replication_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierReplicationComponent")
+    "TacticalActor must own one private SoldierReplicationComponent")
 endif()
 
 foreach(owned_replication_pattern IN ITEMS
@@ -3767,7 +3767,7 @@ foreach(retired_movement_metrics_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_movement_metrics_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE movement metric '${retired_movement_metrics_field}' returned; movement telemetry belongs to SoldierMovementMetricsComponent")
+      "Retired flat TacticalActor movement metric '${retired_movement_metrics_field}' returned; movement telemetry belongs to SoldierMovementMetricsComponent")
   endif()
 endforeach()
 
@@ -3777,7 +3777,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_movement_metrics_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierMovementMetricsComponent")
+    "TacticalActor must own one private SoldierMovementMetricsComponent")
 endif()
 
 foreach(owned_movement_metrics_pattern IN ITEMS
@@ -3978,7 +3978,7 @@ foreach(retired_ai_planning_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_ai_planning_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE AI planning field '${retired_ai_planning_field}' returned; tactical AI execution belongs to SoldierAiPlanningComponent")
+      "Retired flat TacticalActor AI planning field '${retired_ai_planning_field}' returned; tactical AI execution belongs to SoldierAiPlanningComponent")
   endif()
 endforeach()
 
@@ -3988,7 +3988,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_ai_planning_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierAiPlanningComponent")
+    "TacticalActor must own one private SoldierAiPlanningComponent")
 endif()
 
 foreach(owned_ai_planning_pattern IN ITEMS
@@ -4182,7 +4182,7 @@ if(soldier_ai_planning_architecture_documented EQUAL -1 OR
 endif()
 
 # Modular tactical-AI plans are process-local ownership, not persisted planning
-# values. Their Plan base stores a SOLDIERTYPE back-reference, so copying or
+# values. Their Plan base stores a TacticalActor back-reference, so copying or
 # swapping a record must clear the destination cache instead of copying or
 # moving that pointer.
 string(REGEX MATCH
@@ -4191,7 +4191,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_modular_ai_plan_pointer)
   message(FATAL_ERROR
-    "Retired SOLDIERTYPE ai_masterplan_ returned; use SoldierAiPlanComponent")
+    "Retired TacticalActor ai_masterplan_ returned; use SoldierAiPlanComponent")
 endif()
 
 string(REGEX MATCH
@@ -4200,7 +4200,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_ai_plan_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must privately own one SoldierAiPlanComponent")
+    "TacticalActor must privately own one SoldierAiPlanComponent")
 endif()
 
 foreach(required_ai_plan_accessor IN ITEMS
@@ -4211,7 +4211,7 @@ foreach(required_ai_plan_accessor IN ITEMS
     soldier_ai_plan_accessor)
   if(soldier_ai_plan_accessor EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost modular AI-plan accessor '${required_ai_plan_accessor}'")
+      "TacticalActor lost modular AI-plan accessor '${required_ai_plan_accessor}'")
   endif()
 endforeach()
 
@@ -4324,7 +4324,7 @@ endforeach()
 # Repeated mechanical checks, the AI's selected skill, persistent trait
 # counters, heterogeneous cooldowns, and the focus target form one skill-state
 # lifecycle. Keep their fixed-capacity save representation intact while the
-# current SOLDIERTYPE exposes only the component boundary.
+# current TacticalActor exposes only the component boundary.
 foreach(retired_skill_state_field IN ITEMS
   bLastSkillCheck
   ubSkillCheckAttempts
@@ -4337,7 +4337,7 @@ foreach(retired_skill_state_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_skill_state_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE skill-state field '${retired_skill_state_field}' returned; transient skill execution belongs to SoldierSkillStateComponent")
+      "Retired flat TacticalActor skill-state field '${retired_skill_state_field}' returned; transient skill execution belongs to SoldierSkillStateComponent")
   endif()
 endforeach()
 
@@ -4351,7 +4351,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_current_skill_counter_array OR retired_current_skill_cooldown_array)
   message(FATAL_ERROR
-    "Retired flat SOLDIERTYPE skill counter/cooldown arrays returned; fixed-capacity skill state belongs to SoldierSkillStateComponent")
+    "Retired flat TacticalActor skill counter/cooldown arrays returned; fixed-capacity skill state belongs to SoldierSkillStateComponent")
 endif()
 
 string(REGEX MATCH
@@ -4360,7 +4360,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_skill_state_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierSkillStateComponent")
+    "TacticalActor must own one private SoldierSkillStateComponent")
 endif()
 
 foreach(owned_skill_state_pattern IN ITEMS
@@ -4485,7 +4485,7 @@ endforeach()
 # Temporary stat effects, nutrition and starvation harm, disease progress,
 # and acquired disabilities form one ongoing-condition domain outside core
 # health/breath vitals. Preserve every established field width and array slot
-# while preventing the flat fields and the Disease/SOLDIERTYPE header cycle
+# while preventing the flat fields and the Disease/TacticalActor header cycle
 # from returning.
 foreach(retired_condition_field IN ITEMS
   bExtraStrength
@@ -4504,7 +4504,7 @@ foreach(retired_condition_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_condition_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE condition field '${retired_condition_field}' returned; ongoing effects belong to SoldierConditionComponent")
+      "Retired flat TacticalActor condition field '${retired_condition_field}' returned; ongoing effects belong to SoldierConditionComponent")
   endif()
 endforeach()
 
@@ -4515,7 +4515,7 @@ foreach(retired_condition_array IN ITEMS sDiseasePoints sDiseaseFlag)
     "${current_soldier_contents}")
   if(retired_current_condition_array)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE disease array '${retired_condition_array}' returned; disease progress belongs to SoldierConditionComponent")
+      "Retired flat TacticalActor disease array '${retired_condition_array}' returned; disease progress belongs to SoldierConditionComponent")
   endif()
 endforeach()
 
@@ -4525,7 +4525,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_condition_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierConditionComponent")
+    "TacticalActor must own one private SoldierConditionComponent")
 endif()
 
 foreach(owned_condition_pattern IN ITEMS
@@ -4648,7 +4648,7 @@ string(FIND "${disease_header_contents}"
   "#include \"Disease Types.h\""
   disease_capacity_include)
 string(FIND "${disease_header_contents}"
-  "class SOLDIERTYPE;"
+  "class TacticalActor;"
   disease_soldier_forward_declaration)
 string(FIND "${disease_header_contents}"
   "#include \"Soldier Control.h\""
@@ -4657,7 +4657,7 @@ if(disease_capacity_include EQUAL -1 OR
    disease_soldier_forward_declaration EQUAL -1 OR
    NOT disease_soldier_control_include EQUAL -1)
   message(FATAL_ERROR
-    "Disease.h must consume the independent disease capacity and forward-declare SOLDIERTYPE without recreating the header cycle")
+    "Disease.h must consume the independent disease capacity and forward-declare TacticalActor without recreating the header cycle")
 endif()
 
 foreach(condition_save_position IN ITEMS
@@ -4687,7 +4687,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_public_drug_state)
   message(FATAL_ERROR
-    "Retired public SOLDIERTYPE drug aggregate returned; persistent drug and alcohol state belongs to SoldierDrugStateComponent")
+    "Retired public TacticalActor drug aggregate returned; persistent drug and alcohol state belongs to SoldierDrugStateComponent")
 endif()
 
 foreach(retired_drug_declaration IN ITEMS
@@ -4708,7 +4708,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_drug_state_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierDrugStateComponent")
+    "TacticalActor must own one private SoldierDrugStateComponent")
 endif()
 
 string(FIND "${soldier_components_header_contents}"
@@ -4972,7 +4972,7 @@ string(FIND "${soldier_control_header_contents}"
 if(NOT soldier_statistics_owner OR
    soldier_statistics_accessor EQUAL -1)
   message(FATAL_ERROR
-    "SOLDIERTYPE must privately own SoldierStatisticsComponent and expose its zero-cost accessor")
+    "TacticalActor must privately own SoldierStatisticsComponent and expose its zero-cost accessor")
 endif()
 
 string(FIND "${soldier_components_header_contents}"
@@ -5170,7 +5170,7 @@ foreach(soldier_flag_owner_pattern IN ITEMS
     "${current_soldier_contents}")
   if(NOT soldier_flag_owner)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost a private status or inventory-state owner")
+      "TacticalActor lost a private status or inventory-state owner")
   endif()
 endforeach()
 foreach(soldier_flag_accessor IN ITEMS
@@ -5183,7 +5183,7 @@ foreach(soldier_flag_accessor IN ITEMS
     soldier_flag_accessor_site)
   if(soldier_flag_accessor_site EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost zero-cost component accessor '${soldier_flag_accessor}'")
+      "TacticalActor lost zero-cost component accessor '${soldier_flag_accessor}'")
   endif()
 endforeach()
 
@@ -5499,7 +5499,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(current_public_inventory_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE regained a public inventory field; use private SoldierInventory inventory_")
+    "TacticalActor regained a public inventory field; use private SoldierInventory inventory_")
 endif()
 foreach(soldier_inventory_test_fragment IN ITEMS
   "live soldier inventories must remain privately owned behind typed accessors"
@@ -5548,7 +5548,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_current_key_ring_pointer)
   message(FATAL_ERROR
-    "Retired SOLDIERTYPE pKeyRing pointer returned; use SoldierKeyRingComponent")
+    "Retired TacticalActor pKeyRing pointer returned; use SoldierKeyRingComponent")
 endif()
 string(REGEX MATCH
   "SoldierKeyRingComponent[ \t\r\n]+keyRing_[ \t]*;"
@@ -5556,7 +5556,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_key_ring_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must privately own one SoldierKeyRingComponent")
+    "TacticalActor must privately own one SoldierKeyRingComponent")
 endif()
 foreach(required_key_ring_accessor IN ITEMS
   "SoldierKeyRingComponent& keyRing() noexcept"
@@ -5566,7 +5566,7 @@ foreach(required_key_ring_accessor IN ITEMS
     soldier_key_ring_accessor)
   if(soldier_key_ring_accessor EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost key-ring accessor '${required_key_ring_accessor}'")
+      "TacticalActor lost key-ring accessor '${required_key_ring_accessor}'")
   endif()
 endforeach()
 foreach(required_key_ring_contract IN ITEMS
@@ -5695,7 +5695,7 @@ foreach(retired_pending_item_pointer IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_pending_item_pointer)
     message(FATAL_ERROR
-      "Retired SOLDIERTYPE ${retired_pending_item_pointer} pointer returned; use SoldierPendingItemComponent")
+      "Retired TacticalActor ${retired_pending_item_pointer} pointer returned; use SoldierPendingItemComponent")
   endif()
 endforeach()
 string(REGEX MATCH
@@ -5704,7 +5704,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_pending_item_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must privately own one SoldierPendingItemComponent")
+    "TacticalActor must privately own one SoldierPendingItemComponent")
 endif()
 foreach(required_pending_item_accessor IN ITEMS
   "SoldierPendingItemComponent& pendingItem() noexcept"
@@ -5714,7 +5714,7 @@ foreach(required_pending_item_accessor IN ITEMS
     soldier_pending_item_accessor)
   if(soldier_pending_item_accessor EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost pending-item accessor '${required_pending_item_accessor}'")
+      "TacticalActor lost pending-item accessor '${required_pending_item_accessor}'")
   endif()
 endforeach()
 foreach(required_pending_item_contract IN ITEMS
@@ -5877,7 +5877,7 @@ foreach(retired_feature_tail_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_feature_tail_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE feature-tail field '${retired_feature_tail_field}' returned")
+      "Retired flat TacticalActor feature-tail field '${retired_feature_tail_field}' returned")
   endif()
 endforeach()
 
@@ -5887,7 +5887,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_feature_flags_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierFeatureFlagsComponent")
+    "TacticalActor must own one private SoldierFeatureFlagsComponent")
 endif()
 
 foreach(required_feature_flags_accessor IN ITEMS
@@ -5898,7 +5898,7 @@ foreach(required_feature_flags_accessor IN ITEMS
     soldier_feature_flags_accessor)
   if(soldier_feature_flags_accessor EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost feature-flags accessor '${required_feature_flags_accessor}'")
+      "TacticalActor lost feature-flags accessor '${required_feature_flags_accessor}'")
   endif()
 endforeach()
 
@@ -6123,7 +6123,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_stat_progress_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierStatProgressComponent")
+    "TacticalActor must own one private SoldierStatProgressComponent")
 endif()
 
 string(REGEX MATCH
@@ -6187,7 +6187,7 @@ string(REGEX MATCHALL
 list(LENGTH soldier_stat_progress_reset_sites
   soldier_stat_progress_reset_site_count)
 string(FIND "${soldier_control_source_contents}"
-  "void SOLDIERTYPE::ResetSoldierChangeStatTimer( void )"
+  "void TacticalActor::ResetSoldierChangeStatTimer( void )"
   soldier_stat_progress_legacy_reset_entry)
 if(soldier_stat_progress_accessor EQUAL -1 OR
    soldier_stat_progress_default_reset EQUAL -1 OR
@@ -6399,7 +6399,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_timing_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierTimingComponent")
+    "TacticalActor must own one private SoldierTimingComponent")
 endif()
 
 string(REGEX MATCH
@@ -6633,7 +6633,7 @@ foreach(retired_long_action_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_long_action_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE long-action field '${retired_long_action_field}' returned; extended work belongs to SoldierLongActionComponent")
+      "Retired flat TacticalActor long-action field '${retired_long_action_field}' returned; extended work belongs to SoldierLongActionComponent")
   endif()
 endforeach()
 
@@ -6643,7 +6643,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_long_action_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierLongActionComponent")
+    "TacticalActor must own one private SoldierLongActionComponent")
 endif()
 
 foreach(owned_long_action_pattern IN ITEMS
@@ -6757,7 +6757,7 @@ foreach(retired_interaction_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_interaction_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE interaction field '${retired_interaction_field}' returned; direct interactions belong to SoldierInteractionComponent")
+      "Retired flat TacticalActor interaction field '${retired_interaction_field}' returned; direct interactions belong to SoldierInteractionComponent")
   endif()
 endforeach()
 
@@ -6767,7 +6767,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_interaction_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierInteractionComponent")
+    "TacticalActor must own one private SoldierInteractionComponent")
 endif()
 
 foreach(owned_interaction_pattern IN ITEMS
@@ -6924,7 +6924,7 @@ foreach(retired_pending_action_soldier_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_pending_action_soldier_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE pending-action field '${retired_pending_action_soldier_field}' returned; persistent action state belongs to SoldierPendingActionComponent")
+      "Retired flat TacticalActor pending-action field '${retired_pending_action_soldier_field}' returned; persistent action state belongs to SoldierPendingActionComponent")
   endif()
 endforeach()
 
@@ -6934,7 +6934,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_pending_action_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierPendingActionComponent")
+    "TacticalActor must own one private SoldierPendingActionComponent")
 endif()
 
 foreach(owned_pending_action_pattern IN ITEMS
@@ -7067,7 +7067,7 @@ foreach(retired_action_point_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_action_point_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE action-point field '${retired_action_point_field}' returned; turn budgets belong to SoldierActionPointComponent")
+      "Retired flat TacticalActor action-point field '${retired_action_point_field}' returned; turn budgets belong to SoldierActionPointComponent")
   endif()
 endforeach()
 
@@ -7077,7 +7077,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_action_point_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierActionPointComponent")
+    "TacticalActor must own one private SoldierActionPointComponent")
 endif()
 
 foreach(owned_action_point_field IN ITEMS current initial)
@@ -7108,7 +7108,7 @@ string(FIND "${soldier_components_header_contents}"
   soldier_action_point_clear)
 if(soldier_action_point_accessor EQUAL -1)
   message(FATAL_ERROR
-    "SOLDIERTYPE must retain its SoldierActionPointComponent accessor")
+    "TacticalActor must retain its SoldierActionPointComponent accessor")
 endif()
 if(soldier_action_point_reset EQUAL -1)
   message(FATAL_ERROR
@@ -7144,7 +7144,7 @@ foreach(retired_collapse_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_collapse_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE collapse field '${retired_collapse_field}' returned; incapacitation state belongs to SoldierCollapseComponent")
+      "Retired flat TacticalActor collapse field '${retired_collapse_field}' returned; incapacitation state belongs to SoldierCollapseComponent")
   endif()
 endforeach()
 
@@ -7163,7 +7163,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_collapse_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierCollapseComponent")
+    "TacticalActor must own one private SoldierCollapseComponent")
 endif()
 
 foreach(owned_collapse_field IN ITEMS
@@ -7254,7 +7254,7 @@ foreach(retired_perception_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_perception_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE perception field '${retired_perception_name}' returned; sensory state belongs to SoldierPerceptionComponent")
+      "Retired flat TacticalActor perception field '${retired_perception_name}' returned; sensory state belongs to SoldierPerceptionComponent")
   endif()
 endforeach()
 
@@ -7264,7 +7264,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_perception_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierPerceptionComponent")
+    "TacticalActor must own one private SoldierPerceptionComponent")
 endif()
 
 foreach(owned_perception_field IN ITEMS
@@ -7374,7 +7374,7 @@ foreach(retired_awareness_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_awareness_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE awareness field '${retired_awareness_name}' returned; player knowledge belongs to SoldierAwarenessComponent")
+      "Retired flat TacticalActor awareness field '${retired_awareness_name}' returned; player knowledge belongs to SoldierAwarenessComponent")
   endif()
 endforeach()
 
@@ -7384,7 +7384,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_awareness_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierAwarenessComponent")
+    "TacticalActor must own one private SoldierAwarenessComponent")
 endif()
 
 foreach(owned_awareness_field IN ITEMS
@@ -7480,7 +7480,7 @@ foreach(retired_camouflage_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_camouflage_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE camouflage field '${retired_camouflage_field}' returned; personal camouflage belongs to SoldierCamouflageComponent")
+      "Retired flat TacticalActor camouflage field '${retired_camouflage_field}' returned; personal camouflage belongs to SoldierCamouflageComponent")
   endif()
 endforeach()
 
@@ -7490,7 +7490,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_camouflage_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierCamouflageComponent")
+    "TacticalActor must own one private SoldierCamouflageComponent")
 endif()
 
 foreach(owned_camouflage_field IN ITEMS
@@ -7580,7 +7580,7 @@ foreach(retired_employment_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_employment_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE employment field '${retired_employment_name}' returned; strategic engagement state belongs to SoldierEmploymentComponent")
+      "Retired flat TacticalActor employment field '${retired_employment_name}' returned; strategic engagement state belongs to SoldierEmploymentComponent")
   endif()
 endforeach()
 foreach(retired_employment_flag IN ITEMS
@@ -7602,7 +7602,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_employment_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierEmploymentComponent")
+    "TacticalActor must own one private SoldierEmploymentComponent")
 endif()
 
 foreach(owned_employment_field IN ITEMS
@@ -7858,7 +7858,7 @@ foreach(retired_assignment_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_assignment_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE assignment field '${retired_assignment_name}' returned; strategic duty state belongs to SoldierAssignmentComponent")
+      "Retired flat TacticalActor assignment field '${retired_assignment_name}' returned; strategic duty state belongs to SoldierAssignmentComponent")
   endif()
 endforeach()
 foreach(retired_assignment_flag IN ITEMS
@@ -7884,7 +7884,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_assignment_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierAssignmentComponent")
+    "TacticalActor must own one private SoldierAssignmentComponent")
 endif()
 
 foreach(owned_assignment_field IN ITEMS
@@ -8167,7 +8167,7 @@ foreach(retired_deployment_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_deployment_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE deployment field '${retired_deployment_name}' returned; strategic placement belongs to SoldierDeploymentComponent")
+      "Retired flat TacticalActor deployment field '${retired_deployment_name}' returned; strategic placement belongs to SoldierDeploymentComponent")
   endif()
 endforeach()
 foreach(retired_deployment_flag IN ITEMS
@@ -8189,7 +8189,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_current_soldier_group_pointer)
   message(FATAL_ERROR
-    "Retired SOLDIERTYPE pGroup cache returned; deployment().groupId() is the sole soldier-side strategic group identity")
+    "Retired TacticalActor pGroup cache returned; deployment().groupId() is the sole soldier-side strategic group identity")
 endif()
 string(FIND "${soldier_control_header_contents}"
   "pGroup;"
@@ -8262,7 +8262,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_deployment_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierDeploymentComponent")
+    "TacticalActor must own one private SoldierDeploymentComponent")
 endif()
 
 foreach(owned_deployment_field IN ITEMS
@@ -8577,7 +8577,7 @@ foreach(retired_vehicle_state_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_vehicle_state_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE vehicle-state field '${retired_vehicle_state_field}' returned")
+      "Retired flat TacticalActor vehicle-state field '${retired_vehicle_state_field}' returned")
   endif()
 endforeach()
 
@@ -8587,7 +8587,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_vehicle_state_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierVehicleStateComponent")
+    "TacticalActor must own one private SoldierVehicleStateComponent")
 endif()
 
 foreach(required_vehicle_state_accessor IN ITEMS
@@ -8598,7 +8598,7 @@ foreach(required_vehicle_state_accessor IN ITEMS
     soldier_vehicle_state_accessor)
   if(soldier_vehicle_state_accessor EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost vehicle-state accessor '${required_vehicle_state_accessor}'")
+      "TacticalActor lost vehicle-state accessor '${required_vehicle_state_accessor}'")
   endif()
 endforeach()
 
@@ -8752,7 +8752,7 @@ foreach(retired_schedule_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_schedule_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE schedule field '${retired_schedule_field}' returned; live schedule execution belongs to SoldierScheduleComponent")
+      "Retired flat TacticalActor schedule field '${retired_schedule_field}' returned; live schedule execution belongs to SoldierScheduleComponent")
   endif()
 endforeach()
 
@@ -8762,7 +8762,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_schedule_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierScheduleComponent")
+    "TacticalActor must own one private SoldierScheduleComponent")
 endif()
 
 foreach(owned_schedule_field IN ITEMS
@@ -8922,7 +8922,7 @@ foreach(schedule_packet_adapter IN ITEMS
 endforeach()
 
 # Current tactical world placement has completed the same storage cut. The old
-# route sub-structure and scattered SOLDIERTYPE mirrors must not return as
+# route sub-structure and scattered TacticalActor mirrors must not return as
 # second public owners.
 string(FIND "${soldier_control_header_contents}"
   "STRUCT_Pathing"
@@ -8954,7 +8954,7 @@ foreach(retired_position_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_soldier_position)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE position field '${retired_position_field}' returned; canonical location belongs to SoldierPositionComponent")
+      "Retired flat TacticalActor position field '${retired_position_field}' returned; canonical location belongs to SoldierPositionComponent")
   endif()
 endforeach()
 string(REGEX MATCH
@@ -8963,7 +8963,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_position_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierPositionComponent")
+    "TacticalActor must own one private SoldierPositionComponent")
 endif()
 
 foreach(owned_position_field IN ITEMS
@@ -8992,7 +8992,7 @@ foreach(owned_position_field IN ITEMS
     "${soldier_components_header_contents}")
   if(NOT owned_soldier_position)
     message(FATAL_ERROR
-      "SoldierPositionComponent no longer owns '${owned_position_name}_'; do not recreate a SOLDIERTYPE compatibility facade")
+      "SoldierPositionComponent no longer owns '${owned_position_name}_'; do not recreate a TacticalActor compatibility facade")
   endif()
 endforeach()
 foreach(position_transition IN ITEMS
@@ -9035,7 +9035,7 @@ foreach(retired_front_arc_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_front_arc_field)
     message(FATAL_ERROR
-      "Retired public SOLDIERTYPE front-arc array '${retired_front_arc_field}' returned; use SoldierFrontArcComponent")
+      "Retired public TacticalActor front-arc array '${retired_front_arc_field}' returned; use SoldierFrontArcComponent")
   endif()
 endforeach()
 string(REGEX MATCH
@@ -9044,7 +9044,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_front_arc_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must privately own one SoldierFrontArcComponent")
+    "TacticalActor must privately own one SoldierFrontArcComponent")
 endif()
 foreach(required_front_arc_contract IN ITEMS
   "static constexpr UINT8 DirectionCount = 3;"
@@ -9153,24 +9153,24 @@ foreach(front_arc_documentation IN ITEMS
 endforeach()
 
 string(REGEX MATCH
-  "SOLDIERTYPE[ \t]*&[ \t]*soldier_"
+  "TacticalActor[ \t]*&[ \t]*soldier_"
   soldier_component_back_reference
   "${soldier_components_header_contents}")
 if(soldier_component_back_reference)
   message(FATAL_ERROR
-    "Soldier components must own their values independently; do not restore a SOLDIERTYPE back-reference facade")
+    "Soldier components must own their values independently; do not restore a TacticalActor back-reference facade")
 endif()
 
 # Route data is a private, independently resettable component. Callers retain
 # allocation-free reference access while direct public pathing storage cannot
-# return to SOLDIERTYPE.
+# return to TacticalActor.
 string(REGEX MATCH
   "SoldierPathingComponent[ \t\r\n]+pathing_[ \t]*;"
   soldier_pathing_owner
   "${current_soldier_contents}")
 if(NOT soldier_pathing_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierPathingComponent")
+    "TacticalActor must own one private SoldierPathingComponent")
 endif()
 
 foreach(owned_pathing_field IN ITEMS
@@ -9194,7 +9194,7 @@ foreach(owned_pathing_field IN ITEMS
     "${soldier_components_header_contents}")
   if(NOT owned_soldier_pathing)
     message(FATAL_ERROR
-      "SoldierPathingComponent no longer owns '${owned_pathing_name}_'; do not recreate public SOLDIERTYPE route storage")
+      "SoldierPathingComponent no longer owns '${owned_pathing_name}_'; do not recreate public TacticalActor route storage")
   endif()
 endforeach()
 string(REGEX MATCH
@@ -9254,7 +9254,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_soldier_previous_grid OR retired_soldier_recent_locations)
   message(FATAL_ERROR
-    "Retired flat SOLDIERTYPE movement history returned; previous and recent grids belong to SoldierMovementHistoryComponent")
+    "Retired flat TacticalActor movement history returned; previous and recent grids belong to SoldierMovementHistoryComponent")
 endif()
 string(REGEX MATCH
   "SoldierMovementHistoryComponent[ \t\r\n]+movementHistory_[ \t]*;"
@@ -9262,7 +9262,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_movement_history_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierMovementHistoryComponent")
+    "TacticalActor must own one private SoldierMovementHistoryComponent")
 endif()
 string(REGEX MATCH
   "INT32[ \t]+previousGrid_[ \t]*=[ \t]*0[ \t]*;"
@@ -9364,7 +9364,7 @@ endif()
 
 # Tactical movement execution now has one private owner as well. Do not
 # recreate its wait/collision state in the generic flags bucket or as distant
-# public SOLDIERTYPE fields.
+# public TacticalActor fields.
 foreach(retired_movement_flag IN ITEMS
   fDelayedMovement
   fBlockedByAnotherMerc
@@ -9422,7 +9422,7 @@ foreach(retired_movement_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_movement_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE movement field '${retired_movement_field}' returned; tactical movement state belongs to SoldierMovementComponent")
+      "Retired flat TacticalActor movement field '${retired_movement_field}' returned; tactical movement state belongs to SoldierMovementComponent")
   endif()
 endforeach()
 
@@ -9432,7 +9432,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_movement_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierMovementComponent")
+    "TacticalActor must own one private SoldierMovementComponent")
 endif()
 
 foreach(owned_movement_field IN ITEMS
@@ -9861,7 +9861,7 @@ foreach(retired_targeting_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_targeting_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE targeting field '${retired_targeting_name}' returned; current target state belongs to SoldierTargetingComponent")
+      "Retired flat TacticalActor targeting field '${retired_targeting_name}' returned; current target state belongs to SoldierTargetingComponent")
   endif()
 endforeach()
 
@@ -9871,7 +9871,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_targeting_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierTargetingComponent")
+    "TacticalActor must own one private SoldierTargetingComponent")
 endif()
 
 foreach(owned_targeting_field IN ITEMS
@@ -10008,7 +10008,7 @@ endif()
 
 # The selected attacking hand/weapon, fire and scope mode, and aimed body
 # locations now have one private owner. Candidate attacks and compatibility
-# records retain similarly named fields, but current SOLDIERTYPE must not grow
+# records retain similarly named fields, but current TacticalActor must not grow
 # a parallel set of mutable attack-selection values.
 foreach(retired_attack_selection_field IN ITEMS
   ubAttackingHand
@@ -10023,7 +10023,7 @@ foreach(retired_attack_selection_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_attack_selection_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE attack-selection field '${retired_attack_selection_field}' returned; weapon and aim choice belongs to SoldierAttackSelectionComponent")
+      "Retired flat TacticalActor attack-selection field '${retired_attack_selection_field}' returned; weapon and aim choice belongs to SoldierAttackSelectionComponent")
   endif()
 endforeach()
 
@@ -10033,7 +10033,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_attack_selection_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierAttackSelectionComponent")
+    "TacticalActor must own one private SoldierAttackSelectionComponent")
 endif()
 
 foreach(owned_attack_selection_field IN ITEMS
@@ -10110,7 +10110,7 @@ foreach(retired_melee_approach_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_melee_approach_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE melee-cache field '${retired_melee_approach_field}' returned; path-cost caching belongs to SoldierMeleeApproachComponent")
+      "Retired flat TacticalActor melee-cache field '${retired_melee_approach_field}' returned; path-cost caching belongs to SoldierMeleeApproachComponent")
   endif()
 endforeach()
 
@@ -10120,7 +10120,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_current_interrupt_snapshot)
   message(FATAL_ERROR
-    "Retired flat SOLDIERTYPE interrupt snapshot returned; scheduler restoration belongs to SoldierTurnStateComponent")
+    "Retired flat TacticalActor interrupt snapshot returned; scheduler restoration belongs to SoldierTurnStateComponent")
 endif()
 
 string(REGEX MATCH
@@ -10133,7 +10133,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_melee_approach_owner OR NOT soldier_interrupt_snapshot_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must privately own its melee-approach cache and interrupt snapshot")
+    "TacticalActor must privately own its melee-approach cache and interrupt snapshot")
 endif()
 
 foreach(melee_approach_storage IN ITEMS
@@ -10311,7 +10311,7 @@ if(soldier_melee_approach_architecture_documented EQUAL -1 OR
 endif()
 
 # Firing-mode choice and mutable volley execution now have one private owner.
-# Keep the generic flags block and flat SOLDIERTYPE list from becoming parallel
+# Keep the generic flags block and flat TacticalActor list from becoming parallel
 # authorities for burst, spread, recoil, or multi-barrel progression.
 foreach(retired_fire_control_flag IN ITEMS
   fDoSpread
@@ -10349,7 +10349,7 @@ foreach(retired_fire_control_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_fire_control_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE fire-control field '${retired_fire_control_field}' returned; volley execution belongs to SoldierFireControlComponent")
+      "Retired flat TacticalActor fire-control field '${retired_fire_control_field}' returned; volley execution belongs to SoldierFireControlComponent")
   endif()
 endforeach()
 
@@ -10359,7 +10359,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_fire_control_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierFireControlComponent")
+    "TacticalActor must own one private SoldierFireControlComponent")
 endif()
 
 foreach(owned_fire_control_scalar IN ITEMS
@@ -10645,7 +10645,7 @@ foreach(retired_combat_result_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_combat_result_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE combat-result field '${retired_combat_result_field}' returned; incoming combat state belongs to SoldierCombatResultComponent")
+      "Retired flat TacticalActor combat-result field '${retired_combat_result_field}' returned; incoming combat state belongs to SoldierCombatResultComponent")
   endif()
 endforeach()
 
@@ -10660,7 +10660,7 @@ foreach(retired_damage_display_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_damage_display_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE damage-display field '${retired_damage_display_field}' returned; floating-number presentation belongs to SoldierDamageDisplayComponent")
+      "Retired flat TacticalActor damage-display field '${retired_damage_display_field}' returned; floating-number presentation belongs to SoldierDamageDisplayComponent")
   endif()
 endforeach()
 
@@ -10674,7 +10674,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_combat_result_owner OR NOT soldier_damage_display_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own separate private combat-result and damage-display components")
+    "TacticalActor must own separate private combat-result and damage-display components")
 endif()
 
 foreach(owned_combat_result_field IN ITEMS
@@ -10856,7 +10856,7 @@ foreach(retired_render_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_render_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE render field '${retired_render_field}' returned; canonical values belong to SoldierRenderStateComponent")
+      "Retired flat TacticalActor render field '${retired_render_field}' returned; canonical values belong to SoldierRenderStateComponent")
   endif()
 endforeach()
 
@@ -10883,7 +10883,7 @@ if(NOT soldier_render_state_owner OR
    soldier_render_state_component_end EQUAL -1 OR
    soldier_render_state_component_end LESS soldier_render_state_component_begin)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own and expose one private SoldierRenderStateComponent")
+    "TacticalActor must own and expose one private SoldierRenderStateComponent")
 endif()
 math(EXPR soldier_render_state_component_length
   "${soldier_render_state_component_end} - ${soldier_render_state_component_begin}")
@@ -11186,7 +11186,7 @@ endforeach()
 # Generated actor palettes are one owned render resource rather than a group of
 # public pointers with shallow whole-record copy semantics. The same narrow
 # owner is composed by logical-body layers; those tables must never regain the
-# historical fake-SOLDIERTYPE inheritance or renderer cast.
+# historical fake-TacticalActor inheritance or renderer cast.
 file(READ "${SOURCE_ROOT}/Tactical/Render Palette Bank.h"
   render_palette_bank_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Render Palette Bank.cpp"
@@ -11223,7 +11223,7 @@ foreach(retired_render_binding_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_render_binding)
     message(FATAL_ERROR
-      "Raw SOLDIERTYPE render/world field '${retired_render_binding_field}' returned; live bindings belong to SoldierRenderBindingsComponent")
+      "Raw TacticalActor render/world field '${retired_render_binding_field}' returned; live bindings belong to SoldierRenderBindingsComponent")
   endif()
 endforeach()
 
@@ -11241,7 +11241,7 @@ foreach(required_render_binding_owner IN ITEMS
     soldier_render_binding_owner)
   if(soldier_render_binding_owner EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost private render/runtime ownership fragment '${required_render_binding_owner}'")
+      "TacticalActor lost private render/runtime ownership fragment '${required_render_binding_owner}'")
   endif()
 endforeach()
 
@@ -11250,7 +11250,7 @@ string(FIND "${current_soldier_contents}"
   public_soldier_runtime_aggregate)
 if(NOT public_soldier_runtime_aggregate EQUAL -1)
   message(FATAL_ERROR
-    "SoldierRuntimeComponents must remain private behind SOLDIERTYPE::runtime()")
+    "SoldierRuntimeComponents must remain private behind TacticalActor::runtime()")
 endif()
 
 string(REGEX MATCH
@@ -11318,7 +11318,7 @@ endforeach()
 
 foreach(required_render_binding_documentation IN ITEMS
   "`SoldierRenderBindingsComponent` closes the remaining process-local storage"
-  "Normal `SOLDIERTYPE` copies deliberately receive no face index"
+  "Normal `TacticalActor` copies deliberately receive no face index"
   "No portable save byte or installed map/content format changes")
   string(FIND
     "${engine_architecture_documentation}${engine_sdk_documentation}${save_format_documentation}"
@@ -11344,7 +11344,7 @@ foreach(retired_soldier_palette_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_soldier_palette_field)
     message(FATAL_ERROR
-      "Raw palette field '${retired_soldier_palette_field}' returned to current SOLDIERTYPE; keep generated render tables in RenderPaletteBank")
+      "Raw palette field '${retired_soldier_palette_field}' returned to current TacticalActor; keep generated render tables in RenderPaletteBank")
   endif()
 endforeach()
 
@@ -11356,7 +11356,7 @@ foreach(required_soldier_palette_fragment IN ITEMS
     required_soldier_palette_owner)
   if(required_soldier_palette_owner EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost its private RenderPaletteBank boundary '${required_soldier_palette_fragment}'")
+      "TacticalActor lost its private RenderPaletteBank boundary '${required_soldier_palette_fragment}'")
   endif()
 endforeach()
 string(REGEX MATCH
@@ -11414,7 +11414,7 @@ foreach(required_palette_bank_lifetime IN ITEMS
 endforeach()
 
 string(REGEX MATCH
-  "class[ \t]+PaletteTable[ \t\r\n]*:[^{]*SOLDIERTYPE"
+  "class[ \t]+PaletteTable[ \t\r\n]*:[^{]*TacticalActor"
   logical_palette_fake_soldier
   "${logical_palette_table_header_contents}")
 string(FIND "${logical_palette_table_header_contents}"
@@ -11430,7 +11430,7 @@ string(FIND "${tactical_renderworld_contents}"
   "logSurfaceType->paletteTable->palette()"
   logical_palette_renderer_use)
 string(REGEX MATCH
-  "\\(SOLDIERTYPE[ \t]*\\*\\)[ \t]*logSurfaceType->paletteTable"
+  "\\(TacticalActor[ \t]*\\*\\)[ \t]*logSurfaceType->paletteTable"
   logical_palette_soldier_cast
   "${tactical_renderworld_contents}")
 set(retired_soldier_palette_helpers
@@ -11447,7 +11447,7 @@ if(logical_palette_fake_soldier OR
    logical_palette_renderer_use EQUAL -1 OR
    retired_soldier_palette_helper)
   message(FATAL_ERROR
-    "Logical-body palettes must compose RenderPaletteBank and use palette-only lighting/rendering without fake SOLDIERTYPE inheritance")
+    "Logical-body palettes must compose RenderPaletteBank and use palette-only lighting/rendering without fake TacticalActor inheritance")
 endif()
 
 foreach(required_palette_swap_fragment IN ITEMS
@@ -11556,7 +11556,7 @@ endif()
 
 # Pointer-free tactical UI state has one private owner. Render-resource
 # pointers deliberately remain legacy adapter state, while locator, panel, and
-# planned-target coordinates cannot return as scattered SOLDIERTYPE fields.
+# planned-target coordinates cannot return as scattered TacticalActor fields.
 foreach(retired_ui_presentation_field IN ITEMS
   bFlashPortraitFrame
   sLocatorFrame
@@ -11579,7 +11579,7 @@ foreach(retired_ui_presentation_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_ui_presentation_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE UI field '${retired_ui_presentation_field}' returned; tactical view state belongs to SoldierUiPresentationComponent")
+      "Retired flat TacticalActor UI field '${retired_ui_presentation_field}' returned; tactical view state belongs to SoldierUiPresentationComponent")
   endif()
 endforeach()
 
@@ -11612,7 +11612,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_ui_presentation_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierUiPresentationComponent")
+    "TacticalActor must own one private SoldierUiPresentationComponent")
 endif()
 
 foreach(owned_ui_presentation_fragment IN ITEMS
@@ -11937,7 +11937,7 @@ foreach(retired_combat_contribution_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_combat_contribution_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE combat-contribution field '${retired_combat_contribution_field}' returned; outgoing credit belongs to SoldierCombatContributionComponent")
+      "Retired flat TacticalActor combat-contribution field '${retired_combat_contribution_field}' returned; outgoing credit belongs to SoldierCombatContributionComponent")
   endif()
 endforeach()
 
@@ -11947,7 +11947,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_combat_contribution_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierCombatContributionComponent")
+    "TacticalActor must own one private SoldierCombatContributionComponent")
 endif()
 
 string(REGEX MATCH
@@ -12072,7 +12072,7 @@ foreach(retired_suppression_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_suppression_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE suppression field '${retired_suppression_field}' returned; hostile-fire reaction belongs to SoldierSuppressionComponent")
+      "Retired flat TacticalActor suppression field '${retired_suppression_field}' returned; hostile-fire reaction belongs to SoldierSuppressionComponent")
   endif()
 endforeach()
 
@@ -12082,7 +12082,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_current_suppressor_field)
   message(FATAL_ERROR
-    "Retired flat SOLDIERTYPE suppressor identity returned; hostile-fire reaction belongs to SoldierSuppressionComponent")
+    "Retired flat TacticalActor suppressor identity returned; hostile-fire reaction belongs to SoldierSuppressionComponent")
 endif()
 
 string(REGEX MATCH
@@ -12091,7 +12091,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_suppression_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierSuppressionComponent")
+    "TacticalActor must own one private SoldierSuppressionComponent")
 endif()
 
 foreach(owned_suppression_field IN ITEMS
@@ -12145,7 +12145,7 @@ if(soldier_suppression_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "template<class Ar>[ \t]+static void XferAIData\\([ \t]*Ar& ar, SOLDIERTYPE& soldier[ \t]*\\)"
+  "template<class Ar>[ \t]+static void XferAIData\\([ \t]*Ar& ar, TacticalActor& soldier[ \t]*\\)"
   serialized_soldier_suppression_ai_owner
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -12172,7 +12172,7 @@ list(LENGTH serialized_soldier_ai_owner_calls
   serialized_soldier_ai_owner_call_count)
 if(NOT serialized_soldier_suppression_ai_owner)
   message(FATAL_ERROR
-    "XferAIData must receive the owning SOLDIERTYPE so component-owned AI fields can retain their schema positions")
+    "XferAIData must receive the owning TacticalActor so component-owned AI fields can retain their schema positions")
 endif()
 if(NOT serialized_soldier_suppression_ai_order)
   message(FATAL_ERROR
@@ -12192,12 +12192,12 @@ if(NOT serialized_soldier_suppression_ap_source_order)
 endif()
 if(NOT serialized_soldier_ai_owner_call_count EQUAL 2)
   message(FATAL_ERROR
-    "Both soldier save and load paths must visit component-owned AI data through SOLDIERTYPE")
+    "Both soldier save and load paths must visit component-owned AI data through TacticalActor")
 endif()
 
 # Animation transition requests now have one private owner, separate from
 # playback state. Do not return queued animation/stance/facing state to the
-# generic flags bucket or the public SOLDIERTYPE field list.
+# generic flags bucket or the public TacticalActor field list.
 foreach(retired_animation_intent_flag IN ITEMS
   fStopPendingNextTile
   fContinueMoveAfterStanceChange)
@@ -12224,7 +12224,7 @@ foreach(retired_animation_intent_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_animation_intent_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE animation-intent field '${retired_animation_intent_field}' returned; queued transitions belong to SoldierAnimationIntentComponent")
+      "Retired flat TacticalActor animation-intent field '${retired_animation_intent_field}' returned; queued transitions belong to SoldierAnimationIntentComponent")
   endif()
 endforeach()
 
@@ -12234,7 +12234,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_animation_intent_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierAnimationIntentComponent")
+    "TacticalActor must own one private SoldierAnimationIntentComponent")
 endif()
 
 foreach(animation_intent_sentinel IN ITEMS
@@ -12341,7 +12341,7 @@ foreach(retired_animation_playback_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_animation_playback_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE animation field '${retired_animation_playback_name}' returned; accepted animation state belongs to SoldierAnimationPlaybackComponent")
+      "Retired flat TacticalActor animation field '${retired_animation_playback_name}' returned; accepted animation state belongs to SoldierAnimationPlaybackComponent")
   endif()
 endforeach()
 
@@ -12351,7 +12351,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_animation_playback_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierAnimationPlaybackComponent")
+    "TacticalActor must own one private SoldierAnimationPlaybackComponent")
 endif()
 
 foreach(owned_animation_playback_field IN ITEMS
@@ -12447,7 +12447,7 @@ foreach(retired_animation_activity_field IN ITEMS
     "${current_soldier_contents}")
   if(retired_current_animation_activity_field)
     message(FATAL_ERROR
-      "Retired flat SOLDIERTYPE animation field '${retired_animation_activity_field}' returned; lifecycle state belongs to SoldierAnimationActivityComponent")
+      "Retired flat TacticalActor animation field '${retired_animation_activity_field}' returned; lifecycle state belongs to SoldierAnimationActivityComponent")
   endif()
 endforeach()
 
@@ -12457,7 +12457,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_animation_activity_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierAnimationActivityComponent")
+    "TacticalActor must own one private SoldierAnimationActivityComponent")
 endif()
 
 foreach(owned_animation_activity_field IN ITEMS
@@ -12649,7 +12649,7 @@ endif()
 
 # Animation surfaces are runtime resources, not serialized soldier state. The
 # former public AnimCache contained two raw owning pointers inside the memcpy
-# prefix, so ordinary SOLDIERTYPE copies aliased allocations and teardown could
+# prefix, so ordinary TacticalActor copies aliased allocations and teardown could
 # double-free them. Keep the live cache private, inline, and slot-bound.
 string(REGEX MATCH
   "(^|[\r\n])[ \t]*AnimationSurfaceCacheType[ \t]+AnimCache[ \t]*;"
@@ -12657,7 +12657,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_current_animation_cache)
   message(FATAL_ERROR
-    "Retired public SOLDIERTYPE AnimCache returned; runtime surface storage belongs to SoldierAnimationCacheComponent")
+    "Retired public TacticalActor AnimCache returned; runtime surface storage belongs to SoldierAnimationCacheComponent")
 endif()
 
 string(REGEX MATCH
@@ -12666,7 +12666,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_animation_cache_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must own one private SoldierAnimationCacheComponent")
+    "TacticalActor must own one private SoldierAnimationCacheComponent")
 endif()
 
 set(animation_cache_header
@@ -12772,7 +12772,7 @@ endif()
 
 # A soldier's strategic route is owned state, not a process pointer embedded in
 # the live POD prefix. Keep vehicle routes on their established adapter for now,
-# while current SOLDIERTYPE copies, swaps, reset, and save restoration all pass
+# while current TacticalActor copies, swaps, reset, and save restoration all pass
 # through SoldierStrategicPathComponent.
 string(REGEX MATCH
   "(^|[\r\n])[ \t]*PathStPtr[ \t]+pMercPath[ \t]*;"
@@ -12780,7 +12780,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_current_soldier_path_pointer)
   message(FATAL_ERROR
-    "Retired SOLDIERTYPE pMercPath returned; strategic route lifetime belongs to SoldierStrategicPathComponent")
+    "Retired TacticalActor pMercPath returned; strategic route lifetime belongs to SoldierStrategicPathComponent")
 endif()
 
 string(REGEX MATCH
@@ -12789,7 +12789,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(NOT soldier_strategic_path_owner)
   message(FATAL_ERROR
-    "SOLDIERTYPE must privately own one SoldierStrategicPathComponent")
+    "TacticalActor must privately own one SoldierStrategicPathComponent")
 endif()
 
 foreach(required_strategic_path_accessor IN ITEMS
@@ -12800,7 +12800,7 @@ foreach(required_strategic_path_accessor IN ITEMS
     strategic_path_accessor)
   if(strategic_path_accessor EQUAL -1)
     message(FATAL_ERROR
-      "SOLDIERTYPE lost strategic-route accessor '${required_strategic_path_accessor}'")
+      "TacticalActor lost strategic-route accessor '${required_strategic_path_accessor}'")
   endif()
 endforeach()
 
@@ -13029,13 +13029,13 @@ foreach(source_file IN LISTS world_state_files)
 endforeach()
 
 # Package-facing tactical capture consumes state committed in the runtime-owned
-# entity directory. SOLDIERTYPE projection belongs to the application host;
+# entity directory. TacticalActor projection belongs to the application host;
 # putting pool or animation reads back in TacticalWorldAdapter would recreate a
 # second actor-state path beside command execution.
 file(READ "${SOURCE_ROOT}/Ja2/TacticalWorldAdapter.cpp"
   tactical_world_adapter_contents)
 string(REGEX MATCH
-  "(^|[^A-Za-z0-9_])(MercPtrs|SOLDIERTYPE|gAnimControl)([^A-Za-z0-9_]|$)"
+  "(^|[^A-Za-z0-9_])(MercPtrs|TacticalActor|gAnimControl)([^A-Za-z0-9_]|$)"
   direct_tactical_world_actor_projection
   "${tactical_world_adapter_contents}")
 if(direct_tactical_world_actor_projection)
@@ -13197,10 +13197,10 @@ set(soldier_repository_source
 file(READ "${soldier_repository_source}"
   soldier_repository_contents)
 foreach(required_repository_fragment IN ITEMS
-    "SOLDIERTYPE soldierRecords[TOTAL_SOLDIERS];"
-    "SOLDIERTYPE* soldierSlots[TOTAL_SOLDIERS];"
+    "TacticalActor soldierRecords[TOTAL_SOLDIERS];"
+    "TacticalActor* soldierSlots[TOTAL_SOLDIERS];"
     "Ja2SoldierRepository(soldierRecords, soldierSlots, TOTAL_SOLDIERS)"
-    "SOLDIERTYPE* Ja2SoldierRepository::replace"
+    "TacticalActor* Ja2SoldierRepository::replace"
     "bool Ja2SoldierRepository::swapRecords"
     "void BindJa2SoldierRepository")
   string(FIND "${soldier_repository_contents}"
@@ -13287,8 +13287,8 @@ endforeach()
 
 foreach(retired_pointer_conversion IN ITEMS
     "operator->()"
-    "operator SOLDIERTYPE*"
-    "operator const SOLDIERTYPE*")
+    "operator TacticalActor*"
+    "operator const TacticalActor*")
   string(FIND "${soldier_id_header_contents}"
     "${retired_pointer_conversion}"
     retired_pointer_conversion_position)
@@ -13322,7 +13322,7 @@ foreach(source_file IN LISTS tactical_soldier_pool_consumers)
 endforeach()
 
 # Strategic player movement groups retain exact tactical identities, not
-# SOLDIERTYPE addresses or reusable numeric slots. The legacy save payload
+# TacticalActor addresses or reusable numeric slots. The legacy save payload
 # remains profile-only and load reconstructs the current exact incarnation.
 file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement.h"
   strategic_movement_header_contents)
@@ -13343,7 +13343,7 @@ if(NOT exact_player_group_member_identity)
     "PLAYERGROUP must retain TacticalEntityId actor")
 endif()
 string(REGEX MATCH
-  "SOLDIERTYPE[ \t\r\n]*\\*[ \t\r\n]*pSoldier"
+  "TacticalActor[ \t\r\n]*\\*[ \t\r\n]*pSoldier"
   raw_player_group_member_pointer
   "${player_group_declaration}")
 string(REGEX MATCH
@@ -13466,7 +13466,7 @@ foreach(source_file IN LISTS soldier_storage_sources)
     "${contents}")
   if(direct_retired_identity_roster_access)
     message(FATAL_ERROR
-      "Application code accesses retired SOLDIERTYPE identity/roster storage in ${source_file}; use identity() or roster()")
+      "Application code accesses retired TacticalActor identity/roster storage in ${source_file}; use identity() or roster()")
   endif()
   string(REGEX MATCH
     "(->|\\.)[ \t\r\n]*aiData([^A-Za-z0-9_]|$)"
@@ -13474,7 +13474,7 @@ foreach(source_file IN LISTS soldier_storage_sources)
     "${contents}")
   if(retired_soldier_ai_data_access)
     message(FATAL_ERROR
-      "Application code accesses retired SOLDIERTYPE aiData in ${source_file}; use the owning AI, awareness, perception, morale, turn, position, or combat component")
+      "Application code accesses retired TacticalActor aiData in ${source_file}; use the owning AI, awareness, perception, morale, turn, position, or combat component")
   endif()
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])ai_masterplan_([^A-Za-z0-9_]|$)"
@@ -13482,7 +13482,7 @@ foreach(source_file IN LISTS soldier_storage_sources)
     "${contents}")
   if(retired_modular_ai_plan_access)
     message(FATAL_ERROR
-      "Application code accesses retired SOLDIERTYPE ai_masterplan_ in ${source_file}; use aiPlan()")
+      "Application code accesses retired TacticalActor ai_masterplan_ in ${source_file}; use aiPlan()")
   endif()
   string(REGEX MATCH
     "(->|\\.)[ \t\r\n]*pKeyRing([^A-Za-z0-9_]|$)"
@@ -13490,7 +13490,7 @@ foreach(source_file IN LISTS soldier_storage_sources)
     "${contents}")
   if(direct_retired_key_ring_access)
     message(FATAL_ERROR
-      "Application code accesses retired SOLDIERTYPE pKeyRing in ${source_file}; use keyRing()")
+      "Application code accesses retired TacticalActor pKeyRing in ${source_file}; use keyRing()")
   endif()
   if(NOT source_file MATCHES "/tests/")
     string(REGEX MATCH
@@ -13499,7 +13499,7 @@ foreach(source_file IN LISTS soldier_storage_sources)
       "${contents}")
     if(direct_retired_pending_item_access)
       message(FATAL_ERROR
-        "Application code accesses retired SOLDIERTYPE pending-item pointers in ${source_file}; use pendingItem()")
+        "Application code accesses retired TacticalActor pending-item pointers in ${source_file}; use pendingItem()")
     endif()
     string(REGEX MATCH
       "(malloc|MemAlloc)[ \t\r\n]*\\([^)]*THROW_PARAMS"
@@ -13583,7 +13583,7 @@ if(executed_actor_state_position EQUAL -1)
     "Production command execution no longer commits resulting actor state")
 endif()
 
-# Whole SOLDIERTYPE record relocation changes which incarnation occupies a
+# Whole TacticalActor record relocation changes which incarnation occupies a
 # legacy pool slot. Keep those rare mutations in the repository and let the
 # entity host rebuild the runtime directory atomically after a repository swap.
 set(entity_pool_owner "${SOURCE_ROOT}/Ja2/SoldierRepository.cpp")

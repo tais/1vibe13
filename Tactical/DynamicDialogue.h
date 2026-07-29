@@ -11,7 +11,7 @@
 #include "Soldier Control.h"
 
 // Flugente: calculate A's opinion of B
-INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB );
+INT8	SoldierRelation( TacticalActor* pSoldierA, TacticalActor* pSoldierB );
 INT8	SoldierRelation( UINT8 usProfileA, UINT8 usProfileB );
 
 // Flugente: dynamic opinions
@@ -467,18 +467,18 @@ void HandleDynamicOpinionsDailyRefresh( );
 void RolloverDynamicOpinions( UINT8 usProfileA );
 
 // check wether other people are friends with someone else we hate. All persons must be in Arulco
-void CheckForFriendsofHated( SOLDIERTYPE* pSoldier );
+void CheckForFriendsofHated( TacticalActor* pSoldier );
 
 void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile );
 
 // depending on what happened in the battle, our mercs might complain or celebrate
 void HandleDynamicOpinionBattleFinished( BOOLEAN fBattleWon );
 void HandleDynamicOpinionRetreat( );
-void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier );
-void HandleDynamicOpinionTeaching( SOLDIERTYPE* pSoldier, UINT8 ubStat );
+void HandleDynamicOpinionTeamDrinking( TacticalActor* pSoldier );
+void HandleDynamicOpinionTeaching( TacticalActor* pSoldier, UINT8 ubStat );
 
 // some events require a 'leader' -  merc the team will regard as the one being in charge, and subsequently being praised or damned for the way things develop
-UINT32 GetSoldierLeaderRating( SOLDIERTYPE* pSoldier );
+UINT32 GetSoldierLeaderRating( TacticalActor* pSoldier );
 
 SoldierID GetBestMercLeaderInSector( INT16 sX, INT16 sY, INT8 sZ );
 
@@ -487,8 +487,8 @@ UINT8 GetRandomMercInSectorNotInList( INT16 sX, INT16 sY, INT8 sZ, std::vector<U
 
 UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 usProfileCause );
 
-UINT8 HighestInventoryCoolness( SOLDIERTYPE* pSoldier );
+UINT8 HighestInventoryCoolness( TacticalActor* pSoldier );
 
-void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN fOffender, BOOLEAN fStartDialogue );
+void HandleDynamicOpinionChange( TacticalActor* pSoldier, UINT8 usEvent, BOOLEAN fOffender, BOOLEAN fStartDialogue );
 
 #endif

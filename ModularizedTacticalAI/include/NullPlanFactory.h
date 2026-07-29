@@ -36,8 +36,8 @@ namespace AI
             private:
             public:
                 static std::string get_name() {return "NullPlanFactory";}
-                virtual Plan* create_plan(SOLDIERTYPE* npc, const AIInputData& input);
-                virtual void update_plan(SOLDIERTYPE* npc, const AIInputData& input);
+                virtual Plan* create_plan(TacticalActor* npc, const AIInputData& input);
+                virtual void update_plan(TacticalActor* npc, const AIInputData& input);
         };
     }
 }

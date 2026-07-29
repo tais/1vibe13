@@ -357,8 +357,8 @@ UINT16	LarryItems[ NUM_LARRY_ITEMS ][ 3 ] =
 
 void HourlyLarryUpdate()
 {
-	SOLDIERTYPE *pSoldier = NULL;
-	SOLDIERTYPE *pOtherSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
+	TacticalActor *pOtherSoldier = NULL;
 	INT8			bSlot = NO_SLOT, bBoozeSlot;
 	UINT16		usTemptation = 0;
 	UINT16		usCashAmount;
@@ -608,7 +608,7 @@ void HourlyLarryUpdate()
 // Flugente: mercs that are smokers occasionally consume smokes if they have some in their inventory
 void HourlySmokerUpdate( )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	OBJECTTYPE *pObj = NULL;
 
 	for ( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
@@ -640,8 +640,8 @@ void HourlySmokerUpdate( )
 
 void HourlyDisabilityUpdate( )
 {
-	SOLDIERTYPE*				pSoldier = NULL;
-	SOLDIERTYPE*				pOtherSoldier = NULL;
+	TacticalActor*				pSoldier = NULL;
+	TacticalActor*				pOtherSoldier = NULL;
 
 	for ( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
 	{
@@ -730,7 +730,7 @@ void HourlyDisabilityUpdate( )
 				{
 					SwapToProfile( pSoldier, BUNS );
 
-					extern void SpecialDialogue( SOLDIERTYPE* pSoldier, STR8 azSoundString, STR16 azTextString );
+					extern void SpecialDialogue( TacticalActor* pSoldier, STR8 azSoundString, STR16 azTextString );
 
 					SpecialDialogue( pSoldier, "Speech\\Special\\buns_ptsd_deactivation.MP3", L"I'm better now." );
 
@@ -753,8 +753,8 @@ void HourlySnitchUpdate()
 
 void HourlyStealUpdate()
 {
-	SOLDIERTYPE *				pSoldier = NULL;
-	SOLDIERTYPE *				pOtherSoldier = NULL;
+	TacticalActor *				pSoldier = NULL;
+	TacticalActor *				pOtherSoldier = NULL;
 	
 	for( SoldierID cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
@@ -1091,7 +1091,7 @@ void HourlyFactoryUpdate()
 						{
 							bool isstaffed = false;
 							bool isstaffed_andawake = false;
-							SOLDIERTYPE *pSoldier = NULL;
+							TacticalActor *pSoldier = NULL;
 							UINT32 uiCnt = 0;
 							for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 							{
@@ -1223,7 +1223,7 @@ void HourlyCheckIfSlayAloneSoHeCanLeave()
 
 	if (gGameExternalOptions.fEnableSlayForever || gGameExternalOptions.ubHourlyChanceSlayWillLeave < 1) return;
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	pSoldier = FindSoldierByProfileID( SLAY, TRUE );
 	if( !pSoldier )
 	{
@@ -1281,7 +1281,7 @@ void HourlyHelicopterRepair()
 void HourlyGatheringInformation()
 {
 	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 cnt=0;
 	const INT8 bLastTeamID =
 		gTacticalStatus.Team[ soldiers.resolve( cnt )->roster().team() ].bLastID;

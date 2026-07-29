@@ -60,23 +60,23 @@
 
 #define WE_SEE_WHAT_MILITIA_SEES_AND_VICE_VERSA
 
-extern void SetSoldierAniSpeed( SOLDIERTYPE *pSoldier );
+extern void SetSoldierAniSpeed( TacticalActor *pSoldier );
 // HEADROCK HAM 3.6: Moved to header
 //void MakeBloodcatsHostile( void );
 
 void OurNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrType, UINT8 ubVolume,	UINT8 ubNoiseType, STR16 zNoiseMessage );
 void TheirNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrType, UINT8 ubVolume, UINT8 ubNoiseType, STR16 zNoiseMessage = NULL );
 void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrType, UINT8 ubBaseVolume, UINT8 ubNoiseType, STR16 zNoiseMessage = NULL );
-UINT8 CalcEffVolume(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubNoiseType, UINT8 ubBaseVolume, UINT8 ubTerrType1, UINT8 ubTerrType2);
-void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubVolume, UINT8 ubNoiseType, UINT8 *ubSeen);
-void TellPlayerAboutNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubVolume, UINT8 ubNoiseType, UINT8 ubNoiseDir,  STR16 zNoiseMessage = NULL );
-void OurTeamSeesSomeone( SOLDIERTYPE * pSoldier, INT8 bNumReRevealed, INT8 bNumNewEnemies );
+UINT8 CalcEffVolume(TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubNoiseType, UINT8 ubBaseVolume, UINT8 ubTerrType1, UINT8 ubTerrType2);
+void HearNoise(TacticalActor *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubVolume, UINT8 ubNoiseType, UINT8 *ubSeen);
+void TellPlayerAboutNoise(TacticalActor *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubVolume, UINT8 ubNoiseType, UINT8 ubNoiseDir,  STR16 zNoiseMessage = NULL );
+void OurTeamSeesSomeone( TacticalActor * pSoldier, INT8 bNumReRevealed, INT8 bNumNewEnemies );
 
 void IncrementWatchedLoc( UINT16 ubID, INT32 sGridNo, INT8 bLevel );
 void SetWatchedLocAsUsed( UINT16 ubID, INT32 sGridNo, INT8 bLevel );
 void DecayWatchedLocs( INT8 bTeam );
 
-void HandleManNoLongerSeen( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent, INT8 * pPersOL, INT8 * pbPublOL );
+void HandleManNoLongerSeen( TacticalActor * pSoldier, TacticalActor * pOpponent, INT8 * pPersOL, INT8 * pbPublOL );
 
 // The_Bob - real time sneaking code 01/06/09
 extern void CancelItemPointer(void);
@@ -321,7 +321,7 @@ extern UINT8 ubRealAmbientLightLevel;
 //end rain
 
 
-INT16 AdjustMaxSightRangeForEnvEffects( SOLDIERTYPE *pSoldier, INT8 bLightLevel, INT16 sDistVisible )
+INT16 AdjustMaxSightRangeForEnvEffects( TacticalActor *pSoldier, INT8 bLightLevel, INT16 sDistVisible )
 {
 	INT16 sNewDist = sDistVisible * gGameExternalOptions.ubBrightnessVisionMod[bLightLevel] / 100;
 
@@ -345,7 +345,7 @@ INT16 AdjustMaxSightRangeForEnvEffects( SOLDIERTYPE *pSoldier, INT8 bLightLevel,
 	return( sNewDist );
 }
 
-static SOLDIERTYPE* ResolveBestSighter( UINT16 position )
+static TacticalActor* ResolveBestSighter( UINT16 position )
 {
 	if ( position >= BEST_SIGHTING_ARRAY_SIZE )
 	{
@@ -364,7 +364,7 @@ void SwapBestSightingPositions( INT8 bPos1, INT8 bPos2 )
 	gubBestToMakeSighting[ bPos2 ] = ubTemp;
 }
 
-void ReevaluateBestSightingPosition( SOLDIERTYPE * pSoldier, INT8 bInterruptDuelPts )
+void ReevaluateBestSightingPosition( TacticalActor * pSoldier, INT8 bInterruptDuelPts )
 {
 	UINT8 ubLoop, ubLoop2;
 	BOOLEAN		fFound = FALSE;
@@ -407,9 +407,9 @@ void ReevaluateBestSightingPosition( SOLDIERTYPE * pSoldier, INT8 bInterruptDuel
 			// must percolate him down
 			for ( ubLoop2 = ubLoop + 1; ubLoop2 < gubBestToMakeSightingSize; ubLoop2++ )
 			{
-				const SOLDIERTYPE* previous =
+				const TacticalActor* previous =
 					ResolveBestSighter( ubLoop2 - 1 );
-				const SOLDIERTYPE* current =
+				const TacticalActor* current =
 					ResolveBestSighter( ubLoop2 );
 				if ( previous != nullptr && current != nullptr &&
 					previous->turnState().interruptDuelPoints() <
@@ -448,7 +448,7 @@ void ReevaluateBestSightingPosition( SOLDIERTYPE * pSoldier, INT8 bInterruptDuel
 			{
 				const SoldierID currentId =
 					gubBestToMakeSighting[ ubLoop ];
-				SOLDIERTYPE* current = ResolveBestSighter( ubLoop );
+				TacticalActor* current = ResolveBestSighter( ubLoop );
 				const bool emptySlot =
 					currentId == NOBODY || current == nullptr;
 				if ( (emptySlot &&
@@ -457,7 +457,7 @@ void ReevaluateBestSightingPosition( SOLDIERTYPE * pSoldier, INT8 bInterruptDuel
 						bInterruptDuelPts >
 							current->turnState().interruptDuelPoints()) )
 				{
-					SOLDIERTYPE* last =
+					TacticalActor* last =
 						ResolveBestSighter( gubBestToMakeSightingSize - 1 );
 					if ( last != nullptr )
 					{
@@ -486,7 +486,7 @@ void ReevaluateBestSightingPosition( SOLDIERTYPE * pSoldier, INT8 bInterruptDuel
 	{
 		if ( (gubBestToMakeSighting[ ubLoop ] != NOBODY) )
 		{
-			const SOLDIERTYPE* current = ResolveBestSighter( ubLoop );
+			const TacticalActor* current = ResolveBestSighter( ubLoop );
 			if ( current != nullptr )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "RBSP entry %d: %d (%d pts)", ubLoop, gubBestToMakeSighting[ ubLoop ], current->turnState().interruptDuelPoints() ) );
@@ -517,7 +517,7 @@ void HandleBestSightingPositionInRealtime( void )
 
 	if (gubBestToMakeSighting[ 0 ] != NOBODY)
 	{
-		SOLDIERTYPE* bestSighter = ResolveBestSighter( 0 );
+		TacticalActor* bestSighter = ResolveBestSighter( 0 );
 		if ( bestSighter == nullptr )
 		{
 			gubBestToMakeSighting[ 0 ] = NOBODY;
@@ -531,11 +531,11 @@ void HandleBestSightingPositionInRealtime( void )
 		// it's clear what kicked off combat.
 		if ( is_networked && !( IsJa2TacticalCombatActive() ) )
 		{
-			SOLDIERTYPE* pSighter = bestSighter;
-			SOLDIERTYPE* pSeen = NULL; INT16 sBest = 9999;
+			TacticalActor* pSighter = bestSighter;
+			TacticalActor* pSeen = NULL; INT16 sBest = 9999;
 			for ( UINT32 uiL = 0; uiL < Ja2ActiveTacticalActorSlotCount(); uiL++ )
 			{
-				SOLDIERTYPE* pE = ResolveJa2ActiveTacticalActorSlot(uiL);
+				TacticalActor* pE = ResolveJa2ActiveTacticalActorSlot(uiL);
 				if ( pE && pE->roster().active() && pE->roster().inSector() && pE->vitals().health() > 0
 				    && pE->roster().team() != pSighter->roster().team()
 				    && pSighter->awareness().opponentKnowledge()[ pE->identity().id() ] == SEEN_CURRENTLY )
@@ -549,7 +549,7 @@ void HandleBestSightingPositionInRealtime( void )
 
 		//if (gfHumanSawSomeoneInRealtime)
 		{
-			SOLDIERTYPE* secondSighter = ResolveBestSighter( 1 );
+			TacticalActor* secondSighter = ResolveBestSighter( 1 );
 			if (secondSighter == nullptr)
 			{	// The_Bob - real time sneaking code 01/06/09
 				// if real time sneaking conditions are met...
@@ -587,7 +587,7 @@ void HandleBestSightingPositionInRealtime( void )
 			}
 			else
 			{
-				SOLDIERTYPE* thirdSighter = ResolveBestSighter( 2 );
+				TacticalActor* thirdSighter = ResolveBestSighter( 2 );
 
 
 				// if 1st and 2nd on same team, or 1st and 3rd on same team, or there IS no 3rd, award turn to 1st
@@ -628,7 +628,7 @@ void HandleBestSightingPositionInRealtime( void )
 		{
 			if ( gubBestToMakeSighting[ ubLoop ] != NOBODY )
 			{
-				SOLDIERTYPE* sighter = ResolveBestSighter( ubLoop );
+				TacticalActor* sighter = ResolveBestSighter( ubLoop );
 				if ( sighter != nullptr )
 				{
 					sighter->turnState().interruptDuelPoints() = NO_INTERRUPT;
@@ -639,7 +639,7 @@ void HandleBestSightingPositionInRealtime( void )
 
 		for ( ubLoop = 0; ubLoop < Ja2ActiveTacticalActorSlotCount(); ubLoop++ )
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				ResolveJa2ActiveTacticalActorSlot(ubLoop);
 			if ( soldier )
 			{
@@ -665,7 +665,7 @@ void HandleBestSightingPositionInTurnbased( void )
 
 	if ( gubBestToMakeSighting[ 0 ] != NOBODY )
 	{
-		SOLDIERTYPE* bestSighter = ResolveBestSighter( 0 );
+		TacticalActor* bestSighter = ResolveBestSighter( 0 );
 		if ( bestSighter == nullptr )
 		{
 			gubBestToMakeSighting[ 0 ] = NOBODY;
@@ -696,7 +696,7 @@ void HandleBestSightingPositionInTurnbased( void )
 				}
 				else
 				{
-					const SOLDIERTYPE* current =
+					const TacticalActor* current =
 						ResolveBestSighter( ubLoop );
 					if ( current != nullptr &&
 						current->roster().team() == GetJa2TacticalCurrentTeam() )
@@ -709,7 +709,7 @@ void HandleBestSightingPositionInTurnbased( void )
 
 			if ( fOk )
 			{
-				SOLDIERTYPE* interrupted = ResolveBestSighter( ubLoop );
+				TacticalActor* interrupted = ResolveBestSighter( ubLoop );
 				if ( interrupted != nullptr )
 				{
 					// this is the guy who gets "interrupted"; all else before him interrupted him
@@ -728,7 +728,7 @@ void HandleBestSightingPositionInTurnbased( void )
 		{
 			if ( gubBestToMakeSighting[ ubLoop ] != NOBODY )
 			{
-				SOLDIERTYPE* sighter = ResolveBestSighter( ubLoop );
+				TacticalActor* sighter = ResolveBestSighter( ubLoop );
 				if ( sighter != nullptr )
 				{
 					sighter->turnState().interruptDuelPoints() = NO_INTERRUPT;
@@ -739,7 +739,7 @@ void HandleBestSightingPositionInTurnbased( void )
 
 		for ( ubLoop = 0; ubLoop < Ja2ActiveTacticalActorSlotCount(); ubLoop++ )
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				ResolveJa2ActiveTacticalActorSlot(ubLoop);
 			if ( soldier )
 			{
@@ -775,7 +775,7 @@ void InitSightArrays( void )
 	// action is to reset their points.	However, I think I'll just do a clean sweep here to make sure I get them all.
 	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++ )
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			ResolveJa2ActiveTacticalActorSlot(uiLoop);
 		if (soldier)
 		{
@@ -790,7 +790,7 @@ void AddToShouldBecomeHostileOrSayQuoteList( SoldierID ubID )
 
 	Assert( gubNumShouldBecomeHostileOrSayQuote < SHOULD_BECOME_HOSTILE_SIZE );
 
-	const SOLDIERTYPE* soldier =
+	const TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve( ubID );
 	if ( soldier == nullptr || soldier->vitals().health() < OKLIFE )
 	{
@@ -814,7 +814,7 @@ SoldierID SelectSpeakerFromHostileOrSayQuoteList( void )
 {
 	SoldierID IDList[ SHOULD_BECOME_HOSTILE_SIZE ];
 	UINT8 ubLoop, ubNumProfiles = 0;
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pSoldier;
 
 	for ( ubLoop = 0; ubLoop < gubNumShouldBecomeHostileOrSayQuote; ubLoop++ )
 	{
@@ -867,7 +867,7 @@ void CheckHostileOrSayQuoteList( void )
 	{
 		SoldierID ubSpeaker;
 		UINT16 ubLoop;
-		SOLDIERTYPE * pSoldier;
+		TacticalActor * pSoldier;
 
 		ubSpeaker = SelectSpeakerFromHostileOrSayQuoteList();
 		if ( ubSpeaker == NOBODY )
@@ -911,7 +911,7 @@ void CheckHostileOrSayQuoteList( void )
 		}
 		else
 		{
-			SOLDIERTYPE* speaker =
+			TacticalActor* speaker =
 				GetJa2SoldierRepository().resolve( ubSpeaker );
 			if ( speaker == nullptr )
 			{
@@ -934,10 +934,10 @@ void CheckHostileOrSayQuoteList( void )
 	}
 }
 
-void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
+void HandleSight(TacticalActor *pSoldier, UINT8 ubSightFlags)
 {
 	UINT32 uiLoop;
-	SOLDIERTYPE *pThem;
+	TacticalActor *pThem;
 	INT8			bTempNewSituation;
 
 	if (!pSoldier->roster().active() || !pSoldier->roster().inSector() || pSoldier->status().flags() & SOLDIER_DEAD )
@@ -1125,7 +1125,7 @@ void OurTeamRadiosRandomlyAbout(UINT16 ubAbout)
 {
 	// WDS - make number of mercenaries, etc. be configurable
 	INT16 radioCnt = 0,radioMan[CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS];
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 
 
 	// Temporary for opplist synching - disable random order radioing
@@ -1172,7 +1172,7 @@ void OurTeamRadiosRandomlyAbout(UINT16 ubAbout)
 		INT16 iLoop = Random(radioCnt);
 
 		// handle radioing for that merc
-		SOLDIERTYPE* radioSoldier =
+		TacticalActor* radioSoldier =
 			GetJa2SoldierRepository().resolve( radioMan[iLoop] );
 		if ( radioSoldier )
 		{
@@ -1199,9 +1199,9 @@ void OurTeamRadiosRandomlyAbout(UINT16 ubAbout)
 
 
 
-INT16 TeamNoLongerSeesMan( UINT8 ubTeam, SOLDIERTYPE *pOpponent, SoldierID ubExcludeID, INT8 bIteration )
+INT16 TeamNoLongerSeesMan( UINT8 ubTeam, TacticalActor *pOpponent, SoldierID ubExcludeID, INT8 bIteration )
 {
-	SOLDIERTYPE *pMate;
+	TacticalActor *pMate;
 	SoldierID bLoop = gTacticalStatus.Team[ubTeam].bFirstID;
 
 	// look for all mercs on the same team, check opplists for this soldier
@@ -1271,7 +1271,7 @@ INT16 TeamNoLongerSeesMan( UINT8 ubTeam, SOLDIERTYPE *pOpponent, SoldierID ubExc
 	return(TRUE);
 }
 
-INT16 DistanceSmellable( SOLDIERTYPE *pSoldier, SOLDIERTYPE * pSubject )
+INT16 DistanceSmellable( TacticalActor *pSoldier, TacticalActor * pSubject )
 {
 	INT16 sDistVisible = STRAIGHT; // as a base
 
@@ -1309,7 +1309,7 @@ INT16 MaxNormalDistanceVisible( void )
 	return( STRAIGHT * 2 );
 }
 
-INT16 SOLDIERTYPE::GetMaxDistanceVisible(INT32 sGridNo, INT8 bLevel, int calcAsType, SOLDIERTYPE *pKnownSubject)
+INT16 TacticalActor::GetMaxDistanceVisible(INT32 sGridNo, INT8 bLevel, int calcAsType, TacticalActor *pKnownSubject)
 {
 	if (sGridNo == NOWHERE)
 	{
@@ -1329,7 +1329,7 @@ INT16 SOLDIERTYPE::GetMaxDistanceVisible(INT32 sGridNo, INT8 bLevel, int calcAsT
 	return DistanceVisible( this, (SoldierHasLimitedVision(this) ? this->pathing().desiredDirection() : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sGridNo, bLevel, this->IsCowering(), GetPercentTunnelVision(this), pKnownSubject);
 }
 
-INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, INT32 sSubjectGridNo, INT8 bLevel, const BOOLEAN& isCowering, const UINT8& tunnelVision, SOLDIERTYPE *pKnownSubject)
+INT16 DistanceVisible(TacticalActor *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, INT32 sSubjectGridNo, INT8 bLevel, const BOOLEAN& isCowering, const UINT8& tunnelVision, TacticalActor *pKnownSubject)
 {
 	INT16	sDistVisible;
 	INT8	bLightLevel;
@@ -1337,7 +1337,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	// When the caller already holds the subject standing at sSubjectGridNo/bLevel
 	// (e.g. ManLooksForMan passing pOpponent), reuse it instead of re-walking the
 	// tile's structure list via SimpleFindSoldier()/WhoIsThere2().
-	SOLDIERTYPE* pSubject = pKnownSubject ? pKnownSubject : SimpleFindSoldier( sSubjectGridNo, bLevel );
+	TacticalActor* pSubject = pKnownSubject ? pKnownSubject : SimpleFindSoldier( sSubjectGridNo, bLevel );
 	INT16 tunnelVisionInPercent = 0;
 
 	if (pSoldier->status().flags() & SOLDIER_MONSTER)
@@ -1372,7 +1372,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
 	if( bSeatIndex != (-1) )
 	{	
-		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier ->deployment().vehicleId() );
+		TacticalActor *pVehicle = GetSoldierStructureForVehicle( pSoldier ->deployment().vehicleId() );
 		// need to check this even if bSubjectDir is DIRECTION_IRRELEVANT
 		if( gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].VehicleSeats[ bSeatIndex ].fBlockedView )
 		{
@@ -1564,10 +1564,10 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 
 
 
-void EndMuzzleFlash( SOLDIERTYPE * pSoldier )
+void EndMuzzleFlash( TacticalActor * pSoldier )
 {
 	UINT32					uiLoop;
-	SOLDIERTYPE *		pOtherSoldier;
+	TacticalActor *		pOtherSoldier;
 
 	pSoldier->renderState().hideMuzzleFlash();
 /*comm by ddd
@@ -1663,7 +1663,7 @@ else
 void TurnOffEveryonesMuzzleFlashes( void )
 {
 	UINT32					uiLoop;
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pSoldier;
 
 	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
@@ -1678,7 +1678,7 @@ void TurnOffEveryonesMuzzleFlashes( void )
 
 void TurnOffTeamsMuzzleFlashes( UINT8 ubTeam )
 {
-	SOLDIERTYPE *		pSoldier;
+	TacticalActor *		pSoldier;
 
 	for ( SoldierID ubLoop = gTacticalStatus.Team[ ubTeam ].bFirstID; ubLoop <= gTacticalStatus.Team[ ubTeam ].bLastID; ++ubLoop )
 	{
@@ -1695,7 +1695,7 @@ void TurnOffTeamsMuzzleFlashes( UINT8 ubTeam )
 	}
 }
 
-INT8 DecideHearing( SOLDIERTYPE * pSoldier )
+INT8 DecideHearing( TacticalActor * pSoldier )
 {
 	// calculate the hearing value for the merc...
 	INT8		bHearing;
@@ -1795,7 +1795,7 @@ void InitOpplistForDoorOpening( void )
 
 void AllTeamsLookForAll(UINT8 ubAllowInterrupts)
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	if ( (gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
 	{
@@ -1830,7 +1830,7 @@ void AllTeamsLookForAll(UINT8 ubAllowInterrupts)
 	// the player team now radios about all sightings
 	for ( SoldierID uiLoop = gTacticalStatus.Team[gbPlayerNum].bFirstID; uiLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiLoop )
 	{
-		SOLDIERTYPE* player =
+		TacticalActor* player =
 			GetJa2SoldierRepository().resolve( uiLoop );
 		if ( player != nullptr )
 		{
@@ -1910,10 +1910,10 @@ void AllTeamsLookForAll(UINT8 ubAllowInterrupts)
 
 
 
-void ManLooksForOtherTeams(SOLDIERTYPE *pSoldier)
+void ManLooksForOtherTeams(TacticalActor *pSoldier)
 {
  UINT32 uiLoop;
- SOLDIERTYPE *pOpponent;
+ TacticalActor *pOpponent;
 
 
 #ifdef TESTOPPLIST
@@ -1955,7 +1955,7 @@ void ManLooksForOtherTeams(SOLDIERTYPE *pSoldier)
  }
 }
 
-void HandleManNoLongerSeen( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent, INT8 * pPersOL, INT8 * pbPublOL )
+void HandleManNoLongerSeen( TacticalActor * pSoldier, TacticalActor * pOpponent, INT8 * pPersOL, INT8 * pbPublOL )
 {
 	// if neither side is neutral AND
 	// if this soldier is an opponent (fights for different side)
@@ -2065,7 +2065,7 @@ void HandleManNoLongerSeen( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent, INT
 }
 
 
-INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCaller)
+INT16 ManLooksForMan(TacticalActor *pSoldier, TacticalActor *pOpponent, UINT8 ubCaller)
 {
  INT8 bDir,bAware = FALSE,bSuccess = FALSE;
  INT16 sDistVisible,sDistAway;
@@ -2317,7 +2317,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 
 
 
-void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo, INT8 bOppLevel, UINT8 ubCaller, UINT8 ubCaller2)
+void ManSeesMan(TacticalActor *pSoldier, TacticalActor *pOpponent, INT32 sOppGridNo, INT8 bOppLevel, UINT8 ubCaller, UINT8 ubCaller2)
 {
 	INT8 bDoLocate = FALSE;
 	BOOLEAN fNewOpponent = FALSE;
@@ -2976,7 +2976,7 @@ if(SEE_MENT)
 }
 
 
-void DecideTrueVisibility(SOLDIERTYPE *pSoldier, UINT8 ubLocate)
+void DecideTrueVisibility(TacticalActor *pSoldier, UINT8 ubLocate)
 {
  // if his visibility is still in the special "limbo" state (FALSE)
  if (pSoldier->awareness().visibility() == FALSE)
@@ -3027,11 +3027,11 @@ void DecideTrueVisibility(SOLDIERTYPE *pSoldier, UINT8 ubLocate)
 
 
 
-void OtherTeamsLookForMan(SOLDIERTYPE *pOpponent)
+void OtherTeamsLookForMan(TacticalActor *pOpponent)
 {
 	UINT32 uiLoop;
 	INT8 bOldOppList;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 
 	//NumMessage("OtherTeamsLookForMan, guy#",oppPtr->guynum);
@@ -3139,7 +3139,7 @@ else
 	}
 }
 
-void AddOneOpponent(SOLDIERTYPE *pSoldier)
+void AddOneOpponent(TacticalActor *pSoldier)
 {
 	INT8 bOldOppCnt = pSoldier->awareness().opponentCount();
 
@@ -3178,7 +3178,7 @@ void AddOneOpponent(SOLDIERTYPE *pSoldier)
 
 
 
-void RemoveOneOpponent(SOLDIERTYPE *pSoldier)
+void RemoveOneOpponent(TacticalActor *pSoldier)
 {
  pSoldier->awareness().opponentCount()--;
 
@@ -3199,9 +3199,9 @@ void RemoveOneOpponent(SOLDIERTYPE *pSoldier)
 
 
 
-void RemoveManAsTarget(SOLDIERTYPE *pSoldier)
+void RemoveManAsTarget(TacticalActor *pSoldier)
 {
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 	UINT8 ubLoop;
 	SoldierID ubTarget = pSoldier->identity().id();
 
@@ -3276,8 +3276,8 @@ void UpdatePublic(UINT8 ubTeam, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo,
 {
 	SoldierID cnt;
 	UINT8 ubTeamMustLookAgain = FALSE, ubMadeDifference = FALSE;
-	SOLDIERTYPE *pSoldier;
-	SOLDIERTYPE* opponent =
+	TacticalActor *pSoldier;
+	TacticalActor* opponent =
 		GetJa2SoldierRepository().resolve( ubID );
 	if ( opponent == nullptr )
 	{
@@ -3342,7 +3342,7 @@ void UpdatePublic(UINT8 ubTeam, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo,
 
 
 
-void UpdatePersonal(SOLDIERTYPE *pSoldier, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo, INT8 bLevel)
+void UpdatePersonal(TacticalActor *pSoldier, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo, INT8 bLevel)
 {
 	/*
 #ifdef RECORDOPPLIST
@@ -3368,7 +3368,7 @@ INT8 OurMaxPublicOpplist()
 	UINT32 uiLoop;
 	INT8 bHighestOpplist = 0;
 	UINT8 ubOppValue,ubHighestValue = 0;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
@@ -3399,10 +3399,10 @@ INT8 OurMaxPublicOpplist()
 
 
 /*
-BOOLEAN VisibleAnywhere(SOLDIERTYPE *pSoldier)
+BOOLEAN VisibleAnywhere(TacticalActor *pSoldier)
 {
  INT8 team,cnt;
- SOLDIERTYPE *pOpponent;
+ TacticalActor *pOpponent;
 
 
  // this takes care of any mercs on our own team
@@ -3450,13 +3450,13 @@ BOOLEAN VisibleAnywhere(SOLDIERTYPE *pSoldier)
 */
 
 
-void ResetLastKnownLocs(SOLDIERTYPE *pSoldier)
+void ResetLastKnownLocs(TacticalActor *pSoldier)
 {
 	UINT32 uiLoop;
 
 	for (uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
 	{
-		SOLDIERTYPE* opponent =
+		TacticalActor* opponent =
 			ResolveJa2ActiveTacticalActorSlot(uiLoop);
 		if (opponent)
 		{
@@ -3537,7 +3537,7 @@ void InitOpponentKnowledgeSystem(void)
 
 
 
-void InitSoldierOppList(SOLDIERTYPE *pSoldier)
+void InitSoldierOppList(TacticalActor *pSoldier)
 {
 	memset(pSoldier->awareness().opponentKnowledge(),NOT_HEARD_OR_SEEN,sizeof(pSoldier->awareness().opponentKnowledge()));
 	pSoldier->awareness().opponentCount() = 0;
@@ -3549,7 +3549,7 @@ void InitSoldierOppList(SOLDIERTYPE *pSoldier)
 void BetweenTurnsVisibilityAdjustments(void)
 {
 	UINT32 cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 
 	// make all soldiers on other teams that are no longer seen not visible
@@ -3605,9 +3605,9 @@ void BetweenTurnsVisibilityAdjustments(void)
 }
 
 
-void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirginSector, BOOLEAN fSeenJoey )
+void SaySeenQuote( TacticalActor *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirginSector, BOOLEAN fSeenJoey )
 {
-	SOLDIERTYPE		*pTeamSoldier;
+	TacticalActor		*pTeamSoldier;
 	UINT16				ubNumEnemies = 0;
 	UINT16				ubNumAllies = 0;
 	UINT32			cnt;
@@ -3749,7 +3749,7 @@ void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirgin
 	}
 }
 
-void OurTeamSeesSomeone( SOLDIERTYPE * pSoldier, INT8 bNumReRevealed, INT8 bNumNewEnemies )
+void OurTeamSeesSomeone( TacticalActor * pSoldier, INT8 bNumReRevealed, INT8 bNumNewEnemies )
 {
 	if ( gTacticalStatus.fVirginSector )
 	{
@@ -3824,9 +3824,9 @@ void OurTeamSeesSomeone( SOLDIERTYPE * pSoldier, INT8 bNumReRevealed, INT8 bNumN
 
 }
 
-void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo )
+void RadioSightings(TacticalActor *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo )
 {
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 	INT32 	iLoop;
 	UINT16 	start, end, revealedEnemies = 0, unknownEnemies = 0, stillUnseen = TRUE;
 	BOOLEAN sightedHatedOpponent = FALSE;
@@ -4005,7 +4005,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 								{
 									// this has already come up so turn OFF the pause-all-anims flag for the previous
 									// person and set it for this next person
-									SOLDIERTYPE* previousEnemy =
+									TacticalActor* previousEnemy =
 										GetJa2SoldierRepository().resolve(
 											gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID );
 									if ( previousEnemy != nullptr )
@@ -4114,7 +4114,7 @@ extern UINT32 guiNumBackSaves;
 
 void DebugSoldierPage1( )
 {
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	SoldierID	usSoldierIndex;
 	UINT32		uiMercFlags;
 	INT32		usMapPos;
@@ -4297,7 +4297,7 @@ void DebugSoldierPage1( )
 
 void DebugSoldierPage2( )
 {
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	SoldierID		usSoldierIndex;
 	UINT32			uiMercFlags;
 	INT32			usMapPos;
@@ -4571,7 +4571,7 @@ void DebugSoldierPage2( )
 
 void DebugSoldierPage3( )
 {
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	SoldierID	usSoldierIndex;
 	UINT32		uiMercFlags;
 	INT32		usMapPos;
@@ -4770,7 +4770,7 @@ void DebugSoldierPage3( )
 		ubLine++;
 
 		// OPINION OF SELECTED MERC
-		const SOLDIERTYPE* selectedSoldier =
+		const TacticalActor* selectedSoldier =
 			GetJa2SoldierRepository().resolve( gusSelectedSoldier );
 		if ( selectedSoldier != nullptr &&
 			selectedSoldier->identity().profile() != NO_PROFILE &&
@@ -4968,7 +4968,7 @@ void WriteQuantityAndAttachments( OBJECTTYPE *pObject, INT32 yp )
 
 void DebugSoldierPage4( )
 {
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	UINT32		uiMercFlags;
 	CHAR16		szOrders[20];
 	CHAR16		szAttitude[20];
@@ -5462,7 +5462,7 @@ void DebugSoldierPage4( )
 #define VEHICLE_FAST_MOVEMENT_NOISE 25
 #define VEHICLE_NORMAL_MOVEMENT_NOISE 15
 
-UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
+UINT8 MovementNoise(TacticalActor *pSoldier)
 {
 	INT32	iStealthSkill, iRoll;
 	INT16	sMaxVolume, sVolume;
@@ -5629,7 +5629,7 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 	return (UINT8)sVolume;
 }
 
-UINT8 DoorOpeningNoise( SOLDIERTYPE *pSoldier )
+UINT8 DoorOpeningNoise( TacticalActor *pSoldier )
 {
 	// door being opened gridno is always the pending-action-data2 value
 	INT32 sGridNo = pSoldier->pendingAction().secondaryData();
@@ -5831,7 +5831,7 @@ void OurNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrT
 	{
 		// interrupts are possible, resolve them now (we're in control here)
 		// (you can't interrupt NOBODY, even if you hear the noise)
-		SOLDIERTYPE* noiseMaker =
+		TacticalActor* noiseMaker =
 			GetJa2SoldierRepository().resolve( ubNoiseMaker );
 		if ( noiseMaker != nullptr )
 		{
@@ -5846,7 +5846,7 @@ void TheirNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTer
  UINT8 ubVolume,
 	UINT8 ubNoiseType, STR16 zNoiseMessage )
 {
-//	SOLDIERTYPE *pSoldier;
+//	TacticalActor *pSoldier;
 
 
 #ifdef BYPASSNOISE
@@ -5905,7 +5905,7 @@ void TheirNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTer
 
 void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrType, UINT8 ubBaseVolume, UINT8 ubNoiseType, STR16 zNoiseMessage )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT8 bTeam;
 	UINT8 ubLoudestEffVolume, ubEffVolume;
 //	UINT8 ubPlayVolume;
@@ -5914,7 +5914,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 	INT8 bTellPlayer = FALSE, bHeard, bSeen;
 	SoldierID ubHeardLoudestBy = NOBODY;
 	UINT8 ubNoiseDir = 0xff, ubLoudestNoiseDir = 0xff;
-	SOLDIERTYPE* noiseMaker =
+	TacticalActor* noiseMaker =
 		GetJa2SoldierRepository().resolve( ubNoiseMaker );
 
 
@@ -6313,7 +6313,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 				{
 					// the merc that heard it the LOUDEST is the one to comment
 					// should add level to this function call
-					SOLDIERTYPE* listener =
+					TacticalActor* listener =
 						GetJa2SoldierRepository().resolve(
 							ubHeardLoudestBy );
 					if ( listener )
@@ -6339,7 +6339,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 			{
 				if (bTellPlayer)
 				{
-					SOLDIERTYPE* listener =
+					TacticalActor* listener =
 						GetJa2SoldierRepository().resolve(
 							ubHeardLoudestBy );
 					if ( listener )
@@ -6417,7 +6417,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 
 
 
-UINT8 CalcEffVolume(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubNoiseType, UINT8 ubBaseVolume, UINT8 ubTerrType1, UINT8 ubTerrType2)
+UINT8 CalcEffVolume(TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubNoiseType, UINT8 ubBaseVolume, UINT8 ubTerrType1, UINT8 ubTerrType2)
 {
 	INT32 iEffVolume, iDistance;
 
@@ -6568,7 +6568,7 @@ UINT8 CalcEffVolume(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubN
 
 
 
-void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel,
+void HearNoise(TacticalActor *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel,
  UINT8 ubVolume, UINT8 ubNoiseType, UINT8 *ubSeen)
 {
 	INT16		sNoiseX, sNoiseY;
@@ -6576,7 +6576,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 	INT8		bOldOpplist;
 	INT8		bDirection;
 	BOOLEAN fMuzzleFlash = FALSE;
-	SOLDIERTYPE* noiseMaker =
+	TacticalActor* noiseMaker =
 		GetJa2SoldierRepository().resolve( ubNoiseMaker );
 
 	if ( pSoldier->identity().bodyType() == CROW )
@@ -6929,10 +6929,10 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
     plan_lib->update_plan(pSoldier->aiPlanning().planIndex(), pSoldier, ai_input);
 }
 
-void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubVolume, UINT8 ubNoiseType, UINT8 ubNoiseDir, STR16 zNoiseMessage )
+void TellPlayerAboutNoise( TacticalActor *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubVolume, UINT8 ubNoiseType, UINT8 ubNoiseDir, STR16 zNoiseMessage )
 {
 	UINT8 ubVolumeIndex;
-	SOLDIERTYPE* noiseMaker =
+	TacticalActor* noiseMaker =
 		GetJa2SoldierRepository().resolve( ubNoiseMaker );
 
 	// CJC: tweaked the noise categories upwards a bit because our movement noises can be louder now.
@@ -7075,11 +7075,11 @@ void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 
 	// flag soldier as having reported noise in a particular direction
 }
 
-void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
+void VerifyAndDecayOpplist(TacticalActor *pSoldier)
 {
 	UINT32 uiLoop;
 	INT8 *pPersOL;			// pointer into soldier's opponent list
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 
 	// reduce all seen/known opponent's turn counters by 1 (towards 0)
 	// 1) verify accuracy of the opplist by testing sight vs known opponents
@@ -7193,11 +7193,11 @@ void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
 	}
 }
 
-void DecayIndividualOpplist(SOLDIERTYPE *pSoldier)
+void DecayIndividualOpplist(TacticalActor *pSoldier)
 {
 	UINT32 uiLoop;
 	INT8 *pPersOL;			// pointer into soldier's opponent list
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 
 	// reduce all currently seen opponent's turn counters by 1 (towards 0)
 
@@ -7209,13 +7209,13 @@ void DecayIndividualOpplist(SOLDIERTYPE *pSoldier)
 		{
 			if ( pSoldier->awareness().opponentKnowledge()[ uiLoop ] == SEEN_CURRENTLY )
 			{
-				SOLDIERTYPE* opponent =
+				TacticalActor* opponent =
 					GetJa2SoldierRepository().resolve( uiLoop );
 				if ( opponent )
 					HandleManNoLongerSeen( pSoldier, opponent, &(pSoldier->awareness().opponentKnowledge()[ uiLoop ]), &(gbPublicOpplist[ pSoldier->roster().team() ][ uiLoop ]) );
 			}
 		}
-	//void HandleManNoLongerSeen( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent, INT8 * pPersOL, INT8 * pbPublOL )
+	//void HandleManNoLongerSeen( TacticalActor * pSoldier, TacticalActor * pOpponent, INT8 * pPersOL, INT8 * pbPublOL )
 
 		memset(pSoldier->awareness().opponentKnowledge(),NOT_HEARD_OR_SEEN,sizeof(pSoldier->awareness().opponentKnowledge()));
 		pSoldier->awareness().opponentCount() = 0;
@@ -7254,11 +7254,11 @@ void DecayIndividualOpplist(SOLDIERTYPE *pSoldier)
 
 
 
-void VerifyPublicOpplistDueToDeath(SOLDIERTYPE *pSoldier)
+void VerifyPublicOpplistDueToDeath(TacticalActor *pSoldier)
 {
 	UINT32 uiLoop,uiTeamMateLoop;
 	INT8 *pPersOL,*pMatePersOL;	// pointers into soldier's opponent list
-	SOLDIERTYPE *pOpponent,*pTeamMate;
+	TacticalActor *pOpponent,*pTeamMate;
 	BOOLEAN bOpponentStillSeen;
 
 
@@ -7344,7 +7344,7 @@ void DecayPublicOpplist(INT8 bTeam)
 {
 	UINT32 uiLoop;
 	INT8 bNoPubliclyKnownOpponents = TRUE;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT8 *pbPublOL;
 
 
@@ -7439,7 +7439,7 @@ void NonCombatDecayPublicOpplist( UINT32 uiTime )
 		// decay!
 		for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				ResolveJa2ActiveTacticalActorSlot(cnt);
 			if ( soldier )
 			{
@@ -7461,10 +7461,10 @@ void NonCombatDecayPublicOpplist( UINT32 uiTime )
 	}
 }
 
-void RecalculateOppCntsDueToNoLongerNeutral( SOLDIERTYPE * pSoldier )
+void RecalculateOppCntsDueToNoLongerNeutral( TacticalActor * pSoldier )
 {
 	UINT32					uiLoop;
-	SOLDIERTYPE *		pOpponent;
+	TacticalActor *		pOpponent;
 
 	pSoldier->awareness().opponentCount() = 0;
 
@@ -7493,10 +7493,10 @@ void RecalculateOppCntsDueToNoLongerNeutral( SOLDIERTYPE * pSoldier )
 	}
 }
 
-void RecalculateOppCntsDueToBecomingNeutral( SOLDIERTYPE * pSoldier )
+void RecalculateOppCntsDueToBecomingNeutral( TacticalActor * pSoldier )
 {
 	UINT32					uiLoop;
-	SOLDIERTYPE *		pOpponent;
+	TacticalActor *		pOpponent;
 
 	if (pSoldier->aiBehavior().neutral())
 	{
@@ -7519,7 +7519,7 @@ void RecalculateOppCntsDueToBecomingNeutral( SOLDIERTYPE * pSoldier )
 	}
 }
 
-void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT8 bReason )
+void NoticeUnseenAttacker( TacticalActor * pAttacker, TacticalActor * pDefender, INT8 bReason )
 {
 	INT8		bOldOppList;
 	BOOLEAN fSeesAttacker = FALSE;
@@ -7662,10 +7662,10 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 	}
 }
 
-void CheckForAlertWhenEnemyDies( SOLDIERTYPE * pDyingSoldier )
+void CheckForAlertWhenEnemyDies( TacticalActor * pDyingSoldier )
 {
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	INT8 bDir;
 	INT16 sDistAway, sDistVisible;
 
@@ -7705,7 +7705,7 @@ void CheckForAlertWhenEnemyDies( SOLDIERTYPE * pDyingSoldier )
 BOOLEAN ArmyKnowsOfPlayersPresence( void )
 {
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// if anyone is still left...
 	if (gTacticalStatus.Team[ ENEMY_TEAM ].bTeamActive && gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector > 0 )
@@ -7727,7 +7727,7 @@ BOOLEAN ArmyKnowsOfPlayersPresence( void )
 	return( FALSE );
 }
 
-BOOLEAN MercSeesCreature( SOLDIERTYPE * pSoldier )
+BOOLEAN MercSeesCreature( TacticalActor * pSoldier )
 {
 	SoldierID ubID;
 
@@ -7735,7 +7735,7 @@ BOOLEAN MercSeesCreature( SOLDIERTYPE * pSoldier )
 	{
 		for ( ubID = gTacticalStatus.Team[CREATURE_TEAM].bFirstID; ubID <= gTacticalStatus.Team[CREATURE_TEAM].bLastID; ++ubID )
 		{
-			const SOLDIERTYPE* creature =
+			const TacticalActor* creature =
 				GetJa2SoldierRepository().resolve( ubID );
 			if ( creature != nullptr &&
 				pSoldier->awareness().opponentKnowledge()[ubID] == SEEN_CURRENTLY &&
@@ -7827,7 +7827,7 @@ INT8 GetHighestVisibleWatchedLoc( UINT16 ubID )
 	INT8	bLoop;
 	INT8	bHighestLoc = -1;
 	INT8	bHighestPoints = 0;
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve( ubID );
 	if ( soldier == nullptr )
 		return bHighestLoc;
@@ -7868,7 +7868,7 @@ void CommunicateWatchedLoc( SoldierID ubID, INT32 sGridNo, INT8 bLevel, UINT8 ub
 	SoldierID ubLoop;
 	INT8 bTeam, bLoopPoint, bPoint;
 
-	const SOLDIERTYPE* source =
+	const TacticalActor* source =
 		GetJa2SoldierRepository().resolve( ubID );
 	if ( source == nullptr )
 	{
@@ -7878,7 +7878,7 @@ void CommunicateWatchedLoc( SoldierID ubID, INT32 sGridNo, INT8 bLevel, UINT8 ub
 
 	for ( ubLoop = gTacticalStatus.Team[ bTeam ].bFirstID; ubLoop <= gTacticalStatus.Team[ bTeam ].bLastID; ++ubLoop )
 	{
-		SOLDIERTYPE *pSoldier =
+		TacticalActor *pSoldier =
 			GetJa2SoldierRepository().resolve( ubLoop );
 		if ( pSoldier == nullptr )
 		{
@@ -7988,7 +7988,7 @@ BOOLEAN WatchedLocLocationIsEmpty( INT32 sGridNo, INT8 bLevel, INT8 bTeam )
 				continue;
 			}
 			ubID = WhoIsThere2( sTempGridNo, bLevel );
-			const SOLDIERTYPE* occupant =
+			const TacticalActor* occupant =
 				GetJa2SoldierRepository().resolve( ubID );
 			if ( occupant != nullptr && occupant->roster().team() != bTeam )
 			{
@@ -8037,7 +8037,7 @@ void DecayWatchedLocs( INT8 bTeam )
 
 void MakeBloodcatsHostile( void )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	SoldierID id = gTacticalStatus.Team[ CREATURE_TEAM ].bFirstID;
 
 	for ( ; id <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++id )
@@ -8061,7 +8061,7 @@ void MakeBloodcatsHostile( void )
 	}
 }
 
-BOOLEAN SoldierHasLimitedVision(SOLDIERTYPE * pSoldier)
+BOOLEAN SoldierHasLimitedVision(TacticalActor * pSoldier)
 {
 	if ( gGameExternalOptions.gfAllowLimitedVision || GetPercentTunnelVision(pSoldier) > 0 )
 		return TRUE;

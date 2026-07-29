@@ -28,7 +28,7 @@ INT32	giDrunkModifier[] =
 #define HANGOVER_AP_REDUCE			5
 #define HANGOVER_BP_REDUCE			200
 
-BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed )
+BOOLEAN ApplyDrugs_New( TacticalActor *pSoldier, UINT16 usItem, UINT16 uStatusUsed )
 {
 	// If not a drug, return
 	if ( !Item[usItem].drugtype || !uStatusUsed || !pSoldier )
@@ -192,7 +192,7 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 	return TRUE;
 }
 
-void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
+void HandleEndTurnDrugAdjustments_New( TacticalActor *pSoldier )
 {
 	// some effects are handled here
 	if ( pSoldier->drugState().magnitude(DRUG_EFFECT_HP) )
@@ -238,7 +238,7 @@ void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 	}
 }
 
-INT8 GetDrunkLevel( SOLDIERTYPE *pSoldier )
+INT8 GetDrunkLevel( TacticalActor *pSoldier )
 {
 	if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_HUNGOVER )
 	{
@@ -262,7 +262,7 @@ INT8 GetDrunkLevel( SOLDIERTYPE *pSoldier )
 }
 
 // does a merc have a disability/personality, or is he under drugs that simulate this?
-BOOLEAN DoesMercHaveDisability( const SOLDIERTYPE *pSoldier, UINT8 aVal )
+BOOLEAN DoesMercHaveDisability( const TacticalActor *pSoldier, UINT8 aVal )
 {
 	if ( pSoldier->identity().profile() != NO_PROFILE )
 	{
@@ -282,7 +282,7 @@ BOOLEAN DoesMercHaveDisability( const SOLDIERTYPE *pSoldier, UINT8 aVal )
 	return FALSE;
 }
 
-BOOLEAN DoesMercHavePersonality( SOLDIERTYPE *pSoldier, UINT8 aVal )
+BOOLEAN DoesMercHavePersonality( TacticalActor *pSoldier, UINT8 aVal )
 {
 	// personalities are new trait system only!
 	if ( !gGameOptions.fNewTraitSystem )
@@ -300,7 +300,7 @@ BOOLEAN DoesMercHavePersonality( SOLDIERTYPE *pSoldier, UINT8 aVal )
 	return FALSE;
 }
 
-void HandleAPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *pubPoints )
+void HandleAPEffectDueToDrugs( TacticalActor *pSoldier, INT16 *pubPoints )
 {
 	*pubPoints += pSoldier->drugState().magnitude(DRUG_EFFECT_AP);
 	
@@ -316,7 +316,7 @@ void HandleAPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *pubPoints )
 	}
 }
 
-void HandleBPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *psPointReduction )
+void HandleBPEffectDueToDrugs( TacticalActor *pSoldier, INT16 *psPointReduction )
 {
 	*psPointReduction -= pSoldier->drugState().magnitude(DRUG_EFFECT_BP);
 	
@@ -327,12 +327,12 @@ void HandleBPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *psPointReduction )
 	}
 }
 
-INT32 EffectStatForBeingDrunk( SOLDIERTYPE *pSoldier, INT32 iStat )
+INT32 EffectStatForBeingDrunk( TacticalActor *pSoldier, INT32 iStat )
 {
 	return( ( iStat * giDrunkModifier[ GetDrunkLevel( pSoldier ) ] / 100 ) );
 }
 
-BOOLEAN MercDruggedOrDrunk( SOLDIERTYPE *pSoldier )
+BOOLEAN MercDruggedOrDrunk( TacticalActor *pSoldier )
 {
 	if ( pSoldier->drugState().hasAlcohol() )
 		return TRUE;
@@ -343,7 +343,7 @@ BOOLEAN MercDruggedOrDrunk( SOLDIERTYPE *pSoldier )
 	return FALSE;
 }
 
-BOOLEAN MercDrugged( SOLDIERTYPE *pSoldier )
+BOOLEAN MercDrugged( TacticalActor *pSoldier )
 {
 	return (pSoldier->featureFlags().primaryFlags() & SOLDIER_DRUGGED);
 }
@@ -352,7 +352,7 @@ void HourlyDrugUpdate( )
 {
 	for ( SoldierID ubID = gTacticalStatus.Team[OUR_TEAM].bFirstID; ubID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ubID )
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(ubID.i);
 		// every hour, we lower our alcohol counter
 		if ( soldier->drugState().hasAlcohol() )

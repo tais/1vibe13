@@ -98,7 +98,7 @@ void UnLoadCarPortraits( void )
 	}
 }
 
-void DrawLifeUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer )
+void DrawLifeUIBarEx( TacticalActor *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer )
 {
 	FLOAT											dStart, dEnd, dPercentage;
 	//UINT16										usLineColor;
@@ -185,7 +185,7 @@ void DrawLifeUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWi
 }
 
 
-void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer )
+void DrawBreathUIBarEx( TacticalActor *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer )
 {
 	FLOAT										dStart, dEnd, dPercentage;
 	//UINT16										usLineColor;
@@ -297,7 +297,7 @@ void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 	UnLockVideoSurface( uiBuffer );
 }
 
-void DrawMoraleUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer )
+void DrawMoraleUIBarEx( TacticalActor *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer )
 {
 	FLOAT											dStart, dEnd, dPercentage;
 	//UINT16										usLineColor;
@@ -463,7 +463,7 @@ void DrawItemUIBarEx( OBJECTTYPE *pObject, UINT8 ubStatus, INT16 sXPos, INT16 sY
 	}
 }
 
-void RenderSoldierFace( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLEAN fAutoFace )
+void RenderSoldierFace( TacticalActor *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLEAN fAutoFace )
 {
 	BOOLEAN fDoFace = FALSE;
 //	UINT8 ubVehicleType = 0;

@@ -85,7 +85,7 @@ BOOLEAN AddRottingCorpseToUnloadedSectorsRottingCorpseFile( INT16 sMapX, INT16 s
 //The gridno if you are passing in either of the flags ADD_DEAD_SOLDIER_USE_GRIDNO, or the ADD_DEAD_SOLDIER_TO_SWEETSPOT
 //
 // This function DOES NOT remove the soldier from the soldier struct.  YOU must do it.
-BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiFlags );
+BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiFlags );
 
 
 BOOLEAN GetSectorFlagStatus( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, UINT32 uiFlagToSet );
@@ -103,7 +103,7 @@ BOOLEAN LoadTempNpcQuoteArrayToSaveGameFile( HWFILE hFile );
 BOOLEAN SaveTempNpcQuoteArrayToSaveGameFile( HWFILE hFile );
 
 //LBE node stuff
-UINT32 MercChecksum( SOLDIERTYPE * pSoldier );
+UINT32 MercChecksum( TacticalActor * pSoldier );
 UINT32 ProfileChecksum( MERCPROFILESTRUCT * pProfile );
 UINT32 LBENODEChecksum( LBENODE * pNode );
 

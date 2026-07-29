@@ -100,8 +100,8 @@ INT16 PythSpacesAway(INT32 sOrigin, INT32 sDest);
 INT16 SpacesAway(INT32 sOrigin, INT32 sDest);
 INT16 CardinalSpacesAway(INT32 sOrigin, INT32 sDest);
 INT8 FindNumTurnsBetweenDirs( INT8 sDir1, INT8 sDir2 );
-BOOLEAN FindHeigherLevel( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
-BOOLEAN FindLowerLevel( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
+BOOLEAN FindHeigherLevel( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
+BOOLEAN FindLowerLevel( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
 	
 INT16 QuickestDirection(INT16 origin, INT16 dest);
 INT16 ExtQuickestDirection(INT16 origin, INT16 dest);
@@ -109,7 +109,7 @@ INT16 ExtQuickestDirection(INT16 origin, INT16 dest);
 
 INT16 MapX( INT32 sGridNo );
 INT16 MapY( INT32 sGridNo );
-BOOLEAN FindFenceJumpDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
+BOOLEAN FindFenceJumpDirection( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
 
 //Simply chooses a random gridno within valid boundaries (for dropping things in unloaded sectors)
 INT32 RandomGridNo();
@@ -140,10 +140,10 @@ public:
 };
 
 //Legion by JAzz	
-BOOLEAN FindHeigherLevelOkno( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
-BOOLEAN FindWallJumpDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
-BOOLEAN FindLowerLevelWall( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection ); 
-BOOLEAN FindWindowJumpDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
+BOOLEAN FindHeigherLevelOkno( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
+BOOLEAN FindWallJumpDirection( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
+BOOLEAN FindLowerLevelWall( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
+BOOLEAN FindWindowJumpDirection( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection );
 
 // Flugente: is this gridno near a player merc?
 BOOLEAN GridNoNearPlayerMercs( INT32 sGridNo, INT16 sRadius );

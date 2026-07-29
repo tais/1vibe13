@@ -198,7 +198,7 @@ extern UINT8 CalcDesireToTalk( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach );
 extern void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachData );
 
 extern BOOLEAN NPCOkToGiveItem( UINT8 ubNPC, UINT8 ubMerc, UINT16 usItem );
-extern void NPCReachedDestination( SOLDIERTYPE * pNPC, BOOLEAN fAlreadyThere );
+extern void NPCReachedDestination( TacticalActor * pNPC, BOOLEAN fAlreadyThere );
 extern void PCsNearNPC( UINT8 ubNPC );
 extern BOOLEAN PCDoesFirstAidOnNPC( UINT8 ubNPC );
 extern void TriggerNPCRecord( UINT8 ubTriggerNPC, UINT8 ubTriggerNPCRec );
@@ -244,7 +244,7 @@ BOOLEAN LoadBackupNPCInfoFromSavedGameFile( HWFILE hFile, UINT32 uiSaveGameVersi
 void ToggleNPCRecordDisplay( void );
 #endif
 
-void UpdateDarrelScriptToGoTo( SOLDIERTYPE * pSoldier );
+void UpdateDarrelScriptToGoTo( TacticalActor * pSoldier );
 
 #define WALTER_BRIBE_AMOUNT 20000
 
@@ -256,7 +256,7 @@ INT8 ConsiderCivilianQuotes( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ,	BOO
 
 void ResetOncePerConvoRecordsForNPC( UINT8 ubNPC );
 
-void HandleNPCChangesForTacticalTraversal( SOLDIERTYPE * pSoldier );
+void HandleNPCChangesForTacticalTraversal( TacticalActor * pSoldier );
 
 BOOLEAN NPCHasUnusedHostileRecord( UINT8 ubNPC, UINT8 ubApproach );
 

@@ -7,7 +7,7 @@ namespace AI
 {
     namespace tactical
     {
-        PlanList::PlanList(SOLDIERTYPE* npc)
+        PlanList::PlanList(TacticalActor* npc)
             : Plan(npc)
         {
         }

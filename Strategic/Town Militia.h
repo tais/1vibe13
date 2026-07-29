@@ -22,7 +22,7 @@
 BOOLEAN TownMilitiaTrainingPromotion( INT16 sMapX, INT16 sMapY, UINT8& arusPromotedTo );
 
 // this handles what happens when a new militia unit is finishes getting trained
-void TownMilitiaTrainingCompleted( SOLDIERTYPE *pTrainer, INT16 sMapX, INT16 sMapY );
+void TownMilitiaTrainingCompleted( TacticalActor *pTrainer, INT16 sMapX, INT16 sMapY );
 
 // feed this a SOLDIER_CLASS_, it will return you a _MITILIA rank, or -1 if the guy's not militia
 INT8 SoldierClassToMilitiaRank(UINT8 ubSoldierClass);
@@ -57,10 +57,10 @@ UINT16 MilitiaInSectorOfRankInGroups( INT16 sMapX, INT16 sMapY, UINT8 ubRank );
 BOOLEAN SectorOursAndPeaceful( INT16 sMapX, INT16 sMapY, INT8 bMapZ );
 
 // tell player how much it will cost 
-void HandleInterfaceMessageForCostOfTrainingMilitia( SOLDIERTYPE *pSoldier );
+void HandleInterfaceMessageForCostOfTrainingMilitia( TacticalActor *pSoldier );
 
 // continue training?
-void HandleInterfaceMessageForContinuingTrainingMilitia( SOLDIERTYPE *pSoldier );
+void HandleInterfaceMessageForContinuingTrainingMilitia( TacticalActor *pSoldier );
 BOOLEAN IsMilitiaTrainingPromptActive( void );
 void ResetMilitiaTrainingPromptContext( void );
 
@@ -80,7 +80,7 @@ void HandleContinueOfTownTraining( void );
 
 // handle completion of assignment byt his soldier too and inform the player
 // HEADROCK HAM 3.6: Added argument for Mobile Militia training.
-void HandleCompletionOfTownTrainingByGroupWithTrainer( SOLDIERTYPE *pTrainer, UINT8 ubMilitiaType );
+void HandleCompletionOfTownTrainingByGroupWithTrainer( TacticalActor *pTrainer, UINT8 ubMilitiaType );
 
 // clear the list of training completed sectors
 void ClearSectorListForCompletedTrainingOfMilitia( void );

@@ -353,7 +353,7 @@ BOOLEAN	AreAnyPlayerMercsStillInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSe
 
 	for( iCnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; iCnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; iCnt++ )
 	{
-		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(iCnt);
+		TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(iCnt);
 		if( pSoldier->roster().active() )
 		{
 			if( pSoldier->deployment().sectorX() == sSectorX &&
@@ -2394,7 +2394,7 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 void SetEnemiesToFindThePlayerMercs()
 {
 	INT32 cnt;
-	SOLDIERTYPE             *pSoldier;
+	TacticalActor             *pSoldier;
 	INT16	sGridNoToGoto=0;
 
 if ( gGameUBOptions.pJA2UB == TRUE )
@@ -2511,7 +2511,7 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 BOOLEAN AreAllPlayerMercTraversingBetweenSectors()
 {
 	INT32 cnt;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	GROUP *pGroup=0;
 
 	cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
@@ -2680,7 +2680,7 @@ void HandleSayingDontStayToLongWarningInSectorH8()
 {
 	UINT8			ubMercArray[3];
 	UINT8			ubNumMercs=0;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	INT32			cnt;
 
 	//if the player has advance passed this sector, leave

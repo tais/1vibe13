@@ -37,7 +37,7 @@ extern	CHAR16		zBuildInformation[256];
 //       gone; load validates fully before atomically replacing the live queue.
 #define			PORTABLE_SAVE_FORMAT							1002
 
-#define			INCREASED_TEAMSIZES								186 // Asdow: SOLDIERTYPE ubID changed from UINT8 -> UINT16
+#define			INCREASED_TEAMSIZES								186 // Asdow: TacticalActor ubID changed from UINT8 -> UINT16
 #define			MERC_PROFILE_INSERTION_DATA					    185 // Bigmap support for AddProfileToMap function
 #define			GROWTH_MODIFIERS								184
 #define			REBELCOMMAND									183

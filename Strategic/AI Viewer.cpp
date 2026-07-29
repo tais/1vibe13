@@ -695,7 +695,7 @@ void RenderInfoInSector()
 	//Count the number of mercs and their states (even for underground sectors)
 	for( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		if( pSoldier->roster().active() && pSoldier->deployment().sectorX() == ubSectorX && pSoldier->deployment().sectorY() == ubSectorY && pSoldier->deployment().sectorZ() == gbViewLevel )
 		{

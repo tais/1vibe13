@@ -17,13 +17,13 @@ void ShutdownRoomDatabase( );
 //void SetTileRoomNum( INT32 sGridNo, UINT8 ubRoomNum );
 //void SetTileRangeRoomNum( SGPRect *pSelectRegion, UINT8 ubRoomNum );
 
-//void RemoveRoomRoof( INT32 sGridNo, UINT8 bRoomNum, SOLDIERTYPE *pSoldier );
+//void RemoveRoomRoof( INT32 sGridNo, UINT8 bRoomNum, TacticalActor *pSoldier );
 //BOOLEAN InARoom( INT32 sGridNo, UINT8 *pubRoomNo );
 //BOOLEAN InAHiddenRoom( INT32 sGridNo, UINT8 *pubRoomNo );
 void SetTileRoomNum( INT32 sGridNo, UINT16 usRoomNum );
 void SetTileRangeRoomNum( SGPRect *pSelectRegion, UINT16 usRoomNum );
 
-void RemoveRoomRoof( INT32 sGridNo, UINT16 usRoomNum, SOLDIERTYPE *pSoldier );
+void RemoveRoomRoof( INT32 sGridNo, UINT16 usRoomNum, TacticalActor *pSoldier );
 BOOLEAN InARoom( INT32 sGridNo, UINT16 *pusRoomNo );
 BOOLEAN InAHiddenRoom( INT32 sGridNo, UINT16 *pusRoomNo );
 

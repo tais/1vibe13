@@ -12,22 +12,22 @@
 UINT8 GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMapPos, BOOLEAN fActivated );
 void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLEAN fRecalc );
 
-void HandleLeftClickCursor( SOLDIERTYPE *pSoldier );
-void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos );
-void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, INT32 sDelta, INT16 brstmode );
-void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta );
+void HandleLeftClickCursor( TacticalActor *pSoldier );
+void HandleRightClickAdjustCursor( TacticalActor *pSoldier, INT32 usMapPos );
+void HandleWheelAdjustCursor( TacticalActor *pSoldier, INT32 usMapPos, INT32 sDelta, INT16 brstmode );
+void HandleWheelAdjustCursorWOAB( TacticalActor *pSoldier, INT32 sMapPos, INT32 sDelta );
 
-UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier );
+UINT8 GetActionModeCursor( TacticalActor *pSoldier );
 
 extern BOOLEAN gfCannotGetThrough;
 
-void HandleUICursorRTFeedback( SOLDIERTYPE *pSoldier );
-void HandleEndConfirmCursor( SOLDIERTYPE *pSoldier );
+void HandleUICursorRTFeedback( TacticalActor *pSoldier );
+void HandleEndConfirmCursor( TacticalActor *pSoldier );
 
 BOOLEAN GetMouseRecalcAndShowAPFlags( UINT32 *puiCursorFlags, BOOLEAN *pfShowAPs );
 
 // HEADROCK HAM B2.7: This function calculates the nearest value (display purposes only) 
 // based on how trained the shooter is.
-UINT32 ChanceToHitApproximation( SOLDIERTYPE * pSoldier, UINT32 uiChance );
+UINT32 ChanceToHitApproximation( TacticalActor * pSoldier, UINT32 uiChance );
 
 #endif

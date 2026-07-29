@@ -70,7 +70,7 @@ UINT8 GetTownOpinionOfMerc( UINT8 ubProfileId, UINT8 ubTownId )
 }
 
 
-UINT8 GetTownOpinionOfMercForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubTownId )
+UINT8 GetTownOpinionOfMercForSoldier( TacticalActor *pSoldier, UINT8 ubTownId )
 {
 	// error check
 	if( pSoldier == NULL )
@@ -110,7 +110,7 @@ void UpdateTownOpinionOfThisMerc( UINT8 ubProfileId, UINT8 ubTownId, INT8 bAmoun
 }
 
 
-void UpdateTownOpinionOfThisMercForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubTownId, INT8 bAmount )
+void UpdateTownOpinionOfThisMercForSoldier( TacticalActor *pSoldier, UINT8 ubTownId, INT8 bAmount )
 {
 	// error check
 	if( pSoldier == NULL )
@@ -178,7 +178,7 @@ void HandleOpinionOfTownsAboutSoldier( INT8 bTownA, INT8 bTownB, INT32 iDistance
 
 
 /*
-void HandleSpreadOfTownOpinionForMercForSoldier( SOLDIERTYPE *pSoldier )
+void HandleSpreadOfTownOpinionForMercForSoldier( TacticalActor *pSoldier )
 {
 	// error check
 	if( pSoldier == NULL )

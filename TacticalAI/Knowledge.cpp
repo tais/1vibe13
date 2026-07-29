@@ -22,7 +22,7 @@ void CallAvailableEnemiesTo( INT32 sGridNo )
 
 void CallAvailableTeamEnemiesTo( INT32 sGridNo, INT8 bTeam )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// All enemy teams become aware of a very important "noise" coming from here!
 	// if this team is active
@@ -56,7 +56,7 @@ void CallAvailableKingpinMenTo( INT32 sGridNo )
 	// like call all enemies, but only affects civgroup KINGPIN guys with
 	// NO PROFILE
 
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// All enemy teams become aware of a very important "noise" coming from here!
 	// if this team is active
@@ -84,7 +84,7 @@ void CallAvailableKingpinMenTo( INT32 sGridNo )
 void CallEldinTo( INT32 sGridNo )
 {
 	// like call all enemies, but only affects Eldin
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// Eldin becomes aware of a very important "noise" coming from here!
 	// So long as he hasn't already heard a noise a sec ago...
@@ -123,7 +123,7 @@ void CallEldinTo( INT32 sGridNo )
 }
 
 
-INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN * pfClimbingNecessary, BOOLEAN * pfReachable )
+INT32 MostImportantNoiseHeard( TacticalActor *pSoldier, INT32 *piRetValue, BOOLEAN * pfClimbingNecessary, BOOLEAN * pfReachable )
 {
 	UINT32 uiLoop;
 	INT8 * pbPersOL, * pbPublOL;
@@ -137,7 +137,7 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 	INT8	bBestLevel = 0;
 	INT32 sClimbingGridNo;
 	BOOLEAN fClimbingNecessary = FALSE;
-	SOLDIERTYPE * pTemp;
+	TacticalActor * pTemp;
 
 	pubNoiseVolume = &gubPublicNoiseVolume[pSoldier->roster().team()];
 	psNoiseGridNo = &gsPublicNoiseGridNo[pSoldier->roster().team()];
@@ -326,12 +326,12 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 }
 
 
-INT16 WhatIKnowThatPublicDont(SOLDIERTYPE *pSoldier, UINT8 ubInSightOnly)
+INT16 WhatIKnowThatPublicDont(TacticalActor *pSoldier, UINT8 ubInSightOnly)
 {
 	UINT8 ubTotal = 0;
 	UINT32 uiLoop;
 	INT8 *pbPersOL,*pbPublOL;
-	SOLDIERTYPE * pTemp;
+	TacticalActor * pTemp;
 
 	// if merc knows of a more important misc. noise than his team does
 	if (!(CREATURE_OR_BLOODCAT( pSoldier )) && (pSoldier->perception().noiseVolume() > gubPublicNoiseVolume[pSoldier->roster().team()]))

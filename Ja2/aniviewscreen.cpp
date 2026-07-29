@@ -21,7 +21,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 void BuildListFile( );
@@ -40,7 +40,7 @@ static INT8   ubCurLoadedState = 0;
 static void CycleAnimations( )
 {
 	INT32 cnt;
-	SOLDIERTYPE* pSoldier = gAniEditSoldier.resolve();
+	TacticalActor* pSoldier = gAniEditSoldier.resolve();
 	if (!pSoldier)
 		return;
 
@@ -84,7 +84,7 @@ UINT32  AniEditScreenHandle(void)
 	static UINT16			usOldState;
 	static BOOLEAN		fToggle = FALSE;
 	static BOOLEAN		fToggle2 = FALSE;
-	SOLDIERTYPE* pSoldier = NULL;
+	TacticalActor* pSoldier = NULL;
 
 	auto leaveAniEditScreen = [&]()
 	{

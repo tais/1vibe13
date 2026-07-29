@@ -1304,7 +1304,7 @@ void MercsDirectionSetCallback( GUI_BUTTON *btn, INT32 reason )
 
 void MercsFindSelectedMercCallback( GUI_BUTTON *btn, INT32 reason )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	if( reason & MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
 		if( gsSelectedMercID == -1 )

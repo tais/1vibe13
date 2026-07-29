@@ -484,7 +484,7 @@ void DisableTeamInfoPanels( void );
 void EnableTeamInfoPanels( void );
  
 // activate pop up for soldiers in the pre battle interface
-void ActivateSoldierPopup( SOLDIERTYPE *pSoldier, UINT8 ubPopupType, INT16 xp, INT16 yp );
+void ActivateSoldierPopup( TacticalActor *pSoldier, UINT8 ubPopupType, INT16 xp, INT16 yp );
 
 // do mapscreen message box
 INT32 DoMapMessageBox( UINT8 ubStyle,	STR16 zString, UINT32 uiExitScreen, UINT32 usFlags, MSGBOX_CALLBACK ReturnCallback );
@@ -508,10 +508,10 @@ void HandleDisplayOfItemPopUpForSector( INT16 sMapX, INT16 sMapY, INT16 sMapZ );
 void HandleDisplayOfSelectedMercArrows( void );
 
 // check which guys can move with this guy
-void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier );
+void DeselectSelectedListMercsWhoCantMoveWithThisGuy( TacticalActor *pSoldier );
 
 // get morale string for this grunt given this morale level
-void GetMoraleString( SOLDIERTYPE *pSoldier, CHAR16 *sString );
+void GetMoraleString( TacticalActor *pSoldier, CHAR16 *sString );
 
 // handle leaving of equipment in sector
 void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId );
@@ -559,7 +559,7 @@ void RemoveMapStatusBarsRegion( void );
 void UpdateCharRegionHelpText( void );
 
 // find this soldier in mapscreen character list and set as contract
-void FindAndSetThisContractSoldier( SOLDIERTYPE *pSoldier );
+void FindAndSetThisContractSoldier( TacticalActor *pSoldier );
 
 // lose the cursor, re-render
 void HandleMAPUILoseCursorFromOtherScreen( void );
@@ -721,7 +721,7 @@ void AddReasonToWaitingListQueue( INT32 iReason );
 void AddDisplayBoxToWaitingQueue( void );
 
 // can this group move it out
-BOOLEAN CanEntireMovementGroupMercIsInMove( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber );
+BOOLEAN CanEntireMovementGroupMercIsInMove( TacticalActor *pSoldier, INT8 *pbErrorNumber );
 void ReportMapScreenMovementError( INT8 bErrorNumber );
 
 void HandleRebuildingOfMapScreenCharacterList( void );
@@ -731,18 +731,18 @@ void RequestIncreaseInTimeCompression( void );
 void RequestDecreaseInTimeCompression( void );
 
 void SelectUnselectedMercsWhoMustMoveWithThisGuy( void );
-BOOLEAN AnyMercInSameSquadOrVehicleIsSelected( SOLDIERTYPE *pSoldier );
+BOOLEAN AnyMercInSameSquadOrVehicleIsSelected( TacticalActor *pSoldier );
 
 INT16 GetRefreshHeightForMercList( void );
 
 BOOLEAN LoadLeaveItemList( HWFILE hFile );
 BOOLEAN SaveLeaveItemList( HWFILE hFile );
 
-BOOLEAN CheckIfSalaryIncreasedAndSayQuote( SOLDIERTYPE *pSoldier, BOOLEAN fTriggerContractMenu );
+BOOLEAN CheckIfSalaryIncreasedAndSayQuote( TacticalActor *pSoldier, BOOLEAN fTriggerContractMenu );
 
 void EndUpdateBox( BOOLEAN fContinueTimeCompression );
 
-extern BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber );
+extern BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumber );
 extern BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot );
 
 

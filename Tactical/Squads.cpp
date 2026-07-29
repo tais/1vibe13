@@ -46,23 +46,23 @@ INT8 SquadMovementGroups[ NUMBER_OF_SQUADS ];
 
 BOOLEAN fExitingVehicleToSquad = FALSE;
 
-extern void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier );
+extern void CheckForAndAddMercToTeamPanel( TacticalActor *pSoldier );
 extern void RemoveAllPlayersFromSlot( );
 extern INT32 iHelicopterVehicleId;
 
 
 // update current merc selected in tactical
-void UpdateCurrentlySelectedMerc( SOLDIERTYPE *pSoldier, INT8 bSquadValue );
+void UpdateCurrentlySelectedMerc( TacticalActor *pSoldier, INT8 bSquadValue );
 
 // is the passed squad between sectors?
 void RebuildSquad( INT8 bSquadValue );
 
-BOOLEAN AddDeadCharacterToSquadDeadGuys( SOLDIERTYPE *pSoldier, INT32 iSquadValue );
-BOOLEAN IsDeadGuyOnAnySquad( SOLDIERTYPE *pSoldier );
+BOOLEAN AddDeadCharacterToSquadDeadGuys( TacticalActor *pSoldier, INT32 iSquadValue );
+BOOLEAN IsDeadGuyOnAnySquad( TacticalActor *pSoldier );
 
 INT32 iCurrentTacticalSquad = FIRST_SQUAD;
 
-SOLDIERTYPE* ResolveSquadMember( INT32 iSquad, INT32 iSlot )
+TacticalActor* ResolveSquadMember( INT32 iSquad, INT32 iSlot )
 {
 	if( iSquad < 0 || iSquad >= NUMBER_OF_SQUADS ||
 		iSlot < 0 || iSlot >= NUMBER_OF_SOLDIERS_PER_SQUAD )
@@ -166,7 +166,7 @@ void FixOversizedSquadsInSector( void )
 				// loop backwards through the squad in order to remove the last person
 				for( iCountSoldier = NUMBER_OF_SOLDIERS_PER_SQUAD - 1; iCountSoldier >= 0 ; iCountSoldier-- )
 				{
-					SOLDIERTYPE* squadMember =
+					TacticalActor* squadMember =
 						ResolveSquadMember( iCountSquad, iCountSoldier );
 					// if squad is still oversized, and we have found a squad member
 					if( squadMember != NULL && iPeopleInSquad > gGameOptions.ubSquadSize )
@@ -187,7 +187,7 @@ void FixOversizedSquadsInSector( void )
 	}
 }
 
-BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
+BOOLEAN AddCharacterToSquad( TacticalActor *pCharacter, INT8 bSquadValue )
 {
 	INT8 bCounter =0;
 	INT16 sX, sY;
@@ -437,7 +437,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 
 
 // find the first slot we can fit the guy in
-BOOLEAN AddCharacterToAnySquad( SOLDIERTYPE *pCharacter )
+BOOLEAN AddCharacterToAnySquad( TacticalActor *pCharacter )
 {
 	// add character to any squad, if character is assigned to a squad, returns TRUE
 	INT8 bCounter = 0;
@@ -483,7 +483,7 @@ BOOLEAN AddCharacterToAnySquad( SOLDIERTYPE *pCharacter )
 }
 
 // find the first slot we can fit the guy in
-INT8 AddCharacterToUniqueSquad( SOLDIERTYPE *pCharacter )
+INT8 AddCharacterToUniqueSquad( TacticalActor *pCharacter )
 {
 	// add character to any squad, if character is assigned to a squad, returns TRUE
 	INT8 bCounter = 0;
@@ -526,7 +526,7 @@ BOOLEAN SquadIsEmpty( INT8 bSquadValue )
 
 
 // find and remove characters from any squad
-BOOLEAN RemoveCharacterFromSquads( SOLDIERTYPE *pCharacter )
+BOOLEAN RemoveCharacterFromSquads( TacticalActor *pCharacter )
 {
 	INT32 iCounterA = 0;
 	INT32 iCounter = 0;
@@ -598,7 +598,7 @@ BOOLEAN RemoveCharacterFromSquads( SOLDIERTYPE *pCharacter )
 	return ( FALSE );
 }
 
-BOOLEAN RemoveCharacterFromASquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
+BOOLEAN RemoveCharacterFromASquad( TacticalActor *pCharacter, INT8 bSquadValue )
 {
 
 	INT32 iCounter =0;
@@ -647,7 +647,7 @@ BOOLEAN RemoveCharacterFromASquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 
 
 
-BOOLEAN IsCharacterInSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
+BOOLEAN IsCharacterInSquad( TacticalActor *pCharacter, INT8 bSquadValue )
 {
 	INT32 iCounter =0;
 	const TacticalEntityId actor =
@@ -672,7 +672,7 @@ BOOLEAN IsCharacterInSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 	return ( FALSE );
 }
 
-INT8 SlotCharacterIsInSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
+INT8 SlotCharacterIsInSquad( TacticalActor *pCharacter, INT8 bSquadValue )
 {
 	INT8 bCounter =0;
 	const TacticalEntityId actor =
@@ -698,7 +698,7 @@ INT8 SlotCharacterIsInSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 	return ( -1 );
 }
 
-INT8 SquadCharacterIsIn( SOLDIERTYPE *pCharacter )
+INT8 SquadCharacterIsIn( TacticalActor *pCharacter )
 {
 	// returns which squad character is in, -1 if none found
 	INT8 iCounterA =0, iCounter = 0;
@@ -753,7 +753,7 @@ INT8 NumberOfNonEPCsInSquad( INT8 bSquadValue )
 	// find number of characters in particular squad.
 	for( bCounter = 0; bCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; ++bCounter )
 	{
-		SOLDIERTYPE* squadMember =
+		TacticalActor* squadMember =
 			ResolveSquadMember( bSquadValue, bCounter );
 		// valid slot?
 		if( squadMember != NULL && !AM_AN_EPC( squadMember ) )
@@ -779,7 +779,7 @@ BOOLEAN IsRobotControllerInSquad( INT8 bSquadValue )
 	// find number of characters in particular squad.
 	for( bCounter = 0; bCounter < NUMBER_OF_SOLDIERS_PER_SQUAD ; ++bCounter )
 	{
-		SOLDIERTYPE* squadMember =
+		TacticalActor* squadMember =
 			ResolveSquadMember( bSquadValue, bCounter );
 		// valid slot?
 		if ( squadMember != NULL && squadMember->ControllingRobot( ) )
@@ -802,7 +802,7 @@ BOOLEAN SectorSquadIsIn(INT8 bSquadValue, INT16 *sMapX, INT16 *sMapY, INT16 *sMa
 
 	for( bCounter = 0; bCounter < NUMBER_OF_SOLDIERS_PER_SQUAD ; ++bCounter )
 	{
-		SOLDIERTYPE* squadMember =
+		TacticalActor* squadMember =
 			ResolveSquadMember( bSquadValue, bCounter );
 		// if valid soldier, get current sector and return
 		if( squadMember != NULL )
@@ -820,14 +820,14 @@ BOOLEAN SectorSquadIsIn(INT8 bSquadValue, INT16 *sMapX, INT16 *sMapY, INT16 *sMa
 }
 
 
-BOOLEAN CopyPathOfSquadToCharacter(	SOLDIERTYPE *pCharacter, INT8 bSquadValue )
+BOOLEAN CopyPathOfSquadToCharacter(	TacticalActor *pCharacter, INT8 bSquadValue )
 {
 	// copy path from squad to character
 	INT8 bCounter = 0;
 
 	for( bCounter = 0; bCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; ++bCounter )
 	{
-		SOLDIERTYPE* squadMember =
+		TacticalActor* squadMember =
 			ResolveSquadMember( bSquadValue, bCounter );
 		if( squadMember != pCharacter && squadMember != NULL )
 		{
@@ -845,7 +845,7 @@ BOOLEAN CopyPathOfSquadToCharacter(	SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 }
 
 
-BOOLEAN CopyPathOfCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
+BOOLEAN CopyPathOfCharacterToSquad( TacticalActor *pCharacter, INT8 bSquadValue )
 {
 	// copy path of this character to members of squad
 	BOOLEAN fSuccess = FALSE;
@@ -863,7 +863,7 @@ BOOLEAN CopyPathOfCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 	// copy each person on squad, skip this character
 	for( bCounter = 0; bCounter < NUMBER_OF_SOLDIERS_PER_SQUAD ; bCounter++ )
 	{
-		SOLDIERTYPE* squadMember =
+		TacticalActor* squadMember =
 			ResolveSquadMember( bSquadValue, bCounter );
 		if( squadMember != pCharacter && squadMember != NULL )
 		{
@@ -945,7 +945,7 @@ BOOLEAN SetCurrentSquad( INT32 iCurrentSquad, BOOLEAN fForce )
 	{
 		for( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 		{
-			SOLDIERTYPE* squadMember =
+			TacticalActor* squadMember =
 				ResolveSquadMember( iCurrentTacticalSquad, iCounter );
 			if( squadMember != NULL )
 			{
@@ -953,7 +953,7 @@ BOOLEAN SetCurrentSquad( INT32 iCurrentSquad, BOOLEAN fForce )
 				CheckForAndAddMercToTeamPanel( squadMember );
 			}
 		}
-		SOLDIERTYPE *pDeadSoldier = NULL;
+		TacticalActor *pDeadSoldier = NULL;
 		for (iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++)
 		{
 			if (sDeadMercs[iCurrentTacticalSquad][iCounter] != -1)
@@ -972,12 +972,12 @@ BOOLEAN SetCurrentSquad( INT32 iCurrentSquad, BOOLEAN fForce )
 	// check if the currently selected guy is on this squad, if not, get the first one on the new squad
 	if ( gusSelectedSoldier != NOBODY )
 	{
-		SOLDIERTYPE* selectedSoldier =
+		TacticalActor* selectedSoldier =
 			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 		if( selectedSoldier->assignment().current() != iCurrentTacticalSquad )
 		{
 			// ATE: Changed this to FALSE for ackoledgement sounds.. sounds bad if just starting/entering sector..
-			SOLDIERTYPE* firstSquadMember =
+			TacticalActor* firstSquadMember =
 				ResolveSquadMember( iCurrentTacticalSquad, 0 );
 			if( firstSquadMember )
 				SelectSoldier(
@@ -987,7 +987,7 @@ BOOLEAN SetCurrentSquad( INT32 iCurrentSquad, BOOLEAN fForce )
 	else
 	{
 		// ATE: Changed this to FALSE for ackoledgement sounds.. sounds bad if just starting/entering sector..
-		SOLDIERTYPE* firstSquadMember =
+		TacticalActor* firstSquadMember =
 			ResolveSquadMember( iCurrentTacticalSquad, 0 );
 		if( firstSquadMember )
 			SelectSoldier(
@@ -1001,7 +1001,7 @@ void RebuildCurrentSquad( void )
 {
 	// rebuilds current squad to reset faces in tactical
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pDeadSoldier = NULL;
+	TacticalActor *pDeadSoldier = NULL;
 
 	// check if valid value passed
 	if( ( iCurrentTacticalSquad >= NUMBER_OF_SQUADS ) || ( iCurrentTacticalSquad < 0 ) )
@@ -1025,7 +1025,7 @@ void RebuildCurrentSquad( void )
 	{
 		for( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 		{
-			SOLDIERTYPE* squadMember =
+			TacticalActor* squadMember =
 				ResolveSquadMember( iCurrentTacticalSquad, iCounter );
 			if( squadMember != NULL )
 			{
@@ -1057,7 +1057,7 @@ void ExamineCurrentSquadLights( void )
 	SoldierID usID = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; usID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++usID)
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(usID.i);
 		if ( soldier->roster().inSector() && soldier->vitals().health() >= OKLIFE )
 		{
@@ -1084,7 +1084,7 @@ void ExamineCurrentSquadLights( void )
 
 
 
-BOOLEAN GetSoldiersInSquad( INT32 iCurrentSquad, SOLDIERTYPE *pSoldierArray[] )
+BOOLEAN GetSoldiersInSquad( INT32 iCurrentSquad, TacticalActor *pSoldierArray[] )
 {
 	INT32 iCounter = 0;
 	// will get the soldiertype pts for every merc in this squad
@@ -1121,7 +1121,7 @@ BOOLEAN IsSquadOnCurrentTacticalMap( INT32 iCurrentSquad )
 	// go through memebrs of squad...if anyone on this map, return true
 	for( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 	{
-		SOLDIERTYPE* squadMember =
+		TacticalActor* squadMember =
 			ResolveSquadMember( iCurrentSquad, iCounter );
 		if( squadMember != NULL )
 		{
@@ -1343,7 +1343,7 @@ void GetLocationOfSquad( INT16 *sX, INT16 *sY, INT8 *bZ, INT8 bSquadValue )
 
 	for( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 	{
-		SOLDIERTYPE* squadMember =
+		TacticalActor* squadMember =
 			ResolveSquadMember( bSquadValue, iCounter );
 		if( squadMember )
 		{
@@ -1363,7 +1363,7 @@ BOOLEAN IsThisSquadOnTheMove( INT8 bSquadValue )
 
 	for( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 	{
-		SOLDIERTYPE* squadMember =
+		TacticalActor* squadMember =
 			ResolveSquadMember( bSquadValue, iCounter );
 		if( squadMember )
 		{
@@ -1382,7 +1382,7 @@ void RebuildSquad( INT8 bSquadValue )
 		static_cast<std::size_t>( bSquadValue ) );
 }
 
-void UpdateCurrentlySelectedMerc( SOLDIERTYPE *pSoldier, INT8 bSquadValue )
+void UpdateCurrentlySelectedMerc( TacticalActor *pSoldier, INT8 bSquadValue )
 {
 	// if this squad is the current one and and the psoldier is the currently selected soldier, get rid of 'em
 	if( bSquadValue != iCurrentTacticalSquad )
@@ -1412,7 +1412,7 @@ void UpdateCurrentlySelectedMerc( SOLDIERTYPE *pSoldier, INT8 bSquadValue )
 }
 
 
-BOOLEAN IsSquadInSector( SOLDIERTYPE *pSoldier, UINT8 ubSquad )
+BOOLEAN IsSquadInSector( TacticalActor *pSoldier, UINT8 ubSquad )
 {
 
 	if( pSoldier == NULL )
@@ -1450,7 +1450,7 @@ BOOLEAN IsSquadInSector( SOLDIERTYPE *pSoldier, UINT8 ubSquad )
 		return( TRUE );
 	}
 
-	SOLDIERTYPE* firstSquadMember =
+	TacticalActor* firstSquadMember =
 		ResolveSquadMember( ubSquad, 0 );
 	if( !firstSquadMember )
 	{
@@ -1488,7 +1488,7 @@ BOOLEAN IsAnyMercOnSquadAsleep( UINT8 ubSquadValue )
 
 	for( iCounter = 0 ;iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD - 1; iCounter++ )
 	{
-		SOLDIERTYPE* squadMember =
+		TacticalActor* squadMember =
 			ResolveSquadMember( ubSquadValue, iCounter );
 		if( squadMember != NULL )
 		{
@@ -1502,10 +1502,10 @@ BOOLEAN IsAnyMercOnSquadAsleep( UINT8 ubSquadValue )
 	return( FALSE );
 }
 
-BOOLEAN AddDeadCharacterToSquadDeadGuys( SOLDIERTYPE *pSoldier, INT32 iSquadValue )
+BOOLEAN AddDeadCharacterToSquadDeadGuys( TacticalActor *pSoldier, INT32 iSquadValue )
 {
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pTempSoldier = NULL;
+	TacticalActor *pTempSoldier = NULL;
 
 
 
@@ -1560,7 +1560,7 @@ BOOLEAN AddDeadCharacterToSquadDeadGuys( SOLDIERTYPE *pSoldier, INT32 iSquadValu
 	return( FALSE );
 }
 
-BOOLEAN IsDeadGuyOnAnySquad( SOLDIERTYPE *pSoldier )
+BOOLEAN IsDeadGuyOnAnySquad( TacticalActor *pSoldier )
 {
 	INT32 iCounterA = 0, iCounter = 0;
 
@@ -1614,7 +1614,7 @@ BOOLEAN IsDeadGuyInThisSquadSlot( INT8 bSlotId, INT8 bSquadValue , INT8 *bNumber
 }
 
 
-BOOLEAN SoldierIsDeadAndWasOnSquad( SOLDIERTYPE *pSoldier, INT8 bSquadValue )
+BOOLEAN SoldierIsDeadAndWasOnSquad( TacticalActor *pSoldier, INT8 bSquadValue )
 {
 	INT32 iCounter = 0;
 
@@ -1644,7 +1644,7 @@ BOOLEAN ResetDeadSquadMemberList( INT32 iSquadValue )
 
 
 // this passed	soldier on the current squad int he tactical map
-BOOLEAN IsMercOnCurrentSquad( SOLDIERTYPE *pSoldier )
+BOOLEAN IsMercOnCurrentSquad( TacticalActor *pSoldier )
 {
 	INT32 iCounter = 0;
 	TacticalEntityId actor;
@@ -1689,7 +1689,7 @@ BOOLEAN IsMercOnCurrentSquad( SOLDIERTYPE *pSoldier )
 
 INT8 NumberOfPlayerControllableMercsInSquad( INT8 bSquadValue )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT8 bCounter = 0;
 	INT8 bSquadCount = 0;
 
@@ -1722,7 +1722,7 @@ INT8 NumberOfPlayerControllableMercsInSquad( INT8 bSquadValue )
 
 BOOLEAN DoesVehicleExistInSquad( INT8 bSquadValue )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT8 bCounter = 0;
 
 	if( bSquadValue >= NO_CURRENT_SQUAD )
@@ -1768,7 +1768,7 @@ void CheckSquadMovementGroups( void )
 
 		// Bob: propagate the group id to the squad members
 		for (INT8 iSoldier = 0; iSoldier < NUMBER_OF_SOLDIERS_PER_SQUAD; iSoldier++) {
-			SOLDIERTYPE* squadMember =
+			TacticalActor* squadMember =
 				ResolveSquadMember( iSquad, iSoldier );
 			if (squadMember != NULL)
 			{

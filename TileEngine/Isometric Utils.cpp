@@ -184,7 +184,7 @@ UINT8 gPurpendicularDirection[ NUM_WORLD_DIRECTIONS ][ NUM_WORLD_DIRECTIONS ] =
 
 //----------------------legion by Jazz-----------------
 
-BOOLEAN FindWindowJumpDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
+BOOLEAN FindWindowJumpDirection( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
 {
 	INT32			cnt;
 	INT32 sNewGridNo, sOtherSideOfFence;
@@ -265,7 +265,7 @@ BOOLEAN FindWindowJumpDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bSta
 	return( FALSE );
 }
 
-BOOLEAN FindWallJumpDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
+BOOLEAN FindWallJumpDirection( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
 {
 	INT32			cnt;
 	INT32			sNewGridNo, sOtherSideOfFence;
@@ -319,7 +319,7 @@ BOOLEAN FindWallJumpDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStart
 	return( FALSE );
 }
 
-BOOLEAN FindHeigherLevelOkno( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
+BOOLEAN FindHeigherLevelOkno( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
 {
 
 	INT32			cnt;
@@ -418,7 +418,7 @@ BOOLEAN FindHeigherLevelOkno( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStarti
 */
 }
 
-BOOLEAN FindHeigherLevelFence( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
+BOOLEAN FindHeigherLevelFence( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
 {
 	INT32			cnt;
 	INT32			sNewGridNo;
@@ -472,7 +472,7 @@ BOOLEAN FindHeigherLevelFence( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStart
 	return( FALSE );
 }
 
-BOOLEAN FindLowerLevelWall( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
+BOOLEAN FindLowerLevelWall( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
 {
 	INT32			cnt;
 	INT32			sNewGridNo;
@@ -1041,7 +1041,7 @@ INT8 FindNumTurnsBetweenDirs( INT8 sDir1, INT8 sDir2 )
 }
 
 
-BOOLEAN FindHeigherLevel( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
+BOOLEAN FindHeigherLevel( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
 {
 	INT32			cnt;
 	INT32 sNewGridNo;
@@ -1090,7 +1090,7 @@ BOOLEAN FindHeigherLevel( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDi
 	return( FALSE );
 }
 
-BOOLEAN FindLowerLevel( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
+BOOLEAN FindLowerLevel( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
 {
 	INT32			cnt;
 	INT32 sNewGridNo;
@@ -1277,7 +1277,7 @@ BOOLEAN GridNoOnEdgeOfMap( INT32 sGridNo, INT8 * pbDirection )
 }
 
 
-BOOLEAN FindFenceJumpDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
+BOOLEAN FindFenceJumpDirection( TacticalActor *pSoldier, INT32 sGridNo, INT8 bStartingDir, INT8 *pbDirection )
 {
 	INT32			cnt;
 	INT32 sNewGridNo, sOtherSideOfFence;
@@ -1346,7 +1346,7 @@ INT32 RandomGridNo()
 // Flugente: is this gridno near a player merc?
 BOOLEAN GridNoNearPlayerMercs( INT32 sGridNo, INT16 sRadius )
 {
-	SOLDIERTYPE* pTeamSoldier = NULL;
+	TacticalActor* pTeamSoldier = NULL;
 	SoldierID cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 	SoldierID lastid = gTacticalStatus.Team[ OUR_TEAM ].bLastID;
 	for ( ; cnt < lastid; ++cnt )

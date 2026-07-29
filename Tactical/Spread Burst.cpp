@@ -11,7 +11,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 
@@ -54,7 +54,7 @@ void InternalAccumulateBurstLocation( INT32 sGridNo )
 //it will automatically latch onto enemies within iSearchRange tiles of the mouse drag.
 void AccumulateBurstLocation( INT32 sGridNo )
 {
-	SOLDIERTYPE* pTarget;
+	TacticalActor* pTarget;
 	int iSearchRange = 2; // number of tiles beside the mouse drag to look at
 	INT32	sMaxLeft, sMaxRight, sMaxUp, sMaxDown, sXOffset, sYOffset, sAdjacentGridNo;
 	BOOLEAN foundTarget = FALSE;
@@ -114,7 +114,7 @@ void AccumulateBurstLocation( INT32 sGridNo )
 }
 
 
-void PickBurstLocations( SOLDIERTYPE *pSoldier )
+void PickBurstLocations( TacticalActor *pSoldier )
 {
 	UINT8		ubShotsPerBurst = 0;
 	FLOAT		dAccumulator = 0;
@@ -190,7 +190,7 @@ void PickBurstLocations( SOLDIERTYPE *pSoldier )
 	// OK, they have been added
 }
 
-void AIPickBurstLocations( SOLDIERTYPE *pSoldier, INT8 bTargets, SOLDIERTYPE *pTargets[5] )
+void AIPickBurstLocations( TacticalActor *pSoldier, INT8 bTargets, TacticalActor *pTargets[5] )
 {
 	UINT8		ubShotsPerBurst;
 	FLOAT		dAccululator = 0;

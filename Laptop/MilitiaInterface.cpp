@@ -414,7 +414,7 @@ MilitiaPersonalInventoryTable::Display( )
 	UINT16 usPosX = GetX( ) + 10;
 	UINT16 usPosY = GetY( ) + 10;
 
-	SOLDIERTYPE* pSoldier = GetUsedSoldierToIndividualMilitia( mMilitiaId );
+	TacticalActor* pSoldier = GetUsedSoldierToIndividualMilitia( mMilitiaId );
 
 	if ( pSoldier )
 	{

@@ -6,7 +6,7 @@
 
 // Stable identity for a live JA2 tactical actor. A slot alone is reusable, so
 // commands, snapshots, and package messages must carry the incarnation that
-// JA2 assigns when constructing the SOLDIERTYPE occupying that slot.
+// JA2 assigns when constructing the TacticalActor occupying that slot.
 struct TacticalEntityId
 {
 	std::uint16_t slot = std::numeric_limits<std::uint16_t>::max();

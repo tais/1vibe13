@@ -36,9 +36,9 @@ extern	BOOLEAN		gfFirstTimeInGameHeliCrash;
 INT16		RandomProfileIdFromNewMercsOnPlayerTeam();
 SoldierID	RandomSoldierIdFromNewMercsOnPlayerTeam();
 UINT8		GetNumSoldierIdAndProfileIdOfTheNewMercsOnPlayerTeam( SoldierID *pSoldierIdArray, UINT8 *pProfileIdArray );
-BOOLEAN	IsSoldierQualifiedMerc( SOLDIERTYPE *pSoldier );
-BOOLEAN	IsSoldierQualifiedInitialHireMerc( SOLDIERTYPE *pSoldier );
-BOOLEAN	IsSoldierQualifiedMercForSeeingPowerGenFan( SOLDIERTYPE *pSoldier );
+BOOLEAN	IsSoldierQualifiedMerc( TacticalActor *pSoldier );
+BOOLEAN	IsSoldierQualifiedInitialHireMerc( TacticalActor *pSoldier );
+BOOLEAN	IsSoldierQualifiedMercForSeeingPowerGenFan( TacticalActor *pSoldier );
 
 BOOLEAN SayQuoteFromAllNewHiredMercButDoGastonLast( UINT8 ubProfile, UINT32 uiQuoteNum );
 
@@ -63,7 +63,7 @@ void HandleStartingFanBackUp();
 void HandlePowerGenAlarm();
 
 
-BOOLEAN HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuoteOnlyOnce );
+BOOLEAN HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel( TacticalActor *pSoldier, BOOLEAN fSayQuoteOnlyOnce );
 
 extern void HandleHowPlayerGotThroughFan();
 
@@ -75,8 +75,8 @@ void HandlePlayingQuoteWhenHiringNpc( UINT8 ubProfile );
 BOOLEAN LoadJa25TacticalInfoFromSavedGame( HWFILE hFile );
 BOOLEAN SaveJa25TacticalInfoToSaveGame( HWFILE hFile );
 
-BOOLEAN HandleNewGunComment( SOLDIERTYPE *pSoldier, INT32 iItemIndex, BOOLEAN fFromGround );
-void HandleDeathInPowerGenSector( SOLDIERTYPE *pSoldier );
+BOOLEAN HandleNewGunComment( TacticalActor *pSoldier, INT32 iItemIndex, BOOLEAN fFromGround );
+void HandleDeathInPowerGenSector( TacticalActor *pSoldier );
 
 void		HandleJa25EnemyExpLevelModifier( );
 
@@ -88,11 +88,11 @@ extern void		HandleInitialEventsInHeliCrash();
 
 void		HandleCommanderMorrisNewMercWantsNoteDelayedSpeech();
 
-void		DisplayCommanderMorrisNote( SOLDIERTYPE *pSoldier );
+void		DisplayCommanderMorrisNote( TacticalActor *pSoldier );
 
 void		HandleShowingRadioLocatorsInMorrisArea();
 
-void		HandleNewMercSayingContentsOfMorrisNote( SOLDIERTYPE *pSoldier );
+void		HandleNewMercSayingContentsOfMorrisNote( TacticalActor *pSoldier );
 
 void		HandlePlayerHittingSwitchToLaunchMissles();
 

@@ -107,7 +107,7 @@ INT32 HEIGHT_PROGRESSBAR, PROG_BAR_START_Y;
 
 // sevenfm
 extern BOOLEAN gfCannotGetThrough;			// will use it when showing red laser dot
-extern void SoldierTooltip(SOLDIERTYPE*);
+extern void SoldierTooltip(TacticalActor*);
 
 BOOLEAN	gfProgBarActive		= FALSE;
 UINT16		gubProgNumEnemies		= 0;
@@ -144,7 +144,7 @@ BOOLEAN				gfTopMessageDirty = FALSE;
 
 void CreateTopMessage( UINT32 uiSurface, UINT8 ubType, STR16 psString );
 
-extern UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 usAnimState );
+extern UINT16 GetAnimStateForInteraction( TacticalActor *pSoldier, BOOLEAN fDoor, UINT16 usAnimState );
 
 
 MOUSE_REGION	gMenuOverlayRegion;
@@ -260,7 +260,7 @@ RECT LeftRect2;
 // HEADROCK HAM 4: Externed this value which tracks whether we've clicked out final aiming click yet.
 extern BOOLEAN gfDisplayFullCountRing;
 
-void DrawBarsInUIBox( SOLDIERTYPE *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, INT16 interval);
+void DrawBarsInUIBox( TacticalActor *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, INT16 interval);
 void PopupDoorOpenMenu( BOOLEAN fClosingDoor );
 
 
@@ -644,7 +644,7 @@ void ShutdownCurrentPanel( )
 
 void SetCurrentTacticalPanelCurrentMerc( SoldierID ubID )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	// Disable faces
 	SetAllAutoFacesInactive( );
@@ -781,7 +781,7 @@ void BtnPositionCallback(GUI_BUTTON *btn,INT32 reason)
 
 void PopupMovementMenu( UI_EVENT *pUIEvent )
 {
-	SOLDIERTYPE					*pSoldier = NULL;
+	TacticalActor					*pSoldier = NULL;
 	INT32								iMenuAnchorX, iMenuAnchorY;
 	UINT32							uiActionImages;
 	CHAR16								zActionString[ 50 ];
@@ -1018,7 +1018,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	// anv: don't switch if passengers are blocked from attacking
 	if( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
-		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
+		TacticalActor *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 		INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
 		if( gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].VehicleSeats[bSeatIndex].fBlockedShots == TRUE )
 		{
@@ -1387,7 +1387,7 @@ void EraseRenderArrows( )
 
 void GetArrowsBackground( )
 {
-	SOLDIERTYPE								*pSoldier;
+	TacticalActor								*pSoldier;
 	INT16											sMercScreenX, sMercScreenY;
 	UINT16										sArrowHeight = ARROWS_HEIGHT, sArrowWidth = ARROWS_WIDTH;
 
@@ -1494,7 +1494,7 @@ void GetArrowsBackground( )
 }
 
 
-void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, BOOLEAN fRadio)
+void GetSoldierAboveGuyPositions(TacticalActor *pSoldier, INT16 *psX, INT16 *psY, BOOLEAN fRadio)
 {
 	INT16 sMercScreenX, sMercScreenY;
 	INT16 sOffsetX, sOffsetY;
@@ -1651,7 +1651,7 @@ void DrawCTHPixelToBuffer( PIXEL *pBuffer, UINT32 uiPitch, INT16 sLeft, INT16 sT
 
 void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 {
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	INT16			sXPos, sYPos;
 	INT16			sX, sY;
 	INT32			iBack;
@@ -1725,7 +1725,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				}
 				else
 				{
-					SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
+					TacticalActor *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 					GetSoldierAboveGuyPositions( pVehicle, &sXPos, &sYPos, TRUE );
 				}
 
@@ -1791,7 +1791,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			}
 			else
 			{
-				SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
+				TacticalActor *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 				GetSoldierAboveGuyPositions( pVehicle, &sXPos, &sYPos, TRUE );
 			}
 
@@ -1868,7 +1868,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	}
 	else
 	{
-		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
+		TacticalActor *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 		GetSoldierAboveGuyPositions( pVehicle, &sXPos, &sYPos, FALSE );
 	}
 
@@ -2398,8 +2398,8 @@ BOOLEAN DrawCTHIndicator()
 	INT32			iBack;
 
 	// Find the shooter.
-	SOLDIERTYPE *pSoldier;
-	SOLDIERTYPE *pTarget;
+	TacticalActor *pSoldier;
+	TacticalActor *pTarget;
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
 	OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
@@ -3508,7 +3508,7 @@ void EndOverlayMessage( )
 }
 
 
-void DrawBarsInUIBox( SOLDIERTYPE *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, INT16 interval )
+void DrawBarsInUIBox( TacticalActor *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, INT16 interval )
 {
 	FLOAT											dWidth, dPercentage;
 	UINT32										uiDestPitchBYTES;
@@ -3708,7 +3708,7 @@ void BlitPopupText( VIDEO_OVERLAY *pBlitter )
 
 }
 
-void DirtyMercPanelInterface( SOLDIERTYPE *pSoldier, UINT8 ubDirtyLevel )
+void DirtyMercPanelInterface( TacticalActor *pSoldier, UINT8 ubDirtyLevel )
 {
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DirtyMercPanelInterface"));
 	if ( pSoldier->roster().team() == gbPlayerNum )
@@ -3724,7 +3724,7 @@ void DirtyMercPanelInterface( SOLDIERTYPE *pSoldier, UINT8 ubDirtyLevel )
 
 typedef struct
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	STRUCTURE		*pStructure;
 	UINT8				ubDirection;
 	INT16				sX;
@@ -3737,7 +3737,7 @@ typedef struct
 OPENDOOR_MENU	gOpenDoorMenu;
 BOOLEAN				gfInOpenDoorMenu = FALSE;
 
-BOOLEAN InitDoorOpenMenu( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fClosingDoor )
+BOOLEAN InitDoorOpenMenu( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fClosingDoor )
 {
 	INT16 sHeight, sWidth;
 	INT16	sScreenX, sScreenY;
@@ -5206,7 +5206,7 @@ void UpdateEnemyUIBar( )
 
 void InitPlayerUIBar( BOOLEAN fInterrupt )
 {
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	INT16				bNumOK = 0, bNumNotOK = 0;
 
 	if ( !gGameOptions.fTurnTimeLimit )
@@ -5299,7 +5299,7 @@ void DoorMenuBackregionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	}
 }
 
-STR16 GetSoldierHealthString( SOLDIERTYPE *pSoldier )
+STR16 GetSoldierHealthString( TacticalActor *pSoldier )
 {
 	// sevenfm: show enemy health as text only when SHOW_ENEMY_HEALTH = 1
 	if ( ( gGameExternalOptions.ubShowEnemyHealth != 1 ) && (pSoldier->roster().team() == ENEMY_TEAM || pSoldier->roster().team() == CREATURE_TEAM))
@@ -5340,7 +5340,7 @@ typedef struct
 	INT8				bPower;
 	INT32 sGridNo;
 	UINT8				ubLevel;
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	BOOLEAN			fShowHeight;
 	BOOLEAN			fShowPower;
 	BOOLEAN			fActiveHeightBar;
@@ -5425,7 +5425,7 @@ BOOLEAN AimCubeUIClick( )
 	}
 }
 
-void BeginAimCubeUI( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 ubLevel, UINT8 bStartPower, INT8 bStartHeight )
+void BeginAimCubeUI( TacticalActor *pSoldier, INT32 sGridNo, INT8 ubLevel, UINT8 bStartPower, INT8 bStartHeight )
 {
 	gfInAimCubeUI = TRUE;
 
@@ -5837,7 +5837,7 @@ void GetItemDimensions( INVTYPE *pItem, INT16 &sWidth, INT16 &sHeight )
 	sHeight = (UINT32)(pTrav->usHeight);	
 }
 
-BOOLEAN ShowExactInfo( SOLDIERTYPE* pSoldier, SOLDIERTYPE* pTargetSoldier )
+BOOLEAN ShowExactInfo( TacticalActor* pSoldier, TacticalActor* pTargetSoldier )
 {
 	INT32 range;
 	INT32 maxExactWeaponDistance;
@@ -5862,8 +5862,8 @@ BOOLEAN ShowExactInfo( SOLDIERTYPE* pSoldier, SOLDIERTYPE* pTargetSoldier )
 void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  )
 {
 	// find target soldier
-	SOLDIERTYPE *pSoldier;	
-	SOLDIERTYPE		*pTargetSoldier;
+	TacticalActor *pSoldier;
+	TacticalActor		*pTargetSoldier;
 	INT32			usItemID = 0;
 	INT16			sX, sY, sWidth, sHeight;
 	INT16			sXOffset = 0;
@@ -5965,7 +5965,7 @@ void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  )
 	}
 }
 
-void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSoldier, BOOLEAN showExactInfo, CHAR16 *NameStr )
+void GetEnemyInfoString( TacticalActor* pSelectedSoldier, TacticalActor* pTargetSoldier, BOOLEAN showExactInfo, CHAR16 *NameStr )
 {
 	UINT16 usItemID;
 
@@ -6115,9 +6115,9 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 	}
 }
 
-void ShowEnemyWeapon( INT16 sX, INT16 sY, SOLDIERTYPE* pTargetSoldier )
+void ShowEnemyWeapon( INT16 sX, INT16 sY, TacticalActor* pTargetSoldier )
 {
-	SOLDIERTYPE *pSelectedSoldier;
+	TacticalActor *pSelectedSoldier;
 	BOOLEAN		showExactInfo = FALSE;
 	CHAR16		NameStr[ MAX_ENEMY_NAMES_CHARS ];
 	UINT16 usTotalWidth;
@@ -6163,13 +6163,13 @@ void ShowEnemyWeapon( INT16 sX, INT16 sY, SOLDIERTYPE* pTargetSoldier )
 	}
 }
 
-void ShowEnemyHealthBar( INT16 sX, INT16 sY, SOLDIERTYPE* pSoldier )
+void ShowEnemyHealthBar( INT16 sX, INT16 sY, TacticalActor* pSoldier )
 {
 	INT32	iBack;
 	UINT8 ubLines = gGameExternalOptions.ubShowEnemyHealth - 1;
 	INT32 iBarWidth = 24;
 	INT32 iBarHeight;
-	SOLDIERTYPE *pSelectedSoldier;
+	TacticalActor *pSelectedSoldier;
 
 	if ( gusSelectedSoldier != NOBODY )
 		pSelectedSoldier =
@@ -6196,7 +6196,7 @@ void ShowEnemyHealthBar( INT16 sX, INT16 sY, SOLDIERTYPE* pSoldier )
 	}
 }
 
-void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLines, INT32 iBarWidth, INT32 iBarHeight )
+void DrawEnemyHealthBar( TacticalActor* pSoldier, INT32 sX, INT32 sY, UINT8 ubLines, INT32 iBarWidth, INT32 iBarHeight )
 {
 	FLOAT		dWidth, dPercentage;
 	UINT32		uiDestPitchBYTES;
@@ -6271,7 +6271,7 @@ void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLine
 }
 
 // Flugente: show enemy role
-BOOLEAN ShowSoldierRoleSymbol(SOLDIERTYPE* pSoldier)
+BOOLEAN ShowSoldierRoleSymbol(TacticalActor* pSoldier)
 {
 	// this only works on enemy soldiers
 	if ( pSoldier->roster().team() != ENEMY_TEAM && pSoldier->roster().team() != CIV_TEAM )
@@ -6434,7 +6434,7 @@ BOOLEAN ShowSoldierRoleSymbol(SOLDIERTYPE* pSoldier)
 }
 
 
-void NCTHImprovedAPColor( SOLDIERTYPE* pSoldier, OBJECTTYPE* pWeapon )
+void NCTHImprovedAPColor( TacticalActor* pSoldier, OBJECTTYPE* pWeapon )
 {
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 0 )
 	{
@@ -6528,7 +6528,7 @@ void NCTHCorrectMaxAperture( FLOAT& iAperture, FLOAT& iDistanceAperture, PIXEL& 
 	}
 }
 
-void NCTHDrawScopeModeIcon( SOLDIERTYPE* pSoldier, INT16 sNewX, INT16 sNewY )
+void NCTHDrawScopeModeIcon( TacticalActor* pSoldier, INT16 sNewX, INT16 sNewY )
 {
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 0 )
 	{
@@ -6568,7 +6568,7 @@ void NCTHDrawScopeModeIcon( SOLDIERTYPE* pSoldier, INT16 sNewX, INT16 sNewY )
 	}
 }
 
-void NCTHShowAimLevels( SOLDIERTYPE* pSoldier, INT16 curX, INT16 curY )
+void NCTHShowAimLevels( TacticalActor* pSoldier, INT16 curX, INT16 curY )
 {
 	CHAR16 pStr[256];
 	INT8 ubAllowedLevels = AllowedAimingLevels( pSoldier, gCTHDisplay.iTargetGridNo );
@@ -6600,7 +6600,7 @@ void NCTHShowAimLevels( SOLDIERTYPE* pSoldier, INT16 curX, INT16 curY )
 	}
 }
 
-void NCTHShowMounted( SOLDIERTYPE* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, INT16 zOffset )
+void NCTHShowMounted( TacticalActor* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, INT16 zOffset )
 {
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 2 )
 	{
@@ -6620,7 +6620,7 @@ void NCTHShowMounted( SOLDIERTYPE* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, INT1
 	}
 }
 
-// Flugente: check a profile for a background flag without using SOLDIERTYPE
+// Flugente: check a profile for a background flag without using TacticalActor
 BOOLEAN	HasBackgroundFlag( UINT8 usProfile, UINT64 aFlag )
 {
 	if ( UsingBackGroundSystem() && usProfile != NO_PROFILE )

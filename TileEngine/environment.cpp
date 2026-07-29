@@ -1125,7 +1125,7 @@ void HandleEnvironmentHazard( )
 
 		BOOLEAN soundplayed = FALSE;
 
-		SOLDIERTYPE *pSoldier = NULL;
+		TacticalActor *pSoldier = NULL;
 		UINT32 uiCnt = 0;
 		for ( uiCnt = 0; uiCnt < TOTAL_SOLDIERS; ++uiCnt )
 		{

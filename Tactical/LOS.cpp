@@ -50,7 +50,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 #define		STEPS_FOR_BULLET_MOVE_TRAILS					10
@@ -360,7 +360,7 @@ LocationCode;
 * @param pSoldier
 * @return ANIM_STAND or ANIM_CROUCH or ANIM_PRONE
 */
-inline UINT8 GetCurrentHeightOfSoldier( SOLDIERTYPE* pSoldier )
+inline UINT8 GetCurrentHeightOfSoldier( TacticalActor* pSoldier )
 {
 	return gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight;
 }
@@ -381,7 +381,7 @@ inline UINT8 GetCurrentHeightOfSoldier( SOLDIERTYPE* pSoldier )
 * @param pSoldier 
 * @return a value generally between 0 and 100 (but who knows if someone wants to use negative values, the basic types allow for that)
 */
-inline INT8 GetJungleCamouflage( SOLDIERTYPE* pSoldier )
+inline INT8 GetJungleCamouflage( TacticalActor* pSoldier )
 {
 	// SANDRO - the Camouflage trait has been solved differently
 	//if (HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED )) {
@@ -390,7 +390,7 @@ inline INT8 GetJungleCamouflage( SOLDIERTYPE* pSoldier )
 	
 	return pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Jungle);
 }
-inline INT8 GetDesertCamouflage( SOLDIERTYPE* pSoldier )
+inline INT8 GetDesertCamouflage( TacticalActor* pSoldier )
 {
 	// SANDRO - the Camouflage trait has been solved differently
 	//if (HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_DESERT )) {
@@ -399,7 +399,7 @@ inline INT8 GetDesertCamouflage( SOLDIERTYPE* pSoldier )
 	
 	return pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Desert);
 }
-inline INT8 GetUrbanCamouflage( SOLDIERTYPE* pSoldier )
+inline INT8 GetUrbanCamouflage( TacticalActor* pSoldier )
 {
 	// SANDRO - the Camouflage trait has been solved differently
 	//if (HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_URBAN )) {
@@ -409,7 +409,7 @@ inline INT8 GetUrbanCamouflage( SOLDIERTYPE* pSoldier )
 	return pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Urban);
 }
 // anv: added this
-inline INT8 GetSnowCamouflage( SOLDIERTYPE* pSoldier )
+inline INT8 GetSnowCamouflage( TacticalActor* pSoldier )
 {
 	// SANDRO - the Camouflage trait has been solved differently
 	//if (HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_URBAN )) {
@@ -433,7 +433,7 @@ inline UINT8 GetBrightness(const UINT8& ubLightLevel)
 // Not inline: declared `extern` in LOS.h, used from other TUs (e.g.
 // Tactical/DisplayCover.cpp). Marking it inline here meant clang -O2 felt
 // free to skip emitting the symbol, breaking the release link on macOS CI.
-INT8 GetStealth( SOLDIERTYPE* pSoldier )
+INT8 GetStealth( TacticalActor* pSoldier )
 {
 	INT16 stealth = GetWornStealth( pSoldier );
 	// SANDRO - this only counts with old traits
@@ -594,7 +594,7 @@ ADDITIONAL_TILE_PROPERTIES_VALUES GetAllAdditonalTilePropertiesForGrid( const IN
 * @param ubTerrainType terrain type defined by TerrainTypeDefines
 * @return a negative value will indicate a reduction of sight, a positive one an addition to sight
 */
-INT8 GetSightAdjustmentCamouflageOnTerrain( SOLDIERTYPE* pSoldier, const UINT8& ubStance, const UINT8& ubTerrainType )
+INT8 GetSightAdjustmentCamouflageOnTerrain( TacticalActor* pSoldier, const UINT8& ubStance, const UINT8& ubTerrainType )
 {
 	if (gGameExternalOptions.ubCamouflageEffectiveness == 0) {
 		return 0;
@@ -634,7 +634,7 @@ INT8 GetSightAdjustmentCamouflageOnTerrain( SOLDIERTYPE* pSoldier, const UINT8& 
 	}
 }
 
-INT8 GetDetailedSightAdjustmentCamouflageOnTerrain( SOLDIERTYPE* pSoldier, const UINT8& ubStance, ADDITIONAL_TILE_PROPERTIES_VALUES zGivenTileProperties )
+INT8 GetDetailedSightAdjustmentCamouflageOnTerrain( TacticalActor* pSoldier, const UINT8& ubStance, ADDITIONAL_TILE_PROPERTIES_VALUES zGivenTileProperties )
 {
 	if (gGameExternalOptions.ubCamouflageEffectiveness == 0) {
 		return 0;
@@ -722,7 +722,7 @@ INT8 GetSightAdjustmentThroughStance( const UINT8& ubStance )
 * @param pSoldier the target
 * @return a negative value will indicate a reduction of sight, a positive one an addition to sight
 */
-INT8 GetSightAdjustmentBasedOnLBE( SOLDIERTYPE* pSoldier )
+INT8 GetSightAdjustmentBasedOnLBE( TacticalActor* pSoldier )
 {
 	if (gGameExternalOptions.ubLBEEffectiveness == 0) {
 		return 0;
@@ -837,7 +837,7 @@ INT8 GetSightAdjustmentBehindStructure( const INT16& iRange, STRUCTURE* pStructu
 * Used by CalculateCoverFromEnemySoldier in DisplayCover.cpp
 * Hoisting out the GetStealth and GetSightAdjustmentBasedOnLBE out of the hot loop made considerable difference in performance.
 */
-INT16 GetSightAdjustment(SOLDIERTYPE* pSoldier, INT8 soldierStealth, INT8 soldierLBESightAdjustment, INT32 sGridNo, INT16 bLevel, INT8 bStance)
+INT16 GetSightAdjustment(TacticalActor* pSoldier, INT8 soldierStealth, INT8 soldierLBESightAdjustment, INT32 sGridNo, INT16 bLevel, INT8 bStance)
 {
 	if (sGridNo == -1) {
 		sGridNo = pSoldier->position().gridNo();
@@ -2008,7 +2008,7 @@ INT32 LineOfSightTest( FLOAT dStartX, FLOAT dStartY, FLOAT dStartZ, FLOAT dEndX,
 	return( distanceWithCover * (MaxNormalDistanceVisible() * CELL_X_SIZE) / iSightLimit );
 }
 
-BOOLEAN CalculateSoldierZPos( SOLDIERTYPE * pSoldier, UINT8 ubPosType, FLOAT * pdZPos )
+BOOLEAN CalculateSoldierZPos( TacticalActor * pSoldier, UINT8 ubPosType, FLOAT * pdZPos )
 {
 	UINT8		ubHeight;
 
@@ -2205,7 +2205,7 @@ BOOLEAN CalculateSoldierZPos( SOLDIERTYPE * pSoldier, UINT8 ubPosType, FLOAT * p
 	return( TRUE );
 }
 
-INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE * pEndSoldier, INT8 bAware, int iTileSightLimit, UINT8 ubAimLocation, bool adjustForSight, bool cthCalc )
+INT32 SoldierToSoldierLineOfSightTest( TacticalActor * pStartSoldier, TacticalActor * pEndSoldier, INT8 bAware, int iTileSightLimit, UINT8 ubAimLocation, bool adjustForSight, bool cthCalc )
 {
 	FLOAT			dStartZPos, dEndZPos;
 	BOOLEAN		fOk;
@@ -2388,7 +2388,7 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 	return( LineOfSightTest( (FLOAT) sX, (FLOAT) sY, dStartZPos, (FLOAT) sX2, (FLOAT) sY2, dEndZPos, iTileSightLimit, bAware, fSmell, NULL, adjustForSight, cthCalc ) );
 	}
 
-INT32 SoldierToLocationWindowTest( SOLDIERTYPE * pStartSoldier, INT32 sEndGridNo )
+INT32 SoldierToLocationWindowTest( TacticalActor * pStartSoldier, INT32 sEndGridNo )
 {
 	// figure out if there is a SINGLE window between the looker and target
 	FLOAT			dStartZPos, dEndZPos;
@@ -2416,7 +2416,7 @@ INT32 SoldierToLocationWindowTest( SOLDIERTYPE * pStartSoldier, INT32 sEndGridNo
 	return( sWindowGridNo );
 }
 
-INT32 SoldierTo3DLocationLineOfSightTest( SOLDIERTYPE * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel, INT8 bAware, int iTileSightLimit, bool adjustForSight )
+INT32 SoldierTo3DLocationLineOfSightTest( TacticalActor * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel, INT8 bAware, int iTileSightLimit, bool adjustForSight )
 {
 	FLOAT dStartZPos, dEndZPos;
 	INT16 sX, sY, sX2, sY2;
@@ -2439,7 +2439,7 @@ INT32 SoldierTo3DLocationLineOfSightTest( SOLDIERTYPE * pStartSoldier, INT32 sGr
 		ubTargetID = WhoIsThere2( sGridNo, bLevel );
 		if (ubTargetID != NOBODY)
 		{
-			SOLDIERTYPE* target =
+			TacticalActor* target =
 				GetJa2SoldierRepository().resolve(
 					ubTargetID );
 			// there's a merc there; do a soldier-to-soldier test
@@ -2466,7 +2466,7 @@ INT32 SoldierTo3DLocationLineOfSightTest( SOLDIERTYPE * pStartSoldier, INT32 sGr
 	return( LineOfSightTest( (FLOAT) sX, (FLOAT) sY, dStartZPos, (FLOAT) sX2, (FLOAT) sY2, dEndZPos, iTileSightLimit, bAware, HasThermalOptics( pStartSoldier), NULL, adjustForSight ) );
 }
 
-INT32 SoldierToVirtualSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bStance, INT8 bAware, int iTileSightLimit )
+INT32 SoldierToVirtualSoldierLineOfSightTest( TacticalActor * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bStance, INT8 bAware, int iTileSightLimit )
 {
 	FLOAT dStartZPos, dEndZPos;
 	INT16 endXPos, endYPos, startXPos, startYPos;
@@ -2561,7 +2561,7 @@ return( iImpact );
 */
 
 // Flugente: riot shields
-void DamageRiotShield( SOLDIERTYPE* pSoldier, INT32& rsDamage, INT32& rsSecondaryDamage )
+void DamageRiotShield( TacticalActor* pSoldier, INT32& rsDamage, INT32& rsSecondaryDamage )
 {
 	if ( !pSoldier )
 		return;
@@ -2587,11 +2587,11 @@ void DamageRiotShield( SOLDIERTYPE* pSoldier, INT32& rsDamage, INT32& rsSecondar
 }
 
 // Flugente: handle bullet impact on riot shield. Returns true if bullet should be removed
-BOOLEAN DamageRiotShield_Bullet( SOLDIERTYPE* pSoldier, BULLET* pBullet )
+BOOLEAN DamageRiotShield_Bullet( TacticalActor* pSoldier, BULLET* pBullet )
 {
 	UINT16 ubAmmoType = 0;
 
-	SOLDIERTYPE * pFirer = NULL;
+	TacticalActor * pFirer = NULL;
 	if ( pBullet->ubFirerID != NOBODY )
 		pFirer = pBullet->pFirer;
 
@@ -2674,12 +2674,12 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	BOOLEAN							fStopped = TRUE;
 	INT8								bSlot;
 	INT8								bHeadSlot = NO_SLOT;
-	SOLDIERTYPE *				pTarget;
+	TacticalActor *				pTarget;
   INT32 sNewGridNo;
 	BOOLEAN			 fCanSpewBlood = FALSE;
 	INT8				bSpewBloodLevel;
 
-	SOLDIERTYPE * pFirer = NULL;
+	TacticalActor * pFirer = NULL;
 	if ( pBullet->ubFirerID != NOBODY )
 	{
 		pFirer = pBullet->pFirer;
@@ -3495,7 +3495,7 @@ void BulletHitWindow( BULLET *pBullet, INT32 sGridNo, UINT16 usStructureID, BOOL
 	WindowHit( sGridNo, usStructureID, fBlowWindowSouth, FALSE );
 }
 
-void BulletMissed( BULLET *pBullet, SOLDIERTYPE * pFirer )
+void BulletMissed( BULLET *pBullet, TacticalActor * pFirer )
 {
 	if (is_networked && pFirer != nullptr)
 	{
@@ -3803,7 +3803,7 @@ static BOOLEAN PositionAllowsHit(BULLET * pBullet, STRUCTURE *	pStructure)
 	const UINT32 uiTopCrouchHitChance = 20;     // bullet flies from ground to roof
 	const UINT32 uiTopProneHitChance = 0;       // bullet flies from ground to roof
 
-	SOLDIERTYPE* target =
+	TacticalActor* target =
 		GetJa2SoldierRepository().resolve( pStructure->usStructureID );
 	if ( target == nullptr )
 		return FALSE;
@@ -3975,7 +3975,7 @@ UINT8 CalcChanceToGetThrough( BULLET * pBullet )
 			{
 				if ( (pStructure->usStructureID != pBullet->ubFirerID) && (pStructure->usStructureID != pBullet->ubTargetID ) )
 				{
-					SOLDIERTYPE* target =
+					TacticalActor* target =
 						GetJa2SoldierRepository().resolve(
 							pStructure->usStructureID );
 					// ignore intended target since we will get closure upon reaching the center
@@ -4315,7 +4315,7 @@ UINT8 CalcChanceToGetThrough( BULLET * pBullet )
 	return( (UINT8) iChanceToGetThrough );
 }
 
-UINT8 SoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE * pEndSoldier )
+UINT8 SoldierToSoldierChanceToGetThrough( TacticalActor * pStartSoldier, TacticalActor * pEndSoldier )
 {
 	INT16 sX, sY;
 	FLOAT dEndZPos;
@@ -4341,7 +4341,7 @@ UINT8 SoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIERTY
 	return( ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos ) );
 }
 
-UINT8 SoldierToSoldierBodyPartChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE * pEndSoldier, UINT8 ubAimLocation )
+UINT8 SoldierToSoldierBodyPartChanceToGetThrough( TacticalActor * pStartSoldier, TacticalActor * pEndSoldier, UINT8 ubAimLocation )
 {
 	// does like StS-CTGT but with a particular body part in mind
 	INT16 sX, sY;
@@ -4384,13 +4384,13 @@ UINT8 SoldierToSoldierBodyPartChanceToGetThrough( SOLDIERTYPE * pStartSoldier, S
 	return( ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos ) );
 }
 
-UINT8 SoldierToLocationChanceToGetThrough( SOLDIERTYPE * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel, SoldierID ubTargetID )
+UINT8 SoldierToLocationChanceToGetThrough( TacticalActor * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel, SoldierID ubTargetID )
 {
 	FLOAT			dEndZPos;
 	INT16			sXPos;
 	INT16			sYPos;
 	INT8			bStructHeight;
-	SOLDIERTYPE * pEndSoldier;
+	TacticalActor * pEndSoldier;
 
 	if (pStartSoldier->position().gridNo() == sGridNo)
 	{
@@ -4435,7 +4435,7 @@ UINT8 SoldierToLocationChanceToGetThrough( SOLDIERTYPE * pStartSoldier, INT32 sG
 	}
 }
 
-UINT8 AISoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE * pEndSoldier )
+UINT8 AISoldierToSoldierChanceToGetThrough( TacticalActor * pStartSoldier, TacticalActor * pEndSoldier )
 {
 	// Like a standard CTGT algorithm BUT fakes the start soldier at standing height
 	INT16 sX, sY;
@@ -4468,13 +4468,13 @@ UINT8 AISoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIER
 	return( ubChance );
 }
 
-UINT8 AISoldierToLocationChanceToGetThrough( SOLDIERTYPE * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel )
+UINT8 AISoldierToLocationChanceToGetThrough( TacticalActor * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel )
 {
 	FLOAT			dEndZPos;
 	INT16			sXPos;
 	INT16			sYPos;
 	INT8			bStructHeight;
-	SOLDIERTYPE * pEndSoldier;
+	TacticalActor * pEndSoldier;
 
 	UINT16		usTrueState;
 	UINT8			ubChance;
@@ -4742,7 +4742,7 @@ INT8 FireBullet( SoldierID ubFirer, BULLET * pBullet, BOOLEAN fFake )
 }
 
 /*
-DOUBLE CalculateVerticalAngle( SOLDIERTYPE * pFirer, SOLDIERTYPE * pTarget )
+DOUBLE CalculateVerticalAngle( TacticalActor * pFirer, TacticalActor * pTarget )
 {
 DOUBLE dStartZ, dEndZ;
 
@@ -4762,7 +4762,7 @@ ddOrigHorizAngle = atan2( dDeltaY, dDeltaX );
 // HEADROCK HAM 4: This formula no longer causes the bullet to deviate. That is handled by AdjustCenterPoint(). This
 // formula is now only responsible for setting the bullet to go where it's told to, and create spread patterns around
 // the bullet.
-INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, UINT16 usHandItem, INT16 sApertureRatio, BOOLEAN fBuckshot, BOOLEAN fFake )
+INT8 FireBulletGivenTargetNCTH( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, UINT16 usHandItem, INT16 sApertureRatio, BOOLEAN fBuckshot, BOOLEAN fFake )
 {
 	//DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"FireBulletGivenTarget");
 	// fFake indicates that we should set things up for a call to ChanceToGetThrough
@@ -4910,7 +4910,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 			ubImpact = (UINT8) (ubImpact * AmmoTypes[weapon->gun.ubGunAmmoType].multipleBulletDamageMultiplier / max(1,AmmoTypes[weapon->gun.ubGunAmmoType].multipleBulletDamageDivisor) );
 			if (pFirer->targeting().targetId() != NOBODY)
 			{
-				SOLDIERTYPE* target =
+				TacticalActor* target =
 					GetJa2SoldierRepository().resolve(
 						pFirer->targeting().targetId() );
 				if ( target )
@@ -5258,7 +5258,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 	return( TRUE );
 }
 
-INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, UINT16 usHandItem, INT16 sHitBy, BOOLEAN fBuckshot, BOOLEAN fFake )
+INT8 FireBulletGivenTarget( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, UINT16 usHandItem, INT16 sHitBy, BOOLEAN fBuckshot, BOOLEAN fFake )
 {
 	if(UsingNewCTHSystem() == true)
 		return FireBulletGivenTargetNCTH(pFirer, dEndX, dEndY, dEndZ, usHandItem, sHitBy, fBuckshot, fFake);
@@ -5420,7 +5420,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 				}
 				if (pFirer->targeting().targetId() != NOBODY)
 				{
-					SOLDIERTYPE* target =
+					TacticalActor* target =
 						GetJa2SoldierRepository().resolve(
 							pFirer->targeting().targetId() );
 					if ( target )
@@ -5446,7 +5446,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 			ubImpact = (UINT8) (ubImpact * AmmoTypes[weapon->gun.ubGunAmmoType].multipleBulletDamageMultiplier / max(1,AmmoTypes[weapon->gun.ubGunAmmoType].multipleBulletDamageDivisor) );
 			if (pFirer->targeting().targetId() != NOBODY)
 			{
-				SOLDIERTYPE* target =
+				TacticalActor* target =
 					GetJa2SoldierRepository().resolve(
 						pFirer->targeting().targetId() );
 				if ( target )
@@ -5946,7 +5946,7 @@ INT8 FireFragmentGivenTarget( SoldierID ubOwner, FLOAT dStartX, FLOAT dStartY, F
 }
 
 // Flugente: fire a shot from a gun that has no user (used for traps with attached guns)
-INT8 FireBulletGivenTargetTrapOnly( SOLDIERTYPE* pThrower, OBJECTTYPE* pObj, INT32 gridno, FLOAT dStartZ, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, INT16 sHitBy )
+INT8 FireBulletGivenTargetTrapOnly( TacticalActor* pThrower, OBJECTTYPE* pObj, INT32 gridno, FLOAT dStartZ, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, INT16 sHitBy )
 {
 	if ( !pObj )
 		return 0;
@@ -6931,7 +6931,7 @@ INT8 FireBulletGivenTarget_NoObjectNoSoldier( UINT16 usItem, UINT8 ammotype, UIN
 }
 
 
-INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ)
+INT8 ChanceToGetThrough(TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ)
 {
 	OBJECTTYPE* pObjHand = pFirer->GetUsedWeapon(&(pFirer->inventory()[pFirer->attackSelection().hand()]));
 
@@ -7015,7 +7015,7 @@ void MoveBullet( INT32 iBullet )
 
 	FIXEDPT		qLastZ;
 
-	SOLDIERTYPE *pTarget;
+	TacticalActor *pTarget;
 	SoldierID	ubTargetID;
 	BOOLEAN		fIntended;
 	BOOLEAN		fStopped;
@@ -7236,7 +7236,7 @@ void MoveBullet( INT32 iBullet )
 			}
 			else if (pStructure->fFlags & STRUCTURE_PERSON)
 			{
-				SOLDIERTYPE *pSoldier =
+				TacticalActor *pSoldier =
 					GetJa2SoldierRepository().resolve(
 						pStructure->usStructureID );
 
@@ -7591,7 +7591,7 @@ void MoveBullet( INT32 iBullet )
 								&& pStructure->fFlags & STRUCTURE_PERSON
 								&& pStructure->usStructureID < TOTAL_SOLDIERS )
 							{
-								SOLDIERTYPE* pTarget =
+								TacticalActor* pTarget =
 									GetJa2SoldierRepository().resolve(
 										pStructure->usStructureID );
 
@@ -7812,7 +7812,7 @@ void MoveBullet( INT32 iBullet )
 								&& pStructure->fFlags & STRUCTURE_PERSON
 								&& pStructure->usStructureID < TOTAL_SOLDIERS )
 							{
-								SOLDIERTYPE* pTarget =
+								TacticalActor* pTarget =
 									GetJa2SoldierRepository().resolve(
 										pStructure->usStructureID );
 
@@ -7986,7 +7986,7 @@ INT32	CheckForCollision( FLOAT dX, FLOAT dY, FLOAT dZ, FLOAT dDeltaX, FLOAT dDel
 	MAP_ELEMENT *		pMapElement;
 	STRUCTURE *			pStructure, *pTempStructure;
 
-	SOLDIERTYPE *		pTarget;
+	TacticalActor *		pTarget;
 	FLOAT						dTargetX;
 	FLOAT						dTargetY;
 	FLOAT						dTargetZMin;
@@ -8567,9 +8567,9 @@ BOOLEAN CalculateLOSNormal( 	STRUCTURE *pStructure, INT8 bLOSX, INT8 bLOSY, INT8
 // Related changes include an overhaul of the CalcChanceToHit() formula, as well as 
 // restructuring of UseGun() and its sub-functions.
  
-void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT *dEndX, FLOAT *dEndY, FLOAT *dEndZ, OBJECTTYPE *pWeapon, UINT32 uiMuzzleSway, INT16 *sApertureRatio )
+void AdjustTargetCenterPoint( TacticalActor *pShooter, INT32 iTargetGridNo, FLOAT *dEndX, FLOAT *dEndY, FLOAT *dEndZ, OBJECTTYPE *pWeapon, UINT32 uiMuzzleSway, INT16 *sApertureRatio )
 {
-	SOLDIERTYPE *pTarget = SimpleFindSoldier( iTargetGridNo, pShooter->targeting().level() );
+	TacticalActor *pTarget = SimpleFindSoldier( iTargetGridNo, pShooter->targeting().level() );
 	BOOLEAN fSecondHandBurst = FALSE;
 
 	if ( pShooter->attackSelection().hand() == SECONDHANDPOS && pShooter->IsValidSecondHandBurst() )
@@ -9030,7 +9030,7 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 
 }
 
-FLOAT CalcProjectionFactor( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT d2DDistance, UINT8 ubAimTime )
+FLOAT CalcProjectionFactor( TacticalActor *pShooter, OBJECTTYPE *pWeapon, FLOAT d2DDistance, UINT8 ubAimTime )
 {
 	FLOAT iProjectionFactor = 1.0f;
 	FLOAT iTargetMagFactor = d2DDistance / gGameCTHConstants.NORMAL_SHOOTING_DISTANCE;
@@ -9068,7 +9068,7 @@ FLOAT CalcProjectionFactor( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT d2
 	return iProjectionFactor;
 }
 
-FLOAT CalcMagFactor( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT d2DDistance, INT32 iTargetGridNo, UINT8 ubAimTime )
+FLOAT CalcMagFactor( TacticalActor *pShooter, OBJECTTYPE *pWeapon, FLOAT d2DDistance, INT32 iTargetGridNo, UINT8 ubAimTime )
 {
 	FLOAT iFinalMagFactor = 1.0;
 	FLOAT iScopeFactor = 1.0;
@@ -9101,7 +9101,7 @@ FLOAT CalcMagFactor( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT d2DDistan
 
 // silversurfer: Effectivity in using scopes is determined by this function. Good shooters can use the full potential of scopes.
 // Iron sights and reflex sights always provide full potential.
-FLOAT CalcEffectiveMagFactor( SOLDIERTYPE *pShooter, FLOAT fRealMagFactor )
+FLOAT CalcEffectiveMagFactor( TacticalActor *pShooter, FLOAT fRealMagFactor )
 {
 	// can't be a scope...
 	if ( fRealMagFactor <= 1.0 )
@@ -9168,7 +9168,7 @@ FLOAT CalcBasicAperture()
 
 // HEADROCK HAM 4: This function causes an offset in x/y/z shooting coordinated due to under-compensation
 // for target movement.
-void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJECTTYPE *pWeapon, FLOAT *dMuzzleOffsetX, DOUBLE ddShootingAngle, INT32 iAperture )
+void CalcTargetMovementOffset( TacticalActor *pShooter, TacticalActor *pTarget, OBJECTTYPE *pWeapon, FLOAT *dMuzzleOffsetX, DOUBLE ddShootingAngle, INT32 iAperture )
 {
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -9393,7 +9393,7 @@ void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJE
 
 }
 
-void CalcRangeCompensationOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetY, INT32 iRangeToTarget, OBJECTTYPE *pWeapon )
+void CalcRangeCompensationOffset( TacticalActor *pShooter, FLOAT *dMuzzleOffsetY, INT32 iRangeToTarget, OBJECTTYPE *pWeapon )
 {
 	////////////////////////////////////////////////////////////////////////////////////////
 	//
@@ -9503,7 +9503,7 @@ void CalcRangeCompensationOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetY, 
 }
 
 
-void CalcMuzzleSway( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, FLOAT iAperture )
+void CalcMuzzleSway( TacticalActor *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, FLOAT iAperture )
 {
 	/////////////////////////////////////////////////////////////////////////////////////////////
 	// HEADROCK HAM 4: New Shooting Mechanism, Muzzle Sway
@@ -9580,7 +9580,7 @@ void CalcMuzzleSway( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzl
 	*dMuzzleOffsetY += dDeltaY * dVerticalBias;
 }
 
-FLOAT CalcBulletDeviation( SOLDIERTYPE *pShooter, FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, OBJECTTYPE *pWeapon, UINT32 uiRange )
+FLOAT CalcBulletDeviation( TacticalActor *pShooter, FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, OBJECTTYPE *pWeapon, UINT32 uiRange )
 {
 	//////////////////////////////////////////////////////////////////////////////////////////////////
 	// HEADROCK HAM 4: New Shooting Mechanism, Bullet Deviation
@@ -9678,7 +9678,7 @@ FLOAT CalcBulletDeviation( SOLDIERTYPE *pShooter, FLOAT *dShotOffsetX, FLOAT *dS
 	return (iBulletDev);
 }
 
-void LimitImpactPointByFacing( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, FLOAT *dEndX, FLOAT *dEndY )
+void LimitImpactPointByFacing( TacticalActor *pShooter, TacticalActor *pTarget, FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, FLOAT *dEndX, FLOAT *dEndY )
 {
 	////////////////////////////////////////////////////////////////////////////////////////////
 	//
@@ -9854,7 +9854,7 @@ void LimitImpactPointToMaxAperture(FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, FLO
 	}	
 }
 
-FLOAT CalcCounterForceMax(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT8 uiStance)
+FLOAT CalcCounterForceMax(TacticalActor *pShooter, OBJECTTYPE *pWeapon, UINT8 uiStance)
 {
 	if(uiStance == 0)
 		uiStance = gAnimControl[ pShooter->animationPlayback().state() ].ubHeight;
@@ -9881,7 +9881,7 @@ FLOAT CalcCounterForceMax(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT8 uiSt
 	return iCounterForceMax;
 }
 
-UINT32 CalcCounterForceAccuracy(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT32 uiRange, BOOLEAN fTracer, bool fAnticipate)
+UINT32 CalcCounterForceAccuracy(TacticalActor *pShooter, OBJECTTYPE *pWeapon, UINT32 uiRange, BOOLEAN fTracer, bool fAnticipate)
 {
 	INT8	traitLoop;
 
@@ -9946,7 +9946,7 @@ UINT32 CalcCounterForceAccuracy(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT
 	// If we can't see the target and neither can buddies, CF-Accuracy drops by 75%
 
 	SoldierID ubTargetID = WhoIsThere2( pShooter->targeting().gridNo(), pShooter->targeting().level() ); // Target ubID
-	SOLDIERTYPE* target =
+	TacticalActor* target =
 		GetJa2SoldierRepository().resolve(
 			ubTargetID );
 	INT16 sDistVis = pShooter->GetMaxDistanceVisible(pShooter->targeting().gridNo(), pShooter->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
@@ -10001,7 +10001,7 @@ UINT32 CalcCounterForceAccuracy(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT
 	return uiCounterForceAccuracy;
 }
 
-void CalcPreRecoilOffset( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, UINT32 uiRange )
+void CalcPreRecoilOffset( TacticalActor *pShooter, OBJECTTYPE *pWeapon, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, UINT32 uiRange )
 {
 	//////////////////////////////////////////////////////////////////////////////////////
 	// HEADROCK HAM 4: New Shooting Mechanism, Pre-Recoil Calculation
@@ -10233,7 +10233,7 @@ void CalcPreRecoilOffset( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT *dMu
 }
 
 // Calculate Recoil Offset
-void CalcRecoilOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, OBJECTTYPE *pWeapon, UINT32 uiRange )
+void CalcRecoilOffset( TacticalActor *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, OBJECTTYPE *pWeapon, UINT32 uiRange )
 {
 	FLOAT dAppliedCounterForceX, dAppliedCounterForceY;
 	FLOAT dCounterForceChangeX, dCounterForceChangeY;
@@ -10447,7 +10447,7 @@ void CalcRecoilOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuz
 	
 }
 
-FLOAT CalcCounterForceChange( SOLDIERTYPE * pShooter, UINT32 uiCounterForceAccuracy, FLOAT dCounterForceMax, FLOAT dMuzzleOffset, FLOAT bRecoil, FLOAT dPrevCounterForce, UINT32 uiIntendedBullets )
+FLOAT CalcCounterForceChange( TacticalActor * pShooter, UINT32 uiCounterForceAccuracy, FLOAT dCounterForceMax, FLOAT dMuzzleOffset, FLOAT bRecoil, FLOAT dPrevCounterForce, UINT32 uiIntendedBullets )
 {
 	/////////////////////////////////////////////////////////////////////////////////////////
 	// HEADROCK HAM 5: New Counter-Force Calculation
@@ -10874,7 +10874,7 @@ FLOAT CalcCounterForceChange( SOLDIERTYPE * pShooter, UINT32 uiCounterForceAccur
 }
 
 // sevenfm: AI function to quickly determine LOS between soldiers, forcing raised gun status to get max view distance
-INT32 LOS_Raised(SOLDIERTYPE * pStartSoldier, SOLDIERTYPE * pEndSoldier, int iTileSightLimit, UINT8 ubAimLocation)
+INT32 LOS_Raised(TacticalActor * pStartSoldier, TacticalActor * pEndSoldier, int iTileSightLimit, UINT8 ubAimLocation)
 {
 	INT32 result;
 	gbForceWeaponReady = true;

@@ -49,7 +49,7 @@ public:
 	void SetLayerProperties(Layers::LayerPropertiesVector::size_type index, Layers::LayerProperties properties);
 	const Layers::LayerProperties* GetLayerProperties(Layers::LayerPropertiesVector::size_type index);
 
-	inline bool Match(SOLDIERTYPE* pSoldier) {
+	inline bool Match(TacticalActor* pSoldier) {
 		if (filter != NULL) return filter->Match(pSoldier);
 		return false; // no filter specified - matches none
 	};
@@ -58,7 +58,7 @@ public:
 		return hasSurfaces;
 	}
 
-	inline BodyType::LogicalSurfaceType* GetLogicalSurfaceType(Layers::LayerPropertiesVector::size_type layer, SOLDIERTYPE* pSoldier) {
+	inline BodyType::LogicalSurfaceType* GetLogicalSurfaceType(Layers::LayerPropertiesVector::size_type layer, TacticalActor* pSoldier) {
 		FilterSurfaceTypeList::iterator end = animstates[pSoldier->animationPlayback().state()][layer].end();
 		for (FilterSurfaceTypeList::iterator i = animstates[pSoldier->animationPlayback().state()][layer].begin(); i != end; i++) {
 			Filter* f = (*i).first;

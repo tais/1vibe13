@@ -1698,7 +1698,7 @@ BOOLEAN AddDeadArmsDealerItemsToWorld( UINT8 usProfileID, SoldierID aMercID )
 	INT8 bArmsDealer = GetArmsDealerIDFromMercID( usProfileID );
 
 	//Get a pointer to the dealer
-	SOLDIERTYPE* pSoldier = FindSoldierByProfileID( usProfileID, FALSE );
+	TacticalActor* pSoldier = FindSoldierByProfileID( usProfileID, FALSE );
 
 	// not if this isn't a proper profile
 	if ( usProfileID == NO_PROFILE )
@@ -2213,7 +2213,7 @@ void GuaranteeMinimumAlcohol( UINT8 ubArmsDealer )
 
 BOOLEAN GetArmsDealerShopHours( UINT8 ubArmsDealer, UINT32 *puiOpeningTime, UINT32 *puiClosingTime )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	pSoldier = FindSoldierByProfileID( armsDealerInfo[ ubArmsDealer ].ubShopKeeperID, FALSE );
 	if ( pSoldier == NULL )

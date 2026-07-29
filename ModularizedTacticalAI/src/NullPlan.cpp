@@ -11,7 +11,7 @@ namespace AI
 {
     namespace tactical
     {
-        NullPlan::NullPlan(SOLDIERTYPE* npc)
+        NullPlan::NullPlan(TacticalActor* npc)
             : Plan(npc)
         {
         }

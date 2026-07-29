@@ -34,7 +34,7 @@ void HandleRPCDescription(	)
 //	UINT8	ubMercsInSector[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ] = { 0 };
 	UINT16	ubNumMercs = 0;
 	UINT16	ubChosenMerc = 0;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	BOOLEAN fSAMSite = FALSE;
 
 
@@ -132,7 +132,7 @@ void HandleRPCDescription(	)
 			{
 				ubChosenMerc = (UINT16)Random( ubNumMercs );
 
-				SOLDIERTYPE* chosenMerc =
+				TacticalActor* chosenMerc =
 					GetJa2SoldierRepository().resolve(
 						ubMercsInSector[ubChosenMerc]);
 				if (chosenMerc)
@@ -169,7 +169,7 @@ void HandleRPCDescription(	)
 
 void HandleTacticalEndTurn( )
 {
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	UINT32				uiTime;
 	static UINT32 uiTimeSinceLastStrategicUpdate = 0;
 

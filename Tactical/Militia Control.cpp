@@ -34,7 +34,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 BOOLEAN gfStrategicMilitiaChangesMade = FALSE;
@@ -75,7 +75,7 @@ BOOLEAN CaptureMilitiaControlTarget( TacticalEntityId actor )
 		? TRUE : FALSE;
 }
 
-SOLDIERTYPE *ResolveMilitiaControlTarget( void )
+TacticalActor *ResolveMilitiaControlTarget( void )
 {
 	return gMilitiaControlTarget.resolve();
 }
@@ -123,9 +123,9 @@ void RebuildMilitiaControlBox( void );
 
 
 //funktions for soldier control
-extern INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem );
-extern SOLDIERTYPE *GetSelectedAssignSoldier( BOOLEAN fNullOK, BOOLEAN fReturnVehicleDriver = TRUE );
-extern BOOLEAN SoldierCanAffordNewStance( SOLDIERTYPE *pSoldier, UINT8 ubDesiredStance );
+extern INT8 SearchForItems( TacticalActor * pSoldier, INT8 bReason, UINT16 usItem );
+extern TacticalActor *GetSelectedAssignSoldier( BOOLEAN fNullOK, BOOLEAN fReturnVehicleDriver = TRUE );
+extern BOOLEAN SoldierCanAffordNewStance( TacticalActor *pSoldier, UINT8 ubDesiredStance );
 
 
 void ResetMilitia()
@@ -318,7 +318,7 @@ void PrepareMilitiaForTactical( BOOLEAN fPrepareAll)
 
 void HandleMilitiaPromotions( void )
 {
-	SOLDIERTYPE*		pTeamSoldier;
+	TacticalActor*		pTeamSoldier;
 
 	gbGreenToElitePromotions = 0;
 	gbGreenToRegPromotions = 0;
@@ -667,7 +667,7 @@ void CreateMilitiaControlBox( void )
  UINT32 hStringHandle;
  UINT32 uiCounter;
  CHAR16 sString[ 128 ];
- //SOLDIERTYPE *pSoldier = NULL;
+ //TacticalActor *pSoldier = NULL;
 
 
  // will create attribute pop up menu for mapscreen MilitiaControls
@@ -787,7 +787,7 @@ void DetermineMilitiaControlBoxPositions( void )
 	SGPPoint pPoint;
 	SGPPoint pNewPoint;
 	SGPRect pDimensions;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	if( ( fShowMilitiaControlMenu == FALSE ) || ( ghMilitiaControlBox == -1 ) )
@@ -841,10 +841,10 @@ void DetermineMilitiaControlBoxPositions( void )
 
 
 
-void SetTacticalPopUpMilitiaControlBoxXY( SOLDIERTYPE *pSoldier )
+void SetTacticalPopUpMilitiaControlBoxXY( TacticalActor *pSoldier )
 {
 	INT16 sX, sY;
-	//SOLDIERTYPE *pSoldier;
+	//TacticalActor *pSoldier;
 
 	//get the soldier
 	//pSoldier = GetSelectedAssignSoldier( FALSE ); //gives wrong position (0,0) when cursor moved
@@ -895,7 +895,7 @@ void CheckAndUpdateTacticalMilitiaControlPopUpPositions( void )
 {
 	SGPRect pDimensions2;
 	SGPPoint pPoint;	
-	//SOLDIERTYPE *pSoldier = NULL;
+	//TacticalActor *pSoldier = NULL;
 
 
 	if( fShowMilitiaControlMenu == FALSE )
@@ -991,8 +991,8 @@ void PositionCursorForMilitiaControlBox( void )
 
 void HandleShadingOfLinesForMilitiaControlMenu( void )
 {
-	SOLDIERTYPE *pSoldier = NULL;
-	SOLDIERTYPE *pMilitiaSoldier =
+	TacticalActor *pSoldier = NULL;
+	TacticalActor *pMilitiaSoldier =
 		ResolveMilitiaControlTarget();
 
 	// check if valid
@@ -1072,7 +1072,7 @@ void HandleShadingOfLinesForMilitiaControlMenu( void )
 
 BOOLEAN CheckIfRadioIsEquipped( void )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT8 bSlot = NO_SLOT;
 
 	if ( GetSoldier( &pSoldier, gusSelectedSoldier )  )
@@ -1097,8 +1097,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 {
 	// btn callback handler for MilitiaControl region
 	INT32 iValue = -1;
-	SOLDIERTYPE * pSoldier = NULL;
-	SOLDIERTYPE * pMilitiaSoldier =
+	TacticalActor * pSoldier = NULL;
+	TacticalActor * pMilitiaSoldier =
 		ResolveMilitiaControlTarget();
 	UINT8 ubVolume = 10;
 	BOOLEAN fAllowSectorOrder = FALSE;
@@ -1436,7 +1436,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 					if (fAllowSectorOrder)
 					{
 						SoldierID cnt;
-						SOLDIERTYPE *pTeamSoldier;
+						TacticalActor *pTeamSoldier;
 						
 						cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID;
 
@@ -1475,7 +1475,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 					if (fAllowSectorOrder)
 					{
 						SoldierID cnt;
-						SOLDIERTYPE *pTeamSoldier;
+						TacticalActor *pTeamSoldier;
 						
 						cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID;
 
@@ -1514,7 +1514,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 					{
 						SoldierID cnt;
 						INT16 sActionGridNo;
-						SOLDIERTYPE *pTeamSoldier;
+						TacticalActor *pTeamSoldier;
 						
 						cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID;
 
@@ -1580,7 +1580,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						SoldierID cnt;
 						UINT8 ubDirection;
 						INT32 sActionGridNo, sGridNo, sAdjustedGridNo;
-						SOLDIERTYPE *pTeamSoldier;
+						TacticalActor *pTeamSoldier;
 						
 						cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID;
 
@@ -1638,7 +1638,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 					{
 						SoldierID cnt;
 						INT32 sActionGridNo;
-						SOLDIERTYPE *pTeamSoldier;
+						TacticalActor *pTeamSoldier;
 
 						cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID;
 
@@ -1692,7 +1692,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 					if (fAllowSectorOrder)
 					{
 						SoldierID cnt;
-						SOLDIERTYPE *pTeamSoldier;
+						TacticalActor *pTeamSoldier;
 						
 						cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID;
 
@@ -1732,7 +1732,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 					if (fAllowSectorOrder)
 					{
 						SoldierID cnt;
-						SOLDIERTYPE *pTeamSoldier;
+						TacticalActor *pTeamSoldier;
 						
 						cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID;
 
@@ -1774,7 +1774,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						SoldierID cnt;
 						INT16 sActionGridNo;
 						INT32 iDummy;
-						SOLDIERTYPE *pTeamSoldier;
+						TacticalActor *pTeamSoldier;
 
 						cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID;
 

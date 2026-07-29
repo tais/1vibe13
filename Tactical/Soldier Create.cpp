@@ -248,8 +248,8 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const OLD_SOLDIERCREATE_ST
 	return *this;
 }
 
-// Conversion operator from SOLDIERTYPE to SOLDIERCREATE_STRUCT
-SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier)
+// Conversion operator from TacticalActor to SOLDIERCREATE_STRUCT
+SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const TacticalActor& Soldier)
 {
 	//WARNING, this may not copy all data you expect over, I'm not sure
 	//but it does copy all the data from the previous function
@@ -479,10 +479,10 @@ void OLD_SOLDIERCREATE_STRUCT_101::CopyNewInventoryToOld() {
 
 
 //Private functions used within TacticalCreateStruct()
-void InitSoldierStruct( SOLDIERTYPE *pSoldier );
-BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct );
-BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct );
-void CopyProfileItems( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct );
+void InitSoldierStruct( TacticalActor *pSoldier );
+BOOLEAN TacticalCopySoldierFromProfile( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct );
+BOOLEAN TacticalCopySoldierFromCreateStruct( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct );
+void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct );
 UINT8 GetLocationModifier( UINT8 ubSoldierClass );
 void ReduceHighExpLevels( INT8 *pbExpLevel );
 
@@ -569,11 +569,11 @@ void DecideToAssignSniperOrders( SOLDIERCREATE_STRUCT * pp )
 // This causes an issue if someone enters a sector from an adjacent sector - they should be affected by their point of origin, not the current sector
 // For this reason, we add a little helper variable that stores such a sector.
 INT16 gsStrategicDiseaseOriginSector = -1;
-SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, SoldierID *pubID )
+TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, SoldierID *pubID )
 {
-	SOLDIERTYPE Soldier;
-	SOLDIERTYPE *pTeamSoldier;
-	SOLDIERTYPE *pLiveSoldier = NULL;
+	TacticalActor Soldier;
+	TacticalActor *pTeamSoldier;
+	TacticalActor *pLiveSoldier = NULL;
 	BOOLEAN fGuyAvail = FALSE;
 	UINT16 bLastTeamID;
 	UINT8 ubVehicleID = 0;
@@ -1251,7 +1251,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 	else
 	{
 		//We are creating a dynamically allocated soldier for autoresolve.
-		SOLDIERTYPE* pSoldier = new SOLDIERTYPE( Soldier ); //(SOLDIERTYPE*)MemAlloc( SIZEOF_SOLDIERTYPE );
+		TacticalActor* pSoldier = new TacticalActor( Soldier ); //(TacticalActor*)MemAlloc( SIZEOF_SOLDIERTYPE );
 
 		if( !pSoldier )
 			return NULL;
@@ -1268,7 +1268,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 }
 
 
-BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
+BOOLEAN TacticalCopySoldierFromProfile( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
 {
 	UINT8						ubProfileIndex;
 	MERCPROFILESTRUCT * pProfile;
@@ -1471,7 +1471,7 @@ INT32 ChooseHairColor( UINT8 usBodyType, INT32 skin )
 }
 
 // Flugente: set palettes for vest/shirt
-void SetClothes( SOLDIERTYPE* pSoldier, INT8 aVest, INT8 aPants, INT8 aHair, INT8 aSkin )
+void SetClothes( TacticalActor* pSoldier, INT8 aVest, INT8 aPants, INT8 aHair, INT8 aSkin )
 {
 	if ( !pSoldier )
 		return;
@@ -1536,7 +1536,7 @@ void SetClothes( SOLDIERTYPE* pSoldier, INT8 aVest, INT8 aPants, INT8 aHair, INT
 	}
 }
 
-void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UINT8 ubTeam )
+void GeneratePaletteForSoldier( TacticalActor *pSoldier, UINT8 ubSoldierClass, UINT8 ubTeam )
 {
 	INT32 skin, hair;
 	BOOLEAN fMercClothingScheme;
@@ -1731,7 +1731,7 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 	}
 }
 
-BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
+BOOLEAN TacticalCopySoldierFromCreateStruct( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
 {
 	pSoldier->identity().profile()							= NO_PROFILE;
 
@@ -2078,7 +2078,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 }
 
 
-void InitSoldierStruct( SOLDIERTYPE *pSoldier )
+void InitSoldierStruct( TacticalActor *pSoldier )
 {
 	// Memset values
 	pSoldier->initialize();
@@ -2166,7 +2166,7 @@ BOOLEAN InternalTacticalRemoveSoldier( SoldierID usSoldierIndex, BOOLEAN fRemove
 		fRemoveVehicle);
 }
 
-BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehicle )
+BOOLEAN TacticalRemoveSoldierPointer( TacticalActor *pSoldier, BOOLEAN fRemoveVehicle )
 {
 	if( !pSoldier->roster().active() )
 		return FALSE;
@@ -2849,7 +2849,7 @@ void CreateDetailedPlacementGivenStaticDetailedPlacementAndBasicPlacementInfo(
 //by the editor upon exiting the editor into the game, to update the existing soldiers with new information.
 //This gives flexibility of testing mercs.	Upon entering the editor again, this call will reset all the
 //mercs to their original states.
-void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_STRUCT *spp )
+void UpdateSoldierWithStaticDetailedInformation( TacticalActor *s, SOLDIERCREATE_STRUCT *spp )
 {
 	//First, check to see if the soldier has a profile.	If so, then it'll extract the information
 	//and update the soldier with the profile information instead.	This has complete override
@@ -2965,7 +2965,7 @@ void UpdateStaticDetailedPlacementWithProfileInformation( SOLDIERCREATE_STRUCT *
 
 //When the editor modifies the soldier's relative attribute level,
 //this function is called to update that information.
-void ModifySoldierAttributesWithNewRelativeLevel( SOLDIERTYPE *s, INT8 bRelativeAttributeLevel )
+void ModifySoldierAttributesWithNewRelativeLevel( TacticalActor *s, INT8 bRelativeAttributeLevel )
 {
 	INT8 bBaseAttribute;
 	//Set the experience level based on the relative attribute level
@@ -2999,7 +2999,7 @@ void ModifySoldierAttributesWithNewRelativeLevel( SOLDIERTYPE *s, INT8 bRelative
 }
 
 
-void ForceSoldierProfileID( SOLDIERTYPE *pSoldier, UINT8 ubProfileID )
+void ForceSoldierProfileID( TacticalActor *pSoldier, UINT8 ubProfileID )
 {
 	SOLDIERCREATE_STRUCT CreateStruct;
 	CreateStruct.ubProfile = ubProfileID;
@@ -3023,10 +3023,10 @@ void ForceSoldierProfileID( SOLDIERTYPE *pSoldier, UINT8 ubProfileID )
 //#define CENTRAL_GRIDNO 13202
 //#define CENTRAL_RADIUS 30
 
-SOLDIERTYPE* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
+TacticalActor* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
 {
 	SoldierID i, iStart, iEnd;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 	//This code looks for a soldier of specified type that currently exists in tactical and
 	//returns the pointer to that soldier.	This is used when copying the exact status of
@@ -3045,7 +3045,7 @@ SOLDIERTYPE* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
 	}
 	for( i = iStart; i <= iEnd; ++i )
 	{
-		SOLDIERTYPE* source =
+		TacticalActor* source =
 			soldiers.resolve(static_cast<UINT16>(i));
 		if( source && source->roster().active() && source->roster().inSector() &&
 			source->vitals().health() &&
@@ -3057,7 +3057,7 @@ SOLDIERTYPE* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
 				source->position().gridNo() = NOWHERE;
 
 				//Allocate and copy the soldier
-				pSoldier = new SOLDIERTYPE(*source);
+				pSoldier = new TacticalActor(*source);
 				if( !pSoldier )
 					return NULL;
 
@@ -3071,12 +3071,12 @@ SOLDIERTYPE* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
 }
 
 //USED BY STRATEGIC AI and AUTORESOLVE
-SOLDIERTYPE* TacticalCreateAdministrator()
+TacticalActor* TacticalCreateAdministrator()
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
@@ -3104,12 +3104,12 @@ SOLDIERTYPE* TacticalCreateAdministrator()
 }
 
 //USED BY STRATEGIC AI and AUTORESOLVE
-SOLDIERTYPE* TacticalCreateArmyTroop()
+TacticalActor* TacticalCreateArmyTroop()
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
@@ -3138,12 +3138,12 @@ SOLDIERTYPE* TacticalCreateArmyTroop()
 }
 
 //USED BY STRATEGIC AI and AUTORESOLVE
-SOLDIERTYPE* TacticalCreateEliteEnemy()
+TacticalActor* TacticalCreateEliteEnemy()
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
@@ -3180,12 +3180,12 @@ SOLDIERTYPE* TacticalCreateEliteEnemy()
 }
 
 //USED BY STRATEGIC AI and AUTORESOLVE
-SOLDIERTYPE* TacticalCreateEnemyTank()
+TacticalActor* TacticalCreateEnemyTank()
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
@@ -3222,12 +3222,12 @@ SOLDIERTYPE* TacticalCreateEnemyTank()
 	return( pSoldier );
 }
 
-SOLDIERTYPE* TacticalCreateEnemyJeep( )
+TacticalActor* TacticalCreateEnemyJeep( )
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
@@ -3265,12 +3265,12 @@ SOLDIERTYPE* TacticalCreateEnemyJeep( )
 }
 
 // rftr: enemy robots
-SOLDIERTYPE* TacticalCreateEnemyRobot()
+TacticalActor* TacticalCreateEnemyRobot()
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
@@ -3308,12 +3308,12 @@ SOLDIERTYPE* TacticalCreateEnemyRobot()
 
 
 //USED BY STRATEGIC AI and AUTORESOLVE
-SOLDIERTYPE* TacticalCreateZombie()
+TacticalActor* TacticalCreateZombie()
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
@@ -3345,10 +3345,10 @@ SOLDIERTYPE* TacticalCreateZombie()
 	return( pSoldier );
 }
 
-SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
+TacticalActor* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 {
 	SoldierID i, iStart, iEnd;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 	// For description look original ReserveTacticalSoldierForAutoresolve()
@@ -3358,7 +3358,7 @@ SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 
 	for( i = iStart; i <= iEnd; ++i )
 	{
-		SOLDIERTYPE* source =
+		TacticalActor* source =
 			soldiers.resolve(static_cast<UINT16>(i));
 		if( source && source->roster().active() && source->roster().inSector() &&
 			source->vitals().health() &&
@@ -3370,7 +3370,7 @@ SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 				source->position().gridNo() = NOWHERE;
 
 				//Allocate and copy the soldier
-				pSoldier = new SOLDIERTYPE(*source);
+				pSoldier = new TacticalActor(*source);
 				if( !pSoldier )
 					return NULL;
 
@@ -3388,12 +3388,12 @@ SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 }
 
 
-SOLDIERTYPE* TacticalCreateMilitia( UINT8 ubMilitiaClass, INT16 sX, INT16 sY )
+TacticalActor* TacticalCreateMilitia( UINT8 ubMilitiaClass, INT16 sX, INT16 sY )
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	GROUP* battleGroup = ResolvePreBattleGroup();
 	if (battleGroup &&
@@ -3430,12 +3430,12 @@ SOLDIERTYPE* TacticalCreateMilitia( UINT8 ubMilitiaClass, INT16 sX, INT16 sY )
 	return pSoldier;
 }
 
-SOLDIERTYPE* TacticalCreateCreature( INT8 bCreatureBodyType )
+TacticalActor* TacticalCreateCreature( INT8 bCreatureBodyType )
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	if( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
@@ -3456,12 +3456,12 @@ SOLDIERTYPE* TacticalCreateCreature( INT8 bCreatureBodyType )
 }
 
 // Flugente: create an armed civilian
-SOLDIERTYPE* TacticalCreateArmedCivilian( UINT8 usSoldierClass )
+TacticalActor* TacticalCreateArmedCivilian( UINT8 usSoldierClass )
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	// this needs the covert ops trait, and thus the new trait system
 	if ( !gGameOptions.fNewTraitSystem )
@@ -3501,7 +3501,7 @@ SOLDIERTYPE* TacticalCreateArmedCivilian( UINT8 usSoldierClass )
 	return(pSoldier);
 }
 
-SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 usTraderID,
+TacticalActor* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 usTraderID,
 									 INT8 sBodyType, INT8 aVest, INT8 aPants, INT8 aHair, INT8 aSkin, 
 									 INT16 sItem1, INT16 sItem2, INT16 sItem3, INT16 sItem4 )
 {
@@ -3510,7 +3510,7 @@ SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 
 		return NULL;
 
 	SoldierID				ubID = NOBODY;
-	SOLDIERTYPE*				pSoldier = NULL;
+	TacticalActor*				pSoldier = NULL;
 	SOLDIERCREATE_STRUCT		MercCreateStruct;
 
 	MercCreateStruct.initialize( );
@@ -3604,12 +3604,12 @@ SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 
 }
 
 // Flugente: assassins are elite soldiers of the civ team that go hostile on a certain event, otherwise they just blend in
-SOLDIERTYPE* TacticalCreateEnemyAssassin(UINT8 disguisetype)
+TacticalActor* TacticalCreateEnemyAssassin(UINT8 disguisetype)
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// this needs the covert ops trait, and thus the new trait system
 	if ( !gGameOptions.fNewTraitSystem )
@@ -3669,12 +3669,12 @@ SOLDIERTYPE* TacticalCreateEnemyAssassin(UINT8 disguisetype)
 	return( pSoldier );
 }
 
-SOLDIERTYPE* TacticalCreateBandit()
+TacticalActor* TacticalCreateBandit()
 {
 	BASIC_SOLDIERCREATE_STRUCT bp;
 	SOLDIERCREATE_STRUCT pp;
 	SoldierID ubID;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	if ( GetCurrentScreen() == AUTORESOLVE_SCREEN && !gfPersistantPBI )
 	{
@@ -3730,7 +3730,7 @@ SOLDIERTYPE* TacticalCreateBandit()
 
 void CreateAssassin(UINT8 disguisetype)
 {
-	SOLDIERTYPE* pSoldier = TacticalCreateEnemyAssassin( disguisetype );
+	TacticalActor* pSoldier = TacticalCreateEnemyAssassin( disguisetype );
 
 	if ( pSoldier )
 	{
@@ -3884,7 +3884,7 @@ void CreatePrisonerOfWar()
 
 	RandomizeNewSoldierStats( &MercCreateStruct );
 	
-	SOLDIERTYPE* pSoldier = TacticalCreateSoldier( &MercCreateStruct, &ubID );
+	TacticalActor* pSoldier = TacticalCreateSoldier( &MercCreateStruct, &ubID );
 
 	if ( pSoldier )
 	{
@@ -3960,7 +3960,7 @@ void CreateDownedPilot( )
 	
 	RandomizeNewSoldierStats( &MercCreateStruct );
 
-	SOLDIERTYPE* pSoldier = TacticalCreateSoldier( &MercCreateStruct, &ubID );
+	TacticalActor* pSoldier = TacticalCreateSoldier( &MercCreateStruct, &ubID );
 
 	if ( pSoldier )
 	{
@@ -4144,7 +4144,7 @@ void QuickCreateProfileMerc( INT8 bTeam, UINT8 ubProfileID )
 // CHRISL: External function call to resort profile inventory
 extern void DistributeInitialGear(MERCPROFILESTRUCT *pProfile);
 
-void CopyProfileItems( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
+void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
 {
 	UINT32			cnt, cnt2;
 	MERCPROFILESTRUCT*		pProfile;
@@ -4358,7 +4358,7 @@ void TrashAllSoldiers( )
 	for ( ; cnt < MAX_NUM_SOLDIERS &&
 		static_cast<std::size_t>(cnt) < soldiers.capacity(); cnt++ )
 	{
-		SOLDIERTYPE* pSoldier = soldiers.resolve(cnt);
+		TacticalActor* pSoldier = soldiers.resolve(cnt);
 		if (!pSoldier) continue;
 		if ( pSoldier->roster().active() )
 		{
@@ -4720,7 +4720,7 @@ void ResetNumSquadleadersInArmyGroup( void )
 }
 
 // SANDRO - Added a function to add traits to soldiers
-BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
+BOOLEAN AssignTraitsToSoldier( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
 {
 	INT32 iChance;
 	UINT8	ubProgress, ubSolClass;

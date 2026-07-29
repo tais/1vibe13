@@ -51,7 +51,7 @@ bool checkLBEArrayIntegrity(bool verbose) {
 		if (!gCharactersList[i].fValid || gCharactersList[i].usSolID >= NOBODY) continue;
 
 		SoldierID id = gCharactersList[i].usSolID;
-		SOLDIERTYPE *soldier =
+		TacticalActor *soldier =
 			GetJa2SoldierRepository().resolve(id.i);
 
 		if (verbose)ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"LBENODE integrity check start: checking soldier items (%s)...", soldier->identity().name());
@@ -214,7 +214,7 @@ void DestroyLBE(OBJECTTYPE* pObj, int stackIndex)
 	return;
 }
 
-void MoveItemsInSlotsToLBE( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBESlots, LBENODE* pLBE, OBJECTTYPE* pObj)
+void MoveItemsInSlotsToLBE( TacticalActor *pSoldier, std::vector<INT8>& LBESlots, LBENODE* pLBE, OBJECTTYPE* pObj)
 {
 	size_t plbesize = pLBE->inv.size();
 	for( size_t i=0, lbesize = LBESlots.size(); i<lbesize; ++i)	// Go through default pockets one by one
@@ -255,7 +255,7 @@ void MoveItemsInSlotsToLBE( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBESlots, 
 }
 
 // CHRISL: New function to move items from default pockets to usable pockets
-BOOLEAN MoveItemsToActivePockets( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBESlots, UINT32 uiHandPos, OBJECTTYPE *pObj )
+BOOLEAN MoveItemsToActivePockets( TacticalActor *pSoldier, std::vector<INT8>& LBESlots, UINT32 uiHandPos, OBJECTTYPE *pObj )
 {
 	BOOLEAN	flag= FALSE;
 
@@ -399,7 +399,7 @@ void GetLBESlots(UINT32 LBEType, std::vector<INT8>& LBESlots)
 
 
 // CHRISL: New function to handle moving soldier items to lbe items
-BOOLEAN MoveItemToLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos )
+BOOLEAN MoveItemToLBEItem( TacticalActor *pSoldier, UINT32 uiHandPos )
 {
 	std::vector<INT8> LBESlots;
 	// Determine which LBE item we're removing so we can associate the correct pockets with it.
@@ -425,7 +425,7 @@ BOOLEAN MoveItemToLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos )
 }
 
 // CHRISL: New function to handle moving lbe items to soldier items
-BOOLEAN MoveItemFromLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, OBJECTTYPE *pObj )
+BOOLEAN MoveItemFromLBEItem( TacticalActor *pSoldier, UINT32 uiHandPos, OBJECTTYPE *pObj )
 {
 	std::vector<INT8> LBESlots;
 
@@ -536,7 +536,7 @@ bool OBJECTTYPE::IsActiveLBE(unsigned int index)
 	return false;
 }
 
-bool OBJECTTYPE::HasAnyActiveLBEs(SOLDIERTYPE * pSoldier, UINT8 iter)
+bool OBJECTTYPE::HasAnyActiveLBEs(TacticalActor * pSoldier, UINT8 iter)
 {
 	//CHRISL: Since only IC_LBEGEAR items can be classified as LBENODEs, only allow this to return true if the item we're
 	//	working with is actually the right class of item.
@@ -736,7 +736,7 @@ int OBJECTTYPE::ForceAddObjectsToStack(OBJECTTYPE& sourceObject, int howMany)
 	}
 }
 
-int OBJECTTYPE::AddObjectsToStack(OBJECTTYPE& sourceObject, int howMany, SOLDIERTYPE* pSoldier, int slot, int cap, bool allowLBETransfer)
+int OBJECTTYPE::AddObjectsToStack(OBJECTTYPE& sourceObject, int howMany, TacticalActor* pSoldier, int slot, int cap, bool allowLBETransfer)
 {
 	int freeObjectsInStack;
 
@@ -795,7 +795,7 @@ int OBJECTTYPE::AddObjectsToStack(OBJECTTYPE& sourceObject, int howMany, SOLDIER
 	}
 }
 
-int OBJECTTYPE::MoveThisObjectTo(OBJECTTYPE& destObject, int numToMove, SOLDIERTYPE* pSoldier, int slot, int cap)
+int OBJECTTYPE::MoveThisObjectTo(OBJECTTYPE& destObject, int numToMove, TacticalActor* pSoldier, int slot, int cap)
 {
 	//ADB yes I said I normally remove functions like this, but this is different
 	//this exists to make reading easier and to be more descriptive.
@@ -807,7 +807,7 @@ int OBJECTTYPE::RemoveObjectsFromStack(int howMany)
 	return (PrivateRemoveObjectsFromStack(howMany, NULL, NULL, STACK_SIZE_LIMIT));
 }
 
-int OBJECTTYPE::PrivateRemoveObjectsFromStack(int howMany, OBJECTTYPE* destObject, SOLDIERTYPE* pSoldier, int slot, int cap)
+int OBJECTTYPE::PrivateRemoveObjectsFromStack(int howMany, OBJECTTYPE* destObject, TacticalActor* pSoldier, int slot, int cap)
 {
 	//ADB this function only needs to know soldier and slot
 	//if there is a dest object we are putting the removed objects into
@@ -949,7 +949,7 @@ const StackedObjectData* OBJECTTYPE::operator [](const unsigned int index) const
 
 
 // Legacy pointer owners should use these helpers instead of pairing a raw
-// allocation with memcpy. SOLDIERTYPE temporary actions are owned by
+// allocation with memcpy. TacticalActor temporary actions are owned by
 // SoldierPendingItemComponent and use copyObject()/clearObject() directly.
 void OBJECTTYPE::CopyToOrCreateAt(OBJECTTYPE** ppTarget, OBJECTTYPE* pSource)
 {

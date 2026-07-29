@@ -114,27 +114,27 @@ void server_disconnect (void) {}
 void client_disconnect (void) {}
 // DialogRemoved lives in TileEngine/Tactical_Placement_GUI.cpp.
 void manual_overide(void) {}
-void send_path ( SOLDIERTYPE*, INT32, UINT16, BOOLEAN, BOOLEAN ) {}
-void send_stance ( SOLDIERTYPE*, UINT8 ) {}
-void send_dir ( SOLDIERTYPE*, UINT16 ) {}
-void send_fire( SOLDIERTYPE*, INT32 ) {}
+void send_path ( TacticalActor*, INT32, UINT16, BOOLEAN, BOOLEAN ) {}
+void send_stance ( TacticalActor*, UINT8 ) {}
+void send_dir ( TacticalActor*, UINT16 ) {}
+void send_fire( TacticalActor*, INT32 ) {}
 void send_hit( EV_S_WEAPONHIT* ) {}
 void send_bullet( BULLET*, UINT16 ) {}
 void send_hire( SoldierID, UINT8, INT16, BOOLEAN ) {}
 void send_dismiss( UINT16 ) {}
-void send_gui_pos( SOLDIERTYPE*, FLOAT, FLOAT ) {}
-void send_gui_dir( SOLDIERTYPE*, UINT16 ) {}
+void send_gui_pos( TacticalActor*, FLOAT, FLOAT ) {}
+void send_gui_dir( TacticalActor*, UINT16 ) {}
 void send_EndTurn( UINT8 ) {}
 void send_AI( SOLDIERCREATE_STRUCT* ) {}
 void send_stop( EV_S_STOP_MERC* ) {}
-void send_interrupt( SOLDIERTYPE* ) {}
+void send_interrupt( TacticalActor* ) {}
 void send_grenade( OBJECTTYPE*, float, float, float, float, float, float, float, UINT32, SoldierID, UINT8, UINT32, INT32, bool ) {}
 void send_grenade_result( float, float, float, INT32, SoldierID, INT32, bool ) {}
 void send_plant_explosive( SoldierID, UINT16, UINT8, UINT16, UINT32, UINT8, UINT32 ) {}
 void send_detonate_explosive( UINT32, SoldierID ) {}
 void send_spreadeffect( INT32, UINT8, UINT16, SoldierID, BOOLEAN, INT8, INT32 ) {}
 void send_newsmokeeffect( INT32, UINT16, INT8, SoldierID, INT32 ) {}
-void send_gasdamage( SOLDIERTYPE*, UINT16, INT16, BOOLEAN, INT16, INT16, SoldierID ) {}
+void send_gasdamage( TacticalActor*, UINT16, INT16, BOOLEAN, INT16, INT16, SoldierID ) {}
 void send_explosivedamage( SoldierID, SoldierID, INT32, INT16, INT16, UINT32, UINT16, INT16 ) {}
 void send_disarm_explosive( UINT32, UINT32, SoldierID ) {}
 void OpenChatMsgBox(void) {}
@@ -149,14 +149,14 @@ void game_over( void ) {}
 
 // fresh_header.h additional functions
 // DisplayMercsInventory lives in Laptop/AimMembers.cpp.
-void send_door( SOLDIERTYPE*, INT32, BOOLEAN ) {}
+void send_door( TacticalActor*, INT32, BOOLEAN ) {}
 void send_changestate( EV_S_CHANGESTATE* ) {}
-void send_death( SOLDIERTYPE* ) {}
+void send_death( TacticalActor* ) {}
 void send_hitstruct( EV_S_STRUCTUREHIT* ) {}
 void send_hitwindow( EV_S_WINDOWHIT* ) {}
 void send_miss( EV_S_MISS* ) {}
 void unlock(void) {}
-void UpdateSoldierToNetwork( SOLDIERTYPE* ) {}
+void UpdateSoldierToNetwork( TacticalActor* ) {}
 // TrashAllSoldiers lives in Tactical/Soldier_Create.cpp.
 void kick_player(void) {}
 void overide_turn(void) {}
@@ -165,11 +165,11 @@ void end_interrupt( BOOLEAN ) {}
 // EndInterrupt lives in Tactical/TeamTurns.cpp.
 void sendRT(void) {}
 void startCombat(UINT8) {}
-void intAI( SOLDIERTYPE* ) {}
+void intAI( TacticalActor* ) {}
 void teamwiped(void) {}
 BOOLEAN check_status(void) { return FALSE; }
-void send_heal( SOLDIERTYPE* ) {}
-void requestAIint( SOLDIERTYPE* ) {}
+void send_heal( TacticalActor* ) {}
+void requestAIint( TacticalActor* ) {}
 
 // ---- CTransferRules ---------------------------------------------------------
 CTransferRules::CTransferRules() : m_eDefaultAction(DENY) {}

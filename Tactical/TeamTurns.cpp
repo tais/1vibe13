@@ -54,11 +54,11 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 extern INT8 STRAIGHT;
 //extern UINT8 gubSpeedUpAnimationFactor;
-void SetSoldierAniSpeed( SOLDIERTYPE *pSoldier );
+void SetSoldierAniSpeed( TacticalActor *pSoldier );
 
 // sevenfm
 time_t gtTimeSinceMercAIStart;
@@ -66,7 +66,7 @@ time_t gtTimeSinceMercAIStart;
 void RecalculateSoldiersAniSpeed()
 {
 	UINT32 uiLoop;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 //	if( gubSpeedUpAnimationFactor == 1 )return;
 
@@ -88,7 +88,7 @@ void RecalculateSoldiersAniSpeed()
 
 
 extern void DecayPublicOpplist(INT8 bTeam);
-extern void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier);
+extern void VerifyAndDecayOpplist(TacticalActor *pSoldier);
 void EndInterrupt( BOOLEAN fMarkInterruptOccurred );
 void DeleteFromIntList( UINT16 ubIndex, BOOLEAN fCommunicate);
 
@@ -135,7 +135,7 @@ void ClearIntList( void )
 
 BOOLEAN BloodcatsPresent( void )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"BloodcatsPresent");
 	if ( gTacticalStatus.Team[ CREATURE_TEAM ].bTeamActive == FALSE )
@@ -164,7 +164,7 @@ BOOLEAN BloodcatsPresent( void )
 void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"StartPlayerTeamTurn");
-//	SOLDIERTYPE		*pSoldier;
+//	TacticalActor		*pSoldier;
 //	EV_S_BEGINTURN	SBeginTurn;
 
 	SetFastForwardMode(FALSE);
@@ -212,7 +212,7 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 		{
 			if ( gusSelectedSoldier != NOBODY )
 			{
-				SOLDIERTYPE* selectedSoldier =
+				TacticalActor* selectedSoldier =
 					GetJa2SoldierRepository().resolve(
 						gusSelectedSoldier.i);
 				if (!selectedSoldier)
@@ -238,7 +238,7 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 					if ( fDoBattleSnd )
 					{
 						// Say ATTENTION SOUND...
-						SOLDIERTYPE* selectedSoldier =
+						TacticalActor* selectedSoldier =
 							GetJa2SoldierRepository().resolve(
 								gusSelectedSoldier.i);
 						if (selectedSoldier)
@@ -312,7 +312,7 @@ void FreezeInterfaceForEnemyTurn( void )
 void EndTurn( UINT8 ubNextTeam )
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"EndTurn");
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	//Check for enemy pooling (add enemies if there happens to be more than the max in the
 	//current battle.	If one or more slots have freed up, we can add them now.
@@ -395,7 +395,7 @@ void EndTurn( UINT8 ubNextTeam )
 void EndAITurn( void )
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"EndAITurn");
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// Remove any deadlock message
 	EndDeadlockMsg( );
@@ -437,7 +437,7 @@ void EndAllAITurns( void )
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"EndAllAITurns");
 	// warp turn to the player's turn
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// Remove any deadlock message
 	EndDeadlockMsg( );
@@ -488,7 +488,7 @@ void EndTurnEvents( void )
 	DecayLightEffects( GetWorldTotalSeconds( ) );
 	DecaySmokeEffects( GetWorldTotalSeconds( ) );
 
-	SOLDIERTYPE* pSoldier = NULL;
+	TacticalActor* pSoldier = NULL;
 	SoldierID  id = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; id <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++id )
 	{
@@ -543,7 +543,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 	{
 		for ( SoldierID id = 0; id < TOTAL_SOLDIERS; ++id )
 		{
-			SOLDIERTYPE* pStop =
+			TacticalActor* pStop =
 				GetJa2SoldierRepository().resolve(id.i);
 			if ( pStop && pStop->roster().active() && pStop->roster().inSector() && pStop->roster().team() >= LAN_TEAM_ONE
 				&& pStop->position().gridNo() >= 0 && pStop->position().gridNo() < WORLD_MAX
@@ -554,7 +554,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 		}
 	}
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"BeginTeamTurn");
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 
 	//rain
 	if( !LightningEndOfTurn( ubTeam ) )return;
@@ -717,7 +717,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 					{
 						AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ ubTeam ] );
 					}
-					SOLDIERTYPE* firstAiSoldier =
+					TacticalActor* firstAiSoldier =
 						GetJa2SoldierRepository().resolve(ubID.i);
 					if (!firstAiSoldier)
 					{
@@ -742,7 +742,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 	}
 }
 
-void DisplayHiddenInterrupt( SOLDIERTYPE * pSoldier )
+void DisplayHiddenInterrupt( TacticalActor * pSoldier )
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"DisplayHiddenInterrupt");
 	// If the AI got an interrupt but this has been hidden from the player until this point,
@@ -780,7 +780,7 @@ void DisplayHiddenInterrupt( SOLDIERTYPE * pSoldier )
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"about to call AdjustNoAPToFinishMove");
 	// Stop our guy. The latest-entry field may contain the empty-list sentinel.
-	SOLDIERTYPE* interruptedSoldier =
+	TacticalActor* interruptedSoldier =
 		GetJa2SoldierRepository().resolve(
 			LATEST_INTERRUPT_GUY);
 	if ( LATEST_INTERRUPT_GUY != END_OF_INTERRUPTS &&
@@ -807,7 +807,7 @@ void DisplayHiddenInterrupt( SOLDIERTYPE * pSoldier )
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"DisplayHiddenInterrupt completed");
 }
 
-void DisplayHiddenTurnbased( SOLDIERTYPE * pActingSoldier )
+void DisplayHiddenTurnbased( TacticalActor * pActingSoldier )
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"DisplayHiddenTurnBased");
 	// This code should put the game in turn-based and give control to the AI-controlled soldier
@@ -869,7 +869,7 @@ BOOLEAN EveryoneInInterruptListOnSameTeam( void )
 	for (ubLoop = 1; ubLoop <= gubOutOfTurnPersons; ubLoop++)
 	{
 		UINT16 ubID = gubOutOfTurnOrder[ ubLoop ];
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(ubID);
 		if ( !soldier )   // skip sentinel/NOBODY/empty slots (list can be wire-fed)
 			continue;
@@ -891,11 +891,11 @@ BOOLEAN EveryoneInInterruptListOnSameTeam( void )
 void StartInterrupt( void )
 {
 	INT8			bTeam;
-	SOLDIERTYPE *pSoldier;
-	SOLDIERTYPE *pTempSoldier;
+	TacticalActor *pSoldier;
+	TacticalActor *pTempSoldier;
 	SoldierID 	ubFirstInterrupter;
 	SoldierID 	ubInterrupter;
-	SOLDIERTYPE *pInterrupter;
+	TacticalActor *pInterrupter;
 	INT32		cnt;
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"StartInterrupt");
@@ -994,7 +994,7 @@ void StartInterrupt( void )
 			handleInterrupt = FALSE;
 
 			// build string in separate loop here, want to linearly process squads...
-			SOLDIERTYPE *pInterruptedSoldier =
+			TacticalActor *pInterruptedSoldier =
 				GetJa2SoldierRepository().resolve(
 					ubInterrupter.i);
 			if (!pInterruptedSoldier)
@@ -1095,7 +1095,7 @@ void StartInterrupt( void )
 			// report any close call quotes for us here
 			for ( SoldierID id = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; id <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++id )
 			{
-				SOLDIERTYPE *pSoldier =
+				TacticalActor *pSoldier =
 					GetJa2SoldierRepository().resolve(id.i);
 				if (!pSoldier)
 				{
@@ -1230,7 +1230,7 @@ void StartInterrupt( void )
 	if ( !gfHiddenInterrupt )
 	{
 		// Stop this guy....
-		SOLDIERTYPE* latestInterrupter =
+		TacticalActor* latestInterrupter =
 			GetJa2SoldierRepository().resolve(
 				LATEST_INTERRUPT_GUY);
 		if ( LATEST_INTERRUPT_GUY != END_OF_INTERRUPTS // BOB: is this just a blank?
@@ -1249,8 +1249,8 @@ void StartInterrupt( void )
 void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 {
 	SoldierID	ubInterruptedSoldier;
-	SOLDIERTYPE *pSoldier;
-	SOLDIERTYPE *pTempSoldier;
+	TacticalActor *pSoldier;
+	TacticalActor *pTempSoldier;
 	BOOLEAN		fFound;
 	INT16	ubMinAPsToAttack;
 
@@ -1307,7 +1307,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		{
 			SoldierID 	nubFirstInterrupter;
 			INT8			nbTeam;
-			SOLDIERTYPE *npSoldier;
+			TacticalActor *npSoldier;
 
 			nubFirstInterrupter = LATEST_INTERRUPT_GUY;
 			npSoldier =
@@ -1453,7 +1453,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 
 			if (gfHiddenInterrupt)
 			{
-				SOLDIERTYPE* selectedSoldier =
+				TacticalActor* selectedSoldier =
 					GetJa2SoldierRepository().resolve(
 						gusSelectedSoldier.i);
 				// Try to make things look like nothing happened at all.
@@ -1505,7 +1505,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 					SlideTo( gusSelectedSoldier, SETLOCATOR);
 
 					// Say ATTENTION SOUND...
-					SOLDIERTYPE* selectedSoldier =
+					TacticalActor* selectedSoldier =
 						GetJa2SoldierRepository().resolve(
 							gusSelectedSoldier.i);
 					if (selectedSoldier)
@@ -1582,7 +1582,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 					SoldierID id = RemoveFirstAIListEntry();
 					if (id != NOBODY)
 					{
-						SOLDIERTYPE* firstAiSoldier =
+						TacticalActor* firstAiSoldier =
 							GetJa2SoldierRepository().resolve(id.i);
 						if (firstAiSoldier)
 						{
@@ -1685,13 +1685,13 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 }
 
 
-BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, INT8 bOldOppList)
+BOOLEAN StandardInterruptConditionsMet( TacticalActor * pSoldier, SoldierID ubOpponentID, INT8 bOldOppList)
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"StandardInterruptConditionsMet");
 //	UINT8 ubAniType;
 	INT16						ubMinPtsNeeded;
 	INT8						bDir;
-	SOLDIERTYPE *		pOpponent;
+	TacticalActor *		pOpponent;
 
 	// Server-arbitrated interrupts (ja2server is the authority): interrupt DETECTION
 	// is re-enabled in MP; the client requests the interrupt and the coordinator
@@ -1884,7 +1884,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 		// the selected character, ie. his friends...
 		if ( pOpponent->roster().team() == gbPlayerNum )
 		{
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				GetJa2SoldierRepository().resolve(
 					gusSelectedSoldier.i);
 			if ((ubOpponentID != gusSelectedSoldier) &&
@@ -1994,7 +1994,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 }
 
 
-INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLEAN fUseWatchSpots )
+INT8 CalcInterruptDuelPts( TacticalActor * pSoldier, SoldierID ubOpponentID, BOOLEAN fUseWatchSpots )
 {
 	INT32 iPoints;
 	INT8 bLightLevel;
@@ -2003,7 +2003,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 
 	// sevenfm: safety check
 	Assert(pSoldier);
-	SOLDIERTYPE* opponent =
+	TacticalActor* opponent =
 		GetJa2SoldierRepository().resolve(ubOpponentID.i);
 	if (!pSoldier || !opponent)
 	{
@@ -2026,7 +2026,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	// Controller's interrupt points are reduced by 2 for being distracted...
 	if ( pSoldier->status().flags() & SOLDIER_ROBOT && pSoldier->CanRobotBeControlled( ) )
 	{
-		SOLDIERTYPE* controller =
+		TacticalActor* controller =
 			GetJa2SoldierRepository().resolve(
 				pSoldier->vehicleState().robotRemoteHolder().i);
 		if (!controller)
@@ -2243,7 +2243,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	#endif
 	if(is_networked)
 	{
-		SOLDIERTYPE	*pOpp = opponent;
+		TacticalActor	*pOpp = opponent;
 		#ifdef JA2BETAVERSION
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_MPSYSTEM, L"Interrupt: '%s' vs '%s' = %d points.",pSoldier->identity().name(),pOpp->identity().name(), iPoints );
 		#endif
@@ -2252,7 +2252,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	return( (INT8)iPoints );
 }
 
-BOOLEAN InterruptDuel( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent)
+BOOLEAN InterruptDuel( TacticalActor * pSoldier, TacticalActor * pOpponent)
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"InterruptDuel");
 	BOOLEAN fResult = FALSE;
@@ -2331,7 +2331,7 @@ void AddToIntList( UINT16 ubID, BOOLEAN fGainControl, BOOLEAN fCommunicate )
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"AddToIntList");
 	UINT16 ubLoop;
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(ubID);
 	if (!soldier)
 	{
@@ -2408,7 +2408,7 @@ void VerifyOutOfTurnOrderArray()
 
 	for (ubLoop = 1; ubLoop <= gubOutOfTurnPersons; ubLoop++)
 	{
-		SOLDIERTYPE* queuedSoldier =
+		TacticalActor* queuedSoldier =
 			GetJa2SoldierRepository().resolve(
 				gubOutOfTurnOrder[ubLoop]);
 		if ( !queuedSoldier )   // skip sentinel/garbage entries from save or wire data
@@ -2436,7 +2436,7 @@ void VerifyOutOfTurnOrderArray()
 
 						while( gubOutOfTurnOrder[ ubNextIndex ] != ubNextInArrayOnTeam )
 						{
-							SOLDIERTYPE* interruptedSoldier =
+							TacticalActor* interruptedSoldier =
 								GetJa2SoldierRepository().resolve(
 									gubOutOfTurnOrder[ubNextIndex]);
 							// Pause them...
@@ -2494,10 +2494,10 @@ void VerifyOutOfTurnOrderArray()
 		// This is bad.	Loop through everyone but the first person in the INT list and remove 'em
 		for (ubLoop = 2; ubLoop <= gubOutOfTurnPersons; )
 		{
-			SOLDIERTYPE* queuedSoldier =
+			TacticalActor* queuedSoldier =
 				GetJa2SoldierRepository().resolve(
 					gubOutOfTurnOrder[ubLoop]);
-			SOLDIERTYPE* firstSoldier =
+			TacticalActor* firstSoldier =
 				GetJa2SoldierRepository().resolve(
 					gubOutOfTurnOrder[1]);
 			if ( !queuedSoldier || !firstSoldier )
@@ -2529,7 +2529,7 @@ void VerifyOutOfTurnOrderArray()
 
 }
 
-void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInterruptType)
+void DoneAddingToIntList( TacticalActor * pSoldier, BOOLEAN fChange, UINT8 ubInterruptType)
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"DoneAddingToIntList");
 	if (fChange)
@@ -2549,7 +2549,7 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 			{
 				UINT16						nubFirstInterrupter;
 				INT8						nbTeam;
-				SOLDIERTYPE *				npSoldier;
+				TacticalActor *				npSoldier;
 						
 				nubFirstInterrupter = LATEST_INTERRUPT_GUY;
 				npSoldier =
@@ -2604,7 +2604,7 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 					send_interrupt( npSoldier );
 
 
-					SOLDIERTYPE* pMerc =
+					TacticalActor* pMerc =
 						GetJa2SoldierRepository().resolve(
 							gusSelectedSoldier.i);
 					//AdjustNoAPToFinishMove( pMerc, TRUE );	
@@ -2641,7 +2641,7 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 	}
 }
 
-void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
+void ResolveInterruptsVs( TacticalActor * pSoldier, UINT8 ubInterruptType)
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,String("ResolveInterruptsVs: Soldier ID = %d, APs = %d (interrupt type = %d)",pSoldier->identity().id(),pSoldier->actionPoints().current(), ubInterruptType));
 	UINT8 ubTeam;
@@ -2653,7 +2653,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 	UINT16 ubSlot, ubSmallestSlot;
 	UINT16 ubLoop;
 	BOOLEAN fIntOccurs;
-	SOLDIERTYPE * pOpponent;
+	TacticalActor * pOpponent;
 	BOOLEAN fControlChanged = FALSE;
 
 	AssertNotNIL(pSoldier);
@@ -2789,7 +2789,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 				// their AI control flag and put them on the queue instead of this guy
 				for ( SoldierID id = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID; id <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID; ++id)
 				{
-					SOLDIERTYPE* controlledSoldier =
+					TacticalActor* controlledSoldier =
 						GetJa2SoldierRepository().resolve(id.i);
 					if ( controlledSoldier &&
 						controlledSoldier->status().flags() & SOLDIER_UNDERAICONTROL)
@@ -2831,7 +2831,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 					if ( UsingImprovedInterruptSystem() )
 					{
 						// reset the counter
-						SOLDIERTYPE* interrupter =
+						TacticalActor* interrupter =
 							GetJa2SoldierRepository().resolve(
 								ubIntList[ubSmallestSlot]);
 						if (interrupter)
@@ -2931,7 +2931,7 @@ BOOLEAN	LoadTeamTurnsFromTheSavedGameFile( HWFILE hFile )
 	return( TRUE );
 }
 
-BOOLEAN NPCFirstDraw( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTargetSoldier )
+BOOLEAN NPCFirstDraw( TacticalActor * pSoldier, TacticalActor * pTargetSoldier )
 {
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"NPCFirstDraw");
 	// if attacking an NPC check to see who draws first!

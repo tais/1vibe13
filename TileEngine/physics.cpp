@@ -27,8 +27,8 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
-extern INT16 EffectiveDexterity(SOLDIERTYPE* pSoldier, BOOLEAN fTrainer);
+class TacticalActor;
+extern INT16 EffectiveDexterity(TacticalActor* pSoldier, BOOLEAN fTrainer);
 extern bool GridNoOnWalkableWorldTile(INT32 sGridNo);
 
 #define NO_TEST_OBJECT												0
@@ -83,7 +83,7 @@ real						Kdl	= (float)( 0.1 * TIME_MULTI );					// LINEAR DAMPENING ( WIND RESI
 void SimulateObject( REAL_OBJECT *pObject, real deltaT );
 
 void CheckForObjectHittingMerc( REAL_OBJECT *pObject, UINT16 usStructureID );
-extern void DoGenericHit( SOLDIERTYPE *pSoldier, UINT8 ubSpecial, INT16 bDirection );
+extern void DoGenericHit( TacticalActor *pSoldier, UINT8 ubSpecial, INT16 bDirection );
 
 
 BOOLEAN					PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime );
@@ -106,7 +106,7 @@ void ObjectHitWindow( INT32 sGridNo, UINT16 usStructureID, BOOLEAN fBlowWindowSo
 FLOAT CalculateObjectTrajectory( INT16 sTargetZ, OBJECTTYPE *pItem, vector_3 *vPosition, vector_3 *vForce, INT32 *psFinalGridNo );
 vector_3 FindBestForceForTrajectory( INT32 sSrcGridNo, INT32 sGridNo,INT16 sStartZ, INT16 sEndZ, real dzDegrees, OBJECTTYPE *pItem, INT32 *psGridNo, FLOAT *pzMagForce );
 INT32 ChanceToGetThroughObjectTrajectory( INT16 sTargetZ, OBJECTTYPE *pItem, vector_3 *vPosition, vector_3 *vForce, INT32 *psFinalGridNo, INT8 *pbLevel, BOOLEAN fFromUI );
-FLOAT CalculateSoldierMaxForce(SOLDIERTYPE *pSoldier, FLOAT dDegrees, OBJECTTYPE *pObject, BOOLEAN fArmed, INT32 sTargetSpot, UINT8 ubTargetLevel);
+FLOAT CalculateSoldierMaxForce(TacticalActor *pSoldier, FLOAT dDegrees, OBJECTTYPE *pObject, BOOLEAN fArmed, INT32 sTargetSpot, UINT8 ubTargetLevel);
 BOOLEAN AttemptToCatchObject( REAL_OBJECT *pObject );
 BOOLEAN CheckForCatchObject( REAL_OBJECT *pObject );
 BOOLEAN DoCatchObject( REAL_OBJECT *pObject );
@@ -556,7 +556,7 @@ BOOLEAN	PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime )
 						// ATE: Yet another hack here, to make sure things don't fall through roofs
 						if ( pObject->ubLastTargetTakenDamage != NOBODY )
 						{
-							SOLDIERTYPE *pSoldier;
+							TacticalActor *pSoldier;
 
 							pSoldier =
 								GetJa2SoldierRepository().resolve(
@@ -599,7 +599,7 @@ BOOLEAN	PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime )
 			// ATE: Handle end of animation...
 			if ( pObject->fCatchAnimOn )
 			{
-				SOLDIERTYPE *pSoldier;
+				TacticalActor *pSoldier;
 
 				pObject->fCatchAnimOn = FALSE;
 
@@ -1896,7 +1896,7 @@ INT32 ChanceToGetThroughObjectTrajectory( INT16 sTargetZ, OBJECTTYPE *pItem, vec
 
 
 
-FLOAT CalculateLaunchItemAngle( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubHeight, real dForce, OBJECTTYPE *pItem, INT32 *psGridNo )
+FLOAT CalculateLaunchItemAngle( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubHeight, real dForce, OBJECTTYPE *pItem, INT32 *psGridNo )
 {
 	real				dAngle;
 	INT16				sSrcX, sSrcY;
@@ -1911,7 +1911,7 @@ FLOAT CalculateLaunchItemAngle( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubHe
 
 
 
-void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, INT32 sGridNo, UINT8 ubLevel, INT16 sEndZ,  FLOAT *pdMagForce, FLOAT *pdDegrees, INT32 *psFinalGridNo, BOOLEAN fArmed )
+void CalculateLaunchItemBasicParams( TacticalActor *pSoldier, OBJECTTYPE *pItem, INT32 sGridNo, UINT8 ubLevel, INT16 sEndZ,  FLOAT *pdMagForce, FLOAT *pdDegrees, INT32 *psFinalGridNo, BOOLEAN fArmed )
 {
 	INT32		sInterGridNo = NOWHERE;
 	INT16		sStartZ;
@@ -2112,7 +2112,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 	(*pdDegrees )	= dDegrees;
 }
 
-BOOLEAN GrenadeRollingPossible(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 *sXPos, INT16 *sYPos)
+BOOLEAN GrenadeRollingPossible(TacticalActor *pSoldier, INT32 sGridNo, INT16 *sXPos, INT16 *sYPos)
 {
 	if (!(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO))
 	{		
@@ -2202,7 +2202,7 @@ BOOLEAN GrenadeRollingPossible(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 *sXPo
 }
 
 
-BOOLEAN CalculateLaunchItemChanceToGetThrough( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, INT32 sGridNo, UINT8 ubLevel, INT16 sEndZ,	INT32 *psFinalGridNo, BOOLEAN fArmed, INT8 *pbLevel, BOOLEAN fFromUI )
+BOOLEAN CalculateLaunchItemChanceToGetThrough( TacticalActor *pSoldier, OBJECTTYPE *pItem, INT32 sGridNo, UINT8 ubLevel, INT16 sEndZ,	INT32 *psFinalGridNo, BOOLEAN fArmed, INT8 *pbLevel, BOOLEAN fFromUI )
 {
 	FLOAT				dForce, dDegrees;
 	INT16				sDestX, sDestY, sSrcX, sSrcY;
@@ -2311,7 +2311,7 @@ FLOAT CalculateForceFromRange(UINT16 usItem, INT16 sRange, FLOAT dDegrees, INT32
 }
 
 
-FLOAT CalculateSoldierMaxForce(SOLDIERTYPE *pSoldier, FLOAT dDegrees, OBJECTTYPE *pItem, BOOLEAN fArmed, INT32 sTargetSpot, UINT8 ubTargetLevel)
+FLOAT CalculateSoldierMaxForce(TacticalActor *pSoldier, FLOAT dDegrees, OBJECTTYPE *pItem, BOOLEAN fArmed, INT32 sTargetSpot, UINT8 ubTargetLevel)
 {
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"CalculateSoldierMaxForce");
 
@@ -2329,7 +2329,7 @@ FLOAT CalculateSoldierMaxForce(SOLDIERTYPE *pSoldier, FLOAT dDegrees, OBJECTTYPE
 }
 
 
-void CalculateLaunchItemParamsForThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubLevel, INT16 sEndZ, OBJECTTYPE *pItem, UINT32 uiHitChance, UINT8 ubActionCode, UINT32 uiActionData, UINT16 usItemNum )
+void CalculateLaunchItemParamsForThrow( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubLevel, INT16 sEndZ, OBJECTTYPE *pItem, UINT32 uiHitChance, UINT8 ubActionCode, UINT32 uiActionData, UINT16 usItemNum )
 {
 	FLOAT				dForce, dDegrees;
 	INT16				sDestX, sDestY, sSrcX, sSrcY;
@@ -2485,7 +2485,7 @@ BOOLEAN CheckForCatcher( REAL_OBJECT *pObject, UINT16 usStructureID )
 
 void CheckForObjectHittingMerc( REAL_OBJECT *pObject, UINT16 usStructureID )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT16		sDamage, sBreath;
 
 	// Do we want to catch?
@@ -2526,7 +2526,7 @@ void CheckForObjectHittingMerc( REAL_OBJECT *pObject, UINT16 usStructureID )
 
 BOOLEAN CheckForCatchObject( REAL_OBJECT *pObject )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT32			uiSpacesAway;
 
 	// Do we want to catch?
@@ -2584,7 +2584,7 @@ BOOLEAN CheckForCatchObject( REAL_OBJECT *pObject )
 
 BOOLEAN AttemptToCatchObject( REAL_OBJECT *pObject )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT8				ubChanceToCatch;
 
 	// Get intended target
@@ -2618,7 +2618,7 @@ BOOLEAN AttemptToCatchObject( REAL_OBJECT *pObject )
 
 BOOLEAN DoCatchObject( REAL_OBJECT *pObject )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	BOOLEAN			fGoodCatch = FALSE;
 	UINT16			usItem;
 
@@ -2688,7 +2688,7 @@ void HandleArmedObjectImpact( REAL_OBJECT *pObject )
 	BOOLEAN		fCanDelayExplosion = FALSE;
 	BOOLEAN		fGoodStatus = FALSE;
 	BOOLEAN		fDelayedExplosion = FALSE;
-	SOLDIERTYPE* owner =
+	TacticalActor* owner =
 		GetJa2SoldierRepository().resolve(pObject->ubOwner.i);
 
 	if (is_networked && is_client)

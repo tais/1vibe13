@@ -34,7 +34,7 @@
 #include "SoldierRepository.h"
 
 extern BOOLEAN gfHiddenInterrupt;
-extern void LogDecideInfo(SOLDIERTYPE *pSoldier);
+extern void LogDecideInfo(TacticalActor *pSoldier);
 
 extern STR8 gStr8AlertStatus[];
 extern STR8 gStr8Attitude[];
@@ -43,7 +43,7 @@ extern STR8 gStr8Team[];
 extern STR8 gStr8Class[];
 
 // ------------------------------ ZOMBIE AI --------------------------
-INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
+INT8 ZombieDecideActionGreen(TacticalActor *pSoldier)
 {
 	DOUBLE iChance, iSneaky = 10;
 	INT8  bInWater;
@@ -387,7 +387,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 	return(AI_ACTION_NONE);
 }
 
-INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
+INT8 ZombieDecideActionYellow(TacticalActor *pSoldier)
 {
 	UINT8 ubNoiseDir;
 	INT32 sNoiseGridNo;
@@ -561,7 +561,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 }
 
 
-INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
+INT8 ZombieDecideActionRed(TacticalActor *pSoldier)
 {
 	INT32	iDummy;
 	INT32	sClosestOpponent,sClosestFriend;
@@ -898,7 +898,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	return(AI_ACTION_NONE);
 }
 
-INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
+INT8 ZombieDecideActionBlack(TacticalActor *pSoldier)
 {
 	INT32	sClosestOpponent;
 	INT32	sClosestDisturbance;
@@ -1066,7 +1066,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 		DebugAI( AI_MSG_INFO, pSoldier, String("prepare attack, AP cost %d CTH %d", BestAttack.ubAPCost, BestAttack.ubChanceToReallyHit));
 
 		pSoldier->aiPlanning().aimTime() = BestAttack.ubAimTime;
-		SOLDIERTYPE* attackOpponent =
+		TacticalActor* attackOpponent =
 			GetJa2SoldierRepository().resolve(
 				BestAttack.ubOpponent.i);
 
@@ -1269,7 +1269,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	return(AI_ACTION_NONE);
 }
 
-INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
+INT8 ZombieDecideAction( TacticalActor *pSoldier )
 {
 	INT8 bAction = AI_ACTION_NONE;
 
@@ -1301,7 +1301,7 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 	return(bAction);
 }
 
-/*void ZombieDecideAlertStatus( SOLDIERTYPE *pSoldier )
+/*void ZombieDecideAlertStatus( TacticalActor *pSoldier )
 {
 	INT8	bOldStatus;
 	INT32	iDummy;

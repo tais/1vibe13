@@ -531,7 +531,7 @@ BOOLEAN IsRepairableStructAtGridNo( INT32 sGridNo, UINT16 * pubID )
 
 	if ( ubMerc != NOBODY )
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve( ubMerc );
 		if ( soldier && soldier->status().flags() & SOLDIER_ROBOT )
 		{
@@ -570,7 +570,7 @@ BOOLEAN IsRefuelableStructAtGridNo( INT32 sGridNo, UINT16 * pubID )
 
 	if ( ubMerc != NOBODY )
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve( ubMerc );
 		if ( soldier &&
 			 soldier->status().flags() & SOLDIER_VEHICLE )
