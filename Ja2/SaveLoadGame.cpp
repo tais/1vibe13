@@ -2945,13 +2945,13 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		SaveGameHeader.sSectorY = gWorldSectorY;
 		SaveGameHeader.bSectorZ = gbWorldSectorZ;
 	}
-	else if( Squad[ iCurrentTacticalSquad ][ 0 ] && iCurrentTacticalSquad != NO_CURRENT_SQUAD )
+	else if( ResolveSquadMember( iCurrentTacticalSquad, 0 ) && iCurrentTacticalSquad != NO_CURRENT_SQUAD )
 	{
-//		if( Squad[ iCurrentTacticalSquad ][ 0 ]->assignment().current() != IN_TRANSIT )
+//		if( ResolveSquadMember( iCurrentTacticalSquad, 0 )->assignment().current() != IN_TRANSIT )
 		{
-			SaveGameHeader.sSectorX = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorX();
-			SaveGameHeader.sSectorY = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorY();
-			SaveGameHeader.bSectorZ = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorZ();
+			SaveGameHeader.sSectorX = ResolveSquadMember( iCurrentTacticalSquad, 0 )->deployment().sectorX();
+			SaveGameHeader.sSectorY = ResolveSquadMember( iCurrentTacticalSquad, 0 )->deployment().sectorY();
+			SaveGameHeader.bSectorZ = ResolveSquadMember( iCurrentTacticalSquad, 0 )->deployment().sectorZ();
 		}
 	}
 	else
@@ -8907,6 +8907,8 @@ void WriteTempFileNameToFile( STR pFileName, UINT32 uiSizeOfFile, HWFILE hSaveFi
 
 void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *pbSectorZ )
 {
+	SOLDIERTYPE* currentSquadMember =
+		ResolveSquadMember( iCurrentTacticalSquad, 0 );
 	//if the current sector is valid
 	if( IsJa2TacticalWorldLoaded() )
 	{
@@ -8914,13 +8916,13 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 		*psSectorY = gWorldSectorY;
 		*pbSectorZ = gbWorldSectorZ;
 	}
-	else if( iCurrentTacticalSquad != NO_CURRENT_SQUAD && Squad[ iCurrentTacticalSquad ][ 0 ] )
+	else if( iCurrentTacticalSquad != NO_CURRENT_SQUAD && currentSquadMember )
 	{
-		if( Squad[ iCurrentTacticalSquad ][ 0 ]->assignment().current() != IN_TRANSIT )
+		if( currentSquadMember->assignment().current() != IN_TRANSIT )
 		{
-			*psSectorX = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorX();
-			*psSectorY = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorY();
-			*pbSectorZ = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorZ();
+			*psSectorX = currentSquadMember->deployment().sectorX();
+			*psSectorY = currentSquadMember->deployment().sectorY();
+			*pbSectorZ = currentSquadMember->deployment().sectorZ();
 		}
 	}
 	else

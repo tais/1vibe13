@@ -285,12 +285,15 @@ does not change soldier, map, save, content, or tactical-delta formats.
 primitive for exact tactical identities. It preallocates its storage, inserts
 into the lowest vacant slot without hot-path allocation, retains a sparse
 high-water traversal bound, and never stores application pointers. `insert`,
-`erase`, and `replace` are identity-exact, so reusable soldier slots cannot
-silently redirect retained membership to a later incarnation. The JA2
-application uses two host-owned instances for active and away tactical
-scheduling and its host gateways keep those memberships mutually exclusive;
-this does not expose its scheduler as a package service and does
-not alter strategic squads or persistent/mod data.
+`assign`, `erase`, `eraseAt`, and `replace` are identity-exact, while
+`compact` and `sortByIdentity` provide allocation-free deterministic layout,
+so reusable soldier slots cannot silently redirect retained membership to a
+later incarnation. The JA2 application uses host-owned instances for active
+and away tactical scheduling and for its bounded strategic squad membership.
+These remain application runtime details, not package services. Strategic
+squad saves still write the established 40-by-10 legacy soldier-ID block and
+reconstruct exact runtime identities on load; no save, game-data, Lua, or
+network format changes.
 
 `GameContext` also owns the application-only `Ja2SoldierRepository` that
 connects this pointer-free runtime identity to JA2's current fixed soldier

@@ -98,6 +98,7 @@
 #include "Simulation Command Legacy.h"
 #include "Simulation Commands.h"
 #include "StrategicGroupHost.h"
+#include "StrategicSquadHost.h"
 #include "TacticalCommandHost.h"
 #include "TacticalEntityHost.h"
 #include "TacticalInventoryUiLegacy.h"
@@ -5017,6 +5018,7 @@ int main( int, char** )
 		const TacticalEntityId swapTargetIdentity =
 			GetJa2TacticalEntityId( swapTarget );
 		ResetJa2TacticalActorRosters();
+		ResetJa2StrategicSquadRosters();
 		const bool tacticalActorRostersSeeded =
 			AddJa2ActiveTacticalActor( worldActorIdentity ) == 0 &&
 			AddJa2ActiveTacticalActor( worldActorIdentity ) == 0 &&
@@ -5029,6 +5031,49 @@ int main( int, char** )
 			Ja2AwayTacticalActorSlotCount() == 1 &&
 			ResolveJa2ActiveTacticalActorSlot( 0 ) == &worldActor &&
 			ResolveJa2AwayTacticalActorSlot( 0 ) == &swapTarget;
+		constexpr std::size_t strategicSquadFixture = 2;
+		const bool strategicSquadRosterSeeded =
+			AssignJa2StrategicSquadActor(
+				strategicSquadFixture, 0, swapTargetIdentity ) &&
+			AssignJa2StrategicSquadActor(
+				strategicSquadFixture, 2, worldActorIdentity ) &&
+			Ja2StrategicSquadSize( strategicSquadFixture ) == 2 &&
+			!ResolveJa2StrategicSquadActor(
+				strategicSquadFixture, 1 ) &&
+			CompactJa2StrategicSquad( strategicSquadFixture ) &&
+			ResolveJa2StrategicSquadActor(
+				strategicSquadFixture, 0 ) == &swapTarget &&
+			SortJa2StrategicSquadByIdentity(
+				strategicSquadFixture ) &&
+			ResolveJa2StrategicSquadActor(
+				strategicSquadFixture, 0 ) == &worldActor &&
+			ResolveJa2StrategicSquadActor(
+				strategicSquadFixture, 1 ) == &swapTarget &&
+			AddJa2StrategicSquadActor(
+				strategicSquadFixture, worldActorIdentity ) == 0 &&
+			RemoveJa2StrategicSquadActor(
+				strategicSquadFixture, swapTargetIdentity ) &&
+			Ja2StrategicSquadSize( strategicSquadFixture ) == 1 &&
+			AssignJa2StrategicSquadActor(
+				strategicSquadFixture, 1, swapTargetIdentity ) &&
+			AddJa2StrategicSquadActor(
+				strategicSquadFixture + 1, worldActorIdentity ) == -1 &&
+			Ja2StrategicSquadSize( kJa2StrategicSquadCount ) == 0 &&
+			!GetJa2StrategicSquadActor(
+				kJa2StrategicSquadCount, 0 ).valid() &&
+			!ResolveJa2StrategicSquadActor(
+				strategicSquadFixture,
+				kJa2StrategicSquadCapacity ) &&
+			AddJa2StrategicSquadActor(
+				kJa2StrategicSquadCount, swapTargetIdentity ) == -1 &&
+			!AssignJa2StrategicSquadActor(
+				strategicSquadFixture,
+				kJa2StrategicSquadCapacity,
+				swapTargetIdentity ) &&
+			!CompactJa2StrategicSquad(
+				kJa2StrategicSquadCount ) &&
+			!SortJa2StrategicSquadByIdentity(
+				kJa2StrategicSquadCount );
 		const bool entitySlotsSwapped = SwapJa2TacticalEntitySlots( 0, 1 );
 		const bool swappedEntitiesResolvable =
 			GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 702 } ) &&
@@ -5045,36 +5090,64 @@ int main( int, char** )
 			GetJa2TacticalEntityId(
 				*ResolveJa2AwayTacticalActorSlot( 0 ) ) ==
 				( TacticalEntityId{ 1, 701 } );
+		const bool swappedSquadRosterRebound =
+			ResolveJa2StrategicSquadActor(
+				strategicSquadFixture, 0 ) == &worldActor &&
+			GetJa2StrategicSquadActor(
+				strategicSquadFixture, 0 ) ==
+				( TacticalEntityId{ 0, 702 } ) &&
+			ResolveJa2StrategicSquadActor(
+				strategicSquadFixture, 1 ) == &swapTarget &&
+			GetJa2StrategicSquadActor(
+				strategicSquadFixture, 1 ) ==
+				( TacticalEntityId{ 1, 701 } );
 		const bool entitySlotsRestored = SwapJa2TacticalEntitySlots( 0, 1 );
 		const bool restoredActorRostersRebound =
 			ResolveJa2ActiveTacticalActorSlot( 0 ) == &worldActor &&
 			ResolveJa2AwayTacticalActorSlot( 0 ) == &swapTarget;
+		const bool restoredSquadRosterRebound =
+			ResolveJa2StrategicSquadActor(
+				strategicSquadFixture, 0 ) == &worldActor &&
+			ResolveJa2StrategicSquadActor(
+				strategicSquadFixture, 1 ) == &swapTarget;
 		const TacticalEntityId rosterDeletionActor =
 			GetJa2TacticalEntityId( worldActor );
 		const bool rosterActorReleased =
 			ReleaseJa2TacticalEntity( worldActor );
 		const bool releasedRosterEntryFailsClosed =
 			ResolveJa2ActiveTacticalActorSlot( 0 ) == nullptr;
+		const bool releasedSquadEntryFailsClosed =
+			ResolveJa2StrategicSquadActor(
+				strategicSquadFixture, 0 ) == nullptr;
 		const bool releasedRosterEntryRemoved =
 			RemoveJa2ActiveTacticalActor( rosterDeletionActor ) &&
 			Ja2ActiveTacticalActorSlotCount() == 0;
+		const bool releasedSquadEntryRemoved =
+			RemoveJa2StrategicSquadActor( rosterDeletionActor ) &&
+			Ja2StrategicSquadSize( strategicSquadFixture ) == 1;
 		const bool rosterActorReadopted =
 			AdoptJa2TacticalEntity( worldActor );
 		CHECK( swapTargetInstalled && swapTargetAdopted &&
 		       tacticalActorRostersSeeded &&
+		       strategicSquadRosterSeeded &&
 		       entitySlotsSwapped && swappedEntitiesResolvable &&
 		       swappedActorRostersRebound &&
+		       swappedSquadRosterRebound &&
 		       entitySlotsRestored &&
 		       restoredActorRostersRebound &&
+		       restoredSquadRosterRebound &&
 		       rosterActorReleased &&
 		       releasedRosterEntryFailsClosed &&
+		       releasedSquadEntryFailsClosed &&
 		       releasedRosterEntryRemoved &&
+		       releasedSquadEntryRemoved &&
 		       rosterActorReadopted &&
 		       GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 701 } ) &&
 		       !SwapJa2TacticalEntitySlots( 0, 0 ) &&
 		       !SwapJa2TacticalEntitySlots( TOTAL_SOLDIERS, 0 ),
-		       "scheduler rosters rebind whole-record swaps and remove released exact actors without retaining pointers" );
+		       "scheduler and strategic squad rosters rebind whole-record swaps and remove released exact actors without retaining pointers" );
 		ResetJa2TacticalActorRosters();
+		ResetJa2StrategicSquadRosters();
 		(void)soldierRepository.replace( 1, previousSwapTarget );
 		RebuildJa2TacticalEntityDirectory();
 

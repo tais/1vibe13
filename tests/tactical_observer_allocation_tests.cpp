@@ -204,6 +204,17 @@ int main()
 			stableRoster = false;
 		}
 	}
+	for (std::size_t slot = 0;
+		stableRoster && slot < ActorCount; ++slot)
+	{
+		if (!roster.eraseAt(slot) ||
+			!roster.assign(slot, rosterActors[slot]))
+		{
+			stableRoster = false;
+		}
+	}
+	roster.compact();
+	roster.sortByIdentity();
 	allocation_probe::enabled.store(false, std::memory_order_relaxed);
 	check(stableRoster && roster.full() &&
 		allocation_probe::count.load(std::memory_order_relaxed) == 0,

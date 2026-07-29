@@ -19,11 +19,15 @@ public:
 	explicit TacticalEntityRoster(std::size_t capacity);
 
 	std::optional<Slot> insert(TacticalEntityId actor) noexcept;
+	bool assign(Slot slot, TacticalEntityId actor) noexcept;
 	bool erase(TacticalEntityId actor) noexcept;
+	bool eraseAt(Slot slot) noexcept;
 	bool replace(Slot slot, TacticalEntityId actor) noexcept;
 
 	TacticalEntityId actor(Slot slot) const noexcept;
 	bool contains(TacticalEntityId actor) const noexcept;
+	void compact() noexcept;
+	void sortByIdentity() noexcept;
 	void clear() noexcept;
 
 	std::size_t capacity() const noexcept { return actors_.size(); }

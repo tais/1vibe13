@@ -105,6 +105,7 @@
 #include "Rebel Command.h"
 #include "Simulation Command Legacy.h"
 #include "Simulation Commands.h"
+#include "StrategicSquadHost.h"
 #include "TacticalEntityHost.h"
 
 
@@ -2564,6 +2565,10 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 	{
 		RemoveJa2AwayTacticalActor(actor);
 	}
+	// Tactical removal normally performs the strategic side effects first.
+	// This exact-ID cleanup also covers teardown paths that release the record
+	// directly, so a reused repository slot cannot inherit squad membership.
+	(void)RemoveJa2StrategicSquadActor(actor);
 
 	return(TRUE);
 }

@@ -59,10 +59,10 @@ enum{
 #define NO_CURRENT_SQUAD	NUMBER_OF_SQUADS
 
 
-// ptrs to soldier types of squads and their members
-
-// squads
-extern SOLDIERTYPE *Squad[ NUMBER_OF_SQUADS ][ NUMBER_OF_SOLDIERS_PER_SQUAD ];
+// Resolve a transient compatibility record from pointer-free runtime squad
+// membership. Callers must not retain the returned pointer across lifecycle
+// boundaries.
+SOLDIERTYPE* ResolveSquadMember( INT32 iSquad, INT32 iSlot );
 
 extern INT32 iCurrentTacticalSquad;
 

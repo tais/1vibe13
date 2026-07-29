@@ -2900,19 +2900,26 @@ void HandleAnyMercInSquadHasCompatibleStuff( UINT8 ubSquad, OBJECTTYPE *pObject,
 
 	for( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; ++iCounter )
 	{
-		if(  Squad[ iCurrentTacticalSquad ][ iCounter ] != NULL )
+		SOLDIERTYPE* squadMember =
+			ResolveSquadMember( iCurrentTacticalSquad, iCounter );
+		if( squadMember != NULL )
 		{
 			if ( !fReset )
 			{
-				if ( SoldierContainsAnyCompatibleStuff( Squad[ iCurrentTacticalSquad ][ iCounter ], pObject )	)
+				if ( SoldierContainsAnyCompatibleStuff(
+						squadMember, pObject ) )
 				{
 					// Get face and set value....
-					gFacesData[ Squad[ iCurrentTacticalSquad ][ iCounter ]->renderBindings().faceIndex() ].fCompatibleItems = TRUE;
+					gFacesData[
+						squadMember->renderBindings().faceIndex()
+					].fCompatibleItems = TRUE;
 				}
 			}
 			else
 			{
-				gFacesData[ Squad[ iCurrentTacticalSquad ][ iCounter ]->renderBindings().faceIndex() ].fCompatibleItems = FALSE;
+				gFacesData[
+					squadMember->renderBindings().faceIndex()
+				].fCompatibleItems = FALSE;
 			}
 		}
 	}

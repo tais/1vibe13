@@ -3999,7 +3999,7 @@ void JumpIntoEscapedSector(UINT8 ubTacticalDirection)
 	{
 		for (size_t j = 0; j < NUMBER_OF_SOLDIERS_PER_SQUAD; j++)
 		{
-			SOLDIERTYPE* pSoldier = Squad[i][j];
+			SOLDIERTYPE* pSoldier = ResolveSquadMember( i, j );
 			if (pSoldier && OK_CONTROLLABLE_MERC(pSoldier))
 			{
 				GROUP* pGroup = GetGroup(pSoldier->deployment().groupId());
