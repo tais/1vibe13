@@ -44,6 +44,7 @@
 	#include "opplist.h"
 	#include "ai.h"
 	#include "Simulation Commands.h"
+	#include "TacticalEntityHost.h"
 	#include "worldman.h"
 	#include "Map Screen Interface Bottom.h"
 	#include "Campaign.h"
@@ -1383,7 +1384,7 @@ void HandleDialogue( )
 						//Get the soldier up
 						pSoldier->collapseState().clearTactical();
 						(void)TryDispatchSystemChangeStanceCommand(
-							*pSoldier, ANIM_STAND,
+							GetJa2TacticalEntityId(*pSoldier), ANIM_STAND,
 							TacticalEventPolicy::LocalOnly);
 
 						//if the soldier is Jerry

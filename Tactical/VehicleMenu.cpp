@@ -15,6 +15,7 @@
 #include "Squads.h"
 #include "Font Control.h"
 #include "Simulation Commands.h"
+#include "TacticalEntityHost.h"
 
 // sevenfm: need this for correct calculation of vehicle menu position
 extern INT16 gsInterfaceLevel;
@@ -194,16 +195,16 @@ VehicleSelection::Functions( UINT32 aVal  )
 				const SimulationCommandDispatchResult vehicleEntry =
 					pCurrentSoldier->position().gridNo() != sActionGridNo
 						? TryDispatchApproachVehicleCommandNow(
-							*pCurrentSoldier,
-							*pCurrentVehicle,
+							GetJa2TacticalEntityId(*pCurrentSoldier),
+							GetJa2TacticalEntityId(*pCurrentVehicle),
 							ubDirection,
 							static_cast<UINT8>(aVal),
 							sActionGridNo,
 							pCurrentSoldier->movement().mode(),
 							pCurrentSoldier->movement().outOfActionPoints() != FALSE)
 						: TryDispatchEnterVehicleCommandNow(
-							*pCurrentSoldier,
-							*pCurrentVehicle,
+							GetJa2TacticalEntityId(*pCurrentSoldier),
+							GetJa2TacticalEntityId(*pCurrentVehicle),
 							ubDirection,
 							static_cast<UINT8>(aVal));
 				if (!vehicleEntry)

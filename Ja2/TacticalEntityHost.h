@@ -32,6 +32,8 @@ bool SwapJa2TacticalEntitySlots(
 	std::uint16_t firstSlot, std::uint16_t secondSlot);
 
 TacticalEntityId GetJa2TacticalEntityId(std::uint16_t slot) noexcept;
+TacticalEntityId GetJa2TacticalEntityId(
+	const SOLDIERTYPE& soldier) noexcept;
 SOLDIERTYPE* ResolveJa2TacticalEntity(TacticalEntityId entity) noexcept;
 
 // Legacy callbacks often outlive the stack frame that selected an actor. This

@@ -113,6 +113,7 @@
 #include "Vehicles.h"
 #include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
+#include "Simulation Command Legacy.h"
 #include "Simulation Commands.h"
 #include "XML.h"
 #include "GameInitOptionsScreen.h"

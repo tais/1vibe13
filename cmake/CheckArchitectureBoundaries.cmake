@@ -1133,11 +1133,26 @@ if(direct_item_fire_event)
     "AI item handling bypasses the selected-weapon SimulationCommand")
 endif()
 
-# Player ingress passes the exact live SOLDIERTYPE reference to the application
-# adapter. Reassembling a value command from ubID plus
-# uiUniqueSoldierIdValue at dozens of UI sites lets those values come from
-# different objects; replay/network/package producers remain pointer-free and
-# construct the public Engine command values directly.
+# The public application command boundary is pointer-free. Every JA2 producer
+# captures one complete, generation-aware TacticalEntityId from the exact live
+# compatibility record before dispatch. Slot and incarnation must never be
+# reassembled independently at UI, AI, dialogue, or network ingress.
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.h"
+  simulation_command_api)
+string(FIND "${simulation_command_api}" "SOLDIERTYPE"
+  simulation_command_record_index)
+if(NOT simulation_command_record_index EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical/Simulation Commands.h exposes SOLDIERTYPE; keep the public command boundary pointer-free")
+endif()
+string(REGEX MATCH
+  "uniqueSoldierId|uiUniqueSoldierIdValue"
+  split_simulation_command_api "${simulation_command_api}")
+if(split_simulation_command_api)
+  message(FATAL_ERROR
+    "Tactical/Simulation Commands.h exposes a split actor identity; accept TacticalEntityId as one value")
+endif()
+
 set(player_command_ingress_files
   "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
   "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
@@ -1149,11 +1164,18 @@ set(player_command_ingress_files
 foreach(player_command_ingress_file IN LISTS player_command_ingress_files)
   file(READ "${player_command_ingress_file}" contents)
   string(REGEX MATCH
-    "TryDispatch[A-Za-z0-9_]+CommandNow[ \t\r\n]*\\([^;]*->ubID|uiUniqueSoldierIdValue"
+    "TryDispatch[A-Za-z0-9_]+CommandNow[ \t\r\n]*\\([ \t\r\n]*\\*|TryDispatch[A-Za-z0-9_]+CommandNow[ \t\r\n]*\\([^;]*(identity\\(\\)\\.id\\(\\)|identity\\(\\)\\.incarnation\\(\\)|uiUniqueSoldierIdValue)"
     split_player_command_actor "${contents}")
   if(split_player_command_actor)
     message(FATAL_ERROR
-      "Player command ingress assembles a reusable actor identity in ${player_command_ingress_file}; pass the exact live SOLDIERTYPE reference")
+      "Player command ingress bypasses complete TacticalEntityId capture in ${player_command_ingress_file}")
+  endif()
+
+  string(FIND "${contents}" "GetJa2TacticalEntityId"
+    actor_capture_index)
+  if(actor_capture_index EQUAL -1)
+    message(FATAL_ERROR
+      "Player command ingress no longer captures TacticalEntityId in ${player_command_ingress_file}")
   endif()
 
   string(REGEX MATCH
@@ -1162,6 +1184,30 @@ foreach(player_command_ingress_file IN LISTS player_command_ingress_files)
   if(direct_player_squad_state_mutation)
     message(FATAL_ERROR
       "Player squad input mutates stealth or movement state directly in ${player_command_ingress_file}; use the existing SimulationCommand")
+  endif()
+endforeach()
+
+set(non_player_actor_command_ingress_files
+  "${SOURCE_ROOT}/Multiplayer/client.cpp"
+  "${SOURCE_ROOT}/TacticalAI/AIUtils.cpp"
+  "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp")
+foreach(actor_command_ingress_file IN LISTS non_player_actor_command_ingress_files)
+  file(READ "${actor_command_ingress_file}" contents)
+  string(REGEX MATCH
+    "TryDispatch(Network|System)[A-Za-z0-9_]+Command[ \t\r\n]*\\([ \t\r\n]*\\*|TryDispatch(Network|System)[A-Za-z0-9_]+Command[ \t\r\n]*\\([^;]*(identity\\(\\)\\.id\\(\\)|identity\\(\\)\\.incarnation\\(\\)|uiUniqueSoldierIdValue)"
+    split_command_actor "${contents}")
+  if(split_command_actor)
+    message(FATAL_ERROR
+      "Command ingress bypasses complete TacticalEntityId capture in ${actor_command_ingress_file}")
+  endif()
+
+  string(FIND "${contents}" "GetJa2TacticalEntityId"
+    actor_capture_index)
+  if(actor_capture_index EQUAL -1)
+    message(FATAL_ERROR
+      "Command ingress no longer captures TacticalEntityId in ${actor_command_ingress_file}")
   endif()
 endforeach()
 

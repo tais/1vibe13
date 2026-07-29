@@ -63,6 +63,7 @@
 	#include "Food.h"
 	// added by sevenfm - this is needed for _keydown(SHIFT) to work
 	#include "english.h"
+	#include "Simulation Command Legacy.h"
 	#include "Simulation Commands.h"
 	#include "TacticalEntityHost.h"
 	#include "TacticalWorldItemHost.h"
@@ -128,11 +129,13 @@ bool DispatchBeginFireWeaponFromHandleItem(
 {
 	const SimulationCommandDispatchResult dispatch = fromUi
 		? TryDispatchBeginFireWeaponCommandNow(
-			*soldier, targetGrid, soldier->targeting().level(),
+			GetJa2TacticalEntityId(*soldier),
+			targetGrid, soldier->targeting().level(),
 			soldier->targeting().cubeLevel(),
 			SimulationCommandSource::LocalPlayer)
 		: TryDispatchSystemBeginSelectedFireWeaponCommand(
-			*soldier, targetGrid, soldier->targeting().level(),
+			GetJa2TacticalEntityId(*soldier),
+			targetGrid, soldier->targeting().level(),
 			soldier->targeting().cubeLevel(), soldier->attackSelection().hand(),
 			soldier->attackSelection().weapon());
 	if (!dispatch.accepted()) rejectedSelection.restore(*soldier);

@@ -2260,7 +2260,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					//else
 					const SimulationCommandDispatchResult movement =
 						TryDispatchMoveToGridCommandNow(
-							*pSoldier,
+							GetJa2TacticalEntityId(*pSoldier),
 							usMapPos, pSoldier->movement().mode(),
 							pSoldier->movement().reverse() != FALSE, false);
 					if ( movement )
@@ -2413,7 +2413,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 						{
 							const SimulationCommandDispatchResult interaction =
 								TryDispatchActivateWorldObjectCommandNow(
-									*pSoldier,
+									GetJa2TacticalEntityId(*pSoldier),
 									sIntTileGridNo,
 									pStructure->usStructureID,
 									ubDirection);
@@ -2452,7 +2452,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					const SimulationCommandDispatchResult movement =
 						pIntTile != NULL
 							? TryDispatchApproachWorldObjectCommandNow(
-								*pSoldier,
+								GetJa2TacticalEntityId(*pSoldier),
 								sIntTileGridNo,
 								pStructure->usStructureID,
 								ubDirection,
@@ -2462,7 +2462,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 								gUIUseReverse != FALSE,
 								pSoldier->movement().outOfActionPoints() != FALSE)
 							: TryDispatchMoveToGridCommandNow(
-								*pSoldier,
+								GetJa2TacticalEntityId(*pSoldier),
 								sDestGridNo,
 								static_cast<std::uint16_t>(
 									pSoldier->movement().mode()),
@@ -3218,7 +3218,7 @@ UINT32 UIHandleAEndAction( UI_EVENT *pUIEvent )
 
 				// UNReady weapon
 				if (TryDispatchSetWeaponReadyCommandNow(
-						*pSoldier,
+						GetJa2TacticalEntityId(*pSoldier),
 						static_cast<std::uint8_t>(
 							GetDirectionFromXY(
 								sTargetXPos, sTargetYPos, pSoldier)),
@@ -3295,13 +3295,13 @@ UINT32 UIHandlePADJAdjustStance( UI_EVENT *pUIEvent )
 			if ( gbClimbID	== 1 )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					*pSoldier,
+					GetJa2TacticalEntityId(*pSoldier),
 					TacticalTraversalKind::ClimbUpRoof );
 			}
 			else if ( gbClimbID == -1 )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					*pSoldier,
+					GetJa2TacticalEntityId(*pSoldier),
 					TacticalTraversalKind::ClimbDownRoof );
 			}
 			else
@@ -3992,7 +3992,8 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		if ( SoldierCanAffordNewStance( pSoldier, bNewStance ) )
 		{
 			// Adjust stance
-			if (!TryDispatchChangeStanceCommandNow( *pSoldier, bNewStance ))
+			if (!TryDispatchChangeStanceCommandNow(
+					GetJa2TacticalEntityId(*pSoldier), bNewStance ))
 				return;
 
 			pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
@@ -4007,7 +4008,8 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 				bNewStance == ANIM_STAND)
 			{
 				(void)TryDispatchCycleScopeModeCommandNow(
-					*pSoldier, TacticalNoTargetGrid);
+					GetJa2TacticalEntityId(*pSoldier),
+					TacticalNoTargetGrid);
 			}
 		}
 		else
@@ -4019,7 +4021,8 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 	// If realtime- change walking animation!
 	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 	{
-		if (!TryDispatchChangeStanceCommandNow( *pSoldier, bNewStance ))
+		if (!TryDispatchChangeStanceCommandNow(
+				GetJa2TacticalEntityId(*pSoldier), bNewStance ))
 			return;
 
 		// sevenfm: switch from alt weapon holding when changing stance in realtime
@@ -4031,7 +4034,8 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 			bNewStance == ANIM_STAND)
 		{
 			(void)TryDispatchCycleScopeModeCommandNow(
-				*pSoldier, TacticalNoTargetGrid);
+				GetJa2TacticalEntityId(*pSoldier),
+				TacticalNoTargetGrid);
 		}
 	}
 
@@ -5573,7 +5577,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 
 		const SimulationCommandDispatchResult facing =
 			TryDispatchSetFacingCommandNow(
-				*pSoldier,
+				GetJa2TacticalEntityId(*pSoldier),
 				static_cast<std::uint8_t>(sFacingDir));
 		if (!facing) return FALSE;
 
@@ -5643,7 +5647,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 				pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD &&
 				gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3;
 			if (!TryDispatchSetWeaponReadyCommandNow(
-					*pSoldier,
+					GetJa2TacticalEntityId(*pSoldier),
 					static_cast<std::uint8_t>(
 						GetDirectionFromXY(sXPos, sYPos, pSoldier)),
 					true, alternativeHold))
@@ -6089,7 +6093,8 @@ BOOLEAN StopRubberBandedMercFromMoving(void)
 				{
 					fFound = TRUE;
 				}
-				TryDispatchStopMovementCommandNow(*pSoldier);
+				TryDispatchStopMovementCommandNow(
+					GetJa2TacticalEntityId(*pSoldier));
 			}
 		}
 	}
@@ -6241,7 +6246,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 
 				const SimulationCommandDispatchResult movement =
 					TryDispatchMoveToGridCommandNow(
-						*pSoldier,
+						GetJa2TacticalEntityId(*pSoldier),
 						sIndividualDestGridNo, pSoldier->movement().mode(),
 						gUIUseReverse != FALSE,
 						pSoldier->movement().outOfActionPoints() != FALSE);
@@ -6855,8 +6860,8 @@ BOOLEAN HandleTalkInit(	)
 					}
 
 					(void)TryDispatchApproachConversationCommandNow(
-						*pSoldier,
-						*pTSoldier,
+						GetJa2TacticalEntityId(*pSoldier),
+						GetJa2TacticalEntityId(*pTSoldier),
 						sGoodGridNo,
 						pSoldier->movement().mode(),
 						pSoldier->movement().outOfActionPoints() != FALSE);
@@ -6875,8 +6880,8 @@ BOOLEAN HandleTalkInit(	)
 				}
 
 				if (!TryDispatchStartConversationCommandNow(
-						*pSoldier,
-						*pTSoldier))
+						GetJa2TacticalEntityId(*pSoldier),
+						GetJa2TacticalEntityId(*pTSoldier)))
 				{
 					return( FALSE );
 				}
@@ -7299,7 +7304,7 @@ void GotoHeigherStance( SOLDIERTYPE *pSoldier )
 			if ( fNearHeigherLevel )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					*pSoldier,
+					GetJa2TacticalEntityId(*pSoldier),
 					TacticalTraversalKind::ClimbUpRoof );
 			}
 			break;
@@ -7344,7 +7349,7 @@ void GotoLowerStance( SOLDIERTYPE *pSoldier )
 			if ( fNearLowerLevel )
 			{
 				TryDispatchTraverseObstacleCommandNow(
-					*pSoldier,
+					GetJa2TacticalEntityId(*pSoldier),
 					TacticalTraversalKind::ClimbDownRoof );
 			}
 			break;

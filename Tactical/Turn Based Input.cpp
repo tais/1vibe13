@@ -2232,7 +2232,8 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if (pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->status().flags() & SOLDIER_MULTI_SELECTED && WeaponReady(pSoldier))
 							{
 								if (TryDispatchSetWeaponReadyCommandNow(
-										*pSoldier, pSoldier->position().direction(),
+										GetJa2TacticalEntityId(*pSoldier),
+										pSoldier->position().direction(),
 										false, false))
 									HandleSight(pSoldier, SIGHT_LOOK);
 							}
@@ -2246,7 +2247,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 				{
 					// If soldier is not stationary, stop
 					if (TryDispatchStopMovementCommandNow(
-							*selectedSoldier))
+							GetJa2TacticalEntityId(*selectedSoldier)))
 						*puiNewEvent = A_CHANGE_TO_MOVE;
 					continue;
 				}
@@ -2256,7 +2257,8 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 			if (selectedSoldier &&
 				selectedSoldier->IsDragging())
 			{
-				if (TryDispatchCancelDragCommandNow(*selectedSoldier))
+				if (TryDispatchCancelDragCommandNow(
+						GetJa2TacticalEntityId(*selectedSoldier)))
 					DirtyMercPanelInterface(
 						selectedSoldier, DIRTYLEVEL2);
 				continue;
@@ -2267,7 +2269,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 				WeaponReady(selectedSoldier))
 			{
 				if (TryDispatchSetWeaponReadyCommandNow(
-						*selectedSoldier,
+						GetJa2TacticalEntityId(*selectedSoldier),
 						selectedSoldier->position().direction(),
 						false, false))
 					HandleSight(selectedSoldier, SIGHT_LOOK);
@@ -3887,7 +3889,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, TRUE ), GetBPsToClimbRoof( pjSoldier, TRUE ), FALSE )	)
 							{
 								if ( TryDispatchTraverseObstacleCommandNow(
-									*pjSoldier,
+									GetJa2TacticalEntityId(*pjSoldier),
 									TacticalTraversalKind::ClimbDownRoof ) )
 									return;
 							}
@@ -3905,7 +3907,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, FALSE ), GetBPsToClimbRoof( pjSoldier, FALSE ), FALSE )	)
 							{
 								if ( TryDispatchTraverseObstacleCommandNow(
-									*pjSoldier,
+									GetJa2TacticalEntityId(*pjSoldier),
 									TacticalTraversalKind::ClimbUpRoof ) )
 									return;
 							}
@@ -3931,7 +3933,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if ( EnoughPoints( pjSoldier, sAPCost, sBPCost, FALSE )	)
 							{
 								if ( TryDispatchTraverseObstacleCommandNow(
-									*pjSoldier,
+									GetJa2TacticalEntityId(*pjSoldier),
 									TacticalTraversalKind::JumpFence ) )
 									return;
 							}
@@ -3952,7 +3954,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 								if ( EnoughPoints( pjSoldier, GetAPsToJumpWall( pjSoldier, FALSE ), GetBPsToJumpWall( pjSoldier, FALSE ), FALSE )	)
 								{
 									if ( TryDispatchTraverseObstacleCommandNow(
-										*pjSoldier,
+										GetJa2TacticalEntityId(*pjSoldier),
 										TacticalTraversalKind::ClimbWall ) )
 										return;
 								}
@@ -3996,7 +3998,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 							if (EnoughPoints(lSoldier, sAPCost, sBPCost, FALSE))
 							{
 								TryDispatchTraverseObstacleCommandNow(
-									*lSoldier,
+									GetJa2TacticalEntityId(*lSoldier),
 									TacticalTraversalKind::JumpWindow );
 							}
    	                    }
@@ -4742,8 +4744,8 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 											{
 												// All's good!
 												(void)TryDispatchExchangePositionsCommandNow(
-													*pSoldier1,
-													*pSoldier2,
+													GetJa2TacticalEntityId(*pSoldier1),
+													GetJa2TacticalEntityId(*pSoldier2),
 													pSoldier1->position().gridNo(),
 													pSoldier2->position().gridNo(),
 													pSoldier1->position().level() );
@@ -5476,7 +5478,7 @@ void SetBurstMode()
 	if ( selectedSoldier )
 	{
 		TryDispatchCycleWeaponModeCommandNow(
-			*selectedSoldier );
+			GetJa2TacticalEntityId(*selectedSoldier) );
 	}
 }
 
@@ -5492,7 +5494,7 @@ void SetScopeMode( INT32 usMapPos )
 		if ( GetMouseMapPos( &usMapPos ))
 			targetGrid = usMapPos;
 		TryDispatchCycleScopeModeCommandNow(
-			*selectedSoldier,
+			GetJa2TacticalEntityId(*selectedSoldier),
 			targetGrid );
 	}
 }
@@ -5812,16 +5814,16 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( SOLDIERTYPE *pSoldier, UINT
 						const SimulationCommandDispatchResult vehicleEntry =
 							pSoldier->position().gridNo() != sActionGridNo
 								? TryDispatchApproachVehicleCommandNow(
-									*pSoldier,
-									*pTSoldier,
+									GetJa2TacticalEntityId(*pSoldier),
+									GetJa2TacticalEntityId(*pTSoldier),
 									ubDirection,
 									ubSeatIndex,
 									sActionGridNo,
 									pSoldier->movement().mode(),
 									pSoldier->movement().outOfActionPoints() != FALSE)
 								: TryDispatchEnterVehicleCommandNow(
-									*pSoldier,
-									*pTSoldier,
+									GetJa2TacticalEntityId(*pSoldier),
+									GetJa2TacticalEntityId(*pTSoldier),
 									ubDirection,
 									ubSeatIndex);
 						if (!vehicleEntry)
@@ -5929,7 +5931,7 @@ static SimulationCommandDispatchResult TryDispatchPlayerWorldItemPickup(
 		}
 	}
 	return TryDispatchPickupWorldItemCommandNow(
-		*pSoldier,
+		GetJa2TacticalEntityId(*pSoldier),
 		item,
 		sGridNo,
 		bZLevel,
@@ -5990,8 +5992,8 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 				if ( EnoughPoints( pSoldier, sAPCost, 0, TRUE ) )
 				{
 					if ( TryDispatchStealFromActorCommandNow(
-							*pSoldier,
-							*fullTarget,
+							GetJa2TacticalEntityId(*pSoldier),
+							GetJa2TacticalEntityId(*fullTarget),
 							fullTarget->position().gridNo(),
 							fullTarget->position().level() ) )
 					{
@@ -6227,8 +6229,8 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 					CanExchangePlaces( pSoldier, fullTarget, TRUE ) )
 				{
 					(void)TryDispatchExchangePositionsCommandNow(
-						*pSoldier,
-						*fullTarget,
+						GetJa2TacticalEntityId(*pSoldier),
+						GetJa2TacticalEntityId(*fullTarget),
 						pSoldier->position().gridNo(),
 						fullTarget->position().gridNo(),
 						pSoldier->position().level() );
@@ -6319,7 +6321,7 @@ BOOLEAN HandleUIReloading( SOLDIERTYPE *pSoldier )
 			// OK, we have some ammo we can reload.... reload now!
 			const SimulationCommandDispatchResult reload =
 				TryDispatchReloadWeaponCommandNow(
-					*pSoldier, false );
+					GetJa2TacticalEntityId(*pSoldier), false );
 
 			// ATE: Re-examine cursor info!
 			if ( reload.processed() )
@@ -6637,7 +6639,7 @@ void ToggleStealthMode( SOLDIERTYPE *pSoldier )
 
 		const bool enableStealth = pSoldier->movement().stealthMode() == FALSE;
 		if (!TryDispatchSetStealthModeCommandNow(
-				*pSoldier,
+				GetJa2TacticalEntityId(*pSoldier),
 				enableStealth))
 			return;
 
@@ -7768,7 +7770,7 @@ void HandleMouseTBX2Button( UINT32 *puiNewEvent )
 				: nullptr;
 		if ( selectedSoldier )
 			TryDispatchReloadWeaponCommandNow(
-				*selectedSoldier,
+				GetJa2TacticalEntityId(*selectedSoldier),
 				true );
 	}
 	else
@@ -7818,7 +7820,7 @@ void HandleTBJump( void )
 						if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, TRUE ), GetBPsToClimbRoof( pjSoldier, TRUE ), FALSE )	)
 						{
 							TryDispatchTraverseObstacleCommandNow(
-								*pjSoldier,
+								GetJa2TacticalEntityId(*pjSoldier),
 								TacticalTraversalKind::ClimbDownRoof );
 						}
 					}
@@ -7832,7 +7834,7 @@ void HandleTBJump( void )
 						if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, FALSE ), GetBPsToClimbRoof( pjSoldier, FALSE ), FALSE )	)
 						{
 							TryDispatchTraverseObstacleCommandNow(
-								*pjSoldier,
+								GetJa2TacticalEntityId(*pjSoldier),
 								TacticalTraversalKind::ClimbUpRoof );
 						}
 					}
@@ -7854,7 +7856,7 @@ void HandleTBJump( void )
 						if ( EnoughPoints( pjSoldier, sAPCost, sBPCost, FALSE )	)
 						{
 							TryDispatchTraverseObstacleCommandNow(
-								*pjSoldier,
+								GetJa2TacticalEntityId(*pjSoldier),
 								TacticalTraversalKind::JumpFence );
 						}
 					}
@@ -7871,7 +7873,7 @@ void HandleTBJump( void )
 							if ( EnoughPoints( pjSoldier, GetAPsToJumpWall( pjSoldier, FALSE ), GetBPsToJumpWall( pjSoldier, FALSE ), FALSE )	)
 							{
 								TryDispatchTraverseObstacleCommandNow(
-									*pjSoldier,
+									GetJa2TacticalEntityId(*pjSoldier),
 									TacticalTraversalKind::ClimbWall );
 							}
 						}
@@ -7904,7 +7906,7 @@ void HandleTBJumpThroughWindow( void ){
 				if (EnoughPoints(pjSoldier, sAPCost, sBPCost, FALSE))
 		{
 					TryDispatchTraverseObstacleCommandNow(
-						*pjSoldier,
+						GetJa2TacticalEntityId(*pjSoldier),
 						TacticalTraversalKind::JumpWindow );
 				}
 			}
@@ -7949,7 +7951,8 @@ void HandleTBToggleStealthAll( void )
 		if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad( ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
 			if (TryDispatchSetStealthModeCommandNow(
-					*pTeamSoldier, fStealthOn != FALSE))
+					GetJa2TacticalEntityId(*pTeamSoldier),
+					fStealthOn != FALSE))
 			{
 				fChanged = TRUE;
 				if ( GetSMCurrentMerc() != NULL && bLoop == GetSMCurrentMerc()->identity().id() )
@@ -8233,7 +8236,7 @@ void HandleTBReload( void )
 			: nullptr;
 	if ( selectedSoldier )
 		TryDispatchReloadWeaponCommandNow(
-			*selectedSoldier,
+			GetJa2TacticalEntityId(*selectedSoldier),
 			true );
 }
 void HandleTBReloadAll( void )
@@ -9485,7 +9488,7 @@ void HandleTacticalReload()
 		// OK, we have some ammo we can reload.... reload now!
 		const SimulationCommandDispatchResult reload =
 			TryDispatchReloadWeaponCommandNow(
-				*pSoldier, false );
+				GetJa2TacticalEntityId(*pSoldier), false );
 		if ( reload.status == SimulationCommandDispatchStatus::Discarded )
 		{
 			// Do we say we could not reload gun...?

@@ -29,6 +29,7 @@
 #include "GameInitOptionsScreen.h"
 #include "Simulation Commands.h"
 #include "SoldierRepository.h"
+#include "TacticalEntityHost.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // SANDRO - In this file, all APBPConstants[AP_CROUCH] and APBPConstants[AP_PRONE] were changed to GetAPsCrouch() and GetAPsProne()
@@ -654,7 +655,8 @@ SimulationCommandDispatchResult NewDest(
 	// Last parameter says whether to re-start the soldier's animation
 	// This should be done if buddy was paused for fNoApstofinishMove...
 	return TryDispatchSystemMoveToGridCommand(
-		*pSoldier, usGridNo, pSoldier->movement().mode(),
+		GetJa2TacticalEntityId(*pSoldier),
+		usGridNo, pSoldier->movement().mode(),
 		pSoldier->movement().reverse() != FALSE,
 		pSoldier->movement().outOfActionPoints() != FALSE);
 }

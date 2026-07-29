@@ -46,6 +46,7 @@
 	#include "lighting.h"
 	#include "Auto Resolve.h"
 	#include "Soldier Functions.h" // added by SANDRO
+	#include "Simulation Command Legacy.h"
 	#include "Simulation Commands.h"
 	#include "Drugs And Alcohol.h" // HEADROCK HAM 4: Get drunk level
 	#include "Campaign Types.h"	// added by Flugente
