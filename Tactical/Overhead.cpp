@@ -1023,8 +1023,8 @@ BOOLEAN ExecuteOverhead( )
                     pSoldier->damageDisplay().clear();
                     pSoldier->combatResult().accumulatedDamage() = 0;
 					// sevenfm: also zero damage info from this attack
-					pSoldier->runtime.combatFeedback.lastBulletImpact = 0;
-					pSoldier->runtime.combatFeedback.lastArmourProtection = 0;
+					pSoldier->runtime().combatFeedback.lastBulletImpact = 0;
+					pSoldier->runtime().combatFeedback.lastArmourProtection = 0;
                 }
 
             }
@@ -1067,7 +1067,7 @@ BOOLEAN ExecuteOverhead( )
                             pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
                         }
 
-                        SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, JA25_MULTIPURPOSE_EVENT_GETUP_AFTER_HELI_CRASH, pSoldier->identity().profile(), 0, pSoldier->iFaceIndex, 0 );
+                        SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, JA25_MULTIPURPOSE_EVENT_GETUP_AFTER_HELI_CRASH, pSoldier->identity().profile(), 0, pSoldier->renderBindings().faceIndex(), 0 );
                     }
                 }
                 else
@@ -1093,9 +1093,9 @@ BOOLEAN ExecuteOverhead( )
                             pSoldier->renderState().finishFade();
                             pSoldier->awareness().markHidden();
                             // Set levelnode shade level....
-                            if ( pSoldier->pLevelNode )
+                            if ( pSoldier->renderBindings().levelNode() )
                             {
-                                pSoldier->pLevelNode->ubShadeLevel = bShadeLevel;
+                                pSoldier->renderBindings().levelNode()->ubShadeLevel = bShadeLevel;
                             }
                             // Set Anim speed accordingly!
                             SetSoldierAniSpeed( pSoldier );
@@ -1116,9 +1116,9 @@ BOOLEAN ExecuteOverhead( )
                             bShadeLevel = (gpWorldLevelData[ pSoldier->position().gridNo() ].pLandHead->ubShadeLevel );
                             pSoldier->renderState().finishFade();
                             // Set levelnode shade level....
-                            if ( pSoldier->pLevelNode )
+                            if ( pSoldier->renderBindings().levelNode() )
                             {
-                                pSoldier->pLevelNode->ubShadeLevel = bShadeLevel;
+                                pSoldier->renderBindings().levelNode()->ubShadeLevel = bShadeLevel;
                             }
                             // Set Anim speed accordingly!
                             SetSoldierAniSpeed( pSoldier );
@@ -1463,7 +1463,7 @@ BOOLEAN ExecuteOverhead( )
                                                     if ( NewOKDestination( pSoldier, pSoldier->pendingAction().quaternaryData(), TRUE, pSoldier->position().level() ) )
                                                     {
                                                         // GOTO NEW TILE!
-                                                        SoldierPickupItem( pSoldier, pSoldier->pendingAction().primaryData(), pSoldier->pendingAction().quaternaryData(), pSoldier->pendingAction().tertiaryData(), pSoldier->runtime.pendingAction.targetIncarnation );
+                                                        SoldierPickupItem( pSoldier, pSoldier->pendingAction().primaryData(), pSoldier->pendingAction().quaternaryData(), pSoldier->pendingAction().tertiaryData(), pSoldier->runtime().pendingAction.targetIncarnation );
                                                         continue;
                                                     }
                                                 }
@@ -2739,9 +2739,9 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
             }
 
             // Set levelnode shade level....
-            if ( pSoldier->pLevelNode )
+            if ( pSoldier->renderBindings().levelNode() )
             {
-                pSoldier->pLevelNode->ubShadeLevel = pSoldier->renderState().fadeLevel();
+                pSoldier->renderBindings().levelNode()->ubShadeLevel = pSoldier->renderState().fadeLevel();
             }
             pSoldier->awareness().markHidden();
 
@@ -5057,9 +5057,9 @@ BOOLEAN NewOKDestination( SOLDIERTYPE * pCurrSoldier, INT32 sGridNo, BOOLEAN fPe
             for (bLoop = 0; bLoop < NUM_WORLD_DIRECTIONS; ++bLoop)
             {
                 // ATE: Only if we have a levelnode...
-                if ( pCurrSoldier->pLevelNode != NULL && pCurrSoldier->pLevelNode->pStructureData != NULL )
+                if ( pCurrSoldier->renderBindings().levelNode() != NULL && pCurrSoldier->renderBindings().levelNode()->pStructureData != NULL )
                 {
-                    usStructureID = pCurrSoldier->pLevelNode->pStructureData->usStructureID;
+                    usStructureID = pCurrSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
                 }
                 else
                 {
@@ -5120,7 +5120,7 @@ BOOLEAN NewOKDestination( SOLDIERTYPE * pCurrSoldier, INT32 sGridNo, BOOLEAN fPe
                     if ( ( pStructure->fFlags & STRUCTURE_MOBILE ) && ( pCurrSoldier->status().flags() & SOLDIER_MULTITILE ) )
                     {
                         // Check IDs with soldier's ID
-                        if ( pCurrSoldier->pLevelNode != NULL && pCurrSoldier->pLevelNode->pStructureData != NULL && pCurrSoldier->pLevelNode->pStructureData->usStructureID == pStructure->usStructureID )
+                        if ( pCurrSoldier->renderBindings().levelNode() != NULL && pCurrSoldier->renderBindings().levelNode()->pStructureData != NULL && pCurrSoldier->renderBindings().levelNode()->pStructureData->usStructureID == pStructure->usStructureID )
                         {
                             fOKCheckStruct = FALSE;
                         }
@@ -5195,9 +5195,9 @@ static INT16 NewOKDestinationAndDirection( SOLDIERTYPE * pCurrSoldier, INT32 sGr
 
             {
                 // ATE: Only if we have a levelnode...
-                if ( pCurrSoldier->pLevelNode != NULL && pCurrSoldier->pLevelNode->pStructureData != NULL )
+                if ( pCurrSoldier->renderBindings().levelNode() != NULL && pCurrSoldier->renderBindings().levelNode()->pStructureData != NULL )
                 {
-                    usStructureID = pCurrSoldier->pLevelNode->pStructureData->usStructureID;
+                    usStructureID = pCurrSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
                 }
 
                 fOk = InternalOkayToAddStructureToWorld( sGridNo, pCurrSoldier->position().level(), &(pStructureFileRef->pDBStructureRef[ gOneCDirection[ bLoop ] ]), usStructureID, FALSE, pCurrSoldier->identity().id() );
@@ -5245,7 +5245,7 @@ static INT16 NewOKDestinationAndDirection( SOLDIERTYPE * pCurrSoldier, INT32 sGr
                     if ( ( pStructure->fFlags & STRUCTURE_MOBILE ) && ( pCurrSoldier->status().flags() & SOLDIER_MULTITILE ) )
                     {
                         // Check IDs with soldier's ID
-                        if ( pCurrSoldier->pLevelNode != NULL && pCurrSoldier->pLevelNode->pStructureData != NULL && pCurrSoldier->pLevelNode->pStructureData->usStructureID == pStructure->usStructureID )
+                        if ( pCurrSoldier->renderBindings().levelNode() != NULL && pCurrSoldier->renderBindings().levelNode()->pStructureData != NULL && pCurrSoldier->renderBindings().levelNode()->pStructureData->usStructureID == pStructure->usStructureID )
                         {
                             fOKCheckStruct = FALSE;
                         }
@@ -8963,7 +8963,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             // causes him to hide as best as he can from incoming fire.
             // Shock is sliced in half at the start of every turn. Also note that shock may cause "cowering" (see below).
 
-			pSoldier->runtime.combatFeedback.lastShock = 0;
+			pSoldier->runtime().combatFeedback.lastShock = 0;
 			if (gGameExternalOptions.ubMaxSuppressionShock > 0 && gGameExternalOptions.usSuppressionShockEffect > 0)
             {
                 // Can't get shock if we haven't lost APs.
@@ -8984,7 +8984,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 					// Else, original shock was already over the limit. No more shock is added.
 
 					// sevenfm: update ubLastShock
-					pSoldier->runtime.combatFeedback.lastShock = bShockValue;
+					pSoldier->runtime().combatFeedback.lastShock = bShockValue;
                 }
                 // HEADROCK: Cowering is the panic that grips a character due to suffering too much suppression shock. If
                 // enough shock has been accumulated, the soldier goes into this panic. Generally, cowering will cause
@@ -9016,7 +9016,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 }
             }
 
-			pSoldier->runtime.combatFeedback.lastMorale = 0;
+			pSoldier->runtime().combatFeedback.lastMorale = 0;
             // Suppression reduces morale. For every X APs lost, morale goes down by a point. X is defined by INI.
             DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: check for morale effects"));
             if (APBPConstants[AP_LOST_PER_MORALE_DROP] > 0 && sPointsLost > 0)
@@ -9036,7 +9036,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 						HandleMoraleEvent(pSoldier, MORALE_SUPPRESSED, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ());
 					}
 					// sevenfm: update ubLastMorale
-					pSoldier->runtime.combatFeedback.lastMorale++;
+					pSoldier->runtime().combatFeedback.lastMorale++;
                 }
             }
 
@@ -9262,16 +9262,16 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             }
 
 			// sevenfm: update suppression, AP values for displaying above soldier
-			pSoldier->runtime.combatFeedback.lastSuppression = pSoldier->suppression().points();
-			pSoldier->runtime.combatFeedback.lastActionPoints = sPointsLost;
+			pSoldier->runtime().combatFeedback.lastSuppression = pSoldier->suppression().points();
+			pSoldier->runtime().combatFeedback.lastActionPoints = sPointsLost;
 
 			// add suppression values from hit to shock values calculated in this function
-			pSoldier->runtime.combatFeedback.lastShock += pSoldier->runtime.combatFeedback.lastShockFromHit;
-			pSoldier->runtime.combatFeedback.lastShockFromHit = 0;
-			pSoldier->runtime.combatFeedback.lastActionPoints += pSoldier->runtime.combatFeedback.lastActionPointsFromHit;
-			pSoldier->runtime.combatFeedback.lastActionPointsFromHit = 0;
-			pSoldier->runtime.combatFeedback.lastMorale += pSoldier->runtime.combatFeedback.lastMoraleFromHit;
-			pSoldier->runtime.combatFeedback.lastMoraleFromHit = 0;
+			pSoldier->runtime().combatFeedback.lastShock += pSoldier->runtime().combatFeedback.lastShockFromHit;
+			pSoldier->runtime().combatFeedback.lastShockFromHit = 0;
+			pSoldier->runtime().combatFeedback.lastActionPoints += pSoldier->runtime().combatFeedback.lastActionPointsFromHit;
+			pSoldier->runtime().combatFeedback.lastActionPointsFromHit = 0;
+			pSoldier->runtime().combatFeedback.lastMorale += pSoldier->runtime().combatFeedback.lastMoraleFromHit;
+			pSoldier->runtime().combatFeedback.lastMoraleFromHit = 0;
 
 			// determine if any suppression value will be shown
 			BOOLEAN showSuppression = FALSE;

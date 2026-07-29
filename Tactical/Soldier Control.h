@@ -823,6 +823,12 @@ public:
 	const SoldierAnimationActivityComponent& animationActivity() const noexcept { return animationActivity_; }
 	SoldierAnimationCacheComponent& animationCache() noexcept { return animationCache_; }
 	const SoldierAnimationCacheComponent& animationCache() const noexcept { return animationCache_; }
+	SoldierRenderBindingsComponent& renderBindings() noexcept { return renderBindings_; }
+	const SoldierRenderBindingsComponent& renderBindings() const noexcept { return renderBindings_; }
+	SoldierRuntimeComponents& runtime() noexcept { return runtime_; }
+	const SoldierRuntimeComponents& runtime() const noexcept { return runtime_; }
+	UINT8* compatibilityBytes() noexcept { return compatibilityBytes_; }
+	const UINT8* compatibilityBytes() const noexcept { return compatibilityBytes_; }
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
 	// The format of this structure affects what is written into and read from various
@@ -831,24 +837,25 @@ public:
 public:
 	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, SOLDIERTYPE *pKnownSubject = NULL);
 
-	INT32			iFaceIndex;
-
-	LEVELNODE		*pLevelNode;
-	LEVELNODE		*pExternShadowLevelNode;
-	LEVELNODE		*pRoofUILevelNode;
-
-
-	// UNBLIT BACKGROUND
-	UINT16			*pBackGround;
-	UINT16			*pZBackground;
-
-	struct TAG_anitile	*pAniTile;	
+private:
+	// These opaque slots preserve the exact legacy POD footprint. The values
+	// that historically occupied them were process-local handles and are now
+	// owned by renderBindings_ after endOfPOD or retired entirely. They must
+	// never be read as live state.
+	INT32			retiredFaceIndexSlot_;
+	LEVELNODE		*retiredLevelNodeSlot_;
+	LEVELNODE		*retiredExternShadowLevelNodeSlot_;
+	LEVELNODE		*retiredRoofUiLevelNodeSlot_;
+	UINT16			*retiredBackgroundSlot_;
+	UINT16			*retiredZBackgroundSlot_;
+	struct TAG_anitile	*retiredAnimationTileSlot_;
 
 	// Reserved bytes remain explicit because the current save visitor preserves
 	// their established positions even though live feature flags have a typed
 	// owner outside this compatibility tail.
-	UINT8	ubFiller[10];
+	UINT8	compatibilityBytes_[10];
 
+public:
 	char endOfPOD;	// marker for end of POD (plain old data)
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
@@ -916,11 +923,10 @@ private:
 	SoldierAnimationPlaybackComponent	animationPlayback_;
 	SoldierAnimationActivityComponent	animationActivity_;
 	SoldierAnimationCacheComponent	animationCache_;
-
-public:
+	SoldierRenderBindingsComponent	renderBindings_;
 	// Runtime-only state is grouped by behavior and reset as one boundary. It is
 	// deliberately outside the serialized POD and sub-structure field lists.
-	SoldierRuntimeComponents runtime;
+	SoldierRuntimeComponents	runtime_;
 
 public:
 	// CREATION FUNCTIONS

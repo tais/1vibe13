@@ -2906,12 +2906,12 @@ void HandleAnyMercInSquadHasCompatibleStuff( UINT8 ubSquad, OBJECTTYPE *pObject,
 				if ( SoldierContainsAnyCompatibleStuff( Squad[ iCurrentTacticalSquad ][ iCounter ], pObject )	)
 				{
 					// Get face and set value....
-					gFacesData[ Squad[ iCurrentTacticalSquad ][ iCounter ]->iFaceIndex ].fCompatibleItems = TRUE;
+					gFacesData[ Squad[ iCurrentTacticalSquad ][ iCounter ]->renderBindings().faceIndex() ].fCompatibleItems = TRUE;
 				}
 			}
 			else
 			{
-				gFacesData[ Squad[ iCurrentTacticalSquad ][ iCounter ]->iFaceIndex ].fCompatibleItems = FALSE;
+				gFacesData[ Squad[ iCurrentTacticalSquad ][ iCounter ]->renderBindings().faceIndex() ].fCompatibleItems = FALSE;
 			}
 		}
 	}
@@ -9676,7 +9676,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 			CalculateLaunchItemParamsForThrow(GetItemPointerSoldier(), sGridNo, (UINT8)gsInterfaceLevel, (INT16)(gsInterfaceLevel * 256 + sEndZ), gpItemPointer, 100, ubThrowActionCode, uiThrowActionData, gpItemPointer->usItem);
 
 			// OK, goto throw animation
-			GetItemPointerSoldier()->runtime.pendingAction.grenadeItem = 0;
+			GetItemPointerSoldier()->runtime().pendingAction.grenadeItem = 0;
 			HandleSoldierThrowItem( GetItemPointerSoldier(), usMapPos );
 		}
 	}

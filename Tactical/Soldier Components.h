@@ -8,8 +8,11 @@
 
 #include <functional>
 #include <memory>
+#include <utility>
 
 class OBJECTTYPE;
+struct LEVELNODE;
+struct TAG_anitile;
 struct path;
 
 namespace AI
@@ -3349,6 +3352,64 @@ private:
 	INT16 lastRandomAnimation_ = 0;
 	BOOLEAN reactingFromShot_ = FALSE;
 	BOOLEAN externalDeath_ = FALSE;
+};
+
+// Process-local handles that attach a soldier record to presentation and
+// tactical-world registries. The registries own the pointed-to objects; this
+// component owns only the bindings and therefore never destroys them.
+//
+// Ordinary SOLDIERTYPE copies deliberately start detached. Repository commit
+// and slot-swap operations are the only places allowed to transfer bindings
+// explicitly, which prevents temporary soldier clones from aliasing live
+// faces, level nodes, or animation tiles.
+class SoldierRenderBindingsComponent
+{
+public:
+	SoldierRenderBindingsComponent() = default;
+	SoldierRenderBindingsComponent(
+		const SoldierRenderBindingsComponent&) noexcept {}
+
+	SoldierRenderBindingsComponent& operator=(
+		const SoldierRenderBindingsComponent&) noexcept
+	{
+		reset();
+		return *this;
+	}
+
+	INT32& faceIndex() noexcept { return faceIndex_; }
+	const INT32& faceIndex() const noexcept { return faceIndex_; }
+	LEVELNODE*& levelNode() noexcept { return levelNode_; }
+	LEVELNODE* levelNode() const noexcept { return levelNode_; }
+	TAG_anitile*& animationTile() noexcept { return animationTile_; }
+	TAG_anitile* animationTile() const noexcept { return animationTile_; }
+
+	void copyBindingsFrom(
+		const SoldierRenderBindingsComponent& source) noexcept
+	{
+		faceIndex_ = source.faceIndex_;
+		levelNode_ = source.levelNode_;
+		animationTile_ = source.animationTile_;
+	}
+
+	void swapStorage(SoldierRenderBindingsComponent& other) noexcept
+	{
+		using std::swap;
+		swap(faceIndex_, other.faceIndex_);
+		swap(levelNode_, other.levelNode_);
+		swap(animationTile_, other.animationTile_);
+	}
+
+	void reset() noexcept
+	{
+		faceIndex_ = -1;
+		levelNode_ = nullptr;
+		animationTile_ = nullptr;
+	}
+
+private:
+	INT32 faceIndex_ = -1;
+	LEVELNODE* levelNode_ = nullptr;
+	TAG_anitile* animationTile_ = nullptr;
 };
 
 struct SoldierPendingActionRuntimeState

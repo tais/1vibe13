@@ -64,9 +64,12 @@ SOLDIERTYPE* Ja2SoldierRepository::replace(
 {
 	if (!hasCanonicalBinding(slot)) return nullptr;
 	SoldierAnimationCacheComponent retainedCache;
+	SoldierRenderBindingsComponent incomingBindings;
+	incomingBindings.copyBindingsFrom(soldier.renderBindings());
 	retainedCache.swapStorage(records_[slot].animationCache());
 	records_[slot] = soldier;
 	retainedCache.swapStorage(records_[slot].animationCache());
+	records_[slot].renderBindings().copyBindingsFrom(incomingBindings);
 	return &records_[slot];
 }
 
@@ -84,6 +87,8 @@ bool Ja2SoldierRepository::swapRecords(
 	SoldierStrategicPathComponent secondStrategicPath;
 	RenderPaletteBank firstPalette;
 	RenderPaletteBank secondPalette;
+	SoldierRenderBindingsComponent firstRenderBindings;
+	SoldierRenderBindingsComponent secondRenderBindings;
 	firstSlotCache.swapStorage(
 		records_[firstSlot].animationCache());
 	secondSlotCache.swapStorage(
@@ -94,6 +99,10 @@ bool Ja2SoldierRepository::swapRecords(
 		records_[secondSlot].strategicPath());
 	firstPalette.swapStorage(records_[firstSlot].palette());
 	secondPalette.swapStorage(records_[secondSlot].palette());
+	firstRenderBindings.swapStorage(
+		records_[firstSlot].renderBindings());
+	secondRenderBindings.swapStorage(
+		records_[secondSlot].renderBindings());
 
 	SOLDIERTYPE first = records_[firstSlot];
 	records_[firstSlot] = records_[secondSlot];
@@ -108,6 +117,10 @@ bool Ja2SoldierRepository::swapRecords(
 		records_[secondSlot].strategicPath());
 	secondPalette.swapStorage(records_[firstSlot].palette());
 	firstPalette.swapStorage(records_[secondSlot].palette());
+	secondRenderBindings.swapStorage(
+		records_[firstSlot].renderBindings());
+	firstRenderBindings.swapStorage(
+		records_[secondSlot].renderBindings());
 	records_[firstSlot].identity().id() = SoldierID{firstSlot};
 	records_[secondSlot].identity().id() = SoldierID{secondSlot};
 	return true;

@@ -120,7 +120,7 @@ INT32	InitSoldierFace( SOLDIERTYPE *pSoldier )
 	INT32							iFaceIndex;
 
 	// Check if we have a face init already
-	iFaceIndex = pSoldier->iFaceIndex;
+	iFaceIndex = pSoldier->renderBindings().faceIndex();
 
 	if ( iFaceIndex != -1 )
 	{
@@ -544,9 +544,9 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 
 void DeleteSoldierFace( SOLDIERTYPE *pSoldier )
 {
-	DeleteFace( pSoldier->iFaceIndex );
+	DeleteFace( pSoldier->renderBindings().faceIndex() );
 
-	pSoldier->iFaceIndex = -1;
+	pSoldier->renderBindings().faceIndex() = -1;
 }
 
 
@@ -597,7 +597,7 @@ void	 SetAutoFaceActiveFromSoldier( UINT32 uiDisplayBuffer, UINT32 uiRestoreBuff
 
 	SetAutoFaceActive(
 		uiDisplayBuffer, uiRestoreBuffer,
-		GetJa2SoldierRepository().resolve(ubSoldierID.i)->iFaceIndex,
+		GetJa2SoldierRepository().resolve(ubSoldierID.i)->renderBindings().faceIndex(),
 		usFaceX, usFaceY);
 }
 
@@ -801,7 +801,7 @@ void SetAutoFaceInActiveFromSoldier( SoldierID ubSoldierID )
 	CHECKV( ubSoldierID != NOBODY );
 
 	SetAutoFaceInActive(
-		GetJa2SoldierRepository().resolve(ubSoldierID.i)->iFaceIndex);
+		GetJa2SoldierRepository().resolve(ubSoldierID.i)->renderBindings().faceIndex());
 }
 
 
@@ -1417,7 +1417,7 @@ BOOLEAN RenderAutoFaceFromSoldier( SoldierID ubSoldierID )
 	CHECKF( ubSoldierID != NOBODY );
 
 	return( RenderAutoFace(
-		GetJa2SoldierRepository().resolve(ubSoldierID.i)->iFaceIndex ) );
+		GetJa2SoldierRepository().resolve(ubSoldierID.i)->renderBindings().faceIndex() ) );
 }
 
 //---------------------------------------LEGION-------------------------------
@@ -2724,7 +2724,7 @@ BOOLEAN ExternRenderFaceFromSoldier( UINT32 uiBuffer, SoldierID ubSoldierID, INT
 
 	return( ExternRenderFace(
 		uiBuffer,
-		GetJa2SoldierRepository().resolve(ubSoldierID.i)->iFaceIndex,
+		GetJa2SoldierRepository().resolve(ubSoldierID.i)->renderBindings().faceIndex(),
 		sX, sY) );
 }
 

@@ -671,6 +671,19 @@ is no longer live soldier state. The v101 converter copies all six 32-bit
 spread targets rather than half of that legacy array. None of these components
 changes content, map, packet, Lua, or save schemas.
 
+`SoldierRenderBindingsComponent` owns the application-only attachment between a
+soldier record and the face, tactical-world, and animation-tile registries.
+Normal `SOLDIERTYPE` copies deliberately receive no face index, `LEVELNODE*`, or
+`TAG_anitile*`; only the bounded soldier repository may transfer those bindings
+when committing or swapping canonical records. The component does not destroy
+registry objects, so existing face/world/tile teardown remains authoritative.
+`SoldierRuntimeComponents` is also private behind `runtime()`. Together with
+the typed persistent domains above, this leaves no meaningful mutable public
+storage in the live soldier class. Compatibility code still sees the same POD
+footprint and save order through opaque legacy slots and explicit field
+visitors; packages receive neither these process-local bindings nor raw
+`SOLDIERTYPE` access.
+
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is
 exhausted, and never exposes `WORLDITEM` or `gWorldItems` through the SDK.

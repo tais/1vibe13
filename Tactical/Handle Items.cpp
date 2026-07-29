@@ -2682,7 +2682,7 @@ void SoldierPickupItem(
 
 	// Remove any previous actions
 	pSoldier->pendingAction().clearAction();
-	pSoldier->runtime.pendingAction.targetIncarnation =
+	pSoldier->runtime().pendingAction.targetIncarnation =
 		uiTargetIncarnation;
 
 	sActionGridNo = AdjustGridNoForItemPlacement( pSoldier, sGridNo );

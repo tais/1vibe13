@@ -4100,17 +4100,17 @@ BOOLEAN SetSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	UINT16 usAnimSurface;
 
 	// Delete any structure info!
-	if ( pSoldier->pLevelNode != NULL )
+	if ( pSoldier->renderBindings().levelNode() != NULL )
 	{
-		DeleteStructureFromWorld( pSoldier->pLevelNode->pStructureData );
-		pSoldier->pLevelNode->pStructureData = NULL;
+		DeleteStructureFromWorld( pSoldier->renderBindings().levelNode()->pStructureData );
+		pSoldier->renderBindings().levelNode()->pStructureData = NULL;
 	}
 
 
 	usAnimSurface = LoadSoldierAnimationSurface( pSoldier, usAnimState );
 
 	// Add structure info!
-	if ( pSoldier->pLevelNode != NULL && !( pSoldier->status().flags() & SOLDIER_PAUSEANIMOVE ) )
+	if ( pSoldier->renderBindings().levelNode() != NULL && !( pSoldier->status().flags() & SOLDIER_PAUSEANIMOVE ) )
 	{
 		AddMercStructureInfoFromAnimSurface( pSoldier->position().gridNo(), pSoldier, usAnimSurface, usAnimState );
 	}

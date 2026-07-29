@@ -1209,7 +1209,7 @@ void HourlyCamouflageUpdate( void )
 							//legion camo, remove camo face and create face
 							gCamoFace[pSoldier->identity().profile()].gCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
-							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
+							pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );
 						}
 					}
 				}
@@ -1236,7 +1236,7 @@ void HourlyCamouflageUpdate( void )
 							//legion camo, remove camo face and create face
 							gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
-							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
+							pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );
 						}
 					}
 				}
@@ -1263,7 +1263,7 @@ void HourlyCamouflageUpdate( void )
 							//legion camo, remove camo face and create face
 							gCamoFace[pSoldier->identity().profile()].gDesertCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
-							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
+							pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );
 						}
 					}
 				}
@@ -1290,7 +1290,7 @@ void HourlyCamouflageUpdate( void )
 							//legion camo, remove camo face and create face
 							gCamoFace[pSoldier->identity().profile()].gSnowCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
-							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
+							pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );
 						}
 					}
 				}
@@ -1314,7 +1314,7 @@ void HourlyCamouflageUpdate( void )
 							//legion camo, remove camo face and create face
 							gCamoFace[pSoldier->identity().profile()].gCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
-							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
+							pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );
 						}
 					}
 				}
@@ -1332,7 +1332,7 @@ void HourlyCamouflageUpdate( void )
 							//legion camo, remove camo face and create face
 							gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
-							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
+							pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );
 						}
 					}
 				}
@@ -1350,7 +1350,7 @@ void HourlyCamouflageUpdate( void )
 							//legion camo, remove camo face and create face
 							gCamoFace[pSoldier->identity().profile()].gDesertCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
-							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
+							pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );
 						}
 					}
 				}
@@ -1368,7 +1368,7 @@ void HourlyCamouflageUpdate( void )
 							//legion camo, remove camo face and create face
 							gCamoFace[pSoldier->identity().profile()].gSnowCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
-							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
+							pSoldier->renderBindings().faceIndex() = InitSoldierFace( pSoldier );
 						}
 					}
 				}

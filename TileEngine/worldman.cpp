@@ -2556,7 +2556,7 @@ BOOLEAN AddMercToHead( INT32 iMapIndex, SOLDIERTYPE *pSoldier, BOOLEAN fAddStruc
 	if ( fAddStructInfo )
 	{
 		// Set soldier's levelnode
-		pSoldier->pLevelNode	= pNextMerc;
+		pSoldier->renderBindings().levelNode()	= pNextMerc;
 
 		AddMercStructureInfo( iMapIndex, pSoldier );
 	}
@@ -2592,7 +2592,7 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 	// Turn off multi tile flag...
 	pSoldier->status().flags() &= ( ~SOLDIER_MULTITILE );
 
-	if ( pSoldier->pLevelNode == NULL )
+	if ( pSoldier->renderBindings().levelNode() == NULL )
 	{
 		return( FALSE );
 	}
@@ -2603,8 +2603,8 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 	}
 
 	// Remove existing structs
-	DeleteStructureFromWorld( pSoldier->pLevelNode->pStructureData );
-	pSoldier->pLevelNode->pStructureData = NULL;
+	DeleteStructureFromWorld( pSoldier->renderBindings().levelNode()->pStructureData );
+	pSoldier->renderBindings().levelNode()->pStructureData = NULL;
 
 	pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, usAnimState );
 
@@ -2614,11 +2614,11 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 		if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 		{
 			// Queen uses onely one direction....
-			fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &( pStructureFileRef->pDBStructureRef[ 0 ] ), pSoldier->pLevelNode );
+			fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &( pStructureFileRef->pDBStructureRef[ 0 ] ), pSoldier->renderBindings().levelNode() );
 		}
 		else
 		{
-			fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &( pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->position().direction() ] ] ), pSoldier->pLevelNode );
+			fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &( pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->position().direction() ] ] ), pSoldier->renderBindings().levelNode() );
 		}
 /*
 		if ( fReturn == FALSE )
@@ -2629,7 +2629,7 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 			pStructureFileRef = GetDefaultStructureRef( pSoldier->identity().id() );
 			if ( pStructureFileRef )
 			{
-				fReturn = AddStructureToWorld( sGridNo, pSoldier->bLevel, &( pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->ubDirection ] ] ), pSoldier->pLevelNode );
+				fReturn = AddStructureToWorld( sGridNo, pSoldier->bLevel, &( pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->ubDirection ] ] ), pSoldier->renderBindings().levelNode() );
 			}
 		}
 		*/
@@ -2657,7 +2657,7 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 		else
 		{
 			// Turn on if we are multi-tiled
-			if ( pSoldier->pLevelNode->pStructureData->pDBStructureRef->pDBStructure->ubNumberOfTiles > 1 )
+			if ( pSoldier->renderBindings().levelNode()->pStructureData->pDBStructureRef->pDBStructure->ubNumberOfTiles > 1 )
 			{
 				// If we have more than one tile
 				pSoldier->status().flags() |= SOLDIER_MULTITILE_Z;
@@ -2697,9 +2697,9 @@ BOOLEAN OKToAddMercToWorld( SOLDIERTYPE *pSoldier, INT8 bDirection )
 		if ( pStructFileRef != NULL )
 		{
 			//Try adding struct to this location, if we can it's good!
-			if ( pSoldier->pLevelNode && pSoldier->pLevelNode->pStructureData != NULL )
+			if ( pSoldier->renderBindings().levelNode() && pSoldier->renderBindings().levelNode()->pStructureData != NULL )
 			{
-				usOKToAddStructID = pSoldier->pLevelNode->pStructureData->usStructureID;
+				usOKToAddStructID = pSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
 			}
 			else
 			{
@@ -2720,12 +2720,12 @@ BOOLEAN OKToAddMercToWorld( SOLDIERTYPE *pSoldier, INT8 bDirection )
 BOOLEAN UpdateMercStructureInfo( SOLDIERTYPE *pSoldier )
 {
 	// Remove strucute info!
-	if ( pSoldier->pLevelNode == NULL )
+	if ( pSoldier->renderBindings().levelNode() == NULL )
 	{
 		return( FALSE );
 	}
 
-	//DeleteStructureFromWorld( pSoldier->pLevelNode->pStructureData );
+	//DeleteStructureFromWorld( pSoldier->renderBindings().levelNode()->pStructureData );
 
 	// Add new one!
 	return( AddMercStructureInfo( pSoldier->position().gridNo(), pSoldier ) );
@@ -2786,7 +2786,7 @@ BOOLEAN RemoveMerc( INT32 iMapIndex, SOLDIERTYPE *pSoldier, BOOLEAN fPlaceHolder
 				if ( !fPlaceHolder )
 				{
 					// Set level node to NULL
-					pSoldier->pLevelNode = NULL;
+					pSoldier->renderBindings().levelNode() = NULL;
 
 					// Remove strucute info!
 					DeleteStructureFromWorld( pMerc->pStructureData );

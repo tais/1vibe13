@@ -1407,6 +1407,24 @@ the engine must not contain SDL types in its public domain model.
   on cache allocation, copied soldiers cannot alias cache buffers, and
   repository record replacement retains the working set with the canonical
   slot used by global surface-usage history.
+  `SoldierRenderBindingsComponent` closes the remaining process-local storage
+  seam. The face-registry handle, tactical `LEVELNODE*`, and auxiliary
+  `TAG_anitile*` now live behind one private accessor; ordinary whole-soldier
+  copies start detached, while repository commit and slot-swap paths transfer
+  bindings explicitly. This prevents temporary creation, save-load, and test
+  records from aliasing a live actor's presentation/world registrations.
+  Cleanup remains explicit at the existing face, world, and animation-tile
+  lifecycle points because the referenced registries own those objects.
+  `SoldierRuntimeComponents` is likewise private to `SOLDIERTYPE` and exposed
+  only through `runtime()`, so the record has no meaningful mutable public
+  storage left.
+  The old face, level-node, shadow, roof, unblit-background, and animation-tile
+  POD slots remain as private opaque placeholders of the same types and in the
+  same order. They preserve `offsetof(SOLDIERTYPE, endOfPOD)` without acting as
+  second sources of truth. The face value retains its established serialized
+  position, live level-node and animation-tile visits remain zero-byte runtime
+  pointer landmarks, retired pointers remain zero-byte `retiredPtr()` markers,
+  and the ten compatibility bytes retain their exact sequence.
   These components are independent of the legacy soldier declaration;
   old-save conversion and the explicit serializer still emit every value at
   its established byte position. Fade mode, continuation mode, and hit phase

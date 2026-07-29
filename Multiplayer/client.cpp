@@ -3856,7 +3856,7 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 				throwParameters.ubActionCode = gren->ubActionCode;
 				throwParameters.uiActionData = gren->uiActionData;
 
-				pThrower->runtime.pendingAction.grenadeItem = 0;
+				pThrower->runtime().pendingAction.grenadeItem = 0;
 				HandleSoldierThrowItem( pThrower, gren->sTargetGridNo );
 			}
 			else

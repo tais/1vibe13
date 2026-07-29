@@ -396,9 +396,9 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				bDir = (INT8)GetDirectionToGridNoFromGridNo(pSoldier->position().gridNo(), sTarget);
 
 				// ATE: Only if we have a levelnode...
-				if ( pSoldier->pLevelNode != NULL && pSoldier->pLevelNode->pStructureData != NULL )
+				if ( pSoldier->renderBindings().levelNode() != NULL && pSoldier->renderBindings().levelNode()->pStructureData != NULL )
 				{
-					usStructureID = pSoldier->pLevelNode->pStructureData->usStructureID;
+					usStructureID = pSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
 				}
 				else
 				{

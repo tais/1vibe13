@@ -5649,7 +5649,7 @@ string(REGEX MATCH
   serialized_soldier_primary_feature_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "for \\(i = 0; i < 10; \\+\\+i\\) ar\\.u8\\(s\\.ubFiller\\[i\\]\\);[ \t\r\n]*ar\\.u16\\(assignment\\.miniEventHoursRemaining\\(\\)\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.grenadeLauncherDelayMode\\(\\)\\);[ \t]*ar\\.u8\\(fireControl\\.barrelMode\\(\\)\\);[ \t]*ar\\.u8\\(fireControl\\.barrelCounter\\(\\)\\);[ \t\r\n]*ar\\.i32\\(skillState\\.focusGrid\\(\\)\\);[ \t]*ar\\.u32\\(s\\.featureFlags\\(\\)\\.secondaryFlags\\(\\)\\);[ \t]*ar\\.u32\\(s\\.identity\\(\\)\\.individualMilitiaId\\(\\)\\);"
+  "for \\(i = 0; i < 10; \\+\\+i\\) ar\\.u8\\(s\\.compatibilityBytes\\(\\)\\[i\\]\\);[ \t\r\n]*ar\\.u16\\(assignment\\.miniEventHoursRemaining\\(\\)\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.grenadeLauncherDelayMode\\(\\)\\);[ \t]*ar\\.u8\\(fireControl\\.barrelMode\\(\\)\\);[ \t]*ar\\.u8\\(fireControl\\.barrelCounter\\(\\)\\);[ \t\r\n]*ar\\.i32\\(skillState\\.focusGrid\\(\\)\\);[ \t]*ar\\.u32\\(s\\.featureFlags\\(\\)\\.secondaryFlags\\(\\)\\);[ \t]*ar\\.u32\\(s\\.identity\\(\\)\\.individualMilitiaId\\(\\)\\);"
   serialized_soldier_secondary_feature_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_feature_event_order OR
@@ -7191,7 +7191,7 @@ if(soldier_camouflage_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);[ \t]*ar\\.i8\\(camouflage\\.jungleApplied\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
+  "ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(renderBindings\\.animationTile\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.jungleApplied\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
   serialized_soldier_camouflage_applied_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7693,7 +7693,7 @@ string(REGEX MATCH
   serialized_soldier_assignment_item_move_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "for[ \t]*\\(i[ \t]*=[ \t]*0;[ \t]*i[ \t]*<[ \t]*10;[ \t]*\\+\\+i\\)[ \t]*ar\\.u8\\(s\\.ubFiller\\[i\\]\\);[ \t\r\n]*ar\\.u16\\(assignment\\.miniEventHoursRemaining\\(\\)\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.grenadeLauncherDelayMode\\(\\)\\);"
+  "for[ \t]*\\(i[ \t]*=[ \t]*0;[ \t]*i[ \t]*<[ \t]*10;[ \t]*\\+\\+i\\)[ \t]*ar\\.u8\\(s\\.compatibilityBytes\\(\\)\\[i\\]\\);[ \t\r\n]*ar\\.u16\\(assignment\\.miniEventHoursRemaining\\(\\)\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.grenadeLauncherDelayMode\\(\\)\\);"
   serialized_soldier_assignment_mini_event_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -8036,7 +8036,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_sector_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(schedule\\.progress\\(\\)\\);[ \t\r\n]*ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);"
+  "ar\\.i8\\(schedule\\.progress\\(\\)\\);[ \t\r\n]*ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(renderBindings\\.animationTile\\(\\)\\);"
   serialized_soldier_deployment_off_world_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -8759,7 +8759,7 @@ foreach(required_front_arc_conversion IN ITEMS
   endif()
 endforeach()
 string(REGEX MATCH
-  "ar\\.i16\\(uiPresentation\\.locatorFrame\\(\\)\\);[ \t]*ar\\.i32\\(s\\.iFaceIndex\\);[ \t\r\n]*for \\(i = 0; i < SoldierFrontArcComponent::DirectionCount; \\+\\+i\\)[ \t\r\n]*ar\\.u16\\(frontArc\\.tileIndex\\(i\\)\\);[ \t\r\n]*for \\(i = 0; i < SoldierFrontArcComponent::DirectionCount; \\+\\+i\\)[ \t\r\n]*ar\\.i32\\(frontArc\\.gridNo\\(i\\)\\);[ \t\r\n]*ar\\.str8\\(renderState\\.headPalette\\(\\),"
+  "ar\\.i16\\(uiPresentation\\.locatorFrame\\(\\)\\);[ \t]*ar\\.i32\\(renderBindings\\.faceIndex\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < SoldierFrontArcComponent::DirectionCount; \\+\\+i\\)[ \t\r\n]*ar\\.u16\\(frontArc\\.tileIndex\\(i\\)\\);[ \t\r\n]*for \\(i = 0; i < SoldierFrontArcComponent::DirectionCount; \\+\\+i\\)[ \t\r\n]*ar\\.i32\\(frontArc\\.gridNo\\(i\\)\\);[ \t\r\n]*ar\\.str8\\(renderState\\.headPalette\\(\\),"
   serialized_soldier_front_arc_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_front_arc_order)
@@ -9209,7 +9209,7 @@ string(REGEX MATCH
   serialized_soldier_movement_block_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);[ \t]*ar\\.i8\\(camouflage\\.jungleApplied\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
+  "ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(renderBindings\\.animationTile\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.jungleApplied\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
   serialized_soldier_movement_destination_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -10757,7 +10757,7 @@ string(REGEX MATCH
   serialized_render_fade_level_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pBackGround\\);[ \t]*ar\\.ptr\\(s\\.pZBackground\\);[ \t\r\n]*ar\\.u16\\(renderState\\.unblitX\\(\\)\\);[ \t]*ar\\.u16\\(renderState\\.unblitY\\(\\)\\);[ \t]*ar\\.u16\\(renderState\\.unblitWidth\\(\\)\\);[ \t]*ar\\.u16\\(renderState\\.unblitHeight\\(\\)\\);[ \t\r\n]*ar\\.u8\\(deployment\\.strategicInsertionCode\\(\\)\\);"
+  "ar\\.ptr\\(renderBindings\\.levelNode\\(\\)\\);[ \t]*ar\\.retiredPtr\\(\\);[ \t]*ar\\.retiredPtr\\(\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t]*ar\\.retiredPtr\\(\\);[ \t\r\n]*ar\\.u16\\(renderState\\.unblitX\\(\\)\\);[ \t]*ar\\.u16\\(renderState\\.unblitY\\(\\)\\);[ \t]*ar\\.u16\\(renderState\\.unblitWidth\\(\\)\\);[ \t]*ar\\.u16\\(renderState\\.unblitHeight\\(\\)\\);[ \t\r\n]*ar\\.u8\\(deployment\\.strategicInsertionCode\\(\\)\\);"
   serialized_render_unblit_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -10857,6 +10857,132 @@ file(READ "${SOURCE_ROOT}/TileEngine/renderworld.cpp"
   tactical_renderworld_contents)
 file(READ "${SOURCE_ROOT}/Ja2/SoldierRepository.cpp"
   soldier_repository_contents)
+
+# Process-local soldier presentation/world registrations have one private
+# owner. The old POD slots remain opaque footprint placeholders only; ordinary
+# record copies detach, and the repository is the sole explicit transfer
+# boundary. Runtime scratch is private for the same reason.
+foreach(retired_render_binding_field IN ITEMS
+  iFaceIndex
+  pLevelNode
+  pExternShadowLevelNode
+  pRoofUILevelNode
+  pBackGround
+  pZBackground
+  pAniTile
+  ubFiller)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_render_binding_field}([^A-Za-z0-9_]|$)"
+    retired_current_render_binding
+    "${current_soldier_contents}")
+  if(retired_current_render_binding)
+    message(FATAL_ERROR
+      "Raw SOLDIERTYPE render/world field '${retired_render_binding_field}' returned; live bindings belong to SoldierRenderBindingsComponent")
+  endif()
+endforeach()
+
+foreach(required_render_binding_owner IN ITEMS
+  "SoldierRenderBindingsComponent& renderBindings() noexcept"
+  "const SoldierRenderBindingsComponent& renderBindings() const noexcept"
+  "SoldierRenderBindingsComponent\trenderBindings_;"
+  "SoldierRuntimeComponents& runtime() noexcept"
+  "const SoldierRuntimeComponents& runtime() const noexcept"
+  "SoldierRuntimeComponents\truntime_;"
+  "UINT8* compatibilityBytes() noexcept"
+  "const UINT8* compatibilityBytes() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_render_binding_owner}"
+    soldier_render_binding_owner)
+  if(soldier_render_binding_owner EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost private render/runtime ownership fragment '${required_render_binding_owner}'")
+  endif()
+endforeach()
+
+string(FIND "${current_soldier_contents}"
+  "SoldierRuntimeComponents runtime;"
+  public_soldier_runtime_aggregate)
+if(NOT public_soldier_runtime_aggregate EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierRuntimeComponents must remain private behind SOLDIERTYPE::runtime()")
+endif()
+
+string(REGEX MATCH
+  "INT32[ \t]+retiredFaceIndexSlot_;[ \t\r\n]*LEVELNODE[ \t]+\\*retiredLevelNodeSlot_;[ \t\r\n]*LEVELNODE[ \t]+\\*retiredExternShadowLevelNodeSlot_;[ \t\r\n]*LEVELNODE[ \t]+\\*retiredRoofUiLevelNodeSlot_;[ \t\r\n]*UINT16[ \t]+\\*retiredBackgroundSlot_;[ \t\r\n]*UINT16[ \t]+\\*retiredZBackgroundSlot_;[ \t\r\n]*struct TAG_anitile[ \t]+\\*retiredAnimationTileSlot_;"
+  soldier_render_binding_pod_placeholders
+  "${current_soldier_contents}")
+if(NOT soldier_render_binding_pod_placeholders)
+  message(FATAL_ERROR
+    "Opaque soldier render-binding POD placeholders changed type or order; preserve the established endOfPOD footprint")
+endif()
+
+foreach(required_render_binding_component IN ITEMS
+  "class SoldierRenderBindingsComponent"
+  "INT32 faceIndex_ = -1;"
+  "LEVELNODE* levelNode_ = nullptr;"
+  "TAG_anitile* animationTile_ = nullptr;"
+  "void copyBindingsFrom("
+  "void swapStorage(SoldierRenderBindingsComponent& other) noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_render_binding_component}"
+    soldier_render_binding_component)
+  if(soldier_render_binding_component EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierRenderBindingsComponent lost required lifecycle fragment '${required_render_binding_component}'")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "renderBindings\\(\\)\\.reset\\(\\)"
+  soldier_render_binding_resets
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_render_binding_resets
+  soldier_render_binding_reset_count)
+if(NOT soldier_render_binding_reset_count EQUAL 2)
+  message(FATAL_ERROR
+    "Current initialization and v101 conversion must both detach process-local soldier render bindings")
+endif()
+
+foreach(required_render_binding_repository IN ITEMS
+  "incomingBindings.copyBindingsFrom(soldier.renderBindings());"
+  "records_[slot].renderBindings().copyBindingsFrom(incomingBindings);"
+  "firstRenderBindings.swapStorage("
+  "secondRenderBindings.swapStorage(")
+  string(FIND "${soldier_repository_contents}"
+    "${required_render_binding_repository}"
+    soldier_render_binding_repository)
+  if(soldier_render_binding_repository EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier repository lost explicit render-binding transfer '${required_render_binding_repository}'")
+  endif()
+endforeach()
+
+foreach(required_render_binding_test IN ITEMS
+  "ordinary soldier copies detach process-local render and world bindings"
+  "soldier save/load preserves the face and compatibility bytes while detaching process-local world bindings"
+  "soldier initialization detaches every process-local binding and transient callback domain")
+  string(FIND "${headless_test_contents}"
+    "${required_render_binding_test}"
+    soldier_render_binding_test)
+  if(soldier_render_binding_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost soldier render-binding lifecycle case '${required_render_binding_test}'")
+  endif()
+endforeach()
+
+foreach(required_render_binding_documentation IN ITEMS
+  "`SoldierRenderBindingsComponent` closes the remaining process-local storage"
+  "Normal `SOLDIERTYPE` copies deliberately receive no face index"
+  "No portable save byte or installed map/content format changes")
+  string(FIND
+    "${engine_architecture_documentation}${engine_sdk_documentation}${save_format_documentation}"
+    "${required_render_binding_documentation}"
+    soldier_render_binding_documentation)
+  if(soldier_render_binding_documentation EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier render-binding documentation lost '${required_render_binding_documentation}'")
+  endif()
+endforeach()
 
 foreach(retired_soldier_palette_field IN ITEMS
   p8BPPPalette
@@ -11286,7 +11412,7 @@ string(FIND "${save_load_game_contents}"
   soldier_ui_presentation_flags_save_alias)
 foreach(ui_presentation_save_position IN ITEMS
   "ar.u8(s.roster().inSector()); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());"
-  "ar.i16(uiPresentation.locatorFrame()); ar.i32(s.iFaceIndex);"
+  "ar.i16(uiPresentation.locatorFrame()); ar.i32(renderBindings.faceIndex());"
   "ar.i16(uiPresentation.locatorOffsetX()); ar.i16(uiPresentation.locatorOffsetY()); ar.retiredPtr();"
   "ar.i16(movement.mode()); ar.i8(uiPresentation.interfaceLevel());"
   "ar.u8(uiPresentation.closePanelFrame()); ar.u8(uiPresentation.deadPanelFrame()); ar.i8(uiPresentation.openPanelFrame());"

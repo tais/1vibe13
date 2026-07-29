@@ -760,9 +760,9 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 			{
 				bOKToAddStructID = IGNORE_PEOPLE_STRUCTURE_ID;
 			}
-			else if ( pSoldier->pLevelNode != NULL && pSoldier->pLevelNode->pStructureData != NULL )
+			else if ( pSoldier->renderBindings().levelNode() != NULL && pSoldier->renderBindings().levelNode()->pStructureData != NULL )
 			{
-				bOKToAddStructID = pSoldier->pLevelNode->pStructureData->usStructureID;
+				bOKToAddStructID = pSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
 			}
 			else
 			{
@@ -1860,9 +1860,9 @@ void AStarPathfinder::InitVehicle()
 			{
 				bOKToAddStructID = IGNORE_PEOPLE_STRUCTURE_ID;
 			}
-			else if ( pSoldier->pLevelNode != NULL && pSoldier->pLevelNode->pStructureData != NULL )
+			else if ( pSoldier->renderBindings().levelNode() != NULL && pSoldier->renderBindings().levelNode()->pStructureData != NULL )
 			{
-				bOKToAddStructID = pSoldier->pLevelNode->pStructureData->usStructureID;
+				bOKToAddStructID = pSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
 			}
 			else
 			{
@@ -2191,7 +2191,7 @@ void ShutDownPathAI(void)
 ////////////////////////////////////////////////////////////////////////
 INT32 FindBestPath(SOLDIERTYPE *s , INT32 sDestination, INT8 bLevel, INT16 usMovementMode, INT8 bCopy, UINT8 fFlags )
 {
-	s->runtime.pendingAction.pathSearchSourceGrid = s->position().gridNo();
+	s->runtime().pendingAction.pathSearchSourceGrid = s->position().gridNo();
 	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 	if (gGameSettings.fOptions[TOPTION_ALT_PATHFINDING])
@@ -2492,9 +2492,9 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			{
 				usOKToAddStructID = IGNORE_PEOPLE_STRUCTURE_ID;
 			}
-			else if ( s->pLevelNode != NULL && s->pLevelNode->pStructureData != NULL )
+			else if ( s->renderBindings().levelNode() != NULL && s->renderBindings().levelNode()->pStructureData != NULL )
 			{
-				usOKToAddStructID = s->pLevelNode->pStructureData->usStructureID;
+				usOKToAddStructID = s->renderBindings().levelNode()->pStructureData->usStructureID;
 			}
 			else
 			{

@@ -2356,7 +2356,7 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 	// of all substructures, also vehicle will be noticed even if just part of it is sticking around the corner
 	if ( pEndSoldier->status().flags() & SOLDIER_VEHICLE && (!ARMED_VEHICLE( pEndSoldier ) || gGameExternalOptions.fEnemyTanksAnyPartVisible) )
 	{
-		STRUCTURE	*pBase = pEndSoldier->pLevelNode->pStructureData;
+		STRUCTURE	*pBase = pEndSoldier->renderBindings().levelNode()->pStructureData;
 		if( pBase == NULL )
 		{
 			return( FALSE );

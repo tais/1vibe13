@@ -288,6 +288,16 @@ adapter, so save and load can never drift out of order. Extra methods:
 - The soldier animation cache no longer contains pointers. Its retired `ptr`
   visits emitted no bytes, so load resets its fixed-capacity inline working set
   directly without changing the field stream.
+- Soldier face, tactical-world, and animation-tile registrations now live in
+  `SoldierRenderBindingsComponent`, outside the legacy POD prefix. The prefix
+  retains private opaque slots with the same types and order, preserving its
+  platform-specific in-memory footprint for map metadata without making those
+  slots live state. The face index is still visited at its established signed
+  32-bit position. `levelNode()` and `animationTile()` still use zero-byte
+  `ptr()` visits and are cleared on load; the unused shadow, roof, and two
+  background pointers remain zero-byte `retiredPtr()` landmarks. The ten
+  reserved bytes are still emitted in place through `compatibilityBytes()`.
+  No portable save byte or installed map/content format changes.
 - Current/max health and breath, bleeding, previous and fractional health,
   breath reduction, treatable injury, surgery, unrecoverable breath,
   critical-stat damage, bleed scheduling and sound throttling, and the retired

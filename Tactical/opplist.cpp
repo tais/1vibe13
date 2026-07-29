@@ -2895,9 +2895,9 @@ if(SEE_MENT)
 			}
 
 			// Set levelnode shade level....
-			if ( pOpponent->pLevelNode )
+			if ( pOpponent->renderBindings().levelNode() )
 			{
-				pOpponent->pLevelNode->ubShadeLevel = pOpponent->renderState().fadeLevel();
+				pOpponent->renderBindings().levelNode()->ubShadeLevel = pOpponent->renderState().fadeLevel();
 			}
 		}
 
