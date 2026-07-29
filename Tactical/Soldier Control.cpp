@@ -446,13 +446,6 @@ void TacticalActor::initialize( )
 }
 
 
-bool TacticalActor::exists( )
-{
-	if ( this == NULL )
-		return(FALSE);
-	return (TRUE);
-}
-
 UINT32 MERCPROFILESTRUCT::GetChecksum( )
 {
 	UINT32	uiChecksum = 1;
@@ -3653,11 +3646,6 @@ void TacticalActor::EVENT_SetSoldierPosition( FLOAT dNewXPos, FLOAT dNewYPos )
 void TacticalActor::EVENT_SetSoldierPositionForceDelete( FLOAT dNewXPos, FLOAT dNewYPos )
 {
 	this->EVENT_InternalSetSoldierPosition( dNewXPos, dNewYPos, TRUE, TRUE, TRUE );
-}
-
-void TacticalActor::EVENT_SetSoldierPositionAndMaybeFinalDest( FLOAT dNewXPos, FLOAT dNewYPos, BOOLEAN fUpdateFinalDest )
-{
-	this->EVENT_InternalSetSoldierPosition( dNewXPos, dNewYPos, TRUE, fUpdateFinalDest, FALSE );
 }
 
 void EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( TacticalActor *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos, BOOLEAN fUpdateDest, BOOLEAN fUpdateFinalDest )
@@ -11224,15 +11212,6 @@ void AdjustForFastTurnAnimation( TacticalActor *pSoldier )
 
 }
 
-BOOLEAN TacticalActor::IsActionInterruptable( void )
-{
-	if ( gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_NONINTERRUPT )
-	{
-		return(FALSE);
-	}
-	return(TRUE);
-}
-
 // WRAPPER FUNCTIONS FOR SOLDIER EVENTS
 void SendSoldierPositionEvent( TacticalActor *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos )
 {
@@ -12435,27 +12414,6 @@ void TacticalActor::EVENT_SoldierBeginFirstAid( INT32 sGridNo, UINT8 ubDirection
 	}
 }
 
-
-void TacticalActor::EVENT_SoldierEnterVehicle( INT32 sGridNo, UINT8 ubDirection, UINT8 ubSeatIndex )
-{
-	TacticalActor *pTSoldier;
-	UINT32 uiMercFlags;
-	SoldierID usSoldierIndex;
-
-	if ( FindSoldier( sGridNo, &usSoldierIndex, &uiMercFlags, FIND_SOLDIER_GRIDNO ) )
-	{
-		pTSoldier =
-			GetJa2SoldierRepository().resolve( usSoldierIndex );
-
-		// Enter vehicle...
-		if ( pTSoldier != nullptr )
-		{
-			EnterVehicle( pTSoldier, this, ubSeatIndex );
-		}
-	}
-
-	UnSetUIBusy( this->identity().id() );
-}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // SANDRO - This whole procedure was merged with the surgery ability of the doctor trait
@@ -14278,13 +14236,6 @@ INT16	TacticalActor::GetSightRangeBonus( )
 	}
 
 	return bonus;
-}
-
-INT16 TacticalActor::GetSoldierCriticalDamageBonus( void )
-{
-	INT16 val = 0;
-
-	return val;
 }
 
 
@@ -17516,16 +17467,6 @@ BOOLEAN TacticalActor::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
 }
 
 // is the AI allowed to use a skill? we have to check how much breath and life using this skill would cost, as otherwise the AI might commit suicide by casting
-BOOLEAN TacticalActor::IsAIAllowedtoUseSkill( INT8 iSkill )
-{
-	if ( CanUseSkill( iSkill, TRUE ) )
-	{
-		return TRUE;
-	}
-
-	return FALSE;
-}
-
 static CHAR16 skilldescarray[500];
 
 // print a small description of the skill if we can use it, or its requirements if we cannot
@@ -17793,52 +17734,6 @@ BOOLEAN TacticalActor::HasMortar( )
 		if ( inventory()[bLoop].exists( ) == true && ItemIsMortar(inventory()[bLoop].usItem) )
 		{
 			return TRUE;
-		}
-	}
-
-	return FALSE;
-}
-
-BOOLEAN TacticalActor::GetSlotOfSignalShellIfMortar( UINT8* pbLoop )
-{
-	UINT16 mortaritem = 0;
-
-	INT8 invsize = (INT8)inventory().size( );									// remember inventorysize, so we don't call size() repeatedly
-	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )
-	{
-		if ( inventory()[bLoop].exists( ) == true && ItemIsMortar(inventory()[bLoop].usItem) )
-		{
-			mortaritem = inventory()[bLoop].usItem;
-			break;
-		}
-	}
-
-	if ( mortaritem )
-	{
-		for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )
-		{
-			if ( inventory()[bLoop].exists( ) == true )
-			{
-				if ( Item[inventory()[bLoop].usItem].usItemClass == IC_BOMB && HasItemFlag( inventory()[bLoop].usItem, SIGNAL_SHELL ) && ValidLaunchable( inventory()[bLoop].usItem, mortaritem ) )
-				{
-					(*pbLoop) = bLoop;
-					return TRUE;
-				}
-
-				if (ItemIsMortar(inventory()[bLoop].usItem))
-				{
-					OBJECTTYPE* pAttObj = FindAttachmentByClass( &(inventory()[bLoop]), IC_BOMB );
-
-					if ( pAttObj )
-					{
-						if ( HasItemFlag( inventory()[bLoop].usItem, SIGNAL_SHELL ) )
-						{
-							(*pbLoop) = bLoop;
-							return TRUE;
-						}
-					}
-				}
-			}
 		}
 	}
 
@@ -20344,31 +20239,6 @@ OBJECTTYPE*		TacticalActor::GetObjectWithItemFlag( UINT64 aFlag )
 	}
 
 	return NULL;
-}
-
-bool		TacticalActor::DestroyOneObjectWithItemFlag( UINT64 aFlag )
-{
-	for ( INT8 bLoop = 0, invsize = (INT8)inventory().size(); bLoop < invsize; ++bLoop )
-	{
-		if ( inventory()[bLoop].exists() )
-		{
-			OBJECTTYPE* pObj = &( inventory()[bLoop] );
-
-			if ( pObj && HasItemFlag( pObj->usItem, aFlag ) )
-			{
-				pObj->RemoveObjectsFromStack( 1 );
-
-				if ( pObj->ubNumberOfObjects <= 0 )
-				{
-					DeleteObj( pObj );
-				}
-
-				return true;
-			}
-		}
-	}
-
-	return false;
 }
 
 bool		TacticalActor::DestroyOneItemInInventory( UINT16 ausItem )
@@ -25554,11 +25424,6 @@ void	TacticalActor::RetreatCounterStart(UINT16 usValue)
 {
 	skillState().counter(SOLDIER_COUNTER_RETREAT) =
 		max(usValue, skillState().counter(SOLDIER_COUNTER_RETREAT));
-}
-
-void	TacticalActor::RetreatCounterStop(void)
-{
-	skillState().clearCounter(SOLDIER_COUNTER_RETREAT);
 }
 
 UINT16	TacticalActor::RetreatCounterValue(void)

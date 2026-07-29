@@ -2483,7 +2483,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 			bool placedAllObjects = false;
 
-			if(pSoldier->exists() == true)
+			if(pSoldier != nullptr)
 			{
 				UINT8 ubInitialNumberOfObjects = gpItemPointer->ubNumberOfObjects;
 

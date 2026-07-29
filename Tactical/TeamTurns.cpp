@@ -1235,7 +1235,6 @@ void StartInterrupt( void )
 				LATEST_INTERRUPT_GUY);
 		if ( LATEST_INTERRUPT_GUY != END_OF_INTERRUPTS // BOB: is this just a blank?
 			&& latestInterrupter
-			&& latestInterrupter->exists()
 			)
 		{
 			latestInterrupter->AdjustNoAPToFinishMove( TRUE );

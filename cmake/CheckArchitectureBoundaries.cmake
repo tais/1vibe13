@@ -2274,7 +2274,7 @@ string(FIND "${tactical_actor_source_contents}"
   "void TacticalActor::initialize"
   tactical_actor_initialize_begin)
 string(FIND "${tactical_actor_source_contents}"
-  "bool TacticalActor::exists"
+  "UINT32 MERCPROFILESTRUCT::GetChecksum"
   tactical_actor_initialize_end)
 if(tactical_actor_initialize_begin EQUAL -1 OR
    tactical_actor_initialize_end EQUAL -1 OR

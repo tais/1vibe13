@@ -690,7 +690,6 @@ public:
 
 	// Reset every owned component. The constructor does this automatically.
 	void initialize();
-	bool	exists();
 	SoldierIdentityComponent& identity() noexcept { return identity_; }
 	const SoldierIdentityComponent& identity() const noexcept { return identity_; }
 	SoldierRosterComponent& roster() noexcept { return roster_; }
@@ -913,9 +912,7 @@ public:
 	void EVENT_SoldierBeginUseDetonator( void );
 	void EVENT_SoldierBeginDropBomb( );
 	void EVENT_SoldierDefuseTripwire( INT32 sGridNo, INT32 sItem );
-	void EVENT_SoldierEnterVehicle( INT32 sGridNo, UINT8 ubDirection, UINT8 ubSeatIndex = 0 );
 	void EVENT_SoldierBeginGiveItem( void );
-	void EVENT_SetSoldierPositionAndMaybeFinalDest( FLOAT dNewXPos, FLOAT dNewYPos, BOOLEAN fUpdateFinalDest );
 	void EVENT_SetSoldierPositionForceDelete( FLOAT dNewXPos, FLOAT dNewYPos );
 	void EVENT_SoldierBeginReloadRobot( INT32 sGridNo, UINT8 ubDirection, UINT8 ubMercSlot );
 	void EVENT_SoldierBeginTakeBlood( INT32 sGridNo, UINT8 ubDirection );
@@ -956,7 +953,6 @@ public:
 	// UTILITY FUNCTUIONS
 	void MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckRange );
 	INT16 CalcActionPoints( void );
-	BOOLEAN IsActionInterruptable( void );
 	// This function is now obsolete.	Call ReduceAttackBusyCount instead.
 	// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
 	BOOLEAN MercInWater( void );
@@ -1062,8 +1058,6 @@ public:
 	INT8	GetHearingBonus();
 	INT16	GetSightRangeBonus();
 
-	INT16	GetSoldierCriticalDamageBonus( void );	// Flugente: determines critical damage bonus depending on class, skill, etc.
-
 	// Flugente: Zombies
 	BOOLEAN IsZombie( void );
 			
@@ -1126,7 +1120,6 @@ public:
 	void StopCoweringAnimation(void);
 
 	void	RetreatCounterStart(UINT16 usValue);
-	void	RetreatCounterStop(void);
 	UINT16  RetreatCounterValue(void);
 
 	void StartRadioAnimation(void);
@@ -1198,9 +1191,6 @@ public:
 	// use a skill. For safety reasons, this calls CanUseSkill again (it is possible to switch the soldier while the menu is open)
 	BOOLEAN UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID );
 
-	// is the AI allowed to use a skill? we have to check how much breath and life using this skill would cost, as otherwise the AI might commit suicide by casting
-	BOOLEAN IsAIAllowedtoUseSkill( INT8 iSkill );
-
 	// print a small description of the skill if we can use it, or its requirements if we cannot
 	STR16	PrintSkillDesc( INT8 iSkill, INT32 sGridNo = -1 );
 
@@ -1208,7 +1198,6 @@ public:
 	BOOLEAN CanUseRadio(BOOLEAN fCheckForAP = TRUE);							// can we use radio, if we even have one?
 	BOOLEAN UseRadio();								// simply drain the batteries
 	BOOLEAN HasMortar();
-	BOOLEAN GetSlotOfSignalShellIfMortar(UINT8* pbLoop); // if we have a mortar and a fitting signal shell, return the inventory slot it is in
 	BOOLEAN CanAnyArtilleryStrikeBeOrdered(UINT32* pSectorID);		// can any artillery strikes be ordered by this guy's team from the neighbouring sectors?
 	BOOLEAN OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridNo, UINT8 bTeam );
 	BOOLEAN IsJamming();							// are we currently jamming communication frequencies?
@@ -1309,7 +1298,6 @@ public:
 	void		DrugAutoUse();
 
 	OBJECTTYPE*	GetObjectWithItemFlag( UINT64 aFlag );
-	bool		DestroyOneObjectWithItemFlag( UINT64 aFlag );
 	bool		DestroyOneItemInInventory( UINT16 ausItem );
 	bool		HasItemInInventory( UINT16 ausItem );
 
