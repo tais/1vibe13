@@ -1,6 +1,7 @@
 #include "connect.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorDisease.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 #include <wchar.h>
 #include <cmath>
@@ -5018,7 +5019,7 @@ BOOLEAN UIMouseOnValidAttackLocation( TacticalActor *pSoldier )
 
 		UINT16 structindex;
 		UINT16 possibleaction = InteractiveActionPossibleAtGridNo( usMapPos, pSoldier->position().level(), structindex );
-		if ( possibleaction )//&& pSoldier->GetInteractiveActionSkill( usMapPos, pSoldier->position().level(), possibleaction ) )
+		if ( possibleaction )
 		{
 			return TRUE;
 		}

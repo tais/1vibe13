@@ -5207,7 +5207,7 @@ void TacticalActor::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, IN
 
 
 	// Flugente: moved the damage calculation into a separate function
-	sBreathLoss = max( 1, (INT16)(sBreathLoss * (100 - this->GetDamageResistance( FALSE, TRUE )) / 100) );
+	sBreathLoss = max( 1, (INT16)(sBreathLoss * (100 - TacticalActorModifiers::damageResistance(*this, false, true)) / 100) );
 
 	// OK, If we are a vehicle.... damage vehicle...( people inside... )
 	if ( this->status().flags() & SOLDIER_VEHICLE )
@@ -14108,37 +14108,41 @@ UINT16 TacticalActor::GetUsedWeaponNumber( OBJECTTYPE * pObj )
 	return(pObj->usItem);
 }
 
-INT32 TacticalActor::GetDamageResistance( BOOLEAN fAutoResolve, BOOLEAN fCalcBreathLoss )
+std::int32_t TacticalActorModifiers::damageResistance(
+	TacticalActor& actor,
+	bool autoResolve,
+	bool calculateBreathLoss)
 {
+	auto* const self = &actor;
 	INT32 resistance = 0;
 	FLOAT breathmodifiermilitia = 1.0;
 	FLOAT breathmodifierspecialNPC = 2.0;
 
-	if ( fCalcBreathLoss )
+	if (calculateBreathLoss)
 	{
 		breathmodifiermilitia = 0.75;
 		breathmodifierspecialNPC = 1.0;
 	}
 
 	// SANDRO - Damage resistance for Militia
-	if ( !fAutoResolve )
+	if (!autoResolve)
 	{
-		if ( this->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.bGreenMilitiaDamageResistance != 0 )
+		if ( self->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.bGreenMilitiaDamageResistance != 0 )
 			resistance += (INT32)(gGameExternalOptions.bGreenMilitiaDamageResistance / breathmodifiermilitia);
-		else if ( this->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.bRegularMilitiaDamageResistance != 0 )
+		else if ( self->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.bRegularMilitiaDamageResistance != 0 )
 			resistance += (INT32)(gGameExternalOptions.bRegularMilitiaDamageResistance / breathmodifiermilitia);
-		else if ( this->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.bVeteranMilitiaDamageResistance != 0 )
+		else if ( self->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.bVeteranMilitiaDamageResistance != 0 )
 			resistance += (INT32)(gGameExternalOptions.bVeteranMilitiaDamageResistance / breathmodifiermilitia);
 		// bonus for enemy too
-		else if ( (this->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR || this->roster().soldierClass() == SOLDIER_CLASS_BANDIT ) && gGameExternalOptions.sEnemyAdminDamageResistance != 0 )
+		else if ( (self->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR || self->roster().soldierClass() == SOLDIER_CLASS_BANDIT ) && gGameExternalOptions.sEnemyAdminDamageResistance != 0 )
 			resistance += gGameExternalOptions.sEnemyAdminDamageResistance;
-		else if ( this->roster().soldierClass() == SOLDIER_CLASS_ARMY && gGameExternalOptions.sEnemyRegularDamageResistance != 0 )
+		else if ( self->roster().soldierClass() == SOLDIER_CLASS_ARMY && gGameExternalOptions.sEnemyRegularDamageResistance != 0 )
 			resistance += gGameExternalOptions.sEnemyRegularDamageResistance;
-		else if ( this->roster().soldierClass() == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteDamageResistance != 0 )
+		else if ( self->roster().soldierClass() == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteDamageResistance != 0 )
 			resistance += gGameExternalOptions.sEnemyEliteDamageResistance;
-		else if ( TacticalActorConditions::isZombie(*this) )
+		else if (TacticalActorConditions::isZombie(actor))
 		{
-			if ( fCalcBreathLoss )
+			if (calculateBreathLoss)
 				resistance += gGameExternalOptions.sEnemyZombieBreathDamageResistance;
 			else
 				resistance += gGameExternalOptions.sEnemyZombieDamageResistance;
@@ -14150,7 +14154,7 @@ INT32 TacticalActor::GetDamageResistance( BOOLEAN fAutoResolve, BOOLEAN fCalcBre
 	// SANDRO - option to make special NPCs stronger - damage resistance
 	if ( gGameExternalOptions.usSpecialNPCStronger > 0 )
 	{
-		switch ( this->identity().profile() )
+		switch (self->identity().profile())
 		{
 		case CARMEN:
 		case QUEEN:
@@ -14177,17 +14181,17 @@ INT32 TacticalActor::GetDamageResistance( BOOLEAN fAutoResolve, BOOLEAN fCalcBre
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// STOMP traits - Bodybuilding damage resistance
-	if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( this, BODYBUILDING_NT ) )
+	if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( self, BODYBUILDING_NT ) )
 		resistance += gSkillTraitValues.ubBBDamageResistance;
 	////////////////////////////////////////////////////////////////////////////////////
 
 	// Flugente: drugs can now have an effect on damage resistance
-	resistance += this->drugState().magnitude(DRUG_EFFECT_PHYS_RES);
+	resistance += self->drugState().magnitude(DRUG_EFFECT_PHYS_RES);
 
-	resistance += TacticalActorModifiers::backgroundValue(*this, BG_RESI_PHYSICAL );
+	resistance += backgroundValue(actor, BG_RESI_PHYSICAL);
 
 	// frozen targets go down HARD
-	if ( this->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
+	if ( self->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		resistance -= 1000;
 
 	// resistance is between -100% and 95%
@@ -14197,42 +14201,44 @@ INT32 TacticalActor::GetDamageResistance( BOOLEAN fAutoResolve, BOOLEAN fCalcBre
 	return(resistance);
 }
 
-INT8	TacticalActor::GetHearingBonus( )
+std::int8_t TacticalActorModifiers::hearingBonus(TacticalActor& actor)
 {
+	auto* const self = &actor;
 	INT8 bonus = 0;
 
-	INT8 bSlot = FindHearingAid( this );
+	INT8 bSlot = FindHearingAid(self);
 	if ( bSlot != -1 )
 	{
 		// at 81-100% adds +5, at 61-80% adds +4, at 41-60% adds +3, etc.
-		bonus += GetHearingRangeBonus( this );	// pSoldier->inventory()[bSlot][0]->data.objectStatus / 20 + 1;
+		bonus += GetHearingRangeBonus(self);	// pSoldier->inventory()[bSlot][0]->data.objectStatus / 20 + 1;
 	}
 
-	if ( DoesMercHaveDisability( this, DEAF ) )
+	if (DoesMercHaveDisability(self, DEAF))
 		bonus -= 5;
 
 	if ( NightTime( ) )
-		bonus += TacticalActorModifiers::backgroundValue(*this, BG_PERC_HEARING_NIGHT );
+		bonus += backgroundValue(actor, BG_PERC_HEARING_NIGHT);
 	else
-		bonus += TacticalActorModifiers::backgroundValue(*this, BG_PERC_HEARING_DAY );
+		bonus += backgroundValue(actor, BG_PERC_HEARING_DAY);
 
-	if ( this->IsRadioListening( ) )
+	if (self->IsRadioListening())
 		bonus += gSkillTraitValues.sVOListeningHearingBonus;
 
 	return bonus;
 }
 
-INT16	TacticalActor::GetSightRangeBonus( )
+std::int16_t TacticalActorModifiers::sightRangeBonus(TacticalActor& actor)
 {
+	auto* const self = &actor;
 	INT16 bonus = 0;
 
-	if ( DoesMercHaveDisability( this, SHORTSIGHTED ) )
+	if (DoesMercHaveDisability(self, SHORTSIGHTED))
 		bonus -= 10;
 
-	if ( (gGameExternalOptions.usLowerVisionWhileRunning == 1) || ( gGameExternalOptions.usLowerVisionWhileRunning == 2 && roster().team() == gbPlayerNum ) )
+	if ( (gGameExternalOptions.usLowerVisionWhileRunning == 1) || ( gGameExternalOptions.usLowerVisionWhileRunning == 2 && self->roster().team() == gbPlayerNum ) )
 	{
 		// Flugente: We have to decide depending on the animation we have, otherwise we can cause bugs if we do this after being hit by an explosion etc.
-		switch ( this->animationPlayback().state() )
+		switch (self->animationPlayback().state())
 		{
 		case RUNNING:
 		case RUNNING_W_PISTOL:
@@ -15640,27 +15646,47 @@ BOOLEAN		TacticalActor::CanProcessPrisoners( )
 	return FALSE;
 }
 
-UINT32		TacticalActor::GetSurrenderStrength( )
+std::uint32_t TacticalActorModifiers::surrenderStrength(
+	TacticalActor& actor)
 {
-	if ( this->vitals().health() < OKLIFE || this->assignment().isAsleep() || this->collapseState().tactical() || (this->featureFlags().primaryFlags() & SOLDIER_POW) )
+	auto* const self = &actor;
+
+	if (self->vitals().health() < OKLIFE ||
+		self->vitals().maximumHealth() <= 0 ||
+		self->assignment().isAsleep() ||
+		self->collapseState().tactical() ||
+		(self->featureFlags().primaryFlags() & SOLDIER_POW))
+	{
 		return 0;
+	}
 
-	UINT32 value = 100 + 10 * EffectiveExpLevel( this ) + EffectiveStrength( this, FALSE ) + 3 * EffectiveMarksmanship( this ) + EffectiveLeadership( this ) / 4;
+	UINT32 value =
+		100 +
+		10 * EffectiveExpLevel(self) +
+		EffectiveStrength(self, FALSE) +
+		3 * EffectiveMarksmanship(self) +
+		EffectiveLeadership(self) / 4;
 
-	ReducePointsForFatigue( this, &value );
+	ReducePointsForFatigue(self, &value);
 
-	value = (value * this->vitals().health() / this->vitals().maximumHealth());
+	value =
+		value *
+		self->vitals().health() /
+		self->vitals().maximumHealth();
 
-	value = value * (5 + sqrt( (double)max( 1, this->morale().morale() ) )) / 15;
+	value =
+		value *
+		(5 + sqrt((double)max(1, self->morale().morale()))) /
+		15;
 
 	// adjust for type of soldier
-	if ( this->roster().soldierClass() == SOLDIER_CLASS_ELITE || this->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA || this->roster().soldierClass() == SOLDIER_CLASS_ROBOT )
+	if ( self->roster().soldierClass() == SOLDIER_CLASS_ELITE || self->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA || self->roster().soldierClass() == SOLDIER_CLASS_ROBOT )
 		value *= 1.5f;
-	else if ( this->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR || this->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA || this->roster().soldierClass() == SOLDIER_CLASS_BANDIT )
+	else if ( self->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR || self->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA || self->roster().soldierClass() == SOLDIER_CLASS_BANDIT )
 		value *= 0.75f;
 
 	// tanks won't surrender that easy
-	if ( ARMED_VEHICLE( this ) )
+	if (ARMED_VEHICLE(self))
 		value *= 10;
 
 	return value;
@@ -15875,7 +15901,7 @@ BOOLEAN	TacticalActor::UpdateMultiTurnAction( )
 			entirebpcost = 0;		// hacking isn't exactly hard to do physically :-)
 
 			UINT16 structindex;
-			if ( !this->GetInteractiveActionSkill( longActionState.contextGrid(), this->position().level(), INTERACTIVE_STRUCTURE_HACKABLE ) ||
+			if ( !TacticalActorModifiers::interactiveActionSkill(*this, INTERACTIVE_STRUCTURE_HACKABLE) ||
 				 InteractiveActionPossibleAtGridNo( longActionState.contextGrid(), this->position().level(), structindex ) != INTERACTIVE_STRUCTURE_HACKABLE )
 				fActionStillValid = FALSE;
 		}
@@ -15952,7 +15978,10 @@ BOOLEAN	TacticalActor::UpdateMultiTurnAction( )
 			{
 				UINT16 structindex;
 				UINT16 possibleaction = InteractiveActionPossibleAtGridNo( longActionState.contextGrid(), this->position().level(), structindex );
-				UINT16 skill = this->GetInteractiveActionSkill( longActionState.contextGrid(), this->position().level(), possibleaction );
+				UINT16 skill =
+					TacticalActorModifiers::interactiveActionSkill(
+						*this,
+						possibleaction);
 
 				INT32 difficulty = gInteractiveStructure[structindex].difficulty;
 				INT32 luaactionid = gInteractiveStructure[structindex].luaactionid;
@@ -16336,8 +16365,16 @@ STR16 TacticalActor::GetName( )
 	return tmpname[tmpuser];
 }
 
-INT8 TacticalActor::GetTraitCTHModifier( UINT16 usItem, INT16 ubAimTime, UINT8 ubTargetProfile )
+std::int8_t TacticalActorModifiers::traitChanceToHitModifier(
+	TacticalActor& actor,
+	std::uint16_t item,
+	std::int16_t aimTime,
+	std::uint8_t targetProfile)
 {
+	auto* const self = &actor;
+	if (item >= MAXITEMS)
+		return 0;
+
 	INT8 modifier = 0;
 
 	// Modify for traits
@@ -16345,138 +16382,140 @@ INT8 TacticalActor::GetTraitCTHModifier( UINT16 usItem, INT16 ubAimTime, UINT8 u
 	{
 		// Bonus for heavy weapons moved here from above to get instant CtH bonus and not marksmanship bonus, 
 		// which is supressed by weapon condition
-		if (ItemIsRocketLauncher(usItem) || ItemIsSingleShotRocketLauncher(usItem))
+		if (ItemIsRocketLauncher(item) || ItemIsSingleShotRocketLauncher(item))
 		{
 			modifier += gSkillTraitValues.bCtHModifierRocketLaunchers; // -25% for untrained mercs !!!
 
-			if ( HAS_SKILL_TRAIT( this, HEAVY_WEAPONS_NT ) )
-				modifier += gSkillTraitValues.ubHWBonusCtHRocketLaunchers * NUM_SKILL_TRAITS( this, HEAVY_WEAPONS_NT ); // +25% per trait
+			if ( HAS_SKILL_TRAIT( self, HEAVY_WEAPONS_NT ) )
+				modifier += gSkillTraitValues.ubHWBonusCtHRocketLaunchers * NUM_SKILL_TRAITS( self, HEAVY_WEAPONS_NT ); // +25% per trait
 		}
 		// Added CtH bonus for Gunslinger trait on pistols and machine-pistols
-		else if ( Weapon[usItem].ubWeaponType == GUN_PISTOL )
+		else if ( Weapon[item].ubWeaponType == GUN_PISTOL )
 		{
 			modifier += gSkillTraitValues.bCtHModifierPistols; // -5% for untrained mercs.
 
 			// this bonus is applied only on single shots!
-			if ( HAS_SKILL_TRAIT( this, GUNSLINGER_NT ) && this->fireControl().burstCounter() == 0 && this->fireControl().autofireShots() == 0 )
-				modifier += gSkillTraitValues.ubGSBonusCtHPistols * NUM_SKILL_TRAITS( this, GUNSLINGER_NT ); // +10% per trait
+			if ( HAS_SKILL_TRAIT( self, GUNSLINGER_NT ) && self->fireControl().burstCounter() == 0 && self->fireControl().autofireShots() == 0 )
+				modifier += gSkillTraitValues.ubGSBonusCtHPistols * NUM_SKILL_TRAITS( self, GUNSLINGER_NT ); // +10% per trait
 		}
-		else if ( Weapon[usItem].ubWeaponType == GUN_M_PISTOL )
+		else if ( Weapon[item].ubWeaponType == GUN_M_PISTOL )
 		{
 			modifier += gSkillTraitValues.bCtHModifierMachinePistols; // -5% for untrained mercs.
 
 			// this bonus is applied only on single shots!
-			if ( HAS_SKILL_TRAIT( this, GUNSLINGER_NT ) && ((this->fireControl().burstCounter() == 0 && this->fireControl().autofireShots() == 0) || !gSkillTraitValues.ubGSCtHMPExcludeAuto) )
-				modifier += gSkillTraitValues.ubGSBonusCtHMachinePistols * NUM_SKILL_TRAITS( this, GUNSLINGER_NT ); // +5% per trait
+			if ( HAS_SKILL_TRAIT( self, GUNSLINGER_NT ) && ((self->fireControl().burstCounter() == 0 && self->fireControl().autofireShots() == 0) || !gSkillTraitValues.ubGSCtHMPExcludeAuto) )
+				modifier += gSkillTraitValues.ubGSBonusCtHMachinePistols * NUM_SKILL_TRAITS( self, GUNSLINGER_NT ); // +5% per trait
 		}
 		// Added CtH bonus for Machinegunner skill on assault rifles, SMGs and LMGs
-		else if ( Weapon[usItem].ubWeaponType == GUN_AS_RIFLE )
+		else if ( Weapon[item].ubWeaponType == GUN_AS_RIFLE )
 		{
 			modifier += gSkillTraitValues.bCtHModifierAssaultRifles; // -5% for untrained mercs.
 
-			if ( HAS_SKILL_TRAIT( this, AUTO_WEAPONS_NT ) )
-				modifier += gSkillTraitValues.ubAWBonusCtHAssaultRifles * NUM_SKILL_TRAITS( this, AUTO_WEAPONS_NT ); // +5% per trait
+			if ( HAS_SKILL_TRAIT( self, AUTO_WEAPONS_NT ) )
+				modifier += gSkillTraitValues.ubAWBonusCtHAssaultRifles * NUM_SKILL_TRAITS( self, AUTO_WEAPONS_NT ); // +5% per trait
 		}
-		else if ( Weapon[usItem].ubWeaponType == GUN_SMG )
+		else if ( Weapon[item].ubWeaponType == GUN_SMG )
 		{
 			modifier += gSkillTraitValues.bCtHModifierSMGs; // -5% for untrained mercs.
 
-			if ( HAS_SKILL_TRAIT( this, AUTO_WEAPONS_NT ) )
-				modifier += gSkillTraitValues.ubAWBonusCtHSMGs * NUM_SKILL_TRAITS( this, AUTO_WEAPONS_NT ); // +5% per trait
+			if ( HAS_SKILL_TRAIT( self, AUTO_WEAPONS_NT ) )
+				modifier += gSkillTraitValues.ubAWBonusCtHSMGs * NUM_SKILL_TRAITS( self, AUTO_WEAPONS_NT ); // +5% per trait
 		}
-		else if ( Weapon[usItem].ubWeaponType == GUN_LMG )
+		else if ( Weapon[item].ubWeaponType == GUN_LMG )
 		{
 			modifier += gSkillTraitValues.bCtHModifierLMGs; // -10% for untrained mercs.
 
-			if ( HAS_SKILL_TRAIT( this, AUTO_WEAPONS_NT ) )
-				modifier += gSkillTraitValues.ubAWBonusCtHLMGs * NUM_SKILL_TRAITS( this, AUTO_WEAPONS_NT ); // +5% per trait
+			if ( HAS_SKILL_TRAIT( self, AUTO_WEAPONS_NT ) )
+				modifier += gSkillTraitValues.ubAWBonusCtHLMGs * NUM_SKILL_TRAITS( self, AUTO_WEAPONS_NT ); // +5% per trait
 		}
 		// Added CtH bonus for Gunslinger trait on pistols and machine-pistols
-		else if ( Weapon[usItem].ubWeaponType == GUN_SN_RIFLE )
+		else if ( Weapon[item].ubWeaponType == GUN_SN_RIFLE )
 		{
 			modifier += gSkillTraitValues.bCtHModifierSniperRifles; // -5% for untrained mercs.
 
 			// this bonus is applied only on single shots!
-			if ( HAS_SKILL_TRAIT( this, SNIPER_NT ) && this->fireControl().burstCounter() == 0 && this->fireControl().autofireShots() == 0 )
-				modifier += gSkillTraitValues.ubSNBonusCtHSniperRifles * NUM_SKILL_TRAITS( this, SNIPER_NT ); // +5% per trait
+			if ( HAS_SKILL_TRAIT( self, SNIPER_NT ) && self->fireControl().burstCounter() == 0 && self->fireControl().autofireShots() == 0 )
+				modifier += gSkillTraitValues.ubSNBonusCtHSniperRifles * NUM_SKILL_TRAITS( self, SNIPER_NT ); // +5% per trait
 		}
 		// Added CtH bonus for Ranger skill on rifles and shotguns
-		else if ( Weapon[usItem].ubWeaponType == GUN_RIFLE )
+		else if ( Weapon[item].ubWeaponType == GUN_RIFLE )
 		{
 			modifier += gSkillTraitValues.bCtHModifierRifles; // -5% for untrained mercs.
 
 			// this bonus is applied only on single shots!
-			if ( HAS_SKILL_TRAIT( this, RANGER_NT ) && this->fireControl().burstCounter() == 0 && this->fireControl().autofireShots() == 0 )
-				modifier += gSkillTraitValues.ubRABonusCtHRifles * NUM_SKILL_TRAITS( this, RANGER_NT ); // +5% per trait
+			if ( HAS_SKILL_TRAIT( self, RANGER_NT ) && self->fireControl().burstCounter() == 0 && self->fireControl().autofireShots() == 0 )
+				modifier += gSkillTraitValues.ubRABonusCtHRifles * NUM_SKILL_TRAITS( self, RANGER_NT ); // +5% per trait
 			//CHRISL: Why wouldn't sniper training include standard rifles which are often used as "poor-man sniper rifles"
 			// this bonus is applied only on single shots!
-			if ( HAS_SKILL_TRAIT( this, SNIPER_NT ) && this->fireControl().burstCounter() == 0 && this->fireControl().autofireShots() == 0 )
-				modifier += gSkillTraitValues.ubSNBonusCtHRifles * NUM_SKILL_TRAITS( this, SNIPER_NT ); // +5% per trait
+			if ( HAS_SKILL_TRAIT( self, SNIPER_NT ) && self->fireControl().burstCounter() == 0 && self->fireControl().autofireShots() == 0 )
+				modifier += gSkillTraitValues.ubSNBonusCtHRifles * NUM_SKILL_TRAITS( self, SNIPER_NT ); // +5% per trait
 		}
-		else if ( Weapon[usItem].ubWeaponType == GUN_SHOTGUN )
+		else if ( Weapon[item].ubWeaponType == GUN_SHOTGUN )
 		{
 			modifier += gSkillTraitValues.bCtHModifierShotguns; // -5% for untrained mercs.
 
-			if ( HAS_SKILL_TRAIT( this, RANGER_NT ) )
-				modifier += gSkillTraitValues.ubRABonusCtHShotguns * NUM_SKILL_TRAITS( this, RANGER_NT ); // +10% per trait
+			if ( HAS_SKILL_TRAIT( self, RANGER_NT ) )
+				modifier += gSkillTraitValues.ubRABonusCtHShotguns * NUM_SKILL_TRAITS( self, RANGER_NT ); // +10% per trait
 		}
 
 		// Added small CtH penalty for robot if controller hasn't the Technician trait
-		if ( AM_A_ROBOT( this ) )
+		if ( AM_A_ROBOT( self ) )
 		{
 			modifier += gSkillTraitValues.bCtHModifierRobot; // -10% 
 
-			if ( HAS_SKILL_TRAIT( this->GetRobotController( ), TECHNICIAN_NT ) )
-				modifier += gSkillTraitValues.ubTECtHControlledRobotBonus * NUM_SKILL_TRAITS( this->GetRobotController( ), TECHNICIAN_NT ); // +10% per trait
+			if ( HAS_SKILL_TRAIT( self->GetRobotController( ), TECHNICIAN_NT ) )
+				modifier += gSkillTraitValues.ubTECtHControlledRobotBonus * NUM_SKILL_TRAITS( self->GetRobotController( ), TECHNICIAN_NT ); // +10% per trait
 		}
 
 		// Added character traits influence
-		if ( this->identity().profile() != NO_PROFILE )
+		if ( self->identity().profile() != NO_PROFILE &&
+			self->identity().profile() < NUM_PROFILES )
 		{
 			// Sociable - better performance in groups
-			if ( DoesMercHavePersonality( this, CHAR_TRAIT_SOCIABLE ) )
+			if ( DoesMercHavePersonality( self, CHAR_TRAIT_SOCIABLE ) )
 			{
-				INT8 bNumMercs = CheckMercsNearForCharTraits( this->identity().profile(), CHAR_TRAIT_SOCIABLE );
+				INT8 bNumMercs = CheckMercsNearForCharTraits( self->identity().profile(), CHAR_TRAIT_SOCIABLE );
 				if ( bNumMercs > 2 )
 					modifier += 5;
 				else if ( bNumMercs > 0 )
 					modifier += 2;
 			}
 			// Loner - better performance when alone
-			else if ( DoesMercHavePersonality( this, CHAR_TRAIT_LONER ) )
+			else if ( DoesMercHavePersonality( self, CHAR_TRAIT_LONER ) )
 			{
-				INT8 bNumMercs = CheckMercsNearForCharTraits( this->identity().profile(), CHAR_TRAIT_LONER );
+				INT8 bNumMercs = CheckMercsNearForCharTraits( self->identity().profile(), CHAR_TRAIT_LONER );
 				if ( bNumMercs == 0 )
 					modifier += 5;
 				else if ( bNumMercs <= 1 )
 					modifier += 2;
 			}
 			// Aggressive - bonus on bursts/autofire
-			else if ( DoesMercHavePersonality( this, CHAR_TRAIT_AGGRESSIVE ) )
+			else if ( DoesMercHavePersonality( self, CHAR_TRAIT_AGGRESSIVE ) )
 			{
-				if ( (this->fireControl().burstCounter() || this->fireControl().autofireShots()) && !ubAimTime )
+				if ( (self->fireControl().burstCounter() || self->fireControl().autofireShots()) && !aimTime )
 					modifier += 10;
 			}
 			// Show-off - better performance if some babes around to impress
-			else if ( DoesMercHavePersonality( this, CHAR_TRAIT_SHOWOFF ) )
+			else if ( DoesMercHavePersonality( self, CHAR_TRAIT_SHOWOFF ) )
 			{
-				INT8 bNumMercs = CheckMercsNearForCharTraits( this->identity().profile(), CHAR_TRAIT_SHOWOFF );
+				INT8 bNumMercs = CheckMercsNearForCharTraits( self->identity().profile(), CHAR_TRAIT_SHOWOFF );
 				if ( bNumMercs > 1 )
 					modifier += 5;
 				else if ( bNumMercs > 0 )
 					modifier += 2;
 			}
 			// Added disabilities
-			if ( this->identity().profile() != NO_PROFILE )
+			if ( self->identity().profile() != NO_PROFILE &&
+				self->identity().profile() < NUM_PROFILES )
 			{
 				// Heat intolerant penalty
-				if ( MercIsHot( this ) )
+				if ( MercIsHot( self ) )
 				{
 					modifier -= 15;
 				}
 				// Small penalty for fear of insects in tropical sectors
 				// Flugente: drugs can temporarily cause a merc get a new disability
-				else if ( DoesMercHaveDisability( this, FEAR_OF_INSECTS ) && MercIsInTropicalSector( this ) )
+				else if ( DoesMercHaveDisability( self, FEAR_OF_INSECTS ) && MercIsInTropicalSector( self ) )
 				{
 					// fear of insects, and we are in tropical sector
 					modifier -= 5;
@@ -16485,16 +16524,17 @@ INT8 TacticalActor::GetTraitCTHModifier( UINT16 usItem, INT16 ubAimTime, UINT8 u
 		}
 
 		// Dauntless - penalty for not taking proper cover
-		if ( ubTargetProfile != NO_PROFILE )
+		if (targetProfile != NO_PROFILE &&
+			targetProfile < NUM_PROFILES)
 		{
-			if ( gMercProfiles[ubTargetProfile].bCharacterTrait == CHAR_TRAIT_DAUNTLESS )
+			if ( gMercProfiles[targetProfile].bCharacterTrait == CHAR_TRAIT_DAUNTLESS )
 				modifier += 5;
 		}
 	}
 	else
 	{
-		// this rather unlogical bonus for psychotic characters applies only with old traits
-		if ( DoesMercHaveDisability( this, PSYCHO ) )
+		// self rather unlogical bonus for psychotic characters applies only with old traits
+		if ( DoesMercHaveDisability( self, PSYCHO ) )
 		{
 			modifier += AIM_BONUS_PSYCHO;
 		}
@@ -19341,41 +19381,35 @@ std::int8_t TacticalActorAssignments::sleepBreathRegeneration(
 }
 
 // Flugente: assumed character weight (without any items)
-FLOAT	TacticalActor::GetBodyWeight()
+float TacticalActorModifiers::bodyWeight(
+	const TacticalActor& actor)
 {
-	switch ( this->identity().bodyType() )
+	switch (actor.identity().bodyType())
 	{
 	case REGMALE:
 	case MANCIV:
 		return 85.0f;
-		break;
 
 	case BIGMALE:
 	case STOCKYMALE:
 		return 110.0f;
-		break;
 
 	case REGFEMALE:
 		return 75.0f;
-		break;
 	
 	case FATCIV:
 		return 100.0f;
-		break;
 
 	case MINICIV:
 	case DRESSCIV:
 		return 60.0f;
-		break;
 
 	case HATKIDCIV:
 	case KIDCIV:
 		return 40.0f;
-		break;
 
 	case CRIPPLECIV:
 		return 75.0f;
-		break;
 	}
 
 	return 80.0f;
@@ -19491,26 +19525,34 @@ BOOLEAN		TacticalActor::SelfDetonate( )
 }
 
 // Flugente: chance to defeat a water snake instead of being hit by it
-UINT8	TacticalActor::GetWaterSnakeDefenseChance()
+std::uint8_t TacticalActorModifiers::waterSnakeDefenseChance(
+	TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// base evasion chance is 5%
 	INT16 val = 5;
 
 	if ( gGameOptions.fNewTraitSystem )
-		val += gSkillTraitValues.usSVSnakeDefense * NUM_SKILL_TRAITS( this, SURVIVAL_NT );
+		val +=
+			gSkillTraitValues.usSVSnakeDefense *
+			NUM_SKILL_TRAITS(self, SURVIVAL_NT);
 
-	val += TacticalActorModifiers::backgroundValue(*this, BG_SNAKEDEFENSE );
+	val += backgroundValue(actor, BG_SNAKEDEFENSE);
 
 	// bonus if we have a knife, extra if it is in our hands
-	for ( size_t bLoop = 0, invsize = inventory().size(); bLoop < invsize; ++bLoop )
+	for (size_t slot = 0, inventorySize = self->inventory().size();
+		slot < inventorySize;
+		++slot)
 	{
-		if ( inventory()[bLoop].exists( ) )
+		if (self->inventory()[slot].exists())
 		{
-			OBJECTTYPE* pObj = &(inventory()[bLoop]);
+			OBJECTTYPE* object = &self->inventory()[slot];
 
-			if ( pObj && (*pObj)[0]->data.objectStatus >= USABLE && Item[pObj->usItem].usItemClass == IC_BLADE )
+			if ((*object)[0]->data.objectStatus >= USABLE &&
+				Item[object->usItem].usItemClass == IC_BLADE)
 			{
-				if ( bLoop == HANDPOS || bLoop == SECONDHANDPOS )
+				if (slot == HANDPOS || slot == SECONDHANDPOS)
 					val += 25;
 				else
 					val += 15;
@@ -19521,47 +19563,54 @@ UINT8	TacticalActor::GetWaterSnakeDefenseChance()
 	}
 
 	// chance is lowered if we are in deep water
-	if ( TERRAIN_IS_DEEP_WATER( this->position().terrainType() ) )
+	if (TERRAIN_IS_DEEP_WATER(self->position().terrainType()))
 		val = max(0, val - 10);
 
-	return (UINT8)(val);
+	return static_cast<std::uint8_t>(min(100, max(0, val)));
 }
 
 // Flugente: interactive actions
-UINT16	TacticalActor::GetInteractiveActionSkill( INT32 sGridNo, UINT8 usLevel, UINT16 usType )
+std::uint16_t TacticalActorModifiers::interactiveActionSkill(
+	TacticalActor& actor,
+	std::uint16_t type)
 {
-	switch ( usType )
+	auto* const self = &actor;
+
+	switch (type)
 	{
 		case INTERACTIVE_STRUCTURE_HACKABLE:
 		{
-			if ( this->identity().profile() == ROBOT || IsVehicle( this ) )
+			if (self->identity().profile() == ROBOT || IsVehicle(self))
 				return 0;
 
-			UINT16 skill = TacticalActorModifiers::backgroundValue(*this, BG_HACKERSKILL );
+			UINT16 skill = backgroundValue(actor, BG_HACKERSKILL);
 
 			// without the background property, we cannot hack at all
 			if ( !skill )
 				return 0;
 
 			FLOAT bestmodifier = 1.0f;
-			
-			OBJECTTYPE* pObj = NULL;
 
-			for ( size_t bLoop = 0, invsize = inventory().size(); bLoop < invsize; ++bLoop )
+			for (size_t slot = 0, inventorySize = self->inventory().size();
+				slot < inventorySize;
+				++slot)
 			{
-				if ( inventory()[bLoop].exists( ) == true && Item[inventory()[bLoop].usItem].usHackingModifier )
+				if (self->inventory()[slot].exists() &&
+					Item[self->inventory()[slot].usItem].usHackingModifier)
 				{
-					OBJECTTYPE * pObj = &(this->inventory()[bLoop]);							// ... get pointer for this item ...
-
-					if ( pObj != NULL )													// ... if pointer is not obviously useless ...
+					OBJECTTYPE* object = &self->inventory()[slot];
+					for (INT16 itemIndex = 0;
+						itemIndex < object->ubNumberOfObjects;
+						++itemIndex)
 					{
-						for ( INT16 i = 0; i < pObj->ubNumberOfObjects; ++i )
-						{
-							FLOAT modifier = 1.0f + (Item[inventory()[bLoop].usItem].usHackingModifier * (*pObj)[i]->data.objectStatus) / 10000.0f;
+						const FLOAT modifier =
+							1.0f +
+							(Item[self->inventory()[slot].usItem].usHackingModifier *
+							 (*object)[itemIndex]->data.objectStatus) /
+								10000.0f;
 
-							if ( modifier > bestmodifier )
-								bestmodifier = modifier;
-						}
+						if (modifier > bestmodifier)
+							bestmodifier = modifier;
 					}
 				}
 			}
@@ -19572,17 +19621,17 @@ UINT16	TacticalActor::GetInteractiveActionSkill( INT32 sGridNo, UINT8 usLevel, U
 
 		case INTERACTIVE_STRUCTURE_READFILE:
 		{
-			if ( this->identity().profile() == ROBOT || IsVehicle( this ) )
+			if (self->identity().profile() == ROBOT || IsVehicle(self))
 				return 0;
 
 			// reading is governed by wisdom
-			return this->statistics().wisdom();
+			return self->statistics().wisdom();
 		}
 		break;
 
 		case INTERACTIVE_STRUCTURE_WATERTAP:
 		{
-			if ( this->identity().profile() == ROBOT || IsVehicle( this ) )
+			if (self->identity().profile() == ROBOT || IsVehicle(self))
 				return 0;
 
 			// we are pros at drinking water
@@ -19592,7 +19641,7 @@ UINT16	TacticalActor::GetInteractiveActionSkill( INT32 sGridNo, UINT8 usLevel, U
 
 		case INTERACTIVE_STRUCTURE_SODAMACHINE:
 		{
-			if ( this->identity().profile() == ROBOT || IsVehicle( this ) )
+			if (self->identity().profile() == ROBOT || IsVehicle(self))
 				return 0;
 
 			// we are pros at buying from a vending machine
@@ -19602,7 +19651,7 @@ UINT16	TacticalActor::GetInteractiveActionSkill( INT32 sGridNo, UINT8 usLevel, U
 
 		case INTERACTIVE_STRUCTURE_MINIGAME:
 		{
-			if ( this->identity().profile() == ROBOT || IsVehicle( this ) )
+			if (self->identity().profile() == ROBOT || IsVehicle(self))
 				return 0;
 
 			// we are pros at playing games
@@ -19612,7 +19661,7 @@ UINT16	TacticalActor::GetInteractiveActionSkill( INT32 sGridNo, UINT8 usLevel, U
 
 		case INTERACTIVE_STRUCTURE_VARIOUS:
 		{
-			if ( this->identity().profile() == ROBOT || IsVehicle( this ) )
+			if (self->identity().profile() == ROBOT || IsVehicle(self))
 				return 0;
 
 			// no idea what we're doing, but we're probably good at it
@@ -20537,12 +20586,15 @@ float TacticalActorAssignments::administrationModifier(
 }
 
 // Flugente:  those with the <scrounging> background occasionally steal money from the locals
-UINT8		TacticalActor::GetThiefStealMoneyChance()
+std::uint8_t TacticalActorModifiers::thiefStealMoneyChance(
+	TacticalActor& actor)
 {
-	if ( this->vitals().health() < OKLIFE || ( this->featureFlags().primaryFlags() & SOLDIER_POW ) )
+	auto* const self = &actor;
+
+	if ( self->vitals().health() < OKLIFE || ( self->featureFlags().primaryFlags() & SOLDIER_POW ) )
 		return 0;
 	
-	UINT32 val = 1 * EffectiveAgility( this, FALSE ) + 8 * EffectiveDexterity( this, FALSE ) + 10 * EffectiveExpLevel( this, FALSE );
+	UINT32 val = 1 * EffectiveAgility( self, FALSE ) + 8 * EffectiveDexterity( self, FALSE ) + 10 * EffectiveExpLevel( self, FALSE );
 	
 	// personality/disability modifiers
 	FLOAT persmodifier = 1.0f;
@@ -20551,72 +20603,79 @@ UINT8		TacticalActor::GetThiefStealMoneyChance()
 	//if ( DoesMercHaveDisability( this, CLAUSTROPHOBIC ) )		persmodifier -= 0.20f;
 	//if ( DoesMercHaveDisability( this, NONSWIMMER ) )			persmodifier -= 0.20f;
 	//if ( DoesMercHaveDisability( this, FEAR_OF_INSECTS ) )		persmodifier -= 0.20f;
-	if ( DoesMercHaveDisability( this, FORGETFUL ) )			persmodifier -= 0.12f;
+	if ( DoesMercHaveDisability( self, FORGETFUL ) )			persmodifier -= 0.12f;
 	//if ( DoesMercHaveDisability( this, PSYCHO ) )				persmodifier -= 0.20f;
 	//if ( DoesMercHaveDisability( this, DEAF ) )					persmodifier -= 0.15f;
-	if ( DoesMercHaveDisability( this, SHORTSIGHTED ) )			persmodifier -= 0.30f;
+	if ( DoesMercHaveDisability( self, SHORTSIGHTED ) )			persmodifier -= 0.30f;
 	//if ( DoesMercHaveDisability( this, HEMOPHILIAC ) )			persmodifier -= 0.20f;
 	//if ( DoesMercHaveDisability( this, AFRAID_OF_HEIGHTS ) )	persmodifier -= 0.20f;
 	//if ( DoesMercHaveDisability( this, SELF_HARM ) )			persmodifier -= 0.20f;
 		
 	if ( gGameOptions.fNewTraitSystem )
 	{
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_SOCIABLE ) )		persmodifier += 0.25f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_LONER ) )		persmodifier -= 0.05f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_OPTIMIST ) )		persmodifier += 0.05f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_ASSERTIVE ) )	persmodifier += 0.15f;
+		if ( DoesMercHavePersonality( self, CHAR_TRAIT_SOCIABLE ) )		persmodifier += 0.25f;
+		if ( DoesMercHavePersonality( self, CHAR_TRAIT_LONER ) )		persmodifier -= 0.05f;
+		if ( DoesMercHavePersonality( self, CHAR_TRAIT_OPTIMIST ) )		persmodifier += 0.05f;
+		if ( DoesMercHavePersonality( self, CHAR_TRAIT_ASSERTIVE ) )	persmodifier += 0.15f;
 		//if ( DoesMercHavePersonality( this, CHAR_TRAIT_INTELLECTUAL ) )	persmodifier += 0.15f;
 		//if ( DoesMercHavePersonality( this, CHAR_TRAIT_PRIMITIVE ) )	persmodifier -= 0.15f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_AGGRESSIVE ) )	persmodifier -= 0.15f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_PHLEGMATIC ) )	persmodifier -= 0.05f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_DAUNTLESS ) )	persmodifier -= 0.13f;
+		if ( DoesMercHavePersonality( self, CHAR_TRAIT_AGGRESSIVE ) )	persmodifier -= 0.15f;
+		if ( DoesMercHavePersonality( self, CHAR_TRAIT_PHLEGMATIC ) )	persmodifier -= 0.05f;
+		if ( DoesMercHavePersonality( self, CHAR_TRAIT_DAUNTLESS ) )	persmodifier -= 0.13f;
 		//if ( DoesMercHavePersonality( this, CHAR_TRAIT_PACIFIST ) )		persmodifier -= 0.03f;
 		//if ( DoesMercHavePersonality( this, CHAR_TRAIT_MALICIOUS ) )	persmodifier -= 0.13f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_SHOWOFF ) )		persmodifier -= 0.08f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_COWARD ) )		persmodifier -= 0.25f;
+		if ( DoesMercHavePersonality( self, CHAR_TRAIT_SHOWOFF ) )		persmodifier -= 0.08f;
+		if ( DoesMercHavePersonality( self, CHAR_TRAIT_COWARD ) )		persmodifier -= 0.25f;
 	}
 	
-	UINT32 totalvalue = val * persmodifier / 10.0f;
+	UINT32 totalvalue =
+		static_cast<UINT32>(
+			max(0.0f, val * persmodifier / 10.0f));
 
-	ReducePointsForFatigue( this, &totalvalue );
+	ReducePointsForFatigue(self, &totalvalue);
 
-	totalvalue = min( 100, max( 0, totalvalue ) );
+	totalvalue = min(static_cast<UINT32>(100), totalvalue);
 
-	return totalvalue;
+	return static_cast<std::uint8_t>(totalvalue);
 }
 
-UINT8		TacticalActor::GetThiefEvadeDetectionChance()
+std::uint8_t TacticalActorModifiers::thiefEvadeDetectionChance(
+	TacticalActor& actor)
 {
-	if ( this->vitals().health() < OKLIFE )
+	auto* const self = &actor;
+
+	if ( self->vitals().health() < OKLIFE )
 		return 0;
 	
 	// the theoretical unboosted maximum is 1100, yet we treat it like 1000 - effectively you can boost stealth gear to give you a serious edge
-	UINT32 val = 250 + 5 * EffectiveExpLevel( this, FALSE ) + 5 * EffectiveAgility( this, FALSE ) + 3 * GetWornStealth( this );
+	UINT32 val = 250 + 5 * EffectiveExpLevel( self, FALSE ) + 5 * EffectiveAgility( self, FALSE ) + 3 * GetWornStealth( self );
 
-	ReducePointsForFatigue( this, &val );
+	ReducePointsForFatigue(self, &val);
 
 	// personality/disability modifiers
 	FLOAT persmodifier = 1.0f;
 	//if ( DoesMercHaveDisability( this, HEAT_INTOLERANT ) )		persmodifier -= 0.20f;
-	if ( DoesMercHaveDisability( this, NERVOUS ) )				persmodifier -= 0.04f;
+	if ( DoesMercHaveDisability( self, NERVOUS ) )				persmodifier -= 0.04f;
 	//if ( DoesMercHaveDisability( this, CLAUSTROPHOBIC ) )		persmodifier -= 0.20f;
 	//if ( DoesMercHaveDisability( this, NONSWIMMER ) )			persmodifier -= 0.20f;
 	//if ( DoesMercHaveDisability( this, FEAR_OF_INSECTS ) )		persmodifier -= 0.20f;
 	//if ( DoesMercHaveDisability( this, FORGETFUL ) )			persmodifier -= 0.50f;
 	//if ( DoesMercHaveDisability( this, PSYCHO ) )				persmodifier -= 0.20f;
-	if ( DoesMercHaveDisability( this, DEAF ) )					persmodifier -= 0.06f;
+	if ( DoesMercHaveDisability( self, DEAF ) )					persmodifier -= 0.06f;
 	//if ( DoesMercHaveDisability( this, SHORTSIGHTED ) )			persmodifier -= 0.40f;
 	//if ( DoesMercHaveDisability( this, HEMOPHILIAC ) )			persmodifier -= 0.20f;
 	//if ( DoesMercHaveDisability( this, AFRAID_OF_HEIGHTS ) )	persmodifier -= 0.20f;
 	//if ( DoesMercHaveDisability( this, SELF_HARM ) )			persmodifier -= 0.20f;
 	
-	UINT32 totalvalue = val * persmodifier / 10.0f;
+	UINT32 totalvalue =
+		static_cast<UINT32>(
+			max(0.0f, val * persmodifier / 10.0f));
 
-	ReducePointsForFatigue( this, &totalvalue );
+	ReducePointsForFatigue(self, &totalvalue);
 
-	totalvalue = min( 100, max( 0, totalvalue ) );
+	totalvalue = min(static_cast<UINT32>(100), totalvalue);
 
-	return totalvalue;
+	return static_cast<std::uint8_t>(totalvalue);
 }
 
 BOOLEAN	TacticalActor::InPositionForTurncoatAttempt( SoldierID usID )

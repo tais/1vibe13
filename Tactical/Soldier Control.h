@@ -1040,11 +1040,6 @@ public:
 	OBJECTTYPE* GetUsedWeapon( OBJECTTYPE * pObj );		// if in an underbarrel fire mode, return underbarrel weapon
 	UINT16  GetUsedWeaponNumber( OBJECTTYPE * pObj );	// if in an underbarrel fire mode, return number of underbarrel weapon
 
-	// returns damage resistance in percent
-	INT32	GetDamageResistance( BOOLEAN fAutoResolve = FALSE, BOOLEAN fCalcBreathLoss = FALSE);
-	INT8	GetHearingBonus();
-	INT16	GetSightRangeBonus();
-
 	// reset the extra stat variables
 	void	ResetExtraStats();
 
@@ -1073,7 +1068,6 @@ public:
 
 	// Flugente: prisoner system
 	BOOLEAN		CanProcessPrisoners();
-	UINT32		GetSurrenderStrength();
 	BOOLEAN		FreePrisoner();					// used for an enemy liberating fellow prisoners 
 	// Flugente: scuba gear
 	BOOLEAN		UsesScubaGear();
@@ -1095,8 +1089,6 @@ public:
 
 	// Flugente: return a soldier's name. This allows for very easy manipulation of a soldier's name with pre- an suffixes, ranks etc.
 	STR16		GetName();
-
-	INT8		GetTraitCTHModifier( UINT16 usItem, INT16 ubAimTime, UINT8 ubTargetProfile );
 
 	//void		AddDrugValues(UINT8 uDrugType, UINT8 usEffect, UINT8 usTravelRate, UINT8 usSideEffect );
 
@@ -1154,21 +1146,12 @@ public:
 	void	PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
 	void	PrintSleepDesc( CHAR16* apStr );
 
-	// Flugente: assumed character weight (without any items)
-	FLOAT	GetBodyWeight();
-
 	// Flugente: are we crouched against cover from a specific direction? WARNING: This does not suffice to determine our cover!
 	BOOLEAN	IsCrouchedAgainstCoverFromDir( UINT8 aDirection );
 
 	// Flugente: do we have a specific item in our inventory?
 	BOOLEAN HasItem( UINT16 usItem );
 	BOOLEAN SelfDetonate();						// AI-only: blow up explosive in own inventory. Do NOT, repeat, NOT use this with mercs!
-
-	// Flugente: chance to defeat a water snake instead of being hit by it
-	UINT8	GetWaterSnakeDefenseChance( );
-
-	// Flugente: interactive actions
-	UINT16	GetInteractiveActionSkill( INT32 sGridNo, UINT8 usLevel, UINT16 usType );
 
 	// Flugente: riot shields
 	OBJECTTYPE*	GetEquippedRiotShield();
@@ -1185,10 +1168,6 @@ public:
 
 	// Flugente: can we fill a blood bag from this guy ?
 	BOOLEAN		IsValidBloodDonor();
-
-	// Flugente: those with the <scrounging> background occasionally steal money from the locals
-	UINT8		GetThiefStealMoneyChance();
-	UINT8		GetThiefEvadeDetectionChance();
 
 	// Flugente: turncoats
 	BOOLEAN		InPositionForTurncoatAttempt( SoldierID usID );

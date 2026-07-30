@@ -2,6 +2,7 @@
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 	#include "Isometric Utils.h"
 	#include "Overhead.h"
@@ -1733,7 +1734,7 @@ INT8 DecideHearing( TacticalActor * pSoldier )
 			bHearing += 1 * NUM_SKILL_TRAITS( pSoldier, NIGHTOPS_OT );
 	}
 
-	bHearing += pSoldier->GetHearingBonus();
+	bHearing += TacticalActorModifiers::hearingBonus(*pSoldier);
 
 	// adjust for dark conditions
 	switch ( ubAmbientLightLevel )

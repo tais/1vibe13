@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 #include "WorldDat.h"
 #include "DEBUG.H"
@@ -1656,7 +1657,8 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 		}
 		
 		// Flugente: moved the damage calculation into a separate function
-		INT32 sDamageResistance = pSoldier->GetDamageResistance( FALSE, FALSE );
+		INT32 sDamageResistance =
+			TacticalActorModifiers::damageResistance(*pSoldier);
 		
 		sNewWoundAmt = max( 0, (INT16)(sNewWoundAmt * (100 - sDamageResistance) / 100) );
 

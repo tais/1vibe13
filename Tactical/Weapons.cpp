@@ -6404,7 +6404,12 @@ UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 		if ( pTarget && pTarget->identity().profile() != NO_PROFILE )
 			targetprofile = pTarget->identity().profile();
 
-		fAimModifier += pSoldier->GetTraitCTHModifier( usInHand, ubAimTime, targetprofile );
+		fAimModifier +=
+			TacticalActorModifiers::traitChanceToHitModifier(
+				*pSoldier,
+				usInHand,
+				ubAimTime,
+				targetprofile);
 
 		// Flugente: backgrounds
 		if ( pTarget && pTarget->roster().team() == CREATURE_TEAM )
@@ -6992,7 +6997,12 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	if ( pTarget && pTarget->identity().profile() != NO_PROFILE )
 		targetprofile = pTarget->identity().profile();
 
-	iChance += pSoldier->GetTraitCTHModifier( usInHand, ubAimTime, targetprofile );
+	iChance +=
+		TacticalActorModifiers::traitChanceToHitModifier(
+			*pSoldier,
+			usInHand,
+			ubAimTime,
+			targetprofile);
 		
 	// Flugente: backgrounds
 	if ( pTarget && pTarget->roster().team() == CREATURE_TEAM )
@@ -8192,11 +8202,11 @@ INT32 BulletImpact( TacticalActor *pFirer, BULLET *pBullet, TacticalActor * pTar
 		// HEADROCK HAM 5.1: Oh sandro, you rendered zerominimumdamage moot...
 		if ( AmmoTypes[ubAmmoType].zeroMinimumDamage )
 		{
-			iImpact = __max( 0, (INT32)(iImpact * (100 - pTarget->GetDamageResistance(autoresolve, FALSE)) / 100 ) );
+			iImpact = __max( 0, (INT32)(iImpact * (100 - TacticalActorModifiers::damageResistance(*pTarget, autoresolve, false)) / 100 ) );
 		}
 		else
 		{
-			iImpact = __max( 1, (INT32)(iImpact * (100 - pTarget->GetDamageResistance(autoresolve, FALSE)) / 100 ) );
+			iImpact = __max( 1, (INT32)(iImpact * (100 - TacticalActorModifiers::damageResistance(*pTarget, autoresolve, false)) / 100 ) );
 		}
 
 
@@ -8910,7 +8920,7 @@ INT32 HTHImpact( TacticalActor * pSoldier, TacticalActor * pTarget, INT32 iHitBy
 	iImpact = (iImpact * (100 + iBonus) + 50) / 100; // round it properly
 
 	// Flugente: moved the damage calculation into a separate function
-	iImpact = max( 1, (INT32)(iImpact * (100 - pTarget->GetDamageResistance(autoresolve, FALSE)) / 100 ) );
+	iImpact = max( 1, (INT32)(iImpact * (100 - TacticalActorModifiers::damageResistance(*pTarget, autoresolve, false)) / 100 ) );
 
 	// Flugente: if the target is a zombie, any melee attack, regardless of hit location, will set the headshot flag. Thus any zombie killed in melee will stay dead (if you play with that option)
 	if ( TacticalActorConditions::isZombie(*pTarget) )

@@ -2582,7 +2582,7 @@ INT32 EstimateStabDamage( TacticalActor *pSoldier, TacticalActor *pOpponent, INT
 	iImpact = (iImpact * (100 + iBonus) + 50) / 100; // round it properly
 
 	// Flugente: moved the damage calculation into a separate function
-	iImpact = max(1, (INT32)(iImpact * (100 - pOpponent->GetDamageResistance(FALSE, FALSE)) / 100));
+	iImpact = max(1, (INT32)(iImpact * (100 - TacticalActorModifiers::damageResistance(*pOpponent)) / 100));
 
 	// Flugente: Add personal damage bonus
 	if (fBladeAttack)

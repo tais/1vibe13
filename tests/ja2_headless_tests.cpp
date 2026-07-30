@@ -116,6 +116,7 @@
 #include "Soldier Control.h"
 #include "Soldier Profile.h"
 #include "Interface.h"
+#include "Handle Items.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -8024,8 +8025,14 @@ int main( int, char** )
 			gGameExternalOptions.fBackGround;
 		const BOOLEAN previousDiseaseSetting =
 			gGameExternalOptions.fDisease;
+		const auto previousRunningVisionSetting =
+			gGameExternalOptions.usLowerVisionWhileRunning;
+		const BOOLEAN previousTraitSystem =
+			gGameOptions.fNewTraitSystem;
 		gGameExternalOptions.fBackGround = TRUE;
 		gGameExternalOptions.fDisease = FALSE;
+		gGameExternalOptions.usLowerVisionWhileRunning = 0;
+		gGameOptions.fNewTraitSystem = TRUE;
 
 		modifierActor.identity().profile() = 255;
 		const bool invalidProfileIsNeutral =
@@ -8037,11 +8044,15 @@ int main( int, char** )
 				BG_STRENGTH) == 0 &&
 			TacticalActorModifiers::backgroundValues(
 				modifierActor,
-				BackgroundVectorTypes::BG_DRUGUSE_ITEMS).empty();
+				BackgroundVectorTypes::BG_DRUGUSE_ITEMS).empty() &&
+			TacticalActorModifiers::hearingBonus(modifierActor) == 0 &&
+			TacticalActorModifiers::sightRangeBonus(modifierActor) == 0;
 
 		modifierActor.identity().profile() = 0;
 		const auto previousBackground =
 			gMercProfiles[0].usBackground;
+		const INT16 previousSnakeDefense =
+			zBackground[0].value[BG_SNAKEDEFENSE];
 		gMercProfiles[0].usBackground = NUM_BACKGROUND;
 		const bool invalidBackgroundIsNeutral =
 			!TacticalActorModifiers::hasBackgroundFlag(
@@ -8050,6 +8061,13 @@ int main( int, char** )
 			TacticalActorModifiers::backgroundValue(
 				modifierActor,
 				BG_MAX) == 0;
+		gMercProfiles[0].usBackground = 0;
+		zBackground[0].value[BG_SNAKEDEFENSE] = 300;
+		const bool malformedSnakeChanceIsClamped =
+			TacticalActorModifiers::waterSnakeDefenseChance(
+				modifierActor) == 100;
+		zBackground[0].value[BG_SNAKEDEFENSE] =
+			previousSnakeDefense;
 		gMercProfiles[0].usBackground = previousBackground;
 
 		modifierActor.identity().profile() = NO_PROFILE;
@@ -8061,13 +8079,59 @@ int main( int, char** )
 			TacticalActorModifiers::moraleModifier(modifierActor) == 1.0f &&
 			TacticalActorModifiers::interruptModifier(modifierActor) == 0;
 
+		const bool malformedWeaponOrTargetIsNeutral =
+			TacticalActorModifiers::traitChanceToHitModifier(
+				modifierActor,
+				MAXITEMS,
+				0,
+				255) == 0 &&
+			TacticalActorModifiers::traitChanceToHitModifier(
+				modifierActor,
+				0,
+				0,
+				255) ==
+			TacticalActorModifiers::traitChanceToHitModifier(
+				modifierActor,
+				0,
+				0,
+				NO_PROFILE);
+
+		modifierActor.vitals().health() = OKLIFE;
+		modifierActor.vitals().maximumHealth() = 0;
+		const bool malformedMaximumHealthIsSafe =
+			TacticalActorModifiers::surrenderStrength(
+				modifierActor) == 0;
+
+		modifierActor.identity().bodyType() = BIGMALE;
+		modifierActor.statistics().wisdom() = 73;
+		const bool directDerivedValuesAreAvailable =
+			TacticalActorModifiers::bodyWeight(modifierActor) == 110.0f &&
+			TacticalActorModifiers::interactiveActionSkill(
+				modifierActor,
+				INTERACTIVE_STRUCTURE_READFILE) == 73;
+
+		modifierActor.vitals().health() = 0;
+		const bool inactiveThiefHasNoChance =
+			TacticalActorModifiers::thiefStealMoneyChance(
+				modifierActor) == 0 &&
+			TacticalActorModifiers::thiefEvadeDetectionChance(
+				modifierActor) == 0;
+
+		gGameOptions.fNewTraitSystem = previousTraitSystem;
+		gGameExternalOptions.usLowerVisionWhileRunning =
+			previousRunningVisionSetting;
 		gGameExternalOptions.fDisease = previousDiseaseSetting;
 		gGameExternalOptions.fBackGround = previousBackgroundSetting;
 
 		CHECK( invalidProfileIsNeutral &&
 		       invalidBackgroundIsNeutral &&
-		       dataFreeModifiersAreNeutral,
-		       "tactical actor modifiers reject malformed background identities and remain data-free" );
+		       malformedSnakeChanceIsClamped &&
+		       dataFreeModifiersAreNeutral &&
+		       malformedWeaponOrTargetIsNeutral &&
+		       malformedMaximumHealthIsSafe &&
+		       directDerivedValuesAreAvailable &&
+		       inactiveThiefHasNoChance,
+		       "tactical actor modifiers reject malformed inputs and expose data-free derived calculations" );
 	}
 
 	{

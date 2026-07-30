@@ -2694,7 +2694,17 @@ foreach(retired_modifier_method IN ITEMS
   "GetFearResistanceBonus"
   "GetMoraleThreshold"
   "GetMoraleModifier"
-  "GetInterruptModifier")
+  "GetInterruptModifier"
+  "GetDamageResistance"
+  "GetHearingBonus"
+  "GetSightRangeBonus"
+  "GetSurrenderStrength"
+  "GetTraitCTHModifier"
+  "GetBodyWeight"
+  "GetWaterSnakeDefenseChance"
+  "GetInteractiveActionSkill"
+  "GetThiefStealMoneyChance"
+  "GetThiefEvadeDetectionChance")
   string(FIND "${tactical_actor_contents}"
     "${retired_modifier_method}("
     retired_modifier_declaration)
@@ -2717,7 +2727,17 @@ foreach(required_modifier_operation IN ITEMS
   "actionPointBonus"
   "fearResistanceBonus"
   "moraleModifier"
-  "interruptModifier")
+  "interruptModifier"
+  "damageResistance"
+  "hearingBonus"
+  "sightRangeBonus"
+  "surrenderStrength"
+  "traitChanceToHitModifier"
+  "bodyWeight"
+  "waterSnakeDefenseChance"
+  "interactiveActionSkill"
+  "thiefStealMoneyChance"
+  "thiefEvadeDetectionChance")
   string(FIND "${tactical_actor_modifiers_header_contents}"
     "${required_modifier_operation}("
     modifier_operation_declaration)
@@ -2737,8 +2757,20 @@ string(FIND "${headless_test_contents}"
 string(FIND "${headless_test_contents}"
   "TacticalActorModifiers::actionPointBonus"
   modifier_derived_coverage)
+string(FIND "${headless_test_contents}"
+  "TacticalActorModifiers::surrenderStrength"
+  modifier_malformed_vitals_coverage)
+string(FIND "${headless_test_contents}"
+  "TacticalActorModifiers::traitChanceToHitModifier"
+  modifier_malformed_identity_coverage)
+string(FIND "${headless_test_contents}"
+  "TacticalActorModifiers::interactiveActionSkill"
+  modifier_interaction_coverage)
 if(modifier_background_coverage EQUAL -1 OR
-   modifier_derived_coverage EQUAL -1)
+   modifier_derived_coverage EQUAL -1 OR
+   modifier_malformed_vitals_coverage EQUAL -1 OR
+   modifier_malformed_identity_coverage EQUAL -1 OR
+   modifier_interaction_coverage EQUAL -1)
   message(FATAL_ERROR
     "Tactical actor modifiers lost their malformed-data or data-free headless coverage")
 endif()

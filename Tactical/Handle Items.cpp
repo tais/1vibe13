@@ -730,7 +730,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 	{
 		UINT16 structindex;
 		UINT16 possibleaction = InteractiveActionPossibleAtGridNo( usMapPos, pSoldier->position().level(), structindex );
-		if ( possibleaction )//&& pSoldier->GetInteractiveActionSkill( usMapPos, pSoldier->position().level(), possibleaction ) )
+		if ( possibleaction )
 		{
 			// ATE: AI CANNOT GO THROUGH HERE!
 			BOOLEAN	fHadToUseCursorPos = FALSE;
@@ -10012,7 +10012,10 @@ void DoInteractiveAction( INT32 sGridNo, TacticalActor *pSoldier )
 	UINT16 structindex;
 	UINT16 possibleaction = InteractiveActionPossibleAtGridNo( sGridNo, pSoldier->position().level(), structindex );
 
-	UINT16 skill = pSoldier->GetInteractiveActionSkill( sGridNo, pSoldier->position().level(), possibleaction );
+	UINT16 skill =
+		TacticalActorModifiers::interactiveActionSkill(
+			*pSoldier,
+			possibleaction);
 
 	INT32 difficulty = gInteractiveStructure[structindex].difficulty;
 	INT32 luaactionid = gInteractiveStructure[structindex].luaactionid;

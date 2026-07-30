@@ -849,7 +849,8 @@ void HourlyStealUpdate()
 			// The downside is that this angers the population, thus lowering loyalty.
 
 			// determine chance of success. If we fail, we get money
-			UINT8 chanceofsucess = pSoldier->GetThiefStealMoneyChance();
+			UINT8 chanceofsucess =
+				TacticalActorModifiers::thiefStealMoneyChance(*pSoldier);
 
 			if ( Chance( chanceofsucess ) )
 			{
@@ -878,7 +879,8 @@ void HourlyStealUpdate()
 			}
 
 			// determine chance of evading detection. If we fail, we are caught and receive a loyalty penalty
-			UINT8 chanceofevadingdetection = pSoldier->GetThiefEvadeDetectionChance();
+			UINT8 chanceofevadingdetection =
+				TacticalActorModifiers::thiefEvadeDetectionChance(*pSoldier);
 
 			if ( !Chance( chanceofevadingdetection ) )
 			{

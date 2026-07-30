@@ -1,6 +1,7 @@
 	#include "Items.h"
 	#include "TacticalActorConditions.h"
 	#include "TacticalActorDisease.h"
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "Weapons.h"
@@ -2456,7 +2457,10 @@ UINT8 HandleHackCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorF
 
 	UINT16 structindex;
 	UINT16 possibleaction = InteractiveActionPossibleAtGridNo( sGridNo, pSoldier->position().level(), structindex );
-	UINT16 skill = pSoldier->GetInteractiveActionSkill( sGridNo, pSoldier->position().level(), possibleaction );
+	UINT16 skill =
+		TacticalActorModifiers::interactiveActionSkill(
+			*pSoldier,
+			possibleaction);
 
 	if ( possibleaction == INTERACTIVE_STRUCTURE_HACKABLE )
 		return skill ? HACK_GREY_UICURSOR : HACK_RED_UICURSOR;

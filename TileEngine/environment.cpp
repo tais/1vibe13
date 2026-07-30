@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 	#include "environment.h"
 	#include "renderworld.h"
@@ -1141,7 +1142,7 @@ void HandleEnvironmentHazard( )
 					if ( Chance( chancetobeattacked ) )
 					{
 						// there is a chance we defeat the snake and do not take damage, but get a bit of exp
-						if ( Chance( pSoldier->GetWaterSnakeDefenseChance( ) ) )
+						if (Chance(TacticalActorModifiers::waterSnakeDefenseChance(*pSoldier)))
 						{
 							StatChange( pSoldier, EXPERAMT, 10, FROM_SUCCESS );
 

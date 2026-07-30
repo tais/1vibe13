@@ -11103,10 +11103,12 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
                     ;
                 // if we are disguised as a soldier, the enemy counts us on HIS team
                 else if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
-                    enemysidestrength += pSoldier->GetSurrenderStrength();
+                    enemysidestrength +=
+						TacticalActorModifiers::surrenderStrength(*pSoldier);
                 else
                     // player side counts double, to put more emphasize on overwhelming the enemy with mercs and not just spamming militia
-                    playersidestrength += 2 * pSoldier->GetSurrenderStrength();
+                    playersidestrength +=
+						2 * TacticalActorModifiers::surrenderStrength(*pSoldier);
             }
         }
 
@@ -11118,7 +11120,8 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
             pSoldier = GetJa2SoldierRepository().resolve(id.i);
             if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
             {
-                playersidestrength += pSoldier->GetSurrenderStrength();
+                playersidestrength +=
+					TacticalActorModifiers::surrenderStrength(*pSoldier);
             }
         }
 
@@ -11154,11 +11157,13 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 						continue;
 
 					// if a civilian is not neutral and on the enemy side, add his strength to the team
-					enemysidestrength += pSoldier->GetSurrenderStrength();
+					enemysidestrength +=
+						TacticalActorModifiers::surrenderStrength(*pSoldier);
 				}
 				else
 				{
-					enemysidestrength += pSoldier->GetSurrenderStrength();
+					enemysidestrength +=
+						TacticalActorModifiers::surrenderStrength(*pSoldier);
 					if (pSoldier->identity().profile() != NO_PROFILE || ARMED_VEHICLE(pSoldier) || ENEMYROBOT(pSoldier))
 						fNoSurrender = TRUE;
 				}

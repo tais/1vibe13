@@ -49,7 +49,7 @@ BOOLEAN ApplyDrugs_New( TacticalActor *pSoldier, UINT16 usItem, UINT16 uStatusUs
 	{
 		effectivepercentage = effectivepercentage * ((100.0 - TacticalActorModifiers::backgroundValue(*pSoldier, BG_RESI_ALCOHOL )) / 100.0);
 
-		FLOAT weight = pSoldier->GetBodyWeight( );
+		FLOAT weight = TacticalActorModifiers::bodyWeight(*pSoldier);
 
 		// the alcohol amounts in the xml are intended for a person with weight 80. We thus have to alter the effective value
 		if ( weight > 0.0f )
@@ -149,7 +149,7 @@ BOOLEAN ApplyDrugs_New( TacticalActor *pSoldier, UINT16 usItem, UINT16 uStatusUs
 	
 	if ( Item[usItem].alcohol > 0.0f )
 	{
-		FLOAT weight = pSoldier->GetBodyWeight( );
+		FLOAT weight = TacticalActorModifiers::bodyWeight(*pSoldier);
 
 		// the alcohol amounts in the xml are intended for a person with weight 80. We thus have to alter the effective value
 		if ( weight > 0.0f )
@@ -266,7 +266,8 @@ INT8 GetDrunkLevel( TacticalActor *pSoldier )
 // does a merc have a disability/personality, or is he under drugs that simulate this?
 BOOLEAN DoesMercHaveDisability( const TacticalActor *pSoldier, UINT8 aVal )
 {
-	if ( pSoldier->identity().profile() != NO_PROFILE )
+	if ( pSoldier->identity().profile() != NO_PROFILE &&
+		pSoldier->identity().profile() < NUM_PROFILES )
 	{
 		if ( gMercProfiles[pSoldier->identity().profile()].bDisability == aVal )
 			return TRUE;
@@ -290,7 +291,8 @@ BOOLEAN DoesMercHavePersonality( TacticalActor *pSoldier, UINT8 aVal )
 	if ( !gGameOptions.fNewTraitSystem )
 		return FALSE;
 
-	if ( pSoldier->identity().profile() != NO_PROFILE )
+	if ( pSoldier->identity().profile() != NO_PROFILE &&
+		pSoldier->identity().profile() < NUM_PROFILES )
 	{
 		if ( gMercProfiles[pSoldier->identity().profile()].bCharacterTrait == aVal )
 			return TRUE;

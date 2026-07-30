@@ -3188,7 +3188,8 @@ UINT32 CalculateCarriedWeight( TacticalActor * pSoldier, BOOLEAN fConsiderDraggi
 			if ( pOtherSoldier != nullptr )
 			{
 				uiTotalWeight += GetTotalWeight( pOtherSoldier );
-				uiTotalWeight += pOtherSoldier->GetBodyWeight();
+				uiTotalWeight +=
+					TacticalActorModifiers::bodyWeight(*pOtherSoldier);
 			}
 		}
 		else if (pSoldier->interaction().draggingCorpse())
@@ -11848,7 +11849,7 @@ INT16 GetTotalVisionRangeBonus( TacticalActor * pSoldier, UINT8 bLightLevel )
 	}*/
 
 	// Flugente: add sight range bonus due to disabilities, traits etc. (not equipment)
-	bonus += pSoldier->GetSightRangeBonus();
+	bonus += TacticalActorModifiers::sightRangeBonus(*pSoldier);
 
 	// SANDRO - STOMP traits - Scouting bonus for sight range with binoculars and similar
 	if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->deployment().sectorZ() == 0 )
