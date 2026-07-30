@@ -1,3 +1,4 @@
+	#include "TacticalActorAiBehavior.h"
 	#include "Soldier Control.h"
 	#include "SoldierRepository.h"
 	#include "Overhead.h"
@@ -278,7 +279,7 @@ static void CountPeopleInBoxingRingAndDoActions( void )
 
 			PickABoxer();
 
-			pInRing[0]->DeleteBoxingFlag();
+			TacticalActorAiBehavior::clearBoxerFlag(*pInRing[0]);
 		}
 	}
 	else
@@ -398,7 +399,7 @@ BOOLEAN PickABoxer( void )
 			if ( gfBoxerFought[ uiLoop ] )
 			{
 				// pathetic attempt to prevent multiple AI boxers
-				pBoxer->DeleteBoxingFlag();
+				TacticalActorAiBehavior::clearBoxerFlag(*pBoxer);
 			}
 			else
 			{
@@ -543,7 +544,7 @@ void BoxingMovementCheck( TacticalActor * pSoldier )
 		// add the history record here.
 		AddHistoryToPlayersLog( HISTORY_DISQUALIFIED_BOXING, pSoldier->identity().profile(), GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
 		// make not a boxer any more
-		pSoldier->DeleteBoxingFlag( );
+		TacticalActorAiBehavior::clearBoxerFlag(*pSoldier);
 		pSoldier->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 	}
 }
@@ -593,7 +594,7 @@ void ClearAllBoxerFlags( void )
 			// Flugente: nuke the entire opponent count, remove boxing flag, reevaluate opponent list
 			DecayIndividualOpplist(soldier);
 
-			soldier->DeleteBoxingFlag();
+			TacticalActorAiBehavior::clearBoxerFlag(*soldier);
 
 			ManLooksForOtherTeams(soldier);
 

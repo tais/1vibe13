@@ -1,4 +1,5 @@
 	#include "sgp.h"
+	#include "TacticalActorLongActions.h"
 #include "TacticalWorldAdapter.h"
 	#include "Game Clock.h"
 	#include "Timer Control.h"
@@ -284,7 +285,7 @@ void HandleTacticalEndTurn( )
 					//}
 									
 					// Flugente: update multi-turn actions
-					pSoldier->UpdateMultiTurnAction();
+					TacticalActorLongActions::update(*pSoldier);
 				}
 			}
 		}

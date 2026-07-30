@@ -1,3 +1,4 @@
+#include "TacticalActorAiBehavior.h"
 #include "TacticalActorMobility.h"
 
 	#include "Militia Control.h"
@@ -1167,7 +1168,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 				
@@ -1197,7 +1198,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 				
@@ -1216,7 +1217,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							pMilitiaSoldier->aiBehavior().attitude() = DEFENSIVE;
 							pMilitiaSoldier->movement().mode() = RUNNING;
 
-							pMilitiaSoldier->RetreatCounterStart(2);
+							TacticalActorAiBehavior::startRetreat(*pMilitiaSoldier, 2);
 
 							// set up next action to run away
 							sActionGridNo =  FindSpotMaxDistFromOpponents( pMilitiaSoldier );
@@ -1253,7 +1254,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 
@@ -1303,7 +1304,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 
@@ -1333,7 +1334,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 
@@ -1363,7 +1364,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 
@@ -1407,7 +1408,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 
@@ -1469,7 +1470,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 
@@ -1507,7 +1508,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 
@@ -1534,7 +1535,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								pTeamSoldier->aiBehavior().attitude() = DEFENSIVE;
 								pTeamSoldier->movement().mode() = RUNNING;
 
-								pTeamSoldier->RetreatCounterStart(2);
+								TacticalActorAiBehavior::startRetreat(*pTeamSoldier, 2);
 
 								// set up next action to run away
 								sActionGridNo =  FindSpotMaxDistFromOpponents( pTeamSoldier );
@@ -1572,7 +1573,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 				
@@ -1630,7 +1631,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 				
@@ -1686,7 +1687,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 
@@ -1726,7 +1727,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 
@@ -1766,7 +1767,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 
@@ -1822,7 +1823,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						fTeamPanelDirty = TRUE;
 						fMapScreenBottomDirty = TRUE;
 
-						pSoldier->StartRadioAnimation();
+						TacticalActorAiBehavior::startRadioAnimation(*pSoldier);
 					}
 					break;
 

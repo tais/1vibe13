@@ -1,4 +1,5 @@
 #include "types.h"
+#include "TacticalActorAiBehavior.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalActorCovertOps.h"
 #include "Soldier Profile.h"
@@ -6058,7 +6059,8 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 			if (pTeamSoldier->status().flags() & SOLDIER_PCUNDERAICONTROL)
 				pTeamSoldier->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 
-			pTeamSoldier->DeleteBoxingFlag();
+			TacticalActorAiBehavior::clearBoxerFlag(
+				*pTeamSoldier);
 		}
 
 		// silversurfer: check for covert flags that shouldn't be active on a robot/vehicle and when playing with old traits

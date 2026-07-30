@@ -1,3 +1,4 @@
+#include "TacticalActorAiBehavior.h"
 #include "types.h"
 #include "input.h"
 #include "english.h"
@@ -296,7 +297,7 @@ void SoldierTooltip( TacticalActor* pSoldier )
 			}
 
 			// sevenfm: show flank info
-			if (pSoldier->IsFlanking())
+			if (TacticalActorAiBehavior::isFlanking(*pSoldier))
 			{
 				swprintf(pStrInfo, L"%s|Flank %s\n", pStrInfo, pSoldier->aiPlanning().lastFlankLeft() ? L"left" : L"right");
 				swprintf(pStrInfo, L"%s|Flank Num %d\n", pStrInfo, pSoldier->aiPlanning().flankCount());

@@ -1,3 +1,4 @@
+#include "TacticalActorAiBehavior.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
 #include "ai.h"
@@ -3946,7 +3947,7 @@ void CheckTossFriendSmoke(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow)
 					pFriend->roster().active() &&
 					pFriend->vitals().health() >= OKLIFE &&
 					RangeChangeDesire(pFriend) <= 3 &&
-					(pFriend->IsFlanking() && !TileIsOutOfBounds(pFriend->aiPlanning().flankAnchorGrid()) && PythSpacesAway(pFriend->position().gridNo(), pFriend->aiPlanning().flankAnchorGrid()) < (INT16)(MAX_VISION_RANGE) && LocationToLocationLineOfSightTest(pFriend->position().gridNo(), pFriend->position().level(), pFriend->aiPlanning().flankAnchorGrid(), pFriend->position().level(), TRUE, NO_DISTANCE_LIMIT) ||
+					(TacticalActorAiBehavior::isFlanking(*pFriend) && !TileIsOutOfBounds(pFriend->aiPlanning().flankAnchorGrid()) && PythSpacesAway(pFriend->position().gridNo(), pFriend->aiPlanning().flankAnchorGrid()) < (INT16)(MAX_VISION_RANGE) && LocationToLocationLineOfSightTest(pFriend->position().gridNo(), pFriend->position().level(), pFriend->aiPlanning().flankAnchorGrid(), pFriend->position().level(), TRUE, NO_DISTANCE_LIMIT) ||
 					pFriend->suppression().underFire() && (TacticalActorConditions::isCowering(*pFriend) || TacticalActorConditions::hasTakenLargeHit(*pFriend) || pFriend->suppression().underFire() && TacticalActorConditions::suppressionShockPercent(*pFriend) > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
 					)
 				{

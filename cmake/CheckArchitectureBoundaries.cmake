@@ -2184,6 +2184,18 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorWeaponHandling.h"
   tactical_actor_weapon_handling_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorWeaponHandling.cpp"
   tactical_actor_weapon_handling_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.h"
+  tactical_actor_ai_behavior_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.cpp"
+  tactical_actor_ai_behavior_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLongActions.h"
+  tactical_actor_long_actions_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLongActions.cpp"
+  tactical_actor_long_actions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorPrisonerOperations.h"
+  tactical_actor_prisoner_operations_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorPrisonerOperations.cpp"
+  tactical_actor_prisoner_operations_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSkills.h"
   tactical_actor_skills_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSpotting.h"
@@ -2954,7 +2966,21 @@ foreach(retired_actor_facade IN ITEMS
   "IsValidAlternativeFireMode"
   "IsValidShotFromHip"
   "IsValidPistolFastShot"
-  "IsWeaponMounted")
+  "IsWeaponMounted"
+  "SetSoldierAsUnderAiControl"
+  "CheckInitialAP"
+  "IsFlanking"
+  "StopCoweringAnimation"
+  "RetreatCounterStart"
+  "RetreatCounterValue"
+  "StartRadioAnimation"
+  "DeleteBoxingFlag"
+  "CanProcessPrisoners"
+  "FreePrisoner"
+  "GetMultiTurnAction"
+  "StartMultiTurnAction"
+  "CancelMultiTurnAction"
+  "UpdateMultiTurnAction")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3054,9 +3080,80 @@ foreach(required_weapon_handling_operation IN ITEMS
   endif()
 endforeach()
 
+foreach(required_ai_behavior_operation IN ITEMS
+  "hasInitialActionPoints"
+  "isFlanking"
+  "setUnderControl"
+  "stopCowering"
+  "startRetreat"
+  "retreatCounter"
+  "startRadioAnimation"
+  "clearBoxerFlag")
+  string(FIND "${tactical_actor_ai_behavior_header_contents}"
+    "${required_ai_behavior_operation}("
+    ai_behavior_operation_declaration)
+  string(FIND "${tactical_actor_ai_behavior_source_contents}"
+    "TacticalActorAiBehavior::${required_ai_behavior_operation}("
+    ai_behavior_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorAiBehavior::${required_ai_behavior_operation}"
+    ai_behavior_operation_coverage)
+  if(ai_behavior_operation_declaration EQUAL -1 OR
+     ai_behavior_operation_definition EQUAL -1 OR
+     ai_behavior_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor AI behavior operation '${required_ai_behavior_operation}' lost its domain declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+foreach(required_long_action_operation IN ITEMS
+  "current"
+  "start"
+  "cancel"
+  "update")
+  string(FIND "${tactical_actor_long_actions_header_contents}"
+    "${required_long_action_operation}("
+    long_action_operation_declaration)
+  string(FIND "${tactical_actor_long_actions_source_contents}"
+    "TacticalActorLongActions::${required_long_action_operation}("
+    long_action_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorLongActions::${required_long_action_operation}"
+    long_action_operation_coverage)
+  if(long_action_operation_declaration EQUAL -1 OR
+     long_action_operation_definition EQUAL -1 OR
+     long_action_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor long-action operation '${required_long_action_operation}' lost its domain declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+foreach(required_prisoner_operation IN ITEMS
+  "canProcess"
+  "freeAdjacent")
+  string(FIND "${tactical_actor_prisoner_operations_header_contents}"
+    "${required_prisoner_operation}("
+    prisoner_operation_declaration)
+  string(FIND "${tactical_actor_prisoner_operations_source_contents}"
+    "TacticalActorPrisonerOperations::${required_prisoner_operation}("
+    prisoner_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorPrisonerOperations::${required_prisoner_operation}"
+    prisoner_operation_coverage)
+  if(prisoner_operation_declaration EQUAL -1 OR
+     prisoner_operation_definition EQUAL -1 OR
+     prisoner_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor prisoner operation '${required_prisoner_operation}' lost its domain declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
 foreach(required_actor_domain_source IN ITEMS
   "TacticalActorMobility.cpp"
-  "TacticalActorWeaponHandling.cpp")
+  "TacticalActorWeaponHandling.cpp"
+  "TacticalActorAiBehavior.cpp"
+  "TacticalActorLongActions.cpp"
+  "TacticalActorPrisonerOperations.cpp")
   string(FIND "${tactical_build_contents}"
     "${required_actor_domain_source}"
     actor_domain_build_registration)

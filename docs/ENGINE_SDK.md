@@ -597,6 +597,17 @@ item, weapon, profile, vehicle, seat, direction, or world tables. Mods keep
 using the existing item, weapon, vehicle, map, XML, and Lua data formats; this
 change only replaces C++ aggregate methods with explicit engine-facing
 operations.
+`TacticalActorAiBehavior` exposes the corresponding bounded operations for AI
+ownership, initial-turn AP, flanking, cowering, retreat cadence, radio
+animation, and boxing cleanup. `TacticalActorLongActions` owns the
+fortify/remove/hack begin-update-cancel lifecycle, including validation before
+legacy animation, inventory, structure, and cost tables are read.
+`TacticalActorPrisonerOperations` owns strategic prisoner-processing
+eligibility and tactical adjacent release. These are application-side
+engine-facing domains, not new package or content schemas: existing maps,
+facility data, items, XML, Lua, art, audio, and installed mod data continue to
+use their current formats. New C++ code should call these domains instead of
+adding behavior back to the `TacticalActor` aggregate.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,

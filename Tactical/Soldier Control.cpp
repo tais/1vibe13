@@ -12,6 +12,8 @@
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorAiBehavior.h"
+#include "TacticalActorLongActions.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorWeaponHandling.h"
 #include "SoldierRepository.h"
@@ -6131,7 +6133,7 @@ BOOLEAN TacticalActor::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT1
 		//!(this->status().flags() & SOLDIER_COWERING) &&
 		TacticalActorConditions::isCowering(*this))
 	{
-		this->StopCoweringAnimation();
+		TacticalActorAiBehavior::stopCowering(*this);
 	}
 
 	// sevenfm: set WALKING when sidestepping, this should fix running instead of sidestepping with weapon raised in turnbased mode
@@ -15151,43 +15153,6 @@ void TacticalActorCovertOps::runSelfTest(TacticalActor& actor)
 }
 
 // can we process prisoners in this sector?
-BOOLEAN		TacticalActor::CanProcessPrisoners( )
-{
-	if ( vitals().health() < OKLIFE )
-		return FALSE;
-
-	// Is there a prison in this sector?
-	BOOLEAN prisonhere = FALSE;
-	for ( UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt )
-	{
-		// Is this facility here?
-		if ( gFacilityLocations[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )][cnt].fFacilityHere )
-		{
-			// we determine wether this is a prison by checking for usPrisonBaseLimit
-			if ( gFacilityTypes[cnt].AssignmentData[FAC_INTERROGATE_PRISONERS].usPrisonBaseLimit > 0 )
-			{
-				prisonhere = TRUE;
-				break;
-			}
-		}
-	}
-
-	if ( !prisonhere )
-		return FALSE;
-
-	// Are there any prisoners in this prison? note that there are no underground prisons
-	if ( !this->deployment().sectorZ() )
-	{
-		SECTORINFO *pSectorInfo = &(SectorInfo[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )]);
-
-		INT16 aPrisoners[PRISONER_MAX] = {0};
-		if ( GetNumberOfPrisoners( pSectorInfo, aPrisoners ) > 0 )
-			return TRUE;
-	}
-
-	return FALSE;
-}
-
 std::uint32_t TacticalActorModifiers::surrenderStrength(
 	TacticalActor& actor)
 {
@@ -15235,42 +15200,6 @@ std::uint32_t TacticalActorModifiers::surrenderStrength(
 }
 
 // used for an enemy liberating fellow prisoners 
-BOOLEAN		TacticalActor::FreePrisoner( )
-{
-	// we can only free people we are facing
-	INT32 nextGridNoinSight = NewGridNo( this->position().gridNo(), DirectionInc( this->position().direction() ) );
-
-	SoldierID target = WhoIsThere2( nextGridNoinSight, this->position().level() );
-
-	// is there somebody?
-	if ( target != NOBODY )
-	{
-		TacticalActor* pSoldier =
-			GetJa2SoldierRepository().resolve( target );
-		if ( pSoldier == nullptr )
-		{
-			return FALSE;
-		}
-
-		// if he is captured, free him!
-		// note that this would also work for prisoner civs that we spawn in our prisons. All needed would be commanding the AI to get there
-		if ( pSoldier->featureFlags().primaryFlags() & (SOLDIER_POW | SOLDIER_POW_PRISON) )
-		{
-			pSoldier->featureFlags().primaryFlags() &= ~(SOLDIER_POW | SOLDIER_POW_PRISON);
-
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szPrisonerTextStr[STR_PRISONER_X_FREES_Y], this->GetName( ), pSoldier->GetName( ) );
-
-			// alert both soldiers
-			this->aiBehavior().alertStatus() = max( this->aiBehavior().alertStatus(), STATUS_RED );
-			pSoldier->aiBehavior().alertStatus() = max( pSoldier->aiBehavior().alertStatus(), STATUS_RED );
-
-			return TRUE;
-		}
-	}
-
-	return FALSE;
-}
-
 // Flugente: scuba gear
 bool TacticalActorEquipment::usesScubaGear(const TacticalActor& actor)
 {
@@ -15296,282 +15225,6 @@ bool TacticalActorEquipment::usesScubaGear(const TacticalActor& actor)
 		return false;
 
 	return true;
-}
-
-UINT8	TacticalActor::GetMultiTurnAction( )
-{
-	return longAction().action();
-}
-
-void	TacticalActor::StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo )
-{
-	// check wether we can perform any action at all
-	if ( !this->roster().active() || !this->roster().inSector() || this->vitals().health() < OKLIFE || TileIsOutOfBounds( asGridNo ) || this->collapseState().tactical() )
-		return;
-
-	// Do not persist an unknown action as a zero-cost multi-turn operation.
-	if ( usActionType <= MTA_NONE || usActionType >= NUM_MTA )
-		return;
-
-	// wether an action is possible or not depends on action itself (there are actions without a gridno)
-	switch ( usActionType )
-	{
-	case MTA_FORTIFY:
-	case MTA_REMOVE_FORTIFY:
-		if ( this->position().level() != 0 )
-			return;
-		break;
-	}
-
-	// if we already perform a multi-turn action, overwrite it
-	if ( longAction().active() )
-		CancelMultiTurnAction( FALSE );
-
-	// Set up the action, its context grid, and remaining cost atomically.
-	longAction().begin(
-		usActionType, asGridNo, GetAPsForMultiTurnAction( this, usActionType ) );
-
-	// immediately starting the action would leave us without APs, thus removing the benefit of multi-turn actions (ability to do something else while performing a longer action)
-	// for this reason, we only do this when we are not in combat
-	if ( !(IsJa2TacticalTurnBasedCombat()) )
-		UpdateMultiTurnAction( );
-}
-
-void	TacticalActor::CancelMultiTurnAction( BOOLEAN fFinished )
-{
-	const UINT8 action = longAction().action();
-
-	// stop action
-	if ( !fFinished && action > MTA_NONE && action < NUM_MTA )
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szMTATextStr[STR_MTA_CANCEL], this->GetName( ), szMTATextStr[action] );
-
-	longAction().clear();
-}
-
-// if we are doing any multiturn-action, remove our current APs from it, and if possible, perform the action and finish the process
-BOOLEAN	TacticalActor::UpdateMultiTurnAction( )
-{
-	SoldierLongActionComponent& longActionState = longAction();
-
-	// nothing to do here
-	if ( !longActionState.active() )
-		return FALSE;
-
-	// check wether we can perform any action at all
-	if ( !this->roster().active() || !this->roster().inSector() || this->vitals().health() < OKLIFE || TileIsOutOfBounds( this->position().gridNo() ) || this->collapseState().tactical() )
-	{
-		CancelMultiTurnAction( FALSE );
-		return FALSE;
-	}
-
-	// wether an action is possible or not depends on action itself (there are actions without a gridno)
-	switch ( longActionState.action() )
-	{
-	case MTA_FORTIFY:
-	case MTA_REMOVE_FORTIFY:
-	
-		/*// building on a roof is forbidden! stop this!
-		if ( this->position().level() != 0 )
-		{
-			CancelMultiTurnAction( FALSE );
-			return FALSE;
-		}*/
-
-		// we have to be crouched, get out of here, set us to be crouched first
-		if ( gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_CROUCH )
-		{
-			return TRUE;
-		}
-		break;
-
-	case MTA_HACK:
-		break;
-
-		default:	// default: exit
-		{
-			CancelMultiTurnAction( FALSE );
-			return FALSE;
-		}
-		break;
-	}
-
-	// check wether our selected action can still be performed
-	BOOLEAN fActionStillValid = TRUE;
-
-	// determine the gridno before us and the item we have in our main hand, this is enough for the current actions
-	OBJECTTYPE* pObj = &(this->inventory()[HANDPOS]);
-
-	// error if object is missing
-	if ( longActionState.action() == MTA_FORTIFY || longActionState.action() == MTA_REMOVE_FORTIFY )
-	{
-		if (!pObj || !pObj->exists() || pObj->usItem >= MAXITEMS)
-			fActionStillValid = FALSE;
-	}
-
-	// error if the gridno we started working on is not the gridno we are currently looking at
-	if ( longActionState.action() == MTA_FORTIFY || longActionState.action() == MTA_REMOVE_FORTIFY )//|| longActionState.action() == MTA_HACK )
-	{
-		if ( longActionState.contextGrid() != NewGridNo( this->position().gridNo(), DirectionInc( this->position().direction() ) ) )
-			fActionStillValid = FALSE;
-	}
-
-	if ( !fActionStillValid )
-	{
-		CancelMultiTurnAction( FALSE );
-		return FALSE;
-	}
-
-	INT16 entireapcost = 0;
-	INT16 entirebpcost = 0;
-	switch ( longActionState.action() )
-	{
-		case MTA_FORTIFY:
-		{
-			entireapcost = GetAPsForMultiTurnAction( this, MTA_FORTIFY );
-			entirebpcost = APBPConstants[BP_FORTIFICATION];
-
-			if ( !IsFortificationPossibleAtGridNo( longActionState.contextGrid() ) )
-				fActionStillValid = FALSE;
-			else if ( !IsStructureConstructItem( this->inventory()[HANDPOS].usItem, longActionState.contextGrid(), this ) )
-				fActionStillValid = FALSE;
-		}
-		break;
-
-		case MTA_REMOVE_FORTIFY:
-		{
-			entireapcost = GetAPsForMultiTurnAction( this, MTA_REMOVE_FORTIFY );
-			entirebpcost = APBPConstants[BP_REMOVE_FORTIFICATION];
-
-			if ( !IsStructureDeconstructItem( this->inventory()[HANDPOS].usItem, longActionState.contextGrid(), this ) )
-				fActionStillValid = FALSE;
-		}
-		break;
-
-		case MTA_HACK:
-		{
-			entireapcost = GetAPsForMultiTurnAction( this, MTA_HACK );
-			entirebpcost = 0;		// hacking isn't exactly hard to do physically :-)
-
-			UINT16 structindex;
-			if ( !TacticalActorModifiers::interactiveActionSkill(*this, INTERACTIVE_STRUCTURE_HACKABLE) ||
-				 InteractiveActionPossibleAtGridNo( longActionState.contextGrid(), this->position().level(), structindex ) != INTERACTIVE_STRUCTURE_HACKABLE )
-				fActionStillValid = FALSE;
-		}
-		break;
-	}
-
-	if ( !fActionStillValid )
-	{
-		CancelMultiTurnAction( FALSE );
-		return FALSE;
-	}
-
-	// refresh animations
-	switch ( longActionState.action() )
-	{
-		case MTA_FORTIFY:
-		case MTA_REMOVE_FORTIFY:
-		{
-			// if we are not in turnbased and no enemies are around, we reduce the number of necessary action points to 0. No need to keep waiting if there's nobody around anyway
-			if ( !(IsJa2TacticalTurnBasedCombat()) )
-				longActionState.completeCost();
-			// otherwise this might take longer, so we refresh our animation
-			else
-			{
-				if ( !is_networked )
-					this->EVENT_InitNewSoldierAnim( CUTTING_FENCE, 0, FALSE );
-				else
-					this->ChangeSoldierState( CUTTING_FENCE, 0, 0 );
-
-				// as setting the new animation costs APBPConstants[AP_USEWIRECUTTERS] APs every time, account for that
-				longActionState.consumeActionPoints( APBPConstants[AP_USEWIRECUTTERS] );
-			}
-		}
-		break;
-
-		case MTA_HACK:
-		{
-			// if we are not in turnbased and no enemies are around, we reduce the number of necessary action points to 0. No need to keep waiting if there's nobody around anyway
-			if ( !(IsJa2TacticalTurnBasedCombat()) )
-				longActionState.completeCost();
-		}
-		break;
-	}
-
-	// if we can afford it, do it now
-	if ( longActionState.remainingActionPoints() <= this->actionPoints().current() )
-	{
-		switch ( longActionState.action() )
-		{
-			case MTA_FORTIFY:
-			{
-				// Build the thing
-				if ( BuildFortification( longActionState.contextGrid(), this, pObj ) )
-				{
-					// we gain a bit of experience...
-					StatChange( this, STRAMT, 4, TRUE );
-					StatChange( this, HEALTHAMT, 2, TRUE );
-				}
-			}
-			break;
-
-			case MTA_REMOVE_FORTIFY:
-			{
-				if ( RemoveFortification( longActionState.contextGrid(), this, pObj ) )
-				{
-					// we gain a bit of experience...
-					StatChange( this, STRAMT, 3, TRUE );
-					StatChange( this, HEALTHAMT, 2, TRUE );
-				}
-			}
-			break;
-
-			case MTA_HACK:
-			{
-				UINT16 structindex;
-				UINT16 possibleaction = InteractiveActionPossibleAtGridNo( longActionState.contextGrid(), this->position().level(), structindex );
-				UINT16 skill =
-					TacticalActorModifiers::interactiveActionSkill(
-						*this,
-						possibleaction);
-
-				INT32 difficulty = gInteractiveStructure[structindex].difficulty;
-				INT32 luaactionid = gInteractiveStructure[structindex].luaactionid;
-
-				BOOLEAN success = (skill >= difficulty);
-				if ( possibleaction != INTERACTIVE_STRUCTURE_HACKABLE )
-					success = FALSE;
-
-				// call lua with the action id - perhaps we might do something special here
-				if ( luaactionid >= 0 )
-				{
-					LuaHandleInteractiveActionResult( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, longActionState.contextGrid(), this->position().level(), this->identity().id(), possibleaction, luaactionid, difficulty, skill );
-				}
-				else
-				{
-					DoInteractiveActionDefaultResult( longActionState.contextGrid(), this->identity().id(), success );
-				}
-			}
-			break;
-		}
-
-		if ( entireapcost > 0 )
-			DeductPoints( this, longActionState.remainingActionPoints(), (INT32)(entirebpcost * longActionState.remainingActionPoints() / entireapcost), 0 );
-
-		// we're done here!
-		CancelMultiTurnAction( TRUE );
-	}
-	// remove the costs as much as we can
-	else if ( this->actionPoints().current() > 0 )
-	{
-		INT16 oldAPs = this->actionPoints().current();
-		if ( longActionState.remainingActionPoints() > 0 )
-			DeductPoints( this, this->actionPoints().current(), (INT32)(entirebpcost * this->actionPoints().current() / entireapcost), 0 );
-
-		longActionState.consumeActionPoints( oldAPs );
-	}
-
-	return TRUE;
 }
 
 bool TacticalActorEquipment::dropSectorEquipment(TacticalActor& actor)
@@ -18665,7 +18318,7 @@ bool TacticalActorSpotting::startSpotting(
 	actor.skillState().counter(SOLDIER_COUNTER_SPOTTER) = 1;
 
 	// stop any multi-turn action
-	actor.CancelMultiTurnAction(FALSE);
+	TacticalActorLongActions::cancel(actor, false);
 
 	return true;
 }
@@ -18828,12 +18481,6 @@ BOOLEAN		TacticalActor::AIDoctorSelf( )
 }
 
 // Flugente: boxing fix: this shall be the only location where the boxing flag gets removed (easier debugging)
-void	TacticalActor::DeleteBoxingFlag( )
-{
-	if ( status().flags() & SOLDIER_BOXER )
-		status().flags() &= (~SOLDIER_BOXER);
-}
-
 // Flugente: disease
 void TacticalActorDisease::infect(
 	TacticalActor& actor,
@@ -21952,13 +21599,13 @@ void TacticalActor::EVENT_SoldierBuildStructure( INT32 sGridNo, UINT8 ubDirectio
 		if ( !pStruct && IsStructureConstructItem( this->inventory()[HANDPOS].usItem, sGridNo, this ) )
 		{
 			// Build the thing
-			this->StartMultiTurnAction( MTA_FORTIFY, sGridNo );
+			TacticalActorLongActions::start(*this, MTA_FORTIFY, sGridNo );
 
 			fSuccess = TRUE;
 		}
 		else if ( IsStructureDeconstructItem( this->inventory()[HANDPOS].usItem, sGridNo, this ) )
 		{
-			this->StartMultiTurnAction( MTA_REMOVE_FORTIFY, sGridNo );
+			TacticalActorLongActions::start(*this, MTA_REMOVE_FORTIFY, sGridNo );
 
 			fSuccess = TRUE;
 		}
@@ -23123,32 +22770,6 @@ void TacticalActor::BeginTyingToFall( void )
 	{
 		this->animationActivity().fallClockwise() = FALSE;
 	}
-}
-
-void TacticalActor::SetSoldierAsUnderAiControl( void )
-{
-	TacticalActor *pSoldier = NULL;
-
-	//this is silly, but left over from when pSoldierToSet was passed in as a parameter
-	if ( this == NULL )
-	{
-		return;
-	}
-
-	// Loop through ALL teams...
-	SoldierID cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID;
-	for ( ; cnt <= gTacticalStatus.Team[LAST_TEAM].bLastID; ++cnt )
-	{
-		pSoldier =
-			GetJa2SoldierRepository().resolve(
-				cnt );
-		if ( pSoldier != nullptr && pSoldier->roster().active() )
-		{
-			pSoldier->status().flags() &= ~SOLDIER_UNDERAICONTROL;
-		}
-	}
-
-	this->status().flags() |= SOLDIER_UNDERAICONTROL;
 }
 
 void HandlePlayerTogglingLightEffects( BOOLEAN fToggleValue )
@@ -25426,89 +25047,6 @@ BOOLEAN ApplyConsumable(TacticalActor* pSoldier, OBJECTTYPE *pObj, BOOLEAN fForc
 	}
 
 	return FALSE;
-}
-
-// sevenfm: service functions
-BOOLEAN TacticalActor::CheckInitialAP(void)
-{
-	if (this->actionPoints().current() < this->actionPoints().initial() || this->featureFlags().secondaryFlags() & SOLDIER_SPENT_AP)
-	{
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-BOOLEAN TacticalActor::IsFlanking(void)
-{
-	if (this->aiBehavior().alertStatus() < STATUS_YELLOW ||
-		!this->aiPlanning().flanking(MAX_FLANKS_RED))
-	{
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-void TacticalActor::StopCoweringAnimation(void)
-{
-	if (this->animationPlayback().state() == COWERING)
-	{
-		if (gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND)
-		{
-			this->animationIntent().desiredHeight() = ANIM_STAND;
-			this->EVENT_InitNewSoldierAnim(END_COWER, 0, FALSE);
-		}
-		else if (gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_CROUCH)
-		{
-			this->animationIntent().desiredHeight() = ANIM_CROUCH;
-			this->EVENT_InitNewSoldierAnim(END_COWER_CROUCHED, 0, FALSE);
-		}
-	}
-	else if (this->animationPlayback().state() == COWERING_PRONE)
-	{
-		if (gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
-		{
-			this->animationIntent().desiredHeight() = ANIM_PRONE;
-			this->EVENT_InitNewSoldierAnim(END_COWER_PRONE, 0, FALSE);
-		}
-	}
-
-	// remove AI cowering flag
-	this->status().flags() &= ~SOLDIER_COWERING;
-}
-
-void	TacticalActor::RetreatCounterStart(UINT16 usValue)
-{
-	skillState().counter(SOLDIER_COUNTER_RETREAT) =
-		max(usValue, skillState().counter(SOLDIER_COUNTER_RETREAT));
-}
-
-UINT16	TacticalActor::RetreatCounterValue(void)
-{
-	return skillState().counter(SOLDIER_COUNTER_RETREAT);
-}
-
-void TacticalActor::StartRadioAnimation(void)
-{
-	if (this->identity().bodyType() != REGMALE && this->identity().bodyType() != BIGMALE ||
-		Water(this->position().gridNo(), this->position().level()) ||
-		this->awareness().visibility() != TRUE)
-	{
-		return;
-	}
-
-	switch (gAnimControl[this->animationPlayback().state()].ubEndHeight)
-	{
-	case ANIM_STAND:
-		this->EVENT_InitNewSoldierAnim(AI_RADIO, 0, FALSE);
-		break;
-	case ANIM_CROUCH:
-		this->EVENT_InitNewSoldierAnim(AI_CR_RADIO, 0, FALSE);
-		break;
-	case ANIM_PRONE:
-		break;
-	}
 }
 
 void TacticalActor::InitializeExtraData(void)
