@@ -1,5 +1,6 @@
 #include "TacticalActorLongActions.h"
 #include "TacticalActorMedicalServices.h"
+#include "TacticalActorMedicalTreatment.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
@@ -6068,7 +6069,13 @@ void HandleTeamServices( UINT8 ubTeamNum )
 
                         usKitPts = TotalPoints( &(pTeamSoldier->inventory()[ HANDPOS ] ) );
 
-                        uiPointsUsed = pTeamSoldier->SoldierDressWound( pTargetSoldier, usKitPts, usKitPts );
+                        uiPointsUsed =
+                            TacticalActorMedicalTreatment::
+                                treatInSector(
+                                    *pTeamSoldier,
+                                    *pTargetSoldier,
+                                    usKitPts,
+                                    usKitPts);
 
                         // Determine if they are all banagded
                         if ( !pTargetSoldier->vitals().bleeding() && pTargetSoldier->vitals().health() >= OKLIFE && !(pTargetSoldier->vitals().healableInjury() >= 100 && pTeamSoldier->vitals().undergoingSurgery())) // check for surgery added by SANDRO
@@ -6153,7 +6160,13 @@ void HandlePlayerServices( TacticalActor *pTeamSoldier )
 
                     usKitPts = TotalPoints( &(pTeamSoldier->inventory()[ HANDPOS ] ) );
 
-                    uiPointsUsed = pTeamSoldier->SoldierDressWound( pTargetSoldier, usKitPts, usKitPts );
+                    uiPointsUsed =
+                        TacticalActorMedicalTreatment::
+                            treatInSector(
+                                *pTeamSoldier,
+                                *pTargetSoldier,
+                                usKitPts,
+                                usKitPts);
 
                     // Determine if they are all banagded
                     if ( !pTargetSoldier->vitals().bleeding() && pTargetSoldier->vitals().health() >= OKLIFE && !(pTargetSoldier->vitals().healableInjury() >= 100 && pTeamSoldier->vitals().undergoingSurgery())) // check for surgery added by SANDRO

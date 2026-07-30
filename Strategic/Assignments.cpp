@@ -1,5 +1,6 @@
 #include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorEquipment.h"
+#include "TacticalActorMedicalTreatment.h"
 #include "Assignments.h"
 #include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
@@ -4510,7 +4511,7 @@ BOOLEAN CanSoldierBeHealedByDoctor( TacticalActor *pSoldier, TacticalActor *pDoc
 	}
 
 	// check if having damaged stat
-	if ( gGameOptions.fNewTraitSystem && NUM_SKILL_TRAITS( pDoctor, DOCTOR_NT) > 0 && (NumberOfDamagedStats( pSoldier ) > 0))
+	if ( gGameOptions.fNewTraitSystem && NUM_SKILL_TRAITS( pDoctor, DOCTOR_NT) > 0 && (TacticalActorMedicalTreatment::damagedStatCount( *pSoldier ) > 0))
 	{
 		fHealDamagedStat = TRUE;
 	}
@@ -4619,10 +4620,10 @@ UINT16 HealPatient( TacticalActor *pPatient, TacticalActor * pDoctor, UINT16 usH
 		fWillHealLife = TRUE;
 
 	//////// DETERMINE STAT REPAIR ////////////////////
-	if ( sDoctortraits > 0 && (NumberOfDamagedStats( pPatient ) > 0) )
+	if ( sDoctortraits > 0 && (TacticalActorMedicalTreatment::damagedStatCount( *pPatient ) > 0) )
 	{
 		fWillRepairStats = TRUE;
-		sHundredsToRepair = 100 * NumberOfDamagedStats( pPatient );
+		sHundredsToRepair = 100 * TacticalActorMedicalTreatment::damagedStatCount( *pPatient );
 
 		ubReturnDamagedStatRate = ((gSkillTraitValues.usDORepairStatsRateBasic + gSkillTraitValues.usDORepairStatsRateOnTop * sDoctortraits));
 
@@ -4746,7 +4747,10 @@ UINT16 HealPatient( TacticalActor *pPatient, TacticalActor * pDoctor, UINT16 usH
 		// use up points
 		ptsleft -= sHundredsToRepair_Used;
 		
-		RegainDamagedStats( pPatient, (sHundredsToRepair_Used * ubReturnDamagedStatRate / 100) );
+		TacticalActorMedicalTreatment::restoreDamagedStats(
+			*pPatient,
+			(sHundredsToRepair_Used *
+				ubReturnDamagedStatRate / 100));
 	}
 			
 	// Finally use all kit points (we are sure, we have that much)
@@ -4763,7 +4767,7 @@ UINT16 HealPatient( TacticalActor *pPatient, TacticalActor * pDoctor, UINT16 usH
 		ScreenMsg( FONT_MCOLOR_RED, MSG_TESTVERSION, L"Warning! HealPatient uses more points than it should!" );
 
 	// if this patient is fully healed and cured
-	if ( !pDoctor && pPatient->vitals().health() == pPatient->vitals().maximumHealth() && !NumberOfDamagedStats( pPatient ) && !TacticalActorDisease::hasAny(*pPatient, TRUE, TRUE ) )
+	if ( !pDoctor && pPatient->vitals().health() == pPatient->vitals().maximumHealth() && !TacticalActorMedicalTreatment::damagedStatCount( *pPatient ) && !TacticalActorDisease::hasAny(*pPatient, TRUE, TRUE ) )
 	{
 		AssignmentDone( pPatient, TRUE, TRUE );
 	}
@@ -18568,7 +18572,15 @@ void BandageBleedingDyingPatientsBeingTreated( )
 						usKitPts = TotalPoints( pKit );
 						if( usKitPts )
 						{
-							uiKitPtsUsed = VirtualSoldierDressWound( pDoctor, pSoldier, pKit, usKitPts, usKitPts, FALSE ); // SANDRO - added variable
+							uiKitPtsUsed =
+								TacticalActorMedicalTreatment::
+									treatAbstract(
+										*pDoctor,
+										*pSoldier,
+										*pKit,
+										usKitPts,
+										usKitPts,
+										false);
 							UseKitPoints( pKit, (UINT16)uiKitPtsUsed, pDoctor );
 
 							// if he is STILL bleeding or dying
@@ -22400,7 +22412,14 @@ BOOLEAN MakeAutomaticSurgery( TacticalActor * pSoldier, TacticalActor * pDoctor 
 		}
 		usKitPts = TotalPoints( pKit );
 
-		uiPointsUsed = VirtualSoldierDressWound( pDoctor, pSoldier, pKit, usKitPts, usKitPts, TRUE );
+		uiPointsUsed =
+			TacticalActorMedicalTreatment::treatAbstract(
+				*pDoctor,
+				*pSoldier,
+				*pKit,
+				usKitPts,
+				usKitPts,
+				true);
 		UseKitPoints( pKit, (UINT16)uiPointsUsed, pDoctor );
 		
 		++cnt;

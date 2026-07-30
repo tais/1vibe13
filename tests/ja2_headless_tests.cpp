@@ -2,6 +2,7 @@
 #include "TacticalActorDamageQueue.h"
 #include "TacticalActorLongActions.h"
 #include "TacticalActorMedicalServices.h"
+#include "TacticalActorMedicalTreatment.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorWeaponHandling.h"
@@ -9242,6 +9243,78 @@ int main( int, char** )
 		       malformedKitIsRejected &&
 		       unavailableWorldTreatmentIsRejected,
 		       "tactical actor medical services reconcile stale relationships and reject malformed treatment state" );
+	}
+
+	{
+		TacticalActor patient;
+		patient.identity().profile() =
+			static_cast<UINT8>(NUM_PROFILES);
+		patient.roster().team() = ENEMY_TEAM;
+		patient.vitals().health() = 40;
+		patient.vitals().maximumHealth() = 50;
+		patient.vitals().healableInjury() = 200;
+		patient.vitals().criticalStatDamage()
+			[DAMAGED_STAT_HEALTH] = 2;
+		patient.condition().starvationHealthDamage() = 3;
+		patient.condition().starvationStrengthDamage() = 4;
+		const bool damagedStatsAreCounted =
+			TacticalActorMedicalTreatment::
+				damagedStatCount(patient) == 9;
+		const std::uint8_t restoredStats =
+			TacticalActorMedicalTreatment::
+				restoreDamagedStats(patient, 200);
+		const bool invalidProfileRestorationIsBounded =
+			restoredStats == 2 &&
+			patient.vitals().criticalStatDamage()
+				[DAMAGED_STAT_HEALTH] == 0 &&
+			patient.vitals().maximumHealth() == 52 &&
+			patient.vitals().health() == 42 &&
+			TacticalActorMedicalTreatment::
+				damagedStatCount(patient) == 7;
+		patient.statistics().dexterity() = 1;
+		patient.vitals().criticalStatDamage()
+			[DAMAGED_STAT_DEXTERITY] =
+				std::numeric_limits<UINT8>::max();
+		const bool corruptStatMagnitudeIsClamped =
+			TacticalActorMedicalTreatment::
+				restoreDamagedStats(patient, 65500) ==
+					std::numeric_limits<UINT8>::max() &&
+			patient.statistics().dexterity() == 100 &&
+			patient.vitals().criticalStatDamage()
+				[DAMAGED_STAT_DEXTERITY] == 0;
+
+		TacticalActor doctor;
+		doctor.actionPoints().current() = 10;
+		doctor.animationPlayback().state() = STANDING;
+		OBJECTTYPE& malformedKit =
+			doctor.inventory()[HANDPOS];
+		malformedKit.usItem = MAXITEMS;
+		malformedKit.ubNumberOfObjects = 1;
+		malformedKit.objectStack.resize(1);
+		patient.vitals().bleeding() = 5;
+		const bool malformedLiveKitIsRejected =
+			TacticalActorMedicalTreatment::
+				treatInSector(
+					doctor,
+					patient,
+					10,
+					100) == 0;
+		const bool malformedAbstractKitIsRejected =
+			TacticalActorMedicalTreatment::
+				treatAbstract(
+					doctor,
+					patient,
+					malformedKit,
+					10,
+					100,
+					false) == 0;
+
+		CHECK( damagedStatsAreCounted &&
+		       invalidProfileRestorationIsBounded &&
+		       corruptStatMagnitudeIsClamped &&
+		       malformedLiveKitIsRejected &&
+		       malformedAbstractKitIsRejected,
+		       "tactical actor medical treatment bounds profile, stat-repair, and kit state" );
 	}
 
 	{

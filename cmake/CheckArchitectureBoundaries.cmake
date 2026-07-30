@@ -2200,6 +2200,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalServices.h"
   tactical_actor_medical_services_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalServices.cpp"
   tactical_actor_medical_services_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalTreatment.h"
+  tactical_actor_medical_treatment_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalTreatment.cpp"
+  tactical_actor_medical_treatment_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorPrisonerOperations.h"
   tactical_actor_prisoner_operations_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorPrisonerOperations.cpp"
@@ -2997,7 +3001,11 @@ foreach(retired_actor_facade IN ITEMS
   "ReceivingSoldierCancelServices"
   "GivingSoldierCancelServices"
   "InternalReceivingSoldierCancelServices"
-  "InternalGivingSoldierCancelServices")
+  "InternalGivingSoldierCancelServices"
+  "SoldierDressWound"
+  "VirtualSoldierDressWound"
+  "NumberOfDamagedStats"
+  "RegainDamagedStats")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3008,6 +3016,19 @@ foreach(retired_actor_facade IN ITEMS
      NOT retired_actor_facade_definition EQUAL -1)
     message(FATAL_ERROR
       "TacticalActor regained retired facade '${retired_actor_facade}'")
+  endif()
+endforeach()
+
+foreach(retired_medical_treatment_global IN ITEMS
+  "VirtualSoldierDressWound"
+  "NumberOfDamagedStats"
+  "RegainDamagedStats")
+  string(FIND "${tactical_actor_source_contents}"
+    "${retired_medical_treatment_global}("
+    retired_medical_treatment_definition)
+  if(NOT retired_medical_treatment_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier Control regained retired medical-treatment global '${retired_medical_treatment_global}'")
   endif()
 endforeach()
 
@@ -3029,6 +3050,32 @@ foreach(required_damage_queue_operation IN ITEMS
      damage_queue_operation_coverage EQUAL -1)
     message(FATAL_ERROR
       "Tactical actor damage-queue operation '${required_damage_queue_operation}' lost its domain declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+foreach(required_medical_treatment_operation IN ITEMS
+  "treatInSector"
+  "treatAbstract"
+  "damagedStatCount"
+  "restoreDamagedStats")
+  string(FIND "${tactical_actor_medical_treatment_header_contents}"
+    "${required_medical_treatment_operation}("
+    medical_treatment_operation_declaration)
+  string(FIND "${tactical_actor_medical_treatment_source_contents}"
+    "TacticalActorMedicalTreatment::${required_medical_treatment_operation}("
+    medical_treatment_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorMedicalTreatment::"
+    medical_treatment_domain_coverage)
+  string(FIND "${headless_test_contents}"
+    "${required_medical_treatment_operation}("
+    medical_treatment_operation_coverage)
+  if(medical_treatment_operation_declaration EQUAL -1 OR
+     medical_treatment_operation_definition EQUAL -1 OR
+     medical_treatment_domain_coverage EQUAL -1 OR
+     medical_treatment_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor medical-treatment operation '${required_medical_treatment_operation}' lost its domain declaration, definition, or headless coverage")
   endif()
 endforeach()
 
@@ -3216,6 +3263,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorDamageQueue.cpp"
   "TacticalActorLongActions.cpp"
   "TacticalActorMedicalServices.cpp"
+  "TacticalActorMedicalTreatment.cpp"
   "TacticalActorPrisonerOperations.cpp")
   string(FIND "${tactical_build_contents}"
     "${required_actor_domain_source}"

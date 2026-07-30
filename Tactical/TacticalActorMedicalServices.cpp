@@ -1,4 +1,5 @@
 #include "TacticalActorMedicalServices.h"
+#include "TacticalActorMedicalTreatment.h"
 
 #include "Animation Control.h"
 #include "Assignments.h"
@@ -229,8 +230,9 @@ bool TacticalActorMedicalServices::treatAdjacentForAi(
 	const std::uint16_t kitPoints = TotalPoints(&kit);
 	const std::int8_t oldLife = patient->vitals().health();
 	const std::uint32_t usedPoints =
-		medic.SoldierDressWound(
-			patient,
+		TacticalActorMedicalTreatment::treatInSector(
+			medic,
+			*patient,
 			kitPoints,
 			kitPoints);
 	UseKitPoints(
@@ -260,8 +262,9 @@ bool TacticalActorMedicalServices::treatSelfForAi(
 	const std::uint16_t kitPoints = TotalPoints(&kit);
 	const std::int8_t oldLife = medic.vitals().health();
 	const std::uint32_t usedPoints =
-		medic.SoldierDressWound(
-			&medic,
+		TacticalActorMedicalTreatment::treatInSector(
+			medic,
+			medic,
 			kitPoints,
 			kitPoints);
 	UseKitPoints(

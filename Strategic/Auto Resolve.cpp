@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include "TacticalActorEquipment.h"
+#include "TacticalActorMedicalTreatment.h"
 #include "TacticalActorRobotics.h"
 #include "SoldierRepository.h"
 #include <stdio.h>
@@ -1580,7 +1581,14 @@ static UINT32 AutoBandageMercs()
 					continue;
 					break;
 				}
-				uiPointsUsed = VirtualSoldierDressWound( gpMercs[ i ].pSoldier, gpMercs[ i ].pSoldier, pKit, usKitPts, usKitPts, FALSE ); // changed by SANDRO
+				uiPointsUsed =
+					TacticalActorMedicalTreatment::treatAbstract(
+						*gpMercs[i].pSoldier,
+						*gpMercs[i].pSoldier,
+						*pKit,
+						usKitPts,
+						usKitPts,
+						false);
 				UseKitPoints( pKit, (UINT16)uiPointsUsed, gpMercs[ i ].pSoldier );
 				uiCurrPointsUsed += uiPointsUsed;
 				cnt++;
@@ -1629,7 +1637,14 @@ static UINT32 AutoBandageMercs()
 				fComplete = FALSE;
 				continue;
 			}
-			uiPointsUsed = VirtualSoldierDressWound( gpMercs[ iBest ].pSoldier, gpMercs[ i ].pSoldier, pKit, usKitPts, usKitPts, FALSE );
+			uiPointsUsed =
+				TacticalActorMedicalTreatment::treatAbstract(
+					*gpMercs[iBest].pSoldier,
+					*gpMercs[i].pSoldier,
+					*pKit,
+					usKitPts,
+					usKitPts,
+					false);
 			UseKitPoints( pKit, (UINT16)uiPointsUsed, gpMercs[ i ].pSoldier );
 			uiParallelPointsUsed += uiPointsUsed;
 			fComplete = TRUE;

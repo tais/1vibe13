@@ -1,6 +1,7 @@
 	#include "builddefines.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorMedicalServices.h"
+#include "TacticalActorMedicalTreatment.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp.h"
@@ -3985,7 +3986,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 							continue;
 						}
 						// Are we in this sector, On the current squad?
-						if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < HOSPITAL_PATIENT_DISTANCE )
+						if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || TacticalActorMedicalTreatment::damagedStatCount(*pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < HOSPITAL_PATIENT_DISTANCE )
 						{
 							SetSoldierAssignment( pSoldier, ASSIGNMENT_HOSPITAL, 0, 0, 0 );
 							TriggerNPCRecord( pSoldier->identity().profile(), 2 );
@@ -4814,7 +4815,7 @@ UINT32 CalcMedicalCost( UINT8 ubId )
 		}
 		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL )
 		{
-			if ( pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0)
+			if ( pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || TacticalActorMedicalTreatment::damagedStatCount(*pSoldier) > 0)
 			{
 				if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= HOSPITAL_PATIENT_DISTANCE)
 				{
