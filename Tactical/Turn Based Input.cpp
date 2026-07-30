@@ -1,4 +1,5 @@
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorFieldOperations.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "builddefines.h"
@@ -2957,10 +2958,12 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					TacticalActor *pSoldier;
 					if (GetSoldier(&pSoldier, gusSelectedSoldier))
 					{
-						if (pSoldier->CanBreakWindow())
+						if (TacticalActorFieldOperations::
+							canBreakWindow(*pSoldier))
 						{
 							if (EnoughPoints(pSoldier, GetAPsToBreakWindow(pSoldier, TRUE), BP_USE_CROWBAR, TRUE))
-								pSoldier->BreakWindow();
+								(void)TacticalActorFieldOperations::
+									breakWindow(*pSoldier);
 						}
 						else if (TacticalActorDragging::canStart(*pSoldier))
 						{

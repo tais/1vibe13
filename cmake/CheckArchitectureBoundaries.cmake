@@ -2204,6 +2204,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalSession.h"
   tactical_actor_medical_session_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalSession.cpp"
   tactical_actor_medical_session_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorFieldOperations.h"
+  tactical_actor_field_operations_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorFieldOperations.cpp"
+  tactical_actor_field_operations_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Points.h"
   tactical_points_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Points.cpp"
@@ -3014,7 +3018,17 @@ foreach(retired_actor_facade IN ITEMS
   "VirtualSoldierDressWound"
   "NumberOfDamagedStats"
   "RegainDamagedStats"
-  "EVENT_SoldierBeginFirstAid")
+  "EVENT_SoldierBeginFirstAid"
+  "EVENT_SoldierBeginCutFence"
+  "EVENT_SoldierBeginRepair"
+  "EVENT_SoldierBeginRefuel"
+  "EVENT_SoldierBeginReloadRobot"
+  "EVENT_SoldierBeginTakeBlood"
+  "EVENT_SoldierBeginAttachCan"
+  "EVENT_SoldierBuildStructure"
+  "EVENT_SoldierInteractiveAction"
+  "BreakWindow"
+  "CanBreakWindow")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3052,6 +3066,50 @@ foreach(required_medical_session_operation IN ITEMS
       "Tactical actor medical-session operation '${required_medical_session_operation}' lost its domain declaration, definition, or headless coverage")
   endif()
 endforeach()
+
+foreach(required_field_operation IN ITEMS
+  "beginFenceCutting"
+  "beginRepair"
+  "beginRefuel"
+  "beginCorpseBloodCollection"
+  "attachDoorAlarm"
+  "beginFortification"
+  "performInteractiveAction"
+  "beginRobotReload"
+  "canBreakWindow"
+  "breakWindow")
+  string(FIND "${tactical_actor_field_operations_header_contents}"
+    "${required_field_operation}("
+    field_operation_declaration)
+  string(FIND "${tactical_actor_field_operations_source_contents}"
+    "TacticalActorFieldOperations::${required_field_operation}("
+    field_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorFieldOperations::"
+    field_operations_domain_coverage)
+  string(FIND "${headless_test_contents}"
+    "${required_field_operation}("
+    field_operation_coverage)
+  if(field_operation_declaration EQUAL -1 OR
+     field_operation_definition EQUAL -1 OR
+     field_operations_domain_coverage EQUAL -1 OR
+     field_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor field operation '${required_field_operation}' lost its domain declaration, definition, or unavailable-world coverage")
+  endif()
+endforeach()
+
+string(FIND "${tactical_item_callback_header_contents}"
+  "DoInteractiveAction("
+  retired_interactive_action_declaration)
+string(FIND "${tactical_item_callback_contents}"
+  "void DoInteractiveAction("
+  retired_interactive_action_definition)
+if(NOT retired_interactive_action_declaration EQUAL -1 OR
+   NOT retired_interactive_action_definition EQUAL -1)
+  message(FATAL_ERROR
+    "Handle Items regained the retired unbounded interactive-action global")
+endif()
 
 string(FIND "${tactical_points_header_contents}"
   "GetAPsToBeginFirstAid("
@@ -3307,6 +3365,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorWeaponHandling.cpp"
   "TacticalActorAiBehavior.cpp"
   "TacticalActorDamageQueue.cpp"
+  "TacticalActorFieldOperations.cpp"
   "TacticalActorLongActions.cpp"
   "TacticalActorMedicalSession.cpp"
   "TacticalActorMedicalServices.cpp"

@@ -1404,6 +1404,16 @@ the engine must not contain SDL types in its public domain model.
   monolith delegates its medical transition to this domain.
   Existing medical items, traits, dialogue/Lua events, maps, animation data,
   and other installed mod-data formats are unchanged.
+  `TacticalActorFieldOperations` now owns ten bounded actor-to-world tool
+  operations: fence cutting, repair, refuelling, corpse blood collection,
+  door-alarm attachment, fortification, interactive structures, robot
+  reloading, and window inspection/breaking. The corresponding aggregate
+  methods and the unbounded `DoInteractiveAction` global are retired. Each
+  entry validates tactical-world lifetime, actor/grid/level/direction and
+  animation state, plus the relevant inventory item, repository target,
+  corpse, door, structure, or interactive-structure index before touching
+  legacy tables. Existing items, maps, XML, Lua actions, sounds, animations,
+  art, and all other installed mod-data formats are unchanged.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to

@@ -332,7 +332,6 @@ INT32 GetFirstObjectInSectorPosition( UINT16 ausItem );
 extern ITEM_POOL *gpItemPool;//dnl ch26 210909
 
 // Flugente: interactive actions
-void DoInteractiveAction( INT32 sGridNo, TacticalActor *pSoldier );
 void DoInteractiveActionDefaultResult( INT32 sGridNo, SoldierID ubID, BOOLEAN aSuccess );
 BOOLEAN SpendMoney( TacticalActor *pSoldier, UINT32 aAmount );			// character spends money - either from inventory or the account
 

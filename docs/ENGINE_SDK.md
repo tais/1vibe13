@@ -633,6 +633,15 @@ or repository state is rejected before a service relationship is established.
 `resumeProvidingAnimation` is the sole stationary-stance handoff for an active
 provider. The existing item definitions, trait values, dialogue and Lua
 events, maps, animations, and installed content formats are unchanged.
+`TacticalActorFieldOperations` is the actor-to-world boundary for fence
+cutting, repair, refuelling, corpse blood collection, door alarms,
+fortification, interactive structures, robot reloading, and window breaking.
+New callers pass the actor and validated intent to this domain instead of
+reintroducing aggregate `EVENT_Soldier*`, `BreakWindow`, `CanBreakWindow`, or
+the global `DoInteractiveAction` entry points. The domain rejects unloaded
+worlds and malformed actor, grid, direction, item, target, or structure-index
+state before accessing legacy tables. It does not change installed item,
+map, XML, Lua, sound, animation, art, or other content formats.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,

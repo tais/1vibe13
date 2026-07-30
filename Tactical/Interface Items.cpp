@@ -1,4 +1,5 @@
 #include "TacticalActorWeaponHandling.h"
+#include "TacticalActorFieldOperations.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorExplosives.h"
@@ -9395,7 +9396,11 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 							}
 							else
 							{
-								GetItemPointerSoldier()->EVENT_SoldierBeginReloadRobot( sAdjustedGridNo, ubDirection, gbItemPointerSrcSlot );
+								(void)TacticalActorFieldOperations::
+									beginRobotReload(
+										*GetItemPointerSoldier(),
+										sAdjustedGridNo,
+										ubDirection);
 							}
 
 							// OK, set UI

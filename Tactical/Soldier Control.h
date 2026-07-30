@@ -893,26 +893,18 @@ public:
 	void EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirection );
 	void EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirection );
 	void EVENT_StopMerc( INT32 sGridNo, INT8 bDirection );
-	void EVENT_SoldierBeginCutFence( INT32 sGridNo, UINT8 ubDirection );
-	void EVENT_SoldierBeginRepair( INT32 sGridNo, UINT8 ubDirection );
-	void EVENT_SoldierBeginRefuel( INT32 sGridNo, UINT8 ubDirection );
 	void EVENT_SoldierBeginKnifeThrowAttack( INT32 sGridNo, UINT8 ubDirection );
 	void EVENT_SoldierBeginUseDetonator( void );
 	void EVENT_SoldierBeginDropBomb( );
 	void EVENT_SoldierDefuseTripwire( INT32 sGridNo, INT32 sItem );
 	void EVENT_SoldierBeginGiveItem( void );
 	void EVENT_SetSoldierPositionForceDelete( FLOAT dNewXPos, FLOAT dNewYPos );
-	void EVENT_SoldierBeginReloadRobot( INT32 sGridNo, UINT8 ubDirection, UINT8 ubMercSlot );
-	void EVENT_SoldierBeginTakeBlood( INT32 sGridNo, UINT8 ubDirection );
-	void EVENT_SoldierBeginAttachCan( INT32 sGridNo, UINT8 ubDirection );
 	void EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCounter );
 
-	void EVENT_SoldierBuildStructure( INT32 sGridNo, UINT8 ubDirection );		// added by Flugente
 	void EVENT_SoldierHandcuffPerson( INT32 sGridNo, UINT8 ubDirection );		// added by Flugente
 	void EVENT_SoldierApplyItemToPerson( INT32 sGridNo, UINT8 ubDirection );	// added by Flugente
 	void EVENT_SoldierTakeBloodFromPerson( INT32 sGridNo, UINT8 ubDirection );	// added by Flugente
 	void EVENT_SoldierApplySplintToPerson( INT32 sGridNo, UINT8 ubDirection );	// added by Flugente
-	void EVENT_SoldierInteractiveAction( INT32 sGridNo, UINT16 usActionType );					// added by Flugente
 
 	BOOLEAN EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 usMovementAnim, BOOLEAN fFromUI, BOOLEAN fForceRestart );
 	void EVENT_InternalSetSoldierDestination( UINT16	usNewDirection, BOOLEAN fFromMove, UINT16 usAnimState );
@@ -991,8 +983,6 @@ public:
 	void ChangeToFallbackAnimation( UINT8 fallBackDirection );
 
 	// sevenfm
-	void BreakWindow(void);
-	BOOLEAN CanBreakWindow(void);
 
 	BOOLEAN SoldierReadyWeapon( INT16 sTargetXPos, INT16 sTargetYPos, BOOLEAN fEndReady, BOOLEAN fRaiseToHipOnly );
 	BOOLEAN SoldierReadyWeapon( void );

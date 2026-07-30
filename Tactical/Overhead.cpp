@@ -1,4 +1,5 @@
 #include "TacticalActorLongActions.h"
+#include "TacticalActorFieldOperations.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMedicalTreatment.h"
@@ -1411,27 +1412,42 @@ BOOLEAN ExecuteOverhead( )
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_REPAIR   )
                                     {
-                                        pSoldier->EVENT_SoldierBeginRepair( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorFieldOperations::beginRepair(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_FUEL_VEHICLE )
                                     {
-                                        pSoldier->EVENT_SoldierBeginRefuel( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorFieldOperations::beginRefuel(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_RELOADROBOT  )
                                     {
-                                        pSoldier->EVENT_SoldierBeginReloadRobot( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData(), (INT8)pSoldier->pendingAction().primaryData() );
+                                        (void)TacticalActorFieldOperations::beginRobotReload(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_TAKEBLOOD    )
                                     {
-                                        pSoldier->EVENT_SoldierBeginTakeBlood( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorFieldOperations::beginCorpseBloodCollection(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_ATTACH_CAN )
                                     {
-                                        pSoldier->EVENT_SoldierBeginAttachCan( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorFieldOperations::attachDoorAlarm(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_ENTER_VEHICLE    )
@@ -1441,12 +1457,18 @@ BOOLEAN ExecuteOverhead( )
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_CUTFFENCE )
                                     {
-                                        pSoldier->EVENT_SoldierBeginCutFence( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorFieldOperations::beginFenceCutting(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_BUILD_FORTIFICATION )
                                     {
-                                        pSoldier->EVENT_SoldierBuildStructure( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorFieldOperations::beginFortification(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_HANDCUFF_PERSON )
@@ -1466,7 +1488,10 @@ BOOLEAN ExecuteOverhead( )
                                     }
 									else if ( pSoldier->pendingAction().action() == MERC_INTERACTIVEACTION )
 									{
-										pSoldier->EVENT_SoldierInteractiveAction( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+										(void)TacticalActorFieldOperations::performInteractiveAction(
+											*pSoldier,
+											pSoldier->pendingAction().secondaryData(),
+											pSoldier->pendingAction().tertiaryData() );
 										pSoldier->pendingAction().clearAction();
 									}
 									else if ( pSoldier->pendingAction().action() == MERC_FILLBLOODBAG )
