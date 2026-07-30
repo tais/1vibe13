@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalActorEquipment.h"
 #include "SoldierRepository.h"
 #include <stdio.h>
 #include "types.h"
@@ -2628,7 +2629,8 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 			}
 
 			// Flugente: drop sector equipment
-			gpCivs[ i ].pSoldier->DropSectorEquipment();
+			TacticalActorEquipment::dropSectorEquipment(
+				*gpCivs[i].pSoldier);
 
 			if( fDeleteForGood && gpCivs[ i ].pSoldier->vitals().health() < OKLIFE/2 )
 			{
@@ -6013,7 +6015,8 @@ void AutoResolveMilitiaDropAndPromote()
 			}
 
 			// Flugente: drop sector equipment
-			gpCivs[i].pSoldier->DropSectorEquipment( );
+			TacticalActorEquipment::dropSectorEquipment(
+				*gpCivs[i].pSoldier);
 						
 			if ( gpCivs[i].pSoldier->vitals().health() < OKLIFE / 2 )
 			{

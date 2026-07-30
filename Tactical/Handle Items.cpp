@@ -1,4 +1,5 @@
 #include "connect.h"
+#include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -8115,7 +8116,9 @@ BOOLEAN BuildFortification( INT32 sGridNo, TacticalActor *pSoldier, OBJECTTYPE *
 			// sevenfm: auto-taking of items
 			if ( !(IsJa2TacticalTurnBasedCombat()) && gfShiftBombPlant )
 			{
-				pSoldier->TakeNewItemFromInventory( pObj->usItem );
+				TacticalActorEquipment::takeItemIntoHand(
+					*pSoldier,
+					usItem);
 			}
 		}
 		else
@@ -9991,10 +9994,15 @@ void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 
 void HandleTakeNewBombFromInventory(TacticalActor* pSoldier, OBJECTTYPE* pObj)
 {
+	if (!pSoldier || !pObj || !pObj->exists())
+		return;
+
 	if( !( IsJa2TacticalTurnBasedCombat() ) &&
 			!pSoldier->inventory()[HANDPOS].exists() && gfShiftBombPlant )
 	{	
-       pSoldier->TakeNewBombFromInventory(pObj->usItem);
+		TacticalActorEquipment::takeBombIntoHand(
+			*pSoldier,
+			pObj->usItem);
 	}
 }
 

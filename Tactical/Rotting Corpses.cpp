@@ -50,6 +50,7 @@
 	#include "PreBattle Interface.h"	// added by Flugente
 	#include "Strategic Town Loyalty.h"	// added by Flugente
 #include "GameInitOptionsScreen.h"
+#include "TacticalActorEquipment.h"
 #include "SoldierRepository.h"
 
 //forward declarations of common classes to eliminate includes
@@ -1158,7 +1159,7 @@ BOOLEAN TurnSoldierIntoCorpse( TacticalActor *pSoldier, BOOLEAN fRemoveMerc, BOO
 		DropKeysInKeyRing( pSoldier, pSoldier->position().gridNo(), pSoldier->position().level(), bVisible, FALSE, 0, FALSE );
 
 		// Flugente: even if we forbid militia from dropping their equipment, they will still drop what they took via sector inventory (this functions only drops what they took)
-		pSoldier->DropSectorEquipment();
+		TacticalActorEquipment::dropSectorEquipment(*pSoldier);
 	}
 
 	// Make team look for items

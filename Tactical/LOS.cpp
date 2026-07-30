@@ -2578,7 +2578,9 @@ void DamageRiotShield( TacticalActor* pSoldier, INT32& rsDamage, INT32& rsSecond
 
 		UINT16 damagetoshield = 1.5f * damage_original / shieldstrength;
 
-		pSoldier->RiotShieldTakeDamage( damagetoshield );
+		TacticalActorEquipment::damageRiotShield(
+			*pSoldier,
+			damagetoshield);
 
 		INT32 damage_new = max( 0, min( damage_original, ((100.0f - shieldstrength) / 100.0f) * (damage_original - shieldstrength) ) );
 

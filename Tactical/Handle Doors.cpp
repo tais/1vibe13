@@ -1,6 +1,7 @@
 	#include <wchar.h>
 	#include "SoldierRepository.h"
-#include "TacticalWorldAdapter.h"
+	#include "TacticalActorEquipment.h"
+	#include "TacticalWorldAdapter.h"
 	#include "sgp.h"
 	#include "worlddef.h"
 	#include "worldman.h"
@@ -88,7 +89,7 @@ void HandleDoorChangeFromGridNo( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN
 
 	// Flugente: we have to redo flashlights
 	if ( pSoldier )
-		pSoldier->HandleFlashLights();
+		TacticalActorEquipment::refreshFlashlights(*pSoldier);
 }
 
 UINT16 GetAnimStateForInteraction( TacticalActor *pSoldier, BOOLEAN fDoor, UINT16 usAnimState )

@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
@@ -4087,7 +4088,8 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 		// Flugente: we have to recheck our flashlights, as we changed items
 		//GetSMCurrentMerc()->featureFlags().primaryFlags() |= SOLDIER_REDOFLASHLIGHT;
-		GetSMCurrentMerc()->HandleFlashLights();
+		TacticalActorEquipment::refreshFlashlights(
+			*GetSMCurrentMerc());
 
 		// sevenfm: update morale, as we could add/remove walkman
 		RefreshSoldierMorale(GetSMCurrentMerc());
@@ -6933,7 +6935,7 @@ void TMClickSecondHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		}
 		else if (UsingNewInventorySystem() && !AM_A_ROBOT(soldier))
 		{
-			soldier->SwitchWeapons();
+			TacticalActorEquipment::switchWeapon(*soldier);
 		}
 	}
 

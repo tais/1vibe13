@@ -38,4 +38,25 @@ namespace TacticalActorEquipment
 		std::uint16_t item);
 	[[nodiscard]] OBJECTTYPE* equippedRiotShield(TacticalActor& actor);
 	[[nodiscard]] bool hasEquippedRiotShield(TacticalActor& actor);
+
+	void coolDownInventory(TacticalActor& actor);
+	bool dropSectorEquipment(TacticalActor& actor);
+	bool takeItemIntoHand(
+		TacticalActor& actor,
+		std::uint16_t item);
+	bool takeBombIntoHand(
+		TacticalActor& actor,
+		std::uint16_t item);
+	bool switchWeapon(
+		TacticalActor& actor,
+		bool knife = false,
+		bool sidearm = false);
+
+	void refreshFlashlights(TacticalActor& actor);
+	bool damageRiotShield(
+		TacticalActor& actor,
+		std::int32_t damage);
+	bool removeOneItem(
+		TacticalActor& actor,
+		std::uint16_t item);
 }

@@ -1,4 +1,5 @@
 	#include <stdio.h>
+#include "TacticalActorEquipment.h"
 #include "TacticalWorldAdapter.h"
 	#include <math.h>
 	#include "sgp.h"
@@ -118,7 +119,7 @@ void HandleFlashLights()
 
 		if ( pSoldier != NULL && pSoldier->featureFlags().primaryFlags() & SOLDIER_REDOFLASHLIGHT )
 		{
-			pSoldier->HandleFlashLights();
+			TacticalActorEquipment::refreshFlashlights(*pSoldier);
 		}
 	}
 }

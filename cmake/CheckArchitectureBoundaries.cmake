@@ -2789,7 +2789,17 @@ foreach(retired_equipment_method IN ITEMS
   "GetEquippedRiotShield"
   "IsRiotShieldEquipped"
   "GetObjectWithItemFlag"
-  "HasItemInInventory")
+  "HasItemInInventory"
+  "SoldierInventoryCoolDown"
+  "DropSectorEquipment"
+  "TakeNewItemFromInventory"
+  "TakeNewBombFromInventory"
+  "SwitchWeapons"
+  "HandleFlashLights"
+  "AddBestFlashLight"
+  "DestroyEquippedRiotShield"
+  "RiotShieldTakeDamage"
+  "DestroyOneItemInInventory")
   string(FIND "${tactical_actor_contents}"
     "${retired_equipment_method}("
     retired_equipment_declaration)
@@ -2799,7 +2809,7 @@ foreach(retired_equipment_method IN ITEMS
   if(NOT retired_equipment_declaration EQUAL -1 OR
      NOT retired_equipment_definition EQUAL -1)
     message(FATAL_ERROR
-      "TacticalActor regained equipment-query facade '${retired_equipment_method}'")
+      "TacticalActor regained equipment facade '${retired_equipment_method}'")
   endif()
 endforeach()
 
@@ -2813,7 +2823,15 @@ foreach(required_equipment_operation IN ITEMS
   "bestEquippedFlashlightRange"
   "hasItem"
   "equippedRiotShield"
-  "hasEquippedRiotShield")
+  "hasEquippedRiotShield"
+  "coolDownInventory"
+  "dropSectorEquipment"
+  "takeItemIntoHand"
+  "takeBombIntoHand"
+  "switchWeapon"
+  "refreshFlashlights"
+  "damageRiotShield"
+  "removeOneItem")
   string(FIND "${tactical_actor_equipment_header_contents}"
     "${required_equipment_operation}("
     equipment_operation_declaration)
@@ -2831,7 +2849,12 @@ foreach(required_equipment_coverage IN ITEMS
   "TacticalActorEquipment::usedWeapon"
   "TacticalActorEquipment::externalFeeding"
   "TacticalActorEquipment::objectWithFlag"
-  "TacticalActorEquipment::equippedRiotShield")
+  "TacticalActorEquipment::equippedRiotShield"
+  "TacticalActorEquipment::dropSectorEquipment"
+  "TacticalActorEquipment::switchWeapon"
+  "TacticalActorEquipment::refreshFlashlights"
+  "TacticalActorEquipment::damageRiotShield"
+  "TacticalActorEquipment::removeOneItem")
   string(FIND "${headless_test_contents}"
     "${required_equipment_coverage}"
     equipment_operation_coverage)

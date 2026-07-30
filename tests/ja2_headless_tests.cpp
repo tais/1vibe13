@@ -8137,6 +8137,49 @@ int main( int, char** )
 
 	{
 		TacticalActor equipmentActor;
+		TacticalActor emptyMutationActor;
+
+		const UINT8 previousInventorySystem =
+			gGameOptions.ubInventorySystem;
+		gGameOptions.ubInventorySystem = INVENTORY_NEW;
+		OBJECTTYPE& malformedQuickSwapItem =
+			emptyMutationActor.inventory()[GUNSLINGPOCKPOS];
+		malformedQuickSwapItem.usItem = MAXITEMS;
+		malformedQuickSwapItem.ubNumberOfObjects = 1;
+		const bool malformedQuickSwapIsRejected =
+			!TacticalActorEquipment::switchWeapon(
+				emptyMutationActor);
+		DeleteObj(&malformedQuickSwapItem);
+
+		gGameOptions.ubInventorySystem = INVENTORY_OLD;
+		emptyMutationActor.featureFlags().primaryFlags() |=
+			SOLDIER_REDOFLASHLIGHT;
+		TacticalActorEquipment::refreshFlashlights(
+			emptyMutationActor);
+		const bool emptyEquipmentMutationsAreNeutral =
+			!(emptyMutationActor.featureFlags().primaryFlags() &
+			  SOLDIER_REDOFLASHLIGHT) &&
+			!TacticalActorEquipment::switchWeapon(
+				emptyMutationActor) &&
+			!TacticalActorEquipment::takeItemIntoHand(
+				emptyMutationActor,
+				MAXITEMS) &&
+			!TacticalActorEquipment::takeBombIntoHand(
+				emptyMutationActor,
+				MAXITEMS) &&
+			!TacticalActorEquipment::damageRiotShield(
+				emptyMutationActor,
+				1) &&
+			!TacticalActorEquipment::removeOneItem(
+				emptyMutationActor,
+				1);
+		gGameOptions.ubInventorySystem = previousInventorySystem;
+
+		emptyMutationActor.featureFlags().primaryFlags() |=
+			SOLDIER_EQUIPMENT_DROPPED;
+		const bool repeatedEquipmentDropIsRejected =
+			!TacticalActorEquipment::dropSectorEquipment(
+				emptyMutationActor);
 
 		const bool emptyEquipmentIsNeutral =
 			!TacticalActorEquipment::carriesTwoHandedWeapon(equipmentActor) &&
@@ -8197,6 +8240,18 @@ int main( int, char** )
 			TacticalActorEquipment::hasEquippedRiotShield(
 				equipmentActor);
 
+		handItem[0]->data.objectStatus = 10;
+		const bool shieldDamageIsApplied =
+			TacticalActorEquipment::damageRiotShield(
+				equipmentActor,
+				0) &&
+			handItem[0]->data.objectStatus == 10 &&
+			TacticalActorEquipment::damageRiotShield(
+				equipmentActor,
+				1) &&
+			handItem.exists() &&
+			handItem[0]->data.objectStatus == 9;
+
 		equipmentActor.position().terrainType() = MED_WATER;
 		const bool shieldIsLoweredInHighWater =
 			!TacticalActorEquipment::hasEquippedRiotShield(
@@ -8213,15 +8268,29 @@ int main( int, char** )
 				equipmentActor) == 0 &&
 			TacticalActorEquipment::equippedRiotShield(
 				equipmentActor) == nullptr;
+		handItem.usItem = 1;
+		const bool oneInventoryItemIsRemoved =
+			TacticalActorEquipment::removeOneItem(
+				equipmentActor,
+				1) &&
+			!handItem.exists() &&
+			!TacticalActorEquipment::removeOneItem(
+				equipmentActor,
+				1);
 		Item[1].usItemFlag = previousItemFlags;
 		Item[1].usRiotShieldStrength = previousShieldStrength;
 
-		CHECK( emptyEquipmentIsNeutral &&
+		CHECK( emptyEquipmentMutationsAreNeutral &&
+		       malformedQuickSwapIsRejected &&
+		       repeatedEquipmentDropIsRejected &&
+		       emptyEquipmentIsNeutral &&
 		       nullExternalFeedingOutputsAreRejected &&
 		       equippedItemQueriesResolve &&
+		       shieldDamageIsApplied &&
 		       shieldIsLoweredInHighWater &&
-		       malformedItemIndexesAreRejected,
-		       "tactical actor equipment resolves valid gear and rejects high-water shields, missing outputs, and malformed inventory" );
+		       malformedItemIndexesAreRejected &&
+		       oneInventoryItemIsRemoved,
+		       "tactical actor equipment safely resolves and mutates gear while rejecting empty, repeated, and malformed operations" );
 	}
 
 	{

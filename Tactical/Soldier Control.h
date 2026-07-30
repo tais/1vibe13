@@ -1034,7 +1034,6 @@ public:
 	BOOLEAN IsValidAlternativeFireMode( INT16 bAimTime, INT32 iTrgGridNo );
 	BOOLEAN IsValidShotFromHip( INT16 bAimTime, INT32 iTrgGridNo );
 	BOOLEAN IsValidPistolFastShot( INT16 bAimTime, INT32 iTrgGridNo );
-	void	SoldierInventoryCoolDown( void );		// Flugente: Cool down/decay all items in inventory
 	BOOLEAN	IsWeaponMounted( void );				// determine if we receive a bonus for mounting our weapon on something
 
 	// reset the extra stat variables
@@ -1066,22 +1065,10 @@ public:
 	void		CancelMultiTurnAction(BOOLEAN fFinished);
 	BOOLEAN		UpdateMultiTurnAction();
 
-	void		DropSectorEquipment();
-
-	// sevenfm: Take new bomb with id = usItem from iventory to HANDPOS
-	void 		TakeNewBombFromInventory(UINT16 usItem);
-	void		TakeNewItemFromInventory(UINT16 usItem);
-
-	// Flugente: switch hand item for gunsling weapon, or pistol, or knife
-	void		SwitchWeapons( BOOLEAN fKnife = FALSE, BOOLEAN fSideArm = FALSE );
-
 	// Flugente: return a soldier's name. This allows for very easy manipulation of a soldier's name with pre- an suffixes, ranks etc.
 	STR16		GetName();
 
 	//void		AddDrugValues(UINT8 uDrugType, UINT8 usEffect, UINT8 usTravelRate, UINT8 usSideEffect );
-
-	void		HandleFlashLights();
-    bool		AddBestFlashLight();
 
 	// Flugente: soldier profiles
 	INT8		GetSoldierProfileType(UINT8 usTeam);		// retrieves the correct sub-array
@@ -1138,14 +1125,8 @@ public:
 
 	BOOLEAN SelfDetonate();						// AI-only: blow up explosive in own inventory. Do NOT, repeat, NOT use this with mercs!
 
-	// Flugente: riot shields
-	void		DestroyEquippedRiotShield();
-	void		RiotShieldTakeDamage(INT32 sDamage);
-
 	void		StopChatting();
 	void		DrugAutoUse();
-
-	bool		DestroyOneItemInInventory( UINT16 ausItem );
 
 	// Flugente: can we fill a blood bag from this guy ?
 	BOOLEAN		IsValidBloodDonor();

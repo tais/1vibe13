@@ -4054,13 +4054,18 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 
 					if ( fAlt )
 						// switch to knife, or from knife to gun
-						pSoldier->SwitchWeapons( TRUE );
+						TacticalActorEquipment::switchWeapon(
+							*pSoldier,
+							true);
 					else if ( fCtrl )
 						// switch to sidearm, or from sidearm to non-sidearm gun
-						pSoldier->SwitchWeapons( FALSE, TRUE );
+						TacticalActorEquipment::switchWeapon(
+							*pSoldier,
+							false,
+							true);
 					else
 						// switch to and from gunsling
-						pSoldier->SwitchWeapons( );
+						TacticalActorEquipment::switchWeapon(*pSoldier);
 				}
 				break;
 
@@ -8134,7 +8139,7 @@ void HandleTBSwapGunsling( void )
 
 	if ( pSoldier && UsingNewInventorySystem() == true)
 	{
-		pSoldier->SwitchWeapons( );
+		TacticalActorEquipment::switchWeapon(*pSoldier);
 	}
 }
 void HandleTBSwapKnife( void )
@@ -8146,7 +8151,7 @@ void HandleTBSwapKnife( void )
 			: nullptr;
 	if ( pSoldier && UsingNewInventorySystem() == true)
 	{
-		pSoldier->SwitchWeapons( TRUE );
+		TacticalActorEquipment::switchWeapon(*pSoldier, true);
 	}
 }
 void HandleTBSwapSidearm( void )
@@ -8158,7 +8163,10 @@ void HandleTBSwapSidearm( void )
 			: nullptr;
 	if ( pSoldier && UsingNewInventorySystem() == true)
 	{
-		pSoldier->SwitchWeapons( FALSE, TRUE );
+		TacticalActorEquipment::switchWeapon(
+			*pSoldier,
+			false,
+			true);
 	}
 }
 void HandleTBSwapGoogles( void )
@@ -9310,7 +9318,7 @@ void HandleTacticalStoreInvItem( void )
 	// update interface
 	fCharacterInfoPanelDirty = TRUE;
 	fInterfacePanelDirty = DIRTYLEVEL2;
-	pSoldier->HandleFlashLights();
+	TacticalActorEquipment::refreshFlashlights(*pSoldier);
 }
 
 void HandleTacticalTakeInvItem( INT32 iType )
@@ -9403,7 +9411,7 @@ void HandleTacticalTakeInvItem( INT32 iType )
 	// update interface
 	fCharacterInfoPanelDirty = TRUE;
 	fInterfacePanelDirty = DIRTYLEVEL2;
-	pSoldier->HandleFlashLights();
+	TacticalActorEquipment::refreshFlashlights(*pSoldier);
 }
 
 INT32 InvItemType( UINT16 usItem )
@@ -9484,7 +9492,7 @@ void HandleTacticalTakeItem( void )
 	// update interface
 	fCharacterInfoPanelDirty = TRUE;
 	fInterfacePanelDirty = DIRTYLEVEL2;
-	pSoldier->HandleFlashLights();
+	TacticalActorEquipment::refreshFlashlights(*pSoldier);
 
 	// Set mouse
 	if( gpItemPointer->exists() )

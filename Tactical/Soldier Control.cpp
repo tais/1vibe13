@@ -117,6 +117,8 @@
 #include "TacticalEntityHost.h"
 #include "VehiclePassengerHost.h"
 
+#include <algorithm>
+
 
 #ifdef JA2UB
 #include "Ja25_Tactical.h"
@@ -3911,7 +3913,7 @@ void TacticalActor::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 				}
 			}
 
-			this->HandleFlashLights( );
+			TacticalActorEquipment::refreshFlashlights(*this);
 
 			///HandlePlacingRoofMarker( this, this->sGridNo, TRUE, FALSE );
 
@@ -6834,7 +6836,7 @@ void TacticalActor::EVENT_SetSoldierDirection( UINT16	usNewDirection )
 
 	// Flugente: only update flashlights if we changed our direction
 	if ( fNew )
-		this->HandleFlashLights( );
+		TacticalActorEquipment::refreshFlashlights(*this);
 }
 
 
@@ -7158,7 +7160,7 @@ void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeC
 	this->position().recordTurnStart(sStartPosX, sStartPosY);
 
 	// Flugente: Cool down all weapons and decay food in inventory
-	this->SoldierInventoryCoolDown( );
+	TacticalActorEquipment::coolDownInventory(*this);
 }
 
 // UTILITY FUNCTIONS CALLED BY OVERHEAD.H
@@ -13814,69 +13816,73 @@ bool TacticalActorEquipment::carriesTwoHandedWeapon(
 
 extern void HandleItemCooldownFunctions( OBJECTTYPE* itemStack, INT32 deltaSeconds, BOOLEAN isUnderground = TRUE );
 // Flugente: Cool down/decay all items in inventory
-void TacticalActor::SoldierInventoryCoolDown( void )
+void TacticalActorEquipment::coolDownInventory(TacticalActor& actor)
 {
 	// if we have any active flashlights (in our hands for simplicity), drain their batteries
 	// do this check for both hands
 	// we do not lower a battery's status all the time - as an INT8, it would reach 0 way to fast. Instead we only have 5% chance of doing so, thereby increasing a battery's life
 	if ( Chance( 5 ) )
 	{
-		UINT16 firstslot = HANDPOS;
-		UINT16 lastslot = VESTPOCKPOS;
-		for ( UINT16 invpos = firstslot; invpos < lastslot; ++invpos )
+		const std::size_t flashlightSlotEnd =
+			std::min(
+				actor.inventory().size(),
+				static_cast<std::size_t>(VESTPOCKPOS));
+		for (std::size_t slot = HANDPOS;
+			 slot < flashlightSlotEnd;
+			 ++slot)
 		{
-			OBJECTTYPE* pObj = &(this->inventory()[invpos]);
+			OBJECTTYPE* object = &actor.inventory()[slot];
 
-			if ( !pObj || !(pObj->exists( )) )
-				// can't use this, end
+			if (!object->exists() || object->usItem >= MAXITEMS)
 				continue;
 
-			OBJECTTYPE* pBattery = FindAttachedBatteries( pObj );
-			if ( !pBattery )
+			OBJECTTYPE* battery = FindAttachedBatteries(object);
+			if (!battery || !battery->exists())
 				continue;
 
-			BOOLEAN flashlightfound = FALSE;
-			if ( Item[pObj->usItem].usFlashLightRange )
-				flashlightfound = TRUE;
+			bool flashlightFound =
+				Item[object->usItem].usFlashLightRange > 0;
 
-			if ( !flashlightfound )
+			if (!flashlightFound)
 			{
-				attachmentList::iterator iterend = (*pObj)[0]->attachments.end( );
-				for ( attachmentList::iterator iter = (*pObj)[0]->attachments.begin( ); iter != iterend; ++iter )
+				for (const auto& attachment : (*object)[0]->attachments)
 				{
-					if ( Item[iter->usItem].usFlashLightRange )
-						flashlightfound = TRUE;
+					if (attachment.exists() &&
+						attachment.usItem < MAXITEMS &&
+						Item[attachment.usItem].usFlashLightRange)
+					{
+						flashlightFound = true;
+						break;
+					}
 				}
 			}
 
-			if ( flashlightfound )
+			if (flashlightFound)
 			{
-				// lose 1 point
-				(*pBattery)[0]->data.objectStatus -= 1;
-
-				if ( (*pBattery)[0]->data.objectStatus <= 0 )
+				if ((*battery)[0]->data.objectStatus <= 1)
 				{
-					// destroy batteries
-					pBattery->RemoveObjectsFromStack( 1 );
-					if ( pBattery->exists( ) == false )
-						this->inventory()[HANDPOS].RemoveAttachment( pBattery );
+					battery->RemoveObjectsFromStack(1);
+					if (!battery->exists())
+						object->RemoveAttachment(battery);
+				}
+				else
+				{
+					--(*battery)[0]->data.objectStatus;
 				}
 			}
 		}
 	}
 
 	// handle flashlight. This is necessary in this location, as we need to do this at least once per turn
-	this->HandleFlashLights( );
+	refreshFlashlights(actor);
 
 	if ( !gGameExternalOptions.fWeaponOverheating && !UsingFoodSystem() )
 		return;
 
-	INT8 numStacks = (INT8)this->inventory().size( );											// remember inventorysize, so we don't call size() repeatedly
-	extern UINT32 guiLastTacticalRealTime, guiLastStrategicTime;
-	UINT32 secondsPassed = 5;//GetJA2Clock() > guiLastTacticalRealTime? (GetJA2Clock() - guiLastTacticalRealTime)/1000 : 0;
-	for ( INT8 bLoop = 0; bLoop < numStacks; ++bLoop )									// ... for all items in our inventory ...
+	constexpr std::int32_t secondsPassed = 5;
+	for (std::size_t slot = 0; slot < actor.inventory().size(); ++slot)
 	{
-		HandleItemCooldownFunctions( &(this->inventory()[bLoop]), secondsPassed );
+		HandleItemCooldownFunctions(&actor.inventory()[slot], secondsPassed);
 	}
 }
 
@@ -16079,317 +16085,413 @@ BOOLEAN	TacticalActor::UpdateMultiTurnAction( )
 	return TRUE;
 }
 
-void	TacticalActor::DropSectorEquipment( )
+bool TacticalActorEquipment::dropSectorEquipment(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// not if we already dropped the gear
-	if ( this->featureFlags().primaryFlags() & SOLDIER_EQUIPMENT_DROPPED )
-		return;
+	if (self->featureFlags().primaryFlags() & SOLDIER_EQUIPMENT_DROPPED)
+		return false;
 
 	// set marker: we are about to drop our gear
-	this->featureFlags().primaryFlags() |= SOLDIER_EQUIPMENT_DROPPED;
+	self->featureFlags().primaryFlags() |= SOLDIER_EQUIPMENT_DROPPED;
 
-	OBJECTTYPE* pObj = NULL;
-	UINT8 size = this->inventory().size( );
+	const std::size_t inventorySize =
+		std::min(
+			self->inventory().size(),
+			static_cast<std::size_t>(NUM_INV_SLOTS));
 
-	INT32 sPutGridNo = this->position().gridNo();
-	if ( sPutGridNo == NOWHERE )
-		sPutGridNo = RandomGridNo( );
-
-	if ( Water( sPutGridNo, this->position().level() ) )
-		sPutGridNo = gMapInformation.sCenterGridNo;
-
-	if ( (this->deployment().sectorX() == gWorldSectorX) && (this->deployment().sectorY() == gWorldSectorY) && (this->deployment().sectorZ() == gbWorldSectorZ) )
+	auto shouldDrop = [](const OBJECTTYPE& object)
 	{
-		for ( UINT8 cnt = 0; cnt < size; ++cnt )
+		return object.exists() &&
+			object.usItem < MAXITEMS &&
+			!(object.fFlags & OBJECT_UNDROPPABLE) &&
+			!ItemIsUndroppableByDefault(object.usItem) &&
+			(object[0]->data.sObjectFlag & TAKEN_BY_MILITIA);
+	};
+
+	const bool actorIsInLoadedSector =
+		self->deployment().sectorX() == gWorldSectorX &&
+		self->deployment().sectorY() == gWorldSectorY &&
+		self->deployment().sectorZ() == gbWorldSectorZ;
+	if (actorIsInLoadedSector)
+	{
+		INT32 placementGrid = self->position().gridNo();
+		if (placementGrid == NOWHERE)
+			placementGrid = RandomGridNo();
+
+		if (Water(placementGrid, self->position().level()))
+			placementGrid = gMapInformation.sCenterGridNo;
+
+		for (std::size_t slot = 0; slot < inventorySize; ++slot)
 		{
-			pObj = &(this->inventory()[cnt]);
-
-			if ( pObj->exists( ) )
+			OBJECTTYPE& object = self->inventory()[slot];
+			if (shouldDrop(object))
 			{
-				// Check if it's supposed to be dropped
-				if ( !((*pObj).fFlags & OBJECT_UNDROPPABLE) && !ItemIsUndroppableByDefault(pObj->usItem) && (*pObj)[0]->data.sObjectFlag & TAKEN_BY_MILITIA )
+				object[0]->data.sObjectFlag &= ~TAKEN_BY_MILITIA;
+
+				// if we are not replacing ammo, unload gun prior to dropping it
+				if (!gGameExternalOptions.fMilitiaUseSectorInventory_Ammo &&
+					(Item[object.usItem].usItemClass & IC_GUN))
 				{
-					(*pObj)[0]->data.sObjectFlag &= ~TAKEN_BY_MILITIA;
-
-					// if we are not replacing ammo, unload gun prior to dropping it
-					if ( !gGameExternalOptions.fMilitiaUseSectorInventory_Ammo && Item[pObj->usItem].usItemClass & IC_GUN )
-						(*pObj)[0]->data.gun.ubGunShotsLeft = 0;
-
-					AddItemToPool( sPutGridNo, pObj, 1, this->position().level(), (WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE), -1 );
-					DeleteObj( &(this->inventory()[cnt]) );
+					object[0]->data.gun.ubGunShotsLeft = 0;
 				}
+
+				AddItemToPool( placementGrid, &object, 1, self->position().level(), (WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE), -1 );
+				DeleteObj(&object);
 			}
 		}
 	}
 	else
 	{
 		OBJECTTYPE pObject[NUM_INV_SLOTS];
-		UINT8 counter = 0;
+		UINT32 counter = 0;
 
-		for ( UINT8 cnt = 0; cnt < size; ++cnt )
+		for (std::size_t slot = 0; slot < inventorySize; ++slot)
 		{
-			pObj = &(this->inventory()[cnt]);
-
-			if ( pObj->exists( ) )
+			OBJECTTYPE& object = self->inventory()[slot];
+			if (shouldDrop(object))
 			{
-				// Check if it's supposed to be dropped
-				if ( !((*pObj).fFlags & OBJECT_UNDROPPABLE) && !ItemIsUndroppableByDefault(pObj->usItem) && (*pObj)[0]->data.sObjectFlag & TAKEN_BY_MILITIA )
+				object[0]->data.sObjectFlag &= ~TAKEN_BY_MILITIA;
+
+				// if we are not replacing ammo, unload gun prior to dropping it
+				if (!gGameExternalOptions.fMilitiaUseSectorInventory_Ammo &&
+					(Item[object.usItem].usItemClass & IC_GUN))
 				{
-					(*pObj)[0]->data.sObjectFlag &= ~TAKEN_BY_MILITIA;
-
-					// if we are not replacing ammo, unload gun prior to dropping it
-					if ( !gGameExternalOptions.fMilitiaUseSectorInventory_Ammo && Item[pObj->usItem].usItemClass & IC_GUN )
-						(*pObj)[0]->data.gun.ubGunShotsLeft = 0;
-
-					pObject[counter++] = *pObj;
-
-					DeleteObj( &(this->inventory()[cnt]) );
+					object[0]->data.gun.ubGunShotsLeft = 0;
 				}
+
+				pObject[counter++] = object;
+
+				DeleteObj(&object);
 			}
 		}
 
-		AddItemsToUnLoadedSector( this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ(), RandomGridNo( ), counter, pObject, 0, WORLD_ITEM_REACHABLE, 0, 1, FALSE );
+		AddItemsToUnLoadedSector( self->deployment().sectorX(), self->deployment().sectorY(), self->deployment().sectorZ(), RandomGridNo( ), counter, pObject, 0, WORLD_ITEM_REACHABLE, 0, 1, FALSE );
 	}
+
+	return true;
 }
 
 // sevenfm: take item from inventory to HANDPOS
-void TacticalActor::TakeNewItemFromInventory( UINT16 usItem )
+bool TacticalActorEquipment::takeItemIntoHand(
+	TacticalActor& actor,
+	std::uint16_t item)
 {
-	if ( !UsingNewInventorySystem( ) )
-		return;
-
-	// this feature works now only in realtime
-	if ( (IsJa2TacticalTurnBasedCombat()) )
-		return;
-
-	if ( this->inventory()[HANDPOS].exists( ) )
-		return;
-
-	// search for item with same id
-	INT8 invsize = (INT8)this->inventory().size( );
-	for ( INT8 i = 0; i < invsize; ++i )
+	if (!UsingNewInventorySystem() ||
+		IsJa2TacticalTurnBasedCombat() ||
+		item == NOTHING ||
+		item >= MAXITEMS ||
+		actor.inventory()[HANDPOS].exists())
 	{
-		if ( (this->inventory()[i].exists( ) == true) && (this->inventory()[i].usItem == usItem) )
+		return false;
+	}
+
+	for (std::size_t slot = 0; slot < actor.inventory().size(); ++slot)
+	{
+		if (actor.inventory()[slot].exists() &&
+			actor.inventory()[slot].usItem == item)
 		{
-			this->inventory()[i].MoveThisObjectTo( this->inventory()[HANDPOS], 1, this );
-			return;
+			actor.inventory()[slot].MoveThisObjectTo(
+				actor.inventory()[HANDPOS],
+				1,
+				&actor);
+			return true;
 		}
 	}
+
+	return false;
 }
 
 // sevenfm: take item from inventory to HANDPOS
-void TacticalActor::TakeNewBombFromInventory( UINT16 usItem )
+bool TacticalActorEquipment::takeBombIntoHand(
+	TacticalActor& actor,
+	std::uint16_t item)
 {
-	INT8 i;
-
-	if ( !UsingNewInventorySystem( ) )
-		return;
-
-	if ( this->inventory()[HANDPOS].exists( ) )
-		return;
+	if (!UsingNewInventorySystem() ||
+		item == NOTHING ||
+		item >= MAXITEMS ||
+		actor.inventory()[HANDPOS].exists())
+	{
+		return false;
+	}
 
 	// search for item with same id
-	INT8 invsize = (INT8)this->inventory().size( );
-	for ( i = 0; i < invsize; ++i )
+	for (std::size_t slot = 0; slot < actor.inventory().size(); ++slot)
 	{
-		if ( (this->inventory()[i].exists( ) == true) && (this->inventory()[i].usItem == usItem) )
+		if (actor.inventory()[slot].exists() &&
+			actor.inventory()[slot].usItem == item)
 		{
-			this->inventory()[i].MoveThisObjectTo( this->inventory()[HANDPOS], 1, this );
-			return;
+			actor.inventory()[slot].MoveThisObjectTo(
+				actor.inventory()[HANDPOS],
+				1,
+				&actor);
+			return true;
 		}
 	}
 
 	// search for any item with class IC_BOMB
 	// take tripwire-activated item only if used item is tripwire activated
-	for ( i = 0; i < invsize; i++ )
+	const bool requestedTripwireActivation =
+		ItemHasTripwireActivation(item);
+	for (std::size_t slot = 0; slot < actor.inventory().size(); ++slot)
 	{
-		UINT16 usItem = this->inventory()[i].usItem;
-		if ( this->inventory()[i].exists( ) == true &&
-			 Item[usItem].usItemClass == IC_BOMB &&
-			 Item[usItem].ubCursor == BOMBCURS &&
-			 !ItemIsTripwire(usItem) &&
-			 ((ItemHasTripwireActivation(usItem) && ItemHasTripwireActivation(usItem)) ||
-			 (!ItemHasTripwireActivation(usItem) && !ItemHasTripwireActivation(usItem))) )
+		const UINT16 candidate = actor.inventory()[slot].usItem;
+		if (actor.inventory()[slot].exists() &&
+			candidate < MAXITEMS &&
+			Item[candidate].usItemClass == IC_BOMB &&
+			Item[candidate].ubCursor == BOMBCURS &&
+			!ItemIsTripwire(candidate) &&
+			static_cast<bool>(ItemHasTripwireActivation(candidate)) ==
+				requestedTripwireActivation)
 		{
-			this->inventory()[i].MoveThisObjectTo( this->inventory()[HANDPOS], 1, this );
-			return;
+			actor.inventory()[slot].MoveThisObjectTo(
+				actor.inventory()[HANDPOS],
+				1,
+				&actor);
+			return true;
 		}
 	}
+
+	return false;
 }
 
-//  Flugente: switch hand item for gunsling weapon, or pistol, or knife
-void	TacticalActor::SwitchWeapons( BOOLEAN fKnife, BOOLEAN fSideArm )
+// Flugente: switch the hand item for a gunsling weapon, pistol, or knife.
+bool TacticalActorEquipment::switchWeapon(
+	TacticalActor& actor,
+	bool knife,
+	bool sidearm)
 {
-	UINT8 pocketsearch, retrieveslot, handobjstorageslot;
-	BOOLEAN handCanMove, searchitemCanMove;
+	auto* const self = &actor;
+	const std::size_t inventorySize = self->inventory().size();
 
-	// The slot we move our hand object from and the new object to is obviously always HANDPOS
+	auto finish = [&](bool swapped)
+	{
+		fCharacterInfoPanelDirty = TRUE;
+		fInterfacePanelDirty = DIRTYLEVEL2;
+		refreshFlashlights(actor);
+		return swapped;
+	};
 
-	// first pocket to search in OIV & NIV
-	if ( UsingNewInventorySystem( ) )
-		pocketsearch = GUNSLINGPOCKPOS;
+	if (inventorySize <= SECONDHANDPOS)
+		return finish(false);
+
+	const std::size_t pocketSearch =
+		UsingNewInventorySystem() ? GUNSLINGPOCKPOS : BIGPOCK1POS;
+	if (pocketSearch >= inventorySize)
+		return finish(false);
+
+	auto hasItemClass =
+		[&](std::size_t slot, std::uint32_t itemClass, bool singleOnly)
+		{
+			if (slot >= inventorySize)
+				return false;
+
+			const OBJECTTYPE& object = self->inventory()[slot];
+			return object.exists() &&
+				object.usItem < MAXITEMS &&
+				(Item[object.usItem].usItemClass & itemClass) &&
+				(!singleOnly || object.ubNumberOfObjects == 1);
+		};
+
+	auto isHandgun = [&](std::size_t slot)
+	{
+		if (!hasItemClass(slot, IC_GUN, false))
+			return false;
+
+		const auto weaponIndex =
+			Item[self->inventory()[slot].usItem].ubClassIndex;
+		return weaponIndex < MAXITEMS &&
+			Weapon[weaponIndex].ubWeaponClass == HANDGUNCLASS;
+	};
+
+	auto findFirst = [&](auto predicate)
+	{
+		for (std::size_t slot = pocketSearch; slot < inventorySize; ++slot)
+		{
+			if (predicate(slot))
+				return static_cast<int>(slot);
+		}
+		return static_cast<int>(NO_SLOT);
+	};
+
+	int retrieveSlot = NO_SLOT;
+	if (UsingNewInventorySystem())
+		retrieveSlot = GUNSLINGPOCKPOS;
 	else
-		pocketsearch = BIGPOCK1POS;
-
-	// The second slot is the one from where we retrieve the object we search
-	if ( UsingNewInventorySystem( ) )
-		retrieveslot = GUNSLINGPOCKPOS;
-	else // search for gun in OIV
-	{
-		for ( UINT8 i = pocketsearch; i < NUM_INV_SLOTS; ++i )
-		{
-			// we use the first gun we can find
-			if ( this->inventory()[i].exists( ) && Item[this->inventory()[i].usItem].usItemClass & IC_GUN && this->inventory()[i].ubNumberOfObjects == 1 )
+		retrieveSlot = findFirst(
+			[&](std::size_t slot)
 			{
-				retrieveslot = i;
-				break;
-			}
+				return hasItemClass(slot, IC_GUN, true);
+			});
+
+	if (knife)
+	{
+		const std::uint32_t desiredClass =
+			hasItemClass(HANDPOS, IC_BLADE, false) ? IC_GUN : IC_BLADE;
+		const int candidate = findFirst(
+			[&](std::size_t slot)
+			{
+				return hasItemClass(slot, desiredClass, true);
+			});
+		if (candidate != NO_SLOT)
+			retrieveSlot = candidate;
+	}
+	else if (sidearm)
+	{
+		const bool handAlreadyHasSidearm = isHandgun(HANDPOS);
+		const int candidate = findFirst(
+			[&](std::size_t slot)
+			{
+				return hasItemClass(slot, IC_GUN, true) &&
+					isHandgun(slot) != handAlreadyHasSidearm;
+			});
+		if (candidate != NO_SLOT)
+			retrieveSlot = candidate;
+	}
+
+	if (retrieveSlot == NO_SLOT ||
+		static_cast<std::size_t>(retrieveSlot) >= inventorySize)
+	{
+		return finish(false);
+	}
+
+	if (!self->inventory()[HANDPOS].exists() &&
+		!self->inventory()[retrieveSlot].exists())
+	{
+		return finish(false);
+	}
+
+	const OBJECTTYPE& handObject =
+		self->inventory()[HANDPOS];
+	const OBJECTTYPE& retrievedObject =
+		self->inventory()[retrieveSlot];
+	if ((handObject.exists() && handObject.usItem >= MAXITEMS) ||
+		(retrievedObject.exists() &&
+		 retrievedObject.usItem >= MAXITEMS))
+	{
+		return finish(false);
+	}
+
+	int handStorageSlot = HANDPOS;
+	for (std::size_t slot = pocketSearch; slot < inventorySize; ++slot)
+	{
+		if (CanItemFitInPosition(
+				self,
+				&self->inventory()[HANDPOS],
+				static_cast<INT8>(slot),
+				FALSE) &&
+			(static_cast<int>(slot) == retrieveSlot ||
+			 !self->inventory()[slot].exists()))
+		{
+			handStorageSlot = static_cast<int>(slot);
+			break;
 		}
 	}
 
-	// The third slot is where we put our hand item into
-	handobjstorageslot = HANDPOS;
+	const bool handCanMove =
+		!(handStorageSlot == HANDPOS &&
+		  self->inventory()[HANDPOS].exists()) &&
+		(CanItemFitInPosition(
+			self,
+			&self->inventory()[HANDPOS],
+			static_cast<INT8>(handStorageSlot),
+			FALSE) ||
+		 (!self->inventory()[HANDPOS].exists() &&
+		  !self->inventory()[SECONDHANDPOS].exists()));
 
-	// if we swap knifes or sidearms, we search for any such item if we do not already have it in our hands. If we do, we instead search for a gun to switch
-	if ( fKnife )
-	{
-		// if we already have a knife in hand, search for a gun instead
-		if ( this->inventory()[HANDPOS].exists( ) && Item[this->inventory()[HANDPOS].usItem].usItemClass & IC_BLADE )
-		{
-			for ( UINT8 i = pocketsearch; i < NUM_INV_SLOTS; ++i )
-			{
-				// we use the first gun we can find
-				if ( this->inventory()[i].exists( ) && Item[this->inventory()[i].usItem].usItemClass & IC_GUN && this->inventory()[i].ubNumberOfObjects == 1 )
-				{
-					retrieveslot = i;
-					break;
-				}
-			}
-		}
-		// search for a knife
-		else
-		{
-			for ( UINT8 i = pocketsearch; i < NUM_INV_SLOTS; ++i )
-			{
-				// take first blade
-				if ( this->inventory()[i].exists( ) && Item[this->inventory()[i].usItem].usItemClass & IC_BLADE && this->inventory()[i].ubNumberOfObjects == 1 )
-				{
-					retrieveslot = i;
-					break;
-				}
-			}
-		}
-	}
-	else if ( fSideArm )
-	{
-		// if we already have a sidearm in hand, search for a gun that isn't a sidearm instead
-		if ( this->inventory()[HANDPOS].exists( ) && Item[this->inventory()[HANDPOS].usItem].usItemClass & IC_GUN
-			 && Weapon[Item[this->inventory()[HANDPOS].usItem].ubClassIndex].ubWeaponClass == HANDGUNCLASS )
-		{
-			for ( UINT8 i = pocketsearch; i < NUM_INV_SLOTS; ++i )
-			{
-				// we use the first gun we can find
-				if ( this->inventory()[i].exists( ) && Item[this->inventory()[i].usItem].usItemClass & IC_GUN && Weapon[Item[this->inventory()[i].usItem].ubClassIndex].ubWeaponClass != HANDGUNCLASS && this->inventory()[i].ubNumberOfObjects == 1 )
-				{
-					retrieveslot = i;
-					break;
-				}
-			}
-		}
-		// search for a sidearm
-		else
-		{
-			for ( UINT8 i = pocketsearch; i < NUM_INV_SLOTS; ++i )
-			{
-				// take first handgun
-				if ( this->inventory()[i].exists( ) && Item[this->inventory()[i].usItem].usItemClass & IC_GUN && Weapon[Item[this->inventory()[i].usItem].ubClassIndex].ubWeaponClass == HANDGUNCLASS && this->inventory()[i].ubNumberOfObjects == 1 )
-				{
-					retrieveslot = i;
-					break;
-				}
-			}
-		}
-	}
+	const bool retrievedObjectIsTwoHanded =
+		retrievedObject.exists() &&
+		ItemIsTwoHanded(retrievedObject.usItem);
+	const bool retrievedObjectCanMove =
+		!(retrievedObjectIsTwoHanded &&
+		  self->inventory()[SECONDHANDPOS].exists()) &&
+		(CanItemFitInPosition(
+			self,
+			&self->inventory()[retrieveSlot],
+			HANDPOS,
+			FALSE) ||
+		 !retrievedObject.exists());
 
-	// search a slot to put our hand object into
-	for ( UINT8 i = pocketsearch; i < NUM_INV_SLOTS; ++i )
+	if (!handCanMove || !retrievedObjectCanMove)
+		return finish(false);
+
+	std::int32_t actionPointCost = 0;
+	if (UsingInventoryCostsAPSystem())
 	{
-		// take first slot that hand item would fit
-		if ( CanItemFitInPosition( this, &this->inventory()[HANDPOS], i, FALSE ) )
+		if (retrievedObject.exists())
 		{
-			if ( i == retrieveslot || !this->inventory()[i].exists( ) )
-			{
-				handobjstorageslot = i;
-				break;
-			}
+			actionPointCost += GetInvMovementCost(
+				&self->inventory()[retrieveSlot],
+				retrieveSlot,
+				HANDPOS);
 		}
+
+		if (self->inventory()[HANDPOS].exists())
+		{
+			actionPointCost += GetInvMovementCost(
+				&self->inventory()[HANDPOS],
+				HANDPOS,
+				handStorageSlot);
+		}
+
+		actionPointCost =
+			(actionPointCost *
+			 (100 + TacticalActorModifiers::backgroundValue(
+				 actor,
+				 BG_INVENTORY))) /
+			100;
+		actionPointCost = min(32767, max(0, actionPointCost));
+
+		if (self->actionPoints().current() < actionPointCost)
+		{
+			CHAR16 output[512];
+			swprintf(
+				output,
+				New113Message[MSG113_INVENTORY_APS_INSUFFICIENT],
+				actionPointCost,
+				self->actionPoints().current());
+			ScreenMsg(
+				FONT_MCOLOR_LTYELLOW,
+				MSG_INTERFACE,
+				output);
+			return finish(false);
+		}
+
+		DeductPoints(
+			self,
+			static_cast<INT16>(actionPointCost),
+			0);
 	}
 
-	// check both items can be moved
-	// check HANDPOS item that cannot be moved to inventory
-	if ( handobjstorageslot == HANDPOS && this->inventory()[HANDPOS].exists( ) == true )
-		handCanMove = FALSE;
-	else
-		handCanMove = (CanItemFitInPosition( this, &this->inventory()[HANDPOS], handobjstorageslot, FALSE ) || (this->inventory()[HANDPOS].exists( ) == false && this->inventory()[SECONDHANDPOS].exists( ) == false));
+	const UINT16 oldHandItem =
+		self->inventory()[HANDPOS].exists()
+			? self->inventory()[HANDPOS].usItem
+			: NOTHING;
+	const UINT16 newHandItem =
+		self->inventory()[retrieveSlot].exists()
+			? self->inventory()[retrieveSlot].usItem
+			: NOTHING;
 
-	if ( ItemIsTwoHanded(this->inventory()[retrieveslot].usItem) && this->inventory()[SECONDHANDPOS].exists( ) == true )
-		searchitemCanMove = FALSE;
-	else
-		searchitemCanMove = (CanItemFitInPosition( this, &this->inventory()[retrieveslot], HANDPOS, FALSE ) || this->inventory()[retrieveslot].exists( ) == false);
+	SwapObjs(
+		&self->inventory()[HANDPOS],
+		&self->inventory()[retrieveSlot]);
 
-	// execute swap 
-	if ( handCanMove == TRUE && searchitemCanMove == TRUE )
+	if (handStorageSlot != retrieveSlot &&
+		handStorageSlot != HANDPOS)
 	{
-		if ( UsingInventoryCostsAPSystem() )
-		{
-			UINT16 APTotalCost = 0;
-
-			if ( this->inventory()[retrieveslot].exists( ) )
-				APTotalCost += GetInvMovementCost( &this->inventory()[retrieveslot], retrieveslot, HANDPOS );
-
-			if ( this->inventory()[HANDPOS].exists( ) )
-				APTotalCost += GetInvMovementCost( &this->inventory()[HANDPOS], HANDPOS, handobjstorageslot );
-
-			// Flugente: backgrounds
-			APTotalCost = (APTotalCost * (100 + TacticalActorModifiers::backgroundValue(*this, BG_INVENTORY))) / 100;
-
-			if ( this->actionPoints().current() >= APTotalCost )
-			{
-				// SANDRO - I dared to change this to use the appropriate function, as that function is actually important for IIS
-				//pSoldier->actionPoints().current() -= APTotalCost;
-				DeductPoints( this, APTotalCost, 0 );
-
-				SwapObjs( &this->inventory()[HANDPOS], &this->inventory()[retrieveslot] );
-
-				// if we store our hand item in a different position than the item we retrieve originally was, swap again
-				if ( handobjstorageslot != retrieveslot && handobjstorageslot != HANDPOS )
-					SwapObjs( &this->inventory()[retrieveslot], &this->inventory()[handobjstorageslot] );
-
-				HandleTacticalEffectsOfEquipmentChange( this, HANDPOS, this->inventory()[retrieveslot].usItem, this->inventory()[HANDPOS].usItem );
-			}
-			else
-			{
-				CHAR16	zOutputString[512];
-				swprintf( zOutputString, New113Message[MSG113_INVENTORY_APS_INSUFFICIENT], APTotalCost, this->actionPoints().current() );
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, zOutputString );
-			}
-		}
-		else
-		{
-			SwapObjs( &this->inventory()[HANDPOS], &this->inventory()[retrieveslot] );
-
-			// if we store our hand item in a different position than the item we retrieve originally was, swap again
-			if ( handobjstorageslot != retrieveslot && handobjstorageslot != HANDPOS )
-				SwapObjs( &this->inventory()[retrieveslot], &this->inventory()[handobjstorageslot] );
-
-			HandleTacticalEffectsOfEquipmentChange( this, HANDPOS, this->inventory()[retrieveslot].usItem, this->inventory()[HANDPOS].usItem );
-		}
+		SwapObjs(
+			&self->inventory()[retrieveSlot],
+			&self->inventory()[handStorageSlot]);
 	}
-	fCharacterInfoPanelDirty = TRUE;
-	fInterfacePanelDirty = DIRTYLEVEL2;
 
-	// Flugente: we have to recheck our flashlights
-	this->HandleFlashLights( );
+	HandleTacticalEffectsOfEquipmentChange(
+		self,
+		HANDPOS,
+		oldHandItem,
+		newHandItem);
+
+	return finish(true);
 }
 
 UINT8 tmpuser = 0;
@@ -16600,14 +16702,24 @@ std::int8_t TacticalActorModifiers::traitChanceToHitModifier(
 	return modifier;
 }
 
-void TacticalActor::HandleFlashLights( )
+static bool addBestFlashlight(TacticalActor& actor);
+
+void TacticalActorEquipment::refreshFlashlights(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// no more need to redo this check
-	this->featureFlags().primaryFlags() &= ~SOLDIER_REDOFLASHLIGHT;
+	self->featureFlags().primaryFlags() &= ~SOLDIER_REDOFLASHLIGHT;
 
 	// we must be active and in a sector (not travelling) in a valid position
-	if ( !roster().active() || !roster().inSector() || TileIsOutOfBounds( this->position().gridNo() ) )
+	if (!self->roster().active() ||
+		!self->roster().inSector() ||
+		TileIsOutOfBounds(self->position().gridNo()) ||
+		self->position().direction() >= NUM_WORLD_DIRECTIONS ||
+		self->animationPlayback().state() >= NUMANIMATIONSTATES)
+	{
 		return;
+	}
 
 	// no flashlight stuff if it isn't night, and we aren't underground
 	if ( !NightTime( ) && !gbWorldSectorZ )
@@ -16617,22 +16729,22 @@ void TacticalActor::HandleFlashLights( )
 	BOOLEAN fLightChanged = FALSE;
 
 	// remove existing lights we 'own'
-	if ( this->featureFlags().primaryFlags() & SOLDIER_LIGHT_OWNER )
+	if (self->featureFlags().primaryFlags() & SOLDIER_LIGHT_OWNER)
 	{
-		RemovePersonalLights( this->identity().id() );
+		RemovePersonalLights(self->identity().id());
 
-		this->featureFlags().primaryFlags() &= ~SOLDIER_LIGHT_OWNER;
+		self->featureFlags().primaryFlags() &= ~SOLDIER_LIGHT_OWNER;
 
 		fLightChanged = TRUE;
 	}
 
-    if ( AddBestFlashLight() )
-    {
-        // take note: we own a light source
-        this->featureFlags().primaryFlags() |= SOLDIER_LIGHT_OWNER;
+	if (addBestFlashlight(actor))
+	{
+		// take note: we own a light source
+		self->featureFlags().primaryFlags() |= SOLDIER_LIGHT_OWNER;
 
-        fLightChanged = TRUE;
-    }
+		fLightChanged = TRUE;
+	}
 
 	if ( fLightChanged )
 	{
@@ -16649,13 +16761,15 @@ std::uint8_t TacticalActorEquipment::bestEquippedFlashlightRange(
 	UINT8 bestrange = 0;
 
 	// do this check for both hands
-	UINT16 firstslot = HANDPOS;
-	UINT16 lastslot = VESTPOCKPOS;
-	for ( UINT16 invpos = firstslot; invpos < lastslot; ++invpos )
+	const std::size_t flashlightSlotEnd =
+		std::min(
+			actor.inventory().size(),
+			static_cast<std::size_t>(VESTPOCKPOS));
+	for (std::size_t slot = HANDPOS; slot < flashlightSlotEnd; ++slot)
 	{
-		OBJECTTYPE* pObj = &actor.inventory()[invpos];
+		OBJECTTYPE* pObj = &actor.inventory()[slot];
 
-		if ( !pObj || !(pObj->exists( )) )
+		if (!pObj->exists() || pObj->usItem >= MAXITEMS)
 			// can't use this, end
 			continue;
 
@@ -16681,15 +16795,18 @@ std::uint8_t TacticalActorEquipment::bestEquippedFlashlightRange(
 	return(bestrange);
 }
 
-bool TacticalActor::AddBestFlashLight()
+static bool addBestFlashlight(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
     // not possible to get this bonus on a roof, due to our lighting system
-    if ( this->position().level() != 0 )
+    if ( self->position().level() != 0 )
     {
         return false;
     }
 
-    UINT8 maxRange = TacticalActorEquipment::bestEquippedFlashlightRange(*this);
+    UINT8 maxRange =
+		TacticalActorEquipment::bestEquippedFlashlightRange(actor);
     if ( maxRange < 1 )
     {
         return false;
@@ -16705,13 +16822,13 @@ bool TacticalActor::AddBestFlashLight()
     float maxAngle = 45;
     maxAngle *= PI / 180 / 2; // convert to rad and halven
 
-    auto forward = DirectionInc(this->position().direction());
-    auto left = DirectionInc(DirectionIfTurnedClockwise(this->position().direction(), 6));
-    auto leftLeft = DirectionInc(DirectionIfTurnedClockwise(this->position().direction(), 5));
-    auto right = DirectionInc(DirectionIfTurnedClockwise(this->position().direction(), 2));
-    auto rightRight = DirectionInc(DirectionIfTurnedClockwise(this->position().direction(), 3));
+    auto forward = DirectionInc(self->position().direction());
+    auto left = DirectionInc(DirectionIfTurnedClockwise(self->position().direction(), 6));
+    auto leftLeft = DirectionInc(DirectionIfTurnedClockwise(self->position().direction(), 5));
+    auto right = DirectionInc(DirectionIfTurnedClockwise(self->position().direction(), 2));
+    auto rightRight = DirectionInc(DirectionIfTurnedClockwise(self->position().direction(), 3));
 
-    bool isDiagonal = this->position().direction() == NORTHEAST || this->position().direction() == NORTHWEST || this->position().direction() == SOUTHEAST || this->position().direction() == SOUTHWEST;
+    bool isDiagonal = self->position().direction() == NORTHEAST || self->position().direction() == NORTHWEST || self->position().direction() == SOUTHEAST || self->position().direction() == SOUTHWEST;
 
 	struct position_2d
 	{
@@ -16748,8 +16865,17 @@ bool TacticalActor::AddBestFlashLight()
 
 		float GetAngle( vector_2d other )
 		{
-			auto dot = dx * other.dx + dy * other.dy;
-			return acos(dot / (length * other.length));
+			const float denominator = length * other.length;
+			if (denominator <= 0.0f)
+				return 0.0f;
+
+			const float cosine = std::max(
+				-1.0f,
+				std::min(
+					1.0f,
+					static_cast<float>(dx * other.dx + dy * other.dy) /
+						denominator));
+			return acos(cosine);
 		}
 
         static float CalcLength(float dx, float dy)
@@ -16758,8 +16884,8 @@ bool TacticalActor::AddBestFlashLight()
         }
 	};
 
-	position_2d soldierPos(this->position().gridNo());
-    vector_2d soldierDir(this->position().direction());
+	position_2d soldierPos(self->position().gridNo());
+    vector_2d soldierDir(self->position().direction());
 
     auto is_in_area = [&](INT32 sGridNoToTest) -> bool
     {
@@ -16784,7 +16910,7 @@ bool TacticalActor::AddBestFlashLight()
         return true;
     };
 
-    auto add_light_if_in_line_of_sight = [&, this]( INT32 sGridNoToTest, bool allowSkip ) -> void
+    auto add_light_if_in_line_of_sight = [&, self]( INT32 sGridNoToTest, bool allowSkip ) -> void
     {
         if (allowSkip) // improve performance by skipping 3/4 of the lights
         {
@@ -16796,9 +16922,9 @@ bool TacticalActor::AddBestFlashLight()
             }
         }
 
-        if ( SoldierToVirtualSoldierLineOfSightTest( this, sGridNoToTest, this->position().level(), gAnimControl[this->animationPlayback().state()].ubEndHeight, false, NO_DISTANCE_LIMIT ) )
+        if ( SoldierToVirtualSoldierLineOfSightTest( self, sGridNoToTest, self->position().level(), gAnimControl[self->animationPlayback().state()].ubEndHeight, false, NO_DISTANCE_LIMIT ) )
         {
-            CreatePersonalLight( sGridNoToTest, this->identity().id() );
+            CreatePersonalLight( sGridNoToTest, self->identity().id() );
         }
     };
 
@@ -16810,7 +16936,7 @@ bool TacticalActor::AddBestFlashLight()
         }
     };
 
-    for ( auto currentGridNo = this->position().gridNo(); !OutOfBounds( currentGridNo, -1 ); currentGridNo += forward )
+    for ( auto currentGridNo = self->position().gridNo(); !OutOfBounds( currentGridNo, -1 ); currentGridNo += forward )
     {
 		vector_2d v(soldierPos, position_2d(currentGridNo));
         if ( v.length < minRange )
@@ -19776,53 +19902,89 @@ bool TacticalActorEquipment::hasEquippedRiotShield(
 	return equippedRiotShield(actor) != nullptr;
 }
 
-void	TacticalActor::DestroyEquippedRiotShield( )
+namespace
 {
-	// create graphic (destroyed shield item?)
-	OBJECTTYPE* pObj =
-		TacticalActorEquipment::equippedRiotShield(*this);
+void destroyEquippedRiotShield(TacticalActor& actor)
+{
+	auto* const self = &actor;
+	OBJECTTYPE* shield =
+		TacticalActorEquipment::equippedRiotShield(actor);
 
-	if ( pObj )
+	if (!shield)
+		return;
+
+	const UINT16 brokenShield =
+		Item[shield->usItem].usBuddyItem;
+	if (brokenShield != NOTHING &&
+		brokenShield < MAXITEMS &&
+		!TileIsOutOfBounds(self->position().gridNo()))
 	{
-		if ( Item[pObj->usItem].usBuddyItem )
-		{
-			CreateItem( Item[pObj->usItem].usBuddyItem, 100, pObj );
+		CreateItem(brokenShield, 100, shield);
 
-			// Flugente: why would we keep a piece of scrap in our hands in the first place? just drop it to the ground
-			AddItemToPool( this->position().gridNo(), pObj, 1, this->position().level(), 0, -1 );
+		// A broken shield belongs on the ground, not in the actor's hand.
+		AddItemToPool(
+			self->position().gridNo(),
+			shield,
+			1,
+			self->position().level(),
+			0,
+			-1);
 
-			NotifySoldiersToLookforItems( );
-		}
-
-		// Delete object
-		DeleteObj( pObj );
-
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_SHIELD_DESTROYED], this->GetName( ) );
-
-		// dirty interface panel
-		DirtyMercPanelInterface( this, DIRTYLEVEL2 );
-
-		this->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+		NotifySoldiersToLookforItems();
 	}
+
+	DeleteObj(shield);
+
+	ScreenMsg(
+		FONT_MCOLOR_LTYELLOW,
+		MSG_INTERFACE,
+		New113Message[MSG113_SHIELD_DESTROYED],
+		self->GetName());
+
+	DirtyMercPanelInterface(self, DIRTYLEVEL2);
+	self->DoMercBattleSound(BATTLE_SOUND_CURSE1);
+}
 }
 
-void	TacticalActor::RiotShieldTakeDamage( INT32 sDamage )
+bool TacticalActorEquipment::damageRiotShield(
+	TacticalActor& actor,
+	std::int32_t damage)
 {
-	OBJECTTYPE* pObj =
-		TacticalActorEquipment::equippedRiotShield(*this);
+	if (damage < 0)
+		return false;
 
-	if ( pObj  )
+	auto* const self = &actor;
+	OBJECTTYPE* shield = equippedRiotShield(actor);
+	if (!shield)
+		return false;
+
+	if (!TileIsOutOfBounds(self->position().gridNo()))
 	{
-		PlayJA2Sample( (UINT32)(S_METAL_IMPACT1 + +Random( 3 )), RATE_11025, SoundVolume( MIDVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ) );
-
-		(*pObj)[0]->data.objectStatus -= sDamage;
-
-		// if shield should have been destroyed, do so
-		if ( (*pObj)[0]->data.objectStatus < 1 )
-		{
-			DestroyEquippedRiotShield( );
-		}
+		PlayJA2Sample(
+			static_cast<UINT32>(S_METAL_IMPACT1 + Random(3)),
+			RATE_11025,
+			SoundVolume(MIDVOLUME, self->position().gridNo()),
+			1,
+			SoundDir(self->position().gridNo()));
 	}
+
+	const std::int32_t currentStatus =
+		(*shield)[0]->data.objectStatus;
+	if (damage == 0 && currentStatus > 0)
+		return true;
+
+	if (currentStatus <= 0 || damage >= currentStatus)
+	{
+		destroyEquippedRiotShield(actor);
+	}
+	else
+	{
+		(*shield)[0]->data.objectStatus =
+			static_cast<decltype((*shield)[0]->data.objectStatus)>(
+				currentStatus - damage);
+	}
+
+	return true;
 }
 
 // Flugente: drag people
@@ -20447,26 +20609,25 @@ void		TacticalActor::DrugAutoUse()
 	}
 }
 
-bool		TacticalActor::DestroyOneItemInInventory( UINT16 ausItem )
+bool TacticalActorEquipment::removeOneItem(
+	TacticalActor& actor,
+	std::uint16_t item)
 {
-	for ( INT8 bLoop = 0, invsize = (INT8)inventory().size(); bLoop < invsize; ++bLoop )
+	if (item == NOTHING)
+		return false;
+
+	for (std::size_t slot = 0; slot < actor.inventory().size(); ++slot)
 	{
-		if ( inventory()[bLoop].exists() )
-		{
-			OBJECTTYPE* pObj = &( inventory()[bLoop] );
+		OBJECTTYPE& object = actor.inventory()[slot];
+		if (!object.exists() || object.usItem != item)
+			continue;
 
-			if ( pObj && pObj->usItem == ausItem )
-			{
-				pObj->RemoveObjectsFromStack( 1 );
+		object.RemoveObjectsFromStack(1);
 
-				if ( pObj->ubNumberOfObjects <= 0 )
-				{
-					DeleteObj( pObj );
-				}
+		if (!object.exists())
+			DeleteObj(&object);
 
-				return true;
-			}
-		}
+		return true;
 	}
 
 	return false;

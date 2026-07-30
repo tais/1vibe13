@@ -1,4 +1,5 @@
 	#include "mapscreen.h"
+#include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
@@ -8059,17 +8060,25 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 				case 'K':
 					//CHRISL: Swap gunsling
 					if ( bSelectedInfoChar != -1 && fShowInventoryFlag && UsingNewInventorySystem() == true )
-					{
-						TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
-						if (fAlt)
+						{
+							TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
+							if (!pSoldier)
+								break;
+
+							if (fAlt)
 							// switch to knife, or from knife to gun
-							pSoldier->SwitchWeapons(TRUE);
+							TacticalActorEquipment::switchWeapon(
+								*pSoldier,
+								true);
 						else if (fCtrl)
 							// switch to sidearm, or from sidearm to non-sidearm gun
-							pSoldier->SwitchWeapons(FALSE, TRUE);
+							TacticalActorEquipment::switchWeapon(
+								*pSoldier,
+								false,
+								true);
 						else
 							// switch to and from gunsling
-							pSoldier->SwitchWeapons();
+							TacticalActorEquipment::switchWeapon(*pSoldier);
 
 						fTeamPanelDirty = TRUE;
 						fMapPanelDirty = TRUE;
@@ -10443,7 +10452,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 		}
 
 		// Flugente: we have to recheck our flashlights, as we changed items
-		pSoldier->HandleFlashLights();
+		TacticalActorEquipment::refreshFlashlights(*pSoldier);
 
 		// sevenfm: update morale, as we could add/remove walkman
 		RefreshSoldierMorale(pSoldier);

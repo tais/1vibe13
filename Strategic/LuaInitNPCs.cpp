@@ -7858,7 +7858,14 @@ static int l_DestroyOneItemInInventory(lua_State* L)
 
 		if (ubID < TOTAL_SOLDIERS)
 		{
-			GetJa2SoldierRepository().resolve(ubID)->DestroyOneItemInInventory(usItem);
+			TacticalActor* actor =
+				GetJa2SoldierRepository().resolve(ubID);
+			if (actor)
+			{
+				TacticalActorEquipment::removeOneItem(
+					*actor,
+					usItem);
+			}
 		}
 	}
 

@@ -11413,7 +11413,7 @@ void TeamDropAll(UINT8 bTeam, BOOLEAN fForce)
         // if soldier is in the current sector, drop all equipment (that has the TAKEN_BY_MILITIA-flag set)
         if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
         {
-            pSoldier->DropSectorEquipment();
+            TacticalActorEquipment::dropSectorEquipment(*pSoldier);
         }
     }
 }

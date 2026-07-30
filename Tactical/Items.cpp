@@ -9484,7 +9484,7 @@ void SwapHandItems( TacticalActor * pSoldier )
 	}
 
 	// Flugente: we have to recheck our flashlights
-	pSoldier->HandleFlashLights();
+	TacticalActorEquipment::refreshFlashlights(*pSoldier);
 }
 
 void SwapOutHandItem( TacticalActor * pSoldier )
@@ -9516,7 +9516,7 @@ void SwapOutHandItem( TacticalActor * pSoldier )
 	}
 
 	// Flugente: we have to recheck our flashlights
-	pSoldier->HandleFlashLights();
+	TacticalActorEquipment::refreshFlashlights(*pSoldier);
 }
 
 void WaterDamage( TacticalActor *pSoldier )
@@ -12424,15 +12424,20 @@ INT8 FindUsableCrowbar( TacticalActor * pSoldier )
 
 OBJECTTYPE* FindAttachedBatteries( OBJECTTYPE * pObj )
 {
-	if (pObj->exists() == true) {
-		for (attachmentList::iterator iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter) {
-			if (ItemIsBatteries(iter->usItem) && iter->exists())
-			{
-				return( &(*iter) );
-			}
+	if (!pObj || !pObj->exists())
+		return nullptr;
+
+	for (auto& attachment : (*pObj)[0]->attachments)
+	{
+		if (attachment.exists() &&
+			attachment.usItem < MAXITEMS &&
+			ItemIsBatteries(attachment.usItem))
+		{
+			return &attachment;
 		}
 	}
-	return( 0 );
+
+	return nullptr;
 }
 
 INT8 FindToolkit( TacticalActor * pSoldier )
@@ -15247,7 +15252,7 @@ BOOLEAN OBJECTTYPE::TransformObject( TacticalActor * pSoldier, UINT8 ubStatusInd
 	}
 
 	// Flugente: we have to recheck our flashlights
-	pSoldier->HandleFlashLights();
+	TacticalActorEquipment::refreshFlashlights(*pSoldier);
 
 	// sevenfm: handle sight change
 	HandleSight(pSoldier, SIGHT_LOOK);
