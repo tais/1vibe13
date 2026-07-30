@@ -1,5 +1,6 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorDamageQueue.h"
+#include "TacticalActorFieldOperations.h"
 #include "TacticalActorLongActions.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
@@ -9210,6 +9211,52 @@ int main( int, char** )
 		       unavailableWorldStartIsRejected &&
 		       malformedSessionStateIsRejected,
 		       "tactical actor medical session rejects unavailable worlds and malformed animation or kit state" );
+	}
+
+	{
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		TacticalActor actor;
+		actor.identity().id() = SoldierID{0};
+		actor.roster().active() = TRUE;
+		actor.roster().inSector() = TRUE;
+		actor.position().gridNo() = 0;
+		actor.position().level() = FIRST_LEVEL;
+		actor.position().direction() = NORTH;
+		actor.animationPlayback().state() = STANDING;
+
+		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableWorldIsRejected =
+			!TacticalActorFieldOperations::
+				beginFenceCutting(actor, 0, NORTH) &&
+			!TacticalActorFieldOperations::
+				beginRepair(actor, 0, NORTH) &&
+			!TacticalActorFieldOperations::
+				beginRefuel(actor, 0, NORTH) &&
+			!TacticalActorFieldOperations::
+				beginCorpseBloodCollection(
+					actor,
+					0,
+					NORTH) &&
+			!TacticalActorFieldOperations::
+				attachDoorAlarm(actor, 0, NORTH) &&
+			!TacticalActorFieldOperations::
+				beginFortification(actor, 0, NORTH) &&
+			!TacticalActorFieldOperations::
+				performInteractiveAction(
+					actor,
+					0,
+					INTERACTIVE_STRUCTURE_HACKABLE) &&
+			!TacticalActorFieldOperations::
+				beginRobotReload(actor, 0, NORTH) &&
+			!TacticalActorFieldOperations::
+				canBreakWindow(actor) &&
+			!TacticalActorFieldOperations::
+				breakWindow(actor);
+		RestoreJa2TacticalWorldSession(previousWorld);
+
+		CHECK( unavailableWorldIsRejected,
+		       "tactical actor field operations reject an unavailable tactical world before touching map or content tables" );
 	}
 
 	{

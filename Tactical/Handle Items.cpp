@@ -1,5 +1,6 @@
 #include "connect.h"
 #include "TacticalActorLongActions.h"
+#include "TacticalActorFieldOperations.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRadio.h"
@@ -791,7 +792,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				}
 				else
 				{
-					pSoldier->EVENT_SoldierInteractiveAction( sAdjustedGridNo, possibleaction );
+					(void)TacticalActorFieldOperations::
+						performInteractiveAction(
+							*pSoldier,
+							sAdjustedGridNo,
+							possibleaction);
 
 					UnSetUIBusy( pSoldier->identity().id() );
 				}
@@ -1356,7 +1361,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					if ( tripwirefound != -1 )
 						pSoldier->EVENT_SoldierDefuseTripwire( sGridNo, tripwirefound );
 					else
-						pSoldier->EVENT_SoldierBeginCutFence( sAdjustedGridNo, ubDirection );
+						(void)TacticalActorFieldOperations::
+							beginFenceCutting(
+								*pSoldier,
+								sAdjustedGridNo,
+								ubDirection);
 				}
 
 
@@ -1435,7 +1444,13 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				}
 				else
 				{
-					pSoldier->EVENT_SoldierBeginRepair(fVehicle ? sVehicleGridNo : sAdjustedGridNo, ubDirection );					
+					(void)TacticalActorFieldOperations::
+						beginRepair(
+							*pSoldier,
+							fVehicle
+								? sVehicleGridNo
+								: sAdjustedGridNo,
+							ubDirection);
 				}
 
 				if ( fFromUI )
@@ -1508,7 +1523,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				}
 				else
 				{
-					pSoldier->EVENT_SoldierBeginRefuel(sVehicleGridNo, ubDirection );
+					(void)TacticalActorFieldOperations::
+						beginRefuel(
+							*pSoldier,
+							sVehicleGridNo,
+							ubDirection);
 				}
 
 				// OK, set UI
@@ -1559,7 +1578,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				}
 				else
 				{
-					pSoldier->EVENT_SoldierBeginTakeBlood( sAdjustedGridNo, ubDirection );
+					(void)TacticalActorFieldOperations::
+						beginCorpseBloodCollection(
+							*pSoldier,
+							sAdjustedGridNo,
+							ubDirection);
 				}
 
 				// OK, set UI
@@ -1632,7 +1655,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				}
 				else
 				{
-					pSoldier->EVENT_SoldierBuildStructure( sGridNo, ubDirection );
+					(void)TacticalActorFieldOperations::
+						beginFortification(
+							*pSoldier,
+							sGridNo,
+							ubDirection);
 				}
 
 				// OK, set UI
@@ -2015,7 +2042,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					}
 					else
 					{
-						pSoldier->EVENT_SoldierBeginAttachCan( sGridNo, ubDirection );
+						(void)TacticalActorFieldOperations::
+							attachDoorAlarm(
+								*pSoldier,
+								sGridNo,
+								ubDirection);
 					}
 
 					// OK, set UI
@@ -10012,61 +10043,6 @@ void HandleTakeNewBombFromInventory(TacticalActor* pSoldier, OBJECTTYPE* pObj)
 		TacticalActorEquipment::takeBombIntoHand(
 			*pSoldier,
 			pObj->usItem);
-	}
-}
-
-// Flugente: interactive actions
-void DoInteractiveAction( INT32 sGridNo, TacticalActor *pSoldier )
-{
-	// we need a valid soldier and a valid object
-	if ( !pSoldier )
-		return;
-	
-	// needs to be a valid location
-	if ( TileIsOutOfBounds( sGridNo ) )
-		return;
-	
-	UINT16 structindex;
-	UINT16 possibleaction = InteractiveActionPossibleAtGridNo( sGridNo, pSoldier->position().level(), structindex );
-
-	UINT16 skill =
-		TacticalActorModifiers::interactiveActionSkill(
-			*pSoldier,
-			possibleaction);
-
-	INT32 difficulty = gInteractiveStructure[structindex].difficulty;
-	INT32 luaactionid = gInteractiveStructure[structindex].luaactionid;
-
-	// play sounds
-	switch ( possibleaction )
-	{
-	case INTERACTIVE_STRUCTURE_HACKABLE:
-		PlayJA2SampleFromFile( "Sounds\\keyboard_typing.wav", RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
-		break;
-
-	case INTERACTIVE_STRUCTURE_READFILE:
-		PlayJA2SampleFromFile( "Sounds\\book_pageturn1.wav", RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
-		break;
-
-	default:
-		break;
-	}
-
-	if ( possibleaction == INTERACTIVE_STRUCTURE_HACKABLE )
-	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szInteractiveActionText[0], pSoldier->GetName( ) );
-
-		// hacking is a multiturn-action - we only start the action here, the result is handled elsewhere
-		TacticalActorLongActions::start(*pSoldier, MTA_HACK, sGridNo );
-	}
-	// call lua with the action id - perhaps we might do something special here
-	else if ( luaactionid >= 0 )
-	{
-		LuaHandleInteractiveActionResult( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, sGridNo, pSoldier->position().level(), pSoldier->identity().id(), possibleaction, luaactionid, difficulty, skill );
-	}
-	else
-	{
-		DoInteractiveActionDefaultResult( sGridNo, pSoldier->identity().id(), (skill >= difficulty) );
 	}
 }
 
