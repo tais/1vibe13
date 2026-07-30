@@ -1,4 +1,5 @@
 #include <cstdio>
+#include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
@@ -3957,7 +3958,7 @@ void HandleNPCTeamMemberDeath( TacticalActor *pSoldierOld )
     }
 
 	// Flugente: backgrounds
-	if ( pSoldierOld->HasBackgroundFlag( BACKGROUND_GLOBALOYALITYLOSSONDEATH ) )
+	if ( TacticalActorModifiers::hasBackgroundFlag(*pSoldierOld, BACKGROUND_GLOBALOYALITYLOSSONDEATH ) )
 	{
 		DecrementTownLoyaltyEverywhere( 20000 );
 	}
@@ -8672,7 +8673,7 @@ INT8 CalcSuppressionTolerance( TacticalActor * pSoldier )
 	// Flugente: add personal bonus to suppression tolerance
 	// sevenfm: apply in HandleSuppressionFire to AP loss instead
 	if (!gGameExternalOptions.fNewSuppressionCode)
-		bTolerance = (bTolerance * (100 + pSoldier->GetSuppressionResistanceBonus() ) / 100);
+		bTolerance = (bTolerance * (100 + TacticalActorModifiers::suppressionResistanceBonus(*pSoldier) ) / 100);
 
     bTolerance = max(bTolerance, gGameExternalOptions.ubSuppressionToleranceMin);
     bTolerance = min(bTolerance, gGameExternalOptions.ubSuppressionToleranceMax);
@@ -9073,7 +9074,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 			// sevenfm: reduce AP loss because of suppression resistance
 			if (sPointsLost > 0 && gGameExternalOptions.fNewSuppressionCode)
 			{
-				sPointsLost -= sPointsLost * pSoldier->GetSuppressionResistanceBonus() / 200;
+				sPointsLost -= sPointsLost * TacticalActorModifiers::suppressionResistanceBonus(*pSoldier) / 200;
 			}
 
             // Reduce action points!
@@ -11125,7 +11126,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 
 		// if the merc asking for surrender is experienced in capitulation negotiations, we get a bonus to our strength
 		if ( pSoldier )
-			playersidestrength = (playersidestrength * (100 + pSoldier->GetBackgroundValue(BG_PERC_CAPITULATION))) / 100;
+			playersidestrength = (playersidestrength * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CAPITULATION))) / 100;
 
 		// Capturing profile-based NPCs would be desirable, but is a good way to break quests. Due to this, we don't allow capturing them.
 		// As it would be odd if the entire enemy team surrenders apart from one guy, we don't allow surrender, no matter the surrender strength, if a hostile profile-based NPC is around.
@@ -11613,7 +11614,7 @@ INT8 CalcEffectiveShockLevel( TacticalActor * pSoldier )
 		}
 
 		// Flugente: personal fear resistance
-		bShockForCower = (INT8)(bShockForCower * (100 - pSoldier->GetFearResistanceBonus()) / 100.0f + 0.5f);
+		bShockForCower = (INT8)(bShockForCower * (100 - TacticalActorModifiers::fearResistanceBonus(*pSoldier)) / 100.0f + 0.5f);
 	}
 
 	return bShockForCower;

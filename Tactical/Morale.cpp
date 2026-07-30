@@ -1,4 +1,5 @@
 	#include <cstdlib>
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
 	#include "Morale.h"
 	#include "Overhead.h"
@@ -200,7 +201,7 @@ INT8 GetMoraleModifier( TacticalActor * pSoldier )
 	}*/
 
 	// Flugente: morale modifiers
-	morale = max( morale, morale * pSoldier->GetMoraleModifier( ) );
+	morale = max( morale, morale * TacticalActorModifiers::moraleModifier(*pSoldier) );
 
 	return morale;
 }
@@ -431,14 +432,14 @@ void RefreshSoldierMorale( TacticalActor * pSoldier )
 	}
 
 	// Flugente: morale modifiers
-	iActualMorale = iActualMorale * pSoldier->GetMoraleModifier();
+	iActualMorale = iActualMorale * TacticalActorModifiers::moraleModifier(*pSoldier);
 
 	// Flugente: ubMaxMorale can now be influenced by our food situation
 	if ( UsingFoodSystem() )
 		FoodMaxMoraleModifiy(pSoldier, &ubMaxMorale);
 
 	// Flugente: max morale can be lowered
-	iActualMorale = min(iActualMorale, pSoldier->GetMoraleThreshold() );
+	iActualMorale = min(iActualMorale, 100 );
 
 	if (ubMaxMorale > 0 && iActualMorale > ubMaxMorale)
 	{

@@ -1,4 +1,5 @@
 	#include "types.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 	#include "Overhead.h"
 	#include "Animation Control.h"
@@ -2187,7 +2188,7 @@ INT8 CalcInterruptDuelPts( TacticalActor * pSoldier, SoldierID ubOpponentID, BOO
 	}
 		
 	// Flugente: interrupt modifier from special stats
-	iPoints += pSoldier->GetInterruptModifier( ubDistance );
+	iPoints += TacticalActorModifiers::interruptModifier(*pSoldier);
 
 	// if he's a computer soldier
 

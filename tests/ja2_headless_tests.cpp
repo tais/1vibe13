@@ -115,11 +115,13 @@
 #include "popup_class.h"
 #include "Soldier Control.h"
 #include "Soldier Profile.h"
+#include "Interface.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorModifiers.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
 #include "Plan.h"
@@ -8012,6 +8014,60 @@ int main( int, char** )
 		       malformedMaximumHealthIsSafe &&
 		       malformedAdministrationScaleIsSafe,
 		       "tactical actor assignment rules expose safe productivity calculations without record methods" );
+	}
+
+	{
+		TacticalActor modifierActor;
+		modifierActor.roster().team() = OUR_TEAM;
+
+		const BOOLEAN previousBackgroundSetting =
+			gGameExternalOptions.fBackGround;
+		const BOOLEAN previousDiseaseSetting =
+			gGameExternalOptions.fDisease;
+		gGameExternalOptions.fBackGround = TRUE;
+		gGameExternalOptions.fDisease = FALSE;
+
+		modifierActor.identity().profile() = 255;
+		const bool invalidProfileIsNeutral =
+			!TacticalActorModifiers::hasBackgroundFlag(
+				modifierActor,
+				BACKGROUND_SCROUNGING) &&
+			TacticalActorModifiers::backgroundValue(
+				modifierActor,
+				BG_STRENGTH) == 0 &&
+			TacticalActorModifiers::backgroundValues(
+				modifierActor,
+				BackgroundVectorTypes::BG_DRUGUSE_ITEMS).empty();
+
+		modifierActor.identity().profile() = 0;
+		const auto previousBackground =
+			gMercProfiles[0].usBackground;
+		gMercProfiles[0].usBackground = NUM_BACKGROUND;
+		const bool invalidBackgroundIsNeutral =
+			!TacticalActorModifiers::hasBackgroundFlag(
+				modifierActor,
+				BACKGROUND_SCROUNGING) &&
+			TacticalActorModifiers::backgroundValue(
+				modifierActor,
+				BG_MAX) == 0;
+		gMercProfiles[0].usBackground = previousBackground;
+
+		modifierActor.identity().profile() = NO_PROFILE;
+		const bool dataFreeModifiersAreNeutral =
+			TacticalActorModifiers::suppressionResistanceBonus(modifierActor) == 0 &&
+			TacticalActorModifiers::meleeDamageBonus(modifierActor) == 0 &&
+			TacticalActorModifiers::actionPointBonus(modifierActor) == 0 &&
+			TacticalActorModifiers::fearResistanceBonus(modifierActor) == 0 &&
+			TacticalActorModifiers::moraleModifier(modifierActor) == 1.0f &&
+			TacticalActorModifiers::interruptModifier(modifierActor) == 0;
+
+		gGameExternalOptions.fDisease = previousDiseaseSetting;
+		gGameExternalOptions.fBackGround = previousBackgroundSetting;
+
+		CHECK( invalidProfileIsNeutral &&
+		       invalidBackgroundIsNeutral &&
+		       dataFreeModifiersAreNeutral,
+		       "tactical actor modifiers reject malformed background identities and remain data-free" );
 	}
 
 	{

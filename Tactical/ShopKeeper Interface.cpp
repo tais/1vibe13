@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "types.h"
@@ -3245,7 +3246,7 @@ UINT8		ubItemsNotCounted = 0; //ja25 UB
 		// if it's a GUN or AMMO (but not Launchers, and all attachments and payload is included)
 		if ( Item [ usItemID ].usItemClass & (IC_GUN|IC_AMMO) )
 		{
-			pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * GetSMCurrentMerc()->GetBackgroundValue( BG_PERC_PRICES_GUNS ) );
+			pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * TacticalActorModifiers::backgroundValue(*GetSMCurrentMerc(), BG_PERC_PRICES_GUNS ) );
 
 			// Even without backgrounds, Flo gets a discount. Read her M.E.R.C. profile to understand why
 			if ( !UsingBackGroundSystem() && GetSMCurrentMerc()->identity().profile() == FLO )
@@ -3253,7 +3254,7 @@ UINT8		ubItemsNotCounted = 0; //ja25 UB
 		}
 		else if ( Item [ usItemID ].usItemClass & (IC_MAPFILTER_MELEE|IC_MAPFILTER_KIT|IC_MAPFILTER_LBE|IC_MAPFILTER_ARMOR|IC_MAPFILTER_MISC) )
 		{
-			pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * GetSMCurrentMerc()->GetBackgroundValue( BG_PERC_PRICES ) );
+			pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * TacticalActorModifiers::backgroundValue(*GetSMCurrentMerc(), BG_PERC_PRICES ) );
 		}
 
 		uiItemPrice[ubCnt] = (uiItemPrice[ubCnt] * pricepercentage) / 100;

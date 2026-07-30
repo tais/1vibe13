@@ -8,6 +8,7 @@
 	Date			:		1997-NOV
 */
 	#include <stdio.h>
+#include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 #include "SoldierRepository.h"
 #include "TacticalActorDragging.h"
@@ -3397,7 +3398,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 					}
 				}
 				if ( TERRAIN_IS_HIGH_WATER( gpWorldLevelData[ newLoc ].ubTerrainID ) )
-					ubAPCost = (ubAPCost * (100 + s->GetBackgroundValue(BG_SWIMMING))) / 100;
+					ubAPCost = (ubAPCost * (100 + TacticalActorModifiers::backgroundValue(*s, BG_SWIMMING))) / 100;
 
 				// Flugente: riot shields lower movement speed
 				if ( fRiotShield )
@@ -4494,7 +4495,7 @@ INT32 PlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 b
 							sMovementAPsCost *= 2;
 					}
 					if ( TERRAIN_IS_HIGH_WATER( ubTerrainID) )
-						sMovementAPsCost = sMovementAPsCost * (100 + pSold->GetBackgroundValue(BG_SWIMMING)) / 100.0f;
+						sMovementAPsCost = sMovementAPsCost * (100 + TacticalActorModifiers::backgroundValue(*pSold, BG_SWIMMING)) / 100.0f;
 
 					// Check if doors if not player's merc (they have to open them manually)
 					if ( sSwitchValue == TRAVELCOST_DOOR && pSold->roster().team() != gbPlayerNum )
@@ -4593,10 +4594,10 @@ INT32 PlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 b
 				}
 				if ( TERRAIN_IS_HIGH_WATER( ubTerrainID) )
 				{
-					sPointsWalk = (sPointsWalk * (100 + pSold->GetBackgroundValue(BG_SWIMMING))) / 100;
-					sPointsCrawl = (sPointsCrawl * (100 + pSold->GetBackgroundValue(BG_SWIMMING))) / 100;
-					sPointsSwat = (sPointsSwat * (100 + pSold->GetBackgroundValue(BG_SWIMMING))) / 100;
-					sPointsRun = (sPointsRun * (100 + pSold->GetBackgroundValue(BG_SWIMMING))) / 100;
+					sPointsWalk = (sPointsWalk * (100 + TacticalActorModifiers::backgroundValue(*pSold, BG_SWIMMING))) / 100;
+					sPointsCrawl = (sPointsCrawl * (100 + TacticalActorModifiers::backgroundValue(*pSold, BG_SWIMMING))) / 100;
+					sPointsSwat = (sPointsSwat * (100 + TacticalActorModifiers::backgroundValue(*pSold, BG_SWIMMING))) / 100;
+					sPointsRun = (sPointsRun * (100 + TacticalActorModifiers::backgroundValue(*pSold, BG_SWIMMING))) / 100;
 				}
 				// walking with weapon raised?
 				if (!(pSold->MercInWater()) && ( (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))

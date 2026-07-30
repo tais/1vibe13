@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalActorDragging.h"
 	#include "worlddef.h"
@@ -427,7 +428,7 @@ INT16 TerrainBreathPoints(TacticalActor * pSoldier, INT32 sGridNo, INT8 bDir, UI
 
 	// Flugente: backgrounds
 	if ( TERRAIN_IS_HIGH_WATER( ubTerrainID) )
-		iPoints = iPoints * ( 100 + pSoldier->GetBackgroundValue(BG_SWIMMING) ) / 100.0f;
+		iPoints = iPoints * ( 100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_SWIMMING) ) / 100.0f;
 	
 	// ATE: Adjust these by realtime movement
 	 if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
@@ -625,7 +626,7 @@ static INT16 ActionPointCostFromTileCost( TacticalActor *pSoldier, INT32 sGridNo
 
 		// Flugente: swimming background
 		if ( TERRAIN_IS_HIGH_WATER( ubTerrainID) )
-			sPoints = sPoints * ( 100 + pSoldier->GetBackgroundValue(BG_SWIMMING) ) / 100.0f;
+			sPoints = sPoints * ( 100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_SWIMMING) ) / 100.0f;
 
 		// Check if doors if not player's merc (they have to open them manually)
 		if ( sSwitchValue == TRAVELCOST_DOOR && pSoldier->roster().team() != gbPlayerNum )
@@ -944,7 +945,7 @@ void DeductPoints( TacticalActor *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 
 
 		// Flugente: backgrounds
 		if ( iBPCost < 0 )
-			iBPCost = (INT32) (iBPCost * (100 + pSoldier->GetBackgroundValue(BG_PERC_REGEN_ENERGY)) / 100);
+			iBPCost = (INT32) (iBPCost * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_REGEN_ENERGY)) / 100);
 
 		if (is_networked)
 		{
@@ -2427,7 +2428,7 @@ INT16 MinAPsToShootOrStab(TacticalActor *pSoldier, INT32 sGridNo, INT16 bAimTime
 			// Decreased APs needed for mortar - Heavy Weapons
 			else if ( Item[usUBItem].mortar )
 			{
-				bAPCost = (INT16)((bAPCost * (100 - gSkillTraitValues.ubHWMortarAPsReduction * NUM_SKILL_TRAITS( pSoldier, HEAVY_WEAPONS_NT ) + pSoldier->GetBackgroundValue(BG_ARTILLERY) ) / 100)+ 0.5);
+				bAPCost = (INT16)((bAPCost * (100 - gSkillTraitValues.ubHWMortarAPsReduction * NUM_SKILL_TRAITS( pSoldier, HEAVY_WEAPONS_NT ) + TacticalActorModifiers::backgroundValue(*pSoldier, BG_ARTILLERY) ) / 100)+ 0.5);
 			}
 			// Decreased APs needed for pistols and machine pistols - Gunslinger
 			else if (Weapon[ usUBItem ].ubWeaponType == GUN_PISTOL && HAS_SKILL_TRAIT( pSoldier, GUNSLINGER_NT ) )
@@ -3863,7 +3864,7 @@ INT16 GetAPsForMultiTurnAction( TacticalActor *pSoldier, UINT8 usActionType )
 
 	if ( usActionType == MTA_FORTIFY || usActionType == MTA_REMOVE_FORTIFY )
 	{
-		sAPCost = (sAPCost * (100 + pSoldier->GetBackgroundValue(BG_FORTIFY))) / 100;
+		sAPCost = (sAPCost * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_FORTIFY))) / 100;
 	}
 
 	return sAPCost;

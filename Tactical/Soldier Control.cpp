@@ -1,4 +1,5 @@
 #include "Soldier Functions.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -1330,7 +1331,7 @@ INT16 TacticalActor::CalcActionPoints( void )
 	}
 
 	// Flugente: personal AP adjustments
-	ubPoints = (INT16)((ubPoints * (100 + this->GetAPBonus( ))) / 100);
+	ubPoints = (INT16)((ubPoints * (100 + TacticalActorModifiers::actionPointBonus(*this))) / 100);
 
 	// option to make special NPCs stronger - AP bonus
 	if ( this->identity().profile() != NO_PROFILE && gGameExternalOptions.usSpecialNPCStronger > 0 )
@@ -1440,7 +1441,7 @@ void TacticalActor::CalcNewActionPoints( void )
 		}
 
 		// Flugente: personal AP adjustments
-		usMaxActionPnts = (INT16)((usMaxActionPnts * (100 + this->GetAPBonus( ))) / 100);
+		usMaxActionPnts = (INT16)((usMaxActionPnts * (100 + TacticalActorModifiers::actionPointBonus(*this))) / 100);
 
 		// option to make special NPCs stronger - AP bonus
 		if ( this->identity().profile() != NO_PROFILE && gGameExternalOptions.usSpecialNPCStronger > 0 )
@@ -8118,7 +8119,7 @@ void CalculateSoldierAniSpeed( TacticalActor *pSoldier, TacticalActor *pStatsSol
 	case SIDE_STEP_CROUCH_DUAL:
 	case SWAT_BACKWARDS_WK:
 		// Flugente: background running speed reduces time needed: + is good, - is bad
-		sTerrainDelay = ( sTerrainDelay * (100 - pSoldier->GetBackgroundValue( BG_PERC_SPEED_RUNNING ))) / 100;
+		sTerrainDelay = ( sTerrainDelay * (100 - TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_SPEED_RUNNING ))) / 100;
 		break;
 
 	default:
@@ -12516,7 +12517,7 @@ UINT32 TacticalActor::SoldierDressWound( TacticalActor *pVictim, INT16 sKitPts, 
 	if ( !(fOnSurgery) && gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( this, DOCTOR_NT ) )
 	{
 		uiPossible = uiPossible * (100 - gSkillTraitValues.bSpeedModifierBandaging) / 100;
-		uiPossible += (uiPossible * gSkillTraitValues.ubDOBandagingSpeedPercent * NUM_SKILL_TRAITS( this, DOCTOR_NT ) + this->GetBackgroundValue( BG_PERC_BANDAGING )) / 100;
+		uiPossible += (uiPossible * gSkillTraitValues.ubDOBandagingSpeedPercent * NUM_SKILL_TRAITS( this, DOCTOR_NT ) + TacticalActorModifiers::backgroundValue(*this, BG_PERC_BANDAGING )) / 100;
 	}
 
 	uiActual = uiPossible;		// start by assuming maximum possible
@@ -14183,7 +14184,7 @@ INT32 TacticalActor::GetDamageResistance( BOOLEAN fAutoResolve, BOOLEAN fCalcBre
 	// Flugente: drugs can now have an effect on damage resistance
 	resistance += this->drugState().magnitude(DRUG_EFFECT_PHYS_RES);
 
-	resistance += this->GetBackgroundValue( BG_RESI_PHYSICAL );
+	resistance += TacticalActorModifiers::backgroundValue(*this, BG_RESI_PHYSICAL );
 
 	// frozen targets go down HARD
 	if ( this->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
@@ -14211,9 +14212,9 @@ INT8	TacticalActor::GetHearingBonus( )
 		bonus -= 5;
 
 	if ( NightTime( ) )
-		bonus += this->GetBackgroundValue( BG_PERC_HEARING_NIGHT );
+		bonus += TacticalActorModifiers::backgroundValue(*this, BG_PERC_HEARING_NIGHT );
 	else
-		bonus += this->GetBackgroundValue( BG_PERC_HEARING_DAY );
+		bonus += TacticalActorModifiers::backgroundValue(*this, BG_PERC_HEARING_DAY );
 
 	if ( this->IsRadioListening( ) )
 		bonus += gSkillTraitValues.sVOListeningHearingBonus;
@@ -16264,7 +16265,7 @@ void	TacticalActor::SwitchWeapons( BOOLEAN fKnife, BOOLEAN fSideArm )
 				APTotalCost += GetInvMovementCost( &this->inventory()[HANDPOS], HANDPOS, handobjstorageslot );
 
 			// Flugente: backgrounds
-			APTotalCost = (APTotalCost * (100 + this->GetBackgroundValue(BG_INVENTORY))) / 100;
+			APTotalCost = (APTotalCost * (100 + TacticalActorModifiers::backgroundValue(*this, BG_INVENTORY))) / 100;
 
 			if ( this->actionPoints().current() >= APTotalCost )
 			{
@@ -16776,212 +16777,230 @@ INT8 TacticalActor::GetSoldierProfileType( UINT8 usTeam )
 	return type;
 }
 
-// Flugente: do we have a specific background flag?
-BOOLEAN TacticalActor::HasBackgroundFlag( UINT64 aFlag )
+namespace
 {
-	if ( UsingBackGroundSystem() && this->identity().profile() != NO_PROFILE )
-	{
-		if ( zBackground[gMercProfiles[this->identity().profile()].usBackground].uiFlags & aFlag )
-			return TRUE;
-	}
+const BACKGROUND_VALUES* findActorBackground(const TacticalActor& actor)
+{
+	if (!UsingBackGroundSystem())
+		return nullptr;
 
-	return FALSE;
+	const auto profile = actor.identity().profile();
+	if (profile == NO_PROFILE || profile >= NUM_PROFILES)
+		return nullptr;
+
+	const auto background = gMercProfiles[profile].usBackground;
+	if (background >= NUM_BACKGROUND)
+		return nullptr;
+
+	return &zBackground[background];
 }
 
-INT16 TacticalActor::GetBackgroundValue( UINT16 aNr )
+bool hasValidStrategicSector(const TacticalActor& actor)
 {
-	if ( UsingBackGroundSystem() && this->identity().profile() != NO_PROFILE )
-	{
-		return zBackground[gMercProfiles[this->identity().profile()].usBackground].value[aNr];
-	}
-
-	return 0;
+	return actor.deployment().sectorX() >= MINIMUM_VALID_X_COORDINATE &&
+		actor.deployment().sectorX() <= MAXIMUM_VALID_X_COORDINATE &&
+		actor.deployment().sectorY() >= MINIMUM_VALID_Y_COORDINATE &&
+		actor.deployment().sectorY() <= MAXIMUM_VALID_Y_COORDINATE;
+}
 }
 
-const std::vector<INT16>& TacticalActor::GetBackgroundValueVector(BackgroundVectorTypes backgroundVectorType) const
+bool TacticalActorModifiers::hasBackgroundFlag(
+	const TacticalActor& actor,
+	std::uint64_t flag)
 {
-	static const std::vector<INT16> emptyVector;
+	const auto* background = findActorBackground(actor);
+	return background != nullptr && (background->uiFlags & flag) != 0;
+}
 
-	if (UsingBackGroundSystem() && this->identity().profile() != NO_PROFILE)
+std::int16_t TacticalActorModifiers::backgroundValue(
+	const TacticalActor& actor,
+	std::uint16_t property)
+{
+	const auto* background = findActorBackground(actor);
+	if (background == nullptr || property >= BG_MAX)
+		return 0;
+
+	return background->value[property];
+}
+
+const std::vector<std::int16_t>& TacticalActorModifiers::backgroundValues(
+	const TacticalActor& actor,
+	BackgroundVectorTypes property)
+{
+	static const std::vector<std::int16_t> emptyValues;
+
+	const auto* background = findActorBackground(actor);
+	if (background == nullptr)
+		return emptyValues;
+
+	const auto values = background->valueVectors.find(property);
+	return values != background->valueVectors.end()
+		? values->second
+		: emptyValues;
+}
+
+std::int8_t TacticalActorModifiers::suppressionResistanceBonus(
+	const TacticalActor& actor)
+{
+	int bonus = backgroundValue(actor, BG_RESI_SUPPRESSION);
+
+	if (actor.roster().team() == ENEMY_TEAM)
 	{
-		const BACKGROUND_VALUES& background = zBackground[gMercProfiles[this->identity().profile()].usBackground];
-		auto iterator = background.valueVectors.find(backgroundVectorType);
-
-		if (iterator != background.valueVectors.end())
+		UINT8 officerType = OFFICER_NONE;
+		if (HighestEnemyOfficersInSector(officerType))
 		{
-			return iterator->second;
+			bonus +=
+				gGameExternalOptions.sEnemyOfficerSuppressionResistanceBonus *
+				officerType;
 		}
 	}
 
-	return emptyVector;
+	return static_cast<std::int8_t>(min(100, max(-100, bonus)));
 }
 
-INT8 TacticalActor::GetSuppressionResistanceBonus( )
+std::int16_t TacticalActorModifiers::meleeDamageBonus(
+	const TacticalActor& actor)
 {
-	INT8 bonus = 0;
-
-	bonus += this->GetBackgroundValue( BG_RESI_SUPPRESSION );
-
-	// Flugente: enemy roles
-	if ( this->roster().team() == ENEMY_TEAM )
-	{
-		// bonus if we have an officer around
-		UINT8 officertype = OFFICER_NONE;
-		if ( HighestEnemyOfficersInSector( officertype ) )
-		{
-			bonus += gGameExternalOptions.sEnemyOfficerSuppressionResistanceBonus * officertype;
-		}
-	}
-
-	return min( 100, max( -100, bonus ) );
+	return backgroundValue(actor, BG_PERC_DAMAGE_MELEE);
 }
 
-INT16 TacticalActor::GetMeleeDamageBonus( )
-{
-	INT8 bonus = 0;
-
-	bonus += this->GetBackgroundValue( BG_PERC_DAMAGE_MELEE );
-
-	return bonus;
-}
-
-INT16	TacticalActor::GetAPBonus( )
+std::int16_t TacticalActorModifiers::actionPointBonus(
+	const TacticalActor& actor)
 {
 	INT16 bonus = 0;
 
-	if ( this->featureFlags().primaryFlags() & SOLDIER_AIRDROP_TURN )
-		bonus += this->GetBackgroundValue( BG_AIRDROP );
+	if (actor.featureFlags().primaryFlags() & SOLDIER_AIRDROP_TURN)
+		bonus += backgroundValue(actor, BG_AIRDROP);
 
-	if ( this->featureFlags().primaryFlags() & SOLDIER_ASSAULT_BONUS )
-		bonus += this->GetBackgroundValue( BG_ASSAULT );
+	if (actor.featureFlags().primaryFlags() & SOLDIER_ASSAULT_BONUS)
+		bonus += backgroundValue(actor, BG_ASSAULT);
 
-	UINT8 ubSector = (UINT8)SECTOR( this->deployment().sectorX(), this->deployment().sectorY() );
-	UINT8 ubTraverseType = SectorInfo[ubSector].ubTraversability[THROUGH_STRATEGIC_MOVE];
-
-	switch ( ubTraverseType )
+	if (hasValidStrategicSector(actor))
 	{
-	case NS_RIVER:
-	case EW_RIVER:
-		bonus += this->GetBackgroundValue( BG_RIVER );
-		break;
-	case COASTAL:
-	case COASTAL_ROAD:
-		bonus += this->GetBackgroundValue( BG_COASTAL );
-		break;
-	case TROPICS_SAM_SITE:
-		bonus += this->GetBackgroundValue( BG_COASTAL );
-		bonus += this->GetBackgroundValue( BG_TROPICAL );
-		break;
-	case TROPICS:
-	case TROPICS_ROAD:
-		bonus += this->GetBackgroundValue( BG_TROPICAL );
-		break;
-	case PLAINS:
-	case PLAINS_ROAD:
-	case FARMLAND:
-	case FARMLAND_ROAD:
-		bonus += this->GetBackgroundValue( BG_PLAINS );
-		break;
-	case DENSE:
-	case DENSE_ROAD:
-		bonus += this->GetBackgroundValue( BG_FOREST );
-		break;
-	case HILLS:
-	case HILLS_ROAD:
-		bonus += this->GetBackgroundValue( BG_MOUNTAIN );
-		break;
-	case SWAMP:
-	case SWAMP_ROAD:
-		bonus += this->GetBackgroundValue( BG_SWAMP );
-		break;
-	case SAND:
-	case SAND_ROAD:
-	case SAND_SAM_SITE:
-		bonus += this->GetBackgroundValue( BG_DESERT );
-		break;
-	case TOWN:
-	case CAMBRIA_HOSPITAL_SITE:
-	case DRASSEN_AIRPORT_SITE:
-	case MEDUNA_AIRPORT_SITE:
-		bonus += this->GetBackgroundValue( BG_URBAN );
-		break;
-	default:
-		break;
-	}
+		const UINT8 sector = static_cast<UINT8>(
+			SECTOR(
+				actor.deployment().sectorX(),
+				actor.deployment().sectorY()));
+		const UINT8 traverseType =
+			SectorInfo[sector].ubTraversability[THROUGH_STRATEGIC_MOVE];
 
-	if ( this->position().level() )
-		bonus += this->GetBackgroundValue( BG_HEIGHT );
-
-	// diseases can affect stat effectivity
-	INT16 diseaseeffect = 0;
-	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sEffAP * TacticalActorDisease::magnitude(*this, i );
-
-	bonus += diseaseeffect;
-
-	return bonus;
-}
-
-INT8	TacticalActor::GetFearResistanceBonus( )
-{
-	INT8 bonus = 0;
-
-	bonus += this->GetBackgroundValue( BG_RESI_FEAR );
-
-	return min( 100, max( -100, bonus ) );
-}
-
-UINT8	TacticalActor::GetMoraleThreshold( )
-{
-	UINT8 threshold = 100;
-	UINT8 moraledamage = 0;
-
-	moraledamage = (moraledamage * (100 - GetFearResistanceBonus( ))) / 100;
-	return min( threshold, max( 0, threshold - moraledamage ) );
-}
-
-FLOAT	TacticalActor::GetMoraleModifier( )
-{
-	FLOAT mod = 1.0f;
-
-	UINT8 officertype = OFFICER_NONE;
-	if ( roster().team() == ENEMY_TEAM && HighestEnemyOfficersInSector( officertype ) )
-	{
-		mod += gGameExternalOptions.dEnemyOfficerMoraleModifier * officertype;
-	}
-
-	// Flugente: disease
-	if ( gGameExternalOptions.fDisease )
-	{
-		FLOAT diseaseeffect = 1.0f;
-		for ( int i = 0; i < NUM_DISEASES; ++i )
+		switch (traverseType)
 		{
-			diseaseeffect *= 1.0f - (1.0f - Disease[i].moralemodifier) * TacticalActorDisease::magnitude(*this, i );
+		case NS_RIVER:
+		case EW_RIVER:
+			bonus += backgroundValue(actor, BG_RIVER);
+			break;
+		case COASTAL:
+		case COASTAL_ROAD:
+			bonus += backgroundValue(actor, BG_COASTAL);
+			break;
+		case TROPICS_SAM_SITE:
+			bonus += backgroundValue(actor, BG_COASTAL);
+			bonus += backgroundValue(actor, BG_TROPICAL);
+			break;
+		case TROPICS:
+		case TROPICS_ROAD:
+			bonus += backgroundValue(actor, BG_TROPICAL);
+			break;
+		case PLAINS:
+		case PLAINS_ROAD:
+		case FARMLAND:
+		case FARMLAND_ROAD:
+			bonus += backgroundValue(actor, BG_PLAINS);
+			break;
+		case DENSE:
+		case DENSE_ROAD:
+			bonus += backgroundValue(actor, BG_FOREST);
+			break;
+		case HILLS:
+		case HILLS_ROAD:
+			bonus += backgroundValue(actor, BG_MOUNTAIN);
+			break;
+		case SWAMP:
+		case SWAMP_ROAD:
+			bonus += backgroundValue(actor, BG_SWAMP);
+			break;
+		case SAND:
+		case SAND_ROAD:
+		case SAND_SAM_SITE:
+			bonus += backgroundValue(actor, BG_DESERT);
+			break;
+		case TOWN:
+		case CAMBRIA_HOSPITAL_SITE:
+		case DRASSEN_AIRPORT_SITE:
+		case MEDUNA_AIRPORT_SITE:
+			bonus += backgroundValue(actor, BG_URBAN);
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (actor.position().level())
+		bonus += backgroundValue(actor, BG_HEIGHT);
+
+	INT16 diseaseEffect = 0;
+	for (int disease = 0; disease < NUM_DISEASES; ++disease)
+	{
+		diseaseEffect +=
+			Disease[disease].sEffAP *
+			TacticalActorDisease::magnitude(actor, disease);
+	}
+
+	return bonus + diseaseEffect;
+}
+
+std::int8_t TacticalActorModifiers::fearResistanceBonus(
+	const TacticalActor& actor)
+{
+	const int bonus = backgroundValue(actor, BG_RESI_FEAR);
+	return static_cast<std::int8_t>(min(100, max(-100, bonus)));
+}
+
+float TacticalActorModifiers::moraleModifier(const TacticalActor& actor)
+{
+	FLOAT modifier = 1.0f;
+
+	UINT8 officerType = OFFICER_NONE;
+	if (actor.roster().team() == ENEMY_TEAM &&
+		HighestEnemyOfficersInSector(officerType))
+	{
+		modifier +=
+			gGameExternalOptions.dEnemyOfficerMoraleModifier * officerType;
+	}
+
+	if (gGameExternalOptions.fDisease)
+	{
+		FLOAT diseaseEffect = 1.0f;
+		for (int disease = 0; disease < NUM_DISEASES; ++disease)
+		{
+			diseaseEffect *=
+				1.0f -
+				(1.0f - Disease[disease].moralemodifier) *
+					TacticalActorDisease::magnitude(actor, disease);
 		}
 
-		mod *= diseaseeffect;
+		modifier *= diseaseEffect;
 	}
 
-	return mod;
+	return modifier;
 }
 
-INT16	TacticalActor::GetInterruptModifier( UINT8 usDistance )
+std::int16_t TacticalActorModifiers::interruptModifier(
+	TacticalActor& actor)
 {
 	INT16 bonus = 0;
 
-	/*// drugs can alter our perception
-	if ( this->drugs.bDrugEffect[DRUG_TYPE_PERCEPTION] )
-		bonus += 2;
-	else if ( this->drugs.bDrugSideEffect[DRUG_TYPE_PERCEPTION] )
-		bonus -= 2;*/
-
-	// if we are listening on our radio, our mind will be somewhere else... we will be less focused
-	if ( this->IsRadioListening( ) )
+	// Radio listening divides the actor's attention.
+	if (actor.IsRadioListening())
 		bonus -= 3;
 
-	// if we are airdropping and do not have the 'airdrop' background, we receive a substantial malus to our interrupt level. Roping down takes a lot of attention
-	if ( this->featureFlags().primaryFlags() & SOLDIER_AIRDROP_TURN && (this->GetBackgroundValue( BG_AIRDROP ) <= 0) )
+	// Roping down without a matching background consumes most attention.
+	if ((actor.featureFlags().primaryFlags() & SOLDIER_AIRDROP_TURN) &&
+		backgroundValue(actor, BG_AIRDROP) <= 0)
+	{
 		bonus -= 8;
+	}
 
 	return bonus;
 }
@@ -17012,7 +17031,7 @@ void TacticalActor::SoldierPropertyUpkeep( )
 		EndMuzzleFlash(this);
 	}
 
-	if ( HasBackgroundFlag( BACKGROUND_EXP_UNDERGROUND ) && this->deployment().sectorZ() )
+	if ( TacticalActorModifiers::hasBackgroundFlag(*this, BACKGROUND_EXP_UNDERGROUND) && this->deployment().sectorZ() )
 		++condition().extraExperienceLevel();
 	
 	// if we are dead or dying, we cannot continue radio work
@@ -18778,7 +18797,7 @@ bool TacticalActorDisease::hasOutbreakProperty(
 
 // get the magnitude of a disease we might have, used to determine wether there are any effects
 float TacticalActorDisease::magnitude(
-	TacticalActor& actor,
+	const TacticalActor& actor,
 	std::uint8_t aDisease)
 {
 	auto* const self = &actor;
@@ -19138,7 +19157,7 @@ std::int16_t TacticalActorDisease::resistance(TacticalActor& actor)
 	if ( HAS_SKILL_TRAIT( self, SURVIVAL_NT ) )
 		val += gSkillTraitValues.usSVDiseaseResistance;
 
-	val += self->GetBackgroundValue( BG_RESI_DISEASE );
+	val += TacticalActorModifiers::backgroundValue(*self, BG_RESI_DISEASE );
 
 	val = max( -100, val );
 	val = min( 100, val );
@@ -19153,7 +19172,7 @@ std::uint16_t TacticalActorDisease::diagnosisPoints(TacticalActor& actor)
 	// determine our skill at detecting disease
 	UINT16 skill = self->statistics().medical() / 2 + NUM_SKILL_TRAITS( self, DOCTOR_NT ) * 15;
 
-	skill = ( skill * ( 100 + self->GetBackgroundValue( BG_PERC_DISEASE_DIAGNOSE ) ) ) / 100;
+	skill = ( skill * ( 100 + TacticalActorModifiers::backgroundValue(*self, BG_PERC_DISEASE_DIAGNOSE ) ) ) / 100;
 
 	FLOAT administrationmodifier = TacticalActorAssignments::administrationModifier(*self);
 	skill *= administrationmodifier;
@@ -19190,7 +19209,7 @@ float TacticalActorAssignments::burialPoints(
 	if ( DoesMercHaveDisability( self, FEAR_OF_INSECTS ) )	persmodifier -= 0.03f;
 	
 	// background modifier
-	persmodifier += ( self->GetBackgroundValue( BG_BURIAL_ASSIGNMENT ) ) / 100.0f;
+	persmodifier += ( TacticalActorModifiers::backgroundValue(*self, BG_BURIAL_ASSIGNMENT ) ) / 100.0f;
 
 	// equipment modifier
 	FLOAT bestequipmentmodifier = 1.0f;
@@ -19429,7 +19448,7 @@ float TacticalActorAssignments::constructionPoints(TacticalActor& actor)
 
 	ReducePointsForFatigue( self, &val );
 	
-	FLOAT dval = val * (100 + self->GetBackgroundValue( BG_FORTIFY_ASSIGNMENT )) / 100.0f;
+	FLOAT dval = val * (100 + TacticalActorModifiers::backgroundValue(*self, BG_FORTIFY_ASSIGNMENT )) / 100.0f;
 
 	dval = (dval * self->vitals().health() / self->vitals().maximumHealth());
 
@@ -19480,7 +19499,7 @@ UINT8	TacticalActor::GetWaterSnakeDefenseChance()
 	if ( gGameOptions.fNewTraitSystem )
 		val += gSkillTraitValues.usSVSnakeDefense * NUM_SKILL_TRAITS( this, SURVIVAL_NT );
 
-	val += this->GetBackgroundValue( BG_SNAKEDEFENSE );
+	val += TacticalActorModifiers::backgroundValue(*this, BG_SNAKEDEFENSE );
 
 	// bonus if we have a knife, extra if it is in our hands
 	for ( size_t bLoop = 0, invsize = inventory().size(); bLoop < invsize; ++bLoop )
@@ -19518,7 +19537,7 @@ UINT16	TacticalActor::GetInteractiveActionSkill( INT32 sGridNo, UINT8 usLevel, U
 			if ( this->identity().profile() == ROBOT || IsVehicle( this ) )
 				return 0;
 
-			UINT16 skill = this->GetBackgroundValue( BG_HACKERSKILL );
+			UINT16 skill = TacticalActorModifiers::backgroundValue(*this, BG_HACKERSKILL );
 
 			// without the background property, we cannot hack at all
 			if ( !skill )
@@ -20252,7 +20271,7 @@ void		TacticalActor::StopChatting()
 
 void		TacticalActor::DrugAutoUse()
 {
-	if ( !this->HasBackgroundFlag( BACKGROUND_DRUGUSE ) )
+	if ( !TacticalActorModifiers::hasBackgroundFlag(*this, BACKGROUND_DRUGUSE ) )
 		return;
 	
 	if ( !( IsJa2TacticalCombatActive() || IsJa2TacticalTurnBased() ) )
@@ -20453,7 +20472,7 @@ std::uint32_t TacticalActorAssignments::administrationPoints(
 	}
 
 	// background modifier
-	persmodifier += ( self->GetBackgroundValue( BG_ADMINISTRATION_ASSIGNMENT ) ) / 100.0f;
+	persmodifier += ( TacticalActorModifiers::backgroundValue(*self, BG_ADMINISTRATION_ASSIGNMENT ) ) / 100.0f;
 	
 	// equipment modifier
 	FLOAT bestequipmentmodifier = 1.0f;
@@ -20668,7 +20687,7 @@ UINT8		TacticalActor::GetTurncoatConvinctionChance( SoldierID usID, INT16 sAppro
 	// nominally in [0; 1000]
 	INT32 basestatrating = 6 * EffectiveLeadership( this ) + 40 * EffectiveExpLevel( this, FALSE );
 
-	FLOAT recruitmodifier = ( 100 + this->GetBackgroundValue( BG_PERC_APPROACH_RECRUIT ) ) / 100.0f;
+	FLOAT recruitmodifier = ( 100 + TacticalActorModifiers::backgroundValue(*this, BG_PERC_APPROACH_RECRUIT ) ) / 100.0f;
 
 	// personality/disability modifiers
 	FLOAT persmodifier = 1.0f;
@@ -20873,7 +20892,7 @@ std::uint32_t TacticalActorAssignments::explorationPoints(
 		5 * EffectiveExpLevel( self, FALSE ) +
 		150 * NUM_SKILL_TRAITS( self, SCOUTING_NT ) +
 		50 * NUM_SKILL_TRAITS( self, SURVIVAL_NT ) +
-		(self->HasBackgroundFlag( BACKGROUND_SCROUNGING ) ? 150 : 0);
+		(TacticalActorModifiers::hasBackgroundFlag(*self, BACKGROUND_SCROUNGING ) ? 150 : 0);
 
 	// personality/disability modifiers
 	FLOAT persmodifier = 1.0f;
@@ -20908,7 +20927,7 @@ std::uint32_t TacticalActorAssignments::explorationPoints(
 	}
 
 	// background modifier
-	persmodifier += ( self->GetBackgroundValue( BG_EXPLORATION_ASSIGNMENT ) ) / 100.0f;
+	persmodifier += ( TacticalActorModifiers::backgroundValue(*self, BG_EXPLORATION_ASSIGNMENT ) ) / 100.0f;
 	
 	const FLOAT scaledValue =
 		val * max(0.0f, persmodifier) *
@@ -24738,7 +24757,7 @@ UINT16	GridNoSpotterCTHBonus( TacticalActor* pSniper, INT32 sGridNo, INT8 bTeam 
 				INT8 relation = min( 2 * BUDDY_OPINION, max( 2 * HATED_OPINION, SoldierRelation( pSoldier, pSniper ) + SoldierRelation( pSniper, pSoldier ) ) );
 
 				// relation counts twice. Also account for special background. Effectivity cannot be lower than 0%!
-				effectivity = max( 0, effectivity + 2 * relation + pSoldier->GetBackgroundValue( BG_PERC_SPOTTER ) );
+				effectivity = max( 0, effectivity + 2 * relation + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_SPOTTER ) );
 				
 				// a good relation boosts value tremendously - a bad relation makes spotting useless
 				// the spotter background also alters effectiveness
@@ -24907,7 +24926,7 @@ UINT32 VirtualSoldierDressWound( TacticalActor *pSoldier, TacticalActor *pVictim
 	if ( !(fOnSurgery) && gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, DOCTOR_NT ) )
 	{
 		uiPossible = uiPossible * (100 - gSkillTraitValues.bSpeedModifierBandaging) / 100;
-		uiPossible += (uiPossible * gSkillTraitValues.ubDOBandagingSpeedPercent * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) + pSoldier->GetBackgroundValue( BG_PERC_BANDAGING )) / 100;
+		uiPossible += (uiPossible * gSkillTraitValues.ubDOBandagingSpeedPercent * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_BANDAGING )) / 100;
 	}
 
 	uiActual = uiPossible;		// start by assuming maximum possible
@@ -25245,7 +25264,7 @@ void HandleVolunteerRecruitment( TacticalActor* pRecruiter, TacticalActor* pTarg
 		if ( DoesMercHavePersonality( pRecruiter, CHAR_TRAIT_ASSERTIVE ) )
 			leadershipfactor *= 1.05f;
 
-		FLOAT recruitmodifier = (100 + pRecruiter->GetBackgroundValue( BG_PERC_APPROACH_RECRUIT )) / 100.0f;
+		FLOAT recruitmodifier = (100 + TacticalActorModifiers::backgroundValue(*pRecruiter, BG_PERC_APPROACH_RECRUIT )) / 100.0f;
 
 		FLOAT rating = leadershipfactor * recruitmodifier * gMercProfiles[pRecruiter->identity().profile()].usApproachFactor[3];
 		
@@ -25356,7 +25375,7 @@ BOOLEAN ApplyConsumable(TacticalActor* pSoldier, OBJECTTYPE *pObj, BOOLEAN fForc
 		}
 
 		// some mercs will refuse to smoke
-		if (ItemIsCigarette(pObj->usItem) && pSoldier->GetBackgroundValue( BG_SMOKERTYPE ) == 2 )
+		if (ItemIsCigarette(pObj->usItem) && TacticalActorModifiers::backgroundValue(*pSoldier, BG_SMOKERTYPE ) == 2 )
 		{
 			// merc gets slightly pissed by the player even suggesting this
 			TacticalCharacterDialogue( pSoldier, QUOTE_REFUSE_TO_SMOKE );

@@ -1,4 +1,5 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "SoldierRepository.h"
@@ -6407,7 +6408,7 @@ UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 
 		// Flugente: backgrounds
 		if ( pTarget && pTarget->roster().team() == CREATURE_TEAM )
-			fAimModifier += pSoldier->GetBackgroundValue(BG_PERC_CTH_CREATURE);
+			fAimModifier += TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CTH_CREATURE);
 
 		// Flugente: if we are a sniper and a spotter from our team spots the targetted location, we receive a powerful cth bonus
 		if ( gGameOptions.fNewTraitSystem && Weapon[usInHand].ubWeaponType == GUN_SN_RIFLE || Weapon[usInHand].ubWeaponType == GUN_RIFLE )
@@ -6492,7 +6493,7 @@ UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 		
 	// Impose global limits.	
 	// Flugente: backgrounds
-	fFinalChance = __min(fFinalChance, min(100, gGameExternalOptions.ubMaximumCTH + (UINT8)(pSoldier->GetBackgroundValue(BG_PERC_CTH_MAX))) );
+	fFinalChance = __min(fFinalChance, min(100, gGameExternalOptions.ubMaximumCTH + (UINT8)(TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CTH_MAX))) );
 	fFinalChance = __max(fFinalChance, gGameExternalOptions.ubMinimumCTH);
 	
 
@@ -6961,11 +6962,11 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	}
 
 	// Flugente: backgrounds
-	if ( pTarget && pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE ) )
+	if ( pTarget && TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE ) )
 	{
 		if ( pTarget->IsCrouchedAgainstCoverFromDir( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTarget ) ) )
 		{
-			iChance += pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE );
+			iChance += TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE );
 		}
 	}
 
@@ -6995,7 +6996,7 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		
 	// Flugente: backgrounds
 	if ( pTarget && pTarget->roster().team() == CREATURE_TEAM )
-		iChance += pSoldier->GetBackgroundValue(BG_PERC_CTH_CREATURE);
+		iChance += TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CTH_CREATURE);
 
 	// Flugente: if we are a sniper and a spotter from our team spots the targetted location, we receive a powerful cth bonus
 	if ( gGameOptions.fNewTraitSystem && Weapon[usInHand].ubWeaponType == GUN_SN_RIFLE || Weapon[usInHand].ubWeaponType == GUN_RIFLE )
@@ -7529,7 +7530,7 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		// iChance = MAXCHANCETOHIT;
 
 		// Flugente: backgrounds
-		iChance =  min(iChance, min(100, gGameExternalOptions.ubMaximumCTH + (UINT8)(pSoldier->GetBackgroundValue(BG_PERC_CTH_MAX))) );
+		iChance =  min(iChance, min(100, gGameExternalOptions.ubMaximumCTH + (UINT8)(TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CTH_MAX))) );
 	}
 	/////////////////////////////////////////////////////////////////////////////////////
 	
@@ -9318,7 +9319,7 @@ UINT32 CalcChanceHTH( TacticalActor * pAttacker,TacticalActor *pDefender, INT16 
 	// Flugente: backgrounds
 	if (ubMode == HTH_MODE_STAB)
 	{
-		iAttRating = (iAttRating * (100 + pAttacker->GetBackgroundValue(BG_PERC_CTH_BLADE))) / 100;
+		iAttRating = (iAttRating * (100 + TacticalActorModifiers::backgroundValue(*pAttacker, BG_PERC_CTH_BLADE))) / 100;
 	}
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -11635,11 +11636,11 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(TacticalActor *pSoldier, TacticalActor *
 		fBaseModifier += (fTempPenalty * gGameCTHConstants.BASE_AGILE_TARGET) / 100;
 
 		// Flugente: backgrounds
-		if ( pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE ) )
+		if ( TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE ) )
 		{
 			if ( pTarget->IsCrouchedAgainstCoverFromDir( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTarget ) ) )
 			{
-				fBaseModifier += pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE );
+				fBaseModifier += TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE );
 			}
 		}
 	}

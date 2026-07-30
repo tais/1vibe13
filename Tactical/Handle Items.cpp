@@ -1,4 +1,5 @@
 #include "connect.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalWorldAdapter.h"
@@ -702,7 +703,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 
 			// civgroup loyal will attack members of the same group
 			if (pSoldier->roster().civilianGroup() != NON_CIV_GROUP &&
-				pSoldier->HasBackgroundFlag(BACKGROUND_CIVGROUPLOYAL) &&
+				TacticalActorModifiers::hasBackgroundFlag(*pSoldier, BACKGROUND_CIVGROUPLOYAL) &&
 				pTargetSoldier->roster().civilianGroup() == pSoldier->roster().civilianGroup())
 			{
 				TacticalCharacterDialogue(pSoldier, QUOTE_REFUSING_ORDER);
@@ -711,7 +712,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 		}
 
 		// animal friend will refuse to attack animals
-		if (pSoldier->HasBackgroundFlag(BACKGROUND_ANIMALFRIEND) &&
+		if (TacticalActorModifiers::hasBackgroundFlag(*pSoldier, BACKGROUND_ANIMALFRIEND) &&
 			(pTargetSoldier->identity().bodyType() == CROW || pTargetSoldier->identity().bodyType() == COW || pTargetSoldier->identity().bodyType() == BLOODCAT) &&
 			pSoldier->combatResult().previousAttacker() != pTargetSoldier->identity().id() &&
 			pSoldier->combatResult().earlierAttacker() != pTargetSoldier->identity().id())
@@ -2381,7 +2382,7 @@ void HandleSoldierDropBomb( TacticalActor *pSoldier, INT32 sGridNo )
 				}
 
 				// Flugente: backgrounds
-				if ( pSoldier->HasBackgroundFlag( BACKGROUND_TRAPLEVEL ) )
+				if ( TacticalActorModifiers::hasBackgroundFlag(*pSoldier, BACKGROUND_TRAPLEVEL ) )
 					pSoldier->inventory()[ HANDPOS ][0]->data.bTrap++;
 
 				// anv: additional tile properties - modify trap level depending on its placement
@@ -6114,7 +6115,7 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 				}
 
 				// Flugente: backgrounds
-				if ( gpTempSoldier->HasBackgroundFlag( BACKGROUND_TRAPLEVEL ) )
+				if ( TacticalActorModifiers::hasBackgroundFlag(*gpTempSoldier, BACKGROUND_TRAPLEVEL ) )
 					(*pObj)[0]->data.bTrap++;
 				
 				// HACK IMMINENT!

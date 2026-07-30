@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "types.h"
@@ -751,7 +752,7 @@ BOOLEAN AttemptToBlowUpLock(TacticalActor * pSoldier, DOOR * pDoor)
 	DirtyMercPanelInterface(pSoldier, DIRTYLEVEL2);
 
 	// Flugente: flat bonus to using door breaching charges
-	iResult = SkillCheck(pSoldier, PLANTING_BOMB_CHECK, (INT8)pSoldier->GetBackgroundValue(BG_BONUS_BREACHINGCHARGE));
+	iResult = SkillCheck(pSoldier, PLANTING_BOMB_CHECK, (INT8)TacticalActorModifiers::backgroundValue(*pSoldier, BG_BONUS_BREACHINGCHARGE));
 	if (iResult >= -20)
 	{
 		// Do explosive graphic....

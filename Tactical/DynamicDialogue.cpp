@@ -5,6 +5,7 @@
 */
 
 #include "DynamicDialogue.h"
+#include "TacticalActorModifiers.h"
 #include "DynamicDialogueWidget.h"
 
 #include "SaveLoadGame.h"
@@ -196,14 +197,14 @@ INT8	SoldierRelation( TacticalActor* pSoldierA, TacticalActor* pSoldierB )
 	}
 
 	// Flugente: backgrounds
-	if ( pSoldierA->GetBackgroundValue( BG_DISLIKEBG ) && pSoldierA->GetBackgroundValue( BG_DISLIKEBG ) == -pSoldierB->GetBackgroundValue( BG_DISLIKEBG ) )
+	if ( TacticalActorModifiers::backgroundValue(*pSoldierA, BG_DISLIKEBG ) && TacticalActorModifiers::backgroundValue(*pSoldierA, BG_DISLIKEBG ) == -TacticalActorModifiers::backgroundValue(*pSoldierB, BG_DISLIKEBG ) )
 	{
 		bOpinion -= 2;
 	}
 
 	// smoker
-	INT16 smokerA = pSoldierA->GetBackgroundValue( BG_SMOKERTYPE );
-	INT16 smokerB = pSoldierB->GetBackgroundValue( BG_SMOKERTYPE );
+	INT16 smokerA = TacticalActorModifiers::backgroundValue(*pSoldierA, BG_SMOKERTYPE );
+	INT16 smokerB = TacticalActorModifiers::backgroundValue(*pSoldierB, BG_SMOKERTYPE );
 	if ( smokerA && smokerB )
 	{
 		if ( smokerA != smokerB )
@@ -212,7 +213,7 @@ INT8	SoldierRelation( TacticalActor* pSoldierA, TacticalActor* pSoldierB )
 			bOpinion += 1;
 	}
 
-	if ( pSoldierA->HasBackgroundFlag( BACKGROUND_XENOPHOBIC ) && pSoldierB->identity().profile() != NO_PROFILE && gMercProfiles[pSoldierA->identity().profile()].usBackground != gMercProfiles[pSoldierB->identity().profile()].usBackground )
+	if ( TacticalActorModifiers::hasBackgroundFlag(*pSoldierA, BACKGROUND_XENOPHOBIC ) && pSoldierB->identity().profile() != NO_PROFILE && gMercProfiles[pSoldierA->identity().profile()].usBackground != gMercProfiles[pSoldierB->identity().profile()].usBackground )
 		bOpinion -= gGameExternalOptions.sMoraleModXenophobicBackGround;
 
 	// Flugente: dynamic opinions
@@ -2320,13 +2321,13 @@ void HandleDynamicOpinionChange( TacticalActor* pSoldier, UINT8 usEvent, BOOLEAN
 
 			case OPINIONEVENT_ADDICT:
 				// do not add if we are an addict too
-				if ( pTeamSoldier->HasBackgroundFlag( BACKGROUND_DRUGUSE ) )
+				if ( TacticalActorModifiers::hasBackgroundFlag(*pTeamSoldier, BACKGROUND_DRUGUSE ) )
 					continue;
 				break;
 
 			case OPINIONEVENT_THIEF:
 				// do not add if we are a thief too
-				if ( pTeamSoldier->HasBackgroundFlag( BACKGROUND_SCROUNGING ) )
+				if ( TacticalActorModifiers::hasBackgroundFlag(*pTeamSoldier, BACKGROUND_SCROUNGING ) )
 					continue;
 				break;
 

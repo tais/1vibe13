@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
 #include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
@@ -394,8 +395,8 @@ void HourlyFoodSituationUpdate( TacticalActor *pSoldier )
 
 	FLOAT  temperaturemodifier  = (FLOAT)(3 + sectortemperaturemod)/3;
 	
-	FLOAT specialfoodmodifier  = 100.0 + pSoldier->GetBackgroundValue( BG_PERC_FOOD );
-	FLOAT specialdrinkmodifier = 100.0 + pSoldier->GetBackgroundValue( BG_PERC_WATER );
+	FLOAT specialfoodmodifier  = 100.0 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_FOOD );
+	FLOAT specialdrinkmodifier = 100.0 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_WATER );
 
 	if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 	{

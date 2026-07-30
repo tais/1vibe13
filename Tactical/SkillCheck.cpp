@@ -1,4 +1,5 @@
 	#include "SkillCheck.h"
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
 	#include "TacticalActorDisease.h"
 	#include "Soldier Profile.h"
@@ -62,7 +63,7 @@ INT16 EffectiveStrength( TacticalActor *pSoldier, BOOLEAN fTrainer )
 			diseaseeffect += Disease[i].sEffStat[INFST_STR] * TacticalActorDisease::magnitude(*pSoldier, i );
 	}
 
-	iEffStrength = (iEffStrength * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_STRENGTH ))) / 100;
+	iEffStrength = (iEffStrength * (100 + diseaseeffect + TacticalActorModifiers::backgroundValue(*pSoldier, BG_STRENGTH ))) / 100;
 
 	// ATE: Make sure at least 2...
 	iEffStrength = __max( iEffStrength, 2 );
@@ -86,7 +87,7 @@ INT16 EffectiveWisdom( TacticalActor * pSoldier)
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 		diseaseeffect += Disease[i].sEffStat[INFST_WIS] * TacticalActorDisease::magnitude(*pSoldier, i );
 
-	iEffWisdom = (iEffWisdom * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_WISDOM ))) / 100;
+	iEffWisdom = (iEffWisdom * (100 + diseaseeffect + TacticalActorModifiers::backgroundValue(*pSoldier, BG_WISDOM ))) / 100;
 
 	return( (INT16) iEffWisdom );
 }
@@ -121,7 +122,7 @@ INT16 EffectiveAgility( TacticalActor * pSoldier, BOOLEAN fTrainer )
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 		diseaseeffect += Disease[i].sEffStat[INFST_AGI] * TacticalActorDisease::magnitude(*pSoldier, i );
 
-	iEffAgility = (iEffAgility * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_AGILITY ))) / 100;
+	iEffAgility = (iEffAgility * (100 + diseaseeffect + TacticalActorModifiers::backgroundValue(*pSoldier, BG_AGILITY ))) / 100;
 
 	return( (INT16) iEffAgility );
 }
@@ -135,7 +136,7 @@ INT8 EffectiveMechanical( TacticalActor * pSoldier )
 
 	iEffMechanical = EffectStatForBeingDrunk( pSoldier, iEffMechanical );
 
-	iEffMechanical = (iEffMechanical * (100 + pSoldier->GetBackgroundValue(BG_MECHANICAL))) / 100;
+	iEffMechanical = (iEffMechanical * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_MECHANICAL))) / 100;
 
 	return( (INT8) iEffMechanical );
 }
@@ -149,7 +150,7 @@ INT8 EffectiveExplosive( TacticalActor * pSoldier )
 
 	iEffExplosive = EffectStatForBeingDrunk( pSoldier, iEffExplosive );
 
-	iEffExplosive = (iEffExplosive * (100 + pSoldier->GetBackgroundValue(BG_EXPLOSIVE_ASSIGN))) / 100;
+	iEffExplosive = (iEffExplosive * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_EXPLOSIVE_ASSIGN))) / 100;
 
 	return( (INT8) iEffExplosive );
 }
@@ -163,7 +164,7 @@ INT8 EffectiveMedical( TacticalActor * pSoldier )
 
 	iEffMedical = EffectStatForBeingDrunk( pSoldier, iEffMedical );
 
-	iEffMedical = (iEffMedical * (100 + pSoldier->GetBackgroundValue(BG_MEDICAL))) / 100;
+	iEffMedical = (iEffMedical * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_MEDICAL))) / 100;
 
 	return( (INT8) iEffMedical );
 }
@@ -183,7 +184,7 @@ INT8 EffectiveLeadership( TacticalActor * pSoldier )
 		iEffLeadership = ( iEffLeadership * 120 / 100 );
 	}
 
-	iEffLeadership = (iEffLeadership * (100 + pSoldier->GetBackgroundValue(BG_LEADERSHIP))) / 100;
+	iEffLeadership = (iEffLeadership * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_LEADERSHIP))) / 100;
 
 	return( (INT8) iEffLeadership );
 }
@@ -268,7 +269,7 @@ INT8 EffectiveMarksmanship( TacticalActor * pSoldier )
 
 	iEffMarksmanship = EffectStatForBeingDrunk( pSoldier, iEffMarksmanship );
 
-	iEffMarksmanship = (iEffMarksmanship * (100 + pSoldier->GetBackgroundValue(BG_MARKSMANSHIP))) / 100;
+	iEffMarksmanship = (iEffMarksmanship * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_MARKSMANSHIP))) / 100;
 
 	return( (INT8) iEffMarksmanship );
 }
@@ -297,7 +298,7 @@ INT16 EffectiveDexterity( TacticalActor * pSoldier, BOOLEAN fTrainer )
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 		diseaseeffect += Disease[i].sEffStat[INFST_DEX] * TacticalActorDisease::magnitude(*pSoldier, i );
 
-	iEffDexterity = (iEffDexterity * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_DEXTERITY ))) / 100;
+	iEffDexterity = (iEffDexterity * (100 + diseaseeffect + TacticalActorModifiers::backgroundValue(*pSoldier, BG_DEXTERITY ))) / 100;
 
 	return( (INT16) iEffDexterity );
 }
@@ -529,7 +530,7 @@ INT32 SkillCheck( TacticalActor * pSoldier, INT8 bReason, INT8 bChanceMod )
 			iSkill += EffectiveExpLevel( pSoldier ) * 10;
 
 			// Flugente: backgrounds
-			iSkill += pSoldier->GetBackgroundValue( BG_PERC_DISARM );
+			iSkill += TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_DISARM );
 
 			iSkill = iSkill / 10; // bring the value down to a percentage
 			//JMich_SkillModifiers: Adding a Disarm Trap bonus

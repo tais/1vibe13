@@ -1,4 +1,5 @@
 #include "Assignments.h"
+#include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorCovertOps.h"
@@ -3286,9 +3287,9 @@ UINT16 CalculateHealingPointsForDoctor(TacticalActor *pDoctor, UINT16 *pusMaxPts
 
 	// calculate normal doctoring rate - what it would be if his stats were "normal" (ignoring drugs, fatigue, equipment condition)
 	// and equipment was not a hindrance
-	INT16 dexterity = (pDoctor->statistics().dexterity() * (100 + pDoctor->GetBackgroundValue( BG_DEXTERITY ))) / 100;
-	INT16 medical	= (pDoctor->statistics().medical() * (100 + pDoctor->GetBackgroundValue( BG_MEDICAL ))) / 100;
-	INT16 wisdom	= (pDoctor->statistics().wisdom() * (100 + pDoctor->GetBackgroundValue( BG_WISDOM ))) / 100;
+	INT16 dexterity = (pDoctor->statistics().dexterity() * (100 + TacticalActorModifiers::backgroundValue(*pDoctor, BG_DEXTERITY ))) / 100;
+	INT16 medical	= (pDoctor->statistics().medical() * (100 + TacticalActorModifiers::backgroundValue(*pDoctor, BG_MEDICAL ))) / 100;
+	INT16 wisdom	= (pDoctor->statistics().wisdom() * (100 + TacticalActorModifiers::backgroundValue(*pDoctor, BG_WISDOM ))) / 100;
 
 	*pusMaxPts = (medical * ((dexterity + wisdom) / 2) * (100 + (5 * pDoctor->statistics().experienceLevel()))) / gGameExternalOptions.ubDoctoringRateDivisor;
 	*pusMaxPts = __max(0,*pusMaxPts);
@@ -3388,8 +3389,8 @@ UINT8 CalculateRepairPointsForRepairman(TacticalActor *pSoldier, UINT16 *pusMaxP
 
 	// calculate normal repair rate - what it would be if his stats were "normal" (ignoring drugs, fatigue, equipment condition)
 	// and equipment was not a hindrance
-	INT16 mechanical = (pSoldier->statistics().mechanical() * (100 + pSoldier->GetBackgroundValue( BG_MECHANICAL ))) / 100;
-	INT16 dexterity  = (pSoldier->statistics().dexterity() * (100 + pSoldier->GetBackgroundValue( BG_DEXTERITY ))) / 100;
+	INT16 mechanical = (pSoldier->statistics().mechanical() * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_MECHANICAL ))) / 100;
+	INT16 dexterity  = (pSoldier->statistics().dexterity() * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_DEXTERITY ))) / 100;
 	*pusMaxPts = (mechanical * dexterity * (100 + (5 * pSoldier->statistics().experienceLevel()))) / (gGameExternalOptions.ubRepairRateDivisor * gGameExternalOptions.ubAssignmentUnitsPerDay);
 
 	// SANDRO - Technician trait gives a good bonus to repair items
@@ -3484,8 +3485,8 @@ UINT8 CalculateCleaningPointsForRepairman(TacticalActor *pSoldier, UINT16 *pusMa
 
 	// calculate normal repair rate - what it would be if his stats were "normal" (ignoring drugs, fatigue, equipment condition)
 	// and equipment was not a hindrance
-	INT16 mechanical = (pSoldier->statistics().mechanical() * (100 + pSoldier->GetBackgroundValue( BG_MECHANICAL ))) / 100;
-	INT16 dexterity  = (pSoldier->statistics().dexterity() * (100 + pSoldier->GetBackgroundValue( BG_DEXTERITY ))) / 100;
+	INT16 mechanical = (pSoldier->statistics().mechanical() * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_MECHANICAL ))) / 100;
+	INT16 dexterity  = (pSoldier->statistics().dexterity() * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_DEXTERITY ))) / 100;
 	*pusMaxPts = ( ( mechanical + 3 * dexterity + 50 * pSoldier->statistics().experienceLevel() ) * 1000 ) / (gGameExternalOptions.ubCleaningRateDivisor * gGameExternalOptions.ubAssignmentUnitsPerDay);
 
 	// SANDRO - Technician trait gives a good bonus to repair items
@@ -3548,11 +3549,11 @@ UINT32 CalculateInterrogationValue(TacticalActor *pSoldier, UINT16 *pusMaxPts )
 	// adjust for threatening value
 	INT32 threatenvalue = CalcThreateningEffectiveness( pSoldier->identity().profile() ) * gMercProfiles[pSoldier->identity().profile()].usApproachFactor[2] ;
 	
-	threatenvalue = (threatenvalue * (100 + pSoldier->GetBackgroundValue(BG_PERC_APPROACH_THREATEN))) / 100;
+	threatenvalue = (threatenvalue * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_APPROACH_THREATEN))) / 100;
 		
 	usInterrogationPoints *= threatenvalue;
 	
-	usInterrogationPoints = (usInterrogationPoints * (100 + pSoldier->GetBackgroundValue(BG_PERC_INTERROGATION))) / 100;
+	usInterrogationPoints = (usInterrogationPoints * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_INTERROGATION))) / 100;
 	
 	UINT16 performancemodifier = 100;
 	for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt)
@@ -3616,7 +3617,7 @@ UINT32 CalculatePrisonGuardValue(TacticalActor *pSoldier )
 		usValue += 25 * NUM_SKILL_TRAITS( pSoldier, MARTIALARTS_OT ) + 25 * NUM_SKILL_TRAITS( pSoldier, HANDTOHAND_OT ) + 10 * HAS_SKILL_TRAIT( pSoldier, KNIFING_OT );
 	}
 	
-	usValue = (usValue * (100 + max(0, pSoldier->GetBackgroundValue(BG_PERC_GUARD)))) / 100;
+	usValue = (usValue * (100 + max(0, TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_GUARD)))) / 100;
 	
 	// adjust for fatigue
 	ReducePointsForFatigue( pSoldier, &usValue );
@@ -3775,7 +3776,7 @@ UINT32 CalculateSnitchInterrogationValue(TacticalActor *pSoldier, UINT16 *pusMax
 			friendlyvalue += 30;
 	}
 
-	friendlyvalue = (friendlyvalue * (100 + pSoldier->GetBackgroundValue(BG_PERC_APPROACH_FRIENDLY))) / 100;
+	friendlyvalue = (friendlyvalue * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_APPROACH_FRIENDLY))) / 100;
 
 	usInterrogationPoints *= friendlyvalue;
 
@@ -3831,7 +3832,7 @@ FLOAT GetBestSAMOperatorCTH_Player( INT16 sSectorX, INT16 sSectorY, INT16 sSecto
 				2 * NUM_SKILL_TRAITS( pSoldier, DEMOLITIONS_NT ) +
 				5 * NUM_SKILL_TRAITS( pSoldier, RADIO_OPERATOR_NT );
 
-			personal_bestsamcth = (personal_bestsamcth * (100.0f + pSoldier->GetBackgroundValue( BG_PERC_SAM_CTH ))) / 100.0f;
+			personal_bestsamcth = (personal_bestsamcth * (100.0f + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_SAM_CTH ))) / 100.0f;
 
 			if ( personal_bestsamcth > bestsamcth )
 			{
@@ -6717,7 +6718,7 @@ void HandleStrategicDiseaseAndBurial()
 				UINT16 maxHealPoints = 0;
 				UINT16 ptsavailable = CalculateHealingPointsForDoctor( pSoldier, &maxHealPoints, TRUE );
 
-				ptsavailable = ( ptsavailable * ( 100 + pSoldier->GetBackgroundValue( BG_PERC_DISEASE_TREAT ) ) ) / 100;
+				ptsavailable = ( ptsavailable * ( 100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_DISEASE_TREAT ) ) ) / 100;
 
 				// calculate how much total points we have in all medical bags
 				UINT16 usTotalMedPoints = TotalMedicalKitPoints( pSoldier );
@@ -7189,7 +7190,7 @@ void HandleSpreadingPropagandaInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 			uiPropagandaEffect += GAIN_PTS_PER_LOYALTY_PT * 
 				(  ( 50 + EffectiveLeadership(pSnitch) / 2 ) / 100.0 ) *
 				(  ( 75 + EffectiveWisdom(pSnitch) / 4 ) / 100.0 ) *
-				(  ( 75 + ( gMercProfiles[ pSnitch->identity().profile() ].usApproachFactor[3] + pSnitch->GetBackgroundValue(BG_PERC_APPROACH_RECRUIT) ) / 4 ) / 100.0 ) ;
+				(  ( 75 + ( gMercProfiles[ pSnitch->identity().profile() ].usApproachFactor[3] + TacticalActorModifiers::backgroundValue(*pSnitch, BG_PERC_APPROACH_RECRUIT) ) / 4 ) / 100.0 ) ;
 			if( pSnitch->assignment().facilityType() && // Soldier is operating facility
 				GetSoldierFacilityAssignmentIndex( pSnitch ) != -1) 
 			{
@@ -7242,7 +7243,7 @@ UINT32 HandlePropagandaBlockingBadNewsInTown( INT8 bTownId, UINT32 uiLoyaltyDecr
 			fPropagandaEffect = 0.5 * 
 				(  ( 50 + EffectiveLeadership(pSnitch) / 2 ) / 100.0 ) *
 				(  ( 75 + EffectiveWisdom(pSnitch) / 4 ) / 100.0 ) *
-				(  ( 75 + ( gMercProfiles[ pSnitch->identity().profile() ].usApproachFactor[3] + pSnitch->GetBackgroundValue(BG_PERC_APPROACH_RECRUIT) ) / 4 ) / 100.0 );
+				(  ( 75 + ( gMercProfiles[ pSnitch->identity().profile() ].usApproachFactor[3] + TacticalActorModifiers::backgroundValue(*pSnitch, BG_PERC_APPROACH_RECRUIT) ) / 4 ) / 100.0 );
 
 			if( pSnitch->assignment().facilityType() && // Soldier is operating facility
 				GetSoldierFacilityAssignmentIndex( pSnitch ) != -1) 
@@ -9224,8 +9225,8 @@ INT16 GetTownTrainPtsForCharacter( TacticalActor *pTrainer, UINT16 *pusMaxPts )
 //	UINT8 ubTownId = 0;
 
 	// calculate normal training pts - what it would be if his stats were "normal" (ignoring drugs, fatigue)
-	INT16 wisdom	 = (pTrainer->statistics().wisdom() * (100 + pTrainer->GetBackgroundValue( BG_WISDOM ))) / 100;
-	INT16 leadership = (pTrainer->statistics().leadership() * (100 + pTrainer->GetBackgroundValue( BG_LEADERSHIP ))) / 100;
+	INT16 wisdom	 = (pTrainer->statistics().wisdom() * (100 + TacticalActorModifiers::backgroundValue(*pTrainer, BG_WISDOM ))) / 100;
+	INT16 leadership = (pTrainer->statistics().leadership() * (100 + TacticalActorModifiers::backgroundValue(*pTrainer, BG_LEADERSHIP ))) / 100;
 
 	*pusMaxPts = (wisdom + leadership + (10 * pTrainer->statistics().experienceLevel())) * gGameExternalOptions.ubTownMilitiaTrainingRate;
 
@@ -19494,7 +19495,7 @@ UINT8 CalcSoldierNeedForSleep( TacticalActor *pSoldier )
 		}
 	}
 	
-	ubNeedForSleep += pSoldier->GetBackgroundValue(BG_PERC_SLEEP);
+	ubNeedForSleep += TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_SLEEP);
 
 	// Flugente: diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;

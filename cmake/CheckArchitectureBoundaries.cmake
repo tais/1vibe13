@@ -2162,6 +2162,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.cpp"
   tactical_actor_conditions_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAssignments.h"
   tactical_actor_assignments_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorModifiers.h"
+  tactical_actor_modifiers_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
@@ -2680,6 +2682,65 @@ string(FIND "${headless_test_contents}"
 if(assignment_operation_coverage EQUAL -1)
   message(FATAL_ERROR
     "Tactical actor assignment rules lost their data-free headless coverage")
+endif()
+
+foreach(retired_modifier_method IN ITEMS
+  "HasBackgroundFlag"
+  "GetBackgroundValue"
+  "GetBackgroundValueVector"
+  "GetSuppressionResistanceBonus"
+  "GetMeleeDamageBonus"
+  "GetAPBonus"
+  "GetFearResistanceBonus"
+  "GetMoraleThreshold"
+  "GetMoraleModifier"
+  "GetInterruptModifier")
+  string(FIND "${tactical_actor_contents}"
+    "${retired_modifier_method}("
+    retired_modifier_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActor::${retired_modifier_method}"
+    retired_modifier_definition)
+  if(NOT retired_modifier_declaration EQUAL -1 OR
+     NOT retired_modifier_definition EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalActor regained modifier facade '${retired_modifier_method}'")
+  endif()
+endforeach()
+
+foreach(required_modifier_operation IN ITEMS
+  "hasBackgroundFlag"
+  "backgroundValue"
+  "backgroundValues"
+  "suppressionResistanceBonus"
+  "meleeDamageBonus"
+  "actionPointBonus"
+  "fearResistanceBonus"
+  "moraleModifier"
+  "interruptModifier")
+  string(FIND "${tactical_actor_modifiers_header_contents}"
+    "${required_modifier_operation}("
+    modifier_operation_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActorModifiers::${required_modifier_operation}("
+    modifier_operation_definition)
+  if(modifier_operation_declaration EQUAL -1 OR
+     modifier_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor modifier operation '${required_modifier_operation}' lost its domain declaration or definition")
+  endif()
+endforeach()
+
+string(FIND "${headless_test_contents}"
+  "TacticalActorModifiers::backgroundValue"
+  modifier_background_coverage)
+string(FIND "${headless_test_contents}"
+  "TacticalActorModifiers::actionPointBonus"
+  modifier_derived_coverage)
+if(modifier_background_coverage EQUAL -1 OR
+   modifier_derived_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor modifiers lost their malformed-data or data-free headless coverage")
 endif()
 
 foreach(required_persistence_fragment IN ITEMS

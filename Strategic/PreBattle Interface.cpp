@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
 	#include <stdio.h>
 	#include "PreBattle Interface.h"
@@ -711,7 +712,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 				}
 
 				UINT16 deploymentleadership = EffectiveLeadership( pSoldier );
-				FLOAT ambushradiusmodifier = 10 * EffectiveExpLevel( pSoldier ) + pSoldier->GetBackgroundValue( BG_AMBUSH_RADIUS );
+				FLOAT ambushradiusmodifier = 10 * EffectiveExpLevel( pSoldier ) + TacticalActorModifiers::backgroundValue(*pSoldier, BG_AMBUSH_RADIUS );
 				if ( gGameOptions.fNewTraitSystem )
 				{
 					deploymentleadership += 50 * NUM_SKILL_TRAITS( pSoldier, SQUADLEADER_NT );

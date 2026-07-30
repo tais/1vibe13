@@ -1,4 +1,5 @@
 	#include "mapscreen.h"
+#include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
@@ -9781,8 +9782,8 @@ void BltCharInvPanel()
 			}
 		
 			// anv: display stealth together with camo
-			INT16 wornstealth = GetWornStealth(pSoldier) - pSoldier->GetBackgroundValue(BG_PERC_STEALTH);
-			INT16 bonusstealth = pSoldier->GetBackgroundValue(BG_PERC_STEALTH);
+			INT16 wornstealth = GetWornStealth(pSoldier) - TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_STEALTH);
+			INT16 bonusstealth = TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_STEALTH);
 			if ( pSoldier->identity().bodyType() == BLOODCAT )
 			{
 				bonusstealth += 50;
@@ -10242,7 +10243,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				//Jenilee: determine the cost of moving this item around in our inventory
 				usCostToMoveItem = GetInvMovementCost(gpItemPointer, iLastHandPos, uiHandPos);
 				// Flugente: backgrounds
-				usCostToMoveItem = (usCostToMoveItem * (100 + pSoldier->GetBackgroundValue(BG_INVENTORY))) / 100;
+				usCostToMoveItem = (usCostToMoveItem * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_INVENTORY))) / 100;
 
 				//we dont have enough APs to move it to this slot, show a warning message
 				if (usCostToMoveItem > 0 && pSoldier->actionPoints().current() < usCostToMoveItem && pSoldier->inventory()[iLastHandPos].usItem == NULL)
@@ -10280,7 +10281,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 								// silversurfer: This didn't cost any AP. Why? CTRL + LeftClick should deduct the same AP as manual attachment in the EDB.
 								usCostToMoveItem = AttachmentAPCost(gpItemPointer->usItem, pSoldier->inventory()[uiHandPos].usItem, pSoldier);
 								// Flugente: backgrounds
-								usCostToMoveItem = (usCostToMoveItem * (100 + pSoldier->GetBackgroundValue(BG_INVENTORY))) / 100;
+								usCostToMoveItem = (usCostToMoveItem * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_INVENTORY))) / 100;
 								// do we have enough AP?
 								if (!EnoughPoints(pSoldier, usCostToMoveItem, 0, TRUE))
 									return;

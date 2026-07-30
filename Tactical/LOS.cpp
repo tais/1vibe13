@@ -1,4 +1,5 @@
 #include "connect.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 #include "builddefines.h"
@@ -603,7 +604,7 @@ INT8 GetSightAdjustmentCamouflageOnTerrain( TacticalActor* pSoldier, const UINT8
 
 	INT16 scaler = -(ANIM_STAND+1 - ubStance); // stand = 7-6 => 10%, crouch = 7-3 => 66%, prone = 7-1 => 100%;
 
-	INT16 effectiveness = gGameExternalOptions.ubCamouflageEffectiveness + pSoldier->GetBackgroundValue(BG_PERC_CAMO);
+	INT16 effectiveness = gGameExternalOptions.ubCamouflageEffectiveness + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CAMO);
 
 	if (ProfileHasSkillTrait(pSoldier->identity().profile(), SURVIVAL_NT))
 	{
@@ -647,7 +648,7 @@ INT8 GetDetailedSightAdjustmentCamouflageOnTerrain( TacticalActor* pSoldier, con
 	
 	INT16 scaler = -(ANIM_STAND+1 - max(ANIM_PRONE, ubStance - bStanceModifier)); // stand = 7-6 => 10%, crouch = 7-3 => 66%, prone = 7-1 => 100%;
 
-	INT16 effectiveness = gGameExternalOptions.ubCamouflageEffectiveness + pSoldier->GetBackgroundValue(BG_PERC_CAMO);
+	INT16 effectiveness = gGameExternalOptions.ubCamouflageEffectiveness + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CAMO);
 
 	if (ProfileHasSkillTrait(pSoldier->identity().profile(), SURVIVAL_NT))
 	{

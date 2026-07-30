@@ -1,4 +1,5 @@
 	#include "types.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 	#include "WCheck.h"
 	#include "Overhead.h"
@@ -857,7 +858,7 @@ INT32 GetEffectiveApproachValue( UINT8 usProfile, UINT8 usApproach, CHAR16* apSt
 		else if ( usApproach == APPROACH_RECRUIT )
 			bgprperty = BG_PERC_APPROACH_RECRUIT;
 
-		FLOAT bgmodifier = (FLOAT)((100.0f + pSoldier->GetBackgroundValue( bgprperty ))) / 100.0f;
+		FLOAT bgmodifier = (FLOAT)((100.0f + TacticalActorModifiers::backgroundValue(*pSoldier, bgprperty ))) / 100.0f;
 
 		if ( apStr )
 		{

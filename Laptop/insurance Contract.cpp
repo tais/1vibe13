@@ -1,4 +1,5 @@
 	#include "laptop.h"
+#include "TacticalActorModifiers.h"
 	#include "insurance.h"
 	#include "insurance Contract.h"
 	#include "WCheck.h"
@@ -1215,7 +1216,7 @@ INT32	CalculateInsuranceContractCost( INT32 iLength, UINT8 ubMercID )
 	flRiskFactor = flSkillFactor * flFitnessFactor * flExpFactor * flSurvivalFactor;
 
 	// Flugente: backgrounds
-	flRiskFactor = flRiskFactor * (100 + pSoldier->GetBackgroundValue(BG_PERC_INSURANCE)) / 100;
+	flRiskFactor = flRiskFactor * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_INSURANCE)) / 100;
 
 	// restrict the overall factor to within reasonable limits
 	if (flRiskFactor < MIN_INSURANCE_RATIO)

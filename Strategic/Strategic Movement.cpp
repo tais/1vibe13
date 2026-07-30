@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
 #include "TacticalActorDisease.h"
 #include "TacticalEntityHost.h"
@@ -3625,9 +3626,9 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 						// Well, a slow soldier on foot can slow the whole team down, but one fast soldier won't make the whole team quicker. He is no survivalist after all.
 						// A good driver on the other hand will drive faster and since the team is on the same vehicle, they all will be faster.
 						// A merc with flight experience can pose as co-pilot and provide some assistance to the pilot, so again the whole team profits.
-						stravelbackground_foot = min( stravelbackground_foot, pSoldier->GetBackgroundValue( BG_TRAVEL_FOOT ) );
-						stravelbackground_car = max( stravelbackground_car, pSoldier->GetBackgroundValue( BG_TRAVEL_CAR ) );
-						stravelbackground_air = max( stravelbackground_air, pSoldier->GetBackgroundValue( BG_TRAVEL_AIR ) );
+						stravelbackground_foot = min( stravelbackground_foot, TacticalActorModifiers::backgroundValue(*pSoldier, BG_TRAVEL_FOOT ) );
+						stravelbackground_car = max( stravelbackground_car, TacticalActorModifiers::backgroundValue(*pSoldier, BG_TRAVEL_CAR ) );
+						stravelbackground_air = max( stravelbackground_air, TacticalActorModifiers::backgroundValue(*pSoldier, BG_TRAVEL_AIR ) );
 					}
 
 					curr = curr->next;

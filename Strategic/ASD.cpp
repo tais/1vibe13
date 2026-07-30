@@ -4,6 +4,7 @@
 */
 
 #include <math.h>
+#include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "ASD.h"
@@ -1196,7 +1197,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 
 					samcth = (FLOAT)((samcth * (100.0f + pSoldier->GetTraitCTHModifier( pObj->usItem, 2, NO_PROFILE ))) / 100.0f);
 
-					samcth = (samcth * (100.0f + pSoldier->GetBackgroundValue( BG_PERC_SAM_CTH ))) / 100.0f;
+					samcth = (samcth * (100.0f + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_SAM_CTH ))) / 100.0f;
 
 					// cth is reduced if SAM is damaged, even if it can still operate
 					samcth = (samcth * (*pObj)[0]->data.objectStatus) / 100.0f;

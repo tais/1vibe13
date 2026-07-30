@@ -1107,20 +1107,6 @@ public:
 	// Flugente: soldier profiles
 	INT8		GetSoldierProfileType(UINT8 usTeam);		// retrieves the correct sub-array
 
-	// Flugente: do we have a specific background flag?
-	BOOLEAN		HasBackgroundFlag( UINT64 aFlag );
-	INT16		GetBackgroundValue( UINT16 aNr );
-
-	const std::vector<INT16>& GetBackgroundValueVector(BackgroundVectorTypes backgroundVectorType) const;
-
-	INT8		GetSuppressionResistanceBonus();			// bonus to resistance against suppression
-	INT16		GetMeleeDamageBonus();
-	INT16		GetAPBonus();
-	INT8		GetFearResistanceBonus();					// fear resistance lowers shock and morale damage from horror
-	UINT8		GetMoraleThreshold();
-	FLOAT		GetMoraleModifier();
-	INT16		GetInterruptModifier( UINT8 usDistance );
-
 	void		SoldierPropertyUpkeep();					// update functions for various properties (updating counters, resetting flags etc.)
 
 	// Flugente: functions for skill usage

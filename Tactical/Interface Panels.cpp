@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
@@ -2997,8 +2998,8 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		}
 		
 		// anv: display stealth together with camo
-		INT16 wornstealth = GetWornStealth(GetSMCurrentMerc()) - GetSMCurrentMerc()->GetBackgroundValue(BG_PERC_STEALTH);
-		INT16 bonusstealth = GetSMCurrentMerc()->GetBackgroundValue(BG_PERC_STEALTH);
+		INT16 wornstealth = GetWornStealth(GetSMCurrentMerc()) - TacticalActorModifiers::backgroundValue(*GetSMCurrentMerc(), BG_PERC_STEALTH);
+		INT16 bonusstealth = TacticalActorModifiers::backgroundValue(*GetSMCurrentMerc(), BG_PERC_STEALTH);
 		if ( GetSMCurrentMerc()->identity().bodyType() == BLOODCAT )
 		{
 			bonusstealth += 50;
@@ -3822,7 +3823,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					usCostToMoveItem = GetInvMovementCost(gpItemPointer, iLastHandPos, uiHandPos);
 				
 				// Flugente: backgrounds
-				usCostToMoveItem = (usCostToMoveItem * (100 + GetSMCurrentMerc()->GetBackgroundValue(BG_INVENTORY))) / 100;
+				usCostToMoveItem = (usCostToMoveItem * (100 + TacticalActorModifiers::backgroundValue(*GetSMCurrentMerc(), BG_INVENTORY))) / 100;
 				
 				if ( ( usCostToMoveItem == 0 ) || ( GetSMCurrentMerc()->actionPoints().current() >= usCostToMoveItem ) )
 				{
@@ -3911,7 +3912,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 									// silversurfer: This didn't cost any AP. Why? CTRL + LeftClick should deduct the same AP as manual attachment in the EDB.
 									usCostToMoveItem = AttachmentAPCost(gpItemPointer->usItem, GetSMCurrentMerc()->inventory()[uiHandPos].usItem, GetSMCurrentMerc());
 									// Flugente: backgrounds
-									usCostToMoveItem = (usCostToMoveItem * (100 + GetSMCurrentMerc()->GetBackgroundValue(BG_INVENTORY))) / 100;
+									usCostToMoveItem = (usCostToMoveItem * (100 + TacticalActorModifiers::backgroundValue(*GetSMCurrentMerc(), BG_INVENTORY))) / 100;
 									// do we have enough AP?
 									if (!EnoughPoints(GetSMCurrentMerc(), usCostToMoveItem, 0, TRUE))
 										return;

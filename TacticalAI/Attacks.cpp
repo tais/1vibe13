@@ -1,4 +1,5 @@
 #include "ai.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
 #include "Weapons.h"
 #include "opplist.h"
@@ -2586,7 +2587,7 @@ INT32 EstimateStabDamage( TacticalActor *pSoldier, TacticalActor *pOpponent, INT
 	// Flugente: Add personal damage bonus
 	if (fBladeAttack)
 	{
-		iImpact = (iImpact * (100 + pSoldier->GetMeleeDamageBonus()) / 100);
+		iImpact = (iImpact * (100 + TacticalActorModifiers::meleeDamageBonus(*pSoldier)) / 100);
 	}
 
 	iImpact = max(1, iImpact);

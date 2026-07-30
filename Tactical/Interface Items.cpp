@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 	#include "mapscreen.h"
@@ -2745,7 +2746,7 @@ void INVRenderINVPanelItem( TacticalActor *pSoldier, INT16 sPocket, UINT8 fDirty
 					//Jenilee: determine the cost of moving this item around in our inventory
 					UINT16 usCostToMoveItem = GetInvMovementCost(gpItemPointer, iLastHandPos, sPocket);
 					// Flugente: backgrounds
-					usCostToMoveItem = (usCostToMoveItem * (100 + pSoldier->GetBackgroundValue(BG_INVENTORY))) / 100;
+					usCostToMoveItem = (usCostToMoveItem * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_INVENTORY))) / 100;
 
 					//we dont have enough APs to move it to this slot
 					if (usCostToMoveItem > 0 && pSoldier->actionPoints().current() < usCostToMoveItem && pSoldier->inventory()[iLastHandPos].usItem == NULL)
@@ -14271,7 +14272,7 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 			}
 
 			// Flugente: backgrounds
-			if ( GetItemDescSoldier()->HasBackgroundFlag( BACKGROUND_TRAPLEVEL ) )
+			if ( TacticalActorModifiers::hasBackgroundFlag(*GetItemDescSoldier(), BACKGROUND_TRAPLEVEL ) )
 				(*gpItemDescObject)[0]->data.bTrap++;
 				
 			// Flugente: We armed a bomb in our inventory. We will NOT add it to the item pool and the world bombs.

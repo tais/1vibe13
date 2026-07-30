@@ -30,7 +30,7 @@ namespace TacticalActorDisease
 		TacticalActor& actor,
 		std::uint32_t property);
 	[[nodiscard]] float magnitude(
-		TacticalActor& actor,
+		const TacticalActor& actor,
 		std::uint8_t disease);
 
 	void appendDescription(

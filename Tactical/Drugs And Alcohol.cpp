@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
 	#include "TacticalActorDisease.h"
 	#include "Soldier Control.h"
@@ -46,7 +47,7 @@ BOOLEAN ApplyDrugs_New( TacticalActor *pSoldier, UINT16 usItem, UINT16 uStatusUs
 	// if this alcohol, alcohol resistance can lower the effects
 	if ( Item[usItem].alcohol > 0.0f )
 	{
-		effectivepercentage = effectivepercentage * ((100.0 - pSoldier->GetBackgroundValue( BG_RESI_ALCOHOL )) / 100.0);
+		effectivepercentage = effectivepercentage * ((100.0 - TacticalActorModifiers::backgroundValue(*pSoldier, BG_RESI_ALCOHOL )) / 100.0);
 
 		FLOAT weight = pSoldier->GetBodyWeight( );
 

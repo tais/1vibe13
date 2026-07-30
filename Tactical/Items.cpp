@@ -1,4 +1,5 @@
 	#include "Items.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
@@ -3223,7 +3224,7 @@ UINT32 CalculateCarriedWeight( TacticalActor * pSoldier, BOOLEAN fConsiderDraggi
 			diseaseeffect += Disease[i].sEffCarryStrength * TacticalActorDisease::magnitude(*pSoldier, i );
 	}
 
-	ubStrengthForCarrying = (ubStrengthForCarrying * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_PERC_CARRYSTRENGTH )) / 100);
+	ubStrengthForCarrying = (ubStrengthForCarrying * (100 + diseaseeffect + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CARRYSTRENGTH )) / 100);
 
 	// for now, assume soldiers can carry 1/2 their strength in KGs without penalty.
 	// instead of multiplying by 100 for percent, and then dividing by 10 to account
@@ -13993,7 +13994,7 @@ INT16 GetWornStealth( TacticalActor * pSoldier )
 	if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, STEALTHY_NT ))
 		ttl += gSkillTraitValues.ubSTStealthBonus; 
 
-	ttl += pSoldier->GetBackgroundValue(BG_PERC_STEALTH);
+	ttl += TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_STEALTH);
 
 	return __min( ttl, 100 );
 }
@@ -15959,7 +15960,7 @@ FLOAT GetAttackAPTraitMultiplier( TacticalActor *pSoldier, OBJECTTYPE *pObj, UIN
 		// mortar
 		else if(ItemIsMortar(pObj->usItem))
 		{
-			fMultiplier = (100 - gSkillTraitValues.ubHWMortarAPsReduction * NUM_SKILL_TRAITS( pSoldier, HEAVY_WEAPONS_NT ) + pSoldier->GetBackgroundValue(BG_ARTILLERY) ) / 100.0f;
+			fMultiplier = (100 - gSkillTraitValues.ubHWMortarAPsReduction * NUM_SKILL_TRAITS( pSoldier, HEAVY_WEAPONS_NT ) + TacticalActorModifiers::backgroundValue(*pSoldier, BG_ARTILLERY) ) / 100.0f;
 		}
 	}
 	else if( ubMode == WM_BURST )
