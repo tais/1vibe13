@@ -1,3 +1,5 @@
+#include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRadio.h"
 #include "TacticalActorRobotics.h"
@@ -852,7 +854,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	//SetButtonSavedRect( iActionIcons[ RUN_ICON ] );
 	ButtonList[ iActionIcons[ RUN_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( pSoldier->MercInWater( ) || ( pSoldier->status().flags() & SOLDIER_ROBOT ) )
+	if ( TacticalActorMobility::inWater(*pSoldier) || ( pSoldier->status().flags() & SOLDIER_ROBOT ) )
 	{
 		DisableButton( iActionIcons[ RUN_ICON ] );
 	}
@@ -2496,13 +2498,13 @@ BOOLEAN DrawCTHIndicator()
 	// very fast the farther the target is away. Setting IRON_SIGHT_PERFORMANCE_BONUS too high makes them overly powerful at
 	// close range. This experimental formula implements a curve that lowers iBasicAperture the farther the target is away.
 	// At 1 tile distance iBasicAperture will be the same as before. That's the common start.
-	if (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && gCTHDisplay.ScopeMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode(pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
+	if (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && gCTHDisplay.ScopeMagFactor <= 1.0 && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier, pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
 
 		iBasicAperture = iBasicAperture * ( 1 / sqrt( d2DDistance / FLOAT(CELL_X_SIZE) ) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER
 						+ (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER - 1) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER );
 
 	// iron sights can get a percentage bonus to make them overall better but only when not shooting from hip
-	if (gCTHDisplay.ScopeMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode(pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
+	if (gCTHDisplay.ScopeMagFactor <= 1.0 && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier, pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
 
 		iBasicAperture = iBasicAperture * (FLOAT)( (100 - gGameCTHConstants.IRON_SIGHT_PERFORMANCE_BONUS) / 100);
 
@@ -2517,7 +2519,7 @@ BOOLEAN DrawCTHIndicator()
 		if ( iMaxLaserRange > d2DDistance )
 		{
 			// which bonus do we want to apply?
-			if (pSoldier->IsValidAlternativeFireMode(pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
+			if (TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier, pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
 				// shooting from hip
 				fLaserBonus = gGameCTHConstants.LASER_PERFORMANCE_BONUS_HIP;
 			else if ( gCTHDisplay.ScopeMagFactor <= 1.0 )
@@ -2873,7 +2875,7 @@ BOOLEAN DrawCTHIndicator()
 
 			// How many bullets are left in the gun?
 			UINT32 uiBulletsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
-			if (pSoldier->IsValidSecondHandBurst()) 
+			if (TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier))
 			{
 				uiBulletsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), uiBulletsLeft );
 			}
@@ -3142,7 +3144,7 @@ BOOLEAN DrawCTHIndicator()
 				}
 				else
 				{
-					if (pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) &&
+					if (TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) &&
 						ubAllowedLevels - abs((ubAllowedLevels-(x+1))) <= GetNumberAltFireAimLevels( pSoldier, gCTHDisplay.iTargetGridNo ) )
 					{
 						// yellow empty tick
@@ -3163,7 +3165,7 @@ BOOLEAN DrawCTHIndicator()
 				INT16 sNewLeft = sLeft + (ubAimFinalOffset * (pSoldier->aiPlanning().shownAimTime()-1));
 				if (gfDisplayFullCountRing)
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
+					if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3174,7 +3176,7 @@ BOOLEAN DrawCTHIndicator()
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
+					if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3188,7 +3190,7 @@ BOOLEAN DrawCTHIndicator()
 				sNewLeft = sLeft + (ubAimFinalOffset * (ubNumSpaces-(pSoldier->aiPlanning().shownAimTime()-1)));
 				if (gfDisplayFullCountRing)
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
+					if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3199,7 +3201,7 @@ BOOLEAN DrawCTHIndicator()
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
+					if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -6612,7 +6614,7 @@ void NCTHShowMounted( TacticalActor* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, IN
 		INVTYPE	*pItem = &Item[ pWeapon->usItem ];
 		PIXEL usCMountedBar	= Get16BPPColor( FROMRGB( 192, 0, 0 ) );
 		PIXEL usCMountedBorder	= Get16BPPColor( FROMRGB( 10, 10, 10 ) );
-		if ( gGameExternalOptions.fWeaponResting && !gfCannotGetThrough && pItem->usItemClass & (IC_GUN | IC_LAUNCHER) && pSoldier->IsWeaponMounted() )
+		if ( gGameExternalOptions.fWeaponResting && !gfCannotGetThrough && pItem->usItemClass & (IC_GUN | IC_LAUNCHER) && TacticalActorWeaponHandling::isWeaponMounted(*pSoldier) )
 		{			
 			for(INT32 cnt=-5;cnt<=5;cnt++)
 			{

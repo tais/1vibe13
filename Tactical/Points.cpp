@@ -1,3 +1,5 @@
+#include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorInteractions.h"
 	#include "sgp.h"
@@ -48,7 +50,6 @@
 //#define BREATH_GAIN_REDUCTION_PER_RAIN_INTENSITY 25
 //end rain
 
-extern BOOLEAN IsValidSecondHandShot( TacticalActor *pSoldier );
 extern UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
 
 
@@ -174,7 +175,7 @@ INT16 TerrainActionPoints( TacticalActor *pSoldier, INT32 sGridNo, INT8 bDir, IN
 
 	//CHRISL: We can't jump a fence while wearing a backpack, to consider fences as impassible
 	// SANDRO - Headrocks change to backpack check implemented
-	if(sSwitchValue == TRAVELCOST_FENCE && !pSoldier->CanClimbWithCurrentBackpack())
+	if(sSwitchValue == TRAVELCOST_FENCE && !TacticalActorMobility::canClimbWithCurrentBackpack(*pSoldier))
 	{
 		return(-1);
 	}
@@ -549,7 +550,7 @@ static INT16 ActionPointCostFromTileCost( TacticalActor *pSoldier, INT32 sGridNo
 			case WALKING_ALTERNATIVE_RDY:
 			case SIDE_STEP_ALTERNATIVE_RDY:
 				sPoints = sTileCost + APBPConstants[AP_MODIFIER_WALK];
-				if ( usMovementMode == WALKING && !(pSoldier->MercInWater()) && ( (gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
+				if ( usMovementMode == WALKING && !(TacticalActorMobility::inWater(*pSoldier)) && ( (gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
 				{
 					sPoints += APBPConstants[AP_MODIFIER_READY];	
 				}
@@ -1485,7 +1486,7 @@ INT16 GetBreathPerAP( TacticalActor *pSoldier, UINT16 usAnimState )
 		sBreathPerAP = APBPConstants[BP_PER_AP_MIN_EFFORT];
 
 		// OK, check if we are in water and are waling/standing
-		if ( 0 && pSoldier->MercInWater( ) )
+		if ( 0 && TacticalActorMobility::inWater(*pSoldier) )
 		{
 			switch( usAnimState )
 			{
@@ -1774,8 +1775,8 @@ INT16 CalcTotalAPsToAttack( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubAddT
 					
 					// If the weapon has a scope, and the target is within eligible range for scope use
 					
-					if ( (UsingNewCTHSystem() == false && IsScoped(&pSoldier->inventory()[HANDPOS]) && GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo ) >= GetMinRangeForAimBonus( pSoldier, &pSoldier->inventory()[HANDPOS]) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sGridNo))
-						|| (UsingNewCTHSystem() == true && GetBestScopeMagnificationFactor(pSoldier, &pSoldier->inventory()[HANDPOS], (FLOAT)GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo ) > 1.0 ) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sGridNo)) )
+					if ( (UsingNewCTHSystem() == false && IsScoped(&pSoldier->inventory()[HANDPOS]) && GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo ) >= GetMinRangeForAimBonus( pSoldier, &pSoldier->inventory()[HANDPOS]) && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier, bAimTime,sGridNo))
+						|| (UsingNewCTHSystem() == true && GetBestScopeMagnificationFactor(pSoldier, &pSoldier->inventory()[HANDPOS], (FLOAT)GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo ) > 1.0 ) && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier, bAimTime,sGridNo)) )
 					{
 						// Add an individual cost for EACH click, as necessary.
 
@@ -2354,7 +2355,7 @@ INT16 MinAPsToShootOrStab(TacticalActor *pSoldier, INT32 sGridNo, INT16 bAimTime
 			bAPCost = (INT16)(bAPCost * GetAttackAPTraitMultiplier( pSoldier, pObjUsed, pSoldier->attackSelection().weaponMode() ) + 0.5f);
 		}
 	}
-	else if ( pSoldier->IsValidSecondHandShot( ) )
+	else if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 	{
 		OBJECTTYPE* pSecondObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[SECONDHANDPOS]) );
 
@@ -2390,7 +2391,7 @@ INT16 MinAPsToShootOrStab(TacticalActor *pSoldier, INT32 sGridNo, INT16 bAimTime
 			bAPCost += BaseAPsToShootOrStab( bFullAPs, bAimSkill, pObjUsed, pSoldier );
 		}
 		// If we are using alternative weapon holding (from hip rifle/one-handed pistol), the shot can be faster if set in the ini
-		if ( gGameExternalOptions.ubAltWeaponHoldingFireSpeedBonus > 0 && pSoldier->IsValidAlternativeFireMode( bAimTime, sGridNo ))
+		if ( gGameExternalOptions.ubAltWeaponHoldingFireSpeedBonus > 0 && TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  bAimTime, sGridNo ))
 		{
 			bAPCost = (INT16)(bAPCost * (100 - gGameExternalOptions.ubAltWeaponHoldingFireSpeedBonus ) / 100.0f + 0.5f);
 		}
@@ -2515,7 +2516,7 @@ INT16 MinAPsToShootOrStab(TacticalActor *pSoldier, INT32 sGridNo, INT16 bAimTime
 	// Added check if the weapon is throwing knife/melee weapons - otherwise it would add APs for change target on cursor but not actually deduct them afterwards - SANDRO
 	if ( ubForceRaiseGunCost == TRUE || (( sGridNo != pSoldier->targeting().lastGridNo() ) && !ItemIsRocketLauncher(usUBItem) && ( Item[ usUBItem ].usItemClass != IC_THROWING_KNIFE )/* && ( Item[ usUBItem ].usItemClass != IC_PUNCH ) && ( Item[ usUBItem ].usItemClass != IC_BLADE )*/ ) )//dnl ch69 140913 //dnl ch73 290913
 	{
-		if ( pSoldier->IsValidAlternativeFireMode( bAimTime, sGridNo ) )
+		if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  bAimTime, sGridNo ) )
 			bAPCost += (APBPConstants[AP_CHANGE_TARGET] / 2);
 		else
 			bAPCost += APBPConstants[AP_CHANGE_TARGET];
@@ -3094,7 +3095,7 @@ INT16 GetAPsToAutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 		}
 
 		// Flugente: only reload if it's empty, or we really want to
-		if ( pSoldier->IsValidSecondHandShotForReloadingPurposes()
+		if ( TacticalActorWeaponHandling::isValidSecondHandShotForReloading(*pSoldier)
 			&& ( aReloadEvenIfNotEmpty || !EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS ) ) )
 		{
 			// Flugente: check for underbarrel weapons and use that object if necessary
@@ -3322,7 +3323,7 @@ INT16 GetAPsToReadyWeapon( TacticalActor *pSoldier, UINT16 usAnimState )
 	if ( AM_A_ROBOT( pSoldier ) && gGameExternalOptions.fRobotNoReadytime){
 		return 0;
 	}
-	if ( pSoldier->IsValidSecondHandShot( ) )
+	if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 	{
 		//Madd: return the greater of the two weapons + 1:
 		INT16 rt1 = 0, rt2 = 0;
@@ -3927,7 +3928,7 @@ INT32 CalcAPCostForAiming( TacticalActor *pSoldier, INT32 sTargetGridNo, INT8 bA
 	if (!ARMED_VEHICLE(pSoldier) && !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_FIREREADY | ANIM_FIRE )))//dnl ch64 310813
 	{
 		// Weapon not ready, check aiming from hip, else add raise gun cost
-		//if (!pSoldier->IsValidShotFromHip(bAimTime,sTargetGridNo))
+		//if (!TacticalActorWeaponHandling::isValidShotFromHip(*pSoldier, bAimTime,sTargetGridNo))
 		{
 			sAPCost += CalculateRaiseGunCost( pSoldier, TRUE, sTargetGridNo, bAimTime );
 		}
@@ -3953,8 +3954,8 @@ INT32 CalcAPCostForAiming( TacticalActor *pSoldier, INT32 sTargetGridNo, INT8 bA
 			
 			// If the weapon has a scope, and the target is within eligible range for scope use
 			
-			if ( (UsingNewCTHSystem() == false && IsScoped(&pSoldier->inventory()[HANDPOS]) && GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sTargetGridNo ) >= GetMinRangeForAimBonus(pSoldier, &pSoldier->inventory()[HANDPOS]) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sTargetGridNo))
-				|| (UsingNewCTHSystem() == true && GetBestScopeMagnificationFactor(pSoldier, &pSoldier->inventory()[HANDPOS], (FLOAT)GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sTargetGridNo ) > 1.0 ) && !pSoldier->IsValidAlternativeFireMode(bAimTime,sTargetGridNo)))
+			if ( (UsingNewCTHSystem() == false && IsScoped(&pSoldier->inventory()[HANDPOS]) && GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sTargetGridNo ) >= GetMinRangeForAimBonus(pSoldier, &pSoldier->inventory()[HANDPOS]) && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier, bAimTime,sTargetGridNo))
+				|| (UsingNewCTHSystem() == true && GetBestScopeMagnificationFactor(pSoldier, &pSoldier->inventory()[HANDPOS], (FLOAT)GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sTargetGridNo ) > 1.0 ) && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier, bAimTime,sTargetGridNo)))
 			{
 				// Add an individual cost for EACH click, as necessary.
 
@@ -4209,7 +4210,7 @@ INT32 GetBPCostPer10APsForGunHolding( TacticalActor * pSoldier, BOOLEAN fEstimat
 			dModifier -= 25; // increased cost by 25%
 	}
 	// If weapon is rested on something or we are prone, reduce the power
-	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() || ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE ) )
+	if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pSoldier) || ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE ) )
 	{
 		dModifier += 90; // only 10% of the regular cost if prone or rested	
 		if ( GetBipodBonus(&pSoldier->inventory()[pSoldier->attackSelection().hand()]) > 0)
@@ -4365,7 +4366,7 @@ INT32 GetBPCostForRecoilkick( TacticalActor * pSoldier )
 			dModifier -= 33; // plus 33% power
 	}
 	// If weapon is rested on something or we are prone, reduce the power
-	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() || ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE ) )
+	if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pSoldier) || ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE ) )
 	{
 		dModifier += 40; // only 60% of the regular kick power if prone		
 		dModifier += (2 * GetBipodBonus(&pSoldier->inventory()[pSoldier->attackSelection().hand()])); // minus up to 20% for bipod

@@ -1,3 +1,5 @@
+#include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "connect.h"
 #include "TacticalActorModifiers.h"
@@ -2020,12 +2022,12 @@ BOOLEAN CalculateSoldierZPos( TacticalActor * pSoldier, UINT8 ubPosType, FLOAT *
 		// Crow always as prone...
 		ubHeight = ANIM_PRONE;
 	}
-	else if ( pSoldier->MercInDeepWater( ) )
+	else if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 	{
 		// treat as prone
 		ubHeight = ANIM_PRONE;
 	}
-	else if ( pSoldier->MercInShallowWater( ) )
+	else if ( TacticalActorMobility::inShallowWater(*pSoldier) )
 	{
 		// treat as crouched
 		ubHeight = ANIM_CROUCH;
@@ -2818,7 +2820,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		if (ubHitLocation == AIM_SHOT_RANDOM) // i.e. if not set yet
 		{
 
-			if (pTarget->MercInDeepWater( ) )
+			if (TacticalActorMobility::inDeepWater(*pTarget) )
 			{
 				// automatic head hit!
 				ubHitLocation = AIM_SHOT_HEAD;
@@ -2832,7 +2834,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 				{
 				case ANIM_STAND:
 					// Fall through to crouch if in shallow or medium water
-					if ( !pTarget->MercInShallowWater( ) )
+					if ( !TacticalActorMobility::inShallowWater(*pTarget) )
 					{
 						dZPosRelToMerc = FixedToFloat( pBullet->qCurrZ ) - CONVERT_PIXELS_TO_HEIGHTUNITS( gpWorldLevelData[pBullet->sGridNo].sHeight );
 						if ( dZPosRelToMerc > HEIGHT_UNITS )
@@ -4808,7 +4810,7 @@ INT8 FireBulletGivenTargetNCTH( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY
 	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pFirer, &(pFirer->inventory()[pFirer->attackSelection().hand()]) );
 
 	BOOLEAN fSecondHandBurst = FALSE;
-	if ( pFirer->attackSelection().hand() == SECONDHANDPOS && pFirer->IsValidSecondHandBurst() )
+	if ( pFirer->attackSelection().hand() == SECONDHANDPOS && TacticalActorWeaponHandling::isValidSecondHandBurst(*pFirer) )
 		fSecondHandBurst = TRUE;
 
 	//DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("FireBulletGivenTarget"));
@@ -5305,7 +5307,7 @@ INT8 FireBulletGivenTarget( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FL
 	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pFirer, &(pFirer->inventory()[pFirer->attackSelection().hand()]) );
 
 	BOOLEAN fSecondHandBurst = FALSE;
-	if ( pFirer->attackSelection().hand() == SECONDHANDPOS && pFirer->IsValidSecondHandBurst() )
+	if ( pFirer->attackSelection().hand() == SECONDHANDPOS && TacticalActorWeaponHandling::isValidSecondHandBurst(*pFirer) )
 		fSecondHandBurst = TRUE;
 
 	//DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("FireBulletGivenTarget"));
@@ -8577,7 +8579,7 @@ void AdjustTargetCenterPoint( TacticalActor *pShooter, INT32 iTargetGridNo, FLOA
 	TacticalActor *pTarget = SimpleFindSoldier( iTargetGridNo, pShooter->targeting().level() );
 	BOOLEAN fSecondHandBurst = FALSE;
 
-	if ( pShooter->attackSelection().hand() == SECONDHANDPOS && pShooter->IsValidSecondHandBurst() )
+	if ( pShooter->attackSelection().hand() == SECONDHANDPOS && TacticalActorWeaponHandling::isValidSecondHandBurst(*pShooter) )
 		fSecondHandBurst = TRUE;
 
 	///////////////////////////////////////////
@@ -8669,14 +8671,14 @@ void AdjustTargetCenterPoint( TacticalActor *pShooter, INT32 iTargetGridNo, FLOA
 	// very fast the farther the target is away. Setting IRON_SIGHT_PERFORMANCE_BONUS too high makes them overly powerful at
 	// close range. This experimental formula implements a curve that lowers iBasicAperture the farther the target is away.
 	// At 1 tile distance iBasicAperture will be the same as before. That's the common start.
-	if (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && dMagFactor <= 1.0 && !pShooter->IsValidAlternativeFireMode(pShooter->aiPlanning().aimTime(), iTargetGridNo))
+	if (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && dMagFactor <= 1.0 && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pShooter, pShooter->aiPlanning().aimTime(), iTargetGridNo))
 	{
 		iBasicAperture = iBasicAperture * (1 / sqrt(d2DDistance / FLOAT(CELL_X_SIZE)) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER
 			+ (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER - 1) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER);
 	}
 
 	// iron sights can get a percentage bonus to make them overall better but only when not shooting from hip
-	if (dMagFactor <= 1.0 && !pShooter->IsValidAlternativeFireMode(pShooter->aiPlanning().aimTime(), iTargetGridNo))
+	if (dMagFactor <= 1.0 && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pShooter, pShooter->aiPlanning().aimTime(), iTargetGridNo))
 	{
 		iBasicAperture = iBasicAperture * (FLOAT)((100 - gGameCTHConstants.IRON_SIGHT_PERFORMANCE_BONUS) / 100);
 	}
@@ -8699,7 +8701,7 @@ void AdjustTargetCenterPoint( TacticalActor *pShooter, INT32 iTargetGridNo, FLOA
 		{
 			FLOAT fLaserBonus = 0;
 			// which bonus do we want to apply?
-			if ( pShooter->IsValidAlternativeFireMode( pShooter->aiPlanning().aimTime(), iTargetGridNo ) )
+			if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pShooter,  pShooter->aiPlanning().aimTime(), iTargetGridNo ) )
 				// shooting from hip
 				fLaserBonus = gGameCTHConstants.LASER_PERFORMANCE_BONUS_HIP;
 			else if (dMagFactor <= 1.0)
@@ -9085,7 +9087,7 @@ FLOAT CalcMagFactor( TacticalActor *pShooter, OBJECTTYPE *pWeapon, FLOAT d2DDist
 	// Flugente: when using scope modes, use scopes
 	if ( gGameExternalOptions.fScopeModes || ubAimTime > 0 )
 	{
-		if (!pShooter->IsValidAlternativeFireMode( ubAimTime, iTargetGridNo ) )
+		if (!TacticalActorWeaponHandling::isValidAlternativeFireMode(*pShooter,  ubAimTime, iTargetGridNo ) )
 		{
 			iScopeFactor = GetBestScopeMagnificationFactor( pShooter, pWeapon, d2DDistance );
 			iScopeFactor = __min(iScopeFactor, __max(1.0f, iTargetMagFactor/rangeModifier));
@@ -9306,7 +9308,7 @@ void CalcTargetMovementOffset( TacticalActor *pShooter, TacticalActor *pTarget, 
 	UINT8 stance = gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
-	if ( gGameExternalOptions.fWeaponResting && pShooter->IsWeaponMounted() )
+	if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pShooter) )
 		stance = ANIM_PRONE;
 
 	// Add a percentage-based modifier from the weapon and its attachments. Movement tracking devices will
@@ -9477,7 +9479,7 @@ void CalcRangeCompensationOffset( TacticalActor *pShooter, FLOAT *dMuzzleOffsetY
 	UINT8 stance = gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
-	if ( gGameExternalOptions.fWeaponResting && pShooter->IsWeaponMounted() )
+	if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pShooter) )
 		stance = ANIM_PRONE;
 
 	FLOAT moda = (iCombinedSkill * GetObjectModifier( pShooter, pWeapon, stance, ITEMMODIFIER_DROPCOMPENSATION )) / 100;
@@ -9907,7 +9909,7 @@ UINT32 CalcCounterForceAccuracy(TacticalActor *pShooter, OBJECTTYPE *pWeapon, UI
 	UINT8 stance = gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
-	if ( gGameExternalOptions.fWeaponResting && pShooter->IsWeaponMounted() )
+	if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pShooter) )
 		stance = ANIM_PRONE;
 
 	INT32 moda = GetObjectModifier( pShooter, pWeapon, stance, ITEMMODIFIER_COUNTERFORCEACCURACY );
@@ -9917,7 +9919,7 @@ UINT32 CalcCounterForceAccuracy(TacticalActor *pShooter, OBJECTTYPE *pWeapon, UI
 	UINT32 uiCounterForceAccuracy = (UINT32)(iCounterForceAccuracy + ((iCounterForceAccuracy * iModifier) / 100));
 
 	// SANDRO - shooting dual bursts is somehow harder to control, unless we are ambidextrous
-	if ( pShooter->IsValidSecondHandBurst() )
+	if ( TacticalActorWeaponHandling::isValidSecondHandBurst(*pShooter) )
 	{
 		if ( gGameOptions.fNewTraitSystem )
 		{
@@ -10074,7 +10076,7 @@ void CalcPreRecoilOffset( TacticalActor *pShooter, OBJECTTYPE *pWeapon, FLOAT *d
 	UINT8 stance = gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
-	if ( gGameExternalOptions.fWeaponResting && pShooter->IsWeaponMounted() )
+	if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pShooter) )
 		stance = ANIM_PRONE;
 
 	FLOAT moda = CalcCounterForceMax(pShooter, pWeapon, stance);
@@ -10224,7 +10226,7 @@ void CalcPreRecoilOffset( TacticalActor *pShooter, OBJECTTYPE *pWeapon, FLOAT *d
 
 	// Also, lets set our shooter's Counter Force variables. These will apply for the next bullet in the
 	// volley.
-	if ( pShooter->attackSelection().hand() == SECONDHANDPOS && pShooter->IsValidSecondHandBurst() )
+	if ( pShooter->attackSelection().hand() == SECONDHANDPOS && TacticalActorWeaponHandling::isValidSecondHandBurst(*pShooter) )
 	{
 		pShooter->fireControl().previousCounterForceX()[1] = dCounterForceX;
 		pShooter->fireControl().previousCounterForceY()[1] = dCounterForceY;
@@ -10243,7 +10245,7 @@ void CalcRecoilOffset( TacticalActor *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dM
 	FLOAT dAppliedCounterForceX, dAppliedCounterForceY;
 	FLOAT dCounterForceChangeX, dCounterForceChangeY;
 	BOOLEAN fSecondHandBurst = FALSE;
-	if ( pShooter->attackSelection().hand() == SECONDHANDPOS && pShooter->IsValidSecondHandBurst() )
+	if ( pShooter->attackSelection().hand() == SECONDHANDPOS && TacticalActorWeaponHandling::isValidSecondHandBurst(*pShooter) )
 		fSecondHandBurst = TRUE;
 	//////////////////////////////////////////////////////////////////////////////////////
 	// Recoil Calculation
@@ -10271,7 +10273,7 @@ void CalcRecoilOffset( TacticalActor *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dM
 		// silversurfer: We need to count differently for primary weapon depending on single or dual wielding guns.
 		// For single wielding bDoBurst counts 1, 2, 3, 4, 5... because we fire only one gun.
 		// For dual wielding the primary counts 1, 3, 5, 7... and the secondary gets the even numbers.
-		if ( pShooter->IsValidSecondHandBurst() )
+		if ( TacticalActorWeaponHandling::isValidSecondHandBurst(*pShooter) )
 		{
 			GetRecoil( pShooter, pWeapon, &bGunRecoilX, &bGunRecoilY, (pShooter->fireControl().burstCounter() / 2 + pShooter->fireControl().burstCounter() % 2) );
 		}
@@ -10350,7 +10352,7 @@ void CalcRecoilOffset( TacticalActor *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dM
 	UINT8 stance = gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
-	if ( gGameExternalOptions.fWeaponResting && pShooter->IsWeaponMounted() )
+	if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pShooter) )
 		stance = ANIM_PRONE;
 
 	FLOAT moda = CalcCounterForceMax(pShooter, pWeapon, stance);
@@ -10690,14 +10692,14 @@ FLOAT CalcCounterForceChange( TacticalActor * pShooter, UINT32 uiCounterForceAcc
 				// However, before using these values we need to ask: are we actually intending to
 				// fire that many bullets?
 				UINT32 uiRoundsRemaining;
-				if ( pShooter->attackSelection().hand() == SECONDHANDPOS && pShooter->IsValidSecondHandBurst() )
+				if ( pShooter->attackSelection().hand() == SECONDHANDPOS && TacticalActorWeaponHandling::isValidSecondHandBurst(*pShooter) )
 					uiRoundsRemaining = uiIntendedBullets - (pShooter->fireControl().burstCounter()/2);
 				else
 				{
 					// silversurfer: We need to count differently for primary weapon depending on single or dual wielding guns.
 					// For single wielding bDoBurst counts 1, 2, 3, 4, 5... because we fire only one gun.
 					// For dual wielding the primary counts 1, 3, 5, 7... and the secondary gets the even numbers.
-					if ( pShooter->IsValidSecondHandBurst() )
+					if ( TacticalActorWeaponHandling::isValidSecondHandBurst(*pShooter) )
 					{
 						uiRoundsRemaining = uiIntendedBullets - (pShooter->fireControl().burstCounter() / 2 + pShooter->fireControl().burstCounter() % 2);
 					}

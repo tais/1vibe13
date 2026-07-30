@@ -1,3 +1,4 @@
+#include "TacticalActorWeaponHandling.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
 	#include "Items.h"
@@ -225,7 +226,7 @@ UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMa
 				{
 						// ATE: Check for ammo
 						if ( IsValidTargetMerc( gusUIFullTargetID ) && EnoughAmmo( pSoldier, FALSE, HANDPOS ) &&
-							(!pSoldier->IsValidSecondHandShotForReloadingPurposes( ) || EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS) ) )
+							(!TacticalActorWeaponHandling::isValidSecondHandShotForReloading(*pSoldier) || EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS) ) )
 						{
 							// IF it's an ememy, goto confirm action mode
 							if ( ( guiUIFullTargetFlags & ENEMY_MERC ) && ( guiUIFullTargetFlags & VISIBLE_MERC ) && !( guiUIFullTargetFlags & DEAD_MERC ) && !gfCannotGetThrough )
@@ -412,7 +413,7 @@ UINT8 HandleActivatedTargetCursor( TacticalActor *pSoldier, INT32 usMapPos, BOOL
 				{
 					INT16 sCurAPCosts, sAPCosts;
 					UINT16 usShotsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
-					if (pSoldier->IsValidSecondHandBurst()) 
+					if (TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier))
 					{
 						usShotsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 					}
@@ -442,7 +443,7 @@ UINT8 HandleActivatedTargetCursor( TacticalActor *pSoldier, INT32 usMapPos, BOOL
 				gfUIAutofireBulletCount = TRUE;
 				gsBulletCount = pSoldier->fireControl().autofireShots();
 				gsTotalBulletCount = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
-				if (pSoldier->IsValidSecondHandBurst()) 
+				if (TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier))
 				{
 					gsTotalBulletCount = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), gsTotalBulletCount );
 				}
@@ -621,7 +622,7 @@ UINT8 HandleActivatedTargetCursor( TacticalActor *pSoldier, INT32 usMapPos, BOOL
 			{
 				INT16	sAPCosts;
 				UINT16 usShotsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
-				if (pSoldier->IsValidSecondHandBurst()) 
+				if (TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier))
 				{
 					usShotsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 				}
@@ -1295,7 +1296,7 @@ UINT8 HandleNonActivatedTargetCursor( TacticalActor *pSoldier, INT32 usMapPos , 
 
 		//CHRISL: We need to only check the second hand if the weapon in the second hand is onehanded
 		// Check for enough ammo...
-		if ( !EnoughAmmo( pSoldier, FALSE, HANDPOS ) || (pSoldier->IsValidSecondHandShotForReloadingPurposes( ) && !ItemIsTwoHanded(pSoldier->inventory()[SECONDHANDPOS].usItem) && !EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS) ) )
+		if ( !EnoughAmmo( pSoldier, FALSE, HANDPOS ) || (TacticalActorWeaponHandling::isValidSecondHandShotForReloading(*pSoldier) && !ItemIsTwoHanded(pSoldier->inventory()[SECONDHANDPOS].usItem) && !EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS) ) )
 		{
 			// Check if ANY ammo exists.....
 			if ( FindAmmoToReload( pSoldier, HANDPOS, NO_SLOT ) == NO_SLOT )
@@ -2706,7 +2707,7 @@ void HandleRightClickAdjustCursor( TacticalActor *pSoldier, INT32 usMapPos )
 				{
 					INT16	sCurAPCosts;
 					UINT16 usShotsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
-					if (pSoldier->IsValidSecondHandBurst()) 
+					if (TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier))
 					{
 						usShotsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 					}
@@ -3649,7 +3650,7 @@ void HandleWheelAdjustCursor( TacticalActor *pSoldier, INT32 sMapPos, INT32 sDel
 	INT8					bTargetLevel;
 
 	UINT16 usShotsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
-	if (pSoldier->IsValidSecondHandBurst()) 
+	if (TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier))
 	{
 		usShotsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 	}
@@ -3879,7 +3880,7 @@ void HandleWheelAdjustCursorWOAB( TacticalActor *pSoldier, INT32 sMapPos, INT32 
 	INT8					bTargetLevel;
 
 	UINT16 usShotsLeft = pSoldier->inventory()[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
-	if (pSoldier->IsValidSecondHandBurst()) 
+	if (TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier))
 	{
 		usShotsLeft = min( (pSoldier->inventory()[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 	}

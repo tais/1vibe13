@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 #include "Simulation Commands.h"
 #include "Simulation Command Legacy.h"
 #include "SoldierRepository.h"
@@ -304,7 +305,7 @@ namespace
 							ANIM_STATIONARY) == 0)
 					{
 						soldier->movement().mode() =
-							soldier->GetMoveStateBasedOnStance(value.stance);
+							TacticalActorMobility::movementStateForStance(*soldier, value.stance);
 						soldier->animationIntent().clearDesiredHeight();
 						soldier->movement().requestGridUpdateSuppression();
 						soldier->ChangeSoldierState(

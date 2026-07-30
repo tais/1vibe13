@@ -585,6 +585,18 @@ remote equipment and profile indexes, and requires compatible sector/transit
 state before returning a controller. Gameplay callers therefore cannot treat
 an unchecked persisted slot as a live actor; existing robot, item, profile,
 assignment, and save formats remain unchanged.
+`TacticalActorMobility` is the runtime boundary for water classification,
+movement and stance animation selection, backpack climbing, structure-aware
+stance validation, adjacent cover, and disease-limited fast movement.
+Callers can query current-animation movement and stance validity without
+indexing the legacy animation table themselves.
+`TacticalActorWeaponHandling` separately owns dual-wield and paired-burst
+eligibility, alternative fire posture, and mounted-weapon queries. Both
+domains validate the legacy indexes they consume before consulting animation,
+item, weapon, profile, vehicle, seat, direction, or world tables. Mods keep
+using the existing item, weapon, vehicle, map, XML, and Lua data formats; this
+change only replaces C++ aggregate methods with explicit engine-facing
+operations.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,

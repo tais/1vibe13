@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 #include <Button System.h>
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
@@ -2146,7 +2147,7 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 					INT8	bDirection;
 
 					// CHRISL: Turn off manual jumping while wearing a backpack
-					if (!pjSoldier->CanClimbWithCurrentBackpack())
+					if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 							return;
 
 					// Make sure the merc is not collapsed!
@@ -2210,7 +2211,7 @@ void HandleRTJump( void )
 		INT8	bDirection;
 
 		// CHRISL: Turn off manual jumping while wearing a backpack
-		if (!pjSoldier->CanClimbWithCurrentBackpack())
+		if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 				return;
 
 		// Make sure the merc is not collapsed!

@@ -1,3 +1,5 @@
+#include "TacticalActorMobility.h"
+#include "TacticalActorWeaponHandling.h"
 // ja2_headless_tests.cpp -- first slice of the engine test harness.
 //
 // Proves that the JA2 engine links into a standalone test binary (i.e. the
@@ -3932,7 +3934,7 @@ int main( int, char** )
 		commandHostActor.animationIntent().desiredHeight() = ANIM_STAND;
 		commandHostActor.movement().clearGridUpdatePolicy();
 		const UINT16 expectedMovingStance =
-			commandHostActor.GetMoveStateBasedOnStance(ANIM_CROUCH);
+			TacticalActorMobility::movementStateForStance(commandHostActor, ANIM_CROUCH);
 		const UINT16 movingStanceSurface =
 			DetermineSoldierAnimationSurface(
 				&commandHostActor, expectedMovingStance);
@@ -8661,6 +8663,246 @@ int main( int, char** )
 		       sameTravelVehicleIsAccepted &&
 		       malformedTeamRangeIsRejected,
 		       "tactical actor robotics owns safe controller resolution, travel compatibility, and stale-link repair" );
+	}
+
+	{
+		TacticalActor mobilityActor;
+		const auto previousInventorySystem =
+			gGameOptions.ubInventorySystem;
+		const auto previousDisease =
+			gGameExternalOptions.fDisease;
+		const auto previousDiseaseLimitations =
+			gGameExternalOptions.fDiseaseSevereLimitations;
+		const auto previousClimbWeight =
+			gGameExternalOptions.sBackpackWeightToClimb;
+		const auto previousGlobalBackpackSettings =
+			gGameExternalOptions.fUseGlobalBackpackSettings;
+
+		mobilityActor.position().terrainType() = LOW_WATER;
+		mobilityActor.position().level() = 0;
+		const bool shallowWaterIsClassified =
+			TacticalActorMobility::inWater(mobilityActor) &&
+			TacticalActorMobility::inShallowWater(
+				mobilityActor) &&
+			!TacticalActorMobility::inDeepWater(
+				mobilityActor) &&
+			!TacticalActorMobility::inHighWater(
+				mobilityActor);
+
+		mobilityActor.position().terrainType() = DEEP_WATER;
+		const bool deepWaterIsClassified =
+			TacticalActorMobility::inWater(mobilityActor) &&
+			!TacticalActorMobility::inShallowWater(
+				mobilityActor) &&
+			TacticalActorMobility::inDeepWater(
+				mobilityActor) &&
+			TacticalActorMobility::inHighWater(
+				mobilityActor);
+		mobilityActor.position().level() = 1;
+		const bool roofWaterIsRejected =
+			!TacticalActorMobility::inWater(mobilityActor);
+
+		gGameExternalOptions.fDisease = FALSE;
+		gGameExternalOptions.fDiseaseSevereLimitations = FALSE;
+		mobilityActor.animationPlayback().state() = STANDING;
+		mobilityActor.movement().setUiMovementFast(TRUE);
+		const bool fastMovementSelectsRunning =
+			TacticalActorMobility::isFastMovement(
+				mobilityActor) &&
+			TacticalActorMobility::movementStateForStance(
+				mobilityActor,
+				ANIM_STAND) == RUNNING &&
+			TacticalActorMobility::movementStateForCurrentStance(
+				mobilityActor) == RUNNING;
+		mobilityActor.movement().clearUiMovementFast();
+
+		OBJECTTYPE& malformedHand =
+			mobilityActor.inventory()[HANDPOS];
+		malformedHand.usItem = MAXITEMS;
+		malformedHand.ubNumberOfObjects = 1;
+		const bool malformedHandIsNeutral =
+			TacticalActorMobility::movementStateForStance(
+				mobilityActor,
+				ANIM_CROUCH) == SWATTING &&
+			TacticalActorMobility::movementStateForStance(
+				mobilityActor,
+				255) == WALKING;
+
+		mobilityActor.animationPlayback().state() = STANDING;
+		const bool stanceTransitionIsSelected =
+			TacticalActorMobility::transitionStateForStance(
+				mobilityActor,
+				ANIM_CROUCH) == KNEEL_DOWN;
+		mobilityActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedAnimationIsRejected =
+			TacticalActorMobility::transitionStateForStance(
+				mobilityActor,
+				ANIM_CROUCH) == STANDING &&
+			TacticalActorMobility::movementStateForCurrentStance(
+				mobilityActor) == WALKING &&
+			!TacticalActorMobility::isCurrentStanceValid(
+				mobilityActor,
+				NORTH) &&
+			!TacticalActorMobility::isCrouchedAgainstCover(
+				mobilityActor,
+				NORTH);
+
+		gGameOptions.ubInventorySystem = INVENTORY_NEW;
+		gGameExternalOptions.sBackpackWeightToClimb = -1;
+		gGameExternalOptions.fUseGlobalBackpackSettings = TRUE;
+		mobilityActor.roster().team() = OUR_TEAM;
+		OBJECTTYPE& malformedBackpack =
+			mobilityActor.inventory()[BPACKPOCKPOS];
+		malformedBackpack.usItem = MAXITEMS;
+		malformedBackpack.ubNumberOfObjects = 1;
+		const bool malformedBackpackIsRejected =
+			!TacticalActorMobility::canClimbWithCurrentBackpack(
+				mobilityActor);
+
+		mobilityActor.identity().profile() =
+			static_cast<UINT8>(NUM_PROFILES);
+		const bool malformedProfileAndDirectionAreRejected =
+			!TacticalActorMobility::isValidStance(
+				mobilityActor,
+				NORTH,
+				ANIM_STAND) &&
+			!TacticalActorMobility::isValidStance(
+				mobilityActor,
+				-1,
+				ANIM_STAND) &&
+			!TacticalActorMobility::isValidStance(
+				mobilityActor,
+				NORTH,
+				-1);
+
+		gGameOptions.ubInventorySystem = previousInventorySystem;
+		gGameExternalOptions.fDisease = previousDisease;
+		gGameExternalOptions.fDiseaseSevereLimitations =
+			previousDiseaseLimitations;
+		gGameExternalOptions.sBackpackWeightToClimb =
+			previousClimbWeight;
+		gGameExternalOptions.fUseGlobalBackpackSettings =
+			previousGlobalBackpackSettings;
+
+		CHECK( shallowWaterIsClassified &&
+		       deepWaterIsClassified &&
+		       roofWaterIsRejected &&
+		       fastMovementSelectsRunning &&
+		       malformedHandIsNeutral &&
+		       stanceTransitionIsSelected &&
+		       malformedAnimationIsRejected &&
+		       malformedBackpackIsRejected &&
+		       malformedProfileAndDirectionAreRejected,
+		       "tactical actor mobility owns bounded water, movement, stance, climbing, and cover decisions" );
+	}
+
+	{
+		TacticalActor weaponActor;
+		const auto previousItem = Item[1];
+		const auto previousWeapon = Weapon[1];
+		const auto previousAlternativeHolding =
+			gGameExternalOptions.ubAllowAlternativeWeaponHolding;
+
+		Item[1].usItemClass = IC_GUN;
+		Item[1].usItemFlag &= ~ITEM_twohanded;
+		Weapon[1].ubShotsPerBurst = 3;
+		Weapon[1].bAutofireShotsPerFiveAP = 0;
+
+		OBJECTTYPE& hand = weaponActor.inventory()[HANDPOS];
+		OBJECTTYPE& secondHand =
+			weaponActor.inventory()[SECONDHANDPOS];
+		hand.usItem = 1;
+		hand.ubNumberOfObjects = 1;
+		secondHand.usItem = 1;
+		secondHand.ubNumberOfObjects = 1;
+		secondHand[0]->data.gun.bGunStatus = 100;
+		secondHand[0]->data.gun.ubGunShotsLeft = 5;
+
+		const bool dualShotIsAccepted =
+			TacticalActorWeaponHandling::isValidSecondHandShot(
+				weaponActor) &&
+			TacticalActorWeaponHandling::isValidSecondHandShotForReloading(
+				weaponActor);
+		weaponActor.fireControl().burstCounter() = 1;
+		const bool matchingDualBurstIsAccepted =
+			TacticalActorWeaponHandling::isValidSecondHandBurst(
+				weaponActor) &&
+			TacticalActorWeaponHandling::isValidSecondHandShot(
+				weaponActor);
+		weaponActor.fireControl().burstCounter() = 0;
+
+		DeleteObj(&secondHand);
+		weaponActor.animationPlayback().state() = STANDING;
+		weaponActor.position().terrainType() = FLAT_GROUND;
+		gGameExternalOptions.ubAllowAlternativeWeaponHolding = 1;
+		const bool pistolFastShotIsAccepted =
+			TacticalActorWeaponHandling::isValidPistolFastShot(
+				weaponActor,
+				0,
+				0) &&
+			TacticalActorWeaponHandling::isValidAlternativeFireMode(
+				weaponActor,
+				0,
+				0);
+
+		Item[1].usItemFlag |= ITEM_twohanded;
+		const bool hipShotIsAccepted =
+			TacticalActorWeaponHandling::isValidShotFromHip(
+				weaponActor,
+				0,
+				0) &&
+			TacticalActorWeaponHandling::isValidAlternativeFireMode(
+				weaponActor,
+				0,
+				0);
+
+		hand.usItem = MAXITEMS;
+		const bool malformedItemsAreRejected =
+			!TacticalActorWeaponHandling::isValidSecondHandShot(
+				weaponActor) &&
+			!TacticalActorWeaponHandling::isValidSecondHandBurst(
+				weaponActor) &&
+			!TacticalActorWeaponHandling::isValidSecondHandShotForReloading(
+				weaponActor) &&
+			!TacticalActorWeaponHandling::isValidAlternativeFireMode(
+				weaponActor,
+				0,
+				0);
+		weaponActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedAnimationIsRejected =
+			!TacticalActorWeaponHandling::isValidShotFromHip(
+				weaponActor,
+				0,
+				0) &&
+			!TacticalActorWeaponHandling::isValidPistolFastShot(
+				weaponActor,
+				0,
+				0) &&
+			!TacticalActorWeaponHandling::isWeaponMounted(
+				weaponActor);
+		weaponActor.animationPlayback().state() = STANDING;
+		weaponActor.roster().active() = TRUE;
+		weaponActor.roster().inSector() = TRUE;
+		weaponActor.position().gridNo() = 0;
+		const bool unavailableWorldMountIsRejected =
+			!TacticalActorWeaponHandling::isWeaponMounted(
+				weaponActor);
+
+		Item[1] = previousItem;
+		Weapon[1] = previousWeapon;
+		gGameExternalOptions.ubAllowAlternativeWeaponHolding =
+			previousAlternativeHolding;
+
+		CHECK( dualShotIsAccepted &&
+		       matchingDualBurstIsAccepted &&
+		       pistolFastShotIsAccepted &&
+		       hipShotIsAccepted &&
+		       malformedItemsAreRejected &&
+		       malformedAnimationIsRejected &&
+		       unavailableWorldMountIsRejected,
+		       "tactical actor weapon handling owns bounded dual-wield, alternative-fire, and mounting decisions" );
 	}
 
 	{

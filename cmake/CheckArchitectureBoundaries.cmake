@@ -2176,6 +2176,14 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRobotics.h"
   tactical_actor_robotics_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRobotics.cpp"
   tactical_actor_robotics_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMobility.h"
+  tactical_actor_mobility_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMobility.cpp"
+  tactical_actor_mobility_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorWeaponHandling.h"
+  tactical_actor_weapon_handling_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorWeaponHandling.cpp"
+  tactical_actor_weapon_handling_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSkills.h"
   tactical_actor_skills_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSpotting.h"
@@ -2929,7 +2937,24 @@ foreach(retired_actor_facade IN ITEMS
   "UpdateRobotControllerGivenRobot"
   "GetRobotController"
   "CanRobotBeControlled"
-  "ControllingRobot")
+  "ControllingRobot"
+  "MercInWater"
+  "MercInShallowWater"
+  "MercInDeepWater"
+  "MercInHighWater"
+  "GetNewSoldierStateFromNewStance"
+  "GetMoveStateBasedOnStance"
+  "CanClimbWithCurrentBackpack"
+  "InternalIsValidStance"
+  "IsCrouchedAgainstCoverFromDir"
+  "IsFastMovement"
+  "IsValidSecondHandShot"
+  "IsValidSecondHandBurst"
+  "IsValidSecondHandShotForReloadingPurposes"
+  "IsValidAlternativeFireMode"
+  "IsValidShotFromHip"
+  "IsValidPistolFastShot"
+  "IsWeaponMounted")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -2973,6 +2998,73 @@ if(robotics_build_registration EQUAL -1)
   message(FATAL_ERROR
     "Tactical actor robotics is no longer built as its own implementation unit")
 endif()
+
+foreach(required_mobility_operation IN ITEMS
+  "inWater"
+  "inShallowWater"
+  "inDeepWater"
+  "inHighWater"
+  "movementStateForStance"
+  "movementStateForCurrentStance"
+  "transitionStateForStance"
+  "canClimbWithCurrentBackpack"
+  "isValidStance"
+  "isCurrentStanceValid"
+  "isCrouchedAgainstCover"
+  "isFastMovement")
+  string(FIND "${tactical_actor_mobility_header_contents}"
+    "${required_mobility_operation}("
+    mobility_operation_declaration)
+  string(FIND "${tactical_actor_mobility_source_contents}"
+    "TacticalActorMobility::${required_mobility_operation}("
+    mobility_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorMobility::${required_mobility_operation}"
+    mobility_operation_coverage)
+  if(mobility_operation_declaration EQUAL -1 OR
+     mobility_operation_definition EQUAL -1 OR
+     mobility_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor mobility operation '${required_mobility_operation}' lost its domain declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+foreach(required_weapon_handling_operation IN ITEMS
+  "isValidSecondHandShot"
+  "isValidSecondHandBurst"
+  "isValidSecondHandShotForReloading"
+  "isValidAlternativeFireMode"
+  "isValidShotFromHip"
+  "isValidPistolFastShot"
+  "isWeaponMounted")
+  string(FIND "${tactical_actor_weapon_handling_header_contents}"
+    "${required_weapon_handling_operation}("
+    weapon_handling_operation_declaration)
+  string(FIND "${tactical_actor_weapon_handling_source_contents}"
+    "TacticalActorWeaponHandling::${required_weapon_handling_operation}("
+    weapon_handling_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorWeaponHandling::${required_weapon_handling_operation}"
+    weapon_handling_operation_coverage)
+  if(weapon_handling_operation_declaration EQUAL -1 OR
+     weapon_handling_operation_definition EQUAL -1 OR
+     weapon_handling_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor weapon-handling operation '${required_weapon_handling_operation}' lost its domain declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+foreach(required_actor_domain_source IN ITEMS
+  "TacticalActorMobility.cpp"
+  "TacticalActorWeaponHandling.cpp")
+  string(FIND "${tactical_build_contents}"
+    "${required_actor_domain_source}"
+    actor_domain_build_registration)
+  if(actor_domain_build_registration EQUAL -1)
+    message(FATAL_ERROR
+      "${required_actor_domain_source} is no longer built as its own tactical implementation unit")
+  endif()
+endforeach()
 
 file(READ "${SOURCE_ROOT}/Tactical/Items.h"
   tactical_items_header_contents)

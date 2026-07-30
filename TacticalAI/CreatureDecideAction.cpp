@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 	#include "types.h"
 	//#include "Soldier Control.h"
 	#include "ai.h"
@@ -160,7 +161,7 @@ INT8 CreatureDecideActionGreen( TacticalActor * pSoldier )
 	//INT8		bInWater;
 	INT8		bInGas;
 
-	//bInWater = pSoldier->MercInWater();
+	//bInWater = TacticalActorMobility::inWater(*pSoldier);
 
 	// NB creatures would ignore smoke completely :-)
 
@@ -420,7 +421,7 @@ INT8 CreatureDecideActionGreen( TacticalActor * pSoldier )
 
 				if ( ValidCreatureTurn( pSoldier, (INT8) pSoldier->aiPlanning().actionData() ) )
 
-				//pSoldier->InternalIsValidStance( (INT8) pSoldier->usActionData, ANIM_STAND ) )
+				//TacticalActorMobility::isValidStance(*pSoldier,  (INT8) pSoldier->usActionData, ANIM_STAND ) )
 				{
 					if (!gfTurnBasedAI)
 					{
@@ -509,7 +510,7 @@ INT8 CreatureDecideActionYellow( TacticalActor * pSoldier )
 				sprintf(tempstr,"%s - TURNS TOWARDS NOISE to face direction %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 				AIPopMessage(tempstr);
 	#endif
-				//if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->usActionData, ANIM_STAND ) )
+				//if ( TacticalActorMobility::isValidStance(*pSoldier,  (INT8) pSoldier->usActionData, ANIM_STAND ) )
 				if ( ValidCreatureTurn( pSoldier, (INT8) pSoldier->aiPlanning().actionData() ) )
 				{
 					return(AI_ACTION_CHANGE_FACING);
@@ -523,7 +524,7 @@ INT8 CreatureDecideActionYellow( TacticalActor * pSoldier )
 	////////////////////////////////////////////////////////////////////////
 
 	// if our breath is running a bit low, and we're not in water
-	if ((pSoldier->vitals().breath() < 25) /*&& !pSoldier->MercInWater() */ )
+	if ((pSoldier->vitals().breath() < 25) /*&& !TacticalActorMobility::inWater(*pSoldier) */ )
 	{
 		// take a breather for gods sake!
 		pSoldier->aiPlanning().actionData() = NOWHERE;
@@ -636,7 +637,7 @@ INT8 CreatureDecideActionRed(TacticalActor *pSoldier, UINT8 ubUnconsciousOK)
  ubCanMove = ((pSoldier->aiBehavior().mobility() != CREATURE_IMMOBILE) && (pSoldier->actionPoints().current() >= MinPtsToMove(pSoldier)));
 
  // determine if we happen to be in water (in which case we're in BIG trouble!)
- //bInWater = pSoldier->MercInWater();
+ //bInWater = TacticalActorMobility::inWater(*pSoldier);
 
  // check if standing in tear gas without a gas mask on
  bInGas = InGas( pSoldier, pSoldier->position().gridNo() );
@@ -872,7 +873,7 @@ INT8 CreatureDecideActionRed(TacticalActor *pSoldier, UINT8 ubUnconsciousOK)
 				if (pSoldier->aiBehavior().attitude() == DEFENSIVE)
 					iChance += 25;
 
-				 //if ( (INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubOpponentDir, ANIM_STAND ) )
+				 //if ( (INT16)PreRandom(100) < iChance && TacticalActorMobility::isValidStance(*pSoldier,  ubOpponentDir, ANIM_STAND ) )
 				if ( (INT16)PreRandom(100) < iChance && ValidCreatureTurn( pSoldier, ubOpponentDir ) )
 				{
 					pSoldier->aiPlanning().actionData() = ubOpponentDir;
@@ -1002,7 +1003,7 @@ INT8 CreatureDecideActionBlack( TacticalActor * pSoldier )
  ubCanMove = ((pSoldier->aiBehavior().mobility() != CREATURE_IMMOBILE) && (pSoldier->actionPoints().current() >= MinPtsToMove(pSoldier)));
 
  // determine if we happen to be in water (in which case we're in BIG trouble!)
- //bInWater = pSoldier->MercInWater();
+ //bInWater = TacticalActorMobility::inWater(*pSoldier);
 
  // check if standing in tear gas without a gas mask on
 	bInGas = InGas( pSoldier, pSoldier->position().gridNo() );
@@ -1662,7 +1663,7 @@ void CreatureDecideAlertStatus( TacticalActor *pSoldier )
 			((pSoldier->aiBehavior().alertStatus() == STATUS_YELLOW) && (pSoldier->vitals().breath() < 50)))
 		{
 			// as long as he's not in water (standing on a bridge is OK)
-			if (!pSoldier->MercInWater())
+			if (!TacticalActorMobility::inWater(*pSoldier))
 			{
 				// force a NEW decision so that he can get some rest
 				SetNewSituation( pSoldier );

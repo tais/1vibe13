@@ -1,3 +1,5 @@
+#include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
 	#include "Items.h"
@@ -3955,7 +3957,7 @@ BOOLEAN AutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 
 		PlayJA2Sample( Weapon[ Item[pObj->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
-		if ( pSoldier->IsValidSecondHandShot( ) )
+		if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 		{
 			pObj2 = &(pSoldier->inventory()[SECONDHANDPOS]);
 
@@ -3970,7 +3972,7 @@ BOOLEAN AutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 	}
 	else
 	{
-		if ( pSoldier->IsValidSecondHandShot( ) )
+		if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 		{
 			pObj2 = &(pSoldier->inventory()[SECONDHANDPOS]);
 
@@ -4029,7 +4031,7 @@ BOOLEAN AutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 		// if we are valid for two-pistol shooting (reloading) and we have enough APs still
 		// then do a reload of both guns!
 		// Flugente: only reload if it's empty, or we really want to
-		if ( pSoldier->IsValidSecondHandShotForReloadingPurposes()
+		if ( TacticalActorWeaponHandling::isValidSecondHandShotForReloading(*pSoldier)
 			&& ( aReloadEvenIfNotEmpty || !EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS ) ) )
 		{
 			// Flugente: check for underbarrel weapons and use that object if necessary
@@ -9526,7 +9528,7 @@ void WaterDamage( TacticalActor *pSoldier )
 	INT8		bLoop, bDamage, bDieSize;
 	UINT32	uiRoll;
 
-	if ( pSoldier->MercInDeepWater( ) )
+	if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 	{
 		INT8 invsize = (INT8) pSoldier->inventory().size();
 		for ( bLoop = 0; bLoop < invsize; ++bLoop )
@@ -9575,12 +9577,12 @@ void WaterDamage( TacticalActor *pSoldier )
 		{
 			if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 			{
-				if ( pSoldier->MercInDeepWater( ) )
+				if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 					pSoldier->camouflage().jungleApplied() -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
 			}
 			else
 			{
-				if ( pSoldier->MercInDeepWater( ) )
+				if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 					pSoldier->camouflage().jungleApplied() = __max( 0, pSoldier->camouflage().jungleApplied() - 1 );	// 2
 			}
 
@@ -9596,12 +9598,12 @@ void WaterDamage( TacticalActor *pSoldier )
 		{
 			if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 			{
-				if ( pSoldier->MercInDeepWater( ) )
+				if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 					pSoldier->camouflage().urbanApplied() -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
 			}
 			else
 			{
-				if ( pSoldier->MercInDeepWater( ) )
+				if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 					pSoldier->camouflage().urbanApplied() = __max( 0, pSoldier->camouflage().urbanApplied() - 1);	// 2
 			}
 
@@ -9616,12 +9618,12 @@ void WaterDamage( TacticalActor *pSoldier )
 		{
 			if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 			{
-				if ( pSoldier->MercInDeepWater( ) )
+				if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 					pSoldier->camouflage().desertApplied() -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
 			}
 			else
 			{
-				if ( pSoldier->MercInDeepWater( ) )
+				if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 					pSoldier->camouflage().desertApplied() = __max( 0, pSoldier->camouflage().desertApplied() - 1);	// 2
 				//else
 				//	pSoldier->camouflage().desertApplied() = __max( 0, pSoldier->camouflage().desertApplied() - 1);
@@ -9638,12 +9640,12 @@ void WaterDamage( TacticalActor *pSoldier )
 		{
 			if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 			{
-				if ( pSoldier->MercInDeepWater( ) )
+				if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 					pSoldier->camouflage().snowApplied() -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
 			}
 			else
 			{
-				if ( pSoldier->MercInDeepWater( ) )
+				if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 					pSoldier->camouflage().snowApplied() = __max( 0, pSoldier->camouflage().snowApplied() - 1);	// 2
 			}
 
@@ -9661,7 +9663,7 @@ void WaterDamage( TacticalActor *pSoldier )
 		// and 1% for medium water
 		if ( pSoldier->camouflage().jungleApplied() > 0 )
 		{
-			if ( pSoldier->MercInDeepWater( ) )
+			if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 				pSoldier->camouflage().jungleApplied() = __max( 0, pSoldier->camouflage().jungleApplied() - 1 );	// 2
 
 			if ( (pSoldier->camouflage().jungleApplied())== 0)
@@ -9673,7 +9675,7 @@ void WaterDamage( TacticalActor *pSoldier )
 		}
 		if ( pSoldier->camouflage().urbanApplied() > 0 )
 		{
-			if ( pSoldier->MercInDeepWater( ) )
+			if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 				pSoldier->camouflage().urbanApplied() = __max( 0, pSoldier->camouflage().urbanApplied() - 1);	// 2
 			
 			if ( (pSoldier->camouflage().urbanApplied())== 0)
@@ -9684,7 +9686,7 @@ void WaterDamage( TacticalActor *pSoldier )
 		}
 		if ( pSoldier->camouflage().desertApplied() > 0 )
 		{
-			if ( pSoldier->MercInDeepWater( ) )
+			if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 				pSoldier->camouflage().desertApplied() = __max( 0, pSoldier->camouflage().desertApplied() - 1);	// 2
 			
 			if ( (pSoldier->camouflage().desertApplied())== 0)
@@ -9695,7 +9697,7 @@ void WaterDamage( TacticalActor *pSoldier )
 		}
 		if ( pSoldier->camouflage().snowApplied() > 0 )
 		{
-			if ( pSoldier->MercInDeepWater( ) )
+			if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 				pSoldier->camouflage().snowApplied() = __max( 0, pSoldier->camouflage().snowApplied() - 1);	// 2
 			
 			if ( (pSoldier->camouflage().snowApplied())== 0)
@@ -9718,7 +9720,7 @@ void WaterDamage( TacticalActor *pSoldier )
 
 	if ( pSoldier->roster().team() == gbPlayerNum && pSoldier->perception().monsterSmell() > 0 )
 	{
-		if ( pSoldier->MercInDeepWater( ) )
+		if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 		{
 			bDieSize = 10;
 		}
@@ -13547,7 +13549,7 @@ UINT8 AllowedAimingLevelsNCTH( TacticalActor *pSoldier, INT32 sGridNo )
 		UINT8 stance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 
 		// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
-		if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
+		if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pSoldier) )
 			stance = ANIM_PRONE;
 
 		INT32 moda = GetObjectModifier( pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()], stance, ITEMMODIFIER_AIMLEVELS );
@@ -13725,7 +13727,7 @@ UINT8 AllowedAimingLevels(TacticalActor * pSoldier, INT32 sGridNo)
 			UINT8 stance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 
 			// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
-			if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
+			if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pSoldier) )
 				stance = ANIM_PRONE;
 
 			if (GetBipodBonus(&pSoldier->inventory()[pSoldier->attackSelection().hand()])>0 && stance == ANIM_PRONE )
@@ -15484,15 +15486,28 @@ BOOLEAN DeductBulletViaExternalFeeding(TacticalActor* pSoldier, OBJECTTYPE * pOb
 
 INT8 GetNumberAltFireAimLevels( TacticalActor * pSoldier, INT32 iGridNo )
 {
-	if ( !gGameExternalOptions.ubAllowAlternativeWeaponHolding || (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND) )
+	if (!pSoldier ||
+		pSoldier->animationPlayback().state() >=
+			NUMANIMATIONSTATES ||
+		HANDPOS >= pSoldier->inventory().size())
 	{
 		return -1;
 	}
 
-	UINT16 usInHand = pSoldier->inventory()[ HANDPOS ].usItem;
+	const OBJECTTYPE& hand = pSoldier->inventory()[HANDPOS];
+	if (!hand.exists() ||
+		hand.usItem >= MAXITEMS ||
+		!gGameExternalOptions.ubAllowAlternativeWeaponHolding ||
+		gAnimControl[pSoldier->animationPlayback().state()]
+			.ubEndHeight != ANIM_STAND)
+	{
+		return -1;
+	}
+
+	const UINT16 usInHand = hand.usItem;
 
 	// If we are in water and having a pistol, don't allow alternative fire at all
-	if ( !ItemIsTwoHanded(usInHand) && pSoldier->MercInWater() )
+	if ( !ItemIsTwoHanded(usInHand) && TacticalActorMobility::inWater(*pSoldier) )
 	{
 		return -1;
 	}

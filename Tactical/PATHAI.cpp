@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 /*
 	Filename		:		pathai.c
@@ -452,7 +453,7 @@ UINT32 guiUnsuccessfulPathChecks = 0;
 
 
 static auto canJumpFences(TacticalActor* pSoldier) -> bool {
-	return IS_MERC_BODY_TYPE(pSoldier) && pSoldier->CanClimbWithCurrentBackpack();
+	return IS_MERC_BODY_TYPE(pSoldier) && TacticalActorMobility::canClimbWithCurrentBackpack(*pSoldier);
 }
 
 //ADB the extra cover feature is supposed to pick a path of the same distance as one calculated with the feature off,
@@ -3354,7 +3355,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 						break;
 					case WALKING:
 						ubAPCost += APBPConstants[AP_MODIFIER_WALK];	//WALKCOST);
-						if (!(s->MercInWater()) && ( (gAnimControl[ s->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ s->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
+						if (!(TacticalActorMobility::inWater(*s)) && ( (gAnimControl[ s->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ s->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
 						{
 							ubAPCost += APBPConstants[AP_MODIFIER_READY];	//WALKCOST);
 						}
@@ -4444,7 +4445,7 @@ INT32 PlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 b
 							sMovementAPsCost = sTileCost + APBPConstants[AP_MODIFIER_RUN];
 							break;
 						case WALKING:
-							if ( 0 && !(pSold->MercInWater()) && ( (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
+							if ( 0 && !(TacticalActorMobility::inWater(*pSold)) && ( (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
 							{
 								sMovementAPsCost = sTileCost + APBPConstants[AP_MODIFIER_WALK] + APBPConstants[AP_MODIFIER_READY];	
 							}
@@ -4601,7 +4602,7 @@ INT32 PlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 b
 					sPointsRun = (sPointsRun * (100 + TacticalActorModifiers::backgroundValue(*pSold, BG_SWIMMING))) / 100;
 				}
 				// walking with weapon raised?
-				if (!(pSold->MercInWater()) && ( (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
+				if (!(TacticalActorMobility::inWater(*pSold)) && ( (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
 				{
 					sPointsWalk += APBPConstants[AP_MODIFIER_READY];
 				}

@@ -1,3 +1,5 @@
+#include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMobility.h"
 #include "ai.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -444,7 +446,7 @@ void CalcBestShot(TacticalActor *pSoldier, ATTACKTYPE *pBestShot)
 				ubStance = ANIM_STAND;
 				// sevenfm: take into account direction when checking stance
 				// sevenfm: shoot heavy guns in standing stance only when using hip fire
-				if (pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTarget), ubStance) &&
+				if (TacticalActorMobility::isValidStance(*pSoldier, AIDirection(pSoldier->position().gridNo(), sTarget), ubStance) &&
 					(pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD || !Weapon[pSoldier->attackSelection().weapon()].HeavyGun || !ItemIsTwoHanded(pSoldier->attackSelection().weapon()) || !gGameExternalOptions.ubAllowAlternativeWeaponHolding))
 				{
 					sStanceAPcost = GetAPsToChangeStance(pSoldier, ubStance);
@@ -517,7 +519,7 @@ void CalcBestShot(TacticalActor *pSoldier, ATTACKTYPE *pBestShot)
 				// --------- Crouched ---------
 				ubStance = ANIM_CROUCH;
 				// sevenfm: take into account direction
-				if (pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTarget), ubStance))
+				if (TacticalActorMobility::isValidStance(*pSoldier, AIDirection(pSoldier->position().gridNo(), sTarget), ubStance))
 				{
 					// change stance then turn
 					sStanceAPcost = GetAPsToChangeStance(pSoldier, ubStance);
@@ -589,7 +591,7 @@ void CalcBestShot(TacticalActor *pSoldier, ATTACKTYPE *pBestShot)
 
 				// --------- Prone ---------
 				ubStance = ANIM_PRONE;
-				if (pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTarget), ubStance))
+				if (TacticalActorMobility::isValidStance(*pSoldier, AIDirection(pSoldier->position().gridNo(), sTarget), ubStance))
 				{
 					sStanceAPcost = GetAPsToChangeStance(pSoldier, ubStance);
 					if (sStanceAPcost)
@@ -2651,7 +2653,7 @@ INT8 TryToReload( TacticalActor * pSoldier )
 		PlayJA2Sample( Weapon[ Item[pObj->usItem].ubClassIndex ].ManualReloadSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
 
-		if ( pSoldier->IsValidSecondHandShot( ) )
+		if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 		{
 			pObj2 = &(pSoldier->inventory()[SECONDHANDPOS]);
 
@@ -2666,7 +2668,7 @@ INT8 TryToReload( TacticalActor * pSoldier )
 	}
 	else
 	{
-		if ( pSoldier->IsValidSecondHandShot( ) )
+		if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 		{
 			pObj2 = &(pSoldier->inventory()[SECONDHANDPOS]);
 
@@ -4070,7 +4072,7 @@ void CheckTossAt(TacticalActor *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetS
 	// maybe try to stand up for better range
 	if (ubChanceToReallyHit == 0 &&
 		gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < ANIM_STAND &&
-		pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTargetSpot), ANIM_STAND) &&
+		TacticalActorMobility::isValidStance(*pSoldier, AIDirection(pSoldier->position().gridNo(), sTargetSpot), ANIM_STAND) &&
 		pSoldier->actionPoints().current() >= ubAPCost + GetAPsToChangeStance(pSoldier, ANIM_STAND))
 	{
 		pSoldier->animationPlayback().state() = STANDING;

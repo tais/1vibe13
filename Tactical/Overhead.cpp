@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
 #include <cstdio>
@@ -9002,7 +9003,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                     }
                     break;
                 default: // standing!
-                    if ( pSoldier->MercInWater())
+                    if ( TacticalActorMobility::inWater(*pSoldier))
                     {
                         // can't change stance here!
                         break;

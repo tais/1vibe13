@@ -1349,6 +1349,18 @@ the engine must not contain SDL types in its public domain model.
   autoresolve callers no longer read the persisted slot directly. Robot
   status flags, item flags, assignments, profiles, and save fields retain
   their established data formats.
+  `TacticalActorMobility` now owns the complementary live movement and posture
+  decisions: water depth, movement animation selection, stance transitions,
+  backpack climbing, world-aware stance validation, cover adjacency, and the
+  disease-limited fast-movement edge. It rejects malformed animation, item,
+  profile, direction, and grid state before reaching legacy lookup tables or
+  world structures; current-animation posture queries also stay inside this
+  guarded boundary. `TacticalActorWeaponHandling` owns dual-wield eligibility,
+  burst pairing, alternative holding modes, and weapon mounting. Inventory,
+  animation, vehicle, seat, profile, direction, and neighbouring-actor indexes
+  are bounded at that boundary. These are separate compiled domains rather
+  than methods on the aggregate; item, weapon, vehicle, map, XML, and Lua
+  formats remain unchanged.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to
