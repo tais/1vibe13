@@ -58,6 +58,7 @@
 #include "english.h" // sevenfm: for ESC key
 #include "SoldierRepository.h"
 #include "TacticalActorRadio.h"
+#include "TacticalActorSkills.h"
 
 #include "connect.h"
 // needed to use the modularized tactical AI:
@@ -2665,7 +2666,11 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 			{
 				SoldierID ubID = WhoIsThere2( pSoldier->aiPlanning().actionData(), 0 );
 
-				BOOLEAN result = pSoldier->UseSkill(pSoldier->skillState().selectedAiSkill(), pSoldier->aiPlanning().actionData(), ubID);
+				BOOLEAN result = TacticalActorSkills::use(
+					*pSoldier,
+					pSoldier->skillState().selectedAiSkill(),
+					pSoldier->aiPlanning().actionData(),
+					ubID);
 
 				// additional dialogue
 				AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_SKILL_RESULT, pSoldier->skillState().selectedAiSkill(), result );

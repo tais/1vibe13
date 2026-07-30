@@ -7,6 +7,7 @@
 #include "SoldierRepository.h"
 #include "TacticalActorDragging.h"
 #include "TacticalActorRadio.h"
+#include "TacticalActorSkills.h"
 #include "soldier profile type.h"
 #include "Overhead.h"
 #include "Text.h"
@@ -253,7 +254,10 @@ SkillSelection::Setup( UINT32 aVal )
 						pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
 
 					// if we cannot perform this skill, grey it out
-					if ( !(pSoldier->CanUseSkill(uiCounter, TRUE)) )
+					if (!TacticalActorSkills::canUse(
+							*pSoldier,
+							uiCounter,
+							true))
 					{
 						// Set this option off.
 						pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));
@@ -273,7 +277,11 @@ SkillSelection::Setup( UINT32 aVal )
 					pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
 
 					// if we cannot perform this skill, grey it out
-					if ( !( pSoldier->CanUseSkill( uiCounter, TRUE, sTraitsMenuTargetGridNo ) ) )
+					if (!TacticalActorSkills::canUse(
+							*pSoldier,
+							uiCounter,
+							true,
+							sTraitsMenuTargetGridNo))
 					{
 						// Set this option off.
 						pOption->setAvail( new popupCallbackFunction<bool, void*>( &Popup_OptionOff, NULL ) );
@@ -293,7 +301,11 @@ SkillSelection::Setup( UINT32 aVal )
 					pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
 
 					// if we cannot perform this skill, grey it out
-					if ( !( pSoldier->CanUseSkill( uiCounter, TRUE, sTraitsMenuTargetGridNo ) ) )
+					if (!TacticalActorSkills::canUse(
+							*pSoldier,
+							uiCounter,
+							true,
+							sTraitsMenuTargetGridNo))
 					{
 						// Set this option off.
 						pOption->setAvail( new popupCallbackFunction<bool, void*>( &Popup_OptionOff, NULL ) );
@@ -316,7 +328,11 @@ SkillSelection::Setup( UINT32 aVal )
 						pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
 
 					// if we cannot perform this skill, grey it out
-					if ( !(pSoldier->CanUseSkill( uiCounter, TRUE, sTraitsMenuTargetGridNo )) )
+					if (!TacticalActorSkills::canUse(
+							*pSoldier,
+							uiCounter,
+							true,
+							sTraitsMenuTargetGridNo))
 					{
 						// Set this option off.
 						pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));
@@ -353,7 +369,12 @@ SkillSelection::Setup( UINT32 aVal )
 			{
 				for(UINT32 uiCounter = SKILLS_RADIO_FIRST; uiCounter <= SKILLS_RADIO_LAST; ++uiCounter)
 				{
-					SetRegionFastHelpText( &(GetPopup()->MenuRegion[cnt++]), pSoldier->PrintSkillDesc( uiCounter, sTraitsMenuTargetGridNo ) );
+					SetRegionFastHelpText(
+						&(GetPopup()->MenuRegion[cnt++]),
+						TacticalActorSkills::description(
+							*pSoldier,
+							uiCounter,
+							sTraitsMenuTargetGridNo));
 				}
 			}
 			break;
@@ -362,7 +383,12 @@ SkillSelection::Setup( UINT32 aVal )
 			{
 				for ( UINT32 uiCounter = SKILLS_INTEL_FIRST; uiCounter <= SKILLS_INTEL_LAST; ++uiCounter )
 				{
-					SetRegionFastHelpText( &( GetPopup()->MenuRegion[cnt++] ), pSoldier->PrintSkillDesc( uiCounter, sTraitsMenuTargetGridNo ) );
+					SetRegionFastHelpText(
+						&(GetPopup()->MenuRegion[cnt++]),
+						TacticalActorSkills::description(
+							*pSoldier,
+							uiCounter,
+							sTraitsMenuTargetGridNo));
 				}
 			}
 			break;
@@ -370,7 +396,12 @@ SkillSelection::Setup( UINT32 aVal )
 			case DISGUISE:
 				for ( UINT32 uiCounter = SKILLS_DISGUISE_FIRST; uiCounter <= SKILLS_DISGUISE_LAST; ++uiCounter )
 				{
-					SetRegionFastHelpText( &( GetPopup()->MenuRegion[cnt++] ), pSoldier->PrintSkillDesc( uiCounter, sTraitsMenuTargetGridNo ) );
+					SetRegionFastHelpText(
+						&(GetPopup()->MenuRegion[cnt++]),
+						TacticalActorSkills::description(
+							*pSoldier,
+							uiCounter,
+							sTraitsMenuTargetGridNo));
 				}
 				break;
 
@@ -378,7 +409,12 @@ SkillSelection::Setup( UINT32 aVal )
 			{
 				for(UINT32 uiCounter = SKILLS_VARIOUS_FIRST; uiCounter <= SKILLS_VARIOUS_LAST; ++uiCounter)
 				{
-					SetRegionFastHelpText( &(GetPopup()->MenuRegion[cnt++]), pSoldier->PrintSkillDesc(uiCounter, sTraitsMenuTargetGridNo ) );
+					SetRegionFastHelpText(
+						&(GetPopup()->MenuRegion[cnt++]),
+						TacticalActorSkills::description(
+							*pSoldier,
+							uiCounter,
+							sTraitsMenuTargetGridNo));
 				}
 			}
 			break;
@@ -400,7 +436,11 @@ SkillSelection::Functions( UINT32 aVal )
 	
 	UINT16 ubID = WhoIsThere2(sTraitsMenuTargetGridNo, 0 );
 
-	BOOLEAN result = pSoldier->UseSkill(aVal, sTraitsMenuTargetGridNo, ubID);
+	BOOLEAN result = TacticalActorSkills::use(
+		*pSoldier,
+		aVal,
+		sTraitsMenuTargetGridNo,
+		ubID);
 
 	// additional dialogue
 	AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_SKILL_RESULT, aVal, result );
@@ -423,7 +463,9 @@ ArtillerySector::Setup( UINT32 aVal )
 	if ( pSoldier == NULL )
 		return;
 
-	if ( pSoldier->CanUseSkill(SKILLS_RADIO_ARTILLERY) )
+	if (TacticalActorSkills::canUse(
+			*pSoldier,
+			SKILLS_RADIO_ARTILLERY))
 	{
 		SetupPopup("ArtillerySector");
 		
@@ -498,7 +540,10 @@ ArtilleryTeam::Setup( UINT32 aVal )
 	if ( pSoldier == NULL )
 		return;
 
-	if ( pSoldier->CanUseSkill(SKILLS_RADIO_ARTILLERY) && pSoldier->deployment().sectorZ() == 0)
+	if (TacticalActorSkills::canUse(
+			*pSoldier,
+			SKILLS_RADIO_ARTILLERY) &&
+		pSoldier->deployment().sectorZ() == 0)
 	{		
 		usSector = aVal;
 		
@@ -570,7 +615,10 @@ ArtilleryTeam::Functions( UINT32 aVal )
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
-	if ( pSoldier == NULL || !pSoldier->CanUseSkill(SKILLS_RADIO_ARTILLERY) )
+	if (pSoldier == nullptr ||
+		!TacticalActorSkills::canUse(
+			*pSoldier,
+			SKILLS_RADIO_ARTILLERY))
 		return;
 	
 	BOOLEAN result = TacticalActorRadio::orderArtilleryStrike(
@@ -602,7 +650,7 @@ ReinforcementSector::Setup( UINT32 aVal )
 	if ( pSoldier == NULL )
 		return;
 
-	if ( pSoldier->CanUseSkill(aVal) )
+	if (TacticalActorSkills::canUse(*pSoldier, aVal))
 	{
 		SetupPopup("Reinforcements sector");
 		
@@ -663,7 +711,9 @@ ReinforcementNumber::Setup( UINT32 aVal )
 	if ( pSoldier == NULL )
 		return;
 
-	if ( pSoldier->CanUseSkill(SKILLS_RADIO_CALLREINFORCEMENTS) )
+	if (TacticalActorSkills::canUse(
+			*pSoldier,
+			SKILLS_RADIO_CALLREINFORCEMENTS))
 	{
 		usSector = aVal;
 
@@ -768,7 +818,10 @@ ReinforcementNumber::Functions( UINT32 aVal )
 
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 		
-	if ( pSoldier == NULL || !pSoldier->CanUseSkill(SKILLS_RADIO_CALLREINFORCEMENTS) )
+	if (pSoldier == nullptr ||
+		!TacticalActorSkills::canUse(
+			*pSoldier,
+			SKILLS_RADIO_CALLREINFORCEMENTS))
 		return;
 	
 	BOOLEAN result = TacticalActorRadio::callReinforcements(
@@ -799,7 +852,7 @@ SoldierSelection::Setup( UINT32 aVal )
 	if ( pSoldier == NULL )
 		return;
 
-	if ( pSoldier->CanUseSkill(aVal) )
+	if (TacticalActorSkills::canUse(*pSoldier, aVal))
 	{
 		usSkill = aVal;
 
@@ -860,7 +913,11 @@ SoldierSelection::Functions( UINT32 aVal )
 	if ( pSoldier == NULL )
 		return;
 
-	BOOLEAN result = pSoldier->UseSkill(usSkill, sTraitsMenuTargetGridNo, aVal);
+	BOOLEAN result = TacticalActorSkills::use(
+		*pSoldier,
+		usSkill,
+		sTraitsMenuTargetGridNo,
+		aVal);
 
 	// additional dialogue
 	AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_SKILL_RESULT, usSkill, result );
@@ -884,7 +941,7 @@ DragSelection::Setup( UINT32 aVal )
 	if ( pSoldier == NULL )
 		return;
 
-	if ( pSoldier->CanUseSkill( aVal ) )
+	if (TacticalActorSkills::canUse(*pSoldier, aVal))
 	{
 		usSkill = aVal;
 
@@ -975,7 +1032,11 @@ DragSelection::Functions( UINT32 aVal )
 
 	if ( pSoldier )
 	{
-		BOOLEAN result = pSoldier->UseSkill( usSkill, NOWHERE, aVal );
+		BOOLEAN result = TacticalActorSkills::use(
+			*pSoldier,
+			usSkill,
+			NOWHERE,
+			aVal);
 
 		// additional dialogue
 		AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_SKILL_RESULT, usSkill, result );
@@ -995,7 +1056,11 @@ DragSelection::FunctionsGridNo( INT32 aVal )
 
 	if ( pSoldier )
 	{
-		BOOLEAN result = pSoldier->UseSkill( usSkill, aVal, 0 );
+		BOOLEAN result = TacticalActorSkills::use(
+			*pSoldier,
+			usSkill,
+			aVal,
+			0);
 
 		// additional dialogue
 		AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_SKILL_RESULT, usSkill, result );

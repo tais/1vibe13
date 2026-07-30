@@ -53,6 +53,7 @@
 #include "Item Statistics.h"
 #include "SoldierRepository.h"
 #include "TacticalActorRadio.h"
+#include "TacticalActorSkills.h"
 #include "TacticalActorSpotting.h"
 
 
@@ -4387,8 +4388,12 @@ void HandleExplosionWarningAnimations( )
 			if (pSoldier->featureFlags().secondaryFlags() & SOLDIER_TRAIT_FOCUS)
 			{
 				// checking whether this skill is active is relatively cheap. If it fails, deactivate skill properly
-				// we cannot use CanUseSkill(...) again though, as this would fail upon opening the menu
-				if (pSoldier->CanUseSkill(SKILLS_FOCUS, FALSE, pSoldier->skillState().focusGrid()))
+				// Skip AP checks here because focus is already active.
+				if (TacticalActorSkills::canUse(
+						*pSoldier,
+						SKILLS_FOCUS,
+						false,
+						pSoldier->skillState().focusGrid()))
 				{
 					// radius depends on range
 					INT16 range = PythSpacesAway(pSoldier->skillState().focusGrid(), pSoldier->position().gridNo());

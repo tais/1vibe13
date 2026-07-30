@@ -2172,8 +2172,12 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEquipment.h"
   tactical_actor_equipment_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRadio.h"
   tactical_actor_radio_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSkills.h"
+  tactical_actor_skills_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSpotting.h"
   tactical_actor_spotting_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurncoats.h"
+  tactical_actor_turncoats_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorExplosives.h"
   tactical_actor_explosives_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorExplosives.cpp"
@@ -2908,7 +2912,15 @@ foreach(retired_actor_facade IN ITEMS
   "IsSpotting"
   "CanSpot"
   "BecomeSpotter"
-  "HasSniper")
+  "HasSniper"
+  "CanUseSkill"
+  "UseSkill"
+  "PrintSkillDesc"
+  "InPositionForTurncoatAttempt"
+  "GetTurncoatConvinctionChance"
+  "AttemptToCreateTurncoat"
+  "OrderTurnCoatToSwitchSides"
+  "OrderAllTurnCoatToSwitchSides")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -2919,6 +2931,67 @@ foreach(retired_actor_facade IN ITEMS
      NOT retired_actor_facade_definition EQUAL -1)
     message(FATAL_ERROR
       "TacticalActor regained retired facade '${retired_actor_facade}'")
+  endif()
+endforeach()
+
+foreach(required_skill_operation IN ITEMS
+  "canUse"
+  "use"
+  "description")
+  string(FIND "${tactical_actor_skills_header_contents}"
+    "${required_skill_operation}("
+    skill_operation_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActorSkills::${required_skill_operation}("
+    skill_operation_definition)
+  if(skill_operation_declaration EQUAL -1 OR
+     skill_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor skill operation '${required_skill_operation}' lost its domain declaration or definition")
+  endif()
+endforeach()
+
+foreach(required_skill_coverage IN ITEMS
+  "TacticalActorSkills::canUse"
+  "TacticalActorSkills::description")
+  string(FIND "${headless_test_contents}"
+    "${required_skill_coverage}"
+    skill_operation_coverage)
+  if(skill_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor skills lost malformed-input coverage for '${required_skill_coverage}'")
+  endif()
+endforeach()
+
+foreach(required_turncoat_operation IN ITEMS
+  "inPositionForAttempt"
+  "convictionChance"
+  "attempt"
+  "orderOne"
+  "orderAll")
+  string(FIND "${tactical_actor_turncoats_header_contents}"
+    "${required_turncoat_operation}("
+    turncoat_operation_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActorTurncoats::${required_turncoat_operation}("
+    turncoat_operation_definition)
+  if(turncoat_operation_declaration EQUAL -1 OR
+     turncoat_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor turncoat operation '${required_turncoat_operation}' lost its domain declaration or definition")
+  endif()
+endforeach()
+
+foreach(required_turncoat_coverage IN ITEMS
+  "TacticalActorTurncoats::inPositionForAttempt"
+  "TacticalActorTurncoats::convictionChance"
+  "TacticalActorTurncoats::orderOne")
+  string(FIND "${headless_test_contents}"
+    "${required_turncoat_coverage}"
+    turncoat_operation_coverage)
+  if(turncoat_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor turncoats lost malformed-input coverage for '${required_turncoat_coverage}'")
   endif()
 endforeach()
 

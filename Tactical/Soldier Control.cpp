@@ -3,7 +3,9 @@
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorRadio.h"
+#include "TacticalActorSkills.h"
 #include "TacticalActorSpotting.h"
+#include "TacticalActorTurncoats.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -124,6 +126,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <string>
 
 
 #ifdef JA2UB
@@ -17268,27 +17271,49 @@ void TacticalActor::SoldierPropertyUpkeep( )
 		TacticalActorCovertOps::disguise(*this);
 }
 
-// check if Soldier can use the spell skillwise, with fAPCheck = TRUE also check current APs
-BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo )
+// Check whether an actor can use a trait skill. Optional action-point checks
+// are kept at this boundary so strategic callers do not need tactical state.
+bool TacticalActorSkills::canUse(
+	TacticalActor& actor,
+	std::int32_t skill,
+	bool checkForActionPoints,
+	std::int32_t targetGridNo)
 {
-	if ( fAPCheck )
+	auto* const self = &actor;
+
+	if (skill < SKILLS_FIRST || skill >= SKILLS_MAX)
+		return false;
+
+	if (checkForActionPoints)
 	{
-		if ( this->collapseState().tactical() )
-			return FALSE;
+		if (actor.collapseState().tactical())
+			return false;
 	}
 
-	BOOLEAN canuse = FALSE;
+	bool canuse = false;
 
-	switch ( iSkill )
+	switch (skill)
 	{	
 	// radio operator
 	case SKILLS_RADIO_ARTILLERY:
-		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE )) && TacticalActorRadio::canUse(*this) )
+		if ((!checkForActionPoints ||
+			 EnoughPoints(
+				 self,
+				 APBPConstants[AP_RADIO],
+				 APBPConstants[BP_RADIO],
+				 FALSE)) &&
+			TacticalActorRadio::canUse(
+				actor,
+				checkForActionPoints))
 		{
 			// we also have to check wether we can really order a strike from a sector
 			UINT32 sector = 0;
-			if (TacticalActorRadio::canOrderAnyArtilleryStrike(*this, &sector))
-				canuse = TRUE;
+			if (TacticalActorRadio::canOrderAnyArtilleryStrike(
+					actor,
+					&sector))
+			{
+				canuse = true;
+			}
 		}
 		break;
 
@@ -17296,23 +17321,43 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 	case SKILLS_RADIO_SCAN_FOR_JAM:
 	case SKILLS_RADIO_LISTEN:
 	case SKILLS_RADIO_CALLREINFORCEMENTS:
-		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE )) && TacticalActorRadio::canUse(*this) )
-			canuse = TRUE;
+		if ((!checkForActionPoints ||
+			 EnoughPoints(
+				 self,
+				 APBPConstants[AP_RADIO],
+				 APBPConstants[BP_RADIO],
+				 FALSE)) &&
+			TacticalActorRadio::canUse(
+				actor,
+				checkForActionPoints))
+		{
+			canuse = true;
+		}
 		break;
 
 	case SKILLS_RADIO_TURNOFF:
-		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE )) && (TacticalActorRadio::isJamming(*this) || TacticalActorRadio::isScanning(*this) || TacticalActorRadio::isListening(*this)) )
-			canuse = TRUE;
+		if ((!checkForActionPoints ||
+			 EnoughPoints(
+				 self,
+				 APBPConstants[AP_RADIO],
+				 APBPConstants[BP_RADIO],
+				 FALSE)) &&
+			(TacticalActorRadio::isJamming(actor) ||
+			 TacticalActorRadio::isScanning(actor) ||
+			 TacticalActorRadio::isListening(actor)))
+		{
+			canuse = true;
+		}
 		break;
 
 	case SKILLS_RADIO_ACTIVATE_TURNCOATS_ALL:
-		if ( ( !fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE ) )
-			&& TacticalActorRadio::canUse(*this)
+		if ( ( !checkForActionPoints || EnoughPoints( self, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE ) )
+			&& TacticalActorRadio::canUse(actor, checkForActionPoints)
 			&& gSkillTraitValues.fCOTurncoats
 			&& !gbWorldSectorZ
 			&& gTacticalStatus.ubInterruptPending == DISABLED_INTERRUPT
 			&& IsFreeSlotAvailable( MILITIA_TEAM ) )
-			canuse = TRUE;
+			canuse = true;
 		break;
 
 	case SKILLS_INTEL_CONCEAL:
@@ -17325,15 +17370,25 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 		// - no hostile civilians or creatures
 		// - valid disguise
 		{
-			canuse = TRUE;
+			canuse = true;
 
 			// we might already be on assignment, so be careful here
-			INT8 sectorz = this->deployment().sectorZ();
-			if ( SPY_LOCATION( this->assignment().current() ) )
+			INT8 sectorz = actor.deployment().sectorZ();
+			if (SPY_LOCATION(actor.assignment().current()))
 				sectorz = max( 0, sectorz - 10 );
+			if (actor.deployment().sectorX() < 1 ||
+				actor.deployment().sectorX() >= MAP_WORLD_X - 1 ||
+				actor.deployment().sectorY() < 1 ||
+				actor.deployment().sectorY() >= MAP_WORLD_Y - 1 ||
+				sectorz < 0 ||
+				sectorz >= 4)
+			{
+				return false;
+			}
 
 			// if we are disguised as a civilian, but there is a curfew here, don't allow that
-			if ( ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_CIV ) )
+			if (actor.featureFlags().primaryFlags() &
+				SOLDIER_COVERT_CIV)
 			{
 				// civilians are suspicious if they are found in certain sectors. Especially at night
 				// sector specific value:
@@ -17342,36 +17397,53 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 				// 2 - civilians are always suspicious
 				// if underground, we still use the surface value
 
-				UINT8 ubSectorId = SECTOR( this->deployment().sectorX(), this->deployment().sectorY() );
+				UINT8 ubSectorId = SECTOR(
+					actor.deployment().sectorX(),
+					actor.deployment().sectorY());
 				UINT8 sectordata = SectorExternalData[ubSectorId][sectorz].usCurfewValue;
 
 				if ( sectordata > 1 )
-					canuse = FALSE;
+					canuse = false;
 				// is it night?
 				else if ( sectordata == 1 && GetTimeOfDayAmbientLightLevel() < NORMAL_LIGHTLEVEL_DAY + 2 )
-					canuse = FALSE;
+					canuse = false;
 			}
 
-			if ( canuse && NumEnemiesInAnySector( this->deployment().sectorX(), this->deployment().sectorY(), sectorz ) > 0 &&
-				NumPlayerTeamMembersInSector( this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() ) == 1 &&
-				( sectorz || NumNonPlayerTeamMembersInSector( this->deployment().sectorX(), this->deployment().sectorY(), MILITIA_TEAM ) == 0 ) &&
-				TacticalActorCovertOps::seemsLegitimate(*this, this->identity().id()) )
+			if (canuse &&
+				NumEnemiesInAnySector(
+					actor.deployment().sectorX(),
+					actor.deployment().sectorY(),
+					sectorz) > 0 &&
+				NumPlayerTeamMembersInSector(
+					actor.deployment().sectorX(),
+					actor.deployment().sectorY(),
+					actor.deployment().sectorZ()) == 1 &&
+				(sectorz ||
+				 NumNonPlayerTeamMembersInSector(
+					 actor.deployment().sectorX(),
+					 actor.deployment().sectorY(),
+					 MILITIA_TEAM) == 0) &&
+				TacticalActorCovertOps::seemsLegitimate(
+					actor,
+					actor.identity().id()))
 			{
 				// additional checks if we are in the currently loaded sector
-				if ( this->deployment().sectorX() == gWorldSectorX && this->deployment().sectorY() == gWorldSectorY && this->deployment().sectorZ() == gbWorldSectorZ )
+				if (actor.deployment().sectorX() == gWorldSectorX &&
+					actor.deployment().sectorY() == gWorldSectorY &&
+					actor.deployment().sectorZ() == gbWorldSectorZ)
 				{
 					if ( gTacticalStatus.Team[ENEMY_TEAM].bAwareOfOpposition ||
 						( IsJa2TacticalCombatActive() ) ||
 						HostileCiviliansPresent() ||
 						HostileCreaturesPresent() )
 					{
-						canuse = FALSE;
+						canuse = false;
 					}
 				}
 			}
 			else
 			{
-				canuse = FALSE;
+				canuse = false;
 			}
 		}
 		break;
@@ -17383,12 +17455,24 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 		// - valid disguise
 		// - enough AP to talk
 		{
-			TacticalActor* pSoldier = SimpleFindSoldier( sGridNo, gsInterfaceLevel );
+			TacticalActor* pSoldier =
+				TileIsOutOfBounds(targetGridNo)
+					? nullptr
+					: SimpleFindSoldier(
+						targetGridNo,
+						gsInterfaceLevel);
 			if ( pSoldier
-				&& InPositionForTurncoatAttempt( pSoldier->identity().id() )
-				&& (!fAPCheck || EnoughPoints( this, APBPConstants[AP_TALK], 0, FALSE ) ) )
+				&& TacticalActorTurncoats::inPositionForAttempt(
+					actor,
+					pSoldier->identity().id())
+				&& (!checkForActionPoints ||
+					EnoughPoints(
+						self,
+						APBPConstants[AP_TALK],
+						0,
+						FALSE)))
 			{
-				canuse = TRUE;
+				canuse = true;
 			}
 		}
 		break;
@@ -17400,14 +17484,19 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 			&& gTacticalStatus.ubInterruptPending == DISABLED_INTERRUPT
 			&& IsFreeSlotAvailable( MILITIA_TEAM ) )
 		{
-			TacticalActor* pSoldier = SimpleFindSoldier( sGridNo, gsInterfaceLevel );
+			TacticalActor* pSoldier =
+				TileIsOutOfBounds(targetGridNo)
+					? nullptr
+					: SimpleFindSoldier(
+						targetGridNo,
+						gsInterfaceLevel);
 			if ( pSoldier
 				&& pSoldier->roster().team() == ENEMY_TEAM
 				&& pSoldier->identity().profile() == NO_PROFILE
 				&& ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 				&& SOLDIER_CLASS_ENEMY( pSoldier->roster().soldierClass() ) )
 			{
-				canuse = TRUE;
+				canuse = true;
 			}
 		}
 		break;
@@ -17420,96 +17509,143 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 			&& !gSkillTraitValues.fCOTurncoats_SectorActivationRequiresRadioOperator
 			&& IsFreeSlotAvailable( MILITIA_TEAM ) )
 		{
-			canuse = TRUE;
+			canuse = true;
 		}
 		break;
 
 	case SKILLS_DISGUISE_APPLY_DISGUISE:
 	case SKILLS_DISGUISE_REMOVE_CLOTHES:
-		if (IS_MERC_BODY_TYPE(this) && !(featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER)))
-			canuse = TRUE;
+		if (IS_MERC_BODY_TYPE(self) &&
+			!(actor.featureFlags().primaryFlags() &
+			  (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER)))
+		{
+			canuse = true;
+		}
 		break;
 
 	case SKILLS_DISGUISE_REMOVE_DISGUISE:
 	case SKILLS_DISGUISE_TEST_DISGUISE:
-		if (IS_MERC_BODY_TYPE(this) && featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER))
-			canuse = TRUE;
+		if (IS_MERC_BODY_TYPE(self) &&
+			(actor.featureFlags().primaryFlags() &
+			 (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER)))
+		{
+			canuse = true;
+		}
 		break;
 
 	case SKILLS_SPOTTER:
-		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_SPOTTER], 0, FALSE )) && TacticalActorSpotting::canSpot(*this) )
-			canuse = TRUE;
+		if ((!checkForActionPoints ||
+			 EnoughPoints(
+				 self,
+				 APBPConstants[AP_SPOTTER],
+				 0,
+				 FALSE)) &&
+			TacticalActorSpotting::canSpot(actor))
+		{
+			canuse = true;
+		}
 		break;
 
 	case SKILLS_FOCUS:
 		// requires sniper trait, an aimed gun and only works on gridnos in our direction
-		if ( gGameOptions.fNewTraitSystem && 
-			 (HAS_SKILL_TRAIT( this, AUTO_WEAPONS_NT ) || HAS_SKILL_TRAIT( this, HEAVY_WEAPONS_NT ) || HAS_SKILL_TRAIT( this, SNIPER_NT ) || 
-			 HAS_SKILL_TRAIT( this, RANGER_NT ) || HAS_SKILL_TRAIT( this, GUNSLINGER_NT ))
-			 && this->inventory()[HANDPOS].exists( ) && Item[this->inventory()[HANDPOS].usItem].usItemClass & (IC_GUN | IC_LAUNCHER) && WeaponReady( this )
-			 && sGridNo != NOWHERE && this->position().direction() == GetDirectionFromGridNo( sGridNo, this ) )
-			canuse = TRUE;
+		if (gGameOptions.fNewTraitSystem &&
+			(HAS_SKILL_TRAIT(self, AUTO_WEAPONS_NT) ||
+			 HAS_SKILL_TRAIT(self, HEAVY_WEAPONS_NT) ||
+			 HAS_SKILL_TRAIT(self, SNIPER_NT) ||
+			 HAS_SKILL_TRAIT(self, RANGER_NT) ||
+			 HAS_SKILL_TRAIT(self, GUNSLINGER_NT)) &&
+			HANDPOS < actor.inventory().size() &&
+			actor.inventory()[HANDPOS].exists() &&
+			actor.inventory()[HANDPOS].usItem < MAXITEMS &&
+			(Item[actor.inventory()[HANDPOS].usItem].usItemClass &
+			 (IC_GUN | IC_LAUNCHER)) &&
+			WeaponReady(self) &&
+			!TileIsOutOfBounds(actor.position().gridNo()) &&
+			!TileIsOutOfBounds(targetGridNo) &&
+			actor.position().direction() ==
+				GetDirectionFromGridNo(targetGridNo, self))
+		{
+			canuse = true;
+		}
 		break;
 
 	case SKILLS_DRAG:
 
 		// TODO: a better check would be whether we can drag anything at the moment - CanDrag is more used for a specific person
 		// sevenfm: added AP check to crouch before starting to drag
-		if ((!fAPCheck || EnoughPoints(this, GetAPsToStartDrag(this, sGridNo), 0, FALSE)) &&
-			TacticalActorDragging::canDrag(*this))
-			canuse = TRUE;
+		if ((!checkForActionPoints ||
+			 EnoughPoints(
+				 self,
+				 GetAPsToStartDrag(self, targetGridNo),
+				 0,
+				 FALSE)) &&
+			TacticalActorDragging::canDrag(actor))
+		{
+			canuse = true;
+		}
 		break;
 
 	case SKILLS_FILL_CANTEENS:
 		if ( !((GetCurrentScreen() != GAME_SCREEN && GetCurrentScreen() != MSG_BOX_SCREEN) || (IsJa2TacticalCombatActive()) || gTacticalStatus.fEnemyInSector || gusSelectedSoldier == NOBODY) )
-			canuse = TRUE;
+			canuse = true;
 		break;
 
 	default:
 		break;
 	}
 
-	return(canuse);
+	return canuse;
 }
 
-// use a skill. For safety reasons, this calls CanUseSkill again
-BOOLEAN TacticalActor::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
+// Use a skill. Revalidate here because the selected actor or target can change
+// while a tactical menu remains open.
+bool TacticalActorSkills::use(
+	TacticalActor& actor,
+	std::uint32_t skill,
+	std::int32_t targetGridNo,
+	std::uint32_t targetId)
 {
-	if ( !CanUseSkill( iSkill, TRUE, usMapPos ) )
+	auto* const self = &actor;
+
+	if (skill >= SKILLS_MAX ||
+		!canUse(
+			actor,
+			static_cast<std::int32_t>(skill),
+			true,
+			targetGridNo))
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_CANNOT_USE_SKILL] );
-		return FALSE;
+		return false;
 	}
 
-	switch ( iSkill )
+	switch (skill)
 	{		
 	// radio operator
 	// the call for SKILLS_RADIO_ARTILLERY is only used by the AI
 	case SKILLS_RADIO_ARTILLERY:
 		{
 			UINT32 sector = 0;
-			if (TacticalActorRadio::canOrderAnyArtilleryStrike(*this, &sector))
+			if (TacticalActorRadio::canOrderAnyArtilleryStrike(
+					actor,
+					&sector))
 			{
 				return TacticalActorRadio::orderArtilleryStrike(
-					*this,
+					actor,
 					sector,
-					usMapPos,
-					this->roster().team());
+					targetGridNo,
+					actor.roster().team());
 			}
 		}
 		break;
 
 	case SKILLS_RADIO_JAM:
-		return TacticalActorRadio::startJamming(*this);
-		break;
+		return TacticalActorRadio::startJamming(actor);
 		
 	case SKILLS_RADIO_SCAN_FOR_JAM:
-		return TacticalActorRadio::startScanning(*this);
-		break;
+		return TacticalActorRadio::startScanning(actor);
 
 	case SKILLS_RADIO_LISTEN:
-		return TacticalActorRadio::startListening(*this);
-		break;
+		return TacticalActorRadio::startListening(actor);
 
 	case SKILLS_RADIO_CALLREINFORCEMENTS:
 		// called separately
@@ -17517,29 +17653,30 @@ BOOLEAN TacticalActor::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
 		break;
 
 	case SKILLS_RADIO_TURNOFF:
-		return TacticalActorRadio::switchOff(*this);
-		break;
+		return TacticalActorRadio::switchOff(actor);
 
 	case SKILLS_RADIO_ACTIVATE_TURNCOATS_ALL:
-		return TacticalActorRadio::orderAllTurncoats(*this);
-		break;
+		return TacticalActorRadio::orderAllTurncoats(actor);
 
 	case SKILLS_INTEL_CONCEAL:
 	case SKILLS_INTEL_GATHERINTEL:
 		{
 			// ATE: Patch fix If in a vehicle, remove from vehicle...
-			TakeSoldierOutOfVehicle( this );
+			TakeSoldierOutOfVehicle(self);
 
 			// we store our location and later retrieve it, as the gridno will be set to NOWHERE
-			this->longAction().rememberContextGrid( this->position().gridNo() );
+			actor.longAction().rememberContextGrid(
+				actor.position().gridNo());
 
 			// remove from squad
-			RemoveCharacterFromSquads( this );
+			RemoveCharacterFromSquads(self);
 
-			ChangeSoldiersAssignment( this, CONCEALED + iSkill - SKILLS_INTEL_CONCEAL );
+			ChangeSoldiersAssignment(
+				self,
+				CONCEALED + skill - SKILLS_INTEL_CONCEAL);
 
 			// Remove soldier's graphic
-			this->RemoveSoldierFromGridNo();
+			actor.RemoveSoldierFromGridNo();
 				
 			UpdateMercsInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 			
@@ -17547,78 +17684,91 @@ BOOLEAN TacticalActor::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
 
 			CheckAndHandleUnloadingOfCurrentWorld();
 
-			return TRUE;
+			return true;
 		}
-		break;
 
 	case SKILLS_CREATE_TURNCOAT:
-		AttemptToCreateTurncoat ( ID );
-		return TRUE;
-		break;
+		TacticalActorTurncoats::attempt(
+			static_cast<SoldierID>(targetId));
+		return true;
 
 	case SKILLS_ACTIVATE_TURNCOATS:
-		return OrderTurnCoatToSwitchSides( ID );
-		break;
+		return TacticalActorTurncoats::orderOne(
+			static_cast<SoldierID>(targetId));
 
 	case SKILLS_ACTIVATE_TURNCOATS_ALL:
-		OrderAllTurnCoatToSwitchSides();
-		return TRUE;
-		break;
+		TacticalActorTurncoats::orderAll();
+		return true;
 
 	case SKILLS_DISGUISE_APPLY_DISGUISE:
-		TacticalActorCovertOps::disguise(*this);
-		TacticalActorCovertOps::runSelfTest(*this);
-		return TRUE;
+		TacticalActorCovertOps::disguise(actor);
+		TacticalActorCovertOps::runSelfTest(actor);
+		return true;
 
 	case SKILLS_DISGUISE_REMOVE_DISGUISE:
-		TacticalActorCovertOps::loseDisguise(*this);
-		return TRUE;
+		TacticalActorCovertOps::loseDisguise(actor);
+		return true;
 
 	case SKILLS_DISGUISE_TEST_DISGUISE:
-		TacticalActorCovertOps::runSelfTest(*this);
-		return TRUE;
+		TacticalActorCovertOps::runSelfTest(actor);
+		return true;
 
 	case SKILLS_DISGUISE_REMOVE_CLOTHES:
-		TacticalActorCovertOps::strip(*this);
-		return TRUE;
+		TacticalActorCovertOps::strip(actor);
+		return true;
 
 	case SKILLS_SPOTTER:
-		return TacticalActorSpotting::startSpotting(*this, usMapPos);
-		break;
+		return TacticalActorSpotting::startSpotting(
+			actor,
+			targetGridNo);
 
 	case SKILLS_FOCUS:
 		// activating skill on same gridno again deactivates it
-		if ((featureFlags().secondaryFlags() & SOLDIER_TRAIT_FOCUS) && skillState().focusGrid() == usMapPos)
+		if ((actor.featureFlags().secondaryFlags() &
+			 SOLDIER_TRAIT_FOCUS) &&
+			actor.skillState().focusGrid() == targetGridNo)
 		{
-			featureFlags().secondaryFlags() &= ~SOLDIER_TRAIT_FOCUS;
-			skillState().clearFocus();
+			actor.featureFlags().secondaryFlags() &=
+				~SOLDIER_TRAIT_FOCUS;
+			actor.skillState().clearFocus();
 
-			return FALSE;
+			return false;
 		}
 		else
 		{
-			featureFlags().secondaryFlags() |= SOLDIER_TRAIT_FOCUS;
-			skillState().focusOn(usMapPos);
+			actor.featureFlags().secondaryFlags() |=
+				SOLDIER_TRAIT_FOCUS;
+			actor.skillState().focusOn(targetGridNo);
 
-			return TRUE;
+			return true;
 		}
-		break;
 
 	case SKILLS_DRAG:
 		// sevenfm: change to crouch before dragging
-		if (gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_CROUCH)
+		if (actor.animationPlayback().state() >=
+			NUMANIMATIONSTATES)
+		{
+			return false;
+		}
+		if (gAnimControl[actor.animationPlayback().state()]
+				.ubEndHeight != ANIM_CROUCH)
 		{
 			HandleStanceChangeFromUIKeys(ANIM_CROUCH);
 		}
-		if ( usMapPos != NOWHERE )
-			TacticalActorDragging::dragStructure(*this, usMapPos);
-		else if ( ID < NOBODY )
-			TacticalActorDragging::dragPerson(*this, ID);
+		if (targetGridNo != NOWHERE)
+			TacticalActorDragging::dragStructure(
+				actor,
+				targetGridNo);
+		else if (targetId < NOBODY)
+			TacticalActorDragging::dragPerson(
+				actor,
+				targetId);
 		else
-			TacticalActorDragging::dragCorpse(*this, ID - NOBODY);
+			TacticalActorDragging::dragCorpse(
+				actor,
+				targetId - NOBODY);
 
-		return TRUE;
-		break;
+		return true;
 
 	case SKILLS_FILL_CANTEENS:
 		SectorFillCanteens();
@@ -17628,185 +17778,199 @@ BOOLEAN TacticalActor::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
 		break;
 	}
 
-	return FALSE;
+	return false;
 }
 
-// is the AI allowed to use a skill? we have to check how much breath and life using this skill would cost, as otherwise the AI might commit suicide by casting
-static CHAR16 skilldescarray[500];
-
-// print a small description of the skill if we can use it, or its requirements if we cannot
-STR16	TacticalActor::PrintSkillDesc( INT8 iSkill, INT32 sGridNo )
+// Return a skill description or a synthesized list of unmet requirements.
+// The legacy fixed destination buffer could overflow when translated strings
+// were longer than the English originals.
+const wchar_t* TacticalActorSkills::description(
+	TacticalActor& actor,
+	std::int32_t skill,
+	std::int32_t targetGridNo)
 {
-	if ( CanUseSkill( iSkill, TRUE, sGridNo ) )
+	static thread_local std::wstring descriptionText;
+
+	if (skill < SKILLS_FIRST || skill >= SKILLS_MAX)
 	{
-		return pTraitSkillsMenuDescStrings[iSkill];
-	}
-	else
-	{
-		CHAR16	atStr[200];
-		swprintf( skilldescarray, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_REQ] );
-
-		if ( iSkill >= SKILLS_RADIO_FIRST && iSkill <= SKILLS_RADIO_LAST )
-		{
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_AP], APBPConstants[AP_RADIO] );
-			wcscat( skilldescarray, atStr );
-		}
-
-		switch ( iSkill )
-		{
-		// radio operator
-		case SKILLS_RADIO_ARTILLERY:
-		case SKILLS_RADIO_JAM:
-		case SKILLS_RADIO_SCAN_FOR_JAM:
-		case SKILLS_RADIO_LISTEN:
-		case SKILLS_RADIO_CALLREINFORCEMENTS:
-		case SKILLS_RADIO_TURNOFF:
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT], gzMercSkillTextNew[RADIO_OPERATOR_NT] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT], New113Message[MSG113_WORKING_RADIO_SET] );
-			wcscat( skilldescarray, atStr );
-
-			break;
-
-		case SKILLS_RADIO_ACTIVATE_TURNCOATS_ALL:
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT], gzMercSkillTextNew[RADIO_OPERATOR_NT] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT], New113Message[MSG113_WORKING_RADIO_SET] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_NOT_DURING_INTERRUPT] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_TURNED_ENEMY] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_SURFACELEVEL] );
-			wcscat( skilldescarray, atStr );
-
-			break;
-
-		case SKILLS_INTEL_CONCEAL:
-		case SKILLS_INTEL_GATHERINTEL:
-
-			//swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_COVERTTRAIT] );
-			//wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_ENEMYSECTOR] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_SINGLEMERC] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_NOALARM] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_DISGUISE_CIV_OR_MIL] );
-			wcscat( skilldescarray, atStr );
-
-			break;
-
-		case SKILLS_CREATE_TURNCOAT:
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_ENEMY] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_NOALARM] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_DISGUISE_CIV_OR_MIL] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_SURFACELEVEL] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_STRATEGIC_SUSPICION] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_AP], APBPConstants[AP_TALK] );
-			wcscat( skilldescarray, atStr );
-
-			break;
-
-		case SKILLS_ACTIVATE_TURNCOATS:
-		case SKILLS_ACTIVATE_TURNCOATS_ALL:
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_NOT_DURING_INTERRUPT] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_TURNED_ENEMY] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_SURFACELEVEL] );
-			wcscat( skilldescarray, atStr );
-
-			break;
-
-		case SKILLS_DISGUISE_APPLY_DISGUISE:
-		case SKILLS_DISGUISE_REMOVE_CLOTHES:
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_NOT_DISGUISED] );
-			wcscat( skilldescarray, atStr );
-			break;
-
-		case SKILLS_DISGUISE_REMOVE_DISGUISE:
-		case SKILLS_DISGUISE_TEST_DISGUISE:
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_DISGUISE_CIV_OR_MIL] );
-			wcscat( skilldescarray, atStr );
-			break;
-
-		case SKILLS_SPOTTER:
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_AP], APBPConstants[AP_SPOTTER] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT], New113Message[MSG113_BINOCULAR] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT], New113Message[MSG113_PATIENCE] );
-			wcscat( skilldescarray, atStr );
-			break;
-
-		case SKILLS_FOCUS:
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_GUNTRAIT] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_AIMEDGUN] );
-			wcscat(skilldescarray, atStr);
-
-			break;
-
-		case SKILLS_DRAG:
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_PRONEPERSONORCORPSE] );
-			wcscat( skilldescarray, atStr );
-
-			// sevenfm: allow to start dragging from any stance, will crouch automatically
-			//swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_CROUCH] );
-			//wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_FREEHANDS] );
-			wcscat( skilldescarray, atStr );
-
-			break;
-
-		case SKILLS_FILL_CANTEENS:
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_NOT_IN_COMBAT] );
-			wcscat( skilldescarray, atStr );
-
-			swprintf( atStr, pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_FRIENDLY_SECTOR] );
-			wcscat( skilldescarray, atStr );
-
-			break;
-
-		default:
-			break;
-		}
+		descriptionText.clear();
+		return descriptionText.c_str();
 	}
 
-	return skilldescarray;
+	if (canUse(actor, skill, true, targetGridNo))
+	{
+		const auto* const description =
+			pTraitSkillsMenuDescStrings[skill];
+		return description != nullptr ? description : L"";
+	}
+
+	const auto* const requirementHeader =
+		pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_REQ];
+	descriptionText.assign(
+		requirementHeader != nullptr ? requirementHeader : L"");
+
+	const auto appendFormatted =
+		[](
+			const wchar_t* format,
+			auto... arguments)
+		{
+			if (format == nullptr)
+				return;
+
+			CHAR16 formatted[200] = {};
+			if (swprintf(formatted, format, arguments...) >= 0)
+				descriptionText.append(formatted);
+		};
+
+	if (skill >= SKILLS_RADIO_FIRST &&
+		skill <= SKILLS_RADIO_LAST)
+	{
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_AP],
+			APBPConstants[AP_RADIO]);
+	}
+
+	switch (skill)
+	{
+	// radio operator
+	case SKILLS_RADIO_ARTILLERY:
+	case SKILLS_RADIO_JAM:
+	case SKILLS_RADIO_SCAN_FOR_JAM:
+	case SKILLS_RADIO_LISTEN:
+	case SKILLS_RADIO_CALLREINFORCEMENTS:
+	case SKILLS_RADIO_TURNOFF:
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT],
+			gzMercSkillTextNew[RADIO_OPERATOR_NT]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT],
+			New113Message[MSG113_WORKING_RADIO_SET]);
+		break;
+
+	case SKILLS_RADIO_ACTIVATE_TURNCOATS_ALL:
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT],
+			gzMercSkillTextNew[RADIO_OPERATOR_NT]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT],
+			New113Message[MSG113_WORKING_RADIO_SET]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_NOT_DURING_INTERRUPT]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_TURNED_ENEMY]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_SURFACELEVEL]);
+		break;
+
+	case SKILLS_INTEL_CONCEAL:
+	case SKILLS_INTEL_GATHERINTEL:
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_ENEMYSECTOR]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_SINGLEMERC]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_NOALARM]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_DISGUISE_CIV_OR_MIL]);
+		break;
+
+	case SKILLS_CREATE_TURNCOAT:
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_ENEMY]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_NOALARM]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_DISGUISE_CIV_OR_MIL]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_SURFACELEVEL]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_STRATEGIC_SUSPICION]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_AP],
+			APBPConstants[AP_TALK]);
+		break;
+
+	case SKILLS_ACTIVATE_TURNCOATS:
+	case SKILLS_ACTIVATE_TURNCOATS_ALL:
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_NOT_DURING_INTERRUPT]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_TURNED_ENEMY]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_SURFACELEVEL]);
+		break;
+
+	case SKILLS_DISGUISE_APPLY_DISGUISE:
+	case SKILLS_DISGUISE_REMOVE_CLOTHES:
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_NOT_DISGUISED]);
+		break;
+
+	case SKILLS_DISGUISE_REMOVE_DISGUISE:
+	case SKILLS_DISGUISE_TEST_DISGUISE:
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_DISGUISE_CIV_OR_MIL]);
+		break;
+
+	case SKILLS_SPOTTER:
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_AP],
+			APBPConstants[AP_SPOTTER]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT],
+			New113Message[MSG113_BINOCULAR]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[TEXT_SKILL_DENIAL_X_TXT],
+			New113Message[MSG113_PATIENCE]);
+		break;
+
+	case SKILLS_FOCUS:
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_GUNTRAIT]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_AIMEDGUN]);
+		break;
+
+	case SKILLS_DRAG:
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_PRONEPERSONORCORPSE]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_FREEHANDS]);
+		break;
+
+	case SKILLS_FILL_CANTEENS:
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_NOT_IN_COMBAT]);
+		appendFormatted(
+			pTraitSkillsDenialStrings[
+				TEXT_SKILL_DENIAL_FRIENDLY_SECTOR]);
+		break;
+
+	default:
+		break;
+	}
+
+	return descriptionText.c_str();
 }
 
 namespace
@@ -18031,7 +18195,10 @@ bool TacticalActorRadio::orderArtilleryStrike(
 		return false;
 	}
 
-	if (!actor.CanUseSkill(SKILLS_RADIO_ARTILLERY, TRUE))
+	if (!TacticalActorSkills::canUse(
+			actor,
+			SKILLS_RADIO_ARTILLERY,
+			true))
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_CANNOT_USE_SKILL] );
 		return false;
@@ -18800,7 +18967,7 @@ bool TacticalActorRadio::orderAllTurncoats(TacticalActor& actor)
 	if (!use(actor))
 		return false;
 
-	actor.OrderAllTurnCoatToSwitchSides();
+	TacticalActorTurncoats::orderAll();
 
 	return true;
 }
@@ -21036,24 +21203,32 @@ std::uint8_t TacticalActorModifiers::thiefEvadeDetectionChance(
 	return static_cast<std::uint8_t>(totalvalue);
 }
 
-BOOLEAN	TacticalActor::InPositionForTurncoatAttempt( SoldierID usID )
+bool TacticalActorTurncoats::inPositionForAttempt(
+	TacticalActor& actor,
+	SoldierID targetId)
 {
 	if ( !gSkillTraitValues.fCOTurncoats
 		|| gbWorldSectorZ
 		|| gTacticalStatus.Team[ENEMY_TEAM].bAwareOfOpposition )
-		return FALSE;
+		return false;
 
-	if ( this->vitals().health() < OKLIFE
-		|| this->assignment().isAsleep()
-		|| this->collapseState().tactical()
-		|| ( this->featureFlags().primaryFlags() & SOLDIER_POW )
-		|| this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 20
-		|| usID == NOBODY )
-		return FALSE;
+	if (actor.vitals().health() < OKLIFE ||
+		actor.assignment().isAsleep() ||
+		actor.collapseState().tactical() ||
+		(actor.featureFlags().primaryFlags() & SOLDIER_POW) ||
+		actor.skillState().cooldown(
+			SOLDIER_COOLDOWN_INTEL_PENALTY) > 20 ||
+		targetId == NOBODY ||
+		actor.animationPlayback().state() >=
+			NUMANIMATIONSTATES ||
+		TileIsOutOfBounds(actor.position().gridNo()))
+	{
+		return false;
+	}
 
 	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(
-			usID );
+			targetId);
 
 	if ( !pSoldier
 		|| pSoldier->roster().team() != ENEMY_TEAM
@@ -21062,32 +21237,58 @@ BOOLEAN	TacticalActor::InPositionForTurncoatAttempt( SoldierID usID )
 		|| pSoldier->collapseState().tactical()
 		|| ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 		|| !SOLDIER_CLASS_ENEMY( pSoldier->roster().soldierClass() )
-		|| !TacticalActorCovertOps::seemsLegitimate(*this, pSoldier->identity().id()) )
-		return FALSE;
-
-	// additional checks if we want to know wether we can target a specific location
-	if ( PythSpacesAway( this->position().gridNo(), pSoldier->position().gridNo() ) < 10 )
+		|| TileIsOutOfBounds(pSoldier->position().gridNo())
+		|| !TacticalActorCovertOps::seemsLegitimate(
+			actor,
+			pSoldier->identity().id()))
 	{
-		INT32 val = SoldierToVirtualSoldierLineOfSightTest( this, pSoldier->position().gridNo(), this->position().level(), gAnimControl[this->animationPlayback().state()].ubEndHeight, FALSE, 10 );
-
-		// error if we cannot see the target
-		if ( !val )
-			return FALSE;
-		else
-			return TRUE;
+		return false;
 	}
 
-	return FALSE;
+	// additional checks if we want to know wether we can target a specific location
+	if (PythSpacesAway(
+			actor.position().gridNo(),
+			pSoldier->position().gridNo()) < 10)
+	{
+		INT32 val = SoldierToVirtualSoldierLineOfSightTest(
+			&actor,
+			pSoldier->position().gridNo(),
+			actor.position().level(),
+			gAnimControl[actor.animationPlayback().state()]
+				.ubEndHeight,
+			FALSE,
+			10);
+
+		// error if we cannot see the target
+		return val != 0;
+	}
+
+	return false;
 }
 
-UINT8		TacticalActor::GetTurncoatConvinctionChance( SoldierID usID, INT16 sApproach )
+std::uint8_t TacticalActorTurncoats::convictionChance(
+	TacticalActor& actor,
+	SoldierID targetId,
+	std::int16_t approach)
 {
-	if ( usID >= NOBODY )
+	auto* const self = &actor;
+	const auto recruiterProfile = actor.identity().profile();
+	if (targetId >= NOBODY ||
+		approach < 1 ||
+		approach > 4 ||
+		recruiterProfile == NO_PROFILE ||
+		recruiterProfile >= NUM_PROFILES ||
+		actor.deployment().sectorX() < 1 ||
+		actor.deployment().sectorX() >= MAP_WORLD_X - 1 ||
+		actor.deployment().sectorY() < 1 ||
+		actor.deployment().sectorY() >= MAP_WORLD_Y - 1)
+	{
 		return 0;
+	}
 
 	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(
-			usID );
+			targetId);
 
 	if ( !pSoldier
 		|| pSoldier->roster().team() != ENEMY_TEAM )
@@ -21097,41 +21298,70 @@ UINT8		TacticalActor::GetTurncoatConvinctionChance( SoldierID usID, INT16 sAppro
 	if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ROBOT)
 		return 0;
 
-	if ( this->vitals().health() < OKLIFE )
+	if (actor.vitals().health() < OKLIFE)
 		return 0;
 
 	// determine effectiveness of merc	
 	// nominally in [0; 1000]
-	INT32 basestatrating = 6 * EffectiveLeadership( this ) + 40 * EffectiveExpLevel( this, FALSE );
+	INT32 basestatrating =
+		6 * EffectiveLeadership(self) +
+		40 * EffectiveExpLevel(self, FALSE);
 
-	FLOAT recruitmodifier = ( 100 + TacticalActorModifiers::backgroundValue(*this, BG_PERC_APPROACH_RECRUIT ) ) / 100.0f;
+	FLOAT recruitmodifier =
+		(100 +
+		 TacticalActorModifiers::backgroundValue(
+			 actor,
+			 BG_PERC_APPROACH_RECRUIT)) /
+		100.0f;
 
 	// personality/disability modifiers
 	FLOAT persmodifier = 1.0f;
-	if ( DoesMercHaveDisability( this, NERVOUS ) )				persmodifier -= 0.10f;
+	if (DoesMercHaveDisability(self, NERVOUS))
+		persmodifier -= 0.10f;
 
 	if ( gGameOptions.fNewTraitSystem )
 	{
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_SOCIABLE ) )		persmodifier += 0.08f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_LONER ) )		persmodifier -= 0.04f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_ASSERTIVE ) )	persmodifier += 0.05f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_AGGRESSIVE ) )	persmodifier -= 0.05f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_PHLEGMATIC ) )	persmodifier -= 0.02f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_DAUNTLESS ) )	persmodifier += 0.03f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_SHOWOFF ) )		persmodifier += 0.04f;
-		if ( DoesMercHavePersonality( this, CHAR_TRAIT_COWARD ) )		persmodifier -= 0.07f;
+		if (DoesMercHavePersonality(self, CHAR_TRAIT_SOCIABLE))
+			persmodifier += 0.08f;
+		if (DoesMercHavePersonality(self, CHAR_TRAIT_LONER))
+			persmodifier -= 0.04f;
+		if (DoesMercHavePersonality(self, CHAR_TRAIT_ASSERTIVE))
+			persmodifier += 0.05f;
+		if (DoesMercHavePersonality(self, CHAR_TRAIT_AGGRESSIVE))
+			persmodifier -= 0.05f;
+		if (DoesMercHavePersonality(self, CHAR_TRAIT_PHLEGMATIC))
+			persmodifier -= 0.02f;
+		if (DoesMercHavePersonality(self, CHAR_TRAIT_DAUNTLESS))
+			persmodifier += 0.03f;
+		if (DoesMercHavePersonality(self, CHAR_TRAIT_SHOWOFF))
+			persmodifier += 0.04f;
+		if (DoesMercHavePersonality(self, CHAR_TRAIT_COWARD))
+			persmodifier -= 0.07f;
 	}
 
 	// nominally in [0; 100]
-	INT32 recruitrating = basestatrating * recruitmodifier * persmodifier * gMercProfiles[this->identity().profile()].usApproachFactor[3] / 1000;
+	INT32 recruitrating =
+		static_cast<INT32>(
+			basestatrating *
+			recruitmodifier *
+			persmodifier *
+			gMercProfiles[recruiterProfile].usApproachFactor[3] /
+			1000);
 
 	// optional ini bonus
 	recruitrating += gSkillTraitValues.sCOTurncoats_PlayerConvinctionBonus;
 
-	ReducePointsForFatigue( this, &recruitrating );
+	ReducePointsForFatigue(self, &recruitrating);
 
 	// determine resistance of soldier to our subversion
-	INT32 ubLocationModifier = 2 * max( 1, min( 20, gCoolnessBySector[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )] ) );
+	INT32 ubLocationModifier =
+		2 * max(
+			1,
+			min(
+				20,
+				gCoolnessBySector[SECTOR(
+					actor.deployment().sectorX(),
+					actor.deployment().sectorY())]));
 
 	// enemy resistance is dependent on their level, class and the sector rating
 	INT32 enemyresistancerating = ubLocationModifier + 8 * EffectiveExpLevel( pSoldier, FALSE );
@@ -21148,7 +21378,7 @@ UINT8		TacticalActor::GetTurncoatConvinctionChance( SoldierID usID, INT16 sAppro
 
 	ReducePointsForFatigue( pSoldier, &enemyresistancerating );
 	
-	switch ( sApproach )
+	switch (approach)
 	{
 		// base approach
 	case 1:
@@ -21163,7 +21393,8 @@ UINT8		TacticalActor::GetTurncoatConvinctionChance( SoldierID usID, INT16 sAppro
 		INT32 stat_dependant_roll = ( 37 * EffectiveStrength( pSoldier, FALSE ) + 92 * EffectiveMedical( pSoldier ) + 51 * EffectiveDexterity( pSoldier, FALSE ) + 61 * pSoldier->vitals().health() ) % 100;
 		bool samesexattraction = ( stat_dependant_roll < 8 );
 
-		bool female_player = ( this->identity().bodyType() == REGFEMALE );
+		bool female_player =
+			(actor.identity().bodyType() == REGFEMALE);
 		bool female_soldier = ( pSoldier->identity().bodyType() == REGFEMALE );
 
 		bool fittingattraction = false;
@@ -21172,14 +21403,30 @@ UINT8		TacticalActor::GetTurncoatConvinctionChance( SoldierID usID, INT16 sAppro
 		else if ( female_player == female_soldier && samesexattraction )
 			fittingattraction = true;
 
-		if ( gMercProfiles[this->identity().profile()].bAppearance == APPEARANCE_UGLY )			enemyresistancerating += 50 - ( fittingattraction ?  5 : 0 );
-		else if ( gMercProfiles[this->identity().profile()].bAppearance == APPEARANCE_HOMELY )		enemyresistancerating += 40 - ( fittingattraction ? 15 : 0 );
-		else if ( gMercProfiles[this->identity().profile()].bAppearance == APPEARANCE_AVERAGE )	enemyresistancerating += 30 - ( fittingattraction ? 30 : 0 );
-		else if ( gMercProfiles[this->identity().profile()].bAppearance == APPEARANCE_ATTRACTIVE )	enemyresistancerating += 20 - ( fittingattraction ? 45 : 0 );
-		else if ( gMercProfiles[this->identity().profile()].bAppearance == APPEARANCE_BABE )		enemyresistancerating += 10 - ( fittingattraction ? 60 : 0 );
+		if (gMercProfiles[recruiterProfile].bAppearance ==
+			APPEARANCE_UGLY)
+			enemyresistancerating +=
+				50 - (fittingattraction ? 5 : 0);
+		else if (gMercProfiles[recruiterProfile].bAppearance ==
+			APPEARANCE_HOMELY)
+			enemyresistancerating +=
+				40 - (fittingattraction ? 15 : 0);
+		else if (gMercProfiles[recruiterProfile].bAppearance ==
+			APPEARANCE_AVERAGE)
+			enemyresistancerating +=
+				30 - (fittingattraction ? 30 : 0);
+		else if (gMercProfiles[recruiterProfile].bAppearance ==
+			APPEARANCE_ATTRACTIVE)
+			enemyresistancerating +=
+				20 - (fittingattraction ? 45 : 0);
+		else if (gMercProfiles[recruiterProfile].bAppearance ==
+			APPEARANCE_BABE)
+			enemyresistancerating +=
+				10 - (fittingattraction ? 60 : 0);
 
 		// seduction works better in civilian clothing
-		if ( this->featureFlags().primaryFlags() & SOLDIER_COVERT_CIV )
+		if (actor.featureFlags().primaryFlags() &
+			SOLDIER_COVERT_CIV)
 			enemyresistancerating -= 5;
 	}
 	break;
@@ -21208,17 +21455,21 @@ UINT8		TacticalActor::GetTurncoatConvinctionChance( SoldierID usID, INT16 sAppro
 	if ( enemyresistancerating > recruitrating )
 		return 0;
 
-	return max( 0, min( 100, recruitrating - enemyresistancerating ) );
+	return static_cast<std::uint8_t>(
+		std::clamp(
+			recruitrating - enemyresistancerating,
+			0,
+			100));
 }
 
-void		TacticalActor::AttemptToCreateTurncoat( SoldierID usID )
+void TacticalActorTurncoats::attempt(SoldierID targetId)
 {
-	if ( usID >= NOBODY )
+	if (targetId >= NOBODY)
 		return;
 
 	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(
-			usID );
+			targetId);
 
 	if ( !pSoldier
 		|| pSoldier->roster().team() != ENEMY_TEAM
@@ -21228,19 +21479,23 @@ void		TacticalActor::AttemptToCreateTurncoat( SoldierID usID )
 	HandleTurncoatAttempt( pSoldier );
 }
 
-BOOLEAN		TacticalActor::OrderTurnCoatToSwitchSides( SoldierID usID )
+bool TacticalActorTurncoats::orderOne(SoldierID targetId)
 {
-	if ( usID >= NOBODY )
-		return FALSE;
+	if (targetId >= NOBODY)
+		return false;
 
 	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(
-			usID );
+			targetId);
 
 	if (!pSoldier 
 		|| pSoldier->roster().team() != ENEMY_TEAM
-		|| !( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT ) )
-		return FALSE;
+		|| !( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
+		|| pSoldier->deployment().sectorX() < 1
+		|| pSoldier->deployment().sectorX() >= MAP_WORLD_X - 1
+		|| pSoldier->deployment().sectorY() < 1
+		|| pSoldier->deployment().sectorY() >= MAP_WORLD_Y - 1)
+		return false;
 
 	if ( IsFreeSlotAvailable( MILITIA_TEAM ) )
 	{
@@ -21250,13 +21505,13 @@ BOOLEAN		TacticalActor::OrderTurnCoatToSwitchSides( SoldierID usID )
 
 		MakeCivHostile( pSoldier );
 
-		return TRUE;
+		return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
-void		TacticalActor::OrderAllTurnCoatToSwitchSides()
+void TacticalActorTurncoats::orderAll()
 {
 	TacticalActor *pSoldier;
 	SoldierID cnt = gTacticalStatus.Team[ENEMY_TEAM].bFirstID;
@@ -21271,7 +21526,16 @@ void		TacticalActor::OrderAllTurnCoatToSwitchSides()
 		pSoldier =
 			GetJa2SoldierRepository().resolve(
 				cnt );
-		if ( pSoldier != nullptr && pSoldier->roster().active() && pSoldier->roster().inSector() )
+		if (pSoldier != nullptr &&
+			pSoldier->roster().active() &&
+			pSoldier->roster().inSector() &&
+			pSoldier->roster().team() == ENEMY_TEAM &&
+			pSoldier->deployment().sectorX() >= 1 &&
+			pSoldier->deployment().sectorX() <
+				MAP_WORLD_X - 1 &&
+			pSoldier->deployment().sectorY() >= 1 &&
+			pSoldier->deployment().sectorY() <
+				MAP_WORLD_Y - 1)
 		{
 			if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 			{

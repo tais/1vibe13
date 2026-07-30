@@ -79,6 +79,7 @@
 #include "GameInitOptionsScreen.h"
 #include "Facilities.h"
 #include "TacticalActorRadio.h"
+#include "TacticalActorSkills.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldItemHost.h"
 
@@ -1105,7 +1106,10 @@ BOOLEAN CanCharacterSpyAssignment( TacticalActor *pSoldier )
 	if ( !SPY_LOCATION( pSoldier->assignment().current() ) )
 		return FALSE;
 
-	if ( !pSoldier->CanUseSkill( SKILLS_INTEL_CONCEAL, FALSE ) )
+	if (!TacticalActorSkills::canUse(
+			*pSoldier,
+			SKILLS_INTEL_CONCEAL,
+			false))
 		return( FALSE );
 
 	return TRUE;
@@ -23208,12 +23212,18 @@ void HandleShadingOfLinesForSpyMenu( void )
 	if ( !pSoldier )
 		return;
 
-	if ( pSoldier->CanUseSkill( SKILLS_INTEL_CONCEAL, FALSE) )
+	if (TacticalActorSkills::canUse(
+			*pSoldier,
+			SKILLS_INTEL_CONCEAL,
+			false))
 		UnShadeStringInBox( ghSpyBox, INTEL_MENU_CONCEAL );
 	else
 		ShadeStringInBox( ghSpyBox, INTEL_MENU_CONCEAL );
 
-	if ( pSoldier->CanUseSkill( SKILLS_INTEL_GATHERINTEL, FALSE ) )
+	if (TacticalActorSkills::canUse(
+			*pSoldier,
+			SKILLS_INTEL_GATHERINTEL,
+			false))
 		UnShadeStringInBox( ghSpyBox, INTEL_MENU_GETINTEL );
 	else
 		ShadeStringInBox( ghSpyBox, INTEL_MENU_GETINTEL );

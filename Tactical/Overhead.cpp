@@ -5,6 +5,8 @@
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorTurncoats.h"
 #include "TacticalWorldAdapter.h"
 #include <string.h>
 #include <random>
@@ -10826,8 +10828,11 @@ static void TurnCoatAttemptMessageBoxCallBack( UINT8 ubExitValue )
 
 	INT16 approachselected = DropDownTemplate<DROPDOWNNR_MSGBOX_1>::getInstance().GetSelectedEntryKey();
 
-	UINT8 approachchance = selectedSoldier->GetTurncoatConvinctionChance(
-        prisonerdialoguetargetID, approachselected );
+	UINT8 approachchance =
+		TacticalActorTurncoats::convictionChance(
+			*selectedSoldier,
+			prisonerdialoguetargetID,
+			approachselected);
 
 	// you can never turn a VIP (though we don't tell the player if someone is a VIP, lest they have an exploit to find out)
 	if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_VIP )
@@ -10909,14 +10914,19 @@ void HandleTurncoatAttempt( TacticalActor* pSoldier )
 		std::vector<std::pair<INT16, STR16> > dropdownvector_1;
 		INT16 cnt = 1;
 
-		UINT8 chance = selectedSoldier->GetTurncoatConvinctionChance(
-            prisonerdialoguetargetID, cnt );
+		UINT8 chance =
+			TacticalActorTurncoats::convictionChance(
+				*selectedSoldier,
+				prisonerdialoguetargetID,
+				cnt);
 		swprintf( gTurncoatDropdownText[cnt-1], szTurncoatText[3], chance );
 		dropdownvector_1.push_back( std::make_pair( cnt, gTurncoatDropdownText[cnt - 1] ) );
 
 		++cnt;
-		chance = selectedSoldier->GetTurncoatConvinctionChance(
-            prisonerdialoguetargetID, cnt );
+		chance = TacticalActorTurncoats::convictionChance(
+			*selectedSoldier,
+			prisonerdialoguetargetID,
+			cnt);
 		swprintf( gTurncoatDropdownText[cnt - 1], szTurncoatText[4], chance );
 		dropdownvector_1.push_back( std::make_pair( cnt, gTurncoatDropdownText[cnt - 1] ) );
 
@@ -10925,8 +10935,10 @@ void HandleTurncoatAttempt( TacticalActor* pSoldier )
 		INT32 bribeamount = 10 * min( 10, ubCurrentProgress );
 		if ( bribeamount <= balance )
 		{
-			chance = selectedSoldier->GetTurncoatConvinctionChance(
-                prisonerdialoguetargetID, cnt );
+			chance = TacticalActorTurncoats::convictionChance(
+				*selectedSoldier,
+				prisonerdialoguetargetID,
+				cnt);
 			swprintf( gTurncoatDropdownText[cnt - 1], szTurncoatText[5], bribeamount, chance );
 			dropdownvector_1.push_back( std::make_pair( cnt, gTurncoatDropdownText[cnt - 1] ) );
 		}
@@ -10936,8 +10948,10 @@ void HandleTurncoatAttempt( TacticalActor* pSoldier )
 		int intelbribeneeded = max( 2, ( ubCurrentProgress + 5 ) / 10 );
 		if ( intelbribeneeded <= intelreserve )
 		{
-			chance = selectedSoldier->GetTurncoatConvinctionChance(
-                prisonerdialoguetargetID, cnt );
+			chance = TacticalActorTurncoats::convictionChance(
+				*selectedSoldier,
+				prisonerdialoguetargetID,
+				cnt);
 			swprintf( gTurncoatDropdownText[cnt - 1], szTurncoatText[6], intelbribeneeded, chance );
 			dropdownvector_1.push_back( std::make_pair( cnt, gTurncoatDropdownText[cnt - 1] ) );
 		}
@@ -11282,7 +11296,11 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 			!TacticalActorCovertOps::recognizesCombatant(*pSoldierToSurrender, gusSelectedSoldier) )
 		{
 			MSYS_RemoveRegion(&(gMsgBox.BackRegion));
-			pSoldier->UseSkill(SKILLS_CREATE_TURNCOAT, pSoldierToSurrender->position().gridNo(), pSoldierToSurrender->identity().id());
+			TacticalActorSkills::use(
+				*pSoldier,
+				SKILLS_CREATE_TURNCOAT,
+				pSoldierToSurrender->position().gridNo(),
+				pSoldierToSurrender->identity().id());
 			// AP reduction is handled inside the turncoat attempt flow (TurnCoatAttemptMessageBoxCallBack)
 		}
 		else

@@ -1072,17 +1072,6 @@ public:
 
 	void		SoldierPropertyUpkeep();					// update functions for various properties (updating counters, resetting flags etc.)
 
-	// Flugente: functions for skill usage
-	// traits can allow use of certain skills
-	// check if Soldier can use the spell skillwise, with fAPCheck = TRUE also check current APs
-	BOOLEAN CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck = TRUE, INT32 sGridNo = -1 );
-
-	// use a skill. For safety reasons, this calls CanUseSkill again (it is possible to switch the soldier while the menu is open)
-	BOOLEAN UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID );
-
-	// print a small description of the skill if we can use it, or its requirements if we cannot
-	STR16	PrintSkillDesc( INT8 iSkill, INT32 sGridNo = -1 );
-
 	// Flugente: enemy roles
 	BOOLEAN CanMedicAI();						// AI-only: can we heal a wounded ally? Do NOT, repeat, NOT use this with mercs!
 	BOOLEAN	AIDoctorFriend();					// AI-only: heal a wounded friend. Do NOT, repeat, NOT use this with mercs!
@@ -1096,13 +1085,6 @@ public:
 
 	// Flugente: are we crouched against cover from a specific direction? WARNING: This does not suffice to determine our cover!
 	BOOLEAN	IsCrouchedAgainstCoverFromDir( UINT8 aDirection );
-
-	// Flugente: turncoats
-	BOOLEAN		InPositionForTurncoatAttempt( SoldierID usID );
-	UINT8		GetTurncoatConvinctionChance( SoldierID usID, INT16 usApproach );
-	void		AttemptToCreateTurncoat( SoldierID usID );
-	BOOLEAN		OrderTurnCoatToSwitchSides( SoldierID usID );
-	void		OrderAllTurnCoatToSwitchSides();
 
 	bool		IsFastMovement();
 	//////////////////////////////////////////////////////////////////////////////

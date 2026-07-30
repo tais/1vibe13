@@ -126,7 +126,9 @@
 #include "TacticalActorEquipment.h"
 #include "TacticalActorExplosives.h"
 #include "TacticalActorRadio.h"
+#include "TacticalActorSkills.h"
 #include "TacticalActorSpotting.h"
+#include "TacticalActorTurncoats.h"
 #include "TacticalActorInteractions.h"
 #include "TacticalActorModifiers.h"
 #include "LogicalBodyTypes/PaletteTable.h"
@@ -8298,6 +8300,98 @@ int main( int, char** )
 		       malformedItemIndexesAreRejected &&
 		       oneInventoryItemIsRemoved,
 		       "tactical actor equipment safely resolves and mutates gear while rejecting empty, repeated, and malformed operations" );
+	}
+
+	{
+		TacticalActor skillActor;
+		const auto previousTraitSystem =
+			gGameOptions.fNewTraitSystem;
+		const auto previousTurncoatSetting =
+			gSkillTraitValues.fCOTurncoats;
+		const auto previousEnemyAwareness =
+			gTacticalStatus.Team[ENEMY_TEAM]
+				.bAwareOfOpposition;
+
+		const bool malformedSkillIdsAreRejected =
+			!TacticalActorSkills::canUse(
+				skillActor,
+				-1,
+				false) &&
+			!TacticalActorSkills::canUse(
+				skillActor,
+				SKILLS_MAX,
+				false) &&
+			TacticalActorSkills::description(
+				skillActor,
+				-1)[0] == L'\0' &&
+			TacticalActorSkills::description(
+				skillActor,
+				SKILLS_MAX)[0] == L'\0';
+
+		skillActor.deployment().sectorX() = 0;
+		skillActor.deployment().sectorY() = 1;
+		skillActor.deployment().sectorZ() = 0;
+		const bool malformedStrategicSectorIsRejected =
+			!TacticalActorSkills::canUse(
+				skillActor,
+				SKILLS_INTEL_CONCEAL,
+				false);
+
+		gGameOptions.fNewTraitSystem = TRUE;
+		skillActor.statistics().skillTrait(0) = SNIPER_NT;
+		OBJECTTYPE& malformedFocusItem =
+			skillActor.inventory()[HANDPOS];
+		malformedFocusItem.usItem = MAXITEMS;
+		malformedFocusItem.ubNumberOfObjects = 1;
+		const bool malformedFocusItemIsRejected =
+			!TacticalActorSkills::canUse(
+				skillActor,
+				SKILLS_FOCUS,
+				false,
+				1);
+		DeleteObj(&malformedFocusItem);
+
+		TacticalActor turncoatActor;
+		turncoatActor.identity().profile() = NO_PROFILE;
+		turncoatActor.deployment().sectorX() = 1;
+		turncoatActor.deployment().sectorY() = 1;
+		const bool malformedTurncoatInputsAreRejected =
+			TacticalActorTurncoats::convictionChance(
+				turncoatActor,
+				SoldierID{0},
+				1) == 0 &&
+			TacticalActorTurncoats::convictionChance(
+				turncoatActor,
+				SoldierID{0},
+				0) == 0 &&
+			!TacticalActorTurncoats::orderOne(NOBODY);
+		TacticalActorTurncoats::attempt(NOBODY);
+
+		gSkillTraitValues.fCOTurncoats = TRUE;
+		gTacticalStatus.Team[ENEMY_TEAM]
+			.bAwareOfOpposition = FALSE;
+		turncoatActor.vitals().health() = OKLIFE;
+		turncoatActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		turncoatActor.position().gridNo() = 0;
+		const bool malformedTurncoatAnimationIsRejected =
+			!TacticalActorTurncoats::inPositionForAttempt(
+				turncoatActor,
+				SoldierID{0});
+
+		gGameOptions.fNewTraitSystem = previousTraitSystem;
+		gSkillTraitValues.fCOTurncoats =
+			previousTurncoatSetting;
+		gTacticalStatus.Team[ENEMY_TEAM]
+			.bAwareOfOpposition = previousEnemyAwareness;
+
+		CHECK( malformedSkillIdsAreRejected &&
+		       malformedStrategicSectorIsRejected &&
+		       malformedFocusItemIsRejected,
+		       "tactical actor skills reject malformed IDs, sectors, and equipment before data lookup" );
+		CHECK( malformedTurncoatInputsAreRejected &&
+		       malformedTurncoatAnimationIsRejected,
+		       "tactical actor turncoats reject malformed profiles, approaches, targets, and animation state" );
 	}
 
 	{

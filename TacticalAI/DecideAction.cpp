@@ -39,6 +39,7 @@
 #include "SkillCheck.h"		// sevenfm
 #include "SoldierRepository.h"
 #include "TacticalActorRadio.h"
+#include "TacticalActorSkills.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // SANDRO - In this file, all APBPConstants[AP_CROUCH] and APBPConstants[AP_PRONE] were changed to GetAPsCrouch() and GetAPsProne()
@@ -3212,7 +3213,10 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 		// Flugente: trait skills
 		// if we are a radio operator
 		if (HAS_SKILL_TRAIT(pSoldier, RADIO_OPERATOR_NT) > 0 &&
-			pSoldier->CanUseSkill(SKILLS_RADIO_ARTILLERY, TRUE))
+			TacticalActorSkills::canUse(
+				*pSoldier,
+				SKILLS_RADIO_ARTILLERY,
+				true))
 		{
 			UINT32 tmp;
 			INT32 skilltargetgridno = 0;
@@ -5402,7 +5406,11 @@ INT16 ubMinAPCost;
 
 	// Flugente: trait skills
 	// if we are a radio operator
-	if ( HAS_SKILL_TRAIT( pSoldier, RADIO_OPERATOR_NT ) > 0 && pSoldier->CanUseSkill(SKILLS_RADIO_ARTILLERY, TRUE) )
+	if (HAS_SKILL_TRAIT(pSoldier, RADIO_OPERATOR_NT) > 0 &&
+		TacticalActorSkills::canUse(
+			*pSoldier,
+			SKILLS_RADIO_ARTILLERY,
+			true))
 	{
 		// check: would it be possible to call in artillery from neighbouring sectors?
 		UINT32 tmp;

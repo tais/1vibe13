@@ -44,6 +44,7 @@
 #include "connect.h"
 #include "Map Information.h"
 #include "SoldierRepository.h"
+#include "TacticalActorSkills.h"
 
 
 #ifdef JA2UB
@@ -2153,7 +2154,11 @@ INT8 CalcInterruptDuelPts( TacticalActor * pSoldier, SoldierID ubOpponentID, BOO
 		// Flugente: focus skill
 		if ( (pSoldier->featureFlags().secondaryFlags() & SOLDIER_TRAIT_FOCUS) )
 		{
-			if ( pSoldier->CanUseSkill( SKILLS_FOCUS, FALSE, pSoldier->skillState().focusGrid() ) )
+			if (TacticalActorSkills::canUse(
+					*pSoldier,
+					SKILLS_FOCUS,
+					false,
+					pSoldier->skillState().focusGrid()))
 			{
 				// if target is in focus, increase interrupt chance, otherwise lower it
 				// radius depends on range
