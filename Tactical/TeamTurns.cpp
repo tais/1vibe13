@@ -1,5 +1,6 @@
 	#include "types.h"
 #include "TacticalActorModifiers.h"
+#include "TacticalActorRobotics.h"
 #include "TacticalWorldAdapter.h"
 	#include "Overhead.h"
 	#include "Animation Control.h"
@@ -2025,18 +2026,15 @@ INT8 CalcInterruptDuelPts( TacticalActor * pSoldier, SoldierID ubOpponentID, BOO
 	// BASE = (2*lev + agi/10) / 3
 	// Robot has interrupt points based on the controller...
 	// Controller's interrupt points are reduced by 2 for being distracted...
-	if ( pSoldier->status().flags() & SOLDIER_ROBOT && pSoldier->CanRobotBeControlled( ) )
+	TacticalActor* robotController =
+		(pSoldier->status().flags() & SOLDIER_ROBOT)
+			? TacticalActorRobotics::controller(*pSoldier)
+			: nullptr;
+	if ( robotController != nullptr )
 	{
-		TacticalActor* controller =
-			GetJa2SoldierRepository().resolve(
-				pSoldier->vehicleState().robotRemoteHolder().i);
-		if (!controller)
-		{
-			return NO_INTERRUPT;
-		}
 		// Snap: (do some proper rounding here)
-		iPoints = ( 20*EffectiveExpLevel( controller )
-			+ EffectiveAgility( controller, FALSE ) + 15 ) / 30 - 2;
+		iPoints = ( 20*EffectiveExpLevel( robotController )
+			+ EffectiveAgility( robotController, FALSE ) + 15 ) / 30 - 2;
 	}
 	else
 	{
@@ -2053,7 +2051,7 @@ INT8 CalcInterruptDuelPts( TacticalActor * pSoldier, SoldierID ubOpponentID, BOO
 		}
 		*/
 
-		if ( pSoldier->ControllingRobot( ) )
+		if ( TacticalActorRobotics::isControlling(*pSoldier) )
 		{
 			iPoints -= 2;
 		}

@@ -1,5 +1,6 @@
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRadio.h"
+#include "TacticalActorRobotics.h"
 	#include "builddefines.h"
 	#include "TacticalActorConditions.h"
 	#include "SoldierRepository.h"
@@ -879,7 +880,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 
 	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
-		if ( !pSoldier->CanRobotBeControlled( ) )
+		if ( !TacticalActorRobotics::canBeControlled(*pSoldier) )
 		{
 			DisableButton( iActionIcons[ WALK_ICON ] );
 		}
@@ -942,7 +943,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 
 	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
-		if ( !pSoldier->CanRobotBeControlled( ) )
+		if ( !TacticalActorRobotics::canBeControlled(*pSoldier) )
 		{
 			DisableButton( iActionIcons[ LOOK_ICON ] );
 		}

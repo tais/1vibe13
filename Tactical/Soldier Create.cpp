@@ -2124,7 +2124,7 @@ void InitSoldierStruct( TacticalActor *pSoldier )
 	pSoldier->animationPlayback().state()				= STANDING;
 	pSoldier->turnState().interruptDuelPoints()	= NO_INTERRUPT;
 	pSoldier->turnState().moved()				= FALSE;
-	pSoldier->vehicleState().robotRemoteHolder()		= NOBODY;
+	pSoldier->vehicleState().clearRobotRemoteHolder();
 	pSoldier->perception().noiseGrid()		= NOWHERE;
 	pSoldier->deployment().previousSectorId()				= 255;
 	pSoldier->aiPlanning().nextPatrolPoint()		= 1;

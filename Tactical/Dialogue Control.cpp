@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalActorRobotics.h"
 #include "TacticalWorldAdapter.h"
 	#include "Encrypted File.h"
 	#include "faces.h"
@@ -1613,19 +1614,11 @@ BOOLEAN TacticalCharacterDialogue( TacticalActor *pSoldier, UINT16 usQuoteNum )
 	// If we are a robot, play the controller's quote!
 	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
-		if ( pSoldier->CanRobotBeControlled( ) )
-		{
-			TacticalActor* controller =
-				GetJa2SoldierRepository().resolve(
-					pSoldier->vehicleState().robotRemoteHolder().i);
-			return controller
-				? TacticalCharacterDialogue(controller, usQuoteNum)
-				: FALSE;
-		}
-		else
-		{
-			return( FALSE );
-		}
+		TacticalActor* controller =
+			TacticalActorRobotics::controller(*pSoldier);
+		return controller != nullptr
+			? TacticalCharacterDialogue(controller, usQuoteNum)
+			: FALSE;
 	}
 
 	if ( AM_AN_EPC( pSoldier ) && !(gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags & PROFILE_MISC_FLAG_FORCENPCQUOTE) )

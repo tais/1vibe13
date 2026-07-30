@@ -579,6 +579,12 @@ remote robot's typed controller identity. The tactical record index is not the
 strategic passenger-membership ID exposed by `SoldierDeploymentComponent`;
 both retain their established meanings and adapters. Vehicle definitions,
 creation records, and repository APIs remain unchanged.
+`TacticalActorRobotics` exclusively resolves and refreshes the remote
+controller link at runtime. It bounds repository and team scans, validates
+remote equipment and profile indexes, and requires compatible sector/transit
+state before returning a controller. Gameplay callers therefore cannot treat
+an unchecked persisted slot as a live actor; existing robot, item, profile,
+assignment, and save formats remain unchanged.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,

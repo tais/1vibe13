@@ -126,6 +126,7 @@
 #include "TacticalActorEquipment.h"
 #include "TacticalActorExplosives.h"
 #include "TacticalActorRadio.h"
+#include "TacticalActorRobotics.h"
 #include "TacticalActorSkills.h"
 #include "TacticalActorSpotting.h"
 #include "TacticalActorTurncoats.h"
@@ -8531,6 +8532,135 @@ int main( int, char** )
 		CHECK( malformedSpotterAnimationIsRejected &&
 		       malformedSpotterInputsAreNeutral,
 		       "tactical actor spotting rejects malformed animation, team, preparation, and actor inputs" );
+	}
+
+	{
+		const UINT8 previousPlayerTeam = gbPlayerNum;
+		const TacticalTeamType previousTeam =
+			gTacticalStatus.Team[OUR_TEAM];
+		const auto previousRemoteFlags =
+			Item[1].usItemFlag2;
+		Ja2SoldierRepository& productionRepository =
+			GetJa2SoldierRepository();
+
+		TacticalActor records[3];
+		TacticalActor* slots[3] = {
+			nullptr, nullptr, nullptr };
+		Ja2SoldierRepository repository(
+			records, slots, 3);
+		repository.initializeSlots();
+		for (std::size_t slot = 0; slot < 3; ++slot)
+		{
+			records[slot].identity().id() =
+				SoldierID{slot};
+			records[slot].identity().profile() =
+				NO_PROFILE;
+			records[slot].roster().active() = TRUE;
+			records[slot].roster().team() = OUR_TEAM;
+			records[slot].vitals().health() = OKLIFE;
+			records[slot].deployment().sectorX() = 1;
+			records[slot].deployment().sectorY() = 1;
+			records[slot].deployment().sectorZ() = 0;
+			records[slot].assignment().current() = 0;
+		}
+		records[1].status().flags() |= SOLDIER_ROBOT;
+		records[2].status().flags() |= SOLDIER_ROBOT;
+
+		OBJECTTYPE& remote =
+			records[0].inventory()[HELMETPOS];
+		remote.usItem = 1;
+		remote.ubNumberOfObjects = 1;
+		Item[1].usItemFlag2 |= ITEM_robotremotecontrol;
+
+		gbPlayerNum = OUR_TEAM;
+		gTacticalStatus.Team[OUR_TEAM].bFirstID =
+			SoldierID{0};
+		gTacticalStatus.Team[OUR_TEAM].bLastID =
+			SoldierID{2};
+		BindJa2SoldierRepository(repository);
+
+		TacticalActorRobotics::refreshControllerForRobot(
+			records[1]);
+		const bool validControllerIsResolved =
+			TacticalActorRobotics::controller(records[1]) ==
+				&records[0] &&
+			TacticalActorRobotics::canBeControlled(
+				records[1]) &&
+			TacticalActorRobotics::isControlling(
+				records[0]);
+
+		records[2].deployment().sectorX() = 2;
+		records[2].vehicleState().robotRemoteHolder() =
+			records[0].identity().id();
+		TacticalActorRobotics::refreshRobotsForController(
+			records[0]);
+		const bool incompatibleStaleLinkIsCleared =
+			records[2].vehicleState().robotRemoteHolder() ==
+				NOBODY &&
+			TacticalActorRobotics::controller(records[2]) ==
+				nullptr;
+
+		remote.usItem = MAXITEMS;
+		TacticalActorRobotics::refreshControllerForRobot(
+			records[1]);
+		const bool malformedRemoteIsRejected =
+			records[1].vehicleState().robotRemoteHolder() ==
+				NOBODY &&
+			!TacticalActorRobotics::isControlling(
+				records[0]);
+
+		remote.usItem = 1;
+		records[0].identity().profile() =
+			static_cast<UINT8>(NUM_PROFILES);
+		TacticalActorRobotics::refreshControllerForRobot(
+			records[1]);
+		const bool malformedProfileIsRejected =
+			TacticalActorRobotics::controller(records[1]) ==
+				nullptr;
+		records[0].identity().profile() = NO_PROFILE;
+
+		records[0].deployment().betweenSectors() = TRUE;
+		records[1].deployment().betweenSectors() = TRUE;
+		records[0].assignment().current() = VEHICLE;
+		records[1].assignment().current() = VEHICLE;
+		records[0].deployment().vehicleId() = 1;
+		records[1].deployment().vehicleId() = 2;
+		TacticalActorRobotics::refreshControllerForRobot(
+			records[1]);
+		const bool differentTravelVehicleIsRejected =
+			TacticalActorRobotics::controller(records[1]) ==
+				nullptr;
+		records[1].deployment().vehicleId() = 1;
+		TacticalActorRobotics::refreshControllerForRobot(
+			records[1]);
+		const bool sameTravelVehicleIsAccepted =
+			TacticalActorRobotics::controller(records[1]) ==
+				&records[0];
+
+		gTacticalStatus.Team[OUR_TEAM].bFirstID =
+			SoldierID{2};
+		gTacticalStatus.Team[OUR_TEAM].bLastID =
+			SoldierID{0};
+		TacticalActorRobotics::refreshControllerForRobot(
+			records[1]);
+		const bool malformedTeamRangeIsRejected =
+			TacticalActorRobotics::controller(records[1]) ==
+				nullptr;
+
+		DeleteObj(&remote);
+		Item[1].usItemFlag2 = previousRemoteFlags;
+		BindJa2SoldierRepository(productionRepository);
+		gTacticalStatus.Team[OUR_TEAM] = previousTeam;
+		gbPlayerNum = previousPlayerTeam;
+
+		CHECK( validControllerIsResolved &&
+		       incompatibleStaleLinkIsCleared &&
+		       malformedRemoteIsRejected &&
+		       malformedProfileIsRejected &&
+		       differentTravelVehicleIsRejected &&
+		       sameTravelVehicleIsAccepted &&
+		       malformedTeamRangeIsRejected,
+		       "tactical actor robotics owns safe controller resolution, travel compatibility, and stale-link repair" );
 	}
 
 	{

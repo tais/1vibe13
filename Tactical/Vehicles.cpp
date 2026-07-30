@@ -1,5 +1,6 @@
 	#include "Vehicles.h"
 #include <array>
+#include "TacticalActorRobotics.h"
 #include "TacticalWorldAdapter.h"
 	#include "SaveLoadGame.h"
 	#include "SaveSerializer.h"
@@ -1624,7 +1625,7 @@ BOOLEAN IsRobotControllerInVehicle( INT32 iId )
 	for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 	{
 		pSoldier = ResolveVehiclePassenger( iId, iCounter );
-		if ( pSoldier != NULL && pSoldier->ControllingRobot( ) )
+		if ( pSoldier != NULL && TacticalActorRobotics::isControlling(*pSoldier) )
 		{
 			return( TRUE );
 		}
