@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorRobotics.h"
 	#include "Items.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -7087,7 +7088,7 @@ BOOLEAN PlaceObject( TacticalActor * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 	// ATE: Put this in to see if we should update the robot, if we were given a controller...
 	if ( pSoldier->roster().team() == gbPlayerNum && fObjectWasRobotRemote )
 	{
-		pSoldier->UpdateRobotControllerGivenController( );
+		TacticalActorRobotics::refreshRobotsForController(*pSoldier);
 	}
 
 	ApplyEquipmentBonuses(pSoldier);
@@ -12581,20 +12582,6 @@ INT8 FindTrigger( TacticalActor * pSoldier )
 		if (pSoldier->inventory()[bLoop].exists() == true)
 		{
 			if (ItemIsRemoteTrigger(pSoldier->inventory()[bLoop].usItem))
-			{
-				return( bLoop );
-			}
-		}
-	}
-	return( NO_SLOT );
-}
-
-INT8 FindRemoteControl( TacticalActor * pSoldier )
-{
-	for (INT8 bLoop = BODYPOSSTART; bLoop < BODYPOSFINAL; ++bLoop)
-	{
-		if (pSoldier->inventory()[bLoop].exists() == true) {
-			if (ItemIsRobotRemote(pSoldier->inventory()[bLoop].usItem))
 			{
 				return( bLoop );
 			}

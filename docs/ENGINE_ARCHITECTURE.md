@@ -1341,6 +1341,14 @@ the engine must not contain SDL types in its public domain model.
   separate from `SoldierDeploymentComponent::vehicleId()`, which represents
   strategic passenger membership. Vehicle records and the soldier repository
   remain application adapters; no content-facing vehicle definition changes.
+  `TacticalActorRobotics` is the sole live-behavior boundary around that
+  controller identity. It validates repository slots, equipped remotes,
+  profiles, player-team bounds, sectors, and shared travel context before
+  exposing a controller, and repairs stale associations when equipment or
+  strategic placement changes. Tactical, strategic, UI, dialogue, and
+  autoresolve callers no longer read the persisted slot directly. Robot
+  status flags, item flags, assignments, profiles, and save fields retain
+  their established data formats.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to

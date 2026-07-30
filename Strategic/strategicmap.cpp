@@ -1,5 +1,6 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 #include "SoldierRepository.h"
+#include "TacticalActorRobotics.h"
 #include "TacticalWorldAdapter.h"
 
 #include "builddefines.h"
@@ -4734,7 +4735,7 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 				ubNumEPCs++;
 				//Also record the EPC's slot ID incase we later build a string using the EPC's name.
 				gbPotentiallyAbandonedEPCSlotID = cnt;
-				if ( AM_A_ROBOT( pSoldier ) && !pSoldier->CanRobotBeControlled( ) )
+				if ( AM_A_ROBOT( pSoldier ) && !TacticalActorRobotics::canBeControlled(*pSoldier) )
 				{
 					gfRobotWithoutControllerAttemptingTraversal = TRUE;
 					ubNumControllableMercs--;
@@ -4805,7 +4806,7 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 			//exiting sector gui, we restrict it by explaining it with a message box.
 			if ( AM_AN_EPC( GetJa2SoldierRepository().resolve(gusSelectedSoldier) ) )
 			{
-				if ( AM_A_ROBOT( pSoldier ) && !pSoldier->CanRobotBeControlled( ) )
+				if ( AM_A_ROBOT( pSoldier ) && !TacticalActorRobotics::canBeControlled(*pSoldier) )
 				{
 					//gfRobotWithoutControllerAttemptingTraversal = TRUE;
 					return FALSE;

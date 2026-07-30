@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorRobotics.h"
 	#include "Items.h"
 	#include "TacticalActorConditions.h"
 	#include "TacticalActorDisease.h"
@@ -2956,7 +2957,7 @@ UINT8 GetActionModeCursor( TacticalActor *pSoldier )
 	// If we can't be controlled, returninvalid...
 	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
-		if ( !pSoldier->CanRobotBeControlled( ) )
+		if ( !TacticalActorRobotics::canBeControlled(*pSoldier) )
 		{
 			// Display message that robot cannot be controlled....
 			return( INVALIDCURS );

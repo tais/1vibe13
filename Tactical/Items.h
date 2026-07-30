@@ -481,7 +481,6 @@ INT8 FindLocksmithKit( TacticalActor * pSoldier );
 INT8 FindCamoKit( TacticalActor * pSoldier );
 INT8 FindWalkman( TacticalActor * pSoldier );
 INT8 FindTrigger( TacticalActor * pSoldier );
-INT8 FindRemoteControl( TacticalActor * pSoldier );
 INT16 GetWornCamo( TacticalActor * pSoldier );
 INT16 GetCamoBonus( OBJECTTYPE * pObj );
 INT16 GetWornStealth( TacticalActor * pSoldier );

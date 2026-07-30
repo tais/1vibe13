@@ -1,5 +1,6 @@
 	#include "builddefines.h"
 #include "TacticalActorModifiers.h"
+#include "TacticalActorRobotics.h"
 #include "SoldierRepository.h"
 	#include <stdio.h>
 	#include "PreBattle Interface.h"
@@ -2570,7 +2571,8 @@ BOOLEAN PlayerMercInvolvedInThisCombat( TacticalActor *pSoldier )
 			pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
 			!(pSoldier->status().flags() & SOLDIER_VEHICLE) &&
 			// Robot is involved if it has a valid controller with it, uninvolved otherwise
-			( !AM_A_ROBOT( pSoldier ) || ( pSoldier->vehicleState().robotRemoteHolder() != NOBODY ) ) &&
+			( !AM_A_ROBOT( pSoldier ) ||
+			  TacticalActorRobotics::canBeControlled(*pSoldier) ) &&
 			!SoldierAboardAirborneHeli( pSoldier ) )
 	{
 		if ( CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
@@ -2658,18 +2660,15 @@ void CheckForRobotAndIfItsControlled( void )
 		if( pSoldier->roster().active() && pSoldier->vitals().health() && AM_A_ROBOT( pSoldier ))
 		{
 			// check whether it has a valid controller with it. This sets its ubRobotRemoteHolderID field.
-			pSoldier->UpdateRobotControllerGivenRobot( );
+			TacticalActorRobotics::refreshControllerForRobot(*pSoldier);
 
 			// if he has a controller, set controllers
-			if ( pSoldier->vehicleState().robotRemoteHolder() != NOBODY )
+			TacticalActor* controller =
+				TacticalActorRobotics::controller(*pSoldier);
+			if ( controller != nullptr )
 			{
-				TacticalActor* controller =
-					GetJa2SoldierRepository().resolve(
-						pSoldier->vehicleState().robotRemoteHolder());
-				if (controller)
-				{
-					controller->UpdateRobotControllerGivenController( );
-				}
+				TacticalActorRobotics::refreshRobotsForController(
+					*controller);
 			}
 
 			break;

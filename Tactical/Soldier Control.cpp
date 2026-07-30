@@ -3,6 +3,7 @@
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorRadio.h"
+#include "TacticalActorRobotics.h"
 #include "TacticalActorSkills.h"
 #include "TacticalActorSpotting.h"
 #include "TacticalActorTurncoats.h"
@@ -16561,8 +16562,17 @@ std::int8_t TacticalActorModifiers::traitChanceToHitModifier(
 		{
 			modifier += gSkillTraitValues.bCtHModifierRobot; // -10% 
 
-			if ( HAS_SKILL_TRAIT( self->GetRobotController( ), TECHNICIAN_NT ) )
-				modifier += gSkillTraitValues.ubTECtHControlledRobotBonus * NUM_SKILL_TRAITS( self->GetRobotController( ), TECHNICIAN_NT ); // +10% per trait
+			TacticalActor* robotController =
+				TacticalActorRobotics::controller(*self);
+			if ( robotController != nullptr &&
+				 HAS_SKILL_TRAIT( robotController, TECHNICIAN_NT ) )
+			{
+				modifier +=
+					gSkillTraitValues.ubTECtHControlledRobotBonus *
+					NUM_SKILL_TRAITS(
+						robotController,
+						TECHNICIAN_NT); // +10% per trait
+			}
 		}
 
 		// Added character traits influence
@@ -23502,186 +23512,6 @@ BOOLEAN TacticalActor::IsValidPistolFastShot( INT16 bAimTime, INT32 iTrgGridNo )
 	return(TRUE);
 
 }
-BOOLEAN TacticalActor::CanRobotBeControlled( void )
-{
-	if ( !(this->status().flags() & SOLDIER_ROBOT) )
-	{
-		return(FALSE);
-	}
-
-	if ( this->vehicleState().robotRemoteHolder() == NOBODY )
-	{
-		return(FALSE);
-	}
-
-	TacticalActor* pController =
-		GetJa2SoldierRepository().resolve(
-			this->vehicleState().robotRemoteHolder() );
-
-	if ( pController != nullptr && pController->roster().active() )
-	{
-		if ( pController->ControllingRobot( ) )
-		{
-			// ALL'S OK!
-			return(TRUE);
-		}
-	}
-
-	return(FALSE);
-}
-
-
-BOOLEAN TacticalActor::ControllingRobot( void )
-{
-	TacticalActor *pRobot;
-	INT8				bPos;
-
-	if ( !this->roster().active() )
-	{
-		return(FALSE);
-	}
-
-	// EPCs can't control the robot (no inventory to hold remote, for one)
-	if ( AM_AN_EPC( this ) )
-	{
-		return(FALSE);
-	}
-
-	// Don't require this->bInSector here, it must work from mapscreen!
-
-	// are we in ok shape?
-	if ( this->vitals().health() < OKLIFE || (this->roster().team() != gbPlayerNum) )
-	{
-		return(FALSE);
-	}
-
-	// allow control from within vehicles - allows strategic travel in a vehicle with robot!
-	if ( (this->assignment().current() >= ON_DUTY) && (this->assignment().current() != VEHICLE) )
-	{
-		return(FALSE);
-	}
-
-	// is the soldier wearing a robot remote control?
-	bPos = FindRemoteControl( this );
-	if ( bPos == NO_SLOT )
-	{
-		return(FALSE);
-	}
-
-	// Find the robot
-	pRobot = FindSoldierByProfileID( ROBOT, TRUE );
-	if ( !pRobot )
-	{
-		return(FALSE);
-	}
-
-	if ( pRobot->roster().active() )
-	{
-		// Are we in the same sector....?
-		// ARM: CHANGED TO WORK IN MAPSCREEN, DON'T USE WorldSector HERE
-		if ( pRobot->deployment().sectorX() == this->deployment().sectorX() &&
-			 pRobot->deployment().sectorY() == this->deployment().sectorY() &&
-			 pRobot->deployment().sectorZ() == this->deployment().sectorZ() )
-		{
-			// they have to be either both in sector, or both on the road
-			if ( pRobot->deployment().isBetweenSectors() == this->deployment().isBetweenSectors() )
-			{
-				// if they're on the road...
-				if ( pRobot->deployment().isBetweenSectors() )
-				{
-					// they have to be in the same squad or vehicle
-					if ( pRobot->assignment().current() != this->assignment().current() )
-					{
-						return(FALSE);
-					}
-
-					// if in a vehicle, must be the same vehicle
-					if ( pRobot->assignment().current() == VEHICLE && (pRobot->deployment().vehicleId() != this->deployment().vehicleId()) )
-					{
-						return(FALSE);
-					}
-				}
-
-				// all OK!
-				return(TRUE);
-			}
-		}
-	}
-
-	return(FALSE);
-}
-
-
-TacticalActor *TacticalActor::GetRobotController( void )
-{
-	if ( this->vehicleState().robotRemoteHolder() == NOBODY )
-	{
-		return(NULL);
-	}
-	else
-	{
-		return GetJa2SoldierRepository().resolve(
-			this->vehicleState().robotRemoteHolder() );
-	}
-}
-
-void TacticalActor::UpdateRobotControllerGivenRobot( void )
-{
-	//the original function passed in pRobot, not pSoldier
-	TacticalActor *pRobot = this;
-	TacticalActor *pTeamSoldier;
-
-
-	// set up soldier ptr as first element in mercptrs list
-	SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID;
-
-	// Loop through guys and look for a controller!
-	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
-	{
-		pTeamSoldier =
-			GetJa2SoldierRepository().resolve(
-				cnt );
-		if ( pTeamSoldier != nullptr && pTeamSoldier->roster().active() )
-		{
-			if ( pTeamSoldier->ControllingRobot( ) )
-			{
-				pRobot->vehicleState().robotRemoteHolder() = pTeamSoldier->identity().id();
-				return;
-			}
-		}
-	}
-
-	pRobot->vehicleState().robotRemoteHolder() = NOBODY;
-}
-
-
-void TacticalActor::UpdateRobotControllerGivenController( void )
-{
-	TacticalActor *pTeamSoldier;
-
-	// First see if are still controlling the robot
-	if ( !this->ControllingRobot( ) )
-	{
-		return;
-	}
-
-	// set up soldier ptr as first element in mercptrs list
-	SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID;
-
-	// Loop through guys to find the robot....
-	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
-	{
-		pTeamSoldier =
-			GetJa2SoldierRepository().resolve(
-				cnt );
-		if ( pTeamSoldier != nullptr && pTeamSoldier->roster().active() && (pTeamSoldier->status().flags() & SOLDIER_ROBOT) )
-		{
-			pTeamSoldier->vehicleState().robotRemoteHolder() = this->identity().id();
-		}
-	}
-}
-
-
 void TacticalActor::HandleSoldierTakeDamageFeedback( void )
 {
 	// Do sound.....

@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorRobotics.h"
 #include "TacticalActorSpotting.h"
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 #include "TacticalActorModifiers.h"
@@ -6683,7 +6684,7 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		iMarksmanship = EffectiveMarksmanship( pSoldier );
 		if ( AM_A_ROBOT( pSoldier ) ) {
 			TacticalActor * pSoldier2;
-			pSoldier2 = pSoldier->GetRobotController( );
+			pSoldier2 = TacticalActorRobotics::controller(*pSoldier);
 			if ( pSoldier2 )
 				iMarksmanship = __max( iMarksmanship, EffectiveMarksmanship( pSoldier2 ) );
 		}

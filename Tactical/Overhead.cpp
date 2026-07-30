@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorRobotics.h"
 #include <cstdio>
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -6011,7 +6012,7 @@ BOOLEAN UIOKMoveDestination( TacticalActor *pSoldier, INT32 usMapPos )
     // ATE: If we are a robot, see if we are being validly controlled...
     if ( pSoldier->status().flags() & SOLDIER_ROBOT )
     {
-        if ( ! pSoldier->CanRobotBeControlled( ) )
+        if ( ! TacticalActorRobotics::canBeControlled(*pSoldier) )
         {
             // Display message that robot cannot be controlled....
             return( 2 );

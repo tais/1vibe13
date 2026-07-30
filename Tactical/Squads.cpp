@@ -1,4 +1,5 @@
 	#include "types.h"
+#include "TacticalActorRobotics.h"
 	#include "Squads.h"
 	#include "Strategic Pathing.h"
 	#include "strategicmap.h"
@@ -782,7 +783,7 @@ BOOLEAN IsRobotControllerInSquad( INT8 bSquadValue )
 		TacticalActor* squadMember =
 			ResolveSquadMember( bSquadValue, bCounter );
 		// valid slot?
-		if ( squadMember != NULL && squadMember->ControllingRobot( ) )
+		if ( squadMember != NULL && TacticalActorRobotics::isControlling(*squadMember) )
 		{
 			// yep
 			return( TRUE );

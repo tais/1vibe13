@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include "TacticalActorEquipment.h"
+#include "TacticalActorRobotics.h"
 #include "SoldierRepository.h"
 #include <stdio.h>
 #include "types.h"
@@ -741,7 +742,7 @@ static void RefreshMerc( TacticalActor *pSoldier )
 	pSoldier->vitals().breathReduction() = 0;
 	if( gpAR->pRobotCell)
 	{
-		gpAR->pRobotCell->pSoldier->UpdateRobotControllerGivenRobot(	);
+		TacticalActorRobotics::refreshControllerForRobot(*gpAR->pRobotCell->pSoldier);
 	}
 	//gpAR->fUnlimitedAmmo = TRUE;
 }
@@ -2508,7 +2509,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 
 		if( gpAR->pRobotCell)
 		{
-			gpAR->pRobotCell->pSoldier->UpdateRobotControllerGivenRobot( );
+			TacticalActorRobotics::refreshControllerForRobot(*gpAR->pRobotCell->pSoldier);
 		}
 		for( i = 0; i < gpAR->iNumMercFaces; i++ )
 		{
@@ -2840,11 +2841,10 @@ void RetreatButtonCallback( GUI_BUTTON *btn, INT32 reason )
 		if( gpAR->pRobotCell )
 		{
 			//if robot is retreating, set the retreat time to be the same as the robot's controller.
-			SoldierID ubRobotControllerID;
-
-			ubRobotControllerID = gpAR->pRobotCell->pSoldier->vehicleState().robotRemoteHolder();
-
-			if( ubRobotControllerID == NOBODY )
+			TacticalActor* robotController =
+				TacticalActorRobotics::controller(
+					*gpAR->pRobotCell->pSoldier);
+			if( robotController == nullptr )
 			{
 				gpAR->pRobotCell->uiFlags &= ~CELL_RETREATING;
 				gpAR->pRobotCell->uiFlags |= CELL_DIRTY;
@@ -2854,7 +2854,7 @@ void RetreatButtonCallback( GUI_BUTTON *btn, INT32 reason )
 
 			for( i = 0; i < gpAR->ubMercs; ++i )
 			{
-				if( ubRobotControllerID == gpMercs[ i ].pSoldier->identity().id() )
+				if( robotController == gpMercs[ i ].pSoldier )
 				{
 					//Found the controller, make the robot's retreat time match the contollers.
 					gpAR->pRobotCell->usNextAttack = gpMercs[ i ].usNextAttack;
@@ -3014,15 +3014,17 @@ void MercCellMouseClickCallback( MOUSE_REGION *reg, INT32 reason )
 
 		if( gpAR->pRobotCell )
 		{ //if controller is retreating, make the robot retreat too.
-			SoldierID ubRobotControllerID = gpAR->pRobotCell->pSoldier->vehicleState().robotRemoteHolder();
+			TacticalActor* robotController =
+				TacticalActorRobotics::controller(
+					*gpAR->pRobotCell->pSoldier);
 
-			if( ubRobotControllerID == NOBODY )
+			if( robotController == nullptr )
 			{
 				gpAR->pRobotCell->uiFlags &= ~CELL_RETREATING;
 				gpAR->pRobotCell->uiFlags |= CELL_DIRTY;
 				gpAR->pRobotCell->usNextAttack = 0xffff;
 			}
-			else if( ubRobotControllerID == pCell->pSoldier->identity().id() )
+			else if( robotController == pCell->pSoldier )
 			{ //Found the controller, make the robot's retreat time match the contollers.
 				gpAR->pRobotCell->uiFlags |= CELL_RETREATING | CELL_DIRTY;
 				gpAR->pRobotCell->usNextAttack = pCell->usNextAttack;
@@ -3132,7 +3134,7 @@ void CalculateAutoResolveInfo()
 					if( AM_A_ROBOT( member ) )
 					{
 						gpAR->pRobotCell = &gpMercs[ gpAR->ubMercs - 1 ];
-						gpAR->pRobotCell->pSoldier->UpdateRobotControllerGivenRobot( );
+						TacticalActorRobotics::refreshControllerForRobot(*gpAR->pRobotCell->pSoldier);
 					}
 				}
 				pPlayer = pPlayer->next;
@@ -4945,7 +4947,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		pTarget->pSoldier->vitals().health() = (INT8)max( iNewLife, 0 );
 		if( pTarget->uiFlags & CELL_MERC && gpAR->pRobotCell)
 		{
-			gpAR->pRobotCell->pSoldier->UpdateRobotControllerGivenRobot( );
+			TacticalActorRobotics::refreshControllerForRobot(*gpAR->pRobotCell->pSoldier);
 		}
 		if( fKnife || fClaw )
 		{
@@ -5267,7 +5269,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 	pTarget->pSoldier->vitals().health() = (INT8)max( iNewLife, 0 );
 	if( pTarget->uiFlags & CELL_MERC && gpAR->pRobotCell)
 	{
-		gpAR->pRobotCell->pSoldier->UpdateRobotControllerGivenRobot( );
+		TacticalActorRobotics::refreshControllerForRobot(*gpAR->pRobotCell->pSoldier);
 	}
 
 	if( pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().bleeding() - pTarget->usHitDamage[index] >= pTarget->pSoldier->vitals().health() )
@@ -5361,7 +5363,7 @@ BOOLEAN IsBattleOver()
 		//Do special robot checks
 		TacticalActor *pRobot;
 		pRobot = gpAR->pRobotCell->pSoldier;
-		if( pRobot->vehicleState().robotRemoteHolder() == NOBODY )
+		if( TacticalActorRobotics::controller(*pRobot) == nullptr )
 		{
 			//Robot can't fight anymore.
 			gpAR->usPlayerAttack -= gpAR->pRobotCell->usAttack;
@@ -5801,7 +5803,9 @@ void ProcessBattleFrame()
 					//The merc has successfully retreated.	Remove the stats, and continue on.
 					if( pAttacker == gpAR->pRobotCell )
 					{
-						if( gpAR->pRobotCell->pSoldier->vehicleState().robotRemoteHolder() == NOBODY )
+						if( TacticalActorRobotics::controller(
+								*gpAR->pRobotCell->pSoldier) ==
+							nullptr )
 						{
 							gpAR->pRobotCell->uiFlags &= ~CELL_RETREATING;
 							gpAR->pRobotCell->uiFlags |= CELL_DIRTY;

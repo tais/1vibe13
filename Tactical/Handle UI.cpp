@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorRobotics.h"
 #include "connect.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorDisease.h"
@@ -2240,7 +2241,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					// If we can't be controlled, returninvalid...
 					if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 					{
-						if ( !pSoldier->CanRobotBeControlled( ) )
+						if ( !TacticalActorRobotics::canBeControlled(*pSoldier) )
 						{
 							continue;
 						}
@@ -6212,7 +6213,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 				// If we can't be controlled, returninvalid...
 				if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 				{
-					if ( !pSoldier->CanRobotBeControlled( ) )
+					if ( !TacticalActorRobotics::canBeControlled(*pSoldier) )
 					{
 						continue;
 					}

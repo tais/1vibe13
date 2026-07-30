@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorRobotics.h"
 #include "TacticalActorSpotting.h"
 	#include "builddefines.h"
 	#include "SoldierRepository.h"
@@ -1983,7 +1984,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			// Check if a robot and is not controlled....
 			if (pSoldier->status().flags() & SOLDIER_ROBOT)
 			{
-				if (!pSoldier->CanRobotBeControlled())
+				if (!TacticalActorRobotics::canBeControlled(*pSoldier))
 				{
 					// Not controlled robot
 					sIconIndex = 5;
@@ -1991,7 +1992,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				}
 			}
 
-			if (pSoldier->ControllingRobot())
+			if (TacticalActorRobotics::isControlling(*pSoldier))
 			{
 				// controlling robot
 				sIconIndex = 4;

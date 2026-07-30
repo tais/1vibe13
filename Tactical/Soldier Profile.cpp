@@ -1,4 +1,5 @@
 	#include <string.h>
+#include "TacticalActorRobotics.h"
 	#include "DEBUG.H"
 	#include "math.h"
 	#include "worlddef.h"
@@ -1919,7 +1920,7 @@ BOOLEAN RecruitEPC( UINT8 ubCharNum )
 	// If we are a robot, look to update controller....
 	if ( pNewSoldier->status().flags() & SOLDIER_ROBOT )
 	{
-		pNewSoldier->UpdateRobotControllerGivenRobot(	);
+		TacticalActorRobotics::refreshControllerForRobot(*pNewSoldier);
 	}
 
 	// Set whatkind of merc am i

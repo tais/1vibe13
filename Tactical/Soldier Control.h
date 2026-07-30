@@ -1011,15 +1011,6 @@ public:
 	void BreakWindow(void);
 	BOOLEAN CanBreakWindow(void);
 
-	void UpdateRobotControllerGivenController( void );
-	void UpdateRobotControllerGivenRobot( void );
-	TacticalActor *GetRobotController( void );
-	BOOLEAN CanRobotBeControlled( void );
-	BOOLEAN ControllingRobot( void );
-
-
-
-
 	BOOLEAN SoldierReadyWeapon( INT16 sTargetXPos, INT16 sTargetYPos, BOOLEAN fEndReady, BOOLEAN fRaiseToHipOnly );
 	BOOLEAN SoldierReadyWeapon( void );
 	BOOLEAN InternalSoldierReadyWeapon( UINT8 sFacingDir, BOOLEAN fEndReady, BOOLEAN fRaiseToHipOnly );

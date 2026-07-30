@@ -2172,6 +2172,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEquipment.h"
   tactical_actor_equipment_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRadio.h"
   tactical_actor_radio_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRobotics.h"
+  tactical_actor_robotics_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRobotics.cpp"
+  tactical_actor_robotics_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSkills.h"
   tactical_actor_skills_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSpotting.h"
@@ -2920,7 +2924,12 @@ foreach(retired_actor_facade IN ITEMS
   "GetTurncoatConvinctionChance"
   "AttemptToCreateTurncoat"
   "OrderTurnCoatToSwitchSides"
-  "OrderAllTurnCoatToSwitchSides")
+  "OrderAllTurnCoatToSwitchSides"
+  "UpdateRobotControllerGivenController"
+  "UpdateRobotControllerGivenRobot"
+  "GetRobotController"
+  "CanRobotBeControlled"
+  "ControllingRobot")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -2933,6 +2942,50 @@ foreach(retired_actor_facade IN ITEMS
       "TacticalActor regained retired facade '${retired_actor_facade}'")
   endif()
 endforeach()
+
+foreach(required_robotics_operation IN ITEMS
+  "controller"
+  "canBeControlled"
+  "isControlling"
+  "refreshControllerForRobot"
+  "refreshRobotsForController")
+  string(FIND "${tactical_actor_robotics_header_contents}"
+    "${required_robotics_operation}("
+    robotics_operation_declaration)
+  string(FIND "${tactical_actor_robotics_source_contents}"
+    "TacticalActorRobotics::${required_robotics_operation}("
+    robotics_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorRobotics::${required_robotics_operation}"
+    robotics_operation_coverage)
+  if(robotics_operation_declaration EQUAL -1 OR
+     robotics_operation_definition EQUAL -1 OR
+     robotics_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor robotics operation '${required_robotics_operation}' lost its domain declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+string(FIND "${tactical_build_contents}"
+  "TacticalActorRobotics.cpp"
+  robotics_build_registration)
+if(robotics_build_registration EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor robotics is no longer built as its own implementation unit")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Items.h"
+  tactical_items_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Items.cpp"
+  tactical_items_source_contents)
+string(FIND
+  "${tactical_items_header_contents}${tactical_items_source_contents}"
+  "FindRemoteControl("
+  retired_robot_remote_lookup)
+if(NOT retired_robot_remote_lookup EQUAL -1)
+  message(FATAL_ERROR
+    "Legacy global robot-remote lookup returned; keep bounded equipment discovery inside TacticalActorRobotics")
+endif()
 
 foreach(required_skill_operation IN ITEMS
   "canUse"
@@ -3767,6 +3820,21 @@ list(REMOVE_DUPLICATES soldier_storage_sources)
 
 foreach(source_file IN LISTS soldier_storage_sources)
   file(READ "${source_file}" contents)
+  if(NOT source_file STREQUAL
+       "${SOURCE_ROOT}/Tactical/TacticalActorRobotics.cpp" AND
+     NOT source_file STREQUAL
+       "${SOURCE_ROOT}/Tactical/Soldier Components.h" AND
+     NOT source_file STREQUAL
+       "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp" AND
+     NOT source_file MATCHES "/tests/")
+    string(FIND "${contents}"
+      "robotRemoteHolder("
+      direct_robot_controller_storage_access)
+    if(NOT direct_robot_controller_storage_access EQUAL -1)
+      message(FATAL_ERROR
+        "Production code accesses robot controller storage in ${source_file}; use TacticalActorRobotics")
+    endif()
+  endif()
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])(MercSlots|AwaySlots|guiNumMercSlots|guiNumAwaySlots|GetFreeMercSlot|AddMercSlot|RemoveMercSlot|AddAwaySlot|RemoveAwaySlot)([^A-Za-z0-9_]|$)"
     retired_tactical_actor_roster_api
