@@ -1039,9 +1039,6 @@ public:
 	// reset the extra stat variables
 	void	ResetExtraStats();
 
-	// Flugente: inventory bombs can ignite while in mapscreen. Workaround: Damage items and health
-	void	InventoryExplosion( void );
-
 	// sevenfm: service functions
 	BOOLEAN		IsFlanking(void);
 	BOOLEAN		CheckInitialAP(void);
@@ -1122,14 +1119,6 @@ public:
 
 	// Flugente: are we crouched against cover from a specific direction? WARNING: This does not suffice to determine our cover!
 	BOOLEAN	IsCrouchedAgainstCoverFromDir( UINT8 aDirection );
-
-	BOOLEAN SelfDetonate();						// AI-only: blow up explosive in own inventory. Do NOT, repeat, NOT use this with mercs!
-
-	void		StopChatting();
-	void		DrugAutoUse();
-
-	// Flugente: can we fill a blood bag from this guy ?
-	BOOLEAN		IsValidBloodDonor();
 
 	// Flugente: turncoats
 	BOOLEAN		InPositionForTurncoatAttempt( SoldierID usID );

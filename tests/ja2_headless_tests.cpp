@@ -118,11 +118,14 @@
 #include "Interface.h"
 #include "Handle Items.h"
 #include "TacticalActorAssignments.h"
+#include "TacticalActorConsumables.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
 #include "TacticalActorEquipment.h"
+#include "TacticalActorExplosives.h"
+#include "TacticalActorInteractions.h"
 #include "TacticalActorModifiers.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
@@ -8291,6 +8294,58 @@ int main( int, char** )
 		       malformedItemIndexesAreRejected &&
 		       oneInventoryItemIsRemoved,
 		       "tactical actor equipment safely resolves and mutates gear while rejecting empty, repeated, and malformed operations" );
+	}
+
+	{
+		TacticalActor explosiveActor;
+		OBJECTTYPE& blastStack =
+			explosiveActor.inventory()[HANDPOS];
+		blastStack.usItem = 1;
+		blastStack.ubNumberOfObjects = 2;
+		blastStack.objectStack.resize(2);
+		blastStack[0]->data.objectStatus = 80;
+		blastStack[1]->data.objectStatus = 60;
+
+		OBJECTTYPE attachment;
+		attachment.usItem = 1;
+		attachment.ubNumberOfObjects = 1;
+		attachment[0]->data.objectStatus = 90;
+		attachment[0]->data.sRepairThreshold = 70;
+		blastStack[1]->attachments.push_back(attachment);
+
+		TacticalActorExplosives::degradeInventoryAfterExplosion(
+			explosiveActor);
+		const OBJECTTYPE& damagedAttachment =
+			blastStack[1]->attachments.front();
+		const bool everyStackEntryWasDamaged =
+			blastStack[0]->data.objectStatus == 40 &&
+			blastStack[1]->data.objectStatus == 30 &&
+			damagedAttachment[0]->data.objectStatus == 45 &&
+			damagedAttachment[0]->data.sRepairThreshold == 35;
+		const bool nonAiSelfDetonationIsRejected =
+			!TacticalActorExplosives::selfDetonate(explosiveActor);
+
+		TacticalActor consumableActor;
+		const bool actorWithoutDrugUseBackgroundIsNeutral =
+			!TacticalActorConsumables::autoUseDrug(consumableActor);
+
+		TacticalActor interactionActor;
+		const bool idleChatTeardownIsNeutral =
+			!TacticalActorInteractions::stopChatting(interactionActor);
+
+		TacticalActor donorActor;
+		donorActor.roster().team() = gbPlayerNum;
+		donorActor.vitals().health() = OKLIFE + 5;
+		donorActor.vitals().maximumHealth() = 0;
+		const bool malformedDonorHealthIsRejected =
+			!TacticalActorConditions::canDonateBlood(donorActor);
+
+		CHECK( everyStackEntryWasDamaged &&
+		       nonAiSelfDetonationIsRejected &&
+		       actorWithoutDrugUseBackgroundIsNeutral &&
+		       idleChatTeardownIsNeutral &&
+		       malformedDonorHealthIsRejected,
+		       "tactical actor explosives, consumables, interactions, and donor rules reject unsafe state and damage every stacked item" );
 	}
 
 	{

@@ -1,5 +1,7 @@
 #include "sgp.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorExplosives.h"
+#include "TacticalActorInteractions.h"
 #include "TacticalWorldAdapter.h"
 #include "ai.h"
 #include "Isometric Utils.h"
@@ -1609,7 +1611,7 @@ void TurnBasedHandleNPCAI(TacticalActor *pSoldier)
 		}
 		else
 		{
-			pSoldier->StopChatting();
+			(void)TacticalActorInteractions::stopChatting(*pSoldier);
 		}
 	}
 
@@ -2703,7 +2705,7 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 
 		case AI_ACTION_SELFDETONATE:
 			{
-				pSoldier->SelfDetonate( );
+				(void)TacticalActorExplosives::selfDetonate(*pSoldier);
 				ActionDone( pSoldier );
 			}
 			break;

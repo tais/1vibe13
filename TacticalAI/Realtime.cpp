@@ -1,4 +1,5 @@
 	#include "ai.h"
+#include "TacticalActorInteractions.h"
 	#include "AIInternals.h"
 	#include "Isometric Utils.h"
 	#include "Overhead.h"
@@ -82,7 +83,7 @@ void RTHandleAI( TacticalActor * pSoldier )
 		}
 		else
 		{
-			pSoldier->StopChatting();
+			(void)TacticalActorInteractions::stopChatting(*pSoldier);
 		}
 	}
 

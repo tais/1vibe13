@@ -2283,9 +2283,11 @@ UINT8 HandleBloodbagCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fAct
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
+			TacticalActor* const donor =
+				GetJa2SoldierRepository().resolve(usSoldierIndex);
 			if ( usSoldierIndex != pSoldier->identity().id() &&
-				GetJa2SoldierRepository()
-					.resolve(usSoldierIndex.i)->IsValidBloodDonor() )
+				donor &&
+				TacticalActorConditions::canDonateBlood(*donor) )
 				return BLOODBAG_GREY_UICURSOR;
 		}
 	}

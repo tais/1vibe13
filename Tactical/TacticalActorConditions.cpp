@@ -1,10 +1,14 @@
 #include "TacticalActorConditions.h"
 
 #include "Animation Control.h"
+#include "Drugs And Alcohol.h"
+#include "Food.h"
 #include "GameSettings.h"
 #include "Interface.h"
 #include "Soldier Control.h"
 #include "Soldier macros.h"
+#include "TacticalActorDisease.h"
+#include "TacticalWorldAdapter.h"
 
 #include <algorithm>
 
@@ -50,6 +54,55 @@ bool canBeCaptured(const TacticalActor& actor) noexcept
 		zCivGroupName[actor.roster().civilianGroup()].fCanBeCaptured &&
 		!actor.aiBehavior().neutral() &&
 		actor.roster().side() == 1;
+}
+
+bool canDonateBlood(TacticalActor& actor)
+{
+	if (IsJa2TacticalCombatActive() ||
+		actor.roster().team() != gbPlayerNum)
+	{
+		return false;
+	}
+
+	if (actor.status().flags() & SOLDIER_VEHICLE)
+		return false;
+
+	const auto profile = actor.identity().profile();
+	if (profile != NO_PROFILE)
+	{
+		if (profile >= NUM_PROFILES ||
+			gMercProfiles[profile].ubBodyType == ROBOTNOWEAPON)
+		{
+			return false;
+		}
+	}
+
+	if (actor.vitals().maximumHealth() <= 0 ||
+		actor.vitals().health() != actor.vitals().maximumHealth() ||
+		actor.vitals().health() - bloodDonationAmount < OKLIFE)
+	{
+		return false;
+	}
+
+	if (TacticalActorDisease::hasAny(actor, true, false) ||
+		MercDruggedOrDrunk(&actor))
+	{
+		return false;
+	}
+
+	if (UsingFoodSystem())
+	{
+		UINT8 foodSituation = FOOD_NORMAL;
+		UINT8 waterSituation = FOOD_NORMAL;
+		GetFoodSituation(&actor, &foodSituation, &waterSituation);
+		if (foodSituation > FOOD_NORMAL ||
+			waterSituation > FOOD_NORMAL)
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 bool isCowering(const TacticalActor& actor) noexcept

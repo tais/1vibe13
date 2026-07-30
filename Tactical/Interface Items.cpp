@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorExplosives.h"
 	#include "builddefines.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorDisease.h"
@@ -6445,7 +6446,8 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					else if ( (GetCurrentScreen() == MAP_SCREEN) || (GetCurrentScreen() == MSG_BOX_SCREEN) )
 					{
 						// no explosions in map screen - instead we simply damage the inventory and harm our health
-						GetItemPointerSoldier()->InventoryExplosion();
+						TacticalActorExplosives::applyInventoryExplosion(
+							*GetItemPointerSoldier());
 					}
 
 					DeleteObj( gpItemDescObject );
@@ -14068,7 +14070,8 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 			else
 			{
 				// no explosions in map screen - instead we simply damage the inventory and harm our health
-				GetItemDescSoldier()->InventoryExplosion();
+				TacticalActorExplosives::applyInventoryExplosion(
+					*GetItemDescSoldier());
 			}
 
 			// Flugente: blowing up bombs in our inventory can be used to indirectly kill as a spy (via mustard gas), so make this a suspicious action
@@ -14245,7 +14248,8 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 				else if ( (screen == MAP_SCREEN) || (screen == MSG_BOX_SCREEN) )
 				{
 					// no explosions in map screen - instead we simply damage the inventory and harm our health
-					GetItemDescSoldier()->InventoryExplosion();
+					TacticalActorExplosives::applyInventoryExplosion(
+						*GetItemDescSoldier());
 				}
 
 				DeleteObj( gpItemDescObject );
@@ -14428,7 +14432,8 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 			else if ( GetCurrentScreen() == MAP_SCREEN || GetCurrentScreen() == MSG_BOX_SCREEN )
 			{
 				// no explosions in map screen - instead we simply damage the inventory and harm our health
-				GetItemDescSoldier()->InventoryExplosion();
+				TacticalActorExplosives::applyInventoryExplosion(
+					*GetItemDescSoldier());
 			}
 
 			DeleteObj( gpItemDescObject );

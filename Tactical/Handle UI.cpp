@@ -5060,7 +5060,8 @@ BOOLEAN UIMouseOnValidAttackLocation( TacticalActor *pSoldier )
 			if ( gfUIFullTargetFound )
 			{
 				if ( pSoldier->identity().id() != gusUIFullTargetID &&
-					fullTarget && fullTarget->IsValidBloodDonor() )
+					fullTarget &&
+					TacticalActorConditions::canDonateBlood(*fullTarget) )
 					return( TRUE );
 			}
 		}

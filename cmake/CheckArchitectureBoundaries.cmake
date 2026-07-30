@@ -2162,10 +2162,22 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.cpp"
   tactical_actor_conditions_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAssignments.h"
   tactical_actor_assignments_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConsumables.h"
+  tactical_actor_consumables_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConsumables.cpp"
+  tactical_actor_consumables_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorModifiers.h"
   tactical_actor_modifiers_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEquipment.h"
   tactical_actor_equipment_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorExplosives.h"
+  tactical_actor_explosives_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorExplosives.cpp"
+  tactical_actor_explosives_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorInteractions.h"
+  tactical_actor_interactions_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorInteractions.cpp"
+  tactical_actor_interactions_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
@@ -2861,6 +2873,118 @@ foreach(required_equipment_coverage IN ITEMS
   if(equipment_operation_coverage EQUAL -1)
     message(FATAL_ERROR
       "Tactical actor equipment lost data-free or malformed-input coverage for '${required_equipment_coverage}'")
+  endif()
+endforeach()
+
+foreach(retired_actor_facade IN ITEMS
+  "InventoryExplosion"
+  "SelfDetonate"
+  "StopChatting"
+  "DrugAutoUse"
+  "IsValidBloodDonor")
+  string(FIND "${tactical_actor_contents}"
+    "${retired_actor_facade}("
+    retired_actor_facade_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActor::${retired_actor_facade}"
+    retired_actor_facade_definition)
+  if(NOT retired_actor_facade_declaration EQUAL -1 OR
+     NOT retired_actor_facade_definition EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalActor regained retired facade '${retired_actor_facade}'")
+  endif()
+endforeach()
+
+foreach(required_consumable_operation IN ITEMS
+  "autoUseDrug")
+  string(FIND "${tactical_actor_consumables_header_contents}"
+    "${required_consumable_operation}("
+    consumable_operation_declaration)
+  string(FIND "${tactical_actor_consumables_source_contents}"
+    "${required_consumable_operation}(TacticalActor& actor)"
+    consumable_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorConsumables::${required_consumable_operation}"
+    consumable_operation_coverage)
+  if(consumable_operation_declaration EQUAL -1 OR
+     consumable_operation_definition EQUAL -1 OR
+     consumable_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor consumable operation '${required_consumable_operation}' lost its declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+foreach(required_explosive_operation IN ITEMS
+  "degradeInventoryAfterExplosion"
+  "applyInventoryExplosion"
+  "selfDetonate")
+  string(FIND "${tactical_actor_explosives_header_contents}"
+    "${required_explosive_operation}("
+    explosive_operation_declaration)
+  string(FIND "${tactical_actor_explosives_source_contents}"
+    "${required_explosive_operation}(TacticalActor& actor)"
+    explosive_operation_definition)
+  if(explosive_operation_declaration EQUAL -1 OR
+     explosive_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor explosive operation '${required_explosive_operation}' lost its declaration or definition")
+  endif()
+endforeach()
+
+foreach(required_explosive_coverage IN ITEMS
+  "degradeInventoryAfterExplosion"
+  "selfDetonate")
+  string(FIND "${headless_test_contents}"
+    "TacticalActorExplosives::${required_explosive_coverage}"
+    explosive_operation_coverage)
+  if(explosive_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor explosives lost data-free or malformed-input coverage for '${required_explosive_coverage}'")
+  endif()
+endforeach()
+
+string(FIND "${tactical_actor_interactions_header_contents}"
+  "stopChatting("
+  interaction_operation_declaration)
+string(FIND "${tactical_actor_interactions_source_contents}"
+  "stopChatting(TacticalActor& actor)"
+  interaction_operation_definition)
+string(FIND "${headless_test_contents}"
+  "TacticalActorInteractions::stopChatting"
+  interaction_operation_coverage)
+if(interaction_operation_declaration EQUAL -1 OR
+   interaction_operation_definition EQUAL -1 OR
+   interaction_operation_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor chat teardown lost its declaration, definition, or headless coverage")
+endif()
+
+string(FIND "${tactical_actor_conditions_header_contents}"
+  "canDonateBlood(TacticalActor& actor)"
+  donor_condition_declaration)
+string(FIND "${tactical_actor_conditions_source_contents}"
+  "canDonateBlood(TacticalActor& actor)"
+  donor_condition_definition)
+string(FIND "${headless_test_contents}"
+  "TacticalActorConditions::canDonateBlood"
+  donor_condition_coverage)
+if(donor_condition_declaration EQUAL -1 OR
+   donor_condition_definition EQUAL -1 OR
+   donor_condition_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor donor eligibility lost its declaration, definition, or headless coverage")
+endif()
+
+foreach(required_actor_domain_source IN ITEMS
+  "TacticalActorConsumables.cpp"
+  "TacticalActorExplosives.cpp"
+  "TacticalActorInteractions.cpp")
+  string(FIND "${tactical_build_contents}"
+    "${required_actor_domain_source}"
+    actor_domain_build_entry)
+  if(actor_domain_build_entry EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor domain source '${required_actor_domain_source}' must remain in the tactical build")
   endif()
 endforeach()
 

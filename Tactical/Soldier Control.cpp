@@ -1,4 +1,5 @@
 #include "Soldier Functions.h"
+#include "TacticalActorConsumables.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorAssignments.h"
@@ -6959,7 +6960,7 @@ void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeC
 		this->SoldierPropertyUpkeep( );
 
 		// Flugente: drug users might consume useful drugs on their own in combat
-		this->DrugAutoUse();
+		(void)TacticalActorConsumables::autoUseDrug(*this);
 
 		this->movementMetrics().recordCarriedWeightAtTurnStart(
 			(INT16)CalculateCarriedWeight( this ) );
@@ -14270,76 +14271,6 @@ void	TacticalActor::ResetExtraStats( )
 	condition().clearExtraStats();
 }
 
-// Flugente: inventory bombs can ignite while in mapscreen. Workaround: Damage items and health
-void	TacticalActor::InventoryExplosion( void )
-{
-	INT8 invsize = (INT8)this->inventory().size( );									// remember inventorysize, so we don't call size() repeatedly
-
-	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )							// ... for all items in our inventory ...
-	{
-		if ( this->inventory()[bLoop].exists( ) == true )
-		{
-			OBJECTTYPE * pObj = &(this->inventory()[bLoop]);							// ... get pointer for this item ...
-
-			if ( pObj != NULL )													// ... if pointer is not obviously useless ...
-			{
-				for ( INT16 i = 0; i < pObj->ubNumberOfObjects; ++i )				// ... there might be multiple items here (item stack), so for each one ...
-				{
-					INT16 status = (*pObj)[0]->data.objectStatus;
-					(*pObj)[0]->data.objectStatus = max( 1, (INT16)(status / 2) );
-
-					// also damage every attachment
-					attachmentList::iterator iterend = (*pObj)[i]->attachments.end( );
-					for ( attachmentList::iterator iter = (*pObj)[i]->attachments.begin( ); iter != iterend; ++iter )
-					{
-						if ( iter->exists( ) )
-						{
-							INT16 status = (*iter)[0]->data.objectStatus;
-							(*iter)[0]->data.objectStatus = max( 1, (INT16)(status / 2) );
-
-							INT16 rtstatus = (*iter)[0]->data.sRepairThreshold;
-							(*iter)[0]->data.sRepairThreshold = max( 1, (INT16)(rtstatus / 2) );
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// now damage our health
-	INT8 oldlife = vitals().health();
-
-	INT16 damage = (INT16)(30 + Random( 20 ));
-	if ( vitals().health() - damage < 0 )
-		damage = oldlife;
-
-	// We've got a problem if we kill someone outright without him collapsing properly...
-	// FIX: We'll adjust our damage, so if we'd kill someone without collapsing first, we lower our damage, to let him collapse
-	// After all, this whole thing's a rig up, so there shouldn't be a problem with that
-	if ( oldlife >= OKLIFE && oldlife <= damage )
-		damage -= (INT16)((5 + Random( 5 )));
-
-	INT16 breathdamage = (INT16)(500 + Random( 1500 ));
-	if ( vitals().breath() - breathdamage < 0 )
-		breathdamage = vitals().breath();
-
-	// Play sound
-	PlayJA2SampleFromFile( "Sounds\\Explode1.wav", RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
-
-	SoldierTakeDamage( 0, damage, breathdamage, TAKE_DAMAGE_EXPLOSION, this->identity().id(), position().gridNo(), 0, TRUE );
-
-	if ( vitals().health() <= 0 )
-	{
-		// FINISH HIM!
-		HandleTakeDamageDeath( this, oldlife, TAKE_DAMAGE_BLOODLOSS );
-	}
-	else if ( vitals().health() < OKLIFE && !collapseState().collapsed() )
-	{
-		// let the target collapse...
-		SoldierCollapse( this );
-	}
-}
-
 // Flugente: do we currently provide ammo (pAmmoSlot) for someone else's (pubId) gun (pGunSlot)?
 bool TacticalActorEquipment::externalFeeding(
 	TacticalActor& actor,
@@ -19693,28 +19624,6 @@ bool TacticalActorEquipment::hasItem(
 	return false;
 }
 
-// AI-only: heal self. Do NOT, repeat, NOT use this with mercs!
-BOOLEAN		TacticalActor::SelfDetonate( )
-{
-	if ( !(this->status().flags() & SOLDIER_UNDERAICONTROL) )
-		return FALSE;
-
-	for ( size_t bLoop = 0, invsize = inventory().size(); bLoop < invsize; ++bLoop )
-	{
-		if ( inventory()[bLoop].exists( ) == true && inventory()[bLoop].usItem == this->aiPlanning().actionData() )
-		{
-			IgniteExplosion( this->identity().id(), this->position().worldXInt(), this->position().worldYInt(), (INT16)(gpWorldLevelData[this->position().gridNo()].sHeight), this->position().gridNo(), inventory()[bLoop].usItem, this->position().level(), this->position().direction() );
-		
-			// Remove item!
-			DeleteObj( &(this->inventory()[bLoop]) );
-
-			return TRUE;
-		}
-	}
-
-	return FALSE;
-}
-
 // Flugente: chance to defeat a water snake instead of being hit by it
 std::uint8_t TacticalActorModifiers::waterSnakeDefenseChance(
 	TacticalActor& actor)
@@ -20537,78 +20446,6 @@ float TacticalActorCovertOps::intelGain(TacticalActor& actor)
 	return totalvalue;
 }
 
-void		TacticalActor::StopChatting()
-{
-	if ( this->interaction().chatting() )
-	{
-		TacticalActor* chatPartner =
-			GetJa2SoldierRepository().resolve(
-				this->interaction().chatPartner() );
-		if ( chatPartner != nullptr )
-		{
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[DISTRACT_STOP_STR], this->GetName(), chatPartner->GetName() );
-
-			chatPartner->interaction().endChat();
-		}
-		this->interaction().endChat();
-	}
-}
-
-void		TacticalActor::DrugAutoUse()
-{
-	if ( !TacticalActorModifiers::hasBackgroundFlag(*this, BACKGROUND_DRUGUSE ) )
-		return;
-	
-	if ( !( IsJa2TacticalCombatActive() || IsJa2TacticalTurnBased() ) )
-		return;
-
-	if ( this->skillState().cooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT) )
-		return;
-
-	INT8 invsize = (INT8)inventory().size();									// remember inventorysize, so we don't call size() repeatedly
-	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )
-	{
-		if ( inventory()[bLoop].exists() && Item[inventory()[bLoop].usItem].drugtype )
-		{
-			// use portionsize, if none was entered, use full item
-			UINT8 portionsize = Item[inventory()[bLoop].usItem].usPortionSize;
-			if ( !portionsize )
-				portionsize = 100;
-
-			// how much of this item do we use up
-			UINT8 usable = min( portionsize, ( this->inventory()[bLoop] )[0]->data.objectStatus );
-			if ( !usable )
-				continue;
-
-			std::vector<DRUG_EFFECT> vec_drug = NewDrug[Item[inventory()[bLoop].usItem].drugtype].drug_effects;
-
-			std::vector<DRUG_EFFECT>::iterator drug_effects_itend = vec_drug.end();
-			for ( std::vector<DRUG_EFFECT>::iterator drug_effects_it = vec_drug.begin(); drug_effects_it != drug_effects_itend; ++drug_effects_it )
-			{
-				if ( ( *drug_effects_it ).size > 0 )
-				{
-					if ( ( *drug_effects_it ).effect == DRUG_EFFECT_HP && this->vitals().bleeding() > 1 && ( *drug_effects_it ).size * ( *drug_effects_it ).duration * usable / 100 < this->vitals().bleeding() * 2 )
-					{
-						ApplyConsumable( this, &( this->inventory()[bLoop] ), TRUE, FALSE );
-
-						this->skillState().cooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT) += 6;
-
-						return;
-					}
-					else if ( ( *drug_effects_it ).effect == DRUG_EFFECT_BP && this->vitals().breath() < 50 )
-					{
-						ApplyConsumable( this, &( this->inventory()[bLoop] ), TRUE, FALSE );
-
-						this->skillState().cooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT) += 6;
-
-						return;
-					}
-				}
-			}
-		}
-	}
-}
-
 bool TacticalActorEquipment::removeOneItem(
 	TacticalActor& actor,
 	std::uint16_t item)
@@ -20631,52 +20468,6 @@ bool TacticalActorEquipment::removeOneItem(
 	}
 
 	return false;
-}
-
-#define BLOODDONATION_AMOUNT	10
-
-// Flugente: can we fill a blood bag from this guy?
-BOOLEAN		TacticalActor::IsValidBloodDonor()
-{
-	// not during combat
-	if ( IsJa2TacticalCombatActive() )
-		return FALSE;
-
-	//  must be player team
-	if ( this->roster().team() != gbPlayerNum )
-		return FALSE;
-
-	// mustn't be mechanical unit
-	if (AM_A_ROBOT(this) || this->status().flags() & SOLDIER_VEHICLE)
-		return FALSE;
-
-	// not if wounded
-	if ( this->vitals().health() < this->vitals().maximumHealth() )
-		return FALSE;
-
-	// not if doing so would drop us into coma
-	if ( this->vitals().health() - BLOODDONATION_AMOUNT < OKLIFE )
-		return FALSE;
-
-	// not if we have any KNOWN disease
-	if ( TacticalActorDisease::hasAny(*this, TRUE, FALSE ) )
-		return FALSE;
-
-	// not if we're drunk or drugged
-	if ( MercDruggedOrDrunk( this ) )
-		return FALSE;
-
-	// need to be properly fed and watered
-	if ( UsingFoodSystem() )
-	{
-		UINT8 foodsituation;
-		UINT8 watersituation;
-		GetFoodSituation( this, &foodsituation, &watersituation );
-		if ( foodsituation > FOOD_NORMAL || watersituation > FOOD_NORMAL )
-			return FALSE;
-	}
-
-	return TRUE;
 }
 
 std::uint32_t TacticalActorAssignments::administrationPoints(
@@ -22356,7 +22147,7 @@ void TacticalActor::EVENT_SoldierTakeBloodFromPerson( INT32 sGridNo, UINT8 ubDir
 		// we found someone
 		OBJECTTYPE* pObj = &( this->inventory()[HANDPOS] );
 
-		if ( pSoldier && pObj->exists() && HasItemFlag( pObj->usItem, EMPTY_BLOOD_BAG ) && pSoldier->IsValidBloodDonor() )
+		if ( pSoldier && pObj->exists() && HasItemFlag( pObj->usItem, EMPTY_BLOOD_BAG ) && TacticalActorConditions::canDonateBlood(*pSoldier) )
 		{
 			// delete empty blood bag
 			DeleteObj( pObj );
@@ -22381,7 +22172,7 @@ void TacticalActor::EVENT_SoldierTakeBloodFromPerson( INT32 sGridNo, UINT8 ubDir
 				INT8 bleeding_tmp = pSoldier->vitals().bleeding();
 
 				// we need to set attacker as NOBODY, otherwise this calls dialogue events. This can be justified since they 'volunteered' for this
-				pSoldier->SoldierTakeDamage( 0, BLOODDONATION_AMOUNT, 0, TAKE_DAMAGE_BLOODLOSS, NOBODY, sGridNo, 0, TRUE );
+				pSoldier->SoldierTakeDamage( 0, TacticalActorConditions::bloodDonationAmount, 0, TAKE_DAMAGE_BLOODLOSS, NOBODY, sGridNo, 0, TRUE );
 
 				pSoldier->vitals().healableInjury() = healableinjury_tmp;
 				pSoldier->vitals().bleeding() = bleeding_tmp;

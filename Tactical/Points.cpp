@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorInteractions.h"
 	#include "sgp.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
@@ -877,7 +878,7 @@ void DeductPoints( TacticalActor *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 
 		// sevenfm: indicate in realtime that soldier spent some action point this turn
 		pSoldier->featureFlags().secondaryFlags() |= SOLDIER_SPENT_AP;
 
-		pSoldier->StopChatting();
+		(void)TacticalActorInteractions::stopChatting(*pSoldier);
 
 		// sevenfm: stop muzzle flash
 		if (pSoldier->renderState().muzzleFlashVisible())
