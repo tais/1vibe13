@@ -9,6 +9,7 @@
 #include "Soldier Profile.h"
 #include "SoldierRepository.h"
 #include "TacticalActorMobility.h"
+#include "TacticalWorldAdapter.h"
 #include "Vehicles.h"
 #include "Weapons.h"
 #include "Overhead.h"
@@ -325,6 +326,7 @@ bool TacticalActorWeaponHandling::isWeaponMounted(
 		actor.animationPlayback().state();
 	if (!actor.roster().active() ||
 		!actor.roster().inSector() ||
+		!IsJa2TacticalWorldLoaded() ||
 		TileIsOutOfBounds(actor.position().gridNo()) ||
 		animationState >= NUMANIMATIONSTATES)
 	{

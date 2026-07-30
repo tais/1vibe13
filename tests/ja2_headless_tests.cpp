@@ -8871,7 +8871,7 @@ int main( int, char** )
 				0);
 		weaponActor.animationPlayback().state() =
 			NUMANIMATIONSTATES;
-		const bool malformedAnimationAndInactiveMountAreRejected =
+		const bool malformedAnimationIsRejected =
 			!TacticalActorWeaponHandling::isValidShotFromHip(
 				weaponActor,
 				0,
@@ -8880,6 +8880,13 @@ int main( int, char** )
 				weaponActor,
 				0,
 				0) &&
+			!TacticalActorWeaponHandling::isWeaponMounted(
+				weaponActor);
+		weaponActor.animationPlayback().state() = STANDING;
+		weaponActor.roster().active() = TRUE;
+		weaponActor.roster().inSector() = TRUE;
+		weaponActor.position().gridNo() = 0;
+		const bool unavailableWorldMountIsRejected =
 			!TacticalActorWeaponHandling::isWeaponMounted(
 				weaponActor);
 
@@ -8893,7 +8900,8 @@ int main( int, char** )
 		       pistolFastShotIsAccepted &&
 		       hipShotIsAccepted &&
 		       malformedItemsAreRejected &&
-		       malformedAnimationAndInactiveMountAreRejected,
+		       malformedAnimationIsRejected &&
+		       unavailableWorldMountIsRejected,
 		       "tactical actor weapon handling owns bounded dual-wield, alternative-fire, and mounting decisions" );
 	}
 
