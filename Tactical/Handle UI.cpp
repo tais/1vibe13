@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include "connect.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorDisease.h"
@@ -2859,8 +2860,8 @@ void UIHandleMercAttack( TacticalActor *pSoldier , TacticalActor *pTargetSoldier
 	// get cursor
 	ubItemCursor	=	GetActionModeCursor( pSoldier );
 
-	OBJECTTYPE* pObj = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
-	usItem  = pSoldier->GetUsedWeaponNumber(&pSoldier->inventory()[HANDPOS]);
+	OBJECTTYPE* pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS]);
+	usItem  = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[HANDPOS]);
 
 	if ( !(IsJa2TacticalCombatActive()) && pTargetSoldier && Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass & IC_WEAPON )
 	{
@@ -3034,7 +3035,7 @@ void SurgeryRequesterCallback( UINT8 bExitValue )
 		if ( bExitValue == 1 )
 		{
 			OBJECTTYPE* pObj =
-				pRequester->GetObjectWithItemFlag( BLOOD_BAG );
+				TacticalActorEquipment::objectWithFlag(*pRequester, BLOOD_BAG );
 
 			if ( pObj )
 			{
@@ -3165,7 +3166,7 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 					{
 						// Flugente: check whether we have a bloodbag we can use
 						INT32 healwith_bloodbag = -1;
-						if ( gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && pSoldier->GetObjectWithItemFlag( BLOOD_BAG ) != NULL )
+						if ( gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && TacticalActorEquipment::objectWithFlag(*pSoldier, BLOOD_BAG ) != NULL )
 							healwith_bloodbag = pTSoldier->vitals().healableInjury() * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
 
 						if ( healwith_bloodbag > healwithout_bloodbag )

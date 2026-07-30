@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include "Assignments.h"
 #include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
@@ -1488,13 +1489,13 @@ BOOLEAN CanCharacterRepair( TacticalActor *pSoldier )
 	}
 
 	// make sure he has a toolkit or cleaning kit to clean guns
-	if ( FindToolkit( pSoldier ) == NO_SLOT && pSoldier->GetObjectWithFlag( CLEANING_KIT ) == NULL )
+	if ( FindToolkit( pSoldier ) == NO_SLOT && TacticalActorEquipment::objectWithFlag(*pSoldier, CLEANING_KIT ) == NULL )
 	{
 		return( FALSE );
 	}
 
 	// anything around to clean?
-	if ( pSoldier->GetObjectWithFlag( CLEANING_KIT ) != NULL && IsAnythingAroundForSoldierToClean( pSoldier ) )//todo shadooow: not if dirty system is disabled
+	if ( TacticalActorEquipment::objectWithFlag(*pSoldier, CLEANING_KIT ) != NULL && IsAnythingAroundForSoldierToClean( pSoldier ) )//todo shadooow: not if dirty system is disabled
 	{
 		return( TRUE );
 	}
@@ -3474,7 +3475,7 @@ UINT8 CalculateCleaningPointsForRepairman(TacticalActor *pSoldier, UINT16 *pusMa
 	UINT32 usCleaningPts;
 
 	// oops, we have no cleaning kit
-	if ( pSoldier->GetObjectWithFlag( CLEANING_KIT ) == NULL )
+	if ( TacticalActorEquipment::objectWithFlag(*pSoldier, CLEANING_KIT ) == NULL )
 	{
 		*pusMaxPts = 0;
 		return 0;
@@ -4821,7 +4822,7 @@ void HandleRepairmenInSector( INT16 sX, INT16 sY, INT8 bZ )
 			{
 				if ( IS_REPAIR(pTeamSoldier->assignment().current()) && ( pTeamSoldier->assignment().isAsleep() == FALSE ) )
 				{
-					if ( MakeSureToolKitIsInHand( pTeamSoldier ) || pTeamSoldier->GetObjectWithFlag( CLEANING_KIT ) != NULL )
+					if ( MakeSureToolKitIsInHand( pTeamSoldier ) || TacticalActorEquipment::objectWithFlag(*pTeamSoldier, CLEANING_KIT ) != NULL )
 					{
 						// character is in sector, check if can repair
 						if ( CanCharacterRepair( pTeamSoldier ) && ( EnoughTimeOnAssignment( pTeamSoldier ) ) )
@@ -5715,7 +5716,7 @@ void HandleRepairBySoldier( TacticalActor *pSoldier )
 		if( ( Random( 50 ) ) < (UINT32)(ubCleaningPtsUsed) )
 		{
 			// kit item damaged/depleted, burn up points of cleaning kit
-			UseKitPoints( pSoldier->GetObjectWithFlag( CLEANING_KIT ), (UINT16)(ubCleaningPtsUsed / 10 + 1), pSoldier );
+			UseKitPoints( TacticalActorEquipment::objectWithFlag(*pSoldier, CLEANING_KIT ), (UINT16)(ubCleaningPtsUsed / 10 + 1), pSoldier );
 		}
 	}
 
@@ -5743,7 +5744,7 @@ void HandleRepairBySoldier( TacticalActor *pSoldier )
 
 	BOOLEAN bCleaning = FALSE, bRepairing = FALSE;
 	// anything around to clean?
-	if ( pSoldier->GetObjectWithFlag( CLEANING_KIT ) != NULL && !bNothingLeftToClean )
+	if ( TacticalActorEquipment::objectWithFlag(*pSoldier, CLEANING_KIT ) != NULL && !bNothingLeftToClean )
 	{
 		bCleaning = TRUE;
 	}
@@ -13880,7 +13881,7 @@ static void CheckForSurgery(TacticalActor *pSoldier)
 
 			// Flugente: check whether we have a bloodbag we can use
 			INT32 healwith_bloodbag = -1;
-			if ( gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && pBestMedic->GetObjectWithItemFlag( BLOOD_BAG ) != NULL )
+			if ( gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && TacticalActorEquipment::objectWithFlag(*pBestMedic, BLOOD_BAG ) != NULL )
 				healwith_bloodbag = pSoldier->vitals().healableInjury() * (gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pBestMedic, DOCTOR_NT )) / 10000;
 
 			if ( healwith_bloodbag > healwithout_bloodbag )
@@ -14086,7 +14087,7 @@ void AssignmentMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 								BOOLEAN offerbloodbagoption = FALSE;
 								TacticalActor* pSurgeryPatient = NULL;
 
-								if ( numsurgerytargets == 1 && gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && pSoldier->GetObjectWithItemFlag( BLOOD_BAG ) != NULL )
+								if ( numsurgerytargets == 1 && gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && TacticalActorEquipment::objectWithFlag(*pSoldier, BLOOD_BAG ) != NULL )
 								{
 									TacticalActor* pPatient = GetPatientThatCanBeDoctored( pSoldier, HEALABLE_EVER, FALSE, FALSE, TRUE );
 
@@ -22257,7 +22258,7 @@ static void ApplySurgeryBloodBagBoost(
 	TacticalActor* doctor, TacticalActor* patient)
 {
 	OBJECTTYPE* pObj =
-		doctor->GetObjectWithItemFlag(BLOOD_BAG);
+		TacticalActorEquipment::objectWithFlag(*doctor, BLOOD_BAG);
 	if (!pObj)
 		return;
 

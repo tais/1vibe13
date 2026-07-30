@@ -122,6 +122,7 @@
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
@@ -8132,6 +8133,95 @@ int main( int, char** )
 		       directDerivedValuesAreAvailable &&
 		       inactiveThiefHasNoChance,
 		       "tactical actor modifiers reject malformed inputs and expose data-free derived calculations" );
+	}
+
+	{
+		TacticalActor equipmentActor;
+
+		const bool emptyEquipmentIsNeutral =
+			!TacticalActorEquipment::carriesTwoHandedWeapon(equipmentActor) &&
+			TacticalActorEquipment::usedWeapon(equipmentActor, nullptr) ==
+				nullptr &&
+			TacticalActorEquipment::usedWeaponNumber(
+				equipmentActor,
+				nullptr) == NOTHING &&
+			TacticalActorEquipment::objectWithFlag(
+				equipmentActor,
+				ITEM_twohanded) == nullptr &&
+			!TacticalActorEquipment::usesScubaGear(equipmentActor) &&
+			TacticalActorEquipment::bestEquippedFlashlightRange(
+				equipmentActor) == 0 &&
+			!TacticalActorEquipment::hasItem(equipmentActor, 1) &&
+			TacticalActorEquipment::equippedRiotShield(
+				equipmentActor) == nullptr &&
+			!TacticalActorEquipment::hasEquippedRiotShield(
+				equipmentActor);
+
+		const bool nullExternalFeedingOutputsAreRejected =
+			!TacticalActorEquipment::externalFeeding(
+				equipmentActor,
+				nullptr,
+				nullptr,
+				nullptr,
+				nullptr,
+				nullptr,
+				nullptr);
+
+		OBJECTTYPE& handItem =
+			equipmentActor.inventory()[HANDPOS];
+		const auto previousItemFlags = Item[1].usItemFlag;
+		const auto previousShieldStrength =
+			Item[1].usRiotShieldStrength;
+		Item[1].usItemFlag |= ITEM_twohanded;
+		Item[1].usRiotShieldStrength = 10;
+		handItem.usItem = 1;
+		handItem.ubNumberOfObjects = 1;
+		equipmentActor.attackSelection().weaponMode() = WM_NORMAL;
+		equipmentActor.animationPlayback().state() = STANDING;
+		equipmentActor.position().terrainType() = FLAT_GROUND;
+		const bool equippedItemQueriesResolve =
+			TacticalActorEquipment::carriesTwoHandedWeapon(
+				equipmentActor) &&
+			TacticalActorEquipment::usedWeapon(
+				equipmentActor,
+				&handItem) == &handItem &&
+			TacticalActorEquipment::usedWeaponNumber(
+				equipmentActor,
+				&handItem) == 1 &&
+			TacticalActorEquipment::objectWithFlag(
+				equipmentActor,
+				ITEM_twohanded) == &handItem &&
+			TacticalActorEquipment::hasItem(equipmentActor, 1) &&
+			TacticalActorEquipment::equippedRiotShield(
+				equipmentActor) == &handItem &&
+			TacticalActorEquipment::hasEquippedRiotShield(
+				equipmentActor);
+
+		equipmentActor.position().terrainType() = MED_WATER;
+		const bool shieldIsLoweredInHighWater =
+			!TacticalActorEquipment::hasEquippedRiotShield(
+				equipmentActor);
+
+		handItem.usItem = MAXITEMS;
+		const bool malformedItemIndexesAreRejected =
+			!TacticalActorEquipment::carriesTwoHandedWeapon(
+				equipmentActor) &&
+			TacticalActorEquipment::objectWithFlag(
+				equipmentActor,
+				ITEM_twohanded) == nullptr &&
+			TacticalActorEquipment::bestEquippedFlashlightRange(
+				equipmentActor) == 0 &&
+			TacticalActorEquipment::equippedRiotShield(
+				equipmentActor) == nullptr;
+		Item[1].usItemFlag = previousItemFlags;
+		Item[1].usRiotShieldStrength = previousShieldStrength;
+
+		CHECK( emptyEquipmentIsNeutral &&
+		       nullExternalFeedingOutputsAreRejected &&
+		       equippedItemQueriesResolve &&
+		       shieldIsLoweredInHighWater &&
+		       malformedItemIndexesAreRejected,
+		       "tactical actor equipment resolves valid gear and rejects high-water shields, missing outputs, and malformed inventory" );
 	}
 
 	{

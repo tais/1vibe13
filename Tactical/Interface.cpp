@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 	#include "builddefines.h"
 	#include "TacticalActorConditions.h"
 	#include "SoldierRepository.h"
@@ -1761,7 +1762,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		}
 	}
 	// Flugente: show a small animation hat signifies that a merc is underwater (hopefully temporary until someone comes up with a proper animation)
-	else if ( pSoldier->UsesScubaGear() )
+	else if ( TacticalActorEquipment::usesScubaGear(*pSoldier) )
 	{
 		if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::LocatorBlink) )
 		{
@@ -2403,7 +2404,7 @@ BOOLEAN DrawCTHIndicator()
 	TacticalActor *pTarget;
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
-	OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	OBJECTTYPE* pWeapon = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 
 	// Create a Background Rect for us to draw our indicator on. With NCTH, the size and position of this rectangle
 	// is equal exactly to the size of the tactical screen viewport. Unlike the OCTH indicator, the NCTH one can grow
@@ -6605,7 +6606,7 @@ void NCTHShowMounted( TacticalActor* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, IN
 {
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 2 )
 	{
-		OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+		OBJECTTYPE* pWeapon = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 		INVTYPE	*pItem = &Item[ pWeapon->usItem ];
 		PIXEL usCMountedBar	= Get16BPPColor( FROMRGB( 192, 0, 0 ) );
 		PIXEL usCMountedBorder	= Get16BPPColor( FROMRGB( 10, 10, 10 ) );

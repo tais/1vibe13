@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 /*
 	Filename		:		pathai.c
 	Author			:		Ray E. Bornert II
@@ -1417,7 +1418,7 @@ INT16 AStarPathfinder::CalcAP(int const terrainCost, UINT8 const direction)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Flugente: riot shields lower movement speed
-	if ( pSoldier->IsRiotShieldEquipped( ) )
+	if ( TacticalActorEquipment::hasEquippedRiotShield(*pSoldier) )
 	{
 		movementAPCost *= gItemSettings.fShieldMovementAPCostModifier;
 	}
@@ -2648,7 +2649,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 	// these soldier-invariant trait/equipment checks don't depend on the candidate tile/direction
 	const bool fAthleticsReduce = ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( s, ATHLETICS_NT ) );
 	const bool fHasScubaFins = ( s->inventory()[LEGPOS].exists() && HasItemFlag( s->inventory()[LEGPOS].usItem, SCUBA_FINS ) );
-	const bool fRiotShield = s->IsRiotShieldEquipped( );
+	const bool fRiotShield = TacticalActorEquipment::hasEquippedRiotShield(*s);
 	const bool fDragging = TacticalActorDragging::isDragging(*s);
 
 	do
@@ -4517,7 +4518,7 @@ INT32 PlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 b
 					}
 
 					// Flugente: riot shields lower movement speed
-					if ( pSold->IsRiotShieldEquipped( ) )
+					if ( TacticalActorEquipment::hasEquippedRiotShield(*pSold) )
 					{
 						sMovementAPsCost *= gItemSettings.fShieldMovementAPCostModifier;
 					}
@@ -4625,7 +4626,7 @@ INT32 PlotPath( TacticalActor *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 b
 				}
 
 				// Flugente: riot shields lower movement speed
-				if ( pSold->IsRiotShieldEquipped( ) )
+				if ( TacticalActorEquipment::hasEquippedRiotShield(*pSold) )
 				{
 					sPointsWalk *= gItemSettings.fShieldMovementAPCostModifier;
 					sPointsCrawl *= gItemSettings.fShieldMovementAPCostModifier;

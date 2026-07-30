@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 	#include "builddefines.h"
 	#include "SoldierRepository.h"
 #include "TacticalActorAssignments.h"
@@ -2157,7 +2158,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				SoldierID ubID2 = NOBODY;
 				UINT16 ubGunSlot2 = 0;
 				UINT16 ubFaceSlot2 = 0;
-				if (pSoldier->IsFeedingExternal(&ubID1, &ubGunSlot1, &ubFaceSlot1, &ubID2, &ubGunSlot2, &ubFaceSlot2))
+				if (TacticalActorEquipment::externalFeeding(*pSoldier, &ubID1, &ubGunSlot1, &ubFaceSlot1, &ubID2, &ubGunSlot2, &ubFaceSlot2))
 				{
 					DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 11);
 					bNumRightIcons++;

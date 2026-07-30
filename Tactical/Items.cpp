@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 	#include "Items.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -3844,7 +3845,7 @@ INT8 FindAmmoToReload( TacticalActor * pSoldier, INT8 bWeaponIn, INT8 bExcludeSl
 	else
 	{
 		// Flugente: check for underbarrel weapons and use that object if necessary
-		pObj = pSoldier->GetUsedWeapon(&(pSoldier->inventory()[bWeaponIn]));
+		pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[bWeaponIn]));
 		AssertMsg(pObj, "FindAmmoToReload: could not find underbarrel weapon.");
 
 		//<SB> manual recharge
@@ -3916,7 +3917,7 @@ BOOLEAN AutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 	CHECKF( pSoldier );
 
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	pObj = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
+	pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]) );
 
 //<SB> manual recharge
 	if ((*pObj)[0]->data.gun.ubGunShotsLeft && !((*pObj)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) )
@@ -4031,7 +4032,7 @@ BOOLEAN AutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 			&& ( aReloadEvenIfNotEmpty || !EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS ) ) )
 		{
 			// Flugente: check for underbarrel weapons and use that object if necessary
-			pObj = pSoldier->GetUsedWeapon( &( pSoldier->inventory()[SECONDHANDPOS] ) );
+			pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &( pSoldier->inventory()[SECONDHANDPOS] ) );
 
 			bSlot = FindAmmoToReload( pSoldier, SECONDHANDPOS, NO_SLOT );
 			if ( bSlot != NO_SLOT )
@@ -6865,7 +6866,7 @@ BOOLEAN PlaceObject( TacticalActor * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 				if (Item[pObj->usItem].usItemClass == IC_AMMO)
 				{
 					// Flugente: if we have an underbarrel weapon, we can reload that
-					OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon(pInSlot);
+					OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, pInSlot);
 
 					if (Weapon[pObjUsed->usItem].ubCalibre == Magazine[Item[pObj->usItem].ubClassIndex].ubCalibre)
 					{
@@ -10836,8 +10837,8 @@ void GetRecoil( TacticalActor *pSoldier, OBJECTTYPE *pObj, FLOAT *bRecoilX, FLOA
 	*bRecoilY = 0;
 
 	// Flugente: get weapon actually used (might be an underbarrel shotgun)
-	OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon(pObj);
-	OBJECTTYPE* pObjUsedInHand = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
+	OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, pObj);
+	OBJECTTYPE* pObjUsedInHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]) );
  
 	// silversurfer: The first bullet should never return recoil. If function CalcPreRecoilOffset( ) in LOS.cpp wants to know
 	// what recoil to expect for the second bullet in the volley it should ask for the second bullet and does so from now on.
@@ -13264,7 +13265,7 @@ FLOAT GetBestScopeMagnificationFactor( TacticalActor *pSoldier, OBJECTTYPE * pOb
 {
 	// Flugente: if this weapon is an underbarrel weapon, use the 'carrier' weapon instead
 	OBJECTTYPE* pObjUsed = pObj;
-	if ( pObj == pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] ) )
+	if ( pObj == TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] ) )
 	{
 		pObjUsed = &pSoldier->inventory()[pSoldier->attackSelection().hand()];
 	}
@@ -15363,7 +15364,7 @@ BOOLEAN ObjectIsExternalFeeder(TacticalActor* pSoldier, OBJECTTYPE * pObject)
 	SoldierID  usSoldierFeedingTarget2 = NOBODY;
 	UINT16 usGunSlot2 = 0;
 	UINT16 usAmmoSlot2 = 0;
-	if ( pSoldier->IsFeedingExternal(&usSoldierFeedingTarget1, &usGunSlot1, &usAmmoSlot1, &usSoldierFeedingTarget2, &usGunSlot2, &usAmmoSlot2) )
+	if ( TacticalActorEquipment::externalFeeding(*pSoldier, &usSoldierFeedingTarget1, &usGunSlot1, &usAmmoSlot1, &usSoldierFeedingTarget2, &usGunSlot2, &usAmmoSlot2) )
 	{
 		TacticalActor* pTargetSoldier =
 			GetJa2SoldierRepository().resolve( usSoldierFeedingTarget1 );
@@ -15426,7 +15427,7 @@ OBJECTTYPE* GetExternalFeedingObject(TacticalActor* pSoldier, OBJECTTYPE * pObje
 			SoldierID  usTeamSoldierFeedingTarget2 = NOBODY;
 			UINT16 usGunSlot2 = 0;
 			UINT16 usAmmoSlot2 = 0;
-			if ( pTeamSoldier->IsFeedingExternal(&usTeamSoldierFeedingTarget1, &usGunSlot1, &usAmmoSlot1, &usTeamSoldierFeedingTarget2, &usGunSlot2, &usAmmoSlot2)  )
+			if ( TacticalActorEquipment::externalFeeding(*pTeamSoldier, &usTeamSoldierFeedingTarget1, &usGunSlot1, &usAmmoSlot1, &usTeamSoldierFeedingTarget2, &usGunSlot2, &usAmmoSlot2)  )
 			{
 				if ( usTeamSoldierFeedingTarget1 == pSoldier->identity().id() && pSoldier->inventory()[usGunSlot1] == (*pObject) )
 				{

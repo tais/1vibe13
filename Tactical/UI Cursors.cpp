@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 	#include "Items.h"
 	#include "TacticalActorConditions.h"
 	#include "TacticalActorDisease.h"
@@ -2990,7 +2991,7 @@ UINT8 GetActionModeCursor( TacticalActor *pSoldier )
 			return ( TRAJECTORYCURS );
 	}
 
-	usInHand = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[HANDPOS] );
+	usInHand = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[HANDPOS] );
 	// Start off with what is in our hand
 	ubCursor = Item[ usInHand ].ubCursor;
 

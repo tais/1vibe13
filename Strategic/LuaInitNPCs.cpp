@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include <iostream>
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
@@ -7875,7 +7876,9 @@ static int l_HasItemInInventory(lua_State* L)
 
 		if (ubID < TOTAL_SOLDIERS)
 		{
-			Bool = GetJa2SoldierRepository().resolve(ubID)->HasItemInInventory(usItem);
+			TacticalActor* actor =
+				GetJa2SoldierRepository().resolve(ubID);
+			Bool = actor && TacticalActorEquipment::hasItem(*actor, usItem);
 		}
 	}
 

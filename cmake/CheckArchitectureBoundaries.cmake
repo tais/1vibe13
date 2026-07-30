@@ -2164,6 +2164,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAssignments.h"
   tactical_actor_assignments_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorModifiers.h"
   tactical_actor_modifiers_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEquipment.h"
+  tactical_actor_equipment_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
@@ -2774,6 +2776,70 @@ if(modifier_background_coverage EQUAL -1 OR
   message(FATAL_ERROR
     "Tactical actor modifiers lost their malformed-data or data-free headless coverage")
 endif()
+
+foreach(retired_equipment_method IN ITEMS
+  "SoldierCarriesTwoHandedWeapon"
+  "GetUsedWeapon"
+  "GetUsedWeaponNumber"
+  "IsFeedingExternal"
+  "GetObjectWithFlag"
+  "UsesScubaGear"
+  "GetBestEquippedFlashLightRange"
+  "HasItem"
+  "GetEquippedRiotShield"
+  "IsRiotShieldEquipped"
+  "GetObjectWithItemFlag"
+  "HasItemInInventory")
+  string(FIND "${tactical_actor_contents}"
+    "${retired_equipment_method}("
+    retired_equipment_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActor::${retired_equipment_method}"
+    retired_equipment_definition)
+  if(NOT retired_equipment_declaration EQUAL -1 OR
+     NOT retired_equipment_definition EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalActor regained equipment-query facade '${retired_equipment_method}'")
+  endif()
+endforeach()
+
+foreach(required_equipment_operation IN ITEMS
+  "carriesTwoHandedWeapon"
+  "usedWeapon"
+  "usedWeaponNumber"
+  "externalFeeding"
+  "objectWithFlag"
+  "usesScubaGear"
+  "bestEquippedFlashlightRange"
+  "hasItem"
+  "equippedRiotShield"
+  "hasEquippedRiotShield")
+  string(FIND "${tactical_actor_equipment_header_contents}"
+    "${required_equipment_operation}("
+    equipment_operation_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActorEquipment::${required_equipment_operation}("
+    equipment_operation_definition)
+  if(equipment_operation_declaration EQUAL -1 OR
+     equipment_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor equipment operation '${required_equipment_operation}' lost its domain declaration or definition")
+  endif()
+endforeach()
+
+foreach(required_equipment_coverage IN ITEMS
+  "TacticalActorEquipment::usedWeapon"
+  "TacticalActorEquipment::externalFeeding"
+  "TacticalActorEquipment::objectWithFlag"
+  "TacticalActorEquipment::equippedRiotShield")
+  string(FIND "${headless_test_contents}"
+    "${required_equipment_coverage}"
+    equipment_operation_coverage)
+  if(equipment_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor equipment lost data-free or malformed-input coverage for '${required_equipment_coverage}'")
+  endif()
+endforeach()
 
 foreach(required_persistence_fragment IN ITEMS
   "ComputeTacticalActorChecksum"

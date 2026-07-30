@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 	#include "sgp.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -2343,7 +2344,7 @@ void ManSeesMan(TacticalActor *pSoldier, TacticalActor *pOpponent, INT32 sOppGri
 	if (pSoldier->roster().team() == pOpponent->roster().team())
 		return;
 	// Flugente: if the other guy is in med or deep water and wearing scua gear, then we cannot see him as he is submerged
-	if ( pOpponent->UsesScubaGear() )
+	if ( TacticalActorEquipment::usesScubaGear(*pOpponent) )
 		return;
 	// Flugente: update our sight concerning this guy, otherwise we could get way with open attacks because this does not get updated
 	if (TacticalActorCovertOps::recognizesCombatant(*pSoldier, pOpponent->identity().id()))

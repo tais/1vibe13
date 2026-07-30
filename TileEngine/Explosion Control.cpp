@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorModifiers.h"
@@ -271,7 +272,8 @@ void InternalIgniteExplosion( SoldierID ubOwner, INT16 sX, INT16 sY, INT16 sZ, I
 	if ( owner )
 	{
 		OBJECTTYPE* pUsedGun =
-			owner->GetUsedWeapon(
+			TacticalActorEquipment::usedWeapon(
+				*owner,
 				&( owner->inventory()[owner->attackSelection().hand()] ) );
 
 		ammotype = (*pUsedGun)[0]->data.gun.ubGunAmmoType;
@@ -1567,7 +1569,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	}
 
 	// Flugente: do we have a riot shield equipped?
-	if ( pSoldier->IsRiotShieldEquipped( ) )
+	if ( TacticalActorEquipment::hasEquippedRiotShield(*pSoldier) )
 	{
 		UINT8 attackdir_inverse = GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sBombGridNo );
 

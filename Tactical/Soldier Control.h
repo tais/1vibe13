@@ -1034,23 +1034,14 @@ public:
 	BOOLEAN IsValidAlternativeFireMode( INT16 bAimTime, INT32 iTrgGridNo );
 	BOOLEAN IsValidShotFromHip( INT16 bAimTime, INT32 iTrgGridNo );
 	BOOLEAN IsValidPistolFastShot( INT16 bAimTime, INT32 iTrgGridNo );
-	BOOLEAN SoldierCarriesTwoHandedWeapon( void );
 	void	SoldierInventoryCoolDown( void );		// Flugente: Cool down/decay all items in inventory
 	BOOLEAN	IsWeaponMounted( void );				// determine if we receive a bonus for mounting our weapon on something
-	OBJECTTYPE* GetUsedWeapon( OBJECTTYPE * pObj );		// if in an underbarrel fire mode, return underbarrel weapon
-	UINT16  GetUsedWeaponNumber( OBJECTTYPE * pObj );	// if in an underbarrel fire mode, return number of underbarrel weapon
 
 	// reset the extra stat variables
 	void	ResetExtraStats();
 
 	// Flugente: inventory bombs can ignite while in mapscreen. Workaround: Damage items and health
 	void	InventoryExplosion( void );
-
-	// Flugente: do we currently provide ammo (pAmmoSlot) for someone else's (pubId) gun (pGunSlot)?
-	BOOLEAN		IsFeedingExternal(SoldierID * pubId1, UINT16* pGunSlot1, UINT16* pAmmoSlot1, SoldierID* pubId2, UINT16* pGunSlot2, UINT16* pAmmoSlot2);
-
-	// Flugente: return first found object with a specific flag from our inventory
-	OBJECTTYPE* GetObjectWithFlag( UINT64 aFlag );
 
 	// sevenfm: service functions
 	BOOLEAN		IsFlanking(void);
@@ -1069,9 +1060,6 @@ public:
 	// Flugente: prisoner system
 	BOOLEAN		CanProcessPrisoners();
 	BOOLEAN		FreePrisoner();					// used for an enemy liberating fellow prisoners 
-	// Flugente: scuba gear
-	BOOLEAN		UsesScubaGear();
-
 	// Flugente: multi-turn actions
 	UINT8		GetMultiTurnAction();
 	void		StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo );
@@ -1094,7 +1082,6 @@ public:
 
 	void		HandleFlashLights();
     bool		AddBestFlashLight();
-    UINT8		GetBestEquippedFlashLightRange();
 
 	// Flugente: soldier profiles
 	INT8		GetSoldierProfileType(UINT8 usTeam);		// retrieves the correct sub-array
@@ -1149,22 +1136,16 @@ public:
 	// Flugente: are we crouched against cover from a specific direction? WARNING: This does not suffice to determine our cover!
 	BOOLEAN	IsCrouchedAgainstCoverFromDir( UINT8 aDirection );
 
-	// Flugente: do we have a specific item in our inventory?
-	BOOLEAN HasItem( UINT16 usItem );
 	BOOLEAN SelfDetonate();						// AI-only: blow up explosive in own inventory. Do NOT, repeat, NOT use this with mercs!
 
 	// Flugente: riot shields
-	OBJECTTYPE*	GetEquippedRiotShield();
-	BOOLEAN		IsRiotShieldEquipped();
 	void		DestroyEquippedRiotShield();
 	void		RiotShieldTakeDamage(INT32 sDamage);
 
 	void		StopChatting();
 	void		DrugAutoUse();
 
-	OBJECTTYPE*	GetObjectWithItemFlag( UINT64 aFlag );
 	bool		DestroyOneItemInInventory( UINT16 ausItem );
-	bool		HasItemInInventory( UINT16 ausItem );
 
 	// Flugente: can we fill a blood bag from this guy ?
 	BOOLEAN		IsValidBloodDonor();

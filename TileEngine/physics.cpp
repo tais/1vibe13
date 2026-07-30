@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include "builddefines.h"
 #include "TacticalWorldAdapter.h"
 
@@ -1936,7 +1937,7 @@ void CalculateLaunchItemBasicParams( TacticalActor *pSoldier, OBJECTTYPE *pItem,
 	//MM: Replacement:
 	OBJECTTYPE *pObj = NULL;
 	usLauncher = 0;
-	pObj = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+	pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 	if ( pObj != NULL )
 	{
 		if (Item[pObj->usItem].usItemClass == IC_LAUNCHER)
@@ -2420,7 +2421,7 @@ void CalculateLaunchItemParamsForThrow( TacticalActor *pSoldier, INT32 sGridNo, 
 	//MM: Replacement:
 	OBJECTTYPE *pObj = NULL;
 	usLauncher = 0;
-	pObj = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+	pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 	if ( pObj != NULL )
 	{
 		if (Item[pObj->usItem].usItemClass == IC_LAUNCHER)

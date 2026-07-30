@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -1167,7 +1168,7 @@ BOOLEAN CheckForGunJam( TacticalActor * pSoldier )
 			!EXPLOSIVE_GUN( pSoldier->attackSelection().weapon() ) &&
 			!(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO) )
 		{ 
-			pObj = pSoldier->GetUsedWeapon(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
+			pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 
 			if ((*pObj)[0]->data.gun.bGunAmmoStatus > 0) 
 			{ 
@@ -2275,9 +2276,9 @@ BOOLEAN UseGunNCTH( TacticalActor *pSoldier , INT32 sTargetGridNo )
 	usItemNum = pSoldier->attackSelection().weapon();
 
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
-	OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
-	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	OBJECTTYPE* pObjHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]) );
+	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	UINT16 usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 	TacticalActor* pAttackTarget =
 		GetJa2SoldierRepository().resolve(pSoldier->targeting().targetId().i);
 
@@ -3032,7 +3033,7 @@ BOOLEAN UseGunWrapper( TacticalActor *pSoldier, INT32 sTargetGridNo )
 	if ( pSoldier->fireControl().barrelMode() > barrelstofire )
 	{
 		// determine how many barrels the gun can fire in the first place (we need this check in case the weapon changed in our hands or we firing a different weapon from the second hand)
-		OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+		OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 		
 		barrelstofire = GetFittingBarrelMode( pObjUsed->usItem, pSoldier->fireControl().barrelMode() );
 
@@ -3081,12 +3082,12 @@ BOOLEAN UseGun( TacticalActor *pSoldier , INT32 sTargetGridNo )
 		iBPCost = 0;
 
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
-	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+	OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+	UINT16 usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 
 	// sevenfm:for PlayWeaponSound
-	OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon(&(pSoldier->inventory()[HANDPOS]));
-	OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
+	OBJECTTYPE* pObjHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]));
+	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 	TacticalActor* pAttackTarget =
 		GetJa2SoldierRepository().resolve(pSoldier->targeting().targetId().i);
 
@@ -3888,7 +3889,7 @@ BOOLEAN UseBlade( TacticalActor *pSoldier , INT32 sTargetGridNo )
 			iImpact = HTHImpact( pSoldier, pTargetSoldier, (iHitChance - iDiceRoll), TRUE );
 
 			// Flugente: check for underbarrel weapons and use that object if necessary (think of bayonets)
-			OBJECTTYPE* pObj = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+			OBJECTTYPE* pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 
 			// modify this by the knife's condition (if it's dull, not much good)
 			iImpact = ( iImpact * WEAPON_STATUS_MOD( (*pObj)[0]->data.objectStatus) ) / 100;
@@ -4020,7 +4021,7 @@ BOOLEAN UseBlade( TacticalActor *pSoldier , INT32 sTargetGridNo )
 	// }
 
 	// anv: melee attack noise
-	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	UINT16 usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_BULLET_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
 	MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
@@ -4769,7 +4770,7 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 	}
 
 	// anv: hth (inluding blunt weapons) attack noise
-	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	UINT16 usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_BULLET_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
 	MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
@@ -4891,7 +4892,7 @@ BOOLEAN UseThrown( TacticalActor *pSoldier, INT32 sTargetGridNo )
 	CalculateLaunchItemParamsForThrow( pSoldier, sTargetGridNo, pSoldier->targeting().level(), (INT16)(pSoldier->targeting().level() * 256 ), &(pSoldier->inventory()[ HANDPOS ] ), uiHitChance, THROW_ARM_ITEM, 0, pSoldier->inventory()[HANDPOS].usItem );
 
 	// anv: knife throw attack noise
-	UINT16 usItem = pSoldier->GetUsedWeaponNumber(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
+	UINT16 usItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 	UINT8 ubVolume = Weapon[usItem].ubAttackVolume;
 
 	pSoldier->runtime().pendingAction.grenadeItem = 0;
@@ -4924,7 +4925,7 @@ BOOLEAN UseLauncherWrapper( TacticalActor *pSoldier, INT32 sTargetGridNo )
 	if ( pSoldier->fireControl().barrelMode() > barrelstofire )
 	{
 		// determine how many barrels the gun can fire in the first place (we need this check in case the weapon changed in our hands or we firing a different weapon from the second hand)
-		OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+		OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 
 		barrelstofire = GetFittingBarrelMode( pObjUsed->usItem, pSoldier->fireControl().barrelMode() );
 
@@ -5152,7 +5153,7 @@ BOOLEAN UseLauncher( TacticalActor *pSoldier, INT32 sTargetGridNo )
 	}
 	
 	// anv: launcher attack noise
-	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	UINT16 usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_GUNFIRE instead of NOISE_UNKNOWN so AI can associate it with enemy presence
 	MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE);
@@ -5171,7 +5172,8 @@ BOOLEAN DoSpecialEffectAmmoMiss( SoldierID ubAttackerID, UINT16 usWeaponIndex, I
 	{
 		TacticalActor* attacker =
 			GetJa2SoldierRepository().resolve(ubAttackerID.i);
-		OBJECTTYPE* pObj = attacker->GetUsedWeapon(
+		OBJECTTYPE* pObj = TacticalActorEquipment::usedWeapon(
+			*attacker,
 			&attacker->inventory()[attacker->attackSelection().hand()]);
 
 		ubAmmoType = (*pObj)[0]->data.gun.ubGunAmmoType;
@@ -5339,7 +5341,7 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 			GetJa2SoldierRepository().resolve(ubAttackerID.i);
 
 		// Flugente: check for underbarrel weapons and use that object if necessary
-		pObj			= pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+		pObj			= TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 	}
 
 	// Get Target
@@ -5462,7 +5464,8 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 	{
 		pAttacker =
 			GetJa2SoldierRepository().resolve(ubAttackerID.i);
-		pObj = pAttacker->GetUsedWeapon(
+		pObj = TacticalActorEquipment::usedWeapon(
+			*pAttacker,
 			&pAttacker->inventory()[pAttacker->attackSelection().hand()]);
 	}
 
@@ -6104,7 +6107,7 @@ BOOLEAN InRange( TacticalActor *pSoldier, INT32 sGridNo )
 		 return FALSE;
 
 	 // Flugente: check for underbarrel weapons and use that object if necessary
-	 pObj = pSoldier->GetUsedWeapon( &pSoldier->inventory()[HANDPOS] );
+	 pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS] );
 
 	 if ( Item[pObj->usItem].usItemClass & (IC_GUN | IC_THROWING_KNIFE | IC_LAUNCHER) )
 	 {
@@ -6160,8 +6163,8 @@ UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 	pInHand = &(pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
-	UINT16 usItemAttHand    = pSoldier->GetUsedWeaponNumber( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
+	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
+	UINT16 usItemAttHand    = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
 
 	usInHand = pSoldier->attackSelection().weapon();
 	gCTHDisplay.fMaxAimReached = FALSE;
@@ -6544,8 +6547,8 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Assign basic variables
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	pInHand = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
-	UINT16 usItemUsed =  pSoldier->GetUsedWeaponNumber( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
+	pInHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
+	UINT16 usItemUsed =  TacticalActorEquipment::usedWeaponNumber(*pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
 
 	pTarget = SimpleFindSoldier( sGridNo, pSoldier->targeting().level() );
 	iGunCondition = WEAPON_STATUS_MOD( (*pInHand)[0]->data.gun.bGunStatus );
@@ -7677,7 +7680,7 @@ UINT32 AICalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimT
 		}
 
 		// Flugente: check for underbarrel weapons and use that object if necessary
-		OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
+		OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
 		FLOAT dGunRange = (FLOAT)(GunRange(pObjAttHand, pSoldier));
 
 		FLOAT dMaxGunRange = dGunRange * gGameCTHConstants.MAX_EFFECTIVE_RANGE_MULTIPLIER;
@@ -8022,7 +8025,7 @@ INT32 BulletImpact( TacticalActor *pFirer, BULLET *pBullet, TacticalActor * pTar
 	else if ( !fFragment && pFirer )
 	{
 		// Flugente: check for underbarrel weapons and use that object if necessary
-		OBJECTTYPE* pObj = pFirer->GetUsedWeapon( &pFirer->inventory()[pFirer->attackSelection().hand()] );
+		OBJECTTYPE* pObj = TacticalActorEquipment::usedWeapon(*pFirer, &pFirer->inventory()[pFirer->attackSelection().hand()] );
 		ubAmmoType = (*pObj)[0]->data.gun.ubGunAmmoType;
 
 		ammoitem = (*pObj)[0]->data.gun.usGunAmmoItem;
@@ -8660,7 +8663,7 @@ INT32 HTHImpact( TacticalActor * pSoldier, TacticalActor * pTarget, INT32 iHitBy
 	BOOLEAN autoresolve = IsAutoResolveActive();
 
 	// Flugente: check for underbarrel weapons and use that object if necessary (think of bayonets)
-	OBJECTTYPE* pObj = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
+	OBJECTTYPE* pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]) );
 
 	if (fBladeAttack)
 	{
@@ -9088,7 +9091,7 @@ UINT32 CalcChanceHTH( TacticalActor * pAttacker,TacticalActor *pDefender, INT16 
 
 	// Flugente: we might be using a bayonet, we should check that
 	if ( pAttacker->attackSelection().weaponMode() == WM_ATTACHED_BAYONET )
-		usInHand =  pAttacker->GetUsedWeaponNumber( &(pAttacker->inventory()[HANDPOS]) );
+		usInHand =  TacticalActorEquipment::usedWeaponNumber(*pAttacker, &(pAttacker->inventory()[HANDPOS]) );
 
 	if ( (usInHand != CREATURE_QUEEN_TENTACLES ) && (pDefender->vitals().health() < OKLIFE || pDefender->vitals().breath() < OKBREATH) )
 	{
@@ -10015,7 +10018,7 @@ INT32 CalcMaxTossRange( TacticalActor * pSoldier, UINT16 usItem, BOOLEAN fArmed,
 	//MM: So instead, let's look at the soldier's hand, and check his gun for an underbarrel GL
 	if ( fArmed )
 	{
-		OBJECTTYPE *pObj = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+		OBJECTTYPE *pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 		if ( pObj != NULL )
 		{
 			if ( Item[pObj->usItem].usItemClass & IC_LAUNCHER )

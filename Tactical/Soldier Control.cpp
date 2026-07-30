@@ -1,4 +1,5 @@
 #include "Soldier Functions.h"
+#include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConditions.h"
@@ -5625,7 +5626,7 @@ void DoGenericHit( TacticalActor *pSoldier, UINT8 ubSpecial, INT16 bDirection )
 		else
 		{
 			// Check in hand for rifle
-			if ( pSoldier->SoldierCarriesTwoHandedWeapon( ) )
+			if ( TacticalActorEquipment::carriesTwoHandedWeapon(*pSoldier) )
 			{
 				pSoldier->EVENT_InitNewSoldierAnim( RIFLE_STAND_HIT, 0, FALSE );
 			}
@@ -5998,7 +5999,7 @@ void SoldierGotHitBlade( TacticalActor *pSoldier, UINT8 ubHitLocation )
 	case ANIM_STAND:
 
 		// Check in hand for rifle
-		if ( pSoldier->SoldierCarriesTwoHandedWeapon( ) )
+		if ( TacticalActorEquipment::carriesTwoHandedWeapon(*pSoldier) )
 		{
 			pSoldier->EVENT_InitNewSoldierAnim( RIFLE_STAND_HIT, 0, FALSE );
 		}
@@ -6033,7 +6034,7 @@ void SoldierGotHitPunch( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT16 sD
 	{
 	case ANIM_STAND:
 		// Check in hand for rifle
-		if ( pSoldier->SoldierCarriesTwoHandedWeapon( ) )
+		if ( TacticalActorEquipment::carriesTwoHandedWeapon(*pSoldier) )
 		{
 			pSoldier->EVENT_InitNewSoldierAnim( RIFLE_STAND_HIT, 0, FALSE );
 		}
@@ -8174,7 +8175,7 @@ void CalculateSoldierAniSpeed( TacticalActor *pSoldier, TacticalActor *pStatsSol
 	}
 
 	// Flugente: riot shields lower movement speed
-	if (pSoldier->IsRiotShieldEquipped())
+	if (TacticalActorEquipment::hasEquippedRiotShield(*pSoldier))
 	{
 		pSoldier->animationPlayback().delay() = gItemSettings.fShieldMovementAPCostModifier * pSoldier->animationPlayback().delay();
 	}
@@ -9195,7 +9196,7 @@ UINT8 TacticalActor::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 s
 	}
 
 	// Flugente: do we have a riot shield equipped?
-	if ( this->IsRiotShieldEquipped( ) )
+	if ( TacticalActorEquipment::hasEquippedRiotShield(*this) )
 	{
 		//  if we have equipped a riot shield and are being attacked in melee, ignore damage from some directions
 		if ( ubReason == TAKE_DAMAGE_BLADE || ubReason == TAKE_DAMAGE_HANDTOHAND || ubReason == TAKE_DAMAGE_TENTACLES )
@@ -13801,18 +13802,14 @@ void SetSoldierLocatorOffsets( TacticalActor *pSoldier )
 
 }
 
-BOOLEAN TacticalActor::SoldierCarriesTwoHandedWeapon( void )
+bool TacticalActorEquipment::carriesTwoHandedWeapon(
+	const TacticalActor& actor)
 {
-	UINT16 usItem;
+	const UINT16 item = actor.inventory()[HANDPOS].usItem;
 
-	usItem = this->inventory()[HANDPOS].usItem;
-
-	if ( this->inventory()[HANDPOS].exists( ) == true && ItemIsTwoHanded(usItem) )
-	{
-		return(TRUE);
-	}
-
-	return(FALSE);
+	return actor.inventory()[HANDPOS].exists() &&
+		item < MAXITEMS &&
+		ItemIsTwoHanded(item);
 }
 
 extern void HandleItemCooldownFunctions( OBJECTTYPE* itemStack, INT32 deltaSeconds, BOOLEAN isUnderground = TRUE );
@@ -14064,48 +14061,58 @@ BOOLEAN	TacticalActor::IsWeaponMounted( void )
 }
 
 // Flugente: return weapon currently used
-OBJECTTYPE* TacticalActor::GetUsedWeapon( OBJECTTYPE * pObj )
+OBJECTTYPE* TacticalActorEquipment::usedWeapon(
+	const TacticalActor& actor,
+	OBJECTTYPE* object)
 {
-	if ( attackSelection().weaponMode() == WM_ATTACHED_UB ||
-		 attackSelection().weaponMode() == WM_ATTACHED_UB_BURST ||
-		 attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO )
+	if (!object)
+		return nullptr;
+
+	if ( actor.attackSelection().weaponMode() == WM_ATTACHED_UB ||
+		 actor.attackSelection().weaponMode() == WM_ATTACHED_UB_BURST ||
+		 actor.attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO )
 	{
-		OBJECTTYPE* pObjUnderBarrel = FindAttachedWeapon( pObj, IC_GUN );
+		OBJECTTYPE* pObjUnderBarrel = FindAttachedWeapon(object, IC_GUN);
 
 		if ( pObjUnderBarrel )
 			return(pObjUnderBarrel);
 	}
-	else if ( attackSelection().weaponMode() == WM_ATTACHED_BAYONET )
+	else if (actor.attackSelection().weaponMode() == WM_ATTACHED_BAYONET)
 	{
-		OBJECTTYPE* pObjUnderBarrel = FindAttachedWeapon( pObj, IC_BLADE );
+		OBJECTTYPE* pObjUnderBarrel = FindAttachedWeapon(object, IC_BLADE);
 
 		if ( pObjUnderBarrel )
 			return(pObjUnderBarrel);
 	}
 
-	return(pObj);
+	return object;
 }
 
-UINT16 TacticalActor::GetUsedWeaponNumber( OBJECTTYPE * pObj )
+std::uint16_t TacticalActorEquipment::usedWeaponNumber(
+	const TacticalActor& actor,
+	OBJECTTYPE* object)
 {
-	if ( attackSelection().weaponMode() == WM_ATTACHED_UB ||
-		 attackSelection().weaponMode() == WM_ATTACHED_UB_BURST ||
-		 attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO )
+	if (!object)
+		return NOTHING;
+
+	if ( actor.attackSelection().weaponMode() == WM_ATTACHED_UB ||
+		 actor.attackSelection().weaponMode() == WM_ATTACHED_UB_BURST ||
+		 actor.attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO )
 	{
-		UINT16 weaponnr = GetAttachedWeapon( pObj, IC_GUN );
+		UINT16 weaponnr = GetAttachedWeapon(object, IC_GUN);
 
 		if ( weaponnr != NONE )
 			return(weaponnr);
 	}
-	else if ( attackSelection().weaponMode() == WM_ATTACHED_BAYONET )
+	else if (actor.attackSelection().weaponMode() == WM_ATTACHED_BAYONET)
 	{
-		UINT16 weaponnr = GetAttachedWeapon( pObj, IC_BLADE );
+		UINT16 weaponnr = GetAttachedWeapon(object, IC_BLADE);
 
 		if ( weaponnr != NONE )
 			return(weaponnr);
 	}
 
-	return(pObj->usItem);
+	return object->usItem;
 }
 
 std::int32_t TacticalActorModifiers::damageResistance(
@@ -14328,18 +14335,31 @@ void	TacticalActor::InventoryExplosion( void )
 }
 
 // Flugente: do we currently provide ammo (pAmmoSlot) for someone else's (pubId) gun (pGunSlot)?
-BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1, UINT16* pAmmoSlot1, SoldierID * pubId2, UINT16* pGunSlot2, UINT16* pAmmoSlot2 )
+bool TacticalActorEquipment::externalFeeding(
+	TacticalActor& actor,
+	SoldierID* pubId1,
+	std::uint16_t* pGunSlot1,
+	std::uint16_t* pAmmoSlot1,
+	SoldierID* pubId2,
+	std::uint16_t* pGunSlot2,
+	std::uint16_t* pAmmoSlot2)
 {
+	if (!pubId1 || !pGunSlot1 || !pAmmoSlot1 ||
+		!pubId2 || !pGunSlot2 || !pAmmoSlot2)
+		return false;
+
+	auto* const self = &actor;
+
 	// make sure we have to check this...
 	if ( gGameExternalOptions.ubExternalFeeding == 0 )
-		return(FALSE);
+		return false;
 
 	//  basic check if we are up to this task
-	if ( !this->roster().active() || !this->roster().inSector() || this->vitals().health() < OKLIFE )
+	if ( !self->roster().active() || !self->roster().inSector() || self->vitals().health() < OKLIFE )
 		return(FALSE);
 
 	// this is odd - invalid GridNo... well, no feeding then
-	if ( TileIsOutOfBounds( this->position().gridNo() ) )
+	if ( TileIsOutOfBounds( self->position().gridNo() ) )
 		return(FALSE);
 
 	BOOLEAN	isFeeding = FALSE;
@@ -14362,9 +14382,13 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 	for ( UINT16 invpos = firstslot; invpos < lastslot; ++invpos )
 	{
 		// do we have ammo in our hands?
-		OBJECTTYPE* pAmmoObj = &(this->inventory()[invpos]);
+		OBJECTTYPE* pAmmoObj = &(self->inventory()[invpos]);
 
-		if ( !pAmmoObj || !(pAmmoObj->exists( )) || Item[pAmmoObj->usItem].usItemClass != IC_AMMO || (*pAmmoObj)[0]->data.ubShotsLeft <= 0 )
+		if (!pAmmoObj ||
+			!pAmmoObj->exists() ||
+			pAmmoObj->usItem >= MAXITEMS ||
+			Item[pAmmoObj->usItem].usItemClass != IC_AMMO ||
+			(*pAmmoObj)[0]->data.ubShotsLeft <= 0)
 			// can't use this, end
 			continue;
 
@@ -14374,29 +14398,31 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 			continue;
 
 		usMagIndex = Item[usAmmoItem].ubClassIndex;
+		if (usMagIndex > MAXITEMS)
+			continue;
 
 		usAmmoCalibre = Magazine[usMagIndex].ubCalibre;
 		usAmmoAmmoType = Magazine[usMagIndex].ubAmmoType;
 
 		// our current stance is important
-		UINT8 usOurStance = gAnimControl[this->animationPlayback().state()].ubEndHeight;
+		UINT8 usOurStance = gAnimControl[self->animationPlayback().state()].ubEndHeight;
 
 		// we will check wether one of our teammates is on the gridno we face
-		INT32 nextGridNoinSight = NewGridNo( this->position().gridNo(), DirectionInc( this->position().direction() ) );
+		INT32 nextGridNoinSight = NewGridNo( self->position().gridNo(), DirectionInc( self->position().direction() ) );
 
 		TacticalActor* pTeamSoldier = NULL;
-		SoldierID  cnt = gTacticalStatus.Team[this->roster().team()].bFirstID;
-		SoldierID  lastid = gTacticalStatus.Team[this->roster().team()].bLastID;
+		SoldierID  cnt = gTacticalStatus.Team[self->roster().team()].bFirstID;
+		SoldierID  lastid = gTacticalStatus.Team[self->roster().team()].bLastID;
 		for ( ; cnt < lastid; ++cnt )
 		{
 			pTeamSoldier =
 				GetJa2SoldierRepository().resolve( cnt );
 			// check if teamsoldier exists in this sector
-			if ( !pTeamSoldier || !pTeamSoldier->roster().active() || !pTeamSoldier->roster().inSector() || pTeamSoldier->deployment().sectorX() != this->deployment().sectorX() || pTeamSoldier->deployment().sectorY() != this->deployment().sectorY() || pTeamSoldier->deployment().sectorZ() != this->deployment().sectorZ() )
+			if ( !pTeamSoldier || !pTeamSoldier->roster().active() || !pTeamSoldier->roster().inSector() || pTeamSoldier->deployment().sectorX() != self->deployment().sectorX() || pTeamSoldier->deployment().sectorY() != self->deployment().sectorY() || pTeamSoldier->deployment().sectorZ() != self->deployment().sectorZ() )
 				continue;
 
 			// check if both soldiers are on the same level
-			if ( this->position().level() != pTeamSoldier->position().level() )
+			if ( self->position().level() != pTeamSoldier->position().level() )
 				continue;
 
 			// determine wether we can physically provide ammo to our teammate.
@@ -14415,12 +14441,12 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 			// check if we look at our teammate, or look the same way he does, or in the direction between
 			BOOLEAN fPositioningOkay = FALSE;
 			// the other person must be near
-			if ( SpacesAway( this->position().gridNo(), pTeamSoldier->position().gridNo() ) == 0 )
+			if ( SpacesAway( self->position().gridNo(), pTeamSoldier->position().gridNo() ) == 0 )
 			{
 				// same tile -> its ourself -> ok
 				fPositioningOkay = TRUE;
 			}
-			else if ( SpacesAway( this->position().gridNo(), pTeamSoldier->position().gridNo() ) == 1 )
+			else if ( SpacesAway( self->position().gridNo(), pTeamSoldier->position().gridNo() ) == 1 )
 			{
 				// we look at him -> ok
 				if ( nextGridNoinSight == pTeamSoldier->position().gridNo() )
@@ -14436,15 +14462,17 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 					{
 						// if we both look in the same direction...
 						INT8 teammatedirection = pTeamSoldier->position().direction();
-						INT8 ourdirection = this->position().direction();
+						INT8 ourdirection = self->position().direction();
 
 						if ( teammatedirection == ourdirection )
 						{
 							// if the angle between our teammates sightline and the direct line from us to him is 90 degrees, then we are also able to supply 
 							INT8 ourrightdirection = (ourdirection + 2) % NUM_WORLD_DIRECTIONS;
-							INT8 ourleftdirection = (ourdirection - 2) % NUM_WORLD_DIRECTIONS;
+							INT8 ourleftdirection =
+								(ourdirection + NUM_WORLD_DIRECTIONS - 2) %
+								NUM_WORLD_DIRECTIONS;
 
-							if ( NewGridNo( this->position().gridNo(), DirectionInc( ourrightdirection ) ) == pTeamSoldier->position().gridNo() || NewGridNo( this->position().gridNo(), DirectionInc( ourleftdirection ) ) == pTeamSoldier->position().gridNo() )
+							if ( NewGridNo( self->position().gridNo(), DirectionInc( ourrightdirection ) ) == pTeamSoldier->position().gridNo() || NewGridNo( self->position().gridNo(), DirectionInc( ourleftdirection ) ) == pTeamSoldier->position().gridNo() )
 								fPositioningOkay = TRUE;
 						}
 					}
@@ -14460,7 +14488,13 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 			for ( UINT16 teamsoldierinvpos = pTeamSoldierfirstslot; teamsoldierinvpos < pTeamSoldierlastslot; ++teamsoldierinvpos )
 			{
 				OBJECTTYPE* pObjInHands = &(pTeamSoldier->inventory()[teamsoldierinvpos]);
-				if ( pObjInHands && pObjInHands->exists( ) && Item[pObjInHands->usItem].usItemClass == IC_GUN && (HasItemFlag( pObjInHands->usItem, BELT_FED ) || HasAttachmentOfClass( pObjInHands, AC_FEEDER )) && (*pObjInHands)[0]->data.gun.ubGunShotsLeft > 0 )
+				if (pObjInHands &&
+					pObjInHands->exists() &&
+					pObjInHands->usItem < MAXITEMS &&
+					Item[pObjInHands->usItem].usItemClass == IC_GUN &&
+					(HasItemFlag(pObjInHands->usItem, BELT_FED) ||
+					 HasAttachmentOfClass(pObjInHands, AC_FEEDER)) &&
+					(*pObjInHands)[0]->data.gun.ubGunShotsLeft > 0)
 				{
 					// remember the caliber and type of ammo. They all have to fit
 					usGunItem = pObjInHands->usItem;
@@ -14509,8 +14543,8 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 	UINT16 lastslotforammo = MEDPOCK3POS;
 
 	// for robots and AI-controlled soldiers (who don't have any LBE gear), we put a change in here so that ALL their slots are checked for ammo
-	if ( this->roster().team() != gbPlayerNum ||
-		(this->status().flags() & SOLDIER_ROBOT) )
+	if ( self->roster().team() != gbPlayerNum ||
+		(self->status().flags() & SOLDIER_ROBOT) )
 	{
 		firstslotforammo = HANDPOS;
 		lastslotforammo = NUM_INV_SLOTS;
@@ -14518,7 +14552,11 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 	else
 	{
 		// as a merc, the only slots that are valid for external feeding are the 2 medium-sized slots on a vest (because I say so). And that only if the vest is allowed to do that, which we will now check:
-		if ( !(this->inventory()[VESTPOCKPOS].exists( )) || !HasItemFlag( this->inventory()[VESTPOCKPOS].usItem, AMMO_BELT_VEST ) )
+		if (!self->inventory()[VESTPOCKPOS].exists() ||
+			self->inventory()[VESTPOCKPOS].usItem >= MAXITEMS ||
+			!HasItemFlag(
+				self->inventory()[VESTPOCKPOS].usItem,
+				AMMO_BELT_VEST))
 			return(isFeeding);
 	}
 
@@ -14527,11 +14565,17 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 	for ( UINT16 invpos = searchgunfirstslot; invpos < searchgunlastslot; ++invpos )
 	{
 		// check our hands for guns
-		OBJECTTYPE* pObj = &(this->inventory()[invpos]);
+		OBJECTTYPE* pObj = &(self->inventory()[invpos]);
 
 		UINT16 usGunItem = pObj->usItem;
 
-		if ( !pObj || !(pObj->exists( )) || Item[usGunItem].usItemClass != IC_GUN || !(HasItemFlag( usGunItem, BELT_FED ) || HasAttachmentOfClass( pObj, AC_FEEDER )) || (*pObj)[0]->data.gun.ubGunShotsLeft <= 0 )
+		if (!pObj ||
+			!pObj->exists() ||
+			usGunItem >= MAXITEMS ||
+			Item[usGunItem].usItemClass != IC_GUN ||
+			!(HasItemFlag(usGunItem, BELT_FED) ||
+			  HasAttachmentOfClass(pObj, AC_FEEDER)) ||
+			(*pObj)[0]->data.gun.ubGunShotsLeft <= 0)
 			// can't use this, end
 			continue;
 
@@ -14542,20 +14586,24 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 		// now check the inventory for an ammo belt. If we are not from the player team or a robot, we will search the entire inventory
 		for ( UINT16 bLoop = firstslotforammo; bLoop < lastslotforammo; ++bLoop )
 		{
-			if ( this->inventory()[bLoop].exists( ) == true )
+			if (self->inventory()[bLoop].exists())
 			{
-				OBJECTTYPE * pAmmoObj = &(this->inventory()[bLoop]);							// ... get pointer for this item ...
+				OBJECTTYPE* pAmmoObj = &self->inventory()[bLoop];
 
-				if ( pAmmoObj != NULL )													// ... if pointer is not obviously useless ...
+				if (pAmmoObj->usItem < MAXITEMS)
 				{
 					//if ( pAmmoObj->ubNumberOfObjects == 1 )
 					{
 						usAmmoItem = pAmmoObj->usItem;
 
-						if ( Item[usAmmoItem].usItemClass == IC_AMMO && HasItemFlag( usAmmoItem, AMMO_BELT ) )
+						if (Item[usAmmoItem].usItemClass == IC_AMMO &&
+							HasItemFlag(usAmmoItem, AMMO_BELT))
 						{
 							// remember the caliber and type of ammo. They all have to fit
 							usMagIndex = Item[usAmmoItem].ubClassIndex;
+							if (usMagIndex > MAXITEMS)
+								continue;
+
 							usAmmoCalibre = Magazine[usMagIndex].ubCalibre;
 							usAmmoAmmoType = Magazine[usMagIndex].ubAmmoType;
 
@@ -14565,7 +14613,7 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 								if ( !firstgunfound )
 								{
 									firstgunfound = TRUE;
-									(*pubId1) = this->identity().id();
+									(*pubId1) = self->identity().id();
 									(*pGunSlot1) = invpos;
 									(*pAmmoSlot1) = bLoop;
 									isFeeding = TRUE;
@@ -14573,7 +14621,7 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 								}
 								else
 								{
-									(*pubId2) = this->identity().id();
+									(*pubId2) = self->identity().id();
 									(*pGunSlot2) = invpos;
 									(*pAmmoSlot2) = bLoop;
 									isFeeding = TRUE;
@@ -14593,24 +14641,23 @@ BOOLEAN		TacticalActor::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1
 }
 
 // Flugente: return first found object with a specific flag from our inventory
-OBJECTTYPE* TacticalActor::GetObjectWithFlag( UINT64 aFlag )
+OBJECTTYPE* TacticalActorEquipment::objectWithFlag(
+	TacticalActor& actor,
+	std::uint64_t flag)
 {
-	OBJECTTYPE* pObj = NULL;
+	const auto inventorySize = actor.inventory().size();
 
-	INT8 invsize = (INT8)inventory().size( );									// remember inventorysize, so we don't call size() repeatedly
-
-	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )						// ... for all items in our inventory ...
+	for (std::size_t slot = 0; slot < inventorySize; ++slot)
 	{
-		// ... if Item exists and is canteen (that can have drink points) ...
-		if ( inventory()[bLoop].exists( ) == true && HasItemFlag( inventory()[bLoop].usItem, aFlag ) )
+		if (actor.inventory()[slot].exists() &&
+			actor.inventory()[slot].usItem < MAXITEMS &&
+			HasItemFlag(actor.inventory()[slot].usItem, flag))
 		{
-			pObj = &(inventory()[bLoop]);							// ... get pointer for this item ...
-
-			return(pObj);
+			return &actor.inventory()[slot];
 		}
 	}
 
-	return(pObj);
+	return nullptr;
 }
 
 extern INT16 uiNIVSlotType[NUM_INV_SLOTS];
@@ -15310,7 +15357,7 @@ bool TacticalActorCovertOps::seemsLegitimate(TacticalActor& actor, SoldierID obs
 	if ( pSoldier->roster().team() == ENEMY_TEAM &&
 		 pSoldier->aiBehavior().alertStatus() >= STATUS_RED &&
 		 (NightTime( ) || self->deployment().sectorZ() > 0) &&
-		 self->GetBestEquippedFlashLightRange( ) > 0 )
+		 TacticalActorEquipment::bestEquippedFlashlightRange(*self) > 0 )
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s has a flashlight!", self->GetName( ) );
 		return FALSE;
@@ -15730,20 +15777,30 @@ BOOLEAN		TacticalActor::FreePrisoner( )
 }
 
 // Flugente: scuba gear
-BOOLEAN		TacticalActor::UsesScubaGear( )
+bool TacticalActorEquipment::usesScubaGear(const TacticalActor& actor)
 {
-	if ( !this->MercInHighWater( ) )
-		return FALSE;
+	if (!TERRAIN_IS_HIGH_WATER(actor.position().terrainType()) ||
+		actor.position().level() > 0)
+		return false;
 
 	// do we wear a scuba mask?
-	if ( !(this->inventory()[HEAD1POS].exists( ) && HasItemFlag( this->inventory()[HEAD1POS].usItem, SCUBA_MASK )) && !(this->inventory()[HEAD2POS].exists( ) && HasItemFlag( this->inventory()[HEAD2POS].usItem, SCUBA_MASK )) )
-		return FALSE;
+	if (!(actor.inventory()[HEAD1POS].exists() &&
+		  actor.inventory()[HEAD1POS].usItem < MAXITEMS &&
+		  HasItemFlag(actor.inventory()[HEAD1POS].usItem, SCUBA_MASK)) &&
+		!(actor.inventory()[HEAD2POS].exists() &&
+		  actor.inventory()[HEAD2POS].usItem < MAXITEMS &&
+		  HasItemFlag(actor.inventory()[HEAD2POS].usItem, SCUBA_MASK)))
+		return false;
 
-	if (!(this->inventory()[CPACKPOCKPOS].exists() && HasItemFlag(this->inventory()[CPACKPOCKPOS].usItem, SCUBA_BOTTLE)) &&
-		!(this->inventory()[BPACKPOCKPOS].exists() && HasItemFlag(this->inventory()[BPACKPOCKPOS].usItem, SCUBA_BOTTLE)))
-		return FALSE;
+	if (!(actor.inventory()[CPACKPOCKPOS].exists() &&
+		  actor.inventory()[CPACKPOCKPOS].usItem < MAXITEMS &&
+		  HasItemFlag(actor.inventory()[CPACKPOCKPOS].usItem, SCUBA_BOTTLE)) &&
+		!(actor.inventory()[BPACKPOCKPOS].exists() &&
+		  actor.inventory()[BPACKPOCKPOS].usItem < MAXITEMS &&
+		  HasItemFlag(actor.inventory()[BPACKPOCKPOS].usItem, SCUBA_BOTTLE)))
+		return false;
 
-	return TRUE;
+	return true;
 }
 
 UINT8	TacticalActor::GetMultiTurnAction( )
@@ -15852,7 +15909,7 @@ BOOLEAN	TacticalActor::UpdateMultiTurnAction( )
 	// error if object is missing
 	if ( longActionState.action() == MTA_FORTIFY || longActionState.action() == MTA_REMOVE_FORTIFY )
 	{
-		if ( !pObj || !(pObj->exists( )) )
+		if (!pObj || !pObj->exists() || pObj->usItem >= MAXITEMS)
 			fActionStillValid = FALSE;
 	}
 
@@ -16533,7 +16590,7 @@ std::int8_t TacticalActorModifiers::traitChanceToHitModifier(
 	}
 	else
 	{
-		// self rather unlogical bonus for psychotic characters applies only with old traits
+		// This rather illogical bonus for psychotic characters applies only with old traits.
 		if ( DoesMercHaveDisability( self, PSYCHO ) )
 		{
 			modifier += AIM_BONUS_PSYCHO;
@@ -16586,7 +16643,8 @@ void TacticalActor::HandleFlashLights( )
 	}
 }
 
-UINT8 TacticalActor::GetBestEquippedFlashLightRange( )
+std::uint8_t TacticalActorEquipment::bestEquippedFlashlightRange(
+	TacticalActor& actor)
 {
 	UINT8 bestrange = 0;
 
@@ -16595,7 +16653,7 @@ UINT8 TacticalActor::GetBestEquippedFlashLightRange( )
 	UINT16 lastslot = VESTPOCKPOS;
 	for ( UINT16 invpos = firstslot; invpos < lastslot; ++invpos )
 	{
-		OBJECTTYPE* pObj = &(this->inventory()[invpos]);
+		OBJECTTYPE* pObj = &actor.inventory()[invpos];
 
 		if ( !pObj || !(pObj->exists( )) )
 			// can't use this, end
@@ -16613,7 +16671,9 @@ UINT8 TacticalActor::GetBestEquippedFlashLightRange( )
 		attachmentList::iterator iterend = (*pObj)[0]->attachments.end( );
 		for ( attachmentList::iterator iter = (*pObj)[0]->attachments.begin( ); iter != iterend; ++iter )
 		{
-			if ( iter->exists( ) && Item[iter->usItem].usFlashLightRange )
+			if (iter->exists() &&
+				iter->usItem < MAXITEMS &&
+				Item[iter->usItem].usFlashLightRange)
 				bestrange = max( bestrange, Item[iter->usItem].usFlashLightRange );
 		}
 	}
@@ -16629,7 +16689,7 @@ bool TacticalActor::AddBestFlashLight()
         return false;
     }
 
-    UINT8 maxRange = this->GetBestEquippedFlashLightRange();
+    UINT8 maxRange = TacticalActorEquipment::bestEquippedFlashlightRange(*this);
     if ( maxRange < 1 )
     {
         return false;
@@ -17707,7 +17767,7 @@ BOOLEAN TacticalActor::CanUseRadio( BOOLEAN fCheckForAP )
 	if ( this->roster().team() == OUR_TEAM && UsingNewInventorySystem() )
 		pObj = &(inventory()[CPACKPOCKPOS]);
 	else
-		pObj = GetObjectWithFlag( RADIO_SET );
+		pObj = TacticalActorEquipment::objectWithFlag(*this, RADIO_SET);
 	
 	if ( pObj && HasItemFlag( pObj->usItem, RADIO_SET ) )
 		return TRUE;
@@ -17723,7 +17783,7 @@ BOOLEAN TacticalActor::UseRadio( )
 	if ( this->roster().team() == OUR_TEAM && UsingNewInventorySystem( ) )
 		pObj = &(inventory()[CPACKPOCKPOS]);
 	else
-		pObj = GetObjectWithFlag( RADIO_SET );
+		pObj = TacticalActorEquipment::objectWithFlag(*this, RADIO_SET);
 
 	if (AM_A_ROBOT(this))
 		pObj = &(inventory()[ROBOT_UTILITY_SLOT]);
@@ -19491,15 +19551,20 @@ float TacticalActorAssignments::constructionPoints(TacticalActor& actor)
 	return max(0.0f, dval);
 }
 
-BOOLEAN TacticalActor::HasItem(UINT16 usItem)
+bool TacticalActorEquipment::hasItem(
+	const TacticalActor& actor,
+	std::uint16_t item)
 {
-	for ( size_t bLoop = 0, invsize = inventory().size(); bLoop < invsize; ++bLoop )
+	for (std::size_t slot = 0, inventorySize = actor.inventory().size();
+		 slot < inventorySize;
+		 ++slot)
 	{
-		if ( inventory()[bLoop].exists( ) == true && inventory()[bLoop].usItem == usItem )
-			return TRUE;
+		if (actor.inventory()[slot].exists() &&
+			actor.inventory()[slot].usItem == item)
+			return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
 // AI-only: heal self. Do NOT, repeat, NOT use this with mercs!
@@ -19677,37 +19742,45 @@ std::uint16_t TacticalActorModifiers::interactiveActionSkill(
 }
 
 // Flugente: riot shields
-OBJECTTYPE* TacticalActor::GetEquippedRiotShield()
+OBJECTTYPE* TacticalActorEquipment::equippedRiotShield(
+	TacticalActor& actor)
 {
-	OBJECTTYPE* pObj = NULL;
+	OBJECTTYPE* object = nullptr;
 
-	if ( this->inventory()[HANDPOS].exists( ) && Item[this->inventory()[HANDPOS].usItem].usRiotShieldStrength > 0 )
-		pObj = &(this->inventory()[HANDPOS]);
+	if (actor.inventory()[HANDPOS].exists() &&
+		actor.inventory()[HANDPOS].usItem < MAXITEMS &&
+		Item[actor.inventory()[HANDPOS].usItem].usRiotShieldStrength > 0)
+		object = &actor.inventory()[HANDPOS];
 
-	if ( this->inventory()[SECONDHANDPOS].exists( ) && Item[this->inventory()[SECONDHANDPOS].usItem].usRiotShieldStrength > 0 )
-		pObj = &(this->inventory()[SECONDHANDPOS]);
+	if (actor.inventory()[SECONDHANDPOS].exists() &&
+		actor.inventory()[SECONDHANDPOS].usItem < MAXITEMS &&
+		Item[actor.inventory()[SECONDHANDPOS].usItem].usRiotShieldStrength > 0)
+		object = &actor.inventory()[SECONDHANDPOS];
 
-	return pObj;
+	return object;
 }
 
 
-BOOLEAN	TacticalActor::IsRiotShieldEquipped()
+bool TacticalActorEquipment::hasEquippedRiotShield(
+	TacticalActor& actor)
 {
 	// shield is not erect if prone
-	if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_PRONE )
-		return FALSE;
+	if (actor.animationPlayback().state() >= NUMANIMATIONSTATES ||
+		gAnimControl[actor.animationPlayback().state()].ubEndHeight == ANIM_PRONE)
+		return false;
 
 	// no shield while swimming
-	if ( TERRAIN_IS_HIGH_WATER(this->position().gridNo()) )
-		return FALSE;
+	if (TERRAIN_IS_HIGH_WATER(actor.position().terrainType()))
+		return false;
 
-	return (GetEquippedRiotShield() != NULL);
+	return equippedRiotShield(actor) != nullptr;
 }
 
 void	TacticalActor::DestroyEquippedRiotShield( )
 {
 	// create graphic (destroyed shield item?)
-	OBJECTTYPE* pObj = GetEquippedRiotShield( );
+	OBJECTTYPE* pObj =
+		TacticalActorEquipment::equippedRiotShield(*this);
 
 	if ( pObj )
 	{
@@ -19735,7 +19808,8 @@ void	TacticalActor::DestroyEquippedRiotShield( )
 
 void	TacticalActor::RiotShieldTakeDamage( INT32 sDamage )
 {
-	OBJECTTYPE* pObj = GetEquippedRiotShield();
+	OBJECTTYPE* pObj =
+		TacticalActorEquipment::equippedRiotShield(*this);
 
 	if ( pObj  )
 	{
@@ -20373,24 +20447,6 @@ void		TacticalActor::DrugAutoUse()
 	}
 }
 
-OBJECTTYPE*		TacticalActor::GetObjectWithItemFlag( UINT64 aFlag )
-{
-	for ( INT8 bLoop = 0, invsize = (INT8)inventory().size(); bLoop < invsize; ++bLoop )
-	{
-		if ( inventory()[bLoop].exists() )
-		{
-			OBJECTTYPE* pObj = &( inventory()[bLoop] );
-
-			if ( pObj && HasItemFlag( pObj->usItem, aFlag ) )
-			{
-				return pObj;
-			}
-		}
-	}
-
-	return NULL;
-}
-
 bool		TacticalActor::DestroyOneItemInInventory( UINT16 ausItem )
 {
 	for ( INT8 bLoop = 0, invsize = (INT8)inventory().size(); bLoop < invsize; ++bLoop )
@@ -20408,24 +20464,6 @@ bool		TacticalActor::DestroyOneItemInInventory( UINT16 ausItem )
 					DeleteObj( pObj );
 				}
 
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
-bool		TacticalActor::HasItemInInventory( UINT16 ausItem )
-{
-	for ( INT8 bLoop = 0, invsize = (INT8)inventory().size(); bLoop < invsize; ++bLoop )
-	{
-		if ( inventory()[bLoop].exists() )
-		{
-			OBJECTTYPE* pObj = &( inventory()[bLoop] );
-
-			if ( pObj && pObj->usItem == ausItem )
-			{
 				return true;
 			}
 		}

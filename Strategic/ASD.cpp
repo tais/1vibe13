@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 /**
 * @file
 * @author Flugente (bears-pit.com)
@@ -1177,7 +1178,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 				 )
 			{
 				// look for a SAM in our inventory
-				OBJECTTYPE* pObj = pSoldier->GetObjectWithFlag( MANPAD );
+				OBJECTTYPE* pObj = TacticalActorEquipment::objectWithFlag(*pSoldier, MANPAD );
 
 				if ( pObj )
 				{

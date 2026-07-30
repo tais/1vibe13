@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 	#include "sgp.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
@@ -604,7 +605,7 @@ static INT16 ActionPointCostFromTileCost( TacticalActor *pSoldier, INT32 sGridNo
 		}
 
 		// Flugente: riot shields lower movement speed
-		if ( pSoldier->IsRiotShieldEquipped( ) )
+		if ( TacticalActorEquipment::hasEquippedRiotShield(*pSoldier) )
 			sPoints *= gItemSettings.fShieldMovementAPCostModifier;
 
 		// Flugente: dragging someone
@@ -1727,8 +1728,8 @@ INT16 CalcTotalAPsToAttack( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubAddT
 
 	// LOOK IN BUDDY'S HAND TO DETERMINE WHAT TO DO HERE
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	OBJECTTYPE* AttackingWeapon = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
-	UINT16 usUBItemNum = pSoldier->GetUsedWeaponNumber( &(pSoldier->inventory()[HANDPOS]) );
+	OBJECTTYPE* AttackingWeapon = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]) );
+	UINT16 usUBItemNum = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &(pSoldier->inventory()[HANDPOS]) );
 
 	usItemNum = pSoldier->inventory()[HANDPOS].usItem;
 	uiItemClass = Item[ usUBItemNum ].usItemClass;
@@ -1923,7 +1924,7 @@ INT16 MinAPsToAttack(TacticalActor *pSoldier, INT32 sGridno, UINT8 ubAddTurningC
 	}
 	else
 	{
-		UINT16 undbarItem = pSoldier->GetUsedWeaponNumber( &(pSoldier->inventory()[ HANDPOS ]) );
+		UINT16 undbarItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &(pSoldier->inventory()[ HANDPOS ]) );
 
 		// LOOK IN BUDDY'S HAND TO DETERMINE WHAT TO DO HERE
 		uiItemClass = Item[ undbarItem ].usItemClass;
@@ -2194,7 +2195,7 @@ UINT16 CalculateActionTurningCost(TacticalActor *pSoldier, INT32 sActionGridNo, 
 	// Is it the same as direction we need?
 	if (ubDirection != GetDirectionToGridNoFromGridNo(sActionGridNo, sAdjustedGridNo))
 	{
-		OBJECTTYPE *pObjUsed = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
+		OBJECTTYPE *pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS]);
 		UINT16 usItem = pObjUsed->usItem;
 		if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 			sAPCost += CalculateTurningCost(pSoldier, usItem, TRUE, ANIM_CROUCH);
@@ -2291,10 +2292,10 @@ INT16 MinAPsToShootOrStab(TacticalActor *pSoldier, INT32 sGridNo, INT16 bAimTime
 		usItem = pSoldier->inventory()[ HANDPOS ].usItem;
 
 		// Flugente: we need a second item in case we are using an underbarrel weapon. Not all checks should apply for that one, as aiming is still done with the main weapon
-		usUBItem = pSoldier->GetUsedWeaponNumber(&pSoldier->inventory()[HANDPOS]);
+		usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[HANDPOS]);
 	}
 
-	OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
+	OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]) );
 
 	GetAPChargeForShootOrStabWRTGunRaises( pSoldier, sGridNo, ubAddTurningCost, &fAddingTurningCost, &fAddingRaiseGunCost, bAimTime );
 
@@ -2354,7 +2355,7 @@ INT16 MinAPsToShootOrStab(TacticalActor *pSoldier, INT32 sGridNo, INT16 bAimTime
 	}
 	else if ( pSoldier->IsValidSecondHandShot( ) )
 	{
-		OBJECTTYPE* pSecondObjUsed = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[SECONDHANDPOS]) );
+		OBJECTTYPE* pSecondObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[SECONDHANDPOS]) );
 
 		// SANDRO - gunslinger check for firing speed
 //		if ( HAS_SKILL_TRAIT( pSoldier, GUNSLINGER_NT ) && gGameOptions.fNewTraitSystem )
@@ -2539,7 +2540,7 @@ INT16 MinAPsToPunch(TacticalActor *pSoldier, INT32 sGridNo)
 {
 	INT16 bAPCost = APBPConstants[AP_MIN_AIM_ATTACK];
 
-	OBJECTTYPE *pObjUsed = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
+	OBJECTTYPE *pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS]);
 	UINT16 usItem = pObjUsed->usItem;
 	INT16 bFullAPs = pSoldier->CalcActionPoints();
 	INT16 bAimSkill = CalcAimSkill(pSoldier, pSoldier->inventory()[HANDPOS].usItem);
@@ -2717,8 +2718,8 @@ BOOLEAN EnoughAmmo( TacticalActor *pSoldier, BOOLEAN fDisplay, INT8 bInvPos )
 		}
 		else
 		{
-			OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[bInvPos]) );
-			UINT16 usItemUsed    = pSoldier->GetUsedWeaponNumber( &(pSoldier->inventory()[bInvPos]) );
+			OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[bInvPos]) );
+			UINT16 usItemUsed    = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &(pSoldier->inventory()[bInvPos]) );
 
 			if (ItemIsSingleShotRocketLauncher(usItemUsed))
 			{
@@ -2809,7 +2810,7 @@ void DeductAmmo( TacticalActor *pSoldier, OBJECTTYPE* pObj )
 		else if ( Item[ pObj->usItem ].usItemClass == IC_GUN && !ItemIsCannon(pObj->usItem) && pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL && pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_AUTO )
 		{
 			// Flugente: check for underbarrel weapons and use that object if necessary
-			OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( pObj );
+			OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, pObj );
 
 			// Flugente: external feeding allows us to take ammo from somewhere other than our magazine, like a belt in our inventory our even another mercs
 			if ( gGameExternalOptions.ubExternalFeeding > 0 )
@@ -3044,7 +3045,7 @@ INT16 GetAPsToAutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 	CHECKF( pSoldier );
 
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	pObj = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
+	pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]) );
 
 //<SB> manual recharge
 	if ((*pObj)[0]->data.gun.ubGunShotsLeft && !((*pObj)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) )
@@ -3096,7 +3097,7 @@ INT16 GetAPsToAutoReload( TacticalActor * pSoldier, bool aReloadEvenIfNotEmpty )
 			&& ( aReloadEvenIfNotEmpty || !EnoughAmmo( pSoldier, FALSE, SECONDHANDPOS ) ) )
 		{
 			// Flugente: check for underbarrel weapons and use that object if necessary
-			pObj = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[SECONDHANDPOS]) );
+			pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[SECONDHANDPOS]) );
 			bExcludeSlot = NO_SLOT;
 			bSlot2 = NO_SLOT;
 
@@ -4063,7 +4064,7 @@ INT16 GetAPsStartRun( TacticalActor *pSoldier )
 	INT16 val = APBPConstants[AP_START_RUN_COST];
 
 	// Flugente: riot shields lower movement speed
-	if ( pSoldier->IsRiotShieldEquipped( ) )
+	if ( TacticalActorEquipment::hasEquippedRiotShield(*pSoldier) )
 		val *= gItemSettings.fShieldMovementAPCostModifier;
 
 	if (TacticalActorDragging::isDragging(*pSoldier))

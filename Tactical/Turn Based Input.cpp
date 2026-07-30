@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorDragging.h"
@@ -8509,7 +8510,7 @@ void HandleTBReloadAll( void )
 					if ( (IsJa2TacticalCombatActive()) )
 					{
 						// Flugente: check for underbarrel weapons and use that object if necessary
-						pGun = pTeamSoldier->GetUsedWeapon( &(pTeamSoldier->inventory()[HANDPOS]) );
+						pGun = TacticalActorEquipment::usedWeapon(*pTeamSoldier, &(pTeamSoldier->inventory()[HANDPOS]) );
 
 						//magazine is not full
 						if ( (*pGun)[0]->data.gun.ubGunShotsLeft < GetMagSize( pGun ) )

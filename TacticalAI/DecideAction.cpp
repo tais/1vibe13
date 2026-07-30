@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include "ai.h"
 #include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
@@ -9341,7 +9342,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 		if ( pSoldier->suppression().underFire() )
 		{
 			// Flugente: see if we are equipped with a smoke screen. If so, use it do hide us
-			if (TacticalActorConditions::hasTakenLargeHit(*pSoldier) && pSoldier->HasItem(SMOKE_GRENADE) && IsActionAffordable(pSoldier, AI_ACTION_SELFDETONATE))
+			if (TacticalActorConditions::hasTakenLargeHit(*pSoldier) && TacticalActorEquipment::hasItem(*pSoldier, SMOKE_GRENADE) && IsActionAffordable(pSoldier, AI_ACTION_SELFDETONATE))
 			{
 				pSoldier->aiPlanning().actionData() = SMOKE_GRENADE;
 

@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include "types.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -921,7 +922,7 @@ void DisplayRangeToTarget(TacticalActor *pSoldier, INT32 sTargetGridNo)
 	if (WeaponInHand(pSoldier))
 	{
 		// Flugente: we might be equipped with an underbarrel gun....
-		OBJECTTYPE* pObjhand = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
+		OBJECTTYPE* pObjhand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS]);
 		UINT32 usItemClass = Item[pObjhand->usItem].usItemClass;
 
 		pSoldier->attackSelection().weapon() = pObjhand->usItem;
@@ -1701,7 +1702,7 @@ void CalculateWeapondata()
 
 	if ( &pSoldier->inventory()[HANDPOS] && Item[(pSoldier->inventory()[HANDPOS]).usItem].usItemClass & IC_WEAPON )
 	{
-		pObjPlatform = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
+		pObjPlatform = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS]);
 
 		if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 		{

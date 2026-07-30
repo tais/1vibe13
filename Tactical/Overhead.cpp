@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include <cstdio>
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -8755,7 +8756,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 
         // add a small bonus to effectiveness based on weapon loudness
 		UINT8 ubGunVolume = Weapon[pAttacker->inventory()[pAttacker->attackSelection().hand()].usItem].ubAttackVolume;
-		ubGunVolume = __max(1, (ubGunVolume * GetPercentNoiseVolume(pAttacker->GetUsedWeapon(&pAttacker->inventory()[pAttacker->attackSelection().hand()]))) / 100);
+		ubGunVolume = __max(1, (ubGunVolume * GetPercentNoiseVolume(TacticalActorEquipment::usedWeapon(*pAttacker, &pAttacker->inventory()[pAttacker->attackSelection().hand()]))) / 100);
         if ( ubGunVolume >= 50 )
         {
             if ( ubGunVolume < 70 ) // up to 5%
@@ -9212,7 +9213,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( TacticalActor * pSoldier, TacticalActor *
     if ( gTacticalStatus.bBoxingState == BOXING )
     {
         // should have a check for "in boxing ring", no?
-        if ( ( pSoldier->attackSelection().weapon() != NOTHING && !ItemIsBrassKnuckles(pSoldier->attackSelection().weapon())) || !( pSoldier->status().flags() & SOLDIER_BOXER ) || pSoldier->IsRiotShieldEquipped() )
+        if ( ( pSoldier->attackSelection().weapon() != NOTHING && !ItemIsBrassKnuckles(pSoldier->attackSelection().weapon())) || !( pSoldier->status().flags() & SOLDIER_BOXER ) || TacticalActorEquipment::hasEquippedRiotShield(*pSoldier) )
         {
             // someone's cheating!
             if ( (Item[ pSoldier->attackSelection().weapon() ].usItemClass == IC_BLADE || Item[ pSoldier->attackSelection().weapon() ].usItemClass == IC_PUNCH) && (pTarget->status().flags() & SOLDIER_BOXER) )

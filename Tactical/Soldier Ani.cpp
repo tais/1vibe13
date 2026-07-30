@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include "stdlib.h"
 #include "TacticalWorldAdapter.h"
 #include "DEBUG.H"
@@ -419,7 +420,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 							send_fireweapon( &SFireWeapon );
 					}
 
-					OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inventory()[HANDPOS] );
+					OBJECTTYPE* pObjHand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS] );
 
 					//DIGICRAB: Burst UnCap
 					//Loop around in the animation if we still have burst rounds to fire
@@ -447,8 +448,8 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						}
 					}
 
-					OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
-					UINT16 usedGun = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+					OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+					UINT16 usedGun = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 					//DIGICRAB: Burst Sound
 					//This code is stolen from Tactical\Weapons.c - UseGun(...)
 					if (pSoldier->fireControl().burstCounter() &&
@@ -617,7 +618,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 			case 441:
 				// CODE: Show muzzle flash
 				{
-					OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
+					OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 					if (IsFlashSuppressor(pObjAttHand, pSoldier) || (*pObjAttHand)[0]->data.gun.bGunAmmoStatus < 0)
 					{
 						pSoldier->renderState().hideMuzzleFlash();
@@ -830,7 +831,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					// FIRST CHECK IF WE'VE REACHED MAX FOR GUN
 					fStop = FALSE;
 
-					OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inventory()[HANDPOS] );
+					OBJECTTYPE* pObjHand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS] );
 
 					if ( ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->fireControl().burstCounter() > Weapon[GetAttachedGrenadeLauncher(&pSoldier->inventory()[HANDPOS])].ubShotsPerBurst) )
 					{
@@ -1575,7 +1576,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					// ONLY DO THIS IF CERTAIN CONDITIONS ARISE!
 					// For one, only do for mercs!
 					// Flugente: don't do this while equipping a shield, as this renders them almost useless
-					if ( pSoldier->identity().bodyType() <= REGFEMALE && !pSoldier->IsRiotShieldEquipped( ) )
+					if ( pSoldier->identity().bodyType() <= REGFEMALE && !TacticalActorEquipment::hasEquippedRiotShield(*pSoldier) )
 					{
 						// Secondly, don't if we are going to collapse
 						if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() > 0 && pSoldier->position().level() == 0 )
@@ -2780,8 +2781,8 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 					usItem = pSoldier->inventory()[ HANDPOS ].usItem;
 
-					OBJECTTYPE* pObjUsed =  pSoldier->GetUsedWeapon( &pSoldier->inventory()[ HANDPOS ] );
-					UINT16 usItemUsemUsed = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ HANDPOS ] );
+					OBJECTTYPE* pObjUsed =  TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[ HANDPOS ] );
+					UINT16 usItemUsemUsed = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ HANDPOS ] );
 
 					if ( pObjUsed->exists() == true )
 					{
@@ -2801,7 +2802,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				// Knife throw sound...
 				// anv: possiblity to use custom sounds for throwing knives
 				{
-					UINT16 usedWeapon = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+					UINT16 usedWeapon = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 					if ( Weapon[ usedWeapon ].sSound != 0 )
 					{
 						PlayJA2Sample( Weapon[ usedWeapon ].sSound, 44100-Random(5000)-Random(5000)-Random(5000), SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
@@ -3007,7 +3008,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				// Swoosh
 				// anv: possiblity to use custom sounds for melee weapons
 				{
-					UINT16 usedWeapon = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+					UINT16 usedWeapon = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 					if ( Weapon[ usedWeapon ].sSound != 0 )
 					{
 						PlayJA2Sample( Weapon[ usedWeapon ].sSound, 44100-Random(5000)-Random(5000)-Random(5000), SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
@@ -3478,7 +3479,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 			case 1101:
 				// SANDRO - dual burst check for repeating animation
 			{
-				OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+				OBJECTTYPE* pObjHand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 
 				if (pSoldier->fireControl().burstCounter() && ( pSoldier->fireControl().burstCounter() <= ( (pSoldier->fireControl().autofireShots())?(2*pSoldier->fireControl().autofireShots()):(2*GetShotsPerBurst( pObjHand ))	) ))
 				{
@@ -4730,7 +4731,7 @@ BOOLEAN CheckForImproperFireGunEnd( TacticalActor *pSoldier )
 	if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO)
 		pObjHand = FindAttachment_GrenadeLauncher(&pSoldier->inventory()[HANDPOS]);
 	else
-		pObjHand = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
+		pObjHand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS]);
 
 	// Extracted from EnoughAmmo() to avoid double calculation of pObjHand
 	if (Item[ pObjHand->usItem ].usItemClass & IC_LAUNCHER)

@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 	#include "builddefines.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorDisease.h"
@@ -3976,7 +3977,7 @@ void INVRenderItem( UINT32 uiBuffer, TacticalActor * pSoldier, OBJECTTYPE  *pObj
 				OBJECTTYPE*	pObjShown = pObject;
 
 				if ( pSoldier )
-					pObjShown = pSoldier->GetUsedWeapon(pObject);
+					pObjShown = TacticalActorEquipment::usedWeapon(*pSoldier, pObject);
 
 				FLOAT overheatjampercentage = GetGunOverheatDisplayPercentage( pObjShown );
 												

@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include "connect.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorDisease.h"
@@ -2568,7 +2569,7 @@ void DamageRiotShield( TacticalActor* pSoldier, INT32& rsDamage, INT32& rsSecond
 	if ( !pSoldier )
 		return;
 
-	OBJECTTYPE* pObj = pSoldier->GetEquippedRiotShield( );
+	OBJECTTYPE* pObj = TacticalActorEquipment::equippedRiotShield(*pSoldier);
 	if ( pObj && rsDamage > 0 && Item[pObj->usItem].usRiotShieldStrength > 0 )
 	{
 		INT32 damage_original = rsDamage;
@@ -4802,7 +4803,7 @@ INT8 FireBulletGivenTargetNCTH( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY
 	int n=0;
 	INT16 sXPos, sYPos;
 
-	OBJECTTYPE* pObjAttHand = pFirer->GetUsedWeapon( &(pFirer->inventory()[pFirer->attackSelection().hand()]) );
+	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pFirer, &(pFirer->inventory()[pFirer->attackSelection().hand()]) );
 
 	BOOLEAN fSecondHandBurst = FALSE;
 	if ( pFirer->attackSelection().hand() == SECONDHANDPOS && pFirer->IsValidSecondHandBurst() )
@@ -5299,7 +5300,7 @@ INT8 FireBulletGivenTarget( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FL
 	int n=0;
 	INT16 sXPos, sYPos;
 
-	OBJECTTYPE* pObjAttHand = pFirer->GetUsedWeapon( &(pFirer->inventory()[pFirer->attackSelection().hand()]) );
+	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pFirer, &(pFirer->inventory()[pFirer->attackSelection().hand()]) );
 
 	BOOLEAN fSecondHandBurst = FALSE;
 	if ( pFirer->attackSelection().hand() == SECONDHANDPOS && pFirer->IsValidSecondHandBurst() )
@@ -6935,7 +6936,7 @@ INT8 FireBulletGivenTarget_NoObjectNoSoldier( UINT16 usItem, UINT8 ammotype, UIN
 
 INT8 ChanceToGetThrough(TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ)
 {
-	OBJECTTYPE* pObjHand = pFirer->GetUsedWeapon(&(pFirer->inventory()[pFirer->attackSelection().hand()]));
+	OBJECTTYPE* pObjHand = TacticalActorEquipment::usedWeapon(*pFirer, &(pFirer->inventory()[pFirer->attackSelection().hand()]));
 
 	// sevenfm: check that weapon exists!
 	if (pObjHand->exists() &&
@@ -6944,7 +6945,7 @@ INT8 ChanceToGetThrough(TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT 
 	{
 		BOOLEAN fBuckShot = FALSE;
 
-		//OBJECTTYPE* pObjHand = pFirer->GetUsedWeapon(&pFirer->inventory()[HANDPOS]);
+		//OBJECTTYPE* pObjHand = TacticalActorEquipment::usedWeapon(*pFirer, &pFirer->inventory()[HANDPOS]);
 
 		// if shotgun, shotgun would have to be in main hand
 		if (pObjHand->usItem == pFirer->attackSelection().weapon())
@@ -7600,7 +7601,7 @@ void MoveBullet( INT32 iBullet )
 								lastriotshieldholder = pStructure->usStructureID;
 								
 								// check for riot shield contact
-								if ( pTarget && pTarget->IsRiotShieldEquipped( ) )
+								if ( pTarget && TacticalActorEquipment::hasEquippedRiotShield(*pTarget) )
 								{
 									UINT8 bulletdir_inverse = GetDirectionToGridNoFromGridNo( pTarget->position().gridNo(), pBullet->sOrigGridNo );
 
@@ -7821,7 +7822,7 @@ void MoveBullet( INT32 iBullet )
 								lastriotshieldholder = pStructure->usStructureID;
 								
 								// check for riot shield contact
-								if ( pTarget && pTarget->IsRiotShieldEquipped( ) )
+								if ( pTarget && TacticalActorEquipment::hasEquippedRiotShield(*pTarget) )
 								{
 									UINT8 bulletdir = GetDirectionToGridNoFromGridNo( pBullet->sOrigGridNo, pTarget->position().gridNo() );
 
@@ -9039,7 +9040,7 @@ FLOAT CalcProjectionFactor( TacticalActor *pShooter, OBJECTTYPE *pWeapon, FLOAT 
 
 	// Flugente: if this weapon is an underbarrel weapon, use the 'carrier' weapon instead
 	OBJECTTYPE* pObjUsed = pWeapon;
-	if ( pWeapon == pShooter->GetUsedWeapon( &pShooter->inventory()[pShooter->attackSelection().hand()] ) )
+	if ( pWeapon == TacticalActorEquipment::usedWeapon(*pShooter, &pShooter->inventory()[pShooter->attackSelection().hand()] ) )
 	{
 		pObjUsed = &pShooter->inventory()[pShooter->attackSelection().hand()];
 	}
@@ -9612,7 +9613,7 @@ FLOAT CalcBulletDeviation( TacticalActor *pShooter, FLOAT *dShotOffsetX, FLOAT *
 	// We start by reading the gun's Accuracy value. We'll use that as the basis for everything else.
 
 	// Flugente: determine used gun
-	OBJECTTYPE* pObjAttHand = pShooter->GetUsedWeapon( &pShooter->inventory()[ pShooter->attackSelection().hand() ] );
+	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pShooter, &pShooter->inventory()[ pShooter->attackSelection().hand() ] );
 
 	INT16 sAccuracy = GetGunAccuracy( pWeapon );
 	UINT16 sEffRange = (Weapon[Item[pObjAttHand->usItem].ubClassIndex].usRange *GetPercentRangeBonus(pObjAttHand)) / 10000; 

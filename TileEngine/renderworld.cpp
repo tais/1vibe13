@@ -1,3 +1,4 @@
+#include "TacticalActorEquipment.h"
 #include "builddefines.h"
 #include "TacticalWorldAdapter.h"
 ///////////////////////////
@@ -1307,7 +1308,7 @@ static void ShowRiotShield( TacticalActor* pSoldier, PIXEL *pBuffer, UINT32 uiDe
 		if ( !GetVideoObject( &hSrcVObject, guiShieldGraphic ) )
 			return;
 
-		OBJECTTYPE* pObj = pSoldier->GetEquippedRiotShield();
+		OBJECTTYPE* pObj = TacticalActorEquipment::equippedRiotShield(*pSoldier);
 
 		if ( !pObj )
 			return;
@@ -3569,7 +3570,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 													( pSoldier->position().direction() == NORTH ||
 														pSoldier->position().direction() == NORTHWEST ||
 														pSoldier->position().direction() == WEST )
-													&& pSoldier->IsRiotShieldEquipped() )
+													&& TacticalActorEquipment::hasEquippedRiotShield(*pSoldier) )
 												{
 													ShowRiotShield( pSoldier, (PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel );
 												}
@@ -3647,7 +3648,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 														pSoldier->position().direction() == SOUTH ||
 														pSoldier->position().direction() == SOUTHWEST ||
 														pSoldier->position().direction() == NORTHEAST )
-													&& pSoldier->IsRiotShieldEquipped() )
+													&& TacticalActorEquipment::hasEquippedRiotShield(*pSoldier) )
 												{
 													ShowRiotShield( pSoldier, (PIXEL *)pDestBuf, uiDestPitchBYTES, gpZBuffer, sZLevel );
 												}
