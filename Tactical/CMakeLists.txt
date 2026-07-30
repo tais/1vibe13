@@ -96,6 +96,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorInteractions.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorAiBehavior.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorLongActions.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorMedicalSession.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorMedicalServices.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorMedicalTreatment.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorMobility.cpp"

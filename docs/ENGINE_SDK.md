@@ -625,6 +625,14 @@ must not recreate the retired `SoldierDressWound`,
 `RegainDamagedStats` entry points. The domain bounds malformed kit, animation,
 action-point, profile, and surgery-consumption state without changing medical
 item, trait, XML, map, Lua, or other installed content formats.
+`TacticalActorMedicalSession` owns the bounded first-aid AP cost, initiation,
+and the transition back into the providing-aid animation. New callers use
+`beginActionPointCost`, then pass a medic, patient grid, and direction to
+`beginFirstAid`; malformed world, grid, animation, inventory, item, profile,
+or repository state is rejected before a service relationship is established.
+`resumeProvidingAnimation` is the sole stationary-stance handoff for an active
+provider. The existing item definitions, trait values, dialogue and Lua
+events, maps, animations, and installed content formats are unchanged.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,

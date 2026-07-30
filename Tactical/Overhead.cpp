@@ -1,4 +1,5 @@
 #include "TacticalActorLongActions.h"
+#include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMedicalTreatment.h"
 #include "TacticalActorMobility.h"
@@ -1402,7 +1403,10 @@ BOOLEAN ExecuteOverhead( )
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_GIVEAID  )
                                     {
-                                        pSoldier->EVENT_SoldierBeginFirstAid( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorMedicalSession::beginFirstAid(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_REPAIR   )

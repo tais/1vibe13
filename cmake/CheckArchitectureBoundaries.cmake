@@ -2200,6 +2200,14 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalServices.h"
   tactical_actor_medical_services_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalServices.cpp"
   tactical_actor_medical_services_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalSession.h"
+  tactical_actor_medical_session_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalSession.cpp"
+  tactical_actor_medical_session_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Points.h"
+  tactical_points_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Points.cpp"
+  tactical_points_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalTreatment.h"
   tactical_actor_medical_treatment_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalTreatment.cpp"
@@ -3005,7 +3013,8 @@ foreach(retired_actor_facade IN ITEMS
   "SoldierDressWound"
   "VirtualSoldierDressWound"
   "NumberOfDamagedStats"
-  "RegainDamagedStats")
+  "RegainDamagedStats"
+  "EVENT_SoldierBeginFirstAid")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3018,6 +3027,43 @@ foreach(retired_actor_facade IN ITEMS
       "TacticalActor regained retired facade '${retired_actor_facade}'")
   endif()
 endforeach()
+
+foreach(required_medical_session_operation IN ITEMS
+  "beginActionPointCost"
+  "beginFirstAid"
+  "resumeProvidingAnimation")
+  string(FIND "${tactical_actor_medical_session_header_contents}"
+    "${required_medical_session_operation}("
+    medical_session_operation_declaration)
+  string(FIND "${tactical_actor_medical_session_source_contents}"
+    "TacticalActorMedicalSession::${required_medical_session_operation}("
+    medical_session_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorMedicalSession::"
+    medical_session_domain_coverage)
+  string(FIND "${headless_test_contents}"
+    "${required_medical_session_operation}("
+    medical_session_operation_coverage)
+  if(medical_session_operation_declaration EQUAL -1 OR
+     medical_session_operation_definition EQUAL -1 OR
+     medical_session_domain_coverage EQUAL -1 OR
+     medical_session_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor medical-session operation '${required_medical_session_operation}' lost its domain declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+string(FIND "${tactical_points_header_contents}"
+  "GetAPsToBeginFirstAid("
+  retired_first_aid_cost_declaration)
+string(FIND "${tactical_points_source_contents}"
+  "GetAPsToBeginFirstAid("
+  retired_first_aid_cost_definition)
+if(NOT retired_first_aid_cost_declaration EQUAL -1 OR
+   NOT retired_first_aid_cost_definition EQUAL -1)
+  message(FATAL_ERROR
+    "Points regained the retired first-aid action-point global")
+endif()
 
 foreach(retired_medical_treatment_global IN ITEMS
   "VirtualSoldierDressWound"
@@ -3262,6 +3308,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorAiBehavior.cpp"
   "TacticalActorDamageQueue.cpp"
   "TacticalActorLongActions.cpp"
+  "TacticalActorMedicalSession.cpp"
   "TacticalActorMedicalServices.cpp"
   "TacticalActorMedicalTreatment.cpp"
   "TacticalActorPrisonerOperations.cpp")

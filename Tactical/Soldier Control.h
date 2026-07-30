@@ -892,7 +892,6 @@ public:
 	void EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 ubDamage, INT16 sBreathLoss, UINT16 bDirection, UINT16 sRange, SoldierID ubAttackerID, UINT8 ubSpecial, UINT8 ubHitLocation, INT16 sSubsequent, INT32 sLocationGridNo );
 	void EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirection );
 	void EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirection );
-	void EVENT_SoldierBeginFirstAid( INT32 sGridNo, UINT8 ubDirection );
 	void EVENT_StopMerc( INT32 sGridNo, INT8 bDirection );
 	void EVENT_SoldierBeginCutFence( INT32 sGridNo, UINT8 ubDirection );
 	void EVENT_SoldierBeginRepair( INT32 sGridNo, UINT8 ubDirection );

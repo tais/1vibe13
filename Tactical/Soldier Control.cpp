@@ -15,6 +15,7 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorDamageQueue.h"
 #include "TacticalActorLongActions.h"
+#include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorWeaponHandling.h"
@@ -6355,23 +6356,10 @@ void TacticalActor::SoldierGotoStationaryStance( void )
 		// IN deep water, tred!
 		this->EVENT_InitNewSoldierAnim( DEEP_WATER_TRED, 0, FALSE );
 	}
-	else if ( this->service().hasPartner() && this->vitals().health() >= OKLIFE && this->vitals().breath() > 0 )
+	else if (
+		TacticalActorMedicalSession::
+			resumeProvidingAnimation(*this))
 	{
-		if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_PRONE )
-		{
-			if ( !is_networked )
-				this->EVENT_InitNewSoldierAnim( GIVING_AID_PRN, 0, FALSE );
-			else
-				this->ChangeSoldierState( GIVING_AID_PRN, 0, 0 );
-		}
-		else
-		{
-			if ( !is_networked )
-				this->EVENT_InitNewSoldierAnim( GIVING_AID, 0, FALSE );
-			else
-				this->ChangeSoldierState( GIVING_AID, 0, 0 );
-		}
-
 	}
 	else
 	{
@@ -12122,143 +12110,6 @@ void TacticalActor::EVENT_SoldierBeginUseDetonator( void )
 		break;
 	}
 }
-
-void TacticalActor::EVENT_SoldierBeginFirstAid( INT32 sGridNo, UINT8 ubDirection )
-{
-	TacticalActor *pTSoldier;
-	//UINT32 uiMercFlags;
-	BOOLEAN fRefused = FALSE;
-
-	SoldierID usSoldierIndex = WhoIsThere2( sGridNo, this->position().level() );
-	if ( usSoldierIndex != NOBODY )
-	{
-		pTSoldier =
-			GetJa2SoldierRepository().resolve( usSoldierIndex );
-		if ( pTSoldier == nullptr )
-		{
-			return;
-		}
-
-		//SANDRO - hack! Find out if we are a doctor with medical bag trying to make a surgery
-		this->vitals().finishSurgery();
-		if ( (NUM_SKILL_TRAITS( this, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) && ItemIsMedicalKit(this->inventory()[HANDPOS].usItem) && gGameOptions.fNewTraitSystem )
-		{
-			if ( ((pTSoldier->roster().team() == OUR_TEAM) || (pTSoldier->roster().team() == MILITIA_TEAM))
-				 && (IS_MERC_BODY_TYPE( pTSoldier ) || IS_CIV_BODY_TYPE( pTSoldier ))
-				 && (pTSoldier->vitals().healableInjury() >= 100) && pTSoldier->identity().id() != this->identity().id()
-				 && (gTacticalStatus.ubLastRequesterSurgeryTargetID == pTSoldier->identity().id()) )
-			{
-				this->vitals().beginSurgery();
-			}
-		}
-
-		// OK, check if we should play quote...
-		if ( pTSoldier->roster().team() != gbPlayerNum )
-		{
-			if ( pTSoldier->identity().profile() != NO_PROFILE && !RPC_RECRUITED( pTSoldier ) && ( gMercProfiles[pTSoldier->identity().profile()].Type == PROFILETYPE_RPC ||
-				gMercProfiles[pTSoldier->identity().profile()].Type == PROFILETYPE_NPC ) )
-			{
-				fRefused = PCDoesFirstAidOnNPC( pTSoldier->identity().profile() );
-			}
-
-			if ( !fRefused )
-			{
-				/*
-				if ( CREATURE_OR_BLOODCAT( pTSoldier ) )
-				{
-				// nope!!
-				fRefused = TRUE;
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, Message[ STR_REFUSE_FIRSTAID_FOR_CREATURE ] );
-				}
-				else if ( !pTSoldier->aiBehavior().neutral() && pTSoldier->vitals().health() >= OKLIFE && pTSoldier->roster().side() != this->bSide )
-				*/
-				// Flugente: people we captured don't refuse to be bandaged
-				if ( !pTSoldier->aiBehavior().neutral() && pTSoldier->vitals().health() >= OKLIFE && pTSoldier->roster().side() != this->roster().side() && !(pTSoldier->featureFlags().primaryFlags() & SOLDIER_POW) )
-				{
-					fRefused = TRUE;
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, Message[STR_REFUSE_FIRSTAID] );
-				}
-
-			}
-		}
-
-		if ( fRefused )
-		{
-			this->vitals().finishSurgery(); // SANDRO
-
-			UnSetUIBusy( this->identity().id() );
-			return;
-		}
-
-		// ATE: We can only give firsty aid to one perosn at a time... cancel
-		// any now...
-		TacticalActorMedicalServices::cancelProviding(
-			*this,
-			false);
-
-		BOOLEAN fInProne = FALSE;
-		if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_PRONE && gAnimControl[pTSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE && !this->vitals().isUndergoingSurgery() )
-		{
-			fInProne = TRUE;
-		}
-		// CHANGE DIRECTION AND GOTO ANIMATION NOW
-		if (this->position().direction() != ubDirection)
-		{
-			this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
-			this->EVENT_SetSoldierDesiredDirection(ubDirection);
-			this->EVENT_SetSoldierDirection(ubDirection);
-		}
-
-		// CHANGE TO ANIMATION
-		if ( fInProne )
-		{
-			// HACK! If we are not prone after the above stance change and we should be, send us down before start
-			if ( gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_PRONE )
-			{
-				this->animationIntent().pendingAnimation() = START_AID_PRN;
-				SendChangeSoldierStanceEvent( this, ANIM_PRONE );
-			}
-			else
-			{
-				if ( !is_networked )
-					this->EVENT_InitNewSoldierAnim( START_AID_PRN, 0, FALSE );
-				else
-					this->ChangeSoldierState( START_AID_PRN, 0, 0 );
-			}
-		}
-		else
-		{
-			if ( !is_networked )
-				this->EVENT_InitNewSoldierAnim( START_AID, 0, FALSE );
-			else
-				this->ChangeSoldierState( START_AID, 0, 0 );
-		}
-
-		// SET TARGET GRIDNO
-		this->targeting().gridNo() = sGridNo;
-
-		// SET PARTNER ID
-		this->service().beginProvidingTo( usSoldierIndex );
-
-		// SET PARTNER'S COUNT REFERENCE
-		pTSoldier->service().addProvider();
-
-		// If target and doer are no the same guy...
-		if ( pTSoldier->identity().id() != this->identity().id() && !pTSoldier->collapseState().tactical() )
-		{
-			pTSoldier->SoldierGotoStationaryStance( );
-		}
-
-		// Flugente: additional dialogue
-		AdditionalTacticalCharacterDialogue_CallsLua( this, ADE_BANDAGE_PERFORM_BEGIN, pTSoldier->identity().profile() );
-		AdditionalTacticalCharacterDialogue_CallsLua( pTSoldier, ADE_BANDAGE_RECEIVE_BEGIN, this->identity().profile() );
-
-		// Flugente: if the medkit we use has drug effects set, apply them
-		// as a kit is used up over time, applying it several times would screw with chance effects, so just apply once
-		ApplyDrugs_New( pTSoldier, this->inventory()[HANDPOS].usItem, ( ( this->inventory()[HANDPOS] ) )[0]->data.objectStatus );
-	}
-}
-
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // SANDRO - This whole procedure was merged with the surgery ability of the doctor trait
