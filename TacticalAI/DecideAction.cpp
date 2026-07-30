@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "ai.h"
 #include "TacticalActorConditions.h"
@@ -574,7 +575,7 @@ INT8 DecideActionBoxerEnteringRing(TacticalActor *pSoldier)
 				ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sDesiredMercLoc);
 
 				// if not already facing in that direction,
-				if ( pSoldier->position().direction() != ubDesiredMercDir && pSoldier->InternalIsValidStance( ubDesiredMercDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+				if ( pSoldier->position().direction() != ubDesiredMercDir && TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubDesiredMercDir) )
 				{
 
 					pSoldier->aiPlanning().actionData() = ubDesiredMercDir;
@@ -643,7 +644,7 @@ INT8 DecideActionNamedNPC( TacticalActor * pSoldier )
 			ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sDesiredMercLoc);
 
 			// if not already facing in that direction,
-			if (pSoldier->position().direction() != ubDesiredMercDir && pSoldier->InternalIsValidStance( ubDesiredMercDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+			if (pSoldier->position().direction() != ubDesiredMercDir && TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubDesiredMercDir) )
 			{
 
 				pSoldier->aiPlanning().actionData() = ubDesiredMercDir;
@@ -1539,7 +1540,7 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 #endif
 
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Trying to turn - checking stance validity, sniper = %d",pSoldier->aiPlanning().sniperPosture()));
-				if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->aiPlanning().actionData(), gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+				if ( TacticalActorMobility::isCurrentStanceValid(*pSoldier, (INT8) pSoldier->aiPlanning().actionData()) )
 				{
 
 					if ( !gfTurnBasedAI )
@@ -1848,7 +1849,7 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 				iChance += 15;
 
 
-			if ((INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubNoiseDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+			if ((INT16)PreRandom(100) < iChance && TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubNoiseDir) )
 			{
 				pSoldier->aiPlanning().actionData() = ubNoiseDir;
 #ifdef DEBUGDECISIONS
@@ -1963,7 +1964,7 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 	////////////////////////////////////////////////////////////////////////
 
 	// if our breath is running a bit low, and we're not in water
-	if ((pSoldier->vitals().breath() < 25) && !pSoldier->MercInWater())
+	if ((pSoldier->vitals().breath() < 25) && !TacticalActorMobility::inWater(*pSoldier))
 	{
 		// take a breather for gods sake!
 		pSoldier->aiPlanning().actionData() = NOWHERE;
@@ -2849,7 +2850,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 					// stand up before throwing if needed
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestThrow.ubStance &&
-						pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
+						TacticalActorMobility::isValidStance(*pSoldier, AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
 					{
 						pSoldier->aiPlanning().actionData() = BestThrow.ubStance;
 						pSoldier->aiPlanning().nextAction() = AI_ACTION_TOSS_PROJECTILE;
@@ -2935,7 +2936,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 				// stand up before throwing if needed
 				if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestThrow.ubStance &&
-					pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
+					TacticalActorMobility::isValidStance(*pSoldier, AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
 				{
 					pSoldier->aiPlanning().actionData() = BestThrow.ubStance;
 					pSoldier->aiPlanning().nextAction() = AI_ACTION_TOSS_PROJECTILE;
@@ -3694,7 +3695,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 			// stand up before throwing if needed
 			if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestThrow.ubStance &&
-				pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
+				TacticalActorMobility::isValidStance(*pSoldier, AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
 			{
 				pSoldier->aiPlanning().actionData() = BestThrow.ubStance;
 				pSoldier->aiPlanning().nextAction() = AI_ACTION_TOSS_PROJECTILE;
@@ -4279,7 +4280,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 						// if soldier is not already facing in that direction
 						if (pSoldier->position().direction() != ubOpponentDir &&
-							pSoldier->InternalIsValidStance(ubOpponentDir, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight) &&
+							TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubOpponentDir) &&
 							pSoldier->actionPoints().current() >= GetAPsToLook(pSoldier))
 						{
 							// turn
@@ -4589,7 +4590,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 					iChance += 50;
 				}
 
-				if ((INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+				if ((INT16)PreRandom(100) < iChance && TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubOpponentDir) )
 				{
 					pSoldier->aiPlanning().actionData() = ubOpponentDir;
 
@@ -4683,7 +4684,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 			if ( (pSoldier->position().direction() != ubOpponentDir) )
 			{
-				if ( (pSoldier->actionPoints().current() == pSoldier->actionPoints().initial() || (INT16)PreRandom(100) < 60) && pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+				if ( (pSoldier->actionPoints().current() == pSoldier->actionPoints().initial() || (INT16)PreRandom(100) < 60) && TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubOpponentDir) )
 				{
 					pSoldier->aiPlanning().actionData() = ubOpponentDir;
 
@@ -4856,7 +4857,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 					return( AI_ACTION_CHANGE_FACING );
 				}
 			}
-			else if ( (!gfTurnBasedAI || GetAPsToChangeStance( pSoldier, ANIM_PRONE ) <= pSoldier->actionPoints().current() ) && pSoldier->InternalIsValidStance( ubOpponentDir, ANIM_PRONE ) )
+			else if ( (!gfTurnBasedAI || GetAPsToChangeStance( pSoldier, ANIM_PRONE ) <= pSoldier->actionPoints().current() ) && TacticalActorMobility::isValidStance(*pSoldier,  ubOpponentDir, ANIM_PRONE ) )
 			{
 				// go prone, end turn
 				pSoldier->aiPlanning().nextAction() = AI_ACTION_END_TURN;
@@ -5373,7 +5374,7 @@ INT16 ubMinAPCost;
 
 			// stand up before throwing if needed
 			if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestThrow.ubStance &&
-				pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
+				TacticalActorMobility::isValidStance(*pSoldier, AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
 			{
 				pSoldier->aiPlanning().actionData() = BestThrow.ubStance;
 				pSoldier->aiPlanning().nextAction() = AI_ACTION_TOSS_PROJECTILE;
@@ -6172,7 +6173,7 @@ INT16 ubMinAPCost;
 
 							// stand up before throwing if needed
 							if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestThrow.ubStance &&
-								pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
+								TacticalActorMobility::isValidStance(*pSoldier, AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
 							{
 								pSoldier->aiPlanning().actionData() = BestThrow.ubStance;
 								pSoldier->aiPlanning().nextAction() = AI_ACTION_TOSS_PROJECTILE;
@@ -6783,7 +6784,7 @@ L_NEWAIM:
 
 				// stand up before throwing if needed
 				if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestAttack.ubStance &&
-					pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestAttack.sTarget), BestAttack.ubStance))
+					TacticalActorMobility::isValidStance(*pSoldier, AIDirection(pSoldier->position().gridNo(), BestAttack.sTarget), BestAttack.ubStance))
 				{
 					pSoldier->aiPlanning().actionData() = BestAttack.ubStance;
 					pSoldier->aiPlanning().nextAction() = AI_ACTION_TOSS_PROJECTILE;
@@ -6865,7 +6866,7 @@ L_NEWAIM:
 					else
 					{
 						// look into that direction
-						if ( pSoldier->InternalIsValidStance( targetdirection, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+						if ( TacticalActorMobility::isCurrentStanceValid(*pSoldier, targetdirection) )
 						{
 							pSoldier->aiPlanning().actionData() = targetdirection;
 							return(AI_ACTION_CHANGE_FACING);
@@ -7036,7 +7037,7 @@ L_NEWAIM:
 
 			// possibly turn to closest opponent
 			if (pSoldier->position().direction() != ubOpponentDir &&
-				pSoldier->InternalIsValidStance(ubOpponentDir, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight) &&
+				TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubOpponentDir) &&
 				pSoldier->actionPoints().current() >= GetAPsToLook(pSoldier))
 			{
 				pSoldier->aiPlanning().actionData() = ubOpponentDir;
@@ -7169,7 +7170,7 @@ L_NEWAIM:
 								// if we're not facing towards him
 								if (pSoldier->position().direction() != bDirection)
 								{
-									if ( pSoldier->InternalIsValidStance( bDirection, (INT8) pSoldier->aiPlanning().actionData()) )
+									if ( TacticalActorMobility::isValidStance(*pSoldier,  bDirection, (INT8) pSoldier->aiPlanning().actionData()) )
 									{
 										// change direction, THEN change stance!
 										pSoldier->aiPlanning().nextAction() = AI_ACTION_CHANGE_STANCE;
@@ -7181,7 +7182,7 @@ L_NEWAIM:
 #endif
 										return(AI_ACTION_CHANGE_FACING);
 									}
-									else if ( (pSoldier->aiPlanning().actionData() == ANIM_PRONE) && (pSoldier->InternalIsValidStance( bDirection, ANIM_CROUCH) ) )
+									else if ( (pSoldier->aiPlanning().actionData() == ANIM_PRONE) && (TacticalActorMobility::isValidStance(*pSoldier,  bDirection, ANIM_CROUCH) ) )
 									{
 										// we shouldn't go prone, since we can't turn to shoot
 										pSoldier->aiPlanning().actionData() = ANIM_CROUCH;
@@ -7228,7 +7229,7 @@ L_NEWAIM:
 				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sClosestOpponent);
 
 				// if we're not facing towards him
-				if ( pSoldier->position().direction() != bDirection && pSoldier->InternalIsValidStance( bDirection, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+				if ( pSoldier->position().direction() != bDirection && TacticalActorMobility::isCurrentStanceValid(*pSoldier, bDirection) )
 				{
 					pSoldier->aiPlanning().actionData() = bDirection;
 
@@ -7470,7 +7471,7 @@ void DecideAlertStatus( TacticalActor *pSoldier )
 				((pSoldier->aiBehavior().alertStatus() == STATUS_YELLOW) && (pSoldier->vitals().breath() < 50)))
 			{
 				// as long as he's not in water (standing on a bridge is OK)
-				if (!pSoldier->MercInWater())
+				if (!TacticalActorMobility::inWater(*pSoldier))
 				{
 					// force a NEW decision so that he can get some rest
 					SetNewSituation( pSoldier );
@@ -7896,7 +7897,7 @@ INT8 ArmedVehicleDecideActionGreen( TacticalActor *pSoldier )
 #endif
 
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "DecideActionGreen: Trying to turn - checking stance validity, sniper = %d", pSoldier->aiPlanning().sniperPosture() ) );
-				if ( pSoldier->InternalIsValidStance( (INT8)pSoldier->aiPlanning().actionData(), gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
+				if ( TacticalActorMobility::isCurrentStanceValid(*pSoldier, (INT8)pSoldier->aiPlanning().actionData()) )
 				{
 
 					if ( !gfTurnBasedAI )
@@ -7997,7 +7998,7 @@ INT8 ArmedVehicleDecideActionYellow( TacticalActor *pSoldier )
 			if ( pSoldier->aiBehavior().attitude() == DEFENSIVE )
 				iChance += 15;
 
-			if ( (INT16)PreRandom( 100 ) < iChance && pSoldier->InternalIsValidStance( ubNoiseDir, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
+			if ( (INT16)PreRandom( 100 ) < iChance && TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubNoiseDir) )
 			{
 				pSoldier->aiPlanning().actionData() = ubNoiseDir;
 #ifdef DEBUGDECISIONS
@@ -8079,7 +8080,7 @@ INT8 ArmedVehicleDecideActionYellow( TacticalActor *pSoldier )
 	////////////////////////////////////////////////////////////////////////
 
 	// if our breath is running a bit low, and we're not in water
-	if ( (pSoldier->vitals().breath() < 25) && !pSoldier->MercInWater( ) )
+	if ( (pSoldier->vitals().breath() < 25) && !TacticalActorMobility::inWater(*pSoldier) )
 	{
 		// take a breather for gods sake!
 		pSoldier->aiPlanning().actionData() = NOWHERE;
@@ -9233,7 +9234,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 						// if soldier is not already facing in that direction,
 						// and the opponent is close enough that he could possibly be seen
 						if ( pSoldier->position().direction() != ubOpponentDir &&
-							 pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) &&
+							 TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubOpponentDir) &&
 							 pSoldier->actionPoints().current() >= GetAPsToLook( pSoldier ) )
 						{
 							// turn
@@ -9437,7 +9438,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 					iChance += 50;
 				}
 
-				if ( (INT16)PreRandom( 100 ) < iChance && pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
+				if ( (INT16)PreRandom( 100 ) < iChance && TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubOpponentDir) )
 				{
 					pSoldier->aiPlanning().actionData() = ubOpponentDir;
 
@@ -10108,7 +10109,7 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), BestAttack.sTarget);
 				
 				// Change facing
-				if ( pSoldier->position().direction() != bDirection && pSoldier->InternalIsValidStance( bDirection, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
+				if ( pSoldier->position().direction() != bDirection && TacticalActorMobility::isCurrentStanceValid(*pSoldier, bDirection) )
 				{
 					// we're not facing towards him, so turn first!
 					pSoldier->aiPlanning().actionData() = bDirection;
@@ -10394,7 +10395,7 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sClosestOpponent);
 
 				// if we're not facing towards him
-				if ( pSoldier->position().direction() != bDirection && pSoldier->InternalIsValidStance( bDirection, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
+				if ( pSoldier->position().direction() != bDirection && TacticalActorMobility::isCurrentStanceValid(*pSoldier, bDirection) )
 				{
 					pSoldier->aiPlanning().actionData() = bDirection;
 

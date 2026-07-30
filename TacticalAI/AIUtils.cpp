@@ -1,3 +1,5 @@
+#include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMobility.h"
 	#include "ai.h"
 	#include "TacticalActorConditions.h"
 	#include "Weapons.h"
@@ -119,7 +121,7 @@ INT8 OKToAttack(TacticalActor * pSoldier, int target)
 		}
 		else if (pSoldier->inventory()[HANDPOS][0]->data.gun.ubGunShotsLeft == 0 /*SB*/ ||
 			!(pSoldier->inventory()[HANDPOS][0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER) ||
-			(pSoldier->IsValidSecondHandShotForReloadingPurposes( ) && 
+			(TacticalActorWeaponHandling::isValidSecondHandShotForReloading(*pSoldier) &&
 			(pSoldier->inventory()[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft == 0 ||
 			!(pSoldier->inventory()[SECONDHANDPOS][0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER))))
 		{
@@ -248,21 +250,21 @@ UINT8 ShootingStanceChange( TacticalActor * pSoldier, ATTACKTYPE * pAttack, INT8
 		switch( bLoop )
 		{
 			case 0:
-				if ( !pSoldier->InternalIsValidStance( bDesiredDirection, ANIM_STAND ) )
+				if ( !TacticalActorMobility::isValidStance(*pSoldier,  bDesiredDirection, ANIM_STAND ) )
 				{
 					continue;
 				}
 				pSoldier->animationPlayback().state() = STANDING;
 				break;
 			case 1:
-				if ( !pSoldier->InternalIsValidStance( bDesiredDirection, ANIM_CROUCH ) )
+				if ( !TacticalActorMobility::isValidStance(*pSoldier,  bDesiredDirection, ANIM_CROUCH ) )
 				{
 					continue;
 				}
 				pSoldier->animationPlayback().state() = CROUCHING;
 				break;
 			default:
-				if ( !pSoldier->InternalIsValidStance( bDesiredDirection, ANIM_PRONE ) )
+				if ( !TacticalActorMobility::isValidStance(*pSoldier,  bDesiredDirection, ANIM_PRONE ) )
 				{
 					continue;
 				}
@@ -345,7 +347,7 @@ UINT8 ShootingStanceChange( TacticalActor * pSoldier, ATTACKTYPE * pAttack, INT8
 
 UINT16 DetermineMovementMode( TacticalActor * pSoldier, INT8 bAction )
 {
-	if ( pSoldier->IsFastMovement() )
+	if ( TacticalActorMobility::isFastMovement(*pSoldier) )
 	{
 		return( RUNNING );
 	}
@@ -795,7 +797,7 @@ BOOLEAN IsActionAffordable(TacticalActor *pSoldier, INT8 bAction)
 			break;
 
 		case AI_ACTION_JUMP_WINDOW:
-			if (!pSoldier->CanClimbWithCurrentBackpack())
+			if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pSoldier))
 				bMinPointsNeeded = GetAPsToJumpThroughWindows( pSoldier, TRUE );
 			else
 				bMinPointsNeeded = GetAPsToJumpFence( pSoldier, FALSE );
@@ -3111,7 +3113,7 @@ BOOLEAN ValidCreatureTurn( TacticalActor * pCreature, INT8 bNewDirection )
 			{
 				bTempDir = NORTH;
 			}
-			if (!pCreature->InternalIsValidStance( bTempDir, ANIM_STAND ))
+			if (!TacticalActorMobility::isValidStance(*pCreature,  bTempDir, ANIM_STAND ))
 			{
 				fFound = FALSE;
 				break;

@@ -1,3 +1,5 @@
+#include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMobility.h"
 #include <string.h>
 #include "DEBUG.H"
 #include "Animation Control.h"
@@ -4286,7 +4288,7 @@ UINT16	DetermineSoldierAnimationSurface( TacticalActor *pSoldier, UINT16 usAnimS
 	// ADJUST ANIMATION SURFACE BASED ON TERRAIN
 
 	// CHECK FOR WATER
-	if ( pSoldier->MercInWater( ) )
+	if ( TacticalActorMobility::inWater(*pSoldier) )
 	{
 		// Default it to the 1 ( ie: no rifle )
 		if ( pSoldier->inventory()[ HANDPOS ].exists() == true )
@@ -4374,7 +4376,7 @@ UINT16	DetermineSoldierAnimationSurface( TacticalActor *pSoldier, UINT16 usAnimS
 					{
 						// Do we carry two pistols...
 						//if ( Item[ pSoldier->inventory()[ SECONDHANDPOS ].usItem ].usItemClass == IC_GUN )
-						if ( pSoldier->IsValidSecondHandShot() )
+						if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 						{
 							usAltAnimSurface = gDoubleHandledSub.usAnimationSurfaces[ pSoldier->identity().bodyType() ];
 							if ( usAltAnimSurface != INVALID_ANIMATION )

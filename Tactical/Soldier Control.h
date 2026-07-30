@@ -944,12 +944,6 @@ public:
 	INT16 CalcActionPoints( void );
 	// This function is now obsolete.	Call ReduceAttackBusyCount instead.
 	// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
-	BOOLEAN MercInWater( void );
-	BOOLEAN MercInShallowWater( void );
-	BOOLEAN MercInDeepWater( void );
-	BOOLEAN MercInHighWater( void );
-	UINT16 GetNewSoldierStateFromNewStance( UINT8 ubDesiredStance );
-	UINT16 GetMoveStateBasedOnStance( UINT8 ubStanceHeight );
 	void SoldierGotoStationaryStance( void );
 	BOOLEAN ReCreateSoldierLight( void );
 	void RemoveSoldierFromGridNo( void );
@@ -987,8 +981,6 @@ public:
 	void	DoNinjaAttack( void );
 	void PickDropItemAnimation( void );
 
-	BOOLEAN CanClimbWithCurrentBackpack();
-
 	void BeginSoldierGetup( void );
 	void BeginSoldierClimbUpRoof( void );
 	void BeginSoldierClimbDownRoof( void );
@@ -1018,15 +1010,6 @@ public:
 	BOOLEAN CheckSoldierHitRoof( void );
 	BOOLEAN CheckForBreathCollapse( void );
 	BOOLEAN PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fValidate );
-	BOOLEAN InternalIsValidStance( INT8 bDirection, INT8 bNewStance );
-	BOOLEAN IsValidSecondHandShot( void );
-	BOOLEAN IsValidSecondHandBurst( void );
-	BOOLEAN IsValidSecondHandShotForReloadingPurposes( void );
-	BOOLEAN IsValidAlternativeFireMode( INT16 bAimTime, INT32 iTrgGridNo );
-	BOOLEAN IsValidShotFromHip( INT16 bAimTime, INT32 iTrgGridNo );
-	BOOLEAN IsValidPistolFastShot( INT16 bAimTime, INT32 iTrgGridNo );
-	BOOLEAN	IsWeaponMounted( void );				// determine if we receive a bonus for mounting our weapon on something
-
 	// reset the extra stat variables
 	void	ResetExtraStats();
 
@@ -1074,10 +1057,6 @@ public:
 	void	PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
 	void	PrintSleepDesc( CHAR16* apStr );
 
-	// Flugente: are we crouched against cover from a specific direction? WARNING: This does not suffice to determine our cover!
-	BOOLEAN	IsCrouchedAgainstCoverFromDir( UINT8 aDirection );
-
-	bool		IsFastMovement();
 	//////////////////////////////////////////////////////////////////////////////
 
 }; // TacticalActor;

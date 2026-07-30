@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
 #include "connect.h"
@@ -1920,7 +1921,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 						if (TacticalActorConditions::isCowering(*pSoldier))
 						{
 							pSoldier->StopCoweringAnimation();
-							UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_STAND);
+							UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ANIM_STAND);
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
 						}
 
@@ -1942,7 +1943,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 						if (TacticalActorConditions::isCowering(*pSoldier))
 						{
 							pSoldier->StopCoweringAnimation();
-							UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_STAND);
+							UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ANIM_STAND);
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
 						}
 
@@ -1956,7 +1957,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					if (TacticalActorConditions::isCowering(*pSoldier))
 					{
 						pSoldier->StopCoweringAnimation();
-						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_CROUCH);
+						UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ANIM_CROUCH);
 						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ANIM_CROUCH)
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
 					}
@@ -1970,7 +1971,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					if (TacticalActorConditions::isCowering(*pSoldier))
 					{
 						pSoldier->StopCoweringAnimation();
-						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_PRONE);
+						UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ANIM_PRONE);
 						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ANIM_PRONE)
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
 					}
@@ -2259,7 +2260,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					else
 					{
 						pSoldier->movement().setUiMovementFast(FALSE);
-						pSoldier->movement().mode() =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+						pSoldier->movement().mode() =	TacticalActorMobility::movementStateForCurrentStance(*pSoldier);
 					}
 
 					//if ( !( IsJa2TacticalCombatActive() ) && ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
@@ -2333,7 +2334,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				// FOR REALTIME - DO MOVEMENT BASED ON STANCE!
 				if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 				{
-					pSoldier->movement().mode() =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+					pSoldier->movement().mode() =	TacticalActorMobility::movementStateForCurrentStance(*pSoldier);
 				}
 				
 				sDestGridNo = usMapPos;
@@ -3323,7 +3324,7 @@ UINT32 UIHandlePADJAdjustStance( UI_EVENT *pUIEvent )
 				if (TacticalActorConditions::isCowering(*pSoldier))
 				{
 					pSoldier->StopCoweringAnimation();
-					UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubNewStance);
+					UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ubNewStance);
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ubNewStance)
 						pSoldier->animationIntent().pendingAnimation() = usNewState;
 				}
@@ -5458,7 +5459,7 @@ void SetConfirmMovementModeCursor( TacticalActor *pSoldier, BOOLEAN fFromMove )
 		}
 		else
 		{
-			if ( pSoldier->IsFastMovement() && pSoldier->animationPlayback().state() == RUNNING && fFromMove )
+			if ( TacticalActorMobility::isFastMovement(*pSoldier) && pSoldier->animationPlayback().state() == RUNNING && fFromMove )
 			{
 				BeginDisplayTimedCursor( MOVE_RUN_REALTIME_UICURSOR, 300 );
 			}
@@ -6220,7 +6221,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 				}
 
 				pSoldier->movement().setUiMovementFast(fMoveFast);
-				pSoldier->movement().mode() =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+				pSoldier->movement().mode() =	TacticalActorMobility::movementStateForCurrentStance(*pSoldier);
 
 				pSoldier->movement().setUiMovementFast(FALSE);
 
@@ -7566,7 +7567,7 @@ BOOLEAN IsValidJumpLocation( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fCh
 					//else
 
 					// Can't jump from a water tile (but we can jumpt TO a water tile)
-					if ( pSoldier->MercInWater() )
+					if ( TacticalActorMobility::inWater(*pSoldier) )
 					{
 						return( FALSE );
 					}
@@ -7665,13 +7666,13 @@ BOOLEAN IsValidJumpLocation( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fCh
 					if ( !pSoldier->animationActivity().turningUntilDone() )
 					{			
 						// Can't jump from a water tile (but we can jumpt TO a water tile)
-						if ( pSoldier->MercInWater() )
+						if ( TacticalActorMobility::inWater(*pSoldier) )
 						{
 							return( FALSE );
 						}
 
 						// This ain't gonna happen with backpack
-						if (!pSoldier->CanClimbWithCurrentBackpack())
+						if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pSoldier))
 						{
 							return( FALSE );
 						}

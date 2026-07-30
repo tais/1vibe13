@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 #include "SoldierRepository.h"
 #include "TacticalActorRobotics.h"
@@ -4639,7 +4640,7 @@ BOOLEAN SoldierOKForSectorExit( TacticalActor * pSoldier, INT8 bExitDirection, I
 		// FOR REALTIME - DO MOVEMENT BASED ON STANCE!
 		if ( (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive()) )
 		{
-			pSoldier->movement().mode() = pSoldier->GetMoveStateBasedOnStance( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight );
+			pSoldier->movement().mode() = TacticalActorMobility::movementStateForCurrentStance(*pSoldier);
 		}
 
 		sGridNo = FindGridNoFromSweetSpotCloseToExitGrid( pSoldier, usAdditionalData, 10, &ubDirection );

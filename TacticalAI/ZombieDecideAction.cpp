@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 #include "ai.h"
 #include "AIInternals.h"
 #include "Isometric Utils.h"
@@ -364,7 +365,7 @@ INT8 ZombieDecideActionGreen(TacticalActor *pSoldier)
 				} while (pSoldier->aiPlanning().actionData() == pSoldier->position().direction());
 
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Trying to turn - checking stance validity"));
-				if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->aiPlanning().actionData(), gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+				if ( TacticalActorMobility::isCurrentStanceValid(*pSoldier, (INT8) pSoldier->aiPlanning().actionData()) )
 				{
 
 					if ( !gfTurnBasedAI )
@@ -438,7 +439,7 @@ INT8 ZombieDecideActionYellow(TacticalActor *pSoldier)
 				iChance += 15;
 
 
-			if ((INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubNoiseDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+			if ((INT16)PreRandom(100) < iChance && TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubNoiseDir) )
 			{
 				pSoldier->aiPlanning().actionData() = ubNoiseDir;
 
@@ -505,7 +506,7 @@ INT8 ZombieDecideActionYellow(TacticalActor *pSoldier)
 	////////////////////////////////////////////////////////////////////////
 
 	// if our breath is running a bit low, and we're not in water
-	if ((pSoldier->vitals().breath() < 25) && !pSoldier->MercInWater())
+	if ((pSoldier->vitals().breath() < 25) && !TacticalActorMobility::inWater(*pSoldier))
 	{
 		// take a breather for gods sake!
 		pSoldier->aiPlanning().actionData() = NOWHERE;
@@ -725,7 +726,7 @@ INT8 ZombieDecideActionRed(TacticalActor *pSoldier)
 
 							if( pSoldier->position().direction() != ubOpponentDir &&
 								PythSpacesAway(pSoldier->position().gridNo(),sClosestThreat) <= sDistVisible &&
-								pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+								TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubOpponentDir) )
 							{
 								pSoldier->aiPlanning().actionData() = ubOpponentDir;
 								return(AI_ACTION_CHANGE_FACING);								
@@ -837,7 +838,7 @@ INT8 ZombieDecideActionRed(TacticalActor *pSoldier)
 
 		if( pSoldier->position().direction() != ubOpponentDir &&
 			PythSpacesAway(pSoldier->position().gridNo(),sClosestThreat) <= sDistVisible &&
-			pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+			TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubOpponentDir) )
 		{
 			pSoldier->aiPlanning().actionData() = ubOpponentDir;
 			return(AI_ACTION_CHANGE_FACING);			
@@ -881,7 +882,7 @@ INT8 ZombieDecideActionRed(TacticalActor *pSoldier)
 		DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d noise direction %d", pSoldier->position().direction(), ubOpponentDir));
 
 		if ( pSoldier->position().direction() != ubOpponentDir &&
-			pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ))
+			TacticalActorMobility::isCurrentStanceValid(*pSoldier, ubOpponentDir))
 		{
 			pSoldier->aiPlanning().actionData() = ubOpponentDir;
 			return( AI_ACTION_CHANGE_FACING );
@@ -1248,7 +1249,7 @@ INT8 ZombieDecideActionBlack(TacticalActor *pSoldier)
 
 			// if we're not facing towards him
 			if( pSoldier->position().direction() != bDirection &&
-				pSoldier->InternalIsValidStance( bDirection, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+				TacticalActorMobility::isCurrentStanceValid(*pSoldier, bDirection) )
 			{
 				pSoldier->aiPlanning().actionData() = bDirection;
 
@@ -1399,7 +1400,7 @@ INT8 ZombieDecideAction( TacticalActor *pSoldier )
 			((pSoldier->aiBehavior().alertStatus() == STATUS_YELLOW) && (pSoldier->vitals().breath() < 50)))
 		{
 			// as long as he's not in water (standing on a bridge is OK)
-			if (!pSoldier->MercInWater())
+			if (!TacticalActorMobility::inWater(*pSoldier))
 			{
 				// force a NEW decision so that he can get some rest
 				SetNewSituation( pSoldier );

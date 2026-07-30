@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 	#include "builddefines.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
@@ -4723,7 +4724,8 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 
 		if ( fNearLowerLevel )
 		{
-			if (!GetSMCurrentMerc()->CanClimbWithCurrentBackpack())
+			if (!TacticalActorMobility::canClimbWithCurrentBackpack(
+					*GetSMCurrentMerc()))
 			{
 				ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB]);
 				return;
@@ -4736,7 +4738,8 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 
 		if ( fNearHeigherLevel )
 		{
-			if (!GetSMCurrentMerc()->CanClimbWithCurrentBackpack())
+			if (!TacticalActorMobility::canClimbWithCurrentBackpack(
+					*GetSMCurrentMerc()))
 			{
 				ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB]);
 				return;
@@ -4751,7 +4754,8 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 		
 		if (gGameExternalOptions.fCanClimbOnWalls == TRUE)
 		{
-			if (!GetSMCurrentMerc()->CanClimbWithCurrentBackpack())
+			if (!TacticalActorMobility::canClimbWithCurrentBackpack(
+					*GetSMCurrentMerc()))
 			{
 				ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB]);
 				return;
@@ -4769,7 +4773,8 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 
 		if ( FindFenceJumpDirection( GetSMCurrentMerc(), GetSMCurrentMerc()->position().gridNo(), GetSMCurrentMerc()->position().direction(), &bDirection ) )
 		{
-			if (!GetSMCurrentMerc()->CanClimbWithCurrentBackpack())
+			if (!TacticalActorMobility::canClimbWithCurrentBackpack(
+					*GetSMCurrentMerc()))
 			{
 				ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB]);
 				return;

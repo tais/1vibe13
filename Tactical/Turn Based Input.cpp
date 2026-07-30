@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
@@ -3881,7 +3882,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						if ( fNearLowerLevel )
 						{
 							// No climbing when wearing a backpack!
-							if (!pjSoldier->CanClimbWithCurrentBackpack())
+							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 							{
 								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB] );
 								return;
@@ -3899,7 +3900,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						if ( fNearHeigherLevel )
 						{
 							// No climbing when wearing a backpack!
-							if (!pjSoldier->CanClimbWithCurrentBackpack())
+							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 							{
 								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB] );
 								return;
@@ -3917,7 +3918,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						// Jump over fence
 						if ( FindFenceJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 						{
-							if (!pjSoldier->CanClimbWithCurrentBackpack())
+							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 							{
 								//Moa: no jumping whith backpack
 								//sAPCost = GetAPsToJumpFence( pjSoldier, TRUE );
@@ -3944,7 +3945,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						if (gGameExternalOptions.fCanClimbOnWalls == TRUE)
 						{ 
 							// No climbing when wearing a backpack!
-							if (!pjSoldier->CanClimbWithCurrentBackpack())
+							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 							{
 								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB] );
 								return;
@@ -3982,7 +3983,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 
 						if ( FindWindowJumpDirection( lSoldier, lSoldier->position().gridNo(), lSoldier->position().direction(), &bDirection ) )
 						{
-							if (!lSoldier->CanClimbWithCurrentBackpack())
+							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*lSoldier))
 							{
 								//Moa: no jumping with backpack
 								//sAPCost = GetAPsToJumpThroughWindows( lSoldier, TRUE );
@@ -6620,7 +6621,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 					if (TacticalActorConditions::isCowering(*pSoldier))
 					{
 						pSoldier->StopCoweringAnimation();
-						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubAnimHeight);
+						UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ubAnimHeight);
 						pSoldier->animationIntent().pendingAnimation() = usNewState;
 					}
 
@@ -6634,7 +6635,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 				if (TacticalActorConditions::isCowering(*pSoldier))
 				{
 					pSoldier->StopCoweringAnimation();
-					UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubAnimHeight);
+					UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ubAnimHeight);
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ubAnimHeight)
 						pSoldier->animationIntent().pendingAnimation() = usNewState;
 				}
@@ -7852,7 +7853,7 @@ void HandleTBJump( void )
 					if ( fNearLowerLevel )
 					{
 						// CHRISL: Turn off manual jumping while wearing a backpack
-						if (!pjSoldier->CanClimbWithCurrentBackpack())
+						if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 							return;
 
 						if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, TRUE ), GetBPsToClimbRoof( pjSoldier, TRUE ), FALSE )	)
@@ -7866,7 +7867,7 @@ void HandleTBJump( void )
 					if ( fNearHeigherLevel )
 					{
 						// No climbing when wearing a backpack!
-						if (!pjSoldier->CanClimbWithCurrentBackpack())
+						if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 							return;
 
 						if ( EnoughPoints( pjSoldier, GetAPsToClimbRoof( pjSoldier, FALSE ), GetBPsToClimbRoof( pjSoldier, FALSE ), FALSE )	)
@@ -7880,7 +7881,7 @@ void HandleTBJump( void )
 					// Jump over fence
 					if ( FindFenceJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 					{
-						if (!pjSoldier->CanClimbWithCurrentBackpack())
+						if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 						{
 							sAPCost = GetAPsToJumpFence( pjSoldier, TRUE );
 							sBPCost = GetBPsToJumpFence( pjSoldier, TRUE );
@@ -7905,7 +7906,7 @@ void HandleTBJump( void )
 						if ( FindWallJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 						{
 							// No climbing when wearing a backpack!
-							if (!pjSoldier->CanClimbWithCurrentBackpack())
+							if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 								return;
 
 							if ( EnoughPoints( pjSoldier, GetAPsToJumpWall( pjSoldier, FALSE ), GetBPsToJumpWall( pjSoldier, FALSE ), FALSE )	)
@@ -7931,7 +7932,7 @@ void HandleTBJumpThroughWindow( void ){
 	{
 			if ( FindWindowJumpDirection( pjSoldier, pjSoldier->position().gridNo(), pjSoldier->position().direction(), &bDirection ) )
 		{
-				if (!pjSoldier->CanClimbWithCurrentBackpack())
+				if (!TacticalActorMobility::canClimbWithCurrentBackpack(*pjSoldier))
 			{
 					sAPCost = GetAPsToJumpThroughWindows( pjSoldier, TRUE );
 					sBPCost = GetBPsToJumpThroughWindows( pjSoldier, TRUE );
@@ -8812,7 +8813,7 @@ void HandleTBSoldierRun( void )
 	{
 		pSoldier = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 	}
-	if ( !pSoldier->MercInWater() && !(pSoldier->status().flags() & SOLDIER_ROBOT ) )
+	if ( !TacticalActorMobility::inWater(*pSoldier) && !(pSoldier->status().flags() & SOLDIER_ROBOT ) )
 	{
 		//change selected merc to run
 		if ( pSoldier->movement().mode() != WALKING
@@ -8829,7 +8830,7 @@ void HandleTBSoldierRun( void )
 			if (TacticalActorConditions::isCowering(*pSoldier))
 			{
 				pSoldier->StopCoweringAnimation();
-				UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_STAND);
+				UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ANIM_STAND);
 				pSoldier->animationIntent().pendingAnimation() = usNewState;
 			}
 

@@ -1,3 +1,5 @@
+#include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorExplosives.h"
 	#include "builddefines.h"
@@ -4010,7 +4012,7 @@ void INVRenderItem( UINT32 uiBuffer, TacticalActor * pSoldier, OBJECTTYPE  *pObj
 
 			// display symbol if we are leaning our weapon on something
 			// display only if eapon resting is allowed, display is allowed, item is a gun/launcher, we are a person, we hold the gun in our hand, and we are resting the gun
-			if ( gGameExternalOptions.fWeaponResting && pItem->usItemClass & (IC_GUN | IC_LAUNCHER) && pSoldier &&  &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) == pObject && pSoldier->IsWeaponMounted() )
+			if ( gGameExternalOptions.fWeaponResting && pItem->usItemClass & (IC_GUN | IC_LAUNCHER) && pSoldier &&  &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) == pObject && TacticalActorWeaponHandling::isWeaponMounted(*pSoldier) )
 			{
 				SetRGBFontForeground( 95, 160, 154 );
 												
@@ -4255,7 +4257,7 @@ void INVRenderItem( UINT32 uiBuffer, TacticalActor * pSoldier, OBJECTTYPE  *pObj
 				(pSoldier->attackSelection().weaponMode() == WM_BURST || pSoldier->attackSelection().weaponMode() == WM_AUTOFIRE) &&
 				Item[pSoldier->inventory()[HANDPOS].usItem].usItemClass & IC_GUN &&
 				!ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) &&
-				pSoldier->IsValidSecondHandBurst() )
+				TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) )
 			{
 				sNewY = sY + 13; // rather arbitrary
 				if ( pSoldier->attackSelection().weaponMode() == WM_BURST )
@@ -9227,7 +9229,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	}
 
 	// Don't allow if our soldier is a # of things...
-	if ( AM_AN_EPC( GetItemPointerSoldier() ) || GetItemPointerSoldier()->vitals().health() < OKLIFE || GetItemPointerSoldier()->MercInDeepWater( ) )
+	if ( AM_AN_EPC( GetItemPointerSoldier() ) || GetItemPointerSoldier()->vitals().health() < OKLIFE || TacticalActorMobility::inDeepWater(*GetItemPointerSoldier()) )
 	{
 		return( FALSE );
 	}
@@ -9565,7 +9567,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						  pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 						  // WANNE: Also turn merc if he is crouched and he passes an item
-						  if ( !pSoldier->MercInWater( ) )
+						  if ( !TacticalActorMobility::inWater(*pSoldier) )
 						  {
 							  // Turn to face, then do animation....
 							  pSoldier->EVENT_SetSoldierDesiredDirection( ubFacingDirection );
@@ -9578,7 +9580,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						 }
 
 						  // WANNE: Also turn merc if he is crouched and he received the passed item
-						  if ( !GetItemPointerSoldier()->MercInWater(  ) )
+						  if ( !TacticalActorMobility::inWater(*GetItemPointerSoldier()) )
 						  {
 							  GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( gOppositeDirection[ ubFacingDirection ] );
 							  GetItemPointerSoldier()->animationActivity().turningUntilDone()	 = TRUE;

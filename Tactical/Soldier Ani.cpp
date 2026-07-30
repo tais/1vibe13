@@ -1,3 +1,5 @@
+#include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "stdlib.h"
 #include "TacticalWorldAdapter.h"
@@ -295,7 +297,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				pSoldier->animationIntent().desiredHeight() = ANIM_CROUCH;
 
 				// Madd
-				usMovementMode = pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+				usMovementMode = TacticalActorMobility::movementStateForCurrentStance(*pSoldier);
 				pSoldier->movement().mode() = usMovementMode;
 
 				// ATE: Change interface level.....
@@ -424,7 +426,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 					//DIGICRAB: Burst UnCap
 					//Loop around in the animation if we still have burst rounds to fire
-					if (pSoldier->fireControl().burstCounter() && !(pSoldier->IsValidSecondHandBurst())
+					if (pSoldier->fireControl().burstCounter() && !(TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier))
 						&& ( pSoldier->fireControl().burstCounter() <= ( (pSoldier->fireControl().autofireShots())?(pSoldier->fireControl().autofireShots()):(GetShotsPerBurst( pObjHand ))	)
 						|| (( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->fireControl().burstCounter() <= Weapon[GetAttachedGrenadeLauncher(&pSoldier->inventory()[HANDPOS])].ubShotsPerBurst)) ))
 					{
@@ -839,13 +841,13 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						fStop = TRUE;
 						fFreeUpAttacker = TRUE;
 					}
-					else if (pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && !(pSoldier->IsValidSecondHandBurst()) && (pSoldier->fireControl().burstCounter() > ((pSoldier->fireControl().autofireShots())?(pSoldier->fireControl().autofireShots()):(GetShotsPerBurst( pObjHand )))))
+					else if (pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && !(TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier)) && (pSoldier->fireControl().burstCounter() > ((pSoldier->fireControl().autofireShots())?(pSoldier->fireControl().autofireShots()):(GetShotsPerBurst( pObjHand )))))
 					{
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because gun max burst size reached");
 						fStop = TRUE;
 						fFreeUpAttacker = TRUE;
 					}
-					else if (pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && pSoldier->IsValidSecondHandBurst() && (pSoldier->fireControl().burstCounter() > ((pSoldier->fireControl().autofireShots())?(2*pSoldier->fireControl().autofireShots()):(2*GetShotsPerBurst( pObjHand )))))
+					else if (pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) && (pSoldier->fireControl().burstCounter() > ((pSoldier->fireControl().autofireShots())?(2*pSoldier->fireControl().autofireShots()):(2*GetShotsPerBurst( pObjHand )))))
 					{
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because dual max burst size reached");
 						fStop = TRUE;
@@ -1790,7 +1792,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						{
 							// Don't do any in water!
 							// Also don't play if we are in the middle of something
-							if ( !pSoldier->MercInWater( ) && !pSoldier->animationActivity().turningUntilDone() )
+							if ( !TacticalActorMobility::inWater(*pSoldier) && !pSoldier->animationActivity().turningUntilDone() )
 							{
 								// OK, make a dice roll
 								ubDiceRoll = (UINT8)Random( 100 );
@@ -2420,7 +2422,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					// Adjust movement mode......
 					if ( pSoldier->roster().team() == gbPlayerNum && !pSoldier->animationIntent().continuationMode() )
 					{
-						usMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+						usMovementMode =	TacticalActorMobility::movementStateForCurrentStance(*pSoldier);
 
 						// ATE: if we are currently running but have been told to walk, don't!
 						if ( pSoldier->movement().mode() == RUNNING && usMovementMode == WALKING )

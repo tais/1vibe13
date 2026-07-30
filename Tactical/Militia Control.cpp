@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 
 	#include "Militia Control.h"
 #include "TacticalWorldAdapter.h"
@@ -1315,7 +1316,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							pMilitiaSoldier->EVENT_StopMerc(pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
 							CancelAIAction(pMilitiaSoldier, TRUE);
 
-							if (pMilitiaSoldier->InternalIsValidStance(pMilitiaSoldier->position().direction(), ANIM_PRONE))
+							if (TacticalActorMobility::isValidStance(*pMilitiaSoldier, pMilitiaSoldier->position().direction(), ANIM_PRONE))
 							{
 								SendChangeSoldierStanceEvent( pMilitiaSoldier, ANIM_PRONE );
 							}
@@ -1345,7 +1346,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							pMilitiaSoldier->EVENT_StopMerc(pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
 							CancelAIAction(pMilitiaSoldier, TRUE);
 
-							if (pMilitiaSoldier->InternalIsValidStance(pMilitiaSoldier->position().direction(), ANIM_CROUCH))
+							if (TacticalActorMobility::isValidStance(*pMilitiaSoldier, pMilitiaSoldier->position().direction(), ANIM_CROUCH))
 							{
 								SendChangeSoldierStanceEvent(pMilitiaSoldier, ANIM_CROUCH);
 							}
@@ -1707,7 +1708,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
-								if (pTeamSoldier->InternalIsValidStance(pTeamSoldier->position().direction(), ANIM_PRONE))
+								if (TacticalActorMobility::isValidStance(*pTeamSoldier, pTeamSoldier->position().direction(), ANIM_PRONE))
 								{
 									SendChangeSoldierStanceEvent( pTeamSoldier, ANIM_PRONE );
 								}
@@ -1747,7 +1748,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
-								if (pTeamSoldier->InternalIsValidStance(pTeamSoldier->position().direction(), ANIM_CROUCH))
+								if (TacticalActorMobility::isValidStance(*pTeamSoldier, pTeamSoldier->position().direction(), ANIM_CROUCH))
 								{
 									SendChangeSoldierStanceEvent(pTeamSoldier, ANIM_CROUCH);
 								}								

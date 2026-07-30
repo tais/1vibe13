@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 	#include "sgp.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
@@ -1760,7 +1761,7 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 				}
 
 		// ATE: Make sure movement mode is up to date!
-				pSoldier->movement().mode() =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+				pSoldier->movement().mode() =	TacticalActorMobility::movementStateForCurrentStance(*pSoldier);
 
 			}
 		}

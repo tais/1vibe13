@@ -1,3 +1,5 @@
+#include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
 #include "TacticalActorSpotting.h"
@@ -1208,7 +1210,7 @@ BOOLEAN CheckForGunJam( TacticalActor * pSoldier )
 					invertedBaseJamChance = 100;
 
 				int jamChance = 100;
-				if ( pSoldier->attackSelection().hand() == SECONDHANDPOS && pSoldier->IsValidSecondHandBurst() )
+				if ( pSoldier->attackSelection().hand() == SECONDHANDPOS && TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) )
 					jamChance -= (int)sqrt((double)invertedBaseJamChance * ((75.0-(int)((pSoldier->fireControl().burstCounter()/2)>1)*15) + (double)invertedBaseJamChance / 2.0));
 				else
 					jamChance -= (int)sqrt((double)invertedBaseJamChance * ((75.0-(int)(pSoldier->fireControl().burstCounter()>1)*15) + (double)invertedBaseJamChance / 2.0));
@@ -2301,7 +2303,7 @@ BOOLEAN UseGunNCTH( TacticalActor *pSoldier , INT32 sTargetGridNo )
 		}
 		// calculate shock reduction value 0-50%
 		UINT8 ubShockReductPercent = (50 - 400 / (bShotsToFire + 8)) * noisefactor * Weapon[usUBItem].ubAttackVolume / (50 * 100);
-		if (pSoldier->IsValidSecondHandShot())
+		if (TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier))
 			ubShockReductPercent = ubShockReductPercent * 3 / 2;
 		ubShockReductPercent = __min(50, ubShockReductPercent);
 
@@ -2352,7 +2354,7 @@ BOOLEAN UseGunNCTH( TacticalActor *pSoldier , INT32 sTargetGridNo )
 		// ONLY DEDUCT FOR THE FIRST HAND when doing two-pistol attacks
 		if ( !pSoldier->fireControl().barrelCounter() )
 		{
-			if ( pSoldier->IsValidSecondHandShot() && ( *pObjHand )[0]->data.gun.bGunStatus >= USABLE && ( *pObjHand )[0]->data.gun.bGunAmmoStatus > 0 )
+			if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) && ( *pObjHand )[0]->data.gun.bGunStatus >= USABLE && ( *pObjHand )[0]->data.gun.bGunAmmoStatus > 0 )
 			{
 				// only deduct APs when the main gun fires
 				if ( pSoldier->attackSelection().hand() == HANDPOS )
@@ -2634,7 +2636,7 @@ BOOLEAN UseGunNCTH( TacticalActor *pSoldier , INT32 sTargetGridNo )
 			// add base pts for taking a shot, whether it hits or misses
 			dExpGain = 2.0f;
 
-			if ( pSoldier->IsValidSecondHandShot( ) && (*pObjHand)[0]->data.gun.bGunStatus >= USABLE && (*pObjHand)[0]->data.gun.bGunAmmoStatus > 0 )
+			if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) && (*pObjHand)[0]->data.gun.bGunStatus >= USABLE && (*pObjHand)[0]->data.gun.bGunAmmoStatus > 0 )
 			{
 				// reduce exp gain for two pistol shooting since both shots give xp
 				dExpGain = (dExpGain * 2) / 3;
@@ -3112,7 +3114,7 @@ BOOLEAN UseGun( TacticalActor *pSoldier , INT32 sTargetGridNo )
 		}
 		// calculate shock reduction value 0-50%
 		UINT8 ubShockReductPercent = (50 - 400 / (bShotsToFire + 8)) * noisefactor * Weapon[usUBItem].ubAttackVolume / (50 * 100);
-		if (pSoldier->IsValidSecondHandShot())
+		if (TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier))
 			ubShockReductPercent = ubShockReductPercent * 3 / 2;
 		ubShockReductPercent = __min(50, ubShockReductPercent);
 
@@ -3143,7 +3145,7 @@ BOOLEAN UseGun( TacticalActor *pSoldier , INT32 sTargetGridNo )
 		// ONLY DEDUCT FOR THE FIRST HAND when doing two-pistol attacks
 		if ( !pSoldier->fireControl().barrelCounter() )
 		{
-			if ( pSoldier->IsValidSecondHandShot() && ( *pObjUsed )[0]->data.gun.bGunStatus >= USABLE && ( *pObjUsed )[0]->data.gun.bGunAmmoStatus > 0 )
+			if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) && ( *pObjUsed )[0]->data.gun.bGunStatus >= USABLE && ( *pObjUsed )[0]->data.gun.bGunAmmoStatus > 0 )
 			{
 				// only deduct APs when the main gun fires
 				if ( pSoldier->attackSelection().hand() == HANDPOS )
@@ -3402,7 +3404,7 @@ BOOLEAN UseGun( TacticalActor *pSoldier , INT32 sTargetGridNo )
 			// add base pts for taking a shot, whether it hits or misses
 			usExpGain += 3;
 
-			if ( pSoldier->IsValidSecondHandShot( ) && pSoldier->inventory()[ HANDPOS ][0]->data.gun.bGunStatus >= USABLE && (*pObjUsed)[0]->data.gun.bGunAmmoStatus > 0 )
+			if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) && pSoldier->inventory()[ HANDPOS ][0]->data.gun.bGunStatus >= USABLE && (*pObjUsed)[0]->data.gun.bGunAmmoStatus > 0 )
 			{
 				// reduce exp gain for two pistol shooting since both shots give xp
 				usExpGain = (usExpGain * 2) / 3;
@@ -6189,7 +6191,7 @@ UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 	UINT8 stance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
-	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
+	if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pSoldier) )
 		stance = ANIM_PRONE;
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -6199,7 +6201,7 @@ UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	//CHRISL: We have a new way to do this using a global variable
-	if ( !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) ) // ignore scopes when firing from hip or on fast shot with pistol
+	if ( !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) ) // ignore scopes when firing from hip or on fast shot with pistol
 		gbForceWeaponReady = true;
 
 	sDistVis = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
@@ -6367,7 +6369,7 @@ UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 		//	35 tiles.  ACOG becomes fully effecient at 14 tiles and 2x is fully effeciency at 7 tiles (compared to 28 and 14 respectively).  This does mean that a
 		//	2x scope reaches full effeciency at the same point as "scopeless" shooting, but I don't think this will be a serious problem.
 
-		if ( !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) ) // ignore scopes when firing from hip/fast shot from pistol
+		if ( !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) ) // ignore scopes when firing from hip/fast shot from pistol
 		{
 			fScopeMagFactor = GetBestScopeMagnificationFactor( pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]), d2DDistance );
 			fRangeModifier = GetScopeRangeMultiplier(pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]), (FLOAT)iRange);
@@ -6443,7 +6445,7 @@ UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 		}
 
 		// factor in scopes under their range
-		if ( !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
+		if ( !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) )
 		{
 			// opt: the attacking-hand object isn't mutated here, so the highest-scope
 			// magnification is identical for the test and the penalty -- scan it once.
@@ -6572,14 +6574,14 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	UINT8 stance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
-	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
+	if ( gGameExternalOptions.fWeaponResting && TacticalActorWeaponHandling::isWeaponMounted(*pSoldier) )
 		stance = ANIM_PRONE;
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Assign range variables -- all range values are in units (10 units = 1 tile)
 	iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );	// calculate actual range
 
-	if ( !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) ) // ignore scopes when firing from hip
+	if ( !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) ) // ignore scopes when firing from hip
 		gbForceWeaponReady = true;
 
 	sDistVis = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
@@ -6643,7 +6645,7 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	if ( scopeRangeMod )
 		iSightRange = (INT32)(iSightRange / scopeRangeMod);
 
-	if(iSightRange > 0 && !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) ){
+	if(iSightRange > 0 && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) ){
 		//CHRISL: The LOS system, which determines whether to display an enemy unit, does not factor in the AimBonus tag during it's calculations.  So having
 		//	the CTH system use that tag to adjust iSightRange for AimBonus applied from armor might not be the best option.  Especially as it can sometimes
 		//	result in 0% CTH when everything looks like you could actually hit the target.  Let's try applying this penalty to CTH at the same point we would
@@ -6701,7 +6703,7 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	if (sGridNo == pSoldier->targeting().lastGridNo() )	// give a bonus to hit
 		iChance += AIM_BONUS_SAME_TARGET;
 	// if shooting from alternative weapon holding, apply the preset penalty
-	if ( pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
+	if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) )
 		iChance -= gGameExternalOptions.ubAltWeaponHoldingCtHPenaly;
 		
 	/////////////////////////////////////////////////////////////////////////////////////
@@ -6736,7 +6738,7 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	}
 	iChance += iPenalty;
 	//CHRISL: Applying the Gear AimBonus (penalty) here, and directly to iChance as a flat penalty, instead of altering iSightRange above.
-	if ( !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
+	if ( !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) )
 		iChance += GetGearAimBonus ( pSoldier, iSightRange, ubAimTime );
 
 	//CHRISL: We should probably include these target size penalties even if we can't see the target so that shooting a "hidden" head is harder then a "hidden" body
@@ -6977,14 +6979,14 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	// Flugente: backgrounds
 	if ( pTarget && TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE ) )
 	{
-		if ( pTarget->IsCrouchedAgainstCoverFromDir( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTarget ) ) )
+		if ( TacticalActorMobility::isCrouchedAgainstCover(*pTarget,  GetDirectionFromGridNo( pSoldier->position().gridNo(), pTarget ) ) )
 		{
 			iChance += TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE );
 		}
 	}
 
 	// Flugente: check for scope mode
-	if ( Item[(&(pSoldier->inventory()[pSoldier->attackSelection().hand()]))->usItem].usItemClass == IC_GUN && !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
+	if ( Item[(&(pSoldier->inventory()[pSoldier->attackSelection().hand()]))->usItem].usItemClass == IC_GUN && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) )
 	{
 		std::map<INT8, OBJECTTYPE*> ObjList;
 		GetScopeLists(pSoldier, (&(pSoldier->inventory()[pSoldier->attackSelection().hand()])), ObjList);
@@ -7151,7 +7153,7 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		}
 
 		// SAMDRO - shooting dual bursts is somehow harder to control
-		if ( pSoldier->IsValidSecondHandBurst() )
+		if ( TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) )
 		{
 			iPenalty = iPenalty*6/5; // +10% 
 		}
@@ -7199,7 +7201,7 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		}
 
 		// SAMDRO - shooting dual bursts is somehow harder to control
-		if ( pSoldier->IsValidSecondHandBurst() )
+		if ( TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) )
 		{
 			iPenalty = iPenalty*6/5; // +10% 
 		}
@@ -7286,7 +7288,7 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		iAimBonus = (float)GetAimBonus( pSoldier, pInHand, 100, 1 );
 
 		// penalty when aiming from alternative weapon holding
-		if ( pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
+		if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) )
 			iAimBonus = iAimBonus * (100 - gGameExternalOptions.ubAltWeaponHoldingAimingPenaly) / 100;
 
 		for(int i = 0; i < ubAimTime; i++) {
@@ -7606,13 +7608,13 @@ UINT32 AICalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimT
 		// very fast the farther the target is away. Setting IRON_SIGHT_PERFORMANCE_BONUS too high makes them overly powerful at
 		// close range. This experimental formula implements a curve that lowers dBasicAperture the farther the target is away.
 		// At 1 tile distance iBasicAperture will be the same as before. That's the common start.
-		if ( gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && dMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
+		if ( gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && dMagFactor <= 1.0 && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) )
 
 			dBasicAperture = dBasicAperture * ( 1 / sqrt( d2DDistance / FLOAT(CELL_X_SIZE) ) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER
 						+ (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER - 1) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER );
 
 		// iron sights can get a percentage bonus to make them overall better but only when not shooting from hip
-		if ( dMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
+		if ( dMagFactor <= 1.0 && !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) )
 
 			dBasicAperture = dBasicAperture * (FLOAT)( (100 - gGameCTHConstants.IRON_SIGHT_PERFORMANCE_BONUS) / 100);
 
@@ -7629,7 +7631,7 @@ UINT32 AICalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimT
 			{
 				FLOAT fLaserBonus = 0;
 				// which bonus do we want to apply?
-				if ( pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
+				if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) )
 					// shooting from hip
 					fLaserBonus = gGameCTHConstants.LASER_PERFORMANCE_BONUS_HIP;
 				else if ( dMagFactor <= 1.0 )
@@ -8270,7 +8272,7 @@ INT32 BulletImpact( TacticalActor *pFirer, BULLET *pBullet, TacticalActor * pTar
 				break;
 			case AIM_SHOT_LEGS:
 				// is the damage enough to make us fall over?
-				if ( pubSpecial && IS_MERC_BODY_TYPE( pTarget ) && gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight == ANIM_STAND && !pTarget->MercInWater() )
+				if ( pubSpecial && IS_MERC_BODY_TYPE( pTarget ) && gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight == ANIM_STAND && !TacticalActorMobility::inWater(*pTarget) )
 				{
 					if (iImpactForCrits > MIN_DAMAGE_FOR_AUTO_FALL_OVER )
 					{
@@ -10255,7 +10257,7 @@ UINT32 CalcThrownChanceToHit(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 			* (pSoldier->fireControl().burstCounter() - 1);
 
 		// SAMDRO - shooting dual bursts is somehow harder to control
-		if ( pSoldier->IsValidSecondHandBurst() )
+		if ( TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) )
 		{
 			iPenalty = iPenalty*6/5; // +10% 
 		}
@@ -10917,8 +10919,19 @@ UINT8 GetAmmoType( OBJECTTYPE *pObj )
 
 bool WeaponReady(TacticalActor * pSoldier)
 {
+	if (!pSoldier ||
+		pSoldier->animationPlayback().state() >=
+			NUMANIMATIONSTATES)
+	{
+		return false;
+	}
+
 #ifdef ROBOT_ALWAYS_READY
-	if ( AM_A_ROBOT( pSoldier) )
+	const auto profile = pSoldier->identity().profile();
+	if (pSoldier->identity().bodyType() == ROBOTNOWEAPON ||
+		(profile != NO_PROFILE &&
+		 profile < NUM_PROFILES &&
+		 gMercProfiles[profile].ubBodyType == ROBOTNOWEAPON))
 		return true;
 #endif
 	if (gbForceWeaponNotReady)
@@ -11095,7 +11108,7 @@ void CalcMagFactorSimple( TacticalActor *pSoldier, FLOAT d2DDistance, INT16 bAim
 	// Flugente: when using scope modes, use scopes
 	if ( gGameExternalOptions.fScopeModes || bAimTime > 0 )
 	{
-		if ( !pSoldier->IsValidAlternativeFireMode( bAimTime, iGridNo ) )
+		if ( !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  bAimTime, iGridNo ) )
 			iScopeFactor = GetBestScopeMagnificationFactor( pSoldier, pWeapon, d2DDistance );
 		else			
 			iScopeFactor = 1.0f;
@@ -11408,7 +11421,7 @@ FLOAT CalcNewChanceToHitBaseWeaponBonus(TacticalActor *pSoldier, INT32 sGridNo, 
 	OBJECTTYPE * pInHand = &(pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 
 	// FIRING FROM ALTERNATIVE WEAPON HOLDING (faster shot, less accuracy)
-	if ( pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
+	if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) )
 	{
 		fBaseModifier -= gGameExternalOptions.ubAltWeaponHoldingCtHPenaly;
 	}
@@ -11418,7 +11431,7 @@ FLOAT CalcNewChanceToHitBaseWeaponBonus(TacticalActor *pSoldier, INT32 sGridNo, 
 	{
 		if (pSoldier->inventory()[SECONDHANDPOS].exists() != false)
 		{
-			if ( pSoldier->IsValidSecondHandShot( ) )
+			if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 			{
 				// Penalty for shooting two pistols. Ambidextrous trait halves this.
 				FLOAT fTempPenalty = (gGameCTHConstants.BASE_TWO_GUNS * fGunBaseDifficulty) - fGunBaseDifficulty;
@@ -11660,7 +11673,7 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(TacticalActor *pSoldier, TacticalActor *
 		// Flugente: backgrounds
 		if ( TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE ) )
 		{
-			if ( pTarget->IsCrouchedAgainstCoverFromDir( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTarget ) ) )
+			if ( TacticalActorMobility::isCrouchedAgainstCover(*pTarget,  GetDirectionFromGridNo( pSoldier->position().gridNo(), pTarget ) ) )
 			{
 				fBaseModifier += TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE );
 			}
@@ -11770,7 +11783,7 @@ FLOAT CalcNewChanceToHitAimWeaponBonus(TacticalActor *pSoldier, INT32 sGridNo, I
 	OBJECTTYPE * pInHand = &(pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 
 	// "AIMING" FROM ALTERNATIVE WEAPON HOLDING (faster shots, no scopes, less accuracy)
-	if ( pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ))
+	if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ))
 	{
 		//due to the way aiming levels are handled in NCTH, this penalty is increased here by 1/3 (it is harmonized by reduced aiming clicks)
 		fAimModifier -= (FLOAT)gGameExternalOptions.ubAltWeaponHoldingAimingPenaly * 4 / 3;
@@ -11787,7 +11800,7 @@ FLOAT CalcNewChanceToHitAimWeaponBonus(TacticalActor *pSoldier, INT32 sGridNo, I
 	{
 		if (pSoldier->inventory()[SECONDHANDPOS].exists() != false)
 		{
-			if ( pSoldier->IsValidSecondHandShot( ) )
+			if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 			{
 				// Penalty for shooting two pistols. Ambidextrous trait halves this.
 				FLOAT fTempPenalty = (gGameCTHConstants.AIM_TWO_GUNS * fGunAimDifficulty) - fGunAimDifficulty;
@@ -11993,7 +12006,7 @@ FLOAT CalcNewChanceToHitAimTraitBonus(TacticalActor *pSoldier, FLOAT fAimCap, FL
 		}
 	}
 	// Add bonuses from Sniper Skill. Applies only when using a scope at or above its "best" range.
-	else if ( !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
+	else if ( !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) )
 	{
 		if (fAimCap < gGameExternalOptions.ubMaximumCTH && fScopeMagFactor > 1.0 && iRange >= (INT32)uiBestScopeRange )
 		{

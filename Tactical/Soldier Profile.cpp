@@ -1,3 +1,4 @@
+#include "TacticalActorMobility.h"
 	#include <string.h>
 #include "TacticalActorRobotics.h"
 	#include "DEBUG.H"
@@ -2188,7 +2189,7 @@ BOOLEAN MercIsHot( TacticalActor * pSoldier )
 {
 	// SANDRO - added argument
 	// Flugente: drugs can temporarily cause a merc to be heat intolerant
-	if ( !pSoldier->MercInWater( ) && DoesMercHaveDisability( pSoldier, HEAT_INTOLERANT ) )
+	if ( !TacticalActorMobility::inWater(*pSoldier) && DoesMercHaveDisability( pSoldier, HEAT_INTOLERANT ) )
 	{
 		if ( (pSoldier->deployment().sectorZ() > 0) || (SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather == WEATHER_FORECAST_RAIN || SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather == WEATHER_FORECAST_THUNDERSHOWERS) )
 		{

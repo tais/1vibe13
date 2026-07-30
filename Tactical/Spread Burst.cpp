@@ -1,3 +1,4 @@
+#include "TacticalActorWeaponHandling.h"
 	#include "stdlib.h"
 	#include "DEBUG.H"
 	#include "Weapons.h"
@@ -208,7 +209,7 @@ void AIPickBurstLocations( TacticalActor *pSoldier, INT8 bTargets, TacticalActor
 	else
 		ubShotsPerBurst = __min(GetShotsPerBurst (&pSoldier->inventory()[ HANDPOS ]),MAX_BURST_SPREAD_TARGETS);
 
-	if ( pSoldier->IsValidSecondHandBurst() )
+	if ( TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) )
 		ubShotsPerBurst = ubShotsPerBurst*2;
 
 	ubShotsPerBurst =

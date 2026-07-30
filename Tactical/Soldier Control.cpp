@@ -12,6 +12,8 @@
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorMobility.h"
+#include "TacticalActorWeaponHandling.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "builddefines.h"
@@ -2437,7 +2439,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		// ATE: Don't raise/lower automatically if we are low on health,
 		// as our gun looks lowered anyway....
 		//if ( this->vitals().health() > INJURED_CHANGE_THREASHOLD )
-		if ( !this->MercInWater( ) )
+		if ( !TacticalActorMobility::inWater(*this) )
 		{
 			// Don't do some of this if we are a monster!
 			// ATE: LOWER AIMATION IS GOOD, RAISE ONE HOWEVER MAY CAUSE PROBLEMS FOR AI....
@@ -2540,7 +2542,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		}
 		///***ddd}
 
-		if ( this->animationPlayback().state() == WALKING && usNewState == STANDING && this->vitals().health() < INJURED_CHANGE_THREASHOLD && this->identity().bodyType() <= REGFEMALE && !this->MercInWater( ) )
+		if ( this->animationPlayback().state() == WALKING && usNewState == STANDING && this->vitals().health() < INJURED_CHANGE_THREASHOLD && this->identity().bodyType() <= REGFEMALE && !TacticalActorMobility::inWater(*this) )
 		{
 			// Set new state to be animation to move to new stance
 			usNewState = END_HURT_WALKING;
@@ -2654,7 +2656,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 						{
 							if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND )
 							{
-								if ( this->IsValidSecondHandShot() )
+								if ( TacticalActorWeaponHandling::isValidSecondHandShot(*this) )
 								{
 									usNewState = SIDE_STEP_DUAL_RDY;
 								}
@@ -2678,7 +2680,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 						// comment in once animations are ready
 						/*else if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_CROUCH )
 						{
-							if ( this->IsValidSecondHandShot() )
+							if ( TacticalActorWeaponHandling::isValidSecondHandShot(*this) )
 							{
 								usNewState = SIDE_STEP_CROUCH_DUAL;
 							}
@@ -2756,7 +2758,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		}
 
 		// If we are in water.....and trying to run, change to run
-		if ( this->MercInWater( ) )
+		if ( TacticalActorMobility::inWater(*this) )
 		{
 			// Check animation
 			// Change to walking
@@ -2772,7 +2774,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 			{
 				if ( usNewState == WALKING )
 				{
-					if (this->IsValidSecondHandShot())
+					if (TacticalActorWeaponHandling::isValidSecondHandShot(*this))
 					{
 						usNewState = WALKING_DUAL_RDY;
 					}
@@ -2787,7 +2789,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 				}
 				else if (usNewState == SWATTING || usNewState == START_SWAT )
 				{
-					if ( this->IsValidSecondHandShot() )
+					if ( TacticalActorWeaponHandling::isValidSecondHandShot(*this) )
 					{
 						usNewState = CROUCHEDMOVE_DUAL_READY;
 					}
@@ -2973,7 +2975,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 	{
 		if ( this->roster().team() == gbPlayerNum )
 		{
-			// this->movement().mode() =  GetMoveStateBasedOnStance( this, gAnimControl[ usNewState ].ubEndHeight );
+			// Movement mode is selected separately from the animation transition.
 		}
 	}
 
@@ -3939,7 +3941,7 @@ void TacticalActor::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		INT16 usUIMovementModeToSet = this->movement().mode();
 		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 		{
-			fInWaterValue = this->MercInWater( );
+			fInWaterValue = TacticalActorMobility::inWater(*this);
 
 			// ATE: If ever in water MAKE SURE WE WALK AFTERWOODS!
 			if ( fInWaterValue )
@@ -3998,7 +4000,7 @@ void TacticalActor::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 			}
 
 			// Damage water if in deep water....
-			if ( this->MercInHighWater( ) )
+			if ( TacticalActorMobility::inHighWater(*this) )
 			{
 				WaterDamage( this );
 			}
@@ -4140,7 +4142,14 @@ void TacticalActor::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 	// Ready weapon
 	//if (this->bTeam == gbPlayerNum)
 	//{
-	this->SoldierReadyWeapon( sTargetXPos, sTargetYPos, FALSE, IsValidAlternativeFireMode( this->aiPlanning().aimTime(), sTargetGridNo ) );
+	this->SoldierReadyWeapon(
+		sTargetXPos,
+		sTargetYPos,
+		FALSE,
+		TacticalActorWeaponHandling::isValidAlternativeFireMode(
+			*this,
+			this->aiPlanning().aimTime(),
+			sTargetGridNo));
 	//}
 	//else
 	//{
@@ -4321,11 +4330,11 @@ UINT16 SelectFireAnimation( TacticalActor *pSoldier, UINT8 ubHeight )
 		usItem = pSoldier->inventory()[HANDPOS].usItem;
 
 		// CHECK 2ND HAND!
-		if ( pSoldier->IsValidSecondHandBurst( ) )
+		if ( TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) )
 		{
 			return(BURST_DUAL_STAND);
 		}
-		else if ( pSoldier->IsValidSecondHandShot( ) && !pSoldier->fireControl().burstCounter() )
+		else if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) && !pSoldier->fireControl().burstCounter() )
 		{
 			return(SHOOT_DUAL_STAND);
 		}
@@ -4345,7 +4354,7 @@ UINT16 SelectFireAnimation( TacticalActor *pSoldier, UINT8 ubHeight )
 			}
 
 			// Don't do any low shots if in water
-			if ( pSoldier->MercInWater( ) )
+			if ( TacticalActorMobility::inWater(*pSoldier) )
 			{
 				fDoLowShot = FALSE;
 			}
@@ -4355,7 +4364,7 @@ UINT16 SelectFireAnimation( TacticalActor *pSoldier, UINT8 ubHeight )
 			{
 				if ( fDoLowShot )
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
+					if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
 					{
 						return(LOW_BURST_ALTERNATIVE_STAND);
 					}
@@ -4366,7 +4375,7 @@ UINT16 SelectFireAnimation( TacticalActor *pSoldier, UINT8 ubHeight )
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
+					if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
 					{
 						return(BURST_ALTERNATIVE_STAND);
 					}
@@ -4380,7 +4389,7 @@ UINT16 SelectFireAnimation( TacticalActor *pSoldier, UINT8 ubHeight )
 			{
 				if ( fDoLowShot )
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
+					if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
 					{
 						return(LOW_SHOT_ALTERNATIVE_STAND);
 					}
@@ -4391,7 +4400,7 @@ UINT16 SelectFireAnimation( TacticalActor *pSoldier, UINT8 ubHeight )
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
+					if ( TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
 					{
 						return(SHOOT_ALTERNATIVE_STAND);
 					}
@@ -4406,11 +4415,11 @@ UINT16 SelectFireAnimation( TacticalActor *pSoldier, UINT8 ubHeight )
 
 	case ANIM_CROUCH:
 
-		if ( pSoldier->IsValidSecondHandShot( ) && pSoldier->fireControl().burstCounter() > 0 && pSoldier->IsValidSecondHandBurst( ) )
+		if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) && pSoldier->fireControl().burstCounter() > 0 && TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) )
 		{
 			return(BURST_DUAL_CROUCH);
 		}
-		else if ( pSoldier->IsValidSecondHandShot( ) && !pSoldier->fireControl().burstCounter() )
+		else if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) && !pSoldier->fireControl().burstCounter() )
 		{
 			return(SHOOT_DUAL_CROUCH);
 		}
@@ -4429,11 +4438,11 @@ UINT16 SelectFireAnimation( TacticalActor *pSoldier, UINT8 ubHeight )
 
 	case ANIM_PRONE:
 
-		if ( pSoldier->IsValidSecondHandShot( ) && pSoldier->fireControl().burstCounter() > 0 && pSoldier->IsValidSecondHandBurst( ) )
+		if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) && pSoldier->fireControl().burstCounter() > 0 && TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) )
 		{
 			return(BURST_DUAL_PRONE);
 		}
-		else if ( pSoldier->IsValidSecondHandShot( ) && !pSoldier->fireControl().burstCounter() )
+		else if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) && !pSoldier->fireControl().burstCounter() )
 		{
 			return(SHOOT_DUAL_PRONE);
 		}
@@ -4452,67 +4461,6 @@ UINT16 SelectFireAnimation( TacticalActor *pSoldier, UINT8 ubHeight )
 
 	default:
 		AssertMsg( FALSE, String( "SelectFireAnimation: ERROR - Invalid height %d", ubHeight ) );
-		break;
-	}
-
-
-	// If here, an internal error has occured!
-	Assert( FALSE );
-	return (0);
-}
-
-
-UINT16 TacticalActor::GetMoveStateBasedOnStance( UINT8 ubStanceHeight )
-{
-	// Determine which animation to do...depending on stance and gun in hand...
-	switch ( ubStanceHeight )
-	{
-	case ANIM_STAND:
-		//if ( this->movement().uiMovementFast() && !( this->status().flags() & SOLDIER_VEHICLE ) )
-		if ( this->IsFastMovement() )
-		{
-			return(RUNNING);
-		}
-		else
-		{
-			return(WALKING);
-		}
-		break;
-
-	case ANIM_PRONE:
-		if ( this->IsFastMovement() )
-		{
-			return(CRAWLING);
-		}
-		else
-		{
-			return(CRAWLING);
-		}
-		break;
-
-	case ANIM_CROUCH:
-		if ( this->IsFastMovement() )
-		{
-			return(SWATTING);
-		}
-		else
-		{
-			//***ddd
-			// only 1 bodytime is ready (drawn) currently, the rest need to be added
-			UINT16 usItem = this->inventory()[HANDPOS].usItem;
-			if ( this->inventory()[HANDPOS].exists( ) == true &&
-				 //(this->ubBodyType == BIGMALE || this->ubBodyType == REGFEMALE )&&
-				 (Item[usItem].usItemClass == IC_BLADE || Item[usItem].usItemClass == IC_THROWING_KNIFE) )
-				 return(SWATTING_WK);
-			else
-				return(SWATTING);
-
-		}
-		break;
-
-
-	default:
-		AssertMsg( FALSE, String( "GetMoveStateBasedOnStance: ERROR - Invalid height %d", ubStanceHeight ) );
 		break;
 	}
 
@@ -4692,7 +4640,7 @@ UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BO
 		return(INVALID_ANIMATION);
 	}
 
-	if ( pSoldier->MercInDeepWater( ) )
+	if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 	{
 		return(INVALID_ANIMATION);
 	}
@@ -4729,7 +4677,7 @@ UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BO
 			case ANIM_STAND:
 
 				// CHECK 2ND HAND!
-				if ( pSoldier->IsValidSecondHandShot( ) )
+				if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 				{
 					return(END_DUAL_STAND);
 				}
@@ -4752,7 +4700,7 @@ UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BO
 
 			case ANIM_PRONE:
 
-				if ( pSoldier->IsValidSecondHandShot( ) )
+				if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 				{
 					return(END_DUAL_PRONE);
 				}
@@ -4765,7 +4713,7 @@ UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BO
 			case ANIM_CROUCH:
 
 				// CHECK 2ND HAND!
-				if ( pSoldier->IsValidSecondHandShot( ) )
+				if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 				{
 					return(END_DUAL_CROUCH);
 				}
@@ -4789,7 +4737,7 @@ UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BO
 		// this is a specific situation when we have a gun in standard holding (shouldered rifle/two-hand pistol) and was told to go to alternative holding
 		else if ( (gAnimControl[pSoldier->animationPlayback().state()].uiFlags & (ANIM_FIREREADY | ANIM_FIRE)) && !(gAnimControl[pSoldier->animationPlayback().state()].uiFlags & (ANIM_ALT_WEAPON_HOLDING))
 				  && fAltWeaponHolding && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 && pSoldier->attackSelection().scopeMode() == -1 && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND
-				  && ((!ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) && !pSoldier->IsValidSecondHandShot( ) && !pSoldier->MercInWater( )) || ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem)) )
+				  && ((!ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem) && !TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) && !TacticalActorMobility::inWater(*pSoldier)) || ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem)) )
 		{
 			return(READY_ALTERNATIVE_STAND);
 		}
@@ -4801,7 +4749,7 @@ UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BO
 			case ANIM_STAND:
 
 				// CHECK 2ND HAND!
-				if ( pSoldier->IsValidSecondHandShot( ) )
+				if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 				{
 					return(READY_DUAL_STAND);
 				}
@@ -4830,7 +4778,7 @@ UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BO
 				//pSoldier->ChangeSoldierStance( ANIM_CROUCH );
 				//pSoldier->animationIntent().desiredHeight() = ANIM_PRONE;
 				//pSoldier->ChangeSoldierState( PRONE_UP );
-				if ( pSoldier->IsValidSecondHandShot( ) )
+				if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 				{
 					return(READY_DUAL_PRONE);
 				}
@@ -4843,7 +4791,7 @@ UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BO
 			case ANIM_CROUCH:
 
 				// CHECK 2ND HAND!
-				if ( pSoldier->IsValidSecondHandShot( ) )
+				if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
 				{
 					return(READY_DUAL_CROUCH);
 				}
@@ -5510,12 +5458,12 @@ void TacticalActor::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, IN
 	}
 
 	// If here, we are a merc, check if we are in water
-	if ( this->MercInShallowWater( ) )
+	if ( TacticalActorMobility::inShallowWater(*this) )
 	{
 		this->EVENT_InitNewSoldierAnim( WATER_HIT, 0, FALSE );
 		return;
 	}
-	if ( this->MercInDeepWater( ) )
+	if ( TacticalActorMobility::inDeepWater(*this) )
 	{
 		this->EVENT_InitNewSoldierAnim( DEEP_WATER_HIT, 0, FALSE );
 		return;
@@ -5748,7 +5696,7 @@ void SoldierGotHitGunFire( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT16 
 				if ( IsValidStance( pSoldier, ANIM_PRONE ) )
 				{
 					// Can't be in water, or not standing
-					if ( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND && !pSoldier->MercInWater( ) )
+					if ( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND && !TacticalActorMobility::inWater(*pSoldier) )
 					{
 						fFallenOver = TRUE;
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[20], pSoldier->GetName( ) );
@@ -6257,7 +6205,7 @@ BOOLEAN TacticalActor::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT1
 
 			usMoveAnimState = this->movement().mode();
 
-			if ( this->MercInDeepWater( ) )
+			if ( TacticalActorMobility::inDeepWater(*this) )
 			{
 				usMoveAnimState = DEEP_WATER_SWIM;
 			}
@@ -6302,12 +6250,12 @@ BOOLEAN TacticalActor::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT1
 
 		// If true, we're OK, if not, WAIT for a guy to pass!
 		// If we are in deep water, we can only swim!
-		if ( this->MercInDeepWater( ) )
+		if ( TacticalActorMobility::inDeepWater(*this) )
 		{
 			usMoveAnimState = DEEP_WATER_SWIM;
 		}
 		// Can't forget shallow water!  AI will sometimes attempt to swat through it, which is not legal either
-		else if ( this->MercInWater( ) )
+		else if ( TacticalActorMobility::inWater(*this) )
 		{
 			usMoveAnimState = WALKING;
 		}
@@ -6315,7 +6263,7 @@ BOOLEAN TacticalActor::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT1
 		// If we were aiming, end aim!
 		// SANDRO - we may try to move with raised weapon, so don't end aim after
 		if ( (gAnimControl[this->animationPlayback().state()].uiFlags & (ANIM_FIREREADY | ANIM_FIRE)) &&
-			 (usMoveAnimState == WALKING || usMoveAnimState == SIDE_STEP) && !(this->MercInWater( )) )
+			 (usMoveAnimState == WALKING || usMoveAnimState == SIDE_STEP) && !(TacticalActorMobility::inWater(*this)) )
 		{
 			usAnimState = INVALID_ANIMATION;
 		}
@@ -6394,7 +6342,7 @@ void TacticalActor::SoldierGotoStationaryStance( void )
 	}
 
 	// Check if we are in deep water!
-	if ( this->MercInDeepWater( ) )
+	if ( TacticalActorMobility::inDeepWater(*this) )
 	{
 		// IN deep water, tred!
 		this->EVENT_InitNewSoldierAnim( DEEP_WATER_TRED, 0, FALSE );
@@ -6517,7 +6465,7 @@ void TacticalActor::ChangeSoldierStance( UINT8 ubDesiredStance )
 	}
 	else
 	{
-		UINT16 usNewState = this->GetNewSoldierStateFromNewStance( ubDesiredStance );
+		UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*this,  ubDesiredStance );
 
 		// Set desired stance
 		this->animationIntent().desiredHeight() = ubDesiredStance;
@@ -6905,7 +6853,7 @@ void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeC
 	}
 
 	// survived bleeding, but is he out of breath?
-	if ( this->vitals().health() && !this->vitals().breath() && this->MercInWater( ) )
+	if ( this->vitals().health() && !this->vitals().breath() && TacticalActorMobility::inWater(*this) )
 	{
 		// Drowning...
 	}
@@ -7644,7 +7592,7 @@ void TacticalActor::TurnSoldier( void )
 
 			this->EVENT_SetSoldierDirection( sDirection );
 
-			if ( this->identity().bodyType() != LARVAE_MONSTER && !this->MercInWater( ) && this->position().terrainType() != DIRT_ROAD && this->position().terrainType() != PAVED_ROAD && !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+			if ( this->identity().bodyType() != LARVAE_MONSTER && !TacticalActorMobility::inWater(*this) && this->position().terrainType() != DIRT_ROAD && this->position().terrainType() != PAVED_ROAD && !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 			{
 				PlaySoldierFootstepSound( this );
 			}
@@ -8496,50 +8444,6 @@ BOOLEAN GetPaletteRepIndexFromID( const CHAR8 *aPalRep, UINT8 *pubPalIndex )
 	return(FALSE);
 }
 
-UINT16 TacticalActor::GetNewSoldierStateFromNewStance( UINT8 ubDesiredStance )
-{
-	UINT16 usNewState;
-	INT8	bCurrentHeight;
-
-	bCurrentHeight = (ubDesiredStance - gAnimControl[this->animationPlayback().state()].ubEndHeight);
-
-	// Now change to appropriate animation
-
-	switch ( bCurrentHeight )
-	{
-	case ANIM_STAND - ANIM_CROUCH:
-		usNewState = KNEEL_UP;
-		break;
-	case ANIM_CROUCH - ANIM_STAND:
-		usNewState = KNEEL_DOWN;
-		break;
-
-	case ANIM_STAND - ANIM_PRONE:
-		usNewState = PRONE_UP;
-		break;
-	case ANIM_PRONE - ANIM_STAND:
-		usNewState = KNEEL_DOWN;
-		break;
-
-	case ANIM_CROUCH - ANIM_PRONE:
-		usNewState = PRONE_UP;
-		break;
-	case ANIM_PRONE - ANIM_CROUCH:
-		usNewState = PRONE_DOWN;
-		break;
-
-	default:
-
-		// Cannot get here unless ub desired stance is bogus
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "GetNewSoldierStateFromNewStance bogus ubDesiredStance value %d", ubDesiredStance ) );
-		usNewState = this->animationPlayback().state();
-
-	}
-
-	return(usNewState);
-}
-
-
 void MoveMercFacingDirection( TacticalActor *pSoldier, BOOLEAN fReverse, FLOAT dMovementDist )
 {
 	FLOAT					dAngle = (FLOAT)0;
@@ -8594,7 +8498,7 @@ void MoveMercFacingDirection( TacticalActor *pSoldier, BOOLEAN fReverse, FLOAT d
 void TacticalActor::BeginSoldierClimbUpRoof(void)
 {
 	//CHRISL: Disable climbing up to a roof while wearing a backpack
-	if (!this->CanClimbWithCurrentBackpack())
+	if (!TacticalActorMobility::canClimbWithCurrentBackpack(*this))
 	{
 		ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_NO_CLIMB]);
 		return;
@@ -8886,17 +8790,6 @@ UINT32 SleepDartSuccumbChance( TacticalActor * pSoldier )
 	uiChance += (10 - pSoldier->collapseState().sleepDrugCounter());
 
 	return(uiChance);
-}
-
-BOOLEAN TacticalActor::CanClimbWithCurrentBackpack()
-{
-	// only apply backpack climbing limitations to player mercs
-	if (UsingNewInventorySystem() == true && this->inventory()[BPACKPOCKPOS].exists() == true && this->roster().team() == OUR_TEAM
-		&& ((gGameExternalOptions.sBackpackWeightToClimb == -1) || (INT16)this->inventory()[BPACKPOCKPOS].GetWeightOfObjectInStack() + Item[this->inventory()[BPACKPOCKPOS].usItem].sBackpackWeightModifier > gGameExternalOptions.sBackpackWeightToClimb)
-		&& ((gGameExternalOptions.fUseGlobalBackpackSettings == TRUE) || !ItemAllowsClimbing(this->inventory()[BPACKPOCKPOS].usItem)))
-		return FALSE;
-
-	return TRUE;
 }
 
 void TacticalActor::BeginSoldierGetup( void )
@@ -11330,71 +11223,6 @@ void SendBeginFireWeaponEvent(
 }
 
 
-BOOLEAN TacticalActor::MercInWater( void )
-{
-	// WANNE.WATER: If our soldier is not on the ground level and the tile is a "water" tile, then simply set the tile to "FLAT_GROUND"
-	// This should fix "problems" for special modified maps
-
-	// Our water texture , for now is of a given type
-	if ( TERRAIN_IS_WATER( this->position().terrainType() ) && this->position().level() <= 0 )
-	{
-		return(TRUE);
-	}
-	else
-	{
-		return(FALSE);
-	}
-}
-
-BOOLEAN TacticalActor::MercInShallowWater( void )
-{
-	// WANNE.WATER: If our soldier is not on the ground level and the tile is a "water" tile, then simply set the tile to "FLAT_GROUND"
-	// This should fix "problems" for special modified maps
-
-	// Our water texture , for now is of a given type
-	if ( TERRAIN_IS_SHALLOW_WATER( this->position().terrainType() ) && this->position().level() <= 0 )
-	{
-		return(TRUE);
-	}
-	else
-	{
-		return(FALSE);
-	}
-}
-
-
-BOOLEAN TacticalActor::MercInDeepWater( void )
-{
-	// WANNE.WATER: If our soldier is not on the ground level and the tile is a "water" tile, then simply set the tile to "FLAT_GROUND"
-	// This should fix "problems" for special modified maps
-
-	// Our water texture , for now is of a given type
-	if ( TERRAIN_IS_DEEP_WATER( this->position().terrainType() ) && this->position().level() <= 0 )
-	{
-		return(TRUE);
-	}
-	else
-	{
-		return(FALSE);
-	}
-}
-
-BOOLEAN TacticalActor::MercInHighWater( void )
-{
-	// WANNE.WATER: If our soldier is not on the ground level and the tile is a "water" tile, then simply set the tile to "FLAT_GROUND"
-	// This should fix "problems" for special modified maps
-
-	// Our water texture , for now is of a given type
-	if ( TERRAIN_IS_HIGH_WATER( this->position().terrainType() ) && this->position().level() <= 0 )
-	{
-		return(TRUE);
-	}
-	else
-	{
-		return(FALSE);
-	}
-}
-
 void RevivePlayerTeam( )
 {
 	// End the turn of player charactors
@@ -13577,120 +13405,13 @@ BOOLEAN TacticalActor::CheckForBreathCollapse( void )
 }
 
 
-BOOLEAN TacticalActor::InternalIsValidStance( INT8 bDirection, INT8 bNewStance )
-{
-	UINT16								usOKToAddStructID = 0;
-	STRUCTURE_FILE_REF		*pStructureFileRef;
-	UINT16								usAnimSurface = 0;
-	UINT16								usAnimState;
-
-	// Check, if dest is prone, we can actually do this!
-
-	// If we are a vehicle, we can only 'stand'
-	if ( (this->status().flags() & SOLDIER_VEHICLE) && bNewStance != ANIM_STAND )
-	{
-		return(FALSE);
-	}
-
-	// Check if we are in water?
-	if ( this->MercInWater( ) )
-	{
-		if ( bNewStance == ANIM_PRONE || bNewStance == ANIM_CROUCH )
-		{
-			return(FALSE);
-		}
-	}
-
-	if ( this->identity().bodyType() == ROBOTNOWEAPON && bNewStance != ANIM_STAND )
-	{
-		return(FALSE);
-	}
-
-	// Check if we are in water?
-	if ( AM_AN_EPC( this ) )
-	{
-		if ( bNewStance == ANIM_PRONE )
-		{
-			return(FALSE);
-		}
-		else
-		{
-			return(TRUE);
-		}
-	}
-
-
-	if ( this->collapseState().tactical() )
-	{
-		//CHRISL: Changes from ADB rev 1475.
-		if ( bNewStance == ANIM_CROUCH )
-		{
-			return(FALSE);
-		}
-		//when civilians are collapsed and die they may change to stand in order to fall forward
-		if ( bNewStance == ANIM_STAND && this->identity().bodyType() <= REGFEMALE )
-		{
-			//if we are trying to stand and we are a MERC
-			return(FALSE);
-		}
-	}
-
-	// Check if we can do this....
-	if ( this->renderBindings().levelNode() && this->renderBindings().levelNode()->pStructureData != NULL )
-	{
-		usOKToAddStructID = this->renderBindings().levelNode()->pStructureData->usStructureID;
-	}
-	else
-	{
-		usOKToAddStructID = INVALID_STRUCTURE_ID;
-	}
-
-	switch ( bNewStance )
-	{
-	case ANIM_STAND:
-
-		usAnimState = STANDING;
-		break;
-
-	case ANIM_CROUCH:
-
-		usAnimState = CROUCHING;
-		break;
-
-
-	case ANIM_PRONE:
-
-		usAnimState = PRONE;
-		break;
-
-	default:
-
-		// Something gone funny here....
-		usAnimState = this->animationPlayback().state();
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"Wrong desired stance given: %d, %d.", bNewStance, this->animationPlayback().state() );
-	}
-
-	usAnimSurface = DetermineSoldierAnimationSurface( this, usAnimState );
-
-	// Get structure ref........
-	pStructureFileRef = GetAnimationStructureRef( this->identity().id(), usAnimSurface, usAnimState );
-
-	if ( pStructureFileRef != NULL )
-	{
-		// Can we add structure data for this stance...?
-		if ( !OkayToAddStructureToWorld( this->position().gridNo(), this->position().level(), &(pStructureFileRef->pDBStructureRef[gOneCDirection[bDirection]]), usOKToAddStructID ) )
-		{
-			return(FALSE);
-		}
-	}
-
-	return(TRUE);
-}
-
-
 BOOLEAN IsValidStance( TacticalActor *pSoldier, INT8 bNewStance )
 {
-	return(pSoldier->InternalIsValidStance( pSoldier->position().direction(), bNewStance ));
+	return pSoldier &&
+		TacticalActorMobility::isValidStance(
+			*pSoldier,
+			pSoldier->position().direction(),
+			bNewStance);
 }
 
 
@@ -13699,7 +13420,7 @@ BOOLEAN IsValidMovementMode( TacticalActor *pSoldier, INT16 usMovementMode )
 	// Check, if dest is prone, we can actually do this!
 
 	// Check if we are in water?
-	if ( pSoldier->MercInWater( ) )
+	if ( pSoldier && TacticalActorMobility::inWater(*pSoldier) )
 	{
 		if ( usMovementMode == RUNNING || usMovementMode == SWATTING || usMovementMode == CRAWLING )
 		{
@@ -13713,6 +13434,13 @@ BOOLEAN IsValidMovementMode( TacticalActor *pSoldier, INT16 usMovementMode )
 
 void SelectMoveAnimationFromStance( TacticalActor *pSoldier )
 {
+	if (!pSoldier ||
+		pSoldier->animationPlayback().state() >=
+			NUMANIMATIONSTATES)
+	{
+		return;
+	}
+
 	// Determine which animation to do...depending on stance and gun in hand...
 	switch ( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight )
 	{
@@ -13897,185 +13625,6 @@ void TacticalActorEquipment::coolDownInventory(TacticalActor& actor)
 }
 
 // Flugente: determine if we can rest our weapon on something. This can only happen when STANDING/CROUCHED. As a result, we get superior handling modifiers (we apply the PRONE modfiers)
-BOOLEAN	TacticalActor::IsWeaponMounted( void )
-{
-	BOOLEAN applybipod = FALSE;
-
-	// we must be active
-	if ( !roster().active() )
-		return(FALSE);
-
-	// we must be in a sector (not travelling)
-	if ( !roster().inSector() )
-		return(FALSE);
-		
-	// this is odd - invalid GridNo... well, not mounted then
-	if ( TileIsOutOfBounds( this->position().gridNo() ) )
-		return(FALSE);
-
-	// if we are a combat vehicle, our guns are always mounted
-	if ( ARMED_VEHICLE( this ) )
-		return TRUE;
-
-	// anv: passengers who can shoot can rest their guns
-	if ( this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER) )
-	{
-		if ( !gNewVehicle[pVehicleList[this->deployment().vehicleId()].ubVehicleType].VehicleSeats[GetSeatIndexFromSoldier( this )].fBlockedShots )
-			return(TRUE);
-		else
-			return(FALSE);
-	}
-	// a gun can only be mounted if it's ready. The bonus is only relevant when this is true anyway (firing cth calculations require us to aim).
-	// Drawback is that we do not know whether we will the bonus until we raise our gun - but then again the entire 'get behind a rock and then look over it' system isn't exactly complicated to understand.
-	else if ( !WeaponReady( this ) )
-		return FALSE;
-
-	// if we are prone, then we are 'mounting' our gun on the very floor we are laying upon, which always exist
-	if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_PRONE )
-		return TRUE;
-
-	// not possible to get this bonus on a roof, as there are no objects on the roof on which we could rest our gun
-	if ( this->position().level() == 1 )
-		return(FALSE);
-
-	// we determine the height of the next tile in our direction. Because of the way structures are handled, we sometimes have to take the very tile we're occupying right now
-	INT32 nextGridNoinSight = this->position().gridNo();
-	if ( this->position().direction() == NORTH || this->position().direction() == SOUTHWEST || this->position().direction() == WEST || this->position().direction() == NORTHWEST )
-		nextGridNoinSight = NewGridNo( nextGridNoinSight, DirectionInc( this->position().direction() ) );
-
-	INT8 adjacenttileheight = GetTallestStructureHeight( nextGridNoinSight, FALSE );
-
-	// if the tile actually has a bit of height, we can rest our gun on it
-	if ( (gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_CROUCH && (adjacenttileheight == 1 || adjacenttileheight == 2)) ||
-		 (adjacenttileheight == 2 && (gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND && (gAnimControl[this->animationPlayback().state()].uiFlags &(ANIM_ALT_WEAPON_HOLDING)))) )
-	{
-		// now we really want to check the next tile
-		nextGridNoinSight = NewGridNo( this->position().gridNo(), DirectionInc( this->position().direction() ) );
-
-		// for some nefarious reason, trees also have height 2, so we have to check for that too...
-		STRUCTURE * pStructure = FindStructure( nextGridNoinSight, STRUCTURE_TREE );
-
-		if ( !pStructure )
-		{
-			// for some reason I find EXTREMELY FRUSTRATING, we might get a heigth of 2 on a totally empty tile... so we check if we could occupy the tile
-			if ( !IsLocationSittable( nextGridNoinSight, 0 ) )
-			{
-				// resting our gun on people is allowed sometimes
-				SoldierID usPersonID = WhoIsThere2( nextGridNoinSight, this->position().level() );
-				if ( usPersonID == NOBODY )
-					applybipod = TRUE;
-				else
-				{
-					TacticalActor* pSoldier =
-						GetJa2SoldierRepository().resolve( usPersonID );
-					if ( pSoldier == nullptr )
-					{
-						return(applybipod);
-					}
-
-					// anv: vehicles don't mind
-					if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
-					{
-						applybipod = TRUE;
-					}
-					// if the other person is an ally and prone
-					else if ( this->roster().side() == pSoldier->roster().side() && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )
-					{
-						// if we are facing the other guy in a 90 degree angle, we can mount our gun on his back
-						// Once merc's relationship allows angering mercs through actions of others, add a penalty here
-						if ( this->position().direction() == gTwoCCDirection[pSoldier->position().direction()] || this->position().direction() == gTwoCDirection[pSoldier->position().direction()] )
-						{
-							applybipod = TRUE;
-
-							// Flugente: dynamic opinions
-							if (gGameExternalOptions.fDynamicOpinions)
-							{
-								AddOpinionEvent(pSoldier->identity().profile(), this->identity().profile(), OPINIONEVENT_YOUMOUNTEDAGUNONMYBREASTS);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	else if ( adjacenttileheight == 4 && (gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_CROUCH || (gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND && (gAnimControl[this->animationPlayback().state()].uiFlags &(ANIM_ALT_WEAPON_HOLDING)))) )
-	{
-		// tile is as high as a building, but there might be a window, we could look through that
-		// note that we also check for STRUCTURE_OPEN - the window has to be open (smashed)
-		STRUCTURE * pStructure = FindStructure( nextGridNoinSight, STRUCTURE_WALLNWINDOW );
-
-		if ( pStructure )
-		{
-			if ( (this->position().direction() == SOUTH || this->position().direction() == NORTH)
-				 && (pStructure->ubWallOrientation == OUTSIDE_TOP_LEFT || pStructure->ubWallOrientation == INSIDE_TOP_LEFT)
-				 && pStructure->fFlags & STRUCTURE_WALLNWINDOW && pStructure->fFlags & STRUCTURE_OPEN )
-			{
-				applybipod = TRUE;
-			}
-			else if ( (this->position().direction() == EAST || this->position().direction() == WEST)
-					  && (pStructure->ubWallOrientation == OUTSIDE_TOP_RIGHT || pStructure->ubWallOrientation == INSIDE_TOP_RIGHT)
-					  && pStructure->fFlags & STRUCTURE_WALLNWINDOW && pStructure->fFlags & STRUCTURE_OPEN )
-			{
-				applybipod = TRUE;
-			}
-			else if ( (this->position().direction() == SOUTHWEST || this->position().direction() == NORTHWEST || this->position().direction() == SOUTHEAST || this->position().direction() == NORTHEAST)
-					  && (pStructure->ubWallOrientation == OUTSIDE_TOP_LEFT || pStructure->ubWallOrientation == INSIDE_TOP_LEFT || pStructure->ubWallOrientation == OUTSIDE_TOP_RIGHT || pStructure->ubWallOrientation == INSIDE_TOP_RIGHT)
-					  && pStructure->fFlags & STRUCTURE_WALLNWINDOW && pStructure->fFlags & STRUCTURE_OPEN )
-			{
-				applybipod = TRUE;
-			}
-		}
-	}
-	else if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND && adjacenttileheight == 3 && !(gAnimControl[this->animationPlayback().state()].uiFlags &(ANIM_ALT_WEAPON_HOLDING)) )
-	{
-		// now we really want to check the next tile
-		nextGridNoinSight = NewGridNo( this->position().gridNo(), DirectionInc( this->position().direction() ) );
-
-		// for some nefarious reason, trees also have height 2, so we have to check for that too...
-		STRUCTURE * pStructure = FindStructure( nextGridNoinSight, STRUCTURE_TREE );
-
-		if ( !pStructure )
-		{
-			// for some reason I find EXTREMELY FRUSTRATING, we might get a heigth of 2 on a totally empty tile... so we check if we could occupy the tile
-			if ( !IsLocationSittable( nextGridNoinSight, 0 ) )
-			{
-				// resting our gun on people is allowed sometimes
-				SoldierID usPersonID = WhoIsThere2( nextGridNoinSight, this->position().level() );
-				if ( usPersonID == NOBODY )
-					applybipod = TRUE;
-				else
-				{
-					TacticalActor* pSoldier =
-						GetJa2SoldierRepository().resolve( usPersonID );
-					if ( pSoldier == nullptr )
-					{
-						return(applybipod);
-					}
-
-					// anv: vehicles don't mind
-					if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
-					{
-						applybipod = TRUE;
-					}
-					// if the other person is an ally and prone
-					else if ( this->roster().side() == pSoldier->roster().side() && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_CROUCH )
-					{
-						applybipod = TRUE;
-
-						// Flugente: dynamic opinions
-						if (gGameExternalOptions.fDynamicOpinions)
-						{
-							AddOpinionEvent(pSoldier->identity().profile(), this->identity().profile(), OPINIONEVENT_YOUMOUNTEDAGUNONMYBREASTS);
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return(applybipod);
-}
-
 // Flugente: return weapon currently used
 OBJECTTYPE* TacticalActorEquipment::usedWeapon(
 	const TacticalActor& actor,
@@ -20078,56 +19627,6 @@ float TacticalActorModifiers::bodyWeight(
 }
 
 // Flugente: are we crouched against cover from a specific direction? WARNING: This does not suffice to determine our cover!
-BOOLEAN	TacticalActor::IsCrouchedAgainstCoverFromDir( UINT8 aDirection )
-{
-	// we must be active
-	if ( !roster().active() )
-		return FALSE;
-
-	// only valid directions, please
-	if ( aDirection >= NUM_WORLD_DIRECTIONS )
-		return FALSE;
-
-	// only possible if crouched
-	if ( gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_CROUCH )
-		return FALSE;
-
-	// we must be in a sector
-	if ( !roster().inSector() )
-		return FALSE;
-
-	// this is odd - invalid GridNo...
-	if ( TileIsOutOfBounds( this->position().gridNo() ) )
-		return FALSE;
-
-	// not in a car...
-	if ( this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER) )
-		return FALSE;
-
-	// we test whether we are crouched against cover in a specific direction, so determine the gridno to test
-	INT32 covergridno = NewGridNo( this->position().gridNo(), DirectionInc( aDirection ) );
-
-	// this is odd - invalid GridNo...
-	if ( TileIsOutOfBounds( covergridno ) )
-		return FALSE;
-
-	// people don't count
-	if ( WhoIsThere2( covergridno, this->position().level() ) != NOBODY )
-		return FALSE;
-
-	// if we can sit there, then it's obviously not dense enough to for us to cover againt it
-	if ( IsLocationSittable( covergridno, this->position().level() ) )
-		return FALSE;
-
-	INT8 adjacenttileheight = GetTallestStructureHeight( covergridno, this->position().level() );
-
-	if ( adjacenttileheight >= 2 )
-		return TRUE;
-
-	return FALSE;
-}
-
-
 // Flugente: fortification
 float TacticalActorAssignments::constructionPoints(TacticalActor& actor)
 {
@@ -21631,20 +21130,6 @@ std::uint32_t TacticalActorAssignments::explorationPoints(
 	return totalvalue;
 }
 
-bool	TacticalActor::IsFastMovement()
-{
-	if ( this->movement().fastUiMovement() )
-	{
-		// Flugente: disease can stop us from using our legs normally
-		if ( gGameExternalOptions.fDisease
-			&& gGameExternalOptions.fDiseaseSevereLimitations
-			&& TacticalActorDisease::hasOutbreakProperty(*this, DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
-			this->movement().clearUiMovementFast();
-	}
-
-	return this->movement().uiMovementFast();
-}
-
 INT32 CheckBleeding( TacticalActor *pSoldier )
 {
 	INT8		bBandaged; //,savedOurTurn;
@@ -21849,11 +21334,11 @@ void SoldierCollapse( TacticalActor *pSoldier )
 	{
 	case ANIM_STAND:
 
-		if ( pSoldier->MercInDeepWater( ) )
+		if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 		{
 			pSoldier->EVENT_InitNewSoldierAnim( DEEP_WATER_DIE, 0, FALSE );
 		}
-		else if ( pSoldier->MercInShallowWater( ) )
+		else if ( TacticalActorMobility::inShallowWater(*pSoldier) )
 		{
 			pSoldier->EVENT_InitNewSoldierAnim( WATER_DIE, 0, FALSE );
 		}
@@ -22135,7 +21620,7 @@ void PickPickupAnimation( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGrid
 	else
 	{
 		// If in water....
-		if ( pSoldier->MercInWater( ) )
+		if ( TacticalActorMobility::inWater(*pSoldier) )
 		{
 			UnSetUIBusy( pSoldier->identity().id() );
 			HandleSoldierPickupItem( pSoldier, iItemIndex, sGridNo, bZLevel );
@@ -23324,194 +22809,6 @@ BOOLEAN TacticalActor::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN 
 }
 
 
-BOOLEAN TacticalActor::IsValidSecondHandShot( void )
-{
-	if ( Item[this->inventory()[SECONDHANDPOS].usItem].usItemClass == IC_GUN &&
-		 !ItemIsTwoHanded(this->inventory()[SECONDHANDPOS].usItem) &&
-		 (!this->fireControl().burstCounter() || this->IsValidSecondHandBurst( )) &&
-		 !ItemIsGrenadeLauncher(this->inventory()[HANDPOS].usItem) &&
-		 Item[this->inventory()[HANDPOS].usItem].usItemClass == IC_GUN &&
-		 !ItemIsTwoHanded(this->inventory()[HANDPOS].usItem) &&
-		 this->inventory()[SECONDHANDPOS][0]->data.gun.bGunStatus >= USABLE &&
-		 this->inventory()[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft > 0 )
-	{
-		return(TRUE);
-	}
-
-	return(FALSE);
-}
-
-BOOLEAN TacticalActor::IsValidSecondHandBurst( void )
-{
-	// SANDRO - a function to determine if we can autofire with both weapons
-	if ( Item[this->inventory()[SECONDHANDPOS].usItem].usItemClass == IC_GUN &&
-		 !ItemIsTwoHanded(this->inventory()[SECONDHANDPOS].usItem) &&
-		 !ItemIsGrenadeLauncher(this->inventory()[HANDPOS].usItem) &&
-		 this->fireControl().burstCounter() &&
-		 Item[this->inventory()[HANDPOS].usItem].usItemClass == IC_GUN &&
-		 !ItemIsTwoHanded(this->inventory()[HANDPOS].usItem) &&
-		 this->inventory()[SECONDHANDPOS][0]->data.gun.bGunStatus >= USABLE &&
-		 this->inventory()[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft > 0 )
-	{
-		if ( this->fireControl().autofireShots() )
-		{
-			// if second gun cannot use autofire mode
-			if ( !IsGunAutofireCapable( &this->inventory()[SECONDHANDPOS] ) )
-			{
-				return(FALSE);
-			}
-		}
-		else
-		{
-			// if second gun cannot use burst mode or the burst size is different
-			if ( !(IsGunBurstCapable( &this->inventory()[SECONDHANDPOS], FALSE, NULL )) || (GetShotsPerBurst( &this->inventory()[HANDPOS] ) != GetShotsPerBurst( &this->inventory()[SECONDHANDPOS] )) )
-			{
-				return(FALSE);
-			}
-		}
-		return(TRUE);
-	}
-
-	return(FALSE);
-}
-
-BOOLEAN TacticalActor::IsValidSecondHandShotForReloadingPurposes( void )
-{
-	// should be maintained as same as function above with line
-	// about ammo taken out!
-	if ( Item[this->inventory()[SECONDHANDPOS].usItem].usItemClass == IC_GUN &&
-		 //!this->fireControl().burstCounter() &&
-		 !ItemIsGrenadeLauncher(this->inventory()[HANDPOS].usItem) &&
-		 Item[this->inventory()[HANDPOS].usItem].usItemClass == IC_GUN &&
-		 this->inventory()[SECONDHANDPOS][0]->data.gun.bGunStatus >= USABLE //&&
-		 //			 this->inventory()[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft > 0 &&
-		 //			 gAnimControl[ this->animationPlayback().state() ].ubEndHeight != ANIM_PRONE )
-		 )
-	{
-		return(TRUE);
-	}
-
-	return(FALSE);
-}
-
-BOOLEAN TacticalActor::IsValidAlternativeFireMode( INT16 bAimTime, INT32 iTrgGridNo )
-{
-	if ( this->IsValidShotFromHip( bAimTime, iTrgGridNo ) || this->IsValidPistolFastShot( bAimTime, iTrgGridNo ) )
-	{
-		return(TRUE);
-	}
-
-	return(FALSE);
-}
-
-BOOLEAN TacticalActor::IsValidShotFromHip( INT16 bAimTime, INT32 iTrgGridNo )
-{
-	// not allowed, or not gun in hand, or not standing
-	if ( !gGameExternalOptions.ubAllowAlternativeWeaponHolding || Item[this->inventory()[HANDPOS].usItem].usItemClass != IC_GUN || gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_STAND )
-	{
-		return(FALSE);
-	}
-	// robots and tanks cannot do this
-	if ( AM_A_ROBOT( this ) || ARMED_VEHICLE( this ) || ENEMYROBOT( this ) )//dnl ch64 300813
-	{
-		return(FALSE);
-	}
-	// must be two handed for this
-	if ( !ItemIsTwoHanded(this->inventory()[HANDPOS].usItem) )
-	{
-		return(FALSE);
-	}
-	// with hybrid aiming behaviour, our stance is important, we don't go from shoulder to hip
-	if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 2 )
-	{
-		// shouldered already?
-		if ( (gAnimControl[this->animationPlayback().state()].uiFlags & (ANIM_FIREREADY | ANIM_FIRE)) && !(gAnimControl[this->animationPlayback().state()].uiFlags & (ANIM_ALT_WEAPON_HOLDING)) )
-		{
-			return(FALSE);
-		}
-		// aiming over hip (yellow) indicated levels (and not heavy gun - those are always fired from hip, if aiming from hip allowed)
-		if ( bAimTime > GetNumberAltFireAimLevels( this, iTrgGridNo ) && !Weapon[this->inventory()[HANDPOS].usItem].HeavyGun )
-		{
-			return(FALSE);
-		}
-	}
-	// "scope mode" behaviour lets us select firing from hip manually
-	else if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-	{
-		// we don't care about the stance here, as the player should know what he's doing, we just care about his fire mode selected
-		if ( this->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
-		{
-			return(FALSE);
-		}
-		// we go through, only if scope mode is set on "alternative fire mode"
-	}
-	else if ( bAimTime > 0 )
-	{
-		// no aiming allowed with this
-		return(FALSE);
-	}
-
-	// if we are here, assume we are going to fire from hip
-	return(TRUE);
-
-}
-
-BOOLEAN TacticalActor::IsValidPistolFastShot( INT16 bAimTime, INT32 iTrgGridNo )
-{
-	// not allowed, or not gun in hand, or not standing
-	if ( !gGameExternalOptions.ubAllowAlternativeWeaponHolding || Item[this->inventory()[HANDPOS].usItem].usItemClass != IC_GUN || gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_STAND )
-	{
-		return(FALSE);
-	}
-	// robots and tanks cannot do this
-	if ( AM_A_ROBOT( this ) || ARMED_VEHICLE( this ) || ENEMYROBOT( this ) )//dnl ch64 300813
-	{
-		return(FALSE);
-	}
-	// don't do this in water (yet), and not if firing from 2 guns
-	if ( this->MercInWater( ) || this->IsValidSecondHandShot( ) )
-	{
-		return(FALSE);
-	}
-	// must be one handed for this
-	if (ItemIsTwoHanded(this->inventory()[HANDPOS].usItem))
-	{
-		return(FALSE);
-	}
-	// with hybrid aiming behaviour, our stance is important, we don't go from two-handed to one-handed grip
-	if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 2 )
-	{
-		// raised already?
-		if ( (gAnimControl[this->animationPlayback().state()].uiFlags & (ANIM_FIREREADY | ANIM_FIRE)) && !(gAnimControl[this->animationPlayback().state()].uiFlags & (ANIM_ALT_WEAPON_HOLDING)) )
-		{
-			return(FALSE);
-		}
-		// aiming over alternative (yellow) indicated levels
-		if ( bAimTime > GetNumberAltFireAimLevels( this, iTrgGridNo ) )
-		{
-			return(FALSE);
-		}
-	}
-	// "scope mode" behaviour lets us select alternative firing manually
-	else if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-	{
-		// we don't care about the stance here, as the player should know what he's doing, we just care about his fire mode selected
-		if ( this->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
-		{
-			return(FALSE);
-		}
-		// we go through, only if scope mode is set on "alternative fire mode"
-	}
-	else if ( bAimTime > 0 )
-	{
-		// no aiming allowed with this
-		return(FALSE);
-	}
-
-	// if we are here, assume we are going to fire from alternative stance
-	return(TRUE);
-
-}
 void TacticalActor::HandleSoldierTakeDamageFeedback( void )
 {
 	// Do sound.....
@@ -23634,12 +22931,12 @@ void InternalPlaySoldierFootstepSound( TacticalActor * pSoldier )
 				{
 					ubSoundBase = WALK_LEFT_ROAD;
 				}
-				else if ( pSoldier->MercInShallowWater( ) )
+				else if ( TacticalActorMobility::inShallowWater(*pSoldier) )
 				{
 					ubSoundBase = WATER_WALK1_IN;
 					ubRandomMax = 2;
 				}
-				else if ( pSoldier->MercInDeepWater( ) )
+				else if ( TacticalActorMobility::inDeepWater(*pSoldier) )
 				{
 					ubSoundBase = SWIM_1;
 					ubRandomMax = 2;
