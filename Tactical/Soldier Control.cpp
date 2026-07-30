@@ -1,6 +1,7 @@
 #include "Soldier Functions.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
@@ -5012,7 +5013,7 @@ void TacticalActor::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, IN
 			if ( *&(attacker->inventory()[HANDPOS])[0]->data.sObjectFlag & INFECTED && gGameExternalOptions.fDiseaseContaminatesItems )
 			{
 				// infect us with the first disease
-				this->Infect( 0 );
+				TacticalActorDisease::infect(*this, 0 );
 			}
 
 			// if this guy has the disease, infect the blade
@@ -7979,7 +7980,7 @@ void CalculateSoldierAniSpeed( TacticalActor *pSoldier, TacticalActor *pStatsSol
 		// Flugente: disease can stop us from using our arms normally
 		if ( gGameExternalOptions.fDisease
 			&& gGameExternalOptions.fDiseaseSevereLimitations
-			&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
+			&& TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
 			bAdditional += legbrokenpenalty;
 
 		if ( bAdditional < 0 )
@@ -7994,7 +7995,7 @@ void CalculateSoldierAniSpeed( TacticalActor *pSoldier, TacticalActor *pStatsSol
 		// Flugente: disease can stop us from using our arms normally
 		if ( gGameExternalOptions.fDisease
 			&& gGameExternalOptions.fDiseaseSevereLimitations
-			&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
+			&& TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
 			bAdditional += legbrokenpenalty;
 
 		if ( bAdditional < 0 )
@@ -8020,7 +8021,7 @@ void CalculateSoldierAniSpeed( TacticalActor *pSoldier, TacticalActor *pStatsSol
 			// Flugente: disease can stop us from using our arms normally
 			if ( gGameExternalOptions.fDisease
 				&& gGameExternalOptions.fDiseaseSevereLimitations
-				&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
+				&& TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
 				bAdditional += legbrokenpenalty;
 
 			if ( bAdditional < 0 )
@@ -8038,7 +8039,7 @@ void CalculateSoldierAniSpeed( TacticalActor *pSoldier, TacticalActor *pStatsSol
 			// Flugente: disease can stop us from using our arms normally
 			if ( gGameExternalOptions.fDisease
 				&& gGameExternalOptions.fDiseaseSevereLimitations
-				&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
+				&& TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
 				bAdditional += legbrokenpenalty;
 
 			if ( bAdditional < 0 )
@@ -9575,7 +9576,7 @@ UINT8 TacticalActor::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 s
 	// Flugente: disease can stop us from using our arms normally
 	if ( gGameExternalOptions.fDisease
 		&& gGameExternalOptions.fDiseaseSevereLimitations
-		&& this->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
+		&& TacticalActorDisease::hasOutbreakProperty(*this, DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
 	{
 		// drop item in main hand if twohanded
 		if ( this->inventory()[HANDPOS].exists() == true && ItemIsTwoHanded( this->inventory()[HANDPOS].usItem ) )
@@ -11915,7 +11916,7 @@ void TacticalActor::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirect
 	if ( fMartialArtist && !ItemIsCrowbar(usItem) && this->identity().bodyType() == REGMALE )
 #else
 	if ( fMartialArtist && !AreInMeanwhile( ) && !ItemIsCrowbar(usItem) && this->identity().bodyType() == REGMALE && !TacticalActorConditions::isZombie(*this)
-		&& !( gGameExternalOptions.fDiseaseSevereLimitations && this->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ))  ) // SANDRO - added check for body type
+		&& !( gGameExternalOptions.fDiseaseSevereLimitations && TacticalActorDisease::hasOutbreakProperty(*this, DISEASE_PROPERTY_LIMITED_USE_LEGS ))  ) // SANDRO - added check for body type
 #endif
 	{
 		// Are we in attack mode yet?
@@ -12011,7 +12012,7 @@ void TacticalActor::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirect
 			if ( !nokick
 				&& gGameExternalOptions.fDisease
 				&& gGameExternalOptions.fDiseaseSevereLimitations
-				&& this->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
+				&& TacticalActorDisease::hasOutbreakProperty(*this, DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
 				nokick = TRUE;
 
 			// Look at stance of target
@@ -16913,7 +16914,7 @@ INT16	TacticalActor::GetAPBonus( )
 	// diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sEffAP * this->GetDiseaseMagnitude( i );
+		diseaseeffect += Disease[i].sEffAP * TacticalActorDisease::magnitude(*this, i );
 
 	bonus += diseaseeffect;
 
@@ -16954,7 +16955,7 @@ FLOAT	TacticalActor::GetMoraleModifier( )
 		FLOAT diseaseeffect = 1.0f;
 		for ( int i = 0; i < NUM_DISEASES; ++i )
 		{
-			diseaseeffect *= 1.0f - (1.0f - Disease[i].moralemodifier) * this->GetDiseaseMagnitude( i );
+			diseaseeffect *= 1.0f - (1.0f - Disease[i].moralemodifier) * TacticalActorDisease::magnitude(*this, i );
 		}
 
 		mod *= diseaseeffect;
@@ -18563,24 +18564,28 @@ void	TacticalActor::DeleteBoxingFlag( )
 }
 
 // Flugente: disease
-void	TacticalActor::Infect( UINT8 aDisease )
+void TacticalActorDisease::infect(
+	TacticalActor& actor,
+	std::uint8_t aDisease)
 {
+	auto* const self = &actor;
+
 	if ( !gGameExternalOptions.fDisease 
 		|| aDisease >= NUM_DISEASES )
 		return;
 
 	// diseases should not affect machines
-	if ( (this->status().flags() & SOLDIER_VEHICLE) || AM_A_ROBOT( this ) )
+	if ( (self->status().flags() & SOLDIER_VEHICLE) || AM_A_ROBOT( self ) )
 		return;
 
 	// do not infect us if we are already infected
-	if ( !( Disease[aDisease].usDiseaseProperties & DISEASE_PROPERTY_CANREINFECT ) && this->condition().infected(aDisease) )
+	if ( !( Disease[aDisease].usDiseaseProperties & DISEASE_PROPERTY_CANREINFECT ) && self->condition().infected(aDisease) )
 		return;
 
 	// we are getting infected. Raise our disease points, but not over the level of an infection
-	if ( this->condition().diseasePoints(aDisease) <= Disease[aDisease].sInfectionPtsFull )
+	if ( self->condition().diseasePoints(aDisease) <= Disease[aDisease].sInfectionPtsFull )
 	{
-		this->condition().diseasePoints(aDisease) = min( this->condition().diseasePoints(aDisease) + Disease[aDisease].sInfectionPtsInitial, Disease[aDisease].sInfectionPtsFull );
+		self->condition().diseasePoints(aDisease) = min( self->condition().diseasePoints(aDisease) + Disease[aDisease].sInfectionPtsInitial, Disease[aDisease].sInfectionPtsFull );
 
 		// possibly add a new disability
 		if ( Disease[aDisease].usDiseaseProperties & DISEASE_PROPERTY_ADD_DISABILITY )
@@ -18589,98 +18594,111 @@ void	TacticalActor::Infect( UINT8 aDisease )
 			std::vector<UINT8> disabilitieswedonthaveset;
 			for ( UINT8 i = NO_DISABILITY + 1; i < min( 31, NUM_DISABILITIES ); ++i )
 			{
-				if ( !DoesMercHaveDisability( this, i ) )
+				if ( !DoesMercHaveDisability( self, i ) )
 					disabilitieswedonthaveset.push_back(i);
 			}
 
 			if ( !disabilitieswedonthaveset.empty() )
 			{
 				UINT8 newdisability = disabilitieswedonthaveset[Random( disabilitieswedonthaveset.size() )];
-				this->AddDisability( newdisability );
+				TacticalActorDisease::addDisability(*self, newdisability );
 			}
 		}
 
-		if ( !this->condition().hasDiseaseFlag(aDisease, SOLDIERDISEASE_OUTBREAK) && this->condition().diseasePoints(aDisease) > Disease[aDisease].sInfectionPtsOutbreak )
+		if ( !self->condition().hasDiseaseFlag(aDisease, TacticalActorDisease::outbreakFlag) && self->condition().diseasePoints(aDisease) > Disease[aDisease].sInfectionPtsOutbreak )
 		{
-			this->condition().markDiseaseFlag(aDisease, SOLDIERDISEASE_OUTBREAK);
+			self->condition().markDiseaseFlag(aDisease, TacticalActorDisease::outbreakFlag);
 
-			this->AnnounceDisease( aDisease );
+			TacticalActorDisease::announce(*self, aDisease );
 		}
 
 		// remove later on, for testing only
-		//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s was infected with %s", gMercProfiles[this->ubProfile].zNickname, Disease[aDisease].szName );
+		//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s was infected with %s", gMercProfiles[self->ubProfile].zNickname, Disease[aDisease].szName );
 	}
 }
 
-void	TacticalActor::AddDiseasePoints( UINT8 aDisease, INT32 aVal )
+void TacticalActorDisease::addPoints(
+	TacticalActor& actor,
+	std::uint8_t aDisease,
+	std::int32_t aVal)
 {
+	auto* const self = &actor;
+
 	if ( !gGameExternalOptions.fDisease )
 		return;
 
 	// diseases should not affect machines
-	if ( (this->status().flags() & SOLDIER_VEHICLE) || AM_A_ROBOT( this ) )
+	if ( (self->status().flags() & SOLDIER_VEHICLE) || AM_A_ROBOT( self ) )
 		return;
 
 	if ( aDisease < NUM_DISEASES )
 	{
-		this->condition().diseasePoints(aDisease) = min( Disease[aDisease].sInfectionPtsFull, max( this->condition().diseasePoints(aDisease) + aVal, -Disease[aDisease].sInfectionPtsOutbreak ) );
+		self->condition().diseasePoints(aDisease) = min( Disease[aDisease].sInfectionPtsFull, max( self->condition().diseasePoints(aDisease) + aVal, -Disease[aDisease].sInfectionPtsOutbreak ) );
 
 		// if the disease 'breaks out', make it known
-		if ( this->condition().diseasePoints(aDisease) > Disease[aDisease].sInfectionPtsOutbreak )
+		if ( self->condition().diseasePoints(aDisease) > Disease[aDisease].sInfectionPtsOutbreak )
 		{
-			this->condition().markDiseaseFlag(aDisease, SOLDIERDISEASE_OUTBREAK);
+			self->condition().markDiseaseFlag(aDisease, TacticalActorDisease::outbreakFlag);
 
-			if ( !this->condition().hasDiseaseFlag(aDisease, SOLDIERDISEASE_DIAGNOSED) )
-				this->AnnounceDisease( aDisease );
+			if ( !self->condition().hasDiseaseFlag(aDisease, TacticalActorDisease::diagnosedFlag) )
+				TacticalActorDisease::announce(*self, aDisease );
 		}
 
 		// once disease is fullblown, some diseases reverse themself
-		if ( (Disease[aDisease].usDiseaseProperties & DISEASE_PROPERTY_REVERSEONFULL) && this->condition().diseasePoints(aDisease) >= Disease[aDisease].sInfectionPtsFull )
+		if ( (Disease[aDisease].usDiseaseProperties & DISEASE_PROPERTY_REVERSEONFULL) && self->condition().diseasePoints(aDisease) >= Disease[aDisease].sInfectionPtsFull )
 		{
-			this->condition().markDiseaseFlag(aDisease, SOLDIERDISEASE_REVERSEAL);
+			self->condition().markDiseaseFlag(aDisease, TacticalActorDisease::reversingFlag);
 		}
 
 		// if disease is cured, remove traces of it
-		if ( this->condition().diseasePoints(aDisease) <= 0 )
+		if ( self->condition().diseasePoints(aDisease) <= 0 )
 		{
 			// if disease was known and this guy is under player control, let the player know the good news
-			if ( this->condition().hasDiseaseFlag(aDisease, SOLDIERDISEASE_DIAGNOSED) && this->roster().team() == gbPlayerNum )
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szDiseaseText[TEXT_DISEASE_CURED], this->GetName( ), Disease[aDisease].szName );
+			if ( self->condition().hasDiseaseFlag(aDisease, TacticalActorDisease::diagnosedFlag) && self->roster().team() == gbPlayerNum )
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szDiseaseText[TEXT_DISEASE_CURED], self->GetName( ), Disease[aDisease].szName );
 
-			this->condition().clearDiseaseFlags(aDisease, SOLDIERDISEASE_DIAGNOSED | SOLDIERDISEASE_OUTBREAK | SOLDIERDISEASE_SPLINTAPPLIED_LEG | SOLDIERDISEASE_SPLINTAPPLIED_ARM);
+			self->condition().clearDiseaseFlags(aDisease, TacticalActorDisease::diagnosedFlag | TacticalActorDisease::outbreakFlag | TacticalActorDisease::legSplintFlag | TacticalActorDisease::armSplintFlag);
 		}
 	}
 }
 
-void	TacticalActor::AnnounceDisease( UINT8 aDisease )
+void TacticalActorDisease::announce(
+	TacticalActor& actor,
+	std::uint8_t aDisease)
 {
+	auto* const self = &actor;
+
 	if (aDisease >= NUM_DISEASES)
 		return;
 
-	this->condition().markDiseaseFlag(aDisease, SOLDIERDISEASE_DIAGNOSED);
+	self->condition().markDiseaseFlag(aDisease, TacticalActorDisease::diagnosedFlag);
 
-	if ( this->roster().team() == gbPlayerNum )
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szDiseaseText[TEXT_DISEASE_DIAGNOSE_GENERAL], this->GetName( ), Disease[aDisease].szName );
+	if ( self->roster().team() == gbPlayerNum )
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szDiseaseText[TEXT_DISEASE_DIAGNOSE_GENERAL], self->GetName( ), Disease[aDisease].szName );
 
 	// add to our records.
-	if ( this->identity().profile() != NO_PROFILE )
-		gMercProfiles[this->identity().profile()].records.usTimesInfected += 1;
+	if ( self->identity().profile() != NO_PROFILE )
+		gMercProfiles[self->identity().profile()].records.usTimesInfected += 1;
 }
 
-void	TacticalActor::AddDisability( UINT8 aDisability )
+void TacticalActorDisease::addDisability(
+	TacticalActor& actor,
+	std::uint8_t aDisability)
 {
-	this->condition().addDisability(aDisability);
+	actor.condition().addDisability(aDisability);
 }
 
 // Flugente: can we apply a medical splint to this guy?
-bool	TacticalActor::CanReceiveSplint()
+bool TacticalActorDisease::canReceiveSplint(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// not during combat
 	if ( IsJa2TacticalCombatActive() )
 		return FALSE;
 
 	//  must be player team
-	if ( this->roster().team() != gbPlayerNum )
+	if ( self->roster().team() != gbPlayerNum )
 		return FALSE;
 
 	if ( !gGameExternalOptions.fDisease
@@ -18690,10 +18708,10 @@ bool	TacticalActor::CanReceiveSplint()
 	// check whether we have a disease that limits arm/leg use without having a splint 
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
-		if ( this->condition().infected(i) && this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) )
+		if ( self->condition().infected(i) && self->condition().hasDiseaseFlag(i, TacticalActorDisease::diagnosedFlag) )
 		{ 
-			if ( (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_ARMS && !this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_ARM) )
-				|| ( Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_LEGS && !this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_LEG) ) )
+			if ( (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_ARMS && !self->condition().hasDiseaseFlag(i, TacticalActorDisease::armSplintFlag) )
+				|| ( Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_LEGS && !self->condition().hasDiseaseFlag(i, TacticalActorDisease::legSplintFlag) ) )
 			{
 				return TRUE;
 			}
@@ -18704,18 +18722,24 @@ bool	TacticalActor::CanReceiveSplint()
 }
 
 // do we have any disease? fDiagnosedOnly: check for wether we know of this infection fHealableOnly: check wether it can be healed
-BOOLEAN TacticalActor::HasDisease( BOOLEAN fDiagnosedOnly, BOOLEAN fHealableOnly, BOOLEAN fSymbolOnly )
+bool TacticalActorDisease::hasAny(
+	TacticalActor& actor,
+	bool fDiagnosedOnly,
+	bool fHealableOnly,
+	bool fSymbolOnly)
 {
+	auto* const self = &actor;
+
 	if ( !gGameExternalOptions.fDisease )
 		return FALSE;
 
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
 		// disease is relevant if we are infected and are not looking for symbols only while the disease has no symbol
-		if ( this->condition().infected(i) && !(fSymbolOnly && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_HIDESYMBOL)) )
+		if ( self->condition().infected(i) && !(fSymbolOnly && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_HIDESYMBOL)) )
 		{
 			// only if we don't check for diagnosis, or we already know of this
-			if ( !fDiagnosedOnly || this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) )
+			if ( !fDiagnosedOnly || self->condition().hasDiseaseFlag(i, TacticalActorDisease::diagnosedFlag) )
 			{
 				// only if we don't check for cure, or this can be cured
 				if ( !fHealableOnly || (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_CANBECURED) )
@@ -18730,15 +18754,19 @@ BOOLEAN TacticalActor::HasDisease( BOOLEAN fDiagnosedOnly, BOOLEAN fHealableOnly
 }
 
 // Do we have an outbroken disease with a special property?
-BOOLEAN TacticalActor::HasDiseaseWithFlag( UINT32 aFlag )
+bool TacticalActorDisease::hasOutbreakProperty(
+	TacticalActor& actor,
+	std::uint32_t aFlag)
 {
+	auto* const self = &actor;
+
 	if ( !gGameExternalOptions.fDisease )
 		return FALSE;
 
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
 		// disease is relevant if we are infected and are not looking for symbols only while the disease has no symbol
-		if ( ( Disease[i].usDiseaseProperties & aFlag ) && this->condition().infected(i) && this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_OUTBREAK) )
+		if ( ( Disease[i].usDiseaseProperties & aFlag ) && self->condition().infected(i) && self->condition().hasDiseaseFlag(i, TacticalActorDisease::outbreakFlag) )
 		{
 			return TRUE;
 		}
@@ -18748,27 +18776,40 @@ BOOLEAN TacticalActor::HasDiseaseWithFlag( UINT32 aFlag )
 }
 
 // get the magnitude of a disease we might have, used to determine wether there are any effects
-FLOAT	TacticalActor::GetDiseaseMagnitude( UINT8 aDisease )
+float TacticalActorDisease::magnitude(
+	TacticalActor& actor,
+	std::uint8_t aDisease)
 {
+	auto* const self = &actor;
+
 	if ( !gGameExternalOptions.fDisease )
 		return 0.0f;
 
-	// diseases only have effects once they have broken out (otherwise stuff happens without the player having any clue as to why)
-	if ( aDisease < NUM_DISEASES && this->condition().infected(aDisease) && this->condition().hasDiseaseFlag(aDisease, SOLDIERDISEASE_OUTBREAK) )
-	{
-		return ((FLOAT)this->condition().diseasePoints(aDisease) / (FLOAT)Disease[aDisease].sInfectionPtsFull);
-	}
+	// Diseases only have effects once they have broken out (otherwise stuff
+	// happens without the player having any clue as to why). Treat malformed
+	// disease data as inactive instead of dividing by zero.
+	if ( aDisease >= NUM_DISEASES ||
+		!self->condition().infected(aDisease) ||
+		!self->condition().hasDiseaseFlag(aDisease, TacticalActorDisease::outbreakFlag) ||
+		Disease[aDisease].sInfectionPtsFull <= 0 )
+		return 0.0f;
 
-	return 0.0f;
+	return static_cast<float>(self->condition().diseasePoints(aDisease)) /
+		static_cast<float>(Disease[aDisease].sInfectionPtsFull);
 }
 
-void TacticalActor::PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc )
+void TacticalActorDisease::appendDescription(
+	TacticalActor& actor,
+	wchar_t* apStr,
+	bool fFullDesc)
 {
+	auto* const self = &actor;
+
 	if ( !gGameExternalOptions.fDisease )
 		return;
 
 	// only for living mercs with a profile with a valid infection method
-	if ( this->status().flags() & SOLDIER_VEHICLE || this->identity().profile() == NO_PROFILE )
+	if ( self->status().flags() & SOLDIER_VEHICLE || self->identity().profile() == NO_PROFILE )
 		return;
 
 	BOOLEAN fShowExactPoints = FALSE;
@@ -18781,11 +18822,11 @@ void TacticalActor::PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
-		if ( this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) )
+		if ( self->condition().hasDiseaseFlag(i, TacticalActorDisease::diagnosedFlag) )
 		{
 			if ( fShowExactPoints )
 			{
-				swprintf( atStr, L"\n\n%s - %d / %d\n", Disease[i].szFatName, this->condition().diseasePoints(i), Disease[i].sInfectionPtsFull );
+				swprintf( atStr, L"\n\n%s - %d / %d\n", Disease[i].szFatName, self->condition().diseasePoints(i), Disease[i].sInfectionPtsFull );
 			}
 			else
 			{
@@ -18800,7 +18841,7 @@ void TacticalActor::PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 				swprintf( atStr, L"%s\n", Disease[i].szDescription );
 				wcscat( apStr, atStr );
 
-				FLOAT magnitude = GetDiseaseMagnitude( i );
+				FLOAT magnitude = TacticalActorDisease::magnitude(actor, i);
 
 				for ( int j = 0; j < INFST_MAX; ++j )
 				{
@@ -18883,7 +18924,7 @@ void TacticalActor::PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 					}
 				}
 
-				if ( (this->identity().profile() == BUNS || this->identity().profile() == BUNS_CHAOTIC) && ( Disease[i].usDiseaseProperties & DISEASE_PROPERTY_PTSD_BUNS ) )
+				if ( (self->identity().profile() == BUNS || self->identity().profile() == BUNS_CHAOTIC) && ( Disease[i].usDiseaseProperties & DISEASE_PROPERTY_PTSD_BUNS ) )
 				{
 					swprintf( atStr, szDiseaseText[TEXT_DISEASE_PTSD_BUNS_SPECIAL] );
 					wcscat( apStr, atStr );
@@ -18897,7 +18938,7 @@ void TacticalActor::PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 						wcscat( apStr, atStr );
 					}
 
-					bool splintapplied = this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_ARM | SOLDIERDISEASE_SPLINTAPPLIED_LEG);
+					bool splintapplied = self->condition().hasDiseaseFlag(i, TacticalActorDisease::armSplintFlag | TacticalActorDisease::legSplintFlag);
 
 					if ( Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_ARMS )
 					{
@@ -18921,9 +18962,9 @@ void TacticalActor::PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 				}
 			}
 		}
-		else if ( fShowExactPoints && this->condition().infected(i) )
+		else if ( fShowExactPoints && self->condition().infected(i) )
 		{
-			swprintf( atStr, szDiseaseText[TEXT_DISEASE_UNDIAGNOSED], Disease[i].szFatName, this->condition().diseasePoints(i), Disease[i].sInfectionPtsFull );
+			swprintf( atStr, szDiseaseText[TEXT_DISEASE_UNDIAGNOSED], Disease[i].szFatName, self->condition().diseasePoints(i), Disease[i].sInfectionPtsFull );
 			wcscat( apStr, atStr );
 		}
 	}
@@ -19048,14 +19089,16 @@ void TacticalActor::PrintSleepDesc( CHAR16* apStr )
 }
 
 // get percentage protection from infections via contact
-FLOAT  TacticalActor::GetDiseaseContactProtection( )
+float TacticalActorDisease::contactProtection(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	FLOAT val = 0.0f;
 
 	// if we wear special equipment, lower our chances of being infected
 	FLOAT bestfacegear = 0.0f;
 	FLOAT bestprotectivegear = 0.0f;
-	for ( const auto &item : inventory().items() )
+	for ( const auto &item : self->inventory().items() )
 	{
 		if ( item.exists( ) )
 		{
@@ -19063,11 +19106,15 @@ FLOAT  TacticalActor::GetDiseaseContactProtection( )
 			{	
 				if ( HasItemFlag( item.usItem, DISEASEPROTECTION_1 ) )
 				{
-					bestfacegear = max( bestfacegear, (FLOAT)(item[0]->data.objectStatus / 100) );
+					bestfacegear = max(
+						bestfacegear,
+						static_cast<float>(item[0]->data.objectStatus) / 100.0f);
 				}
 				if ( HasItemFlag( item.usItem, DISEASEPROTECTION_2 ) )
 				{
-					bestprotectivegear = max( bestprotectivegear, (FLOAT)(item[0]->data.objectStatus / 100) );
+					bestprotectivegear = max(
+						bestprotectivegear,
+						static_cast<float>(item[0]->data.objectStatus) / 100.0f);
 				}
 			}
 		}
@@ -19080,15 +19127,17 @@ FLOAT  TacticalActor::GetDiseaseContactProtection( )
 	return min( val, 1.0f );
 }
 
-INT16	TacticalActor::GetDiseaseResistance( )
+std::int16_t TacticalActorDisease::resistance(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// Flugente: resistance can per definition only be between -100 and 100 (at least that's my definition)
 	INT16 val = 0;
 
-	if ( HAS_SKILL_TRAIT( this, SURVIVAL_NT ) )
+	if ( HAS_SKILL_TRAIT( self, SURVIVAL_NT ) )
 		val += gSkillTraitValues.usSVDiseaseResistance;
 
-	val += this->GetBackgroundValue( BG_RESI_DISEASE );
+	val += self->GetBackgroundValue( BG_RESI_DISEASE );
 
 	val = max( -100, val );
 	val = min( 100, val );
@@ -19096,14 +19145,16 @@ INT16	TacticalActor::GetDiseaseResistance( )
 	return(val);
 }
 
-UINT16		TacticalActor::GetDiseaseDiagnosePoints()
+std::uint16_t TacticalActorDisease::diagnosisPoints(TacticalActor& actor)
 {
+	auto* const self = &actor;
+
 	// determine our skill at detecting disease
-	UINT16 skill = this->statistics().medical() / 2 + NUM_SKILL_TRAITS( this, DOCTOR_NT ) * 15;
+	UINT16 skill = self->statistics().medical() / 2 + NUM_SKILL_TRAITS( self, DOCTOR_NT ) * 15;
 
-	skill = ( skill * ( 100 + this->GetBackgroundValue( BG_PERC_DISEASE_DIAGNOSE ) ) ) / 100;
+	skill = ( skill * ( 100 + self->GetBackgroundValue( BG_PERC_DISEASE_DIAGNOSE ) ) ) / 100;
 
-	FLOAT administrationmodifier = GetAdministrationModifier();
+	FLOAT administrationmodifier = self->GetAdministrationModifier();
 	skill *= administrationmodifier;
 
 	return skill;
@@ -20323,7 +20374,7 @@ BOOLEAN		TacticalActor::IsValidBloodDonor()
 		return FALSE;
 
 	// not if we have any KNOWN disease
-	if ( this->HasDisease( TRUE, FALSE ) )
+	if ( TacticalActorDisease::hasAny(*this, TRUE, FALSE ) )
 		return FALSE;
 
 	// not if we're drunk or drugged
@@ -20826,7 +20877,7 @@ bool	TacticalActor::IsFastMovement()
 		// Flugente: disease can stop us from using our legs normally
 		if ( gGameExternalOptions.fDisease
 			&& gGameExternalOptions.fDiseaseSevereLimitations
-			&& this->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
+			&& TacticalActorDisease::hasOutbreakProperty(*this, DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
 			this->movement().clearUiMovementFast();
 	}
 
@@ -22052,7 +22103,7 @@ void TacticalActor::EVENT_SoldierApplySplintToPerson( INT32 sGridNo, UINT8 ubDir
 		if ( pSoldier
 			&& pObj->exists()
 			&& HasItemFlag( pObj->usItem, MEDICAL_SPLINT )
-			&& pSoldier->CanReceiveSplint()
+			&& TacticalActorDisease::canReceiveSplint(*pSoldier)
 			&& ( (gGameOptions.fNewTraitSystem && NUM_SKILL_TRAITS( this, DOCTOR_NT ) > 0) || (!gGameOptions.fNewTraitSystem && EffectiveMedical( this ) >= 50) ) )
 		{
 			UINT16 usItem = pObj->usItem;
@@ -22069,17 +22120,17 @@ void TacticalActor::EVENT_SoldierApplySplintToPerson( INT32 sGridNo, UINT8 ubDir
 				{
 					if ( addtoarm
 						&& Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_ARMS
-						&& !pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_ARM) )
+						&& !pSoldier->condition().hasDiseaseFlag(i, TacticalActorDisease::armSplintFlag) )
 					{
-						pSoldier->condition().markDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_ARM);
+						pSoldier->condition().markDiseaseFlag(i, TacticalActorDisease::armSplintFlag);
 						addtoleg = false;
 					}
 
 					if ( addtoleg
 						&& Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_LEGS
-						&& !pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_LEG) )
+						&& !pSoldier->condition().hasDiseaseFlag(i, TacticalActorDisease::legSplintFlag) )
 					{
-						pSoldier->condition().markDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_LEG);
+						pSoldier->condition().markDiseaseFlag(i, TacticalActorDisease::legSplintFlag);
 						addtoarm = false;
 					}
 				}

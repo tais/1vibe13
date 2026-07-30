@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp.h"
@@ -3070,7 +3071,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				CHAR16	atStr[500];
 				swprintf( atStr, L"" );
 
-				GetSMCurrentMerc()->PrintDiseaseDesc( atStr );
+				TacticalActorDisease::appendDescription(*GetSMCurrentMerc(), atStr);
 
 				wcscat( pStr, atStr );
 			}
@@ -5691,7 +5692,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 								CHAR16	atStr[500];
 								swprintf( atStr, L"" );
 
-								pSoldier->PrintDiseaseDesc( atStr );
+								TacticalActorDisease::appendDescription(*pSoldier, atStr );
 
 								wcscat( pStr, atStr );
 							}

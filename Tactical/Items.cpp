@@ -1,6 +1,7 @@
 	#include "Items.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
 #include "TacticalWorldAdapter.h"
 	#include "Action Items.h"
@@ -3219,7 +3220,7 @@ UINT32 CalculateCarriedWeight( TacticalActor * pSoldier, BOOLEAN fConsiderDraggi
 	if ( gGameExternalOptions.fDisease )
 	{
 		for ( int i = 0; i < NUM_DISEASES; ++i )
-			diseaseeffect += Disease[i].sEffCarryStrength * pSoldier->GetDiseaseMagnitude( i );
+			diseaseeffect += Disease[i].sEffCarryStrength * TacticalActorDisease::magnitude(*pSoldier, i );
 	}
 
 	ubStrengthForCarrying = (ubStrengthForCarrying * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_PERC_CARRYSTRENGTH )) / 100);
@@ -6345,7 +6346,7 @@ BOOLEAN CanItemFitInPosition( TacticalActor *pSoldier, OBJECTTYPE *pObj, INT8 bP
 			// Flugente: disease can stop us from using our arms normally
 			if ( gGameExternalOptions.fDisease
 				&& gGameExternalOptions.fDiseaseSevereLimitations
-				&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
+				&& TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
 				return FALSE;
 
 			if (ItemIsTwoHanded(pSoldier->inventory()[HANDPOS].usItem))
@@ -6359,7 +6360,7 @@ BOOLEAN CanItemFitInPosition( TacticalActor *pSoldier, OBJECTTYPE *pObj, INT8 bP
 				// Flugente: disease can stop us from using our arms normally
 				if ( gGameExternalOptions.fDisease
 					&& gGameExternalOptions.fDiseaseSevereLimitations
-					&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
+					&& TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
 					return FALSE;
 
 				if ( pSoldier->inventory()[HANDPOS].exists() && pSoldier->inventory()[SECONDHANDPOS].exists() )
@@ -9428,7 +9429,7 @@ void SwapHandItems( TacticalActor * pSoldier )
 	// Flugente: disease can stop us from using our arms normally
 	if ( gGameExternalOptions.fDisease
 		&& gGameExternalOptions.fDiseaseSevereLimitations
-		&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
+		&& TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_LIMITED_USE_ARMS ) )
 	{
 		// if we only have one usable hand, drop item in main hand to inventory
 		if ( pSoldier->inventory()[HANDPOS].exists() )

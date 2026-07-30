@@ -1,5 +1,6 @@
 #include "Map Screen Interface.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDisease.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include <array>
@@ -2119,7 +2120,7 @@ void UpdateCharRegionHelpText( void )
 						
 					pSoldier->PrintFoodDesc( sString, TRUE );
 
-					pSoldier->PrintDiseaseDesc( sString, TRUE );
+					TacticalActorDisease::appendDescription(*pSoldier, sString, TRUE );
 
 					pSoldier->PrintSleepDesc( sString );
 				}

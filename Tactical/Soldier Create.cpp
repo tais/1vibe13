@@ -1,5 +1,6 @@
 	#include "sgp.h"
 	#include "TacticalActorConditions.h"
+	#include "TacticalActorDisease.h"
 	#include "Soldier Create.h"
 	#include "Overhead.h"
 	#include "WCheck.h"
@@ -846,13 +847,13 @@ TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldi
 			if ( pSectorInfo )
 			{
 				INT32 diseaseamount = (Disease[0].sInfectionPtsFull * pSectorInfo->fDiseasePoints) / DISEASE_MAX_SECTOR;
-				Soldier.AddDiseasePoints( 0, diseaseamount );
+				TacticalActorDisease::addPoints(Soldier, 0, diseaseamount);
 
 				// if disease has broken out, lower life points
-				if ( Soldier.condition().hasDiseaseFlag(0, SOLDIERDISEASE_OUTBREAK) )
+				if ( Soldier.condition().hasDiseaseFlag(0, TacticalActorDisease::outbreakFlag) )
 				{
 					// we only alter breath and life points here, stats effectivity will be handled automatically
-					FLOAT magnitude = Soldier.GetDiseaseMagnitude( 0 );
+					FLOAT magnitude = TacticalActorDisease::magnitude(Soldier, 0);
 
 					UINT16 diseasemaxbreathreduction = Disease[0].usMaxBreath * magnitude;
 

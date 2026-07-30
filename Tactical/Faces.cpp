@@ -2,6 +2,7 @@
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
 	#include <stdio.h>
 	#include "sgp_logger.h"
@@ -2219,7 +2220,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// Flugente: disease
-			if (pSoldier->HasDisease(TRUE, FALSE, TRUE))
+			if (TacticalActorDisease::hasAny(*pSoldier, TRUE, FALSE, TRUE))
 			{
 				DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 28);
 				bNumRightIcons++;
@@ -2387,7 +2388,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 									 sIconIndex_Assignment = 29;
 									 fDoIcon_Assignment = TRUE;
 									 // determine our skill at detecting disease
-									 sPtsAvailable = pSoldier->GetDiseaseDiagnosePoints();
+									 sPtsAvailable = TacticalActorDisease::diagnosisPoints(*pSoldier);
 
 									 fShowNumber = TRUE;
 									 fShowMaximum = FALSE;

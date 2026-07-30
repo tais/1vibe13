@@ -1,5 +1,6 @@
 	#include "sgp.h"
 	#include "SoldierRepository.h"
+	#include "TacticalActorDisease.h"
 	#include "Soldier Control.h"
 	#include "Soldier Profile.h"
 	#include "Drugs And Alcohol.h"
@@ -85,7 +86,7 @@ BOOLEAN ApplyDrugs_New( TacticalActor *pSoldier, UINT16 usItem, UINT16 uStatusUs
 	{
 		if ( !(*disease_effects_it).chance || Chance( (*disease_effects_it).chance ) )
 		{
-			pSoldier->AddDiseasePoints( (*disease_effects_it).disease, (*disease_effects_it).size * effectivepercentage );
+			TacticalActorDisease::addPoints(*pSoldier, (*disease_effects_it).disease, (*disease_effects_it).size * effectivepercentage );
 		}
 	}
 

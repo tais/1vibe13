@@ -420,17 +420,6 @@ enum
 #define SOLDIER_INTERROGATE_ALL				0x000001F8					// all interrogation flags
 // ----------------------------------------------------------------
 
-// -------- added by Flugente: disease property flags --------
-// easier than adding 32 differently named variables. DO NOT CHANGE THEM, UNLESS YOU KNOW WHAT YOU ARE DOING!!!
-// these flags describe how a disease has affected us so far
-#define SOLDIERDISEASE_DIAGNOSED			0x00000001	//1				// it is now known that we have this disease - either a doctor diagnosed it, or it broke out an we are currently suffering
-#define SOLDIERDISEASE_OUTBREAK				0x00000002	//2				// disease has broken out - we suffer the effects now. Without this flag, it is active but does not do any damage to us
-#define SOLDIERDISEASE_REVERSEAL			0x00000004	//4				// disease is reversing - every hour we receive negative points. This is used to simulate a disease healing itself
-#define SOLDIERDISEASE_SPLINTAPPLIED_LEG	0x00000008					// a spling has been applied to the leg. Diseases with the corresponding tag will heal faster
-
-#define SOLDIERDISEASE_SPLINTAPPLIED_ARM	0x00000010					// a spling has been applied to the arm. Diseases with the corresponding tag will heal faster
-
-
 // -------- added by Flugente: background property flags --------
 // easier than adding 32 differently named variables. DO NOT CHANGE THEM, UNLESS YOU KNOW WHAT YOU ARE DOING!!!
 // a merc's background info reveals data about his previous life, like former regiments. These backgrounds add small abilities/disabilities. Nothing substantial, just small bits do
@@ -1176,26 +1165,8 @@ public:
 	// Flugente: boxing fix: this shall be the only location where the boxing flag gets removed (easier debugging)
 	void	DeleteBoxingFlag();
 
-	// Flugente: disease
-	void	Infect( UINT8 aDisease );
-	void	AddDiseasePoints( UINT8 aDisease, INT32 aVal  );
-	void	AnnounceDisease( UINT8 aDisease );
-	void	AddDisability( UINT8 aDisability );
-	bool	CanReceiveSplint();
-
-	// do we have any disease?
-	// fDiagnosedOnly: check for wether we know of this infection
-	// fHealableOnly: check wether it can be healed
-	// fSymbolOnly: only show if symbol should be shown
-	BOOLEAN HasDisease(BOOLEAN fDiagnosedOnly, BOOLEAN fHealableOnly, BOOLEAN fSymbolOnly = FALSE);
-	BOOLEAN HasDiseaseWithFlag(UINT32 aFlag);
-	FLOAT	GetDiseaseMagnitude( UINT8 aDisease );			// get the magnitude of a disease we might have, used to determine wether there are any effects
-	void	PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
 	void	PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
 	void	PrintSleepDesc( CHAR16* apStr );
-	FLOAT   GetDiseaseContactProtection();		// get percentage protection from infections via contact
-	INT16	GetDiseaseResistance();
-	UINT16	GetDiseaseDiagnosePoints();
 	FLOAT	GetBurialPoints( UINT16* apCorpses );
 
 	// Flugente: hourly breath regen calculation

@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDisease.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdlib.h>
@@ -3606,7 +3607,7 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 						// Flugente: we are a lot slower if our leg is severely damaged, even if we can handle the weight
 						if ( gGameExternalOptions.fDisease
 							&& gGameExternalOptions.fDiseaseSevereLimitations
-							&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
+							&& TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
 							iEncumbrance = max( iEncumbrance * 2, 200 );
 
 						if ( iEncumbrance > iHighestEncumbrance )

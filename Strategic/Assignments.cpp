@@ -1,6 +1,7 @@
 #include "Assignments.h"
 #include "SoldierRepository.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 #include "strategic.h"
 #include "Items.h"
@@ -1582,7 +1583,7 @@ BOOLEAN CanCharacterPatient( TacticalActor *pSoldier )
 		}
 	}
 
-	if ( pSoldier->HasDisease( TRUE, TRUE ) )
+	if ( TacticalActorDisease::hasAny(*pSoldier, TRUE, TRUE ) )
 		return TRUE;
 
 	// if we don't have damaged stat, look if we need healing
@@ -4240,7 +4241,7 @@ void UpdatePatientsWhoAreDoneHealing( void )
 		if( pTeamSoldier->roster().active() )
 		{
 			// patient who doesn't need healing or curing
-			if ( IS_PATIENT(pTeamSoldier->assignment().current()) && !IS_DOCTOR(pTeamSoldier->assignment().current()) && (pTeamSoldier->vitals().health() == pTeamSoldier->vitals().maximumHealth()) && pTeamSoldier->HasDisease(TRUE, TRUE) )
+			if ( IS_PATIENT(pTeamSoldier->assignment().current()) && !IS_DOCTOR(pTeamSoldier->assignment().current()) && (pTeamSoldier->vitals().health() == pTeamSoldier->vitals().maximumHealth()) && TacticalActorDisease::hasAny(*pTeamSoldier, TRUE, TRUE) )
 			{
 				// Flugente: stats can also be damaged
 				if ( !UsingFoodSystem() || ( pTeamSoldier->condition().foodLevel() > FoodMoraleMods[FOOD_NORMAL].bThreshold && pTeamSoldier->condition().drinkLevel() > FoodMoraleMods[FOOD_NORMAL].bThreshold) )
@@ -4513,7 +4514,7 @@ BOOLEAN CanSoldierBeHealedByDoctor( TacticalActor *pSoldier, TacticalActor *pDoc
 	}
 
 	// Flugente: are we infected with a curable disease that we know of?
-	BOOLEAN fDisease = pSoldier->HasDisease( TRUE, TRUE );
+	BOOLEAN fDisease = TacticalActorDisease::hasAny(*pSoldier, TRUE, TRUE );
 
 	// if we have no damaged stat and don't need healing
 	if ( !fHealDamagedStat && !fDisease && (pSoldier->vitals().health() == pSoldier->vitals().maximumHealth()) )
@@ -4622,14 +4623,14 @@ UINT16 HealPatient( TacticalActor *pPatient, TacticalActor * pDoctor, UINT16 usH
 	}
 	
 	//////// DETERMINE DISEASE CURE ////////////////////
-	if ( pPatient->HasDisease( TRUE, TRUE ) )
+	if ( TacticalActorDisease::hasAny(*pPatient, TRUE, TRUE ) )
 	{
 		fWillCureDisease = TRUE;
 
 		// loop over all diseases and determine how much we can heal
 		for ( int i = 0; i < NUM_DISEASES; ++i )
 		{
-			if ( pPatient->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_CANBECURED) )
+			if ( pPatient->condition().hasDiseaseFlag(i, TacticalActorDisease::diagnosedFlag) && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_CANBECURED) )
 			{
 				sHundredsToDiseaseCure += pPatient->condition().diseasePoints(i);
 			}
@@ -4660,14 +4661,14 @@ UINT16 HealPatient( TacticalActor *pPatient, TacticalActor * pDoctor, UINT16 usH
 			UINT16 healingdone = 0;
 			for (int i = 0; i < NUM_DISEASES; ++i)
 			{
-				if (pPatient->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_CANBECURED))
+				if (pPatient->condition().hasDiseaseFlag(i, TacticalActorDisease::diagnosedFlag) && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_CANBECURED))
 				{
 					// amount cured is fraction of disease to total disease times fraction of healing done
 					INT32 cured = (sHundredsToDiseaseCure_Used * pPatient->condition().diseasePoints(i)) / (FLOAT)(sHundredsToDiseaseCure);
 
 					if (cured > 0)
 					{
-						pPatient->AddDiseasePoints(i, -cured);
+						TacticalActorDisease::addPoints(*pPatient, i, -cured);
 					}
 				}
 			}
@@ -4753,7 +4754,7 @@ UINT16 HealPatient( TacticalActor *pPatient, TacticalActor * pDoctor, UINT16 usH
 		ScreenMsg( FONT_MCOLOR_RED, MSG_TESTVERSION, L"Warning! HealPatient uses more points than it should!" );
 
 	// if this patient is fully healed and cured
-	if ( !pDoctor && pPatient->vitals().health() == pPatient->vitals().maximumHealth() && !NumberOfDamagedStats( pPatient ) && !pPatient->HasDisease( TRUE, TRUE ) )
+	if ( !pDoctor && pPatient->vitals().health() == pPatient->vitals().maximumHealth() && !NumberOfDamagedStats( pPatient ) && !TacticalActorDisease::hasAny(*pPatient, TRUE, TRUE ) )
 	{
 		AssignmentDone( pPatient, TRUE, TRUE );
 	}
@@ -5819,7 +5820,7 @@ void RestCharacter( TacticalActor *pSoldier )
 	// Flugente: diseases can affect stat effectivity
 	UINT16 diseasemaxbreathreduction = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseasemaxbreathreduction += Disease[i].usMaxBreath * pSoldier->GetDiseaseMagnitude( i );
+		diseasemaxbreathreduction += Disease[i].usMaxBreath * TacticalActorDisease::magnitude(*pSoldier, i );
 
 	pSoldier->vitals().maximumBreath() = min( pSoldier->vitals().maximumBreath(), 100 - diseasemaxbreathreduction );
 
@@ -6426,7 +6427,7 @@ void HandleDiseaseDiagnosis()
 		if ( pSoldier->roster().active() && pSoldier->assignment().current() == DISEASE_DIAGNOSE && CanCharacterDiagnoseDisease( pSoldier ) && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			// determine our skill at detecting disease
-			UINT16 skill = pSoldier->GetDiseaseDiagnosePoints();
+			UINT16 skill = TacticalActorDisease::diagnosisPoints(*pSoldier);
 
 			// loop over all other soldiers and determine the chance that they will infect us
 			TacticalActor *pTeamSoldier = NULL;
@@ -6440,7 +6441,7 @@ void HandleDiseaseDiagnosis()
 					for ( int i = 0; i < NUM_DISEASES; ++i )
 					{
 						// if teammember has disease, but this is not yet known
-						if ( pTeamSoldier->condition().infected(i) && !pTeamSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) && Disease[i].sInfectionPtsOutbreak > 0 )
+						if ( pTeamSoldier->condition().infected(i) && !pTeamSoldier->condition().hasDiseaseFlag(i, TacticalActorDisease::diagnosedFlag) && Disease[i].sInfectionPtsOutbreak > 0 )
 						{
 							// whether an infection is diagnosed also depends on how high it is compared to an outbreak
 							FLOAT infectedfraction = ((FLOAT)pTeamSoldier->condition().diseasePoints(i) / (FLOAT)Disease[i].sInfectionPtsOutbreak);
@@ -6448,7 +6449,7 @@ void HandleDiseaseDiagnosis()
 							if ( infectedfraction > 0.0f && Chance((UINT32)(100 * infectedfraction)) && Chance( skill ) )
 							{
 								// doctor discovered a disease - make it known
-								pTeamSoldier->AnnounceDisease( i );
+								TacticalActorDisease::announce(*pTeamSoldier, i );
 
 								// if we detect a disease, we get a bit of experience
 								StatChange( pSoldier, WISDOMAMT, 2, FALSE );
@@ -9500,7 +9501,7 @@ void HandleHealingByNaturalCauses( TacticalActor *pSoldier )
 	}
 
 	// lost any pts?
-	if ( pSoldier->vitals().health() == pSoldier->vitals().maximumHealth() && !pSoldier->HasDisease( FALSE, FALSE ) )
+	if ( pSoldier->vitals().health() == pSoldier->vitals().maximumHealth() && !TacticalActorDisease::hasAny(*pSoldier, FALSE, FALSE ) )
 	{
 		return;
 	}
@@ -9595,7 +9596,7 @@ void HandleHealingByNaturalCauses( TacticalActor *pSoldier )
 	// Flugente: diseases can lower health regen
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
-		pSoldier->vitals().fractionalHealth() += Disease[i].sLifeRegenHundreds * pSoldier->GetDiseaseMagnitude( i );
+		pSoldier->vitals().fractionalHealth() += Disease[i].sLifeRegenHundreds * TacticalActorDisease::magnitude(*pSoldier, i );
 	}
 
 	// now update the real life values
@@ -19497,7 +19498,7 @@ UINT8 CalcSoldierNeedForSleep( TacticalActor *pSoldier )
 	// Flugente: diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sNeedToSleep * pSoldier->GetDiseaseMagnitude( i );
+		diseaseeffect += Disease[i].sNeedToSleep * TacticalActorDisease::magnitude(*pSoldier, i );
 
 	ubNeedForSleep += diseaseeffect;
 
@@ -22262,7 +22263,7 @@ static void ApplySurgeryBloodBagBoost(
 	if (((*pObj)[0]->data.sObjectFlag & INFECTED) &&
 		gGameExternalOptions.fDiseaseContaminatesItems)
 	{
-		patient->Infect(0);
+		TacticalActorDisease::infect(*patient, 0);
 	}
 
 	pObj->RemoveObjectsFromStack(1);

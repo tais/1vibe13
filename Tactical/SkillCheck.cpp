@@ -1,5 +1,6 @@
 	#include "SkillCheck.h"
 	#include "SoldierRepository.h"
+	#include "TacticalActorDisease.h"
 	#include "Soldier Profile.h"
 	#include "random.h"
 	#include "Items.h"
@@ -58,7 +59,7 @@ INT16 EffectiveStrength( TacticalActor *pSoldier, BOOLEAN fTrainer )
 	if ( gGameExternalOptions.fDisease )
 	{
 		for ( int i = 0; i < NUM_DISEASES; ++i )
-			diseaseeffect += Disease[i].sEffStat[INFST_STR] * pSoldier->GetDiseaseMagnitude( i );
+			diseaseeffect += Disease[i].sEffStat[INFST_STR] * TacticalActorDisease::magnitude(*pSoldier, i );
 	}
 
 	iEffStrength = (iEffStrength * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_STRENGTH ))) / 100;
@@ -83,7 +84,7 @@ INT16 EffectiveWisdom( TacticalActor * pSoldier)
 	// Flugente: diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sEffStat[INFST_WIS] * pSoldier->GetDiseaseMagnitude( i );
+		diseaseeffect += Disease[i].sEffStat[INFST_WIS] * TacticalActorDisease::magnitude(*pSoldier, i );
 
 	iEffWisdom = (iEffWisdom * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_WISDOM ))) / 100;
 
@@ -118,7 +119,7 @@ INT16 EffectiveAgility( TacticalActor * pSoldier, BOOLEAN fTrainer )
 	// Flugente: diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sEffStat[INFST_AGI] * pSoldier->GetDiseaseMagnitude( i );
+		diseaseeffect += Disease[i].sEffStat[INFST_AGI] * TacticalActorDisease::magnitude(*pSoldier, i );
 
 	iEffAgility = (iEffAgility * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_AGILITY ))) / 100;
 
@@ -241,7 +242,7 @@ INT8 EffectiveExpLevel( TacticalActor * pSoldier, BOOLEAN fTactical )
 	// Flugente: diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sEffStat[INFST_EXP] * pSoldier->GetDiseaseMagnitude( i );
+		diseaseeffect += Disease[i].sEffStat[INFST_EXP] * TacticalActorDisease::magnitude(*pSoldier, i );
 
 	iEffExpLevel += diseaseeffect + pSoldier->condition().extraExperienceLevel();
 		
@@ -294,7 +295,7 @@ INT16 EffectiveDexterity( TacticalActor * pSoldier, BOOLEAN fTrainer )
 	// Flugente: diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sEffStat[INFST_DEX] * pSoldier->GetDiseaseMagnitude( i );
+		diseaseeffect += Disease[i].sEffStat[INFST_DEX] * TacticalActorDisease::magnitude(*pSoldier, i );
 
 	iEffDexterity = (iEffDexterity * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_DEXTERITY ))) / 100;
 

@@ -2162,6 +2162,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.cpp"
   tactical_actor_conditions_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
+  tactical_actor_disease_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDragging.h"
   tactical_actor_dragging_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
@@ -2537,6 +2539,97 @@ string(FIND "${headless_test_contents}"
 if(dragging_operation_coverage EQUAL -1)
   message(FATAL_ERROR
     "Tactical actor dragging lost its data-free headless coverage")
+endif()
+
+foreach(retired_disease_method IN ITEMS
+  "Infect"
+  "AddDiseasePoints"
+  "AnnounceDisease"
+  "AddDisability"
+  "CanReceiveSplint"
+  "HasDisease"
+  "HasDiseaseWithFlag"
+  "GetDiseaseMagnitude"
+  "PrintDiseaseDesc"
+  "GetDiseaseContactProtection"
+  "GetDiseaseResistance"
+  "GetDiseaseDiagnosePoints")
+  string(FIND "${tactical_actor_contents}"
+    "${retired_disease_method}("
+    retired_disease_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActor::${retired_disease_method}"
+    retired_disease_definition)
+  if(NOT retired_disease_declaration EQUAL -1 OR
+     NOT retired_disease_definition EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalActor regained disease facade '${retired_disease_method}'")
+  endif()
+endforeach()
+
+foreach(required_disease_operation IN ITEMS
+  "infect"
+  "addPoints"
+  "announce"
+  "addDisability"
+  "canReceiveSplint"
+  "hasAny"
+  "hasOutbreakProperty"
+  "magnitude"
+  "appendDescription"
+  "contactProtection"
+  "resistance"
+  "diagnosisPoints")
+  string(FIND "${tactical_actor_disease_header_contents}"
+    "${required_disease_operation}("
+    disease_operation_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActorDisease::${required_disease_operation}("
+    disease_operation_definition)
+  if(disease_operation_declaration EQUAL -1 OR
+     disease_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor disease operation '${required_disease_operation}' lost its domain declaration or definition")
+  endif()
+endforeach()
+
+foreach(required_disease_flag IN ITEMS
+  "diagnosedFlag"
+  "outbreakFlag"
+  "reversingFlag"
+  "legSplintFlag"
+  "armSplintFlag")
+  string(FIND "${tactical_actor_disease_header_contents}"
+    "${required_disease_flag}"
+    disease_flag_declaration)
+  if(disease_flag_declaration EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor disease state lost '${required_disease_flag}'")
+  endif()
+endforeach()
+
+foreach(retired_disease_flag IN ITEMS
+  "SOLDIERDISEASE_DIAGNOSED"
+  "SOLDIERDISEASE_OUTBREAK"
+  "SOLDIERDISEASE_REVERSEAL"
+  "SOLDIERDISEASE_SPLINTAPPLIED_LEG"
+  "SOLDIERDISEASE_SPLINTAPPLIED_ARM")
+  string(FIND
+    "${tactical_actor_header_contents}${tactical_actor_source_contents}"
+    "${retired_disease_flag}"
+    retired_disease_flag_site)
+  if(NOT retired_disease_flag_site EQUAL -1)
+    message(FATAL_ERROR
+      "Retired tactical actor disease flag '${retired_disease_flag}' returned")
+  endif()
+endforeach()
+
+string(FIND "${headless_test_contents}"
+  "TacticalActorDisease::hasAny"
+  disease_operation_coverage)
+if(disease_operation_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor disease lost its data-free headless coverage")
 endif()
 
 foreach(required_persistence_fragment IN ITEMS

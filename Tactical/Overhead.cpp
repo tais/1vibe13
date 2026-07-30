@@ -1,6 +1,7 @@
 #include <cstdio>
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
 #include "TacticalWorldAdapter.h"
 #include <string.h>
@@ -8896,7 +8897,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                         ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113HAMMessage[0], pSoldier->GetName() );             
 
 					// Flugente: if we are Buns, and we have PTSD, this shock causes us to switch to a different personality
-					if ( pSoldier->identity().profile() == BUNS && pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_PTSD_BUNS ) )
+					if ( pSoldier->identity().profile() == BUNS && TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_PTSD_BUNS ) )
 					{
 						SwapToProfile( pSoldier, BUNS_CHAOTIC );
 

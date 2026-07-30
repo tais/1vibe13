@@ -28,6 +28,7 @@
 #include "Campaign.h"
 #include "Points.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDisease.h"
 
 #ifndef JA2UB
 #include "Meanwhile.h"
@@ -2368,7 +2369,7 @@ void HandleDynamicOpinionChange( TacticalActor* pSoldier, UINT8 usEvent, BOOLEAN
 
 			case OPINIONEVENT_DISEASE_DISGUSTING:
 				// not if the other guy is a doctor, is currently used as a doctor, or has disease themself
-				if ( IS_DOCTOR(pTeamSoldier->assignment().current()) || pTeamSoldier->assignment().current() == DISEASE_DOCTOR_SECTOR || HAS_SKILL_TRAIT( pTeamSoldier, DOCTOR_NT ) || pTeamSoldier->HasDisease(TRUE, FALSE, FALSE) )
+				if ( IS_DOCTOR(pTeamSoldier->assignment().current()) || pTeamSoldier->assignment().current() == DISEASE_DOCTOR_SECTOR || HAS_SKILL_TRAIT( pTeamSoldier, DOCTOR_NT ) || TacticalActorDisease::hasAny(*pTeamSoldier, TRUE, FALSE, FALSE) )
 					continue;
 				break;
 

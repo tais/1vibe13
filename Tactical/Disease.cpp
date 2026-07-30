@@ -7,6 +7,7 @@
 
 #include "Overhead.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDisease.h"
 #include "random.h"
 #include "Assignments.h"
 #include <mapscreen.h>
@@ -82,17 +83,17 @@ void HandleDisease()
 					// if the arm/leg is severely wounded, a splint increases the healing speed (assuming the gain is negative to begin with and doesn't reverse)
 					if ( gGameExternalOptions.fDiseaseSevereLimitations
 						&& Disease[i].usDiseaseProperties & (DISEASE_PROPERTY_LIMITED_USE_ARMS| DISEASE_PROPERTY_LIMITED_USE_LEGS)
-						&& pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_ARM | SOLDIERDISEASE_SPLINTAPPLIED_LEG) )
+						&& pSoldier->condition().hasDiseaseFlag(i, TacticalActorDisease::armSplintFlag | TacticalActorDisease::legSplintFlag) )
 					{
 						pointgain *= 2;
 					}
 
 					// some diseases can reverse on certain states
-					if ( pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_REVERSEAL) )
+					if ( pSoldier->condition().hasDiseaseFlag(i, TacticalActorDisease::reversingFlag) )
 						pointgain *= -1;
 
 					// add disease points - some diseases can reverse on certain states
-					pSoldier->AddDiseasePoints( i, pointgain );
+					TacticalActorDisease::addPoints(*pSoldier, i, pointgain );
 				}
 			}
 		}
@@ -154,8 +155,8 @@ void HandleDisease()
 				for (int i = 0; i < NUM_DISEASES; ++i)
 				{
 					if ((Disease[i].usDiseaseProperties & DISEASE_PROPERTY_DISGUSTING) &&
-						pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) &&
-						pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_OUTBREAK))
+						pSoldier->condition().hasDiseaseFlag(i, TacticalActorDisease::diagnosedFlag) &&
+						pSoldier->condition().hasDiseaseFlag(i, TacticalActorDisease::outbreakFlag))
 					{
 						HandleDynamicOpinionChange(pSoldier, OPINIONEVENT_DISEASE_DISGUSTING, TRUE, TRUE);
 						break;
@@ -213,7 +214,7 @@ void HandlePossibleInfection( TacticalActor *pSoldier, TacticalActor* pOtherSold
 		FLOAT dChance = Disease[i].dInfectionChance[aInfectionType];
 
 		// alter chance by modifier and disease resistance
-		dChance = dChance * aModifier * (100 - pSoldier->GetDiseaseResistance( )) / 100;
+		dChance = dChance * aModifier * (100 - TacticalActorDisease::resistance(*pSoldier)) / 100;
 
 		if ( aInfectionType == INFECTION_TYPE_TROPICS || aInfectionType == INFECTION_TYPE_SWAMP )
 		{
@@ -228,19 +229,19 @@ void HandlePossibleInfection( TacticalActor *pSoldier, TacticalActor* pOtherSold
 				dChance = 0;
 
 			// if we wear face or hand protection, lower chance of infection
-			dChance *= (1.0f - pSoldier->GetDiseaseContactProtection( ));
+			dChance *= (1.0f - TacticalActorDisease::contactProtection(*pSoldier));
 		}
 		else if ( aInfectionType == INFECTION_TYPE_CONTACT_CORPSE )
 		{
 			// if we wear face or hand protection, lower chance of infection
-			dChance *= (1.0f - pSoldier->GetDiseaseContactProtection( ));
+			dChance *= (1.0f - TacticalActorDisease::contactProtection(*pSoldier));
 		}
 
 		// chances can be smaller than 1%, so we use a trick here by altering our 'chance function'. This allows to have much smaller chances, as for diseases, 1% can be way too high.
 		if ( Random( 10000 ) < dChance * 100 )
 		{
 			// infect us
-			pSoldier->Infect( i );
+			TacticalActorDisease::infect(*pSoldier, i );
 		}
 	}
 }

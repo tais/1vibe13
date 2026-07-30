@@ -1,5 +1,6 @@
 	#include "sgp.h"
 	#include "SoldierRepository.h"
+#include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 	#include "Soldier Profile.h"
 	#include "Food.h"
@@ -257,7 +258,7 @@ BOOLEAN ApplyFood( TacticalActor *pSoldier, OBJECTTYPE *pObject, UINT16 usPoints
 		(*pObject)[0]->data.sObjectFlag |= INFECTED;
 	// if object is infected, infect the victim
 	else if ( (*pObject)[0]->data.sObjectFlag & INFECTED && gGameExternalOptions.fDiseaseContaminatesItems )
-		pSoldier->Infect( 0 );
+		TacticalActorDisease::infect(*pSoldier, 0 );
 	
 	INT32 sBPAdjustment = 0;
 	// if the food is more of a drink, we also restore breath points
@@ -404,8 +405,8 @@ void HourlyFoodSituationUpdate( TacticalActor *pSoldier )
 
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
-		specialfoodmodifier  += Disease[i].sFoodModifier  * pSoldier->GetDiseaseMagnitude( i );
-		specialdrinkmodifier += Disease[i].sDrinkModifier * pSoldier->GetDiseaseMagnitude( i );
+		specialfoodmodifier  += Disease[i].sFoodModifier  * TacticalActorDisease::magnitude(*pSoldier, i );
+		specialdrinkmodifier += Disease[i].sDrinkModifier * TacticalActorDisease::magnitude(*pSoldier, i );
 	}
 
 	specialfoodmodifier /= 100.0;

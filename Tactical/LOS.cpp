@@ -1,4 +1,5 @@
 #include "connect.h"
+#include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 #include "builddefines.h"
 #include <stdio.h>
@@ -2752,7 +2753,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	if ( pBullet->usFlags & BULLET_FLAG_INFECTED && gGameExternalOptions.fDiseaseContaminatesItems )
 	{
 		// infect us with the first disease
-		pTarget->Infect( 0 );
+		TacticalActorDisease::infect(*pTarget, 0 );
 	}
 
 	// HEADROCK HAM 5.1: This is an utter hack, but it may be necessary. This soldier is hit by a fragment,

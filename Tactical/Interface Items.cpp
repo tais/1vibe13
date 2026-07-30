@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 	#include "mapscreen.h"
 	#include <stdio.h>
@@ -14939,7 +14940,7 @@ void UpdateMercBodyRegionHelpText( )
 
 					pSoldier->PrintFoodDesc( sString, TRUE );
 
-					pSoldier->PrintDiseaseDesc( sString, TRUE );
+					TacticalActorDisease::appendDescription(*pSoldier, sString, TRUE );
 
 					pSoldier->PrintSleepDesc( sString );
 				}

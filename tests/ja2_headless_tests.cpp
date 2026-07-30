@@ -117,6 +117,7 @@
 #include "Soldier Profile.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
@@ -7945,6 +7946,39 @@ int main( int, char** )
 		       !initiallyDragging &&
 		       !draggingActor.interaction().dragging(),
 		       "tactical actor dragging exposes validation and cancellation without record methods" );
+	}
+
+	{
+		TacticalActor diseaseActor;
+		const BOOLEAN previousDiseaseSetting =
+			gGameExternalOptions.fDisease;
+		const auto previousInfectionPointLimit =
+			Disease[0].sInfectionPtsFull;
+		gGameExternalOptions.fDisease = TRUE;
+		Disease[0].sInfectionPtsFull = 0;
+		diseaseActor.condition().diseasePoints(0) = 1;
+		diseaseActor.condition().markDiseaseFlag(
+			0,
+			TacticalActorDisease::outbreakFlag);
+		const bool malformedDiseaseIsSafe =
+			TacticalActorDisease::hasAny(diseaseActor, false, false) &&
+			TacticalActorDisease::magnitude(diseaseActor, 0) == 0.0f;
+		gGameExternalOptions.fDisease = FALSE;
+		const bool disabledDisease =
+			!TacticalActorDisease::hasAny(diseaseActor, false, false) &&
+			TacticalActorDisease::magnitude(diseaseActor, 0) == 0.0f;
+		TacticalActorDisease::addDisability(diseaseActor, 1);
+		const bool disabilityRecorded =
+			diseaseActor.condition().hasDisability(1);
+		const bool unprotected =
+			TacticalActorDisease::contactProtection(diseaseActor) == 0.0f;
+		Disease[0].sInfectionPtsFull = previousInfectionPointLimit;
+		gGameExternalOptions.fDisease = previousDiseaseSetting;
+		CHECK( malformedDiseaseIsSafe &&
+		       disabledDisease &&
+		       disabilityRecorded &&
+		       unprotected,
+		       "tactical actor disease rules expose state, magnitude, and protection without record methods" );
 	}
 
 	{

@@ -1,5 +1,6 @@
 #include "connect.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 #include <wchar.h>
 #include <cmath>
@@ -3038,7 +3039,7 @@ void SurgeryRequesterCallback( UINT8 bExitValue )
 			{
 				// if object is infected, infect the victim
 				if ( ( *pObj )[0]->data.sObjectFlag & INFECTED && gGameExternalOptions.fDiseaseContaminatesItems )
-					pTarget->Infect( 0 );
+					TacticalActorDisease::infect(*pTarget, 0 );
 				
 				pObj->RemoveObjectsFromStack( 1 );
 
@@ -5072,7 +5073,7 @@ BOOLEAN UIMouseOnValidAttackLocation( TacticalActor *pSoldier )
 			if ( gfUIFullTargetFound )
 			{
 				if ( pSoldier->identity().id() != gusUIFullTargetID &&
-					fullTarget && fullTarget->CanReceiveSplint() )
+					fullTarget && TacticalActorDisease::canReceiveSplint(*fullTarget) )
 					return( TRUE );
 			}
 		}

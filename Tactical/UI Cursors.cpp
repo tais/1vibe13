@@ -1,5 +1,6 @@
 	#include "Items.h"
 	#include "TacticalActorConditions.h"
+	#include "TacticalActorDisease.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "Weapons.h"
@@ -2317,9 +2318,11 @@ UINT8 HandleSplintCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActiv
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
+			TacticalActor* const splintTarget =
+				GetJa2SoldierRepository().resolve(usSoldierIndex.i);
 			if ( usSoldierIndex != pSoldier->identity().id() &&
-				GetJa2SoldierRepository()
-					.resolve(usSoldierIndex.i)->CanReceiveSplint() )
+				splintTarget != nullptr &&
+				TacticalActorDisease::canReceiveSplint(*splintTarget) )
 				return SPLINT_GREY_UICURSOR;
 		}
 	}
