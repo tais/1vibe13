@@ -1,4 +1,5 @@
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "ai.h"
@@ -965,7 +966,8 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 		}
 
 		// if we are a doctor with medical gear, we might be able to help a wounded ally
-		if ( pSoldier->CanMedicAI() )
+		if (TacticalActorMedicalServices::
+				canTreatForAi(*pSoldier))
 		{
 			SoldierID ubPerson = GetClosestWoundedSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius, pSoldier->roster().team());
 			TacticalActor* person =
@@ -1727,7 +1729,8 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 		}
 
 		// if we are a doctor with medical gear, we might be able to help a wounded ally
-		if ( pSoldier->CanMedicAI() )
+		if (TacticalActorMedicalServices::
+				canTreatForAi(*pSoldier))
 		{
 			SoldierID ubPerson = GetClosestWoundedSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius, pSoldier->roster().team());
 			TacticalActor* person =
@@ -3364,7 +3367,8 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 		}
 
 		// if we are a doctor with medical gear, we might be able to help a wounded ally
-		if ( pSoldier->CanMedicAI() )
+		if (TacticalActorMedicalServices::
+				canTreatForAi(*pSoldier))
 		{
 			SoldierID ubPerson = GetClosestWoundedSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius, pSoldier->roster().team());
 			TacticalActor* person =

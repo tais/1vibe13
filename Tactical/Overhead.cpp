@@ -1,4 +1,5 @@
 #include "TacticalActorLongActions.h"
+#include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
@@ -3439,7 +3440,7 @@ void HandlePlayerTeamMemberDeath( TacticalActor *pSoldier )
 
     VerifyPublicOpplistDueToDeath( pSoldier );
 
-    pSoldier->ReceivingSoldierCancelServices( );
+    TacticalActorMedicalServices::cancelReceiving(*pSoldier);
 
 
     // IF IT'S THE SELECTED GUY, MAKE ANOTHER SELECTED!
@@ -6076,7 +6077,7 @@ void HandleTeamServices( UINT8 ubTeamNum )
                                 ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MERC_IS_ALL_BANDAGED_STR ], pTargetSoldier->GetName() );
 
                             // Cancel all services for this guy!
-                            pTargetSoldier->ReceivingSoldierCancelServices( );
+                            TacticalActorMedicalServices::cancelReceiving(*pTargetSoldier);
                             fDone = TRUE;
                         }
 
@@ -6108,7 +6109,7 @@ void HandleTeamServices( UINT8 ubTeamNum )
                             else
                             {
                                 ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MERC_IS_OUT_OF_BANDAGES_STR ], pTeamSoldier->GetName() );
-                                pTeamSoldier->GivingSoldierCancelServices( );
+                                TacticalActorMedicalServices::cancelProviding(*pTeamSoldier);
 
                                 if ( !gTacticalStatus.fAutoBandageMode )
                                 {
@@ -6161,7 +6162,7 @@ void HandlePlayerServices( TacticalActor *pTeamSoldier )
                             ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MERC_IS_ALL_BANDAGED_STR ], pTargetSoldier->GetName() );
 
                         // Cancel all services for this guy!
-                        pTargetSoldier->ReceivingSoldierCancelServices( );
+                        TacticalActorMedicalServices::cancelReceiving(*pTargetSoldier);
                         fDone = TRUE;
                     }
 
@@ -6202,7 +6203,7 @@ void HandlePlayerServices( TacticalActor *pTeamSoldier )
                         else
                         {
                             ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MERC_IS_OUT_OF_BANDAGES_STR ], pTeamSoldier->GetName() );
-                            pTeamSoldier->GivingSoldierCancelServices( );
+                            TacticalActorMedicalServices::cancelProviding(*pTeamSoldier);
 
                             if ( !gTacticalStatus.fAutoBandageMode )
                             {

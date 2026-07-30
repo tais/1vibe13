@@ -1378,6 +1378,15 @@ the engine must not contain SDL types in its public domain model.
   before state changes. The fourteen former `TacticalActor` façade methods are
   retired and guarded against returning. Installed maps, facility definitions,
   items, XML, Lua, audio, art, and other mod-data formats are unchanged.
+  `TacticalActorMedicalServices` now owns the live AI-medic decisions and both
+  sides of the medic/patient service relationship. It bounds world, grid,
+  level, direction, animation, inventory, item, repository, and target state;
+  stale partner IDs and corrupt provider counts are reconciled during
+  teardown. `TacticalActorDamageQueue` separately owns deferred tactical
+  damage replacement, exactly-once delivery, and explicit cancellation.
+  Nine additional aggregate methods were retired for these two compiled
+  domains. Treatment rules, items, traits, maps, XML, Lua, art, audio, and all
+  other installed mod-data formats remain unchanged.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to

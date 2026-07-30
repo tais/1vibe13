@@ -1,5 +1,6 @@
 	#include "builddefines.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorMedicalServices.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp.h"
@@ -2292,7 +2293,8 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
 				if (pSoldier)
 				{
-					pSoldier->ReceivingSoldierCancelServices( );
+					TacticalActorMedicalServices::
+						cancelReceiving(*pSoldier);
 				}
 				break;
 

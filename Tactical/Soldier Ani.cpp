@@ -1,4 +1,5 @@
 #include "TacticalActorWeaponHandling.h"
+#include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "stdlib.h"
@@ -3987,8 +3988,10 @@ BOOLEAN HandleSoldierDeath( TacticalActor *pSoldier , BOOLEAN *pfMadeCorpse )
 		}
 
 		// Cancel services here...
-		pSoldier->ReceivingSoldierCancelServices( );
-		pSoldier->GivingSoldierCancelServices( );
+		TacticalActorMedicalServices::cancelReceiving(
+			*pSoldier);
+		TacticalActorMedicalServices::cancelProviding(
+			*pSoldier);
 
 		if ( pSoldier->renderState().hasMuzzleFlashSprite() )
 		{
@@ -4397,8 +4400,10 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 	if ( pSoldier->vitals().health() < OKLIFE )
 	{
 		// Cancel services here...
-		pSoldier->ReceivingSoldierCancelServices( );
-		pSoldier->GivingSoldierCancelServices( );
+		TacticalActorMedicalServices::cancelReceiving(
+			*pSoldier);
+		TacticalActorMedicalServices::cancelProviding(
+			*pSoldier);
 
 
 		// If we are a monster, set life to zero ( no unconscious )

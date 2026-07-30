@@ -1,5 +1,6 @@
 #include "sgp.h"
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorMedicalServices.h"
 #include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorExplosives.h"
@@ -2683,14 +2684,16 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 
 		case AI_ACTION_DOCTOR:
 			{
-				pSoldier->AIDoctorFriend();
+				TacticalActorMedicalServices::
+					treatAdjacentForAi(*pSoldier);
 				ActionDone( pSoldier );
 			}
 			break;
 
 		case AI_ACTION_DOCTOR_SELF:
 			{
-				pSoldier->AIDoctorSelf();
+				TacticalActorMedicalServices::
+					treatSelfForAi(*pSoldier);
 				ActionDone( pSoldier );
 			}
 			break;

@@ -13,7 +13,9 @@
 #include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorDamageQueue.h"
 #include "TacticalActorLongActions.h"
+#include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorWeaponHandling.h"
 #include "SoldierRepository.h"
@@ -2870,8 +2872,10 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 					}
 
 					//check for services
-					this->ReceivingSoldierCancelServices( );
-					this->GivingSoldierCancelServices( );
+					TacticalActorMedicalServices::
+						cancelReceiving(*this);
+					TacticalActorMedicalServices::
+						cancelProviding(*this);
 
 
 					// Check if we are a vehicle, and start playing noise sound....
@@ -5784,8 +5788,10 @@ void SoldierGotHitExplosion( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT1
 	}
 
 	//check for services
-	pSoldier->ReceivingSoldierCancelServices( );
-	pSoldier->GivingSoldierCancelServices( );
+	TacticalActorMedicalServices::cancelReceiving(
+		*pSoldier);
+	TacticalActorMedicalServices::cancelProviding(
+		*pSoldier);
 
 
 	if ( gGameSettings.fOptions[TOPTION_BLOOD_N_GORE] )
@@ -6310,8 +6316,8 @@ void TacticalActor::EVENT_GetNewSoldierPath( INT32 sDestGridNo, UINT16 usMovemen
 // Change our state based on stance, to stop!
 void TacticalActor::StopSoldier( void )
 {
-	this->ReceivingSoldierCancelServices( );
-	this->GivingSoldierCancelServices( );
+	TacticalActorMedicalServices::cancelReceiving(*this);
+	TacticalActorMedicalServices::cancelProviding(*this);
 
 	if ( !(gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_STATIONARY) )
 	{
@@ -8573,8 +8579,10 @@ void TacticalActor::BeginSoldierClimbUpRoof(void)
 					}
 				}
 
-				this->InternalReceivingSoldierCancelServices(FALSE);
-				this->InternalGivingSoldierCancelServices(FALSE);
+				TacticalActorMedicalServices::
+					cancelReceiving(*this, false);
+				TacticalActorMedicalServices::
+					cancelProviding(*this, false);
 			}
 		}
 		else
@@ -8711,8 +8719,10 @@ void TacticalActor::BeginSoldierClimbWall( void )
 				this->animationIntent().pendingDirection() = bNewDirection;
 				this->EVENT_InitNewSoldierAnim( JUMPUPWALL, 0, FALSE );
 
-				this->InternalReceivingSoldierCancelServices( FALSE );
-				this->InternalGivingSoldierCancelServices( FALSE );
+				TacticalActorMedicalServices::
+					cancelReceiving(*this, false);
+				TacticalActorMedicalServices::
+					cancelProviding(*this, false);
 
 				//	this->BeginSoldierClimbWallUp(  );	
 			}
@@ -8751,8 +8761,10 @@ void TacticalActor::BeginSoldierClimbWallUp( void )
 				this->animationIntent().pendingDirection() = bNewDirection;
 				this->EVENT_InitNewSoldierAnim( JUMPDOWNWALL, 0, FALSE );
 
-				this->InternalReceivingSoldierCancelServices( FALSE );
-				this->InternalGivingSoldierCancelServices( FALSE );
+				TacticalActorMedicalServices::
+					cancelReceiving(*this, false);
+				TacticalActorMedicalServices::
+					cancelProviding(*this, false);
 
 				this->BeginSoldierClimbWall( );
 
@@ -9750,23 +9762,6 @@ UINT8 TacticalActor::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 s
 	return(ubCombinedLoss);
 }
 
-void TacticalActor::SoldierTakeDelayedDamage(INT8 bHeight, INT16 sLifeDeduct, INT16 sBreathLoss, UINT8 ubReason, SoldierID ubAttacker, INT32 sSourceGrid, INT16 sSubsequent, BOOLEAN fShowDamage)
-{
-	runtime().pendingAction.delayedDamage = [this, bHeight, sLifeDeduct, sBreathLoss, ubReason, ubAttacker, sSourceGrid, sSubsequent, fShowDamage]()
-	{
-		this->SoldierTakeDamage(bHeight, sLifeDeduct, sBreathLoss, ubReason, ubAttacker, sSourceGrid, sSubsequent, fShowDamage);
-	};
-}
-
-void TacticalActor::ResolveDelayedDamage()
-{
-	if (runtime().pendingAction.delayedDamage)
-	{
-		runtime().pendingAction.delayedDamage();
-		runtime().pendingAction.delayedDamage = nullptr;
-	}
-}
-
 extern BOOLEAN IsMercSayingDialogue( UINT8 ubProfileID );
 
 // Flugente: store how many sounds we've found for each npc type
@@ -10388,8 +10383,10 @@ void TacticalActor::BeginSoldierClimbDownRoof(void)
 				else
 					this->EVENT_InitNewSoldierAnim(JUMPDOWNWALL, 0, FALSE);
 
-				this->InternalReceivingSoldierCancelServices(FALSE);
-				this->InternalGivingSoldierCancelServices(FALSE);
+				TacticalActorMedicalServices::
+					cancelReceiving(*this, false);
+				TacticalActorMedicalServices::
+					cancelProviding(*this, false);
 			}
 		}
 		else
@@ -10431,9 +10428,6 @@ bNewDirection = gTwoCDirection[ bNewDirection ];
 
 pSoldier->animationIntent().pendingDirection() = bNewDirection;
 pSoldier->EVENT_InitNewSoldierAnim( CLIMBDOWNROOF, 0 , FALSE );
-
-InternalpSoldier->ReceivingSoldierCancelServices(, FALSE );
-InternalpSoldier->GivingSoldierCancelServices(, FALSE );
 
 }
 }
@@ -10564,7 +10558,7 @@ void TacticalActor::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fChec
 	// OK, set new position
 	this->EVENT_InternalSetSoldierPosition( dXPos, dYPos, FALSE, FALSE, FALSE );
 	
-	this->ResolveDelayedDamage();
+	TacticalActorDamageQueue::resolve(*this);
 
 	// Flugente: drag people	
 	if ( currentlydragging )
@@ -12198,7 +12192,9 @@ void TacticalActor::EVENT_SoldierBeginFirstAid( INT32 sGridNo, UINT8 ubDirection
 
 		// ATE: We can only give firsty aid to one perosn at a time... cancel
 		// any now...
-		this->InternalGivingSoldierCancelServices( FALSE );
+		TacticalActorMedicalServices::cancelProviding(
+			*this,
+			false);
 
 		BOOLEAN fInProne = FALSE;
 		if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_PRONE && gAnimControl[pTSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE && !this->vitals().isUndergoingSurgery() )
@@ -12694,140 +12690,6 @@ UINT32 TacticalActor::SoldierDressWound( TacticalActor *pVictim, INT16 sKitPts, 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-void TacticalActor::InternalReceivingSoldierCancelServices( BOOLEAN fPlayEndAnim )
-{
-	TacticalActor	*pTSoldier;
-	INT32		cnt;
-
-	if ( this->service().hasProviders() )
-	{
-		// Loop through guys who have us as servicing
-		for ( cnt = 0; cnt < MAX_NUM_SOLDIERS; ++cnt )
-		{
-			pTSoldier =
-				GetJa2SoldierRepository().resolve( cnt );
-			if ( pTSoldier == nullptr )
-				continue;
-			if ( pTSoldier->roster().active() )
-			{
-				if ( pTSoldier->service().partner() == this->identity().id() )
-				{
-					// END SERVICE!
-					this->service().removeProvider();
-
-					// SANDRO - added end of surgery attempt
-					if ( pTSoldier->vitals().isUndergoingSurgery() )
-						pTSoldier->vitals().finishSurgery(); // Surgery finished
-
-					pTSoldier->service().finishProviding();
-
-					if ( gTacticalStatus.fAutoBandageMode )
-					{
-						this->service().clearAutoBandagingMedic();
-
-						ActionDone( pTSoldier );
-					}
-					else
-					{
-						// don't use end aid animation in autobandage
-						if ( pTSoldier->vitals().health() >= OKLIFE && pTSoldier->vitals().breath() > 0 && fPlayEndAnim )
-						{
-							if ( gAnimControl[pTSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )
-							{
-								if ( !is_networked )
-									pTSoldier->EVENT_InitNewSoldierAnim( END_AID_PRN, 0, FALSE );
-								else
-									pTSoldier->ChangeSoldierState( END_AID_PRN, 0, 0 );
-							}
-							else
-							{
-								if ( !is_networked )
-									pTSoldier->EVENT_InitNewSoldierAnim( END_AID, 0, FALSE );
-								else
-									pTSoldier->ChangeSoldierState( END_AID, 0, 0 );
-							}
-						}
-					}
-
-					// Flugente: additional dialogue
-					AdditionalTacticalCharacterDialogue_CallsLua( pTSoldier, ADE_BANDAGE_PERFORM_END, this->identity().profile() );
-					AdditionalTacticalCharacterDialogue_CallsLua( this, ADE_BANDAGE_RECEIVE_END, pTSoldier->identity().profile() );
-
-					pTSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_SURGERY_BOOSTED;
-				}
-			}
-		}
-	}
-}
-
-
-void TacticalActor::ReceivingSoldierCancelServices( void )
-{
-	this->InternalReceivingSoldierCancelServices( TRUE );
-}
-
-
-void TacticalActor::InternalGivingSoldierCancelServices( BOOLEAN fPlayEndAnim )
-{
-	TacticalActor	*pTSoldier;
-
-	// GET TARGET SOLDIER
-	if ( this->service().hasPartner() )
-	{
-		pTSoldier =
-			GetJa2SoldierRepository().resolve(
-				this->service().partner() );
-		if ( pTSoldier == nullptr )
-		{
-			this->service().finishProviding();
-			return;
-		}
-
-		// END SERVICE!
-		pTSoldier->service().removeProvider();
-
-		this->service().finishProviding();
-
-		// SANDRO - added end of surgery attempt
-		if ( this->vitals().isUndergoingSurgery() )
-			this->vitals().finishSurgery(); // Surgery finished
-
-		if ( gTacticalStatus.fAutoBandageMode )
-		{
-			pTSoldier->service().clearAutoBandagingMedic();
-
-			ActionDone( this );
-		}
-		else
-		{
-			if ( this->vitals().health() >= OKLIFE && this->vitals().breath() > 0 && fPlayEndAnim )
-			{
-				// don't use end aid animation in autobandage
-				if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_PRONE )
-				{
-					if ( !is_networked )
-						this->EVENT_InitNewSoldierAnim( END_AID_PRN, 0, FALSE );
-					else
-						this->ChangeSoldierState( END_AID_PRN, 0, 0 );
-				}
-				else
-				{
-					if ( !is_networked )
-						this->EVENT_InitNewSoldierAnim( END_AID, 0, FALSE );
-					else
-						this->ChangeSoldierState( END_AID, 0, 0 );
-				}
-			}
-		}
-	}
-}
-
-void TacticalActor::GivingSoldierCancelServices( void )
-{
-	this->InternalGivingSoldierCancelServices( TRUE );
-}
-
-
 void TacticalActor::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 {
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "HaultSoldierFromSighting" ) );
@@ -13089,7 +12951,7 @@ void TacticalActor::ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem,
 	}
 
 	// Cancel services...
-	this->GivingSoldierCancelServices( );
+	TacticalActorMedicalServices::cancelProviding(*this);
 
 	// Did we have a rifle and do we now not have one?
 	if ( usOldItem != NOTHING )
@@ -18344,142 +18206,6 @@ bool TacticalActorEquipment::hasSniperRifle(
 	return false;
 }
 
-// AI-only: can we heal a wounded ally? Do NOT, repeat, NOT use this with mercs!
-BOOLEAN		TacticalActor::CanMedicAI( )
-{
-	if ( !gGameExternalOptions.fEnemyRoles || !gGameExternalOptions.fEnemyMedics || this->roster().team() != ENEMY_TEAM )
-		return FALSE;
-
-	// this is not for tanks
-	if ( ARMED_VEHICLE( this ) || ENEMYROBOT( this ) )
-		return FALSE;
-
-	if ( HAS_SKILL_TRAIT( this, DOCTOR_NT ) )
-	{
-		if ( FindFirstAidKit( this ) != NO_SLOT || FindMedKit( this ) != NO_SLOT )
-			return TRUE;
-	}
-
-	return FALSE;
-}
-
-// AI-only: heal a nearby friend. Do NOT, repeat, NOT use this with mercs!
-BOOLEAN		TacticalActor::AIDoctorFriend( )
-{
-	if ( this->roster().team() != ENEMY_TEAM )
-		return FALSE;
-
-	// we can only free people we are facing
-	INT32 nextGridNoinSight = NewGridNo( this->position().gridNo(), DirectionInc( this->position().direction() ) );
-
-	SoldierID target = WhoIsThere2( nextGridNoinSight, this->position().level() );
-
-	// is there somebody?
-	if ( target != NOBODY )
-	{
-		TacticalActor* pSoldier =
-			GetJa2SoldierRepository().resolve(
-				target );
-
-		if ( pSoldier == nullptr || pSoldier->roster().team() != ENEMY_TEAM )
-			return FALSE;
-
-		// this is not for tanks
-		if ( ARMED_VEHICLE( pSoldier ) || ENEMYROBOT( pSoldier ) )
-			return FALSE;
-
-		// if this guy is wounded, heal him (should always be the case, otherwise this function was called needlessly)
-		if ( pSoldier->vitals().hasHealableInjury() )
-		{
-			// move medkit into hand - if we don't have a medkit in our hands, abort
-			if (!MakeSureMedKitIsInHand(this, true))
-				return FALSE;
-
-			if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_CROUCH )
-			{
-				// sevenfm: first change to stationary
-				this->SoldierGotoStationaryStance();
-
-				this->EVENT_InitNewSoldierAnim( START_AID, 0, FALSE );
-			}
-
-			// sevenfm: change target to stationary
-			if (pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH && !pSoldier->collapseState().tactical())
-				pSoldier->SoldierGotoStationaryStance();
-
-			// AI medics always perform surgery
-			this->vitals().beginSurgery();
-
-			UINT16 usKitPts = TotalPoints( &(this->inventory()[HANDPOS]) );
-
-			// note the current hp
-			INT8 oldlife = pSoldier->vitals().health();
-
-			UINT16 uiPointsUsed = this->SoldierDressWound( pSoldier, usKitPts, usKitPts );
-
-			UseKitPoints( &(this->inventory()[HANDPOS]), (UINT16)(uiPointsUsed * gGameExternalOptions.dEnemyMedicMedKitDrainFactor), this );
-
-			// healing done will be displayed the next time the player sees this soldier
-			pSoldier->damageDisplay().displayFlag() = TRUE;
-			pSoldier->combatResult().accumulatedDamage() -= pSoldier->vitals().health() - oldlife;
-
-			// alert both soldiers
-			this->aiBehavior().alertStatus() = max( this->aiBehavior().alertStatus(), STATUS_RED );
-			pSoldier->aiBehavior().alertStatus() = max( pSoldier->aiBehavior().alertStatus(), STATUS_RED );
-
-			return TRUE;
-		}
-	}
-
-	return FALSE;
-}
-
-// AI-only: heal self. Do NOT, repeat, NOT use this with mercs!
-BOOLEAN		TacticalActor::AIDoctorSelf( )
-{
-	if ( this->roster().team() != ENEMY_TEAM )
-		return FALSE;
-
-	// if this guy is wounded, heal him (should always be the case, otherwise this function was called needlessly)
-	if ( this->vitals().hasHealableInjury() )
-	{
-		// move medkit into hand - if we don't have a medkit in our hands, abort
-		if (!MakeSureMedKitIsInHand(this, true))
-			return FALSE;
-
-		if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_CROUCH )
-		{
-			// sevenfm: first change to stationary
-			this->SoldierGotoStationaryStance();
-
-			this->EVENT_InitNewSoldierAnim( START_AID, 0, FALSE );
-		}
-
-		// AI medics always perform surgery
-		this->vitals().beginSurgery();
-
-		UINT16 usKitPts = TotalPoints( &(this->inventory()[HANDPOS]) );
-
-		// note the current hp
-		INT8 oldlife = this->vitals().health();
-
-		UINT16 uiPointsUsed = this->SoldierDressWound( this, usKitPts, usKitPts );
-
-		UseKitPoints( &(this->inventory()[HANDPOS]), (UINT16)(uiPointsUsed * gGameExternalOptions.dEnemyMedicMedKitDrainFactor), this );
-
-		// healing done will be displayed the next time the player sees this soldier
-		this->damageDisplay().displayFlag() = TRUE;
-		this->combatResult().accumulatedDamage() -= this->vitals().health() - oldlife;
-
-		// alert ourself
-		this->aiBehavior().alertStatus() = max( this->aiBehavior().alertStatus(), STATUS_RED );
-
-		return TRUE;
-	}
-
-	return FALSE;
-}
-
 // Flugente: boxing fix: this shall be the only location where the boxing flag gets removed (easier debugging)
 // Flugente: disease
 void TacticalActorDisease::infect(
@@ -20971,7 +20697,8 @@ void SoldierCollapse( TacticalActor *pSoldier )
 
 	pSoldier->movement().mode() = CRAWLING;
 
-	pSoldier->ReceivingSoldierCancelServices( );
+	TacticalActorMedicalServices::cancelReceiving(
+		*pSoldier);
 
 	// CC has requested - handle sight here...
 	HandleSight( pSoldier, SIGHT_LOOK );
@@ -22882,8 +22609,10 @@ void BeginSoldierClimbWallUp( TacticalActor *pSoldier )
 				pSoldier->animationIntent().pendingDirection() = bNewDirection;
 				pSoldier->EVENT_InitNewSoldierAnim( JUMPDOWNWALL, 0, FALSE );
 
-				pSoldier->InternalReceivingSoldierCancelServices( FALSE );
-				pSoldier->InternalGivingSoldierCancelServices( FALSE );
+				TacticalActorMedicalServices::
+					cancelReceiving(*pSoldier, false);
+				TacticalActorMedicalServices::
+					cancelProviding(*pSoldier, false);
 
 			}
 		}

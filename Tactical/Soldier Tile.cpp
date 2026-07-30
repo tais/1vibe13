@@ -1,6 +1,7 @@
 	#include "Render Fun.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalActorMedicalServices.h"
 	#include "DEBUG.H"
 	#include "Overhead Types.h"
 
@@ -757,7 +758,8 @@ BOOLEAN TeleportSoldier( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fForce 
 		HandleSight(pSoldier,SIGHT_LOOK | SIGHT_RADIO);
 
 		// Cancel services...
-		pSoldier->GivingSoldierCancelServices( );
+		TacticalActorMedicalServices::cancelProviding(
+			*pSoldier);
 
 		// Change light....
 		if ( pSoldier->position().level() == 0 )
