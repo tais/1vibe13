@@ -932,9 +932,7 @@ public:
 	void ReviveSoldier( void );
 	UINT8 SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBreathDeduct, UINT8 ubReason, SoldierID ubAttacker, INT32 sSourceGrid, INT16 sSubsequent, BOOLEAN fShowDamage );
 
-	// anv: resolve damage with delay, e.g. damage applied mid movement that would cause issues with world data if applied immediately
-	void SoldierTakeDelayedDamage(INT8 bHeight, INT16 sLifeDeduct, INT16 sBreathDeduct, UINT8 ubReason, SoldierID ubAttacker, INT32 sSourceGrid, INT16 sSubsequent, BOOLEAN fShowDamage);
-	void ResolveDelayedDamage();
+	// Deferred movement damage is owned by TacticalActorDamageQueue.
 
 	// Palette functions for soldiers
 	BOOLEAN CreateSoldierPalettes( void );
@@ -957,10 +955,6 @@ public:
 
 
 	UINT32 SoldierDressWound( TacticalActor *pVictim, INT16 sKitPts, INT16 sStatus );
-	void ReceivingSoldierCancelServices( void );
-	void GivingSoldierCancelServices( void );
-	void InternalReceivingSoldierCancelServices( BOOLEAN fPlayEndAnim );
-	void InternalGivingSoldierCancelServices( BOOLEAN fPlayEndAnim );
 
 
 	void PositionSoldierLight( void );
@@ -1023,11 +1017,6 @@ public:
 	INT8		GetSoldierProfileType(UINT8 usTeam);		// retrieves the correct sub-array
 
 	void		SoldierPropertyUpkeep();					// update functions for various properties (updating counters, resetting flags etc.)
-
-	// Flugente: enemy roles
-	BOOLEAN CanMedicAI();						// AI-only: can we heal a wounded ally? Do NOT, repeat, NOT use this with mercs!
-	BOOLEAN	AIDoctorFriend();					// AI-only: heal a wounded friend. Do NOT, repeat, NOT use this with mercs!
-	BOOLEAN AIDoctorSelf();						// AI-only: heal self. Do NOT, repeat, NOT use this with mercs!
 
 	void	PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
 	void	PrintSleepDesc( CHAR16* apStr );

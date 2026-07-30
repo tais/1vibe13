@@ -1,4 +1,5 @@
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
@@ -4060,9 +4061,10 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 
 	gfUIStanceDifferent = TRUE;
 
-	// ATE: If we are being serviced...stop...
-	// pSoldier->InternalReceivingSoldierCancelServices(, FALSE );
-	pSoldier->InternalGivingSoldierCancelServices( FALSE );
+	// ATE: If we are providing a service, stop it.
+	TacticalActorMedicalServices::cancelProviding(
+		*pSoldier,
+		false);
 	//gfPlotNewMovement	= TRUE;
 
 }

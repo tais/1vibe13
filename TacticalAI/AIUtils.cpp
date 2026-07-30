@@ -1,4 +1,5 @@
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorMedicalServices.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
 	#include "ai.h"
@@ -3602,7 +3603,8 @@ SoldierID GetClosestMedicSoldierID( TacticalActor * pSoldier, INT16 aRange, UINT
 			continue;
 		
 		// skip if this guy if he is no medic
-		if ( !pFriend->CanMedicAI() )
+		if (!TacticalActorMedicalServices::
+				canTreatForAi(*pFriend))
 			continue;
 
 		// are we close enough?
@@ -5115,7 +5117,10 @@ BOOLEAN AICheckIsMedic(TacticalActor *pSoldier)
 		return FALSE;
 	}
 
-	if (pSoldier->CanMedicAI() && gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT(pSoldier, DOCTOR_NT))
+	if (TacticalActorMedicalServices::
+			canTreatForAi(*pSoldier) &&
+		gGameOptions.fNewTraitSystem &&
+		HAS_SKILL_TRAIT(pSoldier, DOCTOR_NT))
 	{
 		return TRUE;
 	}

@@ -2192,6 +2192,14 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLongActions.h"
   tactical_actor_long_actions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLongActions.cpp"
   tactical_actor_long_actions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageQueue.h"
+  tactical_actor_damage_queue_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageQueue.cpp"
+  tactical_actor_damage_queue_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalServices.h"
+  tactical_actor_medical_services_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalServices.cpp"
+  tactical_actor_medical_services_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorPrisonerOperations.h"
   tactical_actor_prisoner_operations_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorPrisonerOperations.cpp"
@@ -2980,7 +2988,16 @@ foreach(retired_actor_facade IN ITEMS
   "GetMultiTurnAction"
   "StartMultiTurnAction"
   "CancelMultiTurnAction"
-  "UpdateMultiTurnAction")
+  "UpdateMultiTurnAction"
+  "SoldierTakeDelayedDamage"
+  "ResolveDelayedDamage"
+  "CanMedicAI"
+  "AIDoctorFriend"
+  "AIDoctorSelf"
+  "ReceivingSoldierCancelServices"
+  "GivingSoldierCancelServices"
+  "InternalReceivingSoldierCancelServices"
+  "InternalGivingSoldierCancelServices")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -2991,6 +3008,50 @@ foreach(retired_actor_facade IN ITEMS
      NOT retired_actor_facade_definition EQUAL -1)
     message(FATAL_ERROR
       "TacticalActor regained retired facade '${retired_actor_facade}'")
+  endif()
+endforeach()
+
+foreach(required_damage_queue_operation IN ITEMS
+  "schedule"
+  "resolve"
+  "clear")
+  string(FIND "${tactical_actor_damage_queue_header_contents}"
+    "${required_damage_queue_operation}("
+    damage_queue_operation_declaration)
+  string(FIND "${tactical_actor_damage_queue_source_contents}"
+    "TacticalActorDamageQueue::${required_damage_queue_operation}("
+    damage_queue_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorDamageQueue::${required_damage_queue_operation}"
+    damage_queue_operation_coverage)
+  if(damage_queue_operation_declaration EQUAL -1 OR
+     damage_queue_operation_definition EQUAL -1 OR
+     damage_queue_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor damage-queue operation '${required_damage_queue_operation}' lost its domain declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+foreach(required_medical_service_operation IN ITEMS
+  "canTreatForAi"
+  "treatAdjacentForAi"
+  "treatSelfForAi"
+  "cancelReceiving"
+  "cancelProviding")
+  string(FIND "${tactical_actor_medical_services_header_contents}"
+    "${required_medical_service_operation}("
+    medical_service_operation_declaration)
+  string(FIND "${tactical_actor_medical_services_source_contents}"
+    "TacticalActorMedicalServices::${required_medical_service_operation}("
+    medical_service_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorMedicalServices::${required_medical_service_operation}"
+    medical_service_operation_coverage)
+  if(medical_service_operation_declaration EQUAL -1 OR
+     medical_service_operation_definition EQUAL -1 OR
+     medical_service_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor medical-service operation '${required_medical_service_operation}' lost its domain declaration, definition, or headless coverage")
   endif()
 endforeach()
 
@@ -3152,7 +3213,9 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorMobility.cpp"
   "TacticalActorWeaponHandling.cpp"
   "TacticalActorAiBehavior.cpp"
+  "TacticalActorDamageQueue.cpp"
   "TacticalActorLongActions.cpp"
+  "TacticalActorMedicalServices.cpp"
   "TacticalActorPrisonerOperations.cpp")
   string(FIND "${tactical_build_contents}"
     "${required_actor_domain_source}"

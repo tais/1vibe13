@@ -1,5 +1,7 @@
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorDamageQueue.h"
 #include "TacticalActorLongActions.h"
+#include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorWeaponHandling.h"
@@ -9105,6 +9107,141 @@ int main( int, char** )
 		       malformedPrisonSectorIsRejected &&
 		       unavailableWorldFreeIsRejected,
 		       "tactical actor long actions and prisoner operations reject malformed actions, sectors, and unavailable worlds" );
+	}
+
+	{
+		TacticalActor damageActor;
+		TacticalActorDamageQueue::schedule(
+			damageActor,
+			0,
+			1,
+			0,
+			TAKE_DAMAGE_STRUCTURE_EXPLOSION,
+			NOBODY,
+			0,
+			0,
+			false);
+		const bool delayedDamageWasScheduled =
+			static_cast<bool>(
+				damageActor.runtime()
+					.pendingAction.delayedDamage);
+		TacticalActorDamageQueue::clear(damageActor);
+		const bool scheduledDamageWasCleared =
+			!damageActor.runtime()
+				.pendingAction.delayedDamage;
+
+		int resolutionCount = 0;
+		damageActor.runtime().pendingAction.delayedDamage =
+			[&resolutionCount]()
+			{
+				++resolutionCount;
+			};
+		const bool delayedDamageResolvedOnce =
+			TacticalActorDamageQueue::resolve(
+				damageActor) &&
+			resolutionCount == 1 &&
+			!TacticalActorDamageQueue::resolve(
+				damageActor);
+
+		CHECK( delayedDamageWasScheduled &&
+		       scheduledDamageWasCleared &&
+		       delayedDamageResolvedOnce,
+		       "tactical actor damage queue owns replaceable, clearable, exactly-once deferred damage" );
+	}
+
+	{
+		Ja2SoldierRepository& productionRepository =
+			GetJa2SoldierRepository();
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		const BOOLEAN previousAutoBandage =
+			gTacticalStatus.fAutoBandageMode;
+		const BOOLEAN previousEnemyRoles =
+			gGameExternalOptions.fEnemyRoles;
+		const BOOLEAN previousEnemyMedics =
+			gGameExternalOptions.fEnemyMedics;
+
+		TacticalActor records[2];
+		TacticalActor* slots[2] = { nullptr, nullptr };
+		Ja2SoldierRepository repository(
+			records,
+			slots,
+			2);
+		repository.initializeSlots();
+		records[0].identity().id() = SoldierID{0};
+		records[0].roster().active() = TRUE;
+		records[0].service().providerCount() =
+			std::numeric_limits<UINT8>::max();
+		records[1].identity().id() = SoldierID{1};
+		records[1].roster().active() = TRUE;
+		records[1].roster().inSector() = TRUE;
+		records[1].roster().team() = ENEMY_TEAM;
+		records[1].vitals().health() = OKLIFE;
+
+		BindJa2SoldierRepository(repository);
+		NotifyJa2TacticalWorldUnloaded();
+		gTacticalStatus.fAutoBandageMode = FALSE;
+		TacticalActorMedicalServices::cancelReceiving(
+			records[0],
+			false);
+		const bool corruptProviderCountWasReconciled =
+			!records[0].service().hasProviders();
+
+		records[1].service().beginProvidingTo(
+			SoldierID{99});
+		records[1].vitals().beginSurgery();
+		records[1].featureFlags().secondaryFlags() |=
+			SOLDIER_SURGERY_BOOSTED;
+		TacticalActorMedicalServices::cancelProviding(
+			records[1],
+			false);
+		const bool stalePatientWasCleared =
+			!records[1].service().hasPartner() &&
+			!records[1].vitals().isUndergoingSurgery() &&
+			!(records[1].featureFlags().secondaryFlags() &
+				SOLDIER_SURGERY_BOOSTED);
+
+		gGameExternalOptions.fEnemyRoles = TRUE;
+		gGameExternalOptions.fEnemyMedics = TRUE;
+		records[1].position().gridNo() = 0;
+		records[1].position().level() = FIRST_LEVEL;
+		records[1].position().direction() =
+			NORTH;
+		records[1].vitals().healableInjury() = 100;
+		OBJECTTYPE& malformedKit =
+			records[1].inventory()[HANDPOS];
+		malformedKit.usItem = MAXITEMS;
+		malformedKit.ubNumberOfObjects = 0;
+		malformedKit.objectStack.clear();
+		NotifyJa2TacticalWorldLoaded(
+			previousWorld.worldGeneration != 0
+				? previousWorld.worldGeneration : 1);
+		const bool malformedKitIsRejected =
+			!TacticalActorMedicalServices::canTreatForAi(
+				records[1]) &&
+			!TacticalActorMedicalServices::treatSelfForAi(
+				records[1]);
+		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableWorldTreatmentIsRejected =
+			!TacticalActorMedicalServices::treatAdjacentForAi(
+				records[1]) &&
+			!TacticalActorMedicalServices::treatSelfForAi(
+				records[1]);
+
+		BindJa2SoldierRepository(productionRepository);
+		RestoreJa2TacticalWorldSession(previousWorld);
+		gTacticalStatus.fAutoBandageMode =
+			previousAutoBandage;
+		gGameExternalOptions.fEnemyRoles =
+			previousEnemyRoles;
+		gGameExternalOptions.fEnemyMedics =
+			previousEnemyMedics;
+
+		CHECK( corruptProviderCountWasReconciled &&
+		       stalePatientWasCleared &&
+		       malformedKitIsRejected &&
+		       unavailableWorldTreatmentIsRejected,
+		       "tactical actor medical services reconcile stale relationships and reject malformed treatment state" );
 	}
 
 	{

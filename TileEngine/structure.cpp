@@ -1,4 +1,5 @@
 #include "TacticalActorMobility.h"
+#include "TacticalActorDamageQueue.h"
 #include <string.h>
 #include "types.h"
 #include "WCheck.h"
@@ -1971,7 +1972,17 @@ INT8 DamageStructure( STRUCTURE * pStructure, UINT8 ubDamage, UINT8 ubReason, IN
 			// handle structure revenge - damage to vehicle - to be resolved after movement
 			if ( owner && !ARMED_VEHICLE( owner ) )
 			{
-				owner->SoldierTakeDelayedDamage(0, Random(max(0,(ubBaseArmour-10)/5)) + max(0,(ubBaseArmour-10)/5), 0, TAKE_DAMAGE_STRUCTURE_EXPLOSION, NOBODY, owner->position().gridNo(), 0, TRUE);
+				TacticalActorDamageQueue::schedule(
+					*owner,
+					0,
+					Random(max(0, (ubBaseArmour - 10) / 5)) +
+						max(0, (ubBaseArmour - 10) / 5),
+					0,
+					TAKE_DAMAGE_STRUCTURE_EXPLOSION,
+					NOBODY,
+					owner->position().gridNo(),
+					0,
+					true);
 			}
 			
 			// recompile = TRUE means that we destroyed something

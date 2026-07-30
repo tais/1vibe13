@@ -608,6 +608,15 @@ engine-facing domains, not new package or content schemas: existing maps,
 facility data, items, XML, Lua, art, audio, and installed mod data continue to
 use their current formats. New C++ code should call these domains instead of
 adding behavior back to the `TacticalActor` aggregate.
+`TacticalActorMedicalServices` is the explicit boundary for enemy-AI treatment
+and medic/patient service teardown. It rejects unavailable worlds and malformed
+actors, animations, directions, kits, targets, and repository links, and it
+repairs stale provider bookkeeping while cancelling a service.
+`TacticalActorDamageQueue` owns replaceable deferred damage, exactly-once
+resolution, and cancellation. New code should schedule or resolve delayed
+damage through this domain rather than storing another actor-level callback or
+restoring the retired aggregate methods. Neither domain introduces a content
+package or changes installed game-data formats.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,
