@@ -1414,6 +1414,17 @@ the engine must not contain SDL types in its public domain model.
   corpse, door, structure, or interactive-structure index before touching
   legacy tables. Existing items, maps, XML, Lua actions, sounds, animations,
   art, and all other installed mod-data formats are unchanged.
+  `TacticalActorInteractions` now also owns the bounded person-to-person
+  action boundary for giving items, handcuffing, applying equipment or
+  consumables, drawing blood, and applying splints. Five more aggregate
+  `EVENT_Soldier*` methods are retired. Target identity and location, actor
+  world/animation state, inventory stacks and item IDs, handcuff/splint/blood
+  bag flags, captive inventory, and replacement blood-bag creation are
+  validated before mutation. Failed give-item continuations no longer expose
+  an uninitialised target, zero-weight items cannot divide resistance checks,
+  and a missing replacement blood bag no longer consumes the empty bag.
+  Existing items, traits, maps, XML, Lua, dialogue, animations, and other
+  installed mod-data formats are unchanged.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to

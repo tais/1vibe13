@@ -1,5 +1,6 @@
 #include "TacticalActorLongActions.h"
 #include "TacticalActorFieldOperations.h"
+#include "TacticalActorInteractions.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMedicalTreatment.h"
@@ -1473,17 +1474,24 @@ BOOLEAN ExecuteOverhead( )
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_HANDCUFF_PERSON )
                                     {
-                                        pSoldier->EVENT_SoldierHandcuffPerson( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorInteractions::handcuffPerson(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_APPLYITEM )
                                     {
-                                        pSoldier->EVENT_SoldierApplyItemToPerson( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorInteractions::applyItemToPerson(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_GIVEITEM )
                                     {
-                                        pSoldier->EVENT_SoldierBeginGiveItem( );
+                                        (void)TacticalActorInteractions::beginGivingItem(
+                                            *pSoldier);
                                         pSoldier->pendingAction().clearAction();
                                     }
 									else if ( pSoldier->pendingAction().action() == MERC_INTERACTIVEACTION )
@@ -1496,12 +1504,18 @@ BOOLEAN ExecuteOverhead( )
 									}
 									else if ( pSoldier->pendingAction().action() == MERC_FILLBLOODBAG )
 									{
-										pSoldier->EVENT_SoldierTakeBloodFromPerson( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+										(void)TacticalActorInteractions::collectBloodFromPerson(
+											*pSoldier,
+											pSoldier->pendingAction().secondaryData(),
+											pSoldier->pendingAction().tertiaryData() );
 										pSoldier->pendingAction().clearAction();
 									}
 									else if ( pSoldier->pendingAction().action() == MERC_MEDICALSPLINT )
 									{
-										pSoldier->EVENT_SoldierApplySplintToPerson( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+										(void)TacticalActorInteractions::applySplintToPerson(
+											*pSoldier,
+											pSoldier->pendingAction().secondaryData(),
+											pSoldier->pendingAction().tertiaryData() );
 										pSoldier->pendingAction().clearAction();
 									}
 									

@@ -897,14 +897,8 @@ public:
 	void EVENT_SoldierBeginUseDetonator( void );
 	void EVENT_SoldierBeginDropBomb( );
 	void EVENT_SoldierDefuseTripwire( INT32 sGridNo, INT32 sItem );
-	void EVENT_SoldierBeginGiveItem( void );
 	void EVENT_SetSoldierPositionForceDelete( FLOAT dNewXPos, FLOAT dNewYPos );
 	void EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCounter );
-
-	void EVENT_SoldierHandcuffPerson( INT32 sGridNo, UINT8 ubDirection );		// added by Flugente
-	void EVENT_SoldierApplyItemToPerson( INT32 sGridNo, UINT8 ubDirection );	// added by Flugente
-	void EVENT_SoldierTakeBloodFromPerson( INT32 sGridNo, UINT8 ubDirection );	// added by Flugente
-	void EVENT_SoldierApplySplintToPerson( INT32 sGridNo, UINT8 ubDirection );	// added by Flugente
 
 	BOOLEAN EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 usMovementAnim, BOOLEAN fFromUI, BOOLEAN fForceRestart );
 	void EVENT_InternalSetSoldierDestination( UINT16	usNewDirection, BOOLEAN fFromMove, UINT16 usAnimState );

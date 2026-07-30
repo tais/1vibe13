@@ -3028,7 +3028,12 @@ foreach(retired_actor_facade IN ITEMS
   "EVENT_SoldierBuildStructure"
   "EVENT_SoldierInteractiveAction"
   "BreakWindow"
-  "CanBreakWindow")
+  "CanBreakWindow"
+  "EVENT_SoldierBeginGiveItem"
+  "EVENT_SoldierHandcuffPerson"
+  "EVENT_SoldierApplyItemToPerson"
+  "EVENT_SoldierTakeBloodFromPerson"
+  "EVENT_SoldierApplySplintToPerson")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3598,21 +3603,29 @@ foreach(required_explosive_coverage IN ITEMS
   endif()
 endforeach()
 
-string(FIND "${tactical_actor_interactions_header_contents}"
-  "stopChatting("
-  interaction_operation_declaration)
-string(FIND "${tactical_actor_interactions_source_contents}"
-  "stopChatting(TacticalActor& actor)"
-  interaction_operation_definition)
-string(FIND "${headless_test_contents}"
-  "TacticalActorInteractions::stopChatting"
-  interaction_operation_coverage)
-if(interaction_operation_declaration EQUAL -1 OR
-   interaction_operation_definition EQUAL -1 OR
-   interaction_operation_coverage EQUAL -1)
-  message(FATAL_ERROR
-    "Tactical actor chat teardown lost its declaration, definition, or headless coverage")
-endif()
+foreach(required_interaction_operation IN ITEMS
+  "stopChatting"
+  "beginGivingItem"
+  "handcuffPerson"
+  "applyItemToPerson"
+  "collectBloodFromPerson"
+  "applySplintToPerson")
+  string(FIND "${tactical_actor_interactions_header_contents}"
+    "${required_interaction_operation}("
+    interaction_operation_declaration)
+  string(FIND "${tactical_actor_interactions_source_contents}"
+    "TacticalActorInteractions::${required_interaction_operation}("
+    interaction_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorInteractions::${required_interaction_operation}"
+    interaction_operation_coverage)
+  if(interaction_operation_declaration EQUAL -1 OR
+     interaction_operation_definition EQUAL -1 OR
+     interaction_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor interaction '${required_interaction_operation}' lost its declaration, definition, or headless coverage")
+  endif()
+endforeach()
 
 string(FIND "${tactical_actor_conditions_header_contents}"
   "canDonateBlood(TacticalActor& actor)"
