@@ -63,15 +63,15 @@ enum {
 INT32	CheckForCollision( FLOAT dX, FLOAT dY, FLOAT dZ, FLOAT dDeltaX, FLOAT dDeltaY, FLOAT dDeltaZ, INT16 *pusStructureID, FLOAT *pdNormalX, FLOAT *pdNormalY, FLOAT *pdNormalZ );
 
 
-INT8 ChanceToGetThrough( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ );
-INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, UINT16 usHandItem, INT16 sHitBy, BOOLEAN fBuckshot, BOOLEAN fFake );
+INT8 ChanceToGetThrough( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ );
+INT8 FireBulletGivenTarget( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, UINT16 usHandItem, INT16 sHitBy, BOOLEAN fBuckshot, BOOLEAN fFake );
 // HEADROCK HAM 4: Changed the name of one argument to avoid confusion with the new CTH system.
-INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, UINT16 usHandItem, INT16 sApertureRatio, BOOLEAN fBuckshot, BOOLEAN fFake );
+INT8 FireBulletGivenTargetNCTH( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, UINT16 usHandItem, INT16 sApertureRatio, BOOLEAN fBuckshot, BOOLEAN fFake );
 // HEADROCK HAM 5: Function for fragments ejected from an explosion.
 INT8 FireFragmentGivenTarget( SoldierID ubOwner, FLOAT dStartX, FLOAT dStartY, FLOAT dStartZ, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, UINT16 usExplosiveItem );
 
 // Flugente: fire a shot from a gun that has no user (used for traps with attached guns)
-INT8 FireBulletGivenTargetTrapOnly( SOLDIERTYPE* pThrower, OBJECTTYPE* pObj, INT32 gridno, FLOAT dStartZ, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, INT16 sHitBy);
+INT8 FireBulletGivenTargetTrapOnly( TacticalActor* pThrower, OBJECTTYPE* pObj, INT32 gridno, FLOAT dStartZ, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, INT16 sHitBy);
 
 // Flugente: fire a shot without a soldier or an object
 INT8 FireBulletGivenTarget_NoObjectNoSoldier( UINT16 usItem, UINT8 ammotype, UINT8 ubImpact, INT32 gridno, FLOAT dStartZ, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, INT16 sHitBy );
@@ -144,23 +144,23 @@ INT8 FireBulletGivenTarget_NoObjectNoSoldier( UINT16 usItem, UINT8 ammotype, UIN
 #define CLOSE_TO_FIRER 25
 #define VERY_CLOSE_TO_FIRER 21
 
-INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE * pEndSoldier, INT8 bAware, int iTileSightLimit = CALC_FROM_ALL_DIRS, UINT8 ubAimLocation = LOS_POS, bool adjustForSight = true, bool cthCalc = false );
-INT32 SoldierTo3DLocationLineOfSightTest( SOLDIERTYPE * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel, INT8 bAware, int ubSightLimit = CALC_FROM_ALL_DIRS, bool adjustForSight = true );
-INT32 SoldierToVirtualSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bStance, INT8 bAware, int iTileSightLimit = CALC_FROM_ALL_DIRS );
-UINT8 SoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE * pEndSoldier );
-UINT8 SoldierToSoldierBodyPartChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE * pEndSoldier, UINT8 ubAimLocation );
-UINT8 AISoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE * pEndSoldier );
-UINT8 AISoldierToLocationChanceToGetThrough( SOLDIERTYPE * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel );
-UINT8 SoldierToLocationChanceToGetThrough( SOLDIERTYPE * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel, SoldierID ubTargetID );
-INT32 SoldierToLocationWindowTest( SOLDIERTYPE * pStartSoldier, INT32 sEndGridNo );
+INT32 SoldierToSoldierLineOfSightTest( TacticalActor * pStartSoldier, TacticalActor * pEndSoldier, INT8 bAware, int iTileSightLimit = CALC_FROM_ALL_DIRS, UINT8 ubAimLocation = LOS_POS, bool adjustForSight = true, bool cthCalc = false );
+INT32 SoldierTo3DLocationLineOfSightTest( TacticalActor * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel, INT8 bAware, int ubSightLimit = CALC_FROM_ALL_DIRS, bool adjustForSight = true );
+INT32 SoldierToVirtualSoldierLineOfSightTest( TacticalActor * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bStance, INT8 bAware, int iTileSightLimit = CALC_FROM_ALL_DIRS );
+UINT8 SoldierToSoldierChanceToGetThrough( TacticalActor * pStartSoldier, TacticalActor * pEndSoldier );
+UINT8 SoldierToSoldierBodyPartChanceToGetThrough( TacticalActor * pStartSoldier, TacticalActor * pEndSoldier, UINT8 ubAimLocation );
+UINT8 AISoldierToSoldierChanceToGetThrough( TacticalActor * pStartSoldier, TacticalActor * pEndSoldier );
+UINT8 AISoldierToLocationChanceToGetThrough( TacticalActor * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel );
+UINT8 SoldierToLocationChanceToGetThrough( TacticalActor * pStartSoldier, INT32 sGridNo, INT8 bLevel, INT8 bCubeLevel, SoldierID ubTargetID );
+INT32 SoldierToLocationWindowTest( TacticalActor * pStartSoldier, INT32 sEndGridNo );
 // sevenfm: AI LOS functions
-INT32 LOS_Raised(SOLDIERTYPE * pStartSoldier, SOLDIERTYPE * pEndSoldier, int iTileSightLimit = CALC_FROM_ALL_DIRS, UINT8 ubAimLocation = LOS_POS);
+INT32 LOS_Raised(TacticalActor * pStartSoldier, TacticalActor * pEndSoldier, int iTileSightLimit = CALC_FROM_ALL_DIRS, UINT8 ubAimLocation = LOS_POS);
 
 // sevenfm: added start/end LOS heights
 INT32 LocationToLocationLineOfSightTest( INT32 sStartGridNo, INT8 bStartLevel, INT32 sEndGridNo, INT8 bEndLevel, INT8 bAware, int iTileSightLimit, FLOAT dStartPos = STANDING_LOS_POS, FLOAT dEndPos = STANDING_LOS_POS);
 //INT32 LocationToLocationLineOfSightTest( INT32 sStartGridNo, INT8 bStartLevel, INT32 sEndGridNo, INT8 bEndLevel, INT8 bAware, int iTileSightLimit = CALC_FROM_ALL_DIRS );
 
-BOOLEAN CalculateSoldierZPos( SOLDIERTYPE * pSoldier, UINT8 ubPosType, FLOAT * pdZPos );
+BOOLEAN CalculateSoldierZPos( TacticalActor * pSoldier, UINT8 ubPosType, FLOAT * pdZPos );
 
 #ifdef LOS_DEBUG
 typedef struct LOSResults
@@ -189,7 +189,7 @@ extern LOSResults gLOSTestResults;
 #endif
 
 void MoveBullet( INT32 iBullet );
-//BOOLEAN FireBullet2( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, INT16 sHitBy );
+//BOOLEAN FireBullet2( TacticalActor * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dEndZ, INT16 sHitBy );
 
 INT8 GetTerrainTypeForGrid( const INT32& uGridNo, const INT16& bLevel );
 
@@ -201,7 +201,7 @@ ADDITIONAL_TILE_PROPERTIES_VALUES GetAllAdditonalTilePropertiesForGrid( const IN
 INT8 GetSightAdjustmentThroughStance( const UINT8& ubStance );
 
 // quick way to get all. should be used for all sight line tests with target soldier known
-INT16 GetSightAdjustment(SOLDIERTYPE* pSoldier, INT8 soldierStealth, INT8 soldierLBESightAdjustment, INT32 sGridNo = -1, INT16 bLevel = -1, INT8 bStance = -1);
+INT16 GetSightAdjustment(TacticalActor* pSoldier, INT8 soldierStealth, INT8 soldierLBESightAdjustment, INT32 sGridNo = -1, INT16 bLevel = -1, INT8 bStance = -1);
 
 //zilpin: pellet spread patterns externalized in XML
 #define SPREADPATTERN_NAME_SIZE 32
@@ -235,29 +235,29 @@ extern INT32 GetSpreadPattern( OBJECTTYPE * pObj );
 /////////////////////////////////////////////////////////////////////////////////////////
 // HEADROCK HAM 4: The following functions are all part of the NCTH project,
 // which completely redesigns the way we calculate and handle CTH for the purposes of firing weapons.
-void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT *dEndX, FLOAT *dEndY, FLOAT *dEndZ, OBJECTTYPE *pWeapon, UINT32 uiMuzzleSway, INT16 *sApertureRatio );
-FLOAT CalcMagFactor( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT d2DDistance, INT32 iTargetGridNo, UINT8 ubAimTime );
-FLOAT CalcEffectiveMagFactor( SOLDIERTYPE *pShooter, FLOAT fRealMagFactor );
-FLOAT CalcProjectionFactor( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT d2DDistance, UINT8 ubAimTime );
+void AdjustTargetCenterPoint( TacticalActor *pShooter, INT32 iTargetGridNo, FLOAT *dEndX, FLOAT *dEndY, FLOAT *dEndZ, OBJECTTYPE *pWeapon, UINT32 uiMuzzleSway, INT16 *sApertureRatio );
+FLOAT CalcMagFactor( TacticalActor *pShooter, OBJECTTYPE *pWeapon, FLOAT d2DDistance, INT32 iTargetGridNo, UINT8 ubAimTime );
+FLOAT CalcEffectiveMagFactor( TacticalActor *pShooter, FLOAT fRealMagFactor );
+FLOAT CalcProjectionFactor( TacticalActor *pShooter, OBJECTTYPE *pWeapon, FLOAT d2DDistance, UINT8 ubAimTime );
 FLOAT CalcBasicAperture();
-void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJECTTYPE *pWeapon, FLOAT *dMuzzleOffsetX, DOUBLE ddShootingAngle, INT32 iAperture );
-void CalcRangeCompensationOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetY, INT32 iRangeToTarget, OBJECTTYPE *pWeapon );
-void CalcMuzzleSway( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, FLOAT iAperture );
-FLOAT CalcBulletDeviation( SOLDIERTYPE *pShooter, FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, OBJECTTYPE *pWeapon, UINT32 uiRange );
-void LimitImpactPointByFacing( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, FLOAT *dEndX, FLOAT *dEndY );
+void CalcTargetMovementOffset( TacticalActor *pShooter, TacticalActor *pTarget, OBJECTTYPE *pWeapon, FLOAT *dMuzzleOffsetX, DOUBLE ddShootingAngle, INT32 iAperture );
+void CalcRangeCompensationOffset( TacticalActor *pShooter, FLOAT *dMuzzleOffsetY, INT32 iRangeToTarget, OBJECTTYPE *pWeapon );
+void CalcMuzzleSway( TacticalActor *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, FLOAT iAperture );
+FLOAT CalcBulletDeviation( TacticalActor *pShooter, FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, OBJECTTYPE *pWeapon, UINT32 uiRange );
+void LimitImpactPointByFacing( TacticalActor *pShooter, TacticalActor *pTarget, FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, FLOAT *dEndX, FLOAT *dEndY );
 void LimitImpactPointToMaxAperture(FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, FLOAT dDistanceAperture, UINT32 uiDistance, UINT32 uiWeaponRange);
-FLOAT CalcCounterForceMax(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT8 uiStance = 0);
-UINT32 CalcCounterForceAccuracy(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT32 uiRange, BOOLEAN fTracer, bool fAnticipate = false);
-void CalcPreRecoilOffset( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, UINT32 uiRange );
-void CalcRecoilOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, OBJECTTYPE *pWeapon, UINT32 uiRange );
+FLOAT CalcCounterForceMax(TacticalActor *pShooter, OBJECTTYPE *pWeapon, UINT8 uiStance = 0);
+UINT32 CalcCounterForceAccuracy(TacticalActor *pShooter, OBJECTTYPE *pWeapon, UINT32 uiRange, BOOLEAN fTracer, bool fAnticipate = false);
+void CalcPreRecoilOffset( TacticalActor *pShooter, OBJECTTYPE *pWeapon, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, UINT32 uiRange );
+void CalcRecoilOffset( TacticalActor *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzleOffsetY, OBJECTTYPE *pWeapon, UINT32 uiRange );
 // HEADROCK HAM 5: New function, completely replaces the Counter Force Frequency check.
-FLOAT CalcCounterForceChange( SOLDIERTYPE * pShooter, UINT32 uiCounterForceAccuracy, FLOAT dCounterForceMax, FLOAT dMuzzleOffset, FLOAT bRecoil, FLOAT dPrevCounterForce, UINT32 uiIntendedBullets );
+FLOAT CalcCounterForceChange( TacticalActor * pShooter, UINT32 uiCounterForceAccuracy, FLOAT dCounterForceMax, FLOAT dMuzzleOffset, FLOAT bRecoil, FLOAT dPrevCounterForce, UINT32 uiIntendedBullets );
 
 // Flugente: riot shields
-void DamageRiotShield( SOLDIERTYPE* pSoldier, INT32& rsDamage, INT32& rsSecondaryDamage );
+void DamageRiotShield( TacticalActor* pSoldier, INT32& rsDamage, INT32& rsSecondaryDamage );
 
 
-extern INT8 GetStealth(SOLDIERTYPE* pSoldier);
-extern INT8 GetSightAdjustmentBasedOnLBE(SOLDIERTYPE* pSoldier);
+extern INT8 GetStealth(TacticalActor* pSoldier);
+extern INT8 GetSightAdjustmentBasedOnLBE(TacticalActor* pSoldier);
 
 #endif

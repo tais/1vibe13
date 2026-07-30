@@ -52,7 +52,7 @@ BOOLEAN			gfPlayersLaptopWasntWorkingAtEndOfGame;
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 //victory ending scene sector
 #define VICTORY_X	gModSettings.ubEndGameVictorySectorX
@@ -174,7 +174,7 @@ void ChangeO3SectorStatue( BOOLEAN fFromExplosion )
 }
 static void DeidrannaTimerCallback( void )
 {
-	SOLDIERTYPE* killer = gEndGameDeathCallback.killer.resolve();
+	TacticalActor* killer = gEndGameDeathCallback.killer.resolve();
 	const INT32 grid = gEndGameDeathCallback.grid;
 	const INT8 level = gEndGameDeathCallback.level;
 	gEndGameDeathCallback.reset();
@@ -182,7 +182,7 @@ static void DeidrannaTimerCallback( void )
 }
 
 
-void BeginHandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
+void BeginHandleDeidrannaDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
 {
 	gEndGameDeathCallback.capture(
 		pKillerSoldier
@@ -201,9 +201,9 @@ void BeginHandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8
 
 }
 
-void HandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
+void HandleDeidrannaDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
 {
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	SoldierID ubKillerSoldierID = NOBODY;
 
 	// Start victory music here...
@@ -250,7 +250,7 @@ void HandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLev
 
 static void DoneFadeInKilledQueen( void )
 {
-	SOLDIERTYPE *pNPCSoldier;
+	TacticalActor *pNPCSoldier;
 
 	// Locate gridno.....
 
@@ -270,7 +270,7 @@ static void DoneFadeInKilledQueen( void )
 static void DoneFadeOutKilledQueen( void )
 {
 	SoldierID cnt;
-	SOLDIERTYPE *pSoldier, *pTeamSoldier;
+	TacticalActor *pSoldier, *pTeamSoldier;
 
 	// For one, loop through our current squad and move them over
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
@@ -381,7 +381,7 @@ void HandleDoneLastKilledQueenQuote( )
 void EndQueenDeathEndgameBeginEndCimenatic( )
 {
 	SoldierID cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	// Start end cimimatic....
 	gTacticalStatus.uiFlags |= IN_ENDGAME_SEQUENCE;
@@ -452,7 +452,7 @@ void HandleDoneLastEndGameQuote( )
 
 static void QueenBitchTimerCallback( void )
 {
-	SOLDIERTYPE* killer = gEndGameDeathCallback.killer.resolve();
+	TacticalActor* killer = gEndGameDeathCallback.killer.resolve();
 	const INT32 grid = gEndGameDeathCallback.grid;
 	const INT8 level = gEndGameDeathCallback.level;
 	gEndGameDeathCallback.reset();
@@ -462,7 +462,7 @@ static void QueenBitchTimerCallback( void )
 void EndGameEveryoneSayTheirGoodByQuotes( void )
 {
 	INT32 cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	auto& soldiers = GetJa2SoldierRepository();
 
 	// Start end cimimatic....
@@ -663,9 +663,9 @@ void FadeOutToLaptopOnEndGame( void )
 	HandleAddingTheEndGameEmails();
 }
 
-void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
+void BeginHandleQueenBitchDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
 {
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	SoldierID cnt;
 
 
@@ -712,9 +712,9 @@ void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT
 
 }
 
-void HandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
+void HandleQueenBitchDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel )
 {
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	SoldierID		ubKillerSoldierID = NOBODY;
 
 	// Start victory music here...
@@ -769,7 +769,7 @@ void HandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLe
 void DoneFadeOutJa25EndCinematic( void )
 {
 	INT32 cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	auto& soldiers = GetJa2SoldierRepository();
 
 	//Change the currently selecter sector in mapscreen

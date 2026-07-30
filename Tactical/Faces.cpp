@@ -1,6 +1,12 @@
+#include "TacticalActorEquipment.h"
+#include "TacticalActorSpotting.h"
 	#include "builddefines.h"
 	#include "SoldierRepository.h"
+#include "TacticalActorAssignments.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalActorCovertOps.h"
+#include "TacticalActorDisease.h"
+#include "TacticalActorDragging.h"
 	#include <stdio.h>
 	#include "sgp_logger.h"
 	
@@ -50,14 +56,14 @@
 FACETYPE	gFacesData[ NUM_FACE_SLOTS ];
 UINT32 guiNumFaces = 0;
 extern UINT32		guiTacticalInterfaceFlags;
-extern BOOLEAN EnoughPoints(SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLEAN fDisplayMsg);
-extern INT16 MinAPsToAttack(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost, INT16 bAimTime, UINT8 ubForceRaiseGunCost = 0);
+extern BOOLEAN EnoughPoints(TacticalActor *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLEAN fDisplayMsg);
+extern INT16 MinAPsToAttack(TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCost, INT16 bAimTime, UINT8 ubForceRaiseGunCost = 0);
 // LOCAL FUNCTIONS
 void NewEye( FACETYPE *pFace );
 void NewMouth( FACETYPE *pFace );
 INT32 GetFreeFace(void);
 void RecountFaces(void);
-UINT32 GetFaceShade(SOLDIERTYPE *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit);
+UINT32 GetFaceShade(TacticalActor *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit);
 void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLEAN fUseExternBuffer, UINT32 uiBuffer, INT16 sFaceX, INT16 sFaceY, UINT16 usEyesX, UINT16 usEyesY, UINT32 uiFaceShade);
 
 extern BOOLEAN	gfInItemPickupMenu;
@@ -115,7 +121,7 @@ INT32 uiCount;
 }
 
 
-INT32	InitSoldierFace( SOLDIERTYPE *pSoldier )
+INT32	InitSoldierFace( TacticalActor *pSoldier )
 {
 	INT32							iFaceIndex;
 
@@ -542,7 +548,7 @@ INT32	InternalInitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiI
 }
 
 
-void DeleteSoldierFace( SOLDIERTYPE *pSoldier )
+void DeleteSoldierFace( TacticalActor *pSoldier )
 {
 	DeleteFace( pSoldier->renderBindings().faceIndex() );
 
@@ -808,7 +814,7 @@ void SetAutoFaceInActiveFromSoldier( SoldierID ubSoldierID )
 void SetAutoFaceInActive(INT32 iFaceIndex )
 {
 	FACETYPE				*pFace;
-	SOLDIERTYPE			*pSoldier;
+	TacticalActor			*pSoldier;
 
 	// Check face index
 	CHECKV( iFaceIndex != -1 );
@@ -872,7 +878,7 @@ void SetAutoFaceInActive(INT32 iFaceIndex )
 
 }
 
-BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
+BOOLEAN SetCamoFace(TacticalActor * pSoldier)
 {
 	// silversurfer: Worn camo is not relevant for the face anymore. Only camo kits can paint our face.
 //	INT8	worn = -1;
@@ -987,7 +993,7 @@ void BlinkAutoFace( INT32 iFaceIndex )
 		// CHECK IF BUDDY IS DEAD, UNCONSCIOUS, ASLEEP, OR POW!
 		if ( pFace->ubSoldierID != NOBODY )
 		{
-			SOLDIERTYPE* faceSoldier =
+			TacticalActor* faceSoldier =
 				GetJa2SoldierRepository().resolve(
 					pFace->ubSoldierID.i);
 			uiFaceShade = GetFaceShade(faceSoldier, pFace, FALSE);
@@ -1130,7 +1136,7 @@ void HandleFaceHilights( FACETYPE *pFace, UINT32 uiBuffer, INT16 sFaceX, INT16 s
 	 {
 		 if ( pFace->ubSoldierID != NOBODY )
 		 {
-			 SOLDIERTYPE* faceSoldier =
+			 TacticalActor* faceSoldier =
 				 GetJa2SoldierRepository().resolve(
 					 pFace->ubSoldierID.i);
 			 if ( faceSoldier->vitals().health() >= OKLIFE )
@@ -1383,7 +1389,7 @@ void SetFaceShade(FACETYPE *pFace, UINT32 uiFaceShade)
 	SetObjectHandleShade(pFace->uiVideoObject, uiFaceShade);
 }
 
-UINT32 GetFaceShade(SOLDIERTYPE *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit)
+UINT32 GetFaceShade(TacticalActor *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit)
 {
 	if (pFace->iVideoOverlay == -1 && !fExternBlit)
 	{
@@ -1632,7 +1638,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 	BOOLEAN					fShowNumber = FALSE;
 	BOOLEAN					fShowMaximum = FALSE;
 	BOOLEAN					fShowCustomText = FALSE;
-	SOLDIERTYPE			*pSoldier;
+	TacticalActor			*pSoldier;
 	INT16						sFontX, sFontY;
 	INT16						sX1, sY1, sY2, sX2;
 	UINT32					uiDestPitchBYTES;
@@ -2153,7 +2159,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				SoldierID ubID2 = NOBODY;
 				UINT16 ubGunSlot2 = 0;
 				UINT16 ubFaceSlot2 = 0;
-				if (pSoldier->IsFeedingExternal(&ubID1, &ubGunSlot1, &ubFaceSlot1, &ubID2, &ubGunSlot2, &ubFaceSlot2))
+				if (TacticalActorEquipment::externalFeeding(*pSoldier, &ubID1, &ubGunSlot1, &ubFaceSlot1, &ubID2, &ubGunSlot2, &ubFaceSlot2))
 				{
 					DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 11);
 					bNumRightIcons++;
@@ -2197,7 +2203,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			// Flugente: spotter
 			if (pSoldier->skillState().counter(SOLDIER_COUNTER_SPOTTER) > 0)
 			{
-				if (pSoldier->IsSpotting())
+				if (TacticalActorSpotting::isSpotting(*pSoldier))
 				{
 					DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 24);
 					bNumRightIcons++;
@@ -2217,14 +2223,14 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// Flugente: disease
-			if (pSoldier->HasDisease(TRUE, FALSE, TRUE))
+			if (TacticalActorDisease::hasAny(*pSoldier, TRUE, FALSE, TRUE))
 			{
 				DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 28);
 				bNumRightIcons++;
 			}
 
 			// Flugente: drag stuff
-			if (pSoldier->IsDragging())
+			if (TacticalActorDragging::isDragging(*pSoldier))
 			{
 				DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 31);
 				++bNumRightIcons;
@@ -2385,7 +2391,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 									 sIconIndex_Assignment = 29;
 									 fDoIcon_Assignment = TRUE;
 									 // determine our skill at detecting disease
-									 sPtsAvailable = pSoldier->GetDiseaseDiagnosePoints();
+									 sPtsAvailable = TacticalActorDisease::diagnosisPoints(*pSoldier);
 
 									 fShowNumber = TRUE;
 									 fShowMaximum = FALSE;
@@ -2407,7 +2413,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			case FORTIFICATION:
 				sIconIndex_Assignment = 14;
 				fDoIcon_Assignment = TRUE;
-				sPtsAvailable = (INT16)(pSoldier->GetConstructionPoints());
+				sPtsAvailable = (INT16)(TacticalActorAssignments::constructionPoints(*pSoldier));
 				fShowNumber = TRUE;
 				fShowMaximum = TRUE;
 
@@ -2443,8 +2449,8 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				}
 				else
 				{
-					bPtsAvailable = pSoldier->GetIntelGain();
-					usMaximumPts = (UINT16)(pSoldier->GetUncoverRisk());
+					bPtsAvailable = TacticalActorCovertOps::intelGain(*pSoldier);
+					usMaximumPts = (UINT16)TacticalActorCovertOps::uncoverRisk(*pSoldier);
 
 					swprintf(sString, L"%4.2f/%d%%%%", bPtsAvailable, usMaximumPts);
 
@@ -2456,7 +2462,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				sIconIndex_Assignment = 35;
 				fDoIcon_Assignment = TRUE;
 				fShowCustomText = TRUE;
-				bPtsAvailable = pSoldier->GetBurialPoints(&usMaximumPts);
+				bPtsAvailable = TacticalActorAssignments::burialPoints(*pSoldier, &usMaximumPts);
 
 				swprintf(sString, L"%3.1f/%d", bPtsAvailable, usMaximumPts);
 				break;
@@ -2465,7 +2471,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				sIconIndex_Assignment = 36;
 				fDoIcon_Assignment = TRUE;
 				fShowCustomText = TRUE;
-				sPtsAvailable = (INT16)pSoldier->GetAdministrationPoints();
+				sPtsAvailable = (INT16)TacticalActorAssignments::administrationPoints(*pSoldier);
 				bPtsAvailable = GetAdministrationPercentage(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 
 				swprintf(sString, L"%d/%3.1f", sPtsAvailable, bPtsAvailable);
@@ -2475,7 +2481,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				sIconIndex_Assignment = 34;
 				fDoIcon_Assignment = TRUE;
 				fShowCustomText = TRUE;
-				sPtsAvailable = (INT16)pSoldier->GetExplorationPoints();
+				sPtsAvailable = (INT16)TacticalActorAssignments::explorationPoints(*pSoldier);
 
 				// we only show our points, not how far we are with the task, lest the player deduct how many items there are to find in the first place
 				swprintf( sString, L"%d", sPtsAvailable );
@@ -2898,7 +2904,7 @@ void HandleAutoFaces( )
 	BOOLEAN	fRerender = FALSE;
 	BOOLEAN	fHandleFace;
 	BOOLEAN	fHandleUIHatch;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 
 	for ( uiCount = 0; uiCount < guiNumFaces; uiCount++ )

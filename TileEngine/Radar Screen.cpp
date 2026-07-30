@@ -20,7 +20,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 extern std::vector<std::wstring> gSquadNameVector;
 extern BOOLEAN AreInMeanwhile();
 #include "connect.h"
@@ -406,7 +406,7 @@ void RenderRadarScreen( )
 	INT16 sBottomRightWorldX, sBottomRightWorldY;
 
 
-	SOLDIERTYPE						*pSoldier;
+	TacticalActor						*pSoldier;
 
 	INT16	sXSoldPos, sYSoldPos, sXSoldScreen, sYSoldScreen, sXSoldRadar, sYSoldRadar;
 

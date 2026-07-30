@@ -1,4 +1,5 @@
 	#include <stdio.h>
+#include "TacticalActorEquipment.h"
 #include "TacticalWorldAdapter.h"
 	#include <math.h>
 	#include "sgp.h"
@@ -110,7 +111,7 @@ void HandleFlashLights()
 	if ( !fInterfacePanelDirty )
 		return;
 
-	SOLDIERTYPE* pSoldier = NULL;
+	TacticalActor* pSoldier = NULL;
 
 	for (UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
 	{
@@ -118,7 +119,7 @@ void HandleFlashLights()
 
 		if ( pSoldier != NULL && pSoldier->featureFlags().primaryFlags() & SOLDIER_REDOFLASHLIGHT )
 		{
-			pSoldier->HandleFlashLights();
+			TacticalActorEquipment::refreshFlashlights(*pSoldier);
 		}
 	}
 }
@@ -203,7 +204,7 @@ void RenderTacticalInterfaceWhileScrolling( )
 
 void SetUpInterface( )
 {
-	SOLDIERTYPE								*pSoldier;
+	TacticalActor								*pSoldier;
 	LEVELNODE									*pIntTile;
 
 	if ( ( guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) )
@@ -312,7 +313,7 @@ void SetUpInterface( )
 	{
 		if ( gusSelectedSoldier != NOBODY )
 		{
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 			if ( selectedSoldier &&
 				selectedSoldier->position().gridNo() != gsUIHandleShowMoveGridLocation )
@@ -768,7 +769,7 @@ void DrawTraitRadius(INT32 sGridno, INT8 sLevel, INT32 sRadius, INT16 sThickness
 
 void RenderTopmostTacticalInterface( )
 {
-	SOLDIERTYPE								*pSoldier;
+	TacticalActor								*pSoldier;
 	UINT32											cnt;
 	static UINT32				uiBogTarget = 0;
 	VOBJECT_DESC	VObjectDesc;
@@ -835,7 +836,7 @@ void RenderTopmostTacticalInterface( )
 		// Zero out any planned soldiers
 		for( cnt = MAX_NUM_SOLDIERS; cnt < TOTAL_SOLDIERS; cnt++ )
 		{
-			SOLDIERTYPE* plannedSoldier =
+			TacticalActor* plannedSoldier =
 				GetJa2SoldierRepository().resolve(
 					static_cast<UINT32>(cnt));
 			if ( plannedSoldier && plannedSoldier->roster().active() )
@@ -1330,7 +1331,7 @@ UINT8 CalcScaleShock( INT16 data )
 	return 1;
 }
 
-void DrawCounters( SOLDIERTYPE *pSoldier )
+void DrawCounters( TacticalActor *pSoldier )
 {
 	// Use world coordinates!
 	INT16 sMercScreenX, sMercScreenY, sOffsetX, sOffsetY, sDamageX, sDamageY;

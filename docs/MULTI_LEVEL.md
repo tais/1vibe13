@@ -97,7 +97,7 @@ modeled as "negative height." It needs a real sub-ground level.
 
 Climbing is its own subsystem, hardwired for the single ground→roof transition:
 
-- `FindRoofClimbingPoints( SOLDIERTYPE*, INT16 )` — `TacticalAI/ai.h:219`
+- `FindRoofClimbingPoints( TacticalActor*, INT16 )` — `TacticalAI/ai.h:219`
 - `EstimatePathCostToLocation( …, &fClimbingNecessary, &sClimbGridNo )` —
   `TacticalAI/AIUtils.cpp:1250`, `Tactical/Turn Based Input.cpp:5737`
 

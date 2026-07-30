@@ -8,7 +8,7 @@
 
 #include <iosfwd>
 
-class SOLDIERTYPE;
+class TacticalActor;
 
 namespace AI
 {
@@ -28,7 +28,7 @@ namespace AI
                 enum event_type {no_event, auditive_event, visual_event};
                 event_type event_type_;
                 /// Only visual: the opponent seen by the updated NPC
-                SOLDIERTYPE* opponent_;
+                TacticalActor* opponent_;
                 /// Only auditive: ID of the noise maker; (at least for NPC-generated sounds) ID of NPC
                 int noise_maker_;
                 /// Location of event
@@ -47,7 +47,7 @@ namespace AI
                 /// Constructor for noise events
                 AIInputData(Auditive, int noise_maker, int grid_no, int level, int volume, int type);
                 /// Constructor for sight events
-                AIInputData(Visual, SOLDIERTYPE* opponent, int grid_no, int level, int caller1, int caller2);
+                AIInputData(Visual, TacticalActor* opponent, int grid_no, int level, int caller1, int caller2);
                 /// Default constructor, called when no event occurred
                 AIInputData();
                 bool is_auditive_event() const {return event_type_ == auditive_event;}
@@ -96,7 +96,7 @@ namespace AI
                  * to be changed in this event.
                  * @return A Plan object tree representing the produced strategy
                  */
-                virtual Plan* create_plan(SOLDIERTYPE* npc, const AIInputData& input) = 0;
+                virtual Plan* create_plan(TacticalActor* npc, const AIInputData& input) = 0;
 
                 /**@brief Abstract Plan object hierarchy update function, called in order to update an already created plan
                  *
@@ -107,7 +107,7 @@ namespace AI
                  * @param input A reference to a structure containing all required input data in order for the AI
                  * @post npc->aiPlan().hasPlan() is true when the factory can create a plan
                  */
-                virtual void update_plan(SOLDIERTYPE* npc, const AIInputData& input) = 0;
+                virtual void update_plan(TacticalActor* npc, const AIInputData& input) = 0;
         };
     }
 }

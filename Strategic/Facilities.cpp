@@ -226,7 +226,7 @@ INT16 GetFacilityModifier( UINT8 ubModifierType, UINT8 ubFacilityType, UINT8 ubA
 
 // This is a handler function that runs through every facility in the soldier's sector, retrieving one type of
 // modifier from each facility.
-INT16 GetSectorModifier( SOLDIERTYPE *pSoldier, UINT8 ubModifierType )
+INT16 GetSectorModifier( TacticalActor *pSoldier, UINT8 ubModifierType )
 {
 	INT16 sCurrent;
 	INT16 Result;
@@ -338,7 +338,7 @@ INT16 GetSectorModifier( SOLDIERTYPE *pSoldier, UINT8 ubModifierType )
 // enemies in that unit is also shown.
 void UpdateStrategicDetectionLevel( )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	UINT8 ubCounter = 0;
 
 	// Reset the detection flag in SectorInfo for all sectors.
@@ -488,7 +488,7 @@ void UpdateStrategicDetectionLevel( )
 // for every awake+resting character in a sector with a facility that modifies the cost.
 void UpdateSkyriderCostModifier()
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	UINT8 ubCounter = 0;
 
 	// Start by resetting the Skyrider Cost variable.
@@ -553,7 +553,7 @@ void UpdateGlobalVariablesFromFacilities( void )
 // the player's account.
 void UpdateFacilityUsageCosts( )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	UINT8 ubCounter = 0;
 	INT16 sCost = 0;
 
@@ -695,7 +695,7 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 {
 	Assert (ubMine >= 0 && ubMine < MAX_NUMBER_OF_MINES);
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 iModifier = 0;
 
 	UINT8 ubCounter = 0;
@@ -741,7 +741,7 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 // The Assignment Type Index is used for referencing various data and effects associated with performing a
 // SPECIFIC assignment with the help of a SPECIFIC facility. It's basically a reference number for the gFacilityTypes
 // array.
-INT8 GetSoldierFacilityAssignmentIndex( SOLDIERTYPE *pSoldier )
+INT8 GetSoldierFacilityAssignmentIndex( TacticalActor *pSoldier )
 {
 	// Read soldier's assignment
 	INT8 bAssignment = pSoldier->assignment().current();
@@ -920,7 +920,7 @@ INT8 GetSoldierFacilityAssignmentIndex( SOLDIERTYPE *pSoldier )
 }
 
 // This function runs a specific kind of RISK associated with a facility. The character's stats may affect the result.
-INT16 FacilityRiskResult( SOLDIERTYPE *pSoldier, UINT8 ubRiskType, UINT8 ubFacilityType, UINT8 ubAssignmentType )
+INT16 FacilityRiskResult( TacticalActor *pSoldier, UINT8 ubRiskType, UINT8 ubFacilityType, UINT8 ubAssignmentType )
 {
 	INT16 Result = 0;
 
@@ -1104,7 +1104,7 @@ INT16 FacilityRiskResult( SOLDIERTYPE *pSoldier, UINT8 ubRiskType, UINT8 ubFacil
 void HandleHourlyRisks()
 {
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 
 	while (gCharactersList[iCounter].fValid)
@@ -1124,7 +1124,7 @@ void HandleHourlyRisks()
 	}
 }
 
-void HandleRisksForSoldier( SOLDIERTYPE *pSoldier )
+void HandleRisksForSoldier( TacticalActor *pSoldier )
 {
 	INT32 iCounter = 0;
 	INT32 iCounterB = 0;
@@ -1151,7 +1151,7 @@ void HandleRisksForSoldier( SOLDIERTYPE *pSoldier )
 	}
 }
 
-void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8 ubAssignmentType )
+void HandleRisksForSoldierFacilityAssignment( TacticalActor *pSoldier, UINT8 ubFacilityType, UINT8 ubAssignmentType )
 {
 	INT32 iCounter = 0;
 	INT32 Result = 0;
@@ -1984,7 +1984,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 
 INT32 GetTotalFacilityHourlyCosts( BOOLEAN fPositive )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 iTotal = 0;
 
 	UINT8 ubCounter = 0;

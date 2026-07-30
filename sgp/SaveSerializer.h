@@ -100,7 +100,7 @@ private:
 // ---------------------------------------------------------------------------
 // Field-visitor adapters.
 //
-// For very large structs (MERCPROFILESTRUCT, SOLDIERTYPE) writing separate
+// For very large structs (MERCPROFILESTRUCT, TacticalActor) writing separate
 // Save and Load field lists invites drift: one field added/reordered on only
 // one side silently corrupts saves. These adapters expose the same by-
 // reference method names over a SaveWriter or a SaveReader, so a single

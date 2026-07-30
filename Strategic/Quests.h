@@ -729,7 +729,7 @@ extern BOOLEAN CheckNPCWithin( UINT8 ubFirstNPC, UINT8 ubSecondNPC, UINT8 ubMaxD
 extern BOOLEAN CheckGuyVisible( UINT16 ubNPC, UINT16 ubGuy );
 extern BOOLEAN CheckNPCAt( UINT8 ubNPC, INT32 sGridNo );
 extern BOOLEAN CheckNPCIsEnemy( UINT8 ubProfileID );
-extern BOOLEAN CheckIfMercIsNearNPC( SOLDIERTYPE *pMerc, UINT8 ubProfileId );
+extern BOOLEAN CheckIfMercIsNearNPC( TacticalActor *pMerc, UINT8 ubProfileId );
 extern UINT32 NumWoundedMercsNearby( UINT8 ubProfileID );
 extern UINT16 NumMercsNear( UINT8 ubProfileID, UINT8 ubMaxDist );
 extern BOOLEAN CheckNPCIsEPC( UINT8 ubProfileID );

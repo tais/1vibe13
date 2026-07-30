@@ -20,7 +20,7 @@ namespace AI
                 /// The sub-plan sequence
                 std::deque<Plan*> subplans_;
             public:
-                PlanList(SOLDIERTYPE* npc);
+                PlanList(TacticalActor* npc);
                 /// Add a plan to the list of sub-plans
                 virtual void add_subplan(Plan* P);
                 /// Execute the next plan in the list

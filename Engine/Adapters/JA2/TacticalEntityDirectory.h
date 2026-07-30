@@ -9,7 +9,7 @@
 #include <Engine/Adapters/JA2/TacticalWorldSnapshot.h>
 
 // Pointer-free ownership of tactical actor liveness, incarnation, and the
-// latest committed public state. JA2's SOLDIERTYPE pool remains compatibility
+// latest committed public state. JA2's TacticalActor pool remains compatibility
 // storage while it is migrated; the application host publishes that storage
 // through this directory before packages or tools can observe it.
 class TacticalEntityDirectory

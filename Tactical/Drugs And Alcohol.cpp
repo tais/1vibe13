@@ -1,5 +1,7 @@
 	#include "sgp.h"
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
+	#include "TacticalActorDisease.h"
 	#include "Soldier Control.h"
 	#include "Soldier Profile.h"
 	#include "Drugs And Alcohol.h"
@@ -28,7 +30,7 @@ INT32	giDrunkModifier[] =
 #define HANGOVER_AP_REDUCE			5
 #define HANGOVER_BP_REDUCE			200
 
-BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed )
+BOOLEAN ApplyDrugs_New( TacticalActor *pSoldier, UINT16 usItem, UINT16 uStatusUsed )
 {
 	// If not a drug, return
 	if ( !Item[usItem].drugtype || !uStatusUsed || !pSoldier )
@@ -45,9 +47,9 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 	// if this alcohol, alcohol resistance can lower the effects
 	if ( Item[usItem].alcohol > 0.0f )
 	{
-		effectivepercentage = effectivepercentage * ((100.0 - pSoldier->GetBackgroundValue( BG_RESI_ALCOHOL )) / 100.0);
+		effectivepercentage = effectivepercentage * ((100.0 - TacticalActorModifiers::backgroundValue(*pSoldier, BG_RESI_ALCOHOL )) / 100.0);
 
-		FLOAT weight = pSoldier->GetBodyWeight( );
+		FLOAT weight = TacticalActorModifiers::bodyWeight(*pSoldier);
 
 		// the alcohol amounts in the xml are intended for a person with weight 80. We thus have to alter the effective value
 		if ( weight > 0.0f )
@@ -85,7 +87,7 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 	{
 		if ( !(*disease_effects_it).chance || Chance( (*disease_effects_it).chance ) )
 		{
-			pSoldier->AddDiseasePoints( (*disease_effects_it).disease, (*disease_effects_it).size * effectivepercentage );
+			TacticalActorDisease::addPoints(*pSoldier, (*disease_effects_it).disease, (*disease_effects_it).size * effectivepercentage );
 		}
 	}
 
@@ -147,7 +149,7 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 	
 	if ( Item[usItem].alcohol > 0.0f )
 	{
-		FLOAT weight = pSoldier->GetBodyWeight( );
+		FLOAT weight = TacticalActorModifiers::bodyWeight(*pSoldier);
 
 		// the alcohol amounts in the xml are intended for a person with weight 80. We thus have to alter the effective value
 		if ( weight > 0.0f )
@@ -192,7 +194,7 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 	return TRUE;
 }
 
-void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
+void HandleEndTurnDrugAdjustments_New( TacticalActor *pSoldier )
 {
 	// some effects are handled here
 	if ( pSoldier->drugState().magnitude(DRUG_EFFECT_HP) )
@@ -238,7 +240,7 @@ void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 	}
 }
 
-INT8 GetDrunkLevel( SOLDIERTYPE *pSoldier )
+INT8 GetDrunkLevel( TacticalActor *pSoldier )
 {
 	if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_HUNGOVER )
 	{
@@ -262,9 +264,10 @@ INT8 GetDrunkLevel( SOLDIERTYPE *pSoldier )
 }
 
 // does a merc have a disability/personality, or is he under drugs that simulate this?
-BOOLEAN DoesMercHaveDisability( const SOLDIERTYPE *pSoldier, UINT8 aVal )
+BOOLEAN DoesMercHaveDisability( const TacticalActor *pSoldier, UINT8 aVal )
 {
-	if ( pSoldier->identity().profile() != NO_PROFILE )
+	if ( pSoldier->identity().profile() != NO_PROFILE &&
+		pSoldier->identity().profile() < NUM_PROFILES )
 	{
 		if ( gMercProfiles[pSoldier->identity().profile()].bDisability == aVal )
 			return TRUE;
@@ -282,13 +285,14 @@ BOOLEAN DoesMercHaveDisability( const SOLDIERTYPE *pSoldier, UINT8 aVal )
 	return FALSE;
 }
 
-BOOLEAN DoesMercHavePersonality( SOLDIERTYPE *pSoldier, UINT8 aVal )
+BOOLEAN DoesMercHavePersonality( TacticalActor *pSoldier, UINT8 aVal )
 {
 	// personalities are new trait system only!
 	if ( !gGameOptions.fNewTraitSystem )
 		return FALSE;
 
-	if ( pSoldier->identity().profile() != NO_PROFILE )
+	if ( pSoldier->identity().profile() != NO_PROFILE &&
+		pSoldier->identity().profile() < NUM_PROFILES )
 	{
 		if ( gMercProfiles[pSoldier->identity().profile()].bCharacterTrait == aVal )
 			return TRUE;
@@ -300,7 +304,7 @@ BOOLEAN DoesMercHavePersonality( SOLDIERTYPE *pSoldier, UINT8 aVal )
 	return FALSE;
 }
 
-void HandleAPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *pubPoints )
+void HandleAPEffectDueToDrugs( TacticalActor *pSoldier, INT16 *pubPoints )
 {
 	*pubPoints += pSoldier->drugState().magnitude(DRUG_EFFECT_AP);
 	
@@ -316,7 +320,7 @@ void HandleAPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *pubPoints )
 	}
 }
 
-void HandleBPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *psPointReduction )
+void HandleBPEffectDueToDrugs( TacticalActor *pSoldier, INT16 *psPointReduction )
 {
 	*psPointReduction -= pSoldier->drugState().magnitude(DRUG_EFFECT_BP);
 	
@@ -327,12 +331,12 @@ void HandleBPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *psPointReduction )
 	}
 }
 
-INT32 EffectStatForBeingDrunk( SOLDIERTYPE *pSoldier, INT32 iStat )
+INT32 EffectStatForBeingDrunk( TacticalActor *pSoldier, INT32 iStat )
 {
 	return( ( iStat * giDrunkModifier[ GetDrunkLevel( pSoldier ) ] / 100 ) );
 }
 
-BOOLEAN MercDruggedOrDrunk( SOLDIERTYPE *pSoldier )
+BOOLEAN MercDruggedOrDrunk( TacticalActor *pSoldier )
 {
 	if ( pSoldier->drugState().hasAlcohol() )
 		return TRUE;
@@ -343,7 +347,7 @@ BOOLEAN MercDruggedOrDrunk( SOLDIERTYPE *pSoldier )
 	return FALSE;
 }
 
-BOOLEAN MercDrugged( SOLDIERTYPE *pSoldier )
+BOOLEAN MercDrugged( TacticalActor *pSoldier )
 {
 	return (pSoldier->featureFlags().primaryFlags() & SOLDIER_DRUGGED);
 }
@@ -352,7 +356,7 @@ void HourlyDrugUpdate( )
 {
 	for ( SoldierID ubID = gTacticalStatus.Team[OUR_TEAM].bFirstID; ubID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ubID )
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(ubID.i);
 		// every hour, we lower our alcohol counter
 		if ( soldier->drugState().hasAlcohol() )

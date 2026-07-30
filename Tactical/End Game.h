@@ -14,12 +14,12 @@ void HandleJa25EndGameAndGoToCreditsScreen( BOOLEAN fFromTactical );
 void HandleEveryoneDoneTheirEndGameQuotes();
 void EnterTacticalInFinalSector();
 extern	BOOLEAN			gfPlayersLaptopWasntWorkingAtEndOfGame;
-void HandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
-void BeginHandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
+void HandleDeidrannaDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
+void BeginHandleDeidrannaDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
 void EndQueenDeathEndgameBeginEndCimenatic( );
 void EndQueenDeathEndgame( );
 
-void HandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
-void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
+void HandleQueenBitchDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
+void BeginHandleQueenBitchDeath( TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
 
 #endif

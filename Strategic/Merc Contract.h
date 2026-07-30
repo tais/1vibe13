@@ -55,15 +55,15 @@ enum
 };
 */
 
-BOOLEAN	MercContractHandling( SOLDIERTYPE	*pSoldier, UINT8 ubDesiredAction );
+BOOLEAN	MercContractHandling( TacticalActor	*pSoldier, UINT8 ubDesiredAction );
 
-BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier );
-BOOLEAN BeginStrategicRemoveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fAddRehireButton );
+BOOLEAN StrategicRemoveMerc( TacticalActor *pSoldier );
+BOOLEAN BeginStrategicRemoveMerc( TacticalActor *pSoldier, BOOLEAN fAddRehireButton );
 
 
-BOOLEAN WillMercRenew( SOLDIERTYPE	*pSoldier, BOOLEAN fSayQuote );
-void HandleBuddiesReactionToFiringMerc(SOLDIERTYPE *pFiredSoldier, INT8 bMoraleEvent );
-void CheckIfMercGetsAnotherContract( SOLDIERTYPE *pSoldier );
+BOOLEAN WillMercRenew( TacticalActor	*pSoldier, BOOLEAN fSayQuote );
+void HandleBuddiesReactionToFiringMerc(TacticalActor *pFiredSoldier, INT8 bMoraleEvent );
+void CheckIfMercGetsAnotherContract( TacticalActor *pSoldier );
 void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void );
 
 void BeginContractRenewalSequence( );
@@ -72,9 +72,9 @@ void EndCurrentContractRenewal( );
 void HandleMercIsWillingToRenew( SoldierID ubID );
 void HandleMercIsNotWillingToRenew( SoldierID ubID );
 
-BOOLEAN ContractIsExpiring( SOLDIERTYPE *pSoldier );
-UINT32 GetHourWhenContractDone( SOLDIERTYPE *pSoldier );
-BOOLEAN ContractIsGoingToExpireSoon( SOLDIERTYPE *pSoldier );
+BOOLEAN ContractIsExpiring( TacticalActor *pSoldier );
+UINT32 GetHourWhenContractDone( TacticalActor *pSoldier );
+BOOLEAN ContractIsGoingToExpireSoon( TacticalActor *pSoldier );
 
 BOOLEAN LoadContractRenewalDataFromSaveGameFile( HWFILE hFile );
 BOOLEAN SaveContractRenewalDataToSaveGameFile( HWFILE hFile );
@@ -83,7 +83,7 @@ BOOLEAN SaveContractRenewalDataToSaveGameFile( HWFILE hFile );
 
 // rehiring of mercs from leave equipment pop up
 extern BOOLEAN	fEnterMapDueToContract;
-SOLDIERTYPE* GetContractRehireSoldier( void );
+TacticalActor* GetContractRehireSoldier( void );
 BOOLEAN SetContractRehireSoldier( TacticalEntityId actor );
 void ClearContractRehireSoldier( void );
 void ResetMercContractActorContexts( void );

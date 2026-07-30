@@ -138,15 +138,15 @@ void DisplayPathArrows(UINT16 usCharNum, HVOBJECT hMapHandle);
 void RestoreArrowBackgroundsForTrace(INT32 iArrow, INT32 iArrowX, INT32 iArrowY, BOOLEAN fZoom);
 
 // build path for character
-void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN fTacticalTraversal );
+void PlotPathForCharacter( TacticalActor *pCharacter, INT16 sX, INT16 sY, BOOLEAN fTacticalTraversal );
 
 // build temp path for character
-void PlotATemporaryPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY );
+void PlotATemporaryPathForCharacter( TacticalActor *pCharacter, INT16 sX, INT16 sY );
 
 
 // display current/temp paths
-void DisplaySoldierPath( SOLDIERTYPE *pCharacter );
-void DisplaySoldierTempPath( SOLDIERTYPE *pCharacter );
+void DisplaySoldierPath( TacticalActor *pCharacter );
+void DisplaySoldierTempPath( TacticalActor *pCharacter );
 void DisplayHelicopterPath( void );
 void DisplayHelicopterTempPath( void );
 void DisplayMilitiaPath( void );
@@ -154,10 +154,10 @@ void DisplayMilitiaTempPath( void );
 
 
 // clear path after this sector
-UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY );
+UINT32 ClearPathAfterThisSectorForCharacter( TacticalActor *pCharacter, INT16 sX, INT16 sY );
 
 // cancel path : clear the path completely and gives player feedback message that the route was canceled
-void CancelPathForCharacter( SOLDIERTYPE *pCharacter );
+void CancelPathForCharacter( TacticalActor *pCharacter );
 void CancelPathForVehicle( VEHICLETYPE *pVehicle, BOOLEAN fAlreadyReversed );
 void CancelPathForGroup( GROUP *pGroup );
 
@@ -238,7 +238,7 @@ UINT32 WhatPlayerKnowsAboutEnemiesInSector( INT16 sSectorX, INT16 sSectorY );
 //flag.
 void ClearAnySectorsFlashingNumberOfEnemies();
 
-void CopyPathToCharactersSquadIfInOne( SOLDIERTYPE *pCharacter );
+void CopyPathToCharactersSquadIfInOne( TacticalActor *pCharacter );
 
 void InitMapSecrets( void );
 

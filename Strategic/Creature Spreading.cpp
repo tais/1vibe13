@@ -1,4 +1,5 @@
 	#include "types.h"
+	#include "TacticalActorConditions.h"
 	#include "SoldierRepository.h"
 	#include "FileMan.h"
 	#include "himage.h"
@@ -676,7 +677,7 @@ void DecayCreatures()
 static void AddCreaturesToBattle( UINT8 ubNumYoungMales, UINT8 ubNumYoungFemales, UINT8 ubNumAdultMales, UINT8 ubNumAdultFemales )
 {
 	INT32 iRandom;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	MAPEDGEPOINTINFO MapEdgepointInfo = { };
 	UINT8 bDesiredDirection=0;
 	UINT8 ubCurrSlot = 0;
@@ -762,7 +763,7 @@ static void AddCreaturesToBattle( UINT8 ubNumYoungMales, UINT8 ubNumYoungFemales
 
 static void AddCreaturesToBattle_Other( UINT8 ubNum )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	MAPEDGEPOINTINFO MapEdgepointInfo = {};
 	UINT8 bDesiredDirection = 0;
 	UINT8 ubCurrSlot = 0;
@@ -1666,7 +1667,7 @@ void DetermineCreatureTownComposition( UINT16 ubNumCreatures, UINT16 *pubNumYoun
 void DetermineCreatureTownCompositionBasedOnTacticalInformation( UINT16 *pubNumCreatures, UINT16 *pubNumYoungMales, UINT16 *pubNumYoungFemales,
 																UINT16 *pubNumAdultMales, UINT16 *pubNumAdultFemales )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	SECTORINFO* pSector = &SectorInfo[ SECTOR( gWorldSectorX, gWorldSectorY ) ];
 	*pubNumCreatures = 0;
@@ -1702,7 +1703,7 @@ void DetermineCreatureTownCompositionBasedOnTacticalInformation( UINT16 *pubNumC
 
 void DetermineOtherCreatureTownCompositionBasedOnTacticalInformation( UINT16* pubNumCreatures, UINT16* pubNumBloodcats, UINT16* pubNumZombies, UINT16* pubNumBandits )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	SECTORINFO* pSector = &SectorInfo[SECTOR( gWorldSectorX, gWorldSectorY )];
 	*pubNumCreatures = 0;
@@ -1713,7 +1714,7 @@ void DetermineOtherCreatureTownCompositionBasedOnTacticalInformation( UINT16* pu
 		pSoldier = GetJa2SoldierRepository().resolve(i);
 		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() )
 		{
-			if ( pSoldier->IsZombie() )
+			if ( TacticalActorConditions::isZombie(*pSoldier) )
 			{
 				( *pubNumCreatures )++;
 				( *pubNumZombies )++;
@@ -2242,7 +2243,7 @@ void ForceCreaturesToAvoidMineTemporarily( UINT8 ubMineIndex )
 BOOLEAN PlayerGroupIsInACreatureInfestedMine()
 {
 	CREATURE_DIRECTIVE *curr;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT16 sSectorX, sSectorY;
 	INT8 bSectorZ;
 

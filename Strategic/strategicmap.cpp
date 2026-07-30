@@ -125,7 +125,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 //Used by PickGridNoToWalkIn
@@ -339,8 +339,8 @@ BOOLEAN ReadInStrategicMapSectorTownNames( STR fileName, BOOLEAN localizedVersio
 void DoneFadeOutAdjacentSector( void );
 void DoneFadeOutExitGridSector( void );
 
-INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection );
-INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UINT32 *puiNumAttempts );
+INT32 PickGridNoNearestEdge( TacticalActor *pSoldier, UINT8 ubTacticalDirection );
+INT32 PickGridNoToWalkIn( TacticalActor *pSoldier, UINT8 ubInsertionDirection, UINT32 *puiNumAttempts );
 
 
 void HandleQuestCodeOnSectorExit( INT16 sOldSectorX, INT16 sOldSectorY, INT8 bOldSectorZ );
@@ -2080,7 +2080,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			//	GridNo = NOWHERE, which causes this assertion to fail
 			//CHRISL: There's also an issue with vehicles.  Soldiers in any vehicle are considered to be in sGridNo = NOWHERE
 			//	This will result in an assertion error, so let's skip the assertion if the merc is assigned to a vehicle
-			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 
 			if (!(pSoldier->status().flags() & SOLDIER_DEAD) && pSoldier->assignment().current() != VEHICLE && !SPY_LOCATION(pSoldier->assignment().current()) && pSoldier->assignment().current() != ASSIGNMENT_POW)
 			{
@@ -2132,7 +2132,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			//	GridNo = NOWHERE, which causes this assertion to fail
 			//CHRISL: There's also an issue with vehicles.  Soldiers in any vehicle are considered to be in sGridNo = NOWHERE
 			//	This will result in an assertion error, so let's skip the assertion if the merc is assigned to a vehicle
-			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if (!(pSoldier->status().flags() & SOLDIER_DEAD) && pSoldier->assignment().current() != VEHICLE && pSoldier->assignment().current() != ASSIGNMENT_POW)
 			{
 				//Assert( !pSoldier->roster().active() || !pSoldier->roster().inSector() || pSoldier->sGridNo != NOWHERE || pSoldier->vehicleState().tacticalVehicleId() == iHelicopterVehicleId );
@@ -2368,7 +2368,7 @@ BOOLEAN MapExists( UINT8 * szFilename )
 
 void RemoveMercsInSector( )
 {
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 
 	// IF IT'S THE SELECTED GUY, MAKE ANOTHER SELECTED!
 	SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID;
@@ -2626,7 +2626,7 @@ void HandleQuestCodeOnSectorEntry( INT16 sNewSectorX, INT16 sNewSectorY, INT8 bN
 	//UINT8		ubRandomMiner[RANDOM_HEAD_MINERS] = { 106, 156, 157, 158 };
 	//UINT8		ubMiner, ubMinersPlaced, ubMine;
 	UINT8		ubThisMine;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// are we in a mine sector, on the surface?
 	if ( IsThereAMineInThisSector( sNewSectorX, sNewSectorY ) && (bNewSectorZ == 0) )
@@ -2675,7 +2675,7 @@ void HandleQuestCodeOnSectorEntry( INT16 sNewSectorX, INT16 sNewSectorY, INT8 bN
 
 	if ( CheckFact( FACT_ROBOT_RECRUITED_AND_MOVED, 0 ) == FALSE )
 	{
-		SOLDIERTYPE * pRobot;
+		TacticalActor * pRobot;
 		pRobot = FindSoldierByProfileID( ROBOT, TRUE );
 		if ( pRobot )
 		{
@@ -2733,7 +2733,7 @@ void HandleQuestCodeOnSectorEntry( INT16 sNewSectorX, INT16 sNewSectorY, INT8 bN
 
 void HandleQuestCodeOnSectorExit( INT16 sOldSectorX, INT16 sOldSectorY, INT8 bOldSectorZ )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 #ifdef LUA_HANDLE_QUEST_CODE_ON_SECTOR
 
@@ -2837,7 +2837,7 @@ BOOLEAN EnterSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 	{
 		for ( SoldierID i = gTacticalStatus.Team[CIV_TEAM].bFirstID; i <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++i )
 		{
-			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if ( pSoldier->roster().active() && pSoldier->roster().inSector() )
 			{
 				SetupProfileInsertionDataForSoldier( pSoldier );
@@ -2969,7 +2969,7 @@ BOOLEAN EnterSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 
 void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 {
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	BOOLEAN				fPOWSquadSet = FALSE;
 	UINT8					ubPOWSquad = 0;
 	CHAR16		zTemp[256];
@@ -3115,7 +3115,7 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 	}
 }
 
-void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
+void UpdateMercInSector( TacticalActor *pSoldier, INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 {
 	BOOLEAN fError = FALSE;
 	if ( pSoldier->status().flags() & SOLDIER_IS_TACTICALLY_VALID )
@@ -3582,7 +3582,7 @@ void GetSectorIDString( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, CHAR16 *z
 }
 
 
-UINT8 SetInsertionDataFromAdjacentMoveDirection( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection, INT32 sAdditionalData )//dnl ch56 151009
+UINT8 SetInsertionDataFromAdjacentMoveDirection( TacticalActor *pSoldier, UINT8 ubTacticalDirection, INT32 sAdditionalData )//dnl ch56 151009
 {
 	UINT8				ubDirection;
 	EXITGRID		ExitGrid;
@@ -3707,8 +3707,8 @@ UINT8 GetStrategicInsertionDataFromAdjacentMoveDirection( UINT8 ubTacticalDirect
 
 void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 sAdditionalData )//dnl ch56 151009
 {
-	SOLDIERTYPE		*pSoldier;
-	SOLDIERTYPE *pValidSoldier = NULL;
+	TacticalActor		*pSoldier;
+	TacticalActor *pValidSoldier = NULL;
 	GROUP *pGroup;
 	UINT32 uiTraverseTime = 0;
 	UINT8 ubDirection = 0xff;
@@ -3779,7 +3779,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 			pPlayer = pGroup->pPlayerList;
 			while ( pPlayer )
 			{
-				SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+				TacticalActor* const member = ResolvePlayerGroupMember( pPlayer );
 				if ( member && member != pValidSoldier )
 				{
 					member->assignment().mergeTraversalAllowance() = 100;
@@ -3868,7 +3868,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		curr = pGroup->pPlayerList;
 		while ( curr )
 		{
-			SOLDIERTYPE* const member = ResolvePlayerGroupMember( curr );
+			TacticalActor* const member = ResolvePlayerGroupMember( curr );
 			if ( !member )
 			{
 				curr = curr->next;
@@ -3942,7 +3942,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		curr = pGroup->pPlayerList;
 		while ( curr )
 		{
-			SOLDIERTYPE* const member = ResolvePlayerGroupMember( curr );
+			TacticalActor* const member = ResolvePlayerGroupMember( curr );
 			if ( member && !OK_CONTROLLABLE_MERC( member ) )
 			{
 				if ( OK_CONTROL_MERC( member ) && member->assignment().current() == VEHICLE && pGroup->fVehicle )
@@ -3986,7 +3986,7 @@ void JumpIntoEscapedSector(UINT8 ubTacticalDirection)
 
 	for ( ; id <= lastID; ++id )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
 		// Are we not active in sector
 		if (!pSoldier->roster().active() || !pSoldier->roster().inSector() || pSoldier->vitals().health() >= OKLIFE)
 		{
@@ -4008,7 +4008,7 @@ void JumpIntoEscapedSector(UINT8 ubTacticalDirection)
 	{
 		for (size_t j = 0; j < NUMBER_OF_SOLDIERS_PER_SQUAD; j++)
 		{
-			SOLDIERTYPE* pSoldier = ResolveSquadMember( i, j );
+			TacticalActor* pSoldier = ResolveSquadMember( i, j );
 			if (pSoldier && OK_CONTROLLABLE_MERC(pSoldier))
 			{
 				GROUP* pGroup = GetGroup(pSoldier->deployment().groupId());
@@ -4041,7 +4041,7 @@ void JumpIntoEscapedSector(UINT8 ubTacticalDirection)
 	}
 }
 
-void HandleSoldierLeavingSectorByThemSelf( SOLDIERTYPE *pSoldier )
+void HandleSoldierLeavingSectorByThemSelf( TacticalActor *pSoldier )
 {
 	// soldier leaving thier squad behind, will rejoin later
 	// if soldier in a squad, set the fact they want to return here
@@ -4120,7 +4120,7 @@ void AllMercsWalkedToExitGrid( )
 		pPlayer = adjacentGroup->pPlayerList;
 		while ( pPlayer )
 		{
-			SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+			TacticalActor* const member = ResolvePlayerGroupMember( pPlayer );
 			if ( !member )
 			{
 				pPlayer = pPlayer->next;
@@ -4173,7 +4173,7 @@ void AllMercsWalkedToExitGrid( )
 			pPlayer = adjacentGroup->pPlayerList;
 			while ( pPlayer )
 			{
-				SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+				TacticalActor* const member = ResolvePlayerGroupMember( pPlayer );
 				if ( member && member->vitals().health() < OKLIFE )
 				{
 					AddCharacterToUniqueSquad( member );
@@ -4195,7 +4195,7 @@ void AllMercsWalkedToExitGrid( )
 		pPlayer = adjacentGroup->pPlayerList;
 		while ( pPlayer )
 		{
-			SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+			TacticalActor* const member = ResolvePlayerGroupMember( pPlayer );
 			if ( !member )
 			{
 				pPlayer = pPlayer->next;
@@ -4233,7 +4233,7 @@ void AllMercsWalkedToExitGrid( )
 
 void SetupTacticalTraversalInformation( )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	PLAYERGROUP *pPlayer;
 	GROUP* adjacentGroup = gAdjacentGroup.resolve();
 	if (!adjacentGroup)
@@ -4338,7 +4338,7 @@ void AllMercsHaveWalkedOffSector( )
 		pPlayer = adjacentGroup->pPlayerList;
 		while ( pPlayer )
 		{
-			SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+			TacticalActor* const member = ResolvePlayerGroupMember( pPlayer );
 			if ( !member )
 			{
 				pPlayer = pPlayer->next;
@@ -4374,7 +4374,7 @@ void AllMercsHaveWalkedOffSector( )
 			pPlayer = adjacentGroup->pPlayerList;
 			while ( pPlayer )
 			{
-				SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+				TacticalActor* const member = ResolvePlayerGroupMember( pPlayer );
 				if ( member && fEnemiesInLoadedSector && member->identity().profile() != NO_PROFILE )
 					gMercProfiles[member->identity().profile()].records.usBattlesRetreated++;
 				pPlayer = pPlayer->next;
@@ -4444,7 +4444,7 @@ void AllMercsHaveWalkedOffSector( )
 void DoneFadeOutExitGridSector( )
 {
 	SetCurrentWorldSector( gsAdjacentSectorX, gsAdjacentSectorY, gbAdjacentSectorZ );
-	SOLDIERTYPE* traversalSoldier =
+	TacticalActor* traversalSoldier =
 		ResolveTacticalTraversalChosenSoldier();
 	if ( gfTacticalTraversal &&
 		ResolveTacticalTraversalGroup() && traversalSoldier )
@@ -4468,7 +4468,7 @@ void DoneFadeOutAdjacentSector( )
 	SetCurrentWorldSector( gsAdjacentSectorX, gsAdjacentSectorY, gbAdjacentSectorZ );
 
 	ubDirection = GetStrategicInsertionDataFromAdjacentMoveDirection( gubTacticalDirection, gsAdditionalData );
-	SOLDIERTYPE* traversalSoldier =
+	TacticalActor* traversalSoldier =
 		ResolveTacticalTraversalChosenSoldier();
 	if ( gfTacticalTraversal &&
 		ResolveTacticalTraversalGroup() && traversalSoldier )
@@ -4504,7 +4504,7 @@ void DoneFadeOutAdjacentSector( )
 		curr = adjacentGroup->pPlayerList;
 		while ( curr )
 		{
-			SOLDIERTYPE* const member = ResolvePlayerGroupMember( curr );
+			TacticalActor* const member = ResolvePlayerGroupMember( curr );
 			if ( !member )
 			{
 				curr = curr->next;
@@ -4566,7 +4566,7 @@ void DoneFadeOutAdjacentSector( )
 
 
 
-BOOLEAN SoldierOKForSectorExit( SOLDIERTYPE * pSoldier, INT8 bExitDirection, INT32 usAdditionalData )//dnl ch56 151009
+BOOLEAN SoldierOKForSectorExit( TacticalActor * pSoldier, INT8 bExitDirection, INT32 usAdditionalData )//dnl ch56 151009
 {
 	INT16 sXMapPos;
 	INT16 sYMapPos;
@@ -4668,10 +4668,10 @@ BOOLEAN SoldierOKForSectorExit( SOLDIERTYPE * pSoldier, INT8 bExitDirection, INT
 //ATE: Returns FALSE if NOBODY is close enough, 1 if ONLY selected guy is and 2 if all on squad are...
 BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *puiTraverseTimeInMinutes )//dnl ch56 151009
 {
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	BOOLEAN		fAtLeastOneMercControllable = FALSE;
 	BOOLEAN		fOnlySelectedGuy = FALSE;
-	SOLDIERTYPE *pValidSoldier = NULL;
+	TacticalActor *pValidSoldier = NULL;
 	UINT8			ubReturnVal = FALSE;
 	UINT8			ubNumControllableMercs = 0;
 	UINT8		  ubNumMercs = 0, ubNumEPCs = 0;
@@ -4985,7 +4985,7 @@ void SetSamHackStatus( INT16 sSectorX, INT16 sSectorY, INT8 sStatus )
 BOOLEAN CanGoToTacticalInSector( INT16 sX, INT16 sY, UINT8 ubZ )
 {
 	SoldierID cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	// if not a valid sector
 	if ( (sX < 1) || (sX > 16) || (sY < 1) || (sY > 16) || (ubZ > 3) )
@@ -5456,7 +5456,7 @@ BOOLEAN LoadStrategicInfoFromSavedFile( HWFILE hFile )
 }
 
 
-INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection )
+INT32 PickGridNoNearestEdge( TacticalActor *pSoldier, UINT8 ubTacticalDirection )
 {
 	INT32 sGridNo, sStartGridNo, sOldGridNo;
 	INT8			bOdd = 1, bOdd2 = 1;
@@ -5724,7 +5724,7 @@ INT32 PickGridNoNearestEdge( SOLDIERTYPE *pSoldier, UINT8 ubTacticalDirection )
 }
 
 
-void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT8 ubTacticalDirection )
+void AdjustSoldierPathToGoOffEdge( TacticalActor *pSoldier, INT32 sEndGridNo, UINT8 ubTacticalDirection )
 {
 	INT32 sNewGridNo, sTempGridNo;
 	INT32	iLoop;
@@ -5874,7 +5874,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 	}
 }
 
-INT32 PickGridNoToWalkIn( SOLDIERTYPE *pSoldier, UINT8 ubInsertionDirection, UINT32 *puiNumAttempts )
+INT32 PickGridNoToWalkIn( TacticalActor *pSoldier, UINT8 ubInsertionDirection, UINT32 *puiNumAttempts )
 {
 	INT32 sGridNo, sStartGridNo, sOldGridNo;
 	INT8			bOdd = 1, bOdd2 = 1;
@@ -6172,7 +6172,7 @@ void HandleSlayDailyEvent( void )
 		return;
 	}
 
-	SOLDIERTYPE *pSoldier = FindSoldierByProfileID(
+	TacticalActor *pSoldier = FindSoldierByProfileID(
 		CampaignProfileCode::profile(
 			GetGameContext().capabilities().campaign,
 			CampaignProfileCode::Role::Slay),
@@ -6328,7 +6328,7 @@ BOOLEAN HandleDefiniteUnloadingOfWorld( UINT8 ubUnloadCode )
 		//@@@Evaluate
 		for ( SoldierID i = gTacticalStatus.Team[CIV_TEAM].bFirstID; i <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++i )
 		{
-			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if ( pSoldier->roster().active() && pSoldier->roster().inSector() )
 			{
 				SetupProfileInsertionDataForSoldier( pSoldier );
@@ -6349,7 +6349,7 @@ BOOLEAN HandlePotentialBringUpAutoresolveToFinishBattle( int pSectorX, int pSect
 	//co-exist in the sector, then make them fight for control of the sector via autoresolve.
 	for ( SoldierID i = gTacticalStatus.Team[ENEMY_TEAM].bFirstID; i <= gTacticalStatus.Team[CREATURE_TEAM].bLastID; ++i )
 	{
-		SOLDIERTYPE *pEnemy = GetJa2SoldierRepository().resolve(i);
+		TacticalActor *pEnemy = GetJa2SoldierRepository().resolve(i);
 		if ( pEnemy->roster().active() && pEnemy->vitals().health() )
 		{
 			if ( pEnemy->deployment().sectorX() == pSectorX &&
@@ -6358,7 +6358,7 @@ BOOLEAN HandlePotentialBringUpAutoresolveToFinishBattle( int pSectorX, int pSect
 			{ //We have enemies, now look for militia!
 				for ( SoldierID j = gTacticalStatus.Team[MILITIA_TEAM].bFirstID; j <= gTacticalStatus.Team[MILITIA_TEAM].bLastID; ++j )
 				{
-					SOLDIERTYPE *pMilitia = GetJa2SoldierRepository().resolve(j);
+					TacticalActor *pMilitia = GetJa2SoldierRepository().resolve(j);
 					if ( pMilitia->roster().active() && pMilitia->vitals().health() && pMilitia->roster().side() == OUR_TEAM )
 					{
 						if ( pMilitia->deployment().sectorX() == pSectorX &&
@@ -6426,7 +6426,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 		{
 			for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 			{ //If we have a live and valid soldier
-				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+				TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 				if ( pSoldier->roster().active() && pSoldier->vitals().health() && !pSoldier->deployment().isBetweenSectors() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
 				{
 					if ( pSoldier->deployment().sectorX() == gWorldSectorX &&
@@ -6444,7 +6444,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 	{	//Check and see if we have any live mercs in the sector.
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 		{ //If we have a live and valid soldier
-			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if ( pSoldier->roster().active() && pSoldier->vitals().health() && !pSoldier->deployment().isBetweenSectors() && pSoldier->roster().inSector() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
 			{
 				if ( pSoldier->deployment().sectorX() == gWorldSectorX &&
@@ -6547,7 +6547,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 //the sector or strategically in the sector (such as firing an NPC in a sector that isn't yet loaded.)  When loading that
 //sector, the RPC would be added.
 //@@@Evaluate
-void SetupProfileInsertionDataForSoldier( SOLDIERTYPE *pSoldier )
+void SetupProfileInsertionDataForSoldier( TacticalActor *pSoldier )
 {
 	if ( !pSoldier || pSoldier->identity().profile() == NO_PROFILE )
 	{ //Doesn't have profile information.
@@ -6766,7 +6766,7 @@ void HandlePlayerTeamQuotesWhenEnteringSector( INT16 sSectorX, INT16 sSectorY, I
 	UINT8		usNumValidMercs = 0;
 	INT32		iSectorID = SECTOR( sSectorX, sSectorY );
 	UINT8		ubValidMercProfileIDArray[NUM_MERCS_WITH_NEW_QUOTES];
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	
 #define	NUM_VALID_SECTORS									6
 #define	DELAY_FOR_PLAYER_DESC_OF_SECTOR		2
@@ -7027,7 +7027,7 @@ void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMap
 		return;
 	}
 
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	//
 	// if this sector is a sector we are to send an email to the player from
@@ -7217,7 +7217,7 @@ void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ,
 		return;
 	}
 
-	//	SOLDIERTYPE *pSoldier=NULL;
+	//	TacticalActor *pSoldier=NULL;
 	//	INT32				iCash=0;
 
 	//if we are loading a game, dont do this yet ( it will be done after everything is loaded
@@ -7353,7 +7353,7 @@ void HandleSectorSpecificModificatioToMap( INT16 sMapX, INT16 sMapY, INT8 bMapZ,
 void MakeAllTeamMembersCrouchedThenStand()
 {
 UINT8	cnt;
-SOLDIERTYPE *pSoldier=NULL;
+TacticalActor *pSoldier=NULL;
 
 //Move some of the enemies to be 'near' them player when the enter the room
 cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
@@ -7373,7 +7373,7 @@ pSoldier->ChangeSoldierStance( PRONE );
 */
 void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	UINT8				ubNumEnemiesMoved = 0;
 
 	//if we are loading a saved game, or we have already moved the enemies, get out.
@@ -7508,7 +7508,7 @@ void HandleGoingUpOrDownStairsForLoadScreensPurposes( INT16 sCurrentlyInSectorZ,
 
 void HandleMovingEnemiesCloseToEntranceInFirstTunnelMap( )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	UINT8	ubIndex = 0;
 	UINT32 cnt;
 	INT16							sXPos, sYPos;
@@ -7557,7 +7557,7 @@ void HandleMovingEnemiesCloseToEntranceInFirstTunnelMap( )
 
 void HandleMovingEnemiesCloseToEntranceInSecondTunnelMap( )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	UINT8	ubIndex = 0;
 	UINT32 cnt;
 	INT16							sXPos, sYPos;
@@ -7692,7 +7692,7 @@ void HandleMovingEnemiesOntoRoofs( )
 
 BOOLEAN MoveEnemyFromGridNoToRoofGridNo( UINT32 sSourceGridNo, UINT32 sDestGridNo )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT32				cnt;
 	INT16				sXPos, sYPos;
 
@@ -7759,7 +7759,7 @@ BOOLEAN CanRequestMilitiaReinforcements( INT16 sMapX, INT16 sMapY, INT16 sSrcMap
 // Bob: this function will check if the merc is in a valid squad and if there are other mercs assigned to that squad who lack a mvt group.
 // Will attempt to fix this by assigning everyone to a proper squad and forcing squads to reevaluate movement groups.
 // returns the movement group the character was reassigned to or zero if we failed.
-UINT8 tryToRecoverSquadsAndMovementGroups(SOLDIERTYPE* pCharacter) {
+UINT8 tryToRecoverSquadsAndMovementGroups(TacticalActor* pCharacter) {
 	// check if the char we're trying to move is in a valid squad!
 	if (SquadCharacterIsIn(pCharacter) == -1) {
 
@@ -7769,7 +7769,7 @@ UINT8 tryToRecoverSquadsAndMovementGroups(SOLDIERTYPE* pCharacter) {
 			Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 			for (int i = 0; i < MAXMERCS; i++) {
-				SOLDIERTYPE& soldier = soldiers.record(i);
+				TacticalActor& soldier = soldiers.record(i);
 				if (soldier.roster().active() && soldier.roster().team() == pCharacter->roster().team() && soldier.assignment().current() == squadWeThinkWeAreIn)
 				{ // reassign everyone who's supposed to be in the bogus squad
 					AddCharacterToAnySquad(&soldier);

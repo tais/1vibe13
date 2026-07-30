@@ -367,13 +367,13 @@ UINT32 InitScreenHandle(void)
 #endif
 
 #ifdef _DEBUG
-		mprintf( 10, 20, L"SOLDIERTYPE: %d bytes", sizeof( SOLDIERTYPE ) );
+		mprintf( 10, 20, L"TacticalActor: %d bytes", sizeof( TacticalActor ) );
 #endif
 
 		if ( gfDontUseDDBlits )
 		{
 			#ifdef _DEBUG
-				mprintf( 10, 10, L"SOLDIERTYPE: %d bytes", sizeof( SOLDIERTYPE ) );
+				mprintf( 10, 10, L"TacticalActor: %d bytes", sizeof( TacticalActor ) );
 			#else
 				mprintf( 10, 20, L"Using software blitters" );
 			#endif
@@ -502,7 +502,7 @@ UINT32 PalEditScreenShutdown(void)
 
 void PalEditRenderHook(	)
 {
-	SOLDIERTYPE* selectedSoldier =
+	TacticalActor* selectedSoldier =
 		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	if ( gusSelectedSoldier < NOBODY && selectedSoldier &&
 		selectedSoldier->roster().active())
@@ -516,7 +516,7 @@ void PalEditRenderHook(	)
 
 BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT32		cnt;
 	UINT8		ubType;
 	UINT8		ubPaletteRep;

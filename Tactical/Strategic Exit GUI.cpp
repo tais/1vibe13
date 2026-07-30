@@ -116,7 +116,7 @@ INT32   gsWarpGridNo;
 BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//dnl ch56 151009
 {
 	UINT32 uiTraverseTimeInMinutes;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	SGPRect	aRect;
 	UINT16	usTextBoxWidth, usTextBoxHeight;
 	INT32 usMapPos = 0;
@@ -190,7 +190,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 		INT32 cnt = 0;
 		for( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id )
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				GetJa2SoldierRepository().resolve(id.i);
 			if( OK_INSECTOR_MERC( soldier ) )
 				cnt++;
@@ -217,7 +217,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 		gExitDialog.fGotoSector							= TRUE;
 	}
 
-	SOLDIERTYPE* selectedSoldier =
+	TacticalActor* selectedSoldier =
 		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	gExitDialog.ubNumPeopleOnSquad =
 		NumberOfPlayerControllableMercsInSquad(
@@ -273,7 +273,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 			{
 				continue;
 			}
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				GetJa2SoldierRepository().resolve(id.i);
 			if( soldier->assignment().current() == selectedSoldier->assignment().current() )
 			{
@@ -404,7 +404,7 @@ void DoneFadeInWarp( void )
 
 void DoneFadeOutWarpCallback( void )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	// Warp!
 
@@ -551,7 +551,7 @@ void UpdateSectorExitMenu( )
 
 	if ( gExitDialog.fSingleMoveDisabled )
 	{
-		SOLDIERTYPE* selectedSoldier =
+		TacticalActor* selectedSoldier =
 			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 		DisableButton( gExitDialog.uiSingleMoveButton );
 		MSYS_DisableRegion(&(gExitDialog.SingleRegion) );
@@ -567,7 +567,7 @@ void UpdateSectorExitMenu( )
 			//isn't an EPC, but the other merc is.	That means that this merc cannot leave the sector alone
 			//as he would isolate the EPC.
 			CHAR16 str[ 256 ];
-			SOLDIERTYPE* isolatedEpc = GetJa2SoldierRepository().resolve(
+			TacticalActor* isolatedEpc = GetJa2SoldierRepository().resolve(
 				gExitDialog.bSingleMoveWillIsolateEPC);
 			if( !gExitDialog.fSquadHasMultipleEPCs )
 			{
@@ -600,7 +600,7 @@ void UpdateSectorExitMenu( )
 	else
 	{
 		CHAR16 str[ 256 ];
-		SOLDIERTYPE* selectedSoldier =
+		TacticalActor* selectedSoldier =
 			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 		EnableButton( gExitDialog.uiSingleMoveButton );
 		MSYS_EnableRegion(&(gExitDialog.SingleRegion) );
@@ -774,7 +774,7 @@ void RemoveSectorExitMenu( BOOLEAN fOk )
 		gfIgnoreScrolling = FALSE;
 
 		// if we are an EPC, don't allow this if nobody else on squad
-		SOLDIERTYPE* selectedSoldier =
+		TacticalActor* selectedSoldier =
 			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 		if ( fOk && AM_AN_EPC( selectedSoldier ) )
 		{

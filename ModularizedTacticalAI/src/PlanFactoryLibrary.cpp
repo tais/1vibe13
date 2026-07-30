@@ -72,7 +72,7 @@ namespace AI
          * @throws std::logic_error for valid index, but undefined factory (most likely due to typo in AI.ini)
          * @return A new plan
          */
-        Plan* PlanFactoryLibrary::create_plan(size_t index, SOLDIERTYPE* npc, const AIInputData& input) const
+        Plan* PlanFactoryLibrary::create_plan(size_t index, TacticalActor* npc, const AIInputData& input) const
         {
             if(index >= ai_index_to_factory_mapping_.size())
                 throw std::out_of_range("PlanFactoryLibrary detected invalid factory index");
@@ -88,7 +88,7 @@ namespace AI
          * @throws std::out_of_range for invalid index
          * @throws std::logic_error for valid index, but undefined factory (most likely due to typo in AI.ini)
          */
-        void PlanFactoryLibrary::update_plan(size_t index, SOLDIERTYPE* npc, const AIInputData& input) const
+        void PlanFactoryLibrary::update_plan(size_t index, TacticalActor* npc, const AIInputData& input) const
         {
             if(index >= ai_index_to_factory_mapping_.size())
                 throw std::out_of_range("PlanFactoryLibrary detected invalid factory index");

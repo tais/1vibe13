@@ -128,9 +128,9 @@ void LoadSchedules( INT8 **hBuffer, FLOAT dMajorMapVersion );
 BOOLEAN LoadSchedulesFromSave( HWFILE hFile );
 BOOLEAN SaveSchedules(HWFILE hFile, FLOAT dMajorMapVersion=MAJOR_MAP_VERSION, UINT8 ubMinorMapVersion=MINOR_MAP_VERSION);//dnl ch33 240909
 
-void PostSchedule( SOLDIERTYPE *pSoldier );
-void PostDefaultSchedule( SOLDIERTYPE *pSoldier );
-void PostNextSchedule( SOLDIERTYPE *pSoldier );
+void PostSchedule( TacticalActor *pSoldier );
+void PostDefaultSchedule( TacticalActor *pSoldier );
+void PostNextSchedule( TacticalActor *pSoldier );
 
 //After the world is loaded and the temp modifications have been applied,
 //we then need to post the events and process schedules for the time that we have been gone.
@@ -150,12 +150,12 @@ void OptimizeSchedules();
 
 void PerformActionOnDoorAdjacentToGridNo( UINT8 ubScheduleAction, INT32 usMapIndex );
 
-BOOLEAN ExtractScheduleEntryAndExitInfo( SOLDIERTYPE * pSoldier, UINT32 * puiEntryTime, UINT32 * puiExitTime );
-BOOLEAN ExtractScheduleDoorLockAndUnlockInfo( SOLDIERTYPE * pSoldier, UINT32 * puiOpeningTime, UINT32 * puiClosingTime );
+BOOLEAN ExtractScheduleEntryAndExitInfo( TacticalActor * pSoldier, UINT32 * puiEntryTime, UINT32 * puiExitTime );
+BOOLEAN ExtractScheduleDoorLockAndUnlockInfo( TacticalActor * pSoldier, UINT32 * puiOpeningTime, UINT32 * puiClosingTime );
 
 void ReconnectSchedules( void );
 
-void SecureSleepSpot( SOLDIERTYPE * pSoldier, UINT32 usSleepSpot );
+void SecureSleepSpot( TacticalActor * pSoldier, UINT32 usSleepSpot );
 
 BOOLEAN BumpAnyExistingMerc( INT32 sGridNo );
 

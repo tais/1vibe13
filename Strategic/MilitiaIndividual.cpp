@@ -250,11 +250,11 @@ void UpdateMilitia( MILITIA aMilitia )
 	}
 }
 
-SOLDIERTYPE* GetUsedSoldierToIndividualMilitia( UINT32 aMilitiaId )
+TacticalActor* GetUsedSoldierToIndividualMilitia( UINT32 aMilitiaId )
 {
 	for ( SoldierID cnt = gTacticalStatus.Team[MILITIA_TEAM].bFirstID; cnt <= gTacticalStatus.Team[MILITIA_TEAM].bLastID; ++cnt )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( pSoldier && pSoldier->roster().active() && pSoldier->identity().individualMilitiaId() == aMilitiaId )
 		{
 			return pSoldier;
@@ -274,7 +274,7 @@ void ApplyTacticalLifeRatioToMilitia()
 	SoldierID lastid = gTacticalStatus.Team[MILITIA_TEAM].bLastID;
 	for ( ; cnt < lastid; ++cnt )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		MILITIA militia;
 		if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().maximumHealth() && GetMilitia( pSoldier->identity().individualMilitiaId(), &militia ) )
 		{
@@ -299,7 +299,7 @@ void ApplyMilitiaHealthRatioToTactical()
 	SoldierID lastid = gTacticalStatus.Team[MILITIA_TEAM].bLastID;
 	for ( ; cnt < lastid; ++cnt )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		MILITIA militia;
 		if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().maximumHealth() && GetMilitia( pSoldier->identity().individualMilitiaId(), &militia ) )
 		{
@@ -550,7 +550,7 @@ UINT32 CreateNewIndividualMilitia( UINT8 aMilitiaRank, UINT8 aOrigin, UINT8 aSec
 	return newmilitia.id;
 }
 
-UINT32 CreateNewIndividualMilitiaFromSoldier( SOLDIERTYPE* pSoldier, UINT8 aOrigin )
+UINT32 CreateNewIndividualMilitiaFromSoldier( TacticalActor* pSoldier, UINT8 aOrigin )
 {
 	if ( !gGameExternalOptions.fIndividualMilitia || !pSoldier )
 		return 0;
@@ -668,7 +668,7 @@ UINT32 GetIdOfUnusedIndividualMilitia( UINT8 aSoldierClass, UINT8 aSector )
 			SoldierID lastid = gTacticalStatus.Team[MILITIA_TEAM].bLastID;
 			for ( ; cnt < lastid; ++cnt )
 			{
-				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
+				TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 				
 				if ( pSoldier && pSoldier->roster().active() && ( *it ).id == pSoldier->identity().individualMilitiaId() && IsLegalMilitiaId( pSoldier->identity().individualMilitiaId() ) )
 				{
@@ -825,7 +825,7 @@ FLOAT PromoteIndividualMilitiaInSector( UINT8 aSector, FLOAT aPointsToAdd )
 		SoldierID lastid = gTacticalStatus.Team[MILITIA_TEAM].bLastID;
 		for ( ; cnt <= lastid; ++cnt )	// bLastID is the last valid slot (inclusive); was '<' which skipped the last militia soldier
 		{
-			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
+			TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 			MILITIA militia;
 
 			if ( pSoldier && GetMilitia( pSoldier->identity().individualMilitiaId(), &militia ) )
@@ -847,7 +847,7 @@ FLOAT PromoteIndividualMilitiaInSector( UINT8 aSector, FLOAT aPointsToAdd )
 }
 
 // handle possible militia promotion and individual militia update
-void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve )
+void HandlePossibleMilitiaPromotion( TacticalActor* pSoldier, BOOLEAN aAutoResolve )
 {
 	// we not only handle promotions here, but basically update this guy
 	MILITIA militia;

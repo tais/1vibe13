@@ -94,17 +94,17 @@ void client_disconnect (void);
 void DialogRemoved( UINT8 ubResult );
 void manual_overide(void);
 
-void send_path (  SOLDIERTYPE *pSoldier, INT32 sDestGridNo, UINT16 usMovementAnim, BOOLEAN fFromUI, BOOLEAN fForceRestartAnim  );
-void send_stance ( SOLDIERTYPE *pSoldier, UINT8 ubDesiredStance );
-void send_dir ( SOLDIERTYPE *pSoldier, UINT16 usDesiredDirection );
-void send_fire( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo );
+void send_path (  TacticalActor *pSoldier, INT32 sDestGridNo, UINT16 usMovementAnim, BOOLEAN fFromUI, BOOLEAN fForceRestartAnim  );
+void send_stance ( TacticalActor *pSoldier, UINT8 ubDesiredStance );
+void send_dir ( TacticalActor *pSoldier, UINT16 usDesiredDirection );
+void send_fire( TacticalActor *pSoldier, INT32 sTargetGridNo );
 void send_hit(  EV_S_WEAPONHIT *SWeaponHit  );
 void send_bullet(  BULLET * pBullet, UINT16 usHandItem); 
 void send_hire( SoldierID iNewIndex, UINT8 ubCurrentSoldier, INT16 iTotalContractLength, BOOLEAN fCopyProfileItemsOver);
 void send_dismiss( UINT16 ubCurrentSoldierID);
 
-void send_gui_pos(SOLDIERTYPE *pSoldier,  FLOAT dNewXPos, FLOAT dNewYPos);
-void send_gui_dir(SOLDIERTYPE *pSoldier, UINT16	usNewDirection);
+void send_gui_pos(TacticalActor *pSoldier,  FLOAT dNewXPos, FLOAT dNewYPos);
+void send_gui_dir(TacticalActor *pSoldier, UINT16	usNewDirection);
 
 void send_EndTurn( UINT8 ubNextTeam );
 
@@ -112,7 +112,7 @@ void send_AI( SOLDIERCREATE_STRUCT *pCreateStruct );
 
 void send_stop (EV_S_STOP_MERC *SStopMerc);
 
-void send_interrupt(SOLDIERTYPE *pSoldier);
+void send_interrupt(TacticalActor *pSoldier);
 void end_interrupt( BOOLEAN fMarkInterruptOccurred );
 
 // non-zero while the server arbiter has paused our turn for an enemy interrupt;
@@ -122,8 +122,8 @@ extern int gMpEnemyInterruptTeam;
 
 // diagnostic logging to the coordinator (printed when LOG_LEVEL >= verbose)
 void mp_log_event( const char* msg );
-void mp_log_soldier( SOLDIERTYPE* pSoldier, const char* event );
-void mp_log_sighting( SOLDIERTYPE* pSighter, SOLDIERTYPE* pSeen, int range );
+void mp_log_soldier( TacticalActor* pSoldier, const char* event );
+void mp_log_sighting( TacticalActor* pSighter, TacticalActor* pSeen, int range );
 
 // OJW - 20091002 - explosives
 void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yPos, float zPos, float xForce, float yForce, float zForce, UINT32 sTargetGridNo, SoldierID ubOwner, UINT8 ubActionCode, UINT32 uiActionData, INT32 iRealObjectID, bool bIsThrownGrenade);
@@ -132,7 +132,7 @@ void send_plant_explosive ( SoldierID ubID,UINT16 usItem,UINT8 ubItemStatus,UINT
 void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID);
 void send_spreadeffect ( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID ubOwner, BOOLEAN fSubsequent, INT8 bLevel, INT32 iSmokeEffectID );
 void send_newsmokeeffect(INT32 sGridNo, UINT16 usItem, INT8 bLevel, SoldierID ubOwner, INT32 iSmokeEffectID);
-void send_gasdamage( SOLDIERTYPE * pSoldier, UINT16 usExplosiveClassID, INT16 sSubsequent, BOOLEAN fRecompileMovementCosts, INT16 sWoundAmt, INT16 sBreathAmt, SoldierID ubOwner );
+void send_gasdamage( TacticalActor * pSoldier, UINT16 usExplosiveClassID, INT16 sSubsequent, BOOLEAN fRecompileMovementCosts, INT16 sWoundAmt, INT16 sBreathAmt, SoldierID ubOwner );
 void send_explosivedamage( SoldierID ubPerson, SoldierID ubOwner, INT32 sBombGridNo, INT16 sWoundAmt, INT16 sBreathAmt, UINT32 uiDist, UINT16 usItem, INT16 sSubsequent );
 void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldIndex, SoldierID ubID);
 
@@ -244,7 +244,7 @@ inline SoldierID MPEncodeSoldierID( SoldierID ubID )
 // such value to NOBODY here (the receive boundary) so that, combined with the
 // NULL-returning legacy SoldierID conversion, an out-of-range
 // wire id can never index past the array; it simply resolves to a NULL
-// SOLDIERTYPE* downstream and every existing "pSoldier == NULL" guard fires.
+// TacticalActor* downstream and every existing "pSoldier == NULL" guard fires.
 inline SoldierID MPDecodeSoldierID( SoldierID ubID )
 {
 	if ( ubID >= ubID_prefix && ubID < (ubID_prefix + 7) )
@@ -255,7 +255,7 @@ inline SoldierID MPDecodeSoldierID( SoldierID ubID )
 		return ubID; // soldier is another teams, dont touch its ID
 }
 
-inline bool IsOurSoldier (SOLDIERTYPE* pSoldier)
+inline bool IsOurSoldier (TacticalActor* pSoldier)
 {
 	return pSoldier->roster().team() == netbTeam || pSoldier->roster().team() == 0;
 }

@@ -10,7 +10,7 @@
 #include <map>
 #include <deque>
 
-class SOLDIERTYPE;
+class TacticalActor;
 
 namespace AI
 {
@@ -40,8 +40,8 @@ namespace AI
                 PlanFactoryLibrary();
             public:
                 static PlanFactoryLibrary* instance();
-                Plan* create_plan(size_t index, SOLDIERTYPE* npc, const AIInputData& input) const;
-                void update_plan(size_t intdex, SOLDIERTYPE* npc, const AIInputData& input) const;
+                Plan* create_plan(size_t index, TacticalActor* npc, const AIInputData& input) const;
+                void update_plan(size_t intdex, TacticalActor* npc, const AIInputData& input) const;
         };
     }
 }

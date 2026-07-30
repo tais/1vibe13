@@ -770,7 +770,7 @@ BOOLEAN DisplayMercFace( UINT8 ubMercID)
 	char						sTemp[100];
 	MERCPROFILESTRUCT	*pMerc;
 	VOBJECT_DESC	VObjectDesc;
-	SOLDIERTYPE			*pSoldier=NULL;
+	TacticalActor			*pSoldier=NULL;
 
 	// Portrait Frame
 	GetVideoObject(&hPortraitHandle, guiPortraitBox);

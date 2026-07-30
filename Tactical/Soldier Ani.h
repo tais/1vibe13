@@ -1,18 +1,18 @@
 #ifndef __SOLDIER_ANI_H
 #define __SOLDIER_ANI_H
 
-BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier );
+BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier );
 
-BOOLEAN CheckForAndHandleSoldierDeath( SOLDIERTYPE *pSoldier, BOOLEAN *pfMadeCorpse );
+BOOLEAN CheckForAndHandleSoldierDeath( TacticalActor *pSoldier, BOOLEAN *pfMadeCorpse );
 
-BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( SOLDIERTYPE *pSoldier );
+BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( TacticalActor *pSoldier );
 
-BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse );
+BOOLEAN HandleSoldierDeath( TacticalActor *pSoldier , BOOLEAN *pfMadeCorpse );
 
-BOOLEAN OKFallDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubTestDirection, UINT16 usAnimState );
+BOOLEAN OKFallDirection( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubTestDirection, UINT16 usAnimState );
 
-BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier );
+BOOLEAN HandleCheckForDeathCommonCode( TacticalActor *pSoldier );
 
-void KickOutWheelchair( SOLDIERTYPE *pSoldier );
+void KickOutWheelchair( TacticalActor *pSoldier );
 
 #endif

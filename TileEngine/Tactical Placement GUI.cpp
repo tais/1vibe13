@@ -58,7 +58,7 @@ typedef struct MERCPLACEMENT
 		return true;
 	}
 
-	SOLDIERTYPE *soldier() const
+	TacticalActor *soldier() const
 	{
 		return ResolveJa2TacticalEntity(actor());
 	}
@@ -148,14 +148,14 @@ void CaptureTacticalPlacementHighlightedSoldier( TacticalEntityId actor )
 }
 }
 
-BOOLEAN IsTacticalPlacementSelectedSoldier( const SOLDIERTYPE *pSoldier )
+BOOLEAN IsTacticalPlacementSelectedSoldier( const TacticalActor *pSoldier )
 {
 	return pSoldier &&
 		gTacticalPlacementSelectedSoldier.resolve() == pSoldier
 		? TRUE : FALSE;
 }
 
-BOOLEAN IsTacticalPlacementHighlightedSoldier( const SOLDIERTYPE *pSoldier )
+BOOLEAN IsTacticalPlacementHighlightedSoldier( const TacticalActor *pSoldier )
 {
 	return pSoldier &&
 		gTacticalPlacementHighlightedSoldier.resolve() == pSoldier
@@ -727,7 +727,7 @@ void InitTacticalPlacementGUI()
 	giPlacements = 0;
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier =
+		TacticalActor *pSoldier =
 			GetJa2SoldierRepository().resolve(i.i);
 		if( pSoldier && pSoldier->roster().active() && !pSoldier->deployment().isBetweenSectors() &&
 			CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) &&
@@ -748,7 +748,7 @@ void InitTacticalPlacementGUI()
 	giPlacements = 0;
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier =
+		TacticalActor *pSoldier =
 			GetJa2SoldierRepository().resolve(i.i);
 		if( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() && !pSoldier->deployment().isBetweenSectors() &&
 			CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) &&
@@ -1034,7 +1034,7 @@ void RenderTacticalPlacementGUI()
 {
 	INT32 i, xp, yp, width, height;
 	INT32 iStartY;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT32 uiDestPitchBYTES;
 	PIXEL usHatchColor;
 	CHAR16 str[ 128 ];
@@ -2251,7 +2251,7 @@ void PutDownMercPiece( INT32 iPlacement )
 	INT16 sCellX, sCellY;
 	UINT8 ubDirection;
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	pSoldier = gMercPlacement[ iPlacement ].soldier();
 	if (!pSoldier)
 	{
@@ -2337,7 +2337,7 @@ void PutDownMercPiece( INT32 iPlacement )
 
 void PickUpMercPiece( INT32 iPlacement )
 {
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		gMercPlacement[ iPlacement ].soldier();
 	if (!pSoldier)
 	{

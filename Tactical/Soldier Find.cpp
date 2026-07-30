@@ -23,7 +23,7 @@
 
 BOOLEAN IsGridNoInScreenRect( INT32 sGridNo, SGPRect *pRect );
 BOOLEAN IsPointInScreenRect( INT16 sXPos, INT16 sYPos, SGPRect *pRect );
-void GetSoldierScreenRect( SOLDIERTYPE *pSoldier, SGPRect *pRect );
+void GetSoldierScreenRect( TacticalActor *pSoldier, SGPRect *pRect );
 
 
 UINT32 gScrollSlideInertiaDirection[ NUM_WORLD_DIRECTIONS ] =
@@ -98,7 +98,7 @@ BOOLEAN SelectiveFindSoldierFromMouse( SoldierID *pusSoldierIndex, UINT32 *pMerc
 UINT32 GetSoldierFindFlags( SoldierID ubID )
 {
 	UINT32 MercFlags = 0;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	// Get pSoldier!
 	pSoldier = GetJa2SoldierRepository().resolve(ubID.i);
@@ -174,7 +174,7 @@ extern BOOLEAN CheckVideoObjectScreenCoordinateInData( HVOBJECT hSrcVObject, UIN
 BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFlags, UINT32 uiFlags )
 {
 	UINT32			cnt;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	SGPRect			aRect;
 	BOOLEAN			fSoldierFound = FALSE;
 	INT16			sXMapPos, sYMapPos, sScreenX, sScreenY;
@@ -499,7 +499,7 @@ BOOLEAN CycleSoldierFindStack( INT32 usMapPos )
 }
 
 
-SOLDIERTYPE * SimpleFindSoldier( INT32 sGridNo, INT8 bLevel )
+TacticalActor * SimpleFindSoldier( INT32 sGridNo, INT8 bLevel )
 {
 	SoldierID ubID = WhoIsThere2( sGridNo, bLevel );
 
@@ -515,7 +515,7 @@ SOLDIERTYPE * SimpleFindSoldier( INT32 sGridNo, INT8 bLevel )
 
 BOOLEAN IsValidTargetMerc( SoldierID ubSoldierID )
 {
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
 
@@ -577,7 +577,7 @@ BOOLEAN IsGridNoInScreenRect( INT32 sGridNo, SGPRect *pRect )
 }
 
 
-void GetSoldierScreenRect( SOLDIERTYPE *pSoldier, SGPRect *pRect )
+void GetSoldierScreenRect( TacticalActor *pSoldier, SGPRect *pRect )
 {
 		INT16 sMercScreenX, sMercScreenY;
 		UINT16	usAnimSurface;
@@ -607,7 +607,7 @@ void GetSoldierScreenRect( SOLDIERTYPE *pSoldier, SGPRect *pRect )
 		pRect->iRight		= sMercScreenX + pSoldier->renderState().boundingBoxWidth();
 }
 
-void GetSoldierAnimDims( SOLDIERTYPE *pSoldier, INT16 *psHeight, INT16 *psWidth )
+void GetSoldierAnimDims( TacticalActor *pSoldier, INT16 *psHeight, INT16 *psWidth )
 {
 	UINT16											usAnimSurface;
 
@@ -629,7 +629,7 @@ void GetSoldierAnimDims( SOLDIERTYPE *pSoldier, INT16 *psHeight, INT16 *psWidth 
 	*psWidth					= (INT16)pSoldier->renderState().boundingBoxWidth();
 }
 
-void GetSoldierAnimOffsets( SOLDIERTYPE *pSoldier, INT16 *sOffsetX, INT16 *sOffsetY )
+void GetSoldierAnimOffsets( TacticalActor *pSoldier, INT16 *sOffsetX, INT16 *sOffsetY )
 {
 	UINT16											usAnimSurface;
 
@@ -647,7 +647,7 @@ void GetSoldierAnimOffsets( SOLDIERTYPE *pSoldier, INT16 *sOffsetX, INT16 *sOffs
 	*sOffsetY					= (INT16)pSoldier->renderState().boundingBoxOffsetY();
 }
 
-void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScreenY )
+void GetSoldierScreenPos( TacticalActor *pSoldier, INT16 *psScreenX, INT16 *psScreenY )
 {
 		INT16 sMercScreenX, sMercScreenY;
 		FLOAT dOffsetX, dOffsetY;
@@ -706,7 +706,7 @@ void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScre
 }
 
 // THE TRUE SCREN RECT DOES NOT TAKE THE OFFSETS OF BUDDY INTO ACCOUNT!
-void GetSoldierTRUEScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScreenY )
+void GetSoldierTRUEScreenPos( TacticalActor *pSoldier, INT16 *psScreenX, INT16 *psScreenY )
 {
 		INT16 sMercScreenX, sMercScreenY;
 		FLOAT dOffsetX, dOffsetY;
@@ -790,7 +790,7 @@ BOOLEAN SoldierOnScreen( SoldierID usID )
 }
 
 
-BOOLEAN SoldierOnVisibleWorldTile( SOLDIERTYPE *pSoldier )
+BOOLEAN SoldierOnVisibleWorldTile( TacticalActor *pSoldier )
 {
 	return( GridNoOnVisibleWorldTile( pSoldier->position().gridNo() ) );
 }
@@ -870,7 +870,7 @@ BOOLEAN SoldierLocationRelativeToScreen( INT32 sGridNo, INT8 *pbDirection, UINT3
 	return( TRUE );
 }
 
-BOOLEAN IsPointInSoldierBoundingBox( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY )
+BOOLEAN IsPointInSoldierBoundingBox( TacticalActor *pSoldier, INT16 sX, INT16 sY )
 {
 	SGPRect				aRect;
 
@@ -886,7 +886,7 @@ BOOLEAN IsPointInSoldierBoundingBox( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY )
 }
 
 
-BOOLEAN FindRelativeSoldierPosition( SOLDIERTYPE *pSoldier, UINT16 *usFlags, INT16 sX, INT16 sY )
+BOOLEAN FindRelativeSoldierPosition( TacticalActor *pSoldier, UINT16 *usFlags, INT16 sX, INT16 sY )
 {
 	SGPRect				aRect;
 	INT16					sRelX, sRelY;
@@ -1003,7 +1003,7 @@ BOOLEAN FindRelativeSoldierPosition( SOLDIERTYPE *pSoldier, UINT16 *usFlags, INT
 SoldierID QuickFindSoldier( INT32 sGridNo )
 {
 	UINT32 cnt;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	// Loop through all mercs and make go
 	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )

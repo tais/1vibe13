@@ -25,7 +25,7 @@ extern BOOLEAN gfTacticalTraversal;
 BOOLEAN CaptureTacticalTraversalGroup( GROUP *pGroup );
 GROUP *ResolveTacticalTraversalGroup( void );
 BOOLEAN CaptureTacticalTraversalChosenSoldier( TacticalEntityId actor );
-SOLDIERTYPE *ResolveTacticalTraversalChosenSoldier( void );
+TacticalActor *ResolveTacticalTraversalChosenSoldier( void );
 void ResetTacticalTraversalContext( void );
 
 extern BOOLEAN gfGotoSectorTransition;
@@ -112,7 +112,7 @@ void RetreatAllInvolvedMilitiaGroups( void );
 
 BOOLEAN PlayerGroupInvolvedInThisCombat( GROUP *pGroup );
 BOOLEAN MilitiaGroupInvolvedInThisCombat( GROUP *pGroup );
-BOOLEAN PlayerMercInvolvedInThisCombat( SOLDIERTYPE *pSoldier );
+BOOLEAN PlayerMercInvolvedInThisCombat( TacticalActor *pSoldier );
 
 BOOLEAN CurrentBattleSectorIs( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ );
 

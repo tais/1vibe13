@@ -1,5 +1,7 @@
 #include "builddefines.h"
+#include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDisease.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdlib.h>
@@ -63,7 +65,7 @@
 #include "connect.h"
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 extern UINT32		guiLastTacticalRealTime;
@@ -80,7 +82,7 @@ TacticalEntityId GetPlayerGroupMemberActor(
 	return member ? member->actor : TacticalEntityId{};
 }
 
-SOLDIERTYPE* ResolvePlayerGroupMember(
+TacticalActor* ResolvePlayerGroupMember(
 	const PLAYERGROUP* member) noexcept
 {
 	return ResolveJa2TacticalEntity(
@@ -256,7 +258,7 @@ UINT8 CreateNewVehicleGroupDepartingFromSector( UINT8 ubSectorX, UINT8 ubSectorY
 }
 
 //Allows you to add players to the group.
-BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
+BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, TacticalActor *pSoldier )
 {
 	GROUP *pGroup;
 	PLAYERGROUP *pPlayer, *curr;
@@ -313,7 +315,7 @@ BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 	else
 	{
 		curr = pGroup->pPlayerList;
-		SOLDIERTYPE* firstMember =
+		TacticalActor* firstMember =
 			ResolvePlayerGroupMember( curr );
 		if( !firstMember )
 		{
@@ -392,7 +394,7 @@ BOOLEAN RemoveAllPlayersFromPGroup( GROUP *pGroup )
 	{
 		pGroup->pPlayerList = pGroup->pPlayerList->next;
 
-		SOLDIERTYPE* member =
+		TacticalActor* member =
 			ResolvePlayerGroupMember( curr );
 		if( member )
 		{
@@ -419,7 +421,7 @@ BOOLEAN RemoveAllPlayersFromPGroup( GROUP *pGroup )
 	return TRUE;
 }
 
-BOOLEAN RemovePlayerFromPGroup( GROUP *pGroup, SOLDIERTYPE *pSoldier )
+BOOLEAN RemovePlayerFromPGroup( GROUP *pGroup, TacticalActor *pSoldier )
 {
 	PLAYERGROUP *prev, *curr;
 	if( !pGroup || !pSoldier )
@@ -499,7 +501,7 @@ BOOLEAN RemovePlayerFromPGroup( GROUP *pGroup, SOLDIERTYPE *pSoldier )
 	return FALSE;
 }
 
-BOOLEAN RemovePlayerFromGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
+BOOLEAN RemovePlayerFromGroup( UINT8 ubGroupID, TacticalActor *pSoldier )
 {
 	GROUP *pGroup;
 	pGroup = GetGroup( ubGroupID );
@@ -607,7 +609,7 @@ void RebindStrategicGroupMembersAfterRecordSwap() noexcept
 			}
 			member->actor =
 				GetJa2TacticalEntityId( previous.slot );
-			SOLDIERTYPE* rebound =
+			TacticalActor* rebound =
 				ResolvePlayerGroupMember( member );
 			if( rebound )
 			{
@@ -859,7 +861,7 @@ BOOLEAN AddWaypointToPGroup( GROUP* pGroup, UINT8 ubSectorX, UINT8 ubSectorY ) /
 		curr = pGroup->pPlayerList;
 		while( curr )
 		{
-			SOLDIERTYPE* member =
+			TacticalActor* member =
 				ResolvePlayerGroupMember( curr );
 			if( member )
 			{
@@ -1219,7 +1221,7 @@ GROUP* GetGroup( UINT8 ubGroupID )
 	return NULL;
 }
 
-void HandleImportantPBIQuote( SOLDIERTYPE *pSoldier, GROUP *pInitiatingBattleGroup )
+void HandleImportantPBIQuote( TacticalActor *pSoldier, GROUP *pInitiatingBattleGroup )
 {
 	StrategicGroupId initiatingGroup = pInitiatingBattleGroup
 		? GetJa2StrategicGroupId(pInitiatingBattleGroup->ubGroupID)
@@ -1258,7 +1260,7 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 	unsigned			ubMercsInGroup[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ] = { 0 };
 	unsigned			ubNumMercs = 0;
 	unsigned				ubChosenMerc;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	PLAYERGROUP *pPlayer;
 
 	if( fDisableMapInterfaceDueToBattle )
@@ -1409,7 +1411,7 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 	GROUP *curr;
 	GROUP *pPlayerDialogGroup = NULL;
 	PLAYERGROUP *pPlayer;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	BOOLEAN fBattlePending = FALSE;
 	BOOLEAN fAliveMerc = FALSE;
 	BOOLEAN fMilitiaPresent = FALSE;
@@ -1763,7 +1765,7 @@ void CalculateNextMoveIntention( GROUP *pGroup )
 
 BOOLEAN AttemptToMergeSeparatedGroups( GROUP *pGroup, BOOLEAN fDecrementTraversals )
 {
-	//SOLDIERTYPE *pSoldier = NULL, *pCharacter = NULL;
+	//TacticalActor *pSoldier = NULL, *pCharacter = NULL;
 	#ifdef JA2BETAVERSION
 		//INT32 counter = 0;
 	#endif
@@ -1774,7 +1776,7 @@ void AwardExperienceForTravelling( GROUP * pGroup )
 {
 	// based on how long movement took, mercs gain a bit of life experience for travelling
 	PLAYERGROUP *	pPlayerGroup;
-	SOLDIERTYPE	*	pSoldier;
+	TacticalActor	*	pSoldier;
 	UINT32				uiPoints;
 	UINT32				uiCarriedPercent;
 
@@ -1891,7 +1893,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 	INT32 iVehId = -1;
 	PLAYERGROUP *curr;
 	UINT8 ubInsertionDirection, ubStrategicInsertionCode;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	BOOLEAN fExceptionQueue = FALSE;
 	BOOLEAN fFirstTimeInSector = FALSE;
 	BOOLEAN fGroupDestroyed = FALSE;
@@ -1936,7 +1938,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 		curr = pGroup->pPlayerList;
 		if( curr )
 		{
-			SOLDIERTYPE* firstMember =
+			TacticalActor* firstMember =
 				ResolvePlayerGroupMember( curr );
 			if( firstMember &&
 				firstMember->assignment().current() < ON_DUTY )
@@ -1948,7 +1950,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 
 		while( curr )
 		{
-			SOLDIERTYPE* member =
+			TacticalActor* member =
 				ResolvePlayerGroupMember( curr );
 			if( member )
 			{
@@ -2056,7 +2058,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			}
 			else if (!IsGroupTheHelicopterGroup(pGroup))
 			{
-				SOLDIERTYPE* pSoldier;
+				TacticalActor* pSoldier;
 				INT32 iVehicleID;
 				iVehicleID = GivenMvtGroupIdFindVehicleId(pGroup->ubGroupID);
 				AssertMsg(iVehicleID != -1, "GroupArrival for vehicle group. Invalid iVehicleID. ");
@@ -2118,7 +2120,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				SetSAMSiteAsFound( GetSAMIdFromSector( pGroup->ubSectorX, pGroup->ubSectorY, 0 ) );
 		}
 
-		SOLDIERTYPE* const firstGroupMember =
+		TacticalActor* const firstGroupMember =
 			ResolvePlayerGroupMember(
 				pGroup->pPlayerList );
 		if( pGroup->ubSectorX < pGroup->ubPrevX )
@@ -2161,7 +2163,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			curr = pGroup->pPlayerList;
 			while( curr )
 			{
-				SOLDIERTYPE* member =
+				TacticalActor* member =
 					ResolvePlayerGroupMember( curr );
 				if( !member )
 				{
@@ -2202,7 +2204,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			// if there's anybody in the group
 			if( pGroup->pPlayerList )
 			{
-				SOLDIERTYPE* firstMember =
+				TacticalActor* firstMember =
 					ResolvePlayerGroupMember(
 						pGroup->pPlayerList );
 				// don't print any messages when arriving underground (there's no delay involved) or if we never left (cancel)
@@ -2273,7 +2275,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				curr = pGroup->pPlayerList;
 				while( curr )
 				{
-					SOLDIERTYPE* member =
+					TacticalActor* member =
 						ResolvePlayerGroupMember( curr );
 					if( !member )
 					{
@@ -2588,7 +2590,7 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 	if ( pArrivingGroup && !IsGroupTheHelicopterGroup( pArrivingGroup ) )
 	{
 		UINT16 uiCnt = 0;
-		SOLDIERTYPE* pSoldier = NULL;
+		TacticalActor* pSoldier = NULL;
 
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
@@ -2616,7 +2618,7 @@ void PrepareGroupsForSimultaneousArrival()
 {
 	GROUP *pGroup;
 	UINT32 uiLatestArrivalTime = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT32 iVehId = 0;
 	GROUP* pendingGroup = gPendingSimultaneousGroup.resolve();
 	if (!pendingGroup)
@@ -2852,7 +2854,7 @@ void InitiateGroupMovementToNextSector( GROUP *pGroup )
 	UINT8 ubSector;
 	WAYPOINT *wp;
 	INT32 iVehId = -1;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	UINT32 uiSleepMinutes = 0;
 
 	Assert( pGroup );
@@ -3060,7 +3062,7 @@ void InitiateGroupMovementToNextSector( GROUP *pGroup )
 		curr = pGroup->pPlayerList;
 		while ( curr )
 		{
-			SOLDIERTYPE* const member = ResolvePlayerGroupMember( curr );
+			TacticalActor* const member = ResolvePlayerGroupMember( curr );
 			if ( !member )
 			{
 				curr = curr->next;
@@ -3266,7 +3268,7 @@ void SetGroupSectorValue( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, UINT8 
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+			TacticalActor* const member = ResolvePlayerGroupMember( pPlayer );
 			if ( member )
 			{
 				member->deployment().sectorX() = sSectorX;
@@ -3513,7 +3515,7 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 	INT32 iBestTraverseTime = 1000000;
 	INT32 iEncumbrance = 0;
 	static INT32 iHighestEncumbrance = 0;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	PLAYERGROUP *curr;
 	BOOLEAN fFoot, fCar, fTruck, fTracked, fAir;
 	UINT8 ubTraverseType;
@@ -3606,7 +3608,7 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 						// Flugente: we are a lot slower if our leg is severely damaged, even if we can handle the weight
 						if ( gGameExternalOptions.fDisease
 							&& gGameExternalOptions.fDiseaseSevereLimitations
-							&& pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
+							&& TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
 							iEncumbrance = max( iEncumbrance * 2, 200 );
 
 						if ( iEncumbrance > iHighestEncumbrance )
@@ -3624,9 +3626,9 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 						// Well, a slow soldier on foot can slow the whole team down, but one fast soldier won't make the whole team quicker. He is no survivalist after all.
 						// A good driver on the other hand will drive faster and since the team is on the same vehicle, they all will be faster.
 						// A merc with flight experience can pose as co-pilot and provide some assistance to the pilot, so again the whole team profits.
-						stravelbackground_foot = min( stravelbackground_foot, pSoldier->GetBackgroundValue( BG_TRAVEL_FOOT ) );
-						stravelbackground_car = max( stravelbackground_car, pSoldier->GetBackgroundValue( BG_TRAVEL_CAR ) );
-						stravelbackground_air = max( stravelbackground_air, pSoldier->GetBackgroundValue( BG_TRAVEL_AIR ) );
+						stravelbackground_foot = min( stravelbackground_foot, TacticalActorModifiers::backgroundValue(*pSoldier, BG_TRAVEL_FOOT ) );
+						stravelbackground_car = max( stravelbackground_car, TacticalActorModifiers::backgroundValue(*pSoldier, BG_TRAVEL_CAR ) );
+						stravelbackground_air = max( stravelbackground_air, TacticalActorModifiers::backgroundValue(*pSoldier, BG_TRAVEL_AIR ) );
 					}
 
 					curr = curr->next;
@@ -3780,7 +3782,7 @@ UINT8 PlayerMercsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ )
 				pPlayer = pGroup->pPlayerList;
 				while( pPlayer )
 				{
-					SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+					TacticalActor* const member = ResolvePlayerGroupMember( pPlayer );
 					// robots count as mercs here, because they can fight, but vehicles don't
 					if( member && member->vitals().health() && !( member->status().flags() & SOLDIER_VEHICLE ) )
 					{
@@ -3811,7 +3813,7 @@ UINT8 PlayerGroupsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ )
 				pPlayer = pGroup->pPlayerList;
 				while( pPlayer )
 				{
-					SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+					TacticalActor* const member = ResolvePlayerGroupMember( pPlayer );
 					if( member && member->vitals().health() )
 					{
 						++ubNumGroups;
@@ -3882,7 +3884,7 @@ INT32 GetTravelTimeForFootTeam( UINT8 ubSector, UINT8 ubDirection )
 //as those slots free up.
 void HandleArrivalOfReinforcements( GROUP *pGroup )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32	cnt;
 
 	if ( pGroup->usGroupTeam == OUR_TEAM )
@@ -4074,7 +4076,7 @@ void MoveAllGroupsInCurrentSectorToSector( UINT8 ubSectorX, UINT8 ubSectorY, UIN
 			pPlayer = pGroup->pPlayerList;
 			while( pPlayer )
 			{
-				SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer );
+				TacticalActor* const member = ResolvePlayerGroupMember( pPlayer );
 				if ( member )
 				{
 					member->deployment().sectorX() = ubSectorX;
@@ -4153,7 +4155,7 @@ void SetGroupPosition( UINT8 ubNextX, UINT8 ubNextY, UINT8 ubPrevX, UINT8 ubPrev
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			if ( SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer ) )
+			if ( TacticalActor* const member = ResolvePlayerGroupMember( pPlayer ) )
 			{
 				member->deployment().beginStrategicTransit();
 			}
@@ -4565,7 +4567,7 @@ BOOLEAN LoadPlayerGroupList( HWFILE hFile, GROUP **pGroup )
 
 		//Set up the current node
 		pTemp->ubProfileID = (UINT8)uiProfileID;
-		SOLDIERTYPE* member =
+		TacticalActor* member =
 			FindSoldierByProfileID(
 				pTemp->ubProfileID, TRUE );
 		pTemp->actor = member
@@ -4644,13 +4646,13 @@ BOOLEAN LoadEnemyGroupStructFromSavedGame( HWFILE hFile, GROUP *pGroup )
 }
 
 
-void CheckMembersOfMvtGroupAndComplainAboutBleeding( SOLDIERTYPE *pSoldier )
+void CheckMembersOfMvtGroupAndComplainAboutBleeding( TacticalActor *pSoldier )
 {
 	// run through members of group
 	UINT8 ubGroupId = pSoldier->deployment().groupId();
 	GROUP	*pGroup;
 	PLAYERGROUP *pPlayer=NULL;
-	SOLDIERTYPE *pCurrentSoldier=NULL;
+	TacticalActor *pCurrentSoldier=NULL;
 
 	pGroup = GetGroup( ubGroupId );
 
@@ -4850,7 +4852,7 @@ void CalculateGroupRetreatSector( GROUP *pGroup )
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			if ( SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer ) )
+			if ( TacticalActor* const member = ResolvePlayerGroupMember( pPlayer ) )
 			{
 				member->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
 			}
@@ -4943,7 +4945,7 @@ void RetreatGroupToPreviousSector( GROUP *pGroup )
 
 		while( curr )
 		{
-			SOLDIERTYPE* const member = ResolvePlayerGroupMember( curr );
+			TacticalActor* const member = ResolvePlayerGroupMember( curr );
 			if ( !member )
 			{
 				curr = curr->next;
@@ -5326,7 +5328,7 @@ INT16 CalculateFuelCostBetweenSectors( UINT8 ubSectorID1, UINT8 ubSectorID2 )
 	return(0);
 }
 
-BOOLEAN VehicleHasFuel( SOLDIERTYPE *pSoldier )
+BOOLEAN VehicleHasFuel( TacticalActor *pSoldier )
 {
 	Assert( pSoldier->status().flags() & SOLDIER_VEHICLE );
 	if( pSoldier->vitals().breathReduction() )
@@ -5336,13 +5338,13 @@ BOOLEAN VehicleHasFuel( SOLDIERTYPE *pSoldier )
 	return FALSE;
 }
 
-INT16 VehicleFuelRemaining( SOLDIERTYPE *pSoldier )
+INT16 VehicleFuelRemaining( TacticalActor *pSoldier )
 {
 	Assert( pSoldier->status().flags() & SOLDIER_VEHICLE );
 	return pSoldier->vitals().breathReduction();
 }
 
-BOOLEAN SpendVehicleFuel( SOLDIERTYPE* pSoldier, INT16 sFuelSpent )
+BOOLEAN SpendVehicleFuel( TacticalActor* pSoldier, INT16 sFuelSpent )
 {
 	Assert( pSoldier->status().flags() & SOLDIER_VEHICLE );
 	pSoldier->vitals().breathReduction() -= sFuelSpent;
@@ -5351,7 +5353,7 @@ BOOLEAN SpendVehicleFuel( SOLDIERTYPE* pSoldier, INT16 sFuelSpent )
 	return( FALSE );
 }
 
-void AddFuelToVehicle( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVehicle )
+void AddFuelToVehicle( TacticalActor *pSoldier, TacticalActor *pVehicle )
 {
 	OBJECTTYPE *pItem;
 	INT16 sFuelNeeded, sFuelAvailable, sFuelAdded;
@@ -5401,7 +5403,7 @@ void ReportVehicleOutOfGas( INT32 iVehicleID, UINT8 ubSectorX, UINT8 ubSectorY )
 void SetLocationOfAllPlayerSoldiersInGroup( GROUP *pGroup, INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 {
 	PLAYERGROUP *pPlayer = NULL;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	pPlayer = pGroup->pPlayerList;
 	while( pPlayer )
@@ -5700,7 +5702,7 @@ BOOLEAN TestForBloodcatAmbush( GROUP *pGroup )
 		{
 			for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 			{
-				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+				TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 				if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 				{
 					if ( pSoldier->deployment().sectorX() == pGroup->ubSectorX && pSoldier->deployment().sectorY() == pGroup->ubSectorY && pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND && pSoldier->vitals().health() >= OKLIFE )
@@ -5954,7 +5956,7 @@ BOOLEAN HandlePlayerGroupEnteringSectorToCheckForNPCsOfNote( GROUP *pGroup )
 	// build string for squad
 	GetSectorIDString( sSectorX, sSectorY, bSectorZ, wSectorName, FALSE );
 
-	SOLDIERTYPE* const firstMember = ResolvePlayerGroupMember( pGroup->pPlayerList );
+	TacticalActor* const firstMember = ResolvePlayerGroupMember( pGroup->pPlayerList );
 	if ( !firstMember )
 	{
 		return FALSE;
@@ -6076,7 +6078,7 @@ void HandlePlayerGroupEnteringSectorToCheckForNPCsOfNoteCallback( UINT8 ubExitVa
 }
 
 
-BOOLEAN DoesPlayerExistInPGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
+BOOLEAN DoesPlayerExistInPGroup( UINT8 ubGroupID, TacticalActor *pSoldier )
 {
 	GROUP *pGroup;
 	PLAYERGROUP *curr;
@@ -6129,7 +6131,7 @@ BOOLEAN GroupHasInTransitDeadOrPOWMercs( GROUP *pGroup )
 	pPlayer = pGroup->pPlayerList;
 	while( pPlayer )
 	{
-		if ( SOLDIERTYPE* const member = ResolvePlayerGroupMember( pPlayer ) )
+		if ( TacticalActor* const member = ResolvePlayerGroupMember( pPlayer ) )
 		{
 			if( ( member->assignment().current() == IN_TRANSIT ) ||
 				( member->assignment().current() == ASSIGNMENT_POW ) ||
@@ -6210,7 +6212,7 @@ BOOLEAN ScoutIsPresentInSquad( INT16 ubSectorNumX, INT16 ubSectorNumY )
 	// sevenfm: scout should not be sleeping, in vehicle or on assignment
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->roster().active() &&
 			pSoldier->vitals().health() >= OKLIFE &&
 			pSoldier->deployment().sectorX() == ubSectorNumX &&
@@ -6234,7 +6236,7 @@ BOOLEAN ConcealedMercInSector( INT16 ubSectorNumX, INT16 ubSectorNumY, BOOLEAN a
 
 	for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
 		{
 			if ( pSoldier->deployment().sectorX() == ubSectorNumX && pSoldier->deployment().sectorY() == ubSectorNumY && pSoldier->deployment().sectorZ() == 10 )
@@ -6312,7 +6314,7 @@ void CheckCombatInSectorDueToUnusualEnemyArrival( UINT8 aTeam, INT16 sX, INT16 s
 	GROUP *curr;
 	GROUP *pPlayerDialogGroup = NULL;
 	PLAYERGROUP *pPlayer;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	BOOLEAN fBattlePending = FALSE;
 	BOOLEAN fAliveMerc = FALSE;
 	BOOLEAN fMilitiaPresent = FALSE;

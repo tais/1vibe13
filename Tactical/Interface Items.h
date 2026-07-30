@@ -188,7 +188,7 @@ enum
 extern UINT32 guiAttachmentAsterisks;
 
 // Itempickup stuff
-BOOLEAN InitializeItemPickupMenu( SOLDIERTYPE *pSoldier, INT32 sGridNo, ITEM_POOL *pItemPool, INT16 sScreenX, INT16 sScreenY, INT8 bZLevel );
+BOOLEAN InitializeItemPickupMenu( TacticalActor *pSoldier, INT32 sGridNo, ITEM_POOL *pItemPool, INT16 sScreenX, INT16 sScreenY, INT8 bZLevel );
 void RenderItemPickupMenu( );
 void RemoveItemPickupMenu( );
 void SetItemPickupMenuDirty( BOOLEAN fDirtyLevel );
@@ -197,21 +197,21 @@ void SetPickUpMenuDirtyLevel( BOOLEAN fDirtyLevel );
 
 
 // FUNCTIONS FOR INTERFACEING WITH ITEM PANEL STUFF
-void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLevel );
+void INVRenderINVPanelItem( TacticalActor *pSoldier, INT16 sPocket, UINT8 fDirtyLevel );
 BOOLEAN InitInvSlotInterface( INV_REGION_DESC *pRegionDesc , INV_REGION_DESC *pCamoRegion, MOUSE_CALLBACK INVMoveCallback, MOUSE_CALLBACK INVClickCallback, MOUSE_CALLBACK INVMoveCammoCallback, MOUSE_CALLBACK INVClickCammoCallback, BOOLEAN fSetHighestPrioity );
 void ShutdownInvSlotInterface( );
 void GetSlotInvXY( UINT8 ubPos, INT16 *psX, INT16 *psY );
 void GetSlotInvHeightWidth( UINT8 ubPos, INT16 *psWidth, INT16 *psHeight );
-void HandleRenderInvSlots( SOLDIERTYPE *pSoldier, UINT8 fDirtyLevel );
-void HandleNewlyAddedItems( SOLDIERTYPE *pSoldier, BOOLEAN *fDirtyLevel );
-void RenderInvBodyPanel( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY );
+void HandleRenderInvSlots( TacticalActor *pSoldier, UINT8 fDirtyLevel );
+void HandleNewlyAddedItems( TacticalActor *pSoldier, BOOLEAN *fDirtyLevel );
+void RenderInvBodyPanel( TacticalActor *pSoldier, INT16 sX, INT16 sY );
 void DisableInvRegions( BOOLEAN fDisable );
 
 void DegradeNewlyAddedItems( );
-void CheckForAnyNewlyAddedItems( SOLDIERTYPE *pSoldier );
+void CheckForAnyNewlyAddedItems( TacticalActor *pSoldier );
 
 
-BOOLEAN HandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, INT8 bInvPos, BOOLEAN fOn );
+BOOLEAN HandleCompatibleAmmoUI( TacticalActor *pSoldier, INT8 bInvPos, BOOLEAN fOn );
 
 
 
@@ -228,14 +228,14 @@ BOOLEAN HandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, INT8 bInvPos, BOOLEAN fOn
 //	Last parameter used mainly for when mouse is over item
 
 void RenderBulletIcon(OBJECTTYPE *pObject, UINT32 ubStatusIndex = 0);
-void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE	*pObject, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel, UINT8 *pubHighlightCounter, UINT8 ubStatusIndex, BOOLEAN fOutline, PIXEL sOutlineColor, UINT8 iter = 0 );
-void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel );
+void INVRenderItem( UINT32 uiBuffer, TacticalActor * pSoldier, OBJECTTYPE	*pObject, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel, UINT8 *pubHighlightCounter, UINT8 ubStatusIndex, BOOLEAN fOutline, PIXEL sOutlineColor, UINT8 iter = 0 );
+void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, TacticalActor *pSoldier, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel );
 // HEADROCK HAM 5: Drawing a large item pic with extra data.
-void MAPINVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObject, UINT32 uiItemGraphicNum, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, BOOLEAN fOutline, PIXEL sOutlineColor );
+void MAPINVRenderItem( UINT32 uiBuffer, TacticalActor * pSoldier, OBJECTTYPE  *pObject, UINT32 uiItemGraphicNum, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, BOOLEAN fOutline, PIXEL sOutlineColor );
 // CHRISL: Add a new function that will be used to render a pocket silhouette
 void INVRenderSilhouette( UINT32 uiBugger, INT16 PocketIndex, INT16 SilIndex, INT16 sX, INT16 sY, INT16 sWideth, INT16 sHeight);
 // CHRISL: New function to handle display of inventory quantities based on item current in cursor
-void RenderPocketItemCapacity( UINT32 uiWhichBuffer, INT8 pCapacity, INT16 bPos, SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT16 sX, INT16 sY );
+void RenderPocketItemCapacity( UINT32 uiWhichBuffer, INT8 pCapacity, INT16 bPos, TacticalActor *pSoldier, OBJECTTYPE *pObj, INT16 sX, INT16 sY );
 // CHRISL: New function to display items stored in an LBENODE
 void RenderLBENODEItems( OBJECTTYPE *pObj, int subObject );
 // CHRISL: New function to setup GSMInvData based on game options
@@ -251,10 +251,10 @@ void InitInventorySoldier(INV_REGION_DESC *pRegionDesc, MOUSE_CALLBACK INVMoveCa
 extern BOOLEAN		gfInItemDescBox;
 
 BOOLEAN InItemDescriptionBox( );
-BOOLEAN InitItemDescriptionBox( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sX, INT16 sY, UINT8 ubStatusIndex );
-BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY, UINT8 ubStatusIndex, SOLDIERTYPE *pSoldier, UINT8 ubPosition = NUM_INV_SLOTS );
+BOOLEAN InitItemDescriptionBox( TacticalActor *pSoldier, UINT8 ubPosition, INT16 sX, INT16 sY, UINT8 ubStatusIndex );
+BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY, UINT8 ubStatusIndex, TacticalActor *pSoldier, UINT8 ubPosition = NUM_INV_SLOTS );
 void UpdateAttachmentTooltips( OBJECTTYPE *pObject, UINT8 ubStatusIndex );
-BOOLEAN InitKeyItemDescriptionBox( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sX, INT16 sY, UINT8 ubStatusIndex );
+BOOLEAN InitKeyItemDescriptionBox( TacticalActor *pSoldier, UINT8 ubPosition, INT16 sX, INT16 sY, UINT8 ubStatusIndex );
 void RenderItemDescriptionBox( );
 void HandleItemDescriptionBox( BOOLEAN *pfDirty );
 void DeleteItemDescriptionBox( );
@@ -264,9 +264,9 @@ INT16 sNASYCorrection(OBJECTTYPE * pObject);
 void HandleItemDescTabButton( );
 
 BOOLEAN InItemStackPopup( );
-BOOLEAN InitItemStackPopup( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight );
+BOOLEAN InitItemStackPopup( TacticalActor *pSoldier, UINT8 ubPosition, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight );
 BOOLEAN InSectorStackPopup( );
-BOOLEAN InitSectorStackPopup( SOLDIERTYPE *pSoldier, WORLDITEM *pInventoryPoolList, INT32 ubPosition, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight );
+BOOLEAN InitSectorStackPopup( TacticalActor *pSoldier, WORLDITEM *pInventoryPoolList, INT32 ubPosition, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight );
 void RenderItemStackPopup( BOOLEAN fFullRender );
 void HandleItemStackPopup( );
 void DeleteItemStackPopup( );
@@ -274,7 +274,7 @@ void EndItemStackPopupWithItemInHand( );
 
 
 // keyring handlers
-BOOLEAN InitKeyRingPopup( SOLDIERTYPE *pSoldier, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight );
+BOOLEAN InitKeyRingPopup( TacticalActor *pSoldier, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight );
 void RenderKeyRingPopup( BOOLEAN fFullRender );
 void InitKeyRingInterface( MOUSE_CALLBACK KeyRingClickCallback );
 void InitMapKeyRingInterface( MOUSE_CALLBACK KeyRingClickCallback );
@@ -285,7 +285,7 @@ void ShutdownKeyRingInterface( void );
 void ShutdownInventoryInterface( void );
 
 BOOLEAN InKeyRingPopup( void );
-void BeginKeyRingItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubKeyRingPosition );
+void BeginKeyRingItemPointer( TacticalActor *pSoldier, UINT8 ubKeyRingPosition );
 
 
 extern OBJECTTYPE		*gpItemPointer;
@@ -295,8 +295,8 @@ extern PIXEL				us16BPPItemCyclePlacedItemColors[ 20 ];
 extern BOOLEAN				gfItemPointerDifferentThanDefault;
 
 
-void BeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos );
-void InternalBeginItemPointer( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, INT8 bHandPos );
+void BeginItemPointer( TacticalActor *pSoldier, UINT8 ubHandPos );
+void InternalBeginItemPointer( TacticalActor *pSoldier, OBJECTTYPE *pObject, INT8 bHandPos );
 void EndItemPointer( );
 void DrawItemFreeCursor( );
 void DrawItemTileCursor( );
@@ -308,7 +308,7 @@ UINT32 GetInterfaceGraphicForItem( INVTYPE *pItem );
 UINT16 GetTileGraphicForItem( INVTYPE *pItem );
 BOOLEAN LoadTileGraphicForItem( INVTYPE *pItem, UINT32 *puiVo );
 
-void GetHelpTextForItem( CHAR16 *pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldier, int subObject = -1 );
+void GetHelpTextForItem( CHAR16 *pzStr, OBJECTTYPE *pObject, TacticalActor *pSoldier, int subObject = -1 );
 
 void CancelItemPointer( );
 
@@ -318,14 +318,14 @@ BOOLEAN SaveItemCursorToSavedGame( HWFILE hFile );
 void EnableKeyRing( BOOLEAN fEnable );
 
 // handle compatable items for merc and map inventory
-BOOLEAN HandleCompatibleAmmoUIForMapScreen( SOLDIERTYPE *pSoldier, INT32 bInvPos, BOOLEAN fOn, BOOLEAN fFromMerc );
-BOOLEAN HandleCompatibleAmmoUIForMapInventory( SOLDIERTYPE *pSoldier, INT32 bInvPos, INT32 iStartSlotNumber, BOOLEAN fOn, BOOLEAN fFromMerc	);
+BOOLEAN HandleCompatibleAmmoUIForMapScreen( TacticalActor *pSoldier, INT32 bInvPos, BOOLEAN fOn, BOOLEAN fFromMerc );
+BOOLEAN HandleCompatibleAmmoUIForMapInventory( TacticalActor *pSoldier, INT32 bInvPos, INT32 iStartSlotNumber, BOOLEAN fOn, BOOLEAN fFromMerc	);
 void ResetCompatibleItemArray( );
 
 void CycleItemDescriptionItem( INT16 sX, INT16 sY );
 INT16 CycleItems( UINT16 usOldItem );
 
-BOOLEAN InitializeStealItemPickupMenu( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, ITEM_POOL *pItemPool, UINT8 ubCount);
+BOOLEAN InitializeStealItemPickupMenu( TacticalActor *pSoldier, TacticalActor *pOpponent, ITEM_POOL *pItemPool, UINT8 ubCount);
 
 // BOB : quick attachment selection popups
 extern POPUP* gItemDescAttachmentPopups[MAX_ATTACHMENTS];	// popup list for attachment slots
@@ -344,28 +344,28 @@ extern BOOLEAN gfItemDescTransformPopupVisible;
 void DoAttachment( UINT8 subObject, INT32 iItemPos );
 
 // THE_BOB (AKA BOB): ammo box/mag popups
-void PocketPopupFull( SOLDIERTYPE *pSoldier, INT16 sPocket );	// displays all suported options
-void PocketPopupDefault( SOLDIERTYPE *pSoldier, INT16 sPocket );	// displays only pocket-specific (predefined) options
+void PocketPopupFull( TacticalActor *pSoldier, INT16 sPocket );	// displays all suported options
+void PocketPopupDefault( TacticalActor *pSoldier, INT16 sPocket );	// displays only pocket-specific (predefined) options
 
-POPUP * createPopupForPocket( SOLDIERTYPE *pSoldier, INT16 sPocket );	// creates a popup positioned next to the pocket
+POPUP * createPopupForPocket( TacticalActor *pSoldier, INT16 sPocket );	// creates a popup positioned next to the pocket
 
 // THE_BOB 
 extern UINT16 gsPocketUnderCursor;
 
 
-void addArmorToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-void addLBEToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-void addWeaponsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-void addWeaponGroupsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-void addGrenadesToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-void addBombsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-void addFaceGearToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-void addAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
+void addArmorToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+void addLBEToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+void addWeaponsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+void addWeaponGroupsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+void addGrenadesToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+void addBombsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+void addFaceGearToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+void addAmmoToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
 
-void addRifleGrenadesToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-void addRocketAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-void addMiscToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-void addKitsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
+void addRifleGrenadesToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+void addRocketAmmoToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+void addMiscToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+void addKitsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
 
 // Flugente: update merc info text on merc body silhouette in strategic view
 void UpdateMercBodyRegionHelpText( );

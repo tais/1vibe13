@@ -415,7 +415,7 @@ void CheckForMeanwhileOKStart( )
 		//shadooow: prevent the interrogation meanwhile to start if the mercs were fired from team
 		if (gCurrentMeanwhileDef.ubMeanwhileID == INTERROGATION)
 		{
-			SOLDIERTYPE *pSoldier;
+			TacticalActor *pSoldier;
 			BOOLEAN fFoundSoldierToInterrogate = FALSE;
 			UINT32 uiCount = 0;
 			for ( ; gCharactersList[uiCount].fValid; ++uiCount )
@@ -974,7 +974,7 @@ void LocateMeanWhileGrid( void )
 
 void LocateToMeanwhileCharacter( )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	if ( gfInMeanwhile )
 	{

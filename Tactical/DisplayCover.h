@@ -1,7 +1,7 @@
 #ifndef _DISPLAY_COVER__H_
 #define _DISPLAY_COVER__H_
 
-void DisplayRangeToTarget( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo );
+void DisplayRangeToTarget( TacticalActor *pSoldier, INT32 sTargetGridNo );
 void DisplayCover( BOOLEAN forceUpdate = FALSE);
 
 void SwitchToMercView();
@@ -11,8 +11,8 @@ void SwitchViewOff();
 void ToggleMercView();
 void ToggleEnemyView();
 
-void	CalculateCoverFromSoldier( SOLDIERTYPE* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bCover, SOLDIERTYPE* pToSoldier = NULL );
-BOOLEAN CanSoldierSeeFloor( SOLDIERTYPE* pSoldier, INT32 sGridNo, INT8 bLevel );
+void	CalculateCoverFromSoldier( TacticalActor* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bCover, TacticalActor* pToSoldier = NULL );
+BOOLEAN CanSoldierSeeFloor( TacticalActor* pSoldier, INT32 sGridNo, INT8 bLevel );
 
 // Flugente: all different overlays in one enum
 enum OVERLAY_VALUES

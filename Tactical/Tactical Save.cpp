@@ -46,7 +46,7 @@ BOOLEAN gfWasInMeanwhile = FALSE;
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 extern WorldItems gAllWorldItems;
 void SaveWorldItemsToTempFiles();
 void LoadWorldItemsFromTempFiles(INT16 sMapX, INT16 sMapY, INT8 bMapZ);
@@ -134,7 +134,7 @@ void		SetLastTimePlayerWasInSector(INT16 sMapX, INT16 sMapY, INT8 sMapZ);	// Flu
 
 
 extern void InitLoadedWorld( );
-extern void ReduceAmmoDroppedByNonPlayerSoldiers( SOLDIERTYPE *pSoldier, INT32 iInvSlot );
+extern void ReduceAmmoDroppedByNonPlayerSoldiers( TacticalActor *pSoldier, INT32 iInvSlot );
 
 extern void StripEnemyDetailedPlacementsIfSectorWasPlayerLiberated();
 
@@ -1126,7 +1126,7 @@ void HandleAllReachAbleItemsInTheSector( INT16 sSectorX, INT16 sSectorY, INT8 bS
 	INT32 sGridNo = NOWHERE, sGridNo2 = NOWHERE;
 	INT32	sNewLoc;
 
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	BOOLEAN	fSecondary = FALSE;
 
 	if ( guiNumWorldItems == 0 )
@@ -1888,7 +1888,7 @@ BOOLEAN LoadRottingCorpsesFromTempCorpseFile( INT16 sMapX, INT16 sMapY, INT8 bMa
 void SaveNPCInformationToProfileStruct( )
 {
 	UINT32								cnt;
-	SOLDIERTYPE *					pSoldier;
+	TacticalActor *					pSoldier;
 	MERCPROFILESTRUCT *		pProfile;
 
 	//Loop through the active NPC's
@@ -1951,13 +1951,13 @@ void SaveNPCInformationToProfileStruct( )
 	}
 }
 
-extern void EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( SOLDIERTYPE *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos, BOOLEAN fUpdateDest,  BOOLEAN fUpdateFinalDest );
+extern void EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( TacticalActor *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos, BOOLEAN fUpdateDest,  BOOLEAN fUpdateFinalDest );
 
 void LoadNPCInformationFromProfileStruct()
 {
 	//UINT32				cnt;
 	//INT16				sSoldierID;
-	//SOLDIERTYPE *		pSoldier;
+	//TacticalActor *		pSoldier;
 
 	// CJC: disabled this Dec 21, 1998 as unnecessary (and messing up quote files for recruited/escorted NPCs
 	return;
@@ -1999,7 +1999,7 @@ void LoadNPCInformationFromProfileStruct()
 /*
 	INT16 sX, sY;
 	UINT16	cnt;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	INT16			sSoldierID;
 	INT16		sXPos, sYPos;
 
@@ -2117,7 +2117,7 @@ BOOLEAN DoesTempFileExistsForMap( UINT32 uiType, INT16 sMapX, INT16 sMapY, INT8 
 
 SoldierID GetSoldierIDFromAnyMercID(UINT8 ubMercID)
 {
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	SoldierID cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 	SoldierID ubLastTeamID = TOTAL_SOLDIERS;
 
@@ -2537,7 +2537,7 @@ BOOLEAN SetSectorFlag( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, UINT32 uiFlagToSet
 
 			for ( SoldierID id = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; id <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++id )
 			{
-				SOLDIERTYPE *pSoldier =
+				TacticalActor *pSoldier =
 					GetJa2SoldierRepository().resolve(id.i);
 
 				if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && pSoldier->identity().profile() != NO_PROFILE &&
@@ -2576,7 +2576,7 @@ BOOLEAN GetSectorFlagStatus( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, UINT32 uiFla
 		return( (GetUnderGroundSectorFlagStatus( sMapX, sMapY, bMapZ, uiFlagToSet ) ) ? 1 : 0  );
 }
 
-BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiFlags )
+BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiFlags )
 {
 	UINT32			uiNumberOfItems;
 	std::vector<WORLDITEM> pWorldItems;//dnl ch75 271013

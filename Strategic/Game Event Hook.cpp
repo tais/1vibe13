@@ -247,7 +247,7 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 		{
 			// if the grunt is currently active, add to update box
 			SoldierID usID = pEvent->uiParam;
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				usID != NOBODY
 					? GetJa2SoldierRepository().resolve(usID)
 					: nullptr;

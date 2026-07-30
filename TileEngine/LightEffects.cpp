@@ -16,7 +16,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 #define		NUM_LIGHT_EFFECT_SLOTS					500 // 25	// Flugente: raised to 500  - lets see what happens

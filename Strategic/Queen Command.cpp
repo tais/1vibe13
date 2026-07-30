@@ -1,6 +1,7 @@
 //Queen Command.c
 
 	#include "Queen Command.h"
+#include "TacticalActorConditions.h"
 #include "SoldierRepository.h"
 	#include "SaveSerializer.h"
 	#include "Overhead Types.h"
@@ -99,7 +100,7 @@ void ValidateEnemiesHaveWeapons()
 	#ifdef JA2BETAVERSION
 		SGPRect CenteringRect= {0 + xResOffset, 0, SCREEN_WIDTH - xResOffset, SCREEN_HEIGHT };
 		INT32 iErrorDialog;
-		SOLDIERTYPE *pSoldier;
+		TacticalActor *pSoldier;
 		INT32 iNumInvalid = 0;
 
 		for( SoldierID i = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; i <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++i )
@@ -111,7 +112,7 @@ void ValidateEnemiesHaveWeapons()
 			}
 
 			// Flugente: zombies are fine with having no weapons...
-			if ( pSoldier->IsZombie() )
+			if ( TacticalActorConditions::isZombie(*pSoldier) )
 				continue;
 
 			if( !pSoldier->inventory()[ HANDPOS ].usItem )
@@ -282,7 +283,7 @@ UINT16 NumPlayerTeamMembersInSector( INT16 sSectorX, INT16 sSectorY, INT8 sSecto
 {
 	UINT16 teammemberspresent = 0;
 
-	SOLDIERTYPE *pTeamSoldier = NULL;
+	TacticalActor *pTeamSoldier = NULL;
 	SoldierID	bMercID = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 	SoldierID	bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
@@ -555,13 +556,13 @@ void EndTacticalBattleForEnemy()
 	//severe loyalty blow.
 	for( SoldierID i = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID; i <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
+		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() >= OKLIFE )
 		{ //found one live militia, so look for any enemies/creatures.
 			// NOTE: this is relying on ENEMY_TEAM being immediately followed by CREATURE_TEAM
 			for( SoldierID j = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; j <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++j )
 			{
-				SOLDIERTYPE *pEnemy = GetJa2SoldierRepository().resolve(j);
+				TacticalActor *pEnemy = GetJa2SoldierRepository().resolve(j);
 				if( pEnemy->roster().active() && pEnemy->roster().inSector() && pEnemy->vitals().health() >= OKLIFE )
 				{ //confirmed at least one enemy here, so do the loyalty penalty.
 					HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_ABANDON_MILITIA, gWorldSectorX, gWorldSectorY, 0 );
@@ -600,7 +601,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 {
 	SECTORINFO *pSector;
 	GROUP *pGroup;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	unsigned ubNumAdmins, ubNumTroops, ubNumElites, ubNumRobots, ubNumTanks, ubNumJeeps;
 	unsigned ubTotalAdmins, ubTotalElites, ubTotalRobots, ubTotalTroops, ubTotalTanks, ubTotalJeeps;
 	unsigned totalCountOfStationaryEnemies = 0;
@@ -1187,7 +1188,7 @@ BOOLEAN PrepareEnemyForUndergroundBattle()
 }
 
 //The queen AI layer must process the event by subtracting forces, etc.
-void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
+void ProcessQueenCmdImplicationsOfDeath( TacticalActor *pSoldier )
 {
 	SECTORINFO *pSector;
 	INT32 iMaxEnemyGroupSize = gGameExternalOptions.iMaxEnemyGroupSize;
@@ -2128,7 +2129,7 @@ void AddPossiblePendingEnemiesToBattle()
 void NotifyPlayersOfNewEnemies()
 {
 	INT32 iSoldiers, iChosenSoldier;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	BOOLEAN fIgnoreBreath = FALSE;
 
 	iSoldiers = 0;
@@ -2183,7 +2184,7 @@ void NotifyPlayersOfNewEnemies()
 
 void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 ubNumAdmins, UINT16 ubNumTroops, UINT16 ubNumElites, UINT16 ubNumRobots, UINT16 ubNumTanks, UINT16 ubNumJeeps, BOOLEAN fMagicallyAppeared )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	MAPEDGEPOINTINFO MapEdgepointInfo;
 	UINT16 ubCurrSlot;
 	UINT16 ubTotalSoldiers;
@@ -2486,7 +2487,7 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 
 void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 ubNumGreens, UINT16 ubNumRegulars, UINT16 ubNumElites, BOOLEAN fMagicallyAppeared )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	MAPEDGEPOINTINFO MapEdgepointInfo;
 	UINT16 ubCurrSlot;
 	UINT16 ubTotalSoldiers;
@@ -2876,7 +2877,7 @@ int CalculateMaximumPrisonerAmount()
 	return 0;
 }
 
-void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
+void EnemyCapturesPlayerSoldier( TacticalActor *pSoldier )
 {
 	if( GetGameContext().capabilities().isUnfinishedBusiness() )
 	{
@@ -3055,7 +3056,7 @@ BOOLEAN PlayerSectorDefended( UINT8 ubSectorID )
 //Assumes gTacticalStatus.fEnemyInSector
 BOOLEAN OnlyHostileCivsInSector()
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	SoldierID i;
 	BOOLEAN fHostileCivs = FALSE;
 

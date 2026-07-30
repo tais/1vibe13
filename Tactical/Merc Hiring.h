@@ -50,8 +50,8 @@ void		MercArrivesCallback( SoldierID ubSoldierID );
 BOOLEAN IsMercHireable( UINT8 ubMercID );
 BOOLEAN IsMercDead( UINT8 ubMercID );
 UINT16		NumberOfMercsOnPlayerTeam();
-BOOLEAN IsTheSoldierAliveAndConcious( 	SOLDIERTYPE		*pSoldier );
-void		HandleMercArrivesQuotes( SOLDIERTYPE *pSoldier );
+BOOLEAN IsTheSoldierAliveAndConcious( 	TacticalActor		*pSoldier );
+void		HandleMercArrivesQuotes( TacticalActor *pSoldier );
 void		UpdateAnyInTransitMercsWithGlobalArrivalSector( );
 
 

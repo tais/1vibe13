@@ -163,23 +163,23 @@
 //////////////////////////////////////
 
 	/*
-	void addArmorToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-	void addLBEToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-	void addWeaponsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-	void addWeaponGroupsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-	void addGrenadesToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-	void addBombsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-	void addFaceGearToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-	void addAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
+	void addArmorToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+	void addLBEToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+	void addWeaponsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+	void addWeaponGroupsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+	void addGrenadesToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+	void addBombsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+	void addFaceGearToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+	void addAmmoToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
 
-	void addRifleGrenadesToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-	void addRocketAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
-	void addDrugsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup );
+	void addRifleGrenadesToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+	void addRocketAmmoToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
+	void addDrugsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup );
 	*/
 
 	static BOOLEAN applyPopupContentGenerator( POPUP * popup, UINT16 generatorId ){
 
-		SOLDIERTYPE	*pSoldier;
+		TacticalActor	*pSoldier;
 		GetSoldier( &pSoldier, gCharactersList[ bSelectedInfoChar ].usSolID );
 
 		switch(generatorId){

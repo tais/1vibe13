@@ -312,7 +312,7 @@ UINT32 uiCount;
 	// Loop through mercs and reset light value
 	for ( uiCount = 0; uiCount < MAX_NUM_SOLDIERS; uiCount++ )
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(uiCount);
 		if (soldier)
 		{
@@ -1951,7 +1951,7 @@ BOOLEAN LightSetBaseLevel(UINT8 iIntensity)
 {
 	INT16 iCountY, iCountX;
 	UINT32	cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	ubAmbientLightLevel=iIntensity;
 

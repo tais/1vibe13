@@ -15,7 +15,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 #define EMPTY_SLOT		-1

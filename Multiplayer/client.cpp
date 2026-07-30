@@ -171,7 +171,7 @@ FileListTransfer fltClient;	// flt2
 
 // Resolve a wire soldier id without relying on SoldierID's constructors. A raw
 // RPC memcpy can leave the index anywhere in 0..65535.
-static SOLDIERTYPE* ResolveMerc(UINT16 i)
+static TacticalActor* ResolveMerc(UINT16 i)
 {
 	if ( i >= TOTAL_SOLDIERS )
 		return NULL;
@@ -179,9 +179,9 @@ static SOLDIERTYPE* ResolveMerc(UINT16 i)
 }
 
 // Most movement/action handlers require an actor that is still live.
-static SOLDIERTYPE* SafeMerc(UINT16 i)
+static TacticalActor* SafeMerc(UINT16 i)
 {
-	SOLDIERTYPE* soldier = ResolveMerc(i);
+	TacticalActor* soldier = ResolveMerc(i);
 	return ( soldier && soldier->roster().active() )
 		? soldier
 		: NULL;
@@ -450,11 +450,11 @@ typedef struct
 } turn_struct;
 
 // PORTABLE WIRE FORMAT (H17): AI_STRUCT (SOLDIERCREATE_STRUCT + OBJECTTYPE slot[55]) is gone.
-// It embedded std::vector/std::list and a SOLDIERTYPE* whose layout is STL/ABI-specific and
+// It embedded std::vector/std::list and a TacticalActor* whose layout is STL/ABI-specific and
 // which leaked sender heap pointers over the wire. See SerializeAI/DeserializeAI below.
 
 // PORTABLE WIRE FORMAT (H16): the old netb_struct shipped the WHOLE BULLET struct, which
-// embeds heap pointers (LEVELNODE* pNodes[60], SOLDIERTYPE* pFirer, ANITILE* x2) and is not
+// embeds heap pointers (LEVELNODE* pNodes[60], TacticalActor* pFirer, ANITILE* x2) and is not
 // pack(1) -- so its size/offsets differ 32<->64-bit and by ABI, AND it leaked sender heap
 // addresses over the wire. The receiver only ever reconstructs from a handful of scalars,
 // so carry exactly those in an in-memory bullet_wire and serialize it field-by-field below.
@@ -812,7 +812,7 @@ static bool DeserializeBullet( bullet_wire& b, const void* buf, size_t len )
 
 // ---- AI_STRUCT wire (H17) -------------------------------------------------
 // The old AI_STRUCT memcpy'd a SOLDIERCREATE_STRUCT (which embeds std::vector x3 in its
-// Inventory, a SOLDIERTYPE* pExistingSoldier, and CHAR16 name[10]) plus 55 OBJECTTYPEs
+// Inventory, a TacticalActor* pExistingSoldier, and CHAR16 name[10]) plus 55 OBJECTTYPEs
 // (each embedding a std::list). sizeof and every offset are STL/ABI-specific and the wire
 // leaked sender heap pointers. The receiver only ever consumes the POD scalar prefix and
 // {usItem, ubNumberOfObjects} per slot. Serialize EXACTLY those, field-by-field, fixed-width.
@@ -1191,7 +1191,7 @@ void HireRandomMercs()
 //RPC sends and recieves:
 //********************
 
-void send_path (  SOLDIERTYPE *pSoldier, INT32 sDestGridNo, UINT16 usMovementAnim, BOOLEAN fFromUI, BOOLEAN fForceRestartAnim  )
+void send_path (  TacticalActor *pSoldier, INT32 sDestGridNo, UINT16 usMovementAnim, BOOLEAN fFromUI, BOOLEAN fForceRestartAnim  )
 {
 	if(pSoldier->identity().id() < 120)
 	{
@@ -1230,7 +1230,7 @@ void recievePATH(RPCParameters *rpcParameters)
 		SNetPath->usCurrentPathIndex > SNetPath->usPathDataSize )
 		return;
 
-	SOLDIERTYPE *pSoldier = SafeMerc( SNetPath->usSoldierID );
+	TacticalActor *pSoldier = SafeMerc( SNetPath->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
@@ -1244,7 +1244,7 @@ void recievePATH(RPCParameters *rpcParameters)
 }
 
 
-void send_stance ( SOLDIERTYPE *pSoldier, UINT8 ubDesiredStance )
+void send_stance ( TacticalActor *pSoldier, UINT8 ubDesiredStance )
 
 {
 	if(pSoldier->identity().id() < 120)
@@ -1279,7 +1279,7 @@ void recieveSTANCE(RPCParameters *rpcParameters)
 
 		EV_S_CHANGESTANCE* SChangeStance = (EV_S_CHANGESTANCE*)rpcParameters->input;
 	
-		SOLDIERTYPE *pSoldier = SafeMerc( SChangeStance->usSoldierID );
+		TacticalActor *pSoldier = SafeMerc( SChangeStance->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
@@ -1296,7 +1296,7 @@ void recieveSTANCE(RPCParameters *rpcParameters)
 
 
 
-void send_dir ( SOLDIERTYPE *pSoldier, UINT16 usDesiredDirection )
+void send_dir ( TacticalActor *pSoldier, UINT16 usDesiredDirection )
 
 {
 	if((is_server && pSoldier->identity().id() < 120) || (!is_server && pSoldier->identity().id() < 20))
@@ -1329,7 +1329,7 @@ void recieveDIR(RPCParameters *rpcParameters)
 		EV_S_SETDESIREDDIRECTION* SSetDesiredDirection = (EV_S_SETDESIREDDIRECTION*)rpcParameters->input;			
 			
 
-		SOLDIERTYPE *pSoldier = SafeMerc( SSetDesiredDirection->usSoldierID );
+		TacticalActor *pSoldier = SafeMerc( SSetDesiredDirection->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
@@ -1345,7 +1345,7 @@ void recieveDIR(RPCParameters *rpcParameters)
 		//********* implemented using event pump system ... :)
 }
 
-void send_fire( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
+void send_fire( TacticalActor *pSoldier, INT32 sTargetGridNo )
 {
 	if(pSoldier->identity().id() < 120)
 	{
@@ -1377,7 +1377,7 @@ void recieveFIRE(RPCParameters *rpcParameters)
 	EV_S_BEGINFIREWEAPON* SBeginFireWeapon = (EV_S_BEGINFIREWEAPON*)rpcParameters->input;
 	//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"SendBeginFireWeaponEvent" );
 
-	SOLDIERTYPE *pSoldier = SafeMerc( SBeginFireWeapon->usSoldierID );
+	TacticalActor *pSoldier = SafeMerc( SBeginFireWeapon->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
@@ -1442,7 +1442,7 @@ void recieveHIT(RPCParameters *rpcParameters)
 		// bTable rows are written keyed by the FIRER's team with the raw wire id
 		// (recieveBULLET); key the read the same way, bounded. The old code keyed
 		// by the untranslated VICTIM -- wrong row.
-		SOLDIERTYPE *pFirer =
+		TacticalActor *pFirer =
 			SWeaponHit->ubAttackerID != NOBODY
 				? ResolveMerc(SWeaponHit->ubAttackerID.i)
 				: NULL;
@@ -1479,7 +1479,7 @@ void send_hire( SoldierID iNewIndex, UINT8 ubCurrentSoldier, INT16 iTotalContrac
 	sHireMerc.fCopyProfileItemsOver=fCopyProfileItemsOver;
 	sHireMerc.bTeam=netbTeam;
 
-	SOLDIERTYPE *pSoldier = ResolveMerc(iNewIndex.i);
+	TacticalActor *pSoldier = ResolveMerc(iNewIndex.i);
 	if ( !pSoldier )
 		return;
 
@@ -1532,7 +1532,7 @@ void recieveDISMISS(RPCParameters *rpcParameters)
 	{
 		return;	// MP wire guard (mp_audit_findings.json)
 	}
-	SOLDIERTYPE * pSoldier =
+	TacticalActor * pSoldier =
 		SafeMerc(sDismissMerc->ubProfileID);
 	if ( pSoldier == NULL || !pSoldier->roster().active() )
 	{
@@ -1555,7 +1555,7 @@ void recieveHIRE(RPCParameters *rpcParameters)
 	if ( sHireMerc->ubProfileID >= NUM_PROFILES )
 		return;
 
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	SoldierID	iNewIndex;
 
 	SOLDIERCREATE_STRUCT		MercCreateStruct;
@@ -1648,7 +1648,7 @@ void recieveHIRE(RPCParameters *rpcParameters)
 	}
 }
 
-void send_gui_pos(SOLDIERTYPE *pSoldier,  FLOAT dNewXPos, FLOAT dNewYPos)
+void send_gui_pos(TacticalActor *pSoldier,  FLOAT dNewXPos, FLOAT dNewYPos)
 {
 	gui_pos gnPOS;
 
@@ -1665,7 +1665,7 @@ void recieveguiPOS(RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, gui_pos);
 	gui_pos* gnPOS = (gui_pos*)rpcParameters->input;
 
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		SafeMerc(gnPOS->usSoldierID.i);
 
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
@@ -1687,7 +1687,7 @@ void recieveguiPOS(RPCParameters *rpcParameters)
 	pSoldier->EVENT_SetSoldierPosition( gnPOS->dNewXPos, gnPOS->dNewYPos );
 }
 
-void send_gui_dir(SOLDIERTYPE *pSoldier, UINT16	usNewDirection)
+void send_gui_dir(TacticalActor *pSoldier, UINT16	usNewDirection)
 {	
 	gui_dir gnDIR;
 
@@ -1702,7 +1702,7 @@ void recieveguiDIR(RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, gui_dir);
 	gui_dir* gnDIR = (gui_dir*)rpcParameters->input;
 
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		SafeMerc(gnDIR->usSoldierID.i);
 
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
@@ -1777,7 +1777,7 @@ void recieveEndTurn(RPCParameters *rpcParameters)
 
 UINT8 numenemyLAN( UINT8 ubSectorX, UINT8 ubSectorY )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT8				cnt ; //first posible lan player
 	UINT8				ubNumEnemies = 0;
 
@@ -1809,7 +1809,7 @@ void send_AI( SOLDIERCREATE_STRUCT *pCreateStruct )
 void recieveAI (RPCParameters *rpcParameters)
 {
 	SoldierID iNewIndex;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	SOLDIERCREATE_STRUCT new_standard_data;
 	memset( (void*)&new_standard_data, 0, SIZEOF_SOLDIERCREATE_STRUCT_POD );
@@ -2286,10 +2286,10 @@ void start_battle ( void )
 			numready=0;
 
 			// Find first active soldier. This is needed, because if the soldier is dismissed it does not belong to any group
-			SOLDIERTYPE *pSoldier = NULL;
+			TacticalActor *pSoldier = NULL;
 			for (int i = 0; i <= 19; i++)
 			{
-				SOLDIERTYPE* candidate = SafeMerc(i);
+				TacticalActor* candidate = SafeMerc(i);
 				if (candidate)
 				{
 					pSoldier = candidate;
@@ -2479,7 +2479,7 @@ void recieveSTOP (RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_STOP_MERC);
 	EV_S_STOP_MERC* SStopMerc =(EV_S_STOP_MERC*)rpcParameters->input;
 	
-	SOLDIERTYPE *pSoldier = SafeMerc( SStopMerc->usSoldierID );
+	TacticalActor *pSoldier = SafeMerc( SStopMerc->usSoldierID );
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
@@ -2502,7 +2502,7 @@ void mp_log_event( const char* msg )
 	strncpy( buf, msg, sizeof(buf) - 1 ); buf[sizeof(buf) - 1] = 0;
 	client->RPC("serverLog", buf, (int)(strlen(buf) + 1) * 8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID, 0);
 }
-void mp_log_soldier( SOLDIERTYPE* pSoldier, const char* event )
+void mp_log_soldier( TacticalActor* pSoldier, const char* event )
 {
 	if (!is_networked || !is_client || !client || pSoldier == NULL) return;
 	char name[32]; int i = 0;
@@ -2516,7 +2516,7 @@ void mp_log_soldier( SOLDIERTYPE* pSoldier, const char* event )
 
 // Rich sighting log: which team/merc saw which enemy team/merc, and at what range.
 // pSeen may be NULL (saw an enemy but the closest-seen lookup came up empty).
-void mp_log_sighting( SOLDIERTYPE* pSighter, SOLDIERTYPE* pSeen, int range )
+void mp_log_sighting( TacticalActor* pSighter, TacticalActor* pSeen, int range )
 {
 	if (!is_networked || !is_client || !client || pSighter == NULL) return;
 	char sn[32], en[32]; int i;
@@ -2541,7 +2541,7 @@ void mp_log_sighting( SOLDIERTYPE* pSighter, SOLDIERTYPE* pSeen, int range )
 	mp_log_event( buf );
 }
 
-void send_interrupt (SOLDIERTYPE *pSoldier)
+void send_interrupt (TacticalActor *pSoldier)
 {
 	INT_STRUCT INT;
 
@@ -2588,7 +2588,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 		if (cGameType == MP_TYPE_COOP)
 		{
 			// C1: INT->Interrupted is a wire SoldierID -- clamp before resolution.
-			SOLDIERTYPE* pOpponent = SafeMerc( INT->Interrupted.i );
+			TacticalActor* pOpponent = SafeMerc( INT->Interrupted.i );
 			if ( pOpponent == NULL )
 				return;
 
@@ -2624,7 +2624,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Recieved interrupt between %s and %s.", TeamNameStrings[pOpponent->roster().team()], TeamNameStrings[INT->bTeam] );
 
 				 //start interrupt turn //real interrupt code
-				SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+				TacticalActor* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 				if ( pSoldier == NULL )
 					return;
 				ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
@@ -2642,7 +2642,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt of %s awarded to you.", TeamNameStrings[pOpponent->roster().team()] );//was MPClientMessage[37], can be reconnected if text updated and translated
 
-					SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+					TacticalActor* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 					if ( pSoldier == NULL )
 						return;
 					ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
@@ -2654,7 +2654,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 		{
 			// INT already deserialized at the top of recieveINTERRUPT (L6).
 			// C1: clamp wire SoldierID before repository resolution.
-			SOLDIERTYPE* pOpponent = SafeMerc( INT->Interrupted.i );
+			TacticalActor* pOpponent = SafeMerc( INT->Interrupted.i );
 			if ( pOpponent == NULL )
 				return;
 
@@ -2665,7 +2665,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 			// walking sound). Stop every moving LAN copy the instant the grant lands.
 			for ( SoldierID _sid = 0; _sid < TOTAL_SOLDIERS; ++_sid )
 			{
-				SOLDIERTYPE* _s = SafeMerc(_sid.i);
+				TacticalActor* _s = SafeMerc(_sid.i);
 				if ( _s && _s->roster().active() && _s->roster().inSector() && _s->roster().team() >= LAN_TEAM_ONE
 					&& _s->position().gridNo() >= 0 && _s->position().gridNo() < WORLD_MAX
 					&& ( gAnimControl[ _s->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
@@ -2701,7 +2701,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				if ( INT->bTeam < 0 || INT->bTeam > 9 )
 					return;
 				//stop moving merc who was interrupted and init UI bar
-				SOLDIERTYPE* pMerc = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+				TacticalActor* pMerc = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 				if ( pMerc == NULL )
 					return;
 				pMerc->HaultSoldierFromSighting(TRUE);
@@ -2737,7 +2737,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt of %s awarded to you.", TeamNameStrings[pOpponent->roster().team()] );//was MPClientMessage[37], can be reconnected if text updated and translated
 
-					SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+					TacticalActor* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 					if ( pSoldier == NULL )
 						return;
 					ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
@@ -2756,7 +2756,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 			return;
 		INT_STRUCT* INT = &_intWire;
 		// C1: clamp wire SoldierID before repository resolution.
-		SOLDIERTYPE* pOpponent = SafeMerc( INT->Interrupted.i );
+		TacticalActor* pOpponent = SafeMerc( INT->Interrupted.i );
 		if ( pOpponent == NULL )
 			return;
 
@@ -2786,7 +2786,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 		{
 			
 			//stop moving merc who was interrupted and init UI bar
-			SOLDIERTYPE* pMerc = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+			TacticalActor* pMerc = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 			if ( pMerc == NULL )
 				return;
 			pMerc->HaultSoldierFromSighting(TRUE);
@@ -2809,7 +2809,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt of %s awarded to you.", TeamNameStrings[pOpponent->roster().team()] );//was MPClientMessage[37], can be reconnected if text updated and translated
 
-				SOLDIERTYPE* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
+				TacticalActor* pSoldier = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 				if ( pSoldier == NULL )
 					return;
 				ManSeesMan(pSoldier,pOpponent,pOpponent->position().gridNo(),pOpponent->position().level(),2,1);
@@ -2820,7 +2820,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 
 #endif
 
-void intAI (SOLDIERTYPE *pSoldier )
+void intAI (TacticalActor *pSoldier )
 {
 	//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"intAI with %s", TeamNameStrings[pSoldier->roster().team()] );//was MPClientMessage[17], can be reconnected if text updated and translated
 	AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, TeamTurnString[ pSoldier->roster().team() ] );
@@ -2833,7 +2833,7 @@ void end_interrupt ( BOOLEAN fMarkInterruptOccurred )
 	// soldier before building the release packet.
 	if ( gubOutOfTurnPersons >= MAXMERCS )
 		return;
-	SOLDIERTYPE * pSoldier = SafeMerc( gubOutOfTurnOrder[gubOutOfTurnPersons] );
+	TacticalActor * pSoldier = SafeMerc( gubOutOfTurnOrder[gubOutOfTurnPersons] );
 	if ( pSoldier == NULL )
 		return;
 
@@ -2932,7 +2932,7 @@ void overide_callback( UINT8 ubResult )
 			goahead=0;
 			status=0;//reset
 			numready=0;
-			SOLDIERTYPE *pSoldier = SafeMerc(0);
+			TacticalActor *pSoldier = SafeMerc(0);
 			if ( !pSoldier )
 				return;
 			UINT8 ubGroupID = pSoldier->deployment().groupId();
@@ -3707,7 +3707,7 @@ void send_grenade (OBJECTTYPE *pGameObj, float dLifeLength, float xPos, float yP
 {
 	ubOwner = MPEncodeSoldierID(ubOwner); // translate our soldier to the "network" version
 
-	SOLDIERTYPE* pSoldier = ResolveMerc(ubOwner.i);
+	TacticalActor* pSoldier = ResolveMerc(ubOwner.i);
 	if (pSoldier != NULL)
 	{
 		if ((pSoldier->roster().team() == 1 && is_server) || IsOurSoldier(pSoldier))
@@ -3770,7 +3770,7 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 
 	gren->ubID = MPDecodeSoldierID(gren->ubID);
 
-	SOLDIERTYPE* pThrower = ResolveMerc(gren->ubID.i);
+	TacticalActor* pThrower = ResolveMerc(gren->ubID.i);
 	if (pThrower != NULL)
 	{
 		// L1 - only adopt the sender's pre-random cursor for an in-order, not-yet-seen
@@ -3886,7 +3886,7 @@ void send_grenade_result (float xPos, float yPos, float zPos, INT32 sGridNo, Sol
 {
 	ubOwnerID = MPEncodeSoldierID(ubOwnerID); // translate our soldier to the "network" version
 
-	SOLDIERTYPE* pSoldier = ResolveMerc(ubOwnerID.i);
+	TacticalActor* pSoldier = ResolveMerc(ubOwnerID.i);
 	if (pSoldier != NULL)
 	{
 		if ((pSoldier->roster().team() == 1 && is_server) || IsOurSoldier(pSoldier))
@@ -3920,7 +3920,7 @@ void recieveGRENADERESULT (RPCParameters *rpcParameters)
 
 	gres->ubOwnerID = MPDecodeSoldierID(gres->ubOwnerID);
 
-	SOLDIERTYPE* pThrower = ResolveMerc(gres->ubOwnerID.i);
+	TacticalActor* pThrower = ResolveMerc(gres->ubOwnerID.i);
 	if (pThrower != NULL)
 	{
 		// grenade wasnt thrown by one of our guys, so we should do it on the client
@@ -4014,7 +4014,7 @@ void recievePLANTEXPLOSIVE (RPCParameters *rpcParameters)
 
 	exp->ubID = MPDecodeSoldierID( exp->ubID );
 
-	SOLDIERTYPE* pSoldier = ResolveMerc(exp->ubID.i);
+	TacticalActor* pSoldier = ResolveMerc(exp->ubID.i);
 	if (pSoldier != NULL)
 	{
 		// explosive wasnt planted on our client, so we should do it on the client
@@ -4087,7 +4087,7 @@ void send_detonate_explosive (UINT32 uiWorldIndex, SoldierID ubID)
 {
 	ubID = MPEncodeSoldierID(ubID);
 
-	SOLDIERTYPE* pSoldier = ResolveMerc(ubID.i);
+	TacticalActor* pSoldier = ResolveMerc(ubID.i);
 	if (pSoldier != NULL)
 	{
 		// explosive detonated on this client, notify the other clients
@@ -4152,7 +4152,7 @@ void recieveDETONATEEXPLOSIVE (RPCParameters *rpcParameters)
 
 	det->ubID = MPDecodeSoldierID(det->ubID);
 
-	SOLDIERTYPE* pSoldier = ResolveMerc(det->ubID.i);
+	TacticalActor* pSoldier = ResolveMerc(det->ubID.i);
 	if (pSoldier != NULL)
 	{
 		// if explosive detonation didnt originate from this client then its need to be performed here
@@ -4202,7 +4202,7 @@ void send_disarm_explosive(UINT32 sGridNo, UINT32 uiWorldItem, SoldierID ubID)
 {
 	ubID = MPEncodeSoldierID(ubID);
 
-	SOLDIERTYPE* pSoldier = ResolveMerc(ubID.i);
+	TacticalActor* pSoldier = ResolveMerc(ubID.i);
 	if (pSoldier != NULL)
 	{
 		// explosive disarmed on this client, notify the other clients
@@ -4266,7 +4266,7 @@ void recieveDISARMEXPLOSIVE (RPCParameters *rpcParameters)
 
 	disarm->ubID = MPDecodeSoldierID(disarm->ubID);
 
-	SOLDIERTYPE* pSoldier = ResolveMerc(disarm->ubID.i);
+	TacticalActor* pSoldier = ResolveMerc(disarm->ubID.i);
 	if (pSoldier != NULL)
 	{
 		// if explosive disarm didnt originate from this client then its need to be performed here
@@ -4295,7 +4295,7 @@ void recieveDISARMEXPLOSIVE (RPCParameters *rpcParameters)
 					// print out a screen message if it was our bomb
 					if (disarm->ubMPTeamIndex == netbTeam)
 					{
-						SOLDIERTYPE * pBombOwner = ResolveMerc(
+						TacticalActor * pBombOwner = ResolveMerc(
 							gWorldItems[
 								gWorldBombs[uiCount].iItemIndex
 							].soldierID.i);
@@ -4354,7 +4354,7 @@ void recieveSPREADEFFECT (RPCParameters *rpcParameters)
 
 	sef->ubOwner = MPDecodeSoldierID(sef->ubOwner);
 
-	SOLDIERTYPE* pSoldier = ResolveMerc(sef->ubOwner.i);
+	TacticalActor* pSoldier = ResolveMerc(sef->ubOwner.i);
 	if (pSoldier != NULL)
 	{
 
@@ -4440,7 +4440,7 @@ void recieveNEWSMOKEEFFECT (RPCParameters *rpcParameters)
 	// translate any of our soldier ids back to the correct local copy
 	sef->ubOwner = MPDecodeSoldierID(sef->ubOwner);
 
-	SOLDIERTYPE* pSoldier = ResolveMerc(sef->ubOwner.i);
+	TacticalActor* pSoldier = ResolveMerc(sef->ubOwner.i);
 	if (pSoldier != NULL)
 	{
 		// new smoke effect didnt originate from us
@@ -4473,7 +4473,7 @@ void recieveNEWSMOKEEFFECT (RPCParameters *rpcParameters)
 	}
 }
 
-void send_gasdamage( SOLDIERTYPE * pSoldier, UINT16 usExplosiveClassID, INT16 sSubsequent, BOOLEAN fRecompileMovementCosts, INT16 sWoundAmt, INT16 sBreathAmt, SoldierID ubOwner )
+void send_gasdamage( TacticalActor * pSoldier, UINT16 usExplosiveClassID, INT16 sSubsequent, BOOLEAN fRecompileMovementCosts, INT16 sWoundAmt, INT16 sBreathAmt, SoldierID ubOwner )
 {
 	explosiondamage_struct exp;
 	exp.ubDamageFunc = 1;
@@ -4531,7 +4531,7 @@ void recieveEXPLOSIONDAMAGE (RPCParameters *rpcParameters)
 	exp->ubAttackerID = MPDecodeSoldierID(exp->ubAttackerID);
 
 
-	SOLDIERTYPE* pSoldier = ResolveMerc(exp->ubSoldierID.i);
+	TacticalActor* pSoldier = ResolveMerc(exp->ubSoldierID.i);
 	if (pSoldier != NULL)
 	{
 
@@ -4623,7 +4623,7 @@ void recieveBULLET(RPCParameters *rpcParameters)
 	}
 
 	SoldierID firerID = (UINT16)b.ubFirerID;	// run the clamping ctor on the wire id
-	SOLDIERTYPE * pFirer = NULL;
+	TacticalActor * pFirer = NULL;
 	INT8 bTeam = OUR_TEAM;
 	if ( firerID != NOBODY )
 	{
@@ -4708,7 +4708,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 	if ( !IsValidAnimState( new_state->usNewState ) )
 		return;
 
-	SOLDIERTYPE * pSoldier =
+	TacticalActor * pSoldier =
 		SafeMerc(new_state->usSoldierID.i);
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 	{
@@ -4763,7 +4763,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 	}
 }
 
-void send_death( SOLDIERTYPE *pSoldier )
+void send_death( TacticalActor *pSoldier )
 {
 	death_struct nDeath;
 	nDeath.soldier_id = pSoldier->identity().id();
@@ -4781,7 +4781,7 @@ void send_death( SOLDIERTYPE *pSoldier )
 			nDeath.attacker_id = pSoldier->combatResult().earlierAttacker();
 	}
 
-	SOLDIERTYPE * pAttacker =
+	TacticalActor * pAttacker =
 		ResolveMerc(nDeath.attacker_id.i);
 	INT8 pA_bTeam=CLIENT_NUM;
 	CHAR16	pA_name[ 10 ];
@@ -4795,7 +4795,7 @@ void send_death( SOLDIERTYPE *pSoldier )
 		// if attacker was one of our own mercs, use the last hostile attacker as the killer if there is one
 		if (pAttacker->roster().team() == pSoldier->roster().team() && pSoldier->combatResult().previousAttacker() < NOBODY)
 		{
-			SOLDIERTYPE* candidate =
+			TacticalActor* candidate =
 				ResolveMerc(pSoldier->combatResult().previousAttacker().i);
 			if ( candidate )
 				pAttacker = candidate;
@@ -4896,7 +4896,7 @@ void recieveDEATH (RPCParameters *rpcParameters)
 {
 	RPC_REQUIRE_BYTES(rpcParameters, death_struct);	// short-frame guard (M2/H13)
 	death_struct* nDeath = (death_struct*)rpcParameters->input;
-	SOLDIERTYPE * pSoldier =
+	TacticalActor * pSoldier =
 		ResolveMerc(nDeath->soldier_id.i);
 	if ( pSoldier == NULL )
 	{
@@ -4909,7 +4909,7 @@ void recieveDEATH (RPCParameters *rpcParameters)
 	else
 		ubAttackerID = nDeath->attacker_id;
 
-	SOLDIERTYPE * pAttacker =
+	TacticalActor * pAttacker =
 		ResolveMerc(ubAttackerID.i);
 	// M2: pA_bTeam/pS_bTeam are used as client_names[x-1] indices unconditionally;
 	// default them to our own (valid) client number so a missing attacker / unset
@@ -5032,7 +5032,7 @@ void recievehitSTRUCT  (RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_STRUCTUREHIT);	// short-frame guard (H1/H13)
 	EV_S_STRUCTUREHIT* struct_hit = (EV_S_STRUCTUREHIT*)rpcParameters->input;
 	// H1: attacker is a wire SoldierID -- resolve safely, range-check before bTable[][].
-	SOLDIERTYPE *pSoldier = SafeMerc( struct_hit->ubAttackerID.i );
+	TacticalActor *pSoldier = SafeMerc( struct_hit->ubAttackerID.i );
 	if ( pSoldier == NULL
 		|| pSoldier->roster().team() < 0 || pSoldier->roster().team() >= MAXTEAMS
 		|| struct_hit->iBullet < 0 || struct_hit->iBullet >= NUM_BULLET_SLOTS )
@@ -5065,7 +5065,7 @@ void recieveMISS  (RPCParameters *rpcParameters)
 	EV_S_MISS* shot_miss = (EV_S_MISS*)rpcParameters->input;
 
 	// H2: attacker is a wire SoldierID -- resolve safely, range-check before bTable[][].
-	SOLDIERTYPE *pSoldier = SafeMerc( shot_miss->ubAttackerID.i );
+	TacticalActor *pSoldier = SafeMerc( shot_miss->ubAttackerID.i );
 	if ( pSoldier == NULL
 		|| pSoldier->roster().team() < 0 || pSoldier->roster().team() >= MAXTEAMS
 		|| shot_miss->iBullet < 0 || shot_miss->iBullet >= NUM_BULLET_SLOTS )
@@ -5078,7 +5078,7 @@ void recieveMISS  (RPCParameters *rpcParameters)
 
 BOOLEAN check_status (void)// any 'enemies' and clients left to fight ??
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	int soldiers= 0 ;
 	int numActiveSides = 0;
 	
@@ -5171,7 +5171,7 @@ BOOLEAN check_status (void)// any 'enemies' and clients left to fight ??
 	return true;	
 }
 
-void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
+void UpdateSoldierToNetwork ( TacticalActor *pSoldier )
 {
 	//this send stats to other clients at intervals
 	SoldierID id = pSoldier->identity().id();
@@ -5221,7 +5221,7 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_UPDATENETWORKSOLDIER);
 	EV_S_UPDATENETWORKSOLDIER* SUpdateNetworkSoldier = (EV_S_UPDATENETWORKSOLDIER*)rpcParameters->input;
 
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		SafeMerc(SUpdateNetworkSoldier->usSoldierID.i);
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 	{
@@ -5412,7 +5412,7 @@ void recieve_fireweapon (RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_FIREWEAPON);
 	EV_S_FIREWEAPON* SFireWeapon = (EV_S_FIREWEAPON*)rpcParameters->input;
 
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		SafeMerc(SFireWeapon->usSoldierID.i);
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 	{
@@ -5425,7 +5425,7 @@ void recieve_fireweapon (RPCParameters *rpcParameters)
 	FireWeapon( pSoldier, SFireWeapon->sTargetGridNo  );
 }
 
-void send_door ( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fNoAnimations )
+void send_door ( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fNoAnimations )
 {
 	if((is_server && pSoldier->identity().id()<120) || (!is_server && is_client && pSoldier->identity().id()<20) || (!is_server && !is_client) )
 	{
@@ -5443,7 +5443,7 @@ void recieve_door (RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, doors);
 	doors* sDoor = (doors*)rpcParameters->input;
 
-	SOLDIERTYPE *pSoldier = SafeMerc(sDoor->ubID.i);
+	TacticalActor *pSoldier = SafeMerc(sDoor->ubID.i);
 	if ( pSoldier == NULL || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 	{
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
@@ -5531,7 +5531,7 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 
 		for ( cnt = 0; cnt < TOTAL_SOLDIERS; cnt++ )
 		{
-			SOLDIERTYPE *pTeamSoldier =
+			TacticalActor *pTeamSoldier =
 				GetJa2SoldierRepository().resolve(cnt);
 			if ( pTeamSoldier && pTeamSoldier->roster().active() &&
 				pTeamSoldier->roster().inSector() &&
@@ -5742,7 +5742,7 @@ void recieve_wipe (RPCParameters *rpcParameters)
 	}
 }
 
-void send_heal (SOLDIERTYPE *pSoldier )
+void send_heal (TacticalActor *pSoldier )
 {
 	heal data;
 	data.ubID=pSoldier->identity().id();
@@ -5761,7 +5761,7 @@ void recieve_heal (RPCParameters *rpcParameters)
 	// old hand-rolled +6 mis-decoded the 7th merc) and guard the resolved pointer.
 	SoldierID healed = MPDecodeSoldierID( data->ubID );
 
-	SOLDIERTYPE *pSoldier = SafeMerc( healed.i );
+	TacticalActor *pSoldier = SafeMerc( healed.i );
 	if ( pSoldier == NULL )
 		return;
 	pSoldier->vitals().bleeding()=data->bBleeding;
@@ -5772,7 +5772,7 @@ void recieve_heal (RPCParameters *rpcParameters)
 #endif
 }
 
-void requestAIint(SOLDIERTYPE *pSoldier )
+void requestAIint(TacticalActor *pSoldier )
 {
 	AIint data;
 	data.ubID=pSoldier->identity().id();
@@ -5790,7 +5790,7 @@ void awardINT (RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, AIint);
 	AIint* data= (AIint*)rpcParameters->input;
 
-	SOLDIERTYPE *pSoldier = SafeMerc(data->ubID.i);
+	TacticalActor *pSoldier = SafeMerc(data->ubID.i);
 
 	StartInterrupt();
 

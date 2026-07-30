@@ -1,4 +1,8 @@
+#include "TacticalActorEquipment.h"
+#include "TacticalActorExplosives.h"
 	#include "builddefines.h"
+#include "TacticalActorModifiers.h"
+#include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 	#include "mapscreen.h"
 	#include <stdio.h>
@@ -81,7 +85,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 extern INV_REGION_DESC gMapScreenInvPocketXY[NUM_INV_SLOTS];	// ARRAY FOR INV PANEL INTERFACE ITEM POSITIONS
 
 //CHRISL: Moved to Interface Items.h for EDB
@@ -430,7 +434,7 @@ void ItemDescDoneButtonCallback( GUI_BUTTON *btn, INT32 reason );
 extern INT32 iLastHandPos;
 extern BOOLEAN fMapInventoryItem;
 BOOLEAN	gfItemPopupRegionCallbackEndFix = FALSE;
-extern void InternalMAPBeginItemPointer( SOLDIERTYPE *pSoldier );
+extern void InternalMAPBeginItemPointer( TacticalActor *pSoldier );
 
 
 void	ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason );
@@ -442,13 +446,13 @@ extern void HelpTextDoneCallback( void );
 void RemoveMoney();
 BOOLEAN	CompatibleItemForApplyingOnMerc( OBJECTTYPE *pTestObject );
 
-extern BOOLEAN MAPInternalInitItemDescriptionBox( OBJECTTYPE *pObject, UINT8 ubStatusIndex, SOLDIERTYPE *pSoldier );
+extern BOOLEAN MAPInternalInitItemDescriptionBox( OBJECTTYPE *pObject, UINT8 ubStatusIndex, TacticalActor *pSoldier );
 extern void	StartSKIDescriptionBox( void );
 
 void UpdateItemHatches();
 
 void ShadowNIVPanel();
-BOOLEAN CheckPocketEmpty( SOLDIERTYPE *pSoldier, INT16 sPocket );
+BOOLEAN CheckPocketEmpty( TacticalActor *pSoldier, INT16 sPocket );
 
 extern void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot );
 
@@ -1647,7 +1651,7 @@ void ShutdownInvSlotInterface( )
 
 }
 
-void RenderInvBodyPanel( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY )
+void RenderInvBodyPanel( TacticalActor *pSoldier, INT16 sX, INT16 sY )
 {
 	// Blit body inv, based on body type
 	INT8 bSubImageIndex = gbCompatibleApplyItem;
@@ -1664,7 +1668,7 @@ void RenderInvBodyPanel( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY )
 	}
 }
 
-void HandleRenderInvSlots( SOLDIERTYPE *pSoldier, UINT8 fDirtyLevel )
+void HandleRenderInvSlots( TacticalActor *pSoldier, UINT8 fDirtyLevel )
 {
 	INT32	sX, sY;
 	static CHAR16					pStr[ 512 ];
@@ -1722,7 +1726,7 @@ void HandleRenderInvSlots( SOLDIERTYPE *pSoldier, UINT8 fDirtyLevel )
 }
 
 // CHRISL: New function to determine whether to activate Combat and Backpack slots
-BOOLEAN CheckActivationStatus(SOLDIERTYPE *pSoldier, INT16 cSlot, INT16 bSlot, INT16 sPocket)
+BOOLEAN CheckActivationStatus(TacticalActor *pSoldier, INT16 cSlot, INT16 bSlot, INT16 sPocket)
 {
 	INT8	cLevel, bLevel;
 
@@ -1753,7 +1757,7 @@ BOOLEAN CheckActivationStatus(SOLDIERTYPE *pSoldier, INT16 cSlot, INT16 bSlot, I
 }
 
 // THE_BOB: functions for mag-making gizmo (TODO: clean up this code)
-std::vector<OBJECTTYPE *> * getSoldierGuns( SOLDIERTYPE *pTeamSoldier )
+std::vector<OBJECTTYPE *> * getSoldierGuns( TacticalActor *pTeamSoldier )
 {
 	UINT32 bLoop;
 	std::vector<OBJECTTYPE *> * guns = new std::vector<OBJECTTYPE *>;
@@ -1778,7 +1782,7 @@ std::vector<OBJECTTYPE *> * getSoldierGuns( SOLDIERTYPE *pTeamSoldier )
 	return guns;
 }
 
-INT16 pocketTypeInSlot(SOLDIERTYPE *pSoldier, INT16 sPocket){
+INT16 pocketTypeInSlot(TacticalActor *pSoldier, INT16 sPocket){
 
 	INT16		lbePocket = ITEM_NOT_FOUND;
 
@@ -1836,7 +1840,7 @@ INT16 pocketTypeInSlot(SOLDIERTYPE *pSoldier, INT16 sPocket){
 static POPUP * sPocketPopup = NULL;
 static BOOL sPocketPopupInitialized = FALSE;
 
-void popupCallbackAmmo(UINT16 item, UINT16 pocket, SOLDIERTYPE* pSoldier ){
+void popupCallbackAmmo(UINT16 item, UINT16 pocket, TacticalActor* pSoldier ){
 
 	if(!(IsJa2TacticalCombatActive()))
 	{
@@ -1959,7 +1963,7 @@ void popupCallbackAmmo(UINT16 item, UINT16 pocket, SOLDIERTYPE* pSoldier ){
 
 }
 
-void popupCallbackPlaceLeastDamagedFromStack(OBJECTTYPE * pObj, UINT16 pocket, SOLDIERTYPE* pSoldier ){
+void popupCallbackPlaceLeastDamagedFromStack(OBJECTTYPE * pObj, UINT16 pocket, TacticalActor* pSoldier ){
 
 	// can't be sure enough that it will fit
 	if ( CanItemFitInPosition(pSoldier, pObj, pocket, false) && !pSoldier->inventory()[pocket].exists() ) {
@@ -2012,10 +2016,10 @@ void popupCallbackPlaceLeastDamagedFromStack(OBJECTTYPE * pObj, UINT16 pocket, S
 }
 
 // THE_BOB: quick equip popups
-extern	BOOLEAN CanPlayerUseSectorInventory( SOLDIERTYPE *pSelectedSoldier );
+extern	BOOLEAN CanPlayerUseSectorInventory( TacticalActor *pSelectedSoldier );
 
 extern  void RenderTeamRegionBackground();
-void createMagPopupAfter(SOLDIERTYPE *pSoldier){	// after showing the menu, this callback marks the interface as dirty and redraws it
+void createMagPopupAfter(TacticalActor *pSoldier){	// after showing the menu, this callback marks the interface as dirty and redraws it
 	
 	fTeamPanelDirty = TRUE;
 	fMapPanelDirty = TRUE;
@@ -2050,7 +2054,7 @@ INT16 getStatusOfLeastDamagedItemInStack( OBJECTTYPE * stack ){
 // ugly hack to pretend that weapon class/type defines are bitfields
 static const int pow2[] = {1,2,4,8,16,32,64,128,256}; // I'm a funny man.
 
-std::map<UINT32,OBJECTTYPE*> findLeastDamagedStackForPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, int itemClass = -1, int weaponClass = -1, int weaponType = -1, int attachType = -1 ){
+std::map<UINT32,OBJECTTYPE*> findLeastDamagedStackForPopup( TacticalActor *pSoldier, INT16 sPocket, int itemClass = -1, int weaponClass = -1, int weaponType = -1, int attachType = -1 ){
 
 	std::map<UINT32,OBJECTTYPE*> bestItems;
 	std::map<UINT32,INT16> bestItemsStatus;
@@ -2090,7 +2094,7 @@ std::map<UINT32,OBJECTTYPE*> findLeastDamagedStackForPopup( SOLDIERTYPE *pSoldie
 
 // add generic items of some class to the popup, picking the best stacks in sector
 
-void addItemsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup, int itemClass = -1, int weaponClass = -1, int weaponType = -1, int attachType = -1 ){
+void addItemsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup, int itemClass = -1, int weaponClass = -1, int weaponType = -1, int attachType = -1 ){
 
 	std::map<UINT32,OBJECTTYPE*> bestItems = findLeastDamagedStackForPopup( pSoldier, sPocket, itemClass, weaponClass, weaponType, attachType );
 	
@@ -2139,13 +2143,13 @@ void addItemsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup, 
 
 			currPopup->addOption( 
 								std::wstring( pStr ),
-								new popupCallbackFunction3<void,OBJECTTYPE*,UINT16,SOLDIERTYPE*>(&popupCallbackPlaceLeastDamagedFromStack,itr->second,sPocket,pSoldier) 
+								new popupCallbackFunction3<void,OBJECTTYPE*,UINT16,TacticalActor*>(&popupCallbackPlaceLeastDamagedFromStack,itr->second,sPocket,pSoldier)
 								);
 
 		} else {
 			currPopup->addOption( 
 								std::wstring( Item[ itr->first ].szItemName ),
-								new popupCallbackFunction3<void,OBJECTTYPE*,UINT16,SOLDIERTYPE*>(&popupCallbackPlaceLeastDamagedFromStack,itr->second,sPocket,pSoldier) 
+								new popupCallbackFunction3<void,OBJECTTYPE*,UINT16,TacticalActor*>(&popupCallbackPlaceLeastDamagedFromStack,itr->second,sPocket,pSoldier)
 								);		
 		}
 
@@ -2155,25 +2159,25 @@ void addItemsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup, 
 
 }
 
-void addArmorToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addArmorToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_ARMOUR );
 
 }
 
-void addLBEToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addLBEToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_LBEGEAR );
 
 }
 
-void addWeaponsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addWeaponsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_WEAPON );
 
 }
 
-void addWeaponGroupsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addWeaponGroupsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	POPUP * subPopup = NULL;
 
@@ -2199,7 +2203,7 @@ void addWeaponGroupsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* 
 			if ( Weapon[ itr->first ].ubWeaponType == weaponTypeCtr )
 			weaponTypePopup->addOption( 
 								std::wstring( Item[ itr->first ].szItemName ),
-								new popupCallbackFunction3<void,OBJECTTYPE*,UINT16,SOLDIERTYPE*>(&popupCallbackPlaceLeastDamagedFromStack,itr->second,sPocket,pSoldier) 
+								new popupCallbackFunction3<void,OBJECTTYPE*,UINT16,TacticalActor*>(&popupCallbackPlaceLeastDamagedFromStack,itr->second,sPocket,pSoldier)
 								);
 		}
 
@@ -2226,51 +2230,51 @@ void addWeaponGroupsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* 
 
 }
 
-void addGrenadesToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addGrenadesToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_GRENADE, -1, -1, 0 );
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_GRENADE, -1, -1, AC_GRENADE );
 
 }
 
-void addRifleGrenadesToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addRifleGrenadesToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_GRENADE, -1, -1, AC_GRENADE );
 
 }
 
-void addRocketAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addRocketAmmoToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_GRENADE, -1, -1, AC_ROCKET );
 
 }
 
-void addKitsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addKitsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_MEDKIT + IC_KIT );
 
 }
 
-void addBombsToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addBombsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_BOMB );
 
 }
 
-void addMiscToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addMiscToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_MISC, -1, -1, 1 );
 
 }
 
-void addFaceGearToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup ){
+void addFaceGearToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup ){
 
 	addItemsToPocketPopup( pSoldier, sPocket, popup, IC_FACE );
 
 }
 
 
-void addAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup )
+void addAmmoToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup )
 {
 	// get the guns on current soldier
 	std::vector<OBJECTTYPE *> * guns = getSoldierGuns(pSoldier);
@@ -2334,7 +2338,7 @@ void addAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup )
 								static CHAR16 pStr[ 100 ];
 								swprintf( pStr, L"%s (%d)", Item[loop].szItemName,capacity );
 
-								popup->addOption( std::wstring( pStr ), new popupCallbackFunction3<void,UINT16,UINT16,SOLDIERTYPE*>(&popupCallbackAmmo,loop,sPocket,pSoldier) );
+								popup->addOption( std::wstring( pStr ), new popupCallbackFunction3<void,UINT16,UINT16,TacticalActor*>(&popupCallbackAmmo,loop,sPocket,pSoldier) );
 
 							} // found ammo crate, crate matches mag
 						} // inv loop
@@ -2358,8 +2362,8 @@ void addAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup )
 	}
 }
 
-POPUP * createPopupForPocket( SOLDIERTYPE *pSoldier, INT16 sPocket ){
-	SOLDIERTYPE* pSelectedSoldier =
+POPUP * createPopupForPocket( TacticalActor *pSoldier, INT16 sPocket ){
+	TacticalActor* pSelectedSoldier =
 		bSelectedInfoChar >= 0
 			? GetJa2SoldierRepository().resolve(
 				gCharactersList[bSelectedInfoChar].usSolID.i)
@@ -2390,12 +2394,12 @@ POPUP * createPopupForPocket( SOLDIERTYPE *pSoldier, INT16 sPocket ){
 	*/
 		if (!sPocketPopupInitialized) {
 			sPocketPopup = new POPUP("Pocket popup");
-			sPocketPopup->setCallback(POPUP_CALLBACK_HIDE, new popupCallbackFunction<void,SOLDIERTYPE*>( createMagPopupAfter,pSoldier ) );
+			sPocketPopup->setCallback(POPUP_CALLBACK_HIDE, new popupCallbackFunction<void,TacticalActor*>( createMagPopupAfter,pSoldier ) );
 			sPocketPopupInitialized = true;
 		} else {
 			delete sPocketPopup;
 			sPocketPopup = new POPUP("Pocket popup");
-			sPocketPopup->setCallback(POPUP_CALLBACK_HIDE, new popupCallbackFunction<void,SOLDIERTYPE*>( createMagPopupAfter,pSoldier ) );
+			sPocketPopup->setCallback(POPUP_CALLBACK_HIDE, new popupCallbackFunction<void,TacticalActor*>( createMagPopupAfter,pSoldier ) );
 		}
 
 		sX = gSMInvData[ sPocket ].sX;
@@ -2426,7 +2430,7 @@ POPUP * createPopupForPocket( SOLDIERTYPE *pSoldier, INT16 sPocket ){
 */
 }
 
-void PocketPopupFull( SOLDIERTYPE *pSoldier, INT16 sPocket ){
+void PocketPopupFull( TacticalActor *pSoldier, INT16 sPocket ){
 
 	POPUP * popup = createPopupForPocket( pSoldier, sPocket );
 
@@ -2488,7 +2492,7 @@ typedef enum ePOCKET_TYPE
 
 UINT16 gsPocketUnderCursor;
 
-void PocketPopupDefault( SOLDIERTYPE *pSoldier, INT16 sPocket ){
+void PocketPopupDefault( TacticalActor *pSoldier, INT16 sPocket ){
 
 	POPUP * popup = createPopupForPocket( pSoldier, sPocket );
 
@@ -2552,7 +2556,7 @@ void PocketPopupDefault( SOLDIERTYPE *pSoldier, INT16 sPocket ){
 // THE_BOB: end of inventory popups
 
 
-void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLevel )
+void INVRenderINVPanelItem( TacticalActor *pSoldier, INT16 sPocket, UINT8 fDirtyLevel )
 {
 	// CHRISL: Only run if we're looking at a legitimate pocket
 	if((UsingNewInventorySystem() == false) && !oldInv[sPocket])
@@ -2744,7 +2748,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 					//Jenilee: determine the cost of moving this item around in our inventory
 					UINT16 usCostToMoveItem = GetInvMovementCost(gpItemPointer, iLastHandPos, sPocket);
 					// Flugente: backgrounds
-					usCostToMoveItem = (usCostToMoveItem * (100 + pSoldier->GetBackgroundValue(BG_INVENTORY))) / 100;
+					usCostToMoveItem = (usCostToMoveItem * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_INVENTORY))) / 100;
 
 					//we dont have enough APs to move it to this slot
 					if (usCostToMoveItem > 0 && pSoldier->actionPoints().current() < usCostToMoveItem && pSoldier->inventory()[iLastHandPos].usItem == NULL)
@@ -2850,7 +2854,7 @@ BOOLEAN	CompatibleItemForApplyingOnMerc(OBJECTTYPE *pTestObject)
 
 
 
-BOOLEAN SoldierContainsAnyCompatibleStuff( SOLDIERTYPE *pSoldier, OBJECTTYPE *pTestObject )
+BOOLEAN SoldierContainsAnyCompatibleStuff( TacticalActor *pSoldier, OBJECTTYPE *pTestObject )
 {
 	UINT32				cnt;
 	OBJECTTYPE  *pObject;
@@ -2900,7 +2904,7 @@ void HandleAnyMercInSquadHasCompatibleStuff( UINT8 ubSquad, OBJECTTYPE *pObject,
 
 	for( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; ++iCounter )
 	{
-		SOLDIERTYPE* squadMember =
+		TacticalActor* squadMember =
 			ResolveSquadMember( iCurrentTacticalSquad, iCounter );
 		if( squadMember != NULL )
 		{
@@ -2942,7 +2946,7 @@ BOOLEAN IsMutuallyValidAttachmentOrLaunchable(UINT16 usAttItem, UINT16 usItem)//
 	return(FALSE);
 }
 
-BOOLEAN HandleCompatibleAmmoUIForMapScreen( SOLDIERTYPE *pSoldier, INT32 bInvPos, BOOLEAN fOn, BOOLEAN fFromMerc   )
+BOOLEAN HandleCompatibleAmmoUIForMapScreen( TacticalActor *pSoldier, INT32 bInvPos, BOOLEAN fOn, BOOLEAN fFromMerc   )
 {
 	BOOLEAN		fFound = FALSE;
 	UINT32		cnt;
@@ -3099,7 +3103,7 @@ BOOLEAN HandleCompatibleAmmoUIForMapScreen( SOLDIERTYPE *pSoldier, INT32 bInvPos
 	return( fFound );
 }
 
-BOOLEAN HandleCompatibleAmmoUIForMapInventory(SOLDIERTYPE *pSoldier, INT32 bInvPos, INT32 iStartSlotNumber, BOOLEAN fOn, BOOLEAN fFromMerc)
+BOOLEAN HandleCompatibleAmmoUIForMapInventory(TacticalActor *pSoldier, INT32 bInvPos, INT32 iStartSlotNumber, BOOLEAN fOn, BOOLEAN fFromMerc)
 {
 	BOOLEAN		fFound = FALSE;
 	INT32		cnt;
@@ -3205,7 +3209,7 @@ BOOLEAN HandleCompatibleAmmoUIForMapInventory(SOLDIERTYPE *pSoldier, INT32 bInvP
 }
 
 
-BOOLEAN InternalHandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, OBJECTTYPE *pTestObject, BOOLEAN fOn  )
+BOOLEAN InternalHandleCompatibleAmmoUI( TacticalActor *pSoldier, OBJECTTYPE *pTestObject, BOOLEAN fOn  )
 {
 	BOOLEAN		fFound = FALSE;
 	UINT32		cnt;
@@ -3407,7 +3411,7 @@ void ResetCompatibleItemArray( )
 	}
 }
 
-BOOLEAN HandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, INT8 bInvPos, BOOLEAN fOn )
+BOOLEAN HandleCompatibleAmmoUI( TacticalActor *pSoldier, INT8 bInvPos, BOOLEAN fOn )
 {
 	INT32 cnt;
 	OBJECTTYPE  *pTestObject;
@@ -3493,7 +3497,7 @@ void GetSlotInvHeightWidth( UINT8 ubPos, INT16 *psWidth, INT16 *psHeight )
 	*psHeight   = gSMInvData[ ubPos ].sHeight;
 }
 
-void HandleNewlyAddedItems( SOLDIERTYPE *pSoldier, BOOLEAN *fDirtyLevel )
+void HandleNewlyAddedItems( TacticalActor *pSoldier, BOOLEAN *fDirtyLevel )
 {
 	// If item description up.... stop
 	if ( gfInItemDescBox )
@@ -3531,7 +3535,7 @@ void HandleNewlyAddedItems( SOLDIERTYPE *pSoldier, BOOLEAN *fDirtyLevel )
 	}
 }
 
-void CheckForAnyNewlyAddedItems( SOLDIERTYPE *pSoldier )
+void CheckForAnyNewlyAddedItems( TacticalActor *pSoldier )
 {
 	// OK, l0ok for any new...
 	UINT32 invsize = pSoldier->inventory().size();
@@ -3547,7 +3551,7 @@ void CheckForAnyNewlyAddedItems( SOLDIERTYPE *pSoldier )
 void DegradeNewlyAddedItems( )
 {
 	UINT32 uiTime;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 
 	// If time done
 	uiTime = GetJA2Clock();
@@ -3612,7 +3616,7 @@ void InitItemInterface( )
 }
 
 // CHRISL: Function to display pocket inventory quantity based on object in cursor
-void RenderPocketItemCapacity( UINT32 uiWhichBuffer, INT8 pCapacity, INT16 bPos, SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT16 sX, INT16 sY )
+void RenderPocketItemCapacity( UINT32 uiWhichBuffer, INT8 pCapacity, INT16 bPos, TacticalActor *pSoldier, OBJECTTYPE *pObj, INT16 sX, INT16 sY )
 {
 	static CHAR16		pStr[ 100 ];
 
@@ -3738,7 +3742,7 @@ UINT8 GetTemperatureString( FLOAT overheatpercentage, UINT32* apRed, UINT32* apG
 	return 8;
 }
 
-void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObject, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel, UINT8 *pubHighlightCounter, UINT8 ubStatusIndex, BOOLEAN fOutline, PIXEL sOutlineColor, UINT8 iter )
+void INVRenderItem( UINT32 uiBuffer, TacticalActor * pSoldier, OBJECTTYPE  *pObject, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel, UINT8 *pubHighlightCounter, UINT8 ubStatusIndex, BOOLEAN fOutline, PIXEL sOutlineColor, UINT8 iter )
 {
 	UINT16								uiStringLength;
 	INVTYPE								*pItem;
@@ -3974,7 +3978,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 				OBJECTTYPE*	pObjShown = pObject;
 
 				if ( pSoldier )
-					pObjShown = pSoldier->GetUsedWeapon(pObject);
+					pObjShown = TacticalActorEquipment::usedWeapon(*pSoldier, pObject);
 
 				FLOAT overheatjampercentage = GetGunOverheatDisplayPercentage( pObjShown );
 												
@@ -4440,9 +4444,9 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 	}
 }
 
-void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel )
+void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, TacticalActor *pSoldier, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, UINT8 fDirtyLevel )
 {
-	SOLDIERTYPE *pVehicle = NULL;
+	TacticalActor *pVehicle = NULL;
 	INT16		sNewY, sNewX;
 
 	static CHAR16					pStr[ 100 ], pStr2[ 100 ];
@@ -4498,7 +4502,7 @@ void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, SOLDI
 // This function works largely like the one above it, with several exceptions. For one, the BigItemPic is used,
 // which allows us to add lots of data. Since this is only used in the sector inventory, we can forgo things
 // like dirtylevels and just draw everything here.
-void MAPINVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObject, UINT32 uiItemGraphicNum, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, BOOLEAN fOutline, PIXEL sOutlineColor )
+void MAPINVRenderItem( UINT32 uiBuffer, TacticalActor * pSoldier, OBJECTTYPE  *pObject, UINT32 uiItemGraphicNum, INT16 sX, INT16 sY, INT16 sWidth, INT16 sHeight, BOOLEAN fOutline, PIXEL sOutlineColor )
 {
 	UINT16 uiStringLength;
 	INVTYPE	*pItem;
@@ -4964,7 +4968,7 @@ BOOLEAN InItemDescriptionBox( )
 void CycleItemDescriptionItem( INT16 sX, INT16 sY )
 {
 	INT16 usOldItem;
-	SOLDIERTYPE* descriptionOwner = GetItemDescSoldier();
+	TacticalActor* descriptionOwner = GetItemDescSoldier();
 	if (!descriptionOwner)
 	{
 		DeleteItemDescriptionBox();
@@ -5021,7 +5025,7 @@ INT16 CycleItems( UINT16 usOldItem )
 	return(usOldItem);
 }
 
-BOOLEAN InitItemDescriptionBox( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sX, INT16 sY, UINT8 ubStatusIndex )
+BOOLEAN InitItemDescriptionBox( TacticalActor *pSoldier, UINT8 ubPosition, INT16 sX, INT16 sY, UINT8 ubStatusIndex )
 {
 	OBJECTTYPE *pObject;
 
@@ -5128,7 +5132,7 @@ void InitItemDescriptionBoxStartCoords( BOOLEAN fIsEnhanced, BOOLEAN fUsingNAS )
 	}
 }
 
-BOOLEAN InitKeyItemDescriptionBox( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sX, INT16 sY, UINT8 ubStatusIndex )
+BOOLEAN InitKeyItemDescriptionBox( TacticalActor *pSoldier, UINT8 ubPosition, INT16 sX, INT16 sY, UINT8 ubStatusIndex )
 {
 	OBJECTTYPE *pObject;
 
@@ -5138,7 +5142,7 @@ BOOLEAN InitKeyItemDescriptionBox( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT1
 	return( InternalInitItemDescriptionBox( pObject, sX, sY, ubStatusIndex, pSoldier ) );
 }
 
-BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY, UINT8 ubStatusIndex, SOLDIERTYPE *pSoldier, UINT8 ubPosition )
+BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY, UINT8 ubStatusIndex, TacticalActor *pSoldier, UINT8 ubPosition )
 {
 	VOBJECT_DESC    VObjectDesc;
 	CHAR8 ubString[48];
@@ -5884,7 +5888,7 @@ void UpdateAttachmentTooltips(OBJECTTYPE *pObject, UINT8 ubStatusIndex)
 					}
 				}
 				BOOLEAN showAttachmentPopups = FALSE;
-				SOLDIERTYPE* pSoldier =
+				TacticalActor* pSoldier =
 					bSelectedInfoChar >= 0
 						? GetJa2SoldierRepository().resolve(
 							gCharactersList[bSelectedInfoChar].usSolID.i)
@@ -6442,7 +6446,8 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					else if ( (GetCurrentScreen() == MAP_SCREEN) || (GetCurrentScreen() == MSG_BOX_SCREEN) )
 					{
 						// no explosions in map screen - instead we simply damage the inventory and harm our health
-						GetItemPointerSoldier()->InventoryExplosion();
+						TacticalActorExplosives::applyInventoryExplosion(
+							*GetItemPointerSoldier());
 					}
 
 					DeleteObj( gpItemDescObject );
@@ -8142,7 +8147,7 @@ void RenderLBENODEItems( OBJECTTYPE *pObj, int subObject )
 	extern int			PLAYER_INFO_X;
 	extern int			PLAYER_INFO_Y;
 	INV_REGIONS			LBEInvPocketXY[12];
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	OBJECTTYPE	*pObject;
 	INT16		sX, sY;
 	INT16		sBarX, sBarY;
@@ -8662,7 +8667,7 @@ void DeleteItemDescriptionBox( )
 }
 
 
-void InternalBeginItemPointer( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, INT8 bHandPos )
+void InternalBeginItemPointer( TacticalActor *pSoldier, OBJECTTYPE *pObject, INT8 bHandPos )
 {
 //	BOOLEAN fOk;
 
@@ -8692,7 +8697,7 @@ void InternalBeginItemPointer( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, INT8 
 	gfReEvaluateEveryonesNothingToDo = TRUE;
 }
 
-void BeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
+void BeginItemPointer( TacticalActor *pSoldier, UINT8 ubHandPos )
 {
 	int numToMove = 0;
 	if (_KeyDown( SHIFT ))
@@ -8721,7 +8726,7 @@ void BeginItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
 }
 
 
-void BeginKeyRingItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubKeyRingPosition )
+void BeginKeyRingItemPointer( TacticalActor *pSoldier, UINT8 ubKeyRingPosition )
 {
 	BOOLEAN fOk;
 
@@ -8824,7 +8829,7 @@ void HideItemTileCursor( )
 
 }
 
-BOOLEAN SoldierCanSeeCatchComing( SOLDIERTYPE *pSoldier, INT32 sSrcGridNo )
+BOOLEAN SoldierCanSeeCatchComing( TacticalActor *pSoldier, INT32 sSrcGridNo )
 {
 	return( TRUE );
 /*-
@@ -8875,7 +8880,7 @@ void DrawItemTileCursor( )
 	UINT32			uiCursorFlags;
 	INT32			sFinalGridNo;
 	UINT32			uiCursorId = CURSOR_ITEM_GOOD_THROW;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	BOOLEAN			fGiveItem = FALSE;
 	INT32			sActionGridNo;
 	UINT8			ubDirection;
@@ -8895,7 +8900,7 @@ void DrawItemTileCursor( )
 	{
 		if ( gfUIFullTargetFound )
 		{
-			SOLDIERTYPE* fullTarget =
+			TacticalActor* fullTarget =
 				GetJa2SoldierRepository().resolve(gusUIFullTargetID.i);
 			if (fullTarget)
 			{
@@ -9114,7 +9119,7 @@ void DrawItemTileCursor( )
 					{
 						if ( gfUIMouseOnValidCatcher )
 						{
-							SOLDIERTYPE* validCatcher =
+							TacticalActor* validCatcher =
 								GetJa2SoldierRepository().resolve(
 									gubUIValidCatcherID.i);
 							if (validCatcher)
@@ -9187,7 +9192,7 @@ void DrawItemTileCursor( )
 }
 
 
-BOOLEAN IsValidAmmoToReloadRobot( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject )
+BOOLEAN IsValidAmmoToReloadRobot( TacticalActor *pSoldier, OBJECTTYPE *pObject )
 {
 	if ( !CompatibleAmmoForGun( pObject, &( pSoldier->inventory()[ HANDPOS ] ) ) )
 	{
@@ -9239,15 +9244,15 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	SoldierID		ubSoldierID;
 	UINT16			usItem;
 	INT16			sAPCost;
-	SOLDIERTYPE		*pSoldier=NULL;
+	TacticalActor		*pSoldier=NULL;
 	UINT8			ubThrowActionCode=0;
 	UINT32			uiThrowActionData=0;
 	INT16			sEndZ = 0;
 	BOOLEAN			fGiveItem = FALSE;
 	INT32			sGridNo;
 	INT16			sDist;
-	SOLDIERTYPE* fullTarget = nullptr;
-	SOLDIERTYPE* giveTarget = nullptr;
+	TacticalActor* fullTarget = nullptr;
+	TacticalActor* giveTarget = nullptr;
 
 	if ( gfUIFullTargetFound )
 	{
@@ -9732,7 +9737,7 @@ BOOLEAN InKeyRingPopup( )
 	return( gfInKeyRingPopup );
 }
 
-BOOLEAN InitSectorStackPopup( SOLDIERTYPE *pSoldier, WORLDITEM *pInventoryPoolList, INT32 ubPosition, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight )
+BOOLEAN InitSectorStackPopup( TacticalActor *pSoldier, WORLDITEM *pInventoryPoolList, INT32 ubPosition, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight )
 {
 	VOBJECT_DESC    VObjectDesc;
 	SGPRect			aRect;
@@ -9844,7 +9849,7 @@ BOOLEAN InitSectorStackPopup( SOLDIERTYPE *pSoldier, WORLDITEM *pInventoryPoolLi
 	return( TRUE );
 }
 
-BOOLEAN InitItemStackPopup( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight )
+BOOLEAN InitItemStackPopup( TacticalActor *pSoldier, UINT8 ubPosition, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight )
 {
 	VOBJECT_DESC    VObjectDesc;
 	SGPRect			aRect;
@@ -10126,7 +10131,7 @@ void RenderItemStackPopup( BOOLEAN fFullRender )
 	//CHRISL: resize usPopupWidth based on popup stack location
 	if(UsingNewInventorySystem() == true || ubPosition == -1)
 	{
-		SOLDIERTYPE* popupSoldier =
+		TacticalActor* popupSoldier =
 			GetJa2SoldierRepository().resolve(sID);
 		if(ubPosition == -1 || (ubPosition >=BIGPOCKSTART && ubPosition < BIGPOCKFINAL) || (gGameExternalOptions.fVehicleInventory && popupSoldier && (popupSoldier->status().flags() & SOLDIER_VEHICLE)))
 		{
@@ -10227,7 +10232,7 @@ void DeleteItemStackPopup( )
 }
 
 
-BOOLEAN InitKeyRingPopup( SOLDIERTYPE *pSoldier, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight )
+BOOLEAN InitKeyRingPopup( TacticalActor *pSoldier, INT16 sInvX, INT16 sInvY, INT16 sInvWidth, INT16 sInvHeight )
 {
 	VOBJECT_DESC    VObjectDesc;
 	SGPRect			aRect;
@@ -10716,7 +10721,7 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN)
 	{
-		SOLDIERTYPE* pSelected =
+		TacticalActor* pSelected =
 			bSelectedInfoChar >= 0
 				? GetJa2SoldierRepository().resolve(
 					gCharactersList[bSelectedInfoChar].usSolID.i)
@@ -10725,7 +10730,7 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		{
 			return;
 		}
-		SOLDIERTYPE* popupSoldier =
+		TacticalActor* popupSoldier =
 			GetJa2SoldierRepository().resolve(ubID.i);
 		if (!popupSoldier)
 		{
@@ -11059,7 +11064,7 @@ void SetItemPickupMenuDirty( BOOLEAN fDirtyLevel )
 }
 
 
-BOOLEAN InitializeItemPickupMenu( SOLDIERTYPE *pSoldier, INT32 sGridNo, ITEM_POOL *pItemPool, INT16 sScreenX, INT16 sScreenY, INT8 bZLevel )
+BOOLEAN InitializeItemPickupMenu( TacticalActor *pSoldier, INT32 sGridNo, ITEM_POOL *pItemPool, INT16 sScreenX, INT16 sScreenY, INT8 bZLevel )
 {
   VOBJECT_DESC    VObjectDesc;
 	CHAR8						ubString[48];
@@ -11676,7 +11681,7 @@ void RenderItemPickupMenu( )
 				{
 					SoldierID backpackOwnerId =
 						gWorldItems[gItemPickupMenu.ItemPoolSlots[cnt]->iItemIndex].soldierID;
-					SOLDIERTYPE* backpackOwner =
+					TacticalActor* backpackOwner =
 						backpackOwnerId != NOBODY
 							? GetJa2SoldierRepository().resolve(backpackOwnerId.i)
 							: nullptr;
@@ -11707,7 +11712,7 @@ void RenderItemPickupMenu( )
 void RemoveItemPickupMenu( )
 {
 	INT32 cnt;
-	SOLDIERTYPE* pickupActor = GetItemPickupActor();
+	TacticalActor* pickupActor = GetItemPickupActor();
 
 	if ( gfInItemPickupMenu )
 	{
@@ -11786,7 +11791,7 @@ void RemoveItemPickupMenu( )
 		// Turn off Ignore scrolling
 		gfIgnoreScrolling = FALSE;
 		DisableTacticalTeamPanelButtons( FALSE );
-		if (SOLDIERTYPE* selectedMerc = GetSMCurrentMerc())
+		if (TacticalActor* selectedMerc = GetSMCurrentMerc())
 			gubSelectSMPanelToMerc = selectedMerc->identity().id();
 		else
 			gubSelectSMPanelToMerc = NOBODY;
@@ -11891,8 +11896,8 @@ void ItemPickupOK( GUI_BUTTON *btn, INT32 reason )
 
 		// OK, pickup item....
 		gItemPickupMenu.fHandled = TRUE;
-		SOLDIERTYPE* pickupActor = GetItemPickupActor();
-		SOLDIERTYPE* pickupOpponent = GetItemPickupOpponent();
+		TacticalActor* pickupActor = GetItemPickupActor();
+		TacticalActor* pickupOpponent = GetItemPickupOpponent();
 		if (!pickupActor || (gfStealing && !pickupOpponent))
 			return;
 
@@ -12359,7 +12364,7 @@ void RemoveMoney()
 }
 
 
-void GetHelpTextForItem( CHAR16 *pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldier, int subObject )
+void GetHelpTextForItem( CHAR16 *pzStr, OBJECTTYPE *pObject, TacticalActor *pSoldier, int subObject )
 {
 	CHAR16	pStr[ 500 ];
 	UINT16	usItem = pObject->usItem;
@@ -13173,7 +13178,7 @@ BOOLEAN SaveItemCursorToSavedGame( HWFILE hFile )
 
 void UpdateItemHatches()
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
   if ( guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN )
   {
@@ -13197,7 +13202,7 @@ void UpdateItemHatches()
 /**
  * jackaians: copied from InitializeItemPickupMenu
  */
-BOOLEAN InitializeStealItemPickupMenu( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, ITEM_POOL *pItemPool, UINT8 ubCount)
+BOOLEAN InitializeStealItemPickupMenu( TacticalActor *pSoldier, TacticalActor *pOpponent, ITEM_POOL *pItemPool, UINT8 ubCount)
 {
   VOBJECT_DESC		VObjectDesc;
 	CHAR8			ubString[48];
@@ -14065,7 +14070,8 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 			else
 			{
 				// no explosions in map screen - instead we simply damage the inventory and harm our health
-				GetItemDescSoldier()->InventoryExplosion();
+				TacticalActorExplosives::applyInventoryExplosion(
+					*GetItemDescSoldier());
 			}
 
 			// Flugente: blowing up bombs in our inventory can be used to indirectly kill as a spy (via mustard gas), so make this a suspicious action
@@ -14242,7 +14248,8 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 				else if ( (screen == MAP_SCREEN) || (screen == MSG_BOX_SCREEN) )
 				{
 					// no explosions in map screen - instead we simply damage the inventory and harm our health
-					GetItemDescSoldier()->InventoryExplosion();
+					TacticalActorExplosives::applyInventoryExplosion(
+						*GetItemDescSoldier());
 				}
 
 				DeleteObj( gpItemDescObject );
@@ -14270,7 +14277,7 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 			}
 
 			// Flugente: backgrounds
-			if ( GetItemDescSoldier()->HasBackgroundFlag( BACKGROUND_TRAPLEVEL ) )
+			if ( TacticalActorModifiers::hasBackgroundFlag(*GetItemDescSoldier(), BACKGROUND_TRAPLEVEL ) )
 				(*gpItemDescObject)[0]->data.bTrap++;
 				
 			// Flugente: We armed a bomb in our inventory. We will NOT add it to the item pool and the world bombs.
@@ -14425,7 +14432,8 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 			else if ( GetCurrentScreen() == MAP_SCREEN || GetCurrentScreen() == MSG_BOX_SCREEN )
 			{
 				// no explosions in map screen - instead we simply damage the inventory and harm our health
-				GetItemDescSoldier()->InventoryExplosion();
+				TacticalActorExplosives::applyInventoryExplosion(
+					*GetItemDescSoldier());
 			}
 
 			DeleteObj( gpItemDescObject );
@@ -14811,7 +14819,7 @@ void ConfirmTransformationMessageBoxCallBack( UINT8 bExitValue )
 	}
 }
 
-BOOLEAN CheckPocketEmpty( SOLDIERTYPE *pSoldier, INT16 sPocket )
+BOOLEAN CheckPocketEmpty( TacticalActor *pSoldier, INT16 sPocket )
 {
 	if ( pSoldier == NULL )
 		return FALSE;
@@ -14896,7 +14904,7 @@ void UpdateMercBodyRegionHelpText( )
 	{
 		CHAR16 sString[6000];
 		CHAR16 pMoraleStr[128];
-		SOLDIERTYPE *pSoldier = NULL;
+		TacticalActor *pSoldier = NULL;
 
 		wcscpy( sString, L"" );
 
@@ -14939,7 +14947,7 @@ void UpdateMercBodyRegionHelpText( )
 
 					pSoldier->PrintFoodDesc( sString, TRUE );
 
-					pSoldier->PrintDiseaseDesc( sString, TRUE );
+					TacticalActorDisease::appendDescription(*pSoldier, sString, TRUE );
 
 					pSoldier->PrintSleepDesc( sString );
 				}

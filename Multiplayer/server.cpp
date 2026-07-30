@@ -225,7 +225,7 @@ void sendHIT(RPCParameters *rpcParameters)
 
 	// MP wire guard: the attacker id is raw wire data; the slot can be empty or
 	// the sentinel NOBODY -- never deref unchecked (mp_audit_findings.json)
-	SOLDIERTYPE* pAtt =
+	TacticalActor* pAtt =
 		hit->ubAttackerID != NOBODY
 			? GetJa2SoldierRepository().resolve(
 				hit->ubAttackerID.i)
@@ -384,7 +384,7 @@ void sendhitSTRUCT(RPCParameters *rpcParameters)
 {
 	EV_S_STRUCTUREHIT* miss = (EV_S_STRUCTUREHIT*)rpcParameters->input;
 	
-	SOLDIERTYPE* attacker =
+	TacticalActor* attacker =
 		miss->ubAttackerID != NOBODY
 			? GetJa2SoldierRepository().resolve(
 				miss->ubAttackerID.i)
@@ -414,7 +414,7 @@ void sendhitWINDOW(RPCParameters *rpcParameters)
 	EV_S_WINDOWHIT* miss = (EV_S_WINDOWHIT*)rpcParameters->input;
 	
 
-	SOLDIERTYPE* attacker =
+	TacticalActor* attacker =
 		miss->ubAttackerID != NOBODY
 			? GetJa2SoldierRepository().resolve(
 				miss->ubAttackerID.i)
@@ -443,7 +443,7 @@ void sendMISS(RPCParameters *rpcParameters)
 {
 	EV_S_MISS* miss = (EV_S_MISS*)rpcParameters->input;
 
-	SOLDIERTYPE* attacker =
+	TacticalActor* attacker =
 		miss->ubAttackerID != NOBODY
 			? GetJa2SoldierRepository().resolve(
 				miss->ubAttackerID.i)

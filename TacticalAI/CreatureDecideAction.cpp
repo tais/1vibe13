@@ -10,7 +10,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 extern STR8 gStr8AlertStatus[];
 extern STR8 gStr8Attitude[];
@@ -67,13 +67,13 @@ INT8 gbHuntCallPriority[NUM_CREATURE_CALLS] =
 #define CALL_1_OPPONENT CALL_1_PREY
 #define CALL_MULTIPLE_OPPONENT CALL_MULTIPLE_PREY
 
-void CreatureCall( SOLDIERTYPE * pCaller )
+void CreatureCall( TacticalActor * pCaller )
 {
 	UINT8		ubCallerType=0;
 	SoldierID 	ubReceiver;
 	INT8			bFullPriority;
 	INT8			bPriority;
-	SOLDIERTYPE *pReceiver;
+	TacticalActor *pReceiver;
 	UINT16		usDistToCaller;
 	// communicate call to all creatures on map through ultrasonics
 
@@ -154,7 +154,7 @@ void CreatureCall( SOLDIERTYPE * pCaller )
 	}
 }
 
-INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
+INT8 CreatureDecideActionGreen( TacticalActor * pSoldier )
 {
 	INT32		iChance, iSneaky = 10;
 	//INT8		bInWater;
@@ -445,7 +445,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 	return(AI_ACTION_NONE);
 }
 
-INT8 CreatureDecideActionYellow( SOLDIERTYPE * pSoldier )
+INT8 CreatureDecideActionYellow( TacticalActor * pSoldier )
 {
 	// monster AI - heard something
 	UINT8 ubNoiseDir;
@@ -606,7 +606,7 @@ INT8 CreatureDecideActionYellow( SOLDIERTYPE * pSoldier )
 	return(AI_ACTION_NONE);
 }
 
-INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
+INT8 CreatureDecideActionRed(TacticalActor *pSoldier, UINT8 ubUnconsciousOK)
 {
  // monster AI - hostile mammals somewhere around!
  INT32 iChance, sClosestOpponent /*,sClosestOpponent,sClosestFriend*/;
@@ -910,7 +910,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 }
 
 
-INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
+INT8 CreatureDecideActionBlack( TacticalActor * pSoldier )
 {
 	// monster AI - hostile mammals in sense range
  INT32		sClosestOpponent,sBestCover = NOWHERE;
@@ -1159,7 +1159,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 						// if the selected opponent is not a threat (unconscious & !serviced)
 						// (usually, this means all the guys we see our unconscious, but, on
 						//	rare occasions, we may not be able to shoot a healthy guy, too)
-						SOLDIERTYPE* bestOpponent =
+						TacticalActor* bestOpponent =
 							GetJa2SoldierRepository().resolve(
 								BestShot.ubOpponent.i);
 						if (bestOpponent &&
@@ -1471,7 +1471,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 
 
 
-INT8 CreatureDecideAction( SOLDIERTYPE *pSoldier )
+INT8 CreatureDecideAction( TacticalActor *pSoldier )
 {
 	INT8 bAction = AI_ACTION_NONE;
 
@@ -1515,7 +1515,7 @@ INT8 CreatureDecideAction( SOLDIERTYPE *pSoldier )
 	return(bAction);
 }
 
-void CreatureDecideAlertStatus( SOLDIERTYPE *pSoldier )
+void CreatureDecideAlertStatus( TacticalActor *pSoldier )
 {
 	INT8	bOldStatus;
 	INT32	iDummy;

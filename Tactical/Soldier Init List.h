@@ -10,7 +10,7 @@ typedef struct SOLDIERINITNODE
 	UINT16 ubSoldierID;
 	BASIC_SOLDIERCREATE_STRUCT *pBasicPlacement;
 	SOLDIERCREATE_STRUCT *pDetailedPlacement;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	struct SOLDIERINITNODE *prev;
 	struct SOLDIERINITNODE *next;
 }SOLDIERINITNODE;
@@ -54,7 +54,7 @@ void UseEditorOriginalList();
 void UseEditorAlternateList();
 void AddPlacementToWorldByProfileID( UINT8 ubProfile );
 
-void EvaluateDeathEffectsToSoldierInitList( SOLDIERTYPE *pSoldier );
+void EvaluateDeathEffectsToSoldierInitList( TacticalActor *pSoldier );
 void RemoveDetailedPlacementInfo( UINT16 ubNodeID );
 
 void AddProfilesUsingProfileInsertionData();

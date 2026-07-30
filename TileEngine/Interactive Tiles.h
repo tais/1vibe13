@@ -17,16 +17,16 @@ void GetLevelNodeScreenRect( LEVELNODE *pNode, SGPRect *pRect, INT16 sXPos, INT1
 BOOLEAN InitInteractiveTileManagement( );
 void ShutdownInteractiveTileManagement( );
 BOOLEAN AddInteractiveTile( INT32 sGridNo, LEVELNODE *pLevelNode, UINT32 uiFlags, UINT16 usType );
-BOOLEAN StartInteractiveObject( INT32 sGridNo, UINT16 usStructureID, SOLDIERTYPE *pSoldier, UINT8 ubDirection );
-BOOLEAN StartInteractiveObjectFromMouse( SOLDIERTYPE *pSoldier, UINT8 ubDirection );
+BOOLEAN StartInteractiveObject( INT32 sGridNo, UINT16 usStructureID, TacticalActor *pSoldier, UINT8 ubDirection );
+BOOLEAN StartInteractiveObjectFromMouse( TacticalActor *pSoldier, UINT8 ubDirection );
 void CompileInteractiveTiles( );
 UINT32	GetInteractiveTileCursor( UINT32 uiOldCursor, BOOLEAN fConfirm );
-BOOLEAN InteractWithInteractiveObject( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection );
-BOOLEAN SoldierHandleInteractiveObject( SOLDIERTYPE *pSoldier );
+BOOLEAN InteractWithInteractiveObject( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection );
+BOOLEAN SoldierHandleInteractiveObject( TacticalActor *pSoldier );
 
-BOOLEAN CalcInteractiveObjectAPs( SOLDIERTYPE * pSoldier, INT32 sGridNo, STRUCTURE * pStructure, INT16 *psAPCost, INT16 *psBPCost ); // SANDRO - added argument
+BOOLEAN CalcInteractiveObjectAPs( TacticalActor * pSoldier, INT32 sGridNo, STRUCTURE * pStructure, INT16 *psAPCost, INT16 *psBPCost ); // SANDRO - added argument
 
-void HandleStructChangeFromGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo );
+void HandleStructChangeFromGridNo( TacticalActor *pSoldier, INT32 sGridNo );
 
 
 void BeginCurInteractiveTileCheck( UINT8 bCheckFlags );

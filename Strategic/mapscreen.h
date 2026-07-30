@@ -136,7 +136,7 @@ extern BOOLEAN gfInChangeArrivalSectorMode;
 
 extern BOOLEAN gfSkyriderEmptyHelpGiven;
 
-extern std::vector<SOLDIERTYPE*> gSelectedSoldiers;
+extern std::vector<TacticalActor*> gSelectedSoldiers;
 
 
 BOOLEAN SetInfoChar(SoldierID ubID);
@@ -171,7 +171,7 @@ void CancelChangeArrivalSectorMode( void );
 void ExplainWhySkyriderCantFly( void );
 
 BOOLEAN CanChangeSleepStatusForCharSlot( INT16 bCharNumber );
-BOOLEAN CanChangeSleepStatusForSoldier( SOLDIERTYPE *pSoldier );
+BOOLEAN CanChangeSleepStatusForSoldier( TacticalActor *pSoldier );
 
 BOOLEAN MapCharacterHasAccessibleInventory( INT16 bCharNumber );
 

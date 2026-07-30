@@ -8,7 +8,7 @@
 // effects, if any.
 INT16 GetFacilityModifier( UINT8 ubModifierType, UINT8 ubFacilityType, UINT8 ubAssignmentType );
 // Get a specific modifier from all facilities in the soldier's sector. This utilizes the above function.
-INT16 GetSectorModifier( SOLDIERTYPE *pSoldier, UINT8 ubModifierType );
+INT16 GetSectorModifier( TacticalActor *pSoldier, UINT8 ubModifierType );
 
 // Level of awareness to enemy movements, bestowed by facilities
 extern void UpdateStrategicDetectionLevel( ); 
@@ -72,10 +72,10 @@ void HandleManualPaymentFacilityDebt( void );
 void HandleHourlyRisks( void );
 
 INT32 MineIncomeModifierFromFacility( UINT8 ubMine );
-INT8 GetSoldierFacilityAssignmentIndex( SOLDIERTYPE *pSoldier );
-void HandleRisksForSoldier( SOLDIERTYPE *pSoldier );
-void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8 ubAssignmentType );
-INT16 FacilityRiskResult( SOLDIERTYPE *pSoldier, UINT8 ubRiskType, UINT8 ubFacilityType, UINT8 ubAssignmentType );
+INT8 GetSoldierFacilityAssignmentIndex( TacticalActor *pSoldier );
+void HandleRisksForSoldier( TacticalActor *pSoldier );
+void HandleRisksForSoldierFacilityAssignment( TacticalActor *pSoldier, UINT8 ubFacilityType, UINT8 ubAssignmentType );
+INT16 FacilityRiskResult( TacticalActor *pSoldier, UINT8 ubRiskType, UINT8 ubFacilityType, UINT8 ubAssignmentType );
 INT32 GetTotalFacilityHourlyCosts( BOOLEAN fPositive );
 
 void InitFacilities();

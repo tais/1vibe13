@@ -636,9 +636,9 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 	INT32						sOtherGridNo;
 
 	BOOLEAN fIgnorePeople = (BOOLEAN)(sExclusionID == IGNORE_PEOPLE_STRUCTURE_ID);
-	SOLDIERTYPE* movingSoldier =
+	TacticalActor* movingSoldier =
 		GetJa2SoldierRepository().resolve(sSoldierID.i);
-	SOLDIERTYPE* dragBuildSoldier =
+	TacticalActor* dragBuildSoldier =
 		GetJa2SoldierRepository().resolve(
 			gusTempDragBuildSoldierID.i);
 
@@ -729,7 +729,7 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 					// anv: drive through people 
 					if ( pExistingStructure->usStructureID < TOTAL_SOLDIERS )
 					{
-						SOLDIERTYPE *pSoldier =
+						TacticalActor *pSoldier =
 							GetJa2SoldierRepository().resolve(
 								pExistingStructure->usStructureID);
 						// but not monsters and such (they can't fall down due to lack of animations)
@@ -910,7 +910,7 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 					// anv: check if we try to add soldier hit by a vehicle under vehicle
 					if( sSoldierID != NOBODY && pExistingStructure->usStructureID < TOTAL_SOLDIERS )
 					{
-						SOLDIERTYPE* existingSoldier =
+						TacticalActor* existingSoldier =
 							GetJa2SoldierRepository().resolve(
 								pExistingStructure->usStructureID);
 						if( existingSoldier && existingSoldier->status().flags() & SOLDIER_VEHICLE )
@@ -1820,7 +1820,7 @@ INT8 DamageStructure( STRUCTURE * pStructure, UINT8 ubDamage, UINT8 ubReason, IN
 	// do damage to a structure; returns TRUE if the structure should be removed
 	STRUCTURE			*pBase;
 	UINT8				ubArmour;
-	SOLDIERTYPE* owner =
+	TacticalActor* owner =
 		GetJa2SoldierRepository().resolve(ubOwner.i);
 	
 	CHECKF( pStructure );

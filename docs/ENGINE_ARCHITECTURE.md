@@ -349,7 +349,7 @@ the engine must not contain SDL types in its public domain model.
   explicitly without inventing an item identity. Player stealing captures the
   target incarnation, grid, and floor through both its approach and animation
   event; position exchange captures both actors and positions and applies the
-  swap plus AP cost as one operation. The temporary SOLDIERTYPE pending-action
+  swap plus AP cost as one operation. The temporary TacticalActor pending-action
   bridge preserves these identities until movement completes, so a reused pool
   slot, moved actor or vehicle, or replaced world item cannot redirect the
   original intent. Each command is processed at the existing synchronous
@@ -365,7 +365,7 @@ the engine must not contain SDL types in its public domain model.
   generation where applicable. Raw records are resolved only when compatibility
   work resumes. A released/reused actor, changed hand item, or world transition
   therefore cancels the stale callback instead of dereferencing or retargeting
-  a global `SOLDIERTYPE*`. Architecture checks reject pointer capture APIs from
+  a global `TacticalActor*`. Architecture checks reject pointer capture APIs from
   returning. These references are runtime-only and do not alter soldier, save,
   map, or content layouts.
 - Multi-frame tactical UI sessions follow the same rule. Planning mode,
@@ -390,7 +390,7 @@ the engine must not contain SDL types in its public domain model.
   attacker remains the established fixed compatibility record but stores only
   its bounded slot and resolves the record at each use; its already-existing
   save fields now restore an in-progress raid without a null actor. Helicopter
-  dialogue no longer creates or passes a fake Skyrider `SOLDIERTYPE` at all,
+  dialogue no longer creates or passes a fake Skyrider `TacticalActor` at all,
   because the dialogue implementation consumes only the profile and quote.
   None of these changes modifies map, XML, Lua, package, or installed-data
   formats.
@@ -410,7 +410,7 @@ the engine must not contain SDL types in its public domain model.
   legacy source compatibility and is not instantiated by the runtime.
 - Pending NPC conversations, end-game death timers, insurance, dismissal, and
   automatic-surgery confirmations retain exact tactical-entity incarnations
-  instead of reusable `SOLDIERTYPE*` slots. A removed or replaced actor now
+  instead of reusable `TacticalActor*` slots. A removed or replaced actor now
   cancels the actor-specific work safely; end-game progression still continues
   without attributing the kill to a different slot occupant. Surgery prompts
   also clear both participants on every answer rather than leaving rejected
@@ -499,13 +499,13 @@ the engine must not contain SDL types in its public domain model.
   existing player-input sites while the command records only the chosen action.
   The application command API is now pointer-free at every producer:
   local UI, AI, dialogue, and network receive sites capture a complete
-  `TacticalEntityId` from the exact live `SOLDIERTYPE` through
+  `TacticalEntityId` from the exact live `TacticalActor` through
   `TacticalEntityHost` before dispatch. The public header contains neither a
   soldier record nor split slot/incarnation overloads. A detached object
   therefore captures an invalid identity and is rejected without consuming a
   command sequence or frame budget. Only the compatibility executor resolves
   command identities back to live records. Delayed actions that still store
-  pending state on `SOLDIERTYPE` are isolated in
+  pending state on `TacticalActor` are isolated in
   `Simulation Command Legacy.h`; they are completion seams, not command
   producer APIs. Replay and package ingress submit the same public values
   directly.
@@ -788,7 +788,7 @@ the engine must not contain SDL types in its public domain model.
 - `TacticalEntityDirectory` owns the bounded slot/incarnation identity used by
   commands, observations, and stale-reference rejection, plus the latest
   committed pointer-free `TacticalActorSnapshot`, while JA2 retains its fixed
-  `SOLDIERTYPE` compatibility storage. The host adopts, releases, and swaps pool
+  `TacticalActor` compatibility storage. The host adopts, releases, and swaps pool
   entries atomically with both identity and state; reuse or release retires the
   old projection in the same operation. Production command execution commits
   the resulting primary and peer actor projections before returning, and the
@@ -811,7 +811,7 @@ the engine must not contain SDL types in its public domain model.
   Whole-record portrait swaps rebuild directory identities and rebind every
   scheduler, squad, passenger, driver, and movement-group reference by
   canonical repository slot in the same operation, preserving the established
-  fixed-address behavior without retaining `SOLDIERTYPE*`. Deletion captures
+  fixed-address behavior without retaining `TacticalActor*`. Deletion captures
   identity before release and removes that exact actor even after directory
   resolution rejects it. The former `MercSlots`, `AwaySlots`, mutable
   high-water globals, global `Squad[][]` pointer matrix,
@@ -841,7 +841,7 @@ the engine must not contain SDL types in its public domain model.
   the outer application domains—Ja2 composition/save handling, Laptop, Utils,
   Editor, the Lua bridge, and Multiplayer—cannot name the backing storage
   directly. Former raw-array and character-list pointer walks resolve each
-  numeric slot independently and no longer assume contiguous `SOLDIERTYPE`
+  numeric slot independently and no longer assume contiguous `TacticalActor`
   memory. Every implicit `SoldierID`-to-pointer conversion has been removed
   from the value type itself, so lookups must name the repository explicitly
   in every target without a transitional compile definition. This includes
@@ -857,7 +857,7 @@ the engine must not contain SDL types in its public domain model.
   stack/keyring popup, and pickup/stealing menu. Its stable application host is
   a pointer-free producer boundary: callers capture a complete
   `TacticalEntityId`, copy identities directly between UI roles, and explicitly
-  clear absent actors. Raw `SOLDIERTYPE` resolution is isolated in
+  clear absent actors. Raw `TacticalActor` resolution is isolated in
   `TacticalInventoryUiLegacy.h` at compatibility consumption sites. Each
   resolution passes through `TacticalEntityDirectory`; if an actor is released
   or its pool slot is reused, the modal closes instead of following the
@@ -1019,9 +1019,15 @@ the engine must not contain SDL types in its public domain model.
   existing formats and paths.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
+
+  The component notes below record the sequence of the storage migration.
+  References to v101 conversion describe the retired converter's final mapping
+  for historical review; baseline 1003 deleted that record and converter.
+  Current saves use only explicit component visitors.
+
 - soldier components now own the first real storage cut: pending-action
   scratch, combat feedback, and quick-item retention live in one resettable
-  runtime aggregate instead of unrelated flat `SOLDIERTYPE` tail fields.
+  runtime aggregate instead of unrelated flat `TacticalActor` tail fields.
   Soldier clones start with an empty runtime aggregate, so deferred callbacks
   cannot retain and later mutate the source soldier.
   `SoldierVitalsComponent` now privately owns the complete persistent health,
@@ -1089,12 +1095,12 @@ the engine must not contain SDL types in its public domain model.
   tree. A plan retains a back-reference to the exact soldier record that
   created it, so whole-record copies, replacements, and swaps intentionally
   discard this cache and rebuild it lazily for the destination rather than
-  shallow-copying an invalid owner. Initialization, deletion, current loading,
-  and v101 conversion release any existing plan through the same boundary.
+  shallow-copying an invalid owner. Initialization, deletion, and current
+  loading release any existing plan through the same boundary.
   The legacy factory's raw result is confined to the `adopt` transfer point;
   callers query and execute through the component and tolerate a factory that
-  returns no plan. The retired pointer followed `endOfPOD` and was never part
-  of the save visitor, so no save, map, XML, Lua, multiplayer, package, or
+  returns no plan. Plans are runtime-only and never enter
+  `XferTacticalActor`, so no map, XML, Lua, multiplayer, package, or
   installed-data format changes.
   `SoldierStrategicPathComponent` now owns each soldier's doubly-linked
   strategic route. Whole-soldier copies deep-copy the route, moves transfer it,
@@ -1259,7 +1265,7 @@ the engine must not contain SDL types in its public domain model.
   repositories and lifetimes. All five scattered save fields retain their
   original positions and widths; v101 conversion clears this later domain.
   `SoldierPendingActionComponent` owns the persistent action plan previously
-  split between `STRUCT_AIData` and flat `SOLDIERTYPE`: selected action,
+  split between `STRUCT_AIData` and flat `TacticalActor`: selected action,
   animation-transition count, five action-dependent payloads, door operation,
   queued-AI special data, and interruption marker. Fresh soldiers now start
   with the explicit no-action sentinel, and the transition count saturates
@@ -1345,7 +1351,7 @@ the engine must not contain SDL types in its public domain model.
   adapters.
   Tactical world placement likewise has one private
   `SoldierPositionComponent` owner rather than fields split between
-  `SOLDIERTYPE` and its pathing record. It owns precise and integer-projected
+  `TacticalActor` and its pathing record. It owns precise and integer-projected
   coordinates, turn-start coordinates, initial/current grid, elevation and
   facing, integer and interpolated animation-height adjustment, desired height,
   the advanced-animation staging grid, room, and current/previous terrain.
@@ -1388,7 +1394,7 @@ the engine must not contain SDL types in its public domain model.
   identities now have one private `SoldierTargetingComponent` owner. Tactical
   UI, AI, weapons, simulation commands, animation events, and multiplayer
   adapters all read and mutate that same component instead of independent
-  public `SOLDIERTYPE` fields. `SoldierAttackSelectionComponent` separately
+  public `TacticalActor` fields. `SoldierAttackSelectionComponent` separately
   owns the selected attacking hand and weapon, weapon and scope modes, and
   ranged and melee body locations. This keeps target geometry independent from
   the means of attack while giving UI, AI, weapons, simulation, and network
@@ -1427,7 +1433,7 @@ the engine must not contain SDL types in its public domain model.
   owned tables and remap aliases, repository relocation transfers the bank
   without cloning, and palette rebuilds publish only a complete replacement.
   Logical-body palette tables compose the same owner instead of inheriting a
-  fake `SOLDIERTYPE`, so lighting and rendering now consume one palette
+  fake `TacticalActor`, so lighting and rendering now consume one palette
   boundary for actors and layers. Surface, level-node, and background pointers
   remain legacy render-adapter resources.
   `SoldierUiPresentationComponent` owns the wider soldier-local tactical view
@@ -1481,28 +1487,19 @@ the engine must not contain SDL types in its public domain model.
   records from aliasing a live actor's presentation/world registrations.
   Cleanup remains explicit at the existing face, world, and animation-tile
   lifecycle points because the referenced registries own those objects.
-  `SoldierRuntimeComponents` is likewise private to `SOLDIERTYPE` and exposed
+  `SoldierRuntimeComponents` is likewise private to `TacticalActor` and exposed
   only through `runtime()`, so the record has no meaningful mutable public
   storage left.
-  The old face, level-node, shadow, roof, unblit-background, and animation-tile
-  POD slots remain as private opaque placeholders of the same types and in the
-  same order. They preserve `offsetof(SOLDIERTYPE, endOfPOD)` without acting as
-  second sources of truth. The face value retains its established serialized
-  position, live level-node and animation-tile visits remain zero-byte runtime
-  pointer landmarks, retired pointers remain zero-byte `retiredPtr()` markers,
-  and the ten compatibility bytes retain their exact sequence.
-  These components are independent of the legacy soldier declaration;
-  old-save conversion and the explicit serializer still emit every value at
-  its established byte position. Fade mode, continuation mode, and hit phase
-  are transferred as their real 8-bit values, so valid mode/phase `2` is no
-  longer normalized to boolean `1`. Retired cache-pointer transfers emitted
-  no bytes, so load simply resets the inline working set. The unused legacy
-  8-bit delayed-cause-merc slot remains a zero compatibility byte rather than
-  live state. The v101 conversion path now copies all six 32-bit spread targets
-  instead of only the first three. Incoming combat and damage-display values,
-  target values, and all animation values remain at their established portable
-  save positions. Map placements, Lua values, multiplayer packets, and content
-  formats retain their existing schemas.
+  The former actor POD prefix is gone. Face, level-node, shadow, roof,
+  background, and animation-tile placeholders no longer occupy fake storage in
+  `TacticalActor`; the ten-byte compatibility tail and v101 mirror record are
+  gone as well. `SaveTacticalActor` and `LoadTacticalActor` visit component
+  values explicitly through `XferTacticalActor`, while process-local pointer
+  visits remain zero-byte serializer operations and are detached on load.
+  Baseline 1003 intentionally rejects earlier saves rather than preserving the
+  discarded object layout. Map placements, XML, Lua, multiplayer packets,
+  packages, and installed content retain their existing schemas; the ignored
+  actor-size map-header slot remains present and is written as zero.
 
 ## Compatibility policy
 
@@ -1519,7 +1516,7 @@ misread.
 3. Runtime capability defaults match the old build target until a unified
    executable can select packages at startup.
 4. Serialized entities use semantic field schemas rather than making in-memory
-   `SOLDIERTYPE` layout part of the persistence contract.
+   `TacticalActor` layout part of the persistence contract.
 5. Content API major versions signal breaking contracts. A package may require
    an engine minor version no newer than the running engine supports. Exact
    package requirements compare their opaque version strings byte-for-byte.

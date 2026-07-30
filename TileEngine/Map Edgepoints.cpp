@@ -17,7 +17,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 //dynamic arrays that contain the valid gridno's for each edge
@@ -64,8 +64,8 @@ UINT16 gus2ndWestEdgepointMiddleIndex			= 0;
 BOOLEAN gfEdgepointsExist = FALSE;
 BOOLEAN gfGeneratingMapEdgepoints = FALSE;
 
-BOOLEAN VerifyEdgepoint( SOLDIERTYPE *pSoldier, INT32 sEdgepoint );
-BOOLEAN EdgepointsClose( SOLDIERTYPE *pSoldier, INT32 sEdgepoint1, INT32 sEdgepoint2 );
+BOOLEAN VerifyEdgepoint( TacticalActor *pSoldier, INT32 sEdgepoint );
+BOOLEAN EdgepointsClose( TacticalActor *pSoldier, INT32 sEdgepoint1, INT32 sEdgepoint2 );
 
 extern UINT8 gubTacticalDirection;
 
@@ -241,7 +241,7 @@ void ValidateEdgepoints()
 {
 	INT32 i;
 	UINT16 usValidEdgepoints;
-	SOLDIERTYPE Soldier;
+	TacticalActor Soldier;
 	Soldier.roster().team() = 1;
 
 	//north
@@ -432,7 +432,7 @@ void CompactEdgepointArray( INT32 **psArray, UINT16 *pusMiddleIndex, UINT16 *pus
 	Assert( *psArray );
 }
 
-void InternallyClassifyEdgepoints( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
+void InternallyClassifyEdgepoints( TacticalActor *pSoldier, INT32 sGridNo,
 																	 INT32 **psArray1, UINT16 *pusMiddleIndex1, UINT16 *pusArraySize1,
 																	 INT32 **psArray2, UINT16 *pusMiddleIndex2, UINT16 *pusArraySize2 )
 {
@@ -558,7 +558,7 @@ void InternallyClassifyEdgepoints( SOLDIERTYPE *pSoldier, INT32 sGridNo,
 
 void ClassifyEdgepoints()
 {
-	SOLDIERTYPE Soldier;
+	TacticalActor Soldier;
 	INT32 sGridNo = -1;
 
 	Soldier.roster().team() = 1;
@@ -1461,7 +1461,7 @@ INT32 SearchForClosestSecondaryMapEdgepoint(INT32 sGridNo, UINT8 ubInsertionCode
 //dnl ch48 051009 Finish
 
 #define EDGE_OF_MAP_SEARCH 5
-BOOLEAN VerifyEdgepoint( SOLDIERTYPE * pSoldier, INT32 sEdgepoint )
+BOOLEAN VerifyEdgepoint( TacticalActor * pSoldier, INT32 sEdgepoint )
 {
 	INT32		iSearchRange;
 	INT16		sMaxLeft, sMaxRight, sMaxUp, sMaxDown, sXOffset, sYOffset;
@@ -1530,7 +1530,7 @@ BOOLEAN VerifyEdgepoint( SOLDIERTYPE * pSoldier, INT32 sEdgepoint )
 	return FALSE;
 }
 
-BOOLEAN EdgepointsClose( SOLDIERTYPE *pSoldier, INT32 sEdgepoint1, INT32 sEdgepoint2 )
+BOOLEAN EdgepointsClose( TacticalActor *pSoldier, INT32 sEdgepoint1, INT32 sEdgepoint2 )
 {
 	INT32		iSearchRange;
 	INT16		sMaxLeft, sMaxRight, sMaxUp, sMaxDown, sXOffset, sYOffset;
@@ -1583,7 +1583,7 @@ BOOLEAN EdgepointsClose( SOLDIERTYPE *pSoldier, INT32 sEdgepoint1, INT32 sEdgepo
 
 UINT8 CalcMapEdgepointClassInsertionCode( INT32 sGridNo )
 {
-	SOLDIERTYPE Soldier;
+	TacticalActor Soldier;
 	INT32			iLoop;
 	INT32			*psEdgepointArray1, *psEdgepointArray2;
 	INT32			iEdgepointArraySize1, iEdgepointArraySize2;

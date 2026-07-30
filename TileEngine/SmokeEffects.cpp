@@ -35,7 +35,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 
@@ -206,7 +206,7 @@ INT32 NewSmokeEffect( INT32 sGridNo, UINT16 usItem, INT8 bLevel, SoldierID ubOwn
 	// OJW - 20091027 - Syncronising smoke effect start for multiplayer
 	if (is_networked && is_client)
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(ubOwner.i);
 		if (pSoldier != NULL)
 		{
@@ -351,7 +351,7 @@ INT32 NewSmokeEffect(INT32 sGridNo, UINT16 usItem, INT8 bLevel, SoldierID ubOwne
 	// OJW - 20091027 - Synchronizing smoke effect start for multiplayer
 	if (is_networked && is_client)
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(ubOwner.i);
 		if (pSoldier != NULL)
 		{
@@ -702,7 +702,7 @@ void DecaySmokeEffects( UINT32 uiTime )
 
 	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); ++cnt )
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			ResolveJa2ActiveTacticalActorSlot(cnt);
 		if ( soldier )
 		{

@@ -52,7 +52,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 #define	MIN_FLIGHT_PREP_TIME	6
@@ -105,7 +105,7 @@ UINT32		GetInitialHeliGridNo( );
 UINT16	GetInitialHeliRandomTime();
 INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 {
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	SoldierID	iNewIndex;
 	UINT8		ubCurrentSoldier = pHireMerc->ubProfileID;
 	MERCPROFILESTRUCT				*pMerc;
@@ -190,7 +190,7 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 			// make an objecttype
 			CreateItem(LETTER, 100, &gTempObject);
 			// Give it
-			SOLDIERTYPE* newMerc =
+			TacticalActor* newMerc =
 				GetJa2SoldierRepository().resolve(iNewIndex.i);
 			fReturn = AutoPlaceObject( newMerc, &gTempObject, FALSE );
 			// CHRISL: This condition should resolve the issue of the letter not being issued to the first merc
@@ -407,7 +407,7 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 void MercArrivesCallback( SoldierID ubSoldierID )
 {
 	MERCPROFILESTRUCT				*pMerc;
-	SOLDIERTYPE							*pSoldier;
+	TacticalActor							*pSoldier;
 	UINT32									uiTimeOfPost;
 
 
@@ -475,7 +475,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 		gsMercArriveSectorX == gGameExternalOptions.ubDefaultArrivalSectorX && gsMercArriveSectorY == gGameExternalOptions.ubDefaultArrivalSectorY)
 	{
 		bool force_helidrop = true;
-		SOLDIERTYPE	*pTeamSoldier;
+		TacticalActor	*pTeamSoldier;
 		for (UINT16 cnt = 0; cnt < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; cnt++)
 		{
 			if (gCharactersList[cnt].fValid)
@@ -642,7 +642,7 @@ BOOLEAN IsMercDead( UINT8 ubMercID )
 		return(FALSE);
 }
 
-BOOLEAN IsTheSoldierAliveAndConcious( SOLDIERTYPE		*pSoldier )
+BOOLEAN IsTheSoldierAliveAndConcious( TacticalActor		*pSoldier )
 {
 	if( pSoldier->vitals().health() >= CONSCIOUSNESS )
 		return(TRUE);
@@ -653,7 +653,7 @@ BOOLEAN IsTheSoldierAliveAndConcious( SOLDIERTYPE		*pSoldier )
 UINT16	NumberOfMercsOnPlayerTeam()
 {
 	SoldierID	cnt;
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	SoldierID	bLastTeamID;
 	UINT16		ubCount=0;
 
@@ -680,11 +680,11 @@ UINT16	NumberOfMercsOnPlayerTeam()
 }
 
 
-void HandleMercArrivesQuotes( SOLDIERTYPE *pSoldier )
+void HandleMercArrivesQuotes( TacticalActor *pSoldier )
 {
 	SoldierID	cnt, usLastTeamID;
 	INT8			bHated;
-	SOLDIERTYPE	*pTeamSoldier;
+	TacticalActor	*pTeamSoldier;
 #ifdef JA2UB
 	//if we are at the begining of the game going through the initial heli scequence
 	if( pSoldier->deployment().arrivalGetupPending() )
@@ -801,7 +801,7 @@ UINT32 GetMercArrivalTimeOfDay( )
 
 void UpdateAnyInTransitMercsWithGlobalArrivalSector( )
 {
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 
 	// look for all mercs on the same team,
@@ -1031,8 +1031,8 @@ void UpdateJerryMiloInInitialSector()
 		return;
 	}
 
-	SOLDIERTYPE *pSoldier = NULL;
-	SOLDIERTYPE *pJerrySoldier = NULL;
+	TacticalActor *pSoldier = NULL;
+	TacticalActor *pJerrySoldier = NULL;
 
 
 	//SectorInfo[ SEC_H7 ].fSurfaceWasEverPlayerControlled = TRUE;
@@ -1118,7 +1118,7 @@ void AddItemToMerc( UINT8 ubNewMerc, INT16 sItemType )
         CreateItem(sItemType, 100, &gTempObject);
 
 	// Give it 
-	SOLDIERTYPE* newMerc =
+	TacticalActor* newMerc =
 		GetJa2SoldierRepository().resolve(ubNewMerc);
 	fReturn = AutoPlaceObject( newMerc, &gTempObject, FALSE );
 	

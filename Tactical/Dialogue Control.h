@@ -311,7 +311,7 @@ BOOLEAN InitalizeDialogueControl();
 void ShutdownDialogueControl();
 void EmptyDialogueQueue( );
 void HandleDialogue( );
-void HandleImportantMercQuote( SOLDIERTYPE * pSoldier, UINT16 usQuoteNumber );
+void HandleImportantMercQuote( TacticalActor * pSoldier, UINT16 usQuoteNumber );
 
 
 
@@ -325,15 +325,15 @@ BOOLEAN CharacterDialogueWithSpecialEvent( UINT8 ubCharacterNum, UINT16 usQuoteN
 BOOLEAN CharacterDialogueWithSpecialEventEx( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32 iFaceIndex, UINT8 bUIHandlerID, BOOLEAN fFromSoldier, BOOLEAN fDelayed, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2, UINT32 uiData3 );
 
 // A higher level function used for tactical quotes
-BOOLEAN TacticalCharacterDialogueWithSpecialEvent( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2 );
+BOOLEAN TacticalCharacterDialogueWithSpecialEvent( TacticalActor *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2 );
 
 // A higher level function used for tactical quotes
-BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2, UINT32 uiData3 );
+BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( TacticalActor *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2, UINT32 uiData3 );
 
 // A higher level function used for tactical quotes
-BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum );
+BOOLEAN TacticalCharacterDialogue( TacticalActor *pSoldier, UINT16 usQuoteNum );
 
-BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT8 ubEventType, UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile );
+BOOLEAN SnitchTacticalCharacterDialogue( TacticalActor *pSoldier, UINT16 usQuoteNum, UINT8 ubEventType, UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile );
 
 // Flugente: additional dialogue
 enum AdditionalDialogEvents
@@ -370,7 +370,7 @@ enum AdditionalDialogEvents
 // We call this function from several places. It uses the dialogue functions, but calls a Lua script to know whether something, and what, should be said
 // This allows us to call a lot of very specific dialogue for individual mercs without the need to define what exactly should be said in the code -
 // a modder can simply control in Lua what should happen
-BOOLEAN AdditionalTacticalCharacterDialogue_CallsLua( SOLDIERTYPE *pSoldier, UINT16 usEventNr, UINT32 aData1 = 0, UINT32 aData2 = 0, UINT32 aData3 = 0 );
+BOOLEAN AdditionalTacticalCharacterDialogue_CallsLua( TacticalActor *pSoldier, UINT16 usEventNr, UINT32 aData1 = 0, UINT32 aData2 = 0, UINT32 aData3 = 0 );
 
 // call event for all mercs in a sector
 void AdditionalTacticalCharacterDialogue_AllInCurrentSector( UINT8 ausIgnoreProfile,
@@ -383,13 +383,13 @@ void AdditionalTacticalCharacterDialogue_AllInSectorRadiusCall( UINT8 ausIgnoreP
 	UINT32 aData1 = 0, UINT32 aData2 = 0, UINT32 aData3 = 0, INT32 aAroundGridno = -1, INT32 aRadius = 0 );
 
 // Flugente: play sound file like normal dialogue or, if someone else is already talking, just play the sound
-void SpecialDialogue( SOLDIERTYPE* pSoldier, STR8 azSoundString, STR16 azTextString );
+void SpecialDialogue( TacticalActor* pSoldier, STR8 azSoundString, STR16 azTextString );
 
 // Flugente: replace text with other text
 BOOLEAN ReplaceTextWithOtherText( CHAR16 *pFinishedString, const CHAR16 *compare, const CHAR16 *replace );
 
 // A higher level function used for tactical quotes
-BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum );
+BOOLEAN DelayedTacticalCharacterDialogue( TacticalActor *pSoldier, UINT16 usQuoteNum );
 
 // A more general purpose function for processing quotes
 BOOLEAN CharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32 iFaceIndex, UINT8 bUIHandlerID, BOOLEAN fFromSoldier, BOOLEAN fDelayed );
@@ -450,8 +450,8 @@ UINT32 FindDelayForString( STR16 sString );
 
 void BeginLoggingForBleedMeToos( BOOLEAN fStart );
 
-void UnSetEngagedInConvFromPCAction( SOLDIERTYPE *pSoldier );
-void SetEngagedInConvFromPCAction( SOLDIERTYPE *pSoldier );
+void UnSetEngagedInConvFromPCAction( TacticalActor *pSoldier );
+void SetEngagedInConvFromPCAction( TacticalActor *pSoldier );
 
 
 extern UINT32 guiDialogueLastQuoteTime;

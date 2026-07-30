@@ -789,7 +789,7 @@ void DeleteMapElementContentsAfterCreationFail( MAP_ELEMENT *pNewMapElement )
 		};
 		struct
 		{
-			SOLDIERTYPE								*pSoldier;					// POINTER TO SOLDIER
+			TacticalActor								*pSoldier;					// POINTER TO SOLDIER
 		};
 	}; // ( 4 byte union )
 */

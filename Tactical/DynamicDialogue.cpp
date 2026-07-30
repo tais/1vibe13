@@ -5,6 +5,7 @@
 */
 
 #include "DynamicDialogue.h"
+#include "TacticalActorModifiers.h"
 #include "DynamicDialogueWidget.h"
 
 #include "SaveLoadGame.h"
@@ -28,6 +29,7 @@
 #include "Campaign.h"
 #include "Points.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDisease.h"
 
 #ifndef JA2UB
 #include "Meanwhile.h"
@@ -62,7 +64,7 @@ std::vector<OpinionEvent> gOpionionEventsDuringDialogue;
 std::vector<DynamicOpinionSpeechEvent> gDynamicOpinionSpeechInCurrentDialogue;
 
 // Flugente: calculate A's opinion of B
-INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
+INT8	SoldierRelation( TacticalActor* pSoldierA, TacticalActor* pSoldierB )
 {
 	INT8 bOpinion = 0;
 
@@ -195,14 +197,14 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 	}
 
 	// Flugente: backgrounds
-	if ( pSoldierA->GetBackgroundValue( BG_DISLIKEBG ) && pSoldierA->GetBackgroundValue( BG_DISLIKEBG ) == -pSoldierB->GetBackgroundValue( BG_DISLIKEBG ) )
+	if ( TacticalActorModifiers::backgroundValue(*pSoldierA, BG_DISLIKEBG ) && TacticalActorModifiers::backgroundValue(*pSoldierA, BG_DISLIKEBG ) == -TacticalActorModifiers::backgroundValue(*pSoldierB, BG_DISLIKEBG ) )
 	{
 		bOpinion -= 2;
 	}
 
 	// smoker
-	INT16 smokerA = pSoldierA->GetBackgroundValue( BG_SMOKERTYPE );
-	INT16 smokerB = pSoldierB->GetBackgroundValue( BG_SMOKERTYPE );
+	INT16 smokerA = TacticalActorModifiers::backgroundValue(*pSoldierA, BG_SMOKERTYPE );
+	INT16 smokerB = TacticalActorModifiers::backgroundValue(*pSoldierB, BG_SMOKERTYPE );
 	if ( smokerA && smokerB )
 	{
 		if ( smokerA != smokerB )
@@ -211,7 +213,7 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 			bOpinion += 1;
 	}
 
-	if ( pSoldierA->HasBackgroundFlag( BACKGROUND_XENOPHOBIC ) && pSoldierB->identity().profile() != NO_PROFILE && gMercProfiles[pSoldierA->identity().profile()].usBackground != gMercProfiles[pSoldierB->identity().profile()].usBackground )
+	if ( TacticalActorModifiers::hasBackgroundFlag(*pSoldierA, BACKGROUND_XENOPHOBIC ) && pSoldierB->identity().profile() != NO_PROFILE && gMercProfiles[pSoldierA->identity().profile()].usBackground != gMercProfiles[pSoldierB->identity().profile()].usBackground )
 		bOpinion -= gGameExternalOptions.sMoraleModXenophobicBackGround;
 
 	// Flugente: dynamic opinions
@@ -241,10 +243,10 @@ INT8	SoldierRelation( UINT8 usProfileA, UINT8 usProfileB )
 	if ( idA < 0 || idB < 0 )
 		return 0;
 
-	SOLDIERTYPE* pSoldierA =
+	TacticalActor* pSoldierA =
 		GetJa2SoldierRepository().resolve(
 			static_cast<UINT16>(idA));
-	SOLDIERTYPE* pSoldierB =
+	TacticalActor* pSoldierB =
 		GetJa2SoldierRepository().resolve(
 			static_cast<UINT16>(idB));
 
@@ -492,7 +494,7 @@ void CreateSpeechEventsFromDynamicOpinionEvent( DynamicOpinionSpeechEvent aEvent
 				INT16 idInterjector = GetSoldierIDFromMercID( aEvent.data.ubProfileINTERJECTOR );
 				if ( idInterjector != NOBODY && idInterjector >= 0 )
 				{
-					SOLDIERTYPE* interjector =
+					TacticalActor* interjector =
 						GetJa2SoldierRepository().resolve(
 							static_cast<UINT16>(idInterjector));
 					if ( interjector &&
@@ -939,7 +941,7 @@ BOOLEAN DynamicOpinionTacticalCharacterDialogue( DynamicOpinionSpeechEvent& aEve
 	if ( is_client )
 		return(FALSE); //somewhere amongst all this it causes a paase of merc movement while making the quote which throws out the movement sync between  clients... : hayden.
 
-	SOLDIERTYPE* pSoldier = FindSoldierByProfileID( aEvent.usSpeaker, TRUE );
+	TacticalActor* pSoldier = FindSoldierByProfileID( aEvent.usSpeaker, TRUE );
 
 	if ( !pSoldier || !pSoldier->roster().active() )
 		return FALSE;
@@ -1136,7 +1138,7 @@ void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLE
 		return;
 
 	// we don't want any events for people not on our team or vehicles
-	SOLDIERTYPE* pSoldier = FindSoldierByProfileID( usProfileA, TRUE );
+	TacticalActor* pSoldier = FindSoldierByProfileID( usProfileA, TRUE );
 	if ( !pSoldier || pSoldier->status().flags() & SOLDIER_VEHICLE || AM_A_ROBOT(pSoldier))
 		return;
 
@@ -1269,7 +1271,7 @@ void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLE
 
 			INT16 idA = GetSoldierIDFromMercID( usProfileA );
 
-			SOLDIERTYPE* soldierA = idA >= 0
+			TacticalActor* soldierA = idA >= 0
 				? GetJa2SoldierRepository().resolve(
 					static_cast<UINT16>(idA))
 				: NULL;
@@ -1652,7 +1654,7 @@ void HandleDynamicOpinionsDailyRefresh( )
 	SoldierID bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(bMercID.i);
 		if (!pSoldier)
 		{
@@ -1691,13 +1693,13 @@ void RolloverDynamicOpinions( UINT8 usProfileA )
 }
 
 // check wether other people are friends with someone else we hate. All persons must be in Arulco
-void CheckForFriendsofHated( SOLDIERTYPE* pSoldier )
+void CheckForFriendsofHated( TacticalActor* pSoldier )
 {
 	SoldierID	bMercID, bOtherID, bThirdID, bLastTeamID;
 	INT8			bOpinion = -1;
 	INT8			bSecondOpinion = -1;
-	SOLDIERTYPE *pOtherSoldier;
-	SOLDIERTYPE *pThirdSoldier;
+	TacticalActor *pOtherSoldier;
+	TacticalActor *pThirdSoldier;
 
 	// make sure we ourselves aren't in transit
 	if ( !pSoldier->roster().active() || pSoldier->identity().profile() == NO_PROFILE || AM_A_ROBOT(pSoldier) || pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD )
@@ -1766,7 +1768,7 @@ void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile )
 		INT16 id = GetSoldierIDFromMercID( usProfile );
 		if ( id > -1 )
 		{
-			SOLDIERTYPE* pSoldierWhoGotPaid =
+			TacticalActor* pSoldierWhoGotPaid =
 				GetJa2SoldierRepository().resolve(
 					static_cast<UINT16>(id));
 			if (!pSoldierWhoGotPaid)
@@ -1792,7 +1794,7 @@ void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile )
 			SoldierID bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 			for ( ; bMercID <= bLastTeamID; ++bMercID )
 			{
-				SOLDIERTYPE *pSoldier =
+				TacticalActor *pSoldier =
 					GetJa2SoldierRepository().resolve(bMercID.i);
 				if (!pSoldier)
 				{
@@ -1830,7 +1832,7 @@ void HandleDynamicOpinionBattleFinished( BOOLEAN fBattleWon )
 
 	if ( leaderid != NOBODY )
 	{
-		SOLDIERTYPE* leader =
+		TacticalActor* leader =
 			GetJa2SoldierRepository().resolve(leaderid);
 		if (!leader)
 		{
@@ -1884,7 +1886,7 @@ void HandleDynamicOpinionRetreat( )
 	// we've found someone competent. Let's all blame him for this disaster!
 	if ( impid != NOBODY )
 	{
-		SOLDIERTYPE* leader =
+		TacticalActor* leader =
 			GetJa2SoldierRepository().resolve(impid);
 		if (leader)
 		{
@@ -1893,7 +1895,7 @@ void HandleDynamicOpinionRetreat( )
 	}
 }
 
-void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
+void HandleDynamicOpinionTeamDrinking( TacticalActor* pSoldier )
 {
 	// need to be drunk for this
 	if ( !pSoldier || pSoldier->identity().profile() == NO_PROFILE || AM_A_ROBOT(pSoldier) ||
@@ -1904,7 +1906,7 @@ void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 	SoldierID	bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID)
 	{
-		SOLDIERTYPE* pTeamSoldier =
+		TacticalActor* pTeamSoldier =
 			GetJa2SoldierRepository().resolve(bMercID.i);
 		if (!pTeamSoldier)
 		{
@@ -1938,7 +1940,7 @@ void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 	}
 }
 
-void HandleDynamicOpinionTeaching( SOLDIERTYPE* pSoldier, UINT8 ubStat )
+void HandleDynamicOpinionTeaching( TacticalActor* pSoldier, UINT8 ubStat )
 {
 	if ( !pSoldier || pSoldier->identity().profile() == NO_PROFILE || AM_A_ROBOT(pSoldier))
 		return;
@@ -1968,7 +1970,7 @@ void HandleDynamicOpinionTeaching( SOLDIERTYPE* pSoldier, UINT8 ubStat )
 	SoldierID bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID)
 	{
-		SOLDIERTYPE* pTeamSoldier =
+		TacticalActor* pTeamSoldier =
 			GetJa2SoldierRepository().resolve(bMercID.i);
 		if (!pTeamSoldier)
 		{
@@ -1989,7 +1991,7 @@ void HandleDynamicOpinionTeaching( SOLDIERTYPE* pSoldier, UINT8 ubStat )
 }
 
 // some events require a 'leader' -  merc the team will regard as the one being in charge, and subsequently being praised or damned for the way things develop
-UINT32 GetSoldierLeaderRating( SOLDIERTYPE* pSoldier )
+UINT32 GetSoldierLeaderRating( TacticalActor* pSoldier )
 {
 	if ( !pSoldier )
 		return 0;
@@ -2015,7 +2017,7 @@ SoldierID GetBestMercLeaderInSector( INT16 sX, INT16 sY, INT8 sZ )
 
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(bMercID.i);
 		if (!pSoldier)
 		{
@@ -2042,7 +2044,7 @@ SoldierID GetBestMercLeaderInSector( INT16 sX, INT16 sY, INT8 sZ )
 UINT8 GetRandomMercInSectorNotInList( INT16 sX, INT16 sY, INT8 sZ, std::vector<UINT8> aTaboo, BOOLEAN fImpOnly )
 {
 	std::vector<UINT16>	resultvector;
-	SOLDIERTYPE*		pTeamSoldier = NULL;
+	TacticalActor*		pTeamSoldier = NULL;
 	SoldierID				bMercID = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 	SoldierID				bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
@@ -2085,9 +2087,9 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 	if ( idVictim == NOBODY || idCause == NOBODY )
 		return NO_PROFILE;
 
-	SOLDIERTYPE* pSoldierVictim =
+	TacticalActor* pSoldierVictim =
 		GetJa2SoldierRepository().resolve(idVictim.i);
-	SOLDIERTYPE* pSoldierCause =
+	TacticalActor* pSoldierCause =
 		GetJa2SoldierRepository().resolve(idCause.i);
 
 	if ( !pSoldierVictim || !pSoldierCause )
@@ -2096,7 +2098,7 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 	std::vector<UINT8>  impprofilevector;
 	std::vector<UINT8>  profilevector;
 
-	SOLDIERTYPE*		pTeamSoldier = NULL;
+	TacticalActor*		pTeamSoldier = NULL;
 	SoldierID				bMercID = gTacticalStatus.Team[pSoldierVictim->roster().team()].bFirstID;
 	SoldierID				bLastTeamID = gTacticalStatus.Team[pSoldierVictim->roster().team()].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
@@ -2147,7 +2149,7 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 	return NO_PROFILE;
 }
 
-UINT8 HighestInventoryCoolness( SOLDIERTYPE* pSoldier )
+UINT8 HighestInventoryCoolness( TacticalActor* pSoldier )
 {
 	UINT8 coolness = 0;
 
@@ -2168,7 +2170,7 @@ UINT8 HighestInventoryCoolness( SOLDIERTYPE* pSoldier )
 	return coolness;
 }
 
-void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN fOffender, BOOLEAN fStartDialogue )
+void HandleDynamicOpinionChange( TacticalActor* pSoldier, UINT8 usEvent, BOOLEAN fOffender, BOOLEAN fStartDialogue )
 {
 	if ( !pSoldier || pSoldier->identity().profile() == NO_PROFILE || AM_A_ROBOT(pSoldier))
 		return;
@@ -2241,7 +2243,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 	}
 
 	UINT8				usEventUsed;		// it is possible that the individual event is switched
-	SOLDIERTYPE*		pTeamSoldier = NULL;
+	TacticalActor*		pTeamSoldier = NULL;
 	SoldierID				bMercID = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 	SoldierID				bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
@@ -2319,13 +2321,13 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 
 			case OPINIONEVENT_ADDICT:
 				// do not add if we are an addict too
-				if ( pTeamSoldier->HasBackgroundFlag( BACKGROUND_DRUGUSE ) )
+				if ( TacticalActorModifiers::hasBackgroundFlag(*pTeamSoldier, BACKGROUND_DRUGUSE ) )
 					continue;
 				break;
 
 			case OPINIONEVENT_THIEF:
 				// do not add if we are a thief too
-				if ( pTeamSoldier->HasBackgroundFlag( BACKGROUND_SCROUNGING ) )
+				if ( TacticalActorModifiers::hasBackgroundFlag(*pTeamSoldier, BACKGROUND_SCROUNGING ) )
 					continue;
 				break;
 
@@ -2368,7 +2370,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 
 			case OPINIONEVENT_DISEASE_DISGUSTING:
 				// not if the other guy is a doctor, is currently used as a doctor, or has disease themself
-				if ( IS_DOCTOR(pTeamSoldier->assignment().current()) || pTeamSoldier->assignment().current() == DISEASE_DOCTOR_SECTOR || HAS_SKILL_TRAIT( pTeamSoldier, DOCTOR_NT ) || pTeamSoldier->HasDisease(TRUE, FALSE, FALSE) )
+				if ( IS_DOCTOR(pTeamSoldier->assignment().current()) || pTeamSoldier->assignment().current() == DISEASE_DOCTOR_SECTOR || HAS_SKILL_TRAIT( pTeamSoldier, DOCTOR_NT ) || TacticalActorDisease::hasAny(*pTeamSoldier, TRUE, FALSE, FALSE) )
 					continue;
 				break;
 

@@ -1,4 +1,7 @@
 	#include "builddefines.h"
+#include "TacticalActorEquipment.h"
+#include "TacticalActorModifiers.h"
+#include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp.h"
@@ -72,7 +75,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 extern int UI_CHARINV_REGION_X;
 extern int UI_CHARINV_REGION_Y;
 extern int UI_CHARINV_REGION_W;
@@ -412,14 +415,14 @@ extern	BOOLEAN		gfBeginEndTurn;
 extern	BOOLEAN		gfInItemPickupMenu;
 
 extern	void HandleAnyMercInSquadHasCompatibleStuff( UINT8 ubSquad, OBJECTTYPE *pObject, BOOLEAN fReset );
-extern	void SetNewItem( SOLDIERTYPE *pSoldier, UINT8 ubInvPos, BOOLEAN fNewItem );
-extern	BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY, UINT8 ubStatusIndex, SOLDIERTYPE *pSoldier, UINT8 ubPosition );
-extern	BOOLEAN InternalHandleCompatibleAmmoUI( SOLDIERTYPE *pSoldier, OBJECTTYPE *pTestObject, BOOLEAN fOn	);
+extern	void SetNewItem( TacticalActor *pSoldier, UINT8 ubInvPos, BOOLEAN fNewItem );
+extern	BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY, UINT8 ubStatusIndex, TacticalActor *pSoldier, UINT8 ubPosition );
+extern	BOOLEAN InternalHandleCompatibleAmmoUI( TacticalActor *pSoldier, OBJECTTYPE *pTestObject, BOOLEAN fOn	);
 extern	BOOLEAN CompatibleAmmoForGun( OBJECTTYPE *pTryObject, OBJECTTYPE *pTestObject );//dnl ch66 070913
 
 BOOLEAN IsMouseInRegion( MOUSE_REGION *pRegion );
-void HandleMouseOverSoldierFaceForContMove( SOLDIERTYPE *pSoldier, BOOLEAN fOn );
-void HandlePlayerTeamMemberDeathAfterSkullAnimation( SOLDIERTYPE *pSoldier );
+void HandleMouseOverSoldierFaceForContMove( TacticalActor *pSoldier, BOOLEAN fOn );
+void HandlePlayerTeamMemberDeathAfterSkullAnimation( TacticalActor *pSoldier );
 void EnableButtonsForInItemBox( BOOLEAN fDisable );
 void ConfirmationToDepositMoneyToPlayersAccount( UINT8 ubExitValue );
 void MergeMessageBoxCallBack( UINT8 ubExitValue );
@@ -533,7 +536,7 @@ void BtnMapScreenCallback(GUI_BUTTON *btn,INT32 reason);
 // CHRISL: New callback functions for backpack buttons
 void BtnDropPackCallback(GUI_BUTTON *btn,INT32 reason);
 void BtnZipperCallback(GUI_BUTTON *btn,INT32 reason);
-BOOLEAN ChangeZipperStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus);
+BOOLEAN ChangeZipperStatus(TacticalActor *pSoldier, BOOLEAN newStatus);
 
 void BtnPrevMercCallback(GUI_BUTTON *btn,INT32 reason);
 void BtnNextMercCallback(GUI_BUTTON *btn,INT32 reason);
@@ -554,27 +557,27 @@ void TMClickFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason );
 void TMClickSecondHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason );
 void EnemyIndicatorClickCallback( MOUSE_REGION * pRegion, INT32 iReason );
 
-void RenderSoldierTeamInv( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY, UINT8 ubPanelNum, BOOLEAN fDirty );
+void RenderSoldierTeamInv( TacticalActor *pSoldier, INT16 sX, INT16 sY, UINT8 ubPanelNum, BOOLEAN fDirty );
 
 // keyring stuff
 void KeyRingItemPanelButtonCallback( MOUSE_REGION * pRegion, INT32 iReason );
 
 void UpdateSelectedSoldier( UINT16 usSoldierID, BOOLEAN fSelect );
 
-void CheckForFacePanelStartAnims( SOLDIERTYPE *pSoldier, INT16 sPanelX, INT16 sPanelY );
-void HandleSoldierFaceFlash( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY );
+void CheckForFacePanelStartAnims( TacticalActor *pSoldier, INT16 sPanelX, INT16 sPanelY );
+void HandleSoldierFaceFlash( TacticalActor *pSoldier, INT16 sFaceX, INT16 sFaceY );
 BOOLEAN PlayerExistsInSlot( SoldierID ubID );
 void UpdateStatColor( UINT32 uiTimer, BOOLEAN fIncrease, BOOLEAN fDamaged, BOOLEAN fAugmented ); // SANDRO - added argument // Flugente - me too
 
 extern void UpdateItemHatches();
 
-extern SOLDIERTYPE *FindNextActiveSquad( SOLDIERTYPE *pSoldier );
+extern TacticalActor *FindNextActiveSquad( TacticalActor *pSoldier );
 
 extern BOOLEAN gfMouseLockedOnBorder;
 
-static SOLDIERTYPE* EnsureSMCurrentMerc()
+static TacticalActor* EnsureSMCurrentMerc()
 {
-	if (SOLDIERTYPE* currentMerc = GetSMCurrentMerc())
+	if (TacticalActor* currentMerc = GetSMCurrentMerc())
 		return currentMerc;
 
 	// A retained identity that no longer resolves must not silently redirect to
@@ -583,10 +586,10 @@ static SOLDIERTYPE* EnsureSMCurrentMerc()
 			TacticalInventoryActorRole::SelectedMerc))
 		return NULL;
 
-	SOLDIERTYPE* candidate = NULL;
+	TacticalActor* candidate = NULL;
 	if (gusSelectedSoldier != NOBODY)
 	{
-		SOLDIERTYPE* selected =
+		TacticalActor* selected =
 			GetJa2SoldierRepository().resolve(
 				gusSelectedSoldier.i);
 		if (selected && selected->roster().active() && selected->roster().team() == gbPlayerNum)
@@ -597,7 +600,7 @@ static SOLDIERTYPE* EnsureSMCurrentMerc()
 	{
 		for (UINT32 index = 0; index < TOTAL_SOLDIERS; ++index)
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				GetJa2SoldierRepository().resolve(index);
 			if (soldier && soldier->roster().active() && soldier->roster().team() == gbPlayerNum)
 			{
@@ -619,7 +622,7 @@ static SOLDIERTYPE* EnsureSMCurrentMerc()
 }
 
 // Wraps up check for AP-s get from a different soldier for in a vehicle...
-INT16 GetUIApsToDisplay( SOLDIERTYPE *pSoldier )
+INT16 GetUIApsToDisplay( TacticalActor *pSoldier )
 {
 
 	return ( pSoldier->actionPoints().current() );
@@ -632,10 +635,10 @@ void CheckForDisabledForGiveItem( )
 	INT32			sDestGridNo;
 	INT8				bDestLevel;
 	SoldierID		cnt;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	SoldierID		ubSrcSoldier;
 
-	SOLDIERTYPE* currentMerc = EnsureSMCurrentMerc();
+	TacticalActor* currentMerc = EnsureSMCurrentMerc();
 	if (!currentMerc)
 	{
 		gfSMDisableForItems = TRUE;
@@ -694,7 +697,7 @@ void CheckForDisabledForGiveItem( )
 		// OK buddy, check our currently selected merc and disable/enable if not close enough...
 		if ( ubSrcSoldier != NOBODY )
 		{
-			SOLDIERTYPE* sourceSoldier =
+			TacticalActor* sourceSoldier =
 				GetJa2SoldierRepository().resolve(
 					ubSrcSoldier.i);
 			if (!sourceSoldier)
@@ -747,7 +750,7 @@ void SetSMPanelCurrentMerc( SoldierID ubNewID )
 {
 	gubSelectSMPanelToMerc = NOBODY;
 
-	SOLDIERTYPE* newMerc =
+	TacticalActor* newMerc =
 		GetJa2SoldierRepository().resolve(ubNewID.i);
 	if (ubNewID == NOBODY || !newMerc ||
 		!SetSMCurrentMerc(GetJa2TacticalEntityId(*newMerc)))
@@ -827,7 +830,7 @@ void SetSMPanelCurrentMerc( SoldierID ubNewID )
 }
 
 
-void UpdateForContOverPortrait( SOLDIERTYPE *pSoldier, BOOLEAN fOn )
+void UpdateForContOverPortrait( TacticalActor *pSoldier, BOOLEAN fOn )
 {
 	INT32 cnt;
 
@@ -1173,7 +1176,7 @@ void UpdateSMPanel( )
 extern INT8		gbInvalidPlacementSlot[ NUM_INV_SLOTS ];
 
 
-void ReevaluateItemHatches( SOLDIERTYPE *pSoldier, BOOLEAN fAllValid )
+void ReevaluateItemHatches( TacticalActor *pSoldier, BOOLEAN fAllValid )
 {
 	UINT32	cnt;
 
@@ -1230,7 +1233,7 @@ void RenderBackpackButtons(int bpAction)
 	// Don't run if keyring is open
 	if(gfInKeyRingPopup)
 		return;
-	SOLDIERTYPE* currentMerc = EnsureSMCurrentMerc();
+	TacticalActor* currentMerc = EnsureSMCurrentMerc();
 	if (!currentMerc)
 		return;
 	// Deal with buttons depending on which screen is currently active
@@ -2996,8 +2999,8 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		}
 		
 		// anv: display stealth together with camo
-		INT16 wornstealth = GetWornStealth(GetSMCurrentMerc()) - GetSMCurrentMerc()->GetBackgroundValue(BG_PERC_STEALTH);
-		INT16 bonusstealth = GetSMCurrentMerc()->GetBackgroundValue(BG_PERC_STEALTH);
+		INT16 wornstealth = GetWornStealth(GetSMCurrentMerc()) - TacticalActorModifiers::backgroundValue(*GetSMCurrentMerc(), BG_PERC_STEALTH);
+		INT16 bonusstealth = TacticalActorModifiers::backgroundValue(*GetSMCurrentMerc(), BG_PERC_STEALTH);
 		if ( GetSMCurrentMerc()->identity().bodyType() == BLOODCAT )
 		{
 			bonusstealth += 50;
@@ -3070,7 +3073,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				CHAR16	atStr[500];
 				swprintf( atStr, L"" );
 
-				GetSMCurrentMerc()->PrintDiseaseDesc( atStr );
+				TacticalActorDisease::appendDescription(*GetSMCurrentMerc(), atStr);
 
 				wcscat( pStr, atStr );
 			}
@@ -3432,7 +3435,7 @@ void SMInvClickCamoCallback( MOUSE_REGION * pRegion, INT32 iReason )
 }
 
 
-BOOLEAN HandleNailsVestFetish( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 usReplaceItem )
+BOOLEAN HandleNailsVestFetish( TacticalActor *pSoldier, UINT32 uiHandPos, UINT16 usReplaceItem )
 {
 	BOOLEAN fRefuse = FALSE;
 
@@ -3821,7 +3824,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					usCostToMoveItem = GetInvMovementCost(gpItemPointer, iLastHandPos, uiHandPos);
 				
 				// Flugente: backgrounds
-				usCostToMoveItem = (usCostToMoveItem * (100 + GetSMCurrentMerc()->GetBackgroundValue(BG_INVENTORY))) / 100;
+				usCostToMoveItem = (usCostToMoveItem * (100 + TacticalActorModifiers::backgroundValue(*GetSMCurrentMerc(), BG_INVENTORY))) / 100;
 				
 				if ( ( usCostToMoveItem == 0 ) || ( GetSMCurrentMerc()->actionPoints().current() >= usCostToMoveItem ) )
 				{
@@ -3910,7 +3913,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 									// silversurfer: This didn't cost any AP. Why? CTRL + LeftClick should deduct the same AP as manual attachment in the EDB.
 									usCostToMoveItem = AttachmentAPCost(gpItemPointer->usItem, GetSMCurrentMerc()->inventory()[uiHandPos].usItem, GetSMCurrentMerc());
 									// Flugente: backgrounds
-									usCostToMoveItem = (usCostToMoveItem * (100 + GetSMCurrentMerc()->GetBackgroundValue(BG_INVENTORY))) / 100;
+									usCostToMoveItem = (usCostToMoveItem * (100 + TacticalActorModifiers::backgroundValue(*GetSMCurrentMerc(), BG_INVENTORY))) / 100;
 									// do we have enough AP?
 									if (!EnoughPoints(GetSMCurrentMerc(), usCostToMoveItem, 0, TRUE))
 										return;
@@ -4085,7 +4088,8 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 		// Flugente: we have to recheck our flashlights, as we changed items
 		//GetSMCurrentMerc()->featureFlags().primaryFlags() |= SOLDIER_REDOFLASHLIGHT;
-		GetSMCurrentMerc()->HandleFlashLights();
+		TacticalActorEquipment::refreshFlashlights(
+			*GetSMCurrentMerc());
 
 		// sevenfm: update morale, as we could add/remove walkman
 		RefreshSoldierMorale(GetSMCurrentMerc());
@@ -4168,7 +4172,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 }
 // CHRISL: Function to adjust zipper backpack button status
-BOOLEAN  ChangeZipperStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
+BOOLEAN  ChangeZipperStatus(TacticalActor *pSoldier, BOOLEAN newStatus)
 {
 	INT16	sAPCost;
 	INT32	iBPCost = APBPConstants[BP_WORK_ZIPPER];
@@ -4218,7 +4222,7 @@ BOOLEAN  ChangeZipperStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 }
 
 // CHRISL: Function to adjust droppack packpack button status
-BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
+BOOLEAN ChangeDropPackStatus(TacticalActor *pSoldier, BOOLEAN newStatus)
 {
 	INT16	sAPCost = APBPConstants[AP_BACK_PACK];
 	INT32	iBPCost = APBPConstants[BP_BACK_PACK];
@@ -4372,7 +4376,7 @@ void MergeMessageBoxCallBack( UINT8 ubExitValue )
 	}
 }
 
-void HandleMouseOverSoldierFaceForContMove( SOLDIERTYPE *pSoldier, BOOLEAN fOn )
+void HandleMouseOverSoldierFaceForContMove( TacticalActor *pSoldier, BOOLEAN fOn )
 {
 	FACETYPE *pFace;
 	INT32 sGridNo = NOWHERE;
@@ -4594,7 +4598,7 @@ void BtnDropPackCallback(GUI_BUTTON *btn,INT32 reason)
 			INT8 bAssignment = GetSMCurrentMerc()->assignment().current();
 			for( SoldierID x = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; x <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++x )
 			{
-				SOLDIERTYPE *pSoldier =
+				TacticalActor *pSoldier =
 					GetJa2SoldierRepository().resolve(x.i);
 				if (!pSoldier)
 				{
@@ -4832,7 +4836,7 @@ void BtnStealthModeCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-		SOLDIERTYPE* const soldier = GetSMCurrentMerc();
+		TacticalActor* const soldier = GetSMCurrentMerc();
 		if (soldier && TryDispatchSetStealthModeCommandNow(
 				GetJa2TacticalEntityId(*soldier),
 				soldier->movement().stealthMode() == FALSE))
@@ -5379,7 +5383,7 @@ BOOLEAN InitializeTEAMPanel(	)
 		{
 			if ( gTeamPanel[ cnt ].ubID != NOBODY )
 			{
-				SOLDIERTYPE* soldier =
+				TacticalActor* soldier =
 					GetJa2SoldierRepository().resolve(
 						gTeamPanel[cnt].ubID.i);
 				if (soldier)
@@ -5460,7 +5464,7 @@ BOOLEAN ShutdownTEAMPanel( )
 
 		if ( gTeamPanel[ cnt ].ubID != NOBODY )
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				GetJa2SoldierRepository().resolve(
 					gTeamPanel[cnt].ubID.i);
 			if (soldier)
@@ -5491,7 +5495,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 {
 	INT16 sFontX, sFontY;
 	UINT32				cnt, posIndex;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 	static				CHAR16		pStr[ 512 ], pMoraleStr[ 20 ], sTemp[ 20 ];
 
 	if ( fDirty == DIRTYLEVEL2 )
@@ -5541,7 +5545,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				if ( pSoldier->status().flags() & ( SOLDIER_DRIVER ) )
 				{
 					// Get soldier pointer for vehicle.....
-					SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
+					TacticalActor *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 
 					// WDS 07/02/3008 - Fix bug of getting into vehicle you don't control
 					Assert (pVehicle != 0);
@@ -5691,7 +5695,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 								CHAR16	atStr[500];
 								swprintf( atStr, L"" );
 
-								pSoldier->PrintDiseaseDesc( atStr );
+								TacticalActorDisease::appendDescription(*pSoldier, atStr );
 
 								wcscat( pStr, atStr );
 							}
@@ -6145,7 +6149,7 @@ void MercFacePanelMoveCallback( MOUSE_REGION * pRegion, INT32 iReason )
 {
 	UINT16 ubID;
 	SoldierID ubSoldierID;
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 
 	ubID = (UINT16) MSYS_GetRegionUserData( pRegion, 0 );
 
@@ -6208,7 +6212,7 @@ void EnemyIndicatorClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	{
 		return;
 	}
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
 
@@ -6278,7 +6282,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	{
 		return;
 	}
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
 	if (iReason & MSYS_CALLBACK_REASON_INIT)
@@ -6328,7 +6332,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 								if ( OK_CONTROLLABLE_MERC( soldier ) && !( soldier->status().flags() & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
 								{
 									//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s added", ubSoldierID->name );
-									SOLDIERTYPE* selectedSoldier =
+									TacticalActor* selectedSoldier =
 										GetJa2SoldierRepository().resolve(
 											gusSelectedSoldier.i);
 									if (selectedSoldier)
@@ -6346,7 +6350,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 								soldier->status().flags() &= (~SOLDIER_MULTI_SELECTED );
 								if (ubSoldierID != gusSelectedSoldier)
 								{
-									SOLDIERTYPE* selectedSoldier =
+									TacticalActor* selectedSoldier =
 										GetJa2SoldierRepository().resolve(
 											gusSelectedSoldier.i);
 									if (selectedSoldier)
@@ -6395,7 +6399,7 @@ extern void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, 
 void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 {
 	BOOLEAN fSelect = FALSE;
-	SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(ubID.i);
+	TacticalActor* soldier = GetJa2SoldierRepository().resolve(ubID.i);
 
 	if( !soldier || !soldier->roster().active() )
 	{
@@ -6522,7 +6526,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 
 void ShowRadioLocator( SoldierID ubID, UINT8 ubLocatorSpeed )
 {
-	SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(ubID.i);
+	TacticalActor* soldier = GetJa2SoldierRepository().resolve(ubID.i);
 	if (!soldier)
 	{
 		return;
@@ -6539,7 +6543,7 @@ void ShowRadioLocator( SoldierID ubID, UINT8 ubLocatorSpeed )
 
 void EndRadioLocator( SoldierID ubID )
 {
-	SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(ubID.i);
+	TacticalActor* soldier = GetJa2SoldierRepository().resolve(ubID.i);
 	if (!soldier)
 	{
 		return;
@@ -6550,7 +6554,7 @@ void EndRadioLocator( SoldierID ubID )
 
 
 
-void CheckForFacePanelStartAnims( SOLDIERTYPE *pSoldier, INT16 sPanelX, INT16 sPanelY )
+void CheckForFacePanelStartAnims( TacticalActor *pSoldier, INT16 sPanelX, INT16 sPanelY )
 {
 
 	if ( !pSoldier->roster().active() )
@@ -6571,7 +6575,7 @@ void CheckForFacePanelStartAnims( SOLDIERTYPE *pSoldier, INT16 sPanelX, INT16 sP
 
 void FinishAnySkullPanelAnimations( )
 {
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	SoldierID cnt2 = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 
 	// run through list
@@ -6594,7 +6598,7 @@ void FinishAnySkullPanelAnimations( )
 	}
 }
 
-void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
+void HandlePanelFaceAnimations( TacticalActor *pSoldier )
 {
 	if ( pSoldier->roster().team() != gbPlayerNum )
 	{
@@ -6763,14 +6767,14 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 
 
 
-void HandleSoldierFaceFlash( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY )
+void HandleSoldierFaceFlash( TacticalActor *pSoldier, INT16 sFaceX, INT16 sFaceY )
 {
 
 }
 
 
 
-void RenderSoldierTeamInv( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY, UINT8 ubPanelNum, BOOLEAN fDirty )
+void RenderSoldierTeamInv( TacticalActor *pSoldier, INT16 sX, INT16 sY, UINT8 ubPanelNum, BOOLEAN fDirty )
 {
 	if ( pSoldier->roster().active() && !(pSoldier->status().flags() & SOLDIER_DEAD ) )
 	{
@@ -6823,7 +6827,7 @@ void TMFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	// Now use soldier ID values
 	ubSoldierID = gTeamPanel[ ubID ].ubID;
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
 	if ( !soldier || !soldier->roster().active() )
@@ -6836,7 +6840,7 @@ void TMFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	{
 		//OK FOR NOW, DROP ITEM WHERE BUDDY IS
 		{
-		//	SOLDIERTYPE *pSoldier;
+		//	TacticalActor *pSoldier;
 
 		//	if(	GetSoldier( &pSoldier, ubSoldierID ) )
 		//	{
@@ -6868,7 +6872,7 @@ void TMClickFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if ( ubSoldierID == NOBODY )
 		return;
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 	if (!soldier)
 		return;
@@ -6878,7 +6882,7 @@ void TMClickFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		// anv: select vehicle by clicking on the steering wheel
 		//if ( ubSoldierID->status().flags() & SOLDIER_DRIVER )
 		//{
-		//	SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( ubSoldierID->deployment().vehicleId() );
+		//	TacticalActor *pVehicle = GetSoldierStructureForVehicle( ubSoldierID->deployment().vehicleId() );
 		//	HandleLocateSelectMerc( pVehicle->identity().id(), 0 );
 		//}
 		//else
@@ -6918,7 +6922,7 @@ void TMClickSecondHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if ( ubSoldierID == NOBODY )
 		return;
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 	if (!soldier)
 		return;
@@ -6931,7 +6935,7 @@ void TMClickSecondHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		}
 		else if (UsingNewInventorySystem() && !AM_A_ROBOT(soldier))
 		{
-			soldier->SwitchWeapons();
+			TacticalActorEquipment::switchWeapon(*soldier);
 		}
 	}
 
@@ -7015,7 +7019,7 @@ BOOLEAN RemovePlayerFromTeamSlotGivenMercID( SoldierID ubMercID )
 void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 {
 	INT32	cnt;
-	SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(ubID.i);
+	TacticalActor* soldier = GetJa2SoldierRepository().resolve(ubID.i);
 	if (!soldier)
 	{
 		return;
@@ -7058,12 +7062,12 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 		// anv: for passengers, position on team panel will be linked with seat in vehicle
 		if ( soldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 		{
-			SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( soldier->deployment().vehicleId() );
+			TacticalActor *pVehicle = GetSoldierStructureForVehicle( soldier->deployment().vehicleId() );
 			if( pVehicle != NULL )
 			{
 				for( UINT8 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ soldier->deployment().vehicleId() ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 				{
-					SOLDIERTYPE *pPassenger =
+					TacticalActor *pPassenger =
 						ResolveVehiclePassenger(
 							soldier->deployment().vehicleId(),
 							iCounter );
@@ -7142,7 +7146,7 @@ BOOLEAN RemovePlayerFromInterfaceTeamSlot( UINT8 ubPanelSlot )
 
 	if ( gTeamPanel[ ubPanelSlot ].fOccupied )
 	{
-		SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(
+		TacticalActor* soldier = GetJa2SoldierRepository().resolve(
 			gTeamPanel[ ubPanelSlot ].ubID.i);
 		if (soldier)
 		{
@@ -7197,7 +7201,7 @@ void RenderTownIDString( INT16 sX, INT16 sY )
 }
 
 
-void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
+void CheckForAndAddMercToTeamPanel( TacticalActor *pSoldier )
 {
 
 	if ( pSoldier->roster().active()	)
@@ -7288,11 +7292,11 @@ void CleanUpStack( OBJECTTYPE * pObj, OBJECTTYPE * pCursorObj )
 	}
 }
 
-SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs )
+SoldierID FindNextMercInTeamPanel( TacticalActor *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs )
 {
 	INT32 cnt;
 	INT32 bFirstID;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 
 
 	bFirstID = GetTeamSlotFromPlayerID( pSoldier->identity().id() );
@@ -7345,13 +7349,13 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 		// only allow if nothing in hand and if in SM panel, the Change Squad button must be enabled
 		if ( ( ( gsCurInterfacePanel != TEAM_PANEL ) || ( ButtonList[ iTEAMPanelButtons[ CHANGE_SQUAD_BUTTON ] ]->uiFlags & BUTTON_ENABLED ) ) )
 		{
-			SOLDIERTYPE *pNewSoldier;
+			TacticalActor *pNewSoldier;
 			INT32		iCurrentSquad;
 
 			//Select next squad
 			iCurrentSquad = CurrentSquad( );
 
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 			if (!selectedSoldier)
 			{
@@ -7432,7 +7436,7 @@ void DisableTacticalTeamPanelButtons( BOOLEAN fDisable )
 
 void BeginKeyPanelFromKeyShortcut( )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT16 sStartYPosition = 0;
 	INT16 sWidth = 0, sHeight = 0;
 
@@ -7471,7 +7475,7 @@ void BeginKeyPanelFromKeyShortcut( )
 
 void KeyRingItemPanelButtonCallback( MOUSE_REGION * pRegion, INT32 iReason )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT16 sStartYPosition = 0;
 	INT16 sWidth = 0, sHeight = 0;
 
@@ -8061,7 +8065,7 @@ void GoToMapScreenFromTactical( void )
 }
 
 //----LEGION 2---------
-BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 usReplaceItem )
+BOOLEAN HandleKlerykPistolet( TacticalActor *pSoldier, UINT32 uiHandPos, UINT16 usReplaceItem )
 {
 	BOOLEAN fRefuse = FALSE;
 
@@ -8107,7 +8111,7 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 
 
 // Moved to Weapons.cpp by ADB, rev 1513
-/*void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem )
+/*void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem )
 {
 	// if in attached weapon mode and don't have weapon with GL attached in hand, reset weapon mode
 	if ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )&& !IsGrenadeLauncherAttached( &(pSoldier->inventory()[ HANDPOS ]) ) )

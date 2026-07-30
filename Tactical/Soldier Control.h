@@ -120,8 +120,8 @@ extern UINT16 CivLastNames[MAXCIVLASTNAMES][10];
 // SANDRO was here, messed this..
 //#define HAS_SKILL_TRAIT( s, t ) (s->stats.ubSkillTrait1 == t || s->stats.ubSkillTrait2 == t)
 //#define NUM_SKILL_TRAITS( s, t ) ( (s->stats.ubSkillTrait1 == t) ? ( (s->stats.ubSkillTrait2 == t) ? 2 : 1 ) : ( (s->stats.ubSkillTrait2 == t) ? 1 : 0 ) )
-BOOLEAN HAS_SKILL_TRAIT( SOLDIERTYPE * pSoldier, UINT8 uiSkillTraitNumber );
-INT8 NUM_SKILL_TRAITS( SOLDIERTYPE * pSoldier, UINT8 uiSkillTraitNumber );
+BOOLEAN HAS_SKILL_TRAIT( TacticalActor * pSoldier, UINT8 uiSkillTraitNumber );
+INT8 NUM_SKILL_TRAITS( TacticalActor * pSoldier, UINT8 uiSkillTraitNumber );
 
 #define	SOLDIER_QUOTE_SAID_IN_SHIT										0x0001
 #define	SOLDIER_QUOTE_SAID_LOW_BREATH									0x0002
@@ -420,17 +420,6 @@ enum
 #define SOLDIER_INTERROGATE_ALL				0x000001F8					// all interrogation flags
 // ----------------------------------------------------------------
 
-// -------- added by Flugente: disease property flags --------
-// easier than adding 32 differently named variables. DO NOT CHANGE THEM, UNLESS YOU KNOW WHAT YOU ARE DOING!!!
-// these flags describe how a disease has affected us so far
-#define SOLDIERDISEASE_DIAGNOSED			0x00000001	//1				// it is now known that we have this disease - either a doctor diagnosed it, or it broke out an we are currently suffering
-#define SOLDIERDISEASE_OUTBREAK				0x00000002	//2				// disease has broken out - we suffer the effects now. Without this flag, it is active but does not do any damage to us
-#define SOLDIERDISEASE_REVERSEAL			0x00000004	//4				// disease is reversing - every hour we receive negative points. This is used to simulate a disease healing itself
-#define SOLDIERDISEASE_SPLINTAPPLIED_LEG	0x00000008					// a spling has been applied to the leg. Diseases with the corresponding tag will heal faster
-
-#define SOLDIERDISEASE_SPLINTAPPLIED_ARM	0x00000010					// a spling has been applied to the arm. Diseases with the corresponding tag will heal faster
-
-
 // -------- added by Flugente: background property flags --------
 // easier than adding 32 differently named variables. DO NOT CHANGE THEM, UNLESS YOU KNOW WHAT YOU ARE DOING!!!
 // a merc's background info reveals data about his previous life, like former regiments. These backgrounds add small abilities/disabilities. Nothing substantial, just small bits do
@@ -674,37 +663,22 @@ enum
 };
 
 
-struct LEVELNODE;
-
 //ADB makes the code clearer, used like "thisSoldier->foo();"
 //CHRISL: Not sure if it make the code easier to read or not, but it does make it harder to debug
 //#define thisSoldier this
 
-//forward declarations for versioning, it's so long I want it at the end
-class OLDSOLDIERTYPE_101;
-
 enum class BackgroundVectorTypes;
 
-class SOLDIERTYPE//last edited at version 102
+class TacticalActor
 {
 public:
-	// Conversion operator
-	SOLDIERTYPE& operator=(const OLDSOLDIERTYPE_101&);
-
 	// Constructor
-	SOLDIERTYPE();
+	TacticalActor();
 	// Destructor
-	~SOLDIERTYPE();
+	~TacticalActor();
 
-	BOOLEAN Load(HWFILE hFile);
-	BOOLEAN Save(HWFILE hFile);
-	UINT32	GetChecksum();
-
-	// Initialize the soldier.	
-	//	Use this instead of the old method of calling memset.
-	//	Note that the constructor does this automatically.
+	// Reset every owned component. The constructor does this automatically.
 	void initialize();
-	bool	exists();
 	SoldierIdentityComponent& identity() noexcept { return identity_; }
 	const SoldierIdentityComponent& identity() const noexcept { return identity_; }
 	SoldierRosterComponent& roster() noexcept { return roster_; }
@@ -827,41 +801,8 @@ public:
 	const SoldierRenderBindingsComponent& renderBindings() const noexcept { return renderBindings_; }
 	SoldierRuntimeComponents& runtime() noexcept { return runtime_; }
 	const SoldierRuntimeComponents& runtime() const noexcept { return runtime_; }
-	UINT8* compatibilityBytes() noexcept { return compatibilityBytes_; }
-	const UINT8* compatibilityBytes() const noexcept { return compatibilityBytes_; }
 
-	// Note: Place all non-POD items at the end (after endOfPOD)
-	// The format of this structure affects what is written into and read from various
-	// files (maps, save files, etc.).	If you change it then that code will not work 
-	// properly until it is all fixed and the files updated.
-public:
-	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, SOLDIERTYPE *pKnownSubject = NULL);
-
-private:
-	// These opaque slots preserve the exact legacy POD footprint. The values
-	// that historically occupied them were process-local handles and are now
-	// owned by renderBindings_ after endOfPOD or retired entirely. They must
-	// never be read as live state.
-	INT32			retiredFaceIndexSlot_;
-	LEVELNODE		*retiredLevelNodeSlot_;
-	LEVELNODE		*retiredExternShadowLevelNodeSlot_;
-	LEVELNODE		*retiredRoofUiLevelNodeSlot_;
-	UINT16			*retiredBackgroundSlot_;
-	UINT16			*retiredZBackgroundSlot_;
-	struct TAG_anitile	*retiredAnimationTileSlot_;
-
-	// Reserved bytes remain explicit because the current save visitor preserves
-	// their established positions even though live feature flags have a typed
-	// owner outside this compatibility tail.
-	UINT8	compatibilityBytes_[10];
-
-public:
-	char endOfPOD;	// marker for end of POD (plain old data)
-
-	// Note: Place all non-POD items at the end (after endOfPOD)
-	// The format of this structure affects what is written into and read from various
-	// files (maps, save files, etc.).	If you change it then that code will not work 
-	// properly until it is all fixed and the files updated.
+	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, TacticalActor *pKnownSubject = NULL);
 
 private:
 	SoldierIdentityComponent	identity_;
@@ -960,9 +901,7 @@ public:
 	void EVENT_SoldierBeginUseDetonator( void );
 	void EVENT_SoldierBeginDropBomb( );
 	void EVENT_SoldierDefuseTripwire( INT32 sGridNo, INT32 sItem );
-	void EVENT_SoldierEnterVehicle( INT32 sGridNo, UINT8 ubDirection, UINT8 ubSeatIndex = 0 );
 	void EVENT_SoldierBeginGiveItem( void );
-	void EVENT_SetSoldierPositionAndMaybeFinalDest( FLOAT dNewXPos, FLOAT dNewYPos, BOOLEAN fUpdateFinalDest );
 	void EVENT_SetSoldierPositionForceDelete( FLOAT dNewXPos, FLOAT dNewYPos );
 	void EVENT_SoldierBeginReloadRobot( INT32 sGridNo, UINT8 ubDirection, UINT8 ubMercSlot );
 	void EVENT_SoldierBeginTakeBlood( INT32 sGridNo, UINT8 ubDirection );
@@ -1003,9 +942,8 @@ public:
 	// UTILITY FUNCTUIONS
 	void MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckRange );
 	INT16 CalcActionPoints( void );
-	BOOLEAN IsActionInterruptable( void );
 	// This function is now obsolete.	Call ReduceAttackBusyCount instead.
-	// void ReleaseSoldiersAttacker( SOLDIERTYPE *pSoldier );
+	// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
 	BOOLEAN MercInWater( void );
 	BOOLEAN MercInShallowWater( void );
 	BOOLEAN MercInDeepWater( void );
@@ -1024,7 +962,7 @@ public:
 
 
 
-	UINT32 SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT16 sStatus );
+	UINT32 SoldierDressWound( TacticalActor *pVictim, INT16 sKitPts, INT16 sStatus );
 	void ReceivingSoldierCancelServices( void );
 	void GivingSoldierCancelServices( void );
 	void InternalReceivingSoldierCancelServices( BOOLEAN fPlayEndAnim );
@@ -1072,12 +1010,10 @@ public:
 	// sevenfm
 	void BreakWindow(void);
 	BOOLEAN CanBreakWindow(void);
-	BOOLEAN CanStartDrag(void);
-	void StartDrag(void);
 
 	void UpdateRobotControllerGivenController( void );
 	void UpdateRobotControllerGivenRobot( void );
-	SOLDIERTYPE *GetRobotController( void );
+	TacticalActor *GetRobotController( void );
 	BOOLEAN CanRobotBeControlled( void );
 	BOOLEAN ControllingRobot( void );
 
@@ -1098,82 +1034,19 @@ public:
 	BOOLEAN IsValidAlternativeFireMode( INT16 bAimTime, INT32 iTrgGridNo );
 	BOOLEAN IsValidShotFromHip( INT16 bAimTime, INT32 iTrgGridNo );
 	BOOLEAN IsValidPistolFastShot( INT16 bAimTime, INT32 iTrgGridNo );
-	BOOLEAN SoldierCarriesTwoHandedWeapon( void );
-	void	SoldierInventoryCoolDown( void );		// Flugente: Cool down/decay all items in inventory
 	BOOLEAN	IsWeaponMounted( void );				// determine if we receive a bonus for mounting our weapon on something
-	OBJECTTYPE* GetUsedWeapon( OBJECTTYPE * pObj );		// if in an underbarrel fire mode, return underbarrel weapon
-	UINT16  GetUsedWeaponNumber( OBJECTTYPE * pObj );	// if in an underbarrel fire mode, return number of underbarrel weapon
 
-	// returns damage resistance in percent
-	INT32	GetDamageResistance( BOOLEAN fAutoResolve = FALSE, BOOLEAN fCalcBreathLoss = FALSE);
-	INT8	GetHearingBonus();
-	INT16	GetSightRangeBonus();
-
-	INT16	GetSoldierCriticalDamageBonus( void );	// Flugente: determines critical damage bonus depending on class, skill, etc.
-
-	// Flugente: Zombies
-	BOOLEAN IsZombie( void );
-			
 	// reset the extra stat variables
 	void	ResetExtraStats();
-
-	// Flugente: inventory bombs can ignite while in mapscreen. Workaround: Damage items and health
-	void	InventoryExplosion( void );
-
-	// Flugente: do we currently provide ammo (pAmmoSlot) for someone else's (pubId) gun (pGunSlot)?
-	BOOLEAN		IsFeedingExternal(SoldierID * pubId1, UINT16* pGunSlot1, UINT16* pAmmoSlot1, SoldierID* pubId2, UINT16* pGunSlot2, UINT16* pAmmoSlot2);
-
-	// Flugente: return first found object with a specific flag from our inventory
-	OBJECTTYPE* GetObjectWithFlag( UINT64 aFlag );
-
-	// Flugente: functions for the covert ops trait
-
-	// do we look like a civilian?
-	BOOLEAN		LooksLikeACivilian( void );
-
-	// do we look like a soldier?
-	BOOLEAN		LooksLikeASoldier( void );
-
-	// what kind of uniform are we wearing? returns -1 if none is worn
-	INT8		GetUniformType();
-
-	// is our equipment too good for a soldier?
-	BOOLEAN		EquipmentTooGood( BOOLEAN fCloselook );
-	
-	// does soldier ubObserverID recognize us as his enemy?
-	BOOLEAN		SeemsLegit( SoldierID ubObserverID );
-
-	// do we recognize someone else as a combatant?
-	BOOLEAN		RecognizeAsCombatant(SoldierID ubTargetID);
-
-	// loose covert property
-	void		LooseDisguise( void );	
-
-	// sevenfm: auto disguise if have correct clothes
-	void		Disguise();
-
-	void		ApplyCovert(BOOLEAN aWithMessage);
-
-	// lose disguise or take off any clothes item and switch back to original clothes
-	void		Strip();
-
-	// check whether our disguise is any good
-	void		SpySelfTest();
 
 	// sevenfm: service functions
 	BOOLEAN		IsFlanking(void);
 	BOOLEAN		CheckInitialAP(void);
-	UINT8		ShockLevelPercent(void);
-	BOOLEAN		TakenLargeHit(void);
-	BOOLEAN		IsCowering(void);
-	BOOLEAN		IsUnconscious(void);
-	BOOLEAN		IsGivingAid(void);
 
 	// sevenfm: for player mercs
 	void StopCoweringAnimation(void);
 
 	void	RetreatCounterStart(UINT16 usValue);
-	void	RetreatCounterStop(void);
 	UINT16  RetreatCounterValue(void);
 
 	void StartRadioAnimation(void);
@@ -1182,100 +1055,24 @@ public:
 
 	// Flugente: prisoner system
 	BOOLEAN		CanProcessPrisoners();
-	UINT32		GetSurrenderStrength();
 	BOOLEAN		FreePrisoner();					// used for an enemy liberating fellow prisoners 
-	BOOLEAN		CanBeCaptured();				// can this guy be captured (by handcuffing or asking him to surrender)?
-
-	// Flugente: scuba gear
-	BOOLEAN		UsesScubaGear();
-
-	// Flugente: are we an assassin?
-	BOOLEAN		IsAssassin();
-
 	// Flugente: multi-turn actions
 	UINT8		GetMultiTurnAction();
 	void		StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo );
 	void		CancelMultiTurnAction(BOOLEAN fFinished);
 	BOOLEAN		UpdateMultiTurnAction();
 
-	void		DropSectorEquipment();
-
-	// sevenfm: Take new bomb with id = usItem from iventory to HANDPOS
-	void 		TakeNewBombFromInventory(UINT16 usItem);
-	void		TakeNewItemFromInventory(UINT16 usItem);
-
-	// Flugente: switch hand item for gunsling weapon, or pistol, or knife
-	void		SwitchWeapons( BOOLEAN fKnife = FALSE, BOOLEAN fSideArm = FALSE );
-
 	// Flugente: return a soldier's name. This allows for very easy manipulation of a soldier's name with pre- an suffixes, ranks etc.
 	STR16		GetName();
 
-	INT8		GetTraitCTHModifier( UINT16 usItem, INT16 ubAimTime, UINT8 ubTargetProfile );
-
 	//void		AddDrugValues(UINT8 uDrugType, UINT8 usEffect, UINT8 usTravelRate, UINT8 usSideEffect );
-
-	void		HandleFlashLights();
-    bool		AddBestFlashLight();
-    UINT8		GetBestEquippedFlashLightRange();
 
 	// Flugente: soldier profiles
 	INT8		GetSoldierProfileType(UINT8 usTeam);		// retrieves the correct sub-array
 
-	// Flugente: do we have a specific background flag?
-	BOOLEAN		HasBackgroundFlag( UINT64 aFlag );
-	INT16		GetBackgroundValue( UINT16 aNr );
-
-	const std::vector<INT16>& GetBackgroundValueVector(BackgroundVectorTypes backgroundVectorType) const;
-
-	INT8		GetSuppressionResistanceBonus();			// bonus to resistance against suppression
-	INT16		GetMeleeDamageBonus();
-	INT16		GetAPBonus();
-	INT8		GetFearResistanceBonus();					// fear resistance lowers shock and morale damage from horror
-	UINT8		GetMoraleThreshold();
-	FLOAT		GetMoraleModifier();
-	INT16		GetInterruptModifier( UINT8 usDistance );
-
 	void		SoldierPropertyUpkeep();					// update functions for various properties (updating counters, resetting flags etc.)
 
-	// Flugente: functions for skill usage
-	// traits can allow use of certain skills
-	// check if Soldier can use the spell skillwise, with fAPCheck = TRUE also check current APs
-	BOOLEAN CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck = TRUE, INT32 sGridNo = -1 );
-
-	// use a skill. For safety reasons, this calls CanUseSkill again (it is possible to switch the soldier while the menu is open)
-	BOOLEAN UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID );
-
-	// is the AI allowed to use a skill? we have to check how much breath and life using this skill would cost, as otherwise the AI might commit suicide by casting
-	BOOLEAN IsAIAllowedtoUseSkill( INT8 iSkill );
-
-	// print a small description of the skill if we can use it, or its requirements if we cannot
-	STR16	PrintSkillDesc( INT8 iSkill, INT32 sGridNo = -1 );
-
-	// Flugente: functions for the radio operator trait
-	BOOLEAN CanUseRadio(BOOLEAN fCheckForAP = TRUE);							// can we use radio, if we even have one?
-	BOOLEAN UseRadio();								// simply drain the batteries
-	BOOLEAN HasMortar();
-	BOOLEAN GetSlotOfSignalShellIfMortar(UINT8* pbLoop); // if we have a mortar and a fitting signal shell, return the inventory slot it is in
-	BOOLEAN CanAnyArtilleryStrikeBeOrdered(UINT32* pSectorID);		// can any artillery strikes be ordered by this guy's team from the neighbouring sectors?
-	BOOLEAN OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridNo, UINT8 bTeam );
-	BOOLEAN IsJamming();							// are we currently jamming communication frequencies?
-	BOOLEAN JamCommunications();
-	BOOLEAN IsScanning();
-	BOOLEAN ScanForJam();
-	BOOLEAN IsRadioListening();
-	BOOLEAN RadioListen();
-	BOOLEAN RadioCallReinforcements( UINT32 usSector, UINT16 sNumber );
-	BOOLEAN SwitchOffRadio();
-	BOOLEAN RadioOrderAllTurnCoatToSwitchSides();
-	void	RadioFail();							// display and error sound used either when the radio set fails or the sector is jammed - the player knows of the error, but cannot be sure of the cause
-
-	// Flugente: spotter
-	BOOLEAN IsSpotting();
-	BOOLEAN CanSpot( INT32 sTargetGridNo = -1 );
-	BOOLEAN BecomeSpotter( INT32 sTargetGridNo );
-
 	// Flugente: enemy roles
-	BOOLEAN HasSniper();
 	BOOLEAN CanMedicAI();						// AI-only: can we heal a wounded ally? Do NOT, repeat, NOT use this with mercs!
 	BOOLEAN	AIDoctorFriend();					// AI-only: heal a wounded friend. Do NOT, repeat, NOT use this with mercs!
 	BOOLEAN AIDoctorSelf();						// AI-only: heal self. Do NOT, repeat, NOT use this with mercs!
@@ -1283,111 +1080,16 @@ public:
 	// Flugente: boxing fix: this shall be the only location where the boxing flag gets removed (easier debugging)
 	void	DeleteBoxingFlag();
 
-	// Flugente: disease
-	void	Infect( UINT8 aDisease );
-	void	AddDiseasePoints( UINT8 aDisease, INT32 aVal  );
-	void	AnnounceDisease( UINT8 aDisease );
-	void	AddDisability( UINT8 aDisability );
-	bool	CanReceiveSplint();
-
-	// do we have any disease?
-	// fDiagnosedOnly: check for wether we know of this infection
-	// fHealableOnly: check wether it can be healed
-	// fSymbolOnly: only show if symbol should be shown
-	BOOLEAN HasDisease(BOOLEAN fDiagnosedOnly, BOOLEAN fHealableOnly, BOOLEAN fSymbolOnly = FALSE);
-	BOOLEAN HasDiseaseWithFlag(UINT32 aFlag);
-	FLOAT	GetDiseaseMagnitude( UINT8 aDisease );			// get the magnitude of a disease we might have, used to determine wether there are any effects
-	void	PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
 	void	PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
 	void	PrintSleepDesc( CHAR16* apStr );
-	FLOAT   GetDiseaseContactProtection();		// get percentage protection from infections via contact
-	INT16	GetDiseaseResistance();
-	UINT16	GetDiseaseDiagnosePoints();
-	FLOAT	GetBurialPoints( UINT16* apCorpses );
-
-	// Flugente: hourly breath regen calculation
-	INT8	GetSleepBreathRegeneration();
-
-	// Flugente: assumed character weight (without any items)
-	FLOAT	GetBodyWeight();
 
 	// Flugente: are we crouched against cover from a specific direction? WARNING: This does not suffice to determine our cover!
 	BOOLEAN	IsCrouchedAgainstCoverFromDir( UINT8 aDirection );
 
-	// Flugente: fortification
-	FLOAT	GetConstructionPoints( );
-
-	// Flugente: do we have a specific item in our inventory?
-	BOOLEAN HasItem( UINT16 usItem );
-	BOOLEAN SelfDetonate();						// AI-only: blow up explosive in own inventory. Do NOT, repeat, NOT use this with mercs!
-
-	// Flugente: chance to defeat a water snake instead of being hit by it
-	UINT8	GetWaterSnakeDefenseChance( );
-
-	// Flugente: interactive actions
-	UINT16	GetInteractiveActionSkill( INT32 sGridNo, UINT8 usLevel, UINT16 usType );
-
-	// Flugente: riot shields
-	OBJECTTYPE*	GetEquippedRiotShield();
-	BOOLEAN		IsRiotShieldEquipped();
-	void		DestroyEquippedRiotShield();
-	void		RiotShieldTakeDamage(INT32 sDamage);
-
-	// Flugente: drag people
-	BOOLEAN		CanDragInPrinciple(BOOLEAN fCheckStance = FALSE);
-	BOOLEAN		CanDragPerson(SoldierID usID, BOOLEAN fCheckStance = FALSE);
-	BOOLEAN		CanDragCorpse(UINT16 usCorpseNum, BOOLEAN fCheckStance = FALSE);
-	BOOLEAN		CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance = FALSE);
-	// Default is a pure query. Pass true only where you want the side effect of
-	// cancelling an in-progress drag when its conditions are no longer met (e.g.
-	// MoveMerc); the old default of true made ordinary query calls silently abort
-	// drags, causing "ghost" dragging behaviour.
-	BOOLEAN		IsDragging(bool aStopIfConditionNotSatisfied = false);
-	void		SetDragOrderPerson( SoldierID usID );
-	void		SetDragOrderCorpse( UINT32 uiCorpseID );
-	void		SetDragOrderStructure( INT32 sGridNo );
-	void		CancelDrag();
-
-	// Flugente: spy assignments
-	UINT8		GetUncoverRisk();
-	FLOAT		GetIntelGain();
-
-	void		StopChatting();
-	void		DrugAutoUse();
-
-	OBJECTTYPE*	GetObjectWithItemFlag( UINT64 aFlag );
-	bool		DestroyOneObjectWithItemFlag( UINT64 aFlag );
-	bool		DestroyOneItemInInventory( UINT16 ausItem );
-	bool		HasItemInInventory( UINT16 ausItem );
-
-	// Flugente: can we fill a blood bag from this guy ?
-	BOOLEAN		IsValidBloodDonor();
-
-	// Flugente: administration assignment
-	UINT32		GetAdministrationPoints();
-	FLOAT		GetAdministrationModifier();
-
-	// Flugente: those with the <scrounging> background occasionally steal money from the locals
-	UINT8		GetThiefStealMoneyChance();
-	UINT8		GetThiefEvadeDetectionChance();
-
-	// Flugente: turncoats
-	BOOLEAN		InPositionForTurncoatAttempt( SoldierID usID );
-	UINT8		GetTurncoatConvinctionChance( SoldierID usID, INT16 usApproach );
-	void		AttemptToCreateTurncoat( SoldierID usID );
-	BOOLEAN		OrderTurnCoatToSwitchSides( SoldierID usID );
-	void		OrderAllTurnCoatToSwitchSides();
-
-	// Flugente: exploration assignment
-	UINT32		GetExplorationPoints();
-
 	bool		IsFastMovement();
 	//////////////////////////////////////////////////////////////////////////////
 
-}; // SOLDIERTYPE;	
-
-#define SIZEOF_SOLDIERTYPE_POD offsetof( SOLDIERTYPE, endOfPOD )
-#define SIZEOF_OLDSOLDIERTYPE_101_POD offsetof( OLDSOLDIERTYPE_101, endOfPOD )
+}; // TacticalActor;
 
 #define HEALTH_INCREASE			0x0001
 #define STRENGTH_INCREASE		0x0002
@@ -1471,755 +1173,67 @@ BOOLEAN LoadPaletteData( );
 BOOLEAN DeletePaletteData( );
 
 // UTILITY FUNCTUIONS
-void MoveMercFacingDirection( SOLDIERTYPE *pSoldier, BOOLEAN fReverse, FLOAT dMovementDist );
-UINT8 GetDirectionFromXY( INT16 sXPos, INT16 sYPos, SOLDIERTYPE *pSoldier );
-BOOLEAN GetDirectionChangeAmount( INT32 sGridNo, SOLDIERTYPE *pSoldier, UINT8 uiTurnAmount);
-UINT8 GetDirectionFromGridNo( INT32 sGridNo, SOLDIERTYPE *pSoldier );
+void MoveMercFacingDirection( TacticalActor *pSoldier, BOOLEAN fReverse, FLOAT dMovementDist );
+UINT8 GetDirectionFromXY( INT16 sXPos, INT16 sYPos, TacticalActor *pSoldier );
+BOOLEAN GetDirectionChangeAmount( INT32 sGridNo, TacticalActor *pSoldier, UINT8 uiTurnAmount);
+UINT8 GetDirectionFromGridNo( INT32 sGridNo, TacticalActor *pSoldier );
 UINT8 atan8( INT16 sXPos, INT16 sYPos, INT16 sXPos2, INT16 sYPos2 );
 UINT8 atan8FromAngle( DOUBLE dAngle );
 INT16 GetDirectionToGridNoFromGridNo(INT32 sGridNoDest, INT32 sGridNoSrc);
 INT16 GetDirectionFromCenterCellXYGridNo(INT32 EndGridNo, INT32 StartGridNo);
 // This function is now obsolete.	Call ReduceAttackBusyCount instead.
-// void ReleaseSoldiersAttacker( SOLDIERTYPE *pSoldier );
+// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
 
 
 
 // WRAPPERS FOR SOLDIER EVENTS
-void SendSoldierPositionEvent( SOLDIERTYPE *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos );
-void SendSoldierDestinationEvent( SOLDIERTYPE *pSoldier, UINT16 usNewDestination );
-void SendGetNewSoldierPathEvent( SOLDIERTYPE *pSoldier, INT32 sDestGridNo, UINT16 usMovementAnim );
-void SendSoldierSetDirectionEvent( SOLDIERTYPE *pSoldier, UINT16 usNewDirection );
-void SendSoldierSetDesiredDirectionEvent( SOLDIERTYPE *pSoldier, UINT16 usDesiredDirection );
-void SendChangeSoldierStanceEvent( SOLDIERTYPE *pSoldier, UINT8 ubNewStance );
-void SendBeginFireWeaponEvent( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo );
+void SendSoldierPositionEvent( TacticalActor *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos );
+void SendSoldierDestinationEvent( TacticalActor *pSoldier, UINT16 usNewDestination );
+void SendGetNewSoldierPathEvent( TacticalActor *pSoldier, INT32 sDestGridNo, UINT16 usMovementAnim );
+void SendSoldierSetDirectionEvent( TacticalActor *pSoldier, UINT16 usNewDirection );
+void SendSoldierSetDesiredDirectionEvent( TacticalActor *pSoldier, UINT16 usDesiredDirection );
+void SendChangeSoldierStanceEvent( TacticalActor *pSoldier, UINT8 ubNewStance );
+void SendBeginFireWeaponEvent( TacticalActor *pSoldier, INT32 sTargetGridNo );
 void SendBeginFireWeaponEvent(
-	SOLDIERTYPE *pSoldier, INT32 sTargetGridNo,
+	TacticalActor *pSoldier, INT32 sTargetGridNo,
 	INT8 bTargetLevel, INT8 bTargetCubeLevel );
 
 
 
-void HandleAnimationProfile( SOLDIERTYPE *pSoldier, UINT16	usAnimState, BOOLEAN fRemove );
-BOOLEAN GetProfileFlagsFromGridno( SOLDIERTYPE *pSoldier, UINT16 usAnimState, INT32 sTestGridNo, UINT16 *usFlags );
-BOOLEAN PreloadSoldierBattleSounds( SOLDIERTYPE *pSoldier, BOOLEAN fRemove );
+void HandleAnimationProfile( TacticalActor *pSoldier, UINT16	usAnimState, BOOLEAN fRemove );
+BOOLEAN GetProfileFlagsFromGridno( TacticalActor *pSoldier, UINT16 usAnimState, INT32 sTestGridNo, UINT16 *usFlags );
+BOOLEAN PreloadSoldierBattleSounds( TacticalActor *pSoldier, BOOLEAN fRemove );
 void CrowsFlyAway( UINT8 ubTeam );
 void DebugValidateSoldierData( );
 void HandlePlayerTogglingLightEffects( BOOLEAN fToggleValue );
 
 // added by SANDRO
-UINT8 GetSquadleadersCountInVicinity( SOLDIERTYPE * pSoldier, BOOLEAN fWithHigherLevel, BOOLEAN fDontCheckDistance );
-UINT16 NumberOfDamagedStats( SOLDIERTYPE * pSoldier );
-UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundredths );
-BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType );
-BOOLEAN AIDecideHipOrShoulderStance( SOLDIERTYPE * pSoldier, INT32 iGridNo );
-BOOLEAN DecideAltAnimForBigMerc( SOLDIERTYPE * pSoldier );
+UINT8 GetSquadleadersCountInVicinity( TacticalActor * pSoldier, BOOLEAN fWithHigherLevel, BOOLEAN fDontCheckDistance );
+UINT16 NumberOfDamagedStats( TacticalActor * pSoldier );
+UINT8 RegainDamagedStats( TacticalActor * pSoldier, UINT16 usAmountRegainedHundredths );
+BOOLEAN ResolvePendingInterrupt( TacticalActor * pSoldier, UINT8 ubInterruptType );
+BOOLEAN AIDecideHipOrShoulderStance( TacticalActor * pSoldier, INT32 iGridNo );
+BOOLEAN DecideAltAnimForBigMerc( TacticalActor * pSoldier );
 
 // added by Flugente
 BOOLEAN TwoStagedTrait( UINT8 uiSkillTraitNumber );						// determine if this (new) trait has two stages
 BOOLEAN MajorTrait( UINT8 uiSkillTraitNumber );							// determine if this is a major trait
-BOOLEAN GetRadioOperatorSignal( SoldierID usOwner, INT32* psTargetGridNo);	// retrieve the gridno of a radio operator who (or whose team) ordered an artillery strike
-BOOLEAN IsValidArtilleryOrderSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, UINT8 bTeam );		// can an artillery strike be ordered FROM this sector
-BOOLEAN SectorJammed();
-BOOLEAN PlayerTeamIsScanning();
-UINT16	GridNoSpotterCTHBonus( SOLDIERTYPE* pSniper, INT32 sGridNo, INT8 bTeam);				// bonus for snipers firing at this location (we get this if there are spotters)
 UINT16	GetSuspiciousAnimationAPDuration( UINT16 usAnimation );			// get overt penalty duration in AP for using an animation
 
 //typedef struct
-class OLDSOLDIERTYPE_101
-{
-public:
-	UINT32 GetChecksum();
-	OLDSOLDIERTYPE_101() {
-		initialize();
-	};
 
-	// Copy Constructor
-	OLDSOLDIERTYPE_101(const OLDSOLDIERTYPE_101& src) {
-		memcpy((void*)this, &src, SIZEOF_OLDSOLDIERTYPE_101_POD); // POD prefix only (STL members copied below); (void*) silences -Wnontrivial-memcall
-		inv = src.inv;
-	};
 
-	// Assignment operator
-	OLDSOLDIERTYPE_101& operator=(const OLDSOLDIERTYPE_101& src)
-	{
-		if (this != &src) {
-			memcpy((void*)this, &src, SIZEOF_OLDSOLDIERTYPE_101_POD); // POD prefix only (STL members copied below); (void*) silences -Wnontrivial-memcall
-			inv = src.inv;
-		}
-		return *this;
-	};
+void HandleTakeDamageDeath( TacticalActor *pSoldier, UINT8 bOldLife, UINT8 ubReason );
 
-	// Destructor
-	~OLDSOLDIERTYPE_101() {
-	};
-
-	// Initialize the soldier.	
-	//	Use this instead of the old method of calling memset!
-	//	Note that the constructor does this automatically.
-	void initialize() {
-		memset( (void*)this, 0, SIZEOF_OLDSOLDIERTYPE_101_POD); // POD prefix only (STL members reset below); (void*) silences -Wnontrivial-memcall
-		inv.clear();
-	};
-
-	// Ugly temporary solution
-	void CopyOldInventoryToNew();
-
-public:
-	// ID
-	UINT8												ubID;
-	UINT8												bReserved1;
-
-	// DESCRIPTION / STATS, ETC
-	UINT8												ubBodyType;
-	INT8												bActionPoints;
-	INT8												bInitialActionPoints;
-
-	UINT32											uiStatusFlags;
-
-	OLD_OBJECTTYPE_101									DO_NOT_USE_Inv[ OldInventory::NUM_INV_SLOTS ];
-public:
-	OBJECTTYPE									*pTempObject;
-	KEY_ON_RING									*pKeyRing;
-
-	INT8												bOldLife;			// life at end of last turn, recorded for monster AI
-	// attributes
-	UINT8												bInSector;
-	INT8												bFlashPortraitFrame;
-	INT16												sFractLife;		// fraction of life pts (in hundreths)	
-	INT8												bBleeding;		// blood loss control variable
-	INT8												bBreath;			// current breath value
-	INT8												bBreathMax;	// max breath, affected by fatigue/sleep
-	INT8												bStealthMode;
-	
-	INT16												sBreathRed;			// current breath value
-	BOOLEAN											fDelayedMovement;
-
-	BOOLEAN											fReloading;
-	UINT8												ubWaitActionToDo;
-	BOOLEAN											fPauseAim;
-	INT8												ubInsertionDirection;
-	INT8												bGunType;
-	// skills
-	UINT8												ubOppNum;
-	INT8												bLastRenderVisibleValue;
-	BOOLEAN											fInMissionExitNode;
-	UINT8												ubAttackingHand;
-	INT8												bScientific;	
-	// traits	
-	INT16												sWeightCarriedAtTurnStart;
-	CHAR16											name[ 10 ];
-	
-	INT8												bVisible;			// to render or not to render...
-
-	
-	INT8												bActive;
-
-	INT8												bTeam;				// Team identifier
-
-	//NEW MOVEMENT INFORMATION for Strategic Movement
-	UINT8												ubGroupID;		//the movement group the merc is currently part of.
-	BOOLEAN											fBetweenSectors;	//set when the group isn't actually in a sector.
-																								//sSectorX and sSectorY will reflect the sector the
-																								//merc was at last.
-
-	UINT8												ubMovementNoiseHeard;// 8 flags by direction
-
-	// 23 bytes so far 	
-
-	// WORLD POSITION STUFF
-	FLOAT											dXPos;
-	FLOAT											dYPos;
-	//FLOAT											dOldXPos; // HEADROCK HAM 4: These values have been reappropriated.
-	//FLOAT											dOldYPos; // not sure what's going to happen with this though.
-	INT16											sOldXPos;
-	INT16											sOldYPos;
-	INT32												sInitialGridNo;
-	INT32												sGridNo;
-	UINT8												ubDirection;
-	INT16												sHeightAdjustment;
-	INT16												sDesiredHeight;
-	INT32												sTempNewGridNo;					// New grid no for advanced animations
-	INT16												sRoomNo;
-	INT8												bOverTerrainType;
-	INT8												bOldOverTerrainType;
-
-	INT8												bCollapsed;					// collapsed due to being out of APs
-	INT8												bBreathCollapsed;					// collapsed due to being out of APs
-	// 50 bytes so far
-
-	
-	UINT8												ubDesiredHeight;
-	UINT16											usPendingAnimation;
-	UINT8												ubPendingStanceChange;
-	UINT16											usAnimState;
-	BOOLEAN											fNoAPToFinishMove;
-	BOOLEAN											fPausedMove;
-	BOOLEAN											fUIdeadMerc;				// UI Flags for removing a newly dead merc
-	BOOLEAN											fUInewMerc;					// UI Flags for adding newly created merc ( panels, etc )
-	BOOLEAN											fUICloseMerc;				// UI Flags for closing panels
-	BOOLEAN											fUIFirstTimeNOAP;		// UI Flag for diming guys when no APs ( dirty flags )
-	BOOLEAN											fUIFirstTimeUNCON;	// UI FLAG For unconscious dirty		
-
-	
-
-	TIMECOUNTER									UpdateCounter;
-	TIMECOUNTER									DamageCounter;
-	TIMECOUNTER									ReloadCounter;
-	TIMECOUNTER									FlashSelCounter;
-	TIMECOUNTER									AICounter;
-	TIMECOUNTER									FadeCounter;
-	
-	UINT8												ubSkillTrait1;
-	UINT8												ubSkillTrait2;
-	UINT8												ubSkillTrait3; // added by SANDRO
-
-	UINT32											uiAIDelay;
-	INT8												bDexterity;		// dexterity (hand coord) value
-	INT8												bWisdom;
-	INT16												sReloadDelay;
-	UINT8												ubAttackerID;
-	UINT8												ubPreviousAttackerID;
-	BOOLEAN											fTurnInProgress;
-
-	BOOLEAN											fIntendedTarget; // intentionally shot?
-	BOOLEAN											fPauseAllAnimation;
-
-	INT8												bExpLevel;		// general experience level
-	INT32												sInsertionGridNo;
-
-	BOOLEAN											fContinueMoveAfterStanceChange;
-
-	// 60
-	AnimationSurfaceCacheType		AnimCache; // will be 9 bytes once changed to pointers
-
-	INT8												bLife;				// current life (hit points or health)
-	UINT8												bSide;
-	UINT8												bViewRange;
-	INT8 												bNewOppCnt;
-	INT8												bService;		// first aid, or other time consuming process
-	
-	UINT16											usAniCode;
-	UINT16											usAniFrame;
-	INT16											sAniDelay;
-
-	// MOVEMENT TO NEXT TILE HANDLING STUFF
-	INT8												bAgility;			// agility (speed) value
-	UINT8												ubDelayedMovementCauseMerc;
-	INT32												sDelayedMovementCauseGridNo;
-	INT32												sReservedMovementGridNo;
-
-	INT8												bStrength;
-
-	// Weapon Stuff
-	BOOLEAN											fHoldAttackerUntilDone;
-	INT32 sTargetGridNo;
-	INT8												bTargetLevel;
-	INT8												bTargetCubeLevel;
-	INT32												sLastTarget;
-	INT8												bTilesMoved;
-	INT8						bLeadership;
-	FLOAT												dNextBleed;
-	BOOLEAN											fWarnedAboutBleeding;
-	BOOLEAN											fDyingComment;
-
-	UINT8												ubTilesMovedPerRTBreathUpdate;
-	UINT16											usLastMovementAnimPerRTBreathUpdate;
-	
-	BOOLEAN											fTurningToShoot;
-	BOOLEAN											fTurningToFall;
-	BOOLEAN											fTurningUntilDone;
-	BOOLEAN											fGettingHit;
-	BOOLEAN											fInNonintAnim;
-	BOOLEAN											fFlashLocator;
-	INT16												sLocatorFrame;
-	BOOLEAN											fShowLocator;
-	BOOLEAN											fFlashPortrait;
-	INT8												bMechanical;
-	INT8												bLifeMax;			// maximum life for this merc
-
-	INT32												iFaceIndex;
-	
-
-	// PALETTE MANAGEMENT STUFF
-	PaletteRepID								HeadPal;	// 30 
-	PaletteRepID								PantsPal;	// 30
-	PaletteRepID								VestPal;	// 30
-	PaletteRepID								SkinPal;	// 30
-	PaletteRepID								MiscPal;	// 30
-
-
-	// FULL 3-d TILE STUFF ( keep records of three tiles infront )
-	UINT16										usFrontArcFullTileList[ MAX_FULLTILE_DIRECTIONS ];
-	INT32												usFrontArcFullTileGridNos[ MAX_FULLTILE_DIRECTIONS ];
-
-
-	SGPPaletteEntry							*p8BPPPalette; // 4
-	PIXEL											*p16BPPPalette;
-	PIXEL											*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
-	PIXEL											*pGlowShades[ 20 ]; // 
-	PIXEL											*pCurrentShade;
-	INT8												bMedical;
-	BOOLEAN											fBeginFade;
-	UINT8												ubFadeLevel;
-	UINT8												ubServiceCount;
-	UINT8												ubServicePartner;
-	INT8												bMarksmanship;
-	INT8												bExplosive;
-	THROW_PARAMS								*pThrowParams;
-	INT8											bTurningFromPronePosition;
-	INT8												bReverse;
-	LEVELNODE				*pLevelNode;
-	LEVELNODE				*pExternShadowLevelNode;
-	LEVELNODE				*pRoofUILevelNode;
-
-	// WALKING STUFF
-	INT8												bDesiredDirection;
-	INT16												sDestXPos;
-	INT16												sDestYPos;
-	INT32												sDesiredDest;
-	INT32												sDestination;
-	INT32												sFinalDestination;
-	INT8												bLevel;
-	INT8												bStopped;
-	INT8												bNeedToLook;
-
-
-
-
-	// PATH STUFF
-	UINT16											usPathingData[ MAX_PATH_LIST_SIZE ];
-	UINT16											usPathDataSize;
-	UINT16											usPathIndex;	
-	INT32												sBlackList;
-	INT8												bAimTime;
-	INT8												bShownAimTime;
-	INT8												bPathStored;	// good for AI to reduct redundancy
-	INT8												bHasKeys;			// allows AI controlled dudes to open locked doors
-
-
-	// UNBLIT BACKGROUND
-	UINT16											*pBackGround;
-	UINT16											*pZBackground;
-	UINT16											usUnblitX, usUnblitY;
-	UINT16											usUnblitWidth, usUnblitHeight;
-
-	UINT8												ubStrategicInsertionCode;
-	INT32											usStrategicInsertionData;
-
-	
-	INT32												iLight;
-	INT32												iMuzFlash;
-	INT8												bMuzFlashCount;
-
-
-	INT16												sX;
-	INT16												sY;
-
-	UINT16											usOldAniState;
-	INT16												sOldAniCode;
-
-	INT8												bBulletsLeft;
-	UINT8												ubSuppressionPoints;
-
-	// STUFF FOR RANDOM ANIMATIONS
-	UINT32											uiTimeOfLastRandomAction;
-	INT16												usLastRandomAnim;
-
-
-	// AI STUFF
-	INT8												bOppList[MAX_NUM_SOLDIERS]; // AI knowledge database
-	INT8												bLastAction;
-	INT8												bAction;	
-	INT32											usActionData;
-	INT8												bNextAction;
-	INT32											usNextActionData;
-	INT8												bActionInProgress;
-	INT8												bAlertStatus;
-	INT8												bOppCnt;
-	INT8												bNeutral;
-	INT8												bNewSituation;
-	INT8												bNextTargetLevel;
-	INT8												bOrders;
-	INT8												bAttitude;
-	INT8												bCharacterTrait;	// Added by SANDRO
-	INT8												bUnderFire;
-	INT8												bShock;
-	INT8												bUnderEscort;
-	INT8												bBypassToGreen;
-	UINT8												ubLastMercToRadio;
-	INT8												bDominantDir;				// AI main direction to face...
-	INT8												bPatrolCnt;					// number of patrol gridnos
-	INT8												bNextPatrolPnt;			// index to next patrol gridno
-	INT16												usPatrolGrid[OLD_MAXPATROLGRIDS];//dnl ch27 230909
-	INT16												sNoiseGridNo;
-	UINT8												ubNoiseVolume;
-	INT8												bLastAttackHit;
-	UINT8												ubXRayedBy;
-	FLOAT												dHeightAdjustment;
-	INT8												bMorale;
-	INT8												bTeamMoraleMod;
-	INT8												bTacticalMoraleMod;
-	INT8												bStrategicMoraleMod;
-	INT8												bAIMorale;
-	UINT8												ubPendingAction;
-	UINT8												ubPendingActionAnimCount;
-	UINT32											uiPendingActionData1;
-	INT32												sPendingActionData2;
-	INT8												bPendingActionData3;
-	INT8												ubDoorHandleCode;
-	UINT32											uiPendingActionData4;
-	INT8												bInterruptDuelPts;
-	INT8												bPassedLastInterrupt;
-	INT8												bIntStartAPs;
-	INT8												bMoved;
-	INT8												bHunting;
-	UINT8												ubLastCall;
-	UINT8												ubCaller;
-	INT32												sCallerGridNo;
-	UINT8												bCallPriority;
-	INT8												bCallActedUpon;
-	INT8												bFrenzied;
-	INT8												bNormalSmell;
-	INT8												bMonsterSmell;
-	INT8												bMobility;
-	INT8												bRTPCombat;
-	INT8												fAIFlags;
-
-	BOOLEAN											fDontChargeReadyAPs;
-	UINT16											usAnimSurface;
-	UINT16											sZLevel;
-	BOOLEAN											fPrevInWater;
-	BOOLEAN											fGoBackToAimAfterHit;
-
-	INT32												sWalkToAttackGridNo;
-	INT16												sWalkToAttackWalkToCost;
-
-	BOOLEAN											fForceRenderColor;
-	BOOLEAN											fForceNoRenderPaletteCycle;
-
-	INT16												sLocatorOffX;
-	INT16												sLocatorOffY;
-	BOOLEAN											fStopPendingNextTile;
-
-	BOOLEAN											fForceShade;
-	PIXEL											*pForcedShade;
-
-	INT8												bDisplayDamageCount;
-	INT8												fDisplayDamage;
-	INT16												sDamage;
-	INT16												sDamageX;
-	INT16												sDamageY;
-	INT8												bDamageDir;
-	INT8												bDoBurst;
-	INT16												usUIMovementMode;
-	INT8												bUIInterfaceLevel;
-	BOOLEAN											fUIMovementFast;
-
-	TIMECOUNTER									BlinkSelCounter;
-	TIMECOUNTER									PortraitFlashCounter;
-	BOOLEAN											fDeadSoundPlayed;
-	UINT8												ubProfile;
-	UINT8												ubQuoteRecord;
-	UINT8												ubQuoteActionID;
-	UINT8												ubBattleSoundID;
-
-	BOOLEAN											fClosePanel;
-	BOOLEAN											fClosePanelToDie;
-	UINT8												ubClosePanelFrame;
-	BOOLEAN											fDeadPanel;
-	UINT8												ubDeadPanelFrame;
-	BOOLEAN											fOpenPanel;
-	INT8												bOpenPanelFrame;
-
-	INT16												sPanelFaceX;
-	INT16												sPanelFaceY;
-
-	// QUOTE STUFF
-	INT8												bNumHitsThisTurn;
-	UINT16											usQuoteSaidFlags;
-	INT8												fCloseCall;
-	INT8												bLastSkillCheck;
-	INT8												ubSkillCheckAttempts;
-
-	INT8												bVocalVolume;	// verbal sounds need to differ in volume
-
-	INT8												bStartFallDir;
-	INT8												fTryingToFall;
-
-	UINT8												ubPendingDirection;
-	UINT32											uiAnimSubFlags;
-
-	UINT8												bAimShotLocation;
-	UINT8												ubHitLocation;
-
-	PIXEL											*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
-
-	UINT8												ubPlannedUIAPCost;
-	INT16												sPlannedTargetX;
-	INT16												sPlannedTargetY;
-
-	INT32											  sSpreadLocations[ MAX_BURST_SPREAD_TARGETS ];
-	BOOLEAN											fDoSpread;
-	INT32												sStartGridNo;	
-	INT32												sEndGridNo;	
-	INT32												sForcastGridNo;
-	INT16												sZLevelOverride;
-	INT8												bMovedPriorToInterrupt;
-	INT32												iEndofContractTime;				// time, in global time(resolution, minutes) that merc will leave, or if its a M.E.R.C. merc it will be set to -1.	-2 for NPC and player generated
-	INT32												iStartContractTime;		
-	INT32						iTotalContractLength;			// total time of AIM mercs contract	or the time since last paid for a M.E.R.C. merc
-	INT32												iNextActionSpecialData;		// AI special action data record for the next action
-	UINT8												ubWhatKindOfMercAmI;			//Set to the type of character it is
-	INT8						bAssignment;							// soldiers current assignment 
-	INT8												bOldAssignment;						// old assignment, for autosleep purposes
-	BOOLEAN											fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
-	INT8						bTrainStat;								// current stat soldier is training
-	INT16						sSectorX;									// X position on the Stategic Map
-	INT16						sSectorY;									// Y position on the Stategic Map
-	INT8												bSectorZ;									// Z sector location
-	INT32						iVehicleId;								// the id of the vehicle the char is in
-	PathStPtr					pMercPath;								//Path Structure
-	UINT8												fHitByGasFlags;						// flags 
-	UINT16											usMedicalDeposit;		 // is there a medical deposit on merc 
-	UINT16											usLifeInsurance;			// is there life insurance taken out on merc	
-
-
-	//DEF:	Used for the communications
-	UINT32												uiStartMovementTime;				// the time since the merc first started moving 
-	UINT32												uiOptimumMovementTime;			// everytime in ececute overhead the time for the current ani will be added to this total
-	UINT32												usLastUpdateTime ;					// The last time the soldier was in ExecuteOverhead
-	
-	BOOLEAN											fIsSoldierMoving;							// ie.	Record time is on
-	BOOLEAN											fIsSoldierDelayed;						//Is the soldier delayed Soldier 
-	BOOLEAN											fSoldierUpdatedFromNetwork;
-	UINT32											uiSoldierUpdateNumber;
-	BYTE												ubSoldierUpdateType;	
-	//END
-
-	INT32												iStartOfInsuranceContract;
-	UINT32											uiLastAssignmentChangeMin;		// timestamp of last assignment change in minutes
-	INT32												iTotalLengthOfInsuranceContract;
-
-	UINT8												ubSoldierClass;									//admin, elite, troop (creature types?)
-	UINT8												ubAPsLostToSuppression;
-	BOOLEAN											fChangingStanceDueToSuppression;
-	UINT8												ubSuppressorID;
-
-	//Squad merging vars
-	UINT8												ubDesiredSquadAssignment;
-	UINT8												ubNumTraversalsAllowedToMerge;
-
-	UINT16											usPendingAnimation2;
-	UINT8												ubCivilianGroup;
-
-	// time changes...when a stat was changed according to GetJA2Clock();
-	UINT32											uiChangeLevelTime;
-	UINT32											uiChangeHealthTime;
-	UINT32											uiChangeStrengthTime;
-	UINT32											uiChangeDexterityTime;
-	UINT32											uiChangeAgilityTime;
-	UINT32											uiChangeWisdomTime;
-	UINT32											uiChangeLeadershipTime;
-	UINT32											uiChangeMarksmanshipTime;
-	UINT32											uiChangeExplosivesTime;
-	UINT32											uiChangeMedicalTime;
-	UINT32											uiChangeMechanicalTime;
-
-	UINT32											uiUniqueSoldierIdValue; // the unique value every instance of a soldier gets - 1 is the first valid value
-	INT8											UNUSED1; // This is unused at present and can be used for something else
-
-//private:
-	INT8											DO_NOT_USE_bNewItemCount[ OldInventory::NUM_INV_SLOTS ];
-	INT8											DO_NOT_USE_bNewItemCycleCount[ OldInventory::NUM_INV_SLOTS ];
-public:
-	BOOLEAN											fCheckForNewlyAddedItems;
-	INT8												bEndDoorOpenCode;
-
-	UINT8												ubScheduleID;
-	INT16												sEndDoorOpenCodeData;
-	TIMECOUNTER									NextTileCounter;
-	BOOLEAN											fBlockedByAnotherMerc;
-	INT8												bBlockedByAnotherMercDirection;
-	UINT16											usAttackingWeapon;
-	INT8												bWeaponMode;
-	UINT8												ubTargetID;
-	INT8												bAIScheduleProgress;
-	INT32												sOffWorldGridNo;
-	struct TAG_anitile					*pAniTile;	
-	INT8												bCamo;
-	INT32												sAbsoluteFinalDestination;
-	UINT8												ubHiResDirection;
-	UINT8												ubHiResDesiredDirection;
-	UINT8												ubLastFootPrintSound;
-	INT8												bVehicleID;
-	INT8												fPastXDest;
-	INT8												fPastYDest;
-	INT8												bMovementDirection;
-	INT32												sOldGridNo;
-	UINT16											usDontUpdateNewGridNoOnMoveAnimChange;
-	INT16												sBoundingBoxWidth;
-	INT16												sBoundingBoxHeight;
-	INT16												sBoundingBoxOffsetX;
-	INT16												sBoundingBoxOffsetY;
-	UINT32											uiTimeSameBattleSndDone;
-	INT8												bOldBattleSnd;
-	BOOLEAN											fReactingFromBeingShot;
-	BOOLEAN											fContractPriceHasIncreased;
-	INT32												iBurstSoundID;
-	BOOLEAN											fFixingSAMSite;
-	BOOLEAN											fFixingRobot;
-	INT8												bSlotItemTakenFrom;
-	BOOLEAN											fSignedAnotherContract; 
-	UINT8												ubAutoBandagingMedic;
-	BOOLEAN											fDontChargeTurningAPs;
-	UINT8												ubRobotRemoteHolderID;
-	UINT32											uiTimeOfLastContractUpdate;
-	INT8												bTypeOfLastContract;
-	INT8												bTurnsCollapsed;
-	INT8												bSleepDrugCounter;
-	UINT8												ubMilitiaKills;
-	
-	INT8												bFutureDrugEffect[DRUG_TYPE_MAX];						// value to represent effect of a needle
-	INT8												bDrugEffectRate[DRUG_TYPE_MAX];							// represents rate of increase and decrease of effect	
-	INT8												bDrugEffect[DRUG_TYPE_MAX];									// value that affects AP & morale calc ( -ve is poorly )
-	INT8												bDrugSideEffectRate[DRUG_TYPE_MAX];					// duration of negative AP and morale effect
-	INT8												bDrugSideEffect[DRUG_TYPE_MAX];							// duration of negative AP and morale effect
-	INT8												bTimesDrugUsedSinceSleep[DRUG_TYPE_MAX];			
-
-	INT8												bBlindedCounter;
-	BOOLEAN											fMercCollapsedFlag;
-	BOOLEAN											fDoneAssignmentAndNothingToDoFlag;
-	BOOLEAN											fMercAsleep;
-	BOOLEAN											fDontChargeAPsForStanceChange;
-
-	UINT8												ubHoursOnAssignment;						// used for assignments handled only every X hours
-
-	UINT8												ubMercJustFired;	// the merc was just fired..there may be dialogue events occuring, this flag will prevent any interaction with contracts
-																								// until after the merc leaves	
-	UINT8												ubTurnsUntilCanSayHeardNoise;
-	UINT16											usQuoteSaidExtFlags;
-
-	UINT32											sContPathLocation;	
-	INT8												bGoodContPath;
-	UINT8												ubPendingActionInterrupted;
-	INT8												bNoiseLevel;
-	INT8												bRegenerationCounter;
-	INT8												bRegenBoostersUsedToday;
-	INT8												bNumPelletsHitBy;
-	INT32												sSkillCheckGridNo;
-	UINT8												ubLastEnemyCycledID;
-
-	UINT8												ubPrevSectorID;
-	UINT8												ubNumTilesMovesSinceLastForget;
-	INT8												bTurningIncrement;
-	UINT32											uiBattleSoundID;
-
-	BOOLEAN											fSoldierWasMoving;
-	BOOLEAN											fSayAmmoQuotePending;
-	UINT16											usValueGoneUp;
-
-	UINT8												ubNumLocateCycles;
-	UINT8												ubDelayedMovementFlags;
-	BOOLEAN											fMuzzleFlash;
-	UINT8												ubCTGTTargetID;
-
-	TIMECOUNTER									PanelAnimateCounter;
-	UINT32											uiMercChecksum;
-
-	INT8												bCurrentCivQuote;
-	INT8												bCurrentCivQuoteDelta;
-	UINT8												ubMiscSoldierFlags;
-	UINT8												ubReasonCantFinishMove;
-
-	INT32												sLocationOfFadeStart;
-	UINT8												bUseExitGridForReentryDirection;
-
-	UINT32											uiTimeSinceLastSpoke;
-	UINT8												ubContractRenewalQuoteCode;
-	INT32												sPreTraversalGridNo;
-	UINT32											uiXRayActivatedTime;
-	INT8												bTurningFromUI;
-	INT8												bPendingActionData5;
-
-	INT8												bDelayedStrategicMoraleMod;
-	UINT8												ubDoorOpeningNoise;
-
-	struct GROUP								*pGroup;
-	UINT8												ubLeaveHistoryCode;
-	BOOLEAN											fDontUnsetLastTargetFromTurn;
-	INT8												bOverrideMoveSpeed;
-	BOOLEAN											fUseMoverrideMoveSpeed;
-
-	UINT32											uiTimeSoldierWillArrive;
-	BOOLEAN											fDieSoundUsed;
-	BOOLEAN											fUseLandingZoneForArrival;
-	BOOLEAN					 fFallClockwise;
-	INT8												bVehicleUnderRepairID;
-	INT32						iTimeCanSignElsewhere;
-	INT8												bHospitalPriceModifier;
-	INT8												bFillerBytes[3];
-	UINT32											uiStartTimeOfInsuranceContract;
-	BOOLEAN											fRTInNonintAnim;
-	BOOLEAN					 fDoingExternalDeath;
-	INT8						bCorpseQuoteTolerance;
-	INT8						bDeafenedCounter;
-	INT32						iPositionSndID;	
-	INT32						iTuringSoundID;
-	UINT8						ubLastDamageReason;
-	BOOLEAN											fComplainedThatTired;
-	INT32												sLastTwoLocations[2];
-	INT16						bFillerDude;
-	INT32						uiTimeSinceLastBleedGrunt;
-	UINT8						ubNextToPreviousAttackerID;
-	UINT8						bDoAutofire;
-	BOOLEAN					autofireLastStep;
-	INT8 numFlanks;
-	INT32 lastFlankSpot;
-	BOOLEAN lastFlankLeft;
-	INT8 sniper;
-	INT16 origDir;
-	INT8	wornCamo;
-
-	INT8	urbanCamo;	// Madd: new camo types
-	INT8	wornUrbanCamo;
-
-	INT8	desertCamo;	
-	INT8	wornDesertCamo;
-
-	INT8	snowCamo;	
-	INT8	wornSnowCamo;
-	
-	BOOLEAN											fIgnoreGetupFromCollapseCheck;
-	TIMECOUNTER									GetupFromJA25StartCounter;
-	BOOLEAN											fWaitingToGetupFromJA25Start;
-
-	UINT8												ubPercentDamageInflictedByTeam[NUM_ASSIST_SLOTS];			//The percent of damage inflicted by the player team.  Each element corresponds to the Soldier ID.  Each element contains the percent damage inflicted by that merc
-	UINT8					bFiller[ 36 ];
-
-	//
-	// New and OO stuff goes after here.	Above this point any changes will goof up reading from files.
-	//
-	char ef1,ef2,ef3;	// Extra filler to get "offsetof(endOfPOD)" to match SIZEOF(oldstruct)
-
-	char endOfPOD;	// marker for end of POD (plain old data)
-
-	InventorySlots inv;
-
-	// Debugging data - not saved
-	INT32 sPlotSrcGrid;
-}; // OLDSOLDIERTYPE_101;	
-
-
-void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReason );
-
-void SetDamageDisplayCounter(SOLDIERTYPE* pSoldier);
+void SetDamageDisplayCounter(TacticalActor* pSoldier);
 
 // SANDRO - This whole procedure was merged with the surgery ability of the doctor trait
-UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OBJECTTYPE *pKit, INT16 sKitPts, INT16 sStatus, BOOLEAN fOnSurgery );
+UINT32 VirtualSoldierDressWound( TacticalActor *pSoldier, TacticalActor *pVictim, OBJECTTYPE *pKit, INT16 sKitPts, INT16 sStatus, BOOLEAN fOnSurgery );
 
 // Flugente: decide whether pRecruiter can successfully recruit pTarget to be a volunteer
-void HandleVolunteerRecruitment( SOLDIERTYPE* pRecruiter, SOLDIERTYPE* pTarget );
+void HandleVolunteerRecruitment( TacticalActor* pRecruiter, TacticalActor* pTarget );
 
 // Flugente: apply a consumable item on a soldier. Returns true if item was successfully interacted with
-BOOLEAN ApplyConsumable( SOLDIERTYPE* pSoldier, OBJECTTYPE *pObject, BOOLEAN fForce, BOOLEAN fUseAPs );
+BOOLEAN ApplyConsumable( TacticalActor* pSoldier, OBJECTTYPE *pObject, BOOLEAN fForce, BOOLEAN fUseAPs );
 
 #endif

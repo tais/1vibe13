@@ -1,4 +1,12 @@
+#include "TacticalActorEquipment.h"
 #include <cstdio>
+#include "TacticalActorModifiers.h"
+#include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
+#include "TacticalActorDisease.h"
+#include "TacticalActorDragging.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorTurncoats.h"
 #include "TacticalWorldAdapter.h"
 #include <string.h>
 #include <random>
@@ -144,7 +152,7 @@ UINT16   giMAXIMUM_NUMBER_OF_CIVS = CODE_MAXIMUM_NUMBER_OF_CIVS;
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 extern void HandleTBPickUpBackpacks(BOOLEAN fAll);
 extern void HandleBestSightingPositionInRealtime();
 extern INT32 GetCurrentBalance( void );
@@ -152,7 +160,7 @@ extern INT32 GetCurrentBalance( void );
 extern CHAR16		gzUserDefinedButton1[128];
 extern CHAR16		gzUserDefinedButton2[128];
 
-void UpdateFastForwardMode(SOLDIERTYPE* pSoldier, INT8 bAction); // sevenfm: to call in HandleAtNewGridNo
+void UpdateFastForwardMode(TacticalActor* pSoldier, INT8 bAction); // sevenfm: to call in HandleAtNewGridNo
 
 extern UINT8    gubAICounter;
 
@@ -179,23 +187,23 @@ BOOLEAN checkBonusMilitia;
 
 TacticalStatusType  gTacticalStatus;
 
-extern void RecalculateOppCntsDueToNoLongerNeutral( SOLDIERTYPE * pSoldier );
-extern void SetSoldierAniSpeed( SOLDIERTYPE *pSoldier );
+extern void RecalculateOppCntsDueToNoLongerNeutral( TacticalActor * pSoldier );
+extern void SetSoldierAniSpeed( TacticalActor *pSoldier );
 extern void HandleExplosionQueue( );
-extern void UpdateForContOverPortrait( SOLDIERTYPE *pSoldier, BOOLEAN fOn );
-extern void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC );
+extern void UpdateForContOverPortrait( TacticalActor *pSoldier, BOOLEAN fOn );
+extern void HandleSystemNewAISituation( TacticalActor *pSoldier, BOOLEAN fResetABC );
 extern BOOLEAN NPCInRoom( UINT8 ubProfileID, UINT16 usRoomID );
 
 extern  INT8 gbInvalidPlacementSlot[ NUM_INV_SLOTS ];
 
 void ResetAllMercSpeeds( );
-void HandleBloodForNewGridNo( SOLDIERTYPE *pSoldier );
-BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving );
-void DoCreatureTensionQuote( SOLDIERTYPE *pSoldier );
+void HandleBloodForNewGridNo( TacticalActor *pSoldier );
+BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving );
+void DoCreatureTensionQuote( TacticalActor *pSoldier );
 void HandleCreatureTenseQuote( );
 
 
-void RemoveSoldierFromTacticalSector( SOLDIERTYPE *pSoldier, BOOLEAN fAdjustSelected );
+void RemoveSoldierFromTacticalSector( TacticalActor *pSoldier, BOOLEAN fAdjustSelected );
 void HandleEndDemoInCreatureLevel( );
 void DeathTimerCallback( );
 void CaptureTimerCallback( );
@@ -203,11 +211,11 @@ void CaptureTimerCallback( );
 // HEADROCK HAM 3.6: Define now.
 void MilitiaChangesSides( );
 
-extern void CheckForAlertWhenEnemyDies( SOLDIERTYPE * pDyingSoldier );
-extern void PlaySoldierFootstepSound( SOLDIERTYPE *pSoldier );
-extern void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
-extern UINT16 PickSoldierReadyAnimation( SOLDIERTYPE *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
-extern void PlayStealthySoldierFootstepSound( SOLDIERTYPE *pSoldier );
+extern void CheckForAlertWhenEnemyDies( TacticalActor * pDyingSoldier );
+extern void PlaySoldierFootstepSound( TacticalActor *pSoldier );
+extern void HandleKilledQuote( TacticalActor *pKilledSoldier, TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
+extern UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
+extern void PlayStealthySoldierFootstepSound( TacticalActor *pSoldier );
 
 BOOLEAN CanMsgBoxForPlayerToBeNotifiedOfSomeoneElseInSector();
 
@@ -416,7 +424,7 @@ BOOLEAN gfKillingGuysForLosingBattle = FALSE;
 
 INT32 MoveSoldierFromMercToAwaySlot(TacticalEntityId actor)
 {
-    SOLDIERTYPE* pSoldier = ResolveJa2TacticalEntity(actor);
+    TacticalActor* pSoldier = ResolveJa2TacticalEntity(actor);
     if (!pSoldier || !RemoveJa2ActiveTacticalActor(actor))
     {
         return( -1 );
@@ -434,7 +442,7 @@ INT32 MoveSoldierFromMercToAwaySlot(TacticalEntityId actor)
 
 INT32 MoveSoldierFromAwayToMercSlot(TacticalEntityId actor)
 {
-    SOLDIERTYPE* pSoldier = ResolveJa2TacticalEntity(actor);
+    TacticalActor* pSoldier = ResolveJa2TacticalEntity(actor);
     if (!pSoldier || !RemoveJa2AwayTacticalActor(actor))
     {
         return( -1 );
@@ -662,7 +670,7 @@ BOOLEAN ShutdownOverhead( )
     // Delete any soldiers which have been created!
     for( cnt = 0; cnt < soldiers.capacity(); cnt++ )
     {
-        SOLDIERTYPE* soldier = soldiers.resolve(cnt);
+        TacticalActor* soldier = soldiers.resolve(cnt);
         if( soldier != NULL )
         {
             if ( soldier->roster().active() )
@@ -674,7 +682,7 @@ BOOLEAN ShutdownOverhead( )
     return( TRUE );
 }
 
-BOOLEAN GetSoldier( SOLDIERTYPE **ppSoldier, SoldierID usSoldierIndex )
+BOOLEAN GetSoldier( TacticalActor **ppSoldier, SoldierID usSoldierIndex )
 {
     // Check range of index given
     *ppSoldier = NULL;
@@ -683,7 +691,7 @@ BOOLEAN GetSoldier( SOLDIERTYPE **ppSoldier, SoldierID usSoldierIndex )
         // Set debug message
         return( FALSE );
     }
-    SOLDIERTYPE* soldier =
+    TacticalActor* soldier =
         GetJa2SoldierRepository().resolve(
             static_cast<UINT16>(usSoldierIndex));
     // Check if a guy exists here
@@ -718,7 +726,7 @@ static BOOLEAN NextAIToHandle( UINT32 uiCurrAISlot )
 
     for ( ; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
     {
-        SOLDIERTYPE* soldier =
+        TacticalActor* soldier =
             ResolveJa2ActiveTacticalActorSlot(cnt);
         if ( soldier &&
             (soldier->roster().team() != gbPlayerNum ||
@@ -749,7 +757,7 @@ static BOOLEAN NextAIToHandle( UINT32 uiCurrAISlot )
         }
         for ( ; cnt < Ja2AwayTacticalActorSlotCount(); cnt++ )
         {
-            SOLDIERTYPE* soldier =
+            TacticalActor* soldier =
                 ResolveJa2AwayTacticalActorSlot(cnt);
             if (soldier && soldier->roster().team() != gbPlayerNum)
             {
@@ -804,7 +812,7 @@ BOOLEAN ExecuteOverhead( )
     RESETCOUNTER( TOVERHEAD );
 
     UINT32                          cnt;
-    SOLDIERTYPE*                    pSoldier;
+    TacticalActor*                    pSoldier;
     INT16                           sAPCost;
     INT16                           sBPCost;
     FLOAT                           dXPos , dYPos;
@@ -1851,7 +1859,7 @@ BOOLEAN ExecuteOverhead( )
     return( TRUE );
 }
 
-static void HaltGuyFromNewGridNoBecauseOfNoAPs( SOLDIERTYPE *pSoldier )
+static void HaltGuyFromNewGridNoBecauseOfNoAPs( TacticalActor *pSoldier )
 {
     HaltMoveForSoldierOutOfPoints( pSoldier );
     pSoldier->animationIntent().clearFacingAnimation();
@@ -1867,7 +1875,7 @@ static void HaltGuyFromNewGridNoBecauseOfNoAPs( SOLDIERTYPE *pSoldier )
     UnSetEngagedInConvFromPCAction( pSoldier );
 }
 
-static void HandleLocateToGuyAsHeWalks( SOLDIERTYPE *pSoldier )
+static void HandleLocateToGuyAsHeWalks( TacticalActor *pSoldier )
 {
     // Our guys if option set,
     if ( pSoldier->roster().team() == gbPlayerNum )
@@ -1900,7 +1908,7 @@ static void HandleLocateToGuyAsHeWalks( SOLDIERTYPE *pSoldier )
 
 //#pragma optimize("gpt",on)
   //  __forceinline
-BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLEAN fInitialMove, UINT16 usAnimState )
+BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOOLEAN fInitialMove, UINT16 usAnimState )
 {
     INT16                           sAPCost;
     INT16                           sBPCost;
@@ -2111,7 +2119,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             // IF not in combat, stop them all
             if ( !( IsJa2TacticalCombatActive() ) )
             {
-                SOLDIERTYPE *pSoldier2;
+                TacticalActor *pSoldier2;
                 SoldierID id = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 
                 // look for all mercs on the same team,
@@ -2389,7 +2397,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 					// Loop through passengers and update each guy's AP
 					for( INT32 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 					{
-						SOLDIERTYPE *pPassenger =
+						TacticalActor *pPassenger =
 							ResolveVehiclePassenger( iId, iCounter );
 						if( pPassenger != NULL )
 						{
@@ -2483,7 +2491,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
     return( TRUE );
 }
 
-static void HandleMaryArrival( SOLDIERTYPE * pSoldier )
+static void HandleMaryArrival( TacticalActor * pSoldier )
 {
     INT32 sDist;
 
@@ -2521,9 +2529,9 @@ static void HandleMaryArrival( SOLDIERTYPE * pSoldier )
 
 }
 
-static void HandleJohnArrival( SOLDIERTYPE * pSoldier )
+static void HandleJohnArrival( TacticalActor * pSoldier )
 {
-    SOLDIERTYPE * pSoldier2 = NULL;
+    TacticalActor * pSoldier2 = NULL;
     INT32 sDist;
 
     if ( !pSoldier )
@@ -2576,7 +2584,7 @@ static void HandleJohnArrival( SOLDIERTYPE * pSoldier )
 
 extern void DisplayCover( BOOLEAN forceUpdate );
 
-BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
+BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
 {
     INT32                               sMineGridNo;
     UINT8                            ubVolume;
@@ -2794,7 +2802,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
             // IF not in combat, stop them all
             if ( !( IsJa2TacticalCombatActive() ) )
             {
-                SOLDIERTYPE *pSoldier2;
+                TacticalActor *pSoldier2;
                 SoldierID cnt2 = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 
                 // look for all mercs on the same team,
@@ -2846,7 +2854,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 	{
 		UINT32 uiLoop;
 		UINT8 ubChance;
-		SOLDIERTYPE *pOpponent;
+		TacticalActor *pOpponent;
 		UINT8 ubDirection;
 
 		//loop through all the enemies
@@ -3005,7 +3013,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         }
 
     }
-    else if ( pSoldier->roster().team() == CIV_TEAM && pSoldier->IsAssassin() && pSoldier->aiBehavior().neutral() )
+    else if ( pSoldier->roster().team() == CIV_TEAM && TacticalActorConditions::isAssassin(*pSoldier) && pSoldier->aiBehavior().neutral() )
     {
         INT32 sDesiredMercDist;
 
@@ -3029,9 +3037,9 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 }
 
 
-void SelectNextAvailSoldier( SOLDIERTYPE *pSoldier )
+void SelectNextAvailSoldier( TacticalActor *pSoldier )
 {
-    SOLDIERTYPE          *pTeamSoldier;
+    TacticalActor          *pTeamSoldier;
     BOOLEAN              fSoldierFound = FALSE;
     DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("SelectNextAvailSoldier"));
 
@@ -3069,7 +3077,7 @@ void SelectNextAvailSoldier( SOLDIERTYPE *pSoldier )
 
 void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN fForceReselect, BOOLEAN fFromUI )
 {
-    SOLDIERTYPE *pSoldier, *pOldSoldier;
+    TacticalActor *pSoldier, *pOldSoldier;
 
     // ARM: can't call SelectSoldier() in mapscreen, that will initialize interface panels!!!
     // ATE: Adjusted conditions a bit ( sometimes were not getting selected )
@@ -3173,7 +3181,7 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
     // find which squad this guy is, then set selected squad to this guy
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		SOLDIERTYPE* pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
+		TacticalActor* pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 
 		if ( pVehicle )
 			SetCurrentSquad( pVehicle->assignment().current(), FALSE );
@@ -3258,7 +3266,7 @@ BOOLEAN ResetAllAnimationCache( )
     // Loop through all mercs and make go
     for ( cnt = 0; cnt < soldiers.capacity(); ++cnt )
     {
-        SOLDIERTYPE& soldier = soldiers.record(cnt);
+        TacticalActor& soldier = soldiers.record(cnt);
         soldier.animationCache().initialize( soldier.identity().id() );
     }
 
@@ -3270,7 +3278,7 @@ BOOLEAN ResetAllAnimationCache( )
 
 void LocateSoldier( SoldierID usID, BOOLEAN fSetLocator)
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
     INT16 sNewCenterWorldX, sNewCenterWorldY;
 
     //if (!bCenter && SoldierOnScreen(usID))
@@ -3341,7 +3349,7 @@ void SlideTo(SoldierID usSoldierID, BOOLEAN fSetLocator)
     {
         return;
     }
-    SOLDIERTYPE* soldier =
+    TacticalActor* soldier =
         GetJa2SoldierRepository().resolve(usSoldierID.i);
     if ( !soldier )
     {
@@ -3352,7 +3360,7 @@ void SlideTo(SoldierID usSoldierID, BOOLEAN fSetLocator)
     {
         for (INT32 cnt = 0; cnt < TOTAL_SOLDIERS; cnt++ )
         {
-            SOLDIERTYPE* other =
+            TacticalActor* other =
                 GetJa2SoldierRepository().resolve(cnt);
             if ( other->roster().active() && other->roster().inSector() )
             {
@@ -3409,7 +3417,7 @@ void RebuildAllSoldierShadeTables( )
     // Loop through all mercs and make go
     for ( cnt = 0; cnt < soldiers.capacity(); ++cnt )
     {
-        SOLDIERTYPE& soldier = soldiers.record(cnt);
+        TacticalActor& soldier = soldiers.record(cnt);
         if ( soldier.roster().active() )
         {
             soldier.CreateSoldierPalettes( );
@@ -3418,11 +3426,11 @@ void RebuildAllSoldierShadeTables( )
 
 }
 
-void HandlePlayerTeamMemberDeath( SOLDIERTYPE *pSoldier )
+void HandlePlayerTeamMemberDeath( TacticalActor *pSoldier )
 {
     SoldierID   cnt;
     SoldierID   iNewSelectedSoldier;
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     BOOLEAN     fMissionFailed = TRUE;
     INT8        bBuddyIndex;
 
@@ -3453,7 +3461,7 @@ void HandlePlayerTeamMemberDeath( SOLDIERTYPE *pSoldier )
         {
             if ( pSoldier->service().hasAutoBandagingMedic() )
             {
-                SOLDIERTYPE* medic = GetJa2SoldierRepository().resolve(
+                TacticalActor* medic = GetJa2SoldierRepository().resolve(
                     pSoldier->service().autoBandagingMedic().i);
 				DebugAI(AI_MSG_INFO, medic, String("CancelAIAction: stop autobandaging in HandlePlayerTeamMemberDeath"));
                 CancelAIAction( medic, TRUE );
@@ -3568,10 +3576,10 @@ void HandlePlayerTeamMemberDeath( SOLDIERTYPE *pSoldier )
 }
 
 
-void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
+void HandleNPCTeamMemberDeath( TacticalActor *pSoldierOld )
 {
-    SOLDIERTYPE *pKiller = NULL;
-    SOLDIERTYPE *pAttacker = GetJa2SoldierRepository().resolve(
+    TacticalActor *pKiller = NULL;
+    TacticalActor *pAttacker = GetJa2SoldierRepository().resolve(
         pSoldierOld->combatResult().currentAttacker().i);
     pSoldierOld->status().flags() |= SOLDIER_DEAD;
     const INT8 bVisibility = pSoldierOld->awareness().visibility();
@@ -3604,7 +3612,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 
     if (pSoldierOld->roster().team() == CIV_TEAM )
     {
-        SOLDIERTYPE * pOther;
+        TacticalActor * pOther;
         // ATE: Added string to player
         if ( bVisibility != -1 && pSoldierOld->identity().profile() != NO_PROFILE )
         {
@@ -3786,7 +3794,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 			if ( pSoldierOld->identity().profile() == MORRIS_UB )
 			{
 				SoldierID bSoldierID;
-				SOLDIERTYPE* pOther = FindSoldierByProfileID( MORRIS_UB, FALSE );
+				TacticalActor* pOther = FindSoldierByProfileID( MORRIS_UB, FALSE );
 				if ( pOther )
 				{
 					OBJECTTYPE	Object;
@@ -3905,7 +3913,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
         if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
              pSoldierOld->identity().bodyType() == QUEENMONSTER )
         {
-            SOLDIERTYPE *pKiller = NULL;
+            TacticalActor *pKiller = NULL;
 
             if ( pSoldierOld->combatResult().currentAttacker() != NOBODY )
             {
@@ -3953,7 +3961,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
     }
 
 	// Flugente: backgrounds
-	if ( pSoldierOld->HasBackgroundFlag( BACKGROUND_GLOBALOYALITYLOSSONDEATH ) )
+	if ( TacticalActorModifiers::hasBackgroundFlag(*pSoldierOld, BACKGROUND_GLOBALOYALITYLOSSONDEATH ) )
 	{
 		DecrementTownLoyaltyEverywhere( 20000 );
 	}
@@ -4010,7 +4018,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
         }
 
         // if it was assisted by a player's merc
-        SOLDIERTYPE* assister =
+        TacticalActor* assister =
             GetJa2SoldierRepository().resolve(ubAssister.i);
         if (assister && assister->roster().team() == gbPlayerNum )
         {
@@ -4069,7 +4077,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 
 SoldierID LastActiveTeamMember( UINT16 ubTeam )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
     SoldierID cnt = gTacticalStatus.Team[ ubTeam ].bLastID;
 
     // look for all mercs on the same team,
@@ -4085,7 +4093,7 @@ SoldierID LastActiveTeamMember( UINT16 ubTeam )
     return( gTacticalStatus.Team[ ubTeam ].bLastID );
 }
 
-void CheckForPotentialAddToBattleIncrement( SOLDIERTYPE *pSoldier )
+void CheckForPotentialAddToBattleIncrement( TacticalActor *pSoldier )
 {
     //UINT16 iCounter2;
     // Check if we are a threat!
@@ -4143,7 +4151,7 @@ void CheckForPotentialAddToBattleIncrement( SOLDIERTYPE *pSoldier )
 }
 
 // internal function for turning neutral to FALSE
-void SetSoldierNonNeutral( SOLDIERTYPE * pSoldier )
+void SetSoldierNonNeutral( TacticalActor * pSoldier )
 {
     pSoldier->aiBehavior().neutral() = FALSE;
 
@@ -4155,7 +4163,7 @@ void SetSoldierNonNeutral( SOLDIERTYPE * pSoldier )
 }
 
 // internal function for turning neutral to TRUE
-void SetSoldierNeutral( SOLDIERTYPE * pSoldier )
+void SetSoldierNeutral( TacticalActor * pSoldier )
 {
     pSoldier->aiBehavior().neutral() = TRUE;
 
@@ -4169,7 +4177,7 @@ void SetSoldierNeutral( SOLDIERTYPE * pSoldier )
         }
     }
 }
-void MakeCivHostile(SOLDIERTYPE *pSoldier)
+void MakeCivHostile(TacticalActor *pSoldier)
 {
     if ( pSoldier->identity().bodyType() == COW )
     {
@@ -4259,7 +4267,7 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
             // been noticed
             if ( gubQuest[ QUEST_RESCUE_MARIA ] == QUESTINPROGRESS && gTacticalStatus.bBoxingState == NOT_BOXING )
             {
-                SOLDIERTYPE * pMaria = FindSoldierByProfileID( MARIA, FALSE );
+                TacticalActor * pMaria = FindSoldierByProfileID( MARIA, FALSE );
                 if ( pMaria && pMaria->roster().active() && pMaria->roster().inSector() )
                 {
                     SetFactTrue( FACT_MARIA_ESCAPE_NOTICED );
@@ -4309,7 +4317,7 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
 			StrategicAddMilitiaToSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->roster().soldierClass() - 4, 1 );
 
 			// rehandle sight for everybody
-			SOLDIERTYPE*		pTeamSoldier;
+			TacticalActor*		pTeamSoldier;
             SoldierID iLoop = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 			for ( ; iLoop <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++iLoop )
 			{
@@ -4351,10 +4359,10 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
     //LetLuaMyCustomHandleAtNewGridNo(bNewSide,NULL, 1);    
 }
 
-UINT8 CivilianGroupMembersChangeSidesWithinProximity( SOLDIERTYPE * pAttacked )
+UINT8 CivilianGroupMembersChangeSidesWithinProximity( TacticalActor * pAttacked )
 {
-    SOLDIERTYPE * pSoldier;
-    SOLDIERTYPE * pAttacker = GetJa2SoldierRepository().resolve(
+    TacticalActor * pSoldier;
+    TacticalActor * pAttacker = GetJa2SoldierRepository().resolve(
         pAttacked->combatResult().currentAttacker().i);
     UINT8 ubFirstProfile = NO_PROFILE;
 
@@ -4395,11 +4403,11 @@ UINT8 CivilianGroupMembersChangeSidesWithinProximity( SOLDIERTYPE * pAttacked )
     return( ubFirstProfile );
 }
 
-SOLDIERTYPE * CivilianGroupMemberChangesSides( SOLDIERTYPE * pAttacked )
+TacticalActor * CivilianGroupMemberChangesSides( TacticalActor * pAttacked )
 {
-    SOLDIERTYPE * pNew;
-    SOLDIERTYPE * pNewAttacked = pAttacked;
-    SOLDIERTYPE * pSoldier;
+    TacticalActor * pNew;
+    TacticalActor * pNewAttacked = pAttacked;
+    TacticalActor * pSoldier;
     UINT8 ubFirstProfile = NO_PROFILE;
 
     if ( pAttacked->roster().civilianGroup() == NON_CIV_GROUP )
@@ -4493,7 +4501,7 @@ SOLDIERTYPE * CivilianGroupMemberChangesSides( SOLDIERTYPE * pAttacked )
 void CivilianGroupChangesSides( UINT8 ubCivilianGroup )
 {
     // change civ group side due to external event (wall blowing up)
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
 
     gTacticalStatus.fCivGroupHostile[ ubCivilianGroup ] = CIV_GROUP_HOSTILE;
 
@@ -4529,9 +4537,9 @@ void CivilianGroupChangesSides( UINT8 ubCivilianGroup )
      */
 }
 
-static void HickCowAttacked( SOLDIERTYPE * pNastyGuy, SOLDIERTYPE * pTarget )
+static void HickCowAttacked( TacticalActor * pNastyGuy, TacticalActor * pTarget )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
 
     // now change sides for anyone on the civ team
     SoldierID cnt = gTacticalStatus.Team[ CIV_TEAM ].bFirstID;
@@ -4552,7 +4560,7 @@ static void HickCowAttacked( SOLDIERTYPE * pNastyGuy, SOLDIERTYPE * pTarget )
 void MilitiaChangesSides( )
 {
     // make all the militia change sides
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
 
     if ( gTacticalStatus.Team[ MILITIA_TEAM ].bMenInSector == 0 )
     {
@@ -4592,7 +4600,7 @@ gTacticalStatus.fCivGroupHostile[ ubLoop ] = CIV_GROUP_HOSTILE;
 
 UINT16 NumActiveAndConsciousTeamMembers( UINT8 ubTeam )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
     UINT16 ubCount = 0;
     SoldierID cnt = gTacticalStatus.Team[ ubTeam ].bFirstID;
 
@@ -4610,9 +4618,9 @@ UINT16 NumActiveAndConsciousTeamMembers( UINT8 ubTeam )
 }
 
 
-SoldierID FindNextActiveAndAliveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs )
+SoldierID FindNextActiveAndAliveMerc( TacticalActor *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     SoldierID cnt = pSoldier->identity().id() + 1;
     SoldierID bLastTeamID = gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID;
 
@@ -4682,7 +4690,7 @@ SoldierID FindNextActiveAndAliveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLes
 }
 
 
-SOLDIERTYPE *FindNextActiveSquad( SOLDIERTYPE *pSoldier )
+TacticalActor *FindNextActiveSquad( TacticalActor *pSoldier )
 {
     INT32 cnt, cnt2;
 	
@@ -4697,7 +4705,7 @@ SOLDIERTYPE *FindNextActiveSquad( SOLDIERTYPE *pSoldier )
     {
         for( cnt2 =0; cnt2 < NUMBER_OF_SOLDIERS_PER_SQUAD; cnt2++ )
         {
-            SOLDIERTYPE* squadMember =
+            TacticalActor* squadMember =
                 ResolveSquadMember( cnt, cnt2 );
             if ( squadMember != NULL &&
                 squadMember->roster().inSector() &&
@@ -4715,7 +4723,7 @@ SOLDIERTYPE *FindNextActiveSquad( SOLDIERTYPE *pSoldier )
     {
         for( cnt2 =0; cnt2 < NUMBER_OF_SOLDIERS_PER_SQUAD; cnt2++ )
         {
-            SOLDIERTYPE* squadMember =
+            TacticalActor* squadMember =
                 ResolveSquadMember( cnt, cnt2 );
             if ( squadMember != NULL &&
                 squadMember->roster().inSector() &&
@@ -4733,7 +4741,7 @@ SOLDIERTYPE *FindNextActiveSquad( SOLDIERTYPE *pSoldier )
 }
 
 
-SoldierID FindPrevActiveAndAliveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs )
+SoldierID FindPrevActiveAndAliveMerc( TacticalActor *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs )
 {
     SoldierID bLastTeamID = gTacticalStatus.Team[ pSoldier->roster().team() ].bFirstID;
     SoldierID cnt = pSoldier->identity().id() - 1;
@@ -4748,7 +4756,7 @@ SoldierID FindPrevActiveAndAliveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLes
             continue;
         }
 
-        SOLDIERTYPE* pTeamSoldier =
+        TacticalActor* pTeamSoldier =
             GetJa2SoldierRepository().resolve(cnt.i);
         if ( fOnlyRegularMercs )
         {
@@ -4784,7 +4792,7 @@ SoldierID FindPrevActiveAndAliveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLes
 
 BOOLEAN CheckForPlayerTeamInMissionExit( )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
     UINT16 bGuysIn = 0;
 
     // End the turn of player charactors
@@ -4880,7 +4888,7 @@ CHAR8 *GetSceneFilename(    )
 extern BOOLEAN InternalOkayToAddStructureToWorld( INT32 sBaseGridNo, INT8 bLevel, DB_STRUCTURE_REF * pDBStructureRef, INT16 sExclusionID, BOOLEAN fAddingForReal, SoldierID sSoldierID );
 
 // NB if making changes don't forget to update NewOKDestinationAndDirection
-BOOLEAN NewOKDestination( SOLDIERTYPE * pCurrSoldier, INT32 sGridNo, BOOLEAN fPeopleToo, INT8 bLevel )
+BOOLEAN NewOKDestination( TacticalActor * pCurrSoldier, INT32 sGridNo, BOOLEAN fPeopleToo, INT8 bLevel )
 {
     SoldierID bPerson;
     STRUCTURE *pStructure;
@@ -4907,7 +4915,7 @@ BOOLEAN NewOKDestination( SOLDIERTYPE * pCurrSoldier, INT32 sGridNo, BOOLEAN fPe
         {
             if ( pCurrSoldier->roster().team() == gbPlayerNum )
             {
-                SOLDIERTYPE* person =
+                TacticalActor* person =
                     GetJa2SoldierRepository().resolve(bPerson.i);
                 if ( ( person->awareness().visibility() >= 0) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) )
                     return( FALSE );                 // if someone there it's NOT OK
@@ -5029,7 +5037,7 @@ BOOLEAN NewOKDestination( SOLDIERTYPE * pCurrSoldier, INT32 sGridNo, BOOLEAN fPe
 }
 
 // NB if making changes don't forget to update NewOKDestination
-static INT16 NewOKDestinationAndDirection( SOLDIERTYPE * pCurrSoldier, INT32 sGridNo, INT8 bDirection, BOOLEAN fPeopleToo, INT8 bLevel )
+static INT16 NewOKDestinationAndDirection( TacticalActor * pCurrSoldier, INT32 sGridNo, INT8 bDirection, BOOLEAN fPeopleToo, INT8 bLevel )
 {
     SoldierID bPerson;
     STRUCTURE *pStructure;
@@ -5044,7 +5052,7 @@ static INT16 NewOKDestinationAndDirection( SOLDIERTYPE * pCurrSoldier, INT32 sGr
         {
             if ( pCurrSoldier->roster().team() == gbPlayerNum )
             {
-                SOLDIERTYPE* person =
+                TacticalActor* person =
                     GetJa2SoldierRepository().resolve(bPerson.i);
                 if ( ( person->awareness().visibility() >= 0) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) )
                     return( FALSE );                 // if someone there it's NOT OK
@@ -5244,7 +5252,7 @@ BOOLEAN IsLocationSittableExcludingPeople( INT32 iMapIndex, BOOLEAN fOnRoof )
 
 BOOLEAN TeamMemberNear( INT8 bTeam, INT32 sGridNo, INT32 iRange )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 		for ( SoldierID bLoop = gTacticalStatus.Team[bTeam].bFirstID; bLoop <= gTacticalStatus.Team[bTeam].bLastID; ++bLoop )
 		{
@@ -5261,7 +5269,7 @@ BOOLEAN TeamMemberNear( INT8 bTeam, INT32 sGridNo, INT32 iRange )
 	return(FALSE);
 }
 
-INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirection, INT32 *psAdjustedGridNo, BOOLEAN fForceToPerson, BOOLEAN fDoor, bool allow_diagonal )
+INT32 FindAdjacentGridEx( TacticalActor *pSoldier, INT32 sGridNo, UINT8 *pubDirection, INT32 *psAdjustedGridNo, BOOLEAN fForceToPerson, BOOLEAN fDoor, bool allow_diagonal )
 {
     // psAdjustedGridNo gets the original gridno or the new one if updated
     // It will ONLY be updated IF we were over a merc, ( it's updated to their gridno )
@@ -5350,7 +5358,7 @@ INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirect
     {
         if ( FindSoldier( sGridNo, &usSoldierIndex, &uiMercFlags, FIND_SOLDIER_GRIDNO ) )
         {
-				SOLDIERTYPE *pTargetSoldier =
+				TacticalActor *pTargetSoldier =
                     GetJa2SoldierRepository().resolve(usSoldierIndex.i);
             sGridNo = pTargetSoldier->position().gridNo();
 			if (CREATURE_OR_BLOODCAT(pTargetSoldier) || gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
@@ -5623,7 +5631,7 @@ INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirect
 }
 
 
-INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirection, INT32 *psAdjustedGridNo, BOOLEAN fForceToPerson, BOOLEAN fDoor )
+INT32 FindNextToAdjacentGridEx( TacticalActor *pSoldier, INT32 sGridNo, UINT8 *pubDirection, INT32 *psAdjustedGridNo, BOOLEAN fForceToPerson, BOOLEAN fDoor )
 {
     // This function works in a similar way as FindAdjacentGridEx, but looks for a location 2 tiles away
 
@@ -5674,7 +5682,7 @@ INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pub
     {
         if ( FindSoldier( sGridNo, &usSoldierIndex, &uiMercFlags, FIND_SOLDIER_GRIDNO ) )
         {
-				SOLDIERTYPE *pTargetSoldier =
+				TacticalActor *pTargetSoldier =
                     GetJa2SoldierRepository().resolve(usSoldierIndex.i);
 			sGridNo = pTargetSoldier->position().gridNo();
 			if (CREATURE_OR_BLOODCAT(pTargetSoldier) || gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
@@ -5949,7 +5957,7 @@ INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pub
 	return( NOWHERE );
 }
 
-INT32 FindAdjacentPunchTarget( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTargetSoldier, INT32 * psAdjustedTargetGridNo, UINT8 * pubDirection )
+INT32 FindAdjacentPunchTarget( TacticalActor * pSoldier, TacticalActor * pTargetSoldier, INT32 * psAdjustedTargetGridNo, UINT8 * pubDirection )
 {
     INT32   sSpot;  
     SoldierID   ubGuyThere;
@@ -5981,7 +5989,7 @@ INT32 FindAdjacentPunchTarget( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTargetSold
 }
 
 
-BOOLEAN UIOKMoveDestination( SOLDIERTYPE *pSoldier, INT32 usMapPos )
+BOOLEAN UIOKMoveDestination( TacticalActor *pSoldier, INT32 usMapPos )
 {
     BOOLEAN fVisible;
 
@@ -6022,7 +6030,7 @@ BOOLEAN UIOKMoveDestination( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 
 void HandleTeamServices( UINT8 ubTeamNum )
 {
-    SOLDIERTYPE  *pTeamSoldier, *pTargetSoldier;
+    TacticalActor  *pTeamSoldier, *pTargetSoldier;
     UINT32       uiPointsUsed;
     SoldierID    usSoldierIndex;
     UINT16       usKitPts;
@@ -6112,9 +6120,9 @@ void HandleTeamServices( UINT8 ubTeamNum )
     }
 }
 
-void HandlePlayerServices( SOLDIERTYPE *pTeamSoldier )
+void HandlePlayerServices( TacticalActor *pTeamSoldier )
 {
-    SOLDIERTYPE  *pTargetSoldier;
+    TacticalActor  *pTargetSoldier;
     UINT32       uiPointsUsed;
     SoldierID    usSoldierIndex;
     UINT16       usKitPts;
@@ -6209,7 +6217,7 @@ void CommonEnterCombatModeCode( )
 {
     DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"CommonEnterCombatMode");
     UINT32                  cnt;
-    SOLDIERTYPE          *pSoldier;
+    TacticalActor          *pSoldier;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
     SetJa2TacticalCombatMode( true );
@@ -6330,7 +6338,7 @@ void CommonEnterCombatModeCode( )
 
 void EnterCombatMode( UINT8 ubStartingTeam )
 {
-    SOLDIERTYPE     *pTeamSoldier;
+    TacticalActor     *pTeamSoldier;
     DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"EnterCombatMode");
 
     // MP: remote players' copies have no locomotion driver -- a copy mid-walk when
@@ -6341,7 +6349,7 @@ void EnterCombatMode( UINT8 ubStartingTeam )
     {
         for ( SoldierID id = 0; id < TOTAL_SOLDIERS; ++id )
         {
-            SOLDIERTYPE* pStop =
+            TacticalActor* pStop =
                 GetJa2SoldierRepository().resolve(id.i);
             if ( pStop == NULL || !pStop->roster().active() || !pStop->roster().inSector()
                 || pStop->position().gridNo() < 0 || pStop->position().gridNo() >= WORLD_MAX
@@ -6397,7 +6405,7 @@ void EnterCombatMode( UINT8 ubStartingTeam )
 
     if (ubStartingTeam == gbPlayerNum)
     {
-        SOLDIERTYPE* selectedSoldier =
+        TacticalActor* selectedSoldier =
             GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
         DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("EnterCombatMode continuing... start player turn, selected soldier = %d",gusSelectedSoldier));
         // OK, make sure we have a selected guy
@@ -6446,7 +6454,7 @@ void EnterCombatMode( UINT8 ubStartingTeam )
 void ExitCombatMode( )
 {
     UINT32                          cnt;
-    SOLDIERTYPE          *pSoldier;
+    TacticalActor          *pSoldier;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
     DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Exiting combat mode" );
@@ -6613,9 +6621,9 @@ void SetEnemyPresence()
 
 extern SoldierID gfLastMercTalkedAboutKillingID;
 
-static BOOLEAN SoldierHasSeenEnemiesLastFewTurns( SOLDIERTYPE *pTeamSoldier )
+static BOOLEAN SoldierHasSeenEnemiesLastFewTurns( TacticalActor *pTeamSoldier )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
     INT32       cnt;
 
     for ( cnt = 0; cnt < MAXTEAMS; cnt++ )
@@ -6653,7 +6661,7 @@ static BOOLEAN SoldierHasSeenEnemiesLastFewTurns( SOLDIERTYPE *pTeamSoldier )
 BOOLEAN WeSeeNoOne( )
 {
     UINT32      uiLoop;
-    SOLDIERTYPE * pSoldier;
+    TacticalActor * pSoldier;
 
     for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++ )
     {
@@ -6676,7 +6684,7 @@ BOOLEAN WeSeeNoOne( )
 BOOLEAN NobodyAlerted( )
 {
     UINT32      uiLoop;
-    SOLDIERTYPE * pSoldier;
+    TacticalActor * pSoldier;
 
     for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++ )
     {
@@ -6697,7 +6705,7 @@ BOOLEAN NobodyAlerted( )
 static BOOLEAN WeSawSomeoneThisTurn( )
 {
     UINT32      uiLoop, uiLoop2;
-    SOLDIERTYPE * pSoldier;
+    TacticalActor * pSoldier;
 
     for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++ )
     {
@@ -6725,7 +6733,7 @@ static void SayBattleSoundFromAnyBodyInSector( INT32 iBattleSnd )
     // WDS - make number of mercenaries, etc. be configurable
     SoldierID ubMercsInSector[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ] = {};
     UINT16   ubNumMercs = 0;
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
 
     // Loop through all our guys and randomly say one from someone in our sector
 
@@ -6758,7 +6766,7 @@ static void SayBattleSoundFromAnyBodyInSector( INT32 iBattleSnd )
 
 BOOLEAN CheckForEndOfCombatMode( BOOLEAN fIncrementTurnsNotSeen )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     UINT32 cnt = 0;
     BOOLEAN fWeSeeNoOne, fNobodyAlerted;
     BOOLEAN fSayQuote = FALSE;
@@ -7059,7 +7067,7 @@ CHAR16 gPrisonSectorNamesStr[256][128];
 
 static void RemoveCapturedEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 {
-	SOLDIERTYPE*	pTeamSoldier;
+	TacticalActor*	pTeamSoldier;
 	INT32           cnt = 0;
 	UINT16          ubNumPrisoners = 0;
 	INT16			sNumPrisoner[PRISONER_MAX] = {0};
@@ -7124,7 +7132,7 @@ static void RemoveCapturedEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 
 						// place items on the floor
 						INT8 bVisible = 0;
 						UINT16 usItemFlags = 0;
-                        SOLDIERTYPE* attacker =
+                        TacticalActor* attacker =
                             GetJa2SoldierRepository().resolve(
                                 pTeamSoldier->combatResult().currentAttacker().i);
 						UINT8 size = pTeamSoldier->inventory().size( );
@@ -7245,7 +7253,7 @@ static void RemoveCapturedEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 
 // Once combat ends, we count all these flags and remove them
 static void UpdateWoundedFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 {
-	SOLDIERTYPE			*pSoldier;
+	TacticalActor			*pSoldier;
 	INT32               cnt = 0;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
@@ -7297,7 +7305,7 @@ static void RemoveStaticEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 bM
 //Whenever returning TRUE, make sure you clear gfBlitBattleSectorLocator;
 BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     BOOLEAN		fBattleWon = TRUE;
     BOOLEAN		fBattleLost = FALSE;
     INT32		cnt = 0;
@@ -7633,7 +7641,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                 HandleMoraleEvent( NULL, MORALE_BATTLE_WON, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
                 HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_BATTLE_WON, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 
-                SOLDIERTYPE* lastMercTalkedAboutKilling =
+                TacticalActor* lastMercTalkedAboutKilling =
                     GetJa2SoldierRepository().resolve(
                         gfLastMercTalkedAboutKillingID.i);
                 // Change music modes
@@ -7849,7 +7857,7 @@ void CycleThroughKnownEnemies( BOOLEAN backward )
     {
 			for ( enemy = TOTAL_SOLDIERS-1; enemy >= gTacticalStatus.Team[ gbPlayerNum ].bLastID; --enemy )
 			{
-                SOLDIERTYPE* enemySoldier =
+                TacticalActor* enemySoldier =
                     GetJa2SoldierRepository().resolve(enemy.i);
 				// try to find first active, OK enemy
 				if ( enemySoldier->roster().active() && enemySoldier->roster().inSector() && !enemySoldier->aiBehavior().neutral() && (enemySoldier->roster().side() != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
@@ -7882,7 +7890,7 @@ void CycleThroughKnownEnemies( BOOLEAN backward )
     {
         for ( enemy = gTacticalStatus.Team[gbPlayerNum].bLastID; enemy < TOTAL_SOLDIERS; ++enemy )
         {
-            SOLDIERTYPE* enemySoldier =
+            TacticalActor* enemySoldier =
                 GetJa2SoldierRepository().resolve(enemy.i);
             // try to find first active, OK enemy
             if ( enemySoldier->roster().active() && enemySoldier->roster().inSector() && !enemySoldier->aiBehavior().neutral() && (enemySoldier->roster().side() != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
@@ -7935,14 +7943,14 @@ void CycleThroughKnownEnemies( BOOLEAN backward )
 }
 
 
-void CycleVisibleEnemies( SOLDIERTYPE *pSrcSoldier )
+void CycleVisibleEnemies( TacticalActor *pSrcSoldier )
 {
     SoldierID       enemy;
     SoldierID       usStartToLook = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
 
     for ( enemy = gTacticalStatus.Team[ gbPlayerNum ].bLastID; enemy < TOTAL_SOLDIERS; ++enemy )
     {
-        SOLDIERTYPE* enemySoldier =
+        TacticalActor* enemySoldier =
             GetJa2SoldierRepository().resolve(enemy.i);
         // try to find first active, OK enemy
         if ( enemySoldier->roster().active() && enemySoldier->roster().inSector() && !enemySoldier->aiBehavior().neutral() && (enemySoldier->roster().side() != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
@@ -7971,7 +7979,7 @@ void CycleVisibleEnemies( SOLDIERTYPE *pSrcSoldier )
     usStartToLook = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
     for ( enemy = gTacticalStatus.Team[ gbPlayerNum ].bLastID; enemy < TOTAL_SOLDIERS; ++enemy )
     {
-        SOLDIERTYPE* enemySoldier =
+        TacticalActor* enemySoldier =
             GetJa2SoldierRepository().resolve(enemy.i);
         // try to find first active, OK enemy
         if (enemySoldier->roster().active() && enemySoldier->roster().inSector() && !enemySoldier->aiBehavior().neutral() && (enemySoldier->roster().side() != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
@@ -7995,14 +8003,14 @@ void CycleVisibleEnemies( SOLDIERTYPE *pSrcSoldier )
     }
 }
 
-void CycleVisibleEnemiesBackward( SOLDIERTYPE *pSrcSoldier )
+void CycleVisibleEnemiesBackward( TacticalActor *pSrcSoldier )
 {
     SoldierID   enemy;
     SoldierID   usStartToLook = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
 
 	for ( enemy = TOTAL_SOLDIERS-1; enemy >= gTacticalStatus.Team[ gbPlayerNum ].bLastID ; --enemy )
     {
-        SOLDIERTYPE* enemySoldier =
+        TacticalActor* enemySoldier =
             GetJa2SoldierRepository().resolve(enemy.i);
         // try to find first active, OK enemy
         if ( enemySoldier->roster().active() && enemySoldier->roster().inSector() && !enemySoldier->aiBehavior().neutral() && (enemySoldier->roster().side() != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
@@ -8031,7 +8039,7 @@ void CycleVisibleEnemiesBackward( SOLDIERTYPE *pSrcSoldier )
     usStartToLook = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
 	for ( enemy = TOTAL_SOLDIERS-1; enemy >= gTacticalStatus.Team[ gbPlayerNum ].bLastID; --enemy )
     {
-        SOLDIERTYPE* enemySoldier =
+        TacticalActor* enemySoldier =
             GetJa2SoldierRepository().resolve(enemy.i);
         // try to find first active, OK enemy
         if ( enemySoldier->roster().active() && enemySoldier->roster().inSector() && !enemySoldier->aiBehavior().neutral() && (enemySoldier->roster().side() != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
@@ -8057,7 +8065,7 @@ void CycleVisibleEnemiesBackward( SOLDIERTYPE *pSrcSoldier )
 
 UINT32 CountNonVehiclesOnPlayerTeam( )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
     UINT32      bNumber = 0;
 
     for ( SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
@@ -8086,7 +8094,7 @@ BOOLEAN PlayerTeamFull( )
 
 UINT16 NumPCsInSector( )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     UINT32              cnt = 0;
     UINT16               ubNumPlayers = 0;
 
@@ -8112,7 +8120,7 @@ UINT16 NumPCsInSector( )
 
 UINT16 NumEnemyInSector( )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     INT32               cnt = 0;
     UINT16               ubNumEnemies = 0;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
@@ -8138,7 +8146,7 @@ UINT16 NumEnemyInSector( )
 
 UINT16 NumZombiesInSector( )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     INT32 cnt = 0;
     UINT16 ubNumZombies = 0;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
@@ -8148,7 +8156,7 @@ UINT16 NumZombiesInSector( )
         pTeamSoldier = &soldiers.record(cnt);
         if ( pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() && pTeamSoldier->vitals().health() > 0 )
         {
-            if ( pTeamSoldier->IsZombie() )
+            if ( TacticalActorConditions::isZombie(*pTeamSoldier) )
             {
                 ++ubNumZombies;
             }
@@ -8160,7 +8168,7 @@ UINT16 NumZombiesInSector( )
 
 UINT16 NumEnemyInSectorExceptCreatures()
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     INT32 cnt = 0;
     UINT16 ubNumEnemies = 0;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
@@ -8187,7 +8195,7 @@ UINT16 NumEnemyInSectorExceptCreatures()
 
 UINT16 NumEnemyInSectorNotDeadOrDying( )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     INT32 cnt = 0;
     UINT16 ubNumEnemies = 0;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
@@ -8224,7 +8232,7 @@ UINT16 NumEnemyInSectorNotDeadOrDying( )
 
 UINT16 NumBloodcatsInSectorNotDeadOrDying( )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     INT32 cnt = 0;
     UINT16 ubNumEnemies = 0;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
@@ -8265,7 +8273,7 @@ UINT16 NumBloodcatsInSectorNotDeadOrDying( )
 
 UINT16 NumCapableEnemyInSector( )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     INT32 cnt = 0;
     UINT16 ubNumEnemies = 0;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
@@ -8311,7 +8319,7 @@ UINT16 NumCapableEnemyInSector( )
 
 BOOLEAN CheckForLosingEndOfBattle( )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     UINT16      bNumDead = 0, bNumNotOK = 0, bNumInBattle = 0, bNumNotOKRealMercs = 0;
     BOOLEAN     fMadeCorpse;
     BOOLEAN     fDoCapture = FALSE;
@@ -8485,7 +8493,7 @@ BOOLEAN CheckForLosingEndOfBattle( )
 
 BOOLEAN KillIncompacitatedEnemyInSector( )
 {
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     INT32               cnt = 0;
     BOOLEAN         fReturnVal = FALSE;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
@@ -8521,10 +8529,10 @@ BOOLEAN KillIncompacitatedEnemyInSector( )
 
 
 
-static BOOLEAN AttackOnGroupWitnessed( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget )
+static BOOLEAN AttackOnGroupWitnessed( TacticalActor * pSoldier, TacticalActor * pTarget )
 {
     UINT32                  uiSlot;
-    SOLDIERTYPE *       pGroupMember;
+    TacticalActor *       pGroupMember;
 
     // look for all group members... rebels could be on the civ team or ours!
     for ( uiSlot = 0; uiSlot < Ja2ActiveTacticalActorSlotCount(); uiSlot++ )
@@ -8546,7 +8554,7 @@ static BOOLEAN AttackOnGroupWitnessed( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTa
     return( FALSE );
 }
 
-INT8 CalcSuppressionTolerance( SOLDIERTYPE * pSoldier )
+INT8 CalcSuppressionTolerance( TacticalActor * pSoldier )
 {
     INT8 bTolerance;
 
@@ -8668,7 +8676,7 @@ INT8 CalcSuppressionTolerance( SOLDIERTYPE * pSoldier )
 	// Flugente: add personal bonus to suppression tolerance
 	// sevenfm: apply in HandleSuppressionFire to AP loss instead
 	if (!gGameExternalOptions.fNewSuppressionCode)
-		bTolerance = (bTolerance * (100 + pSoldier->GetSuppressionResistanceBonus() ) / 100);
+		bTolerance = (bTolerance * (100 + TacticalActorModifiers::suppressionResistanceBonus(*pSoldier) ) / 100);
 
     bTolerance = max(bTolerance, gGameExternalOptions.ubSuppressionToleranceMin);
     bTolerance = min(bTolerance, gGameExternalOptions.ubSuppressionToleranceMax);
@@ -8700,8 +8708,8 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
     UINT32		uiLoop;
     UINT8		ubLoop2;
     BOOLEAN		fCower=FALSE;
-    SOLDIERTYPE *pSoldier;
-	SOLDIERTYPE *pAttacker = NULL;
+    TacticalActor *pSoldier;
+	TacticalActor *pAttacker = NULL;
 
     // APBPConstants.INI
     UINT16 usLimitSuppressionAPsLostPerAttack = APBPConstants[AP_MAX_SUPPRESSED];
@@ -8750,7 +8758,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 
         // add a small bonus to effectiveness based on weapon loudness
 		UINT8 ubGunVolume = Weapon[pAttacker->inventory()[pAttacker->attackSelection().hand()].usItem].ubAttackVolume;
-		ubGunVolume = __max(1, (ubGunVolume * GetPercentNoiseVolume(pAttacker->GetUsedWeapon(&pAttacker->inventory()[pAttacker->attackSelection().hand()]))) / 100);
+		ubGunVolume = __max(1, (ubGunVolume * GetPercentNoiseVolume(TacticalActorEquipment::usedWeapon(*pAttacker, &pAttacker->inventory()[pAttacker->attackSelection().hand()]))) / 100);
         if ( ubGunVolume >= 50 )
         {
             if ( ubGunVolume < 70 ) // up to 5%
@@ -8778,7 +8786,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
         pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
         // Flugente: zombies do not receive any suppression at all!
-        if ( pSoldier != NULL && pSoldier->IsZombie() )
+        if ( pSoldier != NULL && TacticalActorConditions::isZombie(*pSoldier) )
             continue;
 
         // Has this character received any Suppression Points since the last attack?
@@ -8893,13 +8901,13 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                         ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113HAMMessage[0], pSoldier->GetName() );             
 
 					// Flugente: if we are Buns, and we have PTSD, this shock causes us to switch to a different personality
-					if ( pSoldier->identity().profile() == BUNS && pSoldier->HasDiseaseWithFlag( DISEASE_PROPERTY_PTSD_BUNS ) )
+					if ( pSoldier->identity().profile() == BUNS && TacticalActorDisease::hasOutbreakProperty(*pSoldier, DISEASE_PROPERTY_PTSD_BUNS ) )
 					{
 						SwapToProfile( pSoldier, BUNS_CHAOTIC );
 
 						gMercProfiles[BUNS].bNPCData += 3 + Random( 3 );
 
-						extern void SpecialDialogue( SOLDIERTYPE* pSoldier, STR8 azSoundString, STR16 azTextString );
+						extern void SpecialDialogue( TacticalActor* pSoldier, STR8 azSoundString, STR16 azTextString );
 
 						SpecialDialogue( pSoldier, "Speech\\Special\\buns_ptsd_activation.MP3", L"Mustn't... get... angry... HOW COULD YOU LET THAT HAPPEN TO ME???" );
 					}
@@ -9069,7 +9077,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 			// sevenfm: reduce AP loss because of suppression resistance
 			if (sPointsLost > 0 && gGameExternalOptions.fNewSuppressionCode)
 			{
-				sPointsLost -= sPointsLost * pSoldier->GetSuppressionResistanceBonus() / 200;
+				sPointsLost -= sPointsLost * TacticalActorModifiers::suppressionResistanceBonus(*pSoldier) / 200;
 			}
 
             // Reduce action points!
@@ -9142,7 +9150,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 				}
 
 				// sevenfm: stop dragging when changing stance/cowering under suppression
-				pSoldier->CancelDrag();
+				TacticalActorDragging::cancel(*pSoldier);
 
                 DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: change stance"));
                 pSoldier->ChangeSoldierStance( ubNewStance );
@@ -9187,11 +9195,11 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
     DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire done"));
 }
 
-BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** ppTarget, INT8 bReason )
+BOOLEAN ProcessImplicationsOfPCAttack( TacticalActor * pSoldier, TacticalActor ** ppTarget, INT8 bReason )
 {
     INT16       sTargetXPos, sTargetYPos;
     BOOLEAN fEnterCombat = TRUE;
-    SOLDIERTYPE * pTarget = *ppTarget;
+    TacticalActor * pTarget = *ppTarget;
 
     if ( pTarget->aiBehavior().flags() & AI_ASLEEP )
     {
@@ -9207,7 +9215,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
     if ( gTacticalStatus.bBoxingState == BOXING )
     {
         // should have a check for "in boxing ring", no?
-        if ( ( pSoldier->attackSelection().weapon() != NOTHING && !ItemIsBrassKnuckles(pSoldier->attackSelection().weapon())) || !( pSoldier->status().flags() & SOLDIER_BOXER ) || pSoldier->IsRiotShieldEquipped() )
+        if ( ( pSoldier->attackSelection().weapon() != NOTHING && !ItemIsBrassKnuckles(pSoldier->attackSelection().weapon())) || !( pSoldier->status().flags() & SOLDIER_BOXER ) || TacticalActorEquipment::hasEquippedRiotShield(*pSoldier) )
         {
             // someone's cheating!
             if ( (Item[ pSoldier->attackSelection().weapon() ].usItemClass == IC_BLADE || Item[ pSoldier->attackSelection().weapon() ].usItemClass == IC_PUNCH) && (pTarget->status().flags() & SOLDIER_BOXER) )
@@ -9461,13 +9469,13 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
     return( fEnterCombat );
 }
 
-static SOLDIERTYPE *InternalReduceAttackBusyCount( )
+static TacticalActor *InternalReduceAttackBusyCount( )
 {
     // Strange as this may seem, this function returns a pointer to
     // the *target* in case the target has changed sides as a result
     // of being attacked
-    SOLDIERTYPE *pSoldier;
-    SOLDIERTYPE *pTarget;
+    TacticalActor *pSoldier;
+    TacticalActor *pTarget;
     BOOLEAN     fEnterCombat = FALSE;
     SoldierID   ubID;
 
@@ -9517,7 +9525,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
                 id <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID;
                 ++id)
         {
-            SOLDIERTYPE* candidate =
+            TacticalActor* candidate =
                 GetJa2SoldierRepository().resolve(id.i);
             if (candidate && candidate->status().flags() & SOLDIER_UNDERAICONTROL)
             {
@@ -9622,7 +9630,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
             {
                 // Loop through our team, make guys who can see this fly away....
                 {
-                    SOLDIERTYPE *pTeamSoldier;
+                    TacticalActor *pTeamSoldier;
                     UINT8 ubTeam = pTarget->roster().team();
 
                     for ( SoldierID cnt = gTacticalStatus.Team[ ubTeam ].bFirstID; cnt <= gTacticalStatus.Team[ ubTeam ].bLastID; ++cnt )
@@ -9752,7 +9760,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     if ( gTacticalStatus.fItemsSeenOnAttack && GetJa2TacticalCurrentTeam() == gbPlayerNum )
     {
         gTacticalStatus.fItemsSeenOnAttack = FALSE;
-        SOLDIERTYPE* spotter =
+        TacticalActor* spotter =
             GetJa2SoldierRepository().resolve(
                 gTacticalStatus.ubItemsSeenOnAttackSoldier);
         if ( !spotter )
@@ -9778,7 +9786,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     if ( gTacticalStatus.uiFlags & CHECK_SIGHT_AT_END_OF_ATTACK )
     {
         SoldierID ubLoop;
-        SOLDIERTYPE * pSightSoldier;
+        TacticalActor * pSightSoldier;
 
         AllTeamsLookForAll( FALSE );
 
@@ -9880,13 +9888,13 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     return( pTarget );
 }
 
-SOLDIERTYPE * ReduceAttackBusyCount( )
+TacticalActor * ReduceAttackBusyCount( )
 {
     // 0verhaul:    This is now a simple subroutine.
     return InternalReduceAttackBusyCount( );
 }
 
-SOLDIERTYPE * FreeUpAttacker( )
+TacticalActor * FreeUpAttacker( )
 {
     // Okay, so the objective here is not to simply decrease the ABC, but to twiddle it and see what
     // falls out.   So there's an increase followed immediately by a decrease.
@@ -9940,7 +9948,7 @@ void StopMercAnimation( BOOLEAN fStop )
 
 void ResetAllMercSpeeds( )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
     UINT32          cnt;
 
     for ( cnt = 0; cnt < TOTAL_SOLDIERS; cnt++ )
@@ -9971,7 +9979,7 @@ void SetActionToDoOnceMercsGetToLocation( UINT8 ubActionCode, UINT8 uiNumMercsWa
     gTacticalStatus.uiFlags |= ( DISALLOW_SIGHT );
 }
 
-void HandleBloodForNewGridNo( SOLDIERTYPE *pSoldier )
+void HandleBloodForNewGridNo( TacticalActor *pSoldier )
 {
     // Handle bleeding...
     if ( ( pSoldier->vitals().bleeding() > MIN_BLEEDING_THRESHOLD ) )
@@ -9999,7 +10007,7 @@ void HandleBloodForNewGridNo( SOLDIERTYPE *pSoldier )
 
 void CencelAllActionsForTimeCompression( )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
     INT32 cnt;
     Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
@@ -10061,10 +10069,10 @@ void RemoveManFromTeam( INT8 bTeam )
     }
 }
 
-void RemoveSoldierFromTacticalSector( SOLDIERTYPE *pSoldier, BOOLEAN fAdjustSelected )
+void RemoveSoldierFromTacticalSector( TacticalActor *pSoldier, BOOLEAN fAdjustSelected )
 {
     SoldierID   ubID;
-    SOLDIERTYPE *pNewSoldier;
+    TacticalActor *pNewSoldier;
 
     // reset merc's opplist
     InitSoldierOppList( pSoldier );
@@ -10159,7 +10167,7 @@ void InitializeTacticalStatusAtBattleStart( )
 {
     INT8        bLoop;
     SoldierID   cnt;
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
 
     gTacticalStatus.ubArmyGuysKilled = 0;
     gTacticalStatus.bOriginalSizeOfEnemyForce = 0;
@@ -10246,7 +10254,7 @@ void CaptureTimerCallback( )
 
 void DoPOWPathChecks( )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
 
 	BOOLEAN is_this_tixa = (gWorldSectorX == gModSettings.ubTixaPrisonSectorX && gWorldSectorY == gModSettings.ubTixaPrisonSectorY);
 
@@ -10294,7 +10302,7 @@ void DoPOWPathChecks( )
 
 BOOLEAN HostileCiviliansPresent( )
 {
-    SOLDIERTYPE *       pSoldier;
+    TacticalActor *       pSoldier;
 
     if ( gTacticalStatus.Team[ CIV_TEAM ].bTeamActive == FALSE )
     {
@@ -10316,7 +10324,7 @@ BOOLEAN HostileCiviliansPresent( )
 
 BOOLEAN HostileCiviliansWithGunsPresent( )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
 
     if ( gTacticalStatus.Team[ CIV_TEAM ].bTeamActive == FALSE )
     {
@@ -10342,7 +10350,7 @@ BOOLEAN HostileCiviliansWithGunsPresent( )
 
 BOOLEAN HostileBloodcatsPresent( )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
 
     if ( gTacticalStatus.Team[ CREATURE_TEAM ].bTeamActive == FALSE )
     {
@@ -10367,7 +10375,7 @@ BOOLEAN HostileBloodcatsPresent( )
 
 BOOLEAN HostileZombiesPresent( )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
 
     if ( gTacticalStatus.Team[ CREATURE_TEAM ].bTeamActive == FALSE )
     {
@@ -10378,7 +10386,7 @@ BOOLEAN HostileZombiesPresent( )
     {
         pSoldier = GetJa2SoldierRepository().resolve(iLoop.i);
 
-		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 && pSoldier->IsZombie( ) )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 && TacticalActorConditions::isZombie(*pSoldier) )
         {
             return( TRUE );
         }
@@ -10389,7 +10397,7 @@ BOOLEAN HostileZombiesPresent( )
 
 BOOLEAN HostileCreaturesPresent()
 {
-	SOLDIERTYPE* pSoldier;
+	TacticalActor* pSoldier;
 
 	if ( gTacticalStatus.Team[CREATURE_TEAM].bTeamActive == FALSE )
 	{
@@ -10415,7 +10423,7 @@ void HandleCreatureTenseQuote( )
     SoldierID   ubMercsInSector[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ] = {};
     UINT16   ubNumMercs = 0;
     UINT16   ubChosenMerc;
-    SOLDIERTYPE *pTeamSoldier;
+    TacticalActor *pTeamSoldier;
     INT32 uiTime;
 
 
@@ -10468,7 +10476,7 @@ void HandleCreatureTenseQuote( )
 }
 
 
-void DoCreatureTensionQuote( SOLDIERTYPE *pSoldier )
+void DoCreatureTensionQuote( TacticalActor *pSoldier )
 {
     INT32   iRandomQuote;
     BOOLEAN fCanDoQuote = TRUE;
@@ -10556,9 +10564,9 @@ void RevealAllDroppedEnemyItems()
 // friends lower the result, while more friends (ESP good leaders) will raise the result. The result can then be used
 // for any purpose, although this was written specifically to alter a character's suppression tolerance.
 
-INT8 CheckStatusNearbyFriendlies( SOLDIERTYPE *pSoldier )
+INT8 CheckStatusNearbyFriendlies( TacticalActor *pSoldier )
 {
-    SOLDIERTYPE * pLeader;
+    TacticalActor * pLeader;
     INT16 sEffectiveLeadership = 0;
     INT16 sEffectiveRangeToLeader = 0;
     INT16 sBestLeader = 0;
@@ -10644,15 +10652,15 @@ INT8 CheckStatusNearbyFriendlies( SOLDIERTYPE *pSoldier )
 }
 
 // sevenfm: simplified version
-INT8 CheckStatusNearbyFriendliesSimple(SOLDIERTYPE *pSoldier)
+INT8 CheckStatusNearbyFriendliesSimple(TacticalActor *pSoldier)
 {
-	SOLDIERTYPE * pFriend;
+	TacticalActor * pFriend;
 	FLOAT iFriendBonus = 0.0f;
 	FLOAT iModifier;
 	INT16 sDistance;
 	INT16 sMinDistance = TACTICAL_RANGE / 4;
 
-	if (!pSoldier || !pSoldier->roster().active() || TileIsOutOfBounds(pSoldier->position().gridNo()) || !IS_MERC_BODY_TYPE(pSoldier) || pSoldier->vitals().health() < OKLIFE || pSoldier->IsCowering() || pSoldier->IsUnconscious())
+	if (!pSoldier || !pSoldier->roster().active() || TileIsOutOfBounds(pSoldier->position().gridNo()) || !IS_MERC_BODY_TYPE(pSoldier) || pSoldier->vitals().health() < OKLIFE || TacticalActorConditions::isCowering(*pSoldier) || TacticalActorConditions::isUnconscious(*pSoldier))
 	{
 		return 0;
 	}
@@ -10680,7 +10688,7 @@ INT8 CheckStatusNearbyFriendliesSimple(SOLDIERTYPE *pSoldier)
 				// dying, negative effect
 				iModifier = -1.0f;
 			}
-			else if (pFriend->IsCowering() || pFriend->IsUnconscious())
+			else if (TacticalActorConditions::isCowering(*pFriend) || TacticalActorConditions::isUnconscious(*pFriend))
 			{
 				// suppressed, negative modifier
 				iModifier = -0.5f;
@@ -10773,7 +10781,7 @@ BOOLEAN CanMsgBoxForPlayerToBeNotifiedOfSomeoneElseInSector()
 UINT16 NumMercsOnPlayerTeam( )
 {
     INT32 cnt;
-    SOLDIERTYPE   *pSoldier;
+    TacticalActor   *pSoldier;
     UINT16 ubCount = 0;
 
     cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
@@ -10810,9 +10818,9 @@ static void TurnCoatAttemptMessageBoxCallBack( UINT8 ubExitValue )
 		|| gusSelectedSoldier == NOBODY )
 		return;
 
-	SOLDIERTYPE* pSoldier =
+	TacticalActor* pSoldier =
         GetJa2SoldierRepository().resolve(prisonerdialoguetargetID.i);
-    SOLDIERTYPE* selectedSoldier =
+    TacticalActor* selectedSoldier =
         GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
 	if ( !pSoldier || !selectedSoldier )
@@ -10820,8 +10828,11 @@ static void TurnCoatAttemptMessageBoxCallBack( UINT8 ubExitValue )
 
 	INT16 approachselected = DropDownTemplate<DROPDOWNNR_MSGBOX_1>::getInstance().GetSelectedEntryKey();
 
-	UINT8 approachchance = selectedSoldier->GetTurncoatConvinctionChance(
-        prisonerdialoguetargetID, approachselected );
+	UINT8 approachchance =
+		TacticalActorTurncoats::convictionChance(
+			*selectedSoldier,
+			prisonerdialoguetargetID,
+			approachselected);
 
 	// you can never turn a VIP (though we don't tell the player if someone is a VIP, lest they have an exploit to find out)
 	if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_VIP )
@@ -10882,9 +10893,9 @@ static void TurnCoatAttemptMessageBoxCallBack( UINT8 ubExitValue )
 
 CHAR16 gTurncoatDropdownText[4][256];
 
-void HandleTurncoatAttempt( SOLDIERTYPE* pSoldier )
+void HandleTurncoatAttempt( TacticalActor* pSoldier )
 {
-    SOLDIERTYPE* selectedSoldier =
+    TacticalActor* selectedSoldier =
         GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	// abort if bad pointer, or not an enemy and not a capturable civilian
 	if ( pSoldier
@@ -10893,7 +10904,7 @@ void HandleTurncoatAttempt( SOLDIERTYPE* pSoldier )
 		&& pSoldier->identity().profile() == NO_PROFILE
 		&& !( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 		&& !gTacticalStatus.Team[ENEMY_TEAM].bAwareOfOpposition
-		&& !pSoldier->RecognizeAsCombatant( gusSelectedSoldier ) )
+		&& !TacticalActorCovertOps::recognizesCombatant(*pSoldier, gusSelectedSoldier) )
 	{
 		// remember the target's ID
 		prisonerdialoguetargetID = pSoldier->identity().id();
@@ -10903,14 +10914,19 @@ void HandleTurncoatAttempt( SOLDIERTYPE* pSoldier )
 		std::vector<std::pair<INT16, STR16> > dropdownvector_1;
 		INT16 cnt = 1;
 
-		UINT8 chance = selectedSoldier->GetTurncoatConvinctionChance(
-            prisonerdialoguetargetID, cnt );
+		UINT8 chance =
+			TacticalActorTurncoats::convictionChance(
+				*selectedSoldier,
+				prisonerdialoguetargetID,
+				cnt);
 		swprintf( gTurncoatDropdownText[cnt-1], szTurncoatText[3], chance );
 		dropdownvector_1.push_back( std::make_pair( cnt, gTurncoatDropdownText[cnt - 1] ) );
 
 		++cnt;
-		chance = selectedSoldier->GetTurncoatConvinctionChance(
-            prisonerdialoguetargetID, cnt );
+		chance = TacticalActorTurncoats::convictionChance(
+			*selectedSoldier,
+			prisonerdialoguetargetID,
+			cnt);
 		swprintf( gTurncoatDropdownText[cnt - 1], szTurncoatText[4], chance );
 		dropdownvector_1.push_back( std::make_pair( cnt, gTurncoatDropdownText[cnt - 1] ) );
 
@@ -10919,8 +10935,10 @@ void HandleTurncoatAttempt( SOLDIERTYPE* pSoldier )
 		INT32 bribeamount = 10 * min( 10, ubCurrentProgress );
 		if ( bribeamount <= balance )
 		{
-			chance = selectedSoldier->GetTurncoatConvinctionChance(
-                prisonerdialoguetargetID, cnt );
+			chance = TacticalActorTurncoats::convictionChance(
+				*selectedSoldier,
+				prisonerdialoguetargetID,
+				cnt);
 			swprintf( gTurncoatDropdownText[cnt - 1], szTurncoatText[5], bribeamount, chance );
 			dropdownvector_1.push_back( std::make_pair( cnt, gTurncoatDropdownText[cnt - 1] ) );
 		}
@@ -10930,8 +10948,10 @@ void HandleTurncoatAttempt( SOLDIERTYPE* pSoldier )
 		int intelbribeneeded = max( 2, ( ubCurrentProgress + 5 ) / 10 );
 		if ( intelbribeneeded <= intelreserve )
 		{
-			chance = selectedSoldier->GetTurncoatConvinctionChance(
-                prisonerdialoguetargetID, cnt );
+			chance = TacticalActorTurncoats::convictionChance(
+				*selectedSoldier,
+				prisonerdialoguetargetID,
+				cnt);
 			swprintf( gTurncoatDropdownText[cnt - 1], szTurncoatText[6], intelbribeneeded, chance );
 			dropdownvector_1.push_back( std::make_pair( cnt, gTurncoatDropdownText[cnt - 1] ) );
 		}
@@ -10996,7 +11016,7 @@ void AttemptToCapturePlayerSoldiers()
             SoldierID const lastID = gTacticalStatus.Team[gbPlayerNum].bLastID;
             for ( ; i <= lastID; ++i )
             {
-                SOLDIERTYPE *pSoldier =
+                TacticalActor *pSoldier =
                     GetJa2SoldierRepository().resolve(i.i);
                 // Are we active and in sector
                 if (pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->assignment().current() != ASSIGNMENT_POW)
@@ -11033,7 +11053,7 @@ void AttemptToCapturePlayerSoldiers()
         SoldierID lastId = gTacticalStatus.Team[gbPlayerNum].bLastID;
         for ( ; i <= lastId; ++i )
         {
-            SOLDIERTYPE *pSoldier =
+            TacticalActor *pSoldier =
                 GetJa2SoldierRepository().resolve(i.i);
             // Are we active and in sector
             const bool inSector = (pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ);
@@ -11055,10 +11075,10 @@ void AttemptToCapturePlayerSoldiers()
 
 static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 {
-    SOLDIERTYPE *pSoldier = NULL;
-    SOLDIERTYPE *pSoldierToSurrender =
+    TacticalActor *pSoldier = NULL;
+    TacticalActor *pSoldierToSurrender =
         GetJa2SoldierRepository().resolve(prisonerdialoguetargetID.i);
-    SOLDIERTYPE *selectedSoldier =
+    TacticalActor *selectedSoldier =
         GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
     BOOLEAN success = FALSE;
 
@@ -11098,10 +11118,12 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
                     ;
                 // if we are disguised as a soldier, the enemy counts us on HIS team
                 else if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
-                    enemysidestrength += pSoldier->GetSurrenderStrength();
+                    enemysidestrength +=
+						TacticalActorModifiers::surrenderStrength(*pSoldier);
                 else
                     // player side counts double, to put more emphasize on overwhelming the enemy with mercs and not just spamming militia
-                    playersidestrength += 2 * pSoldier->GetSurrenderStrength();
+                    playersidestrength +=
+						2 * TacticalActorModifiers::surrenderStrength(*pSoldier);
             }
         }
 
@@ -11113,7 +11135,8 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
             pSoldier = GetJa2SoldierRepository().resolve(id.i);
             if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
             {
-                playersidestrength += pSoldier->GetSurrenderStrength();
+                playersidestrength +=
+					TacticalActorModifiers::surrenderStrength(*pSoldier);
             }
         }
 
@@ -11121,7 +11144,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 
 		// if the merc asking for surrender is experienced in capitulation negotiations, we get a bonus to our strength
 		if ( pSoldier )
-			playersidestrength = (playersidestrength * (100 + pSoldier->GetBackgroundValue(BG_PERC_CAPITULATION))) / 100;
+			playersidestrength = (playersidestrength * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CAPITULATION))) / 100;
 
 		// Capturing profile-based NPCs would be desirable, but is a good way to break quests. Due to this, we don't allow capturing them.
 		// As it would be odd if the entire enemy team surrenders apart from one guy, we don't allow surrender, no matter the surrender strength, if a hostile profile-based NPC is around.
@@ -11145,15 +11168,17 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 						fNoSurrender = TRUE;
 
 					// a civilian can only be captured if his faction is allowed to. This should prevent the player from exploiting a huge numerical superiority against small enemy groups, like lone assassins.
-					if (!pSoldier->CanBeCaptured())
+					if (!TacticalActorConditions::canBeCaptured(*pSoldier))
 						continue;
 
 					// if a civilian is not neutral and on the enemy side, add his strength to the team
-					enemysidestrength += pSoldier->GetSurrenderStrength();
+					enemysidestrength +=
+						TacticalActorModifiers::surrenderStrength(*pSoldier);
 				}
 				else
 				{
-					enemysidestrength += pSoldier->GetSurrenderStrength();
+					enemysidestrength +=
+						TacticalActorModifiers::surrenderStrength(*pSoldier);
 					if (pSoldier->identity().profile() != NO_PROFILE || ARMED_VEHICLE(pSoldier) || ENEMYROBOT(pSoldier))
 						fNoSurrender = TRUE;
 				}
@@ -11181,7 +11206,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
                 if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
                 {
 					// can this guy be captured?
-					if ( !pSoldier->CanBeCaptured( ) )
+					if ( !TacticalActorConditions::canBeCaptured(*pSoldier) )
 						continue;
 
                     // only if not dying
@@ -11209,10 +11234,10 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
             // if asking for surrender while undercover and the enemy refuses, he learns who you are, so he uncovers you
             if ( selectedSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
             {
-                selectedSoldier->LooseDisguise();
+                TacticalActorCovertOps::loseDisguise(*selectedSoldier);
 
 				if ( gSkillTraitValues.fCOStripIfUncovered )
-					selectedSoldier->Strip();
+					TacticalActorCovertOps::strip(*selectedSoldier);
 
                 ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_SURRENDER_FAILED]  );
                 ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNCOVER_SINGLE], selectedSoldier->GetName()  );
@@ -11244,7 +11269,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 			pSoldierToSurrender->roster().team() == ENEMY_TEAM &&
 			pSoldierToSurrender->identity().profile() == NO_PROFILE &&
 			pSoldierToSurrender->aiBehavior().alertStatus() < STATUS_RED &&
-			!pSoldierToSurrender->RecognizeAsCombatant( gusSelectedSoldier ) )
+			!TacticalActorCovertOps::recognizesCombatant(*pSoldierToSurrender, gusSelectedSoldier) )
 		{
 			// both soldiers face each other
 			pSoldier->EVENT_SetSoldierDesiredDirection( GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pSoldierToSurrender->position().gridNo() ) );
@@ -11268,10 +11293,14 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 			pSoldierToSurrender->roster().team() == ENEMY_TEAM &&
 			pSoldierToSurrender->identity().profile() == NO_PROFILE &&
 			pSoldierToSurrender->aiBehavior().alertStatus() < STATUS_RED &&
-			!pSoldierToSurrender->RecognizeAsCombatant( gusSelectedSoldier ) )
+			!TacticalActorCovertOps::recognizesCombatant(*pSoldierToSurrender, gusSelectedSoldier) )
 		{
 			MSYS_RemoveRegion(&(gMsgBox.BackRegion));
-			pSoldier->UseSkill(SKILLS_CREATE_TURNCOAT, pSoldierToSurrender->position().gridNo(), pSoldierToSurrender->identity().id());
+			TacticalActorSkills::use(
+				*pSoldier,
+				SKILLS_CREATE_TURNCOAT,
+				pSoldierToSurrender->position().gridNo(),
+				pSoldierToSurrender->identity().id());
 			// AP reduction is handled inside the turncoat attempt flow (TurnCoatAttemptMessageBoxCallBack)
 		}
 		else
@@ -11294,13 +11323,13 @@ void CheckChatPartners()
 		{
 			static BOOLEAN fMercQuoteThisTime = TRUE;
 
-			SOLDIERTYPE* pSoldier = NULL;
+			TacticalActor* pSoldier = NULL;
 
 			for ( SoldierID ubLoop = gTacticalStatus.Team[gbPlayerNum].bFirstID; ubLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++ubLoop )
 			{
 				pSoldier =
 					GetJa2SoldierRepository().resolve(ubLoop.i);
-				SOLDIERTYPE* chatPartner = pSoldier
+				TacticalActor* chatPartner = pSoldier
 					? GetJa2SoldierRepository().resolve(
 						pSoldier->interaction().chatPartner().i)
 					: nullptr;
@@ -11335,16 +11364,16 @@ void CheckChatPartners()
 }
 
 // Flugente: offer the enemy the chance to surrender
-void HandleSurrenderOffer( SOLDIERTYPE* pSoldier )
+void HandleSurrenderOffer( TacticalActor* pSoldier )
 {
     // abort if bad pointer, or not an enemy and not a capturable civilian
-	if ( !pSoldier || !pSoldier->CanBeCaptured( ) )
+	if ( !pSoldier || !TacticalActorConditions::canBeCaptured(*pSoldier) )
         return;
 
     // remember the target's ID
     prisonerdialoguetargetID = pSoldier->identity().id();
 
-	if (gGameExternalOptions.fEnemyCanSurrender && pSoldier->CanBeCaptured())
+	if (gGameExternalOptions.fEnemyCanSurrender && TacticalActorConditions::canBeCaptured(*pSoldier))
 	{
 		// open a dialogue box and see whether we really want to offer this, or just talk
 		wcscpy(gzUserDefinedButton[0], TacticalStr[PRISONER_DEMAND_SURRENDER_STR]);
@@ -11362,7 +11391,7 @@ void HandleSurrenderOffer( SOLDIERTYPE* pSoldier )
 	if ( pSoldier->roster().team() == ENEMY_TEAM &&
 		pSoldier->identity().profile() == NO_PROFILE &&
 		pSoldier->aiBehavior().alertStatus() < STATUS_RED &&
-		!pSoldier->RecognizeAsCombatant( gusSelectedSoldier ) )
+		!TacticalActorCovertOps::recognizesCombatant(*pSoldier, gusSelectedSoldier) )
 	{
 		wcscpy( gzUserDefinedButton[2], TacticalStr[PRISONER_DISTRACT_STR] );
 		wcscpy( gzUserDefinedButton[3], TacticalStr[gSkillTraitValues.fCOTurncoats == TRUE ? PRISONER_RECRUIT_TURNCOAT_STR : PRISONER_TALK_STR] );
@@ -11393,7 +11422,7 @@ void TeamDropAll(UINT8 bTeam, BOOLEAN fForce)
     ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_TESTVERSION, L"Team %d drops all items for inspection!", bTeam );
 #endif
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
     SoldierID id = gTacticalStatus.Team[ bTeam ].bFirstID;
     SoldierID lastid  = gTacticalStatus.Team[ bTeam ].bLastID;
     for ( ; id <= lastid; ++id )
@@ -11402,7 +11431,7 @@ void TeamDropAll(UINT8 bTeam, BOOLEAN fForce)
         // if soldier is in the current sector, drop all equipment (that has the TAKEN_BY_MILITIA-flag set)
         if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
         {
-            pSoldier->DropSectorEquipment();
+            TacticalActorEquipment::dropSectorEquipment(*pSoldier);
         }
     }
 }
@@ -11424,7 +11453,7 @@ void TeamRestock(UINT8 bTeam)
     ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_TESTVERSION, L"Team %d restocks gear from sector inventory!", bTeam );
 #endif
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
     SoldierID id = gTacticalStatus.Team[ bTeam ].bFirstID;
     SoldierID lastid  = gTacticalStatus.Team[ bTeam ].bLastID;
     for ( ; id <= lastid; ++id )
@@ -11452,9 +11481,9 @@ void TeamRestock(UINT8 bTeam)
 // are we allowed to steal access this guy's inventory?
 BOOLEAN AllowedToStealFromTeamMate( SoldierID ubID, SoldierID ubTargetID )
 {
-    SOLDIERTYPE* soldier =
+    TacticalActor* soldier =
         GetJa2SoldierRepository().resolve(ubID.i);
-    SOLDIERTYPE* target =
+    TacticalActor* target =
         GetJa2SoldierRepository().resolve(ubTargetID.i);
 	if ( gGameExternalOptions.fAccessOtherMercInventories &&
         soldier && target && ubID != ubTargetID &&
@@ -11491,7 +11520,7 @@ BOOLEAN IsProfileInUse(UINT8 usTeam, INT8 aType, UINT16 aNr)
 		break;
 	}
 
-	SOLDIERTYPE* pSoldier = NULL;
+	TacticalActor* pSoldier = NULL;
 	for( SoldierID i = gTacticalStatus.Team[ usTeam ].bFirstID; i <= gTacticalStatus.Team[ usTeam ].bLastID; ++i )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i.i);
@@ -11587,7 +11616,7 @@ void KillOnePrisoner( SECTORINFO *pSectorInfo )
 	}
 }
 
-INT8 CalcEffectiveShockLevel( SOLDIERTYPE * pSoldier )
+INT8 CalcEffectiveShockLevel( TacticalActor * pSoldier )
 {
 	INT8 bShockForCower = pSoldier->suppression().shock();
 	if ( gGameOptions.fNewTraitSystem )
@@ -11609,7 +11638,7 @@ INT8 CalcEffectiveShockLevel( SOLDIERTYPE * pSoldier )
 		}
 
 		// Flugente: personal fear resistance
-		bShockForCower = (INT8)(bShockForCower * (100 - pSoldier->GetFearResistanceBonus()) / 100.0f + 0.5f);
+		bShockForCower = (INT8)(bShockForCower * (100 - TacticalActorModifiers::fearResistanceBonus(*pSoldier)) / 100.0f + 0.5f);
 	}
 
 	return bShockForCower;
@@ -11618,7 +11647,7 @@ INT8 CalcEffectiveShockLevel( SOLDIERTYPE * pSoldier )
 // Flugente: count number of enemy officers
 UINT16 HighestEnemyOfficersInSector( UINT8& aType )
 {
-    SOLDIERTYPE *pSoldier;
+    TacticalActor *pSoldier;
 	UINT16		num = 0;
     UINT8       type = OFFICER_NONE;
 
@@ -11644,7 +11673,7 @@ UINT16 HighestEnemyOfficersInSector( UINT8& aType )
 // count all soldiers in the current sector that have a specific flag set
 UINT16 NumSoldiersWithFlagInSector( UINT8 aTeam, UINT32 aFlag )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT16		num = 0;
 
 	for ( SoldierID cnt = gTacticalStatus.Team[aTeam].bFirstID; cnt <= gTacticalStatus.Team[aTeam].bLastID; ++cnt )
@@ -11664,7 +11693,7 @@ UINT16 NumSoldiersWithFlagInSector( UINT8 aTeam, UINT32 aFlag )
 
 UINT16 NumSoldiersofClassWithFlag2InSector( UINT8 aTeam, UINT8 aSoldierClass, UINT32 aFlag )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT16		num = 0;
 
 	for ( SoldierID cnt = gTacticalStatus.Team[aTeam].bFirstID; cnt <= gTacticalStatus.Team[aTeam].bLastID; ++cnt )
@@ -11828,7 +11857,7 @@ BOOLEAN GetRandomUnknownVIPSector( UINT16& aSector )
 
 extern FACETYPE	*gpCurrentTalkingFace;
 
-void UpdateFastForwardMode(SOLDIERTYPE* pSoldier, INT8 bAction)
+void UpdateFastForwardMode(TacticalActor* pSoldier, INT8 bAction)
 {
 	BOOLEAN fAction = FALSE;
 
@@ -11927,7 +11956,7 @@ void VIPFleesToMeduna()
 	}
 }
 
-BOOLEAN CoweringShockLevel( SOLDIERTYPE * pSoldier )
+BOOLEAN CoweringShockLevel( TacticalActor * pSoldier )
 {
 	INT8 bTolerance = CalcSuppressionTolerance( pSoldier );
 	INT8 bShock = CalcEffectiveShockLevel( pSoldier );
@@ -11944,7 +11973,7 @@ BOOLEAN CoweringShockLevel( SOLDIERTYPE * pSoldier )
 // Flugente: is any member of a specific civilian faction still alive in the current sector?
 BOOLEAN IsCivFactionMemberAliveInSector( UINT8 usCivilianGroup )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	// IF IT'S THE SELECTED GUY, MAKE ANOTHER SELECTED!
 	SoldierID cnt = gTacticalStatus.Team[CIV_TEAM].bFirstID;

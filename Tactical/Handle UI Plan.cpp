@@ -27,7 +27,7 @@ void ResetUiPlanActors() noexcept
 }
 }
 
-void SelectPausedFireAnimation( SOLDIERTYPE *pSoldier );
+void SelectPausedFireAnimation( TacticalActor *pSoldier );
 
 
 BOOLEAN BeginUIPlan( TacticalEntityId actor )
@@ -56,8 +56,8 @@ BOOLEAN BeginUIPlan( TacticalEntityId actor )
 
 BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 {
-	SOLDIERTYPE				*pPlanSoldier = NULL;
-	SOLDIERTYPE				*pUiPlannedSoldier =
+	TacticalActor				*pPlanSoldier = NULL;
+	TacticalActor				*pUiPlannedSoldier =
 		gUiPlannedSoldier.resolve();
 	INT16					sXPos, sYPos;
 	INT16					sAPCost = 0;
@@ -286,8 +286,8 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 void EndUIPlan(	)
 {
 	int				cnt;
-	SOLDIERTYPE *pSoldier;
-	SOLDIERTYPE *pStartSoldier =
+	TacticalActor *pSoldier;
+	TacticalActor *pStartSoldier =
 		gUiStartPlannedSoldier.resolve();
 
 	// Zero out any planned soldiers
@@ -327,7 +327,7 @@ BOOLEAN InUIPlanMode( )
 }
 
 
-void SelectPausedFireAnimation( SOLDIERTYPE *pSoldier )
+void SelectPausedFireAnimation( TacticalActor *pSoldier )
 {
 	// Determine which animation to do...depending on stance and gun in hand...
 

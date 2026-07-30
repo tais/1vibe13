@@ -160,11 +160,11 @@ void RemoveAllPhysicsObjects( );
 extern void HandleArmedObjectImpact( REAL_OBJECT *pObject );
 
 
-FLOAT CalculateLaunchItemAngle( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubHeight, real dForce, OBJECTTYPE *pItem, INT32 *psGridNo );
+FLOAT CalculateLaunchItemAngle( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubHeight, real dForce, OBJECTTYPE *pItem, INT32 *psGridNo );
 
-BOOLEAN CalculateLaunchItemChanceToGetThrough( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, INT32 sGridNo, UINT8 ubLevel, INT16 sEndZ, INT32 *psFinalGridNo, BOOLEAN fArmed, INT8 *pbLevel, BOOLEAN fFromUI );
+BOOLEAN CalculateLaunchItemChanceToGetThrough( TacticalActor *pSoldier, OBJECTTYPE *pItem, INT32 sGridNo, UINT8 ubLevel, INT16 sEndZ, INT32 *psFinalGridNo, BOOLEAN fArmed, INT8 *pbLevel, BOOLEAN fFromUI );
 
-void CalculateLaunchItemParamsForThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubLevel, INT16 sZPos, OBJECTTYPE *pItem, UINT32 uiHitChance, UINT8 ubActionCode, UINT32 uiActionData, UINT16 usItemNum = 0 );
+void CalculateLaunchItemParamsForThrow( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubLevel, INT16 sZPos, OBJECTTYPE *pItem, UINT32 uiHitChance, UINT8 ubActionCode, UINT32 uiActionData, UINT16 usItemNum = 0 );
 
 
 

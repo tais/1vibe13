@@ -6,7 +6,7 @@
 
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 
-class SOLDIERTYPE;
+class TacticalActor;
 
 inline constexpr std::size_t kJa2VehicleSlotCount = 10;
 inline constexpr std::size_t kJa2VehiclePassengerCapacity = 10;
@@ -20,7 +20,7 @@ bool ResetJa2VehicleOccupants(std::size_t vehicle) noexcept;
 std::size_t Ja2VehiclePassengerCount(std::size_t vehicle) noexcept;
 TacticalEntityId GetJa2VehiclePassengerActor(
 	std::size_t vehicle, std::size_t seat) noexcept;
-SOLDIERTYPE* ResolveJa2VehiclePassengerActor(
+TacticalActor* ResolveJa2VehiclePassengerActor(
 	std::size_t vehicle, std::size_t seat) noexcept;
 std::int32_t FindJa2VehiclePassengerSeat(
 	std::size_t vehicle, TacticalEntityId actor) noexcept;
@@ -45,7 +45,7 @@ bool SwapJa2VehiclePassengerActors(
 
 TacticalEntityId GetJa2VehicleDriverActor(
 	std::size_t vehicle) noexcept;
-SOLDIERTYPE* ResolveJa2VehicleDriverActor(
+TacticalActor* ResolveJa2VehicleDriverActor(
 	std::size_t vehicle) noexcept;
 bool SetJa2VehicleDriverActor(
 	std::size_t vehicle, TacticalEntityId actor) noexcept;

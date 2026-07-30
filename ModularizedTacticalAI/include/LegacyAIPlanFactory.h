@@ -27,8 +27,8 @@ namespace AI
             public:
                 /// The name is required for registration in the PlanFactoryLibrary
                 static std::string get_name() {return "LegacyAIPlanFactory";}
-                virtual Plan* create_plan(SOLDIERTYPE* npc, const AIInputData& input);
-                virtual void update_plan(SOLDIERTYPE* npc, const AIInputData& input);
+                virtual Plan* create_plan(TacticalActor* npc, const AIInputData& input);
+                virtual void update_plan(TacticalActor* npc, const AIInputData& input);
         };
     }
 }

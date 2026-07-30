@@ -91,7 +91,7 @@ BOOLEAN GetPlayerIDFromInterfaceTeamSlot( UINT8 ubPanelSlot, SoldierID * pubID )
 void RemoveAllPlayersFromSlot( );
 BOOLEAN PlayerExistsInSlot( SoldierID ubID );
 BOOLEAN RemovePlayerFromTeamSlotGivenMercID( SoldierID ubMercID );
-void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier );
+void CheckForAndAddMercToTeamPanel( TacticalActor *pSoldier );
 void CleanUpStack( OBJECTTYPE * pObj, OBJECTTYPE * pCursorObj );
 
 void DisableTacticalTeamPanelButtons( BOOLEAN fDisable );
@@ -138,23 +138,23 @@ void ReEvaluateDisabledINVPanelButtons( );
 void CheckForReEvaluateDisabledINVPanelButtons( );
 
 void CheckForDisabledForGiveItem( );
-void ReevaluateItemHatches( SOLDIERTYPE *pSoldier, BOOLEAN fEnable );
+void ReevaluateItemHatches( TacticalActor *pSoldier, BOOLEAN fEnable );
 //CHRISL: New function to deal with rendering backpack buttons
 void RenderBackpackButtons(int bpAction);
 
-void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier );
+void HandlePanelFaceAnimations( TacticalActor *pSoldier );
 
 void GoToMapScreenFromTactical( void );
 
 // Moved to weapons.h by ADB, rev 1513
-//void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem );
+//void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem );
 
 void FinishAnySkullPanelAnimations( );
 
-SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs );
+SoldierID FindNextMercInTeamPanel( TacticalActor *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs );
 
 // CHRISL: New callback functions for backpack buttons
-BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus);
+BOOLEAN ChangeDropPackStatus(TacticalActor *pSoldier, BOOLEAN newStatus);
 
 // HEADROCK HAM 4: This variable tells the program what "page" of the description box we are currently looking at.
 // By saving this in memory, we tell the DescBox which background and values to draw, and make sure that we end up

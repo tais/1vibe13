@@ -2,7 +2,7 @@
 
 namespace LogicalBodyTypes {
 
-INT32 CompareAttachment(SOLDIERTYPE* pSoldier, INVENTORY_SLOT slot,  UINT8 index)
+INT32 CompareAttachment(TacticalActor* pSoldier, INVENTORY_SLOT slot,  UINT8 index)
 {
 	INT32 cmp_val = 0;
 
@@ -124,7 +124,7 @@ void Filter::Dump(std::wstringstream& stream) {
 }
 
 // quite an ugly implementation. Should be re-done
-bool Filter::Match(SOLDIERTYPE* pSoldier) {
+bool Filter::Match(TacticalActor* pSoldier) {
 	bool orReq = false;
 	bool orRes = false;
 	UINT32 operation = _REQ_AND;

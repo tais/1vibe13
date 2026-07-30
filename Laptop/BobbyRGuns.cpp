@@ -3721,7 +3721,7 @@ UINT8 CheckPlayersInventoryForGunMatchingGivenAmmoID( INT16 sItemID )
 	//loop through all the mercs on the team
 	for( id = ubFirstID; id <= ubLastID; ++id )
 	{
-		SOLDIERTYPE *pSoldier =
+		TacticalActor *pSoldier =
 			GetJa2SoldierRepository().resolve(id.i);
 		if( pSoldier && pSoldier->roster().active() )
 		{

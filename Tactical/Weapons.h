@@ -36,7 +36,7 @@ enum ScopeMode
 #define USE_ALT_WEAPON_HOLD -1 // SANDRO - using this for hip/onehandpistol fire
 
 //ADB moved from Interface Panels.h
-void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem );
+void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem );
 
 
 // HEADROCK: Removed this and externalized to JA2_OPTIONS.INI as part of HAM project.
@@ -450,54 +450,54 @@ extern bool gbForceWeaponNotReady;
 extern bool gbForceWeaponReady;
 
 extern INT32 EffectiveArmour( OBJECTTYPE * pObj );
-extern INT8 ArmourVersusExplosivesPercent( SOLDIERTYPE * pSoldier );
+extern INT8 ArmourVersusExplosivesPercent( TacticalActor * pSoldier );
 // Flugente: fire resistance
-INT16 ArmourVersusFirePercent( SOLDIERTYPE * pSoldier );
-extern BOOLEAN FireWeapon( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo );
+INT16 ArmourVersusFirePercent( TacticalActor * pSoldier );
+extern BOOLEAN FireWeapon( TacticalActor *pSoldier , INT32 sTargetGridNo );
 extern void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT16 sBreathLoss, UINT16 usDirection, INT16 sXPos, INT16 sYPos, INT16 sZPos, INT16 sRange, SoldierID ubAttackerID, BOOLEAN fHit, UINT8 ubSpecial, UINT8 ubHitLocation );
 extern void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, SoldierID ubAttackerID, UINT16 sXPos, INT16 sYPos, INT16 sZPos, UINT16 usStructureID, INT32 iImpact, BOOLEAN fStopped );
 extern void WindowHit( INT32 sGridNo, UINT16 usStructureID, BOOLEAN fBlowWindowSouth, BOOLEAN fLargeForce );
 // HEADROCK HAM 5.1: Moved to Bullets.h
-extern BOOLEAN InRange( SOLDIERTYPE *pSoldier, INT32 sGridNo );
+extern BOOLEAN InRange( TacticalActor *pSoldier, INT32 sGridNo );
 extern void ShotMiss( SoldierID ubAttackerID, INT32 iBullet );
-extern UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos );
-extern UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos );
-extern UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos, INT8 bTargetLevel, UINT16 usAnimState);//dnl ch59 180813
-extern UINT32 CalcChanceToPunch(SOLDIERTYPE *pAttacker, SOLDIERTYPE * pDefender, INT16 ubAimTime);
-extern UINT32 CalcChanceToStab(SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAimTime);
-UINT32 CalcChanceToSteal(SOLDIERTYPE *pAttacker, SOLDIERTYPE * pDefender, INT16 ubAimTime);
-extern void ReloadWeapon( SOLDIERTYPE *pSoldier, UINT8 ubHandPos );
+extern UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos );
+extern UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos );
+extern UINT32 AICalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos, INT8 bTargetLevel, UINT16 usAnimState);//dnl ch59 180813
+extern UINT32 CalcChanceToPunch(TacticalActor *pAttacker, TacticalActor * pDefender, INT16 ubAimTime);
+extern UINT32 CalcChanceToStab(TacticalActor * pAttacker,TacticalActor *pDefender, INT16 ubAimTime);
+UINT32 CalcChanceToSteal(TacticalActor *pAttacker, TacticalActor * pDefender, INT16 ubAimTime);
+extern void ReloadWeapon( TacticalActor *pSoldier, UINT8 ubHandPos );
 // Changed by ADB, rev 1513
-//extern BOOLEAN IsGunWeaponModeCapable( SOLDIERTYPE *pSoldier, UINT8 ubHandPos , UINT8 bWpnMode );
-//extern BOOLEAN IsGunBurstCapable( SOLDIERTYPE *pSoldier, UINT8 ubHandPos , BOOLEAN fNotify );
-//extern BOOLEAN IsGunAutofireCapable( SOLDIERTYPE *pSoldier, UINT8 ubHandPos );
-extern BOOLEAN IsGunWeaponModeCapable( OBJECTTYPE* pObject, WeaponMode weaponMode, SOLDIERTYPE *pSoldier = NULL );
-extern BOOLEAN IsGunBurstCapable( OBJECTTYPE* pObject, BOOLEAN fNotify, SOLDIERTYPE *pSoldier = NULL );
+//extern BOOLEAN IsGunWeaponModeCapable( TacticalActor *pSoldier, UINT8 ubHandPos , UINT8 bWpnMode );
+//extern BOOLEAN IsGunBurstCapable( TacticalActor *pSoldier, UINT8 ubHandPos , BOOLEAN fNotify );
+//extern BOOLEAN IsGunAutofireCapable( TacticalActor *pSoldier, UINT8 ubHandPos );
+extern BOOLEAN IsGunWeaponModeCapable( OBJECTTYPE* pObject, WeaponMode weaponMode, TacticalActor *pSoldier = NULL );
+extern BOOLEAN IsGunBurstCapable( OBJECTTYPE* pObject, BOOLEAN fNotify, TacticalActor *pSoldier = NULL );
 extern BOOLEAN IsGunAutofireCapable( OBJECTTYPE* pObject );
 extern INT32 CalcBodyImpactReduction( UINT8 ubAmmoType, UINT8 ubHitLocation );
-INT32 TotalArmourProtection( SOLDIERTYPE * pTarget, UINT8 ubHitLocation, INT32 iImpact, UINT8 ubAmmoType, BOOLEAN fConsiderFlak );
-extern INT32 ArmourPercent( SOLDIERTYPE * pSoldier );
+INT32 TotalArmourProtection( TacticalActor * pTarget, UINT8 ubHitLocation, INT32 iImpact, UINT8 ubAmmoType, BOOLEAN fConsiderFlak );
+extern INT32 ArmourPercent( TacticalActor * pSoldier );
 
-extern void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT *pdXPos, FLOAT *pdYPos, FLOAT *pdZPos );
+extern void GetTargetWorldPositions( TacticalActor *pSoldier, INT32 sTargetGridNo, FLOAT *pdXPos, FLOAT *pdYPos, FLOAT *pdZPos );
 
-extern BOOLEAN	OKFireWeapon( SOLDIERTYPE *pSoldier );
-extern BOOLEAN CheckForGunJam( SOLDIERTYPE * pSoldier );
+extern BOOLEAN	OKFireWeapon( TacticalActor *pSoldier );
+extern BOOLEAN CheckForGunJam( TacticalActor * pSoldier );
 extern FLOAT   GetGunOverheatDamagePercentage( FLOAT usTemperature, UINT16 usIndx );	// Flugente: Get percentage: temperature/damagethreshold
 extern FLOAT   GetGunOverheatJamPercentage( FLOAT usTemperature, UINT16 usIndx );		// Flugente: Get percentage: temperature/jamthreshold
 
-extern INT32 CalcMaxTossRange( SOLDIERTYPE * pSoldier, UINT16 usItem, BOOLEAN fArmed, OBJECTTYPE* pObject =NULL );
-extern UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos );
+extern INT32 CalcMaxTossRange( TacticalActor * pSoldier, UINT16 usItem, BOOLEAN fArmed, OBJECTTYPE* pObject =NULL );
+extern UINT32 CalcThrownChanceToHit(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos );
 
-extern void ChangeWeaponMode( SOLDIERTYPE * pSoldier );
-extern void ChangeScopeMode( SOLDIERTYPE * pSoldier, INT32 iTrgGridNo );		// Flugente: use different scope
+extern void ChangeWeaponMode( TacticalActor * pSoldier );
+extern void ChangeScopeMode( TacticalActor * pSoldier, INT32 iTrgGridNo );		// Flugente: use different scope
 
-extern BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo, BOOLEAN fStealing );
+extern BOOLEAN UseHandToHand( TacticalActor *pSoldier , INT32 sTargetGridNo, BOOLEAN fStealing );
 
-void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier );
+void DishoutQueenSwipeDamage( TacticalActor *pQueenSoldier );
 
-INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BOOLEAN fBladeAttack );
+INT32 HTHImpact( TacticalActor * pSoldier, TacticalActor * pTarget, INT32 iHitBy, BOOLEAN fBladeAttack );
 
-UINT16 GunRange( OBJECTTYPE * pObj, SOLDIERTYPE * pSoldier ); // SANDRO - added argument
+UINT16 GunRange( OBJECTTYPE * pObj, TacticalActor * pSoldier ); // SANDRO - added argument
 BOOLEAN IsWeapon ( UINT16 itemIndex );
 UINT8 GetDamage ( OBJECTTYPE *pObj );
 // HEADROCK HAM 4: Same function as above, but without modifiers from attached items.
@@ -511,21 +511,21 @@ UINT8 GetShotsPerBurst( OBJECTTYPE *pObj );
 UINT16 GetMagSize( OBJECTTYPE *pObj, UINT8 subObject = 0 );
 UINT16 GetExpMagSize( OBJECTTYPE *pObj );
 UINT8 GetAmmoType( OBJECTTYPE *pObj );
-bool WeaponReady(SOLDIERTYPE * pSoldier);
+bool WeaponReady(TacticalActor * pSoldier);
 INT16 GetAPsToReload( OBJECTTYPE *pObj );
 
 // HEADROCK HAM 3.4: Estimate bullets left in gun. Returns an "errorcode" telling the calling function if the check
 // was successful and to what degree.
-void EstimateBulletsLeft( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj );
+void EstimateBulletsLeft( TacticalActor *pSoldier, OBJECTTYPE *pObj );
 extern CHAR16 gBulletCount[10];
 
 // HEADROCK HAM 4: This function generates a mag-factor bar percentage.
-void CalcMagFactorSimple( SOLDIERTYPE *pSoldier, FLOAT d2DDistance, INT16 bAimTime, INT32 iGridNo );
+void CalcMagFactorSimple( TacticalActor *pSoldier, FLOAT d2DDistance, INT16 bAimTime, INT32 iGridNo );
 // HEADROCK HAM 4: This gets the Z of a target regardless of what's there.
-FLOAT GetTargetZPos( SOLDIERTYPE *pShooter, INT32 sTargetGridNo );
+FLOAT GetTargetZPos( TacticalActor *pShooter, INT32 sTargetGridNo );
 
 // Flugente: Overheating Weapons
-void GunIncreaseHeat( OBJECTTYPE *pObj, SOLDIERTYPE* pSoldier );	// adding pSoldier allows soldier-specific modification of generated heat
+void GunIncreaseHeat( OBJECTTYPE *pObj, TacticalActor* pSoldier );	// adding pSoldier allows soldier-specific modification of generated heat
 FLOAT GetTemperatureModifier( OBJECTTYPE *pObj );
 FLOAT GetSingleShotTemperature( OBJECTTYPE *pObj );
 FLOAT GetGunOverheatDamagePercentage( OBJECTTYPE * pObj );	// Flugente: Get percentage: temperature/damagethreshold

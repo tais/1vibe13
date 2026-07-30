@@ -3,6 +3,7 @@
  * @author feynman (bears-pit.com)
  */
 #include "../include/LegacyAIPlanFactory.h"
+#include "TacticalActorConditions.h"
 #include "../include/LegacyAIPlan.h"
 #include "../include/LegacyCreaturePlan.h"
 #include "../include/LegacyZombiePlan.h"
@@ -11,7 +12,7 @@
 #include "../include/PlanList.h"
 
 #include "../../TacticalAI/AIInternals.h"      // DEBUGAIMSG
-#include "../../Tactical/Soldier Control.h" // For SOLDIERTYPE definition
+#include "../../Tactical/Soldier Control.h" // For TacticalActor definition
 #include "../../Tactical/Animation Data.h"  // For the definition of, wait for it... BLOODCAT!
 #include "Soldier macros.h"
 
@@ -22,7 +23,7 @@ namespace AI
 {
     namespace tactical
     {
-        Plan* LegacyAIPlanFactory::create_plan(SOLDIERTYPE* npc, const AIInputData& input)
+        Plan* LegacyAIPlanFactory::create_plan(TacticalActor* npc, const AIInputData& input)
         {
             DEBUGAIMSG("Planning for "<<(int)npc->identity().id());
             if((npc->status().flags() & SOLDIER_MONSTER) || npc->identity().bodyType() == BLOODCAT )
@@ -40,14 +41,14 @@ namespace AI
 			if ( ARMED_VEHICLE( npc ) )
 				return new LegacyArmedVehiclePlan( npc );
 
-            if(npc->IsZombie())
+            if(TacticalActorConditions::isZombie(*npc))
                 return new LegacyZombiePlan(npc);
 
             return new LegacyAIPlan(npc);               // no special plan for other cases yet, return default legacy AI wrapper
         }
 
 
-        void LegacyAIPlanFactory::update_plan(SOLDIERTYPE* npc, const AIInputData& input)
+        void LegacyAIPlanFactory::update_plan(TacticalActor* npc, const AIInputData& input)
         {
             DEBUGAIMSG("Update called for "<<(int)npc->identity().id()<<" event: "<<input);
             if(!npc->aiPlan().hasPlan())

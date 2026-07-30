@@ -1,4 +1,5 @@
 	#include <stdlib.h>
+	#include "TacticalActorConditions.h"
 	#include "Isometric Utils.h"
 	#include "ai.h"
 	#include "AIInternals.h"
@@ -120,7 +121,7 @@ void AICenterXY( INT32 sGridNo, FLOAT * pdX, FLOAT * pdY )
 	*pdY = (FLOAT) (sYPos * CELL_Y_SIZE + CELL_Y_SIZE / 2);
 }
 
-INT8 CalcWorstCTGTForPosition( SOLDIERTYPE * pSoldier, SoldierID ubOppID, INT32 sOppGridNo, INT8 bLevel, INT32 iMyAPsLeft )
+INT8 CalcWorstCTGTForPosition( TacticalActor * pSoldier, SoldierID ubOppID, INT32 sOppGridNo, INT8 bLevel, INT32 iMyAPsLeft )
 {
 	// When considering a gridno for cover, we want to take into account cover if we
 	// lie down, so we return the LOWEST chance to get through for that location.
@@ -159,7 +160,7 @@ INT8 CalcWorstCTGTForPosition( SOLDIERTYPE * pSoldier, SoldierID ubOppID, INT32 
 	return( bWorstCTGT );
 }
 
-INT8 CalcAverageCTGTForPosition( SOLDIERTYPE * pSoldier, SoldierID ubOppID, INT32 sOppGridNo, INT8 bLevel, INT32 iMyAPsLeft )
+INT8 CalcAverageCTGTForPosition( TacticalActor * pSoldier, SoldierID ubOppID, INT32 sOppGridNo, INT8 bLevel, INT32 iMyAPsLeft )
 {
 	// When considering a gridno for cover, we want to take into account cover if we
 	// lie down, so we return the LOWEST chance to get through for that location.
@@ -193,7 +194,7 @@ INT8 CalcAverageCTGTForPosition( SOLDIERTYPE * pSoldier, SoldierID ubOppID, INT3
 }
 
 
-INT8 CalcBestCTGT( SOLDIERTYPE *pSoldier, SoldierID ubOppID, INT32 sOppGridNo, INT8 bLevel, INT32 iMyAPsLeft )
+INT8 CalcBestCTGT( TacticalActor *pSoldier, SoldierID ubOppID, INT32 sOppGridNo, INT8 bLevel, INT32 iMyAPsLeft )
 {
 	// NOTE: CTGT stands for "ChanceToGetThrough..."
 
@@ -275,7 +276,7 @@ INT8 CalcBestCTGT( SOLDIERTYPE *pSoldier, SoldierID ubOppID, INT32 sOppGridNo, I
 }
 
 
-INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyAPsLeft,
+INT32 CalcCoverValue(TacticalActor *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyAPsLeft,
 					UINT32 uiThreatIndex, INT32 iRange, INT32 morale, INT32 *iTotalScale, INT32 iRangeChangeDesire)
 {
 	DebugMsg(TOPIC_JA2AI,DBG_LEVEL_3,String("CalcCoverValue"));
@@ -288,7 +289,7 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 	FLOAT dMyX, dMyY, dHisX, dHisY;
 	INT8	bHisBestCTGT, bHisActualCTGT, bHisCTGT, bMyCTGT;
 	INT32	iRangeChange, iRangeFactor, iRCD;
-	SOLDIERTYPE *pHim;
+	TacticalActor *pHim;
 
 	// sevenfm
 	INT8	bHisLevel;
@@ -437,7 +438,7 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 	if (gGameExternalOptions.fAIBetterCover)
 	{
 		// sevenfm: special calculations for zombies: zombie is very dangerous at close range
-		if (pHim->IsZombie() || !AICheckHasGun(pHim))
+		if (TacticalActorConditions::isZombie(*pHim) || !AICheckHasGun(pHim))
 		{
 			if (sDist < (INT32)(TACTICAL_RANGE / 2))
 			{
@@ -452,7 +453,7 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 		}
 
 		// sevenfm: if soldier has no gun, use different calculation
-		if (pMe->IsZombie() || !AICheckHasGun(pMe))
+		if (TacticalActorConditions::isZombie(*pMe) || !AICheckHasGun(pMe))
 		{
 			if (sDist < (INT32)(TACTICAL_RANGE / 2))
 			{
@@ -478,12 +479,12 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 		{
 			ubCoverBonus = ubCoverBonus * 2 * sDist / TACTICAL_RANGE;
 		}
-		if (!pHim->IsZombie() && AICheckHasGun(pHim) && AnyCoverFromSpot(sMyGridNo, bMyLevel, sHisGridNo, bHisLevel))
+		if (!TacticalActorConditions::isZombie(*pHim) && AICheckHasGun(pHim) && AnyCoverFromSpot(sMyGridNo, bMyLevel, sHisGridNo, bHisLevel))
 		{
 			iHisPosValue -= iHisPosValue * ubCoverBonus / 100;
 			iMyPosValue += iMyPosValue * ubCoverBonus / 100;
 		}
-		if (!pMe->IsZombie() && AICheckHasGun(pMe) && AnyCoverFromSpot(sHisGridNo, bHisLevel, sMyGridNo, bMyLevel))
+		if (!TacticalActorConditions::isZombie(*pMe) && AICheckHasGun(pMe) && AnyCoverFromSpot(sHisGridNo, bHisLevel, sMyGridNo, bMyLevel))
 		{
 			iHisPosValue += iHisPosValue * ubCoverBonus / 100;
 			iMyPosValue -= iMyPosValue * ubCoverBonus / 100;
@@ -592,7 +593,7 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 }
 
 
-UINT8 NumberOfTeamMatesAdjacent( SOLDIERTYPE * pSoldier, INT32 sGridNo )
+UINT8 NumberOfTeamMatesAdjacent( TacticalActor * pSoldier, INT32 sGridNo )
 {
 	UINT8	ubLoop, ubCount;
 	SoldierID ubWhoIsThere;
@@ -606,7 +607,7 @@ UINT8 NumberOfTeamMatesAdjacent( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		if ( sTempGridNo != sGridNo )
 		{
 			ubWhoIsThere = WhoIsThere2( sTempGridNo, pSoldier->position().level() );
-			SOLDIERTYPE* adjacentSoldier =
+			TacticalActor* adjacentSoldier =
 				GetJa2SoldierRepository().resolve(ubWhoIsThere.i);
 			if ( ubWhoIsThere != NOBODY &&
 				ubWhoIsThere != pSoldier->identity().id() &&
@@ -621,7 +622,7 @@ UINT8 NumberOfTeamMatesAdjacent( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 	return( ubCount );
 }
 
-INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentBetter)
+INT32 FindBestNearbyCover(TacticalActor *pSoldier, INT32 morale, INT32 *piPercentBetter)
 {
 	DebugMsg(TOPIC_JA2AI,DBG_LEVEL_3,String("FindBestNearbyCover"));
 
@@ -645,7 +646,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	INT32	*		pusLastLoc;
 	INT8 *		pbPersOL;
 	INT8 *		pbPublOL;
-	//SOLDIERTYPE *pOpponent;
+	//TacticalActor *pOpponent;
 	UINT16 usMovementMode;
 
 	UINT8	ubBackgroundLightLevel;
@@ -1013,7 +1014,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 			}
 
 			// zombies only want to hide
-			if (pSoldier->IsZombie() && !SightCoverAtSpot(pSoldier, sGridNo, TRUE))
+			if (TacticalActorConditions::isZombie(*pSoldier) && !SightCoverAtSpot(pSoldier, sGridNo, TRUE))
 			{
 				//DebugCover(pSoldier, String("zombie: no sight cover at new spot, skip"));
 				continue;
@@ -1233,7 +1234,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	return(NOWHERE);		// return that no suitable cover was found
 }
 
-INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
+INT32 FindSpotMaxDistFromOpponents(TacticalActor *pSoldier)
 {
 	INT32	sGridNo;
 	INT32	sBestSpot = NOWHERE;
@@ -1244,7 +1245,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 	INT32	iSearchRange;
 	INT16	sMaxLeft, sMaxRight, sMaxUp, sMaxDown, sXOffset, sYOffset;
 	INT8	*pbPersOL, *pbPublOL, bEscapeDirection, bBestEscapeDirection = -1;
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 	INT32	sOrigin;
 	INT32	iRoamRange;
 
@@ -1539,7 +1540,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 	return( sBestSpot );
 }
 
-INT32 FindNearestUngassedLand(SOLDIERTYPE *pSoldier)
+INT32 FindNearestUngassedLand(TacticalActor *pSoldier)
 {
 	INT32 sGridNo, sClosestLand = NOWHERE, sPathCost, sShortestPath = 1000;
 	INT16 sMaxLeft, sMaxRight, sMaxUp, sMaxDown, sXOffset, sYOffset;
@@ -1677,7 +1678,7 @@ INT32 FindNearestUngassedLand(SOLDIERTYPE *pSoldier)
 	return(sClosestLand);
 }
 
-INT32 FindNearbyDarkerSpot(SOLDIERTYPE *pSoldier)
+INT32 FindNearbyDarkerSpot(TacticalActor *pSoldier)
 {
 	INT32 sGridNo, sClosestSpot = NOWHERE, sPathCost;
 	INT32	iSpotValue, iBestSpotValue = 1000;
@@ -1847,7 +1848,7 @@ INT32 FindNearbyDarkerSpot(SOLDIERTYPE *pSoldier)
 
 #define MINIMUM_REQUIRED_STATUS 70
 
-INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
+INT8 SearchForItems( TacticalActor * pSoldier, INT8 bReason, UINT16 usItem )
 {
 	DebugMsg(TOPIC_JA2AI,DBG_LEVEL_3,String("SearchForItems"));
 	DebugAI(AI_MSG_INFO, pSoldier, String("SearchForItems [%d] bReason %d usItem %d", pSoldier->identity().id(), bReason, usItem));
@@ -2259,7 +2260,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 	return( AI_ACTION_NONE );
 }
 
-INT32 FindClosestDoor( SOLDIERTYPE * pSoldier )
+INT32 FindClosestDoor( TacticalActor * pSoldier )
 {
 	INT32		sClosestDoor = NOWHERE;
 	INT32		iSearchRange;
@@ -2423,7 +2424,7 @@ INT32 FindNearestEdgePoint( INT32 sGridNo )
 
 #define EDGE_OF_MAP_SEARCH 5
 
-INT32 FindNearbyPointOnEdgeOfMap( SOLDIERTYPE * pSoldier, INT8 * pbDirection )
+INT32 FindNearbyPointOnEdgeOfMap( TacticalActor * pSoldier, INT8 * pbDirection )
 {
 	INT32		iSearchRange;
 	INT16		sMaxLeft, sMaxRight, sMaxUp, sMaxDown, sXOffset, sYOffset;
@@ -2519,7 +2520,7 @@ INT32 FindNearbyPointOnEdgeOfMap( SOLDIERTYPE * pSoldier, INT8 * pbDirection )
 	return( sClosestSpot );
 }
 
-INT32 FindRouteBackOntoMap( SOLDIERTYPE * pSoldier, INT32 sDestGridNo )
+INT32 FindRouteBackOntoMap( TacticalActor * pSoldier, INT32 sDestGridNo )
 {
 	// the first thing to do is restore the soldier's gridno from the X and Y
 	// values
@@ -2537,7 +2538,7 @@ INT32 FindRouteBackOntoMap( SOLDIERTYPE * pSoldier, INT32 sDestGridNo )
 
 }
 
-INT32 FindClosestBoxingRingSpot( SOLDIERTYPE * pSoldier, BOOLEAN fInRing )
+INT32 FindClosestBoxingRingSpot( TacticalActor * pSoldier, BOOLEAN fInRing )
 {
 	INT32		iSearchRange;
 	INT16		sMaxLeft, sMaxRight, sMaxUp, sMaxDown, sXOffset, sYOffset;
@@ -2545,7 +2546,7 @@ INT32 FindClosestBoxingRingSpot( SOLDIERTYPE * pSoldier, BOOLEAN fInRing )
 	INT32 sGridNo, sClosestSpot = NOWHERE;
 	INT32 iDistance, iClosestDistance = 9999;
 	UINT16 usRoom;
-	SOLDIERTYPE *pDarren;
+	TacticalActor *pDarren;
 	pDarren = FindSoldierByProfileID(DARREN, FALSE);
 
 	// set the distance limit of the square region
@@ -2654,7 +2655,7 @@ INT32 FindNearestOpenableNonDoor( INT32 sStartGridNo )
 
 }
 
-INT32 FindFlankingSpot(SOLDIERTYPE *pSoldier, INT32 sPos, INT8 bAction )
+INT32 FindFlankingSpot(TacticalActor *pSoldier, INT32 sPos, INT8 bAction )
 {
 	INT32 sGridNo;
 	INT32 sBestSpot = NOWHERE;
@@ -2876,7 +2877,7 @@ INT32 FindFlankingSpot(SOLDIERTYPE *pSoldier, INT32 sPos, INT8 bAction )
 }
 
 //sevenfm: new calculation using FindHeigherLevel
-INT32 FindClosestClimbPoint (SOLDIERTYPE *pSoldier, BOOLEAN fClimbUp )
+INT32 FindClosestClimbPoint (TacticalActor *pSoldier, BOOLEAN fClimbUp )
 {
 	INT32 sBestSpot = NOWHERE;
 
@@ -2982,7 +2983,7 @@ INT32 FindClosestClimbPoint (SOLDIERTYPE *pSoldier, BOOLEAN fClimbUp )
 
 
 
-BOOLEAN CanClimbFromHere (SOLDIERTYPE * pSoldier, BOOLEAN fUp )
+BOOLEAN CanClimbFromHere (TacticalActor * pSoldier, BOOLEAN fUp )
 {
 	return FindDirectionForClimbing( pSoldier, pSoldier->position().gridNo(), pSoldier->position().level()) != DIRECTION_IRRELEVANT;
 }
@@ -3025,7 +3026,7 @@ extern BUILDING gBuildings[ MAX_BUILDINGS ];
 extern UINT8 gubNumberOfBuildings;
 
 
-INT32 FindBestCoverNearTheGridNo(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubSearchRadius )
+INT32 FindBestCoverNearTheGridNo(TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubSearchRadius )
 {
 	INT32 iPercentBetter;
 //	INT16 sTrueGridNo;
@@ -3049,7 +3050,7 @@ INT32 FindBestCoverNearTheGridNo(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubS
 }
 
 // sevenfm: new calculation using FindHeigherLevel/FindLowerLevel
-INT8 FindDirectionForClimbing( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel )
+INT8 FindDirectionForClimbing( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel )
 {
 	INT8 ubClimbDir;
 	INT32 sClimbSpot;
@@ -3130,7 +3131,7 @@ INT32 FindNearestPassableSpot( INT32 sGridNo, UINT8 usSearchRadius )
 	return( sNearestSpot );
 }
 
-INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UINT8 ubType, BOOLEAN fUnlimited)
+INT32 FindAdvanceSpot(TacticalActor *pSoldier, INT32 sTargetSpot, INT8 bAction, UINT8 ubType, BOOLEAN fUnlimited)
 {
 	INT32	sGridNo, sRealGridNo;
 	INT32	sBestSpot = NOWHERE;
@@ -3309,14 +3310,14 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 			}
 
 			// avoid locations near fresh corpses
-			if (!pSoldier->IsZombie() && GetNearestRottingCorpseAIWarning(sGridNo) > 0)
+			if (!TacticalActorConditions::isZombie(*pSoldier) && GetNearestRottingCorpseAIWarning(sGridNo) > 0)
 				//if (CorpseWarning(pSoldier, sGridNo, pSoldier->position().level(), TRUE))
 			{
 				continue;
 			}
 
 			// avoid overcrowding
-			if (!pSoldier->IsZombie() && NumberOfTeamMatesAdjacent(pSoldier, sGridNo) > 1)
+			if (!TacticalActorConditions::isZombie(*pSoldier) && NumberOfTeamMatesAdjacent(pSoldier, sGridNo) > 1)
 			{
 				continue;
 			}
@@ -3407,7 +3408,7 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 }
 
 // find spot with cover, max dist from opponents
-INT32 FindRetreatSpot(SOLDIERTYPE *pSoldier)
+INT32 FindRetreatSpot(TacticalActor *pSoldier)
 {
 	INT32	sGridNo;
 	INT32	sBestSpot = NOWHERE;
@@ -3544,13 +3545,13 @@ INT32 FindRetreatSpot(SOLDIERTYPE *pSoldier)
 			}
 
 			// avoid locations near fresh corpses
-			if (!pSoldier->IsZombie() && GetNearestRottingCorpseAIWarning(sGridNo) > 0)
+			if (!TacticalActorConditions::isZombie(*pSoldier) && GetNearestRottingCorpseAIWarning(sGridNo) > 0)
 				//if (CorpseWarning(pSoldier, sGridNo, pSoldier->position().level(), TRUE))
 			{
 				continue;
 			}
 
-			if (!pSoldier->IsZombie() && NumberOfTeamMatesAdjacent(pSoldier, sGridNo) > 0)
+			if (!TacticalActorConditions::isZombie(*pSoldier) && NumberOfTeamMatesAdjacent(pSoldier, sGridNo) > 0)
 			{
 				continue;
 			}

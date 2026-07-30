@@ -60,9 +60,9 @@
 	#include "english.h"
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
-extern void GetSoldierAboveGuyPositions( SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, BOOLEAN fRadio );
+extern void GetSoldierAboveGuyPositions( TacticalActor *pSoldier, INT16 *psX, INT16 *psY, BOOLEAN fRadio );
 
 //--------------------------------------------------
 //	NON_CIV_GROUP,
@@ -150,10 +150,10 @@ void DetermineScheduleEditability();
 void RenderCurrentSchedule();
 void UpdateScheduleInfo();
 
-void ShowEditMercPalettes( SOLDIERTYPE *pSoldier );
+void ShowEditMercPalettes( TacticalActor *pSoldier );
 void ShowEditMercColorSet( UINT8 ubPaletteRep, INT16 sSet );
 
-void ChangeBaseSoldierStats( SOLDIERTYPE *pSoldier );
+void ChangeBaseSoldierStats( TacticalActor *pSoldier );
 void AskDefaultDifficulty( void );
 
 //internal merc inventory functions
@@ -333,7 +333,7 @@ extern SOLDIERCREATE_STRUCT gSaveBufferDetailedPlacement;
 
 //legion2 jazz
 
-wchar_t *GetGrupaString( SOLDIERTYPE *pSoldier ) //Legion 2
+wchar_t *GetGrupaString( TacticalActor *pSoldier ) //Legion 2
 {
 	INT32 cnt, cntStart,par;
 	
@@ -400,7 +400,7 @@ enum
 void ProcessMercEditing()
 {
 	UINT8 ubType, ubPaletteRep;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	if ( iEditMercMode == EDIT_MERC_NONE )
 	{
 		return;
@@ -521,7 +521,7 @@ void ProcessMercEditing()
 
 void AddMercToWorld( INT32 iMapIndex )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 i;
 
 	memset( &gTempBasicPlacement, 0, sizeof( BASIC_SOLDIERCREATE_STRUCT ) );
@@ -773,7 +773,7 @@ void EraseMercWaypoint()
 //	This functions changes the stats of a given merc (PC or NPC, though should only be used
 //	for NPC mercs) to reflect the base difficulty level selected.
 //
-void ChangeBaseSoldierStats( SOLDIERTYPE *pSoldier )
+void ChangeBaseSoldierStats( TacticalActor *pSoldier )
 {
 	if ( pSoldier == NULL )
 		return;
@@ -815,7 +815,7 @@ void DisplayEditMercWindow( void )
 	UINT16 usFillColorBack, usFillColorDark, usFillColorLight, usFillColorTextBk;
 	INT32 x, iXOff;
 	CHAR16 TempString[30];
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT8 iEditStat[12];
 
 	usFillColorBack = 0;
@@ -912,7 +912,7 @@ INT32 IsMercHere( INT32 iMapIndex )
 {
 	INT32 IDNumber;
 	INT32 RetIDNumber;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	BOOLEAN fSoldierFound;
 
 	RetIDNumber = -1;
@@ -1222,7 +1222,7 @@ void EditMercIncDifficultyCallback(GUI_BUTTON *btn,INT32 reason)
 //
 //	Displays the palette of the given merc (used by the edit merc color page)
 //
-void ShowEditMercPalettes( SOLDIERTYPE *pSoldier )
+void ShowEditMercPalettes( TacticalActor *pSoldier )
 {
 	UINT8	ubPaletteRep;
 	if( !pSoldier )
@@ -1333,7 +1333,7 @@ void DisplayWayPoints(void)
 	INT16 sScreenX,sScreenY;
 	FLOAT ScrnX,ScrnY,dOffsetX,dOffsetY;
 	INT8	bPoint;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 sGridNo;
 
 
@@ -1396,7 +1396,7 @@ void CreateEditMercWindow( void )
 {
 	INT32 iXPos, iYPos, iHeight, iWidth;
 	INT32 x;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	iWidth = 266;
 	iHeight = 360;
@@ -3205,7 +3205,7 @@ void ChangeCivGroup( UINT8 ubNewCivGroup )
 
 void RenderMercStrings()
 {
-	SOLDIERTYPE								*pSoldier;
+	TacticalActor								*pSoldier;
 	INT16 sXPos, sYPos;
 	INT16 sX, sY;
 	STR16 pStr, pStr2;
@@ -3744,7 +3744,7 @@ void CopyMercPlacement( INT32 iMapIndex )
 
 void PasteMercPlacement( INT32 iMapIndex )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	SOLDIERCREATE_STRUCT tempDetailedPlacement;
 	INT32 i;
 

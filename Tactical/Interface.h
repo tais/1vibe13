@@ -449,7 +449,7 @@ void CancelMovementMenu( );
 
 void PopDownOpenDoorMenu( );
 void RenderOpenDoorMenu( );
-BOOLEAN InitDoorOpenMenu( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fClosingDoor );
+BOOLEAN InitDoorOpenMenu( TacticalActor *pSoldier, STRUCTURE *pStructure, UINT8 ubDirection, BOOLEAN fClosingDoor );
 BOOLEAN HandleOpenDoorMenu( );
 void CancelOpenDoorMenu( );
 
@@ -484,7 +484,7 @@ void EndDeadlockMsg( );
 
 void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag );
 
-void DirtyMercPanelInterface( SOLDIERTYPE *pSoldier, UINT8 ubDirtyLevel );
+void DirtyMercPanelInterface( TacticalActor *pSoldier, UINT8 ubDirtyLevel );
 
 
 void EndUIMessage( );
@@ -524,7 +524,7 @@ void PauseRT( BOOLEAN fPause );
 
 void InitEnemyUIBar( UINT16 ubNumEnemies, UINT16 ubDoneEnemies );
 
-STR16 GetSoldierHealthString( SOLDIERTYPE *pSoldier );
+STR16 GetSoldierHealthString( TacticalActor *pSoldier );
 
 
 void GetLaunchItemParamsFromUI( );
@@ -533,7 +533,7 @@ void ResetAimCubeAI( );
 void SetupAimCubeAI( );
 void IncrementAimCubeUI( );
 void EndAimCubeUI( );
-void BeginAimCubeUI( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 ubLevel, UINT8 bStartPower, INT8 bStartHeight );
+void BeginAimCubeUI( TacticalActor *pSoldier, INT32 sGridNo, INT8 ubLevel, UINT8 bStartPower, INT8 bStartHeight );
 BOOLEAN AimCubeUIClick( );
 
 void ResetPhysicsTrajectoryUI( );
@@ -554,30 +554,30 @@ void RenderTopmostMultiPurposeLocator( );
 // sevenfm: draw lines in health bar
 void DrawBar( INT32 x, INT32 y, INT32 width, INT32 height, UINT16 color8, PIXEL color16, UINT8 *pDestBuf );
 // draw health bar over enemy
-void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLines, INT32 iBarWidth, INT32 iBarHeight );
+void DrawEnemyHealthBar( TacticalActor* pSoldier, INT32 sX, INT32 sY, UINT8 ubLines, INT32 iBarWidth, INT32 iBarHeight );
 
 // Flugente: show enemy role
-BOOLEAN ShowSoldierRoleSymbol(SOLDIERTYPE* pSoldier);
+BOOLEAN ShowSoldierRoleSymbol(TacticalActor* pSoldier);
 
 //sevenfm: draw additional info for NCTH indicator
 void DrawItemPic( INVTYPE *pItem, INT16 sX, INT16 sY );
 void GetItemDimensions( INVTYPE *pItem, INT16 &sWidth, INT16 &sHeight );
-BOOLEAN ShowExactInfo( SOLDIERTYPE* pSoldier, SOLDIERTYPE* pTargetSoldier );
+BOOLEAN ShowExactInfo( TacticalActor* pSoldier, TacticalActor* pTargetSoldier );
 void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  );
 
-void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSoldier, BOOLEAN showExactInfo, CHAR16 *NameStr );
+void GetEnemyInfoString( TacticalActor* pSelectedSoldier, TacticalActor* pTargetSoldier, BOOLEAN showExactInfo, CHAR16 *NameStr );
 
-void ShowEnemyWeapon( INT16 sX, INT16 sY, SOLDIERTYPE* pTargetSoldier );
-void ShowEnemyHealthBar( INT16 sX, INT16 sY, SOLDIERTYPE* pSoldier );
+void ShowEnemyWeapon( INT16 sX, INT16 sY, TacticalActor* pTargetSoldier );
+void ShowEnemyHealthBar( INT16 sX, INT16 sY, TacticalActor* pSoldier );
 
-void NCTHImprovedAPColor( SOLDIERTYPE* pSoldier, OBJECTTYPE* pWeapon );
+void NCTHImprovedAPColor( TacticalActor* pSoldier, OBJECTTYPE* pWeapon );
 void NCTHDrawLaserDot( PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, FLOAT fLaserBonus, FLOAT fBrightnessModifier, FLOAT fEffectiveLaserRatio, FLOAT zOffset );
 void NCTHCorrectMaxAperture( FLOAT& iAperture, FLOAT& iDistanceAperture, PIXEL& usCApertureBar );
-void NCTHDrawScopeModeIcon( SOLDIERTYPE *pSoldier, INT16 sNewX, INT16 sNewY );
-void NCTHShowAimLevels( SOLDIERTYPE* pSoldier, INT16 curX, INT16 curY );
-void NCTHShowMounted( SOLDIERTYPE* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, INT16 zOffset );
+void NCTHDrawScopeModeIcon( TacticalActor *pSoldier, INT16 sNewX, INT16 sNewY );
+void NCTHShowAimLevels( TacticalActor* pSoldier, INT16 curX, INT16 curY );
+void NCTHShowMounted( TacticalActor* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, INT16 sLeft, INT16 sTop, INT16 sRight, INT16 sBottom, INT16 sStartScreenX, INT16 sStartScreenY, INT16 zOffset );
 
-// Flugente: check a profile for a background flag without using SOLDIERTYPE
+// Flugente: check a profile for a background flag without using TacticalActor
 BOOLEAN		HasBackgroundFlag( UINT8 usProfile, UINT64 aFlag );
 INT16		GetBackgroundValue( UINT8 usProfile, UINT16 aNr );
 

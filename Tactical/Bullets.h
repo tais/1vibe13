@@ -60,7 +60,7 @@ typedef struct
 	UINT32		uiLastUpdate;
 	UINT8		ubTilesPerUpdate;
 	UINT16		usClockTicksPerUpdate;
-	SOLDIERTYPE	*pFirer;			// Flugente: WARNING! We cannot assume this will be valid. Check wether ubFirerID is NOBODY first
+	TacticalActor	*pFirer;			// Flugente: WARNING! We cannot assume this will be valid. Check wether ubFirerID is NOBODY first
 	INT32		sOrigGridNo;	// HEADROCK HAM 5.1: Original tile does not necessarily have to be the pFirer's tile
 	INT32		sTargetGridNo;
 	INT16		sHitBy;
@@ -89,7 +89,7 @@ void	RemoveBullet( INT32 iBullet );
 void	StopBullet( INT32 iBullet );
 void	UpdateBullets( );
 BULLET *GetBulletPtr( INT32 iBullet );
-INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget, UINT8 ubHitLocation, INT32 iImpact, INT16 sHitBy, UINT8 * pubSpecial );
+INT32 BulletImpact( TacticalActor *pFirer, BULLET *pBullet, TacticalActor * pTarget, UINT8 ubHitLocation, INT32 iImpact, INT16 sHitBy, UINT8 * pubSpecial );
 
 
 void DeleteAllBullets( );

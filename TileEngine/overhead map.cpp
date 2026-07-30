@@ -24,6 +24,7 @@
 	#include "Action Items.h"	// added by Flugente
 	#include "Rebel Command.h"
 #include "SoldierRepository.h"
+#include "TacticalActorRadio.h"
 
 #include "connect.h"
 
@@ -322,7 +323,7 @@ BOOLEAN GetClosestItemPool( INT32 sSweetGridNo, ITEM_POOL **ppReturnedItemPool, 
 	return( fFound );
 }
 
-BOOLEAN GetClosestMercInOverheadMap( INT32 sSweetGridNo, SOLDIERTYPE **ppReturnedSoldier, UINT8 ubRadius )
+BOOLEAN GetClosestMercInOverheadMap( INT32 sSweetGridNo, TacticalActor **ppReturnedSoldier, UINT8 ubRadius )
 {
 	INT16	sTop, sBottom;
 	INT16	sLeft, sRight;
@@ -372,7 +373,7 @@ BOOLEAN GetClosestMercInOverheadMap( INT32 sSweetGridNo, SOLDIERTYPE **ppReturne
 }
 
 //dnl ch45 041009
-void DisplayMercNameInOverhead(SOLDIERTYPE* pSoldier)
+void DisplayMercNameInOverhead(TacticalActor* pSoldier)
 {
 	INT16 sWorldScreenX, sX;
 	INT16 sWorldScreenY, sY;
@@ -416,7 +417,7 @@ void DisplayMercNameInOverhead(SOLDIERTYPE* pSoldier)
 void HandleOverheadMap( )
 {
 	static BOOLEAN fFirst = TRUE;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	if ( fFirst )
 	{
@@ -1379,7 +1380,7 @@ void RenderOverheadOverlays()
 {
 	UINT32			uiDestPitchBYTES;
 	WORLDITEM		*pWorldItem;
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	HVOBJECT		hVObject;
 	INT16				sX, sY;
 	SoldierID			id, end;
@@ -1406,7 +1407,8 @@ void RenderOverheadOverlays()
 
 	// Flugente: is one of the player's mercs scanning for jam signals while someone is actually jamming signals?
 	BOOLEAN showjammers = FALSE;
-	if ( PlayerTeamIsScanning() && SectorJammed() )
+	if (TacticalActorRadio::playerTeamScanning() &&
+		TacticalActorRadio::sectorJammed())
 		showjammers = TRUE;
 
 	PIXEL jamcolour = Get16BPPColor( FROMRGB( 36, 219, 151 ) );
@@ -1431,7 +1433,10 @@ void RenderOverheadOverlays()
 		// Flugente: also do that if the we scanned a jamming person
 		if(!gfEditMode && (showjammers || marklastenemy ) )
 		{
-			if ( ( marklastenemy && pSoldier->roster().team() == ENEMY_TEAM ) || ( showjammers && pSoldier->IsJamming() ) )
+			if ((marklastenemy &&
+				 pSoldier->roster().team() == ENEMY_TEAM) ||
+				(showjammers &&
+				 TacticalActorRadio::isJamming(*pSoldier)))
 			{
 				UINT8 ubGridSquareX, ubGridSquareY;
 				
@@ -1448,7 +1453,8 @@ void RenderOverheadOverlays()
 				if(gGameExternalOptions.ubMarkerMode == HATCHED)
 				{
 					UINT16 colour = 0xF000;
-					if ( showjammers && pSoldier->IsJamming() )
+					if (showjammers &&
+						TacticalActorRadio::isJamming(*pSoldier))
 						colour = jamcolour;
 
 					RectangleDraw(TRUE, HostileArea.iLeft, HostileArea.iTop, HostileArea.iRight, HostileArea.iBottom, colour, pDestBuf);
@@ -1851,7 +1857,7 @@ void RenderOverheadOverlays( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 s
 	LEVELNODE		*pNode;
 	PIXEL			usLineColor;
 	INT16				sHeight;
-	SOLDIERTYPE	*pSoldier;
+	TacticalActor	*pSoldier;
 	HVOBJECT hVObject;
 	pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
 	// Begin Render Loop

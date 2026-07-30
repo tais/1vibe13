@@ -1,4 +1,5 @@
 	#include "ai.h"
+#include "TacticalActorInteractions.h"
 	#include "AIInternals.h"
 	#include "Isometric Utils.h"
 	#include "Overhead.h"
@@ -18,7 +19,7 @@
 #include "AbstractPlanFactory.h"
 
 
-UINT16 RealtimeDelay( SOLDIERTYPE * pSoldier )
+UINT16 RealtimeDelay( TacticalActor * pSoldier )
 {
 	if ( PTR_CIV_OR_MILITIA && !(pSoldier->roster().civilianGroup() == KINGPIN_CIV_GROUP ) )
 	{
@@ -49,7 +50,7 @@ UINT16 RealtimeDelay( SOLDIERTYPE * pSoldier )
 }
 
 
-void RTHandleAI( SOLDIERTYPE * pSoldier )
+void RTHandleAI( TacticalActor * pSoldier )
 {
 #ifdef AI_PROFILING
 	INT32 iLoop;
@@ -82,7 +83,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 		}
 		else
 		{
-			pSoldier->StopChatting();
+			(void)TacticalActorInteractions::stopChatting(*pSoldier);
 		}
 	}
 

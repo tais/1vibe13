@@ -2,15 +2,15 @@
 #define _STRATEGIC_MERC_HANDLER_H_
 
 //forward declarations of common classes to eliminate includes
-class SOLDIERTYPE;
+class TacticalActor;
 struct SoldierID;
 
-void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier );
+void StrategicHandlePlayerTeamMercDeath( TacticalActor *pSoldier );
 void MercDailyUpdate();
 void MercsContractIsFinished( SoldierID ubID );
 void RPCWhineAboutNoPay( SoldierID ubID );
 void MercComplainAboutEquipment( UINT8 ubProfileID );
-BOOLEAN SoldierHasWorseEquipmentThanUsedTo( SOLDIERTYPE *pSoldier );
+BOOLEAN SoldierHasWorseEquipmentThanUsedTo( TacticalActor *pSoldier );
 void UpdateBuddyAndHatedCounters( void );
 void HourlyCamouflageUpdate( void );
 

@@ -196,7 +196,7 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 			MapScreenMessage(162, 0, L"guiBaseJA2Clock overflow detected!");
 			for (UINT32 cnt = 0; cnt < TOTAL_SOLDIERS; cnt++)
 			{
-				SOLDIERTYPE* soldier =
+				TacticalActor* soldier =
 					GetJa2SoldierRepository().resolve(cnt);
 				if (soldier)
 					soldier->ResetSoldierChangeStatTimer();
@@ -224,7 +224,7 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 		{
 			for ( UINT32 cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; cnt <= (UINT32)gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++ )
 			{
-				SOLDIERTYPE* pSoldier =
+				TacticalActor* pSoldier =
 					GetJa2SoldierRepository().resolve(cnt);
 				if ( pSoldier )
 				{
@@ -241,7 +241,7 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 		{
 			for ( UINT32 cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 			{
-				SOLDIERTYPE* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
+				TacticalActor* pSoldier = ResolveJa2ActiveTacticalActorSlot(cnt);
 
 				if ( pSoldier != NULL )
 				{

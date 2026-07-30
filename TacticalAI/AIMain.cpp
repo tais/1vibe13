@@ -1,4 +1,7 @@
 #include "sgp.h"
+#include "TacticalActorConditions.h"
+#include "TacticalActorExplosives.h"
+#include "TacticalActorInteractions.h"
 #include "TacticalWorldAdapter.h"
 #include "ai.h"
 #include "Isometric Utils.h"
@@ -54,6 +57,8 @@
 #include "Text.h"	// sevenfm
 #include "english.h" // sevenfm: for ESC key
 #include "SoldierRepository.h"
+#include "TacticalActorRadio.h"
+#include "TacticalActorSkills.h"
 
 #include "connect.h"
 // needed to use the modularized tactical AI:
@@ -68,13 +73,13 @@
 
 extern void PauseAITemporarily( void );
 extern void UpdateEnemyUIBar( void );
-extern void DisplayHiddenTurnbased( SOLDIERTYPE * pActingSoldier );
-extern void AdjustNoAPToFinishMove( SOLDIERTYPE *pSoldier, BOOLEAN fSet );
+extern void DisplayHiddenTurnbased( TacticalActor * pActingSoldier );
+extern void AdjustNoAPToFinishMove( TacticalActor *pSoldier, BOOLEAN fSet );
 
-void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier);
-void HandleAITacticalTraversal( SOLDIERTYPE * pSoldier );
+void TurnBasedHandleNPCAI(TacticalActor *pSoldier);
+void HandleAITacticalTraversal( TacticalActor * pSoldier );
 
-extern void UpdateFastForwardMode(SOLDIERTYPE* pSoldier, INT8 bAction);
+extern void UpdateFastForwardMode(TacticalActor* pSoldier, INT8 bAction);
 
 extern UINT8 gubElementsOnExplosionQueue;
 
@@ -117,7 +122,7 @@ INT8 gbDiff[MAX_DIFF_PARMS][5] =
 // sevenfm
 extern time_t gtTimeSinceMercAIStart;
 
-void EndAIGuysTurn( SOLDIERTYPE *pSoldier );
+void EndAIGuysTurn( TacticalActor *pSoldier );
 
 void DebugAI_( STR szOutput )
 {
@@ -216,7 +221,7 @@ UINT32 guiAIStartCounter = 0, guiAILastCounter = 0;
 //UINT8 gubAISelectedSoldier = NOBODY;
 BOOLEAN gfLogsEnabled = TRUE;
 
-void DebugAI_( INT8 bMsgType, SOLDIERTYPE *pSoldier, STR szOutput, INT8 bAction )
+void DebugAI_( INT8 bMsgType, TacticalActor *pSoldier, STR szOutput, INT8 bAction )
 {
 	FILE*	DebugFile;
 	CHAR8	msg[1024];
@@ -406,12 +411,12 @@ BOOLEAN InitAI( void )
 	return( TRUE );
 }
 
-BOOLEAN AimingGun(SOLDIERTYPE *pSoldier)
+BOOLEAN AimingGun(TacticalActor *pSoldier)
 {
 	return(FALSE);
 }
 
-void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named inappropriately
+void HandleSoldierAI( TacticalActor *pSoldier ) // FIXME - this function is named inappropriately
 {
 	// ATE
 	// Bail if we are engaged in a NPC conversation/ and/or sequence ... or we have a pause because 
@@ -878,7 +883,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 #define NOSCORE 99
 
-void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
+void EndAIGuysTurn( TacticalActor *pSoldier )
 {
 	if (gfTurnBasedAI)
 	{
@@ -891,7 +896,7 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 		// search for any player merc to say close call quote
 		for ( SoldierID ubID = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; ubID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++ubID )
 		{
-			SOLDIERTYPE *pMerc =
+			TacticalActor *pMerc =
 				GetJa2SoldierRepository().resolve(ubID.i);
 
 			if ( OK_INSECTOR_MERC( pMerc ) )
@@ -970,7 +975,7 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 void EndAIDeadlock(void)
 {
 	INT32 cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT8 bFound=FALSE;
 
 	// ESCAPE ENEMY'S TURN
@@ -1016,7 +1021,7 @@ void EndAIDeadlock(void)
 }
 
 
-void StartNPCAI(SOLDIERTYPE *pSoldier)
+void StartNPCAI(TacticalActor *pSoldier)
 {
 
 	BOOLEAN fInValidSoldier = FALSE;
@@ -1123,9 +1128,9 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 
 
 
-BOOLEAN DestNotSpokenFor(SOLDIERTYPE *pSoldier, INT32 sGridNo)
+BOOLEAN DestNotSpokenFor(TacticalActor *pSoldier, INT32 sGridNo)
 {
-	SOLDIERTYPE *pOurTeam;
+	TacticalActor *pOurTeam;
 	SoldierID cnt = gTacticalStatus.Team[pSoldier->roster().team()].bFirstID;
 
 	// make a list of all of our team's mercs
@@ -1143,7 +1148,7 @@ BOOLEAN DestNotSpokenFor(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 }
 
 
-INT32 FindAdjacentSpotBeside(SOLDIERTYPE *pSoldier, INT32 sGridNo)
+INT32 FindAdjacentSpotBeside(TacticalActor *pSoldier, INT32 sGridNo)
 {
 	INT32 cnt;
 	INT16 mods[4] = {-1, (INT16)-WORLD_COLS, 1, (INT16)WORLD_COLS};
@@ -1172,11 +1177,11 @@ INT32 FindAdjacentSpotBeside(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 	return(sCheapestDest);
 }
 
-SoldierID GetMostThreateningOpponent( SOLDIERTYPE *pSoldier )
+SoldierID GetMostThreateningOpponent( TacticalActor *pSoldier )
 {
 	UINT32			uiLoop;
 	INT32			iThreatVal,iMinThreat = 30000;
-	SOLDIERTYPE		*pTargetSoldier;
+	TacticalActor		*pTargetSoldier;
 	SoldierID		ubTargetSoldier = NOBODY;
 
 	// Loop through all mercs
@@ -1225,7 +1230,7 @@ SoldierID GetMostThreateningOpponent( SOLDIERTYPE *pSoldier )
 
 
 
-void FreeUpNPCFromPendingAction( 	SOLDIERTYPE *pSoldier )
+void FreeUpNPCFromPendingAction( 	TacticalActor *pSoldier )
 {
 	if ( pSoldier )
 	{
@@ -1263,7 +1268,7 @@ void FreeUpNPCFromPendingAction( 	SOLDIERTYPE *pSoldier )
 
 void FreeUpNPCFromAttacking(SoldierID ubID)
 {
-	SOLDIERTYPE* soldier =
+	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(ubID.i);
 	if ( !soldier )
 		return;
@@ -1271,7 +1276,7 @@ void FreeUpNPCFromAttacking(SoldierID ubID)
 	soldier->pathing().needsLook() = TRUE;
 }
 
-void FreeUpNPCFromLoweringGun( SOLDIERTYPE *pSoldier )
+void FreeUpNPCFromLoweringGun( TacticalActor *pSoldier )
 {
 	if ( pSoldier && pSoldier->aiPlanning().action() == AI_ACTION_LOWER_GUN )
 	{
@@ -1279,7 +1284,7 @@ void FreeUpNPCFromLoweringGun( SOLDIERTYPE *pSoldier )
 	}
 }
 
-void FreeUpNPCFromTurning(SOLDIERTYPE *pSoldier, INT8 bLook)
+void FreeUpNPCFromTurning(TacticalActor *pSoldier, INT8 bLook)
 {
 
 	// if NPC is in the process of changing facing, mark him as being done!
@@ -1302,7 +1307,7 @@ void FreeUpNPCFromTurning(SOLDIERTYPE *pSoldier, INT8 bLook)
 }
 
 
-void FreeUpNPCFromStanceChange(SOLDIERTYPE *pSoldier )
+void FreeUpNPCFromStanceChange(TacticalActor *pSoldier )
 {
 	// are we/were we doing something?
 	if (pSoldier->aiPlanning().actionInProgress())
@@ -1320,7 +1325,7 @@ void FreeUpNPCFromStanceChange(SOLDIERTYPE *pSoldier )
 	}
 }
 
-void FreeUpNPCFromRoofClimb(SOLDIERTYPE *pSoldier )
+void FreeUpNPCFromRoofClimb(TacticalActor *pSoldier )
 {
 	// are we/were we doing something?
 	if (pSoldier->aiPlanning().actionInProgress())
@@ -1337,7 +1342,7 @@ void FreeUpNPCFromRoofClimb(SOLDIERTYPE *pSoldier )
 
 
 
-void ActionDone(SOLDIERTYPE *pSoldier)
+void ActionDone(TacticalActor *pSoldier)
 {
 	// if an action is currently selected
 	if (pSoldier->aiPlanning().action() != AI_ACTION_NONE)
@@ -1443,7 +1448,7 @@ int ThreatPercent[10] = { 20, 40, 60, 80, 25, 100, 90, 75, 60, 45 };
 
 
 
-void NPCDoesAct(SOLDIERTYPE *pSoldier)
+void NPCDoesAct(TacticalActor *pSoldier)
 {
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"NPCDoesAct");
 
@@ -1472,7 +1477,7 @@ void NPCDoesAct(SOLDIERTYPE *pSoldier)
 
 
 
-void NPCDoesNothing(SOLDIERTYPE *pSoldier)
+void NPCDoesNothing(TacticalActor *pSoldier)
 {
 	// NPC, for whatever reason, did/could not start an action, so end his turn
 	//pSoldier->moved = TRUE;
@@ -1489,7 +1494,7 @@ void NPCDoesNothing(SOLDIERTYPE *pSoldier)
 
 extern BOOLEAN AreInMeanwhile();
 
-void CancelAIAction(SOLDIERTYPE *pSoldier, UINT8 ubForce)
+void CancelAIAction(TacticalActor *pSoldier, UINT8 ubForce)
 {
 #ifdef DEBUGDECISIONS
 	if (SkipCoverCheck)
@@ -1532,7 +1537,7 @@ void CancelAIAction(SOLDIERTYPE *pSoldier, UINT8 ubForce)
 }
 
 
-INT16 ActionInProgress(SOLDIERTYPE *pSoldier)
+INT16 ActionInProgress(TacticalActor *pSoldier)
 {
 	// if NPC has a desired destination, but isn't currently going there	
 	if ((!TileIsOutOfBounds(pSoldier->pathing().finalDestinationGrid())) && (pSoldier->pathing().destinationGrid() != pSoldier->pathing().finalDestinationGrid()))
@@ -1559,10 +1564,10 @@ INT16 ActionInProgress(SOLDIERTYPE *pSoldier)
 	return(TRUE);
 }
 
-void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
+void TurnBasedHandleNPCAI(TacticalActor *pSoldier)
 {
 	// added by Flugente: static pointers, used to break out of an endless circles (currently only used for zombie AI)
-	static SOLDIERTYPE* pLastDecisionSoldier = NULL;
+	static TacticalActor* pLastDecisionSoldier = NULL;
 	static INT16	lastdecisioncount = 0;
 
 	// simple solution to prevent an endless clock: remember the last soldier that decided an action. If its the same one, increase the counter.
@@ -1608,7 +1613,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 		}
 		else
 		{
-			pSoldier->StopChatting();
+			(void)TacticalActorInteractions::stopChatting(*pSoldier);
 		}
 	}
 
@@ -1786,7 +1791,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 }
 
 
-void RefreshAI(SOLDIERTYPE *pSoldier)
+void RefreshAI(TacticalActor *pSoldier)
 {
 	// produce our own private "mine map" so we can avoid the ones we can detect
 	// MarkDetectableMines(pSoldier);
@@ -1835,7 +1840,7 @@ void RefreshAI(SOLDIERTYPE *pSoldier)
 }
 
 
-void AIDecideRadioAnimation( SOLDIERTYPE *pSoldier )
+void AIDecideRadioAnimation( TacticalActor *pSoldier )
 {
 	if ( pSoldier->identity().bodyType() != REGMALE && pSoldier->identity().bodyType() != BIGMALE )
 	{
@@ -1868,7 +1873,8 @@ void AIDecideRadioAnimation( SOLDIERTYPE *pSoldier )
 	}
 
 	// sevenfm: only allow radio animation on initial red alert
-	if (gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition || SectorJammed())
+	if (gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition ||
+		TacticalActorRadio::sectorJammed())
 	{
 		// don't play animation
 		ActionDone(pSoldier);
@@ -1909,7 +1915,7 @@ UINT32 GetTankCannonIndex()
 
 
 
-INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
+INT8 ExecuteAction(TacticalActor *pSoldier)
 {
 	INT32 iRetCode;
 	//NumMessage("ExecuteAction - Guy#",pSoldier->identity().id());
@@ -2035,7 +2041,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 					else if (pSoldier->aiPlanning().action() == AI_ACTION_RUN_AWAY )
 						PossiblyStartEnemyTaunt( pSoldier, TAUNT_RUN_AWAY );
 
-					if ( !Random( 5 ) && pSoldier->IsZombie( ) )
+					if ( !Random( 5 ) && TacticalActorConditions::isZombie(*pSoldier) )
 					{
 						// Madd:  Zombies randomly moan...
 						pSoldier->DoMercBattleSound( (INT8)( BATTLE_SOUND_LAUGH1 ) );
@@ -2660,7 +2666,11 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 			{
 				SoldierID ubID = WhoIsThere2( pSoldier->aiPlanning().actionData(), 0 );
 
-				BOOLEAN result = pSoldier->UseSkill(pSoldier->skillState().selectedAiSkill(), pSoldier->aiPlanning().actionData(), ubID);
+				BOOLEAN result = TacticalActorSkills::use(
+					*pSoldier,
+					pSoldier->skillState().selectedAiSkill(),
+					pSoldier->aiPlanning().actionData(),
+					ubID);
 
 				// additional dialogue
 				AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_SKILL_RESULT, pSoldier->skillState().selectedAiSkill(), result );
@@ -2687,7 +2697,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 			if (pSoldier->vitals().health() >= OKLIFE &&
 				pSoldier->vitals().breath() > 0 &&
 				!pSoldier->collapseState().tactical() &&
-				pSoldier->IsGivingAid())
+				TacticalActorConditions::isGivingAid(*pSoldier))
 			{
 				if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 					pSoldier->ChangeSoldierState(END_AID_PRN, 0, 0);
@@ -2702,7 +2712,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 
 		case AI_ACTION_SELFDETONATE:
 			{
-				pSoldier->SelfDetonate( );
+				(void)TacticalActorExplosives::selfDetonate(*pSoldier);
 				ActionDone( pSoldier );
 			}
 			break;
@@ -2718,7 +2728,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 	return(TRUE);
 }
 
-void CheckForChangingOrders(SOLDIERTYPE *pSoldier)
+void CheckForChangingOrders(TacticalActor *pSoldier)
 {
 	switch( pSoldier->aiBehavior().alertStatus() )
 	{
@@ -2787,7 +2797,7 @@ void ATTACKTYPE::InitAttackType(ATTACKTYPE *pAttack)//dnl ch69 140913
 void HandleInitialRedAlert( INT8 bTeam, UINT8 ubCommunicate)
 {
 	// Flugente radio operator: if the sector is jammed, no radio communication possible
-	if ( SectorJammed() )
+	if (TacticalActorRadio::sectorJammed())
 		return;
 
 	/*
@@ -2814,7 +2824,7 @@ void HandleInitialRedAlert( INT8 bTeam, UINT8 ubCommunicate)
 	if ( bTeam == ENEMY_TEAM && gWorldSectorX == 3 && gWorldSectorY == MAP_ROW_P && gbWorldSectorZ == 0 )
 	{
 		// alert Queen and Joe if they are around
-		SOLDIERTYPE *			pSoldier;
+		TacticalActor *			pSoldier;
 
 		pSoldier = FindSoldierByProfileID( QUEEN, FALSE );
 		if ( pSoldier )
@@ -2838,10 +2848,10 @@ void HandleInitialRedAlert( INT8 bTeam, UINT8 ubCommunicate)
 
 }
 
-void ManChecksOnFriends(SOLDIERTYPE *pSoldier)
+void ManChecksOnFriends(TacticalActor *pSoldier)
 {
 	UINT32 uiLoop;
-	SOLDIERTYPE *pFriend;
+	TacticalActor *pFriend;
 
 	// THIS ROUTINE SHOULD ONLY BE CALLED FOR SOLDIERS ON STATUS GREEN or YELLOW
 
@@ -2904,7 +2914,7 @@ void ManChecksOnFriends(SOLDIERTYPE *pSoldier)
 }
 
 
-void SetNewSituation( SOLDIERTYPE * pSoldier )
+void SetNewSituation( TacticalActor * pSoldier )
 {
 	if ( pSoldier->roster().team() != gbPlayerNum )
 	{
@@ -2928,7 +2938,7 @@ void SetNewSituation( SOLDIERTYPE * pSoldier )
 }
 
 
-void HandleAITacticalTraversal( SOLDIERTYPE * pSoldier )
+void HandleAITacticalTraversal( TacticalActor * pSoldier )
 {
 	UINT8 ubQuoteActionID = pSoldier->dialogue().quoteActionId();
 

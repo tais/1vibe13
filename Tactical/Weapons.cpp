@@ -1,4 +1,9 @@
+#include "TacticalActorEquipment.h"
+#include "TacticalActorSpotting.h"
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include "TacticalActorModifiers.h"
+#include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
@@ -62,7 +67,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 // sevenfm: this global variable is needed to correctly set default number of bullets for autofire
@@ -102,36 +107,36 @@ extern void TeamChangesSides( UINT8 ubTeam, INT8 bSide );
 
 extern BOOLEAN	gfNextFireJam;
 
-BOOLEAN WillExplosiveWeaponFail( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj );
+BOOLEAN WillExplosiveWeaponFail( TacticalActor *pSoldier, OBJECTTYPE *pObj );
 
 // sevenfm NWSS names for calibers
 char NWSSCaliber[MAXITEMS][255];
 
 // Flugente: this function calls UseGun and handles the firing of several shots at once
-BOOLEAN UseGunWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo );
-BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo );
-BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo );
-BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo );
-BOOLEAN UseThrown( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo );
+BOOLEAN UseGunWrapper( TacticalActor *pSoldier, INT32 sTargetGridNo );
+BOOLEAN UseGun( TacticalActor *pSoldier , INT32 sTargetGridNo );
+BOOLEAN UseGunNCTH( TacticalActor *pSoldier , INT32 sTargetGridNo );
+BOOLEAN UseBlade( TacticalActor *pSoldier , INT32 sTargetGridNo );
+BOOLEAN UseThrown( TacticalActor *pSoldier , INT32 sTargetGridNo );
 
 // Flugente: this function calls UseLauncher and handles the firing of several shots at once
-BOOLEAN UseLauncherWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo );
-BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo );
+BOOLEAN UseLauncherWrapper( TacticalActor *pSoldier, INT32 sTargetGridNo );
+BOOLEAN UseLauncher( TacticalActor *pSoldier , INT32 sTargetGridNo );
 
 // new subroutines for NCTH calculation
-FLOAT CalcNewChanceToHitBaseAttributeBonus(SOLDIERTYPE *pSoldier);
-FLOAT CalcNewChanceToHitBaseEffectBonus(SOLDIERTYPE *pSoldier);
-FLOAT CalcNewChanceToHitBaseWeaponBonus(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, FLOAT fGunBaseDifficulty, UINT8 stance);
-FLOAT CalcNewChanceToHitBaseSpecialBonus(SOLDIERTYPE *pSoldier);
-FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget, INT32 sGridNo, INT32 iRange, UINT8 ubAimPos, BOOLEAN fCantSeeTarget);
-FLOAT CalcNewChanceToHitAimAttributeBonus(SOLDIERTYPE *pSoldier);
-FLOAT CalcNewChanceToHitAimEffectBonus(SOLDIERTYPE *pSoldier);
-FLOAT CalcNewChanceToHitAimWeaponBonus(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, FLOAT fGunAimDifficulty, UINT8 stance);
-FLOAT CalcNewChanceToHitAimSpecialBonus(SOLDIERTYPE *pSoldier);
-FLOAT CalcNewChanceToHitAimTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget, INT32 sGridNo, INT32 iRange, UINT8 ubAimPos, BOOLEAN fCantSeeTarget);
-FLOAT CalcNewChanceToHitAimTraitBonus(SOLDIERTYPE *pSoldier, FLOAT fAimCap, FLOAT fDifference, INT32 sGridNo, INT16 ubAimTime, FLOAT fScopeMagFactor, UINT32 uiBestScopeRange);
+FLOAT CalcNewChanceToHitBaseAttributeBonus(TacticalActor *pSoldier);
+FLOAT CalcNewChanceToHitBaseEffectBonus(TacticalActor *pSoldier);
+FLOAT CalcNewChanceToHitBaseWeaponBonus(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, FLOAT fGunBaseDifficulty, UINT8 stance);
+FLOAT CalcNewChanceToHitBaseSpecialBonus(TacticalActor *pSoldier);
+FLOAT CalcNewChanceToHitBaseTargetBonus(TacticalActor *pSoldier, TacticalActor *pTarget, INT32 sGridNo, INT32 iRange, UINT8 ubAimPos, BOOLEAN fCantSeeTarget);
+FLOAT CalcNewChanceToHitAimAttributeBonus(TacticalActor *pSoldier);
+FLOAT CalcNewChanceToHitAimEffectBonus(TacticalActor *pSoldier);
+FLOAT CalcNewChanceToHitAimWeaponBonus(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, FLOAT fGunAimDifficulty, UINT8 stance);
+FLOAT CalcNewChanceToHitAimSpecialBonus(TacticalActor *pSoldier);
+FLOAT CalcNewChanceToHitAimTargetBonus(TacticalActor *pSoldier, TacticalActor *pTarget, INT32 sGridNo, INT32 iRange, UINT8 ubAimPos, BOOLEAN fCantSeeTarget);
+FLOAT CalcNewChanceToHitAimTraitBonus(TacticalActor *pSoldier, FLOAT fAimCap, FLOAT fDifference, INT32 sGridNo, INT16 ubAimTime, FLOAT fScopeMagFactor, UINT32 uiBestScopeRange);
 
-INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BOOLEAN fBladeAttack );
+INT32 HTHImpact( TacticalActor * pSoldier, TacticalActor * pTarget, INT32 iHitBy, BOOLEAN fBladeAttack );
 
 BOOLEAN gfNextShotKills = FALSE;
 BOOLEAN gfReportHitChances = FALSE;
@@ -792,7 +797,7 @@ BOOLEAN WriteWeaponStats()
 	return( TRUE );
 }
 
-UINT16 GunRange( OBJECTTYPE * pObj, SOLDIERTYPE * pSoldier ) // SANDRO - added argument
+UINT16 GunRange( OBJECTTYPE * pObj, TacticalActor * pSoldier ) // SANDRO - added argument
 {
 	UINT16 rng;
 
@@ -907,7 +912,7 @@ INT32 ExplosiveEffectiveArmourLBE( OBJECTTYPE * pObj )
 	return( max(iValue,0) );
 }
 
-INT32 ArmourPercent( SOLDIERTYPE * pSoldier )
+INT32 ArmourPercent( TacticalActor * pSoldier )
 {
 	INT32 iVest, iHelmet, iLeg;
 	INT32 iDivideValue;
@@ -1033,7 +1038,7 @@ INT32 ExplosiveEffectiveArmour( OBJECTTYPE * pObj )
 	return( max(iValue,1) );
 }
 
-INT8 ArmourVersusExplosivesPercent( SOLDIERTYPE * pSoldier )
+INT8 ArmourVersusExplosivesPercent( TacticalActor * pSoldier )
 {
 	// returns the % damage reduction from grenades
 	INT32 iVest, iHelmet, iLeg;
@@ -1110,7 +1115,7 @@ INT16 FireEffectiveArmour( OBJECTTYPE * pObj )
 	return iValue;
 }
 
-INT16 ArmourVersusFirePercent( SOLDIERTYPE * pSoldier )
+INT16 ArmourVersusFirePercent( TacticalActor * pSoldier )
 {
 	INT16 val = 0;
 
@@ -1152,7 +1157,7 @@ void AdjustImpactByHitLocation( INT32 iImpact, UINT8 ubHitLocation, INT32 * piNe
 
 // #define	TESTGUNJAM
 
-BOOLEAN CheckForGunJam( SOLDIERTYPE * pSoldier ) 
+BOOLEAN CheckForGunJam( TacticalActor * pSoldier )
 { 
 	OBJECTTYPE * pObj; 
 	// INT32 iChance, iResult; 
@@ -1164,7 +1169,7 @@ BOOLEAN CheckForGunJam( SOLDIERTYPE * pSoldier )
 			!EXPLOSIVE_GUN( pSoldier->attackSelection().weapon() ) &&
 			!(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO) )
 		{ 
-			pObj = pSoldier->GetUsedWeapon(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
+			pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 
 			if ((*pObj)[0]->data.gun.bGunAmmoStatus > 0) 
 			{ 
@@ -1301,7 +1306,7 @@ BOOLEAN CheckForGunJam( SOLDIERTYPE * pSoldier )
 } 
 
 
-BOOLEAN	OKFireWeapon( SOLDIERTYPE *pSoldier )
+BOOLEAN	OKFireWeapon( TacticalActor *pSoldier )
 {
 	BOOLEAN bGunJamVal;
 
@@ -1366,7 +1371,7 @@ FLOAT   GetGunOverheatJamPercentage( FLOAT usTemperature, UINT16 usIndx )
 	return usTemperature/ jamthreshold ;
 }
 
-BOOLEAN FireWeapon( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
+BOOLEAN FireWeapon( TacticalActor *pSoldier , INT32 sTargetGridNo )
 {
 	// ignore passed in target gridno for now
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("FireWeapon"));
@@ -1510,12 +1515,12 @@ BOOLEAN FireWeapon( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 }
 
 
-void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT *pdXPos, FLOAT *pdYPos, FLOAT *pdZPos )
+void GetTargetWorldPositions( TacticalActor *pSoldier, INT32 sTargetGridNo, FLOAT *pdXPos, FLOAT *pdYPos, FLOAT *pdZPos )
 {
 	FLOAT								dTargetX;
 	FLOAT								dTargetY;
 	FLOAT								dTargetZ;
-	SOLDIERTYPE*						pTargetSoldier = NULL;
+	TacticalActor*						pTargetSoldier = NULL;
 	INT8								bStructHeight;
 	INT16								sXMapPos, sYMapPos, sX, sY;
 	UINT32							uiRoll;
@@ -1789,7 +1794,7 @@ void PrepareCommonWeaponSoundData(void)
 	}
 }
 
-void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pObjAttHand, UINT16 usUBItem)
+void PlayWeaponSound(TacticalActor *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pObjAttHand, UINT16 usUBItem)
 {
 	CHAR8	zFilename[512];
 	BOOLEAN fSilenced = FALSE;
@@ -2236,7 +2241,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 // This function now no longer rolls any random variables - that is relegated to other functions. However, this
 // function is now responsible for altering the "center point" for the attack, given target movement and previous
 // bullets fired in a volley.
-BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
+BOOLEAN UseGunNCTH( TacticalActor *pSoldier , INT32 sTargetGridNo )
 {
 	// CTH is now used as a Muzzle Sway value. That is, it determines how wide our shot can go off the "center point"
 	// of the attack. Later on, we'll randomize just how far the shot actually goes within that sway radius.
@@ -2272,14 +2277,14 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	usItemNum = pSoldier->attackSelection().weapon();
 
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
-	OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
-	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
-	SOLDIERTYPE* pAttackTarget =
+	OBJECTTYPE* pObjHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]) );
+	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	UINT16 usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	TacticalActor* pAttackTarget =
 		GetJa2SoldierRepository().resolve(pSoldier->targeting().targetId().i);
 
 	// sevenfm: reduce shock when firing gun, for autofire shots - apply once
-	SOLDIERTYPE* pTarget = SimpleFindSoldier(sTargetGridNo, pSoldier->targeting().level());
+	TacticalActor* pTarget = SimpleFindSoldier(sTargetGridNo, pSoldier->targeting().level());
 	if (gGameExternalOptions.fNewSuppressionCode &&
 		Item[usUBItem].usItemClass == IC_GUN && 
 		pTarget && 
@@ -2791,7 +2796,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 		if ( ubMerc != NOBODY )
 		{
-			SOLDIERTYPE* exhaustTarget =
+			TacticalActor* exhaustTarget =
 				GetJa2SoldierRepository().resolve(ubMerc.i);
 			if ( gAnimControl[ exhaustTarget->animationPlayback().state() ].ubHeight !=
 				ANIM_PRONE )
@@ -3021,7 +3026,7 @@ bool HasSeveralBarrelConfigurations( UINT16 usItem )
 }
 
 // Flugente: this function calls UseGun and handles the firing of severeal shots at once
-BOOLEAN UseGunWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
+BOOLEAN UseGunWrapper( TacticalActor *pSoldier, INT32 sTargetGridNo )
 {
 	// determine how many barrels to fire - if we want more than 1, check whether the gun supports this, if not, adjust
 	UINT8 barrelstofire = 1;
@@ -3029,7 +3034,7 @@ BOOLEAN UseGunWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	if ( pSoldier->fireControl().barrelMode() > barrelstofire )
 	{
 		// determine how many barrels the gun can fire in the first place (we need this check in case the weapon changed in our hands or we firing a different weapon from the second hand)
-		OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+		OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 		
 		barrelstofire = GetFittingBarrelMode( pObjUsed->usItem, pSoldier->fireControl().barrelMode() );
 
@@ -3045,7 +3050,7 @@ BOOLEAN UseGunWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	return TRUE;
 }
 
-BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
+BOOLEAN UseGun( TacticalActor *pSoldier , INT32 sTargetGridNo )
 {
 	if(UsingNewCTHSystem() == true)
 		return UseGunNCTH(pSoldier, sTargetGridNo);
@@ -3078,19 +3083,19 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		iBPCost = 0;
 
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
-	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+	OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+	UINT16 usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 
 	// sevenfm:for PlayWeaponSound
-	OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon(&(pSoldier->inventory()[HANDPOS]));
-	OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
-	SOLDIERTYPE* pAttackTarget =
+	OBJECTTYPE* pObjHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]));
+	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()]);
+	TacticalActor* pAttackTarget =
 		GetJa2SoldierRepository().resolve(pSoldier->targeting().targetId().i);
 
 	usItemNum = pSoldier->attackSelection().weapon();
 
 	// sevenfm: reduce shock when firing gun, for autofire shots - apply once
-	SOLDIERTYPE* pTarget = SimpleFindSoldier(sTargetGridNo, pSoldier->targeting().level());
+	TacticalActor* pTarget = SimpleFindSoldier(sTargetGridNo, pSoldier->targeting().level());
 	if (gGameExternalOptions.fNewSuppressionCode &&
 		Item[usUBItem].usItemClass == IC_GUN && 
 		pTarget && 
@@ -3633,7 +3638,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 		if ( ubMerc != NOBODY )
 		{
-			SOLDIERTYPE* exhaustTarget =
+			TacticalActor* exhaustTarget =
 				GetJa2SoldierRepository().resolve(ubMerc.i);
 			if ( gAnimControl[ exhaustTarget->animationPlayback().state() ].ubHeight !=
 				ANIM_PRONE )
@@ -3810,9 +3815,9 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	return( TRUE );
 }
 
-BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
+BOOLEAN UseBlade( TacticalActor *pSoldier , INT32 sTargetGridNo )
 {
-	SOLDIERTYPE *				pTargetSoldier;
+	TacticalActor *				pTargetSoldier;
 	INT32								iHitChance, iDiceRoll;
 	INT16								sXMapPos, sYMapPos;
 	INT16								sAPCost;
@@ -3885,7 +3890,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			iImpact = HTHImpact( pSoldier, pTargetSoldier, (iHitChance - iDiceRoll), TRUE );
 
 			// Flugente: check for underbarrel weapons and use that object if necessary (think of bayonets)
-			OBJECTTYPE* pObj = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+			OBJECTTYPE* pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 
 			// modify this by the knife's condition (if it's dull, not much good)
 			iImpact = ( iImpact * WEAPON_STATUS_MOD( (*pObj)[0]->data.objectStatus) ) / 100;
@@ -4017,7 +4022,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	// }
 
 	// anv: melee attack noise
-	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	UINT16 usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_BULLET_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
 	MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
@@ -4033,9 +4038,9 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 }
 
 
-BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStealing )
+BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fStealing )
 {
-	SOLDIERTYPE				*	pTargetSoldier;
+	TacticalActor				*	pTargetSoldier;
 	INT32								iHitChance, iDiceRoll;
 	INT16								sXMapPos, sYMapPos;
 	INT16								sAPCost;
@@ -4192,10 +4197,10 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			// Flugente: if we are disguised and try to steal from a conscious enemy, there is a chance that he notices us and we lose our disguise. If he can see us this always happens
 			if ( fNoticed && pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
 			{
-				pSoldier->LooseDisguise();
+				TacticalActorCovertOps::loseDisguise(*pSoldier);
 				
 				if ( gSkillTraitValues.fCOStripIfUncovered )
-					pSoldier->Strip( );
+					TacticalActorCovertOps::strip(*pSoldier);
 
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_STEAL_FAIL], pSoldier->GetName()  );
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNCOVERED], pTargetSoldier->GetName(), pSoldier->GetName()  );
@@ -4714,7 +4719,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				UINT8 ubCounterattackChance = EffectiveDexterity(pTargetSoldier, FALSE) * (100 + pTargetSoldier->vitals().breath()) / 200;
 
 				// halve chance for counterattack if boxer was hit recently
-				if (pTargetSoldier->TakenLargeHit())
+				if (TacticalActorConditions::hasTakenLargeHit(*pTargetSoldier))
 					ubCounterattackChance /= 2;
 
 				// sevenfm: possibly counterattack when boxing
@@ -4766,7 +4771,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 	}
 
 	// anv: hth (inluding blunt weapons) attack noise
-	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	UINT16 usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_BULLET_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
 	MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
@@ -4780,12 +4785,12 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 	return( TRUE );
 }
 
-BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
+BOOLEAN UseThrown( TacticalActor *pSoldier, INT32 sTargetGridNo )
 {
 	UINT32		uiHitChance;
 	INT8			bLoop;
 	SoldierID	ubTargetID;
-	SOLDIERTYPE	*pTargetSoldier;
+	TacticalActor	*pTargetSoldier;
 	//INT16			sAPCost = 0;//dnl ch72 180913
 
 	uiHitChance = CalcThrownChanceToHit( pSoldier, sTargetGridNo, pSoldier->aiPlanning().aimTime(), AIM_SHOT_TORSO );
@@ -4888,7 +4893,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	CalculateLaunchItemParamsForThrow( pSoldier, sTargetGridNo, pSoldier->targeting().level(), (INT16)(pSoldier->targeting().level() * 256 ), &(pSoldier->inventory()[ HANDPOS ] ), uiHitChance, THROW_ARM_ITEM, 0, pSoldier->inventory()[HANDPOS].usItem );
 
 	// anv: knife throw attack noise
-	UINT16 usItem = pSoldier->GetUsedWeaponNumber(&pSoldier->inventory()[pSoldier->attackSelection().hand()]);
+	UINT16 usItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 	UINT8 ubVolume = Weapon[usItem].ubAttackVolume;
 
 	pSoldier->runtime().pendingAction.grenadeItem = 0;
@@ -4913,7 +4918,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 }
 
 // Flugente: this function calls UseLauncher and handles the firing of severeal shots at once
-BOOLEAN UseLauncherWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
+BOOLEAN UseLauncherWrapper( TacticalActor *pSoldier, INT32 sTargetGridNo )
 {
 	// determine how many barrels to fire - if we want more than 1, check whether the gun supports this, if not, adjust
 	UINT8 barrelstofire = 1;
@@ -4921,7 +4926,7 @@ BOOLEAN UseLauncherWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	if ( pSoldier->fireControl().barrelMode() > barrelstofire )
 	{
 		// determine how many barrels the gun can fire in the first place (we need this check in case the weapon changed in our hands or we firing a different weapon from the second hand)
-		OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+		OBJECTTYPE* pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 
 		barrelstofire = GetFittingBarrelMode( pObjUsed->usItem, pSoldier->fireControl().barrelMode() );
 
@@ -4937,7 +4942,7 @@ BOOLEAN UseLauncherWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	return TRUE;
 }
 
-BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
+BOOLEAN UseLauncher( TacticalActor *pSoldier, INT32 sTargetGridNo )
 {
 	UINT32			uiHitChance;
 	INT16				sAPCost = 0;
@@ -5149,7 +5154,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	}
 	
 	// anv: launcher attack noise
-	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
+	UINT16 usUBItem = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_GUNFIRE instead of NOISE_UNKNOWN so AI can associate it with enemy presence
 	MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE);
@@ -5166,9 +5171,10 @@ BOOLEAN DoSpecialEffectAmmoMiss( SoldierID ubAttackerID, UINT16 usWeaponIndex, I
 	// Flugente: check for underbarrel weapons and use that object if necessary
 	if ( ubAttackerID != NOBODY )
 	{
-		SOLDIERTYPE* attacker =
+		TacticalActor* attacker =
 			GetJa2SoldierRepository().resolve(ubAttackerID.i);
-		OBJECTTYPE* pObj = attacker->GetUsedWeapon(
+		OBJECTTYPE* pObj = TacticalActorEquipment::usedWeapon(
+			*attacker,
 			&attacker->inventory()[attacker->attackSelection().hand()]);
 
 		ubAmmoType = (*pObj)[0]->data.gun.ubGunAmmoType;
@@ -5325,8 +5331,8 @@ BOOLEAN DoSpecialEffectAmmoMiss( SoldierID ubAttackerID, UINT16 usWeaponIndex, I
 
 void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT16 sBreathLoss, UINT16 usDirection, INT16 sXPos, INT16 sYPos, INT16 sZPos, INT16 sRange, SoldierID ubAttackerID, BOOLEAN fHit, UINT8 ubSpecial, UINT8 ubHitLocation )
 {
-	SOLDIERTYPE*			pTargetSoldier = NULL;
-	SOLDIERTYPE*			pSoldier = NULL;
+	TacticalActor*			pTargetSoldier = NULL;
+	TacticalActor*			pSoldier = NULL;
 	OBJECTTYPE*			pObj = NULL;
 
 	// Get attacker
@@ -5336,7 +5342,7 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 			GetJa2SoldierRepository().resolve(ubAttackerID.i);
 
 		// Flugente: check for underbarrel weapons and use that object if necessary
-		pObj			= pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+		pObj			= TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 	}
 
 	// Get Target
@@ -5448,7 +5454,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 	UINT32			uiMissVolume = MIDVOLUME;
 	BOOLEAN			fHitSameStructureAsBefore;
 	BULLET			*pBullet;
-	SOLDIERTYPE		*pAttacker = NULL;
+	TacticalActor		*pAttacker = NULL;
 	OBJECTTYPE		*pObj = NULL;
 
 	pBullet = GetBulletPtr( iBullet );
@@ -5459,7 +5465,8 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 	{
 		pAttacker =
 			GetJa2SoldierRepository().resolve(ubAttackerID.i);
-		pObj = pAttacker->GetUsedWeapon(
+		pObj = TacticalActorEquipment::usedWeapon(
+			*pAttacker,
 			&pAttacker->inventory()[pAttacker->attackSelection().hand()]);
 	}
 
@@ -5482,7 +5489,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 	{
 		if ( pAttacker->targeting().hasEngagedOpponent() )
 		{
-			SOLDIERTYPE* opponent =
+			TacticalActor* opponent =
 				GetJa2SoldierRepository().resolve(
 					pAttacker->targeting().engagedOpponent().i);
 			// if it was another team shooting at someone under our control
@@ -5524,7 +5531,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 	if (fStopped)
 	{
 		// marke need another attacker id assignment
-		SOLDIERTYPE				*pSoldier = NULL;
+		TacticalActor				*pSoldier = NULL;
 
 		// Get attacker
 		if ( ubAttackerID != NOBODY )
@@ -5915,7 +5922,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 			if( pBullet->pFirer != NULL && pBullet->pFirer->targeting().hasEngagedOpponent() )
 			{
 				SoldierID OpponentID = pBullet->pFirer->targeting().engagedOpponent();
-				SOLDIERTYPE* opponent =
+				TacticalActor* opponent =
 					GetJa2SoldierRepository().resolve(
 						OpponentID.i);
 				INT8 Team = opponent->roster().team();
@@ -6091,7 +6098,7 @@ CompileWorldMovementCosts();
 }
 
 
-BOOLEAN InRange( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+BOOLEAN InRange( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	 INT32								sRange;	
 	 OBJECTTYPE							*pObj;
@@ -6101,7 +6108,7 @@ BOOLEAN InRange( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 		 return FALSE;
 
 	 // Flugente: check for underbarrel weapons and use that object if necessary
-	 pObj = pSoldier->GetUsedWeapon( &pSoldier->inventory()[HANDPOS] );
+	 pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS] );
 
 	 if ( Item[pObj->usItem].usItemClass & (IC_GUN | IC_THROWING_KNIFE | IC_LAUNCHER) )
 	 {
@@ -6129,7 +6136,7 @@ BOOLEAN InRange( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	 return( FALSE );
 }
 
-UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos )
+UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos )
 {
 
 	//////////////////////////////////////////////////////////////////////////////////
@@ -6143,7 +6150,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	//////////////////////////////////////////////////////////////////////////////////
 
 	// Basic defines
-	SOLDIERTYPE * pTarget;
+	TacticalActor * pTarget;
 	INT32 iRange, iSightRange; //, minRange;
 	INT16 sX, sY, sX2, sY2;
 	UINT16	usInHand;
@@ -6157,8 +6164,8 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	pInHand = &(pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
-	UINT16 usItemAttHand    = pSoldier->GetUsedWeaponNumber( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
+	OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
+	UINT16 usItemAttHand    = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
 
 	usInHand = pSoldier->attackSelection().weapon();
 	gCTHDisplay.fMaxAimReached = FALSE;
@@ -6174,7 +6181,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 
 	// Find a target in the tile
 	ubTargetID = WhoIsThere2( sGridNo, pSoldier->targeting().level() ); // Target ubID
-	SOLDIERTYPE* targetSoldier =
+	TacticalActor* targetSoldier =
 		GetJa2SoldierRepository().resolve(ubTargetID.i);
 	pTarget = SimpleFindSoldier( sGridNo, pSoldier->targeting().level() ); // Target Pointer
 
@@ -6401,16 +6408,24 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 		if ( pTarget && pTarget->identity().profile() != NO_PROFILE )
 			targetprofile = pTarget->identity().profile();
 
-		fAimModifier += pSoldier->GetTraitCTHModifier( usInHand, ubAimTime, targetprofile );
+		fAimModifier +=
+			TacticalActorModifiers::traitChanceToHitModifier(
+				*pSoldier,
+				usInHand,
+				ubAimTime,
+				targetprofile);
 
 		// Flugente: backgrounds
 		if ( pTarget && pTarget->roster().team() == CREATURE_TEAM )
-			fAimModifier += pSoldier->GetBackgroundValue(BG_PERC_CTH_CREATURE);
+			fAimModifier += TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CTH_CREATURE);
 
 		// Flugente: if we are a sniper and a spotter from our team spots the targetted location, we receive a powerful cth bonus
 		if ( gGameOptions.fNewTraitSystem && Weapon[usInHand].ubWeaponType == GUN_SN_RIFLE || Weapon[usInHand].ubWeaponType == GUN_RIFLE )
 		{
-			fAimModifier += GridNoSpotterCTHBonus( pSoldier, sGridNo, pSoldier->roster().team());
+			fAimModifier += TacticalActorSpotting::chanceToHitBonus(
+				pSoldier,
+				sGridNo,
+				pSoldier->roster().team());
 		}
 
 		// get aimbonus from target
@@ -6490,7 +6505,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 		
 	// Impose global limits.	
 	// Flugente: backgrounds
-	fFinalChance = __min(fFinalChance, min(100, gGameExternalOptions.ubMaximumCTH + (UINT8)(pSoldier->GetBackgroundValue(BG_PERC_CTH_MAX))) );
+	fFinalChance = __min(fFinalChance, min(100, gGameExternalOptions.ubMaximumCTH + (UINT8)(TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CTH_MAX))) );
 	fFinalChance = __max(fFinalChance, gGameExternalOptions.ubMinimumCTH);
 	
 
@@ -6498,7 +6513,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 }
 
 
-UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos )
+UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos )
 {
 	if(UsingNewCTHSystem() == true)
 		return CalcNewChanceToHitGun(pSoldier, sGridNo, ubAimTime, ubAimPos);
@@ -6506,7 +6521,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	//CHRISL: I've tried to sort and reorganize this function to make it a little easier to follow.  I've removed most of the unused code fragments and removed
 	//	alot of the notes.  I've also tried to sort the various portions of the function so that similar actions orrucr at the same place in the code.  The
 	//	following is the newly written function
-	SOLDIERTYPE * pTarget;
+	TacticalActor * pTarget;
 	OBJECTTYPE * pInHand;
 	INT32	iChance;	//CTH
 	INT32	iRange;		//Actual range to target
@@ -6536,14 +6551,14 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Assign basic variables
 	// Flugente: check for underbarrel weapons and use that object if necessary
-	pInHand = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
-	UINT16 usItemUsed =  pSoldier->GetUsedWeaponNumber( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
+	pInHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
+	UINT16 usItemUsed =  TacticalActorEquipment::usedWeaponNumber(*pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
 
 	pTarget = SimpleFindSoldier( sGridNo, pSoldier->targeting().level() );
 	iGunCondition = WEAPON_STATUS_MOD( (*pInHand)[0]->data.gun.bGunStatus );
 	usInHand = pSoldier->attackSelection().weapon();
 	ubTargetID = WhoIsThere2( sGridNo, pSoldier->targeting().level() );
-	SOLDIERTYPE* targetSoldier =
+	TacticalActor* targetSoldier =
 		GetJa2SoldierRepository().resolve(ubTargetID.i);
 	bLightLevel = LightTrueLevel(sGridNo, pSoldier->targeting().level());
 	usShockPenalty = pSoldier->suppression().shock() * AIM_PENALTY_PER_SHOCK;
@@ -6667,7 +6682,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	} else {
 		iMarksmanship = EffectiveMarksmanship( pSoldier );
 		if ( AM_A_ROBOT( pSoldier ) ) {
-			SOLDIERTYPE * pSoldier2;
+			TacticalActor * pSoldier2;
 			pSoldier2 = pSoldier->GetRobotController( );
 			if ( pSoldier2 )
 				iMarksmanship = __max( iMarksmanship, EffectiveMarksmanship( pSoldier2 ) );
@@ -6959,11 +6974,11 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	}
 
 	// Flugente: backgrounds
-	if ( pTarget && pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE ) )
+	if ( pTarget && TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE ) )
 	{
 		if ( pTarget->IsCrouchedAgainstCoverFromDir( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTarget ) ) )
 		{
-			iChance += pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE );
+			iChance += TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE );
 		}
 	}
 
@@ -6989,16 +7004,25 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	if ( pTarget && pTarget->identity().profile() != NO_PROFILE )
 		targetprofile = pTarget->identity().profile();
 
-	iChance += pSoldier->GetTraitCTHModifier( usInHand, ubAimTime, targetprofile );
+	iChance +=
+		TacticalActorModifiers::traitChanceToHitModifier(
+			*pSoldier,
+			usInHand,
+			ubAimTime,
+			targetprofile);
 		
 	// Flugente: backgrounds
 	if ( pTarget && pTarget->roster().team() == CREATURE_TEAM )
-		iChance += pSoldier->GetBackgroundValue(BG_PERC_CTH_CREATURE);
+		iChance += TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CTH_CREATURE);
 
 	// Flugente: if we are a sniper and a spotter from our team spots the targetted location, we receive a powerful cth bonus
 	if ( gGameOptions.fNewTraitSystem && Weapon[usInHand].ubWeaponType == GUN_SN_RIFLE || Weapon[usInHand].ubWeaponType == GUN_RIFLE )
 	{
-		iChance += (INT32)(GridNoSpotterCTHBonus( pSoldier, sGridNo, pSoldier->roster().team()));
+		iChance += static_cast<INT32>(
+			TacticalActorSpotting::chanceToHitBonus(
+				pSoldier,
+				sGridNo,
+				pSoldier->roster().team()));
 	}
 		
 	/////////////////////////////////////////////////////////////////////////////////////
@@ -7527,7 +7551,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		// iChance = MAXCHANCETOHIT;
 
 		// Flugente: backgrounds
-		iChance =  min(iChance, min(100, gGameExternalOptions.ubMaximumCTH + (UINT8)(pSoldier->GetBackgroundValue(BG_PERC_CTH_MAX))) );
+		iChance =  min(iChance, min(100, gGameExternalOptions.ubMaximumCTH + (UINT8)(TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_CTH_MAX))) );
 	}
 	/////////////////////////////////////////////////////////////////////////////////////
 	
@@ -7535,7 +7559,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
    return (iChance);
 }
 
-UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos, INT8 bTargetLevel, UINT16 usAnimState)//dnl ch59 180813
+UINT32 AICalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos, INT8 bTargetLevel, UINT16 usAnimState)//dnl ch59 180813
 {
 	INT8 bTrueLevel;//dnl ch59 180813 if target is above ground CalcChanceToHitGun will return 0 because pSoldier->targeting().level() contains some old values from previous target which was on ground level
 	UINT16 usTrueState;
@@ -7664,7 +7688,7 @@ UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		}
 
 		// Flugente: check for underbarrel weapons and use that object if necessary
-		OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
+		OBJECTTYPE* pObjAttHand = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[pSoldier->attackSelection().hand()]) );
 		FLOAT dGunRange = (FLOAT)(GunRange(pObjAttHand, pSoldier));
 
 		FLOAT dMaxGunRange = dGunRange * gGameCTHConstants.MAX_EFFECTIVE_RANGE_MULTIPLIER;
@@ -7688,7 +7712,7 @@ UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		}
 
 		// sevenfm: take into account target facing
-		SOLDIERTYPE* pTarget = SimpleFindSoldier(sGridNo, bTargetLevel);
+		TacticalActor* pTarget = SimpleFindSoldier(sGridNo, bTargetLevel);
 
 		if (pTarget &&
 			gGameCTHConstants.SIDE_FACING_DIVISOR <= 1.0f &&
@@ -7738,7 +7762,7 @@ INT32 CalcBodyImpactReduction( UINT8 ubAmmoType, UINT8 ubHitLocation )
 	return( iReduction );
 }
 
-INT32 ArmourProtection( SOLDIERTYPE * pTarget, UINT16 ubArmourType, INT16 * pbStatus, INT32 iImpact, UINT8 ubAmmoType, BOOLEAN *plateHit)
+INT32 ArmourProtection( TacticalActor * pTarget, UINT16 ubArmourType, INT16 * pbStatus, INT32 iImpact, UINT8 ubAmmoType, BOOLEAN *plateHit)
 {
 	INT32		iProtection, iAppliedProtection, iFailure, iCoverage;
 
@@ -7817,7 +7841,7 @@ INT32 ArmourProtection( SOLDIERTYPE * pTarget, UINT16 ubArmourType, INT16 * pbSt
 }
 
 
-INT32 TotalArmourProtection( SOLDIERTYPE * pTarget, UINT8 ubHitLocation, INT32 iImpact, UINT8 ubAmmoType, BOOLEAN fConsiderFlak )
+INT32 TotalArmourProtection( TacticalActor * pTarget, UINT8 ubHitLocation, INT32 iImpact, UINT8 ubAmmoType, BOOLEAN fConsiderFlak )
 {
 	INT32					iTotalProtection = 0, iSlot;
 	OBJECTTYPE *	pArmour;
@@ -7955,7 +7979,7 @@ INT32 TotalArmourProtection( SOLDIERTYPE * pTarget, UINT8 ubHitLocation, INT32 i
 }
 
 // HEADROCK HAM 5: Added argument the bullet!
-INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget, UINT8 ubHitLocation, INT32 iOrigImpact, INT16 sHitBy, UINT8 * pubSpecial )
+INT32 BulletImpact( TacticalActor *pFirer, BULLET *pBullet, TacticalActor * pTarget, UINT8 ubHitLocation, INT32 iOrigImpact, INT16 sHitBy, UINT8 * pubSpecial )
 {
 	UINT16 usAttackingWeapon = 0;
 	INT32 sOrigGridNo = 0;
@@ -7981,7 +8005,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	INT8					bStatLoss = 0;
 	UINT8					ubAmmoType;
 
-	if ( pTarget->IsZombie() )
+	if ( TacticalActorConditions::isZombie(*pTarget) )
 	{
 		// if bullet does not hits anything other than the head, it doesn't do any damage
 		if ( gGameExternalOptions.fZombieOnlyHeadshotsWork && ubHitLocation != AIM_SHOT_HEAD )
@@ -8009,7 +8033,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	else if ( !fFragment && pFirer )
 	{
 		// Flugente: check for underbarrel weapons and use that object if necessary
-		OBJECTTYPE* pObj = pFirer->GetUsedWeapon( &pFirer->inventory()[pFirer->attackSelection().hand()] );
+		OBJECTTYPE* pObj = TacticalActorEquipment::usedWeapon(*pFirer, &pFirer->inventory()[pFirer->attackSelection().hand()] );
 		ubAmmoType = (*pObj)[0]->data.gun.ubGunAmmoType;
 
 		ammoitem = (*pObj)[0]->data.gun.usGunAmmoItem;
@@ -8022,7 +8046,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	// Flugente: ammotype can alter the damage dealt
 	FLOAT damagefactor = AmmoTypes[ubAmmoType].dDamageModifierLife;
 
-	if ( pTarget->IsZombie( ) )
+	if ( TacticalActorConditions::isZombie(*pTarget) )
 	{
 		damagefactor *= AmmoTypes[ubAmmoType].dDamageModifierZombie;
 	}
@@ -8189,11 +8213,11 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 		// HEADROCK HAM 5.1: Oh sandro, you rendered zerominimumdamage moot...
 		if ( AmmoTypes[ubAmmoType].zeroMinimumDamage )
 		{
-			iImpact = __max( 0, (INT32)(iImpact * (100 - pTarget->GetDamageResistance(autoresolve, FALSE)) / 100 ) );
+			iImpact = __max( 0, (INT32)(iImpact * (100 - TacticalActorModifiers::damageResistance(*pTarget, autoresolve, false)) / 100 ) );
 		}
 		else
 		{
-			iImpact = __max( 1, (INT32)(iImpact * (100 - pTarget->GetDamageResistance(autoresolve, FALSE)) / 100 ) );
+			iImpact = __max( 1, (INT32)(iImpact * (100 - TacticalActorModifiers::damageResistance(*pTarget, autoresolve, false)) / 100 ) );
 		}
 
 
@@ -8636,7 +8660,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	return( iImpact );
 }
 
-INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BOOLEAN fBladeAttack )
+INT32 HTHImpact( TacticalActor * pSoldier, TacticalActor * pTarget, INT32 iHitBy, BOOLEAN fBladeAttack )
 {
 	////////////////////////////////////////////
 	// SANDRO - this all was somehow messed up
@@ -8647,7 +8671,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 	BOOLEAN autoresolve = IsAutoResolveActive();
 
 	// Flugente: check for underbarrel weapons and use that object if necessary (think of bayonets)
-	OBJECTTYPE* pObj = pSoldier->GetUsedWeapon( &(pSoldier->inventory()[HANDPOS]) );
+	OBJECTTYPE* pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &(pSoldier->inventory()[HANDPOS]) );
 
 	if (fBladeAttack)
 	{
@@ -8907,10 +8931,10 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 	iImpact = (iImpact * (100 + iBonus) + 50) / 100; // round it properly
 
 	// Flugente: moved the damage calculation into a separate function
-	iImpact = max( 1, (INT32)(iImpact * (100 - pTarget->GetDamageResistance(autoresolve, FALSE)) / 100 ) );
+	iImpact = max( 1, (INT32)(iImpact * (100 - TacticalActorModifiers::damageResistance(*pTarget, autoresolve, false)) / 100 ) );
 
 	// Flugente: if the target is a zombie, any melee attack, regardless of hit location, will set the headshot flag. Thus any zombie killed in melee will stay dead (if you play with that option)
-	if ( pTarget->IsZombie() )
+	if ( TacticalActorConditions::isZombie(*pTarget) )
 	{
 		// set a flag if this was a headshot, unset if it wasn't. Thus we can determine if this was a headshot kill (only if life > 0, ignore if already dead)
 		if ( gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && pTarget->vitals().health() > 0 )
@@ -8925,7 +8949,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 {
 	BOOLEAN			fDoMissForGun = FALSE;
-	SOLDIERTYPE*		pAttacker = NULL;
+	TacticalActor*		pAttacker = NULL;
 	BULLET*			pBullet;
 
 	if ( ubAttackerID == NOBODY )
@@ -8936,7 +8960,7 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 
 	if ( pAttacker->targeting().hasEngagedOpponent() )
 	{
-		SOLDIERTYPE* opponent =
+		TacticalActor* opponent =
 			GetJa2SoldierRepository().resolve(
 				pAttacker->targeting().engagedOpponent().i);
 		// if it was another team shooting at someone under our control
@@ -9035,7 +9059,7 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 	if ( pAttacker != NULL && pAttacker->targeting().hasEngagedOpponent() )
 	{
 		SoldierID OpponentID = pAttacker->targeting().engagedOpponent();
-		SOLDIERTYPE* opponent =
+		TacticalActor* opponent =
 			GetJa2SoldierRepository().resolve(OpponentID.i);
 
 		if( Item[ pAttacker->attackSelection().weapon() ].usItemClass & IC_GUN )
@@ -9060,7 +9084,7 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 	}
 }
 
-UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAimTime, UINT8 ubMode )
+UINT32 CalcChanceHTH( TacticalActor * pAttacker,TacticalActor *pDefender, INT16 ubAimTime, UINT8 ubMode )
 {
 	// rftr: unactivated turncoats intentionally try to miss
 	if (gSkillTraitValues.fCOTurncoats && pAttacker && (pAttacker->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT))
@@ -9075,7 +9099,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 
 	// Flugente: we might be using a bayonet, we should check that
 	if ( pAttacker->attackSelection().weaponMode() == WM_ATTACHED_BAYONET )
-		usInHand =  pAttacker->GetUsedWeaponNumber( &(pAttacker->inventory()[HANDPOS]) );
+		usInHand =  TacticalActorEquipment::usedWeaponNumber(*pAttacker, &(pAttacker->inventory()[HANDPOS]) );
 
 	if ( (usInHand != CREATURE_QUEEN_TENTACLES ) && (pDefender->vitals().health() < OKLIFE || pDefender->vitals().breath() < OKBREATH) )
 	{
@@ -9316,7 +9340,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	// Flugente: backgrounds
 	if (ubMode == HTH_MODE_STAB)
 	{
-		iAttRating = (iAttRating * (100 + pAttacker->GetBackgroundValue(BG_PERC_CTH_BLADE))) / 100;
+		iAttRating = (iAttRating * (100 + TacticalActorModifiers::backgroundValue(*pAttacker, BG_PERC_CTH_BLADE))) / 100;
 	}
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -9689,23 +9713,23 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	return (iChance);
 }
 
-UINT32 CalcChanceToStab(SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAimTime)
+UINT32 CalcChanceToStab(TacticalActor * pAttacker,TacticalActor *pDefender, INT16 ubAimTime)
 {
 	return( CalcChanceHTH( pAttacker, pDefender, ubAimTime, HTH_MODE_STAB ) );
 }
 
-UINT32 CalcChanceToPunch(SOLDIERTYPE *pAttacker, SOLDIERTYPE * pDefender, INT16 ubAimTime)
+UINT32 CalcChanceToPunch(TacticalActor *pAttacker, TacticalActor * pDefender, INT16 ubAimTime)
 {
 	return( CalcChanceHTH( pAttacker, pDefender, ubAimTime, HTH_MODE_PUNCH ) );
 }
 
-UINT32 CalcChanceToSteal(SOLDIERTYPE *pAttacker, SOLDIERTYPE * pDefender, INT16 ubAimTime)
+UINT32 CalcChanceToSteal(TacticalActor *pAttacker, TacticalActor * pDefender, INT16 ubAimTime)
 {
 	return( CalcChanceHTH( pAttacker, pDefender, ubAimTime, HTH_MODE_STEAL ) );
 }
 
 
-void ReloadWeapon( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
+void ReloadWeapon( TacticalActor *pSoldier, UINT8 ubHandPos )
 {
 	// NB this is a cheat function, don't award experience
 
@@ -9722,8 +9746,8 @@ void ReloadWeapon( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
 }
 
 // Changed by ADB, rev 1513
-//BOOLEAN IsGunWeaponModeCapable( SOLDIERTYPE *pSoldier, UINT8 ubHandPos , UINT8 bWpnMode)
-BOOLEAN IsGunWeaponModeCapable( OBJECTTYPE* pObject, WeaponMode bWpnMode, SOLDIERTYPE *pSoldier )
+//BOOLEAN IsGunWeaponModeCapable( TacticalActor *pSoldier, UINT8 ubHandPos , UINT8 bWpnMode)
+BOOLEAN IsGunWeaponModeCapable( OBJECTTYPE* pObject, WeaponMode bWpnMode, TacticalActor *pSoldier )
 {
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("IsGunWeaponModeCapable: weapon mode=%d",bWpnMode));
 
@@ -9789,7 +9813,7 @@ BOOLEAN IsGunWeaponModeCapable( OBJECTTYPE* pObject, WeaponMode bWpnMode, SOLDIE
 }
 
 // Changed by ADB, rev 1513
-//BOOLEAN IsGunAutofireCapable( SOLDIERTYPE *pSoldier, UINT8 ubHandPos )
+//BOOLEAN IsGunAutofireCapable( TacticalActor *pSoldier, UINT8 ubHandPos )
 BOOLEAN IsGunAutofireCapable( OBJECTTYPE* pObject )
 {
 	BOOLEAN fCapable = FALSE;
@@ -9813,8 +9837,8 @@ BOOLEAN IsGunAutofireCapable( OBJECTTYPE* pObject )
 }
 
 // Changed by ADB, rev 1513
-//BOOLEAN IsGunBurstCapable( SOLDIERTYPE *pSoldier, UINT8 ubHandPos , BOOLEAN fNotify )
-BOOLEAN IsGunBurstCapable(OBJECTTYPE* pObject, BOOLEAN fNotify, SOLDIERTYPE* pSoldier )
+//BOOLEAN IsGunBurstCapable( TacticalActor *pSoldier, UINT8 ubHandPos , BOOLEAN fNotify )
+BOOLEAN IsGunBurstCapable(OBJECTTYPE* pObject, BOOLEAN fNotify, TacticalActor* pSoldier )
 {
 	BOOLEAN fCapable = FALSE;
 
@@ -9857,7 +9881,7 @@ BOOLEAN IsGunBurstCapable(OBJECTTYPE* pObject, BOOLEAN fNotify, SOLDIERTYPE* pSo
 	return( fCapable );
 }
 
-void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem )
+void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem )
 {
 #ifdef ADB_TODO
 	SetBurstAndAutoFireMode(pSoldier, GetWeaponMode(&pSoldier->inventory()[uiInvPos]));
@@ -9982,7 +10006,7 @@ void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInv
 }
 
 
-INT32 CalcMaxTossRange( SOLDIERTYPE * pSoldier, UINT16 usItem, BOOLEAN fArmed, OBJECTTYPE* pObject)
+INT32 CalcMaxTossRange( TacticalActor * pSoldier, UINT16 usItem, BOOLEAN fArmed, OBJECTTYPE* pObject)
 {
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"calcmaxtossrange");
 	INT32 iRange = 0;
@@ -10002,7 +10026,7 @@ INT32 CalcMaxTossRange( SOLDIERTYPE * pSoldier, UINT16 usItem, BOOLEAN fArmed, O
 	//MM: So instead, let's look at the soldier's hand, and check his gun for an underbarrel GL
 	if ( fArmed )
 	{
-		OBJECTTYPE *pObj = pSoldier->GetUsedWeapon( &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
+		OBJECTTYPE *pObj = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[pSoldier->attackSelection().hand()] );
 		if ( pObj != NULL )
 		{
 			if ( Item[pObj->usItem].usItemClass & IC_LAUNCHER )
@@ -10111,7 +10135,7 @@ INT32 CalcMaxTossRange( SOLDIERTYPE * pSoldier, UINT16 usItem, BOOLEAN fArmed, O
 }
 
 
-UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos )
+UINT32 CalcThrownChanceToHit(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos )
 {
 	// rftr: unactivated turncoats intentionally try to miss
 	if (gSkillTraitValues.fCOTurncoats && pSoldier && (pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT))
@@ -10420,7 +10444,7 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	return (iChance);
 }
 
-void ChangeWeaponMode( SOLDIERTYPE * pSoldier )
+void ChangeWeaponMode( TacticalActor * pSoldier )
 {
 	// ATE: Don't do this if in a fire animation.....
 	if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIRE )
@@ -10505,7 +10529,7 @@ void ChangeWeaponMode( SOLDIERTYPE * pSoldier )
 }
 
 // Flugente: use a different scope
-void ChangeScopeMode( SOLDIERTYPE * pSoldier, INT32 iTrgGridNo )
+void ChangeScopeMode( TacticalActor * pSoldier, INT32 iTrgGridNo )
 {
 	// just to be safe...
 	if ( !pSoldier )
@@ -10573,14 +10597,14 @@ void ChangeScopeMode( SOLDIERTYPE * pSoldier, INT32 iTrgGridNo )
 	gfUIForceReExamineCursorData = TRUE;
 }
 
-void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier )
+void DishoutQueenSwipeDamage( TacticalActor *pQueenSoldier )
 {
 	INT8 bValidDishoutDirs[3][3] = { NORTH, NORTHEAST, -1,
 																	EAST, SOUTHEAST, -1,
 																	SOUTH, -1, -1 };
 
 	UINT32                  cnt, cnt2;
-	SOLDIERTYPE							*pSoldier;
+	TacticalActor							*pSoldier;
 	INT8										bDir;
 	INT32										iChance;
 	INT32										iImpact;
@@ -10638,7 +10662,7 @@ void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier )
 }
 
 
-BOOLEAN WillExplosiveWeaponFail( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
+BOOLEAN WillExplosiveWeaponFail( TacticalActor *pSoldier, OBJECTTYPE *pObj )
 {
   if ( pSoldier->roster().team() == gbPlayerNum || pSoldier->awareness().visibility() == 1 )
   {
@@ -10802,7 +10826,7 @@ UINT8 GetAutoPenalty( OBJECTTYPE *pObj, BOOLEAN fProneStance )
 }
 
 // HEADROCK HAM 4: This determines whether the previous bullet in a volley was a tracer bullet.
-BOOLEAN WasPrevBulletATracer( SOLDIERTYPE *pSoldier, OBJECTTYPE *pWeapon )
+BOOLEAN WasPrevBulletATracer( TacticalActor *pSoldier, OBJECTTYPE *pWeapon )
 {
 
 	if (!AmmoTypes[ (*pWeapon)[0]->data.gun.ubGunAmmoType ].tracerEffect)
@@ -10890,7 +10914,7 @@ UINT8 GetAmmoType( OBJECTTYPE *pObj )
 	return (*pObj)[0]->data.gun.ubGunAmmoType;
 }
 
-bool WeaponReady(SOLDIERTYPE * pSoldier)
+bool WeaponReady(TacticalActor * pSoldier)
 {
 #ifdef ROBOT_ALWAYS_READY
 	if ( AM_A_ROBOT( pSoldier) )
@@ -10923,7 +10947,7 @@ INT16 GetAPsToReload( OBJECTTYPE *pObj )
 
 // HEADROCK HAM 3.4: Estimates the number of bullets left in the gun. For use during combat.
 CHAR16 gBulletCount[10]; // This is a global containing the bullet count string
-void EstimateBulletsLeft( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
+void EstimateBulletsLeft( TacticalActor *pSoldier, OBJECTTYPE *pObj )
 {
 	UINT16 usExpLevel;
 	UINT32 usDexterity;
@@ -11055,7 +11079,7 @@ void EstimateBulletsLeft( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
 }
 
 // HEADROCK HAM 4: Calculate the ratio between current Mag Factor and Target Factor. Used for the CTH bars.
-void CalcMagFactorSimple( SOLDIERTYPE *pSoldier, FLOAT d2DDistance, INT16 bAimTime, INT32 iGridNo )
+void CalcMagFactorSimple( TacticalActor *pSoldier, FLOAT d2DDistance, INT16 bAimTime, INT32 iGridNo )
 {
 	OBJECTTYPE *pWeapon = &(pSoldier->inventory()[pSoldier->attackSelection().hand()]);
 		
@@ -11113,7 +11137,7 @@ void CalcMagFactorSimple( SOLDIERTYPE *pSoldier, FLOAT d2DDistance, INT16 bAimTi
 }
 
 // Flugente: Increase temperature of gun in ubAttackingHand due to firing a shot
-void GunIncreaseHeat( OBJECTTYPE *pObj, SOLDIERTYPE* pSoldier )
+void GunIncreaseHeat( OBJECTTYPE *pObj, TacticalActor* pSoldier )
 {
 	if ( gGameExternalOptions.fWeaponOverheating )
 	{
@@ -11286,7 +11310,7 @@ FLOAT GetOverheatDamageThreshold( OBJECTTYPE *pObj )
 	return damagethreshold;
 }
 
-FLOAT CalcNewChanceToHitBaseAttributeBonus(SOLDIERTYPE *pSoldier)
+FLOAT CalcNewChanceToHitBaseAttributeBonus(TacticalActor *pSoldier)
 {
 	INT8 bExperience = EffectiveExpLevel( pSoldier );
 	INT8 bMarksmanship = EffectiveMarksmanship( pSoldier );
@@ -11313,7 +11337,7 @@ FLOAT CalcNewChanceToHitBaseAttributeBonus(SOLDIERTYPE *pSoldier)
 	return fCombinedSkill;
 }
 
-FLOAT CalcNewChanceToHitBaseEffectBonus(SOLDIERTYPE *pSoldier)
+FLOAT CalcNewChanceToHitBaseEffectBonus(TacticalActor *pSoldier)
 {
 	FLOAT fBaseModifier = 0;
 	
@@ -11376,7 +11400,7 @@ FLOAT CalcNewChanceToHitBaseEffectBonus(SOLDIERTYPE *pSoldier)
 	return fBaseModifier;
 }
 
-FLOAT CalcNewChanceToHitBaseWeaponBonus(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, FLOAT fGunBaseDifficulty, UINT8 stance)
+FLOAT CalcNewChanceToHitBaseWeaponBonus(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, FLOAT fGunBaseDifficulty, UINT8 stance)
 {
 	FLOAT fBaseModifier = 0;
 	UINT16 usInHand = pSoldier->attackSelection().weapon();
@@ -11473,7 +11497,7 @@ FLOAT CalcNewChanceToHitBaseWeaponBonus(SOLDIERTYPE *pSoldier, INT32 sGridNo, IN
 	return fBaseModifier;
 }
 
-FLOAT CalcNewChanceToHitBaseSpecialBonus(SOLDIERTYPE *pSoldier)
+FLOAT CalcNewChanceToHitBaseSpecialBonus(TacticalActor *pSoldier)
 {
 	FLOAT fBaseModifier = 0;
 	
@@ -11535,7 +11559,7 @@ FLOAT CalcNewChanceToHitBaseSpecialBonus(SOLDIERTYPE *pSoldier)
 	return fBaseModifier;
 }
 
-FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget, INT32 sGridNo, INT32 iRange, UINT8 ubAimPos, BOOLEAN fCantSeeTarget)
+FLOAT CalcNewChanceToHitBaseTargetBonus(TacticalActor *pSoldier, TacticalActor *pTarget, INT32 sGridNo, INT32 iRange, UINT8 ubAimPos, BOOLEAN fCantSeeTarget)
 {
 	FLOAT fBaseModifier = 0;
 	INT32 iHeightDifference = 0;
@@ -11633,11 +11657,11 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTar
 		fBaseModifier += (fTempPenalty * gGameCTHConstants.BASE_AGILE_TARGET) / 100;
 
 		// Flugente: backgrounds
-		if ( pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE ) )
+		if ( TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE ) )
 		{
 			if ( pTarget->IsCrouchedAgainstCoverFromDir( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTarget ) ) )
 			{
-				fBaseModifier += pTarget->GetBackgroundValue( BG_CROUCHEDDEFENSE );
+				fBaseModifier += TacticalActorModifiers::backgroundValue(*pTarget, BG_CROUCHEDDEFENSE );
 			}
 		}
 	}
@@ -11651,7 +11675,7 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTar
 	return fBaseModifier;
 }
 
-FLOAT CalcNewChanceToHitAimAttributeBonus(SOLDIERTYPE *pSoldier)
+FLOAT CalcNewChanceToHitAimAttributeBonus(TacticalActor *pSoldier)
 {
 	INT8 bExperience = EffectiveExpLevel( pSoldier );
 	INT8 bMarksmanship = EffectiveMarksmanship( pSoldier );
@@ -11670,7 +11694,7 @@ FLOAT CalcNewChanceToHitAimAttributeBonus(SOLDIERTYPE *pSoldier)
 	return fCombinedSkill;
 }
 
-FLOAT CalcNewChanceToHitAimEffectBonus(SOLDIERTYPE *pSoldier)
+FLOAT CalcNewChanceToHitAimEffectBonus(TacticalActor *pSoldier)
 {
 	FLOAT fAimModifier = 0;
 	
@@ -11738,7 +11762,7 @@ FLOAT CalcNewChanceToHitAimEffectBonus(SOLDIERTYPE *pSoldier)
 	return fAimModifier;
 }
 
-FLOAT CalcNewChanceToHitAimWeaponBonus(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, FLOAT fGunAimDifficulty, UINT8 stance)
+FLOAT CalcNewChanceToHitAimWeaponBonus(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTime, FLOAT fGunAimDifficulty, UINT8 stance)
 {
 	FLOAT fAimModifier = 0;
 	UINT16 usInHand = pSoldier->attackSelection().weapon();
@@ -11840,7 +11864,7 @@ FLOAT CalcNewChanceToHitAimWeaponBonus(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT
 	return fAimModifier;
 }
 
-FLOAT CalcNewChanceToHitAimSpecialBonus(SOLDIERTYPE *pSoldier)
+FLOAT CalcNewChanceToHitAimSpecialBonus(TacticalActor *pSoldier)
 {
 	FLOAT fAimModifier = 0;
 
@@ -11859,7 +11883,7 @@ FLOAT CalcNewChanceToHitAimSpecialBonus(SOLDIERTYPE *pSoldier)
 	return fAimModifier;
 }
 
-FLOAT CalcNewChanceToHitAimTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget, INT32 sGridNo, INT32 iRange, UINT8 ubAimPos, BOOLEAN fCantSeeTarget)
+FLOAT CalcNewChanceToHitAimTargetBonus(TacticalActor *pSoldier, TacticalActor *pTarget, INT32 sGridNo, INT32 iRange, UINT8 ubAimPos, BOOLEAN fCantSeeTarget)
 {
 	FLOAT fAimModifier = 0;
 	INT32 iHeightDifference = 0;
@@ -11952,7 +11976,7 @@ FLOAT CalcNewChanceToHitAimTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarg
 	return fAimModifier;
 }
 
-FLOAT CalcNewChanceToHitAimTraitBonus(SOLDIERTYPE *pSoldier, FLOAT fAimCap, FLOAT fDifference, INT32 sGridNo, INT16 ubAimTime, FLOAT fScopeMagFactor, UINT32 uiBestScopeRange)
+FLOAT CalcNewChanceToHitAimTraitBonus(TacticalActor *pSoldier, FLOAT fAimCap, FLOAT fDifference, INT32 sGridNo, INT16 ubAimTime, FLOAT fScopeMagFactor, UINT32 uiBestScopeRange)
 {
 	FLOAT fAimChance = 0;
 	FLOAT fSniperSkillBonus = 0;

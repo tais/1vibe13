@@ -32,7 +32,7 @@ namespace AI
         {
             private:
             public:
-                NullPlan(SOLDIERTYPE* npc);
+                NullPlan(TacticalActor* npc);
                 virtual void execute(PlanInputData& environment);
                 bool done() const {return false;}
         };

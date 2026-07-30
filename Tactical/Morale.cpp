@@ -1,4 +1,5 @@
 	#include <cstdlib>
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
 	#include "Morale.h"
 	#include "Overhead.h"
@@ -150,9 +151,9 @@ DynamicOpinionEvent gDynamicOpinionEvent[OPINIONEVENT_MAX] =
 
 BOOLEAN gfSomeoneSaidMoraleQuote = FALSE;
 
-BOOLEAN IsShowOffNearBy( SOLDIERTYPE * pSoldier ); // Added by SANDRO
+BOOLEAN IsShowOffNearBy( TacticalActor * pSoldier ); // Added by SANDRO
 
-INT8 GetMoraleModifier( SOLDIERTYPE * pSoldier )
+INT8 GetMoraleModifier( TacticalActor * pSoldier )
 {
 	INT8 morale = 0;
 
@@ -200,12 +201,12 @@ INT8 GetMoraleModifier( SOLDIERTYPE * pSoldier )
 	}*/
 
 	// Flugente: morale modifiers
-	morale = max( morale, morale * pSoldier->GetMoraleModifier( ) );
+	morale = max( morale, morale * TacticalActorModifiers::moraleModifier(*pSoldier) );
 
 	return morale;
 }
 
-void DecayTacticalMorale( SOLDIERTYPE * pSoldier )
+void DecayTacticalMorale( TacticalActor * pSoldier )
 {
 	// decay the tactical morale modifier
 	if (pSoldier->morale().tacticalModifier() != 0)
@@ -222,7 +223,7 @@ void DecayTacticalMorale( SOLDIERTYPE * pSoldier )
 	}
 }
 
-void DecayStrategicMorale( SOLDIERTYPE * pSoldier )
+void DecayStrategicMorale( TacticalActor * pSoldier )
 {
 	// HEADROCK HAM 3.5: Strategic Morale Mod no longer normalizes to 0 by default. In fact, a local facility can
 	// cause normalization to another value (positive or negative!), based on the activity that the character is
@@ -242,7 +243,7 @@ void DecayStrategicMorale( SOLDIERTYPE * pSoldier )
 
 void DecayTacticalMoraleModifiers( void )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	SoldierID ubLoop, ubLoop2;
 	BOOLEAN				fHandleNervous;
 
@@ -306,7 +307,7 @@ void DecayTacticalMoraleModifiers( void )
 						fHandleNervous = TRUE;
 						for ( ubLoop2 = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; ubLoop2 <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++ubLoop2 )
 						{
-							SOLDIERTYPE *pSoldier2 =
+							TacticalActor *pSoldier2 =
 								GetJa2SoldierRepository().resolve(ubLoop2.i);
 							if ( pSoldier2 != pSoldier && pSoldier2->roster().active() && pSoldier2->deployment().sectorX() == pSoldier->deployment().sectorX() && pSoldier2->deployment().sectorY() == pSoldier->deployment().sectorY() && pSoldier2->deployment().sectorZ() == pSoldier->deployment().sectorZ() )
 							{
@@ -352,7 +353,7 @@ void DecayTacticalMoraleModifiers( void )
 
 void DecayStrategicMoraleModifiers( void )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	SoldierID ubLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 
 	for ( ; ubLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++ubLoop )
@@ -378,7 +379,7 @@ void DecayStrategicMoraleModifiers( void )
 
 
 
-void RefreshSoldierMorale( SOLDIERTYPE * pSoldier )
+void RefreshSoldierMorale( TacticalActor * pSoldier )
 {
 	INT32		iActualMorale;
 
@@ -431,14 +432,14 @@ void RefreshSoldierMorale( SOLDIERTYPE * pSoldier )
 	}
 
 	// Flugente: morale modifiers
-	iActualMorale = iActualMorale * pSoldier->GetMoraleModifier();
+	iActualMorale = iActualMorale * TacticalActorModifiers::moraleModifier(*pSoldier);
 
 	// Flugente: ubMaxMorale can now be influenced by our food situation
 	if ( UsingFoodSystem() )
 		FoodMaxMoraleModifiy(pSoldier, &ubMaxMorale);
 
 	// Flugente: max morale can be lowered
-	iActualMorale = min(iActualMorale, pSoldier->GetMoraleThreshold() );
+	iActualMorale = min(iActualMorale, 100 );
 
 	if (ubMaxMorale > 0 && iActualMorale > ubMaxMorale)
 	{
@@ -453,7 +454,7 @@ void RefreshSoldierMorale( SOLDIERTYPE * pSoldier )
 }
 
 // SANDRO - changed this a bit
-void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
+void UpdateSoldierMorale( TacticalActor * pSoldier, INT8 bMoraleEvent )
 {
 	MERCPROFILESTRUCT *		pProfile;
 	INT32									iMoraleModTotal;
@@ -710,17 +711,17 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 }
 
 
-void HandleMoraleEventForSoldier( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
+void HandleMoraleEventForSoldier( TacticalActor * pSoldier, INT8 bMoraleEvent )
 {
 	// SANDRO - changed this to send the event forward
 	UpdateSoldierMorale( pSoldier, bMoraleEvent ); //, gbMoraleEvent[bMoraleEvent].ubType, gbMoraleEvent[bMoraleEvent].bChange );
 }
 
 
-void HandleMoraleEvent( SOLDIERTYPE *pSoldier, INT8 bMoraleEvent, INT16 sMapX, INT16 sMapY, INT8 bMapZ )
+void HandleMoraleEvent( TacticalActor *pSoldier, INT8 bMoraleEvent, INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 {
 	SoldierID id;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	MERCPROFILESTRUCT *pProfile;
 
 	gfSomeoneSaidMoraleQuote = FALSE;
@@ -1156,8 +1157,8 @@ void HourlyMoraleUpdate( void )
 	INT32				iTotalOpinions;
 	INT8					bNumTeamMembers;
 	INT8					bHighestTeamLeadership = 0;
-	SOLDIERTYPE			*pSoldier;
-	SOLDIERTYPE			*pOtherSoldier;
+	TacticalActor			*pSoldier;
+	TacticalActor			*pOtherSoldier;
 	MERCPROFILESTRUCT	*pProfile;
 	BOOLEAN				fSameGroupOnly;
 	static INT8			bStrategicMoraleUpdateCounter = 0;
@@ -1357,8 +1358,8 @@ void HandleSnitchCheck( void )
 {
 	SoldierID			bMercID, bOtherID, bLastTeamID;
 	INT8					bOpinion = -1;
-	SOLDIERTYPE			*pSoldier;
-	SOLDIERTYPE			*pOtherSoldier;
+	TacticalActor			*pSoldier;
+	TacticalActor			*pOtherSoldier;
 	MERCPROFILESTRUCT	*pProfile;
 	BOOLEAN				fSameGroupOnly;
 	// anv: save merc id and his negative morale event for snitches
@@ -1494,7 +1495,7 @@ void HandleSnitchCheck( void )
 void HandleSnitchesReports( std::vector<SnitchEvent>& aVec )
 {
 	UINT8 bSnitchID;
-	SOLDIERTYPE *pSnitch;
+	TacticalActor *pSnitch;
 	BOOLEAN fSleepingSnitch = FALSE;
 
 	size_t size = aVec.size( );
@@ -1533,7 +1534,7 @@ void HandleSnitchesReports( std::vector<SnitchEvent>& aVec )
 				if ( event2.ubEventType < NUM_SNITCH_EVENTS && event2.ubSnitchID == bSnitchID )
 				{
 					// check if relevant mercs are well
-					SOLDIERTYPE *pSoldier, *pOtherSoldier;
+					TacticalActor *pSoldier, *pOtherSoldier;
 					pSoldier = FindSoldierByProfileID( event2.ubTargetProfile, TRUE );
 					if ( pSoldier == NULL || !(pSoldier->roster().active()) )
 						continue;
@@ -1573,9 +1574,9 @@ void RememberSnitchableEvent( UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProf
 	SoldierID bSnitchID;
 	INT16 sSnitchingChance = 0;
 	UINT8 ubSnitchProfile;
-	SOLDIERTYPE * pSnitch;
-	SOLDIERTYPE * pSoldier;
-	SOLDIERTYPE * pOtherSoldier;
+	TacticalActor * pSnitch;
+	TacticalActor * pSoldier;
+	TacticalActor * pOtherSoldier;
 
 	pSoldier = FindSoldierByProfileID( ubTargetProfile, FALSE );
 	pOtherSoldier = FindSoldierByProfileID( ubSecondaryTargetProfile, FALSE );
@@ -1672,7 +1673,7 @@ void RememberSnitchableEvent( UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProf
 	}
 }
 
-void DailyMoraleUpdate(SOLDIERTYPE *pSoldier)
+void DailyMoraleUpdate(TacticalActor *pSoldier)
 {
 	if ( pSoldier->identity().profile() == NO_PROFILE )
 	{
@@ -1714,10 +1715,10 @@ void DailyMoraleUpdate(SOLDIERTYPE *pSoldier)
 }
 
 // Added by SANDRO
-BOOLEAN IsShowOffNearBy( SOLDIERTYPE * pSoldier )
+BOOLEAN IsShowOffNearBy( TacticalActor * pSoldier )
 {
 	SoldierID	uiLoop;
-	SOLDIERTYPE *pTeammate;
+	TacticalActor *pTeammate;
 	BOOLEAN		fOneException = FALSE;
 	BOOLEAN		fYesHeIs = FALSE;
 

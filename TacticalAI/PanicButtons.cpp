@@ -18,7 +18,7 @@ void MakeClosestEnemyChosenOne()
 	INT16			sPathCost, sShortestPath = 1000;
 	INT8				bOldKeys = -1;
 	SoldierID		ubClosestEnemy = NOBODY;
-	SOLDIERTYPE *	pSoldier;
+	TacticalActor *	pSoldier;
 	INT8				bPanicTrigger;
 	INT32			sPanicTriggerGridNo;
 
@@ -180,7 +180,7 @@ void MakeClosestEnemyChosenOne()
 #endif
 }
 
-void PossiblyMakeThisEnemyChosenOne( SOLDIERTYPE * pSoldier )
+void PossiblyMakeThisEnemyChosenOne( TacticalActor * pSoldier )
 {
 	INT32		iAPCost, iPathCost;
 	//INT8		bOldKeys;
@@ -246,7 +246,7 @@ void PossiblyMakeThisEnemyChosenOne( SOLDIERTYPE * pSoldier )
 }
 
 
-INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
+INT8 PanicAI(TacticalActor *pSoldier, UINT8 ubCanMove)
 {
 	BOOLEAN	fFoundRoute = FALSE;
 	INT8	bSlot;
@@ -442,7 +442,7 @@ void InitPanicSystem( void )
 	FindPanicBombsAndTriggers();
 }
 
-INT8 ClosestPanicTrigger( SOLDIERTYPE * pSoldier )
+INT8 ClosestPanicTrigger( TacticalActor * pSoldier )
 {
 	INT8		bLoop;
 	INT16		sDistance;
@@ -509,7 +509,7 @@ BOOLEAN NeedToRadioAboutPanicTrigger( void )
 
 	if ( gWorldSectorX == TIXA_SECTOR_X && gWorldSectorY == TIXA_SECTOR_Y )
 	{
-		SOLDIERTYPE * pSoldier;
+		TacticalActor * pSoldier;
 		pSoldier = FindSoldierByProfileID( WARDEN, FALSE );
 		if ( !pSoldier || pSoldier->identity().id() == gTacticalStatus.ubTheChosenOne )
 		{
@@ -536,7 +536,7 @@ BOOLEAN NeedToRadioAboutPanicTrigger( void )
 #define STAIRCASE_GRIDNO 12067
 #define STAIRCASE_DIRECTION 0
 
-INT8 HeadForTheStairCase( SOLDIERTYPE * pSoldier )
+INT8 HeadForTheStairCase( TacticalActor * pSoldier )
 {
 	UNDERGROUND_SECTORINFO * pBasementInfo;
 

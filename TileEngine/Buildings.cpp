@@ -145,7 +145,7 @@ BUILDING * GenerateBuilding( INT32 sDesiredSpot )
 		INT32			sWallGridNo;
 		INT8			bDesiredOrientation;
 		INT8			bSkipSpots = 0;
-		SOLDIERTYPE 	FakeSoldier;
+		TacticalActor 	FakeSoldier;
 		INT32			iLoopCount = 0;
 
 		FakeSoldier.position().gridNo() = sDesiredSpot;
@@ -459,7 +459,7 @@ void GenerateBuildings( void )
 	}
 }
 
-INT32 FindClosestClimbPoint( SOLDIERTYPE *pSoldier, INT32 sStartGridNo, INT32 sDesiredGridNo, BOOLEAN fClimbUp )
+INT32 FindClosestClimbPoint( TacticalActor *pSoldier, INT32 sStartGridNo, INT32 sDesiredGridNo, BOOLEAN fClimbUp )
 {
 	BUILDING* pBuilding = FindBuilding( sDesiredGridNo );
 	if (!pBuilding)

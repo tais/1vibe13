@@ -202,11 +202,11 @@ void ShutdownTacticalEngine( );
 
 BOOLEAN InitOverhead( );
 BOOLEAN ShutdownOverhead( );
-BOOLEAN GetSoldier( SOLDIERTYPE **ppSoldier, SoldierID usSoldierIndex );
+BOOLEAN GetSoldier( TacticalActor **ppSoldier, SoldierID usSoldierIndex );
 
 UINT32 CountNonVehiclesOnPlayerTeam( );
 
-BOOLEAN NewOKDestination( SOLDIERTYPE * pCurrSoldier, INT32 sGridNo, BOOLEAN fPeopleToo, INT8 bLevel );
+BOOLEAN NewOKDestination( TacticalActor * pCurrSoldier, INT32 sGridNo, BOOLEAN fPeopleToo, INT8 bLevel );
 
 //Simple check to see if a (one-tiled) soldier can occupy a given location on the ground or roof.
 extern BOOLEAN IsLocationSittable( INT32 iMapIndex, BOOLEAN fOnRoof );
@@ -236,27 +236,27 @@ void SlideTo(SoldierID usSoldierID, BOOLEAN fSetLocator) ;
 void SlideToLocation( INT32 sDestGridNo );
 
 void RebuildAllSoldierShadeTables( );
-void HandlePlayerTeamMemberDeath( SOLDIERTYPE *pSoldier );
+void HandlePlayerTeamMemberDeath( TacticalActor *pSoldier );
 SoldierID LastActiveTeamMember( UINT16 ubTeam );
-BOOLEAN SoldierOnVisibleWorldTile( SOLDIERTYPE *pSoldier );
+BOOLEAN SoldierOnVisibleWorldTile( TacticalActor *pSoldier );
 
-SoldierID FindNextActiveAndAliveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs );
-SoldierID FindPrevActiveAndAliveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs );
+SoldierID FindNextActiveAndAliveMerc( TacticalActor *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs );
+SoldierID FindPrevActiveAndAliveMerc( TacticalActor *pSoldier, BOOLEAN fGoodForLessOKLife, BOOLEAN fOnlyRegularMercs );
 
 BOOLEAN CheckForPlayerTeamInMissionExit( );
-void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldier );
+void HandleNPCTeamMemberDeath( TacticalActor *pSoldier );
 
 void StopMercAnimation( BOOLEAN fStop );
 
 UINT32 EnterTacticalDemoMode();
 
-BOOLEAN UIOKMoveDestination( SOLDIERTYPE *pSoldier, INT32 usMapPos );
+BOOLEAN UIOKMoveDestination( TacticalActor *pSoldier, INT32 usMapPos );
 
-INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirection, INT32 *psAdjustedGridNo, BOOLEAN fForceToPerson, BOOLEAN fDoor , bool allow_diagonal = false);
-INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirection, INT32 *psAdjustedGridNo, BOOLEAN fForceToPerson, BOOLEAN fDoor );
+INT32 FindAdjacentGridEx( TacticalActor *pSoldier, INT32 sGridNo, UINT8 *pubDirection, INT32 *psAdjustedGridNo, BOOLEAN fForceToPerson, BOOLEAN fDoor , bool allow_diagonal = false);
+INT32 FindNextToAdjacentGridEx( TacticalActor *pSoldier, INT32 sGridNo, UINT8 *pubDirection, INT32 *psAdjustedGridNo, BOOLEAN fForceToPerson, BOOLEAN fDoor );
 
 
-void SelectNextAvailSoldier( SOLDIERTYPE *pSoldier );
+void SelectNextAvailSoldier( TacticalActor *pSoldier );
 BOOLEAN TeamMemberNear(INT8 bTeam, INT32 sGridNo, INT32 iRange);
 BOOLEAN IsValidTargetMerc( SoldierID ubSoldierID );
 
@@ -268,43 +268,43 @@ INT32 MoveSoldierFromAwayToMercSlot(TacticalEntityId actor);
 void EnterCombatMode( UINT8 ubStartingTeam );
 void ExitCombatMode( );
 void HandleTeamServices( UINT8 ubTeamNum );
-void HandlePlayerServices( SOLDIERTYPE *pTeamSoldier );
+void HandlePlayerServices( TacticalActor *pTeamSoldier );
 void SetEnemyPresence( );
 void CycleThroughKnownEnemies( BOOLEAN backward = FALSE );
 BOOLEAN CheckForEndOfCombatMode( BOOLEAN fIncrementTurnsNotSeen );
-SOLDIERTYPE * FreeUpAttacker( );
+TacticalActor * FreeUpAttacker( );
 BOOLEAN PlayerTeamFull( );
 void SetActionToDoOnceMercsGetToLocation( UINT8 ubActionCode, UINT8 uiNumMercsWaiting, UINT32 uiData1, UINT32 uiData2, UINT32 uiData3 );
 void ResetAllMercSpeeds( );
-BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLEAN fInitialMove, UINT16 usAnimState );
-SOLDIERTYPE * ReduceAttackBusyCount( );
+BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOOLEAN fInitialMove, UINT16 usAnimState );
+TacticalActor * ReduceAttackBusyCount( );
 
 // HEADROCK HAM B2.6: Made this public so it can be used elsewhere.
-INT8 CalcSuppressionTolerance( SOLDIERTYPE * pSoldier );
+INT8 CalcSuppressionTolerance( TacticalActor * pSoldier );
 // HEADROCK HAM 3.2: A new function for checking the condition of nearby friendlies and returning a modifier.
-INT8 CheckStatusNearbyFriendlies( SOLDIERTYPE *pSoldier );
+INT8 CheckStatusNearbyFriendlies( TacticalActor *pSoldier );
 // sevenfm: simplified version
-INT8 CheckStatusNearbyFriendliesSimple(SOLDIERTYPE *pSoldier);
+INT8 CheckStatusNearbyFriendliesSimple(TacticalActor *pSoldier);
 
 void CommonEnterCombatModeCode( );
-void CheckForPotentialAddToBattleIncrement( SOLDIERTYPE *pSoldier );
+void CheckForPotentialAddToBattleIncrement( TacticalActor *pSoldier );
 void CencelAllActionsForTimeCompression( );
 BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated );
 void AddManToTeam( INT8 bTeam );
 void RemoveManFromTeam( INT8 bTeam );
-void RemoveSoldierFromTacticalSector( SOLDIERTYPE *pSoldier, BOOLEAN fAdjustSelected );
-void MakeCivHostile(SOLDIERTYPE *pSoldier);
+void RemoveSoldierFromTacticalSector( TacticalActor *pSoldier, BOOLEAN fAdjustSelected );
+void MakeCivHostile(TacticalActor *pSoldier);
 
 #define REASON_NORMAL_ATTACK    1
 #define REASON_EXPLOSION        2
 
-BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** ppTarget, INT8 bReason );
-INT32 FindAdjacentPunchTarget( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTargetSoldier, INT32 * psAdjustedTargetGridNo, UINT8 * pubDirection );
-SOLDIERTYPE * CivilianGroupMemberChangesSides( SOLDIERTYPE * pAttacked );
+BOOLEAN ProcessImplicationsOfPCAttack( TacticalActor * pSoldier, TacticalActor ** ppTarget, INT8 bReason );
+INT32 FindAdjacentPunchTarget( TacticalActor * pSoldier, TacticalActor * pTargetSoldier, INT32 * psAdjustedTargetGridNo, UINT8 * pubDirection );
+TacticalActor * CivilianGroupMemberChangesSides( TacticalActor * pAttacked );
 void CivilianGroupChangesSides( UINT8 ubCivilianGroup );
-void CycleVisibleEnemies( SOLDIERTYPE *pSrcSoldier );
-void CycleVisibleEnemiesBackward( SOLDIERTYPE *pSrcSoldier );
-UINT8 CivilianGroupMembersChangeSidesWithinProximity( SOLDIERTYPE * pAttacked );
+void CycleVisibleEnemies( TacticalActor *pSrcSoldier );
+void CycleVisibleEnemiesBackward( TacticalActor *pSrcSoldier );
+UINT8 CivilianGroupMembersChangeSidesWithinProximity( TacticalActor * pAttacked );
 void PauseAITemporarily( );
 void PauseAIUntilManuallyUnpaused( );
 void UnPauseAI( );
@@ -316,8 +316,8 @@ BOOLEAN HostileZombiesPresent( );
 BOOLEAN HostileCreaturesPresent();
 
 UINT16 NumPCsInSector( );
-void SetSoldierNonNeutral( SOLDIERTYPE * pSoldier );
-void SetSoldierNeutral( SOLDIERTYPE * pSoldier );
+void SetSoldierNonNeutral( TacticalActor * pSoldier );
+void SetSoldierNeutral( TacticalActor * pSoldier );
 
 void HandleThePlayerBeNotifiedOfSomeoneElseInSector();
 void SetMsgBoxForPlayerBeNotifiedOfSomeoneElseInSector();
@@ -348,10 +348,10 @@ extern UINT16 NumEnemyInSector();
 extern UINT16 NumZombiesInSector();
 
 // Flugente: offer the enemy the chance to surrender
-void HandleSurrenderOffer( SOLDIERTYPE* pSoldier );
+void HandleSurrenderOffer( TacticalActor* pSoldier );
 
 // Flugente: attempt to convince a soldier to become a turncoat
-void HandleTurncoatAttempt( SOLDIERTYPE* pSoldier );
+void HandleTurncoatAttempt( TacticalActor* pSoldier );
 
 // Flugente: disguised mercs can distract enemies by talking to them. In order to display that, we sometimes display excerpts of their 'chats'
 void CheckChatPartners();
@@ -381,8 +381,8 @@ void DeleteAllPrisoners( UNDERGROUND_SECTORINFO *pSectorInfo );
 void KillOnePrisoner( SECTORINFO *pSectorInfo );
 
 // sevenfm: calc shock level with modifiers (traits, backgrounds, ...)
-INT8 CalcEffectiveShockLevel( SOLDIERTYPE * pSoldier );
-BOOLEAN CoweringShockLevel( SOLDIERTYPE * pSoldier );
+INT8 CalcEffectiveShockLevel( TacticalActor * pSoldier );
+BOOLEAN CoweringShockLevel( TacticalActor * pSoldier );
 // Flugente: enemy officers
 enum {
 	OFFICER_NONE = 0,

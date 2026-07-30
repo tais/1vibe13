@@ -4,22 +4,22 @@
 #include "types.h"
 #include "Soldier Control.h"
 
-void ReducePointsForFatigue( SOLDIERTYPE *pSoldier, UINT32 *pusPoints );
-void ReducePointsForFatigue( SOLDIERTYPE *pSoldier, INT32 *psPoints );
-INT32 GetSkillCheckPenaltyForFatigue( SOLDIERTYPE *pSoldier, INT32 iSkill );
-INT32 SkillCheck( SOLDIERTYPE *pSoldier, INT8 bReason, INT8 bDifficulty );
-INT16 CalcTrapDetectLevel( SOLDIERTYPE *pSoldier, BOOLEAN fExamining );
+void ReducePointsForFatigue( TacticalActor *pSoldier, UINT32 *pusPoints );
+void ReducePointsForFatigue( TacticalActor *pSoldier, INT32 *psPoints );
+INT32 GetSkillCheckPenaltyForFatigue( TacticalActor *pSoldier, INT32 iSkill );
+INT32 SkillCheck( TacticalActor *pSoldier, INT8 bReason, INT8 bDifficulty );
+INT16 CalcTrapDetectLevel( TacticalActor *pSoldier, BOOLEAN fExamining );
 
-INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer );
-INT16 EffectiveWisdom( SOLDIERTYPE *pSoldier );
-INT16 EffectiveAgility( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer );
-INT8 EffectiveMechanical( SOLDIERTYPE *pSoldier );
-INT8 EffectiveExplosive( SOLDIERTYPE *pSoldier );
-INT8 EffectiveLeadership( SOLDIERTYPE *pSoldier );
-INT8 EffectiveMarksmanship( SOLDIERTYPE *pSoldier );
-INT16 EffectiveDexterity( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer );
-INT8 EffectiveExpLevel( SOLDIERTYPE *pSoldier, BOOLEAN fTactical = TRUE );
-INT8 EffectiveMedical( SOLDIERTYPE *pSoldier );
+INT16 EffectiveStrength( TacticalActor *pSoldier, BOOLEAN fTrainer );
+INT16 EffectiveWisdom( TacticalActor *pSoldier );
+INT16 EffectiveAgility( TacticalActor *pSoldier, BOOLEAN fTrainer );
+INT8 EffectiveMechanical( TacticalActor *pSoldier );
+INT8 EffectiveExplosive( TacticalActor *pSoldier );
+INT8 EffectiveLeadership( TacticalActor *pSoldier );
+INT8 EffectiveMarksmanship( TacticalActor *pSoldier );
+INT16 EffectiveDexterity( TacticalActor *pSoldier, BOOLEAN fTrainer );
+INT8 EffectiveExpLevel( TacticalActor *pSoldier, BOOLEAN fTactical = TRUE );
+INT8 EffectiveMedical( TacticalActor *pSoldier );
 
 enum SkillChecks
 {

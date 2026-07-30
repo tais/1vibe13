@@ -61,7 +61,7 @@ extern INT32 GetTheStateOfDepartedMerc(INT32 iId);
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 // Flugente: why do we require 6 different structures and arrays if all we keep track of is the profile type? A simple array is enough
 UINT8 gProfileType[NUM_PROFILES];
@@ -1511,10 +1511,10 @@ INT16 CalcMedicalDeposit( MERCPROFILESTRUCT * pProfile )
 	return(usDeposit);
 }
 
-SOLDIERTYPE * FindSoldierByProfileID( UINT8 ubProfileID, BOOLEAN fPlayerMercsOnly )
+TacticalActor * FindSoldierByProfileID( UINT8 ubProfileID, BOOLEAN fPlayerMercsOnly )
 {
 	UINT16 ubLoop, ubLoopLimit;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	// sevenfm: fix for last soldier in player team
 	if (fPlayerMercsOnly)
@@ -1540,10 +1540,10 @@ SOLDIERTYPE * FindSoldierByProfileID( UINT8 ubProfileID, BOOLEAN fPlayerMercsOnl
 
 
 
-SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
+TacticalActor *ChangeSoldierTeam( TacticalActor *pSoldier, UINT8 ubTeam )
 {
 	SoldierID				ubID;
-	SOLDIERTYPE				*pNewSoldier = NULL;
+	TacticalActor				*pNewSoldier = NULL;
 	SOLDIERCREATE_STRUCT		MercCreateStruct;
 	UINT32					cnt;
 	INT32					sOldGridNo;
@@ -1552,7 +1552,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 	UINT32					uiOldUniqueId;
 
 	UINT32					uiSlot;
-	SOLDIERTYPE				*pGroupMember;
+	TacticalActor				*pGroupMember;
 
 	BOOLEAN					success;
 
@@ -1742,7 +1742,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 BOOLEAN RecruitRPC( UINT8 ubCharNum )
 {
-	SOLDIERTYPE *pSoldier, *pNewSoldier;
+	TacticalActor *pSoldier, *pNewSoldier;
 
 	// Get soldier pointer
 	pSoldier = FindSoldierByProfileID( ubCharNum, FALSE );
@@ -1883,7 +1883,7 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 
 BOOLEAN RecruitEPC( UINT8 ubCharNum )
 {
-	SOLDIERTYPE *pSoldier, *pNewSoldier;
+	TacticalActor *pSoldier, *pNewSoldier;
 
 	// Get soldier pointer
 	pSoldier = FindSoldierByProfileID( ubCharNum, FALSE );
@@ -1939,7 +1939,7 @@ BOOLEAN RecruitEPC( UINT8 ubCharNum )
 
 BOOLEAN UnRecruitEPC( UINT8 ubCharNum )
 {
-	SOLDIERTYPE *pSoldier, *pNewSoldier;
+	TacticalActor *pSoldier, *pNewSoldier;
 
 	// Get soldier pointer
 	pSoldier = FindSoldierByProfileID( ubCharNum, FALSE );
@@ -2085,7 +2085,7 @@ BOOLEAN IsProfileAHeadMiner( UINT8 ubProfile )
 
 void UpdateSoldierPointerDataIntoProfile( BOOLEAN fPlayerMercs )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	MERCPROFILESTRUCT * pProfile;
 	BOOLEAN				fDoCopy = FALSE;
 
@@ -2183,7 +2183,7 @@ BOOLEAN DoesMercHaveABuddyOnTheTeam( UINT8 ubMercID )
 	return( FALSE );
 }
 
-BOOLEAN MercIsHot( SOLDIERTYPE * pSoldier )
+BOOLEAN MercIsHot( TacticalActor * pSoldier )
 {
 	// SANDRO - added argument
 	// Flugente: drugs can temporarily cause a merc to be heat intolerant
@@ -2207,7 +2207,7 @@ BOOLEAN MercIsHot( SOLDIERTYPE * pSoldier )
 	return( FALSE );
 }
 // SANDRO - added function here
-BOOLEAN MercIsInTropicalSector( SOLDIERTYPE * pSoldier )
+BOOLEAN MercIsInTropicalSector( TacticalActor * pSoldier )
 {
 	if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->deployment().sectorZ() <= 0 && IsSectorTropical(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY()) )
 	{
@@ -2217,7 +2217,7 @@ BOOLEAN MercIsInTropicalSector( SOLDIERTYPE * pSoldier )
 		return( FALSE );
 }
 
-SOLDIERTYPE* SwapToProfile( SOLDIERTYPE * pSoldier, UINT8 ubDestProfile )
+TacticalActor* SwapToProfile( TacticalActor * pSoldier, UINT8 ubDestProfile )
 {
 	MERCPROFILESTRUCT* pNewProfile;
 	UINT8 ubSrcProfile = pSoldier->identity().profile();
@@ -2416,7 +2416,7 @@ SOLDIERTYPE* SwapToProfile( SOLDIERTYPE * pSoldier, UINT8 ubDestProfile )
 }
 
 
-BOOLEAN DoesNPCOwnBuilding( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+BOOLEAN DoesNPCOwnBuilding( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	//DBrot: More Rooms
 	//UINT8 ubRoomInfo;
@@ -2700,8 +2700,8 @@ void OverwriteMercOpinionsWithXMLData( UINT32 uiLoop )
 INT8 CheckMercsNearForCharTraits( UINT8 ubProfileID, INT8 bCharTraitID )
 {
 	INT8			bNumber = 0;
-	SOLDIERTYPE *	pSoldier;
-	SOLDIERTYPE *pTeammate;
+	TacticalActor *	pSoldier;
+	TacticalActor *pTeammate;
 	BOOLEAN		fOnlyOneException = FALSE;
 
 	pSoldier = FindSoldierByProfileID( ubProfileID, FALSE );

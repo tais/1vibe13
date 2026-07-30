@@ -74,7 +74,7 @@ struct MilitiaTrainingPromptContext
 		Ja2TacticalEntityReference capturedTrainer;
 		if (!capturedTrainer.capture(selectedTrainer))
 			return false;
-		SOLDIERTYPE* trainerRecord = capturedTrainer.resolve();
+		TacticalActor* trainerRecord = capturedTrainer.resolve();
 		if (!trainerRecord)
 			return false;
 
@@ -308,7 +308,7 @@ BOOLEAN TownMilitiaTrainingPromotion( INT16 sMapX, INT16 sMapY, UINT8& arusPromo
 	return FALSE;
 }
 
-void TownMilitiaTrainingCompleted( SOLDIERTYPE *pTrainer, INT16 sMapX, INT16 sMapY )
+void TownMilitiaTrainingCompleted( TacticalActor *pTrainer, INT16 sMapX, INT16 sMapY )
 {
 	UINT8 ubMilitiaTrained = 0;
 	BOOLEAN fFoundOne;
@@ -902,7 +902,7 @@ BOOLEAN ServeNextFriendlySectorInTown( INT16 *sNeighbourX, INT16 *sNeighbourY )
 	return(TRUE);
 }
 
-void HandleInterfaceMessageForCostOfTrainingMilitia( SOLDIERTYPE *pSoldier )
+void HandleInterfaceMessageForCostOfTrainingMilitia( TacticalActor *pSoldier )
 {
 	INT32 iMilitiaTrainingCost = gGameExternalOptions.iMilitiaTrainingCost * RebelCommand::GetMilitiaTrainingCostModifier();
 DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia2");
@@ -1005,7 +1005,7 @@ void DoContinueMilitiaTrainingMessageBox( INT16 sSectorX, INT16 sSectorY, const 
 	}
 }
 
-void HandleInterfaceMessageForContinuingTrainingMilitia( SOLDIERTYPE *pSoldier )
+void HandleInterfaceMessageForContinuingTrainingMilitia( TacticalActor *pSoldier )
 {
 	CHAR16 sString[ 128 ];
 	CHAR16 sStringB[ 128 ];
@@ -1126,7 +1126,7 @@ void PayMilitiaTrainingYesNoBoxCallback( UINT8 bExitValue )
 	if (!gMilitiaTrainingPrompt.active())
 		return;
 
-	SOLDIERTYPE* trainer =
+	TacticalActor* trainer =
 		gMilitiaTrainingPrompt.trainer.resolve();
 	if (!trainer ||
 		trainer->assignment().current() != TRAIN_TOWN ||
@@ -1477,12 +1477,12 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia5");
 }
 
 
-void HandleCompletionOfTownTrainingByGroupWithTrainer( SOLDIERTYPE *pTrainer, UINT8 ubMilitiaType )
+void HandleCompletionOfTownTrainingByGroupWithTrainer( TacticalActor *pTrainer, UINT8 ubMilitiaType )
 {
 
 	INT16 sSectorX = 0, sSectorY = 0;
 	INT8 bSectorZ = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT32 iCounter = 0;
 
 
@@ -1533,11 +1533,11 @@ void HandleCompletionOfTownTrainingByGroupWithTrainer( SOLDIERTYPE *pTrainer, UI
 	return;
 }
 
-void AddSectorForSoldierToListOfSectorsThatCompletedMilitiaTraining( SOLDIERTYPE *pSoldier )
+void AddSectorForSoldierToListOfSectorsThatCompletedMilitiaTraining( TacticalActor *pSoldier )
 {
 	INT32 iCounter = 0;
 	INT16 sSector = 0, sCurrentSector = 0;
-	SOLDIERTYPE *pCurrentSoldier = NULL;
+	TacticalActor *pCurrentSoldier = NULL;
 
 	// get the sector value
 	sSector = pSoldier->deployment().sectorX() + pSoldier->deployment().sectorY() * MAP_WORLD_X;
@@ -1585,7 +1585,7 @@ void ClearSectorListForCompletedTrainingOfMilitia( void )
 
 void HandleContinueOfTownTraining( void )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT32 iCounter = 0;
 	BOOLEAN fContinueEventPosted = FALSE;
 
@@ -1638,7 +1638,7 @@ void HandleContinueOfTownTraining( void )
 void BuildListOfUnpaidTrainableSectors( UINT8 ubMilitiaType )
 {
 	INT32 iCounter = 0, iCounterB = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
     // WDS - make number of mercenaries, etc. be configurable
 	memset( gsUnpaidStrategicSector, 0, sizeof(gsUnpaidStrategicSector) );
@@ -1792,7 +1792,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia6");
 
 void ResetDoneFlagForAllMilitiaTrainersInSector( UINT8 ubSector, UINT8 ubMilitiaType )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	
 	for( INT32 iCounter = 0; iCounter <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++iCounter )
 	{
@@ -1922,7 +1922,7 @@ void BuildMilitiaPromotionsString( CHAR16 *str )
 UINT8 FindBestMilitiaTrainingLeadershipInSector ( INT16 sMapX, INT16 sMapY, INT8 bMapZ, UINT8 ubMilitiaType )
 {
 	UINT16 cnt = 0;
-	SOLDIERTYPE * pCheckedTrainer;
+	TacticalActor * pCheckedTrainer;
 	UINT16 usTrainerEffectiveLeadership = 0;
 	UINT8 ubBestLeadership = 0;
 

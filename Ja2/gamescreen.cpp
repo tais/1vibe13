@@ -245,7 +245,7 @@ void EnterTacticalScreen( )
 	// CHECK IF OURGUY IS NOW OFF DUTY
 	if ( gusSelectedSoldier != NOBODY )
 	{
-		SOLDIERTYPE* selectedSoldier =
+		TacticalActor* selectedSoldier =
 			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("EnterTacticalScreen: check our guy"));
 		if ( !OK_CONTROLLABLE_MERC( selectedSoldier ) )
@@ -568,7 +568,7 @@ UINT32	MainGameScreenHandle(void)
 		{
 			if ( (( GetJA2Clock( ) - gTacticalStatus.uiTimeSinceDemoOn ) > 3000) || is_client)//unpause straight away if in MP
 			{
-				SOLDIERTYPE* sightingEnemy =
+				TacticalActor* sightingEnemy =
 					GetJa2SoldierRepository().resolve(
 						gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID.i);
 				if ( sightingEnemy &&
@@ -679,7 +679,7 @@ UINT32	MainGameScreenHandle(void)
 		// Select a guy if he hasn;'
 		if( !gfTacticalPlacementGUIActive )
 		{
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 			if ( gusSelectedSoldier != NOBODY &&
 				OK_INTERRUPT_MERC( selectedSoldier ) )
@@ -947,7 +947,7 @@ UINT32	MainGameScreenHandle(void)
 
 			if ( gusSelectedSoldier != NOBODY )
 			{
-				SOLDIERTYPE* selectedSoldier =
+				TacticalActor* selectedSoldier =
 					GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 				if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] &&
 					selectedSoldier )
@@ -1052,7 +1052,7 @@ void TacticalScreenLocateToSoldier( )
 
 	if ( gubPreferredInitialSelectedGuy != NOBODY )
 	{
-		SOLDIERTYPE* preferredSoldier =
+		TacticalActor* preferredSoldier =
 			GetJa2SoldierRepository().resolve(
 				gubPreferredInitialSelectedGuy.i);
 		// ATE: Put condition here...
@@ -1073,7 +1073,7 @@ void TacticalScreenLocateToSoldier( )
 		SoldierID bLastTeamID = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
 		for ( ; Soldier <= bLastTeamID; ++Soldier)
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				GetJa2SoldierRepository().resolve(Soldier.i);
 			if ( OK_CONTROLLABLE_MERC( soldier ) &&
 				OK_INTERRUPT_MERC( soldier ) )

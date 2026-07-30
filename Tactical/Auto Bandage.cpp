@@ -80,8 +80,8 @@ void StopAutoBandageButtonCallback(GUI_BUTTON *btn,INT32 reason);
 BOOLEAN RemoveFacesForAutoBandage( void );
 
 
-extern BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier );
-extern BOOLEAN CanCharacterBeAutoBandagedByTeammate( SOLDIERTYPE *pSoldier );
+extern BOOLEAN CanCharacterAutoBandageTeammate( TacticalActor *pSoldier );
+extern BOOLEAN CanCharacterBeAutoBandagedByTeammate( TacticalActor *pSoldier );
 extern UINT16 NumEnemyInSector( );
 
 void BeginAutoBandage( )
@@ -100,7 +100,7 @@ void BeginAutoBandage( )
 	// check for anyone needing bandages
 	for ( ; soldierId <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++soldierId )
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
 		// if the soldier isn't active or in sector, we have problems..leave
 		if ( !(soldier->roster().active()) || !(soldier->roster().inSector()) || ( soldier->status().flags() & SOLDIER_VEHICLE ) || (soldier->assignment().current() == VEHICLE ) )
@@ -173,7 +173,7 @@ void HandleAutoBandagePending( )
 		SoldierID soldierId = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 		for ( ; soldierId <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++soldierId)
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				GetJa2SoldierRepository().resolve(soldierId.i);
 			// Are we in sector?
 			if ( soldier->roster().active()	)
@@ -246,7 +246,7 @@ BOOLEAN HandleAutoBandage( )
 			SoldierID soldierId = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 			for ( ; soldierId <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++soldierId)
 			{
-				SOLDIERTYPE* soldier =
+				TacticalActor* soldier =
 					GetJa2SoldierRepository().resolve(soldierId.i);
 				if(soldier->roster().active() && soldier->roster().inSector() && soldier->aiPlanning().action() != 0)
 				{
@@ -316,7 +316,7 @@ static BOOLEAN CreateAutoBandageString( void )
 	SoldierID soldierId = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 	for ( ; soldierId <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++soldierId )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
 		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() >= OKLIFE && !(pSoldier->collapseState().tactical()) && pSoldier->statistics().medical() > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT)
 		{
@@ -424,7 +424,7 @@ void AutoBandage( BOOLEAN fStart )
 		SoldierID soldierId = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 		for ( ; soldierId <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++soldierId)
 		{
-			SOLDIERTYPE* pSoldier =
+			TacticalActor* pSoldier =
 				GetJa2SoldierRepository().resolve(soldierId.i);
 			if ( pSoldier->roster().active()	)
 			{
@@ -465,7 +465,7 @@ void AutoBandage( BOOLEAN fStart )
 		SoldierID soldierId = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 		for ( ; soldierId <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++soldierId )
 		{
-			SOLDIERTYPE* pSoldier =
+			TacticalActor* pSoldier =
 				GetJa2SoldierRepository().resolve(soldierId.i);
 			// 0verhaul:  Make sure the merc is also in the sector before making him stand up!
 			if (pSoldier->roster().active() && pSoldier->roster().inSector())
@@ -491,7 +491,7 @@ void AutoBandage( BOOLEAN fStart )
 		soldierId = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		for ( ; soldierId <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++soldierId )
 		{
-			SOLDIERTYPE* pSoldier =
+			TacticalActor* pSoldier =
 				GetJa2SoldierRepository().resolve(soldierId.i);
 			if ( pSoldier->roster().active() && pSoldier->roster().inSector())
 			{
@@ -585,7 +585,7 @@ void SetUpAutoBandageUpdatePanel( void )
 	// run through mercs on squad...if they can be a doctor or patient, add to list
 	for( iCounterA = 0; iCounterA < iNumberOnTeam; iCounterA++ )
 	{
-		SOLDIERTYPE *pSoldier =
+		TacticalActor *pSoldier =
 			GetJa2SoldierRepository().resolve(iCounterA);
 
 		if( CanCharacterAutoBandageTeammate( pSoldier ))
@@ -1173,7 +1173,7 @@ BOOLEAN RemoveFacesForAutoBandage( void )
 BOOLEAN RenderSoldierSmallFaceForAutoBandagePanel( INT32 iIndex, INT16 sCurrentXPosition, INT16 sCurrentYPosition )
 {
 	INT32 iStartY = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT32 iCounter = 0, iIndexCount = 0;
 	HVOBJECT hHandle;
 
@@ -1259,7 +1259,7 @@ BOOLEAN RetreatBandagingPending()
 }
 
 // return the ID of best doctor that has a medkit and is travelling with pPatient
-SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
+SoldierID GetBestRetreatingMercDoctor( TacticalActor* pPatient )
 {
 	// if this is a travelling, bleeding merc, can somebody who travels with him bandage him/her?
 	if ( pPatient && pPatient->roster().active() && pPatient->deployment().isBetweenSectors() && pPatient->vitals().bleeding() )
@@ -1267,7 +1267,7 @@ SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
 		SoldierID ID = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 		for ( ; ID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ID )
 		{
-			SOLDIERTYPE *pSoldier =
+			TacticalActor *pSoldier =
 				GetJa2SoldierRepository().resolve(ID.i);
 			// this requires mercs to travel and thus NOT be in a sector
 			// also we need to be in a specific sector
@@ -1310,7 +1310,7 @@ void HandleRetreatBandaging()
 	SoldierID ID = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 	for ( ; ID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ID )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(ID.i);
 		// this requires mercs to travel and thus NOT be in a sector
 		// are we bleeding?
@@ -1370,13 +1370,13 @@ void HandleRetreatBandaging()
 		if ( bestdoctorid != NOBODY )
 		{
 			// have the doctor treat people
-			SOLDIERTYPE* pDoctor =
+			TacticalActor* pDoctor =
 				GetJa2SoldierRepository().resolve(bestdoctorid.i);
 
 			SoldierID ID = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 			for ( ; ID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ID)
 			{
-				SOLDIERTYPE *pSoldier =
+				TacticalActor *pSoldier =
 					GetJa2SoldierRepository().resolve(ID.i);
 				// this requires mercs to travel and thus NOT be in a sector
 				// also we need to be in a specific sector

@@ -533,7 +533,7 @@ BOOLEAN HideUICursor( )
 void DrawSnappingCursor( )
 {
 	LEVELNODE					*pNewUIElem;
-	SOLDIERTYPE								*pSoldier;
+	TacticalActor								*pSoldier;
 	static BOOLEAN		fShowAP = TRUE;
 
 	if ( gusSelectedSoldier != NOBODY )

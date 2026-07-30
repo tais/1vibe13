@@ -58,7 +58,7 @@ static size_t MAX_BODY_LENGTH = 450;
 
 static UINT32 guiMiniEventsCachedScreen;
 static LuaState gLS;
-static std::vector<SOLDIERTYPE*> gAllMercs;
+static std::vector<TacticalActor*> gAllMercs;
 
 static void QueueNextMiniEvent(UINT32 nextEventId, UINT32 hoursToNextMiniEvent);
 
@@ -194,7 +194,7 @@ namespace MiniEventHelpers
 		const UINT8 profileId = static_cast<UINT8>(lua_tointeger(LS, 1));
 		const INT8 skillId = static_cast<INT8>(lua_tointeger(LS, 2));
 
-		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, skillId](SOLDIERTYPE* merc) {
+		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, skillId](TacticalActor* merc) {
 			if (merc->identity().profile() != profileId)
 				return;
 
@@ -244,7 +244,7 @@ namespace MiniEventHelpers
 		if (val == 0)
 			return 0;
 
-		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, val](SOLDIERTYPE* merc) {
+		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, val](TacticalActor* merc) {
 			if (merc->identity().profile() == profileId)
 			{
 				int newBreathValue = merc->vitals().maximumBreath() + val;
@@ -291,7 +291,7 @@ namespace MiniEventHelpers
 		if (val == 0)
 			return 0;
 
-		std::for_each(gAllMercs.begin(), gAllMercs.end(), [val, profileId](SOLDIERTYPE* merc) {
+		std::for_each(gAllMercs.begin(), gAllMercs.end(), [val, profileId](TacticalActor* merc) {
 			if (merc->identity().profile() == profileId)
 			{
 				merc->morale().strategicModifier() += val;
@@ -313,7 +313,7 @@ namespace MiniEventHelpers
 		if (stat <= STAT_START || stat >= STAT_EXPLEVEL || val == 0)
 			return 0;
 
-		std::for_each(gAllMercs.begin(), gAllMercs.end(), [stat, val, profileId](SOLDIERTYPE* merc) {
+		std::for_each(gAllMercs.begin(), gAllMercs.end(), [stat, val, profileId](TacticalActor* merc) {
 			if (merc->identity().profile() != profileId)
 				return;
 
@@ -538,7 +538,7 @@ namespace MiniEventHelpers
 
 		if (vehicleId >= 0 && vehicleId < ubNumberOfVehicles && pVehicleList[vehicleId].fValid == TRUE)
 		{
-			SOLDIERTYPE* vehicle = GetSoldierStructureForVehicle(vehicleId);	// the merc's own vehicle, not the first valid one
+			TacticalActor* vehicle = GetSoldierStructureForVehicle(vehicleId);	// the merc's own vehicle, not the first valid one
 
 			if (vehicle)
 			{
@@ -584,7 +584,7 @@ namespace MiniEventHelpers
 
 		if (vehicleId >= 0 && vehicleId < ubNumberOfVehicles && pVehicleList[vehicleId].fValid == TRUE)
 		{
-			SOLDIERTYPE* vehicle = GetSoldierStructureForVehicle(vehicleId);	// the merc's own vehicle, not the first valid one
+			TacticalActor* vehicle = GetSoldierStructureForVehicle(vehicleId);	// the merc's own vehicle, not the first valid one
 
 			if (vehicle)
 			{
@@ -616,7 +616,7 @@ namespace MiniEventHelpers
 		if (amount <= 0)
 			return 0;
 
-		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, stat, amount](SOLDIERTYPE* merc) {
+		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, stat, amount](TacticalActor* merc) {
 			if (merc->identity().profile() != profileId)
 				return;
 
@@ -817,7 +817,7 @@ namespace MiniEventHelpers
 		const UINT8 profileId = static_cast<UINT8>(lua_tointeger(LS, 1));
 		const int amount = lua_tointeger(LS, 2);
 
-		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, amount](SOLDIERTYPE* merc) {
+		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, amount](TacticalActor* merc) {
 			if (merc->identity().profile() != profileId)
 				return;
 
@@ -860,7 +860,7 @@ namespace MiniEventHelpers
 			sectorZ = lua_tointeger(LS, 4);
 		}
 
-		std::vector<SOLDIERTYPE*> foundMercs;
+		std::vector<TacticalActor*> foundMercs;
 
 		for (auto iter = gAllMercs.begin(); iter != gAllMercs.end(); ++iter)
 		{
@@ -922,7 +922,7 @@ namespace MiniEventHelpers
 			profileId = static_cast<UINT8>(lua_tointeger(LS, 2));
 		}
 
-		std::vector<SOLDIERTYPE*> foundMercs;
+		std::vector<TacticalActor*> foundMercs;
 
 		if (gGameOptions.fNewTraitSystem)
 		{
@@ -1081,7 +1081,7 @@ namespace MiniEventHelpers
 		INT8 z = 0;
 		for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
-			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
+			const TacticalActor* merc = GetJa2SoldierRepository().resolve(i);
 			if (merc && merc->identity().profile() == profileId)
 			{
 				x = merc->deployment().sectorX();
@@ -1210,7 +1210,7 @@ namespace MiniEventHelpers
 			lua_pushinteger(LS, 0);
 			return 3;
 		}
-		SOLDIERTYPE* bestSoldier = gAllMercs[0];
+		TacticalActor* bestSoldier = gAllMercs[0];
 		for (auto iter = gAllMercs.begin(); iter != gAllMercs.end(); ++iter)
 		{
 			if (lookAtAllMercs || ((*iter)->identity().profile() == profileId))
@@ -1337,7 +1337,7 @@ namespace MiniEventHelpers
 		if (hoursOnMiniEvent == 0)
 			return 0;
 
-		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, hoursOnMiniEvent](SOLDIERTYPE* merc) {
+		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, hoursOnMiniEvent](TacticalActor* merc) {
 			if (merc->identity().profile() != profileId)
 				return;
 
@@ -1408,7 +1408,7 @@ namespace MiniEventHelpers
 		const INT16 sectorY = lua_tointeger(LS, 3);
 		const INT8 sectorZ = lua_tointeger(LS, 4);
 
-		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, sectorX, sectorY, sectorZ](SOLDIERTYPE* merc) {
+		std::for_each(gAllMercs.begin(), gAllMercs.end(), [profileId, sectorX, sectorY, sectorZ](TacticalActor* merc) {
 			if (merc->identity().profile() != profileId)
 				return;
 
@@ -1518,7 +1518,7 @@ void MiniEventsLua(UINT32 eventId)
 	// get all mercs eligible to get a mini event
 	for (SoldierID cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID; cnt <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++cnt)
 	{
-		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(cnt);
+		TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
 		if (pSoldier && pSoldier->roster().active()
 			&& pSoldier->vitals().health() > 0
@@ -1541,7 +1541,7 @@ void MiniEventsLua(UINT32 eventId)
 		f.TableOpen();
 		for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
-			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
+			const TacticalActor* merc = GetJa2SoldierRepository().resolve(i);
 			if (merc && merc->roster().active() && merc->assignment().current() != IN_TRANSIT && !(merc->status().flags() & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
 			{
 				std::wstring ws(gMercProfiles[merc->identity().profile()].zNickname);
@@ -1560,7 +1560,7 @@ void MiniEventsLua(UINT32 eventId)
 		f.TableOpen();
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
-			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
+			const TacticalActor* merc = GetJa2SoldierRepository().resolve(i);
 			if (merc && merc->roster().active() && merc->assignment().current() != IN_TRANSIT && !(merc->status().flags() & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
 			{
 				std::wstring ws(gMercProfiles[merc->identity().profile()].zNickname);

@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+	#include "TacticalActorConditions.h"
 	#include <stdio.h>
 	#include <string.h>
 	#include "WCheck.h"
@@ -49,11 +50,12 @@
 	#include "PreBattle Interface.h"	// added by Flugente
 	#include "Strategic Town Loyalty.h"	// added by Flugente
 #include "GameInitOptionsScreen.h"
+#include "TacticalActorEquipment.h"
 #include "SoldierRepository.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 // Single field list for a corpse definition, visited by either the writer or
 // the reader adapter, so save and load are by construction symmetric. Replaces
@@ -113,7 +115,7 @@ extern		SGPPaletteEntry	gpLightColors[3];
 extern		UINT16 gusShadeLevels[16][3];
 
 
-void MakeCorpseVisible( SOLDIERTYPE *pSoldier, ROTTING_CORPSE *pCorpse );
+void MakeCorpseVisible( TacticalActor *pSoldier, ROTTING_CORPSE *pCorpse );
 
 
 // When adding a corpse, add struct data...
@@ -410,8 +412,8 @@ INT32						giNumRottingCorpse = 0;
 BOOLEAN CreateCorpsePalette( ROTTING_CORPSE *pCorpse );
 BOOLEAN				CreateCorpseShadedPalette( ROTTING_CORPSE *pCorpse, UINT32 uiBase, SGPPaletteEntry *pShadePal);
 
-void ReduceAmmoDroppedByNonPlayerSoldiers( SOLDIERTYPE *pSoldier, INT32 iInvSlot );
-void ReduceAttachmentsOnGunForNonPlayerChars(SOLDIERTYPE *pSoldier, OBJECTTYPE * pObj);
+void ReduceAmmoDroppedByNonPlayerSoldiers( TacticalActor *pSoldier, INT32 iInvSlot );
+void ReduceAttachmentsOnGunForNonPlayerChars(TacticalActor *pSoldier, OBJECTTYPE * pObj);
 
 INT32 GetFreeRottingCorpse(void)
 {
@@ -888,7 +890,7 @@ BOOLEAN CreateCorpsePalette( ROTTING_CORPSE *pCorpse )
 }
 
 
-BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLEAN fCheckForLOS )
+BOOLEAN TurnSoldierIntoCorpse( TacticalActor *pSoldier, BOOLEAN fRemoveMerc, BOOLEAN fCheckForLOS )
 {	
 	if (TileIsOutOfBounds(pSoldier->position().gridNo()))
 	{
@@ -964,7 +966,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	{	
 		case 3:
 			// a zombie might rise again
-			if ( pSoldier->IsZombie() && Random( 2 ) > 0 )
+			if ( TacticalActorConditions::isZombie(*pSoldier) && Random( 2 ) > 0 )
 				Corpse.usFlags |= ROTTING_CORPSE_NEVER_RISE_AGAIN;
 			break;
 
@@ -981,13 +983,13 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 		case 0:
 		default:
 			// a killed zombie won't rise again
-			if ( pSoldier->IsZombie() )
+			if ( TacticalActorConditions::isZombie(*pSoldier) )
 				Corpse.usFlags |= ROTTING_CORPSE_NEVER_RISE_AGAIN;
 			break;
 	}
 
 	// if zombie and headshots are required, forbid rising if killed by headshot
-	if ( pSoldier->IsZombie() && gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && (pSoldier->featureFlags().primaryFlags() & SOLDIER_HEADSHOT) )
+	if ( TacticalActorConditions::isZombie(*pSoldier) && gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && (pSoldier->featureFlags().primaryFlags() & SOLDIER_HEADSHOT) )
 		Corpse.usFlags |= ROTTING_CORPSE_NEVER_RISE_AGAIN;
 
 	// Flugente: copy name of soldier...
@@ -1083,7 +1085,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	}
 	else
 	{
-		const SOLDIERTYPE* attacker =
+		const TacticalActor* attacker =
 			GetJa2SoldierRepository().resolve( pSoldier->combatResult().currentAttacker() );
 		const bool killedByOurTeam =
 			attacker != nullptr && attacker->roster().team() == OUR_TEAM;
@@ -1157,7 +1159,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 		DropKeysInKeyRing( pSoldier, pSoldier->position().gridNo(), pSoldier->position().level(), bVisible, FALSE, 0, FALSE );
 
 		// Flugente: even if we forbid militia from dropping their equipment, they will still drop what they took via sector inventory (this functions only drops what they took)
-		pSoldier->DropSectorEquipment();
+		TacticalActorEquipment::dropSectorEquipment(*pSoldier);
 	}
 
 	// Make team look for items
@@ -1212,7 +1214,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 }
 
 
-INT16 FindNearestRottingCorpse( SOLDIERTYPE *pSoldier )
+INT16 FindNearestRottingCorpse( TacticalActor *pSoldier )
 {
 	INT32		uiRange, uiLowestRange = 999999;
 	INT32 sLowestGridNo = NOWHERE;
@@ -1249,7 +1251,7 @@ void AddCrowToCorpse( ROTTING_CORPSE *pCorpse )
 	SoldierID				iNewIndex;
 	INT32					sGridNo;
 	UINT8					ubDirection;
-	SOLDIERTYPE				*pSoldier;
+	TacticalActor				*pSoldier;
 	//DBrot: More Rooms
 	//UINT8					ubRoomNum;
 	UINT16					usRoomNum;
@@ -1305,7 +1307,7 @@ void AddCrowToCorpse( ROTTING_CORPSE *pCorpse )
 	}
 }
 
-void HandleCrowLeave( SOLDIERTYPE *pSoldier )
+void HandleCrowLeave( TacticalActor *pSoldier )
 {
 	// Check if this crow is still referencing the same corpse...
 	ROTTING_CORPSE* pCorpse = &(gRottingCorpse[pSoldier->pendingAction().primaryData()]);
@@ -1325,7 +1327,7 @@ void HandleCrowLeave( SOLDIERTYPE *pSoldier )
 }
 
 
-void HandleCrowFlyAway( SOLDIERTYPE *pSoldier )
+void HandleCrowFlyAway( TacticalActor *pSoldier )
 {
 	UINT8 ubDirection;
 	INT32 sGridNo;
@@ -1366,7 +1368,7 @@ void HandleRottingCorpses( )
 	// ATE: Check for multiple crows.....
 	// Couint how many we have now...
 	{
-		SOLDIERTYPE * pSoldier;
+		TacticalActor * pSoldier;
 
 		for ( SoldierID bLoop=gTacticalStatus.Team[ CIV_TEAM ].bFirstID; bLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++bLoop )
 		{
@@ -1434,7 +1436,7 @@ void HandleRottingCorpses( )
 	}
 }
 
-void MakeCorpseVisible( SOLDIERTYPE *pSoldier, ROTTING_CORPSE *pCorpse )
+void MakeCorpseVisible( TacticalActor *pSoldier, ROTTING_CORPSE *pCorpse )
 {
 	pCorpse->def.bVisible = 1;
 	SetRenderFlags( RENDER_FLAG_FULL );
@@ -1443,7 +1445,7 @@ void MakeCorpseVisible( SOLDIERTYPE *pSoldier, ROTTING_CORPSE *pCorpse )
 
 void AllMercsOnTeamLookForCorpse( ROTTING_CORPSE *pCorpse, INT8 bTeam )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 sGridNo;
 
 	// If this cump is already visible, return
@@ -1485,7 +1487,7 @@ void AllMercsOnTeamLookForCorpse( ROTTING_CORPSE *pCorpse, INT8 bTeam )
 	}
 }
 
-void MercLooksForCorpses( SOLDIERTYPE *pSoldier )
+void MercLooksForCorpses( TacticalActor *pSoldier )
 {
 	// Should we say disgust quote?
 	if ( pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_ROTTINGCORPSE) )
@@ -1742,7 +1744,7 @@ INT32 FindNearestAvailableGridNoForCorpse( ROTTING_CORPSE_DEFINITION *pDef, INT8
 	INT32	sLowestGridNo=0;
 	INT32	leftmost;
 	BOOLEAN	fFound = FALSE;
-	SOLDIERTYPE soldier;
+	TacticalActor soldier;
 	INT16	ubSaveNPCAPBudget;
 	UINT8	ubSaveNPCDistLimit;
 	STRUCTURE_FILE_REF * pStructureFileRef = NULL;
@@ -1905,7 +1907,7 @@ ROTTING_CORPSE *GetCorpseAtGridNo( INT32 sGridNo, INT8 bLevel )
 }
 
 
-BOOLEAN DecapitateCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel )
+BOOLEAN DecapitateCorpse( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel )
 {
 	ROTTING_CORPSE *pCorpse;
 	ROTTING_CORPSE_DEFINITION CorpseDef;
@@ -2032,7 +2034,7 @@ BOOLEAN IsValidGutCorpse( ROTTING_CORPSE *pCorpse )
 }
 
 // Flugente: gut a corpse
-BOOLEAN GutCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo,  INT8 bLevel )
+BOOLEAN GutCorpse( TacticalActor *pSoldier, INT32 sGridNo,  INT8 bLevel )
 {
 	ROTTING_CORPSE *pCorpse = GetCorpseAtGridNo( sGridNo, bLevel );
 
@@ -2092,7 +2094,7 @@ BOOLEAN IsValidStripCorpse( ROTTING_CORPSE *pCorpse )
 }
 
 // Flugente: take the clothes off a corpse
-BOOLEAN StripCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo,  INT8 bLevel )
+BOOLEAN StripCorpse( TacticalActor *pSoldier, INT32 sGridNo,  INT8 bLevel )
 {
 	ROTTING_CORPSE *pCorpse = GetCorpseAtGridNo( sGridNo, bLevel );
 
@@ -2172,7 +2174,7 @@ BOOLEAN IsValidTakeCorpse( ROTTING_CORPSE *pCorpse )
 }
 
 // Flugente: take a corpse into your hand, thereby removing it from the field
-BOOLEAN TakeCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel )
+BOOLEAN TakeCorpse( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel )
 {
 	ROTTING_CORPSE *pCorpse = GetCorpseAtGridNo( sGridNo, bLevel );
 
@@ -2527,7 +2529,7 @@ BOOLEAN AddCorpseFromObject(OBJECTTYPE* pObj, INT32 sGridNo, INT8 bLevel )
 }
 
 
-void GetBloodFromCorpse( SOLDIERTYPE *pSoldier )
+void GetBloodFromCorpse( TacticalActor *pSoldier )
 {
 	ROTTING_CORPSE *pCorpse;
 	INT8						bObjSlot;
@@ -2562,7 +2564,7 @@ void GetBloodFromCorpse( SOLDIERTYPE *pSoldier )
 	}
 }
 
-void ReduceAmmoDroppedByNonPlayerSoldiers( SOLDIERTYPE *pSoldier, INT32 iInvSlot )
+void ReduceAmmoDroppedByNonPlayerSoldiers( TacticalActor *pSoldier, INT32 iInvSlot )
 {
 	Assert( pSoldier );
 	Assert( ( iInvSlot >= 0 ) && ( iInvSlot < (INT32)pSoldier->inventory().size() ) );
@@ -2586,7 +2588,7 @@ void ReduceAmmoDroppedByNonPlayerSoldiers( SOLDIERTYPE *pSoldier, INT32 iInvSlot
 	}
 }
 
-void ReduceAttachmentsOnGunForNonPlayerChars(SOLDIERTYPE *pSoldier, OBJECTTYPE * pObj){
+void ReduceAttachmentsOnGunForNonPlayerChars(TacticalActor *pSoldier, OBJECTTYPE * pObj){
 	
 	//Not meant for use in OAS.
 	Assert(UsingNewAttachmentSystem()==true);
@@ -2626,11 +2628,11 @@ void ReduceAttachmentsOnGunForNonPlayerChars(SOLDIERTYPE *pSoldier, OBJECTTYPE *
 	}
 }
 
-void LookForAndMayCommentOnSeeingCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubLevel )
+void LookForAndMayCommentOnSeeingCorpse( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubLevel )
 {
 	ROTTING_CORPSE *pCorpse;
 	INT8			bToleranceThreshold = 0;
-	SOLDIERTYPE		*pTeamSoldier;
+	TacticalActor		*pTeamSoldier;
 
 	if ( QuoteExp[ pSoldier->identity().profile() ].QuoteExpHeadShotOnly == 1 )
 	{
@@ -3036,7 +3038,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		/*	certain values have to be set afterwards - the alternative would be to edit each and every function that gets called from TacticalCreateSoldier() subsequently and
 		*	make an exception for zombies every time...
 		*/
-		SOLDIERTYPE* pNewSoldier =
+		TacticalActor* pNewSoldier =
 			GetJa2SoldierRepository().resolve( iNewIndex );
 		if ( pNewSoldier == nullptr )
 		{

@@ -1,4 +1,9 @@
 #include "connect.h"
+#include "TacticalActorEquipment.h"
+#include "TacticalActorRadio.h"
+#include "TacticalActorModifiers.h"
+#include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
 #include "TacticalWorldAdapter.h"
 #ifndef _WIN32
 #include <dirent.h>
@@ -100,7 +105,7 @@
 extern BOOL GetBetterObject_InventoryPool( UINT16 usItem, INT16 status, UINT32& arLoop, UINT8& arIndex );
 extern BOOL GetFittingAmmo_InventoryPool( UINT8 usCalibre, UINT8 usAmmoType, UINT32& arLoop );
 
-extern BOOLEAN HandleNailsVestFetish( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 usReplaceItem );
+extern BOOLEAN HandleNailsVestFetish( TacticalActor *pSoldier, UINT32 uiHandPos, UINT16 usReplaceItem );
 extern void PlaySplashSound(INT32 sGridNo);
 
 extern std::vector<WORLDITEM> pInventoryPoolList;
@@ -116,7 +121,7 @@ struct AttackSelectionSnapshot
 	UINT16 weapon = 0;
 	INT8 targetLevel = 0;
 
-	void restore(SOLDIERTYPE& soldier) const noexcept
+	void restore(TacticalActor& soldier) const noexcept
 	{
 		soldier.attackSelection().selectWeapon(hand, weapon);
 		soldier.targeting().level() = targetLevel;
@@ -124,7 +129,7 @@ struct AttackSelectionSnapshot
 };
 
 bool DispatchBeginFireWeaponFromHandleItem(
-	SOLDIERTYPE* soldier, INT32 targetGrid, BOOLEAN fromUi,
+	TacticalActor* soldier, INT32 targetGrid, BOOLEAN fromUi,
 	const AttackSelectionSnapshot& rejectedSelection)
 {
 	const SimulationCommandDispatchResult dispatch = fromUi
@@ -162,7 +167,7 @@ struct TacticalActorCallbackContext
 		if (!world.loaded || world.worldGeneration == 0 ||
 			!actor.capture(selectedActor))
 			return false;
-		SOLDIERTYPE* soldier = actor.resolve();
+		TacticalActor* soldier = actor.resolve();
 		if (!soldier)
 		{
 			reset();
@@ -176,14 +181,14 @@ struct TacticalActorCallbackContext
 		return true;
 	}
 
-	SOLDIERTYPE* resolve(bool requireHandItem = false) const noexcept
+	TacticalActor* resolve(bool requireHandItem = false) const noexcept
 	{
 		const TacticalWorldSession::Snapshot& world =
 			CaptureJa2TacticalWorld();
 		if (!world.loaded ||
 			world.worldGeneration != worldGeneration)
 			return nullptr;
-		SOLDIERTYPE* soldier = actor.resolve();
+		TacticalActor* soldier = actor.resolve();
 		if (!soldier ||
 			(requireHandItem &&
 				(!soldier->inventory()[HANDPOS].exists() ||
@@ -223,7 +228,7 @@ struct SwitchCallbackContext
 		return true;
 	}
 
-	SOLDIERTYPE* resolve() const noexcept
+	TacticalActor* resolve() const noexcept
 	{
 		const TacticalWorldSession::Snapshot& world =
 			CaptureJa2TacticalWorld();
@@ -317,7 +322,7 @@ struct BoobyTrapCallbackContext
 	}
 
 	bool resolveTactical(
-		SOLDIERTYPE*& soldier,
+		TacticalActor*& soldier,
 		WORLDITEM*& item) const
 	{
 		soldier = nullptr;
@@ -342,7 +347,7 @@ struct BoobyTrapCallbackContext
 	}
 
 	bool resolveMapCursor(
-		SOLDIERTYPE*& soldier,
+		TacticalActor*& soldier,
 		OBJECTTYPE*& item) const
 	{
 		soldier = nullptr;
@@ -476,33 +481,33 @@ void BoobyTrapDialogueCallBack( void );
 void MineSpottedDialogueCallBack( void );
 void MineSpottedLocatorCallback( void );
 void RemoveBlueFlagDialogueCallBack( UINT8 ubExitValue );
-INT32 CheckBombDisarmChance(SOLDIERTYPE* soldier);
+INT32 CheckBombDisarmChance(TacticalActor* soldier);
 void ExtendedDisarmMessageBox(void);
 void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue );
-void HandleTakeNewBombFromInventory(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj);
+void HandleTakeNewBombFromInventory(TacticalActor* pSoldier, OBJECTTYPE* pObj);
 void MineSpottedMessageBoxCallBack( UINT8 ubExitValue );
 void CheckForPickedOwnership( void );
 void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue );
 
 
-BOOLEAN ContinuePastBoobyTrap( SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bLevel, INT32 iItemIndex, BOOLEAN fInStrategic, BOOLEAN *pfSaidQuote );
+BOOLEAN ContinuePastBoobyTrap( TacticalActor * pSoldier, INT32 sGridNo, INT8 bLevel, INT32 iItemIndex, BOOLEAN fInStrategic, BOOLEAN *pfSaidQuote );
 extern BOOLEAN ItemIsCool( OBJECTTYPE * pObj );
 extern INT8	gbItemPointerSrcSlot;
 extern void MAPEndItemPointer( );
 extern BOOLEAN	gfResetUIMovementOptimization;
 
-BOOLEAN ItemPoolOKForPickup( SOLDIERTYPE * pSoldier, ITEM_POOL *pItemPool, INT8 bZLevel );
+BOOLEAN ItemPoolOKForPickup( TacticalActor * pSoldier, ITEM_POOL *pItemPool, INT8 bZLevel );
 
 extern BOOLEAN	gfDontChargeAPsToPickup;
 
-void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo );
+void StartBombMessageBox( TacticalActor * pSoldier, INT32 sGridNo );
 
 // added by Flugente
-void StartTacticalFunctionSelectionMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo,  INT8 bLevel );
+void StartTacticalFunctionSelectionMessageBox( TacticalActor * pSoldier, INT32 sGridNo,  INT8 bLevel );
 void UpdateGear();
-void StartCorpseMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo,  INT8 bLevel );
+void StartCorpseMessageBox( TacticalActor * pSoldier, INT32 sGridNo,  INT8 bLevel );
 
-BOOLEAN	HandleCheckForBadChangeToGetThrough( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, INT32 sTargetGridNo , INT8 bLevel ) 
+BOOLEAN	HandleCheckForBadChangeToGetThrough( TacticalActor *pSoldier, TacticalActor *pTargetSoldier, INT32 sTargetGridNo , INT8 bLevel )
 {
 	BOOLEAN						fBadChangeToGetThrough = FALSE;
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleCheckForBadChangeToGetThrough"));
@@ -566,13 +571,13 @@ BOOLEAN	HandleCheckForBadChangeToGetThrough( SOLDIERTYPE *pSoldier, SOLDIERTYPE 
 
 
 
-INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHandItem, BOOLEAN fFromUI )
+INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHandItem, BOOLEAN fFromUI )
 {
 	const AttackSelectionSnapshot rejectedFireSelection{
 		pSoldier->attackSelection().hand(),
 		pSoldier->attackSelection().weapon(),
 		pSoldier->targeting().level()};
-	SOLDIERTYPE		*pTargetSoldier = NULL;
+	TacticalActor		*pTargetSoldier = NULL;
 	SoldierID		usSoldierIndex;
 	INT32			sTargetGridNo;
 	INT16			sAPCost;
@@ -700,7 +705,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 			// civgroup loyal will attack members of the same group
 			if (pSoldier->roster().civilianGroup() != NON_CIV_GROUP &&
-				pSoldier->HasBackgroundFlag(BACKGROUND_CIVGROUPLOYAL) &&
+				TacticalActorModifiers::hasBackgroundFlag(*pSoldier, BACKGROUND_CIVGROUPLOYAL) &&
 				pTargetSoldier->roster().civilianGroup() == pSoldier->roster().civilianGroup())
 			{
 				TacticalCharacterDialogue(pSoldier, QUOTE_REFUSING_ORDER);
@@ -709,7 +714,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		}
 
 		// animal friend will refuse to attack animals
-		if (pSoldier->HasBackgroundFlag(BACKGROUND_ANIMALFRIEND) &&
+		if (TacticalActorModifiers::hasBackgroundFlag(*pSoldier, BACKGROUND_ANIMALFRIEND) &&
 			(pTargetSoldier->identity().bodyType() == CROW || pTargetSoldier->identity().bodyType() == COW || pTargetSoldier->identity().bodyType() == BLOODCAT) &&
 			pSoldier->combatResult().previousAttacker() != pTargetSoldier->identity().id() &&
 			pSoldier->combatResult().earlierAttacker() != pTargetSoldier->identity().id())
@@ -727,7 +732,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	{
 		UINT16 structindex;
 		UINT16 possibleaction = InteractiveActionPossibleAtGridNo( usMapPos, pSoldier->position().level(), structindex );
-		if ( possibleaction )//&& pSoldier->GetInteractiveActionSkill( usMapPos, pSoldier->position().level(), possibleaction ) )
+		if ( possibleaction )
 		{
 			// ATE: AI CANNOT GO THROUGH HERE!
 			BOOLEAN	fHadToUseCursorPos = FALSE;
@@ -1377,7 +1382,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			INT32 sNewGridNo;
 			UINT8	ubDirection;
-			SOLDIERTYPE* vehicle =
+			TacticalActor* vehicle =
 				GetJa2SoldierRepository().resolve( ubMercID );
 
 			if ( vehicle == nullptr )
@@ -1454,7 +1459,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			INT32 sNewGridNo;
 			UINT8	ubDirection;
-			SOLDIERTYPE* vehicle =
+			TacticalActor* vehicle =
 				GetJa2SoldierRepository().resolve( ubMercID );
 
 			if ( vehicle == nullptr )
@@ -1647,7 +1652,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	// Flugente: handcuffing people
 	if (gGameExternalOptions.fAllowPrisonerSystem && HasItemFlag(usHandItem, HANDCUFFS) && pTargetSoldier && pTargetSoldier->awareness().visibility() >= 0)
 	{
-		if (!pTargetSoldier->CanBeCaptured())
+		if (!TacticalActorConditions::canBeCaptured(*pTargetSoldier))
 			return ITEM_HANDLE_REFUSAL;
 
 		// ATE: AI CANNOT GO THROUGH HERE!
@@ -1746,7 +1751,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	}
 
 	SoldierID ubPerson = WhoIsThere2(usMapPos, pSoldier->position().level());
-	SOLDIERTYPE* targetPerson =
+	TacticalActor* targetPerson =
 		GetJa2SoldierRepository().resolve( ubPerson );
 
 	// Flugente: apply misc items to other soldiers
@@ -2333,7 +2338,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 }
 
 
-void HandleSoldierDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+void HandleSoldierDropBomb( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	// Does this have detonator that needs info?
 	if ( HasAttachmentOfClass( &(pSoldier->inventory()[ HANDPOS ] ), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) || ItemIsTripwire((&(pSoldier->inventory()[ HANDPOS ] ))->usItem) )
@@ -2379,7 +2384,7 @@ void HandleSoldierDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 				}
 
 				// Flugente: backgrounds
-				if ( pSoldier->HasBackgroundFlag( BACKGROUND_TRAPLEVEL ) )
+				if ( TacticalActorModifiers::hasBackgroundFlag(*pSoldier, BACKGROUND_TRAPLEVEL ) )
 					pSoldier->inventory()[ HANDPOS ][0]->data.bTrap++;
 
 				// anv: additional tile properties - modify trap level depending on its placement
@@ -2439,24 +2444,24 @@ void HandleSoldierDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	}
 }
 
-void HandleSoldierUseRemote( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+void HandleSoldierUseRemote( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	StartBombMessageBox( pSoldier, sGridNo );
 }
 
-void HandleTacticalFunctionSelection( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+void HandleTacticalFunctionSelection( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	if ( GetCurrentScreen() == GAME_SCREEN )
 		StartTacticalFunctionSelectionMessageBox( pSoldier, sGridNo, pSoldier->position().level() );
 }
 
 
-void HandleSoldierUseCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel )
+void HandleSoldierUseCorpse( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel )
 {
 	StartCorpseMessageBox( pSoldier, sGridNo, bLevel );
 }
 
-void HandleSoldierDefuseTripwire( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT32 sItem )
+void HandleSoldierDefuseTripwire( TacticalActor *pSoldier, INT32 sGridNo, INT32 sItem )
 {
 	if ( !gBoobyTrapCallbackContext.captureTactical(
 			GetJa2TacticalEntityId(*pSoldier),
@@ -2469,7 +2474,7 @@ void HandleSoldierDefuseTripwire( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT32 sI
 	DoMessageBox( MSG_BOX_BASIC_STYLE, TacticalStr[ DISARM_BOOBYTRAP_PROMPT ], GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_YESNO, BoobyTrapMessageBoxCallBack, NULL );
 }
 
-void SoldierHandleDropItem( SOLDIERTYPE *pSoldier )
+void SoldierHandleDropItem( TacticalActor *pSoldier )
 {
 	// LOOK IN PANDING DATA FOR ITEM TO DROP, AND LOCATION
 	if ( pSoldier->pendingItem().object() != NULL )
@@ -2502,7 +2507,7 @@ void SoldierHandleDropItem( SOLDIERTYPE *pSoldier )
 }
 
 
-void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+void HandleSoldierThrowItem( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	SoldierPendingItemComponent& pendingItem = pSoldier->pendingItem();
 	if ( !pendingItem.readyToThrow() )
@@ -2626,7 +2631,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 }
 
 
-void SoldierGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, OBJECTTYPE *pObject, INT8 bInvPos )
+void SoldierGiveItem( TacticalActor *pSoldier, TacticalActor *pTargetSoldier, OBJECTTYPE *pObject, INT8 bInvPos )
 {
 	INT32 sActionGridNo, sAdjustedGridNo;
 	UINT8	ubDirection;
@@ -2677,7 +2682,7 @@ void SoldierGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, OBJECT
 	}
 }
 
-BOOLEAN SoldierDropItem( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj )
+BOOLEAN SoldierDropItem( TacticalActor * pSoldier, OBJECTTYPE * pObj )
 {
 	pSoldier->pendingItem().copyObject(*pObj);
 	pSoldier->PickDropItemAnimation( );
@@ -2685,7 +2690,7 @@ BOOLEAN SoldierDropItem( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj )
 }
 
 void SoldierPickupItem(
-	SOLDIERTYPE *pSoldier,
+	TacticalActor *pSoldier,
 	INT32 iItemIndex,
 	INT32 sGridNo,
 	INT8 bZLevel,
@@ -2740,7 +2745,7 @@ void SoldierPickupItem(
 }
 
 
-void HandleAutoPlaceFail( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo )
+void HandleAutoPlaceFail( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGridNo )
 {
 	if (pSoldier->roster().team() == gbPlayerNum)
 	{
@@ -2763,7 +2768,7 @@ void HandleAutoPlaceFail( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 	}
 }
 
-void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel, BOOLEAN *pfSelectionList )
+void SoldierGetItemFromWorld( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel, BOOLEAN *pfSelectionList )
 {
 	ITEM_POOL		*		pItemPool;
 	ITEM_POOL		*		pItemPoolToDelete = NULL;
@@ -3120,7 +3125,7 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 }
 
 
-void HandleSoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel )
+void HandleSoldierPickupItem( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel )
 {
 	ITEM_POOL		*pItemPool;
 	UINT16				usNum;
@@ -4450,7 +4455,7 @@ BOOLEAN	GetItemPoolFromRoof( INT32 sMapPos, ITEM_POOL **ppItemPool )
 void NotifySoldiersToLookforItems( )
 {
 	UINT32 cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 	{
@@ -4468,7 +4473,7 @@ void NotifySoldiersToLookforItems( )
 void AllSoldiersLookforItems( BOOLEAN fShowLocators )
 {
 	UINT32 cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	for ( cnt = 0; cnt < Ja2ActiveTacticalActorSlotCount(); cnt++ )
 	{
@@ -4551,7 +4556,7 @@ BOOLEAN ItemPoolOKForDisplay( ITEM_POOL *pItemPool, INT8 bZLevel )
 	return( TRUE );
 }
 
-BOOLEAN ItemPoolOKForPickup( SOLDIERTYPE * pSoldier, ITEM_POOL *pItemPool, INT8 bZLevel )
+BOOLEAN ItemPoolOKForPickup( TacticalActor * pSoldier, ITEM_POOL *pItemPool, INT8 bZLevel )
 {
 	if (gTacticalStatus.uiFlags&SHOW_ALL_ITEMS)
 	{
@@ -4596,7 +4601,7 @@ BOOLEAN DrawItemPoolList( ITEM_POOL *pItemPool, INT32 sGridNo, UINT8 bCommand, I
 	INT16				sLargestLineWidth = 30;
 	INT8				bCurStart = 0;
 	BOOLEAN			fDoBack;
-	auto backpackOwnerFor = []( ITEM_POOL* pool ) -> SOLDIERTYPE*
+	auto backpackOwnerFor = []( ITEM_POOL* pool ) -> TacticalActor*
 	{
 		if ( !pool || !gGameExternalOptions.gfShowBackpackOwner )
 			return nullptr;
@@ -4686,7 +4691,7 @@ BOOLEAN DrawItemPoolList( ITEM_POOL *pItemPool, INT32 sGridNo, UINT8 bCommand, I
 		{
 			// GET ITEM
 			pItem = &Item[ gWorldItems[ pTempItemPool->iItemIndex ].object.usItem ];
-			SOLDIERTYPE* backpackOwner =
+			TacticalActor* backpackOwner =
 				backpackOwnerFor( pTempItemPool );
 			// Set string
 			if ( gWorldItems[ pTempItemPool->iItemIndex ].object.ubNumberOfObjects > 1 )
@@ -4800,7 +4805,7 @@ BOOLEAN DrawItemPoolList( ITEM_POOL *pItemPool, INT32 sGridNo, UINT8 bCommand, I
 		{
 			// GET ITEM
 			pItem = &Item[ gWorldItems[ pItemPool->iItemIndex ].object.usItem ];
-			SOLDIERTYPE* backpackOwner =
+			TacticalActor* backpackOwner =
 				backpackOwnerFor( pItemPool );
 			// Set string
 
@@ -5196,9 +5201,9 @@ void RenderTopmostFlashingItems( )
 
 
 
-BOOLEAN VerifyGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE **ppTargetSoldier )
+BOOLEAN VerifyGiveItem( TacticalActor *pSoldier, TacticalActor **ppTargetSoldier )
 {
-	SOLDIERTYPE *pTSoldier;
+	TacticalActor *pTSoldier;
 	SoldierID usSoldierIndex;
 	OBJECTTYPE	*pObject;
 
@@ -5249,7 +5254,7 @@ BOOLEAN VerifyGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE **ppTargetSoldier )
 
 			if ( ubTargetMercID != NOBODY )
 			{
-				SOLDIERTYPE* target =
+				TacticalActor* target =
 					GetJa2SoldierRepository().resolve( ubTargetMercID );
 				if ( target )
 					target->status().flags() &=
@@ -5265,9 +5270,9 @@ BOOLEAN VerifyGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE **ppTargetSoldier )
 }
 
 
-void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
+void SoldierGiveItemFromAnimation( TacticalActor *pSoldier )
 {
-	SOLDIERTYPE *pTSoldier;
+	TacticalActor *pTSoldier;
 	INT8				bInvPos;
 	UINT8				ubProfile;
 
@@ -5465,7 +5470,7 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 
 
 
-INT32 AdjustGridNoForItemPlacement( SOLDIERTYPE *pSoldier, INT32 sGridNo )
+INT32 AdjustGridNoForItemPlacement( TacticalActor *pSoldier, INT32 sGridNo )
 {
 	STRUCTURE	*pStructure;
 	INT16		sDesiredLevel;
@@ -5517,7 +5522,7 @@ INT32 AdjustGridNoForItemPlacement( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 }
 
 // Flugente
-void StartCorpseMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo,  INT8 bLevel )
+void StartCorpseMessageBox( TacticalActor * pSoldier, INT32 sGridNo,  INT8 bLevel )
 {
 	if ( !gCorpseCallbackContext.capture(
 			GetJa2TacticalEntityId(*pSoldier),
@@ -5533,7 +5538,7 @@ void StartCorpseMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo,  INT8 bLevel 
 	DoMessageBox( MSG_BOX_BASIC_MEDIUM_BUTTONS, TacticalStr[ CORPSE_SELECTION_STR ], GAME_SCREEN, MSG_BOX_FLAG_GENERIC_FOUR_BUTTONS, CorpseMessageBoxCallBack, NULL );
 }
 
-void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
+void StartBombMessageBox( TacticalActor * pSoldier, INT32 sGridNo )
 {
 	//DBrot: More Rooms
 	UINT16 usRoom;
@@ -5695,7 +5700,7 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 }
 
 // Flugente
-void StartTacticalFunctionSelectionMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo,  INT8 bLevel )
+void StartTacticalFunctionSelectionMessageBox( TacticalActor * pSoldier, INT32 sGridNo,  INT8 bLevel )
 {
 	if ( !pSoldier )
 		return;
@@ -5813,7 +5818,7 @@ void UpdateGear()
 		return;
 		
 	SoldierID									bMercID, bLastTeamID;
-	SOLDIERTYPE*							pSoldier = NULL;
+	TacticalActor*							pSoldier = NULL;
 
 	bMercID = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 	bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
@@ -5992,7 +5997,7 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 	const TacticalActorCallbackContext callbackContext =
 		gBombCallbackContext;
 	gBombCallbackContext.reset();
-	SOLDIERTYPE* gpTempSoldier =
+	TacticalActor* gpTempSoldier =
 		callbackContext.resolve(true);
 	const INT32 gsTempGridNo = callbackContext.grid;
 	if (gpTempSoldier)
@@ -6004,7 +6009,8 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 		if (ItemIsRemoteTrigger(gpTempSoldier->inventory()[HANDPOS].usItem))
 		{
 			// Flugente: jamming can prevent bomb activation
-			if ( !gSkillTraitValues.fVOJammingBlocksRemoteBombs || !SectorJammed() )
+			if (!gSkillTraitValues.fVOJammingBlocksRemoteBombs ||
+				!TacticalActorRadio::sectorJammed())
 				SetOffBombsByFrequency( gpTempSoldier->identity().id(), ubExitValue );
 		}
 		else
@@ -6112,7 +6118,7 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 				}
 
 				// Flugente: backgrounds
-				if ( gpTempSoldier->HasBackgroundFlag( BACKGROUND_TRAPLEVEL ) )
+				if ( TacticalActorModifiers::hasBackgroundFlag(*gpTempSoldier, BACKGROUND_TRAPLEVEL ) )
 					(*pObj)[0]->data.bTrap++;
 				
 				// HACK IMMINENT!
@@ -6148,7 +6154,7 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 	const TacticalActorCallbackContext callbackContext =
 		gTacticalFunctionCallbackContext;
 	gTacticalFunctionCallbackContext.reset();
-	SOLDIERTYPE* gpTempSoldier = callbackContext.resolve();
+	TacticalActor* gpTempSoldier = callbackContext.resolve();
 	if (gpTempSoldier)
 	{
 		switch (ubExitValue)
@@ -6158,7 +6164,7 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 			break;
 		case 2:
 		// undisguise or take off custom clothes
-			gpTempSoldier->Strip();
+			TacticalActorCovertOps::strip(*gpTempSoldier);
 			break;
        case 3:
 			// clean weapons - in realtime of the entire team, in turnbased only for the selected merc
@@ -6180,7 +6186,7 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 		case 7:
 			// test our disguise
 			if (gpTempSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER))
-				gpTempSoldier->SpySelfTest();
+				TacticalActorCovertOps::runSelfTest(*gpTempSoldier);
 			break;
 
 		case 8:
@@ -6196,7 +6202,7 @@ void CorpseMessageBoxCallBack( UINT8 ubExitValue )
 	const TacticalActorCallbackContext callbackContext =
 		gCorpseCallbackContext;
 	gCorpseCallbackContext.reset();
-	SOLDIERTYPE* gpTempSoldier =
+	TacticalActor* gpTempSoldier =
 		callbackContext.resolve(true);
 	if (gpTempSoldier)
 	{
@@ -6257,7 +6263,7 @@ void CorpseMessageBoxCallBack( UINT8 ubExitValue )
 	}
 }
 
-BOOLEAN HandItemWorks( SOLDIERTYPE *pSoldier, INT8 bSlot )
+BOOLEAN HandItemWorks( TacticalActor *pSoldier, INT8 bSlot )
 {
 	BOOLEAN							fItemJustBroke = FALSE, fItemWorks = TRUE;
 	OBJECTTYPE *				pObj;
@@ -6318,7 +6324,7 @@ BOOLEAN HandItemWorks( SOLDIERTYPE *pSoldier, INT8 bSlot )
 }
 
 
-void SetOffBoobyTrapInMapScreen( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject )
+void SetOffBoobyTrapInMapScreen( TacticalActor *pSoldier, OBJECTTYPE *pObject )
 {
 	UINT8 ubPtsDmg = 0;
 
@@ -6355,7 +6361,7 @@ void SetOffBoobyTrap( ITEM_POOL * pItemPool )
 
 }
 
-BOOLEAN ContinuePastBoobyTrap( SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bLevel, INT32 iItemIndex, BOOLEAN fInStrategic, BOOLEAN *pfSaidQuote )
+BOOLEAN ContinuePastBoobyTrap( TacticalActor * pSoldier, INT32 sGridNo, INT8 bLevel, INT32 iItemIndex, BOOLEAN fInStrategic, BOOLEAN *pfSaidQuote )
 {
 	BOOLEAN					fBoobyTrapKnowledge;
 	INT8					bTrapDifficulty;
@@ -6445,7 +6451,7 @@ BOOLEAN ContinuePastBoobyTrap( SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bLeve
 
 void BoobyTrapDialogueCallBack( void )
 {
-	SOLDIERTYPE* soldier = nullptr;
+	TacticalActor* soldier = nullptr;
 	WORLDITEM* worldItem = nullptr;
 	OBJECTTYPE* mapItem = nullptr;
 	const bool tacticalContext =
@@ -6478,7 +6484,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 	const BoobyTrapCallbackContext callbackContext =
 		gBoobyTrapCallbackContext;
 	gBoobyTrapCallbackContext.reset();
-	SOLDIERTYPE* gpBoobyTrapSoldier = nullptr;
+	TacticalActor* gpBoobyTrapSoldier = nullptr;
 	WORLDITEM* worldItem = nullptr;
 	if ( !callbackContext.resolveTactical(
 			gpBoobyTrapSoldier, worldItem ) )
@@ -6752,7 +6758,7 @@ void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue )
 	const BoobyTrapCallbackContext callbackContext =
 		gBoobyTrapCallbackContext;
 	gBoobyTrapCallbackContext.reset();
-	SOLDIERTYPE* gpBoobyTrapSoldier = nullptr;
+	TacticalActor* gpBoobyTrapSoldier = nullptr;
 	OBJECTTYPE* mapItem = nullptr;
 	if ( !callbackContext.resolveMapCursor(
 			gpBoobyTrapSoldier, mapItem ) )
@@ -6839,7 +6845,7 @@ void SwitchMessageBoxCallBack( UINT8 ubExitValue )
 	const SwitchCallbackContext callbackContext =
 		gSwitchCallbackContext;
 	gSwitchCallbackContext.reset();
-	SOLDIERTYPE* pSoldier = callbackContext.resolve();
+	TacticalActor* pSoldier = callbackContext.resolve();
 	if ( pSoldier && ubExitValue == MSG_BOX_RETURN_YES )
 	{
 		// Message that switch is activated...
@@ -6850,7 +6856,7 @@ void SwitchMessageBoxCallBack( UINT8 ubExitValue )
 	}
 }
 
-BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN fCheckAroundGridNo, INT32 * psProblemGridNo )
+BOOLEAN NearbyGroundSeemsWrong( TacticalActor * pSoldier, INT32 sGridNo, BOOLEAN fCheckAroundGridNo, INT32 * psProblemGridNo )
 {
 	INT32						sNextGridNo;
 	// BOOLEAN fWorthChecking = FALSE, fProblemExists = FALSE, fDetectedProblem = FALSE;
@@ -7057,7 +7063,7 @@ BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN f
 }
 
 void BeginMineSpottedDialogue(
-	SOLDIERTYPE *pSoldier, INT32 sGridNo )
+	TacticalActor *pSoldier, INT32 sGridNo )
 {
 	if ( !pSoldier )
 	{
@@ -7099,7 +7105,7 @@ void BeginMineSpottedDialogue(
 
 void MineSpottedDialogueCallBack( void )
 {
-	SOLDIERTYPE* mineSpotter = nullptr;
+	TacticalActor* mineSpotter = nullptr;
 	WORLDITEM* mineItem = nullptr;
 	if ( !gMineSpottedCallbackContext.resolveTactical(
 			mineSpotter, mineItem ) )
@@ -7161,7 +7167,7 @@ void MineSpottedDialogueCallBack( void )
 void MineSpottedLocatorCallback( void )
 {
 	guiPendingOverrideEvent = LU_ENDUILOCK;
-	SOLDIERTYPE* mineSpotter = nullptr;
+	TacticalActor* mineSpotter = nullptr;
 	WORLDITEM* mineItem = nullptr;
 	if ( !gMineSpottedCallbackContext.resolveTactical(
 			mineSpotter, mineItem ) )
@@ -7179,7 +7185,7 @@ void MineSpottedMessageBoxCallBack( UINT8 ubExitValue )
 	const BoobyTrapCallbackContext callbackContext =
 		gMineSpottedCallbackContext;
 	gMineSpottedCallbackContext.reset();
-	SOLDIERTYPE* mineSpotter = nullptr;
+	TacticalActor* mineSpotter = nullptr;
 	WORLDITEM* mineItem = nullptr;
 	if ( callbackContext.resolveTactical(
 			mineSpotter, mineItem ) &&
@@ -7249,7 +7255,7 @@ void RemoveBlueFlag( INT32 sGridNo, INT8 bLevel )
 	SetRenderFlags(RENDER_FLAG_FULL);
 }
 
-void MakeNPCGrumpyForMinorOffense( SOLDIERTYPE * pSoldier, SOLDIERTYPE *pOffendingSoldier )
+void MakeNPCGrumpyForMinorOffense( TacticalActor * pSoldier, TacticalActor *pOffendingSoldier )
 {
 	DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: MakeNPCGrumpyForMinorOffense"));
 	CancelAIAction( pSoldier, TRUE );
@@ -7289,8 +7295,8 @@ void MakeNPCGrumpyForMinorOffense( SOLDIERTYPE * pSoldier, SOLDIERTYPE *pOffendi
 
 
 void TestPotentialOwner(
-	SOLDIERTYPE * pSoldier,
-	SOLDIERTYPE * pOffendingSoldier )
+	TacticalActor * pSoldier,
+	TacticalActor * pOffendingSoldier )
 {
 	if ( pOffendingSoldier &&
 		pSoldier->roster().active() && pSoldier->roster().inSector() &&
@@ -7311,7 +7317,7 @@ void CheckForPickedOwnership( void )
 	const TacticalActorCallbackContext callbackContext =
 		gOwnershipCallbackContext;
 	gOwnershipCallbackContext.reset();
-	SOLDIERTYPE* pOffendingSoldier =
+	TacticalActor* pOffendingSoldier =
 		callbackContext.resolve();
 	if ( !pOffendingSoldier )
 	{
@@ -7321,7 +7327,7 @@ void CheckForPickedOwnership( void )
 	ITEM_POOL * pItemPool = nullptr;
 	UINT8 ubProfile;
 	UINT8 ubCivGroup;
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	SoldierID ubLoop;
 
 	// LOOP THROUGH LIST TO FIND NODE WE WANT
@@ -7432,7 +7438,7 @@ void ToggleItemGlow( BOOLEAN fOn )
 	SetRenderFlags(RENDER_FLAG_FULL);
 }
 
-BOOLEAN ContinuePastBoobyTrapInMapScreen( OBJECTTYPE *pObject, SOLDIERTYPE *pSoldier )
+BOOLEAN ContinuePastBoobyTrapInMapScreen( OBJECTTYPE *pObject, TacticalActor *pSoldier )
 {
 	BOOLEAN					fBoobyTrapKnowledge;
 	INT8					bTrapDifficulty;
@@ -7509,7 +7515,7 @@ INT32 FindNearestAvailableGridNoForItem( INT32 sSweetGridNo, INT8 ubRadius )
 	INT32 sLowestGridNo=0;
 	INT32					leftmost;
 	BOOLEAN	fFound = FALSE;
-	SOLDIERTYPE soldier;
+	TacticalActor soldier;
 	INT16 ubSaveNPCAPBudget;
 	UINT8 ubSaveNPCDistLimit;
 
@@ -7587,7 +7593,7 @@ INT32 FindNearestAvailableGridNoForItem( INT32 sSweetGridNo, INT8 ubRadius )
 }
 
 
-BOOLEAN CanPlayerUseRocketRifle( SOLDIERTYPE *pSoldier, BOOLEAN fDisplay )
+BOOLEAN CanPlayerUseRocketRifle( TacticalActor *pSoldier, BOOLEAN fDisplay )
 {
 	if (ItemHasFingerPrintID(pSoldier->inventory()[ pSoldier->attackSelection().hand() ].usItem))
 	{
@@ -7625,7 +7631,7 @@ BOOLEAN CanPlayerUseRocketRifle( SOLDIERTYPE *pSoldier, BOOLEAN fDisplay )
 * of the opponent's slots.
 * if only one item, return in ubIndexRet the item's index
 */
-UINT8 StealItems(SOLDIERTYPE* pSoldier,SOLDIERTYPE* pOpponent, UINT8* ubIndexRet)
+UINT8 StealItems(TacticalActor* pSoldier,TacticalActor* pOpponent, UINT8* ubIndexRet)
 {
 	UINT8		ubCount=0;
 	ITEM_POOL	*pItemPool,*pTempItemPool,*pTempLastItemPool = 0;
@@ -7787,7 +7793,7 @@ UINT8 StealItems(SOLDIERTYPE* pSoldier,SOLDIERTYPE* pOpponent, UINT8* ubIndexRet
 * jackaians: function copied from SoldierGetItemFromWorld
 * check user's choices and try to place them in his slots
 */
-void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,ITEM_POOL *pItemPool, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel, BOOLEAN *pfSelectionList )
+void SoldierStealItemFromSoldier( TacticalActor *pSoldier, TacticalActor *pOpponent,ITEM_POOL *pItemPool, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel, BOOLEAN *pfSelectionList )
 {
 	ITEM_POOL		*pTempItemPool;
 	INT32			cnt = 0;
@@ -7929,7 +7935,7 @@ INT16 GetTileSetTindexToTileSetName( INT32 asTileSetId, std::string aTileSetName
 }
 
 // can we construct a structure with this item?
-BOOLEAN IsStructureConstructItem(UINT16 usItem, INT32 sGridNo, SOLDIERTYPE* pSoldier)
+BOOLEAN IsStructureConstructItem(UINT16 usItem, INT32 sGridNo, TacticalActor* pSoldier)
 {
 	if ( !usItem || TileIsOutOfBounds( sGridNo ) )
 		return FALSE;
@@ -7944,7 +7950,7 @@ BOOLEAN IsStructureConstructItem(UINT16 usItem, INT32 sGridNo, SOLDIERTYPE* pSol
 }
 
 // can we remove a structure with this item?
-BOOLEAN IsStructureDeconstructItem( UINT16 usItem, INT32 sGridNo, SOLDIERTYPE* pSoldier )
+BOOLEAN IsStructureDeconstructItem( UINT16 usItem, INT32 sGridNo, TacticalActor* pSoldier )
 {
 	if ( !usItem || TileIsOutOfBounds( sGridNo ) )
 		return FALSE;
@@ -7958,7 +7964,7 @@ BOOLEAN IsStructureDeconstructItem( UINT16 usItem, INT32 sGridNo, SOLDIERTYPE* p
 	return FALSE;
 }
 
-BOOLEAN BuildFortification( INT32 sGridNo, SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
+BOOLEAN BuildFortification( INT32 sGridNo, TacticalActor *pSoldier, OBJECTTYPE *pObj )
 {	
 	UINT32				fHeadType;
 	UINT16				usUseIndex;
@@ -8112,7 +8118,9 @@ BOOLEAN BuildFortification( INT32 sGridNo, SOLDIERTYPE *pSoldier, OBJECTTYPE *pO
 			// sevenfm: auto-taking of items
 			if ( !(IsJa2TacticalTurnBasedCombat()) && gfShiftBombPlant )
 			{
-				pSoldier->TakeNewItemFromInventory( pObj->usItem );
+				TacticalActorEquipment::takeItemIntoHand(
+					*pSoldier,
+					usItem);
 			}
 		}
 		else
@@ -8151,7 +8159,7 @@ BOOLEAN BuildFortification( INT32 sGridNo, SOLDIERTYPE *pSoldier, OBJECTTYPE *pO
 	return FALSE;
 }
 
-BOOLEAN RemoveFortification( INT32 sGridNo, SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
+BOOLEAN RemoveFortification( INT32 sGridNo, TacticalActor *pSoldier, OBJECTTYPE *pObj )
 {
 	// we need a valid soldier and a valid object
 	if ( !pSoldier || !pObj )
@@ -9818,7 +9826,7 @@ INT32 GetFirstObjectInSectorPosition( UINT16 ausItem )
 	return -1;
 }
 
-INT32 CheckBombDisarmChance(SOLDIERTYPE* gpBoobyTrapSoldier)
+INT32 CheckBombDisarmChance(TacticalActor* gpBoobyTrapSoldier)
 {
 	INT8 diff = 0;
 
@@ -9847,7 +9855,7 @@ void ExtendedDisarmMessageBox(void)
 {
 	CHAR16 buf[256];
 	INT16 disarmAP;
-	SOLDIERTYPE* boobyTrapSoldier = nullptr;
+	TacticalActor* boobyTrapSoldier = nullptr;
 	WORLDITEM* worldItem = nullptr;
 	if ( !gBoobyTrapCallbackContext.resolveTactical(
 			boobyTrapSoldier, worldItem ) )
@@ -9892,7 +9900,7 @@ void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 		const BoobyTrapCallbackContext callbackContext =
 			gBoobyTrapCallbackContext;
 		gBoobyTrapCallbackContext.reset();
-		SOLDIERTYPE* gpBoobyTrapSoldier = nullptr;
+		TacticalActor* gpBoobyTrapSoldier = nullptr;
 		WORLDITEM* worldItem = nullptr;
 		if ( !callbackContext.resolveTactical(
 				gpBoobyTrapSoldier, worldItem ) )
@@ -9986,17 +9994,22 @@ void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
         }
 }
 
-void HandleTakeNewBombFromInventory(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj)
+void HandleTakeNewBombFromInventory(TacticalActor* pSoldier, OBJECTTYPE* pObj)
 {
+	if (!pSoldier || !pObj || !pObj->exists())
+		return;
+
 	if( !( IsJa2TacticalTurnBasedCombat() ) &&
 			!pSoldier->inventory()[HANDPOS].exists() && gfShiftBombPlant )
 	{	
-       pSoldier->TakeNewBombFromInventory(pObj->usItem);
+		TacticalActorEquipment::takeBombIntoHand(
+			*pSoldier,
+			pObj->usItem);
 	}
 }
 
 // Flugente: interactive actions
-void DoInteractiveAction( INT32 sGridNo, SOLDIERTYPE *pSoldier )
+void DoInteractiveAction( INT32 sGridNo, TacticalActor *pSoldier )
 {
 	// we need a valid soldier and a valid object
 	if ( !pSoldier )
@@ -10009,7 +10022,10 @@ void DoInteractiveAction( INT32 sGridNo, SOLDIERTYPE *pSoldier )
 	UINT16 structindex;
 	UINT16 possibleaction = InteractiveActionPossibleAtGridNo( sGridNo, pSoldier->position().level(), structindex );
 
-	UINT16 skill = pSoldier->GetInteractiveActionSkill( sGridNo, pSoldier->position().level(), possibleaction );
+	UINT16 skill =
+		TacticalActorModifiers::interactiveActionSkill(
+			*pSoldier,
+			possibleaction);
 
 	INT32 difficulty = gInteractiveStructure[structindex].difficulty;
 	INT32 luaactionid = gInteractiveStructure[structindex].luaactionid;
@@ -10051,7 +10067,7 @@ void DoInteractiveAction( INT32 sGridNo, SOLDIERTYPE *pSoldier )
 // This is called either if no lua action id is set, or by lua if this should happen as a supplement to whatever lua does
 void DoInteractiveActionDefaultResult( INT32 sGridNo, SoldierID ubID, BOOLEAN aSuccess )
 {
-	SOLDIERTYPE* pSoldier = NULL;
+	TacticalActor* pSoldier = NULL;
 	if ( ubID != NOBODY )
 		pSoldier = GetJa2SoldierRepository().resolve( ubID );
 
@@ -10171,7 +10187,7 @@ void DoInteractiveActionDefaultResult( INT32 sGridNo, SoldierID ubID, BOOLEAN aS
 }
 
 // character spends money - either from inventory or the account
-BOOLEAN SpendMoney( SOLDIERTYPE *pSoldier, UINT32 aAmount )
+BOOLEAN SpendMoney( TacticalActor *pSoldier, UINT32 aAmount )
 {
 	if ( !pSoldier )
 		return FALSE;
@@ -10338,7 +10354,7 @@ void SaveEquipmentTemplate(std::vector<GEAR_NODE> aVec, STR16 aName)
 	binary_file.close();
 }
 
-void WriteEquipmentTemplate(SOLDIERTYPE* pSoldier, STR16 name)
+void WriteEquipmentTemplate(TacticalActor* pSoldier, STR16 name)
 {
 	if (pSoldier)
 	{
@@ -10435,7 +10451,7 @@ void GetEquipmentTemplates()
 	gTemplateVector = get_all_files_names_within_folder( filenamewithpath );
 }
 
-void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
+void ReadEquipmentTable( TacticalActor* pSoldier, std::string name )
 {
 	// make sure the merc is actually in this sector
 	if ( pSoldier )
@@ -11071,7 +11087,7 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 }
 
 // Flugente: intel
-void TakePhoto(SOLDIERTYPE* pSoldier, INT32 sGridNo, INT8 bLevel )
+void TakePhoto(TacticalActor* pSoldier, INT32 sGridNo, INT8 bLevel )
 {
 	if ( !pSoldier || TileIsOutOfBounds( sGridNo ) )
 		return;
@@ -11113,7 +11129,7 @@ void TakePhoto(SOLDIERTYPE* pSoldier, INT32 sGridNo, INT8 bLevel )
 
 				// check if there is someone here
 				SoldierID ubid = WhoIsThere2( newgridno, bLevel );
-				const SOLDIERTYPE* photographedSoldier =
+				const TacticalActor* photographedSoldier =
 					GetJa2SoldierRepository().resolve( ubid );
 
 				LuaAddPhotoData( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, newgridno, bLevel, pSoldier->identity().profile(), room, photographedSoldier ? photographedSoldier->identity().profile() : NO_PROFILE );

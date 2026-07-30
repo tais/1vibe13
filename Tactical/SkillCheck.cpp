@@ -1,5 +1,7 @@
 	#include "SkillCheck.h"
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
+	#include "TacticalActorDisease.h"
 	#include "Soldier Profile.h"
 	#include "random.h"
 	#include "Items.h"
@@ -15,9 +17,9 @@
 	#include "Interface.h"				// added by Flugente for zBackground
 	#include "DynamicDialogue.h"		// added by Flugente
 
-extern void ReducePointsForHunger( SOLDIERTYPE *pSoldier, UINT32 *pusPoints );
+extern void ReducePointsForHunger( TacticalActor *pSoldier, UINT32 *pusPoints );
 
-INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer )
+INT16 EffectiveStrength( TacticalActor *pSoldier, BOOLEAN fTrainer )
 {
 	INT8	bBandaged;
 	INT32	iEffStrength;
@@ -58,10 +60,10 @@ INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer )
 	if ( gGameExternalOptions.fDisease )
 	{
 		for ( int i = 0; i < NUM_DISEASES; ++i )
-			diseaseeffect += Disease[i].sEffStat[INFST_STR] * pSoldier->GetDiseaseMagnitude( i );
+			diseaseeffect += Disease[i].sEffStat[INFST_STR] * TacticalActorDisease::magnitude(*pSoldier, i );
 	}
 
-	iEffStrength = (iEffStrength * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_STRENGTH ))) / 100;
+	iEffStrength = (iEffStrength * (100 + diseaseeffect + TacticalActorModifiers::backgroundValue(*pSoldier, BG_STRENGTH ))) / 100;
 
 	// ATE: Make sure at least 2...
 	iEffStrength = __max( iEffStrength, 2 );
@@ -70,7 +72,7 @@ INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer )
 }
 
 
-INT16 EffectiveWisdom( SOLDIERTYPE * pSoldier)
+INT16 EffectiveWisdom( TacticalActor * pSoldier)
 {
 	INT32	iEffWisdom;
 
@@ -83,14 +85,14 @@ INT16 EffectiveWisdom( SOLDIERTYPE * pSoldier)
 	// Flugente: diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sEffStat[INFST_WIS] * pSoldier->GetDiseaseMagnitude( i );
+		diseaseeffect += Disease[i].sEffStat[INFST_WIS] * TacticalActorDisease::magnitude(*pSoldier, i );
 
-	iEffWisdom = (iEffWisdom * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_WISDOM ))) / 100;
+	iEffWisdom = (iEffWisdom * (100 + diseaseeffect + TacticalActorModifiers::backgroundValue(*pSoldier, BG_WISDOM ))) / 100;
 
 	return( (INT16) iEffWisdom );
 }
 
-INT16 EffectiveAgility( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
+INT16 EffectiveAgility( TacticalActor * pSoldier, BOOLEAN fTrainer )
 {
 	INT32	iEffAgility;
 
@@ -118,15 +120,15 @@ INT16 EffectiveAgility( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 	// Flugente: diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sEffStat[INFST_AGI] * pSoldier->GetDiseaseMagnitude( i );
+		diseaseeffect += Disease[i].sEffStat[INFST_AGI] * TacticalActorDisease::magnitude(*pSoldier, i );
 
-	iEffAgility = (iEffAgility * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_AGILITY ))) / 100;
+	iEffAgility = (iEffAgility * (100 + diseaseeffect + TacticalActorModifiers::backgroundValue(*pSoldier, BG_AGILITY ))) / 100;
 
 	return( (INT16) iEffAgility );
 }
 
 
-INT8 EffectiveMechanical( SOLDIERTYPE * pSoldier )
+INT8 EffectiveMechanical( TacticalActor * pSoldier )
 {
 	INT32	iEffMechanical;
 
@@ -134,13 +136,13 @@ INT8 EffectiveMechanical( SOLDIERTYPE * pSoldier )
 
 	iEffMechanical = EffectStatForBeingDrunk( pSoldier, iEffMechanical );
 
-	iEffMechanical = (iEffMechanical * (100 + pSoldier->GetBackgroundValue(BG_MECHANICAL))) / 100;
+	iEffMechanical = (iEffMechanical * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_MECHANICAL))) / 100;
 
 	return( (INT8) iEffMechanical );
 }
 
 
-INT8 EffectiveExplosive( SOLDIERTYPE * pSoldier )
+INT8 EffectiveExplosive( TacticalActor * pSoldier )
 {
 	INT32	iEffExplosive;
 
@@ -148,13 +150,13 @@ INT8 EffectiveExplosive( SOLDIERTYPE * pSoldier )
 
 	iEffExplosive = EffectStatForBeingDrunk( pSoldier, iEffExplosive );
 
-	iEffExplosive = (iEffExplosive * (100 + pSoldier->GetBackgroundValue(BG_EXPLOSIVE_ASSIGN))) / 100;
+	iEffExplosive = (iEffExplosive * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_EXPLOSIVE_ASSIGN))) / 100;
 
 	return( (INT8) iEffExplosive );
 }
 
 
-INT8 EffectiveMedical( SOLDIERTYPE * pSoldier )
+INT8 EffectiveMedical( TacticalActor * pSoldier )
 {
 	INT32	iEffMedical;
 
@@ -162,12 +164,12 @@ INT8 EffectiveMedical( SOLDIERTYPE * pSoldier )
 
 	iEffMedical = EffectStatForBeingDrunk( pSoldier, iEffMedical );
 
-	iEffMedical = (iEffMedical * (100 + pSoldier->GetBackgroundValue(BG_MEDICAL))) / 100;
+	iEffMedical = (iEffMedical * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_MEDICAL))) / 100;
 
 	return( (INT8) iEffMedical );
 }
 
-INT8 EffectiveLeadership( SOLDIERTYPE * pSoldier )
+INT8 EffectiveLeadership( TacticalActor * pSoldier )
 {
 	INT32	iEffLeadership;
 	INT8	bDrunkLevel;
@@ -182,13 +184,13 @@ INT8 EffectiveLeadership( SOLDIERTYPE * pSoldier )
 		iEffLeadership = ( iEffLeadership * 120 / 100 );
 	}
 
-	iEffLeadership = (iEffLeadership * (100 + pSoldier->GetBackgroundValue(BG_LEADERSHIP))) / 100;
+	iEffLeadership = (iEffLeadership * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_LEADERSHIP))) / 100;
 
 	return( (INT8) iEffLeadership );
 }
 
 // Flugente: modifiers that depend on physical position (squadleader, afraid of heights) only apply if fTactical is TRUE
-INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
+INT8 EffectiveExpLevel( TacticalActor * pSoldier, BOOLEAN fTactical )
 {
 	INT32	iEffExpLevel;
 	INT8	bDrunkLevel;
@@ -241,7 +243,7 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 	// Flugente: diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sEffStat[INFST_EXP] * pSoldier->GetDiseaseMagnitude( i );
+		diseaseeffect += Disease[i].sEffStat[INFST_EXP] * TacticalActorDisease::magnitude(*pSoldier, i );
 
 	iEffExpLevel += diseaseeffect + pSoldier->condition().extraExperienceLevel();
 		
@@ -259,7 +261,7 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 	return( (INT8) iEffExpLevel );
 }
 
-INT8 EffectiveMarksmanship( SOLDIERTYPE * pSoldier )
+INT8 EffectiveMarksmanship( TacticalActor * pSoldier )
 {
 	INT32	iEffMarksmanship;
 
@@ -267,12 +269,12 @@ INT8 EffectiveMarksmanship( SOLDIERTYPE * pSoldier )
 
 	iEffMarksmanship = EffectStatForBeingDrunk( pSoldier, iEffMarksmanship );
 
-	iEffMarksmanship = (iEffMarksmanship * (100 + pSoldier->GetBackgroundValue(BG_MARKSMANSHIP))) / 100;
+	iEffMarksmanship = (iEffMarksmanship * (100 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_MARKSMANSHIP))) / 100;
 
 	return( (INT8) iEffMarksmanship );
 }
 
-INT16 EffectiveDexterity( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
+INT16 EffectiveDexterity( TacticalActor * pSoldier, BOOLEAN fTrainer )
 {
 	INT32	iEffDexterity;
 
@@ -294,16 +296,16 @@ INT16 EffectiveDexterity( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 	// Flugente: diseases can affect stat effectivity
 	INT16 diseaseeffect = 0;
 	for ( int i = 0; i < NUM_DISEASES; ++i )
-		diseaseeffect += Disease[i].sEffStat[INFST_DEX] * pSoldier->GetDiseaseMagnitude( i );
+		diseaseeffect += Disease[i].sEffStat[INFST_DEX] * TacticalActorDisease::magnitude(*pSoldier, i );
 
-	iEffDexterity = (iEffDexterity * (100 + diseaseeffect + pSoldier->GetBackgroundValue( BG_DEXTERITY ))) / 100;
+	iEffDexterity = (iEffDexterity * (100 + diseaseeffect + TacticalActorModifiers::backgroundValue(*pSoldier, BG_DEXTERITY ))) / 100;
 
 	return( (INT16) iEffDexterity );
 }
 
 
 
-UINT8 GetPenaltyForFatigue( SOLDIERTYPE *pSoldier )
+UINT8 GetPenaltyForFatigue( TacticalActor *pSoldier )
 {
 	UINT8 ubPercentPenalty;
 
@@ -318,28 +320,28 @@ UINT8 GetPenaltyForFatigue( SOLDIERTYPE *pSoldier )
 	return( ubPercentPenalty );
 }
 
-void ReducePointsForFatigue( SOLDIERTYPE *pSoldier, UINT32 *pusPoints )
+void ReducePointsForFatigue( TacticalActor *pSoldier, UINT32 *pusPoints )
 {
 	*pusPoints -= (*pusPoints * GetPenaltyForFatigue( pSoldier )) / 100;
 }
 
-void ReducePointsForFatigue( SOLDIERTYPE *pSoldier, INT32 *psPoints )
+void ReducePointsForFatigue( TacticalActor *pSoldier, INT32 *psPoints )
 {
 	*psPoints -= ( *psPoints * GetPenaltyForFatigue( pSoldier ) ) / 100;
 }
 
-INT32 GetSkillCheckPenaltyForFatigue( SOLDIERTYPE *pSoldier, INT32 iSkill )
+INT32 GetSkillCheckPenaltyForFatigue( TacticalActor *pSoldier, INT32 iSkill )
 {
 	// use only half the full effect of fatigue for skill checks
 	return( ( (iSkill * GetPenaltyForFatigue( pSoldier ) ) / 100) / 2 );
 }
 
-INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
+INT32 SkillCheck( TacticalActor * pSoldier, INT8 bReason, INT8 bChanceMod )
 {
 	INT32	iSkill;
 	INT32	iChance, iReportChance;
 	INT32	iRoll, iMadeItBy;
-	SOLDIERTYPE * pTeamSoldier;
+	TacticalActor * pTeamSoldier;
 	INT8	bBuddyIndex;
 	BOOLEAN fForceDamnSound = FALSE;
 
@@ -528,7 +530,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 			iSkill += EffectiveExpLevel( pSoldier ) * 10;
 
 			// Flugente: backgrounds
-			iSkill += pSoldier->GetBackgroundValue( BG_PERC_DISARM );
+			iSkill += TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_DISARM );
 
 			iSkill = iSkill / 10; // bring the value down to a percentage
 			//JMich_SkillModifiers: Adding a Disarm Trap bonus
@@ -1006,7 +1008,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 }
 
 
-INT16 CalcTrapDetectLevel( SOLDIERTYPE * pSoldier, BOOLEAN fExamining )
+INT16 CalcTrapDetectLevel( TacticalActor * pSoldier, BOOLEAN fExamining )
 {
 	// return the level of trap which the guy is able to detect
 

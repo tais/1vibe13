@@ -72,7 +72,7 @@ bool CopyJa2TacticalInventoryActor(
 	return true;
 }
 
-SOLDIERTYPE* ResolveJa2TacticalInventoryActor(
+TacticalActor* ResolveJa2TacticalInventoryActor(
 	TacticalInventoryActorRole role) noexcept
 {
 	return ResolveJa2TacticalEntity(GetJa2TacticalInventoryActor(role));
@@ -104,7 +104,7 @@ void ResetTacticalInventoryUiActorContexts() noexcept
 	{ \
 		ClearJa2TacticalInventoryActor(Role); \
 	} \
-	SOLDIERTYPE* Get##Name() noexcept \
+	TacticalActor* Get##Name() noexcept \
 	{ \
 		return ResolveJa2TacticalInventoryActor(Role); \
 	}

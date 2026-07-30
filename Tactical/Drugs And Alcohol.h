@@ -59,23 +59,23 @@ enum {
 
 #define LARRY_FALLS_OFF_WAGON 8
 
-BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed );
+BOOLEAN ApplyDrugs_New( TacticalActor *pSoldier, UINT16 usItem, UINT16 uStatusUsed );
 
-void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier );
+void HandleEndTurnDrugAdjustments_New( TacticalActor *pSoldier );
 
-INT8 GetDrunkLevel( SOLDIERTYPE *pSoldier );
+INT8 GetDrunkLevel( TacticalActor *pSoldier );
 
 // does a merc have a disability/personality, or is he under drugs that simulate this?
-BOOLEAN DoesMercHaveDisability( const SOLDIERTYPE *pSoldier, UINT8 aVal );
-BOOLEAN DoesMercHavePersonality( SOLDIERTYPE *pSoldier, UINT8 aVal );
+BOOLEAN DoesMercHaveDisability( const TacticalActor *pSoldier, UINT8 aVal );
+BOOLEAN DoesMercHavePersonality( TacticalActor *pSoldier, UINT8 aVal );
 
-//void HandleEndTurnDrugAdjustments( SOLDIERTYPE *pSoldier );
-void HandleAPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *pubPoints );
-void HandleBPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *psPoints );
+//void HandleEndTurnDrugAdjustments( TacticalActor *pSoldier );
+void HandleAPEffectDueToDrugs( TacticalActor *pSoldier, INT16 *pubPoints );
+void HandleBPEffectDueToDrugs( TacticalActor *pSoldier, INT16 *psPoints );
 
-INT32 EffectStatForBeingDrunk( SOLDIERTYPE *pSoldier, INT32 iStat );
-BOOLEAN MercDruggedOrDrunk( SOLDIERTYPE *pSoldier );
-BOOLEAN MercDrugged( SOLDIERTYPE *pSoldier );
+INT32 EffectStatForBeingDrunk( TacticalActor *pSoldier, INT32 iStat );
+BOOLEAN MercDruggedOrDrunk( TacticalActor *pSoldier );
+BOOLEAN MercDrugged( TacticalActor *pSoldier );
 
 void HourlyDrugUpdate();
 

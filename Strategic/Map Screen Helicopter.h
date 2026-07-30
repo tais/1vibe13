@@ -2,7 +2,9 @@
 #define __MAP_SCREEN_HELICOPTER_H
 
 #include "types.h"
-#include "Soldier Control.h"
+
+class TacticalActor;
+struct GROUP;
 
 // costs of flying through sectors
 #define COST_AIRSPACE_SAFE	100
@@ -157,8 +159,8 @@ extern BOOLEAN gfSkyriderSaidCongratsOnTakingSAM;
 extern UINT8 gubPlayerProgressSkyriderLastCommentedOn;
 
 // add and remove grunts from the helicopter
-BOOLEAN AddSoldierToHelicopter( SOLDIERTYPE *pSoldier );
-BOOLEAN RemoveSoldierFromHelicopter( SOLDIERTYPE *pSoldier );
+BOOLEAN AddSoldierToHelicopter( TacticalActor *pSoldier );
+BOOLEAN RemoveSoldierFromHelicopter( TacticalActor *pSoldier );
 
 #ifdef JA2TESTVERSION
 extern BOOLEAN	fSAMSitesDisabledFromAttackingPlayer;
@@ -304,7 +306,7 @@ INT16 GetNumSafeSectorsInPath( void );
 
 INT16 GetNumUnSafeSectorsInPath( void );
 
-BOOLEAN SoldierAboardAirborneHeli( SOLDIERTYPE *pSoldier );
+BOOLEAN SoldierAboardAirborneHeli( TacticalActor *pSoldier );
 
 // silversurfer: now accepts a preferred squad ID
 UINT8 MoveAllInHelicopterToFootMovementGroup( INT8 bNewSquad = 0 );

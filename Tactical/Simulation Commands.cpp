@@ -1,6 +1,7 @@
 #include "Simulation Commands.h"
 #include "Simulation Command Legacy.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDragging.h"
 #include "TacticalWorldAdapter.h"
 
 #include <array>
@@ -68,10 +69,10 @@ namespace
 			GetJa2TacticalCurrentTeam() < MAXTEAMS;
 	}
 
-	SOLDIERTYPE* ResolveLiveCommandActor(TacticalEntityId actor) noexcept
+	TacticalActor* ResolveLiveCommandActor(TacticalEntityId actor) noexcept
 	{
 		if (!IsJa2TacticalWorldLoaded()) return nullptr;
-		SOLDIERTYPE* soldier = ResolveJa2TacticalEntity(actor);
+		TacticalActor* soldier = ResolveJa2TacticalEntity(actor);
 		if (!soldier || !soldier->roster().inSector()) return nullptr;
 		return soldier;
 	}
@@ -131,7 +132,7 @@ namespace
 		return FindStructureByID(object.grid, object.structureId);
 	}
 
-	bool CanBeginWorldObjectInteraction(const SOLDIERTYPE& soldier) noexcept
+	bool CanBeginWorldObjectInteraction(const TacticalActor& soldier) noexcept
 	{
 		return soldier.animationPlayback().state() != OPEN_STRUCT &&
 			soldier.animationPlayback().state() != OPEN_STRUCT_CROUCHED &&
@@ -140,13 +141,13 @@ namespace
 	}
 
 	bool IsValidConversationPair(
-		const SOLDIERTYPE& soldier, const SOLDIERTYPE& target) noexcept
+		const TacticalActor& soldier, const TacticalActor& target) noexcept
 	{
 		return soldier.identity().id() != target.identity().id() && target.roster().active() && target.roster().inSector();
 	}
 
 	bool IsAtIssuedTacticalPosition(
-		const SOLDIERTYPE& soldier,
+		const TacticalActor& soldier,
 		std::int32_t grid,
 		std::int8_t level) noexcept
 	{
@@ -154,8 +155,8 @@ namespace
 	}
 
 	bool CanExecutePositionExchange(
-		SOLDIERTYPE& soldier,
-		SOLDIERTYPE& target,
+		TacticalActor& soldier,
+		TacticalActor& target,
 		const ExchangePositionsCommand& command) noexcept
 	{
 		if (!IsAtIssuedTacticalPosition(
@@ -171,7 +172,7 @@ namespace
 	}
 
 	bool HasValidVehicleSeat(
-		const SOLDIERTYPE& vehicle, std::uint8_t seatIndex) noexcept
+		const TacticalActor& vehicle, std::uint8_t seatIndex) noexcept
 	{
 		const INT32 capacity =
 			GetVehicleSeatingCapacity(vehicle.vehicleState().tacticalVehicleId());
@@ -179,7 +180,7 @@ namespace
 	}
 
 	bool CanEnterCommandVehicle(
-		SOLDIERTYPE& soldier, SOLDIERTYPE& vehicle,
+		TacticalActor& soldier, TacticalActor& vehicle,
 		std::uint8_t seatIndex) noexcept
 	{
 		if (soldier.identity().id() == vehicle.identity().id() ||
@@ -195,7 +196,7 @@ namespace
 		return IsEnoughSpaceInVehicle(vehicle.vehicleState().tacticalVehicleId()) == TRUE;
 	}
 
-	void ClearPendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept
+	void ClearPendingWorldItemPickup(TacticalActor& soldier) noexcept
 	{
 		soldier.pendingAction().clearAction();
 		soldier.pendingAction().primaryData() = 0;
@@ -206,7 +207,7 @@ namespace
 		UnSetUIBusy(soldier.identity().id());
 	}
 
-	void ClearPendingSteal(SOLDIERTYPE& soldier) noexcept
+	void ClearPendingSteal(TacticalActor& soldier) noexcept
 	{
 		soldier.pendingAction().clearAction();
 		soldier.pendingAction().primaryData() = 0;
@@ -217,8 +218,8 @@ namespace
 		UnSetUIBusy(soldier.identity().id());
 	}
 
-	SOLDIERTYPE* ResolveStablePendingStealTarget(
-		const SOLDIERTYPE& soldier) noexcept
+	TacticalActor* ResolveStablePendingStealTarget(
+		const TacticalActor& soldier) noexcept
 	{
 		const UINT32 rawSlot = soldier.pendingAction().primaryData();
 		if (rawSlot >= TOTAL_SOLDIERS ||
@@ -230,7 +231,7 @@ namespace
 	}
 
 	bool PendingWorldItemMatches(
-		const SOLDIERTYPE& soldier,
+		const TacticalActor& soldier,
 		std::int32_t itemIndex,
 		std::int32_t grid,
 		std::int8_t level) noexcept
@@ -285,7 +286,7 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 			{
-				if (SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier))
+				if (TacticalActor* soldier = ResolveLiveCommandActor(value.soldier))
 				{
 					if (value.eventPolicy == TacticalEventPolicy::LocalOnly)
 					{
@@ -319,7 +320,7 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, BeginFireWeaponCommand>::value)
 			{
-				if (SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier))
+				if (TacticalActor* soldier = ResolveLiveCommandActor(value.soldier))
 				{
 					SendBeginFireWeaponEvent(
 						soldier, value.targetGrid,
@@ -331,7 +332,7 @@ namespace
 			else if constexpr (
 				std::is_same<Command, BeginSelectedFireWeaponCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier ||
 					!IsSimulationSystemSource(value.source) ||
 					value.attackingHand >= NUM_INV_SLOTS ||
@@ -353,7 +354,7 @@ namespace
 			else if constexpr (
 				std::is_same<Command, SynchronizeActorFireCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier ||
 					!IsSimulationSynchronizationSource(value.source) ||
 					value.attackingWeapon >= MAXITEMS)
@@ -368,7 +369,7 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, MoveToGridCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier ||
 					!IsValidMovementMode(soldier, value.movementMode))
 					return CommandDisposition::Discard;
@@ -386,7 +387,7 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, SetFacingCommand>::value)
 			{
-				if (SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier))
+				if (TacticalActor* soldier = ResolveLiveCommandActor(value.soldier))
 				{
 					if (value.eventPolicy == TacticalEventPolicy::LocalOnly)
 						soldier->EVENT_SetSoldierDesiredDirection(value.direction);
@@ -400,7 +401,7 @@ namespace
 			else if constexpr (
 				std::is_same<Command, SynchronizeActorPathCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier ||
 					!IsSimulationSynchronizationSource(value.source))
 					return CommandDisposition::Discard;
@@ -431,7 +432,7 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, SetStealthModeCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier ||
 					(soldier->status().flags() & SOLDIER_VEHICLE) != 0)
 					return CommandDisposition::Discard;
@@ -440,7 +441,7 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, StopMovementCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier) return CommandDisposition::Discard;
 				soldier->movement().clearDelay();
 				soldier->pathing().finalDestinationGrid() = soldier->position().gridNo();
@@ -450,7 +451,7 @@ namespace
 			else if constexpr (
 				std::is_same<Command, SynchronizeActorStopCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier ||
 					!IsSimulationSynchronizationSource(value.source))
 					return CommandDisposition::Discard;
@@ -471,15 +472,15 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, CancelDragCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				if (!soldier || !soldier->IsDragging())
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				if (!soldier || !TacticalActorDragging::isDragging(*soldier))
 					return CommandDisposition::Discard;
-				soldier->CancelDrag();
+				TacticalActorDragging::cancel(*soldier);
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (std::is_same<Command, CycleWeaponModeCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier || !soldier->inventory()[HANDPOS].exists() ||
 					(gAnimControl[soldier->animationPlayback().state()].uiFlags & ANIM_FIRE) != 0)
 					return CommandDisposition::Discard;
@@ -488,7 +489,7 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, CycleScopeModeCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier || !soldier->inventory()[HANDPOS].exists() ||
 					(gAnimControl[soldier->animationPlayback().state()].uiFlags & ANIM_FIRE) != 0)
 					return CommandDisposition::Discard;
@@ -498,7 +499,7 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, ReloadWeaponCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier || !soldier->inventory()[HANDPOS].exists())
 					return CommandDisposition::Discard;
 				return AutoReload(soldier, value.reloadEvenIfNotEmpty)
@@ -508,7 +509,7 @@ namespace
 			else if constexpr (
 				std::is_same<Command, SetWeaponReadyCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier) return CommandDisposition::Discard;
 				return soldier->InternalSoldierReadyWeapon(
 					value.direction,
@@ -519,7 +520,7 @@ namespace
 			}
 			else if constexpr (std::is_same<Command, TraverseObstacleCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier) return CommandDisposition::Discard;
 				switch (value.kind)
 				{
@@ -544,7 +545,7 @@ namespace
 			else if constexpr (
 				std::is_same<Command, ActivateWorldObjectCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier || !CanBeginWorldObjectInteraction(*soldier))
 					return CommandDisposition::Discard;
 				STRUCTURE* structure = ResolveLiveWorldObject(value.object);
@@ -561,7 +562,7 @@ namespace
 			else if constexpr (
 				std::is_same<Command, ApproachWorldObjectCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier || !CanBeginWorldObjectInteraction(*soldier) ||
 					!IsValidMovementMode(soldier, value.movementMode))
 					return CommandDisposition::Discard;
@@ -585,8 +586,8 @@ namespace
 			else if constexpr (
 				std::is_same<Command, StartConversationCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				SOLDIERTYPE* target = ResolveLiveCommandActor(value.target);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* target = ResolveLiveCommandActor(value.target);
 				if (!soldier || !target ||
 					!IsValidConversationPair(*soldier, *target))
 					return CommandDisposition::Discard;
@@ -596,8 +597,8 @@ namespace
 			else if constexpr (
 				std::is_same<Command, ApproachConversationCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				SOLDIERTYPE* target = ResolveLiveCommandActor(value.target);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* target = ResolveLiveCommandActor(value.target);
 				if (!soldier || !target ||
 					!IsValidConversationPair(*soldier, *target) ||
 					!IsValidMovementMode(soldier, value.movementMode))
@@ -649,8 +650,8 @@ namespace
 			else if constexpr (
 				std::is_same<Command, EnterVehicleCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				SOLDIERTYPE* vehicle = ResolveLiveCommandActor(value.vehicle);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* vehicle = ResolveLiveCommandActor(value.vehicle);
 				if (!soldier || !vehicle ||
 					!CanEnterCommandVehicle(
 						*soldier, *vehicle, value.seatIndex))
@@ -665,8 +666,8 @@ namespace
 			else if constexpr (
 				std::is_same<Command, ApproachVehicleCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				SOLDIERTYPE* vehicle = ResolveLiveCommandActor(value.vehicle);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* vehicle = ResolveLiveCommandActor(value.vehicle);
 				if (!soldier || !vehicle ||
 					!CanEnterCommandVehicle(
 						*soldier, *vehicle, value.seatIndex) ||
@@ -722,7 +723,7 @@ namespace
 			else if constexpr (
 				std::is_same<Command, PickupWorldItemCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier) return CommandDisposition::Discard;
 
 				INT32 itemIndex = NOTHING;
@@ -749,8 +750,8 @@ namespace
 			else if constexpr (
 				std::is_same<Command, StealFromActorCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				SOLDIERTYPE* target = ResolveLiveCommandActor(value.target);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* target = ResolveLiveCommandActor(value.target);
 				if (!soldier || !target ||
 					!IsAtIssuedTacticalPosition(
 						*target, value.targetGrid, value.targetLevel))
@@ -762,8 +763,8 @@ namespace
 			else if constexpr (
 				std::is_same<Command, ExchangePositionsCommand>::value)
 			{
-				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
-				SOLDIERTYPE* target = ResolveLiveCommandActor(value.target);
+				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
+				TacticalActor* target = ResolveLiveCommandActor(value.target);
 				if (!soldier || !target ||
 					!CanExecutePositionExchange(*soldier, *target, value) ||
 					!SwapMercPositions(soldier, target))
@@ -791,7 +792,7 @@ namespace
 				!std::is_same<Command, EndTurnCommand>::value &&
 				!std::is_same<Command, SynchronizeTurnCommand>::value)
 			{
-				if (SOLDIERTYPE* soldier =
+				if (TacticalActor* soldier =
 					ResolveLiveCommandActor(value.soldier))
 					(void)SynchronizeJa2TacticalEntityState(*soldier);
 
@@ -801,7 +802,7 @@ namespace
 					std::is_same<Command, StealFromActorCommand>::value ||
 					std::is_same<Command, ExchangePositionsCommand>::value)
 				{
-					if (SOLDIERTYPE* target =
+					if (TacticalActor* target =
 						ResolveLiveCommandActor(value.target))
 						(void)SynchronizeJa2TacticalEntityState(*target);
 				}
@@ -809,7 +810,7 @@ namespace
 					std::is_same<Command, EnterVehicleCommand>::value ||
 					std::is_same<Command, ApproachVehicleCommand>::value)
 				{
-					if (SOLDIERTYPE* vehicle =
+					if (TacticalActor* vehicle =
 						ResolveLiveCommandActor(value.vehicle))
 						(void)SynchronizeJa2TacticalEntityState(*vehicle);
 				}
@@ -1896,7 +1897,7 @@ SimulationCommandDispatchResult TryDispatchExchangePositionsCommandNow(
 		});
 }
 
-bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept
+bool TryCompletePendingConversationCommand(TacticalActor& soldier) noexcept
 {
 	if (soldier.pendingAction().action() != MERC_TALK) return false;
 	const UINT32 targetSlot = soldier.pendingAction().primaryData();
@@ -1911,13 +1912,13 @@ bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept
 	soldier.pendingAction().quaternaryData() = 0;
 	soldier.runtime().pendingAction.targetIncarnation = 0;
 
-	SOLDIERTYPE* target = ResolveLiveCommandActor(targetId);
+	TacticalActor* target = ResolveLiveCommandActor(targetId);
 	if (!target || !IsValidConversationPair(soldier, *target)) return false;
 	(void)soldier.PlayerSoldierStartTalking(target->identity().id(), TRUE);
 	return true;
 }
 
-bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept
+bool TryCompletePendingVehicleCommand(TacticalActor& soldier) noexcept
 {
 	if (soldier.pendingAction().action() != MERC_ENTER_VEHICLE) return false;
 	const INT32 targetSlot = soldier.pendingAction().secondaryData();
@@ -1936,7 +1937,7 @@ bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept
 	soldier.pendingAction().quaternaryData() = 0;
 	soldier.runtime().pendingAction.targetIncarnation = 0;
 
-	SOLDIERTYPE* vehicle = ResolveLiveCommandActor(vehicleId);
+	TacticalActor* vehicle = ResolveLiveCommandActor(vehicleId);
 	if (!vehicle || rawDirection < 0 ||
 		!IsValidTacticalDirection(static_cast<std::uint8_t>(rawDirection)) ||
 		rawSeatIndex >= TacticalMaximumVehicleSeats ||
@@ -1953,11 +1954,11 @@ bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept
 	return entered == TRUE;
 }
 
-bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
+bool TryCompletePendingStealCommand(TacticalActor& soldier) noexcept
 {
 	if (soldier.pendingAction().action() != MERC_STEAL) return false;
 
-	SOLDIERTYPE* target = nullptr;
+	TacticalActor* target = nullptr;
 	if (soldier.runtime().pendingAction.targetIncarnation != 0)
 	{
 		target = ResolveStablePendingStealTarget(soldier);
@@ -2004,12 +2005,12 @@ bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
 	return true;
 }
 
-SOLDIERTYPE* ResolveAndConsumePendingStealTarget(
-	SOLDIERTYPE& soldier,
+TacticalActor* ResolveAndConsumePendingStealTarget(
+	TacticalActor& soldier,
 	std::int32_t targetGrid,
 	std::int8_t targetLevel) noexcept
 {
-	SOLDIERTYPE* target = nullptr;
+	TacticalActor* target = nullptr;
 	if (soldier.runtime().pendingAction.targetIncarnation != 0)
 	{
 		target = ResolveStablePendingStealTarget(soldier);
@@ -2036,7 +2037,7 @@ SOLDIERTYPE* ResolveAndConsumePendingStealTarget(
 	return target;
 }
 
-bool TryValidatePendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept
+bool TryValidatePendingWorldItemPickup(TacticalActor& soldier) noexcept
 {
 	if (soldier.pendingAction().action() != MERC_PICKUPITEM)
 		return true;
@@ -2051,7 +2052,7 @@ bool TryValidatePendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept
 }
 
 bool TryConsumePendingWorldItemPickup(
-	SOLDIERTYPE& soldier,
+	TacticalActor& soldier,
 	std::int32_t itemIndex,
 	std::int32_t grid,
 	std::int8_t level) noexcept

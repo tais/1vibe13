@@ -78,7 +78,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 BOOLEAN gfCorruptMap = FALSE;
 BOOLEAN gfCorruptSchedules = FALSE;
@@ -3262,7 +3262,7 @@ void ShowLightPositionHandles( void )
 	INT32 iMapIndex;
 	UINT16 cnt;
 	UINT16 usTmpIndex;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	BOOLEAN fSoldierLight;
 
 	// Check all lights and place a position handle there!
@@ -3305,7 +3305,7 @@ void RemoveLightPositionHandles( void )
 	INT32 iCount;
 	INT32 iMapIndex;
 	UINT16 cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	BOOLEAN fSoldierLight;
 
 	// Check all lights and remove the position handle there!
@@ -4629,7 +4629,7 @@ BOOLEAN FindLight(INT32 iGridNo, INT8 bLightType, UINT8 *pubLightRadius, UINT8 *
 	INT8 bSpriteLightType;
 	INT16 sX, sY;
 	INT32 iCount, cnt;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	ConvertGridNoToXY(iGridNo, &sX, &sY);
 	for(iCount=0; iCount<MAX_LIGHT_SPRITES; iCount++)

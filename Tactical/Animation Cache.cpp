@@ -80,7 +80,7 @@ bool SoldierAnimationCacheComponent::acquire(
 			soldier.i ) );
 
 		UINT16 currentSurface = EmptyEntry;
-		if (SOLDIERTYPE* currentSoldier =
+		if (TacticalActor* currentSoldier =
 				GetJa2SoldierRepository().resolve(soldier.i))
 		{
 			currentSurface = DetermineSoldierAnimationSurface(

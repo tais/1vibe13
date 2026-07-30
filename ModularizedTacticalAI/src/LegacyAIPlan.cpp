@@ -23,7 +23,7 @@ namespace AI
 {
     namespace tactical
     {
-        LegacyAIPlan::LegacyAIPlan(SOLDIERTYPE* npc)
+        LegacyAIPlan::LegacyAIPlan(TacticalActor* npc)
             : Plan(npc)
         {
         }

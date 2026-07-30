@@ -1,9 +1,11 @@
+#include "TacticalActorEquipment.h"
 /**
 * @file
 * @author Flugente (bears-pit.com)
 */
 
 #include <math.h>
+#include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "ASD.h"
@@ -1162,7 +1164,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 		// this requires an armed SAM in the first place. The mercs have to be in the heli's sector or adjacent to it
 		// sleeping or travelling mercs are excluded
 		UINT16 uiCnt = 0;
-		SOLDIERTYPE* pSoldier = NULL;
+		TacticalActor* pSoldier = NULL;
 
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
@@ -1176,7 +1178,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 				 )
 			{
 				// look for a SAM in our inventory
-				OBJECTTYPE* pObj = pSoldier->GetObjectWithFlag( MANPAD );
+				OBJECTTYPE* pObj = TacticalActorEquipment::objectWithFlag(*pSoldier, MANPAD );
 
 				if ( pObj )
 				{
@@ -1194,9 +1196,9 @@ void EnemyHeliMANPADSCheck( INT16 id )
 					// determine cth
 					INT16 samcth = pSoldier->statistics().marksmanship();
 
-					samcth = (FLOAT)((samcth * (100.0f + pSoldier->GetTraitCTHModifier( pObj->usItem, 2, NO_PROFILE ))) / 100.0f);
+					samcth = (FLOAT)((samcth * (100.0f + TacticalActorModifiers::traitChanceToHitModifier(*pSoldier, pObj->usItem, 2, NO_PROFILE))) / 100.0f);
 
-					samcth = (samcth * (100.0f + pSoldier->GetBackgroundValue( BG_PERC_SAM_CTH ))) / 100.0f;
+					samcth = (samcth * (100.0f + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_SAM_CTH ))) / 100.0f;
 
 					// cth is reduced if SAM is damaged, even if it can still operate
 					samcth = (samcth * (*pObj)[0]->data.objectStatus) / 100.0f;

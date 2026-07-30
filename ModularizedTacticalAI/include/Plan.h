@@ -8,7 +8,7 @@
 
 #include <iostream>
 
-class SOLDIERTYPE;
+class TacticalActor;
 struct TacticalStatusType;
 
 namespace AI
@@ -54,14 +54,14 @@ namespace AI
         {
             private:
                 /// A pointer to the NPC who owns this plan.
-                SOLDIERTYPE* npc_;
+                TacticalActor* npc_;
             protected:
                 /// Return a pointer to the controlled NPC
-                SOLDIERTYPE* get_npc() {return npc_;}
+                TacticalActor* get_npc() {return npc_;}
                 /// Return a pointer to the controlled NPC
-                const SOLDIERTYPE* get_npc() const {return npc_;}
+                const TacticalActor* get_npc() const {return npc_;}
             public:
-                Plan(SOLDIERTYPE* npc);
+                Plan(TacticalActor* npc);
                 /// A virtual destructor is essential here, destruction will be handled through this interface.
                 virtual ~Plan() { };
                 /** @brief Plan execution is the encapsulation of an "action sequence", which can be used to make up

@@ -6,10 +6,10 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 // One persisted slot on a mercenary's key ring. Keep this in the key domain
-// rather than in SOLDIERTYPE so both the key subsystem and the soldier-owned
+// rather than in TacticalActor so both the key subsystem and the soldier-owned
 // storage component share the same stable representation.
 struct KEY_ON_RING
 {
@@ -171,12 +171,12 @@ extern KEY KeyTable[NUM_KEYS];
 extern LOCK LockTable[NUM_LOCKS];
 extern DOORTRAP DoorTrapTable[NUM_DOOR_TRAPS];
 
-extern BOOLEAN AddKeysToKeyRing( SOLDIERTYPE *pSoldier, UINT8 ubKeyID, UINT8 ubNumber );
-extern BOOLEAN RemoveKeyFromKeyRing( SOLDIERTYPE *pSoldier, UINT8 ubPos, OBJECTTYPE * pObj );
-extern BOOLEAN RemoveAllOfKeyFromKeyRing( SOLDIERTYPE *pSoldier, UINT8 ubPos, OBJECTTYPE * pObj );
-extern BOOLEAN KeyExistsInInventory( SOLDIERTYPE *pSoldier, UINT8 ubKeyID );
-extern BOOLEAN KeyExistsInKeyRing( SOLDIERTYPE *pSoldier, UINT8 ubKeyID, UINT8 * pubPos );
-extern BOOLEAN SoldierHasKey( SOLDIERTYPE *pSoldier, UINT8 ubKeyID );
+extern BOOLEAN AddKeysToKeyRing( TacticalActor *pSoldier, UINT8 ubKeyID, UINT8 ubNumber );
+extern BOOLEAN RemoveKeyFromKeyRing( TacticalActor *pSoldier, UINT8 ubPos, OBJECTTYPE * pObj );
+extern BOOLEAN RemoveAllOfKeyFromKeyRing( TacticalActor *pSoldier, UINT8 ubPos, OBJECTTYPE * pObj );
+extern BOOLEAN KeyExistsInInventory( TacticalActor *pSoldier, UINT8 ubKeyID );
+extern BOOLEAN KeyExistsInKeyRing( TacticalActor *pSoldier, UINT8 ubKeyID, UINT8 * pubPos );
+extern BOOLEAN SoldierHasKey( TacticalActor *pSoldier, UINT8 ubKeyID );
 
 extern STR16 sKeyDescriptionStrings[];
 /**********************************
@@ -212,15 +212,15 @@ DOOR * FindDoorInfoAtGridNo( INT32 iMapIndex );
 //Upon world deallocation, the door table needs to be deallocated.
 extern void TrashDoorTable();
 
-BOOLEAN AttemptToUnlockDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor );
-BOOLEAN AttemptToLockDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor );
-BOOLEAN AttemptToSmashDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor );
-BOOLEAN AttemptToPickLock( SOLDIERTYPE * pSoldier, DOOR * pDoor );
-BOOLEAN AttemptToBlowUpLock( SOLDIERTYPE * pSoldier, DOOR * pDoor );
-BOOLEAN AttemptToUntrapDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor );
-BOOLEAN ExamineDoorForTraps( SOLDIERTYPE * pSoldier, DOOR * pDoor );
-BOOLEAN HasDoorTrapGoneOff( SOLDIERTYPE * pSoldier, DOOR * pDoor );
-void HandleDoorTrap( SOLDIERTYPE * pSoldier, DOOR * pDoor );
+BOOLEAN AttemptToUnlockDoor( TacticalActor * pSoldier, DOOR * pDoor );
+BOOLEAN AttemptToLockDoor( TacticalActor * pSoldier, DOOR * pDoor );
+BOOLEAN AttemptToSmashDoor( TacticalActor * pSoldier, DOOR * pDoor );
+BOOLEAN AttemptToPickLock( TacticalActor * pSoldier, DOOR * pDoor );
+BOOLEAN AttemptToBlowUpLock( TacticalActor * pSoldier, DOOR * pDoor );
+BOOLEAN AttemptToUntrapDoor( TacticalActor * pSoldier, DOOR * pDoor );
+BOOLEAN ExamineDoorForTraps( TacticalActor * pSoldier, DOOR * pDoor );
+BOOLEAN HasDoorTrapGoneOff( TacticalActor * pSoldier, DOOR * pDoor );
+void HandleDoorTrap( TacticalActor * pSoldier, DOOR * pDoor );
 
 
 // Updates the perceived value to the user of the state of the door
@@ -276,11 +276,11 @@ BOOLEAN UpdateDoorStatusPerceivedValue( INT32 sGridNo );
 
 BOOLEAN AllMercsLookForDoor( INT32 sGridNo, BOOLEAN fUpdateValue );
 
-BOOLEAN MercLooksForDoors( SOLDIERTYPE *pSoldier, BOOLEAN fUpdateValue );
+BOOLEAN MercLooksForDoors( TacticalActor *pSoldier, BOOLEAN fUpdateValue );
 
 void UpdateDoorGraphicsFromStatus( BOOLEAN fUsePerceivedStatus, BOOLEAN fDirty );
 
-BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor );
+BOOLEAN AttemptToCrowbarLock( TacticalActor * pSoldier, DOOR * pDoor );
 
 BOOLEAN LoadLockTable( void );
 
@@ -290,6 +290,6 @@ void HandleDoorsChangeWhenEnteringSectorCurrentlyLoaded( );
 
 void AttachStringToDoor( INT32 sGridNo );
 
-void DropKeysInKeyRing( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, INT8 bVisible, BOOLEAN fAddToDropList, INT32 iDropListSlot, BOOLEAN fUseUnLoaded );
+void DropKeysInKeyRing( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, INT8 bVisible, BOOLEAN fAddToDropList, INT32 iDropListSlot, BOOLEAN fUseUnLoaded );
 
 #endif

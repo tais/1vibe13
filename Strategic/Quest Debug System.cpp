@@ -41,7 +41,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 
@@ -506,7 +506,7 @@ namespace
 {
 Ja2TacticalEntityReference gQdsTalkingMerc;
 
-SOLDIERTYPE* ResolveQdsTalkingMerc() noexcept
+TacticalActor* ResolveQdsTalkingMerc() noexcept
 {
 	return gQdsTalkingMerc.resolve();
 }
@@ -1307,7 +1307,7 @@ void		GetUserInput()
 {
 	InputAtom Event;
 	POINT	MousePos;
-	SOLDIERTYPE* pTalkingMerc = ResolveQdsTalkingMerc();
+	TacticalActor* pTalkingMerc = ResolveQdsTalkingMerc();
 	if (giSelectedMercCurrentQuote != -1 &&
 		!pTalkingMerc)
 	{
@@ -2528,7 +2528,7 @@ void BtnQuestDebugGiveItemToNPCButtonCallback(GUI_BUTTON *btn,INT32 reason)
 	}
 	if(reason & MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
-		SOLDIERTYPE *pSoldier;
+		TacticalActor *pSoldier;
 		CreateItem( gItemListBox.sCurSelectedItem, 100, &gTempObject );
 
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
@@ -3103,7 +3103,7 @@ void CreateDestroyDisplayNPCInventoryPopup( UINT8 ubAction )
 {
 	static BOOLEAN	fMouseRegionCreated = FALSE;
 	UINT16	usPosY, i;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 
 	switch( ubAction )
@@ -3306,7 +3306,7 @@ void BtnQuestDebugAllOrSectorNPCToggleCallback( GUI_BUTTON *btn, INT32 reason )
 void AddNPCsInSectorToArray()
 {
 	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT16 cnt,i;
 
 	//Setup array of merc who are in the current sector
@@ -3689,7 +3689,7 @@ SoldierID IsMercInTheSector( UINT8 ubMercProfileID )
 	UINT16 cnt;
 	for ( cnt=0; cnt < TOTAL_SOLDIERS; cnt++ )
 	{
-		SOLDIERTYPE& soldier = soldiers.record( cnt );
+		TacticalActor& soldier = soldiers.record( cnt );
 
 		//if the merc is active
 		if( soldier.identity().profile() == ubMercProfileID )
@@ -3712,7 +3712,7 @@ void RefreshAllNPCInventory()
 
 	for ( usCnt=0; usCnt < TOTAL_SOLDIERS; ++usCnt )
 	{
-		SOLDIERTYPE& soldier = soldiers.record( usCnt );
+		TacticalActor& soldier = soldiers.record( usCnt );
 
 		//if the is active
 		if( soldier.roster().active() == 1 )
@@ -3811,7 +3811,7 @@ void HandleQDSTalkingMerc()
 //	static BOOLEAN	fWas
 	BOOLEAN fIsTheMercTalking=FALSE;
 	UINT8		ubPanelMercShouldUse;
-	SOLDIERTYPE* pTalkingMerc = ResolveQdsTalkingMerc();
+	TacticalActor* pTalkingMerc = ResolveQdsTalkingMerc();
 
 	if( giSelectedMercCurrentQuote != -1 )
 	{
@@ -3886,7 +3886,7 @@ void HandleQDSTalkingMerc()
 
 void SetTalkingMercPauseState( BOOLEAN fState )
 {
-	SOLDIERTYPE* pTalkingMerc = ResolveQdsTalkingMerc();
+	TacticalActor* pTalkingMerc = ResolveQdsTalkingMerc();
 	if( fState )
 	{
 		gfPauseTalkingMercPopup = TRUE;
@@ -3907,7 +3907,7 @@ void SetTalkingMercPauseState( BOOLEAN fState )
 
 void SetQDSMercProfile()
 {
-	SOLDIERTYPE* pTalkingMerc = NULL;
+	TacticalActor* pTalkingMerc = NULL;
 	// Get selected soldier
 	if	( GetSoldier( &pTalkingMerc, gusSelectedSoldier ) &&
 		pTalkingMerc &&
@@ -3954,7 +3954,7 @@ void DisplayQDSCurrentlyQuoteNum( )
 	CHAR16	zTemp[512];
 	UINT16	usPosY;
 	UINT16	usFontHeight = GetFontHeight( QUEST_DBS_FONT_TEXT_ENTRY ) + 2;
-	SOLDIERTYPE* pTalkingMerc = ResolveQdsTalkingMerc();
+	TacticalActor* pTalkingMerc = ResolveQdsTalkingMerc();
 	if (!pTalkingMerc)
 		return;
 
@@ -4018,7 +4018,7 @@ void BtnQuestDebugRPCSaySectorDescToggleCallback( GUI_BUTTON *btn, INT32 reason 
 
 UINT8	WhichPanelShouldTalkingMercUse( )
 {
-	SOLDIERTYPE* pTalkingMerc = ResolveQdsTalkingMerc();
+	TacticalActor* pTalkingMerc = ResolveQdsTalkingMerc();
 	if ( pTalkingMerc == NULL )
 	{
 		return( QDS_NO_PANEL );
@@ -4099,7 +4099,7 @@ INT32	GetMaxNumberOfQuotesToPlay( )
 
 void GetDebugLocationString( UINT16 usProfileID, CHAR16 *pzText )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 		//Get a soldier pointer
 	pSoldier = FindSoldierByProfileID( (UINT8)usProfileID, FALSE );

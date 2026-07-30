@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 	#include "Isometric Utils.h"
 	#include "worlddef.h"
@@ -287,7 +288,7 @@ void ExamineSlantRoofFOVSlots( )
 
 }
 
-void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLocators, UINT8 ubLevel, BOOLEAN fForce )
+void RevealRoofsAndItems(TacticalActor *pSoldier, UINT32 itemsToo, BOOLEAN fShowLocators, UINT8 ubLevel, BOOLEAN fForce )
 {
 	INT32		maincnt,markercnt,marker,tilesLeftToSee,prevmarker;
 	UINT8		cnt;
@@ -368,7 +369,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 		range = pSoldier->perception().viewRange();
 
 		// Flugente: adjust sightrange
-		range = (UINT8)( (range * (100 + pSoldier->GetSightRangeBonus()) ) / 100);
+		range = (UINT8)( (range * (100 + TacticalActorModifiers::sightRangeBonus(*pSoldier)) ) / 100);
 
 		// balance item viewing range between normal and the limit set by opplist-type functions -- CJC
 		range = (AdjustMaxSightRangeForEnvEffects( pSoldier, LightTrueLevel( pSoldier->position().gridNo(), pSoldier->position().level()), range ) + range) / 2;

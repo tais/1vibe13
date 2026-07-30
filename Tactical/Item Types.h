@@ -231,7 +231,7 @@ typedef enum
 
 //forward declaration
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 #define MAX_ITEMS_IN_LBE 12
 
@@ -263,12 +263,12 @@ void	CreateLBE(OBJECTTYPE* pObj, SoldierID ubID, int numSubPockets);
 bool	DestroyLBEIfEmpty(OBJECTTYPE* pObj, int stackIndex = 0);
 void	DestroyLBE(OBJECTTYPE* pObj, int stackIndex = 0);
 void	GetLBESlots(UINT32 LBEType, std::vector<INT8>& LBESlots);
-void	MoveItemsInSlotsToLBE( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBESlots, LBENODE* pLBE, OBJECTTYPE* pObj);
+void	MoveItemsInSlotsToLBE( TacticalActor *pSoldier, std::vector<INT8>& LBESlots, LBENODE* pLBE, OBJECTTYPE* pObj);
 
 // CHRISL:
-BOOLEAN MoveItemsToActivePockets( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBESlots, UINT32 uiHandPos, OBJECTTYPE *pObj );
-BOOLEAN	MoveItemToLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos );
-BOOLEAN MoveItemFromLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, OBJECTTYPE *pObj );
+BOOLEAN MoveItemsToActivePockets( TacticalActor *pSoldier, std::vector<INT8>& LBESlots, UINT32 uiHandPos, OBJECTTYPE *pObj );
+BOOLEAN	MoveItemToLBEItem( TacticalActor *pSoldier, UINT32 uiHandPos );
+BOOLEAN MoveItemFromLBEItem( TacticalActor *pSoldier, UINT32 uiHandPos, OBJECTTYPE *pObj );
 bool	IsSlotAnLBESlot(int slot);
 bool	IsSlotASmallPocket(int slot);
 
@@ -618,29 +618,29 @@ public:
 	bool	operator==(const OBJECTTYPE& compare)const;
 	bool	exists() const;
 	bool	IsActiveLBE(unsigned int index);
-	bool	HasAnyActiveLBEs(SOLDIERTYPE * pSoldier = NULL, UINT8 iter = 0);
+	bool	HasAnyActiveLBEs(TacticalActor * pSoldier = NULL, UINT8 iter = 0);
 	LBENODE*	GetLBEPointer(unsigned int index);
 
 
 	UINT16	GetWeightOfObjectInStack(unsigned int index = 0);
 	int		AddObjectsToStack(int howMany, int objectStatus = 100);
-	int		AddObjectsToStack(OBJECTTYPE& sourceObject, int howManyWanted = ALL_OBJECTS, SOLDIERTYPE* pSoldier = NULL, int slot = STACK_SIZE_LIMIT, int cap = 0, bool allowLBETransfer = true);
+	int		AddObjectsToStack(OBJECTTYPE& sourceObject, int howManyWanted = ALL_OBJECTS, TacticalActor* pSoldier = NULL, int slot = STACK_SIZE_LIMIT, int cap = 0, bool allowLBETransfer = true);
 	int		ForceAddObjectsToStack(OBJECTTYPE& sourceObject, int howManyWanted = ALL_OBJECTS);
-	int		MoveThisObjectTo(OBJECTTYPE& destObject, int numToMove = ALL_OBJECTS, SOLDIERTYPE* pSoldier = NULL, int slot = STACK_SIZE_LIMIT, int cap = 0);
+	int		MoveThisObjectTo(OBJECTTYPE& destObject, int numToMove = ALL_OBJECTS, TacticalActor* pSoldier = NULL, int slot = STACK_SIZE_LIMIT, int cap = 0);
 	int		RemoveObjectsFromStack(int howMany);
 	bool	RemoveObjectAtIndex(unsigned int index, OBJECTTYPE* destObject = NULL);
 private://these are only helpers for the above functions
-	int		PrivateRemoveObjectsFromStack(int howMany, OBJECTTYPE* destObject = NULL, SOLDIERTYPE* pSoldier = NULL, int slot = STACK_SIZE_LIMIT, int cap = 0);
+	int		PrivateRemoveObjectsFromStack(int howMany, OBJECTTYPE* destObject = NULL, TacticalActor* pSoldier = NULL, int slot = STACK_SIZE_LIMIT, int cap = 0);
 	void	SpliceData(OBJECTTYPE& sourceObject, unsigned int numToSplice, StackedObjects::iterator beginIter);
 	bool	CanStack(OBJECTTYPE& sourceObject, int& numToStack);
 public:
 
-	BOOLEAN AttachObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttachment, BOOLEAN playSound = TRUE, UINT8 subObject = 0, INT32 iItemPos = -1, BOOLEAN fRemoveProhibited = TRUE, std::vector<UINT16> usAttachmentSlotIndexVector = std::vector<UINT16>());
-	BOOLEAN AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttachment, BOOLEAN playSound = TRUE, UINT8 subObject = 0);
-	BOOLEAN AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttachment, BOOLEAN playSound = TRUE, UINT8 subObject = 0, INT32 iItemPos = -1, BOOLEAN fRemoveProhibited = TRUE, std::vector<UINT16> usAttachmentSlotIndexVector = std::vector<UINT16>());
-	BOOLEAN RemoveAttachment( OBJECTTYPE* pAttachment, OBJECTTYPE * pNewObj = NULL, UINT8 subObject = 0, SOLDIERTYPE * pSoldier = NULL, BOOLEAN fForceInseperable = FALSE, BOOLEAN fRemoveProhibited = TRUE);
+	BOOLEAN AttachObject( TacticalActor * pSoldier, OBJECTTYPE * pAttachment, BOOLEAN playSound = TRUE, UINT8 subObject = 0, INT32 iItemPos = -1, BOOLEAN fRemoveProhibited = TRUE, std::vector<UINT16> usAttachmentSlotIndexVector = std::vector<UINT16>());
+	BOOLEAN AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAttachment, BOOLEAN playSound = TRUE, UINT8 subObject = 0);
+	BOOLEAN AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAttachment, BOOLEAN playSound = TRUE, UINT8 subObject = 0, INT32 iItemPos = -1, BOOLEAN fRemoveProhibited = TRUE, std::vector<UINT16> usAttachmentSlotIndexVector = std::vector<UINT16>());
+	BOOLEAN RemoveAttachment( OBJECTTYPE* pAttachment, OBJECTTYPE * pNewObj = NULL, UINT8 subObject = 0, TacticalActor * pSoldier = NULL, BOOLEAN fForceInseperable = FALSE, BOOLEAN fRemoveProhibited = TRUE);
 	// HEADROCK HAM 5: Object Transformation
-	BOOLEAN TransformObject( SOLDIERTYPE * pSoldier, UINT8 ubStatusIndex, TransformInfoStruct * Transform, OBJECTTYPE *pParent );
+	BOOLEAN TransformObject( TacticalActor * pSoldier, UINT8 ubStatusIndex, TransformInfoStruct * Transform, OBJECTTYPE *pParent );
 
 	//see comments in .cpp
 	static	void DeleteMe(OBJECTTYPE** ppObject);

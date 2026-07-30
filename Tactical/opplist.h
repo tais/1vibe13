@@ -102,51 +102,51 @@ extern INT8 STRAIGHT;
 #define BEST_SIGHTING_ARRAY_SIZE_INCOMBAT 0
 extern UINT8 gubBestToMakeSightingSize;
 
-INT16 AdjustMaxSightRangeForEnvEffects( SOLDIERTYPE *pSoldier, INT8 bLightLevel, INT16 sDistVisible );
-INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCaller);
-void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags);
+INT16 AdjustMaxSightRangeForEnvEffects( TacticalActor *pSoldier, INT8 bLightLevel, INT16 sDistVisible );
+INT16 ManLooksForMan(TacticalActor *pSoldier, TacticalActor *pOpponent, UINT8 ubCaller);
+void HandleSight(TacticalActor *pSoldier, UINT8 ubSightFlags);
 void AllTeamsLookForAll(UINT8 ubAllowInterrupts);
 void GloballyDecideWhoSeesWho(void);
 UINT16 GetClosestMerc( UINT16 usSoldierIndex );
-void ManLooksForOtherTeams(SOLDIERTYPE *pSoldier);
-void OtherTeamsLookForMan(SOLDIERTYPE *pOpponent);
-void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo, INT8 bOppLevel, UINT8 ubCaller, UINT8 ubCaller2);
-void DecideTrueVisibility(SOLDIERTYPE *pSoldier, UINT8 ubLocate);
-void AddOneOpponent(SOLDIERTYPE *pSoldier);
-void RemoveOneOpponent(SOLDIERTYPE *pSoldier);
-void UpdatePersonal(SOLDIERTYPE *pSoldier, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo, INT8 bLevel);
+void ManLooksForOtherTeams(TacticalActor *pSoldier);
+void OtherTeamsLookForMan(TacticalActor *pOpponent);
+void ManSeesMan(TacticalActor *pSoldier, TacticalActor *pOpponent, INT32 sOppGridNo, INT8 bOppLevel, UINT8 ubCaller, UINT8 ubCaller2);
+void DecideTrueVisibility(TacticalActor *pSoldier, UINT8 ubLocate);
+void AddOneOpponent(TacticalActor *pSoldier);
+void RemoveOneOpponent(TacticalActor *pSoldier);
+void UpdatePersonal(TacticalActor *pSoldier, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo, INT8 bLevel);
 INT16 MaxNormalDistanceVisible( void );
-INT16 DistanceVisible( SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, INT32 sSubjectGridNo, INT8 bLevel, const BOOLEAN& isCowering, const UINT8& tunnelVision, SOLDIERTYPE *pKnownSubject = NULL);
-void ResetLastKnownLocs(SOLDIERTYPE *ptr);
-void RecalculateOppCntsDueToNoLongerNeutral( SOLDIERTYPE * pSoldier );
-void ReevaluateBestSightingPosition( SOLDIERTYPE * pSoldier, INT8 bInterruptDuelPts );
+INT16 DistanceVisible( TacticalActor *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, INT32 sSubjectGridNo, INT8 bLevel, const BOOLEAN& isCowering, const UINT8& tunnelVision, TacticalActor *pKnownSubject = NULL);
+void ResetLastKnownLocs(TacticalActor *ptr);
+void RecalculateOppCntsDueToNoLongerNeutral( TacticalActor * pSoldier );
+void ReevaluateBestSightingPosition( TacticalActor * pSoldier, INT8 bInterruptDuelPts );
 
 
 void InitOpponentKnowledgeSystem(void);
-void InitSoldierOppList(SOLDIERTYPE *pSoldier);
+void InitSoldierOppList(TacticalActor *pSoldier);
 void BetweenTurnsVisibilityAdjustments(void);
-void RemoveManAsTarget(SOLDIERTYPE *pSoldier);
+void RemoveManAsTarget(TacticalActor *pSoldier);
 void UpdatePublic(UINT8 ubTeam, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo, INT8 bLevel );
-void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo );
+void RadioSightings(TacticalActor *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo );
 void OurTeamRadiosRandomlyAbout(UINT16 ubAbout);
 void DebugSoldierPage1( );
 void DebugSoldierPage2( );
 void DebugSoldierPage3( );
 void DebugSoldierPage4( );
 
-UINT8 MovementNoise( SOLDIERTYPE *pSoldier );
-UINT8 DoorOpeningNoise( SOLDIERTYPE *pSoldier );
+UINT8 MovementNoise( TacticalActor *pSoldier );
+UINT8 DoorOpeningNoise( TacticalActor *pSoldier );
 void MakeNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrType, UINT8 ubVolume, UINT8 ubNoiseType, STR16 zNoiseMessage = NULL );
 void OurNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrType, UINT8 ubVolume, UINT8 ubNoiseType, STR16 zNoiseMessage = NULL );
 
-void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType);
+void ResolveInterruptsVs( TacticalActor * pSoldier, UINT8 ubInterruptType);
 
-void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier);
-void DecayIndividualOpplist(SOLDIERTYPE *pSoldier);
-void VerifyPublicOpplistDueToDeath( SOLDIERTYPE * pSoldier );
-void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT8 bReason );
+void VerifyAndDecayOpplist(TacticalActor *pSoldier);
+void DecayIndividualOpplist(TacticalActor *pSoldier);
+void VerifyPublicOpplistDueToDeath( TacticalActor * pSoldier );
+void NoticeUnseenAttacker( TacticalActor * pAttacker, TacticalActor * pDefender, INT8 bReason );
 
-BOOLEAN MercSeesCreature( SOLDIERTYPE * pSoldier );
+BOOLEAN MercSeesCreature( TacticalActor * pSoldier );
 
 INT8 GetWatchedLocPoints( UINT16 ubID, INT32 sGridNo, INT8 bLevel );
 INT8 GetHighestVisibleWatchedLoc( UINT16 ubID );
@@ -154,18 +154,18 @@ INT8 GetHighestWatchedLocPoints( UINT16 ubID );
 
 void TurnOffEveryonesMuzzleFlashes( void );
 void TurnOffTeamsMuzzleFlashes( UINT8 ubTeam );
-void EndMuzzleFlash( SOLDIERTYPE * pSoldier );
+void EndMuzzleFlash( TacticalActor * pSoldier );
 void NonCombatDecayPublicOpplist( UINT32 uiTime );
 
 void CheckHostileOrSayQuoteList( void );
 void InitOpplistForDoorOpening( void );
-UINT8 DoorOpeningNoise( SOLDIERTYPE * pSoldier );
+UINT8 DoorOpeningNoise( TacticalActor * pSoldier );
 
 void AddToShouldBecomeHostileOrSayQuoteList( SoldierID ubID );
 
 //extern INT8 gbLightSighting[1][16];
 
-BOOLEAN SoldierHasLimitedVision(SOLDIERTYPE * pSoldier);
+BOOLEAN SoldierHasLimitedVision(TacticalActor * pSoldier);
 
 
 INT32 MaxDistanceVisible( void );

@@ -33,7 +33,7 @@ extern INT32 guiWorldRows;
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 // SB: new map version, with map dimensions added
 #define MAJOR_MAP_VERSION		8.0		// 7.0 -> 8.0 Due to increased teamsizes. 
@@ -170,7 +170,7 @@ struct LEVELNODE
 			INT16											sCurrentFrame;				// Stuff for animated tiles for a given tile location ( doors, etc )
 		};
 
-		SOLDIERTYPE									*pSoldier;							// POINTER TO SOLDIER
+		TacticalActor									*pSoldier;							// POINTER TO SOLDIER
 
 	}; // ( 4 byte union )
 
@@ -363,7 +363,7 @@ void RemoveWorldWireFrameTiles( );
 void RemoveWireFrameTiles( INT32 sGridNo );
 
 
-LEVELNODE *GetAnimProfileFlags( INT32 sGridNo, UINT16 *usFlags, SOLDIERTYPE **ppTargSoldier, LEVELNODE *pGivenNode );
+LEVELNODE *GetAnimProfileFlags( INT32 sGridNo, UINT16 *usFlags, TacticalActor **ppTargSoldier, LEVELNODE *pGivenNode );
 
 void ReloadTileset( UINT8 ubID );
 

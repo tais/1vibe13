@@ -1390,7 +1390,7 @@ INT32 ShowOnDutyTeam( INT16 sMapX, INT16 sMapY )
 {
 	UINT8 ubCounter = 0, ubIconPosition = 0;
 	HVOBJECT hIconHandle;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	UINT8 i, ubIcon, ub10xIcon;
 	INT16 sNumberOnDuty = 0;
 
@@ -1440,7 +1440,7 @@ INT32 ShowAssignedTeam(INT16 sMapX, INT16 sMapY, INT32 iCount)
 {
  	UINT8 ubCounter = 0, ubIconPosition;
 	HVOBJECT hIconHandle;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	UINT8 i, ubIcon, ub10xIcon;
 	INT16 sNumberOfAssigned = 0;
 
@@ -1501,7 +1501,7 @@ INT32 ShowVehicles(INT16 sMapX, INT16 sMapY, INT32 iCount)
 {
 	UINT8 ubCounter = 0, ubIconPosition;
 	HVOBJECT hIconHandle;
-	SOLDIERTYPE *pVehicleSoldier;
+	TacticalActor *pVehicleSoldier;
 	UINT8 i, ubIcon, ub10xIcon;
 	INT16 sNumberOfVehiclesInSector = 0;
 	
@@ -2010,7 +2010,7 @@ void ShutDownPalettesForMap( void )
 	}
 }
 
-void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN fTacticalTraversal )
+void PlotPathForCharacter( TacticalActor *pCharacter, INT16 sX, INT16 sY, BOOLEAN fTacticalTraversal )
 {
 	// will plot a path for this character
 
@@ -2080,7 +2080,7 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 
 
 
-void PlotATemporaryPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY )
+void PlotATemporaryPathForCharacter( TacticalActor *pCharacter, INT16 sX, INT16 sY )
 {
 	// make sure we're at the beginning
 	pTempCharacterPath = MoveToBeginningOfPathList( pTempCharacterPath );
@@ -2107,7 +2107,7 @@ void PlotATemporaryPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY
 }
 
 // clear out character path list, after and including this sector
-UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY )
+UINT32 ClearPathAfterThisSectorForCharacter( TacticalActor *pCharacter, INT16 sX, INT16 sY )
 {
 	INT32 iOrigLength = 0;
 	VEHICLETYPE *pVehicle = NULL;
@@ -2179,7 +2179,7 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 }
 
 
-void CancelPathForCharacter( SOLDIERTYPE *pCharacter )
+void CancelPathForCharacter( TacticalActor *pCharacter )
 {
 	// clear out character's entire path list, he and his squad will stay/return to his current sector.
 	pCharacter->strategicPath().rebind(ClearStrategicPathList(
@@ -2261,7 +2261,7 @@ void CancelPathForGroup( GROUP *pGroup )
 	{
 		if( pGroup->pPlayerList )
 		{
-			SOLDIERTYPE* member =
+			TacticalActor* member =
 				ResolvePlayerGroupMember(
 					pGroup->pPlayerList );
 			if( member )
@@ -2338,7 +2338,7 @@ void CancelPathForMilitiaGroup( UINT8 uGroupId )
 }
 
 
-void CopyPathToCharactersSquadIfInOne( SOLDIERTYPE *pCharacter )
+void CopyPathToCharactersSquadIfInOne( TacticalActor *pCharacter )
 {
 	INT8 bSquad = 0;
 
@@ -2357,7 +2357,7 @@ void CopyPathToCharactersSquadIfInOne( SOLDIERTYPE *pCharacter )
 
 
 
-void DisplaySoldierPath( SOLDIERTYPE *pCharacter )
+void DisplaySoldierPath( TacticalActor *pCharacter )
 {
 	PathStPtr pPath = NULL;
 
@@ -2378,7 +2378,7 @@ void DisplaySoldierPath( SOLDIERTYPE *pCharacter )
 }
 
 
-void DisplaySoldierTempPath( SOLDIERTYPE *pCharacter )
+void DisplaySoldierTempPath( TacticalActor *pCharacter )
 {
 	// now render temp route
 	TracePathRoute( FALSE, TRUE,  pTempCharacterPath );
@@ -5158,7 +5158,7 @@ void CheckIfAnyoneLeftInSector( INT16 sX, INT16 sY, INT16 sNewX, INT16 sNewY, IN
 
 UINT8 NumFriendlyInSector( INT16 sX, INT16 sY, INT8 bZ )
 {
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	INT32				cnt = 0;
 	UINT8				ubNumFriendlies = 0;
 
@@ -7066,7 +7066,7 @@ UINT32 WhatPlayerKnowsAboutEnemiesInSector( INT16 sSectorX, INT16 sSectorY )
 
 BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	// to speed it up a little?
 	SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
@@ -7233,7 +7233,7 @@ void HandleShowingOfEnemyForcesInSector( INT16 sSectorX, INT16 sSectorY, INT8 bS
 UINT8 NumActiveCharactersInSector( INT16 sSectorX, INT16 sSectorY, INT16 bSectorZ )
 {
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	UINT8 ubNumberOnTeam = 0;
 
 	for( iCounter = 0; iCounter < CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounter++ )

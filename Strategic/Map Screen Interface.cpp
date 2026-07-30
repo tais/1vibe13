@@ -1,5 +1,6 @@
 #include "Map Screen Interface.h"
 #include "SoldierRepository.h"
+#include "TacticalActorDisease.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include <array>
@@ -58,7 +59,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 extern int CHAR_BAR_INFO_X;
 extern int CHAR_BAR_INFO_Y;
 extern UILayout_Map UI_MAP;
@@ -260,7 +261,7 @@ BOOLEAN fShowMapScreenMovementList = FALSE;
 
 namespace
 {
-SOLDIERTYPE* ResolveMovementActor(INT32 index) noexcept
+TacticalActor* ResolveMovementActor(INT32 index) noexcept
 {
 	if (index < 0 ||
 		index >= static_cast<INT32>(
@@ -270,7 +271,7 @@ SOLDIERTYPE* ResolveMovementActor(INT32 index) noexcept
 	MapScreenMovementActorEntry& entry =
 		gMapScreenMovementActors[
 			static_cast<std::size_t>(index)];
-	SOLDIERTYPE* soldier = entry.actor.resolve();
+	TacticalActor* soldier = entry.actor.resolve();
 	if (!soldier && entry.actor.valid())
 	{
 		// Mouse-region indices and displayed rows are built from one
@@ -282,7 +283,7 @@ SOLDIERTYPE* ResolveMovementActor(INT32 index) noexcept
 	return soldier;
 }
 
-SOLDIERTYPE* ResolveUpdateBoxActor(INT32 index) noexcept
+TacticalActor* ResolveUpdateBoxActor(INT32 index) noexcept
 {
 	if (index < 0 ||
 		index >= static_cast<INT32>(
@@ -483,13 +484,13 @@ SGPPoint OrigPrisonerPosition = {320, 150};
 BOOLEAN gfAtLeastOneMercWasHired = FALSE;
 
 // rebuild contract box this character
-extern void RebuildContractBoxForMerc( SOLDIERTYPE *pCharacter );
+extern void RebuildContractBoxForMerc( TacticalActor *pCharacter );
 
 extern void SetUpCursorForStrategicMap( void );
 
 extern void MapScreenDefaultOkBoxCallback( UINT8 bExitValue );
 
-extern BOOLEAN PlayerSoldierTooTiredToTravel( SOLDIERTYPE *pSoldier );
+extern BOOLEAN PlayerSoldierTooTiredToTravel( TacticalActor *pSoldier );
 
 extern void RememberPreviousPathForAllSelectedChars( void );
 
@@ -535,14 +536,14 @@ void RenderSoldierSmallFaceForUpdatePanel( INT32 iIndex, INT32 iX, INT32 iY );
 void ContinueUpdateButtonCallback(GUI_BUTTON *btn,INT32 reason);
 void StopUpdateButtonCallback(GUI_BUTTON *btn,INT32 reason);
 //INT32 GetSquadListIndexForSquadNumber( INT32 iSquadNumber );
-INT8 FindSquadThatSoldierCanJoin( SOLDIERTYPE *pSoldier );
-BOOLEAN CanSoldierMoveWithVehicleId( SOLDIERTYPE *pSoldier, INT32 iVehicle1Id );
+INT8 FindSquadThatSoldierCanJoin( TacticalActor *pSoldier );
+BOOLEAN CanSoldierMoveWithVehicleId( TacticalActor *pSoldier, INT32 iVehicle1Id );
 BOOLEAN IsAnythingSelectedForMoving( void );
-BOOLEAN CanMoveBoxSoldierMoveStrategically( SOLDIERTYPE *pSoldier, BOOLEAN fShowErrorMessage );
+BOOLEAN CanMoveBoxSoldierMoveStrategically( TacticalActor *pSoldier, BOOLEAN fShowErrorMessage );
 
 BOOLEAN ValidSelectableCharForNextOrPrev( INT32 iNewCharSlot );
 
-extern void ResumeOldAssignment( SOLDIERTYPE *pSoldier );
+extern void ResumeOldAssignment( TacticalActor *pSoldier );
 
 void InitalizeVehicleAndCharacterList( void )
 {
@@ -641,7 +642,7 @@ BOOLEAN MultipleCharacterListEntriesSelected( void )
 
 void ResetAssignmentsForMercsTrainingUnpaidSectorsInSelectedList( UINT8 ubMilitiaType )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
  	for( INT32 iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; ++iCounter )
 	{
@@ -675,7 +676,7 @@ void ResetAssignmentsForMercsTrainingUnpaidSectorsInSelectedList( UINT8 ubMiliti
 // HEADROCK HAM 3.6: Added argument for Militia Type
 void ResetAssignmentOfMercsThatWereTrainingMilitiaInThisSector( INT16 sSectorX, INT16 sSectorY, UINT8 ubMilitiaType )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	for( INT32 iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; ++iCounter )
 	{
@@ -707,9 +708,9 @@ void ResetAssignmentOfMercsThatWereTrainingMilitiaInThisSector( INT16 sSectorX, 
 }
 
 // check if the members of the selected list move with this guy... are they in the same mvt group?
-void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
+void DeselectSelectedListMercsWhoCantMoveWithThisGuy( TacticalActor *pSoldier )
 {
-	SOLDIERTYPE *pSoldier2 = NULL;
+	TacticalActor *pSoldier2 = NULL;
 	
 	// deselect any other selected mercs that can't travel together with pSoldier
 	for( INT32 iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounter++ )
@@ -798,7 +799,7 @@ void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
 
 void SelectUnselectedMercsWhoMustMoveWithThisGuy( void )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	
 	for( INT32 iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; ++iCounter )
 	{
@@ -824,9 +825,9 @@ void SelectUnselectedMercsWhoMustMoveWithThisGuy( void )
 	}
 }
 
-BOOLEAN AnyMercInSameSquadOrVehicleIsSelected( SOLDIERTYPE *pSoldier )
+BOOLEAN AnyMercInSameSquadOrVehicleIsSelected( TacticalActor *pSoldier )
 {
-	SOLDIERTYPE *pSoldier2 = NULL;
+	TacticalActor *pSoldier2 = NULL;
 	
 	for( INT32 iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; ++iCounter )
 	{
@@ -1238,7 +1239,7 @@ void EnableTeamInfoPanels( void )
 
 
 /*
-void ActivateSoldierPopup( SOLDIERTYPE *pSoldier, UINT8 ubPopupType, INT16 xp, INT16 yp )
+void ActivateSoldierPopup( TacticalActor *pSoldier, UINT8 ubPopupType, INT16 xp, INT16 yp )
 {
 	// will activate the pop up for prebattle interface
 
@@ -1502,13 +1503,13 @@ void HandleDisplayOfSelectedMercArrows( void )
 			if (!showArrow)
 			{
 				const INT8 destinationCharacter = GetSelectedDestChar();
-				SOLDIERTYPE* listedSoldier =
+				TacticalActor* listedSoldier =
 					GetJa2SoldierRepository().resolve(
 						gCharactersList[ listIndex ].usSolID);
 				if (destinationCharacter != -1 && listedSoldier &&
 					listedSoldier->deployment().groupId() != 0)
 				{
-					const SOLDIERTYPE* destinationSoldier =
+					const TacticalActor* destinationSoldier =
 						GetJa2SoldierRepository().resolve(
 							gCharactersList[
 								destinationCharacter ].usSolID);
@@ -1548,7 +1549,7 @@ void HandleDisplayOfItemPopUpForSector( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 	{
 		if( gCharactersList[ bSelectedInfoChar ].fValid == TRUE )
 		{
-			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
+			TacticalActor* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 			if( ( pSoldier->deployment().sectorX() == sMapX ) &&
 				( pSoldier->deployment().sectorY() == sMapY ) &&
 				( pSoldier->deployment().sectorZ() == sMapZ ) &&
@@ -1616,7 +1617,7 @@ void InventoryScreenMaskBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 	}
 }
 
-void GetMoraleString( SOLDIERTYPE *pSoldier, CHAR16 *sString )
+void GetMoraleString( TacticalActor *pSoldier, CHAR16 *sString )
 {
 	INT8 bMorale = pSoldier->morale().morale();
 
@@ -1654,7 +1655,7 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 	// just drop the stuff in the current sector
 	//INT32 iCounter = 0;
 	INT32 sGridNo, sTempGridNo;
-	SOLDIERTYPE* pSoldier =
+	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(uiMercId);
 	if (!pSoldier)
 		return;
@@ -1999,7 +2000,7 @@ INT32 SetUpDropItemListForMerc( SoldierID uiMercId )
 {
 	// will set up a drop list for this grunt, remove items from inventory, and profile
 	INT32 iSlotIndex = -1;
-	SOLDIERTYPE* pSoldier =
+	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve(uiMercId);
 	if (!pSoldier)
 		return( -1 );
@@ -2081,7 +2082,7 @@ void UpdateCharRegionHelpText( void )
 {
 	CHAR16 sString[ 6000 ], sTemp[ 20 ];
 	CHAR16 pMoraleStr[ 128 ];
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	if( ( bSelectedInfoChar != -1 ) && ( gCharactersList[ bSelectedInfoChar ].fValid == TRUE ) )
 	{
@@ -2119,7 +2120,7 @@ void UpdateCharRegionHelpText( void )
 						
 					pSoldier->PrintFoodDesc( sString, TRUE );
 
-					pSoldier->PrintDiseaseDesc( sString, TRUE );
+					TacticalActorDisease::appendDescription(*pSoldier, sString, TRUE );
 
 					pSoldier->PrintSleepDesc( sString );
 				}
@@ -2258,7 +2259,7 @@ void UpdateCharRegionHelpText( void )
 
 
 // find this merc in the mapscreen list and set as selected
-void FindAndSetThisContractSoldier( SOLDIERTYPE *pSoldier )
+void FindAndSetThisContractSoldier( TacticalActor *pSoldier )
 {
 	INT32 iCounter = 0;
 
@@ -2523,7 +2524,7 @@ void UpdateMapScreenMilitiaControlPositions( void )
 void RandomMercInGroupSaysQuote( GROUP *pGroup, UINT16 usQuoteNum )
 {
 	PLAYERGROUP *pPlayer;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	SoldierID	ubMercsInGroup[ CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ];
 	UINT16		ubNumMercs = 0;
 	UINT16		ubChosenMerc;
@@ -2627,8 +2628,8 @@ BOOLEAN ValidSelectableCharForNextOrPrev( INT32 iNewCharSlot )
 
 BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot )
 {
-	SOLDIERTYPE *pNewSoldier;
-	SOLDIERTYPE *pOldSoldier;
+	TacticalActor *pNewSoldier;
+	TacticalActor *pOldSoldier;
 
 
 	// assumes we're holding an item
@@ -3343,7 +3344,7 @@ void SelectSquadForMovement( INT32 iSquadNumber, BOOLEAN fCheckCanMove = TRUE )
 {
 	INT32 iCounter = 0, iCount = 0;
 	BOOLEAN fSomeCantMove = FALSE;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	BOOLEAN fFirstFailure;
 
 
@@ -3392,7 +3393,7 @@ void SelectSquadForMovement( INT32 iSquadNumber, BOOLEAN fCheckCanMove = TRUE )
 void DeselectSquadForMovement( INT32 iSquadNumber )
 {
 	INT32 iCounter = 0, iCount = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	// run through squad list and set them off
 	for( iCounter = 0; iCounter < giNumberOfSquadsInSectorMoving; iCounter++ )
@@ -3427,7 +3428,7 @@ BOOLEAN AllSoldiersInSquadSelected( INT32 iSquadNumber )
 	// is everyone on this squad moving?
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			ResolveMovementActor(iCounter);
 		if (!pSoldier)
 			continue;
@@ -3449,7 +3450,7 @@ BOOLEAN AllSoldiersInSquadSelected( INT32 iSquadNumber )
 void SelectVehicleForMovement( INT32 iVehicleId, BOOLEAN fAndAllOnBoard )
 {
 	INT32 iCounter = 0, iCount = 0;
-	SOLDIERTYPE *pPassenger = NULL;
+	TacticalActor *pPassenger = NULL;
 	BOOLEAN fHasDriver = FALSE;
 	BOOLEAN fFirstFailure;
 
@@ -3509,7 +3510,7 @@ void SelectVehicleForMovement( INT32 iVehicleId, BOOLEAN fAndAllOnBoard )
 void DeselectVehicleForMovement( INT32 iVehicleId )
 {
 	INT32 iCounter = 0, iCount = 0;
-	SOLDIERTYPE *pPassenger = NULL;
+	TacticalActor *pPassenger = NULL;
 
 
 	// run through vehicle list and set them off
@@ -3545,7 +3546,7 @@ INT32 HowManyMovingSoldiersInVehicle( INT32 iVehicleId )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			ResolveMovementActor(iCounter);
 		if (!pSoldier)
 			continue;
@@ -3571,7 +3572,7 @@ INT32 HowManyMovingSoldiersInSquad( INT32 iSquadNumber )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			ResolveMovementActor(iCounter);
 		if (!pSoldier)
 			continue;
@@ -3810,7 +3811,7 @@ void CreateDestroyMovementBox( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 void SetUpMovingListsForSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 {
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	// not allowed for underground movement!
@@ -4054,7 +4055,7 @@ void AddStringsToMoveBox( void )
 		// now add all the grunts in it
 		for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 		{
-			SOLDIERTYPE* pMovingSoldier =
+			TacticalActor* pMovingSoldier =
 				ResolveMovementActor(iCountB);
 			if (!pMovingSoldier)
 				continue;
@@ -4149,7 +4150,7 @@ void AddStringsToMoveBox( void )
 		// now add all the grunts in it
 		for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 		{
-			SOLDIERTYPE* pMovingSoldier =
+			TacticalActor* pMovingSoldier =
 				ResolveMovementActor(iCountB);
 			if (!pMovingSoldier)
 				continue;
@@ -4213,7 +4214,7 @@ void AddStringsToMoveBox( void )
 	// add "other" soldiers heading, once, if there are any
 	for( iCount = 0; iCount < giNumberOfSoldiersInSectorMoving; iCount++ )
 	{
-		SOLDIERTYPE* pMovingSoldier =
+		TacticalActor* pMovingSoldier =
 			ResolveMovementActor(iCount);
 		if (!pMovingSoldier)
 			continue;
@@ -4414,7 +4415,7 @@ void BuildMouseRegionsForMoveBox( void )
 			// Squad soldiers
 			for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 			{
-				SOLDIERTYPE* pMovingSoldier =
+				TacticalActor* pMovingSoldier =
 					ResolveMovementActor(iCountB);
 				if (!pMovingSoldier)
 					continue;
@@ -4560,7 +4561,7 @@ void BuildMouseRegionsForMoveBox( void )
 			// Soldiers inside a vehicle
 			for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 			{
-				SOLDIERTYPE* pMovingSoldier =
+				TacticalActor* pMovingSoldier =
 					ResolveMovementActor(iCountB);
 				if (!pMovingSoldier)
 					continue;
@@ -4644,7 +4645,7 @@ void BuildMouseRegionsForMoveBox( void )
 		// define regions for "other" soldiers
 		for( iCount = 0; iCount < giNumberOfSoldiersInSectorMoving; iCount++ )
 		{
-			SOLDIERTYPE* pMovingSoldier =
+			TacticalActor* pMovingSoldier =
 				ResolveMovementActor(iCount);
 			if (!pMovingSoldier)
 				continue;
@@ -4769,7 +4770,7 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 {
 	// btn callback handler for move box line regions
 	INT32 iMoveBoxLine = -1, iRegionType = -1, iListIndex = -1, iClickTime = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 
 	iMoveBoxLine = MSYS_GetRegionUserData( pRegion, 0 );
@@ -4980,7 +4981,7 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 
 
 
-BOOLEAN CanMoveBoxSoldierMoveStrategically( SOLDIERTYPE *pSoldier, BOOLEAN fShowErrorMessage )
+BOOLEAN CanMoveBoxSoldierMoveStrategically( TacticalActor *pSoldier, BOOLEAN fShowErrorMessage )
 {
 	INT8 bErrorNumber = -1;
 
@@ -5016,7 +5017,7 @@ void SelectAllOtherSoldiersInList( void )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			ResolveMovementActor(iCounter);
 		if (!pSoldier)
 			continue;
@@ -5050,7 +5051,7 @@ void DeselectAllOtherSoldiersInList( void )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			ResolveMovementActor(iCounter);
 		if (!pSoldier)
 			continue;
@@ -5068,7 +5069,7 @@ void DeselectAllOtherSoldiersInList( void )
 void HandleMoveoutOfSectorMovementTroops( void )
 {
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pSoldier = 0;
+	TacticalActor *pSoldier = 0;
 	INT32 iSquadNumber = -1;
 	BOOLEAN fCheckForCompatibleSquad = FALSE;
 
@@ -5171,7 +5172,7 @@ void HandleSettingTheSelectedListOfMercs( void )
 {
 	BOOLEAN fFirstOne = TRUE;
 	INT32 iCounter = 0;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	BOOLEAN fSelected;
 
 	// reset the selected character
@@ -5226,7 +5227,7 @@ void HandleSettingTheSelectedListOfMercs( void )
 			{
 				for (INT8 bCounter = 0; bCounter < NUMBER_OF_SQUADS; ++bCounter)
 				{
-					SOLDIERTYPE* firstSquadMember =
+					TacticalActor* firstSquadMember =
 						ResolveSquadMember( bCounter, 0 );
 					if (firstSquadMember != NULL &&
 						IsVehicle(firstSquadMember) &&
@@ -5252,7 +5253,7 @@ void HandleSettingTheSelectedListOfMercs( void )
 		// find number of characters in particular squad.
 			for (INT8 bCounter = 0; bCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; ++bCounter)
 			{
-				SOLDIERTYPE* squadMember =
+				TacticalActor* squadMember =
 					ResolveSquadMember( bSquadValue, bCounter );
 				// valid slot?
 				if (squadMember != NULL &&
@@ -5306,7 +5307,7 @@ BOOLEAN AllOtherSoldiersInListAreSelected( void )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			ResolveMovementActor(iCounter);
 		if (!pSoldier)
 			continue;
@@ -5361,7 +5362,7 @@ BOOLEAN IsThisSquadInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, 
 }
 
 
-INT8 FindSquadThatSoldierCanJoin( SOLDIERTYPE *pSoldier )
+INT8 FindSquadThatSoldierCanJoin( TacticalActor *pSoldier )
 {
 	// look for a squad that isn't full that can take this character
 	INT8 bCounter = 0;
@@ -5369,7 +5370,7 @@ INT8 FindSquadThatSoldierCanJoin( SOLDIERTYPE *pSoldier )
 	// run through the list of squads
 	for( bCounter = 0; bCounter < NUMBER_OF_SQUADS; bCounter++ )
 	{
-		SOLDIERTYPE* firstSquadMember =
+		TacticalActor* firstSquadMember =
 			ResolveSquadMember( bCounter, 0 );
 		// anv: don't automatically put people in vehicle squads
 		if (firstSquadMember == NULL || !IsVehicle(firstSquadMember))
@@ -5538,7 +5539,7 @@ void AddSoldierToUpdateBox( TacticalEntityId actor )
 	Ja2TacticalEntityReference capturedActor;
 	if (!capturedActor.capture(actor))
 		return;
-	SOLDIERTYPE* pSoldier = capturedActor.resolve();
+	TacticalActor* pSoldier = capturedActor.resolve();
 	if (!pSoldier)
 		return;
 	VOBJECT_DESC VObjectDesc{};
@@ -5760,7 +5761,7 @@ void DisplaySoldierUpdateBox( )
 	//loop through the mercs to be displayed
 	for( iCounter = 0; iCounter < ( iNumberOfMercsOnUpdatePanel <= NUMBER_OF_MERC_COLUMNS_FOR_TWO_WIDE_MODE ? NUMBER_OF_MERC_COLUMNS_FOR_TWO_WIDE_MODE : iNumberOfMercsOnUpdatePanel ); iCounter++ )
 	{
-		SOLDIERTYPE* pUpdateSoldier =
+		TacticalActor* pUpdateSoldier =
 			ResolveUpdateBoxActor(iCounter);
 		//
 		// blt the face and name
@@ -5981,7 +5982,7 @@ void CreateUpdateBoxStrings( void )
 
 	for( iCounter = 0; iCounter < SIZE_OF_UPDATE_BOX; iCounter++ )
 	{
-		SOLDIERTYPE* pUpdateSoldier =
+		TacticalActor* pUpdateSoldier =
 			ResolveUpdateBoxActor(iCounter);
 		// find valid soldier, add name
 		if( pUpdateSoldier )
@@ -6110,7 +6111,7 @@ void UpdateButtonsDuringCharacterDialogueSubTitles( void )
 void RenderSoldierSmallFaceForUpdatePanel( INT32 iIndex, INT32 iX, INT32 iY )
 {
 	INT32 iStartY = 0;
-	SOLDIERTYPE *pSoldier =
+	TacticalActor *pSoldier =
 		ResolveUpdateBoxActor(iIndex);
 	if (!pSoldier ||
 		iIndex < 0 ||
@@ -6621,7 +6622,7 @@ void NotifyPlayerOfInvasionByEnemyForces( INT16 sSectorX, INT16 sSectorY, INT8 b
 }
 
 
-BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber )
+BOOLEAN CanCharacterMoveInStrategic( TacticalActor *pSoldier, INT8 *pbErrorNumber )
 {
 	INT16 sSector = 0;
 	BOOLEAN fProblemExists = FALSE;
@@ -6687,7 +6688,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	}
 	else if (pSoldier->assignment().current() == VEHICLE && VehicleIdIsValid(pSoldier->deployment().vehicleId()))
 	{
-		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle(pSoldier->deployment().vehicleId());
+		TacticalActor *pVehicle = GetSoldierStructureForVehicle(pSoldier->deployment().vehicleId());
 
 		if (pSoldier->deployment().vehicleId() == iHelicopterVehicleId)
 			; // intentionally do nothing to skip the following checks
@@ -6771,7 +6772,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 		//DBrot: More Rooms
 		SoldierID	/*ubRoom,*/ cnt;
 		UINT16 usRoom;
-		SOLDIERTYPE * pSoldier2;
+		TacticalActor * pSoldier2;
 
 		if ( InARoom( pSoldier->position().gridNo(), &usRoom ) && usRoom >= 22 && usRoom <= 41 )
 		{
@@ -6872,9 +6873,9 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 }
 
 
-BOOLEAN CanEntireMovementGroupMercIsInMove( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber )
+BOOLEAN CanEntireMovementGroupMercIsInMove( TacticalActor *pSoldier, INT8 *pbErrorNumber )
 {
-	SOLDIERTYPE *pCurrentSoldier = NULL;
+	TacticalActor *pCurrentSoldier = NULL;
 	INT32 iCounter = 0;
 	UINT8 ubGroup = 0;
 	UINT8 ubCurrentGroup = 0;
@@ -7057,7 +7058,7 @@ void RequestDecreaseInTimeCompression( void )
 
 
 
-BOOLEAN CanSoldierMoveWithVehicleId( SOLDIERTYPE *pSoldier, INT32 iVehicle1Id )
+BOOLEAN CanSoldierMoveWithVehicleId( TacticalActor *pSoldier, INT32 iVehicle1Id )
 {
 	INT32 iVehicle2Id = -1;
 	VEHICLETYPE *pVehicle1, *pVehicle2;
@@ -7300,7 +7301,7 @@ BOOLEAN LoadLeaveItemList( HWFILE hFile )
 
 void TurnOnSectorLocator( UINT8 ubProfileID )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	Assert( ubProfileID != NO_PROFILE );
 
@@ -7435,7 +7436,7 @@ void HandleBlitOfSectorLocatorIcon( INT16 sSectorX, INT16 sSectorY, INT16 sSecto
 
 
 
-BOOLEAN CheckIfSalaryIncreasedAndSayQuote( SOLDIERTYPE *pSoldier, BOOLEAN fTriggerContractMenu )
+BOOLEAN CheckIfSalaryIncreasedAndSayQuote( TacticalActor *pSoldier, BOOLEAN fTriggerContractMenu )
 {
 	Assert( pSoldier );
 

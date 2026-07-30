@@ -1,4 +1,7 @@
+#include "TacticalActorEquipment.h"
 #include "types.h"
+#include "TacticalActorModifiers.h"
+#include "TacticalActorConditions.h"
 #include "Isometric Utils.h"
 #include "Overhead.h"
 #include "DisplayCover.h"
@@ -74,7 +77,7 @@ void	 CalculateTrackerRange();
 void	 CalculateFortify();
 void	 CalculateWeapondata();
 
-void CalculateCoverFromEnemySoldier(SOLDIERTYPE* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, SOLDIERTYPE* pToSoldier, const BOOLEAN& bFromSoldierCowering, const UINT8& tunnelVision, const INT8 ToSoldierStealth, const INT8 ToSoldierLBeSightAdjustment);
+void CalculateCoverFromEnemySoldier(TacticalActor* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, TacticalActor* pToSoldier, const BOOLEAN& bFromSoldierCowering, const UINT8& tunnelVision, const INT8 ToSoldierStealth, const INT8 ToSoldierLBeSightAdjustment);
 
 
 void	GetGridNoForViewPort( const INT32& ubX, const INT32& ubY, INT32& sGridNo );
@@ -552,7 +555,7 @@ void DisplayCover( BOOLEAN forceUpdate )
 
 void CalculateCoverFromEnemies()
 {
-	SOLDIERTYPE* pSoldier =
+	TacticalActor* pSoldier =
 		GetJa2SoldierRepository().resolve( gusSelectedSoldier );
 	if ( pSoldier == nullptr || pSoldier->roster().active() == false )
 		return;
@@ -569,7 +572,7 @@ void CalculateCoverFromEnemies()
 
 
 	//loop through all the actors in the sector and save enemies' info for cover calculation
-	static std::vector<SOLDIERTYPE*> pOpponents;
+	static std::vector<TacticalActor*> pOpponents;
 	static std::vector<BOOLEAN> bCowering;
 	static std::vector<UINT8> tunnelVision;
 	pOpponents.reserve(TOTAL_SOLDIERS);
@@ -578,7 +581,7 @@ void CalculateCoverFromEnemies()
 
 	for ( UINT32 i = 0; i < Ja2ActiveTacticalActorSlotCount(); ++i )
 	{
-		SOLDIERTYPE* pOpponent = ResolveJa2ActiveTacticalActorSlot(i);
+		TacticalActor* pOpponent = ResolveJa2ActiveTacticalActorSlot(i);
 
 		// if this merc is inactive, at base, on assignment, dead, unconscious
 		if ( !pOpponent || pOpponent->vitals().health() < OKLIFE )
@@ -602,7 +605,7 @@ void CalculateCoverFromEnemies()
 		}
 
 		pOpponents.push_back(pOpponent);
-		bCowering.push_back(pOpponent->IsCowering());
+		bCowering.push_back(TacticalActorConditions::isCowering(*pOpponent));
 		tunnelVision.push_back(GetPercentTunnelVision(pOpponent));
 	}
 
@@ -610,7 +613,7 @@ void CalculateCoverFromEnemies()
 	// Calculate cover for the whole grid, one opponent at a time.
 	for ( UINT32 i = 0; i < pOpponents.size(); ++i )
 	{
-		SOLDIERTYPE* pOpponent = pOpponents[i];
+		TacticalActor* pOpponent = pOpponents[i];
 		const BOOLEAN isCowering = bCowering[i];
 		const UINT8 tunnelVisionPercentage = tunnelVision[i];
 
@@ -650,7 +653,7 @@ void CalculateCoverFromEnemies()
 
 void CalculateCover()
 {
-	SOLDIERTYPE* selectedSoldier =
+	TacticalActor* selectedSoldier =
 		GetJa2SoldierRepository().resolve( gusSelectedSoldier );
 	if ( selectedSoldier == nullptr ||
 		 selectedSoldier->roster().active() == false )
@@ -677,7 +680,7 @@ void CalculateCover()
 			SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 			for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 			{
-				SOLDIERTYPE* pSoldier =
+				TacticalActor* pSoldier =
 					GetJa2SoldierRepository().resolve( cnt );
 				if ( pSoldier == nullptr )
 					continue;
@@ -707,7 +710,7 @@ void CalculateCover()
 }
 
 
-void CalculateCoverFromSoldier( SOLDIERTYPE* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, SOLDIERTYPE* pToSoldier )
+void CalculateCoverFromSoldier( TacticalActor* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, TacticalActor* pToSoldier )
 {
 	const UINT16 usSightLimit = pFromSoldier->GetMaxDistanceVisible(sTargetGridNo, (INT8)fRoof, CALC_FROM_WANTED_DIR);
 
@@ -733,9 +736,9 @@ void CalculateCoverFromSoldier( SOLDIERTYPE* pFromSoldier, const INT32& sTargetG
 	}
 }
 
-void CalculateCoverFromEnemySoldier(SOLDIERTYPE* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, SOLDIERTYPE* pToSoldier, const BOOLEAN& bFromSoldierCowering, const UINT8& tunnelVision, const INT8 ToSoldierStealth, const INT8 ToSoldierLBeSightAdjustment)
+void CalculateCoverFromEnemySoldier(TacticalActor* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, TacticalActor* pToSoldier, const BOOLEAN& bFromSoldierCowering, const UINT8& tunnelVision, const INT8 ToSoldierStealth, const INT8 ToSoldierLBeSightAdjustment)
 {
-	// Had to extract this from SOLDIERTYPE::GetMaxDistanceVisible() function due to performance improvement from minimizing recalculating CoweringShockLevel(pSoldier) & GetPercentTunnelVision(pSoldier)
+	// Had to extract this from TacticalActor::GetMaxDistanceVisible() function due to performance improvement from minimizing recalculating CoweringShockLevel(pSoldier) & GetPercentTunnelVision(pSoldier)
 	const UINT16 usSightLimit = DistanceVisible(pFromSoldier, (SoldierHasLimitedVision(pFromSoldier) ? pFromSoldier->pathing().desiredDirection() : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sTargetGridNo, (INT8)fRoof, bFromSoldierCowering, tunnelVision);
 
 	for (int i = 0; i < sizeof(animArr); ++i)
@@ -761,7 +764,7 @@ void CalculateCoverFromEnemySoldier(SOLDIERTYPE* pFromSoldier, const INT32& sTar
 	}
 }
 
-BOOLEAN CanSoldierSeeFloor( SOLDIERTYPE* pSoldier, INT32 sGridNo, INT8 bLevel )
+BOOLEAN CanSoldierSeeFloor( TacticalActor* pSoldier, INT32 sGridNo, INT8 bLevel )
 {
 	if ( !pSoldier )
 		return FALSE;
@@ -774,7 +777,7 @@ BOOLEAN CanSoldierSeeFloor( SOLDIERTYPE* pSoldier, INT32 sGridNo, INT8 bLevel )
 	return FALSE;
 }
 
-void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
+void DisplayRangeToTarget(TacticalActor *pSoldier, INT32 sTargetGridNo)
 {
 	UINT16 usRange = 0;
 	CHAR16	zOutputString[512];
@@ -907,7 +910,7 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 	UINT16 usGunRange = 0;
 	INT8 bTempTargetLevel = pSoldier->targeting().level();
 	UINT16 usTempAttackingWeapon = pSoldier->attackSelection().weapon();
-	SOLDIERTYPE* pFullTarget = gfUIFullTargetFound
+	TacticalActor* pFullTarget = gfUIFullTargetFound
 		? GetJa2SoldierRepository().resolve( gusUIFullTargetID )
 		: nullptr;
 
@@ -919,7 +922,7 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 	if (WeaponInHand(pSoldier))
 	{
 		// Flugente: we might be equipped with an underbarrel gun....
-		OBJECTTYPE* pObjhand = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
+		OBJECTTYPE* pObjhand = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS]);
 		UINT32 usItemClass = Item[pObjhand->usItem].usItemClass;
 
 		pSoldier->attackSelection().weapon() = pObjhand->usItem;
@@ -1144,7 +1147,7 @@ void AddMinesObjectsToViewArea()
 
 void CalculateMines()
 {
-	SOLDIERTYPE* pSoldier;
+	TacticalActor* pSoldier;
 
 	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->roster().inSector() )
 		return;
@@ -1367,7 +1370,7 @@ void SetGridNoForTraitDisplay( INT32 sGridNo )
 
 void CalculateTraitRange()
 {
-	SOLDIERTYPE* pSoldier;
+	TacticalActor* pSoldier;
 
 	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->roster().inSector() )
 		return;
@@ -1492,12 +1495,12 @@ void	 AddTrackerObjectsToViewArea( );
 
 void CalculateTrackerRange()
 {
-	SOLDIERTYPE* pSoldier;
+	TacticalActor* pSoldier;
 
 	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->roster().inSector() )
 		return;
 
-	const FLOAT trackerskill = (FLOAT)(NUM_SKILL_TRAITS(pSoldier, SURVIVAL_NT) * gSkillTraitValues.usSVTrackerAbility + pSoldier->GetBackgroundValue(BG_TRACKER_ABILITY)) / 100.0f;
+	const FLOAT trackerskill = (FLOAT)(NUM_SKILL_TRAITS(pSoldier, SURVIVAL_NT) * gSkillTraitValues.usSVTrackerAbility + TacticalActorModifiers::backgroundValue(*pSoldier, BG_TRACKER_ABILITY)) / 100.0f;
 
 	if ( trackerskill < 0.01f )
 		return;
@@ -1655,7 +1658,7 @@ extern UINT32 guiNewUICursor;
 
 void CalculateWeapondata()
 {
-	SOLDIERTYPE* pSoldier;
+	TacticalActor* pSoldier;
 
 	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->roster().inSector() )
 		return;
@@ -1699,7 +1702,7 @@ void CalculateWeapondata()
 
 	if ( &pSoldier->inventory()[HANDPOS] && Item[(pSoldier->inventory()[HANDPOS]).usItem].usItemClass & IC_WEAPON )
 	{
-		pObjPlatform = pSoldier->GetUsedWeapon(&pSoldier->inventory()[HANDPOS]);
+		pObjPlatform = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS]);
 
 		if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 		{

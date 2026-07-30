@@ -7,7 +7,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 //Enemy is allowed to capture the player after certain day
@@ -154,7 +154,7 @@ void ModifyPlayerReputation(INT8 bRepChange);
 
 BOOLEAN MercThinksDeathRateTooHigh( UINT8 ubProfileID );
 BOOLEAN MercThinksBadReputationTooHigh( UINT8 ubProfileID );
-BOOLEAN MercThinksHisMoraleIsTooLow( SOLDIERTYPE *pSoldier );
+BOOLEAN MercThinksHisMoraleIsTooLow( TacticalActor *pSoldier );
 BOOLEAN MercIsOwedTooMuchMoney( UINT8 ubProfileID );
 BOOLEAN MercThinksPlayerIsInactiveTooLong( UINT8 ubProfileID );
 

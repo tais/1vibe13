@@ -26,7 +26,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 #define TOOLTIP_TEXT_SIZE 4096
 
@@ -71,12 +71,12 @@ const int	DL_Basic		= 2;
 const int	DL_Full			= 3;
 const int	DL_Debug		= 4;
 
-void DisplayWeaponInfo( SOLDIERTYPE*, CHAR16*, UINT8, UINT8 );
+void DisplayWeaponInfo( TacticalActor*, CHAR16*, UINT8, UINT8 );
 void DrawMouseTooltip(void);
 
 #define MAX(a, b) (a > b ? a : b)
 
-void SoldierTooltip( SOLDIERTYPE* pSoldier )
+void SoldierTooltip( TacticalActor* pSoldier )
 {
 	if(!pSoldier)
 		return;
@@ -90,14 +90,14 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 	}
 
 	SGPRect		aRect;
-	extern void GetSoldierScreenRect(SOLDIERTYPE*,SGPRect*);
+	extern void GetSoldierScreenRect(TacticalActor*,SGPRect*);
 	GetSoldierScreenRect( pSoldier,	&aRect );
 	INT16		a1,a2;
 	BOOLEAN		fDrawTooltip = FALSE;
 
 	// sevenfm: do not show tooltip if ALT is pressed for adding autofire bullets
 	// EDIT: commented this out because with default autofire bullets> 1 it will confuse players
-	//SOLDIERTYPE *pShooter;
+	//TacticalActor *pShooter;
 	//GetSoldier( &pShooter, gusSelectedSoldier );
 	//if(gfUICtHBar && pShooter && pShooter->fireControl().autofireShots() > 1)
 	//	return;
@@ -124,9 +124,9 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		// get the distance to enemy's tile from the selected merc
 		if ( gusSelectedSoldier != NOBODY && gusUIFullTargetID != NOBODY )
 		{
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
-			SOLDIERTYPE* targetSoldier =
+			TacticalActor* targetSoldier =
 				GetJa2SoldierRepository().resolve(gusUIFullTargetID.i);
 			//CHRISL: Changed the second parameter to use the same information as the 'F' hotkey uses.
 			//iRangeToTarget = GetRangeInCellCoordsFromGridNoDiff( gusSelectedSoldier->sGridNo, sSoldierGridNo ) / 10;
@@ -144,9 +144,9 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		// SANDRO - don't use this if detail set to debug!
 		if ( gGameExternalOptions.gfAllowUDTRange && gGameExternalOptions.ubSoldierTooltipDetailLevel != DL_Debug && !(gTacticalStatus.uiFlags & SHOW_ALL_MERCS) )
 		{
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
-			SOLDIERTYPE* targetSoldier =
+			TacticalActor* targetSoldier =
 				GetJa2SoldierRepository().resolve(gusUIFullTargetID.i);
 			uiMaxTooltipDistance = (UINT32)( selectedSoldier->GetMaxDistanceVisible(targetSoldier->position().gridNo(), 0, CALC_FROM_WANTED_DIR) * (gGameExternalOptions.ubUDTModifier));
 			uiMaxTooltipDistance /= 100;
@@ -155,7 +155,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		// SANDRO - don't use this if detail set to debug!
 		else if ( gGameExternalOptions.fEnableDynamicSoldierTooltips && gGameExternalOptions.ubSoldierTooltipDetailLevel != DL_Debug && !(gTacticalStatus.uiFlags & SHOW_ALL_MERCS) )
 		{
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 			OBJECTTYPE* pObject = &(selectedSoldier->inventory()[HANDPOS]);
 			for (attachmentList::iterator iter = (*pObject)[0]->attachments.begin(); iter != (*pObject)[0]->attachments.end(); ++iter) {
@@ -178,7 +178,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		//If we're using original settings and no scope, we do this
 		if (gGameExternalOptions.fEnableDynamicSoldierTooltips && fMercIsUsingScope == 0 && !gGameExternalOptions.gfAllowUDTRange)
 		{
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 			// add 10% to max tooltip viewing distance per level of the merc
 			// sevenfm: fixed incorrect integer calculation
@@ -270,7 +270,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			swprintf(pStrInfo, L"%s|Collapsed %d |BreathCollapsed %d\n", pStrInfo, pSoldier->collapseState().tactical(), pSoldier->collapseState().breathTriggered());
 			if (pSoldier->combatResult().previousAttacker() < NOBODY)
 			{
-				SOLDIERTYPE* previousAttacker =
+				TacticalActor* previousAttacker =
 					GetJa2SoldierRepository().resolve(
 						pSoldier->combatResult().previousAttacker().i);
 				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d AttackerTarget %d\n", pStrInfo, pSoldier->suppression().underFire(), pSoldier->combatResult().previousAttacker().i, previousAttacker->targeting().lastGridNo());
@@ -307,7 +307,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			swprintf(pStrInfo, L"%s---Public list (not neutral)---\n", pStrInfo);
 			for (UINT16 oppID = 0; oppID < MAX_NUM_SOLDIERS; oppID++)
 			{
-				SOLDIERTYPE* opponent =
+				TacticalActor* opponent =
 					GetJa2SoldierRepository().resolve(oppID);
 				if (gbPublicOpplist[pSoldier->roster().team()][oppID] != NOT_HEARD_OR_SEEN &&
 					!opponent->aiBehavior().neutral())
@@ -318,7 +318,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			swprintf(pStrInfo, L"%s---Soldier list (not neutral)---\n", pStrInfo);
 			for (UINT16 oppID = 0; oppID < MAX_NUM_SOLDIERS; oppID++)
 			{
-				SOLDIERTYPE* opponent =
+				TacticalActor* opponent =
 					GetJa2SoldierRepository().resolve(oppID);
 				if (pSoldier->awareness().opponentKnowledge()[oppID] != NOT_HEARD_OR_SEEN &&
 					!opponent->aiBehavior().neutral())
@@ -335,7 +335,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		if ( ubTooltipDetailLevel < DL_Full)
 		{
 			// Get the current selected merc
-			SOLDIERTYPE* pMerc =
+			TacticalActor* pMerc =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
 			if ( pMerc->awareness().opponentKnowledge()[pSoldier->identity().id()] != SEEN_CURRENTLY )
@@ -659,10 +659,10 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		DrawMouseTooltip();
 		SetRenderFlags( RENDER_FLAG_FULL );
 	}
-} // SoldierTooltip(SOLDIERTYPE* pSoldier)
+} // SoldierTooltip(TacticalActor* pSoldier)
 
 
-void DisplayWeaponInfo( SOLDIERTYPE* pSoldier, CHAR16* pStrInfo, UINT8 ubSlot, UINT8 ubTooltipDetailLevel )
+void DisplayWeaponInfo( TacticalActor* pSoldier, CHAR16* pStrInfo, UINT8 ubSlot, UINT8 ubTooltipDetailLevel )
 {
 	INT32		iNumAttachments		= 0;
 	BOOLEAN		fDisplayAttachment	= FALSE;

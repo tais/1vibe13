@@ -114,6 +114,23 @@
 #include "Game Events.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
+#include "Soldier Profile.h"
+#include "Interface.h"
+#include "Handle Items.h"
+#include "TacticalActorAssignments.h"
+#include "TacticalActorConsumables.h"
+#include "TacticalActorConditions.h"
+#include "TacticalActorCovertOps.h"
+#include "TacticalActorDisease.h"
+#include "TacticalActorDragging.h"
+#include "TacticalActorEquipment.h"
+#include "TacticalActorExplosives.h"
+#include "TacticalActorRadio.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorSpotting.h"
+#include "TacticalActorTurncoats.h"
+#include "TacticalActorInteractions.h"
+#include "TacticalActorModifiers.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
 #include "Plan.h"
@@ -169,10 +186,10 @@ static_assert(
 	"legacy tactical-sector names must remain compiler-enforced read-only projections" );
 static_assert(
 	std::is_same<
-		decltype(std::declval<SOLDIERTYPE&>().inventory()),
+		decltype(std::declval<TacticalActor&>().inventory()),
 		SoldierInventory&>::value &&
 		std::is_same<
-			decltype(std::declval<const SOLDIERTYPE&>().inventory()),
+			decltype(std::declval<const TacticalActor&>().inventory()),
 			const SoldierInventory&>::value,
 	"live soldier inventories must remain privately owned behind typed accessors" );
 
@@ -223,7 +240,7 @@ class HeadlessOwnedAiPlan final : public AI::tactical::Plan
 {
 public:
 	HeadlessOwnedAiPlan(
-		SOLDIERTYPE* soldier, int& destructionCount, int& executionCount)
+		TacticalActor* soldier, int& destructionCount, int& executionCount)
 		: Plan(soldier),
 		  destructionCount_(destructionCount),
 		  executionCount_(executionCount)
@@ -2427,10 +2444,10 @@ int main( int, char** )
 		pVehicleList = &vehicleRecord;
 		ubNumberOfVehicles = 1;
 		gNewVehicle[0].iNewSeatingCapacities = 2;
-		SOLDIERTYPE vehicle;
+		TacticalActor vehicle;
 		vehicle.status().flags() |= SOLDIER_VEHICLE;
 		vehicle.vehicleState().tacticalVehicleId() = 0;
-		SOLDIERTYPE passenger;
+		TacticalActor passenger;
 		const bool acceptedBoundedCapacity =
 			GetVehicleSeatingCapacity( 0 ) == 2;
 		const bool rejectedLegacyEntrySeat =
@@ -3629,11 +3646,11 @@ int main( int, char** )
 			SimulationCommandSource::System } };
 		const TacticalWorldSession::Snapshot previousCommandWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
-		const SOLDIERTYPE previousCommandActor = soldierRepository.record( 0 );
-		SOLDIERTYPE& commandHostActor = soldierRepository.record( 0 );
+		const TacticalActor previousCommandActor = soldierRepository.record( 0 );
+		TacticalActor& commandHostActor = soldierRepository.record( 0 );
 		const TacticalEntityId previousCommandEntity =
 			GetJa2TacticalEntityId( 0 );
-		SOLDIERTYPE commandHostActorFixture;
+		TacticalActor commandHostActorFixture;
 		commandHostActorFixture.identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
 		commandHostActorFixture.identity().incarnation() = 0x12345678u;
 		commandHostActorFixture.roster().active() = TRUE;
@@ -3812,7 +3829,7 @@ int main( int, char** )
 		       compiledContext.commands().empty(),
 		       "safe-frame command host validates movement domains and journals stale move identities as discarded" );
 
-		SOLDIERTYPE detachedCommandActor;
+		TacticalActor detachedCommandActor;
 		detachedCommandActor.identity().id() = commandHostActor.identity().id();
 		detachedCommandActor.identity().incarnation() =
 			commandHostActor.identity().incarnation();
@@ -3955,7 +3972,7 @@ int main( int, char** )
 				commandHostActor.animationPlayback().state() ) &&
 			commandHostActor.animationCache().hitCount(
 				movingStanceSurface ) == 1;
-		const SOLDIERTYPE copiedCacheOwner = commandHostActor;
+		const TacticalActor copiedCacheOwner = commandHostActor;
 		const bool copiedCacheStartsEmpty =
 			copiedCacheOwner.animationCache().empty();
 		const bool repositoryRetainsSlotCache =
@@ -4737,7 +4754,7 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0,
 		       "receipt reserve saturation fixture drains all retained terminal results" );
 		(void)ReleaseJa2TacticalEntity( commandHostActor );
-		SOLDIERTYPE* const restoredCommandActor =
+		TacticalActor* const restoredCommandActor =
 			soldierRepository.replace( 0, previousCommandActor );
 		if ( previousCommandEntity.valid() && restoredCommandActor )
 			(void)AdoptJa2TacticalEntity( *restoredCommandActor );
@@ -4812,8 +4829,8 @@ int main( int, char** )
 		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 3 } ),
 		       "tactical world composition transfers pre-runtime state without a generation mirror" );
 
-		const SOLDIERTYPE previousWorldActor = soldierRepository.record( 0 );
-		SOLDIERTYPE& worldActor = soldierRepository.record( 0 );
+		const TacticalActor previousWorldActor = soldierRepository.record( 0 );
+		TacticalActor& worldActor = soldierRepository.record( 0 );
 		const TacticalEntityId previousWorldEntity =
 			GetJa2TacticalEntityId( 0 );
 		const TacticalWorldSession::Snapshot previousWorldSession =
@@ -4883,12 +4900,12 @@ int main( int, char** )
 			CaptureMilitiaControlTarget(
 				worldActorIdentity ) &&
 			ResolveMilitiaControlTarget() == &worldActor;
-		SOLDIERTYPE* consumedCallbackActor =
+		TacticalActor* consumedCallbackActor =
 			liveCallbackActor.consume();
 		Ja2TacticalEntityReference releasedCallbackActor;
 		const bool releasedCallbackCaptured =
 			releasedCallbackActor.capture( worldActorIdentity );
-		const SOLDIERTYPE detachedInventoryActor = worldActor;
+		const TacticalActor detachedInventoryActor = worldActor;
 		const bool detachedInventoryActorRejected =
 			!GetJa2TacticalEntityId( detachedInventoryActor ).valid() &&
 			!SetSMCurrentMerc(
@@ -5007,8 +5024,8 @@ int main( int, char** )
 		       replacementInventoryActorReleased &&
 		       callbackActorReadopted,
 		       "inventory UI producers retain exact actor identities and delayed consumers reject released or reused incarnations" );
-		SOLDIERTYPE& swapTarget = soldierRepository.record( 1 );
-		const SOLDIERTYPE previousSwapTarget = swapTarget;
+		TacticalActor& swapTarget = soldierRepository.record( 1 );
+		const TacticalActor previousSwapTarget = swapTarget;
 		const bool swapTargetInstalled =
 			soldierRepository.replace( 1, worldActor ) == &swapTarget;
 		swapTarget.identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
@@ -5161,7 +5178,7 @@ int main( int, char** )
 		pVehicleList = &vehicleRecord;
 		ubNumberOfVehicles = 1;
 		gNewVehicle[0].iNewSeatingCapacities = 5;
-		SOLDIERTYPE vehicleView;
+		TacticalActor vehicleView;
 		vehicleView.status().flags() |= SOLDIER_VEHICLE;
 		vehicleView.vehicleState().tacticalVehicleId() = 0;
 		const bool sparseVehiclePassengerSelection =
@@ -5925,7 +5942,7 @@ int main( int, char** )
 		       worldActor.vitals().health() == 75,
 		       "world unload invalidates publication and stale retry without mutating legacy state" );
 		(void)ReleaseJa2TacticalEntity( worldActor );
-		SOLDIERTYPE* const restoredWorldActor =
+		TacticalActor* const restoredWorldActor =
 			soldierRepository.replace( 0, previousWorldActor );
 		if ( previousWorldEntity.valid() && restoredWorldActor )
 			(void)AdoptJa2TacticalEntity( *restoredWorldActor );
@@ -7642,13 +7659,13 @@ int main( int, char** )
 
 	{
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().palette()),
+			decltype(std::declval<TacticalActor&>().palette()),
 			RenderPaletteBank&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().palette()),
+			decltype(std::declval<const TacticalActor&>().palette()),
 			const RenderPaletteBank&>);
 		static_assert(!std::is_base_of_v<
-			SOLDIERTYPE, LogicalBodyTypes::PaletteTable>);
+			TacticalActor, LogicalBodyTypes::PaletteTable>);
 
 		const std::size_t registryBefore = LegacyRenderPaletteCount();
 		PIXEL externalForcedShade[RenderPaletteBank::EntryCount]{};
@@ -7685,9 +7702,9 @@ int main( int, char** )
 			       moved.forcedShade() == externalForcedShade,
 			       "render palette bank moves transfer ownership and active aliases atomically" );
 
-			SOLDIERTYPE paletteOwner;
+			TacticalActor paletteOwner;
 			paletteOwner.palette() = original;
-			SOLDIERTYPE paletteClone = paletteOwner;
+			TacticalActor paletteClone = paletteOwner;
 			paletteClone.palette().base8()[0].peRed = 91;
 			paletteClone.palette().shade( 3 )[1] = 777;
 			paletteOwner.initialize();
@@ -7717,8 +7734,8 @@ int main( int, char** )
 	}
 
 	{
-		SOLDIERTYPE records[2];
-		SOLDIERTYPE* slots[2] = { nullptr, nullptr };
+		TacticalActor records[2];
+		TacticalActor* slots[2] = { nullptr, nullptr };
 		Ja2SoldierRepository repository(records, slots, 2);
 		CHECK( repository.capacity() == 2 &&
 		       repository.resolve(0) == nullptr &&
@@ -7743,7 +7760,7 @@ int main( int, char** )
 		       &GetJa2SoldierRepository() == &productionRepository,
 		       "soldier repository binding is independent and restores the composed application owner" );
 
-		SOLDIERTYPE source;
+		TacticalActor source;
 		source.identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
 		source.roster().active() = TRUE;
 		source.position().gridNo() = 4321;
@@ -7758,7 +7775,7 @@ int main( int, char** )
 		source.renderBindings().faceIndex() = 41;
 		source.renderBindings().levelNode() = sourceLevelNode;
 		source.renderBindings().animationTile() = sourceAnimationTile;
-		const SOLDIERTYPE detachedSource = source;
+		const TacticalActor detachedSource = source;
 		CHECK( detachedSource.renderBindings().faceIndex() == -1 &&
 		       detachedSource.renderBindings().levelNode() == nullptr &&
 		       detachedSource.renderBindings().animationTile() == nullptr &&
@@ -7776,7 +7793,7 @@ int main( int, char** )
 		records[1].aiPlan().adopt(new HeadlessOwnedAiPlan(
 			&records[1], repositoryPlanDestructions,
 			repositoryPlanExecutions));
-		SOLDIERTYPE* replaced = repository.replace(1, source);
+		TacticalActor* replaced = repository.replace(1, source);
 		CHECK( replaced == &records[1] &&
 		       records[1].position().gridNo() == 4321 &&
 		       records[1].vitals().health() == 73 &&
@@ -7869,64 +7886,764 @@ int main( int, char** )
 	}
 
 	{
+		TacticalActor conditionActor;
+		conditionActor.identity().bodyType() = REGMALE;
+		conditionActor.identity().profile() = NO_PROFILE;
+		conditionActor.roster().team() = ENEMY_TEAM;
+		conditionActor.roster().soldierClass() = SOLDIER_CLASS_ZOMBIE;
+		CHECK( TacticalActorConditions::isZombie(conditionActor) &&
+		       TacticalActorConditions::canBeCaptured(conditionActor),
+		       "tactical actor conditions classify capturable enemy zombies from component state" );
+
+		conditionActor.identity().profile() = JIM;
+		conditionActor.roster().soldierClass() = SOLDIER_CLASS_ARMY;
+		CHECK( TacticalActorConditions::isAssassin(conditionActor) &&
+		       !TacticalActorConditions::isZombie(conditionActor) &&
+		       !TacticalActorConditions::canBeCaptured(conditionActor),
+		       "tactical actor identity conditions recognize profiled assassins and exclude NPC capture" );
+
+		conditionActor.identity().profile() = NO_PROFILE;
+		conditionActor.featureFlags().primaryFlags() = SOLDIER_ASSASSIN;
+		conditionActor.featureFlags().secondaryFlags() = SOLDIER_TAKEN_LARGE_HIT;
+		conditionActor.animationPlayback().state() = COWERING_PRONE;
+		conditionActor.collapseState().tactical() = TRUE;
+		conditionActor.vitals().breath() = OKBREATH - 1;
+		CHECK( TacticalActorConditions::isAssassin(conditionActor) &&
+		       TacticalActorConditions::isCowering(conditionActor) &&
+		       TacticalActorConditions::isUnconscious(conditionActor) &&
+		       TacticalActorConditions::hasTakenLargeHit(conditionActor),
+		       "tactical actor conditions expose flag, animation, and consciousness state without record methods" );
+
+		conditionActor.animationPlayback().state() = START_AID;
+		conditionActor.featureFlags().primaryFlags() = SOLDIER_POW;
+		CHECK( TacticalActorConditions::isGivingAid(conditionActor) &&
+		       !TacticalActorConditions::canBeCaptured(conditionActor),
+		       "tactical actor conditions recognize aid animations and prisoner capture exclusion" );
+
+		const UINT8 previousMaximumShock =
+			gGameExternalOptions.ubMaxSuppressionShock;
+		gGameExternalOptions.ubMaxSuppressionShock = 40;
+		conditionActor.suppression().shock() = 10;
+		const auto quarterShock =
+			TacticalActorConditions::suppressionShockPercent(conditionActor);
+		gGameExternalOptions.ubMaxSuppressionShock = 0;
+		const auto disabledShock =
+			TacticalActorConditions::suppressionShockPercent(conditionActor);
+		gGameExternalOptions.ubMaxSuppressionShock = previousMaximumShock;
+		CHECK( quarterShock == 25 && disabledShock == 0,
+		       "tactical actor conditions preserve suppression percentage semantics and the disabled limit" );
+	}
+
+	{
+		TacticalActor covertActor;
+		CHECK( TacticalActorCovertOps::looksLikeSoldier(covertActor) &&
+		       TacticalActorCovertOps::recognizesCombatant(covertActor, NOBODY),
+		       "tactical actor covert rules execute through the domain API without record methods" );
+	}
+
+	{
+		TacticalActor draggingActor;
+		const bool readyToDrag =
+			TacticalActorDragging::canDrag(draggingActor);
+		draggingActor.position().terrainType() = DEEP_WATER;
+		const bool canDragInDeepWater =
+			TacticalActorDragging::canDrag(draggingActor);
+		draggingActor.position().terrainType() = FLAT_GROUND;
+		const bool initiallyDragging =
+			TacticalActorDragging::isDragging(draggingActor);
+		draggingActor.interaction().dragStructure(123);
+		TacticalActorDragging::cancel(draggingActor);
+		CHECK( readyToDrag &&
+		       !canDragInDeepWater &&
+		       !initiallyDragging &&
+		       !draggingActor.interaction().dragging(),
+		       "tactical actor dragging exposes validation and cancellation without record methods" );
+	}
+
+	{
+		TacticalActor diseaseActor;
+		const BOOLEAN previousDiseaseSetting =
+			gGameExternalOptions.fDisease;
+		const auto previousInfectionPointLimit =
+			Disease[0].sInfectionPtsFull;
+		gGameExternalOptions.fDisease = TRUE;
+		Disease[0].sInfectionPtsFull = 0;
+		diseaseActor.condition().diseasePoints(0) = 1;
+		diseaseActor.condition().markDiseaseFlag(
+			0,
+			TacticalActorDisease::outbreakFlag);
+		const bool malformedDiseaseIsSafe =
+			TacticalActorDisease::hasAny(diseaseActor, false, false) &&
+			TacticalActorDisease::magnitude(diseaseActor, 0) == 0.0f;
+		gGameExternalOptions.fDisease = FALSE;
+		const bool disabledDisease =
+			!TacticalActorDisease::hasAny(diseaseActor, false, false) &&
+			TacticalActorDisease::magnitude(diseaseActor, 0) == 0.0f;
+		TacticalActorDisease::addDisability(diseaseActor, 1);
+		const bool disabilityRecorded =
+			diseaseActor.condition().hasDisability(1);
+		const bool unprotected =
+			TacticalActorDisease::contactProtection(diseaseActor) == 0.0f;
+		Disease[0].sInfectionPtsFull = previousInfectionPointLimit;
+		gGameExternalOptions.fDisease = previousDiseaseSetting;
+		CHECK( malformedDiseaseIsSafe &&
+		       disabledDisease &&
+		       disabilityRecorded &&
+		       unprotected,
+		       "tactical actor disease rules expose state, magnitude, and protection without record methods" );
+	}
+
+	{
+		TacticalActor assignmentActor;
+		const bool inactiveActorProducesNoWork =
+			TacticalActorAssignments::burialPoints(assignmentActor) == 0.0f &&
+			TacticalActorAssignments::constructionPoints(assignmentActor) == 0.0f &&
+			TacticalActorAssignments::administrationPoints(assignmentActor) == 0 &&
+			TacticalActorAssignments::explorationPoints(assignmentActor) == 0;
+		const bool unrelatedAssignmentHasNeutralAdministration =
+			TacticalActorAssignments::administrationModifier(assignmentActor) == 1.0f;
+
+		assignmentActor.vitals().health() = OKLIFE;
+		assignmentActor.vitals().maximumHealth() = 0;
+		assignmentActor.assignment().current() = FORTIFICATION;
+		const bool malformedMaximumHealthIsSafe =
+			TacticalActorAssignments::constructionPoints(assignmentActor) == 0.0f;
+
+		const FLOAT previousAdministrationScale =
+			gGameExternalOptions.fAdministrationPointsPerPercent;
+		assignmentActor.assignment().current() = ADMINISTRATION;
+		gGameExternalOptions.fAdministrationPointsPerPercent = 0.0f;
+		const bool malformedAdministrationScaleIsSafe =
+			TacticalActorAssignments::administrationPoints(assignmentActor) == 0;
+		gGameExternalOptions.fAdministrationPointsPerPercent =
+			previousAdministrationScale;
+
+		CHECK( inactiveActorProducesNoWork &&
+		       unrelatedAssignmentHasNeutralAdministration &&
+		       malformedMaximumHealthIsSafe &&
+		       malformedAdministrationScaleIsSafe,
+		       "tactical actor assignment rules expose safe productivity calculations without record methods" );
+	}
+
+	{
+		TacticalActor modifierActor;
+		modifierActor.roster().team() = OUR_TEAM;
+
+		const BOOLEAN previousBackgroundSetting =
+			gGameExternalOptions.fBackGround;
+		const BOOLEAN previousDiseaseSetting =
+			gGameExternalOptions.fDisease;
+		const auto previousRunningVisionSetting =
+			gGameExternalOptions.usLowerVisionWhileRunning;
+		const BOOLEAN previousTraitSystem =
+			gGameOptions.fNewTraitSystem;
+		gGameExternalOptions.fBackGround = TRUE;
+		gGameExternalOptions.fDisease = FALSE;
+		gGameExternalOptions.usLowerVisionWhileRunning = 0;
+		gGameOptions.fNewTraitSystem = TRUE;
+
+		modifierActor.identity().profile() = 255;
+		const bool invalidProfileIsNeutral =
+			!TacticalActorModifiers::hasBackgroundFlag(
+				modifierActor,
+				BACKGROUND_SCROUNGING) &&
+			TacticalActorModifiers::backgroundValue(
+				modifierActor,
+				BG_STRENGTH) == 0 &&
+			TacticalActorModifiers::backgroundValues(
+				modifierActor,
+				BackgroundVectorTypes::BG_DRUGUSE_ITEMS).empty() &&
+			TacticalActorModifiers::hearingBonus(modifierActor) == 0 &&
+			TacticalActorModifiers::sightRangeBonus(modifierActor) == 0;
+
+		modifierActor.identity().profile() = 0;
+		const auto previousBackground =
+			gMercProfiles[0].usBackground;
+		const INT16 previousSnakeDefense =
+			zBackground[0].value[BG_SNAKEDEFENSE];
+		gMercProfiles[0].usBackground = NUM_BACKGROUND;
+		const bool invalidBackgroundIsNeutral =
+			!TacticalActorModifiers::hasBackgroundFlag(
+				modifierActor,
+				BACKGROUND_SCROUNGING) &&
+			TacticalActorModifiers::backgroundValue(
+				modifierActor,
+				BG_MAX) == 0;
+		gMercProfiles[0].usBackground = 0;
+		zBackground[0].value[BG_SNAKEDEFENSE] = 300;
+		const bool malformedSnakeChanceIsClamped =
+			TacticalActorModifiers::waterSnakeDefenseChance(
+				modifierActor) == 100;
+		zBackground[0].value[BG_SNAKEDEFENSE] =
+			previousSnakeDefense;
+		gMercProfiles[0].usBackground = previousBackground;
+
+		modifierActor.identity().profile() = NO_PROFILE;
+		const bool dataFreeModifiersAreNeutral =
+			TacticalActorModifiers::suppressionResistanceBonus(modifierActor) == 0 &&
+			TacticalActorModifiers::meleeDamageBonus(modifierActor) == 0 &&
+			TacticalActorModifiers::actionPointBonus(modifierActor) == 0 &&
+			TacticalActorModifiers::fearResistanceBonus(modifierActor) == 0 &&
+			TacticalActorModifiers::moraleModifier(modifierActor) == 1.0f &&
+			TacticalActorModifiers::interruptModifier(modifierActor) == 0;
+
+		const bool malformedWeaponOrTargetIsNeutral =
+			TacticalActorModifiers::traitChanceToHitModifier(
+				modifierActor,
+				MAXITEMS,
+				0,
+				255) == 0 &&
+			TacticalActorModifiers::traitChanceToHitModifier(
+				modifierActor,
+				0,
+				0,
+				255) ==
+			TacticalActorModifiers::traitChanceToHitModifier(
+				modifierActor,
+				0,
+				0,
+				NO_PROFILE);
+
+		modifierActor.vitals().health() = OKLIFE;
+		modifierActor.vitals().maximumHealth() = 0;
+		const bool malformedMaximumHealthIsSafe =
+			TacticalActorModifiers::surrenderStrength(
+				modifierActor) == 0;
+
+		modifierActor.identity().bodyType() = BIGMALE;
+		modifierActor.statistics().wisdom() = 73;
+		const bool directDerivedValuesAreAvailable =
+			TacticalActorModifiers::bodyWeight(modifierActor) == 110.0f &&
+			TacticalActorModifiers::interactiveActionSkill(
+				modifierActor,
+				INTERACTIVE_STRUCTURE_READFILE) == 73;
+
+		modifierActor.vitals().health() = 0;
+		const bool inactiveThiefHasNoChance =
+			TacticalActorModifiers::thiefStealMoneyChance(
+				modifierActor) == 0 &&
+			TacticalActorModifiers::thiefEvadeDetectionChance(
+				modifierActor) == 0;
+
+		gGameOptions.fNewTraitSystem = previousTraitSystem;
+		gGameExternalOptions.usLowerVisionWhileRunning =
+			previousRunningVisionSetting;
+		gGameExternalOptions.fDisease = previousDiseaseSetting;
+		gGameExternalOptions.fBackGround = previousBackgroundSetting;
+
+		CHECK( invalidProfileIsNeutral &&
+		       invalidBackgroundIsNeutral &&
+		       malformedSnakeChanceIsClamped &&
+		       dataFreeModifiersAreNeutral &&
+		       malformedWeaponOrTargetIsNeutral &&
+		       malformedMaximumHealthIsSafe &&
+		       directDerivedValuesAreAvailable &&
+		       inactiveThiefHasNoChance,
+		       "tactical actor modifiers reject malformed inputs and expose data-free derived calculations" );
+	}
+
+	{
+		TacticalActor equipmentActor;
+		TacticalActor emptyMutationActor;
+
+		const UINT8 previousInventorySystem =
+			gGameOptions.ubInventorySystem;
+		gGameOptions.ubInventorySystem = INVENTORY_NEW;
+		OBJECTTYPE& malformedQuickSwapItem =
+			emptyMutationActor.inventory()[GUNSLINGPOCKPOS];
+		malformedQuickSwapItem.usItem = MAXITEMS;
+		malformedQuickSwapItem.ubNumberOfObjects = 1;
+		const bool malformedQuickSwapIsRejected =
+			!TacticalActorEquipment::switchWeapon(
+				emptyMutationActor);
+		DeleteObj(&malformedQuickSwapItem);
+
+		gGameOptions.ubInventorySystem = INVENTORY_OLD;
+		emptyMutationActor.featureFlags().primaryFlags() |=
+			SOLDIER_REDOFLASHLIGHT;
+		TacticalActorEquipment::refreshFlashlights(
+			emptyMutationActor);
+		const bool emptyEquipmentMutationsAreNeutral =
+			!(emptyMutationActor.featureFlags().primaryFlags() &
+			  SOLDIER_REDOFLASHLIGHT) &&
+			!TacticalActorEquipment::switchWeapon(
+				emptyMutationActor) &&
+			!TacticalActorEquipment::takeItemIntoHand(
+				emptyMutationActor,
+				MAXITEMS) &&
+			!TacticalActorEquipment::takeBombIntoHand(
+				emptyMutationActor,
+				MAXITEMS) &&
+			!TacticalActorEquipment::damageRiotShield(
+				emptyMutationActor,
+				1) &&
+			!TacticalActorEquipment::removeOneItem(
+				emptyMutationActor,
+				1);
+		gGameOptions.ubInventorySystem = previousInventorySystem;
+
+		emptyMutationActor.featureFlags().primaryFlags() |=
+			SOLDIER_EQUIPMENT_DROPPED;
+		const bool repeatedEquipmentDropIsRejected =
+			!TacticalActorEquipment::dropSectorEquipment(
+				emptyMutationActor);
+
+		const bool emptyEquipmentIsNeutral =
+			!TacticalActorEquipment::carriesTwoHandedWeapon(equipmentActor) &&
+			TacticalActorEquipment::usedWeapon(equipmentActor, nullptr) ==
+				nullptr &&
+			TacticalActorEquipment::usedWeaponNumber(
+				equipmentActor,
+				nullptr) == NOTHING &&
+			TacticalActorEquipment::objectWithFlag(
+				equipmentActor,
+				ITEM_twohanded) == nullptr &&
+			!TacticalActorEquipment::usesScubaGear(equipmentActor) &&
+			TacticalActorEquipment::bestEquippedFlashlightRange(
+				equipmentActor) == 0 &&
+			!TacticalActorEquipment::hasItem(equipmentActor, 1) &&
+			TacticalActorEquipment::equippedRiotShield(
+				equipmentActor) == nullptr &&
+			!TacticalActorEquipment::hasEquippedRiotShield(
+				equipmentActor);
+
+		const bool nullExternalFeedingOutputsAreRejected =
+			!TacticalActorEquipment::externalFeeding(
+				equipmentActor,
+				nullptr,
+				nullptr,
+				nullptr,
+				nullptr,
+				nullptr,
+				nullptr);
+
+		OBJECTTYPE& handItem =
+			equipmentActor.inventory()[HANDPOS];
+		const auto previousItemFlags = Item[1].usItemFlag;
+		const auto previousShieldStrength =
+			Item[1].usRiotShieldStrength;
+		Item[1].usItemFlag |= ITEM_twohanded;
+		Item[1].usRiotShieldStrength = 10;
+		handItem.usItem = 1;
+		handItem.ubNumberOfObjects = 1;
+		equipmentActor.attackSelection().weaponMode() = WM_NORMAL;
+		equipmentActor.animationPlayback().state() = STANDING;
+		equipmentActor.position().terrainType() = FLAT_GROUND;
+		const bool equippedItemQueriesResolve =
+			TacticalActorEquipment::carriesTwoHandedWeapon(
+				equipmentActor) &&
+			TacticalActorEquipment::usedWeapon(
+				equipmentActor,
+				&handItem) == &handItem &&
+			TacticalActorEquipment::usedWeaponNumber(
+				equipmentActor,
+				&handItem) == 1 &&
+			TacticalActorEquipment::objectWithFlag(
+				equipmentActor,
+				ITEM_twohanded) == &handItem &&
+			TacticalActorEquipment::hasItem(equipmentActor, 1) &&
+			TacticalActorEquipment::equippedRiotShield(
+				equipmentActor) == &handItem &&
+			TacticalActorEquipment::hasEquippedRiotShield(
+				equipmentActor);
+
+		handItem[0]->data.objectStatus = 10;
+		const bool shieldDamageIsApplied =
+			TacticalActorEquipment::damageRiotShield(
+				equipmentActor,
+				0) &&
+			handItem[0]->data.objectStatus == 10 &&
+			TacticalActorEquipment::damageRiotShield(
+				equipmentActor,
+				1) &&
+			handItem.exists() &&
+			handItem[0]->data.objectStatus == 9;
+
+		equipmentActor.position().terrainType() = MED_WATER;
+		const bool shieldIsLoweredInHighWater =
+			!TacticalActorEquipment::hasEquippedRiotShield(
+				equipmentActor);
+
+		handItem.usItem = MAXITEMS;
+		const bool malformedItemIndexesAreRejected =
+			!TacticalActorEquipment::carriesTwoHandedWeapon(
+				equipmentActor) &&
+			!TacticalActorEquipment::hasMortar(equipmentActor) &&
+			!TacticalActorEquipment::hasSniperRifle(equipmentActor) &&
+			TacticalActorEquipment::objectWithFlag(
+				equipmentActor,
+				ITEM_twohanded) == nullptr &&
+			TacticalActorEquipment::bestEquippedFlashlightRange(
+				equipmentActor) == 0 &&
+			TacticalActorEquipment::equippedRiotShield(
+				equipmentActor) == nullptr;
+		handItem.usItem = 1;
+		const bool oneInventoryItemIsRemoved =
+			TacticalActorEquipment::removeOneItem(
+				equipmentActor,
+				1) &&
+			!handItem.exists() &&
+			!TacticalActorEquipment::removeOneItem(
+				equipmentActor,
+				1);
+		Item[1].usItemFlag = previousItemFlags;
+		Item[1].usRiotShieldStrength = previousShieldStrength;
+
+		CHECK( emptyEquipmentMutationsAreNeutral &&
+		       malformedQuickSwapIsRejected &&
+		       repeatedEquipmentDropIsRejected &&
+		       emptyEquipmentIsNeutral &&
+		       nullExternalFeedingOutputsAreRejected &&
+		       equippedItemQueriesResolve &&
+		       shieldDamageIsApplied &&
+		       shieldIsLoweredInHighWater &&
+		       malformedItemIndexesAreRejected &&
+		       oneInventoryItemIsRemoved,
+		       "tactical actor equipment safely resolves and mutates gear while rejecting empty, repeated, and malformed operations" );
+	}
+
+	{
+		TacticalActor skillActor;
+		const auto previousTraitSystem =
+			gGameOptions.fNewTraitSystem;
+		const auto previousTurncoatSetting =
+			gSkillTraitValues.fCOTurncoats;
+		const auto previousEnemyAwareness =
+			gTacticalStatus.Team[ENEMY_TEAM]
+				.bAwareOfOpposition;
+
+		const bool malformedSkillIdsAreRejected =
+			!TacticalActorSkills::canUse(
+				skillActor,
+				-1,
+				false) &&
+			!TacticalActorSkills::canUse(
+				skillActor,
+				SKILLS_MAX,
+				false) &&
+			TacticalActorSkills::description(
+				skillActor,
+				-1)[0] == L'\0' &&
+			TacticalActorSkills::description(
+				skillActor,
+				SKILLS_MAX)[0] == L'\0';
+
+		skillActor.deployment().sectorX() = 0;
+		skillActor.deployment().sectorY() = 1;
+		skillActor.deployment().sectorZ() = 0;
+		const bool malformedStrategicSectorIsRejected =
+			!TacticalActorSkills::canUse(
+				skillActor,
+				SKILLS_INTEL_CONCEAL,
+				false);
+
+		gGameOptions.fNewTraitSystem = TRUE;
+		skillActor.statistics().skillTrait(0) = SNIPER_NT;
+		OBJECTTYPE& malformedFocusItem =
+			skillActor.inventory()[HANDPOS];
+		malformedFocusItem.usItem = MAXITEMS;
+		malformedFocusItem.ubNumberOfObjects = 1;
+		const bool malformedFocusItemIsRejected =
+			!TacticalActorSkills::canUse(
+				skillActor,
+				SKILLS_FOCUS,
+				false,
+				1);
+		DeleteObj(&malformedFocusItem);
+
+		TacticalActor turncoatActor;
+		turncoatActor.identity().profile() = NO_PROFILE;
+		turncoatActor.deployment().sectorX() = 1;
+		turncoatActor.deployment().sectorY() = 1;
+		const bool malformedTurncoatInputsAreRejected =
+			TacticalActorTurncoats::convictionChance(
+				turncoatActor,
+				SoldierID{0},
+				1) == 0 &&
+			TacticalActorTurncoats::convictionChance(
+				turncoatActor,
+				SoldierID{0},
+				0) == 0 &&
+			!TacticalActorTurncoats::orderOne(NOBODY);
+		TacticalActorTurncoats::attempt(NOBODY);
+
+		gSkillTraitValues.fCOTurncoats = TRUE;
+		gTacticalStatus.Team[ENEMY_TEAM]
+			.bAwareOfOpposition = FALSE;
+		turncoatActor.vitals().health() = OKLIFE;
+		turncoatActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		turncoatActor.position().gridNo() = 0;
+		const bool malformedTurncoatAnimationIsRejected =
+			!TacticalActorTurncoats::inPositionForAttempt(
+				turncoatActor,
+				SoldierID{0});
+
+		gGameOptions.fNewTraitSystem = previousTraitSystem;
+		gSkillTraitValues.fCOTurncoats =
+			previousTurncoatSetting;
+		gTacticalStatus.Team[ENEMY_TEAM]
+			.bAwareOfOpposition = previousEnemyAwareness;
+
+		CHECK( malformedSkillIdsAreRejected &&
+		       malformedStrategicSectorIsRejected &&
+		       malformedFocusItemIsRejected,
+		       "tactical actor skills reject malformed IDs, sectors, and equipment before data lookup" );
+		CHECK( malformedTurncoatInputsAreRejected &&
+		       malformedTurncoatAnimationIsRejected,
+		       "tactical actor turncoats reject malformed profiles, approaches, targets, and animation state" );
+	}
+
+	{
+		TacticalActor radioActor;
+		const auto previousRobotBodyType =
+			gMercProfiles[0].ubBodyType;
+		const auto previousRadioItemFlags =
+			Item[1].usItemFlag;
+		const auto previousMortarCountDivisor =
+			gSkillTraitValues.usVOMortarCountDivisor;
+		const auto previousMortarShellDivisor =
+			gSkillTraitValues.usVOMortarShellDivisor;
+		const auto previousInventorySystem =
+			gGameOptions.ubInventorySystem;
+		const auto previousTraitSystem =
+			gGameOptions.fNewTraitSystem;
+
+		radioActor.identity().profile() = 0;
+		radioActor.roster().team() = OUR_TEAM;
+		gMercProfiles[0].ubBodyType = ROBOTNOWEAPON;
+		Item[1].usItemFlag |= RADIO_SET;
+		OBJECTTYPE& robotUtility =
+			radioActor.inventory()[ROBOT_UTILITY_SLOT];
+		robotUtility.usItem = 1;
+		robotUtility.ubNumberOfObjects = 1;
+		const bool validRobotRadioIsFound =
+			TacticalActorRadio::canUse(radioActor, false);
+
+		robotUtility.usItem = MAXITEMS;
+		const bool malformedRobotItemIsRejected =
+			!TacticalActorRadio::canUse(radioActor, false);
+
+		TacticalActor slottedRadioActor;
+		slottedRadioActor.identity().profile() = NO_PROFILE;
+		slottedRadioActor.roster().team() = OUR_TEAM;
+		slottedRadioActor.statistics().skillTrait(0) =
+			RADIO_OPERATOR_NT;
+		gGameOptions.fNewTraitSystem = FALSE;
+		gGameOptions.ubInventorySystem = INVENTORY_NEW;
+		OBJECTTYPE& wrongSlotRadio =
+			slottedRadioActor.inventory()[HANDPOS];
+		wrongSlotRadio.usItem = 1;
+		wrongSlotRadio.ubNumberOfObjects = 1;
+		const bool newInventoryRejectsWrongRadioSlot =
+			!TacticalActorRadio::canUse(
+				slottedRadioActor,
+				false);
+		OBJECTTYPE& dedicatedRadio =
+			slottedRadioActor.inventory()[CPACKPOCKPOS];
+		dedicatedRadio.usItem = 1;
+		dedicatedRadio.ubNumberOfObjects = 1;
+		const bool newInventoryAcceptsDedicatedRadioSlot =
+			TacticalActorRadio::canUse(
+				slottedRadioActor,
+				false);
+
+		radioActor.identity().profile() = NO_PROFILE;
+		radioActor.featureFlags().primaryFlags() |=
+			SOLDIER_RADIO_OPERATOR_JAMMING |
+			SOLDIER_RADIO_OPERATOR_SCANNING |
+			SOLDIER_RADIO_OPERATOR_LISTENING;
+		const bool lostRadioClearsEveryMode =
+			!TacticalActorRadio::isJamming(radioActor) &&
+			!TacticalActorRadio::isScanning(radioActor) &&
+			!TacticalActorRadio::isListening(radioActor) &&
+			!(radioActor.featureFlags().primaryFlags() &
+			  (SOLDIER_RADIO_OPERATOR_JAMMING |
+			   SOLDIER_RADIO_OPERATOR_SCANNING |
+			   SOLDIER_RADIO_OPERATOR_LISTENING));
+
+		gSkillTraitValues.usVOMortarCountDivisor = 0;
+		gSkillTraitValues.usVOMortarShellDivisor = 0;
+		const bool malformedArtilleryConfigurationIsRejected =
+			!TacticalActorRadio::isValidArtillerySector(
+				1,
+				1,
+				0,
+				ENEMY_TEAM);
+		const bool nullRadioOutputsAreRejected =
+			!TacticalActorRadio::operatorSignal(
+				NOBODY,
+				nullptr) &&
+			!TacticalActorRadio::canOrderAnyArtilleryStrike(
+				radioActor,
+				nullptr);
+
+		gSkillTraitValues.usVOMortarCountDivisor =
+			previousMortarCountDivisor;
+		gSkillTraitValues.usVOMortarShellDivisor =
+			previousMortarShellDivisor;
+		Item[1].usItemFlag = previousRadioItemFlags;
+		gMercProfiles[0].ubBodyType = previousRobotBodyType;
+		gGameOptions.ubInventorySystem = previousInventorySystem;
+		gGameOptions.fNewTraitSystem = previousTraitSystem;
+		DeleteObj(&robotUtility);
+		DeleteObj(&wrongSlotRadio);
+		DeleteObj(&dedicatedRadio);
+
+		TacticalActor spotterActor;
+		spotterActor.vitals().health() = OKLIFE;
+		spotterActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedSpotterAnimationIsRejected =
+			!TacticalActorSpotting::canSpot(spotterActor);
+
+		const auto previousPreparationTurns =
+			gGameExternalOptions.usSpotterPreparationTurns;
+		spotterActor.position().gridNo() = 0;
+		gGameExternalOptions.usSpotterPreparationTurns = 0;
+		const bool malformedSpotterInputsAreNeutral =
+			TacticalActorSpotting::chanceToHitBonus(
+				nullptr,
+				1,
+				OUR_TEAM) == 0 &&
+			TacticalActorSpotting::chanceToHitBonus(
+				&spotterActor,
+				1,
+				-1) == 0 &&
+			TacticalActorSpotting::chanceToHitBonus(
+				&spotterActor,
+				1,
+				OUR_TEAM) == 0;
+		gGameExternalOptions.usSpotterPreparationTurns =
+			previousPreparationTurns;
+
+		CHECK( validRobotRadioIsFound &&
+		       malformedRobotItemIsRejected,
+		       "tactical actor radio validates robot utility-slot equipment without indexing malformed items" );
+		CHECK( newInventoryRejectsWrongRadioSlot &&
+		       newInventoryAcceptsDedicatedRadioSlot,
+		       "tactical actor radio preserves the dedicated new-inventory slot rule" );
+		CHECK( lostRadioClearsEveryMode,
+		       "tactical actor radio clears every stale operating mode after equipment is lost" );
+		CHECK( malformedArtilleryConfigurationIsRejected &&
+		       nullRadioOutputsAreRejected,
+		       "tactical actor artillery rejects zero divisors and null result storage" );
+		CHECK( malformedSpotterAnimationIsRejected &&
+		       malformedSpotterInputsAreNeutral,
+		       "tactical actor spotting rejects malformed animation, team, preparation, and actor inputs" );
+	}
+
+	{
+		TacticalActor explosiveActor;
+		OBJECTTYPE& blastStack =
+			explosiveActor.inventory()[HANDPOS];
+		blastStack.usItem = 1;
+		blastStack.ubNumberOfObjects = 2;
+		blastStack.objectStack.resize(2);
+		blastStack[0]->data.objectStatus = 80;
+		blastStack[1]->data.objectStatus = 60;
+
+		OBJECTTYPE attachment;
+		attachment.usItem = 1;
+		attachment.ubNumberOfObjects = 1;
+		attachment[0]->data.objectStatus = 90;
+		attachment[0]->data.sRepairThreshold = 70;
+		blastStack[1]->attachments.push_back(attachment);
+
+		TacticalActorExplosives::degradeInventoryAfterExplosion(
+			explosiveActor);
+		const OBJECTTYPE& damagedAttachment =
+			blastStack[1]->attachments.front();
+		const bool everyStackEntryWasDamaged =
+			blastStack[0]->data.objectStatus == 40 &&
+			blastStack[1]->data.objectStatus == 30 &&
+			damagedAttachment[0]->data.objectStatus == 45 &&
+			damagedAttachment[0]->data.sRepairThreshold == 35;
+		const bool nonAiSelfDetonationIsRejected =
+			!TacticalActorExplosives::selfDetonate(explosiveActor);
+
+		TacticalActor consumableActor;
+		const bool actorWithoutDrugUseBackgroundIsNeutral =
+			!TacticalActorConsumables::autoUseDrug(consumableActor);
+
+		TacticalActor interactionActor;
+		const bool idleChatTeardownIsNeutral =
+			!TacticalActorInteractions::stopChatting(interactionActor);
+
+		TacticalActor donorActor;
+		donorActor.roster().team() = gbPlayerNum;
+		donorActor.vitals().health() = OKLIFE + 5;
+		donorActor.vitals().maximumHealth() = 0;
+		const bool malformedDonorHealthIsRejected =
+			!TacticalActorConditions::canDonateBlood(donorActor);
+
+		CHECK( everyStackEntryWasDamaged &&
+		       nonAiSelfDetonationIsRejected &&
+		       actorWithoutDrugUseBackgroundIsNeutral &&
+		       idleChatTeardownIsNeutral &&
+		       malformedDonorHealthIsRejected,
+		       "tactical actor explosives, consumables, interactions, and donor rules reject unsafe state and damage every stacked item" );
+	}
+
+	{
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().identity()),
+			decltype(std::declval<TacticalActor&>().identity()),
 			SoldierIdentityComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().identity()),
+			decltype(std::declval<const TacticalActor&>().identity()),
 			const SoldierIdentityComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().roster()),
+			decltype(std::declval<TacticalActor&>().roster()),
 			SoldierRosterComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().roster()),
+			decltype(std::declval<const TacticalActor&>().roster()),
 			const SoldierRosterComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().vehicleState()),
+			decltype(std::declval<TacticalActor&>().vehicleState()),
 			SoldierVehicleStateComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().vehicleState()),
+			decltype(std::declval<const TacticalActor&>().vehicleState()),
 			const SoldierVehicleStateComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().featureFlags()),
+			decltype(std::declval<TacticalActor&>().featureFlags()),
 			SoldierFeatureFlagsComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().featureFlags()),
+			decltype(std::declval<const TacticalActor&>().featureFlags()),
 			const SoldierFeatureFlagsComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().keyRing()),
+			decltype(std::declval<TacticalActor&>().keyRing()),
 			SoldierKeyRingComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().keyRing()),
+			decltype(std::declval<const TacticalActor&>().keyRing()),
 			const SoldierKeyRingComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().pendingItem()),
+			decltype(std::declval<TacticalActor&>().pendingItem()),
 			SoldierPendingItemComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().pendingItem()),
+			decltype(std::declval<const TacticalActor&>().pendingItem()),
 			const SoldierPendingItemComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().aiPlan()),
+			decltype(std::declval<TacticalActor&>().aiPlan()),
 			SoldierAiPlanComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().aiPlan()),
+			decltype(std::declval<const TacticalActor&>().aiPlan()),
 			const SoldierAiPlanComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().frontArc()),
+			decltype(std::declval<TacticalActor&>().frontArc()),
 			SoldierFrontArcComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().frontArc()),
+			decltype(std::declval<const TacticalActor&>().frontArc()),
 			const SoldierFrontArcComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<SOLDIERTYPE&>().strategicPath()),
+			decltype(std::declval<TacticalActor&>().strategicPath()),
 			SoldierStrategicPathComponent&>);
 		static_assert(std::is_same_v<
-			decltype(std::declval<const SOLDIERTYPE&>().strategicPath()),
+			decltype(std::declval<const TacticalActor&>().strategicPath()),
 			const SoldierStrategicPathComponent&>);
 
 		int aiPlanDestructions = 0;
 		int aiPlanExecutions = 0;
-		SOLDIERTYPE aiPlanOwner;
+		TacticalActor aiPlanOwner;
 		aiPlanOwner.aiPlan().adopt(new HeadlessOwnedAiPlan(
 			&aiPlanOwner, aiPlanDestructions, aiPlanExecutions));
 		AI::tactical::PlanInputData aiPlanInput(false, gTacticalStatus);
@@ -7935,8 +8652,8 @@ int main( int, char** )
 		       aiPlanExecutions == 1 &&
 		       aiPlanDestructions == 0,
 		       "soldier AI-plan ownership executes an adopted modular plan" );
-		SOLDIERTYPE copiedAiPlanOwner = aiPlanOwner;
-		SOLDIERTYPE assignedAiPlanOwner;
+		TacticalActor copiedAiPlanOwner = aiPlanOwner;
+		TacticalActor assignedAiPlanOwner;
 		assignedAiPlanOwner.aiPlan().adopt(new HeadlessOwnedAiPlan(
 			&assignedAiPlanOwner, aiPlanDestructions, aiPlanExecutions));
 		assignedAiPlanOwner = aiPlanOwner;
@@ -7975,9 +8692,9 @@ int main( int, char** )
 		           movedRouteOwner.head() &&
 		       assignedRouteOwner.empty(),
 		       "soldier strategic-path owners deep-copy route nodes and transfer moves without aliases" );
-		SOLDIERTYPE copiedRouteSoldier;
+		TacticalActor copiedRouteSoldier;
 		copiedRouteSoldier.strategicPath().copyFrom(routeOwner.head());
-		SOLDIERTYPE routeSoldierClone = copiedRouteSoldier;
+		TacticalActor routeSoldierClone = copiedRouteSoldier;
 		routeSoldierClone.strategicPath().head()->uiEta = 8800;
 		copiedRouteSoldier.initialize();
 		CHECK( copiedRouteSoldier.strategicPath().empty() &&
@@ -7999,7 +8716,7 @@ int main( int, char** )
 		       frontArcLifecycle.gridNo(1) == 0,
 		       "soldier front-arc occluders bind and clear tile/grid pairs atomically" );
 
-		SOLDIERTYPE soldier;
+		TacticalActor soldier;
 		SoldierIdentityComponent& identity = soldier.identity();
 		identity.id() = SoldierID{ 37 };
 		identity.name()[0] = L'J';
@@ -8529,7 +9246,7 @@ int main( int, char** )
 		       soldier.vitals().health() == 75 &&
 		       soldier.vitals().breath() == 60,
 		       "soldier vitals component owns health, breath, and recovery state" );
-		const SOLDIERTYPE& constSoldier = soldier;
+		const TacticalActor& constSoldier = soldier;
 		CHECK( constSoldier.identity().id() == SoldierID{ 37 } &&
 		       constSoldier.identity().name()[0] == L'J' &&
 		       constSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'X' &&
@@ -9948,7 +10665,7 @@ int main( int, char** )
 		vitals.regenerationCounter() = -2;
 		vitals.regenerationBoostersUsedToday() = 3;
 		vitals.lastBleedGruntAt() = 12341;
-		SOLDIERTYPE copiedSoldier = soldier;
+		TacticalActor copiedSoldier = soldier;
 		const bool copiedSoldierInventoryIsIndependent =
 			copiedSoldier.inventory().coherent() &&
 			copiedSoldier.inventory().items().data() !=
@@ -11799,7 +12516,7 @@ int main( int, char** )
 	}
 
 	{
-		SOLDIERTYPE aiOwnedSoldier;
+		TacticalActor aiOwnedSoldier;
 		SoldierAiPlanningComponent& planning = aiOwnedSoldier.aiPlanning();
 		planning.lastAction() = -11;
 		planning.action() = 12;
@@ -11864,7 +12581,7 @@ int main( int, char** )
 		aiOwnedSoldier.turnState().interruptCounters()[0] = 27;
 		aiOwnedSoldier.turnState().interruptCounters()[MAX_NUM_SOLDIERS - 1] = 28;
 
-		const SOLDIERTYPE& constAiOwnedSoldier = aiOwnedSoldier;
+		const TacticalActor& constAiOwnedSoldier = aiOwnedSoldier;
 		CHECK( constAiOwnedSoldier.aiPlanning().lastAction() == -11 &&
 		       constAiOwnedSoldier.aiPlanning().action() == 12 &&
 		       constAiOwnedSoldier.aiPlanning().actionData() == 13001 &&
@@ -11929,7 +12646,7 @@ int main( int, char** )
 			       MAX_NUM_SOLDIERS - 1] == 28,
 		       "soldier awareness, perception, position, combat, and turn owners retain the former AI aggregate state" );
 
-		SOLDIERTYPE copiedAiOwnedSoldier = aiOwnedSoldier;
+		TacticalActor copiedAiOwnedSoldier = aiOwnedSoldier;
 		CHECK( copiedAiOwnedSoldier.aiPlanning().actionData() == 13001 &&
 		       copiedAiOwnedSoldier.aiBehavior().bypassToGreen() == 30 &&
 		       copiedAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 21 } &&
@@ -11967,1141 +12684,6 @@ int main( int, char** )
 		       "soldier initialization resets every former AI-data domain to the established zero state" );
 	}
 
-	{
-		auto legacySoldier = std::make_unique<OLDSOLDIERTYPE_101>();
-		OBJECTTYPE legacyProcessObject;
-		THROW_PARAMS legacyProcessThrow{};
-		legacySoldier->pTempObject = &legacyProcessObject;
-		legacySoldier->pThrowParams = &legacyProcessThrow;
-		legacySoldier->ubID = 37;
-		legacySoldier->name[0] = L'V';
-		legacySoldier->name[9] = L'1';
-		legacySoldier->ubBodyType = REGFEMALE;
-		legacySoldier->bActive = TRUE;
-		legacySoldier->bTeam = CIV_TEAM;
-		legacySoldier->bInSector = TRUE;
-		legacySoldier->bSide = 3;
-		legacySoldier->ubProfile = 42;
-		legacySoldier->ubSoldierClass = SOLDIER_CLASS_ADMINISTRATOR;
-		legacySoldier->ubCivilianGroup = 18;
-		legacySoldier->uiUniqueSoldierIdValue = 0x10203040u;
-		legacySoldier->bOppList[0] = 2;
-		legacySoldier->bOppList[MAX_NUM_SOLDIERS - 1] = -3;
-		legacySoldier->bLastAction = -4;
-		legacySoldier->bAction = 5;
-		legacySoldier->usActionData = 17001;
-		legacySoldier->bNextAction = 6;
-		legacySoldier->usNextActionData = 17002;
-		legacySoldier->bActionInProgress = 1;
-		legacySoldier->bAlertStatus = 2;
-		legacySoldier->bOppCnt = 3;
-		legacySoldier->bNeutral = 1;
-		legacySoldier->bNewSituation = 2;
-		legacySoldier->bNextTargetLevel = 1;
-		legacySoldier->bOrders = 4;
-		legacySoldier->bAttitude = 5;
-		legacySoldier->bUnderEscort = 1;
-		legacySoldier->bBypassToGreen = 15;
-		legacySoldier->ubLastMercToRadio = 6;
-		legacySoldier->bDominantDir = 7;
-		legacySoldier->bPatrolCnt = 8;
-		legacySoldier->bNextPatrolPnt = 2;
-		legacySoldier->usPatrolGrid[0] = 17003;
-		legacySoldier->usPatrolGrid[OLD_MAXPATROLGRIDS - 1] = 17012;
-		legacySoldier->sNoiseGridNo = 17013;
-		legacySoldier->ubNoiseVolume = 9;
-		legacySoldier->bLastAttackHit = 1;
-		legacySoldier->ubXRayedBy = 10;
-		legacySoldier->dHeightAdjustment = 11.5f;
-		legacySoldier->bMorale = 80;
-		legacySoldier->bTeamMoraleMod = -2;
-		legacySoldier->bTacticalMoraleMod = 3;
-		legacySoldier->bStrategicMoraleMod = -4;
-		legacySoldier->bDelayedStrategicMoraleMod = -7;
-		legacySoldier->bAIMorale = 5;
-		legacySoldier->bInterruptDuelPts = -1;
-		legacySoldier->bPassedLastInterrupt = 1;
-		legacySoldier->bIntStartAPs = 77;
-		legacySoldier->bMoved = 1;
-		legacySoldier->bHunting = 1;
-		legacySoldier->ubLastCall = 12;
-		legacySoldier->ubCaller = 13;
-		legacySoldier->sCallerGridNo = 17014;
-		legacySoldier->bCallPriority = 14;
-		legacySoldier->bCallActedUpon = -1;
-		legacySoldier->bFrenzied = 1;
-		legacySoldier->ubMiscSoldierFlags =
-			SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_HURT_BY_EXPLOSION;
-		legacySoldier->bNormalSmell = 15;
-		legacySoldier->bMonsterSmell = 16;
-		legacySoldier->bMobility = 2;
-		legacySoldier->bRTPCombat = 1;
-		legacySoldier->fAIFlags = 0x3f;
-		legacySoldier->bAimTime = 18;
-		legacySoldier->bShownAimTime = 19;
-		legacySoldier->fDoSpread = TRUE;
-		legacySoldier->autofireLastStep = TRUE;
-		legacySoldier->bBulletsLeft = 3;
-		legacySoldier->bDoBurst = 4;
-		legacySoldier->bDoAutofire = 8;
-		legacySoldier->sWalkToAttackGridNo = 1700;
-		legacySoldier->sWalkToAttackWalkToCost = 23;
-		legacySoldier->sStartGridNo = 1701;
-		legacySoldier->sEndGridNo = 1702;
-		legacySoldier->sForcastGridNo = 1703;
-		legacySoldier->sZLevelOverride = 701;
-		legacySoldier->uiTimeOfLastRandomAction = 73;
-		legacySoldier->usLastRandomAnim = 702;
-		legacySoldier->ubWaitActionToDo = 2;
-		legacySoldier->bGunType = -5;
-		legacySoldier->ubOppNum = 21;
-		legacySoldier->bSlotItemTakenFrom = -7;
-		legacySoldier->usValueGoneUp = HEALTH_INCREASE | DEX_INCREASE;
-		legacySoldier->ubCTGTTargetID = 22;
-		legacySoldier->fIgnoreGetupFromCollapseCheck = TRUE;
-		legacySoldier->GetupFromJA25StartCounter = 1704;
-		legacySoldier->fWaitingToGetupFromJA25Start = TRUE;
-		std::strcpy(legacySoldier->HeadPal, "BLACKHEAD");
-		std::strcpy(legacySoldier->PantsPal, "BLUEPANTS");
-		std::strcpy(legacySoldier->VestPal, "BLUEVEST");
-		std::strcpy(legacySoldier->SkinPal, "TANSKIN");
-		std::strcpy(legacySoldier->MiscPal, "OLDMISC");
-		legacySoldier->fBeginFade = 2;
-		legacySoldier->ubFadeLevel = 19;
-		legacySoldier->fForceRenderColor = TRUE;
-		legacySoldier->fForceNoRenderPaletteCycle = TRUE;
-		legacySoldier->fForceShade = TRUE;
-		legacySoldier->fMuzzleFlash = TRUE;
-		legacySoldier->usUnblitX = 31;
-		legacySoldier->usUnblitY = 32;
-		legacySoldier->usUnblitWidth = 33;
-		legacySoldier->usUnblitHeight = 34;
-		legacySoldier->iLight = 701;
-		legacySoldier->iMuzFlash = 702;
-		legacySoldier->bMuzFlashCount = 4;
-		legacySoldier->sBoundingBoxWidth = 61;
-		legacySoldier->sBoundingBoxHeight = 62;
-		legacySoldier->sBoundingBoxOffsetX = -7;
-		legacySoldier->sBoundingBoxOffsetY = -8;
-		legacySoldier->sLocationOfFadeStart = 1705;
-		legacySoldier->fTurnInProgress = TRUE;
-		legacySoldier->fPrevInWater = TRUE;
-		legacySoldier->fUIMovementFast = 2;
-		legacySoldier->fNoAPToFinishMove = TRUE;
-		legacySoldier->fPausedMove = TRUE;
-		legacySoldier->fIsSoldierMoving = TRUE;
-		legacySoldier->fIsSoldierDelayed = TRUE;
-		legacySoldier->fSoldierWasMoving = TRUE;
-		legacySoldier->fPastXDest = -2;
-		legacySoldier->fPastYDest = 3;
-		legacySoldier->bMovedPriorToInterrupt = 1;
-		legacySoldier->bActionPoints = 43;
-		legacySoldier->bInitialActionPoints = 78;
-		legacySoldier->bOldLife = 72;
-		legacySoldier->sFractLife = 35;
-		legacySoldier->bLife = 70;
-		legacySoldier->bLifeMax = 88;
-		legacySoldier->bBleeding = 9;
-		legacySoldier->bBreath = 61;
-		legacySoldier->bBreathMax = 93;
-		legacySoldier->sBreathRed = 444;
-		legacySoldier->dNextBleed = 12.5f;
-		legacySoldier->bRegenerationCounter = -2;
-		legacySoldier->bRegenBoostersUsedToday = 3;
-		legacySoldier->uiTimeSinceLastBleedGrunt = 12348;
-		legacySoldier->bExpLevel = 7;
-		legacySoldier->bStrength = 81;
-		legacySoldier->bAgility = 82;
-		legacySoldier->bDexterity = 83;
-		legacySoldier->bWisdom = 84;
-		legacySoldier->bLeadership = 85;
-		legacySoldier->bMarksmanship = 86;
-		legacySoldier->bMechanical = 87;
-		legacySoldier->bExplosive = 88;
-		legacySoldier->bMedical = 89;
-		legacySoldier->bScientific = 90;
-		legacySoldier->ubSkillTrait1 = 11;
-		legacySoldier->ubSkillTrait2 = 12;
-		legacySoldier->DO_NOT_USE_Inv[
-			OldInventory::HANDPOS].usItem = 401;
-		legacySoldier->DO_NOT_USE_Inv[
-			OldInventory::HANDPOS].ubNumberOfObjects = 3;
-		legacySoldier->DO_NOT_USE_bNewItemCount[
-			OldInventory::HANDPOS] = 12;
-		legacySoldier->DO_NOT_USE_bNewItemCycleCount[
-			OldInventory::HANDPOS] = 13;
-		legacySoldier->CopyOldInventoryToNew();
-		legacySoldier->bHasKeys = -6;
-		legacySoldier->fIntendedTarget = TRUE;
-		legacySoldier->fReloading = TRUE;
-		legacySoldier->fPauseAim = TRUE;
-		legacySoldier->fReactingFromBeingShot = TRUE;
-		legacySoldier->fCheckForNewlyAddedItems = TRUE;
-		legacySoldier->fSoldierUpdatedFromNetwork = TRUE;
-		legacySoldier->fDontUnsetLastTargetFromTurn = TRUE;
-		legacySoldier->fHitByGasFlags = 0x5A;
-		legacySoldier->fDoingExternalDeath = TRUE;
-		legacySoldier->lastFlankLeft = TRUE;
-		legacySoldier->uiStatusFlags = SOLDIER_PC | SOLDIER_MUTE;
-		legacySoldier->bService = 2;
-		legacySoldier->ubServiceCount = 3;
-		legacySoldier->ubServicePartner = 7;
-		legacySoldier->ubAutoBandagingMedic = 8;
-		legacySoldier->ubQuoteRecord = 14;
-		legacySoldier->ubQuoteActionID = QUOTE_ACTION_ID_CHECKFORDEST;
-		legacySoldier->ubBattleSoundID = 5;
-		legacySoldier->usQuoteSaidFlags = SOLDIER_QUOTE_SAID_LOW_BREATH;
-		legacySoldier->bVocalVolume = 86;
-		legacySoldier->uiTimeSameBattleSndDone = 12350;
-		legacySoldier->bOldBattleSnd = BATTLE_SOUND_DIE1;
-		legacySoldier->ubTurnsUntilCanSayHeardNoise = 4;
-		legacySoldier->usQuoteSaidExtFlags = SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL;
-		legacySoldier->uiBattleSoundID = 78;
-		legacySoldier->bCurrentCivQuote = -3;
-		legacySoldier->bCurrentCivQuoteDelta = 1;
-		legacySoldier->uiTimeSinceLastSpoke = 12351;
-		legacySoldier->bCorpseQuoteTolerance = 2;
-		legacySoldier->fDeadSoundPlayed = 2;
-		legacySoldier->fWarnedAboutBleeding = 3;
-		legacySoldier->fDyingComment = 4;
-		legacySoldier->fSayAmmoQuotePending = 5;
-		legacySoldier->fDieSoundUsed = 6;
-		legacySoldier->bFlashPortraitFrame = -3;
-		legacySoldier->sLocatorFrame = 4;
-		legacySoldier->sLocatorOffX = 12;
-		legacySoldier->sLocatorOffY = -13;
-		legacySoldier->bUIInterfaceLevel = 1;
-		legacySoldier->ubClosePanelFrame = 2;
-		legacySoldier->ubDeadPanelFrame = 3;
-		legacySoldier->bOpenPanelFrame = -4;
-		legacySoldier->sPanelFaceX = 100;
-		legacySoldier->sPanelFaceY = 101;
-		legacySoldier->ubPlannedUIAPCost = 14;
-		legacySoldier->sPlannedTargetX = 500;
-		legacySoldier->sPlannedTargetY = 501;
-		legacySoldier->ubLastEnemyCycledID = 15;
-		legacySoldier->ubNumLocateCycles = 6;
-		legacySoldier->fClosePanel = TRUE;
-		legacySoldier->fClosePanelToDie = TRUE;
-		legacySoldier->fDeadPanel = TRUE;
-		legacySoldier->fOpenPanel = TRUE;
-		legacySoldier->fFlashLocator = 3;
-		legacySoldier->fShowLocator = TRUE;
-		legacySoldier->fFlashPortrait = 2;
-		legacySoldier->fUIdeadMerc = TRUE;
-		legacySoldier->fUInewMerc = TRUE;
-		legacySoldier->fUICloseMerc = TRUE;
-		legacySoldier->fUIFirstTimeNOAP = TRUE;
-		legacySoldier->fUIFirstTimeUNCON = TRUE;
-		legacySoldier->bLastSkillCheck = -6;
-		legacySoldier->ubSkillCheckAttempts = 3;
-		legacySoldier->sSkillCheckGridNo = 1410;
-		legacySoldier->uiChangeLevelTime = 2101;
-		legacySoldier->uiChangeHealthTime = 2102;
-		legacySoldier->uiChangeStrengthTime = 2103;
-		legacySoldier->uiChangeDexterityTime = 2104;
-		legacySoldier->uiChangeAgilityTime = 2105;
-		legacySoldier->uiChangeWisdomTime = 2106;
-		legacySoldier->uiChangeLeadershipTime = 2107;
-		legacySoldier->uiChangeMarksmanshipTime = 2108;
-		legacySoldier->uiChangeExplosivesTime = 2109;
-		legacySoldier->uiChangeMedicalTime = 2110;
-		legacySoldier->uiChangeMechanicalTime = 2111;
-		legacySoldier->UpdateCounter = 2201;
-		legacySoldier->DamageCounter = 2202;
-		legacySoldier->ReloadCounter = 2203;
-		legacySoldier->FlashSelCounter = 2204;
-		legacySoldier->AICounter = 2205;
-		legacySoldier->FadeCounter = 2206;
-		legacySoldier->PanelAnimateCounter = 2207;
-		legacySoldier->BlinkSelCounter = 2208;
-		legacySoldier->PortraitFlashCounter = 2209;
-		legacySoldier->NextTileCounter = 2210;
-		legacySoldier->uiAIDelay = 2211;
-		legacySoldier->sReloadDelay = -2212;
-		legacySoldier->ubPendingAction = MERC_GIVEITEM;
-		legacySoldier->ubPendingActionAnimCount = 11;
-		legacySoldier->uiPendingActionData1 = 1411;
-		legacySoldier->sPendingActionData2 = -1412;
-		legacySoldier->bPendingActionData3 = -4;
-		legacySoldier->ubDoorHandleCode = 5;
-		legacySoldier->uiPendingActionData4 = 1413;
-		legacySoldier->iNextActionSpecialData = -1414;
-		legacySoldier->ubPendingActionInterrupted = 6;
-		legacySoldier->bPendingActionData5 = -7;
-		legacySoldier->bCollapsed = TRUE;
-		legacySoldier->bBreathCollapsed = TRUE;
-		legacySoldier->bTurnsCollapsed = 3;
-		legacySoldier->bSleepDrugCounter = 6;
-		legacySoldier->fMercCollapsedFlag = TRUE;
-		legacySoldier->ubMovementNoiseHeard = (1u << 2) | (1u << 6);
-		legacySoldier->bViewRange = 15;
-		legacySoldier->bBlindedCounter = 5;
-		legacySoldier->bNoiseLevel = 1;
-		legacySoldier->uiXRayActivatedTime = 12346;
-		legacySoldier->bDeafenedCounter = 4;
-		legacySoldier->bVisible = 1;
-		legacySoldier->bLastRenderVisibleValue = -1;
-		legacySoldier->bNewOppCnt = 3;
-		legacySoldier->ubNumTilesMovesSinceLastForget = 202;
-		legacySoldier->bCamo = -1;
-		legacySoldier->wornCamo = -2;
-		legacySoldier->urbanCamo = -3;
-		legacySoldier->wornUrbanCamo = -4;
-		legacySoldier->desertCamo = -5;
-		legacySoldier->wornDesertCamo = -6;
-		legacySoldier->snowCamo = -7;
-		legacySoldier->wornSnowCamo = -8;
-		legacySoldier->iEndofContractTime = -2;
-		legacySoldier->iStartContractTime = 18;
-		legacySoldier->iTotalContractLength = 21;
-		legacySoldier->ubWhatKindOfMercAmI = MERC_TYPE__MERC;
-		legacySoldier->usMedicalDeposit = 700;
-		legacySoldier->usLifeInsurance = 2;
-		legacySoldier->iStartOfInsuranceContract = 5;
-		legacySoldier->iTotalLengthOfInsuranceContract = 9;
-		legacySoldier->uiTimeOfLastContractUpdate = 12002;
-		legacySoldier->bTypeOfLastContract = CONTRACT_EXTEND_1_WEEK;
-		legacySoldier->ubMercJustFired = 1;
-		legacySoldier->ubContractRenewalQuoteCode = SOLDIER_CONTRACT_RENEW_QUOTE_115_USED;
-		legacySoldier->iTimeCanSignElsewhere = 13001;
-		legacySoldier->bHospitalPriceModifier = -3;
-		legacySoldier->uiStartTimeOfInsuranceContract = 11001;
-		legacySoldier->fContractPriceHasIncreased = 2;
-		legacySoldier->fSignedAnotherContract = 3;
-		legacySoldier->bAssignment = TRAIN_BY_OTHER;
-		legacySoldier->bOldAssignment = ON_DUTY;
-		legacySoldier->bTrainStat = STRENGTH;
-		legacySoldier->uiLastAssignmentChangeMin = 11901;
-		legacySoldier->ubDesiredSquadAssignment = 4;
-		legacySoldier->ubNumTraversalsAllowedToMerge = 5;
-		legacySoldier->ubHoursOnAssignment = 7;
-		legacySoldier->bVehicleUnderRepairID = -1;
-		legacySoldier->fFixingSAMSite = 4;
-		legacySoldier->fFixingRobot = 5;
-		legacySoldier->fForcedToStayAwake = 6;
-		legacySoldier->fDoneAssignmentAndNothingToDoFlag = 7;
-		legacySoldier->fMercAsleep = 8;
-		legacySoldier->fComplainedThatTired = 9;
-		legacySoldier->ubInsertionDirection = 4;
-		legacySoldier->ubGroupID = 43;
-		legacySoldier->sInsertionGridNo = 2300;
-		legacySoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-		legacySoldier->usStrategicInsertionData = 2301;
-		legacySoldier->sSectorX = 10;
-		legacySoldier->sSectorY = 6;
-		legacySoldier->bSectorZ = 2;
-		legacySoldier->iVehicleId = 9;
-		legacySoldier->sOffWorldGridNo = 2302;
-		legacySoldier->ubPrevSectorID = 32;
-		legacySoldier->bUseExitGridForReentryDirection = 1;
-		legacySoldier->sPreTraversalGridNo = 2303;
-		legacySoldier->ubLeaveHistoryCode = 8;
-		legacySoldier->uiTimeSoldierWillArrive = 15000;
-		legacySoldier->fBetweenSectors = 2;
-		legacySoldier->fInMissionExitNode = 3;
-		legacySoldier->fUseLandingZoneForArrival = 4;
-		legacySoldier->bVehicleID = -6;
-		legacySoldier->ubRobotRemoteHolderID = 59;
-		legacySoldier->bEndDoorOpenCode = 2;
-		legacySoldier->ubScheduleID = 42;
-		legacySoldier->sEndDoorOpenCodeData = 2310;
-		legacySoldier->bAIScheduleProgress = 3;
-		legacySoldier->ubLastFootPrintSound = 4;
-		legacySoldier->ubHiResDirection = 11;
-		legacySoldier->ubHiResDesiredDirection = 13;
-		legacySoldier->ubDoorOpeningNoise = 19;
-		legacySoldier->iBurstSoundID = 501;
-		legacySoldier->iPositionSndID = 502;
-		legacySoldier->iTuringSoundID = 503;
-		legacySoldier->uiStartMovementTime = 16001;
-		legacySoldier->uiOptimumMovementTime = 16002;
-		legacySoldier->usLastUpdateTime = 16003;
-		legacySoldier->uiSoldierUpdateNumber = 504;
-		legacySoldier->ubSoldierUpdateType = 8;
-		legacySoldier->uiMercChecksum = 505;
-		legacySoldier->sWeightCarriedAtTurnStart = 145;
-		legacySoldier->bTilesMoved = 8;
-		legacySoldier->ubTilesMovedPerRTBreathUpdate = 5;
-		legacySoldier->usLastMovementAnimPerRTBreathUpdate = WALKING;
-		legacySoldier->usUIMovementMode = SWATTING;
-		legacySoldier->bStealthMode = TRUE;
-		legacySoldier->bReverse = TRUE;
-		legacySoldier->bMovementDirection = 5;
-		legacySoldier->usDontUpdateNewGridNoOnMoveAnimChange =
-			LOCKED_NO_NEWGRIDNO;
-		legacySoldier->numFlanks = 4;
-		legacySoldier->lastFlankSpot = 16004;
-		legacySoldier->sniper = 1;
-		legacySoldier->origDir = 6;
-		legacySoldier->dXPos = 321.5f;
-		legacySoldier->dYPos = 654.25f;
-		legacySoldier->sX = 319;
-		legacySoldier->sY = 649;
-		legacySoldier->sOldXPos = 300;
-		legacySoldier->sOldYPos = 600;
-		legacySoldier->sInitialGridNo = 2304;
-		legacySoldier->sGridNo = 2305;
-		legacySoldier->bLevel = 1;
-		legacySoldier->ubDirection = 6;
-		legacySoldier->sHeightAdjustment = 21;
-		legacySoldier->sDesiredHeight = 29;
-		legacySoldier->sTempNewGridNo = 2306;
-		legacySoldier->sRoomNo = 13;
-		legacySoldier->bOverTerrainType = HIGH_GRASS;
-		legacySoldier->bOldOverTerrainType = DIRT_ROAD;
-		legacySoldier->usFrontArcFullTileList[0] = 601;
-		legacySoldier->usFrontArcFullTileList[1] = 602;
-		legacySoldier->usFrontArcFullTileList[2] = 603;
-		legacySoldier->usFrontArcFullTileGridNos[0] = 2311;
-		legacySoldier->usFrontArcFullTileGridNos[1] = 2312;
-		legacySoldier->usFrontArcFullTileGridNos[2] = 2313;
-		legacySoldier->sOldGridNo = 2307;
-		legacySoldier->sLastTwoLocations[0] = 2308;
-		legacySoldier->sLastTwoLocations[1] = 2309;
-		legacySoldier->ubAttackerID = 6;
-		legacySoldier->ubPreviousAttackerID = 5;
-		legacySoldier->ubNextToPreviousAttackerID = 4;
-		legacySoldier->ubHitLocation = AIM_SHOT_HEAD;
-		legacySoldier->ubLastDamageReason = 7;
-		legacySoldier->bNumHitsThisTurn = 3;
-		legacySoldier->bNumPelletsHitBy = 2;
-		legacySoldier->sDamage = 26;
-		legacySoldier->ubMilitiaKills = 6;
-		legacySoldier->ubPercentDamageInflictedByTeam[0] = 71;
-		legacySoldier->ubPercentDamageInflictedByTeam[NUM_ASSIST_SLOTS - 1] = 72;
-		legacySoldier->fDisplayDamage = 2;
-		legacySoldier->bDisplayDamageCount = 3;
-		legacySoldier->sDamageX = 15;
-		legacySoldier->sDamageY = -8;
-		legacySoldier->bDamageDir = -1;
-		legacySoldier->bUnderFire = 2;
-		legacySoldier->bShock = 9;
-		legacySoldier->ubSuppressionPoints = 5;
-		legacySoldier->ubAPsLostToSuppression = 12;
-		legacySoldier->ubSuppressorID = 8;
-		legacySoldier->fCloseCall = TRUE;
-		for (UINT8 i = 0; i < SoldierFireControlComponent::SpreadTargetCapacity; ++i)
-			legacySoldier->sSpreadLocations[i] = 22001 + i;
-
-		SOLDIERTYPE convertedSoldier;
-		convertedSoldier.vitals().healableInjury() = 900;
-		convertedSoldier.vitals().beginSurgery();
-		convertedSoldier.vitals().unregainableBreath() = 333;
-		convertedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] = 8;
-		convertedSoldier.statistics().experienceLevel() = 99;
-		convertedSoldier.statistics().strength() = 99;
-		convertedSoldier.statistics().skillTrait(0) = 99;
-		convertedSoldier.statistics().skillTrait(
-			SoldierStatisticsComponent::SkillTraitCapacity - 1) = 99;
-		convertedSoldier.status().flags() = SOLDIER_DEAD;
-		convertedSoldier.inventory().keyAccess() = 99;
-		convertedSoldier.inventory().checkForNewItems() = FALSE;
-		convertedSoldier.inventory().zipperFlag() = TRUE;
-		convertedSoldier.inventory().dropPackFlag() = TRUE;
-		convertedSoldier.keyRing().activate();
-		convertedSoldier.keyRing()[4].ubKeyID = 44;
-		convertedSoldier.keyRing()[4].ubNumber = 4;
-		OBJECTTYPE staleConvertedObject;
-		staleConvertedObject.usItem = 93;
-		convertedSoldier.pendingItem().prepareThrow(staleConvertedObject);
-		convertedSoldier.replication().updatedFromNetwork() = FALSE;
-		convertedSoldier.aiPlanning().lastFlankLeft() = FALSE;
-		convertedSoldier.aiPlanning().actionData() = 99901;
-		convertedSoldier.aiPlanning().patrolGrid()[0] = 99902;
-		convertedSoldier.aiBehavior().flags() = -1;
-		convertedSoldier.aiCommunication().caller() = SoldierID{ 99 };
-		convertedSoldier.morale().morale() = 99;
-		convertedSoldier.morale().delayedStrategicModifier() = 98;
-		convertedSoldier.featureFlags().eventFlags() = 0xFF;
-		convertedSoldier.featureFlags().primaryFlags() = 0xFFFFFFFFu;
-		convertedSoldier.featureFlags().secondaryFlags() = 0xFFFFFFFFu;
-		convertedSoldier.awareness().opponentKnowledge()[0] = 99;
-		convertedSoldier.perception().noiseGrid() = 99903;
-		convertedSoldier.position().animationHeightAdjustment() = 99.5f;
-		convertedSoldier.frontArc().bindOccluder(0, 999, 9999);
-		convertedSoldier.combatResult().lastAttackHit() = 99;
-		convertedSoldier.turnState().moved() = 99;
-		convertedSoldier.turnState().interruptCounters()[0] = 99;
-		convertedSoldier.turnState().interruptCounters()[
-			MAX_NUM_SOLDIERS - 1] = 99;
-		convertedSoldier.condition().gasHitFlags() = 0xFF;
-		convertedSoldier.targeting().intendedTarget() = FALSE;
-		convertedSoldier.targeting().retainLastTargetFromTurn() = FALSE;
-		convertedSoldier.fireControl().reloading() = FALSE;
-		convertedSoldier.fireControl().aimPaused() = FALSE;
-		convertedSoldier.animationActivity().reactingFromShot() = FALSE;
-		convertedSoldier.animationActivity().externalDeath() = FALSE;
-		convertedSoldier.assignment().facilityType() = 9;
-		convertedSoldier.assignment().itemMoveSectorId() = 48;
-		convertedSoldier.assignment().miniEventHoursRemaining() = 13;
-		convertedSoldier.schedule().id() = 99;
-		convertedSoldier.schedule().progress() = 98;
-		convertedSoldier.schedule().beginDoorContinuation(9999);
-		convertedSoldier.schedule().completeDoorAnimation();
-		convertedSoldier.audio().recordFootstepVariant(98);
-		convertedSoldier.audio().recordDoorOpeningNoise(97);
-		convertedSoldier.audio().startBurstSound(9996);
-		convertedSoldier.audio().startPositionSound(9997);
-		convertedSoldier.audio().startTurningSound(9998);
-		convertedSoldier.replication().movementStartedAt() = 9990;
-		convertedSoldier.replication().optimumMovementTime() = 9991;
-		convertedSoldier.replication().recordUpdate(9992);
-		convertedSoldier.replication().updateSequence() = 9993;
-		convertedSoldier.replication().updateType() = 99;
-		convertedSoldier.replication().scheduleStop(9994);
-		convertedSoldier.replication().recordChecksum(9995);
-		convertedSoldier.uiPresentation().portraitFlashFrame() = 99;
-		convertedSoldier.uiPresentation().startLocator(98);
-		convertedSoldier.uiPresentation().setPlannedTarget(999, 998, 97);
-		convertedSoldier.uiPresentation().lastEnemyCycled() = SoldierID{ 96 };
-		std::strcpy(convertedSoldier.renderState().headPalette(), "STALE");
-		convertedSoldier.renderState().beginFade(1, 99, 9999);
-		convertedSoldier.renderState().forceRenderColor() = FALSE;
-		convertedSoldier.renderState().forceNoPaletteCycle() = FALSE;
-		convertedSoldier.renderState().disableForceShade();
-		convertedSoldier.renderState().hideMuzzleFlash();
-		convertedSoldier.renderState().setUnblitRect(91, 92, 93, 94);
-		convertedSoldier.renderState().lightSprite() = 991;
-		convertedSoldier.renderState().startMuzzleFlashSprite(992);
-		convertedSoldier.renderState().setBoundingBox(91, 92, 93, 94);
-		convertedSoldier.movementMetrics().carriedWeightAtTurnStart() = 190;
-		convertedSoldier.movementMetrics().tilesMoved() = 90;
-		convertedSoldier.movementMetrics().realtimeBreathTiles() = 91;
-		convertedSoldier.movementMetrics().lastRealtimeMovementAnimation() = RUNNING;
-		convertedSoldier.movement().mode() = RUNNING;
-		convertedSoldier.movement().setStealth(false);
-		convertedSoldier.movement().setReverse(false);
-		convertedSoldier.movement().setHighResolutionFacing(1, 2);
-		convertedSoldier.movement().animationDirection() = 3;
-		convertedSoldier.movement().requestGridUpdateSuppression();
-		convertedSoldier.movement().clearUiMovementFast();
-		convertedSoldier.movement().clearPastDestination();
-		convertedSoldier.movement().requestWaitAction(9);
-		convertedSoldier.turnState().captureMoved(9);
-		convertedSoldier.targeting().engageOpponent(SoldierID{ 90 });
-		convertedSoldier.targeting().rememberLineOfFireTarget(SoldierID{ 91 });
-		convertedSoldier.meleeApproach().recordPath(RUNNING, 99, 7);
-		convertedSoldier.meleeApproach().rememberGrid(9997);
-		convertedSoldier.fireControl().beginSpreadDrag(9998);
-		convertedSoldier.fireControl().updateSpreadDrag(9999);
-		convertedSoldier.fireControl().gunType() = 9;
-		convertedSoldier.fireControl().setGrenadeLauncherDelay(true);
-		convertedSoldier.fireControl().selectBarrelMode(9);
-		convertedSoldier.animationActivity().forecastTraversalAt(10000);
-		convertedSoldier.animationActivity().setRenderZOverride(1001);
-		convertedSoldier.animationActivity().randomActionCheckCounter() = 99;
-		convertedSoldier.animationActivity().lastRandomAnimation() = 1002;
-		convertedSoldier.deployment().beginArrivalGetup();
-		convertedSoldier.deployment().arrivalGetupCounter() = 10003;
-		convertedSoldier.vehicleState().tacticalVehicleId() = 99;
-		convertedSoldier.vehicleState().robotRemoteHolder() = SoldierID{ 99 };
-		convertedSoldier.aiPlanning().flankCount() = 90;
-		convertedSoldier.aiPlanning().flankAnchorGrid() = 9996;
-		convertedSoldier.aiPlanning().raiseSniperPosture();
-		convertedSoldier.aiPlanning().flankOriginDirection() = 7;
-		convertedSoldier.aiPlanning().planIndex() = 99;
-		convertedSoldier.skillState().selectedAiSkill() = SKILLS_FOCUS;
-		convertedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 8;
-		convertedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) = 18;
-		convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_CRYO) = 7;
-		convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) = 17;
-		convertedSoldier.skillState().focusOn(1411);
-		convertedSoldier.condition().extraStrength() = 15;
-		convertedSoldier.condition().extraExperienceLevel() = 3;
-		convertedSoldier.condition().foodLevel() = 51000;
-		convertedSoldier.condition().drinkLevel() = 41000;
-		convertedSoldier.condition().starvationHealthDamage() = 5;
-		convertedSoldier.condition().starvationStrengthDamage() = 6;
-		convertedSoldier.condition().diseasePoints(0) = 111;
-		convertedSoldier.condition().diseaseFlags(0) = 0x03;
-		convertedSoldier.condition().diseasePoints(NUM_DISEASES - 1) = 222;
-		convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
-		convertedSoldier.condition().addDisability(2);
-		convertedSoldier.drugState().duration(DRUG_EFFECT_HP) = 91;
-		convertedSoldier.drugState().magnitude(DRUG_EFFECT_HP) = 92;
-		convertedSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) = 93;
-		convertedSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) = -94;
-		convertedSoldier.drugState().applyTemporaryPersonality(5, 95);
-		convertedSoldier.drugState().applyTemporaryDisability(6, 96);
-		convertedSoldier.drugState().addAlcohol(1.75f);
-		convertedSoldier.statProgress().recordChange(
-			SoldierStatProgressComponent::Stat::Level, 9999);
-		convertedSoldier.statProgress().markIncreased(AGIL_INCREASE);
-		convertedSoldier.service().borrowInventorySlot(99);
-		convertedSoldier.timing().start(SoldierTimingComponent::Timer::AnimationUpdate, 9998);
-		convertedSoldier.timing().aiDelay() = 9997;
-		convertedSoldier.timing().reloadDelay() = 9996;
-		convertedSoldier.longAction().begin(MTA_HACK, 1412, 31);
-		convertedSoldier.interaction().nonNpcTraderId() = 10;
-		convertedSoldier.interaction().draggedPerson() = SoldierID{ 26 };
-		convertedSoldier.interaction().draggedCorpse() = 27;
-		convertedSoldier.interaction().chatPartner() = SoldierID{ 28 };
-		convertedSoldier.interaction().draggedStructureGrid() = 1413;
-		convertedSoldier.pendingAction().begin(MERC_TALK);
-		convertedSoldier.pendingAction().primaryData() = 99;
-		convertedSoldier.pendingAction().nextSpecialData() = 98;
-		convertedSoldier.combatContribution().militiaKills() = 9;
-		convertedSoldier.combatContribution().militiaAssists() = 8;
-		convertedSoldier.combatContribution().damageByTeam()[0] = 70;
-		PathSt staleConvertedRoute{ 881, 8810, TRUE, nullptr, nullptr };
-		convertedSoldier.strategicPath().copyFrom(&staleConvertedRoute);
-		int convertedPlanDestructions = 0;
-		int convertedPlanExecutions = 0;
-		convertedSoldier.aiPlan().adopt(new HeadlessOwnedAiPlan(
-			&convertedSoldier, convertedPlanDestructions,
-			convertedPlanExecutions));
-		convertedSoldier = *legacySoldier;
-		CHECK( !convertedSoldier.aiPlan().hasPlan() &&
-		       convertedSoldier.strategicPath().empty() &&
-		       convertedPlanDestructions == 1,
-		       "v101 soldier conversion releases process-local modular AI plans and ignores stale route pointers restored separately" );
-		CHECK( convertedSoldier.identity().id() == SoldierID{ 37 } &&
-		       convertedSoldier.identity().name()[0] == L'V' &&
-		       convertedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'1' &&
-		       convertedSoldier.identity().bodyType() == REGFEMALE &&
-		       convertedSoldier.identity().profile() == 42 &&
-		       convertedSoldier.identity().incarnation() == 0x10203040u &&
-		       convertedSoldier.identity().dataProfile() == 0 &&
-		       convertedSoldier.identity().individualMilitiaId() == 0 &&
-		       convertedSoldier.roster().active() == TRUE &&
-		       convertedSoldier.roster().team() == CIV_TEAM &&
-		       convertedSoldier.roster().inSector() == TRUE &&
-		       convertedSoldier.roster().side() == 3 &&
-		       convertedSoldier.roster().soldierClass() ==
-		           SOLDIER_CLASS_ADMINISTRATOR &&
-		       convertedSoldier.roster().civilianGroup() == 18,
-		       "v101 soldier conversion maps every historical identity and roster value while clearing later profile links" );
-		CHECK( convertedSoldier.aiPlanning().lastAction() == -4 &&
-		       convertedSoldier.aiPlanning().action() == 5 &&
-		       convertedSoldier.aiPlanning().actionData() == 17001 &&
-		       convertedSoldier.aiPlanning().nextAction() == 6 &&
-		       convertedSoldier.aiPlanning().nextActionData() == 17002 &&
-		       convertedSoldier.aiPlanning().actionInProgress() == 1 &&
-		       convertedSoldier.aiPlanning().nextTargetLevel() == 1 &&
-		       convertedSoldier.aiPlanning().dominantDirection() == 7 &&
-		       convertedSoldier.aiPlanning().patrolCount() == 8 &&
-		       convertedSoldier.aiPlanning().nextPatrolPoint() == 2 &&
-		       convertedSoldier.aiPlanning().patrolGrid()[0] == 17003 &&
-		       convertedSoldier.aiPlanning().patrolGrid()[
-			       SOLDIER_PATROL_GRID_COUNT - 1] == 17012 &&
-		       convertedSoldier.aiPlanning().aimTime() == 18 &&
-		       convertedSoldier.aiPlanning().shownAimTime() == 19,
-		       "v101 soldier conversion maps the complete historical AI action, patrol, and aiming plan" );
-		CHECK( convertedSoldier.aiBehavior().alertStatus() == 2 &&
-		       convertedSoldier.aiBehavior().neutral() == 1 &&
-		       convertedSoldier.aiBehavior().newSituation() == 2 &&
-		       convertedSoldier.aiBehavior().orders() == 4 &&
-		       convertedSoldier.aiBehavior().attitude() == 5 &&
-		       convertedSoldier.aiBehavior().underEscort() == 1 &&
-		       convertedSoldier.aiBehavior().bypassToGreen() == 15 &&
-		       convertedSoldier.aiBehavior().hunting() == 1 &&
-		       convertedSoldier.aiBehavior().mobility() == 2 &&
-		       convertedSoldier.aiBehavior().realtimeCombat() == 1 &&
-		       convertedSoldier.aiBehavior().flags() == 0x3f,
-		       "v101 soldier conversion maps the complete historical AI behavior state" );
-		CHECK( convertedSoldier.aiCommunication().lastMercToRadio() == 6 &&
-		       convertedSoldier.aiCommunication().lastCall() == 12 &&
-		       convertedSoldier.aiCommunication().caller() == SoldierID{ 13 } &&
-		       convertedSoldier.aiCommunication().callerGrid() == 17014 &&
-		       convertedSoldier.aiCommunication().callPriority() == 14 &&
-		       convertedSoldier.aiCommunication().callActedUpon() == -1 &&
-		       convertedSoldier.morale().morale() == 80 &&
-		       convertedSoldier.morale().teamModifier() == -2 &&
-		       convertedSoldier.morale().tacticalModifier() == 3 &&
-		       convertedSoldier.morale().strategicModifier() == -4 &&
-		       convertedSoldier.morale().delayedStrategicModifier() == -7 &&
-		       convertedSoldier.morale().aiMorale() == 5 &&
-		       convertedSoldier.morale().frenzied() == 1,
-		       "v101 soldier conversion maps AI communication and every morale channel" );
-		CHECK( convertedSoldier.featureFlags().eventFlags() ==
-		           (SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_HURT_BY_EXPLOSION) &&
-		       convertedSoldier.featureFlags().primaryFlags() == 0 &&
-		       convertedSoldier.featureFlags().secondaryFlags() == 0,
-		       "v101 soldier conversion maps historical event flags and clears later feature banks" );
-		CHECK( convertedSoldier.awareness().opponentKnowledge()[0] == 2 &&
-		       convertedSoldier.awareness().opponentKnowledge()[
-			       MAX_NUM_SOLDIERS - 1] == -3 &&
-		       convertedSoldier.awareness().opponentCount() == 3 &&
-		       convertedSoldier.perception().noiseGrid() == 17013 &&
-		       convertedSoldier.perception().noiseVolume() == 9 &&
-		       convertedSoldier.perception().xraySource() == SoldierID{ 10 } &&
-		       convertedSoldier.perception().normalSmell() == 15 &&
-		       convertedSoldier.perception().monsterSmell() == 16 &&
-		       convertedSoldier.position().animationHeightAdjustment() == 11.5f &&
-		       convertedSoldier.combatResult().lastAttackHit() == 1 &&
-		       convertedSoldier.turnState().interruptDuelPoints() == -1 &&
-		       convertedSoldier.turnState().passedLastInterrupt() == 1 &&
-		       convertedSoldier.turnState().interruptStartActionPoints() == 77 &&
-		       convertedSoldier.turnState().moved() == 1 &&
-		       convertedSoldier.turnState().interruptCounters()[0] == 0 &&
-		       convertedSoldier.turnState().interruptCounters()[
-			       MAX_NUM_SOLDIERS - 1] == 0,
-		       "v101 soldier conversion maps historical knowledge, perception, height, combat, and turn state while clearing later interrupt counters" );
-		CHECK( convertedSoldier.vitals().previousHealth() == 72 &&
-		       convertedSoldier.vitals().fractionalHealth() == 35 &&
-		       convertedSoldier.vitals().health() == 70 &&
-		       convertedSoldier.vitals().maximumHealth() == 88 &&
-		       convertedSoldier.vitals().bleeding() == 9 &&
-		       convertedSoldier.vitals().breath() == 61 &&
-		       convertedSoldier.vitals().maximumBreath() == 93 &&
-		       convertedSoldier.vitals().breathReduction() == 444 &&
-		       convertedSoldier.vitals().nextBleedAt() == 12.5f &&
-		       convertedSoldier.vitals().regenerationCounter() == -2 &&
-		       convertedSoldier.vitals().regenerationBoostersUsedToday() == 3 &&
-		       convertedSoldier.vitals().lastBleedGruntAt() == 12348 &&
-		       convertedSoldier.vitals().healableInjury() == 0 &&
-		       !convertedSoldier.vitals().isUndergoingSurgery() &&
-		       convertedSoldier.vitals().unregainableBreath() == 0 &&
-		       convertedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] == 0,
-		       "v101 soldier conversion maps established vitals and clears fields absent from that schema" );
-		bool convertedHistoricalTraitTailCleared = true;
-		for (UINT8 trait = 2;
-		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
-		     ++trait)
-		{
-			convertedHistoricalTraitTailCleared &=
-				convertedSoldier.statistics().skillTrait(trait) == 0;
-		}
-		CHECK( convertedSoldier.statistics().experienceLevel() == 7 &&
-		       convertedSoldier.statistics().strength() == 81 &&
-		       convertedSoldier.statistics().agility() == 82 &&
-		       convertedSoldier.statistics().dexterity() == 83 &&
-		       convertedSoldier.statistics().wisdom() == 84 &&
-		       convertedSoldier.statistics().leadership() == 85 &&
-		       convertedSoldier.statistics().marksmanship() == 86 &&
-		       convertedSoldier.statistics().mechanical() == 87 &&
-		       convertedSoldier.statistics().explosives() == 88 &&
-		       convertedSoldier.statistics().medical() == 89 &&
-		       convertedSoldier.statistics().scientific() == 90 &&
-		       convertedSoldier.statistics().skillTrait(0) == 11 &&
-		       convertedSoldier.statistics().skillTrait(1) == 12 &&
-		       convertedHistoricalTraitTailCleared,
-		       "v101 soldier conversion maps all historical base statistics and clears later trait slots" );
-		CHECK( convertedSoldier.status().flags() ==
-			       (SOLDIER_PC | SOLDIER_MUTE) &&
-		       convertedSoldier.inventory().coherent() &&
-		       convertedSoldier.inventory()[HANDPOS].usItem == 401 &&
-		       convertedSoldier.inventory()[HANDPOS].ubNumberOfObjects == 3 &&
-		       convertedSoldier.inventory().newItemCount(HANDPOS) == 12 &&
-		       convertedSoldier.inventory().newItemCycleCount(HANDPOS) == 13 &&
-		       convertedSoldier.inventory().keyAccess() == -6 &&
-		       convertedSoldier.inventory().checkForNewItems() &&
-		       !convertedSoldier.inventory().zipperFlag() &&
-		       !convertedSoldier.inventory().dropPackFlag() &&
-		       convertedSoldier.replication().updatedFromNetwork() &&
-		       convertedSoldier.aiPlanning().lastFlankLeft() &&
-		       convertedSoldier.condition().gasHitFlags() == 0x5A &&
-		       convertedSoldier.targeting().intendedTarget() &&
-		       convertedSoldier.targeting().retainLastTargetFromTurn() &&
-		       convertedSoldier.fireControl().reloading() &&
-		       convertedSoldier.fireControl().aimPaused() &&
-		       convertedSoldier.animationActivity().reactingFromShot() &&
-		       convertedSoldier.animationActivity().externalDeath(),
-		       "v101 soldier conversion maps inventory slots, counters, and historical flags without cross-domain overwrites" );
-		CHECK( !convertedSoldier.keyRing().active() &&
-		       convertedSoldier.keyRing().data() == nullptr &&
-		       convertedSoldier.keyRing()[4].ubKeyID == INVALID_KEY_NUMBER &&
-		       convertedSoldier.keyRing()[4].ubNumber == 0,
-		       "v101 soldier conversion retires the process-local key-ring pointer before separate payload restoration" );
-		CHECK( !convertedSoldier.pendingItem().hasObject() &&
-		       !convertedSoldier.pendingItem().hasThrowParameters(),
-		       "v101 soldier conversion retires temporary object and throw pointers instead of adopting process-local addresses" );
-		CHECK( convertedSoldier.service().activity() == 2 &&
-		       convertedSoldier.service().providerCount() == 3 &&
-		       convertedSoldier.service().partner() == SoldierID{ 7 } &&
-		       convertedSoldier.service().autoBandagingMedic() == SoldierID{ 8 } &&
-		       convertedSoldier.service().borrowedInventorySlot() == -7,
-		       "v101 soldier conversion retains the complete tactical service and borrowed-slot state" );
-		CHECK( convertedSoldier.dialogue().quoteRecord() == 14 &&
-		       convertedSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST &&
-		       convertedSoldier.dialogue().battleSoundSet() == 5 &&
-		       convertedSoldier.dialogue().saidFlags() == SOLDIER_QUOTE_SAID_LOW_BREATH &&
-		       convertedSoldier.dialogue().vocalVolume() == 86 &&
-		       convertedSoldier.dialogue().repeatedBattleSoundAt() == 12350 &&
-		       convertedSoldier.dialogue().previousBattleSound() == BATTLE_SOUND_DIE1 &&
-		       convertedSoldier.dialogue().heardNoiseCooldownTurns() == 4 &&
-		       convertedSoldier.dialogue().saidExtendedFlags() == SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL &&
-		       convertedSoldier.dialogue().activeBattleSound() == 78 &&
-		       convertedSoldier.dialogue().currentCivilianQuote() == -3 &&
-		       convertedSoldier.dialogue().civilianQuoteDelta() == 1 &&
-		       convertedSoldier.dialogue().lastSpokeAt() == 12351 &&
-		       convertedSoldier.dialogue().corpseQuoteTolerance() == 2 &&
-		       convertedSoldier.dialogue().deadSoundPlayedState() == 2 &&
-		       convertedSoldier.dialogue().bleedingWarningSpokenState() == 3 &&
-		       convertedSoldier.dialogue().dyingCommentSpokenState() == 4 &&
-		       convertedSoldier.dialogue().ammoQuotePendingState() == 5 &&
-		       convertedSoldier.dialogue().dieSoundUsedState() == 6,
-		       "v101 soldier conversion retains the complete spoken-dialogue and tactical-feedback domain" );
-		CHECK( convertedSoldier.audio().lastFootstepVariant() == 4 &&
-		       convertedSoldier.audio().doorOpeningNoise() == 19 &&
-		       convertedSoldier.audio().burstSoundId() == 501 &&
-		       convertedSoldier.audio().positionSoundId() == 502 &&
-		       convertedSoldier.audio().turningSoundId() == 503,
-		       "v101 soldier conversion retains the complete non-dialogue audio domain" );
-		CHECK( convertedSoldier.replication().movementStartedAt() == 16001 &&
-		       convertedSoldier.replication().optimumMovementTime() == 16002 &&
-		       convertedSoldier.replication().lastUpdateAt() == 16003 &&
-		       convertedSoldier.replication().updateSequence() == 504 &&
-		       convertedSoldier.replication().updateType() == 8 &&
-		       convertedSoldier.replication().scheduledStopGrid() == 0 &&
-		       convertedSoldier.replication().checksum() == 505,
-		       "v101 soldier conversion maps established replication metadata and clears the later scheduled-stop field" );
-		CHECK( convertedSoldier.movementMetrics().carriedWeightAtTurnStart() == 145 &&
-		       convertedSoldier.movementMetrics().tilesMoved() == 8 &&
-		       convertedSoldier.movementMetrics().realtimeBreathTiles() == 5 &&
-		       convertedSoldier.movementMetrics().lastRealtimeMovementAnimation() == WALKING,
-		       "v101 soldier conversion retains the complete movement telemetry domain" );
-		CHECK( convertedSoldier.aiPlanning().flankCount() == 4 &&
-		       convertedSoldier.aiPlanning().flankAnchorGrid() == 16004 &&
-		       convertedSoldier.aiPlanning().sniperPostureActive() &&
-		       convertedSoldier.aiPlanning().flankOriginDirection() == 6 &&
-		       !convertedSoldier.aiPlanning().hasPlanIndex(),
-		       "v101 soldier conversion maps established AI planning and clears the later modular plan index" );
-		CHECK( convertedSoldier.uiPresentation().portraitFlashFrame() == -3 &&
-		       convertedSoldier.uiPresentation().locatorFrame() == 4 &&
-		       convertedSoldier.uiPresentation().locatorOffsetX() == 12 &&
-		       convertedSoldier.uiPresentation().locatorOffsetY() == -13 &&
-		       convertedSoldier.uiPresentation().interfaceLevel() == 1 &&
-		       convertedSoldier.uiPresentation().closePanelFrame() == 2 &&
-		       convertedSoldier.uiPresentation().deadPanelFrame() == 3 &&
-		       convertedSoldier.uiPresentation().openPanelFrame() == -4 &&
-		       convertedSoldier.uiPresentation().panelFaceX() == 100 &&
-		       convertedSoldier.uiPresentation().panelFaceY() == 101 &&
-		       convertedSoldier.uiPresentation().plannedActionPointCost() == 14 &&
-		       convertedSoldier.uiPresentation().plannedTargetX() == 500 &&
-		       convertedSoldier.uiPresentation().plannedTargetY() == 501 &&
-		       convertedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 15 } &&
-		       convertedSoldier.uiPresentation().locateCycles() == 6 &&
-		       convertedSoldier.uiPresentation().panelClosing() &&
-		       convertedSoldier.uiPresentation().panelClosingForDeath() &&
-		       convertedSoldier.uiPresentation().deadPanelShowing() &&
-		       convertedSoldier.uiPresentation().panelOpening() &&
-		       convertedSoldier.uiPresentation().locatorFlashCycle() == 3 &&
-		       convertedSoldier.uiPresentation().locatorVisible() &&
-		       convertedSoldier.uiPresentation().portraitFlashPhase() == 2 &&
-		       convertedSoldier.uiPresentation().deadMercUiPending() &&
-		       convertedSoldier.uiPresentation().newMercUiPending() &&
-		       convertedSoldier.uiPresentation().closeMercUiPending() &&
-		       convertedSoldier.uiPresentation().firstNoActionPoints() &&
-		       convertedSoldier.uiPresentation().firstUnconscious(),
-		       "v101 soldier conversion retains the complete UI-presentation and lifecycle domain" );
-		CHECK( convertedSoldier.skillState().lastCheckReason() == -6 &&
-		       convertedSoldier.skillState().checkAttempts() == 3 &&
-		       convertedSoldier.skillState().checkGrid() == 1410 &&
-		       convertedSoldier.skillState().selectedAiSkill() == 0 &&
-		       convertedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) == 0 &&
-		       convertedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) == 0 &&
-		       convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_CRYO) == 0 &&
-		       convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 0 &&
-		       convertedSoldier.skillState().focusGrid() == 0,
-		       "v101 soldier conversion maps established skill checks and clears skill state absent from that schema" );
-		CHECK( convertedSoldier.condition().extraStrength() == 0 &&
-		       convertedSoldier.condition().extraDexterity() == 0 &&
-		       convertedSoldier.condition().extraAgility() == 0 &&
-		       convertedSoldier.condition().extraWisdom() == 0 &&
-		       convertedSoldier.condition().extraExperienceLevel() == 0 &&
-		       convertedSoldier.condition().foodLevel() == 0 &&
-		       convertedSoldier.condition().drinkLevel() == 0 &&
-		       convertedSoldier.condition().starvationHealthDamage() == 0 &&
-		       convertedSoldier.condition().starvationStrengthDamage() == 0 &&
-		       convertedSoldier.condition().diseasePoints(0) == 0 &&
-		       convertedSoldier.condition().diseaseFlags(0) == 0 &&
-		       convertedSoldier.condition().diseasePoints(NUM_DISEASES - 1) == 0 &&
-		       convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
-		       convertedSoldier.condition().disabilityFlags() == 0,
-		       "v101 soldier conversion clears condition state absent from that schema" );
-		CHECK( convertedSoldier.drugState().duration(DRUG_EFFECT_HP) == 0 &&
-		       convertedSoldier.drugState().magnitude(DRUG_EFFECT_HP) == 0 &&
-		       convertedSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) == 0 &&
-		       convertedSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) == 0 &&
-		       convertedSoldier.drugState().temporaryPersonality() == 0 &&
-		       convertedSoldier.drugState().temporaryPersonalityDuration() == 0 &&
-		       convertedSoldier.drugState().temporaryDisability() == 0 &&
-		       convertedSoldier.drugState().temporaryDisabilityDuration() == 0 &&
-		       !convertedSoldier.drugState().hasAlcohol(),
-		       "v101 soldier conversion clears drug state absent from that historical schema" );
-		CHECK( convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 2101 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 2102 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 2103 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) == 2104 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) == 2105 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) == 2106 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) == 2107 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 2108 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 2109 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 2110 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 2111 &&
-		       convertedSoldier.statProgress().increaseMask() ==
-		           (HEALTH_INCREASE | DEX_INCREASE),
-		       "v101 soldier conversion retains every historical stat-change value" );
-		CHECK( convertedSoldier.timing().counter(SoldierTimingComponent::Timer::AnimationUpdate) == 2201 &&
-		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::DamageDisplay) == 2202 &&
-		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::Reload) == 2203 &&
-		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::LocatorFlash) == 2204 &&
-		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::Ai) == 2205 &&
-		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::Fade) == 2206 &&
-		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::PanelAnimation) == 2207 &&
-		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::LocatorBlink) == 2208 &&
-		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::PortraitFlash) == 2209 &&
-		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::NextTile) == 2210 &&
-		       convertedSoldier.timing().aiDelay() == 2211 &&
-		       convertedSoldier.timing().reloadDelay() == -2212,
-		       "v101 soldier conversion retains all ten counters and both timing delay values" );
-		CHECK( !convertedSoldier.longAction().active() &&
-		       convertedSoldier.longAction().action() == MTA_NONE &&
-		       convertedSoldier.longAction().contextGrid() == -1 &&
-		       convertedSoldier.longAction().remainingActionPoints() == 0,
-		       "v101 soldier conversion clears long-action state absent from that schema" );
-		CHECK( convertedSoldier.interaction().nonNpcTraderId() == 0 &&
-		       convertedSoldier.interaction().draggedPerson() == NOBODY &&
-		       convertedSoldier.interaction().draggedCorpse() == -1 &&
-		       convertedSoldier.interaction().chatPartner() == NOBODY &&
-		       convertedSoldier.interaction().draggedStructureGrid() == -1 &&
-		       !convertedSoldier.interaction().dragging() &&
-		       !convertedSoldier.interaction().chatting(),
-		       "v101 soldier conversion clears interaction state absent from that schema" );
-		CHECK( convertedSoldier.pendingAction().active() &&
-		       convertedSoldier.pendingAction().action() == MERC_GIVEITEM &&
-		       convertedSoldier.pendingAction().animationCount() == 11 &&
-		       convertedSoldier.pendingAction().primaryData() == 1411 &&
-		       convertedSoldier.pendingAction().secondaryData() == -1412 &&
-		       convertedSoldier.pendingAction().tertiaryData() == -4 &&
-		       convertedSoldier.pendingAction().doorHandleCode() == 5 &&
-		       convertedSoldier.pendingAction().quaternaryData() == 1413 &&
-		       convertedSoldier.pendingAction().nextSpecialData() == -1414 &&
-		       convertedSoldier.pendingAction().interruptionMarker() == 6 &&
-		       convertedSoldier.pendingAction().inventorySlot() == -7,
-		       "v101 soldier conversion retains the complete persistent pending-action domain" );
-		CHECK( convertedSoldier.actionPoints().current() == 43 &&
-		       convertedSoldier.actionPoints().initial() == 78,
-		       "v101 soldier conversion retains current and turn-start action-point budgets" );
-		CHECK( convertedSoldier.collapseState().collapsed() &&
-		       convertedSoldier.collapseState().breathCollapsed() &&
-		       convertedSoldier.collapseState().turns() == 3 &&
-		       convertedSoldier.collapseState().sleepDrugCounter() == 6 &&
-		       convertedSoldier.collapseState().fatigueCollapsed(),
-		       "v101 soldier conversion retains tactical and strategic collapse state" );
-		CHECK( convertedSoldier.perception().hasHeardMovementFrom(2) &&
-		       convertedSoldier.perception().hasHeardMovementFrom(6) &&
-		       convertedSoldier.perception().viewRange() == 15 &&
-		       convertedSoldier.perception().blindnessTurns() == 5 &&
-		       convertedSoldier.perception().heardNoiseLevel() == 1 &&
-		       convertedSoldier.perception().xrayActivatedAt() == 12346 &&
-		       convertedSoldier.perception().deafnessTurns() == 4,
-		       "v101 soldier conversion retains sensory range, memory, effects, and X-ray lifetime" );
-		CHECK( convertedSoldier.awareness().visibility() == 1 &&
-		       convertedSoldier.awareness().lastRenderedVisibility() == -1 &&
-		       convertedSoldier.awareness().newOpponentCount() == 3 &&
-		       convertedSoldier.awareness().tilesSinceForget() == 202,
-		       "v101 soldier conversion retains visibility, render synchronization, discovery, and stale-memory distance" );
-		CHECK( convertedSoldier.camouflage().jungleApplied() == -1 &&
-		       convertedSoldier.camouflage().jungleWorn() == -2 &&
-		       convertedSoldier.camouflage().urbanApplied() == -3 &&
-		       convertedSoldier.camouflage().urbanWorn() == -4 &&
-		       convertedSoldier.camouflage().desertApplied() == -5 &&
-		       convertedSoldier.camouflage().desertWorn() == -6 &&
-		       convertedSoldier.camouflage().snowApplied() == -7 &&
-		       convertedSoldier.camouflage().snowWorn() == -8,
-		       "v101 soldier conversion retains all applied and equipment-derived camouflage values" );
-		CHECK( convertedSoldier.employment().endTime() == -2 &&
-		       convertedSoldier.employment().startTime() == 18 &&
-		       convertedSoldier.employment().totalLength() == 21 &&
-		       convertedSoldier.employment().mercenaryType() == MERC_TYPE__MERC &&
-		       convertedSoldier.employment().medicalDeposit() == 700 &&
-		       convertedSoldier.employment().lifeInsurance() == 2 &&
-		       convertedSoldier.employment().insuranceStartDay() == 5 &&
-		       convertedSoldier.employment().insuranceLengthDays() == 9 &&
-		       convertedSoldier.employment().lastContractUpdateTime() == 12002 &&
-		       convertedSoldier.employment().lastContractType() == CONTRACT_EXTEND_1_WEEK &&
-		       convertedSoldier.employment().justFired() == 1 &&
-		       convertedSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_115_USED &&
-		       convertedSoldier.employment().timeCanSignElsewhere() == 13001 &&
-		       convertedSoldier.employment().hospitalPriceModifier() == -3 &&
-		       convertedSoldier.employment().insuranceStartTime() == 11001 &&
-		       convertedSoldier.employment().contractPriceIncreasedState() == 2 &&
-		       convertedSoldier.employment().signedAnotherContractState() == 3,
-		       "v101 soldier conversion retains the complete employment, insurance, and contract-decision lifecycle" );
-		CHECK( convertedSoldier.assignment().current() == TRAIN_BY_OTHER &&
-		       convertedSoldier.assignment().previous() == ON_DUTY &&
-		       convertedSoldier.assignment().trainingStat() == STRENGTH &&
-		       convertedSoldier.assignment().lastChangeMinute() == 11901 &&
-		       convertedSoldier.assignment().desiredSquad() == 4 &&
-		       convertedSoldier.assignment().mergeTraversalAllowance() == 5 &&
-		       convertedSoldier.assignment().hours() == 7 &&
-		       convertedSoldier.assignment().repairVehicleId() == -1 &&
-		       convertedSoldier.assignment().facilityType() == 0 &&
-		       convertedSoldier.assignment().itemMoveSectorId() == 0 &&
-		       convertedSoldier.assignment().miniEventHoursRemaining() == 0 &&
-		       convertedSoldier.assignment().fixingSamSiteState() == 4 &&
-		       convertedSoldier.assignment().fixingRobotState() == 5 &&
-		       convertedSoldier.assignment().forcedAwakeState() == 6 &&
-		       convertedSoldier.assignment().assignmentCompleteAndIdleState() == 7 &&
-		       convertedSoldier.assignment().asleepState() == 8 &&
-		       convertedSoldier.assignment().tiredComplaintState() == 9,
-		       "v101 soldier conversion retains legacy assignment repair, completion, and work/rest state" );
-		CHECK( convertedSoldier.deployment().insertionDirection() == 4 &&
-		       convertedSoldier.deployment().groupId() == 43 &&
-		       convertedSoldier.deployment().insertionGrid() == 2300 &&
-		       convertedSoldier.deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO &&
-		       convertedSoldier.deployment().strategicInsertionData() == 2301 &&
-		       convertedSoldier.deployment().isInSector(10, 6, 2) &&
-		       convertedSoldier.deployment().vehicleId() == 9 &&
-		       convertedSoldier.deployment().offWorldGrid() == 2302 &&
-		       convertedSoldier.deployment().previousSectorId() == 32 &&
-		       convertedSoldier.deployment().useExitGridForReentryDirection() == 1 &&
-		       convertedSoldier.deployment().preTraversalGrid() == 2303 &&
-		       convertedSoldier.deployment().leaveHistoryCode() == 8 &&
-		       convertedSoldier.deployment().arrivalTime() == 15000 &&
-		       !convertedSoldier.deployment().arrivalGetupPending() &&
-		       !convertedSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       convertedSoldier.deployment().arrivalGetupCounter() == 0 &&
-		       convertedSoldier.deployment().betweenSectors() == 2 &&
-		       convertedSoldier.deployment().inMissionExitNode() == 3 &&
-		       convertedSoldier.deployment().useLandingZoneForArrival() == 4,
-		       "v101 soldier conversion retains deployment and transit while clearing historically ignored arrival get-up state" );
-		CHECK( convertedSoldier.vehicleState().tacticalVehicleId() == -6 &&
-		       convertedSoldier.vehicleState().robotRemoteHolder() == SoldierID{ 59 },
-		       "v101 soldier conversion retains tactical vehicle and remote robot record identities" );
-		CHECK( convertedSoldier.schedule().id() == 42 &&
-		       convertedSoldier.schedule().progress() == 3 &&
-		       !convertedSoldier.schedule().doorContinuationPending() &&
-		       convertedSoldier.schedule().doorGrid() == 2310,
-		       "v101 soldier conversion maps schedule data while clearing the historically ignored door phase" );
-		CHECK( convertedSoldier.position().worldX() == 321.5f &&
-		       convertedSoldier.position().worldY() == 654.25f &&
-		       convertedSoldier.position().worldXInt() == 319 &&
-		       convertedSoldier.position().worldYInt() == 649 &&
-		       convertedSoldier.position().turnStartX() == 300 &&
-		       convertedSoldier.position().turnStartY() == 600 &&
-		       convertedSoldier.position().initialGrid() == 2304 &&
-		       convertedSoldier.position().gridNo() == 2305 &&
-		       convertedSoldier.position().level() == 1 &&
-		       convertedSoldier.position().direction() == 6 &&
-		       convertedSoldier.position().heightAdjustment() == 21 &&
-		       convertedSoldier.position().desiredHeight() == 29 &&
-		       convertedSoldier.position().temporaryGrid() == 2306 &&
-		       convertedSoldier.position().roomNo() == 13 &&
-		       convertedSoldier.position().terrainType() == HIGH_GRASS &&
-		       convertedSoldier.position().previousTerrainType() == DIRT_ROAD,
-		       "v101 soldier conversion retains every historical tactical world-placement value" );
-		CHECK( convertedSoldier.frontArc().tileIndex(0) == 601 &&
-		       convertedSoldier.frontArc().gridNo(0) == 2311 &&
-		       convertedSoldier.frontArc().tileIndex(1) == 602 &&
-		       convertedSoldier.frontArc().gridNo(1) == 2312 &&
-		       convertedSoldier.frontArc().tileIndex(2) == 603 &&
-		       convertedSoldier.frontArc().gridNo(2) == 2313,
-		       "v101 soldier conversion retains all three paired front-arc occluders" );
-		CHECK( convertedSoldier.movementHistory().previousGrid() == 2307 &&
-		       convertedSoldier.movementHistory().recentLocations()[0] == 2308 &&
-		       convertedSoldier.movementHistory().recentLocations()[1] == 2309,
-		       "v101 soldier conversion retains every historical tactical movement-history value" );
-		CHECK( convertedSoldier.movement().mode() == SWATTING &&
-		       convertedSoldier.movement().stealthy() &&
-		       convertedSoldier.movement().reversing() &&
-		       convertedSoldier.movement().highResolutionDirection() == 11 &&
-		       convertedSoldier.movement().highResolutionDesiredDirection() == 13 &&
-		       convertedSoldier.movement().animationDirection() == 5 &&
-		       convertedSoldier.movement().gridUpdatePolicy() ==
-		           LOCKED_NO_NEWGRIDNO &&
-		       convertedSoldier.movement().turnActive() &&
-		       convertedSoldier.movement().wasInWater() &&
-		       convertedSoldier.movement().uiMovementFast() == 2 &&
-		       convertedSoldier.movement().outOfActionPoints() &&
-		       convertedSoldier.movement().movementPaused() &&
-		       convertedSoldier.movement().recordingMovement() &&
-		       convertedSoldier.movement().delayedByNetwork() &&
-		       convertedSoldier.movement().wasMoving() &&
-		       convertedSoldier.movement().pastXDestination() == -2 &&
-		       convertedSoldier.movement().pastYDestination() == 3 &&
-		       convertedSoldier.movement().waitAction() == 2,
-		       "v101 soldier conversion retains movement intent, facing, wait, and complete activity state" );
-		CHECK( convertedSoldier.targeting().engagedOpponent() == SoldierID{ 21 } &&
-		       convertedSoldier.targeting().lineOfFireTarget() == SoldierID{ 22 },
-		       "v101 soldier conversion retains engaged-opponent and line-of-fire identities" );
-		CHECK( convertedSoldier.meleeApproach().movementMode() == 0 &&
-		       convertedSoldier.meleeApproach().grid() == 1700 &&
-		       convertedSoldier.meleeApproach().cost() == 23 &&
-		       convertedSoldier.meleeApproach().endDirection() == 0,
-		       "v101 soldier conversion maps the historical melee cache and clears later key fields" );
-		CHECK( convertedSoldier.turnState().movedBeforeInterrupt() == 1,
-		       "v101 soldier conversion retains the pre-interrupt moved snapshot" );
-		CHECK( convertedSoldier.animationActivity().traversalForecastGrid() == 1703 &&
-		       convertedSoldier.animationActivity().hasRenderZOverride() &&
-		       convertedSoldier.animationActivity().renderZOverride() == 701 &&
-		       convertedSoldier.animationActivity().randomActionCheckCounter() == 73 &&
-		       convertedSoldier.animationActivity().lastRandomAnimation() == 702,
-		       "v101 soldier conversion retains traversal, render-depth, and random-animation state" );
-		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
-		       convertedSoldier.fireControl().autofireLastStep() &&
-		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
-		       convertedSoldier.fireControl().burstCounter() == 4 &&
-		       convertedSoldier.fireControl().autofireShots() == 8 &&
-		       convertedSoldier.fireControl().spreadLocations()[0] == 22001 &&
-		       convertedSoldier.fireControl().spreadLocations()[1] == 22002 &&
-		       convertedSoldier.fireControl().spreadLocations()[2] == 22003 &&
-		       convertedSoldier.fireControl().spreadLocations()[3] == 22004 &&
-		       convertedSoldier.fireControl().spreadLocations()[4] == 22005 &&
-		       convertedSoldier.fireControl().spreadLocations()[5] == 22006 &&
-		       convertedSoldier.fireControl().spreadDragStartGrid() == 1701 &&
-		       convertedSoldier.fireControl().spreadDragEndGrid() == 1702 &&
-		       convertedSoldier.fireControl().spreadDragMoved() &&
-		       convertedSoldier.fireControl().gunType() == -5 &&
-		       convertedSoldier.fireControl().grenadeLauncherDelayMode() == 0 &&
-		       convertedSoldier.fireControl().barrelMode() == 0,
-		       "v101 soldier conversion retains historical fire control and clears later firing modes" );
-		CHECK( convertedSoldier.combatResult().currentAttacker() == SoldierID{ 6 } &&
-		       convertedSoldier.combatResult().previousAttacker() == SoldierID{ 5 } &&
-		       convertedSoldier.combatResult().earlierAttacker() == SoldierID{ 4 } &&
-		       convertedSoldier.combatResult().hitLocation() == AIM_SHOT_HEAD &&
-		       convertedSoldier.combatResult().lastDamageReason() == 7 &&
-		       convertedSoldier.combatResult().hitsThisTurn() == 3 &&
-		       convertedSoldier.combatResult().pelletsHitBy() == 2 &&
-		       convertedSoldier.combatResult().accumulatedDamage() == 26,
-		       "v101 soldier conversion retains incoming combat attribution and outcome state" );
-		CHECK( convertedSoldier.combatContribution().militiaKills() == 6 &&
-		       convertedSoldier.combatContribution().militiaAssists() == 0 &&
-		       convertedSoldier.combatContribution().damageByTeam()[0] == 71 &&
-		       convertedSoldier.combatContribution().damageByTeam()[NUM_ASSIST_SLOTS - 1] == 72,
-		       "v101 soldier conversion retains militia kills and every established assist-attribution slot" );
-		CHECK( convertedSoldier.damageDisplay().displayFlag() == 2 &&
-		       convertedSoldier.damageDisplay().counter() == 3 &&
-		       convertedSoldier.damageDisplay().offsetX() == 15 &&
-		       convertedSoldier.damageDisplay().offsetY() == -8 &&
-		       convertedSoldier.damageDisplay().direction() == -1,
-		       "v101 soldier conversion retains floating damage-display presentation state" );
-		CHECK( std::strcmp(convertedSoldier.renderState().headPalette(), "BLACKHEAD") == 0 &&
-		       std::strcmp(convertedSoldier.renderState().pantsPalette(), "BLUEPANTS") == 0 &&
-		       std::strcmp(convertedSoldier.renderState().vestPalette(), "BLUEVEST") == 0 &&
-		       std::strcmp(convertedSoldier.renderState().skinPalette(), "TANSKIN") == 0 &&
-		       std::strcmp(convertedSoldier.renderState().miscPalette(), "OLDMISC") == 0 &&
-		       convertedSoldier.renderState().fadeMode() == 2 &&
-		       convertedSoldier.renderState().fadeLevel() == 19 &&
-		       convertedSoldier.renderState().fadeOriginGrid() == 1705 &&
-		       convertedSoldier.renderState().forceRenderColor() &&
-		       convertedSoldier.renderState().forceNoPaletteCycle() &&
-		       convertedSoldier.renderState().forceShade() &&
-		       convertedSoldier.renderState().muzzleFlashVisible() &&
-		       convertedSoldier.renderState().unblitX() == 31 &&
-		       convertedSoldier.renderState().unblitY() == 32 &&
-		       convertedSoldier.renderState().unblitWidth() == 33 &&
-		       convertedSoldier.renderState().unblitHeight() == 34 &&
-		       convertedSoldier.renderState().lightSprite() == 701 &&
-		       convertedSoldier.renderState().muzzleFlashSprite() == 702 &&
-		       convertedSoldier.renderState().muzzleFlashFrame() == 4 &&
-		       convertedSoldier.renderState().boundingBoxWidth() == 61 &&
-		       convertedSoldier.renderState().boundingBoxHeight() == 62 &&
-		       convertedSoldier.renderState().boundingBoxOffsetX() == -7 &&
-		       convertedSoldier.renderState().boundingBoxOffsetY() == -8,
-		       "v101 soldier conversion retains palette, fade, light, redraw, and geometry render state" );
-		CHECK( convertedSoldier.suppression().underFire() == 2 &&
-		       convertedSoldier.suppression().shock() == 9 &&
-		       convertedSoldier.suppression().points() == 5 &&
-		       convertedSoldier.suppression().actionPointsLost() == 12 &&
-		       convertedSoldier.suppression().suppressor() == SoldierID{ 8 } &&
-		       convertedSoldier.suppression().closeCall(),
-		       "v101 soldier conversion retains suppression and hostile-fire reaction state" );
-	}
 
 	{
 		SoldierRuntimeComponents runtime;
@@ -13154,7 +12736,7 @@ int main( int, char** )
 		CHECK( runtime.quickItem.itemId == 0 && runtime.quickItem.slot == 0,
 		       "soldier quick-item runtime component resets retained UI state" );
 
-		SOLDIERTYPE boundSoldier;
+		TacticalActor boundSoldier;
 		boundSoldier.renderBindings().faceIndex() = 61;
 		boundSoldier.renderBindings().levelNode() =
 			reinterpret_cast<LEVELNODE*>(&runtime);
@@ -13300,8 +12882,8 @@ int main( int, char** )
 		const UINT8 previousVehicleCount = ubNumberOfVehicles;
 		Ja2SoldierRepository& productionRepository =
 			GetJa2SoldierRepository();
-		SOLDIERTYPE records[2];
-		SOLDIERTYPE* slots[2] = { nullptr, nullptr };
+		TacticalActor records[2];
+		TacticalActor* slots[2] = { nullptr, nullptr };
 		Ja2SoldierRepository repository(records, slots, 2);
 		repository.initializeSlots();
 		for( std::size_t slot = 0; slot < 2; ++slot )
@@ -13436,8 +13018,8 @@ int main( int, char** )
 	}
 
 	{
-		SOLDIERTYPE records[1];
-		SOLDIERTYPE* slots[1] = { nullptr };
+		TacticalActor records[1];
+		TacticalActor* slots[1] = { nullptr };
 		Ja2SoldierRepository repository(records, slots, 1);
 		repository.initializeSlots();
 		Ja2SoldierRepository& productionRepository =
@@ -13535,7 +13117,7 @@ int main( int, char** )
 		const UINT32 previousSaveVersion = guiCurrentSaveGameVersion;
 		guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
 
-		SOLDIERTYPE savedSoldier;
+		TacticalActor savedSoldier;
 		savedSoldier.identity().id() = SoldierID{ 47 };
 		savedSoldier.identity().name()[0] = L'S';
 		savedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] = L'R';
@@ -13717,13 +13299,6 @@ int main( int, char** )
 			reinterpret_cast<LEVELNODE*>(&savedLevelNodeStorage);
 		savedSoldier.renderBindings().animationTile() =
 			reinterpret_cast<TAG_anitile*>(&savedAnimationTileStorage);
-		for (UINT8 compatibilityByte = 0;
-		     compatibilityByte < 10;
-		     ++compatibilityByte)
-		{
-			savedSoldier.compatibilityBytes()[compatibilityByte] =
-				static_cast<UINT8>(0xA0 + compatibilityByte);
-		}
 		savedSoldier.uiPresentation().portraitFlashFrame() = -5;
 		savedSoldier.uiPresentation().startLocator(8);
 		savedSoldier.uiPresentation().locatorFrame() = 6;
@@ -14090,10 +13665,10 @@ int main( int, char** )
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
-		const bool saved = output && savedSoldier.Save( output );
+		const bool saved = output && SaveTacticalActor( output, savedSoldier );
 		if ( output ) FileClose( output );
 
-		SOLDIERTYPE loadedSoldier;
+		TacticalActor loadedSoldier;
 		int staleLevelNodeStorage = 0;
 		int staleAnimationTileStorage = 0;
 		loadedSoldier.renderBindings().faceIndex() = 999;
@@ -14113,7 +13688,7 @@ int main( int, char** )
 			loadedPlanExecutions));
 		HWFILE input = FileOpen( const_cast<char*>( path.c_str() ),
 		                         FILE_ACCESS_READ | FILE_OPEN_EXISTING );
-		const bool loaded = input && loadedSoldier.Load( input );
+		const bool loaded = input && LoadTacticalActor( input, loadedSoldier );
 		if ( input ) FileClose( input );
 		FileDelete( const_cast<char*>( path.c_str() ) );
 		guiCurrentSaveGameVersion = previousSaveVersion;
@@ -14352,8 +13927,8 @@ int main( int, char** )
 		       loadedSoldier.replication().updateSequence() == 604 &&
 		       loadedSoldier.replication().updateType() == 9 &&
 		       loadedSoldier.replication().scheduledStopGrid() == 26004 &&
-		       loadedSoldier.replication().checksum() == savedSoldier.GetChecksum() &&
-		       savedSoldier.replication().checksum() == savedSoldier.GetChecksum(),
+		       loadedSoldier.replication().checksum() == ComputeTacticalActorChecksum( savedSoldier ) &&
+		       savedSoldier.replication().checksum() == ComputeTacticalActorChecksum( savedSoldier ),
 		       "soldier save/load round-trips replication state and records the current integrity checksum" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movementMetrics().carriedWeightAtTurnStart() == 155 &&
@@ -14763,20 +14338,11 @@ int main( int, char** )
 		       loadedSoldier.renderState().boundingBoxOffsetX() == -9 &&
 		       loadedSoldier.renderState().boundingBoxOffsetY() == -10,
 		       "soldier save/load round-trips render state while preserving fade mode 2" );
-		bool loadedCompatibilityBytesMatch = saved && loaded;
-		for (UINT8 compatibilityByte = 0;
-		     compatibilityByte < 10;
-		     ++compatibilityByte)
-		{
-			loadedCompatibilityBytesMatch &=
-				loadedSoldier.compatibilityBytes()[compatibilityByte] ==
-					static_cast<UINT8>(0xA0 + compatibilityByte);
-		}
-		CHECK( loadedCompatibilityBytesMatch &&
+		CHECK( saved && loaded &&
 		       loadedSoldier.renderBindings().faceIndex() == 731 &&
 		       loadedSoldier.renderBindings().levelNode() == nullptr &&
 		       loadedSoldier.renderBindings().animationTile() == nullptr,
-		       "soldier save/load preserves the face and compatibility bytes while detaching process-local world bindings" );
+		       "actor save/load preserves the face index while detaching process-local world bindings" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.suppression().underFire() == 2 &&
 		       loadedSoldier.suppression().shock() == 10 &&

@@ -1777,7 +1777,7 @@ BOOLEAN CommonTimeCompressionChecks( void )
 
 BOOLEAN AnyUsableRealMercenariesOnTeam( void )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	INT32 iCounter = 0, iNumberOnTeam = 0;
 
 	// this is for speed, this runs once/frame

@@ -75,7 +75,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 #define		DIALOGUESIZE					480
@@ -205,7 +205,7 @@ void RenderFaceOverlay( VIDEO_OVERLAY *pBlitter );
 
 extern BOOLEAN ContinueDialogue(SoldierID id, BOOLEAN fDone );
 extern void HandlePendingInitConv( );
-extern BOOLEAN WillMercRenew( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuote );
+extern BOOLEAN WillMercRenew( TacticalActor *pSoldier, BOOLEAN fSayQuote );
 extern void DrawFace( INT16 sCharNumber );
 extern void LuaHandleReplaceQuote( UINT8 ubProfile, UINT16 usQuoteNum );
 extern void LuaHandleNPCMerchantQuote( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, UINT16 ubMerchantID, UINT8 ubBodyType, UINT16 usQuoteNum );
@@ -236,12 +236,12 @@ void FaceOverlayClickCallback( MOUSE_REGION * pRegion, INT32 iReason );
 
 
 // Handler functions for tactical ui diaplay
-void HandleTacticalTextUI( INT32 iFaceIndex, SOLDIERTYPE *pSoldier, STR16 zQuoteStr );
+void HandleTacticalTextUI( INT32 iFaceIndex, TacticalActor *pSoldier, STR16 zQuoteStr );
 void HandleTacticalNPCTextUI( UINT8 ubCharacterNum, STR16 zQuoteStr );
 void HandleTacticalSpeechUI( UINT8 ubCharacterNum, INT32 iFaceIndex );
 
 void DisplayTextForExternalNPC(	UINT8 ubCharacterNum, STR16 zQuoteStr );
-void CreateTalkingUI( INT8 bUIHandlerID, INT32 iFaceIndex, UINT8 ubCharacterNum, SOLDIERTYPE *pSoldier, STR16 zQuoteStr );
+void CreateTalkingUI( INT8 bUIHandlerID, INT32 iFaceIndex, UINT8 ubCharacterNum, TacticalActor *pSoldier, STR16 zQuoteStr );
 
 void HandleExternNPCSpeechFace( INT32 iIndex );
 
@@ -416,7 +416,7 @@ void StopAnyCurrentlyTalkingSpeech( )
 // 'external' to on the team panel...
 void HandleDialogueUIAdjustments( )
 {
-	SOLDIERTYPE							*pSoldier;
+	TacticalActor							*pSoldier;
 
 	// OK, check if we are still taking
 	if ( gpCurrentTalkingFace != NULL )
@@ -466,7 +466,7 @@ extern void LuaHandleAdditionalDialogue(INT16 sSectorX, INT16 sSectorY, INT8 bSe
 
 static BOOLEAN ExecuteAdditionalCharacterDialogue(UINT8 ubProfile, INT32 iFaceIndex, UINT16 usEventNr, UINT32 aData1, UINT32 aData2, UINT32 aData3)
 {
-	SOLDIERTYPE* pSoldier = FindSoldierByProfileID(ubProfile, TRUE);
+	TacticalActor* pSoldier = FindSoldierByProfileID(ubProfile, TRUE);
 
 	if ( !pSoldier )
 		return FALSE;
@@ -483,7 +483,7 @@ void HandleDialogue( )
 	INT32 iQSize;
 	static BOOLEAN					fOldEngagedInConvFlagOn = FALSE;
 	BOOLEAN fDoneTalking = FALSE;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	CHAR16	zText[ 512 ];
 
 	// we don't want to just delay action of some events, we want to pause the whole queue, regardless of the event
@@ -677,8 +677,8 @@ void HandleDialogue( )
 		{
 			if( gfMorrisShouldSayHi )
 			{
-				SOLDIERTYPE *pMorris;
-				SOLDIERTYPE *pSoldier;
+				TacticalActor *pMorris;
+				TacticalActor *pSoldier;
 				INT16		sPlayerGridNo;
 				SoldierID	ubPlayerID;
 				SoldierID	ubQualifiedSoldierIDArray[ NUM_MERCS_WITH_NEW_QUOTES ];
@@ -696,7 +696,7 @@ void HandleDialogue( )
 							ubPlayerID = WhoIsThere2( sPlayerGridNo, 0 );
 							if (ubPlayerID != NOBODY)
 							{
-								SOLDIERTYPE* player =
+								TacticalActor* player =
 									GetJa2SoldierRepository().resolve(
 										ubPlayerID.i);
 								if (player)
@@ -748,7 +748,7 @@ void HandleDialogue( )
 	{
 		if ( gfMikeShouldSayHi == TRUE )
 		{
-			SOLDIERTYPE * pMike;
+			TacticalActor * pMike;
 			INT32	sPlayerGridNo;
 			UINT16	ubPlayerID;
 
@@ -761,7 +761,7 @@ void HandleDialogue( )
 					ubPlayerID = WhoIsThere2( sPlayerGridNo, 0 );
 					if (ubPlayerID != NOBODY)
 					{
-						SOLDIERTYPE* player =
+						TacticalActor* player =
 							GetJa2SoldierRepository().resolve(ubPlayerID);
 						if (player)
 						{
@@ -1456,7 +1456,7 @@ BOOLEAN GetDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, 
 
 BOOLEAN GetSnitchDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iDataSize, CHAR16 *zDialogueText, UINT32 *puiSound1ID, UINT32 *puiSound2ID, UINT32 *puiSound3ID, CHAR8 zSoundFiles[][64], UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile );
 
-BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
+BOOLEAN DelayedTacticalCharacterDialogue( TacticalActor *pSoldier, UINT16 usQuoteNum )
 {
 	if ( pSoldier->identity().profile() == NO_PROFILE )
 		return( FALSE );
@@ -1489,7 +1489,7 @@ BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteN
 }
 
 
-BOOLEAN TacticalCharacterDialogueWithSpecialEvent( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2 )
+BOOLEAN TacticalCharacterDialogueWithSpecialEvent( TacticalActor *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2 )
 {
 	if ( pSoldier->identity().profile() == NO_PROFILE )
 	{
@@ -1511,7 +1511,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEvent( SOLDIERTYPE *pSoldier, UINT16
 	return( CharacterDialogueWithSpecialEvent( pSoldier->identity().profile(), usQuoteNum, pSoldier->renderBindings().faceIndex(), DIALOGUE_TACTICAL_UI, TRUE, FALSE, uiFlag, uiData1, uiData2 ) );
 }
 
-BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2, UINT32 uiData3 )
+BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( TacticalActor *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2, UINT32 uiData3 )
 {
 	if ( pSoldier->identity().profile() == NO_PROFILE )
 	{
@@ -1553,7 +1553,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT
 }
 
 
-BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
+BOOLEAN TacticalCharacterDialogue( TacticalActor *pSoldier, UINT16 usQuoteNum )
 {
 // Haydent
 	if(is_client)
@@ -1615,7 +1615,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	{
 		if ( pSoldier->CanRobotBeControlled( ) )
 		{
-			SOLDIERTYPE* controller =
+			TacticalActor* controller =
 				GetJa2SoldierRepository().resolve(
 					pSoldier->vehicleState().robotRemoteHolder().i);
 			return controller
@@ -1654,7 +1654,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	return( CharacterDialogue( pSoldier->identity().profile(), usQuoteNum, pSoldier->renderBindings().faceIndex(), DIALOGUE_TACTICAL_UI, TRUE, FALSE ) );
 }
 
-BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT8 ubEventType, UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile )
+BOOLEAN SnitchTacticalCharacterDialogue( TacticalActor *pSoldier, UINT16 usQuoteNum, UINT8 ubEventType, UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile )
 {
 	// Haydent
 	if(is_client)
@@ -1726,7 +1726,7 @@ BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNu
 // We call this function from several places. It uses the dialogue functions, but calls a Lua script to know whether something, and what, should be said
 // This allows us to call a lot of very specific dialogue for individual mercs without the need to define what exactly should be said in the code -
 // a modder can simply control in Lua what should happen
-BOOLEAN AdditionalTacticalCharacterDialogue_CallsLua( SOLDIERTYPE *pSoldier, UINT16 usEventNr, UINT32 aData1, UINT32 aData2, UINT32 aData3 )
+BOOLEAN AdditionalTacticalCharacterDialogue_CallsLua( TacticalActor *pSoldier, UINT16 usEventNr, UINT32 aData1, UINT32 aData2, UINT32 aData3 )
 {
 	// Haydent
 	if ( is_client )
@@ -1781,7 +1781,7 @@ void AdditionalTacticalCharacterDialogue_AllInCurrentSector( UINT8 ausIgnoreProf
 void AdditionalTacticalCharacterDialogue_AllInSector(INT16 aSectorX, INT16 aSectorY, INT8 aSectorZ, UINT8 ausIgnoreProfile, 
 	UINT16 usEventNr, UINT32 aData1, UINT32 aData2, UINT32 aData3, INT32 aAroundGridno, INT32 aRadius )
 {
-	SOLDIERTYPE* pSoldier;
+	TacticalActor* pSoldier;
 	SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
@@ -1915,7 +1915,7 @@ BOOLEAN CharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32 iFaceI
 	{
 		if ( gusSelectedSoldier != NOBODY )
 		{
-			SOLDIERTYPE* selectedSoldier =
+			TacticalActor* selectedSoldier =
 				GetJa2SoldierRepository().resolve(
 					gusSelectedSoldier.i);
 			if (selectedSoldier)
@@ -2031,7 +2031,7 @@ extern SoldierID gusIDOfCivTrader;
 BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32 iFaceIndex, UINT8 bUIHandlerID, BOOLEAN fFromSoldier )
 {
 	UINT32	uiSoundID;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	// Check if we are dead now or not....( if from a soldier... )
 
@@ -2144,7 +2144,7 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 		&& iFaceIndex == -1
 		&& gusIDOfCivTrader != NOBODY )
 	{
-		SOLDIERTYPE* pShopkeeper =
+		TacticalActor* pShopkeeper =
 			GetJa2SoldierRepository().resolve(gusIDOfCivTrader.i);
 
 		if ( pShopkeeper )
@@ -2199,7 +2199,7 @@ BOOLEAN ExecuteSnitchCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum,
 	{
 		CHAR8 zSoundFiles[10][64];
 
-		SOLDIERTYPE *pSoldier;
+		TacticalActor *pSoldier;
 		pSoldier = FindSoldierByProfileID( ubCharacterNum, TRUE );
 		if ( !GetSnitchDialogue( ubCharacterNum,
 			usQuoteNum, DIALOGUESIZE, gzQuoteStr, &uiSound1ID, &uiSound2ID, &uiSound3ID, zSoundFiles, ubSnitchTargetID, ubSecondarySnitchTargetID ) )
@@ -2235,7 +2235,7 @@ void SetSoundString( const char* aStr )
 
 BOOLEAN LuaCallsToDoDialogueStuff( UINT8 ubProfile, INT32 iFaceIndex, const char* azSoundString )
 {
-	SOLDIERTYPE *pSoldier = FindSoldierByProfileID( ubProfile, TRUE );
+	TacticalActor *pSoldier = FindSoldierByProfileID( ubProfile, TRUE );
 
 	if ( !pSoldier )
 		return FALSE;
@@ -2256,7 +2256,7 @@ BOOLEAN LuaCallsToDoDialogueStuff( UINT8 ubProfile, INT32 iFaceIndex, const char
 }
 
 // Flugente: play sound file like normal dialogue or, if someone else is already talking, just play the sound
-void SpecialDialogue( SOLDIERTYPE* pSoldier, STR8 azSoundString, STR16 azTextString )
+void SpecialDialogue( TacticalActor* pSoldier, STR8 azSoundString, STR16 azTextString )
 {
 	// if possible, set up a proper dialogue. Otherwise just play the file
 	if ( !DialogueActive() && pSoldier->identity().profile() != NO_PROFILE && pSoldier->renderBindings().faceIndex() >= 0 )	// iFaceIndex >= 0: else gFacesData[-1] OOB; falls through to just playing the sound file
@@ -2274,7 +2274,7 @@ void SpecialDialogue( SOLDIERTYPE* pSoldier, STR8 azSoundString, STR16 azTextStr
 	}
 }
 
-void CreateTalkingUI( INT8 bUIHandlerID, INT32 iFaceIndex, UINT8 ubCharacterNum, SOLDIERTYPE *pSoldier, STR16 zQuoteStr )
+void CreateTalkingUI( INT8 bUIHandlerID, INT32 iFaceIndex, UINT8 ubCharacterNum, TacticalActor *pSoldier, STR16 zQuoteStr )
 {
 	// Show text, if on
 	if ( gGameSettings.fOptions[ TOPTION_SUBTITLES ] || !gFacesData[ iFaceIndex ].fValidSpeech )
@@ -2796,7 +2796,7 @@ void DisplayTextForExternalNPC(	UINT8 ubCharacterNum, STR16 zQuoteStr )
 }
 
 
-void HandleTacticalTextUI( INT32 iFaceIndex, SOLDIERTYPE *pSoldier, STR16 zQuoteStr )
+void HandleTacticalTextUI( INT32 iFaceIndex, TacticalActor *pSoldier, STR16 zQuoteStr )
 {
 	CHAR16									zText[ QUOTE_MESSAGE_SIZE ];
 	INT16									sLeft = 0;
@@ -2953,7 +2953,7 @@ void HandleTacticalSpeechUI( UINT8 ubCharacterNum, INT32 iFaceIndex	)
 {
 	VIDEO_OVERLAY_DESC		VideoOverlayDesc;
 	INT32									iFaceOverlay;
-	SOLDIERTYPE						*pSoldier;
+	TacticalActor						*pSoldier;
 	BOOLEAN								fDoExternPanel = FALSE;
 
 	memset( &VideoOverlayDesc, 0, sizeof( VIDEO_OVERLAY_DESC ) );
@@ -3131,7 +3131,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 				// anv: after merc finishes his quote, we want enemy to answer
 				if ( gbUIHandlerID == DIALOGUE_TACTICAL_UI )
 				{
-					SOLDIERTYPE *pSoldier = FindSoldierByProfileID( gTacticalStatus.ubLastQuoteProfileNUm, FALSE );
+					TacticalActor *pSoldier = FindSoldierByProfileID( gTacticalStatus.ubLastQuoteProfileNUm, FALSE );
 					if ( pSoldier )
 					{
 						UINT16 ubSeenEnemies[ MAX_NUM_SOLDIERS ];
@@ -3142,7 +3142,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 							case QUOTE_UNDER_HEAVY_FIRE:
 							case QUOTE_TAKEN_A_BREATING:
 							{
-								SOLDIERTYPE* previousAttacker =
+								TacticalActor* previousAttacker =
 									GetJa2SoldierRepository().resolve(
 										pSoldier->combatResult().previousAttacker().i);
 								if( previousAttacker && !( previousAttacker->perception().isDeafened() ) )
@@ -3153,7 +3153,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 								// select random enemy, who we see, who sees us and isn't deaf
 								for( SoldierID cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID ; ++cnt )
 								{
-									SOLDIERTYPE* enemy =
+									TacticalActor* enemy =
 										GetJa2SoldierRepository().resolve(cnt.i);
 									if( enemy &&
 										enemy->awareness().opponentKnowledge()[pSoldier->identity().id()] == SEEN_CURRENTLY
@@ -3165,7 +3165,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 								}
 								if( ubSeenEnemiesCnt > 0 )
 								{
-									SOLDIERTYPE* enemy =
+									TacticalActor* enemy =
 										GetJa2SoldierRepository().resolve(
 											ubSeenEnemies[Random(ubSeenEnemiesCnt)]);
 									if (enemy)
@@ -3234,7 +3234,7 @@ void RenderFaceOverlay( VIDEO_OVERLAY *pBlitter )
 	UINT32 uiDestPitchBYTES, uiSrcPitchBYTES;
 	UINT8	*pDestBuf, *pSrcBuf;
 	INT16 sFontX, sFontY;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	CHAR16					zTownIDString[50];
 
 
@@ -3336,7 +3336,7 @@ void SayQuoteFromAnyBodyInSector( UINT16 usQuoteNum )
 	std::vector<UINT16>	ubMercsInSector (CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS, 0);
 	UINT16	ubNumMercs = 0;
 	UINT16	ubChosenMerc;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 
 	// Loop through all our guys and randomly say one from someone in our sector
 
@@ -3410,7 +3410,7 @@ void SayQuoteFromAnyBodyInSector( UINT16 usQuoteNum )
 		}
 
 
-		SOLDIERTYPE* chosenMerc =
+		TacticalActor* chosenMerc =
 			GetJa2SoldierRepository().resolve(
 				ubMercsInSector[ubChosenMerc]);
 		if (chosenMerc)
@@ -3428,7 +3428,7 @@ void SayQuoteFromAnyBodyInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSect
 	std::vector<UINT16>	ubMercsInSector (CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS, 0);
 	UINT16	ubNumMercs = 0;
 	UINT16	ubChosenMerc;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 
 	// Loop through all our guys and randomly say one from someone in our sector
 
@@ -3475,7 +3475,7 @@ void SayQuoteFromAnyBodyInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSect
 		//	}
 		//}
 
-		SOLDIERTYPE* chosenMerc =
+		TacticalActor* chosenMerc =
 			GetJa2SoldierRepository().resolve(
 				ubMercsInSector[ubChosenMerc]);
 		if (chosenMerc)
@@ -3491,7 +3491,7 @@ void SayQuoteFromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQuo
 	std::vector<UINT16>	ubMercsInSector (CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS, 0 );
 	UINT16	ubNumMercs = 0;
 	UINT16	ubChosenMerc;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 
 	// Loop through all our guys and randomly say one from someone in our sector
 
@@ -3528,7 +3528,7 @@ void SayQuoteFromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQuo
 		{
 			SetFactTrue( FACT_PLAYER_FOUND_ITEMS_MISSING );
 		}
-		SOLDIERTYPE* chosenMerc =
+		TacticalActor* chosenMerc =
 			GetJa2SoldierRepository().resolve(
 				ubMercsInSector[ubChosenMerc]);
 		if (chosenMerc)
@@ -3546,7 +3546,7 @@ void SayQuote58FromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQ
 	std::vector<UINT16> ubMercsInSector (CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS, 0);
 	UINT16	ubNumMercs = 0;
 	UINT16	ubChosenMerc;
-	SOLDIERTYPE *pTeamSoldier;
+	TacticalActor *pTeamSoldier;
 	SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 
 	// Loop through all our guys and randomly say one from someone in our sector
@@ -3583,7 +3583,7 @@ void SayQuote58FromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQ
 	if ( ubNumMercs > 0 )
 	{
 		ubChosenMerc = (UINT16)Random( ubNumMercs );
-		SOLDIERTYPE* chosenMerc =
+		TacticalActor* chosenMerc =
 			GetJa2SoldierRepository().resolve(
 				ubMercsInSector[ubChosenMerc]);
 		if (chosenMerc)
@@ -3690,14 +3690,14 @@ void BeginLoggingForBleedMeToos( BOOLEAN fStart )
 }
 
 
-void SetEngagedInConvFromPCAction( SOLDIERTYPE *pSoldier )
+void SetEngagedInConvFromPCAction( TacticalActor *pSoldier )
 {
 	// OK, If a good give, set engaged in conv...
 	gTacticalStatus.uiFlags |= ENGAGED_IN_CONV;
 	gTacticalStatus.ubEngagedInConvFromActionMercID = pSoldier->identity().id();
 }
 
-void UnSetEngagedInConvFromPCAction( SOLDIERTYPE *pSoldier )
+void UnSetEngagedInConvFromPCAction( TacticalActor *pSoldier )
 {
 	if ( gTacticalStatus.ubEngagedInConvFromActionMercID == pSoldier->identity().id() )
 	{
@@ -3856,7 +3856,7 @@ void HandleShutDownOfMapScreenWhileExternfaceIsTalking( void )
 }
 
 
-void HandleImportantMercQuote( SOLDIERTYPE * pSoldier, UINT16 usQuoteNumber )
+void HandleImportantMercQuote( TacticalActor * pSoldier, UINT16 usQuoteNumber )
 {
 	// wake merc up for THIS quote
 	if( pSoldier->assignment().isAsleep() )
@@ -3898,7 +3898,7 @@ void SetExternMapscreenSpeechPanelXY( INT16 sXPos, INT16 sYPos )
 BOOLEAN AreAllTheMercsFinishedSayingThereInitialHeliCrashQuotes()
 {
 	INT32                   cnt;
-	SOLDIERTYPE             *pSoldier;
+	TacticalActor             *pSoldier;
 
 	// IF IT'S THE SELECTED GUY, MAKE ANOTHER SELECTED!
 	cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;

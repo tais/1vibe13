@@ -31,14 +31,14 @@ UINT8		gubBoxingMatchesWon = 0;
 UINT8		gubBoxersRests = 0;
 BOOLEAN		gfBoxersResting = FALSE;
 
-extern void RecalculateOppCntsDueToBecomingNeutral( SOLDIERTYPE * pSoldier );
+extern void RecalculateOppCntsDueToBecomingNeutral( TacticalActor * pSoldier );
 
 void ExitBoxing( void )
 {
 	//DBrot: More Rooms
 	//UINT8						ubRoom;
 	UINT16				usRoom;
-	SOLDIERTYPE*		pSoldier;
+	TacticalActor*		pSoldier;
 	UINT32				uiLoop;
 	UINT8				ubPass;
 
@@ -130,7 +130,7 @@ void ExitBoxing( void )
 
 // in both these cases we're going to want the AI to take over and move the boxers
 // out of the ring!
-void EndBoxingMatch( SOLDIERTYPE * pLoser )
+void EndBoxingMatch( TacticalActor * pLoser )
 {
 	if (pLoser->roster().team() == gbPlayerNum )
 	{
@@ -146,7 +146,7 @@ void EndBoxingMatch( SOLDIERTYPE * pLoser )
 	TriggerNPCRecord( DARREN, 22 );
 }
 
-void BoxingPlayerDisqualified( SOLDIERTYPE * pOffender, INT8 bReason )
+void BoxingPlayerDisqualified( TacticalActor * pOffender, INT8 bReason )
 {
 	if (bReason == BOXER_OUT_OF_RING || bReason == NON_BOXER_IN_RING)
 	{
@@ -157,7 +157,7 @@ void BoxingPlayerDisqualified( SOLDIERTYPE * pOffender, INT8 bReason )
 	//ExitBoxing();
 }
 
-void TriggerEndOfBoxingRecord( SOLDIERTYPE * pSoldier )
+void TriggerEndOfBoxingRecord( TacticalActor * pSoldier )
 {
 	// unlock UI
 	guiPendingOverrideEvent = LU_ENDUILOCK;
@@ -187,7 +187,7 @@ void TriggerEndOfBoxingRecord( SOLDIERTYPE * pSoldier )
 
 UINT8 CountPeopleInBoxingRing( void )
 {
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 	UINT32 uiLoop;
 	//DBrot: More Rooms
 	//UINT8 ubRoom;
@@ -217,9 +217,9 @@ static void CountPeopleInBoxingRingAndDoActions( void )
 	//DBrot: More Rooms
 	UINT16				usRoom;
 	UINT16				ubPlayersInRing = 0;
-	SOLDIERTYPE *		pSoldier;
-	SOLDIERTYPE *		pInRing[2] = { NULL, NULL };
-	SOLDIERTYPE *		pNonBoxingPlayer = NULL;
+	TacticalActor *		pSoldier;
+	TacticalActor *		pInRing[2] = { NULL, NULL };
+	TacticalActor *		pNonBoxingPlayer = NULL;
 
 	for ( uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); ++uiLoop )
 	{
@@ -340,7 +340,7 @@ BOOLEAN CheckOnBoxers( void )
 			// WANNE: Safety check!
 			if (ubID < TOTAL_SOLDIERS)
 			{
-				SOLDIERTYPE* boxer =
+				TacticalActor* boxer =
 					GetJa2SoldierRepository().resolve(
 						ubID );
 				if ( boxer != nullptr &&
@@ -380,7 +380,7 @@ BOOLEAN BoxerExists( void )
 BOOLEAN PickABoxer( void )
 {
 	UINT32		uiLoop;
-	SOLDIERTYPE	*pBoxer;
+	TacticalActor	*pBoxer;
 
 	for( uiLoop = 0; uiLoop < NUM_BOXERS; ++uiLoop )
 	{
@@ -458,7 +458,7 @@ BOOLEAN BoxerAvailable( void )
 	{
 		if ( gubBoxerID[ ubLoop ] != NOBODY && !gfBoxerFought[ ubLoop ] )
 		{
-			SOLDIERTYPE* boxer =
+			TacticalActor* boxer =
 				GetJa2SoldierRepository().resolve( gubBoxerID[ ubLoop ] );
 			if( boxer && boxer->roster().active() && boxer->roster().inSector() && boxer->vitals().health() >= OKLIFE )
 				return( TRUE );
@@ -481,7 +481,7 @@ UINT8 BoxersAvailable( void )
 	{
 		if ( gubBoxerID[ ubLoop ] != NOBODY && !gfBoxerFought[ ubLoop ] )
 		{
-			SOLDIERTYPE* boxer =
+			TacticalActor* boxer =
 				GetJa2SoldierRepository().resolve( gubBoxerID[ ubLoop ] );
 			if( boxer && boxer->roster().active() && boxer->roster().inSector() && boxer->vitals().health() >= OKLIFE )
 				++ubCount;
@@ -511,7 +511,7 @@ BOOLEAN AnotherFightPossible( void )
 		  soldierId <= gTacticalStatus.Team[ gbPlayerNum ].bLastID;
 		  ++soldierId )
 	{
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve( soldierId );
 		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() &&
 			 pSoldier->vitals().health() > (OKLIFE + 5) &&
@@ -525,7 +525,7 @@ BOOLEAN AnotherFightPossible( void )
 }
 
 
-void BoxingMovementCheck( SOLDIERTYPE * pSoldier )
+void BoxingMovementCheck( TacticalActor * pSoldier )
 {
 	//DBrot: More Rooms
 	//UINT8 ubRoom;
@@ -586,7 +586,7 @@ void ClearAllBoxerFlags( void )
 {
 	for (UINT32 uiSlot = 0; uiSlot < Ja2ActiveTacticalActorSlotCount(); ++uiSlot)
 	{
-		SOLDIERTYPE* soldier =
+		TacticalActor* soldier =
 			ResolveJa2ActiveTacticalActorSlot(uiSlot);
 		if ( soldier && soldier->status().flags() & SOLDIER_BOXER )
 		{

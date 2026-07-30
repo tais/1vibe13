@@ -1,4 +1,6 @@
+#include "TacticalActorEquipment.h"
 #include "ai.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 #include "AIInternals.h"
 #include "Isometric Utils.h"
@@ -36,6 +38,8 @@
 #include "Game Clock.h"		// sevenfm
 #include "SkillCheck.h"		// sevenfm
 #include "SoldierRepository.h"
+#include "TacticalActorRadio.h"
+#include "TacticalActorSkills.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // SANDRO - In this file, all APBPConstants[AP_CROUCH] and APBPConstants[AP_PRONE] were changed to GetAPsCrouch() and GetAPsProne()
@@ -44,10 +48,10 @@
 
 extern BOOLEAN gfHiddenInterrupt;
 extern BOOLEAN gfUseAlternateQueenPosition;
-extern UINT16 PickSoldierReadyAnimation( SOLDIERTYPE *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
+extern UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
 extern void IncrementWatchedLoc(UINT16 ubID, INT32 sGridNo, INT8 bLevel);
-void LogDecideInfo(SOLDIERTYPE *pSoldier);
-void LogKnowledgeInfo(SOLDIERTYPE *pSoldier);
+void LogDecideInfo(TacticalActor *pSoldier);
+void LogKnowledgeInfo(TacticalActor *pSoldier);
 
 // global status time counters to determine what takes the most time
 
@@ -60,10 +64,10 @@ UINT32 guiRedSeekCounter = 0, guiRedHelpCounter = 0; guiRedHideCounter = 0;
 
 #define CENTER_OF_RING 11237//dnl!!!
 
-INT8 ArmedVehicleDecideActionGreen(SOLDIERTYPE *pSoldier);
-INT8 ArmedVehicleDecideActionYellow(SOLDIERTYPE *pSoldier);
-INT8 ArmedVehicleDecideActionRed(SOLDIERTYPE *pSoldier);
-INT8 ArmedVehicleDecideActionBlack(SOLDIERTYPE *pSoldier);
+INT8 ArmedVehicleDecideActionGreen(TacticalActor *pSoldier);
+INT8 ArmedVehicleDecideActionYellow(TacticalActor *pSoldier);
+INT8 ArmedVehicleDecideActionRed(TacticalActor *pSoldier);
+INT8 ArmedVehicleDecideActionBlack(TacticalActor *pSoldier);
 
 STR8 gStr8AlertStatus[] = { "Green", "Yellow", "Red", "Black" };
 STR8 gStr8Attitude[] = { "DEFENSIVE", "BRAVESOLO", "BRAVEAID", "CUNNINGSOLO", "CUNNINGAID", "AGGRESSIVE", "MAXATTITUDES", "ATTACKSLAYONLY" };
@@ -72,14 +76,14 @@ STR8 gStr8Team[] = { "OUR_TEAM", "ENEMY_TEAM", "CREATURE_TEAM", "MILITIA_TEAM", 
 STR8 gStr8Class[] = { "SOLDIER_CLASS_NONE", "SOLDIER_CLASS_ADMINISTRATOR", "SOLDIER_CLASS_ELITE", "SOLDIER_CLASS_ARMY", "SOLDIER_CLASS_GREEN_MILITIA", "SOLDIER_CLASS_REG_MILITIA", "SOLDIER_CLASS_ELITE_MILITIA", "SOLDIER_CLASS_CREATURE", "SOLDIER_CLASS_MINER", "SOLDIER_CLASS_ZOMBIE", "SOLDIER_CLASS_TANK", "SOLDIER_CLASS_JEEP", "SOLDIER_CLASS_BANDIT", "SOLDIER_CLASS_ROBOT" };
 STR8 gStr8Knowledge[] = { "HEARD_3_TURNS_AGO", "HEARD_2_TURNS_AGO", "HEARD_LAST_TURN", "HEARD_THIS_TURN", "NOT_HEARD_OR_SEEN", "SEEN_CURRENTLY", "SEEN_THIS_TURN", "SEEN_LAST_TURN", "SEEN_2_TURNS_AGO", "SEEN_3_TURNS_AGO" };
 
-void DoneScheduleAction( SOLDIERTYPE * pSoldier )
+void DoneScheduleAction( TacticalActor * pSoldier )
 {
 	pSoldier->aiBehavior().flags() &= (~AI_CHECK_SCHEDULE);
 	pSoldier->schedule().resetProgress();
 	PostNextSchedule( pSoldier );
 }
 
-INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
+INT8 DecideActionSchedule( TacticalActor * pSoldier )
 {
 	SCHEDULENODE *		pSchedule;
 	INT32							iScheduleIndex;
@@ -546,7 +550,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 	return( AI_ACTION_NONE );
 }
 
-INT8 DecideActionBoxerEnteringRing(SOLDIERTYPE *pSoldier)
+INT8 DecideActionBoxerEnteringRing(TacticalActor *pSoldier)
 {
 	//DBrot: More Rooms
 	//UINT8 ubRoom;
@@ -604,7 +608,7 @@ INT8 DecideActionBoxerEnteringRing(SOLDIERTYPE *pSoldier)
 	return( AI_ACTION_ABSOLUTELY_NONE );
 }
 
-INT8 DecideActionNamedNPC( SOLDIERTYPE * pSoldier )
+INT8 DecideActionNamedNPC( TacticalActor * pSoldier )
 {
 	INT32		sDesiredMercLoc;
 	UINT8		ubDesiredMercDir;
@@ -670,7 +674,7 @@ INT8 DecideActionNamedNPC( SOLDIERTYPE * pSoldier )
 		}
 	}
 
-	if ( pSoldier->IsAssassin() )
+	if ( TacticalActorConditions::isAssassin(*pSoldier) )
 	{
 		sDesiredMercLoc = ClosestPC( pSoldier, &sDesiredMercDist );
 		
@@ -699,7 +703,7 @@ INT8 DecideActionNamedNPC( SOLDIERTYPE * pSoldier )
 }
 
 
-INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
+INT8 DecideActionGreen(TacticalActor *pSoldier)
 {
 	DOUBLE iChance, iSneaky = 10;
 	INT8  bInWater, bInDeepWater, bInGas;
@@ -764,7 +768,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 						if ( gTacticalStatus.bBoxingState == NOT_BOXING )
 						{
 							// WANNE: This should fix the bug if any merc are still under PC control. This could happen after boxing in SAN MONA.
-							SOLDIERTYPE	*pTeamSoldier;
+							TacticalActor	*pTeamSoldier;
 							for ( SoldierID bLoop=gTacticalStatus.Team[gbPlayerNum].bFirstID; bLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++bLoop )
 							{
 								pTeamSoldier =
@@ -856,7 +860,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 				}
 			}
 
-			if ( pSoldier->identity().profile() != NO_PROFILE || pSoldier->IsAssassin() )
+			if ( pSoldier->identity().profile() != NO_PROFILE || TacticalActorConditions::isAssassin(*pSoldier) )
 			{
 				if ( pSoldier->identity().profile() != NO_PROFILE )
 					pSoldier->aiPlanning().action() = DecideActionNamedNPC( pSoldier );
@@ -962,7 +966,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		if ( pSoldier->CanMedicAI() )
 		{
 			SoldierID ubPerson = GetClosestWoundedSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius, pSoldier->roster().team());
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			// are we ourselves the patient?
@@ -1018,7 +1022,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		else if ( pSoldier->vitals().healableInjury() >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 		{
 			SoldierID ubPerson = GetClosestMedicSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius / 2, pSoldier->roster().team());
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			if ( person )
@@ -1040,7 +1044,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		{
 			// is VIP still alive?
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 100, pSoldier->roster().team(), SOLDIER_VIP, FALSE );
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			if ( person )
@@ -1563,7 +1567,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 	return(AI_ACTION_NONE);
 }
 
-INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
+INT8 DecideActionYellow(TacticalActor *pSoldier)
 {
 	INT32 iDummy;
 	UINT8 ubNoiseDir;
@@ -1601,7 +1605,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 			// ******************
 			// REAL TIME NPC CODE
 			// ******************
-			if (pSoldier->identity().profile() != NO_PROFILE || pSoldier->IsAssassin() )
+			if (pSoldier->identity().profile() != NO_PROFILE || TacticalActorConditions::isAssassin(*pSoldier) )
 			{
 				if ( pSoldier->identity().profile() != NO_PROFILE )
 					pSoldier->aiPlanning().action() = DecideActionNamedNPC( pSoldier );
@@ -1678,7 +1682,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		if ( gGameExternalOptions.fAllowPrisonerSystem && pSoldier->roster().team() == ENEMY_TEAM )
 		{
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 20, ENEMY_TEAM, SOLDIER_POW, TRUE );
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			if ( person )
@@ -1724,7 +1728,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		if ( pSoldier->CanMedicAI() )
 		{
 			SoldierID ubPerson = GetClosestWoundedSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius, pSoldier->roster().team());
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			// are we ourselves the patient?
@@ -1780,7 +1784,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		else if ( pSoldier->vitals().healableInjury() >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 		{
 			SoldierID ubPerson = GetClosestMedicSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius / 2, pSoldier->roster().team());
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			if ( person )
@@ -1802,7 +1806,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		{
 			// is VIP still alive?
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 100, pSoldier->roster().team(), SOLDIER_VIP, FALSE );
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			if ( person )
@@ -2472,7 +2476,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 }
 
 
-INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
+INT8 DecideActionRed(TacticalActor *pSoldier)
 {
 	INT8	bActionReturned;
 	INT32	iDummy;
@@ -2558,7 +2562,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->collapseState().tactical() &&
 		!pSoldier->collapseState().breathTriggered() &&
-		pSoldier->IsCowering())
+		TacticalActorConditions::isCowering(*pSoldier))
 	{
 		return AI_ACTION_STOP_COWERING;
 	}
@@ -2569,7 +2573,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->collapseState().tactical() &&
 		!pSoldier->collapseState().breathTriggered() &&
-		pSoldier->IsGivingAid())
+		TacticalActorConditions::isGivingAid(*pSoldier))
 	{
 		return AI_ACTION_STOP_MEDIC;
 	}
@@ -2910,7 +2914,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 			if (BestThrow.ubPossible)
 			{
-				SOLDIERTYPE* bestThrowOpponent =
+				TacticalActor* bestThrowOpponent =
 					GetJa2SoldierRepository().resolve(
 						BestThrow.ubOpponent.i);
 				DebugAI(AI_MSG_INFO, pSoldier, String("prepare throw at spot %d level %d aimtime %d", BestThrow.sTarget, BestThrow.bTargetLevel, BestThrow.ubAimTime));
@@ -2960,7 +2964,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			// sevenfm: set bAimShotLocation
 			pSoldier->attackSelection().shotLocation() = AIM_SHOT_RANDOM;
 			CheckIfShotPossible(pSoldier, &BestShot);
-			SOLDIERTYPE* bestShotOpponent =
+			TacticalActor* bestShotOpponent =
 				GetJa2SoldierRepository().resolve(BestShot.ubOpponent.i);
 			DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("decideactionred: is sniper shot possible? = %d, CTH = %d", BestShot.ubPossible, BestShot.ubChanceToReallyHit));
 
@@ -3063,7 +3067,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				// check valid target
 				!TileIsOutOfBounds(BestShot.sTarget) &&
 				bestShotOpponent &&
-				Chance(100 - bestShotOpponent->ShockLevelPercent() / 2) &&
+				Chance(100 - TacticalActorConditions::suppressionShockPercent(*bestShotOpponent) / 2) &&
 				// check weapon/ammo requirements
 				IsGunAutofireCapable(&pSoldier->inventory()[BestShot.bWeaponIn]) &&
 				GetMagSize(&pSoldier->inventory()[BestShot.bWeaponIn]) >= gGameExternalOptions.ubAISuppressionMinimumMagSize &&
@@ -3209,7 +3213,10 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		// Flugente: trait skills
 		// if we are a radio operator
 		if (HAS_SKILL_TRAIT(pSoldier, RADIO_OPERATOR_NT) > 0 &&
-			pSoldier->CanUseSkill(SKILLS_RADIO_ARTILLERY, TRUE))
+			TacticalActorSkills::canUse(
+				*pSoldier,
+				SKILLS_RADIO_ARTILLERY,
+				true))
 		{
 			UINT32 tmp;
 			INT32 skilltargetgridno = 0;
@@ -3218,10 +3225,10 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			if (!gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition && MoreFriendsThanEnemiesinNearbysectors(pSoldier->roster().team(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ()))
 			{
 				// if frequencies are jammed...
-				if (SectorJammed())
+				if (TacticalActorRadio::sectorJammed())
 				{
 					// if we are jamming, turn it off, otherwise, bad luck...
-					if (pSoldier->IsJamming())
+					if (TacticalActorRadio::isJamming(*pSoldier))
 					{
 						pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_TURNOFF;
 						pSoldier->aiPlanning().actionData() = skilltargetgridno;
@@ -3236,7 +3243,10 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				}
 			}
 			// if we can't call in artillery, jam frequencies, so that the palyer can't use radio skills
-			else if (!pSoldier->IsJamming() && !pSoldier->CanAnyArtilleryStrikeBeOrdered(&tmp))
+			else if (!TacticalActorRadio::isJamming(*pSoldier) &&
+					 !TacticalActorRadio::canOrderAnyArtilleryStrike(
+						 *pSoldier,
+						 &tmp))
 			{
 				pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_JAM;
 				pSoldier->aiPlanning().actionData() = skilltargetgridno;
@@ -3314,7 +3324,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		if ( gGameExternalOptions.fAllowPrisonerSystem && pSoldier->roster().team() == ENEMY_TEAM )
 		{
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 20, ENEMY_TEAM, SOLDIER_POW, TRUE );
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			if ( person )
@@ -3355,7 +3365,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		if ( pSoldier->CanMedicAI() )
 		{
 			SoldierID ubPerson = GetClosestWoundedSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius, pSoldier->roster().team());
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			// are we ourselves the patient?
@@ -3411,7 +3421,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		else if ( pSoldier->vitals().healableInjury() >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 		{
 			SoldierID ubPerson = GetClosestMedicSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius / 2, pSoldier->roster().team());
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			if ( person )
@@ -3452,7 +3462,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		{
 			// is VIP still alive?
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 100, pSoldier->roster().team(), SOLDIER_VIP, FALSE );
-			SOLDIERTYPE* person =
+			TacticalActor* person =
 				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			if ( person )
@@ -3661,8 +3671,8 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		(!NightLight() || InLightAtNight(pSoldier->position().gridNo(), pSoldier->position().level())) &&
 		!TileIsOutOfBounds(sClosestOpponent) &&
 		PythSpacesAway(pSoldier->position().gridNo(), sClosestOpponent) > TACTICAL_RANGE / 4 &&
-		(!fProneSightCover && !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || pSoldier->TakenLargeHit()) &&
-		(pSoldier->TakenLargeHit() || pSoldier->ShockLevelPercent() > 20 + Random(80)))
+		(!fProneSightCover && !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || TacticalActorConditions::hasTakenLargeHit(*pSoldier)) &&
+		(TacticalActorConditions::hasTakenLargeHit(*pSoldier) || TacticalActorConditions::suppressionShockPercent(*pSoldier) > 20 + Random(80)))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("check if soldier can cover himself with smoke"));
 
@@ -4917,10 +4927,10 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 }
 
 // Flugente: dummies if we do not want to check for any conditions or taboos
-BOOLEAN SoldierCondTrue(SOLDIERTYPE *pSoldier)			{ return TRUE; }
-BOOLEAN SoldierCondFalse(SOLDIERTYPE *pSoldier)			{ return FALSE; }
+BOOLEAN SoldierCondTrue(TacticalActor *pSoldier)			{ return TRUE; }
+BOOLEAN SoldierCondFalse(TacticalActor *pSoldier)			{ return FALSE; }
 
-INT8 DecideActionBlack(SOLDIERTYPE *pSoldier)
+INT8 DecideActionBlack(TacticalActor *pSoldier)
 {
 	INT32	iCoverPercentBetter, iOffense, iDefense, iChance;
 	INT32	sClosestOpponent = NOWHERE,sBestCover = NOWHERE;//dnl ch58 160813
@@ -4942,7 +4952,7 @@ INT16 ubMinAPCost;
 	LogDecideInfo(pSoldier);
 
 	ATTACKTYPE BestShot, BestThrow, BestStab ,BestAttack;//dnl ch69 150913
-	SOLDIERTYPE* bestShotOpponent = nullptr;
+	TacticalActor* bestShotOpponent = nullptr;
 	BOOLEAN fCivilian = (PTR_CIVILIAN && (pSoldier->roster().civilianGroup() == NON_CIV_GROUP || pSoldier->aiBehavior().neutral() || (pSoldier->identity().bodyType() >= FATCIV && pSoldier->identity().bodyType() <= CRIPPLECIV) ) );
 	BOOLEAN fClimb;
 	INT16	ubBurstAPs;
@@ -4988,7 +4998,7 @@ INT16 ubMinAPCost;
 		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->collapseState().tactical() &&
 		!pSoldier->collapseState().breathTriggered() &&
-		pSoldier->IsCowering())
+		TacticalActorConditions::isCowering(*pSoldier))
 	{
 		return AI_ACTION_STOP_COWERING;
 	}
@@ -4999,7 +5009,7 @@ INT16 ubMinAPCost;
 		pSoldier->vitals().health() >= OKLIFE &&
 		!pSoldier->collapseState().tactical() &&
 		!pSoldier->collapseState().breathTriggered() &&
-		pSoldier->IsGivingAid())
+		TacticalActorConditions::isGivingAid(*pSoldier))
 	{
 		return AI_ACTION_STOP_MEDIC;
 	}
@@ -5340,8 +5350,8 @@ INT16 ubMinAPCost;
 		(!NightLight() || InLightAtNight(pSoldier->position().gridNo(), pSoldier->position().level())) &&
 		!TileIsOutOfBounds(sClosestOpponent) &&
 		PythSpacesAway(pSoldier->position().gridNo(), sClosestOpponent) > TACTICAL_RANGE / 4 &&
-		(!ProneSightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), FALSE) && !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || pSoldier->TakenLargeHit()) &&
-		(pSoldier->TakenLargeHit() || pSoldier->ShockLevelPercent() > 20 + Random(80)))
+		(!ProneSightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), FALSE) && !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || TacticalActorConditions::hasTakenLargeHit(*pSoldier)) &&
+		(TacticalActorConditions::hasTakenLargeHit(*pSoldier) || TacticalActorConditions::suppressionShockPercent(*pSoldier) > 20 + Random(80)))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("check if soldier can cover himself with smoke"));
 
@@ -5396,19 +5406,25 @@ INT16 ubMinAPCost;
 
 	// Flugente: trait skills
 	// if we are a radio operator
-	if ( HAS_SKILL_TRAIT( pSoldier, RADIO_OPERATOR_NT ) > 0 && pSoldier->CanUseSkill(SKILLS_RADIO_ARTILLERY, TRUE) )
+	if (HAS_SKILL_TRAIT(pSoldier, RADIO_OPERATOR_NT) > 0 &&
+		TacticalActorSkills::canUse(
+			*pSoldier,
+			SKILLS_RADIO_ARTILLERY,
+			true))
 	{
 		// check: would it be possible to call in artillery from neighbouring sectors?
 		UINT32 tmp;
 		INT32 skilltargetgridno = 0;
 		// can we call in artillery?
-		if ( pSoldier->CanAnyArtilleryStrikeBeOrdered(&tmp) )
+		if (TacticalActorRadio::canOrderAnyArtilleryStrike(
+				*pSoldier,
+				&tmp))
 		{
 			// if frequencies are jammed...
-			if ( SectorJammed() )
+			if (TacticalActorRadio::sectorJammed())
 			{
 				// if we are jamming, turn it off, otherwise, bad luck...
-				if ( pSoldier->IsJamming() )
+				if (TacticalActorRadio::isJamming(*pSoldier))
 				{
 					pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_TURNOFF;
 					pSoldier->aiPlanning().actionData() = skilltargetgridno;
@@ -5427,10 +5443,10 @@ INT16 ubMinAPCost;
 		else if ( !gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition && MoreFriendsThanEnemiesinNearbysectors(pSoldier->roster().team(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ()) )
 		{
 			// if frequencies are jammed...
-			if ( SectorJammed() )
+			if (TacticalActorRadio::sectorJammed())
 			{
 				// if we are jamming, turn it off, otherwise, bad luck...
-				if ( pSoldier->IsJamming() )
+				if (TacticalActorRadio::isJamming(*pSoldier))
 				{
 					pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_TURNOFF;
 					pSoldier->aiPlanning().actionData() = skilltargetgridno;
@@ -5445,7 +5461,7 @@ INT16 ubMinAPCost;
 			}
 		}
 		// if we can't call in artillery or reinforcements, then nobody else from our team can. So we better jam communications, so that the player cannot use these skills either
-		else if ( !pSoldier->IsJamming() )
+		else if (!TacticalActorRadio::isJamming(*pSoldier))
 		{
 			pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_JAM;
 			pSoldier->aiPlanning().actionData() = skilltargetgridno;
@@ -5618,7 +5634,7 @@ INT16 ubMinAPCost;
 
 					// look around for a worthy target (which sets BestStab.ubPossible)
 					CalcBestShot(pSoldier,&BestStab);
-					SOLDIERTYPE* throwingKnifeOpponent =
+					TacticalActor* throwingKnifeOpponent =
 						GetJa2SoldierRepository().resolve(
 							BestStab.ubOpponent.i);
 					if (BestStab.ubPossible && !throwingKnifeOpponent)
@@ -5804,7 +5820,7 @@ INT16 ubMinAPCost;
 		//////////////////////////////////////////////////////////////////////////
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"CHOOSE THE BEST TYPE OF ATTACK OUT OF THOSE FOUND TO BE POSSIBLE");
 		BestAttack.iAttackValue = 0;
-		SOLDIERTYPE* bestStabOpponent =
+		TacticalActor* bestStabOpponent =
 			GetJa2SoldierRepository().resolve(BestStab.ubOpponent.i);
 		if (BestStab.ubPossible && !bestStabOpponent)
 		{
@@ -6005,7 +6021,7 @@ INT16 ubMinAPCost;
 		pSoldier->aiBehavior().orders() != STATIONARY &&
 		pSoldier->aiBehavior().orders() != SNIPER &&
 		pSoldier->RetreatCounterValue() > 0 &&
-		(ubBestAttackAction == AI_ACTION_NONE || ubBestAttackAction == AI_ACTION_FIRE_GUN && (UINT8)BestAttack.ubChanceToReallyHit < Random(10 + pSoldier->ShockLevelPercent() / 4)) &&
+		(ubBestAttackAction == AI_ACTION_NONE || ubBestAttackAction == AI_ACTION_FIRE_GUN && (UINT8)BestAttack.ubChanceToReallyHit < Random(10 + TacticalActorConditions::suppressionShockPercent(*pSoldier) / 4)) &&
 		(pSoldier->CheckInitialAP() || !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || pSoldier->suppression().underFire()))
 	{
 		DebugAI(AI_MSG_TOPIC, pSoldier, String("search for retreat spot"));
@@ -6895,7 +6911,7 @@ L_NEWAIM:
 
 		SoldierID ubOpponentID;
 		sClosestOpponent = ClosestKnownOpponent(pSoldier, NULL, NULL, &ubOpponentID);
-		SOLDIERTYPE* boxerOpponent =
+		TacticalActor* boxerOpponent =
 			GetJa2SoldierRepository().resolve(ubOpponentID.i);
 		DebugAI(AI_MSG_INFO, pSoldier, String("boxer: found closest opponent [%d] at %d", ubOpponentID, sClosestOpponent));
 
@@ -6960,7 +6976,7 @@ L_NEWAIM:
 				}
 				else if (pSoldier->vitals().breath() < OKBREATH ||
 					pSoldier->vitals().breath() < pSoldier->vitals().maximumBreath() &&
-					(pSoldier->vitals().breath() < boxerOpponent->vitals().breath() || !pSoldier->combatResult().lastAttackHit() && pSoldier->TakenLargeHit()))
+					(pSoldier->vitals().breath() < boxerOpponent->vitals().breath() || !pSoldier->combatResult().lastAttackHit() && TacticalActorConditions::hasTakenLargeHit(*pSoldier)))
 				{
 					// maybe move away from opponent
 					UINT8 ubOpponentDir = AIDirection(pSoldier->position().gridNo(), sClosestOpponent);
@@ -7331,7 +7347,7 @@ L_NEWAIM:
 
 }
 
-void DecideAlertStatus( SOLDIERTYPE *pSoldier )
+void DecideAlertStatus( TacticalActor *pSoldier )
 {
 #ifdef DEBUGDECISIONS
 	STR16 tempstr;
@@ -7480,7 +7496,7 @@ void DecideAlertStatus( SOLDIERTYPE *pSoldier )
 
 }
 
-INT8 ArmedVehicleDecideAction( SOLDIERTYPE *pSoldier )
+INT8 ArmedVehicleDecideAction( TacticalActor *pSoldier )
 {
 	INT8 bAction = AI_ACTION_NONE;
 
@@ -7531,7 +7547,7 @@ INT8 ArmedVehicleDecideAction( SOLDIERTYPE *pSoldier )
 	return(bAction);
 }
 
-INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
+INT8 ArmedVehicleDecideActionGreen( TacticalActor *pSoldier )
 {
 	DOUBLE iChance, iSneaky = 10;
 	INT8  bInWater;
@@ -7907,7 +7923,7 @@ INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
 	return(AI_ACTION_NONE);
 }
 
-INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
+INT8 ArmedVehicleDecideActionYellow( TacticalActor *pSoldier )
 {
 	INT32 iDummy;
 	UINT8 ubNoiseDir;
@@ -8398,7 +8414,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 }
 
 
-INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
+INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 {
 	INT32 iDummy;
 	INT32 iChance, sClosestOpponent, sClosestFriend;
@@ -8611,7 +8627,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 
 		//SUPPRESSION FIRE
 		CheckIfShotPossible(pSoldier, &BestShot); //WarmSteel - No longer returns 0 when there IS actually a chance to hit.
-		SOLDIERTYPE* bestShotOpponent =
+		TacticalActor* bestShotOpponent =
 			GetJa2SoldierRepository().resolve(BestShot.ubOpponent.i);
 		if (BestShot.ubPossible && !bestShotOpponent)
 		{
@@ -8643,7 +8659,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			 && pSoldier->aiBehavior().orders() != SNIPER &&
 			 BestShot.ubFriendlyFireChance < 5 &&
 			 bestShotOpponent &&
-			 !bestShotOpponent->IsCowering() &&
+			 !TacticalActorConditions::isCowering(*bestShotOpponent) &&
 			 !AICheckIsFlanking( pSoldier ) &&
 			 LocationToLocationLineOfSightTest( pSoldier->position().gridNo(), pSoldier->position().level(), bestShotOpponent->position().gridNo(), bestShotOpponent->position().level(), TRUE, NO_DISTANCE_LIMIT ) &&
 			 //Weapon[pSoldier->inventory()[BestShot.bWeaponIn].usItem].ubWeaponType == GUN_LMG ) &&	//Weapon[usInHand].ubWeaponClass == MGCLASS
@@ -9340,7 +9356,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 		if ( pSoldier->suppression().underFire() )
 		{
 			// Flugente: see if we are equipped with a smoke screen. If so, use it do hide us
-			if (pSoldier->TakenLargeHit() && pSoldier->HasItem(SMOKE_GRENADE) && IsActionAffordable(pSoldier, AI_ACTION_SELFDETONATE))
+			if (TacticalActorConditions::hasTakenLargeHit(*pSoldier) && TacticalActorEquipment::hasItem(*pSoldier, SMOKE_GRENADE) && IsActionAffordable(pSoldier, AI_ACTION_SELFDETONATE))
 			{
 				pSoldier->aiPlanning().actionData() = SMOKE_GRENADE;
 
@@ -9545,7 +9561,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 	return(AI_ACTION_NONE);
 }
 
-INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
+INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 {
 	INT32	iCoverPercentBetter, iOffense, iDefense, iChance;
 	INT32	sClosestOpponent = NOWHERE, sBestCover = NOWHERE;//dnl ch58 160813
@@ -9585,7 +9601,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 	}
 
 	ATTACKTYPE BestShot, BestThrow, BestAttack;//dnl ch69 150913
-	SOLDIERTYPE* bestShotOpponent = nullptr;
+	TacticalActor* bestShotOpponent = nullptr;
 	BOOLEAN fClimb;
 	INT16	ubBurstAPs;
 	UINT8	ubOpponentDir;
@@ -10411,7 +10427,7 @@ extern UINT32 guiTurnCnt;
 extern UINT32 guiReinforceTurn;
 extern UINT32 guiArrived;
 
-void LogDecideInfo(SOLDIERTYPE *pSoldier)
+void LogDecideInfo(TacticalActor *pSoldier)
 {
 	if (!gfLogsEnabled)
 		return;
@@ -10422,11 +10438,11 @@ void LogDecideInfo(SOLDIERTYPE *pSoldier)
 	DebugAI(AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->morale().aiMorale(), pSoldier->morale().morale()));
 	DebugAI(AI_MSG_INFO, pSoldier, String("Spot %d level %d opponents %d", pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->awareness().opponentCount()));
 	DebugAI(AI_MSG_INFO, pSoldier, String("ubServiceCount %d ubServicePartner %d fDoingSurgery %d", pSoldier->service().providerCount(), pSoldier->service().partner().i, pSoldier->vitals().undergoingSurgery()));
-	if (pSoldier->IsCowering())
+	if (TacticalActorConditions::isCowering(*pSoldier))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("Cowering"));
 	}
-	if (pSoldier->IsGivingAid())
+	if (TacticalActorConditions::isGivingAid(*pSoldier))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("Giving aid"));
 	}
@@ -10449,7 +10465,7 @@ void LogDecideInfo(SOLDIERTYPE *pSoldier)
 	DebugAI(AI_MSG_INFO, pSoldier, String("RetreatCounter %d", pSoldier->RetreatCounterValue()));
 }
 
-void LogKnowledgeInfo(SOLDIERTYPE *pSoldier)
+void LogKnowledgeInfo(TacticalActor *pSoldier)
 {
 	//CHAR8 str8[1024];
 	//memset(str8, 0, 1024 * sizeof(char));
@@ -10457,7 +10473,7 @@ void LogKnowledgeInfo(SOLDIERTYPE *pSoldier)
 	// show public opponents
 	for (UINT16 oppID = 0; oppID < MAX_NUM_SOLDIERS; oppID++)
 	{
-		SOLDIERTYPE* opponent =
+		TacticalActor* opponent =
 			GetJa2SoldierRepository().resolve(oppID);
 		if (gbPublicOpplist[pSoldier->roster().team()][oppID] != NOT_HEARD_OR_SEEN &&
 			opponent &&
@@ -10469,7 +10485,7 @@ void LogKnowledgeInfo(SOLDIERTYPE *pSoldier)
 	// show personal opponents
 	for (UINT16 oppID = 0; oppID < MAX_NUM_SOLDIERS; oppID++)
 	{
-		SOLDIERTYPE* opponent =
+		TacticalActor* opponent =
 			GetJa2SoldierRepository().resolve(oppID);
 		if (pSoldier->awareness().opponentKnowledge()[oppID] != NOT_HEARD_OR_SEEN &&
 			opponent &&

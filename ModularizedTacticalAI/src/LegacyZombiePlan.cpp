@@ -4,15 +4,15 @@
  */
 
 #include "../include/LegacyZombiePlan.h"
-#include "../../Tactical/Soldier Control.h" // definition of SOLDIERTYPE
+#include "../../Tactical/Soldier Control.h" // definition of TacticalActor
 
-INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier ); // defined in DecideAction.cpp
+INT8 ZombieDecideAction( TacticalActor *pSoldier ); // defined in DecideAction.cpp
 
 namespace AI
 {
     namespace tactical
     {
-        LegacyZombiePlan::LegacyZombiePlan(SOLDIERTYPE* npc)
+        LegacyZombiePlan::LegacyZombiePlan(TacticalActor* npc)
             : Plan(npc)
         {
         }

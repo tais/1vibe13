@@ -1858,9 +1858,10 @@ BOOLEAN SaveWorld(const STR8 puiFilename, FLOAT dMajorMapVersion, UINT8 ubMinorM
 	// Write tileset ID
 	FileWrite( hfile, &giCurrentTilesetID, sizeof( INT32 ), &uiBytesWritten );
 
-	// WDS - Clean up inventory handling
-	// Write SOLDIER CONTROL SIZE
-	uiSoldierSize = SIZEOF_SOLDIERTYPE_POD; //SIZEOF_SOLDIERTYPE;
+	// This four-byte slot is part of the established map header, but readers
+	// have always treated its old in-memory actor size as informational. Keep
+	// the stream shape stable without coupling maps to a C++ object layout.
+	uiSoldierSize = 0;
 	FileWrite( hfile, &uiSoldierSize, sizeof( INT32 ), &uiBytesWritten );
 
 
@@ -3329,7 +3330,7 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 	// CHECK IF OUR SELECTED GUY IS GONE!
 	if(gusSelectedSoldier != NOBODY)
 	{
-		SOLDIERTYPE* selectedSoldier =
+		TacticalActor* selectedSoldier =
 			GetJa2SoldierRepository().resolve(
 				gusSelectedSoldier.i);
 		if(!selectedSoldier || selectedSoldier->roster().active() == FALSE)
@@ -3406,7 +3407,7 @@ void TrashWorld( void )
 	LEVELNODE			*pTopmostNode;
 //	STRUCTURE			*pStructureNode;
 	INT32					cnt;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 
 	if( !IsJa2TacticalWorldLoaded() )
 		return;
@@ -4160,7 +4161,7 @@ void ReloadTileset( UINT8 ubID )
 
 void SaveMapLights( HWFILE hfile )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	SGPPaletteEntry	LColors[3];
 	UINT8 ubNumColors;
 	BOOLEAN fSoldierLight;

@@ -148,15 +148,15 @@ typedef struct SnitchEvent
 } SnitchEvent;
 
 
-extern void HandleMoraleEvent( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent, INT16 sMapX, INT16 sMapY, INT8 bMapZ );
-extern void RefreshSoldierMorale( SOLDIERTYPE * pSoldier );
-extern INT8 GetMoraleModifier( SOLDIERTYPE * pSoldier );
+extern void HandleMoraleEvent( TacticalActor * pSoldier, INT8 bMoraleEvent, INT16 sMapX, INT16 sMapY, INT8 bMapZ );
+extern void RefreshSoldierMorale( TacticalActor * pSoldier );
+extern INT8 GetMoraleModifier( TacticalActor * pSoldier );
 
 void HourlyMoraleUpdate( void );
 void HandleSnitchCheck( void );
 void HandleSnitchesReports( std::vector<SnitchEvent>& aVec );
 void RememberSnitchableEvent( UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile, BOOLEAN fSameGroupOnly, UINT8 ubEventType, std::vector<SnitchEvent>& aVec );
-void DailyMoraleUpdate( SOLDIERTYPE *pSoldier );
+void DailyMoraleUpdate( TacticalActor *pSoldier );
 
 void DecayTacticalMoraleModifiers( void );
 

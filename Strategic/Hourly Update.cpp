@@ -1,4 +1,5 @@
 	#include "Assignments.h"
+#include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
 	#include "Strategic Town Loyalty.h"
 	#include "Strategic Merc Handler.h"
@@ -357,8 +358,8 @@ UINT16	LarryItems[ NUM_LARRY_ITEMS ][ 3 ] =
 
 void HourlyLarryUpdate()
 {
-	SOLDIERTYPE *pSoldier = NULL;
-	SOLDIERTYPE *pOtherSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
+	TacticalActor *pOtherSoldier = NULL;
 	INT8			bSlot = NO_SLOT, bBoozeSlot;
 	UINT16		usTemptation = 0;
 	UINT16		usCashAmount;
@@ -370,12 +371,12 @@ void HourlyLarryUpdate()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 
-		if ( pSoldier && pSoldier->roster().active() && !pSoldier->assignment().isAsleep() && ( pSoldier->identity().profile() == LARRY_NORMAL || pSoldier->identity().profile() == LARRY_DRUNK || pSoldier->HasBackgroundFlag( BACKGROUND_DRUGUSE ) ) )
+		if ( pSoldier && pSoldier->roster().active() && !pSoldier->assignment().isAsleep() && ( pSoldier->identity().profile() == LARRY_NORMAL || pSoldier->identity().profile() == LARRY_DRUNK || TacticalActorModifiers::hasBackgroundFlag(*pSoldier, BACKGROUND_DRUGUSE ) ) )
 		{
 			fTookDrugs = FALSE;
 
-			const std::vector<INT16> drugItems = pSoldier->GetBackgroundValueVector(BackgroundVectorTypes::BG_DRUGUSE_ITEMS);
-			const std::vector<INT16> drugTypes = pSoldier->GetBackgroundValueVector(BackgroundVectorTypes::BG_DRUGUSE_TYPES);
+			const std::vector<INT16> drugItems = TacticalActorModifiers::backgroundValues(*pSoldier, BackgroundVectorTypes::BG_DRUGUSE_ITEMS);
+			const std::vector<INT16> drugTypes = TacticalActorModifiers::backgroundValues(*pSoldier, BackgroundVectorTypes::BG_DRUGUSE_TYPES);
 
 			if ( pSoldier->assignment().current() < ON_DUTY && !pSoldier->deployment().isBetweenSectors() && !( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) )
 			{
@@ -608,7 +609,7 @@ void HourlyLarryUpdate()
 // Flugente: mercs that are smokers occasionally consume smokes if they have some in their inventory
 void HourlySmokerUpdate( )
 {
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	OBJECTTYPE *pObj = NULL;
 
 	for ( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
@@ -618,7 +619,7 @@ void HourlySmokerUpdate( )
 		if ( pSoldier && pSoldier->roster().active() && !pSoldier->assignment().isAsleep() )
 		{
 			// if we are a smoker, there is a chance that we will look fo cigarettes in our inventory, and consume them if we find any
-			if ( Chance(33) && pSoldier->GetBackgroundValue( BG_SMOKERTYPE ) == 1 )
+			if ( Chance(33) && TacticalActorModifiers::backgroundValue(*pSoldier, BG_SMOKERTYPE ) == 1 )
 			{
 				INT8 invsize = (INT8)pSoldier->inventory().size( );											// remember inventorysize, so we don't call size() repeatedly
 				for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )									// ... for all items in our inventory ...
@@ -640,8 +641,8 @@ void HourlySmokerUpdate( )
 
 void HourlyDisabilityUpdate( )
 {
-	SOLDIERTYPE*				pSoldier = NULL;
-	SOLDIERTYPE*				pOtherSoldier = NULL;
+	TacticalActor*				pSoldier = NULL;
+	TacticalActor*				pOtherSoldier = NULL;
 
 	for ( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
 	{
@@ -730,7 +731,7 @@ void HourlyDisabilityUpdate( )
 				{
 					SwapToProfile( pSoldier, BUNS );
 
-					extern void SpecialDialogue( SOLDIERTYPE* pSoldier, STR8 azSoundString, STR16 azTextString );
+					extern void SpecialDialogue( TacticalActor* pSoldier, STR8 azSoundString, STR16 azTextString );
 
 					SpecialDialogue( pSoldier, "Speech\\Special\\buns_ptsd_deactivation.MP3", L"I'm better now." );
 
@@ -753,8 +754,8 @@ void HourlySnitchUpdate()
 
 void HourlyStealUpdate()
 {
-	SOLDIERTYPE *				pSoldier = NULL;
-	SOLDIERTYPE *				pOtherSoldier = NULL;
+	TacticalActor *				pSoldier = NULL;
+	TacticalActor *				pOtherSoldier = NULL;
 	
 	for( SoldierID cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
@@ -763,7 +764,7 @@ void HourlyStealUpdate()
 		// merc must be alive, not travelling and awake. If he is in the currently loaded sector, we may not be in tactical (we would see an item suddenly disappearing) and not in combat
 		if ( pSoldier
 			&& Chance( 50 )			// we try to steal something in the first place only half the time
-			&& pSoldier->HasBackgroundFlag( BACKGROUND_SCROUNGING )
+			&& TacticalActorModifiers::hasBackgroundFlag(*pSoldier, BACKGROUND_SCROUNGING )
 			&& !pSoldier->deployment().isBetweenSectors()
 			&& pSoldier->roster().active()
 			&& !pSoldier->assignment().isAsleep()
@@ -848,7 +849,8 @@ void HourlyStealUpdate()
 			// The downside is that this angers the population, thus lowering loyalty.
 
 			// determine chance of success. If we fail, we get money
-			UINT8 chanceofsucess = pSoldier->GetThiefStealMoneyChance();
+			UINT8 chanceofsucess =
+				TacticalActorModifiers::thiefStealMoneyChance(*pSoldier);
 
 			if ( Chance( chanceofsucess ) )
 			{
@@ -877,7 +879,8 @@ void HourlyStealUpdate()
 			}
 
 			// determine chance of evading detection. If we fail, we are caught and receive a loyalty penalty
-			UINT8 chanceofevadingdetection = pSoldier->GetThiefEvadeDetectionChance();
+			UINT8 chanceofevadingdetection =
+				TacticalActorModifiers::thiefEvadeDetectionChance(*pSoldier);
 
 			if ( !Chance( chanceofevadingdetection ) )
 			{
@@ -1091,7 +1094,7 @@ void HourlyFactoryUpdate()
 						{
 							bool isstaffed = false;
 							bool isstaffed_andawake = false;
-							SOLDIERTYPE *pSoldier = NULL;
+							TacticalActor *pSoldier = NULL;
 							UINT32 uiCnt = 0;
 							for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 							{
@@ -1223,7 +1226,7 @@ void HourlyCheckIfSlayAloneSoHeCanLeave()
 
 	if (gGameExternalOptions.fEnableSlayForever || gGameExternalOptions.ubHourlyChanceSlayWillLeave < 1) return;
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	pSoldier = FindSoldierByProfileID( SLAY, TRUE );
 	if( !pSoldier )
 	{
@@ -1281,7 +1284,7 @@ void HourlyHelicopterRepair()
 void HourlyGatheringInformation()
 {
 	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT32 cnt=0;
 	const INT8 bLastTeamID =
 		gTacticalStatus.Team[ soldiers.resolve( cnt )->roster().team() ].bLastID;

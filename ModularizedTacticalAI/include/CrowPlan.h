@@ -21,7 +21,7 @@ namespace AI
                 /// The location of the corpse the crow shall go to
                 int corpse_grid_;
             public:
-                CrowSeekCorpsePlan(SOLDIERTYPE* npc);
+                CrowSeekCorpsePlan(TacticalActor* npc);
                 virtual void execute(PlanInputData& environment);
                 /// The plan is marked as 'done' when the 'sweet spot' near the corpse is reached
                 virtual bool done() const;
@@ -36,7 +36,7 @@ namespace AI
             private:
                 int corpse_grid_;
             public:
-                CrowPeckPlan(SOLDIERTYPE* npc, int corpse_grid);
+                CrowPeckPlan(TacticalActor* npc, int corpse_grid);
                 virtual void execute(PlanInputData& environment);
                 /// The plan never ends without interrupt/plan update, pecking can take forever
                 virtual bool done() const {return false;}
@@ -49,7 +49,7 @@ namespace AI
         {
             private:
             public:
-                CrowFlyAwayPlan(SOLDIERTYPE* npc);
+                CrowFlyAwayPlan(TacticalActor* npc);
                 virtual void execute(PlanInputData& environment);
                 /// The plan is deleted with the crow once it leaves; 'done' is meaningless, flying away cannot be interrupted
                 virtual bool done() const {return false;}

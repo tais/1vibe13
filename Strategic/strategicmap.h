@@ -99,7 +99,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ );
 
 BOOLEAN EnterSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ );
 void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ );
-void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ );
+void UpdateMercInSector( TacticalActor *pSoldier, INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ );
 
 BOOLEAN ReadInMapStructure(STR fileName, BOOLEAN localizedVersion);
 BOOLEAN ReadInStrategicMapSectorTownNames(STR fileName, BOOLEAN localizedVersion);
@@ -164,7 +164,7 @@ BOOLEAN SectorIsPartOfTown( INT8 bTownId, INT16 sSectorX, INT16 sSectorY );
 //BOOLEAN IsThereAnyOneInThisTown( UINT8 ubTownId );
 
 
-BOOLEAN SoldierOKForSectorExit( SOLDIERTYPE * pSoldier, INT8 bExitDirection, INT32 usAdditionalData );//dnl ch56 151009
+BOOLEAN SoldierOKForSectorExit( TacticalActor * pSoldier, INT8 bExitDirection, INT32 usAdditionalData );//dnl ch56 151009
 BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *puiTraverseTimeInMinutes );//dnl ch56 151009
 void SetupNewStrategicGame( );
 
@@ -173,7 +173,7 @@ BOOLEAN SaveStrategicInfoToSavedFile( HWFILE hFile );
 
 void AllMercsHaveWalkedOffSector( );
 
-void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT8 ubTacticalDirection );
+void AdjustSoldierPathToGoOffEdge( TacticalActor *pSoldier, INT32 sEndGridNo, UINT8 ubTacticalDirection );
 
 void AllMercsWalkedToExitGrid();
 void ResetAdjacentStrategicGroupContext( void );
@@ -187,7 +187,7 @@ void HandleSlayDailyEvent( void );
 void HandleQuestCodeOnSectorEntry( INT16 sNewSectorX, INT16 sNewSectorY, INT8 bNewSectorZ );
 
 // handle a soldier leaving thier squad behind, this sets them up for mvt and potential rejoining of group
-void HandleSoldierLeavingSectorByThemSelf( SOLDIERTYPE *pSoldier );
+void HandleSoldierLeavingSectorByThemSelf( TacticalActor *pSoldier );
 
 BOOLEAN CheckAndHandleUnloadingOfCurrentWorld();
 
@@ -208,7 +208,7 @@ INT32 SAMSitesUnderPlayerControl( INT16 sX, INT16 sY );
 INT8 GetSAMIdFromSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ );
 void SetSamHackStatus( INT16 sSectorX, INT16 sSectorY, INT8 sStatus );
 
-void SetupProfileInsertionDataForSoldier( SOLDIERTYPE *pSoldier );
+void SetupProfileInsertionDataForSoldier( TacticalActor *pSoldier );
 
 BOOLEAN HandlePotentialBringUpAutoresolveToFinishBattle( int pSectorX, int pSectorY, int pSectorZ );
 
@@ -240,6 +240,6 @@ void HandleEmailBeingSentWhenEnteringSector( INT16 sMapX, INT16 sMapY, INT8 bMap
 BOOLEAN CanRequestMilitiaReinforcements( INT16 sMapX, INT16 sMapY, INT16 sSrcMapX, INT16 sSrcMapY );
 
 // Bob: check and try to fix issues with squad and group assignment
-UINT8 tryToRecoverSquadsAndMovementGroups(SOLDIERTYPE* pCharacter);
+UINT8 tryToRecoverSquadsAndMovementGroups(TacticalActor* pCharacter);
 
 #endif

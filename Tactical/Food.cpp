@@ -1,5 +1,7 @@
 	#include "sgp.h"
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
+#include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 	#include "Soldier Profile.h"
 	#include "Food.h"
@@ -25,14 +27,14 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 FOODOPINIONS FoodOpinions[NUM_PROFILES];
 
 extern MoraleEvent gbMoraleEvent[NUM_MORALE_EVENTS];
 
 extern BOOLEAN GetSectorFlagStatus( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, UINT32 uiFlagToSet );
-extern BOOLEAN IsVehicle(SOLDIERTYPE *pSoldier);
+extern BOOLEAN IsVehicle(TacticalActor *pSoldier);
 
 extern SECTOR_EXT_DATA	SectorExternalData[256][4];
 
@@ -95,7 +97,7 @@ void AddFoodpoints( INT32& arCurrentFood, INT32 aVal )
 	arCurrentFood = max(arCurrentFood, FOOD_MIN);
 }
 
-BOOLEAN DoesSoldierRefuseToEat( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
+BOOLEAN DoesSoldierRefuseToEat( TacticalActor *pSoldier, OBJECTTYPE *pObj )
 {
 	if ( UsingFoodSystem() )
 	{
@@ -152,7 +154,7 @@ BOOLEAN DoesSoldierRefuseToEat( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
 	return FALSE;
 }
 
-BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsToUse )
+BOOLEAN ApplyFood( TacticalActor *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsToUse )
 {
 	// static variables to remember the last food someone was forced to eat
 	static UINT8 lasteater = 0;
@@ -257,7 +259,7 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 		(*pObject)[0]->data.sObjectFlag |= INFECTED;
 	// if object is infected, infect the victim
 	else if ( (*pObject)[0]->data.sObjectFlag & INFECTED && gGameExternalOptions.fDiseaseContaminatesItems )
-		pSoldier->Infect( 0 );
+		TacticalActorDisease::infect(*pSoldier, 0 );
 	
 	INT32 sBPAdjustment = 0;
 	// if the food is more of a drink, we also restore breath points
@@ -292,7 +294,7 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 	return( TRUE );
 }
 
-void GetFoodSituation( SOLDIERTYPE *pSoldier, UINT8* pFoodSituation, UINT8* pWaterSituation )
+void GetFoodSituation( TacticalActor *pSoldier, UINT8* pFoodSituation, UINT8* pWaterSituation )
 {
 	*pFoodSituation = FOOD_NORMAL;
 	*pWaterSituation = FOOD_NORMAL;
@@ -310,7 +312,7 @@ void GetFoodSituation( SOLDIERTYPE *pSoldier, UINT8* pFoodSituation, UINT8* pWat
 	}
 }
 
-void FoodMaxMoraleModifiy( SOLDIERTYPE *pSoldier, UINT8* pubMaxMorale )
+void FoodMaxMoraleModifiy( TacticalActor *pSoldier, UINT8* pubMaxMorale )
 {
 	if ( !pSoldier )
 		return;
@@ -325,7 +327,7 @@ void FoodMaxMoraleModifiy( SOLDIERTYPE *pSoldier, UINT8* pubMaxMorale )
 	(*pubMaxMorale) = max(1, (*pubMaxMorale) + foodmod + watermod);
 }
 
-void FoodNeedForSleepModifiy( SOLDIERTYPE *pSoldier, UINT8* pubNeedForSleep )
+void FoodNeedForSleepModifiy( TacticalActor *pSoldier, UINT8* pubNeedForSleep )
 {
 	if ( !pSoldier )
 		return;
@@ -337,7 +339,7 @@ void FoodNeedForSleepModifiy( SOLDIERTYPE *pSoldier, UINT8* pubNeedForSleep )
 	(*pubNeedForSleep) = max(1, (INT16)((*pubNeedForSleep) + FoodMoraleMods[foodsituation].bSleepModifier + FoodMoraleMods[watersituation].bSleepModifier ));
 }
 
-void ReducePointsForHunger( SOLDIERTYPE *pSoldier, UINT32 *pusPoints )
+void ReducePointsForHunger( TacticalActor *pSoldier, UINT32 *pusPoints )
 {
 	UINT8 foodsituation;
 	UINT8 watersituation;
@@ -349,7 +351,7 @@ void ReducePointsForHunger( SOLDIERTYPE *pSoldier, UINT32 *pusPoints )
 	*pusPoints = (UINT32)((*pusPoints) * (100 + foodmod + watermod)/100);
 }
 
-void ReduceBPRegenForHunger( SOLDIERTYPE *pSoldier, INT32 *psPoints )
+void ReduceBPRegenForHunger( TacticalActor *pSoldier, INT32 *psPoints )
 {
 	UINT8 foodsituation;
 	UINT8 watersituation;
@@ -361,7 +363,7 @@ void ReduceBPRegenForHunger( SOLDIERTYPE *pSoldier, INT32 *psPoints )
 	*psPoints = (INT32)((*psPoints) * (100 + foodmod + watermod)/100);
 }
 
-void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
+void HourlyFoodSituationUpdate( TacticalActor *pSoldier )
 {
 	// A merc away on a minievent assignment is ignored since we cannot control their food or water intake.
 	// Without this they would end up losing stats and/or dying during long event assignments, which would lead to the game crashing when death occurs.
@@ -393,8 +395,8 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 
 	FLOAT  temperaturemodifier  = (FLOAT)(3 + sectortemperaturemod)/3;
 	
-	FLOAT specialfoodmodifier  = 100.0 + pSoldier->GetBackgroundValue( BG_PERC_FOOD );
-	FLOAT specialdrinkmodifier = 100.0 + pSoldier->GetBackgroundValue( BG_PERC_WATER );
+	FLOAT specialfoodmodifier  = 100.0 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_FOOD );
+	FLOAT specialdrinkmodifier = 100.0 + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_WATER );
 
 	if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 	{
@@ -404,8 +406,8 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
-		specialfoodmodifier  += Disease[i].sFoodModifier  * pSoldier->GetDiseaseMagnitude( i );
-		specialdrinkmodifier += Disease[i].sDrinkModifier * pSoldier->GetDiseaseMagnitude( i );
+		specialfoodmodifier  += Disease[i].sFoodModifier  * TacticalActorDisease::magnitude(*pSoldier, i );
+		specialdrinkmodifier += Disease[i].sDrinkModifier * TacticalActorDisease::magnitude(*pSoldier, i );
 	}
 
 	specialfoodmodifier /= 100.0;
@@ -580,7 +582,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 }
 
 
-void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
+void HourlyFoodAutoDigestion( TacticalActor *pSoldier )
 {
 	if ( !pSoldier )
 		return;
@@ -665,7 +667,7 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 }
 
 // eat stuff from the inventory. if fcanteensonly = TRUE, only drink from canteen items
-void EatFromInventory( SOLDIERTYPE *pSoldier, BOOLEAN fcanteensonly )
+void EatFromInventory( TacticalActor *pSoldier, BOOLEAN fcanteensonly )
 {
 	if ( !pSoldier )
 		return;
@@ -763,7 +765,7 @@ void EatFromInventory( SOLDIERTYPE *pSoldier, BOOLEAN fcanteensonly )
 void HourlyFoodUpdate( void )
 {
 	SoldierID bMercID, bLastTeamID;
-	SOLDIERTYPE * pSoldier = NULL;
+	TacticalActor * pSoldier = NULL;
 
 	bMercID = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	bLastTeamID = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
@@ -830,7 +832,7 @@ void SectorFillCanteens( void )
 
 		// first step: fill all canteens in inventories
 		SoldierID bMercID, bLastTeamID;
-		SOLDIERTYPE * pSoldier = NULL;
+		TacticalActor * pSoldier = NULL;
 
 		bMercID = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		bLastTeamID = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
@@ -905,7 +907,7 @@ void SectorFillCanteens( void )
 
 		// first step: fill all canteens in inventories
 		SoldierID bMercID, bLastTeamID;
-		SOLDIERTYPE * pSoldier = NULL;
+		TacticalActor * pSoldier = NULL;
 
 		bMercID = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		bLastTeamID = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
@@ -1058,7 +1060,7 @@ OBJECTTYPE* GetUsableWaterDrumInSector( void )
 }
 
 // soldier refills canteen while auto-consuming. Only clean sector water souces are consumed, and sector inventory is not touched (sector is likely not loaded)
-void SoldierAutoFillCanteens(SOLDIERTYPE *pSoldier)
+void SoldierAutoFillCanteens(TacticalActor *pSoldier)
 {
 	// no functionality if in combat, invalid/travelling/asleep/non-profile soldier
 	if ( (IsJa2TacticalCombatActive()) || !pSoldier || !pSoldier->roster().active() || pSoldier->assignment().isAsleep() || pSoldier->identity().profile() == NO_PROFILE )
@@ -1100,7 +1102,7 @@ void SoldierAutoFillCanteens(SOLDIERTYPE *pSoldier)
 	}
 }
 
-BOOLEAN HasFoodInInventory( SOLDIERTYPE *pSoldier, BOOLEAN fCheckFood, BOOLEAN fCheckDrink )
+BOOLEAN HasFoodInInventory( TacticalActor *pSoldier, BOOLEAN fCheckFood, BOOLEAN fCheckDrink )
 {
 	if ( !pSoldier )
 		return FALSE;
@@ -1135,7 +1137,7 @@ BOOLEAN HasFoodInInventory( SOLDIERTYPE *pSoldier, BOOLEAN fCheckFood, BOOLEAN f
 	return FALSE;
 }
 
-void DrinkFromWaterTap( SOLDIERTYPE* pSoldier )
+void DrinkFromWaterTap( TacticalActor* pSoldier )
 {
 	if ( !pSoldier )
 		return;

@@ -123,7 +123,7 @@ public:
 	void AddCriterion(UINT32 type, NumberList& list);
 	void AddCriterion(UINT32 type, Filter* filter);
 	void Dump(std::wstringstream& stream);
-	bool Match(SOLDIERTYPE* pSoldier);
+	bool Match(TacticalActor* pSoldier);
 
 private:
 	CriteriaMap criteria;

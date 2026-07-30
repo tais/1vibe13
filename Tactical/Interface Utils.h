@@ -9,13 +9,13 @@
 #define		DRAW_ITEM_STATUS_ATTACHMENT3		202
 #define		DRAW_ITEM_STATUS_ATTACHMENT4		203
 
-void DrawMoraleUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer );
-void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer );
-void DrawLifeUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer );
+void DrawMoraleUIBarEx( TacticalActor *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer );
+void DrawBreathUIBarEx( TacticalActor *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer );
+void DrawLifeUIBarEx( TacticalActor *pSoldier, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, BOOLEAN fErase, UINT32 uiBuffer );
 
 void DrawItemUIBarEx( OBJECTTYPE *pObject, UINT8 ubStatus, INT16 sXPos, INT16 sYPos, INT16 sWidth, INT16 sHeight, PIXEL sColor1, PIXEL sColor2, BOOLEAN fErase, UINT32 uiBuffer, UINT8 iter = 0 );
 
-void RenderSoldierFace( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLEAN fAutoFace );
+void RenderSoldierFace( TacticalActor *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLEAN fAutoFace );
 
 // load portraits for cars
 BOOLEAN LoadCarPortraitValues( void );

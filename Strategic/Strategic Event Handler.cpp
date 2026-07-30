@@ -25,7 +25,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 extern WorldItems gAllWorldItems;
 
 
@@ -772,7 +772,7 @@ void HandleNPCSystemEvent( UINT32 uiEvent )
 					gMercProfiles[ JOEY ].sSectorY == gModSettings.ubJoeyPrimarySectorY && //MAP_ROW_D
 					gMercProfiles[ JOEY ].bSectorZ == gModSettings.ubJoeyPrimarySectorZ ) //1
 				{
-					SOLDIERTYPE * pJoey;
+					TacticalActor * pJoey;
 
 					pJoey = FindSoldierByProfileID( JOEY, FALSE );
 					if (pJoey )

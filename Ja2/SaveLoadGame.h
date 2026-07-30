@@ -5,7 +5,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 #define		BYTESINMEGABYTE						1048576 //1024*1024
@@ -86,7 +86,11 @@ BOOLEAN LoadPathNodeFromFile( HWFILE hFile, struct path* p );
 BOOLEAN SaveMercPathFromSoldierStruct( HWFILE hFile, UINT16 ubID );
 BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID );
 
-BOOLEAN CopySavedSoldierInfoToNewSoldier( SOLDIERTYPE *pDestSourceInfo, SOLDIERTYPE *pSourceInfo );
+UINT32 ComputeTacticalActorChecksum( const TacticalActor& actor );
+BOOLEAN SaveTacticalActor( HWFILE hFile, TacticalActor& actor );
+BOOLEAN LoadTacticalActor( HWFILE hFile, TacticalActor& actor );
+
+BOOLEAN CopySavedSoldierInfoToNewSoldier( TacticalActor *pDestSourceInfo, TacticalActor *pSourceInfo );
 
 BOOLEAN		SaveFilesToSavedGame( STR pSrcFileName, HWFILE hFile );
 BOOLEAN		LoadFilesFromSavedGame( STR pSrcFileName, HWFILE hFile );

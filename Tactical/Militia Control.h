@@ -24,14 +24,14 @@ extern BOOLEAN fFirstClickInMilitiaControlScreenMask;
 void DetermineMilitiaControlBoxPositions( void );
 
 // set x,y position in tactical 
-void SetTacticalPopUpMilitiaControlBoxXY( SOLDIERTYPE *pSoldier );
+void SetTacticalPopUpMilitiaControlBoxXY( TacticalActor *pSoldier );
 
 BOOLEAN CreateDestroyMilitiaControlPopUpBoxes( void );
 
 BOOLEAN CheckIfRadioIsEquipped( void );
 
 BOOLEAN CaptureMilitiaControlTarget( TacticalEntityId actor );
-SOLDIERTYPE *ResolveMilitiaControlTarget( void );
+TacticalActor *ResolveMilitiaControlTarget( void );
 void ClearMilitiaControlTarget( void );
 
 #endif

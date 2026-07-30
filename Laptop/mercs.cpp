@@ -981,7 +981,7 @@ void BtnFileBoxButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 void DailyUpdateOfMercSite( UINT16 usDate)
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	SoldierID	sSoldierID;
 	INT16		i;
 	UINT8		ubMercID;
@@ -2629,7 +2629,7 @@ BOOLEAN IsSpeckComAvailable() // anv: Prevent Speck from talking if his playable
 	return(TRUE);
 }
 
-void HandleSpeckWitnessingEmployeeDeath( SOLDIERTYPE* pSoldier )  // anv: handle playable Speck witnessing his employee death
+void HandleSpeckWitnessingEmployeeDeath( TacticalActor* pSoldier )  // anv: handle playable Speck witnessing his employee death
 {	
 	if(pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 	{

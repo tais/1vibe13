@@ -1,4 +1,8 @@
+#include "TacticalActorEquipment.h"
 	#include "Items.h"
+	#include "TacticalActorConditions.h"
+	#include "TacticalActorDisease.h"
+#include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "Weapons.h"
@@ -32,35 +36,35 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 
 // FUNCTIONS FOR ITEM CURSOR HANDLING
-UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEAN fShowAPs, BOOLEAN fRecalc, UINT32 uiCursorFlags );
-UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEAN fShowAPs, BOOLEAN fRecalc, UINT32 uiCursorFlags );
-UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
-UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlagsl );
-UINT8 HandleAidCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
-UINT8 HandleActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubCursor );
-UINT8 HandleNonActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fRecalc, UINT32 uiCursorFlags, UINT8 ubCursor );
-UINT8 HandleWirecutterCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );
-UINT8 HandleRepairCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );
-UINT8 HandleRefuelCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );
-UINT8 HandleRemoteCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
-UINT8 HandleCameraCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
-UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
-UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
-UINT8 HandleBombCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
-UINT8 HandleJarCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );
-UINT8 HandleTinCanCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );
-UINT8 HandleFortificationCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );	//added by Flugente
-UINT8 HandleHandcuffCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );		//added by Flugente
-UINT8 HandleApplyItemCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );		//added by Flugente
-UINT8 HandleHackCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );		//added by Flugente
+UINT8 HandleActivatedTargetCursor( TacticalActor *pSoldier, INT32 usMapPos, BOOLEAN fShowAPs, BOOLEAN fRecalc, UINT32 uiCursorFlags );
+UINT8 HandleNonActivatedTargetCursor( TacticalActor *pSoldier, INT32 usMapPos, BOOLEAN fShowAPs, BOOLEAN fRecalc, UINT32 uiCursorFlags );
+UINT8 HandleKnifeCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
+UINT8 HandlePunchCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlagsl );
+UINT8 HandleAidCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
+UINT8 HandleActivatedTossCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubCursor );
+UINT8 HandleNonActivatedTossCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fRecalc, UINT32 uiCursorFlags, UINT8 ubCursor );
+UINT8 HandleWirecutterCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );
+UINT8 HandleRepairCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );
+UINT8 HandleRefuelCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );
+UINT8 HandleRemoteCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
+UINT8 HandleCameraCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
+UINT8 HandleBloodbagCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
+UINT8 HandleSplintCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
+UINT8 HandleBombCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags );
+UINT8 HandleJarCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );
+UINT8 HandleTinCanCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );
+UINT8 HandleFortificationCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );	//added by Flugente
+UINT8 HandleHandcuffCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );		//added by Flugente
+UINT8 HandleApplyItemCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );		//added by Flugente
+UINT8 HandleHackCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags );		//added by Flugente
 
-extern BOOLEAN	HandleCheckForBadChangeToGetThrough( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, INT32 sTargetGridNo , INT8 bLevel );
+extern BOOLEAN	HandleCheckForBadChangeToGetThrough( TacticalActor *pSoldier, TacticalActor *pTargetSoldier, INT32 sTargetGridNo , INT8 bLevel );
 
-UINT8 DefaultAutofireBulletsByGunClass( SOLDIERTYPE* pSoldier );	// added by Sevenfm
+UINT8 DefaultAutofireBulletsByGunClass( TacticalActor* pSoldier );	// added by Sevenfm
 
 BOOLEAN gfCannotGetThrough = FALSE;
 extern UINT32	guiUITargetSoldierId;
@@ -136,7 +140,7 @@ BOOLEAN GetMouseRecalcAndShowAPFlags( UINT32 *puiCursorFlags, BOOLEAN *pfShowAPs
 // FUNCTIONS FOR CURSOR DETERMINATION!
 UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMapPos, BOOLEAN fActivated )
 {
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	UINT32 uiCursorFlags;
 	BOOLEAN fShowAPs = FALSE;
 	BOOLEAN fRecalc = FALSE;
@@ -341,7 +345,7 @@ UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMa
 }
 
 // WANNE: Shows the target cursor over the enemy soldier
-UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEAN fShowAPs, BOOLEAN fRecalc, UINT32 uiCursorFlags )
+UINT8 HandleActivatedTargetCursor( TacticalActor *pSoldier, INT32 usMapPos, BOOLEAN fShowAPs, BOOLEAN fRecalc, UINT32 uiCursorFlags )
 {
 	UINT8							switchVal;
 	BOOLEAN							fEnoughPoints = TRUE;
@@ -1269,7 +1273,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 
 // WANNE: Shows the target cursor if we are not hovering over an enemy soldier
-UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BOOLEAN fShowAPs, BOOLEAN fRecalc, UINT32 uiCursorFlags  )
+UINT8 HandleNonActivatedTargetCursor( TacticalActor *pSoldier, INT32 usMapPos , BOOLEAN fShowAPs, BOOLEAN fRecalc, UINT32 uiCursorFlags  )
 {
 	UINT16				usInHand;
 
@@ -1432,7 +1436,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLEAN fRecalc )
 {
 	INT32 usMapPos;
-	SOLDIERTYPE				*pTargetSoldier = NULL, *pSoldier;
+	TacticalActor				*pTargetSoldier = NULL, *pSoldier;
 	UINT16	usFlags;
 	INT16	sMouseX, sMouseY, sCellX, sCellY, sScreenX, sScreenY;
 	BOOLEAN	fOnGuy = FALSE;
@@ -1683,7 +1687,7 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 }
 
 
-UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
+UINT8 HandleKnifeCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
 	INT16							sAPCosts;
 	INT8							bFutureAim;
@@ -1820,7 +1824,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 }
 
 
-UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
+UINT8 HandlePunchCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
 	INT16							sAPCosts;
 	INT8							bFutureAim;
@@ -1951,7 +1955,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 	}
 }
 
-UINT8 HandleAidCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
+UINT8 HandleAidCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
 	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
@@ -1979,13 +1983,13 @@ UINT8 HandleAidCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated,
 	}
 }
 
-UINT8 HandleActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubItemCursor )
+UINT8 HandleActivatedTossCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubItemCursor )
 {
 	return( ACTION_TOSS_UICURSOR );
 }
 
 
-UINT8 HandleNonActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fRecalc, UINT32 uiCursorFlags, UINT8 ubItemCursor )
+UINT8 HandleNonActivatedTossCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fRecalc, UINT32 uiCursorFlags, UINT8 ubItemCursor )
 {
 	INT32 sFinalGridNo;
 	static BOOLEAN fBadCTGH = FALSE;
@@ -2124,7 +2128,7 @@ UINT8 HandleNonActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEA
 }
 
 
-UINT8 HandleWirecutterCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
+UINT8 HandleWirecutterCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
 	// DRAW PATH TO GUY
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_WIREFENCE );
@@ -2145,7 +2149,7 @@ UINT8 HandleWirecutterCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCur
 }
 
 
-UINT8 HandleRepairCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
+UINT8 HandleRepairCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
 	// DRAW PATH TO GUY
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_REPAIR );
@@ -2159,7 +2163,7 @@ UINT8 HandleRepairCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorF
 	return( BAD_REPAIR_UICURSOR );
 }
 
-UINT8 HandleRefuelCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
+UINT8 HandleRefuelCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
 	// DRAW PATH TO GUY
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_REFUEL );
@@ -2174,7 +2178,7 @@ UINT8 HandleRefuelCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorF
 }
 
 
-UINT8 HandleJarCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
+UINT8 HandleJarCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
 	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
@@ -2193,7 +2197,7 @@ UINT8 HandleJarCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlag
 }
 
 
-UINT8 HandleTinCanCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
+UINT8 HandleTinCanCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
 	STRUCTURE					*pStructure;
 	INT32 sIntTileGridNo;
@@ -2223,7 +2227,7 @@ UINT8 HandleTinCanCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorF
 }
 
 
-UINT8 HandleRemoteCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
+UINT8 HandleRemoteCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
 
 	// Calculate action points
@@ -2250,7 +2254,7 @@ UINT8 HandleRemoteCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 	}
 }
 
-UINT8 HandleCameraCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
+UINT8 HandleCameraCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
 	// DRAW PATH TO GUY
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_CAMERA );
@@ -2264,7 +2268,7 @@ UINT8 HandleCameraCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 	return CAMERA_RED_UICURSOR;
 }
 
-UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
+UINT8 HandleBloodbagCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
 	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
@@ -2279,9 +2283,11 @@ UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActiv
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
+			TacticalActor* const donor =
+				GetJa2SoldierRepository().resolve(usSoldierIndex);
 			if ( usSoldierIndex != pSoldier->identity().id() &&
-				GetJa2SoldierRepository()
-					.resolve(usSoldierIndex.i)->IsValidBloodDonor() )
+				donor &&
+				TacticalActorConditions::canDonateBlood(*donor) )
 				return BLOODBAG_GREY_UICURSOR;
 		}
 	}
@@ -2289,7 +2295,7 @@ UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActiv
 	return BLOODBAG_RED_UICURSOR;
 }
 
-UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
+UINT8 HandleSplintCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
 	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
@@ -2316,9 +2322,11 @@ UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
+			TacticalActor* const splintTarget =
+				GetJa2SoldierRepository().resolve(usSoldierIndex.i);
 			if ( usSoldierIndex != pSoldier->identity().id() &&
-				GetJa2SoldierRepository()
-					.resolve(usSoldierIndex.i)->CanReceiveSplint() )
+				splintTarget != nullptr &&
+				TacticalActorDisease::canReceiveSplint(*splintTarget) )
 				return SPLINT_GREY_UICURSOR;
 		}
 	}
@@ -2326,7 +2334,7 @@ UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 	return SPLINT_RED_UICURSOR;
 }
 
-UINT8 HandleBombCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
+UINT8 HandleBombCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fActivated, UINT32 uiCursorFlags )
 {
 	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
@@ -2359,7 +2367,7 @@ UINT8 HandleBombCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated
 	}
 }
 
-UINT8 HandleFortificationCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
+UINT8 HandleFortificationCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
 	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
@@ -2388,7 +2396,7 @@ UINT8 HandleFortificationCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 ui
 	return( FORTIFICATION_RED_UICURSOR );
 }
 
-UINT8 HandleHandcuffCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
+UINT8 HandleHandcuffCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
 	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
@@ -2404,10 +2412,10 @@ UINT8 HandleHandcuffCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if (usSoldierIndex != NOBODY)
 		{
-			SOLDIERTYPE* target =
+			TacticalActor* target =
 				GetJa2SoldierRepository().resolve(
 					usSoldierIndex.i);
-			if (target->awareness().visibility() >= 0 && target->CanBeCaptured())
+			if (target->awareness().visibility() >= 0 && TacticalActorConditions::canBeCaptured(*target))
 			{
 				return( HANDCUFF_GREY_UICURSOR );
 			}
@@ -2417,7 +2425,7 @@ UINT8 HandleHandcuffCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 	return( HANDCUFF_RED_UICURSOR );
 }
 
-UINT8 HandleApplyItemCursor(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags)
+UINT8 HandleApplyItemCursor(TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags)
 {
 	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
@@ -2441,7 +2449,7 @@ UINT8 HandleApplyItemCursor(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 	return(APPLYITEM_RED_UICURSOR);
 }
 
-UINT8 HandleHackCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
+UINT8 HandleHackCursor( TacticalActor *pSoldier, INT32 sGridNo, UINT32 uiCursorFlags )
 {
 	if (pSoldier->position().level() != gsInterfaceLevel)
 	{
@@ -2452,7 +2460,10 @@ UINT8 HandleHackCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFla
 
 	UINT16 structindex;
 	UINT16 possibleaction = InteractiveActionPossibleAtGridNo( sGridNo, pSoldier->position().level(), structindex );
-	UINT16 skill = pSoldier->GetInteractiveActionSkill( sGridNo, pSoldier->position().level(), possibleaction );
+	UINT16 skill =
+		TacticalActorModifiers::interactiveActionSkill(
+			*pSoldier,
+			possibleaction);
 
 	if ( possibleaction == INTERACTIVE_STRUCTURE_HACKABLE )
 		return skill ? HACK_GREY_UICURSOR : HACK_RED_UICURSOR;
@@ -2470,7 +2481,7 @@ UINT8 HandleHackCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCursorFla
 	return NO_UICURSOR;
 }
 
-void HandleEndConfirmCursor( SOLDIERTYPE *pSoldier )
+void HandleEndConfirmCursor( TacticalActor *pSoldier )
 {
 	UINT16				usInHand;
 	UINT8					ubItemCursor;
@@ -2486,7 +2497,7 @@ void HandleEndConfirmCursor( SOLDIERTYPE *pSoldier )
 	}
 }
 
-void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
+void HandleLeftClickCursor( TacticalActor *pSoldier )
 {
 	UINT16				usInHand;
 	UINT8					ubItemCursor;
@@ -2587,13 +2598,13 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 
 
 
-void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
+void HandleRightClickAdjustCursor( TacticalActor *pSoldier, INT32 usMapPos )
 {
 	UINT16					usInHand;
 	INT16					sAPCosts;
 	INT8					bFutureAim;
 	UINT8					ubCursor;
-	SOLDIERTYPE				*pTSoldier;
+	TacticalActor				*pTSoldier;
 	INT32					sGridNo;
 	INT8					bTargetLevel;
 
@@ -2919,7 +2930,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 }
 
 
-UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
+UINT8 GetActionModeCursor( TacticalActor *pSoldier )
 {
 	UINT8				ubCursor;
 	UINT16				usInHand;
@@ -2982,7 +2993,7 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 			return ( TRAJECTORYCURS );
 	}
 
-	usInHand = pSoldier->GetUsedWeaponNumber( &pSoldier->inventory()[HANDPOS] );
+	usInHand = TacticalActorEquipment::usedWeaponNumber(*pSoldier, &pSoldier->inventory()[HANDPOS] );
 	// Start off with what is in our hand
 	ubCursor = Item[ usInHand ].ubCursor;
 
@@ -3084,7 +3095,7 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 }
 
 // Switch on item, display appropriate feedback cursor for a click....
-void HandleUICursorRTFeedback( SOLDIERTYPE *pSoldier )
+void HandleUICursorRTFeedback( TacticalActor *pSoldier )
 {
 	UINT8 ubItemCursor;
 
@@ -3120,7 +3131,7 @@ void HandleUICursorRTFeedback( SOLDIERTYPE *pSoldier )
 
 
 /* good code from lesh
-BOOLEAN CanSoldierAffordAimTime( SOLDIERTYPE *pSoldier, INT16 usMapPos, INT8 bAimTime )
+BOOLEAN CanSoldierAffordAimTime( TacticalActor *pSoldier, INT16 usMapPos, INT8 bAimTime )
 {
 	INT8		maxAimLevels;
 	INT16		sAPCosts;
@@ -3138,7 +3149,7 @@ BOOLEAN CanSoldierAffordAimTime( SOLDIERTYPE *pSoldier, INT16 usMapPos, INT8 bAi
 	return TRUE;
 }
 
-BOOLEAN CanSoldierAffordPunching( SOLDIERTYPE *pSoldier, INT16 usMapPos, INT8 bRefineTime )
+BOOLEAN CanSoldierAffordPunching( TacticalActor *pSoldier, INT16 usMapPos, INT8 bRefineTime )
 {
 	INT16		sAPCosts;
 
@@ -3153,7 +3164,7 @@ BOOLEAN CanSoldierAffordPunching( SOLDIERTYPE *pSoldier, INT16 usMapPos, INT8 bR
 	return TRUE;
 }
 
-BOOLEAN CanSoldierAffordKnifing( SOLDIERTYPE *pSoldier, INT16 usMapPos, INT8 bRefineTime )
+BOOLEAN CanSoldierAffordKnifing( TacticalActor *pSoldier, INT16 usMapPos, INT8 bRefineTime )
 {
 	INT16		sAPCosts;
 
@@ -3168,7 +3179,7 @@ BOOLEAN CanSoldierAffordKnifing( SOLDIERTYPE *pSoldier, INT16 usMapPos, INT8 bRe
 	return TRUE;
 }
 
-BOOLEAN CanSoldierAffordBurstBullets( SOLDIERTYPE *pSoldier, INT16 usMapPos )
+BOOLEAN CanSoldierAffordBurstBullets( TacticalActor *pSoldier, INT16 usMapPos )
 {
 	INT16		sAPCosts;
 	INT8		bSaveDoAutofire;
@@ -3194,7 +3205,7 @@ BOOLEAN CanSoldierAffordBurstBullets( SOLDIERTYPE *pSoldier, INT16 usMapPos )
 }
 
 
-void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta )
+void HandleWheelAdjustCursor( TacticalActor *pSoldier, INT16 sMapPos, INT16 sDelta )
 {
 	UINT8					ubCursor;
 	INT8					bFutureAim;	
@@ -3214,7 +3225,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 			// warn if bad chance to get through
 			if ( gfUIFullTargetFound )
 			{
-				SOLDIERTYPE* target =
+				TacticalActor* target =
 					GetJa2SoldierRepository().resolve(
 						gusUIFullTargetID.i);
 				if ( !HandleCheckForBadChangeToGetThrough(
@@ -3309,7 +3320,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 // HEADROCK HAM B2.7: This function gives us an "approximate" CTH bar, that doesn't show the exact value of
 // CTH unless the character is well-trained. The worse trained a character is, the wilder the speculation.
 
-UINT32 ChanceToHitApproximation( SOLDIERTYPE * pSoldier, UINT32 uiChance )
+UINT32 ChanceToHitApproximation( TacticalActor * pSoldier, UINT32 uiChance )
 {
 	UINT16 bExpLevelValue = EffectiveExpLevel(pSoldier); // SANDRO - changed to effective level calc
 	UINT16 bMarksmanship = pSoldier->statistics().marksmanship();
@@ -3389,13 +3400,13 @@ UINT32 ChanceToHitApproximation( SOLDIERTYPE * pSoldier, UINT32 uiChance )
 
 
 /* //nearly debugged Headrock code, need to finish aiming for fist and knife
-void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta )
+void HandleWheelAdjustCursor( TacticalActor *pSoldier, INT16 sMapPos, INT16 sDelta )
 {
 	UINT16					usInHand;
 	INT16					sAPCosts;
 	INT8					bFutureAim;
 	UINT8					ubCursor;
-	SOLDIERTYPE				*pTSoldier;
+	TacticalActor				*pTSoldier;
 	INT16					sGridNo;
 	INT8					bTargetLevel;
 
@@ -3626,13 +3637,13 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 
 
 
-void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta, INT16 brstmode )
+void HandleWheelAdjustCursor( TacticalActor *pSoldier, INT32 sMapPos, INT32 sDelta, INT16 brstmode )
 {
 	UINT16					usInHand;
 	INT16					sAPCosts;
 	INT8					bFutureAim;
 	UINT8					ubCursor;
-	SOLDIERTYPE				*pTSoldier;
+	TacticalActor				*pTSoldier;
 	INT32					sGridNo;
 	INT8					bTargetLevel;
 
@@ -3856,13 +3867,13 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 	}
 }
 
-void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta )
+void HandleWheelAdjustCursorWOAB( TacticalActor *pSoldier, INT32 sMapPos, INT32 sDelta )
 {
 	UINT16					usInHand;
 	INT16					sAPCosts;
 	INT8					bFutureAim;
 	UINT8					ubCursor;
-	SOLDIERTYPE				*pTSoldier;
+	TacticalActor				*pTSoldier;
 	INT32					sGridNo;
 	INT8					bTargetLevel;
 
@@ -4053,7 +4064,7 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 	}
 }
 
-UINT8 DefaultAutofireBulletsByGunClass( SOLDIERTYPE* pSoldier )
+UINT8 DefaultAutofireBulletsByGunClass( TacticalActor* pSoldier )
 {
 	UINT32 usItemClass;
 	UINT16 usItem;

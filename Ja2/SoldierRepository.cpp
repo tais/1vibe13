@@ -6,8 +6,8 @@
 
 namespace
 {
-SOLDIERTYPE soldierRecords[TOTAL_SOLDIERS];
-SOLDIERTYPE* soldierSlots[TOTAL_SOLDIERS];
+TacticalActor soldierRecords[TOTAL_SOLDIERS];
+TacticalActor* soldierSlots[TOTAL_SOLDIERS];
 }
 
 Ja2SoldierRepository& Ja2SoldierRepository::standalone() noexcept
@@ -24,20 +24,20 @@ Ja2SoldierRepository::Ja2SoldierRepository() noexcept
 }
 
 Ja2SoldierRepository::Ja2SoldierRepository(
-	SOLDIERTYPE* records, SOLDIERTYPE** slots,
+	TacticalActor* records, TacticalActor** slots,
 	std::size_t capacity) noexcept
 	: records_(records), slots_(slots),
 	  capacity_(records && slots ? capacity : 0)
 {
 }
 
-SOLDIERTYPE& Ja2SoldierRepository::record(std::size_t slot) noexcept
+TacticalActor& Ja2SoldierRepository::record(std::size_t slot) noexcept
 {
 	assert(slot < capacity_);
 	return records_[slot];
 }
 
-const SOLDIERTYPE& Ja2SoldierRepository::record(
+const TacticalActor& Ja2SoldierRepository::record(
 	std::size_t slot) const noexcept
 {
 	assert(slot < capacity_);
@@ -45,7 +45,7 @@ const SOLDIERTYPE& Ja2SoldierRepository::record(
 }
 
 bool Ja2SoldierRepository::contains(
-	std::size_t slot, const SOLDIERTYPE& soldier) const noexcept
+	std::size_t slot, const TacticalActor& soldier) const noexcept
 {
 	return slot < capacity_ && slots_[slot] == &soldier;
 }
@@ -59,8 +59,8 @@ void Ja2SoldierRepository::initializeSlots() noexcept
 	}
 }
 
-SOLDIERTYPE* Ja2SoldierRepository::replace(
-	std::size_t slot, const SOLDIERTYPE& soldier) noexcept
+TacticalActor* Ja2SoldierRepository::replace(
+	std::size_t slot, const TacticalActor& soldier) noexcept
 {
 	if (!hasCanonicalBinding(slot)) return nullptr;
 	SoldierAnimationCacheComponent retainedCache;
@@ -104,7 +104,7 @@ bool Ja2SoldierRepository::swapRecords(
 	secondRenderBindings.swapStorage(
 		records_[secondSlot].renderBindings());
 
-	SOLDIERTYPE first = records_[firstSlot];
+	TacticalActor first = records_[firstSlot];
 	records_[firstSlot] = records_[secondSlot];
 	records_[secondSlot] = first;
 	firstSlotCache.swapStorage(

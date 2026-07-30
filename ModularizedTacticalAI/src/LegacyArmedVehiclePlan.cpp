@@ -4,14 +4,14 @@
 */
 
 #include "../include/LegacyArmedVehiclePlan.h"
-#include "Soldier Control.h" // definition of SOLDIERTYPE
+#include "Soldier Control.h" // definition of TacticalActor
 #include "AIInternals.h"
 
 namespace AI
 {
 	namespace tactical
 	{
-		LegacyArmedVehiclePlan::LegacyArmedVehiclePlan( SOLDIERTYPE* npc )
+		LegacyArmedVehiclePlan::LegacyArmedVehiclePlan( TacticalActor* npc )
 			: Plan( npc )
 		{
 		}

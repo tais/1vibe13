@@ -2539,7 +2539,7 @@ BOOLEAN TypeExistsInShadowLayer( INT32 iMapIndex, UINT32 fType, UINT16 *pusShado
 // #################################################################
 
 
-BOOLEAN AddMercToHead( INT32 iMapIndex, SOLDIERTYPE *pSoldier, BOOLEAN fAddStructInfo )
+BOOLEAN AddMercToHead( INT32 iMapIndex, TacticalActor *pSoldier, BOOLEAN fAddStructInfo )
 {
 	LEVELNODE							*pMerc		= NULL;
 	LEVELNODE							*pNextMerc		= NULL;
@@ -2571,7 +2571,7 @@ BOOLEAN AddMercToHead( INT32 iMapIndex, SOLDIERTYPE *pSoldier, BOOLEAN fAddStruc
 }
 
 
-BOOLEAN AddMercStructureInfo( INT32 sGridNo, SOLDIERTYPE *pSoldier )
+BOOLEAN AddMercStructureInfo( INT32 sGridNo, TacticalActor *pSoldier )
 {
 	UINT16 usAnimSurface;
 
@@ -2584,7 +2584,7 @@ BOOLEAN AddMercStructureInfo( INT32 sGridNo, SOLDIERTYPE *pSoldier )
 }
 
 
-BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldier, UINT16 usAnimSurface, UINT16 usAnimState )
+BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, TacticalActor *pSoldier, UINT16 usAnimSurface, UINT16 usAnimState )
 {
 	STRUCTURE_FILE_REF		*pStructureFileRef;
 	BOOLEAN								fReturn;
@@ -2672,7 +2672,7 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 	return( TRUE );
 }
 
-BOOLEAN OKToAddMercToWorld( SOLDIERTYPE *pSoldier, INT8 bDirection )
+BOOLEAN OKToAddMercToWorld( TacticalActor *pSoldier, INT8 bDirection )
 {
 	UINT16 usAnimSurface;
 	STRUCTURE_FILE_REF			*pStructFileRef;
@@ -2717,7 +2717,7 @@ BOOLEAN OKToAddMercToWorld( SOLDIERTYPE *pSoldier, INT8 bDirection )
 }
 
 
-BOOLEAN UpdateMercStructureInfo( SOLDIERTYPE *pSoldier )
+BOOLEAN UpdateMercStructureInfo( TacticalActor *pSoldier )
 {
 	// Remove strucute info!
 	if ( pSoldier->renderBindings().levelNode() == NULL )
@@ -2732,7 +2732,7 @@ BOOLEAN UpdateMercStructureInfo( SOLDIERTYPE *pSoldier )
 }
 
 
-BOOLEAN RemoveMerc( INT32 iMapIndex, SOLDIERTYPE *pSoldier, BOOLEAN fPlaceHolder )
+BOOLEAN RemoveMerc( INT32 iMapIndex, TacticalActor *pSoldier, BOOLEAN fPlaceHolder )
 {
 	LEVELNODE	*pMerc		= NULL;
 	LEVELNODE	*pOldMerc	= NULL;
@@ -3862,7 +3862,7 @@ SoldierID WhoIsThere2( INT32 sGridNo, INT8 bLevel )
 
 		while ( pStructure )
 		{
-			SOLDIERTYPE* soldier =
+			TacticalActor* soldier =
 				GetJa2SoldierRepository().resolve(
 					pStructure->usStructureID);
 			// person must either have their pSoldier->sGridNo here or be non-passable
@@ -4216,7 +4216,7 @@ void UpdateTreeVisibility()
 	UINT32	fTileFlags;
 	INT32 cnt;
 
-	SOLDIERTYPE *pOpponent;
+	TacticalActor *pOpponent;
 	STRUCTURE *pStructureData;
 	INT32 sSpot;
 	BOOLEAN fHideTree;

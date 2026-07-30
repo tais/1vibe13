@@ -202,7 +202,7 @@ extern FACETYPE	gFacesData[ NUM_FACE_SLOTS ];
 // Faces are done like this: Call
 INT32	InitFace( UINT8 usMercProfileID, SoldierID ubSoldierID, UINT32 uiInitFlags );
 // The first parameter is the profile ID and the second is the soldier ID ( which for most cases
-// will be NOBODY if the face is not created from a SOLDIERTYPE )
+// will be NOBODY if the face is not created from a TacticalActor )
 // This function allocates a slot in the table for the face, loads it's STI file, sets some
 // values for X,Y locations of eyes from the profile. Does not mkae the face visible or anything like that
 
@@ -258,7 +258,7 @@ void InternalShutupaYoFace( INT32 iFaceIndex, BOOLEAN fForce );
 // If you still want the face in moemory but want to stop if from being displayed, or handled call
 void SetAutoFaceInActive( INT32 iFaceIndex );
 
-BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier);
+BOOLEAN SetCamoFace(TacticalActor * pSoldier);
 
 // To set all currently allocated faces to either active or incactive, call these
 void SetAllAutoFacesInactive( );
@@ -277,8 +277,8 @@ void HandleTalkingAutoFaces( );
 
 
 // Same Functions but taking soldier ID first to get profile ID 
-INT32		InitSoldierFace( SOLDIERTYPE *pSoldier );
-void		DeleteSoldierFace( SOLDIERTYPE *pSoldier );
+INT32		InitSoldierFace( TacticalActor *pSoldier );
+void		DeleteSoldierFace( TacticalActor *pSoldier );
 void		SetAutoFaceActiveFromSoldier( UINT32 uiDisplayBuffer, UINT32 uiRestoreBuffer, SoldierID ubSoldierID, UINT16 usFaceX, UINT16 usFaceY );
 void		SetAutoFaceInActiveFromSoldier( SoldierID ubSoldierID );
 BOOLEAN RenderAutoFaceFromSoldier( SoldierID ubSoldierID );

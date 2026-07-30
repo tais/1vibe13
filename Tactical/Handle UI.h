@@ -295,7 +295,7 @@ void HandleObjectHighlighting( );
 extern BOOLEAN	gfUIForceReExamineCursorData;
 
 // WANNE: Calculate the APs to turn around
-INT16 APsToTurnAround(SOLDIERTYPE *pSoldier, INT32 sAdjustedGridNo);
+INT16 APsToTurnAround(TacticalActor *pSoldier, INT32 sAdjustedGridNo);
 
 // FUNCTIONS IN INPUT MODULES
 void GetKeyboardInput( UINT32 *puiNewEvent );
@@ -326,10 +326,10 @@ void ToggleLookCursorMode( UINT32 *puiNewEvent );
 void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance );
 void GetCursorMovementFlags( UINT32 *puiCursorFlags );
 
-BOOLEAN HandleUIMovementCursor( SOLDIERTYPE *pSoldier, UINT32 uiCursorFlags, INT32 usMapPos, UINT32 uiFlags );
-BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier );
+BOOLEAN HandleUIMovementCursor( TacticalActor *pSoldier, UINT32 uiCursorFlags, INT32 usMapPos, UINT32 uiFlags );
+BOOLEAN UIMouseOnValidAttackLocation( TacticalActor *pSoldier );
 
-BOOLEAN UIOkForItemPickup( SOLDIERTYPE *pSoldier, INT32 sGridNo );
+BOOLEAN UIOkForItemPickup( TacticalActor *pSoldier, INT32 sGridNo );
 
 BOOLEAN IsValidTalkableNPCFromMouse( SoldierID *pubSoldierID, BOOLEAN fGive, BOOLEAN fAllowMercs, BOOLEAN fCheckCollapsed );
 BOOLEAN IsValidTalkableNPC( SoldierID ubSoldierID, BOOLEAN fGive, BOOLEAN fAllowMercs, BOOLEAN fCheckCollapsed );
@@ -350,7 +350,7 @@ void HandleHandCursorRightClick( INT32 usMapPos, UINT32 *puiNewEvent );
 void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent);
 INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent );
 
-BOOLEAN HandleUIReloading( SOLDIERTYPE *pSoldier );
+BOOLEAN HandleUIReloading( TacticalActor *pSoldier );
 
 UINT32	UIHandleChangeLevel( UI_EVENT *pUIEvent );
 BOOLEAN UIHandleOnMerc( BOOLEAN fMovementMode );
@@ -364,15 +364,15 @@ BOOLEAN StopRubberBandedMercFromMoving(void);
 
 BOOLEAN SelectedGuyInBusyAnimation( );
 
-void GotoLowerStance( SOLDIERTYPE *pSoldier );
-void GotoHeigherStance( SOLDIERTYPE *pSoldier );
+void GotoLowerStance( TacticalActor *pSoldier );
+void GotoHeigherStance( TacticalActor *pSoldier );
 
-BOOLEAN IsValidJumpLocation( SOLDIERTYPE *pSoldier, INT32 sGridNo , BOOLEAN fCheckForPath);
+BOOLEAN IsValidJumpLocation( TacticalActor *pSoldier, INT32 sGridNo , BOOLEAN fCheckForPath);
 
-void PopupAssignmentMenuInTactical( SOLDIERTYPE *pSoldier );
+void PopupAssignmentMenuInTactical( TacticalActor *pSoldier );
 void PopupMilitiaControlMenu( TacticalEntityId actor ); //lal
 
-void PreventFromTheFreezingBug(SOLDIERTYPE* pSoldier);
+void PreventFromTheFreezingBug(TacticalActor* pSoldier);
 
 void GetGridNoScreenXY( INT32 sGridNo, INT16 *pScreenX, INT16 *pScreenY );
 

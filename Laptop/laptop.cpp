@@ -105,7 +105,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 BOOLEAN gfProcessCustomMaps  = FALSE; //ja25 UB
 
@@ -6183,7 +6183,7 @@ void PrintBalance( void )
 void PrintNumberOnTeam( void )
 {
 	CHAR16 pString[ 32 ];
-	SOLDIERTYPE *pSoldier, *pTeamSoldier;
+	TacticalActor *pSoldier, *pTeamSoldier;
 	SoldierID cnt = 0;
 	INT32 iCounter=0;
 	UINT16 usPosX, usPosY, usFontHeight, usStrLength;

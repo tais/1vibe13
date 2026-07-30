@@ -554,7 +554,7 @@ void InitializeHelicopter( void )
 }
 
 
-BOOLEAN AddSoldierToHelicopter( SOLDIERTYPE *pSoldier )
+BOOLEAN AddSoldierToHelicopter( TacticalActor *pSoldier )
 {
 	// attempt to add soldier to helicopter
 	if( iHelicopterVehicleId == -1 )
@@ -581,7 +581,7 @@ BOOLEAN AddSoldierToHelicopter( SOLDIERTYPE *pSoldier )
 }
 
 
-BOOLEAN RemoveSoldierFromHelicopter( SOLDIERTYPE *pSoldier )
+BOOLEAN RemoveSoldierFromHelicopter( TacticalActor *pSoldier )
 {
 	// attempt to add soldier to helicopter
 	if( iHelicopterVehicleId == -1 )
@@ -1477,7 +1477,7 @@ void SetUpHelicopterForMovement( void )
 		// add everyone in vehicle to this mvt group
 		for( iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iHelicopterVehicleId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 		{
-			SOLDIERTYPE* passenger =
+			TacticalActor* passenger =
 				ResolveVehiclePassenger(
 					iHelicopterVehicleId, iCounter );
 			if( passenger != NULL )
@@ -1595,7 +1595,7 @@ UINT8 MoveAllInHelicopterToFootMovementGroup( INT8 bNewSquad )
 	// take everyone out of heli and add to movement group
 	INT32 iCounter = 0;
 	UINT8 ubGroupId = 0;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	//INT8 bNewSquad;
 	BOOLEAN fAnyoneAboard = FALSE;
 	BOOLEAN fSuccess;
@@ -2205,7 +2205,7 @@ INT32 GetTotalCostOfHelicopterTrip( void )
 void HandleHelicopterOnGroundGraphic( void )
 {
 	UINT8					ubSite = 0;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 
 	// no worries if underground
 	if (gbWorldSectorZ != 0 )
@@ -2267,7 +2267,7 @@ void HandleHelicopterOnGroundGraphic( void )
 void HandleHelicopterOnGroundSkyriderProfile( void )
 {
 	UINT8					ubSite = 0;
-	SOLDIERTYPE		*pSoldier;
+	TacticalActor		*pSoldier;
 
 	// no worries if underground
 	if (gbWorldSectorZ != 0 )
@@ -2987,7 +2987,7 @@ void MakeHeliReturnToBase( UINT8 ubReturnReason )
 
 
 
-BOOLEAN SoldierAboardAirborneHeli( SOLDIERTYPE *pSoldier )
+BOOLEAN SoldierAboardAirborneHeli( TacticalActor *pSoldier )
 {
 	Assert( pSoldier );
 

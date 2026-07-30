@@ -49,7 +49,7 @@ extern BOOLEAN gfShowExitGrids;//dnl ch86 190214
 
 // Finds closest ExitGrid of same type as is at gridno, within a radius.	Checks
 // valid paths, destinations, etc.
-INT32 FindGridNoFromSweetSpotCloseToExitGrid( SOLDIERTYPE *pSoldier, INT32 sSweetGridNo, INT8 ubRadius, UINT8 *pubDirection );
-INT32 FindClosestExitGrid( SOLDIERTYPE *pSoldier, INT32 sSrcGridNo, INT16 ubRadius );
+INT32 FindGridNoFromSweetSpotCloseToExitGrid( TacticalActor *pSoldier, INT32 sSweetGridNo, INT8 ubRadius, UINT8 *pubDirection );
+INT32 FindClosestExitGrid( TacticalActor *pSoldier, INT32 sSrcGridNo, INT16 ubRadius );
 
 #endif

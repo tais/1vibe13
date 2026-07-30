@@ -15,7 +15,7 @@
 #include "../../Strategic/Quests.h"             // IN_BROTHEL
 
 
-void HandleAITacticalTraversal(SOLDIERTYPE* pSoldier);  // defined in TacticalAI/AIMain.cpp
+void HandleAITacticalTraversal(TacticalActor* pSoldier);  // defined in TacticalAI/AIMain.cpp
 
 namespace AI
 {
@@ -27,7 +27,7 @@ namespace AI
         {
         }
 
-        Plan::Plan(SOLDIERTYPE* npc)
+        Plan::Plan(TacticalActor* npc)
             : npc_(npc)
         {
         }

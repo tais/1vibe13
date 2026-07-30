@@ -760,7 +760,7 @@ BOOLEAN SectorIsBlockedFromFootExit( UINT16 sSourceSector, INT8 bToDirection )
 
 
 
-BOOLEAN CanThisMercMoveToThisSector( SOLDIERTYPE *pSoldier ,INT16 sX, INT16 sY )
+BOOLEAN CanThisMercMoveToThisSector( TacticalActor *pSoldier ,INT16 sX, INT16 sY )
 {
 	// this fucntion will return if this merc ( pSoldier ), can move to sector sX, sY
 	BOOLEAN fOkToMoveFlag = FALSE;
@@ -771,7 +771,7 @@ BOOLEAN CanThisMercMoveToThisSector( SOLDIERTYPE *pSoldier ,INT16 sX, INT16 sY )
 
 
 
-void SetThisMercsSectorXYToTheseValues( SOLDIERTYPE *pSoldier ,INT16 sX, INT16 sY, UINT8 ubFromDirection )
+void SetThisMercsSectorXYToTheseValues( TacticalActor *pSoldier ,INT16 sX, INT16 sY, UINT8 ubFromDirection )
 {
 	// will move a merc ( pSoldier )to a sector sX, sY
 
@@ -1256,7 +1256,7 @@ PathStPtr RemoveSectorFromStrategicPathList( PathStPtr pList , INT16 sX, INT16 s
 	return ( pPastNode );
 }
 
-INT16 GetLastSectorIdInCharactersPath( SOLDIERTYPE *pCharacter )
+INT16 GetLastSectorIdInCharactersPath( TacticalActor *pCharacter )
 {
 	// will return the last sector of the current path, or the current sector if there's no path
 	INT16 sLastSector = CALCULATE_STRATEGIC_INDEX( pCharacter->deployment().sectorX(), pCharacter->deployment().sectorY() );
@@ -1382,7 +1382,7 @@ PathStPtr CopyPaths( PathStPtr pSourcePath,	PathStPtr pDestPath )
 	return ( pDestNode );
 }
 
-INT32 GetStrategicMvtSpeed( SOLDIERTYPE *pCharacter )
+INT32 GetStrategicMvtSpeed( TacticalActor *pCharacter )
 {
 	// will return the strategic speed of the character
 	INT32 iSpeed;
@@ -1397,7 +1397,7 @@ INT32 GetStrategicMvtSpeed( SOLDIERTYPE *pCharacter )
 }
 
 /*
-void CalculateEtaForCharacterPath( SOLDIERTYPE *pCharacter )
+void CalculateEtaForCharacterPath( TacticalActor *pCharacter )
 {
 	PathStPtr pNode = NULL;
 	UINT32 uiDeltaEta =0;
@@ -1484,7 +1484,7 @@ void CalculateEtaForCharacterPath( SOLDIERTYPE *pCharacter )
 */
 
 /*
-void MoveCharacterOnPath( SOLDIERTYPE *pCharacter )
+void MoveCharacterOnPath( TacticalActor *pCharacter )
 {
 	// will move a character along a merc path
 	PathStPtr pNode = NULL;
@@ -1556,7 +1556,7 @@ void MoveCharacterOnPath( SOLDIERTYPE *pCharacter )
 void MoveTeamOnFoot( void )
 {
 	// run through list of characters on player team, if on foot, move them
-	SOLDIERTYPE *pSoldier, *pTeamSoldier;
+	TacticalActor *pSoldier, *pTeamSoldier;
 	INT32 cnt=0;
 
 	// set psoldier as first in merc ptrs
@@ -1614,7 +1614,7 @@ UINT32 GetEtaGivenRoute( PathStPtr pPath )
 void VerifyAllMercsInGroupAreOnSameSquad( GROUP *pGroup )
 {
 	PLAYERGROUP *pPlayer;
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 	INT8 bSquad = -1;
 
 	// Let's choose somebody in group.....
@@ -1741,7 +1741,7 @@ void RebuildWayPointsForGroupPath( PathStPtr pHeadOfPath, INT16 sMvtGroup )
 
 
 // clear strategic movement (mercpaths and waypoints) for this soldier, and his group (including its vehicles)
-void ClearMvtForThisSoldierAndGang( SOLDIERTYPE *pSoldier )
+void ClearMvtForThisSoldierAndGang( TacticalActor *pSoldier )
 {
 	GROUP *pGroup = NULL;
 
@@ -1936,7 +1936,7 @@ INT32 GetLengthOfPath( WAYPOINT* pHeadWaypoint )
 	return iLength;
 }
 
-INT32 GetLengthOfMercPath( SOLDIERTYPE *pSoldier )
+INT32 GetLengthOfMercPath( TacticalActor *pSoldier )
 {
 	PathStPtr pNode = NULL;
 	INT32 iLength = 0;
@@ -1966,7 +1966,7 @@ BOOLEAN CheckIfPathIsEmpty( PathStPtr pHeadPath )
 
 
 
-PathStPtr GetSoldierMercPathPtr( SOLDIERTYPE *pSoldier )
+PathStPtr GetSoldierMercPathPtr( TacticalActor *pSoldier )
 {
 	PathStPtr pMercPath = NULL;
 
@@ -2025,7 +2025,7 @@ PathStPtr GetGroupMercPathPtr( GROUP *pGroup )
 	else
 	{
 		// value returned will be NULL if there's nobody in the group!
-		SOLDIERTYPE* firstMember =
+		TacticalActor* firstMember =
 			ResolvePlayerGroupMember(
 				pGroup->pPlayerList );
 		if ( firstMember )
@@ -2040,7 +2040,7 @@ PathStPtr GetGroupMercPathPtr( GROUP *pGroup )
 
 
 
-UINT8 GetSoldierGroupId( SOLDIERTYPE *pSoldier )
+UINT8 GetSoldierGroupId( TacticalActor *pSoldier )
 {
 	UINT8 ubGroupId = 0;
 
@@ -2068,7 +2068,7 @@ UINT8 GetSoldierGroupId( SOLDIERTYPE *pSoldier )
 void ClearMercPathsAndWaypointsForAllInGroup( GROUP *pGroup )
 {
 	PLAYERGROUP *pPlayer = NULL;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	if ( pGroup->usGroupTeam == OUR_TEAM )
 	{
@@ -2119,7 +2119,7 @@ void ClearMercPathsAndWaypointsForAllInGroup( GROUP *pGroup )
 
 
 // clears the contents of the soldier's mercpPath, as well as his vehicle path if he is a / or is in a vehicle
-void ClearPathForSoldier( SOLDIERTYPE *pSoldier )
+void ClearPathForSoldier( TacticalActor *pSoldier )
 {
 	VEHICLETYPE *pVehicle = NULL;
 
@@ -2153,7 +2153,7 @@ void ClearPathForSoldier( SOLDIERTYPE *pSoldier )
 void AddSectorToFrontOfMercPathForAllSoldiersInGroup( GROUP *pGroup, UINT8 ubSectorX, UINT8 ubSectorY )
 {
 	PLAYERGROUP *pPlayer = NULL;
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 
 	pPlayer = pGroup->pPlayerList;
 	while( pPlayer )

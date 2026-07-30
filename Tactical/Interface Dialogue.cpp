@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalActorConditions.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp.h"
@@ -88,7 +89,7 @@
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
-class SOLDIERTYPE;
+class TacticalActor;
 
 //DBrot: not needed anymore, got an option for those
 //INT32	sBasementEnterGridNos[ ] = { 13362, 13363, 13364, 13365, 13525, 13524 };
@@ -104,7 +105,7 @@ void	DoneFadeOutActionLeaveBasement( void );
 void	DoneFadeInActionLeaveBasement( void );
 
 
-BOOLEAN NPCOpenThing( SOLDIERTYPE *pSoldier, BOOLEAN fDoor );
+BOOLEAN NPCOpenThing( TacticalActor *pSoldier, BOOLEAN fDoor );
 
 UINT16 gusDialogueMessageBoxType;
 
@@ -165,12 +166,12 @@ void DoneTalkingButtonClickCallback(GUI_BUTTON *btn, INT32 reason );
 void CalculatePopupTextPosition( INT16 sWidth, INT16 sHeight );
 void CalculatePopupTextOrientation( INT16 sWidth, INT16 sHeight );
 void HandleNPCTrigger( );
-BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData );
+BOOLEAN InternalInitiateConversation( TacticalActor *pDestSoldier, TacticalActor *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData );
 
 
 extern void EndGameMessageBoxCallBack( UINT8 ubExitValue );
 extern INT32 FindNearestOpenableNonDoor( INT32 sStartGridNo );
-extern void RecalculateOppCntsDueToBecomingNeutral( SOLDIERTYPE * pSoldier );
+extern void RecalculateOppCntsDueToBecomingNeutral( TacticalActor * pSoldier );
 extern UINT16 NumCapableEnemyInSector( );
 
 void DelayedMercQuote( UINT16 usProfileID, UINT32 uiQuoteNum, UINT32 uiTimeTillQuoteSaid );
@@ -275,8 +276,8 @@ struct PendingConversationContext
 	}
 
 	bool resolve(
-		SOLDIERTYPE*& resolvedDestination,
-		SOLDIERTYPE*& resolvedSource,
+		TacticalActor*& resolvedDestination,
+		TacticalActor*& resolvedSource,
 		INT8& selectedApproach,
 		uintptr_t& selectedApproachData) const noexcept
 	{
@@ -301,12 +302,12 @@ struct PendingConversationContext
 PendingConversationContext gPendingConversation;
 }
 
-SOLDIERTYPE* GetDialogueSourceSoldier( void )
+TacticalActor* GetDialogueSourceSoldier( void )
 {
 	return gDialogueActors.source.resolve();
 }
 
-SOLDIERTYPE* GetDialogueDestinationSoldier( void )
+TacticalActor* GetDialogueDestinationSoldier( void )
 {
 	return gDialogueActors.destination.resolve();
 }
@@ -341,7 +342,7 @@ enum
 	HOSPITAL_RANDOM_FREEBIE,
 };
 
-BOOLEAN InitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData )
+BOOLEAN InitiateConversation( TacticalActor *pDestSoldier, TacticalActor *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData )
 {
 	DebugQuestInfo(String("InitiateConversation: from [%d] to [%d] %d data %d", pSrcSoldier->identity().id(), pDestSoldier->identity().id(), bApproach, (UINT32)uiApproachData));
 
@@ -386,8 +387,8 @@ void HandlePendingInitConv( )
 {
 	if ( gfConversationPending )
 	{
-		SOLDIERTYPE* destination = NULL;
-		SOLDIERTYPE* source = NULL;
+		TacticalActor* destination = NULL;
+		TacticalActor* source = NULL;
 		INT8 approach = 0;
 		uintptr_t approachData = 0;
 		if (!gPendingConversation.resolve(
@@ -406,7 +407,7 @@ void HandlePendingInitConv( )
 }
 
 
-BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData )
+BOOLEAN InternalInitiateConversation( TacticalActor *pDestSoldier, TacticalActor *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData )
 {
 	// OK, init talking menu
 	BOOLEAN	fFromPending = gfConversationPending;
@@ -712,7 +713,7 @@ void DoneTalkingButtonClickCallback(GUI_BUTTON *btn, INT32 reason )
 void DeleteTalkingMenu( )
 {
 	INT32 cnt;
-	SOLDIERTYPE* destination =
+	TacticalActor* destination =
 		GetDialogueDestinationSoldier();
 
 	if ( !gfInTalkPanel )
@@ -792,7 +793,7 @@ void DeleteTalkingMenu( )
 		{
 			UINT8	ubNPC;
 			BOOLEAN fNice = FALSE;
-			SOLDIERTYPE * pNPC;
+			TacticalActor * pNPC;
 
 			if ( gubNiceNPCProfile != NO_PROFILE )
 			{
@@ -1127,9 +1128,9 @@ void TalkPanelClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				}
 				else
 				{
-					SOLDIERTYPE* source =
+					TacticalActor* source =
 						GetDialogueSourceSoldier();
-					SOLDIERTYPE* destination =
+					TacticalActor* destination =
 						GetDialogueDestinationSoldier();
 					if (!source || !destination)
 						return;
@@ -1276,7 +1277,7 @@ BOOLEAN ProfileCurrentlyTalkingInDialoguePanel( UINT8 ubProfile )
 {
 	if ( gfInTalkPanel )
 	{
-		SOLDIERTYPE* destination =
+		TacticalActor* destination =
 			GetDialogueDestinationSoldier();
 		if ( destination != NULL )
 		{
@@ -1295,7 +1296,7 @@ BOOLEAN HandleTalkingMenuEscape( BOOLEAN fCanDelete , BOOLEAN fFromEscKey )
 {
 	FACETYPE				*pFace;
 	BOOLEAN					fTalking = FALSE;
-	SOLDIERTYPE* destination =
+	TacticalActor* destination =
 		GetDialogueDestinationSoldier();
 
 	if ( !gfInTalkPanel )
@@ -1551,10 +1552,10 @@ BOOLEAN	NPCClosePanel( )
 	return( TRUE );
 }
 
-BOOLEAN SourceSoldierPointerIsValidAndReachableForGive( SOLDIERTYPE * pGiver )
+BOOLEAN SourceSoldierPointerIsValidAndReachableForGive( TacticalActor * pGiver )
 {
 	INT32		sAdjGridNo;
-	SOLDIERTYPE* source = GetDialogueSourceSoldier();
+	TacticalActor* source = GetDialogueSourceSoldier();
 
 	if ( !source )
 	{
@@ -1600,15 +1601,15 @@ void HandleNPCItemGiven( UINT8 ubNPC, INT8 bInvPos )
 	// pointer smuggled through the UINT32 dialogue field (it truncated on 64-bit).
 	// ubNPC + bInvPos survive the queue intact; the drop branch below already
 	// reconstructed the object this way.
-	SOLDIERTYPE * pNPC = FindSoldierByProfileID( ubNPC, FALSE );
+	TacticalActor * pNPC = FindSoldierByProfileID( ubNPC, FALSE );
 	if ( pNPC == NULL )
 	{
 		return;
 	}
 	OBJECTTYPE * pObject = &(pNPC->inventory()[ bInvPos ]);
-	SOLDIERTYPE* destination =
+	TacticalActor* destination =
 		GetDialogueDestinationSoldier();
-	SOLDIERTYPE* source =
+	TacticalActor* source =
 		GetDialogueSourceSoldier();
 
 	DebugQuestInfo(String("HandleNPCItemGiven: <%d> item %d inv %d", ubNPC, pObject->usItem, bInvPos));
@@ -1639,7 +1640,7 @@ void HandleNPCTriggerNPC( UINT8 ubTargetNPC, UINT8 ubTargetRecord, BOOLEAN fShow
 {
 	DebugQuestInfo(String("HandleNPCTriggerNPC: <%d>, record %d, %d, display %d", ubTargetNPC, ubTargetRecord, ubTargetApproach, fShowDialogueMenu));
 
-	SOLDIERTYPE *pSoldier;
+	TacticalActor *pSoldier;
 
 	pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
 
@@ -1715,10 +1716,10 @@ void HandleNPCTriggerNPC( UINT8 ubTargetNPC, UINT8 ubTargetRecord, BOOLEAN fShow
 
 void HandleNPCTrigger( )
 {
-	SOLDIERTYPE *pSoldier;
-	SOLDIERTYPE* destination =
+	TacticalActor *pSoldier;
+	TacticalActor* destination =
 		GetDialogueDestinationSoldier();
-	SOLDIERTYPE* source =
+	TacticalActor* source =
 		GetDialogueSourceSoldier();
 	INT32				sPlayerGridNo;
 	UINT16				ubPlayerID;
@@ -1773,7 +1774,7 @@ void HandleNPCTrigger( )
 					ubPlayerID = WhoIsThere2( sPlayerGridNo, 0 );
 					if (ubPlayerID != NOBODY)
 					{
-						SOLDIERTYPE* player =
+						TacticalActor* player =
 							GetJa2SoldierRepository().resolve(ubPlayerID);
 						if (player)
 						{
@@ -1821,7 +1822,7 @@ void HandleNPCGotoGridNo( UINT8 ubTargetNPC, INT32 usGridNo, UINT8 ubQuoteNum )
 {
 	DebugQuestInfo(String("HandleNPCItemGiven:<%d> GridNo %d quote num %d", ubTargetNPC, usGridNo, ubQuoteNum));
 
-	SOLDIERTYPE			 *pSoldier;
+	TacticalActor			 *pSoldier;
 	// OK, Move to gridNo!
 
 	// Shotdown any panel we had up...
@@ -1888,7 +1889,7 @@ void HandleStuffForNPCEscorted( UINT8 ubNPC )
 
 #else
 
-	SOLDIERTYPE * pSoldier;
+	TacticalActor * pSoldier;
 
 	switch( ubNPC )
 	{
@@ -1966,7 +1967,7 @@ void HandleFactForNPCUnescorted( UINT8 ubNPC )
 namespace
 {
 bool TryHandleCampaignDialogueAction(
-	UINT8 targetNpc, UINT16 rawAction, SOLDIERTYPE* dialogueDestination)
+	UINT8 targetNpc, UINT16 rawAction, TacticalActor* dialogueDestination)
 {
 	using CampaignActionCode::DialogueAction;
 	switch (CampaignActionCode::decodeDialogueAction(
@@ -2026,10 +2027,10 @@ bool TryHandleCampaignDialogueAction(
 void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum )
 {
 	SoldierID	cnt;
-	SOLDIERTYPE *pSoldier, *pSoldier2;
-	SOLDIERTYPE* dialogueDestination =
+	TacticalActor *pSoldier, *pSoldier2;
+	TacticalActor* dialogueDestination =
 		GetDialogueDestinationSoldier();
-	SOLDIERTYPE* dialogueSource =
+	TacticalActor* dialogueSource =
 		GetDialogueSourceSoldier();
 	INT8			bNumDone = 0;
 	INT32		sGridNo = NOWHERE, sAdjustedGridNo;
@@ -2367,7 +2368,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					//MakeCivHostile(pSoldier);
 				}
-				if ( ( pSoldier->identity().profile() != NO_PROFILE || pSoldier->IsAssassin() ) && pSoldier->vitals().health() >= OKLIFE )
+				if ( ( pSoldier->identity().profile() != NO_PROFILE || TacticalActorConditions::isAssassin(*pSoldier) ) && pSoldier->vitals().health() >= OKLIFE )
 				{
 					// trigger quote!
 					//TriggerNPCWithIHateYouQuote( pSoldier->identity().profile() );
@@ -3597,7 +3598,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if (pSoldier)
 				{
 					SoldierID ubTargetID;
-					SOLDIERTYPE *pTarget;
+					TacticalActor *pTarget;
 
 					// Target a different merc....
 					if ( usActionCode == NPC_ACTION_PUNCH_PC_SLOT_0 )
@@ -3674,7 +3675,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
 				if (pSoldier)
 				{
-					SOLDIERTYPE *pTarget;
+					TacticalActor *pTarget;
 
 					pTarget = FindSoldierByProfileID( ELLIOT, FALSE );
 
@@ -3719,7 +3720,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if (pSoldier)
 				{
 					SoldierID ubTargetID;
-					SOLDIERTYPE *pTarget;
+					TacticalActor *pTarget;
 					INT32				cnt;
 					BOOLEAN			fGoodTarget = FALSE;
 
@@ -4728,7 +4729,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 	}
 }
 
-UINT32 CalcPatientMedicalCost( SOLDIERTYPE * pSoldier )
+UINT32 CalcPatientMedicalCost( TacticalActor * pSoldier )
 {
 	UINT32	uiCost;
 
@@ -4791,10 +4792,10 @@ UINT32 CalcPatientMedicalCost( SOLDIERTYPE * pSoldier )
 UINT32 CalcMedicalCost( UINT8 ubId )
 {
 	UINT32	uiCostSoFar = 0;
-	SOLDIERTYPE* pSoldier;
+	TacticalActor* pSoldier;
 	
 	// find the doctor's soldiertype to get his position
-	SOLDIERTYPE* pNPC = FindSoldierByProfileID( ubId, FALSE );
+	TacticalActor* pNPC = FindSoldierByProfileID( ubId, FALSE );
 	if (!pNPC)
 	{
 		return( 0 );
@@ -4930,10 +4931,10 @@ void StartDialogueMessageBox( UINT8 ubProfileID, UINT16 usMessageBoxType )
 void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 {
 	UINT8						ubProfile;
-	SOLDIERTYPE			*pSoldier;
-	SOLDIERTYPE* destination =
+	TacticalActor			*pSoldier;
+	TacticalActor* destination =
 		GetDialogueDestinationSoldier();
-	SOLDIERTYPE* source =
+	TacticalActor* source =
 		GetDialogueSourceSoldier();
 
 	if (!destination)
@@ -5084,8 +5085,8 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 				// He tried to lie.....
 				// Find the best conscious merc with a chance....
 				SoldierID	cnt;
-				SOLDIERTYPE *pLier = NULL;
-				SOLDIERTYPE *pSoldier;
+				TacticalActor *pLier = NULL;
+				TacticalActor *pSoldier;
 
 				cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 				for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
@@ -5257,7 +5258,7 @@ void	DoneFadeOutActionSex( )
 void	DoneFadeInActionBasement( )
 {
 	// Start conversation, etc
-	SOLDIERTYPE *pSoldier, *pNPCSoldier;
+	TacticalActor *pSoldier, *pNPCSoldier;
 
 	// Look for someone to talk to
 	// look for all mercs on the same team,
@@ -5315,7 +5316,7 @@ void	DoneFadeInActionLeaveBasement( )
 
 
 
-BOOLEAN NPCOpenThing( SOLDIERTYPE *pSoldier, BOOLEAN fDoor )
+BOOLEAN NPCOpenThing( TacticalActor *pSoldier, BOOLEAN fDoor )
 {
 	STRUCTURE					*pStructure;
 	INT32							sStructGridNo;
@@ -5458,7 +5459,7 @@ void PerformJerryMiloAction301()
 {
 	SoldierID	ubMercsPresent[NUM_MERCS_WITH_NEW_QUOTES];
 	UINT8		usNumMercsPresent;
-	SOLDIERTYPE	*pSoldier=NULL;
+	TacticalActor	*pSoldier=NULL;
 	SoldierID	ubId;
 
 	//Get the number and array of the new soldiers
@@ -5502,7 +5503,7 @@ void PerformJerryMiloAction302()
 		ubIdOfMercWhoSaidQuote = Random( usNumMercsPresent );
 		SoldierID ubId = ubMercsPresent[ ubIdOfMercWhoSaidQuote ];
 
-		SOLDIERTYPE* pSoldier =
+		TacticalActor* pSoldier =
 			GetJa2SoldierRepository().resolve(ubId.i);
 		if (!pSoldier)
 		{
@@ -5528,7 +5529,7 @@ void PerformJerryMiloAction302()
 				}
 			}
 
-			SOLDIERTYPE* respondingSoldier =
+			TacticalActor* respondingSoldier =
 				GetJa2SoldierRepository().resolve(ubId.i);
 			if (!respondingSoldier)
 			{
@@ -5552,7 +5553,7 @@ void PerformJerryMiloAction302()
 }
 void DelayedSayingOfMercQuote( UINT32 uiParam )
 {
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	UINT16 usProfileID;
 	UINT16 usQuoteNum;
 
@@ -5647,8 +5648,8 @@ void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileI
 	SoldierID	ValidSoldierIdArray[NUM_MERCS_WITH_NEW_QUOTES] = {0};
 	UINT8		ubNumValidSoldiers=0;
 	UINT8		ubCnt;
-	SOLDIERTYPE *pSoldier=NULL;
-	SOLDIERTYPE * pNPC;
+	TacticalActor *pSoldier=NULL;
+	TacticalActor * pNPC;
 
 	pNPC = FindSoldierByProfileID( ubNpcProfileID, FALSE );
 	if( pNPC == NULL )
@@ -5689,7 +5690,7 @@ void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileI
 	if( ubNumValidSoldiers > 0 )
 	{
 		UINT8 ubChosenMerc = (UINT8)Random( ubNumValidSoldiers );
-		SOLDIERTYPE* chosenMerc =
+		TacticalActor* chosenMerc =
 			GetJa2SoldierRepository().resolve(
 				ValidSoldierIdArray[ubChosenMerc].i);
 		if (chosenMerc)
@@ -5761,7 +5762,7 @@ void HaveBiggensDetonatingExplosivesByTheMine()
 	if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
 		return;
 
-	SOLDIERTYPE *pSoldier = NULL;
+	TacticalActor *pSoldier = NULL;
 	SoldierID	ubID = NOBODY;
 
 	pSoldier = FindSoldierByProfileID( BIGGENS_UB , FALSE ); //BIGGENS
@@ -5887,7 +5888,7 @@ void CantAffordMercCallback( UINT8 ubExitValue )
 void HandleMercArrivesQuotesFromHeliCrashSequence()
 {
 	UINT32 uiCnt;
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 
 	uiCnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 
@@ -5908,7 +5909,7 @@ void HandleMercArrivesQuotesFromHeliCrashSequence()
 
 void HandleRaulBlowingHimselfUp()
 {
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 	UINT16			usItem=0;
 
 	//Find Raul
@@ -5942,7 +5943,7 @@ void HandleTexMakingHimselfAlreadyBeIntroduced()
 
 void HandleTexBecomingCamoed()
 {
-	SOLDIERTYPE *pSoldier=NULL;
+	TacticalActor *pSoldier=NULL;
 
 	//Find TEX
 	pSoldier = FindSoldierByProfileID( TEX_UB, FALSE );
@@ -5998,7 +5999,7 @@ void DisplayJerryBreakingLaptopTransmitterPopup()
 		//Assert( 0 );
 		return;
 	}
-	SOLDIERTYPE* namedSoldier =
+	TacticalActor* namedSoldier =
 		GetJa2SoldierRepository().resolve(
 			static_cast<UINT8>(bID));
 	if (!namedSoldier)
