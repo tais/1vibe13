@@ -57,6 +57,7 @@
 #include "Text.h"	// sevenfm
 #include "english.h" // sevenfm: for ESC key
 #include "SoldierRepository.h"
+#include "TacticalActorRadio.h"
 
 #include "connect.h"
 // needed to use the modularized tactical AI:
@@ -1871,7 +1872,8 @@ void AIDecideRadioAnimation( TacticalActor *pSoldier )
 	}
 
 	// sevenfm: only allow radio animation on initial red alert
-	if (gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition || SectorJammed())
+	if (gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition ||
+		TacticalActorRadio::sectorJammed())
 	{
 		// don't play animation
 		ActionDone(pSoldier);
@@ -2790,7 +2792,7 @@ void ATTACKTYPE::InitAttackType(ATTACKTYPE *pAttack)//dnl ch69 140913
 void HandleInitialRedAlert( INT8 bTeam, UINT8 ubCommunicate)
 {
 	// Flugente radio operator: if the sector is jammed, no radio communication possible
-	if ( SectorJammed() )
+	if (TacticalActorRadio::sectorJammed())
 		return;
 
 	/*

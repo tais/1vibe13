@@ -78,6 +78,7 @@
 #include <queue>
 #include "GameInitOptionsScreen.h"
 #include "Facilities.h"
+#include "TacticalActorRadio.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldItemHost.h"
 
@@ -10772,7 +10773,7 @@ void HandleShadingOfLinesForAssignmentMenus( void )
 			}
 
 			// radio scan
-			if( BasicCanCharacterAssignment( pSoldier, TRUE ) && pSoldier->CanUseRadio() )
+			if( BasicCanCharacterAssignment( pSoldier, TRUE ) && TacticalActorRadio::canUse(*pSoldier) )
 			{
 				// unshade line
 				UnShadeStringInBox( ghAssignmentBox, ASSIGN_MENU_RADIO_SCAN );
@@ -14255,7 +14256,7 @@ void AssignmentMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					}
 					break;
 				case( ASSIGN_MENU_RADIO_SCAN ):
-					if( pSoldier->CanUseRadio() )
+					if( TacticalActorRadio::canUse(*pSoldier) )
 					{
 						// stop showing menu
 						fShowAssignmentMenu = FALSE;
@@ -17228,7 +17229,7 @@ void SetSoldierAssignment( TacticalActor *pSoldier, INT8 bAssignment, INT32 iPar
 			break;
 
 		case( RADIO_SCAN ):
-			if( pSoldier->CanUseRadio() )
+			if( TacticalActorRadio::canUse(*pSoldier) )
 			{
 				pSoldier->assignment().previous() = pSoldier->assignment().current();
 
@@ -18635,7 +18636,8 @@ void ReEvaluateEveryonesNothingToDo( BOOLEAN aDoExtensiveCheck )
 					break;
 
 				case RADIO_SCAN:
-					fNothingToDo = !(pSoldier->CanUseRadio());
+					fNothingToDo =
+						!TacticalActorRadio::canUse(*pSoldier);
 					break;
 
 				case FACILITY_INTERROGATE_PRISONERS:
@@ -18884,7 +18886,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 					}
 					break;
 				case ( RADIO_SCAN ):
-					if ( pSoldier->CanUseRadio() )
+					if ( TacticalActorRadio::canUse(*pSoldier) )
 					{
 						pSoldier->assignment().previous() = pSoldier->assignment().current();
 						SetSoldierAssignment( pSoldier, bAssignment, bParam, 0,0 );

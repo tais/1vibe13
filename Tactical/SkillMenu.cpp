@@ -6,6 +6,7 @@
 #include "SkillMenu.h"
 #include "SoldierRepository.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorRadio.h"
 #include "soldier profile type.h"
 #include "Overhead.h"
 #include "Text.h"
@@ -451,7 +452,16 @@ ArtillerySector::Setup( UINT32 aVal )
 			pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Setup_ArtilleryTeam, sectornr ) );
 
 			// grey out if no artillery can be called from this sector
-			if ( !IsValidArtilleryOrderSector( loopX, loopY, pSoldier->deployment().sectorZ(), pSoldier->roster().team() ) && !IsValidArtilleryOrderSector( loopX, loopY, pSoldier->deployment().sectorZ(), MILITIA_TEAM ) )
+			if (!TacticalActorRadio::isValidArtillerySector(
+					loopX,
+					loopY,
+					pSoldier->deployment().sectorZ(),
+					pSoldier->roster().team()) &&
+				!TacticalActorRadio::isValidArtillerySector(
+					loopX,
+					loopY,
+					pSoldier->deployment().sectorZ(),
+					MILITIA_TEAM))
 			{
 				// Set this option off.
 				pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));
@@ -508,7 +518,11 @@ ArtilleryTeam::Setup( UINT32 aVal )
 		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ArtilleryTeam, MILITIA_TEAM ) );
 
 		// grey out if no ArtilleryTeam can be called from this sector
-		if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, pSoldier->deployment().sectorZ(), MILITIA_TEAM ) )
+		if (!TacticalActorRadio::isValidArtillerySector(
+				sSectorX,
+				sSectorY,
+				pSoldier->deployment().sectorZ(),
+				MILITIA_TEAM))
 		{
 			// Set this option off.
 			pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));
@@ -521,7 +535,11 @@ ArtilleryTeam::Setup( UINT32 aVal )
 		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, INT8>( &Wrapper_Function_ArtilleryTeam, pSoldier->roster().team() ) );
 
 		// grey out if no ArtilleryTeam can be called from this sector
-		if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, pSoldier->deployment().sectorZ(), pSoldier->roster().team() ) )
+		if (!TacticalActorRadio::isValidArtillerySector(
+				sSectorX,
+				sSectorY,
+				pSoldier->deployment().sectorZ(),
+				pSoldier->roster().team()))
 		{
 			// Set this option off.
 			pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));
@@ -555,7 +573,11 @@ ArtilleryTeam::Functions( UINT32 aVal )
 	if ( pSoldier == NULL || !pSoldier->CanUseSkill(SKILLS_RADIO_ARTILLERY) )
 		return;
 	
-	BOOLEAN result = pSoldier->OrderArtilleryStrike(usSector, sTraitsMenuTargetGridNo, (UINT8)(aVal));
+	BOOLEAN result = TacticalActorRadio::orderArtilleryStrike(
+		*pSoldier,
+		usSector,
+		sTraitsMenuTargetGridNo,
+		static_cast<UINT8>(aVal));
 
 	// additional dialogue
 	AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_SKILL_RESULT, SKILLS_RADIO_ARTILLERY, result );
@@ -749,7 +771,10 @@ ReinforcementNumber::Functions( UINT32 aVal )
 	if ( pSoldier == NULL || !pSoldier->CanUseSkill(SKILLS_RADIO_CALLREINFORCEMENTS) )
 		return;
 	
-	BOOLEAN result = pSoldier->RadioCallReinforcements(usSector, aVal);
+	BOOLEAN result = TacticalActorRadio::callReinforcements(
+		*pSoldier,
+		usSector,
+		aVal);
 
 	// additional dialogue
 	AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_SKILL_RESULT, SKILLS_RADIO_CALLREINFORCEMENTS, result );

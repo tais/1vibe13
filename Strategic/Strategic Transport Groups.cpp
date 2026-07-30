@@ -35,6 +35,7 @@ and the difficulty of the game.
 #include "Queen Command.h"
 #include "random.h"
 #include "Soldier Control.h"
+#include "TacticalActorRadio.h"
 #include "strategic.h"
 #include "Strategic AI.h"
 #include "strategicmap.h"
@@ -238,7 +239,8 @@ void FillMapColoursForTransportGroups(INT32(&colorMap)[MAXIMUM_VALID_Y_COORDINAT
 				{
 					detectionMap[std::pair<INT16,INT16>(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())] = DETECTION_RANGE_SCOUT;
 				}
-				else if (HAS_SKILL_TRAIT(pSoldier, RADIO_OPERATOR_NT) && pSoldier->CanUseRadio(FALSE))
+				else if (HAS_SKILL_TRAIT(pSoldier, RADIO_OPERATOR_NT) &&
+						 TacticalActorRadio::canUse(*pSoldier, false))
 				{
 					detectionMap[std::pair<INT16,INT16>(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())] = DETECTION_RANGE_RADIO;
 				}

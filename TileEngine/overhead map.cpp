@@ -24,6 +24,7 @@
 	#include "Action Items.h"	// added by Flugente
 	#include "Rebel Command.h"
 #include "SoldierRepository.h"
+#include "TacticalActorRadio.h"
 
 #include "connect.h"
 
@@ -1406,7 +1407,8 @@ void RenderOverheadOverlays()
 
 	// Flugente: is one of the player's mercs scanning for jam signals while someone is actually jamming signals?
 	BOOLEAN showjammers = FALSE;
-	if ( PlayerTeamIsScanning() && SectorJammed() )
+	if (TacticalActorRadio::playerTeamScanning() &&
+		TacticalActorRadio::sectorJammed())
 		showjammers = TRUE;
 
 	PIXEL jamcolour = Get16BPPColor( FROMRGB( 36, 219, 151 ) );
@@ -1431,7 +1433,10 @@ void RenderOverheadOverlays()
 		// Flugente: also do that if the we scanned a jamming person
 		if(!gfEditMode && (showjammers || marklastenemy ) )
 		{
-			if ( ( marklastenemy && pSoldier->roster().team() == ENEMY_TEAM ) || ( showjammers && pSoldier->IsJamming() ) )
+			if ((marklastenemy &&
+				 pSoldier->roster().team() == ENEMY_TEAM) ||
+				(showjammers &&
+				 TacticalActorRadio::isJamming(*pSoldier)))
 			{
 				UINT8 ubGridSquareX, ubGridSquareY;
 				
@@ -1448,7 +1453,8 @@ void RenderOverheadOverlays()
 				if(gGameExternalOptions.ubMarkerMode == HATCHED)
 				{
 					UINT16 colour = 0xF000;
-					if ( showjammers && pSoldier->IsJamming() )
+					if (showjammers &&
+						TacticalActorRadio::isJamming(*pSoldier))
 						colour = jamcolour;
 
 					RectangleDraw(TRUE, HostileArea.iLeft, HostileArea.iTop, HostileArea.iRight, HostileArea.iBottom, colour, pDestBuf);

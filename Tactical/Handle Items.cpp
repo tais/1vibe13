@@ -1,5 +1,6 @@
 #include "connect.h"
 #include "TacticalActorEquipment.h"
+#include "TacticalActorRadio.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -6008,7 +6009,8 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 		if (ItemIsRemoteTrigger(gpTempSoldier->inventory()[HANDPOS].usItem))
 		{
 			// Flugente: jamming can prevent bomb activation
-			if ( !gSkillTraitValues.fVOJammingBlocksRemoteBombs || !SectorJammed() )
+			if (!gSkillTraitValues.fVOJammingBlocksRemoteBombs ||
+				!TacticalActorRadio::sectorJammed())
 				SetOffBombsByFrequency( gpTempSoldier->identity().id(), ubExitValue );
 		}
 		else

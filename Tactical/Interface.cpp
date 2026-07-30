@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorRadio.h"
 	#include "builddefines.h"
 	#include "TacticalActorConditions.h"
 	#include "SoldierRepository.h"
@@ -6331,7 +6332,7 @@ BOOLEAN ShowSoldierRoleSymbol(TacticalActor* pSoldier)
 		}
 
 		// is this guy radio operator with a radio?
-		if ( pSoldier->CanUseRadio( false ) )
+		if (TacticalActorRadio::canUse(*pSoldier, false))
 		{
 			// Add bars
 			iBack = RegisterBackgroundRect( BGND_FLAG_SINGLE, NULL, sXPos, sYPos, (INT16)( sXPos + 20 ), (INT16)( sYPos + 20 ) );
@@ -6363,7 +6364,7 @@ BOOLEAN ShowSoldierRoleSymbol(TacticalActor* pSoldier)
 		}
 
 		// is this guy a sniper? Just check for the gun, trait is not necessary
-		if ( pSoldier->HasSniper() )
+		if (TacticalActorEquipment::hasSniperRifle(*pSoldier))
 		{
 			// Add bars
 			iBack = RegisterBackgroundRect( BGND_FLAG_SINGLE, NULL, sXPos, sYPos, (INT16)( sXPos + 20 ), (INT16)( sYPos + 20 ) );
@@ -6379,7 +6380,7 @@ BOOLEAN ShowSoldierRoleSymbol(TacticalActor* pSoldier)
 		}
 
 		// is this guy a mortar guy? Just check for the gun, trait is not necessary
-		if ( pSoldier->HasMortar() )
+		if (TacticalActorEquipment::hasMortar(*pSoldier))
 		{
 			// Add bars
 			iBack = RegisterBackgroundRect( BGND_FLAG_SINGLE, NULL, sXPos, sYPos, (INT16)( sXPos + 20 ), (INT16)( sYPos + 20 ) );

@@ -38,6 +38,7 @@
 #include "Game Clock.h"		// sevenfm
 #include "SkillCheck.h"		// sevenfm
 #include "SoldierRepository.h"
+#include "TacticalActorRadio.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // SANDRO - In this file, all APBPConstants[AP_CROUCH] and APBPConstants[AP_PRONE] were changed to GetAPsCrouch() and GetAPsProne()
@@ -3220,10 +3221,10 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 			if (!gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition && MoreFriendsThanEnemiesinNearbysectors(pSoldier->roster().team(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ()))
 			{
 				// if frequencies are jammed...
-				if (SectorJammed())
+				if (TacticalActorRadio::sectorJammed())
 				{
 					// if we are jamming, turn it off, otherwise, bad luck...
-					if (pSoldier->IsJamming())
+					if (TacticalActorRadio::isJamming(*pSoldier))
 					{
 						pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_TURNOFF;
 						pSoldier->aiPlanning().actionData() = skilltargetgridno;
@@ -3238,7 +3239,10 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 				}
 			}
 			// if we can't call in artillery, jam frequencies, so that the palyer can't use radio skills
-			else if (!pSoldier->IsJamming() && !pSoldier->CanAnyArtilleryStrikeBeOrdered(&tmp))
+			else if (!TacticalActorRadio::isJamming(*pSoldier) &&
+					 !TacticalActorRadio::canOrderAnyArtilleryStrike(
+						 *pSoldier,
+						 &tmp))
 			{
 				pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_JAM;
 				pSoldier->aiPlanning().actionData() = skilltargetgridno;
@@ -5404,13 +5408,15 @@ INT16 ubMinAPCost;
 		UINT32 tmp;
 		INT32 skilltargetgridno = 0;
 		// can we call in artillery?
-		if ( pSoldier->CanAnyArtilleryStrikeBeOrdered(&tmp) )
+		if (TacticalActorRadio::canOrderAnyArtilleryStrike(
+				*pSoldier,
+				&tmp))
 		{
 			// if frequencies are jammed...
-			if ( SectorJammed() )
+			if (TacticalActorRadio::sectorJammed())
 			{
 				// if we are jamming, turn it off, otherwise, bad luck...
-				if ( pSoldier->IsJamming() )
+				if (TacticalActorRadio::isJamming(*pSoldier))
 				{
 					pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_TURNOFF;
 					pSoldier->aiPlanning().actionData() = skilltargetgridno;
@@ -5429,10 +5435,10 @@ INT16 ubMinAPCost;
 		else if ( !gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition && MoreFriendsThanEnemiesinNearbysectors(pSoldier->roster().team(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ()) )
 		{
 			// if frequencies are jammed...
-			if ( SectorJammed() )
+			if (TacticalActorRadio::sectorJammed())
 			{
 				// if we are jamming, turn it off, otherwise, bad luck...
-				if ( pSoldier->IsJamming() )
+				if (TacticalActorRadio::isJamming(*pSoldier))
 				{
 					pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_TURNOFF;
 					pSoldier->aiPlanning().actionData() = skilltargetgridno;
@@ -5447,7 +5453,7 @@ INT16 ubMinAPCost;
 			}
 		}
 		// if we can't call in artillery or reinforcements, then nobody else from our team can. So we better jam communications, so that the player cannot use these skills either
-		else if ( !pSoldier->IsJamming() )
+		else if (!TacticalActorRadio::isJamming(*pSoldier))
 		{
 			pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_JAM;
 			pSoldier->aiPlanning().actionData() = skilltargetgridno;

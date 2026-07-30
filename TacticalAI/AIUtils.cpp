@@ -31,6 +31,8 @@
 #include "Simulation Commands.h"
 #include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
+#include "TacticalActorEquipment.h"
+#include "TacticalActorRadio.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // SANDRO - In this file, all APBPConstants[AP_CROUCH] and APBPConstants[AP_PRONE] were changed to GetAPsCrouch() and GetAPsProne()
@@ -5095,7 +5097,7 @@ BOOLEAN AICheckIsRadioOperator(TacticalActor *pSoldier)
 		return FALSE;
 	}
 
-	if (pSoldier->CanUseRadio(FALSE))
+	if (TacticalActorRadio::canUse(*pSoldier, false))
 		return TRUE;
 
 	return FALSE;
@@ -5138,7 +5140,7 @@ BOOLEAN AICheckIsMortarOperator(TacticalActor *pSoldier)
 		return FALSE;
 	}
 
-	if (pSoldier->HasMortar())
+	if (TacticalActorEquipment::hasMortar(*pSoldier))
 	{
 		return TRUE;
 	}

@@ -125,6 +125,8 @@
 #include "TacticalActorDragging.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorExplosives.h"
+#include "TacticalActorRadio.h"
+#include "TacticalActorSpotting.h"
 #include "TacticalActorInteractions.h"
 #include "TacticalActorModifiers.h"
 #include "LogicalBodyTypes/PaletteTable.h"
@@ -8264,6 +8266,8 @@ int main( int, char** )
 		const bool malformedItemIndexesAreRejected =
 			!TacticalActorEquipment::carriesTwoHandedWeapon(
 				equipmentActor) &&
+			!TacticalActorEquipment::hasMortar(equipmentActor) &&
+			!TacticalActorEquipment::hasSniperRifle(equipmentActor) &&
 			TacticalActorEquipment::objectWithFlag(
 				equipmentActor,
 				ITEM_twohanded) == nullptr &&
@@ -8294,6 +8298,145 @@ int main( int, char** )
 		       malformedItemIndexesAreRejected &&
 		       oneInventoryItemIsRemoved,
 		       "tactical actor equipment safely resolves and mutates gear while rejecting empty, repeated, and malformed operations" );
+	}
+
+	{
+		TacticalActor radioActor;
+		const auto previousRobotBodyType =
+			gMercProfiles[0].ubBodyType;
+		const auto previousRadioItemFlags =
+			Item[1].usItemFlag;
+		const auto previousMortarCountDivisor =
+			gSkillTraitValues.usVOMortarCountDivisor;
+		const auto previousMortarShellDivisor =
+			gSkillTraitValues.usVOMortarShellDivisor;
+		const auto previousInventorySystem =
+			gGameOptions.ubInventorySystem;
+		const auto previousTraitSystem =
+			gGameOptions.fNewTraitSystem;
+
+		radioActor.identity().profile() = 0;
+		radioActor.roster().team() = OUR_TEAM;
+		gMercProfiles[0].ubBodyType = ROBOTNOWEAPON;
+		Item[1].usItemFlag |= RADIO_SET;
+		OBJECTTYPE& robotUtility =
+			radioActor.inventory()[ROBOT_UTILITY_SLOT];
+		robotUtility.usItem = 1;
+		robotUtility.ubNumberOfObjects = 1;
+		const bool validRobotRadioIsFound =
+			TacticalActorRadio::canUse(radioActor, false);
+
+		robotUtility.usItem = MAXITEMS;
+		const bool malformedRobotItemIsRejected =
+			!TacticalActorRadio::canUse(radioActor, false);
+
+		TacticalActor slottedRadioActor;
+		slottedRadioActor.identity().profile() = NO_PROFILE;
+		slottedRadioActor.roster().team() = OUR_TEAM;
+		slottedRadioActor.statistics().skillTrait(0) =
+			RADIO_OPERATOR_NT;
+		gGameOptions.fNewTraitSystem = FALSE;
+		gGameOptions.ubInventorySystem = INVENTORY_NEW;
+		OBJECTTYPE& wrongSlotRadio =
+			slottedRadioActor.inventory()[HANDPOS];
+		wrongSlotRadio.usItem = 1;
+		wrongSlotRadio.ubNumberOfObjects = 1;
+		const bool newInventoryRejectsWrongRadioSlot =
+			!TacticalActorRadio::canUse(
+				slottedRadioActor,
+				false);
+		OBJECTTYPE& dedicatedRadio =
+			slottedRadioActor.inventory()[CPACKPOCKPOS];
+		dedicatedRadio.usItem = 1;
+		dedicatedRadio.ubNumberOfObjects = 1;
+		const bool newInventoryAcceptsDedicatedRadioSlot =
+			TacticalActorRadio::canUse(
+				slottedRadioActor,
+				false);
+
+		radioActor.identity().profile() = NO_PROFILE;
+		radioActor.featureFlags().primaryFlags() |=
+			SOLDIER_RADIO_OPERATOR_JAMMING |
+			SOLDIER_RADIO_OPERATOR_SCANNING |
+			SOLDIER_RADIO_OPERATOR_LISTENING;
+		const bool lostRadioClearsEveryMode =
+			!TacticalActorRadio::isJamming(radioActor) &&
+			!TacticalActorRadio::isScanning(radioActor) &&
+			!TacticalActorRadio::isListening(radioActor) &&
+			!(radioActor.featureFlags().primaryFlags() &
+			  (SOLDIER_RADIO_OPERATOR_JAMMING |
+			   SOLDIER_RADIO_OPERATOR_SCANNING |
+			   SOLDIER_RADIO_OPERATOR_LISTENING));
+
+		gSkillTraitValues.usVOMortarCountDivisor = 0;
+		gSkillTraitValues.usVOMortarShellDivisor = 0;
+		const bool malformedArtilleryConfigurationIsRejected =
+			!TacticalActorRadio::isValidArtillerySector(
+				1,
+				1,
+				0,
+				ENEMY_TEAM);
+		const bool nullRadioOutputsAreRejected =
+			!TacticalActorRadio::operatorSignal(
+				NOBODY,
+				nullptr) &&
+			!TacticalActorRadio::canOrderAnyArtilleryStrike(
+				radioActor,
+				nullptr);
+
+		gSkillTraitValues.usVOMortarCountDivisor =
+			previousMortarCountDivisor;
+		gSkillTraitValues.usVOMortarShellDivisor =
+			previousMortarShellDivisor;
+		Item[1].usItemFlag = previousRadioItemFlags;
+		gMercProfiles[0].ubBodyType = previousRobotBodyType;
+		gGameOptions.ubInventorySystem = previousInventorySystem;
+		gGameOptions.fNewTraitSystem = previousTraitSystem;
+		DeleteObj(&robotUtility);
+		DeleteObj(&wrongSlotRadio);
+		DeleteObj(&dedicatedRadio);
+
+		TacticalActor spotterActor;
+		spotterActor.vitals().health() = OKLIFE;
+		spotterActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedSpotterAnimationIsRejected =
+			!TacticalActorSpotting::canSpot(spotterActor);
+
+		const auto previousPreparationTurns =
+			gGameExternalOptions.usSpotterPreparationTurns;
+		spotterActor.position().gridNo() = 0;
+		gGameExternalOptions.usSpotterPreparationTurns = 0;
+		const bool malformedSpotterInputsAreNeutral =
+			TacticalActorSpotting::chanceToHitBonus(
+				nullptr,
+				1,
+				OUR_TEAM) == 0 &&
+			TacticalActorSpotting::chanceToHitBonus(
+				&spotterActor,
+				1,
+				-1) == 0 &&
+			TacticalActorSpotting::chanceToHitBonus(
+				&spotterActor,
+				1,
+				OUR_TEAM) == 0;
+		gGameExternalOptions.usSpotterPreparationTurns =
+			previousPreparationTurns;
+
+		CHECK( validRobotRadioIsFound &&
+		       malformedRobotItemIsRejected,
+		       "tactical actor radio validates robot utility-slot equipment without indexing malformed items" );
+		CHECK( newInventoryRejectsWrongRadioSlot &&
+		       newInventoryAcceptsDedicatedRadioSlot,
+		       "tactical actor radio preserves the dedicated new-inventory slot rule" );
+		CHECK( lostRadioClearsEveryMode,
+		       "tactical actor radio clears every stale operating mode after equipment is lost" );
+		CHECK( malformedArtilleryConfigurationIsRejected &&
+		       nullRadioOutputsAreRejected,
+		       "tactical actor artillery rejects zero divisors and null result storage" );
+		CHECK( malformedSpotterAnimationIsRejected &&
+		       malformedSpotterInputsAreNeutral,
+		       "tactical actor spotting rejects malformed animation, team, preparation, and actor inputs" );
 	}
 
 	{

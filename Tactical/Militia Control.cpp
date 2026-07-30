@@ -1,6 +1,7 @@
 
 	#include "Militia Control.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalActorRadio.h"
 #include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
 	#include "Town Militia.h"
@@ -1012,7 +1013,7 @@ void HandleShadingOfLinesForMilitiaControlMenu( void )
 	{
 		// Check LOS!
 		// Flugente: active radio sets allows us to give individual orders even without a line of sight
-		if (pSoldier->CanUseRadio() || SoldierToSoldierLineOfSightTest(pSoldier, pMilitiaSoldier, TRUE, CALC_FROM_ALL_DIRS))
+		if (TacticalActorRadio::canUse(*pSoldier) || SoldierToSoldierLineOfSightTest(pSoldier, pMilitiaSoldier, TRUE, CALC_FROM_ALL_DIRS))
 		{
 			UnShadeStringInBox( ghMilitiaControlBox, MILCON_MENU_ATTACK );
 			UnShadeStringInBox( ghMilitiaControlBox, MILCON_MENU_HOLD );
@@ -1078,7 +1079,7 @@ BOOLEAN CheckIfRadioIsEquipped( void )
 	if ( GetSoldier( &pSoldier, gusSelectedSoldier )  )
 	{
 		// Flugente: active radio sets also count as radio
-		if ( pSoldier->CanUseRadio(FALSE) )
+		if (TacticalActorRadio::canUse(*pSoldier, false))
 			return TRUE;
 
 		bSlot = FindHearingAid(pSoldier);
@@ -1110,7 +1111,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if (pSoldier && pMilitiaSoldier)
 	{
-		if (pSoldier->CanUseRadio() || SoldierToSoldierLineOfSightTest(pSoldier, pMilitiaSoldier, TRUE, CALC_FROM_ALL_DIRS))
+		if (TacticalActorRadio::canUse(*pSoldier) || SoldierToSoldierLineOfSightTest(pSoldier, pMilitiaSoldier, TRUE, CALC_FROM_ALL_DIRS))
 			fCanCommunicate = TRUE;
 
 		if (CheckIfRadioIsEquipped())

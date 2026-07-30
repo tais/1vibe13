@@ -36,6 +36,8 @@ namespace TacticalActorEquipment
 	[[nodiscard]] bool hasItem(
 		const TacticalActor& actor,
 		std::uint16_t item);
+	[[nodiscard]] bool hasMortar(const TacticalActor& actor);
+	[[nodiscard]] bool hasSniperRifle(const TacticalActor& actor);
 	[[nodiscard]] OBJECTTYPE* equippedRiotShield(TacticalActor& actor);
 	[[nodiscard]] bool hasEquippedRiotShield(TacticalActor& actor);
 

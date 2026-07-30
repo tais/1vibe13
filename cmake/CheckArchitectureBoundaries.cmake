@@ -2170,6 +2170,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorModifiers.h"
   tactical_actor_modifiers_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEquipment.h"
   tactical_actor_equipment_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRadio.h"
+  tactical_actor_radio_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSpotting.h"
+  tactical_actor_spotting_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorExplosives.h"
   tactical_actor_explosives_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorExplosives.cpp"
@@ -2834,6 +2838,8 @@ foreach(required_equipment_operation IN ITEMS
   "usesScubaGear"
   "bestEquippedFlashlightRange"
   "hasItem"
+  "hasMortar"
+  "hasSniperRifle"
   "equippedRiotShield"
   "hasEquippedRiotShield"
   "coolDownInventory"
@@ -2861,6 +2867,8 @@ foreach(required_equipment_coverage IN ITEMS
   "TacticalActorEquipment::usedWeapon"
   "TacticalActorEquipment::externalFeeding"
   "TacticalActorEquipment::objectWithFlag"
+  "TacticalActorEquipment::hasMortar"
+  "TacticalActorEquipment::hasSniperRifle"
   "TacticalActorEquipment::equippedRiotShield"
   "TacticalActorEquipment::dropSectorEquipment"
   "TacticalActorEquipment::switchWeapon"
@@ -2881,7 +2889,26 @@ foreach(retired_actor_facade IN ITEMS
   "SelfDetonate"
   "StopChatting"
   "DrugAutoUse"
-  "IsValidBloodDonor")
+  "IsValidBloodDonor"
+  "CanUseRadio"
+  "UseRadio"
+  "HasMortar"
+  "CanAnyArtilleryStrikeBeOrdered"
+  "OrderArtilleryStrike"
+  "IsJamming"
+  "JamCommunications"
+  "IsScanning"
+  "ScanForJam"
+  "IsRadioListening"
+  "RadioListen"
+  "RadioCallReinforcements"
+  "SwitchOffRadio"
+  "RadioOrderAllTurnCoatToSwitchSides"
+  "RadioFail"
+  "IsSpotting"
+  "CanSpot"
+  "BecomeSpotter"
+  "HasSniper")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -2892,6 +2919,102 @@ foreach(retired_actor_facade IN ITEMS
      NOT retired_actor_facade_definition EQUAL -1)
     message(FATAL_ERROR
       "TacticalActor regained retired facade '${retired_actor_facade}'")
+  endif()
+endforeach()
+
+foreach(retired_radio_global IN ITEMS
+  "GetRadioOperatorSignal"
+  "IsValidArtilleryOrderSector"
+  "SectorJammed"
+  "PlayerTeamIsScanning"
+  "GridNoSpotterCTHBonus")
+  string(FIND "${tactical_actor_header_contents}"
+    "${retired_radio_global}("
+    retired_radio_global_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "${retired_radio_global}("
+    retired_radio_global_definition_or_call)
+  if(NOT retired_radio_global_declaration EQUAL -1 OR
+     NOT retired_radio_global_definition_or_call EQUAL -1)
+    message(FATAL_ERROR
+      "Legacy radio/spotting global '${retired_radio_global}' returned; use the TacticalActorRadio or TacticalActorSpotting domain")
+  endif()
+endforeach()
+
+foreach(required_radio_operation IN ITEMS
+  "canUse"
+  "use"
+  "canOrderAnyArtilleryStrike"
+  "orderArtilleryStrike"
+  "isJamming"
+  "startJamming"
+  "isScanning"
+  "startScanning"
+  "isListening"
+  "startListening"
+  "callReinforcements"
+  "switchOff"
+  "orderAllTurncoats"
+  "reportFailure"
+  "operatorSignal"
+  "isValidArtillerySector"
+  "sectorJammed"
+  "playerTeamScanning")
+  string(FIND "${tactical_actor_radio_header_contents}"
+    "${required_radio_operation}("
+    radio_operation_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActorRadio::${required_radio_operation}("
+    radio_operation_definition)
+  if(radio_operation_declaration EQUAL -1 OR
+     radio_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor radio operation '${required_radio_operation}' lost its domain declaration or definition")
+  endif()
+endforeach()
+
+foreach(required_radio_coverage IN ITEMS
+  "TacticalActorRadio::canUse"
+  "TacticalActorRadio::isJamming"
+  "TacticalActorRadio::isValidArtillerySector"
+  "TacticalActorRadio::operatorSignal"
+  "TacticalActorRadio::canOrderAnyArtilleryStrike")
+  string(FIND "${headless_test_contents}"
+    "${required_radio_coverage}"
+    radio_operation_coverage)
+  if(radio_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor radio lost malformed-input or state-transition coverage for '${required_radio_coverage}'")
+  endif()
+endforeach()
+
+foreach(required_spotting_operation IN ITEMS
+  "isSpotting"
+  "canSpot"
+  "startSpotting"
+  "chanceToHitBonus")
+  string(FIND "${tactical_actor_spotting_header_contents}"
+    "${required_spotting_operation}("
+    spotting_operation_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActorSpotting::${required_spotting_operation}("
+    spotting_operation_definition)
+  if(spotting_operation_declaration EQUAL -1 OR
+     spotting_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor spotting operation '${required_spotting_operation}' lost its domain declaration or definition")
+  endif()
+endforeach()
+
+foreach(required_spotting_coverage IN ITEMS
+  "TacticalActorSpotting::canSpot"
+  "TacticalActorSpotting::chanceToHitBonus")
+  string(FIND "${headless_test_contents}"
+    "${required_spotting_coverage}"
+    spotting_operation_coverage)
+  if(spotting_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor spotting lost malformed-input coverage for '${required_spotting_coverage}'")
   endif()
 endforeach()
 

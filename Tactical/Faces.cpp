@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorSpotting.h"
 	#include "builddefines.h"
 	#include "SoldierRepository.h"
 #include "TacticalActorAssignments.h"
@@ -2202,7 +2203,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			// Flugente: spotter
 			if (pSoldier->skillState().counter(SOLDIER_COUNTER_SPOTTER) > 0)
 			{
-				if (pSoldier->IsSpotting())
+				if (TacticalActorSpotting::isSpotting(*pSoldier))
 				{
 					DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 24);
 					bNumRightIcons++;

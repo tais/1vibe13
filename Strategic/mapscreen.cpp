@@ -1,6 +1,7 @@
 	#include "mapscreen.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
+#include "TacticalActorRadio.h"
 #include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
@@ -17757,7 +17758,8 @@ BOOLEAN CanGiveStrategicMilitiaMoveOrder( INT16 sMapX, INT16 sMapY )
 		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE )
 		{
-			BOOLEAN fRadioOperator = pSoldier->CanUseRadio( FALSE );
+			BOOLEAN fRadioOperator =
+				TacticalActorRadio::canUse(*pSoldier, false);
 
 			INT16 sectordist = abs( sMapX - pSoldier->deployment().sectorX() ) + abs( sMapY - pSoldier->deployment().sectorY() );
 

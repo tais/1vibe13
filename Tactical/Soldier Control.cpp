@@ -2,6 +2,8 @@
 #include "TacticalActorConsumables.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
+#include "TacticalActorRadio.h"
+#include "TacticalActorSpotting.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -119,6 +121,9 @@
 #include "VehiclePassengerHost.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
 
 
 #ifdef JA2UB
@@ -14235,7 +14240,7 @@ std::int8_t TacticalActorModifiers::hearingBonus(TacticalActor& actor)
 	else
 		bonus += backgroundValue(actor, BG_PERC_HEARING_DAY);
 
-	if (self->IsRadioListening())
+	if (TacticalActorRadio::isListening(actor))
 		bonus += gSkillTraitValues.sVOListeningHearingBonus;
 
 	return bonus;
@@ -17149,7 +17154,7 @@ std::int16_t TacticalActorModifiers::interruptModifier(
 	INT16 bonus = 0;
 
 	// Radio listening divides the actor's attention.
-	if (actor.IsRadioListening())
+	if (TacticalActorRadio::isListening(actor))
 		bonus -= 3;
 
 	// Roping down without a matching background consumes most attention.
@@ -17193,10 +17198,10 @@ void TacticalActor::SoldierPropertyUpkeep( )
 	
 	// if we are dead or dying, we cannot continue radio work
 	if ( this->vitals().health() < OKLIFE )
-		this->SwitchOffRadio( );
+		TacticalActorRadio::switchOff(*this);
 
 	// if we are an enemy radio operator, and we are jamming frequencies, there is a slight chance that we set off remote-controlled bombs/defuses!
-	if ( !gSkillTraitValues.fVOJammingBlocksRemoteBombs && gSkillTraitValues.fVOEnemyVOSetsOffRemoteBombs && this->roster().team() == ENEMY_TEAM && IsJamming( ) && Chance( 5 ) )
+	if ( !gSkillTraitValues.fVOJammingBlocksRemoteBombs && gSkillTraitValues.fVOEnemyVOSetsOffRemoteBombs && this->roster().team() == ENEMY_TEAM && TacticalActorRadio::isJamming(*this) && Chance( 5 ) )
 		SetOffBombsByFrequency( this->identity().id(), 1 + Random( 8 ) );
 
 	// effects eventually run out
@@ -17278,11 +17283,11 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 	{	
 	// radio operator
 	case SKILLS_RADIO_ARTILLERY:
-		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE )) && CanUseRadio( ) )
+		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE )) && TacticalActorRadio::canUse(*this) )
 		{
 			// we also have to check wether we can really order a strike from a sector
 			UINT32 sector = 0;
-			if ( this->CanAnyArtilleryStrikeBeOrdered( &sector ) )
+			if (TacticalActorRadio::canOrderAnyArtilleryStrike(*this, &sector))
 				canuse = TRUE;
 		}
 		break;
@@ -17291,18 +17296,18 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 	case SKILLS_RADIO_SCAN_FOR_JAM:
 	case SKILLS_RADIO_LISTEN:
 	case SKILLS_RADIO_CALLREINFORCEMENTS:
-		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE )) && CanUseRadio( ) )
+		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE )) && TacticalActorRadio::canUse(*this) )
 			canuse = TRUE;
 		break;
 
 	case SKILLS_RADIO_TURNOFF:
-		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE )) && (IsJamming( ) || IsScanning( ) || IsRadioListening( )) )
+		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE )) && (TacticalActorRadio::isJamming(*this) || TacticalActorRadio::isScanning(*this) || TacticalActorRadio::isListening(*this)) )
 			canuse = TRUE;
 		break;
 
 	case SKILLS_RADIO_ACTIVATE_TURNCOATS_ALL:
 		if ( ( !fAPCheck || EnoughPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], FALSE ) )
-			&& CanUseRadio()
+			&& TacticalActorRadio::canUse(*this)
 			&& gSkillTraitValues.fCOTurncoats
 			&& !gbWorldSectorZ
 			&& gTacticalStatus.ubInterruptPending == DISABLED_INTERRUPT
@@ -17432,7 +17437,7 @@ BOOLEAN	TacticalActor::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo
 		break;
 
 	case SKILLS_SPOTTER:
-		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_SPOTTER], 0, FALSE )) && CanSpot( ) )
+		if ( (!fAPCheck || EnoughPoints( this, APBPConstants[AP_SPOTTER], 0, FALSE )) && TacticalActorSpotting::canSpot(*this) )
 			canuse = TRUE;
 		break;
 
@@ -17483,36 +17488,40 @@ BOOLEAN TacticalActor::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
 	case SKILLS_RADIO_ARTILLERY:
 		{
 			UINT32 sector = 0;
-			if ( this->CanAnyArtilleryStrikeBeOrdered( &sector ) )
+			if (TacticalActorRadio::canOrderAnyArtilleryStrike(*this, &sector))
 			{
-				return OrderArtilleryStrike( sector, usMapPos, this->roster().team() );
+				return TacticalActorRadio::orderArtilleryStrike(
+					*this,
+					sector,
+					usMapPos,
+					this->roster().team());
 			}
 		}
 		break;
 
 	case SKILLS_RADIO_JAM:
-		return JamCommunications( );
+		return TacticalActorRadio::startJamming(*this);
 		break;
 		
 	case SKILLS_RADIO_SCAN_FOR_JAM:
-		return ScanForJam( );
+		return TacticalActorRadio::startScanning(*this);
 		break;
 
 	case SKILLS_RADIO_LISTEN:
-		return RadioListen( );
+		return TacticalActorRadio::startListening(*this);
 		break;
 
 	case SKILLS_RADIO_CALLREINFORCEMENTS:
 		// called separately
-		//return RadioCallReinforcements();
+		// Reinforcement selection calls TacticalActorRadio directly.
 		break;
 
 	case SKILLS_RADIO_TURNOFF:
-		return SwitchOffRadio( );
+		return TacticalActorRadio::switchOff(*this);
 		break;
 
 	case SKILLS_RADIO_ACTIVATE_TURNCOATS_ALL:
-		return RadioOrderAllTurnCoatToSwitchSides();
+		return TacticalActorRadio::orderAllTurncoats(*this);
 		break;
 
 	case SKILLS_INTEL_CONCEAL:
@@ -17574,7 +17583,7 @@ BOOLEAN TacticalActor::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
 		return TRUE;
 
 	case SKILLS_SPOTTER:
-		return BecomeSpotter( usMapPos );
+		return TacticalActorSpotting::startSpotting(*this, usMapPos);
 		break;
 
 	case SKILLS_FOCUS:
@@ -17800,119 +17809,181 @@ STR16	TacticalActor::PrintSkillDesc( INT8 iSkill, INT32 sGridNo )
 	return skilldescarray;
 }
 
-BOOLEAN TacticalActor::CanUseRadio( BOOLEAN fCheckForAP )
+namespace
 {
-	// special case: robot upgraded with a radio set
-	if (AM_A_ROBOT(this))
-	{
-		if (HasItemFlag(this->inventory()[ROBOT_UTILITY_SLOT].usItem, RADIO_SET))
-			return !fCheckForAP || EnoughPoints(this, APBPConstants[AP_RADIO], 0, FALSE);
+bool isRadioRobot(const TacticalActor& actor)
+{
+	const auto profile = actor.identity().profile();
+	return profile < NUM_PROFILES &&
+		gMercProfiles[profile].ubBodyType == ROBOTNOWEAPON;
+}
 
-		return FALSE;
+OBJECTTYPE* radioObject(TacticalActor& actor)
+{
+	const bool radioRobot = isRadioRobot(actor);
+	const bool playerUsesNewInventory =
+		actor.roster().team() == OUR_TEAM &&
+		UsingNewInventorySystem();
+	const bool usesDedicatedSlot =
+		radioRobot || playerUsesNewInventory;
+	std::size_t slot = actor.inventory().size();
+	if (radioRobot)
+	{
+		slot = ROBOT_UTILITY_SLOT;
+	}
+	else if (playerUsesNewInventory)
+	{
+		slot = CPACKPOCKPOS;
+	}
+
+	if (slot < actor.inventory().size())
+	{
+		OBJECTTYPE& object = actor.inventory()[slot];
+		if (object.exists() &&
+			object.usItem < MAXITEMS &&
+			HasItemFlag(object.usItem, RADIO_SET))
+		{
+			return &object;
+		}
+	}
+
+	if (usesDedicatedSlot)
+		return nullptr;
+
+	OBJECTTYPE* const object =
+		TacticalActorEquipment::objectWithFlag(actor, RADIO_SET);
+	return object != nullptr &&
+			object->exists() &&
+			object->usItem < MAXITEMS &&
+			HasItemFlag(object->usItem, RADIO_SET)
+		? object
+		: nullptr;
+}
+}
+
+bool TacticalActorRadio::canUse(
+	TacticalActor& actor,
+	bool checkForActionPoints)
+{
+	auto* const self = &actor;
+
+	// An upgraded robot does not need the radio-operator trait.
+	if (isRadioRobot(actor))
+	{
+		return radioObject(actor) != nullptr &&
+			(!checkForActionPoints ||
+			 EnoughPoints(
+				 self,
+				 APBPConstants[AP_RADIO],
+				 0,
+				 FALSE));
 	}
 
 	// only radio operators can use this equipment
-	if ( !NUM_SKILL_TRAITS( this, RADIO_OPERATOR_NT ) )
-		return FALSE;
+	if (!NUM_SKILL_TRAITS(self, RADIO_OPERATOR_NT))
+		return false;
 
 	// if we check whether we have enough AP, exit if we don't
-	if ( fCheckForAP && !EnoughPoints( this, APBPConstants[AP_RADIO], 0, FALSE ) )
-		return FALSE;
+	if (checkForActionPoints &&
+		!EnoughPoints(
+			self,
+			APBPConstants[AP_RADIO],
+			0,
+			FALSE))
+	{
+		return false;
+	}
 
-	// if we use the new inventory system and we are a player character, the radio set has to be in a specific slot
-	OBJECTTYPE* pObj = NULL;
-	if ( this->roster().team() == OUR_TEAM && UsingNewInventorySystem() )
-		pObj = &(inventory()[CPACKPOCKPOS]);
-	else
-		pObj = TacticalActorEquipment::objectWithFlag(*this, RADIO_SET);
-	
-	if ( pObj && HasItemFlag( pObj->usItem, RADIO_SET ) )
-		return TRUE;
-
-	return FALSE;
+	return radioObject(actor) != nullptr;
 }
 
-BOOLEAN TacticalActor::UseRadio( )
+bool TacticalActorRadio::use(TacticalActor& actor)
 {
-	BOOLEAN success = FALSE;
+	auto* const self = &actor;
+	bool success = false;
 
-	OBJECTTYPE* pObj = NULL;
-	if ( this->roster().team() == OUR_TEAM && UsingNewInventorySystem( ) )
-		pObj = &(inventory()[CPACKPOCKPOS]);
-	else
-		pObj = TacticalActorEquipment::objectWithFlag(*this, RADIO_SET);
-
-	if (AM_A_ROBOT(this))
-		pObj = &(inventory()[ROBOT_UTILITY_SLOT]);
-
-	if ( pObj && HasItemFlag( pObj->usItem, RADIO_SET ) )
+	OBJECTTYPE* const object = radioObject(actor);
+	if (object != nullptr && !object->objectStack.empty())
 	{
 		// status % chance of success
-		if ( Chance( (*pObj)[0]->data.objectStatus ) )
-			success = TRUE;
+		if (Chance((*object)[0]->data.objectStatus))
+			success = true;
 	}
 	
-	if ( this->roster().inSector() && (this->identity().bodyType() == REGMALE || this->identity().bodyType() == BIGMALE) )
+	if (actor.roster().inSector() &&
+		(actor.identity().bodyType() == REGMALE ||
+		 actor.identity().bodyType() == BIGMALE) &&
+		actor.animationPlayback().state() < NUMANIMATIONSTATES)
 	{
-		switch ( gAnimControl[this->animationPlayback().state()].ubEndHeight )
+		switch (gAnimControl[actor.animationPlayback().state()].ubEndHeight)
 		{
 		case ANIM_STAND:
-			this->EVENT_InitNewSoldierAnim( AI_RADIO, 0, FALSE );
+			actor.EVENT_InitNewSoldierAnim(AI_RADIO, 0, FALSE);
 			break;
 
 		case ANIM_CROUCH:
-			this->EVENT_InitNewSoldierAnim( AI_CR_RADIO, 0, FALSE );
+			actor.EVENT_InitNewSoldierAnim(AI_CR_RADIO, 0, FALSE);
 			break;
 		}
 	}
 
-	DeductPoints( this, APBPConstants[AP_RADIO], APBPConstants[BP_RADIO], 0 );
+	DeductPoints(
+		self,
+		APBPConstants[AP_RADIO],
+		APBPConstants[BP_RADIO],
+		0);
 
 	// we gain a bit of experience... - even more if we are the one who began the communication
-	StatChange( this, EXPERAMT, this->roster().inSector() ? 8 : 4, TRUE );
-	StatChange( this, MECHANAMT, 1, TRUE );
+	StatChange(self, EXPERAMT, actor.roster().inSector() ? 8 : 4, TRUE);
+	StatChange(self, MECHANAMT, 1, TRUE);
 
-	if ( !success )
+	if (!success)
 	{
-		RadioFail( );
-
-		return FALSE;
+		reportFailure(actor);
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-BOOLEAN TacticalActor::HasMortar( )
+bool TacticalActorEquipment::hasMortar(const TacticalActor& actor)
 {
-	INT8 invsize = (INT8)inventory().size( );									// remember inventorysize, so we don't call size() repeatedly
-	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )
+	for (std::size_t slot = 0; slot < actor.inventory().size(); ++slot)
 	{
-		if ( inventory()[bLoop].exists( ) == true && ItemIsMortar(inventory()[bLoop].usItem) )
+		const OBJECTTYPE& object = actor.inventory()[slot];
+		if (object.exists() &&
+			object.usItem < MAXITEMS &&
+			ItemIsMortar(object.usItem))
 		{
-			return TRUE;
+			return true;
 		}
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOLEAN TacticalActor::CanAnyArtilleryStrikeBeOrdered( UINT32* pSectorID )		// can any artillery strikes be ordered by this guy's team from the neighbouring sectors?
+bool TacticalActorRadio::canOrderAnyArtilleryStrike(
+	TacticalActor& actor,
+	std::uint32_t* sectorId)
 {
-	if ( !gSkillTraitValues.fROAllowArtillery )
-		return FALSE;
+	if (sectorId == nullptr || !gSkillTraitValues.fROAllowArtillery)
+		return false;
 
-	if ( this->deployment().sectorZ() )
-		return FALSE;
+	if (actor.deployment().sectorZ())
+		return false;
 
 	// if we are AI-controlled, we have to wait for our timer to run out
-	if ( this->roster().team() != gbPlayerNum && this->skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) )
-		return FALSE;
+	if (actor.roster().team() != gbPlayerNum &&
+		actor.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY))
+	{
+		return false;
+	}
 
 	// check wether we can call artillery from the 4 adjacent sectors
-	for ( UINT8 i = 0; i < 4; ++i )
+	for (UINT8 i = 0; i < 4; ++i)
 	{
-		INT16 loopX = this->deployment().sectorX();
-		INT16 loopY = this->deployment().sectorY();
+		INT16 loopX = actor.deployment().sectorX();
+		INT16 loopY = actor.deployment().sectorY();
 
 		if ( i == 0 )		++loopY;
 		else if ( i == 1 )	++loopX;
@@ -17923,57 +17994,94 @@ BOOLEAN TacticalActor::CanAnyArtilleryStrikeBeOrdered( UINT32* pSectorID )		// c
 			continue;
 
 		// as the player team can order artillery from the militia, we have to check that too.
-		if ( IsValidArtilleryOrderSector( loopX, loopY, this->deployment().sectorZ(), this->roster().team() ) || (this->roster().team() == gbPlayerNum && IsValidArtilleryOrderSector( loopX, loopY, this->deployment().sectorZ(), MILITIA_TEAM )) )
+		if (isValidArtillerySector(
+				loopX,
+				loopY,
+				actor.deployment().sectorZ(),
+				actor.roster().team()) ||
+			(actor.roster().team() == gbPlayerNum &&
+			 isValidArtillerySector(
+				 loopX,
+				 loopY,
+				 actor.deployment().sectorZ(),
+				 MILITIA_TEAM)))
 		{
-			*pSectorID = (UINT32)SECTOR( loopX, loopY );
-			return TRUE;
+			*sectorId = static_cast<std::uint32_t>(SECTOR(loopX, loopY));
+			return true;
 		}
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridNo, UINT8 bTeam )
+bool TacticalActorRadio::orderArtilleryStrike(
+	TacticalActor& actor,
+	std::uint32_t sectorId,
+	std::int32_t targetGridNo,
+	std::uint8_t team)
 {
-	if ( !CanUseSkill( SKILLS_RADIO_ARTILLERY, TRUE ) )
+	auto* const self = &actor;
+
+	if (sectorId > UINT8_MAX ||
+		(team != OUR_TEAM &&
+		 team != ENEMY_TEAM &&
+		 team != MILITIA_TEAM) ||
+		TileIsOutOfBounds(targetGridNo))
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_CANNOT_USE_SKILL] );
-		return FALSE;
+		return false;
 	}
 
-	// check wether radio frequencies are jammed. Not possible to do this in CanUseSkill(), as CanUseRadio() only checks if we theoretically
-	if ( SectorJammed( ) )
+	if (!actor.CanUseSkill(SKILLS_RADIO_ARTILLERY, TRUE))
+	{
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_CANNOT_USE_SKILL] );
+		return false;
+	}
+
+	// Radio eligibility is separate from the sector-wide jamming state.
+	if (sectorJammed())
 	{
 		// only display message and play sound on our team - no need to signify to player that AI is trying to call in artillery
-		if ( bTeam == OUR_TEAM || bTeam == MILITIA_TEAM )
+		if (team == OUR_TEAM || team == MILITIA_TEAM)
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_RADIO_JAMMED_NO_COMMUNICATION] );
 
-			PlayJA2SampleFromFile( "Sounds\\radioerror.wav", RATE_11025, SoundVolume( MIDVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ) );
+			PlayJA2SampleFromFile(
+				"Sounds\\radioerror.wav",
+				RATE_11025,
+				SoundVolume(MIDVOLUME, actor.position().gridNo()),
+				1,
+				SoundDir(actor.position().gridNo()));
 		}
 
-		return FALSE;
+		return false;
 	}
 
 	// sector number is in UINT32, even though INT16 would be normal
-	INT16 sSectorX = SECTORX( (UINT8)usSectorNr );
-	INT16 sSectorY = SECTORY( (UINT8)usSectorNr );
+	const auto compactSector = static_cast<UINT8>(sectorId);
+	INT16 sSectorX = SECTORX(compactSector);
+	INT16 sSectorY = SECTORY(compactSector);
 
 	// just to make sure...
-	if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, this->deployment().sectorZ(), bTeam ) )
-		return FALSE;
+	if (!isValidArtillerySector(
+			sSectorX,
+			sSectorY,
+			actor.deployment().sectorZ(),
+			team))
+	{
+		return false;
+	}
 
 	// use the radio, this handles animation, batteries etc.
-	if ( !UseRadio( ) )
-		return FALSE;
+	if (!use(actor))
+		return false;
 
 	// determine from where the shells will come
 	INT32 sStartingGridNo = gMapInformation.sNorthGridNo;
-	if ( sSectorX < this->deployment().sectorX() )
+	if (sSectorX < actor.deployment().sectorX())
 		sStartingGridNo = gMapInformation.sWestGridNo;
-	else if ( sSectorX > this->deployment().sectorX() )
+	else if (sSectorX > actor.deployment().sectorX())
 		sStartingGridNo = gMapInformation.sEastGridNo;
-	else if ( sSectorY > this->deployment().sectorY() )
+	else if (sSectorY > actor.deployment().sectorY())
 		sStartingGridNo = gMapInformation.sSouthGridNo;
 
 	if ( sStartingGridNo == -1 )
@@ -17982,30 +18090,46 @@ BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGri
 	if ( TileIsOutOfBounds( sStartingGridNo ) )
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_INCORRECT_GRIDNO_ARTILLERY] );
-		return FALSE;
+		return false;
 	}
 
 	// Locate item indices for Signal and HE shells defined by the active MOD. Evade usage of hard-code values.
 	static UINT16 usSignalShellIndex = NOTHING;
 	static UINT16 usHeShellIndex = NOTHING;
-	if (usSignalShellIndex == NOTHING || usHeShellIndex == NOTHING)
+	if (usSignalShellIndex == NOTHING ||
+		usSignalShellIndex >= MAXITEMS ||
+		!HasItemFlag(usSignalShellIndex, SIGNAL_SHELL) ||
+		usHeShellIndex == NOTHING ||
+		usHeShellIndex >= MAXITEMS)
 	{
 		UINT16 findSignalShellIndex = 1700;  // try default Signal Shell item in 1.13
 		UINT16 findHeShellIndex = 140;       // try default HE Shell item in 1.13
-		if (HasItemFlag(findSignalShellIndex, SIGNAL_SHELL) == FALSE && GetFirstItemWithFlag(&findSignalShellIndex, SIGNAL_SHELL) == FALSE)
+		if ((findSignalShellIndex >= MAXITEMS ||
+			 HasItemFlag(findSignalShellIndex, SIGNAL_SHELL) == FALSE) &&
+			(GetFirstItemWithFlag(
+				 &findSignalShellIndex,
+				 SIGNAL_SHELL) == FALSE ||
+			 findSignalShellIndex >= MAXITEMS))
 		{
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_NO_SIGNAL_SHELL]);
-			return FALSE;
+			return false;
 		}
 		UINT16 mortarIndex = GetLauncherFromLaunchable(findSignalShellIndex);
-		if (mortarIndex != GetLauncherFromLaunchable(findHeShellIndex))
+		if (mortarIndex >= MAXITEMS)
+		{
+			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_NO_DEFAULT_SHELL]);
+			return false;
+		}
+		if (findHeShellIndex >= MAXITEMS ||
+			mortarIndex != GetLauncherFromLaunchable(findHeShellIndex))
 		{
 			findHeShellIndex = GetLaunchableOfExplosionType(mortarIndex, EXPLOSV_NORMAL);
 		}
-		if (findHeShellIndex == NOTHING)
+		if (findHeShellIndex == NOTHING ||
+			findHeShellIndex >= MAXITEMS)
 		{
 			ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_NO_DEFAULT_SHELL]);
-			return FALSE;
+			return false;
 		}
 		// at this point both shells were found and are OK, so set it to static variables and never touch anymore:
 		usSignalShellIndex = findSignalShellIndex;
@@ -18015,41 +18139,73 @@ BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGri
 	// if a strike is ordered from the ENEMY_TEAM or MILITIA_TEAM, the number of mortars depends on the number of enemies/militia in that sector
 	// number of waves depends on the number and quality of enemies/soldiers
 	// only HE shells will be fired this way
-	if ( bTeam == ENEMY_TEAM || bTeam == MILITIA_TEAM )
+	if (team == ENEMY_TEAM || team == MILITIA_TEAM)
 	{
-		INT16 nummortars = 0;  // number of mortars determines size of wave (1 - 4)
-		INT16 numwaves = 0;    // number of waves
-		INT16 numshells = 0;   // number of shells
-		INT16 numwavesMax = (INT16) Explosive[Item[usSignalShellIndex].ubClassIndex].ubDuration;
+		if (gSkillTraitValues.usVOMortarCountDivisor == 0 ||
+			gSkillTraitValues.usVOMortarShellDivisor == 0)
+		{
+			return false;
+		}
+
+		std::int64_t nummortars = 0;  // number of mortars determines size of wave (1 - 4)
+		std::int64_t numwaves = 0;    // number of waves
+		std::int64_t numshells = 0;   // number of shells
+		const std::int64_t numwavesMax =
+			Explosive[Item[usSignalShellIndex].ubClassIndex]
+				.ubDuration;
 
 		SECTORINFO *pSector = &SectorInfo[SECTOR( sSectorX, sSectorY )];
 
-		if ( bTeam == ENEMY_TEAM )
+		if (team == ENEMY_TEAM)
 		{
 			// we also have to account for mobile groups
 			GROUP *pGroup = gpGroupList;
 			while ( pGroup )
 			{
-				if ( pGroup->usGroupTeam == bTeam && !pGroup->fVehicle && pGroup->ubSectorX == sSectorX && pGroup->ubSectorY == sSectorY )
+				if (pGroup->usGroupTeam == team &&
+					!pGroup->fVehicle &&
+					pGroup->ubSectorX == sSectorX &&
+					pGroup->ubSectorY == sSectorY)
 				{
 					nummortars += pGroup->ubGroupSize;
-					numshells += gSkillTraitValues.usVOMortarPointsTroop * pGroup->ubGroupSize;
+					numshells +=
+						static_cast<std::int64_t>(
+							gSkillTraitValues.usVOMortarPointsTroop) *
+						pGroup->ubGroupSize;
 				}
 				pGroup = pGroup->next;
 			}
 
 			nummortars += pSector->ubNumAdmins + pSector->ubNumTroops + pSector->ubNumElites;
 			nummortars /= gSkillTraitValues.usVOMortarCountDivisor;
-			numshells += gSkillTraitValues.usVOMortarPointsAdmin * pSector->ubNumAdmins + gSkillTraitValues.usVOMortarPointsTroop * pSector->ubNumTroops + gSkillTraitValues.usVOMortarPointsElite * pSector->ubNumElites;
+			numshells +=
+				static_cast<std::int64_t>(
+					gSkillTraitValues.usVOMortarPointsAdmin) *
+					pSector->ubNumAdmins +
+				static_cast<std::int64_t>(
+					gSkillTraitValues.usVOMortarPointsTroop) *
+					pSector->ubNumTroops +
+				static_cast<std::int64_t>(
+					gSkillTraitValues.usVOMortarPointsElite) *
+					pSector->ubNumElites;
 		}
-		else if ( bTeam == MILITIA_TEAM )
+		else if (team == MILITIA_TEAM)
 		{
 			UINT8 militia_green = MilitiaInSectorOfRank( sSectorX, sSectorY, GREEN_MILITIA );
 			UINT8 militia_troop = MilitiaInSectorOfRank( sSectorX, sSectorY, REGULAR_MILITIA );
 			UINT8 militia_elite = MilitiaInSectorOfRank( sSectorX, sSectorY, ELITE_MILITIA );
 
 			nummortars = (militia_green + militia_troop + militia_elite) / gSkillTraitValues.usVOMortarCountDivisor;
-			numshells = gSkillTraitValues.usVOMortarPointsAdmin * militia_green + gSkillTraitValues.usVOMortarPointsTroop * militia_troop + gSkillTraitValues.usVOMortarPointsElite * militia_elite;
+			numshells =
+				static_cast<std::int64_t>(
+					gSkillTraitValues.usVOMortarPointsAdmin) *
+					militia_green +
+				static_cast<std::int64_t>(
+					gSkillTraitValues.usVOMortarPointsTroop) *
+					militia_troop +
+				static_cast<std::int64_t>(
+					gSkillTraitValues.usVOMortarPointsElite) *
+					militia_elite;
 		}
 
 		// turn number of mortar points into number of shells; in case of "militia use sector ammo" option, numshells
@@ -18058,41 +18214,54 @@ BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGri
 
 		if (numshells <= 0)
 		{
-			if (bTeam == MILITIA_TEAM)  // player does not care if enemy team has not enough points to strike
+			if (team == MILITIA_TEAM)  // player does not care if enemy team has not enough points to strike
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_NOT_ENOUGH_MORTAR_SHELLS] );
-			return FALSE;
+			return false;
 		}
 
 		if (nummortars <= 0)
 		{
-			if (bTeam == MILITIA_TEAM)  // player does not care if enemy team has not enough men to strike
+			if (team == MILITIA_TEAM)  // player does not care if enemy team has not enough men to strike
 				ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_NO_MORTARS]);
-			return FALSE;
+			return false;
 		}
 
-		numwaves = max(1, numshells / nummortars);
+		numwaves = std::max<std::int64_t>(
+			1,
+			numshells / nummortars);
 		if (gSkillTraitValues.fROArtilleryDistributedOverTurns)  // if delay between waves is enabled, we shouldn't overextend, so trim to
-			numwaves = min(numwaves, numwavesMax);               // signal duration; it doesn't matter if delay is disabled.
+			numwaves = std::min(numwaves, numwavesMax);          // signal duration; it doesn't matter if delay is disabled.
+		numwaves = std::min<std::int64_t>(
+			numwaves,
+			std::numeric_limits<INT16>::max());
 
 		// send a signal shell at first. This marks the area that the shells will come in
-		ArtilleryStrike(usSignalShellIndex, this->identity().id() + 2, sStartingGridNo, sTargetGridNo);
+		ArtilleryStrike(
+			usSignalShellIndex,
+			actor.identity().id() + 2,
+			sStartingGridNo,
+			targetGridNo);
 
 		// we just 'plant' the mortar shells as bombs. We time them so that they will be fired at the beginning of the next turn
 		// for every 'wave' of shells, we just plant one and then clone them when firing
 		// create mortar shell item
 		OBJECTTYPE shellobj;
-		CreateItem(usHeShellIndex, 100, &shellobj );
+		if (!CreateItem(usHeShellIndex, 100, &shellobj) ||
+			shellobj.objectStack.empty())
+		{
+			return false;
+		}
 
 		shellobj.fFlags |= OBJECT_ARMED_BOMB;
 		shellobj[0]->data.misc.bDetonatorType = BOMB_TIMED;
 		shellobj[0]->data.misc.usBombItem = shellobj.usItem;
-		shellobj[0]->data.misc.ubBombOwner = this->identity().id() + 2;
+		shellobj[0]->data.misc.ubBombOwner = actor.identity().id() + 2;
 
 		// delay in RT is one turn. In TB we have to make that 2 turns, as otherwise the attack can happen instantly.
 		// Also use 2 if we are AI, otherwise the shells will fly immediately at the player's turn, giving him no chance to react (blame the way turns are handled)
 
 		shellobj[0]->data.misc.bDelay = 1;
-		if ( bTeam == ENEMY_TEAM || !(IsJa2TacticalTurnBasedCombat()) )
+		if (team == ENEMY_TEAM || !(IsJa2TacticalTurnBasedCombat()))
 			shellobj[0]->data.misc.bDelay += 1;
 
 		// now set special flags - we simply abuse the ubWireNetworkFlag
@@ -18116,29 +18285,34 @@ BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGri
 			break;
 		}
 
-		for ( INT16 i = 0; i < numwaves; ++i )
+		for (std::int64_t wave = 0; wave < numwaves; ++wave)
 		{
 			AddItemToPool( sStartingGridNo, &shellobj, HIDDEN_ITEM, 1, WORLD_ITEM_ARMED_BOMB, 0 );
 
 			// if option is set, delay each wave by one turn
-			if ( gSkillTraitValues.fROArtilleryDistributedOverTurns )
+			if (gSkillTraitValues.fROArtilleryDistributedOverTurns &&
+				shellobj[0]->data.misc.bDelay <
+					std::numeric_limits<INT8>::max())
+			{
 				shellobj[0]->data.misc.bDelay += 1;
+			}
 		}
 
 		// update the sector Artillery time
 		pSector->uiTimeAIArtillerywasOrdered = GetWorldTotalMin( );
 
 		// extra xp for succesfully ordering an artillery strike
-		StatChange( this, EXPERAMT, 10, TRUE );
+		StatChange(self, EXPERAMT, 10, TRUE);
 
 		// we add a bit to the counter, thus the AI has to wait a bit between ordering strikes (otherwise they'll instantly order all available strikes)
-		this->skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 2;
+		actor.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 2;
 	}
-	else if ( bTeam == OUR_TEAM )
+	else if (team == OUR_TEAM)
 	{
 		// if we call a strike from our mercs, everything gets more complicated. We don't calculate the number of mortars or shells as an estimate, we have to search the inventory 
 		// of every merc fit for shelling in that sector for mortars and shells. But thanks to this, we can also other shell-types, like mustard or phosphor
-		// we already know from IsValidArtilleryOrderSector(..) that someone in there must have a radio set and a mortar, no need to check that again
+		// Sector validation already proved that somebody has a radio set and
+		// somebody has a mortar.
 		// sadly, we have to run over this 2 times. On the first run, we have to search for all mortar items and remember them (there can be different mortar systems, can't fire a 40mm shell with a 60mm mortar)
 
 		// as of 2013-09-25, I say it is no longer necessary to fire a signal shell first. The player can fire a signal shell (by mortar or hand) manually to mark one or more targets if he wants
@@ -18150,35 +18324,50 @@ BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGri
 		UINT16 mortararray[maxFiringMortarsAmount] = { 0 };
 
 		TacticalActor* pSoldier = NULL;
-		SoldierID  cnt = gTacticalStatus.Team[bTeam].bFirstID;
-		SoldierID  lastid = gTacticalStatus.Team[bTeam].bLastID;
-		for ( ; (cnt < lastid) && (mortaritemcnt < maxFiringMortarsAmount); ++cnt )
+		SoldierID cnt = gTacticalStatus.Team[team].bFirstID;
+		const SoldierID lastid = gTacticalStatus.Team[team].bLastID;
+		for (;
+			 cnt <= lastid &&
+			 mortaritemcnt < maxFiringMortarsAmount;
+			 ++cnt)
 		{
 			pSoldier = GetJa2SoldierRepository().resolve( cnt );
 			// check if soldier exists in this sector
-			if ( !pSoldier || !pSoldier->roster().active() || pSoldier->deployment().sectorX() != sSectorX || pSoldier->deployment().sectorY() != sSectorY || pSoldier->deployment().sectorZ() != deployment().sectorZ() || pSoldier->assignment().current() > ON_DUTY )
+			if (!pSoldier ||
+				!pSoldier->roster().active() ||
+				pSoldier->deployment().sectorX() != sSectorX ||
+				pSoldier->deployment().sectorY() != sSectorY ||
+				pSoldier->deployment().sectorZ() !=
+					actor.deployment().sectorZ() ||
+				pSoldier->assignment().current() > ON_DUTY)
+			{
 				continue;
+			}
 
-			if ( pSoldier->CanUseRadio( ) )
+			if (canUse(*pSoldier))
 				radiooperatorID = cnt;
 
-			INT8 invsize = (INT8)pSoldier->inventory().size( );	 // remember inventorysize, so we don't call size() repeatedly
-
-			for ( INT8 bLoop = 0; (bLoop < invsize) && (mortaritemcnt < maxFiringMortarsAmount); ++bLoop )
+			for (std::size_t slot = 0;
+				 slot < pSoldier->inventory().size() &&
+				 mortaritemcnt < maxFiringMortarsAmount;
+				 ++slot)
 			{
-				if ( pSoldier->inventory()[bLoop].exists( ) == true && ItemIsMortar(pSoldier->inventory()[bLoop].usItem))
+				const OBJECTTYPE& object = pSoldier->inventory()[slot];
+				if (object.exists() &&
+					object.usItem < MAXITEMS &&
+					ItemIsMortar(object.usItem))
 				{
 					// if not already in list, remember this mortar
 					bool alreadyInList = false;
-					for (INT8 i = 0; i < mortaritemcnt; i++)
-						if (mortararray[i] == pSoldier->inventory()[bLoop].usItem)
+					for (UINT8 i = 0; i < mortaritemcnt; ++i)
+						if (mortararray[i] == object.usItem)
 						{
 							alreadyInList = true;
 							break;
 						}
 
-					if (alreadyInList == false)
-						mortararray[mortaritemcnt++] = pSoldier->inventory()[bLoop].usItem;
+					if (!alreadyInList)
+						mortararray[mortaritemcnt++] = object.usItem;
 				}
 			}
 		}
@@ -18187,52 +18376,84 @@ BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGri
 		if ( !mortaritemcnt )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_NO_MORTARS] );
-			return FALSE;
+			return false;
 		}
 
 		// depending on wether the mortars have ammunition, a radio operator will give a different dialogue
 		BOOLEAN shellsfired = FALSE;
 
 		// second loop: check for all mortar shells and 'fire' them		
-		cnt = gTacticalStatus.Team[bTeam].bFirstID;
-		for ( ; cnt < lastid; ++cnt )
+		cnt = gTacticalStatus.Team[team].bFirstID;
+		for (; cnt <= lastid; ++cnt)
 		{
 			pSoldier = GetJa2SoldierRepository().resolve( cnt );
 			// check if soldier exists in this sector
-			if ( !pSoldier || !pSoldier->roster().active() || pSoldier->deployment().sectorX() != sSectorX || pSoldier->deployment().sectorY() != sSectorY || pSoldier->deployment().sectorZ() != deployment().sectorZ() || pSoldier->assignment().current() > ON_DUTY )
+			if (!pSoldier ||
+				!pSoldier->roster().active() ||
+				pSoldier->deployment().sectorX() != sSectorX ||
+				pSoldier->deployment().sectorY() != sSectorY ||
+				pSoldier->deployment().sectorZ() !=
+					actor.deployment().sectorZ() ||
+				pSoldier->assignment().current() > ON_DUTY)
+			{
 				continue;
+			}
 
 			INT8 shelldelay = 1;
 			// In realtime the player could choose to put down a bomb right before a turn expires, so add 1 to the setting in RT
 			if ( !(IsJa2TacticalTurnBasedCombat()) )
 				++shelldelay;
 
-			INT8 invsize = (INT8)pSoldier->inventory().size( );									// remember inventorysize, so we don't call size() repeatedly
-			for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )
+			for (std::size_t slot = 0;
+				 slot < pSoldier->inventory().size();
+				 ++slot)
 			{
-				if ( pSoldier->inventory()[bLoop].exists( ) == true )
+				OBJECTTYPE& inventoryObject =
+					pSoldier->inventory()[slot];
+				if (inventoryObject.exists() &&
+					inventoryObject.usItem < MAXITEMS)
 				{
-					if (ItemIsMortar(pSoldier->inventory()[bLoop].usItem))
+					if (ItemIsMortar(inventoryObject.usItem))
 					{
-						OBJECTTYPE* pAttObj = FindAttachmentByClass( &(pSoldier->inventory()[bLoop]), IC_BOMB );
+						OBJECTTYPE* pAttObj =
+							FindAttachmentByClass(
+								&inventoryObject,
+								IC_BOMB);
 
 						// as of 2013-09-25, also fire these, as they are no longer necessary for a barrage
 						// only fire if not signal shell, we already fired one, no need to do so again
-						if ( pAttObj && HasItemFlag(pAttObj->usItem, SIGNAL_SHELL) == FALSE )
+						if (pAttObj &&
+							pAttObj->exists() &&
+							pAttObj->usItem < MAXITEMS &&
+							HasItemFlag(
+								pAttObj->usItem,
+								SIGNAL_SHELL) == FALSE)
 						{
 							// if option is set, delay each wave by one turn
-							if ( gSkillTraitValues.fROArtilleryDistributedOverTurns )
+							if (gSkillTraitValues.fROArtilleryDistributedOverTurns &&
+								shelldelay <
+									std::numeric_limits<INT8>::max())
+							{
 								++shelldelay;
+							}
 
 							// create mortar shell item
 							OBJECTTYPE shellobj;
-							CreateItem( pAttObj->usItem, 100, &shellobj );
+							if (!CreateItem(
+									pAttObj->usItem,
+									100,
+									&shellobj) ||
+								shellobj.objectStack.empty())
+							{
+								continue;
+							}
 
 							// plant bomb data
 							shellobj.fFlags |= OBJECT_ARMED_BOMB;
 							shellobj[0]->data.misc.bDetonatorType = BOMB_TIMED;
 							shellobj[0]->data.misc.usBombItem = shellobj.usItem;
-							shellobj[0]->data.misc.ubBombOwner = this->identity().id() + 2;
+							shellobj[0]->data.misc.ubBombOwner =
+								actor.identity().id() + 2;
 
 							shellobj[0]->data.misc.bDelay = shelldelay;
 
@@ -18242,41 +18463,64 @@ BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGri
 
 							shellsfired = TRUE;
 
-							DeductAmmo( pSoldier, bLoop );
+							DeductAmmo(pSoldier, &inventoryObject);
 						}
 					}
 
-					if ( Item[pSoldier->inventory()[bLoop].usItem].usItemClass == IC_BOMB )
+					if (Item[inventoryObject.usItem].usItemClass ==
+						IC_BOMB)
 					{
 						// found a bomb - if this fits any found mortar, fire it
 						for ( UINT8 i = 0; i < mortaritemcnt; ++i )
 						{
-							if ( ValidLaunchable( pSoldier->inventory()[bLoop].usItem, mortararray[i] ) )
+							if (ValidLaunchable(
+									inventoryObject.usItem,
+									mortararray[i]))
 							{
-								OBJECTTYPE* pShellObj = &(pSoldier->inventory()[bLoop]);							// ... get pointer for this item ...
+								OBJECTTYPE* pShellObj = &inventoryObject;
 
 								// only fire if not signal shell, we already fired one, no need to do so again
-								if ( pShellObj && !HasItemFlag( pShellObj->usItem, SIGNAL_SHELL ) )
+								if (!HasItemFlag(
+										pShellObj->usItem,
+										SIGNAL_SHELL))
 								{
 									// if option is set, delay each wave by one turn
-									if ( gSkillTraitValues.fROArtilleryDistributedOverTurns )
+									if (gSkillTraitValues.fROArtilleryDistributedOverTurns &&
+										shelldelay <
+											std::numeric_limits<INT8>::max())
+									{
 										++shelldelay;
+									}
 
 									// create mortar shell item
 									OBJECTTYPE shellobj;
-									CreateItem( pShellObj->usItem, 100, &shellobj );
+									if (!CreateItem(
+											pShellObj->usItem,
+											100,
+											&shellobj) ||
+										shellobj.objectStack.empty())
+									{
+										continue;
+									}
 
 									// plant bomb data
 									shellobj.fFlags |= OBJECT_ARMED_BOMB;
 									shellobj[0]->data.misc.bDetonatorType = BOMB_TIMED;
 									shellobj[0]->data.misc.usBombItem = shellobj.usItem;
-									shellobj[0]->data.misc.ubBombOwner = this->identity().id() + 2;
+									shellobj[0]->data.misc.ubBombOwner =
+										actor.identity().id() + 2;
 
 									shellobj[0]->data.misc.bDelay = shelldelay;
 
 									shellobj[0]->data.ubWireNetworkFlag = ARTILLERY_STRIKE_COUNT_1;
 
-									for ( INT16 j = 0; j < pShellObj->ubNumberOfObjects; ++j )
+									const std::size_t shellCount =
+										std::min<std::size_t>(
+											pShellObj->ubNumberOfObjects,
+											pShellObj->objectStack.size());
+									for (std::size_t shell = 0;
+										 shell < shellCount;
+										 ++shell)
 									{
 										AddItemToPool( sStartingGridNo, &shellobj, HIDDEN_ITEM, 1, WORLD_ITEM_ARMED_BOMB, 0 );
 
@@ -18285,6 +18529,7 @@ BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGri
 
 									// remove the shells: Delete object
 									DeleteObj( pShellObj );
+									break;
 								}
 							}
 						}
@@ -18299,7 +18544,7 @@ BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGri
 		if ( pSoldier != nullptr )
 		{
 			// also drain the other guy's radio batteries
-			pSoldier->UseRadio( );
+			(void)use(*pSoldier);
 
 			if ( shellsfired )
 				TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_DO_BATTLE_SND, BATTLE_SOUND_OK1, 500 );
@@ -18310,291 +18555,414 @@ BOOLEAN TacticalActor::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGri
 		if ( shellsfired )
 		{
 			// extra xp for succesfully ordering an artillery strike
-			StatChange( this, EXPERAMT, 10, TRUE );
+			StatChange(self, EXPERAMT, 10, TRUE);
 
 			// we add a bit to the counter, thus the AI has to wait a bit between ordering strikes (otherwise they'll instantly order all available strikes)
-			this->skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 2;
+			actor.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 2;
 		}
 	}
 	else
 		// how did this even happen?
-		return FALSE;
+		return false;
 
-	if ( bTeam == ENEMY_TEAM )
+	if (team == ENEMY_TEAM)
 		gCurrentIncident.usIncidentFlags |= INCIDENT_ARTILLERY_ENEMY;
 	else
 		gCurrentIncident.usIncidentFlags |= INCIDENT_ARTILLERY_PLAYERSIDE;
 
-	return TRUE;
+	return true;
 }
 
-BOOLEAN TacticalActor::IsJamming( )
+bool TacticalActorRadio::isJamming(TacticalActor& actor)
 {
-	if ( featureFlags().primaryFlags() & SOLDIER_RADIO_OPERATOR_JAMMING )
+	if (actor.featureFlags().primaryFlags() &
+		SOLDIER_RADIO_OPERATOR_JAMMING)
 	{
-		if ( CanUseRadio( FALSE ) )
-			return TRUE;
-		// if we cannot use the radio, remove that flag hile we're at it
-		else
-			featureFlags().primaryFlags() &= ~SOLDIER_RADIO_OPERATOR_JAMMING;
+		if (canUse(actor, false))
+			return true;
+
+		// A lost or broken radio immediately ends the mode.
+		actor.featureFlags().primaryFlags() &=
+			~SOLDIER_RADIO_OPERATOR_JAMMING;
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOLEAN TacticalActor::JamCommunications( )
+bool TacticalActorRadio::startJamming(TacticalActor& actor)
 {
 	// not possible if already jamming
-	if ( featureFlags().primaryFlags() & SOLDIER_RADIO_OPERATOR_JAMMING )
+	if (actor.featureFlags().primaryFlags() &
+		SOLDIER_RADIO_OPERATOR_JAMMING)
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ALREADY_JAMMING] );
-		return FALSE;
+		return false;
 	}
 
 	// use the radio, this handles animation, batteries etc.
-	if ( !UseRadio( ) )
-		return FALSE;
+	if (!use(actor))
+		return false;
 
 	// stop other radio activities
-	SwitchOffRadio( );
+	switchOff(actor);
 
 	// add flag
-	featureFlags().primaryFlags() |= SOLDIER_RADIO_OPERATOR_JAMMING;
+	actor.featureFlags().primaryFlags() |=
+		SOLDIER_RADIO_OPERATOR_JAMMING;
 
 	// play sound
-	PlayJA2SampleFromFile( "Sounds\\radioerror2.wav", RATE_11025, SoundVolume( MIDVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ) );
+	PlayJA2SampleFromFile(
+		"Sounds\\radioerror2.wav",
+		RATE_11025,
+		SoundVolume(MIDVOLUME, actor.position().gridNo()),
+		1,
+		SoundDir(actor.position().gridNo()));
 
-	return TRUE;
+	return true;
 }
 
-BOOLEAN TacticalActor::IsScanning( )
+bool TacticalActorRadio::isScanning(TacticalActor& actor)
 {
-	if ( featureFlags().primaryFlags() & SOLDIER_RADIO_OPERATOR_SCANNING )
+	if (actor.featureFlags().primaryFlags() &
+		SOLDIER_RADIO_OPERATOR_SCANNING)
 	{
-		if ( CanUseRadio( FALSE ) )
-			return TRUE;
-		// if we cannot use the radio, remove that flag hile we're at it
-		else
-			featureFlags().primaryFlags() &= ~SOLDIER_RADIO_OPERATOR_SCANNING;
+		if (canUse(actor, false))
+			return true;
+
+		actor.featureFlags().primaryFlags() &=
+			~SOLDIER_RADIO_OPERATOR_SCANNING;
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOLEAN TacticalActor::ScanForJam( )
+bool TacticalActorRadio::startScanning(TacticalActor& actor)
 {
 	// not possible if already scanning
-	if ( featureFlags().primaryFlags() & SOLDIER_RADIO_OPERATOR_SCANNING )
+	if (actor.featureFlags().primaryFlags() &
+		SOLDIER_RADIO_OPERATOR_SCANNING)
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ALREADY_SCANNING] );
-		return FALSE;
+		return false;
 	}
 
 	// use the radio, this handles animation, batteries etc.
-	if ( !UseRadio( ) )
-		return FALSE;
+	if (!use(actor))
+		return false;
 
 	// stop other radio activities
-	SwitchOffRadio( );
+	switchOff(actor);
 
 	// add flag
-	featureFlags().primaryFlags() |= SOLDIER_RADIO_OPERATOR_SCANNING;
+	actor.featureFlags().primaryFlags() |=
+		SOLDIER_RADIO_OPERATOR_SCANNING;
 
 	// play sound
-	PlayJA2SampleFromFile( "Sounds\\scan1.wav", RATE_11025, SoundVolume( MIDVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ) );
+	PlayJA2SampleFromFile(
+		"Sounds\\scan1.wav",
+		RATE_11025,
+		SoundVolume(MIDVOLUME, actor.position().gridNo()),
+		1,
+		SoundDir(actor.position().gridNo()));
 
-	return TRUE;
+	return true;
 }
 
-BOOLEAN TacticalActor::IsRadioListening( )
+bool TacticalActorRadio::isListening(TacticalActor& actor)
 {
-	return ((featureFlags().primaryFlags() & SOLDIER_RADIO_OPERATOR_LISTENING) && CanUseRadio( FALSE ));
+	if (!(actor.featureFlags().primaryFlags() &
+		  SOLDIER_RADIO_OPERATOR_LISTENING))
+	{
+		return false;
+	}
+
+	if (canUse(actor, false))
+		return true;
+
+	actor.featureFlags().primaryFlags() &=
+		~SOLDIER_RADIO_OPERATOR_LISTENING;
+	return false;
 }
 
-BOOLEAN TacticalActor::RadioListen( )
+bool TacticalActorRadio::startListening(TacticalActor& actor)
 {
 	// not possible if already scanning
-	if ( featureFlags().primaryFlags() & SOLDIER_RADIO_OPERATOR_LISTENING )
+	if (actor.featureFlags().primaryFlags() &
+		SOLDIER_RADIO_OPERATOR_LISTENING)
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ALREADY_LISTENING] );
-		return FALSE;
+		return false;
 	}
 
 	// use the radio, this handles animation, batteries etc.
-	if ( !UseRadio( ) )
-		return FALSE;
+	if (!use(actor))
+		return false;
 
 	// stop other radio activities
-	SwitchOffRadio( );
+	switchOff(actor);
 
 	// add flag
-	featureFlags().primaryFlags() |= SOLDIER_RADIO_OPERATOR_LISTENING;
+	actor.featureFlags().primaryFlags() |=
+		SOLDIER_RADIO_OPERATOR_LISTENING;
 
 	// play sound
-	PlayJA2SampleFromFile( "Sounds\\scan1.wav", RATE_11025, SoundVolume( MIDVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ) );
+	PlayJA2SampleFromFile(
+		"Sounds\\scan1.wav",
+		RATE_11025,
+		SoundVolume(MIDVOLUME, actor.position().gridNo()),
+		1,
+		SoundDir(actor.position().gridNo()));
 
-	return TRUE;
+	return true;
 }
 
 // Flugente: order reinforcements from src sector to target sector
 extern BOOLEAN CallMilitiaReinforcements( INT16 sTargetMapX, INT16 sTargetMapY, INT16 sSrcMapX, INT16 sSrcMapY, UINT16 sNumber );
 
-BOOLEAN TacticalActor::RadioCallReinforcements( UINT32 usSector, UINT16 sNumber )
+bool TacticalActorRadio::callReinforcements(
+	TacticalActor& actor,
+	std::uint32_t sourceSector,
+	std::uint16_t number)
 {
-	if ( !gGameExternalOptions.gfAllowReinforcements )
-		return FALSE;
+	if (!gGameExternalOptions.gfAllowReinforcements ||
+		sourceSector > UINT8_MAX ||
+		number == 0)
+	{
+		return false;
+	}
 
 	// use the radio, this handles animation, batteries etc.
-	if ( !UseRadio( ) )
-		return FALSE;
+	if (!use(actor))
+		return false;
 
-	// check wether radio frequencies are jammed. Not possible to do this in CanUseSkill(), as CanUseRadio() only checks if we can theoretically order
-	if ( SectorJammed( ) )
+	// Radio eligibility is separate from the sector-wide jamming state.
+	if (sectorJammed())
 	{
-		// error message and sound is handled in UseRadio()
-		return FALSE;
+		// The radio-use path handles its own failure feedback.
+		return false;
 	}
 
 	// Flugente: order reinforcements from src sector to target sector
-	if ( CallMilitiaReinforcements( this->deployment().sectorX(), this->deployment().sectorY(), SECTORX( usSector ), SECTORY( usSector ), sNumber ) )
+	if (CallMilitiaReinforcements(
+			actor.deployment().sectorX(),
+			actor.deployment().sectorY(),
+			SECTORX(static_cast<UINT8>(sourceSector)),
+			SECTORY(static_cast<UINT8>(sourceSector)),
+			number))
 	{
 		CHAR16 pStr2[128];
-		GetSectorIDString( SECTORX( usSector ), SECTORY( usSector ), 0, pStr2, FALSE );
+		GetSectorIDString(
+			SECTORX(static_cast<UINT8>(sourceSector)),
+			SECTORY(static_cast<UINT8>(sourceSector)),
+			0,
+			pStr2,
+			FALSE);
 
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ORDERS_REINFORCEMENTS], this->identity().name(), pStr2 );
+		ScreenMsg(
+			FONT_MCOLOR_LTYELLOW,
+			MSG_INTERFACE,
+			New113Message[MSG113_ORDERS_REINFORCEMENTS],
+			actor.identity().name(),
+			pStr2);
 
 		// play sound
-		PlayJA2SampleFromFile( "Sounds\\scan1.wav", RATE_11025, SoundVolume( MIDVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ) );
+		PlayJA2SampleFromFile(
+			"Sounds\\scan1.wav",
+			RATE_11025,
+			SoundVolume(MIDVOLUME, actor.position().gridNo()),
+			1,
+			SoundDir(actor.position().gridNo()));
 
-		return TRUE;
+		return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOLEAN TacticalActor::SwitchOffRadio( )
+bool TacticalActorRadio::switchOff(TacticalActor& actor) noexcept
 {
 	// erasing the flags is enough
-	featureFlags().primaryFlags() &= ~(SOLDIER_RADIO_OPERATOR_JAMMING | SOLDIER_RADIO_OPERATOR_SCANNING | SOLDIER_RADIO_OPERATOR_LISTENING);
+	actor.featureFlags().primaryFlags() &=
+		~(SOLDIER_RADIO_OPERATOR_JAMMING |
+		  SOLDIER_RADIO_OPERATOR_SCANNING |
+		  SOLDIER_RADIO_OPERATOR_LISTENING);
 
-	return TRUE;
+	return true;
 }
 
-BOOLEAN TacticalActor::RadioOrderAllTurnCoatToSwitchSides()
+bool TacticalActorRadio::orderAllTurncoats(TacticalActor& actor)
 {
 	// not possible if already scanning
-	if ( !gSkillTraitValues.fCOTurncoats )
-		return FALSE;
+	if (!gSkillTraitValues.fCOTurncoats)
+		return false;
 
 	// use the radio, this handles animation, batteries etc.
-	if ( !UseRadio() )
-		return FALSE;
+	if (!use(actor))
+		return false;
 
-	OrderAllTurnCoatToSwitchSides();
+	actor.OrderAllTurnCoatToSwitchSides();
 
-	return TRUE;
+	return true;
 }
 
 // display and error sound used either when the radio set fails or the sector is jammed - the player knows of the error, but cannot be sure of the cause
-void
-TacticalActor::RadioFail( )
+void TacticalActorRadio::reportFailure(TacticalActor& actor)
 {
 	// only display message and play sound if on player team
-	if ( this->roster().team() == gbPlayerNum && this->roster().inSector() )
+	if (actor.roster().team() == gbPlayerNum &&
+		actor.roster().inSector())
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_RADIO_ACTION_FAILED] );
 
-		PlayJA2SampleFromFile( "Sounds\\radioerror.wav", RATE_11025, SoundVolume( MIDVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ) );
+		PlayJA2SampleFromFile(
+			"Sounds\\radioerror.wav",
+			RATE_11025,
+			SoundVolume(MIDVOLUME, actor.position().gridNo()),
+			1,
+			SoundDir(actor.position().gridNo()));
 	}
 }
 
 // Flugente: spotter
-BOOLEAN TacticalActor::IsSpotting( )
+bool TacticalActorSpotting::isSpotting(TacticalActor& actor)
 {
-	if ( this->skillState().counter(SOLDIER_COUNTER_SPOTTER) > 0 )
+	if (actor.skillState().counter(SOLDIER_COUNTER_SPOTTER) > 0)
 	{
 		// do we still fulfil the requirements?
-		if ( CanSpot( ) )
+		if (canSpot(actor))
 		{
 			// we are only a spotter if we did this long enough
-			if ( this->skillState().counter(SOLDIER_COUNTER_SPOTTER) >= gGameExternalOptions.usSpotterPreparationTurns )
-				return TRUE;
-			else
-				return FALSE;
+			return actor.skillState().counter(SOLDIER_COUNTER_SPOTTER) >=
+				gGameExternalOptions.usSpotterPreparationTurns;
 		}
 
 		// no item -> lose status
-		this->skillState().clearCounter(SOLDIER_COUNTER_SPOTTER);
+		actor.skillState().clearCounter(SOLDIER_COUNTER_SPOTTER);
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOLEAN TacticalActor::CanSpot( INT32 sTargetGridNo )
+bool TacticalActorSpotting::canSpot(
+	TacticalActor& actor,
+	std::int32_t targetGridNo)
 {
-	if ( this->vitals().health() < OKLIFE || this->assignment().isAsleep() || this->collapseState().tactical() || (this->featureFlags().primaryFlags() & SOLDIER_POW) )
-		return FALSE;
+	auto* const self = &actor;
+
+	if (actor.vitals().health() < OKLIFE ||
+		actor.assignment().isAsleep() ||
+		actor.collapseState().tactical() ||
+		(actor.featureFlags().primaryFlags() & SOLDIER_POW) ||
+		actor.animationPlayback().state() >= NUMANIMATIONSTATES)
+	{
+		return false;
+	}
 
 	// additional checks if we want to know wether we can target a specific location
-	if ( sTargetGridNo != NOWHERE && PythSpacesAway( this->position().gridNo(), sTargetGridNo ) >= 2 * gGameExternalOptions.usSpotterRange )
+	if (targetGridNo != NOWHERE)
 	{
-		UINT16 usSightLimit = this->GetMaxDistanceVisible( sTargetGridNo, this->position().level(), CALC_FROM_WANTED_DIR );
-
-		INT32 val = SoldierToVirtualSoldierLineOfSightTest( this, sTargetGridNo, this->position().level(), gAnimControl[this->animationPlayback().state()].ubEndHeight, FALSE, usSightLimit );
-
-		// error if we cannot see the target
-		if ( !val )
-			return FALSE;
-	}
-
-	// no item -> no spotting
-	if ( !(this->inventory()[HANDPOS].exists( ) && GetObjectModifier( this, &(this->inventory()[HANDPOS]), gAnimControl[this->animationPlayback().state()].ubEndHeight, ITEMMODIFIER_SPOTTER ))
-		 && !(this->inventory()[SECONDHANDPOS].exists( ) && GetObjectModifier( this, &(this->inventory()[SECONDHANDPOS]), gAnimControl[this->animationPlayback().state()].ubEndHeight, ITEMMODIFIER_SPOTTER )) )
-		 return FALSE;
-
-	return TRUE;
-}
-
-BOOLEAN TacticalActor::BecomeSpotter( INT32 sTargetGridNo )
-{
-	// not possible if already scanning
-	if ( this->skillState().counter(SOLDIER_COUNTER_SPOTTER) )
-	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ALREADY_SPOTTING] );
-		return FALSE;
-	}
-
-	if ( !CanSpot( sTargetGridNo ) )
-	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_CANNOT_SPOT_LOCATION] );
-		return FALSE;
-	}
-
-	// deduct APs
-	DeductPoints( this, APBPConstants[AP_SPOTTER], 0, 0 );
-
-	// add to counter
-	this->skillState().counter(SOLDIER_COUNTER_SPOTTER) = 1;
-
-	// stop any multi-turn action
-	CancelMultiTurnAction( FALSE );
-
-	return TRUE;
-}
-
-// Flugente: enemy roles
-BOOLEAN TacticalActor::HasSniper( )
-{
-	INT8 invsize = (INT8)inventory().size( );									// remember inventorysize, so we don't call size() repeatedly
-	for ( INT8 bLoop = 0; bLoop < invsize; ++bLoop )
-	{
-		if ( inventory()[bLoop].exists( ) && Item[inventory()[bLoop].usItem].usItemClass == IC_GUN && Weapon[Item[inventory()[bLoop].usItem].ubClassIndex].ubWeaponType == GUN_SN_RIFLE )
+		if (TileIsOutOfBounds(actor.position().gridNo()) ||
+			TileIsOutOfBounds(targetGridNo))
 		{
-			return TRUE;
+			return false;
+		}
+
+		if (PythSpacesAway(actor.position().gridNo(), targetGridNo) >=
+			2 * gGameExternalOptions.usSpotterRange)
+		{
+			UINT16 usSightLimit = actor.GetMaxDistanceVisible(
+				targetGridNo,
+				actor.position().level(),
+				CALC_FROM_WANTED_DIR);
+
+			INT32 val = SoldierToVirtualSoldierLineOfSightTest(
+				self,
+				targetGridNo,
+				actor.position().level(),
+				gAnimControl[actor.animationPlayback().state()]
+					.ubEndHeight,
+				FALSE,
+				usSightLimit);
+
+			// error if we cannot see the target
+			if (!val)
+				return false;
 		}
 	}
 
-	return FALSE;
+	const auto stance =
+		gAnimControl[actor.animationPlayback().state()].ubEndHeight;
+	const bool hasPrimarySpotterItem =
+		HANDPOS < actor.inventory().size() &&
+		actor.inventory()[HANDPOS].exists() &&
+		actor.inventory()[HANDPOS].usItem < MAXITEMS &&
+		GetObjectModifier(
+			self,
+			&actor.inventory()[HANDPOS],
+			stance,
+			ITEMMODIFIER_SPOTTER);
+	const bool hasSecondarySpotterItem =
+		SECONDHANDPOS < actor.inventory().size() &&
+		actor.inventory()[SECONDHANDPOS].exists() &&
+		actor.inventory()[SECONDHANDPOS].usItem < MAXITEMS &&
+		GetObjectModifier(
+			self,
+			&actor.inventory()[SECONDHANDPOS],
+			stance,
+			ITEMMODIFIER_SPOTTER);
+
+	// no item -> no spotting
+	return hasPrimarySpotterItem || hasSecondarySpotterItem;
+}
+
+bool TacticalActorSpotting::startSpotting(
+	TacticalActor& actor,
+	std::int32_t targetGridNo)
+{
+	// not possible if already scanning
+	if (actor.skillState().counter(SOLDIER_COUNTER_SPOTTER))
+	{
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ALREADY_SPOTTING] );
+		return false;
+	}
+
+	if (!canSpot(actor, targetGridNo))
+	{
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_CANNOT_SPOT_LOCATION] );
+		return false;
+	}
+
+	// deduct APs
+	DeductPoints(&actor, APBPConstants[AP_SPOTTER], 0, 0);
+
+	// add to counter
+	actor.skillState().counter(SOLDIER_COUNTER_SPOTTER) = 1;
+
+	// stop any multi-turn action
+	actor.CancelMultiTurnAction(FALSE);
+
+	return true;
+}
+
+// Flugente: enemy roles
+bool TacticalActorEquipment::hasSniperRifle(
+	const TacticalActor& actor)
+{
+	for (std::size_t slot = 0; slot < actor.inventory().size(); ++slot)
+	{
+		const OBJECTTYPE& object = actor.inventory()[slot];
+		if (object.exists() &&
+			object.usItem < MAXITEMS &&
+			Item[object.usItem].usItemClass == IC_GUN &&
+			Item[object.usItem].ubClassIndex < MAXITEMS &&
+			Weapon[Item[object.usItem].ubClassIndex].ubWeaponType ==
+				GUN_SN_RIFLE)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 // AI-only: can we heal a wounded ally? Do NOT, repeat, NOT use this with mercs!
@@ -24553,9 +24921,14 @@ BOOLEAN MajorTrait( UINT8 uiSkillTraitNumber )
 	return FALSE;
 }
 
-BOOLEAN GetRadioOperatorSignal( SoldierID usOwner, INT32* psTargetGridNo )
+bool TacticalActorRadio::operatorSignal(
+	SoldierID ownerId,
+	std::int32_t* targetGridNo)
 {
-	const UINT16 owner = static_cast<UINT16>( usOwner );
+	if (targetGridNo == nullptr)
+		return false;
+
+	const UINT16 owner = static_cast<UINT16>(ownerId);
 
 	// get the 'real owner'
 	if ( owner > 1 )
@@ -24565,11 +24938,18 @@ BOOLEAN GetRadioOperatorSignal( SoldierID usOwner, INT32* psTargetGridNo )
 			GetJa2SoldierRepository().resolve(
 				owner - 2 );
 
-		if ( pSoldier && pSoldier->CanUseRadio( FALSE ) && pSoldier->roster().active() && pSoldier->roster().inSector() && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
+		if (pSoldier &&
+			canUse(*pSoldier, false) &&
+			pSoldier->roster().active() &&
+			pSoldier->roster().inSector() &&
+			pSoldier->deployment().sectorX() == gWorldSectorX &&
+			pSoldier->deployment().sectorY() == gWorldSectorY &&
+			pSoldier->deployment().sectorZ() == gbWorldSectorZ &&
+			!TileIsOutOfBounds(pSoldier->position().gridNo()))
 		{
-			*psTargetGridNo = pSoldier->position().gridNo();
+			*targetGridNo = pSoldier->position().gridNo();
 			//pSoldier->roster().side();
-			return TRUE;
+			return true;
 		}
 	}
 	// check for the side that ordered this
@@ -24580,105 +24960,156 @@ BOOLEAN GetRadioOperatorSignal( SoldierID usOwner, INT32* psTargetGridNo )
 			bTeam = ENEMY_TEAM;
 
 		TacticalActor* pSoldier = NULL;
-		SoldierID  cnt = gTacticalStatus.Team[bTeam].bFirstID;
-		SoldierID  lastid = gTacticalStatus.Team[bTeam].bLastID;
-		for ( ; cnt < lastid; ++cnt )
+		SoldierID cnt = gTacticalStatus.Team[bTeam].bFirstID;
+		const SoldierID lastid = gTacticalStatus.Team[bTeam].bLastID;
+		for (; cnt <= lastid; ++cnt)
 		{
 			pSoldier =
 				GetJa2SoldierRepository().resolve(
 					cnt );
-			if ( pSoldier && pSoldier->CanUseRadio( FALSE ) && pSoldier->roster().active() && pSoldier->roster().inSector() && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
+			if (pSoldier &&
+				canUse(*pSoldier, false) &&
+				pSoldier->roster().active() &&
+				pSoldier->roster().inSector() &&
+				pSoldier->deployment().sectorX() == gWorldSectorX &&
+				pSoldier->deployment().sectorY() == gWorldSectorY &&
+				pSoldier->deployment().sectorZ() == gbWorldSectorZ &&
+				!TileIsOutOfBounds(pSoldier->position().gridNo()))
 			{
-				*psTargetGridNo = pSoldier->position().gridNo();
+				*targetGridNo = pSoldier->position().gridNo();
 				//pSoldier->roster().side();
-				return TRUE;
+				return true;
 			}
 		}
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOLEAN IsValidArtilleryOrderSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, UINT8 bTeam )
+bool TacticalActorRadio::isValidArtillerySector(
+	std::int16_t sectorX,
+	std::int16_t sectorY,
+	std::int8_t sectorZ,
+	std::uint8_t team)
 {
+	if (team != ENEMY_TEAM &&
+		team != MILITIA_TEAM &&
+		team != OUR_TEAM)
+	{
+		return false;
+	}
+	if ((team == ENEMY_TEAM || team == MILITIA_TEAM) &&
+		(gSkillTraitValues.usVOMortarCountDivisor == 0 ||
+		 gSkillTraitValues.usVOMortarShellDivisor == 0))
+	{
+		return false;
+	}
+
 	// is the sector valid?
-	if ( bSectorZ > 0 || sSectorX < 1 || sSectorX >= MAP_WORLD_X - 1 || sSectorY < 1 || sSectorY >= MAP_WORLD_Y - 1 )
-		return FALSE;
+	if (sectorZ != 0 ||
+		sectorX < 1 ||
+		sectorX >= MAP_WORLD_X - 1 ||
+		sectorY < 1 ||
+		sectorY >= MAP_WORLD_Y - 1)
+	{
+		return false;
+	}
 
-	UINT16 usEnemies = (UINT16)NumNonPlayerTeamMembersInSector( sSectorX, sSectorY, ENEMY_TEAM );
-	UINT16 usMilitia = (UINT16)NumNonPlayerTeamMembersInSector( sSectorX, sSectorY, MILITIA_TEAM );
-	UINT16 usMercs = (UINT16)PlayerMercsInSector( (UINT8)sSectorX, (UINT8)sSectorY, (UINT8)bSectorZ );
+	UINT16 usEnemies = (UINT16)NumNonPlayerTeamMembersInSector( sectorX, sectorY, ENEMY_TEAM );
+	UINT16 usMilitia = (UINT16)NumNonPlayerTeamMembersInSector( sectorX, sectorY, MILITIA_TEAM );
+	UINT16 usMercs = (UINT16)PlayerMercsInSector( (UINT8)sectorX, (UINT8)sectorY, (UINT8)sectorZ );
 
-	SECTORINFO *pSectorInfo = &(SectorInfo[SECTOR( sSectorX, sSectorY )]);
+	SECTORINFO *pSectorInfo = &(SectorInfo[SECTOR( sectorX, sectorY )]);
 
 	// sector must be free of members of an opposing team
-	if ( bTeam == ENEMY_TEAM )
+	if (team == ENEMY_TEAM)
 	{
 		if ( !usEnemies || usMilitia || usMercs )
-			return FALSE;
+			return false;
 
 		// there have to be enough guys here to fire at least one shot
 		if ( usEnemies < gSkillTraitValues.usVOMortarCountDivisor )
-			return FALSE;
+			return false;
 
-		if ( (usEnemies * gSkillTraitValues.usVOMortarPointsAdmin) < (gSkillTraitValues.usVOMortarShellDivisor * (usEnemies / gSkillTraitValues.usVOMortarCountDivisor)) )
-			return FALSE;
+		const std::uint64_t availableShellPoints =
+			static_cast<std::uint64_t>(usEnemies) *
+			gSkillTraitValues.usVOMortarPointsAdmin;
+		const std::uint64_t requiredShellPoints =
+			static_cast<std::uint64_t>(
+				gSkillTraitValues.usVOMortarShellDivisor) *
+			(usEnemies /
+			 gSkillTraitValues.usVOMortarCountDivisor);
+		if (availableShellPoints < requiredShellPoints)
+			return false;
 
 		// cannot fire if artillery was used recently
 		if ( GetWorldTotalMin( ) < pSectorInfo->uiTimeAIArtillerywasOrdered + gSkillTraitValues.bVOArtillerySectorFrequency )
-			return FALSE;
+			return false;
 	}
-	else if ( bTeam == MILITIA_TEAM )
+	else if (team == MILITIA_TEAM)
 	{
 		if ( usEnemies || !usMilitia )
-			return FALSE;
+			return false;
 
 		// there have to be enough guys here to fire at least one shot
 		if ( usMilitia < gSkillTraitValues.usVOMortarCountDivisor )
-			return FALSE;
+			return false;
 
-		if ( (usMilitia * gSkillTraitValues.usVOMortarPointsAdmin) < (gSkillTraitValues.usVOMortarShellDivisor * (usMilitia / gSkillTraitValues.usVOMortarCountDivisor)) )
-			return FALSE;
+		const std::uint64_t availableShellPoints =
+			static_cast<std::uint64_t>(usMilitia) *
+			gSkillTraitValues.usVOMortarPointsAdmin;
+		const std::uint64_t requiredShellPoints =
+			static_cast<std::uint64_t>(
+				gSkillTraitValues.usVOMortarShellDivisor) *
+			(usMilitia /
+			 gSkillTraitValues.usVOMortarCountDivisor);
+		if (availableShellPoints < requiredShellPoints)
+			return false;
 
 		// cannot fire if artillery was used recently
 		if ( GetWorldTotalMin( ) < pSectorInfo->uiTimeAIArtillerywasOrdered + gSkillTraitValues.bVOArtillerySectorFrequency )
-			return FALSE;
+			return false;
 	}
-	else if ( bTeam == OUR_TEAM )
+	else if (team == OUR_TEAM)
 	{
 		if ( usEnemies || !usMercs )
-			return FALSE;
+			return false;
 
 		// we can relay orders only if someone in the sector has a working radio set and a mortar
 		BOOLEAN activeradio = FALSE;
 		BOOLEAN mortarfound = FALSE;
 		TacticalActor* pSoldier = NULL;
-		SoldierID  cnt = gTacticalStatus.Team[bTeam].bFirstID;
-		SoldierID  lastid = gTacticalStatus.Team[bTeam].bLastID;
-		for ( ; cnt < lastid; ++cnt )
+		SoldierID cnt = gTacticalStatus.Team[team].bFirstID;
+		const SoldierID lastid = gTacticalStatus.Team[team].bLastID;
+		for (; cnt <= lastid; ++cnt)
 		{
 			pSoldier =
 				GetJa2SoldierRepository().resolve(
 					cnt );
 			// check if soldier exists in this sector, and is on duty
-			if ( !pSoldier || !pSoldier->roster().active() || pSoldier->deployment().sectorX() != sSectorX || pSoldier->deployment().sectorY() != sSectorY || pSoldier->deployment().sectorZ() != bSectorZ || pSoldier->assignment().current() > ON_DUTY )
+			if (!pSoldier ||
+				!pSoldier->roster().active() ||
+				pSoldier->deployment().sectorX() != sectorX ||
+				pSoldier->deployment().sectorY() != sectorY ||
+				pSoldier->deployment().sectorZ() != sectorZ ||
+				pSoldier->assignment().current() > ON_DUTY)
 				continue;
 
-			if ( pSoldier->CanUseRadio( FALSE ) )
+			if (canUse(*pSoldier, false))
 				activeradio = TRUE;
 
-			if ( pSoldier->HasMortar( ) )
+			if (TacticalActorEquipment::hasMortar(*pSoldier))
 				mortarfound = TRUE;
 		}
 
 		if ( !activeradio || !mortarfound )
-			return FALSE;
+			return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-BOOLEAN SectorJammed( )
+bool TacticalActorRadio::sectorJammed()
 {
 	// check every soldier: are we jamming frequencies?
 	TacticalActor* pSoldier = NULL;
@@ -24689,146 +25120,235 @@ BOOLEAN SectorJammed( )
 		pSoldier =
 			GetJa2SoldierRepository().resolve(
 				cnt );
-		if ( pSoldier != nullptr && pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ && pSoldier->vitals().health() > 0 && pSoldier->IsJamming( ) )
-			return TRUE;
+		if (pSoldier != nullptr &&
+			pSoldier->deployment().sectorX() == gWorldSectorX &&
+			pSoldier->deployment().sectorY() == gWorldSectorY &&
+			pSoldier->deployment().sectorZ() == gbWorldSectorZ &&
+			pSoldier->vitals().health() > 0 &&
+			isJamming(*pSoldier))
+		{
+			return true;
+		}
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOLEAN PlayerTeamIsScanning( )
+bool TacticalActorRadio::playerTeamScanning()
 {
 	// check every soldier: are we jamming frequencies?
 	TacticalActor* pSoldier = NULL;
 	SoldierID  cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 	SoldierID  lastid = gTacticalStatus.Team[OUR_TEAM].bLastID;
-	for ( ; cnt < lastid; ++cnt )
+	for (; cnt <= lastid; ++cnt)
 	{
 		pSoldier =
 			GetJa2SoldierRepository().resolve(
 				cnt );
-		if ( pSoldier != nullptr && pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ && pSoldier->vitals().health() > 0 && pSoldier->IsScanning( ) )
-			return TRUE;
-	}
-
-	return FALSE;
-}
-
-// bonus for snipers firing at this location (we get this if there are spotters)
-UINT16	GridNoSpotterCTHBonus( TacticalActor* pSniper, INT32 sGridNo, INT8 bTeam )
-{
-	UINT16 bestvalue = 0;
-
-	TacticalActor* pSoldier = NULL;
-	SoldierID  cnt = gTacticalStatus.Team[bTeam].bFirstID;
-	SoldierID  lastid = gTacticalStatus.Team[bTeam].bLastID;
-	for ( ; cnt < lastid; ++cnt )
-	{
-		pSoldier =
-			GetJa2SoldierRepository().resolve(
-				cnt );
-		if ( pSoldier != nullptr && pSoldier != pSniper && pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ
-			 && pSoldier->IsSpotting( )
-			 && PythSpacesAway( pSoldier->position().gridNo(), pSniper->position().gridNo() ) <= gGameExternalOptions.usSpotterRange
-			 && PythSpacesAway( pSoldier->position().gridNo(), sGridNo ) >= 2 * gGameExternalOptions.usSpotterRange )
+		if (pSoldier != nullptr &&
+			pSoldier->deployment().sectorX() == gWorldSectorX &&
+			pSoldier->deployment().sectorY() == gWorldSectorY &&
+			pSoldier->deployment().sectorZ() == gbWorldSectorZ &&
+			pSoldier->vitals().health() > 0 &&
+			isScanning(*pSoldier))
 		{
-			BOOLEAN targetseen = FALSE;
-
-			SoldierID usID = WhoIsThere2( sGridNo, pSniper->targeting().level() );
-			TacticalActor* target =
-				GetJa2SoldierRepository().resolve(
-					usID );
-
-			// is someone is at the sGridNo, check wether the spotter can see any part of him check wether head can be seen)
-			if ( target != nullptr && SoldierToSoldierLineOfSightTest( pSoldier, target, 0, NO_DISTANCE_LIMIT, AIM_SHOT_HEAD ) > 0 )
-				targetseen = TRUE;
-			// otherwise check wether we can see the ground floor
-			else if ( SoldierToVirtualSoldierLineOfSightTest( pSoldier, sGridNo, pSniper->position().level(), ANIM_PRONE, FALSE, NO_DISTANCE_LIMIT ) > 0 )
-				targetseen = TRUE;
-
-			if ( targetseen )
-			{
-				// spotter items are used to determine effectiveness. cap each hand item to a maximum of 100 pts (to keep players from using guns with tons of attachments that have been declared 'spotter items')
-				UINT16 itembonus = 0;
-				if ( pSoldier->inventory()[HANDPOS].exists( ) )
-					itembonus += min( 100, GetObjectModifier( pSoldier, &(pSoldier->inventory()[HANDPOS]), gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight, ITEMMODIFIER_SPOTTER ) );
-
-				if ( pSoldier->inventory()[SECONDHANDPOS].exists( ) )
-					itembonus += min( 100, GetObjectModifier( pSoldier, &(pSoldier->inventory()[SECONDHANDPOS]), gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight, ITEMMODIFIER_SPOTTER ) );
-
-				// base spotter effectivity depends on 40% items, 30% experience, 20% marksmanship an 10% leadership 
-				// the nominal value is between 0 and 1000 (though the actual value can be raised higher, due to effective stat and level boni)
-				UINT32 value = 2 * itembonus + 30 * EffectiveExpLevel( pSoldier ) + 2 * EffectiveMarksmanship( pSoldier ) + EffectiveLeadership( pSoldier );
-
-				// lowered effectivity if we're fatigued
-				ReducePointsForFatigue( pSoldier, &value );
-
-				// lowered effectivity if we're wounded
-				value = (value * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth());
-
-				// effectivity of spotter and sniper working together in percent
-				UINT16 effectivity = 100;
-
-				// sociable mercs get a bonus, loners get a malus
-				if ( OKToCheckOpinion( pSoldier->identity().profile() ) )
-				{
-					MERCPROFILESTRUCT*	pProfile = &(gMercProfiles[pSoldier->identity().profile()]);
-
-					switch ( pProfile->bCharacterTrait )
-					{
-					case CHAR_TRAIT_SOCIABLE:
-						effectivity += 10;
-						break;
-
-					case CHAR_TRAIT_LONER:
-						effectivity -= 10;
-						break;
-					}
-				}
-
-				if ( OKToCheckOpinion( pSniper->identity().profile() ) )
-				{
-					MERCPROFILESTRUCT*	pProfile_Sniper = &(gMercProfiles[pSniper->identity().profile()]);
-
-					switch ( pProfile_Sniper->bCharacterTrait )
-					{
-					case CHAR_TRAIT_SOCIABLE:
-						effectivity += 10;
-						break;
-
-					case CHAR_TRAIT_LONER:
-						effectivity -= 10;
-						break;
-					}
-				}
-
-				// relation between sniper and spotter is important - they need to trust each other (-50 to 50)
-				INT8 relation = min( 2 * BUDDY_OPINION, max( 2 * HATED_OPINION, SoldierRelation( pSoldier, pSniper ) + SoldierRelation( pSniper, pSoldier ) ) );
-
-				// relation counts twice. Also account for special background. Effectivity cannot be lower than 0%!
-				effectivity = max( 0, effectivity + 2 * relation + TacticalActorModifiers::backgroundValue(*pSoldier, BG_PERC_SPOTTER ) );
-				
-				// a good relation boosts value tremendously - a bad relation makes spotting useless
-				// the spotter background also alters effectiveness
-				// -> value between 0 and 2000, nominal 1000
-				value = (value * effectivity ) / 100;
-
-				// longer spotting gives a linear bonus - up to 100% -> value between 0 and 4000, nominal 2000
-				value = (value * min(pSoldier->skillState().counter(SOLDIER_COUNTER_SPOTTER), 2 * gGameExternalOptions.usSpotterPreparationTurns)) / gGameExternalOptions.usSpotterPreparationTurns;
-				
-				// reasonable values: 0 to gGameExternalOptions.usSpotterMaxCTHBoost
-				value = (value * gGameExternalOptions.usSpotterMaxCTHBoost) / 2000;
-								
-				if ( value > bestvalue )
-					bestvalue = value;
-			}
+			return true;
 		}
 	}
 
-	// limit value
-	bestvalue = min( gGameExternalOptions.usSpotterMaxCTHBoost, max( 0, bestvalue ) );
+	return false;
+}
 
-	return bestvalue;
+// bonus for snipers firing at this location (we get this if there are spotters)
+std::uint16_t TacticalActorSpotting::chanceToHitBonus(
+	TacticalActor* sniper,
+	std::int32_t targetGridNo,
+	std::int8_t team)
+{
+	if (sniper == nullptr ||
+		team < 0 ||
+		team >= MAXTEAMS ||
+		TileIsOutOfBounds(sniper->position().gridNo()) ||
+		TileIsOutOfBounds(targetGridNo) ||
+		gGameExternalOptions.usSpotterPreparationTurns == 0)
+	{
+		return 0;
+	}
+
+	std::uint64_t bestValue = 0;
+	SoldierID cnt = gTacticalStatus.Team[team].bFirstID;
+	const SoldierID lastId = gTacticalStatus.Team[team].bLastID;
+	for (; cnt <= lastId; ++cnt)
+	{
+		TacticalActor* const spotter =
+			GetJa2SoldierRepository().resolve(
+				cnt);
+		if (spotter == nullptr ||
+			spotter == sniper ||
+			!spotter->roster().active() ||
+			!spotter->roster().inSector() ||
+			spotter->deployment().sectorX() != gWorldSectorX ||
+			spotter->deployment().sectorY() != gWorldSectorY ||
+			spotter->deployment().sectorZ() != gbWorldSectorZ ||
+			TileIsOutOfBounds(spotter->position().gridNo()) ||
+			!isSpotting(*spotter) ||
+			PythSpacesAway(
+				spotter->position().gridNo(),
+				sniper->position().gridNo()) >
+				gGameExternalOptions.usSpotterRange ||
+			PythSpacesAway(
+				spotter->position().gridNo(),
+				targetGridNo) <
+				2 * gGameExternalOptions.usSpotterRange)
+		{
+			continue;
+		}
+
+		const SoldierID targetId =
+			WhoIsThere2(targetGridNo, sniper->targeting().level());
+		TacticalActor* const target =
+			GetJa2SoldierRepository().resolve(targetId);
+
+		const bool targetSeen =
+			(target != nullptr &&
+			 SoldierToSoldierLineOfSightTest(
+				 spotter,
+				 target,
+				 0,
+				 NO_DISTANCE_LIMIT,
+				 AIM_SHOT_HEAD) > 0) ||
+			SoldierToVirtualSoldierLineOfSightTest(
+				spotter,
+				targetGridNo,
+				sniper->position().level(),
+				ANIM_PRONE,
+				FALSE,
+				NO_DISTANCE_LIMIT) > 0;
+		if (!targetSeen)
+			continue;
+
+		if (spotter->animationPlayback().state() >=
+			NUMANIMATIONSTATES)
+		{
+			continue;
+		}
+
+		const auto stance =
+			gAnimControl[spotter->animationPlayback().state()]
+				.ubEndHeight;
+		std::uint32_t itemBonus = 0;
+		if (HANDPOS < spotter->inventory().size() &&
+			spotter->inventory()[HANDPOS].exists() &&
+			spotter->inventory()[HANDPOS].usItem < MAXITEMS)
+		{
+			itemBonus += std::clamp<int>(
+				GetObjectModifier(
+					spotter,
+					&spotter->inventory()[HANDPOS],
+					stance,
+					ITEMMODIFIER_SPOTTER),
+				0,
+				100);
+		}
+
+		if (SECONDHANDPOS < spotter->inventory().size() &&
+			spotter->inventory()[SECONDHANDPOS].exists() &&
+			spotter->inventory()[SECONDHANDPOS].usItem < MAXITEMS)
+		{
+			itemBonus += std::clamp<int>(
+				GetObjectModifier(
+					spotter,
+					&spotter->inventory()[SECONDHANDPOS],
+					stance,
+					ITEMMODIFIER_SPOTTER),
+				0,
+				100);
+		}
+
+		// Base effectiveness is 40% equipment, 30% experience,
+		// 20% marksmanship, and 10% leadership.
+		UINT32 fatiguedValue =
+			2 * itemBonus +
+			30 * EffectiveExpLevel(spotter) +
+			2 * EffectiveMarksmanship(spotter) +
+			EffectiveLeadership(spotter);
+		ReducePointsForFatigue(spotter, &fatiguedValue);
+
+		if (spotter->vitals().maximumHealth() <= 0)
+			continue;
+
+		std::uint64_t value =
+			static_cast<std::uint64_t>(fatiguedValue) *
+			std::max<int>(0, spotter->vitals().health()) /
+			spotter->vitals().maximumHealth();
+
+		std::int32_t effectiveness = 100;
+		const auto spotterProfile = spotter->identity().profile();
+		if (spotterProfile < NUM_PROFILES &&
+			OKToCheckOpinion(spotterProfile))
+		{
+			switch (gMercProfiles[spotterProfile].bCharacterTrait)
+			{
+			case CHAR_TRAIT_SOCIABLE:
+				effectiveness += 10;
+				break;
+			case CHAR_TRAIT_LONER:
+				effectiveness -= 10;
+				break;
+			}
+		}
+
+		const auto sniperProfile = sniper->identity().profile();
+		if (sniperProfile < NUM_PROFILES &&
+			OKToCheckOpinion(sniperProfile))
+		{
+			switch (gMercProfiles[sniperProfile].bCharacterTrait)
+			{
+			case CHAR_TRAIT_SOCIABLE:
+				effectiveness += 10;
+				break;
+			case CHAR_TRAIT_LONER:
+				effectiveness -= 10;
+				break;
+			}
+		}
+
+		const INT8 relation = std::clamp(
+			SoldierRelation(spotter, sniper) +
+				SoldierRelation(sniper, spotter),
+			2 * HATED_OPINION,
+			2 * BUDDY_OPINION);
+		effectiveness = std::max<std::int32_t>(
+			0,
+			effectiveness +
+				2 * relation +
+				TacticalActorModifiers::backgroundValue(
+					*spotter,
+					BG_PERC_SPOTTER));
+
+		value = value *
+			static_cast<std::uint32_t>(effectiveness) /
+			100;
+
+		const auto preparationTurns =
+			gGameExternalOptions.usSpotterPreparationTurns;
+		const std::uint64_t preparedTurns =
+			std::min<std::uint64_t>(
+				spotter->skillState().counter(
+					SOLDIER_COUNTER_SPOTTER),
+				2ULL * preparationTurns);
+		value = value * preparedTurns / preparationTurns;
+		value = value *
+			gGameExternalOptions.usSpotterMaxCTHBoost /
+			2000;
+
+		bestValue = std::max(bestValue, value);
+	}
+
+	return static_cast<std::uint16_t>(
+		std::min<std::uint64_t>(
+			bestValue,
+			gGameExternalOptions.usSpotterMaxCTHBoost));
 }
 
 // get overt penalty duration in AP for using an animation

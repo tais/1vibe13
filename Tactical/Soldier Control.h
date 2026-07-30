@@ -1083,30 +1083,7 @@ public:
 	// print a small description of the skill if we can use it, or its requirements if we cannot
 	STR16	PrintSkillDesc( INT8 iSkill, INT32 sGridNo = -1 );
 
-	// Flugente: functions for the radio operator trait
-	BOOLEAN CanUseRadio(BOOLEAN fCheckForAP = TRUE);							// can we use radio, if we even have one?
-	BOOLEAN UseRadio();								// simply drain the batteries
-	BOOLEAN HasMortar();
-	BOOLEAN CanAnyArtilleryStrikeBeOrdered(UINT32* pSectorID);		// can any artillery strikes be ordered by this guy's team from the neighbouring sectors?
-	BOOLEAN OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridNo, UINT8 bTeam );
-	BOOLEAN IsJamming();							// are we currently jamming communication frequencies?
-	BOOLEAN JamCommunications();
-	BOOLEAN IsScanning();
-	BOOLEAN ScanForJam();
-	BOOLEAN IsRadioListening();
-	BOOLEAN RadioListen();
-	BOOLEAN RadioCallReinforcements( UINT32 usSector, UINT16 sNumber );
-	BOOLEAN SwitchOffRadio();
-	BOOLEAN RadioOrderAllTurnCoatToSwitchSides();
-	void	RadioFail();							// display and error sound used either when the radio set fails or the sector is jammed - the player knows of the error, but cannot be sure of the cause
-
-	// Flugente: spotter
-	BOOLEAN IsSpotting();
-	BOOLEAN CanSpot( INT32 sTargetGridNo = -1 );
-	BOOLEAN BecomeSpotter( INT32 sTargetGridNo );
-
 	// Flugente: enemy roles
-	BOOLEAN HasSniper();
 	BOOLEAN CanMedicAI();						// AI-only: can we heal a wounded ally? Do NOT, repeat, NOT use this with mercs!
 	BOOLEAN	AIDoctorFriend();					// AI-only: heal a wounded friend. Do NOT, repeat, NOT use this with mercs!
 	BOOLEAN AIDoctorSelf();						// AI-only: heal self. Do NOT, repeat, NOT use this with mercs!
@@ -1259,11 +1236,6 @@ BOOLEAN DecideAltAnimForBigMerc( TacticalActor * pSoldier );
 // added by Flugente
 BOOLEAN TwoStagedTrait( UINT8 uiSkillTraitNumber );						// determine if this (new) trait has two stages
 BOOLEAN MajorTrait( UINT8 uiSkillTraitNumber );							// determine if this is a major trait
-BOOLEAN GetRadioOperatorSignal( SoldierID usOwner, INT32* psTargetGridNo);	// retrieve the gridno of a radio operator who (or whose team) ordered an artillery strike
-BOOLEAN IsValidArtilleryOrderSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, UINT8 bTeam );		// can an artillery strike be ordered FROM this sector
-BOOLEAN SectorJammed();
-BOOLEAN PlayerTeamIsScanning();
-UINT16	GridNoSpotterCTHBonus( TacticalActor* pSniper, INT32 sGridNo, INT8 bTeam);				// bonus for snipers firing at this location (we get this if there are spotters)
 UINT16	GetSuspiciousAnimationAPDuration( UINT16 usAnimation );			// get overt penalty duration in AP for using an animation
 
 //typedef struct

@@ -52,6 +52,8 @@
 #include "Luaglobal.h"
 #include "Item Statistics.h"
 #include "SoldierRepository.h"
+#include "TacticalActorRadio.h"
+#include "TacticalActorSpotting.h"
 
 
 //forward declarations of common classes to eliminate includes
@@ -4202,7 +4204,11 @@ void HandleExplosionQueue( void )
 						usOwner = (*pObj)[0]->data.misc.ubBombOwner - 2;
 
 					INT32 sTargetGridNo = NOWHERE;
-					if ( GetRandomSignalSmokeGridNo( &sTargetGridNo ) || GetRadioOperatorSignal( usOwner, &sTargetGridNo ) || (sTargetGridNo = RandomGridNo( )) )
+					if (GetRandomSignalSmokeGridNo(&sTargetGridNo) ||
+						TacticalActorRadio::operatorSignal(
+							usOwner,
+							&sTargetGridNo) ||
+						(sTargetGridNo = RandomGridNo()))
 					{
 						for ( UINT8 i = 0; i < cnt; ++i)
 							ArtilleryStrike( pObj->usItem, usOwner, sGridNo, sTargetGridNo );
@@ -4498,7 +4504,7 @@ void HandleExplosionWarningAnimations( )
 				pSoldier->vitals().health() >= OKLIFE &&
 				!TacticalActorConditions::isUnconscious(*pSoldier) &&
 				IS_MERC_BODY_TYPE(pSoldier) &&
-				!pSoldier->IsSpotting())
+				!TacticalActorSpotting::isSpotting(*pSoldier))
 			{
 				TacticalActor *pOpponent;
 				INT8 bKnowledge;
