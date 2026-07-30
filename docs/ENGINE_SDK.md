@@ -617,6 +617,14 @@ resolution, and cancellation. New code should schedule or resolve delayed
 damage through this domain rather than storing another actor-level callback or
 restoring the retired aggregate methods. Neither domain introduces a content
 package or changes installed game-data formats.
+`TacticalActorMedicalTreatment` owns live tactical treatment, abstract
+auto-bandage/auto-resolve treatment, damaged-stat totals, and stat restoration.
+Callers pass actor, patient, and kit references through this boundary; they
+must not recreate the retired `SoldierDressWound`,
+`VirtualSoldierDressWound`, `NumberOfDamagedStats`, or
+`RegainDamagedStats` entry points. The domain bounds malformed kit, animation,
+action-point, profile, and surgery-consumption state without changing medical
+item, trait, XML, map, Lua, or other installed content formats.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,

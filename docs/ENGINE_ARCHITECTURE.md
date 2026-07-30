@@ -1387,6 +1387,14 @@ the engine must not contain SDL types in its public domain model.
   Nine additional aggregate methods were retired for these two compiled
   domains. Treatment rules, items, traits, maps, XML, Lua, art, audio, and all
   other installed mod-data formats remain unchanged.
+  `TacticalActorMedicalTreatment` now owns both live-sector and abstract
+  strategic wound treatment plus critical/starvation-damage accounting and
+  restoration. The four former aggregate/global entry points are retired, and
+  the treatment boundary validates kit IDs/stacks, animation state, action
+  points, profile ownership, and surgery consumption before touching legacy
+  tables. Tactical, auto-bandage, auto-resolve, assignment, quest, dialogue,
+  and AI callers all use the compiled domain. Existing medical items, trait
+  values, XML, maps, Lua, and other installed mod-data formats are unchanged.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to

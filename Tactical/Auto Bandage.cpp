@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalActorMedicalTreatment.h"
 #include "TacticalWorldAdapter.h"
 	#include "Overhead.h"
 #include "SoldierRepository.h"
@@ -1339,7 +1340,15 @@ void HandleRetreatBandaging()
 							break;
 						}
 
-						uiPointsUsed = VirtualSoldierDressWound( pSoldier, pSoldier, pKit, usKitPts, usKitPts, FALSE ); // changed by SANDRO
+						uiPointsUsed =
+							TacticalActorMedicalTreatment::
+								treatAbstract(
+									*pSoldier,
+									*pSoldier,
+									*pKit,
+									usKitPts,
+									usKitPts,
+									false);
 						UseKitPoints( pKit, (UINT16)uiPointsUsed, pSoldier );
 						++counter;
 
@@ -1403,7 +1412,15 @@ void HandleRetreatBandaging()
 								break;
 							}
 
-							uiPointsUsed = VirtualSoldierDressWound( pDoctor, pSoldier, pKit, usKitPts, usKitPts, FALSE ); // changed by SANDRO
+							uiPointsUsed =
+								TacticalActorMedicalTreatment::
+									treatAbstract(
+										*pDoctor,
+										*pSoldier,
+										*pKit,
+										usKitPts,
+										usKitPts,
+										false);
 							UseKitPoints( pKit, (UINT16)uiPointsUsed, pDoctor );
 							++counter;
 

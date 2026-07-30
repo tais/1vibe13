@@ -954,7 +954,6 @@ public:
 
 
 
-	UINT32 SoldierDressWound( TacticalActor *pVictim, INT16 sKitPts, INT16 sStatus );
 
 
 	void PositionSoldierLight( void );
@@ -1143,8 +1142,6 @@ void HandlePlayerTogglingLightEffects( BOOLEAN fToggleValue );
 
 // added by SANDRO
 UINT8 GetSquadleadersCountInVicinity( TacticalActor * pSoldier, BOOLEAN fWithHigherLevel, BOOLEAN fDontCheckDistance );
-UINT16 NumberOfDamagedStats( TacticalActor * pSoldier );
-UINT8 RegainDamagedStats( TacticalActor * pSoldier, UINT16 usAmountRegainedHundredths );
 BOOLEAN ResolvePendingInterrupt( TacticalActor * pSoldier, UINT8 ubInterruptType );
 BOOLEAN AIDecideHipOrShoulderStance( TacticalActor * pSoldier, INT32 iGridNo );
 BOOLEAN DecideAltAnimForBigMerc( TacticalActor * pSoldier );
@@ -1162,7 +1159,6 @@ void HandleTakeDamageDeath( TacticalActor *pSoldier, UINT8 bOldLife, UINT8 ubRea
 void SetDamageDisplayCounter(TacticalActor* pSoldier);
 
 // SANDRO - This whole procedure was merged with the surgery ability of the doctor trait
-UINT32 VirtualSoldierDressWound( TacticalActor *pSoldier, TacticalActor *pVictim, OBJECTTYPE *pKit, INT16 sKitPts, INT16 sStatus, BOOLEAN fOnSurgery );
 
 // Flugente: decide whether pRecruiter can successfully recruit pTarget to be a volunteer
 void HandleVolunteerRecruitment( TacticalActor* pRecruiter, TacticalActor* pTarget );

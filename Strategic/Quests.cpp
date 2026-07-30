@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalActorMedicalTreatment.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "message.h"
@@ -285,7 +286,7 @@ UINT32 NumWoundedMercsNearby( UINT8 ubProfileID )
 	{
 		pSoldier = ResolveJa2ActiveTacticalActorSlot(uiLoop);
 
-		if ( pSoldier && pSoldier->roster().team() == gbPlayerNum && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL
+		if ( pSoldier && pSoldier->roster().team() == gbPlayerNum && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || TacticalActorMedicalTreatment::damagedStatCount(*pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL
 			 && pSoldier->deployment().sectorX() == pNPC->deployment().sectorX() && pSoldier->deployment().sectorY() == pNPC->deployment().sectorY() && pSoldier->deployment().sectorZ() == pNPC->deployment().sectorZ() )
 		{
 			if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= HOSPITAL_PATIENT_DISTANCE)
