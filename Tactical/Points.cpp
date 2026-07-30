@@ -3616,12 +3616,6 @@ INT16 GetAPsToCutFence( TacticalActor *pSoldier )
 	return(	GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) + APBPConstants[AP_USEWIRECUTTERS] );
 }
 
-INT16 GetAPsToBeginFirstAid( TacticalActor *pSoldier )
-{
-	// OK, it's normally just cost, but add some if different stance...
-	return(	GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) + APBPConstants[AP_START_FIRST_AID] );
-}
-
 INT16 GetAPsToBeginRepair( TacticalActor *pSoldier )
 {
 	// OK, it's normally just cost, but add some if different stance...

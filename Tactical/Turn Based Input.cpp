@@ -5818,7 +5818,6 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( TacticalActor *pSoldier, UI
 				if (!TileIsOutOfBounds(sActionGridNo))
 				{
 					// Calculate AP costs...
-					//sAPCost = GetAPsToBeginFirstAid( pSoldier );
 					sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 					if ( EnoughPoints( pSoldier, sAPCost, 0, TRUE ) )

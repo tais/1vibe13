@@ -1,6 +1,7 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorDamageQueue.h"
 #include "TacticalActorLongActions.h"
+#include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMedicalTreatment.h"
 #include "TacticalActorMobility.h"
@@ -9148,6 +9149,67 @@ int main( int, char** )
 		       scheduledDamageWasCleared &&
 		       delayedDamageResolvedOnce,
 		       "tactical actor damage queue owns replaceable, clearable, exactly-once deferred damage" );
+	}
+
+	{
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		TacticalActor medic;
+		medic.identity().id() = SoldierID{0};
+		medic.roster().active() = TRUE;
+		medic.roster().inSector() = TRUE;
+		medic.position().gridNo() = 0;
+		medic.position().level() = FIRST_LEVEL;
+		medic.position().direction() = NORTH;
+		medic.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool corruptFirstAidCostIsRejected =
+			TacticalActorMedicalSession::
+				beginActionPointCost(medic) == 0;
+		medic.service().beginProvidingTo(SoldierID{1});
+		const bool corruptProvidingAnimationIsRejected =
+			!TacticalActorMedicalSession::
+				resumeProvidingAnimation(medic) &&
+			medic.service().partner() == SoldierID{1};
+
+		medic.service().finishProviding();
+		medic.animationPlayback().state() = STANDING;
+		const bool absentProvidingSessionIsRejected =
+			!TacticalActorMedicalSession::
+				resumeProvidingAnimation(medic);
+
+		medic.vitals().beginSurgery();
+		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableWorldStartIsRejected =
+			!TacticalActorMedicalSession::
+				beginFirstAid(
+					medic,
+					medic.position().gridNo(),
+					NORTH) &&
+			!medic.vitals().isUndergoingSurgery();
+
+		OBJECTTYPE& malformedKit =
+			medic.inventory()[HANDPOS];
+		malformedKit.usItem = MAXITEMS;
+		malformedKit.ubNumberOfObjects = 1;
+		malformedKit.objectStack.resize(1);
+		NotifyJa2TacticalWorldLoaded(
+			previousWorld.worldGeneration != 0
+				? previousWorld.worldGeneration : 1);
+		const bool malformedSessionStateIsRejected =
+			!TacticalActorMedicalSession::
+				beginFirstAid(
+					medic,
+					medic.position().gridNo(),
+					NORTH);
+		RestoreJa2TacticalWorldSession(previousWorld);
+
+		CHECK( corruptFirstAidCostIsRejected &&
+		       corruptProvidingAnimationIsRejected &&
+		       absentProvidingSessionIsRejected &&
+		       unavailableWorldStartIsRejected &&
+		       malformedSessionStateIsRejected,
+		       "tactical actor medical session rejects unavailable worlds and malformed animation or kit state" );
 	}
 
 	{

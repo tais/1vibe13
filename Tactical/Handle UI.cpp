@@ -1,4 +1,5 @@
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
@@ -4780,7 +4781,9 @@ INT8 DrawUIMovementPath( TacticalActor *pSoldier, INT32 usMapPos, UINT32 uiFlags
 			if (!TileIsOutOfBounds(sActionGridNo))
 			{
 
-				sAPCost += GetAPsToBeginFirstAid(pSoldier);
+				sAPCost +=
+					TacticalActorMedicalSession::
+						beginActionPointCost(*pSoldier);
 				sAPCost += UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 				if (sActionGridNo != pSoldier->position().gridNo())
 				{

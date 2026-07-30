@@ -1,5 +1,6 @@
 #include "connect.h"
 #include "TacticalActorLongActions.h"
+#include "TacticalActorMedicalSession.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRadio.h"
 #include "TacticalActorModifiers.h"
@@ -1266,7 +1267,9 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 		}
 
 		// Calculate AP costs...
-		sAPCost = GetAPsToBeginFirstAid( pSoldier );
+		sAPCost =
+			TacticalActorMedicalSession::
+				beginActionPointCost(*pSoldier);
 		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
@@ -1296,7 +1299,10 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 			}
 			else
 			{
-				pSoldier->EVENT_SoldierBeginFirstAid( sAdjustedGridNo, ubDirection );
+				(void)TacticalActorMedicalSession::beginFirstAid(
+					*pSoldier,
+					sAdjustedGridNo,
+					ubDirection);
 			}
 
 			if ( fFromUI )

@@ -342,7 +342,6 @@ INT16 GetAPsToJumpFence( TacticalActor *pSoldier, BOOLEAN fWithBackpack );
 INT16 GetBPsToJumpFence( TacticalActor *pSoldier, BOOLEAN fWithBackpack );
 
 INT16 GetAPsToCutFence( TacticalActor *pSoldier );
-INT16 GetAPsToBeginFirstAid( TacticalActor *pSoldier );
 INT16 GetAPsToBeginRepair( TacticalActor *pSoldier );
 INT16 GetAPsToRefuelVehicle( TacticalActor *pSoldier );
 

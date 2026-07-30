@@ -1395,6 +1395,15 @@ the engine must not contain SDL types in its public domain model.
   tables. Tactical, auto-bandage, auto-resolve, assignment, quest, dialogue,
   and AI callers all use the compiled domain. Existing medical items, trait
   values, XML, maps, Lua, and other installed mod-data formats are unchanged.
+  `TacticalActorMedicalSession` now owns the bounded first-aid AP cost,
+  initiation, and the providing-aid animation transition. It validates
+  tactical-world, grid, level, direction, animation, inventory, item, profile,
+  repository, and patient state before establishing the two-sided service
+  relationship. The final `EVENT_SoldierBeginFirstAid` aggregate façade and
+  `GetAPsToBeginFirstAid` global are retired, and the stationary-stance
+  monolith delegates its medical transition to this domain.
+  Existing medical items, traits, dialogue/Lua events, maps, animation data,
+  and other installed mod-data formats are unchanged.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to
