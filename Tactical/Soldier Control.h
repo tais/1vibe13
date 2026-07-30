@@ -1167,19 +1167,12 @@ public:
 
 	void	PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
 	void	PrintSleepDesc( CHAR16* apStr );
-	FLOAT	GetBurialPoints( UINT16* apCorpses );
-
-	// Flugente: hourly breath regen calculation
-	INT8	GetSleepBreathRegeneration();
 
 	// Flugente: assumed character weight (without any items)
 	FLOAT	GetBodyWeight();
 
 	// Flugente: are we crouched against cover from a specific direction? WARNING: This does not suffice to determine our cover!
 	BOOLEAN	IsCrouchedAgainstCoverFromDir( UINT8 aDirection );
-
-	// Flugente: fortification
-	FLOAT	GetConstructionPoints( );
 
 	// Flugente: do we have a specific item in our inventory?
 	BOOLEAN HasItem( UINT16 usItem );
@@ -1207,10 +1200,6 @@ public:
 	// Flugente: can we fill a blood bag from this guy ?
 	BOOLEAN		IsValidBloodDonor();
 
-	// Flugente: administration assignment
-	UINT32		GetAdministrationPoints();
-	FLOAT		GetAdministrationModifier();
-
 	// Flugente: those with the <scrounging> background occasionally steal money from the locals
 	UINT8		GetThiefStealMoneyChance();
 	UINT8		GetThiefEvadeDetectionChance();
@@ -1221,9 +1210,6 @@ public:
 	void		AttemptToCreateTurncoat( SoldierID usID );
 	BOOLEAN		OrderTurnCoatToSwitchSides( SoldierID usID );
 	void		OrderAllTurnCoatToSwitchSides();
-
-	// Flugente: exploration assignment
-	UINT32		GetExplorationPoints();
 
 	bool		IsFastMovement();
 	//////////////////////////////////////////////////////////////////////////////

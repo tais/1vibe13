@@ -115,6 +115,7 @@
 #include "popup_class.h"
 #include "Soldier Control.h"
 #include "Soldier Profile.h"
+#include "TacticalActorAssignments.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
@@ -7979,6 +7980,38 @@ int main( int, char** )
 		       disabilityRecorded &&
 		       unprotected,
 		       "tactical actor disease rules expose state, magnitude, and protection without record methods" );
+	}
+
+	{
+		TacticalActor assignmentActor;
+		const bool inactiveActorProducesNoWork =
+			TacticalActorAssignments::burialPoints(assignmentActor) == 0.0f &&
+			TacticalActorAssignments::constructionPoints(assignmentActor) == 0.0f &&
+			TacticalActorAssignments::administrationPoints(assignmentActor) == 0 &&
+			TacticalActorAssignments::explorationPoints(assignmentActor) == 0;
+		const bool unrelatedAssignmentHasNeutralAdministration =
+			TacticalActorAssignments::administrationModifier(assignmentActor) == 1.0f;
+
+		assignmentActor.vitals().health() = OKLIFE;
+		assignmentActor.vitals().maximumHealth() = 0;
+		assignmentActor.assignment().current() = FORTIFICATION;
+		const bool malformedMaximumHealthIsSafe =
+			TacticalActorAssignments::constructionPoints(assignmentActor) == 0.0f;
+
+		const FLOAT previousAdministrationScale =
+			gGameExternalOptions.fAdministrationPointsPerPercent;
+		assignmentActor.assignment().current() = ADMINISTRATION;
+		gGameExternalOptions.fAdministrationPointsPerPercent = 0.0f;
+		const bool malformedAdministrationScaleIsSafe =
+			TacticalActorAssignments::administrationPoints(assignmentActor) == 0;
+		gGameExternalOptions.fAdministrationPointsPerPercent =
+			previousAdministrationScale;
+
+		CHECK( inactiveActorProducesNoWork &&
+		       unrelatedAssignmentHasNeutralAdministration &&
+		       malformedMaximumHealthIsSafe &&
+		       malformedAdministrationScaleIsSafe,
+		       "tactical actor assignment rules expose safe productivity calculations without record methods" );
 	}
 
 	{

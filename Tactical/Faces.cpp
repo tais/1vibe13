@@ -1,5 +1,6 @@
 	#include "builddefines.h"
 	#include "SoldierRepository.h"
+#include "TacticalActorAssignments.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
@@ -2410,7 +2411,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			case FORTIFICATION:
 				sIconIndex_Assignment = 14;
 				fDoIcon_Assignment = TRUE;
-				sPtsAvailable = (INT16)(pSoldier->GetConstructionPoints());
+				sPtsAvailable = (INT16)(TacticalActorAssignments::constructionPoints(*pSoldier));
 				fShowNumber = TRUE;
 				fShowMaximum = TRUE;
 
@@ -2459,7 +2460,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				sIconIndex_Assignment = 35;
 				fDoIcon_Assignment = TRUE;
 				fShowCustomText = TRUE;
-				bPtsAvailable = pSoldier->GetBurialPoints(&usMaximumPts);
+				bPtsAvailable = TacticalActorAssignments::burialPoints(*pSoldier, &usMaximumPts);
 
 				swprintf(sString, L"%3.1f/%d", bPtsAvailable, usMaximumPts);
 				break;
@@ -2468,7 +2469,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				sIconIndex_Assignment = 36;
 				fDoIcon_Assignment = TRUE;
 				fShowCustomText = TRUE;
-				sPtsAvailable = (INT16)pSoldier->GetAdministrationPoints();
+				sPtsAvailable = (INT16)TacticalActorAssignments::administrationPoints(*pSoldier);
 				bPtsAvailable = GetAdministrationPercentage(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 
 				swprintf(sString, L"%d/%3.1f", sPtsAvailable, bPtsAvailable);
@@ -2478,7 +2479,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				sIconIndex_Assignment = 34;
 				fDoIcon_Assignment = TRUE;
 				fShowCustomText = TRUE;
-				sPtsAvailable = (INT16)pSoldier->GetExplorationPoints();
+				sPtsAvailable = (INT16)TacticalActorAssignments::explorationPoints(*pSoldier);
 
 				// we only show our points, not how far we are with the task, lest the player deduct how many items there are to find in the first place
 				swprintf( sString, L"%d", sPtsAvailable );

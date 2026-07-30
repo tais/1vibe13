@@ -1,5 +1,6 @@
 #include "Assignments.h"
 #include "SoldierRepository.h"
+#include "TacticalActorAssignments.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
@@ -3327,7 +3328,7 @@ UINT16 CalculateHealingPointsForDoctor(TacticalActor *pDoctor, UINT16 *pusMaxPts
 	if ( UsingFoodSystem() )
 		ReducePointsForHunger( pDoctor, &usHealPts );
 
-	FLOAT administrationmodifier = pDoctor->GetAdministrationModifier();
+	FLOAT administrationmodifier = TacticalActorAssignments::administrationModifier(*pDoctor);
 	usHealPts *= administrationmodifier;
 
 	// count how much medical supplies we have
@@ -3420,7 +3421,7 @@ UINT8 CalculateRepairPointsForRepairman(TacticalActor *pSoldier, UINT16 *pusMaxP
 	// adjust for fatigue
 	ReducePointsForFatigue( pSoldier, &usRepairPts );
 
-	FLOAT administrationmodifier = pSoldier->GetAdministrationModifier();
+	FLOAT administrationmodifier = TacticalActorAssignments::administrationModifier(*pSoldier);
 	usRepairPts *= administrationmodifier;
 
 	// Flugente: our food situation influences our effectiveness
@@ -3508,7 +3509,7 @@ UINT8 CalculateCleaningPointsForRepairman(TacticalActor *pSoldier, UINT16 *pusMa
 	// adjust for fatigue
 	ReducePointsForFatigue( pSoldier, &usCleaningPts );
 
-	FLOAT administrationmodifier = pSoldier->GetAdministrationModifier();
+	FLOAT administrationmodifier = TacticalActorAssignments::administrationModifier(*pSoldier);
 	usCleaningPts *= administrationmodifier;
 
 	// Flugente: our food situation influences our effectiveness
@@ -3579,7 +3580,7 @@ UINT32 CalculateInterrogationValue(TacticalActor *pSoldier, UINT16 *pusMaxPts )
 
 	performancemodifier = min(1000,  max(10, performancemodifier) );
 
-	FLOAT administrationmodifier = pSoldier->GetAdministrationModifier();
+	FLOAT administrationmodifier = TacticalActorAssignments::administrationModifier(*pSoldier);
 
 	usInterrogationPoints = (usInterrogationPoints * performancemodifier * administrationmodifier ) / (700000);
 	
@@ -3877,7 +3878,7 @@ INT16 GetTrainWorkerPts(TacticalActor *pSoldier)
 
 		val = tmp;
 
-		val *= pSoldier->GetAdministrationModifier();
+		val *= TacticalActorAssignments::administrationModifier(*pSoldier);
 
 		return val;
 	}
@@ -5815,7 +5816,7 @@ BOOLEAN IsItemCleanable( TacticalActor* pSoldier, UINT16 usItem, INT16 bStatus, 
 void RestCharacter( TacticalActor *pSoldier )
 {
 	// handle the sleep of this character, update bBreathMax based on sleep they have	
-	pSoldier->vitals().maximumBreath() += pSoldier->GetSleepBreathRegeneration( );
+	pSoldier->vitals().maximumBreath() += TacticalActorAssignments::sleepBreathRegeneration(*pSoldier);
 
 	// Flugente: diseases can affect stat effectivity
 	UINT16 diseasemaxbreathreduction = 0;
@@ -6542,7 +6543,7 @@ void HandleStrategicDiseaseAndBurial()
 						if ( pSoldier->roster().active() && pSoldier->assignment().current() == BURIAL && !pSoldier->assignment().isAsleep() &&
 							pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY && !pSoldier->deployment().sectorZ() && EnoughTimeOnAssignment( pSoldier ) )
 						{
-							corpseremovalpoints += pSoldier->GetBurialPoints( NULL );
+							corpseremovalpoints += TacticalActorAssignments::burialPoints(*pSoldier,  NULL );
 						}
 					}
 
@@ -6938,7 +6939,7 @@ FLOAT GetAdministrationPercentage( INT16 sX, INT16 sY )
 
 				if ( (data.sector == sector) || (data.townid != BLANK_SECTOR && data.townid == townid) )
 				{
-					data.val += pSoldier->GetAdministrationPoints();
+					data.val += TacticalActorAssignments::administrationPoints(*pSoldier);
 				}
 			}
 		}
@@ -6965,7 +6966,7 @@ void HandleAdministrationAssignments()
 			// sum up the points for towns, if not a town, for sectors
 			UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 			INT8 townid = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
-			UINT32 val = pSoldier->GetAdministrationPoints();
+			UINT32 val = TacticalActorAssignments::administrationPoints(*pSoldier);
 			UINT16 mercs = GetNumberofAdministratableMercs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 			BOOLEAN found = FALSE;
@@ -7011,7 +7012,7 @@ void HandleAdministrationAssignments()
 		{
 			UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 			INT8 townid = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
-			UINT32 val = pSoldier->GetAdministrationPoints();
+			UINT32 val = TacticalActorAssignments::administrationPoints(*pSoldier);
 
 			FLOAT percentage = 0;
 
@@ -7055,7 +7056,7 @@ void HandleExplorationAssignments()
 		TacticalActor *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier && pSoldier->assignment().current() == EXPLORATION && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 		{
-			UINT32 pts = pSoldier->GetExplorationPoints();
+			UINT32 pts = TacticalActorAssignments::explorationPoints(*pSoldier);
 
 			bool awardpts = false;
 
@@ -7196,7 +7197,7 @@ void HandleSpreadingPropagandaInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 				UINT8 ubAssignmentType = (UINT8)GetSoldierFacilityAssignmentIndex( pSnitch );
 				uiPropagandaEffect *= ( GetFacilityModifier(FACILITY_PERFORMANCE_MOD, ubFacilityType, ubAssignmentType ) / 100.0 );
 
-				FLOAT administrationmodifier = pSnitch->GetAdministrationModifier();
+				FLOAT administrationmodifier = TacticalActorAssignments::administrationModifier(*pSnitch);
 				uiPropagandaEffect *= administrationmodifier;
 			}
 		}
@@ -7579,7 +7580,7 @@ INT16 GetBonusTrainingPtsDueToInstructor( TacticalActor *pInstructor, TacticalAc
 	UINT32 uiTrainingPts = (UINT32) sTrainingPts;
 	ReducePointsForFatigue( pInstructor, &uiTrainingPts );
 
-	FLOAT administrationmodifier = pInstructor->GetAdministrationModifier();
+	FLOAT administrationmodifier = TacticalActorAssignments::administrationModifier(*pInstructor);
 	uiTrainingPts *= administrationmodifier;
 
 	// Flugente: our food situation influences our effectiveness
@@ -7701,7 +7702,7 @@ INT16 GetSoldierTrainingPts( TacticalActor *pSoldier, INT8 bTrainStat, UINT16 *p
 	UINT32 uiTrainingPts = (UINT32) sTrainingPts;
 	ReducePointsForFatigue( pSoldier, &uiTrainingPts );
 
-	FLOAT administrationmodifier = pSoldier->GetAdministrationModifier();
+	FLOAT administrationmodifier = TacticalActorAssignments::administrationModifier(*pSoldier);
 	uiTrainingPts *= administrationmodifier;
 
 	// Flugente: our food situation influences our effectiveness
@@ -7828,7 +7829,7 @@ INT16 GetSoldierStudentPts( TacticalActor *pSoldier, INT8 bTrainStat, UINT16 *pu
 	UINT32 uiTrainingPts = (UINT32) sTrainingPts;
 	ReducePointsForFatigue( pSoldier, &uiTrainingPts );
 
-	FLOAT administrationmodifier = pSoldier->GetAdministrationModifier();
+	FLOAT administrationmodifier = TacticalActorAssignments::administrationModifier(*pSoldier);
 	uiTrainingPts *= administrationmodifier;
 
 	// Flugente: our food situation influences our effectiveness
@@ -9190,7 +9191,7 @@ void HandleFortification()
 
 					if ( pSectorInfo )
 					{
-						pSectorInfo->dFortification_UnappliedProgress = min( pSectorInfo->dFortification_UnappliedProgress + pSoldier->GetConstructionPoints( ), pSectorInfo->dFortification_MaxPossible );
+						pSectorInfo->dFortification_UnappliedProgress = min( pSectorInfo->dFortification_UnappliedProgress + TacticalActorAssignments::constructionPoints(*pSoldier), pSectorInfo->dFortification_MaxPossible );
 					}
 				}
 				else
@@ -9200,7 +9201,7 @@ void HandleFortification()
 
 					if ( pSectorInfo )
 					{
-						pSectorInfo->dFortification_UnappliedProgress = min( pSectorInfo->dFortification_UnappliedProgress + pSoldier->GetConstructionPoints( ), pSectorInfo->dFortification_MaxPossible );
+						pSectorInfo->dFortification_UnappliedProgress = min( pSectorInfo->dFortification_UnappliedProgress + TacticalActorAssignments::constructionPoints(*pSoldier), pSectorInfo->dFortification_MaxPossible );
 					}
 				}
 
@@ -9300,7 +9301,7 @@ INT16 GetTownTrainPtsForCharacter( TacticalActor *pTrainer, UINT16 *pusMaxPts )
 	UINT32 uiTrainingPts = (UINT32) sTotalTrainingPts;
 	ReducePointsForFatigue( pTrainer, &uiTrainingPts );
 
-	FLOAT administrationmodifier = pTrainer->GetAdministrationModifier();
+	FLOAT administrationmodifier = TacticalActorAssignments::administrationModifier(*pTrainer);
 	uiTrainingPts *= administrationmodifier;
 
 	// Flugente: our food situation influences our effectiveness

@@ -2160,6 +2160,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.h"
   tactical_actor_conditions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.cpp"
   tactical_actor_conditions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAssignments.h"
+  tactical_actor_assignments_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
@@ -2630,6 +2632,54 @@ string(FIND "${headless_test_contents}"
 if(disease_operation_coverage EQUAL -1)
   message(FATAL_ERROR
     "Tactical actor disease lost its data-free headless coverage")
+endif()
+
+foreach(retired_assignment_method IN ITEMS
+  "GetSleepBreathRegeneration"
+  "GetBurialPoints"
+  "GetConstructionPoints"
+  "GetAdministrationPoints"
+  "GetAdministrationModifier"
+  "GetExplorationPoints")
+  string(FIND "${tactical_actor_contents}"
+    "${retired_assignment_method}("
+    retired_assignment_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActor::${retired_assignment_method}"
+    retired_assignment_definition)
+  if(NOT retired_assignment_declaration EQUAL -1 OR
+     NOT retired_assignment_definition EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalActor regained assignment-productivity facade '${retired_assignment_method}'")
+  endif()
+endforeach()
+
+foreach(required_assignment_operation IN ITEMS
+  "sleepBreathRegeneration"
+  "burialPoints"
+  "constructionPoints"
+  "administrationPoints"
+  "administrationModifier"
+  "explorationPoints")
+  string(FIND "${tactical_actor_assignments_header_contents}"
+    "${required_assignment_operation}("
+    assignment_operation_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "TacticalActorAssignments::${required_assignment_operation}("
+    assignment_operation_definition)
+  if(assignment_operation_declaration EQUAL -1 OR
+     assignment_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor assignment operation '${required_assignment_operation}' lost its domain declaration or definition")
+  endif()
+endforeach()
+
+string(FIND "${headless_test_contents}"
+  "TacticalActorAssignments::administrationModifier"
+  assignment_operation_coverage)
+if(assignment_operation_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor assignment rules lost their data-free headless coverage")
 endif()
 
 foreach(required_persistence_fragment IN ITEMS
