@@ -1,3 +1,4 @@
+#include "TacticalActorAiBehavior.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
@@ -1920,7 +1921,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					{
 						if (TacticalActorConditions::isCowering(*pSoldier))
 						{
-							pSoldier->StopCoweringAnimation();
+							TacticalActorAiBehavior::stopCowering(*pSoldier);
 							UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ANIM_STAND);
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
 						}
@@ -1942,7 +1943,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					{
 						if (TacticalActorConditions::isCowering(*pSoldier))
 						{
-							pSoldier->StopCoweringAnimation();
+							TacticalActorAiBehavior::stopCowering(*pSoldier);
 							UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ANIM_STAND);
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
 						}
@@ -1956,7 +1957,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 				case MOVEMENT_MENU_SWAT:
 					if (TacticalActorConditions::isCowering(*pSoldier))
 					{
-						pSoldier->StopCoweringAnimation();
+						TacticalActorAiBehavior::stopCowering(*pSoldier);
 						UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ANIM_CROUCH);
 						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ANIM_CROUCH)
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
@@ -1970,7 +1971,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 				case MOVEMENT_MENU_PRONE:
 					if (TacticalActorConditions::isCowering(*pSoldier))
 					{
-						pSoldier->StopCoweringAnimation();
+						TacticalActorAiBehavior::stopCowering(*pSoldier);
 						UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ANIM_PRONE);
 						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ANIM_PRONE)
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
@@ -3323,7 +3324,7 @@ UINT32 UIHandlePADJAdjustStance( UI_EVENT *pUIEvent )
 			{
 				if (TacticalActorConditions::isCowering(*pSoldier))
 				{
-					pSoldier->StopCoweringAnimation();
+					TacticalActorAiBehavior::stopCowering(*pSoldier);
 					UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ubNewStance);
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ubNewStance)
 						pSoldier->animationIntent().pendingAnimation() = usNewState;

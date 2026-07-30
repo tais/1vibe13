@@ -1,3 +1,4 @@
+#include "TacticalActorLongActions.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
 #include "TacticalActorSpotting.h"
@@ -2175,12 +2176,12 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// Flugente: add an icon if we are performing a multi-turn action
-			if (pSoldier->GetMultiTurnAction() == MTA_HACK)
+			if (TacticalActorLongActions::current(*pSoldier) == MTA_HACK)
 			{
 				DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 30);
 				bNumRightIcons++;
 			}
-			else if (pSoldier->GetMultiTurnAction() > MTA_NONE)
+			else if (TacticalActorLongActions::current(*pSoldier) > MTA_NONE)
 			{
 				DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 14);
 				bNumRightIcons++;

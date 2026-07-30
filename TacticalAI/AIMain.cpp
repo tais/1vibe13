@@ -1,4 +1,6 @@
 #include "sgp.h"
+#include "TacticalActorAiBehavior.h"
+#include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorExplosives.h"
 #include "TacticalActorInteractions.h"
@@ -996,7 +998,7 @@ void EndAIDeadlock(void)
 				}
 #endif
 				// sevenfm: abort flanking
-				if (pSoldier->IsFlanking())
+				if (TacticalActorAiBehavior::isFlanking(*pSoldier))
 				{
 					pSoldier->aiPlanning().finishFlank(MAX_FLANKS_RED + 1);
 					DebugAI(AI_MSG_INFO, pSoldier, String("abort flanking, flank count = %d", pSoldier->aiPlanning().flankCount()));
@@ -1035,11 +1037,11 @@ void StartNPCAI(TacticalActor *pSoldier)
 	//if (!(pSoldier->status().flags() & SOLDIER_PC))
 
 	//{
-	//SetSoldierAsUnderAiControl( pSoldier );
+	// The selected actor becomes the sole AI-controlled soldier.
 	//}
 
 	if (!is_networked || is_server)
-		pSoldier->SetSoldierAsUnderAiControl( );
+		TacticalActorAiBehavior::setUnderControl(*pSoldier);
 
 
 	pSoldier->movement().beginTurn();
@@ -2657,7 +2659,7 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 
 		case AI_ACTION_FREE_PRISONER:
 			{
-				pSoldier->FreePrisoner();
+				TacticalActorPrisonerOperations::freeAdjacent(*pSoldier);
 				ActionDone( pSoldier );
 			}
 			break;

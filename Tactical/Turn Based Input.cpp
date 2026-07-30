@@ -1,3 +1,4 @@
+#include "TacticalActorAiBehavior.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "builddefines.h"
@@ -6620,7 +6621,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 				{
 					if (TacticalActorConditions::isCowering(*pSoldier))
 					{
-						pSoldier->StopCoweringAnimation();
+						TacticalActorAiBehavior::stopCowering(*pSoldier);
 						UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ubAnimHeight);
 						pSoldier->animationIntent().pendingAnimation() = usNewState;
 					}
@@ -6634,7 +6635,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 			{
 				if (TacticalActorConditions::isCowering(*pSoldier))
 				{
-					pSoldier->StopCoweringAnimation();
+					TacticalActorAiBehavior::stopCowering(*pSoldier);
 					UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ubAnimHeight);
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ubAnimHeight)
 						pSoldier->animationIntent().pendingAnimation() = usNewState;
@@ -8829,7 +8830,7 @@ void HandleTBSoldierRun( void )
 		{
 			if (TacticalActorConditions::isCowering(*pSoldier))
 			{
-				pSoldier->StopCoweringAnimation();
+				TacticalActorAiBehavior::stopCowering(*pSoldier);
 				UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*pSoldier, ANIM_STAND);
 				pSoldier->animationIntent().pendingAnimation() = usNewState;
 			}

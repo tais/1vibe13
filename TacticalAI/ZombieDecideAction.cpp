@@ -1,3 +1,4 @@
+#include "TacticalActorAiBehavior.h"
 #include "TacticalActorMobility.h"
 #include "ai.h"
 #include "AIInternals.h"
@@ -873,7 +874,7 @@ INT8 ZombieDecideActionRed(TacticalActor *pSoldier)
 	DebugAI( AI_MSG_INFO, pSoldier, String("[face the most important noise]"));
 
 	if( pSoldier->suppression().underFire() &&
-		pSoldier->CheckInitialAP() &&
+		TacticalActorAiBehavior::hasInitialActionPoints(*pSoldier) &&
 		//pSoldier->actionPoints().current() == pSoldier->actionPoints().initial() &&
 		GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current() &&
 		!TileIsOutOfBounds( sMostImportantNoise ) )

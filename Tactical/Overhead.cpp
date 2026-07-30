@@ -1,3 +1,4 @@
+#include "TacticalActorLongActions.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
@@ -1325,7 +1326,7 @@ BOOLEAN ExecuteOverhead( )
                                     }
 
 									// Flugente: we are doing something here - stop multi-turn-action
-									pSoldier->CancelMultiTurnAction( FALSE );
+									TacticalActorLongActions::cancel(*pSoldier, FALSE );
 
                                     if ( pSoldier->pendingAction().action() == MERC_PICKUPITEM    )
                                     {

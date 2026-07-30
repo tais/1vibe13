@@ -1,4 +1,6 @@
 	#include "types.h"
+	#include "TacticalActorAiBehavior.h"
+	#include "TacticalActorLongActions.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorRobotics.h"
 #include "TacticalWorldAdapter.h"
@@ -504,7 +506,7 @@ void EndTurnEvents( void )
 		if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0 )//&& !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !( AM_A_ROBOT( pSoldier ) ) )
 		{
 			// Flugente: update multi-turn actions
-			pSoldier->UpdateMultiTurnAction();
+			TacticalActorLongActions::update(*pSoldier);
 		}
 	}
 
@@ -837,7 +839,7 @@ void DisplayHiddenTurnbased( TacticalActor * pActingSoldier )
 
 	//JA2Gold: use function to make sure flags turned off everywhere else
 	//pActingSoldier->status().flags() |= SOLDIER_UNDERAICONTROL;
-	pActingSoldier->SetSoldierAsUnderAiControl(	);
+	TacticalActorAiBehavior::setUnderControl(*pActingSoldier);
 	DebugAI( String( "Giving AI control to %d", pActingSoldier->identity().id() ) );
 	pActingSoldier->movement().beginTurn();
 	gTacticalStatus.uiTimeSinceMercAIStart = GetJA2Clock();	

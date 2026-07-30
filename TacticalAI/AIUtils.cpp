@@ -1,3 +1,4 @@
+#include "TacticalActorAiBehavior.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
 	#include "ai.h"
@@ -3147,7 +3148,7 @@ INT32 RangeChangeDesire( TacticalActor * pSoldier )
 	iRangeFactorMultiplier = pSoldier->morale().aiMorale() - 1;
 
 	// sevenfm: retreat
-	if (pSoldier->RetreatCounterValue() > 0)
+	if (TacticalActorAiBehavior::retreatCounter(*pSoldier) > 0)
 	{
 		return 0;
 	}
@@ -3714,7 +3715,7 @@ INT8 CalcMoraleNew(TacticalActor *pSoldier)
 	}
 
 	// sevenfm: retreat, also when blinded
-	if (pSoldier->RetreatCounterValue() > 0 || pSoldier->perception().isBlinded())
+	if (TacticalActorAiBehavior::retreatCounter(*pSoldier) > 0 || pSoldier->perception().isBlinded())
 	{
 		return MORALE_WORRIED;
 	}
@@ -4969,7 +4970,7 @@ UINT8 SpotDangerLevel(TacticalActor *pSoldier, INT32 sGridNo)
 
 	if (!fProfile && !fNeutral && !gGameExternalOptions.fAITacticalRetreat && NorthSpot(sGridNo, pSoldier->position().level()) ||
 		!fProfile && fGreen && CheckDoorNearGridno(sGridNo) ||
-		Water(sGridNo, pSoldier->position().level()) && !pSoldier->IsFlanking() ||
+		Water(sGridNo, pSoldier->position().level()) && !TacticalActorAiBehavior::isFlanking(*pSoldier) ||
 		CorpseWarning(pSoldier, sGridNo, pSoldier->position().level()))
 		ubLevel = 1;
 
@@ -4977,7 +4978,7 @@ UINT8 SpotDangerLevel(TacticalActor *pSoldier, INT32 sGridNo)
 		(InLightAtNight(sGridNo, pSoldier->position().level()) || FindNearbyExplosiveStructure(sGridNo, pSoldier->position().level())))
 		ubLevel = 2;
 
-	if (DeepWater(sGridNo, pSoldier->position().level()) && !pSoldier->IsFlanking() ||
+	if (DeepWater(sGridNo, pSoldier->position().level()) && !TacticalActorAiBehavior::isFlanking(*pSoldier) ||
 		RedSmokeDanger(sGridNo, pSoldier->position().level()))
 		ubLevel = 3;
 

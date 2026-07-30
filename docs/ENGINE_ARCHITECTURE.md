@@ -1361,6 +1361,23 @@ the engine must not contain SDL types in its public domain model.
   are bounded at that boundary. These are separate compiled domains rather
   than methods on the aggregate; item, weapon, vehicle, map, XML, and Lua
   formats remain unchanged.
+  `TacticalActorAiBehavior` now owns the remaining small AI state transitions
+  that previously leaked through aggregate methods: exclusive AI-control
+  selection, initial-AP and flanking queries, cowering teardown, bounded
+  retreat counters, radio animation selection, and boxer-flag cleanup. Team
+  repository scans, animation state, body type, visibility, grid, and tactical
+  world availability are validated at this boundary.
+  `TacticalActorLongActions` owns the complete begin/update/cancel lifecycle
+  for fortification, fortification removal, and hacking. It validates actor,
+  world, action, animation, inventory, item, direction, target-grid, structure,
+  and AP-cost state before consulting legacy tables, while preserving the
+  established animation, skill-growth, Lua callback, and AP/BP behavior.
+  `TacticalActorPrisonerOperations` separately owns strategic interrogation
+  availability and tactical adjacent-prisoner release. Sector, facility,
+  direction, world-grid, repository, and prisoner-flag bounds are checked
+  before state changes. The fourteen former `TacticalActor` façade methods are
+  retired and guarded against returning. Installed maps, facility definitions,
+  items, XML, Lua, audio, art, and other mod-data formats are unchanged.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to

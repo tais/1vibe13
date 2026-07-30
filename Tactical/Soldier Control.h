@@ -966,7 +966,6 @@ public:
 	void PositionSoldierLight( void );
 	void SetCheckSoldierLightFlag( void );
 	void SetSoldierCowerState( BOOLEAN fOn );
-	void SetSoldierAsUnderAiControl( void );
 	void ResetSoldierChangeStatTimer( void );
 	void SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove );
 	void SetSoldierHeight( FLOAT dNewHeight );
@@ -1013,28 +1012,7 @@ public:
 	// reset the extra stat variables
 	void	ResetExtraStats();
 
-	// sevenfm: service functions
-	BOOLEAN		IsFlanking(void);
-	BOOLEAN		CheckInitialAP(void);
-
-	// sevenfm: for player mercs
-	void StopCoweringAnimation(void);
-
-	void	RetreatCounterStart(UINT16 usValue);
-	UINT16  RetreatCounterValue(void);
-
-	void StartRadioAnimation(void);
-
 	void InitializeExtraData(void);
-
-	// Flugente: prisoner system
-	BOOLEAN		CanProcessPrisoners();
-	BOOLEAN		FreePrisoner();					// used for an enemy liberating fellow prisoners 
-	// Flugente: multi-turn actions
-	UINT8		GetMultiTurnAction();
-	void		StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo );
-	void		CancelMultiTurnAction(BOOLEAN fFinished);
-	BOOLEAN		UpdateMultiTurnAction();
 
 	// Flugente: return a soldier's name. This allows for very easy manipulation of a soldier's name with pre- an suffixes, ranks etc.
 	STR16		GetName();
@@ -1050,9 +1028,6 @@ public:
 	BOOLEAN CanMedicAI();						// AI-only: can we heal a wounded ally? Do NOT, repeat, NOT use this with mercs!
 	BOOLEAN	AIDoctorFriend();					// AI-only: heal a wounded friend. Do NOT, repeat, NOT use this with mercs!
 	BOOLEAN AIDoctorSelf();						// AI-only: heal self. Do NOT, repeat, NOT use this with mercs!
-
-	// Flugente: boxing fix: this shall be the only location where the boxing flag gets removed (easier debugging)
-	void	DeleteBoxingFlag();
 
 	void	PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
 	void	PrintSleepDesc( CHAR16* apStr );

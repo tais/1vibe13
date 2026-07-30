@@ -1,3 +1,4 @@
+#include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorEquipment.h"
 #include "Assignments.h"
 #include "TacticalActorModifiers.h"
@@ -17257,7 +17258,7 @@ void SetSoldierAssignment( TacticalActor *pSoldier, INT8 bAssignment, INT32 iPar
 			break;
 
 		case( FACILITY_INTERROGATE_PRISONERS ):
-			if( pSoldier->CanProcessPrisoners() )
+			if( TacticalActorPrisonerOperations::canProcess(*pSoldier) )
 			{
 				pSoldier->assignment().previous() = pSoldier->assignment().current();
 
@@ -18645,7 +18646,7 @@ void ReEvaluateEveryonesNothingToDo( BOOLEAN aDoExtensiveCheck )
 					break;
 
 				case FACILITY_INTERROGATE_PRISONERS:
-					fNothingToDo = !(pSoldier->CanProcessPrisoners());
+					fNothingToDo = !(TacticalActorPrisonerOperations::canProcess(*pSoldier));
 					break;
 
 				case  FACILITY_PRISON_SNITCH:
@@ -18978,7 +18979,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 					break;
 
 				case FACILITY_INTERROGATE_PRISONERS:
-					if ( CanCharacterFacility( pSoldier, bParam, FAC_INTERROGATE_PRISONERS ) && pSoldier->CanProcessPrisoners() )
+					if ( CanCharacterFacility( pSoldier, bParam, FAC_INTERROGATE_PRISONERS ) && TacticalActorPrisonerOperations::canProcess(*pSoldier) )
 					{
 						pSoldier->assignment().previous() = pSoldier->assignment().current();
 						MakeSoldierKnownAsMercInPrison( pSoldier, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );

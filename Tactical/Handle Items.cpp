@@ -1,4 +1,5 @@
 #include "connect.h"
+#include "TacticalActorLongActions.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRadio.h"
 #include "TacticalActorModifiers.h"
@@ -10050,7 +10051,7 @@ void DoInteractiveAction( INT32 sGridNo, TacticalActor *pSoldier )
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szInteractiveActionText[0], pSoldier->GetName( ) );
 
 		// hacking is a multiturn-action - we only start the action here, the result is handled elsewhere
-		pSoldier->StartMultiTurnAction( MTA_HACK, sGridNo );
+		TacticalActorLongActions::start(*pSoldier, MTA_HACK, sGridNo );
 	}
 	// call lua with the action id - perhaps we might do something special here
 	else if ( luaactionid >= 0 )

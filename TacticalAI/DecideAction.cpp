@@ -1,3 +1,4 @@
+#include "TacticalActorAiBehavior.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "ai.h"
@@ -782,7 +783,7 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 								if (pTeamSoldier->status().flags() & SOLDIER_PCUNDERAICONTROL)
 									pTeamSoldier->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 
-								pTeamSoldier->DeleteBoxingFlag( );
+								TacticalActorAiBehavior::clearBoxerFlag(*pTeamSoldier);
 							}
 						}
 
@@ -1153,7 +1154,7 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 
 	if (!fCivilian && 
-		pSoldier->CheckInitialAP() &&
+		TacticalActorAiBehavior::hasInitialActionPoints(*pSoldier) &&
 		pSoldier->aiPlanning().lastAction() != AI_ACTION_CLIMB_ROOF &&
 		pSoldier->aiBehavior().orders() != STATIONARY &&
 		pSoldier->position().level() == 0 &&
@@ -2753,8 +2754,8 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 		!fCivilian && 
 		!bInWater && 
 		!bInGas && 
-		pSoldier->CheckInitialAP() &&
-		!pSoldier->IsFlanking() &&
+		TacticalActorAiBehavior::hasInitialActionPoints(*pSoldier) &&
+		!TacticalActorAiBehavior::isFlanking(*pSoldier) &&
 		!(pSoldier->status().flags() & SOLDIER_BOXER) &&
 		(CanNPCAttack(pSoldier) == TRUE))
 	{
@@ -2899,8 +2900,8 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 			SoldierAI(pSoldier) &&
 			!bInWater &&
 			!bInGas &&
-			!pSoldier->IsFlanking() &&
-			pSoldier->CheckInitialAP() &&
+			!TacticalActorAiBehavior::isFlanking(*pSoldier) &&
+			TacticalActorAiBehavior::hasInitialActionPoints(*pSoldier) &&
 			!pSoldier->suppression().underFire() &&
 			SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), FALSE) &&
 			!AICheckIsSniper(pSoldier) &&
@@ -2921,10 +2922,10 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 				DebugAI(AI_MSG_INFO, pSoldier, String("prepare throw at spot %d level %d aimtime %d", BestThrow.sTarget, BestThrow.bTargetLevel, BestThrow.ubAimTime));
 
 				// start retreating for several turns
-				if (bestThrowOpponent && !bestThrowOpponent->IsFlanking())
+				if (bestThrowOpponent && !TacticalActorAiBehavior::isFlanking(*bestThrowOpponent))
 				{
 					DebugAI(AI_MSG_INFO, pSoldier, String("start retreat counter for %d", BestThrow.ubOpponent));
-					bestThrowOpponent->RetreatCounterStart(2);
+					TacticalActorAiBehavior::startRetreat(*bestThrowOpponent, 2);
 				}
 
 				// if necessary, swap the usItem from holster into the hand position
@@ -3079,7 +3080,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 				!AICheckIsFlanking(pSoldier) &&
 				(Chance(BestShot.ubChanceToReallyHit) || Chance(gGameExternalOptions.sSuppressionEffectiveness)) &&
 				(!gGameExternalOptions.fAISafeSuppression || CheckSuppressionDirection(pSoldier, BestShot.sTarget, BestShot.bTargetLevel)) &&
-				!pSoldier->RetreatCounterValue() &&
+				!TacticalActorAiBehavior::retreatCounter(*pSoldier) &&
 				// check cover
 				(fAnyCover ||																				// safe position
 				!fCanBeSeen && NightLight() && CountFriendsFlankSameSpot(pSoldier, sClosestOpponent) && Chance(50) ||
@@ -3493,8 +3494,8 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 		SoldierAI(pSoldier) &&
 		pSoldier->aiBehavior().orders() != STATIONARY &&
 		pSoldier->aiBehavior().orders() != SNIPER &&
-		pSoldier->RetreatCounterValue() > 0 &&
-		(pSoldier->CheckInitialAP() || !fAnyCover || pSoldier->suppression().underFire()))
+		TacticalActorAiBehavior::retreatCounter(*pSoldier) > 0 &&
+		(TacticalActorAiBehavior::hasInitialActionPoints(*pSoldier) || !fAnyCover || pSoldier->suppression().underFire()))
 	{
 		DebugAI(AI_MSG_TOPIC, pSoldier, String("search for retreat spot"));
 		INT32 sRetreatSpot = FindRetreatSpot(pSoldier);
@@ -3684,7 +3685,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 			DebugAI(AI_MSG_INFO, pSoldier, String("prepare throw at spot %d level %d aimtime %d", BestThrow.sTarget, BestThrow.bTargetLevel, BestThrow.ubAimTime));
 
 			// start retreating for several turns
-			pSoldier->RetreatCounterStart(2);
+			TacticalActorAiBehavior::startRetreat(*pSoldier, 2);
 
 			// if necessary, swap the usItem from holster into the hand position
 			if (BestThrow.bWeaponIn != HANDPOS)
@@ -3872,7 +3873,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 		}
 
 		DebugAI(AI_MSG_TOPIC, pSoldier, String("[Set watched location]"));
-		if (pSoldier->CheckInitialAP() &&
+		if (TacticalActorAiBehavior::hasInitialActionPoints(*pSoldier) &&
 			pSoldier->actionPoints().current() >= APBPConstants[AP_MINIMUM] &&
 			gfTurnBasedAI &&
 			pSoldier->position().level() == 0 &&
@@ -4004,7 +4005,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 				bHelpPts -= 10;
 			}
 
-			if (pSoldier->RetreatCounterValue() > 0)
+			if (TacticalActorAiBehavior::retreatCounter(*pSoldier) > 0)
 			{
 				// no seeking when retreating
 				bSeekPts = -99;
@@ -4524,7 +4525,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 	// civilians are only interested in running away
 	if (fCivilian &&
-		//pSoldier->CheckInitialAP() &&
+		//TacticalActorAiBehavior::hasInitialActionPoints(*pSoldier) &&
 		(pSoldier->suppression().underFire() ||
 		!TileIsOutOfBounds(sClosestOpponent) && PythSpacesAway(pSoldier->position().gridNo(), sClosestOpponent) < TACTICAL_RANGE / 2))
 		//!TileIsOutOfBounds( sClosestNoise ) && PythSpacesAway(pSoldier->sGridNo, sClosestNoise) < TACTICAL_RANGE / 2) )
@@ -5363,7 +5364,7 @@ INT16 ubMinAPCost;
 			DebugAI(AI_MSG_INFO, pSoldier, String("prepare throw at spot %d level %d aimtime %d", BestThrow.sTarget, BestThrow.bTargetLevel, BestThrow.ubAimTime));
 
 			// start retreating for several turns
-			pSoldier->RetreatCounterStart(3);
+			TacticalActorAiBehavior::startRetreat(*pSoldier, 3);
 
 			// if necessary, swap the usItem from holster into the hand position
 			if (BestThrow.bWeaponIn != HANDPOS)
@@ -6021,9 +6022,9 @@ INT16 ubMinAPCost;
 		SoldierAI(pSoldier) &&
 		pSoldier->aiBehavior().orders() != STATIONARY &&
 		pSoldier->aiBehavior().orders() != SNIPER &&
-		pSoldier->RetreatCounterValue() > 0 &&
+		TacticalActorAiBehavior::retreatCounter(*pSoldier) > 0 &&
 		(ubBestAttackAction == AI_ACTION_NONE || ubBestAttackAction == AI_ACTION_FIRE_GUN && (UINT8)BestAttack.ubChanceToReallyHit < Random(10 + TacticalActorConditions::suppressionShockPercent(*pSoldier) / 4)) &&
-		(pSoldier->CheckInitialAP() || !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || pSoldier->suppression().underFire()))
+		(TacticalActorAiBehavior::hasInitialActionPoints(*pSoldier) || !AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) || pSoldier->suppression().underFire()))
 	{
 		DebugAI(AI_MSG_TOPIC, pSoldier, String("search for retreat spot"));
 		INT32 sRetreatSpot = FindRetreatSpot(pSoldier);
@@ -10463,7 +10464,7 @@ void LogDecideInfo(TacticalActor *pSoldier)
 
 	DebugAI(AI_MSG_INFO, pSoldier, String("What I know %d", WhatIKnowThatPublicDont(pSoldier, FALSE)));
 	DebugAI(AI_MSG_INFO, pSoldier, String("Has Gun %d, Short range weapon %d, Gun Range %d, Gun Ammo %d, Gun Scoped %d ", AICheckHasGun(pSoldier), AICheckShortWeaponRange(pSoldier), AIGunRange(pSoldier), AIGunAmmo(pSoldier), AIGunScoped(pSoldier)));
-	DebugAI(AI_MSG_INFO, pSoldier, String("RetreatCounter %d", pSoldier->RetreatCounterValue()));
+	DebugAI(AI_MSG_INFO, pSoldier, String("RetreatCounter %d", TacticalActorAiBehavior::retreatCounter(*pSoldier)));
 }
 
 void LogKnowledgeInfo(TacticalActor *pSoldier)

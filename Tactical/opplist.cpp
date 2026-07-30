@@ -1,3 +1,4 @@
+#include "TacticalActorAiBehavior.h"
 #include "TacticalActorEquipment.h"
 	#include "sgp.h"
 #include "TacticalActorConditions.h"
@@ -6747,7 +6748,7 @@ void HearNoise(TacticalActor *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, I
 				!(pSoldier->status().flags() & SOLDIER_PC) &&
 				!pSoldier->aiBehavior().neutral() &&
 				!noiseMaker->aiBehavior().neutral() &&
-				!pSoldier->IsFlanking())
+				!TacticalActorAiBehavior::isFlanking(*pSoldier))
 			{
 				// check that we can see enemy if we raise weapon
 				gbForceWeaponReady = TRUE;

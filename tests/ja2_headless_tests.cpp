@@ -1,4 +1,7 @@
+#include "TacticalActorAiBehavior.h"
+#include "TacticalActorLongActions.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorWeaponHandling.h"
 // ja2_headless_tests.cpp -- first slice of the engine test harness.
 //
@@ -8903,6 +8906,205 @@ int main( int, char** )
 		       malformedAnimationIsRejected &&
 		       unavailableWorldMountIsRejected,
 		       "tactical actor weapon handling owns bounded dual-wield, alternative-fire, and mounting decisions" );
+	}
+
+	{
+		const TacticalTeamType previousOurTeam =
+			gTacticalStatus.Team[OUR_TEAM];
+		const TacticalTeamType previousLastTeam =
+			gTacticalStatus.Team[LAST_TEAM];
+		Ja2SoldierRepository& productionRepository =
+			GetJa2SoldierRepository();
+
+		TacticalActor records[3];
+		TacticalActor* slots[3] = {
+			nullptr, nullptr, nullptr };
+		Ja2SoldierRepository repository(
+			records, slots, 3);
+		repository.initializeSlots();
+		for (std::size_t slot = 0; slot < 3; ++slot)
+		{
+			records[slot].identity().id() =
+				SoldierID{slot};
+			records[slot].roster().active() = TRUE;
+			records[slot].status().flags() |=
+				SOLDIER_UNDERAICONTROL;
+		}
+
+		gTacticalStatus.Team[OUR_TEAM].bFirstID =
+			SoldierID{0};
+		gTacticalStatus.Team[LAST_TEAM].bLastID =
+			SoldierID{100};
+		BindJa2SoldierRepository(repository);
+		TacticalActorAiBehavior::setUnderControl(
+			records[1]);
+		const bool aiOwnershipIsBounded =
+			!(records[0].status().flags() &
+				SOLDIER_UNDERAICONTROL) &&
+			(records[1].status().flags() &
+				SOLDIER_UNDERAICONTROL) &&
+			!(records[2].status().flags() &
+				SOLDIER_UNDERAICONTROL);
+
+		records[1].actionPoints().current() = 10;
+		records[1].actionPoints().initial() = 10;
+		const bool initialActionPointsAreRecognized =
+			TacticalActorAiBehavior::hasInitialActionPoints(
+				records[1]);
+		records[1].featureFlags().secondaryFlags() |=
+			SOLDIER_SPENT_AP;
+		const bool spentActionPointsAreRejected =
+			!TacticalActorAiBehavior::hasInitialActionPoints(
+				records[1]);
+		records[1].featureFlags().secondaryFlags() &=
+			~SOLDIER_SPENT_AP;
+
+		records[1].aiBehavior().alertStatus() =
+			STATUS_YELLOW;
+		records[1].aiPlanning().flankCount() = 1;
+		const bool activeFlankIsRecognized =
+			TacticalActorAiBehavior::isFlanking(
+				records[1]);
+		records[1].aiPlanning().finishFlank(
+			MAX_FLANKS_RED);
+		const bool completedFlankIsRejected =
+			!TacticalActorAiBehavior::isFlanking(
+				records[1]);
+
+		TacticalActorAiBehavior::startRetreat(
+			records[1], 5);
+		TacticalActorAiBehavior::startRetreat(
+			records[1], 2);
+		const bool retreatCounterNeverShrinks =
+			TacticalActorAiBehavior::retreatCounter(
+				records[1]) == 5;
+
+		records[1].animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		records[1].status().flags() |= SOLDIER_COWERING;
+		TacticalActorAiBehavior::stopCowering(records[1]);
+		const bool malformedCoweringStateIsCleared =
+			!(records[1].status().flags() &
+				SOLDIER_COWERING);
+		records[1].identity().bodyType() = REGMALE;
+		records[1].awareness().visibility() = TRUE;
+		records[1].position().gridNo() = 0;
+		const bool malformedRadioAnimationIsRejected =
+			!TacticalActorAiBehavior::startRadioAnimation(
+				records[1]);
+
+		records[1].status().flags() |= SOLDIER_BOXER;
+		TacticalActorAiBehavior::clearBoxerFlag(
+			records[1]);
+		const bool boxerFlagIsCleared =
+			!(records[1].status().flags() &
+				SOLDIER_BOXER);
+
+		records[2].status().flags() |=
+			SOLDIER_UNDERAICONTROL;
+		gTacticalStatus.Team[OUR_TEAM].bFirstID =
+			SoldierID{2};
+		gTacticalStatus.Team[LAST_TEAM].bLastID =
+			SoldierID{0};
+		TacticalActorAiBehavior::setUnderControl(
+			records[0]);
+		const bool malformedTeamRangeIsNeutral =
+			(records[0].status().flags() &
+				SOLDIER_UNDERAICONTROL) &&
+			(records[2].status().flags() &
+				SOLDIER_UNDERAICONTROL);
+
+		BindJa2SoldierRepository(productionRepository);
+		gTacticalStatus.Team[OUR_TEAM] = previousOurTeam;
+		gTacticalStatus.Team[LAST_TEAM] = previousLastTeam;
+
+		CHECK( aiOwnershipIsBounded &&
+		       initialActionPointsAreRecognized &&
+		       spentActionPointsAreRejected &&
+		       activeFlankIsRecognized &&
+		       completedFlankIsRejected &&
+		       retreatCounterNeverShrinks &&
+		       malformedCoweringStateIsCleared &&
+		       malformedRadioAnimationIsRejected &&
+		       boxerFlagIsCleared &&
+		       malformedTeamRangeIsNeutral,
+		       "tactical actor AI behavior owns bounded control, turn, flank, retreat, cowering, radio, and boxing state" );
+	}
+
+	{
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		TacticalActor actionActor;
+		actionActor.roster().active() = TRUE;
+		actionActor.roster().inSector() = TRUE;
+		actionActor.vitals().health() = OKLIFE;
+		actionActor.position().gridNo() = 0;
+
+		NotifyJa2TacticalWorldLoaded(
+			previousWorld.worldGeneration != 0
+				? previousWorld.worldGeneration : 1);
+		actionActor.position().level() = -1;
+		actionActor.identity().bodyType() = REGMALE;
+		actionActor.awareness().visibility() = TRUE;
+		actionActor.animationPlayback().state() = STANDING;
+		const bool malformedActorLevelIsRejected =
+			!TacticalActorLongActions::start(
+				actionActor,
+				MTA_HACK,
+				0) &&
+			!TacticalActorPrisonerOperations::freeAdjacent(
+				actionActor) &&
+			!TacticalActorAiBehavior::startRadioAnimation(
+				actionActor);
+		actionActor.position().level() = FIRST_LEVEL;
+		const bool malformedActionIsRejected =
+			!TacticalActorLongActions::start(
+				actionActor,
+				NUM_MTA,
+				0) &&
+			TacticalActorLongActions::current(
+				actionActor) == MTA_NONE;
+
+		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableWorldStartIsRejected =
+			!TacticalActorLongActions::start(
+				actionActor,
+				MTA_HACK,
+				0);
+		actionActor.longAction().begin(
+			NUM_MTA,
+			0,
+			10);
+		const bool corruptActionIsCleared =
+			!TacticalActorLongActions::update(
+				actionActor) &&
+			!actionActor.longAction().active();
+		TacticalActorLongActions::cancel(
+			actionActor,
+			false);
+
+		TacticalActor prisonerActor;
+		prisonerActor.vitals().health() = OKLIFE;
+		prisonerActor.deployment().sectorX() = 0;
+		prisonerActor.deployment().sectorY() = 0;
+		prisonerActor.deployment().sectorZ() = 0;
+		const bool malformedPrisonSectorIsRejected =
+			!TacticalActorPrisonerOperations::canProcess(
+				prisonerActor);
+		prisonerActor.position().gridNo() = 0;
+		prisonerActor.position().direction() = NORTH;
+		const bool unavailableWorldFreeIsRejected =
+			!TacticalActorPrisonerOperations::freeAdjacent(
+				prisonerActor);
+		RestoreJa2TacticalWorldSession(previousWorld);
+
+		CHECK( malformedActorLevelIsRejected &&
+		       malformedActionIsRejected &&
+		       unavailableWorldStartIsRejected &&
+		       corruptActionIsCleared &&
+		       malformedPrisonSectorIsRejected &&
+		       unavailableWorldFreeIsRejected,
+		       "tactical actor long actions and prisoner operations reject malformed actions, sectors, and unavailable worlds" );
 	}
 
 	{
