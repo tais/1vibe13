@@ -1,6 +1,7 @@
 #include "connect.h"
 #include "TacticalActorLongActions.h"
 #include "TacticalActorFieldOperations.h"
+#include "TacticalActorInteractions.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRadio.h"
@@ -1742,7 +1743,10 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 			}
 			else
 			{
-				pSoldier->EVENT_SoldierHandcuffPerson( sAdjustedGridNo, ubDirection );
+				(void)TacticalActorInteractions::handcuffPerson(
+					*pSoldier,
+					sAdjustedGridNo,
+					ubDirection);
 
 				UnSetUIBusy( pSoldier->identity().id() );
 			}
@@ -1841,7 +1845,10 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 			}
 			else
 			{
-				pSoldier->EVENT_SoldierApplyItemToPerson( sAdjustedGridNo, ubDirection );
+				(void)TacticalActorInteractions::applyItemToPerson(
+					*pSoldier,
+					sAdjustedGridNo,
+					ubDirection);
 
 				UnSetUIBusy( pSoldier->identity().id() );
 			}
@@ -1915,7 +1922,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 			}
 			else
 			{
-				pSoldier->EVENT_SoldierTakeBloodFromPerson( sAdjustedGridNo, ubDirection );
+				(void)TacticalActorInteractions::
+					collectBloodFromPerson(
+						*pSoldier,
+						sAdjustedGridNo,
+						ubDirection);
 
 				UnSetUIBusy( pSoldier->identity().id() );
 			}
@@ -1989,7 +2000,10 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 			}
 			else
 			{
-				pSoldier->EVENT_SoldierApplySplintToPerson( sAdjustedGridNo, ubDirection );
+				(void)TacticalActorInteractions::applySplintToPerson(
+					*pSoldier,
+					sAdjustedGridNo,
+					ubDirection);
 
 				UnSetUIBusy( pSoldier->identity().id() );
 			}
@@ -2704,7 +2718,8 @@ void SoldierGiveItem( TacticalActor *pSoldier, TacticalActor *pTargetSoldier, OB
 		}
 		else
 		{
-			pSoldier->EVENT_SoldierBeginGiveItem( );
+			(void)TacticalActorInteractions::beginGivingItem(
+				*pSoldier);
 			// CHANGE DIRECTION OF TARGET TO OPPOSIDE DIRECTION!
 			pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
 		}
@@ -5241,93 +5256,129 @@ void RenderTopmostFlashingItems( )
 
 BOOLEAN VerifyGiveItem( TacticalActor *pSoldier, TacticalActor **ppTargetSoldier )
 {
-	TacticalActor *pTSoldier;
-	SoldierID usSoldierIndex;
-	OBJECTTYPE	*pObject;
+	if (!ppTargetSoldier)
+		return FALSE;
+	*ppTargetSoldier = nullptr;
 
-	INT32 sGridNo;
-	UINT8 ubDirection;
-	SoldierID ubTargetMercID;
+	if (!pSoldier)
+		return FALSE;
 
-	// DO SOME CHECKS IF WE CAN DO ANIMATION.....
-
-	// Get items from pending data
-	pObject = pSoldier->pendingItem().object();
-
-	sGridNo		= pSoldier->pendingAction().secondaryData();
-	ubDirection = pSoldier->pendingAction().tertiaryData();
-	ubTargetMercID = static_cast<UINT16>( pSoldier->pendingAction().quaternaryData() );
-
-	usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
-
-	// See if our target is still available
-	if ( usSoldierIndex != NOBODY )
+	const INT32 targetGrid =
+		pSoldier->pendingAction().secondaryData();
+	const UINT32 rawTarget =
+		pSoldier->pendingAction().quaternaryData();
+	TacticalActor* target = nullptr;
+	if (IsJa2TacticalWorldLoaded() &&
+		pSoldier->roster().active() &&
+		pSoldier->roster().inSector() &&
+		!TileIsOutOfBounds(targetGrid) &&
+		pSoldier->position().level() >= FIRST_LEVEL &&
+		pSoldier->position().level() <= SECOND_LEVEL &&
+		rawTarget < TOTAL_SOLDIERS)
 	{
-		// Check if it's the same merc!
-		if ( usSoldierIndex != ubTargetMercID )
+		const SoldierID targetId{rawTarget};
+		const SoldierID occupant =
+			WhoIsThere2(
+				targetGrid,
+				pSoldier->position().level());
+		target =
+			GetJa2SoldierRepository().resolve(targetId);
+		if (occupant == targetId &&
+			target &&
+			target->roster().active() &&
+			target->roster().inSector() &&
+			target->position().gridNo() == targetGrid &&
+			target->position().level() ==
+				pSoldier->position().level())
 		{
-			return( FALSE );
-		}
-
-		// Get soldier
-		GetSoldier( &pTSoldier, usSoldierIndex );
-
-		// Look for item in hand....
-
-		(*ppTargetSoldier) = pTSoldier;
-
-		return( TRUE );
-	}
-	else
-	{
-		if ( pSoldier->pendingItem().object() != NULL )
-		{
-			AddItemToPool( pSoldier->position().gridNo(), pSoldier->pendingItem().object(), 1, pSoldier->position().level(), 0, -1 );
-
-			// Place it on the ground!
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ ITEM_HAS_BEEN_PLACED_ON_GROUND_STR ], ShortItemNames[ pSoldier->pendingItem().object()->usItem ] );
-
-			// OK, disengage buddy
-			pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
-
-			if ( ubTargetMercID != NOBODY )
-			{
-				TacticalActor* target =
-					GetJa2SoldierRepository().resolve( ubTargetMercID );
-				if ( target )
-					target->status().flags() &=
-						(~SOLDIER_ENGAGEDINACTION );
-			}
-
-			pSoldier->pendingItem().clearObject();
-
+			*ppTargetSoldier = target;
+			return TRUE;
 		}
 	}
 
-	return( FALSE );
+	OBJECTTYPE* const pendingObject =
+		pSoldier->pendingItem().object();
+	if (pendingObject)
+	{
+		if (IsJa2TacticalWorldLoaded() &&
+			!TileIsOutOfBounds(
+				pSoldier->position().gridNo()) &&
+			pendingObject->exists() &&
+			pendingObject->usItem < MAXITEMS &&
+			!pendingObject->objectStack.empty())
+		{
+			const UINT16 item = pendingObject->usItem;
+			AddItemToPool(
+				pSoldier->position().gridNo(),
+				pendingObject,
+				1,
+				pSoldier->position().level(),
+				0,
+				-1);
+			ScreenMsg(
+				FONT_MCOLOR_LTYELLOW,
+				MSG_INTERFACE,
+				TacticalStr[
+					ITEM_HAS_BEEN_PLACED_ON_GROUND_STR],
+				ShortItemNames[item]);
+		}
+		pSoldier->pendingItem().clearObject();
+	}
+
+	pSoldier->status().flags() &= ~SOLDIER_ENGAGEDINACTION;
+	if (rawTarget < TOTAL_SOLDIERS)
+	{
+		target =
+			GetJa2SoldierRepository().resolve(
+				SoldierID{rawTarget});
+		if (target)
+			target->status().flags() &=
+				~SOLDIER_ENGAGEDINACTION;
+	}
+	return FALSE;
 }
 
 
 void SoldierGiveItemFromAnimation( TacticalActor *pSoldier )
 {
-	TacticalActor *pTSoldier;
+	if (!pSoldier)
+		return;
+
+	TacticalActor *pTSoldier = nullptr;
 	INT8				bInvPos;
 	UINT8				ubProfile;
 
-	INT32 sGridNo;
-	UINT8				ubDirection;
-	UINT16				ubTargetMercID;
 	UINT16			usItemNum;
 	BOOLEAN			fToTargetPlayer = FALSE;
 
-	// Get items from pending data
-
-	// Get objectype and delete
-	pSoldier->pendingItem().object()->MoveThisObjectTo(gTempObject);
-	pSoldier->pendingItem().clearObject();
-
 	bInvPos = pSoldier->pendingAction().inventorySlot();
-	usItemNum = gTempObject.usItem;
+
+	// ATE: Deduct APs!
+	DeductPoints( pSoldier, GetBasicAPsToPickupItem( pSoldier ), 0 ); // SANDRO
+
+	OBJECTTYPE* const pendingObject =
+		pSoldier->pendingItem().object();
+	if (!pendingObject ||
+		!pendingObject->exists() ||
+		pendingObject->usItem >= MAXITEMS ||
+		pendingObject->objectStack.empty() ||
+		!(*pendingObject)[0] ||
+		!VerifyGiveItem(pSoldier, &pTSoldier) ||
+		!pTSoldier)
+	{
+		pSoldier->pendingItem().clearObject();
+		pSoldier->status().flags() &= ~SOLDIER_ENGAGEDINACTION;
+		if (pTSoldier)
+			pTSoldier->status().flags() &=
+				~SOLDIER_ENGAGEDINACTION;
+		UnSetEngagedInConvFromPCAction(pSoldier);
+		UnSetUIBusy(pSoldier->identity().id());
+		return;
+	}
+
+	usItemNum = pendingObject->usItem;
+	pendingObject->MoveThisObjectTo(gTempObject);
+	pSoldier->pendingItem().clearObject();
 
 	// ATE: OK, check if we have an item in the cursor from
 	// this soldier and from this inv slot, if so, delete!!!!!!!
@@ -5343,14 +5394,7 @@ void SoldierGiveItemFromAnimation( TacticalActor *pSoldier )
 		}
 	}
 
-	sGridNo		= pSoldier->pendingAction().secondaryData();
-	ubDirection = pSoldier->pendingAction().tertiaryData();
-	ubTargetMercID = (UINT16)pSoldier->pendingAction().quaternaryData();
-
-	// ATE: Deduct APs!
-	DeductPoints( pSoldier, GetBasicAPsToPickupItem( pSoldier ), 0 ); // SANDRO
-
-	if ( VerifyGiveItem( pSoldier, &pTSoldier ) )
+	if (pTSoldier)
 	{
 		// DAVE! - put stuff here to bring up shopkeeper.......
 
@@ -5502,7 +5546,8 @@ void SoldierGiveItemFromAnimation( TacticalActor *pSoldier )
 
 	// OK, disengage buddy
 	pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
-	pTSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
+	if (pTSoldier)
+		pTSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
 
 }
 

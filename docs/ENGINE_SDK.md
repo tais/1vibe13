@@ -642,6 +642,14 @@ the global `DoInteractiveAction` entry points. The domain rejects unloaded
 worlds and malformed actor, grid, direction, item, target, or structure-index
 state before accessing legacy tables. It does not change installed item,
 map, XML, Lua, sound, animation, art, or other content formats.
+`TacticalActorInteractions` owns person-to-person item giving, handcuffing,
+equipment/consumable application, blood collection, splint application, and
+chat teardown. New callers use these bounded operations instead of restoring
+the retired aggregate `EVENT_Soldier*` methods. The boundary revalidates the
+live world, actor and target locations, directions, animation state,
+inventory stacks, item IDs and flags, and repository identity after movement.
+Installed item definitions, traits, maps, XML, Lua/dialogue behavior,
+animations, and other content formats are unchanged.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,

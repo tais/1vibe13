@@ -9462,6 +9462,43 @@ int main( int, char** )
 		TacticalActor interactionActor;
 		const bool idleChatTeardownIsNeutral =
 			!TacticalActorInteractions::stopChatting(interactionActor);
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		interactionActor.identity().id() = SoldierID{0};
+		interactionActor.roster().active() = TRUE;
+		interactionActor.roster().inSector() = TRUE;
+		interactionActor.vitals().health() = OKLIFE;
+		interactionActor.position().gridNo() = 0;
+		interactionActor.position().level() = FIRST_LEVEL;
+		interactionActor.position().direction() = NORTH;
+		interactionActor.animationPlayback().state() = STANDING;
+		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableInteractionWorldIsRejected =
+			!TacticalActorInteractions::beginGivingItem(
+				interactionActor) &&
+			!TacticalActorInteractions::handcuffPerson(
+				interactionActor,
+				0,
+				NORTH) &&
+			!TacticalActorInteractions::applyItemToPerson(
+				interactionActor,
+				0,
+				NORTH) &&
+			!TacticalActorInteractions::collectBloodFromPerson(
+				interactionActor,
+				0,
+				NORTH) &&
+			!TacticalActorInteractions::applySplintToPerson(
+				interactionActor,
+				0,
+				NORTH);
+		TacticalActor* rejectedGiveTarget = &interactionActor;
+		const bool malformedGiveContinuationIsRejected =
+			!VerifyGiveItem(nullptr, &rejectedGiveTarget) &&
+			rejectedGiveTarget == nullptr &&
+			!VerifyGiveItem(&interactionActor, nullptr);
+		SoldierGiveItemFromAnimation(nullptr);
+		RestoreJa2TacticalWorldSession(previousWorld);
 
 		TacticalActor donorActor;
 		donorActor.roster().team() = gbPlayerNum;
@@ -9474,6 +9511,8 @@ int main( int, char** )
 		       nonAiSelfDetonationIsRejected &&
 		       actorWithoutDrugUseBackgroundIsNeutral &&
 		       idleChatTeardownIsNeutral &&
+		       unavailableInteractionWorldIsRejected &&
+		       malformedGiveContinuationIsRejected &&
 		       malformedDonorHealthIsRejected,
 		       "tactical actor explosives, consumables, interactions, and donor rules reject unsafe state and damage every stacked item" );
 	}
