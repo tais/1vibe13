@@ -129,6 +129,7 @@
 #include "Handle Items.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConsumables.h"
+#include "TacticalActorCombatActions.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
@@ -9473,6 +9474,28 @@ int main( int, char** )
 		interactionActor.position().direction() = NORTH;
 		interactionActor.animationPlayback().state() = STANDING;
 		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableCombatActionsAreRejected =
+			!TacticalActorCombatActions::beginBladeAttack(
+				interactionActor,
+				0,
+				NORTH) &&
+			!TacticalActorCombatActions::beginPunchAttack(
+				interactionActor,
+				0,
+				NORTH) &&
+			!TacticalActorCombatActions::beginKnifeThrow(
+				interactionActor,
+				0,
+				NORTH);
+		const bool unavailableExplosiveActionsAreRejected =
+			!TacticalActorExplosives::beginBombPlacement(
+				explosiveActor) &&
+			!TacticalActorExplosives::beginTripwireDisarm(
+				explosiveActor,
+				0,
+				0) &&
+			!TacticalActorExplosives::beginDetonatorUse(
+				explosiveActor);
 		const bool unavailableInteractionWorldIsRejected =
 			!TacticalActorInteractions::beginGivingItem(
 				interactionActor) &&
@@ -9509,6 +9532,8 @@ int main( int, char** )
 
 		CHECK( everyStackEntryWasDamaged &&
 		       nonAiSelfDetonationIsRejected &&
+		       unavailableCombatActionsAreRejected &&
+		       unavailableExplosiveActionsAreRejected &&
 		       actorWithoutDrugUseBackgroundIsNeutral &&
 		       idleChatTeardownIsNeutral &&
 		       unavailableInteractionWorldIsRejected &&

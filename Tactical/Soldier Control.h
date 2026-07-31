@@ -890,13 +890,7 @@ public:
 	void EVENT_SetSoldierDesiredDirection( UINT16	usNewDirection );
 	void EVENT_FireSoldierWeapon( INT32 sTargetGridNo );
 	void EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 ubDamage, INT16 sBreathLoss, UINT16 bDirection, UINT16 sRange, SoldierID ubAttackerID, UINT8 ubSpecial, UINT8 ubHitLocation, INT16 sSubsequent, INT32 sLocationGridNo );
-	void EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirection );
-	void EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirection );
 	void EVENT_StopMerc( INT32 sGridNo, INT8 bDirection );
-	void EVENT_SoldierBeginKnifeThrowAttack( INT32 sGridNo, UINT8 ubDirection );
-	void EVENT_SoldierBeginUseDetonator( void );
-	void EVENT_SoldierBeginDropBomb( );
-	void EVENT_SoldierDefuseTripwire( INT32 sGridNo, INT32 sItem );
 	void EVENT_SetSoldierPositionForceDelete( FLOAT dNewXPos, FLOAT dNewYPos );
 	void EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCounter );
 

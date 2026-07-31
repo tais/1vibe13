@@ -2226,6 +2226,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSpotting.h"
   tactical_actor_spotting_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurncoats.h"
   tactical_actor_turncoats_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatActions.h"
+  tactical_actor_combat_actions_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatActions.cpp"
+  tactical_actor_combat_actions_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorExplosives.h"
   tactical_actor_explosives_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorExplosives.cpp"
@@ -3033,7 +3037,13 @@ foreach(retired_actor_facade IN ITEMS
   "EVENT_SoldierHandcuffPerson"
   "EVENT_SoldierApplyItemToPerson"
   "EVENT_SoldierTakeBloodFromPerson"
-  "EVENT_SoldierApplySplintToPerson")
+  "EVENT_SoldierApplySplintToPerson"
+  "EVENT_SoldierBeginDropBomb"
+  "EVENT_SoldierDefuseTripwire"
+  "EVENT_SoldierBeginUseDetonator"
+  "EVENT_SoldierBeginBladeAttack"
+  "EVENT_SoldierBeginPunchAttack"
+  "EVENT_SoldierBeginKnifeThrowAttack")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3574,6 +3584,27 @@ foreach(required_consumable_operation IN ITEMS
   endif()
 endforeach()
 
+foreach(required_combat_action IN ITEMS
+  "beginBladeAttack"
+  "beginPunchAttack"
+  "beginKnifeThrow")
+  string(FIND "${tactical_actor_combat_actions_header_contents}"
+    "${required_combat_action}("
+    combat_action_declaration)
+  string(FIND "${tactical_actor_combat_actions_source_contents}"
+    "TacticalActorCombatActions::${required_combat_action}("
+    combat_action_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorCombatActions::${required_combat_action}"
+    combat_action_coverage)
+  if(combat_action_declaration EQUAL -1 OR
+     combat_action_definition EQUAL -1 OR
+     combat_action_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor combat action '${required_combat_action}' lost its declaration, definition, or malformed-state coverage")
+  endif()
+endforeach()
+
 foreach(required_explosive_operation IN ITEMS
   "degradeInventoryAfterExplosion"
   "applyInventoryExplosion"
@@ -3600,6 +3631,27 @@ foreach(required_explosive_coverage IN ITEMS
   if(explosive_operation_coverage EQUAL -1)
     message(FATAL_ERROR
       "Tactical actor explosives lost data-free or malformed-input coverage for '${required_explosive_coverage}'")
+  endif()
+endforeach()
+
+foreach(required_explosive_action IN ITEMS
+  "beginBombPlacement"
+  "beginTripwireDisarm"
+  "beginDetonatorUse")
+  string(FIND "${tactical_actor_explosives_header_contents}"
+    "${required_explosive_action}("
+    explosive_action_declaration)
+  string(FIND "${tactical_actor_explosives_source_contents}"
+    "${required_explosive_action}("
+    explosive_action_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorExplosives::${required_explosive_action}"
+    explosive_action_coverage)
+  if(explosive_action_declaration EQUAL -1 OR
+     explosive_action_definition EQUAL -1 OR
+     explosive_action_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor explosive action '${required_explosive_action}' lost its declaration, definition, or malformed-state coverage")
   endif()
 endforeach()
 
@@ -3645,6 +3697,7 @@ endif()
 
 foreach(required_actor_domain_source IN ITEMS
   "TacticalActorConsumables.cpp"
+  "TacticalActorCombatActions.cpp"
   "TacticalActorExplosives.cpp"
   "TacticalActorInteractions.cpp")
   string(FIND "${tactical_build_contents}"
