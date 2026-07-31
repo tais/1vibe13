@@ -9,6 +9,7 @@
 #include "TacticalActorTurncoats.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConditions.h"
+#include "TacticalActorCombatReactions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
@@ -1508,135 +1509,6 @@ void TacticalActor::CalcNewActionPoints( void )
 
 		this->actionPoints().clear();
 	}
-}
-
-
-void	TacticalActor::DoNinjaAttack( void )
-{
-	//UINT32		uiMercFlags;
-	TacticalActor	*pTSoldier;
-	UINT8		ubTDirection;
-	UINT8		ubTargetStance;
-
-
-	SoldierID usSoldierIndex = WhoIsThere2( this->targeting().gridNo(), this->position().level() );
-	if ( usSoldierIndex != NOBODY )
-	{
-		GetSoldier( &pTSoldier, usSoldierIndex );
-
-		// Look at stance of target
-		ubTargetStance = gAnimControl[pTSoldier->animationPlayback().state()].ubEndHeight;
-
-		// Get his life...if < certain value, do finish!
-		// SANDRO - Enhanced Close Combat System - Spinning kick is performed on focused attack
-		if ( gGameExternalOptions.fEnhancedCloseCombatSystem && ((this->aiPlanning().aimTime() > 0) && ubTargetStance != ANIM_PRONE) )
-		{
-			this->ChangeSoldierState( NINJA_SPINKICK, 0, FALSE );
-
-		}
-		else if ( !gGameExternalOptions.fEnhancedCloseCombatSystem && (pTSoldier->vitals().health() <= 30 || pTSoldier->vitals().breath() <= 30) && ubTargetStance != ANIM_PRONE )
-		{
-			// Do finish!
-			this->ChangeSoldierState( NINJA_SPINKICK, 0, FALSE );
-		}
-		else
-		{
-			if ( ubTargetStance != ANIM_PRONE )
-			{
-				if ( Random( 2 ) == 0 )
-				{
-					this->ChangeSoldierState( NINJA_LOWKICK, 0, FALSE );
-				}
-				else
-				{
-					this->ChangeSoldierState( NINJA_PUNCH, 0, FALSE );
-				}
-
-				// CHECK IF HE CAN SEE US, IF SO CHANGE DIRECTION
-				if ( pTSoldier->awareness().opponentKnowledge()[this->identity().id()] == 0 && pTSoldier->roster().team() != this->roster().team() )
-				{
-					if ( !(pTSoldier->status().flags() & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE)) )
-					{
-						ubTDirection = (UINT8)GetDirectionFromGridNo( this->position().gridNo(), pTSoldier );
-						SendSoldierSetDesiredDirectionEvent( pTSoldier, ubTDirection );
-					}
-				}
-			}
-			else
-			{
-				// CHECK OUR STANCE
-				if ( gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_CROUCH )
-				{
-					// SET DESIRED STANCE AND SET PENDING ANIMATION
-					SendChangeSoldierStanceEvent( this, ANIM_CROUCH );
-					this->animationIntent().pendingAnimation() = PUNCH_LOW;
-				}
-				else
-				{
-					// USE crouched one
-					// NEED TO CHANGE STANCE IF NOT CROUCHD!
-					this->EVENT_InitNewSoldierAnim( PUNCH_LOW, 0, FALSE );
-				}
-			}
-		}
-	}
-
-	if ( this->identity().profile() == 33 )
-	{
-		UINT32 uiSoundID;
-		SOUNDPARMS		spParms;
-		INT32		iFaceIndex;
-
-		// Play sound!
-		memset( &spParms, 0xff, sizeof(SOUNDPARMS) );
-
-		spParms.uiSpeed = RATE_11025;
-		spParms.uiVolume = (INT8)CalculateSpeechVolume( HIGHVOLUME );
-
-		// If we are an enemy.....reduce due to volume
-		if ( this->roster().team() != gbPlayerNum )
-		{
-			spParms.uiVolume = SoundVolume( (UINT8)spParms.uiVolume, this->position().gridNo() );
-		}
-		spParms.uiLoop = 1;
-		spParms.uiPan = SoundDir( this->position().gridNo() );
-		spParms.uiPriority = GROUP_PLAYER;
-
-		if ( this->animationPlayback().state() == NINJA_SPINKICK )
-		{
-			uiSoundID = SoundPlay( "BATTLESNDS\\033_CHOP2.WAV", &spParms );
-		}
-		else
-		{
-			if ( Random( 2 ) == 0 )
-			{
-				uiSoundID = SoundPlay( "BATTLESNDS\\033_CHOP3.WAV", &spParms );
-			}
-			else
-			{
-				uiSoundID = SoundPlay( "BATTLESNDS\\033_CHOP1.WAV", &spParms );
-			}
-		}
-
-
-		if ( uiSoundID != SOUND_ERROR )
-		{
-			this->dialogue().activeBattleSound() = uiSoundID;
-
-			if ( this->identity().profile() != NO_PROFILE )
-			{
-				// Get soldier's face ID
-				iFaceIndex = this->renderBindings().faceIndex();
-
-				// Check face index
-				if ( iFaceIndex != -1 )
-				{
-					ExternSetFaceTalking( iFaceIndex, uiSoundID );
-				}
-			}
-		}
-	}
-
 }
 
 
@@ -5744,7 +5616,11 @@ void SoldierGotHitGunFire( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT16 
 		// Only for mercs...
 		if ( pSoldier->identity().bodyType() < 4 )
 		{
-			pSoldier->ChangeToFlybackAnimation( (UINT8)bDirection );
+			(void)TacticalActorCombatReactions::
+				beginFlyback(
+					*pSoldier,
+					static_cast<std::uint8_t>(
+						bDirection));
 
 			// Flugente: dynamic opinions
 			if (gGameExternalOptions.fDynamicOpinions && attacker != nullptr )
@@ -5853,7 +5729,8 @@ void SoldierGotHitExplosion( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT1
 			case 7:
 			case 8:
 				// 3 of 10 - fall forward
-				pSoldier->BeginTyingToFall( );
+				(void)TacticalActorCombatReactions::
+					beginFall(*pSoldier);
 				pSoldier->EVENT_InitNewSoldierAnim( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
 				break;
 			case 9:
@@ -5886,11 +5763,16 @@ void SoldierGotHitExplosion( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT1
 				{
 					pSoldier->EVENT_SetSoldierDirection( (INT8)bDirection );
 					pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
-					pSoldier->ChangeToFallbackAnimation( (UINT8)bDirection );
+					(void)TacticalActorCombatReactions::
+						beginFallback(
+							*pSoldier,
+							static_cast<std::uint8_t>(
+								bDirection));
 				}
 				else
 				{
-					pSoldier->BeginTyingToFall( );
+					(void)TacticalActorCombatReactions::
+						beginFall(*pSoldier);
 					pSoldier->EVENT_InitNewSoldierAnim( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
 				}
 				break;
@@ -5923,13 +5805,18 @@ void SoldierGotHitExplosion( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT1
 
 		if ( OKFallDirection( pSoldier, sNewGridNo, pSoldier->position().level(), gOppositeDirection[bDirection], FLYBACK_HIT ) )
 		{
-			pSoldier->ChangeToFallbackAnimation( (UINT8)bDirection );
+			(void)TacticalActorCombatReactions::
+				beginFallback(
+					*pSoldier,
+					static_cast<std::uint8_t>(
+						bDirection));
 		}
 		else
 		{
 			if ( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND )
 			{
-				pSoldier->BeginTyingToFall( );
+				(void)TacticalActorCombatReactions::
+					beginFall(*pSoldier);
 				pSoldier->EVENT_InitNewSoldierAnim( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
 			}
 			else
@@ -6048,13 +5935,17 @@ void SoldierGotHitVehicle(TacticalActor *pSoldier, UINT16 bDirection)
 		{
 			pSoldier->EVENT_SetSoldierDirection( (INT8)gOppositeDirection[bDirection] );
 			pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
-			pSoldier->ChangeToFallbackAnimation( (UINT8)gOppositeDirection[bDirection] );
+			(void)TacticalActorCombatReactions::
+				beginFallback(
+					*pSoldier,
+					gOppositeDirection[bDirection]);
 		}
 		else if ( IS_MERC_BODY_TYPE( pSoldier ) )
 		{
 			pSoldier->EVENT_SetSoldierDirection( bDirection );
 			pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
-			pSoldier->BeginTyingToFall( );
+			(void)TacticalActorCombatReactions::
+				beginFall(*pSoldier);
 			pSoldier->EVENT_InitNewSoldierAnim( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
 		}
 		else
@@ -6074,7 +5965,10 @@ void SoldierGotHitVehicle(TacticalActor *pSoldier, UINT16 bDirection)
 
 		if ( IS_MERC_BODY_TYPE( pSoldier ) && OKFallDirection( pSoldier, sNewGridNo, pSoldier->position().level(), gOppositeDirection[pSoldier->position().direction()], FLYBACK_HIT ) )
 		{
-			pSoldier->ChangeToFallbackAnimation( (UINT8)gOppositeDirection[bDirection] );
+			(void)TacticalActorCombatReactions::
+				beginFallback(
+					*pSoldier,
+					gOppositeDirection[bDirection]);
 		}
 		else
 		{
@@ -19079,7 +18973,8 @@ void SoldierCollapse( TacticalActor *pSoldier )
 		}
 		else
 		{
-			pSoldier->BeginTyingToFall( );
+			(void)TacticalActorCombatReactions::
+				beginFall(*pSoldier);
 			if ( !is_networked )pSoldier->EVENT_InitNewSoldierAnim( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
 			else pSoldier->ChangeSoldierState( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
 		}
@@ -19088,7 +18983,8 @@ void SoldierCollapse( TacticalActor *pSoldier )
 	case ANIM_CROUCH:
 
 		// Crouched or prone, only for mercs!
-		pSoldier->BeginTyingToFall( );
+		(void)TacticalActorCombatReactions::
+			beginFall(*pSoldier);
 
 		// 0verhaul:  No special case here!  First the FALLFORWARD_FROMHIT_CROUCH can be filled in to use the FALLFORWARD_FROMHIT_STAND anim
 		// then when real anims come, use them instead.
@@ -19472,102 +19368,6 @@ void TacticalActor::PickDropItemAnimation( void )
 void TacticalActor::ResetSoldierChangeStatTimer( void )
 {
 	this->statProgress().reset();
-}
-
-
-void TacticalActor::ChangeToFlybackAnimation( UINT8 flyBackDirection )
-{
-	INT32 sNewGridNo;
-	UINT8 ubOppositeDir;
-	INT16 sDirectionInc;
-
-	ubOppositeDir = gOppositeDirection[flyBackDirection];
-	sDirectionInc = DirectionInc( ubOppositeDir );
-
-	// Get dest gridno, convert to center coords
-	sNewGridNo = NewGridNo( this->position().gridNo(), sDirectionInc );
-	if ( gubWorldMovementCosts[sNewGridNo][ubOppositeDir][this->position().level()] >= TRAVELCOST_BLOCKED )
-	{
-		// No room to fly back.  Pretend we hit the wall and fall forward instead
-		this->BeginTyingToFall( );
-		this->ChangeSoldierState( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
-		return;
-	}
-
-	sNewGridNo = NewGridNo( sNewGridNo, sDirectionInc );
-	if ( gubWorldMovementCosts[sNewGridNo][ubOppositeDir][this->position().level()] >= TRAVELCOST_BLOCKED )
-	{
-		// No room to fly back.  Fall back instead
-		this->BeginTyingToFall( );
-		this->ChangeSoldierState( FALLBACK_HIT_STAND, 0, FALSE );
-	}
-
-
-	// Remove any previous actions
-	this->pendingAction().clearAction();
-
-	this->runtime().pendingAction.pathSearchSourceGrid = this->position().gridNo();
-
-	// Since we're manually setting our path, we have to reset these @#$@# flags too.  Otherwise we don't reach the
-	// destination a lot of the time
-	this->movement().clearPastDestination();
-
-	// Set path....
-	this->pathing().pathSize() = 0;
-	this->pathing().pathIndex() = 0;
-	this->pathing().path()[this->pathing().pathSize()] = gOppositeDirection[this->position().direction()];
-	this->pathing().pathSize()++;
-	this->pathing().path()[this->pathing().pathSize()] = gOppositeDirection[this->position().direction()];
-	this->pathing().pathSize()++;
-	this->pathing().finalDestinationGrid() = sNewGridNo;
-	this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, FLYBACK_HIT );
-
-	// Get a new direction based on direction
-	this->EVENT_InitNewSoldierAnim( FLYBACK_HIT, 0, FALSE );
-}
-
-void TacticalActor::ChangeToFallbackAnimation( UINT8 fallBackDirection )
-{
-	INT32 sNewGridNo;
-	UINT8 ubOppositeDir;
-	INT16 sDirection;
-
-	ubOppositeDir = gOppositeDirection[fallBackDirection];
-	sDirection = DirectionInc( ubOppositeDir );
-
-	// Get dest gridno, convert to center coords
-	sNewGridNo = NewGridNo( this->position().gridNo(), sDirection );
-	if ( gubWorldMovementCosts[sNewGridNo][ubOppositeDir][this->position().level()] >= TRAVELCOST_BLOCKED )
-	{
-		// No room to fly back.  Pretend we hit the wall and fall forward instead
-		this->BeginTyingToFall( );
-		this->ChangeSoldierState( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
-		return;
-	}
-
-	// Get dest gridno, convert to center coords
-	//sNewGridNo = NewGridNo( sNewGridNo, sDirection );
-	//usNewGridNo = NewGridNo( (UINT16)usNewGridNo, (UINT16)(-1 * DirectionInc( bDirection ) ) );
-
-	// Remove any previous actions
-	this->pendingAction().clearAction();
-
-	this->runtime().pendingAction.pathSearchSourceGrid = this->position().gridNo();
-
-	// Since we're manually setting our path, we have to reset these @#$@# flags too.  Otherwise we don't reach the
-	// destination a lot of the time
-	this->movement().clearPastDestination();
-
-	// Set path....
-	this->pathing().pathSize() = 0;
-	this->pathing().pathIndex() = 0;
-	this->pathing().path()[this->pathing().pathSize()] = gOppositeDirection[this->position().direction()];
-	this->pathing().pathSize()++;
-	this->pathing().finalDestinationGrid() = sNewGridNo;
-	this->EVENT_InternalSetSoldierDestination( this->pathing().path()[this->pathing().pathIndex()], FALSE, FALLBACK_HIT_STAND );
-
-	// Get a new direction based on direction
-	this->EVENT_InitNewSoldierAnim( FALLBACK_HIT_STAND, 0, FALSE );
 }
 
 
@@ -20148,21 +19948,6 @@ void DebugValidateSoldierData( )
 #endif
 
 
-
-void TacticalActor::BeginTyingToFall( void )
-{
-	this->animationActivity().beginFall(this->position().direction());
-
-	// Randomize direction
-	if ( Random( 50 ) < 25 )
-	{
-		this->animationActivity().fallClockwise() = TRUE;
-	}
-	else
-	{
-		this->animationActivity().fallClockwise() = FALSE;
-	}
-}
 
 void HandlePlayerTogglingLightEffects( BOOLEAN fToggleValue )
 {

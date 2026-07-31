@@ -130,6 +130,7 @@
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConsumables.h"
 #include "TacticalActorCombatActions.h"
+#include "TacticalActorCombatReactions.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
@@ -9487,7 +9488,46 @@ int main( int, char** )
 			!TacticalActorCombatActions::beginKnifeThrow(
 				interactionActor,
 				0,
-				NORTH);
+				NORTH) &&
+			!TacticalActorCombatActions::continueNinjaAttack(
+				interactionActor);
+		const bool unavailableCombatReactionsAreRejected =
+			!TacticalActorCombatReactions::beginFall(
+				interactionActor) &&
+			!TacticalActorCombatReactions::beginFlyback(
+				interactionActor,
+				NORTH) &&
+			!TacticalActorCombatReactions::beginFallback(
+				interactionActor,
+				NORTH) &&
+			!interactionActor.animationActivity()
+				.tryingToFall();
+		NotifyJa2TacticalWorldLoaded(
+			previousWorld.worldGeneration != 0
+				? previousWorld.worldGeneration : 1);
+		interactionActor.position().direction() =
+			NUM_WORLD_DIRECTIONS;
+		const bool malformedCombatReactionDirectionIsRejected =
+			!TacticalActorCombatReactions::beginFall(
+				interactionActor) &&
+			!TacticalActorCombatReactions::beginFlyback(
+				interactionActor,
+				NUM_WORLD_DIRECTIONS) &&
+			!TacticalActorCombatReactions::beginFallback(
+				interactionActor,
+				NUM_WORLD_DIRECTIONS) &&
+			!interactionActor.animationActivity()
+				.tryingToFall();
+		interactionActor.position().direction() = NORTH;
+		const bool liveFallIntentIsOwned =
+			TacticalActorCombatReactions::beginFall(
+				interactionActor) &&
+			interactionActor.animationActivity()
+				.tryingToFall() &&
+			interactionActor.animationActivity()
+				.fallDirection() == NORTH;
+		interactionActor.animationActivity().clearFall();
+		NotifyJa2TacticalWorldUnloaded();
 		const bool unavailableTraversalActionsAreRejected =
 			!TacticalActorTraversal::beginRoofClimb(
 				interactionActor) &&
@@ -9545,6 +9585,9 @@ int main( int, char** )
 		CHECK( everyStackEntryWasDamaged &&
 		       nonAiSelfDetonationIsRejected &&
 		       unavailableCombatActionsAreRejected &&
+		       unavailableCombatReactionsAreRejected &&
+		       malformedCombatReactionDirectionIsRejected &&
+		       liveFallIntentIsOwned &&
 		       unavailableTraversalActionsAreRejected &&
 		       unavailableExplosiveActionsAreRejected &&
 		       actorWithoutDrugUseBackgroundIsNeutral &&

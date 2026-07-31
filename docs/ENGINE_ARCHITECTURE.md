@@ -1422,6 +1422,16 @@ the engine must not contain SDL types in its public domain model.
   inventory, item, or world-item state before accessing legacy tables.
   Existing weapons, explosives, maps, XML, Lua, animations, sounds, art, and
   other installed mod-data formats are unchanged.
+  `TacticalActorCombatActions` now also owns martial-arts animation
+  continuation and its bounded target/awareness/audio selection.
+  `TacticalActorCombatReactions` owns fall intent plus one-tile fallback and
+  two-tile flyback path setup shared by hit resolution, collapse handling,
+  and animation playback. Four more aggregate methods are retired. The
+  boundaries reject unavailable worlds and malformed actors, targets,
+  animations, body types, directions, levels, grids, movement-cost storage,
+  path capacity, or face indexes before accessing legacy tables. Existing
+  combat rules, maps, movement costs, animations, audio, art, XML, Lua, and
+  network formats are unchanged.
   `TacticalActorInteractions` now also owns the bounded person-to-person
   action boundary for giving items, handcuffing, applying equipment or
   consumables, drawing blood, and applying splints. Five more aggregate

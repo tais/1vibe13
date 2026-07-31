@@ -1,3 +1,5 @@
+#include "TacticalActorCombatActions.h"
+#include "TacticalActorCombatReactions.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
@@ -1380,7 +1382,8 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 			case 469:
 
 				// CODE: Begin martial artist attack
-				pSoldier->DoNinjaAttack( );
+				(void)TacticalActorCombatActions::
+					continueNinjaAttack(*pSoldier);
 				return( TRUE );
 				break;
 
@@ -4525,7 +4528,8 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 			{
 				// 1 ) REC DIRECTION
 				// 2 ) SET FLAG FOR STARTING TO FALL
-				pSoldier->BeginTyingToFall( );
+				(void)TacticalActorCombatReactions::
+					beginFall(*pSoldier);
 				pSoldier->ChangeSoldierState( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
 				return;
 			}
@@ -4537,14 +4541,18 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 					pSoldier->EVENT_SetSoldierDesiredDirection( bTestDirection );
 					pSoldier->EVENT_SetSoldierDirection( bTestDirection );
 				}
-				pSoldier->ChangeToFallbackAnimation( pSoldier->position().direction() );
+				(void)TacticalActorCombatReactions::
+					beginFallback(
+						*pSoldier,
+						pSoldier->position().direction());
 				return;
 			}
 		}
 		else if ( pSoldier->animationPlayback().state() == GENERIC_HIT_CROUCH || pSoldier->animationPlayback().state() == CIV_COWER_HIT)
 		{
 			pSoldier->ChangeSoldierState( FALLFORWARD_FROMHIT_CROUCH, 0 , FALSE);
-			pSoldier->BeginTyingToFall( );
+			(void)TacticalActorCombatReactions::
+				beginFall(*pSoldier);
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == GENERIC_HIT_PRONE )

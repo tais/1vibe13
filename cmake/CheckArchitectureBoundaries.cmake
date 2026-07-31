@@ -2230,6 +2230,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatActions.h"
   tactical_actor_combat_actions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatActions.cpp"
   tactical_actor_combat_actions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatReactions.h"
+  tactical_actor_combat_reactions_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatReactions.cpp"
+  tactical_actor_combat_reactions_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTraversal.h"
   tactical_actor_traversal_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTraversal.cpp"
@@ -3048,6 +3052,10 @@ foreach(retired_actor_facade IN ITEMS
   "EVENT_SoldierBeginBladeAttack"
   "EVENT_SoldierBeginPunchAttack"
   "EVENT_SoldierBeginKnifeThrowAttack"
+  "DoNinjaAttack"
+  "BeginTyingToFall"
+  "ChangeToFlybackAnimation"
+  "ChangeToFallbackAnimation"
   "BeginSoldierClimbUpRoof"
   "BeginSoldierClimbDownRoof"
   "BeginSoldierClimbFence"
@@ -3605,7 +3613,8 @@ endforeach()
 foreach(required_combat_action IN ITEMS
   "beginBladeAttack"
   "beginPunchAttack"
-  "beginKnifeThrow")
+  "beginKnifeThrow"
+  "continueNinjaAttack")
   string(FIND "${tactical_actor_combat_actions_header_contents}"
     "${required_combat_action}("
     combat_action_declaration)
@@ -3620,6 +3629,27 @@ foreach(required_combat_action IN ITEMS
      combat_action_coverage EQUAL -1)
     message(FATAL_ERROR
       "Tactical actor combat action '${required_combat_action}' lost its declaration, definition, or malformed-state coverage")
+  endif()
+endforeach()
+
+foreach(required_combat_reaction IN ITEMS
+  "beginFall"
+  "beginFlyback"
+  "beginFallback")
+  string(FIND "${tactical_actor_combat_reactions_header_contents}"
+    "${required_combat_reaction}("
+    combat_reaction_declaration)
+  string(FIND "${tactical_actor_combat_reactions_source_contents}"
+    "TacticalActorCombatReactions::${required_combat_reaction}("
+    combat_reaction_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorCombatReactions::${required_combat_reaction}"
+    combat_reaction_coverage)
+  if(combat_reaction_declaration EQUAL -1 OR
+     combat_reaction_definition EQUAL -1 OR
+     combat_reaction_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor combat reaction '${required_combat_reaction}' lost its declaration, definition, or malformed-state coverage")
   endif()
 endforeach()
 
@@ -3739,6 +3769,7 @@ endif()
 foreach(required_actor_domain_source IN ITEMS
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
+  "TacticalActorCombatReactions.cpp"
   "TacticalActorTraversal.cpp"
   "TacticalActorExplosives.cpp"
   "TacticalActorInteractions.cpp")
