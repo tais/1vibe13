@@ -5,6 +5,7 @@
 #include "TacticalActorInteractions.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
+#include "TacticalActorTurnBudget.h"
 #include "TacticalActorMedicalTreatment.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
@@ -6346,11 +6347,11 @@ void CommonEnterCombatModeCode( )
                 }
 
                 // ATE: Refresh APs
-                pSoldier->CalcNewActionPoints( );
+                (void)TacticalActorTurnBudget::refreshForTurn(*pSoldier);
                 // Either I just noticed this, or it just hasn't been a problem before. But
                 // if the last battle left a soldier at 0 points, he will not gain full points with
                 // carryover for this battle.   So we'll hit it again.
-                pSoldier->CalcNewActionPoints( );
+                (void)TacticalActorTurnBudget::refreshForTurn(*pSoldier);
 
                 // SANDRO - Improved Interrupt System - reset interrupt counter
                 memset(pSoldier->turnState().interruptCounters(),0,sizeof(pSoldier->turnState().interruptCounters()));

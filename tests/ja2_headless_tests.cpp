@@ -147,6 +147,7 @@
 #include "TacticalActorInteractions.h"
 #include "TacticalActorLighting.h"
 #include "TacticalActorModifiers.h"
+#include "TacticalActorTurnBudget.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
 #include "Plan.h"
@@ -9430,6 +9431,91 @@ int main( int, char** )
 		       malformedLiveKitIsRejected &&
 		       malformedAbstractKitIsRejected,
 		       "tactical actor medical treatment bounds profile, stat-repair, and kit state" );
+	}
+
+	{
+		TacticalActor liveTurnBudgetActor;
+		liveTurnBudgetActor.identity().bodyType() = REGMALE;
+		liveTurnBudgetActor.identity().profile() = NO_PROFILE;
+		liveTurnBudgetActor.roster().team() = CIV_TEAM;
+		liveTurnBudgetActor.vitals().maximumHealth() = 100;
+		liveTurnBudgetActor.vitals().health() = 100;
+		liveTurnBudgetActor.vitals().maximumBreath() = 100;
+		liveTurnBudgetActor.vitals().breath() = 100;
+		liveTurnBudgetActor.statistics().experienceLevel() = 5;
+		liveTurnBudgetActor.statistics().agility() = 70;
+		liveTurnBudgetActor.statistics().dexterity() = 70;
+		const std::int16_t liveTurnGrant =
+			TacticalActorTurnBudget::calculateTurnGrant(
+				liveTurnBudgetActor);
+		const bool liveTurnRefreshIsOwned =
+			TacticalActorTurnBudget::refreshForTurn(
+				liveTurnBudgetActor) &&
+			liveTurnBudgetActor.actionPoints().current() ==
+				liveTurnGrant &&
+			liveTurnBudgetActor.actionPoints().initial() ==
+				liveTurnGrant;
+
+		TacticalActor turnBudgetActor;
+		turnBudgetActor.actionPoints().current() = 37;
+		turnBudgetActor.actionPoints().initial() = 29;
+		const bool deadActorHasNoTurnGrant =
+			TacticalActorTurnBudget::calculateTurnGrant(
+				turnBudgetActor) == 0;
+
+		turnBudgetActor.vitals().maximumHealth() = 100;
+		turnBudgetActor.vitals().health() = 100;
+		turnBudgetActor.collapseState().sleepDrugCounter() = 1;
+		turnBudgetActor.collapseState().tactical() = TRUE;
+		const bool collapsedSleepDrugActorHasNoTurnGrant =
+			TacticalActorTurnBudget::calculateTurnGrant(
+				turnBudgetActor) == 0;
+
+		turnBudgetActor.collapseState().sleepDrugCounter() = 0;
+		turnBudgetActor.collapseState().tactical() = FALSE;
+		turnBudgetActor.identity().bodyType() = TOTALBODYTYPES;
+		const bool malformedBodyIsRejectedWithoutMutation =
+			TacticalActorTurnBudget::calculateTurnGrant(
+				turnBudgetActor) == 0 &&
+			!TacticalActorTurnBudget::refreshForTurn(
+				turnBudgetActor) &&
+			turnBudgetActor.actionPoints().current() == 37 &&
+			turnBudgetActor.actionPoints().initial() == 29;
+
+		turnBudgetActor.identity().bodyType() = REGMALE;
+		turnBudgetActor.identity().profile() = NO_PROFILE;
+		turnBudgetActor.roster().team() = OUR_TEAM;
+		OBJECTTYPE& malformedTurnBudgetItem =
+			turnBudgetActor.inventory()[HANDPOS];
+		malformedTurnBudgetItem.usItem = MAXITEMS;
+		malformedTurnBudgetItem.ubNumberOfObjects = 1;
+		malformedTurnBudgetItem.objectStack.resize(1);
+		const bool malformedInventoryIsRejectedWithoutMutation =
+			TacticalActorTurnBudget::calculateTurnGrant(
+				turnBudgetActor) == 0 &&
+			!TacticalActorTurnBudget::refreshForTurn(
+				turnBudgetActor) &&
+			turnBudgetActor.actionPoints().current() == 37 &&
+			turnBudgetActor.actionPoints().initial() == 29;
+		malformedTurnBudgetItem.initialize();
+
+		turnBudgetActor.status().flags() |= SOLDIER_VEHICLE;
+		turnBudgetActor.vehicleState().tacticalVehicleId() = -1;
+		const bool malformedVehicleIsRejectedWithoutMutation =
+			TacticalActorTurnBudget::calculateTurnGrant(
+				turnBudgetActor) == 0 &&
+			!TacticalActorTurnBudget::refreshForTurn(
+				turnBudgetActor) &&
+			turnBudgetActor.actionPoints().current() == 37 &&
+			turnBudgetActor.actionPoints().initial() == 29;
+
+		CHECK( liveTurnRefreshIsOwned &&
+		       deadActorHasNoTurnGrant &&
+		       collapsedSleepDrugActorHasNoTurnGrant &&
+		       malformedBodyIsRejectedWithoutMutation &&
+		       malformedInventoryIsRejectedWithoutMutation &&
+		       malformedVehicleIsRejectedWithoutMutation,
+		       "tactical actor turn budget owns live AP refresh and rejects unsafe state without mutating AP snapshots" );
 	}
 
 	{

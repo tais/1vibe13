@@ -1,3 +1,4 @@
+#include "TacticalActorTurnBudget.h"
 	#include "sgp.h"
 	#include "TacticalActorConditions.h"
 	#include "TacticalActorDisease.h"
@@ -805,7 +806,7 @@ TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldi
 			Soldier.renderBindings().faceIndex() = InitSoldierFace( &Soldier );
 		}
 
-		Soldier.actionPoints().beginTurn( Soldier.CalcActionPoints() );
+		Soldier.actionPoints().beginTurn( TacticalActorTurnBudget::calculateTurnGrant(Soldier) );
 		Soldier.roster().side()							= gTacticalStatus.Team[ Soldier.roster().team() ].bSide;
 		Soldier.roster().active()							= TRUE;
 		Soldier.deployment().sectorX()						= pCreateStruct->sSectorX;

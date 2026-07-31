@@ -2256,6 +2256,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLighting.h"
   tactical_actor_lighting_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLighting.cpp"
   tactical_actor_lighting_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurnBudget.h"
+  tactical_actor_turn_budget_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurnBudget.cpp"
+  tactical_actor_turn_budget_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
@@ -3079,7 +3083,9 @@ foreach(retired_actor_facade IN ITEMS
   "ReCreateSoldierLight"
   "DeleteSoldierLight"
   "PositionSoldierLight"
-  "SetCheckSoldierLightFlag")
+  "SetCheckSoldierLightFlag"
+  "CalcActionPoints"
+  "CalcNewActionPoints")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3866,6 +3872,26 @@ foreach(required_lighting_operation IN ITEMS
   endif()
 endforeach()
 
+foreach(required_turn_budget_operation IN ITEMS
+  "calculateTurnGrant"
+  "refreshForTurn")
+  string(FIND "${tactical_actor_turn_budget_header_contents}"
+    "${required_turn_budget_operation}("
+    turn_budget_operation_declaration)
+  string(FIND "${tactical_actor_turn_budget_source_contents}"
+    "TacticalActorTurnBudget::${required_turn_budget_operation}("
+    turn_budget_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorTurnBudget::${required_turn_budget_operation}"
+    turn_budget_operation_coverage)
+  if(turn_budget_operation_declaration EQUAL -1 OR
+     turn_budget_operation_definition EQUAL -1 OR
+     turn_budget_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor turn-budget operation '${required_turn_budget_operation}' lost its declaration, definition, or malformed-state coverage")
+  endif()
+endforeach()
+
 string(FIND "${tactical_actor_conditions_header_contents}"
   "canDonateBlood(TacticalActor& actor)"
   donor_condition_declaration)
@@ -3890,7 +3916,8 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorTraversal.cpp"
   "TacticalActorExplosives.cpp"
   "TacticalActorInteractions.cpp"
-  "TacticalActorLighting.cpp")
+  "TacticalActorLighting.cpp"
+  "TacticalActorTurnBudget.cpp")
   string(FIND "${tactical_build_contents}"
     "${required_actor_domain_source}"
     actor_domain_build_entry)

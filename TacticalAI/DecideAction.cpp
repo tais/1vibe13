@@ -1,6 +1,7 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorTurnBudget.h"
 #include "TacticalActorEquipment.h"
 #include "ai.h"
 #include "TacticalActorConditions.h"
@@ -3152,7 +3153,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 					{
 						pSoldier->fireControl().autofireShots()++;
 						dTotalRecoil += AICalcRecoilForShot(pSoldier, &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots());
-						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
+						ubBurstAPs = CalcAPsToAutofire(TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
 					} while (pSoldier->actionPoints().current() >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP &&
 						pSoldier->inventory()[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() &&
 						pSoldier->fireControl().autofireShots() <= 30 &&
@@ -3164,7 +3165,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 					do
 					{
 						pSoldier->fireControl().autofireShots()++;
-						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
+						ubBurstAPs = CalcAPsToAutofire(TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
 					} while (pSoldier->actionPoints().current() >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP &&
 						pSoldier->inventory()[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() &&
 						pSoldier->fireControl().autofireShots() <= 30 &&
@@ -3174,7 +3175,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 				pSoldier->fireControl().autofireShots()--;
 
 				// Make sure we decided to fire at least one shot!
-				ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
+				ubBurstAPs = CalcAPsToAutofire(TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
 				DebugAI(AI_MSG_INFO, pSoldier, String("autofire shots %d APcost %d burst AP %d aimtime %d reserve AP %d", pSoldier->fireControl().autofireShots(), BestShot.ubAPCost, ubBurstAPs, sActualAimAP, sReserveAP));
 
 				// minimum 3 bullets
@@ -6383,7 +6384,7 @@ INT16 ubMinAPCost;
 			{
 				DebugAI(AI_MSG_INFO, pSoldier, String("enough APs to burst, random chance of doing so"));
 
-				ubBurstAPs = CalcAPsToBurst( pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier );
+				ubBurstAPs = CalcAPsToBurst( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier );
 
 				// HEADROCK HAM 3.6: Use Actual Aiming Time.
 				if (pSoldier->actionPoints().current() >= BestAttack.ubAPCost + sActualAimAP + ubBurstAPs )
@@ -6466,7 +6467,7 @@ L_NEWAIM:
 					{
 						pSoldier->fireControl().autofireShots()++;
 						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots() );
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+						ubBurstAPs = CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 					}
 					while(	pSoldier->actionPoints().current() >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inventory()[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
 				} 
@@ -6475,7 +6476,7 @@ L_NEWAIM:
 					do
 					{
 						pSoldier->fireControl().autofireShots()++;
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+						ubBurstAPs = CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 					}
 					while(	pSoldier->actionPoints().current() >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inventory()[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && GetAutoPenalty(&pSoldier->inventory()[ BestAttack.bWeaponIn ], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)*pSoldier->fireControl().autofireShots() <= 80);//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
 				}
@@ -6501,7 +6502,7 @@ L_NEWAIM:
 
 				if (pSoldier->fireControl().autofireShots() > 0)
 				{
-					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+					ubBurstAPs = CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 
 					if (pSoldier->actionPoints().current() >= BestAttack.ubAPCost + sActualAimAP + ubBurstAPs )
 					{
@@ -6567,7 +6568,7 @@ L_NEWAIM:
 							}
 							else
 							{
-								ubHalfBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &pSoldier->inventory()[BestAttack.bWeaponIn], 2, pSoldier);
+								ubHalfBurstAPs = CalcAPsToAutofire(TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &pSoldier->inventory()[BestAttack.bWeaponIn], 2, pSoldier);
 								
 								if (!CheckSuppressionDirection(pSoldier, BestAttack.sTarget, BestAttack.bTargetLevel))
 									iChance = 100;
@@ -8691,7 +8692,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 				{
 					pSoldier->fireControl().autofireShots()++;
 					dTotalRecoil += AICalcRecoilForShot( pSoldier, &weapon, pSoldier->fireControl().autofireShots() );
-					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &weapon, pSoldier->fireControl().autofireShots(), pSoldier );
+					ubBurstAPs = CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &weapon, pSoldier->fireControl().autofireShots(), pSoldier );
 					totalUsedAPs = BestShot.ubAPCost + ubBurstAPs;
 				} while ( pSoldier->actionPoints().current() >= totalUsedAPs && remainingAmmo >= pSoldier->fireControl().autofireShots() && dTotalRecoil <= 10.0f );
 			}
@@ -8700,7 +8701,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 				do
 				{
 					pSoldier->fireControl().autofireShots()++;
-					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &weapon, pSoldier->fireControl().autofireShots(), pSoldier );
+					ubBurstAPs = CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &weapon, pSoldier->fireControl().autofireShots(), pSoldier );
 					totalUsedAPs = BestShot.ubAPCost + ubBurstAPs;
 				} while ( pSoldier->actionPoints().current() >= totalUsedAPs && remainingAmmo >= pSoldier->fireControl().autofireShots() &&
 						 GetAutoPenalty( &weapon, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->fireControl().autofireShots() <= 80 );
@@ -8709,7 +8710,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 			pSoldier->fireControl().autofireShots()--;
 
 			// Make sure we decided to fire at least one shot!
-			ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &weapon, pSoldier->fireControl().autofireShots(), pSoldier );
+			ubBurstAPs = CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &weapon, pSoldier->fireControl().autofireShots(), pSoldier );
 
 			// if necessary, swap the usItem from holster into the hand position
 			if ( BestShot.bWeaponIn != HANDPOS )
@@ -10134,7 +10135,7 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "DecideActionBlack: ENOUGH APs TO BURST, RANDOM CHANCE OF DOING SO" );
 
-				ubBurstAPs = CalcAPsToBurst( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier );
+				ubBurstAPs = CalcAPsToBurst( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier );
 
 				// HEADROCK HAM 3.6: Use Actual Aiming Time.
 				if ( pSoldier->actionPoints().current() >= BestAttack.ubAPCost + sActualAimAP + ubBurstAPs )
@@ -10170,14 +10171,14 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 					{
 						pSoldier->fireControl().autofireShots()++;
 						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots() );
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+						ubBurstAPs = CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 					} while ( pSoldier->actionPoints().current() >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
 				}
 				else {
 					do
 					{
 						pSoldier->fireControl().autofireShots()++;
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+						ubBurstAPs = CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 					} while ( pSoldier->actionPoints().current() >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inventory()[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && GetAutoPenalty( &pSoldier->inventory()[BestAttack.bWeaponIn], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->fireControl().autofireShots() <= 80 );//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
 				}
 
@@ -10190,7 +10191,7 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 				}
 				if ( pSoldier->fireControl().autofireShots() > 0 )
 				{
-					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+					ubBurstAPs = CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 
 					if ( pSoldier->actionPoints().current() >= BestAttack.ubAPCost + sActualAimAP + ubBurstAPs )
 					{
@@ -10205,7 +10206,7 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 								iChance = 0;
 							else
 							{
-								ubHalfBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &pSoldier->inventory()[BestAttack.bWeaponIn], 4, pSoldier );
+								ubHalfBurstAPs = CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &pSoldier->inventory()[BestAttack.bWeaponIn], 4, pSoldier );
 								if ( Weapon[pSoldier->inventory()[BestAttack.bWeaponIn].usItem].NoSemiAuto )
 									iChance = 35;
 							}
@@ -10316,12 +10317,12 @@ INT8 ArmedVehicleDecideActionBlack( TacticalActor *pSoldier )
 			{
 
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionBlack: Doing burst calc" );
-				ubBurstAPs = CalcAPsToBurst( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier );
+				ubBurstAPs = CalcAPsToBurst( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[BestAttack.bWeaponIn]), pSoldier );
 
 				if ( (pSoldier->actionPoints().current() - BestAttack.ubAPCost) >= ubBurstAPs )
 				{
 					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionBlack: Doing GL burst" );
-					BestAttack.ubAPCost = BestAttack.ubAPCost + CalcAPsToBurst( pSoldier->CalcActionPoints( ), &(pSoldier->inventory()[HANDPOS]), pSoldier );
+					BestAttack.ubAPCost = BestAttack.ubAPCost + CalcAPsToBurst( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), &(pSoldier->inventory()[HANDPOS]), pSoldier );
 					// check for spread burst possibilities
 					if ( pSoldier->aiBehavior().attitude() != ATTACKSLAYONLY )
 					{

@@ -692,6 +692,15 @@ attachment, item, grid, level, projected-position, or light-handle state before
 consulting legacy tables; destruction safely clears malformed handles and is
 idempotent. Existing lighting templates, vision rules, maps, settings, render
 behavior, XML, Lua, art, and installed content formats remain unchanged.
+`TacticalActorTurnBudget` owns each actor's calculated per-turn AP grant and
+the carry, cap, snapshot, and no-AP refresh transition. New callers use
+`calculateTurnGrant` for the per-turn grant and `refreshForTurn` when starting
+a turn; they must not restore `CalcActionPoints` or `CalcNewActionPoints` on
+the aggregate. The boundary rejects malformed body, team, profile,
+difficulty, health, inventory, item, stack, attachment, or tactical-vehicle
+state before table access. `SoldierActionPointComponent` remains the canonical
+storage owner, and existing AP constants, traits, difficulty settings, drugs,
+items, maps, XML, Lua, save, and network formats remain unchanged.
 `TacticalActorTraversal` owns roof ascent and descent, fence and window jumps,
 and wall-climb initiation. Player producers continue to emit the stable
 `TraverseObstacleCommand`; command execution, AI, and path completion enter

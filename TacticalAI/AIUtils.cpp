@@ -1,6 +1,7 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorLighting.h"
 #include "TacticalActorMedicalServices.h"
+#include "TacticalActorTurnBudget.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
 	#include "ai.h"
@@ -2705,7 +2706,7 @@ INT32 CalcManThreatValue( TacticalActor *pEnemy, INT32 sMyGrid, UINT8 ubReduceFo
 		iThreatValue += EffectiveExpLevel(pEnemy); // SANDRO - find precise effective exp level
 
 		// ADD man's total action points (10-35)
-		iThreatValue += 25 * pEnemy->CalcActionPoints() / APBPConstants[AP_MAXIMUM];
+		iThreatValue += 25 * TacticalActorTurnBudget::calculateTurnGrant(*pEnemy) / APBPConstants[AP_MAXIMUM];
 
 		// ADD 1/2 of man's current action points (4-17)
 		iThreatValue += 25 * pEnemy->actionPoints().current() / APBPConstants[AP_MAXIMUM] / 2;
@@ -3420,7 +3421,7 @@ INT32 CalcStraightThreatValue( TacticalActor *pEnemy )
 		iThreatValue += EffectiveExpLevel(pEnemy); // SANDRO - find precise effective exp level
 
 		// ADD man's total action points (10-35)
-		iThreatValue += 25 * pEnemy->CalcActionPoints() / APBPConstants[AP_MAXIMUM];
+		iThreatValue += 25 * TacticalActorTurnBudget::calculateTurnGrant(*pEnemy) / APBPConstants[AP_MAXIMUM];
 
 		// ADD 1/2 of man's current action points (4-17)
 		iThreatValue += 25 * pEnemy->actionPoints().current() / APBPConstants[AP_MAXIMUM] / 2;
@@ -6118,7 +6119,7 @@ UINT32 PrepareThreatlist(TacticalActor *pSoldier)
 		Threat[uiThreatCnt].iOrigRange = iThreatRange;
 
 		// calculate how many APs he will have at the start of the next turn
-		Threat[uiThreatCnt].iAPs = pOpponent->CalcActionPoints();
+		Threat[uiThreatCnt].iAPs = TacticalActorTurnBudget::calculateTurnGrant(*pOpponent);
 
 		// sevenfm: more information
 		Threat[uiThreatCnt].bLevel = bThreatLevel;

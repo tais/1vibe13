@@ -1,3 +1,4 @@
+#include "TacticalActorTurnBudget.h"
 	#include <stdlib.h>
 	#include "TacticalActorConditions.h"
 	#include "Isometric Utils.h"
@@ -902,7 +903,7 @@ INT32 FindBestNearbyCover(TacticalActor *pSoldier, INT32 morale, INT32 *piPercen
 	{
 		// even if not under pressure, limit to 1 turn's travelling distance
 		// hope this isn't too expensive...
-		gubNPCAPBudget = pSoldier->CalcActionPoints( );
+		gubNPCAPBudget = TacticalActorTurnBudget::calculateTurnGrant(*pSoldier);
 		//gubNPCAPBudget = pSoldier->bInitialAPs;
 	}
 
@@ -1353,7 +1354,7 @@ INT32 FindSpotMaxDistFromOpponents(TacticalActor *pSoldier)
 	else
 	{
 		// even if not under pressure, limit to 1 turn's travelling distance
-		gubNPCAPBudget = __min( pSoldier->actionPoints().current() / 2, pSoldier->CalcActionPoints( ) );
+		gubNPCAPBudget = __min( pSoldier->actionPoints().current() / 2, TacticalActorTurnBudget::calculateTurnGrant(*pSoldier) );
 
 		iSearchRange = gubNPCAPBudget / 2;
 	}
@@ -2671,7 +2672,7 @@ INT32 FindFlankingSpot(TacticalActor *pSoldier, INT32 sPos, INT8 bAction )
 
 	// sevenfm: use max AP at the start of new turn
 	//gubNPCAPBudget=(UINT8) (iSearchRange*3);
-	gubNPCAPBudget= pSoldier->CalcActionPoints();
+	gubNPCAPBudget= TacticalActorTurnBudget::calculateTurnGrant(*pSoldier);
 
 	// determine maximum horizontal limits
 	sMaxLeft  = min( iSearchRange, (pSoldier->position().gridNo() % MAXCOL));

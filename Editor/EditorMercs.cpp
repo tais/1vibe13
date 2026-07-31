@@ -1,3 +1,4 @@
+#include "TacticalActorTurnBudget.h"
 	#include "builddefines.h"
 
 #ifdef JA2EDITOR
@@ -799,7 +800,7 @@ void ChangeBaseSoldierStats( TacticalActor *pSoldier )
 	pSoldier->statistics().experienceLevel() = (UINT8)sBaseExpLvl[sCurBaseDiff];
 	pSoldier->fireControl().gunType() = (INT8)Random(BASE_GUNTYPE_DEVIATION);
 
-	pSoldier->actionPoints().current() = pSoldier->CalcActionPoints( );
+	pSoldier->actionPoints().current() = TacticalActorTurnBudget::calculateTurnGrant(*pSoldier);
 }
 
 
