@@ -1470,6 +1470,17 @@ the engine must not contain SDL types in its public domain model.
   malformed handle without indexing the light-sprite table. Existing lighting
   templates, vision bonuses, maps, render behavior, settings, XML, Lua, art,
   and other installed mod-data formats are unchanged.
+  `TacticalActorTurnBudget` owns the bounded per-turn action-point grant and
+  refresh lifecycle: carry-over limits, calculated grants, absolute minimum
+  and maximum caps, turn-start snapshots, and the one-shot no-AP transition.
+  The aggregate `CalcActionPoints` and `CalcNewActionPoints` methods are
+  retired; editor creation, combat entry, turn handling, path and attack-cost
+  calculations, and tactical AI all enter the compiled domain. The boundary
+  validates body, team, profile, difficulty, health, inventory, item, stack,
+  attachment, and tactical-vehicle state before consulting legacy tables.
+  The existing `SoldierActionPointComponent` remains the storage owner, and AP
+  constants, traits, difficulty bonuses, drugs, items, XML, Lua, maps, saves,
+  and network formats are unchanged.
   `TacticalActorTraversal` owns roof ascent/descent, fence and window jumps,
   and wall-climb initiation. Player intent still enters through the stable
   `TraverseObstacleCommand`; its executor, tactical AI, and path completion

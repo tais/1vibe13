@@ -1,5 +1,6 @@
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorTurnBudget.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorInteractions.h"
 	#include "sgp.h"
@@ -1578,7 +1579,7 @@ INT16 CalcAPsToBurst( INT16 bBaseActionPoints, OBJECTTYPE * pObj, TacticalActor*
 	// modify by ini values
 	if ( Item[ pObj->usItem ].usItemClass == IC_GUN )
 		iModifiedAPs *= gItemSettings.fBurstAPModifierGun[ Weapon[ pObj->usItem ].ubWeaponType ];
-	// base APs is what you'd get from CalcActionPoints();
+	// Base APs are the actor's calculated turn grant.
 	// NB round UP, so 21-25 APs pay full
 	aps =	( iModifiedAPs * bBaseActionPoints + (APBPConstants[AP_MAXIMUM] - 1) ) / APBPConstants[AP_MAXIMUM];
 
@@ -1743,9 +1744,9 @@ INT16 CalcTotalAPsToAttack( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubAddT
 		if ( pSoldier->fireControl().burstCounter() )
 		{
 			if(pSoldier->fireControl().autofireShots() && GetAutofireShotsPerFiveAPs(AttackingWeapon) > 0 )
-				sAPCost += CalcAPsToAutofire( pSoldier->CalcActionPoints( ), AttackingWeapon, pSoldier->fireControl().autofireShots(), pSoldier );
+				sAPCost += CalcAPsToAutofire( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), AttackingWeapon, pSoldier->fireControl().autofireShots(), pSoldier );
 			else
-				sAPCost += CalcAPsToBurst( pSoldier->CalcActionPoints( ), AttackingWeapon, pSoldier );
+				sAPCost += CalcAPsToBurst( TacticalActorTurnBudget::calculateTurnGrant(*pSoldier), AttackingWeapon, pSoldier );
 		}
 		//else //ddd comment for aimed burst
 		{
@@ -1976,7 +1977,7 @@ INT16 BaseAPsToShootOrStab( INT16 bAPs, INT16 bAimSkill, OBJECTTYPE * pObj, Tact
 
 	// get this man's maximum possible action points (ignoring carryovers)
 	// the 2 times is here only to allow rounding off using integer math later
-	//Top = 2 * bAPs;//pSoldier->CalcActionPoints( );
+	//Top = 2 * bAPs;//TacticalActorTurnBudget::calculateTurnGrant(*pSoldier);
 
 	// Shots per turn rating is for max. aimSkill(100), drops down to 1/2 at = 0
 	// DIVIDE BY 4 AT THE END HERE BECAUSE THE SHOTS PER TURN IS NOW QUADRUPLED!
@@ -2303,7 +2304,7 @@ INT16 MinAPsToShootOrStab(TacticalActor *pSoldier, INT32 sGridNo, INT16 bAimTime
 
 	// Snap: reversed DIGICRAB's change.
 	// bFullAPs are BASE APs, which do not include APs caried over from the previous turn.
-	bFullAPs = pSoldier->CalcActionPoints( );
+	bFullAPs = TacticalActorTurnBudget::calculateTurnGrant(*pSoldier);
 
 	// aim skill is the same whether we are using 1 or 2 guns
 	bAimSkill = CalcAimSkill( pSoldier, usItem );
@@ -2544,7 +2545,7 @@ INT16 MinAPsToPunch(TacticalActor *pSoldier, INT32 sGridNo)
 
 	OBJECTTYPE *pObjUsed = TacticalActorEquipment::usedWeapon(*pSoldier, &pSoldier->inventory()[HANDPOS]);
 	UINT16 usItem = pObjUsed->usItem;
-	INT16 bFullAPs = pSoldier->CalcActionPoints();
+	INT16 bFullAPs = TacticalActorTurnBudget::calculateTurnGrant(*pSoldier);
 	INT16 bAimSkill = CalcAimSkill(pSoldier, pSoldier->inventory()[HANDPOS].usItem);
 	if(usItem == NONE/* || Item[usItem].brassknuckles*/)
 		bAPCost += ApsToPunch(pSoldier);// SANDRO - changed this to direct us to specific calc function
@@ -3664,7 +3665,7 @@ INT16 MinAPsToThrow( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubAddTurningC
 	}
 
 	// get this man's maximum possible action points (ignoring carryovers)
-	iFullAPs = pSoldier->CalcActionPoints( );
+	iFullAPs = TacticalActorTurnBudget::calculateTurnGrant(*pSoldier);
 
 	// the 2 times is here only to around rounding off using integer math later
 	iTop = 2 * iFullAPs;

@@ -3,6 +3,7 @@
 #include "TacticalActorLighting.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorRecovery.h"
+#include "TacticalActorTurnBudget.h"
 #include "TacticalActorEquipment.h"
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
@@ -3445,7 +3446,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 										if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0 )
 										{
 											// Get APs back...
-											pSoldier->CalcNewActionPoints( );
+											(void)TacticalActorTurnBudget::refreshForTurn(*pSoldier);
 
 											fInterfacePanelDirty = DIRTYLEVEL2;
 										}

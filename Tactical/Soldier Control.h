@@ -916,7 +916,6 @@ public:
 
 	// UTILITY FUNCTUIONS
 	void MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckRange );
-	INT16 CalcActionPoints( void );
 	// This function is now obsolete.	Call ReduceAttackBusyCount instead.
 	// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
 	void SoldierGotoStationaryStance( void );
@@ -924,7 +923,6 @@ public:
 	void InternalRemoveSoldierFromGridNo( BOOLEAN fForce );
 
 
-	void CalcNewActionPoints( void );
 	void AdjustNoAPToFinishMove( BOOLEAN fSet );
 
 

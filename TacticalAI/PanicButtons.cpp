@@ -1,3 +1,4 @@
+#include "TacticalActorTurnBudget.h"
 	#include "AIInternals.h"
 	#include "ai.h"
 	#include "PATHAI.H"
@@ -234,7 +235,7 @@ void PossiblyMakeThisEnemyChosenOne( TacticalActor * pSoldier )
 
 	}
 
-	if ( iAPCost <= pSoldier->CalcActionPoints( ) * 2)
+	if ( iAPCost <= TacticalActorTurnBudget::calculateTurnGrant(*pSoldier) * 2)
 	{
 		// go!!!
 		gTacticalStatus.ubTheChosenOne = pSoldier->identity().id();

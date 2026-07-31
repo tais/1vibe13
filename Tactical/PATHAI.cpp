@@ -1,4 +1,5 @@
 #include "TacticalActorMobility.h"
+#include "TacticalActorTurnBudget.h"
 #include "TacticalActorEquipment.h"
 /*
 	Filename		:		pathai.c
@@ -1633,7 +1634,7 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 		Threats[uiThreatCnt].iOrigRange		= iThreatRange;
 
 		// calculate how many APs he will have at the start of the next turn
-		Threats[uiThreatCnt].iAPs = pOpponent->CalcActionPoints();
+		Threats[uiThreatCnt].iAPs = TacticalActorTurnBudget::calculateTurnGrant(*pOpponent);
 
 		if (iThreatRange < iClosestThreatRange) {
 			iClosestThreatRange = iThreatRange;
