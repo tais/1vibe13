@@ -140,6 +140,7 @@
 #include "TacticalActorRobotics.h"
 #include "TacticalActorSkills.h"
 #include "TacticalActorSpotting.h"
+#include "TacticalActorTraversal.h"
 #include "TacticalActorTurncoats.h"
 #include "TacticalActorInteractions.h"
 #include "TacticalActorModifiers.h"
@@ -9487,6 +9488,17 @@ int main( int, char** )
 				interactionActor,
 				0,
 				NORTH);
+		const bool unavailableTraversalActionsAreRejected =
+			!TacticalActorTraversal::beginRoofClimb(
+				interactionActor) &&
+			!TacticalActorTraversal::beginRoofDescent(
+				interactionActor) &&
+			!TacticalActorTraversal::beginFenceJump(
+				interactionActor) &&
+			!TacticalActorTraversal::beginWallClimb(
+				interactionActor) &&
+			!TacticalActorTraversal::beginWindowJump(
+				interactionActor);
 		const bool unavailableExplosiveActionsAreRejected =
 			!TacticalActorExplosives::beginBombPlacement(
 				explosiveActor) &&
@@ -9533,13 +9545,14 @@ int main( int, char** )
 		CHECK( everyStackEntryWasDamaged &&
 		       nonAiSelfDetonationIsRejected &&
 		       unavailableCombatActionsAreRejected &&
+		       unavailableTraversalActionsAreRejected &&
 		       unavailableExplosiveActionsAreRejected &&
 		       actorWithoutDrugUseBackgroundIsNeutral &&
 		       idleChatTeardownIsNeutral &&
 		       unavailableInteractionWorldIsRejected &&
 		       malformedGiveContinuationIsRejected &&
 		       malformedDonorHealthIsRejected,
-		       "tactical actor explosives, consumables, interactions, and donor rules reject unsafe state and damage every stacked item" );
+		       "tactical actor action domains and donor rules reject unsafe state and damage every stacked item" );
 	}
 
 	{

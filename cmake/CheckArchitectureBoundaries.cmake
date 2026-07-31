@@ -2230,6 +2230,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatActions.h"
   tactical_actor_combat_actions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatActions.cpp"
   tactical_actor_combat_actions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTraversal.h"
+  tactical_actor_traversal_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTraversal.cpp"
+  tactical_actor_traversal_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorExplosives.h"
   tactical_actor_explosives_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorExplosives.cpp"
@@ -3043,7 +3047,13 @@ foreach(retired_actor_facade IN ITEMS
   "EVENT_SoldierBeginUseDetonator"
   "EVENT_SoldierBeginBladeAttack"
   "EVENT_SoldierBeginPunchAttack"
-  "EVENT_SoldierBeginKnifeThrowAttack")
+  "EVENT_SoldierBeginKnifeThrowAttack"
+  "BeginSoldierClimbUpRoof"
+  "BeginSoldierClimbDownRoof"
+  "BeginSoldierClimbFence"
+  "BeginSoldierClimbWall"
+  "BeginSoldierClimbWindow"
+  "BeginSoldierClimbWallUp")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3056,6 +3066,14 @@ foreach(retired_actor_facade IN ITEMS
       "TacticalActor regained retired facade '${retired_actor_facade}'")
   endif()
 endforeach()
+
+string(FIND "${tactical_actor_source_contents}"
+  "void BeginSoldierClimbWallUp("
+  retired_global_wall_descent_helper)
+if(NOT retired_global_wall_descent_helper EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier Control regained the retired duplicate wall-descent helper")
+endif()
 
 foreach(required_medical_session_operation IN ITEMS
   "beginActionPointCost"
@@ -3605,6 +3623,29 @@ foreach(required_combat_action IN ITEMS
   endif()
 endforeach()
 
+foreach(required_traversal_action IN ITEMS
+  "beginRoofClimb"
+  "beginRoofDescent"
+  "beginFenceJump"
+  "beginWallClimb"
+  "beginWindowJump")
+  string(FIND "${tactical_actor_traversal_header_contents}"
+    "${required_traversal_action}("
+    traversal_action_declaration)
+  string(FIND "${tactical_actor_traversal_source_contents}"
+    "TacticalActorTraversal::${required_traversal_action}("
+    traversal_action_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorTraversal::${required_traversal_action}"
+    traversal_action_coverage)
+  if(traversal_action_declaration EQUAL -1 OR
+     traversal_action_definition EQUAL -1 OR
+     traversal_action_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor traversal action '${required_traversal_action}' lost its declaration, definition, or malformed-state coverage")
+  endif()
+endforeach()
+
 foreach(required_explosive_operation IN ITEMS
   "degradeInventoryAfterExplosion"
   "applyInventoryExplosion"
@@ -3698,6 +3739,7 @@ endif()
 foreach(required_actor_domain_source IN ITEMS
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
+  "TacticalActorTraversal.cpp"
   "TacticalActorExplosives.cpp"
   "TacticalActorInteractions.cpp")
   string(FIND "${tactical_build_contents}"

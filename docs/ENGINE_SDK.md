@@ -642,6 +642,14 @@ the global `DoInteractiveAction` entry points. The domain rejects unloaded
 worlds and malformed actor, grid, direction, item, target, or structure-index
 state before accessing legacy tables. It does not change installed item,
 map, XML, Lua, sound, animation, art, or other content formats.
+`TacticalActorCombatActions` owns blade, punch, and throwing-knife initiation.
+`TacticalActorExplosives` owns bomb placement, tripwire disarming, detonator
+use, self-detonation, and inventory-explosion effects. New callers use these
+bounded domains instead of restoring the retired aggregate `EVENT_Soldier*`
+methods. Both reject unavailable worlds and malformed actor, target,
+animation, inventory, item, or world-item state before consulting legacy
+tables; weapon, explosive, map, XML, Lua, animation, and installed content
+formats remain unchanged.
 `TacticalActorInteractions` owns person-to-person item giving, handcuffing,
 equipment/consumable application, blood collection, splint application, and
 chat teardown. New callers use these bounded operations instead of restoring
@@ -650,6 +658,14 @@ live world, actor and target locations, directions, animation state,
 inventory stacks, item IDs and flags, and repository identity after movement.
 Installed item definitions, traits, maps, XML, Lua/dialogue behavior,
 animations, and other content formats are unchanged.
+`TacticalActorTraversal` owns roof ascent and descent, fence and window jumps,
+and wall-climb initiation. Player producers continue to emit the stable
+`TraverseObstacleCommand`; command execution, AI, and path completion enter
+the same bounded domain. New code must not restore the retired
+`BeginSoldierClimb*` aggregate methods. The domain validates world lifetime,
+actor, body, animation, route, direction, level, destination, occupancy, and
+action-point state without changing maps, structures, animation data, AP
+settings, XML, Lua, or network command formats.
 `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,

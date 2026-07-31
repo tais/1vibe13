@@ -17,6 +17,7 @@
 #include "TacticalActorDragging.h"
 #include "TacticalActorSkills.h"
 #include "TacticalActorTurncoats.h"
+#include "TacticalActorTraversal.h"
 #include "TacticalWorldAdapter.h"
 #include <string.h>
 #include <random>
@@ -2060,7 +2061,8 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
                 pSoldier->SoldierGotoStationaryStance( );
 
                 // OK, jump!
-                pSoldier->BeginSoldierClimbFence( );
+                (void)TacticalActorTraversal::
+                    beginFenceJump(*pSoldier);
 
                 pSoldier->animationIntent().continueAfterStance(2);
             }
