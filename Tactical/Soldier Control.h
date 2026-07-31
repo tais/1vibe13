@@ -953,15 +953,7 @@ public:
 	void PickDropItemAnimation( void );
 
 	void BeginSoldierGetup( void );
-	void BeginSoldierClimbUpRoof( void );
-	void BeginSoldierClimbDownRoof( void );
-	void BeginSoldierClimbFence( void );
 	void BeginTyingToFall( void );
-	
-	//legion by Jazz
-	void BeginSoldierClimbWall( void  ); 
-	void BeginSoldierClimbWindow( void );
-	void BeginSoldierClimbWallUp( void  ); 
 	
 	void HandleAnimationProfile( UINT16	usAnimState, BOOLEAN fRemove );
 	// Overload taking the already-computed animation surface (avoids recomputing DetermineSoldierAnimationSurface)

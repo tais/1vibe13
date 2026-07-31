@@ -62,6 +62,7 @@
 #include "SoldierRepository.h"
 #include "TacticalActorRadio.h"
 #include "TacticalActorSkills.h"
+#include "TacticalActorTraversal.h"
 
 #include "connect.h"
 // needed to use the modularized tactical AI:
@@ -2586,11 +2587,13 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 
             if (pSoldier->position().level() == 0)
             {
-                pSoldier->BeginSoldierClimbUpRoof( );
+                (void)TacticalActorTraversal::
+                    beginRoofClimb(*pSoldier);
             }
             else
             {
-                pSoldier->BeginSoldierClimbDownRoof( );
+                (void)TacticalActorTraversal::
+                    beginRoofDescent(*pSoldier);
             }
             break;
 
@@ -2653,7 +2656,8 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 
         case AI_ACTION_JUMP_WINDOW:
             {
-                pSoldier->BeginSoldierClimbWindow();
+                (void)TacticalActorTraversal::
+                    beginWindowJump(*pSoldier);
 				ActionDone( pSoldier );
             }
             break;

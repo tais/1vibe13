@@ -3,6 +3,7 @@
 #include "Simulation Command Legacy.h"
 #include "SoldierRepository.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorTraversal.h"
 #include "TacticalWorldAdapter.h"
 
 #include <array>
@@ -523,25 +524,33 @@ namespace
 			{
 				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier) return CommandDisposition::Discard;
+				bool started = false;
 				switch (value.kind)
 				{
 					case TacticalTraversalKind::ClimbUpRoof:
-						soldier->BeginSoldierClimbUpRoof();
+						started = TacticalActorTraversal::
+							beginRoofClimb(*soldier);
 						break;
 					case TacticalTraversalKind::ClimbDownRoof:
-						soldier->BeginSoldierClimbDownRoof();
+						started = TacticalActorTraversal::
+							beginRoofDescent(*soldier);
 						break;
 					case TacticalTraversalKind::JumpFence:
-						soldier->BeginSoldierClimbFence();
+						started = TacticalActorTraversal::
+							beginFenceJump(*soldier);
 						break;
 					case TacticalTraversalKind::ClimbWall:
-						soldier->BeginSoldierClimbWall();
+						started = TacticalActorTraversal::
+							beginWallClimb(*soldier);
 						break;
 					case TacticalTraversalKind::JumpWindow:
-						soldier->BeginSoldierClimbWindow();
+						started = TacticalActorTraversal::
+							beginWindowJump(*soldier);
 						break;
 				}
-				return CommandDisposition::Applied;
+				return started
+					? CommandDisposition::Applied
+					: CommandDisposition::Discard;
 			}
 			else if constexpr (
 				std::is_same<Command, ActivateWorldObjectCommand>::value)

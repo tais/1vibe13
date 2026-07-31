@@ -1414,6 +1414,14 @@ the engine must not contain SDL types in its public domain model.
   corpse, door, structure, or interactive-structure index before touching
   legacy tables. Existing items, maps, XML, Lua actions, sounds, animations,
   art, and all other installed mod-data formats are unchanged.
+  `TacticalActorCombatActions` owns bounded blade, punch, and throwing-knife
+  initiation, while `TacticalActorExplosives` owns bomb placement, tripwire
+  disarming, detonator use, self-detonation, and inventory-explosion effects.
+  Six additional aggregate `EVENT_Soldier*` methods are retired. Both domains
+  reject unavailable tactical worlds and malformed actor, target, animation,
+  inventory, item, or world-item state before accessing legacy tables.
+  Existing weapons, explosives, maps, XML, Lua, animations, sounds, art, and
+  other installed mod-data formats are unchanged.
   `TacticalActorInteractions` now also owns the bounded person-to-person
   action boundary for giving items, handcuffing, applying equipment or
   consumables, drawing blood, and applying splints. Five more aggregate
@@ -1425,6 +1433,16 @@ the engine must not contain SDL types in its public domain model.
   and a missing replacement blood bag no longer consumes the empty bag.
   Existing items, traits, maps, XML, Lua, dialogue, animations, and other
   installed mod-data formats are unchanged.
+  `TacticalActorTraversal` owns roof ascent/descent, fence and window jumps,
+  and wall-climb initiation. Player intent still enters through the stable
+  `TraverseObstacleCommand`; its executor, tactical AI, and path completion
+  now call the same bounded domain. Six aggregate traversal methods and a
+  duplicate unused wall-descent helper are retired. The boundary validates
+  tactical-world lifetime, actor identity and health, body/animation state,
+  route bounds, directions, levels, destination grids, occupancy, and action
+  points before starting an animation or teleport fallback. Existing maps,
+  structures, animation data, AP settings, XML, Lua, art, sounds, and network
+  command formats are unchanged.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to
