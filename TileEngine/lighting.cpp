@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalActorLighting.h"
 
 /****************************************************************************************
 * JA2 Lighting Module
@@ -1967,7 +1968,8 @@ BOOLEAN LightSetBaseLevel(UINT8 iIntensity)
 				if ( pSoldier->roster().team() == gbPlayerNum )
 				{
 					// Re-create soldier lights
-					pSoldier->ReCreateSoldierLight( );
+					(void)TacticalActorLighting::recreatePersonalLight(
+						*pSoldier);
 				}
 			}
 		}

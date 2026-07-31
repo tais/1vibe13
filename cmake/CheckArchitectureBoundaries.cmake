@@ -2252,6 +2252,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorInteractions.h"
   tactical_actor_interactions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorInteractions.cpp"
   tactical_actor_interactions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLighting.h"
+  tactical_actor_lighting_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLighting.cpp"
+  tactical_actor_lighting_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
@@ -3070,7 +3074,12 @@ foreach(retired_actor_facade IN ITEMS
   "BeginSoldierClimbFence"
   "BeginSoldierClimbWall"
   "BeginSoldierClimbWindow"
-  "BeginSoldierClimbWallUp")
+  "BeginSoldierClimbWallUp"
+  "CreateSoldierLight"
+  "ReCreateSoldierLight"
+  "DeleteSoldierLight"
+  "PositionSoldierLight"
+  "SetCheckSoldierLightFlag")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3127,6 +3136,22 @@ if(NOT retired_global_wall_descent_helper EQUAL -1)
   message(FATAL_ERROR
     "Soldier Control regained the retired duplicate wall-descent helper")
 endif()
+
+foreach(retired_lighting_helper IN ITEMS
+  "ReCreateSelectedSoldierLight"
+  "SetSoldierPersonalLightLevel")
+  string(FIND "${tactical_actor_header_contents}"
+    "${retired_lighting_helper}("
+    retired_lighting_helper_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "${retired_lighting_helper}("
+    retired_lighting_helper_definition)
+  if(NOT retired_lighting_helper_declaration EQUAL -1 OR
+     NOT retired_lighting_helper_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier Control regained retired lighting helper '${retired_lighting_helper}'")
+  endif()
+endforeach()
 
 foreach(required_medical_session_operation IN ITEMS
   "beginActionPointCost"
@@ -3818,6 +3843,29 @@ foreach(required_interaction_operation IN ITEMS
   endif()
 endforeach()
 
+foreach(required_lighting_operation IN ITEMS
+  "createPersonalLight"
+  "recreatePersonalLight"
+  "destroyPersonalLight"
+  "positionPersonalLight"
+  "setPersonalLightLevel")
+  string(FIND "${tactical_actor_lighting_header_contents}"
+    "${required_lighting_operation}("
+    lighting_operation_declaration)
+  string(FIND "${tactical_actor_lighting_source_contents}"
+    "TacticalActorLighting::${required_lighting_operation}("
+    lighting_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorLighting::${required_lighting_operation}"
+    lighting_operation_coverage)
+  if(lighting_operation_declaration EQUAL -1 OR
+     lighting_operation_definition EQUAL -1 OR
+     lighting_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor lighting operation '${required_lighting_operation}' lost its declaration, definition, or malformed-state coverage")
+  endif()
+endforeach()
+
 string(FIND "${tactical_actor_conditions_header_contents}"
   "canDonateBlood(TacticalActor& actor)"
   donor_condition_declaration)
@@ -3841,7 +3889,8 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorRecovery.cpp"
   "TacticalActorTraversal.cpp"
   "TacticalActorExplosives.cpp"
-  "TacticalActorInteractions.cpp")
+  "TacticalActorInteractions.cpp"
+  "TacticalActorLighting.cpp")
   string(FIND "${tactical_build_contents}"
     "${required_actor_domain_source}"
     actor_domain_build_entry)

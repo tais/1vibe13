@@ -3225,7 +3225,6 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
             //  ApplyTranslucencyToWalls((INT16)(pOldSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pOldSoldier->position().worldY()/CELL_Y_SIZE));
             //LightHideTrees((INT16)(pOldSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pOldSoldier->position().worldY()/CELL_Y_SIZE));
         }
-        //DeleteSoldierLight( pOldSoldier );
 
         if(pOldSoldier->status().flags()&SOLDIER_GREEN_RAY)
         {
@@ -3260,7 +3259,6 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
         //LightTranslucentTrees((INT16)(pSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pSoldier->position().worldY()/CELL_Y_SIZE));
     }
 
-    //pSoldier->SetCheckSoldierLightFlag( );
 
     // Set interface to reflect new selection!
     SetCurrentTacticalPanelCurrentMerc( usSoldierID );

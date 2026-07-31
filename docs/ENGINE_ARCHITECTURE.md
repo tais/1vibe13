@@ -1457,6 +1457,19 @@ the engine must not contain SDL types in its public domain model.
   replacement blood bag no longer consumes the empty bag. Existing items,
   traits, maps, XML, Lua, dialogue, animations, and other installed mod-data
   formats are unchanged.
+  `TacticalActorLighting` owns the player-merc personal-light lifecycle:
+  bounded creation, recreation, destruction, positioning, and the merc render
+  node's personal-light shade levels. Five aggregate light methods plus the
+  selected-soldier recreation and personal-light-level global helpers are
+  retired; equipment changes, squad activation, tactical input, AI inventory
+  changes, base-light updates, and the existing light-option loop enter the
+  same domain. The boundary validates tactical-world lifetime, actor identity,
+  team, profile, body, animation, grid, level, inventory and attachment shape,
+  item indexes, light handles, and projected tile coordinates before accessing
+  legacy lighting and item tables. Destruction remains idempotent and clears a
+  malformed handle without indexing the light-sprite table. Existing lighting
+  templates, vision bonuses, maps, render behavior, settings, XML, Lua, art,
+  and other installed mod-data formats are unchanged.
   `TacticalActorTraversal` owns roof ascent/descent, fence and window jumps,
   and wall-climb initiation. Player intent still enters through the stable
   `TraverseObstacleCommand`; its executor, tactical AI, and path completion

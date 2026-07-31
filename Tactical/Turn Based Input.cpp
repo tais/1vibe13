@@ -1,5 +1,6 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorFieldOperations.h"
+#include "TacticalActorLighting.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorRecovery.h"
 #include "TacticalActorEquipment.h"
@@ -6960,8 +6961,10 @@ void SwapGoggles(TacticalActor *pTeamSoldier)
 	fCharacterInfoPanelDirty = TRUE;
 	fTeamPanelDirty = TRUE;
 	fInterfacePanelDirty = DIRTYLEVEL2;
-	pTeamSoldier->DeleteSoldierLight( );
-	pTeamSoldier->PositionSoldierLight( );
+	(void)TacticalActorLighting::destroyPersonalLight(
+		*pTeamSoldier);
+	(void)TacticalActorLighting::positionPersonalLight(
+		*pTeamSoldier);
 }
 
 // HEADROCK HAM B2.8: This function does the same as SwapGoggles, with a twist. It changes all worn goggles in the
@@ -7140,8 +7143,10 @@ void SwapGogglesUniformly(TacticalActor *pTeamSoldier, BOOLEAN fToNightVision)
 	fCharacterInfoPanelDirty = TRUE;
 	fTeamPanelDirty = TRUE;
 	fInterfacePanelDirty = DIRTYLEVEL2;
-	pTeamSoldier->DeleteSoldierLight( );
-	pTeamSoldier->PositionSoldierLight( );
+	(void)TacticalActorLighting::destroyPersonalLight(
+		*pTeamSoldier);
+	(void)TacticalActorLighting::positionPersonalLight(
+		*pTeamSoldier);
 }
 
 void SeperateItems()

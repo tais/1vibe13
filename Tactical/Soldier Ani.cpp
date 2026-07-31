@@ -1,5 +1,6 @@
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorCombatReactions.h"
+#include "TacticalActorLighting.h"
 #include "TacticalActorRecovery.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMedicalServices.h"
@@ -4002,11 +4003,7 @@ BOOLEAN HandleSoldierDeath( TacticalActor *pSoldier , BOOLEAN *pfMadeCorpse )
 			LightSpriteDestroy( pSoldier->renderState().muzzleFlashSprite() );
 			pSoldier->renderState().clearMuzzleFlashSprite();
 		}
-		if ( pSoldier->renderState().hasLightSprite() )
-		{
-			LightSpriteDestroy( pSoldier->renderState().lightSprite() );
-			pSoldier->renderState().clearLightSprite();
-		}
+		(void)TacticalActorLighting::destroyPersonalLight(*pSoldier);
 
 		//FREEUP GETTING HIT FLAG
 		pSoldier->animationActivity().clearHit();

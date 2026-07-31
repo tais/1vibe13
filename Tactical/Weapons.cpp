@@ -1,4 +1,5 @@
 #include "TacticalActorWeaponHandling.h"
+#include "TacticalActorLighting.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
@@ -9925,8 +9926,10 @@ void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiI
 		if ( uiInvPos == HEAD1POS || uiInvPos == HEAD2POS )
 		{
 			// Could be because of GOGGLES change...	Re-create light...
-			pSoldier->DeleteSoldierLight( );
-			pSoldier->PositionSoldierLight( );
+			(void)TacticalActorLighting::destroyPersonalLight(
+				*pSoldier);
+			(void)TacticalActorLighting::positionPersonalLight(
+				*pSoldier);
 		}
 	}
 	else

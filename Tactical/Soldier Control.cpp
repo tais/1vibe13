@@ -17,6 +17,7 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorDamageQueue.h"
 #include "TacticalActorLongActions.h"
+#include "TacticalActorLighting.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
@@ -981,7 +982,6 @@ void SAIReportError( STR16 wErrorString );
 #endif
 
 void	EnableDisableSoldierLightEffects( BOOLEAN fEnableLights );
-void	SetSoldierPersonalLightLevel( TacticalActor *pSoldier );
 
 
 void HandleVehicleMovementSound( TacticalActor *pSoldier, BOOLEAN fOn )
@@ -1028,11 +1028,9 @@ void TacticalActor::AdjustNoAPToFinishMove( BOOLEAN fSet )
 	if ( fSet )
 	{
 		// Position light....
-		// this->SetCheckSoldierLightFlag( );
 	}
 	else
 	{
-		// this->DeleteSoldierLight( );
 	}
 
 
@@ -1683,7 +1681,7 @@ BOOLEAN TacticalActor::DeleteSoldier( void )
 		this->roster().active() = FALSE;
 
 		// Remove light
-		this->DeleteSoldierLight( );
+		(void)TacticalActorLighting::destroyPersonalLight(*this);
 
 		// Remove reseved movement value
 		UnMarkMovementReserved( this );
@@ -1703,124 +1701,6 @@ BOOLEAN TacticalActor::DeleteSoldier( void )
 	(void)RemoveJa2StrategicSquadActor(actor);
 	(void)RemoveJa2VehiclePassengerActor(actor);
 	(void)RemovePlayerFromStrategicGroups(actor);
-
-	return(TRUE);
-}
-
-BOOLEAN TacticalActor::CreateSoldierLight( void )
-{
-	if ( this->roster().team() != gbPlayerNum )
-	{
-		return(FALSE);
-	}
-
-	// DO ONLY IF WE'RE AT A GOOD LEVEL
-	if ( this->renderState().lightSprite() == -1 )
-	{
-		INT16 visionrangebonus = GetTotalVisionRangeBonus( this, NORMAL_LIGHTLEVEL_NIGHT );
-
-		// ATE: Check for goggles in headpos....
-		if ( visionrangebonus >= UVGOGGLES_BONUS )
-		{
-			if ( (this->renderState().lightSprite() = LightSpriteCreate( "Light4", 0 )) == (-1) )
-			{
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier: Failed loading light" ) );
-				return(FALSE);
-			}
-			else
-			{
-				LightSprites[this->renderState().lightSprite()].uiFlags |= MERC_LIGHT;
-			}
-		}
-		else if ( visionrangebonus >= NIGHTSIGHTGOGGLES_BONUS )
-		{
-			if ( (this->renderState().lightSprite() = LightSpriteCreate( "Light3", 0 )) == (-1) )
-			{
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier: Failed loading light" ) );
-				return(FALSE);
-			}
-			else
-			{
-				LightSprites[this->renderState().lightSprite()].uiFlags |= MERC_LIGHT;
-			}
-		}
-		else
-		{
-			if ( (this->renderState().lightSprite() = LightSpriteCreate( "Light2", 0 )) == (-1) )
-			{
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier: Failed loading light" ) );
-				return(FALSE);
-			}
-			else
-			{
-				LightSprites[this->renderState().lightSprite()].uiFlags |= MERC_LIGHT;
-			}
-		}
-
-		if ( this->position().level() != 0 )
-		{
-			LightSpriteRoofStatus( this->renderState().lightSprite(), TRUE );
-		}
-	}
-
-	return(TRUE);
-}
-
-BOOLEAN TacticalActor::ReCreateSoldierLight( void )
-{
-	if ( this->roster().team() != gbPlayerNum )
-	{
-		return(FALSE);
-	}
-
-	if ( !this->roster().active() )
-	{
-		return(FALSE);
-	}
-
-	if ( !this->roster().inSector() )
-	{
-		return(FALSE);
-	}
-
-	// Delete Light!
-	this->DeleteSoldierLight( );
-
-	if ( this->renderState().lightSprite() == -1 )
-	{
-		this->CreateSoldierLight( );
-	}
-
-	return(TRUE);
-}
-
-
-BOOLEAN ReCreateSelectedSoldierLight( )
-{
-	TacticalActor *pSoldier;
-
-	if ( gusSelectedSoldier == NOBODY )
-	{
-		return(FALSE);
-	}
-
-	pSoldier = GetJa2SoldierRepository().resolve( gusSelectedSoldier );
-	if ( pSoldier == nullptr )
-	{
-		return(FALSE);
-	}
-
-	return(pSoldier->ReCreateSoldierLight( ));
-}
-
-
-BOOLEAN TacticalActor::DeleteSoldierLight( void )
-{
-	if ( this->renderState().hasLightSprite() )
-	{
-		LightSpriteDestroy( this->renderState().lightSprite() );
-		this->renderState().clearLightSprite();
-	}
 
 	return(TRUE);
 }
@@ -3422,12 +3302,10 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		if ( gAnimControl[usNewState].uiFlags & ANIM_STATIONARY )
 		{
 			// Position light....
-			// this->SetCheckSoldierLightFlag( );
 		}
 		else
 		{
 			// Hide light.....
-			// this->DeleteSoldierLight( );
 		}
 	}
 
@@ -3530,7 +3408,7 @@ void TacticalActor::EVENT_InternalSetSoldierPosition( FLOAT dNewXPos, FLOAT dNew
 
 	if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 	{
-		this->SetCheckSoldierLightFlag( );
+		(void)TacticalActorLighting::positionPersonalLight(*this);
 	}
 
 	// ATE: Mirror calls if we are a vehicle ( for all our passengers )
@@ -18784,56 +18662,6 @@ void HandlePlacingRoofMarker( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fS
 	}
 }
 
-void TacticalActor::PositionSoldierLight( void )
-{
-	// DO ONLY IF WE'RE AT A GOOD LEVEL
-	if ( ubAmbientLightLevel < MIN_AMB_LEVEL_FOR_MERC_LIGHTS )
-	{
-		return;
-	}
-
-	if ( !this->roster().inSector() )
-	{
-		return;
-	}
-
-	if ( this->roster().team() != gbPlayerNum )
-	{
-		return;
-	}
-
-	if ( this->vitals().health() < OKLIFE )
-	{
-		return;
-	}
-
-	//if the player DOESNT want the merc to cast light
-	if ( !gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT] )
-	{
-		return;
-	}
-
-	if ( this->renderState().lightSprite() == -1 )
-	{
-		this->CreateSoldierLight( );
-	}
-
-	//if ( this->identity().id() == gusSelectedSoldier )
-	{
-		LightSpritePower( this->renderState().lightSprite(), TRUE );
-		LightSpriteFake( this->renderState().lightSprite() );
-
-		LightSpritePosition( this->renderState().lightSprite(), (INT16)(this->position().worldXInt() / CELL_X_SIZE), (INT16)(this->position().worldYInt() / CELL_Y_SIZE) );
-	}
-}
-
-void TacticalActor::SetCheckSoldierLightFlag( )
-{
-	this->PositionSoldierLight( );
-	//this->status().flags() |= SOLDIER_RECHECKLIGHT;
-}
-
-
 void PickPickupAnimation( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel )
 {
 	INT8				bDirection;
@@ -19426,42 +19254,21 @@ void EnableDisableSoldierLightEffects( BOOLEAN fEnableLights )
 			if ( fEnableLights )
 			{
 				//Add the light around the merc
-				pSoldier->PositionSoldierLight( );
+				(void)TacticalActorLighting::positionPersonalLight(
+					*pSoldier);
 			}
 			else
 			{
 				//Delete the fake light the merc casts
-				pSoldier->DeleteSoldierLight( );
+				(void)TacticalActorLighting::destroyPersonalLight(
+					*pSoldier);
 
 				//Light up the merc though
-				SetSoldierPersonalLightLevel( pSoldier );
+				(void)TacticalActorLighting::setPersonalLightLevel(
+					*pSoldier);
 			}
 		}
 	}
-}
-
-void SetSoldierPersonalLightLevel( TacticalActor *pSoldier )
-{
-	if ( pSoldier == NULL )
-	{
-		return;
-	}
-
-	if ( TileIsOutOfBounds( pSoldier->position().gridNo() ) )
-	{
-		return;
-	}
-
-	if ( gpWorldLevelData[pSoldier->position().gridNo()].pMercHead == NULL )
-	{
-		return;
-	}
-
-	//THe light level for the soldier
-	gpWorldLevelData[pSoldier->position().gridNo()].pMercHead->ubShadeLevel = 3;
-	gpWorldLevelData[pSoldier->position().gridNo()].pMercHead->ubSumLights = 5;
-	gpWorldLevelData[pSoldier->position().gridNo()].pMercHead->ubMaxLights = 5;
-	gpWorldLevelData[pSoldier->position().gridNo()].pMercHead->ubNaturalShadeLevel = 5;
 }
 
 bool TacticalActorDragging::canStart(TacticalActor& actor)
