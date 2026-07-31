@@ -131,6 +131,7 @@
 #include "TacticalActorConsumables.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorCombatReactions.h"
+#include "TacticalActorRecovery.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
@@ -9471,6 +9472,10 @@ int main( int, char** )
 		interactionActor.roster().active() = TRUE;
 		interactionActor.roster().inSector() = TRUE;
 		interactionActor.vitals().health() = OKLIFE;
+		interactionActor.vitals().maximumHealth() = 100;
+		interactionActor.vitals().maximumBreath() = 100;
+		interactionActor.vitals().breath() = 50;
+		interactionActor.statistics().strength() = 100;
 		interactionActor.position().gridNo() = 0;
 		interactionActor.position().level() = FIRST_LEVEL;
 		interactionActor.position().direction() = NORTH;
@@ -9502,6 +9507,23 @@ int main( int, char** )
 				NORTH) &&
 			!interactionActor.animationActivity()
 				.tryingToFall();
+		std::int16_t unavailableSleepDartBreathLoss = 37;
+		const bool unavailableRecoveryActionsAreRejected =
+			!TacticalActorRecovery::applySleepDart(
+				interactionActor,
+				unavailableSleepDartBreathLoss) &&
+			!TacticalActorRecovery::checkBreathCollapse(
+				interactionActor) &&
+			!TacticalActorRecovery::collapse(
+				interactionActor) &&
+			!TacticalActorRecovery::beginGetUp(
+				interactionActor) &&
+			unavailableSleepDartBreathLoss == 37 &&
+			interactionActor.collapseState()
+				.sleepDrugCounter() == 0 &&
+			!interactionActor.collapseState().tactical() &&
+			!interactionActor.collapseState()
+				.breathTriggered();
 		NotifyJa2TacticalWorldLoaded(
 			previousWorld.worldGeneration != 0
 				? previousWorld.worldGeneration : 1);
@@ -9519,6 +9541,23 @@ int main( int, char** )
 			!interactionActor.animationActivity()
 				.tryingToFall();
 		interactionActor.position().direction() = NORTH;
+		interactionActor.vitals().maximumHealth() = 0;
+		std::int16_t malformedSleepDartBreathLoss = 23;
+		const bool malformedSleepDartVitalsAreRejected =
+			!TacticalActorRecovery::applySleepDart(
+				interactionActor,
+				malformedSleepDartBreathLoss) &&
+			malformedSleepDartBreathLoss == 23 &&
+			interactionActor.collapseState()
+				.sleepDrugCounter() == 0;
+		interactionActor.collapseState().sleepDrugCounter() = 1;
+		const bool malformedSleepRecoveryIsRejected =
+			!TacticalActorRecovery::beginGetUp(
+				interactionActor) &&
+			interactionActor.collapseState()
+				.sleepDrugCounter() == 1;
+		interactionActor.collapseState().sleepDrugCounter() = 0;
+		interactionActor.vitals().maximumHealth() = 100;
 		const bool liveFallIntentIsOwned =
 			TacticalActorCombatReactions::beginFall(
 				interactionActor) &&
@@ -9527,6 +9566,26 @@ int main( int, char** )
 			interactionActor.animationActivity()
 				.fallDirection() == NORTH;
 		interactionActor.animationActivity().clearFall();
+		interactionActor.dialogue().markSaid(
+			SOLDIER_QUOTE_SAID_LOW_BREATH);
+		interactionActor.vitals().breath() = 0;
+		const bool liveBreathCollapseIsOwned =
+			TacticalActorRecovery::checkBreathCollapse(
+				interactionActor) &&
+			interactionActor.collapseState()
+				.breathTriggered();
+		interactionActor.collapseState().clearBreathCollapse();
+		interactionActor.vitals().breath() = 50;
+		std::int16_t liveSleepDartBreathLoss = 17;
+		const bool liveSleepDartStateIsOwned =
+			TacticalActorRecovery::applySleepDart(
+				interactionActor,
+				liveSleepDartBreathLoss) &&
+			interactionActor.collapseState()
+				.sleepDrugCounter() == 10 &&
+			(liveSleepDartBreathLoss == 17 ||
+			 liveSleepDartBreathLoss == 10000);
+		interactionActor.collapseState().sleepDrugCounter() = 0;
 		NotifyJa2TacticalWorldUnloaded();
 		const bool unavailableTraversalActionsAreRejected =
 			!TacticalActorTraversal::beginRoofClimb(
@@ -9586,8 +9645,13 @@ int main( int, char** )
 		       nonAiSelfDetonationIsRejected &&
 		       unavailableCombatActionsAreRejected &&
 		       unavailableCombatReactionsAreRejected &&
+		       unavailableRecoveryActionsAreRejected &&
 		       malformedCombatReactionDirectionIsRejected &&
+		       malformedSleepDartVitalsAreRejected &&
+		       malformedSleepRecoveryIsRejected &&
 		       liveFallIntentIsOwned &&
+		       liveBreathCollapseIsOwned &&
+		       liveSleepDartStateIsOwned &&
 		       unavailableTraversalActionsAreRejected &&
 		       unavailableExplosiveActionsAreRejected &&
 		       actorWithoutDrugUseBackgroundIsNeutral &&
@@ -9595,7 +9659,7 @@ int main( int, char** )
 		       unavailableInteractionWorldIsRejected &&
 		       malformedGiveContinuationIsRejected &&
 		       malformedDonorHealthIsRejected,
-		       "tactical actor action domains and donor rules reject unsafe state and damage every stacked item" );
+		       "tactical actor action and recovery domains reject unsafe state, own live transitions, and damage every stacked item" );
 	}
 
 	{

@@ -2,6 +2,7 @@
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
+#include "TacticalActorRecovery.h"
 #include "TacticalActorSpotting.h"
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 #include "TacticalActorModifiers.h"
@@ -8419,7 +8420,7 @@ INT32 BulletImpact( TacticalActor *pFirer, BULLET *pBullet, TacticalActor * pTar
 				{
 					// no stats to lose, but drain breath a lot
 					DeductPoints( pTarget, 0, (5 * APBPConstants[BP_GET_HIT]) );
-					SoldierCollapse( pTarget );
+					(void)TacticalActorRecovery::collapse(*pTarget);
 
 					if (pTarget->identity().name()[0] && pTarget->awareness().visibility() == TRUE)
 					{

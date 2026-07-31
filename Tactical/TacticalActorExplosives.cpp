@@ -1,4 +1,5 @@
 #include "TacticalActorExplosives.h"
+#include "TacticalActorRecovery.h"
 
 #include "Animation Control.h"
 #include "Explosion Control.h"
@@ -146,7 +147,7 @@ void applyInventoryExplosion(TacticalActor& actor)
 	else if (actor.vitals().health() < OKLIFE &&
 			 !actor.collapseState().collapsed())
 	{
-		SoldierCollapse(&actor);
+		(void)TacticalActorRecovery::collapse(actor);
 	}
 }
 

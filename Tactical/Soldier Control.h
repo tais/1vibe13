@@ -951,8 +951,6 @@ public:
 	void ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, UINT16 usNewItem );
 	void PickDropItemAnimation( void );
 
-	void BeginSoldierGetup( void );
-	
 	void HandleAnimationProfile( UINT16	usAnimState, BOOLEAN fRemove );
 	// Overload taking the already-computed animation surface (avoids recomputing DetermineSoldierAnimationSurface)
 	void HandleAnimationProfile( UINT16	usAnimState, UINT16 usAnimSurface, BOOLEAN fRemove );
@@ -965,7 +963,6 @@ public:
 	BOOLEAN InternalSoldierReadyWeapon( UINT8 sFacingDir, BOOLEAN fEndReady, BOOLEAN fRaiseToHipOnly );
 
 	BOOLEAN CheckSoldierHitRoof( void );
-	BOOLEAN CheckForBreathCollapse( void );
 	BOOLEAN PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fValidate );
 	// reset the extra stat variables
 	void	ResetExtraStats();

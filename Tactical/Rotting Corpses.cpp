@@ -1,5 +1,6 @@
 	#include "builddefines.h"
 	#include "TacticalActorConditions.h"
+	#include "TacticalActorRecovery.h"
 	#include <stdio.h>
 	#include <string.h>
 	#include "WCheck.h"
@@ -3238,7 +3239,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 
 		// Change to standing,unless we can getup with an animation
 		pNewSoldier->EVENT_InitNewSoldierAnim( STANDING, 0, TRUE );
-		pNewSoldier->BeginSoldierGetup( );
+		(void)TacticalActorRecovery::beginGetUp(*pNewSoldier);
 			
 		// So we can see them!
 		AllTeamsLookForAll(ALLOW_INTERRUPTS);

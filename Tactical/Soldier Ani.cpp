@@ -1,5 +1,6 @@
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorCombatReactions.h"
+#include "TacticalActorRecovery.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
@@ -202,7 +203,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					// UNset UI
 					UnSetUIBusy( pSoldier->identity().id() );
 
-					SoldierCollapse( pSoldier );
+					(void)TacticalActorRecovery::collapse(*pSoldier);
 
 					pSoldier->collapseState().clearBreathCollapse();
 
@@ -4770,10 +4771,10 @@ BOOLEAN CheckForImproperFireGunEnd( TacticalActor *pSoldier )
 	if ( gGameExternalOptions.ubEnergyCostForWeaponWeight && pSoldier->vitals().breath() < OKBREATH )
 	{		
 		// Check for breath collapse, though this should rarely happen
-		if ( pSoldier->CheckForBreathCollapse( ) )
+		if (TacticalActorRecovery::checkBreathCollapse(*pSoldier))
 		{
 			UnSetUIBusy( pSoldier->identity().id() );
-			SoldierCollapse( pSoldier );
+			(void)TacticalActorRecovery::collapse(*pSoldier);
 			pSoldier->collapseState().clearBreathCollapse();
 			return( TRUE );
 		}
@@ -4962,7 +4963,8 @@ BOOLEAN OKFallDirection( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UI
 BOOLEAN HandleCheckForDeathCommonCode( TacticalActor *pSoldier )
 {
 	//shadooow: fix for going back to cower animation after collapsing
-	if (pSoldier->CheckForBreathCollapse() || pSoldier->collapseState().tactical())
+	if (TacticalActorRecovery::checkBreathCollapse(*pSoldier) ||
+		pSoldier->collapseState().tactical())
 	{
 		pSoldier->animationIntent().clearPendingAnimations();
 	}
@@ -4994,7 +4996,7 @@ BOOLEAN HandleCheckForDeathCommonCode( TacticalActor *pSoldier )
 	if ( GetJa2TacticalCurrentTeam() == pSoldier->roster().team() )
 	{
 		// Try to getup...
-		pSoldier->BeginSoldierGetup( );
+		(void)TacticalActorRecovery::beginGetUp(*pSoldier);
 
 		// Check this to see if above worked
 		if ( !pSoldier->collapseState().tactical() )
@@ -5047,7 +5049,7 @@ BOOLEAN HandleCheckForDeathCommonCode( TacticalActor *pSoldier )
 	if ( GetJa2TacticalCurrentTeam() == pSoldier->roster().team() )
 	{
 		// Try to getup...
-		pSoldier->BeginSoldierGetup( );
+		(void)TacticalActorRecovery::beginGetUp(*pSoldier);
 
 		// Check this to see if above worked
 		if ( !pSoldier->collapseState().tactical() )

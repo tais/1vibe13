@@ -11,8 +11,6 @@ void SelectMoveAnimationFromStance( TacticalActor *pSoldier );
 BOOLEAN IsValidMovementMode( TacticalActor *pSoldier, INT16 usMovementMode );
 FLOAT CalcSoldierNextBleed( TacticalActor *pSoldier );
 FLOAT CalcSoldierNextUnmovingBleed( TacticalActor *pSoldier );
-void SoldierCollapse( TacticalActor *pSoldier );
-
 BOOLEAN ReevaluateEnemyStance( TacticalActor *pSoldier, UINT16 usAnimState );
 
 void HandlePlacingRoofMarker( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fSet, BOOLEAN fForce );
