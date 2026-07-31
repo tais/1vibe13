@@ -2168,6 +2168,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConsumables.h"
   tactical_actor_consumables_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConsumables.cpp"
   tactical_actor_consumables_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationFrames.h"
+  tactical_actor_animation_frames_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationFrames.cpp"
+  tactical_actor_animation_frames_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorModifiers.h"
   tactical_actor_modifiers_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEquipment.h"
@@ -3085,7 +3089,10 @@ foreach(retired_actor_facade IN ITEMS
   "PositionSoldierLight"
   "SetCheckSoldierLightFlag"
   "CalcActionPoints"
-  "CalcNewActionPoints")
+  "CalcNewActionPoints"
+  "CryoAniFrame"
+  "ConvertAniCodeToAniFrame"
+  "SpriteDirForSurface")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3872,6 +3879,27 @@ foreach(required_lighting_operation IN ITEMS
   endif()
 endforeach()
 
+foreach(required_animation_frame_operation IN ITEMS
+  "spriteDirectionForSurface"
+  "frozenFrame"
+  "selectFrame")
+  string(FIND "${tactical_actor_animation_frames_header_contents}"
+    "${required_animation_frame_operation}("
+    animation_frame_operation_declaration)
+  string(FIND "${tactical_actor_animation_frames_source_contents}"
+    "TacticalActorAnimationFrames::${required_animation_frame_operation}("
+    animation_frame_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorAnimationFrames::${required_animation_frame_operation}"
+    animation_frame_operation_coverage)
+  if(animation_frame_operation_declaration EQUAL -1 OR
+     animation_frame_operation_definition EQUAL -1 OR
+     animation_frame_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor animation-frame operation '${required_animation_frame_operation}' lost its declaration, definition, or malformed-state coverage")
+  endif()
+endforeach()
+
 foreach(required_turn_budget_operation IN ITEMS
   "calculateTurnGrant"
   "refreshForTurn")
@@ -3909,6 +3937,7 @@ if(donor_condition_declaration EQUAL -1 OR
 endif()
 
 foreach(required_actor_domain_source IN ITEMS
+  "TacticalActorAnimationFrames.cpp"
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
   "TacticalActorCombatReactions.cpp"

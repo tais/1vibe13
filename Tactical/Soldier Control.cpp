@@ -1,4 +1,5 @@
 #include "Soldier Functions.h"
+#include "TacticalActorAnimationFrames.h"
 #include "TacticalActorConsumables.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
@@ -2920,7 +2921,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 
 	// ATE: Default to first frame....
 	// Will get changed ( probably ) by AdjustToNextAnimationFrame()
-	this->ConvertAniCodeToAniFrame( (INT16)(0) );
+	(void)TacticalActorAnimationFrames::selectFrame(*this, 0);
 
 	// Set delay speed
 	SetSoldierAniSpeed( this );
@@ -6547,121 +6548,6 @@ void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeC
 	// Flugente: Cool down all weapons and decay food in inventory
 	TacticalActorEquipment::coolDownInventory(*this);
 }
-
-// UTILITY FUNCTIONS CALLED BY OVERHEAD.H
-UINT8		gDirectionFrom8to2[] = {0, 0, 1, 1, 0, 1, 1, 0};
-
-// Convert this soldier's world direction into the sprite direction for the given animation surface.
-// Shared by CryoAniFrame and ConvertAniCodeToAniFrame (was copy-pasted in both).
-UINT8 TacticalActor::SpriteDirForSurface( UINT16 usAnimSurface )
-{
-	// COnvert world direction into sprite direction
-	UINT8 ubTempDir = gOneCDirection[this->position().direction()];
-
-	if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 32 )
-	{
-		ubTempDir = gExtOneCDirection[this->movement().highResolutionDirection()];
-	}
-	// Check # of directions /surface, adjust if ness.
-	else if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 4 )
-	{
-		ubTempDir = ubTempDir / 2;
-	}
-	// Check # of directions /surface, adjust if ness.
-	else if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 1 )
-	{
-		ubTempDir = 0;
-	}
-	// Check # of directions /surface, adjust if ness.
-	else if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 3 )
-	{
-		if ( this->position().direction() == NORTHWEST )
-		{
-			ubTempDir = 1;
-		}
-		else if ( this->position().direction() == WEST )
-		{
-			ubTempDir = 0;
-		}
-		else if ( this->position().direction() == EAST )
-		{
-			ubTempDir = 2;
-		}
-	}
-	else if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 2 )
-	{
-		ubTempDir = gDirectionFrom8to2[this->position().direction()];
-	}
-
-	return ubTempDir;
-}
-
-// Flugente: frozen soldiers do not move. We simulate this by using fixed animation frames, which we determine here
-UINT16 TacticalActor::CryoAniFrame()
-{
-	// get anim surface and determine # of frames
-	UINT16 usAnimSurface = GetSoldierAnimationSurface( this, this->animationPlayback().state() );
-	
-	//If we are only one frame, ignore what the script is telling us!
-	if ( usAnimSurface == INVALID_ANIMATION_SURFACE || gAnimSurfaceDatabase[usAnimSurface].hVideoObject == NULL || gAnimSurfaceDatabase[usAnimSurface].ubFlags & ANIM_DATA_FLAG_NOFRAMES )
-	{
-		return 0;
-	}
-
-	// COnvert world direction into sprite direction
-	UINT8 ubTempDir = SpriteDirForSurface( usAnimSurface );
-
-	UINT16 cryoframe = 0;
-
-	UINT16 newframe = cryoframe + (UINT16)((gAnimSurfaceDatabase[usAnimSurface].uiNumFramesPerDir * ubTempDir));
-	
-	if ( newframe >= gAnimSurfaceDatabase[usAnimSurface].hVideoObject->usNumberOfObjects )
-	{
-		return 0;
-	}
-
-	return newframe;
-}
-
-BOOLEAN TacticalActor::ConvertAniCodeToAniFrame( UINT16 usAniFrame )
-{
-	UINT16	usAnimSurface;
-	UINT8		ubTempDir;
-	// Given ani code, adjust for facing direction
-
-	// get anim surface and determine # of frames
-	usAnimSurface = GetSoldierAnimationSurface( this, this->animationPlayback().state() );
-
-	CHECKF( usAnimSurface != INVALID_ANIMATION_SURFACE );
-
-	//If we are only one frame, ignore what the script is telling us!
-	if ( gAnimSurfaceDatabase[usAnimSurface].ubFlags & ANIM_DATA_FLAG_NOFRAMES )
-	{
-		usAniFrame = 0;
-	}
-
-	// COnvert world direction into sprite direction
-	ubTempDir = SpriteDirForSurface( usAnimSurface );
-
-	this->animationPlayback().frame() = usAniFrame + (UINT16)((gAnimSurfaceDatabase[usAnimSurface].uiNumFramesPerDir * ubTempDir));
-
-	if ( gAnimSurfaceDatabase[usAnimSurface].hVideoObject == NULL )
-	{
-		this->animationPlayback().frame() = 0;
-		return(TRUE);
-	}
-
-	if ( this->animationPlayback().frame() >= gAnimSurfaceDatabase[usAnimSurface].hVideoObject->usNumberOfObjects )
-	{
-		// Debug msg here....
-		//		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"Soldier Animation: Wrong Number of frames per number of objects: %d vs %d, %S",  gAnimSurfaceDatabase[ usAnimSurface ].uiNumFramesPerDir, gAnimSurfaceDatabase[ usAnimSurface ].hVideoObject->usNumberOfObjects, gAnimControl[ this->animationPlayback().state() ].zAnimStr );
-
-		this->animationPlayback().frame() = 0;
-	}
-
-	return(TRUE);
-}
-
 
 void TacticalActor::TurnSoldier( void )
 {

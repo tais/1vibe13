@@ -701,6 +701,15 @@ difficulty, health, inventory, item, stack, attachment, or tactical-vehicle
 state before table access. `SoldierActionPointComponent` remains the canonical
 storage owner, and existing AP constants, traits, difficulty settings, drugs,
 items, maps, XML, Lua, save, and network formats remain unchanged.
+`TacticalActorAnimationFrames` owns directional animation-surface mapping,
+animation-code-to-render-frame selection, and the fixed frame used for frozen
+actors. New callers use `spriteDirectionForSurface`, `selectFrame`, or
+`frozenFrame` instead of restoring `SpriteDirForSurface`,
+`ConvertAniCodeToAniFrame`, or `CryoAniFrame` on the aggregate. The domain
+rejects malformed animation-state, surface, world-direction, extended-facing,
+and video-object frame metadata before indexing legacy animation tables.
+Existing animation scripts and assets, rendering behavior, maps, XML, Lua,
+save, and network formats remain unchanged.
 `TacticalActorTraversal` owns roof ascent and descent, fence and window jumps,
 and wall-climb initiation. Player producers continue to emit the stable
 `TraverseObstacleCommand`; command execution, AI, and path completion enter

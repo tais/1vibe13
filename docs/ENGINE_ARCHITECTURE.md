@@ -1481,6 +1481,16 @@ the engine must not contain SDL types in its public domain model.
   The existing `SoldierActionPointComponent` remains the storage owner, and AP
   constants, traits, difficulty bonuses, drugs, items, XML, Lua, maps, saves,
   and network formats are unchanged.
+  `TacticalActorAnimationFrames` owns bounded render-frame resolution from an
+  actor's current animation surface, animation code, world or extended facing,
+  and per-direction frame layout, including the fixed frame used while frozen.
+  The aggregate `CryoAniFrame`, `ConvertAniCodeToAniFrame`, and
+  `SpriteDirForSurface` methods are retired; editor previews, animation-script
+  progression, animation-state setup, and world rendering enter the compiled
+  domain. The boundary validates animation-state, surface, eight-direction and
+  extended-direction indexes plus video-object frame counts before indexing
+  legacy animation tables. Existing animation scripts and assets, rendering,
+  maps, XML, Lua, saves, and network formats are unchanged.
   `TacticalActorTraversal` owns roof ascent/descent, fence and window jumps,
   and wall-climb initiation. Player intent still enters through the stable
   `TraverseObstacleCommand`; its executor, tactical AI, and path completion

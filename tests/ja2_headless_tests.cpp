@@ -127,6 +127,7 @@
 #include "Soldier Profile.h"
 #include "Interface.h"
 #include "Handle Items.h"
+#include "TacticalActorAnimationFrames.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConsumables.h"
 #include "TacticalActorCombatActions.h"
@@ -9431,6 +9432,161 @@ int main( int, char** )
 		       malformedLiveKitIsRejected &&
 		       malformedAbstractKitIsRejected,
 		       "tactical actor medical treatment bounds profile, stat-repair, and kit state" );
+	}
+
+	{
+		constexpr std::uint16_t animationSurfaceUnderTest = 0;
+		AnimationSurfaceType& animationSurface =
+			gAnimSurfaceDatabase[animationSurfaceUnderTest];
+		const AnimationSurfaceType previousAnimationSurface =
+			animationSurface;
+		SGPVObject animationVideoObject{};
+		animationVideoObject.usNumberOfObjects = 64;
+		animationSurface.ubFlags = 0;
+		animationSurface.uiNumDirections = 8;
+		animationSurface.uiNumFramesPerDir = 4;
+		animationSurface.hVideoObject = &animationVideoObject;
+
+		TacticalActor animationFrameActor;
+		animationFrameActor.animationPlayback().state() = STANDING;
+		animationFrameActor.animationPlayback().surface() =
+			animationSurfaceUnderTest;
+		animationFrameActor.position().direction() = NORTH;
+		animationFrameActor.movement().highResolutionDirection() = 0;
+		std::uint8_t spriteDirection = 99;
+		const bool liveDirectionIsResolved =
+			TacticalActorAnimationFrames::spriteDirectionForSurface(
+				animationFrameActor,
+				animationSurfaceUnderTest,
+				spriteDirection) &&
+			spriteDirection == NORTHEAST;
+		animationSurface.uiNumDirections = 4;
+		spriteDirection = 99;
+		const bool fourDirectionSurfaceIsResolved =
+			TacticalActorAnimationFrames::spriteDirectionForSurface(
+				animationFrameActor,
+				animationSurfaceUnderTest,
+				spriteDirection) &&
+			spriteDirection == 0;
+		animationSurface.uiNumDirections = 1;
+		spriteDirection = 99;
+		const bool singleDirectionSurfaceIsResolved =
+			TacticalActorAnimationFrames::spriteDirectionForSurface(
+				animationFrameActor,
+				animationSurfaceUnderTest,
+				spriteDirection) &&
+			spriteDirection == 0;
+		animationSurface.uiNumDirections = 3;
+		animationFrameActor.position().direction() = EAST;
+		spriteDirection = 99;
+		const bool threeDirectionSurfaceIsResolved =
+			TacticalActorAnimationFrames::spriteDirectionForSurface(
+				animationFrameActor,
+				animationSurfaceUnderTest,
+				spriteDirection) &&
+			spriteDirection == 2;
+		animationSurface.uiNumDirections = 2;
+		animationFrameActor.position().direction() = WEST;
+		spriteDirection = 99;
+		const bool twoDirectionSurfaceIsResolved =
+			TacticalActorAnimationFrames::spriteDirectionForSurface(
+				animationFrameActor,
+				animationSurfaceUnderTest,
+				spriteDirection) &&
+			spriteDirection == 1;
+		animationSurface.uiNumDirections = 32;
+		animationFrameActor.position().direction() = NORTH;
+		animationFrameActor.movement().highResolutionDirection() = 31;
+		spriteDirection = 99;
+		const bool extendedDirectionSurfaceIsResolved =
+			TacticalActorAnimationFrames::spriteDirectionForSurface(
+				animationFrameActor,
+				animationSurfaceUnderTest,
+				spriteDirection) &&
+			spriteDirection == 3;
+		animationSurface.uiNumDirections = 8;
+		animationFrameActor.movement().highResolutionDirection() = 0;
+		const bool liveFrozenFrameIsResolved =
+			TacticalActorAnimationFrames::frozenFrame(
+				animationFrameActor) == 4;
+		const bool liveFrameSelectionIsOwned =
+			TacticalActorAnimationFrames::selectFrame(
+				animationFrameActor,
+				2) &&
+			animationFrameActor.animationPlayback().frame() == 6;
+		const bool overflowingFrameIsBounded =
+			TacticalActorAnimationFrames::selectFrame(
+				animationFrameActor,
+				63) &&
+			animationFrameActor.animationPlayback().frame() == 0;
+
+		animationFrameActor.animationPlayback().surface() =
+			NUMANIMATIONSURFACETYPES;
+		animationFrameActor.animationPlayback().frame() = 37;
+		const bool malformedSurfaceIsRejectedWithoutMutation =
+			TacticalActorAnimationFrames::frozenFrame(
+				animationFrameActor) == 0 &&
+			!TacticalActorAnimationFrames::selectFrame(
+				animationFrameActor,
+				2) &&
+			animationFrameActor.animationPlayback().frame() == 37;
+
+		animationFrameActor.animationPlayback().surface() =
+			animationSurfaceUnderTest;
+		animationFrameActor.position().direction() =
+			NUM_WORLD_DIRECTIONS;
+		spriteDirection = 99;
+		const bool malformedDirectionIsRejectedWithoutMutation =
+			!TacticalActorAnimationFrames::spriteDirectionForSurface(
+				animationFrameActor,
+				animationSurfaceUnderTest,
+				spriteDirection) &&
+			spriteDirection == 99 &&
+			TacticalActorAnimationFrames::frozenFrame(
+				animationFrameActor) == 0 &&
+			!TacticalActorAnimationFrames::selectFrame(
+				animationFrameActor,
+				2) &&
+			animationFrameActor.animationPlayback().frame() == 37;
+
+		animationFrameActor.position().direction() = NORTH;
+		animationFrameActor.movement().highResolutionDirection() = 32;
+		animationSurface.uiNumDirections = 32;
+		spriteDirection = 99;
+		const bool malformedExtendedDirectionIsRejected =
+			!TacticalActorAnimationFrames::spriteDirectionForSurface(
+				animationFrameActor,
+				animationSurfaceUnderTest,
+				spriteDirection) &&
+			spriteDirection == 99;
+
+		animationSurface.uiNumDirections = 8;
+		animationFrameActor.movement().highResolutionDirection() = 0;
+		animationFrameActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedAnimationStateIsRejected =
+			TacticalActorAnimationFrames::frozenFrame(
+				animationFrameActor) == 0 &&
+			!TacticalActorAnimationFrames::selectFrame(
+				animationFrameActor,
+				2) &&
+			animationFrameActor.animationPlayback().frame() == 37;
+
+		animationSurface = previousAnimationSurface;
+		CHECK( liveDirectionIsResolved &&
+		       fourDirectionSurfaceIsResolved &&
+		       singleDirectionSurfaceIsResolved &&
+		       threeDirectionSurfaceIsResolved &&
+		       twoDirectionSurfaceIsResolved &&
+		       extendedDirectionSurfaceIsResolved &&
+		       liveFrozenFrameIsResolved &&
+		       liveFrameSelectionIsOwned &&
+		       overflowingFrameIsBounded &&
+		       malformedSurfaceIsRejectedWithoutMutation &&
+		       malformedDirectionIsRejectedWithoutMutation &&
+		       malformedExtendedDirectionIsRejected &&
+		       malformedAnimationStateIsRejected,
+		       "tactical actor animation frames resolve live directions and reject malformed surface state without partial mutation" );
 	}
 
 	{
