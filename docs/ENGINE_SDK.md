@@ -598,8 +598,9 @@ using the existing item, weapon, vehicle, map, XML, and Lua data formats; this
 change only replaces C++ aggregate methods with explicit engine-facing
 operations.
 `TacticalActorAiBehavior` exposes the corresponding bounded operations for AI
-ownership, initial-turn AP, flanking, cowering, retreat cadence, radio
-animation, and boxing cleanup. `TacticalActorLongActions` owns the
+ownership, initial-turn AP, flanking, animation-specific merc cower teardown,
+retreat cadence, radio animation, and boxing cleanup.
+`TacticalActorLongActions` owns the
 fortify/remove/hack begin-update-cancel lifecycle, including validation before
 legacy animation, inventory, structure, and cost tables are read.
 `TacticalActorPrisonerOperations` owns strategic prisoner-processing
@@ -652,13 +653,17 @@ tables; weapon, explosive, map, XML, Lua, animation, and installed content
 formats remain unchanged.
 Martial-arts animation continuation also enters
 `TacticalActorCombatActions`; callers must not restore `DoNinjaAttack`.
-`TacticalActorCombatReactions` owns fall intent and bounded fallback/flyback
-path setup. Hit resolution, collapse handling, and animation playback use
-`beginFall`, `beginFallback`, or `beginFlyback` rather than writing route and
-fall state through the aggregate. These operations validate world lifetime,
-actor, target, body, animation, direction, level, grid, movement-cost, route,
-and face state without changing combat rules, maps, movement costs,
-animations, audio, XML, Lua, or network formats.
+`TacticalActorCombatReactions` owns the aggregate cower-flag transition, fall
+intent, and bounded fallback/flyback path setup. Tactical AI and civilian
+stance handling use `setCowering`; animation-specific merc cower teardown
+remains in `TacticalActorAiBehavior`. Hit resolution, collapse handling, and
+animation playback use `beginFall`, `beginFallback`, or `beginFlyback` rather
+than writing posture, route, and fall state through the aggregate. These
+operations validate world lifetime, actor, target, body, animation, direction,
+level, grid, movement-cost, route, and face state. Robots reject cower
+requests, and repeated requests for the current cower posture are accepted
+without restarting the animation. Combat rules, maps, movement costs,
+animations, audio, XML, Lua, and network formats remain unchanged.
 `TacticalActorRecovery` owns sleep-dart application, breath-collapse
 detection, collapse execution, and get-up progression. New callers use
 `applySleepDart`, `checkBreathCollapse`, `collapse`, or `beginGetUp` instead of

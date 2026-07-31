@@ -1,6 +1,7 @@
 #include "TacticalActorCombatReactions.h"
 
 #include "Animation Control.h"
+#include "Debug Control.h"
 #include "Isometric Utils.h"
 #include "PATHAI.H"
 #include "Soldier Control.h"
@@ -117,6 +118,53 @@ bool prepareReactionPath(
 		destination;
 	return true;
 }
+}
+
+bool TacticalActorCombatReactions::setCowering(
+	TacticalActor& actor,
+	bool cowering)
+{
+	if (!hasLiveReactionContext(actor))
+		return false;
+
+	if (actor.identity().bodyType() == ROBOTNOWEAPON)
+	{
+		DebugMsg(
+			TOPIC_JA2,
+			DBG_LEVEL_3,
+			String("ERROR: Robot was told to cower!"));
+		return false;
+	}
+
+	if (cowering)
+	{
+		if (actor.status().flags() & SOLDIER_COWERING)
+			return true;
+
+		actor.EVENT_InitNewSoldierAnim(
+			START_COWER,
+			0,
+			FALSE);
+		actor.status().flags() |= SOLDIER_COWERING;
+		actor.animationIntent().desiredHeight() =
+			ANIM_CROUCH;
+		return true;
+	}
+
+	if (!(actor.status().flags() & SOLDIER_COWERING) &&
+		gAnimControl[actor.animationPlayback().state()]
+			.ubEndHeight == ANIM_STAND)
+	{
+		return true;
+	}
+
+	actor.EVENT_InitNewSoldierAnim(
+		END_COWER,
+		0,
+		FALSE);
+	actor.status().flags() &= ~SOLDIER_COWERING;
+	actor.animationIntent().desiredHeight() = ANIM_STAND;
+	return true;
 }
 
 bool TacticalActorCombatReactions::beginFall(

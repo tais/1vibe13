@@ -5571,7 +5571,9 @@ BOOLEAN TacticalActor::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT1
 	{
 		if ( this->status().flags() & SOLDIER_COWERING )
 		{
-			this->SetSoldierCowerState( FALSE );
+			(void)TacticalActorCombatReactions::setCowering(
+				*this,
+				false);
 			usMoveAnimState = WALKING;
 		}
 	}
@@ -5894,11 +5896,15 @@ void TacticalActor::ChangeSoldierStance( UINT8 ubDesiredStance )
 	{
 		if ( ubDesiredStance == ANIM_STAND )
 		{
-			this->SetSoldierCowerState( FALSE );
+			(void)TacticalActorCombatReactions::setCowering(
+				*this,
+				false);
 		}
 		else
 		{
-			this->SetSoldierCowerState( TRUE );
+			(void)TacticalActorCombatReactions::setCowering(
+				*this,
+				true);
 		}
 	}
 	else
@@ -18230,40 +18236,6 @@ void TacticalActor::ResetSoldierChangeStatTimer( void )
 	this->statProgress().reset();
 }
 
-
-void TacticalActor::SetSoldierCowerState( BOOLEAN fOn )
-{
-	// Robot's don't cower!
-	if ( this->identity().bodyType() == ROBOTNOWEAPON )
-	{
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "ERROR: Robot was told to cower!" ) );
-		return;
-	}
-
-	// OK< set flag and do anim...
-	if ( fOn )
-	{
-		if ( !(this->status().flags() & SOLDIER_COWERING) )
-		{
-			this->EVENT_InitNewSoldierAnim( START_COWER, 0, FALSE );
-
-			this->status().flags() |= SOLDIER_COWERING;
-
-			this->animationIntent().desiredHeight() = ANIM_CROUCH;
-		}
-	}
-	else
-	{
-		if ( (this->status().flags() & SOLDIER_COWERING) || (gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_STAND) )
-		{
-			this->EVENT_InitNewSoldierAnim( END_COWER, 0, FALSE );
-
-			this->status().flags() &= (~SOLDIER_COWERING);
-
-			this->animationIntent().desiredHeight() = ANIM_STAND;
-		}
-	}
-}
 
 BOOLEAN MercStealFromMerc( TacticalActor *pSoldier, TacticalActor *pTarget )
 {

@@ -1363,8 +1363,9 @@ the engine must not contain SDL types in its public domain model.
   formats remain unchanged.
   `TacticalActorAiBehavior` now owns the remaining small AI state transitions
   that previously leaked through aggregate methods: exclusive AI-control
-  selection, initial-AP and flanking queries, cowering teardown, bounded
-  retreat counters, radio animation selection, and boxer-flag cleanup. Team
+  selection, initial-AP and flanking queries, animation-specific merc cowering
+  teardown, bounded retreat counters, radio animation selection, and
+  boxer-flag cleanup. Team
   repository scans, animation state, body type, visibility, grid, and tactical
   world availability are validated at this boundary.
   `TacticalActorLongActions` owns the complete begin/update/cancel lifecycle
@@ -1424,14 +1425,17 @@ the engine must not contain SDL types in its public domain model.
   other installed mod-data formats are unchanged.
   `TacticalActorCombatActions` now also owns martial-arts animation
   continuation and its bounded target/awareness/audio selection.
-  `TacticalActorCombatReactions` owns fall intent plus one-tile fallback and
-  two-tile flyback path setup shared by hit resolution, collapse handling,
-  and animation playback. Four more aggregate methods are retired. The
-  boundaries reject unavailable worlds and malformed actors, targets,
-  animations, body types, directions, levels, grids, movement-cost storage,
-  path capacity, or face indexes before accessing legacy tables. Existing
-  combat rules, maps, movement costs, animations, audio, art, XML, Lua, and
-  network formats are unchanged.
+  `TacticalActorCombatReactions` owns the aggregate cower-flag transition,
+  fall intent, and the one-tile fallback and two-tile flyback path setup shared
+  by tactical AI, hit resolution, collapse handling, and animation playback.
+  The animation-specific merc teardown remains in `TacticalActorAiBehavior`;
+  five more aggregate methods are retired. The boundaries reject unavailable
+  worlds, robots asked to cower, and malformed actors, targets, animations,
+  body types, directions, levels, grids, movement-cost storage, path capacity,
+  or face indexes before accessing legacy tables. Repeated requests for the
+  current cower posture remain idempotent. Existing combat rules, maps,
+  movement costs, animations, audio, art, XML, Lua, and network formats are
+  unchanged.
   `TacticalActorRecovery` owns sleep-dart application, breath-collapse
   detection, collapse execution, and get-up progression. The two former
   aggregate methods plus the global collapse entry point and sleep-dart helper
