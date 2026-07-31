@@ -18,6 +18,7 @@
 #include "Sound Control.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorDisease.h"
+#include "TacticalActorRecovery.h"
 #include "TacticalWorldAdapter.h"
 #include "World Tile Map.h"
 #include "ai.h"
@@ -354,7 +355,7 @@ void simulateZombiePunch(
 				target.vitals().health() < OKLIFE &&
 				!target.collapseState().tactical())
 			{
-				SoldierCollapse(&target);
+				(void)TacticalActorRecovery::collapse(target);
 			}
 		}
 		else

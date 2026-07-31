@@ -659,6 +659,15 @@ fall state through the aggregate. These operations validate world lifetime,
 actor, target, body, animation, direction, level, grid, movement-cost, route,
 and face state without changing combat rules, maps, movement costs,
 animations, audio, XML, Lua, or network formats.
+`TacticalActorRecovery` owns sleep-dart application, breath-collapse
+detection, collapse execution, and get-up progression. New callers use
+`applySleepDart`, `checkBreathCollapse`, `collapse`, or `beginGetUp` instead of
+restoring `SleepDartSuccumbChance`, `SoldierCollapse`,
+`CheckForBreathCollapse`, or `BeginSoldierGetup`. The boundary validates the
+live tactical world plus actor, profile, body, animation, direction, level,
+grid, and get-up structure state while preserving combat/fatigue rules and
+installed item, map, animation, dialogue, audio, XML, Lua, and network
+formats.
 `TacticalActorInteractions` owns person-to-person item giving, handcuffing,
 equipment/consumable application, blood collection, splint application, and
 chat teardown. New callers use these bounded operations instead of restoring

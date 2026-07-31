@@ -1,6 +1,7 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorFieldOperations.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorRecovery.h"
 #include "TacticalActorEquipment.h"
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
@@ -6644,7 +6645,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 				}
 				else if (pSoldier->collapseState().tactical() && pSoldier->vitals().breath() >= OKBREATH)
 				{
-					pSoldier->BeginSoldierGetup();
+					(void)TacticalActorRecovery::beginGetUp(*pSoldier);
 				}
 				else
 				{

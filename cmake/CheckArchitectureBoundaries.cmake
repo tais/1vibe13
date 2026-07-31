@@ -2154,6 +2154,8 @@ file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
   tactical_actor_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
   tactical_actor_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Functions.h"
+  tactical_soldier_functions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.h"
   tactical_actor_components_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.h"
@@ -2234,6 +2236,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatReactions.h"
   tactical_actor_combat_reactions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatReactions.cpp"
   tactical_actor_combat_reactions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRecovery.h"
+  tactical_actor_recovery_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRecovery.cpp"
+  tactical_actor_recovery_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTraversal.h"
   tactical_actor_traversal_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTraversal.cpp"
@@ -3056,6 +3062,8 @@ foreach(retired_actor_facade IN ITEMS
   "BeginTyingToFall"
   "ChangeToFlybackAnimation"
   "ChangeToFallbackAnimation"
+  "BeginSoldierGetup"
+  "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
   "BeginSoldierClimbDownRoof"
   "BeginSoldierClimbFence"
@@ -3074,6 +3082,26 @@ foreach(retired_actor_facade IN ITEMS
       "TacticalActor regained retired facade '${retired_actor_facade}'")
   endif()
 endforeach()
+
+string(FIND "${tactical_soldier_functions_header_contents}"
+  "SoldierCollapse("
+  retired_global_soldier_collapse_declaration)
+string(FIND "${tactical_actor_source_contents}"
+  "SoldierCollapse("
+  retired_global_soldier_collapse_definition)
+if(NOT retired_global_soldier_collapse_declaration EQUAL -1 OR
+   NOT retired_global_soldier_collapse_definition EQUAL -1)
+  message(FATAL_ERROR
+    "The retired global SoldierCollapse recovery entry point returned")
+endif()
+
+string(FIND "${tactical_actor_source_contents}"
+  "SleepDartSuccumbChance("
+  retired_sleep_dart_succumb_helper)
+if(NOT retired_sleep_dart_succumb_helper EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier Control regained the retired sleep-dart recovery helper")
+endif()
 
 string(FIND "${tactical_actor_source_contents}"
   "void BeginSoldierClimbWallUp("
@@ -3653,6 +3681,28 @@ foreach(required_combat_reaction IN ITEMS
   endif()
 endforeach()
 
+foreach(required_recovery_operation IN ITEMS
+  "applySleepDart"
+  "checkBreathCollapse"
+  "collapse"
+  "beginGetUp")
+  string(FIND "${tactical_actor_recovery_header_contents}"
+    "${required_recovery_operation}("
+    recovery_operation_declaration)
+  string(FIND "${tactical_actor_recovery_source_contents}"
+    "TacticalActorRecovery::${required_recovery_operation}("
+    recovery_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorRecovery::${required_recovery_operation}"
+    recovery_operation_coverage)
+  if(recovery_operation_declaration EQUAL -1 OR
+     recovery_operation_definition EQUAL -1 OR
+     recovery_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor recovery operation '${required_recovery_operation}' lost its declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
 foreach(required_traversal_action IN ITEMS
   "beginRoofClimb"
   "beginRoofDescent"
@@ -3770,6 +3820,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
   "TacticalActorCombatReactions.cpp"
+  "TacticalActorRecovery.cpp"
   "TacticalActorTraversal.cpp"
   "TacticalActorExplosives.cpp"
   "TacticalActorInteractions.cpp")

@@ -9,6 +9,7 @@
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
+#include "TacticalActorRecovery.h"
 #include <cstdio>
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -2385,7 +2386,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
                     // 20% chance of falling over!
                     pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
                     ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 37 ], pSoldier->GetName() );
-                    SoldierCollapse( pSoldier );
+					(void)TacticalActorRecovery::collapse(*pSoldier);
                     if (pSoldier->actionPoints().current() > 0)
                     {
                         pSoldier->actionPoints().current() -= (INT8) (Random( pSoldier->actionPoints().current() ) + 1);
@@ -2398,7 +2399,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
                     // 20% chance of falling over!
                     pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
                     ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 37 ], pSoldier->GetName() );
-                    SoldierCollapse( pSoldier );
+					(void)TacticalActorRecovery::collapse(*pSoldier);
                     if (pSoldier->actionPoints().current() > 0)
                     {
                         pSoldier->actionPoints().current() -= (INT8) (Random( pSoldier->actionPoints().current() ) + 1);
@@ -2726,7 +2727,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
     }
 
     // Check if they are out of breath
-    if ( pSoldier->CheckForBreathCollapse( ) )
+    if (TacticalActorRecovery::checkBreathCollapse(*pSoldier))
     {
 		// sevenfm: update tree visibility
 		UpdateTreeVisibility();
@@ -2758,7 +2759,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
 				ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, Message[STR_SLIPPED_MARBLES], pSoldier->identity().name());
 			}
 			RemoveItemFromPool(pSoldier->position().gridNo(), iMarblesIndex, 0);
-			SoldierCollapse(pSoldier);
+			(void)TacticalActorRecovery::collapse(*pSoldier);
 			if (pSoldier->actionPoints().current() > 0)
 			{
 				pSoldier->actionPoints().current() -= (INT8)(Random(pSoldier->actionPoints().current()) + 1);

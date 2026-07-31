@@ -2,6 +2,7 @@
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorModifiers.h"
+#include "TacticalActorRecovery.h"
 #include "TacticalWorldAdapter.h"
 #include "WorldDat.h"
 #include "DEBUG.H"
@@ -4054,7 +4055,7 @@ void HandleExplosionQueue( void )
 
 						DeductPoints( pSoldier, 200, 0 );
 
-						SoldierCollapse( pSoldier );
+						(void)TacticalActorRecovery::collapse(*pSoldier);
 
 						// Flugente: disease
 						HandlePossibleInfection( pSoldier, NULL, INFECTION_TYPE_WOUND_AGI, 1.5f );
@@ -6147,7 +6148,7 @@ void SoldierDropThroughRoof( TacticalActor* pSoldier, INT32 sGridNo )
 	pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 	// if we play the animation of falling roof tiles over this, it will look like the merc fell really painful (there's even blood)
-	SoldierCollapse( pSoldier );
+	(void)TacticalActorRecovery::collapse(*pSoldier);
 
 	// take damage
 	UINT32 damage = 15 + Random( 5 ) + Random( 23 );
@@ -6351,7 +6352,7 @@ void RoofDestruction( INT32 sGridNo, BOOLEAN fWithExplosion )
 		pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 		// if we play the animation of falling roof tiles over this, it will look like the merc fell really painful (there's even blood)
-		SoldierCollapse( pSoldier );
+		(void)TacticalActorRecovery::collapse(*pSoldier);
 
 		// take damage
 		UINT32 damage = 10 + Random( 3 ) + Random( 10 );

@@ -10,6 +10,7 @@
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCombatReactions.h"
+#include "TacticalActorRecovery.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
@@ -978,8 +979,6 @@ extern void ValidatePlayersAreInOneGroupOnly( );
 extern void MapScreenDefaultOkBoxCallback( UINT8 bExitValue );
 void SAIReportError( STR16 wErrorString );
 #endif
-
-UINT32 SleepDartSuccumbChance( TacticalActor * pSoldier );
 
 void	EnableDisableSoldierLightEffects( BOOLEAN fEnableLights );
 void	SetSoldierPersonalLightLevel( TacticalActor *pSoldier );
@@ -2620,12 +2619,13 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		if ( usNewState == JUMPUPWALL || usNewState == JUMPDOWNWALL || usNewState == CLIMBUPROOF || usNewState == CLIMBDOWNROOF || usNewState == HOPFENCE || usNewState == JUMPWINDOWS )
 		{
 			// Check for breath collapse if a given animation like
-			if ( this->CheckForBreathCollapse( ) || this->collapseState().tactical() )
+			if (TacticalActorRecovery::checkBreathCollapse(*this) ||
+				this->collapseState().tactical())
 			{
 				// UNset UI
 				UnSetUIBusy( this->identity().id() );
 
-				SoldierCollapse( this );
+				(void)TacticalActorRecovery::collapse(*this);
 
 				this->collapseState().clearBreathCollapse();
 
@@ -2730,7 +2730,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 								// UNset UI
 								UnSetUIBusy( this->identity().id() );
 
-								SoldierCollapse( this );
+								(void)TacticalActorRecovery::collapse(*this);
 
 								this->collapseState().clearBreathCollapse();
 							}
@@ -4779,18 +4779,9 @@ void TacticalActor::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, IN
 	{
 		if ( ubSpecial == FIRE_WEAPON_SLEEP_DART_SPECIAL )
 		{
-			UINT32	uiChance;
-
-			// put the drug in!
-			this->collapseState().sleepDrugCounter() = 10;
-
-			uiChance = SleepDartSuccumbChance( this );
-
-			if ( PreRandom( 100 ) < uiChance )
-			{
-				// succumb to the drug!
-				sBreathLoss = (INT16)(this->vitals().maximumBreath() * 100);
-			}
+			(void)TacticalActorRecovery::applySleepDart(
+				*this,
+				sBreathLoss);
 
 		}
 		else if ( ubSpecial == FIRE_WEAPON_BLINDED_BY_SPIT_SPECIAL )
@@ -5607,7 +5598,7 @@ void SoldierGotHitGunFire( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT16 
 		{
 			DeductPoints( pSoldier, APBPConstants[AP_LOSS_PER_LEGSHOT_DAMAGE] * sDamage, 0, DISABLED_INTERRUPT );
 		}
-		SoldierCollapse( pSoldier );
+		(void)TacticalActorRecovery::collapse(*pSoldier);
 		return;
 	}
 
@@ -5821,14 +5812,14 @@ void SoldierGotHitExplosion( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT1
 			}
 			else
 			{
-				SoldierCollapse( pSoldier );
+				(void)TacticalActorRecovery::collapse(*pSoldier);
 			}
 		}
 		break;
 
 	case ANIM_PRONE:
 
-		SoldierCollapse( pSoldier );
+		(void)TacticalActorRecovery::collapse(*pSoldier);
 		break;
 	}
 }
@@ -5950,7 +5941,7 @@ void SoldierGotHitVehicle(TacticalActor *pSoldier, UINT16 bDirection)
 		}
 		else
 		{
-			SoldierCollapse( pSoldier );
+			(void)TacticalActorRecovery::collapse(*pSoldier);
 		}
 		break;
 
@@ -5972,13 +5963,13 @@ void SoldierGotHitVehicle(TacticalActor *pSoldier, UINT16 bDirection)
 		}
 		else
 		{
-			SoldierCollapse( pSoldier );
+			(void)TacticalActorRecovery::collapse(*pSoldier);
 		}
 		break;
 
 	case ANIM_PRONE:
 
-		SoldierCollapse( pSoldier );
+		(void)TacticalActorRecovery::collapse(*pSoldier);
 		break;
 	}
 
@@ -6001,7 +5992,7 @@ BOOLEAN TacticalActor::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT1
 	//shadooow: if collapsed and enough breath, get up first and wait for new input
 	if (this->collapseState().tactical() && this->vitals().breath() >= OKBREATH)
 	{
-		this->BeginSoldierGetup();
+		(void)TacticalActorRecovery::beginGetUp(*this);
 		if(!this->collapseState().tactical()) return FALSE;
 	}
 
@@ -6832,7 +6823,7 @@ void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeC
 
 		if ( this->roster().inSector() )
 		{
-			this->CheckForBreathCollapse( );
+			(void)TacticalActorRecovery::checkBreathCollapse(*this);
 		}
 
 		this->CalcNewActionPoints( );
@@ -6865,7 +6856,7 @@ void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeC
 
 		if ( this->roster().inSector() )
 		{
-			this->BeginSoldierGetup( );
+			(void)TacticalActorRecovery::beginGetUp(*this);
 
 			// CJC Nov 30: handle RT opplist decaying in another function which operates less often
 			if ( IsJa2TacticalCombatActive() )
@@ -8385,179 +8376,6 @@ void MoveMercFacingDirection( TacticalActor *pSoldier, BOOLEAN fReverse, FLOAT d
 
 }
 
-UINT32 SleepDartSuccumbChance( TacticalActor * pSoldier )
-{
-	UINT32		uiChance;
-	INT16		bEffectiveStrength;
-
-	// figure out base chance of succumbing,
-	bEffectiveStrength = EffectiveStrength( pSoldier, TRUE );
-
-	if ( bEffectiveStrength > 90 )
-	{
-		uiChance = 110 - bEffectiveStrength;
-	}
-	else if ( bEffectiveStrength > 80 )
-	{
-		uiChance = 120 - bEffectiveStrength;
-	}
-	else if ( bEffectiveStrength > 70 )
-	{
-		uiChance = 130 - bEffectiveStrength;
-	}
-	else
-	{
-		uiChance = 140 - bEffectiveStrength;
-	}
-
-	// add in a bonus based on how long it's been since shot... highest chance at the beginning
-	uiChance += (10 - pSoldier->collapseState().sleepDrugCounter());
-
-	return(uiChance);
-}
-
-void TacticalActor::BeginSoldierGetup( void )
-{
-	// RETURN IF WE ARE BEING SERVICED
-	if ( this->service().hasProviders() )
-	{
-		return;
-	}
-#ifdef JA2UB
-	//Ja25: No meanwhiles
-#else
-	// ATE: Don't getup if we are in a meanwhile
-	if ( AreInMeanwhile( ) )
-	{
-		return;
-	}
-#endif
-	if ( this->collapseState().tactical() )
-	{
-		// anv: only get up if we're not blocked by anything (like vehicle)
-		BOOLEAN fEnoughPlace = TRUE;
-		STRUCTURE_FILE_REF		*pStructureFileRef;
-		if ( IS_MERC_BODY_TYPE( this ) )
-		{
-			switch ( this->animationPlayback().state() )
-			{
-			case FALLOFF_FORWARD_STOP:
-			case PRONE_LAYFROMHIT_STOP:
-			case STAND_FALLFORWARD_STOP:
-				pStructureFileRef = GetAnimationStructureRef( this->identity().id(), DetermineSoldierAnimationSurface( this, ANIM_CROUCH ), ANIM_CROUCH );
-				break;
-
-			case FALLBACKHIT_STOP:
-			case FALLOFF_STOP:
-			case FLYBACKHIT_STOP:
-			case FALLBACK_HIT_STAND:
-			case FALLOFF:
-			case FLYBACK_HIT:
-				pStructureFileRef = GetAnimationStructureRef( this->identity().id(), DetermineSoldierAnimationSurface( this, ROLLOVER ), ROLLOVER );
-				break;
-
-			default:
-				pStructureFileRef = GetAnimationStructureRef( this->identity().id(), DetermineSoldierAnimationSurface( this, ANIM_CROUCH ), ANIM_CROUCH );
-				break;
-			}
-
-			if ( pStructureFileRef )
-				fEnoughPlace = OkayToAddStructureToWorld( this->position().gridNo(), this->position().level(), &(pStructureFileRef->pDBStructureRef[gOneCDirection[this->position().direction()]]), this->identity().id(), FALSE, NOBODY );
-		}
-		// vehicles can't cower...
-		else if ( !(this->status().flags() & SOLDIER_VEHICLE) )
-		{
-			pStructureFileRef = GetAnimationStructureRef( this->identity().id(), DetermineSoldierAnimationSurface( this, END_COWER ), END_COWER );
-
-			if ( pStructureFileRef )
-				fEnoughPlace = OkayToAddStructureToWorld( this->position().gridNo(), this->position().level(), &(pStructureFileRef->pDBStructureRef[gOneCDirection[this->position().direction()]]), this->identity().id(), FALSE, NOBODY );
-		}
-
-		if ( this->vitals().health() >= OKLIFE && this->vitals().breath() >= OKBREATH && (this->collapseState().sleepDrugCounter() == 0) && fEnoughPlace )
-		{
-			// get up you hoser!
-
-			// sevenfm: if someone is dragging this soldier, cancel drag
-			TacticalActor *pSoldier;
-			for (UINT32 uiLoop = 0; uiLoop < Ja2ActiveTacticalActorSlotCount(); uiLoop++)
-			{
-				pSoldier =
-					ResolveJa2ActiveTacticalActorSlot(uiLoop);
-				if (pSoldier && pSoldier->interaction().draggedPerson() == this->identity().id())
-				{
-					TacticalActorDragging::cancel(*pSoldier);
-				}
-			}
-
-			this->collapseState().recover();
-
-			if ( IS_MERC_BODY_TYPE( this ) )
-			{
-				switch ( this->animationPlayback().state() )
-				{
-				case FALLOFF_FORWARD_STOP:
-				case PRONE_LAYFROMHIT_STOP:
-				case STAND_FALLFORWARD_STOP:
-					this->ChangeSoldierStance( ANIM_CROUCH );
-					break;
-
-				case FALLBACKHIT_STOP:
-				case FALLOFF_STOP:
-				case FLYBACKHIT_STOP:
-				case FALLBACK_HIT_STAND:
-				case FALLOFF:
-				case FLYBACK_HIT:
-
-					// ROLL OVER
-					this->EVENT_InitNewSoldierAnim( ROLLOVER, 0, FALSE );
-					break;
-
-				default:
-
-					this->ChangeSoldierStance( ANIM_CROUCH );
-					break;
-				}
-			}
-			// vehicles can't cower...
-			else if ( !(this->status().flags() & SOLDIER_VEHICLE) )
-			{
-				this->EVENT_InitNewSoldierAnim( END_COWER, 0, FALSE );
-			}
-		}
-		else
-		{
-			this->collapseState().turns()++;
-			if ( (gTacticalStatus.bBoxingState == BOXING) && (this->status().flags() & SOLDIER_BOXER) )
-			{
-				if ( this->collapseState().turns() > 1 )
-				{
-					// We have a winnah!  But it isn't this boxer!
-					EndBoxingMatch( this );
-				}
-			}
-		}
-	}
-	else if ( this->collapseState().sleepDrugCounter() > 0 )
-	{
-		UINT32 uiChance;
-
-		uiChance = SleepDartSuccumbChance( this );
-
-		if ( PreRandom( 100 ) < uiChance )
-		{
-			// succumb to the drug!
-			DeductPoints( this, 0, (INT16)(this->vitals().maximumBreath() * 100) );
-			SoldierCollapse( this );
-		}
-	}
-
-	if ( this->collapseState().sleepDrugCounter() > 0 )
-	{
-		this->collapseState().sleepDrugCounter()--;
-	}
-}
-
-
 void HandleTakeDamageDeath( TacticalActor *pSoldier, UINT8 bOldLife, UINT8 ubReason )
 {
 	switch ( ubReason )
@@ -8594,7 +8412,7 @@ void HandleTakeDamageDeath( TacticalActor *pSoldier, UINT8 bOldLife, UINT8 ubRea
 			// Check for < OKLIFE
 			if ( pSoldier->vitals().health() < OKLIFE && pSoldier->vitals().health() != 0 && !pSoldier->collapseState().tactical() )
 			{
-				SoldierCollapse( pSoldier );
+				(void)TacticalActorRecovery::collapse(*pSoldier);
 			}
 
 			// THis is for the die animation that will be happening....
@@ -9240,7 +9058,7 @@ UINT8 TacticalActor::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 s
 
 	if ( this->roster().inSector() )
 	{
-		this->CheckForBreathCollapse( );
+		(void)TacticalActorRecovery::checkBreathCollapse(*this);
 	}
 
 	// EXPERIENCE CLASS GAIN (combLoss): Getting wounded in battle
@@ -10779,7 +10597,7 @@ void TacticalActor::ReviveSoldier( void )
 
 		// Change to standing,unless we can getup with an animation
 		this->EVENT_InitNewSoldierAnim( STANDING, 0, TRUE );
-		this->BeginSoldierGetup( );
+		(void)TacticalActorRecovery::beginGetUp(*this);
 
 		// Makesure center of tile
 		ConvertGridNoToCenterCellXY(this->position().gridNo(), &sX, &sY);
@@ -11456,71 +11274,6 @@ void ContinueMercMovement( TacticalActor *pSoldier )
 			pSoldier->EVENT_InternalGetNewSoldierPath( sGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 		}
 	}
-}
-
-
-BOOLEAN TacticalActor::CheckForBreathCollapse( void )
-{
-	// MP: exhaustion collapse is the owner's call; copies replicate it via the
-	// sendSTATE echo. (See DeductPoints breath pinning.)
-	if ( is_networked && this->roster().team() >= LAN_TEAM_ONE )
-		return( FALSE );
-
-	// Check if we are out of breath!
-	// Only check if > 70
-	if ( this->vitals().maximumBreath() > 70 )
-	{
-		if ( this->vitals().breath() < 20 && !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_LOW_BREATH) &&
-			 gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND && !this->service().hasProviders() ) // SANDRO - added check to not play this if on healing
-		{
-			// SANDRO - say our personality quote for being out of breath caused by heat 
-			if ( MercIsHot( this ) && this->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER )
-			{
-				TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
-
-				// Flugente: dynamic opinions
-				if (gGameExternalOptions.fDynamicOpinions)
-				{
-					HandleDynamicOpinionChange(this, OPINIONEVENT_ANNOYINGDISABILITY, TRUE, TRUE);
-				}
-			}
-			else
-			{
-				// WARN!
-				TacticalCharacterDialogue( this, QUOTE_OUT_OF_BREATH );
-			}
-			// Set flag indicating we were warned!
-			this->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_BREATH);
-		}
-	}
-
-	// Check for drowing.....
-	//if ( this->vitals().breath() < 10 && !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_DROWNING ) && this->position().terrainType() == DEEP_WATER )
-	//{
-	// WARN!
-	//	TacticalCharacterDialogue( this, QUOTE_DROWNING );
-
-	// Set flag indicating we were warned!
-	//	this->dialogue().markSaid(SOLDIER_QUOTE_SAID_DROWNING);
-
-	// WISDOM GAIN (25):  Starting to drown
-	//  StatChange( this, WISDOMAMT, 25, FALSE );
-
-	//}
-
-	if ( this->vitals().breath() == 0 && !this->collapseState().tactical() && !(this->status().flags() & (SOLDIER_VEHICLE | SOLDIER_ANIMAL | SOLDIER_MONSTER)) )
-	{
-		if ( !this->service().hasProviders() ) // added by SANDRO (we don't want to collapse when on surgery)
-		{
-			// Collapse!
-			// OK, Set a flag, because we may still be in the middle of an animation what is not interruptable...
-			this->collapseState().markBreathCollapse();
-
-			return(TRUE);
-		}
-	}
-
-	return(FALSE);
 }
 
 
@@ -18916,144 +18669,6 @@ void SoldierBleed( TacticalActor *pSoldier, BOOLEAN fBandagedBleed )
 		else
 			pSoldier->SoldierTakeDamage( ANIM_CROUCH, 1, 100, TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, TRUE );
 	}
-}
-
-
-void SoldierCollapse( TacticalActor *pSoldier )
-{
-	// already down and lying -- don't replay the fall (MP echo / double-collapse; audit [27])
-	if ( pSoldier->collapseState().tactical() && gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE )
-		return;
-	BOOLEAN fMerc = FALSE;
-
-	if ( pSoldier->identity().bodyType() <= REGFEMALE )
-	{
-		fMerc = TRUE;
-	}
-
-	// If we are an animal, etc, don't do anything....
-	switch ( pSoldier->identity().bodyType() )
-	{
-	case ADULTFEMALEMONSTER:
-	case AM_MONSTER:
-	case YAF_MONSTER:
-	case YAM_MONSTER:
-	case LARVAE_MONSTER:
-	case INFANT_MONSTER:
-	case QUEENMONSTER:
-
-		// Give breath back....
-		DeductPoints( pSoldier, 0, (INT16)-5000 );
-		return;
-		break;
-	}
-
-	pSoldier->collapseState().collapse();
-
-	pSoldier->movement().mode() = CRAWLING;
-
-	TacticalActorMedicalServices::cancelReceiving(
-		*pSoldier);
-
-	// CC has requested - handle sight here...
-	HandleSight( pSoldier, SIGHT_LOOK );
-
-	// Check height
-	switch ( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight )
-	{
-	case ANIM_STAND:
-
-		if ( TacticalActorMobility::inDeepWater(*pSoldier) )
-		{
-			pSoldier->EVENT_InitNewSoldierAnim( DEEP_WATER_DIE, 0, FALSE );
-		}
-		else if ( TacticalActorMobility::inShallowWater(*pSoldier) )
-		{
-			pSoldier->EVENT_InitNewSoldierAnim( WATER_DIE, 0, FALSE );
-		}
-		else
-		{
-			(void)TacticalActorCombatReactions::
-				beginFall(*pSoldier);
-			if ( !is_networked )pSoldier->EVENT_InitNewSoldierAnim( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
-			else pSoldier->ChangeSoldierState( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
-		}
-		break;
-
-	case ANIM_CROUCH:
-
-		// Crouched or prone, only for mercs!
-		(void)TacticalActorCombatReactions::
-			beginFall(*pSoldier);
-
-		// 0verhaul:  No special case here!  First the FALLFORWARD_FROMHIT_CROUCH can be filled in to use the FALLFORWARD_FROMHIT_STAND anim
-		// then when real anims come, use them instead.
-		//if ( fMerc )
-		//{
-		if ( !is_networked )pSoldier->EVENT_InitNewSoldierAnim( FALLFORWARD_FROMHIT_CROUCH, 0, FALSE );
-		else pSoldier->ChangeSoldierState( FALLFORWARD_FROMHIT_CROUCH, 0, FALSE );
-		//}
-		//else
-		//{
-		//	// For civs... use fall from stand...
-		//	pSoldier->EVENT_InitNewSoldierAnim( FALLFORWARD_FROMHIT_STAND, 0 , FALSE);
-		//}
-		break;
-
-	case ANIM_PRONE:
-
-		switch ( pSoldier->animationPlayback().state() )
-		{
-		case FALLFORWARD_FROMHIT_STAND:
-		case ENDFALLFORWARD_FROMHIT_CROUCH:
-
-			pSoldier->ChangeSoldierState( STAND_FALLFORWARD_STOP, 0, FALSE );
-			break;
-
-		case FALLBACK_HIT_STAND:
-			pSoldier->ChangeSoldierState( FALLBACKHIT_STOP, 0, FALSE );
-			break;
-
-		default:
-			if ( !is_networked )pSoldier->EVENT_InitNewSoldierAnim( PRONE_LAY_FROMHIT, 0, FALSE );
-			else pSoldier->ChangeSoldierState( PRONE_LAY_FROMHIT, 0, FALSE );
-			break;
-		}
-		break;
-	}
-
-	if ( pSoldier->status().flags() & SOLDIER_ENEMY )
-	{
-		if ( gTacticalStatus.ubTheChosenOne == pSoldier->identity().id() )
-		{
-			auto bPanicTrigger = ClosestPanicTrigger(pSoldier);
-			if (bPanicTrigger != -1 && !(gTacticalStatus.bPanicTriggerIsAlarm[bPanicTrigger]))
-			{
-				// replace this guy as the chosen one!
-				gTacticalStatus.ubTheChosenOne = NOBODY;
-				MakeClosestEnemyChosenOne( );
-			}
-		}
-
-		if ( IsJa2TacticalTurnBasedCombat() && (pSoldier->status().flags() & SOLDIER_UNDERAICONTROL) )
-		{
-#ifdef TESTAICONTROL
-			DebugAI( String( "Ending turn for %d because of error from HandleItem", pSoldier->identity().id() ) );
-#endif
-
-			EndAIGuysTurn( pSoldier );
-		}
-	}
-
-	// DON'T DE-SELECT GUY.....
-	//else
-	//{
-	// Check if this is our selected guy...
-	//	if ( pSoldier->identity().id() == gusSelectedSoldier )
-	//	{
-	//		SelectNextAvailSoldier( pSoldier );
-	//		}
-	//}
 }
 
 

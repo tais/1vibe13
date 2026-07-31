@@ -1432,6 +1432,15 @@ the engine must not contain SDL types in its public domain model.
   path capacity, or face indexes before accessing legacy tables. Existing
   combat rules, maps, movement costs, animations, audio, art, XML, Lua, and
   network formats are unchanged.
+  `TacticalActorRecovery` owns sleep-dart application, breath-collapse
+  detection, collapse execution, and get-up progression. The two former
+  aggregate methods plus the global collapse entry point and sleep-dart helper
+  are retired; hit resolution, turn handling, animation, boxing, explosions,
+  and combat reactions enter the same bounded domain. It validates tactical
+  world lifetime and actor, profile, body, animation, direction, level, grid,
+  and get-up structure state before consulting legacy tables. Existing combat
+  and fatigue rules, items, maps, animations, dialogue, audio, XML, Lua,
+  network behavior, and other installed mod-data formats are unchanged.
   `TacticalActorInteractions` now also owns the bounded person-to-person
   action boundary for giving items, handcuffing, applying equipment or
   consumables, drawing blood, and applying splints. Five more aggregate

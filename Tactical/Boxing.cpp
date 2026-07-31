@@ -1,4 +1,5 @@
 	#include "TacticalActorAiBehavior.h"
+	#include "TacticalActorRecovery.h"
 	#include "Soldier Control.h"
 	#include "SoldierRepository.h"
 	#include "Overhead.h"
@@ -101,7 +102,7 @@ void ExitBoxing( void )
 							// deduct -ve BPs to grant some BPs back (properly)
 							DeductPoints( pSoldier, 0, (INT16) - ( (100 - pSoldier->vitals().breath()) * 100 ) );
 						}
-						pSoldier->BeginSoldierGetup( );
+						(void)TacticalActorRecovery::beginGetUp(*pSoldier);
 					}
 				}
 			}
