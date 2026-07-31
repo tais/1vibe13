@@ -949,18 +949,14 @@ public:
 	BOOLEAN GetProfileFlagsFromGridno( UINT16 usAnimState, INT32 sTestGridNo, UINT16 *usFlags );
 	void HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy );
 	void ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, UINT16 usNewItem );
-	void	DoNinjaAttack( void );
 	void PickDropItemAnimation( void );
 
 	void BeginSoldierGetup( void );
-	void BeginTyingToFall( void );
 	
 	void HandleAnimationProfile( UINT16	usAnimState, BOOLEAN fRemove );
 	// Overload taking the already-computed animation surface (avoids recomputing DetermineSoldierAnimationSurface)
 	void HandleAnimationProfile( UINT16	usAnimState, UINT16 usAnimSurface, BOOLEAN fRemove );
 	void HandleSoldierTakeDamageFeedback( void );
-	void ChangeToFlybackAnimation( UINT8 flyBackDirection );
-	void ChangeToFallbackAnimation( UINT8 fallBackDirection );
 
 	// sevenfm
 

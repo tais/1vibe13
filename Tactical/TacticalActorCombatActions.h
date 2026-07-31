@@ -18,4 +18,6 @@ namespace TacticalActorCombatActions
 		TacticalActor& actor,
 		std::int32_t targetGrid,
 		std::uint8_t direction);
+	[[nodiscard]] bool continueNinjaAttack(
+		TacticalActor& actor);
 }

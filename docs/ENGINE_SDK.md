@@ -650,6 +650,15 @@ methods. Both reject unavailable worlds and malformed actor, target,
 animation, inventory, item, or world-item state before consulting legacy
 tables; weapon, explosive, map, XML, Lua, animation, and installed content
 formats remain unchanged.
+Martial-arts animation continuation also enters
+`TacticalActorCombatActions`; callers must not restore `DoNinjaAttack`.
+`TacticalActorCombatReactions` owns fall intent and bounded fallback/flyback
+path setup. Hit resolution, collapse handling, and animation playback use
+`beginFall`, `beginFallback`, or `beginFlyback` rather than writing route and
+fall state through the aggregate. These operations validate world lifetime,
+actor, target, body, animation, direction, level, grid, movement-cost, route,
+and face state without changing combat rules, maps, movement costs,
+animations, audio, XML, Lua, or network formats.
 `TacticalActorInteractions` owns person-to-person item giving, handcuffing,
 equipment/consumable application, blood collection, splint application, and
 chat teardown. New callers use these bounded operations instead of restoring

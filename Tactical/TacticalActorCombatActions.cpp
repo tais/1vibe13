@@ -21,6 +21,7 @@
 #include "TacticalWorldAdapter.h"
 #include "World Tile Map.h"
 #include "ai.h"
+#include "faces.h"
 #include "opplist.h"
 #include "random.h"
 #include "worlddef.h"
@@ -29,6 +30,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 extern UINT16 usForceAnimState;
 
@@ -448,6 +450,62 @@ void beginUprightPunchAnimation(
 
 	actor.EVENT_InitNewSoldierAnim(animation, 0, FALSE);
 }
+
+void playNinjaAttackSound(TacticalActor& actor)
+{
+	if (actor.identity().profile() != 33)
+		return;
+
+	SOUNDPARMS parameters;
+	std::memset(
+		&parameters,
+		0xff,
+		sizeof(parameters));
+	parameters.uiSpeed = RATE_11025;
+	parameters.uiVolume =
+		static_cast<std::int8_t>(
+			CalculateSpeechVolume(HIGHVOLUME));
+	if (actor.roster().team() != gbPlayerNum)
+	{
+		parameters.uiVolume = SoundVolume(
+			static_cast<std::uint8_t>(
+				parameters.uiVolume),
+			actor.position().gridNo());
+	}
+	parameters.uiLoop = 1;
+	parameters.uiPan =
+		SoundDir(actor.position().gridNo());
+	parameters.uiPriority = GROUP_PLAYER;
+
+	std::uint32_t soundId = SOUND_ERROR;
+	if (actor.animationPlayback().state() ==
+		NINJA_SPINKICK)
+	{
+		soundId = SoundPlay(
+			"BATTLESNDS\\033_CHOP2.WAV",
+			&parameters);
+	}
+	else
+	{
+		soundId = SoundPlay(
+			Random(2) == 0
+				? "BATTLESNDS\\033_CHOP3.WAV"
+				: "BATTLESNDS\\033_CHOP1.WAV",
+			&parameters);
+	}
+
+	if (soundId == SOUND_ERROR)
+		return;
+
+	actor.dialogue().activeBattleSound() = soundId;
+	const std::int32_t faceIndex =
+		actor.renderBindings().faceIndex();
+	if (faceIndex >= 0 &&
+		faceIndex < NUM_FACE_SLOTS)
+	{
+		ExternSetFaceTalking(faceIndex, soundId);
+	}
+}
 }
 
 bool TacticalActorCombatActions::beginBladeAttack(
@@ -586,6 +644,9 @@ bool TacticalActorCombatActions::beginPunchAttack(
 	if (!target)
 		return false;
 
+	actor.targeting().gridNo() = targetGrid;
+	actor.targeting().level() = actor.position().level();
+	actor.targeting().targetId() = target->identity().id();
 	markMeleeApproach(actor, *target);
 	faceForMelee(actor, direction);
 
@@ -625,7 +686,8 @@ bool TacticalActorCombatActions::beginPunchAttack(
 		}
 		else
 		{
-			actor.DoNinjaAttack();
+			(void)TacticalActorCombatActions::
+				continueNinjaAttack(actor);
 		}
 	}
 	else if (
@@ -705,10 +767,113 @@ bool TacticalActorCombatActions::beginPunchAttack(
 		}
 	}
 
-	actor.targeting().gridNo() = targetGrid;
-	actor.targeting().level() = actor.position().level();
-	actor.targeting().targetId() = target->identity().id();
 	return true;
+}
+
+bool TacticalActorCombatActions::continueNinjaAttack(
+	TacticalActor& actor)
+{
+	const std::int32_t targetGrid =
+		actor.targeting().gridNo();
+	if (!hasLiveCombatContext(
+			actor,
+			targetGrid,
+			actor.position().direction()) ||
+		actor.identity().id().i >= MAX_NUM_SOLDIERS)
+	{
+		return false;
+	}
+
+	TacticalActor* const target =
+		resolveTarget(actor, targetGrid);
+	if (!target)
+		return false;
+
+	const std::uint8_t targetStance =
+		gAnimControl[
+			target->animationPlayback().state()]
+			.ubEndHeight;
+	bool animationStarted = false;
+	if (gGameExternalOptions
+			.fEnhancedCloseCombatSystem &&
+		actor.aiPlanning().aimTime() > 0 &&
+		targetStance != ANIM_PRONE)
+	{
+		animationStarted =
+			actor.ChangeSoldierState(
+				NINJA_SPINKICK,
+				0,
+				FALSE) != FALSE;
+	}
+	else if (
+		!gGameExternalOptions
+			.fEnhancedCloseCombatSystem &&
+		(target->vitals().health() <= 30 ||
+		 target->vitals().breath() <= 30) &&
+		targetStance != ANIM_PRONE)
+	{
+		animationStarted =
+			actor.ChangeSoldierState(
+				NINJA_SPINKICK,
+				0,
+				FALSE) != FALSE;
+	}
+	else if (targetStance != ANIM_PRONE)
+	{
+		animationStarted =
+			actor.ChangeSoldierState(
+				Random(2) == 0
+					? NINJA_LOWKICK
+					: NINJA_PUNCH,
+				0,
+				FALSE) != FALSE;
+
+		if (target->awareness().opponentKnowledge()[
+				actor.identity().id()] == 0 &&
+			target->roster().team() !=
+				actor.roster().team() &&
+			!(target->status().flags() &
+				(SOLDIER_MONSTER |
+				 SOLDIER_ANIMAL |
+				 SOLDIER_VEHICLE)))
+		{
+			const std::uint8_t targetDirection =
+				GetDirectionFromGridNo(
+					actor.position().gridNo(),
+					target);
+			if (targetDirection <
+				NUM_WORLD_DIRECTIONS)
+			{
+				SendSoldierSetDesiredDirectionEvent(
+					target,
+					targetDirection);
+			}
+		}
+	}
+	else if (
+		gAnimControl[
+			actor.animationPlayback().state()]
+			.ubEndHeight != ANIM_CROUCH)
+	{
+		SendChangeSoldierStanceEvent(
+			&actor,
+			ANIM_CROUCH);
+		actor.animationIntent().pendingAnimation() =
+			PUNCH_LOW;
+		animationStarted = true;
+	}
+	else
+	{
+		animationStarted =
+			actor.EVENT_InitNewSoldierAnim(
+				PUNCH_LOW,
+				0,
+				FALSE) != FALSE;
+	}
+
+	if (animationStarted)
+		playNinjaAttackSound(actor);
+	return animationStarted;
 }
 
 bool TacticalActorCombatActions::beginKnifeThrow(
