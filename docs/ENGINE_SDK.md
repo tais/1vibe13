@@ -710,6 +710,17 @@ rejects malformed animation-state, surface, world-direction, extended-facing,
 and video-object frame metadata before indexing legacy animation tables.
 Existing animation scripts and assets, rendering behavior, maps, XML, Lua,
 save, and network formats remain unchanged.
+`TacticalActorAnimationFootprint` owns the tactical-world placeholder tiles
+described by an actor's animation profile. New callers use `add`,
+`addForSurface`, `remove`, `flagsAtGrid`, and `nextWorldNode` instead of
+restoring `HandleAnimationProfile`, `GetProfileFlagsFromGridno`, or
+`GetAnimProfileFlags`. The boundary rejects unloaded or inconsistently sized
+world storage and malformed animation, body/inventory resolver, surface,
+signed profile index, direction, profile-tile storage, and projected-grid
+state. Off-map profile tiles are skipped as before, and add failure rolls back
+already-created placeholders. Existing animation-profile binaries,
+hit-location flags, cursor behavior, maps, rendering, XML, Lua, save, and
+network formats remain unchanged.
 `TacticalActorTraversal` owns roof ascent and descent, fence and window jumps,
 and wall-climb initiation. Player producers continue to emit the stable
 `TraverseObstacleCommand`; command execution, AI, and path completion enter

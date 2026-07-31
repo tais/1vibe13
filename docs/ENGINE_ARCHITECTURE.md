@@ -1491,6 +1491,20 @@ the engine must not contain SDL types in its public domain model.
   extended-direction indexes plus video-object frame counts before indexing
   legacy animation tables. Existing animation scripts and assets, rendering,
   maps, XML, Lua, saves, and network formats are unchanged.
+  `TacticalActorAnimationFootprint` owns the animation-profile tiles projected
+  into the tactical merc layer for hit-location selection. Animation changes,
+  world placement, and facing updates use `add`, `addForSurface`, and `remove`;
+  cursor targeting traverses the same placeholder nodes through
+  `nextWorldNode`, while `flagsAtGrid` provides the bounded profile query. The
+  aggregate `HandleAnimationProfile` and `GetProfileFlagsFromGridno` methods,
+  their declaration-only global wrappers, and the free `GetAnimProfileFlags`
+  world helper are retired. The domain validates world storage and dimensions,
+  animation state, body/inventory resolver inputs, surface and signed profile
+  indexes, profile storage, direction, tile storage, and every projected grid.
+  Tiles outside the current map remain skipped, and a failed multi-tile add is
+  rolled back rather than leaving a partial footprint. Existing binary
+  animation-profile data, hit-location flags, cursor behavior, maps, rendering,
+  XML, Lua, saves, and network formats are unchanged.
   `TacticalActorTraversal` owns roof ascent/descent, fence and window jumps,
   and wall-climb initiation. Player intent still enters through the stable
   `TraverseObstacleCommand`; its executor, tactical AI, and path completion

@@ -1,4 +1,5 @@
 #include "TacticalActorWeaponHandling.h"
+#include "TacticalActorAnimationFootprint.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
 	#include "Items.h"
@@ -1464,7 +1465,10 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 		}
 
 		// Determine which body part it's on
-		pNode = GetAnimProfileFlags( usMapPos, &usFlags, &pTargetSoldier, NULL );
+		pNode = TacticalActorAnimationFootprint::nextWorldNode(
+			usMapPos,
+			usFlags,
+			pTargetSoldier);
 
 		while( pNode != NULL )
 		{
@@ -1561,7 +1565,11 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 			if ( fOnGuy )
 				break;
 
-			pNode = GetAnimProfileFlags( usMapPos, &usFlags, &pTargetSoldier, pNode );
+			pNode = TacticalActorAnimationFootprint::nextWorldNode(
+				usMapPos,
+				usFlags,
+				pTargetSoldier,
+				pNode);
 
 		}
 

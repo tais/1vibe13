@@ -1,4 +1,5 @@
 #include "Soldier Functions.h"
+#include "TacticalActorAnimationFootprint.h"
 #include "TacticalActorAnimationFrames.h"
 #include "TacticalActorConsumables.h"
 #include "TacticalActorEquipment.h"
@@ -2824,7 +2825,9 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 	}
 
 	// Remove old animation profile
-	this->HandleAnimationProfile( this->animationPlayback().state(), TRUE );
+	(void)TacticalActorAnimationFootprint::remove(
+		*this,
+		this->animationPlayback().state());
 
 
 	// From animation control, set surface
@@ -2908,7 +2911,10 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 	// Set new animation profile
 	// SetSoldierAnimationSurface (above) already computed and stashed the surface for usNewState in
 	// this->animationPlayback().surface(); reuse it instead of recomputing DetermineSoldierAnimationSurface here.
-	this->HandleAnimationProfile( usNewState, this->animationPlayback().surface(), FALSE );
+	(void)TacticalActorAnimationFootprint::addForSurface(
+		*this,
+		usNewState,
+		this->animationPlayback().surface());
 
 	// Reset some animation values
 	this->renderState().disableForceShade();
@@ -3013,7 +3019,9 @@ void TacticalActor::InternalRemoveSoldierFromGridNo( BOOLEAN fForce )
 		{
 			// Remove from world ( old pos )
 			RemoveMerc( this->position().gridNo(), this, FALSE );
-			this->HandleAnimationProfile( this->animationPlayback().state(), TRUE );
+			(void)TacticalActorAnimationFootprint::remove(
+				*this,
+				this->animationPlayback().state());
 
 			// Remove records of this guy being adjacent
 			for ( bDir = 0; bDir < NUM_WORLD_DIRECTIONS; bDir++ )
@@ -3355,7 +3363,9 @@ void TacticalActor::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 
 			///HandlePlacingRoofMarker( this, this->sGridNo, TRUE, FALSE );
 
-			this->HandleAnimationProfile( this->animationPlayback().state(), FALSE );
+			(void)TacticalActorAnimationFootprint::add(
+				*this,
+				this->animationPlayback().state());
 
 			HandleCrowShadowNewGridNo( this );
 		}
@@ -6185,7 +6195,9 @@ void TacticalActor::EVENT_SetSoldierDesiredDirection( UINT16	usNewDirection )
 void TacticalActor::EVENT_SetSoldierDirection( UINT16	usNewDirection )
 {
 	// Remove old location data
-	this->HandleAnimationProfile( this->animationPlayback().state(), TRUE );
+	(void)TacticalActorAnimationFootprint::remove(
+		*this,
+		this->animationPlayback().state());
 
 	// Flugente
 	BOOLEAN fNew = (this->position().direction() != (INT8)usNewDirection);
@@ -6196,7 +6208,9 @@ void TacticalActor::EVENT_SetSoldierDirection( UINT16	usNewDirection )
 	this->movement().highResolutionDirection() = ubExtDirection[this->position().direction()];
 
 	// Add new stuff
-	this->HandleAnimationProfile( this->animationPlayback().state(), FALSE );
+	(void)TacticalActorAnimationFootprint::add(
+		*this,
+		this->animationPlayback().state());
 
 	// If we are turning, we have chaanged our aim!
 	if ( !this->targeting().retainLastTargetFromTurn() )
@@ -6213,7 +6227,9 @@ void TacticalActor::EVENT_SetSoldierDirection( UINT16	usNewDirection )
 	}
 
 	// Handle Profile data for hit locations
-	this->HandleAnimationProfile( this->animationPlayback().state(), TRUE );
+	(void)TacticalActorAnimationFootprint::remove(
+		*this,
+		this->animationPlayback().state());
 
 	HandleCrowShadowNewDirection( this );
 
@@ -10039,159 +10055,6 @@ void TacticalActor::ReviveSoldier( void )
 		// Dirty INterface
 		fInterfacePanelDirty = DIRTYLEVEL2;
 	}
-}
-
-
-void TacticalActor::HandleAnimationProfile( UINT16	usAnimState, BOOLEAN fRemove )
-{
-	// ATE
-
-	// Get Surface Index
-	UINT16 usAnimSurface = DetermineSoldierAnimationSurface( this, usAnimState );
-
-	this->HandleAnimationProfile( usAnimState, usAnimSurface, fRemove );
-}
-
-
-void TacticalActor::HandleAnimationProfile( UINT16	usAnimState, UINT16 usAnimSurface, BOOLEAN fRemove )
-{
-	//#if 0
-	ANIM_PROF					*pProfile;
-	ANIM_PROF_DIR			*pProfileDir;
-	ANIM_PROF_TILE		*pProfileTile;
-	INT8							bProfileID;
-	UINT32						iTileCount;
-	INT32 sGridNo;
-
-	CHECKV( usAnimSurface != INVALID_ANIMATION_SURFACE );
-
-	bProfileID = gAnimSurfaceDatabase[usAnimSurface].bProfile;
-
-	// Determine if this animation has a profile
-	if ( bProfileID != -1 )
-	{
-		// Getprofile
-		pProfile = &(gpAnimProfiles[bProfileID]);
-
-		// Get direction
-		pProfileDir = &(pProfile->Dirs[this->position().direction()]);
-
-		// Loop tiles and set accordingly into world
-		for ( iTileCount = 0; iTileCount < pProfileDir->ubNumTiles; iTileCount++ )
-		{
-			pProfileTile = &(pProfileDir->pTiles[iTileCount]);
-
-			sGridNo = this->position().gridNo() + ((WORLD_COLS * pProfileTile->bTileY) + pProfileTile->bTileX);
-
-			// Check if in bounds
-			if ( !OutOfBounds( this->position().gridNo(), sGridNo ) )
-			{
-				if ( fRemove )
-				{
-					// Remove from world
-					RemoveMerc( sGridNo, this, TRUE );
-				}
-				else
-				{
-					// PLace into world
-					AddMercToHead( sGridNo, this, FALSE );
-					//if ( pProfileTile->bTileY != 0 || pProfileTile->bTileX != 0 )
-					{
-						gpWorldLevelData[sGridNo].pMercHead->uiFlags |= LEVELNODE_MERCPLACEHOLDER;
-						gpWorldLevelData[sGridNo].pMercHead->uiAnimHitLocationFlags = pProfileTile->usTileFlags;
-					}
-				}
-			}
-		}
-	}
-
-	//#endif
-
-}
-
-
-LEVELNODE *GetAnimProfileFlags( INT32 sGridNo, UINT16 *usFlags, TacticalActor **ppTargSoldier, LEVELNODE *pGivenNode )
-{
-	LEVELNODE				*pNode;
-
-	(*ppTargSoldier) = NULL;
-	(*usFlags) = 0;
-
-	if ( pGivenNode == NULL )
-	{
-		pNode = gpWorldLevelData[sGridNo].pMercHead;
-	}
-	else
-	{
-		pNode = pGivenNode->pNext;
-	}
-
-	//#if 0
-
-	if ( pNode != NULL )
-	{
-		if ( pNode->uiFlags & LEVELNODE_MERCPLACEHOLDER )
-		{
-			(*usFlags) = (UINT16)pNode->uiAnimHitLocationFlags;
-			(*ppTargSoldier) = pNode->pSoldier;
-		}
-	}
-
-	//#endif
-
-	return(pNode);
-}
-
-
-BOOLEAN TacticalActor::GetProfileFlagsFromGridno( UINT16 usAnimState, INT32 sTestGridNo, UINT16 *usFlags )
-{
-	ANIM_PROF					*pProfile;
-	ANIM_PROF_DIR			*pProfileDir;
-	ANIM_PROF_TILE		*pProfileTile;
-	INT8							bProfileID;
-	UINT32						iTileCount;
-	INT32 sGridNo;
-	UINT16						usAnimSurface;
-
-	// Get Surface Index
-	usAnimSurface = DetermineSoldierAnimationSurface( this, usAnimState );
-
-	CHECKF( usAnimSurface != INVALID_ANIMATION_SURFACE );
-
-	bProfileID = gAnimSurfaceDatabase[usAnimSurface].bProfile;
-
-	*usFlags = 0;
-
-	// Determine if this animation has a profile
-	if ( bProfileID != -1 )
-	{
-		// Getprofile
-		pProfile = &(gpAnimProfiles[bProfileID]);
-
-		// Get direction
-		pProfileDir = &(pProfile->Dirs[this->position().direction()]);
-
-		// Loop tiles and set accordingly into world
-		for ( iTileCount = 0; iTileCount < pProfileDir->ubNumTiles; iTileCount++ )
-		{
-			pProfileTile = &(pProfileDir->pTiles[iTileCount]);
-
-			sGridNo = this->position().gridNo() + ((WORLD_COLS * pProfileTile->bTileY) + pProfileTile->bTileX);
-
-			// Check if in bounds
-			if ( !OutOfBounds( this->position().gridNo(), sGridNo ) )
-			{
-				if ( sGridNo == sTestGridNo )
-				{
-					*usFlags = pProfileTile->usTileFlags;
-					return(TRUE);
-				}
-			}
-
-		}
-	}
-
-	return(FALSE);
 }
 
 
