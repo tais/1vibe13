@@ -10021,6 +10021,9 @@ int main( int, char** )
 			TacticalActorLighting::destroyPersonalLight(
 				interactionActor);
 		const bool unavailableCombatReactionsAreRejected =
+			!TacticalActorCombatReactions::setCowering(
+				interactionActor,
+				true) &&
 			!TacticalActorCombatReactions::beginFall(
 				interactionActor) &&
 			!TacticalActorCombatReactions::beginFlyback(
@@ -10073,6 +10076,9 @@ int main( int, char** )
 		interactionActor.position().direction() =
 			NUM_WORLD_DIRECTIONS;
 		const bool malformedCombatReactionDirectionIsRejected =
+			!TacticalActorCombatReactions::setCowering(
+				interactionActor,
+				true) &&
 			!TacticalActorCombatReactions::beginFall(
 				interactionActor) &&
 			!TacticalActorCombatReactions::beginFlyback(
@@ -10101,6 +10107,47 @@ int main( int, char** )
 				.sleepDrugCounter() == 1;
 		interactionActor.collapseState().sleepDrugCounter() = 0;
 		interactionActor.vitals().maximumHealth() = 100;
+		interactionActor.animationIntent().desiredHeight() =
+			ANIM_STAND;
+		const bool liveCowerStateIsOwned =
+			TacticalActorCombatReactions::setCowering(
+				interactionActor,
+				false) &&
+			!(interactionActor.status().flags() &
+				SOLDIER_COWERING) &&
+			interactionActor.animationIntent().desiredHeight() ==
+				ANIM_STAND &&
+			TacticalActorCombatReactions::setCowering(
+				interactionActor,
+				true) &&
+			(interactionActor.status().flags() &
+				SOLDIER_COWERING) &&
+			interactionActor.animationIntent().desiredHeight() ==
+				ANIM_CROUCH &&
+			TacticalActorCombatReactions::setCowering(
+				interactionActor,
+				true) &&
+			TacticalActorCombatReactions::setCowering(
+				interactionActor,
+				false) &&
+			!(interactionActor.status().flags() &
+				SOLDIER_COWERING) &&
+			interactionActor.animationIntent().desiredHeight() ==
+				ANIM_STAND;
+		interactionActor.identity().bodyType() = ROBOTNOWEAPON;
+		const std::uint16_t robotCowerAnimation =
+			interactionActor.animationPlayback().state();
+		const bool robotCowerStateIsRejected =
+			!TacticalActorCombatReactions::setCowering(
+				interactionActor,
+				true) &&
+			!(interactionActor.status().flags() &
+				SOLDIER_COWERING) &&
+			interactionActor.animationIntent().desiredHeight() ==
+				ANIM_STAND &&
+			interactionActor.animationPlayback().state() ==
+				robotCowerAnimation;
+		interactionActor.identity().bodyType() = REGMALE;
 		const bool liveFallIntentIsOwned =
 			TacticalActorCombatReactions::beginFall(
 				interactionActor) &&
@@ -10200,6 +10247,8 @@ int main( int, char** )
 		       malformedCombatReactionDirectionIsRejected &&
 		       malformedSleepDartVitalsAreRejected &&
 		       malformedSleepRecoveryIsRejected &&
+		       liveCowerStateIsOwned &&
+		       robotCowerStateIsRejected &&
 		       liveFallIntentIsOwned &&
 		       liveBreathCollapseIsOwned &&
 		       liveSleepDartStateIsOwned &&

@@ -6,6 +6,9 @@ class TacticalActor;
 
 namespace TacticalActorCombatReactions
 {
+	[[nodiscard]] bool setCowering(
+		TacticalActor& actor,
+		bool cowering);
 	[[nodiscard]] bool beginFall(TacticalActor& actor);
 	[[nodiscard]] bool beginFlyback(
 		TacticalActor& actor,

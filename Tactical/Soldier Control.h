@@ -925,7 +925,6 @@ public:
 
 
 
-	void SetSoldierCowerState( BOOLEAN fOn );
 	void ResetSoldierChangeStatTimer( void );
 	void SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove );
 	void SetSoldierHeight( FLOAT dNewHeight );

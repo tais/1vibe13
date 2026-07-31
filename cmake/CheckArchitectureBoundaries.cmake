@@ -3081,6 +3081,7 @@ foreach(retired_actor_facade IN ITEMS
   "BeginTyingToFall"
   "ChangeToFlybackAnimation"
   "ChangeToFallbackAnimation"
+  "SetSoldierCowerState"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3739,6 +3740,7 @@ foreach(required_combat_action IN ITEMS
 endforeach()
 
 foreach(required_combat_reaction IN ITEMS
+  "setCowering"
   "beginFall"
   "beginFlyback"
   "beginFallback")
@@ -3758,6 +3760,16 @@ foreach(required_combat_reaction IN ITEMS
       "Tactical actor combat reaction '${required_combat_reaction}' lost its declaration, definition, or malformed-state coverage")
   endif()
 endforeach()
+
+file(READ "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  tactical_ai_main_contents)
+string(FIND "${tactical_ai_main_contents}"
+  "TacticalActorCombatReactions::setCowering"
+  tactical_ai_cower_domain_call)
+if(tactical_ai_cower_domain_call EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical AI cower transitions must enter TacticalActorCombatReactions::setCowering")
+endif()
 
 foreach(required_recovery_operation IN ITEMS
   "applySleepDart"

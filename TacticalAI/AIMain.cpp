@@ -2,6 +2,7 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorPrisonerOperations.h"
+#include "TacticalActorCombatReactions.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorExplosives.h"
 #include "TacticalActorInteractions.h"
@@ -2453,7 +2454,7 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
             else
             {
                 pSoldier->aiPlanning().actionData() = ANIM_CROUCH;
-                pSoldier->SetSoldierCowerState( TRUE );
+                (void)TacticalActorCombatReactions::setCowering(*pSoldier, true);
             }
             break;
 
@@ -2462,7 +2463,7 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 			{
 				// stop cowering for civilians
 				pSoldier->aiPlanning().actionData() = ANIM_STAND;
-				pSoldier->SetSoldierCowerState(FALSE);
+				(void)TacticalActorCombatReactions::setCowering(*pSoldier, false);
 			}
 			else if (SoldierAI(pSoldier) && (pSoldier->animationPlayback().state() == COWERING || pSoldier->animationPlayback().state() == COWERING_PRONE))
 			{
