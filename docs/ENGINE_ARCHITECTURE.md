@@ -1442,16 +1442,21 @@ the engine must not contain SDL types in its public domain model.
   and fatigue rules, items, maps, animations, dialogue, audio, XML, Lua,
   network behavior, and other installed mod-data formats are unchanged.
   `TacticalActorInteractions` now also owns the bounded person-to-person
-  action boundary for giving items, handcuffing, applying equipment or
-  consumables, drawing blood, and applying splints. Five more aggregate
-  `EVENT_Soldier*` methods are retired. Target identity and location, actor
-  world/animation state, inventory stacks and item IDs, handcuff/splint/blood
-  bag flags, captive inventory, and replacement blood-bag creation are
-  validated before mutation. Failed give-item continuations no longer expose
-  an uninitialised target, zero-weight items cannot divide resistance checks,
-  and a missing replacement blood bag no longer consumes the empty bag.
-  Existing items, traits, maps, XML, Lua, dialogue, animations, and other
-  installed mod-data formats are unchanged.
+  action and conversation boundaries: resolved conversation initiation and
+  civilian, militia, trader, surrender, volunteer, and NPC dialogue routing;
+  chat teardown; item giving; handcuffing; equipment or consumable
+  application; blood collection; and splint application. Six aggregate
+  methods and the global volunteer-recruitment helper are retired. Stable
+  simulation commands retain delayed target identities and pass resolved
+  actor references into the domain. Target identity and location, actor
+  world/animation state, profile, dealer, strategic sector and town bounds,
+  inventory stacks and item IDs, handcuff/splint/blood-bag flags, captive
+  inventory, and replacement blood-bag creation are validated before
+  mutation. Failed give-item continuations no longer expose an uninitialised
+  target, zero-weight items cannot divide resistance checks, and a missing
+  replacement blood bag no longer consumes the empty bag. Existing items,
+  traits, maps, XML, Lua, dialogue, animations, and other installed mod-data
+  formats are unchanged.
   `TacticalActorTraversal` owns roof ascent/descent, fence and window jumps,
   and wall-climb initiation. Player intent still enters through the stable
   `TraverseObstacleCommand`; its executor, tactical AI, and path completion

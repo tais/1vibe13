@@ -9480,6 +9480,24 @@ int main( int, char** )
 		interactionActor.position().level() = FIRST_LEVEL;
 		interactionActor.position().direction() = NORTH;
 		interactionActor.animationPlayback().state() = STANDING;
+		interactionActor.roster().team() = OUR_TEAM;
+		interactionActor.identity().bodyType() = REGMALE;
+		interactionActor.identity().profile() = NO_PROFILE;
+		TacticalActor conversationTarget;
+		conversationTarget.identity().id() = SoldierID{1};
+		conversationTarget.identity().bodyType() = FATCIV;
+		conversationTarget.identity().profile() = NO_PROFILE;
+		conversationTarget.roster().active() = TRUE;
+		conversationTarget.roster().inSector() = TRUE;
+		conversationTarget.roster().team() = CIV_TEAM;
+		conversationTarget.vitals().health() = 100;
+		conversationTarget.vitals().maximumHealth() = 100;
+		conversationTarget.position().gridNo() = 1;
+		conversationTarget.position().level() = FIRST_LEVEL;
+		conversationTarget.position().direction() = NORTH;
+		conversationTarget.animationPlayback().state() = STANDING;
+		conversationTarget.deployment().sectorX() = 1;
+		conversationTarget.deployment().sectorY() = 1;
 		NotifyJa2TacticalWorldUnloaded();
 		const bool unavailableCombatActionsAreRejected =
 			!TacticalActorCombatActions::beginBladeAttack(
@@ -9527,6 +9545,15 @@ int main( int, char** )
 		NotifyJa2TacticalWorldLoaded(
 			previousWorld.worldGeneration != 0
 				? previousWorld.worldGeneration : 1);
+		interactionActor.actionPoints().current() = 47;
+		conversationTarget.interaction().nonNpcTraderId() =
+			std::numeric_limits<INT8>::max();
+		const bool malformedConversationTraderIsRejected =
+			!TacticalActorInteractions::startConversation(
+				interactionActor,
+				conversationTarget,
+				false) &&
+			interactionActor.actionPoints().current() == 47;
 		interactionActor.position().direction() =
 			NUM_WORLD_DIRECTIONS;
 		const bool malformedCombatReactionDirectionIsRejected =
@@ -9608,6 +9635,10 @@ int main( int, char** )
 			!TacticalActorExplosives::beginDetonatorUse(
 				explosiveActor);
 		const bool unavailableInteractionWorldIsRejected =
+			!TacticalActorInteractions::startConversation(
+				interactionActor,
+				conversationTarget,
+				false) &&
 			!TacticalActorInteractions::beginGivingItem(
 				interactionActor) &&
 			!TacticalActorInteractions::handcuffPerson(
@@ -9646,6 +9677,7 @@ int main( int, char** )
 		       unavailableCombatActionsAreRejected &&
 		       unavailableCombatReactionsAreRejected &&
 		       unavailableRecoveryActionsAreRejected &&
+		       malformedConversationTraderIsRejected &&
 		       malformedCombatReactionDirectionIsRejected &&
 		       malformedSleepDartVitalsAreRejected &&
 		       malformedSleepRecoveryIsRejected &&

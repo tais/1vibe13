@@ -3,6 +3,7 @@
 #include "Simulation Command Legacy.h"
 #include "SoldierRepository.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorInteractions.h"
 #include "TacticalActorTraversal.h"
 #include "TacticalWorldAdapter.h"
 
@@ -601,7 +602,10 @@ namespace
 				if (!soldier || !target ||
 					!IsValidConversationPair(*soldier, *target))
 					return CommandDisposition::Discard;
-				(void)soldier->PlayerSoldierStartTalking(target->identity().id(), FALSE);
+				(void)TacticalActorInteractions::startConversation(
+					*soldier,
+					*target,
+					false);
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
@@ -1924,7 +1928,10 @@ bool TryCompletePendingConversationCommand(TacticalActor& soldier) noexcept
 
 	TacticalActor* target = ResolveLiveCommandActor(targetId);
 	if (!target || !IsValidConversationPair(soldier, *target)) return false;
-	(void)soldier.PlayerSoldierStartTalking(target->identity().id(), TRUE);
+	(void)TacticalActorInteractions::startConversation(
+		soldier,
+		*target,
+		true);
 	return true;
 }
 

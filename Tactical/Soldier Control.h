@@ -963,7 +963,6 @@ public:
 	BOOLEAN InternalSoldierReadyWeapon( UINT8 sFacingDir, BOOLEAN fEndReady, BOOLEAN fRaiseToHipOnly );
 
 	BOOLEAN CheckSoldierHitRoof( void );
-	BOOLEAN PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fValidate );
 	// reset the extra stat variables
 	void	ResetExtraStats();
 
@@ -1121,9 +1120,6 @@ void HandleTakeDamageDeath( TacticalActor *pSoldier, UINT8 bOldLife, UINT8 ubRea
 void SetDamageDisplayCounter(TacticalActor* pSoldier);
 
 // SANDRO - This whole procedure was merged with the surgery ability of the doctor trait
-
-// Flugente: decide whether pRecruiter can successfully recruit pTarget to be a volunteer
-void HandleVolunteerRecruitment( TacticalActor* pRecruiter, TacticalActor* pTarget );
 
 // Flugente: apply a consumable item on a soldier. Returns true if item was successfully interacted with
 BOOLEAN ApplyConsumable( TacticalActor* pSoldier, OBJECTTYPE *pObject, BOOLEAN fForce, BOOLEAN fUseAPs );

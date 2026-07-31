@@ -2958,6 +2958,7 @@ foreach(retired_actor_facade IN ITEMS
   "InventoryExplosion"
   "SelfDetonate"
   "StopChatting"
+  "PlayerSoldierStartTalking"
   "DrugAutoUse"
   "IsValidBloodDonor"
   "CanUseRadio"
@@ -3080,6 +3081,22 @@ foreach(retired_actor_facade IN ITEMS
      NOT retired_actor_facade_definition EQUAL -1)
     message(FATAL_ERROR
       "TacticalActor regained retired facade '${retired_actor_facade}'")
+  endif()
+endforeach()
+
+foreach(retired_conversation_helper IN ITEMS
+  "HandleVolunteerRecruitment"
+  "AbandonBoxingDueToSurrenderCallback")
+  string(FIND "${tactical_actor_header_contents}"
+    "${retired_conversation_helper}("
+    retired_conversation_helper_declaration)
+  string(FIND "${tactical_actor_source_contents}"
+    "${retired_conversation_helper}("
+    retired_conversation_helper_definition)
+  if(NOT retired_conversation_helper_declaration EQUAL -1 OR
+     NOT retired_conversation_helper_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier Control regained retired conversation helper '${retired_conversation_helper}'")
   endif()
 endforeach()
 
@@ -3777,6 +3794,7 @@ foreach(required_explosive_action IN ITEMS
 endforeach()
 
 foreach(required_interaction_operation IN ITEMS
+  "startConversation"
   "stopChatting"
   "beginGivingItem"
   "handcuffPerson"
