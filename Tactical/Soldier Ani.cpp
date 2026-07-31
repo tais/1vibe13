@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationFrames.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorCombatReactions.h"
 #include "TacticalActorLighting.h"
@@ -219,7 +220,9 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 			// Adjust / set true ani frame
 			// Use -1 because ani files are 1-based, these are 0-based
-			pSoldier->ConvertAniCodeToAniFrame( (INT16)( sNewAniFrame - 1 ) );
+			(void)TacticalActorAnimationFrames::selectFrame(
+				*pSoldier,
+				static_cast<UINT16>(sNewAniFrame - 1));
 
 			// Adjust frame control pos, and try again
 			pSoldier->animationPlayback().code()++;
@@ -818,7 +821,9 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					}
 					pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
 					sLastAniFrame = gusAnimInst[ pSoldier->animationPlayback().state() ][ ( pSoldier->animationPlayback().code() - 2 ) ];
-					pSoldier->ConvertAniCodeToAniFrame( (INT16)( sLastAniFrame ) );
+					(void)TacticalActorAnimationFrames::selectFrame(
+						*pSoldier,
+						static_cast<UINT16>(sLastAniFrame));
 
 					if ( pSoldier->position().direction() == pSoldier->animationActivity().fallDirection() )
 					{

@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationFrames.h"
 #include "TacticalActorTurnBudget.h"
 	#include "builddefines.h"
 
@@ -1502,7 +1503,9 @@ void SetMercDirection( INT8 bDirection )
 	gpSelected->pSoldier->EVENT_SetSoldierDirection( bDirection );
 	gpSelected->pSoldier->EVENT_SetSoldierDesiredDirection( bDirection );
 
-	gpSelected->pSoldier->ConvertAniCodeToAniFrame( 0 );
+	(void)TacticalActorAnimationFrames::selectFrame(
+		*gpSelected->pSoldier,
+		0);
 }
 
 void SetMercRelativeEquipment( INT8 bLevel )
@@ -2166,7 +2169,9 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 				break;
 		}
 		SetSoldierAnimationSurface( gpSelected->pSoldier, gpSelected->pSoldier->animationPlayback().state() );
-		gpSelected->pSoldier->ConvertAniCodeToAniFrame( 0 );
+		(void)TacticalActorAnimationFrames::selectFrame(
+			*gpSelected->pSoldier,
+			0);
 	}
 	//Update the placement's info as well.
 	gpSelected->pBasicPlacement->ubBodyType = (INT8)iIndex;

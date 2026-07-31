@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorAnimationFrames.h"
 #include "builddefines.h"
 #include "TacticalWorldAdapter.h"
 ///////////////////////////
@@ -2857,7 +2858,9 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								// Flugente: frozen soldiers don't move
 								if (pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) && pSoldier->vitals().health() > 0)
 								{
-									usImageIndex = pSoldier->CryoAniFrame();
+									usImageIndex =
+										TacticalActorAnimationFrames::frozenFrame(
+											*pSoldier);
 								}
 
 								uiDirtyFlags = BGND_FLAG_SINGLE | BGND_FLAG_ANIMATED | BGND_FLAG_MERC;
