@@ -1,4 +1,5 @@
 #include "TacticalActorMobility.h"
+#include "TacticalActorLighting.h"
 	#include "builddefines.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
@@ -8147,8 +8148,10 @@ BOOLEAN HandleKlerykPistolet( TacticalActor *pSoldier, UINT32 uiHandPos, UINT16 
 		if ( uiInvPos == HEAD1POS || uiInvPos == HEAD2POS )
 		{
 			// Could be because of GOGGLES change...	Re-create light...
-			pSoldier->DeleteSoldierLight( );
-			pSoldier->PositionSoldierLight( );
+			(void)TacticalActorLighting::destroyPersonalLight(
+				*pSoldier);
+			(void)TacticalActorLighting::positionPersonalLight(
+				*pSoldier);
 		}
 	}
 	else

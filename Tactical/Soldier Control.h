@@ -872,8 +872,6 @@ private:
 public:
 	// CREATION FUNCTIONS
 	BOOLEAN DeleteSoldier( void );
-	BOOLEAN CreateSoldierLight( void );
-	BOOLEAN DeleteSoldierLight( void );
 
 	BOOLEAN CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierID, UINT16 usState );
 
@@ -922,7 +920,6 @@ public:
 	// This function is now obsolete.	Call ReduceAttackBusyCount instead.
 	// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
 	void SoldierGotoStationaryStance( void );
-	BOOLEAN ReCreateSoldierLight( void );
 	void RemoveSoldierFromGridNo( void );
 	void InternalRemoveSoldierFromGridNo( BOOLEAN fForce );
 
@@ -935,8 +932,6 @@ public:
 
 
 
-	void PositionSoldierLight( void );
-	void SetCheckSoldierLightFlag( void );
 	void SetSoldierCowerState( BOOLEAN fOn );
 	void ResetSoldierChangeStatTimer( void );
 	void SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove );
@@ -1058,7 +1053,6 @@ extern UINT8					bHealthStrRanges[];
 // Soldier Management functions called by Overhead.c
 void RevivePlayerTeam( );
 
-BOOLEAN ReCreateSelectedSoldierLight(	);
 
 // Palette functions for soldiers
 BOOLEAN GetPaletteRepIndexFromID( const CHAR8 *aPalRep, UINT8 *pubPalIndex );

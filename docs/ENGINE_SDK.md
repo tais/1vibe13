@@ -681,6 +681,17 @@ directions, animation state, profiles, dealer/sector/town indexes, inventory
 stacks, item IDs and flags, and repository identity after movement. Installed
 item definitions, traits, maps, XML, Lua/dialogue behavior, animations, and
 other content formats are unchanged.
+`TacticalActorLighting` owns personal player-merc light creation, recreation,
+destruction, positioning, and the personal shade applied to the actor's render
+node. New callers use `createPersonalLight`, `recreatePersonalLight`,
+`destroyPersonalLight`, `positionPersonalLight`, or `setPersonalLightLevel`
+instead of restoring the retired aggregate light methods,
+`ReCreateSelectedSoldierLight`, or `SetSoldierPersonalLightLevel`. The domain
+rejects unloaded worlds and malformed actor, profile, animation, inventory,
+attachment, item, grid, level, projected-position, or light-handle state before
+consulting legacy tables; destruction safely clears malformed handles and is
+idempotent. Existing lighting templates, vision rules, maps, settings, render
+behavior, XML, Lua, art, and installed content formats remain unchanged.
 `TacticalActorTraversal` owns roof ascent and descent, fence and window jumps,
 and wall-climb initiation. Player producers continue to emit the stable
 `TraverseObstacleCommand`; command execution, AI, and path completion enter

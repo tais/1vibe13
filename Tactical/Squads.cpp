@@ -1,5 +1,6 @@
 	#include "types.h"
 #include "TacticalActorRobotics.h"
+#include "TacticalActorLighting.h"
 	#include "Squads.h"
 	#include "Strategic Pathing.h"
 	#include "strategicmap.h"
@@ -1062,7 +1063,8 @@ void ExamineCurrentSquadLights( void )
 			GetJa2SoldierRepository().resolve(usID.i);
 		if ( soldier->roster().inSector() && soldier->vitals().health() >= OKLIFE )
 		{
-			soldier->PositionSoldierLight(	);
+			(void)TacticalActorLighting::positionPersonalLight(
+				*soldier);
 		}
 	}
 
@@ -1078,7 +1080,6 @@ void ExamineCurrentSquadLights( void )
 	//{
 	//	if(	ResolveSquadMember( iCurrentTacticalSquad, iCounter ) != NULL )
 	//	{
-	//		PositionSoldierLight( ResolveSquadMember( iCurrentTacticalSquad, iCounter ) );
 	//	}
 	//}
 }

@@ -145,12 +145,14 @@
 #include "TacticalActorTraversal.h"
 #include "TacticalActorTurncoats.h"
 #include "TacticalActorInteractions.h"
+#include "TacticalActorLighting.h"
 #include "TacticalActorModifiers.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
 #include "Plan.h"
 #include "Animation Control.h"
 #include "Map Information.h"
+#include "lighting.h"
 #include "Overhead.h"
 #include "ai.h"
 #include "Vehicles.h"
@@ -9514,6 +9516,24 @@ int main( int, char** )
 				NORTH) &&
 			!TacticalActorCombatActions::continueNinjaAttack(
 				interactionActor);
+		const bool unavailableLightingActionsAreRejected =
+			!TacticalActorLighting::createPersonalLight(
+				interactionActor) &&
+			!TacticalActorLighting::recreatePersonalLight(
+				interactionActor) &&
+			!TacticalActorLighting::positionPersonalLight(
+				interactionActor) &&
+			!TacticalActorLighting::setPersonalLightLevel(
+				interactionActor) &&
+			!interactionActor.renderState().hasLightSprite();
+		interactionActor.renderState().lightSprite() =
+			MAX_LIGHT_SPRITES;
+		const bool malformedLightHandleIsCleared =
+			!TacticalActorLighting::destroyPersonalLight(
+				interactionActor) &&
+			!interactionActor.renderState().hasLightSprite() &&
+			TacticalActorLighting::destroyPersonalLight(
+				interactionActor);
 		const bool unavailableCombatReactionsAreRejected =
 			!TacticalActorCombatReactions::beginFall(
 				interactionActor) &&
@@ -9545,6 +9565,16 @@ int main( int, char** )
 		NotifyJa2TacticalWorldLoaded(
 			previousWorld.worldGeneration != 0
 				? previousWorld.worldGeneration : 1);
+		OBJECTTYPE& malformedLightItem =
+			interactionActor.inventory()[HANDPOS];
+		malformedLightItem.usItem = MAXITEMS;
+		malformedLightItem.ubNumberOfObjects = 1;
+		malformedLightItem.objectStack.resize(1);
+		const bool malformedLightingInventoryIsRejected =
+			!TacticalActorLighting::createPersonalLight(
+				interactionActor) &&
+			!interactionActor.renderState().hasLightSprite();
+		malformedLightItem.initialize();
 		interactionActor.actionPoints().current() = 47;
 		conversationTarget.interaction().nonNpcTraderId() =
 			std::numeric_limits<INT8>::max();
@@ -9675,6 +9705,9 @@ int main( int, char** )
 		CHECK( everyStackEntryWasDamaged &&
 		       nonAiSelfDetonationIsRejected &&
 		       unavailableCombatActionsAreRejected &&
+		       unavailableLightingActionsAreRejected &&
+		       malformedLightHandleIsCleared &&
+		       malformedLightingInventoryIsRejected &&
 		       unavailableCombatReactionsAreRejected &&
 		       unavailableRecoveryActionsAreRejected &&
 		       malformedConversationTraderIsRejected &&

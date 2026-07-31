@@ -1,4 +1,5 @@
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorLighting.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
@@ -2374,8 +2375,10 @@ BOOLEAN WearGasMaskIfAvailable( TacticalActor * pSoldier )
 
 	if ( pSoldier->roster().team() == gbPlayerNum )
 	{
-		pSoldier->DeleteSoldierLight( );
-		pSoldier->PositionSoldierLight( );
+		(void)TacticalActorLighting::destroyPersonalLight(
+			*pSoldier);
+		(void)TacticalActorLighting::positionPersonalLight(
+			*pSoldier);
 	}
 
 	return( TRUE );
