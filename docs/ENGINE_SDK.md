@@ -668,14 +668,19 @@ live tactical world plus actor, profile, body, animation, direction, level,
 grid, and get-up structure state while preserving combat/fatigue rules and
 installed item, map, animation, dialogue, audio, XML, Lua, and network
 formats.
-`TacticalActorInteractions` owns person-to-person item giving, handcuffing,
-equipment/consumable application, blood collection, splint application, and
-chat teardown. New callers use these bounded operations instead of restoring
-the retired aggregate `EVENT_Soldier*` methods. The boundary revalidates the
-live world, actor and target locations, directions, animation state,
-inventory stacks, item IDs and flags, and repository identity after movement.
-Installed item definitions, traits, maps, XML, Lua/dialogue behavior,
-animations, and other content formats are unchanged.
+`TacticalActorInteractions` owns resolved conversation initiation and
+civilian, militia, trader, surrender, volunteer, and NPC dialogue routing in
+addition to chat teardown, person-to-person item giving, handcuffing,
+equipment/consumable application, blood collection, and splint application.
+New callers use `startConversation` and the other bounded operations instead
+of restoring `PlayerSoldierStartTalking`, `HandleVolunteerRecruitment`, or the
+retired aggregate `EVENT_Soldier*` methods. Delayed player intent remains a
+stable simulation command until execution resolves both actor identities.
+The boundary revalidates the live world, actor and target locations,
+directions, animation state, profiles, dealer/sector/town indexes, inventory
+stacks, item IDs and flags, and repository identity after movement. Installed
+item definitions, traits, maps, XML, Lua/dialogue behavior, animations, and
+other content formats are unchanged.
 `TacticalActorTraversal` owns roof ascent and descent, fence and window jumps,
 and wall-climb initiation. Player producers continue to emit the stable
 `TraverseObstacleCommand`; command execution, AI, and path completion enter

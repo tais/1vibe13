@@ -7,6 +7,10 @@ struct SoldierID;
 
 namespace TacticalActorInteractions
 {
+	[[nodiscard]] bool startConversation(
+		TacticalActor& actor,
+		TacticalActor& target,
+		bool validate);
 	[[nodiscard]] bool stopChatting(TacticalActor& actor);
 	[[nodiscard]] bool beginGivingItem(TacticalActor& actor);
 	[[nodiscard]] bool handcuffPerson(
