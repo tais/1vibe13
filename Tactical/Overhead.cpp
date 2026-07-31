@@ -1,3 +1,5 @@
+#include "TacticalActorCombatActions.h"
+#include "TacticalActorExplosives.h"
 #include "TacticalActorLongActions.h"
 #include "TacticalActorFieldOperations.h"
 #include "TacticalActorInteractions.h"
@@ -1379,7 +1381,10 @@ BOOLEAN ExecuteOverhead( )
                                         // for the benefit of the AI
                                         pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
 
-                                        pSoldier->EVENT_SoldierBeginPunchAttack( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorCombatActions::beginPunchAttack(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_TALK )
@@ -1388,7 +1393,8 @@ BOOLEAN ExecuteOverhead( )
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_DROPBOMB )
                                     {
-                                        pSoldier->EVENT_SoldierBeginDropBomb( );
+                                        (void)TacticalActorExplosives::
+                                            beginBombPlacement(*pSoldier);
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_STEAL    )
@@ -1400,7 +1406,10 @@ BOOLEAN ExecuteOverhead( )
                                         // for the benefit of the AI
                                         pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
 
-                                        pSoldier->EVENT_SoldierBeginBladeAttack( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        (void)TacticalActorCombatActions::beginBladeAttack(
+                                            *pSoldier,
+                                            pSoldier->pendingAction().secondaryData(),
+                                            pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_GIVEAID  )

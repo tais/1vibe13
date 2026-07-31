@@ -90,6 +90,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Structure Wrap.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Tactical Save.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorConsumables.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorCombatActions.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorConditions.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorDamageQueue.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorExplosives.cpp"

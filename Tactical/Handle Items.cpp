@@ -1,4 +1,6 @@
 #include "connect.h"
+#include "TacticalActorCombatActions.h"
+#include "TacticalActorExplosives.h"
 #include "TacticalActorLongActions.h"
 #include "TacticalActorFieldOperations.h"
 #include "TacticalActorInteractions.h"
@@ -1175,7 +1177,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				// Get direction
 				ubDirection = (UINT8)GetDirectionFromGridNo( sTargetGridNo, pSoldier );
 
-				pSoldier->EVENT_SoldierBeginKnifeThrowAttack( sTargetGridNo, ubDirection );
+				(void)TacticalActorCombatActions::
+					beginKnifeThrow(
+						*pSoldier,
+						sTargetGridNo,
+						ubDirection);
 
 			}
 
@@ -1246,7 +1252,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 			else
 			{
 				pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
-				pSoldier->EVENT_SoldierBeginPunchAttack( sAdjustedGridNo, ubDirection );
+				(void)TacticalActorCombatActions::
+					beginPunchAttack(
+						*pSoldier,
+						sAdjustedGridNo,
+						ubDirection);
 			}
 
 			// OK, set UI
@@ -1360,7 +1370,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					// Flugente: if we are trying to defuse a tripwire, call EVENT_SoldierDefuseTripwire() instead
 					INT32 tripwirefound = FindWorldItemForTripwireInGridNo( sGridNo, pSoldier->position().level(), TRUE );
 					if ( tripwirefound != -1 )
-						pSoldier->EVENT_SoldierDefuseTripwire( sGridNo, tripwirefound );
+						(void)TacticalActorExplosives::
+							beginTripwireDisarm(
+								*pSoldier,
+								sGridNo,
+								tripwirefound);
 					else
 						(void)TacticalActorFieldOperations::
 							beginFenceCutting(
@@ -2109,7 +2123,8 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				// Save gridno....
 				pSoldier->pendingAction().secondaryData()	= sGridNo;
 
-				pSoldier->EVENT_SoldierBeginUseDetonator( );
+				(void)TacticalActorExplosives::
+					beginDetonatorUse(*pSoldier);
 
 				if ( fFromUI )
 				{
@@ -2159,7 +2174,8 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 		}
 		else
 		{
-			pSoldier->EVENT_SoldierBeginDropBomb( );
+			(void)TacticalActorExplosives::
+				beginBombPlacement(*pSoldier);
 		}
 
 		// OK, set UI
@@ -2215,7 +2231,11 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 			{
 				// for the benefit of the AI
 				pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
-				pSoldier->EVENT_SoldierBeginBladeAttack( sAdjustedGridNo, ubDirection );
+				(void)TacticalActorCombatActions::
+					beginBladeAttack(
+						*pSoldier,
+						sAdjustedGridNo,
+						ubDirection);
 			}
 
 			// OK, set UI

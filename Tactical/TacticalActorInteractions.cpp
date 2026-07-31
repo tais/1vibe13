@@ -20,6 +20,7 @@
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDisease.h"
+#include "TacticalActorExplosives.h"
 #include "TacticalWorldAdapter.h"
 #include "Text.h"
 #include "connect.h"
@@ -139,8 +140,7 @@ bool beginBombFallback(TacticalActor& actor)
 		return false;
 	}
 
-	actor.EVENT_SoldierBeginDropBomb();
-	return true;
+	return TacticalActorExplosives::beginBombPlacement(actor);
 }
 
 void dropCaptiveHandItem(

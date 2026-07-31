@@ -1,12 +1,15 @@
 #include "TacticalActorExplosives.h"
 
+#include "Animation Control.h"
 #include "Explosion Control.h"
+#include "Handle Items.h"
 #include "Isometric Utils.h"
 #include "Items.h"
 #include "Soldier Control.h"
 #include "Soldier Functions.h"
 #include "Sound Control.h"
 #include "TacticalWorldAdapter.h"
+#include "World Items.h"
 #include "World Tile Map.h"
 #include "random.h"
 #include "worlddef.h"
@@ -19,6 +22,47 @@ namespace
 void halveStatus(INT16& status)
 {
 	status = std::max<INT16>(1, status / 2);
+}
+
+bool hasLiveActionContext(
+	const TacticalActor& actor) noexcept
+{
+	return IsJa2TacticalWorldLoaded() &&
+		actor.roster().active() &&
+		actor.roster().inSector() &&
+		actor.vitals().health() >= OKLIFE &&
+		!TileIsOutOfBounds(actor.position().gridNo()) &&
+		actor.position().level() >= FIRST_LEVEL &&
+		actor.position().level() <= SECOND_LEVEL &&
+		actor.animationPlayback().state() <
+			NUMANIMATIONSTATES;
+}
+
+OBJECTTYPE* handObject(TacticalActor& actor) noexcept
+{
+	if (HANDPOS >= actor.inventory().size())
+		return nullptr;
+
+	OBJECTTYPE& object = actor.inventory()[HANDPOS];
+	if (!object.exists() ||
+		object.usItem >= MAXITEMS ||
+		object.objectStack.empty() ||
+		!object[0])
+	{
+		return nullptr;
+	}
+	return &object;
+}
+
+bool isPlaceableExplosive(OBJECTTYPE& object)
+{
+	const UINT16 item = object.usItem;
+	return Item[item].usItemClass == IC_BOMB ||
+		Item[item].ubCursor == BOMBCURS ||
+		(Item[item].ubCursor == INVALIDCURS &&
+		 HasAttachmentOfClass(
+			 &object,
+			 AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE));
 }
 }
 
@@ -149,5 +193,115 @@ bool selfDetonate(TacticalActor& actor)
 	}
 
 	return false;
+}
+
+bool beginBombPlacement(TacticalActor& actor)
+{
+	OBJECTTYPE* const object = handObject(actor);
+	const std::int32_t targetGrid =
+		actor.pendingAction().secondaryData();
+	if (!hasLiveActionContext(actor) ||
+		TileIsOutOfBounds(targetGrid) ||
+		!object ||
+		!isPlaceableExplosive(*object))
+	{
+		return false;
+	}
+
+	const std::uint16_t animation =
+		actor.animationPlayback().state();
+	if (gAnimControl[animation].ubHeight == ANIM_STAND)
+	{
+		actor.EVENT_InitNewSoldierAnim(
+			PLANT_BOMB,
+			0,
+			FALSE);
+	}
+	else
+	{
+		HandleSoldierDropBomb(&actor, targetGrid);
+		actor.SoldierGotoStationaryStance();
+	}
+	return true;
+}
+
+bool beginTripwireDisarm(
+	TacticalActor& actor,
+	std::int32_t gridNo,
+	std::int32_t worldItemIndex)
+{
+	if (!hasLiveActionContext(actor) ||
+		TileIsOutOfBounds(gridNo) ||
+		worldItemIndex < 0 ||
+		static_cast<std::size_t>(worldItemIndex) >=
+			gWorldItems.size())
+	{
+		return false;
+	}
+
+	WORLDITEM& worldItem =
+		gWorldItems[static_cast<std::size_t>(worldItemIndex)];
+	OBJECTTYPE& object = worldItem.object;
+	if (!worldItem.fExists ||
+		worldItem.sGridNo != gridNo ||
+		worldItem.ubLevel != actor.position().level() ||
+		!object.exists() ||
+		object.usItem >= MAXITEMS ||
+		object.objectStack.empty() ||
+		!object[0] ||
+		!(object.fFlags & OBJECT_ARMED_BOMB) ||
+		!ItemIsTripwire(object.usItem))
+	{
+		return false;
+	}
+
+	const std::uint16_t animation =
+		actor.animationPlayback().state();
+	if (gAnimControl[animation].ubHeight == ANIM_STAND)
+	{
+		actor.EVENT_InitNewSoldierAnim(
+			CROUCHING,
+			0,
+			FALSE);
+	}
+	else
+	{
+		HandleSoldierDefuseTripwire(
+			&actor,
+			gridNo,
+			worldItemIndex);
+		actor.SoldierGotoStationaryStance();
+	}
+	return true;
+}
+
+bool beginDetonatorUse(TacticalActor& actor)
+{
+	OBJECTTYPE* const object = handObject(actor);
+	const std::int32_t targetGrid =
+		actor.pendingAction().secondaryData();
+	if (!hasLiveActionContext(actor) ||
+		TileIsOutOfBounds(targetGrid) ||
+		!object ||
+		Item[object->usItem].ubCursor != REMOTECURS ||
+		ItemHasXRay(object->usItem))
+	{
+		return false;
+	}
+
+	const std::uint16_t animation =
+		actor.animationPlayback().state();
+	if (gAnimControl[animation].ubHeight == ANIM_STAND)
+	{
+		actor.EVENT_InitNewSoldierAnim(
+			USE_REMOTE,
+			0,
+			FALSE);
+	}
+	else
+	{
+		HandleSoldierUseRemote(&actor, targetGrid);
+	}
+	return true;
 }
 }
