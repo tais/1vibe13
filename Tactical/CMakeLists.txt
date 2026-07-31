@@ -89,6 +89,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/Strategic Exit GUI.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Structure Wrap.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Tactical Save.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorAnimationFootprint.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorAnimationFrames.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorConsumables.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorCombatActions.cpp"

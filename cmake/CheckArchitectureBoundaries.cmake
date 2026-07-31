@@ -2172,6 +2172,12 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationFrames.h"
   tactical_actor_animation_frames_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationFrames.cpp"
   tactical_actor_animation_frames_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationFootprint.h"
+  tactical_actor_animation_footprint_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationFootprint.cpp"
+  tactical_actor_animation_footprint_source_contents)
+file(READ "${SOURCE_ROOT}/TileEngine/worlddef.h"
+  tactical_world_definition_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorModifiers.h"
   tactical_actor_modifiers_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEquipment.h"
@@ -3092,7 +3098,9 @@ foreach(retired_actor_facade IN ITEMS
   "CalcNewActionPoints"
   "CryoAniFrame"
   "ConvertAniCodeToAniFrame"
-  "SpriteDirForSurface")
+  "SpriteDirForSurface"
+  "HandleAnimationProfile"
+  "GetProfileFlagsFromGridno")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3103,6 +3111,21 @@ foreach(retired_actor_facade IN ITEMS
      NOT retired_actor_facade_definition EQUAL -1)
     message(FATAL_ERROR
       "TacticalActor regained retired facade '${retired_actor_facade}'")
+  endif()
+endforeach()
+
+foreach(retired_animation_profile_helper IN ITEMS
+  "GetAnimProfileFlags(")
+  string(FIND "${tactical_actor_source_contents}"
+    "${retired_animation_profile_helper}"
+    retired_animation_profile_source_helper)
+  string(FIND "${tactical_world_definition_header_contents}"
+    "${retired_animation_profile_helper}"
+    retired_animation_profile_header_helper)
+  if(NOT retired_animation_profile_source_helper EQUAL -1 OR
+     NOT retired_animation_profile_header_helper EQUAL -1)
+    message(FATAL_ERROR
+      "Retired animation-profile helper '${retired_animation_profile_helper}' returned; use TacticalActorAnimationFootprint")
   endif()
 endforeach()
 
@@ -3900,6 +3923,29 @@ foreach(required_animation_frame_operation IN ITEMS
   endif()
 endforeach()
 
+foreach(required_animation_footprint_operation IN ITEMS
+  "add"
+  "addForSurface"
+  "remove"
+  "flagsAtGrid"
+  "nextWorldNode")
+  string(FIND "${tactical_actor_animation_footprint_header_contents}"
+    "${required_animation_footprint_operation}("
+    animation_footprint_operation_declaration)
+  string(FIND "${tactical_actor_animation_footprint_source_contents}"
+    "TacticalActorAnimationFootprint::${required_animation_footprint_operation}("
+    animation_footprint_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorAnimationFootprint::${required_animation_footprint_operation}"
+    animation_footprint_operation_coverage)
+  if(animation_footprint_operation_declaration EQUAL -1 OR
+     animation_footprint_operation_definition EQUAL -1 OR
+     animation_footprint_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor animation-footprint operation '${required_animation_footprint_operation}' lost its declaration, definition, or live/malformed-state coverage")
+  endif()
+endforeach()
+
 foreach(required_turn_budget_operation IN ITEMS
   "calculateTurnGrant"
   "refreshForTurn")
@@ -3937,6 +3983,7 @@ if(donor_condition_declaration EQUAL -1 OR
 endif()
 
 foreach(required_actor_domain_source IN ITEMS
+  "TacticalActorAnimationFootprint.cpp"
   "TacticalActorAnimationFrames.cpp"
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"

@@ -127,6 +127,7 @@
 #include "Soldier Profile.h"
 #include "Interface.h"
 #include "Handle Items.h"
+#include "TacticalActorAnimationFootprint.h"
 #include "TacticalActorAnimationFrames.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConsumables.h"
@@ -153,7 +154,11 @@
 #include "render_palette_registry.h"
 #include "Plan.h"
 #include "Animation Control.h"
+#include "Animation Data.h"
 #include "Map Information.h"
+#include "World Tile Map.h"
+#include "worlddef.h"
+#include "worldman.h"
 #include "lighting.h"
 #include "Overhead.h"
 #include "ai.h"
@@ -178,6 +183,11 @@
 int      iWindowedMode        = 1;
 BOOLEAN  gfProgramIsRunning   = TRUE;
 BOOLEAN  gfDedicatedServer    = FALSE;
+
+// Legacy animation control keeps this resolver table source-local rather than
+// publishing it from Animation Control.h. The fixture saves and restores one
+// entry so the public resolver path can be exercised deterministically.
+extern UINT16 gubAnimSurfaceIndex[TOTALBODYTYPES][NUMANIMATIONSTATES];
 BOOLEAN  gfDontUseDDBlits     = FALSE;
 bool     g_bUseXML_Structures = false;
 CHAR8    gzCommandLine[ 100 ] = { 0 };
@@ -9587,6 +9597,240 @@ int main( int, char** )
 		       malformedExtendedDirectionIsRejected &&
 		       malformedAnimationStateIsRejected,
 		       "tactical actor animation frames resolve live directions and reject malformed surface state without partial mutation" );
+	}
+
+	{
+		constexpr std::uint16_t animationSurfaceUnderTest = 0;
+		const AnimationSurfaceType previousAnimationSurface =
+			gAnimSurfaceDatabase[animationSurfaceUnderTest];
+		ANIM_PROF* const previousAnimationProfiles = gpAnimProfiles;
+		const std::uint8_t previousAnimationProfileCount =
+			gubNumAnimProfiles;
+		const std::uint16_t previousCowStandingSurface =
+			gubAnimSurfaceIndex[COW][STANDING];
+
+		ANIM_PROF_TILE footprintTiles[] = {
+			{TILE_FLAG_FEET, 0, 0},
+			{TILE_FLAG_HEAD, 1, 0},
+			{TILE_FLAG_MID, 0, 1},
+			{TILE_FLAG_CANMOVE, 127, 127}};
+		ANIM_PROF animationProfiles[1]{};
+		animationProfiles[0].Dirs[NORTH].ubNumTiles =
+			static_cast<std::uint8_t>(
+				sizeof(footprintTiles) / sizeof(footprintTiles[0]));
+		animationProfiles[0].Dirs[NORTH].pTiles = footprintTiles;
+		gpAnimProfiles = animationProfiles;
+		gubNumAnimProfiles = 1;
+		gubAnimSurfaceIndex[COW][STANDING] =
+			animationSurfaceUnderTest;
+		gAnimSurfaceDatabase[animationSurfaceUnderTest].bProfile = 0;
+
+		const bool worldAllocated =
+			GetWorldTileMapSize() == 0 &&
+			AllocateWorldTileMap(
+				static_cast<std::uint32_t>(WORLD_MAX));
+		TacticalActor footprintActor;
+		footprintActor.identity().bodyType() = COW;
+		footprintActor.animationPlayback().state() = STANDING;
+		footprintActor.animationPlayback().surface() =
+			animationSurfaceUnderTest;
+		footprintActor.position().direction() = NORTH;
+		footprintActor.position().gridNo() =
+			(WORLD_ROWS / 2) * WORLD_COLS + WORLD_COLS / 2;
+		const std::int32_t baseGrid = footprintActor.position().gridNo();
+		const std::int32_t eastGrid = baseGrid + 1;
+		const std::int32_t southGrid = baseGrid + WORLD_COLS;
+
+		const bool liveFootprintAdded =
+			worldAllocated &&
+			TacticalActorAnimationFootprint::add(
+				footprintActor,
+				STANDING) &&
+			gpWorldLevelData[baseGrid].pMercHead != nullptr &&
+			gpWorldLevelData[eastGrid].pMercHead != nullptr &&
+			gpWorldLevelData[southGrid].pMercHead != nullptr &&
+			(gpWorldLevelData[baseGrid].pMercHead->uiFlags &
+				LEVELNODE_MERCPLACEHOLDER) != 0 &&
+			gpWorldLevelData[baseGrid]
+				.pMercHead->uiAnimHitLocationFlags == TILE_FLAG_FEET &&
+			gpWorldLevelData[eastGrid]
+				.pMercHead->uiAnimHitLocationFlags == TILE_FLAG_HEAD &&
+			gpWorldLevelData[southGrid]
+				.pMercHead->uiAnimHitLocationFlags == TILE_FLAG_MID;
+
+		std::uint16_t profileFlags = 77;
+		const bool liveProfileFlagsResolved =
+			TacticalActorAnimationFootprint::flagsAtGrid(
+				footprintActor,
+				STANDING,
+				eastGrid,
+				profileFlags) &&
+			profileFlags == TILE_FLAG_HEAD;
+		profileFlags = 77;
+		const bool absentProfileGridClearsFlags =
+			!TacticalActorAnimationFootprint::flagsAtGrid(
+				footprintActor,
+				STANDING,
+				baseGrid - 1,
+				profileFlags) &&
+			profileFlags == 0;
+
+		TacticalActor ordinaryWorldActor;
+		const bool ordinaryNodeAdded =
+			AddMercToHead(
+				baseGrid,
+				&ordinaryWorldActor,
+				FALSE) != FALSE;
+		TacticalActor* nodeActor = &ordinaryWorldActor;
+		profileFlags = 77;
+		LEVELNODE* ordinaryNode =
+			TacticalActorAnimationFootprint::nextWorldNode(
+				baseGrid,
+				profileFlags,
+				nodeActor);
+		const bool ordinaryNodeIsTransparentToProfileQuery =
+			ordinaryNodeAdded &&
+			ordinaryNode != nullptr &&
+			ordinaryNode->pSoldier == &ordinaryWorldActor &&
+			nodeActor == nullptr &&
+			profileFlags == 0;
+		LEVELNODE* profileNode =
+			TacticalActorAnimationFootprint::nextWorldNode(
+				baseGrid,
+				profileFlags,
+				nodeActor,
+				ordinaryNode);
+		const bool placeholderNodeIterationPreserved =
+			profileNode != nullptr &&
+			profileNode->pSoldier == &footprintActor &&
+			nodeActor == &footprintActor &&
+			profileFlags == TILE_FLAG_FEET;
+		LEVELNODE foreignNode{};
+		nodeActor = &ordinaryWorldActor;
+		profileFlags = 77;
+		const bool foreignPreviousNodeRejected =
+			TacticalActorAnimationFootprint::nextWorldNode(
+				baseGrid,
+				profileFlags,
+				nodeActor,
+				&foreignNode) == nullptr &&
+			nodeActor == nullptr && profileFlags == 0;
+		const bool ordinaryNodeRemoved =
+			RemoveMerc(
+				baseGrid,
+				&ordinaryWorldActor,
+				FALSE) != FALSE;
+		const bool liveFootprintRemoved =
+			TacticalActorAnimationFootprint::remove(
+				footprintActor,
+				STANDING) &&
+			gpWorldLevelData[baseGrid].pMercHead == nullptr &&
+			gpWorldLevelData[eastGrid].pMercHead == nullptr &&
+			gpWorldLevelData[southGrid].pMercHead == nullptr;
+
+		gAnimSurfaceDatabase[animationSurfaceUnderTest].bProfile = -1;
+		const bool surfaceWithoutProfileIsNoOp =
+			TacticalActorAnimationFootprint::addForSurface(
+				footprintActor,
+				STANDING,
+				animationSurfaceUnderTest) &&
+			gpWorldLevelData[baseGrid].pMercHead == nullptr;
+		gAnimSurfaceDatabase[animationSurfaceUnderTest].bProfile = 1;
+		profileFlags = 77;
+		const bool malformedProfileIndexIsRejectedWithoutMutation =
+			!TacticalActorAnimationFootprint::addForSurface(
+				footprintActor,
+				STANDING,
+				animationSurfaceUnderTest) &&
+			!TacticalActorAnimationFootprint::flagsAtGrid(
+				footprintActor,
+				STANDING,
+				baseGrid,
+				profileFlags) &&
+			profileFlags == 77 &&
+			gpWorldLevelData[baseGrid].pMercHead == nullptr;
+		gAnimSurfaceDatabase[animationSurfaceUnderTest].bProfile = 0;
+		gpAnimProfiles = nullptr;
+		const bool missingProfileStorageIsRejected =
+			!TacticalActorAnimationFootprint::addForSurface(
+				footprintActor,
+				STANDING,
+				animationSurfaceUnderTest);
+		gpAnimProfiles = animationProfiles;
+		animationProfiles[0].Dirs[NORTH].ubNumTiles = 1;
+		animationProfiles[0].Dirs[NORTH].pTiles = nullptr;
+		const bool missingProfileTilesAreRejected =
+			!TacticalActorAnimationFootprint::addForSurface(
+				footprintActor,
+				STANDING,
+				animationSurfaceUnderTest);
+		animationProfiles[0].Dirs[NORTH].ubNumTiles =
+			static_cast<std::uint8_t>(
+				sizeof(footprintTiles) / sizeof(footprintTiles[0]));
+		animationProfiles[0].Dirs[NORTH].pTiles = footprintTiles;
+		footprintActor.position().direction() = NUM_WORLD_DIRECTIONS;
+		const bool malformedDirectionIsRejected =
+			!TacticalActorAnimationFootprint::addForSurface(
+				footprintActor,
+				STANDING,
+				animationSurfaceUnderTest);
+		footprintActor.position().direction() = NORTH;
+		const bool malformedStateAndSurfaceAreRejected =
+			!TacticalActorAnimationFootprint::addForSurface(
+				footprintActor,
+				NUMANIMATIONSTATES,
+				animationSurfaceUnderTest) &&
+			!TacticalActorAnimationFootprint::addForSurface(
+				footprintActor,
+				STANDING,
+				NUMANIMATIONSURFACETYPES);
+		TacticalActor malformedResolverActor;
+		malformedResolverActor.identity().bodyType() = REGMALE;
+		malformedResolverActor.position().direction() = NORTH;
+		malformedResolverActor.position().gridNo() = baseGrid;
+		malformedResolverActor.inventory()[HANDPOS].usItem = MAXITEMS;
+		const bool malformedResolverInventoryIsRejected =
+			!TacticalActorAnimationFootprint::add(
+				malformedResolverActor,
+				STANDING);
+
+		ReleaseWorldTileMap();
+		nodeActor = &ordinaryWorldActor;
+		profileFlags = 77;
+		const bool unloadedWorldIsRejected =
+			!TacticalActorAnimationFootprint::addForSurface(
+				footprintActor,
+				STANDING,
+				animationSurfaceUnderTest) &&
+			TacticalActorAnimationFootprint::nextWorldNode(
+				0,
+				profileFlags,
+				nodeActor) == nullptr &&
+			nodeActor == nullptr && profileFlags == 0;
+
+		gAnimSurfaceDatabase[animationSurfaceUnderTest] =
+			previousAnimationSurface;
+		gpAnimProfiles = previousAnimationProfiles;
+		gubNumAnimProfiles = previousAnimationProfileCount;
+		gubAnimSurfaceIndex[COW][STANDING] =
+			previousCowStandingSurface;
+		CHECK( liveFootprintAdded &&
+		       liveProfileFlagsResolved &&
+		       absentProfileGridClearsFlags &&
+		       ordinaryNodeIsTransparentToProfileQuery &&
+		       placeholderNodeIterationPreserved &&
+		       foreignPreviousNodeRejected &&
+		       ordinaryNodeRemoved &&
+		       liveFootprintRemoved &&
+		       surfaceWithoutProfileIsNoOp &&
+		       malformedProfileIndexIsRejectedWithoutMutation &&
+		       missingProfileStorageIsRejected &&
+		       missingProfileTilesAreRejected &&
+		       malformedDirectionIsRejected &&
+		       malformedStateAndSurfaceAreRejected &&
+		       malformedResolverInventoryIsRejected &&
+		       unloadedWorldIsRejected,
+		       "tactical actor animation footprints own live placeholder placement and reject malformed world/profile state without partial mutation" );
 	}
 
 	{

@@ -363,8 +363,6 @@ void RemoveWorldWireFrameTiles( );
 void RemoveWireFrameTiles( INT32 sGridNo );
 
 
-LEVELNODE *GetAnimProfileFlags( INT32 sGridNo, UINT16 *usFlags, TacticalActor **ppTargSoldier, LEVELNODE *pGivenNode );
-
 void ReloadTileset( UINT8 ubID );
 
 BOOLEAN FloorAtGridNo( INT32 iMapIndex );

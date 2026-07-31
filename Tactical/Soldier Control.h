@@ -934,14 +934,10 @@ public:
 
 	BOOLEAN DoMercBattleSound( UINT8 ubBattleSoundID );
 	BOOLEAN InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpecialCode );
-	BOOLEAN GetProfileFlagsFromGridno( UINT16 usAnimState, INT32 sTestGridNo, UINT16 *usFlags );
 	void HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy );
 	void ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, UINT16 usNewItem );
 	void PickDropItemAnimation( void );
 
-	void HandleAnimationProfile( UINT16	usAnimState, BOOLEAN fRemove );
-	// Overload taking the already-computed animation surface (avoids recomputing DetermineSoldierAnimationSurface)
-	void HandleAnimationProfile( UINT16	usAnimState, UINT16 usAnimSurface, BOOLEAN fRemove );
 	void HandleSoldierTakeDamageFeedback( void );
 
 	// sevenfm
@@ -1081,8 +1077,6 @@ void SendBeginFireWeaponEvent(
 
 
 
-void HandleAnimationProfile( TacticalActor *pSoldier, UINT16	usAnimState, BOOLEAN fRemove );
-BOOLEAN GetProfileFlagsFromGridno( TacticalActor *pSoldier, UINT16 usAnimState, INT32 sTestGridNo, UINT16 *usFlags );
 BOOLEAN PreloadSoldierBattleSounds( TacticalActor *pSoldier, BOOLEAN fRemove );
 void CrowsFlyAway( UINT8 ubTeam );
 void DebugValidateSoldierData( );
