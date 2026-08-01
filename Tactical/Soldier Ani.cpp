@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAnimationFrames.h"
@@ -300,9 +301,9 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				gTacticalStatus.uiFlags &= (~DISALLOW_SIGHT);
 
 				// Move two CC directions
-				pSoldier->EVENT_SetSoldierDirection( gTwoCCDirection[ pSoldier->position().direction() ] );
+				(void)TacticalActorOrientation::setDirection(*pSoldier, gTwoCCDirection[ pSoldier->position().direction() ] );
 
-				pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+				(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
 				// Set desired anim height!
 				pSoldier->animationIntent().desiredHeight() = ANIM_CROUCH;
@@ -359,12 +360,12 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 				// CODE: SPECIALMOVE CLIMB DOWN EVENT
 				// Move two C directions
-				pSoldier->EVENT_SetSoldierDirection( gTwoCDirection[ pSoldier->position().direction() ] );
+				(void)TacticalActorOrientation::setDirection(*pSoldier, gTwoCDirection[ pSoldier->position().direction() ] );
 
 				// Remove the roof marker
 				HandlePlacingRoofMarker( pSoldier, pSoldier->position().gridNo(), FALSE, TRUE );
 
-				pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+				(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 				// Adjust height //shadooow: do not change bLevel yet, we are still at roof!
 				(void)TacticalActorWorldPlacement::setHeight(*pSoldier,(FLOAT)gClimbDownRoofStartDist[pSoldier->identity().bodyType()], FALSE);
 				// Adjust position
@@ -584,8 +585,8 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 
 				// Reverse direction
-				pSoldier->EVENT_SetSoldierDirection(	gOppositeDirection[ pSoldier->position().direction() ] );
-				pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+				(void)TacticalActorOrientation::setDirection(*pSoldier, 	gOppositeDirection[ pSoldier->position().direction() ] );
+				(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
 				pSoldier->ChangeSoldierState( GETUP_FROM_ROLLOVER, 0 , FALSE );
 				return( TRUE );
@@ -730,9 +731,9 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				ConvertGridNoToCenterCellXY(pSoldier->animationActivity().traversalForecastGrid(), &sX, &sY);
 
 				(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT) sX, (FLOAT) sY, FALSE, FALSE, FALSE );
-				pSoldier->EVENT_SetSoldierDirection(	gTwoCDirection[ pSoldier->position().direction() ] );
+				(void)TacticalActorOrientation::setDirection(*pSoldier, 	gTwoCDirection[ pSoldier->position().direction() ] );
 				pSoldier->animationActivity().clearRenderZOverride();
-				pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+				(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
 				if ( gTacticalStatus.bBoxingState == BOXING_WAITING_FOR_PLAYER || gTacticalStatus.bBoxingState == PRE_BOXING || gTacticalStatus.bBoxingState == BOXING )
 				{
@@ -749,7 +750,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != gAnimControl[ pSoldier->movement().mode() ].ubEndHeight )
 				{
 					// Goto Stance...
-					pSoldier->ChangeSoldierStance( gAnimControl[ pSoldier->movement().mode() ].ubEndHeight );
+					(void)TacticalActorOrientation::changeStance(*pSoldier, gAnimControl[ pSoldier->movement().mode() ].ubEndHeight );
 
 					if ( pSoldier->position().gridNo() == pSoldier->pathing().finalDestinationGrid() )
 					{
@@ -816,13 +817,13 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					// ATE: Added Feb1 - can be either direction....
 					if ( pSoldier->animationActivity().fallClockwise() )
 					{
-						pSoldier->EVENT_SetSoldierDirection(	gOneCDirection[ pSoldier->position().direction() ] );
+						(void)TacticalActorOrientation::setDirection(*pSoldier, 	gOneCDirection[ pSoldier->position().direction() ] );
 					}
 					else
 					{
-						pSoldier->EVENT_SetSoldierDirection(	gOneCCDirection[ pSoldier->position().direction() ] );
+						(void)TacticalActorOrientation::setDirection(*pSoldier, 	gOneCCDirection[ pSoldier->position().direction() ] );
 					}
-					pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+					(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 					sLastAniFrame = gusAnimInst[ pSoldier->animationPlayback().state() ][ ( pSoldier->animationPlayback().code() - 2 ) ];
 					(void)TacticalActorAnimationFrames::selectFrame(
 						*pSoldier,
@@ -991,8 +992,8 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					{
 						if ( pSoldier->fireControl().spreadLocations()[ pSoldier->fireControl().spreadIndex() - 1 ] != 0 )
 						{
-							pSoldier->EVENT_SetSoldierDirection( (INT8)GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pSoldier->fireControl().spreadLocations()[ pSoldier->fireControl().spreadIndex() - 1 ] ) );
-							pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+							(void)TacticalActorOrientation::setDirection(*pSoldier, (INT8)GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pSoldier->fireControl().spreadLocations()[ pSoldier->fireControl().spreadIndex() - 1 ] ) );
+							(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 						}
 					}
 				}
@@ -1229,8 +1230,8 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sNewX, sNewY );
 
 					// Move two CC directions
-					pSoldier->EVENT_SetSoldierDirection( gTwoCCDirection[ pSoldier->position().direction() ] );
-					pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+					(void)TacticalActorOrientation::setDirection(*pSoldier, gTwoCCDirection[ pSoldier->position().direction() ] );
+					(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
 					// Set desired anim height!
 					pSoldier->animationIntent().desiredHeight() = ANIM_CROUCH;
@@ -1291,8 +1292,8 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 			case 467:
 
 				///CODE: FOR HELIDROP, SET DIRECTION
-				pSoldier->EVENT_SetSoldierDirection( EAST );
-				pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+				(void)TacticalActorOrientation::setDirection(*pSoldier, EAST );
+				(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
 				gfIngagedInDrop = FALSE;
 
@@ -1357,7 +1358,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						{
 							if ( fNPCPunch )
 							{
-								pSoldier->ChangeSoldierStance( ANIM_STAND );
+								(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_STAND );
 								return( TRUE );
 							}
 							else
@@ -1528,7 +1529,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 			case 474:
 
 				// CODE: GETUP FROM SLEEP
-				pSoldier->ChangeSoldierStance( ANIM_STAND );
+				(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_STAND );
 				return( TRUE );
 
 			case 475:
@@ -1629,8 +1630,8 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 									bNewDirection = pSoldier->position().direction();
 								}
 
-								pSoldier->EVENT_SetSoldierDirection( bNewDirection );
-								pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+								(void)TacticalActorOrientation::setDirection(*pSoldier, bNewDirection );
+								(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
 							}
 							else
@@ -1666,7 +1667,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 										bNewDirection = gOneCCDirection[ bNewDirection ];
 									}
 
-									pSoldier->EVENT_SetSoldierDesiredDirection( bNewDirection );
+									(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, bNewDirection );
 								}
 							}
 						}
@@ -2122,7 +2123,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 									}
 
 									// Turn towards the person!
-									pTSoldier->EVENT_SetSoldierDesiredDirection( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTSoldier ) );
+									(void)TacticalActorOrientation::setDesiredDirection(*pTSoldier, GetDirectionFromGridNo( pSoldier->position().gridNo(), pTSoldier ) );
 
 									// PLAY SOLDIER'S DODGE ANIMATION
 									pTSoldier->ChangeSoldierState( DODGE_ONE, 0 , FALSE );
@@ -3324,7 +3325,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				if ( NumCapableEnemyInSector( ) == 0 )
 				{
 					// Stand up...
-					pSoldier->ChangeSoldierStance( ANIM_STAND );
+					(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_STAND );
 					return( FALSE );
 				}
 				break;
@@ -4558,8 +4559,8 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 				// ALL'S OK HERE..... IF WE FORCED DIRECTION, SET!
 				if ( fForceDirection )
 				{
-					pSoldier->EVENT_SetSoldierDesiredDirection( bTestDirection );
-					pSoldier->EVENT_SetSoldierDirection( bTestDirection );
+					(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, bTestDirection );
+					(void)TacticalActorOrientation::setDirection(*pSoldier, bTestDirection );
 				}
 				(void)TacticalActorCombatReactions::
 					beginFallback(

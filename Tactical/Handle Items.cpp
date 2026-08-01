@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "connect.h"
 #include "TacticalActorCombatActions.h"
@@ -2617,7 +2618,7 @@ void HandleSoldierThrowItem( TacticalActor *pSoldier, INT32 sGridNo )
 
 			(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 
-			pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubDirection );
 			pSoldier->animationActivity().turningUntilDone() = TRUE;
 
 			if (gbGrenadeRolling)
@@ -2663,7 +2664,7 @@ void HandleSoldierThrowItem( TacticalActor *pSoldier, INT32 sGridNo )
 				}
 				break;
 			}
-			pSoldier->ChangeSoldierStance( ANIM_CROUCH );
+			(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_CROUCH );
 
 		case ANIM_CROUCH:
 		// CHECK IF WE ARE NOT ON THE SAME GRIDNO
@@ -2685,7 +2686,7 @@ void HandleSoldierThrowItem( TacticalActor *pSoldier, INT32 sGridNo )
 
 			(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 
-			pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubDirection );
 			pSoldier->animationActivity().turningUntilDone() = TRUE;
 
 			if (gbGrenadeRolling)
@@ -2741,7 +2742,7 @@ void SoldierGiveItem( TacticalActor *pSoldier, TacticalActor *pTargetSoldier, OB
 			(void)TacticalActorInteractions::beginGivingItem(
 				*pSoldier);
 			// CHANGE DIRECTION OF TARGET TO OPPOSIDE DIRECTION!
-			pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubDirection );
 		}
 
 		// Set target as engaged!
@@ -11153,8 +11154,8 @@ void TakePhoto(TacticalActor* pSoldier, INT32 sGridNo, INT8 bLevel )
 	if (pSoldier->position().direction() != ubDirection)
 	{
 		pSoldier->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
-		pSoldier->EVENT_SetSoldierDesiredDirection(ubDirection);
-		pSoldier->EVENT_SetSoldierDirection(ubDirection);
+		(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubDirection);
+		(void)TacticalActorOrientation::setDirection(*pSoldier, ubDirection);
 	}
 
 	int radius = 3;

@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include <stdio.h>
@@ -1114,7 +1115,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 				// Call soldier function
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Event Pump: Change Dest");
-				pSoldier->EVENT_SetSoldierDestination( (UINT8) SChangeDest.usNewDestination );
+				(void)TacticalActorOrientation::setMovementDestination(*pSoldier, (UINT8) SChangeDest.usNewDestination );
 				break;
 
 			case S_SETPOSITION:
@@ -1204,7 +1205,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 				// Call soldier function
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Event Pump: ChangeStance");
-				pSoldier->ChangeSoldierStance( SChangeStance.ubNewStance );
+				(void)TacticalActorOrientation::changeStance(*pSoldier, SChangeStance.ubNewStance );
 				break;
 
 			case S_SETDIRECTION:
@@ -1227,7 +1228,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 				// Call soldier function
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Event Pump: SetDirection: Dir( %d )", SSetDirection.usNewDirection)	);
-				pSoldier->EVENT_SetSoldierDirection( SSetDirection.usNewDirection );
+				(void)TacticalActorOrientation::setDirection(*pSoldier, SSetDirection.usNewDirection );
 				break;
 
 			case S_SETDESIREDDIRECTION:
@@ -1250,7 +1251,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 				// Call soldier function
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Event Pump: SetDesiredDirection: Dir( %d )", SSetDesiredDirection.usDesiredDirection)	);
-				pSoldier->EVENT_SetSoldierDesiredDirection( (UINT8) SSetDesiredDirection.usDesiredDirection );
+				(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, (UINT8) SSetDesiredDirection.usDesiredDirection );
 				break;
 
 

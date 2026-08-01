@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
@@ -1401,8 +1402,8 @@ void InternalSoldierInSectorSleep( TacticalActor *pSoldier, INT32 sGridNo, BOOLE
 
 	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY );
 
-	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
-	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
+	(void)TacticalActorOrientation::setDirection(*pSoldier, ubNewDirection );
+	(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubNewDirection );
 
 	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
@@ -1440,8 +1441,8 @@ void SoldierInSectorIncompaciated( TacticalActor *pSoldier, INT32 sGridNo )
 
 	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY );
 
-	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
-	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
+	(void)TacticalActorOrientation::setDirection(*pSoldier, ubNewDirection );
+	(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubNewDirection );
 
 	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
@@ -1474,8 +1475,8 @@ void SoldierInSectorPatient( TacticalActor *pSoldier, INT32 sGridNo )
 
 	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY );
 
-	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
-	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
+	(void)TacticalActorOrientation::setDirection(*pSoldier, ubNewDirection );
+	(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubNewDirection );
 
 	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
@@ -1507,8 +1508,8 @@ void SoldierInSectorDoctor( TacticalActor *pSoldier, INT32 sGridNo )
 
 	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY );
 
-	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
-	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
+	(void)TacticalActorOrientation::setDirection(*pSoldier, ubNewDirection );
+	(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubNewDirection );
 
 	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
@@ -1540,8 +1541,8 @@ void SoldierInSectorRepair( TacticalActor *pSoldier, INT32 sGridNo )
 
 	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY );
 
-	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
-	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
+	(void)TacticalActorOrientation::setDirection(*pSoldier, ubNewDirection );
+	(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubNewDirection );
 
 	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
@@ -1612,8 +1613,8 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 	if ( ubInsertionCode == INSERTION_CODE_ARRIVING_GAME )
 	{
 		(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY, fUpdateFinalPosition, fUpdateFinalPosition );
-		pSoldier->EVENT_SetSoldierDirection( ubDirection );
-		pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
+		(void)TacticalActorOrientation::setDirection(*pSoldier, ubDirection );
+		(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubDirection );
 	}
 	else if ( ubInsertionCode == INSERTION_CODE_CHOPPER )
 	{
@@ -1626,9 +1627,9 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 		//if we are loading, dont set the direction ( they are already set )
 		if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
 		{
-			pSoldier->EVENT_SetSoldierDirection( ubDirection );
+			(void)TacticalActorOrientation::setDirection(*pSoldier, ubDirection );
 
-			pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubDirection );
 		}
 	}
 

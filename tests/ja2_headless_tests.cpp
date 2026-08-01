@@ -6,6 +6,7 @@
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMedicalTreatment.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorOrientation.h"
 #include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorProfileClassification.h"
 #include "TacticalActorWeaponHandling.h"
@@ -9419,6 +9420,211 @@ int main( int, char** )
 		       malformedCurrentGridIsRejected &&
 		       malformedVehicleIsRejected,
 		       "tactical actor route execution owns path, pause, stop, stationary-stance, and sighting-halt transitions without malformed-input partial mutation" );
+	}
+
+	{
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		TacticalActor orientationActor;
+		orientationActor.identity().id() = SoldierID{0};
+		orientationActor.identity().bodyType() = REGMALE;
+		orientationActor.roster().active() = TRUE;
+		orientationActor.roster().inSector() = TRUE;
+		orientationActor.animationPlayback().state() = STANDING;
+		orientationActor.position().gridNo() = 42;
+		orientationActor.position().level() = FIRST_LEVEL;
+		orientationActor.position().direction() = NORTH;
+		orientationActor.pathing().desiredDirection() = NORTH;
+		orientationActor.pathing().destinationGrid() = 43;
+		orientationActor.pathing().destinationX() = 111;
+		orientationActor.pathing().destinationY() = 222;
+		orientationActor.movement().mode() = WALKING;
+		orientationActor.movement().animationDirection() = SOUTH;
+		orientationActor.movement().highResolutionDirection() = 0;
+		orientationActor.movement().highResolutionDesiredDirection() = 0;
+		orientationActor.animationActivity().turningIncrement() = 0;
+
+		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableWorldRequestsAreRejected =
+			!TacticalActorOrientation::changeStance(
+				orientationActor,
+				ANIM_CROUCH) &&
+			!TacticalActorOrientation::setMovementDestination(
+				orientationActor,
+				EAST) &&
+			!TacticalActorOrientation::setDesiredDirection(
+				orientationActor,
+				EAST) &&
+			!TacticalActorOrientation::setDirection(
+				orientationActor,
+				EAST) &&
+			!TacticalActorOrientation::advanceTurn(
+				orientationActor) &&
+			orientationActor.position().direction() == NORTH &&
+			orientationActor.pathing().desiredDirection() == NORTH &&
+			orientationActor.pathing().destinationGrid() == 43 &&
+			orientationActor.pathing().destinationX() == 111 &&
+			orientationActor.pathing().destinationY() == 222 &&
+			orientationActor.movement().animationDirection() == SOUTH &&
+			!(orientationActor.featureFlags().primaryFlags() &
+				SOLDIER_REDOFLASHLIGHT);
+
+		NotifyJa2TacticalWorldLoaded(
+			previousWorld.worldGeneration != 0
+				? previousWorld.worldGeneration : 1);
+		orientationActor.pathing().desiredDirection() = SOUTH;
+		orientationActor.movement().highResolutionDesiredDirection() = 16;
+		const bool desiredDirectionTransitionIsOwned =
+			TacticalActorOrientation::setDesiredDirection(
+				orientationActor,
+				NORTH) &&
+			orientationActor.pathing().desiredDirection() == NORTH &&
+			orientationActor.movement()
+				.highResolutionDesiredDirection() == 0;
+
+		orientationActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedActorIsRejectedWithoutMutation =
+			!TacticalActorOrientation::changeStance(
+				orientationActor,
+				ANIM_CROUCH) &&
+			!TacticalActorOrientation::setMovementDestination(
+				orientationActor,
+				EAST) &&
+			!TacticalActorOrientation::setDesiredDirection(
+				orientationActor,
+				EAST) &&
+			!TacticalActorOrientation::setDirection(
+				orientationActor,
+				EAST) &&
+			!TacticalActorOrientation::advanceTurn(
+				orientationActor) &&
+			orientationActor.position().direction() == NORTH &&
+			orientationActor.pathing().desiredDirection() == NORTH &&
+			orientationActor.pathing().destinationGrid() == 43;
+		orientationActor.animationPlayback().state() = STANDING;
+
+		const bool malformedRequestsAreRejectedWithoutMutation =
+			!TacticalActorOrientation::changeStance(
+				orientationActor,
+				0xff) &&
+			!TacticalActorOrientation::setMovementDestination(
+				orientationActor,
+				NUM_WORLD_DIRECTIONS) &&
+			!TacticalActorOrientation::setMovementDestination(
+				orientationActor,
+				EAST,
+				false,
+				NUMANIMATIONSTATES) &&
+			!TacticalActorOrientation::setDesiredDirection(
+				orientationActor,
+				NUM_WORLD_DIRECTIONS) &&
+			!TacticalActorOrientation::setDesiredDirection(
+				orientationActor,
+				EAST,
+				false,
+				NUMANIMATIONSTATES) &&
+			!TacticalActorOrientation::setDirection(
+				orientationActor,
+				NUM_WORLD_DIRECTIONS) &&
+			orientationActor.position().direction() == NORTH &&
+			orientationActor.pathing().desiredDirection() == NORTH &&
+			orientationActor.pathing().destinationGrid() == 43 &&
+			orientationActor.pathing().destinationX() == 111 &&
+			orientationActor.pathing().destinationY() == 222 &&
+			orientationActor.movement().animationDirection() == SOUTH &&
+			!(orientationActor.featureFlags().primaryFlags() &
+				SOLDIER_REDOFLASHLIGHT);
+
+		orientationActor.pathing().desiredDirection() =
+			NUM_WORLD_DIRECTIONS;
+		orientationActor.status().flags() |=
+			SOLDIER_LOOK_NEXT_TURNSOLDIER;
+		const bool malformedDesiredDirectionIsRejected =
+			!TacticalActorOrientation::advanceTurn(
+				orientationActor) &&
+			orientationActor.pathing().desiredDirection() ==
+				NUM_WORLD_DIRECTIONS &&
+			(orientationActor.status().flags() &
+				SOLDIER_LOOK_NEXT_TURNSOLDIER);
+		orientationActor.pathing().desiredDirection() = NORTH;
+		orientationActor.status().flags() &=
+			~SOLDIER_LOOK_NEXT_TURNSOLDIER;
+
+		orientationActor.animationIntent().pendingStance() = 0xfd;
+		const bool malformedPendingStanceIsRejected =
+			!TacticalActorOrientation::advanceTurn(
+				orientationActor) &&
+			orientationActor.animationIntent().pendingStance() == 0xfd;
+		orientationActor.animationIntent().clearPendingStance();
+		orientationActor.animationIntent().pendingAnimation() =
+			NUMANIMATIONSTATES;
+		const bool malformedPendingAnimationIsRejected =
+			!TacticalActorOrientation::advanceTurn(
+				orientationActor) &&
+			orientationActor.animationIntent().pendingAnimation() ==
+				NUMANIMATIONSTATES;
+		orientationActor.animationIntent().clearPendingAnimation();
+
+		orientationActor.status().flags() |=
+			SOLDIER_TURNINGFROMHIT |
+			SOLDIER_LOOK_NEXT_TURNSOLDIER;
+		orientationActor.animationActivity().beginHit();
+		orientationActor.pendingAction().primaryData() =
+			NUM_WORLD_DIRECTIONS;
+		const bool malformedHitDirectionIsRejectedBeforeMutation =
+			!TacticalActorOrientation::advanceTurn(
+				orientationActor) &&
+			orientationActor.animationActivity().hitPhase() == 1 &&
+			(orientationActor.status().flags() &
+				SOLDIER_LOOK_NEXT_TURNSOLDIER);
+		orientationActor.status().flags() &=
+			~(SOLDIER_TURNINGFROMHIT |
+				SOLDIER_LOOK_NEXT_TURNSOLDIER);
+		orientationActor.animationActivity().clearHit();
+		orientationActor.pendingAction().primaryData() = 0;
+
+		orientationActor.movement().mode() = NUMANIMATIONSTATES;
+		const bool malformedMovementModeIsRejected =
+			!TacticalActorOrientation::setMovementDestination(
+				orientationActor,
+				EAST) &&
+			!TacticalActorOrientation::setDesiredDirection(
+				orientationActor,
+				EAST) &&
+			!TacticalActorOrientation::advanceTurn(
+				orientationActor) &&
+			orientationActor.pathing().destinationGrid() == 43 &&
+			orientationActor.pathing().desiredDirection() == NORTH;
+		orientationActor.movement().mode() = WALKING;
+
+		orientationActor.status().flags() |= SOLDIER_VEHICLE;
+		orientationActor.vehicleState().tacticalVehicleId() = -1;
+		const bool malformedVehicleIsRejected =
+			!TacticalActorOrientation::setMovementDestination(
+				orientationActor,
+				EAST) &&
+			!TacticalActorOrientation::setDesiredDirection(
+				orientationActor,
+				EAST) &&
+			!TacticalActorOrientation::advanceTurn(
+				orientationActor) &&
+			orientationActor.pathing().destinationGrid() == 43 &&
+			orientationActor.pathing().desiredDirection() == NORTH;
+
+		RestoreJa2TacticalWorldSession(previousWorld);
+
+		CHECK( unavailableWorldRequestsAreRejected &&
+		       desiredDirectionTransitionIsOwned &&
+		       malformedActorIsRejectedWithoutMutation &&
+		       malformedRequestsAreRejectedWithoutMutation &&
+		       malformedDesiredDirectionIsRejected &&
+		       malformedPendingStanceIsRejected &&
+		       malformedPendingAnimationIsRejected &&
+		       malformedHitDirectionIsRejectedBeforeMutation &&
+		       malformedMovementModeIsRejected &&
+		       malformedVehicleIsRejected,
+		       "tactical actor orientation owns bounded stance, destination, facing, and turn transitions without malformed-state partial mutation" );
 	}
 
 	{

@@ -1,5 +1,6 @@
 #include "TacticalActorRangedActions.h"
 
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 
 #include "Animation Control.h"
@@ -36,12 +37,6 @@ UINT16 PickSoldierReadyAnimation(
 UINT16 SelectFireAnimation(
 	TacticalActor* actor,
 	UINT8 height);
-void EVENT_InternalSetSoldierDesiredDirection(
-	TacticalActor* actor,
-	UINT8 newDirection,
-	BOOLEAN initialMove,
-	UINT16 animationState);
-
 namespace
 {
 bool hasValidAnimation(const TacticalActor& actor) noexcept
@@ -181,7 +176,7 @@ bool TacticalActorRangedActions::readyFacing(
 	if (actor.status().flags() & SOLDIER_MONSTER)
 	{
 		if (!endReady)
-			actor.EVENT_SetSoldierDesiredDirection(facingDirection);
+			(void)TacticalActorOrientation::setDesiredDirection(actor, facingDirection);
 		return false;
 	}
 
@@ -263,10 +258,10 @@ bool TacticalActorRangedActions::readyFacing(
 		{
 			usForceAnimState = actor.animationPlayback().state();
 		}
-		EVENT_InternalSetSoldierDesiredDirection(
-			&actor,
+		(void)TacticalActorOrientation::setDesiredDirection(
+			actor,
 			facingDirection,
-			FALSE,
+			false,
 			animationState);
 		usForceAnimState = INVALID_ANIMATION;
 	}
@@ -390,7 +385,7 @@ bool TacticalActorRangedActions::beginFire(
 
 	if (actor.status().flags() & SOLDIER_MONSTER)
 	{
-		actor.EVENT_SetSoldierDirection(
+		(void)TacticalActorOrientation::setDirection(actor,
 			actor.pathing().desiredDirection());
 		actor.EVENT_InitNewSoldierAnim(
 			SelectFireAnimation(
@@ -405,7 +400,7 @@ bool TacticalActorRangedActions::beginFire(
 		actor.targeting().retainLastTargetFromTurn() = TRUE;
 		actor.animationActivity().turningFromProneMode() =
 			TURNING_FROM_PRONE_OFF;
-		actor.EVENT_SetSoldierDirection(
+		(void)TacticalActorOrientation::setDirection(actor,
 			actor.pathing().desiredDirection());
 		actor.EVENT_InitNewSoldierAnim(
 			SelectFireAnimation(

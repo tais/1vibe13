@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAiBehavior.h"
@@ -6491,7 +6492,7 @@ UINT32 UIHandleJumpOver( UI_EVENT *pUIEvent )
 		UIHandleSoldierStanceChange(pSoldier->identity().id(), ANIM_CROUCH);
 	// sevenfm: first change to stationary
 	(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
-	pSoldier->EVENT_SetSoldierDesiredDirection(ubDirection);
+	(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubDirection);
 	pSoldier->animationActivity().turningUntilDone() = TRUE;
 	// ATE: Reset flag to go back to prone...
 	//pSoldier->flags.fTurningFromPronePosition = TURNING_FROM_PRONE_OFF;

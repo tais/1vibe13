@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 	#include "sgp.h"
 #include "TacticalActorMedicalTreatment.h"
@@ -484,7 +485,7 @@ void AutoBandage( BOOLEAN fStart )
 				{
 					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_STAND )
 					{
-						pSoldier->ChangeSoldierStance( ANIM_STAND );
+						(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_STAND );
 					}
 				}
 			}

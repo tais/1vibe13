@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorFieldOperations.h"
@@ -9488,7 +9489,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 							GetItemPointerSoldier()->pendingAction().secondaryData() = usMapPos;
 
 	 						// Turn towards.....gridno
-							GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( (INT8)GetDirectionFromGridNo( usMapPos, GetItemPointerSoldier() ) );
+							(void)TacticalActorOrientation::setDesiredDirection(*GetItemPointerSoldier(), (INT8)GetDirectionFromGridNo( usMapPos, GetItemPointerSoldier() ) );
 
 							GetItemPointerSoldier()->EVENT_InitNewSoldierAnim( DROP_ADJACENT_OBJECT, 0 , FALSE );
 						}
@@ -9577,7 +9578,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						  if ( !TacticalActorMobility::inWater(*pSoldier) )
 						  {
 							  // Turn to face, then do animation....
-							  pSoldier->EVENT_SetSoldierDesiredDirection( ubFacingDirection );
+							  (void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubFacingDirection );
 							  pSoldier->animationActivity().turningUntilDone()	 = TRUE;
 
 							 if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND)
@@ -9589,7 +9590,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						  // WANNE: Also turn merc if he is crouched and he received the passed item
 						  if ( !TacticalActorMobility::inWater(*GetItemPointerSoldier()) )
 						  {
-							  GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( gOppositeDirection[ ubFacingDirection ] );
+							  (void)TacticalActorOrientation::setDesiredDirection(*GetItemPointerSoldier(), gOppositeDirection[ ubFacingDirection ] );
 							  GetItemPointerSoldier()->animationActivity().turningUntilDone()	 = TRUE;
 
 							  if (gAnimControl[ GetItemPointerSoldier()->animationPlayback().state() ].ubEndHeight == ANIM_STAND)
@@ -9678,7 +9679,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 
 						// Set direction to turn...
-						pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
+						(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubDirection );
 
 					}
 				}
@@ -9686,7 +9687,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 			// CHANGE DIRECTION AT LEAST
 			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, GetItemPointerSoldier() );
-			GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( ubDirection );
+			(void)TacticalActorOrientation::setDesiredDirection(*GetItemPointerSoldier(), ubDirection );
 			GetItemPointerSoldier()->animationActivity().turningUntilDone() = TRUE;
 
 			// Increment attacker count...

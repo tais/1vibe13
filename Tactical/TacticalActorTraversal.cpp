@@ -1,6 +1,7 @@
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorTraversal.h"
 
+#include "TacticalActorOrientation.h"
 #include "Animation Control.h"
 #include "Dialogue Control.h"
 #include "Drugs And Alcohol.h"
@@ -28,12 +29,6 @@
 #include "worldman.h"
 
 #include <cstdint>
-
-void EVENT_InternalSetSoldierDesiredDirection(
-	TacticalActor* actor,
-	UINT8 direction,
-	BOOLEAN initialMove,
-	UINT16 animation);
 
 namespace
 {
@@ -380,10 +375,10 @@ bool TacticalActorTraversal::beginFenceJump(
 
 	actor.position().temporaryGrid() = beyondFence;
 	actor.animationActivity().turningCostWaived() = TRUE;
-	EVENT_InternalSetSoldierDesiredDirection(
-		&actor,
+	(void)TacticalActorOrientation::setDesiredDirection(
+		actor,
 		direction,
-		FALSE,
+		false,
 		actor.animationPlayback().state());
 	actor.animationActivity().turningUntilDone() = TRUE;
 	actor.animationActivity().turningFromProneMode() =
@@ -481,10 +476,10 @@ bool TacticalActorTraversal::beginWindowJump(
 
 	actor.position().temporaryGrid() = destination;
 	actor.animationActivity().turningCostWaived() = TRUE;
-	EVENT_InternalSetSoldierDesiredDirection(
-		&actor,
+	(void)TacticalActorOrientation::setDesiredDirection(
+		actor,
 		direction,
-		FALSE,
+		false,
 		actor.animationPlayback().state());
 	actor.animationActivity().turningUntilDone() = TRUE;
 	if (!IsAnimationValidForBodyType(

@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorCombatActions.h"
@@ -1267,7 +1268,7 @@ BOOLEAN ExecuteOverhead( )
 
                                     if ( pSoldier->animationIntent().pendingDirection() != NO_PENDING_DIRECTION )
                                     {
-                                        pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->animationIntent().pendingDirection() );
+                                        (void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->animationIntent().pendingDirection() );
                                         pSoldier->animationIntent().clearPendingDirection();
                                     }
 
@@ -1693,7 +1694,7 @@ BOOLEAN ExecuteOverhead( )
                                     {
                                         // Change desired direction
                                         // Just change direction
-                                        pSoldier->EVENT_InternalSetSoldierDestination( (UINT8) pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], FALSE, pSoldier->animationPlayback().state() );
+                                        (void)TacticalActorOrientation::setMovementDestination(*pSoldier, (UINT8) pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], FALSE, pSoldier->animationPlayback().state() );
                                     }
 
                                     if ( gTacticalStatus.bBoxingState != NOT_BOXING && (gTacticalStatus.bBoxingState == BOXING_WAITING_FOR_PLAYER ||
@@ -1751,7 +1752,7 @@ BOOLEAN ExecuteOverhead( )
                     // Check for direction change
                     if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_TURNING )
                     {
-                        pSoldier->TurnSoldier( );
+                        (void)TacticalActorOrientation::advanceTurn(*pSoldier);
                     }
                 }
 
@@ -2536,7 +2537,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
 			//shadooow: fix for charging AP for turning at the end of the movement
 			pSoldier->animationActivity().turningCostWaived() = TRUE;
             // Change desired direction
-            pSoldier->EVENT_InternalSetSoldierDestination( (UINT8) pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], fInitialMove, usAnimState );
+            (void)TacticalActorOrientation::setMovementDestination(*pSoldier, (UINT8) pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], fInitialMove, usAnimState );
 
             // CONTINUE
             // IT'S SAVE TO GO AGAIN, REFRESH flag
@@ -7695,7 +7696,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 										{
                                             if ( gAnimControl[ pTeamSoldier->animationPlayback().state() ].ubHeight != ANIM_STAND )
                                             {
-                                                pTeamSoldier->ChangeSoldierStance( ANIM_STAND );
+                                                (void)TacticalActorOrientation::changeStance(*pTeamSoldier, ANIM_STAND );
                                             }
                                             else
                                             {
@@ -9230,7 +9231,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 				TacticalActorDragging::cancel(*pSoldier);
 
                 DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: change stance"));
-                pSoldier->ChangeSoldierStance( ubNewStance );
+                (void)TacticalActorOrientation::changeStance(*pSoldier, ubNewStance );
 
                 pSoldier->animationActivity().suppressionStanceChange() = TRUE;
                 pSoldier->animationActivity().stanceCostWaived() = TRUE;
@@ -11356,8 +11357,8 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 			!TacticalActorCovertOps::recognizesCombatant(*pSoldierToSurrender, gusSelectedSoldier) )
 		{
 			// both soldiers face each other
-			pSoldier->EVENT_SetSoldierDesiredDirection( GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pSoldierToSurrender->position().gridNo() ) );
-			pSoldierToSurrender->EVENT_SetSoldierDesiredDirection( GetDirectionToGridNoFromGridNo( pSoldierToSurrender->position().gridNo(), pSoldier->position().gridNo() ) );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pSoldierToSurrender->position().gridNo() ) );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldierToSurrender, GetDirectionToGridNoFromGridNo( pSoldierToSurrender->position().gridNo(), pSoldier->position().gridNo() ) );
 
 			pSoldierToSurrender->interaction().beginChatWith( gusSelectedSoldier );
 			pSoldier->interaction().beginChatWith( prisonerdialoguetargetID );

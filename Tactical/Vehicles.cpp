@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 	#include "Vehicles.h"
@@ -773,7 +774,7 @@ BOOLEAN AddSoldierToVehicle( TacticalActor *pSoldier, INT32 iId, UINT8 ubSeatInd
 				// set proper initial rotation
 				UINT8 ubRotation = gNewVehicle[ pVehicleList[ pVehicleSoldier->vehicleState().tacticalVehicleId() ].ubVehicleType ].VehicleSeats[ ubFinalSeatIndex ].ubRotation;
 				pSoldier->animationActivity().turningCostWaived() = TRUE;
-				pSoldier->EVENT_SetSoldierDesiredDirection( ( pVehicleSoldier->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
+				(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ( pVehicleSoldier->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
 				// Set gridno for vehicle.....
 				UpdateAllVehiclePassengersGridNo( pVehicleSoldier );
@@ -1945,7 +1946,7 @@ BOOLEAN ExitVehicle( TacticalActor *pSoldier )
 		// anv: since now they can shoot it's important to set passenger to proper stance
 		// namely, back to standing, because we set them to crouching when entering
 		SendChangeSoldierStanceEvent( pSoldier, ANIM_STAND );
-		pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+		(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
 		// Update visiblity.....
 		HandleSight(pSoldier,SIGHT_LOOK | SIGHT_RADIO );
@@ -2051,7 +2052,7 @@ BOOLEAN ChangeVehicleSeat( TacticalActor *pVehicle, TacticalActor *pSoldier, UIN
 			// set proper initial rotation
 			UINT8 ubRotation = gNewVehicle[ pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].ubVehicleType ].VehicleSeats[ ubSeatIndex ].ubRotation;
 			pSoldier->animationActivity().turningCostWaived() = TRUE;
-			pSoldier->EVENT_SetSoldierDesiredDirection( ( pVehicle->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ( pVehicle->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
 			UpdateAllVehiclePassengersGridNo( pVehicle );
 			
@@ -2129,11 +2130,11 @@ BOOLEAN SwapVehicleSeat( TacticalActor *pVehicle, TacticalActor *pSoldier, UINT8
 			// set proper initial rotations
 			UINT8 ubRotation = gNewVehicle[ pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].ubVehicleType ].VehicleSeats[ ubSeatIndex ].ubRotation;
 			pSoldier->animationActivity().turningCostWaived() = TRUE;
-			pSoldier->EVENT_SetSoldierDesiredDirection( ( pVehicle->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ( pVehicle->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
 			ubRotation = gNewVehicle[ pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].ubVehicleType ].VehicleSeats[ bCurrentSeatIndex ].ubRotation;
 			pSoldier2->animationActivity().turningCostWaived() = TRUE;
-			pSoldier2->EVENT_SetSoldierDesiredDirection( ( pVehicle->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier2, ( pVehicle->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
 			UpdateAllVehiclePassengersGridNo( pVehicle );
 			

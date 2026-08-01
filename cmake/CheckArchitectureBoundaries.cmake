@@ -2212,6 +2212,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRouteExecution.h"
   tactical_actor_route_execution_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRouteExecution.cpp"
   tactical_actor_route_execution_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorOrientation.h"
+  tactical_actor_orientation_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorOrientation.cpp"
+  tactical_actor_orientation_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.h"
   tactical_actor_ai_behavior_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.cpp"
@@ -3147,6 +3151,12 @@ foreach(retired_actor_facade IN ITEMS
   "SoldierGotoStationaryStance"
   "HaultSoldierFromSighting"
   "EVENT_StopMerc"
+  "EVENT_SetSoldierDestination"
+  "EVENT_InternalSetSoldierDestination"
+  "EVENT_SetSoldierDesiredDirection"
+  "EVENT_SetSoldierDirection"
+  "TurnSoldier"
+  "ChangeSoldierStance"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3202,6 +3212,52 @@ foreach(required_route_execution_operation IN ITEMS
     message(FATAL_ERROR
       "Tactical actor route-execution operation '${required_route_execution_operation}' lost its declaration, definition, or malformed-state coverage")
   endif()
+endforeach()
+
+foreach(required_orientation_operation IN ITEMS
+  "changeStance"
+  "setMovementDestination"
+  "setDesiredDirection"
+  "setDirection"
+  "advanceTurn")
+  string(FIND "${tactical_actor_orientation_header_contents}"
+    "${required_orientation_operation}("
+    orientation_operation_declaration)
+  string(FIND "${tactical_actor_orientation_source_contents}"
+    "TacticalActorOrientation::${required_orientation_operation}("
+    orientation_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorOrientation::${required_orientation_operation}("
+    orientation_operation_coverage)
+  if(orientation_operation_declaration EQUAL -1 OR
+     orientation_operation_definition EQUAL -1 OR
+     orientation_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor orientation operation '${required_orientation_operation}' lost its declaration, definition, or malformed-state coverage")
+  endif()
+endforeach()
+
+foreach(orientation_source IN LISTS world_state_files)
+  file(READ "${orientation_source}"
+    orientation_source_contents)
+  foreach(retired_orientation_call IN ITEMS
+    "EVENT_SetSoldierDestination"
+    "EVENT_InternalSetSoldierDestination"
+    "EVENT_SetSoldierDesiredDirection"
+    "EVENT_InternalSetSoldierDesiredDirection"
+    "EVENT_SetSoldierDirection"
+    "TurnSoldier"
+    "ChangeSoldierStance"
+    "MultiTiledTurnDirection")
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${retired_orientation_call}[ \t\r\n]*\\("
+      retired_orientation_usage
+      "${orientation_source_contents}")
+    if(retired_orientation_usage)
+      message(FATAL_ERROR
+        "Production caller in ${orientation_source} restored retired orientation entry '${retired_orientation_call}'")
+    endif()
+  endforeach()
 endforeach()
 
 foreach(route_execution_source IN LISTS world_state_files)
@@ -3791,6 +3847,7 @@ endforeach()
 
 foreach(required_actor_domain_source IN ITEMS
   "TacticalActorMobility.cpp"
+  "TacticalActorOrientation.cpp"
   "TacticalActorRangedActions.cpp"
   "TacticalActorRouteExecution.cpp"
   "TacticalActorWorldPlacement.cpp"

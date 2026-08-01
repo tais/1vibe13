@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
@@ -299,7 +300,7 @@ namespace
 						// Some received and scripted actions deliberately bypass
 						// outbound replication while retaining the same local
 						// stance transition.
-						soldier->ChangeSoldierStance(value.stance);
+						(void)TacticalActorOrientation::changeStance(*soldier, value.stance);
 						return CommandDisposition::Applied;
 					}
 					const bool realtimeStanceChange =
@@ -397,7 +398,7 @@ namespace
 				if (TacticalActor* soldier = ResolveLiveCommandActor(value.soldier))
 				{
 					if (value.eventPolicy == TacticalEventPolicy::LocalOnly)
-						soldier->EVENT_SetSoldierDesiredDirection(value.direction);
+						(void)TacticalActorOrientation::setDesiredDirection(*soldier, value.direction);
 					else
 						SendSoldierSetDesiredDirectionEvent(
 							soldier, value.direction);
@@ -464,7 +465,7 @@ namespace
 					return CommandDisposition::Discard;
 				(void)TacticalActorWorldPlacement::setPosition(*soldier,
 					value.positionX, value.positionY, FALSE, FALSE, FALSE);
-				soldier->EVENT_SetSoldierDirection(value.direction);
+				(void)TacticalActorOrientation::setDirection(*soldier, value.direction);
 				if (value.stop && soldier->roster().team() >= LAN_TEAM_ONE &&
 					soldier->position().gridNo() >= 0 &&
 					soldier->position().gridNo() < WORLD_MAX &&
@@ -2010,7 +2011,7 @@ bool TryCompletePendingStealCommand(TacticalActor& soldier) noexcept
 		return false;
 	}
 
-	soldier.EVENT_SetSoldierDesiredDirection(
+	(void)TacticalActorOrientation::setDesiredDirection(soldier,
 		static_cast<UINT8>(rawDirection));
 	if (gAnimControl[soldier.animationPlayback().state()].ubEndHeight == ANIM_PRONE ||
 		gAnimControl[soldier.animationPlayback().state()].ubEndHeight == ANIM_CROUCH ||

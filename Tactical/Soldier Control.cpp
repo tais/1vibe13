@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorWorldPlacement.h"
 #include "Soldier Functions.h"
 #include "TacticalActorAnimationFootprint.h"
@@ -209,19 +210,6 @@ enum
 	EX_NUM_WORLD_DIRECTIONS = 32,
 	EX_DIRECTION_IRRELEVANT
 } ExtendedWorldDirections;
-
-// LUT for conversion from 8-direction to extended direction
-UINT8 ubExtDirection[] =
-{
-	EX_NORTH,
-	EX_NORTHEAST,
-	EX_EAST,
-	EX_SOUTHEAST,
-	EX_SOUTH,
-	EX_SOUTHWEST,
-	EX_WEST,
-	EX_NORTHWEST
-};
 
 
 UINT8 gExtOneCDirection[EX_NUM_WORLD_DIRECTIONS] =
@@ -978,8 +966,6 @@ PIXEL *CreateEnemyGreyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale
 void SoldierBleed( TacticalActor *pSoldier, BOOLEAN fBandagedBleed );
 INT32 CheckBleeding( TacticalActor *pSoldier );
 
-void EVENT_InternalSetSoldierDesiredDirection( TacticalActor *pSoldier, UINT8	ubNewDirection, BOOLEAN fInitalMove, UINT16 usAnimState );
-
 #ifdef JA2BETAVERSION
 extern void ValidatePlayersAreInOneGroupOnly( );
 extern void MapScreenDefaultOkBoxCallback( UINT8 bExitValue );
@@ -1716,7 +1702,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		{
 			if ( this->animationIntent().pendingDirection() != NO_PENDING_DIRECTION )
 			{
-				EVENT_InternalSetSoldierDesiredDirection( this, this->animationIntent().pendingDirection(), FALSE, this->animationPlayback().state() );
+				(void)TacticalActorOrientation::setDesiredDirection(*this, this->animationIntent().pendingDirection(), FALSE, this->animationPlayback().state() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = ADJACENT_GET_ITEM;
 				this->animationActivity().turningUntilDone() = TRUE;
@@ -1729,7 +1715,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		{
 			if ( this->animationIntent().pendingDirection() != NO_PENDING_DIRECTION )
 			{
-				EVENT_InternalSetSoldierDesiredDirection( this, this->animationIntent().pendingDirection(), FALSE, this->animationPlayback().state() );
+				(void)TacticalActorOrientation::setDesiredDirection(*this, this->animationIntent().pendingDirection(), FALSE, this->animationPlayback().state() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = ADJACENT_GET_ITEM_CROUCHED;
 				this->animationActivity().turningUntilDone() = TRUE;
@@ -1742,7 +1728,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		{
 			if ( this->animationIntent().pendingDirection() != NO_PENDING_DIRECTION )
 			{
-				this->EVENT_SetSoldierDesiredDirection( this->animationIntent().pendingDirection() );
+				(void)TacticalActorOrientation::setDesiredDirection(*this, this->animationIntent().pendingDirection() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = CLIMBUPROOF;
 				this->animationActivity().turningUntilDone() = TRUE;
@@ -1755,7 +1741,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		{
 			if ( this->animationIntent().pendingDirection() != NO_PENDING_DIRECTION )
 			{
-				this->EVENT_SetSoldierDesiredDirection( this->animationIntent().pendingDirection() );
+				(void)TacticalActorOrientation::setDesiredDirection(*this, this->animationIntent().pendingDirection() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = CLIMBDOWNROOF;
 				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
@@ -1769,7 +1755,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		{
 			if ( this->animationIntent().pendingDirection() != NO_PENDING_DIRECTION )
 			{
-				this->EVENT_SetSoldierDesiredDirection( this->animationIntent().pendingDirection() );
+				(void)TacticalActorOrientation::setDesiredDirection(*this, this->animationIntent().pendingDirection() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = JUMPUPWALL;
 				this->animationActivity().turningUntilDone() = TRUE;
@@ -1782,7 +1768,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		{
 			if ( this->animationIntent().pendingDirection() != NO_PENDING_DIRECTION )
 			{
-				this->EVENT_SetSoldierDesiredDirection( this->animationIntent().pendingDirection() );
+				(void)TacticalActorOrientation::setDesiredDirection(*this, this->animationIntent().pendingDirection() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = JUMPDOWNWALL;
 				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
@@ -1796,7 +1782,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		{
 			if ( this->animationIntent().pendingDirection() != NO_PENDING_DIRECTION )
 			{
-				this->EVENT_SetSoldierDesiredDirection( this->animationIntent().pendingDirection() );
+				(void)TacticalActorOrientation::setDesiredDirection(*this, this->animationIntent().pendingDirection() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = START_AID_PRN;
 				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_ON;
@@ -2236,7 +2222,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 					{
 						// Change desired direction
 						// Just change direction
-						this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, this->animationPlayback().state() );
+						(void)TacticalActorOrientation::setMovementDestination(*this, (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, this->animationPlayback().state() );
 					}
 
 					//check for services
@@ -2690,7 +2676,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 										  this->pathing().pathSize()++;
 										  this->pathing().finalDestinationGrid() = usNewGridNo;
 										  // Set direction
-										  this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, JUMP_OVER_BLOCKING_PERSON );
+										  (void)TacticalActorOrientation::setMovementDestination(*this, (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, JUMP_OVER_BLOCKING_PERSON );
 		}
 			break;
 
@@ -2717,7 +2703,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 						  this->pathing().pathSize()++;
 						  this->pathing().finalDestinationGrid() = usNewGridNo;
 						  // Set direction
-						  this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, LONG_JUMP );
+						  (void)TacticalActorOrientation::setMovementDestination(*this, (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, LONG_JUMP );
 		}
 			break;
 
@@ -3350,7 +3336,7 @@ UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BO
 
 			case ANIM_PRONE:
 				// Go into crouch, turn, then go into prone again
-				//pSoldier->ChangeSoldierStance( ANIM_CROUCH );
+				//(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_CROUCH );
 				//pSoldier->animationIntent().desiredHeight() = ANIM_PRONE;
 				//pSoldier->ChangeSoldierState( PRONE_UP );
 				if ( TacticalActorWeaponHandling::isValidSecondHandShot(*pSoldier) )
@@ -4144,8 +4130,8 @@ void DoGenericHit( TacticalActor *pSoldier, UINT8 ubSpecial, INT16 bDirection )
 		if ( ubSpecial == FIRE_WEAPON_BURST_SPECIAL && pSoldier->identity().bodyType() <= REGFEMALE )
 		{
 			//SetSoldierDesiredDirection( pSoldier, bDirection );
-			pSoldier->EVENT_SetSoldierDirection( (INT8)bDirection );
-			pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+			(void)TacticalActorOrientation::setDirection(*pSoldier, (INT8)bDirection );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
 			pSoldier->EVENT_InitNewSoldierAnim( STANDING_BURST_HIT, 0, FALSE );
 		}
@@ -4410,7 +4396,7 @@ void SoldierGotHitExplosion( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT1
 			case 4:
 			case 5:
 				// 6 of 10 - crouch
-				pSoldier->ChangeSoldierStance( ANIM_CROUCH );
+				(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_CROUCH );
 				break;
 			case 6:
 			case 7:
@@ -4437,7 +4423,7 @@ void SoldierGotHitExplosion( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT1
 			case 3:
 			case 4:
 				// 5 of 10 - crouch
-				pSoldier->ChangeSoldierStance( ANIM_CROUCH );
+				(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_CROUCH );
 				break;
 			case 5:
 			case 6:
@@ -4448,8 +4434,8 @@ void SoldierGotHitExplosion( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT1
 				sNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( gOppositeDirection[bDirection] ) );
 				if ( OKFallDirection( pSoldier, sNewGridNo, pSoldier->position().level(), gOppositeDirection[bDirection], FLYBACK_HIT ) )
 				{
-					pSoldier->EVENT_SetSoldierDirection( (INT8)bDirection );
-					pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+					(void)TacticalActorOrientation::setDirection(*pSoldier, (INT8)bDirection );
+					(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 					(void)TacticalActorCombatReactions::
 						beginFallback(
 							*pSoldier,
@@ -4484,8 +4470,8 @@ void SoldierGotHitExplosion( TacticalActor *pSoldier, UINT16 usWeaponIndex, INT1
 			break;
 		}
 
-		pSoldier->EVENT_SetSoldierDirection( (INT8)bDirection );
-		pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+		(void)TacticalActorOrientation::setDirection(*pSoldier, (INT8)bDirection );
+		(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
 		// Check behind us!
 		sNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( gOppositeDirection[bDirection] ) );
@@ -4620,8 +4606,8 @@ void SoldierGotHitVehicle(TacticalActor *pSoldier, UINT16 bDirection)
 		sNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( bDirection ) );//DirectionInc( gOppositeDirection[ bDirection ] ) );
 		if ( IS_MERC_BODY_TYPE( pSoldier ) && OKFallDirection( pSoldier, sNewGridNo, pSoldier->position().level(), bDirection, FLYBACK_HIT ) )
 		{
-			pSoldier->EVENT_SetSoldierDirection( (INT8)gOppositeDirection[bDirection] );
-			pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+			(void)TacticalActorOrientation::setDirection(*pSoldier, (INT8)gOppositeDirection[bDirection] );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 			(void)TacticalActorCombatReactions::
 				beginFallback(
 					*pSoldier,
@@ -4629,8 +4615,8 @@ void SoldierGotHitVehicle(TacticalActor *pSoldier, UINT16 bDirection)
 		}
 		else if ( IS_MERC_BODY_TYPE( pSoldier ) )
 		{
-			pSoldier->EVENT_SetSoldierDirection( bDirection );
-			pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+			(void)TacticalActorOrientation::setDirection(*pSoldier, bDirection );
+			(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 			(void)TacticalActorCombatReactions::
 				beginFall(*pSoldier);
 			pSoldier->EVENT_InitNewSoldierAnim( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
@@ -4644,8 +4630,8 @@ void SoldierGotHitVehicle(TacticalActor *pSoldier, UINT16 bDirection)
 
 	case ANIM_CROUCH:
 
-		pSoldier->EVENT_SetSoldierDirection( (INT8)gOppositeDirection[bDirection] );
-		pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
+		(void)TacticalActorOrientation::setDirection(*pSoldier, (INT8)gOppositeDirection[bDirection] );
+		(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
 		// Check behind us!
 		sNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( bDirection ) );
@@ -4670,386 +4656,6 @@ void SoldierGotHitVehicle(TacticalActor *pSoldier, UINT16 bDirection)
 	}
 
 }
-
-void TacticalActor::ChangeSoldierStance( UINT8 ubDesiredStance )
-{	
-	// Check if they are the same!
-	if ( ubDesiredStance == gAnimControl[this->animationPlayback().state()].ubEndHeight )
-	{
-		// Free up from stance change
-		FreeUpNPCFromStanceChange( this );
-		return;
-	}
-
-	if ( !IsValidStance( this, ubDesiredStance ) )
-	{
-		//ADB this was recently put in as an assert, but that would make the game crash in certain circumstances, including the example below
-		//you can comment out the breakpoint if it annoys you, but the return should remain for the indefinate future
-		//if it's removed you'll have stuff happen like when out of breath and lying collapsed on the ground
-		//and trying to climb onto a roof you'll crouch, stand, reach for the roof, and then collapse again, which looks really weird.
-		DebugBreakpoint( );
-		return;
-	}
-
-	// Set UI Busy
-	SetUIBusy( this->identity().id() );
-
-	// ATE: If we are an NPC, cower....
-	if ( this->identity().bodyType() >= FATCIV && this->identity().bodyType() <= KIDCIV )
-	{
-		if ( ubDesiredStance == ANIM_STAND )
-		{
-			(void)TacticalActorCombatReactions::setCowering(
-				*this,
-				false);
-		}
-		else
-		{
-			(void)TacticalActorCombatReactions::setCowering(
-				*this,
-				true);
-		}
-	}
-	else
-	{
-		UINT16 usNewState = TacticalActorMobility::transitionStateForStance(*this,  ubDesiredStance );
-
-		// Set desired stance
-		this->animationIntent().desiredHeight() = ubDesiredStance;
-
-		this->EVENT_InitNewSoldierAnim(usNewState, 0, FALSE);
-	}
-
-	this->featureFlags().primaryFlags() |= SOLDIER_REDOFLASHLIGHT;
-}
-
-void TacticalActor::EVENT_InternalSetSoldierDestination( UINT16	usNewDirection, BOOLEAN fFromMove, UINT16 usAnimState )
-{
-	INT32	sNewGridNo;
-	INT16		sXPos, sYPos;
-
-	// Get dest gridno, convert to center coords
-	sNewGridNo = NewGridNo( this->position().gridNo(), DirectionInc( (UINT8)usNewDirection ) );
-
-	ConvertGridNoToCenterCellXY( sNewGridNo, &sXPos, &sYPos );
-
-	// Save new dest gridno, x, y
-	this->pathing().destinationGrid() = sNewGridNo;
-	this->pathing().destinationX() = sXPos;
-	this->pathing().destinationY() = sYPos;
-
-	this->movement().animationDirection() = (INT8)usNewDirection;
-
-
-	// OK, ATE: If we are side_stepping, calculate a NEW desired direction....
-	if ( this->movement().reverse() &&
-		(usAnimState == SIDE_STEP ||
-			usAnimState == ROLL_PRONE_R ||
-			usAnimState == ROLL_PRONE_L ||
-			usAnimState == SIDE_STEP_CROUCH_RIFLE ||
-			usAnimState == SIDE_STEP_CROUCH_PISTOL ||
-			usAnimState == SIDE_STEP_CROUCH_DUAL ||
-			usAnimState == SIDE_STEP_ALTERNATIVE_RDY ||
-			usAnimState == SIDE_STEP_WEAPON_RDY ||
-			usAnimState == SIDE_STEP_DUAL_RDY) )
-	{
-		UINT8 ubPerpDirection;
-
-		// Get a new desired direction,
-		ubPerpDirection = gPurpendicularDirection[this->position().direction()][usNewDirection];
-
-		// CHange actual and desired direction....
-		this->EVENT_SetSoldierDirection( ubPerpDirection );
-		this->pathing().desiredDirection() = this->position().direction();
-	}
-	else
-	{
-		if ( !(gAnimControl[usAnimState].uiFlags & ANIM_SPECIALMOVE) )
-		{
-			EVENT_InternalSetSoldierDesiredDirection( this, (UINT8)usNewDirection, fFromMove, usAnimState );
-		}
-	}
-}
-
-void TacticalActor::EVENT_SetSoldierDestination( UINT8	ubNewDirection )
-{
-	this->EVENT_InternalSetSoldierDestination( ubNewDirection, FALSE, this->animationPlayback().state() );
-}
-
-
-// function to determine which direction a creature can turn in
-INT8 MultiTiledTurnDirection( TacticalActor * pSoldier, INT8 bStartDirection, INT8 bDesiredDirection )
-{
-	INT8										bTurningIncrement;
-	INT8										bCurrentDirection;
-	INT8										bLoop;
-	UINT16									usStructureID, usAnimSurface;
-	STRUCTURE_FILE_REF *		pStructureFileRef;
-	BOOLEAN									fOk = FALSE;
-
-	// start by trying to turn in quickest direction
-	bTurningIncrement = (INT8)QuickestDirection( bStartDirection, bDesiredDirection );
-
-	usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, pSoldier->movement().mode() );
-
-	pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, pSoldier->movement().mode() );
-	if ( !pStructureFileRef )
-	{
-		// without structure data, well, assume quickest direction
-		return(bTurningIncrement);
-	}
-
-	// ATE: Only if we have a levelnode...
-	if ( pSoldier->renderBindings().levelNode() != NULL && pSoldier->renderBindings().levelNode()->pStructureData != NULL )
-	{
-		usStructureID = pSoldier->renderBindings().levelNode()->pStructureData->usStructureID;
-	}
-	else
-	{
-		usStructureID = INVALID_STRUCTURE_ID;
-	}
-
-	bLoop = 0;
-	bCurrentDirection = bStartDirection;
-
-	while ( bLoop < 2 )
-	{
-		while ( bCurrentDirection != bDesiredDirection )
-		{
-			bCurrentDirection += bTurningIncrement;
-
-			// did we wrap directions?
-			if ( bCurrentDirection < 0 )
-			{
-				bCurrentDirection = (MAXDIR - 1);
-			}
-			else if ( bCurrentDirection >= MAXDIR )
-			{
-				bCurrentDirection = 0;
-			}
-
-			// check to see if we can add creature in that direction
-			fOk = OkayToAddStructureToWorld( pSoldier->position().gridNo(), pSoldier->position().level(), &(pStructureFileRef->pDBStructureRef[gOneCDirection[bCurrentDirection]]), usStructureID );
-			if ( !fOk )
-			{
-				break;
-			}
-		}
-
-		if ( (bCurrentDirection == bDesiredDirection) && fOk )
-		{
-			// success!!
-			return(bTurningIncrement);
-		}
-
-		bLoop++;
-		//if ( bLoop < 2 )
-		{
-			// change direction of loop etc
-			bCurrentDirection = bStartDirection;
-			bTurningIncrement *= -1;
-		}
-	}
-	// nothing found... doesn't matter much what we return
-	return(bTurningIncrement);
-}
-
-
-
-void EVENT_InternalSetSoldierDesiredDirection( TacticalActor *pSoldier, UINT8	ubNewDirection, BOOLEAN fInitalMove, UINT16 usAnimState )
-{
-	INT16 sAPCost = 0;
-	INT32 iBPCost = 0;
-
-	//if ( usAnimState == WALK_BACKWARDS )
-	if ( pSoldier->movement().reverse() &&
-		(usAnimState != SIDE_STEP && 
-			usAnimState != ROLL_PRONE_R &&
-			usAnimState != ROLL_PRONE_L	&&
-			usAnimState != SIDE_STEP_CROUCH_RIFLE &&
-			usAnimState != SIDE_STEP_CROUCH_PISTOL &&
-			usAnimState != SIDE_STEP_CROUCH_DUAL &&
-			usAnimState != SIDE_STEP_WEAPON_RDY &&
-			usAnimState != SIDE_STEP_DUAL_RDY &&
-			usAnimState != SIDE_STEP_ALTERNATIVE_RDY) )
-	{
-		// OK, check if we are going to go in the exact opposite than our facing....
-		ubNewDirection = gOppositeDirection[ubNewDirection];
-	}
-	
-	pSoldier->pathing().desiredDirection() = (INT8)ubNewDirection;
-
-	// If we are prone, goto crouched first!
-	// ONly if we are stationary, and only if directions are differnet!
-
-	// ATE: If we are fNoAPsToFinnishMove, stop what we were doing and
-	// reset flag.....
-	if ( pSoldier->movement().outOfActionPoints() && (gAnimControl[usAnimState].uiFlags & ANIM_MOVING) )
-	{
-		// ATE; Commented this out: NEVER, EVER, start a new anim from this function, as an eternal loop will result....
-		//(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
-		// Reset flag!
-		(void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, false );
-	}
-
-	if ( pSoldier->pathing().desiredDirection() != pSoldier->position().direction() )
-	{
-		if ( (gAnimControl[usAnimState].uiFlags & (ANIM_BREATH | ANIM_OK_CHARGE_AP_FOR_TURN | ANIM_FIREREADY | ANIM_TURNING) || usForceAnimState != INVALID_ANIMATION) && !fInitalMove && !pSoldier->animationActivity().turningCostWaived() )
-		{
-			// SANDRO: hey, we have a function for this around, why not to use it, hm?
-			// silversurfer: we better don't do that. GetAPsToLook( ... ) will charge APs for getting to crouched/prone position
-			// which is already done by TacticalActor::EVENT_InitNewSoldierAnim( ... ), we would charge twice...
-			// SANDRO: I see. Thanks.
-			// DeductPoints( pSoldier, GetAPsToLook( pSoldier ), 0 );
-			// Deduct points for initial turn!
-			switch ( gAnimControl[(usForceAnimState != INVALID_ANIMATION ? usForceAnimState : usAnimState)].ubEndHeight )//dnl ch70 160913
-			{
-				// Now change to appropriate animation
-			case ANIM_STAND:
-				sAPCost = APBPConstants[AP_LOOK_STANDING];
-				break;
-
-			case ANIM_CROUCH:
-				sAPCost = APBPConstants[AP_LOOK_CROUCHED];
-				break;
-
-			case ANIM_PRONE:
-				sAPCost = APBPConstants[AP_LOOK_PRONE];
-				break;
-			}
-			// martial artists can turn faster
-			if ( HAS_SKILL_TRAIT( pSoldier, MARTIAL_ARTS_NT ) && gGameOptions.fNewTraitSystem )
-				sAPCost = max( 1, (INT16)(sAPCost * (100 - gSkillTraitValues.ubMAApsTurnAroundReduction * NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT )) / 100.0f + 0.5f) );
-
-			// SANDRO: get BP cost for weapon manipulating
-			if ( gGameExternalOptions.ubEnergyCostForWeaponWeight )
-				iBPCost = sAPCost * GetBPCostPer10APsForGunHolding( pSoldier ) / 10;
-			else
-				iBPCost = 0;
-
-			DeductPoints( pSoldier, sAPCost, iBPCost );
-			if ( usForceAnimState != INVALID_ANIMATION )//dnl ch70 170913
-				pSoldier->targeting().retainLastTargetFromTurn() = FALSE;
-		}
-
-		pSoldier->animationActivity().turningCostWaived() = FALSE;
-
-		if ( fInitalMove )
-		{
-			if ( gAnimControl[usAnimState].ubHeight == ANIM_PRONE )
-			{
-				if ( pSoldier->animationActivity().turningFromProneMode() != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE )
-				{
-					pSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_START_UP_FROM_MOVE;
-				}
-			}
-		}
-
-		if ( gAnimControl[usAnimState].uiFlags & ANIM_STATIONARY || pSoldier->movement().outOfActionPoints() || fInitalMove )
-		{
-			if ( gAnimControl[usAnimState].ubHeight == ANIM_PRONE )
-			{
-				// Set this beasty of a flag to allow us to go back down to prone if we choose!
-				// ATE: Alrighty, set flag to go back down only if we are not moving anywhere
-				//if ( pSoldier->pathing().destinationGrid() == pSoldier->sGridNo )
-				if ( !fInitalMove )
-				{
-					pSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_ON;
-
-					// Set a pending animation to change stance first...
-					SendChangeSoldierStanceEvent( pSoldier, ANIM_CROUCH );
-
-				}
-			}
-		}
-	}
-
-	// Set desired direction for the extended directions...
-	pSoldier->movement().highResolutionDesiredDirection() = ubExtDirection[pSoldier->pathing().desiredDirection()];
-
-	if ( pSoldier->pathing().desiredDirection() != pSoldier->position().direction() )
-	{
-		if ( pSoldier->status().flags() & (SOLDIER_VEHICLE) || CREATURE_OR_BLOODCAT( pSoldier ) )
-		{
-			pSoldier->status().flags() |= SOLDIER_PAUSEANIMOVE;
-		}
-	}
-
-
-	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
-	{
-		pSoldier->animationActivity().turningIncrement() = (INT8)ExtQuickestDirection( pSoldier->movement().highResolutionDirection(), pSoldier->movement().highResolutionDesiredDirection() );
-	}
-	else
-	{
-		if ( pSoldier->status().flags() & SOLDIER_MULTITILE )
-		{
-			pSoldier->animationActivity().turningIncrement() = (INT8)MultiTiledTurnDirection( pSoldier, pSoldier->position().direction(), pSoldier->pathing().desiredDirection() );
-		}
-		else
-		{
-			pSoldier->animationActivity().turningIncrement() = (INT8)QuickestDirection( pSoldier->position().direction(), pSoldier->pathing().desiredDirection() );
-		}
-	}
-
-}
-
-
-void TacticalActor::EVENT_SetSoldierDesiredDirection( UINT16	usNewDirection )
-{
-	EVENT_InternalSetSoldierDesiredDirection( this, (UINT8)usNewDirection, FALSE, this->animationPlayback().state() );
-}
-
-
-void TacticalActor::EVENT_SetSoldierDirection( UINT16	usNewDirection )
-{
-	// Remove old location data
-	(void)TacticalActorAnimationFootprint::remove(
-		*this,
-		this->animationPlayback().state());
-
-	// Flugente
-	BOOLEAN fNew = (this->position().direction() != (INT8)usNewDirection);
-
-	this->position().direction() = (INT8)usNewDirection;
-
-	// Updated extended direction.....
-	this->movement().highResolutionDirection() = ubExtDirection[this->position().direction()];
-
-	// Add new stuff
-	(void)TacticalActorAnimationFootprint::add(
-		*this,
-		this->animationPlayback().state());
-
-	// If we are turning, we have chaanged our aim!
-	if ( !this->targeting().retainLastTargetFromTurn() )
-	{
-		this->targeting().lastGridNo() = NOWHERE;
-	}
-
-	AdjustForFastTurnAnimation( this );
-
-	// Update structure info!
-	//	 if ( this->status().flags() & SOLDIER_MULTITILE )
-	{
-		UpdateMercStructureInfo( this );
-	}
-
-	// Handle Profile data for hit locations
-	(void)TacticalActorAnimationFootprint::remove(
-		*this,
-		this->animationPlayback().state());
-
-	HandleCrowShadowNewDirection( this );
-
-	// Change values!
-	SetSoldierLocatorOffsets( this );
-
-	// Flugente: only update flashlights if we changed our direction
-	if ( fNew )
-		TacticalActorEquipment::refreshFlashlights(*this);
-}
-
 
 void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCounter )
 {
@@ -5373,383 +4979,6 @@ void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeC
 	// Flugente: Cool down all weapons and decay food in inventory
 	TacticalActorEquipment::coolDownInventory(*this);
 }
-
-void TacticalActor::TurnSoldier( void )
-{
-	INT16		sDirection;
-	BOOLEAN	fDoDirectionChange = TRUE;
-	INT32		cnt;
-
-	// If we are a vehicle... DON'T TURN!
-	// anv: YES PLIZ DO
-	//if ( this->status().flags() & SOLDIER_VEHICLE )
-	//{
-	//	if ( this->ubBodyType != TANK_NW && this->ubBodyType != TANK_NE )
-	//	{
-	//		return;
-	//	}
-	//}
-	//else	// Lesh: patch for "Bug: Enemy turns around in turn based mode!"
-	{
-		// in case of errors in turning tasks
-		if ( this->pathing().desiredDirection() > 7 || this->pathing().desiredDirection() < 0 )
-		{
-			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "TurnSoldier() Warinig: Invalid desired direction for non-vehicle unit" ) );
-			this->pathing().desiredDirection() = this->position().direction();
-		}
-	}
-	// Lesh: patch ended
-
-	// We handle sight now....
-	if ( this->status().flags() & SOLDIER_LOOK_NEXT_TURNSOLDIER )
-	{
-		if ( (gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_STATIONARY && this->animationPlayback().state() != CLIMBUPROOF && this->animationPlayback().state() != CLIMBDOWNROOF && this->animationPlayback().state() != JUMPUPWALL && this->animationPlayback().state() != JUMPDOWNWALL) )
-		{
-			// HANDLE SIGHT!
-			HandleSight( this, SIGHT_LOOK | SIGHT_RADIO );
-		}
-		// Turn off!
-		this->status().flags() &= (~SOLDIER_LOOK_NEXT_TURNSOLDIER);
-
-		HandleSystemNewAISituation( this, FALSE );
-	}
-
-	if ( this->animationActivity().turningToShoot() )
-	{
-		if ( this->position().direction() == this->pathing().desiredDirection() )
-		{
-			if ( ((gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_FIREREADY) &&
-				this->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_OFF) ||
-				this->identity().bodyType() == ROBOTNOWEAPON ||
-				ARMED_VEHICLE( this ) )
-			{
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "TurnSoldier: EVENT_InitNewSoldierAnim" ) );
-				this->EVENT_InitNewSoldierAnim( SelectFireAnimation( this, gAnimControl[this->animationPlayback().state()].ubEndHeight ), 0, FALSE );
-				this->animationActivity().turningToShoot() = FALSE;
-
-				// Save last target gridno!
-				//this->targeting().lastGridNo() = this->targeting().gridNo();
-
-			}
-			// Else check if we are trying to shoot and once was prone, but am now crouched because we needed to turn...
-			else if ( this->animationActivity().turningFromProneMode() )
-			{
-				//dnl ch71 170913
-				if ( IsValidStance( this, ANIM_PRONE ) )
-				{
-					UINT16 usTrueAnimState = this->animationPlayback().state();
-					this->animationPlayback().state() = PRONE;
-					this->animationIntent().pendingAnimation() = PickSoldierReadyAnimation( this, FALSE, FALSE );
-					this->animationPlayback().state() = usTrueAnimState;
-					SendChangeSoldierStanceEvent( this, ANIM_PRONE );
-				}
-				else
-					this->EVENT_InitNewSoldierAnim( PickSoldierReadyAnimation( this, FALSE, FALSE ), 0, FALSE );
-				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
-				return;
-				/*
-				if ( IsValidStance( this, ANIM_PRONE ) )
-				{
-				SendChangeSoldierStanceEvent( this, ANIM_PRONE );
-				this->animationIntent().pendingAnimation() = SelectFireAnimation( this, ANIM_PRONE );
-				}
-				else
-				{
-				this->EVENT_InitNewSoldierAnim( SelectFireAnimation( this, ANIM_CROUCH ), 0, FALSE );
-				}
-				this->animationActivity().turningToShoot() = FALSE;
-				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
-				//}
-				*/
-			}
-		}
-	}
-
-	if ( this->animationActivity().turningToFall() )
-	{
-		if ( this->position().direction() == this->pathing().desiredDirection() )
-		{
-			SelectFallAnimation( this );
-			this->animationActivity().turningToFall() = FALSE;
-		}
-	}
-
-	if ( this->animationActivity().turningUntilDone() && (this->animationIntent().pendingStance() != NO_PENDING_STANCE) )
-	{
-		if ( this->position().direction() == this->pathing().desiredDirection() )
-		{
-			SendChangeSoldierStanceEvent( this, this->animationIntent().pendingStance() );
-			this->animationIntent().clearPendingStance();
-			this->animationActivity().turningUntilDone() = FALSE;
-		}
-	}
-
-	if ( this->animationActivity().turningUntilDone() && (this->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION) )
-	{
-		if ( this->position().direction() == this->pathing().desiredDirection() )
-		{
-			UINT16 usPendingAnimation;
-
-			usPendingAnimation = this->animationIntent().pendingAnimation();
-			this->animationIntent().clearPendingAnimation();
-
-			this->EVENT_InitNewSoldierAnim( usPendingAnimation, 0, FALSE );
-			this->animationActivity().turningUntilDone() = FALSE;
-		}
-	}
-
-	// Don't do anything if we are at dest direction!
-	if ( this->position().direction() == this->pathing().desiredDirection() )
-	{
-		if ( ARMED_VEHICLE( this ) )
-		{
-			if ( this->audio().hasTurningSound() )
-			{
-				SoundStop( this->audio().turningSoundId() );
-				this->audio().clearTurningSound();
-
-				PlaySoldierJA2Sample( this->identity().id(), TURRET_STOP, RATE_11025, SoundVolume( HIGHVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ), TRUE );
-			}
-		}
-
-		// Turn off!
-		this->status().flags() &= (~SOLDIER_LOOK_NEXT_TURNSOLDIER);
-		this->targeting().retainLastTargetFromTurn() = FALSE;
-
-		// Unset ui busy if from ui
-		if ( this->animationIntent().turningFromUi() &&
-			 (this->animationActivity().turningFromProneMode() != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE) &&
-			 (this->animationActivity().turningFromProneMode() != TURNING_FROM_PRONE_ON) )
-		{
-			UnSetUIBusy( this->identity().id() );
-			this->animationIntent().clearTurningFromUi();
-		}
-
-		if ( this->status().flags() & (SOLDIER_VEHICLE) || CREATURE_OR_BLOODCAT( this ) )
-		{
-			this->status().flags() &= (~SOLDIER_PAUSEANIMOVE);
-		}
-
-		FreeUpNPCFromTurning( this, LOOK );
-
-		// Undo our flag for prone turning...
-		// Else check if we are trying to shoot and once was prone, but am now crouched because we needed to turn...
-		if ( this->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_ON )
-		{
-			// ATE: Don't do this if we have something in our hands we are going to throw!
-			if ( IsValidStance( this, ANIM_PRONE ) && !this->pendingItem().hasObject() )
-			{
-				SendChangeSoldierStanceEvent( this, ANIM_PRONE );
-			}
-			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
-		}
-
-		// If a special code, make guy crawl after stance change!
-		if ( this->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE &&
-			 this->animationPlayback().state() != PRONE_UP &&
-			 this->animationPlayback().state() != PRONE_DOWN )
-		{
-			if ( IsValidStance( this, ANIM_PRONE ) )
-			{
-				this->EVENT_InitNewSoldierAnim( CRAWLING, 0, FALSE );
-			}
-			// Else swat for a tile so that there's room to resume prone
-			else
-			{
-				this->EVENT_InitNewSoldierAnim( this->movement().mode(), 0, FALSE );
-			}
-		}
-
-		if ( this->status().flags() & SOLDIER_TURNINGFROMHIT )
-		{
-			// This section seems problem-prone.  It relies on all animations happening without interruption.  There must be a more
-			// foolproof method.
-			if ( this->animationActivity().hitPhase() == 1 )
-			{
-				if ( this->animationIntent().pendingAnimation() != FALLFORWARD_ROOF && this->animationIntent().pendingAnimation() != FALLOFF && this->animationPlayback().state() != FALLFORWARD_ROOF && this->animationPlayback().state() != FALLOFF )
-				{
-					// Go back to original direction
-					this->EVENT_SetSoldierDesiredDirection( (INT8)this->pendingAction().primaryData() );
-
-					//SETUP GETTING HIT FLAG TO 2
-					this->animationActivity().advanceHit();
-				}
-				else
-				{
-					this->status().flags() &= (~SOLDIER_TURNINGFROMHIT);
-					this->animationActivity().clearHit();
-				}
-			}
-			else if ( this->animationActivity().hitPhase() == 2 )
-			{
-				// Turn off
-				this->status().flags() &= (~SOLDIER_TURNINGFROMHIT);
-
-
-				// Release attacker
-				// DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Releasesoldierattacker, turning from hit animation ended") );
-				// ReleaseSoldiersAttacker( this );
-				// 0verhaul:  Since I disabled the turn from hit ABC increase, I need to disable the turn from hit decrease too.
-				DebugAttackBusy( "Finished turning from hit.  Not Reducing attack busy.\n" );
-				//ReduceAttackBusyCount( );
-
-				//FREEUP GETTING HIT FLAG
-				this->animationActivity().clearHit();
-			}
-		}
-
-		if ( this->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_FOR_PUNCH_OR_STAB )//dnl ch73 290913
-		{
-			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
-		}
-
-		return;
-	}
-
-	// IF WE ARE HERE, WE ARE IN THE PROCESS OF TURNING
-
-	// DOUBLE CHECK TO UNSET fNOAPs...
-	if ( this->movement().outOfActionPoints() )
-	{
-		(void)TacticalActorRouteExecution::setOutOfActionPoints(*this, false );
-	}
-
-	// Do something different for vehicles....
-	if ( this->status().flags() & SOLDIER_VEHICLE )
-	{
-		fDoDirectionChange = FALSE;
-
-		// Get new direction
-		/*
-		sDirection = this->movement().highResolutionDirection() + ExtQuickestDirection( this->movement().highResolutionDirection(), this->movement().highResolutionDesiredDirection() );
-		*/
-		sDirection = this->movement().highResolutionDirection() + this->animationActivity().turningIncrement();
-		if ( sDirection > 31 )
-		{
-			sDirection = 0;
-		}
-		else
-		{
-			if ( sDirection < 0 )
-			{
-				sDirection = 31;
-			}
-		}
-		this->movement().highResolutionDirection() = (UINT8)sDirection;
-
-		// Are we at a multiple of a 'cardnal' direction?
-		for ( cnt = 0; cnt < NUM_WORLD_DIRECTIONS; ++cnt )
-		{
-			if ( sDirection == ubExtDirection[cnt] )
-			{
-				fDoDirectionChange = TRUE;
-
-				sDirection = (INT16)cnt;
-
-				break;
-			}
-		}
-
-		if ( ARMED_VEHICLE( this ) )
-		{
-			if ( !this->audio().hasTurningSound() )
-			{
-				this->audio().startTurningSound(
-					PlaySoldierJA2Sample( this->identity().id(), TURRET_MOVE,
-						RATE_11025,
-						SoundVolume( HIGHVOLUME, this->position().gridNo() ),
-						100, SoundDir( this->position().gridNo() ), TRUE ) );
-			}
-		}
-	}
-	else
-	{
-		// Get new direction
-		//sDirection = this->ubDirection + QuickestDirection( this->ubDirection, this->pathing().desiredDirection() );
-		sDirection = this->position().direction() + this->animationActivity().turningIncrement();
-		if ( sDirection > NORTHWEST )
-		{
-			sDirection = NORTH;
-		}
-		else
-		{
-			if ( sDirection < NORTH )
-			{
-				sDirection = NORTHWEST;
-			}
-		}
-	}
-
-	// CHECK FOR A VALID TURN DIRECTION
-	// This is needed for prone animations as well as any multi-tiled structs
-	if ( fDoDirectionChange )
-	{
-		if ( this->status().flags() & SOLDIER_VEHICLE )
-		{
-			// need to turn around passengers inside
-			INT32 iId = this->vehicleState().tacticalVehicleId();
-
-			// check which side vehicle turned
-			INT16 bDirectionChange = QuickestDirection( this->position().direction(), this->pathing().desiredDirection() );
-
-			// Loop through passengers and update each guy's rotation
-			for ( INT32 iCounter = 0; iCounter < gNewVehicle[pVehicleList[iId].ubVehicleType].iNewSeatingCapacities; iCounter++ )
-			{
-				TacticalActor* passenger =
-					ResolveVehiclePassenger( iId, iCounter );
-				if ( passenger != NULL )
-				{
-					passenger->animationActivity().turningCostWaived() = TRUE;
-					passenger->EVENT_SetSoldierDesiredDirection(
-						(passenger->pathing().desiredDirection() +
-							bDirectionChange + NUM_WORLD_DIRECTIONS) %
-						NUM_WORLD_DIRECTIONS );
-				}
-			}
-			UpdateAllVehiclePassengersGridNo( this );
-		}
-
-		// If the soldier is not crawling or multi-tiled, he should be allowed to turn in place.  Even if there is some
-		// obstacle he shouldn't be standing on.
-		if ( OKToAddMercToWorld( this, (INT8)sDirection ) )
-		{
-			if ( gubWaitingForAllMercsToExitCode == WAIT_FOR_MERCS_TO_WALKOFF_SCREEN || gubWaitingForAllMercsToExitCode == WAIT_FOR_MERCS_TO_WALK_TO_GRIDNO )
-			{
-				// Don't do this if we are walking off screen...
-
-			}
-			else
-			{
-				// ATE: We should only do this if we are STATIONARY!
-				if ( (gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_STATIONARY) )
-				{
-					this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;
-				}
-				// otherwise, it's handled next tile...
-			}
-
-			this->EVENT_SetSoldierDirection( sDirection );
-
-			if ( this->identity().bodyType() != LARVAE_MONSTER && !TacticalActorMobility::inWater(*this) && this->position().terrainType() != DIRT_ROAD && this->position().terrainType() != PAVED_ROAD && !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
-			{
-				PlaySoldierFootstepSound( this );
-			}
-		}
-		// Are we prone crawling?
-		else if ( this->animationPlayback().state() == CRAWLING )
-		{
-			// OK, we want to getup, turn and go prone again....
-			SendChangeSoldierStanceEvent( this, ANIM_CROUCH );
-			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE;
-		}
-		// If we are a creature, or multi-tiled, cancel AI action.....?
-		else if ( this->status().flags() & SOLDIER_MULTITILE )
-		{
-			this->pathing().desiredDirection() = this->position().direction();
-		}
-	}
-}
-
 
 UINT8	gRedGlowR[] =
 {
@@ -7997,7 +7226,7 @@ BOOLEAN TacticalActor::CheckSoldierHitRoof( void )
 			{
 				this->position().temporaryGrid() = NewGridNo( this->position().gridNo(), (INT16)(-1 * DirectionInc( bNewDirection )) );
 				this->position().temporaryGrid() = NewGridNo( this->position().temporaryGrid(), (INT16)(-1 * DirectionInc( bNewDirection )) );
-				this->EVENT_SetSoldierDesiredDirection( gOppositeDirection[bNewDirection] );
+				(void)TacticalActorOrientation::setDesiredDirection(*this, gOppositeDirection[bNewDirection] );
 				this->animationActivity().turningUntilDone() = TRUE;
 				this->animationIntent().pendingAnimation() = FALLFORWARD_ROOF;
 				//this->EVENT_InitNewSoldierAnim( FALLFORWARD_ROOF, 0 , FALSE );
@@ -8011,7 +7240,7 @@ BOOLEAN TacticalActor::CheckSoldierHitRoof( void )
 			{
 				this->position().temporaryGrid() = NewGridNo( this->position().gridNo(), (INT16)(-1 * DirectionInc( bNewDirection )) );
 				this->position().temporaryGrid() = NewGridNo( this->position().temporaryGrid(), (INT16)(-1 * DirectionInc( bNewDirection )) );
-				this->EVENT_SetSoldierDesiredDirection( bNewDirection );
+				(void)TacticalActorOrientation::setDesiredDirection(*this, bNewDirection );
 				this->animationActivity().turningUntilDone() = TRUE;
 				this->animationIntent().pendingAnimation() = FALLOFF;
 
@@ -8785,7 +8014,7 @@ void SendChangeSoldierStanceEvent( TacticalActor *pSoldier, UINT8 ubNewStance )
 
 	if ( ((pSoldier->identity().id() > 19 && !is_server) || (pSoldier->identity().id() > 119 && is_server)) && is_networked )return;
 
-	pSoldier->ChangeSoldierStance( ubNewStance );
+	(void)TacticalActorOrientation::changeStance(*pSoldier, ubNewStance );
 	if ( is_server || (is_client && pSoldier->identity().id() <20) ) send_stance( pSoldier, ubNewStance );
 }
 
@@ -16205,8 +15434,8 @@ void PickPickupAnimation( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGrid
 						}
 
 						//pSoldier->animationIntent().pendingDirection() = bDirection;
-						pSoldier->EVENT_SetSoldierDesiredDirection( bDirection );
-						pSoldier->EVENT_SetSoldierDirection( bDirection );
+						(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, bDirection );
+						(void)TacticalActorOrientation::setDirection(*pSoldier, bDirection );
 
 						// Change to pickup animation
 						pSoldier->EVENT_InitNewSoldierAnim( ADJACENT_GET_ITEM, 0, FALSE );
@@ -16322,7 +15551,7 @@ void HandleSystemNewAISituation( TacticalActor *pSoldier, BOOLEAN fResetABC )
 		{
 			// Cancel what they were doing....
 			// silversurfer: bugfix for endless dying mercs on roof edges
-			// if we delete their pending animation here they will just turn into the proper direction for the fall (in TurnSoldier( void ) )
+			// If we delete their pending animation here, turn advancement will still face them for the fall.
 			// and stand there forever afterwards in "dying" state, so let this guy fall off the roof first!
 			if ( pSoldier->animationIntent().pendingAnimation() != FALLOFF && pSoldier->animationIntent().pendingAnimation() != FALLFORWARD_ROOF )
 				pSoldier->animationIntent().clearPendingAnimation();

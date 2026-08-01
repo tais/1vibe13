@@ -1,5 +1,6 @@
 #include "TacticalActorRecovery.h"
 
+#include "TacticalActorOrientation.h"
 #include "Animation Control.h"
 #include "Animation Data.h"
 #include "Boxing.h"
@@ -179,7 +180,7 @@ void startGetUpAnimation(TacticalActor& actor)
 			break;
 
 		default:
-			actor.ChangeSoldierStance(ANIM_CROUCH);
+			(void)TacticalActorOrientation::changeStance(actor, ANIM_CROUCH);
 			break;
 		}
 	}
