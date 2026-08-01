@@ -9,6 +9,7 @@
 #include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorProfileClassification.h"
 #include "TacticalActorWeaponHandling.h"
+#include "TacticalActorRangedActions.h"
 // ja2_headless_tests.cpp -- first slice of the engine test harness.
 //
 // Proves that the JA2 engine links into a standalone test binary (i.e. the
@@ -9044,6 +9045,79 @@ int main( int, char** )
 		       malformedAnimationIsRejected &&
 		       unavailableWorldMountIsRejected,
 		       "tactical actor weapon handling owns bounded dual-wield, alternative-fire, and mounting decisions" );
+	}
+
+	{
+		TacticalActor rangedActor;
+		const auto previousItem = Item[1];
+		const auto previousWeapon = Weapon[1];
+		const auto previousStandingAnimation =
+			gAnimControl[STANDING];
+		rangedActor.position().gridNo() = 42;
+		rangedActor.targeting().gridNo() = 77;
+		rangedActor.animationPlayback().state() = STANDING;
+		rangedActor.position().direction() = NORTH;
+
+		const bool unavailableWorldFireIsRejected =
+			!TacticalActorRangedActions::beginFire(
+				rangedActor,
+				43) &&
+			rangedActor.targeting().gridNo() == 77;
+		const bool malformedFacingIsRejected =
+			!TacticalActorRangedActions::readyFacing(
+				rangedActor,
+				NUM_WORLD_DIRECTIONS,
+				false,
+				false);
+
+		rangedActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedAnimationIsRejected =
+			!TacticalActorRangedActions::ready(rangedActor) &&
+			!TacticalActorRangedActions::readyToward(
+				rangedActor,
+				1,
+				1,
+				false,
+				false);
+
+		rangedActor.animationPlayback().state() = STANDING;
+		Item[1].usItemClass = IC_GUN;
+		Item[1].usItemFlag &= ~ITEM_twohanded;
+		Weapon[1].ubShotsPerBurst = 0;
+		Weapon[1].NoSemiAuto = false;
+		gAnimControl[STANDING].uiFlags = 0;
+		gAnimControl[STANDING].ubEndHeight = 0xff;
+		rangedActor.inventory()[HANDPOS].usItem = 1;
+		rangedActor.inventory()[HANDPOS].ubNumberOfObjects = 1;
+		rangedActor.attackSelection().weaponMode() = WM_BURST;
+		const bool equipmentChangeNormalizesFireMode =
+			TacticalActorRangedActions::refreshAfterHandItemChange(
+				rangedActor,
+				1,
+				1) &&
+			rangedActor.attackSelection().weaponMode() ==
+				WM_NORMAL;
+
+		rangedActor.attackSelection().weaponMode() = WM_BURST;
+		const bool malformedEquipmentChangeIsRejected =
+			!TacticalActorRangedActions::refreshAfterHandItemChange(
+				rangedActor,
+				MAXITEMS,
+				NOTHING) &&
+			rangedActor.attackSelection().weaponMode() ==
+				WM_BURST;
+
+		Item[1] = previousItem;
+		Weapon[1] = previousWeapon;
+		gAnimControl[STANDING] = previousStandingAnimation;
+
+		CHECK( unavailableWorldFireIsRejected &&
+		       malformedFacingIsRejected &&
+		       malformedAnimationIsRejected &&
+		       equipmentChangeNormalizesFireMode &&
+		       malformedEquipmentChangeIsRejected,
+		       "tactical actor ranged actions normalize equipment changes and reject unavailable-world or malformed requests without partial mutation" );
 	}
 
 	{

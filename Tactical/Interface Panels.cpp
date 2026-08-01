@@ -4,6 +4,7 @@
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditionPresentation.h"
+#include "TacticalActorRangedActions.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp.h"
@@ -6909,7 +6910,10 @@ void TMClickFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			usOldHandItem = soldier->inventory()[HANDPOS].usItem;
 			//SwapOutHandItem( ubSoldierID );
 			SwapHandItems( soldier );
-			soldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, soldier->inventory()[HANDPOS].usItem );
+			(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+				*soldier,
+				usOldHandItem,
+				soldier->inventory()[HANDPOS].usItem);
 			fInterfacePanelDirty = DIRTYLEVEL2;
 		}
 	}
@@ -6960,7 +6964,10 @@ void TMClickSecondHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			{
 				usOldHandItem = soldier->inventory()[HANDPOS].usItem;
 				SwapHandItems( soldier );
-				soldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, soldier->inventory()[HANDPOS].usItem );
+				(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+					*soldier,
+					usOldHandItem,
+					soldier->inventory()[HANDPOS].usItem);
 				fInterfacePanelDirty = DIRTYLEVEL2;
 			}
 		}
@@ -8145,7 +8152,10 @@ BOOLEAN HandleKlerykPistolet( TacticalActor *pSoldier, UINT32 uiHandPos, UINT16 
 		if ( uiInvPos == HANDPOS || uiInvPos == SECONDHANDPOS )
 		{
 			// check if we need to change animation!
-			pSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldItem, usNewItem );
+			(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+				*pSoldier,
+				usOldItem,
+				usNewItem);
 		}
 
 		// if this is head gear

@@ -597,6 +597,17 @@ item, weapon, profile, vehicle, seat, direction, or world tables. Mods keep
 using the existing item, weapon, vehicle, map, XML, and Lua data formats; this
 change only replaces C++ aggregate methods with explicit engine-facing
 operations.
+`TacticalActorRangedActions` owns the stateful ranged-weapon lifecycle that
+uses those rules: `beginFire`, the `ready`/`readyToward`/`readyFacing`
+operations, and `refreshAfterHandItemChange`. Event handling, tactical AI,
+animation playback, UI inventory changes, and weapon code call this domain
+instead of restoring `TacticalActor::EVENT_FireSoldierWeapon`,
+`SoldierReadyWeapon`, `InternalSoldierReadyWeapon`, or the hand-item animation
+refresh façade. The boundary rejects unavailable tactical worlds and malformed
+actor, grid, direction, animation, inventory, item, or weapon indexes before
+legacy state is touched. This is an application-side C++ boundary only;
+weapon, attachment, animation, sound, network-command, map, XML, Lua, save,
+and installed mod formats are unchanged.
 `TacticalActorConditionPresentation` is the application-side boundary for
 localized food, disease, and sleep text. Use `appendSummary` when composing a
 complete tactical or strategic status tooltip, or the focused append

@@ -4,6 +4,7 @@
 #include "SoldierRepository.h"
 #include "TacticalActorDragging.h"
 #include "TacticalActorInteractions.h"
+#include "TacticalActorRangedActions.h"
 #include "TacticalActorTraversal.h"
 #include "TacticalWorldAdapter.h"
 
@@ -514,10 +515,11 @@ namespace
 			{
 				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier) return CommandDisposition::Discard;
-				return soldier->InternalSoldierReadyWeapon(
+				return TacticalActorRangedActions::readyFacing(
+					*soldier,
 					value.direction,
-					value.ready ? FALSE : TRUE,
-					value.alternativeHold ? TRUE : FALSE)
+					!value.ready,
+					value.alternativeHold)
 					? CommandDisposition::Applied
 					: CommandDisposition::Discard;
 			}

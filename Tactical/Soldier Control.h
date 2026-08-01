@@ -886,7 +886,6 @@ public:
 
 	void EVENT_SetSoldierDirection( UINT16	usNewDirection );
 	void EVENT_SetSoldierDesiredDirection( UINT16	usNewDirection );
-	void EVENT_FireSoldierWeapon( INT32 sTargetGridNo );
 	void EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 ubDamage, INT16 sBreathLoss, UINT16 bDirection, UINT16 sRange, SoldierID ubAttackerID, UINT8 ubSpecial, UINT8 ubHitLocation, INT16 sSubsequent, INT32 sLocationGridNo );
 	void EVENT_StopMerc( INT32 sGridNo, INT8 bDirection );
 	void EVENT_SetSoldierPositionForceDelete( FLOAT dNewXPos, FLOAT dNewYPos );
@@ -933,14 +932,6 @@ public:
 	BOOLEAN DoMercBattleSound( UINT8 ubBattleSoundID );
 	BOOLEAN InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpecialCode );
 	void HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy );
-	void ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, UINT16 usNewItem );
-
-	// sevenfm
-
-	BOOLEAN SoldierReadyWeapon( INT16 sTargetXPos, INT16 sTargetYPos, BOOLEAN fEndReady, BOOLEAN fRaiseToHipOnly );
-	BOOLEAN SoldierReadyWeapon( void );
-	BOOLEAN InternalSoldierReadyWeapon( UINT8 sFacingDir, BOOLEAN fEndReady, BOOLEAN fRaiseToHipOnly );
-
 	BOOLEAN CheckSoldierHitRoof( void );
 	// Flugente: return a soldier's name. This allows for very easy manipulation of a soldier's name with pre- an suffixes, ranks etc.
 	STR16		GetName();

@@ -10,6 +10,7 @@
 #include "Animation Control.h"
 #include "opplist.h"
 #include "Tactical Save.h"
+#include "TacticalActorRangedActions.h"
 #include <vector>
 #include <queue>
 
@@ -1275,7 +1276,9 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				pSoldier->targeting().gridNo() = SBeginFireWeapon.sTargetGridNo;
 				pSoldier->targeting().level() = SBeginFireWeapon.bTargetLevel;
 				pSoldier->targeting().cubeLevel() = SBeginFireWeapon.bTargetCubeLevel;
-				pSoldier->EVENT_FireSoldierWeapon( SBeginFireWeapon.sTargetGridNo );
+				(void)TacticalActorRangedActions::beginFire(
+					*pSoldier,
+					SBeginFireWeapon.sTargetGridNo);
 				break;
 
 			case S_FIREWEAPON:

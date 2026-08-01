@@ -2200,6 +2200,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorWeaponHandling.h"
   tactical_actor_weapon_handling_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorWeaponHandling.cpp"
   tactical_actor_weapon_handling_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRangedActions.h"
+  tactical_actor_ranged_actions_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRangedActions.cpp"
+  tactical_actor_ranged_actions_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.h"
   tactical_actor_ai_behavior_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.cpp"
@@ -3116,6 +3120,10 @@ foreach(retired_actor_facade IN ITEMS
   "SoldierPropertyUpkeep"
   "PrintFoodDesc"
   "PrintSleepDesc"
+  "EVENT_FireSoldierWeapon"
+  "SoldierReadyWeapon"
+  "InternalSoldierReadyWeapon"
+  "ReLoadSoldierAnimationDueToHandItemChange"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3146,6 +3154,29 @@ foreach(retired_actor_facade IN ITEMS
      NOT retired_actor_facade_definition EQUAL -1)
     message(FATAL_ERROR
       "TacticalActor regained retired facade '${retired_actor_facade}'")
+  endif()
+endforeach()
+
+foreach(required_ranged_action IN ITEMS
+  "beginFire"
+  "ready"
+  "readyToward"
+  "readyFacing"
+  "refreshAfterHandItemChange")
+  string(FIND "${tactical_actor_ranged_actions_header_contents}"
+    "${required_ranged_action}("
+    ranged_action_declaration)
+  string(FIND "${tactical_actor_ranged_actions_source_contents}"
+    "TacticalActorRangedActions::${required_ranged_action}("
+    ranged_action_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorRangedActions::${required_ranged_action}"
+    ranged_action_coverage)
+  if(ranged_action_declaration EQUAL -1 OR
+     ranged_action_definition EQUAL -1 OR
+     ranged_action_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor ranged action '${required_ranged_action}' lost its declaration, definition, or malformed-state coverage")
   endif()
 endforeach()
 
@@ -3634,6 +3665,7 @@ endforeach()
 
 foreach(required_actor_domain_source IN ITEMS
   "TacticalActorMobility.cpp"
+  "TacticalActorRangedActions.cpp"
   "TacticalActorWeaponHandling.cpp"
   "TacticalActorAiBehavior.cpp"
   "TacticalActorDamageQueue.cpp"
