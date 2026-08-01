@@ -1,3 +1,4 @@
+#include "TacticalActorBattleSounds.h"
 #include "builddefines.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorMedicalTreatment.h"
@@ -4844,7 +4845,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		if( pTarget->pSoldier->vitals().health() >= CONSCIOUSNESS || pTarget->uiFlags & CELL_CREATURE )
 		{
 			if( gpAR->fSound )
-				pTarget->pSoldier->DoMercBattleSound( BATTLE_SOUND_HIT1 );
+				TacticalActorBattleSounds::play(*pTarget->pSoldier, BATTLE_SOUND_HIT1);
 		}
 		if( !(pTarget->uiFlags & CELL_CREATURE) && iNewLife < OKLIFE && pTarget->pSoldier->vitals().health() >= OKLIFE )
 		{
@@ -5081,7 +5082,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 	if( pTarget->pSoldier->vitals().health() >= CONSCIOUSNESS )
 	{
 		if( gpAR->fSound )
-			pTarget->pSoldier->DoMercBattleSound( BATTLE_SOUND_HIT1 );
+			TacticalActorBattleSounds::play(*pTarget->pSoldier, BATTLE_SOUND_HIT1);
 	}
 
 	if( iNewLife < OKLIFE && pTarget->pSoldier->vitals().health() >= OKLIFE )
@@ -5263,7 +5264,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 				if ( ARMED_VEHICLE( pTarget->pSoldier ) || ENEMYROBOT( pTarget->pSoldier ) )
 					PlayAutoResolveSample( (UINT8)(S_RAID_TB_BOMB), RATE_11025, 50, 1, MIDDLEPAN );
 				else
-					pTarget->pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
+					TacticalActorBattleSounds::play(*pTarget->pSoldier, BATTLE_SOUND_DIE1);
 			}
 		}
 		#ifdef INVULNERABILITY
@@ -5387,7 +5388,7 @@ BOOLEAN IsBattleOver()
 			if( iNumInvolvedMercs == 1 && !gpAR->ubAliveCivs )
 			{
 				//Robot is the only one left in battle, so instantly kill him.
-				pRobot->DoMercBattleSound( BATTLE_SOUND_DIE1 );
+				TacticalActorBattleSounds::play(*pRobot,  BATTLE_SOUND_DIE1 );
 				pRobot->vitals().health() = 0;
 				gpAR->ubAliveMercs--;
 				iNumInvolvedMercs = 0;
@@ -5426,7 +5427,7 @@ BOOLEAN IsBattleOver()
 			{
 				if( gpMercs[ i ].uiFlags & CELL_EPC )
 				{
-					gpMercs[ i ].pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
+					TacticalActorBattleSounds::play(*gpMercs[i].pSoldier, BATTLE_SOUND_DIE1);
 					gpMercs[ i ].pSoldier->vitals().health() = 0;
 					gpMercs[ i ].pSoldier->vitals().healableInjury() = 0; // added by SANDRO
 					--gpAR->ubAliveMercs;
@@ -5442,7 +5443,7 @@ BOOLEAN IsBattleOver()
 					GetEnemyEncounterCode() != BLOODCAT_ATTACK_CODE &&
 					GetEnemyEncounterCode() != ZOMBIE_ATTACK_CODE )
 				{
-					gpEnemies[ i ].pSoldier->DoMercBattleSound( BATTLE_SOUND_LAUGH1 );
+					TacticalActorBattleSounds::play(*gpEnemies[i].pSoldier, BATTLE_SOUND_LAUGH1);
 				}
 				else
 				{

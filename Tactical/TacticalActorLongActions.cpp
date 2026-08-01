@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorLongActions.h"
 
 #include "Animation Control.h"
@@ -244,14 +245,14 @@ bool TacticalActorLongActions::update(TacticalActor& actor)
 		{
 			if (!is_networked)
 			{
-				actor.EVENT_InitNewSoldierAnim(
+				TacticalActorAnimationTransitions::initializeAnimation(actor,
 					CUTTING_FENCE,
 					0,
 					FALSE);
 			}
 			else
 			{
-				actor.ChangeSoldierState(
+				TacticalActorAnimationTransitions::changeState(actor,
 					CUTTING_FENCE,
 					0,
 					FALSE);

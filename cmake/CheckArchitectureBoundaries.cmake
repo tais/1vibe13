@@ -2274,6 +2274,34 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatReactions.h"
   tactical_actor_combat_reactions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatReactions.cpp"
   tactical_actor_combat_reactions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationTransitions.h"
+  tactical_actor_animation_transitions_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationTransitions.cpp"
+  tactical_actor_animation_transitions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAppearance.h"
+  tactical_actor_appearance_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAppearance.cpp"
+  tactical_actor_appearance_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorBattleSounds.h"
+  tactical_actor_battle_sounds_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorBattleSounds.cpp"
+  tactical_actor_battle_sounds_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageResolution.h"
+  tactical_actor_damage_resolution_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageResolution.cpp"
+  tactical_actor_damage_resolution_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLifecycle.h"
+  tactical_actor_lifecycle_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLifecycle.cpp"
+  tactical_actor_lifecycle_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLocomotion.h"
+  tactical_actor_locomotion_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLocomotion.cpp"
+  tactical_actor_locomotion_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurnLifecycle.h"
+  tactical_actor_turn_lifecycle_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurnLifecycle.cpp"
+  tactical_actor_turn_lifecycle_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRecovery.h"
   tactical_actor_recovery_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRecovery.cpp"
@@ -3176,7 +3204,20 @@ foreach(retired_actor_facade IN ITEMS
   "ConvertAniCodeToAniFrame"
   "SpriteDirForSurface"
   "HandleAnimationProfile"
-  "GetProfileFlagsFromGridno")
+  "GetProfileFlagsFromGridno"
+  "CreateSoldierCommon"
+  "DeleteSoldier"
+  "ReviveSoldier"
+  "CreateSoldierPalettes"
+  "ChangeSoldierState"
+  "EVENT_InitNewSoldierAnim"
+  "EVENT_SoldierGotHit"
+  "SoldierTakeDamage"
+  "EVENT_BeginMercTurn"
+  "DoMercBattleSound"
+  "InternalDoMercBattleSound"
+  "CheckSoldierHitRoof"
+  "MoveMerc")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3187,6 +3228,70 @@ foreach(retired_actor_facade IN ITEMS
      NOT retired_actor_facade_definition EQUAL -1)
     message(FATAL_ERROR
       "TacticalActor regained retired facade '${retired_actor_facade}'")
+  endif()
+endforeach()
+
+foreach(actor_source IN LISTS world_state_files)
+  file(READ "${actor_source}" actor_source_contents)
+  foreach(retired_actor_entry IN ITEMS
+    "CreateSoldierCommon"
+    "DeleteSoldier"
+    "ReviveSoldier"
+    "CreateSoldierPalettes"
+    "ChangeSoldierState"
+    "EVENT_InitNewSoldierAnim"
+    "EVENT_SoldierGotHit"
+    "SoldierTakeDamage"
+    "EVENT_BeginMercTurn"
+    "DoMercBattleSound"
+    "InternalDoMercBattleSound"
+    "CheckSoldierHitRoof"
+    "MoveMerc")
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${retired_actor_entry}[ \t\r\n]*\\("
+      retired_actor_entry_usage
+      "${actor_source_contents}")
+    if(retired_actor_entry_usage)
+      message(FATAL_ERROR
+        "Production caller in ${actor_source} restored retired TacticalActor entry '${retired_actor_entry}'")
+    endif()
+  endforeach()
+endforeach()
+
+foreach(final_actor_domain_operation IN ITEMS
+  "TacticalActorAppearance|tactical_actor_appearance_header_contents|tactical_actor_appearance_source_contents|rebuildPalettes"
+  "TacticalActorLifecycle|tactical_actor_lifecycle_header_contents|tactical_actor_lifecycle_source_contents|create"
+  "TacticalActorLifecycle|tactical_actor_lifecycle_header_contents|tactical_actor_lifecycle_source_contents|destroy"
+  "TacticalActorLifecycle|tactical_actor_lifecycle_header_contents|tactical_actor_lifecycle_source_contents|revive"
+  "TacticalActorAnimationTransitions|tactical_actor_animation_transitions_header_contents|tactical_actor_animation_transitions_source_contents|changeState"
+  "TacticalActorAnimationTransitions|tactical_actor_animation_transitions_header_contents|tactical_actor_animation_transitions_source_contents|initializeAnimation"
+  "TacticalActorDamageResolution|tactical_actor_damage_resolution_header_contents|tactical_actor_damage_resolution_source_contents|applyHit"
+  "TacticalActorDamageResolution|tactical_actor_damage_resolution_header_contents|tactical_actor_damage_resolution_source_contents|takeDamage"
+  "TacticalActorTurnLifecycle|tactical_actor_turn_lifecycle_header_contents|tactical_actor_turn_lifecycle_source_contents|beginTurn"
+  "TacticalActorBattleSounds|tactical_actor_battle_sounds_header_contents|tactical_actor_battle_sounds_source_contents|play"
+  "TacticalActorBattleSounds|tactical_actor_battle_sounds_header_contents|tactical_actor_battle_sounds_source_contents|playWithCode"
+  "TacticalActorLocomotion|tactical_actor_locomotion_header_contents|tactical_actor_locomotion_source_contents|checkRoofHit"
+  "TacticalActorLocomotion|tactical_actor_locomotion_header_contents|tactical_actor_locomotion_source_contents|move")
+  string(REPLACE "|" ";" final_actor_domain_fields
+    "${final_actor_domain_operation}")
+  list(GET final_actor_domain_fields 0 final_actor_domain)
+  list(GET final_actor_domain_fields 1 final_actor_header_variable)
+  list(GET final_actor_domain_fields 2 final_actor_source_variable)
+  list(GET final_actor_domain_fields 3 final_actor_operation)
+  string(FIND "${${final_actor_header_variable}}"
+    "${final_actor_operation}("
+    final_actor_operation_declaration)
+  string(FIND "${${final_actor_source_variable}}"
+    "${final_actor_domain}::${final_actor_operation}("
+    final_actor_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "${final_actor_domain}::${final_actor_operation}"
+    final_actor_operation_coverage)
+  if(final_actor_operation_declaration EQUAL -1 OR
+     final_actor_operation_definition EQUAL -1 OR
+     final_actor_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Final tactical actor operation '${final_actor_domain}::${final_actor_operation}' lost its declaration, definition, or headless coverage")
   endif()
 endforeach()
 
@@ -3414,8 +3519,8 @@ string(FIND "${tactical_actor_turn_maintenance_header_contents}"
 string(FIND "${tactical_actor_turn_maintenance_source_contents}"
   "TacticalActorTurnMaintenance::maintainAtTurnStart("
   turn_maintenance_operation_definition)
-string(FIND "${tactical_actor_source_contents}"
-  "TacticalActorTurnMaintenance::maintainAtTurnStart(*this);"
+string(FIND "${tactical_actor_turn_lifecycle_source_contents}"
+  "TacticalActorTurnMaintenance::maintainAtTurnStart(subject);"
   turn_maintenance_owner_call)
 string(FIND "${headless_test_contents}"
   "TacticalActorTurnMaintenance::maintainAtTurnStart("
@@ -3428,8 +3533,8 @@ if(turn_maintenance_operation_declaration EQUAL -1 OR
     "Tactical actor turn maintenance lost its declaration, definition, turn-start caller, or focused headless coverage")
 endif()
 
-string(FIND "${tactical_actor_source_contents}"
-  "this->condition().clearExtraStats();"
+string(FIND "${tactical_actor_turn_lifecycle_source_contents}"
+  "subject.condition().clearExtraStats();"
   actor_condition_reset_owner_call)
 string(FIND "${tactical_actor_timer_source_contents}"
   "soldier->statProgress().reset();"
@@ -4121,7 +4226,7 @@ string(FIND "${tactical_actor_damage_feedback_source_contents}"
 string(FIND "${headless_test_contents}"
   "TacticalActorDamageFeedback::presentHit"
   damage_feedback_coverage)
-string(FIND "${tactical_actor_source_contents}"
+string(FIND "${tactical_actor_damage_resolution_source_contents}"
   "TacticalActorDamageFeedback::presentHit"
   soldier_damage_feedback_call)
 file(READ "${SOURCE_ROOT}/Tactical/Vehicles.cpp"
@@ -4401,11 +4506,17 @@ endif()
 foreach(required_actor_domain_source IN ITEMS
   "TacticalActorAnimationFootprint.cpp"
   "TacticalActorAnimationFrames.cpp"
+  "TacticalActorAnimationTransitions.cpp"
+  "TacticalActorAppearance.cpp"
+  "TacticalActorBattleSounds.cpp"
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
   "TacticalActorCombatReactions.cpp"
   "TacticalActorConditionPresentation.cpp"
   "TacticalActorDamageFeedback.cpp"
+  "TacticalActorDamageResolution.cpp"
+  "TacticalActorLifecycle.cpp"
+  "TacticalActorLocomotion.cpp"
   "TacticalActorRecovery.cpp"
   "TacticalActorTraversal.cpp"
   "TacticalActorExplosives.cpp"
@@ -4413,6 +4524,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorLighting.cpp"
   "TacticalActorProfileClassification.cpp"
   "TacticalActorTurnBudget.cpp"
+  "TacticalActorTurnLifecycle.cpp"
   "TacticalActorTurnMaintenance.cpp")
   string(FIND "${tactical_build_contents}"
     "${required_actor_domain_source}"
@@ -4714,16 +4826,14 @@ foreach(required_strategic_squad_compatibility_fragment IN ITEMS
   endif()
 endforeach()
 
-file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
-  soldier_lifecycle_contents)
-string(FIND "${soldier_lifecycle_contents}"
+string(FIND "${tactical_actor_lifecycle_source_contents}"
   "RemoveJa2StrategicSquadActor(actor)"
   strategic_squad_delete_cleanup)
 if(strategic_squad_delete_cleanup EQUAL -1)
   message(FATAL_ERROR
     "Soldier deletion no longer removes exact strategic squad membership")
 endif()
-string(FIND "${soldier_lifecycle_contents}"
+string(FIND "${tactical_actor_lifecycle_source_contents}"
   "RemoveJa2VehiclePassengerActor(actor)"
   vehicle_passenger_delete_cleanup)
 if(vehicle_passenger_delete_cleanup EQUAL -1)
@@ -4953,9 +5063,7 @@ if(strategic_group_swap_rebind EQUAL -1)
     "Whole-record tactical actor swaps no longer rebind strategic movement members")
 endif()
 
-file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
-  soldier_control_source_contents)
-string(FIND "${soldier_control_source_contents}"
+string(FIND "${tactical_actor_lifecycle_source_contents}"
   "RemovePlayerFromStrategicGroups(actor);"
   strategic_group_deletion_cleanup)
 if(strategic_group_deletion_cleanup EQUAL -1)
@@ -5142,14 +5250,12 @@ foreach(required_overhead_repository_fragment IN ITEMS
   endif()
 endforeach()
 
-file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
-  soldier_control_contents)
 foreach(required_exact_roster_deletion_fragment IN ITEMS
-    "actor = GetJa2TacticalEntityId(*this)"
-    "(void)ReleaseJa2TacticalEntity(*this)"
+    "actor = GetJa2TacticalEntityId(subject)"
+    "(void)ReleaseJa2TacticalEntity(subject)"
     "RemoveJa2ActiveTacticalActor(actor)"
     "RemoveJa2AwayTacticalActor(actor)")
-  string(FIND "${soldier_control_contents}"
+  string(FIND "${tactical_actor_lifecycle_source_contents}"
     "${required_exact_roster_deletion_fragment}"
     required_exact_roster_deletion_position)
   if(required_exact_roster_deletion_position EQUAL -1)

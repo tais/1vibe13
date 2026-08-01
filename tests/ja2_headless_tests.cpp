@@ -139,12 +139,18 @@
 #include "Handle Items.h"
 #include "TacticalActorAnimationFootprint.h"
 #include "TacticalActorAnimationFrames.h"
+#include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorAppearance.h"
 #include "TacticalActorAssignments.h"
+#include "TacticalActorBattleSounds.h"
 #include "TacticalActorConsumables.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorCombatReactions.h"
 #include "TacticalActorConditionPresentation.h"
 #include "TacticalActorDamageFeedback.h"
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorLifecycle.h"
+#include "TacticalActorLocomotion.h"
 #include "TacticalActorRecovery.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -162,6 +168,7 @@
 #include "TacticalActorLighting.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorTurnBudget.h"
+#include "TacticalActorTurnLifecycle.h"
 #include "TacticalActorTurnMaintenance.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
@@ -9625,6 +9632,127 @@ int main( int, char** )
 		       malformedMovementModeIsRejected &&
 		       malformedVehicleIsRejected,
 		       "tactical actor orientation owns bounded stance, destination, facing, and turn transitions without malformed-state partial mutation" );
+	}
+
+	{
+		TacticalActor extractedActor;
+		extractedActor.identity().bodyType() = TOTALBODYTYPES;
+		extractedActor.animationPlayback().state() = STANDING;
+		const bool malformedAppearanceIsRejected =
+			!TacticalActorAppearance::rebuildPalettes(extractedActor) &&
+			extractedActor.palette().empty();
+
+		const UINT16 originalAnimation =
+			extractedActor.animationPlayback().state();
+		const bool malformedAnimationIsRejected =
+			!TacticalActorAnimationTransitions::changeState(
+				extractedActor,
+				NUMANIMATIONSTATES,
+				0,
+				false) &&
+			!TacticalActorAnimationTransitions::initializeAnimation(
+				extractedActor,
+				NUMANIMATIONSTATES,
+				0,
+				false) &&
+			extractedActor.animationPlayback().state() ==
+				originalAnimation;
+
+		const bool malformedBattleSoundIsRejected =
+			!TacticalActorBattleSounds::play(
+				extractedActor,
+				static_cast<UINT8>(NUM_MERC_BATTLE_SOUNDS)) &&
+			!TacticalActorBattleSounds::playWithCode(
+				extractedActor,
+				static_cast<UINT8>(NUM_MERC_BATTLE_SOUNDS),
+				0);
+
+		extractedActor.vitals().health() = 50;
+		extractedActor.vitals().maximumHealth() = 100;
+		TacticalActorDamageResolution::applyHit(
+			extractedActor,
+			MAXITEMS,
+			20,
+			100,
+			NORTH,
+			1,
+			NOBODY,
+			0,
+			0,
+			0,
+			NOWHERE);
+		const bool malformedDamageIsRejected =
+			extractedActor.vitals().health() == 50 &&
+			TacticalActorDamageResolution::takeDamage(
+				extractedActor,
+				ANIM_STAND,
+				20,
+				100,
+				0,
+				NOBODY,
+				NOWHERE,
+				0,
+				false) == 0 &&
+			extractedActor.vitals().health() == 50;
+
+		const bool malformedCreationIsRejected =
+			!TacticalActorLifecycle::create(
+				extractedActor,
+				TOTALBODYTYPES,
+				NOBODY,
+				STANDING) &&
+			!extractedActor.roster().active();
+		TacticalActorLifecycle::revive(extractedActor);
+		const bool inactiveReviveIsNeutral =
+			extractedActor.vitals().health() == 50;
+		constexpr bool destroyBoundaryIsLinked =
+			std::is_pointer_v<
+				decltype(&TacticalActorLifecycle::destroy)>;
+
+		extractedActor.roster().active() = TRUE;
+		extractedActor.roster().inSector() = TRUE;
+		extractedActor.identity().bodyType() = REGMALE;
+		extractedActor.position().gridNo() = 42;
+		extractedActor.position().level() = FIRST_LEVEL;
+		extractedActor.position().direction() = NORTH;
+		extractedActor.position().worldX() = 12.0f;
+		extractedActor.position().worldY() = 34.0f;
+		extractedActor.movement().animationDirection() = NORTH;
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableLocomotionIsRejected =
+			!TacticalActorLocomotion::checkRoofHit(extractedActor);
+		TacticalActorLocomotion::move(
+			extractedActor,
+			10.0f,
+			0.5f,
+			false);
+		const bool unavailableMovementIsNeutral =
+			extractedActor.position().worldX() == 12.0f &&
+			extractedActor.position().worldY() == 34.0f;
+		RestoreJa2TacticalWorldSession(previousWorld);
+
+		extractedActor.roster().active() = FALSE;
+		extractedActor.suppression().underFire() = 2;
+		TacticalActorTurnLifecycle::beginTurn(
+			extractedActor,
+			false,
+			0);
+		const bool inactiveTurnIsNeutral =
+			extractedActor.suppression().underFire() == 2;
+
+		CHECK( malformedAppearanceIsRejected &&
+		       malformedAnimationIsRejected &&
+		       malformedBattleSoundIsRejected &&
+		       malformedDamageIsRejected &&
+		       malformedCreationIsRejected &&
+		       inactiveReviveIsNeutral &&
+		       destroyBoundaryIsLinked &&
+		       unavailableLocomotionIsRejected &&
+		       unavailableMovementIsNeutral &&
+		       inactiveTurnIsNeutral,
+		       "final tactical actor extraction owns lifecycle, appearance, animation, damage, sound, locomotion, and turn boundaries with malformed-input coverage" );
 	}
 
 	{

@@ -66,7 +66,7 @@
     "Tactical/ShopKeeper Quotes.h": 1,
     "Tactical/Soldier Add.cpp": 3,
     "Tactical/Soldier Ani.cpp": 4,
-    "Tactical/Soldier Control.cpp": 2,
+    "Tactical/Soldier Control.cpp": 1,
     "Tactical/Soldier Create.cpp": 4,
     "Tactical/Soldier Init List.cpp": 2,
     "Tactical/Soldier Profile.cpp": 9,
@@ -83,5 +83,5 @@
     "Utils/Timer Control.cpp": 1
   },
   "schema": 1,
-  "total": 387
+  "total": 386
 }

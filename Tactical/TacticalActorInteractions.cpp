@@ -1,3 +1,6 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorInteractions.h"
 
 #include "TacticalActorOrientation.h"
@@ -308,9 +311,9 @@ void playNetworkAwareAnimation(
 	std::uint16_t animation)
 {
 	if (!is_networked)
-		actor.EVENT_InitNewSoldierAnim(animation, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(actor, animation, 0, FALSE);
 	else
-		actor.ChangeSoldierState(animation, 0, 0);
+		TacticalActorAnimationTransitions::changeState(actor, animation, 0, 0);
 }
 
 bool beginBombFallback(TacticalActor& actor)
@@ -379,7 +382,7 @@ bool TacticalActorInteractions::beginItemTransfer(
 	{
 	case ANIM_STAND:
 		actor.aiPlanning().action() = AI_ACTION_PENDING_ACTION;
-		actor.EVENT_InitNewSoldierAnim(DROP_ITEM, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(actor, DROP_ITEM, 0, FALSE);
 		return true;
 
 	case ANIM_CROUCH:
@@ -687,7 +690,7 @@ bool TacticalActorInteractions::beginGivingItem(
 		static_cast<std::uint8_t>(rawDirection);
 	actor.pathing().desiredDirection() = direction;
 	actor.position().direction() = direction;
-	actor.EVENT_InitNewSoldierAnim(GIVE_ITEM, 0, FALSE);
+	TacticalActorAnimationTransitions::initializeAnimation(actor, GIVE_ITEM, 0, FALSE);
 	return true;
 }
 
@@ -708,7 +711,7 @@ bool TacticalActorInteractions::handcuffPerson(
 		target == &actor ||
 		!TacticalActorConditions::canBeCaptured(*target))
 	{
-		actor.DoMercBattleSound(BATTLE_SOUND_NOTHING);
+		TacticalActorBattleSounds::play(actor, BATTLE_SOUND_NOTHING);
 		releaseUi(actor);
 		return false;
 	}
@@ -778,7 +781,7 @@ bool TacticalActorInteractions::handcuffPerson(
 	}
 
 	faceDirection(actor, direction);
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		RELOAD_ROBOT,
 		0,
 		FALSE);
@@ -818,7 +821,7 @@ bool TacticalActorInteractions::handcuffPerson(
 		GetAPsToHandcuff(&actor, targetGrid),
 		APBPConstants[BP_HANDCUFF],
 		AFTERACTION_INTERRUPT);
-	actor.DoMercBattleSound(BATTLE_SOUND_CURSE1);
+	TacticalActorBattleSounds::play(actor, BATTLE_SOUND_CURSE1);
 	if (actor.featureFlags().primaryFlags() &
 		(SOLDIER_COVERT_CIV |
 		 SOLDIER_COVERT_SOLDIER))
@@ -873,7 +876,7 @@ bool TacticalActorInteractions::applyItemToPerson(
 	}
 	if (!object)
 	{
-		actor.DoMercBattleSound(BATTLE_SOUND_NOTHING);
+		TacticalActorBattleSounds::play(actor, BATTLE_SOUND_NOTHING);
 		releaseUi(actor);
 		return false;
 	}
@@ -886,7 +889,7 @@ bool TacticalActorInteractions::applyItemToPerson(
 			GetAPsToApplyItem(&actor, targetGrid),
 			APBPConstants[BP_APPLYITEM],
 			AFTERACTION_INTERRUPT);
-		actor.DoMercBattleSound(BATTLE_SOUND_CURSE1);
+		TacticalActorBattleSounds::play(actor, BATTLE_SOUND_CURSE1);
 		return true;
 	}
 
@@ -1027,7 +1030,7 @@ bool TacticalActorInteractions::applyItemToPerson(
 			actor.GetName(),
 			Item[item].szLongItemName,
 			target->GetName());
-		actor.DoMercBattleSound(BATTLE_SOUND_COOL1);
+		TacticalActorBattleSounds::play(actor, BATTLE_SOUND_COOL1);
 	}
 	return true;
 }
@@ -1058,7 +1061,7 @@ bool TacticalActorInteractions::collectBloodFromPerson(
 		!HasItemFlag(emptyBag->usItem, EMPTY_BLOOD_BAG) ||
 		!TacticalActorConditions::canDonateBlood(*donor))
 	{
-		actor.DoMercBattleSound(BATTLE_SOUND_NOTHING);
+		TacticalActorBattleSounds::play(actor, BATTLE_SOUND_NOTHING);
 		releaseUi(actor);
 		return false;
 	}
@@ -1109,7 +1112,7 @@ bool TacticalActorInteractions::collectBloodFromPerson(
 	const INT32 healableInjury =
 		donor->vitals().healableInjury();
 	const INT8 bleeding = donor->vitals().bleeding();
-	donor->SoldierTakeDamage(
+	TacticalActorDamageResolution::takeDamage(*donor,
 		0,
 		TacticalActorConditions::bloodDonationAmount,
 		0,
@@ -1149,7 +1152,7 @@ bool TacticalActorInteractions::applySplintToPerson(
 		  (!gGameOptions.fNewTraitSystem &&
 		   EffectiveMedical(&actor) >= 50)))
 	{
-		actor.DoMercBattleSound(BATTLE_SOUND_NOTHING);
+		TacticalActorBattleSounds::play(actor, BATTLE_SOUND_NOTHING);
 		releaseUi(actor);
 		return false;
 	}

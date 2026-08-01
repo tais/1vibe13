@@ -1,3 +1,8 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorLifecycle.h"
+#include "TacticalActorAppearance.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAiBehavior.h"
@@ -3006,7 +3011,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					{
 						//ChangeSoldiersBodyType( TANK_NW, TRUE );
 						// gusSelectedSoldier->status().flags() |= SOLDIER_CREATURE;
-						//EVENT_InitNewSoldierAnim( gusSelectedSoldier, CRIPPLE_BEG, 0 , TRUE );
+						//TacticalActorAnimationTransitions::initializeAnimation( gusSelectedSoldier, CRIPPLE_BEG, 0 , TRUE );
 					}
 				}
 				else if( fAlt )
@@ -3047,7 +3052,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					{
 						if (selectedSoldier)
 						{
-							selectedSoldier->EVENT_InitNewSoldierAnim(
+							TacticalActorAnimationTransitions::initializeAnimation(*selectedSoldier,
 								KID_SKIPPING, 0, TRUE);
 						}
 
@@ -5306,7 +5311,7 @@ void RefreshSoldier()
 		// Get Soldier
 		GetSoldier( &pSoldier, gusUIFullTargetID );
 
-		pSoldier->ReviveSoldier( );
+		TacticalActorLifecycle::revive(*pSoldier);
 
 	}
 
@@ -5330,11 +5335,11 @@ void ChangeSoldiersBodyType( UINT8 ubBodyType, BOOLEAN fCreateNewPalette )
 		if( GetSoldier( &pSoldier, gusSelectedSoldier ) )
 		{
 			pSoldier->identity().bodyType() = ubBodyType;
-			pSoldier->EVENT_InitNewSoldierAnim( STANDING, 0 , TRUE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STANDING, 0 , TRUE );
 			//SetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 			if( fCreateNewPalette )
 			{
-				pSoldier->CreateSoldierPalettes( );
+				(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 
 				switch( ubBodyType )
 				{
@@ -5557,7 +5562,7 @@ void ObliterateSector()
 			//	CreateAnimationTile( &AniParams );
 			//PlayJA2Sample( EXPLOSION_1, RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
 
-			pTSoldier->EVENT_SoldierGotHit( 1, 400, 0, pTSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pTSoldier->attackSelection().shotLocation(), 0, NOWHERE );
+			TacticalActorDamageResolution::applyHit(*pTSoldier,  1, 400, 0, pTSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pTSoldier->attackSelection().shotLocation(), 0, NOWHERE );
 		}
 	}
 }
@@ -5853,7 +5858,7 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( TacticalActor *pSoldier, UI
 							return( 0 );
 						}
 
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_OK1 );
 
 						// OK, set UI
 						SetUIBusy( pSoldier->identity().id() );
@@ -5919,7 +5924,7 @@ void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent)
 		}
 		else
 		{
-			pMilitiaSoldier->DoMercBattleSound(BATTLE_SOUND_CURSE1);
+			TacticalActorBattleSounds::play(*pMilitiaSoldier, BATTLE_SOUND_CURSE1);
 		}
 	}
 
@@ -9552,7 +9557,7 @@ void HandleTacticalReload()
 		if ( reload.status == SimulationCommandDispatchStatus::Discarded )
 		{
 			// Do we say we could not reload gun...?
-			pSoldier->DoMercBattleSound(BATTLE_SOUND_CURSE1);
+			TacticalActorBattleSounds::play(*pSoldier, BATTLE_SOUND_CURSE1);
 			//TacticalCharacterDialogue( pSoldier, QUOTE_OUT_OF_AMMO );
 		}
 

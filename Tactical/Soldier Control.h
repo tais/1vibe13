@@ -870,31 +870,13 @@ private:
 	SoldierRuntimeComponents	runtime_;
 
 public:
-	// CREATION FUNCTIONS
-	BOOLEAN DeleteSoldier( void );
-
-	BOOLEAN CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierID, UINT16 usState );
-
-
 	// Soldier Management functions, called by Event Pump.c
-	BOOLEAN EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStartingAniCode, BOOLEAN fForce );
-
-	BOOLEAN ChangeSoldierState( UINT16 usNewState, UINT16 usStartingAniCode, BOOLEAN fForce );
-	void EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 ubDamage, INT16 sBreathLoss, UINT16 bDirection, UINT16 sRange, SoldierID ubAttackerID, UINT8 ubSpecial, UINT8 ubHitLocation, INT16 sSubsequent, INT32 sLocationGridNo );
-	void EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCounter );
-
-
 	// Soldier Management functions called by Overhead.c
-	void ReviveSoldier( void );
-	UINT8 SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBreathDeduct, UINT8 ubReason, SoldierID ubAttacker, INT32 sSourceGrid, INT16 sSubsequent, BOOLEAN fShowDamage );
-
 	// Deferred movement damage is owned by TacticalActorDamageQueue.
 
 	// Palette functions for soldiers
-	BOOLEAN CreateSoldierPalettes( void );
 
 	// UTILITY FUNCTUIONS
-	void MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckRange );
 	// This function is now obsolete.	Call ReduceAttackBusyCount instead.
 	// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
 
@@ -905,9 +887,6 @@ public:
 
 
 
-	BOOLEAN DoMercBattleSound( UINT8 ubBattleSoundID );
-	BOOLEAN InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpecialCode );
-	BOOLEAN CheckSoldierHitRoof( void );
 	// Flugente: return a soldier's name. This allows for very easy manipulation of a soldier's name with pre- an suffixes, ranks etc.
 	STR16		GetName();
 

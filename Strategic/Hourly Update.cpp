@@ -1,3 +1,4 @@
+#include "TacticalActorDamageResolution.h"
 	#include "Assignments.h"
 #include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
@@ -706,7 +707,7 @@ void HourlyDisabilityUpdate( )
 						// take damage, but not bleeding damage (otherwise we'd constantly have to check in on this merc and manually bandage them, which is tedious)
 						INT8 oldbleeding = pSoldier->vitals().bleeding();
 
-						pSoldier->SoldierTakeDamage( 0, 1, 0, TAKE_DAMAGE_BLADE, pSoldier->identity().id(), NOWHERE, 0, FALSE );
+						TacticalActorDamageResolution::takeDamage(*pSoldier,  0, 1, 0, TAKE_DAMAGE_BLADE, pSoldier->identity().id(), NOWHERE, 0, FALSE );
 
 						pSoldier->vitals().bleeding() = oldbleeding;
 

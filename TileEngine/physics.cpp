@@ -1,3 +1,6 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorEquipment.h"
 #include "builddefines.h"
 #include "TacticalWorldAdapter.h"
@@ -620,13 +623,13 @@ BOOLEAN	PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime )
 				case ANIM_STAND:
 
 					pSoldier->animationIntent().clearPendingAnimation();
-					pSoldier->EVENT_InitNewSoldierAnim( END_CATCH, 0 , FALSE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  END_CATCH, 0 , FALSE );
 					break;
 
 				case ANIM_CROUCH:
 
 					pSoldier->animationIntent().clearPendingAnimation();
-					pSoldier->EVENT_InitNewSoldierAnim( END_CROUCH_CATCH, 0 , FALSE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  END_CROUCH_CATCH, 0 , FALSE );
 					break;
 				}
 
@@ -2516,7 +2519,7 @@ void CheckForObjectHittingMerc( REAL_OBJECT *pObject, UINT16 usStructureID )
 
 				sBreath = 0;
 
-				pSoldier->EVENT_SoldierGotHit( NOTHING, sDamage, sBreath, pSoldier->position().direction(), 0, pObject->ubOwner, FIRE_WEAPON_TOSSED_OBJECT_SPECIAL, 0, 0, NOWHERE );
+				TacticalActorDamageResolution::applyHit(*pSoldier,  NOTHING, sDamage, sBreath, pSoldier->position().direction(), 0, pObject->ubOwner, FIRE_WEAPON_TOSSED_OBJECT_SPECIAL, 0, 0, NOWHERE );
 
 				pObject->ubLastTargetTakenDamage = usStructureID;
 			}
@@ -2555,11 +2558,11 @@ BOOLEAN CheckForCatchObject( REAL_OBJECT *pObject )
 				{
 					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND )
 					{
-						pSoldier->EVENT_InitNewSoldierAnim( CATCH_STANDING, 0 , FALSE );
+						TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  CATCH_STANDING, 0 , FALSE );
 					}
 					else if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_CROUCH )
 					{
-						pSoldier->EVENT_InitNewSoldierAnim( CATCH_CROUCHED, 0 , FALSE );
+						TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  CATCH_CROUCHED, 0 , FALSE );
 					}
 
 					pObject->fCatchAnimOn = TRUE;
@@ -2637,13 +2640,13 @@ BOOLEAN DoCatchObject( REAL_OBJECT *pObject )
 	case ANIM_STAND:
 
 		pSoldier->animationIntent().clearPendingAnimation();
-		pSoldier->EVENT_InitNewSoldierAnim( END_CATCH, 0 , FALSE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  END_CATCH, 0 , FALSE );
 		break;
 
 	case ANIM_CROUCH:
 
 		pSoldier->animationIntent().clearPendingAnimation();
-		pSoldier->EVENT_InitNewSoldierAnim( END_CROUCH_CATCH, 0 , FALSE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  END_CROUCH_CATCH, 0 , FALSE );
 		break;
 	}
 
@@ -2810,7 +2813,7 @@ void HandleArmedObjectImpact( REAL_OBJECT *pObject )
 
 			if ( owner && !fGoodStatus )
 			{
-				owner->DoMercBattleSound( (INT8)( BATTLE_SOUND_CURSE1 ) );
+				TacticalActorBattleSounds::play(*owner,  (INT8)( BATTLE_SOUND_CURSE1 ) );
 			}
 		}
 	}

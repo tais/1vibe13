@@ -1,3 +1,5 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorDamageResolution.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorLighting.h"
@@ -1258,7 +1260,7 @@ BOOLEAN CheckForGunJam( TacticalActor * pSoldier )
 					}
 					else
 					{
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 					}
 
 					return( TRUE ); 
@@ -2487,7 +2489,7 @@ BOOLEAN UseGunNCTH( TacticalActor *pSoldier , INT32 sTargetGridNo )
 				// curse!
 				if ( pSoldier->roster().team() == OUR_TEAM )
 				{
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 46 ], pSoldier->GetName() );
 				}
@@ -2813,7 +2815,7 @@ BOOLEAN UseGunNCTH( TacticalActor *pSoldier , INT32 sTargetGridNo )
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Exaust from LAW", GetJa2PendingTacticalCombatActions() ) );
 				DebugAttackBusy( "Incrementing Attack: Exaust from LAW\n" );
 
-				exhaustTarget->EVENT_SoldierGotHit(
+				TacticalActorDamageResolution::applyHit(*exhaustTarget,
 					MINI_GRENADE, 10, 200,
 					pSoldier->position().direction(), 0,
 					pSoldier->identity().id(), 0, ANIM_CROUCH, 0,
@@ -3304,7 +3306,7 @@ BOOLEAN UseGun( TacticalActor *pSoldier , INT32 sTargetGridNo )
 				// curse!
 				if ( pSoldier->roster().team() == OUR_TEAM )
 				{
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 46 ], pSoldier->GetName() );
 				}
@@ -3655,7 +3657,7 @@ BOOLEAN UseGun( TacticalActor *pSoldier , INT32 sTargetGridNo )
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Exaust from LAW", GetJa2PendingTacticalCombatActions() ) );
 				DebugAttackBusy( "Incrementing Attack: Exaust from LAW\n" );
 
-				exhaustTarget->EVENT_SoldierGotHit(
+				TacticalActorDamageResolution::applyHit(*exhaustTarget,
 					MINI_GRENADE, 10, 200,
 					pSoldier->position().direction(), 0,
 					pSoldier->identity().id(), 0, ANIM_CROUCH, 0,
@@ -4174,7 +4176,7 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 			if (SOLDIER_CLASS_MILITIA(pTargetSoldier->roster().soldierClass()) && (gGameExternalOptions.ubMilitiaDropEquipment != 2) )
 			{
 				DeductPoints( pSoldier, (APBPConstants[AP_STEAL_ITEM] / 5), 0, AFTERACTION_INTERRUPT );
-				pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+				TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 				return ( TRUE );
 			}
 
@@ -4359,7 +4361,7 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 					{
 						if ( pSoldier->roster().team() == gbPlayerNum )
 						{
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 						}
 						if (pTargetSoldier->inventory()[HANDPOS].MoveThisObjectTo(gTempObject, 1) == 0)
 						{
@@ -4448,7 +4450,7 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 
 					if ( pSoldier->roster().team() == gbPlayerNum )
 					{
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 					}
 				}
 				else
@@ -5448,7 +5450,7 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// the poor bastard .. so check
 	if ( !pTargetSoldier->animationActivity().externalDeath() )
 	{
-		pTargetSoldier->EVENT_SoldierGotHit( usWeaponIndex, sDamage, sBreathLoss, usDirection, sRange, ubAttackerID, ubSpecial, ubHitLocation, 0, NOWHERE );
+		TacticalActorDamageResolution::applyHit(*pTargetSoldier,  usWeaponIndex, sDamage, sBreathLoss, usDirection, sRange, ubAttackerID, ubSpecial, ubHitLocation, 0, NOWHERE );
 	}
 	// else
 	// {
@@ -5663,7 +5665,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 					{
 						if ( Random( 40 ) == 0 )
 						{
-							pAttacker->DoMercBattleSound(
+							TacticalActorBattleSounds::play(*pAttacker,
 								BATTLE_SOUND_CURSE1);
 						}
 					}
@@ -9007,7 +9009,7 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 			{
 				if ( Random(40) == 0 )
 				{
-					pAttacker->DoMercBattleSound(
+					TacticalActorBattleSounds::play(*pAttacker,
 						BATTLE_SOUND_CURSE1);
 				}
 			}
@@ -10671,7 +10673,7 @@ void DishoutQueenSwipeDamage( TacticalActor *pQueenSoldier )
 									if ( pSoldier->identity().profile() != NO_PROFILE )
 										gMercProfiles[ pSoldier->identity().profile() ].records.usTimesWoundedStabbed++;
 
-									pSoldier->EVENT_SoldierGotHit( CREATURE_QUEEN_TENTACLES, (INT16) iImpact, (INT16) iImpact, gOppositeDirection[ bDir ], 50, pQueenSoldier->identity().id(), 0, ANIM_CROUCH, 0, 0 );
+									TacticalActorDamageResolution::applyHit(*pSoldier,  CREATURE_QUEEN_TENTACLES, (INT16) iImpact, (INT16) iImpact, gOppositeDirection[ bDir ], 50, pQueenSoldier->identity().id(), 0, ANIM_CROUCH, 0, 0 );
 								}
 							}
 						}

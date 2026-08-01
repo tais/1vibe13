@@ -1,3 +1,4 @@
+#include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageFeedback.h"
 
 #include "Animation Control.h"
@@ -42,7 +43,7 @@ bool TacticalActorDamageFeedback::presentHit(
 	{
 		actor.vitals().lastBleedGruntAt() =
 			GetJA2Clock();
-		(void)actor.DoMercBattleSound(BATTLE_SOUND_HIT1);
+		(void)TacticalActorBattleSounds::play(actor, BATTLE_SOUND_HIT1);
 	}
 
 	const std::uint32_t currentScreen =

@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorWorldPlacement.h"
 	#include "Handle UI Plan.h"
@@ -146,7 +147,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				pPlanSoldier->pathing().desiredDirection() = bDirection;
 
 				// Set walking animation
-				pPlanSoldier->ChangeSoldierState( pPlanSoldier->movement().mode(), 0, FALSE );
+				TacticalActorAnimationTransitions::changeState(*pPlanSoldier,  pPlanSoldier->movement().mode(), 0, FALSE );
 
 				if (!gUiPlannedSoldier.capture(
 						GetJa2TacticalEntityId(*pPlanSoldier)))
@@ -235,7 +236,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					pPlanSoldier->pathing().desiredDirection() = bDirection;
 
 					// Set walking animation
-					pPlanSoldier->ChangeSoldierState( pPlanSoldier->movement().mode(), 0, FALSE );
+					TacticalActorAnimationTransitions::changeState(*pPlanSoldier,  pPlanSoldier->movement().mode(), 0, FALSE );
 
 					if (!gUiPlannedSoldier.capture(
 							GetJa2TacticalEntityId(*pPlanSoldier)))
@@ -341,32 +342,32 @@ void SelectPausedFireAnimation( TacticalActor *pSoldier )
 			{
 				if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) )
 				{
-					pSoldier->ChangeSoldierState( BURST_ALTERNATIVE_STAND, 2 , FALSE );
+					TacticalActorAnimationTransitions::changeState(*pSoldier,  BURST_ALTERNATIVE_STAND, 2 , FALSE );
 				}
 				else
 				{
-					pSoldier->ChangeSoldierState( STANDING_BURST, 2 , FALSE );
+					TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING_BURST, 2 , FALSE );
 				}
 			}
 			else
 			{
 				if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) )
 				{
-					pSoldier->ChangeSoldierState( SHOOT_ALTERNATIVE_STAND, 2 , FALSE );
+					TacticalActorAnimationTransitions::changeState(*pSoldier,  SHOOT_ALTERNATIVE_STAND, 2 , FALSE );
 				}
 				else
 				{
-					pSoldier->ChangeSoldierState( SHOOT_RIFLE_STAND, 2 , FALSE );
+					TacticalActorAnimationTransitions::changeState(*pSoldier,  SHOOT_RIFLE_STAND, 2 , FALSE );
 				}
 			}
 			break;
 
 		case ANIM_PRONE:
-			pSoldier->ChangeSoldierState( SHOOT_RIFLE_PRONE, 2 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  SHOOT_RIFLE_PRONE, 2 , FALSE );
 			break;
 
 		case ANIM_CROUCH:
-			pSoldier->ChangeSoldierState( SHOOT_RIFLE_CROUCH, 2 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  SHOOT_RIFLE_CROUCH, 2 , FALSE );
 			break;
 
 	}

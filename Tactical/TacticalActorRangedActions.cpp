@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorRangedActions.h"
 
 #include "TacticalActorOrientation.h"
@@ -231,14 +232,14 @@ bool TacticalActorRangedActions::readyFacing(
 	{
 		if (is_networked)
 		{
-			actor.ChangeSoldierState(
+			TacticalActorAnimationTransitions::changeState(actor,
 				animationState,
 				0,
 				FALSE);
 		}
 		else
 		{
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				animationState,
 				0,
 				FALSE);
@@ -387,7 +388,7 @@ bool TacticalActorRangedActions::beginFire(
 	{
 		(void)TacticalActorOrientation::setDirection(actor,
 			actor.pathing().desiredDirection());
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			SelectFireAnimation(
 				&actor,
 				gAnimControl[actor.animationPlayback().state()]
@@ -402,7 +403,7 @@ bool TacticalActorRangedActions::beginFire(
 			TURNING_FROM_PRONE_OFF;
 		(void)TacticalActorOrientation::setDirection(actor,
 			actor.pathing().desiredDirection());
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			SelectFireAnimation(
 				&actor,
 				gAnimControl[actor.animationPlayback().state()]
@@ -536,14 +537,14 @@ bool TacticalActorRangedActions::refreshAfterHandItemChange(
 	case ANIM_STAND:
 		if (oldRifle && !newRifle)
 		{
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				LOWER_RIFLE,
 				0,
 				FALSE);
 		}
 		else if (!oldRifle && newRifle)
 		{
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				RAISE_RIFLE,
 				0,
 				FALSE);

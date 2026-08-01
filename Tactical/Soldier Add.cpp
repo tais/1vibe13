@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
@@ -1409,17 +1410,17 @@ void InternalSoldierInSectorSleep( TacticalActor *pSoldier, INT32 sGridNo, BOOLE
 
 	if ( AM_AN_EPC( pSoldier ) )
 	{
-		pSoldier->EVENT_InitNewSoldierAnim( STANDING, 1, TRUE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STANDING, 1, TRUE );
 	}
 	else
 	{
 		if ( fDoTransition )
 		{
-			pSoldier->EVENT_InitNewSoldierAnim( GOTO_SLEEP, 1, TRUE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  GOTO_SLEEP, 1, TRUE );
 		}
 		else
 		{
-			pSoldier->EVENT_InitNewSoldierAnim( SLEEPING, 1, TRUE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  SLEEPING, 1, TRUE );
 		}
 	}
 }
@@ -1446,7 +1447,7 @@ void SoldierInSectorIncompaciated( TacticalActor *pSoldier, INT32 sGridNo )
 
 	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
-	pSoldier->EVENT_InitNewSoldierAnim( STAND_FALLFORWARD_STOP, 1, TRUE );
+	TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STAND_FALLFORWARD_STOP, 1, TRUE );
 }
 
 
@@ -1482,11 +1483,11 @@ void SoldierInSectorPatient( TacticalActor *pSoldier, INT32 sGridNo )
 
 	if ( !IS_MERC_BODY_TYPE( pSoldier ) )
 	{
-		pSoldier->EVENT_InitNewSoldierAnim( STANDING, 1, TRUE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STANDING, 1, TRUE );
 	}
 	else
 	{
-		pSoldier->EVENT_InitNewSoldierAnim( BEING_PATIENT, 1, TRUE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  BEING_PATIENT, 1, TRUE );
 	}
 }
 
@@ -1515,11 +1516,11 @@ void SoldierInSectorDoctor( TacticalActor *pSoldier, INT32 sGridNo )
 
 	if ( !IS_MERC_BODY_TYPE( pSoldier ) )
 	{
-		pSoldier->EVENT_InitNewSoldierAnim( STANDING, 1, TRUE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STANDING, 1, TRUE );
 	}
 	else
 	{
-		pSoldier->EVENT_InitNewSoldierAnim( BEING_DOCTOR, 1, TRUE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  BEING_DOCTOR, 1, TRUE );
 	}
 }
 
@@ -1548,11 +1549,11 @@ void SoldierInSectorRepair( TacticalActor *pSoldier, INT32 sGridNo )
 
 	if ( !IS_MERC_BODY_TYPE( pSoldier ) )
 	{
-		pSoldier->EVENT_InitNewSoldierAnim( STANDING, 1, TRUE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STANDING, 1, TRUE );
 	}
 	else
 	{
-		pSoldier->EVENT_InitNewSoldierAnim( BEING_REPAIRMAN, 1, TRUE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  BEING_REPAIRMAN, 1, TRUE );
 	}
 }
 
@@ -1713,29 +1714,29 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 					{
 						//should we be on our back or tummy
 						if( Random( 100 ) < 50 )
-							pSoldier->EVENT_InitNewSoldierAnim( STAND_FALLFORWARD_STOP, 1, TRUE );
+							TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STAND_FALLFORWARD_STOP, 1, TRUE );
 						else
-							 pSoldier->EVENT_InitNewSoldierAnim( FALLBACKHIT_STOP, 1, TRUE );
+							 TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  FALLBACKHIT_STOP, 1, TRUE );
 
 						pSoldier->collapseState().collapse();
 
 					}					
 					else if ( fUseAnimation )
 					{
-						pSoldier->EVENT_InitNewSoldierAnim( usAnimState, usAnimCode, TRUE );
+						TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  usAnimState, usAnimCode, TRUE );
 					}
 					else if ( pSoldier->identity().bodyType() != CROW && ubInsertionCode != INSERTION_CODE_GRIDNO)
 					{
-						pSoldier->EVENT_InitNewSoldierAnim( STANDING, 1, TRUE );
+						TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STANDING, 1, TRUE );
 					}
 #else
 					if ( fUseAnimation )
 					{
-						pSoldier->EVENT_InitNewSoldierAnim( usAnimState, usAnimCode, TRUE );
+						TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  usAnimState, usAnimCode, TRUE );
 					}
 					else if ( pSoldier->identity().bodyType() != CROW)
 					{
-						pSoldier->EVENT_InitNewSoldierAnim( STANDING, 1, TRUE );
+						TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STANDING, 1, TRUE );
 					}
 #endif
 				}
@@ -1771,7 +1772,7 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 		{
 			// THIS ALL SHOULD HAVE BEEN HANDLED BY THE FACT THAT A GAME WAS LOADED
 
-			//pSoldier->EVENT_InitNewSoldierAnim( pSoldier->animationPlayback().state(), pSoldier->animationPlayback().code(), TRUE );
+			//TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  pSoldier->animationPlayback().state(), pSoldier->animationPlayback().code(), TRUE );
 
 			// if the merc had a final destination, get the merc walking there
 			//if( pSoldier->pathing().finalDestinationGrid() != pSoldier->sGridNo )

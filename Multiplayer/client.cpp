@@ -1,3 +1,5 @@
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
@@ -190,7 +192,7 @@ static TacticalActor* SafeMerc(UINT16 i)
 		: NULL;
 }
 
-// gAnimControl[] / EVENT_InitNewSoldierAnim() are indexed by animation state;
+// gAnimControl[] / TacticalActorAnimationTransitions::initializeAnimation() are indexed by animation state;
 // any wire value >= NUMANIMATIONSTATES is an OOB read / invalid anim init.
 static BOOLEAN IsValidAnimState(UINT16 s)
 {
@@ -1226,7 +1228,7 @@ void recievePATH(RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_SENDPATHTONETWORK);	// short-frame guard (H6/H13)
 	EV_S_SENDPATHTONETWORK* SNetPath = (EV_S_SENDPATHTONETWORK*)rpcParameters->input;
 
-	// H6: ubNewState indexes gAnimControl[] / EVENT_InitNewSoldierAnim() -- bound it.
+	// H6: ubNewState indexes gAnimControl[] / TacticalActorAnimationTransitions::initializeAnimation() -- bound it.
 	if ( !IsValidAnimState( SNetPath->ubNewState ) )
 		return;
 	if ( SNetPath->usPathDataSize > TacticalReplicatedPathCapacity ||
@@ -4556,7 +4558,7 @@ void recieveEXPLOSIONDAMAGE (RPCParameters *rpcParameters)
 
 				// can use DishOutGasDamage() as it is dependant on the local state of the gas cloud which is not always in sync
 				// but we have the definite results of damage on a merc, so :
-				pSoldier->SoldierTakeDamage( ANIM_STAND, exp->sWoundAmt, exp->sBreathAmt, Explosive[Item[exp->usItem].ubClassIndex].ubType == EXPLOSV_BURNABLEGAS ? TAKE_DAMAGE_GAS_FIRE : TAKE_DAMAGE_GAS_NOTFIRE, NOBODY, NOWHERE, 0, TRUE );
+				TacticalActorDamageResolution::takeDamage(*pSoldier,  ANIM_STAND, exp->sWoundAmt, exp->sBreathAmt, Explosive[Item[exp->usItem].ubClassIndex].ubType == EXPLOSV_BURNABLEGAS ? TAKE_DAMAGE_GAS_FIRE : TAKE_DAMAGE_GAS_NOTFIRE, NOBODY, NOWHERE, 0, TRUE );
 			}
 			else if (exp->ubDamageFunc == 2)
 			{
@@ -4706,7 +4708,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 	RPC_REQUIRE_BYTES(rpcParameters, EV_S_CHANGESTATE);	// short-frame guard (H6/H13)
 	EV_S_CHANGESTATE*	new_state = (EV_S_CHANGESTATE*)rpcParameters->input;
 
-	// H6: usNewState indexes gAnimControl[] and drives EVENT_InitNewSoldierAnim() --
+	// H6: usNewState indexes gAnimControl[] and drives TacticalActorAnimationTransitions::initializeAnimation() --
 	// an out-of-range wire value is an OOB read + invalid anim init.
 	if ( !IsValidAnimState( new_state->usNewState ) )
 		return;
@@ -4762,7 +4764,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 		{
 			return;
 		}
-		pSoldier->EVENT_InitNewSoldierAnim( new_state->usNewState, new_state->usStartingAniCode, new_state->fForce );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  new_state->usNewState, new_state->usStartingAniCode, new_state->fForce );
 	}
 }
 
@@ -5545,7 +5547,7 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 				if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->roster().team() == iNetbTeam ) )
 				{
 					// KIll......
-					pTeamSoldier->SoldierTakeDamage( ANIM_CROUCH, pTeamSoldier->vitals().health(), 100, TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, TRUE );
+					TacticalActorDamageResolution::takeDamage(*pTeamSoldier,  ANIM_CROUCH, pTeamSoldier->vitals().health(), 100, TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, TRUE );
 				}
 			}
 		}

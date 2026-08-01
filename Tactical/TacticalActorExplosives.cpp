@@ -1,3 +1,5 @@
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorExplosives.h"
 #include "TacticalActorRecovery.h"
 #include "TacticalActorRouteExecution.h"
@@ -131,7 +133,7 @@ void applyInventoryExplosion(TacticalActor& actor)
 		1,
 		MIDDLEPAN);
 
-	actor.SoldierTakeDamage(
+	TacticalActorDamageResolution::takeDamage(actor,
 		0,
 		damage,
 		breathDamage,
@@ -214,7 +216,7 @@ bool beginBombPlacement(TacticalActor& actor)
 		actor.animationPlayback().state();
 	if (gAnimControl[animation].ubHeight == ANIM_STAND)
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			PLANT_BOMB,
 			0,
 			FALSE);
@@ -261,7 +263,7 @@ bool beginTripwireDisarm(
 		actor.animationPlayback().state();
 	if (gAnimControl[animation].ubHeight == ANIM_STAND)
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			CROUCHING,
 			0,
 			FALSE);
@@ -295,7 +297,7 @@ bool beginDetonatorUse(TacticalActor& actor)
 		actor.animationPlayback().state();
 	if (gAnimControl[animation].ubHeight == ANIM_STAND)
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			USE_REMOTE,
 			0,
 			FALSE);

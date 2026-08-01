@@ -1,3 +1,4 @@
+#include "TacticalActorAppearance.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAnimationFrames.h"
@@ -428,7 +429,7 @@ void ProcessMercEditing()
 
 					SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), gpPalRep[ ubPaletteRep ].ID );
 					snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", pSoldier->renderState().headPalette() );
-					pSoldier->CreateSoldierPalettes( );
+					(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 					break;
 				case 1:
 					ubType = EDIT_COLOR_HEAD;
@@ -440,7 +441,7 @@ void ProcessMercEditing()
 
 					SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), gpPalRep[ ubPaletteRep ].ID );
 					snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", pSoldier->renderState().headPalette() );
-					pSoldier->CreateSoldierPalettes( );
+					(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 					break;
 
 				case 2:
@@ -453,7 +454,7 @@ void ProcessMercEditing()
 
 					SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(), gpPalRep[ ubPaletteRep ].ID );
 					snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", pSoldier->renderState().skinPalette() );
-					pSoldier->CreateSoldierPalettes( );
+					(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 					break;
 				case 3:
 					ubType = EDIT_COLOR_SKIN;
@@ -465,7 +466,7 @@ void ProcessMercEditing()
 
 					SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(), gpPalRep[ ubPaletteRep ].ID );
 					snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", pSoldier->renderState().skinPalette() );
-					pSoldier->CreateSoldierPalettes( );
+					(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 					break;
 
 				case 4:
@@ -478,7 +479,7 @@ void ProcessMercEditing()
 
 					SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gpPalRep[ ubPaletteRep ].ID );
 					snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", pSoldier->renderState().vestPalette() );
-					pSoldier->CreateSoldierPalettes( );
+					(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 					break;
 				case 5:
 					ubType = EDIT_COLOR_VEST;
@@ -490,7 +491,7 @@ void ProcessMercEditing()
 
 					SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gpPalRep[ ubPaletteRep ].ID );
 					snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", pSoldier->renderState().vestPalette() );
-					pSoldier->CreateSoldierPalettes( );
+					(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 					break;
 
 				case 6:
@@ -503,7 +504,7 @@ void ProcessMercEditing()
 
 					SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gpPalRep[ ubPaletteRep ].ID );
 					snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", pSoldier->renderState().pantsPalette() );
-					pSoldier->CreateSoldierPalettes( );
+					(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 					break;
 				case 7:
 					ubType = EDIT_COLOR_PANTS;
@@ -515,7 +516,7 @@ void ProcessMercEditing()
 
 					SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gpPalRep[ ubPaletteRep ].ID );
 					snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", pSoldier->renderState().pantsPalette() );
-					pSoldier->CreateSoldierPalettes( );
+					(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 					break;
 			}
 			iEditMercMode = EDIT_MERC_NONE;
@@ -2188,7 +2189,7 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 		gbCurrCreature = (INT8)iIndex;
 		AssignCreatureInventory( gpSelected->pSoldier );
 	}
-	gpSelected->pSoldier->CreateSoldierPalettes(	);
+	(void)TacticalActorAppearance::rebuildPalettes(*gpSelected->pSoldier);
 }
 
 void SetMercEditability( BOOLEAN fEditable )
@@ -3167,7 +3168,7 @@ void SetEnemyColorCode( UINT8 ubColorCode )
 		default:
 			return;
 	}
-	gpSelected->pSoldier->CreateSoldierPalettes(	);
+	(void)TacticalActorAppearance::rebuildPalettes(*gpSelected->pSoldier);
 }
 
 void SetEnemyDroppableStatus( UINT32 uiSlot, BOOLEAN fDroppable )

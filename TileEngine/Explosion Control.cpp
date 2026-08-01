@@ -1,3 +1,6 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorEquipment.h"
@@ -1906,7 +1909,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	}
 	
 	// OJW - 20091028 - If from a remote client, use unadjusted damage amount
-	pSoldier->EVENT_SoldierGotHit( usItem, (fFromRemoteClient ? sWoundAmt : sNewWoundAmt), sBreathAmt, ubDirection, (INT16)uiDist, ubOwner, ubSpecial, ANIM_CROUCH, sSubsequent, sBombGridNo );
+	TacticalActorDamageResolution::applyHit(*pSoldier,  usItem, (fFromRemoteClient ? sWoundAmt : sNewWoundAmt), sBreathAmt, ubDirection, (INT16)uiDist, ubOwner, ubSpecial, ANIM_CROUCH, sSubsequent, sBombGridNo );
 	
 	pSoldier->featureFlags().eventFlags() |= SOLDIER_MISC_HURT_BY_EXPLOSION;
 
@@ -2160,7 +2163,7 @@ BOOLEAN DishOutGasDamage( TacticalActor * pSoldier, EXPLOSIVETYPE * pExplosive, 
 		}
 
 		// a gas effect, take damage directly...
-		pSoldier->SoldierTakeDamage( ANIM_STAND, sWoundAmt, sBreathAmt, pExplosive->ubType == EXPLOSV_BURNABLEGAS ? TAKE_DAMAGE_GAS_FIRE : TAKE_DAMAGE_GAS_NOTFIRE, NOBODY, NOWHERE, 0, TRUE );
+		TacticalActorDamageResolution::takeDamage(*pSoldier,  ANIM_STAND, sWoundAmt, sBreathAmt, pExplosive->ubType == EXPLOSV_BURNABLEGAS ? TAKE_DAMAGE_GAS_FIRE : TAKE_DAMAGE_GAS_NOTFIRE, NOBODY, NOWHERE, 0, TRUE );
 
 		if (is_networked && is_client)
 		{
@@ -2175,7 +2178,7 @@ BOOLEAN DishOutGasDamage( TacticalActor * pSoldier, EXPLOSIVETYPE * pExplosive, 
 
 		if ( pSoldier->vitals().health() >= CONSCIOUSNESS )
 		{
-			pSoldier->DoMercBattleSound( BATTLE_SOUND_HIT1 );
+			TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_HIT1 );
 		}
 
 		if ( owner && owner->roster().team() == gbPlayerNum && pSoldier->roster().team() != gbPlayerNum )
@@ -2691,10 +2694,10 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 			break;
 			}
 			// a gas effect, take damage directly...
-			pSoldier->SoldierTakeDamage( ANIM_STAND, sWoundAmt, sBreathAmt, TAKE_DAMAGE_GAS, NOBODY, NOWHERE, 0, TRUE );
+			TacticalActorDamageResolution::takeDamage(*pSoldier,  ANIM_STAND, sWoundAmt, sBreathAmt, TAKE_DAMAGE_GAS, NOBODY, NOWHERE, 0, TRUE );
 			if ( pSoldier->vitals().health() >= CONSCIOUSNESS )
 			{
-			pSoldier->DoMercBattleSound( (INT8)( BATTLE_SOUND_HIT1 + Random( 2 ) ) );
+			TacticalActorBattleSounds::play(*pSoldier,  (INT8)( BATTLE_SOUND_HIT1 + Random( 2 ) ) );
 			}
 			}
 			*/
@@ -3610,7 +3613,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 
 							// move the merc outside of the room again
 							sTeleportSpot = FindGridNoFromSweetSpotWithStructData( participant, STANDING, sTeleportSpot, 2, &ubDirection, FALSE );
-							participant->ChangeSoldierState( STANDING, 0, TRUE );
+							TacticalActorAnimationTransitions::changeState(*participant,  STANDING, 0, TRUE );
 							TeleportSoldier( participant, sTeleportSpot, FALSE );
 
 							HandleMoraleEvent( participant, MORALE_SEX, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
@@ -4048,7 +4051,7 @@ void HandleExplosionQueue( void )
 						INT16 damage = Explosive[Item[pObj->usItem].ubClassIndex].ubDamage * 0.67f + Random( Explosive[Item[pObj->usItem].ubClassIndex].ubDamage * 0.67f );
 						INT16 breathdamage = Explosive[Item[pObj->usItem].ubClassIndex].ubStunDamage * 0.67f + Random( Explosive[Item[pObj->usItem].ubClassIndex].ubStunDamage * 0.67f );
 
-						pSoldier->SoldierTakeDamage( 0, damage, breathdamage, TAKE_DAMAGE_EXPLOSION, NOBODY, sGridNo, 0, TRUE );
+						TacticalActorDamageResolution::takeDamage(*pSoldier,  0, damage, breathdamage, TAKE_DAMAGE_EXPLOSION, NOBODY, sGridNo, 0, TRUE );
 
 						// play additional 'hit' sound
 						PlayJA2SampleFromFile( "Sounds\\beartrap_fleshhit.wav", RATE_11025, SoundVolume( HIGHVOLUME, sGridNo ), 1, SoundDir( sGridNo ) );
@@ -6154,7 +6157,7 @@ void SoldierDropThroughRoof( TacticalActor* pSoldier, INT32 sGridNo )
 
 	// take damage
 	UINT32 damage = 15 + Random( 5 ) + Random( 23 );
-	pSoldier->SoldierTakeDamage( ANIM_CROUCH, damage, damage * 100, TAKE_DAMAGE_FALLROOF, NOBODY, NOWHERE, 0, TRUE );
+	TacticalActorDamageResolution::takeDamage(*pSoldier,  ANIM_CROUCH, damage, damage * 100, TAKE_DAMAGE_FALLROOF, NOBODY, NOWHERE, 0, TRUE );
 }
 
 gridnoarmourvector GetConnectedRoofGridnoArmours( INT32 sGridNo, UINT8& arBestArmour )
@@ -6358,7 +6361,7 @@ void RoofDestruction( INT32 sGridNo, BOOLEAN fWithExplosion )
 
 		// take damage
 		UINT32 damage = 10 + Random( 3 ) + Random( 10 );
-		pSoldier->SoldierTakeDamage( ANIM_CROUCH, damage, damage * 100, TAKE_DAMAGE_FALLROOF, NOBODY, NOWHERE, 0, TRUE );
+		TacticalActorDamageResolution::takeDamage(*pSoldier,  ANIM_CROUCH, damage, damage * 100, TAKE_DAMAGE_FALLROOF, NOBODY, NOWHERE, 0, TRUE );
 	}
 
 	// if there is a person here, drop them to the ground...

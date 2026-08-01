@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
@@ -314,7 +315,7 @@ namespace
 							TacticalActorMobility::movementStateForStance(*soldier, value.stance);
 						soldier->animationIntent().clearDesiredHeight();
 						soldier->movement().requestGridUpdateSuppression();
-						soldier->ChangeSoldierState(
+						TacticalActorAnimationTransitions::changeState(*soldier,
 							soldier->movement().mode(), 0, FALSE);
 					}
 					else
@@ -434,7 +435,7 @@ namespace
 					soldier->movement().outOfActionPoints())
 					(void)TacticalActorWorldPlacement::setPosition(*soldier,
 						positionX, positionY, FALSE, FALSE, FALSE);
-				soldier->EVENT_InitNewSoldierAnim(
+				TacticalActorAnimationTransitions::initializeAnimation(*soldier,
 					value.movementState, 0, FALSE);
 				return CommandDisposition::Applied;
 			}
@@ -2017,12 +2018,12 @@ bool TryCompletePendingStealCommand(TacticalActor& soldier) noexcept
 		gAnimControl[soldier.animationPlayback().state()].ubEndHeight == ANIM_CROUCH ||
 		gAnimControl[target->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 	{
-		soldier.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(soldier,
 			STEAL_ITEM_CROUCHED, 0, FALSE);
 	}
 	else
 	{
-		soldier.EVENT_InitNewSoldierAnim(STEAL_ITEM, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(soldier, STEAL_ITEM, 0, FALSE);
 	}
 	soldier.pendingAction().clearAction();
 	return true;

@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "builddefines.h"
 #include <stdio.h>
 #include <types.h>
@@ -50,13 +51,13 @@ static void CycleAnimations( )
 		if ( gAnimControl[ cnt ].ubHeight == ubStartHeight )
 		{
 			usStartAnim = ( UINT8) cnt;
-			pSoldier->EVENT_InitNewSoldierAnim( usStartAnim, 0 , TRUE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  usStartAnim, 0 , TRUE );
 			return;
 		}
 	}
 
 	usStartAnim = 0;
-	pSoldier->EVENT_InitNewSoldierAnim( usStartAnim, 0 , TRUE );
+	TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  usStartAnim, 0 , TRUE );
 }
 
 
@@ -133,7 +134,7 @@ UINT32  AniEditScreenHandle(void)
 
 		gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;
 
-		pSoldier->EVENT_InitNewSoldierAnim( usStartAnim, 0 , TRUE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  usStartAnim, 0 , TRUE );
 
 		BuildListFile( );
 
@@ -248,11 +249,11 @@ UINT32  AniEditScreenHandle(void)
 						break;
 				}
 
-				pSoldier->EVENT_InitNewSoldierAnim( usAnim, 0 , TRUE );
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  usAnim, 0 , TRUE );
 			}
 			else
 			{
-				pSoldier->EVENT_InitNewSoldierAnim( usOldState, 0 , TRUE );
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  usOldState, 0 , TRUE );
 			}
 
 			fToggle = !fToggle;
@@ -264,11 +265,11 @@ UINT32  AniEditScreenHandle(void)
 			{
 				usOldState = usStartAnim;
 
-				pSoldier->EVENT_InitNewSoldierAnim( pusStates[ ubCurLoadedState ], 0 , TRUE );
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  pusStates[ ubCurLoadedState ], 0 , TRUE );
 			}
 			else
 			{
-				pSoldier->EVENT_InitNewSoldierAnim( usOldState, 0 , TRUE );
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  usOldState, 0 , TRUE );
 			}
 
 			fToggle2 = !fToggle2;
@@ -286,7 +287,7 @@ UINT32  AniEditScreenHandle(void)
 						ubCurLoadedState = 0;
 					}
 
-					pSoldier->EVENT_InitNewSoldierAnim( pusStates[ ubCurLoadedState ], 0 , TRUE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  pusStates[ ubCurLoadedState ], 0 , TRUE );
 
 			 }
 		}
@@ -303,7 +304,7 @@ UINT32  AniEditScreenHandle(void)
 						ubCurLoadedState = ubNumStates;
 					}
 
-					pSoldier->EVENT_InitNewSoldierAnim( pusStates[ ubCurLoadedState ], 0 , TRUE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  pusStates[ ubCurLoadedState ], 0 , TRUE );
 			 }
 		}
 
@@ -311,7 +312,7 @@ UINT32  AniEditScreenHandle(void)
 		{
 			// CLEAR!
 			usStartAnim = 0;
-			pSoldier->EVENT_InitNewSoldierAnim( usStartAnim, 0 , TRUE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  usStartAnim, 0 , TRUE );
 		}
 
 		if ((InputEvent.usEvent == KEY_UP) && (InputEvent.usParam == ENTER ))

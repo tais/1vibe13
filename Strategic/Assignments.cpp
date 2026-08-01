@@ -1,3 +1,5 @@
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorEquipment.h"
@@ -3971,13 +3973,13 @@ static BOOL HandleSnitchExposition(TacticalActor *pSoldier)
 						}
 					}
 					// instead of normal damage take breath damage
-					//pSoldier->SoldierTakeDamage( 0, 0, usDamageTaken, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
+					//TacticalActorDamageResolution::takeDamage(*pSoldier,  0, 0, usDamageTaken, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
 					pSoldier->vitals().breath() = max( 0, pSoldier->vitals().breath() - usDamageTaken );
 					// he drowned?
 					if( pSoldier->vitals().breath() == 0 )
 					{
 						// dead
-						pSoldier->SoldierTakeDamage( 0, 100, 100, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
+						TacticalActorDamageResolution::takeDamage(*pSoldier,  0, 100, 100, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
 						ScreenMsg( FONT_DKRED, MSG_INTERFACE, pSnitchPrisonExposedStrings[ SNITCH_PRISON_EXPOSED_DEAD_DROWN], pSoldier->GetName() );
 					}
 					else
@@ -4002,7 +4004,7 @@ static BOOL HandleSnitchExposition(TacticalActor *pSoldier)
 						}
 					}
 					// he's dead?
-					pSoldier->SoldierTakeDamage( 0, usDamageTaken, usDamageTaken, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
+					TacticalActorDamageResolution::takeDamage(*pSoldier,  0, usDamageTaken, usDamageTaken, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
 					if( pSoldier->vitals().health() == 0 )
 					{
 						ScreenMsg( FONT_DKRED, MSG_INTERFACE, pSnitchPrisonExposedStrings[ SNITCH_PRISON_EXPOSED_DEAD_BEATEN], pSoldier->GetName() );
@@ -4028,7 +4030,7 @@ static BOOL HandleSnitchExposition(TacticalActor *pSoldier)
 								usDamageTaken += Random(10);
 						}
 					}
-					pSoldier->SoldierTakeDamage( 0, usDamageTaken, usDamageTaken, TAKE_DAMAGE_BLADE, NOBODY, NOWHERE, 0, TRUE );
+					TacticalActorDamageResolution::takeDamage(*pSoldier,  0, usDamageTaken, usDamageTaken, TAKE_DAMAGE_BLADE, NOBODY, NOWHERE, 0, TRUE );
 					// he's dead?
 					if( pSoldier->vitals().health() == 0 )
 					{		
@@ -4056,13 +4058,13 @@ static BOOL HandleSnitchExposition(TacticalActor *pSoldier)
 						}
 					}
 					// instead of normal damage take breath damage
-					//pSoldier->SoldierTakeDamage( 0, 0, usDamageTaken, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
+					//TacticalActorDamageResolution::takeDamage(*pSoldier,  0, 0, usDamageTaken, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
 					pSoldier->vitals().breath() = max( 0, pSoldier->vitals().breath() - usDamageTaken );
 					// he's strangled?
 					if( pSoldier->vitals().breath() == 0 )
 					{
 						// dead
-						pSoldier->SoldierTakeDamage( 0, 100, 100, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
+						TacticalActorDamageResolution::takeDamage(*pSoldier,  0, 100, 100, TAKE_DAMAGE_HANDTOHAND, NOBODY, NOWHERE, 0, TRUE );
 						ScreenMsg( FONT_DKRED, MSG_INTERFACE, pSnitchPrisonExposedStrings[ SNITCH_PRISON_EXPOSED_DEAD_STRANGLED], pSoldier->GetName() );
 					}
 					else
@@ -9358,7 +9360,7 @@ void MakeSoldiersTacticalAnimationReflectAssignment( TacticalActor *pSoldier )
 			if ( pSoldier->animationPlayback().state() != WKAEUP_FROM_SLEEP && !(pSoldier->assignment().previous() < ON_DUTY ) )
 			{
 				// default: standing
-				pSoldier->ChangeSoldierState( STANDING, 1, TRUE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING, 1, TRUE );
 			}
 		}
 	}
@@ -9386,22 +9388,22 @@ void AssignmentDone( TacticalActor *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo 
 		{
 			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
-				pSoldier->ChangeSoldierState( END_DOCTOR, 1, TRUE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  END_DOCTOR, 1, TRUE );
 			}
 			else
 			{
-				pSoldier->ChangeSoldierState( STANDING, 1, TRUE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING, 1, TRUE );
 			}
 		}
 		else if ( IS_REPAIR(pSoldier->assignment().current()) )
 		{
 			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
-				pSoldier->ChangeSoldierState( END_REPAIRMAN, 1, TRUE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  END_REPAIRMAN, 1, TRUE );
 			}
 			else
 			{
-				pSoldier->ChangeSoldierState( STANDING, 1, TRUE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING, 1, TRUE );
 			}
 		}
 		else if ( IS_PATIENT(pSoldier->assignment().current()) )
@@ -9412,7 +9414,7 @@ void AssignmentDone( TacticalActor *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo 
 			}
 			else
 			{
-				pSoldier->ChangeSoldierState( STANDING, 1, TRUE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING, 1, TRUE );
 			}
 		}
 	}
@@ -9674,7 +9676,7 @@ void CheckIfSoldierUnassigned( TacticalActor *pSoldier )
 
 		if( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->roster().inSector() ) )
 		{
-			pSoldier->ChangeSoldierState( STANDING, 1, TRUE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING, 1, TRUE );
 		}
 	}
 }
@@ -18156,11 +18158,11 @@ BOOLEAN PutMercInAsleepState( TacticalActor *pSoldier )
 		{
 			if( GetCurrentScreen() == GAME_SCREEN )
 			{
-				pSoldier->ChangeSoldierState( GOTO_SLEEP, 1, TRUE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  GOTO_SLEEP, 1, TRUE );
 			}
 			else
 			{
-				pSoldier->ChangeSoldierState( SLEEPING, 1, TRUE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  SLEEPING, 1, TRUE );
 			}
 		}
 
@@ -18199,11 +18201,11 @@ BOOLEAN PutMercInAwakeState( TacticalActor *pSoldier )
 		{
 			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
-				pSoldier->ChangeSoldierState( WKAEUP_FROM_SLEEP, 1, TRUE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  WKAEUP_FROM_SLEEP, 1, TRUE );
 			}
 			else
 			{
-				pSoldier->ChangeSoldierState( STANDING, 1, TRUE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING, 1, TRUE );
 			}
 		}
 

@@ -1,3 +1,4 @@
+#include "TacticalActorBattleSounds.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorEquipment.h"
@@ -3749,7 +3750,7 @@ void SaySeenQuote( TacticalActor *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirg
 				}
 				else
 				{
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_ENEMY );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_ENEMY );
 				}
 			}
 		}
@@ -3786,7 +3787,7 @@ void OurTeamSeesSomeone( TacticalActor * pSoldier, INT8 bNumReRevealed, INT8 bNu
 				/// Speek up!
 				if ( bNumReRevealed > 0 && bNumNewEnemies == 0 )
 				{
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 				}
 				else
 				{

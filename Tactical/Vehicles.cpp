@@ -1,3 +1,5 @@
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
@@ -1476,7 +1478,7 @@ BOOLEAN InjurePersonInVehicle( INT32 iId, TacticalActor *pSoldier, UINT8 ubPoint
 	}
 
 	// otherwise hurt them
-	pSoldier->SoldierTakeDamage( 0, ubPointsOfDmg, ubPointsOfDmg, TAKE_DAMAGE_GUNFIRE, NOBODY, NOWHERE, 0, TRUE );
+	TacticalActorDamageResolution::takeDamage(*pSoldier,  0, ubPointsOfDmg, ubPointsOfDmg, TAKE_DAMAGE_GUNFIRE, NOBODY, NOWHERE, 0, TRUE );
 
 	(void)TacticalActorDamageFeedback::presentHit(*pSoldier);
 
@@ -1505,7 +1507,7 @@ BOOLEAN KillPersonInVehicle( INT32 iId, TacticalActor *pSoldier )
 	}
 
 	// otherwise hurt them
-	pSoldier->SoldierTakeDamage( 0, 100, 100, TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, TRUE );
+	TacticalActorDamageResolution::takeDamage(*pSoldier,  0, 100, 100, TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, TRUE );
 
 	return( TRUE );
 }
@@ -2256,7 +2258,7 @@ void HandleCriticalHitForVehicleInLocation( UINT8 ubID, INT16 sDmg, INT32 sGridN
 		if ( pSoldier != NULL )
 		{
 			// Tacticlly remove soldier....
-			// pSoldier->EVENT_InitNewSoldierAnim( VEHICLE_DIE, 0, FALSE );
+			// TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  VEHICLE_DIE, 0, FALSE );
 			//TacticalRemoveSoldier( pSoldier->identity().id() );
 
 			CheckForAndHandleSoldierDeath( pSoldier, &fMadeCorpse );

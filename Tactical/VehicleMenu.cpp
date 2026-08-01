@@ -1,3 +1,4 @@
+#include "TacticalActorBattleSounds.h"
 // anv: totally not a copy of SkillMenu.cpp
 
 #include "VehicleMenu.h"
@@ -265,7 +266,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 					return;
 				}
 
-				pCurrentSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
+				TacticalActorBattleSounds::play(*pCurrentSoldier,  BATTLE_SOUND_OK1 );
 
 				// OK, set UI
 				SetUIBusy( pCurrentSoldier->identity().id() );

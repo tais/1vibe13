@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorWorldPlacement.h"
 
 #include "Animation Control.h"
@@ -459,7 +460,7 @@ void setGridUnchecked(TacticalActor& actor, INT32 sNewGridNo, BOOLEAN fForceRemo
 				{
 					// ATE: Check if we are going from water to land - if so, resume
 					// with regular movement mode...
-					actor.EVENT_InitNewSoldierAnim( usUIMovementModeToSet, 0, FALSE );
+					TacticalActorAnimationTransitions::initializeAnimation(actor,  usUIMovementModeToSet, 0, FALSE );
 				}
 
 			}
@@ -485,7 +486,7 @@ void setGridUnchecked(TacticalActor& actor, INT32 sNewGridNo, BOOLEAN fForceRemo
 				case RUNNING:
 					// IN deep water, swim!
 					// Make transition from low to deep
-					actor.EVENT_InitNewSoldierAnim( LOW_TO_DEEP_WATER, 0, FALSE );
+					TacticalActorAnimationTransitions::initializeAnimation(actor,  LOW_TO_DEEP_WATER, 0, FALSE );
 					actor.animationIntent().pendingAnimation() = DEEP_WATER_SWIM;
 					actor.movement().requestGridUpdateSuppression();
 					PlayJA2Sample( ENTER_DEEP_WATER_1, RATE_11025, SoundVolume( MIDVOLUME, actor.position().gridNo() ), 1, SoundDir( actor.position().gridNo() ) );
@@ -502,7 +503,7 @@ void setGridUnchecked(TacticalActor& actor, INT32 sNewGridNo, BOOLEAN fForceRemo
 			if ( !TERRAIN_IS_DEEP_WATER( actor.position().terrainType() ) && TERRAIN_IS_DEEP_WATER( actor.position().previousTerrainType() ) )
 			{
 				// Make transition from low to deep
-				actor.EVENT_InitNewSoldierAnim( DEEP_TO_LOW_WATER, 0, FALSE );
+				TacticalActorAnimationTransitions::initializeAnimation(actor,  DEEP_TO_LOW_WATER, 0, FALSE );
 				actor.movement().requestGridUpdateSuppression();
 				actor.animationIntent().pendingAnimation() = usUIMovementModeToSet;
 			}

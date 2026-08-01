@@ -1,3 +1,4 @@
+#include "TacticalActorBattleSounds.h"
 	#include "SkillCheck.h"
 #include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
@@ -931,7 +932,7 @@ INT32 SkillCheck( TacticalActor * pSoldier, INT8 bReason, INT8 bChanceMod )
 					// silent check
 					break;
 				default:
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 					break;
 			}
 		}

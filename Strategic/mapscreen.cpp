@@ -1,3 +1,4 @@
+#include "TacticalActorBattleSounds.h"
 	#include "mapscreen.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
@@ -16431,7 +16432,9 @@ void RandomAwakeSelectedMercConfirmsStrategicMove( void )
 		// select that merc so that when he speaks we're showing his portrait and not someone else
 		ChangeSelectedInfoChar( ubSelectedMercIndex[ ubChosenMerc ], FALSE );
 
-		GetJa2SoldierRepository().resolve(ubSelectedMercID[ ubChosenMerc ])->DoMercBattleSound( BATTLE_SOUND_OK1 );
+		TacticalActorBattleSounds::play(
+			*GetJa2SoldierRepository().resolve(ubSelectedMercID[ubChosenMerc]),
+			BATTLE_SOUND_OK1);
 		//TacticalCharacterDialogue(
 		//	GetJa2SoldierRepository().resolve(
 		//		ubSelectedMercID[ ubChosenMerc ] ), ubQuoteNum );

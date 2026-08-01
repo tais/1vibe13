@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorMedicalSession.h"
 
 #include "TacticalActorOrientation.h"
@@ -146,9 +147,9 @@ void beginAidAnimation(
 	const UINT16 animation =
 		bothProne ? START_AID_PRN : START_AID;
 	if (!is_networked)
-		medic.EVENT_InitNewSoldierAnim(animation, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(medic, animation, 0, FALSE);
 	else
-		medic.ChangeSoldierState(animation, 0, 0);
+		TacticalActorAnimationTransitions::changeState(medic, animation, 0, 0);
 }
 }
 
@@ -280,8 +281,8 @@ bool TacticalActorMedicalSession::resumeProvidingAnimation(
 			? GIVING_AID_PRN
 			: GIVING_AID;
 	if (!is_networked)
-		medic.EVENT_InitNewSoldierAnim(animation, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(medic, animation, 0, FALSE);
 	else
-		medic.ChangeSoldierState(animation, 0, 0);
+		TacticalActorAnimationTransitions::changeState(medic, animation, 0, 0);
 	return true;
 }

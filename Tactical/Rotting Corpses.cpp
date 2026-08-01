@@ -1,3 +1,5 @@
+#include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorAppearance.h"
 #include "TacticalActorWorldPlacement.h"
 	#include "builddefines.h"
 	#include "TacticalActorConditions.h"
@@ -3172,7 +3174,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		// Reload palettes....
 		if ( pNewSoldier->roster().inSector() )
 		{
-			pNewSoldier->CreateSoldierPalettes( );
+			(void)TacticalActorAppearance::rebuildPalettes(*pNewSoldier);
 		}
 
 		// Set a pending animation to change stance first...
@@ -3239,7 +3241,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		}
 
 		// Change to standing,unless we can getup with an animation
-		pNewSoldier->EVENT_InitNewSoldierAnim( STANDING, 0, TRUE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pNewSoldier,  STANDING, 0, TRUE );
 		(void)TacticalActorRecovery::beginGetUp(*pNewSoldier);
 			
 		// So we can see them!

@@ -1,3 +1,5 @@
+#include "TacticalActorTurnLifecycle.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
@@ -1092,7 +1094,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 				// Call soldier function
 //				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Event Pump: ChangeState %S (%d)", gAnimControl[ SChangeState.ubNewState ].zAnimStr, SChangeState.usSoldierID ) );
-				pSoldier->EVENT_InitNewSoldierAnim( SChangeState.usNewState, SChangeState.usStartingAniCode, SChangeState.fForce );
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  SChangeState.usNewState, SChangeState.usStartingAniCode, SChangeState.fForce );
 				break;
 
 			case S_CHANGEDEST:
@@ -1183,7 +1185,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 				// Call soldier function
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Event Pump: BeginTurn");
-				pSoldier->EVENT_BeginMercTurn( FALSE, 0 );
+				TacticalActorTurnLifecycle::beginTurn(*pSoldier,  FALSE, 0 );
 				break;
 
 			case S_CHANGESTANCE:

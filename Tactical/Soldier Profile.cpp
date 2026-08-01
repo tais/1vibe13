@@ -1,3 +1,4 @@
+#include "TacticalActorAppearance.h"
 #include "TacticalActorMobility.h"
 	#include <string.h>
 #include "TacticalActorRobotics.h"
@@ -1631,7 +1632,7 @@ TacticalActor *ChangeSoldierTeam( TacticalActor *pSoldier, UINT8 ubTeam )
 		pNewSoldier->camouflage().jungleApplied()													= pSoldier->camouflage().jungleApplied();
 		if (pNewSoldier->camouflage().jungleApplied() != 0)
 		{
-			pNewSoldier->CreateSoldierPalettes();
+			(void)TacticalActorAppearance::rebuildPalettes(*pNewSoldier);
 		}
 
 		// 0verhaul:  Need to pass certain flags over.  COWERING is one of them.  Others to be determined.

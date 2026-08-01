@@ -1,3 +1,4 @@
+#include "TacticalActorDamageResolution.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorDamageQueue.h"
 #include <string.h>
@@ -748,15 +749,15 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 							{	
 								if ( TANK( movingSoldier ) )
 								{
-									pSoldier->EVENT_SoldierGotHit( 0, Random(10)+5, Random(200)+Random(200), movingSoldier->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
+									TacticalActorDamageResolution::applyHit(*pSoldier,  0, Random(10)+5, Random(200)+Random(200), movingSoldier->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
 								}
 								else if( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE && TacticalActorMobility::isFastMovement(*movingSoldier) )
 								{
-									pSoldier->EVENT_SoldierGotHit( 0, Random(5), Random(100)+Random(100), movingSoldier->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
+									TacticalActorDamageResolution::applyHit(*pSoldier,  0, Random(5), Random(100)+Random(100), movingSoldier->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
 								}
 								else
 								{
-									pSoldier->EVENT_SoldierGotHit( 0, Random(10)+5, Random(200)+Random(200), movingSoldier->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
+									TacticalActorDamageResolution::applyHit(*pSoldier,  0, Random(10)+5, Random(200)+Random(200), movingSoldier->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
 								}
 							}
 							continue;

@@ -1,3 +1,4 @@
+#include "TacticalActorAppearance.h"
 #include "builddefines.h"
 #include <cstdio>
 #include "sgp.h"
@@ -558,7 +559,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 			}
 			SET_PALETTEREP_ID ( pSoldier->renderState().headPalette(),	gpPalRep[ ubPaletteRep ].ID );
 
-			pSoldier->CreateSoldierPalettes( );
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 
 			return( TRUE );
 	}
@@ -586,7 +587,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 			}
 			SET_PALETTEREP_ID ( pSoldier->renderState().vestPalette(),	gpPalRep[ ubPaletteRep ].ID );
 
-			pSoldier->CreateSoldierPalettes( );
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 
 			return( TRUE );
 	}
@@ -613,7 +614,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 			}
 			SET_PALETTEREP_ID ( pSoldier->renderState().pantsPalette(),	gpPalRep[ ubPaletteRep ].ID );
 
-			pSoldier->CreateSoldierPalettes( );
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 
 			return( TRUE );
 	}
@@ -640,7 +641,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 			}
 			SET_PALETTEREP_ID ( pSoldier->renderState().skinPalette(),	gpPalRep[ ubPaletteRep ].ID );
 
-			pSoldier->CreateSoldierPalettes( );
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 
 			return( TRUE );
 	}

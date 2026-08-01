@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 	#include "builddefines.h"
 	#include <stdio.h>
 	#include "DEBUG.H"
@@ -1081,9 +1082,9 @@ void UpdateJerryMiloInInitialSector()
 
 			//should we be on our back or tummy
 			if ( Random( 100 ) < 50 )
-				pSoldier->EVENT_InitNewSoldierAnim( STAND_FALLFORWARD_STOP, 1, TRUE );
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STAND_FALLFORWARD_STOP, 1, TRUE );
 			else
-				pSoldier->EVENT_InitNewSoldierAnim( FALLBACKHIT_STOP, 1, TRUE );
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  FALLBACKHIT_STOP, 1, TRUE );
 		}
 
 		//Wont work cause it gets reset every frame

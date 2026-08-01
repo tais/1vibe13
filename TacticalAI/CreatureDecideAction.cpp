@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorMobility.h"
 	#include "types.h"
 	//#include "Soldier Control.h"
@@ -116,12 +117,12 @@ void CreatureCall( TacticalActor * pCaller )
 		case AM_MONSTER:
 		case YAM_MONSTER:
 
-			pCaller->EVENT_InitNewSoldierAnim( MONSTER_UP, 0 , FALSE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pCaller,  MONSTER_UP, 0 , FALSE );
 			break;
 
 		case QUEENMONSTER:
 
-			pCaller->EVENT_InitNewSoldierAnim( QUEEN_CALL, 0 , FALSE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pCaller,  QUEEN_CALL, 0 , FALSE );
 			break;
 	}
 

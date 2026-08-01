@@ -1,3 +1,4 @@
+#include "TacticalActorBattleSounds.h"
 /**
 * @file
 * @author Flugente (bears-pit.com)
@@ -1028,7 +1029,7 @@ UINT32 MiniGame_Handle_Tetris()
 
 									if ( pSoldier )
 									{
-										pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+										TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 									}
 								}
 								break;
@@ -1112,7 +1113,7 @@ UINT32 MiniGame_Handle_Tetris()
 
 									if ( pSoldier )
 									{
-										pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+										TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 									}
 								}
 							}
@@ -1744,7 +1745,7 @@ UINT32 MiniGame_Handle_Pong()
 
 					if ( pSoldier )
 					{
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 					}
 				}
 

@@ -1,3 +1,4 @@
+#include "TacticalActorAppearance.h"
 	#include "types.h"
 #include "SoldierRepository.h"
 
@@ -1377,7 +1378,7 @@ void HourlyCamouflageUpdate( void )
 				// Reload palettes....
 				if ( pSoldier->roster().inSector() )
 				{
-					pSoldier->CreateSoldierPalettes( );
+					(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 				}
 				
 				DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
@@ -1396,7 +1397,7 @@ void HourlyCamouflageUpdate( void )
 
 					if ( pSoldier->roster().inSector() )
 					{
-						pSoldier->CreateSoldierPalettes( );
+						(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 					}
 
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_CAMMO_WORN_OFF], pSoldier->identity().name() );

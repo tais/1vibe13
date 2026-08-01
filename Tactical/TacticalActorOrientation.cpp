@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 
 #include "Animation Control.h"
@@ -446,7 +447,7 @@ bool TacticalActorOrientation::changeStance(
 	else
 	{
 		actor.animationIntent().desiredHeight() = desiredStance;
-		actor.EVENT_InitNewSoldierAnim(animationState, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(actor, animationState, 0, FALSE);
 	}
 	actor.featureFlags().primaryFlags() |= SOLDIER_REDOFLASHLIGHT;
 	return true;
@@ -601,7 +602,7 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 			actor.identity().bodyType() == ROBOTNOWEAPON ||
 			ARMED_VEHICLE(&actor))
 		{
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				SelectFireAnimation(
 					&actor,
 					gAnimControl[actor.animationPlayback().state()]
@@ -628,7 +629,7 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 			}
 			else
 			{
-				actor.EVENT_InitNewSoldierAnim(
+				TacticalActorAnimationTransitions::initializeAnimation(actor,
 					PickSoldierReadyAnimation(
 						&actor,
 						FALSE,
@@ -671,7 +672,7 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 		const UINT16 pendingAnimation =
 			actor.animationIntent().pendingAnimation();
 		actor.animationIntent().clearPendingAnimation();
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			pendingAnimation,
 			0,
 			FALSE);
@@ -733,7 +734,7 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 			actor.animationPlayback().state() != PRONE_UP &&
 			actor.animationPlayback().state() != PRONE_DOWN)
 		{
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				IsValidStance(&actor, ANIM_PRONE)
 					? CRAWLING : actor.movement().mode(),
 				0,

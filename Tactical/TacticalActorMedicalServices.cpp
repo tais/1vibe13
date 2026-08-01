@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMedicalTreatment.h"
 #include "TacticalActorRouteExecution.h"
@@ -100,9 +101,9 @@ void playEndAidAnimation(
 			? END_AID_PRN
 			: END_AID;
 	if (!is_networked)
-		medic.EVENT_InitNewSoldierAnim(animation, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(medic, animation, 0, FALSE);
 	else
-		medic.ChangeSoldierState(animation, 0, FALSE);
+		TacticalActorAnimationTransitions::changeState(medic, animation, 0, FALSE);
 }
 
 std::uint16_t boundedDrainPoints(
@@ -140,7 +141,7 @@ bool prepareTreatment(TacticalActor& medic)
 			.ubEndHeight == ANIM_CROUCH)
 	{
 		(void)TacticalActorRouteExecution::settleIntoStationaryStance(medic);
-		medic.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(medic,
 			START_AID,
 			0,
 			FALSE);

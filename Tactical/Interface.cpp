@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
@@ -4202,7 +4203,11 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 
 					if ( gOpenDoorMenu.fClosingDoor )
 					{
-						gOpenDoorMenu.pSoldier->ChangeSoldierState( GetAnimStateForInteraction( gOpenDoorMenu.pSoldier, TRUE, CLOSE_DOOR ), 0 , FALSE );
+						TacticalActorAnimationTransitions::changeState(
+							*gOpenDoorMenu.pSoldier,
+							GetAnimStateForInteraction(gOpenDoorMenu.pSoldier, TRUE, CLOSE_DOOR),
+							0,
+							false);
 					}
 					else
 					{
@@ -4226,7 +4231,11 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 
 				if ( gOpenDoorMenu.fClosingDoor )
 				{
-					gOpenDoorMenu.pSoldier->ChangeSoldierState( GetAnimStateForInteraction( gOpenDoorMenu.pSoldier, TRUE, CLOSE_DOOR ), 0 , FALSE );
+					TacticalActorAnimationTransitions::changeState(
+						*gOpenDoorMenu.pSoldier,
+						GetAnimStateForInteraction(gOpenDoorMenu.pSoldier, TRUE, CLOSE_DOOR),
+						0,
+						false);
 				}
 				else
 				{

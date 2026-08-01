@@ -1,3 +1,5 @@
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorCombatActions.h"
 
 #include "TacticalActorOrientation.h"
@@ -207,7 +209,7 @@ void beginUprightBladeAnimation(
 			actor.featureFlags().secondaryFlags() |=
 				SOLDIER_BAYONET_RUNBONUS;
 		}
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			BAYONET_STAB_STANDING_VS_STANDING,
 			0,
 			FALSE);
@@ -216,14 +218,14 @@ void beginUprightBladeAnimation(
 		gGameExternalOptions.fEnhancedCloseCombatSystem &&
 		actor.aiPlanning().aimTime() > 0)
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			FOCUSED_STAB,
 			0,
 			FALSE);
 	}
 	else
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			Chance(50) ? STAB : SLICE,
 			0,
 			FALSE);
@@ -246,7 +248,7 @@ void beginProneBladeAnimation(
 			actor.featureFlags().secondaryFlags() |=
 				SOLDIER_BAYONET_RUNBONUS;
 		}
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			BAYONET_STAB_STANDING_VS_PRONE,
 			0,
 			FALSE);
@@ -261,7 +263,7 @@ void beginProneBladeAnimation(
 	}
 	else
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			CROUCH_STAB,
 			0,
 			FALSE);
@@ -338,7 +340,7 @@ void simulateZombiePunch(
 			if (target.vitals().breath() - breathDamage < 0)
 				breathDamage = target.vitals().breath();
 
-			target.SoldierTakeDamage(
+			TacticalActorDamageResolution::takeDamage(target,
 				0,
 				damage,
 				breathDamage,
@@ -373,7 +375,7 @@ void simulateZombiePunch(
 		EndAIGuysTurn(&actor);
 	}
 
-	actor.EVENT_InitNewSoldierAnim(RUNNING, 0, FALSE);
+	TacticalActorAnimationTransitions::initializeAnimation(actor, RUNNING, 0, FALSE);
 }
 
 void beginUprightPunchAnimation(
@@ -385,7 +387,7 @@ void beginUprightPunchAnimation(
 {
 	if (ItemIsCrowbar(item))
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			CROWBAR_ATTACK,
 			0,
 			FALSE);
@@ -452,7 +454,7 @@ void beginUprightPunchAnimation(
 			enhanced ? FOCUSED_HTH_KICK : HTH_KICK;
 	}
 
-	actor.EVENT_InitNewSoldierAnim(animation, 0, FALSE);
+	TacticalActorAnimationTransitions::initializeAnimation(actor, animation, 0, FALSE);
 }
 
 void playNinjaAttackSound(TacticalActor& actor)
@@ -544,14 +546,14 @@ bool TacticalActorCombatActions::beginBladeAttack(
 			actor.pendingAction().quaternaryData() =
 				target->identity().id();
 			actor.drugState().magnitude(DRUG_EFFECT_HP) += 10;
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				MONSTER_BEGIN_EATTING_FLESH,
 				0,
 				FALSE);
 		}
 		else
 		{
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				PythSpacesAway(
 					actor.position().gridNo(),
 					targetGrid) <= 1
@@ -565,7 +567,7 @@ bool TacticalActorCombatActions::beginBladeAttack(
 
 	if (actor.identity().bodyType() == BLOODCAT)
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			handItem(actor) == BLOODCAT_CLAW_ATTACK
 				? BLOODCAT_SWIPE
 				: BLOODCAT_BITE_ANIM,
@@ -609,7 +611,7 @@ bool TacticalActorCombatActions::beginBladeAttack(
 			FALSE,
 			actor.position().level()))
 	{
-		actor.EVENT_InitNewSoldierAnim(STAB, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(actor, STAB, 0, FALSE);
 		return true;
 	}
 
@@ -623,7 +625,7 @@ bool TacticalActorCombatActions::beginBladeAttack(
 		 IsValidGutCorpse(corpse) ||
 		 IsValidStripCorpse(corpse) ||
 		 IsValidTakeCorpse(corpse));
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		usableCorpse ? DECAPITATE : CROUCH_STAB,
 		0,
 		FALSE);
@@ -683,7 +685,7 @@ bool TacticalActorCombatActions::beginPunchAttack(
 			gAnimControl[target->animationPlayback().state()]
 					.ubHeight != ANIM_PRONE)
 		{
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				NINJA_GOTOBREATH,
 				0,
 				FALSE);
@@ -741,7 +743,7 @@ bool TacticalActorCombatActions::beginPunchAttack(
 		{
 			if (actor.identity().bodyType() > REGFEMALE)
 			{
-				actor.EVENT_InitNewSoldierAnim(
+				TacticalActorAnimationTransitions::initializeAnimation(actor,
 					PUNCH,
 					0,
 					FALSE);
@@ -759,7 +761,7 @@ bool TacticalActorCombatActions::beginPunchAttack(
 			}
 			else
 			{
-				actor.EVENT_InitNewSoldierAnim(
+				TacticalActorAnimationTransitions::initializeAnimation(actor,
 					PUNCH_LOW,
 					0,
 					FALSE);
@@ -804,7 +806,7 @@ bool TacticalActorCombatActions::continueNinjaAttack(
 		targetStance != ANIM_PRONE)
 	{
 		animationStarted =
-			actor.ChangeSoldierState(
+			TacticalActorAnimationTransitions::changeState(actor,
 				NINJA_SPINKICK,
 				0,
 				FALSE) != FALSE;
@@ -817,7 +819,7 @@ bool TacticalActorCombatActions::continueNinjaAttack(
 		targetStance != ANIM_PRONE)
 	{
 		animationStarted =
-			actor.ChangeSoldierState(
+			TacticalActorAnimationTransitions::changeState(actor,
 				NINJA_SPINKICK,
 				0,
 				FALSE) != FALSE;
@@ -825,7 +827,7 @@ bool TacticalActorCombatActions::continueNinjaAttack(
 	else if (targetStance != ANIM_PRONE)
 	{
 		animationStarted =
-			actor.ChangeSoldierState(
+			TacticalActorAnimationTransitions::changeState(actor,
 				Random(2) == 0
 					? NINJA_LOWKICK
 					: NINJA_PUNCH,
@@ -869,7 +871,7 @@ bool TacticalActorCombatActions::continueNinjaAttack(
 	else
 	{
 		animationStarted =
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				PUNCH_LOW,
 				0,
 				FALSE) != FALSE;
@@ -916,7 +918,7 @@ bool TacticalActorCombatActions::beginKnifeThrow(
 		  HAS_SKILL_TRAIT(&actor, THROWING_NT)) ||
 		 (!gGameOptions.fNewTraitSystem &&
 		  HAS_SKILL_TRAIT(&actor, THROWING_OT)));
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		specialBigMercThrow
 			? THROW_KNIFE_SP_BM
 			: THROW_KNIFE,

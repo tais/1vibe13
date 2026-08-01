@@ -1,3 +1,9 @@
+#include "TacticalActorLocomotion.h"
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorLifecycle.h"
+#include "TacticalActorAppearance.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
@@ -692,7 +698,7 @@ BOOLEAN ShutdownOverhead( )
         {
             if ( soldier->roster().active() )
             {
-                soldier->DeleteSoldier( );
+                (void)TacticalActorLifecycle::destroy(*soldier);
             }
         }
     }
@@ -963,7 +969,7 @@ BOOLEAN ExecuteOverhead( )
                         else
                         {
                             // Now make them say their curse sound
-                            pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+                            TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
                         }
 
                         SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, JA25_MULTIPURPOSE_EVENT_GETUP_AFTER_HELI_CRASH, pSoldier->identity().profile(), 0, pSoldier->renderBindings().faceIndex(), 0 );
@@ -1263,7 +1269,7 @@ BOOLEAN ExecuteOverhead( )
                                 // CHECK IF WE HAVE A PENDING ANIMATION
                                 if ( pSoldier->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION )
                                 {
-                                    pSoldier->ChangeSoldierState( pSoldier->animationIntent().pendingAnimation(), 0 , FALSE );
+                                    TacticalActorAnimationTransitions::changeState(*pSoldier,  pSoldier->animationIntent().pendingAnimation(), 0 , FALSE );
                                     pSoldier->animationIntent().clearPendingAnimation();
 
                                     if ( pSoldier->animationIntent().pendingDirection() != NO_PENDING_DIRECTION )
@@ -1746,7 +1752,7 @@ BOOLEAN ExecuteOverhead( )
 								movementchange = gubAnimWalkSpeeds[pSoldier->identity().bodyType()].dMovementChange;
                             }
 
-							pSoldier->MoveMerc( movementchange, dAngle, TRUE );
+							TacticalActorLocomotion::move(*pSoldier,  movementchange, dAngle, TRUE );
 						}
                     }
                     // Check for direction change
@@ -2389,7 +2395,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
                         OKFallDirection( pSoldier, (pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() ) ), pSoldier->position().level(), pSoldier->position().direction(), pSoldier->animationPlayback().state() ) )
                 {
                     // 20% chance of falling over!
-                    pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+                    TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
                     ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 37 ], pSoldier->GetName() );
 					(void)TacticalActorRecovery::collapse(*pSoldier);
                     if (pSoldier->actionPoints().current() > 0)
@@ -2402,7 +2408,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
                         OKFallDirection( pSoldier, (pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() ) ), pSoldier->position().level(), pSoldier->position().direction(), pSoldier->animationPlayback().state() ) )
                 {
                     // 20% chance of falling over!
-                    pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+                    TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
                     ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 37 ], pSoldier->GetName() );
 					(void)TacticalActorRecovery::collapse(*pSoldier);
                     if (pSoldier->actionPoints().current() > 0)
@@ -2503,11 +2509,11 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
 
                         if ( pSoldier->identity().bodyType() == INFANT_MONSTER )
                         {
-                            pSoldier->ChangeSoldierState( WALK_BACKWARDS, 1, TRUE );
+                            TacticalActorAnimationTransitions::changeState(*pSoldier,  WALK_BACKWARDS, 1, TRUE );
                         }
                         else
                         {
-                            pSoldier->ChangeSoldierState( MONSTER_WALK_BACKWARDS, 1, TRUE );
+                            TacticalActorAnimationTransitions::changeState(*pSoldier,  MONSTER_WALK_BACKWARDS, 1, TRUE );
                         }
                     }
                 }
@@ -2525,7 +2531,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
                     if ( !pSoldier->movement().reverse() )
                     {
                         pSoldier->movement().setReverse(true);
-                        pSoldier->ChangeSoldierState( BLOODCAT_WALK_BACKWARDS, 1, TRUE );
+                        TacticalActorAnimationTransitions::changeState(*pSoldier,  BLOODCAT_WALK_BACKWARDS, 1, TRUE );
                     }
                 }
                 else
@@ -2758,7 +2764,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
 		if (MarblesExistAtLocation(pSoldier->position().gridNo(), 0, &iMarblesIndex))
 		{
 			// Slip on marbles!
-			pSoldier->DoMercBattleSound(BATTLE_SOUND_CURSE1);
+			TacticalActorBattleSounds::play(*pSoldier, BATTLE_SOUND_CURSE1);
 			if (pSoldier->roster().team() == gbPlayerNum)
 			{
 				ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, Message[STR_SLIPPED_MARBLES], pSoldier->identity().name());
@@ -3275,7 +3281,7 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
     if ( fAcknowledge )
     {
         if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] )
-            pSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
+            TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_ATTN1 );
     }
 
     // Change UI mode to reflact that we are selected
@@ -3486,7 +3492,7 @@ void RebuildAllSoldierShadeTables( )
         TacticalActor& soldier = soldiers.record(cnt);
         if ( soldier.roster().active() )
         {
-            soldier.CreateSoldierPalettes( );
+            (void)TacticalActorAppearance::rebuildPalettes(soldier);
         }
     }
 
@@ -6181,7 +6187,7 @@ void HandleTeamServices( UINT8 ubTeamNum )
 
                                 if ( !gTacticalStatus.fAutoBandageMode )
                                 {
-                                    pTeamSoldier->DoMercBattleSound( (INT8)( BATTLE_SOUND_CURSE1 ) );
+                                    TacticalActorBattleSounds::play(*pTeamSoldier,  (INT8)( BATTLE_SOUND_CURSE1 ) );
                                 }
                             }
                         }
@@ -6281,7 +6287,7 @@ void HandlePlayerServices( TacticalActor *pTeamSoldier )
 
                             if ( !gTacticalStatus.fAutoBandageMode )
                             {
-                                pTeamSoldier->DoMercBattleSound( (INT8)( BATTLE_SOUND_CURSE1 ) );
+                                TacticalActorBattleSounds::play(*pTeamSoldier,  (INT8)( BATTLE_SOUND_CURSE1 ) );
                             }
                         }
                     }
@@ -6350,7 +6356,7 @@ void CommonEnterCombatModeCode( )
                 // If guy is sleeping, wake him up!
                 if ( pSoldier->assignment().isAsleep() == TRUE )
                 {
-                    pSoldier->ChangeSoldierState( WKAEUP_FROM_SLEEP, 1, TRUE );
+                    TacticalActorAnimationTransitions::changeState(*pSoldier,  WKAEUP_FROM_SLEEP, 1, TRUE );
                 }
 
                 // ATE: Refresh APs
@@ -6835,9 +6841,9 @@ static void SayBattleSoundFromAnyBodyInSector( INT32 iBattleSnd )
     {
         SoldierID ubChosenMerc = ubMercsInSector[ (UINT16)Random( ubNumMercs ) ];
 
-        GetJa2SoldierRepository()
-            .resolve(ubChosenMerc.i)
-            ->DoMercBattleSound( (UINT8)iBattleSnd );
+        TacticalActorBattleSounds::play(
+            *GetJa2SoldierRepository().resolve(ubChosenMerc.i),
+            (UINT8)iBattleSnd);
     }
 }
 
@@ -7705,7 +7711,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 
                                                 if ( usAnimState != INVALID_ANIMATION )
                                                 {
-                                                    pTeamSoldier->EVENT_InitNewSoldierAnim( usAnimState, 0, FALSE );
+                                                    TacticalActorAnimationTransitions::initializeAnimation(*pTeamSoldier,  usAnimState, 0, FALSE );
                                                 }
                                             }
                                         }
@@ -8596,7 +8602,7 @@ BOOLEAN KillIncompacitatedEnemyInSector( )
                 else if ( pTeamSoldier->combatResult().earlierAttacker() != NOBODY )
                     usAttacker = pTeamSoldier->combatResult().earlierAttacker();
 
-                pTeamSoldier->SoldierTakeDamage( ANIM_CROUCH, pTeamSoldier->vitals().health(), 100, TAKE_DAMAGE_BLOODLOSS, usAttacker, NOWHERE, 0, TRUE );
+                TacticalActorDamageResolution::takeDamage(*pTeamSoldier,  ANIM_CROUCH, pTeamSoldier->vitals().health(), 100, TAKE_DAMAGE_BLOODLOSS, usAttacker, NOWHERE, 0, TRUE );
 
                 fReturnVal = TRUE;
             }
@@ -9037,7 +9043,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                         }
                         else
                         {
-                            pSoldier->EVENT_InitNewSoldierAnim( START_COWER_PRONE, 0 , FALSE ); 
+                            TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  START_COWER_PRONE, 0 , FALSE );
                             ubNewStance = 0;
                         }
                     }
@@ -9056,7 +9062,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                                 //{
                                 //  pSoldier->animationIntent().pendingAnimation() = START_COWER_PRONE;
                                 //  pSoldier->animationIntent().desiredHeight() = ANIM_PRONE;
-                                //  pSoldier->EVENT_InitNewSoldierAnim( PRONE_DOWN, 0 , FALSE ); 
+                                //  TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  PRONE_DOWN, 0 , FALSE );
                                 //  ubNewStance = 0;
                                 //}
                                 //else
@@ -9066,7 +9072,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                                 }
                                 else
                                 {
-                                    pSoldier->EVENT_InitNewSoldierAnim( START_COWER_CROUCHED, 0 , FALSE ); 
+                                    TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  START_COWER_CROUCHED, 0 , FALSE );
                                     ubNewStance = 0;
                                 }
                             }
@@ -9094,7 +9100,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                             {
                                 // SANDRO - added cowering animation
                                 DeductPoints( pSoldier, GetAPsCrouch(pSoldier, TRUE), APBPConstants[BP_CROUCH], DISABLED_INTERRUPT );
-                                pSoldier->EVENT_InitNewSoldierAnim( START_COWER, 0 , FALSE ); 
+                                TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  START_COWER, 0 , FALSE );
                                 ubNewStance = 0;
                             }
                             else
@@ -9116,7 +9122,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                         if ( fCower )
                         {
                             DeductPoints( pSoldier, GetAPsCrouch(pSoldier, TRUE), APBPConstants[BP_CROUCH], DISABLED_INTERRUPT );
-                            pSoldier->EVENT_InitNewSoldierAnim( START_COWER, 0 , FALSE ); 
+                            TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  START_COWER, 0 , FALSE );
                             ubNewStance = 0;
                         }
                         else
@@ -10374,7 +10380,7 @@ void DoPOWPathChecks( )
             // put them on any available squad
             pSoldier->aiBehavior().neutral() = FALSE;
             AddCharacterToAnySquad( pSoldier );
-            pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+            TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 
             // Decrement amount of prisoners
             if (gStrategicStatus.ubNumCapturedForRescue > 0)
