@@ -1436,6 +1436,15 @@ the engine must not contain SDL types in its public domain model.
   current cower posture remain idempotent. Existing combat rules, maps,
   movement costs, animations, audio, art, XML, Lua, and network formats are
   unchanged.
+  `TacticalActorDamageFeedback` owns the immediate hit-presentation boundary:
+  the one-second battle-grunt throttle and the portrait flash shown for an
+  in-sector actor on the tactical screen or for any actor on a non-tactical
+  screen. Damage resolution and vehicle damage enter the same compiled domain,
+  and the aggregate `HandleSoldierTakeDamageFeedback` method is retired. Body,
+  profile, NPC sound-set, and face-registry indexes are validated before
+  legacy audio or face state can be reached. Existing damage rules, battle
+  sounds, portraits, UI timing, XML, Lua, saves, and network formats are
+  unchanged.
   `TacticalActorRecovery` owns sleep-dart application, breath-collapse
   detection, collapse execution, and get-up progression. The two former
   aggregate methods plus the global collapse entry point and sleep-dart helper

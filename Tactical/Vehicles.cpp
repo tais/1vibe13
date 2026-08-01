@@ -1,6 +1,7 @@
 	#include "Vehicles.h"
 #include <array>
 #include "TacticalActorRobotics.h"
+#include "TacticalActorDamageFeedback.h"
 #include "TacticalWorldAdapter.h"
 	#include "SaveLoadGame.h"
 	#include "SaveSerializer.h"
@@ -1475,7 +1476,7 @@ BOOLEAN InjurePersonInVehicle( INT32 iId, TacticalActor *pSoldier, UINT8 ubPoint
 	// otherwise hurt them
 	pSoldier->SoldierTakeDamage( 0, ubPointsOfDmg, ubPointsOfDmg, TAKE_DAMAGE_GUNFIRE, NOBODY, NOWHERE, 0, TRUE );
 
-	pSoldier->HandleSoldierTakeDamageFeedback( );
+	(void)TacticalActorDamageFeedback::presentHit(*pSoldier);
 
 	return( TRUE );
 }

@@ -2208,6 +2208,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageQueue.h"
   tactical_actor_damage_queue_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageQueue.cpp"
   tactical_actor_damage_queue_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageFeedback.h"
+  tactical_actor_damage_feedback_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageFeedback.cpp"
+  tactical_actor_damage_feedback_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalServices.h"
   tactical_actor_medical_services_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalServices.cpp"
@@ -3082,6 +3086,7 @@ foreach(retired_actor_facade IN ITEMS
   "ChangeToFlybackAnimation"
   "ChangeToFallbackAnimation"
   "SetSoldierCowerState"
+  "HandleSoldierTakeDamageFeedback"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3771,6 +3776,32 @@ if(tactical_ai_cower_domain_call EQUAL -1)
     "Tactical AI cower transitions must enter TacticalActorCombatReactions::setCowering")
 endif()
 
+string(FIND "${tactical_actor_damage_feedback_header_contents}"
+  "presentHit(TacticalActor& actor)"
+  damage_feedback_declaration)
+string(FIND "${tactical_actor_damage_feedback_source_contents}"
+  "TacticalActorDamageFeedback::presentHit("
+  damage_feedback_definition)
+string(FIND "${headless_test_contents}"
+  "TacticalActorDamageFeedback::presentHit"
+  damage_feedback_coverage)
+string(FIND "${tactical_actor_source_contents}"
+  "TacticalActorDamageFeedback::presentHit"
+  soldier_damage_feedback_call)
+file(READ "${SOURCE_ROOT}/Tactical/Vehicles.cpp"
+  tactical_vehicles_contents)
+string(FIND "${tactical_vehicles_contents}"
+  "TacticalActorDamageFeedback::presentHit"
+  vehicle_damage_feedback_call)
+if(damage_feedback_declaration EQUAL -1 OR
+   damage_feedback_definition EQUAL -1 OR
+   damage_feedback_coverage EQUAL -1 OR
+   soldier_damage_feedback_call EQUAL -1 OR
+   vehicle_damage_feedback_call EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor damage feedback lost its declaration, definition, caller migration, or malformed-state coverage")
+endif()
+
 foreach(required_recovery_operation IN ITEMS
   "applySleepDart"
   "checkBreathCollapse"
@@ -4000,6 +4031,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
   "TacticalActorCombatReactions.cpp"
+  "TacticalActorDamageFeedback.cpp"
   "TacticalActorRecovery.cpp"
   "TacticalActorTraversal.cpp"
   "TacticalActorExplosives.cpp"

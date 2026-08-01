@@ -19,6 +19,7 @@
 #include "TacticalActorDragging.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorDamageQueue.h"
+#include "TacticalActorDamageFeedback.h"
 #include "TacticalActorLongActions.h"
 #include "TacticalActorLighting.h"
 #include "TacticalActorMedicalSession.h"
@@ -7882,7 +7883,8 @@ void HandleTakeDamageDeath( TacticalActor *pSoldier, UINT8 bOldLife, UINT8 ubRea
 
 		//if( !( guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) )
 		{
-			pSoldier->HandleSoldierTakeDamageFeedback( );
+			(void)TacticalActorDamageFeedback::presentHit(
+				*pSoldier);
 		}
 
 		if ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN) || !pSoldier->roster().inSector() )
@@ -18299,30 +18301,6 @@ BOOLEAN MercStealFromMerc( TacticalActor *pSoldier, TacticalActor *pTarget )
 
 	return FALSE;
 }
-
-void TacticalActor::HandleSoldierTakeDamageFeedback( void )
-{
-	// Do sound.....
-	// if ( this->vitals().health() >= CONSCIOUSNESS )
-	{
-		// ATE: Limit how often we grunt...
-		if ( (GetJA2Clock( ) - this->vitals().lastBleedGruntAt()) > 1000 )
-		{
-			this->vitals().lastBleedGruntAt() = GetJA2Clock( );
-
-			this->DoMercBattleSound( BATTLE_SOUND_HIT1 );
-		}
-	}
-	// shadooow: Do this ONLY if buddy is in sector.....
-	if ((this->roster().inSector() && GetCurrentScreen() == GAME_SCREEN) || GetCurrentScreen() != GAME_SCREEN)
-	{
-		// Flash portrait....
-		this->uiPresentation().startPortraitFlash();
-		this->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
-		this->timing().start(SoldierTimingComponent::Timer::PortraitFlash, FLASH_PORTRAIT_DELAY);
-	}
-}
-
 
 void HandleSystemNewAISituation( TacticalActor *pSoldier, BOOLEAN fResetABC )
 {
