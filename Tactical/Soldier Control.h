@@ -947,9 +947,6 @@ public:
 
 	//void		AddDrugValues(UINT8 uDrugType, UINT8 usEffect, UINT8 usTravelRate, UINT8 usSideEffect );
 
-	void	PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
-	void	PrintSleepDesc( CHAR16* apStr );
-
 	//////////////////////////////////////////////////////////////////////////////
 
 }; // TacticalActor;

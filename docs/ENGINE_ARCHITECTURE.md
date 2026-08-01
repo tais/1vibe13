@@ -1361,6 +1361,16 @@ the engine must not contain SDL types in its public domain model.
   are bounded at that boundary. These are separate compiled domains rather
   than methods on the aggregate; item, weapon, vehicle, map, XML, and Lua
   formats remain unchanged.
+  `TacticalActorConditionPresentation` owns the localized food, disease, and
+  sleep description boundary for tactical and strategic actor tooltips. The
+  two complete status tooltips use one ordered `appendSummary` operation,
+  while tactical panels can request disease text alone. The aggregate
+  `PrintFoodDesc` and `PrintSleepDesc` façades and the presentation operation
+  on `TacticalActorDisease` are retired; the disease domain remains the owner
+  of disease rules and magnitude. Null destinations, vehicles, and missing or
+  malformed profiles are rejected before profile-dependent sleep evaluation.
+  Existing localization strings, food and disease definitions, assignment
+  rules, XML, Lua, save, and network formats are unchanged.
   `TacticalActorAiBehavior` now owns the remaining small AI state transitions
   that previously leaked through aggregate methods: exclusive AI-control
   selection, initial-AP and flanking queries, animation-specific merc cowering

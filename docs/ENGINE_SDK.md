@@ -597,6 +597,16 @@ item, weapon, profile, vehicle, seat, direction, or world tables. Mods keep
 using the existing item, weapon, vehicle, map, XML, and Lua data formats; this
 change only replaces C++ aggregate methods with explicit engine-facing
 operations.
+`TacticalActorConditionPresentation` is the application-side boundary for
+localized food, disease, and sleep text. Use `appendSummary` when composing a
+complete tactical or strategic status tooltip, or the focused append
+operations for a single condition domain. New callers must not restore
+`TacticalActor::PrintFoodDesc`, `TacticalActor::PrintSleepDesc`, or disease
+presentation on `TacticalActorDisease`; that domain continues to own rules and
+magnitude only. The presentation boundary rejects null destinations, vehicles,
+and invalid profiles before profile-dependent evaluation, without changing
+localization, food/disease content, assignment, XML, Lua, save, or network
+formats.
 `TacticalActorAiBehavior` exposes the corresponding bounded operations for AI
 ownership, initial-turn AP, flanking, animation-specific merc cower teardown,
 retreat cadence, radio animation, and boxing cleanup.

@@ -2286,10 +2286,20 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurnMaintenance.h"
   tactical_actor_turn_maintenance_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurnMaintenance.cpp"
   tactical_actor_turn_maintenance_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditionPresentation.h"
+  tactical_actor_condition_presentation_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditionPresentation.cpp"
+  tactical_actor_condition_presentation_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
   tactical_actor_disease_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Interface Items.cpp"
+  tactical_interface_items_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Interface Panels.cpp"
+  tactical_interface_panels_contents)
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface.cpp"
+  strategic_map_screen_interface_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDragging.h"
   tactical_actor_dragging_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
@@ -2702,7 +2712,6 @@ foreach(required_disease_operation IN ITEMS
   "hasAny"
   "hasOutbreakProperty"
   "magnitude"
-  "appendDescription"
   "contactProtection"
   "resistance"
   "diagnosisPoints")
@@ -3105,6 +3114,8 @@ foreach(retired_actor_facade IN ITEMS
   "InitializeExtraData"
   "PickDropItemAnimation"
   "SoldierPropertyUpkeep"
+  "PrintFoodDesc"
+  "PrintSleepDesc"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3137,6 +3148,52 @@ foreach(retired_actor_facade IN ITEMS
       "TacticalActor regained retired facade '${retired_actor_facade}'")
   endif()
 endforeach()
+
+foreach(required_condition_presentation_operation IN ITEMS
+  "appendFoodDescription"
+  "appendDiseaseDescription"
+  "appendSleepDescription"
+  "appendSummary")
+  string(FIND "${tactical_actor_condition_presentation_header_contents}"
+    "${required_condition_presentation_operation}("
+    condition_presentation_operation_declaration)
+  string(FIND "${tactical_actor_condition_presentation_source_contents}"
+    "TacticalActorConditionPresentation::${required_condition_presentation_operation}("
+    condition_presentation_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorConditionPresentation::${required_condition_presentation_operation}("
+    condition_presentation_operation_coverage)
+  if(condition_presentation_operation_declaration EQUAL -1 OR
+     condition_presentation_operation_definition EQUAL -1 OR
+     condition_presentation_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor condition-presentation operation '${required_condition_presentation_operation}' lost its declaration, definition, or headless coverage")
+  endif()
+endforeach()
+
+string(FIND "${tactical_actor_disease_header_contents}"
+  "appendDescription("
+  legacy_disease_presentation_declaration)
+string(FIND "${tactical_actor_source_contents}"
+  "TacticalActorDisease::appendDescription("
+  legacy_disease_presentation_definition)
+string(FIND "${tactical_interface_items_contents}"
+  "TacticalActorConditionPresentation::appendSummary("
+  tactical_condition_summary_caller)
+string(FIND "${strategic_map_screen_interface_contents}"
+  "TacticalActorConditionPresentation::appendSummary("
+  strategic_condition_summary_caller)
+string(FIND "${tactical_interface_panels_contents}"
+  "TacticalActorConditionPresentation::appendDiseaseDescription("
+  tactical_disease_presentation_caller)
+if(NOT legacy_disease_presentation_declaration EQUAL -1 OR
+   NOT legacy_disease_presentation_definition EQUAL -1 OR
+   tactical_condition_summary_caller EQUAL -1 OR
+   strategic_condition_summary_caller EQUAL -1 OR
+   tactical_disease_presentation_caller EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor condition presentation regained a disease facade or lost a direct tactical/strategic caller")
+endif()
 
 string(FIND "${tactical_actor_turn_maintenance_header_contents}"
   "maintainAtTurnStart(TacticalActor& actor)"
@@ -4130,6 +4187,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
   "TacticalActorCombatReactions.cpp"
+  "TacticalActorConditionPresentation.cpp"
   "TacticalActorDamageFeedback.cpp"
   "TacticalActorRecovery.cpp"
   "TacticalActorTraversal.cpp"
