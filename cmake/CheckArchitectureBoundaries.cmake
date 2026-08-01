@@ -2282,6 +2282,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurnBudget.h"
   tactical_actor_turn_budget_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurnBudget.cpp"
   tactical_actor_turn_budget_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurnMaintenance.h"
+  tactical_actor_turn_maintenance_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurnMaintenance.cpp"
+  tactical_actor_turn_maintenance_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
@@ -3100,6 +3104,7 @@ foreach(retired_actor_facade IN ITEMS
   "ResetSoldierChangeStatTimer"
   "InitializeExtraData"
   "PickDropItemAnimation"
+  "SoldierPropertyUpkeep"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3132,6 +3137,26 @@ foreach(retired_actor_facade IN ITEMS
       "TacticalActor regained retired facade '${retired_actor_facade}'")
   endif()
 endforeach()
+
+string(FIND "${tactical_actor_turn_maintenance_header_contents}"
+  "maintainAtTurnStart(TacticalActor& actor)"
+  turn_maintenance_operation_declaration)
+string(FIND "${tactical_actor_turn_maintenance_source_contents}"
+  "TacticalActorTurnMaintenance::maintainAtTurnStart("
+  turn_maintenance_operation_definition)
+string(FIND "${tactical_actor_source_contents}"
+  "TacticalActorTurnMaintenance::maintainAtTurnStart(*this);"
+  turn_maintenance_owner_call)
+string(FIND "${headless_test_contents}"
+  "TacticalActorTurnMaintenance::maintainAtTurnStart("
+  turn_maintenance_operation_coverage)
+if(turn_maintenance_operation_declaration EQUAL -1 OR
+   turn_maintenance_operation_definition EQUAL -1 OR
+   turn_maintenance_owner_call EQUAL -1 OR
+   turn_maintenance_operation_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor turn maintenance lost its declaration, definition, turn-start caller, or focused headless coverage")
+endif()
 
 string(FIND "${tactical_actor_source_contents}"
   "this->condition().clearExtraStats();"
@@ -4112,7 +4137,8 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorInteractions.cpp"
   "TacticalActorLighting.cpp"
   "TacticalActorProfileClassification.cpp"
-  "TacticalActorTurnBudget.cpp")
+  "TacticalActorTurnBudget.cpp"
+  "TacticalActorTurnMaintenance.cpp")
   string(FIND "${tactical_build_contents}"
     "${required_actor_domain_source}"
     actor_domain_build_entry)

@@ -153,6 +153,7 @@
 #include "TacticalActorLighting.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorTurnBudget.h"
+#include "TacticalActorTurnMaintenance.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
 #include "Plan.h"
@@ -9919,6 +9920,78 @@ int main( int, char** )
 		       malformedInventoryIsRejectedWithoutMutation &&
 		       malformedVehicleIsRejectedWithoutMutation,
 		       "tactical actor turn budget owns live AP refresh and rejects unsafe state without mutating AP snapshots" );
+	}
+
+	{
+		const BOOLEAN previousStripIfUncovered =
+			gSkillTraitValues.fCOStripIfUncovered;
+		const auto previousRobotBodyType =
+			gMercProfiles[0].ubBodyType;
+		gSkillTraitValues.fCOStripIfUncovered = TRUE;
+
+		TacticalActor maintenanceActor;
+		maintenanceActor.identity().profile() = NO_PROFILE;
+		maintenanceActor.identity().bodyType() = REGMALE;
+		maintenanceActor.roster().team() = OUR_TEAM;
+		maintenanceActor.roster().inSector() = FALSE;
+		maintenanceActor.vitals().health() = OKLIFE;
+		maintenanceActor.featureFlags().primaryFlags() |=
+			SOLDIER_AIRDROP_TURN |
+			SOLDIER_ASSAULT_BONUS |
+			SOLDIER_RAISED_REDALERT |
+			SOLDIER_ENEMY_OBSERVEDTHISTURN |
+			SOLDIER_BATTLE_PARTICIPATION;
+		maintenanceActor.featureFlags().secondaryFlags() |=
+			SOLDIER_CONCEALINSERTION |
+			SOLDIER_SPENT_AP;
+		maintenanceActor.skillState().counter(
+			SOLDIER_COUNTER_RADIO_ARTILLERY) = 2;
+		maintenanceActor.skillState().counter(
+			SOLDIER_COUNTER_ROLE_OBSERVED) = 9;
+		maintenanceActor.skillState().cooldown(
+			SOLDIER_COOLDOWN_CRYO) = 2;
+		maintenanceActor.skillState().cooldown(
+			SOLDIER_COOLDOWN_DRUGUSER_COMBAT) = 1;
+		TacticalActorTurnMaintenance::maintainAtTurnStart(
+			maintenanceActor);
+
+		TacticalActor malformedRobot;
+		malformedRobot.identity().profile() = 0;
+		malformedRobot.identity().bodyType() = ROBOTNOWEAPON;
+		malformedRobot.roster().team() = OUR_TEAM;
+		malformedRobot.vitals().health() = OKLIFE;
+		gMercProfiles[0].ubBodyType = ROBOTNOWEAPON;
+		malformedRobot.inventory()[ROBOT_UTILITY_SLOT].usItem =
+			MAXITEMS;
+		malformedRobot.skillState().cooldown(
+			SOLDIER_COOLDOWN_CRYO) = 1;
+		TacticalActorTurnMaintenance::maintainAtTurnStart(
+			malformedRobot);
+
+		gSkillTraitValues.fCOStripIfUncovered =
+			previousStripIfUncovered;
+		gMercProfiles[0].ubBodyType = previousRobotBodyType;
+
+		CHECK( !(maintenanceActor.featureFlags().primaryFlags() &
+			        (SOLDIER_AIRDROP_TURN |
+			         SOLDIER_ASSAULT_BONUS |
+			         SOLDIER_RAISED_REDALERT |
+			         SOLDIER_ENEMY_OBSERVEDTHISTURN |
+			         SOLDIER_BATTLE_PARTICIPATION)) &&
+		       !(maintenanceActor.featureFlags().secondaryFlags() &
+			        (SOLDIER_CONCEALINSERTION |
+			         SOLDIER_SPENT_AP)) &&
+		       maintenanceActor.skillState().counter(
+			       SOLDIER_COUNTER_RADIO_ARTILLERY) == 1 &&
+		       maintenanceActor.skillState().counter(
+			       SOLDIER_COUNTER_ROLE_OBSERVED) == 10 &&
+		       maintenanceActor.skillState().cooldown(
+			       SOLDIER_COOLDOWN_CRYO) == 1 &&
+		       maintenanceActor.skillState().cooldown(
+			       SOLDIER_COOLDOWN_DRUGUSER_COMBAT) == 0 &&
+		       malformedRobot.skillState().cooldown(
+			       SOLDIER_COOLDOWN_CRYO) == 0,
+		       "tactical actor turn maintenance owns ephemeral flags and timers while bounding robot utility items" );
 	}
 
 	{

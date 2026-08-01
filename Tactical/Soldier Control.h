@@ -947,8 +947,6 @@ public:
 
 	//void		AddDrugValues(UINT8 uDrugType, UINT8 usEffect, UINT8 usTravelRate, UINT8 usSideEffect );
 
-	void		SoldierPropertyUpkeep();					// update functions for various properties (updating counters, resetting flags etc.)
-
 	void	PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
 	void	PrintSleepDesc( CHAR16* apStr );
 

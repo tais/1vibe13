@@ -1516,6 +1516,15 @@ the engine must not contain SDL types in its public domain model.
   The existing `SoldierActionPointComponent` remains the storage owner, and AP
   constants, traits, difficulty bonuses, drugs, items, XML, Lua, maps, saves,
   and network formats are unchanged.
+  `TacticalActorTurnMaintenance` owns the per-actor turn-start upkeep that
+  expires one-turn flags, ages skill counters and cooldowns, closes muzzle
+  flashes and invalid radio work, resolves uncovering, bounds robot X-ray
+  activation, records battle participation, and reapplies eligible disguises.
+  `EVENT_BeginMercTurn` enters this domain directly and the aggregate
+  `SoldierPropertyUpkeep` façade is retired. Robot utility slots and item IDs
+  are validated before consulting item tables; established flag timing,
+  covert, radio, robot, incident-report, item, XML, Lua, save, and network
+  behavior is otherwise unchanged.
   `TacticalActorAnimationFrames` owns bounded render-frame resolution from an
   actor's current animation surface, animation code, world or extended facing,
   and per-direction frame layout, including the fixed frame used while frozen.
