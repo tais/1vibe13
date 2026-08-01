@@ -937,8 +937,6 @@ public:
 	void ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, UINT16 usNewItem );
 	void PickDropItemAnimation( void );
 
-	void HandleSoldierTakeDamageFeedback( void );
-
 	// sevenfm
 
 	BOOLEAN SoldierReadyWeapon( INT16 sTargetXPos, INT16 sTargetYPos, BOOLEAN fEndReady, BOOLEAN fRaiseToHipOnly );

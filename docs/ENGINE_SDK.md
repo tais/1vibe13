@@ -664,6 +664,14 @@ level, grid, movement-cost, route, and face state. Robots reject cower
 requests, and repeated requests for the current cower posture are accepted
 without restarting the animation. Combat rules, maps, movement costs,
 animations, audio, XML, Lua, and network formats remain unchanged.
+`TacticalActorDamageFeedback::presentHit` is the bounded application-side
+entry point for the established hit grunt and portrait flash. Damage resolution
+and vehicle damage call it instead of restoring the aggregate feedback method.
+The domain preserves the one-second grunt throttle and the rule that the
+tactical screen flashes only in-sector actors while non-tactical screens may
+flash any actor. It validates body, profile, NPC sound-set, and face-registry
+indexes before reaching legacy presentation tables. Battle sounds, portraits,
+UI timing, damage rules, XML, Lua, saves, and network formats remain unchanged.
 `TacticalActorRecovery` owns sleep-dart application, breath-collapse
 detection, collapse execution, and get-up progression. New callers use
 `applySleepDart`, `checkBreathCollapse`, `collapse`, or `beginGetUp` instead of

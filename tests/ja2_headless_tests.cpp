@@ -133,6 +133,7 @@
 #include "TacticalActorConsumables.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorCombatReactions.h"
+#include "TacticalActorDamageFeedback.h"
 #include "TacticalActorRecovery.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -10260,6 +10261,109 @@ int main( int, char** )
 		       malformedGiveContinuationIsRejected &&
 		       malformedDonorHealthIsRejected,
 		       "tactical actor action and recovery domains reject unsafe state, own live transitions, and damage every stacked item" );
+	}
+
+	{
+		TacticalActor feedbackActor;
+		feedbackActor.identity().bodyType() = REGMALE;
+		feedbackActor.identity().profile() = NO_PROFILE;
+		feedbackActor.dialogue().battleSoundSet() = 0;
+		feedbackActor.vitals().lastBleedGruntAt() =
+			GetJA2Clock();
+
+		bool mapScreenFeedbackIsPresented = false;
+		{
+			[[maybe_unused]] auto currentScreen =
+				OverrideCurrentScreen(MAP_SCREEN);
+			mapScreenFeedbackIsPresented =
+				TacticalActorDamageFeedback::presentHit(
+					feedbackActor) &&
+				feedbackActor.uiPresentation()
+					.portraitFlashing() &&
+				feedbackActor.uiPresentation()
+					.portraitFlashFrame() ==
+						FLASH_PORTRAIT_STARTSHADE &&
+				feedbackActor.timing().counter(
+					SoldierTimingComponent::Timer::
+						PortraitFlash) ==
+						FLASH_PORTRAIT_DELAY;
+		}
+
+		feedbackActor.uiPresentation().reset();
+		feedbackActor.timing().reset();
+		bool absentGameScreenActorDoesNotFlash = false;
+		{
+			[[maybe_unused]] auto currentScreen =
+				OverrideCurrentScreen(GAME_SCREEN);
+			absentGameScreenActorDoesNotFlash =
+				TacticalActorDamageFeedback::presentHit(
+					feedbackActor) &&
+				!feedbackActor.uiPresentation()
+					.portraitFlashing() &&
+				feedbackActor.timing().elapsed(
+					SoldierTimingComponent::Timer::
+						PortraitFlash);
+		}
+
+		feedbackActor.roster().inSector() = TRUE;
+		bool inSectorGameScreenFeedbackIsPresented = false;
+		{
+			[[maybe_unused]] auto currentScreen =
+				OverrideCurrentScreen(GAME_SCREEN);
+			inSectorGameScreenFeedbackIsPresented =
+				TacticalActorDamageFeedback::presentHit(
+					feedbackActor) &&
+				feedbackActor.uiPresentation()
+					.portraitFlashing() &&
+				feedbackActor.uiPresentation()
+					.portraitFlashFrame() ==
+						FLASH_PORTRAIT_STARTSHADE &&
+				feedbackActor.timing().counter(
+					SoldierTimingComponent::Timer::
+						PortraitFlash) ==
+						FLASH_PORTRAIT_DELAY;
+		}
+
+		feedbackActor.uiPresentation().reset();
+		feedbackActor.timing().reset();
+		feedbackActor.identity().bodyType() =
+			TOTALBODYTYPES;
+		const bool malformedBodyIsRejected =
+			!TacticalActorDamageFeedback::presentHit(
+				feedbackActor);
+		feedbackActor.identity().bodyType() = REGMALE;
+		feedbackActor.identity().profile() = NUM_PROFILES;
+		const bool malformedProfileIsRejected =
+			!TacticalActorDamageFeedback::presentHit(
+				feedbackActor);
+		feedbackActor.identity().profile() = NO_PROFILE;
+		feedbackActor.dialogue().battleSoundSet() = 8;
+		const bool malformedSoundSetIsRejected =
+			!TacticalActorDamageFeedback::presentHit(
+				feedbackActor);
+		feedbackActor.dialogue().battleSoundSet() = 0;
+		feedbackActor.renderBindings().faceIndex() =
+			NUM_PROFILES;
+		const bool malformedFaceIsRejectedWithoutMutation =
+			!TacticalActorDamageFeedback::presentHit(
+				feedbackActor) &&
+			!feedbackActor.uiPresentation()
+				.portraitFlashing() &&
+			feedbackActor.timing().elapsed(
+				SoldierTimingComponent::Timer::
+					PortraitFlash) &&
+			feedbackActor.vitals().lastBleedGruntAt() ==
+				static_cast<INT32>(GetJA2Clock());
+
+		CHECK(
+			mapScreenFeedbackIsPresented &&
+			absentGameScreenActorDoesNotFlash &&
+			inSectorGameScreenFeedbackIsPresented &&
+			malformedBodyIsRejected &&
+			malformedProfileIsRejected &&
+			malformedSoundSetIsRejected &&
+			malformedFaceIsRejectedWithoutMutation,
+			"tactical actor damage feedback preserves screen visibility rules and rejects malformed lookup state");
 	}
 
 	{
