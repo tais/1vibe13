@@ -1,3 +1,5 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorRouteExecution.h"
 #include "sgp.h"
 #include "TacticalActorAiBehavior.h"
@@ -1890,12 +1892,12 @@ void AIDecideRadioAnimation( TacticalActor *pSoldier )
 	{
 	case ANIM_STAND:
 
-		pSoldier->EVENT_InitNewSoldierAnim( AI_RADIO, 0 , FALSE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  AI_RADIO, 0 , FALSE );
 		break;
 
 	case ANIM_CROUCH:
 
-		pSoldier->EVENT_InitNewSoldierAnim( AI_CR_RADIO, 0 , FALSE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  AI_CR_RADIO, 0 , FALSE );
 		break;
 
 	case ANIM_PRONE:
@@ -2049,7 +2051,7 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 					if ( !Random( 5 ) && TacticalActorConditions::isZombie(*pSoldier) )
 					{
 						// Madd:  Zombies randomly moan...
-						pSoldier->DoMercBattleSound( (INT8)( BATTLE_SOUND_LAUGH1 ) );
+						TacticalActorBattleSounds::play(*pSoldier,  (INT8)( BATTLE_SOUND_LAUGH1 ) );
 					}
 				}
 			}
@@ -2345,7 +2347,7 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 					GetJa2TacticalEntityId(*pSoldier), WEST);
             }
 
-            pSoldier->EVENT_InitNewSoldierAnim( AI_PULL_SWITCH, 0 , FALSE );
+            TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  AI_PULL_SWITCH, 0 , FALSE );
 
             DeductPoints( pSoldier, APBPConstants[AP_PULL_TRIGGER], 0 );
 
@@ -2473,12 +2475,12 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)
 					{
 						pSoldier->animationIntent().desiredHeight() = ANIM_STAND;
-						pSoldier->EVENT_InitNewSoldierAnim(END_COWER, 0, FALSE);
+						TacticalActorAnimationTransitions::initializeAnimation(*pSoldier, END_COWER, 0, FALSE);
 					}
 					else if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_CROUCH)
 					{
 						pSoldier->animationIntent().desiredHeight() = ANIM_CROUCH;
-						pSoldier->EVENT_InitNewSoldierAnim(END_COWER_CROUCHED, 0, FALSE);
+						TacticalActorAnimationTransitions::initializeAnimation(*pSoldier, END_COWER_CROUCHED, 0, FALSE);
 					}
 				}
 				else if (pSoldier->animationPlayback().state() == COWERING_PRONE)
@@ -2486,7 +2488,7 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 					{
 						pSoldier->animationIntent().desiredHeight() = ANIM_PRONE;
-						pSoldier->EVENT_InitNewSoldierAnim(END_COWER_PRONE, 0, FALSE);
+						TacticalActorAnimationTransitions::initializeAnimation(*pSoldier, END_COWER_PRONE, 0, FALSE);
 					}
 				}
 				// clear cowering flag
@@ -2714,9 +2716,9 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 				TacticalActorConditions::isGivingAid(*pSoldier))
 			{
 				if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
-					pSoldier->ChangeSoldierState(END_AID_PRN, 0, 0);
+					TacticalActorAnimationTransitions::changeState(*pSoldier, END_AID_PRN, 0, 0);
 				else
-					pSoldier->ChangeSoldierState(END_AID, 0, 0);
+					TacticalActorAnimationTransitions::changeState(*pSoldier, END_AID, 0, 0);
 			}
 			pSoldier->service().clearProviders();
 			pSoldier->service().finishProviding();

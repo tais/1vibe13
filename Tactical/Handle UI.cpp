@@ -1,3 +1,5 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorDamageResolution.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
@@ -1584,7 +1586,7 @@ UINT32 UIHandleTestHit( UI_EVENT *pUIEvent )
 
 		// GetJa2PendingTacticalCombatActions()++;
 		DebugAttackBusy( "Testing a hit.\n" );
-		pSoldier->EVENT_SoldierGotHit( 1, bDamage, 10, pSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pSoldier->attackSelection().shotLocation(), 0, NOWHERE );
+		TacticalActorDamageResolution::applyHit(*pSoldier,  1, bDamage, 10, pSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pSoldier->attackSelection().shotLocation(), 0, NOWHERE );
 		// callahan update end - put everything as it was
 	}
 	return( GAME_SCREEN );
@@ -2282,7 +2284,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 							pSoldier->movement().reverse() != FALSE, false);
 					if ( movement )
 					{
-						pSoldier->InternalDoMercBattleSound( BATTLE_SOUND_OK1, BATTLE_SND_LOWER_VOLUME );
+						TacticalActorBattleSounds::playWithCode(*pSoldier,  BATTLE_SOUND_OK1, BATTLE_SND_LOWER_VOLUME );
 					}
 					else if (movement.status ==
 						SimulationCommandDispatchStatus::Discarded)
@@ -2490,7 +2492,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 
 					if ( pSoldier->pathing().pathSize() > 5 )
 					{
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_OK1 );
 					}
 				}
 			}
@@ -3523,7 +3525,7 @@ BOOLEAN SelectedMercCanAffordAttack( )
 				else
 				{
 					// Play curse....
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 				}
 			}
 		}
@@ -6069,7 +6071,7 @@ void EndMultiSoldierSelection( BOOLEAN fAcknowledge )
 				}
 
 				if( !GetGameContext().settings().fOptions[ TOPTION_MUTE_CONFIRMATIONS ] && fAcknowledge )
-					pSoldier->InternalDoMercBattleSound( BATTLE_SOUND_ATTN1, BATTLE_SND_LOWER_VOLUME );
+					TacticalActorBattleSounds::playWithCode(*pSoldier,  BATTLE_SOUND_ATTN1, BATTLE_SND_LOWER_VOLUME );
 
 				if ( pSoldier->assignment().isAsleep() )
 				{
@@ -6277,7 +6279,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 						pSoldier->movement().outOfActionPoints() != FALSE);
 				if ( movement )
 				{
-					pSoldier->InternalDoMercBattleSound( BATTLE_SOUND_OK1, BATTLE_SND_LOWER_VOLUME );
+					TacticalActorBattleSounds::playWithCode(*pSoldier,  BATTLE_SOUND_OK1, BATTLE_SND_LOWER_VOLUME );
 					fAtLeastOneMultiSelect = TRUE;
 				}
 				else if (movement.status ==

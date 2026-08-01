@@ -1,3 +1,4 @@
+#include "TacticalActorDamageResolution.h"
 #include "TacticalActorDamageQueue.h"
 
 #include "Soldier Control.h"
@@ -26,7 +27,7 @@ void TacticalActorDamageQueue::schedule(
 		 subsequent,
 		 showDamage]()
 		{
-			actor.SoldierTakeDamage(
+			TacticalActorDamageResolution::takeDamage(actor,
 				height,
 				lifeDeduct,
 				breathDeduct,

@@ -1,3 +1,5 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorTurnLifecycle.h"
 #include "TacticalActorRouteExecution.h"
 	#include "types.h"
 	#include "TacticalActorAiBehavior.h"
@@ -249,7 +251,7 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 								gusSelectedSoldier.i);
 						if (selectedSoldier)
 						{
-							selectedSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
+							TacticalActorBattleSounds::play(*selectedSoldier,  BATTLE_SOUND_ATTN1 );
 						}
 					}
 
@@ -643,7 +645,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 				if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0)
 				{
 					// decay personal opplist, and refresh APs and BPs
-					pSoldier->EVENT_BeginMercTurn( FALSE, 0 );
+					TacticalActorTurnLifecycle::beginTurn(*pSoldier,  FALSE, 0 );
 				}
 			}
 
@@ -1515,7 +1517,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 							gusSelectedSoldier.i);
 					if (selectedSoldier)
 					{
-						selectedSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
+						TacticalActorBattleSounds::play(*selectedSoldier,  BATTLE_SOUND_ATTN1 );
 					}
 
 					if ( gsInterfaceLevel == 1 )

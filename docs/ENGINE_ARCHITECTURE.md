@@ -1581,11 +1581,31 @@ the engine must not contain SDL types in its public domain model.
   expires one-turn flags, ages skill counters and cooldowns, closes muzzle
   flashes and invalid radio work, resolves uncovering, bounds robot X-ray
   activation, records battle participation, and reapplies eligible disguises.
-  `EVENT_BeginMercTurn` enters this domain directly and the aggregate
-  `SoldierPropertyUpkeep` façade is retired. Robot utility slots and item IDs
-  are validated before consulting item tables; established flag timing,
-  covert, radio, robot, incident-report, item, XML, Lua, save, and network
-  behavior is otherwise unchanged.
+  `TacticalActorTurnLifecycle::beginTurn` owns the complete turn-start
+  orchestration and delegates that focused upkeep to `maintainAtTurnStart`.
+  Both `EVENT_BeginMercTurn` and the aggregate `SoldierPropertyUpkeep` façade
+  are retired. Robot utility slots and item IDs are validated before
+  consulting item tables; established flag timing, covert, radio, robot,
+  incident-report, item, XML, Lua, save, and network behavior is otherwise
+  unchanged.
+  The final behavioral façade extraction leaves `TacticalActor` as the
+  canonical component aggregate rather than an application service. Actor
+  allocation, teardown, and revival enter `TacticalActorLifecycle`;
+  transactional palette rebuilding enters `TacticalActorAppearance`;
+  state changes and animation initialization enter
+  `TacticalActorAnimationTransitions`; immediate hit interpretation and life,
+  breath, bleeding, attribution, and death resolution enter
+  `TacticalActorDamageResolution`; battle-sound policy and playback enter
+  `TacticalActorBattleSounds`; and roof-fall checks plus interpolated movement
+  enter `TacticalActorLocomotion`. Their thirteen former member entry points
+  are absent from the aggregate and all production callers use the compiled
+  domains. Only storage initialization and compatibility name resolution
+  remain as `TacticalActor::initialize` and `TacticalActor::GetName`.
+  Architecture CI requires each extracted source in the tactical build,
+  rejects restored declarations, definitions, or calls to retired entries,
+  and requires headless coverage for every new operation. Existing actor save
+  layout, animation/network events, combat rules, sounds, palettes, maps, XML,
+  Lua, and installed mod formats are unchanged.
   `TacticalActorAnimationFrames` owns bounded render-frame resolution from an
   actor's current animation surface, animation code, world or extended facing,
   and per-direction frame layout, including the fixed frame used while frozen.

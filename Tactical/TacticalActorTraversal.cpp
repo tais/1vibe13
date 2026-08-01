@@ -1,3 +1,5 @@
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorTraversal.h"
 
@@ -205,7 +207,7 @@ bool TacticalActorTraversal::beginRoofClimb(
 	}
 	else
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			CLIMBUPROOF,
 			0,
 			FALSE);
@@ -325,7 +327,7 @@ bool TacticalActorTraversal::beginRoofDescent(
 	}
 	else
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			JUMPDOWNWALL,
 			0,
 			FALSE);
@@ -431,7 +433,7 @@ bool TacticalActorTraversal::beginWallClimb(
 
 	actor.position().temporaryGrid() = destination;
 	actor.animationIntent().pendingDirection() = direction;
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		JUMPUPWALL,
 		0,
 		FALSE);
@@ -538,7 +540,7 @@ bool TacticalActorTraversal::beginWindowJump(
 		actor.position().direction() == SOUTH ||
 			actor.position().direction() == EAST,
 		TRUE);
-	actor.SoldierTakeDamage(
+	TacticalActorDamageResolution::takeDamage(actor,
 		0,
 		static_cast<INT16>(2 + Random(4)),
 		1000,

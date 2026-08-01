@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 	#include "Render Fun.h"
@@ -480,7 +481,7 @@ BOOLEAN HandleNextTile( TacticalActor *pSoldier, INT8 bDirection, INT32 sGridNo,
 				// Change to walking
 				if ( pSoldier->animationPlayback().state() == RUNNING )
 				{
-					pSoldier->ChangeSoldierState( WALKING, 0 , FALSE );
+					TacticalActorAnimationTransitions::changeState(*pSoldier,  WALKING, 0 , FALSE );
 				}
 			}
 		}

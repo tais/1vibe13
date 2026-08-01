@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorRecovery.h"
 
 #include "TacticalActorOrientation.h"
@@ -173,7 +174,7 @@ void startGetUpAnimation(TacticalActor& actor)
 		case FALLBACK_HIT_STAND:
 		case FALLOFF:
 		case FLYBACK_HIT:
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				ROLLOVER,
 				0,
 				FALSE);
@@ -186,7 +187,7 @@ void startGetUpAnimation(TacticalActor& actor)
 	}
 	else if (!(actor.status().flags() & SOLDIER_VEHICLE))
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			END_COWER,
 			0,
 			FALSE);
@@ -311,14 +312,14 @@ bool TacticalActorRecovery::collapse(
 	case ANIM_STAND:
 		if (TacticalActorMobility::inDeepWater(actor))
 		{
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				DEEP_WATER_DIE,
 				0,
 				FALSE);
 		}
 		else if (TacticalActorMobility::inShallowWater(actor))
 		{
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				WATER_DIE,
 				0,
 				FALSE);
@@ -328,14 +329,14 @@ bool TacticalActorRecovery::collapse(
 			(void)TacticalActorCombatReactions::beginFall(actor);
 			if (is_networked)
 			{
-				actor.ChangeSoldierState(
+				TacticalActorAnimationTransitions::changeState(actor,
 					FALLFORWARD_FROMHIT_STAND,
 					0,
 					FALSE);
 			}
 			else
 			{
-				actor.EVENT_InitNewSoldierAnim(
+				TacticalActorAnimationTransitions::initializeAnimation(actor,
 					FALLFORWARD_FROMHIT_STAND,
 					0,
 					FALSE);
@@ -347,14 +348,14 @@ bool TacticalActorRecovery::collapse(
 		(void)TacticalActorCombatReactions::beginFall(actor);
 		if (is_networked)
 		{
-			actor.ChangeSoldierState(
+			TacticalActorAnimationTransitions::changeState(actor,
 				FALLFORWARD_FROMHIT_CROUCH,
 				0,
 				FALSE);
 		}
 		else
 		{
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				FALLFORWARD_FROMHIT_CROUCH,
 				0,
 				FALSE);
@@ -366,14 +367,14 @@ bool TacticalActorRecovery::collapse(
 		{
 		case FALLFORWARD_FROMHIT_STAND:
 		case ENDFALLFORWARD_FROMHIT_CROUCH:
-			actor.ChangeSoldierState(
+			TacticalActorAnimationTransitions::changeState(actor,
 				STAND_FALLFORWARD_STOP,
 				0,
 				FALSE);
 			break;
 
 		case FALLBACK_HIT_STAND:
-			actor.ChangeSoldierState(
+			TacticalActorAnimationTransitions::changeState(actor,
 				FALLBACKHIT_STOP,
 				0,
 				FALSE);
@@ -382,14 +383,14 @@ bool TacticalActorRecovery::collapse(
 		default:
 			if (is_networked)
 			{
-				actor.ChangeSoldierState(
+				TacticalActorAnimationTransitions::changeState(actor,
 					PRONE_LAY_FROMHIT,
 					0,
 					FALSE);
 			}
 			else
 			{
-				actor.EVENT_InitNewSoldierAnim(
+				TacticalActorAnimationTransitions::initializeAnimation(actor,
 					PRONE_LAY_FROMHIT,
 					0,
 					FALSE);

@@ -1,3 +1,4 @@
+#include "TacticalActorBattleSounds.h"
 #include "TacticalActorRouteExecution.h"
 #include "builddefines.h"
 #include "TacticalWorldAdapter.h"
@@ -952,7 +953,7 @@ UINT32	MainGameScreenHandle(void)
 					GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 				if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] &&
 					selectedSoldier )
-					selectedSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
+					TacticalActorBattleSounds::play(*selectedSoldier,  BATTLE_SOUND_ATTN1 );
 			}
 		}
 

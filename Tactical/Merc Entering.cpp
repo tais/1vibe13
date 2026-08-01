@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 	#include <cstdlib>
 	#include "SoldierRepository.h"
 #include <vector>
@@ -722,7 +723,7 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 							// Flugente: it is now possible to use airdrops with soldiers after they have arrived in Arulco. In that case, they might have an animation that breaks EVENT_InitNewSoldierAnim prematurely.
 							// In the worst case, this can cause the game to be unable to finish the airdrop. For that reason, we set all those soldiers to the STANDING animation.
 							heliMerc->animationPlayback().state() = STANDING;
-							heliMerc->EVENT_InitNewSoldierAnim(
+							TacticalActorAnimationTransitions::initializeAnimation(*heliMerc,
 								HELIDROP, 0, FALSE);
 
 							// Change insertion code
@@ -1229,7 +1230,7 @@ void HandleEnemyAirdrop( )
 							// Flugente: it is now possible to use airdrops with soldiers after they have arrived in Arulco. In that case, they might have an animation that breaks EVENT_InitNewSoldierAnim prematurely.
 							// In the worst case, this can cause the game to be unable to finish the airdrop. For that reason, we set all those soldiers to the STANDING aniamtion.
 							//gusHeliSeats[ gbCurDrop ]->animationPlayback().state() = STANDING;
-							heliMerc->EVENT_InitNewSoldierAnim(
+							TacticalActorAnimationTransitions::initializeAnimation(*heliMerc,
 								HELIDROP, 0, FALSE);
 
 							// Change insertion code

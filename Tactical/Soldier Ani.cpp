@@ -1,3 +1,7 @@
+#include "TacticalActorLocomotion.h"
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
@@ -514,7 +518,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				//	PlayJA2Sample( (UINT8)( BULLET_IMPACT_1 + Random(3) ), RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
 
 				// PLAY RANDOM GETTING HIT SOUND
-				//	pSoldier->DoMercBattleSound( BATTLE_SOUND_HIT1 );
+				//	TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_HIT1 );
 
 				break;
 
@@ -531,7 +535,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 				// JUMP TO ANOTHER ANIMATION ( BLOOD ) IF WE WANT BLOOD
 				uiJumpAddress = pSoldier->animationPlayback().state();
-				pSoldier->ChangeSoldierState( FLYBACK_HIT_BLOOD_STAND, 0, FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  FLYBACK_HIT_BLOOD_STAND, 0, FALSE );
 				return( TRUE );
 				break;
 
@@ -558,7 +562,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					if ( anAniFrame == 435 )
 					{
 						// START PROCESSING HERE
-						pSoldier->ChangeSoldierState( (UINT16)uiJumpAddress, pSoldier->animationPlayback().code(), FALSE );
+						TacticalActorAnimationTransitions::changeState(*pSoldier,  (UINT16)uiJumpAddress, pSoldier->animationPlayback().code(), FALSE );
 						return( TRUE );
 					}
 					// Adjust frame control pos, and try again
@@ -571,7 +575,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				if ( anAniFrame == 999 )
 				{
 					// Fail jump, re-load old anim
-					pSoldier->ChangeSoldierState( usOldAnimState, 0, FALSE );
+					TacticalActorAnimationTransitions::changeState(*pSoldier,  usOldAnimState, 0, FALSE );
 					return( TRUE );
 				}
 				break;
@@ -588,7 +592,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				(void)TacticalActorOrientation::setDirection(*pSoldier, 	gOppositeDirection[ pSoldier->position().direction() ] );
 				(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, pSoldier->position().direction() );
 
-				pSoldier->ChangeSoldierState( GETUP_FROM_ROLLOVER, 0 , FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  GETUP_FROM_ROLLOVER, 0 , FALSE );
 				return( TRUE );
 
 			case 438:
@@ -953,7 +957,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						// we probably wouldn't need this special case code.
 						if ( AM_A_ROBOT( pSoldier ) )
 						{
-							pSoldier->ChangeSoldierState( STANDING, 0 , FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING, 0 , FALSE );
 						}
 						else
 						{
@@ -961,25 +965,25 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 							{
 							case ANIM_STAND:
 								if ( pSoldier->animationPlayback().state() == BURST_DUAL_STAND )
-									pSoldier->ChangeSoldierState( AIM_DUAL_STAND, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  AIM_DUAL_STAND, 0 , FALSE );
 								else if ( pSoldier->animationPlayback().state() == BURST_ALTERNATIVE_STAND || pSoldier->animationPlayback().state() == LOW_BURST_ALTERNATIVE_STAND )
-									pSoldier->ChangeSoldierState( AIM_ALTERNATIVE_STAND, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  AIM_ALTERNATIVE_STAND, 0 , FALSE );
 								else 
-									pSoldier->ChangeSoldierState( AIM_RIFLE_STAND, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  AIM_RIFLE_STAND, 0 , FALSE );
 								break;
 
 							case ANIM_PRONE:
 								if ( pSoldier->animationPlayback().state() == BURST_DUAL_PRONE )
-									pSoldier->ChangeSoldierState( AIM_DUAL_PRONE, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  AIM_DUAL_PRONE, 0 , FALSE );
 								else
-									pSoldier->ChangeSoldierState( AIM_RIFLE_PRONE, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  AIM_RIFLE_PRONE, 0 , FALSE );
 								break;
 
 							case ANIM_CROUCH:
 								if ( pSoldier->animationPlayback().state() == BURST_DUAL_CROUCH )
-									pSoldier->ChangeSoldierState( AIM_DUAL_CROUCH, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  AIM_DUAL_CROUCH, 0 , FALSE );
 								else
-									pSoldier->ChangeSoldierState( AIM_RIFLE_CROUCH, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  AIM_RIFLE_CROUCH, 0 , FALSE );
 								break;
 
 							}
@@ -1277,7 +1281,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					// Goto eating animation
 					if ( pSoldier->position().desiredHeight() == 0 )
 					{
-						pSoldier->ChangeSoldierState( CROW_EAT, 0 , FALSE );
+						TacticalActorAnimationTransitions::changeState(*pSoldier,  CROW_EAT, 0 , FALSE );
 					}
 					else
 					{
@@ -1363,7 +1367,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 							}
 							else
 							{
-								pSoldier->ChangeSoldierState( CROUCHING, 0, FALSE );
+								TacticalActorAnimationTransitions::changeState(*pSoldier,  CROUCHING, 0, FALSE );
 								return( TRUE );
 							}
 						}
@@ -1377,12 +1381,12 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 #endif
 							{
-								pSoldier->ChangeSoldierState( NINJA_BREATH, 0, FALSE );
+								TacticalActorAnimationTransitions::changeState(*pSoldier,  NINJA_BREATH, 0, FALSE );
 								return( TRUE );
 							}
 							else
 							{
-								pSoldier->ChangeSoldierState( PUNCH_BREATH, 0, FALSE );
+								TacticalActorAnimationTransitions::changeState(*pSoldier,  PUNCH_BREATH, 0, FALSE );
 								return( TRUE );
 							}
 						}
@@ -1474,24 +1478,24 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 									(HAS_SKILL_TRAIT( pSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) && pSoldier->identity().bodyType() == REGMALE )
 								{
 									if(is_networked)
-										pSoldier->ChangeSoldierState( NINJA_BREATH, 0 , FALSE );
+										TacticalActorAnimationTransitions::changeState(*pSoldier,  NINJA_BREATH, 0 , FALSE );
 									else
-										pSoldier->EVENT_InitNewSoldierAnim( NINJA_BREATH, 0 , FALSE );
+										TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  NINJA_BREATH, 0 , FALSE );
 								}
 								else
 								{
 									if(is_networked)
-										pSoldier->ChangeSoldierState( PUNCH_BREATH, 0 , FALSE );
+										TacticalActorAnimationTransitions::changeState(*pSoldier,  PUNCH_BREATH, 0 , FALSE );
 									else
-										pSoldier->EVENT_InitNewSoldierAnim( PUNCH_BREATH, 0 , FALSE );
+										TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  PUNCH_BREATH, 0 , FALSE );
 								}
 							}
 							else if ( Item[ pSoldier->inventory()[HANDPOS].usItem ].usItemClass & (IC_BLADE) )
 							{
 								if(is_networked)
-									pSoldier->ChangeSoldierState( KNIFE_BREATH, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  KNIFE_BREATH, 0 , FALSE );
 								else
-									pSoldier->EVENT_InitNewSoldierAnim( KNIFE_BREATH, 0 , FALSE );
+									TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  KNIFE_BREATH, 0 , FALSE );
 							}
 						}
 						else if ( bGoBackToAimAfterHit == GO_TO_COWERING_AFTER_HIT )
@@ -1499,16 +1503,16 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 							if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_CROUCH)
 							{
 								if(is_networked)
-									pSoldier->ChangeSoldierState( START_COWER_CROUCHED, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  START_COWER_CROUCHED, 0 , FALSE );
 								else
-									pSoldier->EVENT_InitNewSoldierAnim( START_COWER_CROUCHED, 0 , FALSE );
+									TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  START_COWER_CROUCHED, 0 , FALSE );
 							}
 							else if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)
 							{
 								if(is_networked)
-									pSoldier->ChangeSoldierState( START_COWER_PRONE, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  START_COWER_PRONE, 0 , FALSE );
 								else
-									pSoldier->EVENT_InitNewSoldierAnim( START_COWER_PRONE, 0 , FALSE );
+									TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  START_COWER_PRONE, 0 , FALSE );
 							}
 						}
 						return( TRUE );
@@ -1566,7 +1570,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 			case 476:
 
 				// CODE: GOTO PREVIOUS ANIMATION
-				pSoldier->ChangeSoldierState( ( pSoldier->pendingAction().secondaryData() ), (UINT8)( pSoldier->pendingAction().primaryData() + 1 ), FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  ( pSoldier->pendingAction().secondaryData() ), (UINT8)( pSoldier->pendingAction().primaryData() + 1 ), FALSE );
 				return( TRUE );
 				break;
 
@@ -1766,7 +1770,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 
 				//CODE: REMOVE GUY FRMO WORLD DUE TO EXPLOSION
-				//pSoldier->ChangeSoldierState( RAISE_RIFLE, 0 , FALSE );
+				//TacticalActorAnimationTransitions::changeState(*pSoldier,  RAISE_RIFLE, 0 , FALSE );
 				//return( TRUE );
 				//Delete guy
 				//TacticalRemoveSoldier( pSoldier->identity().id() );
@@ -1786,7 +1790,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				if ( Weapon[ pSoldier->inventory()[ HANDPOS ].usItem ].ubWeaponClass != HANDGUNCLASS )
 				{
 				// RAISE
-				pSoldier->ChangeSoldierState( RAISE_RIFLE, 0 , FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  RAISE_RIFLE, 0 , FALSE );
 				return( TRUE );
 				}
 
@@ -2050,7 +2054,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 															continue;
 													}
 													// finally if we got here, send state change
-													pSoldier->ChangeSoldierState( pAnimDef->sAnimID, 0 , FALSE );
+													TacticalActorAnimationTransitions::changeState(*pSoldier,  pAnimDef->sAnimID, 0 , FALSE );
 												}
 												return( TRUE );
 											}
@@ -2126,7 +2130,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 									(void)TacticalActorOrientation::setDesiredDirection(*pTSoldier, GetDirectionFromGridNo( pSoldier->position().gridNo(), pTSoldier ) );
 
 									// PLAY SOLDIER'S DODGE ANIMATION
-									pTSoldier->ChangeSoldierState( DODGE_ONE, 0 , FALSE );
+									TacticalActorAnimationTransitions::changeState(*pTSoldier,  DODGE_ONE, 0 , FALSE );
 
 									// SANDRO - after dodging melee attack go to apropriate stance
 									//if ( (gAnimControl[ pTSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (Item[pTSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_PUNCH || Item[pTSoldier->inventory()[HANDPOS].usItem].usItemClass == IC_NONE))
@@ -2233,7 +2237,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 			case 496:
 				// CODE: GOTO PREVIOUS ANIMATION
-				pSoldier->ChangeSoldierState( pSoldier->animationPlayback().previousState(), pSoldier->animationPlayback().previousCode(), FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  pSoldier->animationPlayback().previousState(), pSoldier->animationPlayback().previousCode(), FALSE );
 				return( TRUE );
 
 			case 497:
@@ -2250,7 +2254,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					{
 						if ( pSoldier->animationPlayback().state() != JFK_HITDEATH )
 						{
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_DIE1 );
 							pSoldier->dialogue().markDeathSoundPlayed();
 						}
 					}
@@ -2258,9 +2262,9 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) && pSoldier->animationPlayback().state() != CRYO_DEATH && pSoldier->animationPlayback().state() != CRYO_DEATH_CROUCHED )
 					{
 						if ( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND )
-							pSoldier->ChangeSoldierState( CRYO_DEATH, 0, TRUE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  CRYO_DEATH, 0, TRUE );
 						else
-							pSoldier->ChangeSoldierState( CRYO_DEATH_CROUCHED, 0, TRUE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  CRYO_DEATH_CROUCHED, 0, TRUE );
 					}
 					else if ( gGameSettings.fOptions[ TOPTION_BLOOD_N_GORE ] )
 					{
@@ -2268,61 +2272,61 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						switch( pSoldier->animationPlayback().state() )
 						{
 						case FLYBACK_HIT:
-							pSoldier->ChangeSoldierState( FLYBACK_HIT_DEATH, 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  FLYBACK_HIT_DEATH, 0, FALSE );
 							break;
 
 						case GENERIC_HIT_DEATHTWITCHNB:
 						case FALLFORWARD_FROMHIT_STAND:
 						case ENDFALLFORWARD_FROMHIT_CROUCH:
 
-							pSoldier->ChangeSoldierState( GENERIC_HIT_DEATH, 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  GENERIC_HIT_DEATH, 0, FALSE );
 							break;
 
 						case FALLBACK_HIT_DEATHTWITCHNB:
 						case FALLBACK_HIT_STAND:
-							pSoldier->ChangeSoldierState( FALLBACK_HIT_DEATH, 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLBACK_HIT_DEATH, 0, FALSE );
 							break;
 
 						case PRONE_HIT_DEATHTWITCHNB:
 						case PRONE_LAY_FROMHIT:
 
-							pSoldier->ChangeSoldierState( PRONE_HIT_DEATH, 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  PRONE_HIT_DEATH, 0, FALSE );
 							break;
 
 						case FALLOFF:
-							pSoldier->ChangeSoldierState( FALLOFF_DEATH, 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLOFF_DEATH, 0, FALSE );
 							break;
 
 						case FALLFORWARD_ROOF:
-							pSoldier->ChangeSoldierState( FALLOFF_FORWARD_DEATH, 0, FALSE);
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLOFF_FORWARD_DEATH, 0, FALSE);
 							break;
 
 						case ADULTMONSTER_DYING:
-							pSoldier->ChangeSoldierState( ADULTMONSTER_DYING_STOP, 0, FALSE);
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  ADULTMONSTER_DYING_STOP, 0, FALSE);
 							break;
 
 						case LARVAE_DIE:
-							pSoldier->ChangeSoldierState( LARVAE_DIE_STOP, 0, FALSE);
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  LARVAE_DIE_STOP, 0, FALSE);
 							break;
 
 						case QUEEN_DIE:
-							pSoldier->ChangeSoldierState( QUEEN_DIE_STOP, 0, FALSE);
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  QUEEN_DIE_STOP, 0, FALSE);
 							break;
 
 						case INFANT_DIE:
-							pSoldier->ChangeSoldierState( INFANT_DIE_STOP, 0, FALSE);
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  INFANT_DIE_STOP, 0, FALSE);
 							break;
 
 						case CRIPPLE_DIE:
-							pSoldier->ChangeSoldierState( CRIPPLE_DIE_STOP, 0, FALSE);
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  CRIPPLE_DIE_STOP, 0, FALSE);
 							break;
 
 						case ROBOTNW_DIE:
-							pSoldier->ChangeSoldierState( ROBOTNW_DIE_STOP, 0, FALSE);
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  ROBOTNW_DIE_STOP, 0, FALSE);
 							break;
 
 						case CRIPPLE_DIE_FLYBACK:
-							pSoldier->ChangeSoldierState( CRIPPLE_DIE_FLYBACK_STOP, 0, FALSE);
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  CRIPPLE_DIE_FLYBACK_STOP, 0, FALSE);
 							break;
 
 						default:
@@ -2403,7 +2407,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				// If we have a pending animation, play it, else continue
 				if ( pSoldier->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION )
 				{
-					pSoldier->ChangeSoldierState( pSoldier->animationIntent().pendingAnimation(), 0, FALSE );
+					TacticalActorAnimationTransitions::changeState(*pSoldier,  pSoldier->animationIntent().pendingAnimation(), 0, FALSE );
 					pSoldier->animationIntent().clearPendingAnimation();
 					return( TRUE );
 				}
@@ -2490,24 +2494,24 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 										(HAS_SKILL_TRAIT( pSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) && pSoldier->identity().bodyType() == REGMALE )
 									{
 										if(is_networked)
-											pSoldier->ChangeSoldierState( NINJA_BREATH, 0 , FALSE );
+											TacticalActorAnimationTransitions::changeState(*pSoldier,  NINJA_BREATH, 0 , FALSE );
 										else
-											pSoldier->EVENT_InitNewSoldierAnim( NINJA_BREATH, 0 , FALSE );
+											TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  NINJA_BREATH, 0 , FALSE );
 									}
 									else
 									{
 										if(is_networked)
-											pSoldier->ChangeSoldierState( PUNCH_BREATH, 0 , FALSE );
+											TacticalActorAnimationTransitions::changeState(*pSoldier,  PUNCH_BREATH, 0 , FALSE );
 										else
-											pSoldier->EVENT_InitNewSoldierAnim( PUNCH_BREATH, 0 , FALSE );
+											TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  PUNCH_BREATH, 0 , FALSE );
 									}
 								}
 								else if ( Item[ pSoldier->inventory()[HANDPOS].usItem ].usItemClass & (IC_BLADE) )
 								{
 									if(is_networked)
-										pSoldier->ChangeSoldierState( KNIFE_BREATH, 0 , FALSE );
+										TacticalActorAnimationTransitions::changeState(*pSoldier,  KNIFE_BREATH, 0 , FALSE );
 									else
-										pSoldier->EVENT_InitNewSoldierAnim( KNIFE_BREATH, 0 , FALSE );
+										TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  KNIFE_BREATH, 0 , FALSE );
 								}
 							}
 							else if ( bGoBackToAimAfterHit == GO_TO_COWERING_AFTER_HIT )
@@ -2515,16 +2519,16 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 								if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_CROUCH)
 								{
 									if(is_networked)
-										pSoldier->ChangeSoldierState( START_COWER_CROUCHED, 0 , FALSE );
+										TacticalActorAnimationTransitions::changeState(*pSoldier,  START_COWER_CROUCHED, 0 , FALSE );
 									else
-										pSoldier->EVENT_InitNewSoldierAnim( START_COWER_CROUCHED, 0 , FALSE );
+										TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  START_COWER_CROUCHED, 0 , FALSE );
 								}
 								else if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)
 								{
 									if(is_networked)
-										pSoldier->ChangeSoldierState( START_COWER_PRONE, 0 , FALSE );
+										TacticalActorAnimationTransitions::changeState(*pSoldier,  START_COWER_PRONE, 0 , FALSE );
 									else
-										pSoldier->EVENT_InitNewSoldierAnim( START_COWER_PRONE, 0 , FALSE );
+										TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  START_COWER_PRONE, 0 , FALSE );
 								}
 							}
 							return( TRUE );
@@ -2628,7 +2632,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						UINT16 usPendingAnimation = pSoldier->animationIntent().pendingAnimation();
 
 						pSoldier->animationIntent().clearPendingAnimation();
-						pSoldier->ChangeSoldierState( usPendingAnimation, 0, FALSE );
+						TacticalActorAnimationTransitions::changeState(*pSoldier,  usPendingAnimation, 0, FALSE );
 						return( TRUE );
 					}
 
@@ -2660,7 +2664,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 							}
 							else
 							{
-								pSoldier->EVENT_InitNewSoldierAnim( pSoldier->movement().mode(), 0 , FALSE );
+								TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  pSoldier->movement().mode(), 0 , FALSE );
 
 								// UNSET LOCK PENDING ACTION COUNTER FLAG
 								pSoldier->status().flags() &= ( ~SOLDIER_LOCKPENDINGACTIONCOUNTER );
@@ -2686,25 +2690,25 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					if ( ubDesiredHeight == ANIM_STAND && ubCurrentHeight == ANIM_CROUCH )
 					{
 						// Return here because if now, we will skipp a few frames
-						pSoldier->ChangeSoldierState( KNEEL_UP, 0 , FALSE );
+						TacticalActorAnimationTransitions::changeState(*pSoldier,  KNEEL_UP, 0 , FALSE );
 						return( TRUE );
 					}
 					if ( ubDesiredHeight == ANIM_CROUCH && ubCurrentHeight == ANIM_STAND )
 					{
 						// Return here because if now, we will skipp a few frames
-						pSoldier->ChangeSoldierState( KNEEL_DOWN, 0 , FALSE );
+						TacticalActorAnimationTransitions::changeState(*pSoldier,  KNEEL_DOWN, 0 , FALSE );
 						return( TRUE );
 					}
 					else if ( ubDesiredHeight == ANIM_PRONE && ubCurrentHeight == ANIM_CROUCH )
 					{
 						// Return here because if now, we will skipp a few frames
-						pSoldier->ChangeSoldierState( PRONE_DOWN, 0 , FALSE );
+						TacticalActorAnimationTransitions::changeState(*pSoldier,  PRONE_DOWN, 0 , FALSE );
 						return( TRUE );
 					}
 					else if ( ubDesiredHeight == ANIM_CROUCH && ubCurrentHeight == ANIM_PRONE )
 					{
 						// Return here because if now, we will skipp a few frames
-						pSoldier->ChangeSoldierState( PRONE_UP, 0 , FALSE );
+						TacticalActorAnimationTransitions::changeState(*pSoldier,  PRONE_UP, 0 , FALSE );
 						return( TRUE );
 					}
 				}
@@ -2738,7 +2742,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 			case BURST_ALTERNATIVE_STAND:
 			case LOW_SHOT_ALTERNATIVE_STAND:
 			case LOW_BURST_ALTERNATIVE_STAND:
-				pSoldier->EVENT_InitNewSoldierAnim( AIM_ALTERNATIVE_STAND, 0 , FALSE ); 
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  AIM_ALTERNATIVE_STAND, 0 , FALSE );
 				return( TRUE );
 				break;
 			// hack to raise rifle after using idle animation without one in hand
@@ -2750,7 +2754,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 			case FEM_WIPE: 
 				if ( pSoldier->inventory()[ HANDPOS ].exists() == true && Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass == IC_GUN && ItemIsTwoHanded(pSoldier->inventory()[ HANDPOS ].usItem) )
 				{
-					pSoldier->EVENT_InitNewSoldierAnim( RAISE_RIFLE, 0 , FALSE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  RAISE_RIFLE, 0 , FALSE );
 					return( TRUE );
 				}
 				break;
@@ -2758,19 +2762,19 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				break;
 			}
 			// Jump, to animation script
-			pSoldier->EVENT_InitNewSoldierAnim( (UINT16)(sNewAniFrame - 600 ), 0 , FALSE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  (UINT16)(sNewAniFrame - 600 ), 0 , FALSE );
 			return( TRUE );
 		}
 		else if ( sNewAniFrame > 799 && sNewAniFrame <= 899 )
 		{
 			// Jump, to animation script ( But in the 100's range )
-			pSoldier->EVENT_InitNewSoldierAnim( (UINT16)(sNewAniFrame - 700 ), 0 , FALSE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  (UINT16)(sNewAniFrame - 700 ), 0 , FALSE );
 			return( TRUE );
 		}
 		else if ( sNewAniFrame > 899 && sNewAniFrame <= 999 )
 		{
 			// Jump, to animation script ( But in the 200's range )
-			pSoldier->EVENT_InitNewSoldierAnim( (UINT16)(sNewAniFrame - 700 ), 0 , FALSE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  (UINT16)(sNewAniFrame - 700 ), 0 , FALSE );
 			return( TRUE );
 		}
 		else if ( sNewAniFrame > 699 && sNewAniFrame < 799 )
@@ -3054,11 +3058,11 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					// Flugente: play a little sound for melee attacks
 					if ( !usedWeapon || Item[usedWeapon].usItemClass & IC_PUNCH )
 					{
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_PUNCH );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_PUNCH );
 					}
 					else if ( Item[usedWeapon].usItemClass & (IC_BLADE | IC_THROWING_KNIFE) )
 					{
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_KNIFE );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_KNIFE );
 					}
 				}
 				break;
@@ -3090,7 +3094,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 			case 732:
 
 				// Play die sound
-				pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
+				TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_DIE1 );
 				pSoldier->dialogue().markDeathSoundPlayed();
 				break;
 
@@ -3203,12 +3207,12 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 					if ( pTarget )
 					{
-						pTarget->EVENT_InitNewSoldierAnim( SLAP_HIT, 0 , FALSE );
+						TacticalActorAnimationTransitions::initializeAnimation(*pTarget,  SLAP_HIT, 0 , FALSE );
 
 						// Play noise....
 						//PlaySoldierJA2Sample( pTarget->identity().id(), ( S_SLAP_IMPACT ), RATE_11025, SoundVolume( HIGHVOLUME, pTarget->sGridNo ), 1, SoundDir( pTarget->sGridNo ), TRUE );
 
-						//DoMercBattleSound( pTarget, (INT8)( BATTLE_SOUND_HIT1 + Random( 2 ) ) );
+						//TacticalActorBattleSounds::play( pTarget, (INT8)( BATTLE_SOUND_HIT1 + Random( 2 ) ) );
 
 					}
 				}
@@ -3231,7 +3235,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						GetJa2SoldierRepository().resolve(
 							pSoldier->pendingAction().quaternaryData() );
 					if ( target )
-						target->EVENT_SoldierGotHit( TAKE_DAMAGE_BLADE, (INT16) 25, (INT16) 25, gOppositeDirection[ pSoldier->position().direction() ], 50, pSoldier->identity().id(), 0, ANIM_PRONE, 0, 0 );
+						TacticalActorDamageResolution::applyHit(*target,  TAKE_DAMAGE_BLADE, (INT16) 25, (INT16) 25, gOppositeDirection[ pSoldier->position().direction() ], 50, pSoldier->identity().id(), 0, ANIM_PRONE, 0, 0 );
 				}
 				break;
 
@@ -3309,7 +3313,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				if ( Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) )
 				{
 					// Say COOL quote
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 				}
 				break;
 
@@ -3499,7 +3503,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 		else if ( sNewAniFrame > 999 && sNewAniFrame <= 1099 )
 		{
 			// Jump, to animation script ( in the 300+ range )
-			pSoldier->EVENT_InitNewSoldierAnim( (UINT16)(sNewAniFrame - 700 ), 0 , FALSE );
+			TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  (UINT16)(sNewAniFrame - 700 ), 0 , FALSE );
 			return( TRUE );
 		}
 		else if ( sNewAniFrame > 1099 )
@@ -3531,13 +3535,13 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				switch ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 				{
 				case ANIM_STAND:
-					pSoldier->EVENT_InitNewSoldierAnim( AIM_DUAL_STAND, 0 , FALSE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  AIM_DUAL_STAND, 0 , FALSE );
 					break;
 				case ANIM_CROUCH:
-					pSoldier->EVENT_InitNewSoldierAnim( AIM_DUAL_CROUCH, 0 , FALSE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  AIM_DUAL_CROUCH, 0 , FALSE );
 					break;
 				case ANIM_PRONE:
-					pSoldier->EVENT_InitNewSoldierAnim( AIM_DUAL_PRONE, 0 , FALSE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  AIM_DUAL_PRONE, 0 , FALSE );
 					break;
 				}
 				return( TRUE );
@@ -3932,7 +3936,7 @@ void HandleKilledQuote( TacticalActor *pKilledSoldier, TacticalActor *pKillerSol
 					else if ( pKillerSoldier->roster().side() == pKilledSoldier->roster().side() )
 					{
 						// if the attacker was from the same side, play a curse
-						pKillerSoldier->DoMercBattleSound( (INT8)(BATTLE_SOUND_CURSE1) );
+						TacticalActorBattleSounds::play(*pKillerSoldier,  (INT8)(BATTLE_SOUND_CURSE1) );
 					}
 					else
 						// Randomize between laugh, quote...
@@ -3953,11 +3957,11 @@ void HandleKilledQuote( TacticalActor *pKilledSoldier, TacticalActor *pKillerSol
 						{
 							if ( Random( 50 ) == 25 )
 							{
-								pKillerSoldier->DoMercBattleSound( (INT8)( BATTLE_SOUND_LAUGH1 ) );
+								TacticalActorBattleSounds::play(*pKillerSoldier,  (INT8)( BATTLE_SOUND_LAUGH1 ) );
 							}
 							else
 							{
-								pKillerSoldier->DoMercBattleSound( (INT8)( BATTLE_SOUND_COOL1 ) );
+								TacticalActorBattleSounds::play(*pKillerSoldier,  (INT8)( BATTLE_SOUND_COOL1 ) );
 							}
 						}
 					}
@@ -4112,9 +4116,9 @@ BOOLEAN HandleSoldierDeath( TacticalActor *pSoldier , BOOLEAN *pfMadeCorpse )
 						{
 							// if the attacker was from the same team, play a curse, otherwise play a laugh
 							if ( attacker->roster().side() == pSoldier->roster().side() )
-								attacker->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+								TacticalActorBattleSounds::play(*attacker,  BATTLE_SOUND_CURSE1 );
 							else
-								attacker->DoMercBattleSound( BATTLE_SOUND_LAUGH1 );
+								TacticalActorBattleSounds::play(*attacker,  BATTLE_SOUND_LAUGH1 );
 						}
 					}
 				}
@@ -4358,47 +4362,47 @@ BOOLEAN CheckForAndHandleSoldierDeath( TacticalActor *pSoldier, BOOLEAN *pfMadeC
 		switch( pSoldier->animationPlayback().state() )
 		{
 		case FLYBACK_HIT_DEATH:
-			pSoldier->ChangeSoldierState( FLYBACK_HITDEATH_STOP, 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  FLYBACK_HITDEATH_STOP, 0, FALSE );
 			break;
 
 		case GENERIC_HIT_DEATH:
-			pSoldier->ChangeSoldierState( FALLFORWARD_HITDEATH_STOP, 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLFORWARD_HITDEATH_STOP, 0, FALSE );
 			break;
 
 		case FALLBACK_HIT_DEATH:
-			pSoldier->ChangeSoldierState( FALLBACK_HITDEATH_STOP, 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLBACK_HITDEATH_STOP, 0, FALSE );
 			break;
 
 		case PRONE_HIT_DEATH:
-			pSoldier->ChangeSoldierState( PRONE_HITDEATH_STOP, 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  PRONE_HITDEATH_STOP, 0, FALSE );
 			break;
 
 		case JFK_HITDEATH:
-			pSoldier->ChangeSoldierState( JFK_HITDEATH_STOP, 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  JFK_HITDEATH_STOP, 0, FALSE );
 			break;
 
 		case FALLOFF_DEATH:
-			pSoldier->ChangeSoldierState( FALLOFF_DEATH_STOP, 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLOFF_DEATH_STOP, 0, FALSE );
 			break;
 
 		case FALLOFF_FORWARD_DEATH:
-			pSoldier->ChangeSoldierState( FALLOFF_FORWARD_DEATH_STOP, 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLOFF_FORWARD_DEATH_STOP, 0, FALSE );
 			break;
 
 		case WATER_DIE:
-			pSoldier->ChangeSoldierState( WATER_DIE_STOP, 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  WATER_DIE_STOP, 0, FALSE );
 			break;
 
 		case DEEP_WATER_DIE:
-			pSoldier->ChangeSoldierState( DEEP_WATER_DIE_STOPPING, 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  DEEP_WATER_DIE_STOPPING, 0, FALSE );
 			break;
 
 		case COW_DYING:
-			pSoldier->ChangeSoldierState( COW_DYING_STOP, 0, FALSE);
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  COW_DYING_STOP, 0, FALSE);
 			break;
 
 		case BLOODCAT_DYING:
-			pSoldier->ChangeSoldierState( BLOODCAT_DYING_STOP, 0, FALSE);
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  BLOODCAT_DYING_STOP, 0, FALSE);
 			break;
 
 		default:
@@ -4467,7 +4471,7 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 		}
 #endif
 		// We are unconscious now, play randomly, this animation continued, or a new death
-		if ( pSoldier->CheckSoldierHitRoof( ) )
+		if ( TacticalActorLocomotion::checkRoofHit(*pSoldier) )
 		{
 			return;
 		}
@@ -4481,7 +4485,7 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 			if ( !AreInMeanwhile() )
 #endif
 			{
-				pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
+				TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_DIE1 );
 				pSoldier->dialogue().markDeathSoundPlayed();
 			}
 		}
@@ -4551,7 +4555,7 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 				// 2 ) SET FLAG FOR STARTING TO FALL
 				(void)TacticalActorCombatReactions::
 					beginFall(*pSoldier);
-				pSoldier->ChangeSoldierState( FALLFORWARD_FROMHIT_STAND, 0, FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLFORWARD_FROMHIT_STAND, 0, FALSE );
 				return;
 			}
 			else
@@ -4571,64 +4575,64 @@ void CheckForAndHandleSoldierIncompacitated( TacticalActor *pSoldier )
 		}
 		else if ( pSoldier->animationPlayback().state() == GENERIC_HIT_CROUCH || pSoldier->animationPlayback().state() == CIV_COWER_HIT)
 		{
-			pSoldier->ChangeSoldierState( FALLFORWARD_FROMHIT_CROUCH, 0 , FALSE);
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLFORWARD_FROMHIT_CROUCH, 0 , FALSE);
 			(void)TacticalActorCombatReactions::
 				beginFall(*pSoldier);
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == GENERIC_HIT_PRONE )
 		{
-			pSoldier->ChangeSoldierState( PRONE_LAY_FROMHIT, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  PRONE_LAY_FROMHIT, 0 , FALSE );
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == ADULTMONSTER_HIT )
 		{
-			pSoldier->ChangeSoldierState( ADULTMONSTER_DYING, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  ADULTMONSTER_DYING, 0 , FALSE );
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == LARVAE_HIT )
 		{
-			pSoldier->ChangeSoldierState( LARVAE_DIE, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  LARVAE_DIE, 0 , FALSE );
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == QUEEN_HIT )
 		{
-			pSoldier->ChangeSoldierState( QUEEN_DIE, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  QUEEN_DIE, 0 , FALSE );
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == CRIPPLE_HIT )
 		{
-			pSoldier->ChangeSoldierState( CRIPPLE_DIE, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  CRIPPLE_DIE, 0 , FALSE );
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == ROBOTNW_HIT )
 		{
-			pSoldier->ChangeSoldierState( ROBOTNW_DIE, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  ROBOTNW_DIE, 0 , FALSE );
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == INFANT_HIT )
 		{
-			pSoldier->ChangeSoldierState( INFANT_DIE, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  INFANT_DIE, 0 , FALSE );
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == COW_HIT )
 		{
-			pSoldier->ChangeSoldierState( COW_DYING, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  COW_DYING, 0 , FALSE );
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == BLOODCAT_HIT )
 		{
-			pSoldier->ChangeSoldierState( BLOODCAT_DYING, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  BLOODCAT_DYING, 0 , FALSE );
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == WATER_HIT )
 		{
-			pSoldier->ChangeSoldierState( WATER_DIE, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  WATER_DIE, 0 , FALSE );
 			return;
 		}
 		else if ( pSoldier->animationPlayback().state() == DEEP_WATER_HIT )
 		{
-			pSoldier->ChangeSoldierState( DEEP_WATER_DIE, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  DEEP_WATER_DIE, 0 , FALSE );
 			return;
 		}
 		else
@@ -4645,7 +4649,7 @@ BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( TacticalActor *pSoldier )
 {
 	if ( pSoldier->vitals().health() == 0 )
 	{
-		pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
+		TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_DIE1 );
 		pSoldier->dialogue().markDeathSoundPlayed();
 
 		// 0verhaul:	The bBeingAttackedCount is now obsolete.
@@ -4663,70 +4667,70 @@ BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( TacticalActor *pSoldier )
 		// Flugente: cows only have one death animation. If we're not in the proper aniamtion, enforce it, otherwise the corpse isn't created
 		if ( pSoldier->identity().bodyType() == COW
 			&& pSoldier->animationPlayback().state() != COW_HIT )
-			pSoldier->ChangeSoldierState( COW_DYING, 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  COW_DYING, 0, FALSE );
 
 		if ( gGameSettings.fOptions[ TOPTION_BLOOD_N_GORE ] )
 		{
 			switch( pSoldier->animationPlayback().state() )
 			{
 			case FLYBACKHIT_STOP:
-				pSoldier->ChangeSoldierState( FLYBACK_HIT_DEATH, 0, FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  FLYBACK_HIT_DEATH, 0, FALSE );
 				break;
 
 			case FALLFORWARD_FROMHIT_STAND:
 			case FALLFORWARD_FROMHIT_CROUCH:
 			case STAND_FALLFORWARD_STOP:
-				pSoldier->ChangeSoldierState( GENERIC_HIT_DEATH, 0, FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  GENERIC_HIT_DEATH, 0, FALSE );
 				break;
 
 			case FALLBACKHIT_STOP:
-				pSoldier->ChangeSoldierState( FALLBACK_HIT_DEATH, 0, FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLBACK_HIT_DEATH, 0, FALSE );
 				break;
 
 			case PRONE_LAYFROMHIT_STOP:
 			case PRONE_LAY_FROMHIT:
 
-				pSoldier->ChangeSoldierState( PRONE_HIT_DEATH, 0, FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  PRONE_HIT_DEATH, 0, FALSE );
 				break;
 
 			case FALLOFF_STOP:
-				pSoldier->ChangeSoldierState( FALLOFF_DEATH, 0, FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLOFF_DEATH, 0, FALSE );
 				break;
 
 			case FALLOFF_FORWARD_STOP:
-				pSoldier->ChangeSoldierState( FALLOFF_FORWARD_DEATH, 0, FALSE);
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLOFF_FORWARD_DEATH, 0, FALSE);
 				break;
 
 			case ADULTMONSTER_HIT:
-				pSoldier->ChangeSoldierState( ADULTMONSTER_DYING, 0 , FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  ADULTMONSTER_DYING, 0 , FALSE );
 				break;
 
 			case LARVAE_HIT:
-				pSoldier->ChangeSoldierState( LARVAE_DIE, 0 , FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  LARVAE_DIE, 0 , FALSE );
 				break;
 
 			case QUEEN_HIT:
-				pSoldier->ChangeSoldierState( QUEEN_DIE, 0 , FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  QUEEN_DIE, 0 , FALSE );
 				break;
 
 			case CRIPPLE_HIT:
-				pSoldier->ChangeSoldierState( CRIPPLE_DIE, 0 , FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  CRIPPLE_DIE, 0 , FALSE );
 				break;
 
 			case ROBOTNW_HIT:
-				pSoldier->ChangeSoldierState( ROBOTNW_DIE, 0 , FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  ROBOTNW_DIE, 0 , FALSE );
 				break;
 
 			case INFANT_HIT:
-				pSoldier->ChangeSoldierState( INFANT_DIE, 0 , FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  INFANT_DIE, 0 , FALSE );
 				break;
 
 			case COW_HIT:
-				pSoldier->ChangeSoldierState( COW_DYING, 0 , FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  COW_DYING, 0 , FALSE );
 				break;
 
 			case BLOODCAT_HIT:
-				pSoldier->ChangeSoldierState( BLOODCAT_DYING, 0 , FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  BLOODCAT_DYING, 0 , FALSE );
 				break;
 
 			default:
@@ -4856,63 +4860,63 @@ BOOLEAN HandleUnjamAnimation( TacticalActor *pSoldier )
 	case STANDING_BURST:
 	case FIRE_STAND_BURST_SPREAD:
 		// Normal shoot rifle.... play
-		pSoldier->ChangeSoldierState( STANDING_SHOOT_UNJAM, 0 , FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING_SHOOT_UNJAM, 0 , FALSE );
 		return( TRUE );
 
 	case PRONE_BURST:
 	case SHOOT_RIFLE_PRONE:
 
 		// Normal shoot rifle.... play
-		pSoldier->ChangeSoldierState( PRONE_SHOOT_UNJAM, 0 , FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  PRONE_SHOOT_UNJAM, 0 , FALSE );
 		return( TRUE );
 
 	case CROUCHED_BURST:
 	case SHOOT_RIFLE_CROUCH:
 
 		// Normal shoot rifle.... play
-		pSoldier->ChangeSoldierState( CROUCH_SHOOT_UNJAM, 0 , FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  CROUCH_SHOOT_UNJAM, 0 , FALSE );
 		return( TRUE );
 
 	case SHOOT_DUAL_STAND:
 	case BURST_DUAL_STAND:
 
 		// Normal shoot rifle.... play
-		pSoldier->ChangeSoldierState( STANDING_SHOOT_DWEL_UNJAM, 0 , FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING_SHOOT_DWEL_UNJAM, 0 , FALSE );
 		return( TRUE );
 
 	case SHOOT_DUAL_PRONE:
 	case BURST_DUAL_PRONE:
 
 		// Normal shoot rifle.... play
-		pSoldier->ChangeSoldierState( PRONE_SHOOT_DWEL_UNJAM, 0 , FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  PRONE_SHOOT_DWEL_UNJAM, 0 , FALSE );
 		return( TRUE );
 
 	case SHOOT_DUAL_CROUCH:
 	case BURST_DUAL_CROUCH:
 
 		// Normal shoot rifle.... play
-		pSoldier->ChangeSoldierState( CROUCH_SHOOT_DWEL_UNJAM, 0 , FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  CROUCH_SHOOT_DWEL_UNJAM, 0 , FALSE );
 		return( TRUE );
 
 	case FIRE_LOW_STAND:
 	case FIRE_BURST_LOW_STAND:
 
 		// Normal shoot rifle.... play
-		pSoldier->ChangeSoldierState( STANDING_SHOOT_LOW_UNJAM, 0 , FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  STANDING_SHOOT_LOW_UNJAM, 0 , FALSE );
 		return( TRUE );
 
 	case SHOOT_ALTERNATIVE_STAND:
 	case BURST_ALTERNATIVE_STAND:
 
 		// Normal shoot rifle.... play
-		pSoldier->ChangeSoldierState( UNJAM_ALTERNATIVE_STAND, 0 , FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  UNJAM_ALTERNATIVE_STAND, 0 , FALSE );
 		return( TRUE );
 
 	case LOW_SHOT_ALTERNATIVE_STAND:
 	case LOW_BURST_ALTERNATIVE_STAND:
 
 		// Normal shoot rifle.... play
-		pSoldier->ChangeSoldierState( LOW_UNJAM_ALTERNATIVE_STAND, 0 , FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  LOW_UNJAM_ALTERNATIVE_STAND, 0 , FALSE );
 		return( TRUE );
 		
 	}
@@ -5001,7 +5005,7 @@ BOOLEAN HandleCheckForDeathCommonCode( TacticalActor *pSoldier )
 		// Do we have a primary pending animation?
 		if (pSoldier->animationIntent().secondaryPendingAnimation() != NO_PENDING_ANIMATION)
 		{
-			pSoldier->ChangeSoldierState(pSoldier->animationIntent().secondaryPendingAnimation(), 0, FALSE);
+			TacticalActorAnimationTransitions::changeState(*pSoldier, pSoldier->animationIntent().secondaryPendingAnimation(), 0, FALSE);
 			pSoldier->animationIntent().clearSecondaryPendingAnimation();
 			return(TRUE);
 		}
@@ -5009,7 +5013,7 @@ BOOLEAN HandleCheckForDeathCommonCode( TacticalActor *pSoldier )
 		// CHECK IF WE HAVE A PENDING ANIMATION HERE
 		if (pSoldier->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION)
 		{
-			pSoldier->ChangeSoldierState(pSoldier->animationIntent().pendingAnimation(), 0, FALSE);
+			TacticalActorAnimationTransitions::changeState(*pSoldier, pSoldier->animationIntent().pendingAnimation(), 0, FALSE);
 			pSoldier->animationIntent().clearPendingAnimation();
 			return(TRUE);
 		}
@@ -5036,33 +5040,33 @@ BOOLEAN HandleCheckForDeathCommonCode( TacticalActor *pSoldier )
 	switch( pSoldier->animationPlayback().state() )
 	{
 	case FLYBACK_HIT:
-		pSoldier->ChangeSoldierState( FLYBACKHIT_STOP, 0, FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  FLYBACKHIT_STOP, 0, FALSE );
 		break;
 
 	case GENERIC_HIT_DEATHTWITCHNB:
 	case FALLFORWARD_FROMHIT_STAND:
 	case ENDFALLFORWARD_FROMHIT_CROUCH:
 
-		pSoldier->ChangeSoldierState( STAND_FALLFORWARD_STOP, 0, FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  STAND_FALLFORWARD_STOP, 0, FALSE );
 		break;
 
 	case FALLBACK_HIT_DEATHTWITCHNB:
 	case FALLBACK_HIT_STAND:
-		pSoldier->ChangeSoldierState( FALLBACKHIT_STOP, 0, FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLBACKHIT_STOP, 0, FALSE );
 		break;
 
 	case PRONE_HIT_DEATHTWITCHNB:
 	case PRONE_LAY_FROMHIT:
 
-		pSoldier->ChangeSoldierState( PRONE_LAYFROMHIT_STOP, 0, FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  PRONE_LAYFROMHIT_STOP, 0, FALSE );
 		break;
 
 	case FALLOFF:
-		pSoldier->ChangeSoldierState( FALLOFF_STOP, 0, FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLOFF_STOP, 0, FALSE );
 		break;
 
 	case FALLFORWARD_ROOF:
-		pSoldier->ChangeSoldierState( FALLOFF_FORWARD_STOP, 0, FALSE);
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLOFF_FORWARD_STOP, 0, FALSE);
 		break;
 
 	default:
@@ -5089,33 +5093,33 @@ BOOLEAN HandleCheckForDeathCommonCode( TacticalActor *pSoldier )
 	switch( pSoldier->animationPlayback().state() )
 	{
 	case FLYBACK_HIT:
-		pSoldier->ChangeSoldierState( FLYBACKHIT_STOP, 0, FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  FLYBACKHIT_STOP, 0, FALSE );
 		break;
 
 	case GENERIC_HIT_DEATHTWITCHNB:
 	case FALLFORWARD_FROMHIT_STAND:
 	case ENDFALLFORWARD_FROMHIT_CROUCH:
 
-		pSoldier->ChangeSoldierState( STAND_FALLFORWARD_STOP, 0, FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  STAND_FALLFORWARD_STOP, 0, FALSE );
 		break;
 
 	case FALLBACK_HIT_DEATHTWITCHNB:
 	case FALLBACK_HIT_STAND:
-		pSoldier->ChangeSoldierState( FALLBACKHIT_STOP, 0, FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLBACKHIT_STOP, 0, FALSE );
 		break;
 
 	case PRONE_HIT_DEATHTWITCHNB:
 	case PRONE_LAY_FROMHIT:
 
-		pSoldier->ChangeSoldierState( PRONE_LAYFROMHIT_STOP, 0, FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  PRONE_LAYFROMHIT_STOP, 0, FALSE );
 		break;
 
 	case FALLOFF:
-		pSoldier->ChangeSoldierState( FALLOFF_STOP, 0, FALSE );
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLOFF_STOP, 0, FALSE );
 		break;
 
 	case FALLFORWARD_ROOF:
-		pSoldier->ChangeSoldierState( FALLOFF_FORWARD_STOP, 0, FALSE);
+		TacticalActorAnimationTransitions::changeState(*pSoldier,  FALLOFF_FORWARD_STOP, 0, FALSE);
 		break;
 
 	default:
@@ -5150,7 +5154,7 @@ void KickOutWheelchair( TacticalActor *pSoldier )
 	}
 	else
 	{
-		pSoldier->EVENT_InitNewSoldierAnim( STANDING, 0 , TRUE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  STANDING, 0 , TRUE );
 	}
 
 	// If this person has a profile ID, set body type to regmale

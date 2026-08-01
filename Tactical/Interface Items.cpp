@@ -1,3 +1,5 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWeaponHandling.h"
@@ -9491,7 +9493,8 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	 						// Turn towards.....gridno
 							(void)TacticalActorOrientation::setDesiredDirection(*GetItemPointerSoldier(), (INT8)GetDirectionFromGridNo( usMapPos, GetItemPointerSoldier() ) );
 
-							GetItemPointerSoldier()->EVENT_InitNewSoldierAnim( DROP_ADJACENT_OBJECT, 0 , FALSE );
+							(void)TacticalActorAnimationTransitions::initializeAnimation(
+								*GetItemPointerSoldier(), DROP_ADJACENT_OBJECT, 0, false);
 						}
 						break;
 
@@ -14248,7 +14251,8 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 			}
 			else
 			{
-				GetItemDescSoldier()->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+				TacticalActorBattleSounds::play(
+					*GetItemDescSoldier(), BATTLE_SOUND_CURSE1);
 
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Arming of bomb failed. Resulting explosion damages %s's inventory and health", GetItemDescSoldier()->identity().name() );
 
@@ -14409,7 +14413,8 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 				StatChange( GetItemDescSoldier(), EXPLODEAMT, gain, FALSE );
 
 			// have merc say this is good
-			GetItemDescSoldier()->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+			TacticalActorBattleSounds::play(
+				*GetItemDescSoldier(), BATTLE_SOUND_COOL1);
 
 			(*gpItemDescObject)[0]->data.ubWireNetworkFlag = 0;
 			(*gpItemDescObject)[0]->data.bDefuseFrequency = 0;
@@ -14427,7 +14432,8 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 		else
 		{
 			// oops! trap goes off
-			GetItemDescSoldier()->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+			TacticalActorBattleSounds::play(
+				*GetItemDescSoldier(), BATTLE_SOUND_CURSE1);
 
 			// beartraps don't explode...
 			if ( HasItemFlag( gpItemDescObject->usItem, BEARTRAP ) )

@@ -1,3 +1,4 @@
+#include "TacticalActorTurnLifecycle.h"
 	#include "sgp.h"
 	#include "TacticalActorLongActions.h"
 #include "TacticalWorldAdapter.h"
@@ -265,7 +266,7 @@ void HandleTacticalEndTurn( )
 			if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0 && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				// Handle everything from getting breath back, to bleeding, etc
-				pSoldier->EVENT_BeginMercTurn( TRUE, 0 );
+				TacticalActorTurnLifecycle::beginTurn(*pSoldier,  TRUE, 0 );
 
 				if (!AM_A_ROBOT(pSoldier))
 				{
@@ -304,7 +305,7 @@ void HandleTacticalEndTurn( )
 				if ( pSoldier->roster().team() != gbPlayerNum )
 				{
 					// Handle everything from getting breath back, to bleeding, etc
-					pSoldier->EVENT_BeginMercTurn( TRUE, 0 );
+					TacticalActorTurnLifecycle::beginTurn(*pSoldier,  TRUE, 0 );
 
 					// Handle Player services
 					HandlePlayerServices( pSoldier );

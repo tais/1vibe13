@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorCombatReactions.h"
 
 #include "TacticalActorOrientation.h"
@@ -76,7 +77,7 @@ void markBeginningToFall(TacticalActor& actor)
 bool beginForwardFall(TacticalActor& actor)
 {
 	markBeginningToFall(actor);
-	return actor.ChangeSoldierState(
+	return TacticalActorAnimationTransitions::changeState(actor,
 		FALLFORWARD_FROMHIT_STAND,
 		0,
 		FALSE) != FALSE;
@@ -142,7 +143,7 @@ bool TacticalActorCombatReactions::setCowering(
 		if (actor.status().flags() & SOLDIER_COWERING)
 			return true;
 
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			START_COWER,
 			0,
 			FALSE);
@@ -159,7 +160,7 @@ bool TacticalActorCombatReactions::setCowering(
 		return true;
 	}
 
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		END_COWER,
 		0,
 		FALSE);
@@ -218,7 +219,7 @@ bool TacticalActorCombatReactions::beginFlyback(
 			oppositeDirection))
 	{
 		markBeginningToFall(actor);
-		return actor.ChangeSoldierState(
+		return TacticalActorAnimationTransitions::changeState(actor,
 			FALLBACK_HIT_STAND,
 			0,
 			FALSE) != FALSE;
@@ -232,7 +233,7 @@ bool TacticalActorCombatReactions::beginFlyback(
 			actor.pathing().pathIndex()],
 		FALSE,
 		FLYBACK_HIT);
-	return actor.EVENT_InitNewSoldierAnim(
+	return TacticalActorAnimationTransitions::initializeAnimation(actor,
 		FLYBACK_HIT,
 		0,
 		FALSE) != FALSE;
@@ -275,7 +276,7 @@ bool TacticalActorCombatReactions::beginFallback(
 			actor.pathing().pathIndex()],
 		FALSE,
 		FALLBACK_HIT_STAND);
-	return actor.EVENT_InitNewSoldierAnim(
+	return TacticalActorAnimationTransitions::initializeAnimation(actor,
 		FALLBACK_HIT_STAND,
 		0,
 		FALSE) != FALSE;

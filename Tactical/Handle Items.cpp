@@ -1,3 +1,6 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "connect.h"
@@ -858,7 +861,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 
 							//if (Random( 100 ) < (UINT32) pSoldier->statistics().wisdom())
 							//{
-							//	pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							//	TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							//}
 							//else
 							//{
@@ -996,7 +999,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 						if ( EnoughPoints( pSoldier, sAPCost, 0, FALSE ) )
 						{
 							// we have enough points to do this burst, roll the dice and see if we want to change						
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_LAUGH1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_LAUGH1 );
 							pSoldier->fireControl().selectBurst();
 							pSoldier->attackSelection().weaponMode() = WM_BURST;
 
@@ -1053,7 +1056,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					chanceToMisfire = diceSides;
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 26 ], pSoldier->GetName() );
 
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_LAUGH1 ); // Added the laugh sound when going Psycho on autofire - SANDRO
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_LAUGH1 ); // Added the laugh sound when going Psycho on autofire - SANDRO
 				}
 
 				chanceToMisfire = __min(diceSides-1, chanceToMisfire); //cap the misfire chance, no-one has reflexes this bad
@@ -2272,7 +2275,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 
 		DeductPoints( pSoldier, sAPCost, 0 );
 
-		pSoldier->EVENT_InitNewSoldierAnim( QUEEN_SWIPE, 0 , FALSE );
+		TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  QUEEN_SWIPE, 0 , FALSE );
 
 		//FireWeapon( pSoldier, sTargetGridNo );
 		pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
@@ -2802,7 +2805,7 @@ void SoldierPickupItem(
 			// Say it only if we don;t have to go too far!
 			if ( pSoldier->pathing().pathSize() > 5 )
 			{
-				pSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
+				TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_OK1 );
 			}
 		}
 		else
@@ -2836,7 +2839,7 @@ void HandleAutoPlaceFail( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGrid
 			// If we are a merc, say DAMN quote....
 			if ( pSoldier->roster().team() == gbPlayerNum )
 			{
-				pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+				TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 			}
 		}
 	}
@@ -3175,7 +3178,7 @@ void SoldierGetItemFromWorld( TacticalActor *pSoldier, INT32 iItemIndex, INT32 s
 	// Aknowledge....
 	if( pSoldier->roster().team() == OUR_TEAM && !fDidSayCoolQuote && !fSaidBoobyTrapQuote )
 	{
-		pSoldier->DoMercBattleSound( BATTLE_SOUND_GOTIT );
+		TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_GOTIT );
 	}
 
 
@@ -3291,7 +3294,7 @@ void HandleSoldierPickupItem( TacticalActor *pSoldier, INT32 iItemIndex, INT32 s
 					else
 					{
 						// Say NOTHING quote...
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_NOTHING );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_NOTHING );
 					}
 				}
 				else
@@ -3319,7 +3322,7 @@ void HandleSoldierPickupItem( TacticalActor *pSoldier, INT32 iItemIndex, INT32 s
 						}
 						else
 						{
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_NOTHING );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_NOTHING );
 						}
 					}
 				}
@@ -3329,7 +3332,7 @@ void HandleSoldierPickupItem( TacticalActor *pSoldier, INT32 iItemIndex, INT32 s
 	else
 	{
 		// Say NOTHING quote...
-		pSoldier->DoMercBattleSound( BATTLE_SOUND_NOTHING );
+		TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_NOTHING );
 	}
 
 }
@@ -5695,7 +5698,7 @@ void StartBombMessageBox( TacticalActor * pSoldier, INT32 sGridNo )
 		{
 			if ( InARoom( pSoldier->position().gridNo(), &usRoom ) && usRoom == 4 )
 			{
-				pSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
+				TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_OK1 );
 
 				// Open statue
 				ChangeO3SectorStatue( FALSE );
@@ -5703,12 +5706,12 @@ void StartBombMessageBox( TacticalActor * pSoldier, INT32 sGridNo )
 			}
 			else
 			{
-				pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+				TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 			}
 		}
 		else
 		{
-			pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+			TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 		}
 		gBombCallbackContext.reset();
 	}
@@ -6445,7 +6448,7 @@ void SetOffBoobyTrapInMapScreen( TacticalActor *pSoldier, OBJECTTYPE *pObject )
 	}
 
 	// injure the inventory character
-	pSoldier->SoldierTakeDamage( 0, ubPtsDmg, ubPtsDmg, TAKE_DAMAGE_EXPLOSION, NOBODY, NOWHERE, 0, TRUE );
+	TacticalActorDamageResolution::takeDamage(*pSoldier,  0, ubPtsDmg, ubPtsDmg, TAKE_DAMAGE_EXPLOSION, NOBODY, NOWHERE, 0, TRUE );
 
 	// play the sound
 	PlayJA2Sample( EXPLOSION_1, RATE_11025, BTNVOLUME, 1, MIDDLEPAN );
@@ -6669,7 +6672,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 			}
 
 			// have merc say this is good
-			gpBoobyTrapSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+			TacticalActorBattleSounds::play(*gpBoobyTrapSoldier,  BATTLE_SOUND_COOL1 );
 
 			if (gfDisarmingBuriedBomb)
 			{
@@ -6820,7 +6823,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 		else
 		{
 			// oops! trap goes off
-			gpBoobyTrapSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 ); 
+			TacticalActorBattleSounds::play(*gpBoobyTrapSoldier,  BATTLE_SOUND_CURSE1 );
 			
 			if ( HasItemFlag( gTempObject.usItem, BEARTRAP ) )
 				return;
@@ -6907,7 +6910,7 @@ void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue )
 				gMercProfiles[ gpBoobyTrapSoldier->identity().profile() ].records.usTrapsRemoved++;
 
 			// have merc say this is good
-			gpBoobyTrapSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+			TacticalActorBattleSounds::play(*gpBoobyTrapSoldier,  BATTLE_SOUND_COOL1 );
 
 			// get the item
 			gTempObject = *mapItem;
@@ -6928,7 +6931,7 @@ void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue )
 		else
 		{
 			// oops! trap goes off
-			gpBoobyTrapSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+			TacticalActorBattleSounds::play(*gpBoobyTrapSoldier,  BATTLE_SOUND_CURSE1 );
 
 			// beartraps don't explode...
 			if ( HasItemFlag( mapItem->usItem, BEARTRAP ) )
@@ -7871,7 +7874,7 @@ UINT8 StealItems(TacticalActor* pSoldier,TacticalActor* pOpponent, UINT8* ubInde
 	}
 	if (ubCount == 0)
 	{
-		pSoldier->DoMercBattleSound( BATTLE_SOUND_NOTHING );
+		TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_NOTHING );
 		return( 0);
 	}
 
@@ -7994,7 +7997,7 @@ void SoldierStealItemFromSoldier( TacticalActor *pSoldier, TacticalActor *pOppon
 	// Aknowledge....
 	if( pSoldier->roster().team() == OUR_TEAM && !fDidSayCoolQuote )
 	{
-		pSoldier->DoMercBattleSound( BATTLE_SOUND_GOTIT );
+		TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_GOTIT );
 	}
 
 	// SANDRO - show a message, that we had insufficient APs to take all items

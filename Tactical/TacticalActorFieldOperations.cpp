@@ -1,3 +1,5 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorFieldOperations.h"
 
 #include "TacticalActorOrientation.h"
@@ -116,9 +118,9 @@ void playNetworkAwareAnimation(
 	std::uint16_t animation)
 {
 	if (!is_networked)
-		actor.EVENT_InitNewSoldierAnim(animation, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(actor, animation, 0, FALSE);
 	else
-		actor.ChangeSoldierState(animation, 0, 0);
+		TacticalActorAnimationTransitions::changeState(actor, animation, 0, 0);
 }
 
 bool isWindowBreakingTool(
@@ -185,7 +187,7 @@ bool TacticalActorFieldOperations::beginRepair(
 	}
 
 	faceDirection(actor, direction);
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		GOTO_REPAIRMAN,
 		0,
 		FALSE);
@@ -257,7 +259,7 @@ bool TacticalActorFieldOperations::beginRefuel(
 	}
 
 	faceDirection(actor, direction);
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		REFUEL_VEHICLE,
 		0,
 		FALSE);
@@ -284,14 +286,14 @@ bool TacticalActorFieldOperations::beginCorpseBloodCollection(
 			actor.position().level());
 	if (!corpse)
 	{
-		actor.DoMercBattleSound(BATTLE_SOUND_NOTHING);
+		TacticalActorBattleSounds::play(actor, BATTLE_SOUND_NOTHING);
 		releaseUi(actor);
 		return false;
 	}
 
 	actor.pendingAction().quaternaryData() = corpse->iID;
 	faceDirection(actor, direction);
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		TAKE_BLOOD_FROM_CORPSE,
 		0,
 		FALSE);
@@ -334,7 +336,7 @@ bool TacticalActorFieldOperations::attachDoorAlarm(
 
 	status->ubFlags |= DOOR_HAS_TIN_CAN;
 	faceDirection(actor, direction);
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		ATTACH_CAN_TO_STRING,
 		0,
 		FALSE);
@@ -385,7 +387,7 @@ bool TacticalActorFieldOperations::beginFortification(
 			&actor);
 	if (!canConstruct && !canDeconstruct)
 	{
-		actor.DoMercBattleSound(BATTLE_SOUND_NOTHING);
+		TacticalActorBattleSounds::play(actor, BATTLE_SOUND_NOTHING);
 		releaseUi(actor);
 		return false;
 	}
@@ -403,7 +405,7 @@ bool TacticalActorFieldOperations::beginFortification(
 			action,
 			targetGrid))
 	{
-		actor.DoMercBattleSound(BATTLE_SOUND_NOTHING);
+		TacticalActorBattleSounds::play(actor, BATTLE_SOUND_NOTHING);
 		releaseUi(actor);
 		return false;
 	}
@@ -546,7 +548,7 @@ bool TacticalActorFieldOperations::beginRobotReload(
 	}
 
 	faceDirection(actor, direction);
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		RELOAD_ROBOT,
 		0,
 		FALSE);
@@ -622,7 +624,7 @@ bool TacticalActorFieldOperations::breakWindow(
 	actor.targeting().level() =
 		actor.position().level();
 	actor.targeting().targetId() = NOBODY;
-	actor.EVENT_InitNewSoldierAnim(
+	TacticalActorAnimationTransitions::initializeAnimation(actor,
 		CROWBAR_ATTACK,
 		0,
 		FALSE);

@@ -1,3 +1,5 @@
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorEquipment.h"
 #include <iostream>
@@ -6602,7 +6604,7 @@ static int l_ACTION_ITEM_SEX(lua_State* L)
 							sTeleportSpot = FindGridNoFromSweetSpotWithStructData(
 								pSoldier, STANDING, sTeleportSpot, 2,
 								&ubDirection, FALSE);
-							pSoldier->ChangeSoldierState(STANDING, 0, TRUE);
+							TacticalActorAnimationTransitions::changeState(*pSoldier, STANDING, 0, TRUE);
 							TeleportSoldier(pSoldier, sTeleportSpot, FALSE);
 
 							HandleMoraleEvent(
@@ -7008,7 +7010,7 @@ static int l_EVENT_InitNewSoldierAnim(lua_State* L)
 			if (pSoldier)//&& pSoldier->identity().bodyType() == BodyType )
 			{
 				DeleteTalkingMenu();
-				pSoldier->EVENT_InitNewSoldierAnim(ANIM, 0, TRUE);
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier, ANIM, 0, TRUE);
 			}
 		}
 		else
@@ -7016,7 +7018,7 @@ static int l_EVENT_InitNewSoldierAnim(lua_State* L)
 			TacticalActor* pSoldier =
 				GetJa2SoldierRepository().resolve(solID);
 			if (pSoldier && pSoldier->roster().inSector())
-				pSoldier->EVENT_InitNewSoldierAnim(ANIM, 0, TRUE);
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier, ANIM, 0, TRUE);
 		}
 	}
 
@@ -7156,7 +7158,7 @@ static int l_EVENT_SoldierGotHit(lua_State* L)
 				DeleteTalkingMenu();
 				if (pTarget2->vitals().health() >= 0)
 				{
-					pTarget2->EVENT_SoldierGotHit(1, 100, 10, pTarget2->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE);
+					TacticalActorDamageResolution::applyHit(*pTarget2, 1, 100, 10, pTarget2->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE);
 				}
 			}
 		}
@@ -8432,7 +8434,7 @@ static int l_AnimMercPtsrInSector(lua_State* L)
 			GetJa2SoldierRepository().resolve(ubID);
 
 		if (pSoldier && pSoldier->roster().inSector())
-			pSoldier->EVENT_InitNewSoldierAnim(Anim, 0, TRUE);
+			TacticalActorAnimationTransitions::initializeAnimation(*pSoldier, Anim, 0, TRUE);
 	}
 	return 0;
 }
@@ -8668,7 +8670,7 @@ static int l_AnimMercPtsrSoldierGotHit(lua_State* L)
 		{
 			if (pSoldier->vitals().health() >= 0)
 			{
-				pSoldier->EVENT_SoldierGotHit(
+				TacticalActorDamageResolution::applyHit(*pSoldier,
 					1, 100, 10, pSoldier->position().direction(), 320,
 					NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0,
 					NOWHERE);

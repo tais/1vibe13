@@ -1,3 +1,5 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 	#include <wchar.h>
@@ -266,17 +268,17 @@ void InteractWithClosedDoor( TacticalActor *pSoldier, UINT8 ubHandleCode )
 		case HANDLE_DOOR_UNTRAP:
 		case HANDLE_DOOR_CROWBAR:
 
-			pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, TRUE, OPEN_DOOR ), 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, TRUE, OPEN_DOOR ), 0, FALSE );
 			break;
 
 		case HANDLE_DOOR_FORCE:
 
-			pSoldier->ChangeSoldierState( KICK_DOOR, 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  KICK_DOOR, 0 , FALSE );
 			break;
 
 		case HANDLE_DOOR_LOCKPICK:
 
-			pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, TRUE, PICK_LOCK ), 0 , FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, TRUE, PICK_LOCK ), 0 , FALSE );
 			break;
 	}
 
@@ -363,13 +365,13 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 				// HEADROCK HAM 4: Why not just close the object? Why do we need a menu if there's only one option on it (CLOSE)?
 				// P.S. I don't think it's even possible for opened structures to be trapped to begin with.
 				//InitDoorOpenMenu( pSoldier, pStructure, ubDirection, TRUE );
-				pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, CLOSE_DOOR ), 0, FALSE );
+				TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, CLOSE_DOOR ), 0, FALSE );
 			}
 		}
 		else
 		{
 			// Easily close door....
-			pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, CLOSE_DOOR ), 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, CLOSE_DOOR ), 0, FALSE );
 		}
 	}
 	else
@@ -424,7 +426,7 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 		{
 			pSoldier->pendingAction().doorHandleCode() = HANDLE_DOOR_OPEN;
 
-			pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, OPEN_DOOR ), 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, OPEN_DOOR ), 0, FALSE );
 		}
 	}
 
@@ -521,7 +523,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 						sAPCost = GetAPsToOpenDoor( pSoldier ); // SANDRO
 						sBPCost = APBPConstants[BP_OPEN_DOOR];
 
-						pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+						TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 
 						// Did we inadvertently set it off?
 						if ( HasDoorTrapGoneOff( pSoldier, pDoor ) )
@@ -606,7 +608,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 							sBPCost = APBPConstants[BP_OPEN_DOOR];
 
 							// Open if it's not locked....
-							pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 							fHandleDoor = TRUE;
 							break;
 						}
@@ -615,7 +617,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 							if ( pDoor->fLocked )
 							{
 								// it's locked....
-								pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_LOCKED_DOOR ), 0, FALSE );
+								TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_LOCKED_DOOR ), 0, FALSE );
 #ifdef JA2UB
 								//JA25 UB
 								//If this is the tunnel sector, and the merc failed opening the fence door, play a quote
@@ -626,7 +628,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 								// Now just show on message bar
 								if ( !AM_AN_EPC( pSoldier ) )
 								{
-									pSoldier->DoMercBattleSound( BATTLE_SOUND_LOCKED );
+									TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_LOCKED );
 								}
 								else
 								{
@@ -635,7 +637,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 							}
 							else
 							{
-								pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+								TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 								fHandleDoor = TRUE;
 							}
 							UpdateDoorPerceivedValue( pDoor );
@@ -652,7 +654,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 						// OK, using force, if we have no lock, just open the door!
 						if ( pDoor == NULL )
 						{
-							pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 							fHandleDoor = TRUE;
 
 							ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_THERE_IS_NO_LOCK_STR ] );
@@ -670,7 +672,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 								if ( AttemptToSmashDoor( pSoldier, pDoor ) )
 								{
 									//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_LOCK_DESTROYED_STR ] );
-									// pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+									// TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 									fHandleDoor = TRUE;
 								}
 								else
@@ -694,7 +696,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 						// OK, using force, if we have no lock, just open the door!
 						if ( pDoor == NULL )
 						{
-							pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 							fHandleDoor = TRUE;
 
 							ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_THERE_IS_NO_LOCK_STR ] );
@@ -705,7 +707,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 							if ( AttemptToSmashDoor( pSoldier, pDoor ) )
 							{
 								//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_LOCK_DESTROYED_STR ] );
-								// pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+								// TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 								fHandleDoor = TRUE;
 							}
 							else
@@ -727,7 +729,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 						// OK, using force, if we have no lock, just open the door!
 						if ( pDoor == NULL )
 						{
-							pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 							fHandleDoor = TRUE;
 
 							ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_THERE_IS_NO_LOCK_STR ] );
@@ -738,7 +740,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 							if ( AttemptToCrowbarLock( pSoldier, pDoor ) )
 							{
 								//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_LOCK_DESTROYED_STR ] );
-								//pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+								//TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 								fHandleDoor = TRUE;
 							}
 							else
@@ -766,7 +768,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 							// Attempt to force door
 							if ( AttemptToBlowUpLock( pSoldier, pDoor ) )
 							{
-								pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+								TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 								//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_LOCK_DESTROYED_STR ] );
 								// silversurfer: changed this so the merc can blow a lock without directly opening the door and remain helpless with no AP to do something. Doors have usKeyItem > 0.
 								if ( LockTable[ pDoor->ubLockID ].usKeyItem == 0 || !(IsJa2TacticalTurnBasedCombat()) )
@@ -796,7 +798,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 						{
 							if ( AttemptToPickLock( pSoldier, pDoor ) )
 							{
-								pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+								TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 								//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_LOCK_HAS_BEEN_PICKED_STR ] );
 								// silversurfer: changed this so the merc can pick a lock without directly opening the door and remain helpless with no AP to do something. Doors have usKeyItem > 0.
 								if ( LockTable[ pDoor->ubLockID ].usKeyItem == 0 || !(IsJa2TacticalTurnBasedCombat()) )
@@ -823,7 +825,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 
 						// Attempt to examine door
 						// Whatever the result, end the open animation
-						pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+						TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 
 						if ( pDoor == NULL )
 						{
@@ -873,7 +875,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 						{
 							// Open if it's not locked....
 							//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_THERE_IS_NO_LOCK_STR ] );
-							pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 							break;
 						}
 						else
@@ -884,9 +886,9 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 							if ( AttemptToUnlockDoor( pSoldier, pDoor ) )
 							{
 								//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_LOCK_HAS_BEEN_UNLOCKED_STR ] );
-								pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+								TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 
-								pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+								TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 								UpdateDoorPerceivedValue( pDoor );
 
 								// silversurfer: changed this so the merc can unlock a door without directly opening it and remain helpless with no AP to do something. Doors have usKeyItem > 0.
@@ -895,7 +897,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 							}
 							else
 							{
-								pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_LOCKED_DOOR ), 0, FALSE );
+								TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_LOCKED_DOOR ), 0, FALSE );
 								// Do we have a quote for locked stuff?
 								// Now just show on message bar
 								//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_NOT_PROPER_KEY_STR ], pSoldier->GetName() );
@@ -907,14 +909,14 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 									// OK PLay damn battle sound
 									if ( Random( 2 ) )
 									{
-										pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+										TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 									}
 								}
 #else
 								// OK PLay damn battle sound
 								if ( Random( 2 ) )
 								{
-									pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+									TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 								}
 #endif
 							}
@@ -933,7 +935,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 						{
 							// Open if it's not locked....
 							ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_THERE_IS_NO_LOCK_STR ] );
-							pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 							break;
 						}
 						else
@@ -949,14 +951,14 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 								if ( AttemptToUntrapDoor( pSoldier, pDoor ) )
 								{
 									//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_LOCK_HAS_BEEN_UNTRAPPED_STR ] );
-									pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
-									pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+									TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 									UpdateDoorPerceivedValue( pDoor );
 									//fHandleDoor = TRUE;
 								}
 								else
 								{
-									pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_LOCKED_DOOR ), 0, FALSE );
+									TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_LOCKED_DOOR ), 0, FALSE );
 									// Now just show on message bar
 									HandleDoorTrap( pSoldier, pDoor );
 
@@ -990,7 +992,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 						{
 							// Open if it's not locked....
 							ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_THERE_IS_NO_LOCK_STR ] );
-							pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+							TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 							break;
 						}
 						else
@@ -1001,12 +1003,12 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 							if ( AttemptToLockDoor( pSoldier, pDoor ) )
 							{
 								ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_LOCK_HAS_BEEN_LOCKED_STR ] );
-								pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+								TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 								UpdateDoorPerceivedValue( pDoor );
 							}
 							else
 							{
-								pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_LOCKED_DOOR ), 0, FALSE );
+								TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_LOCKED_DOOR ), 0, FALSE );
 								// Do we have a quote for locked stuff?
 								// Now just show on message bar
 								ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_NOT_PROPER_KEY_STR ], pSoldier->GetName() );
@@ -1027,7 +1029,7 @@ BOOLEAN HandleOpenableStruct( TacticalActor *pSoldier, INT32 sGridNo, STRUCTURE 
 			sBPCost = APBPConstants[BP_OPEN_DOOR];
 
 			// Open if it's not locked....
-			pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
+			TacticalActorAnimationTransitions::changeState(*pSoldier,  GetAnimStateForInteraction( pSoldier, fDoor, END_OPEN_DOOR ), 0, FALSE );
 			fHandleDoor = TRUE;
 		}
 	}

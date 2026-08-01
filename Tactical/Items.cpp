@@ -1,3 +1,5 @@
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorAppearance.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
@@ -4226,7 +4228,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 					DamageObj( pAttachment, (INT8) -iCheckResult, subObject );
 
 					// there should be a quote here!
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 					if ( gfInItemDescBox )
 					{
 						DeleteItemDescriptionBox();
@@ -4244,7 +4246,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 					DamageObj( pAttachment, (INT8) -iCheckResult, subObject );
 
 					// there should be a quote here!
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 					if ( gfInItemDescBox )
 					{
 						DeleteItemDescriptionBox();
@@ -4447,7 +4449,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							// for now, damage both objects
 							DamageObj( this, (INT8) -iCheckResult );
 							DamageObj( pAttachment, (INT8) -iCheckResult );
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 						StatChange( pSoldier, MECHANAMT, 25, FALSE );
@@ -4477,7 +4479,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 					//this->ubWeight = CalculateObjectWeight( this );
 					if (pSoldier->roster().team() == gbPlayerNum)
 					{
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 					}
 					ApplyEquipmentBonuses(pSoldier);
 					return TRUE;
@@ -4586,7 +4588,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 				pAttachment->RemoveObjectsFromStack(1);
 				if ( pSoldier )
 				{
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 				}
 				break;
 			case ELECTRONIC_MERGE:
@@ -4597,7 +4599,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 					{
 						DamageObj( this, (INT8) -iCheckResult );
 						DamageObj( pAttachment, (INT8) -iCheckResult );
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 						return( FALSE );
 					}
 					// grant experience! ... SANDRO - so what?! Grant them already!
@@ -4622,7 +4624,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							// for now, damage both objects
 							DamageObj( this, (INT8) -iCheckResult );
 							DamageObj( pAttachment, (INT8) -iCheckResult );
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 						StatChange( pSoldier, EXPLODEAMT, 25, FALSE );
@@ -4647,7 +4649,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							// for now, damage both objects
 							DamageObj( this, (INT8) -iCheckResult );
 							DamageObj( pAttachment, (INT8) -iCheckResult );
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 						StatChange( pSoldier, EXPLODEAMT, 10, FALSE );
@@ -4672,7 +4674,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							// for now, damage both objects
 							DamageObj( this, (INT8) -iCheckResult );
 							DamageObj( pAttachment, (INT8) -iCheckResult );
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 						StatChange( pSoldier, MECHANAMT, 25, FALSE );
@@ -4697,7 +4699,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							// for now, damage both objects
 							DamageObj( this, (INT8) -iCheckResult );
 							DamageObj( pAttachment, (INT8) -iCheckResult );
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 						StatChange( pSoldier, MECHANAMT, 10, FALSE );
@@ -4761,7 +4763,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 
 				if (pSoldier && pSoldier->roster().team() == gbPlayerNum)
 				{
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 				}
 				break;
 			}
@@ -4857,7 +4859,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 					DamageObj( pAttachment, (INT8) -iCheckResult, subObject );
 
 					// there should be a quote here!
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 					if ( gfInItemDescBox )
 					{
 						//DeleteItemDescriptionBox();
@@ -4875,7 +4877,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 					DamageObj( pAttachment, (INT8) -iCheckResult, subObject );
 
 					// there should be a quote here!
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 					if ( gfInItemDescBox )
 					{
 						//DeleteItemDescriptionBox();
@@ -5241,13 +5243,13 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 						this->RemoveObjectsFromStack( 1 );
 						if ( pSoldier && pSoldier->roster().team() == gbPlayerNum )
 						{
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 						}
 					}
 					else
 					{
 						if ( pSoldier && pSoldier->roster().team() == gbPlayerNum )
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 					}
 					ApplyEquipmentBonuses( pSoldier );
 					return TRUE;
@@ -5269,7 +5271,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							// for now, damage both objects
 							DamageObj( this, (INT8) -iCheckResult );
 							DamageObj( pAttachment, (INT8) -iCheckResult );
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 						StatChange( pSoldier, MECHANAMT, 25, FALSE );
@@ -5314,7 +5316,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 					//this->ubWeight = CalculateObjectWeight( this );
 					if (pSoldier->roster().team() == gbPlayerNum)
 					{
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 					}
 					ApplyEquipmentBonuses(pSoldier);
 					return TRUE;
@@ -5423,7 +5425,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 				pAttachment->RemoveObjectsFromStack(1);
 				if ( pSoldier )
 				{
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 				}
 				break;
 
@@ -5457,7 +5459,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							(*this)[subObject]->data.objectStatus++;
 						else
 						{
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 
@@ -5481,7 +5483,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 					{
 						DamageObj( this, (INT8) -iCheckResult );
 						DamageObj( pAttachment, (INT8) -iCheckResult );
-						pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+						TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 						return( FALSE );
 					}
 					// grant experience! ... SANDRO - so what?! Grant them already! -- Madd: this was missing from AttachObjectNAS for some reason
@@ -5506,7 +5508,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							// for now, damage both objects
 							DamageObj( this, (INT8) -iCheckResult );
 							DamageObj( pAttachment, (INT8) -iCheckResult );
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 						StatChange( pSoldier, EXPLODEAMT, 25, FALSE );
@@ -5531,7 +5533,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							// for now, damage both objects
 							DamageObj( this, (INT8) -iCheckResult );
 							DamageObj( pAttachment, (INT8) -iCheckResult );
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 						StatChange( pSoldier, EXPLODEAMT, 10, FALSE );
@@ -5556,7 +5558,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							// for now, damage both objects
 							DamageObj( this, (INT8) -iCheckResult );
 							DamageObj( pAttachment, (INT8) -iCheckResult );
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 						StatChange( pSoldier, MECHANAMT, 25, FALSE );
@@ -5581,7 +5583,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 							// for now, damage both objects
 							DamageObj( this, (INT8) -iCheckResult );
 							DamageObj( pAttachment, (INT8) -iCheckResult );
-							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_CURSE1 );
 							return( FALSE );
 						}
 						StatChange( pSoldier, MECHANAMT, 10, FALSE );
@@ -5674,7 +5676,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( TacticalActor * pSoldier, OBJECTTYPE * pAtt
 
 				if (pSoldier && pSoldier->roster().team() == gbPlayerNum)
 				{
-					pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 				}
 				break;
 			}
@@ -9714,7 +9716,7 @@ void WaterDamage( TacticalActor *pSoldier )
 		// Reload palettes....
 		if ( pSoldier->roster().inSector() )
 		{
-			pSoldier->CreateSoldierPalettes( );
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 		}
 	}
 
@@ -9756,7 +9758,7 @@ BOOLEAN ApplyCamo( TacticalActor * pSoldier, UINT16 usItem, UINT16& usrPointsToU
 		// Reload palettes....
 		if ( pSoldier->roster().inSector() )
 		{
-			pSoldier->CreateSoldierPalettes( );
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 		}
 
 		return( TRUE );
@@ -10000,7 +10002,7 @@ BOOLEAN ApplyCamo( TacticalActor * pSoldier, UINT16 usItem, UINT16& usrPointsToU
 	// Reload palettes....
 	if ( pSoldier->roster().inSector() )
 	{
-		pSoldier->CreateSoldierPalettes( );
+		(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 	}
 
 	return( TRUE );
@@ -10145,7 +10147,7 @@ BOOLEAN ApplyClothes( TacticalActor * pSoldier, UINT16 usItem, UINT16 usPointsTo
 			SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().pantsPalette() );
 			SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().skinPalette() );
 
-			pSoldier->CreateSoldierPalettes();
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 		}
 
 		// apply covert properties depending on our disguise
@@ -12968,23 +12970,23 @@ void ApplyEquipmentBonuses(TacticalActor * pSoldier)
 	{
 		//CHRISL: This sound interferes with some RPC hiring in NewInv because of the camo bonus some LBE Vests give
 		if(UsingNewInventorySystem() == false)
-			pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
+			TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_COOL1 );
 
 		// WANNE: Only call the method if oldCame != newCamo
 		if ( pSoldier->roster().inSector())
-			pSoldier->CreateSoldierPalettes( );
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 	}
 	else if ( (newCamo < oldCamo || newUrbanCamo < oldUrbanCamo || newDesertCamo < oldDesertCamo || newSnowCamo < oldSnowCamo )&& pSoldier->roster().team() == OUR_TEAM )
 	{
 		// WANNE: Only call the method if oldCame != newCamo
 		if ( pSoldier->roster().inSector())
-			pSoldier->CreateSoldierPalettes( );
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 	}
 	// WANNE: Madd, I commented this, because this leads to IRAs INVISIBLE BUG!
 	// We should only call the CreateSoldierPalettes if oldCamo != newCamo. See above!
 	//Madd: do this regardless of camo.  This will need to be called to do custom part colours and new overlays anyway.
 	//if ( pSoldier->roster().inSector())
-	//	pSoldier->CreateSoldierPalettes( );
+	//	(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 
 	
 	// WANNE: I disabled the call, because it leeds to endless loop when examining doors with explosives!

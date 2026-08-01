@@ -792,11 +792,27 @@ items, maps, XML, Lua, save, and network formats remain unchanged.
 `TacticalActorTurnMaintenance::maintainAtTurnStart` is the application-side
 entry point for expiring per-turn actor flags, aging counters and cooldowns,
 ending transient muzzle/radio state, resolving covert exposure, handling robot
-X-ray readiness, and recording battle participation. Turn-start code calls it
-directly; new code must not restore `SoldierPropertyUpkeep` on the aggregate.
-The boundary validates robot utility storage and item IDs before item-table
-access while preserving established turn timing, covert, radio, incident,
-content, save, and network behavior.
+X-ray readiness, and recording battle participation.
+`TacticalActorTurnLifecycle::beginTurn` is the complete turn-start entry point
+and calls this focused maintenance operation; new code must not restore
+`EVENT_BeginMercTurn` or `SoldierPropertyUpkeep` on the aggregate. The
+boundaries validate robot utility storage and item IDs before item-table access
+while preserving established turn timing, covert, radio, incident, content,
+save, and network behavior.
+For the remaining application behavior, include and call the focused boundary:
+`TacticalActorLifecycle::{create,destroy,revive}` for actor resource lifetime,
+`TacticalActorAppearance::rebuildPalettes` for transactional render palettes,
+`TacticalActorAnimationTransitions::{changeState,initializeAnimation}` for
+animation events, `TacticalActorDamageResolution::{applyHit,takeDamage}` for
+combat damage, `TacticalActorBattleSounds::{play,playWithCode}` for merc audio,
+and `TacticalActorLocomotion::{checkRoofHit,move}` for live movement. Do not
+reintroduce the former `CreateSoldier*`, `DeleteSoldier`, `ReviveSoldier`,
+`ChangeSoldierState`, `EVENT_*`, `SoldierTakeDamage`, `DoMercBattleSound`,
+`CheckSoldierHitRoof`, or `MoveMerc` entry points. `TacticalActor` now serves as
+the component aggregate; only `initialize()` and compatibility `GetName()`
+remain as member behavior. These C++ boundaries do not alter save bytes,
+network or animation event formats, combat/content data, palettes, audio, maps,
+XML, or Lua APIs.
 `TacticalActorAnimationFrames` owns directional animation-surface mapping,
 animation-code-to-render-frame selection, and the fixed frame used for frozen
 actors. New callers use `spriteDirectionForSurface`, `selectFrame`, or

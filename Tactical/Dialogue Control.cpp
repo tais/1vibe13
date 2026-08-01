@@ -1,3 +1,4 @@
+#include "TacticalActorBattleSounds.h"
 	#include "sgp.h"
 #include "TacticalActorRobotics.h"
 #include "TacticalWorldAdapter.h"
@@ -992,7 +993,7 @@ void HandleDialogue( )
 			// Do battle snounds......
 			if ( pSoldier )
 			{
-				pSoldier->InternalDoMercBattleSound(	(UINT8)QItem.uiSpecialEventData, 0 );
+				TacticalActorBattleSounds::playWithCode(*pSoldier, 	(UINT8)QItem.uiSpecialEventData, 0 );
 			}
 		}
 

@@ -1,3 +1,4 @@
+#include "TacticalActorDamageResolution.h"
 	#include "sgp.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
@@ -1153,7 +1154,7 @@ void HandleEnvironmentHazard( )
 						{
 							INT16 damage = 10 + Random( 11 );
 
-							pSoldier->EVENT_SoldierGotHit(47, damage, damage * 100, pSoldier->position().direction(), 0, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_LEGS, 0, pSoldier->position().gridNo());
+							TacticalActorDamageResolution::applyHit(*pSoldier, 47, damage, damage * 100, pSoldier->position().direction(), 0, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_LEGS, 0, pSoldier->position().gridNo());
 
 							// if this is a swamp, handle possible extra infection
 							if ( ubTraverseType == SWAMP || ubTraverseType == SWAMP_ROAD )

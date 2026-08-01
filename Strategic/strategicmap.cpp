@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
@@ -7370,7 +7371,7 @@ for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++)
 //if the soldier is active,
 if( pSoldier->roster().active() && pSoldier->roster().inSector() )
 {
-pSoldier->EVENT_InitNewSoldierAnim( CRAWLING, 1, TRUE );
+TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  CRAWLING, 1, TRUE );
 (void)TacticalActorOrientation::changeStance(*pSoldier, PRONE );
 }
 }

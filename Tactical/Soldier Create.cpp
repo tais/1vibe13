@@ -1,3 +1,5 @@
+#include "TacticalActorLifecycle.h"
+#include "TacticalActorAppearance.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorTurnBudget.h"
 	#include "sgp.h"
@@ -1194,7 +1196,7 @@ TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldi
 				static_cast<UINT16>(Soldier.identity().id()), Soldier);
 			CHECKF( pLiveSoldier != NULL );
 			// Alrighty then, we are set to create the merc, stuff after here can fail!
-			CHECKF( pLiveSoldier->CreateSoldierCommon(
+			CHECKF( TacticalActorLifecycle::create(*pLiveSoldier,
 				Soldier.identity().bodyType(), Soldier.identity().id(), STANDING ) != FALSE );
 		}
 	}
@@ -1222,7 +1224,7 @@ TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldi
 		CHECKF( pLiveSoldier != NULL );
 
 		// Alrighty then, we are set to create the merc, stuff after here can fail!
-		CHECKF( pLiveSoldier->CreateSoldierCommon(
+		CHECKF( TacticalActorLifecycle::create(*pLiveSoldier,
 			Soldier.identity().bodyType(), Soldier.identity().id(),
 			pLiveSoldier->animationPlayback().state() ) != FALSE );
 
@@ -2228,14 +2230,14 @@ BOOLEAN TacticalRemoveSoldierPointer( TacticalActor *pSoldier, BOOLEAN fRemoveVe
 			pSoldier->roster().active() = FALSE;
 
 			// Delete!
-			pSoldier->DeleteSoldier( );
+			(void)TacticalActorLifecycle::destroy(*pSoldier);
 		}
 	}
 	else
 	{
 		if( gfPersistantPBI )
 		{
-			pSoldier->DeleteSoldier( );
+			(void)TacticalActorLifecycle::destroy(*pSoldier);
 		}
 
 		MemFree( pSoldier );
@@ -2869,7 +2871,7 @@ void UpdateSoldierWithStaticDetailedInformation( TacticalActor *s, SOLDIERCREATE
 		TacticalCopySoldierFromProfile( s, spp );
 		UpdateStaticDetailedPlacementWithProfileInformation( spp, spp->ubProfile );
 		SetSoldierAnimationSurface( s, s->animationPlayback().state() );
-		s->CreateSoldierPalettes( );
+		(void)TacticalActorAppearance::rebuildPalettes(*s);
 		return;
 	}
 
@@ -3026,7 +3028,7 @@ void ForceSoldierProfileID( TacticalActor *pSoldier, UINT8 ubProfileID )
 	SetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 	// Re-Create palettes
-	pSoldier->CreateSoldierPalettes( );
+	(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 }
 
 //dnl ch56 141009
@@ -3504,7 +3506,7 @@ TacticalActor* TacticalCreateArmedCivilian( UINT8 usSoldierClass )
 			// random clothes
 			SetClothes( pSoldier, Random( NUMSHIRTS ), Random( NUMPANTS ) );
 
-			pSoldier->CreateSoldierPalettes();
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 		}
 	}
 
@@ -3602,7 +3604,7 @@ TacticalActor* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT
 				SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().pantsPalette() );
 				SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().skinPalette() );
 
-				pSoldier->CreateSoldierPalettes();
+				(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 
 				// Dirty
 				fInterfacePanelDirty = DIRTYLEVEL2;
@@ -3730,7 +3732,7 @@ TacticalActor* TacticalCreateBandit()
 				SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().pantsPalette() );
 				SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().skinPalette() );
 
-				pSoldier->CreateSoldierPalettes();
+				(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 			}
 		}
 	}
@@ -3926,7 +3928,7 @@ void CreatePrisonerOfWar()
 				SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().pantsPalette() );
 				SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().skinPalette() );
 
-				pSoldier->CreateSoldierPalettes();
+				(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 
 				// Dirty
 				fInterfacePanelDirty = DIRTYLEVEL2;
@@ -3999,7 +4001,7 @@ void CreateDownedPilot( )
 			SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().pantsPalette() );
 			SetPaletteReplacement( pSoldier->palette().base8(), pSoldier->renderState().skinPalette() );
 
-			pSoldier->CreateSoldierPalettes( );
+			(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 
 			// Dirty
 			fInterfacePanelDirty = DIRTYLEVEL2;

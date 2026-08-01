@@ -1,3 +1,4 @@
+#include "TacticalActorDamageResolution.h"
 //////////////////////////////////////////////////////////////////
 // HEADROCK HAM 3.5: Facilities
 //
@@ -1735,7 +1736,7 @@ void HandleRisksForSoldierFacilityAssignment( TacticalActor *pSoldier, UINT8 ubF
 						if (Result < 0)
 						{
 							// Soldier is suffering direct unbandaged injury.
-							pSoldier->SoldierTakeDamage( 0, abs(Result), abs(Result), TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, FALSE );
+							TacticalActorDamageResolution::takeDamage(*pSoldier,  0, abs(Result), abs(Result), TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, FALSE );
 							fBadResult = TRUE;
 
 							// SANDRO - add to merc records - facility accidents counter

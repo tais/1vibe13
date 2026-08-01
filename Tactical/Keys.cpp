@@ -1,3 +1,4 @@
+#include "TacticalActorDamageResolution.h"
 	#include "builddefines.h"
 #include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
@@ -700,7 +701,7 @@ void HandleDoorTrap( TacticalActor * pSoldier, DOOR * pDoor )
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Trap gone off %d", GetJa2PendingTacticalCombatActions()) );
 		DebugAttackBusy( "!!!!!!! Trap gone off\n" );
 
-			pSoldier->SoldierTakeDamage( 0, (UINT16) (10 + PreRandom( 10 )), (UINT16) ((3 + PreRandom( 3 ) * 1000)), TAKE_DAMAGE_ELECTRICITY, NOBODY, pDoor->sGridNo, 0, TRUE );
+			TacticalActorDamageResolution::takeDamage(*pSoldier,  0, (UINT16) (10 + PreRandom( 10 )), (UINT16) ((3 + PreRandom( 3 ) * 1000)), TAKE_DAMAGE_ELECTRICITY, NOBODY, pDoor->sGridNo, 0, TRUE );
 			break;
 
 		case SUPER_ELECTRIC:
@@ -715,7 +716,7 @@ void HandleDoorTrap( TacticalActor * pSoldier, DOOR * pDoor )
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Trap gone off %d", GetJa2PendingTacticalCombatActions()) );
 		DebugAttackBusy( "!!!!!!! Trap gone off\n" );
 
-			pSoldier->SoldierTakeDamage( 0, (UINT16) (20 + PreRandom( 20 )), (UINT16) ((6 + PreRandom( 6 ) * 1000)), TAKE_DAMAGE_ELECTRICITY, NOBODY, pDoor->sGridNo, 0, TRUE );
+			TacticalActorDamageResolution::takeDamage(*pSoldier,  0, (UINT16) (20 + PreRandom( 20 )), (UINT16) ((6 + PreRandom( 6 ) * 1000)), TAKE_DAMAGE_ELECTRICITY, NOBODY, pDoor->sGridNo, 0, TRUE );
 			break;
 
 

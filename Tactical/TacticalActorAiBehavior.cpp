@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorAiBehavior.h"
 
 #include "Animation Control.h"
@@ -72,7 +73,7 @@ void TacticalActorAiBehavior::stopCowering(
 			{
 				actor.animationIntent().desiredHeight() =
 					ANIM_STAND;
-				actor.EVENT_InitNewSoldierAnim(
+				TacticalActorAnimationTransitions::initializeAnimation(actor,
 					END_COWER,
 					0,
 					FALSE);
@@ -81,7 +82,7 @@ void TacticalActorAiBehavior::stopCowering(
 			{
 				actor.animationIntent().desiredHeight() =
 					ANIM_CROUCH;
-				actor.EVENT_InitNewSoldierAnim(
+				TacticalActorAnimationTransitions::initializeAnimation(actor,
 					END_COWER_CROUCHED,
 					0,
 					FALSE);
@@ -93,7 +94,7 @@ void TacticalActorAiBehavior::stopCowering(
 		{
 			actor.animationIntent().desiredHeight() =
 				ANIM_PRONE;
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				END_COWER_PRONE,
 				0,
 				FALSE);
@@ -141,12 +142,12 @@ bool TacticalActorAiBehavior::startRadioAnimation(
 	switch (gAnimControl[animationState].ubEndHeight)
 	{
 	case ANIM_STAND:
-		return actor.EVENT_InitNewSoldierAnim(
+		return TacticalActorAnimationTransitions::initializeAnimation(actor,
 			AI_RADIO,
 			0,
 			FALSE);
 	case ANIM_CROUCH:
-		return actor.EVENT_InitNewSoldierAnim(
+		return TacticalActorAnimationTransitions::initializeAnimation(actor,
 			AI_CR_RADIO,
 			0,
 			FALSE);

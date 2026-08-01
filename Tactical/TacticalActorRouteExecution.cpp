@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorRouteExecution.h"
 
 #include "TacticalActorOrientation.h"
@@ -152,13 +153,13 @@ void settleIntoStationaryStanceUnchecked(TacticalActor& actor)
 		(actor.awareness().opponentCount() > 0 ||
 		 actor.roster().team() == gbPlayerNum))
 	{
-		actor.EVENT_InitNewSoldierAnim(QUEEN_READY, 0, TRUE);
+		TacticalActorAnimationTransitions::initializeAnimation(actor, QUEEN_READY, 0, TRUE);
 		return;
 	}
 
 	if (TacticalActorMobility::inDeepWater(actor))
 	{
-		actor.EVENT_InitNewSoldierAnim(DEEP_WATER_TRED, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(actor, DEEP_WATER_TRED, 0, FALSE);
 		return;
 	}
 
@@ -169,34 +170,34 @@ void settleIntoStationaryStanceUnchecked(TacticalActor& actor)
 	{
 	case ANIM_STAND:
 		if (actor.status().flags() & SOLDIER_COWERING)
-			actor.EVENT_InitNewSoldierAnim(START_COWER, 0, FALSE);
+			TacticalActorAnimationTransitions::initializeAnimation(actor, START_COWER, 0, FALSE);
 		else if (actor.animationPlayback().state() == WALKING_WEAPON_RDY ||
 			actor.animationPlayback().state() == AIM_RIFLE_STAND)
-			actor.EVENT_InitNewSoldierAnim(AIM_RIFLE_STAND, 0, FALSE);
+			TacticalActorAnimationTransitions::initializeAnimation(actor, AIM_RIFLE_STAND, 0, FALSE);
 		else if (actor.animationPlayback().state() == WALKING_DUAL_RDY ||
 			actor.animationPlayback().state() == AIM_DUAL_STAND)
-			actor.EVENT_InitNewSoldierAnim(AIM_DUAL_STAND, 0, FALSE);
+			TacticalActorAnimationTransitions::initializeAnimation(actor, AIM_DUAL_STAND, 0, FALSE);
 		else
-			actor.EVENT_InitNewSoldierAnim(STANDING, 0, FALSE);
+			TacticalActorAnimationTransitions::initializeAnimation(actor, STANDING, 0, FALSE);
 		break;
 
 	case ANIM_CROUCH:
 		if (actor.status().flags() & SOLDIER_COWERING)
-			actor.EVENT_InitNewSoldierAnim(COWERING, 0, FALSE);
+			TacticalActorAnimationTransitions::initializeAnimation(actor, COWERING, 0, FALSE);
 		else if (actor.animationPlayback().state() ==
 				 CROUCHEDMOVE_RIFLE_READY ||
 			actor.animationPlayback().state() ==
 				 CROUCHEDMOVE_PISTOL_READY)
-			actor.EVENT_InitNewSoldierAnim(AIM_RIFLE_CROUCH, 0, FALSE);
+			TacticalActorAnimationTransitions::initializeAnimation(actor, AIM_RIFLE_CROUCH, 0, FALSE);
 		else if (actor.animationPlayback().state() ==
 			CROUCHEDMOVE_DUAL_READY)
-			actor.EVENT_InitNewSoldierAnim(AIM_DUAL_CROUCH, 0, FALSE);
+			TacticalActorAnimationTransitions::initializeAnimation(actor, AIM_DUAL_CROUCH, 0, FALSE);
 		else
-			actor.EVENT_InitNewSoldierAnim(CROUCHING, 0, FALSE);
+			TacticalActorAnimationTransitions::initializeAnimation(actor, CROUCHING, 0, FALSE);
 		break;
 
 	case ANIM_PRONE:
-		actor.EVENT_InitNewSoldierAnim(PRONE, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(actor, PRONE, 0, FALSE);
 		break;
 	}
 }
@@ -365,7 +366,7 @@ bool requestPathUnchecked(
 		if (moveAnimationState != actor.animationPlayback().state())
 		{
 			actor.movement().requestGridUpdateSuppression();
-			actor.EVENT_InitNewSoldierAnim(
+			TacticalActorAnimationTransitions::initializeAnimation(actor,
 				moveAnimationState,
 				0,
 				FALSE);
@@ -440,7 +441,7 @@ bool requestPathUnchecked(
 		gAnimControl[actor.animationPlayback().state()].ubEndHeight ==
 			ANIM_STAND)
 	{
-		actor.EVENT_InitNewSoldierAnim(animationState, 0, FALSE);
+		TacticalActorAnimationTransitions::initializeAnimation(actor, animationState, 0, FALSE);
 		actor.animationIntent().pendingAnimation() = moveAnimationState;
 		if (is_server || (is_client && actor.identity().id() < 20))
 		{
@@ -454,7 +455,7 @@ bool requestPathUnchecked(
 	}
 	else
 	{
-		actor.EVENT_InitNewSoldierAnim(
+		TacticalActorAnimationTransitions::initializeAnimation(actor,
 			moveAnimationState,
 			0,
 			forceRestart);

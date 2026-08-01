@@ -1,3 +1,6 @@
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorAppearance.h"
 	#include "builddefines.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorMedicalServices.h"
@@ -2738,7 +2741,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if (pSoldier)
 				{
 					DeleteTalkingMenu();
-					pSoldier->EVENT_SoldierGotHit( 1, 100, 10, pSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE );
+					TacticalActorDamageResolution::applyHit(*pSoldier,  1, 100, 10, pSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, AIM_SHOT_TORSO, 0, NOWHERE );
 				}
 				break;
 
@@ -3601,7 +3604,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( QUEEN, FALSE );
 				if (pSoldier)
 				{
-					pSoldier->EVENT_InitNewSoldierAnim( QUEEN_SLAP, 0 , FALSE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  QUEEN_SLAP, 0 , FALSE );
 				}
 				break;
 
@@ -3810,7 +3813,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
 				if (pSoldier)
 				{
-					pSoldier->EVENT_InitNewSoldierAnim( QUEEN_FRUSTRATED_SLAP, 0 , FALSE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  QUEEN_FRUSTRATED_SLAP, 0 , FALSE );
 				}
 				break;
 			case NPC_ACTION_START_TIMER_ON_KEITH_GOING_OUT_OF_BUSINESS:
@@ -4300,7 +4303,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if ( pSoldier && pSoldier->identity().bodyType() == CRIPPLECIV )
 				{
 					DeleteTalkingMenu();
-					pSoldier->EVENT_InitNewSoldierAnim( CRIPPLE_KICKOUT, 0, TRUE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  CRIPPLE_KICKOUT, 0, TRUE );
 				}
 				break;
 
@@ -4309,7 +4312,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if ( pSoldier && pSoldier->identity().bodyType() == CRIPPLECIV )
 				{
 					DeleteTalkingMenu();
-					pSoldier->EVENT_InitNewSoldierAnim( CRIPPLE_KICKOUT, 0, TRUE );
+					TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  CRIPPLE_KICKOUT, 0, TRUE );
 				}
 				TriggerFriendWithHostileQuote( ubTargetNPC );
 				break;
@@ -5970,7 +5973,7 @@ void HandleTexBecomingCamoed()
 	{
 		//make him camoed
 		pSoldier->camouflage().jungleApplied() = gGameExternalOptions.bCamoKitArea;	// 100
-		pSoldier->CreateSoldierPalettes(  );
+		(void)TacticalActorAppearance::rebuildPalettes(*pSoldier);
 	}
 
 	//Then set him to be camo'ed in the profile ( cause he is still an RPC and we are just about to hire him )

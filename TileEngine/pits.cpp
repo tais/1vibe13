@@ -1,3 +1,4 @@
+#include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorWorldPlacement.h"
 	#include "types.h"
 	#include "pits.h"
@@ -238,7 +239,7 @@ void SearchForOtherMembersWithinPitRadiusAndMakeThemFall( INT32 sGridNo, INT16 s
 
 				pSoldier->pendingAction().quaternaryData() = sNewGridNo;
 
-				pSoldier->EVENT_InitNewSoldierAnim( FALL_INTO_PIT, 0 , FALSE );
+				TacticalActorAnimationTransitions::initializeAnimation(*pSoldier,  FALL_INTO_PIT, 0 , FALSE );
 			}
 		}
 	}

@@ -1,3 +1,4 @@
+#include "TacticalActorBattleSounds.h"
 #include "TacticalActorMobility.h"
 #include <Button System.h>
 #include "SoldierRepository.h"
@@ -667,7 +668,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																				pSoldier->status().flags() |= (SOLDIER_MULTI_SELECTED );
 																				// Say Confimation...
 																				if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] )
-																					pSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
+																					TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_ATTN1 );
 
 																				// OK, if we have a selected guy.. make him part too....
 																				if ( gusSelectedSoldier != NOBODY )
@@ -704,7 +705,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																			pSoldier->status().flags() |= (SOLDIER_MULTI_SELECTED );
 																			// Say Confimation...
 																			if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] )
-																				pSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
+																				TacticalActorBattleSounds::play(*pSoldier,  BATTLE_SOUND_ATTN1 );
 																			}
 
 																		// OK, if we have a selected guy.. make him part too....
