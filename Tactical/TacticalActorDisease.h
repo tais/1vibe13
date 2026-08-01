@@ -33,11 +33,6 @@ namespace TacticalActorDisease
 		const TacticalActor& actor,
 		std::uint8_t disease);
 
-	void appendDescription(
-		TacticalActor& actor,
-		wchar_t* destination,
-		bool fullDescription = false);
-
 	[[nodiscard]] float contactProtection(TacticalActor& actor);
 	[[nodiscard]] std::int16_t resistance(TacticalActor& actor);
 	[[nodiscard]] std::uint16_t diagnosisPoints(TacticalActor& actor);

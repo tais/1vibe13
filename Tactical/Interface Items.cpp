@@ -5,7 +5,7 @@
 #include "TacticalActorExplosives.h"
 	#include "builddefines.h"
 #include "TacticalActorModifiers.h"
-#include "TacticalActorDisease.h"
+#include "TacticalActorConditionPresentation.h"
 #include "TacticalWorldAdapter.h"
 	#include "mapscreen.h"
 	#include <stdio.h>
@@ -14952,11 +14952,10 @@ void UpdateMercBodyRegionHelpText( )
 								  pMapScreenStatusStrings[2], pMoraleStr );
 					}
 
-					pSoldier->PrintFoodDesc( sString, TRUE );
-
-					TacticalActorDisease::appendDescription(*pSoldier, sString, TRUE );
-
-					pSoldier->PrintSleepDesc( sString );
+					TacticalActorConditionPresentation::appendSummary(
+						*pSoldier,
+						sString,
+						true);
 				}
 			}
 		}

@@ -94,6 +94,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorConsumables.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorCombatActions.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorCombatReactions.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorConditionPresentation.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorDamageFeedback.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorRecovery.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorConditions.cpp"

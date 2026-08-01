@@ -32,6 +32,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <cwchar>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
@@ -124,6 +125,9 @@
 #include "Game Clock.h"
 #include "Game Events.h"
 #include "GameSettings.h"
+#include "Cheats.h"
+#include "Disease.h"
+#include "Food.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
 #include "Soldier Profile.h"
@@ -135,6 +139,7 @@
 #include "TacticalActorConsumables.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorCombatReactions.h"
+#include "TacticalActorConditionPresentation.h"
 #include "TacticalActorDamageFeedback.h"
 #include "TacticalActorRecovery.h"
 #include "TacticalActorConditions.h"
@@ -8024,6 +8029,112 @@ int main( int, char** )
 		       disabilityRecorded &&
 		       unprotected,
 		       "tactical actor disease rules expose state, magnitude, and protection without record methods" );
+	}
+
+	{
+		const BOOLEAN previousFoodSetting =
+			gGameExternalOptions.fFoodSystem;
+		const BOOLEAN previousDiseaseSetting =
+			gGameExternalOptions.fDisease;
+		const BOOLEAN previousDiseaseLimitations =
+			gGameExternalOptions.fDiseaseSevereLimitations;
+		const UINT8 previousCheatLevel = gubCheatLevel;
+		const auto previousDisease = Disease[0];
+		const UINT8 previousNeedForSleep =
+			gMercProfiles[0].ubNeedForSleep;
+
+		gGameExternalOptions.fFoodSystem = TRUE;
+		gGameExternalOptions.fDisease = TRUE;
+		gGameExternalOptions.fDiseaseSevereLimitations = FALSE;
+		gubCheatLevel = 0;
+		Disease[0] = {};
+		std::wcscpy(Disease[0].szFatName, L"Test fever");
+		std::wcscpy(
+			Disease[0].szDescription,
+			L"Focused condition presentation fixture");
+		Disease[0].sInfectionPtsFull = 100;
+		gMercProfiles[0].ubNeedForSleep = 8;
+
+		TacticalActor presentationActor;
+		presentationActor.identity().profile() = 0;
+		presentationActor.identity().bodyType() = REGMALE;
+		presentationActor.vitals().health() = 100;
+		presentationActor.vitals().maximumHealth() = 100;
+		presentationActor.vitals().maximumBreath() = 100;
+		presentationActor.deployment().sectorZ() = 1;
+		presentationActor.condition().foodLevel() = 0;
+		presentationActor.condition().drinkLevel() = 0;
+		presentationActor.condition().diseasePoints(0) = 50;
+		presentationActor.condition().markDiseaseFlag(
+			0,
+			TacticalActorDisease::diagnosedFlag |
+				TacticalActorDisease::outbreakFlag);
+
+		wchar_t summary[4096] = L"";
+		TacticalActorConditionPresentation::appendSummary(
+			presentationActor,
+			summary,
+			true);
+		const wchar_t* const waterDescription =
+			std::wcsstr(summary, L"|W|a|t|e|r: 100%");
+		const wchar_t* const foodDescription =
+			std::wcsstr(summary, L"|F|o|o|d: 100%");
+		const wchar_t* const diseaseName =
+			std::wcsstr(summary, L"Test fever");
+		const wchar_t* const diseaseDescription =
+			std::wcsstr(
+				summary,
+				L"Focused condition presentation fixture");
+		const wchar_t* const sleepDescription =
+			std::wcsstr(
+				summary,
+				L"Breath regeneration per hour:");
+		const bool summaryIncludesEveryConditionDomain =
+			waterDescription &&
+			foodDescription &&
+			diseaseName &&
+			diseaseDescription &&
+			sleepDescription &&
+			waterDescription < foodDescription &&
+			foodDescription < diseaseName &&
+			diseaseName < diseaseDescription &&
+			diseaseDescription < sleepDescription;
+
+		wchar_t rejectedSummary[32] = L"unchanged";
+		presentationActor.identity().profile() = NO_PROFILE;
+		TacticalActorConditionPresentation::appendSummary(
+			presentationActor,
+			rejectedSummary,
+			true);
+		presentationActor.identity().profile() = 0;
+		presentationActor.status().flags() |= SOLDIER_VEHICLE;
+		TacticalActorConditionPresentation::appendSummary(
+			presentationActor,
+			rejectedSummary,
+			true);
+		TacticalActorConditionPresentation::appendFoodDescription(
+			presentationActor,
+			nullptr);
+		TacticalActorConditionPresentation::appendDiseaseDescription(
+			presentationActor,
+			nullptr);
+		TacticalActorConditionPresentation::appendSleepDescription(
+			presentationActor,
+			nullptr);
+		const bool malformedDestinationsAndActorsAreRejected =
+			std::wcscmp(rejectedSummary, L"unchanged") == 0;
+
+		gGameExternalOptions.fFoodSystem = previousFoodSetting;
+		gGameExternalOptions.fDisease = previousDiseaseSetting;
+		gGameExternalOptions.fDiseaseSevereLimitations =
+			previousDiseaseLimitations;
+		gubCheatLevel = previousCheatLevel;
+		Disease[0] = previousDisease;
+		gMercProfiles[0].ubNeedForSleep = previousNeedForSleep;
+
+		CHECK( summaryIncludesEveryConditionDomain &&
+		       malformedDestinationsAndActorsAreRejected,
+		       "tactical actor condition presentation composes food, disease, and sleep text while rejecting malformed inputs" );
 	}
 
 	{
