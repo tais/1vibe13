@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 	#include "FileMan.h"
 #include "SoldierRepository.h"
 	#include "types.h"
@@ -760,7 +761,7 @@ BOOLEAN BumpAnyExistingMerc( INT32 sGridNo )
 	}
 
 	ConvertGridNoToCellXY( sNewGridNo, &sCellX, &sCellY );
-	pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
+	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY , true, true, true);
 
 	return( TRUE );
 }
@@ -826,7 +827,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			BumpAnyExistingMerc( pSchedule->usData2[ index ] );
 			ConvertGridNoToCellXY( pSchedule->usData2[ index ], &sCellX, &sCellY );
 
-			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY , true, true, true);
 			if ( GridNoOnEdgeOfMap( pSchedule->usData2[ index ], &bDirection ) )
 			{
 				// civ should go off map; this tells us where the civ will return
@@ -844,7 +845,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 		case SCHEDULE_ACTION_GRIDNO:
 			BumpAnyExistingMerc( pSchedule->usData1[ index ] );
 			ConvertGridNoToCellXY( pSchedule->usData1[ index ], &sCellX, &sCellY );
-			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY , true, true, true);
 			// let this person patrol from here from now on
 			pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData1[ index ];
 			break;
@@ -856,7 +857,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			}
 			BumpAnyExistingMerc( pSchedule->usData1[ index ] );
 			ConvertGridNoToCellXY( pSchedule->usData1[ index ], &sCellX, &sCellY );
-			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY , true, true, true);
 			MoveSoldierFromAwayToMercSlot(
 				GetJa2TacticalEntityId(*pSoldier));
 			pSoldier->roster().inSector() = TRUE;
@@ -866,7 +867,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 		case SCHEDULE_ACTION_WAKE:
 			BumpAnyExistingMerc( pSoldier->position().initialGrid() );
 			ConvertGridNoToCellXY( pSoldier->position().initialGrid(), &sCellX, &sCellY );
-			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY , true, true, true);
 			// let this person patrol from here from now on
 			pSoldier->aiPlanning().patrolGrid()[0] = pSoldier->position().initialGrid();
 			break;
@@ -875,19 +876,19 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			// check for someone else in the location
 			BumpAnyExistingMerc( pSchedule->usData1[ index ] );
 			ConvertGridNoToCellXY( pSchedule->usData1[ index ], &sCellX, &sCellY );
-			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY , true, true, true);
 			pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData1[ index ];
 			break;
 		case SCHEDULE_ACTION_LEAVESECTOR:
 			sGridNo = FindNearestEdgePoint( pSoldier->position().gridNo() );
 			BumpAnyExistingMerc( sGridNo );
 			ConvertGridNoToCellXY( sGridNo, &sCellX, &sCellY );
-			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY , true, true, true);
 
 			sGridNo = FindNearbyPointOnEdgeOfMap( pSoldier, &bDirection );
 			BumpAnyExistingMerc( sGridNo );
 			ConvertGridNoToCellXY( sGridNo, &sCellX, &sCellY );
-			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY , true, true, true);
 
 			// ok, that tells us where the civ will return
 			pSoldier->deployment().offWorldGrid() = sGridNo;

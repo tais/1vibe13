@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorTraversal.h"
 
 #include "Animation Control.h"
@@ -203,7 +204,7 @@ bool TacticalActorTraversal::beginRoofClimb(
 			&actor,
 			CLIMBUPROOF))
 	{
-		actor.SetSoldierHeight(50.0f);
+		(void)TacticalActorWorldPlacement::setHeight(actor,50.0f);
 		TeleportSoldier(&actor, destination, TRUE);
 		EndAIGuysTurn(&actor);
 	}
@@ -323,7 +324,7 @@ bool TacticalActorTraversal::beginRoofDescent(
 			&actor,
 			JUMPDOWNWALL))
 	{
-		actor.SetSoldierHeight(0.0f);
+		(void)TacticalActorWorldPlacement::setHeight(actor,0.0f);
 		TeleportSoldier(&actor, destination, TRUE);
 		EndAIGuysTurn(&actor);
 	}

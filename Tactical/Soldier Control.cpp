@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "Soldier Functions.h"
 #include "TacticalActorAnimationFootprint.h"
 #include "TacticalActorAnimationFrames.h"
@@ -952,7 +953,6 @@ extern UINT8 gubWaitingForAllMercsToExitCode;
 BOOLEAN	gfGetNewPathThroughPeople = FALSE;
 
 // LOCAL FUNCTIONS
-// DO NOT CALL UNLESS THROUGH EVENT_SetSoldierPosition
 UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fAltWeaponHolding );
 BOOLEAN CheckForFullStruct( INT32 sGridNo, UINT16 *pusIndex );
 void SetSoldierLocatorOffsets( TacticalActor *pSoldier );
@@ -2325,7 +2325,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 				HandleVehicleMovementSound( this, FALSE );
 
 				// If a vehicle, set hewight to 0
-				this->SetSoldierHeight( (FLOAT)(0) );
+				(void)TacticalActorWorldPlacement::setHeight(*this, (FLOAT)(0) );
 			}
 
 		}
@@ -2635,7 +2635,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		case CROW_EAT:
 
 			// ATE: Make sure height level is 0....
-			this->SetSoldierHeight( (FLOAT)(0) );
+			(void)TacticalActorWorldPlacement::setHeight(*this, (FLOAT)(0) );
 			HandleCrowShadowRemoveGridNo( this );
 			break;
 
@@ -3016,510 +3016,6 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 }
 
 
-void TacticalActor::InternalRemoveSoldierFromGridNo( BOOLEAN fForce )
-{
-	INT8 bDir;
-	INT32 iGridNo;
-
-	if ( !TileIsOutOfBounds( this->position().gridNo() ) )
-	{
-		if ( this->roster().inSector() || fForce )
-		{
-			// Remove from world ( old pos )
-			RemoveMerc( this->position().gridNo(), this, FALSE );
-			(void)TacticalActorAnimationFootprint::remove(
-				*this,
-				this->animationPlayback().state());
-
-			// Remove records of this guy being adjacent
-			for ( bDir = 0; bDir < NUM_WORLD_DIRECTIONS; bDir++ )
-			{
-				iGridNo = this->position().gridNo() + DirIncrementer[bDir];
-				if ( iGridNo >= 0 && iGridNo < WORLD_MAX )
-				{
-					gpWorldLevelData[iGridNo].ubAdjacentSoldierCnt--;
-				}
-			}
-
-			HandlePlacingRoofMarker( this, this->position().gridNo(), FALSE, FALSE );
-
-			// Remove reseved movement value
-			UnMarkMovementReserved( this );
-
-			HandleCrowShadowRemoveGridNo( this );
-
-			// Reset gridno...
-			this->position().gridNo() = NOWHERE;
-		}
-	}
-}
-
-void TacticalActor::RemoveSoldierFromGridNo( void )
-{
-	this->InternalRemoveSoldierFromGridNo( FALSE );
-}
-
-
-void TacticalActor::EVENT_InternalSetSoldierPosition( FLOAT dNewXPos, FLOAT dNewYPos, BOOLEAN fUpdateDest, BOOLEAN fUpdateFinalDest, BOOLEAN fForceRemove )
-{
-	INT32 sNewGridNo;
-
-	// Not if we're dead!
-	if ( (this->status().flags() & SOLDIER_DEAD) )
-	{
-		return;
-	}
-
-	// Set new map index
-	sNewGridNo = GETWORLDINDEXFROMWORLDCOORDS( dNewYPos, dNewXPos );
-
-	if ( fUpdateDest )
-	{
-		this->pathing().destinationGrid() = sNewGridNo;
-	}
-
-	if ( fUpdateFinalDest )
-	{
-		this->pathing().finalDestinationGrid() = sNewGridNo;
-	}
-
-	// Set the precise coordinates and their established integer projection as
-	// one transition. Turn-start coordinates intentionally remain unchanged.
-	this->position().setWorldCoordinates(dNewXPos, dNewYPos);
-
-	HandleCrowShadowNewPosition( this );
-
-	this->SetSoldierGridNo( sNewGridNo, fForceRemove );
-
-	if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
-	{
-		(void)TacticalActorLighting::positionPersonalLight(*this);
-	}
-
-	// ATE: Mirror calls if we are a vehicle ( for all our passengers )
-	UpdateAllVehiclePassengersGridNo( this );
-
-}
-
-void TacticalActor::EVENT_SetSoldierPosition( FLOAT dNewXPos, FLOAT dNewYPos )
-{
-	this->EVENT_InternalSetSoldierPosition( dNewXPos, dNewYPos, TRUE, TRUE, FALSE );
-}
-
-void TacticalActor::EVENT_SetSoldierPositionForceDelete( FLOAT dNewXPos, FLOAT dNewYPos )
-{
-	this->EVENT_InternalSetSoldierPosition( dNewXPos, dNewYPos, TRUE, TRUE, TRUE );
-}
-
-void EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( TacticalActor *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos, BOOLEAN fUpdateDest, BOOLEAN fUpdateFinalDest )
-{
-	pSoldier->EVENT_InternalSetSoldierPosition( dNewXPos, dNewYPos, fUpdateDest, fUpdateFinalDest, FALSE );
-}
-
-
-void TacticalActor::InternalSetSoldierHeight( FLOAT dNewHeight, BOOLEAN fUpdateLevel )
-{
-
-	INT8	bOldLevel = this->position().level();
-
-	this->position().animationHeightAdjustment() = dNewHeight;
-	this->position().heightAdjustment() = (INT16)this->position().animationHeightAdjustment();
-
-	if ( !fUpdateLevel )
-	{
-		return;
-	}
-
-	// 0verhaul:  Changed this to half the wall height.  During a climb up, a soldier's height increases to about 8, then falls
-	// to near 0 before being set to 50 at the end.  The animation offsets should probably be changed to make this unnecessary
-	// but this is good enough to keep him from bouncing between level 1 and level 0 (and also triggering weird sight bugs).
-	if ( this->position().heightAdjustment() > 25 )
-	{
-		this->position().level() = SECOND_LEVEL;
-
-		ApplyTranslucencyToWalls( (INT16)(this->position().worldX() / CELL_X_SIZE), (INT16)(this->position().worldY() / CELL_Y_SIZE) );
-		//LightHideTrees((INT16)(this->position().worldX()/CELL_X_SIZE), (INT16)(this->position().worldY()/CELL_Y_SIZE));
-		//ConcealAllWalls();
-
-		//this->renderBindings().levelNode()->ubShadeLevel=gpWorldLevelData[this->sGridNo].pRoofHead->ubShadeLevel;
-		//this->renderBindings().levelNode()->ubSumLights=gpWorldLevelData[this->sGridNo].pRoofHead->ubSumLights;
-		//this->renderBindings().levelNode()->ubMaxLights=gpWorldLevelData[this->sGridNo].pRoofHead->ubMaxLights;
-		//this->renderBindings().levelNode()->ubNaturalShadeLevel=gpWorldLevelData[this->sGridNo].pRoofHead->ubNaturalShadeLevel;
-	}
-	else
-	{
-		this->position().level() = FIRST_LEVEL;
-
-		//this->renderBindings().levelNode()->ubShadeLevel=gpWorldLevelData[this->sGridNo].pLandHead->ubShadeLevel;
-		//this->renderBindings().levelNode()->ubSumLights=gpWorldLevelData[this->sGridNo].pLandHead->ubSumLights;
-		//this->renderBindings().levelNode()->ubMaxLights=gpWorldLevelData[this->sGridNo].pLandHead->ubMaxLights;
-		//this->renderBindings().levelNode()->ubNaturalShadeLevel=gpWorldLevelData[this->sGridNo].pLandHead->ubNaturalShadeLevel;
-
-
-	}
-
-	if ( bOldLevel == 0 && this->position().level() == 0 )
-	{
-
-	}
-	else
-	{
-		// Show room at new level
-		//HideRoom( this->sGridNo, this );
-	}
-}
-
-
-
-void TacticalActor::SetSoldierHeight( FLOAT dNewHeight )
-{
-	this->InternalSetSoldierHeight( dNewHeight, TRUE );
-}
-
-
-void TacticalActor::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
-{
-	BOOLEAN	fInWaterValue;
-	INT8		bDir;
-	INT32		cnt;
-	TacticalActor * pEnemy;
-
-	//INT16	sX, sY, sWorldX, sZLevel;
-
-	// Not if we're dead!
-	if ( (this->status().flags() & SOLDIER_DEAD) )
-	{
-		return;
-	}
-
-	if ( sNewGridNo != this->position().gridNo() || this->renderBindings().levelNode() == NULL )
-	{
-		// Check if we are moving AND this is our next dest gridno....
-		if ( gAnimControl[this->animationPlayback().state()].uiFlags & (ANIM_MOVING | ANIM_SPECIALMOVE) )
-		{
-			if ( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
-			{
-				if ( sNewGridNo != this->pathing().destinationGrid() )
-				{
-					// THIS MUST be our new one......MAKE IT SO
-					sNewGridNo = this->pathing().destinationGrid();
-				}
-
-				// Now check this baby....
-				if ( sNewGridNo == this->position().gridNo() )
-				{
-					return;
-				}
-			}
-		}
-
-		this->movementHistory().recordDeparture(this->position().gridNo());
-
-		if ( this->identity().bodyType() == QUEENMONSTER )
-		{
-			SetPositionSndGridNo( this->audio().positionSoundId(), sNewGridNo );
-		}
-
-		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
-		{
-			this->InternalRemoveSoldierFromGridNo( fForceRemove );
-		}
-
-		// CHECK IF OUR NEW GIRDNO IS VALID,IF NOT DONOT SET!
-		if ( !GridNoOnVisibleWorldTile( sNewGridNo ) )
-		{
-			this->position().gridNo() = sNewGridNo;
-			return;
-		}
-
-		// Alrighty, update UI for this guy, if he's the selected guy...
-		if ( gusSelectedSoldier == this->identity().id() )
-		{
-			if ( guiCurrentEvent == C_WAIT_FOR_CONFIRM )
-			{
-				// Update path!
-				gfPlotNewMovement = TRUE;
-			}
-		}
-
-
-		// Reset some flags for optimizations..
-		this->meleeApproach().invalidate();
-
-		// ATE: Make sure!
-		// RemoveMerc( this->sGridNo, this, FALSE );
-
-		this->position().gridNo() = sNewGridNo;
-
-		// OK, check for special code to close door...
-		if ( this->schedule().doorAnimationComplete() )
-		{
-			HandleDoorChangeFromGridNo(
-				this, this->schedule().consumeDoorGrid(), FALSE );
-		}
-
-		// OK, Update buddy's strategic insertion code....
-		this->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
-		this->deployment().strategicInsertionData() = sNewGridNo;
-
-
-		// Remove this gridno as a reserved place!
-		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
-		{
-			UnMarkMovementReserved( this );
-		}
-
-		if ( this->position().initialGrid() == 0 )
-		{
-			this->position().initialGrid() = sNewGridNo;
-			this->aiPlanning().patrolGrid()[0] = sNewGridNo;
-		}
-
-		// Add records of this guy being adjacent
-		for ( bDir = 0; bDir < NUM_WORLD_DIRECTIONS; bDir++ )
-		{
-			gpWorldLevelData[this->position().gridNo() + DirIncrementer[bDir]].ubAdjacentSoldierCnt++;
-		}
-
-		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
-		{
-			DropSmell( this );
-		}
-
-		// HANDLE ANY SPECIAL RENDERING SITUATIONS
-		this->animationActivity().clearRenderZOverride();
-		// If we are over a fence ( hopping ), make us higher!
-
-		if ( IsJumpableFencePresentAtGridNo( sNewGridNo ) )
-		{
-			//sX = MapX( sNewGridNo );
-			//sY = MapY( sNewGridNo );
-			//GetWorldXYAbsoluteScreenXY( sX, sY, &sWorldX, &sZLevel);
-			//this->animationActivity().setRenderZOverride((sZLevel*Z_SUBLAYERS)+ROOF_Z_LEVEL);
-			this->animationActivity().setRenderZOverride(TOPMOST_Z_LEVEL);
-		}
-		/*
-		if ( IsJumpableWindowPresentAtGridNo( sNewGridNo ) )
-		{
-		//sX = MapX( sNewGridNo );
-		//sY = MapY( sNewGridNo );
-		//GetWorldXYAbsoluteScreenXY( sX, sY, &sWorldX, &sZLevel);
-		//this->animationActivity().setRenderZOverride((sZLevel*Z_SUBLAYERS)+ROOF_Z_LEVEL);
-		this->animationActivity().setRenderZOverride(TOPMOST_Z_LEVEL);
-		}
-		*/
-
-		//ddd window{ ???????
-		//if ( IsOknoFencePresentAtGridno( sNewGridNo ) )
-		//{
-		//	this->animationActivity().setRenderZOverride(TOPMOST_Z_LEVEL);
-		//}
-		//ddd window}
-
-		// Add/ remove tree if we are near it
-		// CheckForFullStructures( this );
-
-		// Add merc at new pos
-		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
-		{
-			AddMercToHead( this->position().gridNo(), this, TRUE );
-
-			// If we are in the middle of climbing the roof!
-			if ( this->animationPlayback().state() == CLIMBUPROOF )
-			{
-				if ( this->renderState().lightSprite() != (-1) )
-					LightSpriteRoofStatus( this->renderState().lightSprite(), TRUE );
-			}
-			else if ( this->animationPlayback().state() == CLIMBDOWNROOF )
-			{
-				if ( this->renderState().lightSprite() != (-1) )
-					LightSpriteRoofStatus( this->renderState().lightSprite(), FALSE );
-			}
-
-			if ( this->animationPlayback().state() == JUMPUPWALL )
-			{
-				if ( this->renderState().lightSprite() != (-1) )
-					LightSpriteRoofStatus( this->renderState().lightSprite(), TRUE );
-			}
-			else if ( this->animationPlayback().state() == JUMPDOWNWALL )
-			{
-				if ( this->renderState().lightSprite() != (-1) )
-					LightSpriteRoofStatus( this->renderState().lightSprite(), FALSE );
-			}
-
-			//JA2Gold:
-			//if the player wants the merc to cast the fake light AND it is night
-			if ( this->roster().team() != OUR_TEAM || gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT] && NightTime( ) )
-			{
-				if ( this->position().level() > 0 && gpWorldLevelData[this->position().gridNo()].pRoofHead != NULL )
-				{
-					gpWorldLevelData[this->position().gridNo()].pMercHead->ubShadeLevel = gpWorldLevelData[this->position().gridNo()].pRoofHead->ubShadeLevel;
-					gpWorldLevelData[this->position().gridNo()].pMercHead->ubSumLights = gpWorldLevelData[this->position().gridNo()].pRoofHead->ubSumLights;
-					gpWorldLevelData[this->position().gridNo()].pMercHead->ubMaxLights = gpWorldLevelData[this->position().gridNo()].pRoofHead->ubMaxLights;
-					gpWorldLevelData[this->position().gridNo()].pMercHead->ubNaturalShadeLevel = gpWorldLevelData[this->position().gridNo()].pRoofHead->ubNaturalShadeLevel;
-				}
-				else
-				{
-					gpWorldLevelData[this->position().gridNo()].pMercHead->ubShadeLevel = gpWorldLevelData[this->position().gridNo()].pLandHead->ubShadeLevel;
-					gpWorldLevelData[this->position().gridNo()].pMercHead->ubSumLights = gpWorldLevelData[this->position().gridNo()].pLandHead->ubSumLights;
-					gpWorldLevelData[this->position().gridNo()].pMercHead->ubMaxLights = gpWorldLevelData[this->position().gridNo()].pLandHead->ubMaxLights;
-					gpWorldLevelData[this->position().gridNo()].pMercHead->ubNaturalShadeLevel = gpWorldLevelData[this->position().gridNo()].pLandHead->ubNaturalShadeLevel;
-				}
-			}
-
-			TacticalActorEquipment::refreshFlashlights(*this);
-
-			///HandlePlacingRoofMarker( this, this->sGridNo, TRUE, FALSE );
-
-			(void)TacticalActorAnimationFootprint::add(
-				*this,
-				this->animationPlayback().state());
-
-			HandleCrowShadowNewGridNo( this );
-		}
-
-		this->position().enterTerrain(GetTerrainType(this->position().gridNo()));
-
-		// OK, check that our animation is up to date!
-		// Check our water value
-		INT16 usUIMovementModeToSet = this->movement().mode();
-		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
-		{
-			fInWaterValue = TacticalActorMobility::inWater(*this);
-
-			// ATE: If ever in water MAKE SURE WE WALK AFTERWOODS!
-			if ( fInWaterValue )
-			{
-				usUIMovementModeToSet = WALKING;
-			}
-
-			if ( fInWaterValue != this->movement().previousInWater() )
-			{
-				//Update Animation data
-				SetSoldierAnimationSurface( this, this->animationPlayback().state() );
-
-				// Update flag
-				this->movement().rememberWaterState(fInWaterValue != FALSE);
-
-				// Update sound...
-				if ( fInWaterValue )
-				{
-					PlaySoldierJA2Sample( this->identity().id(), ENTER_WATER_1, RATE_11025, SoundVolume( MIDVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ), TRUE );
-				}
-				else
-				{
-					// ATE: Check if we are going from water to land - if so, resume
-					// with regular movement mode...
-					this->EVENT_InitNewSoldierAnim( usUIMovementModeToSet, 0, FALSE );
-				}
-
-			}
-
-			// WANNE.WATER: If our soldier is not on the ground level and the tile is a "water" tile, then simply set the tile to "FLAT_GROUND"
-			// This should fix "problems" for special modified maps			
-			if ( (TERRAIN_IS_WATER( this->position().terrainType() ) || TERRAIN_IS_WATER( this->position().previousTerrainType() )) && this->position().level() > 0 )
-			{
-				this->position().terrainType() = FLAT_GROUND;
-				this->position().previousTerrainType() = FLAT_GROUND;
-			}
-
-			// OK, If we were not in deep water but we are now, handle deep animations!
-			if ( TERRAIN_IS_DEEP_WATER( this->position().terrainType() ) && !TERRAIN_IS_DEEP_WATER( this->position().previousTerrainType() ) )
-			{
-				// Based on our current animation, change!
-				switch ( this->animationPlayback().state() )
-				{
-				case WALKING:
-				case WALKING_WEAPON_RDY:
-				case WALKING_DUAL_RDY:
-				case WALKING_ALTERNATIVE_RDY:
-				case RUNNING:
-					// IN deep water, swim!
-					// Make transition from low to deep
-					this->EVENT_InitNewSoldierAnim( LOW_TO_DEEP_WATER, 0, FALSE );
-					this->animationIntent().pendingAnimation() = DEEP_WATER_SWIM;
-					this->movement().requestGridUpdateSuppression();
-					PlayJA2Sample( ENTER_DEEP_WATER_1, RATE_11025, SoundVolume( MIDVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ) );
-				}
-			}
-
-			// Damage water if in deep water....
-			if ( TacticalActorMobility::inHighWater(*this) )
-			{
-				WaterDamage( this );
-			}
-
-			// OK, If we were in deep water but we are NOT now, handle mid animations!
-			if ( !TERRAIN_IS_DEEP_WATER( this->position().terrainType() ) && TERRAIN_IS_DEEP_WATER( this->position().previousTerrainType() ) )
-			{
-				// Make transition from low to deep
-				this->EVENT_InitNewSoldierAnim( DEEP_TO_LOW_WATER, 0, FALSE );
-				this->movement().requestGridUpdateSuppression();
-				this->animationIntent().pendingAnimation() = usUIMovementModeToSet;
-			}
-		}
-
-		// are we now standing in tear gas without a decently working gas mask?
-		if ( GetSmokeEffectOnTile( sNewGridNo, this->position().level() ) > 1 ) //lal: removed normal smoke
-		{
-			BOOLEAN fSetGassed = TRUE;
-
-			// If we have a functioning gas mask...
-			if ( DoesSoldierWearGasMask( this ) && this->inventory()[FindGasMask( this )][0]->data.objectStatus >= GASMASK_MIN_STATUS )//dnl ch40 200909
-				fSetGassed = FALSE;
-			if ( fSetGassed )
-			{
-				this->status().flags() |= SOLDIER_GASSED;
-			}
-		}
-
-		// Flugente: award agility stat increase if we sneak upon an enemy undetected
-		// do NOT award this bonus if we are currently loading a game - otherwise one could increase agility by repeatedly saving and reloading the game
-		if ( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
-		{
-			if ( this->roster().team() == gbPlayerNum && this->movement().stealthMode() )
-			{
-				// Merc got to a new tile by "sneaking". Did we theoretically sneak
-				// past an enemy?
-
-				if ( this->awareness().opponentCount() > 0 )		// opponents in sight
-				{
-					// check each possible enemy
-					for ( cnt = 0; cnt < MAX_NUM_SOLDIERS; ++cnt )
-					{
-						pEnemy =
-							GetJa2SoldierRepository().resolve( cnt );
-						// if this guy is here and alive enough to be looking for us
-						if ( pEnemy && pEnemy->roster().active() && pEnemy->roster().inSector() && (pEnemy->vitals().health() >= OKLIFE) )
-						{
-							// no points for sneaking by the neutrals & friendlies!!!
-							if ( !pEnemy->aiBehavior().neutral() && (this->roster().side() != pEnemy->roster().side()) && (pEnemy->identity().bodyType() != COW && pEnemy->identity().bodyType() != CROW) )
-							{
-								// if we SEE this particular oppponent, and he DOESN'T see us... and he COULD see us...
-								if ( (this->awareness().opponentKnowledge()[cnt] == SEEN_CURRENTLY) &&
-									 pEnemy->awareness().opponentKnowledge()[this->identity().id()] != SEEN_CURRENTLY &&
-									 PythSpacesAway( this->position().gridNo(), pEnemy->position().gridNo() ) < pEnemy->GetMaxDistanceVisible( this->position().gridNo(), this->position().level() ) )
-								{
-									// AGILITY (5):  Soldier snuck 1 square past unaware enemy
-									// MP: skip -- a deathmatch opener (long run, many unaware
-									// enemies) turns this trickle into a stat firehose.
-									if ( !is_networked )
-									{
-										StatChange( this, AGILAMT, 5, FALSE );
-									}
-									// Keep looping, we'll give'em 1 point for EACH such enemy!
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		// Adjust speed based on terrain, etc
-		SetSoldierAniSpeed( this );
-	}
-}
 
 
 //gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight
@@ -9054,7 +8550,7 @@ void TacticalActor::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fChec
 	INT32 sOldGridNo = this->position().gridNo();
 
 	// OK, set new position
-	this->EVENT_InternalSetSoldierPosition( dXPos, dYPos, FALSE, FALSE, FALSE );
+	(void)TacticalActorWorldPlacement::setPosition(*this, dXPos, dYPos, FALSE, FALSE, FALSE );
 	
 	TacticalActorDamageQueue::resolve(*this);
 
@@ -9097,7 +8593,7 @@ void TacticalActor::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fChec
 				INT16 base_y = 0;
 				ConvertGridNoToCenterCellXY( gridnotouse, &base_x, &base_y );
 
-				pSoldier->EVENT_InternalSetSoldierPosition( base_x + dx, base_y + dy, FALSE, FALSE, FALSE );
+				(void)TacticalActorWorldPlacement::setPosition(*pSoldier, base_x + dx, base_y + dy, FALSE, FALSE, FALSE );
 			}
 			else
 			{
@@ -9763,7 +9259,7 @@ void TacticalActor::ReviveSoldier( void )
 		// Makesure center of tile
 		ConvertGridNoToCenterCellXY(this->position().gridNo(), &sX, &sY);
 
-		this->EVENT_SetSoldierPosition( (FLOAT)sX, (FLOAT)sY );
+		(void)TacticalActorWorldPlacement::setPosition(*this, (FLOAT)sX, (FLOAT)sY );
 
 		// Dirty INterface
 		fInterfacePanelDirty = DIRTYLEVEL2;
@@ -9952,7 +9448,7 @@ void TacticalActor::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	// Turn off reverse...
 	this->movement().setReverse(false);
 
-	this->EVENT_SetSoldierPosition( (FLOAT)sX, (FLOAT)sY );
+	(void)TacticalActorWorldPlacement::setPosition(*this, (FLOAT)sX, (FLOAT)sY );
 	this->pathing().destinationX() = (INT16)this->position().worldX();
 	this->pathing().destinationY() = (INT16)this->position().worldY();
 	this->EVENT_SetSoldierDirection( bDirection );
@@ -13501,7 +12997,7 @@ bool TacticalActorSkills::use(
 				CONCEALED + skill - SKILLS_INTEL_CONCEAL);
 
 			// Remove soldier's graphic
-			actor.RemoveSoldierFromGridNo();
+			(void)TacticalActorWorldPlacement::removeFromGrid(actor);
 				
 			UpdateMercsInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 			
@@ -16200,7 +15696,7 @@ void TacticalActorDragging::cancel(TacticalActor& actor)
 			INT16 base_y = 0;
 			ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &base_x, &base_y);
 
-			pSoldier->EVENT_InternalSetSoldierPosition(base_x, base_y, FALSE, FALSE, FALSE);
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier,base_x, base_y, FALSE, FALSE, FALSE);
 		}
 	}
 

@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include "Simulation Commands.h"
 #include "Simulation Command Legacy.h"
@@ -428,7 +429,7 @@ namespace
 				if ((gAnimControl[soldier->animationPlayback().state()].uiFlags &
 						(ANIM_MOVING | ANIM_SPECIALMOVE)) == 0 ||
 					soldier->movement().outOfActionPoints())
-					soldier->EVENT_InternalSetSoldierPosition(
+					(void)TacticalActorWorldPlacement::setPosition(*soldier,
 						positionX, positionY, FALSE, FALSE, FALSE);
 				soldier->EVENT_InitNewSoldierAnim(
 					value.movementState, 0, FALSE);
@@ -459,7 +460,7 @@ namespace
 				if (!soldier ||
 					!IsSimulationSynchronizationSource(value.source))
 					return CommandDisposition::Discard;
-				soldier->EVENT_InternalSetSoldierPosition(
+				(void)TacticalActorWorldPlacement::setPosition(*soldier,
 					value.positionX, value.positionY, FALSE, FALSE, FALSE);
 				soldier->EVENT_SetSoldierDirection(value.direction);
 				if (value.stop && soldier->roster().team() >= LAN_TEAM_ONE &&

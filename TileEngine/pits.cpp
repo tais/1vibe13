@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 	#include "types.h"
 	#include "pits.h"
 	#include "worlddef.h"
@@ -272,6 +273,6 @@ void HandleFallIntoPitFromAnimation( SoldierID ubID )
 
 	HandleSoldierLeavingSectorByThemSelf( pSoldier );
 
-	pSoldier->SetSoldierHeight( 0 );
+	(void)TacticalActorWorldPlacement::setHeight(*pSoldier, 0 );
 
 }

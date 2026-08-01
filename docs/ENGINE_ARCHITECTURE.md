@@ -1372,6 +1372,19 @@ the engine must not contain SDL types in its public domain model.
   requests do not partially update targeting or weapon-mode state. Existing
   weapons, attachments, animations, sounds, network commands, maps, XML, Lua,
   save data, and installed mod formats are unchanged.
+  `TacticalActorWorldPlacement` owns the actor-to-world placement lifecycle:
+  removing an actor's merc-layer nodes, applying precise coordinates and their
+  route destinations, changing the authoritative grid, and updating projected
+  height and elevation. Tactical, strategic, editor, multiplayer, Lua,
+  animation, vehicle, save, and event-pump callers now enter four bounded
+  operations instead of nine aggregate/global position façades. The domain
+  keeps `SoldierPositionComponent`, world nodes, animation footprints,
+  personal lighting, vehicle passengers, terrain transitions, reservations,
+  and adjacency counts synchronized as one application-side transition. It
+  rejects unavailable worlds, malformed actor/animation/level/grid state, and
+  non-finite coordinates or heights before mutation. Existing map geometry,
+  animation data, network events, schedules, saves, Lua calls, and installed
+  content formats are unchanged.
   `TacticalActorConditionPresentation` owns the localized food, disease, and
   sleep description boundary for tactical and strategic actor tooltips. The
   two complete status tooltips use one ordered `appendSummary` operation,

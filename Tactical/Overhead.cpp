@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorExplosives.h"
 #include "TacticalActorLongActions.h"
@@ -1252,7 +1253,7 @@ BOOLEAN ExecuteOverhead( )
                                 // Update to middle if we're on destination
                                 dXPos = pSoldier->pathing().destinationX();
                                 dYPos = pSoldier->pathing().destinationY();
-                                pSoldier->EVENT_SetSoldierPosition( dXPos, dYPos );
+                                (void)TacticalActorWorldPlacement::setPosition(*pSoldier, dXPos, dYPos );
 #ifdef NETWORKED
                                 // DEF: Test Code
                                 StopSoldierMovementTime(pSoldier);
@@ -7266,7 +7267,7 @@ static void RemoveCapturedEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 
 						// ATE: Remove merc slot first - will disappear if no corpse data found!
 						TacticalRemoveSoldier( pTeamSoldier->identity().id() );
 					else
-						pTeamSoldier->RemoveSoldierFromGridNo( );
+						(void)TacticalActorWorldPlacement::removeFromGrid(*pTeamSoldier );
 
 					// this function updates number of enemies, and also updates groups
 					ProcessQueenCmdImplicationsOfDeath( pTeamSoldier );
@@ -10160,7 +10161,7 @@ void RemoveSoldierFromTacticalSector( TacticalActor *pSoldier, BOOLEAN fAdjustSe
     InitSoldierOppList( pSoldier );
 
     // Remove!
-    pSoldier->RemoveSoldierFromGridNo( );
+    (void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
 
     RemoveJa2ActiveTacticalActor(
         GetJa2TacticalEntityId(*pSoldier));

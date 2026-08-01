@@ -737,7 +737,6 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 								gGameExternalOptions.ubDefaultArrivalSectorX,
 								gGameExternalOptions.ubDefaultArrivalSectorY,
 								startingZ);
-							//EVENT_SetSoldierPosition( gusHeliSeats[ gbCurDrop ], sWorldX, sWorldY );
 
 							// IF the first guy down, set squad!
 							if ( gfFirstGuyDown )

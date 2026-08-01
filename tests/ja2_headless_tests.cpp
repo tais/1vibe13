@@ -10,6 +10,7 @@
 #include "TacticalActorProfileClassification.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorRangedActions.h"
+#include "TacticalActorWorldPlacement.h"
 // ja2_headless_tests.cpp -- first slice of the engine test harness.
 //
 // Proves that the JA2 engine links into a standalone test binary (i.e. the
@@ -9118,6 +9119,100 @@ int main( int, char** )
 		       equipmentChangeNormalizesFireMode &&
 		       malformedEquipmentChangeIsRejected,
 		       "tactical actor ranged actions normalize equipment changes and reject unavailable-world or malformed requests without partial mutation" );
+	}
+
+	{
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		TacticalActor placementActor;
+		placementActor.identity().id() = SoldierID{0};
+		placementActor.animationPlayback().state() = STANDING;
+		placementActor.position().setWorldCoordinates(15.0f, 25.0f);
+		placementActor.position().gridNo() = 42;
+		placementActor.position().level() = SECOND_LEVEL;
+		placementActor.position().animationHeightAdjustment() = 12.0f;
+		placementActor.position().heightAdjustment() = 12;
+
+		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableWorldRequestsAreRejected =
+			!TacticalActorWorldPlacement::removeFromGrid(
+				placementActor) &&
+			!TacticalActorWorldPlacement::setPosition(
+				placementActor,
+				35.0f,
+				45.0f) &&
+			!TacticalActorWorldPlacement::setGrid(
+				placementActor,
+				43) &&
+			!TacticalActorWorldPlacement::setHeight(
+				placementActor,
+				20.0f) &&
+			placementActor.position().worldX() == 15.0f &&
+			placementActor.position().worldY() == 25.0f &&
+			placementActor.position().gridNo() == 42 &&
+			placementActor.position().level() == SECOND_LEVEL &&
+			placementActor.position().animationHeightAdjustment() ==
+				12.0f &&
+			placementActor.position().heightAdjustment() == 12;
+
+		NotifyJa2TacticalWorldLoaded(
+			previousWorld.worldGeneration != 0
+				? previousWorld.worldGeneration : 1);
+		const bool lowHeightUpdatesProjectionAndLevel =
+			TacticalActorWorldPlacement::setHeight(
+				placementActor,
+				24.75f) &&
+			placementActor.position().animationHeightAdjustment() ==
+				24.75f &&
+			placementActor.position().heightAdjustment() == 24 &&
+			placementActor.position().level() == FIRST_LEVEL;
+		const bool deferredLevelUpdatePreservesLevel =
+			TacticalActorWorldPlacement::setHeight(
+				placementActor,
+				30.5f,
+				false) &&
+			placementActor.position().animationHeightAdjustment() ==
+				30.5f &&
+			placementActor.position().heightAdjustment() == 30 &&
+			placementActor.position().level() == FIRST_LEVEL;
+
+		const float previousHeight =
+			placementActor.position().animationHeightAdjustment();
+		const INT16 previousHeightProjection =
+			placementActor.position().heightAdjustment();
+		const bool malformedHeightIsRejected =
+			!TacticalActorWorldPlacement::setHeight(
+				placementActor,
+				std::numeric_limits<float>::quiet_NaN()) &&
+			placementActor.position().animationHeightAdjustment() ==
+				previousHeight &&
+			placementActor.position().heightAdjustment() ==
+				previousHeightProjection;
+
+		placementActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedAnimationIsRejectedWithoutMutation =
+			!TacticalActorWorldPlacement::removeFromGrid(
+				placementActor) &&
+			!TacticalActorWorldPlacement::setPosition(
+				placementActor,
+				35.0f,
+				45.0f) &&
+			!TacticalActorWorldPlacement::setGrid(
+				placementActor,
+				43) &&
+			placementActor.position().worldX() == 15.0f &&
+			placementActor.position().worldY() == 25.0f &&
+			placementActor.position().gridNo() == 42;
+
+		RestoreJa2TacticalWorldSession(previousWorld);
+
+		CHECK( unavailableWorldRequestsAreRejected &&
+		       lowHeightUpdatesProjectionAndLevel &&
+		       deferredLevelUpdatePreservesLevel &&
+		       malformedHeightIsRejected &&
+		       malformedAnimationIsRejectedWithoutMutation,
+		       "tactical actor world placement owns bounded position, grid, height, and removal transitions without partial mutation" );
 	}
 
 	{

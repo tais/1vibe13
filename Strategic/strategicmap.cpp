@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 #include "SoldierRepository.h"
@@ -2381,7 +2382,7 @@ void RemoveMercsInSector( )
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( pSoldier->roster().active() )
 		{
-			pSoldier->RemoveSoldierFromGridNo( );
+			(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
 		}
 	}
 
@@ -4535,7 +4536,7 @@ void DoneFadeOutAdjacentSector( )
 						sOldGridNo = member->position().gridNo();
 						ConvertGridNoToCenterCellXY(sGridNo, &sWorldX, &sWorldY);
 
-						member->EVENT_SetSoldierPosition( sWorldX, sWorldY );
+						(void)TacticalActorWorldPlacement::setPosition(*member, sWorldX, sWorldY );
 						if ( sGridNo != sOldGridNo )
 						{
 							member->EVENT_GetNewSoldierPath( sOldGridNo, WALKING );
@@ -6435,7 +6436,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 						 pSoldier->deployment().sectorY() == gWorldSectorY &&
 						 pSoldier->deployment().sectorZ() == gbWorldSectorZ )
 					{
-						pSoldier->RemoveSoldierFromGridNo( );
+						(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
 						InitSoldierOppList( pSoldier );
 					}
 				}
@@ -7406,19 +7407,19 @@ void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( )
 
 				if ( pSoldier->position().gridNo() == 13959 )
 				{
-					pSoldier->SetSoldierGridNo( 15705, TRUE );
+					(void)TacticalActorWorldPlacement::setGrid(*pSoldier, 15705, TRUE );
 					ubNumEnemiesMoved++;
 				}
 
 				if ( pSoldier->position().gridNo() == 13983 )
 				{
-					pSoldier->SetSoldierGridNo( 15712, TRUE );
+					(void)TacticalActorWorldPlacement::setGrid(*pSoldier, 15712, TRUE );
 					ubNumEnemiesMoved++;
 				}
 
 				if ( pSoldier->position().gridNo() == 12543 )
 				{
-					pSoldier->SetSoldierGridNo( 15233, TRUE );
+					(void)TacticalActorWorldPlacement::setGrid(*pSoldier, 15233, TRUE );
 					ubNumEnemiesMoved++;
 				}
 			}
@@ -7439,7 +7440,7 @@ void HandleMovingTheEnemiesToBeNearPlayerWhenEnteringComplexMap( )
 				 pSoldier->position().gridNo() != 15712 &&
 				 pSoldier->position().gridNo() != 15233 )
 			{
-				pSoldier->SetSoldierGridNo(
+				(void)TacticalActorWorldPlacement::setGrid(*pSoldier,
 					fallbackGridNos[ubNumEnemiesMoved], TRUE );
 				++ubNumEnemiesMoved;
 			}
@@ -7551,7 +7552,7 @@ void HandleMovingEnemiesCloseToEntranceInFirstTunnelMap( )
 			}
 
 			ConvertGridNoToCenterCellXY( sGridNos[ubIndex], &sXPos, &sYPos );
-			pSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sXPos, sYPos );
 			ubIndex++;
 		}
 	}
@@ -7597,7 +7598,7 @@ void HandleMovingEnemiesCloseToEntranceInSecondTunnelMap( )
 			}
 
 			ConvertGridNoToCenterCellXY( sGridNos[ubIndex], &sXPos, &sYPos );
-			pSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sXPos, sYPos );
 			ubIndex++;
 		}
 	}
@@ -7705,11 +7706,11 @@ BOOLEAN MoveEnemyFromGridNoToRoofGridNo( UINT32 sSourceGridNo, UINT32 sDestGridN
 		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().active() && pSoldier->roster().inSector() &&
 			 pSoldier->position().gridNo() == sSourceGridNo )
 		{
-			pSoldier->SetSoldierHeight( 50.0 );
+			(void)TacticalActorWorldPlacement::setHeight(*pSoldier, 50.0 );
 
 			// move soldier
 			ConvertGridNoToCenterCellXY( sDestGridNo, &sXPos, &sYPos );
-			pSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sXPos, sYPos );
 
 			return(TRUE);
 			//			pSoldier->bOrders = SEEKENEMY;

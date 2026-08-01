@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 	#include "Handle UI Plan.h"
 	#include "Overhead.h"
 	#include "Isometric Utils.h"
@@ -126,7 +127,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				// Get XY from Gridno
 				ConvertGridNoToCenterCellXY( sGridNo, &sXPos, &sYPos );
 
-				pPlanSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
+				(void)TacticalActorWorldPlacement::setPosition(*pPlanSoldier, sXPos, sYPos );
 				pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) sGridNo ); // Hopefully this code is never used anymore because the second param is now direction, not grid
 				pPlanSoldier->awareness().markVisible();
 				pPlanSoldier->movement().mode() = pUiPlannedSoldier->movement().mode();
@@ -215,7 +216,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 						}
 					}
 
-					pPlanSoldier->EVENT_SetSoldierPosition( pUiPlannedSoldier->position().worldX(), pUiPlannedSoldier->position().worldY() );
+					(void)TacticalActorWorldPlacement::setPosition(*pPlanSoldier, pUiPlannedSoldier->position().worldX(), pUiPlannedSoldier->position().worldY() );
 					pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) pUiPlannedSoldier->position().gridNo() );
 					pPlanSoldier->awareness().markVisible();
 					pPlanSoldier->movement().mode() = pUiPlannedSoldier->movement().mode();

@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAnimationFrames.h"
 #include "TacticalActorTurnBudget.h"
 	#include "builddefines.h"
@@ -602,7 +603,7 @@ void AddMercToWorld( INT32 iMapIndex )
 				gpSelected->pBasicPlacement->fOnRoof = TRUE;
 				if( gpSelected->pDetailedPlacement )
 					gpSelected->pDetailedPlacement->fOnRoof = TRUE;
-				gpSelected->pSoldier->SetSoldierHeight( 58.0 );
+				(void)TacticalActorWorldPlacement::setHeight(*gpSelected->pSoldier, 58.0 );
 			}
 			UnclickEditorButtons( FIRST_MERCS_INVENTORY_BUTTON, LAST_MERCS_INVENTORY_BUTTON );
 			for( i = FIRST_MERCS_INVENTORY_BUTTON; i <= LAST_MERCS_INVENTORY_BUTTON; i++ )
@@ -637,20 +638,20 @@ void HandleRightClickOnMerc( INT32 iMapIndex )
 	else if( gsSelectedMercID != -1 && IsLocationSittable( iMapIndex, gfRoofPlacement ) )// We want to move the selected merc to this new location.
 	{
 		RemoveAllObjectsOfTypeRange( gsSelectedMercGridNo, CONFIRMMOVE, CONFIRMMOVE );
-		gpSelected->pSoldier->EVENT_SetSoldierPosition( (FLOAT)(sCellX + 5), (FLOAT)(sCellY + 5) );
+		(void)TacticalActorWorldPlacement::setPosition(*gpSelected->pSoldier, (FLOAT)(sCellX + 5), (FLOAT)(sCellY + 5) );
 		if( gfRoofPlacement && FlatRoofAboveGridNo( iMapIndex ) )
 		{
 			gpSelected->pBasicPlacement->fOnRoof = TRUE;
 			if( gpSelected->pDetailedPlacement )
 				gpSelected->pDetailedPlacement->fOnRoof = TRUE;
-			gpSelected->pSoldier->SetSoldierHeight(	58.0 );
+			(void)TacticalActorWorldPlacement::setHeight(*gpSelected->pSoldier,	58.0 );
 		}
 		else
 		{
 			gpSelected->pBasicPlacement->fOnRoof = FALSE;
 			if( gpSelected->pDetailedPlacement )
 				gpSelected->pDetailedPlacement->fOnRoof = FALSE;
-			gpSelected->pSoldier->SetSoldierHeight(	0.0 );
+			(void)TacticalActorWorldPlacement::setHeight(*gpSelected->pSoldier,	0.0 );
 		}
 		gsSelectedMercGridNo = iMapIndex;
 		gpSelected->pBasicPlacement->usStartingGridNo = gsSelectedMercGridNo;
@@ -686,9 +687,7 @@ void ResetAllMercPositions()
 		//ConvertGridNoToCellXY( sMapIndex, &sCellX, &sCellY );
 		//if( gpSelected->pSoldier )
 		//{
-		//	EVENT_SetSoldierPosition( gpSelected->pSoldier, (FLOAT)(sCellX + 5), (FLOAT)(sCellY + 5) );
 		//	if( gpSelected->pBasicPlacement->fOnRoof )
-		//		gpSelected->pSoldier->SetSoldierHeight(	58.0 );
 		//	SetMercDirection( gpSelected->pBasicPlacement->ubDirection );
 		//}
 		curr = curr->next;
@@ -3860,7 +3859,7 @@ void PasteMercPlacement( INT32 iMapIndex )
 				gpSelected->pBasicPlacement->fOnRoof = TRUE;
 				if( gpSelected->pDetailedPlacement )
 					gpSelected->pDetailedPlacement->fOnRoof = TRUE;
-				gpSelected->pSoldier->SetSoldierHeight(	58.0 );
+				(void)TacticalActorWorldPlacement::setHeight(*gpSelected->pSoldier,	58.0 );
 			}
 			UnclickEditorButtons( FIRST_MERCS_INVENTORY_BUTTON, LAST_MERCS_INVENTORY_BUTTON );
 			for( i = FIRST_MERCS_INVENTORY_BUTTON; i <= LAST_MERCS_INVENTORY_BUTTON; i++ )

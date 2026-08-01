@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "builddefines.h"
 
 // WANNE 2 <changed some lines>
@@ -2302,7 +2303,7 @@ void PutDownMercPiece( INT32 iPlacement )
 
 			if ( FindStructure( sGridNo, STRUCTURE_NORMAL_ROOF ) != NULL && NewOKDestination( pSoldier, sGridNo, false, 1 ) )
 			{
-				pSoldier->SetSoldierHeight( (FLOAT)58 );
+				(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)58 );
 			}
 		}
 
@@ -2312,11 +2313,11 @@ void PutDownMercPiece( INT32 iPlacement )
 		FLOAT scY = (FLOAT)sCellY;//hayden
 		if (is_networked)
 		{
-			pSoldier->EVENT_SetSoldierPosition( scX, scY );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, scX, scY );
 		}
 		else
 		{
-			pSoldier->EVENT_SetSoldierPosition( (FLOAT)sCellX, (FLOAT)sCellY );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sCellX, (FLOAT)sCellY );
 		}
 
 		if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
@@ -2345,7 +2346,7 @@ void PickUpMercPiece( INT32 iPlacement )
 		return;
 	}
 
-	pSoldier->RemoveSoldierFromGridNo( );
+	(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
 	gMercPlacement[ iPlacement ].fPlaced = FALSE;
 	pSoldier->roster().inSector() = FALSE;
 }

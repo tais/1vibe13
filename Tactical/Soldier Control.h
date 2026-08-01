@@ -880,7 +880,6 @@ public:
 	BOOLEAN EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStartingAniCode, BOOLEAN fForce );
 
 	BOOLEAN ChangeSoldierState( UINT16 usNewState, UINT16 usStartingAniCode, BOOLEAN fForce );
-	void EVENT_SetSoldierPosition( FLOAT dNewXPos, FLOAT dNewYPos );
 	void EVENT_SetSoldierDestination( UINT8	ubNewDirection );
 	void EVENT_GetNewSoldierPath( INT32 sDestGridNo, UINT16 usMovementAnim );
 
@@ -888,12 +887,10 @@ public:
 	void EVENT_SetSoldierDesiredDirection( UINT16	usNewDirection );
 	void EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 ubDamage, INT16 sBreathLoss, UINT16 bDirection, UINT16 sRange, SoldierID ubAttackerID, UINT8 ubSpecial, UINT8 ubHitLocation, INT16 sSubsequent, INT32 sLocationGridNo );
 	void EVENT_StopMerc( INT32 sGridNo, INT8 bDirection );
-	void EVENT_SetSoldierPositionForceDelete( FLOAT dNewXPos, FLOAT dNewYPos );
 	void EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCounter );
 
 	BOOLEAN EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 usMovementAnim, BOOLEAN fFromUI, BOOLEAN fForceRestart );
 	void EVENT_InternalSetSoldierDestination( UINT16	usNewDirection, BOOLEAN fFromMove, UINT16 usAnimState );
-	void EVENT_InternalSetSoldierPosition( FLOAT dNewXPos, FLOAT dNewYPos ,BOOLEAN fUpdateDest, BOOLEAN fUpdateFinalDest, BOOLEAN fForceDelete );
 
 
 	// Soldier Management functions called by Overhead.c
@@ -913,8 +910,6 @@ public:
 	// This function is now obsolete.	Call ReduceAttackBusyCount instead.
 	// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
 	void SoldierGotoStationaryStance( void );
-	void RemoveSoldierFromGridNo( void );
-	void InternalRemoveSoldierFromGridNo( BOOLEAN fForce );
 
 
 	void AdjustNoAPToFinishMove( BOOLEAN fSet );
@@ -922,11 +917,6 @@ public:
 
 
 
-
-
-	void SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove );
-	void SetSoldierHeight( FLOAT dNewHeight );
-	void InternalSetSoldierHeight( FLOAT dNewHeight, BOOLEAN fUpdateLevel );//this function did not have a forward declaration
 
 
 	BOOLEAN DoMercBattleSound( UINT8 ubBattleSoundID );

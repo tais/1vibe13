@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
@@ -484,7 +485,7 @@ INT8 DecideActionSchedule( TacticalActor * pSoldier )
 		{
 		case 0:
 			ConvertGridNoToCenterCellXY(pSoldier->deployment().offWorldGrid(), &sX, &sY);
-			pSoldier->EVENT_SetSoldierPosition( sX, sY );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sX, sY );
 			pSoldier->roster().inSector() = TRUE;
 			MoveSoldierFromAwayToMercSlot(
 				GetJa2TacticalEntityId(*pSoldier));

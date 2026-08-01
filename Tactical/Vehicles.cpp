@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 	#include "Vehicles.h"
 #include <array>
 #include "TacticalActorRobotics.h"
@@ -759,10 +760,10 @@ BOOLEAN AddSoldierToVehicle( TacticalActor *pSoldier, INT32 iId, UINT8 ubSeatInd
 			}
 
 			// Remove soldier's graphic
-			pSoldier->RemoveSoldierFromGridNo( );
+			(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
 
 			// anyone entering a vehicle will be reset to ground level
-			pSoldier->SetSoldierHeight(FIRST_LEVEL);
+			(void)TacticalActorWorldPlacement::setHeight(*pSoldier,FIRST_LEVEL);
 
 			if ( pVehicleSoldier )
 			{
@@ -774,7 +775,6 @@ BOOLEAN AddSoldierToVehicle( TacticalActor *pSoldier, INT32 iId, UINT8 ubSeatInd
 				pSoldier->EVENT_SetSoldierDesiredDirection( ( pVehicleSoldier->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
 				// Set gridno for vehicle.....
-				//pSoldier->EVENT_SetSoldierPosition( pVehicleSoldier->position().worldX(), pVehicleSoldier->position().worldY() );
 				UpdateAllVehiclePassengersGridNo( pVehicleSoldier );
 
 				// Stop from any movement.....
@@ -1939,7 +1939,7 @@ BOOLEAN ExitVehicle( TacticalActor *pSoldier )
 		// Add to sector....
 		INT16 sX, sY;
 		ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
-		pSoldier->EVENT_SetSoldierPosition( sX, sY );
+		(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sX, sY );
 
 		// anv: since now they can shoot it's important to set passenger to proper stance
 		// namely, back to standing, because we set them to crouching when entering
@@ -2833,7 +2833,7 @@ void UpdateAllVehiclePassengersGridNo( TacticalActor *pSoldier )
 					break;
 			}
 			// Set gridno.....
-			pPassenger->EVENT_SetSoldierPosition( pSoldier->position().worldX() + dXOffset, pSoldier->position().worldY() + dYOffset);
+			(void)TacticalActorWorldPlacement::setPosition(*pPassenger, pSoldier->position().worldX() + dXOffset, pSoldier->position().worldY() + dYOffset);
 		}
 	}
 }

@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorTurnBudget.h"
 	#include "sgp.h"
 	#include "TacticalActorConditions.h"
@@ -1239,7 +1240,7 @@ TacticalActor* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldi
 
 		if( pCreateStruct->fOnRoof && FlatRoofAboveGridNo( pCreateStruct->sInsertionGridNo ) )
 		{
-			pLiveSoldier->SetSoldierHeight( 58.0 );
+			(void)TacticalActorWorldPlacement::setHeight(*pLiveSoldier, 58.0 );
 		}
 
 		//if we are loading DONT add men to team, because the number is restored in gTacticalStatus
@@ -2209,7 +2210,7 @@ BOOLEAN TacticalRemoveSoldierPointer( TacticalActor *pSoldier, BOOLEAN fRemoveVe
 		// Does another soldier exist here?
 		if ( pSoldier->roster().active()	)
 		{
-			pSoldier->RemoveSoldierFromGridNo( );
+			(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
 
 		// Delete shadow of crow....
 			if ( pSoldier->renderBindings().animationTile() != NULL )

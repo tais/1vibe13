@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 	#include "builddefines.h"
 #include "TacticalWorldAdapter.h"
 	#include "sgp_bounded_string.h"
@@ -1684,7 +1685,7 @@ void recieveguiPOS(RPCParameters *rpcParameters)
 	pSoldier->deployment().strategicInsertionCode()=INSERTION_CODE_GRIDNO;
 	pSoldier->deployment().insertionGrid() = pSoldier->deployment().strategicInsertionData();
 
-	pSoldier->EVENT_SetSoldierPosition( gnPOS->dNewXPos, gnPOS->dNewYPos );
+	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, gnPOS->dNewXPos, gnPOS->dNewYPos );
 }
 
 void send_gui_dir(TacticalActor *pSoldier, UINT16	usNewDirection)
@@ -4720,7 +4721,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 		// Start first AID
 		if(new_state->usNewState==START_AID)
 		{
-			pSoldier->EVENT_InternalSetSoldierPosition( new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
 			pSoldier->EVENT_SetSoldierDirection(	new_state->usNewDirection );
 			// SANDRO - we can now bandage mercs when prone, so change stance only if standing
 			if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND )
@@ -4732,7 +4733,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 		// SANDRO - if ordered to bandage in prone position...
 		else if (new_state->usNewState==START_AID_PRN)
 		{
-			pSoldier->EVENT_InternalSetSoldierPosition( new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
 			pSoldier->EVENT_SetSoldierDirection(	new_state->usNewDirection );
 			if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_PRONE )
 			{
@@ -4745,7 +4746,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 			// The usTargetGridNo holds the GridNo of the fence tile
 			pSoldier->targeting().gridNo() = new_state->usTargetGridNo;
 
-			pSoldier->EVENT_InternalSetSoldierPosition( new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
+			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
 			pSoldier->ChangeSoldierStance( ANIM_CROUCH );
 			pSoldier->EVENT_SetSoldierDirection(	new_state->usNewDirection );
 		}
@@ -5236,7 +5237,7 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 
 	if( pSoldier->position().gridNo() != SUpdateNetworkSoldier->sAtGridNo)
 	{
-		pSoldier->EVENT_InternalSetSoldierPosition( sCellX, sCellY ,FALSE, FALSE, FALSE );//new syncing call to correct network lag/drift
+		(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sCellX, sCellY ,FALSE, FALSE, FALSE );//new syncing call to correct network lag/drift
 	}
 
 	if(pSoldier->position().direction() != SUpdateNetworkSoldier->ubDirection)

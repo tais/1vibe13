@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorLighting.h"
 	#include "builddefines.h"
@@ -7255,7 +7256,7 @@ void CheckForAndAddMercToTeamPanel( TacticalActor *pSoldier )
 			{
 				// Make sure we are NOT in this world!
 				// Set gridno to one that's not visib;l
-				pSoldier->RemoveSoldierFromGridNo( );
+				(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
 
 				// Remove slot from tactical
 				RemoveJa2ActiveTacticalActor(

@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 	#include "types.h"
 	#include "SoldierRepository.h"
 	#include "MemMan.h"
@@ -1951,7 +1952,6 @@ void SaveNPCInformationToProfileStruct( )
 	}
 }
 
-extern void EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( TacticalActor *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos, BOOLEAN fUpdateDest,  BOOLEAN fUpdateFinalDest );
 
 void LoadNPCInformationFromProfileStruct()
 {
@@ -2049,7 +2049,7 @@ void LoadNPCInformationFromProfileStruct()
 				if (pSoldier->dialogue().hasQuoteRecord() && pSoldier->dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST )
 				{
 					//the mercs gridno has to be the same as the final destination
-					pSoldier->EVENT_SetSoldierPosition( (FLOAT) sX, (FLOAT) sY );
+					(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT) sX, (FLOAT) sY );
 
 					NPCReachedDestination( pSoldier, FALSE );
 				}
@@ -2067,7 +2067,7 @@ void LoadNPCInformationFromProfileStruct()
 					pSoldier->pathing().destinationY() = sYPos;
 
 					// We have moved to a diferent sector and are returning to it, therefore the merc should be in the final dest
-					EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( pSoldier, (FLOAT) sX, (FLOAT) sY, FALSE, TRUE );
+					(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT) sX, (FLOAT) sY, FALSE, TRUE );
 				}
 
 				//else we are saving
@@ -2075,8 +2075,7 @@ void LoadNPCInformationFromProfileStruct()
 				{
 
 					//Set the NPC's position
-	//				pSoldier->EVENT_SetSoldierPosition( (FLOAT) sX, (FLOAT) sY );
-					EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( pSoldier, (FLOAT) sX, (FLOAT) sY, FALSE, FALSE );
+					(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT) sX, (FLOAT) sY, FALSE, FALSE );
 				}
 			}
 		}

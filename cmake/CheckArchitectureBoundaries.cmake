@@ -2204,6 +2204,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRangedActions.h"
   tactical_actor_ranged_actions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRangedActions.cpp"
   tactical_actor_ranged_actions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorWorldPlacement.h"
+  tactical_actor_world_placement_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorWorldPlacement.cpp"
+  tactical_actor_world_placement_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.h"
   tactical_actor_ai_behavior_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.cpp"
@@ -3124,6 +3128,14 @@ foreach(retired_actor_facade IN ITEMS
   "SoldierReadyWeapon"
   "InternalSoldierReadyWeapon"
   "ReLoadSoldierAnimationDueToHandItemChange"
+  "InternalRemoveSoldierFromGridNo"
+  "RemoveSoldierFromGridNo"
+  "EVENT_InternalSetSoldierPosition"
+  "EVENT_SetSoldierPosition"
+  "EVENT_SetSoldierPositionForceDelete"
+  "InternalSetSoldierHeight"
+  "SetSoldierHeight"
+  "SetSoldierGridNo"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3155,6 +3167,63 @@ foreach(retired_actor_facade IN ITEMS
     message(FATAL_ERROR
       "TacticalActor regained retired facade '${retired_actor_facade}'")
   endif()
+endforeach()
+
+string(FIND "${tactical_actor_source_contents}"
+  "EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination("
+  retired_actor_position_wrapper)
+if(NOT retired_actor_position_wrapper EQUAL -1)
+  message(FATAL_ERROR
+    "Retired global tactical actor position wrapper returned; use TacticalActorWorldPlacement::setPosition")
+endif()
+
+foreach(required_world_placement_operation IN ITEMS
+  "removeFromGrid"
+  "setPosition"
+  "setHeight"
+  "setGrid")
+  string(FIND "${tactical_actor_world_placement_header_contents}"
+    "${required_world_placement_operation}("
+    world_placement_operation_declaration)
+  string(FIND "${tactical_actor_world_placement_source_contents}"
+    "TacticalActorWorldPlacement::${required_world_placement_operation}("
+    world_placement_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorWorldPlacement::${required_world_placement_operation}("
+    world_placement_operation_coverage)
+  if(world_placement_operation_declaration EQUAL -1 OR
+     world_placement_operation_definition EQUAL -1 OR
+     world_placement_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor world-placement operation '${required_world_placement_operation}' lost its declaration, definition, or malformed-state coverage")
+  endif()
+endforeach()
+
+set(world_placement_production_sources ${world_state_files})
+list(APPEND world_placement_production_sources
+  "${SOURCE_ROOT}/lua/lua_tactical.cpp")
+foreach(world_placement_source IN LISTS world_placement_production_sources)
+  file(READ "${world_placement_source}"
+    world_placement_source_contents)
+  foreach(retired_world_placement_call IN ITEMS
+    "InternalRemoveSoldierFromGridNo"
+    "RemoveSoldierFromGridNo"
+    "EVENT_InternalSetSoldierPosition"
+    "EVENT_SetSoldierPosition"
+    "EVENT_SetSoldierPositionForceDelete"
+    "EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination"
+    "InternalSetSoldierHeight"
+    "SetSoldierHeight"
+    "SetSoldierGridNo")
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${retired_world_placement_call}[ \t\r\n]*\\("
+      retired_world_placement_usage
+      "${world_placement_source_contents}")
+    if(retired_world_placement_usage)
+      message(FATAL_ERROR
+        "Production caller in ${world_placement_source} restored retired world-placement entry '${retired_world_placement_call}'")
+    endif()
+  endforeach()
 endforeach()
 
 foreach(required_ranged_action IN ITEMS
@@ -3666,6 +3735,7 @@ endforeach()
 foreach(required_actor_domain_source IN ITEMS
   "TacticalActorMobility.cpp"
   "TacticalActorRangedActions.cpp"
+  "TacticalActorWorldPlacement.cpp"
   "TacticalActorWeaponHandling.cpp"
   "TacticalActorAiBehavior.cpp"
   "TacticalActorDamageQueue.cpp"
