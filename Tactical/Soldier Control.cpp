@@ -25,6 +25,7 @@
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorProfileClassification.h"
 #include "TacticalActorWeaponHandling.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
@@ -12828,7 +12829,10 @@ STR16 TacticalActor::GetName( )
 
 	if ( this->identity().dataProfile() )
 	{
-		INT8 type = this->GetSoldierProfileType( this->roster().team() );
+		const INT8 type =
+			TacticalActorProfileClassification::profileTableIndex(
+				*this,
+				this->roster().team());
 		if ( type > -1 )
 		{
 			wcscpy( tmpname[tmpuser], zSoldierProfile[type][this->identity().dataProfile()].szName );
@@ -13285,46 +13289,6 @@ static bool addBestFlashlight(TacticalActor& actor)
     }
 
     return true;
-}
-
-// Flugente: soldier profiles
-// retrieves the correct sub-array
-INT8 TacticalActor::GetSoldierProfileType( UINT8 usTeam )
-{
-	INT8 type = -1;
-
-	if ( usTeam == ENEMY_TEAM && gGameExternalOptions.fSoldierProfiles_Enemy )
-	{
-		switch ( this->roster().soldierClass() )
-		{
-		case SOLDIER_CLASS_ELITE:
-			type = 2;
-			break;
-		case SOLDIER_CLASS_ARMY:
-			type = 1;
-			break;
-		case SOLDIER_CLASS_ADMINISTRATOR:
-			type = 0;
-			break;
-		}
-	}
-	else if ( usTeam == MILITIA_TEAM && gGameExternalOptions.fSoldierProfiles_Militia )
-	{
-		switch ( this->roster().soldierClass() )
-		{
-		case SOLDIER_CLASS_ELITE_MILITIA:
-			type = 5;
-			break;
-		case SOLDIER_CLASS_REG_MILITIA:
-			type = 4;
-			break;
-		case SOLDIER_CLASS_GREEN_MILITIA:
-			type = 3;
-			break;
-		}
-	}
-
-	return type;
 }
 
 namespace

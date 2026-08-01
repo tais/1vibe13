@@ -1445,6 +1445,16 @@ the engine must not contain SDL types in its public domain model.
   legacy audio or face state can be reached. Existing damage rules, battle
   sounds, portraits, UI timing, XML, Lua, saves, and network formats are
   unchanged.
+  `TacticalActorProfileClassification` owns the optional generated-soldier
+  profile-table classification shared by actor creation and display-name
+  resolution. It maps only the three enemy and three militia soldier classes
+  to their established six table indexes when the corresponding profile
+  feature is enabled; unrelated teams, cross-team classes, disabled tables,
+  and malformed class values resolve to no table. The aggregate
+  `GetSoldierProfileType` façade is retired, so palette, body, trait, and name
+  consumers enter the same compiled policy. Existing soldier-profile XML,
+  table ordering, generated identities, palettes, traits, names, saves, Lua,
+  and network formats are unchanged.
   `TacticalActorRecovery` owns sleep-dart application, breath-collapse
   detection, collapse execution, and get-up progression. The two former
   aggregate methods plus the global collapse entry point and sleep-dart helper

@@ -954,9 +954,6 @@ public:
 
 	//void		AddDrugValues(UINT8 uDrugType, UINT8 usEffect, UINT8 usTravelRate, UINT8 usSideEffect );
 
-	// Flugente: soldier profiles
-	INT8		GetSoldierProfileType(UINT8 usTeam);		// retrieves the correct sub-array
-
 	void		SoldierPropertyUpkeep();					// update functions for various properties (updating counters, resetting flags etc.)
 
 	void	PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc = FALSE );
