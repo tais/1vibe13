@@ -1,5 +1,6 @@
 #include "TacticalActorCombatReactions.h"
 
+#include "TacticalActorOrientation.h"
 #include "Animation Control.h"
 #include "Debug Control.h"
 #include "Isometric Utils.h"
@@ -226,7 +227,7 @@ bool TacticalActorCombatReactions::beginFlyback(
 	if (!prepareReactionPath(actor, secondGrid, 2))
 		return false;
 
-	actor.EVENT_InternalSetSoldierDestination(
+	(void)TacticalActorOrientation::setMovementDestination(actor,
 		actor.pathing().path()[
 			actor.pathing().pathIndex()],
 		FALSE,
@@ -269,7 +270,7 @@ bool TacticalActorCombatReactions::beginFallback(
 	if (!prepareReactionPath(actor, destination, 1))
 		return false;
 
-	actor.EVENT_InternalSetSoldierDestination(
+	(void)TacticalActorOrientation::setMovementDestination(actor,
 		actor.pathing().path()[
 			actor.pathing().pathIndex()],
 		FALSE,

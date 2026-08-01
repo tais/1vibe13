@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAnimationFrames.h"
 #include "TacticalActorTurnBudget.h"
@@ -1499,8 +1500,12 @@ void SetMercDirection( INT8 bDirection )
 	gpSelected->pBasicPlacement->ubDirection = bDirection;
 
 	// ATE: Changed these to call functions....
-	gpSelected->pSoldier->EVENT_SetSoldierDirection( bDirection );
-	gpSelected->pSoldier->EVENT_SetSoldierDesiredDirection( bDirection );
+	(void)TacticalActorOrientation::setDirection(
+		*gpSelected->pSoldier,
+		bDirection);
+	(void)TacticalActorOrientation::setDesiredDirection(
+		*gpSelected->pSoldier,
+		bDirection);
 
 	(void)TacticalActorAnimationFrames::selectFrame(
 		*gpSelected->pSoldier,

@@ -880,19 +880,11 @@ public:
 	BOOLEAN EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStartingAniCode, BOOLEAN fForce );
 
 	BOOLEAN ChangeSoldierState( UINT16 usNewState, UINT16 usStartingAniCode, BOOLEAN fForce );
-	void EVENT_SetSoldierDestination( UINT8	ubNewDirection );
-
-	void EVENT_SetSoldierDirection( UINT16	usNewDirection );
-	void EVENT_SetSoldierDesiredDirection( UINT16	usNewDirection );
 	void EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 ubDamage, INT16 sBreathLoss, UINT16 bDirection, UINT16 sRange, SoldierID ubAttackerID, UINT8 ubSpecial, UINT8 ubHitLocation, INT16 sSubsequent, INT32 sLocationGridNo );
 	void EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCounter );
 
-	void EVENT_InternalSetSoldierDestination( UINT16	usNewDirection, BOOLEAN fFromMove, UINT16 usAnimState );
-
 
 	// Soldier Management functions called by Overhead.c
-	void TurnSoldier( void );
-	void ChangeSoldierStance( UINT8 ubDesiredStance );
 	void ReviveSoldier( void );
 	UINT8 SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBreathDeduct, UINT8 ubReason, SoldierID ubAttacker, INT32 sSourceGrid, INT16 sSubsequent, BOOLEAN fShowDamage );
 

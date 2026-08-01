@@ -1,5 +1,6 @@
 #include "TacticalActorCombatActions.h"
 
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 
 #include "Animation Control.h"
@@ -147,8 +148,8 @@ void faceForMelee(
 	}
 
 	actor.status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;
-	actor.EVENT_SetSoldierDesiredDirection(direction);
-	actor.EVENT_SetSoldierDirection(direction);
+	(void)TacticalActorOrientation::setDesiredDirection(actor, direction);
+	(void)TacticalActorOrientation::setDirection(actor, direction);
 	if (actor.animationActivity().turningFromProneMode())
 	{
 		actor.animationActivity().turningFromProneMode() =
@@ -948,8 +949,8 @@ bool TacticalActorCombatActions::beginKnifeThrow(
 	{
 		actor.status().flags() |=
 			SOLDIER_LOOK_NEXT_TURNSOLDIER;
-		actor.EVENT_SetSoldierDesiredDirection(direction);
-		actor.EVENT_SetSoldierDirection(direction);
+		(void)TacticalActorOrientation::setDesiredDirection(actor, direction);
+		(void)TacticalActorOrientation::setDirection(actor, direction);
 	}
 	usForceAnimState = INVALID_ANIMATION;
 

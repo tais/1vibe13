@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorLighting.h"
 #include "TacticalActorMobility.h"
@@ -4531,7 +4532,7 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 				// SANDRO - Enhanced Close Combat System - Notice merc after stealing
 				// sevenfm: don't turn when lying prone
 				if ( gGameExternalOptions.fEnhancedCloseCombatSystem && gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight != ANIM_PRONE )
-					pTargetSoldier->EVENT_SetSoldierDesiredDirection( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTargetSoldier ) );
+					(void)TacticalActorOrientation::setDesiredDirection(*pTargetSoldier, GetDirectionFromGridNo( pSoldier->position().gridNo(), pTargetSoldier ) );
 
 				// 0verhaul:  Also handled in the animation transition
 				// #ifdef JA2BETAVERSION

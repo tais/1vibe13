@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 	#include "builddefines.h"
@@ -1721,7 +1722,7 @@ void recieveguiDIR(RPCParameters *rpcParameters)
 		return;   // direction off the wire must be 0..7
 	}
 
-	pSoldier->EVENT_SetSoldierDirection( gnDIR->usNewDirection );
+	(void)TacticalActorOrientation::setDirection(*pSoldier, gnDIR->usNewDirection );
 }
 
 
@@ -4723,11 +4724,11 @@ void recieveSTATE(RPCParameters *rpcParameters)
 		if(new_state->usNewState==START_AID)
 		{
 			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
-			pSoldier->EVENT_SetSoldierDirection(	new_state->usNewDirection );
+			(void)TacticalActorOrientation::setDirection(*pSoldier, 	new_state->usNewDirection );
 			// SANDRO - we can now bandage mercs when prone, so change stance only if standing
 			if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND )
 			{
-				pSoldier->ChangeSoldierStance( ANIM_CROUCH );
+				(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_CROUCH );
 			}
 
 		}
@@ -4735,10 +4736,10 @@ void recieveSTATE(RPCParameters *rpcParameters)
 		else if (new_state->usNewState==START_AID_PRN)
 		{
 			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
-			pSoldier->EVENT_SetSoldierDirection(	new_state->usNewDirection );
+			(void)TacticalActorOrientation::setDirection(*pSoldier, 	new_state->usNewDirection );
 			if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_PRONE )
 			{
-				pSoldier->ChangeSoldierStance( ANIM_PRONE );
+				(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_PRONE );
 			}
 		}
 		// Start cutting fence
@@ -4748,8 +4749,8 @@ void recieveSTATE(RPCParameters *rpcParameters)
 			pSoldier->targeting().gridNo() = new_state->usTargetGridNo;
 
 			(void)TacticalActorWorldPlacement::setPosition(*pSoldier, new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
-			pSoldier->ChangeSoldierStance( ANIM_CROUCH );
-			pSoldier->EVENT_SetSoldierDirection(	new_state->usNewDirection );
+			(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_CROUCH );
+			(void)TacticalActorOrientation::setDirection(*pSoldier, 	new_state->usNewDirection );
 		}
 
 		// MP echo guard: already collapsed locally -- don't stand him up and replay
@@ -5243,11 +5244,11 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 
 	if(pSoldier->position().direction() != SUpdateNetworkSoldier->ubDirection)
 	{
-		pSoldier->EVENT_SetSoldierDesiredDirection( SUpdateNetworkSoldier->ubDirection );
+		(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, SUpdateNetworkSoldier->ubDirection );
 	}
 	if(gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != SUpdateNetworkSoldier->ubNewStance && pSoldier->collapseState().tactical() != TRUE)
 	{
-		pSoldier->ChangeSoldierStance( SUpdateNetworkSoldier->ubNewStance );
+		(void)TacticalActorOrientation::changeStance(*pSoldier, SUpdateNetworkSoldier->ubNewStance );
 	}
 		
 	pSoldier->vitals().bleeding()=SUpdateNetworkSoldier->bBleeding;

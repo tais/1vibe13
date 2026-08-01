@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorPrisonerOperations.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorMedicalTreatment.h"
@@ -9407,7 +9408,7 @@ void AssignmentDone( TacticalActor *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo 
 		{
 			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
-				pSoldier->ChangeSoldierStance( ANIM_CROUCH );
+				(void)TacticalActorOrientation::changeStance(*pSoldier, ANIM_CROUCH );
 			}
 			else
 			{

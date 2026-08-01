@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorWorldPlacement.h"
 #include "Lua Interpreter.h"
 #include "lwstring.h"
@@ -157,7 +158,7 @@ static int LuaSoldierChangeStance( lua_State *L )
 	TacticalActor **ppSoldier = (TacticalActor**) luaL_checkudata( L, 1, SOLDIER_CLASS );
 	TacticalActor *pSoldier = *ppSoldier;
 	int newstance = luaL_checkinteger( L, 2);
-	pSoldier->ChangeSoldierStance( (UINT8) newstance);
+	(void)TacticalActorOrientation::changeStance(*pSoldier, (UINT8) newstance);
 	return 0;
 }
 

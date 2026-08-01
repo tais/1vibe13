@@ -1,5 +1,6 @@
 #include "TacticalActorRouteExecution.h"
 
+#include "TacticalActorOrientation.h"
 #include "Animation Control.h"
 #include "Dialogue Control.h"
 #include "Event Pump.h"
@@ -230,7 +231,7 @@ void stopAtUnchecked(
 		static_cast<INT16>(actor.position().worldX());
 	actor.pathing().destinationY() =
 		static_cast<INT16>(actor.position().worldY());
-	actor.EVENT_SetSoldierDirection(direction);
+	(void)TacticalActorOrientation::setDirection(actor, direction);
 
 	if (gAnimControl[actor.animationPlayback().state()].uiFlags & ANIM_MOVING)
 		settleIntoStationaryStanceUnchecked(actor);

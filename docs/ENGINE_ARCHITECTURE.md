@@ -1398,6 +1398,20 @@ the engine must not contain SDL types in its public domain model.
   grid, direction, path-buffer, movement-animation, origin, and vehicle state
   before mutation. Existing pathfinding, animations, network commands, maps,
   schedules, saves, Lua APIs, and installed content formats are unchanged.
+  `TacticalActorOrientation` owns the complementary live stance and facing
+  lifecycle: stance transitions, movement destinations, desired and current
+  facing, multi-tile turn selection, and per-frame vehicle or infantry turn
+  advancement. Tactical, strategic, editor, multiplayer, Lua, event-pump,
+  simulation-command, and actor-domain callers now enter five bounded
+  operations instead of six aggregate methods and two global turn helpers.
+  The domain keeps AP and breath costs, prone transitions, animation
+  footprints, structures, flashlights, sight/UI ownership, vehicle sounds,
+  and passenger rotation coordinated as complete transitions. It rejects an
+  unavailable tactical world and malformed actor, animation, stance, grid,
+  direction, movement, queued transition, high-resolution facing, hit-turn,
+  passenger, or vehicle state before mutation. Existing animation data,
+  pathfinding, network messages, replay commands, maps, schedules, saves, Lua
+  APIs, and installed content formats are unchanged.
   `TacticalActorConditionPresentation` owns the localized food, disease, and
   sleep description boundary for tactical and strategic actor tooltips. The
   two complete status tooltips use one ordered `appendSummary` operation,

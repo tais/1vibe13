@@ -631,6 +631,18 @@ level, grid, direction, path-buffer, movement-animation, origin, or vehicle
 state before mutation. This C++ boundary does not change pathfinding, network
 commands, maps, schedules, saves, the `ActionStopMerc` Lua API, or installed
 content formats.
+`TacticalActorOrientation` is the application-side boundary for live stance
+and facing transitions. Use `changeStance`, `setMovementDestination`,
+`setDesiredDirection`, `setDirection`, and `advanceTurn`; do not restore the
+former aggregate destination, facing, stance, and turn façades or the global
+desired-direction and multi-tile-turn helpers. These operations coordinate AP
+and breath costs, prone transitions, animation footprints, structures,
+flashlights, sight/UI ownership, vehicle sounds, and passenger rotation. They
+reject an unavailable tactical world and malformed actor, animation, stance,
+grid, direction, movement, queued transition, high-resolution facing,
+hit-turn, passenger, or vehicle state without partial mutation. This C++
+boundary does not change animation data, pathfinding, network messages, replay
+commands, maps, schedules, saves, Lua APIs, or installed content formats.
 `TacticalActorConditionPresentation` is the application-side boundary for
 localized food, disease, and sleep text. Use `appendSummary` when composing a
 complete tactical or strategic status tooltip, or the focused append

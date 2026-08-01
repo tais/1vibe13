@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorWorldPlacement.h"
 #include "builddefines.h"
 
@@ -2324,7 +2325,7 @@ void PutDownMercPiece( INT32 iPlacement )
 		{
 			ubDirection = (UINT8)GetDirectionToGridNoFromGridNo( gMapInformation.sCenterGridNo, sGridNo );
 		}
-		pSoldier->EVENT_SetSoldierDirection( ubDirection );
+		(void)TacticalActorOrientation::setDirection(*pSoldier, ubDirection );
 		ubDirection += 100;
 		pSoldier->deployment().insertionDirection() = ubDirection;
 

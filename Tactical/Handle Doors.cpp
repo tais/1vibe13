@@ -1,3 +1,4 @@
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 	#include <wchar.h>
 	#include "SoldierRepository.h"
@@ -337,7 +338,7 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 		}
 	}
 
-	pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
+	(void)TacticalActorOrientation::setDesiredDirection(*pSoldier, ubDirection );
 
 	// Is the door opened?
 	if ( pStructure->fFlags & STRUCTURE_OPEN )

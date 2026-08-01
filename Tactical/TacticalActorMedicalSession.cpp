@@ -1,5 +1,6 @@
 #include "TacticalActorMedicalSession.h"
 
+#include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 
 #include "Animation Control.h"
@@ -138,8 +139,8 @@ void beginAidAnimation(
 	{
 		medic.status().flags() |=
 			SOLDIER_LOOK_NEXT_TURNSOLDIER;
-		medic.EVENT_SetSoldierDesiredDirection(direction);
-		medic.EVENT_SetSoldierDirection(direction);
+		(void)TacticalActorOrientation::setDesiredDirection(medic, direction);
+		(void)TacticalActorOrientation::setDirection(medic, direction);
 	}
 
 	const UINT16 animation =
