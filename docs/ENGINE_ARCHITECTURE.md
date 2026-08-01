@@ -1476,19 +1476,22 @@ the engine must not contain SDL types in its public domain model.
   `TacticalActorInteractions` now also owns the bounded person-to-person
   action and conversation boundaries: resolved conversation initiation and
   civilian, militia, trader, surrender, volunteer, and NPC dialogue routing;
-  chat teardown; item giving; handcuffing; equipment or consumable
-  application; blood collection; and splint application. Six aggregate
-  methods and the global volunteer-recruitment helper are retired. Stable
+  chat teardown; standing or low-posture item-transfer animation routing; item
+  giving; handcuffing; equipment or consumable application; blood collection;
+  and splint application. Seven aggregate methods and the global
+  volunteer-recruitment helper are retired. Stable
   simulation commands retain delayed target identities and pass resolved
   actor references into the domain. Target identity and location, actor
   world/animation state, profile, dealer, strategic sector and town bounds,
   inventory stacks and item IDs, handcuff/splint/blood-bag flags, captive
   inventory, and replacement blood-bag creation are validated before
-  mutation. Failed give-item continuations no longer expose an uninitialised
-  target, zero-weight items cannot divide resistance checks, and a missing
-  replacement blood bag no longer consumes the empty bag. Existing items,
-  traits, maps, XML, Lua, dialogue, animations, and other installed mod-data
-  formats are unchanged.
+  mutation. `PickDropItemAnimation` is retired: pickup and drop callers enter
+  `beginItemTransfer`, which preserves the deferred standing animation and the
+  immediate crouched/prone completion. Failed give-item continuations no longer
+  expose an uninitialised target, zero-weight items cannot divide resistance
+  checks, and a missing replacement blood bag no longer consumes the empty
+  bag. Existing items, traits, maps, XML, Lua, dialogue, animations, and other
+  installed mod-data formats are unchanged.
   `TacticalActorLighting` owns the player-merc personal-light lifecycle:
   bounded creation, recreation, destruction, positioning, and the merc render
   node's personal-light shade levels. Five aggregate light methods plus the

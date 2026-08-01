@@ -699,12 +699,15 @@ installed item, map, animation, dialogue, audio, XML, Lua, and network
 formats.
 `TacticalActorInteractions` owns resolved conversation initiation and
 civilian, militia, trader, surrender, volunteer, and NPC dialogue routing in
-addition to chat teardown, person-to-person item giving, handcuffing,
-equipment/consumable application, blood collection, and splint application.
-New callers use `startConversation` and the other bounded operations instead
-of restoring `PlayerSoldierStartTalking`, `HandleVolunteerRecruitment`, or the
-retired aggregate `EVENT_Soldier*` methods. Delayed player intent remains a
-stable simulation command until execution resolves both actor identities.
+addition to chat teardown, item-transfer animation routing, person-to-person
+item giving, handcuffing, equipment/consumable application, blood collection,
+and splint application. Pickup and drop callers use `beginItemTransfer`, which
+defers a standing actor through `DROP_ITEM` and completes crouched or prone
+transfers immediately. New callers use `startConversation` and the other
+bounded operations instead of restoring `PlayerSoldierStartTalking`,
+`HandleVolunteerRecruitment`, `PickDropItemAnimation`, or the retired aggregate
+`EVENT_Soldier*` methods. Delayed player intent remains a stable simulation
+command until execution resolves both actor identities.
 The boundary revalidates the live world, actor and target locations,
 directions, animation state, profiles, dealer/sector/town indexes, inventory
 stacks, item IDs and flags, and repository identity after movement. Installed

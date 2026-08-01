@@ -366,6 +366,31 @@ void dropCaptiveHandItem(
 }
 }
 
+bool TacticalActorInteractions::beginItemTransfer(
+	TacticalActor& actor)
+{
+	if (!hasLiveInteractionContext(actor))
+		return false;
+
+	switch (gAnimControl[actor.animationPlayback().state()].ubHeight)
+	{
+	case ANIM_STAND:
+		actor.aiPlanning().action() = AI_ACTION_PENDING_ACTION;
+		actor.EVENT_InitNewSoldierAnim(DROP_ITEM, 0, FALSE);
+		return true;
+
+	case ANIM_CROUCH:
+	case ANIM_PRONE:
+		SoldierHandleDropItem(&actor);
+		actor.SoldierGotoStationaryStance();
+		ActionDone(&actor);
+		return true;
+
+	default:
+		return false;
+	}
+}
+
 bool TacticalActorInteractions::startConversation(
 	TacticalActor& actor,
 	TacticalActor& target,

@@ -18166,28 +18166,6 @@ void PickPickupAnimation( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGrid
 	}
 }
 
-void TacticalActor::PickDropItemAnimation( void )
-{
-	// Don't show animation of getting item, if we are not standing
-	switch ( gAnimControl[this->animationPlayback().state()].ubHeight )
-	{
-	case ANIM_STAND:
-
-		this->aiPlanning().action() = AI_ACTION_PENDING_ACTION;
-		this->EVENT_InitNewSoldierAnim( DROP_ITEM, 0, FALSE );
-		break;
-
-	case ANIM_CROUCH:
-	case ANIM_PRONE:
-
-		SoldierHandleDropItem( this );
-		this->SoldierGotoStationaryStance( );
-		ActionDone( this );
-		break;
-	}
-}
-
-
 BOOLEAN MercStealFromMerc( TacticalActor *pSoldier, TacticalActor *pTarget )
 {
 	INT32 sActionGridNo, sGridNo, sAdjustedGridNo;
