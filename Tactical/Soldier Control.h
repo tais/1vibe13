@@ -925,7 +925,6 @@ public:
 
 
 
-	void ResetSoldierChangeStatTimer( void );
 	void SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove );
 	void SetSoldierHeight( FLOAT dNewHeight );
 	void InternalSetSoldierHeight( FLOAT dNewHeight, BOOLEAN fUpdateLevel );//this function did not have a forward declaration
@@ -944,11 +943,6 @@ public:
 	BOOLEAN InternalSoldierReadyWeapon( UINT8 sFacingDir, BOOLEAN fEndReady, BOOLEAN fRaiseToHipOnly );
 
 	BOOLEAN CheckSoldierHitRoof( void );
-	// reset the extra stat variables
-	void	ResetExtraStats();
-
-	void InitializeExtraData(void);
-
 	// Flugente: return a soldier's name. This allows for very easy manipulation of a soldier's name with pre- an suffixes, ranks etc.
 	STR16		GetName();
 

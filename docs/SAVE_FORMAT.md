@@ -202,9 +202,10 @@ on every platform, which also makes saves shareable across Win/Lin/Mac.
   are live domain components while the visitor retains their historical stream
   sections and ordering. ~20 interleaved runtime
   pointers use `ar.ptr()` (written as nothing, NULL on load — re-derived by
-  `InitializeExtraData()`/palette+world rebuild, matching old behaviour which
-  only persisted garbage pointer values). `signed long` pinned to 32-bit via
-  `ar.slong`; `SoldierID` via its UINT16 `.i`. Builds on JA2/JA2UB/MAPEDITOR.
+  the runtime-state reset and palette/world rebuild, matching old behaviour
+  which only persisted garbage pointer values). `signed long` pinned to 32-bit
+  via `ar.slong`; `SoldierID` via its UINT16 `.i`. Builds on
+  JA2/JA2UB/MAPEDITOR.
 - ☐ Audit the **rest of the save stream** in `SaveLoadGame.cpp` and the other
   save modules (`Tactical Save`, strategic/laptop/finance/history/email/quest
   blobs, sector data) for bare `int`/`long`/`enum`/`BOOLEAN` and raw struct

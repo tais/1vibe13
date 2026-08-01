@@ -470,9 +470,6 @@ void TacticalActor::initialize( )
 	renderBindings().reset();
 	runtime().reset();
 
-	// sevenfm:initialize additional data
-	this->InitializeExtraData();
-
 	// Initialize all SoldierID fields to NOBODY. 0 is a valid value!
 	this->identity().id() = NOBODY;
 	this->targeting().clearEngagedOpponent();
@@ -6271,7 +6268,7 @@ void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeC
 	this->featureFlags().secondaryFlags() &= ~SOLDIER_SNEAK_ATTACK;
 
 	// Flugente: reset extra stats. Currently they only depend on drug effects, and those are reset every turn
-	this->ResetExtraStats( );
+	this->condition().clearExtraStats();
 
 	// ATE: Add decay effect sfor drugs...
 	//if ( fFromRealTime  ) //&& iRealTimeCounter % 300 )
@@ -10998,12 +10995,6 @@ std::int16_t TacticalActorModifiers::sightRangeBonus(TacticalActor& actor)
 	return bonus;
 }
 
-
-// reset the extra stat variables
-void	TacticalActor::ResetExtraStats( )
-{
-	condition().clearExtraStats();
-}
 
 // Flugente: do we currently provide ammo (pAmmoSlot) for someone else's (pubId) gun (pGunSlot)?
 bool TacticalActorEquipment::externalFeeding(
@@ -18197,12 +18188,6 @@ void TacticalActor::PickDropItemAnimation( void )
 }
 
 
-void TacticalActor::ResetSoldierChangeStatTimer( void )
-{
-	this->statProgress().reset();
-}
-
-
 BOOLEAN MercStealFromMerc( TacticalActor *pSoldier, TacticalActor *pTarget )
 {
 	INT32 sActionGridNo, sGridNo, sAdjustedGridNo;
@@ -20047,9 +20032,4 @@ BOOLEAN ApplyConsumable(TacticalActor* pSoldier, OBJECTTYPE *pObj, BOOLEAN fForc
 	}
 
 	return FALSE;
-}
-
-void TacticalActor::InitializeExtraData(void)
-{
-	this->runtime().reset();
 }

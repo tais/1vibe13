@@ -1455,6 +1455,15 @@ the engine must not contain SDL types in its public domain model.
   consumers enter the same compiled policy. Existing soldier-profile XML,
   table ordering, generated identities, palettes, traits, names, saves, Lua,
   and network formats are unchanged.
+  Reset ownership now terminates at the canonical components instead of
+  crossing generic aggregate façades. Turn start clears temporary stat
+  modifiers through `SoldierConditionComponent`, the platform clock-overflow
+  recovery resets `SoldierStatProgressComponent`, and actor creation, reuse,
+  and post-load cleanup reset `SoldierRuntimeComponents` directly. The
+  redundant `ResetExtraStats`, `ResetSoldierChangeStatTimer`, and
+  `InitializeExtraData` methods are retired and ratcheted against returning.
+  Component layout, initialization semantics, save bytes, campaign behavior,
+  and installed content formats are unchanged.
   `TacticalActorRecovery` owns sleep-dart application, breath-collapse
   detection, collapse execution, and get-up progression. The two former
   aggregate methods plus the global collapse entry point and sleep-dart helper

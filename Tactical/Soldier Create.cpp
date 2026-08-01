@@ -2143,8 +2143,7 @@ void InitSoldierStruct( TacticalActor *pSoldier )
 	pSoldier->fireControl().bulletsLeft()				= 0;
 	pSoldier->assignment().clearRepairVehicle();
 	pSoldier->assignment().clearFacility(); // HEADROCK HAM 3.6: Facility Operated
-	// sevenfm: initialize additional data
-	pSoldier->InitializeExtraData();
+	pSoldier->runtime().reset();
 
 	pSoldier->skillState().clearFocus();
 }

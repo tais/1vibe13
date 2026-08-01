@@ -681,6 +681,13 @@ enabled matching team/class pair; disabled tables, unrelated teams,
 cross-team classes, and malformed class values return -1. Soldier-profile XML,
 table ordering, generated identities, palettes, traits, names, saves, Lua, and
 network formats remain unchanged.
+Reset the actor's condition, stat-progress, or transient runtime domain through
+`condition().clearExtraStats()`, `statProgress().reset()`, or
+`runtime().reset()` at the owning lifecycle boundary. Turn start, clock-wrap
+recovery, actor creation/reuse, and post-load cleanup use those component APIs
+directly; new code must not restore `ResetExtraStats`,
+`ResetSoldierChangeStatTimer`, or `InitializeExtraData` on `TacticalActor`.
+These operations do not change save bytes, content formats, or campaign rules.
 `TacticalActorRecovery` owns sleep-dart application, breath-collapse
 detection, collapse execution, and get-up progression. New callers use
 `applySleepDart`, `checkBreathCollapse`, `collapse`, or `beginGetUp` instead of

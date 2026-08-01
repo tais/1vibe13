@@ -2154,6 +2154,10 @@ file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
   tactical_actor_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
   tactical_actor_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
+  tactical_actor_creation_source_contents)
+file(READ "${SOURCE_ROOT}/Utils/Timer Control.cpp"
+  tactical_actor_timer_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Functions.h"
   tactical_soldier_functions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.h"
@@ -3092,6 +3096,9 @@ foreach(retired_actor_facade IN ITEMS
   "SetSoldierCowerState"
   "HandleSoldierTakeDamageFeedback"
   "GetSoldierProfileType"
+  "ResetExtraStats"
+  "ResetSoldierChangeStatTimer"
+  "InitializeExtraData"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3124,6 +3131,30 @@ foreach(retired_actor_facade IN ITEMS
       "TacticalActor regained retired facade '${retired_actor_facade}'")
   endif()
 endforeach()
+
+string(FIND "${tactical_actor_source_contents}"
+  "this->condition().clearExtraStats();"
+  actor_condition_reset_owner_call)
+string(FIND "${tactical_actor_timer_source_contents}"
+  "soldier->statProgress().reset();"
+  actor_stat_progress_reset_owner_call)
+string(FIND "${tactical_actor_creation_source_contents}"
+  "pSoldier->runtime().reset();"
+  actor_creation_runtime_reset_owner_call)
+string(FIND "${tactical_actor_persistence_source_contents}"
+  "actor.runtime().reset();"
+  actor_load_runtime_reset_owner_call)
+string(FIND "${headless_test_contents}"
+  "soldier initialization directly resets condition, stat-progress, runtime"
+  actor_reset_owner_coverage)
+if(actor_condition_reset_owner_call EQUAL -1 OR
+   actor_stat_progress_reset_owner_call EQUAL -1 OR
+   actor_creation_runtime_reset_owner_call EQUAL -1 OR
+   actor_load_runtime_reset_owner_call EQUAL -1 OR
+   actor_reset_owner_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor lifecycle reset ownership lost a direct component caller or focused headless coverage")
+endif()
 
 foreach(retired_animation_profile_helper IN ITEMS
   "GetAnimProfileFlags(")

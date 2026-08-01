@@ -1532,8 +1532,8 @@ BOOLEAN MERCPROFILESTRUCT::Save(HWFILE hFile)
 // --- Portable (save-format v2) field lists for TacticalActor + its sub-structs.
 // One templated list per struct, visited by SaveFieldWriter or SaveFieldReader
 // so save and load can never drift. Runtime pointers use ar.ptr() (written as
-// nothing, cleared to NULL on load; the game re-derives them via
-// InitializeExtraData / palette+world rebuild). SoldierID is serialized through
+// nothing, cleared to NULL on load; the game re-derives them via runtime-state
+// reset and palette/world rebuild). SoldierID is serialized through
 // its public UINT16 member `.i`.
 template<class Ar> static void XferAIData( Ar& ar, TacticalActor& soldier )
 {
@@ -2006,7 +2006,7 @@ BOOLEAN LoadTacticalActor( HWFILE hFile, TacticalActor& actor )
 		return(FALSE);
 	}
 
-	actor.InitializeExtraData();
+	actor.runtime().reset();
 
 	return TRUE;
 }
