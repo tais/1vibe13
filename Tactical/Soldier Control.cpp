@@ -9,6 +9,7 @@
 #include "TacticalActorSkills.h"
 #include "TacticalActorSpotting.h"
 #include "TacticalActorTurnBudget.h"
+#include "TacticalActorTurnMaintenance.h"
 #include "TacticalActorTurncoats.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorConditions.h"
@@ -6363,7 +6364,7 @@ void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeC
 
 		// Flugente: update for various personal properties
 		// this has to happen before CalculateCarriedWeight(), otherwise strength modfiers will not be detected correctly
-		this->SoldierPropertyUpkeep( );
+		TacticalActorTurnMaintenance::maintainAtTurnStart(*this);
 
 		// Flugente: drug users might consume useful drugs on their own in combat
 		(void)TacticalActorConsumables::autoUseDrug(*this);
@@ -13508,107 +13509,6 @@ std::int16_t TacticalActorModifiers::interruptModifier(
 	}
 
 	return bonus;
-}
-
-void TacticalActor::SoldierPropertyUpkeep( )
-{
-	// these effects last only one turn
-	this->featureFlags().primaryFlags() &= ~(SOLDIER_AIRDROP_TURN | SOLDIER_ASSAULT_BONUS | SOLDIER_RAISED_REDALERT);
-	this->featureFlags().secondaryFlags() &= ~(SOLDIER_CONCEALINSERTION | SOLDIER_SPENT_AP);
-
-	// this looks bizarre, but is required
-	if ( this->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION_DISCOVERED )
-	{
-		this->featureFlags().secondaryFlags() &= ~SOLDIER_CONCEALINSERTION_DISCOVERED;
-
-		// we loose our disguise
-		TacticalActorCovertOps::loseDisguise(*this);
-
-		if ( gSkillTraitValues.fCOStripIfUncovered )
-			TacticalActorCovertOps::strip(*this);
-
-		HandleInitialRedAlert( ENEMY_TEAM, FALSE );
-	}
-
-	// sevenfm: stop muzzle flash
-	if (this->renderState().muzzleFlashVisible())
-	{
-		EndMuzzleFlash(this);
-	}
-
-	if ( TacticalActorModifiers::hasBackgroundFlag(*this, BACKGROUND_EXP_UNDERGROUND) && this->deployment().sectorZ() )
-		++condition().extraExperienceLevel();
-	
-	// if we are dead or dying, we cannot continue radio work
-	if ( this->vitals().health() < OKLIFE )
-		TacticalActorRadio::switchOff(*this);
-
-	// if we are an enemy radio operator, and we are jamming frequencies, there is a slight chance that we set off remote-controlled bombs/defuses!
-	if ( !gSkillTraitValues.fVOJammingBlocksRemoteBombs && gSkillTraitValues.fVOEnemyVOSetsOffRemoteBombs && this->roster().team() == ENEMY_TEAM && TacticalActorRadio::isJamming(*this) && Chance( 5 ) )
-		SetOffBombsByFrequency( this->identity().id(), 1 + Random( 8 ) );
-
-	// effects eventually run out
-	this->skillState().ageTurnCounters();
-
-	this->skillState().decrementCooldown(SOLDIER_COOLDOWN_CRYO);
-	this->skillState().decrementCooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT);
-
-	if (AM_A_ROBOT(this) && ItemHasXRay(this->inventory()[ROBOT_UTILITY_SLOT].usItem))
-	{
-		if (this->skillState().cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY))
-			this->skillState().decrementCooldown(SOLDIER_COOLDOWN_ROBOT_XRAY);
-		else if(this->roster().inSector())
-		{
-			// this allows the robot to do an x-ray ping if there are enemies in sector
-			INT32 cnt = 0;
-			for (; cnt < TOTAL_SOLDIERS; ++cnt)
-			{
-				TacticalActor* pTeamSoldier =
-					GetJa2SoldierRepository().resolve( cnt );
-				if ( pTeamSoldier == nullptr )
-					continue;
-				if (pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() && pTeamSoldier->vitals().health() > 0)
-				{
-					if (!pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->roster().side() != 0))
-					{
-						this->skillState().cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY) += 2;
-						ActivateXRayDevice(this);
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szRobotText[ROBOT_TEXT_XRAY_ACTIVATED] );
-						break;
-					}
-				}
-			}
-
-		}
-	}
-
-	// if soldier was seen this turn, increase his observed counter
-	if ( this->featureFlags().primaryFlags() & SOLDIER_ENEMY_OBSERVEDTHISTURN )
-	{
-		this->featureFlags().primaryFlags() &= ~SOLDIER_ENEMY_OBSERVEDTHISTURN;
-
-		++this->skillState().counter(SOLDIER_COUNTER_ROLE_OBSERVED);
-	}
-
-	// if there is a combat going and we are in sector, note that in the battle report
-	if ( this->roster().inSector() && (IsJa2TacticalCombatActive() || gTacticalStatus.fEnemyInSector) )
-	{
-		if ( !(this->featureFlags().primaryFlags() & SOLDIER_BATTLE_PARTICIPATION) )
-		{
-			this->featureFlags().primaryFlags() |= SOLDIER_BATTLE_PARTICIPATION;
-
-			// Flugente: campaign stats
-			gCurrentIncident.AddStat( this, CAMPAIGNHISTORY_TYPE_PARTICIPANT );
-		}
-	}
-	else
-	{
-		this->featureFlags().primaryFlags() &= ~SOLDIER_BATTLE_PARTICIPATION;
-	}
-
-	// sevenfm: disguise automatically
-	if ( !gSkillTraitValues.fCOStripIfUncovered )
-		TacticalActorCovertOps::disguise(*this);
 }
 
 // Check whether an actor can use a trait skill. Optional action-point checks

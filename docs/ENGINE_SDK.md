@@ -733,6 +733,14 @@ difficulty, health, inventory, item, stack, attachment, or tactical-vehicle
 state before table access. `SoldierActionPointComponent` remains the canonical
 storage owner, and existing AP constants, traits, difficulty settings, drugs,
 items, maps, XML, Lua, save, and network formats remain unchanged.
+`TacticalActorTurnMaintenance::maintainAtTurnStart` is the application-side
+entry point for expiring per-turn actor flags, aging counters and cooldowns,
+ending transient muzzle/radio state, resolving covert exposure, handling robot
+X-ray readiness, and recording battle participation. Turn-start code calls it
+directly; new code must not restore `SoldierPropertyUpkeep` on the aggregate.
+The boundary validates robot utility storage and item IDs before item-table
+access while preserving established turn timing, covert, radio, incident,
+content, save, and network behavior.
 `TacticalActorAnimationFrames` owns directional animation-surface mapping,
 animation-code-to-render-frame selection, and the fixed frame used for frozen
 actors. New callers use `spriteDirectionForSurface`, `selectFrame`, or
