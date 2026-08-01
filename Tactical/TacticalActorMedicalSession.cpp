@@ -1,5 +1,7 @@
 #include "TacticalActorMedicalSession.h"
 
+#include "TacticalActorRouteExecution.h"
+
 #include "Animation Control.h"
 #include "Dialogue Control.h"
 #include "Drugs And Alcohol.h"
@@ -241,7 +243,7 @@ bool TacticalActorMedicalSession::beginFirstAid(
 			medic.identity().id() &&
 		!patient->collapseState().tactical())
 	{
-		patient->SoldierGotoStationaryStance();
+		(void)TacticalActorRouteExecution::settleIntoStationaryStance(*patient);
 	}
 
 	AdditionalTacticalCharacterDialogue_CallsLua(

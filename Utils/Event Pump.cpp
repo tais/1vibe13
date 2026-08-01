@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include <stdio.h>
 #include <time.h>
@@ -1158,7 +1159,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 				// Call soldier function
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Event Pump: GetNewPath");
-				pSoldier->EVENT_GetNewSoldierPath( SGetNewPath.sDestGridNo, SGetNewPath.usMovementAnim );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, SGetNewPath.sDestGridNo, SGetNewPath.usMovementAnim );
 				break;
 
 			case S_BEGINTURN:
@@ -1363,7 +1364,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 				// Call soldier function
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Event Pump: Stop Merc at Gridno %d", SStopMerc.sGridNo ));
-				pSoldier->EVENT_StopMerc( SStopMerc.sGridNo, SStopMerc.ubDirection );
+				(void)TacticalActorRouteExecution::stopAt(*pSoldier, SStopMerc.sGridNo, SStopMerc.ubDirection );
 				break;
 
 

@@ -1,5 +1,6 @@
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMedicalTreatment.h"
+#include "TacticalActorRouteExecution.h"
 
 #include "Animation Control.h"
 #include "Assignments.h"
@@ -138,7 +139,7 @@ bool prepareTreatment(TacticalActor& medic)
 	if (gAnimControl[medic.animationPlayback().state()]
 			.ubEndHeight == ANIM_CROUCH)
 	{
-		medic.SoldierGotoStationaryStance();
+		(void)TacticalActorRouteExecution::settleIntoStationaryStance(medic);
 		medic.EVENT_InitNewSoldierAnim(
 			START_AID,
 			0,
@@ -222,7 +223,7 @@ bool TacticalActorMedicalServices::treatAdjacentForAi(
 		patient->vitals().breath() >= OKBREATH &&
 		!patient->collapseState().tactical())
 	{
-		patient->SoldierGotoStationaryStance();
+		(void)TacticalActorRouteExecution::settleIntoStationaryStance(*patient);
 	}
 
 	medic.vitals().beginSurgery();

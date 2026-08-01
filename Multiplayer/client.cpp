@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 	#include "builddefines.h"
 #include "TacticalWorldAdapter.h"
@@ -2671,7 +2672,7 @@ void send_interrupt (TacticalActor *pSoldier)
 					&& _s->position().gridNo() >= 0 && _s->position().gridNo() < WORLD_MAX
 					&& ( gAnimControl[ _s->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
 				{
-					_s->EVENT_StopMerc( _s->position().gridNo(), _s->position().direction() );
+					(void)TacticalActorRouteExecution::stopAt(*_s, _s->position().gridNo(), _s->position().direction() );
 				}
 			}
 
@@ -2705,7 +2706,7 @@ void send_interrupt (TacticalActor *pSoldier)
 				TacticalActor* pMerc = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 				if ( pMerc == NULL )
 					return;
-				pMerc->HaultSoldierFromSighting(TRUE);
+				(void)TacticalActorRouteExecution::haltForSighting(*pMerc, true);
 				FreezeInterfaceForEnemyTurn();
 				// HARD-obey the arbiter: hand turn ownership to the interrupting team so
 				// the engine's real not-your-turn lock engages (the cosmetic freeze alone
@@ -2790,7 +2791,7 @@ void send_interrupt (TacticalActor *pSoldier)
 			TacticalActor* pMerc = SafeMerc( INT->ubID.i );	// C1: wire id, clamp before deref
 			if ( pMerc == NULL )
 				return;
-			pMerc->HaultSoldierFromSighting(TRUE);
+			(void)TacticalActorRouteExecution::haltForSighting(*pMerc, true);
 			FreezeInterfaceForEnemyTurn();
 			InitEnemyUIBar( 0, 0 );
 			fInterfacePanelDirty = DIRTYLEVEL2;

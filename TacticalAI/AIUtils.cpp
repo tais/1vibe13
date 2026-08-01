@@ -659,7 +659,7 @@ SimulationCommandDispatchResult NewDest(
 		}
 	}
 
-	//pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().destinationGrid(), pSoldier->movement().mode() );
+	// Request a replacement path here if movement needs to resume.
 	// ATE: Using this more versatile version
 	// Last parameter says whether to re-start the soldier's animation
 	// This should be done if buddy was paused for fNoApstofinishMove...

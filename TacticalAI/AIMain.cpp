@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "sgp.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorMedicalServices.h"
@@ -80,8 +81,6 @@
 extern void PauseAITemporarily( void );
 extern void UpdateEnemyUIBar( void );
 extern void DisplayHiddenTurnbased( TacticalActor * pActingSoldier );
-extern void AdjustNoAPToFinishMove( TacticalActor *pSoldier, BOOLEAN fSet );
-
 void TurnBasedHandleNPCAI(TacticalActor *pSoldier);
 void HandleAITacticalTraversal( TacticalActor * pSoldier );
 
@@ -1375,8 +1374,8 @@ void ActionDone(TacticalActor *pSoldier)
 
 		if ( !pSoldier->movement().outOfActionPoints() )
 		{
-			pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
-			pSoldier->AdjustNoAPToFinishMove( FALSE );
+			(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
+			(void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, false );
 		}
 
 		//Lalien: moved later in ExecuteAction() case AI_ACTION_RAISE_GUN:
@@ -1396,7 +1395,7 @@ void ActionDone(TacticalActor *pSoldier)
 		/*
 		if ( pSoldier->aiPlanning().lastAction() == AI_ACTION_CHANGE_STANCE || pSoldier->aiPlanning().lastAction() == AI_ACTION_COWER || pSoldier->aiPlanning().lastAction() == AI_ACTION_STOP_COWERING )
 		{
-		pSoldier->SoldierGotoStationaryStance( );
+		(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 		}
 		*/
 

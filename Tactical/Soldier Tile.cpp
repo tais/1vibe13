@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 	#include "Render Fun.h"
 	#include "SoldierRepository.h"
@@ -141,7 +142,7 @@ void SetFinalTile( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fGivenUp )
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NO_PATH_FOR_MERC ], pSoldier->identity().name() );
 	}
 
-	pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+	(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 }
 
@@ -253,7 +254,7 @@ INT8 TileIsClear( TacticalActor *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8
 						{
 							pSoldier->pathing().stored() = FALSE;
 							// OK, make guy go here...
-							pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
+							(void)TacticalActorRouteExecution::requestPath(*pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
 							// Restore final dest....
 							blockingPerson->pathing().finalDestinationGrid() =
 								sTempDestGridNo;
@@ -292,8 +293,8 @@ INT8 TileIsClear( TacticalActor *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8
 
 									// With these two guys swapped, they should try and continue on their way....
 									// Start them both again along their way...
-									pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
-									blockingPerson->EVENT_GetNewSoldierPath(
+									(void)TacticalActorRouteExecution::requestPath(*pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
+									(void)TacticalActorRouteExecution::requestPath(*blockingPerson,
 										blockingPerson->pathing().finalDestinationGrid(),
 										blockingPerson->movement().mode());
 								}
@@ -412,7 +413,7 @@ BOOLEAN HandleNextTile( TacticalActor *pSoldier, INT8 bDirection, INT32 sGridNo,
 							OutputDebugInfoForTurnBasedNextTileWaiting( pSoldier );
 						}
 					#endif
-					pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+					(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 					// Restore...
 					pSoldier->pathing().finalDestinationGrid() = sOldFinalDest;
 
@@ -434,7 +435,7 @@ BOOLEAN HandleNextTile( TacticalActor *pSoldier, INT8 bDirection, INT32 sGridNo,
 							OutputDebugInfoForTurnBasedNextTileWaiting( pSoldier );
 						}
 					#endif
-					pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+					(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 					// Restore...
 					pSoldier->pathing().finalDestinationGrid() = sOldFinalDest;
 
@@ -634,7 +635,7 @@ BOOLEAN HandleNextTileWaiting( TacticalActor *pSoldier )
 
 						pSoldier->pathing().stored() = FALSE;
 
-						pSoldier->EVENT_GetNewSoldierPath( sCheckGridNo, pSoldier->movement().mode() );
+						(void)TacticalActorRouteExecution::requestPath(*pSoldier, sCheckGridNo, pSoldier->movement().mode() );
 						gfPlotPathToExitGrid = FALSE;
 
 						return( TRUE );
@@ -702,8 +703,8 @@ BOOLEAN HandleNextTileWaiting( TacticalActor *pSoldier )
 						}
 						pSoldier->pathing().stored() = TRUE;
 
-						pSoldier->EVENT_GetNewSoldierPath( pSoldier->movement().absoluteDestination(), pSoldier->movement().mode() );
-						//EVENT_GetNewSoldierPath( ubPerson, ubPerson->pathing().finalDestinationGrid(), ubPerson->movement().mode() );
+						(void)TacticalActorRouteExecution::requestPath(*pSoldier, pSoldier->movement().absoluteDestination(), pSoldier->movement().mode() );
+						// Request a replacement path for the blocking actor here if needed.
 					}
 
 				}

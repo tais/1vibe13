@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorEquipment.h"
 #include "builddefines.h"
@@ -3571,7 +3572,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 					{
 
 						// stop the merc...
-						participant->EVENT_StopMerc(
+						(void)TacticalActorRouteExecution::stopAt(*participant,
 							participant->position().gridNo(),
 							participant->position().direction() );
 
@@ -5667,7 +5668,7 @@ void HavePersonAtGridnoStop( UINT32 sGridNo )
 	if ( soldier && soldier->roster().team() == gbPlayerNum )
 	{
 		//Stop the merc
-		soldier->EVENT_StopMerc(
+		(void)TacticalActorRouteExecution::stopAt(*soldier,
 			soldier->position().gridNo(),
 			soldier->position().direction() );
 	}
@@ -6146,7 +6147,7 @@ void SoldierDropThroughRoof( TacticalActor* pSoldier, INT32 sGridNo )
 
 	(void)TacticalActorWorldPlacement::setHeight(*pSoldier, 0.0 );
 	TeleportSoldier( pSoldier, sGridNo, TRUE );
-	pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+	(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 	// if we play the animation of falling roof tiles over this, it will look like the merc fell really painful (there's even blood)
 	(void)TacticalActorRecovery::collapse(*pSoldier);
@@ -6350,7 +6351,7 @@ void RoofDestruction( INT32 sGridNo, BOOLEAN fWithExplosion )
 		GetJa2SoldierRepository().resolve(ubId.i);
 	if ( pSoldier )
 	{
-		pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+		(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 		// if we play the animation of falling roof tiles over this, it will look like the merc fell really painful (there's even blood)
 		(void)TacticalActorRecovery::collapse(*pSoldier);

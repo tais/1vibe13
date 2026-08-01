@@ -619,6 +619,18 @@ unavailable tactical world, malformed actor/animation/level/grid state, and
 non-finite coordinates or heights without partial mutation. This boundary
 does not change maps, schedules, animation data, network events, saves, Lua,
 or installed content formats.
+`TacticalActorRouteExecution` is the application-side boundary for executing
+live tactical routes. Use `requestPath`, `setOutOfActionPoints`, `stop`,
+`stopAt`, `settleIntoStationaryStance`, and `haltForSighting`; do not restore
+the former aggregate path, no-AP, stop, stationary-stance, or sighting-halt
+façades. These operations coordinate path buffers and destinations, pending
+actions and animations, medical-service cancellation, movement reservations,
+UI ownership, vehicle movement sound, and network path/stop replication. They
+reject an unavailable tactical world and malformed actor, animation, body,
+level, grid, direction, path-buffer, movement-animation, origin, or vehicle
+state before mutation. This C++ boundary does not change pathfinding, network
+commands, maps, schedules, saves, the `ActionStopMerc` Lua API, or installed
+content formats.
 `TacticalActorConditionPresentation` is the application-side boundary for
 localized food, disease, and sleep text. Use `appendSummary` when composing a
 complete tactical or strategic status tooltip, or the focused append

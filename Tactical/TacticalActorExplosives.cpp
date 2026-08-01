@@ -1,5 +1,6 @@
 #include "TacticalActorExplosives.h"
 #include "TacticalActorRecovery.h"
+#include "TacticalActorRouteExecution.h"
 
 #include "Animation Control.h"
 #include "Explosion Control.h"
@@ -221,7 +222,7 @@ bool beginBombPlacement(TacticalActor& actor)
 	else
 	{
 		HandleSoldierDropBomb(&actor, targetGrid);
-		actor.SoldierGotoStationaryStance();
+		(void)TacticalActorRouteExecution::settleIntoStationaryStance(actor);
 	}
 	return true;
 }
@@ -271,7 +272,7 @@ bool beginTripwireDisarm(
 			&actor,
 			gridNo,
 			worldItemIndex);
-		actor.SoldierGotoStationaryStance();
+		(void)TacticalActorRouteExecution::settleIntoStationaryStance(actor);
 	}
 	return true;
 }

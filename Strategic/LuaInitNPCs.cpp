@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorEquipment.h"
 #include <iostream>
 #include "SoldierRepository.h"
@@ -390,7 +391,7 @@ static int l_FindSoldierByProfileID(lua_State* L);
 static int l_TileIsOutOfBoundsClosestPC(lua_State* L);
 
 static int l_SetgfBoxerFought(lua_State* L);
-static int l_EVENT_StopMerc(lua_State* L);
+static int l_ActionStopMerc(lua_State* L);
 
 static int l_SetgfBoxersResting(lua_State* L);
 static int l_SetgubBoxersRests(lua_State* L);
@@ -1168,7 +1169,7 @@ static void IniFunction(lua_State* L, BOOLEAN bQuests)
 	lua_register(L, "RESETTIMECOUNTER", l_RESETTIMECOUNTER);
 	lua_register(L, "RemoveObjectFromSoldierProfile", l_RemoveObjectFromSoldierProfile);
 	lua_register(L, "InitNewSoldierAnim", l_EVENT_InitNewSoldierAnim);
-	lua_register(L, "ActionStopMerc", l_EVENT_StopMerc);
+	lua_register(L, "ActionStopMerc", l_ActionStopMerc);
 	lua_register(L, "EnterShopKeeperInterfaceScreen", l_EnterShopKeeperInterfaceScreen);
 	lua_register(L, "HandleNPCGotoGridNo", l_HandleNPCGotoGridNo);
 	lua_register(L, "HandleNPCDoAction", l_HandleNPCDoAction);
@@ -6559,7 +6560,7 @@ static int l_ACTION_ITEM_SEX(lua_State* L)
 					if (HookerInRoom(usRoom))
 					{
 						// stop the merc...
-						pSoldier->EVENT_StopMerc(
+						(void)TacticalActorRouteExecution::stopAt(*pSoldier,
 							pSoldier->position().gridNo(),
 							pSoldier->position().direction());
 
@@ -8091,7 +8092,7 @@ static int l_FindSoldierTeam(lua_State* L)
 	return 1;
 }
 
-static int l_EVENT_StopMerc(lua_State* L)
+static int l_ActionStopMerc(lua_State* L)
 {
 	if (lua_gettop(L))
 	{
@@ -8100,7 +8101,7 @@ static int l_EVENT_StopMerc(lua_State* L)
 		TacticalActor* pSoldier = FindSoldierByProfileID(ubTargetNPC, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->EVENT_StopMerc(pSoldier->position().gridNo(), pSoldier->position().direction());
+			(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction());
 		}
 	}
 

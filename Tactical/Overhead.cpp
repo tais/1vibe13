@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorExplosives.h"
@@ -1116,7 +1117,7 @@ BOOLEAN ExecuteOverhead( )
                 // forever -- only a hard state change (e.g. getting shot) clears it.
                 // A genuine walk advances a tile every few frames, so a copy stuck in
                 // a MOVING anim with an UNCHANGED gridno across many frames is wedged:
-                // stop it explicitly. (EVENT_StopMerc on LAN copies is used the same
+                // stop it explicitly. (The route-execution stop on LAN copies is used the same
                 // way at combat entry / sighting halt / the per-turn sweep.)
                 if ( is_networked && pSoldier->roster().team() >= LAN_TEAM_ONE
                     && pSoldier->roster().active() && pSoldier->roster().inSector()
@@ -1135,7 +1136,7 @@ BOOLEAN ExecuteOverhead( )
                             if ( ++s_lanStuckFrames[ ubLanId ] > 30 )   // ~stuck (a real walk changes tiles)
                             {
                                 s_lanStuckFrames[ ubLanId ] = 0;
-                                pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+                                (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
                             }
                         }
                         else
@@ -1290,7 +1291,7 @@ BOOLEAN ExecuteOverhead( )
                                     {
                                         pSoldier->movement().clearWaitAction();
 										gusNumMercsUntilWaitingOver = max(0, gusNumMercsUntilWaitingOver - 1);
-                                        pSoldier->SoldierGotoStationaryStance( );
+                                        (void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
                                         // If we are at an exit-grid, make disappear.....
                                         if ( gubWaitingForAllMercsToExitCode == WAIT_FOR_MERCS_TO_WALK_TO_GRIDNO )
                                         {
@@ -1317,7 +1318,7 @@ BOOLEAN ExecuteOverhead( )
                                             ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"Told to open struct at %d and none was found", sGridNo );
 #endif
 											// Flugente: if there is no structure for us to interact with, stop
-											pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+											(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 											pSoldier->pendingAction().clearAction();
 
                                             fKeepMoving = FALSE;
@@ -1378,7 +1379,7 @@ BOOLEAN ExecuteOverhead( )
                                         }
                                         else
                                         {
-                                            pSoldier->SoldierGotoStationaryStance( );
+                                            (void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
                                         }
                                     }
                                     else if ( pSoldier->pendingAction().action() == MERC_PUNCH    )
@@ -1552,7 +1553,7 @@ BOOLEAN ExecuteOverhead( )
                                             // If we are flying, don't stop!
                                             if ( pSoldier->position().heightAdjustment() == 0 )
                                             {
-                                                pSoldier->SoldierGotoStationaryStance( );
+                                                (void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
                                             }
                                         }
                                         else
@@ -1577,14 +1578,14 @@ BOOLEAN ExecuteOverhead( )
 
                                                 if ( fRetainMovementAnimation )
                                                 {
-                                                    pSoldier->AdjustNoAPToFinishMove( TRUE );
+                                                    (void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, true );
 
                                                     pSoldier->animationIntent().clearFacingAnimation();
                                                     pSoldier->pendingAction().clearAction();
                                                 }
                                                 else
                                                 {
-                                                    pSoldier->SoldierGotoStationaryStance();
+                                                    (void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
                                                 }
                                             }
                                         }
@@ -1652,7 +1653,7 @@ BOOLEAN ExecuteOverhead( )
                                         if ( IsJa2TacticalTurnBasedCombat())
                                         {
                                             ActionDone( pSoldier);
-                                            pSoldier->SoldierGotoStationaryStance( );
+                                            (void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
                                             continue;
                                         }
                                         else
@@ -1666,12 +1667,12 @@ BOOLEAN ExecuteOverhead( )
                                             }
 
                                             // We have not made it to our dest... set flag that we are waiting....
-                                            if ( !pSoldier->EVENT_InternalGetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode(), 2, FALSE ) )
+                                            if ( !TacticalActorRouteExecution::requestPath(*pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::ContinueMovement, false) )
                                             {
                                                 // ATE: To do here.... we could not get path, so we have to stop
                                                 // 0verhaul:    May also need to clear the action type so that the soldier will know
                                                 // to re-think another move instead of waiting for nothing to finish happening.
-                                                pSoldier->SoldierGotoStationaryStance( );
+                                                (void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
                                                 continue;
                                             }
                                         }
@@ -1814,7 +1815,7 @@ BOOLEAN ExecuteOverhead( )
             if ( ResolvePendingInterrupt( pSoldier, UNDEFINED_INTERRUPT ) )
             {
                 fKeepMoving = FALSE;
-                pSoldier->AdjustNoAPToFinishMove( TRUE );
+                (void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, true );
                 pSoldier->animationIntent().clearFacingAnimation();
 
                 // "artificially" set lock ui flag in this case
@@ -2062,7 +2063,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
                 // LOCK PENDING ACTION COUNTER
                 pSoldier->status().flags() |= SOLDIER_LOCKPENDINGACTIONCOUNTER;
 
-                pSoldier->SoldierGotoStationaryStance( );
+                (void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 
                 // OK, jump!
                 (void)TacticalActorTraversal::
@@ -2192,13 +2193,13 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
                         GetJa2SoldierRepository().resolve(id.i);
                     if ( pSoldier2->roster().active() )
                     {
-                        pSoldier2->EVENT_StopMerc(pSoldier2->position().gridNo(), pSoldier2->position().direction());
+                        (void)TacticalActorRouteExecution::stopAt(*pSoldier2, pSoldier2->position().gridNo(), pSoldier2->position().direction());
                     }
                 }
             }
             else
             {
-                pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+                (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
             }
 
             (*pfKeepMoving) = FALSE;
@@ -2213,7 +2214,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
         {           
             if (!TileIsOutOfBounds(sMineGridNo))
             {
-                pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+                (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
                 (*pfKeepMoving) = FALSE;
 
                 if (pSoldier->roster().side() != 0)
@@ -2265,7 +2266,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
     //else if ( gTacticalStatus.fEnemySightingOnTheirTurn )
     //{
     // Hault guy!
-    //  pSoldier->AdjustNoAPToFinishMove( TRUE );
+    // Pause this actor here if interrupt movement handling is restored.
     //  (*pfKeepMoving ) = FALSE;
     //}
     else if ( EnoughPoints( pSoldier, sAPCost, 0, FALSE )   )
@@ -2367,7 +2368,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
                         if ( pExplosive )
                         {
 							// silversurfer: Don't stop the merc anymore. Let him run and suffer!
-                            //pSoldier->EVENT_StopMerc( pSoldier->sGridNo, pSoldier->ubDirection );
+							// Stop the actor here if gas movement interruption is restored.
                             //fDontContinue = TRUE;
 							INT16 iGasHealthDamage = GetModifiedExplosiveDamage( pExplosive->ubDamage, 0 ) + (INT16)PreRandom( GetModifiedExplosiveDamage( pExplosive->ubDamage, 0 ));
 							INT16 iGasBreathDamage = ( 100 * ( GetModifiedExplosiveDamage( pExplosive->ubStunDamage, 1 ) + (INT16)PreRandom( ( GetModifiedExplosiveDamage( pExplosive->ubStunDamage, 1 ) / 2 ) ) ) );
@@ -2421,7 +2422,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
                             pSoldier->awareness().resetForgetDistance();
 
                             TacticalCharacterDialogue( pSoldier, QUOTE_PERSONALITY_TRAIT );
-                            pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+                            (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
                             if (pSoldier->actionPoints().current() > 0)
                             {
                                 pSoldier->actionPoints().current() -= (INT8) (Random( pSoldier->actionPoints().current() ) + 1);
@@ -2539,7 +2540,7 @@ BOOLEAN HandleGotoNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving, BOO
 
             // CONTINUE
             // IT'S SAVE TO GO AGAIN, REFRESH flag
-            pSoldier->AdjustNoAPToFinishMove( FALSE );
+            (void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, false );
         }
     }
     else
@@ -2585,7 +2586,7 @@ static void HandleMaryArrival( TacticalActor * pSoldier )
         // Mary has arrived
         SetFactTrue( FACT_MARY_OR_JOHN_ARRIVED );
 
-        pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+        (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 
         TriggerNPCRecord( MARY, 13 );
     }
@@ -2630,12 +2631,12 @@ static void HandleJohnArrival( TacticalActor * pSoldier )
 
         SetFactTrue( FACT_MARY_OR_JOHN_ARRIVED );
 
-        pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+        (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 
         // if Mary is alive/dead
         if ( pSoldier2 )
         {
-            pSoldier2->EVENT_StopMerc( pSoldier2->position().gridNo(), pSoldier2->position().direction() );
+            (void)TacticalActorRouteExecution::stopAt(*pSoldier2, pSoldier2->position().gridNo(), pSoldier2->position().direction() );
             TriggerNPCRecord( JOHN, 13 );
         }
         else
@@ -2746,7 +2747,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
 		UpdateTreeVisibility();
 
         (*pfKeepMoving) = FALSE;
-        pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+        (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
         return( FALSE );
     }
 
@@ -2814,7 +2815,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
     if (gTacticalStatus.fInterruptOccurred)
     {
         // Unset no APs value
-        pSoldier->AdjustNoAPToFinishMove( TRUE );
+        (void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, true );
 
         (*pfKeepMoving ) = FALSE;
         pSoldier->animationIntent().clearFacingAnimation();
@@ -2849,7 +2850,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
     else if ( gTacticalStatus.fEnemySightingOnTheirTurn )
     {
         // Hault guy!
-        pSoldier->AdjustNoAPToFinishMove( TRUE );
+        (void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, true );
         (*pfKeepMoving ) = FALSE;
     }
 
@@ -2875,13 +2876,13 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
                         GetJa2SoldierRepository().resolve(cnt2.i);
                     if ( pSoldier2->roster().active() )
                     {
-                        pSoldier2->EVENT_StopMerc(pSoldier2->position().gridNo(), pSoldier2->position().direction());
+                        (void)TacticalActorRouteExecution::stopAt(*pSoldier2, pSoldier2->position().gridNo(), pSoldier2->position().direction());
                     }
                 }
             }
             else
             {
-                pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+                (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
             }
 
             (*pfKeepMoving) = FALSE;
@@ -2897,7 +2898,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
             if (!TileIsOutOfBounds(sMineGridNo))
             {
 
-                pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+                (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
                 (*pfKeepMoving) = FALSE;
 
                 gpWorldLevelData[ sMineGridNo ].uiFlags |= MAPELEMENT_ENEMY_MINE_PRESENT;
@@ -2978,7 +2979,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
 
 			// stop soldier
 			(*pfKeepMoving) = FALSE;
-			pSoldier->EVENT_StopMerc(pSoldier->position().gridNo(), pSoldier->position().direction());
+			(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction());
 			SetNewSituation(pSoldier);
 			ActionDone(pSoldier);
 
@@ -3029,7 +3030,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
                         if (PythSpacesAway( pSoldier->position().gridNo(), 8842 ) < 11)
                         {
                             // Skyrider has arrived!
-                            pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+                            (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
                             SetFactTrue( FACT_SKYRIDER_CLOSE_TO_CHOPPER );
                             TriggerNPCRecord( SKYRIDER, 15 );
                             SetUpHelicopterForPlayer( 13, MAP_ROW_B, gNewVehicle[ HELICOPTER ].NewPilot, HELICOPTER );
@@ -3059,7 +3060,7 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
                 // if Joey walks near Martha then trigger Martha record 7
                 if ( CheckFact( FACT_JOEY_NEAR_MARTHA, 0 ) )
                 {
-                    pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+                    (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
                     TriggerNPCRecord( JOEY, 9 );
                 }
             }
@@ -6332,7 +6333,7 @@ void CommonEnterCombatModeCode( )
                 pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_MULTIPLE_CREATURES);
 
                 // Hault!
-                pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+                (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 
                 // END AI actions
 				DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: enter combat mode"));
@@ -6439,11 +6440,11 @@ void EnterCombatMode( UINT8 ubStartingTeam )
                 // realtime path must not keep executing into turn-based and burn
                 // the whole turn's APs. This also broadcasts the stop, so the
                 // other instances halt our copies in sync.
-                pStop->HaultSoldierFromSighting( FALSE );
+                (void)TacticalActorRouteExecution::haltForSighting(*pStop, false );
             }
             else if ( pStop->roster().team() >= LAN_TEAM_ONE )
             {
-                pStop->EVENT_StopMerc( pStop->position().gridNo(), pStop->position().direction() );
+                (void)TacticalActorRouteExecution::stopAt(*pStop, pStop->position().gridNo(), pStop->position().direction() );
             }
         }
     }
@@ -6559,7 +6560,7 @@ void ExitCombatMode( )
             // Reset some flags
             if ( pSoldier->movement().outOfActionPoints() && pSoldier->vitals().health() >= OKLIFE )
             {
-                pSoldier->AdjustNoAPToFinishMove( FALSE );
+                (void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, false );
 
                 // ary-05/05/2009 : fix lower ready weapons
                 //previously "ready weapon" state was being dropped in a couple of cases
@@ -6573,7 +6574,7 @@ void ExitCombatMode( )
                             test == AIM_DUAL_CROUCH ||  test == AIM_DUAL_PRONE
                         )) 
                 {
-                    pSoldier->SoldierGotoStationaryStance( );
+                    (void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
                 }               
             }
 
@@ -10103,7 +10104,7 @@ void CencelAllActionsForTimeCompression( )
             {
                 // Hault!
 				DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: time compression"));
-                pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+                (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 
                 // END AI actions
                 CancelAIAction( pSoldier, TRUE );

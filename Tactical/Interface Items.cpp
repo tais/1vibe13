@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorFieldOperations.h"
 #include "TacticalActorMobility.h"
@@ -9393,7 +9394,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 								GetItemPointerSoldier()->pendingAction().begin(MERC_RELOADROBOT);
 
 								// WALK UP TO DEST FIRST
-								GetItemPointerSoldier()->EVENT_InternalGetNewSoldierPath( sActionGridNo, GetItemPointerSoldier()->movement().mode(), FALSE, FALSE );
+								(void)TacticalActorRouteExecution::requestPath(*GetItemPointerSoldier(), sActionGridNo, GetItemPointerSoldier()->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, false);
 							}
 							else
 							{
@@ -9570,7 +9571,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						  ubFacingDirection = (UINT8)GetDirectionFromGridNo( GetItemPointerSoldier()->position().gridNo(), pSoldier );
 
 						  // Stop merc first....
-						  pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+						  (void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 						  // WANNE: Also turn merc if he is crouched and he passes an item
 						  if ( !TacticalActorMobility::inWater(*pSoldier) )
@@ -9674,7 +9675,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						ubDirection = (UINT8)GetDirectionFromGridNo( GetItemPointerSoldier()->position().gridNo(), pSoldier );
 
 						// ATE: Goto stationary...
-						pSoldier->SoldierGotoStationaryStance( );
+						(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 
 						// Set direction to turn...
 						pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );

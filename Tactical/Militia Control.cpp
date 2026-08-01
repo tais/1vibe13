@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorMobility.h"
 
@@ -1146,7 +1147,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pMilitiaSoldier->roster().active()) && (pMilitiaSoldier->roster().inSector()) && (pMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pMilitiaSoldier->EVENT_StopMerc(pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
+							(void)TacticalActorRouteExecution::stopAt(*pMilitiaSoldier, pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
 							CancelAIAction(pMilitiaSoldier, TRUE);
 
 							// Attack !!!
@@ -1178,7 +1179,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pMilitiaSoldier->roster().active()) && (pMilitiaSoldier->roster().inSector()) && (pMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pMilitiaSoldier->EVENT_StopMerc(pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
+							(void)TacticalActorRouteExecution::stopAt(*pMilitiaSoldier, pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
 							CancelAIAction(pMilitiaSoldier, TRUE);
 
 							//Hold Position !!!
@@ -1208,7 +1209,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pMilitiaSoldier->roster().active()) && (pMilitiaSoldier->roster().inSector()) && (pMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pMilitiaSoldier->EVENT_StopMerc(pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
+							(void)TacticalActorRouteExecution::stopAt(*pMilitiaSoldier, pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
 							CancelAIAction(pMilitiaSoldier, TRUE);
 
 							INT16 sActionGridNo;
@@ -1264,7 +1265,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pMilitiaSoldier->roster().active()) && (pMilitiaSoldier->roster().inSector()) && (pMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pMilitiaSoldier->EVENT_StopMerc(pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
+							(void)TacticalActorRouteExecution::stopAt(*pMilitiaSoldier, pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
 							CancelAIAction(pMilitiaSoldier, TRUE);
 
 							INT32 sActionGridNo, sGridNo, sAdjustedGridNo;
@@ -1314,7 +1315,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pMilitiaSoldier->roster().active()) && (pMilitiaSoldier->roster().inSector()) && (pMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pMilitiaSoldier->EVENT_StopMerc(pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
+							(void)TacticalActorRouteExecution::stopAt(*pMilitiaSoldier, pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
 							CancelAIAction(pMilitiaSoldier, TRUE);
 
 							if (TacticalActorMobility::isValidStance(*pMilitiaSoldier, pMilitiaSoldier->position().direction(), ANIM_PRONE))
@@ -1344,7 +1345,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ((pMilitiaSoldier->roster().active()) && (pMilitiaSoldier->roster().inSector()) && (pMilitiaSoldier->vitals().health() >= OKLIFE))
 						{
 							// sevenfm: stop any AI
-							pMilitiaSoldier->EVENT_StopMerc(pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
+							(void)TacticalActorRouteExecution::stopAt(*pMilitiaSoldier, pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
 							CancelAIAction(pMilitiaSoldier, TRUE);
 
 							if (TacticalActorMobility::isValidStance(*pMilitiaSoldier, pMilitiaSoldier->position().direction(), ANIM_CROUCH))
@@ -1374,7 +1375,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						if ( (pMilitiaSoldier->roster().active()) && (pMilitiaSoldier->roster().inSector()) && (pMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
-							pMilitiaSoldier->EVENT_StopMerc(pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
+							(void)TacticalActorRouteExecution::stopAt(*pMilitiaSoldier, pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
 							CancelAIAction(pMilitiaSoldier, TRUE);
 
 							INT16 sActionGridNo;
@@ -1416,7 +1417,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 					if (!(IsJa2TacticalTurnBasedCombat()))
 					{
 						// sevenfm: stop any AI
-						pMilitiaSoldier->EVENT_StopMerc(pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
+						(void)TacticalActorRouteExecution::stopAt(*pMilitiaSoldier, pMilitiaSoldier->position().gridNo(), pMilitiaSoldier->position().direction());
 						CancelAIAction(pMilitiaSoldier, TRUE);
 
 						DeductPoints(pSoldier, APBPConstants[AP_TALK], 0);
@@ -1450,7 +1451,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
+								(void)TacticalActorRouteExecution::stopAt(*pTeamSoldier, pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								pTeamSoldier->aiBehavior().orders() = SEEKENEMY;
@@ -1489,7 +1490,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
+								(void)TacticalActorRouteExecution::stopAt(*pTeamSoldier, pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								pTeamSoldier->aiBehavior().orders() = STATIONARY;
@@ -1528,7 +1529,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
+								(void)TacticalActorRouteExecution::stopAt(*pTeamSoldier, pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								pTeamSoldier->aiBehavior().orders() = FARPATROL;
@@ -1594,7 +1595,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
+								(void)TacticalActorRouteExecution::stopAt(*pTeamSoldier, pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								// OK, find an adjacent gridno....
@@ -1652,7 +1653,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
+								(void)TacticalActorRouteExecution::stopAt(*pTeamSoldier, pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								// See if we can get there
@@ -1706,7 +1707,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
+								(void)TacticalActorRouteExecution::stopAt(*pTeamSoldier, pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								if (TacticalActorMobility::isValidStance(*pTeamSoldier, pTeamSoldier->position().direction(), ANIM_PRONE))
@@ -1746,7 +1747,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
+								(void)TacticalActorRouteExecution::stopAt(*pTeamSoldier, pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								if (TacticalActorMobility::isValidStance(*pTeamSoldier, pTeamSoldier->position().direction(), ANIM_CROUCH))
@@ -1788,7 +1789,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
-								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
+								(void)TacticalActorRouteExecution::stopAt(*pTeamSoldier, pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								// See if we can get there

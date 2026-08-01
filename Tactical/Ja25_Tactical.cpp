@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "Items.h"
 #include "TacticalWorldAdapter.h"
 	#include "Soldier Control.h"
@@ -1977,9 +1978,9 @@ void HandlePlayerHittingSwitchToLaunchMissles()
 				pSoldier->deployment().sectorX() == SECTOR_LAUNCH_MISSLES_X && pSoldier->deployment().sectorY() == SECTOR_LAUNCH_MISSLES_Y && pSoldier->deployment().sectorZ() == SECTOR_LAUNCH_MISSLES_Z )
 		{
 			if( PythSpacesAway( pSoldier->position().gridNo(), SWITCHTOLAUNCHMISSLES_GRIDNO1 ) < PythSpacesAway( pSoldier->position().gridNo(), SWITCHTOLAUNCHMISSLES_GRIDNO2 ) )
-				pSoldier->EVENT_InternalGetNewSoldierPath( SWITCHTOLAUNCHMISSLES_GRIDNO1, RUNNING, TRUE, TRUE );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, SWITCHTOLAUNCHMISSLES_GRIDNO1, RUNNING, TacticalActorRouteExecution::PathOrigin::PlayerUi, true);
 			else
-				pSoldier->EVENT_InternalGetNewSoldierPath( SWITCHTOLAUNCHMISSLES_GRIDNO2, RUNNING, TRUE, TRUE );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, SWITCHTOLAUNCHMISSLES_GRIDNO2, RUNNING, TacticalActorRouteExecution::PathOrigin::PlayerUi, true);
 		}
 	}
 

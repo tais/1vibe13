@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorEquipment.h"
 	#include "sgp.h"
@@ -1026,7 +1027,7 @@ void HandleSight(TacticalActor *pSoldier, UINT8 ubSightFlags)
 
 	if ( pSoldier->aiBehavior().newSituation() && !(pSoldier->status().flags() & SOLDIER_PC) )
 	{
-		pSoldier->HaultSoldierFromSighting( TRUE );
+		(void)TacticalActorRouteExecution::haltForSighting(*pSoldier, true );
 	}
 	pSoldier->aiBehavior().newSituation() = __max( pSoldier->aiBehavior().newSituation(), bTempNewSituation );
 
@@ -2467,7 +2468,7 @@ void ManSeesMan(TacticalActor *pSoldier, TacticalActor *pOpponent, INT32 sOppGri
 								DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: NPC: Angel code"));
 								CancelAIAction( pSoldier, TRUE );
 								pSoldier->movement().absoluteDestination() = NOWHERE;
-								pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+								(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 								TriggerNPCRecord( ANGEL, 20 );
 								// trigger Angel to walk off afterwards
 								//TriggerNPCRecord( ANGEL, 24 );
@@ -3765,7 +3766,7 @@ void OurTeamSeesSomeone( TacticalActor * pSoldier, INT8 bNumReRevealed, INT8 bNu
 		// Say quote!
 		SaySeenQuote( pSoldier, gfPlayerTeamSawCreatures, TRUE, gfPlayerTeamSawJoey );
 
-		pSoldier->HaultSoldierFromSighting( TRUE );
+		(void)TacticalActorRouteExecution::haltForSighting(*pSoldier, true );
 
 		// Set virgin sector to false....
 		gTacticalStatus.fVirginSector = FALSE;
@@ -3792,7 +3793,7 @@ void OurTeamSeesSomeone( TacticalActor * pSoldier, INT8 bNumReRevealed, INT8 bNu
 					SaySeenQuote( pSoldier, gfPlayerTeamSawCreatures, FALSE, gfPlayerTeamSawJoey );
 				}
 
-				pSoldier->HaultSoldierFromSighting( TRUE );
+				(void)TacticalActorRouteExecution::haltForSighting(*pSoldier, true );
 
 				if ( gTacticalStatus.fEnemySightingOnTheirTurn )
 				{

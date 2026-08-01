@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include "Simulation Commands.h"
@@ -383,10 +384,11 @@ namespace
 				soldier->movement().setReverse(value.reverse);
 				if (value.pendingAction == TacticalPendingActionPolicy::Clear)
 					soldier->pendingAction().clearAction();
-				return soldier->EVENT_InternalGetNewSoldierPath(
+				return TacticalActorRouteExecution::requestPath(*soldier,
 					value.destinationGrid, value.movementMode,
-					static_cast<BOOLEAN>(value.origin),
-					value.forceRestart ? TRUE : FALSE)
+					static_cast<TacticalActorRouteExecution::PathOrigin>(
+						value.origin),
+					value.forceRestart)
 					? CommandDisposition::Applied
 					: CommandDisposition::Discard;
 			}
@@ -450,7 +452,7 @@ namespace
 				if (!soldier) return CommandDisposition::Discard;
 				soldier->movement().clearDelay();
 				soldier->pathing().finalDestinationGrid() = soldier->position().gridNo();
-				soldier->StopSoldier();
+				(void)TacticalActorRouteExecution::stop(*soldier);
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
@@ -468,9 +470,9 @@ namespace
 					soldier->position().gridNo() < WORLD_MAX &&
 					(gAnimControl[soldier->animationPlayback().state()].uiFlags &
 						ANIM_MOVING) != 0)
-					soldier->EVENT_StopMerc(
+					(void)TacticalActorRouteExecution::stopAt(*soldier,
 						soldier->position().gridNo(), soldier->position().direction());
-				soldier->AdjustNoAPToFinishMove(
+				(void)TacticalActorRouteExecution::setOutOfActionPoints(*soldier,
 					value.stop ? TRUE : FALSE);
 				soldier->animationActivity().turningFromProneMode() = FALSE;
 				return CommandDisposition::Applied;
@@ -586,10 +588,10 @@ namespace
 				soldier->movement().mode() = value.movementMode;
 				soldier->movement().setReverse(value.reverse);
 				soldier->pendingAction().clearAction();
-				if (!soldier->EVENT_InternalGetNewSoldierPath(
+				if (!TacticalActorRouteExecution::requestPath(*soldier,
 						value.destinationGrid, value.movementMode,
-						static_cast<BOOLEAN>(TacticalMoveOrigin::PlayerUi),
-						value.forceRestart ? TRUE : FALSE))
+						TacticalActorRouteExecution::PathOrigin::PlayerUi,
+						value.forceRestart))
 					return CommandDisposition::Discard;
 				return StartInteractiveObject(
 					value.object.grid, value.object.structureId,
@@ -646,10 +648,10 @@ namespace
 				soldier->runtime().pendingAction.targetIncarnation =
 					value.target.incarnation;
 				soldier->pendingAction().resetAnimationCount();
-				if (soldier->EVENT_InternalGetNewSoldierPath(
+				if (TacticalActorRouteExecution::requestPath(*soldier,
 						value.destinationGrid, value.movementMode,
-						static_cast<BOOLEAN>(TacticalMoveOrigin::PlayerUi),
-						value.forceRestart ? TRUE : FALSE))
+						TacticalActorRouteExecution::PathOrigin::PlayerUi,
+						value.forceRestart))
 					return CommandDisposition::Applied;
 
 				soldier->pendingAction().action() = previousAction;
@@ -719,10 +721,10 @@ namespace
 				soldier->pendingAction().tertiaryData() = value.direction;
 				soldier->pendingAction().quaternaryData() = value.seatIndex;
 				soldier->pendingAction().resetAnimationCount();
-				if (soldier->EVENT_InternalGetNewSoldierPath(
+				if (TacticalActorRouteExecution::requestPath(*soldier,
 						value.destinationGrid, value.movementMode,
-						static_cast<BOOLEAN>(TacticalMoveOrigin::TeamAwareUi),
-						value.forceRestart ? TRUE : FALSE))
+						TacticalActorRouteExecution::PathOrigin::TeamAwareUi,
+						value.forceRestart))
 					return CommandDisposition::Applied;
 
 				soldier->pendingAction().action() = previousAction;

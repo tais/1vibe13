@@ -2208,6 +2208,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorWorldPlacement.h"
   tactical_actor_world_placement_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorWorldPlacement.cpp"
   tactical_actor_world_placement_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRouteExecution.h"
+  tactical_actor_route_execution_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRouteExecution.cpp"
+  tactical_actor_route_execution_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.h"
   tactical_actor_ai_behavior_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.cpp"
@@ -3136,6 +3140,13 @@ foreach(retired_actor_facade IN ITEMS
   "InternalSetSoldierHeight"
   "SetSoldierHeight"
   "SetSoldierGridNo"
+  "AdjustNoAPToFinishMove"
+  "EVENT_InternalGetNewSoldierPath"
+  "EVENT_GetNewSoldierPath"
+  "StopSoldier"
+  "SoldierGotoStationaryStance"
+  "HaultSoldierFromSighting"
+  "EVENT_StopMerc"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3167,6 +3178,52 @@ foreach(retired_actor_facade IN ITEMS
     message(FATAL_ERROR
       "TacticalActor regained retired facade '${retired_actor_facade}'")
   endif()
+endforeach()
+
+foreach(required_route_execution_operation IN ITEMS
+  "setOutOfActionPoints"
+  "requestPath"
+  "stop"
+  "settleIntoStationaryStance"
+  "haltForSighting"
+  "stopAt")
+  string(FIND "${tactical_actor_route_execution_header_contents}"
+    "${required_route_execution_operation}("
+    route_execution_operation_declaration)
+  string(FIND "${tactical_actor_route_execution_source_contents}"
+    "TacticalActorRouteExecution::${required_route_execution_operation}("
+    route_execution_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorRouteExecution::${required_route_execution_operation}("
+    route_execution_operation_coverage)
+  if(route_execution_operation_declaration EQUAL -1 OR
+     route_execution_operation_definition EQUAL -1 OR
+     route_execution_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor route-execution operation '${required_route_execution_operation}' lost its declaration, definition, or malformed-state coverage")
+  endif()
+endforeach()
+
+foreach(route_execution_source IN LISTS world_state_files)
+  file(READ "${route_execution_source}"
+    route_execution_source_contents)
+  foreach(retired_route_execution_call IN ITEMS
+    "AdjustNoAPToFinishMove"
+    "EVENT_InternalGetNewSoldierPath"
+    "EVENT_GetNewSoldierPath"
+    "StopSoldier"
+    "SoldierGotoStationaryStance"
+    "HaultSoldierFromSighting"
+    "EVENT_StopMerc")
+    string(REGEX MATCH
+      "(^|[^A-Za-z0-9_])${retired_route_execution_call}[ \t\r\n]*\\("
+      retired_route_execution_usage
+      "${route_execution_source_contents}")
+    if(retired_route_execution_usage)
+      message(FATAL_ERROR
+        "Production caller in ${route_execution_source} restored retired route-execution entry '${retired_route_execution_call}'")
+    endif()
+  endforeach()
 endforeach()
 
 string(FIND "${tactical_actor_source_contents}"
@@ -3735,6 +3792,7 @@ endforeach()
 foreach(required_actor_domain_source IN ITEMS
   "TacticalActorMobility.cpp"
   "TacticalActorRangedActions.cpp"
+  "TacticalActorRouteExecution.cpp"
   "TacticalActorWorldPlacement.cpp"
   "TacticalActorWeaponHandling.cpp"
   "TacticalActorAiBehavior.cpp"

@@ -1385,6 +1385,19 @@ the engine must not contain SDL types in its public domain model.
   non-finite coordinates or heights before mutation. Existing map geometry,
   animation data, network events, schedules, saves, Lua calls, and installed
   content formats are unchanged.
+  `TacticalActorRouteExecution` owns the complementary live route lifecycle:
+  requesting and continuing paths, pausing movement when APs are exhausted,
+  stopping at a synchronized grid and facing, returning to a stationary
+  stance, and halting for a sighting. Tactical, AI, strategic, multiplayer,
+  Lua, event-pump, and retained simulation-command callers now enter six
+  bounded operations instead of seven aggregate movement façades. The domain
+  keeps path buffers, destinations, pending actions and animations, medical
+  service cancellation, movement reservations, UI ownership, vehicle sound,
+  and stop/path replication coordinated as complete transitions. It rejects
+  unavailable tactical worlds and malformed actor, animation, body, level,
+  grid, direction, path-buffer, movement-animation, origin, and vehicle state
+  before mutation. Existing pathfinding, animations, network commands, maps,
+  schedules, saves, Lua APIs, and installed content formats are unchanged.
   `TacticalActorConditionPresentation` owns the localized food, disease, and
   sleep description boundary for tactical and strategic actor tooltips. The
   two complete status tooltips use one ordered `appendSummary` operation,

@@ -29,6 +29,7 @@
 #include "TacticalActorMobility.h"
 #include "TacticalActorProfileClassification.h"
 #include "TacticalActorRangedActions.h"
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWeaponHandling.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
@@ -1011,70 +1012,6 @@ void HandleVehicleMovementSound( TacticalActor *pSoldier, BOOLEAN fOn )
 }
 
 
-void TacticalActor::AdjustNoAPToFinishMove( BOOLEAN fSet )
-{
-	if ( this->identity().bodyType() == CROW )
-	{
-		return;
-	}
-
-	// Check if we are a vehicle first....
-	if ( this->status().flags() & SOLDIER_VEHICLE )
-	{
-		// Turn off sound effects....
-		if ( fSet )
-		{
-			HandleVehicleMovementSound( this, FALSE );
-		}
-	}
-
-	// Turn off sound effects....
-	if ( fSet )
-	{
-		// Position light....
-	}
-	else
-	{
-	}
-
-
-	//send it on
-	if ( is_networked && this->identity().id() < 120 )
-	{
-		//if(this->identity().id()>=120)
-		//	return;//hayden
-		EV_S_STOP_MERC				SStopMerc;
-
-		SStopMerc.sGridNo = this->position().gridNo();
-		SStopMerc.ubDirection = this->position().direction();
-		SStopMerc.usSoldierID = this->identity().id();
-		SStopMerc.fset = fSet;
-		SStopMerc.sXPos = this->position().worldXInt();
-		SStopMerc.sYPos = this->position().worldYInt();
-
-		//AddGameEvent( S_STOP_MERC, 0, &SStopMerc ); //hayden.
-		// remote copy on a pure client: APPLY the halt below, but never re-broadcast
-		// (the old early-return made recieveSTOP a no-op for remote mercs -> eternal
-		// walk loops/sounds; audit [25])
-		if ( is_client && !( !is_server && this->identity().id() >= 20 ) )
-			send_stop( &SStopMerc );
-	}
-
-
-
-
-
-
-
-	this->movement().setOutOfActionPoints(fSet != FALSE);
-
-	if ( !fSet )
-	{
-		// return reason to default value
-		this->movement().stopReason() = REASON_STOPPED_NO_APS;
-	}
-}
-
 void HandleCrowShadowVisibility( TacticalActor *pSoldier )
 {
 	if ( pSoldier->identity().bodyType() == CROW )
@@ -1783,7 +1720,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = ADJACENT_GET_ITEM;
 				this->animationActivity().turningUntilDone() = TRUE;
-				this->SoldierGotoStationaryStance( );
+				(void)TacticalActorRouteExecution::settleIntoStationaryStance(*this);
 				return(TRUE);
 			}
 		}
@@ -1796,7 +1733,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = ADJACENT_GET_ITEM_CROUCHED;
 				this->animationActivity().turningUntilDone() = TRUE;
-				this->SoldierGotoStationaryStance( );
+				(void)TacticalActorRouteExecution::settleIntoStationaryStance(*this);
 				return(TRUE);
 			}
 		}
@@ -1809,7 +1746,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = CLIMBUPROOF;
 				this->animationActivity().turningUntilDone() = TRUE;
-				this->SoldierGotoStationaryStance( );
+				(void)TacticalActorRouteExecution::settleIntoStationaryStance(*this);
 				return(TRUE);
 			}
 		}
@@ -1823,7 +1760,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 				this->animationIntent().pendingAnimation() = CLIMBDOWNROOF;
 				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 				this->animationActivity().turningUntilDone() = TRUE;
-				this->SoldierGotoStationaryStance( );
+				(void)TacticalActorRouteExecution::settleIntoStationaryStance(*this);
 				return(TRUE);
 			}
 		}
@@ -1836,7 +1773,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = JUMPUPWALL;
 				this->animationActivity().turningUntilDone() = TRUE;
-				this->SoldierGotoStationaryStance( );
+				(void)TacticalActorRouteExecution::settleIntoStationaryStance(*this);
 				return(TRUE);
 			}
 		}
@@ -1850,7 +1787,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 				this->animationIntent().pendingAnimation() = JUMPDOWNWALL;
 				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 				this->animationActivity().turningUntilDone() = TRUE;
-				this->SoldierGotoStationaryStance( );
+				(void)TacticalActorRouteExecution::settleIntoStationaryStance(*this);
 				return(TRUE);
 			}
 		}
@@ -1865,7 +1802,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_ON;
 				this->animationActivity().turningUntilDone() = TRUE;
 				this->animationIntent().pendingStance() = ANIM_PRONE;
-				this->SoldierGotoStationaryStance( );
+				(void)TacticalActorRouteExecution::settleIntoStationaryStance(*this);
 				return(TRUE);
 			}
 		}
@@ -2244,7 +2181,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 		this->status().flags() &= (~SOLDIER_PAUSEANIMOVE);
 
 		// Unset paused for no APs.....
-		this->AdjustNoAPToFinishMove( FALSE );
+		(void)TacticalActorRouteExecution::setOutOfActionPoints(*this, false );
 
 
 		// We are about to start moving
@@ -2405,7 +2342,7 @@ BOOLEAN TacticalActor::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usSta
 	// If a special move state, release np aps
 	if ( (gAnimControl[usNewState].uiFlags & ANIM_SPECIALMOVE) )
 	{
-		this->AdjustNoAPToFinishMove( FALSE );
+		(void)TacticalActorRouteExecution::setOutOfActionPoints(*this, false );
 	}
 
 	if ( gAnimControl[usNewState].uiFlags & ANIM_UPDATEMOVEMENTMODE )
@@ -4734,342 +4671,6 @@ void SoldierGotHitVehicle(TacticalActor *pSoldier, UINT16 bDirection)
 
 }
 
-BOOLEAN TacticalActor::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 usMovementAnim, BOOLEAN fFromUI, BOOLEAN fForceRestartAnim )
-{
-	INT32	iDest;
-	INT32 sNewGridNo;
-	BOOLEAN fContinue;
-	UINT32	uiDist;
-	UINT16	usAnimState;
-	UINT16	usMoveAnimState = usMovementAnim;
-	INT32							sMercGridNo;
-	UINT16						usPathingData[MAX_PATH_LIST_SIZE];
-	UINT8							ubPathingMaxDirection;
-	BOOLEAN						fAdvancePath = TRUE;
-	UINT8							fFlags = 0;
-
-	//shadooow: if collapsed and enough breath, get up first and wait for new input
-	if (this->collapseState().tactical() && this->vitals().breath() >= OKBREATH)
-	{
-		(void)TacticalActorRecovery::beginGetUp(*this);
-		if(!this->collapseState().tactical()) return FALSE;
-	}
-
-	// Ifd this code, make true if a player
-	if ( fFromUI == 3 )
-	{
-		if ( this->roster().team() == gbPlayerNum )
-		{
-			fFromUI = 1;
-		}
-		else
-		{
-			fFromUI = 0;
-		}
-	}
-
-	// ATE: if a civ, and from UI, and were cowering, remove from cowering
-	if ( AM_AN_EPC( this ) && fFromUI )
-	{
-		if ( this->status().flags() & SOLDIER_COWERING )
-		{
-			(void)TacticalActorCombatReactions::setCowering(
-				*this,
-				false);
-			usMoveAnimState = WALKING;
-		}
-	}
-
-	// sevenfm: stop cowering for mercs
-	if (fFromUI &&
-		IS_MERC_BODY_TYPE(this) &&
-		//!(this->status().flags() & SOLDIER_COWERING) &&
-		TacticalActorConditions::isCowering(*this))
-	{
-		TacticalActorAiBehavior::stopCowering(*this);
-	}
-
-	// sevenfm: set WALKING when sidestepping, this should fix running instead of sidestepping with weapon raised in turnbased mode
-	if (usMoveAnimState == RUNNING && this->movement().reverse())
-		usMoveAnimState = WALKING;
-
-	this->movement().clearContinuedPath();
-
-	if ( this->movement().delayed() )
-	{
-		if ( this->movement().delayedFlags() & DELAYED_MOVEMENT_FLAG_PATH_THROUGH_PEOPLE )
-		{
-			fFlags = PATH_THROUGH_PEOPLE;
-		}
-		else
-		{
-			fFlags = PATH_IGNORE_PERSON_AT_DEST;
-		}
-		this->movement().clearDelay();
-	}
-
-	if ( gfGetNewPathThroughPeople )
-	{
-		fFlags = PATH_THROUGH_PEOPLE;
-	}
-
-	// ATE: Some stuff here for realtime, going through interface....
-	if ( (!(IsJa2TacticalCombatActive()) && (gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_MOVING) && fFromUI == 1) || fFromUI == 2 )
-	{
-		if ( this->collapseState().tactical() )
-		{
-			return(FALSE);
-		}
-
-		sMercGridNo = this->position().gridNo();
-		this->position().gridNo() = this->pathing().destinationGrid();
-
-		// Check if path is good before copying it into guy's path...
-		if ( !(uiDist = FindBestPath( this, sDestGridNo, this->position().level(), this->movement().mode(), COPYROUTE, fFlags )) )
-		{
-			// Set to old....
-			this->position().gridNo() = sMercGridNo;
-
-			return(FALSE);
-		}
-
-		//uiDist =  FindBestPath( this, sDestGridNo, this->position().level(), this->movement().mode(), COPYROUTE, fFlags );
-
-		this->position().gridNo() = sMercGridNo;
-		this->pathing().finalDestinationGrid() = sDestGridNo;
-
-		if ( uiDist > 0 )
-		{
-			// Add one to path data size....
-			if ( fAdvancePath )
-			{
-				memcpy( usPathingData, this->pathing().path(), sizeof(usPathingData) );
-				ubPathingMaxDirection = (UINT8)usPathingData[MAX_PATH_LIST_SIZE - 1];
-				memcpy( &(this->pathing().path()[1]), usPathingData, sizeof(usPathingData)-sizeof(UINT16) );
-
-				// If we have reach the max, go back one sFinalDest....
-				if ( this->pathing().pathSize() == MAX_PATH_LIST_SIZE )
-				{
-					//this->pathing().finalDestinationGrid() = NewGridNo( (INT16)this->pathing().finalDestinationGrid(), DirectionInc( gOppositeDirection[ ubPathingMaxDirection ] ) );
-				}
-				else
-				{
-					++this->pathing().pathSize();
-				}
-			}
-
-			usMoveAnimState = this->movement().mode();
-
-			if ( TacticalActorMobility::inDeepWater(*this) )
-			{
-				usMoveAnimState = DEEP_WATER_SWIM;
-			}
-
-			// Change animation only.... set value to NOT call any goto new gridno stuff.....
-			if ( usMoveAnimState != this->animationPlayback().state() )
-			{
-				//
-				this->movement().requestGridUpdateSuppression();
-
-				this->EVENT_InitNewSoldierAnim( usMoveAnimState, 0, FALSE );
-				if ( is_server || (is_client && this->identity().id() <20) ) send_path( this, sDestGridNo, usMoveAnimState, 0, FALSE );
-
-				return(TRUE);
-			}
-			if ( is_server || (is_client && this->identity().id() <20) ) send_path( this, sDestGridNo, this->animationPlayback().state(), 255, FALSE );
-
-			return(TRUE);
-		}
-
-		return(FALSE);
-	}
-
-	{
-		iDest = FindBestPath( this, sDestGridNo, this->position().level(), usMovementAnim, COPYROUTE, fFlags );
-		fContinue = (iDest != 0);
-	}
-
-	// Only if we can get a path here
-	if ( fContinue )
-	{
-		// Debug messages
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier %d: Get new path", this->identity().id() ) );
-
-		// Set final destination
-		this->pathing().finalDestinationGrid() = sDestGridNo;
-		this->movement().clearPastDestination();
-
-
-		// CHECK IF FIRST TILE IS FREE
-		sNewGridNo = NewGridNo( this->position().gridNo(), DirectionInc( (UINT8)this->pathing().path()[this->pathing().pathIndex()] ) );
-
-		// If true, we're OK, if not, WAIT for a guy to pass!
-		// If we are in deep water, we can only swim!
-		if ( TacticalActorMobility::inDeepWater(*this) )
-		{
-			usMoveAnimState = DEEP_WATER_SWIM;
-		}
-		// Can't forget shallow water!  AI will sometimes attempt to swat through it, which is not legal either
-		else if ( TacticalActorMobility::inWater(*this) )
-		{
-			usMoveAnimState = WALKING;
-		}
-
-		// If we were aiming, end aim!
-		// SANDRO - we may try to move with raised weapon, so don't end aim after
-		if ( (gAnimControl[this->animationPlayback().state()].uiFlags & (ANIM_FIREREADY | ANIM_FIRE)) &&
-			 (usMoveAnimState == WALKING || usMoveAnimState == SIDE_STEP) && !(TacticalActorMobility::inWater(*this)) )
-		{
-			usAnimState = INVALID_ANIMATION;
-		}
-		else
-		{
-			usAnimState = PickSoldierReadyAnimation( this, TRUE, FALSE );
-		}
-
-		// Add a pending animation first!
-		// Only if we were standing!
-		if ( usAnimState != INVALID_ANIMATION && gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND )
-		{
-			this->EVENT_InitNewSoldierAnim( usAnimState, 0, FALSE );
-			this->animationIntent().pendingAnimation() = usMoveAnimState;
-			if ( is_server || (is_client && this->identity().id() <20) ) send_path( this, sDestGridNo, usAnimState, 0, FALSE );
-		}
-		else
-		{
-			// Call local copy for change soldier state!
-			this->EVENT_InitNewSoldierAnim( usMoveAnimState, 0, fForceRestartAnim );
-			if ( is_server || (is_client && this->identity().id() <20) ) send_path( this, sDestGridNo, usMovementAnim, 0, fForceRestartAnim );
-
-		}
-
-		// Change desired direction
-		// ATE: Here we have a situation where in RT, we may have
-		// gotten a new path, but we are alreayd moving.. so
-		// at leasty change new dest. This will be redundent if the ANI is a totaly new one
-
-		return(TRUE);
-	}
-
-	return(FALSE);
-}
-
-void TacticalActor::EVENT_GetNewSoldierPath( INT32 sDestGridNo, UINT16 usMovementAnim )
-{
-	// ATE: Default restart of animation to TRUE
-	this->EVENT_InternalGetNewSoldierPath( sDestGridNo, usMovementAnim, FALSE, TRUE );
-}
-
-// Change our state based on stance, to stop!
-void TacticalActor::StopSoldier( void )
-{
-	TacticalActorMedicalServices::cancelReceiving(*this);
-	TacticalActorMedicalServices::cancelProviding(*this);
-
-	if ( !(gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_STATIONARY) )
-	{
-		//this->SoldierGotoStationaryStance( );
-		this->EVENT_StopMerc( this->position().gridNo(), this->position().direction() );
-	}
-
-	// Set destination
-	this->pathing().finalDestinationGrid() = this->position().gridNo();
-
-}
-
-void TacticalActor::SoldierGotoStationaryStance( void )
-{
-	// ATE: This is to turn off fast movement, that us used to change movement mode
-	// for ui display on stance changes....
-	if ( this->roster().team() == gbPlayerNum )
-	{
-		//this->movement().setUiMovementFast(FALSE);
-	}
-
-	// The queen, if she sees anybody, goes to ready, not normal breath....
-	if ( this->identity().bodyType() == QUEENMONSTER )
-	{
-		if ( this->awareness().opponentCount() > 0 || this->roster().team() == gbPlayerNum )
-		{
-			this->EVENT_InitNewSoldierAnim( QUEEN_READY, 0, TRUE );
-			return;
-		}
-	}
-
-	// Check if we are in deep water!
-	if ( TacticalActorMobility::inDeepWater(*this) )
-	{
-		// IN deep water, tred!
-		this->EVENT_InitNewSoldierAnim( DEEP_WATER_TRED, 0, FALSE );
-	}
-	else if (
-		TacticalActorMedicalSession::
-			resumeProvidingAnimation(*this))
-	{
-	}
-	else
-	{
-		// Change state back to stationary state for given height
-		switch ( gAnimControl[this->animationPlayback().state()].ubEndHeight )
-		{
-		case ANIM_STAND:
-
-			// If we are cowering....goto cower state
-			if ( this->status().flags() & SOLDIER_COWERING )
-			{
-				this->EVENT_InitNewSoldierAnim( START_COWER, 0, FALSE );
-			}
-			// Flugente: if we walk with our gun raised, we should still have it raised once we stop walking
-			else if ( this->animationPlayback().state() == WALKING_WEAPON_RDY || this->animationPlayback().state() == AIM_RIFLE_STAND )
-			{
-				this->EVENT_InitNewSoldierAnim( AIM_RIFLE_STAND, 0, FALSE );
-			}
-			else if ( this->animationPlayback().state() == WALKING_DUAL_RDY || this->animationPlayback().state() == AIM_DUAL_STAND )
-			{
-				this->EVENT_InitNewSoldierAnim( AIM_DUAL_STAND, 0, FALSE );
-			}
-			else
-			{
-				this->EVENT_InitNewSoldierAnim( STANDING, 0, FALSE );
-			}
-			break;
-
-		case ANIM_CROUCH:
-
-			// If we are cowering....goto cower state
-			if ( this->status().flags() & SOLDIER_COWERING )
-			{
-				this->EVENT_InitNewSoldierAnim( COWERING, 0, FALSE );
-			}
-			// Flugente: if we walk with our gun raised, we should still have it raised once we stop walking
-			else if (this->animationPlayback().state() == CROUCHEDMOVE_RIFLE_READY )
-			{
-				this->EVENT_InitNewSoldierAnim(AIM_RIFLE_CROUCH, 0, FALSE);
-			}
-			else if (this->animationPlayback().state() == CROUCHEDMOVE_PISTOL_READY )
-			{
-				this->EVENT_InitNewSoldierAnim(AIM_RIFLE_CROUCH, 0, FALSE);
-			}
-			else if (this->animationPlayback().state() == CROUCHEDMOVE_DUAL_READY)
-			{
-				this->EVENT_InitNewSoldierAnim(AIM_DUAL_CROUCH, 0, FALSE);
-			}
-			else
-			{
-				this->EVENT_InitNewSoldierAnim( CROUCHING, 0, FALSE );
-			}
-			break;
-
-		case ANIM_PRONE:
-			this->EVENT_InitNewSoldierAnim( PRONE, 0, FALSE );
-			break;
-		}
-
-	}
-
-}
-
-
 void TacticalActor::ChangeSoldierStance( UINT8 ubDesiredStance )
 {	
 	// Check if they are the same!
@@ -5286,9 +4887,9 @@ void EVENT_InternalSetSoldierDesiredDirection( TacticalActor *pSoldier, UINT8	ub
 	if ( pSoldier->movement().outOfActionPoints() && (gAnimControl[usAnimState].uiFlags & ANIM_MOVING) )
 	{
 		// ATE; Commented this out: NEVER, EVER, start a new anim from this function, as an eternal loop will result....
-		//pSoldier->SoldierGotoStationaryStance( );
+		//(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 		// Reset flag!
-		pSoldier->AdjustNoAPToFinishMove( FALSE );
+		(void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, false );
 	}
 
 	if ( pSoldier->pathing().desiredDirection() != pSoldier->position().direction() )
@@ -5615,7 +5216,7 @@ void TacticalActor::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeC
 			if ( !(gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_STATIONARY) )
 			{
 				// Stop the merc
-				this->EVENT_StopMerc( this->position().gridNo(), this->position().direction() );
+				(void)TacticalActorRouteExecution::stopAt(*this, this->position().gridNo(), this->position().direction() );
 				this->pathing().finalDestinationGrid() = NOWHERE;
 			}
 
@@ -6010,7 +5611,7 @@ void TacticalActor::TurnSoldier( void )
 	// DOUBLE CHECK TO UNSET fNOAPs...
 	if ( this->movement().outOfActionPoints() )
 	{
-		this->AdjustNoAPToFinishMove( FALSE );
+		(void)TacticalActorRouteExecution::setOutOfActionPoints(*this, false );
 	}
 
 	// Do something different for vehicles....
@@ -7062,7 +6663,7 @@ void HandleTakeDamageDeath( TacticalActor *pSoldier, UINT8 bOldLife, UINT8 ubRea
 			// so it should be safe to stop him here.
 			if ( pSoldier->vitals().health() < OKLIFE && !pSoldier->collapseState().tactical() )
 			{
-				pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+				(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 			}
 
 			// Check for < OKLIFE
@@ -9267,220 +8868,6 @@ void TacticalActor::ReviveSoldier( void )
 }
 
 
-void TacticalActor::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
-{
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "HaultSoldierFromSighting" ) );
-	// SEND HUALT EVENT!
-	EV_S_STOP_MERC				SStopMerc;
-
-	SStopMerc.sGridNo = this->position().gridNo();
-	SStopMerc.ubDirection = this->position().direction();
-	SStopMerc.usSoldierID = this->identity().id();
-	SStopMerc.fset = TRUE;
-	SStopMerc.sXPos = this->position().worldXInt();
-	SStopMerc.sYPos = this->position().worldYInt();
-	//AddGameEvent( S_STOP_MERC, 0, &SStopMerc ); //hayden.
-	if ( (is_networked) && (this->identity().id() >= 120) ) return;	// AI ids never replicate stops (unchanged)
-	// only the owner or host may broadcast; remote copies still run the local halt (audit [26])
-	if ( is_client && !( !is_server && this->identity().id() >= 20 ) )
-		send_stop( &SStopMerc );
-
-	// If we are a 'specialmove... ignore...
-	if ( (gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_SPECIALMOVE) )
-	{
-		return;
-	}
-
-	// OK, check if we were going to throw something, and give it back if so!
-	if ( this->pendingItem().hasObject() && fFromSightingEnemy )
-	{
-		THROW_PARAMS* throwParameters = this->pendingItem().throwParameters();
-		if ( throwParameters != nullptr && throwParameters->ubActionCode == THROW_ARM_ITEM )
-		{
-			if (!this->inventory()[HANDPOS].exists())
-			{
-				// put the one-handed weapon in the guy's hand...
-				if (!PlaceObject(this, HANDPOS, this->pendingItem().object()))
-				{
-					AutoPlaceObject(this, this->pendingItem().object(), FALSE);
-				}
-			}	
-			//AXP 25.03.2007: Not needed anymore, grenade costs are only deducted on throwing the object
-			//AXP 24.03.2007: Give APs back if we wanted to throw grenade, but interrupt/spotting occured
-			//DeductPoints( this, -MinAPsToAttack( this, this->targeting().gridNo(), FALSE ), 0 );
-		}
-		else
-		{
-			// Place it back into inv....
-			AutoPlaceObject(this, this->pendingItem().object(), FALSE);
-		}
-
-
-		this->pendingItem().clearThrowTransaction();
-		this->animationIntent().clearPendingAnimations();
-
-		// Decrement attack counter...
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "@@@@@@@ Reducing attacker busy count..., ending throw because saw something" ) );
-		DebugAttackBusy( "@@@@@@@ Reducing attacker busy count..., ending throw because saw something\n" );
-		FreeUpAttacker( );
-
-		// ATE: Goto stationary stance......
-		this->SoldierGotoStationaryStance( );
-
-		DirtyMercPanelInterface( this, DIRTYLEVEL2 );
-	}
-
-	// Kaiden: Added fix from UB for seeing new enemies when throwing Knives.
-	// ATE: Dave, don't kill me
-	// Here, we need to handle the situation when we're throweing a knife and we see somebody
-	// because throwing a knife does not use the pending-item transaction that
-	// the other throw paths use...
-	if ( this->animationIntent().pendingAnimation() == THROW_KNIFE || this->animationIntent().pendingAnimation() == THROW_KNIFE_SP_BM )
-	{
-		// Decrement attack counter...
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "@@@@@@@ Reducing attacker busy count..., ending throw knife because saw something" ) );
-		DebugAttackBusy( "@@@@@@@ Reducing attacker busy count..., ending throw knife because saw something" );
-		FreeUpAttacker( );
-
-		// ATE: Goto stationary stance......
-		this->SoldierGotoStationaryStance( );
-
-		DirtyMercPanelInterface( this, DIRTYLEVEL2 );
-	}
-	
-	if ( !(IsJa2TacticalCombatActive()) )
-	{
-		this->EVENT_StopMerc( this->position().gridNo(), this->position().direction() );
-	}
-	else
-	{
-		// MP: remote copies have no locomotion driver -- stop a moving copy's anim
-		// explicitly or it cycles walk frames (footsteps) in place forever.
-		if ( is_networked && this->roster().team() >= LAN_TEAM_ONE
-			&& this->position().gridNo() >= 0 && this->position().gridNo() < WORLD_MAX
-			&& ( gAnimControl[ this->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
-		{
-			this->EVENT_StopMerc( this->position().gridNo(), this->position().direction() );
-		}
-
-		// Pause this guy from no APS
-		this->AdjustNoAPToFinishMove( TRUE );
-
-		this->movement().stopReason() = REASON_STOPPED_SIGHT;
-
-		// ATE; IF turning to shoot, stop!
-		// ATE: We want to do this only for enemies, not items....
-		if ( this->animationActivity().turningToShoot() && fFromSightingEnemy )
-		{
-			this->animationActivity().turningToShoot() = FALSE;
-			// Release attacker
-
-			// OK - this is hightly annoying , but due to the huge combinations of
-			// things that can happen - 1 of them is that sLastTarget will get unset
-			// after turn is done - so set flag here to tell it not to...
-			this->targeting().retainLastTargetFromTurn() = TRUE;
-
-			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "@@@@@@@ Reducing attacker busy count..., ending fire because saw something" ) );
-			DebugAttackBusy( "@@@@@@@ Reducing attacker busy count..., ending fire because saw something\n" );
-			FreeUpAttacker( );
-		}
-
-		// OK, if we are stopped at our destination, cancel pending action...
-		if ( fFromSightingEnemy )
-		{
-			if ( this->pendingAction().active() && this->position().gridNo() == this->pathing().finalDestinationGrid() )
-			{
-				this->pendingAction().clearAction();
-			}
-
-			// Stop pending animation....
-			this->animationIntent().clearPendingAnimations();
-
-			// Kaiden: Another UB Bug Fix.
-			// ATE: Nasty bug - clear out any fence jumping that may be in progress
-			this->animationIntent().clearContinuation();
-		}
-
-		if ( !this->animationActivity().turningToShoot() )
-		{
-			this->animationActivity().turningFromProneMode() = FALSE;
-		}
-	}
-
-	// Unset UI!
-	if ( fFromSightingEnemy || (!this->pendingItem().hasObject() && !this->animationActivity().turningToShoot()) )
-	{
-		UnSetUIBusy( this->identity().id() );
-	}
-
-	this->animationIntent().clearTurningFromUi();
-
-	UnSetEngagedInConvFromPCAction( this );
-}
-
-
-// HUALT EVENT IS USED TO STOP A MERC - NETWORKING SHOULD CHECK / ADJUST TO GRIDNO?
-void TacticalActor::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
-{
-	INT16 sX, sY;
-
-	// MOVE GUY TO GRIDNO--- SHOULD BE THE SAME UNLESS IN MULTIPLAYER
-	// Makesure center of tile
-	ConvertGridNoToCenterCellXY(sGridNo, &sX, &sY);
-
-	//Cancel pending events
-	if ( !this->movement().delayed() )
-	{
-		this->animationIntent().clearPendingAnimations();
-		this->animationIntent().clearPendingDirection();
-		this->pendingAction().clearAction();
-	}
-
-	this->schedule().cancelDoorContinuation();
-	this->animationActivity().turningFromProneMode() = 0;
-
-	// Cancel path data!
-	this->pathing().pathIndex() = this->pathing().pathSize() = 0;
-
-	// Set ext tile waiting flag off!
-	this->movement().clearDelay();
-
-	// Turn off reverse...
-	this->movement().setReverse(false);
-
-	(void)TacticalActorWorldPlacement::setPosition(*this, (FLOAT)sX, (FLOAT)sY );
-	this->pathing().destinationX() = (INT16)this->position().worldX();
-	this->pathing().destinationY() = (INT16)this->position().worldY();
-	this->EVENT_SetSoldierDirection( bDirection );
-
-	if ( gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_MOVING )
-	{
-		this->SoldierGotoStationaryStance( );
-	}
-
-	// ATE; IF turning to shoot, stop!
-	if ( this->animationActivity().turningToShoot() )
-	{
-		this->animationActivity().turningToShoot() = FALSE;
-		// Release attacker
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "@@@@@@@ Reducing attacker busy count..., ending fire because saw something" ) );
-		DebugAttackBusy( "@@@@@@@ Reducing attacker busy count..., ending fire because saw something\n" );
-		FreeUpAttacker( );
-	}
-
-	// Turn off multi-move speed override....
-	if ( this->position().gridNo() == this->pathing().finalDestinationGrid() )
-	{
-		this->movement().clearMoveSpeedOverride();
-	}
-
-	// Unset UI!
-	UnSetUIBusy( this->identity().id() );
-
-	UnMarkMovementReserved( this );
-}
-
-
 PIXEL *CreateEnemyGlow16BPPPalette( SGPPaletteEntry *pPalette, UINT32 rscale, UINT32 gscale, BOOLEAN fAdjustGreen )
 {
 	PIXEL *p16BPPPalette, r16, g16, b16, usColor;
@@ -9649,12 +9036,12 @@ void ContinueMercMovement( TacticalActor *pSoldier )
 				}
 			}
 
-			pSoldier->AdjustNoAPToFinishMove( FALSE );
+			(void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, false );
 
 			SetUIBusy( pSoldier->identity().id() );
 
 			// OK, try and get a path to out dest!
-			pSoldier->EVENT_InternalGetNewSoldierPath( sGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+			(void)TacticalActorRouteExecution::requestPath(*pSoldier, sGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 		}
 	}
 }
@@ -16770,7 +16157,7 @@ void PickPickupAnimation( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGrid
 			UnSetUIBusy( pSoldier->identity().id() );
 			HandleSoldierPickupItem( pSoldier, iItemIndex, sGridNo, bZLevel );
 			pSoldier->pendingAction().clearAction();
-			pSoldier->SoldierGotoStationaryStance( );
+			(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 			if ( !(pSoldier->status().flags() & SOLDIER_PC) )
 			{
 				// reset action value for AI because we're done!
@@ -16845,7 +16232,7 @@ void PickPickupAnimation( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGrid
 				UnSetUIBusy( pSoldier->identity().id() );
 				HandleSoldierPickupItem( pSoldier, iItemIndex, sGridNo, bZLevel );
 				pSoldier->pendingAction().clearAction();
-				pSoldier->SoldierGotoStationaryStance( );
+				(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 				if ( !(pSoldier->status().flags() & SOLDIER_PC) )
 				{
 					// reset action value for AI because we're done!

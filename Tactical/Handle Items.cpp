@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "connect.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorExplosives.h"
@@ -791,7 +792,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+					(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 				}
 				else
 				{
@@ -1246,7 +1247,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath(sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 			}
 			else
 			{
@@ -1310,7 +1311,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 			}
 			else
 			{
@@ -1362,7 +1363,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode() , FALSE, TRUE );
+					(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode() , TacticalActorRouteExecution::PathOrigin::System, true);
 				}
 				else
 				{
@@ -1454,7 +1455,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+					(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 				}
 				else
 				{
@@ -1533,7 +1534,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+					(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 				}
 				else
 				{
@@ -1588,7 +1589,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+					(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 				}
 				else
 				{
@@ -1665,7 +1666,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+					(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 				}
 				else
 				{
@@ -1752,7 +1753,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 			}
 			else
 			{
@@ -1854,7 +1855,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 			}
 			else
 			{
@@ -1931,7 +1932,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 			}
 			else
 			{
@@ -2009,7 +2010,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 			}
 			else
 			{
@@ -2065,7 +2066,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 						pSoldier->pendingAction().resetAnimationCount();
 
 						// WALK UP TO DEST FIRST
-						pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+						(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 					}
 					else
 					{
@@ -2169,7 +2170,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 			pSoldier->pendingAction().resetAnimationCount();
 
 			// WALK UP TO DEST FIRST
-			pSoldier->EVENT_InternalGetNewSoldierPath( sGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+			(void)TacticalActorRouteExecution::requestPath(*pSoldier, sGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 		}
 		else
 		{
@@ -2224,7 +2225,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 			}
 			else
 			{
@@ -2614,7 +2615,7 @@ void HandleSoldierThrowItem( TacticalActor *pSoldier, INT32 sGridNo )
 			// CHANGE DIRECTION AT LEAST
 			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, pSoldier );
 
-			pSoldier->SoldierGotoStationaryStance( );
+			(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 
 			pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
 			pSoldier->animationActivity().turningUntilDone() = TRUE;
@@ -2682,7 +2683,7 @@ void HandleSoldierThrowItem( TacticalActor *pSoldier, INT32 sGridNo )
 			// CHANGE DIRECTION AT LEAST
 			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, pSoldier );
 
-			pSoldier->SoldierGotoStationaryStance( );
+			(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 
 			pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
 			pSoldier->animationActivity().turningUntilDone() = TRUE;
@@ -2733,7 +2734,7 @@ void SoldierGiveItem( TacticalActor *pSoldier, TacticalActor *pTargetSoldier, OB
 		if ( pSoldier->position().gridNo() != sActionGridNo )
 		{
 			// WALK UP TO DEST FIRST
-			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+			(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 		}
 		else
 		{
@@ -2795,7 +2796,7 @@ void SoldierPickupItem(
 	{
 		if ( pSoldier->roster().team() == gbPlayerNum )
 		{
-			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), TRUE, TRUE );
+			(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::PlayerUi, true);
 
 			// Say it only if we don;t have to go too far!
 			if ( pSoldier->pathing().pathSize() > 5 )
@@ -2805,7 +2806,7 @@ void SoldierPickupItem(
 		}
 		else
 		{
-			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
+			(void)TacticalActorRouteExecution::requestPath(*pSoldier, sActionGridNo, pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::System, true);
 		}
 	}
 	else

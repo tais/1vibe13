@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 	#include "sgp.h"
 #include "TacticalActorMedicalTreatment.h"
 #include "TacticalWorldAdapter.h"
@@ -501,7 +502,7 @@ void AutoBandage( BOOLEAN fStart )
 				// If anyone is still doing aid animation, stop!
 				if (pSoldier->animationPlayback().state() == GIVING_AID || pSoldier->animationPlayback().state() == GIVING_AID_PRN)
 				{
-					pSoldier->SoldierGotoStationaryStance();
+					(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 				}
 			}
 		}

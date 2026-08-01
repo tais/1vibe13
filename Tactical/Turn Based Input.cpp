@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorFieldOperations.h"
@@ -5383,7 +5384,7 @@ void TeleportSelectedSoldier()
 			{
 				(void)TacticalActorWorldPlacement::setHeight(*pSoldier, 0 );
 				TeleportSoldier( pSoldier, usMapPos, FALSE );
-				pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+				(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 			}
 			else
 			{
@@ -5393,7 +5394,7 @@ void TeleportSelectedSoldier()
 					(void)TacticalActorWorldPlacement::setHeight(*pSoldier, 50.0 );
 
 					TeleportSoldier( pSoldier, usMapPos, TRUE );
-					pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+					(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 				}
 			}
 		}
