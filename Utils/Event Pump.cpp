@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include <stdio.h>
 #include <time.h>
 #include "sgp.h"
@@ -1135,7 +1136,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 				// Call soldier function
 //				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Event Pump: SetPosition ( %f %f ) ( %d )", SSetPosition.dNewXPos, SSetPosition.dNewYPos, SSetPosition.usSoldierID ) );
-				pSoldier->EVENT_SetSoldierPosition( SSetPosition.dNewXPos, SSetPosition.dNewYPos );
+				(void)TacticalActorWorldPlacement::setPosition(*pSoldier, SSetPosition.dNewXPos, SSetPosition.dNewYPos );
 				break;
 
 			case S_GETNEWPATH:

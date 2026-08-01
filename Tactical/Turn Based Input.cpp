@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorFieldOperations.h"
 #include "TacticalActorLighting.h"
@@ -5380,7 +5381,7 @@ void TeleportSelectedSoldier()
 			// Check level first....
 			if ( gsInterfaceLevel == 0 )
 			{
-				pSoldier->SetSoldierHeight( 0 );
+				(void)TacticalActorWorldPlacement::setHeight(*pSoldier, 0 );
 				TeleportSoldier( pSoldier, usMapPos, FALSE );
 				pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 			}
@@ -5389,7 +5390,7 @@ void TeleportSelectedSoldier()
 				// Is there a roof?
 				if ( FindStructure( usMapPos, STRUCTURE_ROOF ) != NULL )
 				{
-					pSoldier->SetSoldierHeight( 50.0 );
+					(void)TacticalActorWorldPlacement::setHeight(*pSoldier, 50.0 );
 
 					TeleportSoldier( pSoldier, usMapPos, TRUE );
 					pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );

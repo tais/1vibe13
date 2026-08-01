@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAnimationFrames.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorCombatReactions.h"
@@ -269,11 +270,11 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				// Move merc up
 				if ( pSoldier->position().direction() == NORTH )
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().heightAdjustment() + 2 )	);
+					(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)(pSoldier->position().heightAdjustment() + 2 )	);
 				}
 				else
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() + 3 ) );
+					(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)( pSoldier->position().heightAdjustment() + 3 ) );
 				}
 				break;
 
@@ -284,14 +285,14 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				// Moved here because this represents "already on the roof", so breath collapses and interrupts should
 				// keep the soldier on the roof where he belongs
 				// Move merc up specific height
-				pSoldier->SetSoldierHeight( (FLOAT)50 );
+				(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)50 );
 
 				{
 					INT16		sXPos, sYPos;
 
 					//sNewGridNo = NewGridNo( pSoldier->sGridNo, (UINT16)DirectionInc( pSoldier->ubDirection ) );
 					ConvertGridNoToCenterCellXY( pSoldier->position().temporaryGrid(), &sXPos, &sYPos );
-					pSoldier->EVENT_SetSoldierPosition( (FLOAT)sXPos, (FLOAT)sYPos );
+					(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT)sXPos, (FLOAT)sYPos );
 				}
 
 				// re-enable sight
@@ -344,13 +345,13 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 			case 409:
 
 				//CODE: MOVE DOWN
-				pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() - 2 ) );
+				(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)( pSoldier->position().heightAdjustment() - 2 ) );
 				break;
 
 			case 410:
 
 				// Move merc down specific height
-				pSoldier->SetSoldierHeight( (FLOAT)0 );
+				(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)0 );
 				break;
 
 			case 411:
@@ -364,7 +365,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 				pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
 				// Adjust height //shadooow: do not change bLevel yet, we are still at roof!
-				pSoldier->InternalSetSoldierHeight((FLOAT)gClimbDownRoofStartDist[pSoldier->identity().bodyType()], FALSE);
+				(void)TacticalActorWorldPlacement::setHeight(*pSoldier,(FLOAT)gClimbDownRoofStartDist[pSoldier->identity().bodyType()], FALSE);
 				// Adjust position
 				MoveMercFacingDirection( pSoldier , TRUE, (FLOAT)3.5 );
 				break;
@@ -727,7 +728,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				// MOVE TO FORCASTED GRIDNO
 				ConvertGridNoToCenterCellXY(pSoldier->animationActivity().traversalForecastGrid(), &sX, &sY);
 
-				pSoldier->EVENT_InternalSetSoldierPosition( (FLOAT) sX, (FLOAT) sY, FALSE, FALSE, FALSE );
+				(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT) sX, (FLOAT) sY, FALSE, FALSE, FALSE );
 				pSoldier->EVENT_SetSoldierDirection(	gTwoCDirection[ pSoldier->position().direction() ] );
 				pSoldier->animationActivity().clearRenderZOverride();
 				pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
@@ -1067,11 +1068,11 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				// Move merc up
 				if ( pSoldier->position().direction() == NORTH )
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() + gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
+					(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)(pSoldier->position().animationHeightAdjustment() + gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
 				}
 				else
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() + gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
+					(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)(pSoldier->position().animationHeightAdjustment() + gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
 				}
 				break;
 
@@ -1081,7 +1082,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gClimbUpRoofLATDist[ pSoldier->identity().bodyType() ] );
 
 				// MOVE DOWN SOME VALUE TOO!
-				pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDistGoingLower[ pSoldier->identity().bodyType() ] ) );
+				(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDistGoingLower[ pSoldier->identity().bodyType() ] ) );
 
 				break;
 
@@ -1091,11 +1092,11 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				// Move merc DOWN
 				if ( pSoldier->position().direction() == NORTH )
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
+					(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
 				}
 				else
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
+					(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
 				}
 				break;
 
@@ -1224,7 +1225,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					ConvertGridNoToCenterCellXY( sTempGridNo, &sNewX, &sNewY );
 
 					// Set position
-					pSoldier->EVENT_SetSoldierPosition( sNewX, sNewY );
+					(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sNewX, sNewY );
 
 					// Move two CC directions
 					pSoldier->EVENT_SetSoldierDirection( gTwoCCDirection[ pSoldier->position().direction() ] );
@@ -1255,18 +1256,18 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						if ( sDiff > 0 )
 						{
 							// Adjust!
-							pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - 2 ) );
+							(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)(pSoldier->position().animationHeightAdjustment() - 2 ) );
 						}
 						else
 						{
 							// Adjust!
-							pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() + 2 ) );
+							(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)(pSoldier->position().animationHeightAdjustment() + 2 ) );
 						}
 					}
 					else
 					{
 						// Adjust!
-						pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().desiredHeight()) );
+						(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)(pSoldier->position().desiredHeight()) );
 					}
 				}
 				else
@@ -3096,7 +3097,6 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				// CODE: Move Vehicle UP
 				if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
-					//	pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() + 1 ) );
 				}
 				break;
 
@@ -3105,7 +3105,6 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				// CODE: Move vehicle down
 				if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
-					//		pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() - 1 ) );
 				}
 				break;
 

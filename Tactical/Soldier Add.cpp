@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 	#include "sgp.h"
 	#include "SoldierRepository.h"
@@ -1397,7 +1398,7 @@ void InternalSoldierInSectorSleep( TacticalActor *pSoldier, INT32 sGridNo, BOOLE
 	sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, usAnim, sGridNo, 5, &ubNewDirection, FALSE );
 	ConvertGridNoToCenterCellXY(sGoodGridNo, &sWorldX, &sWorldY);
 
-	pSoldier->EVENT_SetSoldierPosition( sWorldX, sWorldY );
+	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY );
 
 	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
 	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
@@ -1436,7 +1437,7 @@ void SoldierInSectorIncompaciated( TacticalActor *pSoldier, INT32 sGridNo )
 	sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, STAND_FALLFORWARD_STOP, sGridNo, 5, &ubNewDirection, FALSE );
 	ConvertGridNoToCenterCellXY(sGoodGridNo, &sWorldX, &sWorldY);
 
-	pSoldier->EVENT_SetSoldierPosition( sWorldX, sWorldY );
+	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY );
 
 	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
 	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
@@ -1470,7 +1471,7 @@ void SoldierInSectorPatient( TacticalActor *pSoldier, INT32 sGridNo )
 	sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, BEING_PATIENT, sGridNo, 5, &ubNewDirection, FALSE );
 	ConvertGridNoToCenterCellXY(sGoodGridNo, &sWorldX, &sWorldY);
 
-	pSoldier->EVENT_SetSoldierPosition( sWorldX, sWorldY );
+	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY );
 
 	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
 	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
@@ -1503,7 +1504,7 @@ void SoldierInSectorDoctor( TacticalActor *pSoldier, INT32 sGridNo )
 	sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, BEING_DOCTOR, sGridNo, 5, &ubNewDirection, FALSE );
 	ConvertGridNoToCenterCellXY(sGoodGridNo, &sWorldX, &sWorldY);
 
-	pSoldier->EVENT_SetSoldierPosition( sWorldX, sWorldY );
+	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY );
 
 	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
 	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
@@ -1536,7 +1537,7 @@ void SoldierInSectorRepair( TacticalActor *pSoldier, INT32 sGridNo )
 	sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, BEING_REPAIRMAN, sGridNo, 5, &ubNewDirection, FALSE );
 	ConvertGridNoToCenterCellXY(sGoodGridNo, &sWorldX, &sWorldY);
 
-	pSoldier->EVENT_SetSoldierPosition( sWorldX, sWorldY );
+	(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY );
 
 	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
 	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
@@ -1553,7 +1554,6 @@ void SoldierInSectorRepair( TacticalActor *pSoldier, INT32 sGridNo )
 	}
 }
 
-extern void EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( TacticalActor *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos, BOOLEAN fUpdateDest,	BOOLEAN fUpdateFinalDest );
 
 void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubDirection, BOOLEAN fUseAnimation, UINT16 usAnimState, UINT16 usAnimCode )
 {
@@ -1600,7 +1600,7 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 			SetRenderCenter( sNewCenterWorldX, sNewCenterWorldY );
 			gfIgnoreScrolling = TRUE;
 			
-			pSoldier->RemoveSoldierFromGridNo( );
+			(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
 			pSoldier->roster().inSector() = FALSE;
 
 			return;
@@ -1610,7 +1610,7 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 	// If this is a special insertion location, get path!
 	if ( ubInsertionCode == INSERTION_CODE_ARRIVING_GAME )
 	{
-		EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( pSoldier, sWorldX, sWorldY, fUpdateFinalPosition, fUpdateFinalPosition );
+		(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY, fUpdateFinalPosition, fUpdateFinalPosition );
 		pSoldier->EVENT_SetSoldierDirection( ubDirection );
 		pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
 	}
@@ -1620,7 +1620,7 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 	}
 	else
 	{
-		EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( pSoldier, sWorldX, sWorldY, fUpdateFinalPosition, fUpdateFinalPosition );
+		(void)TacticalActorWorldPlacement::setPosition(*pSoldier, sWorldX, sWorldY, fUpdateFinalPosition, fUpdateFinalPosition );
 
 		//if we are loading, dont set the direction ( they are already set )
 		if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
@@ -1696,7 +1696,7 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 			{
 				if ( !FindStructure( pSoldier->position().gridNo(), STRUCTURE_ROOF ) )
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)( 0 )	);
+					(void)TacticalActorWorldPlacement::setHeight(*pSoldier, (FLOAT)( 0 )	);
 				}
 			}
 

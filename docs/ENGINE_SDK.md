@@ -608,6 +608,17 @@ actor, grid, direction, animation, inventory, item, or weapon indexes before
 legacy state is touched. This is an application-side C++ boundary only;
 weapon, attachment, animation, sound, network-command, map, XML, Lua, save,
 and installed mod formats are unchanged.
+`TacticalActorWorldPlacement` is the application-side boundary for placing a
+live actor in the tactical world. Use `removeFromGrid`, `setPosition`,
+`setGrid`, and `setHeight`; do not restore the aggregate position, grid,
+height, or force-delete façades, or the former long-named global position
+wrapper. These operations synchronize precise and projected coordinates,
+route destinations, merc-layer nodes, animation footprints, lighting, vehicle
+passengers, terrain, reservations, and adjacency bookkeeping. They reject an
+unavailable tactical world, malformed actor/animation/level/grid state, and
+non-finite coordinates or heights without partial mutation. This boundary
+does not change maps, schedules, animation data, network events, saves, Lua,
+or installed content formats.
 `TacticalActorConditionPresentation` is the application-side boundary for
 localized food, disease, and sleep text. Use `appendSummary` when composing a
 complete tactical or strategic status tooltip, or the focused append

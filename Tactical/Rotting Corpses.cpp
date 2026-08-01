@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 	#include "builddefines.h"
 	#include "TacticalActorConditions.h"
 	#include "TacticalActorRecovery.h"
@@ -1190,7 +1191,7 @@ BOOLEAN TurnSoldierIntoCorpse( TacticalActor *pSoldier, BOOLEAN fRemoveMerc, BOO
 		}
 		else
 		{
-			pSoldier->RemoveSoldierFromGridNo( );
+			(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier );
 		}
 	}
 

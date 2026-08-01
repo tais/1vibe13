@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 	#include "Render Fun.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
@@ -747,7 +748,7 @@ BOOLEAN TeleportSoldier( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fForce 
 	{
 		// TELEPORT TO THIS LOCATION!
 		ConvertGridNoToCenterCellXY(sGridNo, &sX, &sY);
-		pSoldier->EVENT_SetSoldierPosition( (FLOAT) sX, (FLOAT) sY );
+		(void)TacticalActorWorldPlacement::setPosition(*pSoldier, (FLOAT) sX, (FLOAT) sY );
 
 		pSoldier->pathing().finalDestinationGrid() = sGridNo;
 
@@ -793,8 +794,8 @@ BOOLEAN SwapMercPositions( TacticalActor *pSoldier1, TacticalActor *pSoldier2 )
 	sGridNo2 = pSoldier2->position().gridNo();
 
 	// OK, remove each.....
-	pSoldier1->RemoveSoldierFromGridNo( );
-	pSoldier2->RemoveSoldierFromGridNo( );
+	(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier1 );
+	(void)TacticalActorWorldPlacement::removeFromGrid(*pSoldier2 );
 
 	// OK, test OK destination for each.......
 	if ( NewOKDestination( pSoldier1, sGridNo2, TRUE, 0 ) && NewOKDestination( pSoldier2, sGridNo1, TRUE, 0 ) )

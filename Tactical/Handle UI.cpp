@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
@@ -1303,9 +1304,9 @@ UINT32 UIHandleNewBadMerc( UI_EVENT *pUIEvent )
 			if(IS_MERC_BODY_TYPE(pSoldier))
 			{
 				if (gsInterfaceLevel)
-					pSoldier->SetSoldierHeight(WALL_HEIGHT);
+					(void)TacticalActorWorldPlacement::setHeight(*pSoldier,WALL_HEIGHT);
 				else
-					pSoldier->SetSoldierHeight(0);
+					(void)TacticalActorWorldPlacement::setHeight(*pSoldier,0);
 			}			
 
 			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;

@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "TacticalActorEquipment.h"
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
@@ -6143,7 +6144,7 @@ void SoldierDropThroughRoof( TacticalActor* pSoldier, INT32 sGridNo )
 	if ( !pSoldier || TileIsOutOfBounds( sGridNo ) )
 		return;
 
-	pSoldier->SetSoldierHeight( 0.0 );
+	(void)TacticalActorWorldPlacement::setHeight(*pSoldier, 0.0 );
 	TeleportSoldier( pSoldier, sGridNo, TRUE );
 	pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 

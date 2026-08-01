@@ -1,3 +1,4 @@
+#include "TacticalActorWorldPlacement.h"
 #include "Lua Interpreter.h"
 #include "lwstring.h"
 
@@ -95,7 +96,7 @@ static int LuaSetSoldierLevel( lua_State *L )
 	int newlevel = luaL_checkinteger( L, 3);
 	luaL_argcheck( L, newlevel >= 0 && newlevel <= 1, 2, "The level must be 1 or 0" );
 	HandlePlacingRoofMarker( pSoldier, pSoldier->position().gridNo(), (BOOLEAN) newlevel, TRUE );
-	pSoldier->SetSoldierHeight((FLOAT)50*newlevel );
+	(void)TacticalActorWorldPlacement::setHeight(*pSoldier,(FLOAT)50*newlevel );
 	HandlePlacingRoofMarker( pSoldier, pSoldier->position().gridNo(), (BOOLEAN) newlevel, TRUE );
 	return 0;
 }
