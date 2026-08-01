@@ -7,6 +7,7 @@
 #include "TacticalActorMedicalTreatment.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorPrisonerOperations.h"
+#include "TacticalActorProfileClassification.h"
 #include "TacticalActorWeaponHandling.h"
 // ja2_headless_tests.cpp -- first slice of the engine test harness.
 //
@@ -122,6 +123,7 @@
 #include "PreBattle Interface.h"
 #include "Game Clock.h"
 #include "Game Events.h"
+#include "GameSettings.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
 #include "Soldier Profile.h"
@@ -10364,6 +10366,101 @@ int main( int, char** )
 			malformedSoundSetIsRejected &&
 			malformedFaceIsRejectedWithoutMutation,
 			"tactical actor damage feedback preserves screen visibility rules and rejects malformed lookup state");
+	}
+
+	{
+		const BOOLEAN previousEnemyProfiles =
+			gGameExternalOptions.fSoldierProfiles_Enemy;
+		const BOOLEAN previousMilitiaProfiles =
+			gGameExternalOptions.fSoldierProfiles_Militia;
+		gGameExternalOptions.fSoldierProfiles_Enemy = TRUE;
+		gGameExternalOptions.fSoldierProfiles_Militia = TRUE;
+
+		TacticalActor profileActor;
+		profileActor.roster().soldierClass() =
+			SOLDIER_CLASS_ADMINISTRATOR;
+		const bool administratorUsesFirstEnemyTable =
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				ENEMY_TEAM) == 0;
+		profileActor.roster().soldierClass() =
+			SOLDIER_CLASS_ARMY;
+		const bool armyUsesSecondEnemyTable =
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				ENEMY_TEAM) == 1;
+		profileActor.roster().soldierClass() =
+			SOLDIER_CLASS_ELITE;
+		const bool eliteUsesThirdEnemyTable =
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				ENEMY_TEAM) == 2;
+
+		profileActor.roster().soldierClass() =
+			SOLDIER_CLASS_GREEN_MILITIA;
+		const bool greenUsesFirstMilitiaTable =
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				MILITIA_TEAM) == 3;
+		profileActor.roster().soldierClass() =
+			SOLDIER_CLASS_REG_MILITIA;
+		const bool regularUsesSecondMilitiaTable =
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				MILITIA_TEAM) == 4;
+		profileActor.roster().soldierClass() =
+			SOLDIER_CLASS_ELITE_MILITIA;
+		const bool eliteUsesThirdMilitiaTable =
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				MILITIA_TEAM) == 5;
+
+		const bool crossTeamClassIsRejected =
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				ENEMY_TEAM) == -1;
+		profileActor.roster().soldierClass() =
+			SOLDIER_CLASS_MAX;
+		const bool malformedClassAndTeamAreRejected =
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				ENEMY_TEAM) == -1 &&
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				std::numeric_limits<UINT8>::max()) == -1;
+
+		profileActor.roster().soldierClass() =
+			SOLDIER_CLASS_ADMINISTRATOR;
+		gGameExternalOptions.fSoldierProfiles_Enemy = FALSE;
+		const bool disabledEnemyTableIsRejected =
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				ENEMY_TEAM) == -1;
+		profileActor.roster().soldierClass() =
+			SOLDIER_CLASS_GREEN_MILITIA;
+		gGameExternalOptions.fSoldierProfiles_Militia = FALSE;
+		const bool disabledProfileTablesAreRejected =
+			disabledEnemyTableIsRejected &&
+			TacticalActorProfileClassification::profileTableIndex(
+				profileActor,
+				MILITIA_TEAM) == -1;
+
+		gGameExternalOptions.fSoldierProfiles_Enemy =
+			previousEnemyProfiles;
+		gGameExternalOptions.fSoldierProfiles_Militia =
+			previousMilitiaProfiles;
+
+		CHECK(
+			administratorUsesFirstEnemyTable &&
+			armyUsesSecondEnemyTable &&
+			eliteUsesThirdEnemyTable &&
+			greenUsesFirstMilitiaTable &&
+			regularUsesSecondMilitiaTable &&
+			eliteUsesThirdMilitiaTable &&
+			crossTeamClassIsRejected &&
+			malformedClassAndTeamAreRejected &&
+			disabledProfileTablesAreRejected,
+			"tactical actor profile classification preserves enemy and militia table mapping while rejecting disabled or malformed input");
 	}
 
 	{

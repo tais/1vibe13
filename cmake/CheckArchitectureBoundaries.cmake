@@ -2212,6 +2212,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageFeedback.h"
   tactical_actor_damage_feedback_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageFeedback.cpp"
   tactical_actor_damage_feedback_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorProfileClassification.h"
+  tactical_actor_profile_classification_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorProfileClassification.cpp"
+  tactical_actor_profile_classification_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalServices.h"
   tactical_actor_medical_services_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMedicalServices.cpp"
@@ -3087,6 +3091,7 @@ foreach(retired_actor_facade IN ITEMS
   "ChangeToFallbackAnimation"
   "SetSoldierCowerState"
   "HandleSoldierTakeDamageFeedback"
+  "GetSoldierProfileType"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3802,6 +3807,32 @@ if(damage_feedback_declaration EQUAL -1 OR
     "Tactical actor damage feedback lost its declaration, definition, caller migration, or malformed-state coverage")
 endif()
 
+string(FIND "${tactical_actor_profile_classification_header_contents}"
+  "profileTableIndex("
+  profile_classification_declaration)
+string(FIND "${tactical_actor_profile_classification_source_contents}"
+  "TacticalActorProfileClassification::profileTableIndex("
+  profile_classification_definition)
+string(FIND "${headless_test_contents}"
+  "TacticalActorProfileClassification::profileTableIndex"
+  profile_classification_coverage)
+string(FIND "${tactical_actor_source_contents}"
+  "TacticalActorProfileClassification::profileTableIndex"
+  actor_name_profile_classification_call)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
+  tactical_actor_profile_creation_contents)
+string(FIND "${tactical_actor_profile_creation_contents}"
+  "TacticalActorProfileClassification::profileTableIndex"
+  actor_creation_profile_classification_call)
+if(profile_classification_declaration EQUAL -1 OR
+   profile_classification_definition EQUAL -1 OR
+   profile_classification_coverage EQUAL -1 OR
+   actor_name_profile_classification_call EQUAL -1 OR
+   actor_creation_profile_classification_call EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor profile classification lost its declaration, definition, caller migration, or bounded headless coverage")
+endif()
+
 foreach(required_recovery_operation IN ITEMS
   "applySleepDart"
   "checkBreathCollapse"
@@ -4037,6 +4068,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorExplosives.cpp"
   "TacticalActorInteractions.cpp"
   "TacticalActorLighting.cpp"
+  "TacticalActorProfileClassification.cpp"
   "TacticalActorTurnBudget.cpp")
   string(FIND "${tactical_build_contents}"
     "${required_actor_domain_source}"

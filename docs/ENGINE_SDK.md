@@ -672,6 +672,15 @@ tactical screen flashes only in-sector actors while non-tactical screens may
 flash any actor. It validates body, profile, NPC sound-set, and face-registry
 indexes before reaching legacy presentation tables. Battle sounds, portraits,
 UI timing, damage rules, XML, Lua, saves, and network formats remain unchanged.
+`TacticalActorProfileClassification::profileTableIndex` is the bounded
+application-side entry point for selecting the optional generated enemy or
+militia profile table. Actor creation and display-name resolution call it
+instead of restoring `TacticalActor::GetSoldierProfileType`. The operation
+returns the established enemy indexes 0..2 or militia indexes 3..5 only for an
+enabled matching team/class pair; disabled tables, unrelated teams,
+cross-team classes, and malformed class values return -1. Soldier-profile XML,
+table ordering, generated identities, palettes, traits, names, saves, Lua, and
+network formats remain unchanged.
 `TacticalActorRecovery` owns sleep-dart application, breath-collapse
 detection, collapse execution, and get-up progression. New callers use
 `applySleepDart`, `checkBreathCollapse`, `collapse`, or `beginGetUp` instead of

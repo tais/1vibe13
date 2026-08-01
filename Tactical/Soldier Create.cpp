@@ -2,6 +2,7 @@
 	#include "sgp.h"
 	#include "TacticalActorConditions.h"
 	#include "TacticalActorDisease.h"
+	#include "TacticalActorProfileClassification.h"
 	#include "Soldier Create.h"
 	#include "Overhead.h"
 	#include "WCheck.h"
@@ -1563,7 +1564,10 @@ void GeneratePaletteForSoldier( TacticalActor *pSoldier, UINT8 ubSoldierClass, U
 	}
 	else if ( pSoldier->identity().dataProfile() )
 	{
-		INT8 type = pSoldier->GetSoldierProfileType(ubTeam);
+		const INT8 type =
+			TacticalActorProfileClassification::profileTableIndex(
+				*pSoldier,
+				ubTeam);
 
 		if ( type > -1 && zSoldierProfile[type][pSoldier->identity().dataProfile()].uiSkin )
 			skin = zSoldierProfile[type][pSoldier->identity().dataProfile()].uiSkin - 1;
@@ -1789,7 +1793,10 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( TacticalActor *pSoldier, SOLDIERCRE
 		else
 		{
 			// We have a function for this
-			INT8 type = pSoldier->GetSoldierProfileType( pCreateStruct->bTeam );
+			const INT8 type =
+				TacticalActorProfileClassification::profileTableIndex(
+					*pSoldier,
+					pCreateStruct->bTeam);
 
 			if ( type > -1 )
 			{
@@ -4737,7 +4744,10 @@ BOOLEAN AssignTraitsToSoldier( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pC
 	// Flugente: soldier profiles - if any traits are in the xml, use them, but fill up empty slots afterwards
 	if ( gGameOptions.fNewTraitSystem && pSoldier->identity().dataProfile() )
 	{
-		INT8 type = pSoldier->GetSoldierProfileType( pCreateStruct->bTeam );
+		const INT8 type =
+			TacticalActorProfileClassification::profileTableIndex(
+				*pSoldier,
+				pCreateStruct->bTeam);
 
 		if ( type > -1 )
 		{
