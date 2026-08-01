@@ -14620,13 +14620,20 @@ int main( int, char** )
 			reinterpret_cast<LEVELNODE*>(&runtime);
 		boundSoldier.renderBindings().animationTile() =
 			reinterpret_cast<TAG_anitile*>(&runtime);
+		boundSoldier.condition().extraStrength() = 7;
+		boundSoldier.statProgress().recordChange(
+			SoldierStatProgressComponent::Stat::Strength,
+			1234);
 		boundSoldier.runtime().pendingAction.pathSearchSourceGrid = 4321;
 		boundSoldier.initialize();
 		CHECK( boundSoldier.renderBindings().faceIndex() == -1 &&
 		       boundSoldier.renderBindings().levelNode() == nullptr &&
 		       boundSoldier.renderBindings().animationTile() == nullptr &&
+		       boundSoldier.condition().extraStrength() == 0 &&
+		       !boundSoldier.statProgress().hasChange(
+			       SoldierStatProgressComponent::Stat::Strength) &&
 		       boundSoldier.runtime().pendingAction.pathSearchSourceGrid == 0,
-		       "soldier initialization detaches every process-local binding and transient callback domain" );
+		       "soldier initialization directly resets condition, stat-progress, runtime, and process-local binding owners" );
 	}
 
 	// MemAlloc round-trip -- exercises the allocator whose 500+ unchecked call

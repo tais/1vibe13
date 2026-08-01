@@ -199,7 +199,7 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 				TacticalActor* soldier =
 					GetJa2SoldierRepository().resolve(cnt);
 				if (soldier)
-					soldier->ResetSoldierChangeStatTimer();
+					soldier->statProgress().reset();
 			}
 		}
 
