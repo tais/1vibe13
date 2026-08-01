@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 	#include "ai.h"
 	#include "AIInternals.h"
 	#include "Isometric Utils.h"
@@ -761,7 +762,7 @@ void SoldierTriesToContinueAlongPath(TacticalActor *pSoldier)
 
 	// turn off the flag now that we're going to do something about it...
 	// ATE: USed to be redundent, now if called befroe NewDest can cause some side efects...
-	// pSoldier->AdjustNoAPToFinishMove( FALSE );
+	// (void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, false );
 
 	if (pSoldier->aiBehavior().newSituation() == IS_NEW_SITUATION)
 	{
@@ -886,7 +887,7 @@ void HaltMoveForSoldierOutOfPoints(TacticalActor *pSoldier)
 			send_stop(&SStopMerc);
 	}
 	// record that this merc can no longer animate and why...
-	pSoldier->AdjustNoAPToFinishMove( TRUE );
+	(void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, true );
 
 	// We'll keep his action intact though...
 	DebugAI( String("NO AP TO FINISH MOVE for %d (%d APs left)",pSoldier->identity().id(), pSoldier->actionPoints().current()) );

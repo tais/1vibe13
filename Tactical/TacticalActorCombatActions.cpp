@@ -1,5 +1,7 @@
 #include "TacticalActorCombatActions.h"
 
+#include "TacticalActorRouteExecution.h"
+
 #include "Animation Control.h"
 #include "Drugs And Alcohol.h"
 #include "Explosion Control.h"
@@ -167,7 +169,7 @@ void turnAwareTarget(
 		return;
 	}
 
-	target.EVENT_StopMerc(
+	(void)TacticalActorRouteExecution::stopAt(target,
 		target.position().gridNo(),
 		target.position().direction());
 	if (target.roster().team() != gbPlayerNum)

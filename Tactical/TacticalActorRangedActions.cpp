@@ -1,5 +1,7 @@
 #include "TacticalActorRangedActions.h"
 
+#include "TacticalActorRouteExecution.h"
+
 #include "Animation Control.h"
 #include "GameSettings.h"
 #include "Handle UI.h"
@@ -506,7 +508,7 @@ bool TacticalActorRangedActions::refreshAfterHandItemChange(
 	if (gAnimControl[actor.animationPlayback().state()].uiFlags &
 		ANIM_FIREREADY)
 	{
-		actor.SoldierGotoStationaryStance();
+		(void)TacticalActorRouteExecution::settleIntoStationaryStance(actor);
 	}
 
 	TacticalActorMedicalServices::cancelProviding(actor);

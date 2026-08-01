@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 	#include "Vehicles.h"
 #include <array>
@@ -778,7 +779,7 @@ BOOLEAN AddSoldierToVehicle( TacticalActor *pSoldier, INT32 iId, UINT8 ubSeatInd
 				UpdateAllVehiclePassengersGridNo( pVehicleSoldier );
 
 				// Stop from any movement.....
-				pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+				(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 				// can't call SetCurrentSquad OR SelectSoldier in mapscreen, that will initialize interface panels!!!
 				if ( pSoldier->roster().team() == gbPlayerNum && GetCurrentScreen() == GAME_SCREEN )
@@ -963,7 +964,7 @@ BOOLEAN RemoveSoldierFromVehicle( TacticalActor *pSoldier, INT32 iId )
 					CancelPathForVehicle( &( pVehicleList[ iId ] ), FALSE );
 				}
 
-				pVehicleSoldier->EVENT_StopMerc( pVehicleSoldier->position().gridNo(), pVehicleSoldier->position().direction() );
+				(void)TacticalActorRouteExecution::stopAt(*pVehicleSoldier, pVehicleSoldier->position().gridNo(), pVehicleSoldier->position().direction() );
 
 				// if the vehicle was abandoned between sectors
 				if ( pVehicleList[ iId ].fBetweenSectors )

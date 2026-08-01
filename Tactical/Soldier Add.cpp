@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 	#include "sgp.h"
@@ -1644,10 +1645,10 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 				if ( pSoldier->animationPlayback().state() == HOPFENCE )
 				{
 					pSoldier->animationActivity().nonInterruptible() = FALSE;
-					pSoldier->SoldierGotoStationaryStance( );
+					(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 				}
 
-				pSoldier->EVENT_StopMerc( sGridNo, ubDirection );
+				(void)TacticalActorRouteExecution::stopAt(*pSoldier, sGridNo, ubDirection );
 			}
 		}
 
@@ -1656,7 +1657,7 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 		{
 			// Find a sweetspot near...
 			sNewGridNo = FindGridNoFromSweetSpot( pSoldier, gMapInformation.sNorthGridNo, 4, &ubNewDirection );
-			pSoldier->EVENT_GetNewSoldierPath( sNewGridNo, WALKING );
+			(void)TacticalActorRouteExecution::requestPath(*pSoldier, sNewGridNo, WALKING );
 		}
 
 		// If he's an enemy... set presence
@@ -1774,7 +1775,7 @@ void AddSoldierToSectorGridNo( TacticalActor *pSoldier, INT32 sGridNo, UINT8 ubD
 			// if the merc had a final destination, get the merc walking there
 			//if( pSoldier->pathing().finalDestinationGrid() != pSoldier->sGridNo )
 			//{
-			//	pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
+			// Request the final insertion path here if this recovery is restored.
 			//}
 		}
 	}

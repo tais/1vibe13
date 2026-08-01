@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 	#include "TacticalActorAiBehavior.h"
 	#include "TacticalActorRecovery.h"
 	#include "Soldier Control.h"
@@ -152,7 +153,7 @@ void BoxingPlayerDisqualified( TacticalActor * pOffender, INT8 bReason )
 {
 	if (bReason == BOXER_OUT_OF_RING || bReason == NON_BOXER_IN_RING)
 	{
-		pOffender->EVENT_StopMerc( pOffender->position().gridNo(), pOffender->position().direction() );
+		(void)TacticalActorRouteExecution::stopAt(*pOffender, pOffender->position().gridNo(), pOffender->position().direction() );
 	}
 	SetBoxingState( DISQUALIFIED );
 	TriggerNPCRecord( DARREN, 21 );

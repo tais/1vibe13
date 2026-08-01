@@ -881,22 +881,18 @@ public:
 
 	BOOLEAN ChangeSoldierState( UINT16 usNewState, UINT16 usStartingAniCode, BOOLEAN fForce );
 	void EVENT_SetSoldierDestination( UINT8	ubNewDirection );
-	void EVENT_GetNewSoldierPath( INT32 sDestGridNo, UINT16 usMovementAnim );
 
 	void EVENT_SetSoldierDirection( UINT16	usNewDirection );
 	void EVENT_SetSoldierDesiredDirection( UINT16	usNewDirection );
 	void EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 ubDamage, INT16 sBreathLoss, UINT16 bDirection, UINT16 sRange, SoldierID ubAttackerID, UINT8 ubSpecial, UINT8 ubHitLocation, INT16 sSubsequent, INT32 sLocationGridNo );
-	void EVENT_StopMerc( INT32 sGridNo, INT8 bDirection );
 	void EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCounter );
 
-	BOOLEAN EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 usMovementAnim, BOOLEAN fFromUI, BOOLEAN fForceRestart );
 	void EVENT_InternalSetSoldierDestination( UINT16	usNewDirection, BOOLEAN fFromMove, UINT16 usAnimState );
 
 
 	// Soldier Management functions called by Overhead.c
 	void TurnSoldier( void );
 	void ChangeSoldierStance( UINT8 ubDesiredStance );
-	void StopSoldier( void );
 	void ReviveSoldier( void );
 	UINT8 SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBreathDeduct, UINT8 ubReason, SoldierID ubAttacker, INT32 sSourceGrid, INT16 sSubsequent, BOOLEAN fShowDamage );
 
@@ -909,10 +905,8 @@ public:
 	void MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckRange );
 	// This function is now obsolete.	Call ReduceAttackBusyCount instead.
 	// void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
-	void SoldierGotoStationaryStance( void );
 
 
-	void AdjustNoAPToFinishMove( BOOLEAN fSet );
 
 
 
@@ -921,7 +915,6 @@ public:
 
 	BOOLEAN DoMercBattleSound( UINT8 ubBattleSoundID );
 	BOOLEAN InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpecialCode );
-	void HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy );
 	BOOLEAN CheckSoldierHitRoof( void );
 	// Flugente: return a soldier's name. This allows for very easy manipulation of a soldier's name with pre- an suffixes, ranks etc.
 	STR16		GetName();

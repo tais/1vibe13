@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorMobility.h"
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
@@ -3903,7 +3904,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 						AssertMsg( 0, String( "Failed to get good exit location for adjacentmove" ) );
 					}
 
-					member->EVENT_GetNewSoldierPath( sGridNo, WALKING );
+					(void)TacticalActorRouteExecution::requestPath(*member, sGridNo, WALKING );
 				}
 				else
 				{
@@ -3925,7 +3926,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 
 					// Set buddy go!
 					gfPlotPathToExitGrid = TRUE;
-					member->EVENT_GetNewSoldierPath( sGridNo, WALKING );
+					(void)TacticalActorRouteExecution::requestPath(*member, sGridNo, WALKING );
 					gfPlotPathToExitGrid = FALSE;
 
 				}
@@ -4539,7 +4540,7 @@ void DoneFadeOutAdjacentSector( )
 						(void)TacticalActorWorldPlacement::setPosition(*member, sWorldX, sWorldY );
 						if ( sGridNo != sOldGridNo )
 						{
-							member->EVENT_GetNewSoldierPath( sOldGridNo, WALKING );
+							(void)TacticalActorRouteExecution::requestPath(*member, sOldGridNo, WALKING );
 						}
 						ubNum++;
 					}

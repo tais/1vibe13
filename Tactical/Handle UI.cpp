@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorMedicalSession.h"
@@ -2252,7 +2253,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 						}
 					}
 
-					pSoldier->AdjustNoAPToFinishMove( FALSE );
+					(void)TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, false );
 
 					fOldFastMove = pSoldier->movement().uiMovementFast();
 
@@ -3340,7 +3341,7 @@ UINT32 UIHandlePADJAdjustStance( UI_EVENT *pUIEvent )
 			}
 
 			// Once we have APs, we can safely reset nomove flag!
-			// AdjustNoAPToFinishMove( pSoldier, FALSE );
+			// TacticalActorRouteExecution::setOutOfActionPoints(*pSoldier, false);
 		}
 	}
 
@@ -5619,7 +5620,7 @@ BOOLEAN MakeSoldierTurn( TacticalActor *pSoldier, INT16 sXPos, INT16 sYPos )
 					test == AIM_DUAL_CROUCH ||	test == AIM_DUAL_PRONE
 				)) 
 			{
-				pSoldier->SoldierGotoStationaryStance( );
+				(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 			}// arynn : fix lower ready weapon end_if	
 		}
 
@@ -6489,7 +6490,7 @@ UINT32 UIHandleJumpOver( UI_EVENT *pUIEvent )
 	if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 		UIHandleSoldierStanceChange(pSoldier->identity().id(), ANIM_CROUCH);
 	// sevenfm: first change to stationary
-	pSoldier->SoldierGotoStationaryStance();
+	(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 	pSoldier->EVENT_SetSoldierDesiredDirection(ubDirection);
 	pSoldier->animationActivity().turningUntilDone() = TRUE;
 	// ATE: Reset flag to go back to prone...

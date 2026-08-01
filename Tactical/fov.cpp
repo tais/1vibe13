@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 	#include "sgp.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
@@ -733,7 +734,7 @@ void RevealRoofsAndItems(TacticalActor *pSoldier, UINT32 itemsToo, BOOLEAN fShow
 											// ATE: Only if in combat...
 											if ( IsJa2TacticalCombatActive() )
 											{
-												pSoldier->HaultSoldierFromSighting( FALSE );
+												(void)TacticalActorRouteExecution::haltForSighting(*pSoldier, false );
 											}
 											else
 											{

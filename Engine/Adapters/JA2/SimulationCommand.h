@@ -97,8 +97,8 @@ struct BeginSelectedFireWeaponCommand
 };
 
 // Preserve the legacy fFromUI modes as explicit replay/network vocabulary.
-// Values are intentionally identical to EVENT_InternalGetNewSoldierPath's
-// established 0/1/2/3 policy.
+// Values are intentionally identical to TacticalActorRouteExecution's
+// established 0/1/2/3 ingress policy.
 enum class TacticalMoveOrigin : std::uint8_t
 {
 	System = 0,

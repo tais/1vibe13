@@ -1,5 +1,7 @@
 #include "TacticalActorInteractions.h"
 
+#include "TacticalActorRouteExecution.h"
+
 #include "Animation Control.h"
 #include "Arms Dealer Init.h"
 #include "Boxing.h"
@@ -382,7 +384,7 @@ bool TacticalActorInteractions::beginItemTransfer(
 	case ANIM_CROUCH:
 	case ANIM_PRONE:
 		SoldierHandleDropItem(&actor);
-		actor.SoldierGotoStationaryStance();
+		(void)TacticalActorRouteExecution::settleIntoStationaryStance(actor);
 		ActionDone(&actor);
 		return true;
 
@@ -444,7 +446,7 @@ bool TacticalActorInteractions::startConversation(
 		SendSoldierSetDesiredDirectionEvent(
 			&target,
 			gOppositeDirection[facingDirection]);
-		actor.EVENT_StopMerc(
+		(void)TacticalActorRouteExecution::stopAt(actor,
 			actor.position().gridNo(),
 			actor.position().direction());
 	}

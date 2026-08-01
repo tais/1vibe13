@@ -10,6 +10,7 @@
 #include "TacticalActorProfileClassification.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorRangedActions.h"
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 // ja2_headless_tests.cpp -- first slice of the engine test harness.
 //
@@ -9213,6 +9214,211 @@ int main( int, char** )
 		       malformedHeightIsRejected &&
 		       malformedAnimationIsRejectedWithoutMutation,
 		       "tactical actor world placement owns bounded position, grid, height, and removal transitions without partial mutation" );
+	}
+
+	{
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		TacticalActor routeActor;
+		routeActor.identity().id() = SoldierID{0};
+		routeActor.identity().bodyType() = REGMALE;
+		routeActor.roster().active() = TRUE;
+		routeActor.roster().inSector() = TRUE;
+		routeActor.animationPlayback().state() = STANDING;
+		routeActor.position().gridNo() = 42;
+		routeActor.position().level() = FIRST_LEVEL;
+		routeActor.position().direction() = NORTH;
+		routeActor.pathing().destinationGrid() = 43;
+		routeActor.pathing().finalDestinationGrid() = 44;
+		routeActor.pathing().pathIndex() = 0;
+		routeActor.pathing().pathSize() = 0;
+		routeActor.movement().setOutOfActionPoints(false);
+
+		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableWorldRequestsAreRejected =
+			!TacticalActorRouteExecution::setOutOfActionPoints(
+				routeActor,
+				true) &&
+			!TacticalActorRouteExecution::requestPath(
+				routeActor,
+				45,
+				WALKING) &&
+			!TacticalActorRouteExecution::stop(routeActor) &&
+			!TacticalActorRouteExecution::settleIntoStationaryStance(
+				routeActor) &&
+			!TacticalActorRouteExecution::haltForSighting(
+				routeActor,
+				true) &&
+			!TacticalActorRouteExecution::stopAt(
+				routeActor,
+				45,
+				NORTH) &&
+			!routeActor.movement().outOfActionPoints() &&
+			routeActor.pathing().destinationGrid() == 43 &&
+			routeActor.pathing().finalDestinationGrid() == 44;
+
+		NotifyJa2TacticalWorldLoaded(
+			previousWorld.worldGeneration != 0
+				? previousWorld.worldGeneration : 1);
+		const bool actionPointPauseIsOwned =
+			TacticalActorRouteExecution::setOutOfActionPoints(
+				routeActor,
+				true) &&
+			routeActor.movement().outOfActionPoints() &&
+			TacticalActorRouteExecution::setOutOfActionPoints(
+				routeActor,
+				false) &&
+			!routeActor.movement().outOfActionPoints() &&
+			routeActor.movement().stopReason() ==
+				REASON_STOPPED_NO_APS;
+
+		routeActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedActorStateIsRejected =
+			!TacticalActorRouteExecution::setOutOfActionPoints(
+				routeActor,
+				true) &&
+			!TacticalActorRouteExecution::requestPath(
+				routeActor,
+				45,
+				WALKING) &&
+			!TacticalActorRouteExecution::stop(routeActor) &&
+			!TacticalActorRouteExecution::settleIntoStationaryStance(
+				routeActor) &&
+			!TacticalActorRouteExecution::haltForSighting(
+				routeActor,
+				false) &&
+			!TacticalActorRouteExecution::stopAt(
+				routeActor,
+				45,
+				NORTH) &&
+			!routeActor.movement().outOfActionPoints() &&
+			routeActor.pathing().destinationGrid() == 43 &&
+			routeActor.pathing().finalDestinationGrid() == 44;
+
+		routeActor.animationPlayback().state() = STANDING;
+		const bool malformedRouteParametersAreRejected =
+			!TacticalActorRouteExecution::requestPath(
+				routeActor,
+				WORLD_MAX,
+				WALKING) &&
+			!TacticalActorRouteExecution::requestPath(
+				routeActor,
+				45,
+				NUMANIMATIONSTATES) &&
+			!TacticalActorRouteExecution::requestPath(
+				routeActor,
+				45,
+				WALKING,
+				static_cast<TacticalActorRouteExecution::PathOrigin>(
+					0xff)) &&
+			!TacticalActorRouteExecution::stopAt(
+				routeActor,
+				WORLD_MAX,
+				NORTH) &&
+			!TacticalActorRouteExecution::stopAt(
+				routeActor,
+				45,
+				NUM_WORLD_DIRECTIONS) &&
+			routeActor.pathing().destinationGrid() == 43 &&
+			routeActor.pathing().finalDestinationGrid() == 44;
+
+		routeActor.pathing().pathIndex() = MAX_PATH_LIST_SIZE;
+		const bool malformedPathIndexIsRejected =
+			!TacticalActorRouteExecution::requestPath(
+				routeActor,
+				45,
+				WALKING) &&
+			routeActor.pathing().destinationGrid() == 43;
+		routeActor.pathing().pathIndex() = 0;
+		routeActor.pathing().pathSize() = MAX_PATH_LIST_SIZE + 1;
+		const bool malformedPathSizeIsRejected =
+			!TacticalActorRouteExecution::requestPath(
+				routeActor,
+				45,
+				WALKING) &&
+			routeActor.pathing().destinationGrid() == 43;
+		routeActor.pathing().pathSize() = 0;
+		routeActor.pathing().destinationGrid() = WORLD_MAX;
+		routeActor.movement().mode() = WALKING;
+		const bool malformedContinuationIsRejected =
+			!TacticalActorRouteExecution::requestPath(
+				routeActor,
+				45,
+				WALKING,
+				TacticalActorRouteExecution::PathOrigin::
+					ContinueMovement,
+				false) &&
+			routeActor.pathing().finalDestinationGrid() == 44;
+		routeActor.pathing().destinationGrid() = 43;
+		routeActor.movement().mode() = NUMANIMATIONSTATES;
+		const bool malformedContinuationModeIsRejected =
+			!TacticalActorRouteExecution::requestPath(
+				routeActor,
+				45,
+				WALKING,
+				TacticalActorRouteExecution::PathOrigin::
+					ContinueMovement,
+				false) &&
+			routeActor.pathing().finalDestinationGrid() == 44;
+		routeActor.movement().mode() = WALKING;
+
+		routeActor.identity().bodyType() = TOTALBODYTYPES;
+		const bool malformedBodyIsRejected =
+			!TacticalActorRouteExecution::setOutOfActionPoints(
+				routeActor,
+				true) &&
+			!routeActor.movement().outOfActionPoints();
+		routeActor.identity().bodyType() = REGMALE;
+		routeActor.position().level() = SECOND_LEVEL + 1;
+		const bool malformedLevelIsRejected =
+			!TacticalActorRouteExecution::setOutOfActionPoints(
+				routeActor,
+				true) &&
+			!routeActor.movement().outOfActionPoints();
+		routeActor.position().level() = FIRST_LEVEL;
+		routeActor.position().direction() = NUM_WORLD_DIRECTIONS;
+		const bool malformedCurrentDirectionIsRejected =
+			!TacticalActorRouteExecution::setOutOfActionPoints(
+				routeActor,
+				true) &&
+			!routeActor.movement().outOfActionPoints();
+		routeActor.position().direction() = NORTH;
+		routeActor.position().gridNo() = WORLD_MAX;
+		const bool malformedCurrentGridIsRejected =
+			!TacticalActorRouteExecution::setOutOfActionPoints(
+				routeActor,
+				true) &&
+			!routeActor.movement().outOfActionPoints();
+		routeActor.position().gridNo() = 42;
+		routeActor.status().flags() |= SOLDIER_VEHICLE;
+		routeActor.vehicleState().tacticalVehicleId() = -1;
+		const bool malformedVehicleIsRejected =
+			!TacticalActorRouteExecution::setOutOfActionPoints(
+				routeActor,
+				true) &&
+			!TacticalActorRouteExecution::haltForSighting(
+				routeActor,
+				true) &&
+			!routeActor.movement().outOfActionPoints();
+		routeActor.status().flags() &= ~SOLDIER_VEHICLE;
+
+		RestoreJa2TacticalWorldSession(previousWorld);
+
+		CHECK( unavailableWorldRequestsAreRejected &&
+		       actionPointPauseIsOwned &&
+		       malformedActorStateIsRejected &&
+		       malformedRouteParametersAreRejected &&
+		       malformedPathIndexIsRejected &&
+		       malformedPathSizeIsRejected &&
+		       malformedContinuationIsRejected &&
+		       malformedContinuationModeIsRejected &&
+		       malformedBodyIsRejected &&
+		       malformedLevelIsRejected &&
+		       malformedCurrentDirectionIsRejected &&
+		       malformedCurrentGridIsRejected &&
+		       malformedVehicleIsRejected,
+		       "tactical actor route execution owns path, pause, stop, stationary-stance, and sighting-halt transitions without malformed-input partial mutation" );
 	}
 
 	{

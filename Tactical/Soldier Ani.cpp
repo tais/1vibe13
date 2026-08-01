@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAnimationFrames.h"
 #include "TacticalActorCombatActions.h"
@@ -740,7 +741,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 
 				if ( SetOffBombsInGridNo( pSoldier->identity().id(), pSoldier->position().gridNo(), FALSE, pSoldier->position().level() ))
 				{
-					pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+					(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 					return( TRUE );
 				}
 
@@ -1305,7 +1306,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				HandleMercArrivesQuotes( pSoldier );
 
 				// Find a path to it!
-				pSoldier->EVENT_GetNewSoldierPath( sNewGridNo, WALKING );
+				(void)TacticalActorRouteExecution::requestPath(*pSoldier, sNewGridNo, WALKING );
 
 				return( TRUE );
 				break;
@@ -2085,7 +2086,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 								if ( gAnimControl[ pTSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND )
 								{
 									// OK, stop merc....
-									pTSoldier->EVENT_StopMerc( pTSoldier->position().gridNo(), pTSoldier->position().direction() );
+									(void)TacticalActorRouteExecution::stopAt(*pTSoldier, pTSoldier->position().gridNo(), pTSoldier->position().direction() );
 
 									if ( pTSoldier->roster().team() != gbPlayerNum )
 									{
@@ -2602,7 +2603,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 							pSoldier->schedule().completeDoorAnimation();
 
 							// yes..
-							pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
+							(void)TacticalActorRouteExecution::requestPath(*pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
 
 							if ( !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_MOVING ) ) )
 							{								
@@ -2651,7 +2652,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 								// path continuation code so that any other bug fixes won't need to be duplicated in other areas.
 								if ( pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid())
 								{
-									if ( !pSoldier->EVENT_InternalGetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode(), 2, FALSE ) )
+									if ( !TacticalActorRouteExecution::requestPath(*pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode(), TacticalActorRouteExecution::PathOrigin::ContinueMovement, false) )
 									{
 									}
 								}
@@ -2673,7 +2674,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						pSoldier->animationIntent().clearContinuation();
 						return( TRUE );
 					}
-					pSoldier->SoldierGotoStationaryStance( );
+					(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 					return( TRUE );
 				}
 				else
@@ -2711,7 +2712,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 				ScreenMsg( FONT_ORANGE, MSG_BETAVERSION, L"Soldier Ani: GOTO Stance not chained properly: %d %d %d", ubDesiredHeight, ubCurrentHeight, pSoldier->animationPlayback().state() );
 #endif
 
-				pSoldier->SoldierGotoStationaryStance( );
+				(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 				return( TRUE );
 			}
 
@@ -5140,7 +5141,7 @@ void KickOutWheelchair( TacticalActor *pSoldier )
 		sNewGridNo = pSoldier->position().gridNo();
 	}
 
-	pSoldier->EVENT_StopMerc( sNewGridNo, pSoldier->position().direction() );
+	(void)TacticalActorRouteExecution::stopAt(*pSoldier, sNewGridNo, pSoldier->position().direction() );
 	pSoldier->identity().bodyType() = REGMALE;
 	if ( pSoldier->identity().profile() == SLAY && pSoldier->roster().team() == CIV_TEAM && !pSoldier->aiBehavior().neutral() )
 	{

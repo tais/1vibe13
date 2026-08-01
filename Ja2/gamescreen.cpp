@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 #include "builddefines.h"
 #include "TacticalWorldAdapter.h"
 #include <stdio.h>
@@ -574,7 +575,7 @@ UINT32	MainGameScreenHandle(void)
 				if ( sightingEnemy &&
 					GetJa2TacticalCurrentTeam() != gbPlayerNum )
 				{
-					sightingEnemy->AdjustNoAPToFinishMove( FALSE );
+					(void)TacticalActorRouteExecution::setOutOfActionPoints(*sightingEnemy, false );
 				}
 				if ( sightingEnemy )
 					sightingEnemy->animationActivity().resume();

@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 	#include "types.h"
 	#include "TacticalActorAiBehavior.h"
 	#include "TacticalActorLongActions.h"
@@ -554,7 +555,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 				&& pStop->position().gridNo() >= 0 && pStop->position().gridNo() < WORLD_MAX
 				&& ( gAnimControl[ pStop->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
 			{
-				pStop->EVENT_StopMerc( pStop->position().gridNo(), pStop->position().direction() );
+				(void)TacticalActorRouteExecution::stopAt(*pStop, pStop->position().gridNo(), pStop->position().direction() );
 			}
 		}
 	}
@@ -783,7 +784,7 @@ void DisplayHiddenInterrupt( TacticalActor * pSoldier )
 	// Reset flags
 	gfPlotNewMovement = TRUE;
 
-	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"about to call AdjustNoAPToFinishMove");
+	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"about to pause route execution");
 	// Stop our guy. The latest-entry field may contain the empty-list sentinel.
 	TacticalActor* interruptedSoldier =
 		GetJa2SoldierRepository().resolve(
@@ -791,7 +792,7 @@ void DisplayHiddenInterrupt( TacticalActor * pSoldier )
 	if ( LATEST_INTERRUPT_GUY != END_OF_INTERRUPTS &&
 		interruptedSoldier )
 	{
-		interruptedSoldier->AdjustNoAPToFinishMove( TRUE );
+		(void)TacticalActorRouteExecution::setOutOfActionPoints(*interruptedSoldier, true );
 		// Stop him from going to prone position if doing a turn while prone
 		interruptedSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 	}
@@ -1242,7 +1243,7 @@ void StartInterrupt( void )
 			&& latestInterrupter
 			)
 		{
-			latestInterrupter->AdjustNoAPToFinishMove( TRUE );
+			(void)TacticalActorRouteExecution::setOutOfActionPoints(*latestInterrupter, true );
 			latestInterrupter->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 		}
 	}
@@ -1469,11 +1470,11 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 					pSoldier->movement().stopReason() != REASON_STOPPED_SIGHT )
 				{
 					// Continue
-					selectedSoldier->AdjustNoAPToFinishMove( FALSE );
+					(void)TacticalActorRouteExecution::setOutOfActionPoints(*selectedSoldier, false );
 
 					if ( selectedSoldier->position().gridNo() != selectedSoldier->pathing().finalDestinationGrid() )
 					{
-						selectedSoldier->EVENT_GetNewSoldierPath( selectedSoldier->pathing().finalDestinationGrid(), selectedSoldier->movement().mode() );
+						(void)TacticalActorRouteExecution::requestPath(*selectedSoldier, selectedSoldier->pathing().finalDestinationGrid(), selectedSoldier->movement().mode() );
 					}
 					else
 					{
@@ -2447,7 +2448,7 @@ void VerifyOutOfTurnOrderArray()
 							// Pause them...
 							if (interruptedSoldier)
 							{
-								interruptedSoldier->AdjustNoAPToFinishMove( TRUE );
+								(void)TacticalActorRouteExecution::setOutOfActionPoints(*interruptedSoldier, true );
 
 								// If they were turning from prone, stop them
 								interruptedSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
@@ -2515,7 +2516,7 @@ void VerifyOutOfTurnOrderArray()
 				// remove!
 
 				// Pause them...
-				queuedSoldier->AdjustNoAPToFinishMove( TRUE );
+				(void)TacticalActorRouteExecution::setOutOfActionPoints(*queuedSoldier, true );
 
 				// If they were turning from prone, stop them
 				queuedSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
@@ -2612,10 +2613,10 @@ void DoneAddingToIntList( TacticalActor * pSoldier, BOOLEAN fChange, UINT8 ubInt
 					TacticalActor* pMerc =
 						GetJa2SoldierRepository().resolve(
 							gusSelectedSoldier.i);
-					//AdjustNoAPToFinishMove( pMerc, TRUE );	
+					// TacticalActorRouteExecution::setOutOfActionPoints(*pMerc, true);
 					if (pMerc)
 					{
-						pMerc->HaultSoldierFromSighting(TRUE);
+						(void)TacticalActorRouteExecution::haltForSighting(*pMerc, true);
 					}
 					//pMerc->fTurningFromPronePosition = FALSE;// hmmm ??
 					FreezeInterfaceForEnemyTurn();

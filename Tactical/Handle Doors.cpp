@@ -1,3 +1,4 @@
+#include "TacticalActorRouteExecution.h"
 	#include <wchar.h>
 	#include "SoldierRepository.h"
 	#include "TacticalActorEquipment.h"
@@ -322,7 +323,7 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 		if ( pDoorStatus && (pDoorStatus->ubFlags & DOOR_BUSY) )
 		{
 			// Send this guy into stationary stance....
-			pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
+			(void)TacticalActorRouteExecution::stopAt(*pSoldier, pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 			if ( pSoldier->roster().team() == gbPlayerNum )
 			{
@@ -344,7 +345,7 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 		if ( pSoldier->identity().id() <= gTacticalStatus.Team[ gbPlayerNum ].bLastID && !( pStructure->fFlags & STRUCTURE_SWITCH ) )
 		{
 			// Bring up menu to decide what to do....
-			pSoldier->SoldierGotoStationaryStance( );
+			(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 
 			pDoor = FindDoorInfoAtGridNo( pBaseStructure->sGridNo );
 			if ( pDoor )
@@ -394,7 +395,7 @@ void InteractWithOpenableStruct( TacticalActor *pSoldier, STRUCTURE *pStructure,
 		if ( fDoMenu )
 		{
 			// Bring up menu to decide what to do....
-			pSoldier->SoldierGotoStationaryStance( );
+			(void)TacticalActorRouteExecution::settleIntoStationaryStance(*pSoldier);
 
 			if ( DoTrapCheckOnStartingMenu( pSoldier, pDoor ) )
 		{

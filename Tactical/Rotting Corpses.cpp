@@ -1298,7 +1298,7 @@ void AddCrowToCorpse( ROTTING_CORPSE *pCorpse )
 			// Change to fly animation
 			//sGridNo =	FindRandomGridNoFromSweetSpot( pSoldier, pCorpse->def.sGridNo, 5, &ubDirection );
 			//pSoldier->movement().mode() = CROW_FLY;
-			//pSoldier->EVENT_GetNewSoldierPath( sGridNo, pSoldier->movement().mode() );
+			// Request a path to the corpse grid here if movement is restored.
 
 			// Setup action data to point back to corpse....
 			pSoldier->pendingAction().primaryData()	=	pCorpse->iID;
