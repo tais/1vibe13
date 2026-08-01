@@ -12,6 +12,7 @@ namespace TacticalActorInteractions
 		TacticalActor& target,
 		bool validate);
 	[[nodiscard]] bool stopChatting(TacticalActor& actor);
+	[[nodiscard]] bool beginItemTransfer(TacticalActor& actor);
 	[[nodiscard]] bool beginGivingItem(TacticalActor& actor);
 	[[nodiscard]] bool handcuffPerson(
 		TacticalActor& actor,

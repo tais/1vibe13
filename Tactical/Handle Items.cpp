@@ -2608,7 +2608,7 @@ void HandleSoldierThrowItem( TacticalActor *pSoldier, INT32 sGridNo )
 		// CHECK IF WE ARE NOT ON THE SAME GRIDNO
 		if ( sGridNo == pSoldier->position().gridNo() )
 		{
-			pSoldier->PickDropItemAnimation( );
+			(void)TacticalActorInteractions::beginItemTransfer(*pSoldier);
 		}
 		else
 		{
@@ -2758,7 +2758,7 @@ void SoldierGiveItem( TacticalActor *pSoldier, TacticalActor *pTargetSoldier, OB
 BOOLEAN SoldierDropItem( TacticalActor * pSoldier, OBJECTTYPE * pObj )
 {
 	pSoldier->pendingItem().copyObject(*pObj);
-	pSoldier->PickDropItemAnimation( );
+	(void)TacticalActorInteractions::beginItemTransfer(*pSoldier);
 	return( TRUE );
 }
 

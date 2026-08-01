@@ -10076,6 +10076,17 @@ int main( int, char** )
 				conversationTarget,
 				false) &&
 			interactionActor.actionPoints().current() == 47;
+		interactionActor.aiPlanning().action() = AI_ACTION_NONE;
+		const bool liveItemTransferWasAccepted =
+			TacticalActorInteractions::beginItemTransfer(
+				interactionActor);
+		CHECK( liveItemTransferWasAccepted,
+		       "tactical actor interactions accept a live standing item transfer" );
+		CHECK( interactionActor.aiPlanning().action() ==
+			       AI_ACTION_PENDING_ACTION,
+		       "standing item transfers retain the AI action until animation completion" );
+		interactionActor.aiPlanning().action() = AI_ACTION_NONE;
+		interactionActor.animationPlayback().state() = STANDING;
 		interactionActor.position().direction() =
 			NUM_WORLD_DIRECTIONS;
 		const bool malformedCombatReactionDirectionIsRejected =
@@ -10205,6 +10216,10 @@ int main( int, char** )
 				interactionActor,
 				conversationTarget,
 				false) &&
+			!TacticalActorInteractions::beginItemTransfer(
+				interactionActor) &&
+			interactionActor.aiPlanning().action() ==
+				AI_ACTION_NONE &&
 			!TacticalActorInteractions::beginGivingItem(
 				interactionActor) &&
 			!TacticalActorInteractions::handcuffPerson(

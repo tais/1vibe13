@@ -3099,6 +3099,7 @@ foreach(retired_actor_facade IN ITEMS
   "ResetExtraStats"
   "ResetSoldierChangeStatTimer"
   "InitializeExtraData"
+  "PickDropItemAnimation"
   "BeginSoldierGetup"
   "CheckForBreathCollapse"
   "BeginSoldierClimbUpRoof"
@@ -3962,6 +3963,7 @@ endforeach()
 foreach(required_interaction_operation IN ITEMS
   "startConversation"
   "stopChatting"
+  "beginItemTransfer"
   "beginGivingItem"
   "handcuffPerson"
   "applyItemToPerson"
@@ -3983,6 +3985,16 @@ foreach(required_interaction_operation IN ITEMS
       "Tactical actor interaction '${required_interaction_operation}' lost its declaration, definition, or headless coverage")
   endif()
 endforeach()
+
+string(REGEX MATCHALL
+  "TacticalActorInteractions::beginItemTransfer\\([ \t\r\n]*\\*pSoldier\\)"
+  item_transfer_owner_calls
+  "${tactical_item_fire_contents}")
+list(LENGTH item_transfer_owner_calls item_transfer_owner_call_count)
+if(NOT item_transfer_owner_call_count EQUAL 2)
+  message(FATAL_ERROR
+    "Tactical item pickup/drop callers must enter TacticalActorInteractions::beginItemTransfer")
+endif()
 
 foreach(required_lighting_operation IN ITEMS
   "createPersonalLight"

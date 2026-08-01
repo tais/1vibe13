@@ -934,7 +934,6 @@ public:
 	BOOLEAN InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpecialCode );
 	void HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy );
 	void ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, UINT16 usNewItem );
-	void PickDropItemAnimation( void );
 
 	// sevenfm
 
