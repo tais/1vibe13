@@ -3,6 +3,7 @@
 #include "TacticalActorTurnBudget.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorInteractions.h"
+#include "TacticalActorRangedActions.h"
 	#include "sgp.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
@@ -1331,7 +1332,11 @@ void UnusedAPsToBreath( TacticalActor * pSoldier )
 						pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_BREATH);
 					}
 					// Put gun down....
-					pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), TRUE, FALSE );
+					(void)TacticalActorRangedActions::readyFacing(
+						*pSoldier,
+						pSoldier->position().direction(),
+						true,
+						false);
 				}
 			}
 		}
@@ -1442,7 +1447,11 @@ void UnusedAPsToBreath( TacticalActor * pSoldier )
 							pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_BREATH);
 						}
 						// Put gun down....
-						pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), TRUE, FALSE );
+						(void)TacticalActorRangedActions::readyFacing(
+							*pSoldier,
+							pSoldier->position().direction(),
+							true,
+							false);
 					}
 				}
 			}

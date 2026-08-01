@@ -6,6 +6,7 @@
 	#include "builddefines.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditionPresentation.h"
+#include "TacticalActorRangedActions.h"
 #include "TacticalWorldAdapter.h"
 	#include "mapscreen.h"
 	#include <stdio.h>
@@ -11914,7 +11915,10 @@ void ItemPickupOK( GUI_BUTTON *btn, INT32 reason )
 			SoldierStealItemFromSoldier( pickupActor, pickupOpponent, gItemPickupMenu.pItemPool, ITEM_PICKUP_SELECTION, gItemPickupMenu.sGridNo, gItemPickupMenu.bZLevel, gItemPickupMenu.pfSelectedArray );
 			DeletePool(gItemPickupMenu.pItemPool);
 			if ((pickupOpponent->inventory()[HANDPOS].exists() == false ) && (usLastItem!=NOTHING))
-				pickupOpponent->ReLoadSoldierAnimationDueToHandItemChange( usLastItem, NOTHING );
+				(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+					*pickupOpponent,
+					usLastItem,
+					NOTHING);
 
 //			PreventFromTheFreezingBug(pickupActor);
 		}

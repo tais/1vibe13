@@ -2,6 +2,7 @@
 #include "TacticalActorConditions.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMedicalTreatment.h"
+#include "TacticalActorRangedActions.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp.h"
@@ -2231,7 +2232,10 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 					usGun = pSoldier->inventory()[HANDPOS].usItem;
 
-					pSoldier->ReLoadSoldierAnimationDueToHandItemChange( pSoldier->inventory()[HANDPOS].usItem, NOTHING );
+					(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+						*pSoldier,
+						pSoldier->inventory()[HANDPOS].usItem,
+						NOTHING);
 					AutoPlaceObject( pSoldier, &(pSoldier->inventory()[HANDPOS]), FALSE );
 
 					bNewSlot = FindObj( pSoldier, usGun );
@@ -2263,7 +2267,12 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				if (pSoldier && pSoldier->inventory()[HANDPOS].exists() == true)
 				{
 					sGridNo = pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() );
-					pSoldier->SoldierReadyWeapon( (INT16) (sGridNo % WORLD_COLS), (INT16) (sGridNo / WORLD_COLS), FALSE, FALSE );
+					(void)TacticalActorRangedActions::readyToward(
+						*pSoldier,
+						static_cast<INT16>(sGridNo % WORLD_COLS),
+						static_cast<INT16>(sGridNo / WORLD_COLS),
+						false,
+						false);
 				}
 				break;
 
@@ -2546,7 +2555,12 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					SwapObjs( pSoldier, HANDPOS, bItemIn, TRUE );
 					sGridNo = pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() );
-					pSoldier->SoldierReadyWeapon( (INT16) (sGridNo % WORLD_COLS), (INT16) (sGridNo / WORLD_COLS), FALSE, FALSE );
+					(void)TacticalActorRangedActions::readyToward(
+						*pSoldier,
+						static_cast<INT16>(sGridNo % WORLD_COLS),
+						static_cast<INT16>(sGridNo / WORLD_COLS),
+						false,
+						false);
 				}
 				// fall through so that the person faces the nearest merc!
 			case NPC_ACTION_TURN_TO_FACE_NEAREST_MERC:

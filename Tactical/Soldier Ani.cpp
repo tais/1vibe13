@@ -3,6 +3,7 @@
 #include "TacticalActorCombatReactions.h"
 #include "TacticalActorLighting.h"
 #include "TacticalActorRecovery.h"
+#include "TacticalActorRangedActions.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
@@ -1448,11 +1449,19 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 					{
 						if ( bGoBackToAimAfterHit == GO_TO_AIM_AFTER_HIT )
 						{				
-							pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), FALSE, FALSE );
+							(void)TacticalActorRangedActions::readyFacing(
+								*pSoldier,
+								pSoldier->position().direction(),
+								false,
+								false);
 						}
 						else if ( bGoBackToAimAfterHit == GO_TO_ALTERNATIVE_AIM_AFTER_HIT && (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND) )
 						{						
-							pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), FALSE, TRUE );
+							(void)TacticalActorRangedActions::readyFacing(
+								*pSoldier,
+								pSoldier->position().direction(),
+								false,
+								true);
 						}
 						else if ( bGoBackToAimAfterHit == GO_TO_HTH_BREATH_AFTER_HIT && (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND))
 						{						
@@ -2456,11 +2465,19 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						{
 							if ( bGoBackToAimAfterHit == GO_TO_AIM_AFTER_HIT )
 							{		
-								pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), FALSE, FALSE );
+								(void)TacticalActorRangedActions::readyFacing(
+									*pSoldier,
+									pSoldier->position().direction(),
+									false,
+									false);
 							}
 							else if ( bGoBackToAimAfterHit == GO_TO_ALTERNATIVE_AIM_AFTER_HIT && (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND) )
 							{						
-								pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), FALSE, TRUE );
+								(void)TacticalActorRangedActions::readyFacing(
+									*pSoldier,
+									pSoldier->position().direction(),
+									false,
+									true);
 							}
 							else if ( bGoBackToAimAfterHit == GO_TO_HTH_BREATH_AFTER_HIT && (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND))
 							{						
@@ -4764,7 +4781,11 @@ BOOLEAN CheckForImproperFireGunEnd( TacticalActor *pSoldier )
 		if ( Item[ pSoldier->inventory()[ SECONDHANDPOS ].usItem ].usItemClass != IC_GUN )
 		{
 			// OK, put gun down....
-			pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), TRUE, FALSE );
+			(void)TacticalActorRangedActions::readyFacing(
+				*pSoldier,
+				pSoldier->position().direction(),
+				true,
+				false);
 			return( TRUE );
 		}
 	}
@@ -4790,7 +4811,11 @@ BOOLEAN CheckForImproperFireGunEnd( TacticalActor *pSoldier )
 				pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_BREATH);
 			}
 			// Put gun down....
-			pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), TRUE, FALSE );
+			(void)TacticalActorRangedActions::readyFacing(
+				*pSoldier,
+				pSoldier->position().direction(),
+				true,
+				false);
 			return( TRUE );
 		}
 	}

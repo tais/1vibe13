@@ -8,6 +8,7 @@
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorDragging.h"
+#include "TacticalActorRangedActions.h"
 #include "TacticalWorldAdapter.h"
 #include <stdio.h>
 #include "stdlib.h"
@@ -3051,7 +3052,6 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						//ChangeSoldiersBodyType( LARVAE_MONSTER, TRUE );
 						//gusSelectedSoldier->attackSelection().weapon() = TANK_CANNON;
 						//LocateSoldier( gusSelectedSoldier, FALSE );
-						//EVENT_FireSoldierWeapon( gusSelectedSoldier, sMapPos );
 					}
 				}
 				else if( fAlt )
@@ -5267,7 +5267,10 @@ void CycleSelectedMercsItem()
 
 		CreateItem( (UINT16)usOldItem, 100, &( pSoldier->inventory()[ HANDPOS ]) );
 
-		pSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, pSoldier->inventory()[HANDPOS].usItem );
+		(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+			*pSoldier,
+			usOldHandItem,
+			pSoldier->inventory()[HANDPOS].usItem);
 
 		DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 	}
@@ -8134,7 +8137,10 @@ void HandleTBSwapHands( void )
 	{
 		UINT16 usOldHandItem = pSoldier->inventory()[HANDPOS].usItem;
 		SwapHandItems( pSoldier );
-		pSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, pSoldier->inventory()[HANDPOS].usItem );
+		(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+			*pSoldier,
+			usOldHandItem,
+			pSoldier->inventory()[HANDPOS].usItem);
 
 		fCharacterInfoPanelDirty = TRUE;
 		fInterfacePanelDirty = DIRTYLEVEL2;

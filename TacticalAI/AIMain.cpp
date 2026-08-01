@@ -6,6 +6,7 @@
 #include "TacticalActorConditions.h"
 #include "TacticalActorExplosives.h"
 #include "TacticalActorInteractions.h"
+#include "TacticalActorRangedActions.h"
 #include "TacticalWorldAdapter.h"
 #include "ai.h"
 #include "Isometric Utils.h"
@@ -2563,13 +2564,17 @@ INT8 ExecuteAction(TacticalActor *pSoldier)
 
         case AI_ACTION_LOWER_GUN:
             // for now, just do "action done"
-            pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(),TRUE,FALSE);
+            (void)TacticalActorRangedActions::readyFacing(
+                *pSoldier,
+                pSoldier->position().direction(),
+                true,
+                false);
             HandleSight(pSoldier, SIGHT_LOOK );
             ActionDone( pSoldier );
             break;
 
         case AI_ACTION_RAISE_GUN: //Madd: action added for snipers to ready weapon and use vision range bonuses
-            pSoldier->SoldierReadyWeapon();
+            (void)TacticalActorRangedActions::ready(*pSoldier);
             HandleSight(pSoldier, SIGHT_LOOK | SIGHT_RADIO);
 
             //AXP 23.03.2007: Sniper deadlock fix

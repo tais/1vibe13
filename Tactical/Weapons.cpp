@@ -5,6 +5,7 @@
 #include "TacticalActorRobotics.h"
 #include "TacticalActorRecovery.h"
 #include "TacticalActorSpotting.h"
+#include "TacticalActorRangedActions.h"
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -4258,7 +4259,10 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 
 					if (usOldItem != usNewItem)
 					{
-						pTargetSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldItem, usNewItem );
+						(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+							*pTargetSoldier,
+							usOldItem,
+							usNewItem);
 					}
 				}
 				// The enemy has no more items to steal
@@ -4319,7 +4323,10 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 						{
 							if (PlaceObject( pSoldier, HANDPOS, &gTempObject ))
 							{
-								pSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldItem, gTempObject.usItem );
+								(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+									*pSoldier,
+									usOldItem,
+									gTempObject.usItem);
 								if( pSoldier->roster().team() != gbPlayerNum )  // make sure item is droppable now, so we don't lose our gun if killed this enemy
 								{
 									pSoldier->inventory()[HANDPOS].fFlags &= ~OBJECT_UNDROPPABLE;
@@ -4372,7 +4379,10 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsStolen++;
 					}
 					// Reload buddy's animation...
-					pTargetSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldItemTarget, NOTHING );
+					(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+						*pTargetSoldier,
+						usOldItemTarget,
+						NOTHING);
 				}
 				// Enemy has no item in his hand.
 				else
@@ -4380,7 +4390,6 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 					fNoMoreItemInHand = TRUE;
 				}
 				// Reload buddy's animation...
-				//pTargetSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldItem, NOTHING );
 			}
 			// We could not steal from the enemy, we had no luck
 			else
@@ -4744,7 +4753,10 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 					{
 						UINT16 usOldHandItem = pTargetSoldier->inventory()[HANDPOS].usItem;
 						SwapHandItems(pTargetSoldier);
-						pTargetSoldier->ReLoadSoldierAnimationDueToHandItemChange(usOldHandItem, pTargetSoldier->inventory()[HANDPOS].usItem);
+						(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+							*pTargetSoldier,
+							usOldHandItem,
+							pTargetSoldier->inventory()[HANDPOS].usItem);
 						HandleSight(pTargetSoldier, SIGHT_LOOK);
 
 						if (pTargetSoldier->roster().team() == gbPlayerNum)
@@ -9919,7 +9931,10 @@ void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiI
 		if ( uiInvPos == HANDPOS || uiInvPos == SECONDHANDPOS )
 		{
 			// check if we need to change animation!
-			pSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldItem, usNewItem );
+			(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+				*pSoldier,
+				usOldItem,
+				usNewItem);
 		}
 
 		// if this is head gear

@@ -113,6 +113,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorMobility.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorPrisonerOperations.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorProfileClassification.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorRangedActions.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorRobotics.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorTraversal.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorWeaponHandling.cpp"

@@ -1361,6 +1361,17 @@ the engine must not contain SDL types in its public domain model.
   are bounded at that boundary. These are separate compiled domains rather
   than methods on the aggregate; item, weapon, vehicle, map, XML, and Lua
   formats remain unchanged.
+  `TacticalActorRangedActions` owns the complementary live ranged-weapon
+  lifecycle: fire initiation, readying toward a target or facing, lowering a
+  ready weapon, and refreshing fire mode, scope, barrel, service, and
+  animation state after a hand-item change. Event, AI, animation, tactical UI,
+  item, and weapon callers enter that one boundary; the four former
+  `TacticalActor` fire/ready/refresh façades are retired. Tactical-world,
+  actor, grid, level, direction, animation, inventory, item, and weapon indexes
+  are validated before legacy tables or world state are used, and rejected
+  requests do not partially update targeting or weapon-mode state. Existing
+  weapons, attachments, animations, sounds, network commands, maps, XML, Lua,
+  save data, and installed mod formats are unchanged.
   `TacticalActorConditionPresentation` owns the localized food, disease, and
   sleep description boundary for tactical and strategic actor tooltips. The
   two complete status tooltips use one ordered `appendSummary` operation,

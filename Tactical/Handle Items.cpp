@@ -1117,7 +1117,6 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 			// if attacking a new target (or if the specific target is uncertain)
 
 			// DEF:	Made into an event
-			//		pSoldier->EVENT_FireSoldierWeapon( sTargetGridNo );
 			if (fFromUI)
 			{
 				// set the target level; if the AI calls this it will have set the level already...

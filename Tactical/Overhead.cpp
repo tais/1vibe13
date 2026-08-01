@@ -10,6 +10,7 @@
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
+#include "TacticalActorRangedActions.h"
 #include "TacticalActorRecovery.h"
 #include <cstdio>
 #include "TacticalActorModifiers.h"
@@ -2961,7 +2962,10 @@ BOOLEAN HandleAtNewGridNo( TacticalActor *pSoldier, BOOLEAN *pfKeepMoving )
 			{
 				UINT16 usOldHandItem = pOpponent->inventory()[HANDPOS].usItem;
 				SwapHandItems(pOpponent);
-				pOpponent->ReLoadSoldierAnimationDueToHandItemChange(usOldHandItem, pOpponent->inventory()[HANDPOS].usItem);
+				(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+					*pOpponent,
+					usOldHandItem,
+					pOpponent->inventory()[HANDPOS].usItem);
 				HandleSight(pOpponent, SIGHT_LOOK);
 
 				if (pOpponent->roster().team() == gbPlayerNum)
@@ -9500,7 +9504,14 @@ BOOLEAN ProcessImplicationsOfPCAttack( TacticalActor * pSoldier, TacticalActor *
 
                 pTarget->animationActivity().readyCostWaived() = TRUE;
                 // Ready weapon
-                pTarget->SoldierReadyWeapon( sTargetXPos, sTargetYPos, FALSE, AIDecideHipOrShoulderStance( pTarget, pSoldier->position().gridNo() ) );
+                (void)TacticalActorRangedActions::readyToward(
+                    *pTarget,
+                    sTargetXPos,
+                    sTargetYPos,
+                    false,
+                    AIDecideHipOrShoulderStance(
+                        pTarget,
+                        pSoldier->position().gridNo()));
 
                 // ATE: Depending on personality, fire back.....
 
