@@ -2194,6 +2194,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEquipment.cpp"
   tactical_actor_equipment_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRadio.h"
   tactical_actor_radio_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRadio.cpp"
+  tactical_actor_radio_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRobotics.h"
   tactical_actor_robotics_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRobotics.cpp"
@@ -2268,12 +2270,16 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorPrisonerOperations.cpp"
   tactical_actor_prisoner_operations_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSkills.h"
   tactical_actor_skills_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSkills.cpp"
+  tactical_actor_skills_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSpotting.h"
   tactical_actor_spotting_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSpotting.cpp"
   tactical_actor_spotting_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurncoats.h"
   tactical_actor_turncoats_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurncoats.cpp"
+  tactical_actor_turncoats_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatActions.h"
   tactical_actor_combat_actions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatActions.cpp"
@@ -2352,6 +2358,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.cpp"
   tactical_actor_covert_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
   tactical_actor_disease_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.cpp"
+  tactical_actor_disease_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Interface Items.cpp"
   tactical_interface_items_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Interface Panels.cpp"
@@ -2801,7 +2809,7 @@ foreach(required_disease_operation IN ITEMS
   string(FIND "${tactical_actor_disease_header_contents}"
     "${required_disease_operation}("
     disease_operation_declaration)
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_disease_source_contents}"
     "TacticalActorDisease::${required_disease_operation}("
     disease_operation_definition)
   if(disease_operation_declaration EQUAL -1 OR
@@ -2842,13 +2850,24 @@ foreach(retired_disease_flag IN ITEMS
   endif()
 endforeach()
 
-string(FIND "${headless_test_contents}"
-  "TacticalActorDisease::hasAny"
-  disease_operation_coverage)
-if(disease_operation_coverage EQUAL -1)
-  message(FATAL_ERROR
-    "Tactical actor disease lost its data-free headless coverage")
-endif()
+foreach(required_disease_coverage IN ITEMS
+  "infect"
+  "addPoints"
+  "announce"
+  "addDisability"
+  "canReceiveSplint"
+  "hasAny"
+  "hasOutbreakProperty"
+  "magnitude"
+  "contactProtection")
+  string(FIND "${headless_test_contents}"
+    "TacticalActorDisease::${required_disease_coverage}"
+    disease_operation_coverage)
+  if(disease_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor disease lost headless coverage for '${required_disease_coverage}'")
+  endif()
+endforeach()
 
 foreach(retired_assignment_method IN ITEMS
   "GetSleepBreathRegeneration"
@@ -4069,7 +4088,7 @@ foreach(required_skill_operation IN ITEMS
   string(FIND "${tactical_actor_skills_header_contents}"
     "${required_skill_operation}("
     skill_operation_declaration)
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_skills_source_contents}"
     "TacticalActorSkills::${required_skill_operation}("
     skill_operation_definition)
   if(skill_operation_declaration EQUAL -1 OR
@@ -4081,6 +4100,7 @@ endforeach()
 
 foreach(required_skill_coverage IN ITEMS
   "TacticalActorSkills::canUse"
+  "TacticalActorSkills::use"
   "TacticalActorSkills::description")
   string(FIND "${headless_test_contents}"
     "${required_skill_coverage}"
@@ -4100,7 +4120,7 @@ foreach(required_turncoat_operation IN ITEMS
   string(FIND "${tactical_actor_turncoats_header_contents}"
     "${required_turncoat_operation}("
     turncoat_operation_declaration)
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_turncoats_source_contents}"
     "TacticalActorTurncoats::${required_turncoat_operation}("
     turncoat_operation_definition)
   if(turncoat_operation_declaration EQUAL -1 OR
@@ -4113,6 +4133,7 @@ endforeach()
 foreach(required_turncoat_coverage IN ITEMS
   "TacticalActorTurncoats::inPositionForAttempt"
   "TacticalActorTurncoats::convictionChance"
+  "TacticalActorTurncoats::attempt"
   "TacticalActorTurncoats::orderOne")
   string(FIND "${headless_test_contents}"
     "${required_turncoat_coverage}"
@@ -4164,7 +4185,7 @@ foreach(required_radio_operation IN ITEMS
   string(FIND "${tactical_actor_radio_header_contents}"
     "${required_radio_operation}("
     radio_operation_declaration)
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_radio_source_contents}"
     "TacticalActorRadio::${required_radio_operation}("
     radio_operation_definition)
   if(radio_operation_declaration EQUAL -1 OR
@@ -4176,7 +4197,16 @@ endforeach()
 
 foreach(required_radio_coverage IN ITEMS
   "TacticalActorRadio::canUse"
+  "TacticalActorRadio::use"
+  "TacticalActorRadio::orderArtilleryStrike"
   "TacticalActorRadio::isJamming"
+  "TacticalActorRadio::startJamming"
+  "TacticalActorRadio::startScanning"
+  "TacticalActorRadio::startListening"
+  "TacticalActorRadio::callReinforcements"
+  "TacticalActorRadio::switchOff"
+  "TacticalActorRadio::orderAllTurncoats"
+  "TacticalActorRadio::reportFailure"
   "TacticalActorRadio::isValidArtillerySector"
   "TacticalActorRadio::operatorSignal"
   "TacticalActorRadio::canOrderAnyArtilleryStrike")
@@ -4595,6 +4625,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorConditionPresentation.cpp"
   "TacticalActorDamageFeedback.cpp"
   "TacticalActorDamageResolution.cpp"
+  "TacticalActorDisease.cpp"
   "TacticalActorDragging.cpp"
   "TacticalActorLifecycle.cpp"
   "TacticalActorLocomotion.cpp"
@@ -4606,10 +4637,13 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorInteractions.cpp"
   "TacticalActorLighting.cpp"
   "TacticalActorProfileClassification.cpp"
+  "TacticalActorRadio.cpp"
+  "TacticalActorSkills.cpp"
   "TacticalActorSpotting.cpp"
   "TacticalActorTurnBudget.cpp"
   "TacticalActorTurnLifecycle.cpp"
-  "TacticalActorTurnMaintenance.cpp")
+  "TacticalActorTurnMaintenance.cpp"
+  "TacticalActorTurncoats.cpp")
   string(FIND "${tactical_build_contents}"
     "${required_actor_domain_source}"
     actor_domain_build_entry)
@@ -4620,7 +4654,7 @@ foreach(required_actor_domain_source IN ITEMS
 endforeach()
 
 string(REGEX MATCH
-  "(^|\n)[A-Za-z_][A-Za-z0-9_:<>,*& \t]*TacticalActor(Assignments|CovertOps|Dragging|Equipment|Modifiers|Spotting)::[A-Za-z0-9_]+[ \t\r\n]*\\("
+  "(^|\n)[A-Za-z_][A-Za-z0-9_:<>,*& \t]*TacticalActor(Assignments|CovertOps|Disease|Dragging|Equipment|Modifiers|Radio|Skills|Spotting|Turncoats)::[A-Za-z0-9_]+[ \t\r\n]*\\("
   actor_utility_definition_in_monolith
   "${tactical_actor_source_contents}")
 if(actor_utility_definition_in_monolith)

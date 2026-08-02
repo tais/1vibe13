@@ -8078,6 +8078,25 @@ int main( int, char** )
 		const auto previousInfectionPointLimit =
 			Disease[0].sInfectionPtsFull;
 		gGameExternalOptions.fDisease = TRUE;
+		TacticalActorDisease::infect(
+			diseaseActor,
+			NUM_DISEASES);
+		TacticalActorDisease::addPoints(
+			diseaseActor,
+			NUM_DISEASES,
+			10);
+		TacticalActorDisease::announce(
+			diseaseActor,
+			NUM_DISEASES);
+		TacticalActorDisease::addDisability(
+			diseaseActor,
+			0);
+		const bool malformedDiseaseMutationsAreNeutral =
+			!diseaseActor.condition().hasDisability(0) &&
+			!TacticalActorDisease::canReceiveSplint(diseaseActor) &&
+			!TacticalActorDisease::hasOutbreakProperty(
+				diseaseActor,
+				DISEASE_PROPERTY_LIMITED_USE_LEGS);
 		Disease[0].sInfectionPtsFull = 0;
 		diseaseActor.condition().diseasePoints(0) = 1;
 		diseaseActor.condition().markDiseaseFlag(
@@ -8097,7 +8116,8 @@ int main( int, char** )
 			TacticalActorDisease::contactProtection(diseaseActor) == 0.0f;
 		Disease[0].sInfectionPtsFull = previousInfectionPointLimit;
 		gGameExternalOptions.fDisease = previousDiseaseSetting;
-		CHECK( malformedDiseaseIsSafe &&
+		CHECK( malformedDiseaseMutationsAreNeutral &&
+		       malformedDiseaseIsSafe &&
 		       disabledDisease &&
 		       disabilityRecorded &&
 		       unprotected,
@@ -8563,7 +8583,12 @@ int main( int, char** )
 				-1)[0] == L'\0' &&
 			TacticalActorSkills::description(
 				skillActor,
-				SKILLS_MAX)[0] == L'\0';
+				SKILLS_MAX)[0] == L'\0' &&
+			!TacticalActorSkills::use(
+				skillActor,
+				SKILLS_MAX,
+				NOWHERE,
+				static_cast<std::uint32_t>(NOBODY));
 
 		skillActor.deployment().sectorX() = 0;
 		skillActor.deployment().sectorY() = 1;
@@ -8632,6 +8657,28 @@ int main( int, char** )
 	}
 
 	{
+		TacticalActor emptyRadioActor;
+		emptyRadioActor.roster().team() = gbPlayerNum;
+		emptyRadioActor.roster().inSector() = true;
+		const bool emptyRadioMutationsAreRejected =
+			!TacticalActorRadio::use(emptyRadioActor) &&
+			!TacticalActorRadio::startJamming(emptyRadioActor) &&
+			!TacticalActorRadio::startScanning(emptyRadioActor) &&
+			!TacticalActorRadio::startListening(emptyRadioActor) &&
+			!TacticalActorRadio::callReinforcements(
+				emptyRadioActor,
+				std::numeric_limits<std::uint32_t>::max(),
+				0) &&
+			!TacticalActorRadio::orderArtilleryStrike(
+				emptyRadioActor,
+				std::numeric_limits<std::uint32_t>::max(),
+				NOWHERE,
+				MAXTEAMS) &&
+			!TacticalActorRadio::orderAllTurncoats(
+				emptyRadioActor) &&
+			TacticalActorRadio::switchOff(emptyRadioActor);
+		TacticalActorRadio::reportFailure(emptyRadioActor);
+
 		TacticalActor radioActor;
 		const auto previousRobotBodyType =
 			gMercProfiles[0].ubBodyType;
@@ -8727,7 +8774,8 @@ int main( int, char** )
 		DeleteObj(&wrongSlotRadio);
 		DeleteObj(&dedicatedRadio);
 
-		CHECK( validRobotRadioIsFound &&
+		CHECK( emptyRadioMutationsAreRejected &&
+		       validRobotRadioIsFound &&
 		       malformedRobotItemIsRejected,
 		       "tactical actor radio validates robot utility-slot equipment without indexing malformed items" );
 		CHECK( newInventoryRejectsWrongRadioSlot &&

@@ -619,6 +619,17 @@ table access, while covert spy calculations reject malformed strategic
 sectors. The move changes C++ ownership and validation only; existing uniform,
 item, corpse, profile, map, persistence, network, XML, Lua, and installed mod
 formats remain compatible.
+Use `TacticalActorSkills` for trait-skill eligibility, execution, and denial
+text; use `TacticalActorRadio` for radio equipment, artillery, operating modes,
+reinforcements, and team signal queries; use `TacticalActorDisease` for infection
+and derived disease rules; and use `TacticalActorTurncoats` for conviction and
+activation. These four domains are independent compiled implementation units,
+and their definitions must not return to `Soldier Control.cpp`. Their boundaries
+retain the established application adapters and validate malformed skill, item,
+sector, disease, profile, target, animation, and radio-configuration input before
+unsafe legacy lookups. This completes physical isolation of the existing domain
+namespaces without changing installed content or persistence formats; the
+remaining `TacticalActor` compatibility members are a separate migration concern.
 `TacticalActorRangedActions` owns the stateful ranged-weapon lifecycle that
 uses those rules: `beginFire`, the `ready`/`readyToward`/`readyFacing`
 operations, and `refreshAfterHandItemChange`. Event handling, tactical AI,
