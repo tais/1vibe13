@@ -1,4 +1,8 @@
 #include "TacticalActorSkills.h"
+
+#include "Grid Direction.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDragging.h"
 #include "TacticalActorRadio.h"

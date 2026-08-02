@@ -15,8 +15,12 @@
 #include "Rebel Command.h"
 #include "SkillCheck.h"
 #include "TacticalActor.h"
+#include "Soldier Background Types.h"
 #include "Soldier Profile.h"
+#include "Soldier Profile Constants.h"
 #include "Soldier macros.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
 
 #include <algorithm>
 #include <cstddef>

@@ -5,6 +5,7 @@
 
 #include "SkillMenu.h"
 #include "SoldierRepository.h"
+#include "Soldier Control.h"
 #include "TacticalActorDragging.h"
 #include "TacticalActorRadio.h"
 #include "TacticalActorSkills.h"

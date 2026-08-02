@@ -1,6 +1,14 @@
 #ifndef __WORLDMAN_H_
 #define __WORLDMAN_H_
 
+#include "types.h"
+
+struct LEVELNODE;
+struct TAG_HVOBJECT;
+struct TAG_STRUCTURE;
+typedef TAG_HVOBJECT* HVOBJECT;
+typedef TAG_STRUCTURE STRUCTURE;
+
 // memory-accounting function
 void CountLevelNodes( void );
 

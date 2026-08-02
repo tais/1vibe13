@@ -1,5 +1,13 @@
 #include "TacticalActorDamageResolution.h"
 
+#include "Grid Direction.h"
+#include "Disease.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorAnimationState.h"
+#include "TacticalActorQuoteFlags.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
+
 #include "TacticalActorBattleSounds.h"
 #include "connect.h"
 

@@ -1,5 +1,7 @@
 #include "TacticalActorLifecycle.h"
 
+#include "TacticalActorStateFlags.h"
+
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorAppearance.h"
 #include "TacticalActorOrientation.h"

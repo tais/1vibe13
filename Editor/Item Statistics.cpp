@@ -17,6 +17,7 @@
 	#include "Action Items.h"
 	#include "video.h"
 	#include "Simple Render Utils.h"
+	#include "Soldier Profile Constants.h"
 	#include "Weapons.h"
 	#include "Items.h"
 	#include "editscreen.h"

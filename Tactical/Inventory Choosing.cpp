@@ -1,4 +1,5 @@
 	#include "Inventory Choosing.h"
+	#include "Soldier Profile Constants.h"
 	#include "Animation Data.h"
 	#include "Items.h"
 	#include "random.h"

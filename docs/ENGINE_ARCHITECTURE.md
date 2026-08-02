@@ -1415,6 +1415,49 @@ the engine must not contain SDL types in its public domain model.
   through `TacticalActor.h` and focused collaborators rather than directly
   including `Soldier Control.h`; the boundary checker scans the complete actor
   implementation set to keep that dependency from returning.
+  The application-header boundary is now complete: the final 30 tactical,
+  TacticalAI, and strategic service headers compile independently while
+  keeping `TacticalActor` incomplete. The route-node layout moved to
+  `Strategic Path Types.h`, the fixed map-placement patrol capacity to
+  `Soldier Patrol Types.h`, and the reserved profile sentinel to
+  `Soldier Profile Constants.h`. Palette-replacement declarations used by
+  lower-level display utilities now live in `Soldier Palette.h`;
+  stable voice-table indices live with `TacticalActorBattleSounds.h`;
+  stable profile-background flag bits live in `Soldier Background Types.h`;
+  serialized status and feature masks live in `TacticalActorStateFlags.h`;
+  employment classification codes live in `TacticalActorEmploymentTypes.h`;
+  animation intent sentinels and post-hit/turning state live in
+  `TacticalActorAnimationState.h`; pending interactions and physical-throw
+  actions live in `TacticalActorPendingActionTypes.h`; movement-stop reasons
+  live in `TacticalActorMovementState.h`; quote-history and blood-trail schema
+  values live in `TacticalActorQuoteFlags.h` and
+  `TacticalActorBloodState.h`; and skill IDs, damage reasons, long-action IDs,
+  interrupt dispatch, and replicated event wrappers live with their focused
+  actor domains. `Animation Data.h` owns animation-profile layouts,
+  `Grid Direction.h` owns direction helpers, `Soldier Drug Types.h` owns the
+  persistent drug-effect indices/capacity, and `Soldier Palette.h` owns uniform
+  IDs and palette contracts. These values no longer have duplicate definitions
+  in the soldier-control facade or component aggregate;
+  the shared trait-stage predicate is declared by `Soldier Profile.h`;
+  `Soldier Control.h` re-exports these focused contracts for compatibility.
+  The player light-option refresh also moved beside the personal-light domain
+  in `TacticalActorLighting.cpp`; load, environment, and input callers enter
+  through `TacticalActorLighting.h` instead of the monolith.
+  The headless build compiles every migrated header in a separate translation
+  unit so include order cannot conceal an ownership regression: the 30
+  actor-facing service/API headers must also keep `TacticalActor` incomplete,
+  while 22 focused compatibility/schema contracts each compile standalone.
+  Compile-time assertions pin their established layouts, capacities, enum
+  order, sentinels, and overlapping flag values. Architecture CI rejects a direct
+  `Soldier Control.h` import from every application header under Editor, Ja2,
+  Laptop, modular AI, Multiplayer, Strategic, Tactical, TacticalAI, TileEngine,
+  Utils, and SGP. Headers with inline actor behavior include the focused
+  `TacticalActor.h` explicitly. `Utils All.h` is the sole intentional
+  compatibility umbrella. Headless coverage also retains the light refresh's
+  option-preserving render invalidation. Route-node, patrol-array, profile-ID,
+  animation-profile, drug-effect, quote/blood, action, skill, status/feature,
+  employment, old inventory, food-table, map, save, network, XML, Lua, and mod
+  representations are unchanged.
   `TacticalActorRangedActions` owns the complementary live ranged-weapon
   lifecycle: fire initiation, readying toward a target or facing, lowering a
   ready weapon, and refreshing fire mode, scope, barrel, service, and

@@ -1,5 +1,7 @@
 #include "builddefines.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalEntityHost.h"
 
 	#include	"types.h"

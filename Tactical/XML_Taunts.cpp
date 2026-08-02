@@ -1,4 +1,5 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include "Soldier Control.h"
 
 	#include "sgp.h"
 	#include "Debug Control.h"

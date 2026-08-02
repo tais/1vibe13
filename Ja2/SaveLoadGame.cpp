@@ -2,6 +2,9 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalActorCovertOps.h"
+#include "TacticalActorEmploymentTypes.h"
+#include "TacticalActorLighting.h"
+#include "TacticalActorStateFlags.h"
 #include "Soldier Profile.h"
 #include "FileMan.h"
 #include "SaveSerializer.h"
@@ -1828,7 +1831,7 @@ template<class Ar> static void XferTacticalActor( Ar& ar, TacticalActor& s )
 	ar.u8(attackSelection.shotLocation()); ar.u8(combatResult.hitLocation()); ar.u8(attackSelection.meleeLocation());
 	for (i = 0; i < NUM_SOLDIER_EFFECTSHADES; ++i) ar.retiredPtr();
 	ar.u8(uiPresentation.plannedActionPointCost()); ar.i16(uiPresentation.plannedTargetX()); ar.i16(uiPresentation.plannedTargetY());
-	for (i = 0; i < MAX_BURST_SPREAD_TARGETS; ++i) ar.i32(fireControl.spreadLocations()[i]);
+	for (i = 0; i < SoldierFireControlComponent::SpreadTargetCapacity; ++i) ar.i32(fireControl.spreadLocations()[i]);
 	ar.i32(fireControl.spreadDragStartGrid()); ar.i32(fireControl.spreadDragEndGrid()); ar.i32(s.animationActivity().traversalForecastGrid()); ar.i16(s.animationActivity().renderZOverride());
 	ar.i8(turnState.movedBeforeInterrupt());
 	ar.i32(employment.endTime()); ar.i32(employment.startTime()); ar.i32(employment.totalLength());

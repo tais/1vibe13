@@ -21,6 +21,7 @@
 #include "gamescreen.h"
 #include "Map Information.h"
 #include "GameSettings.h"
+#include "Timer Control.h"
 #include "LuaInitNPCs.h"
 
 #include <algorithm>

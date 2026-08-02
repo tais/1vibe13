@@ -1,0 +1,10 @@
+#pragma once
+
+enum
+{
+	MAXBLOOD = 40,
+	NOBLOOD = MAXBLOOD,
+	BLOODTIME = 5,
+	FOOTPRINTTIME = 2,
+	MIN_BLEEDING_THRESHOLD = 12,
+};

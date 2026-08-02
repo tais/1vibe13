@@ -1,4 +1,5 @@
 #include "TacticalActorAiBehavior.h"
+#include "Soldier Control.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
 #include "ai.h"

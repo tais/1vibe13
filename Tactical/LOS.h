@@ -1,7 +1,12 @@
 #ifndef LOS_H
 #define LOS_H
 
-#include "Soldier Control.h"
+#include "types.h"
+#include "Overhead Types.h"
+#include "tiledef.h"
+
+class OBJECTTYPE;
+class TacticalActor;
 
 // fixed-point arithmetic definitions start here
 

@@ -1,6 +1,8 @@
 #include "TacticalActorWorldPlacement.h"
 	#include "FileMan.h"
 #include "SoldierRepository.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActor.h"
 	#include "types.h"
 	#include "Scheduling.h"
 

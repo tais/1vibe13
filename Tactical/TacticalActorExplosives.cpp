@@ -10,6 +10,7 @@
 #include "Isometric Utils.h"
 #include "Items.h"
 #include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 #include "Soldier Functions.h"
 #include "Sound Control.h"
 #include "TacticalWorldAdapter.h"

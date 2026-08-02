@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include "TacticalWorldAdapter.h"
+#include "Timer Control.h"
 
 	#include "Ambient Control.h"
 	#include "Sound Control.h"

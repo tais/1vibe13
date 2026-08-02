@@ -3,6 +3,8 @@
 	#include "Queen Command.h"
 #include "TacticalActorConditions.h"
 #include "SoldierRepository.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
 	#include "SaveSerializer.h"
 	#include "Overhead Types.h"
 	#include "strategicmap.h"

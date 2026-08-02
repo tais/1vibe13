@@ -1,8 +1,10 @@
 #ifndef _SOLDIER_ADD_H
 #define _SOLDIER_ADD_H
 
-#include "Soldier Control.h"
+#include "types.h"
+#include "Overhead Types.h"
 
+class TacticalActor;
 
 // Finds a gridno given a sweet spot
 // Returns a good direction too!

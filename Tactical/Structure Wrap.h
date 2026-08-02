@@ -1,6 +1,12 @@
 #ifndef STRUCURE_WRAP_H
 #define STRUCURE_WRAP_H
 
+#include "types.h"
+
+struct LEVELNODE;
+struct TAG_STRUCTURE;
+typedef TAG_STRUCTURE STRUCTURE;
+
 
 BOOLEAN	IsTreePresentAtGridNo( INT32 sGridNo );
 BOOLEAN	IsFencePresentAtGridNo( INT32 sGridNo );

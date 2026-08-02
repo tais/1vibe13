@@ -33,6 +33,7 @@
 	#include "WCheck.h"
 	#include "DEBUG.H"
 	#include "GameSettings.h"
+	#include "FileMan.h"
 	#include "laptop.h"//UI dimensions, mouse regions
 	#include "Utilities.h"//file names
 	#include "vobject.h"//video objects

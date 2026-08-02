@@ -1,4 +1,6 @@
 #include "FilterDB.h"
+#include "GameSettings.h"
+#include "TacticalActorEmploymentTypes.h"
 
 #include <cstring>  // libstdc++ doesn't transitively expose strcmp/strtok the way MSVC's STL does
 

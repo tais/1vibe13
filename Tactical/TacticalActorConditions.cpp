@@ -7,6 +7,8 @@
 #include "Interface.h"
 #include "Soldier Class.h"
 #include "TacticalActor.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
 #include "Soldier macros.h"
 #include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"

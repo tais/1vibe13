@@ -1,9 +1,14 @@
 #ifndef __SOLDER_PROFILE_H
 #define __SOLDER_PROFILE_H
 
-#include "Soldier Control.h"
+#include "types.h"
 #include "soldier profile type.h"
 #include "Merc Hiring.h"
+
+class TacticalActor;
+
+// Determine whether a trait has two progression stages.
+BOOLEAN TwoStagedTrait(UINT8 skillTraitNumber);
 
 typedef struct
 {

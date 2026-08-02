@@ -5,6 +5,8 @@
 	#include "strategicmap.h"
 	#include "Quests.h"
 	#include "Soldier Profile.h"
+	#include "Soldier Profile Constants.h"
+	#include "Disease.h"
 	#include "Game Event Hook.h"
 	#include "Game Clock.h"
 	#include "interface Dialogue.h"

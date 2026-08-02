@@ -19,10 +19,12 @@
 #include "Text.h"
 #include "MilitiaWebsite.h"
 #include "Game Clock.h"
+#include "GameSettings.h"
 #include "Militia Control.h"
 #include "Town Militia.h"
 #include "Interface Items.h"
 #include "Interface.h"		// for DIRTYLEVEL2
+#include "TacticalActor.h"
 
 extern BOOLEAN gfMilitiaWebsiteMainRedraw;
 

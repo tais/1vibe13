@@ -6,6 +6,7 @@
 #include "../include/NullPlan.h"
 
 #include "../../TacticalAI/ai.h" // for EndAIGuysTurn
+#include "../../Tactical/TacticalActor.h"
 
 namespace AI
 {

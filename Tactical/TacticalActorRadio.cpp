@@ -3,6 +3,7 @@
 #include "TacticalActorEquipment.h"
 #include "TacticalActorSkills.h"
 #include "TacticalActorTurncoats.h"
+#include "TacticalActorStateFlags.h"
 
 #include "Animation Control.h"
 #include "Campaign.h"

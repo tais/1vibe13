@@ -1,5 +1,9 @@
 #include "builddefines.h"
+#include "GameSettings.h"
+#include "Grid Direction.h"
+#include "TacticalActor.h"
 #include "TacticalActorLighting.h"
+#include "environment.h"
 
 /****************************************************************************************
 * JA2 Lighting Module

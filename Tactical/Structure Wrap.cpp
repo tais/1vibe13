@@ -9,6 +9,9 @@
 	#include "Rotting Corpses.h"
 	#include "WorldDat.h"	// added by Flugente
 	#include "SoldierRepository.h"
+	#include "GameSettings.h"
+	#include "TacticalActor.h"
+	#include "TacticalActorStateFlags.h"
 
 extern BOOLEAN DoesSAMExistHere( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, INT32 sGridNo );
 

@@ -1,5 +1,7 @@
 #include "TacticalActorWeaponHandling.h"
 
+#include "TacticalActorStateFlags.h"
+
 #include "Animation Control.h"
 #include "DynamicDialogue.h"
 #include "GameSettings.h"

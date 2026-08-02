@@ -1,5 +1,6 @@
 	#include "Town Militia.h"
 #include "TacticalWorldAdapter.h"
+#include "TacticalActorStateFlags.h"
 	#include "Militia Control.h"
 	#include "SaveLoadGame.h"
 	#include "Campaign Types.h"

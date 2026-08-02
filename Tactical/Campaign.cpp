@@ -1,6 +1,7 @@
 	#include "builddefines.h"
 #include "TacticalWorldAdapter.h"
 #include "SoldierRepository.h"
+	#include "Soldier Control.h"
 	#include <stdio.h>
 	#include "DEBUG.H"
 	#include "Overhead Types.h"

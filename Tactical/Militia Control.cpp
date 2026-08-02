@@ -6,6 +6,7 @@
 #include "TacticalWorldAdapter.h"
 #include "TacticalActorRadio.h"
 #include "SoldierRepository.h"
+#include "Soldier Control.h"
 #include "TacticalEntityHost.h"
 	#include "Town Militia.h"
 	#include "Soldier Init List.h"

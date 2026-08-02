@@ -1,9 +1,11 @@
 #ifndef __SOLDER_PROFILE_TYPE_H
 #define __SOLDER_PROFILE_TYPE_H
 
+#include "Item Types.h"
 #include "Overhead Types.h"
-#include "Soldier Control.h"
 #include "mapscreen.h"
+
+class TacticalActor;
 
 #define NUM_PROFILES		255 //170 new profiles by Jazz
 #define NUM_PROFILES_v111	170

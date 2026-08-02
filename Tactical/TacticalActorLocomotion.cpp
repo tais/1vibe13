@@ -1,5 +1,7 @@
 #include "TacticalActorLocomotion.h"
 
+#include "TacticalActorStateFlags.h"
+
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorWorldPlacement.h"

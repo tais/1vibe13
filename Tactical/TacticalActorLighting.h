@@ -1,5 +1,7 @@
 #pragma once
 
+#include "types.h"
+
 class TacticalActor;
 
 namespace TacticalActorLighting
@@ -10,3 +12,5 @@ namespace TacticalActorLighting
 	[[nodiscard]] bool positionPersonalLight(TacticalActor& actor);
 	[[nodiscard]] bool setPersonalLightLevel(TacticalActor& actor) noexcept;
 }
+
+void HandlePlayerTogglingLightEffects(BOOLEAN toggleValue);

@@ -16,6 +16,7 @@
 	#include "FileMan.h"
 	#include "MemMan.h"
 	#include "Debug Control.h"
+	#include "Soldier Palette.h"
 
 #define MAX_CHAR_DATA_LENGTH			500
 

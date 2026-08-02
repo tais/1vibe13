@@ -1,4 +1,5 @@
 #include "TacticalActorWeaponHandling.h"
+#include "TacticalActor.h"
 	#include "stdlib.h"
 	#include "DEBUG.H"
 	#include "Weapons.h"
@@ -183,7 +184,7 @@ void PickBurstLocations( TacticalActor *pSoldier )
 		dAccumulator += dStep;
 	}
 
-	for (; cnt < MAX_BURST_SPREAD_TARGETS; cnt++)
+	for (; cnt < SoldierFireControlComponent::SpreadTargetCapacity; cnt++)
 	{
 		pSoldier->fireControl().spreadLocations()[ cnt ] = 0;
 	}
@@ -205,9 +206,9 @@ void AIPickBurstLocations( TacticalActor *pSoldier, INT8 bTargets, TacticalActor
 	//DIGICRAB: Burst UnCap
 	//if we fire more than MAX_BURST_SPREAD_TARGETS bullets, make sure there's no buffer overflow
 	if(pSoldier->fireControl().autofireShots())
-		ubShotsPerBurst = __min(pSoldier->fireControl().autofireShots(),MAX_BURST_SPREAD_TARGETS);
+		ubShotsPerBurst = __min(pSoldier->fireControl().autofireShots(), SoldierFireControlComponent::SpreadTargetCapacity);
 	else
-		ubShotsPerBurst = __min(GetShotsPerBurst (&pSoldier->inventory()[ HANDPOS ]),MAX_BURST_SPREAD_TARGETS);
+		ubShotsPerBurst = __min(GetShotsPerBurst (&pSoldier->inventory()[ HANDPOS ]), SoldierFireControlComponent::SpreadTargetCapacity);
 
 	if ( TacticalActorWeaponHandling::isValidSecondHandBurst(*pSoldier) )
 		ubShotsPerBurst = ubShotsPerBurst*2;
@@ -236,7 +237,7 @@ void AIPickBurstLocations( TacticalActor *pSoldier, INT8 bTargets, TacticalActor
 		dAccululator += dStep;
 	}
 
-	for (; cnt < MAX_BURST_SPREAD_TARGETS; cnt++)
+	for (; cnt < SoldierFireControlComponent::SpreadTargetCapacity; cnt++)
 	{
 		pSoldier->fireControl().spreadLocations()[ cnt ] = 0;
 	}

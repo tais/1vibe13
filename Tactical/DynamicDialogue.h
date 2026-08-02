@@ -8,7 +8,10 @@
 */
 
 #include "types.h"
-#include "Soldier Control.h"
+#include "Overhead Types.h"
+#include "Soldier Profile Constants.h"
+
+class TacticalActor;
 
 // Flugente: calculate A's opinion of B
 INT8	SoldierRelation( TacticalActor* pSoldierA, TacticalActor* pSoldierB );

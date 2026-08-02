@@ -50,6 +50,7 @@
 	#include "Game Clock.h"
 	#include "vobject_blitters.h"
 	#include "Soldier Profile.h"
+	#include "TacticalActorStateFlags.h"
 	#include "Overhead.h"
 	#include "SoldierRepository.h"
 	#include "environment.h"

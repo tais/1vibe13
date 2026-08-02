@@ -11,6 +11,7 @@
  */
 
 	#include "AIList.h"
+	#include "Soldier Control.h"
 	#include "Overhead.h"
 	#include "DEBUG.H"
 	#include "AIInternals.h"

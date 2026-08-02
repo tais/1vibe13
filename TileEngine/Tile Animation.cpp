@@ -1,4 +1,5 @@
 #include "worlddef.h"
+#include "Timer Control.h"
 #include "Tile Animation.h"
 #include "DEBUG.H"
 #include "worldman.h"

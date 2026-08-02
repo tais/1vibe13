@@ -7,6 +7,7 @@
 #include "Bullets.h"
 #include "builddefines.h"
 #include "Strategic Movement.h"
+#include "TacticalActor.h"
 
 extern bool isOwnTeamWipedOut;
 

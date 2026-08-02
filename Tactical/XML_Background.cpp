@@ -5,6 +5,7 @@
 	#include "expat.h"
 	#include "XML.h"
 	#include "Interface.h"
+	#include "Soldier Background Types.h"
 
 struct
 {

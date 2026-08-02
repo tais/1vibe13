@@ -1,4 +1,5 @@
 #include "TacticalActorRouteExecution.h"
+#include "Soldier Control.h"
 	#include "ai.h"
 	#include "AIInternals.h"
 	#include "Isometric Utils.h"

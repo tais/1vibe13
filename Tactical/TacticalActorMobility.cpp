@@ -1,5 +1,9 @@
 #include "TacticalActorMobility.h"
 
+#include "Disease.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
+
 #include "Animation Control.h"
 #include "Animation Data.h"
 #include "GameSettings.h"

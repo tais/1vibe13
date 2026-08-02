@@ -8,6 +8,9 @@
 	#include "builddefines.h"
 	#include "TacticalActorConditions.h"
 	#include "SoldierRepository.h"
+	#include "Soldier Profile Constants.h"
+	#include "Soldier Control.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include <stdarg.h>

@@ -1,4 +1,5 @@
 #include "TacticalActorTurnBudget.h"
+#include "Soldier Control.h"
 	#include <stdlib.h>
 	#include "TacticalActorConditions.h"
 	#include "Isometric Utils.h"

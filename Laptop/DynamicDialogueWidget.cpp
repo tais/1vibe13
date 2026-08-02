@@ -11,6 +11,7 @@
 #include "Font Control.h"
 #include "Utilities.h"
 #include "WordWrap.h"
+#include "Timer Control.h"
 
 #include "Soldier Profile.h"
 #include "Cursors.h"

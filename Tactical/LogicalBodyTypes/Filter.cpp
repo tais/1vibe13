@@ -1,4 +1,7 @@
 #include "Filter.h"
+#include "Items.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActor.h"
 
 namespace LogicalBodyTypes {
 

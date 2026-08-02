@@ -18,6 +18,7 @@
 	#include "soldier profile type.h"
 	#include "GameSettings.h"
 	#include "Soldier Profile.h"
+	#include "Soldier Profile Constants.h"
 	#include "Squads.h"
 	#include "Overhead.h"		// added by Flugente for OUR_TEAM_SIZE_NO_VEHICLE
 

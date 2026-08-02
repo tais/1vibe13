@@ -1,6 +1,10 @@
 #include "TacticalActorAppearance.h"
 	#include "types.h"
 #include "SoldierRepository.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
+#include "Soldier Control.h"
 
 	#include "Strategic Merc Handler.h"
 	#include "history.h"

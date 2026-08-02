@@ -1,5 +1,10 @@
 #include "TacticalActorVisibility.h"
 
+#include "Grid Direction.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
+
 #include "GameInitOptionsScreen.h"
 #include "GameSettings.h"
 #include "IMP Skill Trait.h"

@@ -1,4 +1,6 @@
 #include "TacticalActorDragging.h"
+
+#include "Grid Direction.h"
 #include "TacticalActorWorldPlacement.h"
 
 #include "Animation Control.h"

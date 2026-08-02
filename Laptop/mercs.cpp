@@ -16,6 +16,7 @@
 	#include "random.h"
 	#include "LaptopSave.h"
 	#include "GameSettings.h"
+	#include "TacticalActorEmploymentTypes.h"
 	#include "Text.h"
 	#include "Speck Quotes.h"
 	#include "mercs Account.h"

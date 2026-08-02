@@ -17,6 +17,8 @@
 #include "Strategic Town Loyalty.h"
 #include "strategic.h"
 #include "BaseTable.h"
+#include "Campaign Types.h"
+#include "GameSettings.h"
 
 // Forward-declare the TestTableTemplate<4> specializations defined
 // later in this file so clang doesn't error out on

@@ -4,6 +4,8 @@
 #include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"
 	#include "Soldier Profile.h"
+	#include "Soldier Control.h"
+	#include "Disease.h"
 	#include "Food.h"
 	#include "Items.h"
 	#include "Morale.h"

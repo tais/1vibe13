@@ -59,6 +59,105 @@ add_executable(tactical_actor_api_headers_tests
 add_test(NAME tactical_actor_api_headers
   COMMAND tactical_actor_api_headers_tests)
 
+# Compile each remaining actor-facing application header in its own translation
+# unit and prove that none imports the complete TacticalActor aggregate. Separate
+# translation units prevent one legacy header's include order from masking a
+# missing dependency in another.
+set(tactical_actor_service_api_headers
+  "Strategic/Assignments.h"
+  "Strategic/Map Screen Interface.h"
+  "Strategic/Merc Contract.h"
+  "Strategic/Quest Debug System.h"
+  "Strategic/Rebel Command.h"
+  "Strategic/Strategic Town Loyalty.h"
+  "Strategic/mapscreen.h"
+  "Strategic/strategic.h"
+  "Strategic/strategicmap.h"
+  "Tactical/Animation Control.h"
+  "Tactical/Animation Data.h"
+  "Tactical/Bullets.h"
+  "Tactical/Civ Quotes.h"
+  "Tactical/Drugs And Alcohol.h"
+  "Tactical/Food.h"
+  "Tactical/Handle Items.h"
+  "Tactical/Handle UI.h"
+  "Tactical/Items.h"
+  "Tactical/LOS.h"
+  "Tactical/LogicalBodyTypes/Filter.h"
+  "Tactical/Overhead.h"
+  "Tactical/Soldier Add.h"
+  "Tactical/Soldier Create.h"
+  "Tactical/Soldier Profile.h"
+  "Tactical/Vehicles.h"
+  "Tactical/Weapons.h"
+  "Tactical/faces.h"
+  "Tactical/soldier profile type.h"
+  "TacticalAI/ai.h"
+  "Tactical/DynamicDialogue.h")
+set(tactical_actor_service_api_header_sources)
+foreach(tactical_actor_service_api_header IN LISTS
+    tactical_actor_service_api_headers)
+  string(MAKE_C_IDENTIFIER "${tactical_actor_service_api_header}"
+    tactical_actor_service_api_header_id)
+  set(tactical_actor_service_api_header_source
+    "${CMAKE_CURRENT_BINARY_DIR}/tactical_actor_service_api_${tactical_actor_service_api_header_id}.cpp")
+  file(GENERATE OUTPUT "${tactical_actor_service_api_header_source}" CONTENT
+"#include \"${tactical_actor_service_api_header}\"
+#include <type_traits>
+template<class T, class = void> struct IsComplete : std::false_type {};
+template<class T> struct IsComplete<T, std::void_t<decltype(sizeof(T))>> : std::true_type {};
+static_assert(!IsComplete<TacticalActor>::value);
+")
+  list(APPEND tactical_actor_service_api_header_sources
+    "${tactical_actor_service_api_header_source}")
+endforeach()
+
+# Compile each focused compatibility/schema contract by itself as well. These
+# headers intentionally range from actor-facing declarations to value-only
+# persistence constants, so this check is independent of the incomplete-actor
+# assertion above.
+set(tactical_actor_contract_headers
+  "Strategic/Strategic Path Types.h"
+  "Tactical/Grid Direction.h"
+  "Tactical/Soldier Background Types.h"
+  "Tactical/Soldier Drug Types.h"
+  "Tactical/Soldier Palette.h"
+  "Tactical/Soldier Patrol Types.h"
+  "Tactical/Soldier Profile Constants.h"
+  "Tactical/TacticalActorAnimationState.h"
+  "Tactical/TacticalActorBattleSounds.h"
+  "Tactical/TacticalActorBloodState.h"
+  "Tactical/TacticalActorConsumables.h"
+  "Tactical/TacticalActorDamageFeedback.h"
+  "Tactical/TacticalActorDamageResolution.h"
+  "Tactical/TacticalActorEmploymentTypes.h"
+  "Tactical/TacticalActorEvents.h"
+  "Tactical/TacticalActorInterrupts.h"
+  "Tactical/TacticalActorLongActions.h"
+  "Tactical/TacticalActorMovementState.h"
+  "Tactical/TacticalActorPendingActionTypes.h"
+  "Tactical/TacticalActorQuoteFlags.h"
+  "Tactical/TacticalActorSkills.h"
+  "Tactical/TacticalActorStateFlags.h")
+set(tactical_actor_contract_header_sources)
+foreach(tactical_actor_contract_header IN LISTS tactical_actor_contract_headers)
+  string(MAKE_C_IDENTIFIER "${tactical_actor_contract_header}"
+    tactical_actor_contract_header_id)
+  set(tactical_actor_contract_header_source
+    "${CMAKE_CURRENT_BINARY_DIR}/tactical_actor_contract_${tactical_actor_contract_header_id}.cpp")
+  file(GENERATE OUTPUT "${tactical_actor_contract_header_source}" CONTENT
+"#include \"${tactical_actor_contract_header}\"
+")
+  list(APPEND tactical_actor_contract_header_sources
+    "${tactical_actor_contract_header_source}")
+endforeach()
+add_executable(tactical_actor_service_api_headers_tests
+  tactical_actor_service_api_headers_tests.cpp
+  ${tactical_actor_service_api_header_sources}
+  ${tactical_actor_contract_header_sources})
+add_test(NAME tactical_actor_service_api_headers
+  COMMAND tactical_actor_service_api_headers_tests)
+
 # Install the SDK, then configure, compile, and run a genuinely separate CMake
 # project against find_package(JA2Engine). This catches missing public headers,
 # non-exported symbols, and accidental source-tree include dependencies.

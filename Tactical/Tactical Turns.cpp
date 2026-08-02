@@ -1,4 +1,7 @@
 #include "TacticalActorTurnLifecycle.h"
+#include "TacticalActor.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
 	#include "sgp.h"
 	#include "TacticalActorLongActions.h"
 #include "TacticalWorldAdapter.h"

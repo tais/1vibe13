@@ -1,4 +1,7 @@
 #include "TacticalActorDamageResolution.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorLighting.h"
+#include "Disease.h"
 	#include "sgp.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"

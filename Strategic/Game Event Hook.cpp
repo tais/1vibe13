@@ -1,5 +1,7 @@
 	#include "types.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
+#include "Soldier Profile Constants.h"
 #include "TacticalEntityHost.h"
 	#include "Game Events.h"
 	#include "soundman.h"

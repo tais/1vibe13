@@ -2,6 +2,7 @@
 	#include "Inventory Choosing.h"
 	#include "FileMan.h"
 	#include "Soldier Profile.h"
+	#include "TacticalActor.h"
 	#include "Campaign.h"
 	#include "Strategic Mines.h"
 	#include "email.h"

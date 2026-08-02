@@ -5,6 +5,7 @@
 #include "Isometric Utils.h"
 #include "Overhead.h"
 #include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "ai.h"

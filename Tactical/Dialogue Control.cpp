@@ -12,6 +12,7 @@
 	#include "message.h"
 	#include "Render Dirty.h"
 	#include "Soldier Profile.h"
+	#include "Soldier Control.h"
 	#include "WordWrap.h"
 	#include "sysutil.h"
 	#include "vobject_blitters.h"

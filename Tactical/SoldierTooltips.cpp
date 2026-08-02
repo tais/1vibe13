@@ -7,6 +7,8 @@
 #include "GameSettings.h"
 #include "Overhead.h"
 #include "SoldierRepository.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
 #include "Game Clock.h"
 #include "Text.h"
 #include "lighting.h"

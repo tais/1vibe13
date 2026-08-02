@@ -11,6 +11,8 @@
 	#include "Game Clock.h"
 	#include "Tactical Save.h"
 	#include "Soldier Profile.h"
+	#include "Soldier Profile Constants.h"
+	#include "TacticalActor.h"
 	#include "Overhead.h"
 	#include "Dialogue Control.h"
 	#include "Assignments.h"

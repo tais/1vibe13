@@ -1,5 +1,6 @@
 	#include "builddefines.h"
 	#include "SoldierRepository.h"
+	#include "TacticalActor.h"
 	#include <stdio.h>
 	#include <string.h>
 	#include "WCheck.h"
@@ -12,11 +13,6 @@
 	#include "Utilities.h"
 	#include "worlddef.h"
 	#include "FileMan.h"
-
-//forward declarations of common classes to eliminate includes
-class OBJECTTYPE;
-class TacticalActor;
-
 
 #define EMPTY_SLOT		-1
 #define TO_INIT				0

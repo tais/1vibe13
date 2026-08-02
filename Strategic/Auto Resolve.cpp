@@ -1,4 +1,5 @@
 #include "TacticalActorBattleSounds.h"
+#include "Soldier Control.h"
 #include "builddefines.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorMedicalTreatment.h"

@@ -1,8 +1,12 @@
 
 #include "Item Types.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
+#include "World Items.h"
 #include "DEBUG.H"
 #include "Items.h"
+#include "Handle Items.h"
+#include "Soldier Profile Constants.h"
 #include "GameSettings.h"
 #include "Action Items.h"	// added by Flugente for the ACTION_ITEM_BLOW_UP value
 #include "message.h"		// added by BOB for missing LBE info messages

@@ -34,6 +34,7 @@
 	#include "Isometric Utils.h"
 	#include "ai.h"
 	#include "Soldier macros.h"
+	#include "Soldier Profile Constants.h"
 	#include "GameSettings.h"
 #include "fresh_header.h"
 #include "connect.h"

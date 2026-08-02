@@ -1,8 +1,13 @@
 #ifndef __FOOD_H
 #define __FOOD_H
 
-#include "Soldier Control.h"
+#include "types.h"
 #include "soldier profile type.h"
+
+class OBJECTTYPE;
+class TacticalActor;
+
+#define FOOD_TYPE_MAX 500
 
 #define FOOD_MIN									- 20000
 #define FOOD_MAX									20000

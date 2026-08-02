@@ -4,7 +4,9 @@
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 
 #include "input.h"
-#include "Soldier Control.h"
+#include "Overhead Types.h"
+
+class TacticalActor;
 
 // DEFINES
 #define	UIEVENT_SINGLEEVENT			0x00000002

@@ -1,4 +1,5 @@
 #include "TacticalActorOrientation.h"
+#include "TacticalActor.h"
 #include "TacticalActorWorldPlacement.h"
 #include "Lua Interpreter.h"
 #include "lwstring.h"

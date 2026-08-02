@@ -5,6 +5,7 @@
 #include "TacticalActorRouteExecution.h"
 
 #include "Animation Control.h"
+#include "Grid Direction.h"
 #include "GameSettings.h"
 #include "Handle UI.h"
 #include "Interface.h"
@@ -12,6 +13,10 @@
 #include "Items.h"
 #include "Overhead.h"
 #include "TacticalActor.h"
+#include "TacticalActorAnimationState.h"
+#include "TacticalActorEvents.h"
+#include "TacticalActorInterrupts.h"
+#include "TacticalActorStateFlags.h"
 #include "Soldier Functions.h"
 #include "Sound Control.h"
 #include "TacticalActorMedicalServices.h"

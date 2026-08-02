@@ -13,6 +13,7 @@
 	#include "LaptopSave.h"
 	#include "random.h"
 	#include "Text.h"
+	#include "Timer Control.h"
 	#include "Multi Language Graphic Utils.h"
 //	#include "Utility.h"
 	#include "ArmsDealerInvInit.h"

@@ -24,6 +24,7 @@
 #include "phys math.h"
 #include "Items.h"
 #include "Soldier Profile.h"
+#include "Soldier Control.h"
 #include "worldman.h"
 #include "Rotting Corpses.h"
 #include "GameSettings.h"

@@ -12,6 +12,8 @@
 #include "TacticalActorRecovery.h"
 #include "TacticalActorTurnBudget.h"
 #include "TacticalActorEquipment.h"
+#include "TacticalActorPendingActionTypes.h"
+#include "TacticalActorStateFlags.h"
 #include "builddefines.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorDragging.h"

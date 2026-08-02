@@ -3,6 +3,7 @@
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorAnimationFrames.h"
 #include "TacticalActorTurnBudget.h"
+	#include "TacticalActor.h"
 	#include "builddefines.h"
 
 #ifdef JA2EDITOR
@@ -45,6 +46,9 @@
 	#include "Soldier Add.h"
 	#include "soldier profile type.h"
 	#include "Soldier Profile.h"
+	#include "Soldier Palette.h"
+	#include "Soldier Profile Constants.h"
+	#include "TacticalActorStateFlags.h"
 	#include "Text Input.h"
 	#include "random.h"
 	#include "WordWrap.h"

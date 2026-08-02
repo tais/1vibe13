@@ -19,12 +19,16 @@
 #include "random.h"
 #include "Interface.h"
 #include "Soldier Add.h"
+#include "Soldier Background Types.h"
 #include "SoldierRepository.h"
 #include "Soldier Profile.h"
 #include "DropDown.h"
 #include "Overhead.h"
 #include "Map Screen Interface.h"
 #include "DynamicDialogue.h"	// added by Flugente
+#include "GameSettings.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActor.h"
 
 
 #define		MERCOMP_FONT_COLOR								2

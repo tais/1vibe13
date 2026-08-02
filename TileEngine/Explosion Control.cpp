@@ -1,4 +1,5 @@
 #include "TacticalActorBattleSounds.h"
+#include "Soldier Control.h"
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorRouteExecution.h"
@@ -10,6 +11,7 @@
 #include "TacticalActorRecovery.h"
 #include "TacticalWorldAdapter.h"
 #include "WorldDat.h"
+#include "worlddef.h"
 #include "DEBUG.H"
 #include "Weapons.h"
 #include "worldman.h"

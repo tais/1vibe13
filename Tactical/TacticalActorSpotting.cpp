@@ -1,4 +1,6 @@
 #include "TacticalActorSpotting.h"
+
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorLongActions.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorVisibility.h"

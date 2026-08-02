@@ -1,4 +1,5 @@
 #include "TacticalActorDamageResolution.h"
+#include "Soldier Control.h"
 	#include "Assignments.h"
 #include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"

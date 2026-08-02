@@ -1,4 +1,7 @@
 #include "TacticalActorOrientation.h"
+#include "GameSettings.h"
+#include "Grid Direction.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorWorldPlacement.h"
 #include "builddefines.h"
 

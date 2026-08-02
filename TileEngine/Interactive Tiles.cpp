@@ -1,4 +1,9 @@
 #include "builddefines.h"
+#include "GameInitOptionsScreen.h"
+#include "GameSettings.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorPendingActionTypes.h"
+#include "environment.h"
 
 	#include "sysutil.h"
 	#include "renderworld.h"

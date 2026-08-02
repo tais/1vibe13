@@ -3,7 +3,8 @@
 
 #include "types.h"
 #include "mapscreen.h"
-#include "Soldier Control.h"
+
+class TacticalActor;
 
 // the max loyalty rating for any given town
 #define MAX_LOYALTY_VALUE 100

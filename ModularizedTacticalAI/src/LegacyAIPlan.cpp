@@ -10,6 +10,7 @@
 #include "../../TacticalAI/NPC.h"               // NPCReachedDestination
 #include "../../Tactical/Animation Control.h"   // defines ANIM_...
 #include "../../Tactical/Soldier macros.h"      // CREATURE_OR_BLOODCAT
+#include "../../Tactical/Soldier Profile Constants.h"
 #include "../../Tactical/opplist.h"             // EndMuzzleFlash
 #include "../../Tactical/Dialogue Control.h"    // DialogueQueueIsEmpty
 #include "../../TileEngine/Isometric Utils.h"   // defines NOWHERE

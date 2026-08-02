@@ -1,3 +1,5 @@
+	#include "TacticalActor.h"
+	#include "TacticalActorStateFlags.h"
 	#include "worlddef.h"
 	#include "random.h"
 	#include "Smell.h"

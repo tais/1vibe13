@@ -5,9 +5,12 @@
 #define		ANGRY							2
 #define	SURPRISED					3
 
-#include "Soldier Control.h"
+#include "Item Types.h"
+#include "types.h"
 #include "soldier profile type.h"
- 
+
+class TacticalActor;
+
 // Defines
 #define		NUM_FACE_SLOTS NUM_PROFILES
 

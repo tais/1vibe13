@@ -8,6 +8,7 @@
 	#include "Encrypted File.h"
 	#include "Cursors.h"
 	#include "Soldier Profile.h"
+	#include "Soldier Profile Constants.h"
 	#include "strategicmap.h"
 	#include "QuestText.h"
 	#include "Text.h"

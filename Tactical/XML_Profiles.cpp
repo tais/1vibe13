@@ -1,4 +1,5 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include "Soldier Profile Constants.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // HEADROCK PROFEX: PROFile EXternalization

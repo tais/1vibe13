@@ -23,6 +23,7 @@
 	#include "Soldier Init List.h"
 	#include "Overhead.h"
 	#include "Scheduling.h"
+	#include "TacticalActor.h"
 	#include "input.h"
 	#include "Map Information.h"
 	#include "EditorMapInfo.h"

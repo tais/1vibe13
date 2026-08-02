@@ -5,8 +5,10 @@
 #include "Timer Control.h"
 #include "vobject.h"
 #include "Overhead Types.h"
-//#include "Item Types.h"
-#include "Soldier Control.h"
+#include "Soldier Class.h"
+#include "Soldier Inventory.h"
+#include "Soldier Patrol Types.h"
+#include "worlddef.h"
 
 #include <vector>
 #include <iterator>

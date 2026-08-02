@@ -1,5 +1,8 @@
 	#include "Map Screen Interface Map Inventory.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
+#include "Soldier Profile Constants.h"
 #include "TacticalWorldAdapter.h"
 	#include "Render Dirty.h"
 	#include "vobject.h"

@@ -1,4 +1,7 @@
 #include "builddefines.h"
+#include "GameSettings.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
 
 #include "WorldDat.h"
 #include "sysutil.h"

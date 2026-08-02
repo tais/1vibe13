@@ -3,7 +3,8 @@
 
 #include "World Items.h"
 #include "structure.h"
-#include "Soldier Control.h"
+
+class TacticalActor;
 
 #define ITEM_HANDLE_OK													1
 #define ITEM_HANDLE_RELOADING										-1

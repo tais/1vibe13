@@ -5,11 +5,12 @@
 #include <string>
 #include <map>
 #include "DEBUG.H"
-#include "Soldier Control.h"
 #include "soldier profile type.h"
 #include "Soldier Profile.h"
 #include "Weapons.h"
 #include "LogicalBodyTypes/EnumeratorDB.h"
+
+class TacticalActor;
 
 namespace LogicalBodyTypes {
 
