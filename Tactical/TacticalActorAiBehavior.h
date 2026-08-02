@@ -1,5 +1,7 @@
 #pragma once
 
+#include "types.h"
+
 #include <cstdint>
 
 class TacticalActor;
@@ -20,4 +22,17 @@ namespace TacticalActorAiBehavior
 	bool startRadioAnimation(
 		TacticalActor& actor);
 	void clearBoxerFlag(TacticalActor& actor) noexcept;
+	void handleNewSituation(
+		TacticalActor& actor,
+		bool resetActionBudget);
+	[[nodiscard]] bool decideHipOrShoulderStance(
+		TacticalActor& actor,
+		std::int32_t targetGrid);
 }
+
+void HandleSystemNewAISituation(
+	TacticalActor* actor,
+	BOOLEAN resetActionBudget);
+BOOLEAN AIDecideHipOrShoulderStance(
+	TacticalActor* actor,
+	INT32 targetGrid);

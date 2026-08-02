@@ -2,13 +2,18 @@
 #include "TacticalActorAiBehavior.h"
 
 #include "Animation Control.h"
+#include "Handle Items.h"
 #include "Isometric Utils.h"
+#include "Items.h"
 #include "Overhead.h"
+#include "Points.h"
 #include "TacticalActor.h"
 #include "TacticalActorStateFlags.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
+#include "Weapons.h"
 #include "ai.h"
+#include "random.h"
 #include "worldman.h"
 
 #include <algorithm>
@@ -161,4 +166,122 @@ void TacticalActorAiBehavior::clearBoxerFlag(
 	TacticalActor& actor) noexcept
 {
 	actor.status().flags() &= ~SOLDIER_BOXER;
+}
+
+void TacticalActorAiBehavior::handleNewSituation(
+	TacticalActor& actor,
+	bool /*resetActionBudget*/)
+{
+	if (actor.aiBehavior().newSituation() != IS_NEW_SITUATION)
+		return;
+
+	if (actor.animationIntent().pendingAnimation() != FALLOFF &&
+		actor.animationIntent().pendingAnimation() != FALLFORWARD_ROOF)
+	{
+		actor.animationIntent().clearPendingAnimation();
+	}
+	actor.animationIntent().clearSecondaryPendingAnimation();
+	actor.animationActivity().turningFromProneMode() = FALSE;
+	actor.animationIntent().clearPendingDirection();
+	actor.pendingAction().clearAction();
+	actor.schedule().cancelDoorContinuation();
+
+	if (!(actor.status().flags() & SOLDIER_UNDERAICONTROL))
+		return;
+
+	if (actor.animationActivity().turningToShoot())
+	{
+		actor.animationActivity().turningToShoot() = FALSE;
+		actor.targeting().retainLastTargetFromTurn() = TRUE;
+		DebugMsg(
+			TOPIC_JA2,
+			DBG_LEVEL_3,
+			String(
+				"@@@@@@@ Reducing attacker busy count..., ending fire because saw something: DONE IN SYSTEM NEW SITUATION"));
+		DebugAttackBusy(
+			"@@@@@@@ Reducing attacker busy count..., ending fire because saw something: DONE IN SYSTEM NEW SITUATION\n");
+		FreeUpAttacker();
+	}
+
+	if (actor.pendingItem().hasObject())
+	{
+		AutoPlaceObject(&actor, actor.pendingItem().object(), FALSE);
+		actor.pendingItem().clearThrowTransaction();
+		actor.animationIntent().clearPendingAnimations();
+		DebugMsg(
+			TOPIC_JA2,
+			DBG_LEVEL_3,
+			String(
+				"@@@@@@@ Reducing attacker busy count..., ending throw because saw something: DONE IN SYSTEM NEW SITUATION"));
+		DebugAttackBusy(
+			"@@@@@@@ Reducing attacker busy count..., ending throw because saw something: DONE IN SYSTEM NEW SITUATION\n");
+		FreeUpAttacker();
+	}
+}
+
+bool TacticalActorAiBehavior::decideHipOrShoulderStance(
+	TacticalActor& actor,
+	std::int32_t targetGrid)
+{
+	const std::uint16_t animation = actor.animationPlayback().state();
+	const std::uint16_t handItem = actor.inventory()[HANDPOS].usItem;
+	const std::uint16_t selectedWeapon = actor.attackSelection().weapon();
+	if (animation >= NUMANIMATIONSTATES ||
+		handItem >= MAXITEMS ||
+		selectedWeapon >= MAXITEMS ||
+		gAnimControl[animation].ubEndHeight != ANIM_STAND ||
+		!ItemIsTwoHanded(handItem))
+	{
+		return false;
+	}
+
+	if (Weapon[selectedWeapon].HeavyGun)
+		return true;
+	if (actor.aiPlanning().aimTime() >
+		GetNumberAltFireAimLevels(&actor, targetGrid))
+	{
+		return false;
+	}
+
+	INT8 hipChance = 0;
+	if (actor.fireControl().burstCounter() > 0)
+		hipChance += 25;
+	if (Weapon[selectedWeapon].ubWeaponType == GUN_LMG)
+		hipChance += 30;
+	if (Weapon[selectedWeapon].ubWeaponType == GUN_SHOTGUN)
+		hipChance += 15;
+	if (!TileIsOutOfBounds(targetGrid))
+	{
+		hipChance += CalcChanceToHitGun(
+			&actor,
+			targetGrid,
+			0,
+			AIM_SHOT_TORSO);
+	}
+
+	return PreChance(hipChance) != FALSE;
+}
+
+void HandleSystemNewAISituation(
+	TacticalActor* actor,
+	BOOLEAN resetActionBudget)
+{
+	if (actor != nullptr)
+	{
+		TacticalActorAiBehavior::handleNewSituation(
+			*actor,
+			resetActionBudget != FALSE);
+	}
+}
+
+BOOLEAN AIDecideHipOrShoulderStance(
+	TacticalActor* actor,
+	INT32 targetGrid)
+{
+	return actor != nullptr &&
+		TacticalActorAiBehavior::decideHipOrShoulderStance(
+			*actor,
+			targetGrid)
+		? TRUE
+		: FALSE;
 }

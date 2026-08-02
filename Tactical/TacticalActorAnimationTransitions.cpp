@@ -41,6 +41,7 @@
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorMovementAudio.h"
 #include "TacticalActorProfileClassification.h"
 #include "TacticalActorRangedActions.h"
 #include "TacticalActorRouteExecution.h"
@@ -162,11 +163,11 @@
 #include <limits>
 #include <string>
 
+UINT16 usForceAnimState = INVALID_ANIMATION;
+
 
 #include "connect.h"
 
-void HandleVehicleMovementSound(TacticalActor* actor, BOOLEAN enabled);
-void PlaySoldierFootstepSound(TacticalActor* actor);
 bool TacticalActorAnimationTransitions::changeState(TacticalActor& subject, UINT16 usNewState, UINT16 usStartingAniCode, bool fForce)
 {
 	if (usNewState >= NUMANIMATIONSTATES)

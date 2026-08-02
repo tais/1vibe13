@@ -875,16 +875,18 @@ inline component accessors are isolated in `TacticalActor.h`; new focused actor
 code should include that header instead of the broad legacy soldier-control
 surface. Architecture CI rejects direct `Soldier Control.h` includes from every
 production implementation under Editor, Ja2, Laptop, modular AI, Multiplayer,
-Strategic, Tactical, TacticalAI, TileEngine, Utils, and SGP, including
-`Soldier Control.cpp` itself. The facade contains only includes and comments;
-the boundary checker rejects any declaration, value, alias, or behavior added
-to it. Pointer-only legacy application APIs also
+Strategic, Tactical, TacticalAI, TileEngine, Utils, and SGP. The former
+`Soldier Control.cpp` implementation is retired from both the source tree and
+the tactical build. The facade contains only includes and comments; the
+boundary checker rejects any declaration, value, alias, or behavior added to
+it, as well as restoration of the implementation file. Pointer-only legacy
+application APIs also
 forward-declare `TacticalActor` rather than importing that facade; their
 standalone compile guard covers laptop, strategic, tactical, and tile-engine
 headers. This now covers the complete application-header surface: a second
 isolated compile matrix builds each of the final 30 service/API headers in its
 own translation unit and verifies that `TacticalActor` remains incomplete. A
-second matrix compiles all 33 focused compatibility/schema headers standalone;
+second matrix compiles all 35 focused compatibility/schema headers standalone;
 compile-time assertions pin their stable values and layouts.
 Use `Strategic Path Types.h` for the stable `PathSt` route node,
 `Soldier Patrol Types.h` for map-placement patrol capacities, and
@@ -962,6 +964,25 @@ base palette. The old enemy-glow creators and the unused full-tile occlusion
 implementation are retired. These are C++ ownership and validation changes
 only; animation data, palette sources, rendered output, maps, items, saves,
 network events, XML, Lua, and installed mod formats remain compatible.
+The final APIs formerly implemented in `Soldier Control.cpp` now belong to
+focused services. Use `TacticalActorBleeding::{check,nextInterval,
+nextUnmovingInterval}` for bleeding, `TacticalActorMovementAudio` for vehicle
+and footstep audio, `ResolvePendingInterrupt` from
+`TacticalActorInterrupts.h`, `TacticalActorAiBehavior` for new-situation and
+hip-fire stance policy, and `TacticalActorAnimationSelection` for big-merc and
+suspicious-action selection. Consumable application, gas-mask inspection,
+pickup and stealing, trait classification and nearby squad-leader counting,
+and roof markers belong to `TacticalActorConsumables`,
+`TacticalActorEquipment`, `TacticalActorInteractions`,
+`TacticalActorSkills`, and `TacticalActorWorldPlacement`. Existing global
+spellings remain as adapters declared by those focused contracts; new code
+should use the namespace operations. The force-animation and
+path-through-people globals live with animation transitions and route
+execution, and the health/strength threshold table is provided by
+`Soldier Stat Types.h`. Each contract is standalone-compiled and its malformed
+inputs are covered by the headless tests. These ownership moves do not change
+save, network, campaign, content, map, item, animation, audio, XML, Lua, or mod
+formats.
 `TacticalActorAnimationFootprint` owns the tactical-world placeholder tiles
 described by an actor's animation profile. New callers use `add`,
 `addForSurface`, `remove`, `flagsAtGrid`, and `nextWorldNode` instead of

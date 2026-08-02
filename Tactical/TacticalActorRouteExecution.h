@@ -4,6 +4,9 @@
 
 class TacticalActor;
 
+// Legacy UI path-through-people request owned by route execution.
+extern std::uint8_t gfGetNewPathThroughPeople;
+
 namespace TacticalActorRouteExecution
 {
 	enum class PathOrigin : std::uint8_t

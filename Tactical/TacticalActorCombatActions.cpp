@@ -44,8 +44,6 @@
 #include <cstdint>
 #include <cstring>
 
-extern UINT16 usForceAnimState;
-
 namespace
 {
 bool hasLiveCombatContext(

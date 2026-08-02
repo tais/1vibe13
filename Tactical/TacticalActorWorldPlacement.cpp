@@ -645,3 +645,59 @@ bool TacticalActorWorldPlacement::setGrid(
 		forceRemove ? TRUE : FALSE);
 	return true;
 }
+
+bool TacticalActorWorldPlacement::setRoofMarker(
+	TacticalActor& actor,
+	std::int32_t gridNo,
+	bool visible,
+	bool force)
+{
+	if (!IsJa2TacticalWorldLoaded() ||
+		TileIsOutOfBounds(gridNo) ||
+		actor.position().level() != SECOND_LEVEL ||
+		(visible && actor.awareness().visibility() == -1) ||
+		actor.animationPlayback().state() >= NUMANIMATIONSTATES ||
+		(!force &&
+		 (actor.animationPlayback().state() == CLIMBUPROOF ||
+		  actor.animationPlayback().state() == JUMPUPWALL)))
+	{
+		return false;
+	}
+
+	MAP_ELEMENT& mapElement = GetMapElement(gridNo);
+	if (mapElement.pRoofHead == nullptr)
+		return false;
+
+	if (visible)
+	{
+		if (!IndexExistsInRoofLayer(gridNo, FIRSTPOINTERS11))
+		{
+			LEVELNODE* marker = AddRoofToTail(gridNo, FIRSTPOINTERS11);
+			if (marker == nullptr)
+				return false;
+			marker->ubShadeLevel = DEFAULT_SHADE_LEVEL;
+			marker->ubNaturalShadeLevel = DEFAULT_SHADE_LEVEL;
+		}
+	}
+	else
+	{
+		RemoveRoof(gridNo, FIRSTPOINTERS11);
+	}
+	return true;
+}
+
+void HandlePlacingRoofMarker(
+	TacticalActor* actor,
+	INT32 gridNo,
+	BOOLEAN visible,
+	BOOLEAN force)
+{
+	if (actor != nullptr)
+	{
+		(void)TacticalActorWorldPlacement::setRoofMarker(
+			*actor,
+			gridNo,
+			visible != FALSE,
+			force != FALSE);
+	}
+}

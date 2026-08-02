@@ -7,12 +7,15 @@
 #include "Isometric Utils.h"
 #include "Items.h"
 #include "LOS.h"
+#include "Overhead Types.h"
+#include "Soldier Class.h"
 #include "Soldier macros.h"
 #include "TacticalActor.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorStateFlags.h"
 #include "TacticalActorWeaponHandling.h"
+#include "TacticalWorldAdapter.h"
 #include "Weapons.h"
 
 std::uint16_t TacticalActorAnimationSelection::selectFire(
@@ -489,4 +492,97 @@ std::uint16_t TacticalActorAnimationSelection::pickReady(
 	}
 
 	return(INVALID_ANIMATION);
+}
+
+bool TacticalActorAnimationSelection::useAlternativeBigMercAnimation(
+	const TacticalActor& actor) noexcept
+{
+	if (actor.identity().bodyType() != BIGMALE)
+		return false;
+	if (actor.animationPlayback().subFlags() & SUB_ANIM_BIGGUYSHOOT2)
+		return true;
+
+	if (actor.status().flags() & SOLDIER_PC)
+	{
+		return actor.morale().morale() >
+			(IsJa2TacticalCombatActive() ? 95 : 65);
+	}
+
+	return (actor.roster().soldierClass() == SOLDIER_CLASS_ELITE ||
+			actor.roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA) &&
+		actor.morale().aiMorale() >= MORALE_FEARLESS &&
+		actor.statistics().experienceLevel() > 8;
+}
+
+std::uint16_t TacticalActorAnimationSelection::
+	suspiciousActionPointDuration(std::uint16_t animation) noexcept
+{
+	switch (animation)
+	{
+	case NINJA_PUNCH:
+	case NINJA_LOWKICK:
+	case PUNCH_LOW:
+	case CROWBAR_ATTACK:
+	case DODGE_ONE:
+	case SLICE:
+	case STAB:
+	case CROUCH_STAB:
+	case BAYONET_STAB_STANDING_VS_STANDING:
+	case BAYONET_STAB_STANDING_VS_PRONE:
+	case PUNCH:
+	case PUNCH_BREATH:
+	case KICK_DOOR:
+	case FOCUSED_PUNCH:
+	case FOCUSED_STAB:
+	case HTH_KICK:
+	case FOCUSED_HTH_KICK:
+	case CUTTING_FENCE:
+	case JUMPWINDOWS:
+	case LONG_JUMP:
+		return 60;
+
+	case THROW_GRENADE_STANCE:
+	case LOB_GRENADE_STANCE:
+	case THROW_KNIFE:
+	case THROW_KNIFE_SP_BM:
+	case THROW_ITEM:
+	case LOB_ITEM:
+	case THROW_ITEM_CROUCHED:
+	case DECAPITATE:
+	case TAKE_BLOOD_FROM_CORPSE:
+	case PLANT_BOMB:
+	case USE_REMOTE:
+	case STEAL_ITEM:
+	case PICK_LOCK:
+	case LOCKPICK_CROUCHED:
+	case STEAL_ITEM_CROUCHED:
+		return 50;
+
+	case PICKUP_ITEM:
+	case DROP_ITEM:
+		return 30;
+
+	case SHOOT_ROCKET_CROUCHED:
+	case SHOOT_ROCKET:
+	case HELIDROP:
+	case NINJA_SPINKICK:
+		return 100;
+	default:
+		return 0;
+	}
+}
+
+BOOLEAN DecideAltAnimForBigMerc(TacticalActor* actor)
+{
+	return actor != nullptr &&
+		TacticalActorAnimationSelection::
+			useAlternativeBigMercAnimation(*actor)
+		? TRUE
+		: FALSE;
+}
+
+UINT16 GetSuspiciousAnimationAPDuration(UINT16 animation)
+{
+	return TacticalActorAnimationSelection::
+		suspiciousActionPointDuration(animation);
 }

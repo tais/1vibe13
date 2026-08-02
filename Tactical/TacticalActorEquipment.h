@@ -1,5 +1,7 @@
 #pragma once
 
+#include "types.h"
+
 #include <cstdint>
 
 class OBJECTTYPE;
@@ -40,6 +42,7 @@ namespace TacticalActorEquipment
 	[[nodiscard]] bool hasSniperRifle(const TacticalActor& actor);
 	[[nodiscard]] OBJECTTYPE* equippedRiotShield(TacticalActor& actor);
 	[[nodiscard]] bool hasEquippedRiotShield(TacticalActor& actor);
+	[[nodiscard]] bool wearsUsableGasMask(TacticalActor& actor);
 
 	void coolDownInventory(TacticalActor& actor);
 	bool dropSectorEquipment(TacticalActor& actor);
@@ -62,3 +65,5 @@ namespace TacticalActorEquipment
 		TacticalActor& actor,
 		std::uint16_t item);
 }
+
+BOOLEAN DoesSoldierWearGasMask(TacticalActor* actor);

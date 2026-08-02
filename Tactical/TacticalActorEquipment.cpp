@@ -96,6 +96,25 @@ bool TacticalActorEquipment::carriesTwoHandedWeapon(
 		ItemIsTwoHanded(item);
 }
 
+bool TacticalActorEquipment::wearsUsableGasMask(
+	TacticalActor& actor)
+{
+	const INT8 slot = FindGasMask(&actor);
+	return (slot == HEAD1POS || slot == HEAD2POS) &&
+		static_cast<std::size_t>(slot) < actor.inventory().size() &&
+		actor.inventory()[slot].exists() &&
+		!actor.inventory()[slot].objectStack.empty() &&
+		actor.inventory()[slot][0]->data.objectStatus >= USABLE;
+}
+
+BOOLEAN DoesSoldierWearGasMask(TacticalActor* actor)
+{
+	return actor != nullptr &&
+		TacticalActorEquipment::wearsUsableGasMask(*actor)
+		? TRUE
+		: FALSE;
+}
+
 // Flugente: Cool down/decay all items in inventory
 void TacticalActorEquipment::coolDownInventory(TacticalActor& actor)
 {

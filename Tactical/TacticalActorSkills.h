@@ -48,9 +48,15 @@ UINT8 GetSquadleadersCountInVicinity(
 	TacticalActor* actor,
 	BOOLEAN withHigherLevel,
 	BOOLEAN doNotCheckDistance);
+BOOLEAN TwoStagedTrait(UINT8 skillTraitNumber);
+BOOLEAN MajorTrait(UINT8 skillTraitNumber);
 
 namespace TacticalActorSkills
 {
+	[[nodiscard]] bool isTwoStagedTrait(
+		std::uint8_t trait) noexcept;
+	[[nodiscard]] bool isMajorTrait(
+		std::uint8_t trait) noexcept;
 	[[nodiscard]] bool canUse(
 		TacticalActor& actor,
 		std::int32_t skill,

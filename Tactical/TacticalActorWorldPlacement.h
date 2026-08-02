@@ -1,5 +1,7 @@
 #pragma once
 
+#include "types.h"
+
 #include <cstdint>
 
 class TacticalActor;
@@ -24,4 +26,15 @@ namespace TacticalActorWorldPlacement
 		TacticalActor& actor,
 		std::int32_t gridNo,
 		bool forceRemove = false);
+	[[nodiscard]] bool setRoofMarker(
+		TacticalActor& actor,
+		std::int32_t gridNo,
+		bool visible,
+		bool force = false);
 }
+
+void HandlePlacingRoofMarker(
+	TacticalActor* actor,
+	INT32 gridNo,
+	BOOLEAN visible,
+	BOOLEAN force);

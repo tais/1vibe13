@@ -32,7 +32,6 @@
     "Tactical/Points.cpp": 5,
     "Tactical/Rotting Corpses.cpp": 8,
     "Tactical/Soldier Add.cpp": 12,
-    "Tactical/Soldier Control.cpp": 3,
     "Tactical/Soldier Create.cpp": 2,
     "Tactical/Soldier Find.cpp": 3,
     "Tactical/Soldier Tile.cpp": 9,
@@ -69,5 +68,5 @@
     "TileEngine/tiledef.cpp": 8
   },
   "schema": 1,
-  "total": 688
+  "total": 685
 }

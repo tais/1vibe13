@@ -1417,11 +1417,12 @@ the engine must not contain SDL types in its public domain model.
   back. Every production implementation under Editor, Ja2, Laptop, modular AI,
   Multiplayer, Strategic, Tactical, TacticalAI, TileEngine, Utils, and SGP now
   enters the aggregate through `TacticalActor.h` and focused collaborators
-  rather than including `Soldier Control.h`. `Soldier Control.cpp` also enters
-  through the focused aggregate and domain contracts; no production translation
-  unit retains the umbrella import. The headless source-compatibility harness
-  deliberately retains it, and the boundary checker scans the complete
-  application implementation set to keep the dependency from returning.
+  rather than including `Soldier Control.h`. `Soldier Control.cpp` is retired
+  from both the source tree and tactical build; no production translation unit
+  retains the umbrella import. The headless source-compatibility harness
+  deliberately retains the include-only facade, and the boundary checker scans
+  the complete application implementation set to keep the dependency and
+  implementation file from returning.
   The application-header boundary is now complete: the final 30 tactical,
   TacticalAI, and strategic service headers compile independently while
   keeping `TacticalActor` incomplete. The route-node layout moved to
@@ -1469,7 +1470,7 @@ the engine must not contain SDL types in its public domain model.
   The headless build compiles every migrated header in a separate translation
   unit so include order cannot conceal an ownership regression: the 30
   actor-facing service/API headers must also keep `TacticalActor` incomplete,
-  while 33 focused compatibility/schema contracts each compile standalone.
+  while 35 focused compatibility/schema contracts each compile standalone.
   Compile-time assertions pin their established layouts, capacities, enum
   order, sentinels, and overlapping flag values. Runtime headless coverage pins
   civilian/militia and posture classification, malformed animation rejection,
@@ -1794,6 +1795,27 @@ the engine must not contain SDL types in its public domain model.
   returning to `Soldier Control.cpp`. Animation scripts and assets, palette
   source data, rendering output, maps, items, saves, network events, XML, Lua,
   and installed mod formats are unchanged.
+  The final soldier-control implementation is now retired. Turn bleeding and
+  damage cadence compile from `TacticalActorBleeding`; vehicle and footstep
+  audio from `TacticalActorMovementAudio`; improved-interrupt resolution from
+  `TacticalActorInterrupts`; new-situation cancellation and hip-fire stance
+  policy from `TacticalActorAiBehavior`; and big-merc and suspicious-action
+  selection from `TacticalActorAnimationSelection`. Consumable application,
+  gas-mask checks, pickup and stealing actions, trait classification and squad
+  leadership queries, and roof-marker placement compile from
+  `TacticalActorConsumables`, `TacticalActorEquipment`,
+  `TacticalActorInteractions`, `TacticalActorSkills`, and
+  `TacticalActorWorldPlacement`. The force-animation and path-through-people
+  compatibility globals moved to their animation-transition and route-execution
+  owners, the health/strength threshold table is an inline value contract, and
+  the unused translucency switch was removed. Focused headers retain the legacy
+  free-function spellings where source compatibility requires them, while
+  `Soldier Control.h` only re-exports those contracts. Architecture CI forbids
+  the retired file and build entry, requires each owner and standalone contract,
+  and pins malformed actor, item, vehicle, world, AI, animation, trait,
+  consumable, interaction, and interrupt inputs in the headless suite. This
+  ownership closure changes no save, network, campaign, content, map, item,
+  animation, audio, XML, Lua, or installed-mod format.
   `TacticalActorAnimationFootprint` owns the animation-profile tiles projected
   into the tactical merc layer for hit-location selection. Animation changes,
   world placement, and facing updates use `add`, `addForSurface`, and `remove`;

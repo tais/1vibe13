@@ -149,6 +149,7 @@
 #include "TacticalActorAppearance.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorBattleSounds.h"
+#include "TacticalActorBleeding.h"
 #include "TacticalActorConsumables.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorCombatReactions.h"
@@ -174,8 +175,10 @@
 #include "TacticalActorTraversal.h"
 #include "TacticalActorTurncoats.h"
 #include "TacticalActorInteractions.h"
+#include "TacticalActorInterrupts.h"
 #include "TacticalActorLighting.h"
 #include "TacticalActorModifiers.h"
+#include "TacticalActorMovementAudio.h"
 #include "TacticalActorTurnBudget.h"
 #include "TacticalActorTurnLifecycle.h"
 #include "TacticalActorTurnMaintenance.h"
@@ -11048,6 +11051,121 @@ int main( int, char** )
 			malformedFastTurnIsRejected &&
 			malformedTimingStateIsRejected,
 			"tactical actor animation timing owns fixed playback and fast-turn speeds while rejecting malformed state without partial mutation" );
+	}
+
+	{
+		const BOOLEAN previousTraitSystem =
+			gGameOptions.fNewTraitSystem;
+		const UINT8 previousInterruptPending =
+			gTacticalStatus.ubInterruptPending;
+		gGameOptions.fNewTraitSystem = TRUE;
+
+		TacticalActor residualActor;
+		residualActor.vitals().maximumHealth() = 100;
+		residualActor.vitals().health() = 60;
+		residualActor.vitals().bleeding() = 20;
+		residualActor.movementMetrics().tilesMoved() = 4;
+		const bool bleedingIntervalsAreOwned =
+			TacticalActorBleeding::nextInterval(residualActor) == 6.0F &&
+			TacticalActorBleeding::nextUnmovingInterval(residualActor) ==
+				8.0F &&
+			CalcSoldierNextBleed(nullptr) == 0.0F &&
+			CalcSoldierNextUnmovingBleed(nullptr) == 0.0F;
+
+		const bool traitClassificationIsOwned =
+			TacticalActorSkills::isMajorTrait(COVERT_NT) &&
+			TacticalActorSkills::isTwoStagedTrait(COVERT_NT) &&
+			!TacticalActorSkills::isMajorTrait(0) &&
+			MajorTrait(COVERT_NT) == TRUE &&
+			TwoStagedTrait(COVERT_NT) == TRUE &&
+			HAS_SKILL_TRAIT(nullptr, COVERT_NT) == FALSE &&
+			NUM_SKILL_TRAITS(nullptr, COVERT_NT) == 0 &&
+			GetSquadleadersCountInVicinity(nullptr, FALSE, FALSE) == 0;
+
+		residualActor.identity().bodyType() = BIGMALE;
+		residualActor.animationPlayback().subFlags() =
+			SUB_ANIM_BIGGUYSHOOT2;
+		const bool animationPolicyIsOwned =
+			TacticalActorAnimationSelection::
+				useAlternativeBigMercAnimation(residualActor) &&
+			TacticalActorAnimationSelection::
+				suspiciousActionPointDuration(PICKUP_ITEM) == 30 &&
+			TacticalActorAnimationSelection::
+				suspiciousActionPointDuration(SHOOT_ROCKET) == 100 &&
+			TacticalActorAnimationSelection::
+				suspiciousActionPointDuration(STANDING) == 0;
+
+		residualActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedAiStateIsRejected =
+			!TacticalActorAiBehavior::decideHipOrShoulderStance(
+				residualActor,
+				NOWHERE);
+		residualActor.animationPlayback().state() = STANDING;
+		residualActor.aiBehavior().newSituation() = IS_NEW_SITUATION;
+		residualActor.pendingAction().begin(MERC_STEAL);
+		TacticalActorAiBehavior::handleNewSituation(
+			residualActor,
+			false);
+		const bool aiSituationCancellationIsOwned =
+			residualActor.pendingAction().action() == NO_PENDING_ACTION;
+
+		const INT8 invalidVehicleId =
+			static_cast<INT8>(ubNumberOfVehicles);
+		residualActor.vehicleState().tacticalVehicleId() =
+			invalidVehicleId;
+		TacticalActorMovementAudio::setVehicleMovement(
+			residualActor,
+			false);
+		HandleVehicleMovementSound(nullptr, FALSE);
+		PlaySoldierFootstepSound(nullptr);
+		PlayStealthySoldierFootstepSound(nullptr);
+		const bool malformedMovementAudioIsNeutral =
+			residualActor.vehicleState().tacticalVehicleId() ==
+				invalidVehicleId;
+
+		OBJECTTYPE emptyConsumable;
+		const bool invalidEquipmentAndConsumablesAreRejected =
+			!TacticalActorEquipment::wearsUsableGasMask(residualActor) &&
+			DoesSoldierWearGasMask(nullptr) == FALSE &&
+			ApplyConsumable(nullptr, nullptr, FALSE, FALSE) == FALSE &&
+			ApplyConsumable(
+				&residualActor,
+				&emptyConsumable,
+				FALSE,
+				FALSE) == FALSE;
+
+		const UINT16 pendingBeforeInvalidPickup =
+			residualActor.animationIntent().pendingAnimation();
+		TacticalActorInteractions::pickPickupAnimation(
+			residualActor,
+			0,
+			NOWHERE,
+			0);
+		const bool invalidInteractionsAreRejected =
+			residualActor.animationIntent().pendingAnimation() ==
+				pendingBeforeInvalidPickup &&
+			!TacticalActorInteractions::beginSteal(
+				residualActor,
+				residualActor) &&
+			!TacticalActorWorldPlacement::setRoofMarker(
+				residualActor,
+				NOWHERE,
+				true) &&
+			ResolvePendingInterrupt(nullptr, 0) == FALSE;
+
+		gGameOptions.fNewTraitSystem = previousTraitSystem;
+		gTacticalStatus.ubInterruptPending = previousInterruptPending;
+		CHECK(
+			bleedingIntervalsAreOwned &&
+			traitClassificationIsOwned &&
+			animationPolicyIsOwned &&
+			malformedAiStateIsRejected &&
+			aiSituationCancellationIsOwned &&
+			malformedMovementAudioIsNeutral &&
+			invalidEquipmentAndConsumablesAreRejected &&
+			invalidInteractionsAreRejected,
+			"retired soldier-control behavior is owned by focused actor services with malformed-state coverage" );
 	}
 
 	{

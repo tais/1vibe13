@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorAiBehavior.h"
 #include "TacticalActorAnimationSelection.h"
 #include "TacticalActorAnimationGeometry.h"
 #include "TacticalActorAnimationTiming.h"
@@ -30,6 +31,7 @@
 #include "TacticalActorCombatReactions.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorMovementAudio.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalWorldAdapter.h"
 #include "Vehicles.h"
@@ -42,11 +44,7 @@
 
 #include <cstdint>
 
-extern UINT16 usForceAnimState;
 extern UINT8 gubWaitingForAllMercsToExitCode;
-
-void HandleSystemNewAISituation(TacticalActor* actor, BOOLEAN reset);
-void PlaySoldierFootstepSound(TacticalActor* actor);
 
 namespace
 {
