@@ -4,7 +4,7 @@
 #include "Disease.h"
 #include "Food.h"
 #include "GameSettings.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Profile.h"
 #include "TacticalActorAssignments.h"
 #include "TacticalActorDisease.h"

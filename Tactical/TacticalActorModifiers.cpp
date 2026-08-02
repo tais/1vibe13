@@ -18,7 +18,7 @@
 #include "Items.h"
 #include "Overhead.h"
 #include "SkillCheck.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Profile.h"
 #include "Soldier macros.h"
 #include "Vehicles.h"

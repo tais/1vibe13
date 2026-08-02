@@ -9,7 +9,7 @@
 #include "Handle Items.h"
 #include "Isometric Utils.h"
 #include "Items.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Functions.h"
 #include "Sound Control.h"
 #include "TacticalWorldAdapter.h"

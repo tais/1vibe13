@@ -15,7 +15,7 @@
 #include "Meanwhile.h"
 #include "Overhead.h"
 #include "Rotting Corpses.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Functions.h"
 #include "Soldier Profile.h"
 #include "SoldierRepository.h"

@@ -16,7 +16,7 @@
 #include "Smell.h"
 #include "SmokeEffects.h"
 #include "Soldier Ani.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Functions.h"
 #include "Soldier Profile.h"
 #include "SoldierRepository.h"

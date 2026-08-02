@@ -11,7 +11,7 @@
 #include "Overhead.h"
 #include "Overhead Types.h"
 #include "Smell.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Functions.h"
 #include "Soldier macros.h"
 #include "TacticalActorConditions.h"

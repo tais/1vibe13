@@ -11,7 +11,7 @@
 #include "Isometric Utils.h"
 #include "Items.h"
 #include "Overhead.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Functions.h"
 #include "Sound Control.h"
 #include "TacticalActorMedicalServices.h"

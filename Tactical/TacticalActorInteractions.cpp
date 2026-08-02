@@ -26,7 +26,7 @@
 #include "Points.h"
 #include "ShopKeeper Interface.h"
 #include "SkillCheck.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Functions.h"
 #include "Soldier Profile.h"
 #include "SoldierRepository.h"

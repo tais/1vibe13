@@ -14,7 +14,7 @@
 #include "NPC.h"
 #include "Overhead.h"
 #include "Points.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Profile.h"
 #include "SoldierRepository.h"
 #include "TacticalActorMedicalServices.h"

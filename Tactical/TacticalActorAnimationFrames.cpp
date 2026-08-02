@@ -3,7 +3,7 @@
 #include "Animation Control.h"
 #include "Animation Data.h"
 #include "Isometric Utils.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 
 #include <array>
 #include <cstdint>

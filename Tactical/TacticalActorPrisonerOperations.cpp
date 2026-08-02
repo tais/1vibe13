@@ -3,7 +3,7 @@
 #include "Campaign Types.h"
 #include "Isometric Utils.h"
 #include "Overhead.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "Text.h"

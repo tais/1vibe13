@@ -3,7 +3,7 @@
 
 #include "Animation Control.h"
 #include "Interface.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Profile.h"
 #include "Timer Control.h"
 #include "faces.h"

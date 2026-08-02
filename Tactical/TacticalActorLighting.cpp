@@ -6,7 +6,7 @@
 #include "Isometric Utils.h"
 #include "Items.h"
 #include "Overhead.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "TacticalWorldAdapter.h"
 #include "environment.h"
 #include "lighting.h"

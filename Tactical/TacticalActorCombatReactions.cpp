@@ -6,7 +6,7 @@
 #include "Debug Control.h"
 #include "Isometric Utils.h"
 #include "PATHAI.H"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "TacticalWorldAdapter.h"
 #include "random.h"
 #include "worlddef.h"

@@ -2446,6 +2446,25 @@ if(tactical_actor_compatibility_include EQUAL -1 OR
     "TacticalActor lost its focused aggregate header, legacy compatibility include, or standalone compile guard")
 endif()
 
+file(GLOB tactical_actor_implementation_files
+  "${SOURCE_ROOT}/Tactical/TacticalActor*.cpp")
+if(NOT tactical_actor_implementation_files)
+  message(FATAL_ERROR
+    "No TacticalActor implementation sources were found for dependency validation")
+endif()
+foreach(tactical_actor_implementation_file IN LISTS
+    tactical_actor_implementation_files)
+  file(READ "${tactical_actor_implementation_file}"
+    tactical_actor_implementation_contents)
+  string(FIND "${tactical_actor_implementation_contents}"
+    "#include \"Soldier Control.h\""
+    tactical_actor_legacy_header_include)
+  if(NOT tactical_actor_legacy_header_include EQUAL -1)
+    message(FATAL_ERROR
+      "${tactical_actor_implementation_file} regained a direct Soldier Control.h dependency; include TacticalActor.h and focused collaborators")
+  endif()
+endforeach()
+
 set(tactical_actor_component_accessors
   identity
   roster
