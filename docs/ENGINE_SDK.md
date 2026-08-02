@@ -860,8 +860,10 @@ inline component accessors are isolated in `TacticalActor.h`; new focused actor
 code should include that header instead of the broad legacy soldier-control
 surface. Architecture CI rejects direct `Soldier Control.h` includes from every
 production implementation under Editor, Ja2, Laptop, modular AI, Multiplayer,
-Strategic, Tactical, TacticalAI, TileEngine, Utils, and SGP; only the facade's
-own implementation remains exempt. Pointer-only legacy application APIs also
+Strategic, Tactical, TacticalAI, TileEngine, Utils, and SGP, including
+`Soldier Control.cpp` itself. The facade contains only includes and comments;
+the boundary checker rejects any declaration, value, alias, or behavior added
+to it. Pointer-only legacy application APIs also
 forward-declare `TacticalActor` rather than importing that facade; their
 standalone compile guard covers laptop, strategic, tactical, and tile-engine
 headers. This now covers the complete application-header surface: a second
@@ -893,7 +895,13 @@ queries; it bounds animation state before consulting animation tables. Debug
 validation, crow behavior, and the legacy facing-movement adapter are declared
 by `TacticalActorDebug.h`, `TacticalActorCrowBehavior.h`, and
 `TacticalActorLocomotion.h`. `Soldier Palette.h` owns uniform IDs,
-clothing-palette records, and palette contracts. The player light-option
+clothing-palette records, and palette contracts. Front-arc, spread-target, and
+unblit capacities alias their owning components, civilian-name capacity lives
+in `Civ Quotes.h`, and bandaged-health calculation is available through
+`TacticalActorConditions::bandagedAmount`. Player-team revival and sound
+preloading are owned by `TacticalActorLifecycle` and
+`TacticalActorBattleSounds`; their legacy adapters are declared by those same
+focused headers. The player light-option
 refresh is declared
 with the personal-light operations in `TacticalActorLighting.h`. The legacy
 `Soldier Control.h` facade re-exports those contracts, while

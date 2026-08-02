@@ -1,5 +1,6 @@
 #include "Strategic/Strategic Path Types.h"
 #include "Tactical/Animation Data.h"
+#include "Tactical/Civ Quotes.h"
 #include "Tactical/Soldier Drug Types.h"
 #include "Tactical/Soldier Background Types.h"
 #include "Tactical/Soldier Palette.h"
@@ -33,6 +34,7 @@ static_assert(std::is_same_v<decltype(PathSt::pPrev), path*>);
 static_assert(OLD_MAXPATROLGRIDS == 10);
 static_assert(MAXPATROLGRIDS == SOLDIER_PATROL_GRID_COUNT);
 static_assert(NO_PROFILE == 200);
+static_assert(MAXCIVLASTNAMES == 30);
 static_assert(DRUG_EFFECT_HP == 0);
 static_assert(DRUG_EFFECT_WIS == 8);
 static_assert(DRUG_EFFECT_MAX == 20);

@@ -1100,6 +1100,18 @@ int main( int, char** )
 	{
 		TacticalActor observer;
 		TacticalActor target;
+		target.vitals().maximumHealth() = 100;
+		target.vitals().health() = 80;
+		target.vitals().bleeding() = 5;
+		const bool bandagedAmountPreserved =
+			TacticalActorConditions::bandagedAmount( target ) == 15 &&
+			BANDAGED( &target ) == 15;
+		const bool inactivePreloadRejected =
+			!TacticalActorBattleSounds::preload( target, false ) &&
+			PreloadSoldierBattleSounds( nullptr, FALSE ) == FALSE;
+		constexpr bool playerTeamRevivalBoundaryLinked =
+			std::is_pointer_v<decltype(&TacticalActorLifecycle::revivePlayerTeam)> &&
+			std::is_pointer_v<decltype(&RevivePlayerTeam)>;
 		target.roster().team() = CIV_TEAM;
 		const bool civilianClassified =
 			TacticalActorPredicates::isCivilian( target ) &&
@@ -1155,7 +1167,9 @@ int main( int, char** )
 		const bool prisonerRecognized =
 			TacticalActorPredicates::consideredNeutralForAttack( observer, target );
 
-		CHECK( civilianClassified && militiaClassified && standingClassified &&
+		CHECK( bandagedAmountPreserved && inactivePreloadRejected &&
+		       playerTeamRevivalBoundaryLinked &&
+		       civilianClassified && militiaClassified && standingClassified &&
 		       crouchedClassified && proneClassified && malformedAnimationRejected &&
 		       ordinaryNeutralRecognized && creatureExceptionApplied &&
 		       creatureVehicleExceptionApplied && creatureCrowExceptionApplied &&

@@ -661,18 +661,19 @@ bool TacticalActorBattleSounds::play(TacticalActor& subject, UINT8 ubBattleSound
 }
 
 
-BOOLEAN PreloadSoldierBattleSounds( TacticalActor *pSoldier, BOOLEAN fRemove )
+bool TacticalActorBattleSounds::preload(TacticalActor& actor, bool remove)
 {
-	CHECKF( pSoldier->roster().active() != FALSE );
+	if (!actor.roster().active())
+		return false;
 
 	for ( UINT32 cnt = 0; cnt < NUM_MERC_BATTLE_SOUNDS; ++cnt )
 	{
 		// OK, build file and play!
-		if ( pSoldier->identity().profile() != NO_PROFILE )
+		if ( actor.identity().profile() != NO_PROFILE )
 		{
 			if ( gBattleSndsData[cnt].fPreload )
 			{
-				if ( fRemove )
+				if ( remove )
 				{
 					SoundUnlockSample( gBattleSndsData[cnt].zName );
 				}
@@ -686,7 +687,7 @@ BOOLEAN PreloadSoldierBattleSounds( TacticalActor *pSoldier, BOOLEAN fRemove )
 		{
 			if ( gBattleSndsData[cnt].fPreload && gBattleSndsData[cnt].fBadGuy )
 			{
-				if ( fRemove )
+				if ( remove )
 				{
 					SoundUnlockSample( gBattleSndsData[cnt].zName );
 				}
@@ -698,5 +699,11 @@ BOOLEAN PreloadSoldierBattleSounds( TacticalActor *pSoldier, BOOLEAN fRemove )
 		}
 	}
 
-	return(TRUE);
+	return true;
+}
+
+BOOLEAN PreloadSoldierBattleSounds(TacticalActor* actor, BOOLEAN remove)
+{
+	return actor != nullptr &&
+		TacticalActorBattleSounds::preload(*actor, remove != FALSE);
 }

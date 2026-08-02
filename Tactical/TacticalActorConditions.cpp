@@ -17,6 +17,13 @@
 
 namespace TacticalActorConditions
 {
+std::int16_t bandagedAmount(const TacticalActor& actor) noexcept
+{
+	return static_cast<std::int16_t>(
+		actor.vitals().maximumHealth() - actor.vitals().health() -
+		actor.vitals().bleeding());
+}
+
 bool isZombie(const TacticalActor& actor) noexcept
 {
 	return actor.roster().soldierClass() == SOLDIER_CLASS_ZOMBIE;

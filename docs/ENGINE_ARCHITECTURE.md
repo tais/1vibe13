@@ -1408,16 +1408,19 @@ the engine must not contain SDL types in its public domain model.
   compatibility name resolution are physically isolated in `TacticalActor.cpp`;
   no `TacticalActor::` definition remains in `Soldier Control.cpp`. The
   aggregate declaration and inline component accessors now live in the focused
-  `TacticalActor.h`; `Soldier Control.h` remains only as a compatibility facade.
+  `TacticalActor.h`; `Soldier Control.h` is now a strictly include-only
+  compatibility facade. Architecture CI validates every non-comment facade
+  line as a pragma or include, so it cannot regain declarations or behavior.
   A standalone compile guard includes the aggregate header without the legacy
   soldier-control surface, and architecture CI rejects the declaration moving
   back. Every production implementation under Editor, Ja2, Laptop, modular AI,
   Multiplayer, Strategic, Tactical, TacticalAI, TileEngine, Utils, and SGP now
   enters the aggregate through `TacticalActor.h` and focused collaborators
-  rather than including `Soldier Control.h`. Only the facade's own translation
-  unit and the headless source-compatibility harness retain that import; the
-  boundary checker scans the complete application implementation set to keep
-  the dependency from returning.
+  rather than including `Soldier Control.h`. `Soldier Control.cpp` also enters
+  through the focused aggregate and domain contracts; no production translation
+  unit retains the umbrella import. The headless source-compatibility harness
+  deliberately retains it, and the boundary checker scans the complete
+  application implementation set to keep the dependency from returning.
   The application-header boundary is now complete: the final 30 tactical,
   TacticalAI, and strategic service headers compile independently while
   keeping `TacticalActor` incomplete. The route-node layout moved to
@@ -1446,10 +1449,14 @@ the engine must not contain SDL types in its public domain model.
   actor headers. Named `TacticalActorPredicates` replace facade-owned posture,
   civilian, and neutral-target expressions and reject malformed animation
   state before indexing animation tables. `Soldier Palette.h` owns uniform IDs,
-  clothing-palette records, and palette contracts. These values and declarations
-  no longer have duplicate definitions in the soldier-control facade or
-  component aggregate; the shared trait-stage predicates are declared by
-  `Soldier Profile.h`;
+  clothing-palette records, and palette contracts. Front-arc, spread-target,
+  and unblit capacities now alias their owning components; civilian-name
+  capacity belongs to `Civ Quotes.h`. Bandaged-health calculation is a tested
+  `TacticalActorConditions` query. Player-team revival and battle-sound preload
+  orchestration are exposed by `TacticalActorLifecycle` and
+  `TacticalActorBattleSounds`, with legacy adapters retained there. These values
+  and declarations no longer have duplicate definitions in the soldier-control
+  facade; the shared trait-stage predicates are declared by `Soldier Profile.h`;
   `Soldier Control.h` re-exports these focused contracts for compatibility.
   The player light-option refresh also moved beside the personal-light domain
   in `TacticalActorLighting.cpp`; load, environment, and input callers enter

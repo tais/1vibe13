@@ -2153,10 +2153,34 @@ endforeach()
 # persistence operations, and no dependency on the C++ object layout.
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
   tactical_soldier_control_header_contents)
+
+# Soldier Control.h is now a deprecated include-only umbrella. Keeping every
+# non-comment line to pragma/include directives prevents it from regaining
+# constants, declarations, aliases, or inline behavior.
+string(REPLACE "\r\n" "\n" tactical_soldier_control_header_lines
+  "${tactical_soldier_control_header_contents}")
+string(REPLACE "\n" ";" tactical_soldier_control_header_lines
+  "${tactical_soldier_control_header_lines}")
+foreach(tactical_soldier_control_header_line IN LISTS
+    tactical_soldier_control_header_lines)
+  string(STRIP "${tactical_soldier_control_header_line}"
+    tactical_soldier_control_header_line)
+  if(tactical_soldier_control_header_line STREQUAL "" OR
+     tactical_soldier_control_header_line MATCHES "^//" OR
+     tactical_soldier_control_header_line STREQUAL "#pragma once" OR
+     tactical_soldier_control_header_line MATCHES
+       "^#[ \t]*include[ \t]+[<\"].*[>\"]$")
+    continue()
+  endif()
+  message(FATAL_ERROR
+    "Soldier Control.h is an include-only compatibility facade but contains '${tactical_soldier_control_header_line}'")
+endforeach()
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActor.h"
   tactical_actor_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
   tactical_actor_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Civ Quotes.h"
+  tactical_civ_quotes_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActor.cpp"
   tactical_actor_aggregate_source_contents)
 file(READ "${SOURCE_ROOT}/tests/tactical_actor_header_tests.cpp"
@@ -2446,6 +2470,21 @@ if(tactical_actor_compatibility_include EQUAL -1 OR
     "TacticalActor lost its focused aggregate header, legacy compatibility include, or standalone compile guard")
 endif()
 
+string(FIND "${tactical_actor_source_contents}"
+  "#include \"Soldier Control.h\""
+  tactical_actor_source_legacy_facade_include)
+string(FIND "${tactical_actor_source_contents}"
+  "#include \"TacticalActor.h\""
+  tactical_actor_source_focused_actor_include)
+string(FIND "${tactical_actor_source_contents}"
+  "RevivePlayerTeam" tactical_actor_source_legacy_team_revival)
+if(NOT tactical_actor_source_legacy_facade_include EQUAL -1 OR
+   tactical_actor_source_focused_actor_include EQUAL -1 OR
+   NOT tactical_actor_source_legacy_team_revival EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier Control.cpp must use focused actor contracts and must not regain team-revival orchestration")
+endif()
+
 file(GLOB tactical_actor_implementation_files
   "${SOURCE_ROOT}/Tactical/TacticalActor*.cpp")
 if(NOT tactical_actor_implementation_files)
@@ -2623,9 +2662,9 @@ foreach(tactical_actor_public_header IN LISTS tactical_actor_public_headers)
   endif()
 endforeach()
 
-# The compatibility facade is also retired from production implementation
-# files. Its own translation unit remains the only application-side exception;
-# the headless harness deliberately includes it to verify source compatibility.
+# The compatibility facade is retired from every production implementation
+# file. The headless harness deliberately includes it to verify source
+# compatibility, but application translation units must name their owners.
 set(tactical_actor_production_sources)
 foreach(tactical_actor_public_header_root IN LISTS
     tactical_actor_public_header_roots)
@@ -2639,10 +2678,6 @@ foreach(tactical_actor_production_source IN LISTS
     tactical_actor_production_sources)
   file(RELATIVE_PATH tactical_actor_production_source_relative
     "${SOURCE_ROOT}" "${tactical_actor_production_source}")
-  if(tactical_actor_production_source_relative STREQUAL
-      "Tactical/Soldier Control.cpp")
-    continue()
-  endif()
   file(READ "${tactical_actor_production_source}"
     tactical_actor_production_source_contents)
   string(REGEX MATCH
@@ -2926,14 +2961,17 @@ foreach(tactical_actor_focused_contract_include IN ITEMS
     "Taunt Types.h"
     "TacticalActorAnimationState.h"
     "TacticalActorBloodState.h"
+    "TacticalActorConditions.h"
     "TacticalActorCrowBehavior.h"
     "TacticalActorDamageResolution.h"
     "TacticalActorDebug.h"
     "TacticalActorEvents.h"
     "TacticalActorInterrupts.h"
+    "TacticalActorLifecycle.h"
     "TacticalActorLocomotion.h"
     "TacticalActorLongActions.h"
     "TacticalActorMovementState.h"
+    "TacticalActorModifiers.h"
     "TacticalActorPendingActionTypes.h"
     "TacticalActorPredicates.h"
     "TacticalActorQuoteFlags.h"
@@ -3034,6 +3072,26 @@ string(FIND "${tactical_actor_service_api_header_test_contents}"
 string(FIND "${headless_test_contents}"
   "tactical actor predicates preserve legacy classification and neutral-target rules"
   tactical_actor_predicate_behavior_test)
+string(FIND "${tactical_soldier_components_header_contents}"
+  "MAX_FULLTILE_DIRECTIONS =" tactical_actor_front_arc_compatibility_value)
+string(FIND "${tactical_soldier_components_header_contents}"
+  "MAX_BURST_SPREAD_TARGETS =" tactical_actor_spread_compatibility_value)
+string(FIND "${tactical_soldier_components_header_contents}"
+  "SOLDIER_UNBLIT_SIZE =" tactical_actor_unblit_compatibility_value)
+string(FIND "${tactical_civ_quotes_header_contents}"
+  "MAXCIVLASTNAMES = 30" tactical_civilian_name_capacity)
+string(FIND "${tactical_actor_header_test_contents}"
+  "static_assert(MAX_FULLTILE_DIRECTIONS == 3);"
+  tactical_actor_front_arc_capacity_test)
+string(FIND "${tactical_actor_header_test_contents}"
+  "static_assert(MAX_BURST_SPREAD_TARGETS == 6);"
+  tactical_actor_spread_capacity_test)
+string(FIND "${tactical_actor_header_test_contents}"
+  "static_assert(SOLDIER_UNBLIT_SIZE == 75 * 75 * 2);"
+  tactical_actor_unblit_capacity_test)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(MAXCIVLASTNAMES == 30);"
+  tactical_civilian_name_capacity_test)
 
 foreach(tactical_actor_new_contract_compile_header IN ITEMS
     "Tactical/Soldier Stat Types.h"
@@ -3121,7 +3179,15 @@ if(tactical_animation_profile_tile_contract EQUAL -1 OR
    tactical_actor_stat_mask_test EQUAL -1 OR
    tactical_actor_taunt_capacity_test EQUAL -1 OR
    tactical_actor_gas_flag_test EQUAL -1 OR
-   tactical_actor_predicate_behavior_test EQUAL -1)
+   tactical_actor_predicate_behavior_test EQUAL -1 OR
+   tactical_actor_front_arc_compatibility_value EQUAL -1 OR
+   tactical_actor_spread_compatibility_value EQUAL -1 OR
+   tactical_actor_unblit_compatibility_value EQUAL -1 OR
+   tactical_civilian_name_capacity EQUAL -1 OR
+   tactical_actor_front_arc_capacity_test EQUAL -1 OR
+   tactical_actor_spread_capacity_test EQUAL -1 OR
+   tactical_actor_unblit_capacity_test EQUAL -1 OR
+   tactical_civilian_name_capacity_test EQUAL -1)
   message(FATAL_ERROR
     "Focused actor compatibility contracts lost ownership, standalone compilation, or stable-value coverage")
 endif()
@@ -3318,6 +3384,23 @@ foreach(retired_condition_method IN ITEMS
       "TacticalActor regained condition facade '${retired_condition_method}'")
   endif()
 endforeach()
+
+string(FIND "${tactical_actor_conditions_header_contents}"
+  "bandagedAmount(" tactical_actor_bandaged_amount_declaration)
+string(FIND "${tactical_actor_conditions_source_contents}"
+  "bandagedAmount(" tactical_actor_bandaged_amount_definition)
+string(FIND "${headless_test_contents}"
+  "TacticalActorConditions::bandagedAmount"
+  tactical_actor_bandaged_amount_coverage)
+string(FIND "${headless_test_contents}"
+  "BANDAGED( &target ) == 15" tactical_actor_bandaged_adapter_coverage)
+if(tactical_actor_bandaged_amount_declaration EQUAL -1 OR
+   tactical_actor_bandaged_amount_definition EQUAL -1 OR
+   tactical_actor_bandaged_amount_coverage EQUAL -1 OR
+   tactical_actor_bandaged_adapter_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Bandaged-health calculation lost its focused conditions owner or compatibility coverage")
+endif()
 
 foreach(required_condition_query IN ITEMS
   "isZombie"
@@ -4078,6 +4161,7 @@ foreach(final_actor_domain_operation IN ITEMS
   "TacticalActorLifecycle|tactical_actor_lifecycle_header_contents|tactical_actor_lifecycle_source_contents|create"
   "TacticalActorLifecycle|tactical_actor_lifecycle_header_contents|tactical_actor_lifecycle_source_contents|destroy"
   "TacticalActorLifecycle|tactical_actor_lifecycle_header_contents|tactical_actor_lifecycle_source_contents|revive"
+  "TacticalActorLifecycle|tactical_actor_lifecycle_header_contents|tactical_actor_lifecycle_source_contents|revivePlayerTeam"
   "TacticalActorAnimationTransitions|tactical_actor_animation_transitions_header_contents|tactical_actor_animation_transitions_source_contents|changeState"
   "TacticalActorAnimationTransitions|tactical_actor_animation_transitions_header_contents|tactical_actor_animation_transitions_source_contents|initializeAnimation"
   "TacticalActorDamageResolution|tactical_actor_damage_resolution_header_contents|tactical_actor_damage_resolution_source_contents|applyHit"
@@ -4085,6 +4169,7 @@ foreach(final_actor_domain_operation IN ITEMS
   "TacticalActorTurnLifecycle|tactical_actor_turn_lifecycle_header_contents|tactical_actor_turn_lifecycle_source_contents|beginTurn"
   "TacticalActorBattleSounds|tactical_actor_battle_sounds_header_contents|tactical_actor_battle_sounds_source_contents|play"
   "TacticalActorBattleSounds|tactical_actor_battle_sounds_header_contents|tactical_actor_battle_sounds_source_contents|playWithCode"
+  "TacticalActorBattleSounds|tactical_actor_battle_sounds_header_contents|tactical_actor_battle_sounds_source_contents|preload"
   "TacticalActorLocomotion|tactical_actor_locomotion_header_contents|tactical_actor_locomotion_source_contents|checkRoofHit"
   "TacticalActorLocomotion|tactical_actor_locomotion_header_contents|tactical_actor_locomotion_source_contents|move"
   "TacticalActorVisibility|tactical_actor_visibility_header_contents|tactical_actor_visibility_source_contents|initializeRanges"

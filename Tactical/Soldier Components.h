@@ -8,6 +8,7 @@
 #include "Soldier Drug Types.h"
 #include "types.h"
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -805,6 +806,9 @@ private:
 	INT16 planIndex_ = 0;
 	BOOLEAN lastFlankLeft_ = FALSE;
 };
+
+static_assert(MAXPATROLGRIDS == SOLDIER_PATROL_GRID_COUNT,
+	"Soldier patrol storage must retain the established save-schema capacity");
 
 // Runtime-only owner for the modular tactical-AI plan tree. Plans retain a
 // back-reference to their soldier, so whole-record copies deliberately discard
@@ -2118,6 +2122,10 @@ private:
 	INT32 gridNos_[DirectionCount]{};
 };
 
+// Legacy source-compatible spelling for the canonical front-arc capacity.
+inline constexpr UINT8 MAX_FULLTILE_DIRECTIONS =
+	SoldierFrontArcComponent::DirectionCount;
+
 // Canonical history of tactical grid movement. Current placement belongs to
 // SoldierPositionComponent; this component owns the grid departed most
 // recently and the bounded two-location history used to stop AI oscillation.
@@ -2633,6 +2641,10 @@ private:
 	BOOLEAN aimPaused_ = FALSE;
 };
 
+// Legacy source-compatible spelling for the canonical spread-target capacity.
+inline constexpr UINT8 MAX_BURST_SPREAD_TARGETS =
+	SoldierFireControlComponent::SpreadTargetCapacity;
+
 // Canonical result of incoming combat. This keeps the current/previous
 // attacker chain and hit metadata together without mixing it with outgoing
 // target selection or damage-number presentation.
@@ -2792,6 +2804,7 @@ class SoldierRenderStateComponent
 {
 public:
 	static constexpr INT32 NoLightSprite = -1;
+	static constexpr std::size_t UnblitBufferSize = 75 * 75 * 2;
 
 	PaletteRepID& headPalette() noexcept { return headPalette_; }
 	const PaletteRepID& headPalette() const noexcept { return headPalette_; }
@@ -2911,6 +2924,10 @@ private:
 	INT16 boundingBoxOffsetY_ = 0;
 	INT32 fadeOriginGrid_ = 0;
 };
+
+// Legacy source-compatible spelling for the fixed soldier unblit buffer size.
+inline constexpr std::size_t SOLDIER_UNBLIT_SIZE =
+	SoldierRenderStateComponent::UnblitBufferSize;
 
 // Canonical soldier-local tactical UI presentation state. Locator and portrait
 // animation, panel placement and lifecycle, planned-action overlays, UI

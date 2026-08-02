@@ -397,3 +397,19 @@ void TacticalActorLifecycle::revive(TacticalActor& subject)
 		fInterfacePanelDirty = DIRTYLEVEL2;
 	}
 }
+
+void TacticalActorLifecycle::revivePlayerTeam()
+{
+	SoldierID id = gTacticalStatus.Team[gbPlayerNum].bFirstID;
+	for (; id <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++id)
+	{
+		TacticalActor* actor = GetJa2SoldierRepository().resolve(id);
+		if (actor != nullptr)
+			revive(*actor);
+	}
+}
+
+void RevivePlayerTeam()
+{
+	TacticalActorLifecycle::revivePlayerTeam();
+}
