@@ -20,6 +20,7 @@
 #include <iterator>
 #include "GameSettings.h"	// added by Flugente
 #include "Disease.h"		// added by Flugente
+#include "Soldier Class.h"
 #include "TacticalActor.h"
 
 static_assert(MAXPATROLGRIDS == SOLDIER_PATROL_GRID_COUNT,
@@ -302,32 +303,6 @@ struct path
 
 typedef struct path PathSt;
 typedef PathSt *PathStPtr;
-
-//used for color codes, but also shows the enemy type for debugging purposes
-enum
-{
-	SOLDIER_CLASS_NONE,
-	SOLDIER_CLASS_ADMINISTRATOR,
-	SOLDIER_CLASS_ELITE,
-	SOLDIER_CLASS_ARMY,
-	SOLDIER_CLASS_GREEN_MILITIA,
-	SOLDIER_CLASS_REG_MILITIA,
-	SOLDIER_CLASS_ELITE_MILITIA,
-	SOLDIER_CLASS_CREATURE,
-	SOLDIER_CLASS_MINER,
-	SOLDIER_CLASS_ZOMBIE,
-	SOLDIER_CLASS_TANK,
-	SOLDIER_CLASS_JEEP,
-	SOLDIER_CLASS_BANDIT,
-	SOLDIER_CLASS_ROBOT,
-	SOLDIER_CLASS_MAX,
-};
-
-// Flugente: there are now separate gun choices, depending on a soldier's class
-#define SOLDIER_GUN_CHOICE_SELECTIONS SOLDIER_CLASS_CREATURE
-
-#define SOLDIER_CLASS_ENEMY( bSoldierClass )		( ( bSoldierClass >= SOLDIER_CLASS_ADMINISTRATOR ) && ( bSoldierClass <= SOLDIER_CLASS_ARMY ) )
-#define SOLDIER_CLASS_MILITIA( bSoldierClass )	( ( bSoldierClass >= SOLDIER_CLASS_GREEN_MILITIA ) && ( bSoldierClass <= SOLDIER_CLASS_ELITE_MILITIA ) )
 
 // Types of uniforms available
 enum

@@ -2,8 +2,7 @@
 #define __STRATEGIC_STATUS_H
 
 #include "types.h"
-//#include "Item Types.h"
-#include "Soldier Control.h"
+#include "Item Types.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;

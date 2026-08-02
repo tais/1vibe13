@@ -2,7 +2,7 @@
 #define __STRATEGIC_MOVEMENT_H
 
 #include "types.h"
-#include "Soldier Control.h"
+class TacticalActor;
 #include "FileMan.h"
 
 #include <Engine/Adapters/JA2/TacticalEntity.h>

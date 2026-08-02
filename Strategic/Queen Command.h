@@ -3,7 +3,9 @@
 
 #include "types.h"
 #include "Campaign Types.h"
-#include "Soldier Control.h"
+#include "Overhead Types.h"
+
+class TacticalActor;
 #include "FileMan.h"
 #include "Strategic Movement.h"
 

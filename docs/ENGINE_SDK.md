@@ -859,7 +859,12 @@ the constructor/destructor isolated in `TacticalActor.cpp`. Its declaration and
 inline component accessors are isolated in `TacticalActor.h`; new focused actor
 code should include that header instead of the broad legacy soldier-control
 surface. Architecture CI rejects direct `Soldier Control.h` includes from every
-`TacticalActor*.cpp` implementation. Visibility requests with
+`TacticalActor*.cpp` implementation. Pointer-only legacy application APIs also
+forward-declare `TacticalActor` rather than importing that facade; their
+standalone compile guard covers laptop, strategic, tactical, and tile-engine
+headers. Include `Soldier Class.h` for stable soldier-class codes and
+enemy/militia classification without importing actor storage or soldier-control
+operations. Visibility requests with
 unavailable world storage or malformed actor, grid, level, direction, vehicle,
 or light state fail without legacy table access. These C++ boundaries do not
 alter save bytes, network or animation event formats, combat/content data,

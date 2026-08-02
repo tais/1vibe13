@@ -4,7 +4,7 @@
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 
 #include "types.h"
-#include "Soldier Control.h"
+class TacticalActor;
 #include "mousesystem.h"
 #include "Strategic Movement.h"
 

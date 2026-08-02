@@ -1,4 +1,6 @@
-#include "Soldier Control.h"
+#include "types.h"
+
+class TacticalActor;
 
 #define HUMAN							0
 #define CREATURE_ON_FLOOR	0x01

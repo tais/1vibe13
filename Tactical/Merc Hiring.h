@@ -1,7 +1,9 @@
 #ifndef _MERC_HIRING_H_
 #define _MERC_HIRING_H_
 
-#include "Soldier Control.h"
+#include "Overhead Types.h"
+
+class TacticalActor;
 
 
 //

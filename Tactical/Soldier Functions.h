@@ -1,7 +1,9 @@
 #ifndef _SOLDIER_FUNCTIONS_H
 #define _SOLDIER_FUNCTIONS_H
 
-#include "Soldier Control.h"
+#include "types.h"
+
+class TacticalActor;
 
 
 void ContinueMercMovement( TacticalActor *pSoldier );

@@ -13,6 +13,7 @@
 #include "Points.h"
 #include "Queen Command.h"
 #include "SkillCheck.h"
+#include "Soldier Class.h"
 #include "TacticalActor.h"
 #include "Soldier Profile.h"
 #include "Soldier macros.h"

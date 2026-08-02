@@ -21,6 +21,7 @@
 #include "Overhead.h"
 #include "Points.h"
 #include "Queen Command.h"
+#include "Soldier Class.h"
 #include "TacticalActor.h"
 #include "Soldier macros.h"
 #include "Squads.h"

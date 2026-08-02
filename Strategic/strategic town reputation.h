@@ -2,7 +2,7 @@
 #define _STRATEGIC_TOWN_REPUTATION_H
 
 #include "types.h"
-#include "Soldier Control.h"
+class TacticalActor;
 // header to contain functions to handle strategic town reputation
 
 

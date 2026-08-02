@@ -6,6 +6,7 @@
 	#include "Cursor Modes.h"
 	#include "renderworld.h"
 	#include "random.h"
+	#include "worlddef.h"
 	#include "worldman.h"
 	#include "Interface.h"
 	#include "Isometric Utils.h"
