@@ -1377,6 +1377,20 @@ the engine must not contain SDL types in its public domain model.
   tactical build, and rejects definitions returning to the monolith. Soldier,
   item, profile, background, facility, map, XML, Lua, save, and network formats
   remain unchanged.
+  The covert identity, dragging, and spotter boundaries are likewise compiled
+  independently as `TacticalActorCovertOps`, `TacticalActorDragging`, and
+  `TacticalActorSpotting`. CovertOps owns disguise appearance, recognition,
+  exposure, and spy-assignment output. Dragging owns person, corpse, and
+  structure eligibility plus order and cancellation state. Spotting owns
+  preparation, target eligibility, and the bounded team best-spotter bonus.
+  Dragging rejects malformed animation, grid, level, direction, corpse, and
+  target state before reading legacy animation or world tables; spy output
+  rejects invalid strategic sectors before indexing sector coolness. Headless
+  tests cover empty and malformed actors and targets, and the architecture
+  check requires all 28 operations in their dedicated compiled sources and
+  prevents their definitions from returning to `Soldier Control.cpp`. Uniform,
+  item, corpse, profile, map, save, network, XML, Lua, and mod formats are not
+  changed by this ownership move.
   `TacticalActorRangedActions` owns the complementary live ranged-weapon
   lifecycle: fire initiation, readying toward a target or facing, lowering a
   ready weapon, and refreshing fire mode, scope, barrel, service, and

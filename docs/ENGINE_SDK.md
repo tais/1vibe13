@@ -609,6 +609,16 @@ lookups reject malformed item, inventory, profile, or background indexes, and
 sleep recovery rejects an absent profile or non-positive maximum health before
 calling legacy profile rules. These are C++ ownership boundaries only and do
 not change installed content or persistence formats.
+Use `TacticalActorCovertOps` for disguise, recognition, exposure, and spy
+productivity; use `TacticalActorDragging` for drag eligibility and drag-order
+lifetime; and use `TacticalActorSpotting` for spotter preparation and the
+team-assisted chance-to-hit bonus. These are independent compiled domains, so
+their definitions must not return to `Soldier Control.cpp`. Dragging validates
+actor animation, grid, level, direction, corpse, and target state before world
+table access, while covert spy calculations reject malformed strategic
+sectors. The move changes C++ ownership and validation only; existing uniform,
+item, corpse, profile, map, persistence, network, XML, Lua, and installed mod
+formats remain compatible.
 `TacticalActorRangedActions` owns the stateful ranged-weapon lifecycle that
 uses those rules: `beginFire`, the `ready`/`readyToward`/`readyFacing`
 operations, and `refreshAfterHandItemChange`. Event handling, tactical AI,
