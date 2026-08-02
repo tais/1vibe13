@@ -1597,15 +1597,21 @@ the engine must not contain SDL types in its public domain model.
   breath, bleeding, attribution, and death resolution enter
   `TacticalActorDamageResolution`; battle-sound policy and playback enter
   `TacticalActorBattleSounds`; and roof-fall checks plus interpolated movement
-  enter `TacticalActorLocomotion`. Their thirteen former member entry points
-  are absent from the aggregate and all production callers use the compiled
-  domains. Only storage initialization and compatibility name resolution
-  remain as `TacticalActor::initialize` and `TacticalActor::GetName`.
+  enter `TacticalActorLocomotion`. Initialized directional sight ranges,
+  limited and tunnel vision, light and weather adjustment, monster smell,
+  cowering, gas, and vehicle visibility constraints enter
+  `TacticalActorVisibility`. Their fourteen former member entry points are
+  absent from the aggregate, the former global visibility helpers and range
+  state are retired, and all production callers use the compiled domains.
+  Only storage initialization and compatibility name resolution remain as
+  `TacticalActor::initialize` and `TacticalActor::GetName`.
   Architecture CI requires each extracted source in the tactical build,
   rejects restored declarations, definitions, or calls to retired entries,
-  and requires headless coverage for every new operation. Existing actor save
-  layout, animation/network events, combat rules, sounds, palettes, maps, XML,
-  Lua, and installed mod formats are unchanged.
+  and requires headless coverage for every new operation. Visibility rejects
+  unloaded worlds and malformed actor, grid, level, direction, profile, body,
+  team, vehicle, or light references before legacy table access. Existing
+  actor save layout, animation/network events, combat and visibility rules,
+  sounds, palettes, maps, XML, Lua, and installed mod formats are unchanged.
   `TacticalActorAnimationFrames` owns bounded render-frame resolution from an
   actor's current animation surface, animation code, world or extended facing,
   and per-direction frame layout, including the fixed frame used while frozen.

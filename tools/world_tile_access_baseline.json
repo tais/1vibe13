@@ -44,7 +44,7 @@
     "Tactical/World Items.cpp": 2,
     "Tactical/bullets.cpp": 1,
     "Tactical/fov.cpp": 4,
-    "Tactical/opplist.cpp": 18,
+    "Tactical/opplist.cpp": 16,
     "TacticalAI/AIUtils.cpp": 8,
     "TacticalAI/Attacks.cpp": 8,
     "TacticalAI/FindLocations.cpp": 30,
@@ -69,5 +69,5 @@
     "TileEngine/tiledef.cpp": 8
   },
   "schema": 1,
-  "total": 690
+  "total": 688
 }

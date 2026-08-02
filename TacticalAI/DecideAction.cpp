@@ -3,6 +3,7 @@
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorTurnBudget.h"
+#include "TacticalActorVisibility.h"
 #include "TacticalActorEquipment.h"
 #include "ai.h"
 #include "TacticalActorConditions.h"
@@ -800,8 +801,8 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 				return( AI_ACTION_ABSOLUTELY_NONE );
 			}
 		}
-		//else if ( (gTacticalStatus.bBoxingState == PRE_BOXING || gTacticalStatus.bBoxingState == BOXING) && ( PythSpacesAway( pSoldier->sGridNo, CENTER_OF_RING ) <= MaxDistanceVisible() ) )
-		else if ( PythSpacesAway( pSoldier->position().gridNo(), CENTER_OF_RING ) <= MaxNormalDistanceVisible() )
+		//else if ( (gTacticalStatus.bBoxingState == PRE_BOXING || gTacticalStatus.bBoxingState == BOXING) && ( PythSpacesAway( pSoldier->sGridNo, CENTER_OF_RING ) <= TacticalActorVisibility::normalMaximumDistance() ) )
+		else if ( PythSpacesAway( pSoldier->position().gridNo(), CENTER_OF_RING ) <= TacticalActorVisibility::normalMaximumDistance() )
 		{
 			UINT8 ubRingDir;
 			// face ring!
@@ -1843,7 +1844,7 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 	// and the noise source is close enough that it could possibly be seen
 	if ( !gfTurnBasedAI || GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current() )
 	{
-		if ((pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= pSoldier->GetMaxDistanceVisible(sNoiseGridNo) )
+		if ((pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= TacticalActorVisibility::maximumDistance(*pSoldier, sNoiseGridNo) )
 		{
 			// set base chance according to orders
 			if ((pSoldier->aiBehavior().orders() == STATIONARY) || (pSoldier->aiBehavior().orders() == ONGUARD) )
@@ -2884,7 +2885,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 			// spotters haven't already been called for, then DO SO!
 
 			if ((BestThrow.bWeaponIn != NO_SLOT) &&
-				(CalcMaxTossRange(pSoldier, pSoldier->inventory()[BestThrow.bWeaponIn].usItem, TRUE) > MaxNormalDistanceVisible()) &&
+				(CalcMaxTossRange(pSoldier, pSoldier->inventory()[BestThrow.bWeaponIn].usItem, TRUE) > TacticalActorVisibility::normalMaximumDistance()) &&
 				(gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
 				(gTacticalStatus.ubSpottersCalledForBy == NOBODY))
 			{
@@ -3006,7 +3007,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 				if (BestShot.bWeaponIn != NO_SLOT) {
 					OBJECTTYPE * gun = &pSoldier->inventory()[BestShot.bWeaponIn];
 					DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("decideactionred: men in sector %d, ubspotters called by %d, nobody %d", gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector, gTacticalStatus.ubSpottersCalledForBy, NOBODY));
-					if (((IsScoped(gun) && GunRange(gun, pSoldier) > MaxNormalDistanceVisible()) || pSoldier->aiBehavior().orders() == SNIPER) && // SANDRO - added argument
+					if (((IsScoped(gun) && GunRange(gun, pSoldier) > TacticalActorVisibility::normalMaximumDistance()) || pSoldier->aiBehavior().orders() == SNIPER) && // SANDRO - added argument
 						(gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
 						(gTacticalStatus.ubSpottersCalledForBy == NOBODY))
 
@@ -4302,7 +4303,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 							pSoldier->actionPoints().current() >= GetAPsProne(pSoldier, TRUE) &&
 							(!InARoom(pSoldier->position().gridNo(), NULL) || pSoldier->position().level() > 0 || pSoldier->suppression().underFire()) &&
 							gfTurnBasedAI &&
-							LocationToLocationLineOfSightTest(pSoldier->position().gridNo(), pSoldier->position().level(), gsWatchedLoc[pSoldier->identity().id()][bHighestWatchLoc], gbWatchedLocLevel[pSoldier->identity().id()][bHighestWatchLoc], TRUE, pSoldier->GetMaxDistanceVisible(gsWatchedLoc[pSoldier->identity().id()][bHighestWatchLoc], gbWatchedLocLevel[pSoldier->identity().id()][bHighestWatchLoc], CALC_FROM_ALL_DIRS), PRONE_LOS_POS, STANDING_LOS_POS))
+							LocationToLocationLineOfSightTest(pSoldier->position().gridNo(), pSoldier->position().level(), gsWatchedLoc[pSoldier->identity().id()][bHighestWatchLoc], gbWatchedLocLevel[pSoldier->identity().id()][bHighestWatchLoc], TRUE, TacticalActorVisibility::maximumDistance(*pSoldier, gsWatchedLoc[pSoldier->identity().id()][bHighestWatchLoc], gbWatchedLocLevel[pSoldier->identity().id()][bHighestWatchLoc], CALC_FROM_ALL_DIRS), PRONE_LOS_POS, STANDING_LOS_POS))
 						{
 							pSoldier->aiPlanning().actionData() = ANIM_PRONE;
 							pSoldier->aiPlanning().nextAction() = AI_ACTION_END_TURN;
@@ -4335,7 +4336,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 #endif
 					//WarmSteel - Dont try if we're already quite close to our friend
 					// sevenfm: reverted to vanilla helping
-					//if (!TileIsOutOfBounds(sClosestFriend) && PythSpacesAway(pSoldier->sGridNo, sClosestFriend) > pSoldier->GetMaxDistanceVisible(sClosestFriend, 0, CALC_FROM_ALL_DIRS ))
+					//if (!TileIsOutOfBounds(sClosestFriend) && PythSpacesAway(pSoldier->sGridNo, sClosestFriend) > TacticalActorVisibility::maximumDistance(*pSoldier, sClosestFriend, 0, CALC_FROM_ALL_DIRS ))
 					if (!TileIsOutOfBounds(sClosestFriend))
 					{
 						//////////////////////////////////////////////////////////////////////
@@ -4579,7 +4580,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 			// if soldier is not already facing in that direction,
 			// and the opponent is close enough that he could possibly be seen
 			// note, have to change this to use the level returned from ClosestKnownOpponent
-			sDistVisible = pSoldier->GetMaxDistanceVisible(sClosestOpponent, 0, CALC_FROM_ALL_DIRS );
+			sDistVisible = TacticalActorVisibility::maximumDistance(*pSoldier, sClosestOpponent, 0, CALC_FROM_ALL_DIRS );
 
 			if ((pSoldier->position().direction() != ubOpponentDir) && (PythSpacesAway(pSoldier->position().gridNo(),sClosestOpponent) <= sDistVisible))
 			{
@@ -4805,8 +4806,8 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 	{
 		//sClosestOpponent = ClosestKnownOpponent(pSoldier, NULL, NULL);
 
-		//if ( ( !TileIsOutOfBounds(sClosestOpponent) && PythSpacesAway( pSoldier->sGridNo, sClosestOpponent ) < (MaxNormalDistanceVisible() * 3) / 2 ) || PreRandom( 4 ) == 0 )		
-		if ( (!TileIsOutOfBounds(sClosestOpponent) && PythSpacesAway( pSoldier->position().gridNo(), sClosestOpponent ) < (pSoldier->GetMaxDistanceVisible(sClosestOpponent) * 3) / 2 ) || PreRandom( 4 ) == 0 )
+		//if ( ( !TileIsOutOfBounds(sClosestOpponent) && PythSpacesAway( pSoldier->sGridNo, sClosestOpponent ) < (TacticalActorVisibility::normalMaximumDistance() * 3) / 2 ) || PreRandom( 4 ) == 0 )
+		if ( (!TileIsOutOfBounds(sClosestOpponent) && PythSpacesAway( pSoldier->position().gridNo(), sClosestOpponent ) < (TacticalActorVisibility::maximumDistance(*pSoldier, sClosestOpponent) * 3) / 2 ) || PreRandom( 4 ) == 0 )
 		{
 			if (!gfTurnBasedAI || GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current())
 			{
@@ -7994,7 +7995,7 @@ INT8 ArmedVehicleDecideActionYellow( TacticalActor *pSoldier )
 	// and the noise source is close enough that it could possibly be seen
 	if ( !gfTurnBasedAI || GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current() )
 	{
-		if ( (pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway( pSoldier->position().gridNo(), sNoiseGridNo ) <= pSoldier->GetMaxDistanceVisible( sNoiseGridNo ) )
+		if ( (pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway( pSoldier->position().gridNo(), sNoiseGridNo ) <= TacticalActorVisibility::maximumDistance(*pSoldier,  sNoiseGridNo ) )
 		{
 			// set base chance according to orders
 			if ( (pSoldier->aiBehavior().orders() == STATIONARY) || (pSoldier->aiBehavior().orders() == ONGUARD) )
@@ -8536,7 +8537,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 			// spotters haven't already been called for, then DO SO!
 
 			if ( (BestThrow.bWeaponIn != NO_SLOT) &&
-				 (CalcMaxTossRange( pSoldier, pSoldier->inventory()[BestThrow.bWeaponIn].usItem, TRUE ) > MaxNormalDistanceVisible( )) &&
+				 (CalcMaxTossRange( pSoldier, pSoldier->inventory()[BestThrow.bWeaponIn].usItem, TRUE ) > TacticalActorVisibility::normalMaximumDistance()) &&
 				 (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
 				 (gTacticalStatus.ubSpottersCalledForBy == NOBODY) )
 			{
@@ -8592,7 +8593,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 			if ( BestShot.bWeaponIn != NO_SLOT ) {
 				OBJECTTYPE * gun = &pSoldier->inventory()[BestShot.bWeaponIn];
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "ArmedVehicleDecideActionRed: men in sector %d, ubspotters called by %d, nobody %d", gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector, gTacticalStatus.ubSpottersCalledForBy, NOBODY ) );
-				if ( ((IsScoped( gun ) && GunRange( gun, pSoldier ) > MaxNormalDistanceVisible( )) || pSoldier->aiBehavior().orders() == SNIPER) && // SANDRO - added argument
+				if ( ((IsScoped( gun ) && GunRange( gun, pSoldier ) > TacticalActorVisibility::normalMaximumDistance()) || pSoldier->aiBehavior().orders() == SNIPER) && // SANDRO - added argument
 					 (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) &&
 					 (gTacticalStatus.ubSpottersCalledForBy == NOBODY) )
 				{
@@ -9231,7 +9232,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 				{
 					// take a look at our highest watch point... if it's still visible, turn to face it and then wait
 					bHighestWatchLoc = GetHighestVisibleWatchedLoc( pSoldier->identity().id() );
-					//sDistVisible =  DistanceVisible( pSoldier, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, gsWatchedLoc[ pSoldier->identity().id() ][ bHighestWatchLoc ] );
+					//sDistVisible =  TacticalActorVisibility::distance(*pSoldier, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, gsWatchedLoc[ pSoldier->identity().id() ][ bHighestWatchLoc ] );
 
 					if ( bHighestWatchLoc != -1 )
 					{
@@ -9273,7 +9274,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 #endif
 					//WarmSteel - Dont try if we're already quite close to our friend
 					// sevenfm: reverted to vanilla helping
-					//if (!TileIsOutOfBounds(sClosestFriend) && PythSpacesAway(pSoldier->sGridNo, sClosestFriend) > pSoldier->GetMaxDistanceVisible(sClosestFriend, 0, CALC_FROM_ALL_DIRS ))
+					//if (!TileIsOutOfBounds(sClosestFriend) && PythSpacesAway(pSoldier->sGridNo, sClosestFriend) > TacticalActorVisibility::maximumDistance(*pSoldier, sClosestFriend, 0, CALC_FROM_ALL_DIRS ))
 					if ( !TileIsOutOfBounds( sClosestFriend ) )
 					{
 						//////////////////////////////////////////////////////////////////////
@@ -9427,7 +9428,7 @@ INT8 ArmedVehicleDecideActionRed( TacticalActor *pSoldier)
 			// if soldier is not already facing in that direction,
 			// and the opponent is close enough that he could possibly be seen
 			// note, have to change this to use the level returned from ClosestKnownOpponent
-			sDistVisible = pSoldier->GetMaxDistanceVisible( sClosestOpponent, 0, CALC_FROM_ALL_DIRS );
+			sDistVisible = TacticalActorVisibility::maximumDistance(*pSoldier,  sClosestOpponent, 0, CALC_FROM_ALL_DIRS );
 
 			if ( (pSoldier->position().direction() != ubOpponentDir) && (PythSpacesAway( pSoldier->position().gridNo(), sClosestOpponent ) <= sDistVisible) )
 			{

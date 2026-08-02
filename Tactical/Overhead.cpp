@@ -5,6 +5,7 @@
 #include "TacticalActorLifecycle.h"
 #include "TacticalActorAppearance.h"
 #include "TacticalActorOrientation.h"
+#include "TacticalActorVisibility.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalActorCombatActions.h"
@@ -4453,8 +4454,8 @@ UINT8 CivilianGroupMembersChangeSidesWithinProximity( TacticalActor * pAttacked 
             {
                 // if in LOS of this guy's attacker
                 if ( (pAttacker && pSoldier->awareness().opponentKnowledge()[pAttacked->combatResult().currentAttacker().i] == SEEN_CURRENTLY)
-                        || ( PythSpacesAway( pSoldier->position().gridNo(), pAttacked->position().gridNo() ) < pAttacked->GetMaxDistanceVisible(pSoldier->position().gridNo(), pSoldier->position().level()) )
-                        || ( pAttacker && PythSpacesAway( pSoldier->position().gridNo(), pAttacker->position().gridNo() ) < pAttacked->GetMaxDistanceVisible(pAttacker->position().gridNo(), pAttacker->position().level()) ) )
+                        || ( PythSpacesAway( pSoldier->position().gridNo(), pAttacked->position().gridNo() ) < TacticalActorVisibility::maximumDistance(*pAttacked, pSoldier->position().gridNo(), pSoldier->position().level()) )
+                        || ( pAttacker && PythSpacesAway( pSoldier->position().gridNo(), pAttacker->position().gridNo() ) < TacticalActorVisibility::maximumDistance(*pAttacked, pAttacker->position().gridNo(), pAttacker->position().level()) ) )
                 {
                     MakeCivHostile(pSoldier);
                     if ( pSoldier->awareness().opponentCount() > 0 )

@@ -1,5 +1,6 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorVisibility.h"
 #include "ai.h"
 #include "AIInternals.h"
 #include "Isometric Utils.h"
@@ -428,7 +429,7 @@ INT8 ZombieDecideActionYellow(TacticalActor *pSoldier)
 	// and the noise source is close enough that it could possibly be seen
 	if ( GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current() )
 	{
-		if ((pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= pSoldier->GetMaxDistanceVisible(sNoiseGridNo) )
+		if ((pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= TacticalActorVisibility::maximumDistance(*pSoldier, sNoiseGridNo) )
 		{
 			// set base chance according to orders
 			if ((pSoldier->aiBehavior().orders() == STATIONARY) || (pSoldier->aiBehavior().orders() == ONGUARD) )
@@ -723,7 +724,7 @@ INT8 ZombieDecideActionRed(TacticalActor *pSoldier)
 
 							DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d disturbance direction %d", pSoldier->position().direction(), ubOpponentDir));
 
-							sDistVisible = pSoldier->GetMaxDistanceVisible(sClosestThreat, 0, CALC_FROM_ALL_DIRS );
+							sDistVisible = TacticalActorVisibility::maximumDistance(*pSoldier, sClosestThreat, 0, CALC_FROM_ALL_DIRS );
 
 							if( pSoldier->position().direction() != ubOpponentDir &&
 								PythSpacesAway(pSoldier->position().gridNo(),sClosestThreat) <= sDistVisible &&
@@ -835,7 +836,7 @@ INT8 ZombieDecideActionRed(TacticalActor *pSoldier)
 		// if soldier is not already facing in that direction,
 		// and the opponent is close enough that he could possibly be seen
 		// note, have to change this to use the level returned from ClosestKnownOpponent
-		sDistVisible = pSoldier->GetMaxDistanceVisible(sClosestThreat, 0, CALC_FROM_ALL_DIRS );
+		sDistVisible = TacticalActorVisibility::maximumDistance(*pSoldier, sClosestThreat, 0, CALC_FROM_ALL_DIRS );
 
 		if( pSoldier->position().direction() != ubOpponentDir &&
 			PythSpacesAway(pSoldier->position().gridNo(),sClosestThreat) <= sDistVisible &&

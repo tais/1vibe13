@@ -5,6 +5,7 @@
 #include "TacticalActorLifecycle.h"
 #include "TacticalActorAppearance.h"
 #include "TacticalActorOrientation.h"
+#include "TacticalActorVisibility.h"
 #include "TacticalActorWorldPlacement.h"
 #include "Soldier Functions.h"
 #include "TacticalActorAnimationFootprint.h"
@@ -8169,7 +8170,7 @@ bool TacticalActorSpotting::canSpot(
 		if (PythSpacesAway(actor.position().gridNo(), targetGridNo) >=
 			2 * gGameExternalOptions.usSpotterRange)
 		{
-			UINT16 usSightLimit = actor.GetMaxDistanceVisible(
+			UINT16 usSightLimit = TacticalActorVisibility::maximumDistance(actor,
 				targetGridNo,
 				actor.position().level(),
 				CALC_FROM_WANTED_DIR);

@@ -2274,6 +2274,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatReactions.h"
   tactical_actor_combat_reactions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatReactions.cpp"
   tactical_actor_combat_reactions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorVisibility.h"
+  tactical_actor_visibility_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorVisibility.cpp"
+  tactical_actor_visibility_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationTransitions.h"
   tactical_actor_animation_transitions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationTransitions.cpp"
@@ -3217,7 +3221,8 @@ foreach(retired_actor_facade IN ITEMS
   "DoMercBattleSound"
   "InternalDoMercBattleSound"
   "CheckSoldierHitRoof"
-  "MoveMerc")
+  "MoveMerc"
+  "GetMaxDistanceVisible")
   string(FIND "${tactical_actor_contents}"
     "${retired_actor_facade}("
     retired_actor_facade_declaration)
@@ -3246,7 +3251,14 @@ foreach(actor_source IN LISTS world_state_files)
     "DoMercBattleSound"
     "InternalDoMercBattleSound"
     "CheckSoldierHitRoof"
-    "MoveMerc")
+    "MoveMerc"
+    "GetMaxDistanceVisible"
+    "InitSightRange"
+    "AdjustMaxSightRangeForEnvEffects"
+    "MaxNormalDistanceVisible"
+    "DistanceVisible"
+    "SoldierHasLimitedVision"
+    "MaxDistanceVisible")
     string(REGEX MATCH
       "(^|[^A-Za-z0-9_])${retired_actor_entry}[ \t\r\n]*\\("
       retired_actor_entry_usage
@@ -3256,6 +3268,19 @@ foreach(actor_source IN LISTS world_state_files)
         "Production caller in ${actor_source} restored retired TacticalActor entry '${retired_actor_entry}'")
     endif()
   endforeach()
+endforeach()
+
+foreach(visibility_declaration_source IN LISTS world_state_declaration_files)
+  file(READ "${visibility_declaration_source}"
+    visibility_declaration_source_contents)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(extern[ \t]+)?INT8[ \t]+(gbLookDistance|BEHIND|SBEHIND|SIDE|ANGLE|STRAIGHT)([^A-Za-z0-9_]|$)"
+    retired_visibility_state_declaration
+    "${visibility_declaration_source_contents}")
+  if(retired_visibility_state_declaration)
+    message(FATAL_ERROR
+      "Production source ${visibility_declaration_source} restored retired global tactical visibility state")
+  endif()
 endforeach()
 
 foreach(final_actor_domain_operation IN ITEMS
@@ -3271,7 +3296,14 @@ foreach(final_actor_domain_operation IN ITEMS
   "TacticalActorBattleSounds|tactical_actor_battle_sounds_header_contents|tactical_actor_battle_sounds_source_contents|play"
   "TacticalActorBattleSounds|tactical_actor_battle_sounds_header_contents|tactical_actor_battle_sounds_source_contents|playWithCode"
   "TacticalActorLocomotion|tactical_actor_locomotion_header_contents|tactical_actor_locomotion_source_contents|checkRoofHit"
-  "TacticalActorLocomotion|tactical_actor_locomotion_header_contents|tactical_actor_locomotion_source_contents|move")
+  "TacticalActorLocomotion|tactical_actor_locomotion_header_contents|tactical_actor_locomotion_source_contents|move"
+  "TacticalActorVisibility|tactical_actor_visibility_header_contents|tactical_actor_visibility_source_contents|initializeRanges"
+  "TacticalActorVisibility|tactical_actor_visibility_header_contents|tactical_actor_visibility_source_contents|straightRange"
+  "TacticalActorVisibility|tactical_actor_visibility_header_contents|tactical_actor_visibility_source_contents|normalMaximumDistance"
+  "TacticalActorVisibility|tactical_actor_visibility_header_contents|tactical_actor_visibility_source_contents|hasLimitedVision"
+  "TacticalActorVisibility|tactical_actor_visibility_header_contents|tactical_actor_visibility_source_contents|adjustForEnvironment"
+  "TacticalActorVisibility|tactical_actor_visibility_header_contents|tactical_actor_visibility_source_contents|distance"
+  "TacticalActorVisibility|tactical_actor_visibility_header_contents|tactical_actor_visibility_source_contents|maximumDistance")
   string(REPLACE "|" ";" final_actor_domain_fields
     "${final_actor_domain_operation}")
   list(GET final_actor_domain_fields 0 final_actor_domain)
@@ -4512,6 +4544,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
   "TacticalActorCombatReactions.cpp"
+  "TacticalActorVisibility.cpp"
   "TacticalActorConditionPresentation.cpp"
   "TacticalActorDamageFeedback.cpp"
   "TacticalActorDamageResolution.cpp"

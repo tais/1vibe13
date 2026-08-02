@@ -1,4 +1,5 @@
 #include "TacticalActorEquipment.h"
+#include "TacticalActorVisibility.h"
 #include "types.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -712,7 +713,7 @@ void CalculateCover()
 
 void CalculateCoverFromSoldier( TacticalActor* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, TacticalActor* pToSoldier )
 {
-	const UINT16 usSightLimit = pFromSoldier->GetMaxDistanceVisible(sTargetGridNo, (INT8)fRoof, CALC_FROM_WANTED_DIR);
+	const UINT16 usSightLimit = TacticalActorVisibility::maximumDistance(*pFromSoldier, sTargetGridNo, (INT8)fRoof, CALC_FROM_WANTED_DIR);
 
 	for ( int i = 0; i<sizeof(animArr); ++i )
 	{
@@ -738,8 +739,9 @@ void CalculateCoverFromSoldier( TacticalActor* pFromSoldier, const INT32& sTarge
 
 void CalculateCoverFromEnemySoldier(TacticalActor* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, TacticalActor* pToSoldier, const BOOLEAN& bFromSoldierCowering, const UINT8& tunnelVision, const INT8 ToSoldierStealth, const INT8 ToSoldierLBeSightAdjustment)
 {
-	// Had to extract this from TacticalActor::GetMaxDistanceVisible() function due to performance improvement from minimizing recalculating CoweringShockLevel(pSoldier) & GetPercentTunnelVision(pSoldier)
-	const UINT16 usSightLimit = DistanceVisible(pFromSoldier, (SoldierHasLimitedVision(pFromSoldier) ? pFromSoldier->pathing().desiredDirection() : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sTargetGridNo, (INT8)fRoof, bFromSoldierCowering, tunnelVision);
+	// Keep the directional visibility calculation here to avoid recalculating
+	// cowering and tunnel-vision state for every tile.
+	const UINT16 usSightLimit = TacticalActorVisibility::distance(*pFromSoldier, (TacticalActorVisibility::hasLimitedVision(*pFromSoldier) ? pFromSoldier->pathing().desiredDirection() : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sTargetGridNo, (INT8)fRoof, bFromSoldierCowering, tunnelVision);
 
 	for (int i = 0; i < sizeof(animArr); ++i)
 	{
@@ -769,7 +771,7 @@ BOOLEAN CanSoldierSeeFloor( TacticalActor* pSoldier, INT32 sGridNo, INT8 bLevel 
 	if ( !pSoldier )
 		return FALSE;
 
-	UINT16 usSightLimit = pSoldier->GetMaxDistanceVisible( sGridNo, bLevel, CALC_FROM_WANTED_DIR );
+	UINT16 usSightLimit = TacticalActorVisibility::maximumDistance(*pSoldier,  sGridNo, bLevel, CALC_FROM_WANTED_DIR );
 	
 	if ( SoldierToVirtualSoldierLineOfSightTest( pSoldier, sGridNo, bLevel, ANIM_PRONE, FALSE, usSightLimit ) != 0 )
 		return TRUE;

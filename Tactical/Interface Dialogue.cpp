@@ -1,6 +1,7 @@
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorAppearance.h"
+#include "TacticalActorVisibility.h"
 	#include "builddefines.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorMedicalServices.h"
@@ -1584,7 +1585,7 @@ BOOLEAN SourceSoldierPointerIsValidAndReachableForGive( TacticalActor * pGiver )
 
 	// pointer should always be valid anyhow
 	if( PythSpacesAway( pGiver->position().gridNo(), source->position().gridNo() ) >
-		source->GetMaxDistanceVisible(
+		TacticalActorVisibility::maximumDistance(*source,
 			pGiver->position().gridNo(), source->position().level()) )
 	{
 		return FALSE;
@@ -5699,7 +5700,7 @@ void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileI
 
 		// Add guy if he's a candidate...
 		if ( OK_INSECTOR_MERC( pSoldier ) && PythSpacesAway( pNPC->position().gridNo(), pSoldier->position().gridNo() ) < 10 && !AM_AN_EPC( pSoldier ) && !( pSoldier->status().flags() & SOLDIER_GASSED ) && !(AM_A_ROBOT( pSoldier )) && !pSoldier->assignment().isAsleep() &&
-			SoldierTo3DLocationLineOfSightTest( pSoldier, pNPC->position().gridNo(), 0, 0, (UINT8)MaxDistanceVisible(), TRUE ) )
+			SoldierTo3DLocationLineOfSightTest( pSoldier, pNPC->position().gridNo(), 0, 0, (UINT8)TacticalActorVisibility::normalMaximumDistance(), TRUE ) )
 		{
 			ValidSoldierIdArray[ ubNumValidSoldiers ] = pSoldier->identity().id();
 			++ubNumValidSoldiers;

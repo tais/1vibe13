@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorVisibility.h"
 #include "TacticalActorWorldPlacement.h"
 
 #include "Animation Control.h"
@@ -548,7 +549,7 @@ void setGridUnchecked(TacticalActor& actor, INT32 sNewGridNo, BOOLEAN fForceRemo
 								// if we SEE this particular oppponent, and he DOESN'T see us... and he COULD see us...
 								if ( (actor.awareness().opponentKnowledge()[cnt] == SEEN_CURRENTLY) &&
 									 pEnemy->awareness().opponentKnowledge()[actor.identity().id()] != SEEN_CURRENTLY &&
-									 PythSpacesAway( actor.position().gridNo(), pEnemy->position().gridNo() ) < pEnemy->GetMaxDistanceVisible( actor.position().gridNo(), actor.position().level() ) )
+									 PythSpacesAway( actor.position().gridNo(), pEnemy->position().gridNo() ) < TacticalActorVisibility::maximumDistance(*pEnemy,  actor.position().gridNo(), actor.position().level() ) )
 								{
 									// AGILITY (5):  Soldier snuck 1 square past unaware enemy
 									// MP: skip -- a deathmatch opener (long run, many unaware

@@ -1,3 +1,4 @@
+#include "TacticalActorVisibility.h"
 #include "sgp.h"
 #include "screenids.h"
 #include "Timer Control.h"
@@ -84,7 +85,6 @@ void RestoreButtonBackGrounds();
 MAIN_MENU_VALUES gMainMenulayout[MAX_MAIN_MENU_IMAGE];
 //VSURFACE_DESC		vs_desc;
 
-extern void InitSightRange(); //lal
 
 UINT32	MainMenuScreenInit( )
 {
@@ -394,7 +394,7 @@ void InitDependingGameStyleOptions()
 	if (GetGameContext().capabilities().isUnfinishedBusiness())
 		LoadGameUBOptions();
 
-	InitSightRange(); //lal
+	TacticalActorVisibility::initializeRanges(); //lal
 
 	ReStartingGame();	
 }

@@ -7,6 +7,7 @@
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorDragging.h"
 #include "TacticalActorModifiers.h"
+#include "TacticalActorVisibility.h"
 #include "TacticalWorldAdapter.h"
 	#include "Isometric Utils.h"
 	#include "Overhead.h"
@@ -177,67 +178,6 @@ UINT8			gubWatchedLocPoints[ TOTAL_SOLDIERS ][ NUM_WATCHED_LOCS ];
 BOOLEAN		gfWatchedLocReset[ TOTAL_SOLDIERS ][ NUM_WATCHED_LOCS ];
 BOOLEAN		gfWatchedLocHasBeenIncremented[ TOTAL_SOLDIERS ][ NUM_WATCHED_LOCS ];
 
-INT8 gbLookDistance[8][8];
-
-INT8 BEHIND;
-INT8 SBEHIND;
-INT8 SIDE;
-INT8 ANGLE;
-INT8 STRAIGHT;
-
-void InitSightRange()
-{
-	BEHIND	 =	 (INT8)( BEHIND_RATIO	* gGameExternalOptions.ubStraightSightRange );
-	SBEHIND	=	 (INT8)( SBEHIND_RATIO	* gGameExternalOptions.ubStraightSightRange );
-	SIDE		=	 (INT8)( SIDE_RATIO		* gGameExternalOptions.ubStraightSightRange );
-	ANGLE		=	 (INT8)( ANGLE_RATIO	* gGameExternalOptions.ubStraightSightRange );
-	STRAIGHT	=	 (INT8)( STRAIGHT_RATIO * gGameExternalOptions.ubStraightSightRange );
-
-	INT8 dummy[15][15];
-
-
-	{	//Pulmu: VC6 compatibility
-	for (int i=0; i<8; i++)
-	{
-			dummy[i][i]=STRAIGHT;
-			dummy[i][i+1]=ANGLE;
-			dummy[i+1][i]=ANGLE;
-			dummy[i][i+2]=SIDE;
-			dummy[i+2][i]=SIDE;
-			dummy[i][i+3]=SBEHIND;
-			dummy[i+3][i]=SBEHIND;
-			dummy[i][i+4]=BEHIND;
-			dummy[i+4][i]=BEHIND;
-			dummy[i][i+5]=SBEHIND;
-			dummy[i+5][i]=SBEHIND;
-			dummy[i][i+6]=SIDE;
-			dummy[i+6][i]=SIDE;
-			dummy[i][i+7]=ANGLE;
-			dummy[i+7][i]=ANGLE;
-	}
-	}
-	for (int i=0; i<8; i++)
-	{
-		for (int j=0; j<8; j++)
-		{
-			gbLookDistance[i][j] = dummy[i][j];
-		}
-	}
-	//gbLookDistance[8][8] =
-	//{
-	//	//	LOOKER DIR		LOOKEE DIR
-	//	//					NORTH	| NORTHEAST	|	EAST	|	SOUTHEAST	|	SOUTH	|	SOUTHWEST	|	WEST	|	NORTHWEST
-	//	/* NORTH		*/	 STRAIGHT,	 ANGLE,		SIDE,	 SBEHIND,	 BEHIND,	 SBEHIND,		SIDE,		ANGLE,
-	//	/* NORTHEAST	*/	 ANGLE,	 STRAIGHT,		ANGLE,		SIDE,	SBEHIND,		BEHIND,	SBEHIND,		SIDE,
-	//	/* EAST		*/	 SIDE,		 ANGLE,	STRAIGHT,		ANGLE,		SIDE,	 SBEHIND,	 BEHIND,	 SBEHIND,
-	//	/* SOUTHEAST	*/	 SBEHIND,		SIDE,		ANGLE,	STRAIGHT,		ANGLE,		SIDE,	SBEHIND,		BEHIND,
-	//	/* SOUTH		*/	 BEHIND,	 SBEHIND,		SIDE,		ANGLE,	STRAIGHT,		ANGLE,		SIDE,	 SBEHIND,
-	//	/* SOUTHWEST	*/	 SBEHIND,	 BEHIND,	SBEHIND,		SIDE,		ANGLE,	STRAIGHT,		ANGLE,		SIDE,
-	//	/* WEST		*/	 SIDE,		SBEHIND,	 BEHIND,	 SBEHIND,		SIDE,		ANGLE,	STRAIGHT,		ANGLE,
-	//	/* NORTHWEST	*/	 ANGLE,		 SIDE,	 SBEHIND,	 BEHIND,	SBEHIND,		SIDE,		ANGLE,	STRAIGHT
-	//	};
-}
-
 
 INT8 gbSmellStrength[3] =
 {
@@ -321,37 +261,12 @@ void DECAY_OPPLIST_VALUE( INT8& value )
 	}
 }
 
-
 //rain
 extern BOOLEAN gfLightningInProgress;
 extern BOOLEAN gfHaveSeenSomeone;
-extern UINT8 ubRealAmbientLightLevel;
 //end rain
 
 
-INT16 AdjustMaxSightRangeForEnvEffects( TacticalActor *pSoldier, INT8 bLightLevel, INT16 sDistVisible )
-{
-	INT16 sNewDist = sDistVisible * gGameExternalOptions.ubBrightnessVisionMod[bLightLevel] / 100;
-
-	// Adjust it based on weather...
-	if ( !pSoldier->deployment().sectorZ() )
-	{
-		FLOAT weatherpenalty = gGameExternalOptions.dVisDistDecrease[SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather];
-
-		FLOAT appliedpenalty = 1.0f;
-		if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) && (gGameOptions.fNewTraitSystem) )
-			appliedpenalty = min( 1.0f, max( 0.0f, appliedpenalty - gSkillTraitValues.dSVWeatherPenaltiesReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) );
-
-		sNewDist -= (INT16)(sNewDist * weatherpenalty * appliedpenalty);
-
-		//rain
-		if ( gfLightningInProgress )
-			sNewDist += sNewDist * (ubRealAmbientLightLevel) / 10;	// 10% per dark level
-		//end rain
-	}
-	
-	return( sNewDist );
-}
 
 static TacticalActor* ResolveBestSighter( UINT16 position )
 {
@@ -1279,296 +1194,6 @@ INT16 TeamNoLongerSeesMan( UINT8 ubTeam, TacticalActor *pOpponent, SoldierID ubE
 	return(TRUE);
 }
 
-INT16 DistanceSmellable( TacticalActor *pSoldier, TacticalActor * pSubject )
-{
-	INT16 sDistVisible = STRAIGHT; // as a base
-
-	//if (IsJa2TacticalTurnBased())
-	//{
-		sDistVisible *= 2;
-	//}
-	//else
-	//{
-
-	//	sDistVisible += 3;
-	//}
-
-	if (pSubject)
-	{
-		if (pSubject->status().flags() & SOLDIER_MONSTER)
-		{
-			// trying to smell a friend; change nothing
-		}
-		else
-		{
-			// smelling a human or animal; if they are coated with monster smell, distance shrinks
-			sDistVisible = sDistVisible * (pSubject->perception().normalSmell() - pSubject->perception().monsterSmell()) / NORMAL_HUMAN_SMELL_STRENGTH;
-			if (sDistVisible < 0)
-			{
-				sDistVisible = 0;
-			}
-		}
-	}
-	return( sDistVisible );
-}
-
-INT16 MaxNormalDistanceVisible( void )
-{
-	return( STRAIGHT * 2 );
-}
-
-INT16 TacticalActor::GetMaxDistanceVisible(INT32 sGridNo, INT8 bLevel, int calcAsType, TacticalActor *pKnownSubject)
-{
-	if (sGridNo == NOWHERE)
-	{
-		return MaxNormalDistanceVisible();
-	}
-
-	if (bLevel == -1)
-	{
-		bLevel = this->position().level();
-	}
-
-	if (calcAsType == CALC_FROM_ALL_DIRS)
-	{
-		return DistanceVisible( this, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sGridNo, bLevel, TacticalActorConditions::isCowering(*this), GetPercentTunnelVision(this), pKnownSubject );
-	}
-
-	return DistanceVisible( this, (SoldierHasLimitedVision(this) ? this->pathing().desiredDirection() : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sGridNo, bLevel, TacticalActorConditions::isCowering(*this), GetPercentTunnelVision(this), pKnownSubject);
-}
-
-INT16 DistanceVisible(TacticalActor *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, INT32 sSubjectGridNo, INT8 bLevel, const BOOLEAN& isCowering, const UINT8& tunnelVision, TacticalActor *pKnownSubject)
-{
-	INT16	sDistVisible;
-	INT8	bLightLevel;
-	BOOLEAN sideViewLimit = FALSE;
-	// When the caller already holds the subject standing at sSubjectGridNo/bLevel
-	// (e.g. ManLooksForMan passing pOpponent), reuse it instead of re-walking the
-	// tile's structure list via SimpleFindSoldier()/WhoIsThere2().
-	TacticalActor* pSubject = pKnownSubject ? pKnownSubject : SimpleFindSoldier( sSubjectGridNo, bLevel );
-	INT16 tunnelVisionInPercent = 0;
-
-	if (pSoldier->status().flags() & SOLDIER_MONSTER)
-	{
-		if ( !pSubject )
-		{
-			return( FALSE );
-		}
-
-		return( DistanceSmellable( pSoldier, pSubject ) );
-	}
-
-	if (pSoldier->perception().isBlinded())
-	{
-		// we're bliiiiiiiiind!!!
-		return( 0 );
-	}
-
-	// sevenfm: if soldier is unconscious, he can't see anything
-	if ( pSoldier->collapseState().tactical() && pSoldier->vitals().breath() == 0 )
-	{
-		return( 0 );
-	}
-
-	// Bob: if gridNo isn't set, this would cause a access violation later on
-	if (pSoldier->position().gridNo() < 0) {
-		// ScreenMsg(FONT_MCOLOR_LTRED, MSG_INTERFACE, L"DistanceVisible(): Caught bad LOS distance check!");
-		return(0);
-	}
-
-	// anv: some places in vehicle don't give passenger any view outside
-	INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
-	if( bSeatIndex != (-1) )
-	{	
-		TacticalActor *pVehicle = GetSoldierStructureForVehicle( pSoldier ->deployment().vehicleId() );
-		// need to check this even if bSubjectDir is DIRECTION_IRRELEVANT
-		if( gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].VehicleSeats[ bSeatIndex ].fBlockedView )
-		{
-			return( 0 );
-		}
-	}
-
-	if ( bFacingDir == DIRECTION_IRRELEVANT && ARMED_VEHICLE( pSoldier ) )
-	{
-		// always calculate direction for tanks so we have something to work with
-		bFacingDir = pSoldier->pathing().desiredDirection();
-		bSubjectDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sSubjectGridNo );
-		//bSubjectDir = atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),pOpponent->position().worldXInt(),pOpponent->position().worldYInt());
-	}
-
-	if ( !ARMED_VEHICLE( pSoldier ) && (bFacingDir == DIRECTION_IRRELEVANT || (pSoldier->status().flags() & SOLDIER_ROBOT) || (pSubject && pSubject->renderState().muzzleFlashVisible())) )
-	{
-		sDistVisible = MaxNormalDistanceVisible();
-	}
-	else
-	{
-		if (pSoldier->position().gridNo() == sSubjectGridNo)
-		{
-			// looking up or down or two people accidentally in same tile... don't want it to be 0!
-			sDistVisible = MaxNormalDistanceVisible();
-		}
-		else
-		{
-			// Flugente: no need to calculate this multiple times.
-			// SoldierHasLimitedVision(pSoldier) is exactly
-			//   gGameExternalOptions.gfAllowLimitedVision || GetPercentTunnelVision(pSoldier) > 0
-			// and every DistanceVisible caller already passes
-			// tunnelVision == GetPercentTunnelVision(pSoldier), so reuse it instead of
-			// re-scanning the soldier's inventory inside GetPercentTunnelVision again.
-			BOOLEAN fLimitedVision = ( gGameExternalOptions.gfAllowLimitedVision || tunnelVision > 0 );
-
-			// Lesh: added this
-			if( fLimitedVision )
-			{
-				bSubjectDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sSubjectGridNo );
-			}
-
-			if (bFacingDir == DIRECTION_IRRELEVANT)
-			{
-				bFacingDir = pSoldier->position().direction();
-			}
-
-			sDistVisible = gbLookDistance[bFacingDir][bSubjectDir];
-
-			// Lesh: and this
-			if ( sDistVisible == 0 && fLimitedVision )
-				return 0;
-
-			if ( sDistVisible == ANGLE && (pSoldier->roster().team() == OUR_TEAM || pSoldier->aiBehavior().alertStatus() >= STATUS_RED ) )
-			{
-				sDistVisible = STRAIGHT;
-			}
-
-			if ( sDistVisible != STRAIGHT || ( fLimitedVision && (bFacingDir != bSubjectDir) ) )
-			{
-				tunnelVisionInPercent = tunnelVision;
-			}
-
-			sDistVisible *= 2;
-
-			if ( pSoldier->animationPlayback().state() == RUNNING )
-			{
-				if ( gbLookDistance[bFacingDir][bSubjectDir] != STRAIGHT )
-				{
-					// reduce sight when we're not looking in that direction...
-					sDistVisible = (INT16) (sDistVisible * ANGLE_RATIO);
-				}
-			}
-
-			// Flugente: we only apply tunnelvision now, after we've possibly extended the sight range, which results in finer differentiation of effects
-			if ( tunnelVisionInPercent > 0 )
-			{
-				sideViewLimit = TRUE;
-				sDistVisible = sDistVisible * (100 - tunnelVisionInPercent) / 100;
-			}
-		}
-	}
-
-	if (pSoldier->position().level() != bLevel)
-	{
-		// add two tiles distance to visibility to/from roofs
-		// sDistVisible += (STRAIGHT_RATIO * 2); //2;
-		sDistVisible += ( sDistVisible / 6 ); //lal changed distance to 1/6 from visible range
-	}
-
-	// now reduce based on light level; SHADE_MIN is the define for the
-	// highest number the light can be
-
-	// If we're about to ask for a light level for a location outside of our
-	// valid map references then use the ambient light level instead.	
-	if ( TileIsOutOfBounds( sSubjectGridNo ) )
-	{
-		DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("113/UC Warning! Tried to detect the light level when character %ls[%d] looks at a location outside of the valid map (gridno %d). Assigning default %d",
-				pSoldier->identity().name(), pSoldier->identity().id(), pSoldier->position().gridNo(), ubAmbientLightLevel));
-
-		bLightLevel = ubAmbientLightLevel;
-	}
-	else
-	{
-		bLightLevel = LightTrueLevel(sSubjectGridNo, bLevel);
-	}
-
-	// Snap: I think this was intended to give maximum visibility to targets with muzzle flash...
-	// Corrected accordingly:
-	//if ( pSubject && !( pSubject->renderState().muzzleFlashVisible() && (bLightLevel > NORMAL_LIGHTLEVEL_DAY) ) )
-	if ( !( pSubject && pSubject->renderState().muzzleFlashVisible() && (bLightLevel > NORMAL_LIGHTLEVEL_DAY) ) )
-	{
-		// ATE: Made function to adjust light distance...
-		sDistVisible = AdjustMaxSightRangeForEnvEffects( pSoldier, bLightLevel, sDistVisible );
-	}
-
-	// Snap: this takes care of all equipment bonuses at all light levels
-	// The rest is special code for robots, bloodcats and NO specialists
-	// Lalien: change to % instead of tiles, add bonus only to front view when using scope
-	if (!sideViewLimit)
-	{
-		sDistVisible += sDistVisible * GetTotalVisionRangeBonus(pSoldier, bLightLevel) / 100;
-
-		// HEADROCK HAM 3.2: Further reduce sightrange for cowering characters.
-		// SANDRO - this calls many sub-functions over and over, we should at least skip this for civilians and such  
-		// Flugente: we can check for more conditions before calculating suppression tolerance
-		if ( (gGameExternalOptions.ubCoweringReducesSightRange == 1 || gGameExternalOptions.ubCoweringReducesSightRange == 2) &&
-			IS_MERC_BODY_TYPE(pSoldier) && (pSoldier->roster().team() == ENEMY_TEAM || pSoldier->roster().team() == MILITIA_TEAM || pSoldier->roster().team() == gbPlayerNum) &&
-			gGameExternalOptions.ubMaxSuppressionShock > 0 && sDistVisible > 0 )
-		{
-			// Make sure character is cowering.
-			if (isCowering)
-			{
-				sDistVisible = __max(1,(sDistVisible * (gGameExternalOptions.ubMaxSuppressionShock - pSoldier->suppression().shock())) / gGameExternalOptions.ubMaxSuppressionShock);
-			}
-		}
-	}
-
-	// give one step better vision for people with nightops
-	// old/new traits check - SANDRO
-	if (gGameOptions.fNewTraitSystem)
-	{
-		if (HAS_SKILL_TRAIT( pSoldier, NIGHT_OPS_NT ))
-			sDistVisible += NightBonusScale( gSkillTraitValues.ubNOeSightRangeBonusInDark, bLightLevel);
-	}
-	else
-	{
-		if (HAS_SKILL_TRAIT( pSoldier, NIGHTOPS_OT ))
-			sDistVisible += NightBonusScale( 1 * NUM_SKILL_TRAITS( pSoldier, NIGHTOPS_OT ), bLightLevel);
-	}
-	// Bloodcat bonus only works above ground
-	if ( pSoldier->identity().bodyType() == BLOODCAT && gbWorldSectorZ == 0 )
-	{
-		sDistVisible += NightBonusScale( UVGOGGLES_BONUS, bLightLevel);
-	}
-	else if ( AM_A_ROBOT( pSoldier ) )
-	{
-		sDistVisible += NightBonusScale( NIGHTSIGHTGOGGLES_BONUS, bLightLevel);
-	}
-
-	// let tanks see and be seen further (at night)
-	if ( (ARMED_VEHICLE( pSoldier ) && sDistVisible > 0) || (pSubject && ARMED_VEHICLE( pSubject )) )
-	{
-		sDistVisible = sDistVisible + 5;
-	}
-
-	if ( gpWorldLevelData[ pSoldier->position().gridNo() ].ubExtFlags[ bLevel ] & (MAPELEMENT_EXT_TEARGAS | MAPELEMENT_EXT_MUSTARDGAS) )
-	{
-		//dnl ch40 200909
-		INT8 bPosOfMask = FindGasMask(pSoldier);
-		if(bPosOfMask == HEAD1POS || bPosOfMask == HEAD2POS)
-		{
-			if(pSoldier->inventory()[bPosOfMask][0]->data.objectStatus < GASMASK_MIN_STATUS)
-				sDistVisible = __min(sDistVisible, 2+pSoldier->inventory()[bPosOfMask][0]->data.objectStatus/15);
-		}
-		else
-			sDistVisible = __min(sDistVisible, 2);
-	}
-	if ( gpWorldLevelData[ pSoldier->position().gridNo() ].ubExtFlags[ bLevel ] & MAPELEMENT_EXT_BURNABLEGAS )
-	{
-		{
-			// in FLAMETHERgas ; reduce max distance visible to 2 tiles at most
-			sDistVisible = __min( sDistVisible, 2 );
-		}
-	}
-
-	return(sDistVisible);
-}
 
 
 
@@ -1623,7 +1248,7 @@ else
 			{				
 				if (!TileIsOutOfBounds(pOtherSoldier->position().gridNo()))
 				{
-					if ( PythSpacesAway( pOtherSoldier->position().gridNo(), pSoldier->position().gridNo() ) > pOtherSoldier->GetMaxDistanceVisible(pSoldier->position().gridNo(), pSoldier->position().level(), CALC_FROM_WANTED_DIR ) )
+					if ( PythSpacesAway( pOtherSoldier->position().gridNo(), pSoldier->position().gridNo() ) > TacticalActorVisibility::maximumDistance(*pOtherSoldier, pSoldier->position().gridNo(), pSoldier->position().level(), CALC_FROM_WANTED_DIR ) )
 					{
 						// if this guy can no longer see us, change to seen this turn
 						HandleManNoLongerSeen( pOtherSoldier, pSoldier, &(pOtherSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ]), &(gbPublicOpplist[ pOtherSoldier->roster().team() ][ pSoldier->identity().id() ] ) );
@@ -2234,10 +1859,10 @@ INT16 ManLooksForMan(TacticalActor *pSoldier, TacticalActor *pOpponent, UINT8 ub
 		// then we look for him full viewing distance in EVERY direction
 
 		//ADB the comment above says EVERY direction but the code used to be:
-		//sDistVisible = DistanceVisible(pSoldier, (SoldierHasLimitedVision(pSoldier) ? pSoldier->bDesiredDirection : DIRECTION_IRRELEVANT), 0, pOpponent->sGridNo, pOpponent->bLevel, pOpponent );
+		//sDistVisible = TacticalActorVisibility::distance(*pSoldier, (TacticalActorVisibility::hasLimitedVision(*pSoldier) ? pSoldier->bDesiredDirection : DIRECTION_IRRELEVANT), 0, pOpponent->sGridNo, pOpponent->bLevel, pOpponent );
 		//if the code below says CALC_FROM_ALL_DIRS, then the opponent will NOT be greyed out if a merc sees him and a second merc turns away from him
 		//calcing from the wanted dir will make the opponent be greyed out, which I think is the intended effect
-		sDistVisible = pSoldier->GetMaxDistanceVisible( pOpponent->position().gridNo(), pOpponent->position().level(), CALC_FROM_WANTED_DIR, pOpponent );
+		sDistVisible = TacticalActorVisibility::maximumDistance(*pSoldier,  pOpponent->position().gridNo(), pOpponent->position().level(), CALC_FROM_WANTED_DIR, pOpponent );
 		//if (pSoldier->identity().id() == 0)
 		//sprintf(gDebugStr,"ALREADY KNOW: ME %d him %d val %d",pSoldier->identity().id(),pOpponent->identity().id(),pSoldier->bOppList[pOpponent->identity().id()]);
 	}
@@ -2248,7 +1873,7 @@ INT16 ManLooksForMan(TacticalActor *pSoldier, TacticalActor *pOpponent, UINT8 ub
 		// BIG NOTE: must use desdir instead of direction, since in a projected
 		// situation, the direction may still be changing if it's one of the first
 		// few animation steps when this guy's turn to do his stepped look comes up
-		sDistVisible = DistanceVisible(pSoldier, pSoldier->pathing().desiredDirection(), bDir, pOpponent->position().gridNo(), pOpponent->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier), pOpponent);
+		sDistVisible = TacticalActorVisibility::distance(*pSoldier, pSoldier->pathing().desiredDirection(), bDir, pOpponent->position().gridNo(), pOpponent->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier), pOpponent);
 		//if (pSoldier->identity().id() == 0)
 		//sprintf(gDebugStr,"dist visible %d: my dir %d to him %d",sDistVisible,pSoldier->bDesiredDirection,bDir);
 	}
@@ -6066,7 +5691,10 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 				case NOISE_EXPLOSION:
 					// if center of explosion is in visual range of team, don't report
 					// noise, because the player is already watching the thing go BOOM!
-					if (TeamMemberNear(bTeam,sGridNo,STRAIGHT))
+					if (TeamMemberNear(
+						bTeam,
+						sGridNo,
+						TacticalActorVisibility::straightRange()))
 					{
 						bTellPlayer = FALSE;
 					}
@@ -6622,7 +6250,7 @@ void HearNoise(TacticalActor *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, I
 		}
 	}
 
-    int sDistVisible = pSoldier->GetMaxDistanceVisible(sGridNo, bLevel, CALC_FROM_WANTED_DIR );
+    int sDistVisible = TacticalActorVisibility::maximumDistance(*pSoldier, sGridNo, bLevel, CALC_FROM_WANTED_DIR );
 
 	if ( fMuzzleFlash )
 	{
@@ -7692,7 +7320,7 @@ void CheckForAlertWhenEnemyDies( TacticalActor * pDyingSoldier )
 
 			// distance we "see" then depends on the direction he is located from us
 			bDir = atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),pDyingSoldier->position().worldXInt(),pDyingSoldier->position().worldYInt());
-			sDistVisible = DistanceVisible( pSoldier, pSoldier->pathing().desiredDirection(), bDir, pDyingSoldier->position().gridNo(), pDyingSoldier->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier));
+			sDistVisible = TacticalActorVisibility::distance(*pSoldier, pSoldier->pathing().desiredDirection(), bDir, pDyingSoldier->position().gridNo(), pDyingSoldier->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier));
 			sDistAway = PythSpacesAway( pSoldier->position().gridNo(), pDyingSoldier->position().gridNo() );
 
 			// if we see close enough to see the soldier
@@ -8067,17 +7695,4 @@ void MakeBloodcatsHostile( void )
 			}
 		}
 	}
-}
-
-BOOLEAN SoldierHasLimitedVision(TacticalActor * pSoldier)
-{
-	if ( gGameExternalOptions.gfAllowLimitedVision || GetPercentTunnelVision(pSoldier) > 0 )
-		return TRUE;
-	else
-		return FALSE;
-}
-
-INT32 MaxDistanceVisible( void )
-{
-	return( STRAIGHT * 2 );
 }

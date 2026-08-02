@@ -1508,7 +1508,7 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 								if ( sGridNo <= 0 || sGridNo >= WORLD_MAX ) 
 									continue;
 
-								//usSightLimit = tS->GetMaxDistanceVisible(sGridNo, FALSE, CALC_FROM_WANTED_DIR);
+								//usSightLimit = TacticalActorVisibility::maximumDistance(*tS, sGridNo, FALSE, CALC_FROM_WANTED_DIR);
 								if(gubMerkCanSeeThisTile[sGridNo]==0)
 								{
 									gubMerkCanSeeThisTile[sGridNo]=//SoldierToVirtualSoldierLineOfSightTest( tS, sGridNo, FALSE, ANIM_STAND, TRUE, usSightLimit );

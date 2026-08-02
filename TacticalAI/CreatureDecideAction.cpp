@@ -1,5 +1,6 @@
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorVisibility.h"
 	#include "types.h"
 	//#include "Soldier Control.h"
 	#include "ai.h"
@@ -20,7 +21,6 @@ extern STR8 gStr8Orders[];
 extern STR8 gStr8Team[];
 extern STR8 gStr8Class[];
 
-extern INT8 STRAIGHT; //lal
 
 #define CAN_CALL( s ) (s->identity().bodyType() != BLOODCAT && s->identity().bodyType() != LARVAE_MONSTER && s->identity().bodyType() != INFANT_MONSTER)
 #define CAN_LISTEN_TO_CALL( s ) (s->identity().bodyType() != BLOODCAT && s->identity().bodyType() != LARVAE_MONSTER)
@@ -492,7 +492,7 @@ INT8 CreatureDecideActionYellow( TacticalActor * pSoldier )
 
 		// if soldier is not already facing in that direction,
 		// and the noise source is close enough that it could possibly be seen
-		if ((GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current()) && (pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= STRAIGHT)
+		if ((GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current()) && (pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= TacticalActorVisibility::straightRange())
 		{
 			// set base chance according to orders
 			if ((pSoldier->aiBehavior().orders() == STATIONARY) || (pSoldier->aiBehavior().orders() == ONGUARD))
@@ -861,7 +861,7 @@ INT8 CreatureDecideActionRed(TacticalActor *pSoldier, UINT8 ubUnconsciousOK)
 			 // if soldier is not already facing in that direction,
 			 // and the opponent is close enough that he could possibly be seen
 			 // note, have to change this to use the level returned from ClosestKnownOpponent
-			 sDistVisible = pSoldier->GetMaxDistanceVisible(sClosestOpponent, 0 );
+			 sDistVisible = TacticalActorVisibility::maximumDistance(*pSoldier, sClosestOpponent, 0 );
 
 			if ((pSoldier->position().direction() != ubOpponentDir) && (PythSpacesAway(pSoldier->position().gridNo(),sClosestOpponent) <= sDistVisible))
 				{

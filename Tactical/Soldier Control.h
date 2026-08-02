@@ -802,8 +802,6 @@ public:
 	SoldierRuntimeComponents& runtime() noexcept { return runtime_; }
 	const SoldierRuntimeComponents& runtime() const noexcept { return runtime_; }
 
-	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, TacticalActor *pKnownSubject = NULL);
-
 private:
 	SoldierIdentityComponent	identity_;
 	SoldierRosterComponent	roster_;

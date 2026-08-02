@@ -25,13 +25,13 @@ numeric records.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 388 active conditionals in 81
+milestone its per-file baseline contains 386 active conditionals in 81
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 147 |
-| Tactical gameplay/content | 141 |
+| Tactical gameplay/content | 139 |
 | Strategic gameplay/content | 63 |
 | JA2 application shell | 25 |
 | Tactical AI | 8 |

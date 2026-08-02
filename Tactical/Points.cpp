@@ -1,6 +1,7 @@
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorTurnBudget.h"
+#include "TacticalActorVisibility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorInteractions.h"
 #include "TacticalActorRangedActions.h"
@@ -1073,8 +1074,8 @@ void DeductPoints( TacticalActor *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 
 				}
 				// adjust by range to target
 				//INT32 iRange = GetRangeInCellCoordsFromGridNoDiff( pOpponent->sGridNo, pSoldier->sGridNo );		// calculate actual range
-				//INT16 iDistVisible = (pOpponent->GetMaxDistanceVisible(pOpponent->sGridNo, pOpponent->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE); // how far do we see
-				INT16 iDistVisible = pOpponent->GetMaxDistanceVisible(pOpponent->position().gridNo(), pOpponent->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE; // -1% registered by 4% of the difference of how far we can see and how far is the target
+				//INT16 iDistVisible = (TacticalActorVisibility::maximumDistance(*pOpponent, pOpponent->sGridNo, pOpponent->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE); // how far do we see
+				INT16 iDistVisible = TacticalActorVisibility::maximumDistance(*pOpponent, pOpponent->position().gridNo(), pOpponent->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE; // -1% registered by 4% of the difference of how far we can see and how far is the target
 				iDistVisible = max(iDistVisible, CELL_X_SIZE);
 				ubPointsRegistered -= min( 25, ( 25 * GetRangeInCellCoordsFromGridNoDiff( pOpponent->position().gridNo(), pSoldier->position().gridNo() ) / iDistVisible ));
 				
