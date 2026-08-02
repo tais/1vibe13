@@ -17,6 +17,7 @@
 #include "Isometric Utils.h"
 #include "Items.h"
 #include "LOS.h"
+#include "Map Information.h"
 #include "Morale.h"
 #include "Overhead.h"
 #include "Points.h"
@@ -240,13 +241,25 @@ bool TacticalActorCovertOps::equipmentTooGood(TacticalActor& actor, bool closeLo
 	if ( gGameExternalOptions.fMilitiaUseSectorInventory && TacticalActorConditions::isAssassin(*self) )
 		return FALSE;
 
+	INT8 uniformtype = uniformType(actor);
+	if (uniformtype < UNIFORM_ENEMY_ADMIN ||
+		uniformtype >= NUM_UNIFORMS)
+	{
+		// Without a recognized uniform, equipment is already suspicious. Avoid
+		// consulting campaign progress before that bounded result is known.
+		if (IsJa2TacticalWorldLoaded() &&
+			szCovertTextStr[STR_COVERT_UNIFORM_NOORDER] != nullptr)
+		{
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNIFORM_NOORDER], self->GetName( ) );
+		}
+		return TRUE;
+	}
+
 	// check the guns in our hands and rifle sling
 	// alert if we have more than 2, any of them has too much attachments or they are way too cool
 	UINT8 numberofguns = 0;
 	UINT8 ubCurrentProgress = CurrentPlayerProgressPercentage( );
 	UINT8 maxcoolnessallowed = 1 + ubCurrentProgress / 10;
-
-	INT8 uniformtype = uniformType(actor);
 
 	// adjust max coolness depending on uniform
 	// enemy spies get a small bonus here
@@ -267,9 +280,6 @@ bool TacticalActorCovertOps::equipmentTooGood(TacticalActor& actor, bool closeLo
 		maxcoolnessallowed += 4;
 		break;
 	default:
-		// we do not wear a proper army uniform, uncover us. Note: This should never happen - if this message shows, somewhere, something is wrong
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNIFORM_NOORDER], self->GetName( ) );
-		return TRUE;
 		break;
 	}
 
