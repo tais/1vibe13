@@ -1,6 +1,7 @@
 #include "TacticalActorAnimationTransitions.h"
 
 #include "Grid Direction.h"
+#include "TacticalActorCrowBehavior.h"
 #include "TacticalActorAnimationState.h"
 #include "TacticalActorEvents.h"
 #include "TacticalActorPendingActionTypes.h"
@@ -162,8 +163,6 @@
 
 #include "connect.h"
 
-void HandleCrowShadowNewGridNo(TacticalActor* actor);
-void HandleCrowShadowRemoveGridNo(TacticalActor* actor);
 void HandleVehicleMovementSound(TacticalActor* actor, BOOLEAN enabled);
 void PlaySoldierFootstepSound(TacticalActor* actor);
 void SetSoldierAniSpeed(TacticalActor* actor);

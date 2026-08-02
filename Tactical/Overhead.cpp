@@ -1,4 +1,5 @@
 #include "TacticalActorLocomotion.h"
+#include "TacticalActorCrowBehavior.h"
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorAnimationTransitions.h"

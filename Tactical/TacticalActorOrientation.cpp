@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorCrowBehavior.h"
 #include "TacticalActorOrientation.h"
 
 #include "Animation Control.h"
@@ -42,7 +43,6 @@ extern UINT16 usForceAnimState;
 extern UINT8 gubWaitingForAllMercsToExitCode;
 
 void AdjustForFastTurnAnimation(TacticalActor* actor);
-void HandleCrowShadowNewDirection(TacticalActor* actor);
 void HandleSystemNewAISituation(TacticalActor* actor, BOOLEAN reset);
 void PlaySoldierFootstepSound(TacticalActor* actor);
 UINT16 PickSoldierReadyAnimation(

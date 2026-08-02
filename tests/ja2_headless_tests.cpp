@@ -134,6 +134,8 @@
 #include "Food.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
+#include "Grid Direction.h"
+#include "Soldier Palette.h"
 #include "Soldier Profile.h"
 #include "Interface.h"
 #include "Handle Items.h"
@@ -146,6 +148,7 @@
 #include "TacticalActorConsumables.h"
 #include "TacticalActorCombatActions.h"
 #include "TacticalActorCombatReactions.h"
+#include "TacticalActorCrowBehavior.h"
 #include "TacticalActorConditionPresentation.h"
 #include "TacticalActorDamageFeedback.h"
 #include "TacticalActorDamageResolution.h"
@@ -158,6 +161,7 @@
 #include "TacticalActorDisease.h"
 #include "TacticalActorDragging.h"
 #include "TacticalActorEquipment.h"
+#include "TacticalActorEvents.h"
 #include "TacticalActorExplosives.h"
 #include "TacticalActorRadio.h"
 #include "TacticalActorRobotics.h"
@@ -178,6 +182,7 @@
 #include "Plan.h"
 #include "Animation Control.h"
 #include "Animation Data.h"
+#include "Event Pump.h"
 #include "Map Information.h"
 #include "World Tile Map.h"
 #include "worlddef.h"
@@ -10100,6 +10105,102 @@ int main( int, char** )
 		       unavailableMovementIsNeutral &&
 		       inactiveTurnIsNeutral,
 		       "final tactical actor extraction owns lifecycle, appearance, animation, damage, sound, locomotion, and turn boundaries with malformed-input coverage" );
+	}
+
+	{
+		TacticalActor supportActor;
+		supportActor.identity().bodyType() = REGMALE;
+		supportActor.animationPlayback().state() = STANDING;
+		supportActor.position().gridNo() = 42;
+		supportActor.position().direction() = NORTH;
+		supportActor.position().worldX() = 12.0f;
+		supportActor.position().worldY() = 34.0f;
+
+		HandleCrowShadowVisibility(&supportActor);
+		HandleCrowShadowNewGridNo(&supportActor);
+		HandleCrowShadowRemoveGridNo(&supportActor);
+		HandleCrowShadowNewDirection(&supportActor);
+		HandleCrowShadowNewPosition(&supportActor);
+		const bool nonCrowShadowAdaptersAreNeutral =
+			supportActor.renderBindings().animationTile() == nullptr;
+
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		NotifyJa2TacticalWorldUnloaded();
+		MoveMercFacingDirection(&supportActor, FALSE, 10.0f);
+		const bool unavailableFacingMovementIsNeutral =
+			supportActor.position().worldX() == 12.0f &&
+			supportActor.position().worldY() == 34.0f;
+		RestoreJa2TacticalWorldSession(previousWorld);
+
+		ClearEventQueue();
+		SendSoldierPositionEvent(&supportActor, 21.0f, 43.0f);
+		SendSoldierDestinationEvent(&supportActor, 77);
+		SendSoldierSetDirectionEvent(&supportActor, EAST);
+		SendGetNewSoldierPathEvent(&supportActor, 91, WALKING);
+		const bool extractedEventAdaptersQueueAndDrain =
+			DequeAllGameEvents(FALSE);
+
+		const bool cardinalDirectionMathIsStable =
+			atan8(0, 0, 0, 1) == SOUTH &&
+			atan8(0, 0, 1, 0) == EAST &&
+			atan8(0, 0, 0, -1) == NORTH &&
+			atan8(0, 0, -1, 0) == WEST &&
+			atan8FromAngle(0.0) == SOUTH &&
+			atan8FromAngle(PI / 2) == EAST;
+
+		const UINT32 previousReplacementCount = guiNumReplacements;
+		PaletteReplacementType* const previousReplacements = gpPalRep;
+		guiNumReplacements = 0;
+		gpPalRep = nullptr;
+		UINT8 paletteIndex = 0xff;
+		const bool emptyPaletteRegistryRejectsLookup =
+			!GetPaletteRepIndexFromID("MISSING", &paletteIndex) &&
+			paletteIndex == 0xff;
+		guiNumReplacements = previousReplacementCount;
+		gpPalRep = previousReplacements;
+
+		MERCPROFILEGEAR gear;
+		gear.inv[0] = 17;
+		MERCPROFILEGEAR gearCopy = gear;
+		const bool profileGearCopyOwnsInventory =
+			gear.inv.size() == 55 &&
+			gear.lbe.size() == 5 &&
+			gearCopy.inv[0] == 17 &&
+			&gearCopy.inv[0] != &gear.inv[0];
+
+		MERCPROFILESTRUCT profile;
+		profile.bLife = 71;
+		profile.bLifeMax = 82;
+		profile.inv[HANDPOS] = 123;
+		profile.bInvNumber[HANDPOS] = 2;
+		MERCPROFILESTRUCT profileCopy = profile;
+		const bool profileCopyPreservesOwnedInventory =
+			profile.inv.size() == NUM_INV_SLOTS &&
+			profileCopy.GetChecksum() == profile.GetChecksum() &&
+			&profileCopy.inv[0] != &profile.inv[0];
+
+		OLD_MERCPROFILESTRUCT_101 oldProfile;
+		oldProfile.zName[0] = static_cast<UINT16>('A');
+		oldProfile.DO_NOT_USE_inv[OldInventory::HANDPOS] = 321;
+		oldProfile.usKills = 8;
+		MERCPROFILESTRUCT migratedProfile;
+		migratedProfile = oldProfile;
+		const bool oldProfileConversionPreservesSchema =
+			migratedProfile.zName[0] == L'A' &&
+			migratedProfile.inv[HANDPOS] == 321 &&
+			migratedProfile.records.usKillsElites == 2 &&
+			migratedProfile.records.usKillsRegulars == 4;
+
+		CHECK( nonCrowShadowAdaptersAreNeutral &&
+		       unavailableFacingMovementIsNeutral &&
+		       extractedEventAdaptersQueueAndDrain &&
+		       cardinalDirectionMathIsStable &&
+		       emptyPaletteRegistryRejectsLookup &&
+		       profileGearCopyOwnsInventory &&
+		       profileCopyPreservesOwnedInventory &&
+		       oldProfileConversionPreservesSchema,
+		       "soldier-control support services own crow, event, facing, direction, palette, and profile-record behavior" );
 	}
 
 	{

@@ -892,10 +892,14 @@ change masks/timing, `Taunt Types.h` for external taunt bits, and
 gas-hit bits remain in `TacticalActorStateFlags.h`. Use
 `TacticalActorPredicates` for civilian/militia, posture, and attack-neutrality
 queries; it bounds animation state before consulting animation tables. Debug
-validation, crow behavior, and the legacy facing-movement adapter are declared
-by `TacticalActorDebug.h`, `TacticalActorCrowBehavior.h`, and
-`TacticalActorLocomotion.h`. `Soldier Palette.h` owns uniform IDs,
-clothing-palette records, and palette contracts. Front-arc, spread-target, and
+validation, crow behavior, replicated-event translation, and the legacy
+facing-movement adapter are implemented by the focused
+`TacticalActorDebug`, `TacticalActorCrowBehavior`, `TacticalActorEvents`, and
+`TacticalActorLocomotion` sources. Direction helpers compile from
+`Grid Direction.cpp`; palette loading and replacement compile from
+`Soldier Palette.cpp`; profile gear/record lifecycle and legacy conversion
+compile from `Soldier Profile Records.cpp`. `Soldier Palette.h` owns uniform
+IDs, clothing-palette records, and palette contracts. Front-arc, spread-target, and
 unblit capacities alias their owning components, civilian-name capacity lives
 in `Civ Quotes.h`, and bandaged-health calculation is available through
 `TacticalActorConditions::bandagedAmount`. Player-team revival and sound
