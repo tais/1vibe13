@@ -1,5 +1,9 @@
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
+#include "Soldier Control.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorLighting.h"
@@ -1436,7 +1440,7 @@ BOOLEAN FireWeapon( TacticalActor *pSoldier , INT32 sTargetGridNo )
 					// non-spread target grid # instead.  Also fDoSpread is used as a counter from 1 to MAX_BURST_SPREAD_TARGETS,
 					// but was actually reset before it got there.  So the final spread target would never be shot at.  Hopefully this
 					// will work better.
-					if (pSoldier->fireControl().spreadIndex() > MAX_BURST_SPREAD_TARGETS ||
+					if (pSoldier->fireControl().spreadIndex() > SoldierFireControlComponent::SpreadTargetCapacity ||
 						pSoldier->fireControl().spreadLocations()[ pSoldier->fireControl().spreadIndex() - 1 ] == 0)
 					{
 						if (pSoldier->fireControl().spreadIndex() == 1)
@@ -1487,7 +1491,7 @@ BOOLEAN FireWeapon( TacticalActor *pSoldier , INT32 sTargetGridNo )
 					// non-spread target grid # instead.  Also fDoSpread is used as a counter from 1 to MAX_BURST_SPREAD_TARGETS,
 					// but was actually reset before it got there.  So the final spread target would never be shot at.  Hopefully this
 					// will work better.
-					else if ( pSoldier->fireControl().spreadIndex() > MAX_BURST_SPREAD_TARGETS ||
+					else if ( pSoldier->fireControl().spreadIndex() > SoldierFireControlComponent::SpreadTargetCapacity ||
 						pSoldier->fireControl().spreadLocations()[ pSoldier->fireControl().spreadIndex() - 1 ] == 0)
 					{
 						if (pSoldier->fireControl().spreadIndex() == 1)

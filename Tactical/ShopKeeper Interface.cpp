@@ -1,6 +1,8 @@
 #include "builddefines.h"
 #include "TacticalActorModifiers.h"
 #include "SoldierRepository.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
 #include "types.h"
 	#include "ShopKeeper Interface.h"

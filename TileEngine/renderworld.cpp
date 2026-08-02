@@ -1,4 +1,6 @@
 #include "TacticalActorEquipment.h"
+#include "GameSettings.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorAnimationFrames.h"
 #include "builddefines.h"
 #include "TacticalWorldAdapter.h"

@@ -1,5 +1,7 @@
 	#include "Font.h"
 #include "SoldierRepository.h"
+#include "Disease.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
 	#include "Font Control.h"
 	#include "mapscreen.h"

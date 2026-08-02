@@ -3,11 +3,16 @@
 
 #include <string.h>
 #include <stdio.h>
-#include "Soldier Control.h"
+#include "types.h"
+#include "Overhead Types.h"
+#include "vobject.h"
 #include <EditorMercs.h>
 #include "Soldier Find.h"
 #include "Campaign Types.h"		// added by Flugente for SECTORINFO and UNDERGROUND_SECTORINFO
 #include "TacticalEntityHost.h"
+
+class TacticalActor;
+
 #define             ADD_SOLDIER_NO_PROFILE_ID       200
 
 #define MAX_REALTIME_SPEED_VAL                      10

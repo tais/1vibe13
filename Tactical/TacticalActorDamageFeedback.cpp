@@ -4,6 +4,7 @@
 #include "Animation Control.h"
 #include "Interface.h"
 #include "TacticalActor.h"
+#include "Soldier Profile Constants.h"
 #include "Soldier Profile.h"
 #include "Timer Control.h"
 #include "faces.h"

@@ -2,6 +2,8 @@
 #include "TacticalActorVisibility.h"
 #include "TacticalActorWorldPlacement.h"
 
+#include "TacticalActorStateFlags.h"
+
 #include "Animation Control.h"
 #include "Campaign.h"
 #include "Explosion Control.h"

@@ -1,6 +1,9 @@
 	#include <stdio.h>
 #include "TacticalActorEquipment.h"
+#include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
+	#include "Timer Control.h"
 	#include <math.h>
 	#include "sgp.h"
 	#include "himage.h"

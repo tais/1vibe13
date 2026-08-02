@@ -13,6 +13,7 @@
 #include "MessageBoxScreen.h"
 #include "Overhead.h"
 #include "SoldierRepository.h"
+#include "Soldier Control.h"
 #include "Render Dirty.h"
 #include "MercTextBox.h"
 #include "ai.h"

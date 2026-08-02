@@ -60,6 +60,9 @@ Points of interest:
 */
 #include "Rebel Command.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
+#include "TacticalActorEmploymentTypes.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
 
 #include "ASD.h"

@@ -1,4 +1,6 @@
 #include "builddefines.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActor.h"
 
 	#include "worlddef.h"
 	#include "WorldDat.h"
@@ -85,7 +87,7 @@ INT32 guiWorldRows = OLD_WORLD_ROWS;
 //SB: resize all service array due to tactical map size change
 extern UINT8 *gubGridNoMarkers;
 extern UINT8 *gubFOVDebugInfoInfo;
-extern INT16 gsFullTileDirections[MAX_FULLTILE_DIRECTIONS];
+extern INT16 gsFullTileDirections[SoldierFrontArcComponent::DirectionCount];
 extern INT32 dirDelta[8];
 extern INT16 DirIncrementer[8];
 extern INT16 *gsCoverValue;

@@ -4,6 +4,7 @@
 #include "strategicmap.h"
 #include "Overhead.h"
 #include "SoldierRepository.h"
+#include "Soldier Control.h"
 #include "Isometric Utils.h"
 #include "Soldier Add.h"
 #include "Soldier Create.h"

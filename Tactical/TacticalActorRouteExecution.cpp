@@ -1,6 +1,11 @@
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorRouteExecution.h"
 
+#include "Soldier Profile Constants.h"
+#include "TacticalActorMovementState.h"
+#include "TacticalActorPendingActionTypes.h"
+#include "TacticalActorStateFlags.h"
+
 #include "TacticalActorOrientation.h"
 #include "Animation Control.h"
 #include "Dialogue Control.h"

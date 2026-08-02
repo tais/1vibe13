@@ -4,6 +4,15 @@
 
 class TacticalActor;
 
+enum
+{
+	MTA_NONE = 0,
+	MTA_FORTIFY,
+	MTA_REMOVE_FORTIFY,
+	MTA_HACK,
+	NUM_MTA,
+};
+
 namespace TacticalActorLongActions
 {
 	[[nodiscard]] std::uint8_t current(

@@ -1,6 +1,8 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
 #include "Map Screen Helicopter.h"
+#include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 #include "LaptopSave.h"
 #include "Vehicles.h"
 #include "finances.h"

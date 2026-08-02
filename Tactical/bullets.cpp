@@ -1,5 +1,7 @@
 	#include <string.h>
 	#include "SoldierRepository.h"
+#include "Grid Direction.h"
+#include "TacticalActor.h"
 #include "TacticalWorldAdapter.h"
 	#include "SaveSerializer.h"
 	#include "worlddef.h"

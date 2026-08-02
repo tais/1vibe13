@@ -1,4 +1,5 @@
 #include "SurfaceCache.h"
+#include "structure.h"
 
 namespace LogicalBodyTypes {
 

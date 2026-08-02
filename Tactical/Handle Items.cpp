@@ -22,6 +22,7 @@
 	#include "Items.h"
 	#include "Action Items.h"
 	#include "Handle Items.h"
+	#include "Soldier Control.h"
 	#include "Overhead.h"
 	#include "Weapons.h"
 	#include "Points.h"

@@ -2,6 +2,8 @@
 #include "TacticalActorVisibility.h"
 	#include "sgp.h"
 #include "TacticalActorModifiers.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
 	#include "Isometric Utils.h"
 	#include "worlddef.h"

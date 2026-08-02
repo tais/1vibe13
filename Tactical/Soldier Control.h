@@ -1,15 +1,6 @@
 #ifndef __SOLDER_CONTROL_H
 #define __SOLDER_CONTROL_H
 
-//dnl ch33 200909
-// In the future MAXPATROLDGRIDS could be externalized but his value must always be >= OLD_MAXPATROLGRIDS
-#define OLD_MAXPATROLGRIDS	10
-#define MAXPATROLGRIDS		OLD_MAXPATROLGRIDS
-
-// WANNE: Yes I know, we support up to 254 profiles, but because of compatibility, profile Id = 200
-// is not a valid profil. We in MercProfiles.xml, the profile id = 200 should not be used!
-#define	NO_PROFILE			200
-
 #include "Animation Cache.h"
 #include "Timer Control.h"
 #include "vobject.h"
@@ -20,8 +11,31 @@
 #include <iterator>
 #include "GameSettings.h"	// added by Flugente
 #include "Disease.h"		// added by Flugente
+#include "Grid Direction.h"
+#include "Soldier Background Types.h"
 #include "Soldier Class.h"
+#include "Soldier Palette.h"
+#include "Soldier Patrol Types.h"
+#include "Soldier Profile Constants.h"
+#include "Soldier Profile.h"
+#include "Strategic Path Types.h"
 #include "TacticalActor.h"
+#include "TacticalActorAnimationState.h"
+#include "TacticalActorBattleSounds.h"
+#include "TacticalActorBloodState.h"
+#include "TacticalActorConsumables.h"
+#include "TacticalActorDamageFeedback.h"
+#include "TacticalActorDamageResolution.h"
+#include "TacticalActorEmploymentTypes.h"
+#include "TacticalActorEvents.h"
+#include "TacticalActorLighting.h"
+#include "TacticalActorLongActions.h"
+#include "TacticalActorInterrupts.h"
+#include "TacticalActorMovementState.h"
+#include "TacticalActorPendingActionTypes.h"
+#include "TacticalActorQuoteFlags.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
 
 static_assert(MAXPATROLGRIDS == SOLDIER_PATROL_GRID_COUNT,
 	"Soldier patrol storage must retain the established save-schema capacity");
@@ -32,7 +46,6 @@ static_assert(MAXPATROLGRIDS == SOLDIER_PATROL_GRID_COUNT,
 #define PTR_PRONE	 (gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_PRONE)
 
 #define DRUG_TYPE_MAX	32
-#define FOOD_TYPE_MAX	500
 
 // TEMP VALUES FOR NAMES
 #define MAXCIVLASTNAMES		30
@@ -44,62 +57,7 @@ extern UINT16 CivLastNames[MAXCIVLASTNAMES][10];
 #define ALLPEOPLE		2
 #define FALLINGTEST	 3
 
-#define	LOCKED_NO_NEWGRIDNO			2
-
-#define	BATTLE_SND_LOWER_VOLUME		1
-
-#define	TAKE_DAMAGE_GUNFIRE				1
-#define	TAKE_DAMAGE_BLADE					2
-#define	TAKE_DAMAGE_HANDTOHAND		3
-#define TAKE_DAMAGE_FALLROOF			4
-#define TAKE_DAMAGE_BLOODLOSS			5
-#define TAKE_DAMAGE_EXPLOSION			6
-#define TAKE_DAMAGE_ELECTRICITY		7
-#define TAKE_DAMAGE_GAS_FIRE			8
-#define TAKE_DAMAGE_TENTACLES			9
-#define TAKE_DAMAGE_STRUCTURE_EXPLOSION 10
-#define TAKE_DAMAGE_OBJECT		11
-#define TAKE_DAMAGE_VEHICLE_TRAUMA		12
-#define TAKE_DAMAGE_GAS_NOTFIRE			13
-
-
 #define SOLDIER_UNBLIT_SIZE			(75*75*2)
-
-#define	SOLDIER_IS_TACTICALLY_VALID					0x00000001
-#define SOLDIER_SHOULD_BE_TACTICALLY_VALID	0x00000002
-#define SOLDIER_MULTI_SELECTED							0x00000004
-#define SOLDIER_PC													0x00000008
-#define SOLDIER_ATTACK_NOTICED							0x00000010
-#define SOLDIER_PCUNDERAICONTROL						0x00000020
-#define SOLDIER_UNDERAICONTROL							0x00000040
-#define SOLDIER_DEAD												0x00000080
-#define SOLDIER_GREEN_RAY										0x00000100
-#define SOLDIER_LOOKFOR_ITEMS								0x00000200
-#define SOLDIER_ENEMY												0x00000400
-#define SOLDIER_ENGAGEDINACTION							0x00000800
-#define SOLDIER_ROBOT												0x00001000
-#define SOLDIER_MONSTER											0x00002000
-#define SOLDIER_ANIMAL											0x00004000
-#define SOLDIER_VEHICLE											0x00008000
-#define SOLDIER_MULTITILE_NZ								0x00010000
-#define SOLDIER_Z								0x00010000
-#define SOLDIER_MULTITILE_Z									0x00020000
-#define SOLDIER_MULTITILE										( SOLDIER_MULTITILE_Z | SOLDIER_MULTITILE_NZ )
-#define SOLDIER_RECHECKLIGHT								0x00040000
-#define SOLDIER_TURNINGFROMHIT							0x00080000
-#define SOLDIER_BOXER												0x00100000
-#define SOLDIER_LOCKPENDINGACTIONCOUNTER		0x00200000
-#define SOLDIER_COWERING										0x00400000
-#define SOLDIER_MUTE												0x00800000
-#define SOLDIER_GASSED											0x01000000
-#define SOLDIER_OFF_MAP											0x02000000
-#define SOLDIER_PAUSEANIMOVE								0x04000000
-#define SOLDIER_DRIVER											0x08000000
-#define SOLDIER_PASSENGER										0x10000000
-#define SOLDIER_NPC_DOING_PUNCH							0x20000000
-#define SOLDIER_NPC_SHOOTING								0x40000000
-#define SOLDIER_LOOK_NEXT_TURNSOLDIER				0x80000000
-
 
 /*
 #define	SOLDIER_TRAIT_LOCKPICKING		0x0001
@@ -116,67 +74,11 @@ extern UINT16 CivLastNames[MAXCIVLASTNAMES][10];
 #define	SOLDIER_TRAIT_MARTIALARTS		0x0800
 #define	SOLDIER_TRAIT_KNIFING				0x1000
 */
-// SANDRO was here, messed this..
-//#define HAS_SKILL_TRAIT( s, t ) (s->stats.ubSkillTrait1 == t || s->stats.ubSkillTrait2 == t)
-//#define NUM_SKILL_TRAITS( s, t ) ( (s->stats.ubSkillTrait1 == t) ? ( (s->stats.ubSkillTrait2 == t) ? 2 : 1 ) : ( (s->stats.ubSkillTrait2 == t) ? 1 : 0 ) )
-BOOLEAN HAS_SKILL_TRAIT( TacticalActor * pSoldier, UINT8 uiSkillTraitNumber );
-INT8 NUM_SKILL_TRAITS( TacticalActor * pSoldier, UINT8 uiSkillTraitNumber );
-
-#define	SOLDIER_QUOTE_SAID_IN_SHIT										0x0001
-#define	SOLDIER_QUOTE_SAID_LOW_BREATH									0x0002
-#define	SOLDIER_QUOTE_SAID_BEING_PUMMELED							0x0004
-#define	SOLDIER_QUOTE_SAID_NEED_SLEEP									0x0008
-#define	SOLDIER_QUOTE_SAID_LOW_MORAL									0x0010
-#define	SOLDIER_QUOTE_SAID_MULTIPLE_CREATURES					0x0020
-#define SOLDIER_QUOTE_SAID_ANNOYING_MERC							0x0040
-#define SOLDIER_QUOTE_SAID_LIKESGUN										0x0080
-#define SOLDIER_QUOTE_SAID_DROWNING										0x0100
-#define SOLDIER_QUOTE_SAID_ROTTINGCORPSE							0x0200
-#define SOLDIER_QUOTE_SAID_SPOTTING_CREATURE_ATTACK		0x0400
-#define SOLDIER_QUOTE_SAID_SMELLED_CREATURE						0x0800
-#define SOLDIER_QUOTE_SAID_ANTICIPATING_DANGER				0x1000
-#define SOLDIER_QUOTE_SAID_WORRIED_ABOUT_CREATURES		0x2000
-#define SOLDIER_QUOTE_SAID_PERSONALITY								0x4000
-#define SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE				0x8000
-
-#define SOLDIER_QUOTE_SAID_EXT_HEARD_SOMETHING				0x0001
-#define SOLDIER_QUOTE_SAID_EXT_SEEN_CREATURE_ATTACK		0x0002
-#define SOLDIER_QUOTE_SAID_EXT_USED_BATTLESOUND_HIT		0x0004
-#define SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL							0x0008
-
-#define SOLDIER_QUOTE_SAID_EXT_MORRIS									0x0010 //Ja25 UB
-#define SOLDIER_QUOTE_SAID_EXT_MIKE										0x0010
-static_assert(
-	SOLDIER_QUOTE_SAID_EXT_MORRIS ==
-	SOLDIER_QUOTE_SAID_EXT_MIKE);
-
-#define SOLDIER_QUOTE_SAID_DONE_ASSIGNMENT						0x0020
-#define SOLDIER_QUOTE_SAID_BUDDY_1_WITNESSED					0x0040
-#define SOLDIER_QUOTE_SAID_BUDDY_2_WITNESSED					0x0080
-#define SOLDIER_QUOTE_SAID_BUDDY_3_WITNESSED					0x0100
-#define SOLDIER_QUOTE_SAID_BUDDY_4_WITNESSED					0x0400
-#define SOLDIER_QUOTE_SAID_BUDDY_5_WITNESSED					0x0800
-#define SOLDIER_QUOTE_SAID_BUDDY_6_WITNESSED					0x1000
-
-#define	SOLDIER_QUOTE_SAID_THOUGHT_KILLED_YOU					0x0200
-
-
-#define	SOLDIER_CONTRACT_RENEW_QUOTE_NOT_USED					0
-#define	SOLDIER_CONTRACT_RENEW_QUOTE_89_USED					1
-#define	SOLDIER_CONTRACT_RENEW_QUOTE_115_USED					2
-
-
 #define SOLDIER_MISC_HEARD_GUNSHOT										0x01
 // make sure soldiers (esp tanks) are not hurt multiple times by explosions
 #define SOLDIER_MISC_HURT_BY_EXPLOSION								0x02
 // should be revealed due to xrays
 #define SOLDIER_MISC_XRAYED														0x04
-
-#define MAXBLOOD										40
-#define NOBLOOD											MAXBLOOD
-#define BLOODTIME										5
-#define FOOTPRINTTIME								2
-#define MIN_BLEEDING_THRESHOLD			12		// you're OK while <4 Yellow life bars
 
 #define BANDAGED( s ) (s->vitals().maximumHealth() - s->vitals().health() - s->vitals().bleeding())
 
@@ -187,10 +89,6 @@ static_assert(
 // #######################################################
 
 #define NO_PENDING_ACTION			SoldierPendingActionComponent::NoAction
-#define NO_PENDING_ANIMATION	32001
-#define NO_PENDING_DIRECTION	253
-#define NO_PENDING_STANCE			254
-#define NO_DESIRED_HEIGHT			255
 
 #define MAX_FULLTILE_DIRECTIONS 3
 static_assert(
@@ -200,224 +98,6 @@ static_assert(
 // DIGICRAB: Burst UnCap. Keep the legacy spelling as a source-compatible
 // alias; persistent capacity is now owned by SoldierFireControlComponent.
 #define MAX_BURST_SPREAD_TARGETS SoldierFireControlComponent::SpreadTargetCapacity
-
-#define		TURNING_FROM_PRONE_OFF						0
-#define		TURNING_FROM_PRONE_ON						1	
-#define		TURNING_FROM_PRONE_START_UP_FROM_MOVE		2
-#define		TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE		3
-#define		TURNING_FROM_PRONE_FOR_PUNCH_OR_STAB		4//dnl ch73 290913
-
-//ENUMERATIONS FOR ACTIONS
-enum
-{
-	MERC_OPENDOOR,
-	MERC_OPENSTRUCT,
-	MERC_PICKUPITEM,
-	MERC_PUNCH,
-	MERC_KNIFEATTACK,
-	MERC_GIVEAID,
-	MERC_GIVEITEM,
-	MERC_WAITFOROTHERSTOTRIGGER,
-	MERC_CUTFFENCE,
-	MERC_DROPBOMB,
-	MERC_STEAL,
-	MERC_TALK,
-	MERC_ENTER_VEHICLE,
-	MERC_REPAIR,
-	MERC_RELOADROBOT,
-	MERC_TAKEBLOOD,
-	MERC_ATTACH_CAN,
-	MERC_FUEL_VEHICLE,
-	MERC_BUILD_FORTIFICATION,
-	MERC_HANDCUFF_PERSON,
-	MERC_APPLYITEM,
-	MERC_INTERACTIVEACTION,
-	MERC_FILLBLOODBAG,
-	MERC_MEDICALSPLINT,
-};
-
-// ENUMERATIONS FOR THROW ACTIONS
-enum
-{
-	NO_THROW_ACTION,
-	THROW_ARM_ITEM,
-	THROW_TARGET_MERC_CATCH,
-};
-
-// An enumeration for playing battle sounds
-enum
-{
-	BATTLE_SOUND_OK1,
-	BATTLE_SOUND_COOL1,
-	BATTLE_SOUND_CURSE1,
-	BATTLE_SOUND_HIT1,
-	BATTLE_SOUND_LAUGH1,
-	BATTLE_SOUND_ATTN1,
-	BATTLE_SOUND_DIE1,
-	BATTLE_SOUND_HUMM,
-	BATTLE_SOUND_NOTHING,
-	BATTLE_SOUND_GOTIT,
-	BATTLE_SOUND_LOWMARALE_OK1,
-	BATTLE_SOUND_LOWMARALE_ATTN1,
-	BATTLE_SOUND_LOCKED,
-	BATTLE_SOUND_ENEMY,
-	BATTLE_SOUND_PUNCH,				// Flugente: attacking with punch attack
-	BATTLE_SOUND_KNIFE,				// Flugente: attacking with knife attack
-	NUM_MERC_BATTLE_SOUNDS
-};
-
-
-//different kinds of merc
-enum
-{
-	MERC_TYPE__PLAYER_CHARACTER,
-	MERC_TYPE__AIM_MERC,
-	MERC_TYPE__MERC,
-	MERC_TYPE__NPC,
-	MERC_TYPE__EPC,
-	MERC_TYPE__NPC_WITH_UNEXTENDABLE_CONTRACT,
-	MERC_TYPE__VEHICLE,
-};
-
-// SANDRO - this is for determining what stance to go back after being hit
-enum
-{
-	NO_SPEC_STANCE_AFTER_HIT,
-	GO_TO_AIM_AFTER_HIT,
-	GO_TO_ALTERNATIVE_AIM_AFTER_HIT,
-	GO_TO_HTH_BREATH_AFTER_HIT,
-	GO_TO_COWERING_AFTER_HIT,
-};
-
-// vehicle/human path structure
-struct path
-{
-	UINT32 uiSectorId;
-	UINT32 uiEta;
-	BOOLEAN fSpeed;
-	struct path *pNext;
-	struct path *pPrev;
-};
-
-
-
-typedef struct path PathSt;
-typedef PathSt *PathStPtr;
-
-// Types of uniforms available
-enum
-{
-	UNIFORM_ENEMY_ADMIN = 0,
-	UNIFORM_ENEMY_TROOP,
-	UNIFORM_ENEMY_ELITE,
-	UNIFORM_MILITIA_ROOKIE,
-	UNIFORM_MILITIA_REGULAR,
-	UNIFORM_MILITIA_ELITE,
-	NUM_UNIFORMS,
-};
-
-// -------- added by Flugente: various flags for soldiers --------
-// easier than adding 32 differently named variables. DO NOT CHANGE THEM, UNLESS YOU KNOW WHAT YOU ARE DOING!!!
-#define SOLDIER_DRUGGED						0x00000001	//1			// Soldier is on (non-alcoholic) drugs
-#define SOLDIER_NO_AP						0x00000002	//2			// Soldier has no APs this turn (fix for reinforcement bug)
-#define SOLDIER_COVERT_CIV					0x00000004	//4			// Soldier is currently disguised as a civilian
-#define SOLDIER_COVERT_SOLDIER				0x00000008	//8			// Soldier is currently disguised as an enemy soldier
-
-#define SOLDIER_DAMAGED_VEST				0x00000010	//16		// Soldier's vest is damaged (and thus can't be taken off)
-#define SOLDIER_COVERT_NPC_SPECIAL			0x00000020	//32		// Special flag for NPCs when recruited (used for covert stuff)
-#define SOLDIER_NEW_VEST   					0x00000040	//64		// Soldier is wearing new vest. if having both vest and pants, he can disguise
-#define SOLDIER_NEW_PANTS					0x00000080	//128		// Soldier is wearing new pants
-
-#define SOLDIER_DAMAGED_PANTS				0x00000100	//256		// Soldier's vest is damaged (and thus can't be taken off)
-#define SOLDIER_HEADSHOT					0x00000200	//512		// last hit received was a headshot (attack to the head, so knifes/punches also work)
-#define SOLDIER_POW							0x00000400	//1024		// we are a prisoner of war
-#define SOLDIER_ASSASSIN					0x00000800	//2048		// we are an enemy assassin, and thus we will behave very different from normal enemies (not set on Kingpin's assassins intentionally)
-
-#define SOLDIER_POW_PRISON					0x00001000	//4096		// this guy is a prisoner of war in a prison sector. SOLDIER_POW refers to people we capture, this refers to people we hold captive
-#define SOLDIER_EQUIPMENT_DROPPED			0x00002000	//8192		// under certain circumstances, militia can be ordered to drop their gear twice. Thus we set a marker to avoid that.
-#define SOLDIER_ACCESSTEAMMEMBER			0x00004000	//16384		// this merc is accessing another team member'S inventory (via abusing the stealing mechanic)
-#define SOLDIER_REDOFLASHLIGHT				0x00008000	//32768		// this flag signifies that we somehow interacted with the items in our hands. Thus we have to possible redo lighting from flashlights
-
-#define SOLDIER_LIGHT_OWNER					0x00010000	//65536		// we 'own' at least one light source (via flashlights)
-#define SOLDIER_AIRDROP_TURN				0x00020000	//131072	// we are entering a sector via airdrop this turn
-#define SOLDIER_ASSAULT_BONUS				0x00040000	//262144	// backgrounds: our first turn in an assault
-#define SOLDIER_RADIO_OPERATOR_LISTENING	0x00080000	//524288	// radio operator is listening with his set
-
-#define SOLDIER_RADIO_OPERATOR_JAMMING		0x00100000	//1048576	// radio operator is jamming frequencies
-#define SOLDIER_RADIO_OPERATOR_SCANNING		0x00200000	//2097152	// radio operator is scanning for jammers
-#define SOLDIER_AIRDROP						0x00400000	//4194304	// soldier is entering the sector via airdrop from a helicopter. Slightly different from SOLDIER_AIRDROP_TURN
-#define SOLDIER_FRESHWOUND					0x00800000	//8388608	// campaign stats: soldier was wounded in this battle
-
-#define SOLDIER_BATTLE_PARTICIPATION		0x01000000	//16777216	// campaign stats: soldier took part in this battle
-#define SOLDIER_RAISED_REDALERT				0x02000000	//33554432	// this (AI) soldier has raised red alert. Don't allow him to do so again this turn - either it already worked, or the signal is blocked
-#define SOLDIER_ENEMY_OFFICER				0x04000000	//67108864	// soldier is an enemy officer
-#define SOLDIER_ENEMY_OBSERVEDTHISTURN		0x08000000	//134217728 // enemy soldier was seen by the player this turn
-
-#define SOLDIER_VIP							0x10000000	//268435456	// soldier is a VIP - the player will likely try to assassinate him
-#define SOLDIER_BODYGUARD					0x20000000	//536870912 // soldier is a bodyguard for a VIP
-#define SOLDIER_COVERT_TEMPORARY_OVERT		0x40000000	//1073741824	// we are covert, but just performed a obviously suspicious task. For a short time, we can be uncovered more easily
-#define SOLDIER_MOVEITEM_RESTRICTED			0x80000000	//2147483648	// when moving item, this soldier will not pick up equipment the militia might use
-// ----------------------------------------------------------------
-
-// ------------------- more flags for soldiers --------------------
-#define SOLDIER_SNITCHING_OFF				0x00000001	//1				// isn't allowed to snitch
-#define SOLDIER_PREVENT_MISBEHAVIOUR_OFF	0x00000002	//2				// isn't allowed to prevent misbehaviour
-#define SOLDIER_RAM_THROUGH_OBSTACLES		0x00000004	//4				// vehicle
-#define SOLDIER_INTERROGATE_ADMIN			0x00000008	//8				// interrogate admins. Flags might not be the best solution, but I won't add an extra variable for this
-
-#define SOLDIER_INTERROGATE_TROOP			0x00000010	//16			// interrogate troops
-#define SOLDIER_INTERROGATE_ELITE			0x00000020	//32			// interrogate elites
-#define SOLDIER_INTERROGATE_OFFICER			0x00000040	//64			// interrogate officers
-#define SOLDIER_INTERROGATE_GENERAL			0x00000080	//128			// interrogate generals
-
-#define SOLDIER_INTERROGATE_CIVILIAN		0x00000100	//256			// interrogate civilian
-#define SOLDIER_POTENTIAL_VOLUNTEER			0x00000200	//512			// this civilian _might_ join us as a volunteer if conditions are right
-#define SOLDIER_HUNGOVER					0x00000400	//1024			// we drank alcohol recently, and are now hungover
-#define SOLDIER_TAKEN_LARGE_HIT				0x00000800					// we recently received a lot of damage in a single hit
-
-#define SOLDIER_COVERT_NOREDISGUISE			0x00001000					// this soldier does not want to be redisguised
-#define SOLDIER_TRAIT_FOCUS					0x00002000					// 'focus' skill is active
-#define SOLDIER_BAYONET_RUNBONUS			0x00004000					// we are performing a bayonet attack after transitioning from running, giving our attack extra force
-#define SOLDIER_CONCEALINSERTION			0x00008000					// we enteri a sector by transition from concealed state (which causes us to spawn at the location we left the sector in)
-
-#define SOLDIER_CONCEALINSERTION_DISCOVERED	0x00010000					// we enter a sector by transition from concealed state, but as we were 'discovered', set red alert
-#define SOLDIER_MERC_POW_LOCATIONKNOWN		0x00020000					// we are a POW, but the player has discovered our location
-#define SOLDIER_SURGERY_BOOSTED				0x00040000					// we are a boosted performing surgery (e.g. by using up a blood bag)
-
-#define SOLDIER_DRAG_SOUND					0x00080000					// played sound when started dragging
-#define SOLDIER_SPENT_AP					0x00100000					// soldier has spent some AP this turn (including realtime)
-#define SOLDIER_TURNCOAT					0x00200000					// this enemy soldier will switch to the militia team if ordered to
-#define SOLDIER_BACK_ATTACK					0x00400000					// soldier was attacked from the back
-#define SOLDIER_SNEAK_ATTACK				0x00800000					// soldier was attacked by unseen enemy
-
-#define SOLDIER_INTERROGATE_ALL				0x000001F8					// all interrogation flags
-// ----------------------------------------------------------------
-
-// -------- added by Flugente: background property flags --------
-// easier than adding 32 differently named variables. DO NOT CHANGE THEM, UNLESS YOU KNOW WHAT YOU ARE DOING!!!
-// a merc's background info reveals data about his previous life, like former regiments. These backgrounds add small abilities/disabilities. Nothing substantial, just small bits do
-// diversify your mercs and add more personality
-#define BACKGROUND_DRUGUSE						0x0000000000000001	//1				// might use drugs on his own (the 'Larry'-effect)
-#define BACKGROUND_XENOPHOBIC					0x0000000000000002	//2				// arrogant towards others without this background
-#define BACKGROUND_EXP_UNDERGROUND				0x0000000000000004	//4				// extra level in underground sectors
-#define BACKGROUND_SCROUNGING					0x0000000000000008	//8				// might pick up valuable items on his own
-
-#define BACKGROUND_TRAPLEVEL					0x0000000000000010	//16			// trap level +1
-#define BACKGROUND_CORRUPTIONSPREAD				0x0000000000000020	//32			// spreads corruption to others	- not used in trunk!
-#define BACKGROUND_NO_MALE   					0x0000000000000040	//64			// background cannot be selected by males (IMP creation)
-#define BACKGROUND_NO_FEMALE					0x0000000000000080	//128			// background cannot be selected by females (IMP creation)
-
-#define BACKGROUND_GLOBALOYALITYLOSSONDEATH		0x0000000000000100	//256			// if character dies, huge loyalty loss in entire country
-
-#define BACKGROUND_ANIMALFRIEND					0x0000000000000200	//512			// refuses to attack animals
-#define BACKGROUND_CIVGROUPLOYAL				0x0000000000000400	//1024			// refuses to attack members of the same civgroup
-#define BACKGROUND_ALT_IMP_CREATION				0x0000000000000800	//2048			// BG can only be used when ALT_IMP_CREATION is TRUE in ja2options.ini (IMP creation)
-
-#define BACKGROUND_FLAG_MAX	12					// number of flagged backgrounds - keep this updated, or properties will get lost!
-
-// some properties are hidden (forbid background in MP creation)
-// corruption property is not relevant in 1.13
-#define BACKGROUND_HIDDEN_FLAGS					(BACKGROUND_NO_MALE|BACKGROUND_NO_FEMALE|BACKGROUND_CORRUPTIONSPREAD|BACKGROUND_ALT_IMP_CREATION)
 
 // anv: externalised taunts
 // taunt properties
@@ -529,83 +209,6 @@ enum
 #define TAUNT_FLAG_2_MAX	13
 #define TAUNT_FLAG_MAX	TAUNT_FLAG_1_MAX + TAUNT_FLAG_2_MAX
 
-// Flugente: types of multi-turn actions
-enum
-{
-	MTA_NONE = 0,
-	MTA_FORTIFY,
-	MTA_REMOVE_FORTIFY,
-	MTA_HACK,
-	NUM_MTA,
-};
-
-//Flugente skills from traits and other sources
-enum{
-	// first skill
-	SKILLS_FIRST = 0,
-	
-	// radio operator
-	SKILLS_RADIO_FIRST = SKILLS_FIRST,
-	SKILLS_RADIO_ARTILLERY = SKILLS_RADIO_FIRST,
-	SKILLS_RADIO_JAM,
-	SKILLS_RADIO_SCAN_FOR_JAM,
-	SKILLS_RADIO_LISTEN,
-	SKILLS_RADIO_CALLREINFORCEMENTS,
-	SKILLS_RADIO_TURNOFF,
-	SKILLS_RADIO_ACTIVATE_TURNCOATS_ALL,		// order all enemy turncoats to turn into militia right now (in case this requires a radio)
-	SKILLS_RADIO_LAST = SKILLS_RADIO_ACTIVATE_TURNCOATS_ALL,
-
-	// spy
-	SKILLS_INTEL_FIRST,
-	SKILLS_INTEL_CONCEAL = SKILLS_INTEL_FIRST,	// assignment: spy hides among the population
-	SKILLS_INTEL_GATHERINTEL,					// assignment: spy gathers information while disguised
-	SKILLS_CREATE_TURNCOAT,
-	SKILLS_ACTIVATE_TURNCOATS,					// order enemy turncoat to turn into militia right now
-	SKILLS_ACTIVATE_TURNCOATS_ALL,				// order all enemy turncoats to turn into militia right now
-	SKILLS_INTEL_LAST = SKILLS_ACTIVATE_TURNCOATS_ALL,
-
-	// disguise
-	SKILLS_DISGUISE_FIRST,
-	SKILLS_DISGUISE_APPLY_DISGUISE = SKILLS_DISGUISE_FIRST,
-	SKILLS_DISGUISE_REMOVE_DISGUISE,
-	SKILLS_DISGUISE_TEST_DISGUISE,
-	SKILLS_DISGUISE_REMOVE_CLOTHES,
-	SKILLS_DISGUISE_LAST = SKILLS_DISGUISE_REMOVE_CLOTHES,
-
-	// various
-	SKILLS_VARIOUS_FIRST,
-	SKILLS_SPOTTER = SKILLS_VARIOUS_FIRST,
-	SKILLS_FOCUS,
-	SKILLS_DRAG,
-	SKILLS_FILL_CANTEENS,
-	SKILLS_VARIOUS_LAST = SKILLS_FILL_CANTEENS,
-
-	SKILLS_MAX,
-};
-
-// enum of uniform pieces
-typedef struct
-{
-	PaletteRepID vest;
-	PaletteRepID pants;
-}UNIFORMCOLORS;
-
-// HEADROCK HAM 3.6: Uniform colors for the different soldier classes
-extern UNIFORMCOLORS gUniformColors[NUM_UNIFORMS];
-
-// Flugente: a structure for clothing items
-typedef struct
-{
-	UINT16			uiIndex;
-	CHAR16			szName[80];				// name of these clothes
-	PaletteRepID	vest;
-	PaletteRepID	pants;
-} CLOTHES_STRUCT;
-
-#define CLOTHES_MAX	50
-
-extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
-
 // This macro should be used whenever we want to see if someone is neutral
 // IF WE ARE CONSIDERING ATTACKING THEM.	Creatures & bloodcats will attack neutrals
 // but they can't attack empty vehicles!!
@@ -615,16 +218,6 @@ extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
 										&& (me->roster().team() != CREATURE_TEAM || (them->status().flags() & SOLDIER_VEHICLE) || (them->identity().bodyType() == CROW)) \
 										&& !(me->status().flags() & SOLDIER_BOXER && them->status().flags() & SOLDIER_BOXER) \
 										)
-
-#define DELAYED_MOVEMENT_FLAG_PATH_THROUGH_PEOPLE 0x01
-
-// reasons for being unable to continue movement
-enum
-{
-	REASON_STOPPED_NO_APS,
-	REASON_STOPPED_SIGHT,
-};
-
 
 enum
 {
@@ -671,40 +264,8 @@ enum class BackgroundVectorTypes;
 	NUM_WEAPON_MODES
 } ;
 */
-// TYPEDEFS FOR ANIMATION PROFILES
-typedef struct
-{
-	UINT16	usTileFlags;
-	INT8		bTileX;
-	INT8		bTileY;
-
-} ANIM_PROF_TILE;
-
-typedef struct
-{
-	UINT8							ubNumTiles;
-	ANIM_PROF_TILE		*pTiles;
-
-}	ANIM_PROF_DIR;
-
-typedef struct ANIM_PROF
-{
-	
-	ANIM_PROF_DIR		Dirs[8];
-
-} ANIM_PROF;
-
-
-
 // Globals
 //////////
-
-// VARIABLES FOR PALETTE REPLACEMENTS FOR HAIR, ETC
-extern UINT32					guiNumPaletteSubRanges;
-extern UINT8					*gubpNumReplacementsPerRange;
-extern PaletteSubRangeType		*gpPaletteSubRanges;
-extern UINT32					guiNumReplacements;
-extern PaletteReplacementType	*gpPalRep;
 
 extern UINT8					bHealthStrRanges[];
 
@@ -716,66 +277,22 @@ extern UINT8					bHealthStrRanges[];
 void RevivePlayerTeam( );
 
 
-// Palette functions for soldiers
-BOOLEAN GetPaletteRepIndexFromID( const CHAR8 *aPalRep, UINT8 *pubPalIndex );
-BOOLEAN	SetPaletteReplacement( SGPPaletteEntry *p8BPPPalette, PaletteRepID aPalRep );
-BOOLEAN LoadPaletteData( );
-BOOLEAN DeletePaletteData( );
-
 // UTILITY FUNCTUIONS
 void MoveMercFacingDirection( TacticalActor *pSoldier, BOOLEAN fReverse, FLOAT dMovementDist );
-UINT8 GetDirectionFromXY( INT16 sXPos, INT16 sYPos, TacticalActor *pSoldier );
-BOOLEAN GetDirectionChangeAmount( INT32 sGridNo, TacticalActor *pSoldier, UINT8 uiTurnAmount);
-UINT8 GetDirectionFromGridNo( INT32 sGridNo, TacticalActor *pSoldier );
-UINT8 atan8( INT16 sXPos, INT16 sYPos, INT16 sXPos2, INT16 sYPos2 );
-UINT8 atan8FromAngle( DOUBLE dAngle );
-INT16 GetDirectionToGridNoFromGridNo(INT32 sGridNoDest, INT32 sGridNoSrc);
-INT16 GetDirectionFromCenterCellXYGridNo(INT32 EndGridNo, INT32 StartGridNo);
 // This function is now obsolete.	Call ReduceAttackBusyCount instead.
 // void ReleaseSoldiersAttacker( TacticalActor *pSoldier );
-
-
-
-// WRAPPERS FOR SOLDIER EVENTS
-void SendSoldierPositionEvent( TacticalActor *pSoldier, FLOAT dNewXPos, FLOAT dNewYPos );
-void SendSoldierDestinationEvent( TacticalActor *pSoldier, UINT16 usNewDestination );
-void SendGetNewSoldierPathEvent( TacticalActor *pSoldier, INT32 sDestGridNo, UINT16 usMovementAnim );
-void SendSoldierSetDirectionEvent( TacticalActor *pSoldier, UINT16 usNewDirection );
-void SendSoldierSetDesiredDirectionEvent( TacticalActor *pSoldier, UINT16 usDesiredDirection );
-void SendChangeSoldierStanceEvent( TacticalActor *pSoldier, UINT8 ubNewStance );
-void SendBeginFireWeaponEvent( TacticalActor *pSoldier, INT32 sTargetGridNo );
-void SendBeginFireWeaponEvent(
-	TacticalActor *pSoldier, INT32 sTargetGridNo,
-	INT8 bTargetLevel, INT8 bTargetCubeLevel );
 
 
 
 BOOLEAN PreloadSoldierBattleSounds( TacticalActor *pSoldier, BOOLEAN fRemove );
 void CrowsFlyAway( UINT8 ubTeam );
 void DebugValidateSoldierData( );
-void HandlePlayerTogglingLightEffects( BOOLEAN fToggleValue );
-
-// added by SANDRO
-UINT8 GetSquadleadersCountInVicinity( TacticalActor * pSoldier, BOOLEAN fWithHigherLevel, BOOLEAN fDontCheckDistance );
-BOOLEAN ResolvePendingInterrupt( TacticalActor * pSoldier, UINT8 ubInterruptType );
-BOOLEAN AIDecideHipOrShoulderStance( TacticalActor * pSoldier, INT32 iGridNo );
-BOOLEAN DecideAltAnimForBigMerc( TacticalActor * pSoldier );
-
 // added by Flugente
-BOOLEAN TwoStagedTrait( UINT8 uiSkillTraitNumber );						// determine if this (new) trait has two stages
 BOOLEAN MajorTrait( UINT8 uiSkillTraitNumber );							// determine if this is a major trait
-UINT16	GetSuspiciousAnimationAPDuration( UINT16 usAnimation );			// get overt penalty duration in AP for using an animation
 
 //typedef struct
 
 
-void HandleTakeDamageDeath( TacticalActor *pSoldier, UINT8 bOldLife, UINT8 ubReason );
-
-void SetDamageDisplayCounter(TacticalActor* pSoldier);
-
 // SANDRO - This whole procedure was merged with the surgery ability of the doctor trait
-
-// Flugente: apply a consumable item on a soldier. Returns true if item was successfully interacted with
-BOOLEAN ApplyConsumable( TacticalActor* pSoldier, OBJECTTYPE *pObject, BOOLEAN fForce, BOOLEAN fUseAPs );
 
 #endif

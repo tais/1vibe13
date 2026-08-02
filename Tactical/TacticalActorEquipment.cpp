@@ -18,6 +18,7 @@
 #include "PATHAI.H"
 #include "Points.h"
 #include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 #include "SoldierRepository.h"
 #include "Sound Control.h"
 #include "Tactical Save.h"

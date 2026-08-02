@@ -6,6 +6,7 @@
 	#include "stdio.h"
 	#include "aim.h"
 	#include "Soldier Profile.h"
+	#include "TacticalActor.h"
 	#include "email.h"
 	#include "Text.h"
 	#include "AimSort.h"
@@ -583,5 +584,4 @@ void HandleAimFacialIndexKeyBoardInput()
 		}
 	}
 }
-
 

@@ -1,7 +1,11 @@
 #ifndef __CIV_QUOTES_H
 #define __CIV_QUOTES_H
 
-#include "Soldier Control.h"
+#include "Overhead Types.h"
+
+#include <cstddef>
+
+class TacticalActor;
 
 #define			CIV_TYPE_NA									0	
 #define			CIV_TYPE_ADULT							1

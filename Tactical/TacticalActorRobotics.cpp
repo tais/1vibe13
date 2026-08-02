@@ -5,7 +5,10 @@
 #include "Items.h"
 #include "Overhead.h"
 #include "Soldier Profile.h"
+#include "Soldier Profile Constants.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 
 #include <algorithm>
 #include <cstddef>

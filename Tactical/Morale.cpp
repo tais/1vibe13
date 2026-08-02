@@ -4,6 +4,7 @@
 	#include "Morale.h"
 	#include "Overhead.h"
 	#include "Soldier Profile.h"
+	#include "Soldier Control.h"
 	#include "Dialogue Control.h"
 	#include "message.h"
 	#include "Assignments.h"

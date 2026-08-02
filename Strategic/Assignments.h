@@ -4,9 +4,11 @@
 // header for assignment manipulation/updating for characters
 
 #include "types.h"
-#include "Soldier Control.h"
+#include "Overhead Types.h"
 #include "mousesystem.h"
 #include "Strategic Movement.h"
+
+class TacticalActor;
 
 
 // this distinguishes whether we're only looking for patients healable THIS HOUR (those that have been on their assignment

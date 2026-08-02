@@ -8,14 +8,17 @@
 #include "message.h"
 #include "SaveLoadGame.h"
 #include "GameVersion.h"
+#include "GameSettings.h"
 #include "Campaign Types.h"
 #include "Game Clock.h"
 #include "Soldier macros.h"
+#include "Soldier Class.h"
 #include "Text.h"
 #include "laptop.h"
 #include "LaptopSave.h"
 #include "email.h"
 #include "DynamicDialogue.h"
+#include "TacticalActor.h"
 
 Campaign_Stats	gCampaignStats;
 Incident_Stats	gCurrentIncident;		// we might save during an incident, thus we have to store the ongoing incident

@@ -3,11 +3,14 @@
 
 #include "types.h"
 #include "worlddef.h"
-#include "Soldier Control.h"
 #include "Isometric Utils.h"
 #include "Rotting Corpses.h"
 
+class TacticalActor;
 struct SimulationCommandDispatchResult;
+
+BOOLEAN AIDecideHipOrShoulderStance(
+	TacticalActor* actor, INT32 targetGrid);
 
 #define TESTAICONTROL
 

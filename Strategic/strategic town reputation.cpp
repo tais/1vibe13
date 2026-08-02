@@ -1,5 +1,6 @@
 	#include "types.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
 	#include "strategic town reputation.h"
 	#include "soldier profile type.h"
 	#include "Soldier Profile.h"

@@ -1,5 +1,8 @@
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
+#include "Grid Direction.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorPendingActionTypes.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorEquipment.h"
 #include "builddefines.h"

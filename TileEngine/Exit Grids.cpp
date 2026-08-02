@@ -1,4 +1,6 @@
 	#include "DEBUG.H"
+	#include "Grid Direction.h"
+	#include "TacticalActor.h"
 	#include "worlddef.h"
 	#include "worldman.h"
 	#include "Exit Grids.h"

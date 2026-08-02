@@ -14,6 +14,7 @@
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 #include "SoldierRepository.h"
+#include "Soldier Control.h"
 #include "TacticalActorDragging.h"
 #include "TacticalEntityHost.h"
 	#include "stdlib.h"

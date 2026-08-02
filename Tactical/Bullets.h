@@ -3,9 +3,13 @@
 #define NUM_BULLET_SLOTS 1000
 
 #include "types.h"
-#include "Soldier Control.h"
 #include "LOS.h"
+
+struct LEVELNODE;
+
 #include "Tile Animation.h"
+
+class TacticalActor;
 
 
 #define		BULLET_FLAG_CREATURE_SPIT			0x0001

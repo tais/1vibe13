@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "GameSettings.h"
 
 	#include "WorldDat.h"
 	#include "Sys Globals.h"

@@ -1,4 +1,5 @@
 #include "TacticalActorBattleSounds.h"
+#include "TacticalActorStateFlags.h"
 // anv: totally not a copy of SkillMenu.cpp
 
 #include "VehicleMenu.h"

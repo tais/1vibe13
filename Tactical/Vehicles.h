@@ -3,9 +3,10 @@
 
 #include "types.h"
 
-#include "Soldier Control.h"
 #include "Strategic Movement.h"
 #include "soldier profile type.h"
+
+class TacticalActor;
 
 #define	MAX_VEHICLES	10
 extern std::vector<INT8>	gubVehicleMovementGroups;

@@ -1,5 +1,8 @@
 #include "builddefines.h"
 #include "SoldierRepository.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorEmploymentTypes.h"
+#include "TacticalActorStateFlags.h"
 
 	#include "types.h"
 	#include "Merc Contract.h"

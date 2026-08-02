@@ -5,6 +5,7 @@
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "MemMan.h"
 #include "Render Palette Bank.h"
+#include "Soldier Palette.h"
 #include "TacticalActor.h"
 #include "shading.h"
 

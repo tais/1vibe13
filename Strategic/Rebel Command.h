@@ -3,8 +3,9 @@
 
 #include "CampaignStats.h"
 #include "mapscreen.h"
-#include "Soldier Control.h"
 #include "types.h"
+
+class TacticalActor;
 
 #define		REBEL_COMMAND_Z_OFFSET						9
 #define		REBEL_COMMAND_MAX_ACTIONS_PER_REGION		6

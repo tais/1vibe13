@@ -1,5 +1,7 @@
 #include "builddefines.h"
 #include "SoldierRepository.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActor.h"
 
 	#include "Strategic Town Loyalty.h"
 	#include "strategicmap.h"

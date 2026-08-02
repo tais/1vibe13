@@ -3,13 +3,19 @@
 #include "Animation Control.h"
 #include "DEBUG.H"
 #include "GameSettings.h"
+#include "Font Control.h"
 #include "Isometric Utils.h"
 #include "Items.h"
 #include "Overhead.h"
+#include "SoldierRepository.h"
+#include "Soldier Profile Constants.h"
 #include "TacticalActor.h"
 #include "TacticalWorldAdapter.h"
+#include "Text.h"
 #include "environment.h"
 #include "lighting.h"
+#include "message.h"
+#include "renderworld.h"
 #include "soldier profile type.h"
 #include "worldman.h"
 
@@ -235,4 +241,54 @@ bool TacticalActorLighting::setPersonalLightLevel(
 	mercNode.ubMaxLights = 5;
 	mercNode.ubNaturalShadeLevel = 5;
 	return true;
+}
+
+namespace
+{
+void enableDisableSoldierLightEffects(BOOLEAN enableLights)
+{
+	for (SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID;
+		 id <= gTacticalStatus.Team[OUR_TEAM].bLastID;
+		 ++id)
+	{
+		TacticalActor* const actor = GetJa2SoldierRepository().resolve(id);
+		if (actor == nullptr || !actor->roster().active() ||
+			!actor->roster().inSector() || actor->vitals().health() < OKLIFE)
+		{
+			continue;
+		}
+
+		if (enableLights)
+		{
+			(void)TacticalActorLighting::positionPersonalLight(*actor);
+		}
+		else
+		{
+			(void)TacticalActorLighting::destroyPersonalLight(*actor);
+			(void)TacticalActorLighting::setPersonalLightLevel(*actor);
+		}
+	}
+}
+}
+
+void HandlePlayerTogglingLightEffects(BOOLEAN toggleValue)
+{
+	if (toggleValue)
+	{
+		const bool lightsEnabled =
+			gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT] != FALSE;
+		gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT] =
+			lightsEnabled ? FALSE : TRUE;
+		ScreenMsg(
+			FONT_MCOLOR_LTYELLOW,
+			MSG_INTERFACE,
+			pMessageStrings[
+				lightsEnabled
+					? MSG_MERC_CASTS_LIGHT_OFF
+					: MSG_MERC_CASTS_LIGHT_ON]);
+	}
+
+	enableDisableSoldierLightEffects(
+		gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT]);
+	SetRenderFlags(RENDER_FLAG_FULL);
 }

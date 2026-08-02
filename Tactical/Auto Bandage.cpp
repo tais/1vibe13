@@ -1,5 +1,7 @@
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
+#include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 	#include "sgp.h"
 #include "TacticalActorMedicalTreatment.h"
 #include "TacticalWorldAdapter.h"

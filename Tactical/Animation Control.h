@@ -2,8 +2,12 @@
 #define __ANIMATION_CONTROL_H
 
 // Header file for merc animation control
-#include "Soldier Control.h"
 #include "Animation Data.h"
+
+class TacticalActor;
+
+BOOLEAN DecideAltAnimForBigMerc(TacticalActor* actor);
+UINT16 GetSuspiciousAnimationAPDuration(UINT16 animation);
 
 // Defines
 // #######################################################

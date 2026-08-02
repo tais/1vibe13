@@ -18,6 +18,7 @@
 	#include "english.h"
 	#include "Encrypted File.h"
 	#include "random.h"
+	#include "Timer Control.h"
 
 //externals
 extern HVSURFACE ghFrameBuffer;

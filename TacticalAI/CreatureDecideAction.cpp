@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "Grid Direction.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorVisibility.h"
 	#include "types.h"

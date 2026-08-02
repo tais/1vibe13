@@ -3,7 +3,10 @@
 
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 
-#include "Soldier Control.h"
+#include "types.h"
+#include "Overhead Types.h"
+
+class TacticalActor;
 
 
 //enums used for extending contract, etc.

@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActor.h"
 #include "TacticalActorWorldPlacement.h"
 	#include "types.h"
 	#include "pits.h"

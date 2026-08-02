@@ -3,9 +3,28 @@
 
 #include "vobject.h"
 
-#include "Soldier Control.h"
 #include "Overhead.h"
 #include "Structure Internals.h"
+
+class TacticalActor;
+
+struct ANIM_PROF_TILE
+{
+	UINT16 usTileFlags;
+	INT8 bTileX;
+	INT8 bTileY;
+};
+
+struct ANIM_PROF_DIR
+{
+	UINT8 ubNumTiles;
+	ANIM_PROF_TILE* pTiles;
+};
+
+struct ANIM_PROF
+{
+	ANIM_PROF_DIR Dirs[8];
+};
 
 
 // DEFINES FOR ANIMATION PROFILES

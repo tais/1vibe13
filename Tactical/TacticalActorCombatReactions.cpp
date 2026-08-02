@@ -7,6 +7,7 @@
 #include "Isometric Utils.h"
 #include "PATHAI.H"
 #include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
 #include "random.h"
 #include "worlddef.h"

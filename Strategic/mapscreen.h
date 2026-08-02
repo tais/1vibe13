@@ -3,7 +3,13 @@
 
 
 #include "types.h"
-#include "Soldier Control.h"
+#include "mousesystem.h"
+#include "Overhead Types.h"
+#include "Strategic Path Types.h"
+
+#include <vector>
+
+class TacticalActor;
 
 #define			MAP_WORLD_X						18
 #define			MAP_WORLD_Y						18

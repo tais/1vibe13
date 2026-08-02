@@ -1,4 +1,6 @@
 	#include "types.h"
+	#include "TacticalActorSkills.h"
+	#include "TacticalActorStateFlags.h"
 
 	#include "Soldier Functions.h"
 	#include "ai.h"

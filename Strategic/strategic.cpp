@@ -1,5 +1,7 @@
 	#include "strategic.h"
 	#include "SoldierRepository.h"
+	#include "TacticalActor.h"
+	#include "TacticalActorEmploymentTypes.h"
 	#include "types.h"
 	#include "Squads.h"
 	#include "Assignments.h"

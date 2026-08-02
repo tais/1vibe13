@@ -1,4 +1,5 @@
 #include "TacticalActorTurnLifecycle.h"
+#include "TacticalActor.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"

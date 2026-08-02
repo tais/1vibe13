@@ -5,6 +5,7 @@
 #include "TacticalActorMobility.h"
 	#include "sgp.h"
 	#include "SoldierRepository.h"
+	#include "Soldier Control.h"
 #include "TacticalWorldAdapter.h"
 
 	#include "Overhead.h"

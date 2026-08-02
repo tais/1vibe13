@@ -5,6 +5,8 @@
 
 #include "MilitiaIndividual.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
+#include "Disease.h"
 
 #include "random.h"
 #include "Text.h"

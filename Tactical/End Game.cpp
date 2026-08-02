@@ -2,7 +2,12 @@
 
 	#include "Overhead.h"
 #include "SoldierRepository.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
+#include "Timer Control.h"
+	#include "worlddef.h"
 	#include "worldman.h"
 	#include "Soldier Profile.h"
 	#include "Dialogue Control.h"

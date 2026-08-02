@@ -1,5 +1,11 @@
 #include "TacticalActorAnimationTransitions.h"
 
+#include "Grid Direction.h"
+#include "TacticalActorAnimationState.h"
+#include "TacticalActorEvents.h"
+#include "TacticalActorPendingActionTypes.h"
+#include "TacticalActorStateFlags.h"
+
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorAppearance.h"
 #include "TacticalActorOrientation.h"

@@ -881,7 +881,7 @@ foreach(required_runtime_dialogue_alias_fragment IN ITEMS
   endif()
 endforeach()
 
-file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorQuoteFlags.h"
   runtime_campaign_quote_alias_contents)
 foreach(required_runtime_quote_alias_fragment IN ITEMS
     "SOLDIER_QUOTE_SAID_EXT_MORRIS"
@@ -2469,24 +2469,54 @@ set(tactical_actor_pointer_api_headers
   "Laptop/CampaignStats.h"
   "Laptop/insurance Contract.h"
   "Laptop/personnel.h"
+  "Strategic/Assignments.h"
   "Strategic/Facilities.h"
+  "Strategic/Map Screen Interface.h"
   "Strategic/Map Screen Interface Bottom.h"
+  "Strategic/Merc Contract.h"
   "Strategic/MilitiaSquads.h"
+  "Strategic/Quest Debug System.h"
   "Strategic/Queen Command.h"
+  "Strategic/Rebel Command.h"
   "Strategic/Strategic Movement.h"
   "Strategic/Strategic Status.h"
+  "Strategic/Strategic Town Loyalty.h"
   "Strategic/Town Militia.h"
+  "Strategic/mapscreen.h"
+  "Strategic/strategic.h"
+  "Strategic/strategicmap.h"
   "Strategic/strategic town reputation.h"
   "Tactical/Air Raid.h"
+  "Tactical/Animation Control.h"
+  "Tactical/Animation Data.h"
+  "Tactical/Bullets.h"
+  "Tactical/Civ Quotes.h"
+  "Tactical/Drugs And Alcohol.h"
+  "Tactical/DynamicDialogue.h"
+  "Tactical/Food.h"
+  "Tactical/Handle Items.h"
+  "Tactical/Handle UI.h"
   "Tactical/Interface Utils.h"
+  "Tactical/Items.h"
+  "Tactical/LOS.h"
+  "Tactical/LogicalBodyTypes/Filter.h"
   "Tactical/Merc Hiring.h"
   "Tactical/Militia Control.h"
   "Tactical/Morale.h"
+  "Tactical/Overhead.h"
   "Tactical/SkillCheck.h"
+  "Tactical/Soldier Add.h"
+  "Tactical/Soldier Create.h"
   "Tactical/Soldier Functions.h"
+  "Tactical/Soldier Profile.h"
   "Tactical/Squads.h"
   "Tactical/TeamTurns.h"
+  "Tactical/Vehicles.h"
+  "Tactical/Weapons.h"
+  "Tactical/faces.h"
+  "Tactical/soldier profile type.h"
   "Tactical/soldier tile.h"
+  "TacticalAI/ai.h"
   "TileEngine/Smell.h")
 foreach(tactical_actor_pointer_api_header IN LISTS
     tactical_actor_pointer_api_headers)
@@ -2549,6 +2579,409 @@ if(tactical_soldier_class_compatibility_include EQUAL -1 OR
    tactical_actor_api_header_headless_dependency EQUAL -1)
   message(FATAL_ERROR
     "Actor-reference API headers lost their focused compile guard or soldier-class boundary")
+endif()
+
+# The broad soldier-control facade is now an implementation/compatibility
+# surface, not a dependency of application headers. Utils All.h remains the
+# one intentional umbrella for legacy source compatibility.
+set(tactical_actor_public_header_roots
+  Editor
+  Ja2
+  Laptop
+  ModularizedTacticalAI
+  Multiplayer
+  Strategic
+  Tactical
+  TacticalAI
+  TileEngine
+  Utils
+  sgp)
+set(tactical_actor_public_headers)
+foreach(tactical_actor_public_header_root IN LISTS
+    tactical_actor_public_header_roots)
+  file(GLOB_RECURSE tactical_actor_public_headers_in_root
+    LIST_DIRECTORIES false
+    "${SOURCE_ROOT}/${tactical_actor_public_header_root}/*.h")
+  list(APPEND tactical_actor_public_headers
+    ${tactical_actor_public_headers_in_root})
+endforeach()
+foreach(tactical_actor_public_header IN LISTS tactical_actor_public_headers)
+  file(RELATIVE_PATH tactical_actor_public_header_relative
+    "${SOURCE_ROOT}" "${tactical_actor_public_header}")
+  if(tactical_actor_public_header_relative STREQUAL "Utils/Utils All.h")
+    continue()
+  endif()
+  file(READ "${tactical_actor_public_header}"
+    tactical_actor_public_header_contents)
+  string(REGEX MATCH
+    "(^|\n)[ \t]*#[ \t]*include[ \t]*\"Soldier Control\\.h\""
+    tactical_actor_public_header_facade_include
+    "${tactical_actor_public_header_contents}")
+  if(tactical_actor_public_header_facade_include)
+    message(FATAL_ERROR
+      "${tactical_actor_public_header_relative} imports the Soldier Control.h compatibility facade; include focused contracts and forward-declare TacticalActor")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Path Types.h"
+  strategic_path_types_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Patrol Types.h"
+  tactical_soldier_patrol_types_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Profile Constants.h"
+  tactical_soldier_profile_constants_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Palette.h"
+  tactical_soldier_palette_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Background Types.h"
+  tactical_soldier_background_types_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEmploymentTypes.h"
+  tactical_actor_employment_types_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorStateFlags.h"
+  tactical_actor_state_flags_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.h"
+  tactical_soldier_components_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.h"
+  tactical_soldier_create_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Profile.h"
+  tactical_soldier_profile_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/DynamicDialogue.h"
+  tactical_dynamic_dialogue_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/qarray.h"
+  tactical_qarray_header_contents)
+file(READ "${SOURCE_ROOT}/Strategic/mapscreen.h"
+  strategic_mapscreen_header_contents)
+file(READ "${SOURCE_ROOT}/tests/tactical_actor_service_api_headers_tests.cpp"
+  tactical_actor_service_api_header_test_contents)
+file(READ "${SOURCE_ROOT}/Utils/Utilities.cpp"
+  tactical_utilities_source_contents)
+file(READ "${SOURCE_ROOT}/Multiplayer/connect.h"
+  tactical_multiplayer_connect_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/LogicalBodyTypes/BodyType.h"
+  tactical_logical_body_type_header_contents)
+
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#include \"Strategic Path Types.h\""
+  tactical_soldier_control_path_types_include)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#include \"Soldier Patrol Types.h\""
+  tactical_soldier_control_patrol_types_include)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#include \"Soldier Palette.h\""
+  tactical_soldier_control_palette_include)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#include \"Soldier Background Types.h\""
+  tactical_soldier_control_background_types_include)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#include \"Soldier Profile Constants.h\""
+  tactical_soldier_control_profile_constants_include)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#include \"TacticalActorEmploymentTypes.h\""
+  tactical_soldier_control_employment_types_include)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#include \"TacticalActorLighting.h\""
+  tactical_soldier_control_lighting_include)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#include \"TacticalActorStateFlags.h\""
+  tactical_soldier_control_state_flags_include)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#define SOLDIER_PCUNDERAICONTROL"
+  tactical_soldier_control_legacy_status_flag)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "MERC_TYPE__PLAYER_CHARACTER,"
+  tactical_soldier_control_legacy_employment_type)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "struct CLOTHES_STRUCT"
+  tactical_soldier_control_legacy_clothes_type)
+string(FIND "${strategic_path_types_header_contents}"
+  "struct path"
+  tactical_strategic_path_definition)
+string(FIND "${strategic_path_types_header_contents}"
+  "using PathStPtr = PathSt*;"
+  tactical_strategic_path_alias)
+string(FIND "${tactical_soldier_patrol_types_header_contents}"
+  "SOLDIER_PATROL_GRID_COUNT = 10"
+  tactical_soldier_patrol_capacity)
+string(FIND "${tactical_soldier_profile_constants_header_contents}"
+  "#define NO_PROFILE 200"
+  tactical_soldier_no_profile_sentinel)
+string(FIND "${tactical_soldier_palette_header_contents}"
+  "BOOLEAN GetPaletteRepIndexFromID"
+  tactical_soldier_palette_lookup_declaration)
+string(FIND "${tactical_soldier_palette_header_contents}"
+  "#define CLOTHES_MAX 50"
+  tactical_soldier_palette_clothes_capacity)
+string(FIND "${tactical_soldier_palette_header_contents}"
+  "extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];"
+  tactical_soldier_palette_clothes_table)
+string(FIND "${tactical_soldier_background_types_header_contents}"
+  "#define BACKGROUND_XENOPHOBIC 0x0000000000000002"
+  tactical_soldier_background_xenophobic_flag)
+string(FIND "${tactical_actor_employment_types_header_contents}"
+  "MERC_TYPE__VEHICLE,"
+  tactical_actor_vehicle_employment_type)
+string(FIND "${tactical_actor_state_flags_header_contents}"
+  "#define SOLDIER_PCUNDERAICONTROL               0x00000020"
+  tactical_actor_player_ai_control_flag)
+string(FIND "${tactical_actor_state_flags_header_contents}"
+  "#define SOLDIER_COVERT_NPC_SPECIAL             0x00000020"
+  tactical_actor_covert_npc_flag)
+string(FIND "${tactical_utilities_source_contents}"
+  "#include \"Soldier Palette.h\""
+  tactical_utilities_palette_include)
+string(FIND "${tactical_multiplayer_connect_header_contents}"
+  "#include \"TacticalActor.h\""
+  tactical_multiplayer_connect_actor_include)
+string(FIND "${tactical_logical_body_type_header_contents}"
+  "#include \"TacticalActor.h\""
+  tactical_logical_body_type_actor_include)
+string(FIND "${tactical_soldier_components_header_contents}"
+  "#include \"Soldier Patrol Types.h\""
+  tactical_soldier_components_patrol_include)
+string(FIND "${tactical_soldier_create_header_contents}"
+  "#include \"Soldier Patrol Types.h\""
+  tactical_soldier_create_patrol_include)
+string(FIND "${tactical_soldier_profile_header_contents}"
+  "BOOLEAN TwoStagedTrait"
+  tactical_soldier_profile_trait_stage_declaration)
+string(FIND "${tactical_dynamic_dialogue_header_contents}"
+  "#include \"Soldier Profile Constants.h\""
+  tactical_dynamic_dialogue_profile_include)
+string(FIND "${tactical_actor_battle_sounds_header_contents}"
+  "NUM_MERC_BATTLE_SOUNDS"
+  tactical_actor_battle_sound_count)
+string(FIND "${tactical_qarray_header_contents}"
+  "#include \"TacticalActorBattleSounds.h\""
+  tactical_qarray_battle_sound_include)
+string(FIND "${strategic_mapscreen_header_contents}"
+  "#include \"Strategic Path Types.h\""
+  tactical_mapscreen_path_include)
+string(FIND "${tactical_test_build_contents}"
+  "add_executable(tactical_actor_service_api_headers_tests"
+  tactical_actor_service_api_header_test_target)
+string(FIND "${tactical_test_build_contents}"
+  "add_test(NAME tactical_actor_service_api_headers"
+  tactical_actor_service_api_header_test_registration)
+string(FIND "${tactical_test_build_contents}"
+  "static_assert(!IsComplete<TacticalActor>::value);"
+  tactical_actor_service_api_header_incomplete_assertion)
+string(FIND "${tactical_root_build_contents}"
+  "add_dependencies(ja2_headless_tests tactical_actor_service_api_headers_tests)"
+  tactical_actor_service_api_header_headless_dependency)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(std::is_standard_layout_v<PathSt>);"
+  tactical_actor_service_api_path_layout_assertion)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(NO_PROFILE == 200);"
+  tactical_actor_service_api_profile_assertion)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(NUM_MERC_BATTLE_SOUNDS == 16);"
+  tactical_actor_service_api_battle_sound_assertion)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(BACKGROUND_FLAG_MAX == 12);"
+  tactical_actor_service_api_background_assertion)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(MERC_TYPE__VEHICLE == 6);"
+  tactical_actor_service_api_employment_assertion)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(CLOTHES_MAX == 50);"
+  tactical_actor_service_api_clothes_capacity_assertion)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(SOLDIER_PCUNDERAICONTROL == 0x20);"
+  tactical_actor_service_api_status_flag_assertion)
+string(FIND "${tactical_actor_lighting_header_contents}"
+  "void HandlePlayerTogglingLightEffects(BOOLEAN toggleValue);"
+  tactical_actor_light_toggle_declaration)
+string(FIND "${tactical_actor_lighting_source_contents}"
+  "void HandlePlayerTogglingLightEffects(BOOLEAN toggleValue)"
+  tactical_actor_light_toggle_definition)
+string(FIND "${tactical_actor_source_contents}"
+  "void HandlePlayerTogglingLightEffects("
+  tactical_soldier_control_legacy_light_toggle)
+string(FIND "${headless_test_contents}"
+  "lightingRefreshPreservesOptionAndInvalidatesRender"
+  tactical_actor_light_toggle_coverage)
+if(tactical_soldier_control_path_types_include EQUAL -1 OR
+   tactical_soldier_control_patrol_types_include EQUAL -1 OR
+   tactical_soldier_control_palette_include EQUAL -1 OR
+   tactical_soldier_control_background_types_include EQUAL -1 OR
+   tactical_soldier_control_profile_constants_include EQUAL -1 OR
+   tactical_soldier_control_employment_types_include EQUAL -1 OR
+   tactical_soldier_control_lighting_include EQUAL -1 OR
+   tactical_soldier_control_state_flags_include EQUAL -1 OR
+   NOT tactical_soldier_control_legacy_status_flag EQUAL -1 OR
+   NOT tactical_soldier_control_legacy_employment_type EQUAL -1 OR
+   NOT tactical_soldier_control_legacy_clothes_type EQUAL -1 OR
+   tactical_strategic_path_definition EQUAL -1 OR
+   tactical_strategic_path_alias EQUAL -1 OR
+   tactical_soldier_patrol_capacity EQUAL -1 OR
+   tactical_soldier_no_profile_sentinel EQUAL -1 OR
+   tactical_soldier_palette_lookup_declaration EQUAL -1 OR
+   tactical_soldier_palette_clothes_capacity EQUAL -1 OR
+   tactical_soldier_palette_clothes_table EQUAL -1 OR
+   tactical_soldier_background_xenophobic_flag EQUAL -1 OR
+   tactical_actor_vehicle_employment_type EQUAL -1 OR
+   tactical_actor_player_ai_control_flag EQUAL -1 OR
+   tactical_actor_covert_npc_flag EQUAL -1 OR
+   tactical_utilities_palette_include EQUAL -1 OR
+   tactical_multiplayer_connect_actor_include EQUAL -1 OR
+   tactical_logical_body_type_actor_include EQUAL -1 OR
+   tactical_soldier_components_patrol_include EQUAL -1 OR
+   tactical_soldier_create_patrol_include EQUAL -1 OR
+   tactical_soldier_profile_trait_stage_declaration EQUAL -1 OR
+   tactical_dynamic_dialogue_profile_include EQUAL -1 OR
+   tactical_actor_battle_sound_count EQUAL -1 OR
+   tactical_qarray_battle_sound_include EQUAL -1 OR
+   tactical_mapscreen_path_include EQUAL -1 OR
+   tactical_actor_service_api_header_test_target EQUAL -1 OR
+   tactical_actor_service_api_header_test_registration EQUAL -1 OR
+   tactical_actor_service_api_header_incomplete_assertion EQUAL -1 OR
+   tactical_actor_service_api_header_headless_dependency EQUAL -1 OR
+   tactical_actor_service_api_path_layout_assertion EQUAL -1 OR
+   tactical_actor_service_api_profile_assertion EQUAL -1 OR
+   tactical_actor_service_api_battle_sound_assertion EQUAL -1 OR
+   tactical_actor_service_api_background_assertion EQUAL -1 OR
+   tactical_actor_service_api_employment_assertion EQUAL -1 OR
+   tactical_actor_service_api_clothes_capacity_assertion EQUAL -1 OR
+   tactical_actor_service_api_status_flag_assertion EQUAL -1 OR
+   tactical_actor_light_toggle_declaration EQUAL -1 OR
+   tactical_actor_light_toggle_definition EQUAL -1 OR
+   NOT tactical_soldier_control_legacy_light_toggle EQUAL -1 OR
+   tactical_actor_light_toggle_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Actor service headers lost their focused path, patrol, profile, or isolated-compile boundary")
+endif()
+
+# The compatibility facade may re-export focused actor contracts, but it may
+# not become their second owner. Keep the persisted values and event entry
+# points pinned in their standalone headers and in compile-time tests.
+file(READ "${SOURCE_ROOT}/Tactical/Animation Data.h"
+  tactical_animation_data_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Grid Direction.h"
+  tactical_grid_direction_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Drug Types.h"
+  tactical_soldier_drug_types_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationState.h"
+  tactical_actor_animation_state_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorBloodState.h"
+  tactical_actor_blood_state_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEvents.h"
+  tactical_actor_events_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorInterrupts.h"
+  tactical_actor_interrupts_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMovementState.h"
+  tactical_actor_movement_state_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorPendingActionTypes.h"
+  tactical_actor_pending_action_types_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorQuoteFlags.h"
+  tactical_actor_quote_flags_header_contents)
+
+foreach(tactical_actor_focused_contract_include IN ITEMS
+    "Grid Direction.h"
+    "TacticalActorAnimationState.h"
+    "TacticalActorBloodState.h"
+    "TacticalActorDamageResolution.h"
+    "TacticalActorEvents.h"
+    "TacticalActorInterrupts.h"
+    "TacticalActorLongActions.h"
+    "TacticalActorMovementState.h"
+    "TacticalActorPendingActionTypes.h"
+    "TacticalActorQuoteFlags.h"
+    "TacticalActorSkills.h")
+  string(FIND "${tactical_soldier_control_header_contents}"
+    "#include \"${tactical_actor_focused_contract_include}\""
+    tactical_actor_focused_contract_include_position)
+  if(tactical_actor_focused_contract_include_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier Control.h stopped re-exporting focused actor contract ${tactical_actor_focused_contract_include}")
+  endif()
+endforeach()
+
+string(FIND "${tactical_animation_data_header_contents}"
+  "struct ANIM_PROF_TILE" tactical_animation_profile_tile_contract)
+string(FIND "${tactical_grid_direction_header_contents}"
+  "UINT8 GetDirectionFromGridNo" tactical_grid_direction_contract)
+string(FIND "${tactical_soldier_drug_types_header_contents}"
+  "DRUG_EFFECT_MAX = 20" tactical_soldier_drug_capacity_contract)
+string(FIND "${tactical_soldier_components_header_contents}"
+  "#include \"Soldier Drug Types.h\"" tactical_soldier_drug_component_include)
+string(FIND "${tactical_soldier_components_header_contents}"
+  "DRUG_EFFECT_HP = 0" tactical_soldier_drug_component_duplicate)
+string(FIND "${tactical_actor_animation_state_header_contents}"
+  "NO_PENDING_ANIMATION = 32001" tactical_actor_animation_sentinel_contract)
+string(FIND "${tactical_actor_blood_state_header_contents}"
+  "MAXBLOOD = 40" tactical_actor_blood_capacity_contract)
+string(FIND "${tactical_actor_events_header_contents}"
+  "void SendSoldierPositionEvent(" tactical_actor_position_event_contract)
+string(FIND "${tactical_actor_interrupts_header_contents}"
+  "BOOLEAN ResolvePendingInterrupt(" tactical_actor_interrupt_contract)
+string(FIND "${tactical_actor_movement_state_header_contents}"
+  "REASON_STOPPED_NO_APS = 0" tactical_actor_movement_reason_contract)
+string(FIND "${tactical_actor_pending_action_types_header_contents}"
+  "MERC_OPENDOOR = 0" tactical_actor_pending_action_contract)
+string(FIND "${tactical_actor_pending_action_types_header_contents}"
+  "THROW_TARGET_MERC_CATCH" tactical_actor_throw_action_contract)
+string(FIND "${tactical_actor_quote_flags_header_contents}"
+  "#define SOLDIER_QUOTE_SAID_IN_SHIT" tactical_actor_quote_flag_contract)
+string(FIND "${tactical_actor_skills_header_contents}"
+  "SKILLS_MAX," tactical_actor_skill_capacity_contract)
+string(FIND "${tactical_actor_damage_resolution_header_contents}"
+  "TAKE_DAMAGE_GAS_NOTFIRE" tactical_actor_damage_reason_contract)
+string(FIND "${tactical_actor_long_actions_header_contents}"
+  "MTA_HACK" tactical_actor_long_action_contract)
+string(FIND "${tactical_test_build_contents}"
+  "set(tactical_actor_contract_headers" tactical_actor_contract_compile_list)
+string(FIND "${tactical_test_build_contents}"
+  "tactical_actor_contract_header_sources" tactical_actor_contract_compile_sources)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(DRUG_EFFECT_MAX == 20);" tactical_actor_drug_capacity_test)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(NO_PENDING_ANIMATION == 32001);" tactical_actor_animation_sentinel_test)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(MERC_MEDICALSPLINT == 23);" tactical_actor_pending_action_test)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(SKILLS_MAX == 20);" tactical_actor_skill_capacity_test)
+
+foreach(tactical_actor_retired_facade_definition IN ITEMS
+    "NO_PENDING_ANIMATION = 32001"
+    "MAXBLOOD = 40"
+    "MERC_OPENDOOR = 0"
+    "#define SOLDIER_QUOTE_SAID_IN_SHIT"
+    "SKILLS_FIRST = 0"
+    "TAKE_DAMAGE_GUNFIRE = 1"
+    "MTA_NONE = 0"
+    "struct ANIM_PROF_TILE")
+  string(FIND "${tactical_soldier_control_header_contents}"
+    "${tactical_actor_retired_facade_definition}"
+    tactical_actor_retired_facade_definition_position)
+  if(NOT tactical_actor_retired_facade_definition_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier Control.h regained focused contract definition '${tactical_actor_retired_facade_definition}'")
+  endif()
+endforeach()
+
+if(tactical_animation_profile_tile_contract EQUAL -1 OR
+   tactical_grid_direction_contract EQUAL -1 OR
+   tactical_soldier_drug_capacity_contract EQUAL -1 OR
+   tactical_soldier_drug_component_include EQUAL -1 OR
+   NOT tactical_soldier_drug_component_duplicate EQUAL -1 OR
+   tactical_actor_animation_sentinel_contract EQUAL -1 OR
+   tactical_actor_blood_capacity_contract EQUAL -1 OR
+   tactical_actor_position_event_contract EQUAL -1 OR
+   tactical_actor_interrupt_contract EQUAL -1 OR
+   tactical_actor_movement_reason_contract EQUAL -1 OR
+   tactical_actor_pending_action_contract EQUAL -1 OR
+   tactical_actor_throw_action_contract EQUAL -1 OR
+   tactical_actor_quote_flag_contract EQUAL -1 OR
+   tactical_actor_skill_capacity_contract EQUAL -1 OR
+   tactical_actor_damage_reason_contract EQUAL -1 OR
+   tactical_actor_long_action_contract EQUAL -1 OR
+   tactical_actor_contract_compile_list EQUAL -1 OR
+   tactical_actor_contract_compile_sources EQUAL -1 OR
+   tactical_actor_drug_capacity_test EQUAL -1 OR
+   tactical_actor_animation_sentinel_test EQUAL -1 OR
+   tactical_actor_pending_action_test EQUAL -1 OR
+   tactical_actor_skill_capacity_test EQUAL -1)
+  message(FATAL_ERROR
+    "Focused actor compatibility contracts lost ownership, standalone compilation, or stable-value coverage")
 endif()
 
 set(tactical_actor_component_accessors

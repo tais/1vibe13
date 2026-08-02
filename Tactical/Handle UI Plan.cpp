@@ -12,6 +12,8 @@
 	#include "message.h"
 	#include "Soldier Create.h"
 	#include "SoldierRepository.h"
+	#include "Grid Direction.h"
+	#include "Soldier Profile Constants.h"
 	#include "TacticalEntityHost.h"
 	#include "Interface.h"
 

@@ -1,5 +1,6 @@
 	#include "Player Command.h"
 #include "TacticalWorldAdapter.h"
+#include "Disease.h"
 	#include "Queen Command.h"
 	#include "Campaign Types.h"
 	#include "strategic.h"

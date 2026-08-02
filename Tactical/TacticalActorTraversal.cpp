@@ -14,6 +14,8 @@
 #include "Morale.h"
 #include "Points.h"
 #include "TacticalActor.h"
+#include "TacticalActorAnimationState.h"
+#include "TacticalActorQuoteFlags.h"
 #include "Structure Wrap.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"

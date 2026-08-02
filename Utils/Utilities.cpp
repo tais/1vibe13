@@ -11,6 +11,7 @@
 	#include "Font Control.h"
 	#include "Overhead.h"
 	#include "Overhead Types.h"
+	#include "Soldier Palette.h"
 	#include "WCheck.h"
 	#include "Sys Globals.h"
 

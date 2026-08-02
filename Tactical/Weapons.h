@@ -1,7 +1,10 @@
 #ifndef __WEAPONS_H
 #define __WEAPONS_H
 
-#include "Soldier Control.h"
+#include "Item Types.h"
+#include "Overhead Types.h"
+
+class TacticalActor;
 
 //ADB moved from Soldier Control.h
 enum WeaponMode

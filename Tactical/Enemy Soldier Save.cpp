@@ -5,6 +5,8 @@
 	#include "strategicmap.h"
 	#include "Overhead.h"
 #include "SoldierRepository.h"
+	#include "Soldier Profile Constants.h"
+	#include "TacticalActor.h"
 	#include "Soldier Create.h"
 	#include "Soldier Init List.h"
 	#include "DEBUG.H"

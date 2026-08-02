@@ -6,6 +6,7 @@
 
 #include <math.h>
 #include "TacticalActorModifiers.h"
+#include "Soldier Profile Constants.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "ASD.h"

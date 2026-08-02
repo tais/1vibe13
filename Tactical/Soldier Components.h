@@ -4,6 +4,8 @@
 #include "Disease Types.h"
 #include "Keys.h"
 #include "Overhead Types.h"
+#include "Soldier Patrol Types.h"
+#include "Soldier Drug Types.h"
 #include "types.h"
 
 #include <functional>
@@ -95,33 +97,10 @@ enum
 	NUM_ASSIST_SLOTS = 156,
 };
 
-// Fixed patrol capacity from the established soldier save schema.
-enum
-{
-	SOLDIER_PATROL_GRID_COUNT = 10,
-};
-
 // Fixed tactical display-name capacity from the established soldier schema.
 enum
 {
 	SOLDIER_NAME_LENGTH = 10,
-};
-
-// Stable indices and capacity for persistent drug effects. The unused slots
-// are part of the established save schema and remain serialized.
-enum
-{
-	DRUG_EFFECT_HP = 0,
-	DRUG_EFFECT_BP,
-	DRUG_EFFECT_AP,
-	DRUG_EFFECT_MORALE,
-	DRUG_EFFECT_PHYS_RES,
-	DRUG_EFFECT_STR,
-	DRUG_EFFECT_AGI,
-	DRUG_EFFECT_DEX,
-	DRUG_EFFECT_WIS,
-
-	DRUG_EFFECT_MAX = 20,
 };
 
 // Canonical identity of one soldier incarnation. Slot identity, display name,

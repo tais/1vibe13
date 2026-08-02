@@ -3,6 +3,8 @@
 #include "TacticalActorWorldPlacement.h"
 	#include "Render Fun.h"
 	#include "SoldierRepository.h"
+	#include "Soldier Control.h"
+	#include "GameSettings.h"
 #include "TacticalWorldAdapter.h"
 #include "TacticalActorMedicalServices.h"
 	#include "DEBUG.H"

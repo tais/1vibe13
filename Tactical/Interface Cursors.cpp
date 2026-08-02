@@ -1,5 +1,7 @@
 	#include "sgp.h"
 	#include "SoldierRepository.h"
+	#include "TacticalActor.h"
+	#include "Timer Control.h"
 	#include "mousesystem.h"
 	#include "Handle UI.h"
 	#include "Cursors.h"

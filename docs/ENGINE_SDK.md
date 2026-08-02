@@ -862,13 +862,41 @@ surface. Architecture CI rejects direct `Soldier Control.h` includes from every
 `TacticalActor*.cpp` implementation. Pointer-only legacy application APIs also
 forward-declare `TacticalActor` rather than importing that facade; their
 standalone compile guard covers laptop, strategic, tactical, and tile-engine
+headers. This now covers the complete application-header surface: a second
+isolated compile matrix builds each of the final 30 service/API headers in its
+own translation unit and verifies that `TacticalActor` remains incomplete. A
+second matrix compiles all 22 focused compatibility/schema headers standalone;
+compile-time assertions pin their stable values and layouts.
+Use `Strategic Path Types.h` for the stable `PathSt` route node,
+`Soldier Patrol Types.h` for map-placement patrol capacities, and
+`Soldier Profile Constants.h` for the reserved `NO_PROFILE` sentinel. The
+palette contract is available through `Soldier Palette.h`, stable background
+bits through `Soldier Background Types.h`, battle-voice indices through
+`TacticalActorBattleSounds.h`, serialized status/feature masks through
+`TacticalActorStateFlags.h`, and employment codes through
+`TacticalActorEmploymentTypes.h`. Animation intent and hit-transition sentinels
+are in `TacticalActorAnimationState.h`; pending interactions and throw actions
+in `TacticalActorPendingActionTypes.h`; stop reasons in
+`TacticalActorMovementState.h`; and quote-history and blood schema in
+`TacticalActorQuoteFlags.h` and `TacticalActorBloodState.h`. Skills, damage
+reasons, long actions, interrupts, and replicated event wrappers stay with
+their focused actor domains. Use `Animation Data.h` for animation-profile
+layouts, `Grid Direction.h` for direction helpers, `Soldier Drug Types.h` for
+persistent drug-effect indices/capacity, and `Soldier Palette.h` for uniform
+IDs, clothing-palette records, and palette contracts. The player light-option
+refresh is declared
+with the personal-light operations in `TacticalActorLighting.h`. The legacy
+`Soldier Control.h` facade re-exports those contracts, while
+`Utils All.h` remains the only intentional public compatibility umbrella;
+architecture CI rejects direct facade imports from all other application
 headers. Include `Soldier Class.h` for stable soldier-class codes and
 enemy/militia classification without importing actor storage or soldier-control
 operations. Visibility requests with
 unavailable world storage or malformed actor, grid, level, direction, vehicle,
 or light state fail without legacy table access. These C++ boundaries do not
 alter save bytes, network or animation event formats, combat/content data,
-visibility rules, palettes, audio, maps, XML, or Lua APIs.
+visibility rules, status/feature masks, employment codes, palettes, audio,
+maps, XML, or Lua APIs.
 `TacticalActorAnimationFrames` owns directional animation-surface mapping,
 animation-code-to-render-frame selection, and the fixed frame used for frozen
 actors. New callers use `spriteDirectionForSurface`, `selectFrame`, or

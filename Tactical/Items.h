@@ -1,6 +1,5 @@
 #ifndef ITEMS_H
 #define ITEMS_H
-#include "Soldier Control.h"
 #include "Overhead Types.h"
 #include "Weapons.h"
 

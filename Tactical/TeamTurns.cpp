@@ -52,6 +52,7 @@
 #include "Map Information.h"
 #include "SoldierRepository.h"
 #include "TacticalActorSkills.h"
+#include "Soldier Control.h"
 
 
 #ifdef JA2UB

@@ -173,6 +173,7 @@
 #include "TacticalActorVisibility.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
+#include "renderworld.h"
 #include "Plan.h"
 #include "Animation Control.h"
 #include "Animation Data.h"
@@ -11173,6 +11174,14 @@ int main( int, char** )
 			!TacticalActorLighting::setPersonalLightLevel(
 				interactionActor) &&
 			!interactionActor.renderState().hasLightSprite();
+		const BOOLEAN previousMercLightOption =
+			gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT];
+		ClearRenderFlags(RENDER_FLAG_FULL);
+		HandlePlayerTogglingLightEffects(FALSE);
+		const bool lightingRefreshPreservesOptionAndInvalidatesRender =
+			gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT] ==
+				previousMercLightOption &&
+			(GetRenderFlags() & RENDER_FLAG_FULL) != 0;
 		interactionActor.renderState().lightSprite() =
 			MAX_LIGHT_SPRITES;
 		const bool malformedLightHandleIsCleared =
@@ -11415,6 +11424,7 @@ int main( int, char** )
 		       nonAiSelfDetonationIsRejected &&
 		       unavailableCombatActionsAreRejected &&
 		       unavailableLightingActionsAreRejected &&
+		       lightingRefreshPreservesOptionAndInvalidatesRender &&
 		       malformedLightHandleIsCleared &&
 		       malformedLightingInventoryIsRejected &&
 		       unavailableCombatReactionsAreRejected &&

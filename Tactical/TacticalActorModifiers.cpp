@@ -1,5 +1,9 @@
 #include "TacticalActorModifiers.h"
 
+#include "Soldier Profile Constants.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
+
 #include "TacticalActorConditions.h"
 #include "TacticalActorDisease.h"
 #include "TacticalActorRadio.h"

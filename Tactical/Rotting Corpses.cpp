@@ -40,6 +40,7 @@
 	#include "GameSettings.h"
 	#include "Interface Items.h"
 	#include "Soldier Profile.h"
+	#include "Soldier Control.h"
 	#include "Soldier macros.h"
 	#include "Keys.h"
 	#include "Render Fun.h"

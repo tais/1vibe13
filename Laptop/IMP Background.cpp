@@ -14,6 +14,7 @@
 	#include "WordWrap.h"
 	#include "CharProfile.h"
 	#include "soldier profile type.h"
+	#include "Soldier Background Types.h"
 	#include "IMP Compile Character.h"
 	#include "IMP Disability Trait.h"
     #include "IMP Character Trait.h"

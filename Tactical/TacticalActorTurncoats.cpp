@@ -1,4 +1,7 @@
 #include "TacticalActorTurncoats.h"
+
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalActorModifiers.h"
 

@@ -3,7 +3,8 @@
 // header for strategic structure
 #include "types.h"
 #include "mapscreen.h"
-#include "Soldier Control.h"
+
+class TacticalActor;
 
 // Flugente: airspace flags
 #define AIRSPACE_ENEMY_ACTIVE				0x01	//1		// controlled by enemy and active

@@ -15,6 +15,7 @@
 #include "Handle UI.h"
 #include "Overhead.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
 #include "Sound Control.h"
 #include "himage.h"
 #include "vobject.h"

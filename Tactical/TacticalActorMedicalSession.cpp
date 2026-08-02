@@ -1,6 +1,9 @@
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorMedicalSession.h"
 
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
+
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 

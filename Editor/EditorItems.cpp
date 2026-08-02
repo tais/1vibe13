@@ -32,6 +32,7 @@
 	#include "WordWrap.h"
 	#include "Item Statistics.h"
 	#include "Simple Render Utils.h"
+	#include "Soldier Profile Constants.h"
 	#include "worldman.h"
 	#include "random.h"
 	#include "pits.h"

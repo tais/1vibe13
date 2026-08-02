@@ -1,5 +1,6 @@
 	#include "builddefines.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
 	#include <stdio.h>
 	#include "types.h"
 	#include "Strategic Movement.h"

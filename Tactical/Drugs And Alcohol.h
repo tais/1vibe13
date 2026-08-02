@@ -1,7 +1,12 @@
 #ifndef __DRUGS_AND_ALCOHOL_H
 #define __DRUGS_AND_ALCOHOL_H
 
-#include "Soldier Control.h"
+#include "types.h"
+#include "Soldier Drug Types.h"
+
+#include <vector>
+
+class TacticalActor;
 
 typedef struct
 {

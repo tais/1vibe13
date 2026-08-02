@@ -2,10 +2,13 @@
 #define _INTERFACE_H
 
 #include "Handle UI.h"
+#include "Item Types.h"
 #include "mousesystem.h"
 #include "structure.h"
 #include "Assignments.h"		// added by Flugente for the stat-enums
 #include <EditorMercs.h>
+
+#include <map>
 
 #define		MAX_UICOMPOSITES				4
 

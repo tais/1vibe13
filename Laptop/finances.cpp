@@ -19,6 +19,7 @@
 	#include "Town Militia.h"
 	#include "CampaignStats.h"		// added by Flugente
 	#include "DynamicDialogue.h"	// added by Flugente
+	#include "GameSettings.h"
 
 
 // the global defines

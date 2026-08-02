@@ -7,7 +7,10 @@
 
 #include "Overhead.h"
 #include "SoldierRepository.h"
+#include "TacticalActor.h"
 #include "TacticalActorDisease.h"
+#include "TacticalActorStateFlags.h"
+#include "Soldier Profile Constants.h"
 #include "random.h"
 #include "Assignments.h"
 #include <mapscreen.h>

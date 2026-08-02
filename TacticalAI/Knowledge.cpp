@@ -1,3 +1,4 @@
+	#include "Soldier Control.h"
 	#include "ai.h"
 	#include "AIInternals.h"
 	#include "opplist.h"

@@ -1,5 +1,10 @@
 #include "TacticalActorTurnLifecycle.h"
 
+#include "TacticalActorBloodState.h"
+#include "TacticalActorEmploymentTypes.h"
+#include "TacticalActorQuoteFlags.h"
+#include "TacticalActorStateFlags.h"
+
 #include "TacticalActorOrientation.h"
 #include "TacticalActorWorldPlacement.h"
 #include "Soldier Functions.h"

@@ -1,5 +1,6 @@
 #include "builddefines.h"
 #include "TacticalActorModifiers.h"
+#include "Soldier Control.h"
 #include "SoldierRepository.h"
 #include "TacticalActorDisease.h"
 #include "TacticalEntityHost.h"

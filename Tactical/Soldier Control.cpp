@@ -1,4 +1,5 @@
 #include "TacticalActorLocomotion.h"
+#include "Soldier Control.h"
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorAnimationTransitions.h"
@@ -835,8 +836,6 @@ extern void ValidatePlayersAreInOneGroupOnly( );
 extern void MapScreenDefaultOkBoxCallback( UINT8 bExitValue );
 void SAIReportError( STR16 wErrorString );
 #endif
-
-void	EnableDisableSoldierLightEffects( BOOLEAN fEnableLights );
 
 
 void HandleVehicleMovementSound( TacticalActor *pSoldier, BOOLEAN fOn )
@@ -4249,66 +4248,6 @@ void DebugValidateSoldierData( )
 }
 #endif
 
-
-
-void HandlePlayerTogglingLightEffects( BOOLEAN fToggleValue )
-{
-	if ( fToggleValue )
-	{
-		//Toggle light status
-		if ( gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT] )
-		{
-			gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT] = FALSE;
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[MSG_MERC_CASTS_LIGHT_OFF] );
-		}
-		else
-		{
-			gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT] = TRUE;
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[MSG_MERC_CASTS_LIGHT_ON] );
-		}
-	}
-
-	//Update all the mercs in the sector
-	EnableDisableSoldierLightEffects( gGameSettings.fOptions[TOPTION_MERC_CASTS_LIGHT] );
-
-	SetRenderFlags( RENDER_FLAG_FULL );
-}
-
-
-void EnableDisableSoldierLightEffects( BOOLEAN fEnableLights )
-{
-	TacticalActor *pSoldier = NULL;
-
-	// Loop through player teams...
-	SoldierID cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID;
-	for ( ; cnt <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++cnt )
-	{
-		pSoldier =
-			GetJa2SoldierRepository().resolve(
-				cnt );
-		//if the soldier is in the sector
-		if ( pSoldier != nullptr && pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() >= OKLIFE )
-		{
-			//if we are to enable the lights
-			if ( fEnableLights )
-			{
-				//Add the light around the merc
-				(void)TacticalActorLighting::positionPersonalLight(
-					*pSoldier);
-			}
-			else
-			{
-				//Delete the fake light the merc casts
-				(void)TacticalActorLighting::destroyPersonalLight(
-					*pSoldier);
-
-				//Light up the merc though
-				(void)TacticalActorLighting::setPersonalLightLevel(
-					*pSoldier);
-			}
-		}
-	}
-}
 
 
 BOOLEAN DoesSoldierWearGasMask( TacticalActor *pSoldier )//dnl ch40 200909

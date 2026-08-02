@@ -1,4 +1,5 @@
 	#include "DEBUG.H"
+	#include "TacticalActor.h"
 	#include "renderworld.h"
 	#include "Interface.h"
 	#include "worldman.h"

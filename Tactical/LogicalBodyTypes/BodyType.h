@@ -11,6 +11,7 @@
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "Animation Data.h"
 #include "Animation Control.h"
+#include "TacticalActor.h"
 
 namespace LogicalBodyTypes {
 

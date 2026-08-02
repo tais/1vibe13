@@ -32,6 +32,7 @@
 	#include "Editor Callback Prototypes.h"
 	#include "Editor Modes.h"
 	#include "Text Input.h"
+	#include "Timer Control.h"
 	#include "Item Statistics.h"
 	#include "Map Information.h"
 	#include "Sector Summary.h"

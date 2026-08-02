@@ -1,5 +1,7 @@
 	#include <string.h>
 #include "TacticalWorldAdapter.h"
+#include "TacticalActor.h"
+#include "TacticalActorStateFlags.h"
 	#include "sgp.h"
 	#include "himage.h"
 	#include "vobject.h"

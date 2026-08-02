@@ -1,5 +1,7 @@
 #include "TacticalActorBattleSounds.h"
 
+#include "TacticalActorStateFlags.h"
+
 #include "TacticalActorOrientation.h"
 #include "TacticalActorWorldPlacement.h"
 #include "Soldier Functions.h"

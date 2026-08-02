@@ -4,11 +4,13 @@
 #include <Engine/Adapters/JA2/TacticalEntity.h>
 
 #include "types.h"
-#include "Soldier Control.h"
+#include "Item Types.h"
 #include "MessageBoxScreen.h"
 #include "Font Control.h"
 // WDS - make number of mercenaries, etc. be configurable
 #include "Squads.h"
+
+class TacticalActor;
 
 
 typedef struct FASTHELPREGION {

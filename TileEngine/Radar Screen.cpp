@@ -1,4 +1,6 @@
 #include "builddefines.h"
+#include "GameSettings.h"
+#include "Soldier Control.h"
 
 	#include "sgp.h"
 	#include "Radar Screen.h"

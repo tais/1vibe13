@@ -23,12 +23,14 @@
 #include "Soldier macros.h"
 #include "Dialogue Control.h"
 #include "Soldier Add.h"
+#include "Soldier Background Types.h"
 #include "random.h"
 #include "strategicmap.h"
 #include "connect.h"
 #include "Campaign.h"
 #include "Points.h"
 #include "SoldierRepository.h"
+#include "Soldier Control.h"
 #include "TacticalActorDisease.h"
 
 #ifndef JA2UB

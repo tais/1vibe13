@@ -1,5 +1,7 @@
 #include "TacticalActorPrisonerOperations.h"
 
+#include "TacticalActorStateFlags.h"
+
 #include "Campaign Types.h"
 #include "Isometric Utils.h"
 #include "Overhead.h"

@@ -1,5 +1,7 @@
 	#include "types.h"
 	#include "SoldierRepository.h"
+	#include "Soldier Profile Constants.h"
+	#include "TacticalActor.h"
 	#include <cstdlib>
 	#include "Arms Dealer Init.h"
 	#include "DEBUG.H"

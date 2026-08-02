@@ -1,6 +1,8 @@
 // MODULE FOR SOUND SYSTEM
 
 	#include "sgp.h"
+	#include "TacticalActor.h"
+	#include "Timer Control.h"
 	#include "Sound Control.h"
 	#include "soundman.h"
 	#include "Overhead.h"

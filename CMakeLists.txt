@@ -549,6 +549,7 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
   # registered test set, so keep focused compile guards in that build closure.
   add_dependencies(ja2_headless_tests tactical_actor_header_tests)
   add_dependencies(ja2_headless_tests tactical_actor_api_headers_tests)
+  add_dependencies(ja2_headless_tests tactical_actor_service_api_headers_tests)
 
   # Focused platform/VFS/input/audio lifecycle coverage. It deliberately uses
   # a separate process from the broad headless suite so global compatibility
