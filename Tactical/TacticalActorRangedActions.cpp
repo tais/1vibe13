@@ -35,8 +35,6 @@
 #include <cstdint>
 #include <map>
 
-extern UINT16 usForceAnimState;
-
 namespace
 {
 bool hasValidAnimation(const TacticalActor& actor) noexcept

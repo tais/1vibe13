@@ -281,7 +281,6 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( TacticalActor *pSoldier, INT32 u
 
 extern BOOLEAN	gfExitDebugScreen;
 extern INT8		gCurDebugPage;
-extern BOOLEAN	gfGetNewPathThroughPeople;
 extern BOOLEAN	gfIgnoreOnSelectedGuy;
 extern BOOLEAN	gfInOpenDoorMenu;
 

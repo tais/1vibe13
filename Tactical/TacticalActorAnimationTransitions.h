@@ -4,6 +4,9 @@
 
 class TacticalActor;
 
+// Legacy override shared by the focused animation and combat domains.
+extern std::uint16_t usForceAnimState;
+
 namespace TacticalActorAnimationTransitions
 {
 	bool changeState(

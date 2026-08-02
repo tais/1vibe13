@@ -1,6 +1,7 @@
 #include "TacticalActorTurnLifecycle.h"
 
 #include "TacticalActorBloodState.h"
+#include "TacticalActorBleeding.h"
 #include "TacticalActorEmploymentTypes.h"
 #include "TacticalActorQuoteFlags.h"
 #include "TacticalActorStateFlags.h"
@@ -157,8 +158,6 @@
 #include <string>
 
 
-INT32 CheckBleeding(TacticalActor* actor);
-
 void TacticalActorTurnLifecycle::beginTurn(TacticalActor& subject, bool fFromRealTime, INT32 iRealTimeCounter)
 {
 	if (!subject.roster().active())
@@ -204,7 +203,7 @@ void TacticalActorTurnLifecycle::beginTurn(TacticalActor& subject, bool fFromRea
 		{
 			if ( subject.vitals().bleeding() || subject.vitals().health() < OKLIFE ) // is he bleeding or dying?
 			{
-				iBlood = CheckBleeding( &subject );	// check if he might lose another life point
+				iBlood = TacticalActorBleeding::check(subject);	// check if he might lose another life point
 
 				// ATE: Only if in sector!
 				if ( subject.roster().inSector() )

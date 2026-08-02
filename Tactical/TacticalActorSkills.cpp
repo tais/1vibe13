@@ -11,6 +11,7 @@
 #include "TacticalActorWorldPlacement.h"
 
 #include "Animation Control.h"
+#include "Auto Bandage.h"
 #include "Campaign.h"
 #include "Campaign Types.h"
 #include "Food.h"
@@ -26,6 +27,7 @@
 #include "Points.h"
 #include "Queen Command.h"
 #include "Soldier Class.h"
+#include "SoldierRepository.h"
 #include "TacticalActor.h"
 #include "Soldier macros.h"
 #include "Squads.h"
@@ -40,6 +42,211 @@
 #include <string>
 
 extern SECTOR_EXT_DATA SectorExternalData[256][4];
+extern BOOLEAN CheckAutoBandage();
+
+bool TacticalActorSkills::isTwoStagedTrait(
+	std::uint8_t trait) noexcept
+{
+	if (gGameOptions.fNewTraitSystem)
+		return trait > 0 &&
+			(trait == COVERT_NT || trait <= NUM_ORIGINAL_MAJOR_TRAITS);
+
+	return trait != IMP_SKILL_TRAITS__ELECTRONICS &&
+		trait != IMP_SKILL_TRAITS__AMBIDEXTROUS &&
+		trait != IMP_SKILL_TRAITS__CAMO;
+}
+
+bool TacticalActorSkills::isMajorTrait(
+	std::uint8_t trait) noexcept
+{
+	return trait > 0 &&
+		(trait == COVERT_NT || trait <= NUM_ORIGINAL_MAJOR_TRAITS);
+}
+
+BOOLEAN TwoStagedTrait(UINT8 trait)
+{
+	return TacticalActorSkills::isTwoStagedTrait(trait)
+		? TRUE
+		: FALSE;
+}
+
+BOOLEAN MajorTrait(UINT8 trait)
+{
+	return TacticalActorSkills::isMajorTrait(trait)
+		? TRUE
+		: FALSE;
+}
+
+BOOLEAN HAS_SKILL_TRAIT(
+	TacticalActor* actor,
+	UINT8 trait)
+{
+	if (actor == nullptr)
+		return FALSE;
+	if (trait == INTEL || trait == DISGUISE ||
+		trait == VARIOUSSKILLS)
+	{
+		return TRUE;
+	}
+	if (trait == AUTOBANDAGESKILLS)
+		return CheckAutoBandage();
+
+	if (!gGameOptions.fNewTraitSystem)
+	{
+		return actor->statistics().skillTrait(0) == trait ||
+			actor->statistics().skillTrait(1) == trait
+			? TRUE
+			: FALSE;
+	}
+
+	INT8 majorTraits = 0;
+	const INT8 maximumTraits =
+		std::min<INT8>(30, gSkillTraitValues.ubMaxNumberOfTraits);
+	const INT8 maximumMajorTraits =
+		std::min<INT8>(20, gSkillTraitValues.ubNumberOfMajorTraitsAllowed);
+	for (INT8 index = 0; index < maximumTraits; ++index)
+	{
+		const UINT8 candidate = actor->statistics().skillTrait(index);
+		if (candidate == trait)
+			return TRUE;
+		if (TacticalActorSkills::isMajorTrait(candidate))
+			++majorTraits;
+		if (majorTraits > maximumMajorTraits)
+			break;
+	}
+	return FALSE;
+}
+
+INT8 NUM_SKILL_TRAITS(
+	TacticalActor* actor,
+	UINT8 trait)
+{
+	if (actor == nullptr)
+		return 0;
+
+	INT8 count = 0;
+	if (!gGameOptions.fNewTraitSystem)
+	{
+		if (actor->statistics().skillTrait(0) == trait)
+			++count;
+		if (actor->statistics().skillTrait(1) == trait)
+			++count;
+		if (trait == ELECTRONICS_OT ||
+			trait == AMBIDEXT_OT ||
+			trait == CAMOUFLAGED_OT)
+		{
+			return std::min<INT8>(1, count);
+		}
+		return count;
+	}
+
+	INT8 majorTraits = 0;
+	const INT8 maximumTraits =
+		std::min<INT8>(30, gSkillTraitValues.ubMaxNumberOfTraits);
+	const INT8 maximumMajorTraits =
+		std::min<INT8>(20, gSkillTraitValues.ubNumberOfMajorTraitsAllowed);
+	for (INT8 index = 0; index < maximumTraits; ++index)
+	{
+		const UINT8 candidate = actor->statistics().skillTrait(index);
+		if (candidate == trait)
+			++count;
+		if (TacticalActorSkills::isMajorTrait(candidate))
+			++majorTraits;
+		if (majorTraits > maximumMajorTraits)
+			break;
+	}
+
+	return TacticalActorSkills::isTwoStagedTrait(trait)
+		? std::min<INT8>(2, count)
+		: std::min<INT8>(1, count);
+}
+
+UINT8 GetSquadleadersCountInVicinity(
+	TacticalActor* actor,
+	BOOLEAN withHigherLevel,
+	BOOLEAN doNotCheckDistance)
+{
+	if (actor == nullptr ||
+		actor->roster().team() < 0 ||
+		actor->roster().team() >= MAXTEAMS)
+	{
+		return 0;
+	}
+
+	UINT8 count = 0;
+	const auto countTeam =
+		[&](INT8 team, bool militiaMercPass) {
+			for (SoldierID id = gTacticalStatus.Team[team].bFirstID;
+				 id <= gTacticalStatus.Team[team].bLastID;
+				 ++id)
+			{
+				TacticalActor* leader =
+					GetJa2SoldierRepository().resolve(id);
+				if (leader == nullptr || leader == actor ||
+					!leader->roster().active() ||
+					leader->vitals().health() < OKLIFE ||
+					!HAS_SKILL_TRAIT(leader, SQUADLEADER_NT))
+				{
+					continue;
+				}
+
+				const INT16 distance = PythSpacesAway(
+					actor->position().gridNo(),
+					leader->position().gridNo());
+				const bool inNormalRange =
+					distance <= gSkillTraitValues.usSLRadiusNormal;
+				const bool extendedEquipment = militiaMercPass
+					? HasExtendedEarOn(leader)
+					: actor->roster().team() == ENEMY_TEAM ||
+						(HasExtendedEarOn(actor) &&
+						 HasExtendedEarOn(leader));
+				if (!doNotCheckDistance && !inNormalRange &&
+					(!extendedEquipment ||
+					 distance >
+						 gSkillTraitValues.usSLRadiusExtendedEar))
+				{
+					continue;
+				}
+
+				const UINT8 traitCount =
+					NUM_SKILL_TRAITS(leader, SQUADLEADER_NT);
+				if (withHigherLevel)
+				{
+					const INT16 effectiveLevel =
+						actor->statistics().experienceLevel() +
+						count *
+							gSkillTraitValues.
+								ubSLEffectiveLevelInRadius;
+					if (leader->statistics().experienceLevel() >
+						effectiveLevel)
+					{
+						count += std::min<INT16>(
+							leader->statistics().experienceLevel() -
+								effectiveLevel,
+							traitCount);
+					}
+				}
+				else
+				{
+					count += traitCount;
+				}
+
+				if (count >= gSkillTraitValues.ubSLMaxBonuses)
+					break;
+			}
+		};
+
+	countTeam(actor->roster().team(), false);
+	if (actor->roster().team() == MILITIA_TEAM &&
+		count < gSkillTraitValues.ubSLMaxBonuses)
+	{
+		countTeam(OUR_TEAM, true);
+	}
+
+	return std::min<UINT8>(
+		gSkillTraitValues.ubSLMaxBonuses,
+		count);
+}
 
 // Check whether an actor can use a trait skill. Optional action-point checks
 // are kept at this boundary so strategic callers do not need tactical state.

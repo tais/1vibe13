@@ -5,12 +5,10 @@
 #include "worlddef.h"
 #include "Isometric Utils.h"
 #include "Rotting Corpses.h"
+#include "TacticalActorAiBehavior.h"
 
 class TacticalActor;
 struct SimulationCommandDispatchResult;
-
-BOOLEAN AIDecideHipOrShoulderStance(
-	TacticalActor* actor, INT32 targetGrid);
 
 #define TESTAICONTROL
 

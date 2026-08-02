@@ -1499,7 +1499,6 @@ set(global_actor_session_files
   "${SOURCE_ROOT}/Tactical/Handle UI.h"
   "${SOURCE_ROOT}/Tactical/Militia Control.cpp"
   "${SOURCE_ROOT}/Tactical/Militia Control.h"
-  "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
   "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
   "${SOURCE_ROOT}/Tactical/VehicleMenu.cpp"
   "${SOURCE_ROOT}/Tactical/VehicleMenu.h"
@@ -2177,8 +2176,15 @@ foreach(tactical_soldier_control_header_line IN LISTS
 endforeach()
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActor.h"
   tactical_actor_header_contents)
-file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
-  tactical_actor_source_contents)
+set(tactical_soldier_control_source
+  "${SOURCE_ROOT}/Tactical/Soldier Control.cpp")
+if(EXISTS "${tactical_soldier_control_source}")
+  message(FATAL_ERROR
+    "Retired Soldier Control.cpp returned; place actor behavior in its focused owner")
+endif()
+# Retain the empty compatibility variable while older extraction ratchets are
+# progressively rewritten around the now-retired monolith.
+set(tactical_actor_source_contents "")
 file(READ "${SOURCE_ROOT}/Tactical/Civ Quotes.h"
   tactical_civ_quotes_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActor.cpp"
@@ -2201,6 +2207,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.h"
   tactical_actor_conditions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.cpp"
   tactical_actor_conditions_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorBleeding.h"
+  tactical_actor_bleeding_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorBleeding.cpp"
+  tactical_actor_bleeding_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAssignments.h"
   tactical_actor_assignments_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAssignments.cpp"
@@ -2275,6 +2285,14 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.h"
   tactical_actor_ai_behavior_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.cpp"
   tactical_actor_ai_behavior_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMovementAudio.h"
+  tactical_actor_movement_audio_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorMovementAudio.cpp"
+  tactical_actor_movement_audio_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorInterrupts.h"
+  tactical_actor_interrupts_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorInterrupts.cpp"
+  tactical_actor_interrupts_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLongActions.h"
   tactical_actor_long_actions_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorLongActions.cpp"
@@ -2488,19 +2506,12 @@ if(tactical_actor_compatibility_include EQUAL -1 OR
     "TacticalActor lost its focused aggregate header, legacy compatibility include, or standalone compile guard")
 endif()
 
-string(FIND "${tactical_actor_source_contents}"
-  "#include \"Soldier Control.h\""
-  tactical_actor_source_legacy_facade_include)
-string(FIND "${tactical_actor_source_contents}"
-  "#include \"TacticalActor.h\""
-  tactical_actor_source_focused_actor_include)
-string(FIND "${tactical_actor_source_contents}"
-  "RevivePlayerTeam" tactical_actor_source_legacy_team_revival)
-if(NOT tactical_actor_source_legacy_facade_include EQUAL -1 OR
-   tactical_actor_source_focused_actor_include EQUAL -1 OR
-   NOT tactical_actor_source_legacy_team_revival EQUAL -1)
+string(FIND "${tactical_build_contents}"
+  "Soldier Control.cpp"
+  tactical_actor_retired_source_build_entry)
+if(NOT tactical_actor_retired_source_build_entry EQUAL -1)
   message(FATAL_ERROR
-    "Soldier Control.cpp must use focused actor contracts and must not regain team-revival orchestration")
+    "Retired Soldier Control.cpp returned to the tactical build")
 endif()
 
 file(GLOB tactical_actor_implementation_files
@@ -2824,7 +2835,7 @@ string(FIND "${tactical_soldier_components_header_contents}"
 string(FIND "${tactical_soldier_create_header_contents}"
   "#include \"Soldier Patrol Types.h\""
   tactical_soldier_create_patrol_include)
-string(FIND "${tactical_soldier_profile_header_contents}"
+string(FIND "${tactical_actor_skills_header_contents}"
   "BOOLEAN TwoStagedTrait"
   tactical_soldier_profile_trait_stage_declaration)
 string(FIND "${tactical_dynamic_dialogue_header_contents}"
@@ -5613,6 +5624,126 @@ if(donor_condition_declaration EQUAL -1 OR
     "Tactical actor donor eligibility lost its declaration, definition, or headless coverage")
 endif()
 
+# The last Soldier Control implementation was retired as one ownership
+# milestone. Require every residual behavior in its focused source, require the
+# combined malformed-state tests, and make both the file and build entry a
+# forbidden regression.
+foreach(retired_soldier_control_owner IN ITEMS
+    "tactical_actor_bleeding_source_contents|TacticalActorBleeding::check("
+    "tactical_actor_bleeding_source_contents|TacticalActorBleeding::nextInterval("
+    "tactical_actor_bleeding_source_contents|TacticalActorBleeding::nextUnmovingInterval("
+    "tactical_actor_movement_audio_source_contents|TacticalActorMovementAudio::setVehicleMovement("
+    "tactical_actor_movement_audio_source_contents|TacticalActorMovementAudio::playFootstep("
+    "tactical_actor_ai_behavior_source_contents|TacticalActorAiBehavior::handleNewSituation("
+    "tactical_actor_ai_behavior_source_contents|TacticalActorAiBehavior::decideHipOrShoulderStance("
+    "tactical_actor_animation_selection_source_contents|useAlternativeBigMercAnimation("
+    "tactical_actor_animation_selection_source_contents|suspiciousActionPointDuration("
+    "tactical_actor_consumables_source_contents|BOOLEAN ApplyConsumable("
+    "tactical_actor_equipment_source_contents|TacticalActorEquipment::wearsUsableGasMask("
+    "tactical_actor_interactions_source_contents|TacticalActorInteractions::pickPickupAnimation("
+    "tactical_actor_interactions_source_contents|TacticalActorInteractions::beginSteal("
+    "tactical_actor_interrupts_source_contents|BOOLEAN ResolvePendingInterrupt("
+    "tactical_actor_skills_source_contents|BOOLEAN HAS_SKILL_TRAIT("
+    "tactical_actor_skills_source_contents|INT8 NUM_SKILL_TRAITS("
+    "tactical_actor_skills_source_contents|UINT8 GetSquadleadersCountInVicinity("
+    "tactical_actor_skills_source_contents|BOOLEAN TwoStagedTrait("
+    "tactical_actor_skills_source_contents|BOOLEAN MajorTrait("
+    "tactical_actor_world_placement_source_contents|TacticalActorWorldPlacement::setRoofMarker(")
+  string(REPLACE "|" ";" retired_soldier_control_fields
+    "${retired_soldier_control_owner}")
+  list(GET retired_soldier_control_fields 0
+    retired_soldier_control_owner_variable)
+  list(GET retired_soldier_control_fields 1
+    retired_soldier_control_definition)
+  string(FIND "${${retired_soldier_control_owner_variable}}"
+    "${retired_soldier_control_definition}"
+    retired_soldier_control_owner_definition)
+  if(retired_soldier_control_owner_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Focused owner lost retired Soldier Control behavior '${retired_soldier_control_definition}'")
+  endif()
+endforeach()
+
+foreach(retired_soldier_control_contract IN ITEMS
+    "tactical_actor_bleeding_header_contents|nextInterval("
+    "tactical_actor_bleeding_header_contents|nextUnmovingInterval("
+    "tactical_actor_movement_audio_header_contents|setVehicleMovement("
+    "tactical_actor_movement_audio_header_contents|playFootstep("
+    "tactical_actor_ai_behavior_header_contents|handleNewSituation("
+    "tactical_actor_ai_behavior_header_contents|decideHipOrShoulderStance("
+    "tactical_actor_animation_selection_header_contents|useAlternativeBigMercAnimation("
+    "tactical_actor_animation_selection_header_contents|suspiciousActionPointDuration("
+    "tactical_actor_equipment_header_contents|wearsUsableGasMask("
+    "tactical_actor_interactions_header_contents|pickPickupAnimation("
+    "tactical_actor_interactions_header_contents|beginSteal("
+    "tactical_actor_world_placement_header_contents|setRoofMarker(")
+  string(REPLACE "|" ";" retired_soldier_control_contract_fields
+    "${retired_soldier_control_contract}")
+  list(GET retired_soldier_control_contract_fields 0
+    retired_soldier_control_contract_variable)
+  list(GET retired_soldier_control_contract_fields 1
+    retired_soldier_control_declaration)
+  string(FIND "${${retired_soldier_control_contract_variable}}"
+    "${retired_soldier_control_declaration}"
+    retired_soldier_control_contract_declaration)
+  if(retired_soldier_control_contract_declaration EQUAL -1)
+    message(FATAL_ERROR
+      "Focused contract lost retired Soldier Control operation '${retired_soldier_control_declaration}'")
+  endif()
+endforeach()
+
+foreach(retired_soldier_control_facade_contract IN ITEMS
+    "TacticalActorAiBehavior.h"
+    "TacticalActorAnimationSelection.h"
+    "TacticalActorBleeding.h"
+    "TacticalActorConsumables.h"
+    "TacticalActorEquipment.h"
+    "TacticalActorInteractions.h"
+    "TacticalActorInterrupts.h"
+    "TacticalActorMovementAudio.h"
+    "TacticalActorSkills.h"
+    "TacticalActorWorldPlacement.h")
+  string(FIND "${tactical_soldier_control_header_contents}"
+    "#include \"${retired_soldier_control_facade_contract}\""
+    retired_soldier_control_facade_contract_include)
+  if(retired_soldier_control_facade_contract_include EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier Control.h stopped re-exporting focused compatibility contract '${retired_soldier_control_facade_contract}'")
+  endif()
+endforeach()
+
+string(FIND "${tactical_actor_animation_transitions_source_contents}"
+  "UINT16 usForceAnimState = INVALID_ANIMATION;"
+  forced_animation_state_owner)
+string(FIND "${tactical_actor_animation_transitions_header_contents}"
+  "extern std::uint16_t usForceAnimState;"
+  forced_animation_state_contract)
+string(FIND "${tactical_actor_route_execution_source_contents}"
+  "BOOLEAN gfGetNewPathThroughPeople = FALSE;"
+  route_people_path_owner)
+string(FIND "${tactical_actor_route_execution_header_contents}"
+  "extern std::uint8_t gfGetNewPathThroughPeople;"
+  route_people_path_contract)
+string(FIND "${tactical_soldier_stat_types_header_contents}"
+  "inline constexpr std::uint8_t bHealthStrRanges[]"
+  health_string_range_owner)
+if(forced_animation_state_owner EQUAL -1 OR
+   forced_animation_state_contract EQUAL -1 OR
+   route_people_path_owner EQUAL -1 OR
+   route_people_path_contract EQUAL -1 OR
+   health_string_range_owner EQUAL -1)
+  message(FATAL_ERROR
+    "A residual Soldier Control global lost its focused animation, route, or stat owner")
+endif()
+
+string(FIND "${headless_test_contents}"
+  "retired soldier-control behavior is owned by focused actor services with malformed-state coverage"
+  retired_soldier_control_headless_coverage)
+if(retired_soldier_control_headless_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Retired Soldier Control behavior lost its combined headless coverage")
+endif()
+
 foreach(required_actor_domain_source IN ITEMS
   "TacticalActor.cpp"
   "TacticalActorAnimationFootprint.cpp"
@@ -5624,6 +5755,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorAppearance.cpp"
   "TacticalActorAssignments.cpp"
   "TacticalActorBattleSounds.cpp"
+  "TacticalActorBleeding.cpp"
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
   "TacticalActorCombatReactions.cpp"
@@ -5637,11 +5769,13 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorLifecycle.cpp"
   "TacticalActorLocomotion.cpp"
   "TacticalActorModifiers.cpp"
+  "TacticalActorMovementAudio.cpp"
   "TacticalActorRecovery.cpp"
   "TacticalActorTraversal.cpp"
   "TacticalActorExplosives.cpp"
   "TacticalActorEquipment.cpp"
   "TacticalActorInteractions.cpp"
+  "TacticalActorInterrupts.cpp"
   "TacticalActorLighting.cpp"
   "TacticalActorProfileClassification.cpp"
   "TacticalActorRadio.cpp"
@@ -6650,9 +6784,9 @@ foreach(source_file IN LISTS world_state_files)
   endif()
 endforeach()
 
-# Soldier Control is now only the remaining tactical orchestration monolith;
-# support services with focused contracts must be compiled from their owning
-# translation units and must not regain second implementations here.
+# Soldier Control.cpp is retired. Support services with focused contracts must
+# remain compiled from their owning translation units and must not regain
+# second implementations in a replacement monolith.
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCrowBehavior.cpp"
   tactical_actor_crow_behavior_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDebug.cpp"

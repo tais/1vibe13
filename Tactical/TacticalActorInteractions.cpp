@@ -23,7 +23,9 @@
 #include "Isometric Utils.h"
 #include "Items.h"
 #include "Overhead.h"
+#include "PATHAI.H"
 #include "Points.h"
+#include "Simulation Command Legacy.h"
 #include "ShopKeeper Interface.h"
 #include "SkillCheck.h"
 #include "TacticalActor.h"
@@ -42,6 +44,8 @@
 #include "TacticalActorDisease.h"
 #include "TacticalActorExplosives.h"
 #include "TacticalActorModifiers.h"
+#include "TacticalActorMobility.h"
+#include "TacticalActorPendingActionTypes.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldAdapter.h"
 #include "Text.h"
@@ -65,6 +69,199 @@
 extern void ReduceAttachmentsOnGunForNonPlayerChars(
 	TacticalActor* actor,
 	OBJECTTYPE* object);
+
+void TacticalActorInteractions::pickPickupAnimation(
+	TacticalActor& actor,
+	std::int32_t itemIndex,
+	std::int32_t gridNo,
+	std::int8_t zLevel)
+{
+	if (actor.animationPlayback().state() >= NUMANIMATIONSTATES ||
+		TileIsOutOfBounds(gridNo))
+	{
+		return;
+	}
+
+	if (gridNo != actor.position().gridNo())
+	{
+		actor.animationIntent().pendingDirection() =
+			static_cast<INT8>(GetDirectionFromGridNo(gridNo, &actor));
+		const UINT8 stance =
+			gAnimControl[actor.animationPlayback().state()].ubEndHeight;
+		TacticalActorAnimationTransitions::initializeAnimation(
+			actor,
+			stance == ANIM_CROUCH || stance == ANIM_PRONE
+				? ADJACENT_GET_ITEM_CROUCHED
+				: ADJACENT_GET_ITEM,
+			0,
+			FALSE);
+		if (!(actor.status().flags() & SOLDIER_PC))
+			actor.aiPlanning().action() = AI_ACTION_PENDING_ACTION;
+		return;
+	}
+
+	const auto finishImmediately = [&]() {
+		UnSetUIBusy(actor.identity().id());
+		HandleSoldierPickupItem(&actor, itemIndex, gridNo, zLevel);
+		actor.pendingAction().clearAction();
+		(void)TacticalActorRouteExecution::settleIntoStationaryStance(actor);
+		if (!(actor.status().flags() & SOLDIER_PC))
+			ActionDone(&actor);
+	};
+
+	if (TacticalActorMobility::inWater(actor))
+	{
+		finishImmediately();
+		return;
+	}
+
+	switch (gAnimControl[actor.animationPlayback().state()].ubHeight)
+	{
+	case ANIM_STAND:
+	{
+		bool normalPickup = true;
+		if (zLevel > 0)
+		{
+			STRUCTURE* structure = FindStructure(
+				gridNo,
+				STRUCTURE_HASITEMONTOP | STRUCTURE_OPENABLE);
+			if (structure != nullptr)
+			{
+				normalPickup = false;
+				INT8 direction = actor.position().direction();
+				switch (structure->ubWallOrientation)
+				{
+				case OUTSIDE_TOP_LEFT:
+				case INSIDE_TOP_LEFT:
+					direction = NORTH;
+					break;
+				case OUTSIDE_TOP_RIGHT:
+				case INSIDE_TOP_RIGHT:
+					direction = WEST;
+					break;
+				default:
+					break;
+				}
+				(void)TacticalActorOrientation::setDesiredDirection(
+					actor,
+					direction);
+				(void)TacticalActorOrientation::setDirection(actor, direction);
+				TacticalActorAnimationTransitions::initializeAnimation(
+					actor,
+					ADJACENT_GET_ITEM,
+					0,
+					FALSE);
+			}
+		}
+		if (normalPickup)
+		{
+			TacticalActorAnimationTransitions::initializeAnimation(
+				actor,
+				PICKUP_ITEM,
+				0,
+				FALSE);
+		}
+		if (!(actor.status().flags() & SOLDIER_PC))
+			actor.aiPlanning().action() = AI_ACTION_PENDING_ACTION;
+		break;
+	}
+	case ANIM_CROUCH:
+	case ANIM_PRONE:
+		finishImmediately();
+		break;
+	default:
+		break;
+	}
+}
+
+bool TacticalActorInteractions::beginSteal(
+	TacticalActor& actor,
+	TacticalActor& target)
+{
+	if (&actor == &target ||
+		TileIsOutOfBounds(target.position().gridNo()))
+	{
+		return false;
+	}
+
+	UINT8 direction;
+	INT32 adjustedGrid;
+	const INT32 actionGrid = FindAdjacentGridEx(
+		&actor,
+		target.position().gridNo(),
+		&direction,
+		&adjustedGrid,
+		TRUE,
+		FALSE);
+	if (actionGrid == -1)
+		return false;
+
+	const INT16 actionPointCost =
+		GetAPsToStealItem(&actor, &target, static_cast<INT16>(actionGrid));
+	if (!EnoughPoints(&actor, actionPointCost, 0, FALSE))
+		return false;
+
+	actor.pendingAction().begin(MERC_STEAL);
+	actor.targeting().level() = target.position().level();
+	actor.pendingAction().primaryData() = target.identity().id();
+	actor.pendingAction().secondaryData() = target.position().gridNo();
+	actor.pendingAction().tertiaryData() = direction;
+	actor.pendingAction().quaternaryData() = 0;
+	actor.runtime().pendingAction.targetIncarnation =
+		target.identity().incarnation();
+	actor.pendingAction().resetAnimationCount();
+
+	if (actor.position().gridNo() != actionGrid)
+	{
+		SendGetNewSoldierPathEvent(
+			&actor,
+			actionGrid,
+			actor.movement().mode());
+	}
+	else if (!TryCompletePendingStealCommand(actor))
+	{
+		return false;
+	}
+
+	actor.attackSelection().weapon() = 0;
+	DebugMsg(
+		TOPIC_JA2,
+		DBG_LEVEL_3,
+		String(
+			"!!!!!!! Starting STEAL attack, attack count now %d",
+			GetJa2PendingTacticalCombatActions()));
+	DebugAttackBusy(String(
+		"!!!!!!! Starting STEAL attack, attack count now %d\n",
+		GetJa2PendingTacticalCombatActions()));
+	SetUIBusy(actor.identity().id());
+	return true;
+}
+
+void PickPickupAnimation(
+	TacticalActor* actor,
+	INT32 itemIndex,
+	INT32 gridNo,
+	INT8 zLevel)
+{
+	if (actor != nullptr)
+	{
+		TacticalActorInteractions::pickPickupAnimation(
+			*actor,
+			itemIndex,
+			gridNo,
+			zLevel);
+	}
+}
+
+BOOLEAN MercStealFromMerc(
+	TacticalActor* actor,
+	TacticalActor* target)
+{
+	return actor != nullptr && target != nullptr &&
+		TacticalActorInteractions::beginSteal(*actor, *target)
+		? TRUE
+		: FALSE;
+}
 
 namespace
 {

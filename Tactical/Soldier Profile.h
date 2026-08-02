@@ -4,13 +4,9 @@
 #include "types.h"
 #include "soldier profile type.h"
 #include "Merc Hiring.h"
+#include "TacticalActorSkills.h"
 
 class TacticalActor;
-
-// Determine whether a trait has two progression stages.
-BOOLEAN TwoStagedTrait(UINT8 skillTraitNumber);
-// Determine whether a trait belongs to the major-trait group.
-BOOLEAN MajorTrait(UINT8 skillTraitNumber);
 
 typedef struct
 {

@@ -29,6 +29,7 @@
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorMobility.h"
+#include "TacticalActorMovementAudio.h"
 #include "TacticalActorRecovery.h"
 #include "TacticalActorWorldPlacement.h"
 #include "TacticalWorldAdapter.h"
@@ -43,9 +44,7 @@
 #include <cstdint>
 #include <cstring>
 
-extern BOOLEAN gfGetNewPathThroughPeople;
-
-void HandleVehicleMovementSound(TacticalActor* actor, BOOLEAN enabled);
+BOOLEAN gfGetNewPathThroughPeople = FALSE;
 
 namespace
 {

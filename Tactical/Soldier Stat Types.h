@@ -16,4 +16,13 @@ inline constexpr std::uint16_t EXP_INCREASE = 0x0100;
 inline constexpr std::uint16_t MECH_INCREASE = 0x0200;
 inline constexpr std::uint16_t LVL_INCREASE = 0x0400;
 
-extern std::uint8_t bHealthStrRanges[];
+inline constexpr std::uint8_t bHealthStrRanges[] =
+{
+	15,
+	30,
+	45,
+	60,
+	75,
+	90,
+	101,
+};
