@@ -8,7 +8,7 @@
 
 #include "Animation Control.h"
 #include "SoldierRepository.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Strategic Movement.h"
 #include "StrategicSquadHost.h"
 #include "VehiclePassengerHost.h"

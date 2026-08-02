@@ -151,6 +151,7 @@
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorLifecycle.h"
 #include "TacticalActorLocomotion.h"
+#include "TacticalActorPredicates.h"
 #include "TacticalActorRecovery.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
@@ -1095,6 +1096,72 @@ int main( int, char** )
 	// Run headless: no window server / audio device required.
 	SDL_SetHint( SDL_HINT_VIDEO_DRIVER, "dummy" );
 	SDL_SetHint( SDL_HINT_AUDIO_DRIVER, "dummy" );
+
+	{
+		TacticalActor observer;
+		TacticalActor target;
+		target.roster().team() = CIV_TEAM;
+		const bool civilianClassified =
+			TacticalActorPredicates::isCivilian( target ) &&
+			TacticalActorPredicates::isCivilianOrMilitia( target );
+		target.roster().team() = MILITIA_TEAM;
+		const bool militiaClassified =
+			!TacticalActorPredicates::isCivilian( target ) &&
+			TacticalActorPredicates::isCivilianOrMilitia( target );
+
+		target.animationPlayback().state() = STANDING;
+		const bool standingClassified =
+			TacticalActorPredicates::isStanding( target ) &&
+			!TacticalActorPredicates::isCrouched( target ) &&
+			!TacticalActorPredicates::isProne( target );
+		target.animationPlayback().state() = CROUCHING;
+		const bool crouchedClassified =
+			TacticalActorPredicates::isCrouched( target );
+		target.animationPlayback().state() = PRONE;
+		const bool proneClassified =
+			TacticalActorPredicates::isProne( target );
+		target.animationPlayback().state() = NUMANIMATIONSTATES;
+		const bool malformedAnimationRejected =
+			!TacticalActorPredicates::isStanding( target ) &&
+			!TacticalActorPredicates::isCrouched( target ) &&
+			!TacticalActorPredicates::isProne( target );
+
+		observer.roster().team() = OUR_TEAM;
+		target.aiBehavior().neutral() = TRUE;
+		target.featureFlags().primaryFlags() = 0;
+		target.status().flags() = 0;
+		target.identity().bodyType() = REGMALE;
+		const bool ordinaryNeutralRecognized =
+			TacticalActorPredicates::consideredNeutralForAttack( observer, target );
+		observer.roster().team() = CREATURE_TEAM;
+		const bool creatureExceptionApplied =
+			!TacticalActorPredicates::consideredNeutralForAttack( observer, target );
+		target.status().flags() = SOLDIER_VEHICLE;
+		const bool creatureVehicleExceptionApplied =
+			TacticalActorPredicates::consideredNeutralForAttack( observer, target );
+		target.status().flags() = 0;
+		target.identity().bodyType() = CROW;
+		const bool creatureCrowExceptionApplied =
+			TacticalActorPredicates::consideredNeutralForAttack( observer, target );
+		observer.status().flags() = SOLDIER_BOXER;
+		target.status().flags() = SOLDIER_BOXER;
+		const bool boxerExceptionApplied =
+			!TacticalActorPredicates::consideredNeutralForAttack( observer, target );
+		observer.status().flags() = 0;
+		target.status().flags() = 0;
+		observer.roster().team() = OUR_TEAM;
+		target.aiBehavior().neutral() = FALSE;
+		target.featureFlags().primaryFlags() = SOLDIER_POW;
+		const bool prisonerRecognized =
+			TacticalActorPredicates::consideredNeutralForAttack( observer, target );
+
+		CHECK( civilianClassified && militiaClassified && standingClassified &&
+		       crouchedClassified && proneClassified && malformedAnimationRejected &&
+		       ordinaryNeutralRecognized && creatureExceptionApplied &&
+		       creatureVehicleExceptionApplied && creatureCrowExceptionApplied &&
+		       boxerExceptionApplied && prisonerRecognized,
+		       "tactical actor predicates preserve legacy classification and neutral-target rules" );
+	}
 
 	{
 		char tiny[5] = {};

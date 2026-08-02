@@ -11,7 +11,10 @@
  */
 
 	#include "AIList.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "TacticalActorPredicates.h"
+	#include "TacticalActorStateFlags.h"
+	#include "Soldier Profile Constants.h"
 	#include "Overhead.h"
 	#include "DEBUG.H"
 	#include "AIInternals.h"

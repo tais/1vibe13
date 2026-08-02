@@ -1,4 +1,5 @@
 #include "TacticalActorBattleSounds.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorMobility.h"
 #include <Button System.h>
 #include "SoldierRepository.h"
@@ -42,7 +43,8 @@
 #include "Item Types.h"
 #include "Items.h"
 #include "Overhead Types.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
+#include "Soldier Profile Constants.h"
 #include "Weapons.h"
 #include <Font Control.h>
 

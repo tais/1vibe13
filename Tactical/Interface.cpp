@@ -9,7 +9,9 @@
 	#include "TacticalActorConditions.h"
 	#include "SoldierRepository.h"
 	#include "Soldier Profile Constants.h"
-	#include "Soldier Control.h"
+	#include "Soldier Stat Types.h"
+	#include "TacticalActor.h"
+#include "TacticalActorSkills.h"
 #include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>

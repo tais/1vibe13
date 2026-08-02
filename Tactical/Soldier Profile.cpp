@@ -15,7 +15,7 @@
 	#include "Overhead.h"
 #include "SoldierRepository.h"
 	#include "Soldier Profile Constants.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
 #include "TacticalActorEmploymentTypes.h"
 #include "TacticalActorStateFlags.h"
 	#include "Soldier Profile.h"

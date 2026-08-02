@@ -5,7 +5,11 @@
 #include "TacticalActorMobility.h"
 	#include "sgp.h"
 	#include "SoldierRepository.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "TacticalActorQuoteFlags.h"
+	#include "TacticalActorStateFlags.h"
+	#include "Grid Direction.h"
+	#include "Soldier Profile Constants.h"
 #include "TacticalWorldAdapter.h"
 
 	#include "Overhead.h"

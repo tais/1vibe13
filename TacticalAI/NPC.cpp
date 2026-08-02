@@ -1,5 +1,7 @@
 #include "TacticalActorAnimationTransitions.h"
-#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "TacticalActorStateFlags.h"
+	#include "Soldier Profile Constants.h"
 	#include "types.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"

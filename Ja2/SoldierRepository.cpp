@@ -2,7 +2,7 @@
 
 #include <cassert>
 
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 
 namespace
 {

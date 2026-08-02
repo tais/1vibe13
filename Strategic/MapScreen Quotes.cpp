@@ -3,7 +3,7 @@
 	#include "Map Screen Interface Map.h"
 	#include "Font Control.h"
 	#include "Assignments.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
 	#include "Overhead.h"
 	#include "Squads.h"
 	#include "soundman.h"

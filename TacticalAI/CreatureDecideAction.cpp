@@ -3,7 +3,7 @@
 #include "TacticalActorMobility.h"
 #include "TacticalActorVisibility.h"
 	#include "types.h"
-	//#include "Soldier Control.h"
+	//#include "TacticalActor.h"
 	#include "ai.h"
 	#include "AIInternals.h"
 	#include "opplist.h"

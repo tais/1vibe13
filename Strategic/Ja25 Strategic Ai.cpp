@@ -13,7 +13,8 @@
 	#include <time.h>
 	#include "jascreens.h"
 	#include "worlddef.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "TacticalActorEmploymentTypes.h"
 	#include "Overhead.h"
 	#include "Isometric Utils.h"
 	#include "worlddef.h"

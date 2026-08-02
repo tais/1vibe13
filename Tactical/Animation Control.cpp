@@ -11,7 +11,9 @@
 #include "worldman.h"
 #include "Rotting Corpses.h"
 #include "Debug Control.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
+#include "Grid Direction.h"
+#include "TacticalActorStateFlags.h"
 
 #include "connect.h"
 

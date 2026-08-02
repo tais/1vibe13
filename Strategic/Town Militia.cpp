@@ -1,6 +1,9 @@
 #include "builddefines.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
+#include "Disease.h"
+#include "TacticalActorQuoteFlags.h"
+#include "TacticalActorSkills.h"
 
 	#include "Town Militia.h"
 	#include "Militia Control.h"
@@ -36,7 +39,7 @@
 // to determine the number of militia trained by this merc per session. In the future may also determine QUALITY
 // of trained troops.
 #include "SkillCheck.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "soldier profile type.h"
 
 #define SIZE_OF_MILITIA_COMPLETED_TRAINING_LIST 50

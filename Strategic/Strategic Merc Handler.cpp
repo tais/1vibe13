@@ -3,8 +3,12 @@
 #include "SoldierRepository.h"
 #include "Soldier Profile Constants.h"
 #include "TacticalActor.h"
+#include "Disease.h"
+#include "TacticalActorEmploymentTypes.h"
+#include "TacticalActorQuoteFlags.h"
+#include "TacticalActorSkills.h"
 #include "TacticalActorStateFlags.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 
 	#include "Strategic Merc Handler.h"
 	#include "history.h"

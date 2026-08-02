@@ -5,6 +5,8 @@
 #include "Tactical/Soldier Palette.h"
 #include "Tactical/Soldier Patrol Types.h"
 #include "Tactical/Soldier Profile Constants.h"
+#include "Tactical/Soldier Stat Types.h"
+#include "Tactical/Taunt Types.h"
 #include "Tactical/TacticalActorAnimationState.h"
 #include "Tactical/TacticalActorBattleSounds.h"
 #include "Tactical/TacticalActorBloodState.h"
@@ -16,8 +18,10 @@
 #include "Tactical/TacticalActorQuoteFlags.h"
 #include "Tactical/TacticalActorSkills.h"
 #include "Tactical/TacticalActorStateFlags.h"
+#include "Tactical/TacticalDestinationTypes.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <type_traits>
 
 static_assert(std::is_standard_layout_v<PathSt>);
@@ -32,6 +36,7 @@ static_assert(NO_PROFILE == 200);
 static_assert(DRUG_EFFECT_HP == 0);
 static_assert(DRUG_EFFECT_WIS == 8);
 static_assert(DRUG_EFFECT_MAX == 20);
+static_assert(DRUG_TYPE_MAX == 32);
 static_assert(NUM_MERC_BATTLE_SOUNDS == 16);
 static_assert(BATTLE_SND_LOWER_VOLUME == 1);
 static_assert(BACKGROUND_FLAG_MAX == 12);
@@ -77,6 +82,9 @@ static_assert(REASON_STOPPED_SIGHT == 1);
 static_assert(MERC_OPENDOOR == 0);
 static_assert(MERC_GIVEITEM == 6);
 static_assert(MERC_MEDICALSPLINT == 23);
+static_assert(NO_PENDING_ACTION == 255);
+static_assert(std::is_same_v<
+	std::remove_cv_t<decltype(NO_PENDING_ACTION)>, std::uint8_t>);
 static_assert(NO_THROW_ACTION == 0);
 static_assert(THROW_ARM_ITEM == 1);
 static_assert(THROW_TARGET_MERC_CATCH == 2);
@@ -96,6 +104,21 @@ static_assert(SOLDIER_ROBOT == 0x1000);
 static_assert(SOLDIER_VEHICLE == 0x8000);
 static_assert(SOLDIER_COVERT_CIV == 0x4);
 static_assert(SOLDIER_COVERT_NPC_SPECIAL == 0x20);
+static_assert(SOLDIER_MISC_HEARD_GUNSHOT == 0x01);
+static_assert(SOLDIER_MISC_XRAYED == 0x04);
+static_assert(HIT_BY_TEARGAS == 0x01);
+static_assert(HIT_BY_SMOKEGAS == 0x10);
+static_assert(IGNOREPEOPLE == 0);
+static_assert(FALLINGTEST == 3);
+static_assert(CHANGE_STAT_RECENTLY_DURATION == 60000);
+static_assert(HEALTH_INCREASE == 0x0001);
+static_assert(LVL_INCREASE == 0x0400);
+static_assert(TAUNT_A_CUNNING_SOLO == UINT64_C(0x0000000000000001));
+static_assert(TAUNT_S_MISS_THROWING_KNIFE == UINT64_C(0x1000000000000000));
+static_assert(TAUNT_T_ZOMBIE == UINT64_C(0x0000000000001000));
+static_assert(TAUNT_FLAG_1_MAX == 64);
+static_assert(TAUNT_FLAG_2_MAX == 13);
+static_assert(TAUNT_FLAG_MAX == 77);
 
 int main()
 {

@@ -2,6 +2,7 @@
 #define __CIV_QUOTES_H
 
 #include "Overhead Types.h"
+#include "Taunt Types.h"
 
 #include <cstddef>
 

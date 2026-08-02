@@ -28,7 +28,7 @@
 	#include	"Handle Items.h"
 	#include	"environment.h"
 	#include	"Dialogue Control.h"
-	//#include	"Soldier Control.h"
+	//#include	"TacticalActor.h"
 	#include	"Overhead.h"
 	#include	"MessageBoxScreen.h"
 	#include	"english.h"

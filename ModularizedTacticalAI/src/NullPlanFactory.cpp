@@ -5,7 +5,7 @@
 
 #include "../include/NullPlanFactory.h"
 #include "../include/NullPlan.h"
-#include "../Tactical/Soldier Control.h"
+#include "../Tactical/TacticalActor.h"
 
 namespace AI
 {

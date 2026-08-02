@@ -1,4 +1,14 @@
 #include "TacticalActorLocomotion.h"
+#include "TacticalActorAnimationState.h"
+#include "TacticalActorEvents.h"
+#include "TacticalActorInterrupts.h"
+#include "TacticalActorPendingActionTypes.h"
+#include "TacticalActorEmploymentTypes.h"
+#include "TacticalActorQuoteFlags.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
+#include "Grid Direction.h"
+#include "Soldier Profile Constants.h"
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorAnimationTransitions.h"
@@ -20,7 +30,7 @@
 #include "DEBUG.H"
 #include "MemMan.h"
 #include "Overhead Types.h"
-#include "Soldier Control.h" // I need this here - SANDRO
+#include "TacticalActor.h" // I need this here - SANDRO
 #include "SoldierRepository.h"
 #include "Animation Data.h"
 #include "Animation Control.h"

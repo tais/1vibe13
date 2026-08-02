@@ -1,5 +1,17 @@
 #pragma once
 
+// Transient event flags owned by SoldierFeatureFlagsComponent.
+#define SOLDIER_MISC_HEARD_GUNSHOT               0x01
+#define SOLDIER_MISC_HURT_BY_EXPLOSION           0x02
+#define SOLDIER_MISC_XRAYED                      0x04
+
+// Persistent gas-hit bits owned by SoldierConditionComponent.
+#define HIT_BY_TEARGAS                           0x01
+#define HIT_BY_MUSTARDGAS                        0x02
+#define HIT_BY_CREATUREGAS                       0x04
+#define HIT_BY_BURNABLEGAS                       0x08
+#define HIT_BY_SMOKEGAS                          0x10
+
 // Persistent TacticalActor status flags. These numeric values are serialized
 // and must remain source- and save-compatible with the legacy soldier schema.
 #define SOLDIER_IS_TACTICALLY_VALID            0x00000001

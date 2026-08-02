@@ -2,7 +2,7 @@
 
 	#include "sgp.h"
 	#include "Overhead Types.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
 	#include "Drugs And Alcohol.h"
 	#include "Overhead.h"
 	#include "Event Pump.h"

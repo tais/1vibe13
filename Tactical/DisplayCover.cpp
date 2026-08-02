@@ -25,7 +25,11 @@
 #include "Interface Cursors.h"	// added by Flugente for UICursorDefines
 #include "Rebel Command.h"
 #include "SoldierRepository.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
+#include "TacticalActorPredicates.h"
+#include "TacticalActorStateFlags.h"
+#include "Tactical/Grid Direction.h"
+#include "TacticalActorSkills.h"
 
 
 //*******	Local Defines **************************************************

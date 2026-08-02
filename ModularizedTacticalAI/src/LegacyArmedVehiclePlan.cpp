@@ -4,7 +4,7 @@
 */
 
 #include "../include/LegacyArmedVehiclePlan.h"
-#include "Soldier Control.h" // definition of TacticalActor
+#include "TacticalActor.h" // definition of TacticalActor
 #include "AIInternals.h"
 
 namespace AI

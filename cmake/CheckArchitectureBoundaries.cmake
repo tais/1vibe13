@@ -2623,6 +2623,38 @@ foreach(tactical_actor_public_header IN LISTS tactical_actor_public_headers)
   endif()
 endforeach()
 
+# The compatibility facade is also retired from production implementation
+# files. Its own translation unit remains the only application-side exception;
+# the headless harness deliberately includes it to verify source compatibility.
+set(tactical_actor_production_sources)
+foreach(tactical_actor_public_header_root IN LISTS
+    tactical_actor_public_header_roots)
+  file(GLOB_RECURSE tactical_actor_production_sources_in_root
+    LIST_DIRECTORIES false
+    "${SOURCE_ROOT}/${tactical_actor_public_header_root}/*.cpp")
+  list(APPEND tactical_actor_production_sources
+    ${tactical_actor_production_sources_in_root})
+endforeach()
+foreach(tactical_actor_production_source IN LISTS
+    tactical_actor_production_sources)
+  file(RELATIVE_PATH tactical_actor_production_source_relative
+    "${SOURCE_ROOT}" "${tactical_actor_production_source}")
+  if(tactical_actor_production_source_relative STREQUAL
+      "Tactical/Soldier Control.cpp")
+    continue()
+  endif()
+  file(READ "${tactical_actor_production_source}"
+    tactical_actor_production_source_contents)
+  string(REGEX MATCH
+    "(^|\n)[ \t]*#[ \t]*include[ \t]*\"[^\"]*Soldier Control\\.h\""
+    tactical_actor_production_source_facade_include
+    "${tactical_actor_production_source_contents}")
+  if(tactical_actor_production_source_facade_include)
+    message(FATAL_ERROR
+      "${tactical_actor_production_source_relative} imports the retired Soldier Control.h implementation facade; include TacticalActor.h and focused contracts")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/Strategic/Strategic Path Types.h"
   strategic_path_types_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Patrol Types.h"
@@ -2859,6 +2891,20 @@ file(READ "${SOURCE_ROOT}/Tactical/Grid Direction.h"
   tactical_grid_direction_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Drug Types.h"
   tactical_soldier_drug_types_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Stat Types.h"
+  tactical_soldier_stat_types_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Taunt Types.h"
+  tactical_taunt_types_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCrowBehavior.h"
+  tactical_actor_crow_behavior_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDebug.h"
+  tactical_actor_debug_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorPredicates.h"
+  tactical_actor_predicates_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorPredicates.cpp"
+  tactical_actor_predicates_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalDestinationTypes.h"
+  tactical_destination_types_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationState.h"
   tactical_actor_animation_state_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorBloodState.h"
@@ -2876,16 +2922,23 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorQuoteFlags.h"
 
 foreach(tactical_actor_focused_contract_include IN ITEMS
     "Grid Direction.h"
+    "Soldier Stat Types.h"
+    "Taunt Types.h"
     "TacticalActorAnimationState.h"
     "TacticalActorBloodState.h"
+    "TacticalActorCrowBehavior.h"
     "TacticalActorDamageResolution.h"
+    "TacticalActorDebug.h"
     "TacticalActorEvents.h"
     "TacticalActorInterrupts.h"
+    "TacticalActorLocomotion.h"
     "TacticalActorLongActions.h"
     "TacticalActorMovementState.h"
     "TacticalActorPendingActionTypes.h"
+    "TacticalActorPredicates.h"
     "TacticalActorQuoteFlags.h"
-    "TacticalActorSkills.h")
+    "TacticalActorSkills.h"
+    "TacticalDestinationTypes.h")
   string(FIND "${tactical_soldier_control_header_contents}"
     "#include \"${tactical_actor_focused_contract_include}\""
     tactical_actor_focused_contract_include_position)
@@ -2901,6 +2954,35 @@ string(FIND "${tactical_grid_direction_header_contents}"
   "UINT8 GetDirectionFromGridNo" tactical_grid_direction_contract)
 string(FIND "${tactical_soldier_drug_types_header_contents}"
   "DRUG_EFFECT_MAX = 20" tactical_soldier_drug_capacity_contract)
+string(FIND "${tactical_soldier_drug_types_header_contents}"
+  "DRUG_TYPE_MAX = 32" tactical_soldier_drug_type_capacity_contract)
+string(FIND "${tactical_soldier_stat_types_header_contents}"
+  "CHANGE_STAT_RECENTLY_DURATION = 60000"
+  tactical_soldier_stat_duration_contract)
+string(FIND "${tactical_soldier_stat_types_header_contents}"
+  "LVL_INCREASE = 0x0400" tactical_soldier_stat_mask_contract)
+string(FIND "${tactical_taunt_types_header_contents}"
+  "TAUNT_S_MISS_THROWING_KNIFE = 0x1000000000000000"
+  tactical_taunt_flag_contract)
+string(FIND "${tactical_taunt_types_header_contents}"
+  "TAUNT_FLAG_MAX = TAUNT_FLAG_1_MAX + TAUNT_FLAG_2_MAX"
+  tactical_taunt_capacity_contract)
+string(FIND "${tactical_actor_crow_behavior_header_contents}"
+  "void CrowsFlyAway(std::uint8_t team);"
+  tactical_actor_crow_behavior_contract)
+string(FIND "${tactical_actor_debug_header_contents}"
+  "void DebugValidateSoldierData();" tactical_actor_debug_contract)
+string(FIND "${tactical_actor_locomotion_header_contents}"
+  "void MoveMercFacingDirection(" tactical_actor_facing_adapter_contract)
+string(FIND "${tactical_actor_predicates_header_contents}"
+  "bool consideredNeutralForAttack(" tactical_actor_neutral_predicate_contract)
+string(FIND "${tactical_actor_predicates_source_contents}"
+  "animationState < NUMANIMATIONSTATES"
+  tactical_actor_predicate_animation_validation)
+string(FIND "${tactical_build_contents}"
+  "TacticalActorPredicates.cpp" tactical_actor_predicates_build_source)
+string(FIND "${tactical_destination_types_header_contents}"
+  "FALLINGTEST = 3" tactical_destination_mode_contract)
 string(FIND "${tactical_soldier_components_header_contents}"
   "#include \"Soldier Drug Types.h\"" tactical_soldier_drug_component_include)
 string(FIND "${tactical_soldier_components_header_contents}"
@@ -2934,11 +3016,41 @@ string(FIND "${tactical_test_build_contents}"
 string(FIND "${tactical_actor_service_api_header_test_contents}"
   "static_assert(DRUG_EFFECT_MAX == 20);" tactical_actor_drug_capacity_test)
 string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(DRUG_TYPE_MAX == 32);" tactical_actor_drug_type_capacity_test)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
   "static_assert(NO_PENDING_ANIMATION == 32001);" tactical_actor_animation_sentinel_test)
 string(FIND "${tactical_actor_service_api_header_test_contents}"
   "static_assert(MERC_MEDICALSPLINT == 23);" tactical_actor_pending_action_test)
 string(FIND "${tactical_actor_service_api_header_test_contents}"
   "static_assert(SKILLS_MAX == 20);" tactical_actor_skill_capacity_test)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(FALLINGTEST == 3);" tactical_actor_destination_mode_test)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(LVL_INCREASE == 0x0400);" tactical_actor_stat_mask_test)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(TAUNT_FLAG_MAX == 77);" tactical_actor_taunt_capacity_test)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(HIT_BY_SMOKEGAS == 0x10);" tactical_actor_gas_flag_test)
+string(FIND "${headless_test_contents}"
+  "tactical actor predicates preserve legacy classification and neutral-target rules"
+  tactical_actor_predicate_behavior_test)
+
+foreach(tactical_actor_new_contract_compile_header IN ITEMS
+    "Tactical/Soldier Stat Types.h"
+    "Tactical/Taunt Types.h"
+    "Tactical/TacticalActorCrowBehavior.h"
+    "Tactical/TacticalActorDebug.h"
+    "Tactical/TacticalActorLocomotion.h"
+    "Tactical/TacticalActorPredicates.h"
+    "Tactical/TacticalDestinationTypes.h")
+  string(FIND "${tactical_test_build_contents}"
+    "\"${tactical_actor_new_contract_compile_header}\""
+    tactical_actor_new_contract_compile_header_position)
+  if(tactical_actor_new_contract_compile_header_position EQUAL -1)
+    message(FATAL_ERROR
+      "Focused actor contract ${tactical_actor_new_contract_compile_header} lost its standalone compile guard")
+  endif()
+endforeach()
 
 foreach(tactical_actor_retired_facade_definition IN ITEMS
     "NO_PENDING_ANIMATION = 32001"
@@ -2948,6 +3060,18 @@ foreach(tactical_actor_retired_facade_definition IN ITEMS
     "SKILLS_FIRST = 0"
     "TAKE_DAMAGE_GUNFIRE = 1"
     "MTA_NONE = 0"
+    "#define PTR_CIVILIAN"
+    "#define CONSIDERED_NEUTRAL"
+    "#define DRUG_TYPE_MAX"
+    "#define IGNOREPEOPLE"
+    "#define CHANGE_STAT_RECENTLY_DURATION"
+    "#define TAUNT_A_CUNNING_SOLO"
+    "HIT_BY_TEARGAS = 0x01"
+    "#define HEALTH_INCREASE"
+    "void MoveMercFacingDirection("
+    "void CrowsFlyAway("
+    "void DebugValidateSoldierData("
+    "BOOLEAN MajorTrait("
     "struct ANIM_PROF_TILE")
   string(FIND "${tactical_soldier_control_header_contents}"
     "${tactical_actor_retired_facade_definition}"
@@ -2961,6 +3085,18 @@ endforeach()
 if(tactical_animation_profile_tile_contract EQUAL -1 OR
    tactical_grid_direction_contract EQUAL -1 OR
    tactical_soldier_drug_capacity_contract EQUAL -1 OR
+   tactical_soldier_drug_type_capacity_contract EQUAL -1 OR
+   tactical_soldier_stat_duration_contract EQUAL -1 OR
+   tactical_soldier_stat_mask_contract EQUAL -1 OR
+   tactical_taunt_flag_contract EQUAL -1 OR
+   tactical_taunt_capacity_contract EQUAL -1 OR
+   tactical_actor_crow_behavior_contract EQUAL -1 OR
+   tactical_actor_debug_contract EQUAL -1 OR
+   tactical_actor_facing_adapter_contract EQUAL -1 OR
+   tactical_actor_neutral_predicate_contract EQUAL -1 OR
+   tactical_actor_predicate_animation_validation EQUAL -1 OR
+   tactical_actor_predicates_build_source EQUAL -1 OR
+   tactical_destination_mode_contract EQUAL -1 OR
    tactical_soldier_drug_component_include EQUAL -1 OR
    NOT tactical_soldier_drug_component_duplicate EQUAL -1 OR
    tactical_actor_animation_sentinel_contract EQUAL -1 OR
@@ -2977,9 +3113,15 @@ if(tactical_animation_profile_tile_contract EQUAL -1 OR
    tactical_actor_contract_compile_list EQUAL -1 OR
    tactical_actor_contract_compile_sources EQUAL -1 OR
    tactical_actor_drug_capacity_test EQUAL -1 OR
+   tactical_actor_drug_type_capacity_test EQUAL -1 OR
    tactical_actor_animation_sentinel_test EQUAL -1 OR
    tactical_actor_pending_action_test EQUAL -1 OR
-   tactical_actor_skill_capacity_test EQUAL -1)
+   tactical_actor_skill_capacity_test EQUAL -1 OR
+   tactical_actor_destination_mode_test EQUAL -1 OR
+   tactical_actor_stat_mask_test EQUAL -1 OR
+   tactical_actor_taunt_capacity_test EQUAL -1 OR
+   tactical_actor_gas_flag_test EQUAL -1 OR
+   tactical_actor_predicate_behavior_test EQUAL -1)
   message(FATAL_ERROR
     "Focused actor compatibility contracts lost ownership, standalone compilation, or stable-value coverage")
 endif()

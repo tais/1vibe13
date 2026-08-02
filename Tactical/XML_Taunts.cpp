@@ -1,5 +1,6 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
-#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "Taunt Types.h"
 
 	#include "sgp.h"
 	#include "Debug Control.h"

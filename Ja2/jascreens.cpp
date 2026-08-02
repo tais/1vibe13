@@ -13,7 +13,8 @@
 #include "Screens.h"
 #include "Font Control.h"
 #include <Overhead Types.h>
-#include <Soldier Control.h>
+#include <TacticalActor.h>
+#include "Soldier Palette.h"
 #include "Timer Control.h"
 #include "Sys Globals.h"
 #include <Handle UI.h>

@@ -8,7 +8,7 @@
 	#include <soundman.h>
 #include <Campaign Types.h>
 #include "Overhead Types.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include <Timer Control.h>
 	#include "worlddef.h"
 	#include "Rotting Corpses.h"

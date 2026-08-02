@@ -2,7 +2,10 @@
 	#include "SkillCheck.h"
 #include "TacticalActorModifiers.h"
 	#include "SoldierRepository.h"
-	#include "TacticalActorDisease.h"
+#include "TacticalActorDisease.h"
+	#include "TacticalActorSkills.h"
+	#include "TacticalActorEmploymentTypes.h"
+	#include "Disease.h"
 	#include "Soldier Profile.h"
 	#include "random.h"
 	#include "Items.h"
@@ -14,7 +17,7 @@
 	#include "Drugs And Alcohol.h"
 	#include "GameSettings.h"
 	#include "Animation Data.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
 	#include "Interface.h"				// added by Flugente for zBackground
 	#include "DynamicDialogue.h"		// added by Flugente
 

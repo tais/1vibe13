@@ -11,7 +11,7 @@
 #include "KeyMap.h"
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "SoldierRepository.h"
 #include "connect.h"
 

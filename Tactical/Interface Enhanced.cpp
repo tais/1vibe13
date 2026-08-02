@@ -9,7 +9,8 @@
 	#include "Font Control.h"
 	#include "Interface Panels.h"
 	#include "Animation Control.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "TacticalActorSkills.h"
 	#include "Weapons.h"
 	#include "soldier profile type.h"
 	#include <Font.h>

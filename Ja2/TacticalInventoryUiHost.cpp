@@ -1,6 +1,6 @@
 #include "TacticalInventoryUiLegacy.h"
 
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "TacticalEntityHost.h"
 
 namespace

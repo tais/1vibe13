@@ -41,7 +41,9 @@
 #include "connect.h"
 #include "Map Information.h"
 
-#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "TacticalActorEmploymentTypes.h"
+	#include "TacticalActorStateFlags.h"
 #include "Ja25 Strategic Ai.h"
 #include "Ja25_Tactical.h"
 #include "Campaign Types.h"

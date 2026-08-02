@@ -30,7 +30,11 @@
 #include "Campaign.h"
 #include "Points.h"
 #include "SoldierRepository.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
+#include "TacticalActorEmploymentTypes.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorStateFlags.h"
+#include "TacticalActorSkills.h"
 #include "TacticalActorDisease.h"
 
 #ifndef JA2UB

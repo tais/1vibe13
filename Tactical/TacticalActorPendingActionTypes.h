@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cstdint>
+
+inline constexpr std::uint8_t NO_PENDING_ACTION = 255;
+
 // Values persisted by SoldierPendingActionComponent and consumed by legacy
 // animation/event code. Preserve the established order.
 enum

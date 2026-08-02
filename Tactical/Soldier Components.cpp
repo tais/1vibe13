@@ -2,7 +2,8 @@
 
 #include "Item Types.h"
 #include "MemMan.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
+#include "Strategic Path Types.h"
 #include "../ModularizedTacticalAI/include/Plan.h"
 
 #include <algorithm>

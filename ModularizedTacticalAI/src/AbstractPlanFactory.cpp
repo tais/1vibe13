@@ -1,5 +1,5 @@
 #include "../include/AbstractPlanFactory.h"
-#include "../../Tactical/Soldier Control.h"
+#include "../../Tactical/TacticalActor.h"
 
 #include <iostream>
 
