@@ -9,6 +9,7 @@
 #include "TacticalActorRecovery.h"
 #include "TacticalActorSpotting.h"
 #include "TacticalActorRangedActions.h"
+#include "TacticalActorVisibility.h"
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 #include "TacticalActorModifiers.h"
 #include "TacticalActorConditions.h"
@@ -6221,7 +6222,7 @@ UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 	if ( !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) ) // ignore scopes when firing from hip or on fast shot with pistol
 		gbForceWeaponReady = true;
 
-	sDistVis = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	sDistVis = TacticalActorVisibility::maximumDistance(*pSoldier, sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 
 	iSightRange = 0;
 
@@ -6250,7 +6251,7 @@ UINT32 CalcNewChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 
 	//CHRIS: This next value needs to be determined with no vision modifiers from our weapon
 	gbForceWeaponNotReady = true;
-	sDistVisNoScope = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	sDistVisNoScope = TacticalActorVisibility::maximumDistance(*pSoldier, sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	gbForceWeaponNotReady = false;
 
 	// Flugente: blind soldiers have sDistVisNoScope = 0...
@@ -6601,7 +6602,7 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	if ( !TacticalActorWeaponHandling::isValidAlternativeFireMode(*pSoldier,  ubAimTime, sGridNo ) ) // ignore scopes when firing from hip
 		gbForceWeaponReady = true;
 
-	sDistVis = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	sDistVis = TacticalActorVisibility::maximumDistance(*pSoldier, sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	iScopeVisionRangeBonus = GetTotalVisionRangeBonus(pSoldier, bLightLevel);	// not an actual range value, simply a modifier for range calculations
 
 	if (ubTargetID != NOBODY && ( pSoldier->awareness().opponentKnowledge()[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->roster().team()][ubTargetID] == SEEN_CURRENTLY ) )
@@ -6629,14 +6630,14 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 
 	gbForceWeaponReady = false;
 	gbForceWeaponNotReady = true;
-	sDistVisNoScope = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	sDistVisNoScope = TacticalActorVisibility::maximumDistance(*pSoldier, sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	gbForceWeaponNotReady = false;
 
 	// Flugente: blind soldiers have sDistVisNoScope = 0...
 	if ( sDistVisNoScope )
 		scopeRangeMod = (float)sDistVis / (float)sDistVisNoScope;	// percentage DistVis has been enhanced due to an attached scope
 
-	iMaxNormRange = MaxNormalDistanceVisible() * CELL_X_SIZE;
+	iMaxNormRange = TacticalActorVisibility::normalMaximumDistance() * CELL_X_SIZE;
 	if ( Item[ usItemUsed ].usItemClass == IC_GUN || Item[ usItemUsed ].usItemClass == IC_LAUNCHER)
 		iMaxRange = GunRange( pInHand, pSoldier ); // SANDRO - added argument
 	else
@@ -6734,8 +6735,8 @@ UINT32 CalcChanceToHitGun(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	iPenalty = ((iMaxRange - (iRange-iAccRangeMod) * 3) * 10) / (17 * CELL_X_SIZE);
 	if ( iPenalty < 0 )
 		iChance += iPenalty;
-	if ( ARMED_VEHICLE( pSoldier ) && (iRange / CELL_X_SIZE < MaxNormalDistanceVisible( )) )
-		iChance -= 2 * ( MaxNormalDistanceVisible() - (iRange / CELL_X_SIZE) );
+	if ( ARMED_VEHICLE( pSoldier ) && (iRange / CELL_X_SIZE < TacticalActorVisibility::normalMaximumDistance()) )
+		iChance -= 2 * ( TacticalActorVisibility::normalMaximumDistance() - (iRange / CELL_X_SIZE) );
 	// Like the above modifier, only this applies to long range weapons trying to be used in close quater.  Penalty will result when within 10% of max range
 	iPenalty = (((iRange - iMinRange - iAccRangeMod) * 12) * 10) / (17 * CELL_X_SIZE);
 	if ( iPenalty < 0 )

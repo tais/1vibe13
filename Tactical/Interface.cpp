@@ -4,6 +4,7 @@
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRadio.h"
 #include "TacticalActorRobotics.h"
+#include "TacticalActorVisibility.h"
 	#include "builddefines.h"
 	#include "TacticalActorConditions.h"
 	#include "SoldierRepository.h"
@@ -5863,7 +5864,7 @@ BOOLEAN ShowExactInfo( TacticalActor* pSoldier, TacticalActor* pTargetSoldier )
 	range = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), pTargetSoldier->position().gridNo() ) / 10;
 
 	// visible distance
-	maxExactWeaponDistance = (INT32)( pSoldier->GetMaxDistanceVisible( pTargetSoldier->position().gridNo(), 0, CALC_FROM_WANTED_DIR) ) / 2 ;
+	maxExactWeaponDistance = (INT32)( TacticalActorVisibility::maximumDistance(*pSoldier,  pTargetSoldier->position().gridNo(), 0, CALC_FROM_WANTED_DIR) ) / 2 ;
 
 	// apply experience level factor
 	maxExactWeaponDistance = (INT32)( maxExactWeaponDistance * ( 1 + FLOAT( EffectiveExpLevel( pSoldier ) ) / 10.0f ) ); 
@@ -6149,7 +6150,7 @@ void ShowEnemyWeapon( INT16 sX, INT16 sY, TacticalActor* pTargetSoldier )
 		return;
 
 	iRange = GetRangeInCellCoordsFromGridNoDiff( pSelectedSoldier->position().gridNo(), pTargetSoldier->position().gridNo() ) / 10;
-	iVisibleDistance = (INT32)( pSelectedSoldier->GetMaxDistanceVisible( pTargetSoldier->position().gridNo(), 0, CALC_FROM_WANTED_DIR) ) ;
+	iVisibleDistance = (INT32)( TacticalActorVisibility::maximumDistance(*pSelectedSoldier,  pTargetSoldier->position().gridNo(), 0, CALC_FROM_WANTED_DIR) ) ;
 
 	if( iRange > iVisibleDistance )
 		return;

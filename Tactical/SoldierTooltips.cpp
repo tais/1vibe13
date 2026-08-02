@@ -1,4 +1,5 @@
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorVisibility.h"
 #include "types.h"
 #include "input.h"
 #include "english.h"
@@ -149,7 +150,7 @@ void SoldierTooltip( TacticalActor* pSoldier )
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 			TacticalActor* targetSoldier =
 				GetJa2SoldierRepository().resolve(gusUIFullTargetID.i);
-			uiMaxTooltipDistance = (UINT32)( selectedSoldier->GetMaxDistanceVisible(targetSoldier->position().gridNo(), 0, CALC_FROM_WANTED_DIR) * (gGameExternalOptions.ubUDTModifier));
+			uiMaxTooltipDistance = (UINT32)( TacticalActorVisibility::maximumDistance(*selectedSoldier, targetSoldier->position().gridNo(), 0, CALC_FROM_WANTED_DIR) * (gGameExternalOptions.ubUDTModifier));
 			uiMaxTooltipDistance /= 100;
 		}
 		//SCORE: Otherwise if we're using dynamics then do this

@@ -4,6 +4,7 @@
 #include "connect.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActorDisease.h"
+#include "TacticalActorVisibility.h"
 #include "TacticalWorldAdapter.h"
 #include "builddefines.h"
 #include <stdio.h>
@@ -1982,7 +1983,7 @@ INT32 LineOfSightTest( FLOAT dStartX, FLOAT dStartY, FLOAT dStartZ, FLOAT dEndX,
 	// it adds the difference between the original and adjusted sight limit, = the amount of cover
 	// it then scales the value based on the difference between the original sight limit and the
 	//	very maximum possible in best lighting conditions
-	//return( (iDistance + (iSightLimit - iAdjSightLimit)) * (MaxDistanceVisible() * CELL_X_SIZE) / iSightLimit );
+	//return( (iDistance + (iSightLimit - iAdjSightLimit)) * (TacticalActorVisibility::normalMaximumDistance() * CELL_X_SIZE) / iSightLimit );
 
 	//in the original code, iSightLimit could vary depending exactly on what I can see
 	//so assuming there was no cover, the returned value is altered exactly on iSightLimit
@@ -2010,7 +2011,7 @@ INT32 LineOfSightTest( FLOAT dStartX, FLOAT dStartY, FLOAT dStartZ, FLOAT dEndX,
 	//because I do not think the actual value matters, and if it does,
 	//then using the real value is closer to the original intent
 	//AFAIK all instances that aren't CTGT just use this as a boolean test
-	return( distanceWithCover * (MaxNormalDistanceVisible() * CELL_X_SIZE) / iSightLimit );
+	return( distanceWithCover * (TacticalActorVisibility::normalMaximumDistance() * CELL_X_SIZE) / iSightLimit );
 }
 
 BOOLEAN CalculateSoldierZPos( TacticalActor * pSoldier, UINT8 ubPosType, FLOAT * pdZPos )
@@ -2339,14 +2340,14 @@ INT32 SoldierToSoldierLineOfSightTest( TacticalActor * pStartSoldier, TacticalAc
 	// needed for sight limit calculation
 	INT16 iSightAdj = GetSightAdjustment(pEndSoldier, GetStealth(pEndSoldier), GetSightAdjustmentBasedOnLBE(pEndSoldier));
 	if (iTileSightLimit == CALC_FROM_ALL_DIRS || iTileSightLimit == CALC_FROM_WANTED_DIR) {
-		iTileSightLimit = pStartSoldier->GetMaxDistanceVisible( pEndSoldier->position().gridNo(), pEndSoldier->position().level(), iTileSightLimit );
+		iTileSightLimit = TacticalActorVisibility::maximumDistance(*pStartSoldier,  pEndSoldier->position().gridNo(), pEndSoldier->position().level(), iTileSightLimit );
 		iTileSightLimit += iTileSightLimit * iSightAdj / 100;
 
 	}
 
 	// needed for gun hit calculation (can you even hit him)
 	else if (iTileSightLimit == NO_DISTANCE_LIMIT) {
-		iTileSightLimit = pStartSoldier->GetMaxDistanceVisible( pEndSoldier->position().gridNo(), pEndSoldier->position().level(), CALC_FROM_ALL_DIRS );
+		iTileSightLimit = TacticalActorVisibility::maximumDistance(*pStartSoldier,  pEndSoldier->position().gridNo(), pEndSoldier->position().level(), CALC_FROM_ALL_DIRS );
 		iTileSightLimit += iTileSightLimit * iSightAdj / 100;
 		iTileSightLimit += 255; // this shifts the limit for something special (we don't know yet)
 	}
@@ -2459,10 +2460,10 @@ INT32 SoldierTo3DLocationLineOfSightTest( TacticalActor * pStartSoldier, INT32 s
 
 
 	if (iTileSightLimit == CALC_FROM_ALL_DIRS || iTileSightLimit == CALC_FROM_WANTED_DIR) {
-		iTileSightLimit = pStartSoldier->GetMaxDistanceVisible( sGridNo, bLevel, iTileSightLimit );
+		iTileSightLimit = TacticalActorVisibility::maximumDistance(*pStartSoldier,  sGridNo, bLevel, iTileSightLimit );
 	}
 	else if (iTileSightLimit == NO_DISTANCE_LIMIT) {
-		iTileSightLimit = 255 + pStartSoldier->GetMaxDistanceVisible( sGridNo, bLevel, CALC_FROM_ALL_DIRS );
+		iTileSightLimit = 255 + TacticalActorVisibility::maximumDistance(*pStartSoldier,  sGridNo, bLevel, CALC_FROM_ALL_DIRS );
 	}
 
 	ConvertGridNoToCenterCellXY(pStartSoldier->position().gridNo(), &sX, &sY);
@@ -2505,10 +2506,10 @@ INT32 SoldierToVirtualSoldierLineOfSightTest( TacticalActor * pStartSoldier, INT
 
 
 	if (iTileSightLimit == CALC_FROM_ALL_DIRS || iTileSightLimit == CALC_FROM_WANTED_DIR) {
-		iTileSightLimit = pStartSoldier->GetMaxDistanceVisible( sGridNo, bLevel, iTileSightLimit );
+		iTileSightLimit = TacticalActorVisibility::maximumDistance(*pStartSoldier,  sGridNo, bLevel, iTileSightLimit );
 	}
 	else if (iTileSightLimit == NO_DISTANCE_LIMIT) {
-		iTileSightLimit = 255 + pStartSoldier->GetMaxDistanceVisible( sGridNo, bLevel, CALC_FROM_ALL_DIRS );
+		iTileSightLimit = 255 + TacticalActorVisibility::maximumDistance(*pStartSoldier,  sGridNo, bLevel, CALC_FROM_ALL_DIRS );
 	}
 
 	ConvertGridNoToCenterCellXY(pStartSoldier->position().gridNo(), &startXPos, &startYPos);
@@ -2540,11 +2541,11 @@ INT32 LocationToLocationLineOfSightTest( INT32 sStartGridNo, INT8 bStartLevel, I
 
 	if (iTileSightLimit == CALC_FROM_ALL_DIRS || iTileSightLimit == CALC_FROM_WANTED_DIR)
 	{
-		iTileSightLimit = MaxNormalDistanceVisible();
+		iTileSightLimit = TacticalActorVisibility::normalMaximumDistance();
 	}
 	else if (iTileSightLimit == NO_DISTANCE_LIMIT) 
 	{
-		iTileSightLimit = 255 + MaxNormalDistanceVisible();
+		iTileSightLimit = 255 + TacticalActorVisibility::normalMaximumDistance();
 	}
 
 	ConvertGridNoToCenterCellXY(sStartGridNo, &sStartXPos, &sStartYPos);
@@ -9956,9 +9957,9 @@ UINT32 CalcCounterForceAccuracy(TacticalActor *pShooter, OBJECTTYPE *pWeapon, UI
 	TacticalActor* target =
 		GetJa2SoldierRepository().resolve(
 			ubTargetID );
-	INT16 sDistVis = pShooter->GetMaxDistanceVisible(pShooter->targeting().gridNo(), pShooter->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	INT16 sDistVis = TacticalActorVisibility::maximumDistance(*pShooter, pShooter->targeting().gridNo(), pShooter->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	gbForceWeaponNotReady = true;
-	INT16 sDistVisNoScope = pShooter->GetMaxDistanceVisible(pShooter->targeting().gridNo(), pShooter->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	INT16 sDistVisNoScope = TacticalActorVisibility::maximumDistance(*pShooter, pShooter->targeting().gridNo(), pShooter->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	gbForceWeaponNotReady = false;
 	FLOAT scopeRangeMod = ( sDistVisNoScope ? (float)sDistVis / (float)sDistVisNoScope : 1.0f );
 

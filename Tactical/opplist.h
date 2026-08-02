@@ -83,7 +83,6 @@ extern UINT8 gubPublicNoiseVolume[MAXTEAMS];
 extern INT32 gsPublicNoiseGridNo[MAXTEAMS];
 extern INT8 gbPublicNoiseLevel[MAXTEAMS];
 extern UINT8 gubKnowledgeValue[10][10];
-extern INT8 gbLookDistance[8][8];
 extern INT8 gfKnowAboutOpponents;
 
 extern BOOLEAN	gfPlayerTeamSawJoey;
@@ -94,15 +93,12 @@ extern INT32			gsWatchedLoc[ TOTAL_SOLDIERS ][ NUM_WATCHED_LOCS ];
 extern INT8				gbWatchedLocLevel[ TOTAL_SOLDIERS ][ NUM_WATCHED_LOCS ];
 extern UINT8			gubWatchedLocPoints[ TOTAL_SOLDIERS ][ NUM_WATCHED_LOCS ];
 extern BOOLEAN		gfWatchedLocReset[ TOTAL_SOLDIERS ][ NUM_WATCHED_LOCS ];
-extern INT8 STRAIGHT;
-
 #define BEST_SIGHTING_ARRAY_SIZE 6
 #define BEST_SIGHTING_ARRAY_SIZE_ALL_TEAMS_LOOK_FOR_ALL 6
 #define BEST_SIGHTING_ARRAY_SIZE_NONCOMBAT 3
 #define BEST_SIGHTING_ARRAY_SIZE_INCOMBAT 0
 extern UINT8 gubBestToMakeSightingSize;
 
-INT16 AdjustMaxSightRangeForEnvEffects( TacticalActor *pSoldier, INT8 bLightLevel, INT16 sDistVisible );
 INT16 ManLooksForMan(TacticalActor *pSoldier, TacticalActor *pOpponent, UINT8 ubCaller);
 void HandleSight(TacticalActor *pSoldier, UINT8 ubSightFlags);
 void AllTeamsLookForAll(UINT8 ubAllowInterrupts);
@@ -115,8 +111,6 @@ void DecideTrueVisibility(TacticalActor *pSoldier, UINT8 ubLocate);
 void AddOneOpponent(TacticalActor *pSoldier);
 void RemoveOneOpponent(TacticalActor *pSoldier);
 void UpdatePersonal(TacticalActor *pSoldier, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo, INT8 bLevel);
-INT16 MaxNormalDistanceVisible( void );
-INT16 DistanceVisible( TacticalActor *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, INT32 sSubjectGridNo, INT8 bLevel, const BOOLEAN& isCowering, const UINT8& tunnelVision, TacticalActor *pKnownSubject = NULL);
 void ResetLastKnownLocs(TacticalActor *ptr);
 void RecalculateOppCntsDueToNoLongerNeutral( TacticalActor * pSoldier );
 void ReevaluateBestSightingPosition( TacticalActor * pSoldier, INT8 bInterruptDuelPts );
@@ -164,11 +158,6 @@ UINT8 DoorOpeningNoise( TacticalActor * pSoldier );
 void AddToShouldBecomeHostileOrSayQuoteList( SoldierID ubID );
 
 //extern INT8 gbLightSighting[1][16];
-
-BOOLEAN SoldierHasLimitedVision(TacticalActor * pSoldier);
-
-
-INT32 MaxDistanceVisible( void );
 
 // HEADROCK HAM 3.6: Moved here from cpp
 void MakeBloodcatsHostile( void );

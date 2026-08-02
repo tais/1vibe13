@@ -2,6 +2,7 @@
 #include "TacticalActorLighting.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorTurnBudget.h"
+#include "TacticalActorVisibility.h"
 #include "TacticalActorWeaponHandling.h"
 #include "TacticalActorMobility.h"
 	#include "ai.h"
@@ -4273,9 +4274,9 @@ BOOLEAN ProneSightCoverAtSpot(TacticalActor *pSoldier, INT32 sSpot, BOOLEAN fUnl
 		else
 		{
 			gbForceWeaponReady = true;
-			iDistanceVisible = DistanceVisible(pSoldier, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sSpot, pSoldier->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier));
+			iDistanceVisible = TacticalActorVisibility::distance(*pSoldier, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sSpot, pSoldier->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier));
 			gbForceWeaponReady = false;
-			//iDistanceVisible = pSoldier->GetMaxDistanceVisible(sSpot, pSoldier->position().level(), CALC_FROM_WANTED_DIR);
+			//iDistanceVisible = TacticalActorVisibility::maximumDistance(*pSoldier, sSpot, pSoldier->position().level(), CALC_FROM_WANTED_DIR);
 		}
 
 		if (LocationToLocationLineOfSightTest(sThreatLoc, iThreatLevel, sSpot, pSoldier->position().level(), TRUE, iDistanceVisible, STANDING_LOS_POS, PRONE_LOS_POS))
@@ -4363,9 +4364,9 @@ BOOLEAN SightCoverAtSpot(TacticalActor *pSoldier, INT32 sSpot, BOOLEAN fUnlimite
 		else
 		{
 			gbForceWeaponReady = true;
-			iDistanceVisible = DistanceVisible(pSoldier, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sSpot, pSoldier->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier));
+			iDistanceVisible = TacticalActorVisibility::distance(*pSoldier, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sSpot, pSoldier->position().level(), TacticalActorConditions::isCowering(*pSoldier), GetPercentTunnelVision(pSoldier));
 			gbForceWeaponReady = false;
-			//iDistanceVisible = pSoldier->GetMaxDistanceVisible(sSpot, pSoldier->position().level(), CALC_FROM_WANTED_DIR);
+			//iDistanceVisible = TacticalActorVisibility::maximumDistance(*pSoldier, sSpot, pSoldier->position().level(), CALC_FROM_WANTED_DIR);
 		}		
 
 		if (LocationToLocationLineOfSightTest(sThreatLoc, iThreatLevel, sSpot, pSoldier->position().level(), TRUE, iDistanceVisible))

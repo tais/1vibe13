@@ -170,6 +170,7 @@
 #include "TacticalActorTurnBudget.h"
 #include "TacticalActorTurnLifecycle.h"
 #include "TacticalActorTurnMaintenance.h"
+#include "TacticalActorVisibility.h"
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "render_palette_registry.h"
 #include "Plan.h"
@@ -9632,6 +9633,116 @@ int main( int, char** )
 		       malformedMovementModeIsRejected &&
 		       malformedVehicleIsRejected,
 		       "tactical actor orientation owns bounded stance, destination, facing, and turn transitions without malformed-state partial mutation" );
+	}
+
+	{
+		const TacticalWorldSession::Snapshot previousWorld =
+			CaptureJa2TacticalWorld();
+		TacticalActor visibilityActor;
+		visibilityActor.identity().id() = SoldierID{0};
+		visibilityActor.identity().profile() = NO_PROFILE;
+		visibilityActor.identity().bodyType() = REGMALE;
+		visibilityActor.roster().team() = OUR_TEAM;
+		visibilityActor.roster().active() = TRUE;
+		visibilityActor.roster().inSector() = TRUE;
+		visibilityActor.position().gridNo() = 42;
+		visibilityActor.position().level() = FIRST_LEVEL;
+		visibilityActor.position().direction() = NORTH;
+		visibilityActor.pathing().desiredDirection() = NORTH;
+
+		TacticalActorVisibility::initializeRanges();
+		const bool initializedRangesAreConsistent =
+			TacticalActorVisibility::normalMaximumDistance() ==
+				TacticalActorVisibility::straightRange() * 2 &&
+			TacticalActorVisibility::maximumDistance(
+				visibilityActor,
+				NOWHERE) ==
+				TacticalActorVisibility::normalMaximumDistance();
+
+		const BOOLEAN previousLimitedVision =
+			gGameExternalOptions.gfAllowLimitedVision;
+		gGameExternalOptions.gfAllowLimitedVision = TRUE;
+		const bool configuredLimitedVisionIsReported =
+			TacticalActorVisibility::hasLimitedVision(visibilityActor);
+		gGameExternalOptions.gfAllowLimitedVision =
+			previousLimitedVision;
+
+		visibilityActor.deployment().sectorX() = 1;
+		visibilityActor.deployment().sectorY() = 1;
+		visibilityActor.deployment().sectorZ() = 0;
+		const UINT32 previousWeather =
+			SectorInfo[SECTOR(1, 1)].usWeather;
+		SectorInfo[SECTOR(1, 1)].usWeather = WEATHER_FORECAST_MAX;
+		const bool malformedEnvironmentIsRejected =
+			TacticalActorVisibility::adjustForEnvironment(
+				visibilityActor,
+				-1,
+				12) == 0 &&
+			TacticalActorVisibility::adjustForEnvironment(
+				visibilityActor,
+				0,
+				12) == 0;
+		SectorInfo[SECTOR(1, 1)].usWeather = previousWeather;
+
+		NotifyJa2TacticalWorldUnloaded();
+		const bool unavailableWorldRequestsAreRejected =
+			TacticalActorVisibility::maximumDistance(
+				visibilityActor,
+				43) == 0 &&
+			TacticalActorVisibility::distance(
+				visibilityActor,
+				NORTH,
+				EAST,
+				43,
+				FIRST_LEVEL,
+				false,
+				0) == 0;
+
+		NotifyJa2TacticalWorldLoaded(
+			previousWorld.worldGeneration != 0
+				? previousWorld.worldGeneration : 1);
+		const bool malformedRequestsAreRejected =
+			TacticalActorVisibility::maximumDistance(
+				visibilityActor,
+				WORLD_MAX) == 0 &&
+			TacticalActorVisibility::distance(
+				visibilityActor,
+				NUM_WORLD_DIRECTIONS,
+				EAST,
+				43,
+				FIRST_LEVEL,
+				false,
+				0) == 0 &&
+			TacticalActorVisibility::distance(
+				visibilityActor,
+				NORTH,
+				EAST,
+				43,
+				SECOND_LEVEL + 1,
+				false,
+				0) == 0;
+
+		visibilityActor.identity().bodyType() = TOTALBODYTYPES;
+		const bool malformedActorIsRejected =
+			!TacticalActorVisibility::hasLimitedVision(
+				visibilityActor) &&
+			TacticalActorVisibility::adjustForEnvironment(
+				visibilityActor,
+				0,
+				12) == 0 &&
+			TacticalActorVisibility::maximumDistance(
+				visibilityActor,
+				43) == 0;
+
+		RestoreJa2TacticalWorldSession(previousWorld);
+
+		CHECK( initializedRangesAreConsistent &&
+		       configuredLimitedVisionIsReported &&
+		       malformedEnvironmentIsRejected &&
+		       unavailableWorldRequestsAreRejected &&
+		       malformedRequestsAreRejected &&
+		       malformedActorIsRejected,
+		       "tactical actor visibility owns initialized directional ranges and rejects unavailable-world or malformed requests before table access" );
 	}
 
 	{

@@ -125,6 +125,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorRobotics.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorRouteExecution.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorTraversal.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorVisibility.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorWeaponHandling.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorWorldPlacement.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/Tactical Turns.cpp"

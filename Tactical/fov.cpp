@@ -1,4 +1,5 @@
 #include "TacticalActorRouteExecution.h"
+#include "TacticalActorVisibility.h"
 	#include "sgp.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
@@ -373,7 +374,7 @@ void RevealRoofsAndItems(TacticalActor *pSoldier, UINT32 itemsToo, BOOLEAN fShow
 		range = (UINT8)( (range * (100 + TacticalActorModifiers::sightRangeBonus(*pSoldier)) ) / 100);
 
 		// balance item viewing range between normal and the limit set by opplist-type functions -- CJC
-		range = (AdjustMaxSightRangeForEnvEffects( pSoldier, LightTrueLevel( pSoldier->position().gridNo(), pSoldier->position().level()), range ) + range) / 2;
+		range = (TacticalActorVisibility::adjustForEnvironment(*pSoldier, LightTrueLevel( pSoldier->position().gridNo(), pSoldier->position().level()), range ) + range) / 2;
 	}
 
 

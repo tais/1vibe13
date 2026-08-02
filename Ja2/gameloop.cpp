@@ -1,3 +1,4 @@
+#include "TacticalActorVisibility.h"
 	#include "sgp.h"
 	#include "gameloop.h"
 	#include "Screens.h"
@@ -117,7 +118,6 @@ extern BOOLEAN gfTacticalPlacementGUIDirty;
 extern BOOLEAN gfValidLocationsChanged;
 extern BOOLEAN	gfInMsgBox;
 extern BOOLEAN gfInChatBox; // OJW - 20090314 - new chatbox
-extern void InitSightRange(); //lal
 
 namespace
 {
@@ -272,7 +272,7 @@ BOOLEAN InitializeGame(void)
 	if (GetGameContext().capabilities().isUnfinishedBusiness())
 		LoadGameUBOptions();
 
-	InitSightRange(); //lal
+	TacticalActorVisibility::initializeRanges(); //lal
 
 	// Initlaize mouse subsystems
 	startup.attemptingMouse();

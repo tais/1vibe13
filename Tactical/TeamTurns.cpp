@@ -1,5 +1,6 @@
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorTurnLifecycle.h"
+#include "TacticalActorVisibility.h"
 #include "TacticalActorRouteExecution.h"
 	#include "types.h"
 	#include "TacticalActorAiBehavior.h"
@@ -64,7 +65,6 @@
 class OBJECTTYPE;
 class TacticalActor;
 
-extern INT8 STRAIGHT;
 //extern UINT8 gubSpeedUpAnimationFactor;
 void SetSoldierAniSpeed( TacticalActor *pSoldier );
 
@@ -2113,13 +2113,14 @@ INT8 CalcInterruptDuelPts( TacticalActor * pSoldier, SoldierID ubOpponentID, BOO
 		// this soldier is moving, so give them a bonus for crawling or swatting at long distances
 		if ( !gbSeenOpponents[ ubOpponentID ][ pSoldier->identity().id() ] )
 		{
-			if (pSoldier->animationPlayback().state() == SWATTING && ubDistance > (MaxNormalDistanceVisible() / 2) ) // more than 1/2 sight distance
+			if (pSoldier->animationPlayback().state() == SWATTING && ubDistance > (TacticalActorVisibility::normalMaximumDistance() / 2) ) // more than 1/2 sight distance
 			{
 				iPoints++;
 			}
-			else if (pSoldier->animationPlayback().state() == CRAWLING && ubDistance > (MaxNormalDistanceVisible() / 4) ) // more than 1/4 sight distance
+			else if (pSoldier->animationPlayback().state() == CRAWLING && ubDistance > (TacticalActorVisibility::normalMaximumDistance() / 4) ) // more than 1/4 sight distance
 			{
-				iPoints += ubDistance / STRAIGHT;
+				iPoints += ubDistance /
+					TacticalActorVisibility::straightRange();
 			}
 		}
 	}
@@ -2689,7 +2690,7 @@ void ResolveInterruptsVs( TacticalActor * pSoldier, UINT8 ubInterruptType)
 						if ( ubInterruptType == NOISEINTERRUPT )
 						{
 							// don't grant noise interrupts at greater than max. visible distance
-							if ( PythSpacesAway( pSoldier->position().gridNo(), pOpponent->position().gridNo() ) > MaxNormalDistanceVisible() )
+							if ( PythSpacesAway( pSoldier->position().gridNo(), pOpponent->position().gridNo() ) > TacticalActorVisibility::normalMaximumDistance() )
 							{
 								pOpponent->turnState().interruptDuelPoints() = NO_INTERRUPT;
 

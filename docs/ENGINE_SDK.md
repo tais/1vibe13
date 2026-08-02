@@ -805,14 +805,21 @@ For the remaining application behavior, include and call the focused boundary:
 `TacticalActorAnimationTransitions::{changeState,initializeAnimation}` for
 animation events, `TacticalActorDamageResolution::{applyHit,takeDamage}` for
 combat damage, `TacticalActorBattleSounds::{play,playWithCode}` for merc audio,
-and `TacticalActorLocomotion::{checkRoofHit,move}` for live movement. Do not
-reintroduce the former `CreateSoldier*`, `DeleteSoldier`, `ReviveSoldier`,
+`TacticalActorLocomotion::{checkRoofHit,move}` for live movement, and
+`TacticalActorVisibility::{maximumDistance,distance}` for bounded sight-range
+queries. Initialize directional sight state through `initializeRanges`; use
+`straightRange`, `normalMaximumDistance`, `hasLimitedVision`, and
+`adjustForEnvironment` instead of reading or reproducing visibility globals.
+Do not reintroduce the former `CreateSoldier*`, `DeleteSoldier`, `ReviveSoldier`,
 `ChangeSoldierState`, `EVENT_*`, `SoldierTakeDamage`, `DoMercBattleSound`,
-`CheckSoldierHitRoof`, or `MoveMerc` entry points. `TacticalActor` now serves as
-the component aggregate; only `initialize()` and compatibility `GetName()`
-remain as member behavior. These C++ boundaries do not alter save bytes,
-network or animation event formats, combat/content data, palettes, audio, maps,
-XML, or Lua APIs.
+`CheckSoldierHitRoof`, `MoveMerc`, `GetMaxDistanceVisible`, `InitSightRange`,
+`DistanceVisible`, or the other former global sight-range entry points.
+`TacticalActor` now serves as the component aggregate; only `initialize()` and
+compatibility `GetName()` remain as member behavior. Visibility requests with
+unavailable world storage or malformed actor, grid, level, direction, vehicle,
+or light state fail without legacy table access. These C++ boundaries do not
+alter save bytes, network or animation event formats, combat/content data,
+visibility rules, palettes, audio, maps, XML, or Lua APIs.
 `TacticalActorAnimationFrames` owns directional animation-surface mapping,
 animation-code-to-render-frame selection, and the fixed frame used for frozen
 actors. New callers use `spriteDirectionForSurface`, `selectFrame`, or
