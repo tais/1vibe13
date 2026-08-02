@@ -1,4 +1,9 @@
 #include "TacticalActorBattleSounds.h"
+#include "TacticalActorAnimationState.h"
+#include "TacticalActorMovementState.h"
+#include "TacticalActorPredicates.h"
+#include "TacticalActorQuoteFlags.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorTurnLifecycle.h"
 #include "TacticalActorVisibility.h"
 #include "TacticalActorRouteExecution.h"
@@ -52,7 +57,9 @@
 #include "Map Information.h"
 #include "SoldierRepository.h"
 #include "TacticalActorSkills.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
+#include "Grid Direction.h"
+#include "Soldier Profile Constants.h"
 
 
 #ifdef JA2UB

@@ -2,7 +2,8 @@
 
 	#include "sgp.h"
 	#include "FileMan.h"
-#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "Soldier Palette.h"
 	#include "Debug Control.h"
 	#include "expat.h"
 	#include "XML.h"

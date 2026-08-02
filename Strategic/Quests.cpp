@@ -27,7 +27,10 @@
 	#include "Assignments.h"
 	#include "strategic.h"
 	#include "Strategic Event Handler.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "Soldier Profile Constants.h"
+	#include "TacticalActorEmploymentTypes.h"
+	#include "TacticalActorStateFlags.h"
 	#include "GameContext.h"
 	#include "CampaignProfileCodes.h"
 

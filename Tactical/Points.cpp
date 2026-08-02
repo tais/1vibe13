@@ -37,7 +37,15 @@
 	#include "math.h"
 	#include "Map Information.h"
 	#include "Interface Items.h"
-	#include "Soldier Control.h"	// added by SANDRO 
+	#include "TacticalActor.h"	// added by SANDRO
+	#include "TacticalActorPredicates.h"
+	#include "TacticalActorPendingActionTypes.h"
+	#include "TacticalActorLongActions.h"
+	#include "TacticalActorQuoteFlags.h"
+	#include "TacticalActorSkills.h"
+	#include "TacticalActorStateFlags.h"
+	#include "Grid Direction.h"
+	#include "Soldier Profile Constants.h"
 	#include "opplist.h"			// added by SANDRO 
 	#include "lighting.h"			// added by SANDRO 
 	#include "Food.h"				// added by Flugente

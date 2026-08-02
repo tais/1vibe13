@@ -1,6 +1,10 @@
 	#include "builddefines.h"
 #include "TacticalActorModifiers.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorBloodState.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorRobotics.h"
 #include "SoldierRepository.h"
 	#include <stdio.h>

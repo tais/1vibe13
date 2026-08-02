@@ -12,7 +12,12 @@
 
 	#include "Campaign Types.h"
 	#include "Facilities.h"
-	#include "Soldier Control.h"
+#include "TacticalActor.h"
+#include "Soldier Stat Types.h"
+#include "TacticalActorStateFlags.h"
+#include "TacticalActorBloodState.h"
+#include "TacticalActorConsumables.h"
+#include "Timer Control.h"
 	#include "Map Screen Interface.h"
 	#include "Assignments.h"
 	#include "GameSettings.h"

@@ -1,4 +1,5 @@
 #include "TacticalActorBattleSounds.h"
+#include "TacticalActorAnimationState.h"
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
@@ -6,6 +7,7 @@
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorMedicalSession.h"
 #include "TacticalActorMedicalServices.h"
+#include "TacticalActorLongActions.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRobotics.h"
@@ -13,7 +15,13 @@
 #include "TacticalActorConditions.h"
 #include "TacticalActorDisease.h"
 #include "TacticalActorModifiers.h"
+#include "TacticalActorPredicates.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
+#include "Grid Direction.h"
+#include "Soldier Profile Constants.h"
+#include "TacticalActorEmploymentTypes.h"
 #include <wchar.h>
 #include <cmath>
 #include <cstdio>
@@ -21,7 +29,7 @@
 #include "DEBUG.H"
 #include "jascreens.h"
 #include "PATHAI.H"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Animation Control.h"
 #include "Animation Data.h"
 #include "Timer Control.h"

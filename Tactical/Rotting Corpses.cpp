@@ -3,6 +3,10 @@
 #include "TacticalActorWorldPlacement.h"
 	#include "builddefines.h"
 	#include "TacticalActorConditions.h"
+	#include "TacticalActorEvents.h"
+	#include "TacticalActorQuoteFlags.h"
+	#include "TacticalActorSkills.h"
+	#include "TacticalActorStateFlags.h"
 	#include "TacticalActorRecovery.h"
 	#include <stdio.h>
 	#include <string.h>
@@ -40,7 +44,10 @@
 	#include "GameSettings.h"
 	#include "Interface Items.h"
 	#include "Soldier Profile.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "Disease.h"
+	#include "Soldier Palette.h"
+	#include "Soldier Profile Constants.h"
 	#include "Soldier macros.h"
 	#include "Keys.h"
 	#include "Render Fun.h"

@@ -4,7 +4,7 @@
  */
 
 #include "../include/LegacyCreaturePlan.h"
-#include "../../Tactical/Soldier Control.h"
+#include "../../Tactical/TacticalActor.h"
 
 INT8 CreatureDecideAction( TacticalActor *pSoldier );
 

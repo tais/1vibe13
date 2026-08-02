@@ -4,7 +4,7 @@
  */
 
 #include "../include/LegacyZombiePlan.h"
-#include "../../Tactical/Soldier Control.h" // definition of TacticalActor
+#include "../../Tactical/TacticalActor.h" // definition of TacticalActor
 
 INT8 ZombieDecideAction( TacticalActor *pSoldier ); // defined in DecideAction.cpp
 

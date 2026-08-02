@@ -7,7 +7,8 @@
 #include "sgp.h"
 #include "gameloop.h"
 #include <Overhead Types.h>
-#include <Soldier Control.h>
+#include <TacticalActor.h>
+#include "TacticalActorDebug.h"
 #include "renderworld.h"
 #include "Font.h"
 #include "screenids.h"

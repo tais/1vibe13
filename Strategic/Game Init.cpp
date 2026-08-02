@@ -4,7 +4,7 @@
 	#include "jascreens.h"
 	#include "laptop.h"
 	#include "worlddef.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
 	#include "Overhead.h"
 	#include "email.h"
 	#include "Game Clock.h"

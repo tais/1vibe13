@@ -5,7 +5,7 @@
 #include <video.h>
 #include <MemMan.h>
 #include <Overhead Types.h>
-#include <Soldier Control.h>
+#include <TacticalActor.h>
 #include "renderworld.h"
 #include "input.h"
 #include "Font.h"

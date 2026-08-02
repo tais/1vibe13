@@ -15,7 +15,7 @@
 	#include "finances.h"
 	#include "Soldier Profile.h"
 	#include "soldier profile type.h"
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
 	#include "IMP Portraits.h"
 	#include "Overhead.h"
 	#include "finances.h"

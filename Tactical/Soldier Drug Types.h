@@ -16,3 +16,7 @@ enum
 
 	DRUG_EFFECT_MAX = 20,
 };
+
+// Persistent storage retains 32 drug slots even though only the effect prefix
+// above currently has named semantics.
+inline constexpr int DRUG_TYPE_MAX = 32;

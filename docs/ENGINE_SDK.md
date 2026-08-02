@@ -859,13 +859,15 @@ the constructor/destructor isolated in `TacticalActor.cpp`. Its declaration and
 inline component accessors are isolated in `TacticalActor.h`; new focused actor
 code should include that header instead of the broad legacy soldier-control
 surface. Architecture CI rejects direct `Soldier Control.h` includes from every
-`TacticalActor*.cpp` implementation. Pointer-only legacy application APIs also
+production implementation under Editor, Ja2, Laptop, modular AI, Multiplayer,
+Strategic, Tactical, TacticalAI, TileEngine, Utils, and SGP; only the facade's
+own implementation remains exempt. Pointer-only legacy application APIs also
 forward-declare `TacticalActor` rather than importing that facade; their
 standalone compile guard covers laptop, strategic, tactical, and tile-engine
 headers. This now covers the complete application-header surface: a second
 isolated compile matrix builds each of the final 30 service/API headers in its
 own translation unit and verifies that `TacticalActor` remains incomplete. A
-second matrix compiles all 22 focused compatibility/schema headers standalone;
+second matrix compiles all 29 focused compatibility/schema headers standalone;
 compile-time assertions pin their stable values and layouts.
 Use `Strategic Path Types.h` for the stable `PathSt` route node,
 `Soldier Patrol Types.h` for map-placement patrol capacities, and
@@ -882,8 +884,16 @@ in `TacticalActorPendingActionTypes.h`; stop reasons in
 reasons, long actions, interrupts, and replicated event wrappers stay with
 their focused actor domains. Use `Animation Data.h` for animation-profile
 layouts, `Grid Direction.h` for direction helpers, `Soldier Drug Types.h` for
-persistent drug-effect indices/capacity, and `Soldier Palette.h` for uniform
-IDs, clothing-palette records, and palette contracts. The player light-option
+persistent drug-effect indices/capacity, `Soldier Stat Types.h` for stable stat
+change masks/timing, `Taunt Types.h` for external taunt bits, and
+`TacticalDestinationTypes.h` for occupancy-query modes. Transient event and
+gas-hit bits remain in `TacticalActorStateFlags.h`. Use
+`TacticalActorPredicates` for civilian/militia, posture, and attack-neutrality
+queries; it bounds animation state before consulting animation tables. Debug
+validation, crow behavior, and the legacy facing-movement adapter are declared
+by `TacticalActorDebug.h`, `TacticalActorCrowBehavior.h`, and
+`TacticalActorLocomotion.h`. `Soldier Palette.h` owns uniform IDs,
+clothing-palette records, and palette contracts. The player light-option
 refresh is declared
 with the personal-light operations in `TacticalActorLighting.h`. The legacy
 `Soldier Control.h` facade re-exports those contracts, while

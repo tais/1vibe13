@@ -1,4 +1,6 @@
-	#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "TacticalActorPredicates.h"
+	#include "TacticalActorStateFlags.h"
 	#include "ai.h"
 #include "TacticalActorInteractions.h"
 	#include "AIInternals.h"

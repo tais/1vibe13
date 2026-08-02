@@ -1,6 +1,8 @@
 #include "builddefines.h"
 #include "GameSettings.h"
-#include "Soldier Control.h"
+	#include "TacticalActor.h"
+	#include "TacticalActorStateFlags.h"
+	#include "Soldier Profile Constants.h"
 
 	#include "sgp.h"
 	#include "Radar Screen.h"

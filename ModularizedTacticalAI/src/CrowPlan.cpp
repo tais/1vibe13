@@ -4,7 +4,9 @@
  */
 
 #include "../include/CrowPlan.h"
-#include "../../Tactical/Soldier Control.h"     // defines TacticalActor
+#include "../../Tactical/TacticalActor.h"     // defines TacticalActor
+#include "../../Tactical/TacticalActorCrowBehavior.h"
+#include "../../Tactical/Grid Direction.h"
 #include "../../Tactical/Animation Control.h"   // defines CROW_FLY
 #include "../../Tactical/Soldier Add.h"         // FindGridNoFromSweetSpot()
 #include "../../TacticalAI/ai.h"                // AI_ACTION_...

@@ -12,7 +12,8 @@
 #include "../include/PlanList.h"
 
 #include "../../TacticalAI/AIInternals.h"      // DEBUGAIMSG
-#include "../../Tactical/Soldier Control.h" // For TacticalActor definition
+#include "../../Tactical/TacticalActor.h" // For TacticalActor definition
+#include "../../Tactical/TacticalActorStateFlags.h"
 #include "../../Tactical/Animation Data.h"  // For the definition of, wait for it... BLOODCAT!
 #include "Soldier macros.h"
 
