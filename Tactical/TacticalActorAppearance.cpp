@@ -5,6 +5,7 @@
 #include "LogicalBodyTypes/PaletteTable.h"
 #include "MemMan.h"
 #include "Render Palette Bank.h"
+#include "Render Palette Effects.h"
 #include "Soldier Palette.h"
 #include "TacticalActor.h"
 #include "shading.h"
@@ -116,86 +117,8 @@ bool TacticalActorAppearance::rebuildPalettes(TacticalActor& actor)
 
 	rebuiltPalette.adoptBase16(
 		Create16BPPPalette(rebuiltPalette.base8()));
-	CreateRenderPaletteTables(rebuiltPalette, HVOBJECT_GLOW_GREEN);
-	rebuiltPalette.adoptEffectShade(
-		0,
-		Create16BPPPaletteShaded(
-			rebuiltPalette.base8(), 100, 100, 100, TRUE));
-	rebuiltPalette.adoptEffectShade(
-		1,
-		Create16BPPPaletteShaded(
-			rebuiltPalette.base8(), 100, 150, 100, TRUE));
-
-	rebuiltPalette.adoptGlowShade(
-		0,
-		Create16BPPPaletteShaded(
-			rebuiltPalette.base8(), 255, 255, 255, FALSE));
-	for (INT32 index = 1; index < 10; ++index)
-	{
-		rebuiltPalette.adoptGlowShade(
-			index,
-			CreateEnemyGlow16BPPPalette(
-				rebuiltPalette.base8(),
-				gRedGlowR[index],
-				255,
-				FALSE));
-	}
-
-	rebuiltPalette.adoptGlowShade(
-		10,
-		Create16BPPPaletteShaded(
-			rebuiltPalette.base8(), 100, 100, 100, TRUE));
-	for (INT32 index = 11; index < 19; ++index)
-	{
-		rebuiltPalette.adoptGlowShade(
-			index,
-			CreateEnemyGreyGlow16BPPPalette(
-				rebuiltPalette.base8(),
-				gRedGlowR[index],
-				0,
-				FALSE));
-	}
-	rebuiltPalette.adoptGlowShade(
-		19,
-		CreateEnemyGreyGlow16BPPPalette(
-			rebuiltPalette.base8(), gRedGlowR[18], 0, FALSE));
-
-	rebuiltPalette.adoptShade(
-		20,
-		Create16BPPPaletteShaded(
-			rebuiltPalette.base8(), 255, 255, 255, FALSE));
-	for (INT32 index = 21; index < 30; ++index)
-	{
-		rebuiltPalette.adoptShade(
-			index,
-			CreateEnemyGlow16BPPPalette(
-				rebuiltPalette.base8(),
-				gOrangeGlowR[index - 20],
-				gOrangeGlowG[index - 20],
-				TRUE));
-	}
-
-	rebuiltPalette.adoptShade(
-		30,
-		Create16BPPPaletteShaded(
-			rebuiltPalette.base8(), 100, 100, 100, TRUE));
-	for (INT32 index = 31; index < 39; ++index)
-	{
-		rebuiltPalette.adoptShade(
-			index,
-			CreateEnemyGreyGlow16BPPPalette(
-				rebuiltPalette.base8(),
-				gOrangeGlowR[index - 20],
-				gOrangeGlowG[index - 20],
-				TRUE));
-	}
-	rebuiltPalette.adoptShade(
-		39,
-		CreateEnemyGreyGlow16BPPPalette(
-			rebuiltPalette.base8(),
-			gOrangeGlowR[18],
-			gOrangeGlowG[18],
-			TRUE));
+	if (!RenderPaletteEffects::populateActorShades(rebuiltPalette))
+		return false;
 
 	actor.palette().swapStorage(rebuiltPalette);
 	return true;

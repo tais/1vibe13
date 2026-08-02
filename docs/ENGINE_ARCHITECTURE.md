@@ -1350,9 +1350,10 @@ the engine must not contain SDL types in its public domain model.
   status flags, item flags, assignments, profiles, and save fields retain
   their established data formats.
   `TacticalActorMobility` now owns the complementary live movement and posture
-  decisions: water depth, movement animation selection, stance transitions,
-  backpack climbing, world-aware stance validation, cover adjacency, and the
-  disease-limited fast-movement edge. It rejects malformed animation, item,
+  decisions: water depth, movement-mode validation, movement animation
+  selection from the current stance, stance transitions, backpack climbing,
+  world-aware stance validation, cover adjacency, and the disease-limited
+  fast-movement edge. It rejects malformed animation, movement-mode, item,
   profile, direction, and grid state before reaching legacy lookup tables or
   world structures; current-animation posture queries also stay inside this
   guarded boundary. `TacticalActorWeaponHandling` owns dual-wield eligibility,
@@ -1468,7 +1469,7 @@ the engine must not contain SDL types in its public domain model.
   The headless build compiles every migrated header in a separate translation
   unit so include order cannot conceal an ownership regression: the 30
   actor-facing service/API headers must also keep `TacticalActor` incomplete,
-  while 30 focused compatibility/schema contracts each compile standalone.
+  while 33 focused compatibility/schema contracts each compile standalone.
   Compile-time assertions pin their established layouts, capacities, enum
   order, sentinels, and overlapping flag values. Runtime headless coverage pins
   civilian/militia and posture classification, malformed animation rejection,
@@ -1511,8 +1512,9 @@ the engine must not contain SDL types in its public domain model.
   requesting and continuing paths, pausing movement when APs are exhausted,
   stopping at a synchronized grid and facing, returning to a stationary
   stance, and halting for a sighting. Tactical, AI, strategic, multiplayer,
-  Lua, event-pump, and retained simulation-command callers now enter six
-  bounded operations instead of seven aggregate movement façades. The domain
+  Lua, event-pump, and retained simulation-command callers now enter seven
+  bounded operations instead of seven aggregate movement façades and the
+  former global continuation helper. The domain
   keeps path buffers, destinations, pending actions and animations, medical
   service cancellation, movement reservations, UI ownership, vehicle sound,
   and stop/path replication coordinated as complete transitions. It rejects
@@ -1769,6 +1771,29 @@ the engine must not contain SDL types in its public domain model.
   extended-direction indexes plus video-object frame counts before indexing
   legacy animation tables. Existing animation scripts and assets, rendering,
   maps, XML, Lua, saves, and network formats are unchanged.
+  `TacticalActorAnimationTiming` owns animation-delay calculation, tactical
+  speed adjustment, per-team turn-speed factors, timer refresh, and fast-turn
+  timing. `TacticalActorAnimationGeometry` owns current-frame dimensions and
+  offsets plus the render bounding-box refresh. Animation transitions,
+  orientation, placement, team-turn, visibility, and overhead callers now use
+  those two bounded services instead of the former soldier-control globals.
+  Both services reject malformed animation, body, terrain, direction,
+  inventory, surface, video-object, and frame state before legacy table access;
+  failed geometry refreshes leave the last complete render box unchanged.
+  `TacticalActorMobility` additionally owns legacy movement-mode validation and
+  selecting the movement animation implied by the current stance, while
+  `TacticalActorRouteExecution::continueMovement` owns the complete AP-checked
+  continuation transaction. `RenderPaletteEffects` is the shared,
+  actor-independent owner of shade, enemy-glow, grey-glow, and effect-palette
+  generation used by both actor appearance and logical body palettes. The
+  unused full-tile occlusion implementation and its uncalled entry point were
+  retired rather than moved. Architecture CI requires each new owner in the
+  tactical build, standalone-compiles its public contract, requires live and
+  malformed-state headless coverage, and prevents the superseded timing,
+  geometry, mobility, route, palette, and occlusion implementations from
+  returning to `Soldier Control.cpp`. Animation scripts and assets, palette
+  source data, rendering output, maps, items, saves, network events, XML, Lua,
+  and installed mod formats are unchanged.
   `TacticalActorAnimationFootprint` owns the animation-profile tiles projected
   into the tactical merc layer for hit-location selection. Animation changes,
   world placement, and facing updates use `add`, `addForSurface`, and `remove`;

@@ -2213,6 +2213,14 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationFrames.h"
   tactical_actor_animation_frames_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationFrames.cpp"
   tactical_actor_animation_frames_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationGeometry.h"
+  tactical_actor_animation_geometry_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationGeometry.cpp"
+  tactical_actor_animation_geometry_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationTiming.h"
+  tactical_actor_animation_timing_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationTiming.cpp"
+  tactical_actor_animation_timing_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationFootprint.h"
   tactical_actor_animation_footprint_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationFootprint.cpp"
@@ -2279,6 +2287,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageFeedback.h"
   tactical_actor_damage_feedback_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDamageFeedback.cpp"
   tactical_actor_damage_feedback_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Render Palette Effects.h"
+  render_palette_effects_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Render Palette Effects.cpp"
+  render_palette_effects_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorProfileClassification.h"
   tactical_actor_profile_classification_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorProfileClassification.cpp"
@@ -2339,6 +2351,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAppearance.h"
   tactical_actor_appearance_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAppearance.cpp"
   tactical_actor_appearance_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/LogicalBodyTypes/PaletteTable.cpp"
+  tactical_logical_palette_table_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorBattleSounds.h"
   tactical_actor_battle_sounds_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorBattleSounds.cpp"
@@ -3100,7 +3114,10 @@ string(FIND "${tactical_actor_service_api_header_test_contents}"
 foreach(tactical_actor_new_contract_compile_header IN ITEMS
 	"Tactical/Soldier Stat Types.h"
 	"Tactical/Taunt Types.h"
+	"Tactical/Render Palette Effects.h"
+	"Tactical/TacticalActorAnimationGeometry.h"
 	"Tactical/TacticalActorAnimationSelection.h"
+	"Tactical/TacticalActorAnimationTiming.h"
 	"Tactical/TacticalActorCrowBehavior.h"
     "Tactical/TacticalActorDebug.h"
     "Tactical/TacticalActorLocomotion.h"
@@ -4210,6 +4227,7 @@ endforeach()
 foreach(required_route_execution_operation IN ITEMS
   "setOutOfActionPoints"
   "requestPath"
+  "continueMovement"
   "stop"
   "settleIntoStationaryStance"
   "haltForSighting"
@@ -4749,6 +4767,8 @@ foreach(required_mobility_operation IN ITEMS
   "transitionStateForStance"
   "canClimbWithCurrentBackpack"
   "isValidStance"
+  "isValidMovementMode"
+  "selectMovementForCurrentStance"
   "isCurrentStanceValid"
   "isCrouchedAgainstCover"
   "isFastMovement")
@@ -5439,6 +5459,101 @@ foreach(required_animation_frame_operation IN ITEMS
   endif()
 endforeach()
 
+foreach(required_animation_geometry_operation IN ITEMS
+  "currentFrame"
+  "refreshBoundingBox")
+  string(FIND "${tactical_actor_animation_geometry_header_contents}"
+    "${required_animation_geometry_operation}("
+    animation_geometry_operation_declaration)
+  string(FIND "${tactical_actor_animation_geometry_source_contents}"
+    "TacticalActorAnimationGeometry::${required_animation_geometry_operation}("
+    animation_geometry_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorAnimationGeometry::${required_animation_geometry_operation}"
+    animation_geometry_operation_coverage)
+  if(animation_geometry_operation_declaration EQUAL -1 OR
+     animation_geometry_operation_definition EQUAL -1 OR
+     animation_geometry_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor animation-geometry operation '${required_animation_geometry_operation}' lost its declaration, definition, or live/malformed-state coverage")
+  endif()
+endforeach()
+
+foreach(required_animation_timing_operation IN ITEMS
+  "currentTeamSpeedFactor"
+  "refresh"
+  "adjustForFastTurn")
+  string(FIND "${tactical_actor_animation_timing_header_contents}"
+    "${required_animation_timing_operation}("
+    animation_timing_operation_declaration)
+  string(FIND "${tactical_actor_animation_timing_source_contents}"
+    "TacticalActorAnimationTiming::${required_animation_timing_operation}("
+    animation_timing_operation_definition)
+  string(FIND "${headless_test_contents}"
+    "TacticalActorAnimationTiming::${required_animation_timing_operation}"
+    animation_timing_operation_coverage)
+  if(animation_timing_operation_declaration EQUAL -1 OR
+     animation_timing_operation_definition EQUAL -1 OR
+     animation_timing_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor animation-timing operation '${required_animation_timing_operation}' lost its declaration, definition, or live/malformed-state coverage")
+  endif()
+endforeach()
+
+string(FIND "${render_palette_effects_header_contents}"
+  "populateActorShades(" render_palette_effects_declaration)
+string(FIND "${render_palette_effects_source_contents}"
+  "RenderPaletteEffects::populateActorShades("
+  render_palette_effects_definition)
+string(FIND "${headless_test_contents}"
+  "RenderPaletteEffects::populateActorShades("
+  render_palette_effects_coverage)
+if(render_palette_effects_declaration EQUAL -1 OR
+   render_palette_effects_definition EQUAL -1 OR
+   render_palette_effects_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Render palette effects lost their declaration, definition, or headless ownership coverage")
+endif()
+
+foreach(retired_soldier_control_animation_support IN ITEMS
+  "AdjustAniSpeed("
+  "CalculateSoldierAniSpeed("
+  "GetSpeedUpFactor("
+  "SetSoldierAniSpeed("
+  "AdjustForFastTurnAnimation("
+  "GetActualSoldierAnimDims("
+  "GetActualSoldierAnimOffsets("
+  "SetSoldierLocatorOffsets("
+  "ContinueMercMovement("
+  "IsValidStance("
+  "IsValidMovementMode("
+  "SelectMoveAnimationFromStance("
+  "CreateEnemyGlow16BPPPalette("
+  "CreateEnemyGreyGlow16BPPPalette("
+  "CheckForFullStructures("
+  "CheckForFullStruct("
+  "FullStructAlone(")
+  string(FIND "${tactical_actor_source_contents}"
+    "${retired_soldier_control_animation_support}"
+    retired_animation_support_monolith_definition)
+  if(NOT retired_animation_support_monolith_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier Control.cpp regained retired animation-support implementation '${retired_soldier_control_animation_support}'")
+  endif()
+endforeach()
+
+string(FIND "${tactical_actor_appearance_source_contents}"
+  "RenderPaletteEffects::populateActorShades("
+  actor_appearance_palette_effects_call)
+string(FIND "${tactical_logical_palette_table_source_contents}"
+  "RenderPaletteEffects::populateActorShades("
+  logical_palette_table_effects_call)
+if(actor_appearance_palette_effects_call EQUAL -1 OR
+   logical_palette_table_effects_call EQUAL -1)
+  message(FATAL_ERROR
+    "Actor and logical-body palette rebuilds must share RenderPaletteEffects")
+endif()
+
 foreach(required_animation_footprint_operation IN ITEMS
   "add"
   "addForSurface"
@@ -5502,7 +5617,9 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActor.cpp"
   "TacticalActorAnimationFootprint.cpp"
   "TacticalActorAnimationFrames.cpp"
+  "TacticalActorAnimationGeometry.cpp"
   "TacticalActorAnimationSelection.cpp"
+  "TacticalActorAnimationTiming.cpp"
   "TacticalActorAnimationTransitions.cpp"
   "TacticalActorAppearance.cpp"
   "TacticalActorAssignments.cpp"
@@ -5533,7 +5650,8 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorTurnBudget.cpp"
   "TacticalActorTurnLifecycle.cpp"
   "TacticalActorTurnMaintenance.cpp"
-  "TacticalActorTurncoats.cpp")
+  "TacticalActorTurncoats.cpp"
+  "Render Palette Effects.cpp")
   string(FIND "${tactical_build_contents}"
     "${required_actor_domain_source}"
     actor_domain_build_entry)

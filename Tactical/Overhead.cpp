@@ -3,6 +3,7 @@
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorAnimationSelection.h"
+#include "TacticalActorAnimationTiming.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorLifecycle.h"
 #include "TacticalActorAppearance.h"
@@ -228,7 +229,6 @@ BOOLEAN checkBonusMilitia;
 TacticalStatusType  gTacticalStatus;
 
 extern void RecalculateOppCntsDueToNoLongerNeutral( TacticalActor * pSoldier );
-extern void SetSoldierAniSpeed( TacticalActor *pSoldier );
 extern void HandleExplosionQueue( );
 extern void UpdateForContOverPortrait( TacticalActor *pSoldier, BOOLEAN fOn );
 extern void HandleSystemNewAISituation( TacticalActor *pSoldier, BOOLEAN fResetABC );
@@ -1019,7 +1019,7 @@ BOOLEAN ExecuteOverhead( )
                                 pSoldier->renderBindings().levelNode()->ubShadeLevel = bShadeLevel;
                             }
                             // Set Anim speed accordingly!
-                            SetSoldierAniSpeed( pSoldier );
+                            (void)TacticalActorAnimationTiming::refresh(*pSoldier);
                         }
                         bShadeLevel|=(pSoldier->renderState().fadeLevel()&0x30);
                         pSoldier->renderState().fadeLevel() = bShadeLevel;
@@ -1042,7 +1042,7 @@ BOOLEAN ExecuteOverhead( )
                                 pSoldier->renderBindings().levelNode()->ubShadeLevel = bShadeLevel;
                             }
                             // Set Anim speed accordingly!
-                            SetSoldierAniSpeed( pSoldier );
+                            (void)TacticalActorAnimationTiming::refresh(*pSoldier);
                         }
                         bShadeLevel|=(pSoldier->renderState().fadeLevel()&0x30);
                         pSoldier->renderState().fadeLevel() = bShadeLevel;
@@ -9067,7 +9067,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                     }
                     break;
                 case ANIM_CROUCH:
-                    if (sPointsLost >= GetAPsProne(pSoldier, TRUE) && IsValidStance( pSoldier, ANIM_PRONE ) )
+                    if (sPointsLost >= GetAPsProne(pSoldier, TRUE) && TacticalActorMobility::isValidStance(*pSoldier, ANIM_PRONE ) )
                     {
                         sClosestOpponent = ClosestKnownOpponent( pSoldier, &sClosestOppLoc, NULL );
                         // HEADROCK: Added cowering.                        
@@ -9108,7 +9108,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                         // can't change stance here!
                         break;
                     }
-                    else if (sPointsLost >= (GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE)) && IsValidStance( pSoldier, ANIM_PRONE ) )
+                    else if (sPointsLost >= (GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE)) && TacticalActorMobility::isValidStance(*pSoldier, ANIM_PRONE ) )
                     {
                         sClosestOpponent = ClosestKnownOpponent( pSoldier, &sClosestOppLoc, NULL );
                         // HEADROCK: Added cowering.
@@ -9128,14 +9128,14 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                                 ubNewStance = ANIM_CROUCH;
                             }
                         }
-                        else if ( IsValidStance( pSoldier, ANIM_CROUCH ) )
+                        else if ( TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) )
                         {
                             // crouch!
                             sPointsLost -= GetAPsCrouch(pSoldier, TRUE);
                             ubNewStance = ANIM_CROUCH;
                         }
                     }
-                    else if ( sPointsLost >= GetAPsCrouch(pSoldier, TRUE) && ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_CROUCH ) && IsValidStance( pSoldier, ANIM_CROUCH ) )
+                    else if ( sPointsLost >= GetAPsCrouch(pSoldier, TRUE) && ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_CROUCH ) && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) )
                     {
                         if ( fCower )
                         {
@@ -10067,7 +10067,7 @@ void ResetAllMercSpeeds( )
 
         if ( pSoldier->roster().active() && pSoldier->roster().inSector() )
         {
-            SetSoldierAniSpeed( pSoldier );
+            (void)TacticalActorAnimationTiming::refresh(*pSoldier);
         }
 
     }

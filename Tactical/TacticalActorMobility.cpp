@@ -10,6 +10,7 @@
 #include "Isometric Utils.h"
 #include "Items.h"
 #include "TacticalActor.h"
+#include "TacticalActorAnimationTransitions.h"
 #include "Soldier Profile.h"
 #include "SoldierRepository.h"
 #include "TacticalActorDisease.h"
@@ -323,6 +324,59 @@ bool TacticalActorMobility::isValidStance(
 			gOneCDirection[
 				static_cast<std::uint8_t>(direction)]],
 		excludedStructure);
+}
+
+bool TacticalActorMobility::isValidStance(
+	TacticalActor& actor,
+	std::int8_t stance)
+{
+	return actor.position().direction() >= 0 &&
+		actor.position().direction() < NUM_WORLD_DIRECTIONS &&
+		isValidStance(
+			actor,
+			actor.position().direction(),
+			stance);
+}
+
+bool TacticalActorMobility::isValidMovementMode(
+	const TacticalActor& actor,
+	std::uint16_t movementMode) noexcept
+{
+	if (movementMode >= NUMANIMATIONSTATES)
+		return false;
+	return !inWater(actor) ||
+		(movementMode != RUNNING &&
+		 movementMode != SWATTING &&
+		 movementMode != CRAWLING);
+}
+
+bool TacticalActorMobility::selectMovementForCurrentStance(
+	TacticalActor& actor)
+{
+	std::uint8_t stance = 0;
+	if (!readCurrentStance(actor, stance))
+		return false;
+
+	std::uint16_t movementState = WALKING;
+	switch (stance)
+	{
+	case ANIM_STAND:
+		movementState = WALKING;
+		break;
+	case ANIM_PRONE:
+		movementState = CRAWLING;
+		break;
+	case ANIM_CROUCH:
+		movementState = SWATTING;
+		break;
+	default:
+		return false;
+	}
+	return TacticalActorAnimationTransitions::initializeAnimation(
+		actor,
+		movementState,
+		0,
+		FALSE);
 }
 
 bool TacticalActorMobility::isCurrentStanceValid(

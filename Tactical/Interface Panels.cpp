@@ -8,6 +8,7 @@
 #include "TacticalActorConditionPresentation.h"
 #include "TacticalActorConsumables.h"
 #include "TacticalActorRangedActions.h"
+#include "TacticalActorRouteExecution.h"
 #include "TacticalActorSkills.h"
 #include "TacticalActorStateFlags.h"
 #include "TacticalWorldAdapter.h"
@@ -905,7 +906,7 @@ void UpdateSMPanel( )
 			EnableButton( iSMPanelButtons[ STANCEDOWN_BUTTON ] );
 
 			// Disable if we cannot do this!
-			if ( !IsValidStance( GetSMCurrentMerc(), ANIM_CROUCH ) )
+			if ( !TacticalActorMobility::isValidStance(*GetSMCurrentMerc(), ANIM_CROUCH ) )
 			{
 				DisableButton( iSMPanelButtons[ STANCEDOWN_BUTTON ] );
 			}
@@ -923,7 +924,7 @@ void UpdateSMPanel( )
 			EnableButton( iSMPanelButtons[ STANCEDOWN_BUTTON ] );
 
 			// Disable if we cannot do this!
-			if ( !IsValidStance( GetSMCurrentMerc(), ANIM_PRONE ) )
+			if ( !TacticalActorMobility::isValidStance(*GetSMCurrentMerc(), ANIM_PRONE ) )
 			{
 				DisableButton( iSMPanelButtons[ STANCEDOWN_BUTTON ] );
 			}
@@ -1031,7 +1032,7 @@ void UpdateSMPanel( )
 
 	if (fNearLowerLevel || fNearHeigherLevel)
 	{
-		if (IsValidStance(GetSMCurrentMerc(), ANIM_CROUCH) && EnoughPoints(GetSMCurrentMerc(), GetAPsToClimbRoof(GetSMCurrentMerc(), fNearLowerLevel), GetBPsToClimbRoof(GetSMCurrentMerc(), fNearLowerLevel), FALSE))
+		if (TacticalActorMobility::isValidStance(*GetSMCurrentMerc(), ANIM_CROUCH) && EnoughPoints(GetSMCurrentMerc(), GetAPsToClimbRoof(GetSMCurrentMerc(), fNearLowerLevel), GetBPsToClimbRoof(GetSMCurrentMerc(), fNearLowerLevel), FALSE))
 		{
 			EnableButton(iSMPanelButtons[CLIMB_BUTTON]);
 		}
@@ -1041,7 +1042,7 @@ void UpdateSMPanel( )
 	{
 		if (FindWallJumpDirection(GetSMCurrentMerc(), GetSMCurrentMerc()->position().gridNo(), GetSMCurrentMerc()->position().direction(), &bDirection))
 		{
-			if (IsValidStance(GetSMCurrentMerc(), ANIM_CROUCH) && EnoughPoints(GetSMCurrentMerc(), GetAPsToJumpWall(GetSMCurrentMerc(), FALSE), GetBPsToJumpWall(GetSMCurrentMerc(), FALSE), FALSE))
+			if (TacticalActorMobility::isValidStance(*GetSMCurrentMerc(), ANIM_CROUCH) && EnoughPoints(GetSMCurrentMerc(), GetAPsToJumpWall(GetSMCurrentMerc(), FALSE), GetBPsToJumpWall(GetSMCurrentMerc(), FALSE), FALSE))
 			{
 				EnableButton(iSMPanelButtons[CLIMB_BUTTON]);
 			}
@@ -1050,7 +1051,7 @@ void UpdateSMPanel( )
 
 	if (FindFenceJumpDirection(GetSMCurrentMerc(), GetSMCurrentMerc()->position().gridNo(), GetSMCurrentMerc()->position().direction(), &bDirection))
 	{
-		if (IsValidStance(GetSMCurrentMerc(), ANIM_CROUCH) && EnoughPoints(GetSMCurrentMerc(), GetAPsToJumpFence(GetSMCurrentMerc(), FALSE), GetBPsToJumpFence(GetSMCurrentMerc(), FALSE), FALSE))
+		if (TacticalActorMobility::isValidStance(*GetSMCurrentMerc(), ANIM_CROUCH) && EnoughPoints(GetSMCurrentMerc(), GetAPsToJumpFence(GetSMCurrentMerc(), FALSE), GetBPsToJumpFence(GetSMCurrentMerc(), FALSE), FALSE))
 		{
 			EnableButton(iSMPanelButtons[CLIMB_BUTTON]);
 		}
@@ -4481,7 +4482,7 @@ void SelectedMercButtonCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			if ( CheckForMercContMove( GetSMCurrentMerc() ) )
 			{
 				// Continue
-				ContinueMercMovement( GetSMCurrentMerc() );
+				(void)TacticalActorRouteExecution::continueMovement(*GetSMCurrentMerc());
 				ErasePath( TRUE );
 			}
 			else
@@ -6337,7 +6338,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					if ( CheckForMercContMove( soldier ) )
 					{
 						// Continue
-						ContinueMercMovement( soldier );
+						(void)TacticalActorRouteExecution::continueMovement(*soldier);
 						ErasePath( TRUE );
 					}
 					else

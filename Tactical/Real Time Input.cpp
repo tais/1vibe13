@@ -2154,7 +2154,7 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 							return;
 
 					// Make sure the merc is not collapsed!
-					if (!IsValidStance(pjSoldier, ANIM_CROUCH) )
+					if (!TacticalActorMobility::isValidStance(*pjSoldier, ANIM_CROUCH) )
 					{
 						if ( pjSoldier->collapseState().tactical() && pjSoldier->vitals().breath() < OKBREATH )
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->identity().name() );
@@ -2218,7 +2218,7 @@ void HandleRTJump( void )
 				return;
 
 		// Make sure the merc is not collapsed!
-		if (!IsValidStance(pjSoldier, ANIM_CROUCH) )
+		if (!TacticalActorMobility::isValidStance(*pjSoldier, ANIM_CROUCH) )
 		{
 			if ( pjSoldier->collapseState().tactical() && pjSoldier->vitals().breath() < OKBREATH )
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->identity().name() );

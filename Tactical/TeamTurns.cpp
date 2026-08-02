@@ -1,4 +1,5 @@
 #include "TacticalActorBattleSounds.h"
+#include "TacticalActorAnimationTiming.h"
 #include "TacticalActorAnimationState.h"
 #include "TacticalActorMovementState.h"
 #include "TacticalActorPredicates.h"
@@ -74,8 +75,6 @@ class OBJECTTYPE;
 class TacticalActor;
 
 //extern UINT8 gubSpeedUpAnimationFactor;
-void SetSoldierAniSpeed( TacticalActor *pSoldier );
-
 // sevenfm
 time_t gtTimeSinceMercAIStart;
 
@@ -96,7 +95,7 @@ void RecalculateSoldiersAniSpeed()
 			continue;			// next merc
 		}
 
-		SetSoldierAniSpeed( pSoldier );
+		(void)TacticalActorAnimationTiming::refresh(*pSoldier);
 	}
 
 }

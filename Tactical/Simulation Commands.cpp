@@ -382,7 +382,7 @@ namespace
 			{
 				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier ||
-					!IsValidMovementMode(soldier, value.movementMode))
+					!TacticalActorMobility::isValidMovementMode(*soldier, value.movementMode))
 					return CommandDisposition::Discard;
 
 				soldier->movement().mode() = value.movementMode;
@@ -585,7 +585,7 @@ namespace
 			{
 				TacticalActor* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier || !CanBeginWorldObjectInteraction(*soldier) ||
-					!IsValidMovementMode(soldier, value.movementMode))
+					!TacticalActorMobility::isValidMovementMode(*soldier, value.movementMode))
 					return CommandDisposition::Discard;
 				STRUCTURE* structure = ResolveLiveWorldObject(value.object);
 				if (!structure) return CommandDisposition::Discard;
@@ -625,7 +625,7 @@ namespace
 				TacticalActor* target = ResolveLiveCommandActor(value.target);
 				if (!soldier || !target ||
 					!IsValidConversationPair(*soldier, *target) ||
-					!IsValidMovementMode(soldier, value.movementMode))
+					!TacticalActorMobility::isValidMovementMode(*soldier, value.movementMode))
 					return CommandDisposition::Discard;
 
 				const UINT8 previousAction = soldier->pendingAction().action();
@@ -695,7 +695,7 @@ namespace
 				if (!soldier || !vehicle ||
 					!CanEnterCommandVehicle(
 						*soldier, *vehicle, value.seatIndex) ||
-					!IsValidMovementMode(soldier, value.movementMode))
+					!TacticalActorMobility::isValidMovementMode(*soldier, value.movementMode))
 					return CommandDisposition::Discard;
 
 				const UINT8 previousAction = soldier->pendingAction().action();

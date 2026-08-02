@@ -296,7 +296,7 @@ void TacticalActorDamageFeedback::applyGunfireHit(
 			{
 				// possibly play fall over anim!
 				// this one is NOT restricted by distance
-				if ( IsValidStance( pSoldier, ANIM_PRONE ) )
+				if ( TacticalActorMobility::isValidStance(*pSoldier, ANIM_PRONE ) )
 				{
 					// Can't be in water, or not standing
 					if ( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND && !TacticalActorMobility::inWater(*pSoldier) )

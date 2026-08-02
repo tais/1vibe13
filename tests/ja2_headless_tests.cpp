@@ -1,4 +1,6 @@
 #include "TacticalActorAiBehavior.h"
+#include "TacticalActorAnimationGeometry.h"
+#include "TacticalActorAnimationTiming.h"
 #include "TacticalActorDamageQueue.h"
 #include "TacticalActorFieldOperations.h"
 #include "TacticalActorLongActions.h"
@@ -13,6 +15,7 @@
 #include "TacticalActorRangedActions.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
+#include "Render Palette Effects.h"
 // ja2_headless_tests.cpp -- first slice of the engine test harness.
 //
 // Proves that the JA2 engine links into a standalone test binary (i.e. the
@@ -189,6 +192,7 @@
 #include "worlddef.h"
 #include "worldman.h"
 #include "lighting.h"
+#include "connect.h"
 #include "Overhead.h"
 #include "ai.h"
 #include "Vehicles.h"
@@ -7869,6 +7873,37 @@ int main( int, char** )
 			       LegacyRenderPaletteCount() == registryBefore,
 			       "clearing a shared render palette invalidates every owned and active alias without a double free" );
 		}
+
+		{
+			RenderPaletteBank emptyPalette;
+			const bool emptyPaletteIsRejected =
+				!RenderPaletteEffects::populateActorShades(
+					emptyPalette) &&
+				emptyPalette.empty();
+
+			RenderPaletteBank actorPalette;
+			actorPalette.adoptBase8(AllocateTestPalette8(11));
+			actorPalette.adoptBase16(
+				Create16BPPPalette(actorPalette.base8()));
+			const bool actorEffectsArePopulated =
+				RenderPaletteEffects::populateActorShades(
+					actorPalette) &&
+				actorPalette.base16() != nullptr &&
+				actorPalette.effectShade(0) != nullptr &&
+				actorPalette.effectShade(1) != nullptr &&
+				actorPalette.glowShade(0) != nullptr &&
+				actorPalette.glowShade(19) != nullptr &&
+				actorPalette.shade(0) != nullptr &&
+				actorPalette.shade(20) != nullptr &&
+				actorPalette.shade(39) != nullptr;
+			CHECK(
+				emptyPaletteIsRejected &&
+				actorEffectsArePopulated,
+				"render palette effects reject a missing base palette and populate every actor shade family" );
+		}
+		CHECK(
+			LegacyRenderPaletteCount() == registryBefore,
+			"render palette effect ownership releases every generated table" );
 	}
 
 	{
@@ -9083,6 +9118,22 @@ int main( int, char** )
 				mobilityActor) &&
 			!TacticalActorMobility::inHighWater(
 				mobilityActor);
+		const bool waterMovementModesAreBounded =
+			!TacticalActorMobility::isValidMovementMode(
+				mobilityActor,
+				RUNNING) &&
+			!TacticalActorMobility::isValidMovementMode(
+				mobilityActor,
+				SWATTING) &&
+			!TacticalActorMobility::isValidMovementMode(
+				mobilityActor,
+				CRAWLING) &&
+			TacticalActorMobility::isValidMovementMode(
+				mobilityActor,
+				WALKING) &&
+			!TacticalActorMobility::isValidMovementMode(
+				mobilityActor,
+				NUMANIMATIONSTATES);
 
 		mobilityActor.position().terrainType() = DEEP_WATER;
 		const bool deepWaterIsClassified =
@@ -9141,7 +9192,9 @@ int main( int, char** )
 				NORTH) &&
 			!TacticalActorMobility::isCrouchedAgainstCover(
 				mobilityActor,
-				NORTH);
+				NORTH) &&
+			!TacticalActorMobility::selectMovementForCurrentStance(
+				mobilityActor);
 
 		gGameOptions.ubInventorySystem = INVENTORY_NEW;
 		gGameExternalOptions.sBackpackWeightToClimb = -1;
@@ -9181,6 +9234,7 @@ int main( int, char** )
 			previousGlobalBackpackSettings;
 
 		CHECK( shallowWaterIsClassified &&
+		       waterMovementModesAreBounded &&
 		       deepWaterIsClassified &&
 		       roofWaterIsRejected &&
 		       fastMovementSelectsRunning &&
@@ -9189,7 +9243,7 @@ int main( int, char** )
 		       malformedAnimationIsRejected &&
 		       malformedBackpackIsRejected &&
 		       malformedProfileAndDirectionAreRejected,
-		       "tactical actor mobility owns bounded water, movement, stance, climbing, and cover decisions" );
+		       "tactical actor mobility owns bounded water, movement-mode, stance-selection, climbing, and cover decisions" );
 	}
 
 	{
@@ -9504,6 +9558,8 @@ int main( int, char** )
 				routeActor,
 				45,
 				NORTH) &&
+			!TacticalActorRouteExecution::continueMovement(
+				routeActor) &&
 			!routeActor.movement().outOfActionPoints() &&
 			routeActor.pathing().destinationGrid() == 43 &&
 			routeActor.pathing().finalDestinationGrid() == 44;
@@ -10723,8 +10779,15 @@ int main( int, char** )
 			gAnimSurfaceDatabase[animationSurfaceUnderTest];
 		const AnimationSurfaceType previousAnimationSurface =
 			animationSurface;
+		ETRLEObject animationGeometryFrames[64]{};
+		animationGeometryFrames[2].usWidth = 31;
+		animationGeometryFrames[2].usHeight = 47;
+		animationGeometryFrames[2].sOffsetX = -6;
+		animationGeometryFrames[2].sOffsetY = 9;
 		SGPVObject animationVideoObject{};
 		animationVideoObject.usNumberOfObjects = 64;
+		animationVideoObject.pETRLEObject =
+			animationGeometryFrames;
 		animationSurface.ubFlags = 0;
 		animationSurface.uiNumDirections = 8;
 		animationSurface.uiNumFramesPerDir = 4;
@@ -10803,6 +10866,23 @@ int main( int, char** )
 				63) &&
 			animationFrameActor.animationPlayback().frame() == 0;
 
+		animationFrameActor.animationPlayback().frame() = 2;
+		TacticalActorAnimationGeometry::FrameGeometry geometry;
+		const bool liveGeometryIsOwned =
+			TacticalActorAnimationGeometry::currentFrame(
+				animationFrameActor,
+				geometry) &&
+			geometry.width == 31 &&
+			geometry.height == 47 &&
+			geometry.offsetX == -6 &&
+			geometry.offsetY == 9 &&
+			TacticalActorAnimationGeometry::refreshBoundingBox(
+				animationFrameActor) &&
+			animationFrameActor.renderState().boundingBoxWidth() == 31 &&
+			animationFrameActor.renderState().boundingBoxHeight() == 47 &&
+			animationFrameActor.renderState().boundingBoxOffsetX() == -6 &&
+			animationFrameActor.renderState().boundingBoxOffsetY() == 9;
+
 		animationFrameActor.animationPlayback().surface() =
 			NUMANIMATIONSURFACETYPES;
 		animationFrameActor.animationPlayback().frame() = 37;
@@ -10847,13 +10927,27 @@ int main( int, char** )
 		animationFrameActor.movement().highResolutionDirection() = 0;
 		animationFrameActor.animationPlayback().state() =
 			NUMANIMATIONSTATES;
+		geometry = {1, 2, 3, 4};
 		const bool malformedAnimationStateIsRejected =
 			TacticalActorAnimationFrames::frozenFrame(
 				animationFrameActor) == 0 &&
 			!TacticalActorAnimationFrames::selectFrame(
 				animationFrameActor,
 				2) &&
-			animationFrameActor.animationPlayback().frame() == 37;
+			animationFrameActor.animationPlayback().frame() == 37 &&
+			!TacticalActorAnimationGeometry::currentFrame(
+				animationFrameActor,
+				geometry) &&
+			geometry.width == 0 &&
+			geometry.height == 0 &&
+			geometry.offsetX == 0 &&
+			geometry.offsetY == 0 &&
+			!TacticalActorAnimationGeometry::refreshBoundingBox(
+				animationFrameActor) &&
+			animationFrameActor.renderState().boundingBoxWidth() == 31 &&
+			animationFrameActor.renderState().boundingBoxHeight() == 47 &&
+			animationFrameActor.renderState().boundingBoxOffsetX() == -6 &&
+			animationFrameActor.renderState().boundingBoxOffsetY() == 9;
 
 		animationSurface = previousAnimationSurface;
 		CHECK( liveDirectionIsResolved &&
@@ -10865,11 +10959,95 @@ int main( int, char** )
 		       liveFrozenFrameIsResolved &&
 		       liveFrameSelectionIsOwned &&
 		       overflowingFrameIsBounded &&
+		       liveGeometryIsOwned &&
 		       malformedSurfaceIsRejectedWithoutMutation &&
 		       malformedDirectionIsRejectedWithoutMutation &&
 		       malformedExtendedDirectionIsRejected &&
 		       malformedAnimationStateIsRejected,
-		       "tactical actor animation frames resolve live directions and reject malformed surface state without partial mutation" );
+		       "tactical actor animation frames and geometry resolve live render state and reject malformed surfaces without partial mutation" );
+	}
+
+	{
+		const UINT32 previousTacticalFlags =
+			CaptureJa2TacticalStatusFlags();
+		const UINT8 previousTacticalTeam =
+			GetJa2TacticalCurrentTeam();
+		const BOOLEAN previousAutoBandage =
+			gTacticalStatus.fAutoBandageMode;
+		const INT8 previousRealtimeSpeed =
+			gTacticalStatus.bRealtimeSpeed;
+		const bool previousClient = is_client;
+		const FLOAT previousPlayerSpeedFactor =
+			gGameExternalOptions.giPlayerTurnSpeedUpFactor;
+		const ANIMCONTROLTYPE previousStandingControl =
+			gAnimControl[STANDING];
+
+		RestoreJa2TacticalTurnState(REALTIME, OUR_TEAM);
+		gTacticalStatus.fAutoBandageMode = FALSE;
+		gTacticalStatus.bRealtimeSpeed = 0;
+		is_client = false;
+		gGameExternalOptions.giPlayerTurnSpeedUpFactor = 0.625F;
+		gAnimControl[STANDING].sSpeed = 120;
+
+		TacticalActor timingActor;
+		timingActor.identity().bodyType() = REGMALE;
+		timingActor.roster().team() = gbPlayerNum;
+		timingActor.position().terrainType() = FLAT_GROUND;
+		timingActor.position().direction() = NORTH;
+		timingActor.pathing().desiredDirection() = NORTH;
+		timingActor.animationPlayback().state() = STANDING;
+		timingActor.awareness().visibility() = 0;
+		timingActor.awareness().lastRenderedVisibility() = 0;
+		const bool fixedAnimationSpeedIsOwned =
+			TacticalActorAnimationTiming::refresh(timingActor) &&
+			timingActor.animationPlayback().delay() == 120 &&
+			timingActor.timing().counter(
+				SoldierTimingComponent::Timer::AnimationUpdate) == 120 &&
+			TacticalActorAnimationTiming::currentTeamSpeedFactor() ==
+				0.625F;
+
+		gAnimControl[STANDING].uiFlags |= ANIM_FASTTURN;
+		timingActor.pathing().desiredDirection() = EAST;
+		timingActor.animationPlayback().delay() = 7;
+		const bool fastTurnSpeedIsOwned =
+			TacticalActorAnimationTiming::adjustForFastTurn(
+				timingActor) &&
+			timingActor.animationPlayback().delay() ==
+				FAST_TURN_ANIM_SPEED;
+
+		timingActor.pathing().desiredDirection() =
+			NUM_WORLD_DIRECTIONS;
+		const INT16 validFastTurnDelay =
+			timingActor.animationPlayback().delay();
+		const bool malformedFastTurnIsRejected =
+			!TacticalActorAnimationTiming::adjustForFastTurn(
+				timingActor) &&
+			timingActor.animationPlayback().delay() ==
+				validFastTurnDelay;
+		timingActor.pathing().desiredDirection() = NORTH;
+		timingActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		timingActor.animationPlayback().delay() = 91;
+		const bool malformedTimingStateIsRejected =
+			!TacticalActorAnimationTiming::refresh(timingActor) &&
+			timingActor.animationPlayback().delay() == 91;
+
+		gAnimControl[STANDING] = previousStandingControl;
+		gGameExternalOptions.giPlayerTurnSpeedUpFactor =
+			previousPlayerSpeedFactor;
+		is_client = previousClient;
+		gTacticalStatus.fAutoBandageMode = previousAutoBandage;
+		gTacticalStatus.bRealtimeSpeed = previousRealtimeSpeed;
+		RestoreJa2TacticalTurnState(
+			previousTacticalFlags,
+			previousTacticalTeam);
+
+		CHECK(
+			fixedAnimationSpeedIsOwned &&
+			fastTurnSpeedIsOwned &&
+			malformedFastTurnIsRejected &&
+			malformedTimingStateIsRejected,
+			"tactical actor animation timing owns fixed playback and fast-turn speeds while rejecting malformed state without partial mutation" );
 	}
 
 	{

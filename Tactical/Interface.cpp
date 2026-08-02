@@ -909,7 +909,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	ButtonList[ iActionIcons[ SNEAK_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
 	// Check if this is a valid stance, diable if not!
-	if ( !IsValidStance( pSoldier, ANIM_CROUCH ) )
+	if ( !TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) )
 	{
 		DisableButton( iActionIcons[ SNEAK_ICON ]	);
 	}
@@ -927,7 +927,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	ButtonList[ iActionIcons[ CRAWL_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
 	// Check if this is a valid stance, diable if not!
-	if ( !IsValidStance( pSoldier, ANIM_PRONE ) )
+	if ( !TacticalActorMobility::isValidStance(*pSoldier, ANIM_PRONE ) )
 	{
 		DisableButton( iActionIcons[ CRAWL_ICON ]	);
 	}

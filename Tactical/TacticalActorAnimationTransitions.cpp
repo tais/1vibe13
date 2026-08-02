@@ -14,6 +14,8 @@
 #include "Soldier Functions.h"
 #include "TacticalActorAnimationFootprint.h"
 #include "TacticalActorAnimationFrames.h"
+#include "TacticalActorAnimationGeometry.h"
+#include "TacticalActorAnimationTiming.h"
 #include "TacticalActorConsumables.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorModifiers.h"
@@ -165,9 +167,6 @@
 
 void HandleVehicleMovementSound(TacticalActor* actor, BOOLEAN enabled);
 void PlaySoldierFootstepSound(TacticalActor* actor);
-void SetSoldierAniSpeed(TacticalActor* actor);
-void SetSoldierLocatorOffsets(TacticalActor* actor);
-
 bool TacticalActorAnimationTransitions::changeState(TacticalActor& subject, UINT16 usNewState, UINT16 usStartingAniCode, bool fForce)
 {
 	if (usNewState >= NUMANIMATIONSTATES)
@@ -1733,7 +1732,7 @@ bool TacticalActorAnimationTransitions::initializeAnimation(TacticalActor& subje
 	(void)TacticalActorAnimationFrames::selectFrame(subject, 0);
 
 	// Set delay speed
-	SetSoldierAniSpeed( &subject );
+	(void)TacticalActorAnimationTiming::refresh(subject);
 
 	// Reset counters
 	subject.timing().start(SoldierTimingComponent::Timer::AnimationUpdate, subject.animationPlayback().delay());
@@ -1742,7 +1741,7 @@ bool TacticalActorAnimationTransitions::initializeAnimation(TacticalActor& subje
 	AdjustToNextAnimationFrame( &subject );
 
 	// Setup offset information for UI above guy
-	SetSoldierLocatorOffsets( &subject );
+	(void)TacticalActorAnimationGeometry::refreshBoundingBox(subject);
 
 	// Lesh: test fix visibility after raising gun
 	if ( (gAnimControl[subject.animationPlayback().previousState()].uiFlags & ANIM_RAISE_WEAPON) && (gAnimControl[subject.animationPlayback().state()].uiFlags & ANIM_FIREREADY) )
