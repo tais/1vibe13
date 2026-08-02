@@ -6,6 +6,9 @@
 
 #include <cstddef>
 
+inline constexpr std::size_t MAXCIVLASTNAMES = 30;
+extern UINT16 CivLastNames[MAXCIVLASTNAMES][10];
+
 class TacticalActor;
 
 #define			CIV_TYPE_NA									0	

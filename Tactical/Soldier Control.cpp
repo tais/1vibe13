@@ -1,5 +1,11 @@
 #include "TacticalActorLocomotion.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
+#include "TacticalActorBloodState.h"
+#include "TacticalActorEvents.h"
+#include "TacticalActorPendingActionTypes.h"
+#include "TacticalActorPredicates.h"
+#include "TacticalActorSkills.h"
+#include "TacticalActorStateFlags.h"
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorAnimationTransitions.h"
@@ -71,6 +77,8 @@
 #include "lighting.h"
 #include "faces.h"
 #include "Soldier Profile.h"
+#include "Soldier Palette.h"
+#include "Grid Direction.h"
 #include "Campaign.h"
 #include "Soldier macros.h"
 #include "english.h"
@@ -105,6 +113,7 @@
 #include "strategicmap.h"
 #include "Morale.h"
 #include "Drugs And Alcohol.h"
+#include "Disease.h"
 #include "Boxing.h"
 #include "overhead map.h"
 #include "Map Information.h"
@@ -3172,25 +3181,6 @@ void SendBeginFireWeaponEvent(
 
 	AddGameEvent( S_BEGINFIREWEAPON, 0, &SBeginFireWeapon );
 }
-
-
-void RevivePlayerTeam( )
-{
-	// End the turn of player charactors
-	SoldierID id = gTacticalStatus.Team[gbPlayerNum].bFirstID;
-
-	// look for all mercs on the same team,
-	for ( ; id <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++id )
-	{
-		TacticalActor* soldier =
-			GetJa2SoldierRepository().resolve( id );
-		if ( soldier != nullptr )
-		{
-			TacticalActorLifecycle::revive(*soldier);
-		}
-	}
-}
-
 
 
 // What?  A zombie function?

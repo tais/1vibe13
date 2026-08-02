@@ -1,5 +1,7 @@
 #pragma once
 
+#include "types.h"
+
 #include <cstdint>
 
 class TacticalActor;
@@ -33,6 +35,7 @@ enum
 
 namespace TacticalActorBattleSounds
 {
+	bool preload(TacticalActor& actor, bool remove);
 	bool play(
 		TacticalActor& actor,
 		std::uint8_t soundId);
@@ -41,3 +44,6 @@ namespace TacticalActorBattleSounds
 		std::uint8_t soundId,
 		std::int8_t specialCode);
 }
+
+// Legacy adapter retained for source and link compatibility.
+BOOLEAN PreloadSoldierBattleSounds(TacticalActor* actor, BOOLEAN remove);

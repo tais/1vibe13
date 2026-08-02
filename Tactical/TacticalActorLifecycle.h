@@ -14,4 +14,8 @@ namespace TacticalActorLifecycle
 		std::uint16_t animationState);
 	[[nodiscard]] bool destroy(TacticalActor& actor);
 	void revive(TacticalActor& actor);
+	void revivePlayerTeam();
 }
+
+// Legacy adapter retained for source and link compatibility.
+void RevivePlayerTeam();
