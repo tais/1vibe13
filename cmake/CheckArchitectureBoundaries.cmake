@@ -319,6 +319,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Tactical/Merc Hiring.h"
   "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+  "${SOURCE_ROOT}/Tactical/TacticalActor.h"
   "${SOURCE_ROOT}/Tactical/Tactical Save.cpp"
   "${SOURCE_ROOT}/Tactical/Tactical Turns.cpp"
   "${SOURCE_ROOT}/Tactical/opplist.cpp"
@@ -946,7 +947,7 @@ foreach(required_runtime_laptop_endgame_fragment IN ITEMS
   endif()
 endforeach()
 
-file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActor.h"
   runtime_campaign_soldier_state_contents)
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
   runtime_campaign_soldier_save_contents)
@@ -2151,11 +2152,17 @@ endforeach()
 # final-state contract: one private owner per component, explicit reset and
 # persistence operations, and no dependency on the C++ object layout.
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+  tactical_soldier_control_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActor.h"
   tactical_actor_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
   tactical_actor_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActor.cpp"
   tactical_actor_aggregate_source_contents)
+file(READ "${SOURCE_ROOT}/tests/tactical_actor_header_tests.cpp"
+  tactical_actor_header_test_contents)
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  tactical_test_build_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
   tactical_actor_creation_source_contents)
 file(READ "${SOURCE_ROOT}/Utils/Timer Control.cpp"
@@ -2387,7 +2394,7 @@ string(FIND "${tactical_actor_header_contents}"
   "class TacticalActor"
   tactical_actor_begin)
 string(FIND "${tactical_actor_header_contents}"
-  "}; // TacticalActor;"
+  "};\n\n#endif"
   tactical_actor_end)
 if(tactical_actor_begin EQUAL -1 OR tactical_actor_end EQUAL -1 OR
    tactical_actor_end LESS tactical_actor_begin)
@@ -2399,6 +2406,39 @@ math(EXPR tactical_actor_length
 string(SUBSTRING "${tactical_actor_header_contents}"
   ${tactical_actor_begin} ${tactical_actor_length}
   tactical_actor_contents)
+
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#include \"TacticalActor.h\""
+  tactical_actor_compatibility_include)
+string(REGEX MATCH
+  "class[ \t\r\n]+TacticalActor[ \t\r\n]*\\{"
+  tactical_actor_definition_in_legacy_header
+  "${tactical_soldier_control_header_contents}")
+string(FIND "${tactical_actor_aggregate_source_contents}"
+  "#include \"TacticalActor.h\""
+  tactical_actor_implementation_include)
+string(FIND "${tactical_actor_header_test_contents}"
+  "#include \"TacticalActor.h\""
+  tactical_actor_header_test_include)
+string(FIND "${tactical_actor_header_test_contents}"
+  "Soldier Control.h"
+  tactical_actor_header_test_legacy_include)
+string(FIND "${tactical_test_build_contents}"
+  "add_executable(tactical_actor_header_tests"
+  tactical_actor_header_test_target)
+string(FIND "${tactical_test_build_contents}"
+  "add_test(NAME tactical_actor_header COMMAND tactical_actor_header_tests)"
+  tactical_actor_header_test_registration)
+if(tactical_actor_compatibility_include EQUAL -1 OR
+   tactical_actor_definition_in_legacy_header OR
+   tactical_actor_implementation_include EQUAL -1 OR
+   tactical_actor_header_test_include EQUAL -1 OR
+   NOT tactical_actor_header_test_legacy_include EQUAL -1 OR
+   tactical_actor_header_test_target EQUAL -1 OR
+   tactical_actor_header_test_registration EQUAL -1)
+  message(FATAL_ERROR
+    "TacticalActor lost its focused aggregate header, legacy compatibility include, or standalone compile guard")
+endif()
 
 set(tactical_actor_component_accessors
   identity
@@ -2527,7 +2567,7 @@ foreach(retired_layout_fragment IN ITEMS
   "retiredZBackgroundSlot_"
   "retiredAnimationTileSlot_")
   string(FIND
-    "${tactical_actor_header_contents}${tactical_actor_aggregate_source_contents}${tactical_actor_source_contents}${tactical_actor_persistence_source_contents}${headless_test_contents}"
+    "${tactical_soldier_control_header_contents}${tactical_actor_header_contents}${tactical_actor_aggregate_source_contents}${tactical_actor_source_contents}${tactical_actor_persistence_source_contents}${headless_test_contents}"
     "${retired_layout_fragment}"
     retired_layout_fragment_site)
   if(NOT retired_layout_fragment_site EQUAL -1)
@@ -2562,7 +2602,7 @@ foreach(retired_persistence_method IN ITEMS
   "TacticalActor::GetChecksum"
   "XferSoldierTypePOD")
   string(FIND
-    "${tactical_actor_header_contents}${tactical_actor_source_contents}${tactical_actor_persistence_source_contents}"
+    "${tactical_soldier_control_header_contents}${tactical_actor_header_contents}${tactical_actor_source_contents}${tactical_actor_persistence_source_contents}"
     "${retired_persistence_method}"
     retired_persistence_method_site)
   if(NOT retired_persistence_method_site EQUAL -1)
@@ -2843,7 +2883,7 @@ foreach(retired_disease_flag IN ITEMS
   "SOLDIERDISEASE_SPLINTAPPLIED_LEG"
   "SOLDIERDISEASE_SPLINTAPPLIED_ARM")
   string(FIND
-    "${tactical_actor_header_contents}${tactical_actor_source_contents}"
+    "${tactical_soldier_control_header_contents}${tactical_actor_header_contents}${tactical_actor_source_contents}"
     "${retired_disease_flag}"
     retired_disease_flag_site)
   if(NOT retired_disease_flag_site EQUAL -1)
@@ -3671,7 +3711,7 @@ endforeach()
 foreach(retired_conversation_helper IN ITEMS
   "HandleVolunteerRecruitment"
   "AbandonBoxingDueToSurrenderCallback")
-  string(FIND "${tactical_actor_header_contents}"
+  string(FIND "${tactical_soldier_control_header_contents}${tactical_actor_header_contents}"
     "${retired_conversation_helper}("
     retired_conversation_helper_declaration)
   string(FIND "${tactical_actor_source_contents}"
@@ -3715,7 +3755,7 @@ endif()
 foreach(retired_lighting_helper IN ITEMS
   "ReCreateSelectedSoldierLight"
   "SetSoldierPersonalLightLevel")
-  string(FIND "${tactical_actor_header_contents}"
+  string(FIND "${tactical_soldier_control_header_contents}${tactical_actor_header_contents}"
     "${retired_lighting_helper}("
     retired_lighting_helper_declaration)
   string(FIND "${tactical_actor_source_contents}"
@@ -4152,7 +4192,7 @@ foreach(retired_radio_global IN ITEMS
   "SectorJammed"
   "PlayerTeamIsScanning"
   "GridNoSpotterCTHBonus")
-  string(FIND "${tactical_actor_header_contents}"
+  string(FIND "${tactical_soldier_control_header_contents}${tactical_actor_header_contents}"
     "${retired_radio_global}("
     retired_radio_global_declaration)
   string(FIND "${tactical_actor_source_contents}"
