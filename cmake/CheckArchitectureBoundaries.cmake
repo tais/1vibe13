@@ -2163,6 +2163,8 @@ file(READ "${SOURCE_ROOT}/tests/tactical_actor_header_tests.cpp"
   tactical_actor_header_test_contents)
 file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
   tactical_test_build_contents)
+file(READ "${SOURCE_ROOT}/CMakeLists.txt"
+  tactical_root_build_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
   tactical_actor_creation_source_contents)
 file(READ "${SOURCE_ROOT}/Utils/Timer Control.cpp"
@@ -2429,13 +2431,17 @@ string(FIND "${tactical_test_build_contents}"
 string(FIND "${tactical_test_build_contents}"
   "add_test(NAME tactical_actor_header COMMAND tactical_actor_header_tests)"
   tactical_actor_header_test_registration)
+string(FIND "${tactical_root_build_contents}"
+  "add_dependencies(ja2_headless_tests tactical_actor_header_tests)"
+  tactical_actor_header_headless_dependency)
 if(tactical_actor_compatibility_include EQUAL -1 OR
    tactical_actor_definition_in_legacy_header OR
    tactical_actor_implementation_include EQUAL -1 OR
    tactical_actor_header_test_include EQUAL -1 OR
    NOT tactical_actor_header_test_legacy_include EQUAL -1 OR
    tactical_actor_header_test_target EQUAL -1 OR
-   tactical_actor_header_test_registration EQUAL -1)
+   tactical_actor_header_test_registration EQUAL -1 OR
+   tactical_actor_header_headless_dependency EQUAL -1)
   message(FATAL_ERROR
     "TacticalActor lost its focused aggregate header, legacy compatibility include, or standalone compile guard")
 endif()
