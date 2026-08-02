@@ -1391,6 +1391,22 @@ the engine must not contain SDL types in its public domain model.
   prevents their definitions from returning to `Soldier Control.cpp`. Uniform,
   item, corpse, profile, map, save, network, XML, Lua, and mod formats are not
   changed by this ownership move.
+  The final domain-implementation islands in `Soldier Control.cpp` are now
+  compiled independently as `TacticalActorSkills`, `TacticalActorRadio`,
+  `TacticalActorDisease`, and `TacticalActorTurncoats`. Skills owns trait-skill
+  eligibility, execution, and requirement presentation. Radio owns equipment
+  resolution, artillery, jamming, scanning, listening, reinforcement calls,
+  and team signal queries. Disease owns infection state and derived protection,
+  resistance, and diagnosis rules, while Turncoats owns conviction and tactical
+  activation. Headless tests exercise malformed skill, item, sector, disease,
+  profile, target, animation, and configuration inputs. Architecture CI requires
+  all 37 operations in their dedicated compiled sources and prevents their
+  definitions from returning to the monolith. This completes physical isolation
+  of the established TacticalActor domain namespaces; it does not alter campaign,
+  item, trait, disease, profile, localization, save, network, XML, Lua, or mod
+  formats. The aggregate constructor, destructor, complete component reset, and
+  compatibility name resolution are physically isolated in `TacticalActor.cpp`;
+  no `TacticalActor::` definition remains in `Soldier Control.cpp`.
   `TacticalActorRangedActions` owns the complementary live ranged-weapon
   lifecycle: fire initiation, readying toward a target or facing, lowering a
   ready weapon, and refreshing fire mode, scope, barrel, service, and
@@ -1634,7 +1650,9 @@ the engine must not contain SDL types in its public domain model.
   absent from the aggregate, the former global visibility helpers and range
   state are retired, and all production callers use the compiled domains.
   Only storage initialization and compatibility name resolution remain as
-  `TacticalActor::initialize` and `TacticalActor::GetName`.
+  `TacticalActor::initialize` and `TacticalActor::GetName`; those operations and
+  the constructor/destructor are compiled from `TacticalActor.cpp` rather than
+  from the legacy soldier-control monolith.
   Architecture CI requires each extracted source in the tactical build,
   rejects restored declarations, definitions, or calls to retired entries,
   and requires headless coverage for every new operation. Visibility rejects
