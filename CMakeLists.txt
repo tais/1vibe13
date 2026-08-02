@@ -545,6 +545,9 @@ if(("JA2" IN_LIST ApplicationTargets) AND ("ENGLISH" IN_LIST LangTargets))
     target_link_libraries(ja2_headless_tests PRIVATE -Wl,--end-group)
   endif()
   add_test(NAME ja2_headless COMMAND ja2_headless_tests)
+  # CI's sanitizer slice builds this target directly before running the full
+  # registered test set, so keep focused compile guards in that build closure.
+  add_dependencies(ja2_headless_tests tactical_actor_header_tests)
 
   # Focused platform/VFS/input/audio lifecycle coverage. It deliberately uses
   # a separate process from the broad headless suite so global compatibility

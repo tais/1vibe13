@@ -1,4 +1,4 @@
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "TacticalActorProfileClassification.h"
 
 #include "Interface.h"

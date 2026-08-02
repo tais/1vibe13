@@ -47,6 +47,11 @@ add_executable(tile_cache_tests
 )
 add_test(NAME tile_cache COMMAND tile_cache_tests)
 
+# Compile the TacticalActor aggregate through its focused header only. This
+# prevents the declaration from depending on the legacy Soldier Control facade.
+add_executable(tactical_actor_header_tests tactical_actor_header_tests.cpp)
+add_test(NAME tactical_actor_header COMMAND tactical_actor_header_tests)
+
 # Install the SDK, then configure, compile, and run a genuinely separate CMake
 # project against find_package(JA2Engine). This catches missing public headers,
 # non-exported symbols, and accidental source-tree include dependencies.
