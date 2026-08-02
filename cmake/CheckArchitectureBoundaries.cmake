@@ -2270,6 +2270,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSkills.h"
   tactical_actor_skills_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSpotting.h"
   tactical_actor_spotting_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorSpotting.cpp"
+  tactical_actor_spotting_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorTurncoats.h"
   tactical_actor_turncoats_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCombatActions.h"
@@ -2346,6 +2348,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditionPresentation.cpp"
   tactical_actor_condition_presentation_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.h"
   tactical_actor_covert_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCovertOps.cpp"
+  tactical_actor_covert_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDisease.h"
   tactical_actor_disease_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Interface Items.cpp"
@@ -2356,6 +2360,8 @@ file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface.cpp"
   strategic_map_screen_interface_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDragging.h"
   tactical_actor_dragging_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDragging.cpp"
+  tactical_actor_dragging_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/CMakeLists.txt"
   tactical_build_contents)
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.h"
@@ -2655,7 +2661,7 @@ foreach(required_covert_operation IN ITEMS
   string(FIND "${tactical_actor_covert_header_contents}"
     "${required_covert_operation}("
     covert_operation_declaration)
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_covert_source_contents}"
     "TacticalActorCovertOps::${required_covert_operation}("
     covert_operation_definition)
   if(covert_operation_declaration EQUAL -1 OR
@@ -2665,13 +2671,23 @@ foreach(required_covert_operation IN ITEMS
   endif()
 endforeach()
 
-string(FIND "${headless_test_contents}"
-  "TacticalActorCovertOps::recognizesCombatant"
-  covert_operation_coverage)
-if(covert_operation_coverage EQUAL -1)
-  message(FATAL_ERROR
-    "Tactical actor covert operations lost their data-free headless coverage")
-endif()
+foreach(required_covert_coverage IN ITEMS
+  "looksLikeCivilian"
+  "looksLikeSoldier"
+  "uniformType"
+  "equipmentTooGood"
+  "seemsLegitimate"
+  "recognizesCombatant"
+  "uncoverRisk"
+  "intelGain")
+  string(FIND "${headless_test_contents}"
+    "TacticalActorCovertOps::${required_covert_coverage}"
+    covert_operation_coverage)
+  if(covert_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor covert operations lost bounded headless coverage for '${required_covert_coverage}'")
+  endif()
+endforeach()
 
 foreach(retired_dragging_method IN ITEMS
   "CanDragInPrinciple"
@@ -2713,7 +2729,7 @@ foreach(required_dragging_operation IN ITEMS
   string(FIND "${tactical_actor_dragging_header_contents}"
     "${required_dragging_operation}("
     dragging_operation_declaration)
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_dragging_source_contents}"
     "TacticalActorDragging::${required_dragging_operation}("
     dragging_operation_definition)
   if(dragging_operation_declaration EQUAL -1 OR
@@ -2723,13 +2739,26 @@ foreach(required_dragging_operation IN ITEMS
   endif()
 endforeach()
 
-string(FIND "${headless_test_contents}"
-  "TacticalActorDragging::cancel"
-  dragging_operation_coverage)
-if(dragging_operation_coverage EQUAL -1)
-  message(FATAL_ERROR
-    "Tactical actor dragging lost its data-free headless coverage")
-endif()
+foreach(required_dragging_coverage IN ITEMS
+  "canDrag"
+  "canDragPerson"
+  "canDragCorpse"
+  "canDragStructure"
+  "isDragging"
+  "dragPerson"
+  "dragCorpse"
+  "dragStructure"
+  "cancel"
+  "canStart"
+  "start")
+  string(FIND "${headless_test_contents}"
+    "TacticalActorDragging::${required_dragging_coverage}"
+    dragging_operation_coverage)
+  if(dragging_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor dragging lost malformed-state coverage for '${required_dragging_coverage}'")
+  endif()
+endforeach()
 
 foreach(retired_disease_method IN ITEMS
   "Infect"
@@ -4168,7 +4197,7 @@ foreach(required_spotting_operation IN ITEMS
   string(FIND "${tactical_actor_spotting_header_contents}"
     "${required_spotting_operation}("
     spotting_operation_declaration)
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_spotting_source_contents}"
     "TacticalActorSpotting::${required_spotting_operation}("
     spotting_operation_definition)
   if(spotting_operation_declaration EQUAL -1 OR
@@ -4179,7 +4208,9 @@ foreach(required_spotting_operation IN ITEMS
 endforeach()
 
 foreach(required_spotting_coverage IN ITEMS
+  "TacticalActorSpotting::isSpotting"
   "TacticalActorSpotting::canSpot"
+  "TacticalActorSpotting::startSpotting"
   "TacticalActorSpotting::chanceToHitBonus")
   string(FIND "${headless_test_contents}"
     "${required_spotting_coverage}"
@@ -4559,10 +4590,12 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
   "TacticalActorCombatReactions.cpp"
+  "TacticalActorCovertOps.cpp"
   "TacticalActorVisibility.cpp"
   "TacticalActorConditionPresentation.cpp"
   "TacticalActorDamageFeedback.cpp"
   "TacticalActorDamageResolution.cpp"
+  "TacticalActorDragging.cpp"
   "TacticalActorLifecycle.cpp"
   "TacticalActorLocomotion.cpp"
   "TacticalActorModifiers.cpp"
@@ -4573,6 +4606,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorInteractions.cpp"
   "TacticalActorLighting.cpp"
   "TacticalActorProfileClassification.cpp"
+  "TacticalActorSpotting.cpp"
   "TacticalActorTurnBudget.cpp"
   "TacticalActorTurnLifecycle.cpp"
   "TacticalActorTurnMaintenance.cpp")
@@ -4586,12 +4620,12 @@ foreach(required_actor_domain_source IN ITEMS
 endforeach()
 
 string(REGEX MATCH
-  "(^|\n)[A-Za-z_][A-Za-z0-9_:<>,*& \t]*TacticalActor(Assignments|Equipment|Modifiers)::[A-Za-z0-9_]+[ \t\r\n]*\\("
+  "(^|\n)[A-Za-z_][A-Za-z0-9_:<>,*& \t]*TacticalActor(Assignments|CovertOps|Dragging|Equipment|Modifiers|Spotting)::[A-Za-z0-9_]+[ \t\r\n]*\\("
   actor_utility_definition_in_monolith
   "${tactical_actor_source_contents}")
 if(actor_utility_definition_in_monolith)
   message(FATAL_ERROR
-    "A physically extracted tactical actor utility definition returned to Soldier Control.cpp")
+    "A physically extracted tactical actor domain definition returned to Soldier Control.cpp")
 endif()
 
 foreach(required_persistence_fragment IN ITEMS

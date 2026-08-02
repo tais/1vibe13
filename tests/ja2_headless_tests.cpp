@@ -7986,13 +7986,44 @@ int main( int, char** )
 
 	{
 		TacticalActor covertActor;
-		CHECK( TacticalActorCovertOps::looksLikeSoldier(covertActor) &&
-		       TacticalActorCovertOps::recognizesCombatant(covertActor, NOBODY),
-		       "tactical actor covert rules execute through the domain API without record methods" );
+		const auto uniformType =
+			TacticalActorCovertOps::uniformType(covertActor);
+		const bool equipmentAssessmentMatchesUniform =
+			TacticalActorCovertOps::equipmentTooGood(
+				covertActor,
+				false) == (uniformType < 0);
+		const bool emptyActorLooksLegitimate =
+			TacticalActorCovertOps::looksLikeCivilian(covertActor) &&
+			TacticalActorCovertOps::looksLikeSoldier(covertActor) &&
+			uniformType >= -1 && uniformType < NUM_UNIFORMS &&
+			equipmentAssessmentMatchesUniform &&
+			TacticalActorCovertOps::seemsLegitimate(
+				covertActor,
+				NOBODY) &&
+			TacticalActorCovertOps::recognizesCombatant(
+				covertActor,
+				NOBODY);
+
+		covertActor.vitals().health() = OKLIFE;
+		covertActor.assignment().current() = CONCEALED;
+		const bool malformedSpySectorIsSafe =
+			TacticalActorCovertOps::uncoverRisk(covertActor) == 0;
+		covertActor.assignment().current() = GATHERINTEL;
+		const bool malformedIntelSectorIsSafe =
+			TacticalActorCovertOps::intelGain(covertActor) == 0.0f;
+
+		CHECK( emptyActorLooksLegitimate &&
+		       malformedSpySectorIsSafe &&
+		       malformedIntelSectorIsSafe,
+		       "tactical actor covert rules expose bounded appearance, recognition, and assignment calculations" );
 	}
 
 	{
 		TacticalActor draggingActor;
+		draggingActor.position().gridNo() = 0;
+		draggingActor.position().level() = FIRST_LEVEL;
+		draggingActor.position().direction() = NORTH;
+		draggingActor.animationPlayback().state() = STANDING;
 		const bool readyToDrag =
 			TacticalActorDragging::canDrag(draggingActor);
 		draggingActor.position().terrainType() = DEEP_WATER;
@@ -8001,13 +8032,36 @@ int main( int, char** )
 		draggingActor.position().terrainType() = FLAT_GROUND;
 		const bool initiallyDragging =
 			TacticalActorDragging::isDragging(draggingActor);
+		const bool invalidTargetsAreRejected =
+			!TacticalActorDragging::canDragPerson(
+				draggingActor,
+				NOBODY) &&
+			!TacticalActorDragging::canDragCorpse(
+				draggingActor,
+				std::numeric_limits<std::uint16_t>::max()) &&
+			!TacticalActorDragging::canDragStructure(
+				draggingActor,
+				NOWHERE);
+		TacticalActorDragging::dragPerson(draggingActor, NOBODY);
+		TacticalActorDragging::dragCorpse(
+			draggingActor,
+			std::numeric_limits<std::uint16_t>::max());
+		TacticalActorDragging::dragStructure(draggingActor, NOWHERE);
+		draggingActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		const bool malformedActorStateIsRejected =
+			!TacticalActorDragging::canDrag(draggingActor) &&
+			!TacticalActorDragging::canStart(draggingActor);
+		TacticalActorDragging::start(draggingActor);
 		draggingActor.interaction().dragStructure(123);
 		TacticalActorDragging::cancel(draggingActor);
 		CHECK( readyToDrag &&
 		       !canDragInDeepWater &&
 		       !initiallyDragging &&
+		       invalidTargetsAreRejected &&
+		       malformedActorStateIsRejected &&
 		       !draggingActor.interaction().dragging(),
-		       "tactical actor dragging exposes validation and cancellation without record methods" );
+		       "tactical actor dragging rejects malformed actors and targets while preserving cancellation" );
 	}
 
 	{
@@ -8666,12 +8720,30 @@ int main( int, char** )
 		DeleteObj(&wrongSlotRadio);
 		DeleteObj(&dedicatedRadio);
 
+		CHECK( validRobotRadioIsFound &&
+		       malformedRobotItemIsRejected,
+		       "tactical actor radio validates robot utility-slot equipment without indexing malformed items" );
+		CHECK( newInventoryRejectsWrongRadioSlot &&
+		       newInventoryAcceptsDedicatedRadioSlot,
+		       "tactical actor radio preserves the dedicated new-inventory slot rule" );
+		CHECK( lostRadioClearsEveryMode,
+		       "tactical actor radio clears every stale operating mode after equipment is lost" );
+		CHECK( malformedArtilleryConfigurationIsRejected &&
+		       nullRadioOutputsAreRejected,
+		       "tactical actor artillery rejects zero divisors and null result storage" );
+
 		TacticalActor spotterActor;
 		spotterActor.vitals().health() = OKLIFE;
 		spotterActor.animationPlayback().state() =
 			NUMANIMATIONSTATES;
 		const bool malformedSpotterAnimationIsRejected =
-			!TacticalActorSpotting::canSpot(spotterActor);
+			!TacticalActorSpotting::isSpotting(spotterActor) &&
+			!TacticalActorSpotting::canSpot(spotterActor) &&
+			!TacticalActorSpotting::startSpotting(
+				spotterActor,
+				NOWHERE) &&
+			spotterActor.skillState().counter(
+				SOLDIER_COUNTER_SPOTTER) == 0;
 
 		const auto previousPreparationTurns =
 			gGameExternalOptions.usSpotterPreparationTurns;
@@ -8693,17 +8765,6 @@ int main( int, char** )
 		gGameExternalOptions.usSpotterPreparationTurns =
 			previousPreparationTurns;
 
-		CHECK( validRobotRadioIsFound &&
-		       malformedRobotItemIsRejected,
-		       "tactical actor radio validates robot utility-slot equipment without indexing malformed items" );
-		CHECK( newInventoryRejectsWrongRadioSlot &&
-		       newInventoryAcceptsDedicatedRadioSlot,
-		       "tactical actor radio preserves the dedicated new-inventory slot rule" );
-		CHECK( lostRadioClearsEveryMode,
-		       "tactical actor radio clears every stale operating mode after equipment is lost" );
-		CHECK( malformedArtilleryConfigurationIsRejected &&
-		       nullRadioOutputsAreRejected,
-		       "tactical actor artillery rejects zero divisors and null result storage" );
 		CHECK( malformedSpotterAnimationIsRejected &&
 		       malformedSpotterInputsAreNeutral,
 		       "tactical actor spotting rejects malformed animation, team, preparation, and actor inputs" );
