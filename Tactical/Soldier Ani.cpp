@@ -135,8 +135,6 @@ extern BOOLEAN gfKillingGuysForLosingBattle;
 
 extern SoldierID gubInterruptProvoker;
 
-extern UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
-
 extern bool RemoveOneTurncoat( INT16 sSectorX, INT16 sSectorY, UINT8 aSoldierClass, BOOLEAN alsoRemoveFromGroup );
 extern void PlaySplashSound(INT32 sGridNo);
 

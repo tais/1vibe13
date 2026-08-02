@@ -1,4 +1,5 @@
 #include "TacticalActorBattleSounds.h"
+#include "TacticalActorAnimationSelection.h"
 #include "TacticalActorAnimationState.h"
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorOrientation.h"
@@ -114,8 +115,6 @@ extern INT32 gubMerkCanSeeThisTile[MAX_ALLOWED_WORLD_MAX];
 
 //extern BOOLEAN gfDisplayFullCountRingBurst;
 extern BOOLEAN gfAutofireInitBulletNum;
-extern UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
-
 //#define AP_TO_AIM_TILE_IF_GETTING_READY 1
 #define AP_TO_AIM_TILE_IF_ALREADY_READY ( Weapon[ Item[pSoldier->inventory()[HANDPOS].usItem].ubClassIndex ].ubReadyTime ? 2 : 1 )
 #define AP_TO_AIM_TILE_IF_GETTING_READY AP_TO_AIM_TILE_IF_ALREADY_READY
@@ -5533,9 +5532,13 @@ UINT32 UIHandleLCOnTerrain( UI_EVENT *pUIEvent )
 	else
 	{
 		if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-			usAnimState = PickSoldierReadyAnimation( pSoldier, FALSE, TRUE );
+			usAnimState =
+				TacticalActorAnimationSelection::pickReady(
+					*pSoldier, false, true);
 		else
-			usAnimState = PickSoldierReadyAnimation( pSoldier, FALSE, FALSE );
+			usAnimState =
+				TacticalActorAnimationSelection::pickReady(
+					*pSoldier, false, false);
 
 		gsCurrentActionPoints = 0;
 
@@ -5645,9 +5648,13 @@ BOOLEAN MakeSoldierTurn( TacticalActor *pSoldier, INT16 sXPos, INT16 sYPos )
 	else
 	{
 		if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-			usAnimState = PickSoldierReadyAnimation( pSoldier, FALSE, TRUE );
+			usAnimState =
+				TacticalActorAnimationSelection::pickReady(
+					*pSoldier, false, true);
 		else
-			usAnimState = PickSoldierReadyAnimation( pSoldier, FALSE, FALSE );
+			usAnimState =
+				TacticalActorAnimationSelection::pickReady(
+					*pSoldier, false, false);
 
 		sAPCostToReady = sAPCost = 0;
 

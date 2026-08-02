@@ -1468,7 +1468,7 @@ the engine must not contain SDL types in its public domain model.
   The headless build compiles every migrated header in a separate translation
   unit so include order cannot conceal an ownership regression: the 30
   actor-facing service/API headers must also keep `TacticalActor` incomplete,
-  while 29 focused compatibility/schema contracts each compile standalone.
+  while 30 focused compatibility/schema contracts each compile standalone.
   Compile-time assertions pin their established layouts, capacities, enum
   order, sentinels, and overlapping flag values. Runtime headless coverage pins
   civilian/militia and posture classification, malformed animation rejection,
@@ -1619,14 +1619,21 @@ the engine must not contain SDL types in its public domain model.
   current cower posture remain idempotent. Existing combat rules, maps,
   movement costs, animations, audio, art, XML, Lua, and network formats are
   unchanged.
-  `TacticalActorDamageFeedback` owns the immediate hit-presentation boundary:
-  the one-second battle-grunt throttle and the portrait flash shown for an
-  in-sector actor on the tactical screen or for any actor on a non-tactical
-  screen. Damage resolution and vehicle damage enter the same compiled domain,
-  and the aggregate `HandleSoldierTakeDamageFeedback` method is retired. Body,
-  profile, NPC sound-set, and face-registry indexes are validated before
-  legacy audio or face state can be reached. Existing damage rules, battle
-  sounds, portraits, UI timing, XML, Lua, saves, and network formats are
+  `TacticalActorAnimationSelection` now owns fire, fall, and weapon-ready
+  animation choice for tactical orientation, ranged actions, route settlement,
+  UI, points, overhead, and tactical AI. `TacticalActorDamageFeedback` owns
+  the complete immediate hit-presentation layer: scream-volume calculation,
+  generic and gunfire/explosion/blade/punch/vehicle reactions, uniform-damage
+  flags, floating damage-cursor activation, the one-second battle-grunt
+  throttle, and the portrait flash shown for an in-sector actor on the tactical
+  screen or for any actor on a non-tactical screen. The legacy
+  `Select*Animation`, `PickSoldierReadyAnimation`, `CalcScreamVolume`,
+  `DoGenericHit`, `SoldierGotHit*`, and `SetDamageDisplayCounter`
+  definitions no longer live in `Soldier Control.cpp`; production callers use
+  the two compiled domains directly. Actor body, animation, item, direction,
+  profile, NPC sound-set, and face-registry indexes are validated before legacy
+  tables can be reached. Existing animation and damage rules, battle sounds,
+  portraits, UI timing, uniform flags, XML, Lua, saves, and network formats are
   unchanged.
   `TacticalActorProfileClassification` owns the optional generated-soldier
   profile-table classification shared by actor creation and display-name

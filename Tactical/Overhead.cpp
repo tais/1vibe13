@@ -2,6 +2,7 @@
 #include "TacticalActorCrowBehavior.h"
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
+#include "TacticalActorAnimationSelection.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorLifecycle.h"
 #include "TacticalActorAppearance.h"
@@ -253,7 +254,6 @@ void MilitiaChangesSides( );
 extern void CheckForAlertWhenEnemyDies( TacticalActor * pDyingSoldier );
 extern void PlaySoldierFootstepSound( TacticalActor *pSoldier );
 extern void HandleKilledQuote( TacticalActor *pKilledSoldier, TacticalActor *pKillerSoldier, INT32 sGridNo, INT8 bLevel );
-extern UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
 extern void PlayStealthySoldierFootstepSound( TacticalActor *pSoldier );
 
 BOOLEAN CanMsgBoxForPlayerToBeNotifiedOfSomeoneElseInSector();
@@ -7723,7 +7723,9 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                                             else
                                             {
                                                 // If they are aiming, end aim!
-                                                usAnimState = PickSoldierReadyAnimation( pTeamSoldier, TRUE, FALSE );
+												usAnimState =
+													TacticalActorAnimationSelection::pickReady(
+														*pTeamSoldier, true, false);
 
                                                 if ( usAnimState != INVALID_ANIMATION )
                                                 {
@@ -9281,7 +9283,8 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 
 			// show suppression counters - use original damage counter timer for this
 			if( showSuppression && sPointsLost > 0 )
-					SetDamageDisplayCounter( pSoldier );
+					TacticalActorDamageFeedback::
+						setDamageDisplayCounter(*pSoldier);
 
             // HEADROCK HAM 3.5: After sufficient testing, suppression clearing now works immediately at the end of
             // the attack. ubAPsLostToSuppression is only cleared at the end of the turn, but no longer plays a role

@@ -1,4 +1,5 @@
 #include "TacticalActorWeaponHandling.h"
+#include "TacticalActorAnimationSelection.h"
 #include "TacticalActorMobility.h"
 #include "TacticalActorTurnBudget.h"
 #include "TacticalActorVisibility.h"
@@ -60,8 +61,6 @@
 //rain
 //#define BREATH_GAIN_REDUCTION_PER_RAIN_INTENSITY 25
 //end rain
-
-extern UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
 
 
 INT16 GetBreathPerAP( TacticalActor *pSoldier, UINT16 usAnimState );
@@ -2280,7 +2279,9 @@ UINT16 CalculateRaiseGunCost(TacticalActor *pSoldier, BOOLEAN fAddingRaiseGunCos
 					fAltFireMode = TRUE;
 			}
 		}
-		usAnimState = PickSoldierReadyAnimation( pSoldier, FALSE, fAltFireMode );
+		usAnimState =
+			TacticalActorAnimationSelection::pickReady(
+				*pSoldier, false, fAltFireMode != FALSE);
 		usRaiseGunCost = GetAPsToReadyWeapon( pSoldier, usAnimState );
 		pSoldier->animationActivity().readyCostWaived() = FALSE;
 	}

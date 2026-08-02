@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorAnimationSelection.h"
 #include "TacticalActorCrowBehavior.h"
 #include "TacticalActorOrientation.h"
 
@@ -45,12 +46,6 @@ extern UINT8 gubWaitingForAllMercsToExitCode;
 void AdjustForFastTurnAnimation(TacticalActor* actor);
 void HandleSystemNewAISituation(TacticalActor* actor, BOOLEAN reset);
 void PlaySoldierFootstepSound(TacticalActor* actor);
-UINT16 PickSoldierReadyAnimation(
-	TacticalActor* actor,
-	BOOLEAN endReady,
-	BOOLEAN alternateWeaponHolding);
-UINT16 SelectFireAnimation(TacticalActor* actor, UINT8 height);
-void SelectFallAnimation(TacticalActor* actor);
 void SetSoldierLocatorOffsets(TacticalActor* actor);
 
 namespace
@@ -607,8 +602,8 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 			ARMED_VEHICLE(&actor))
 		{
 			TacticalActorAnimationTransitions::initializeAnimation(actor,
-				SelectFireAnimation(
-					&actor,
+				TacticalActorAnimationSelection::selectFire(
+					actor,
 					gAnimControl[actor.animationPlayback().state()]
 						.ubEndHeight),
 				0,
@@ -623,10 +618,10 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 					actor.animationPlayback().state();
 				actor.animationPlayback().state() = PRONE;
 				actor.animationIntent().pendingAnimation() =
-					PickSoldierReadyAnimation(
-						&actor,
-						FALSE,
-						FALSE);
+					TacticalActorAnimationSelection::pickReady(
+						actor,
+						false,
+						false);
 				actor.animationPlayback().state() =
 					trueAnimationState;
 				SendChangeSoldierStanceEvent(&actor, ANIM_PRONE);
@@ -634,10 +629,10 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 			else
 			{
 				TacticalActorAnimationTransitions::initializeAnimation(actor,
-					PickSoldierReadyAnimation(
-						&actor,
-						FALSE,
-						FALSE),
+					TacticalActorAnimationSelection::pickReady(
+						actor,
+						false,
+						false),
 					0,
 					FALSE);
 			}
@@ -651,7 +646,7 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 		actor.position().direction() ==
 			actor.pathing().desiredDirection())
 	{
-		SelectFallAnimation(&actor);
+		TacticalActorAnimationSelection::selectFall(actor);
 		actor.animationActivity().turningToFall() = FALSE;
 	}
 
