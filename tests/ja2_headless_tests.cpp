@@ -8163,7 +8163,26 @@ int main( int, char** )
 		assignmentActor.vitals().maximumHealth() = 0;
 		assignmentActor.assignment().current() = FORTIFICATION;
 		const bool malformedMaximumHealthIsSafe =
-			TacticalActorAssignments::constructionPoints(assignmentActor) == 0.0f;
+			TacticalActorAssignments::constructionPoints(assignmentActor) == 0.0f &&
+			TacticalActorAssignments::sleepBreathRegeneration(assignmentActor) == 0;
+
+		const UINT8 previousNeedForSleep =
+			gMercProfiles[0].ubNeedForSleep;
+		const BOOLEAN previousFoodSystem =
+			gGameExternalOptions.fFoodSystem;
+		assignmentActor.identity().profile() = 0;
+		assignmentActor.vitals().health() = 100;
+		assignmentActor.vitals().maximumHealth() = 100;
+		assignmentActor.vitals().maximumBreath() = 100;
+		assignmentActor.deployment().sectorZ() = 1;
+		gMercProfiles[0].ubNeedForSleep = 8;
+		gGameExternalOptions.fFoodSystem = FALSE;
+		const auto sleepRegeneration =
+			TacticalActorAssignments::sleepBreathRegeneration(assignmentActor);
+		const bool validSleepRegenerationIsBounded =
+			sleepRegeneration > 0 && sleepRegeneration <= 17;
+		gGameExternalOptions.fFoodSystem = previousFoodSystem;
+		gMercProfiles[0].ubNeedForSleep = previousNeedForSleep;
 
 		const FLOAT previousAdministrationScale =
 			gGameExternalOptions.fAdministrationPointsPerPercent;
@@ -8177,6 +8196,7 @@ int main( int, char** )
 		CHECK( inactiveActorProducesNoWork &&
 		       unrelatedAssignmentHasNeutralAdministration &&
 		       malformedMaximumHealthIsSafe &&
+		       validSleepRegenerationIsBounded &&
 		       malformedAdministrationScaleIsSafe,
 		       "tactical actor assignment rules expose safe productivity calculations without record methods" );
 	}

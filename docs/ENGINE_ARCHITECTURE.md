@@ -1361,6 +1361,22 @@ the engine must not contain SDL types in its public domain model.
   are bounded at that boundary. These are separate compiled domains rather
   than methods on the aggregate; item, weapon, vehicle, map, XML, and Lua
   formats remain unchanged.
+  The established equipment, modifier, and assignment-productivity boundaries
+  are now physically compiled as `TacticalActorEquipment`,
+  `TacticalActorModifiers`, and `TacticalActorAssignments` translation units
+  rather than remaining implementation islands inside `Soldier Control.cpp`.
+  Equipment owns weapon/attachment selection, external feeding, inventory
+  cooldown and hand swaps, flashlights, sector drops, and riot-shield lifetime.
+  Modifiers owns bounded background lookup plus derived combat, perception,
+  morale, interruption, body, and interaction values. Assignment productivity
+  owns sleep recovery and burial, construction, administration, and exploration
+  output. Sleep recovery now rejects an absent profile or non-positive maximum
+  health before entering the older profile calculation. Headless tests exercise
+  empty, valid, and malformed inputs, while the architecture check requires all
+  45 operations in their dedicated sources, requires those sources in the
+  tactical build, and rejects definitions returning to the monolith. Soldier,
+  item, profile, background, facility, map, XML, Lua, save, and network formats
+  remain unchanged.
   `TacticalActorRangedActions` owns the complementary live ranged-weapon
   lifecycle: fire initiation, readying toward a target or facing, lowering a
   ready weapon, and refreshing fire mode, scope, barrel, service, and

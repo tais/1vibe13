@@ -597,6 +597,18 @@ item, weapon, profile, vehicle, seat, direction, or world tables. Mods keep
 using the existing item, weapon, vehicle, map, XML, and Lua data formats; this
 change only replaces C++ aggregate methods with explicit engine-facing
 operations.
+`TacticalActorEquipment`, `TacticalActorModifiers`, and
+`TacticalActorAssignments` are also independent compiled application domains.
+Use the equipment boundary for effective weapon selection, inventory cooldown,
+external feeding, hand-item changes, flashlights, sector drops, and riot
+shields; use the modifier boundary for background-backed and derived combat or
+perception values; use the assignment boundary for sleep recovery and burial,
+construction, administration, or exploration productivity. Their definitions
+must not be placed back in `Soldier Control.cpp`. Equipment and background
+lookups reject malformed item, inventory, profile, or background indexes, and
+sleep recovery rejects an absent profile or non-positive maximum health before
+calling legacy profile rules. These are C++ ownership boundaries only and do
+not change installed content or persistence formats.
 `TacticalActorRangedActions` owns the stateful ranged-weapon lifecycle that
 uses those rules: `beginFire`, the `ready`/`readyToward`/`readyFacing`
 operations, and `refreshAfterHandItemChange`. Event handling, tactical AI,
