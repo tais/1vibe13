@@ -1,5 +1,7 @@
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorAnimationSelection.h"
+#include "TacticalActorAnimationGeometry.h"
+#include "TacticalActorAnimationTiming.h"
 #include "TacticalActorCrowBehavior.h"
 #include "TacticalActorOrientation.h"
 
@@ -43,10 +45,8 @@
 extern UINT16 usForceAnimState;
 extern UINT8 gubWaitingForAllMercsToExitCode;
 
-void AdjustForFastTurnAnimation(TacticalActor* actor);
 void HandleSystemNewAISituation(TacticalActor* actor, BOOLEAN reset);
 void PlaySoldierFootstepSound(TacticalActor* actor);
-void SetSoldierLocatorOffsets(TacticalActor* actor);
 
 namespace
 {
@@ -221,13 +221,13 @@ void setDirectionUnchecked(
 		actor.animationPlayback().state());
 	if (!actor.targeting().retainLastTargetFromTurn())
 		actor.targeting().lastGridNo() = NOWHERE;
-	AdjustForFastTurnAnimation(&actor);
+	(void)TacticalActorAnimationTiming::adjustForFastTurn(actor);
 	UpdateMercStructureInfo(&actor);
 	(void)TacticalActorAnimationFootprint::remove(
 		actor,
 		actor.animationPlayback().state());
 	HandleCrowShadowNewDirection(&actor);
-	SetSoldierLocatorOffsets(&actor);
+	(void)TacticalActorAnimationGeometry::refreshBoundingBox(actor);
 	if (changed)
 		TacticalActorEquipment::refreshFlashlights(actor);
 }
@@ -421,7 +421,7 @@ bool TacticalActorOrientation::changeStance(
 		FreeUpNPCFromStanceChange(&actor);
 		return true;
 	}
-	if (!IsValidStance(&actor, desiredStance))
+	if (!TacticalActorMobility::isValidStance(actor, desiredStance))
 		return false;
 
 	const bool isCivilian = actor.identity().bodyType() >= FATCIV &&
@@ -612,7 +612,7 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 		}
 		else if (actor.animationActivity().turningFromProneMode())
 		{
-			if (IsValidStance(&actor, ANIM_PRONE))
+			if (TacticalActorMobility::isValidStance(actor, ANIM_PRONE))
 			{
 				const UINT16 trueAnimationState =
 					actor.animationPlayback().state();
@@ -719,7 +719,7 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 		if (actor.animationActivity().turningFromProneMode() ==
 			TURNING_FROM_PRONE_ON)
 		{
-			if (IsValidStance(&actor, ANIM_PRONE) &&
+			if (TacticalActorMobility::isValidStance(actor, ANIM_PRONE) &&
 				!actor.pendingItem().hasObject())
 			{
 				SendChangeSoldierStanceEvent(&actor, ANIM_PRONE);
@@ -734,7 +734,7 @@ bool TacticalActorOrientation::advanceTurn(TacticalActor& actor)
 			actor.animationPlayback().state() != PRONE_DOWN)
 		{
 			TacticalActorAnimationTransitions::initializeAnimation(actor,
-				IsValidStance(&actor, ANIM_PRONE)
+				TacticalActorMobility::isValidStance(actor, ANIM_PRONE)
 					? CRAWLING : actor.movement().mode(),
 				0,
 				FALSE);

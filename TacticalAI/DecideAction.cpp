@@ -986,7 +986,7 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 			if ( ubPerson == pSoldier->identity().id() )
 			{
 				// if not already crouched, crouch down first
-				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
 				{
 					pSoldier->aiPlanning().actionData() = ANIM_CROUCH;
 
@@ -1011,7 +1011,7 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 					}
 
 					// if not already crouched, crouch down first
-					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
+					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
 					{
 						pSoldier->aiPlanning().actionData() = ANIM_CROUCH;
 
@@ -1409,7 +1409,7 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Snipers like to crouch, sniper = %d",pSoldier->aiPlanning().sniperPosture()));
 	// if not in water and not already crouched, try to crouch down first
-	if (pSoldier->aiBehavior().orders() == SNIPER && !PTR_CROUCHED && IsValidStance( pSoldier, ANIM_CROUCH ) && pSoldier->position().level() == 1 )
+	if (pSoldier->aiBehavior().orders() == SNIPER && !PTR_CROUCHED && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) && pSoldier->position().level() == 1 )
 	{
 		if (!gfTurnBasedAI || (GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current()))
 		{
@@ -1749,7 +1749,7 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 			if ( ubPerson == pSoldier->identity().id() )
 			{
 				// if not already crouched, crouch down first
-				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
 				{
 					pSoldier->aiPlanning().actionData() = ANIM_CROUCH;
 
@@ -1774,7 +1774,7 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 					}
 
 					// if not already crouched, crouch down first
-					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
+					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
 					{
 						pSoldier->aiPlanning().actionData() = ANIM_CROUCH;
 
@@ -2422,7 +2422,7 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 
 	// if not in water and not already crouched, try to crouch down first
-	if (!fCivilian && !PTR_CROUCHED && IsValidStance( pSoldier, ANIM_CROUCH ) )
+	if (!fCivilian && !PTR_CROUCHED && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) )
 	{
 #ifdef DEBUGDECISIONS
 		sprintf(tempstr,"%s CROUCHES (STATUS YELLOW)",pSoldier->identity().name());
@@ -3190,7 +3190,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 				if (pSoldier->fireControl().autofireShots() >= 3 && pSoldier->actionPoints().current() >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP)
 				{
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != BestShot.ubStance &&
-						IsValidStance(pSoldier, BestShot.ubStance))
+						TacticalActorMobility::isValidStance(*pSoldier, BestShot.ubStance))
 					{
 						pSoldier->aiPlanning().nextAction() = AI_ACTION_FIRE_GUN;
 						pSoldier->aiPlanning().nextActionData() = BestShot.sTarget;
@@ -3387,7 +3387,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 			if ( ubPerson == pSoldier->identity().id() )
 			{
 				// if not already crouched, crouch down first
-				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
 				{
 					pSoldier->aiPlanning().actionData() = ANIM_CROUCH;
 
@@ -3412,7 +3412,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 					}
 
 					// if not already crouched, crouch down first
-					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
+					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current() )
 					{
 						pSoldier->aiPlanning().actionData() = ANIM_CROUCH;
 
@@ -3533,7 +3533,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 	if ((pSoldier->vitals().breath() < 25) && !bInWater && !pSoldier->suppression().underFire())
 	{
 		// if not already crouched, try to crouch down first
-		if (!fCivilian && !PTR_CROUCHED && IsValidStance( pSoldier, ANIM_CROUCH ) && gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE)
+		if (!fCivilian && !PTR_CROUCHED && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) && gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE)
 		{
 #ifdef DEBUGDECISIONS
 			sprintf(tempstr,"%s CROUCHES, NEEDING REST (STATUS RED), breath = %d",pSoldier->identity().name(),pSoldier->vitals().breath());
@@ -4273,7 +4273,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 						// consider at least crouching
 						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND &&
-							IsValidStance(pSoldier, ANIM_CROUCH) &&
+							TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH) &&
 							pSoldier->actionPoints().current() >= GetAPsCrouch(pSoldier, TRUE))
 						{
 							pSoldier->aiPlanning().actionData() = ANIM_CROUCH;
@@ -4305,7 +4305,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 						// possibly go prone, check that we'll have line of sight to standing enemy at watched location
 						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_CROUCH &&
-							IsValidStance(pSoldier, ANIM_PRONE) &&
+							TacticalActorMobility::isValidStance(*pSoldier, ANIM_PRONE) &&
 							pSoldier->actionPoints().current() >= GetAPsProne(pSoldier, TRUE) &&
 							(!InARoom(pSoldier->position().gridNo(), NULL) || pSoldier->position().level() > 0 || pSoldier->suppression().underFire()) &&
 							gfTurnBasedAI &&
@@ -4510,7 +4510,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: crouch or go prone");
 			// if not in water and not already crouched
-			if (gAnimControl[pSoldier->animationPlayback().state()].ubHeight == ANIM_STAND && IsValidStance(pSoldier, ANIM_CROUCH))
+			if (gAnimControl[pSoldier->animationPlayback().state()].ubHeight == ANIM_STAND && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH))
 			{
 				if (!gfTurnBasedAI || GetAPsToChangeStance(pSoldier, ANIM_CROUCH) <= pSoldier->actionPoints().current())
 				{
@@ -4527,7 +4527,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 			else if (gAnimControl[pSoldier->animationPlayback().state()].ubHeight != ANIM_PRONE)
 			{
 				// maybe go prone
-				if (PreRandom(2) == 0 && IsValidStance(pSoldier, ANIM_PRONE))
+				if (PreRandom(2) == 0 && TacticalActorMobility::isValidStance(*pSoldier, ANIM_PRONE))
 				{
 					pSoldier->aiPlanning().actionData() = ANIM_PRONE;
 					return(AI_ACTION_CHANGE_STANCE);
@@ -4808,7 +4808,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 
 	// if not in water and not already crouched, try to crouch down first
-	if (!fCivilian && !bInWater && (gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND) && IsValidStance( pSoldier, ANIM_CROUCH ) )
+	if (!fCivilian && !bInWater && (gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND) && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) )
 	{
 		//sClosestOpponent = ClosestKnownOpponent(pSoldier, NULL, NULL);
 
@@ -4856,7 +4856,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 	// IF UNDER FIRE, FACE THE MOST IMPORTANT NOISE WE KNOW AND GO PRONE
 	////////////////////////////////////////////////////////////////////////////
 
-	if ( !fCivilian && pSoldier->suppression().underFire() && pSoldier->actionPoints().current() >= (pSoldier->actionPoints().initial() - GetAPsToLook( pSoldier ) ) && IsValidStance( pSoldier, ANIM_PRONE ) )
+	if ( !fCivilian && pSoldier->suppression().underFire() && pSoldier->actionPoints().current() >= (pSoldier->actionPoints().initial() - GetAPsToLook( pSoldier ) ) && TacticalActorMobility::isValidStance(*pSoldier, ANIM_PRONE ) )
 	{
 		sClosestDisturbance = MostImportantNoiseHeard( pSoldier, NULL, NULL, NULL );
 		
@@ -6768,7 +6768,7 @@ L_NEWAIM:
 		if (ubBestAttackAction == AI_ACTION_FIRE_GUN)
 		{
 			if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != BestAttack.ubStance  &&
-				IsValidStance(pSoldier, BestAttack.ubStance))
+				TacticalActorMobility::isValidStance(*pSoldier, BestAttack.ubStance))
 			{
 				pSoldier->aiPlanning().nextAction() = AI_ACTION_FIRE_GUN;
 				pSoldier->aiPlanning().nextActionData() = BestAttack.sTarget;
@@ -7158,7 +7158,7 @@ L_NEWAIM:
 	// if not in water and not already crouched, try to crouch down first
 	if (!gfTurnBasedAI || GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->actionPoints().current())
 	{
-		if ( !fCivilian && !gfHiddenInterrupt && IsValidStance( pSoldier, ANIM_CROUCH ) && ubBestAttackAction != AI_ACTION_KNIFE_MOVE && ubBestAttackAction != AI_ACTION_KNIFE_STAB && ubBestAttackAction != AI_ACTION_STEAL_MOVE) // SANDRO - if knife attack don't crouch
+		if ( !fCivilian && !gfHiddenInterrupt && TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) && ubBestAttackAction != AI_ACTION_KNIFE_MOVE && ubBestAttackAction != AI_ACTION_KNIFE_STAB && ubBestAttackAction != AI_ACTION_STEAL_MOVE) // SANDRO - if knife attack don't crouch
 		{
 			// determine the location of the known closest opponent
 			// (don't care if he's conscious, don't care if he's reachable at all)

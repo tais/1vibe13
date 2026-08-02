@@ -1,4 +1,5 @@
 #include "TacticalActorBattleSounds.h"
+#include "TacticalActorAnimationTiming.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorAiBehavior.h"
 #include "TacticalActorEquipment.h"
@@ -78,7 +79,6 @@
 
 #define WE_SEE_WHAT_MILITIA_SEES_AND_VICE_VERSA
 
-extern void SetSoldierAniSpeed( TacticalActor *pSoldier );
 // HEADROCK HAM 3.6: Moved to header
 //void MakeBloodcatsHostile( void );
 
@@ -2571,7 +2571,7 @@ if(SEE_MENT)
 		{
 
 			// Change his anim speed!
-			SetSoldierAniSpeed( pOpponent );
+			(void)TacticalActorAnimationTiming::refresh(*pOpponent);
 
 			// if show enemies is ON, then we must have already revealed these roofs
 			// and we're also following his movements, so don't bother sliding

@@ -185,7 +185,7 @@ for it, and the ETRLE scheme is built around an 8-bit index stream.
 Indexed mode also powers gameplay-critical **palette tricks**: merc skin/hair
 recolouring, team colour, the enemy "glow" highlight, day/night shade tables —
 all implemented as *palette substitutions* on the 256-entry table
-(`CreateEnemyGlow16BPPPalette`, `Create16BPPPaletteShaded`, the per-tile
+(`RenderPaletteEffects::populateActorShades`, `Create16BPPPaletteShaded`, the per-tile
 `pShades[]` shade ramps). True-colour art has no palette to substitute, so
 these effects would need reimplementing (see §5).
 
@@ -269,7 +269,7 @@ no 256-entry table to swap:
 |---|---|
 | Day/night shade ramps (`pShades[]`) | Multiply RGB by a light/shade factor at blit time (we already do this per-channel in `PixShade`) |
 | Merc skin/hair/team recolour | Hue/tint remap or palette-region multiply applied per pixel |
-| Enemy glow highlight (`CreateEnemyGlow…`) | Additive/again per-pixel tint pass |
+| Enemy glow highlight (`RenderPaletteEffects`) | Additive/again per-pixel tint pass |
 
 For sprites that need these, **either keep them indexed** or budget for a
 tint/shader pass. This is why mercs/tiles are poor early targets.

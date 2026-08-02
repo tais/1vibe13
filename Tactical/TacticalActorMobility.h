@@ -29,9 +29,17 @@ namespace TacticalActorMobility
 		TacticalActor& actor,
 		std::int8_t direction,
 		std::int8_t stance);
+	[[nodiscard]] bool isValidStance(
+		TacticalActor& actor,
+		std::int8_t stance);
 	[[nodiscard]] bool isCurrentStanceValid(
 		TacticalActor& actor,
 		std::int8_t direction);
+	[[nodiscard]] bool isValidMovementMode(
+		const TacticalActor& actor,
+		std::uint16_t movementMode) noexcept;
+	[[nodiscard]] bool selectMovementForCurrentStance(
+		TacticalActor& actor);
 	[[nodiscard]] bool isCrouchedAgainstCover(
 		const TacticalActor& actor,
 		std::uint8_t direction);

@@ -586,8 +586,9 @@ state before returning a controller. Gameplay callers therefore cannot treat
 an unchecked persisted slot as a live actor; existing robot, item, profile,
 assignment, and save formats remain unchanged.
 `TacticalActorMobility` is the runtime boundary for water classification,
-movement and stance animation selection, backpack climbing, structure-aware
-stance validation, adjacent cover, and disease-limited fast movement.
+movement-mode validation, current-stance movement animation selection, stance
+transitions, backpack climbing, structure-aware stance validation, adjacent
+cover, and disease-limited fast movement.
 Callers can query current-animation movement and stance validity without
 indexing the legacy animation table themselves.
 `TacticalActorWeaponHandling` separately owns dual-wield and paired-burst
@@ -659,10 +660,11 @@ non-finite coordinates or heights without partial mutation. This boundary
 does not change maps, schedules, animation data, network events, saves, Lua,
 or installed content formats.
 `TacticalActorRouteExecution` is the application-side boundary for executing
-live tactical routes. Use `requestPath`, `setOutOfActionPoints`, `stop`,
-`stopAt`, `settleIntoStationaryStance`, and `haltForSighting`; do not restore
-the former aggregate path, no-AP, stop, stationary-stance, or sighting-halt
-façades. These operations coordinate path buffers and destinations, pending
+live tactical routes. Use `requestPath`, `continueMovement`,
+`setOutOfActionPoints`, `stop`, `stopAt`, `settleIntoStationaryStance`, and
+`haltForSighting`; do not restore the former aggregate path, no-AP, stop,
+stationary-stance, sighting-halt, or global continuation façades. These
+operations coordinate path buffers and destinations, pending
 actions and animations, medical-service cancellation, movement reservations,
 UI ownership, vehicle movement sound, and network path/stop replication. They
 reject an unavailable tactical world and malformed actor, animation, body,
@@ -882,7 +884,7 @@ standalone compile guard covers laptop, strategic, tactical, and tile-engine
 headers. This now covers the complete application-header surface: a second
 isolated compile matrix builds each of the final 30 service/API headers in its
 own translation unit and verifies that `TacticalActor` remains incomplete. A
-second matrix compiles all 29 focused compatibility/schema headers standalone;
+second matrix compiles all 33 focused compatibility/schema headers standalone;
 compile-time assertions pin their stable values and layouts.
 Use `Strategic Path Types.h` for the stable `PathSt` route node,
 `Soldier Patrol Types.h` for map-placement patrol capacities, and
@@ -941,6 +943,25 @@ rejects malformed animation-state, surface, world-direction, extended-facing,
 and video-object frame metadata before indexing legacy animation tables.
 Existing animation scripts and assets, rendering behavior, maps, XML, Lua,
 save, and network formats remain unchanged.
+`TacticalActorAnimationTiming` owns dynamic and fixed animation-delay refresh,
+team turn-speed factors, tactical speed adjustment, and fast-turn timing. Use
+`refresh`, `currentTeamSpeedFactor`, and `adjustForFastTurn` rather than
+restoring the former free timing helpers. `TacticalActorAnimationGeometry`
+owns current-frame dimensions and offsets and applies them transactionally to
+the actor render bounding box through `currentFrame` and
+`refreshBoundingBox`. Both services bound the animation, body, terrain,
+direction, inventory, surface, video-object, and frame indexes they consume;
+failed geometry requests do not partially replace the existing render box.
+Use `TacticalActorMobility::isValidMovementMode` and
+`selectMovementForCurrentStance` for the remaining movement adapters, and
+`TacticalActorRouteExecution::continueMovement` for AP-checked route
+continuation. `RenderPaletteEffects::populateActorShades` is the shared
+actor-independent palette-effect generator used by actor appearance and
+logical body palettes; callers must first provide the base 8-bit and converted
+base palette. The old enemy-glow creators and the unused full-tile occlusion
+implementation are retired. These are C++ ownership and validation changes
+only; animation data, palette sources, rendered output, maps, items, saves,
+network events, XML, Lua, and installed mod formats remain compatible.
 `TacticalActorAnimationFootprint` owns the tactical-world placeholder tiles
 described by an actor's animation profile. New callers use `add`,
 `addForSurface`, `remove`, `flagsAtGrid`, and `nextWorldNode` instead of

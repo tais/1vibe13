@@ -23,6 +23,7 @@ namespace TacticalActorRouteExecution
 		std::uint16_t movementAnimation,
 		PathOrigin origin = PathOrigin::System,
 		bool forceRestart = true);
+	[[nodiscard]] bool continueMovement(TacticalActor& actor);
 	[[nodiscard]] bool stop(TacticalActor& actor);
 	[[nodiscard]] bool settleIntoStationaryStance(
 		TacticalActor& actor);

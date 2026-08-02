@@ -182,11 +182,11 @@ UINT8 StanceChange( TacticalActor * pSoldier, INT16 ubAttackAPCost )
 	{
 		if (pSoldier->actionPoints().current() - ubAttackAPCost >= GetAPsCrouch(pSoldier, TRUE))
 		{
-			if ( (pSoldier->actionPoints().current() - ubAttackAPCost >= GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE)) && IsValidStance( pSoldier, ANIM_PRONE ) && ConsiderProne( pSoldier ) )
+			if ( (pSoldier->actionPoints().current() - ubAttackAPCost >= GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE)) && TacticalActorMobility::isValidStance(*pSoldier, ANIM_PRONE ) && ConsiderProne( pSoldier ) )
 			{
 				return( ANIM_PRONE );
 			}
-			else if ( IsValidStance( pSoldier, ANIM_CROUCH ) )
+			else if ( TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH ) )
 			{
 				return( ANIM_CROUCH );
 			}
@@ -194,7 +194,7 @@ UINT8 StanceChange( TacticalActor * pSoldier, INT16 ubAttackAPCost )
 	}
 	else if (PTR_CROUCHED)
 	{
-		if ( (pSoldier->actionPoints().current() - ubAttackAPCost >= GetAPsProne(pSoldier, TRUE)) && IsValidStance( pSoldier, ANIM_PRONE ) && ConsiderProne( pSoldier ) )
+		if ( (pSoldier->actionPoints().current() - ubAttackAPCost >= GetAPsProne(pSoldier, TRUE)) && TacticalActorMobility::isValidStance(*pSoldier, ANIM_PRONE ) && ConsiderProne( pSoldier ) )
 		{
 			return( ANIM_PRONE );
 		}

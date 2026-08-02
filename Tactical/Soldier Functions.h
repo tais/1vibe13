@@ -7,11 +7,6 @@
 class TacticalActor;
 
 
-void ContinueMercMovement( TacticalActor *pSoldier );
-
-BOOLEAN IsValidStance( TacticalActor *pSoldier, INT8 bNewStance );
-void SelectMoveAnimationFromStance( TacticalActor *pSoldier );
-BOOLEAN IsValidMovementMode( TacticalActor *pSoldier, INT16 usMovementMode );
 FLOAT CalcSoldierNextBleed( TacticalActor *pSoldier );
 FLOAT CalcSoldierNextUnmovingBleed( TacticalActor *pSoldier );
 BOOLEAN ReevaluateEnemyStance( TacticalActor *pSoldier, UINT16 usAnimState );

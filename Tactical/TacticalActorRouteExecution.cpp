@@ -8,6 +8,7 @@
 #include "TacticalActorStateFlags.h"
 
 #include "TacticalActorOrientation.h"
+#include "TacticalActorBattleSounds.h"
 #include "Animation Control.h"
 #include "Dialogue Control.h"
 #include "Event Pump.h"
@@ -17,6 +18,7 @@
 #include "Items.h"
 #include "Overhead.h"
 #include "PATHAI.H"
+#include "Points.h"
 #include "Soldier Ani.h"
 #include "TacticalActor.h"
 #include "Soldier Functions.h"
@@ -36,6 +38,7 @@
 #include "worlddef.h"
 #include "worldman.h"
 #include "soldier tile.h"
+#include "faces.h"
 
 #include <cstdint>
 #include <cstring>
@@ -666,6 +669,68 @@ bool TacticalActorRouteExecution::requestPath(
 		static_cast<UINT16>(movementAnimation),
 		origin,
 		forceRestart ? TRUE : FALSE);
+}
+
+bool TacticalActorRouteExecution::continueMovement(
+	TacticalActor& actor)
+{
+	if (!hasLiveRouteContext(actor) ||
+		actor.movement().mode() >= NUMANIMATIONSTATES ||
+		TileIsOutOfBounds(actor.pathing().finalDestinationGrid()))
+	{
+		return false;
+	}
+
+	INT32 destinationGrid =
+		actor.pathing().finalDestinationGrid();
+	if (actor.movement().continuedPathValid())
+	{
+		destinationGrid = actor.movement().continuedPathGrid();
+		if (TileIsOutOfBounds(destinationGrid))
+			return false;
+	}
+	else
+		actor.pendingAction().resetAnimationCount();
+
+	if (!FindBestPath(
+			&actor,
+			destinationGrid,
+			actor.position().level(),
+			actor.movement().mode(),
+			NO_COPYROUTE,
+			0))
+	{
+		return false;
+	}
+
+	const INT16 actionPointCost =
+		PtsToMoveDirection(&actor, static_cast<UINT8>(guiPathingData[0]));
+	if (!EnoughPoints(
+			&actor,
+			actionPointCost,
+			0,
+			static_cast<BOOLEAN>(
+				actor.roster().team() == gbPlayerNum)))
+	{
+		return false;
+	}
+
+	if (actor.roster().team() == gbPlayerNum)
+	{
+		TacticalActorBattleSounds::play(actor, BATTLE_SOUND_OK1);
+		const INT32 faceIndex = actor.renderBindings().faceIndex();
+		if (faceIndex >= 0 && faceIndex < NUM_FACE_SLOTS)
+			gFacesData[faceIndex].fDisplayTextOver = FACE_ERASE_TEXT_OVER;
+	}
+
+	setOutOfActionPointsUnchecked(actor, FALSE);
+	SetUIBusy(actor.identity().id());
+	return requestPath(
+		actor,
+		destinationGrid,
+		actor.movement().mode(),
+		PathOrigin::System,
+		true);
 }
 
 bool TacticalActorRouteExecution::stop(TacticalActor& actor)

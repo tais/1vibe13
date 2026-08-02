@@ -2681,7 +2681,7 @@ BOOLEAN AdjustToNextAnimationFrame( TacticalActor *pSoldier )
 						}
 						else
 						{
-							SelectMoveAnimationFromStance( pSoldier );
+							(void)TacticalActorMobility::selectMovementForCurrentStance(*pSoldier);
 						}
 
 						pSoldier->animationIntent().clearContinuation();

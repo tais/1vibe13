@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorAnimationTiming.h"
 #include "TacticalActorCrowBehavior.h"
 #include "TacticalActorVisibility.h"
 #include "TacticalActorWorldPlacement.h"
@@ -46,8 +47,6 @@
 #include <limits>
 
 extern INT16 DirIncrementer[8];
-
-void SetSoldierAniSpeed(TacticalActor* actor);
 
 namespace
 {
@@ -365,8 +364,6 @@ void setGridUnchecked(TacticalActor& actor, INT32 sNewGridNo, BOOLEAN fForceRemo
 		//ddd window}
 
 		// Add/ remove tree if we are near it
-		// CheckForFullStructures( &actor );
-
 		// Add merc at new pos
 		if ( !(actor.status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 		{
@@ -568,7 +565,7 @@ void setGridUnchecked(TacticalActor& actor, INT32 sNewGridNo, BOOLEAN fForceRemo
 		}
 
 		// Adjust speed based on terrain, etc
-		SetSoldierAniSpeed( &actor );
+		(void)TacticalActorAnimationTiming::refresh(actor);
 	}
 }
 }

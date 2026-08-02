@@ -2551,7 +2551,7 @@ UINT32 UIHandleMCycleMovement( UI_EVENT *pUIEvent )
 		if ( pSoldier->movement().mode() == RUNNING )
 		{
 			pSoldier->movement().mode() = WALKING;
-			if ( IsValidMovementMode( pSoldier, WALKING ) )
+			if ( TacticalActorMobility::isValidMovementMode(*pSoldier, WALKING ) )
 			{
 				fGoodMode = TRUE;
 			}
@@ -2559,7 +2559,7 @@ UINT32 UIHandleMCycleMovement( UI_EVENT *pUIEvent )
 		else if ( pSoldier->movement().mode() == WALKING )
 		{
 			pSoldier->movement().mode() = SWATTING;
-			if ( IsValidMovementMode( pSoldier, SWATTING ) )
+			if ( TacticalActorMobility::isValidMovementMode(*pSoldier, SWATTING ) )
 			{
 				fGoodMode = TRUE;
 			}
@@ -2567,7 +2567,7 @@ UINT32 UIHandleMCycleMovement( UI_EVENT *pUIEvent )
 		else if ( pSoldier->movement().mode() == SWATTING )
 		{
 			pSoldier->movement().mode() = CRAWLING;
-			if ( IsValidMovementMode( pSoldier, CRAWLING ) && IsValidStance(pSoldier, ANIM_PRONE) )
+			if ( TacticalActorMobility::isValidMovementMode(*pSoldier, CRAWLING ) && TacticalActorMobility::isValidStance(*pSoldier, ANIM_PRONE) )
 			{
 				fGoodMode = TRUE;
 			}
@@ -2576,7 +2576,7 @@ UINT32 UIHandleMCycleMovement( UI_EVENT *pUIEvent )
 		{
 			pSoldier->movement().setUiMovementFast(1);
 			pSoldier->movement().mode() = RUNNING;
-			if ( IsValidMovementMode( pSoldier, RUNNING ) )
+			if ( TacticalActorMobility::isValidMovementMode(*pSoldier, RUNNING ) )
 			{
 				fGoodMode = TRUE;
 			}
@@ -3987,7 +3987,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 	}
 
 	// Is this a valid stance for our position?
-	if ( !IsValidStance( pSoldier, bNewStance ) )
+	if ( !TacticalActorMobility::isValidStance(*pSoldier, bNewStance ) )
 	{
 		if ( pSoldier->collapseState().tactical() && pSoldier->vitals().breath() < OKBREATH )
 		{
@@ -5589,7 +5589,7 @@ BOOLEAN MakeSoldierTurn( TacticalActor *pSoldier, INT16 sXPos, INT16 sYPos )
 	INT32							iBPCpst = 0;
 
 	// Make sure the merc is not collapsed!
-	if (!(IsValidStance(pSoldier, ANIM_CROUCH) || IsValidStance(pSoldier, ANIM_STAND)) && !( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER )))
+	if (!(TacticalActorMobility::isValidStance(*pSoldier, ANIM_CROUCH) || TacticalActorMobility::isValidStance(*pSoldier, ANIM_STAND)) && !( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER )))
 	{
 		if ( pSoldier->collapseState().tactical() && pSoldier->vitals().breath() < OKBREATH )
 		{
