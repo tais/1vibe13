@@ -628,8 +628,10 @@ and their definitions must not return to `Soldier Control.cpp`. Their boundaries
 retain the established application adapters and validate malformed skill, item,
 sector, disease, profile, target, animation, and radio-configuration input before
 unsafe legacy lookups. This completes physical isolation of the existing domain
-namespaces without changing installed content or persistence formats; the
-remaining `TacticalActor` compatibility members are a separate migration concern.
+namespaces without changing installed content or persistence formats. The
+aggregate constructor/destructor, complete reset, and compatibility name lookup
+are likewise compiled from `TacticalActor.cpp`, so no `TacticalActor::`
+definition remains in `Soldier Control.cpp`.
 `TacticalActorRangedActions` owns the stateful ranged-weapon lifecycle that
 uses those rules: `beginFire`, the `ready`/`readyToward`/`readyFacing`
 operations, and `refreshAfterHandItemChange`. Event handling, tactical AI,
@@ -848,7 +850,8 @@ Do not reintroduce the former `CreateSoldier*`, `DeleteSoldier`, `ReviveSoldier`
 `CheckSoldierHitRoof`, `MoveMerc`, `GetMaxDistanceVisible`, `InitSightRange`,
 `DistanceVisible`, or the other former global sight-range entry points.
 `TacticalActor` now serves as the component aggregate; only `initialize()` and
-compatibility `GetName()` remain as member behavior. Visibility requests with
+compatibility `GetName()` remain as member behavior, with their definitions and
+the constructor/destructor isolated in `TacticalActor.cpp`. Visibility requests with
 unavailable world storage or malformed actor, grid, level, direction, vehicle,
 or light state fail without legacy table access. These C++ boundaries do not
 alter save bytes, network or animation event formats, combat/content data,

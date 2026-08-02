@@ -2154,6 +2154,8 @@ file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.h"
   tactical_actor_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
   tactical_actor_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActor.cpp"
+  tactical_actor_aggregate_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
   tactical_actor_creation_source_contents)
 file(READ "${SOURCE_ROOT}/Utils/Timer Control.cpp"
@@ -2474,7 +2476,7 @@ foreach(component IN LISTS tactical_actor_component_accessors)
     "[\r\n][ \t]+[A-Za-z_][A-Za-z0-9_:<>]*[ \t]+${component}_[ \t]*;"
     private_component_owner
     "${tactical_actor_contents}")
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_aggregate_source_contents}"
     "${component}().reset();"
     component_reset)
   if(NOT mutable_component_accessor OR
@@ -2486,11 +2488,11 @@ foreach(component IN LISTS tactical_actor_component_accessors)
   endif()
 endforeach()
 
-string(FIND "${tactical_actor_source_contents}"
+string(FIND "${tactical_actor_aggregate_source_contents}"
   "void TacticalActor::initialize"
   tactical_actor_initialize_begin)
-string(FIND "${tactical_actor_source_contents}"
-  "UINT32 MERCPROFILESTRUCT::GetChecksum"
+string(FIND "${tactical_actor_aggregate_source_contents}"
+  "UINT8 tmpuser"
   tactical_actor_initialize_end)
 if(tactical_actor_initialize_begin EQUAL -1 OR
    tactical_actor_initialize_end EQUAL -1 OR
@@ -2500,7 +2502,7 @@ if(tactical_actor_initialize_begin EQUAL -1 OR
 endif()
 math(EXPR tactical_actor_initialize_length
   "${tactical_actor_initialize_end} - ${tactical_actor_initialize_begin}")
-string(SUBSTRING "${tactical_actor_source_contents}"
+string(SUBSTRING "${tactical_actor_aggregate_source_contents}"
   ${tactical_actor_initialize_begin} ${tactical_actor_initialize_length}
   tactical_actor_initialize_contents)
 string(REGEX MATCH
@@ -2525,7 +2527,7 @@ foreach(retired_layout_fragment IN ITEMS
   "retiredZBackgroundSlot_"
   "retiredAnimationTileSlot_")
   string(FIND
-    "${tactical_actor_header_contents}${tactical_actor_source_contents}${tactical_actor_persistence_source_contents}${headless_test_contents}"
+    "${tactical_actor_header_contents}${tactical_actor_aggregate_source_contents}${tactical_actor_source_contents}${tactical_actor_persistence_source_contents}${headless_test_contents}"
     "${retired_layout_fragment}"
     retired_layout_fragment_site)
   if(NOT retired_layout_fragment_site EQUAL -1)
@@ -4359,7 +4361,7 @@ string(FIND "${tactical_actor_profile_classification_source_contents}"
 string(FIND "${headless_test_contents}"
   "TacticalActorProfileClassification::profileTableIndex"
   profile_classification_coverage)
-string(FIND "${tactical_actor_source_contents}"
+string(FIND "${tactical_actor_aggregate_source_contents}"
   "TacticalActorProfileClassification::profileTableIndex"
   actor_name_profile_classification_call)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
@@ -4611,6 +4613,7 @@ if(donor_condition_declaration EQUAL -1 OR
 endif()
 
 foreach(required_actor_domain_source IN ITEMS
+  "TacticalActor.cpp"
   "TacticalActorAnimationFootprint.cpp"
   "TacticalActorAnimationFrames.cpp"
   "TacticalActorAnimationTransitions.cpp"
@@ -4650,6 +4653,41 @@ foreach(required_actor_domain_source IN ITEMS
   if(actor_domain_build_entry EQUAL -1)
     message(FATAL_ERROR
       "Tactical actor domain source '${required_actor_domain_source}' must remain in the tactical build")
+  endif()
+endforeach()
+
+foreach(required_actor_aggregate_definition IN ITEMS
+  "TacticalActor::~TacticalActor("
+  "TacticalActor::TacticalActor("
+  "TacticalActor::initialize("
+  "TacticalActor::GetName(")
+  string(FIND "${tactical_actor_aggregate_source_contents}"
+    "${required_actor_aggregate_definition}"
+    actor_aggregate_definition)
+  if(actor_aggregate_definition EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalActor.cpp lost aggregate definition '${required_actor_aggregate_definition}'")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "TacticalActor::(~TacticalActor|TacticalActor|initialize|GetName)[ \t\r\n]*\\("
+  actor_aggregate_definition_in_monolith
+  "${tactical_actor_source_contents}")
+if(actor_aggregate_definition_in_monolith)
+  message(FATAL_ERROR
+    "A TacticalActor aggregate definition returned to Soldier Control.cpp")
+endif()
+
+foreach(required_actor_aggregate_coverage IN ITEMS
+  "aggregateActor.GetName("
+  "aggregateActor.initialize(")
+  string(FIND "${headless_test_contents}"
+    "${required_actor_aggregate_coverage}"
+    actor_aggregate_coverage)
+  if(actor_aggregate_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "TacticalActor aggregate implementation lost headless coverage for '${required_actor_aggregate_coverage}'")
   endif()
 endforeach()
 

@@ -1404,7 +1404,9 @@ the engine must not contain SDL types in its public domain model.
   definitions from returning to the monolith. This completes physical isolation
   of the established TacticalActor domain namespaces; it does not alter campaign,
   item, trait, disease, profile, localization, save, network, XML, Lua, or mod
-  formats, nor does it remove the aggregate's remaining compatibility members.
+  formats. The aggregate constructor, destructor, complete component reset, and
+  compatibility name resolution are physically isolated in `TacticalActor.cpp`;
+  no `TacticalActor::` definition remains in `Soldier Control.cpp`.
   `TacticalActorRangedActions` owns the complementary live ranged-weapon
   lifecycle: fire initiation, readying toward a target or facing, lowering a
   ready weapon, and refreshing fire mode, scope, barrel, service, and
@@ -1648,7 +1650,9 @@ the engine must not contain SDL types in its public domain model.
   absent from the aggregate, the former global visibility helpers and range
   state are retired, and all production callers use the compiled domains.
   Only storage initialization and compatibility name resolution remain as
-  `TacticalActor::initialize` and `TacticalActor::GetName`.
+  `TacticalActor::initialize` and `TacticalActor::GetName`; those operations and
+  the constructor/destructor are compiled from `TacticalActor.cpp` rather than
+  from the legacy soldier-control monolith.
   Architecture CI requires each extracted source in the tactical build,
   rejects restored declarations, definitions, or calls to retired entries,
   and requires headless coverage for every new operation. Visibility rejects

@@ -7936,6 +7936,24 @@ int main( int, char** )
 	}
 
 	{
+		TacticalActor aggregateActor;
+		std::wcscpy(
+			aggregateActor.identity().name(),
+			L"Headless actor");
+		aggregateActor.vitals().health() = 47;
+		const bool compatibilityNameResolves =
+			std::wcscmp(
+				aggregateActor.GetName(),
+				L"Headless actor") == 0;
+		aggregateActor.initialize();
+		CHECK( compatibilityNameResolves &&
+		       aggregateActor.identity().id() == NOBODY &&
+		       aggregateActor.identity().name()[0] == L'\0' &&
+		       aggregateActor.vitals().health() == 0,
+		       "tactical actor aggregate implementation owns compatibility naming and complete record reset" );
+	}
+
+	{
 		TacticalActor conditionActor;
 		conditionActor.identity().bodyType() = REGMALE;
 		conditionActor.identity().profile() = NO_PROFILE;
