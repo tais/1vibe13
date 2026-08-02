@@ -2688,6 +2688,9 @@ string(FIND "${tactical_soldier_control_header_contents}"
 string(FIND "${tactical_soldier_control_header_contents}"
   "MERC_TYPE__PLAYER_CHARACTER,"
   tactical_soldier_control_legacy_employment_type)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "struct CLOTHES_STRUCT"
+  tactical_soldier_control_legacy_clothes_type)
 string(FIND "${strategic_path_types_header_contents}"
   "struct path"
   tactical_strategic_path_definition)
@@ -2703,6 +2706,12 @@ string(FIND "${tactical_soldier_profile_constants_header_contents}"
 string(FIND "${tactical_soldier_palette_header_contents}"
   "BOOLEAN GetPaletteRepIndexFromID"
   tactical_soldier_palette_lookup_declaration)
+string(FIND "${tactical_soldier_palette_header_contents}"
+  "#define CLOTHES_MAX 50"
+  tactical_soldier_palette_clothes_capacity)
+string(FIND "${tactical_soldier_palette_header_contents}"
+  "extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];"
+  tactical_soldier_palette_clothes_table)
 string(FIND "${tactical_soldier_background_types_header_contents}"
   "#define BACKGROUND_XENOPHOBIC 0x0000000000000002"
   tactical_soldier_background_xenophobic_flag)
@@ -2773,6 +2782,9 @@ string(FIND "${tactical_actor_service_api_header_test_contents}"
   "static_assert(MERC_TYPE__VEHICLE == 6);"
   tactical_actor_service_api_employment_assertion)
 string(FIND "${tactical_actor_service_api_header_test_contents}"
+  "static_assert(CLOTHES_MAX == 50);"
+  tactical_actor_service_api_clothes_capacity_assertion)
+string(FIND "${tactical_actor_service_api_header_test_contents}"
   "static_assert(SOLDIER_PCUNDERAICONTROL == 0x20);"
   tactical_actor_service_api_status_flag_assertion)
 string(FIND "${tactical_actor_lighting_header_contents}"
@@ -2797,11 +2809,14 @@ if(tactical_soldier_control_path_types_include EQUAL -1 OR
    tactical_soldier_control_state_flags_include EQUAL -1 OR
    NOT tactical_soldier_control_legacy_status_flag EQUAL -1 OR
    NOT tactical_soldier_control_legacy_employment_type EQUAL -1 OR
+   NOT tactical_soldier_control_legacy_clothes_type EQUAL -1 OR
    tactical_strategic_path_definition EQUAL -1 OR
    tactical_strategic_path_alias EQUAL -1 OR
    tactical_soldier_patrol_capacity EQUAL -1 OR
    tactical_soldier_no_profile_sentinel EQUAL -1 OR
    tactical_soldier_palette_lookup_declaration EQUAL -1 OR
+   tactical_soldier_palette_clothes_capacity EQUAL -1 OR
+   tactical_soldier_palette_clothes_table EQUAL -1 OR
    tactical_soldier_background_xenophobic_flag EQUAL -1 OR
    tactical_actor_vehicle_employment_type EQUAL -1 OR
    tactical_actor_player_ai_control_flag EQUAL -1 OR
@@ -2825,6 +2840,7 @@ if(tactical_soldier_control_path_types_include EQUAL -1 OR
    tactical_actor_service_api_battle_sound_assertion EQUAL -1 OR
    tactical_actor_service_api_background_assertion EQUAL -1 OR
    tactical_actor_service_api_employment_assertion EQUAL -1 OR
+   tactical_actor_service_api_clothes_capacity_assertion EQUAL -1 OR
    tactical_actor_service_api_status_flag_assertion EQUAL -1 OR
    tactical_actor_light_toggle_declaration EQUAL -1 OR
    tactical_actor_light_toggle_definition EQUAL -1 OR

@@ -40,6 +40,7 @@
 #include "Map Screen Helicopter.h"
 #include "Render Dirty.h"
 #include "SaveSerializer.h"
+#include "Soldier Palette.h"
 #include "worlddef.h"
 #include "World Tile Map.h"
 #include "Tile Animation.h"

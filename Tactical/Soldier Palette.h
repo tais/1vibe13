@@ -23,6 +23,18 @@ struct UNIFORMCOLORS
 
 extern UNIFORMCOLORS gUniformColors[NUM_UNIFORMS];
 
+struct CLOTHES_STRUCT
+{
+	UINT16 uiIndex;
+	CHAR16 szName[80];
+	PaletteRepID vest;
+	PaletteRepID pants;
+};
+
+#define CLOTHES_MAX 50
+
+extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
+
 extern UINT32 guiNumPaletteSubRanges;
 extern UINT8* gubpNumReplacementsPerRange;
 extern PaletteSubRangeType* gpPaletteSubRanges;

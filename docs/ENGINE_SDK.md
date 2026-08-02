@@ -883,7 +883,8 @@ reasons, long actions, interrupts, and replicated event wrappers stay with
 their focused actor domains. Use `Animation Data.h` for animation-profile
 layouts, `Grid Direction.h` for direction helpers, `Soldier Drug Types.h` for
 persistent drug-effect indices/capacity, and `Soldier Palette.h` for uniform
-IDs and palette contracts. The player light-option refresh is declared
+IDs, clothing-palette records, and palette contracts. The player light-option
+refresh is declared
 with the personal-light operations in `TacticalActorLighting.h`. The legacy
 `Soldier Control.h` facade re-exports those contracts, while
 `Utils All.h` remains the only intentional public compatibility umbrella;

@@ -1436,7 +1436,8 @@ the engine must not contain SDL types in its public domain model.
   actor domains. `Animation Data.h` owns animation-profile layouts,
   `Grid Direction.h` owns direction helpers, `Soldier Drug Types.h` owns the
   persistent drug-effect indices/capacity, and `Soldier Palette.h` owns uniform
-  IDs and palette contracts. These values no longer have duplicate definitions
+  IDs, clothing-palette records, and palette contracts. These values no longer
+  have duplicate definitions
   in the soldier-control facade or component aggregate;
   the shared trait-stage predicate is declared by `Soldier Profile.h`;
   `Soldier Control.h` re-exports these focused contracts for compatibility.

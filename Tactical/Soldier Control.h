@@ -209,19 +209,6 @@ static_assert(
 #define TAUNT_FLAG_2_MAX	13
 #define TAUNT_FLAG_MAX	TAUNT_FLAG_1_MAX + TAUNT_FLAG_2_MAX
 
-// Flugente: a structure for clothing items
-typedef struct
-{
-	UINT16			uiIndex;
-	CHAR16			szName[80];				// name of these clothes
-	PaletteRepID	vest;
-	PaletteRepID	pants;
-} CLOTHES_STRUCT;
-
-#define CLOTHES_MAX	50
-
-extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
-
 // This macro should be used whenever we want to see if someone is neutral
 // IF WE ARE CONSIDERING ATTACKING THEM.	Creatures & bloodcats will attack neutrals
 // but they can't attack empty vehicles!!
