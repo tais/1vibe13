@@ -2168,6 +2168,8 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConditions.cpp"
   tactical_actor_conditions_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAssignments.h"
   tactical_actor_assignments_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAssignments.cpp"
+  tactical_actor_assignments_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConsumables.h"
   tactical_actor_consumables_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorConsumables.cpp"
@@ -2184,8 +2186,12 @@ file(READ "${SOURCE_ROOT}/TileEngine/worlddef.h"
   tactical_world_definition_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorModifiers.h"
   tactical_actor_modifiers_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorModifiers.cpp"
+  tactical_actor_modifiers_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEquipment.h"
   tactical_actor_equipment_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEquipment.cpp"
+  tactical_actor_equipment_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRadio.h"
   tactical_actor_radio_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorRobotics.h"
@@ -2845,7 +2851,7 @@ foreach(required_assignment_operation IN ITEMS
   string(FIND "${tactical_actor_assignments_header_contents}"
     "${required_assignment_operation}("
     assignment_operation_declaration)
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_assignments_source_contents}"
     "TacticalActorAssignments::${required_assignment_operation}("
     assignment_operation_definition)
   if(assignment_operation_declaration EQUAL -1 OR
@@ -2855,13 +2861,21 @@ foreach(required_assignment_operation IN ITEMS
   endif()
 endforeach()
 
-string(FIND "${headless_test_contents}"
-  "TacticalActorAssignments::administrationModifier"
-  assignment_operation_coverage)
-if(assignment_operation_coverage EQUAL -1)
-  message(FATAL_ERROR
-    "Tactical actor assignment rules lost their data-free headless coverage")
-endif()
+foreach(required_assignment_coverage IN ITEMS
+  "sleepBreathRegeneration"
+  "burialPoints"
+  "constructionPoints"
+  "administrationPoints"
+  "administrationModifier"
+  "explorationPoints")
+  string(FIND "${headless_test_contents}"
+    "TacticalActorAssignments::${required_assignment_coverage}"
+    assignment_operation_coverage)
+  if(assignment_operation_coverage EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor assignment rules lost headless coverage for '${required_assignment_coverage}'")
+  endif()
+endforeach()
 
 foreach(retired_modifier_method IN ITEMS
   "HasBackgroundFlag"
@@ -2920,7 +2934,7 @@ foreach(required_modifier_operation IN ITEMS
   string(FIND "${tactical_actor_modifiers_header_contents}"
     "${required_modifier_operation}("
     modifier_operation_declaration)
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_modifiers_source_contents}"
     "TacticalActorModifiers::${required_modifier_operation}("
     modifier_operation_definition)
   if(modifier_operation_declaration EQUAL -1 OR
@@ -3014,7 +3028,7 @@ foreach(required_equipment_operation IN ITEMS
   string(FIND "${tactical_actor_equipment_header_contents}"
     "${required_equipment_operation}("
     equipment_operation_declaration)
-  string(FIND "${tactical_actor_source_contents}"
+  string(FIND "${tactical_actor_equipment_source_contents}"
     "TacticalActorEquipment::${required_equipment_operation}("
     equipment_operation_definition)
   if(equipment_operation_declaration EQUAL -1 OR
@@ -4540,6 +4554,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorAnimationFrames.cpp"
   "TacticalActorAnimationTransitions.cpp"
   "TacticalActorAppearance.cpp"
+  "TacticalActorAssignments.cpp"
   "TacticalActorBattleSounds.cpp"
   "TacticalActorConsumables.cpp"
   "TacticalActorCombatActions.cpp"
@@ -4550,9 +4565,11 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActorDamageResolution.cpp"
   "TacticalActorLifecycle.cpp"
   "TacticalActorLocomotion.cpp"
+  "TacticalActorModifiers.cpp"
   "TacticalActorRecovery.cpp"
   "TacticalActorTraversal.cpp"
   "TacticalActorExplosives.cpp"
+  "TacticalActorEquipment.cpp"
   "TacticalActorInteractions.cpp"
   "TacticalActorLighting.cpp"
   "TacticalActorProfileClassification.cpp"
@@ -4567,6 +4584,15 @@ foreach(required_actor_domain_source IN ITEMS
       "Tactical actor domain source '${required_actor_domain_source}' must remain in the tactical build")
   endif()
 endforeach()
+
+string(REGEX MATCH
+  "(^|\n)[A-Za-z_][A-Za-z0-9_:<>,*& \t]*TacticalActor(Assignments|Equipment|Modifiers)::[A-Za-z0-9_]+[ \t\r\n]*\\("
+  actor_utility_definition_in_monolith
+  "${tactical_actor_source_contents}")
+if(actor_utility_definition_in_monolith)
+  message(FATAL_ERROR
+    "A physically extracted tactical actor utility definition returned to Soldier Control.cpp")
+endif()
 
 foreach(required_persistence_fragment IN ITEMS
   "ComputeTacticalActorChecksum"
