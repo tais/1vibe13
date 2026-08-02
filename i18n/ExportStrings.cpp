@@ -10,6 +10,16 @@
 #include "finances.h"
 #include "laptop.h"
 
+#ifdef ENGLISH
+// _EnglishText.cpp is textually included inside namespace Loc below. Import
+// its header dependencies at global scope so standard-library headers can
+// never be declared as Loc::std when an umbrella include stops masking them.
+#include "EditorMercs.h"
+#include "FileMan.h"
+#include "Item Statistics.h"
+#include "Scheduling.h"
+#endif
+
 #include <vfs/Core/vfs_string.h>
 #include <vfs/Tools/vfs_tools.h>
 #include <vfs/Tools/vfs_parser_tools.h>
