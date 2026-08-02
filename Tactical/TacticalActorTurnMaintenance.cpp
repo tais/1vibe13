@@ -5,7 +5,7 @@
 #include "GameSettings.h"
 #include "Items.h"
 #include "Overhead.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "SoldierRepository.h"
 #include "Soldier macros.h"
 #include "TacticalActorCovertOps.h"

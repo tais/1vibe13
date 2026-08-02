@@ -14,7 +14,7 @@
 #include "Items.h"
 #include "Rebel Command.h"
 #include "SkillCheck.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Profile.h"
 #include "Soldier macros.h"
 

@@ -5,7 +5,7 @@
 #include "Food.h"
 #include "GameSettings.h"
 #include "Interface.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier macros.h"
 #include "TacticalActorDisease.h"
 #include "TacticalWorldAdapter.h"

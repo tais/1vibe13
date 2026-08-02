@@ -7,7 +7,7 @@
 #include "Items.h"
 #include "Points.h"
 #include "SkillCheck.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Functions.h"
 #include "Soldier Profile.h"
 #include "Soldier macros.h"

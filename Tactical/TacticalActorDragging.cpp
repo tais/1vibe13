@@ -8,7 +8,7 @@
 #include "Overhead.h"
 #include "PATHAI.H"
 #include "Rotting Corpses.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "SoldierRepository.h"
 #include "Structure Wrap.h"
 #include "ai.h"

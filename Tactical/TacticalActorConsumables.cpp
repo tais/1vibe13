@@ -1,7 +1,7 @@
 #include "TacticalActorConsumables.h"
 
 #include "Drugs And Alcohol.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"
 

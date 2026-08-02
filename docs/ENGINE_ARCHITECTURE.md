@@ -1411,7 +1411,10 @@ the engine must not contain SDL types in its public domain model.
   `TacticalActor.h`; `Soldier Control.h` retains only a compatibility include.
   A standalone compile guard includes the aggregate header without the legacy
   soldier-control surface, and architecture CI rejects the declaration moving
-  back.
+  back. Every `TacticalActor*.cpp` implementation now enters the aggregate
+  through `TacticalActor.h` and focused collaborators rather than directly
+  including `Soldier Control.h`; the boundary checker scans the complete actor
+  implementation set to keep that dependency from returning.
   `TacticalActorRangedActions` owns the complementary live ranged-weapon
   lifecycle: fire initiation, readying toward a target or facing, lowering a
   ready weapon, and refreshing fire mode, scope, barrel, service, and
@@ -1660,7 +1663,9 @@ the engine must not contain SDL types in its public domain model.
   from the legacy soldier-control monolith. The aggregate declaration is
   likewise isolated in `TacticalActor.h`, while `Soldier Control.h` preserves
   source compatibility by including that focused header rather than owning the
-  class.
+  class. Extracted actor implementation units include the focused aggregate
+  header directly and have no direct dependency on the legacy soldier-control
+  facade.
   Architecture CI requires each extracted source in the tactical build,
   rejects restored declarations, definitions, or calls to retired entries,
   and requires headless coverage for every new operation. Visibility rejects

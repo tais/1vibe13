@@ -5,7 +5,7 @@
 #include "GameSettings.h"
 #include "Isometric Utils.h"
 #include "Items.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Profile.h"
 #include "SoldierRepository.h"
 #include "TacticalActorMobility.h"

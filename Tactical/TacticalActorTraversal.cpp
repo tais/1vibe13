@@ -13,7 +13,7 @@
 #include "Isometric Utils.h"
 #include "Morale.h"
 #include "Points.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Structure Wrap.h"
 #include "TacticalActorMedicalServices.h"
 #include "TacticalActorMobility.h"

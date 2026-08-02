@@ -11,7 +11,7 @@
 #include "Overhead.h"
 #include "Points.h"
 #include "strategicmap.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Structure Wrap.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalWorldAdapter.h"

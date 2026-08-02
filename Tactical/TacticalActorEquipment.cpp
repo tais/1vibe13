@@ -17,7 +17,7 @@
 #include "Overhead.h"
 #include "PATHAI.H"
 #include "Points.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "SoldierRepository.h"
 #include "Sound Control.h"
 #include "Tactical Save.h"

@@ -19,7 +19,7 @@
 #include "Overhead.h"
 #include "Points.h"
 #include "Queen Command.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Profile.h"
 #include "Soldier macros.h"
 #include "SoldierRepository.h"

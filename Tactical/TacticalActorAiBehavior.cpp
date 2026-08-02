@@ -4,7 +4,7 @@
 #include "Animation Control.h"
 #include "Isometric Utils.h"
 #include "Overhead.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "ai.h"

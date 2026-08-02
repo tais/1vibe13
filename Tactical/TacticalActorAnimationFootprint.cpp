@@ -4,7 +4,7 @@
 #include "Animation Data.h"
 #include "Isometric Utils.h"
 #include "Items.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "World Tile Map.h"
 #include "worlddef.h"
 #include "worldman.h"

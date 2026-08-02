@@ -17,7 +17,7 @@
 #include "Points.h"
 #include "Queen Command.h"
 #include "Rotting Corpses.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "SoldierRepository.h"
 #include "Sound Control.h"
 #include "Structure Wrap.h"

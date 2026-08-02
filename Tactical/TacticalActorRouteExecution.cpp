@@ -12,7 +12,7 @@
 #include "Overhead.h"
 #include "PATHAI.H"
 #include "Soldier Ani.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 #include "Soldier Functions.h"
 #include "Soldier Profile.h"
 #include "TacticalActorAiBehavior.h"

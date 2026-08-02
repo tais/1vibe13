@@ -2,7 +2,7 @@
 
 #include "GameSettings.h"
 #include "Overhead Types.h"
-#include "Soldier Control.h"
+#include "TacticalActor.h"
 
 std::int8_t TacticalActorProfileClassification::profileTableIndex(
 	const TacticalActor& actor,
