@@ -7986,17 +7986,24 @@ int main( int, char** )
 
 	{
 		TacticalActor covertActor;
+		std::strcpy(
+			covertActor.renderState().vestPalette(),
+			"HEADLESS_VEST");
+		std::strcpy(
+			covertActor.renderState().pantsPalette(),
+			"HEADLESS_PANTS");
 		const auto uniformType =
 			TacticalActorCovertOps::uniformType(covertActor);
-		const bool equipmentAssessmentMatchesUniform =
+		const bool missingUniformIsRejectedBeforeCampaignProgress =
+			uniformType < 0 &&
 			TacticalActorCovertOps::equipmentTooGood(
 				covertActor,
-				false) == (uniformType < 0);
+				false);
 		const bool emptyActorLooksLegitimate =
 			TacticalActorCovertOps::looksLikeCivilian(covertActor) &&
 			TacticalActorCovertOps::looksLikeSoldier(covertActor) &&
 			uniformType >= -1 && uniformType < NUM_UNIFORMS &&
-			equipmentAssessmentMatchesUniform &&
+			missingUniformIsRejectedBeforeCampaignProgress &&
 			TacticalActorCovertOps::seemsLegitimate(
 				covertActor,
 				NOBODY) &&
