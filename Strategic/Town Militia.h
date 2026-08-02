@@ -4,7 +4,8 @@
 // header for town militia strategic control module
 
 #include "types.h"
-#include "Soldier Control.h"
+class OBJECTTYPE;
+class TacticalActor;
 
 // how many militia of all ranks can be in any one sector at once
 //#define MAX_ALLOWABLE_MILITIA_PER_SECTOR 20

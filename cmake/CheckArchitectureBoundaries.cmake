@@ -2465,6 +2465,92 @@ foreach(tactical_actor_implementation_file IN LISTS
   endif()
 endforeach()
 
+set(tactical_actor_pointer_api_headers
+  "Laptop/CampaignStats.h"
+  "Laptop/insurance Contract.h"
+  "Laptop/personnel.h"
+  "Strategic/Facilities.h"
+  "Strategic/Map Screen Interface Bottom.h"
+  "Strategic/MilitiaSquads.h"
+  "Strategic/Queen Command.h"
+  "Strategic/Strategic Movement.h"
+  "Strategic/Strategic Status.h"
+  "Strategic/Town Militia.h"
+  "Strategic/strategic town reputation.h"
+  "Tactical/Air Raid.h"
+  "Tactical/Interface Utils.h"
+  "Tactical/Merc Hiring.h"
+  "Tactical/Militia Control.h"
+  "Tactical/Morale.h"
+  "Tactical/SkillCheck.h"
+  "Tactical/Soldier Functions.h"
+  "Tactical/Squads.h"
+  "Tactical/TeamTurns.h"
+  "Tactical/soldier tile.h"
+  "TileEngine/Smell.h")
+foreach(tactical_actor_pointer_api_header IN LISTS
+    tactical_actor_pointer_api_headers)
+  file(READ "${SOURCE_ROOT}/${tactical_actor_pointer_api_header}"
+    tactical_actor_pointer_api_header_contents)
+  string(FIND "${tactical_actor_pointer_api_header_contents}"
+    "#include \"Soldier Control.h\""
+    tactical_actor_pointer_api_legacy_include)
+  if(NOT tactical_actor_pointer_api_legacy_include EQUAL -1)
+    message(FATAL_ERROR
+      "${tactical_actor_pointer_api_header} regained the Soldier Control.h compatibility facade; forward-declare TacticalActor and include owned value types")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Class.h"
+  tactical_soldier_class_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/opplist.h"
+  tactical_opplist_header_contents)
+file(READ "${SOURCE_ROOT}/tests/tactical_actor_api_headers_tests.cpp"
+  tactical_actor_api_header_test_contents)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "#include \"Soldier Class.h\""
+  tactical_soldier_class_compatibility_include)
+string(FIND "${tactical_soldier_control_header_contents}"
+  "SOLDIER_CLASS_NONE,"
+  tactical_soldier_class_legacy_definition)
+string(FIND "${tactical_soldier_class_header_contents}"
+  "SOLDIER_CLASS_NONE,"
+  tactical_soldier_class_begin)
+string(FIND "${tactical_soldier_class_header_contents}"
+  "SOLDIER_CLASS_MAX,"
+  tactical_soldier_class_end)
+string(FIND "${tactical_opplist_header_contents}"
+  "#include \"Overhead Types.h\""
+  tactical_opplist_owned_types_include)
+string(FIND "${tactical_actor_api_header_test_contents}"
+  "#include \"Tactical/Soldier Class.h\""
+  tactical_actor_api_header_test_class_include)
+string(FIND "${tactical_actor_api_header_test_contents}"
+  "SOLDIER_CLASS_CREATURE == 7"
+  tactical_actor_api_header_test_class_values)
+string(FIND "${tactical_test_build_contents}"
+  "add_executable(tactical_actor_api_headers_tests"
+  tactical_actor_api_header_test_target)
+string(FIND "${tactical_test_build_contents}"
+  "add_test(NAME tactical_actor_api_headers"
+  tactical_actor_api_header_test_registration)
+string(FIND "${tactical_root_build_contents}"
+  "add_dependencies(ja2_headless_tests tactical_actor_api_headers_tests)"
+  tactical_actor_api_header_headless_dependency)
+if(tactical_soldier_class_compatibility_include EQUAL -1 OR
+   NOT tactical_soldier_class_legacy_definition EQUAL -1 OR
+   tactical_soldier_class_begin EQUAL -1 OR
+   tactical_soldier_class_end EQUAL -1 OR
+   tactical_opplist_owned_types_include EQUAL -1 OR
+   tactical_actor_api_header_test_class_include EQUAL -1 OR
+   tactical_actor_api_header_test_class_values EQUAL -1 OR
+   tactical_actor_api_header_test_target EQUAL -1 OR
+   tactical_actor_api_header_test_registration EQUAL -1 OR
+   tactical_actor_api_header_headless_dependency EQUAL -1)
+  message(FATAL_ERROR
+    "Actor-reference API headers lost their focused compile guard or soldier-class boundary")
+endif()
+
 set(tactical_actor_component_accessors
   identity
   roster

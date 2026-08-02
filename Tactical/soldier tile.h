@@ -1,7 +1,9 @@
 #ifndef __SOLDIER_TILE_H
 #define __SOLDIER_TILE_H
 
-#include "Soldier Control.h"
+#include "types.h"
+
+class TacticalActor;
 
 #define			MOVE_TILE_CLEAR										1
 #define			MOVE_TILE_TEMP_BLOCKED					-1

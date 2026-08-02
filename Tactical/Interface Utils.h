@@ -1,7 +1,11 @@
 #ifndef __INTERFACE_UTILS_H
 #define __INTERFACE_UTILS_H
 
-#include "Soldier Control.h"
+#include "pixfmt.h"
+#include "types.h"
+
+class OBJECTTYPE;
+class TacticalActor;
 
 #define		DRAW_ITEM_TEMPERATURE				199		// Flugente: had to alter this value. Otherwise we might accidentally draw temeprature when we want to draw an attachments' status
 #define		DRAW_ITEM_STATUS_ATTACHMENT1		200

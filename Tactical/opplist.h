@@ -1,6 +1,9 @@
 #ifndef _OPPLIST_H
 #define _OPPLIST_H
 
+#include "Overhead Types.h"
+
+class TacticalActor;
 
 #define EVERYBODY		MAXMERCS
 

@@ -2,6 +2,7 @@
 
 #include "GameSettings.h"
 #include "Overhead Types.h"
+#include "Soldier Class.h"
 #include "TacticalActor.h"
 
 std::int8_t TacticalActorProfileClassification::profileTableIndex(

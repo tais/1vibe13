@@ -2,7 +2,6 @@
 #define __MAP_INTERFACE_BOTTOM
 
 #include "types.h"
-#include "Soldier Control.h"
 
 extern	INT8 gbExitingMapScreenToWhere;
 // exit to where defines

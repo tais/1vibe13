@@ -1,7 +1,9 @@
 #ifndef __INSURANCE_CONTRACT_H
 #define __INSURANCE_CONTRACT_H
 
-#include "Soldier Control.h"
+#include "types.h"
+
+class TacticalActor;
 
 
 void GameInitInsuranceContract();

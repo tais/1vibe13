@@ -1,7 +1,9 @@
 #ifndef TEAMTURNS_H
 #define TEAMTURNS_H
 
-#include "Soldier Control.h"
+#include "Overhead Types.h"
+
+class TacticalActor;
 
 extern UINT16 gubOutOfTurnPersons;
 extern UINT16 gubOutOfTurnOrder[MAXMERCS] ;

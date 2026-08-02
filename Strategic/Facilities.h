@@ -2,7 +2,7 @@
 #define _FACILITIES_H
 
 #include "Campaign Types.h"
-#include "Soldier Control.h"
+class TacticalActor;
 
 // Get a specific modifier for a specific assignment at a specific facility. Includes Ambient (non-assignment based) 
 // effects, if any.

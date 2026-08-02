@@ -1665,7 +1665,14 @@ the engine must not contain SDL types in its public domain model.
   source compatibility by including that focused header rather than owning the
   class. Extracted actor implementation units include the focused aggregate
   header directly and have no direct dependency on the legacy soldier-control
-  facade.
+  facade. Twenty-two pointer-only laptop, strategic, tactical, and tile-engine
+  API headers likewise forward-declare the aggregate and include only the value
+  types they own; a standalone compile target and architecture ratchet prevent
+  the broad compatibility facade from returning through those public seams.
+  Stable soldier-class codes and enemy/militia classification policy now live
+  in `Soldier Class.h`, with `Soldier Control.h` retaining a compatibility
+  include. `opplist.h` explicitly owns its team and soldier-capacity dependency
+  instead of receiving it transitively from an unrelated actor API.
   Architecture CI requires each extracted source in the tactical build,
   rejects restored declarations, definitions, or calls to retired entries,
   and requires headless coverage for every new operation. Visibility rejects

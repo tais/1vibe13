@@ -2,7 +2,7 @@
 #define __SKILL_CHECK_H
 
 #include "types.h"
-#include "Soldier Control.h"
+class TacticalActor;
 
 void ReducePointsForFatigue( TacticalActor *pSoldier, UINT32 *pusPoints );
 void ReducePointsForFatigue( TacticalActor *pSoldier, INT32 *psPoints );

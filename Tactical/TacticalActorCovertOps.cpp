@@ -23,6 +23,7 @@
 #include "Points.h"
 #include "Rotting Corpses.h"
 #include "SkillCheck.h"
+#include "Soldier Class.h"
 #include "TacticalActor.h"
 #include "Soldier Profile.h"
 #include "Soldier macros.h"

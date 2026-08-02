@@ -3,7 +3,7 @@
 
 
 #include "types.h"
-#include "Soldier Control.h"
+class TacticalActor;
 
 
 // delay for change in ATM mode

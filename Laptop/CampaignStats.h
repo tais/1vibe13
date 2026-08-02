@@ -8,7 +8,7 @@
  */
 
 #include "types.h"
-#include "Soldier Control.h"
+class TacticalActor;
 
 // -------- added by Flugente: various flags for incidents --------
 // easier than adding 32 differently named variables. DO NOT CHANGE THEM, UNLESS YOU KNOW WHAT YOU ARE DOING!!!

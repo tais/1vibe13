@@ -1,7 +1,7 @@
 #ifndef _SQUADS_H
 #define _SQUADS_H
 
-#include "Soldier Control.h"
+class TacticalActor;
 #include "FileMan.h"
 #include "Overhead Types.h"
 
