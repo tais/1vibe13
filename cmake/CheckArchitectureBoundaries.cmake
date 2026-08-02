@@ -6456,5 +6456,99 @@ foreach(source_file IN LISTS world_state_files)
   endif()
 endforeach()
 
+# Soldier Control is now only the remaining tactical orchestration monolith;
+# support services with focused contracts must be compiled from their owning
+# translation units and must not regain second implementations here.
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorCrowBehavior.cpp"
+  tactical_actor_crow_behavior_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorDebug.cpp"
+  tactical_actor_debug_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorEvents.cpp"
+  tactical_actor_events_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Grid Direction.cpp"
+  tactical_grid_direction_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Palette.cpp"
+  tactical_soldier_palette_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Profile Records.cpp"
+  tactical_soldier_profile_records_source_contents)
+
+foreach(soldier_control_support_source IN ITEMS
+    "Grid Direction.cpp"
+    "Soldier Palette.cpp"
+    "Soldier Profile Records.cpp"
+    "TacticalActorCrowBehavior.cpp"
+    "TacticalActorDebug.cpp"
+    "TacticalActorEvents.cpp")
+  string(FIND "${tactical_build_contents}"
+    "${soldier_control_support_source}"
+    soldier_control_support_build_entry)
+  if(soldier_control_support_build_entry EQUAL -1)
+    message(FATAL_ERROR
+      "Extracted Soldier Control support source '${soldier_control_support_source}' must remain in the tactical build")
+  endif()
+endforeach()
+
+foreach(soldier_control_support_operation IN ITEMS
+    "tactical_actor_crow_behavior_source_contents|void HandleCrowShadowVisibility("
+    "tactical_actor_crow_behavior_source_contents|void HandleCrowShadowNewGridNo("
+    "tactical_actor_crow_behavior_source_contents|void HandleCrowShadowRemoveGridNo("
+    "tactical_actor_crow_behavior_source_contents|void HandleCrowShadowNewDirection("
+    "tactical_actor_crow_behavior_source_contents|void HandleCrowShadowNewPosition("
+    "tactical_actor_crow_behavior_source_contents|void CrowsFlyAway("
+    "tactical_actor_debug_source_contents|void DebugValidateSoldierData("
+    "tactical_actor_events_source_contents|void SendSoldierPositionEvent("
+    "tactical_actor_events_source_contents|void SendSoldierDestinationEvent("
+    "tactical_actor_events_source_contents|void SendSoldierSetDirectionEvent("
+    "tactical_actor_events_source_contents|void SendSoldierSetDesiredDirectionEvent("
+    "tactical_actor_events_source_contents|void SendGetNewSoldierPathEvent("
+    "tactical_actor_events_source_contents|void SendChangeSoldierStanceEvent("
+    "tactical_actor_events_source_contents|void SendBeginFireWeaponEvent("
+    "tactical_actor_locomotion_source_contents|void MoveMercFacingDirection("
+    "tactical_grid_direction_source_contents|BOOLEAN GetDirectionChangeAmount("
+    "tactical_grid_direction_source_contents|UINT8 GetDirectionFromGridNo("
+    "tactical_grid_direction_source_contents|INT16 GetDirectionToGridNoFromGridNo("
+    "tactical_grid_direction_source_contents|UINT8 GetDirectionFromXY("
+    "tactical_grid_direction_source_contents|INT16 GetDirectionFromCenterCellXYGridNo("
+    "tactical_grid_direction_source_contents|UINT8 atan8("
+    "tactical_grid_direction_source_contents|UINT8 atan8FromAngle("
+    "tactical_soldier_palette_source_contents|BOOLEAN LoadPaletteData("
+    "tactical_soldier_palette_source_contents|BOOLEAN SetPaletteReplacement("
+    "tactical_soldier_palette_source_contents|BOOLEAN DeletePaletteData("
+    "tactical_soldier_palette_source_contents|BOOLEAN GetPaletteRepIndexFromID("
+    "tactical_soldier_profile_records_source_contents|MERCPROFILEGEAR::MERCPROFILEGEAR("
+    "tactical_soldier_profile_records_source_contents|MERCPROFILEGEAR& MERCPROFILEGEAR::operator=("
+    "tactical_soldier_profile_records_source_contents|UINT32 MERCPROFILESTRUCT::GetChecksum("
+    "tactical_soldier_profile_records_source_contents|OLD_MERCPROFILESTRUCT_101::OLD_MERCPROFILESTRUCT_101("
+    "tactical_soldier_profile_records_source_contents|MERCPROFILESTRUCT::MERCPROFILESTRUCT("
+    "tactical_soldier_profile_records_source_contents|MERCPROFILESTRUCT& MERCPROFILESTRUCT::operator=("
+    "tactical_soldier_profile_records_source_contents|void MERCPROFILESTRUCT::CopyOldInventoryToNew(")
+  string(REPLACE "|" ";" soldier_control_support_fields
+    "${soldier_control_support_operation}")
+  list(GET soldier_control_support_fields 0 soldier_control_support_owner)
+  list(GET soldier_control_support_fields 1 soldier_control_support_definition)
+  string(FIND "${${soldier_control_support_owner}}"
+    "${soldier_control_support_definition}"
+    soldier_control_support_owner_definition)
+  string(FIND "${tactical_actor_source_contents}"
+    "${soldier_control_support_definition}"
+    soldier_control_support_monolith_definition)
+  if(soldier_control_support_owner_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Extracted support owner lost '${soldier_control_support_definition}'")
+  endif()
+  if(NOT soldier_control_support_monolith_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier Control.cpp regained extracted support definition '${soldier_control_support_definition}'")
+  endif()
+endforeach()
+
+string(FIND "${headless_test_contents}"
+  "soldier-control support services own crow, event, facing, direction, palette, and profile-record behavior"
+  soldier_control_support_headless_coverage)
+if(soldier_control_support_headless_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Extracted Soldier Control support services lost their combined headless behavior coverage")
+endif()
+
 message(STATUS
   "Engine boundaries verified (Core: ${core_files}; Legacy adapter: ${legacy_adapter_files}; JA2 adapter: ${ja2_adapter_files})")

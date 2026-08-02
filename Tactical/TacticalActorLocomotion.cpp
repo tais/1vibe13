@@ -154,6 +154,49 @@
 #include <limits>
 #include <string>
 
+void MoveMercFacingDirection(
+	TacticalActor* actor,
+	BOOLEAN reverse,
+	FLOAT movementDistance)
+{
+	FLOAT angle = 0.0f;
+	switch (actor->position().direction())
+	{
+	case NORTH:
+		angle = -PI;
+		break;
+	case NORTHEAST:
+		angle = PI * 0.75f;
+		break;
+	case EAST:
+		angle = PI / 2.0f;
+		break;
+	case SOUTHEAST:
+		angle = PI / 4.0f;
+		break;
+	case SOUTH:
+		angle = 0.0f;
+		break;
+	case SOUTHWEST:
+		angle = -0.786f;
+		break;
+	case WEST:
+		angle = PI * -0.5f;
+		break;
+	case NORTHWEST:
+		angle = PI * -0.75f;
+		break;
+	}
+
+	if (reverse)
+		movementDistance *= -1.0f;
+
+	TacticalActorLocomotion::move(
+		*actor,
+		movementDistance,
+		angle,
+		false);
+}
 
 bool TacticalActorLocomotion::checkRoofHit(TacticalActor& subject)
 {

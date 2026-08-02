@@ -1,6 +1,7 @@
 #ifndef _SOLDIER_FUNCTIONS_H
 #define _SOLDIER_FUNCTIONS_H
 
+#include "TacticalActorCrowBehavior.h"
 #include "types.h"
 
 class TacticalActor;
@@ -20,8 +21,6 @@ void HandlePlacingRoofMarker( TacticalActor *pSoldier, INT32 sGridNo, BOOLEAN fS
 void PickPickupAnimation( TacticalActor *pSoldier, INT32 iItemIndex, INT32 sGridNo, INT8 bZLevel );
 
 BOOLEAN MercStealFromMerc( TacticalActor *pSoldier, TacticalActor *pTarget );
-
-void HandleCrowShadowVisibility( TacticalActor *pSoldier );
 
 BOOLEAN DoesSoldierWearGasMask(TacticalActor *pSoldier);//dnl ch40 200909
 

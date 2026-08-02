@@ -1445,8 +1445,12 @@ the engine must not contain SDL types in its public domain model.
   display masks and timing, `Taunt Types.h` owns the external taunt bit schema,
   and `TacticalDestinationTypes.h` owns occupancy-query modes. Transient event
   and gas-hit bits stay with `TacticalActorStateFlags.h`; debug validation,
-  crow behavior, and the facing-movement adapter are declared by their focused
-  actor headers. Named `TacticalActorPredicates` replace facade-owned posture,
+  crow behavior, replicated-event translation, and the facing-movement adapter
+  are compiled by their focused actor sources rather than `Soldier Control.cpp`.
+  Direction math is compiled from `Grid Direction.cpp`, palette loading and
+  replacement from `Soldier Palette.cpp`, and profile gear/record construction,
+  copying, checksum, and legacy conversion from `Soldier Profile Records.cpp`.
+  Named `TacticalActorPredicates` replace facade-owned posture,
   civilian, and neutral-target expressions and reject malformed animation
   state before indexing animation tables. `Soldier Palette.h` owns uniform IDs,
   clothing-palette records, and palette contracts. Front-arc, spread-target,
@@ -1715,7 +1719,11 @@ the engine must not contain SDL types in its public domain model.
   breath, bleeding, attribution, and death resolution enter
   `TacticalActorDamageResolution`; battle-sound policy and playback enter
   `TacticalActorBattleSounds`; and roof-fall checks plus interpolated movement
-  enter `TacticalActorLocomotion`. Initialized directional sight ranges,
+  enter `TacticalActorLocomotion`. Crow shadow synchronization, tactical event
+  dispatch, beta validation, direction math, palette replacement, and profile
+  record lifecycle now also compile from their focused owners. Architecture CI
+  requires every owner in the tactical build and rejects any of those
+  definitions returning to `Soldier Control.cpp`. Initialized directional sight ranges,
   limited and tunnel vision, light and weather adjustment, monster smell,
   cowering, gas, and vehicle visibility constraints enter
   `TacticalActorVisibility`. Their fourteen former member entry points are

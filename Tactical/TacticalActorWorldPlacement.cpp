@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorCrowBehavior.h"
 #include "TacticalActorVisibility.h"
 #include "TacticalActorWorldPlacement.h"
 
@@ -46,9 +47,6 @@
 
 extern INT16 DirIncrementer[8];
 
-void HandleCrowShadowNewGridNo(TacticalActor* actor);
-void HandleCrowShadowNewPosition(TacticalActor* actor);
-void HandleCrowShadowRemoveGridNo(TacticalActor* actor);
 void SetSoldierAniSpeed(TacticalActor* actor);
 
 namespace
