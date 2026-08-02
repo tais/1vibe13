@@ -1,4 +1,5 @@
 #include "TacticalActorWorldPlacement.h"
+#include "TacticalActorAnimationSelection.h"
 	#include "TacticalActor.h"
 	#include "TacticalActorPredicates.h"
 	#include "TacticalActorBloodState.h"
@@ -60,7 +61,6 @@
 
 extern BOOLEAN gfHiddenInterrupt;
 extern BOOLEAN gfUseAlternateQueenPosition;
-extern UINT16 PickSoldierReadyAnimation( TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance );
 extern void IncrementWatchedLoc(UINT16 ubID, INT32 sGridNo, INT8 bLevel);
 void LogDecideInfo(TacticalActor *pSoldier);
 void LogKnowledgeInfo(TacticalActor *pSoldier);
@@ -1428,7 +1428,7 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 	if ( pSoldier->aiBehavior().orders() == SNIPER && pSoldier->aiPlanning().sniperPosture() == 0 && ( pSoldier->position().level() == 1 || Random(100) < 40 ) && (pSoldier->vitals().breath() > 30 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 20) )
 	{
 		if (!WeaponReady(pSoldier) && 
-			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
+			TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION)
 		{
 			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->actionPoints().current())
 			{
@@ -1452,9 +1452,9 @@ INT8 DecideActionGreen(TacticalActor *pSoldier)
 	if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 	{
 		if (!WeaponReady(pSoldier) && 
-			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
+			TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION)
 		{
-			if ((!gfTurnBasedAI || ((GetAPsToReadyWeapon( pSoldier, PickSoldierReadyAnimation( pSoldier, FALSE, FALSE ) ) ) <= pSoldier->actionPoints().current())) &&
+			if ((!gfTurnBasedAI || ((GetAPsToReadyWeapon( pSoldier, TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) ) ) <= pSoldier->actionPoints().current())) &&
 				 (pSoldier->vitals().breath() > 30 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 20) )
 			{
 				iChance = 25;
@@ -1872,7 +1872,7 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 				if ( pSoldier->aiBehavior().orders() == SNIPER &&
 					(pSoldier->vitals().breath() > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30) &&
 					!WeaponReady(pSoldier) &&
-					PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
+					TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION)
 				{
 					if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->actionPoints().current())
 					{
@@ -1884,10 +1884,10 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 				if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 				{
 					if (!WeaponReady(pSoldier) && 
-						PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
+						TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION &&
 						(pSoldier->vitals().breath() > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30))
 					{
-						if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, PickSoldierReadyAnimation( pSoldier, FALSE, FALSE ) ) <= pSoldier->actionPoints().current())
+						if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) ) <= pSoldier->actionPoints().current())
 						{
 							if ( Random(100) < 35 ) 
 							{
@@ -2434,11 +2434,11 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 			////////////////////////////////////////////////////////////////////////////
 			// SANDRO - raise weapon maybe
 			if (!WeaponReady(pSoldier) && 
-				PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
+				TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION &&
 				pSoldier->position().direction() == ubNoiseDir &&	// if we are facing the direction of where the noise came from
 				(pSoldier->vitals().breath() > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30))
 			{
-				if (!gfTurnBasedAI || (((GetAPsToReadyWeapon( pSoldier, PickSoldierReadyAnimation( pSoldier, FALSE, FALSE ) ) ) + GetAPsToChangeStance( pSoldier, ANIM_CROUCH )) <= pSoldier->actionPoints().current()))
+				if (!gfTurnBasedAI || (((GetAPsToReadyWeapon( pSoldier, TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) ) ) + GetAPsToChangeStance( pSoldier, ANIM_CROUCH )) <= pSoldier->actionPoints().current()))
 				{
 					if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 					{
@@ -2457,7 +2457,7 @@ INT8 DecideActionYellow(TacticalActor *pSoldier)
 		////////////////////////////////////////////////////////////////////////////
 		// SANDRO - raise weapon maybe
 		if (!WeaponReady(pSoldier) && 
-			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
+			TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION &&
 			pSoldier->position().direction() == ubNoiseDir && // if we are facing the direction of where the noise came from
 			(pSoldier->vitals().breath() > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30))
 		{
@@ -4283,10 +4283,10 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 						}
 
 						// raise weapon if not raised
-						if (PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
+						if (TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION &&
 							!WeaponReady(pSoldier) &&
 							(pSoldier->vitals().breath() > OKBREATH * 2 || GetBPCostPer10APsForGunHolding(pSoldier, TRUE) < 50) &&
-							pSoldier->actionPoints().current() >= GetAPsToReadyWeapon(pSoldier, PickSoldierReadyAnimation(pSoldier, FALSE, FALSE)))
+							pSoldier->actionPoints().current() >= GetAPsToReadyWeapon(pSoldier, TacticalActorAnimationSelection::pickReady(*pSoldier, false, false)))
 						{
 							DebugAI(AI_MSG_INFO, pSoldier, String("raise weapon"));
 							return AI_ACTION_RAISE_GUN;
@@ -4614,7 +4614,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 #endif
 					if ( pSoldier->aiBehavior().orders() == SNIPER &&
 						!WeaponReady(pSoldier) && 
-						PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
+						TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION &&
 						(pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50) )
 					{
 						if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->actionPoints().current())
@@ -4627,7 +4627,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 					else if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 					{
 						if (!WeaponReady(pSoldier) && 
-							PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
+							TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION &&
 							(pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
 						{
 							if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->actionPoints().current())
@@ -4648,7 +4648,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 			// SANDRO - allow regular soldiers to raise scoped weapons to see farther away too
 			else if ( pSoldier->position().direction() == ubOpponentDir &&
 					!WeaponReady(pSoldier) &&
-					PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
+					TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION)
 			{
 				if ((!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->animationPlayback().state() ) <= pSoldier->actionPoints().current()) && (pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
 				{
@@ -4832,7 +4832,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 
 						if (!WeaponReady(pSoldier) && 
 							pSoldier->position().direction() == ubOpponentDir &&
-							PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
+							TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION)
 						{
 							if (IsScoped(&pSoldier->inventory()[HANDPOS]))
 							{
@@ -4893,7 +4893,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 			if ((!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->actionPoints().current()) && (pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
 			{
 				if (!WeaponReady(pSoldier) &&
-					PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
+					TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION)
 				{
 					pSoldier->aiPlanning().raiseSniperPosture();
 					return AI_ACTION_RAISE_GUN;
@@ -4911,7 +4911,7 @@ INT8 DecideActionRed(TacticalActor *pSoldier)
 		////////////////////////////////////////////////////////////////////////////
 		// SANDRO - raise weapon maybe
 		if (!WeaponReady(pSoldier) && 
-			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
+			TacticalActorAnimationSelection::pickReady(*pSoldier, false, false) != INVALID_ANIMATION &&
 			(pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
 		{
 			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->animationPlayback().state() ) <= pSoldier->actionPoints().current())

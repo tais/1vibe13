@@ -169,13 +169,6 @@
 #include "GameContext.h"
 #include "Meanwhile.h"
 
-void SoldierGotHitGunFire(TacticalActor*, UINT16, INT16, UINT16, UINT16, SoldierID, UINT8, UINT8);
-void SoldierGotHitBlade(TacticalActor*, UINT8);
-void SoldierGotHitPunch(TacticalActor*, UINT16, INT16, UINT16, UINT16, SoldierID, UINT8, UINT8);
-void SoldierGotHitExplosion(TacticalActor*, UINT16, INT16, UINT16, UINT16, SoldierID, UINT8, UINT8);
-void SoldierGotHitVehicle(TacticalActor*, UINT16);
-UINT8 CalcScreamVolume(TacticalActor*, UINT8);
-
 extern BOOLEAN fReDrawFace;
 extern void ReduceAttachmentsOnGunForNonPlayerChars(
 	TacticalActor* actor,
@@ -573,7 +566,10 @@ void TacticalActorDamageResolution::applyHit(TacticalActor& subject, UINT16 usWe
 
 
 	// SCREAM!!!!
-	ubVolume = CalcScreamVolume( &subject, ubCombinedLoss );
+	ubVolume =
+		TacticalActorDamageFeedback::calculateScreamVolume(
+			subject,
+			ubCombinedLoss);
 
 	// IF WE ARE AT A HIT_STOP ANIMATION
 	// DO APPROPRIATE HITWHILE DOWN ANIMATION
@@ -622,7 +618,9 @@ void TacticalActorDamageResolution::applyHit(TacticalActor& subject, UINT16 usWe
 	// anv: soldier got rammed by vehicle
 	if ( ubSpecial == FIRE_WEAPON_VEHICLE_TRAUMA )
 	{
-		SoldierGotHitVehicle( &subject, bDirection );
+		TacticalActorDamageFeedback::applyVehicleHit(
+			subject,
+			bDirection);
 		return;
 	}
 
@@ -843,7 +841,15 @@ void TacticalActorDamageResolution::applyHit(TacticalActor& subject, UINT16 usWe
 	// SWITCH IN TYPE OF WEAPON
 	if ( Item[usWeaponIndex].usItemClass & (IC_GUN | IC_THROWING_KNIFE) )
 	{
-		SoldierGotHitGunFire( &subject, usWeaponIndex, sDamage, bDirection, sRange, ubAttackerID, ubSpecial, ubHitLocation );
+		TacticalActorDamageFeedback::applyGunfireHit(
+			subject,
+			usWeaponIndex,
+			sDamage,
+			bDirection,
+			sRange,
+			ubAttackerID,
+			ubSpecial,
+			ubHitLocation);
 		if ( Item[usWeaponIndex].usItemClass & IC_GUN )
 		{
 			PossiblyStartEnemyTaunt( &subject, TAUNT_GOT_HIT_GUNFIRE, ubAttackerID );
@@ -863,13 +869,23 @@ void TacticalActorDamageResolution::applyHit(TacticalActor& subject, UINT16 usWe
 	}
 	if ( Item[usWeaponIndex].usItemClass & IC_BLADE )
 	{
-		SoldierGotHitBlade( &subject, ubHitLocation );
+		TacticalActorDamageFeedback::applyBladeHit(
+			subject,
+			ubHitLocation);
 		// anv: taunts are called from UseBlade()
 	}
 	// marke setting ammo explosions included here with 3rd 'or' including ubReason
 	if ( Item[usWeaponIndex].usItemClass & IC_EXPLOSV || Item[usWeaponIndex].usItemClass & IC_TENTACLES || ubReason == TAKE_DAMAGE_EXPLOSION )
 	{
-		SoldierGotHitExplosion( &subject, usWeaponIndex, sDamage, bDirection, sRange, ubAttackerID, ubSpecial, ubHitLocation );
+		TacticalActorDamageFeedback::applyExplosionHit(
+			subject,
+			usWeaponIndex,
+			sDamage,
+			bDirection,
+			sRange,
+			ubAttackerID,
+			ubSpecial,
+			ubHitLocation);
 		if ( Item[usWeaponIndex].usItemClass & IC_EXPLOSV || ubReason == TAKE_DAMAGE_EXPLOSION )
 		{
 			PossiblyStartEnemyTaunt( &subject, TAUNT_GOT_HIT_EXPLOSION, ubAttackerID );
@@ -883,7 +899,15 @@ void TacticalActorDamageResolution::applyHit(TacticalActor& subject, UINT16 usWe
 	}
 	if ( Item[usWeaponIndex].usItemClass & IC_PUNCH )
 	{
-		SoldierGotHitPunch( &subject, usWeaponIndex, sDamage, bDirection, sRange, ubAttackerID, ubSpecial, ubHitLocation );
+		TacticalActorDamageFeedback::applyPunchHit(
+			subject,
+			usWeaponIndex,
+			sDamage,
+			bDirection,
+			sRange,
+			ubAttackerID,
+			ubSpecial,
+			ubHitLocation);
 		// anv: taunts are called from UseHandToHand()
 	}
 }
@@ -1426,7 +1450,8 @@ std::uint8_t TacticalActorDamageResolution::takeDamage(TacticalActor& subject, I
 			}
 			*/
 			// sevenfm: moved code to function
-			SetDamageDisplayCounter( &subject );
+			TacticalActorDamageFeedback::
+				setDamageDisplayCounter(subject);
 			// zero suppression values stored from last attack
 			subject.runtime().combatFeedback.lastShock = 0;
 			subject.runtime().combatFeedback.lastSuppression = 0;

@@ -141,6 +141,7 @@
 #include "Handle Items.h"
 #include "TacticalActorAnimationFootprint.h"
 #include "TacticalActorAnimationFrames.h"
+#include "TacticalActorAnimationSelection.h"
 #include "TacticalActorAnimationTransitions.h"
 #include "TacticalActorAppearance.h"
 #include "TacticalActorAssignments.h"
@@ -11731,6 +11732,203 @@ int main( int, char** )
 			malformedSoundSetIsRejected &&
 			malformedFaceIsRejectedWithoutMutation,
 			"tactical actor damage feedback preserves screen visibility rules and rejects malformed lookup state");
+	}
+
+	{
+		TacticalActor selectionActor;
+		const bool emptyHandsHaveNoReadyAnimation =
+			TacticalActorAnimationSelection::pickReady(
+				selectionActor,
+				false,
+				false) == INVALID_ANIMATION;
+
+		selectionActor.status().flags() =
+			SOLDIER_MONSTER;
+		selectionActor.identity().bodyType() =
+			ADULTFEMALEMONSTER;
+		const bool adultMonsterUsesSpitAttack =
+			TacticalActorAnimationSelection::selectFire(
+				selectionActor,
+				ANIM_STAND) == MONSTER_SPIT_ATTACK;
+		selectionActor.identity().bodyType() =
+			INFANT_MONSTER;
+		const bool infantMonsterUsesInfantAttack =
+			TacticalActorAnimationSelection::selectFire(
+				selectionActor,
+				ANIM_CROUCH) == INFANT_ATTACK;
+		selectionActor.identity().bodyType() =
+			QUEENMONSTER;
+		const bool queenUsesSpitAttack =
+			TacticalActorAnimationSelection::selectFire(
+				selectionActor,
+				ANIM_PRONE) == QUEEN_SPIT;
+
+		selectionActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		TacticalActorAnimationSelection::selectFall(
+			selectionActor);
+		const bool malformedFallAnimationIsNeutral =
+			selectionActor.animationPlayback().state() ==
+				NUMANIMATIONSTATES;
+
+		TacticalActor screamActor;
+		screamActor.identity().bodyType() = COW;
+		screamActor.statistics().experienceLevel() = 5;
+		const bool screamVolumeUsesExperienceCap =
+			TacticalActorDamageFeedback::
+				calculateScreamVolume(
+					screamActor,
+					10) == 5;
+
+		TacticalActor deadGunfireActor;
+		deadGunfireActor.identity().bodyType() =
+			ADULTFEMALEMONSTER;
+		deadGunfireActor.status().flags() =
+			SOLDIER_MONSTER | SOLDIER_DEAD;
+		TacticalActorDamageFeedback::applyGunfireHit(
+			deadGunfireActor,
+			0,
+			1,
+			NORTH,
+			1,
+			NOBODY,
+			FIRE_WEAPON_NO_SPECIAL,
+			AIM_SHOT_LEGS);
+		const bool deadGunfireStillMarksDamagedPants =
+			(deadGunfireActor.featureFlags()
+				.primaryFlags() &
+			 SOLDIER_DAMAGED_PANTS) != 0;
+
+		TacticalActor deadExplosionActor;
+		deadExplosionActor.identity().bodyType() =
+			REGMALE;
+		deadExplosionActor.status().flags() =
+			SOLDIER_DEAD;
+		TacticalActorDamageFeedback::applyExplosionHit(
+			deadExplosionActor,
+			0,
+			1,
+			NORTH,
+			1,
+			NOBODY,
+			FIRE_WEAPON_NO_SPECIAL,
+			AIM_SHOT_TORSO);
+		const bool deadExplosionStillMarksDamagedVest =
+			(deadExplosionActor.featureFlags()
+				.primaryFlags() &
+			 SOLDIER_DAMAGED_VEST) != 0;
+
+		TacticalActor deadBladeActor;
+		deadBladeActor.identity().bodyType() =
+			REGFEMALE;
+		deadBladeActor.status().flags() =
+			SOLDIER_DEAD;
+		TacticalActorDamageFeedback::applyBladeHit(
+			deadBladeActor,
+			AIM_SHOT_TORSO);
+		const bool deadBladeStillMarksDamagedVest =
+			(deadBladeActor.featureFlags()
+				.primaryFlags() &
+			 SOLDIER_DAMAGED_VEST) != 0;
+
+		TacticalActor deadPassiveReactionActor;
+		deadPassiveReactionActor.identity().bodyType() =
+			REGMALE;
+		deadPassiveReactionActor.status().flags() =
+			SOLDIER_DEAD;
+		deadPassiveReactionActor.animationPlayback().state() =
+			STANDING;
+		TacticalActorDamageFeedback::applyPunchHit(
+			deadPassiveReactionActor,
+			0,
+			1,
+			NORTH,
+			1,
+			NOBODY,
+			FIRE_WEAPON_NO_SPECIAL,
+			AIM_SHOT_HEAD);
+		TacticalActorDamageFeedback::applyVehicleHit(
+			deadPassiveReactionActor,
+			NORTH);
+		const bool deadPunchAndVehicleAreNeutral =
+			deadPassiveReactionActor.animationPlayback()
+				.state() == STANDING &&
+			!deadPassiveReactionActor.animationActivity()
+				.tryingToFall();
+
+		TacticalActor damageDisplayActor;
+		damageDisplayActor.identity().bodyType() =
+			QUEENMONSTER;
+		TacticalActorDamageFeedback::
+			setDamageDisplayCounter(damageDisplayActor);
+		const bool queenDamageDisplayStartsCentered =
+			damageDisplayActor.damageDisplay().displaying() &&
+			damageDisplayActor.damageDisplay().counter() == 0 &&
+			damageDisplayActor.damageDisplay().offsetX() == 0 &&
+			damageDisplayActor.damageDisplay().offsetY() == 0;
+		damageDisplayActor.damageDisplay().advance();
+		TacticalActorDamageFeedback::
+			setDamageDisplayCounter(damageDisplayActor);
+		const bool queenDamageDisplayIsCenteredAndRestarted =
+			queenDamageDisplayStartsCentered &&
+			damageDisplayActor.damageDisplay().displaying() &&
+			damageDisplayActor.damageDisplay().counter() == 0 &&
+			damageDisplayActor.damageDisplay().offsetX() == 1 &&
+			damageDisplayActor.damageDisplay().offsetY() == -1;
+
+		TacticalActor malformedReactionActor;
+		malformedReactionActor.identity().bodyType() =
+			TOTALBODYTYPES;
+		malformedReactionActor.animationPlayback().state() =
+			NUMANIMATIONSTATES;
+		TacticalActorDamageFeedback::applyGenericHit(
+			malformedReactionActor,
+			FIRE_WEAPON_NO_SPECIAL,
+			NORTH);
+		const bool malformedReactionIsNeutral =
+			malformedReactionActor.animationPlayback().state() ==
+				NUMANIMATIONSTATES;
+
+		CHECK(
+			emptyHandsHaveNoReadyAnimation,
+			"animation selection rejects an empty ready request");
+		CHECK(
+			adultMonsterUsesSpitAttack &&
+			infantMonsterUsesInfantAttack &&
+			queenUsesSpitAttack,
+			"animation selection preserves monster fire choices");
+		CHECK(
+			malformedFallAnimationIsNeutral,
+			"animation selection rejects a malformed fall state");
+		CHECK(
+			screamVolumeUsesExperienceCap,
+			"damage feedback caps scream volume by experience");
+		CHECK(
+			deadGunfireStillMarksDamagedPants &&
+			deadExplosionStillMarksDamagedVest &&
+			deadBladeStillMarksDamagedVest &&
+			deadPunchAndVehicleAreNeutral,
+			"damage feedback preserves lethal hit uniform and reaction behavior");
+		CHECK(
+			queenDamageDisplayIsCenteredAndRestarted,
+			"damage feedback centers a new queen display and restarts an active cursor");
+		CHECK(
+			malformedReactionIsNeutral,
+			"damage feedback rejects a malformed generic reaction");
+		CHECK(
+			emptyHandsHaveNoReadyAnimation &&
+			adultMonsterUsesSpitAttack &&
+			infantMonsterUsesInfantAttack &&
+			queenUsesSpitAttack &&
+			malformedFallAnimationIsNeutral &&
+			screamVolumeUsesExperienceCap &&
+			deadGunfireStillMarksDamagedPants &&
+			deadExplosionStillMarksDamagedVest &&
+			deadBladeStillMarksDamagedVest &&
+			deadPunchAndVehicleAreNeutral &&
+			queenDamageDisplayIsCenteredAndRestarted &&
+			malformedReactionIsNeutral,
+			"tactical actor animation selection and hit feedback own ready, fire, fall, scream, reaction, uniform, and damage-display behavior");
 	}
 
 	{

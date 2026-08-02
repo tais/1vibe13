@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorAnimationSelection.h"
 #include "TacticalActorRangedActions.h"
 
 #include "TacticalActorOrientation.h"
@@ -36,13 +37,6 @@
 
 extern UINT16 usForceAnimState;
 
-UINT16 PickSoldierReadyAnimation(
-	TacticalActor* actor,
-	BOOLEAN endReady,
-	BOOLEAN alternateWeaponHolding);
-UINT16 SelectFireAnimation(
-	TacticalActor* actor,
-	UINT8 height);
 namespace
 {
 bool hasValidAnimation(const TacticalActor& actor) noexcept
@@ -190,10 +184,11 @@ bool TacticalActorRangedActions::readyFacing(
 		TOPIC_JA2,
 		DBG_LEVEL_3,
 		String("TacticalActorRangedActions::readyFacing: PickingAnimation"));
-	UINT16 animationState = PickSoldierReadyAnimation(
-		&actor,
-		endReady,
-		raiseToHipOnly);
+	UINT16 animationState =
+		TacticalActorAnimationSelection::pickReady(
+			actor,
+			endReady,
+			raiseToHipOnly);
 	if (!endReady &&
 		actor.position().direction() != facingDirection)
 	{
@@ -207,10 +202,11 @@ bool TacticalActorRangedActions::readyFacing(
 				!actor.animationActivity().readyCostWaived() &&
 				animationState == INVALID_ANIMATION)
 			{
-				animationState = PickSoldierReadyAnimation(
-					&actor,
-					FALSE,
-					raiseToHipOnly);
+				animationState =
+					TacticalActorAnimationSelection::pickReady(
+						actor,
+						false,
+						raiseToHipOnly);
 			}
 			break;
 		case ANIM_CROUCH:
@@ -219,10 +215,11 @@ bool TacticalActorRangedActions::readyFacing(
 				!actor.animationActivity().readyCostWaived() &&
 				animationState == INVALID_ANIMATION)
 			{
-				animationState = PickSoldierReadyAnimation(
-					&actor,
-					FALSE,
-					FALSE);
+				animationState =
+					TacticalActorAnimationSelection::pickReady(
+						actor,
+						false,
+						false);
 			}
 			break;
 		case ANIM_PRONE:
@@ -394,8 +391,8 @@ bool TacticalActorRangedActions::beginFire(
 		(void)TacticalActorOrientation::setDirection(actor,
 			actor.pathing().desiredDirection());
 		TacticalActorAnimationTransitions::initializeAnimation(actor,
-			SelectFireAnimation(
-				&actor,
+			TacticalActorAnimationSelection::selectFire(
+				actor,
 				gAnimControl[actor.animationPlayback().state()]
 					.ubEndHeight),
 			0,
@@ -409,8 +406,8 @@ bool TacticalActorRangedActions::beginFire(
 		(void)TacticalActorOrientation::setDirection(actor,
 			actor.pathing().desiredDirection());
 		TacticalActorAnimationTransitions::initializeAnimation(actor,
-			SelectFireAnimation(
-				&actor,
+			TacticalActorAnimationSelection::selectFire(
+				actor,
 				gAnimControl[actor.animationPlayback().state()]
 					.ubEndHeight),
 			0,

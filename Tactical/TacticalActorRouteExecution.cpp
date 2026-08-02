@@ -1,4 +1,5 @@
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorAnimationSelection.h"
 #include "TacticalActorRouteExecution.h"
 
 #include "Soldier Profile Constants.h"
@@ -42,10 +43,6 @@
 extern BOOLEAN gfGetNewPathThroughPeople;
 
 void HandleVehicleMovementSound(TacticalActor* actor, BOOLEAN enabled);
-UINT16 PickSoldierReadyAnimation(
-	TacticalActor* actor,
-	BOOLEAN endReady,
-	BOOLEAN alternateWeaponHolding);
 
 namespace
 {
@@ -439,7 +436,11 @@ bool requestPathUnchecked(
 	}
 	else
 	{
-		animationState = PickSoldierReadyAnimation(&actor, TRUE, FALSE);
+		animationState =
+			TacticalActorAnimationSelection::pickReady(
+				actor,
+				true,
+				false);
 	}
 
 	if (animationState != INVALID_ANIMATION &&

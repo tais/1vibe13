@@ -90,9 +90,6 @@ real						Kdl	= (float)( 0.1 * TIME_MULTI );					// LINEAR DAMPENING ( WIND RESI
 void SimulateObject( REAL_OBJECT *pObject, real deltaT );
 
 void CheckForObjectHittingMerc( REAL_OBJECT *pObject, UINT16 usStructureID );
-extern void DoGenericHit( TacticalActor *pSoldier, UINT8 ubSpecial, INT16 bDirection );
-
-
 BOOLEAN					PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime );
 BOOLEAN					PhysicsComputeForces( REAL_OBJECT *pObject );
 BOOLEAN					PhysicsIntegrate( REAL_OBJECT *pObject, real DeltaTime );

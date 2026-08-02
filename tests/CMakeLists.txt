@@ -126,6 +126,7 @@ set(tactical_actor_contract_headers
   "Tactical/Soldier Profile Constants.h"
   "Tactical/Soldier Stat Types.h"
   "Tactical/Taunt Types.h"
+  "Tactical/TacticalActorAnimationSelection.h"
   "Tactical/TacticalActorAnimationState.h"
   "Tactical/TacticalActorBattleSounds.h"
   "Tactical/TacticalActorBloodState.h"

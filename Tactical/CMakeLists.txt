@@ -95,6 +95,7 @@ set(TacticalSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActor.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorAnimationFootprint.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorAnimationFrames.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorAnimationSelection.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorAnimationTransitions.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorAppearance.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/TacticalActorAssignments.cpp"

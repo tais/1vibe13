@@ -2259,6 +2259,10 @@ file(READ "${SOURCE_ROOT}/Tactical/TacticalActorOrientation.h"
   tactical_actor_orientation_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorOrientation.cpp"
   tactical_actor_orientation_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationSelection.h"
+  tactical_actor_animation_selection_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAnimationSelection.cpp"
+  tactical_actor_animation_selection_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.h"
   tactical_actor_ai_behavior_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/TacticalActorAiBehavior.cpp"
@@ -3094,9 +3098,10 @@ string(FIND "${tactical_actor_service_api_header_test_contents}"
   tactical_civilian_name_capacity_test)
 
 foreach(tactical_actor_new_contract_compile_header IN ITEMS
-    "Tactical/Soldier Stat Types.h"
-    "Tactical/Taunt Types.h"
-    "Tactical/TacticalActorCrowBehavior.h"
+	"Tactical/Soldier Stat Types.h"
+	"Tactical/Taunt Types.h"
+	"Tactical/TacticalActorAnimationSelection.h"
+	"Tactical/TacticalActorCrowBehavior.h"
     "Tactical/TacticalActorDebug.h"
     "Tactical/TacticalActorLocomotion.h"
     "Tactical/TacticalActorPredicates.h"
@@ -5163,6 +5168,76 @@ if(damage_feedback_declaration EQUAL -1 OR
     "Tactical actor damage feedback lost its declaration, definition, caller migration, or malformed-state coverage")
 endif()
 
+foreach(animation_selection_operation IN ITEMS
+    selectFire
+    selectFall
+    pickReady)
+  string(FIND
+    "${tactical_actor_animation_selection_header_contents}"
+    "${animation_selection_operation}("
+    animation_selection_declaration)
+  string(FIND
+    "${tactical_actor_animation_selection_source_contents}"
+    "TacticalActorAnimationSelection::${animation_selection_operation}("
+    animation_selection_definition)
+  if(animation_selection_declaration EQUAL -1 OR
+     animation_selection_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor animation selection lost '${animation_selection_operation}' ownership")
+  endif()
+endforeach()
+
+foreach(damage_feedback_operation IN ITEMS
+    calculateScreamVolume
+    applyGenericHit
+    applyGunfireHit
+    applyExplosionHit
+    applyBladeHit
+    applyPunchHit
+    applyVehicleHit
+    setDamageDisplayCounter)
+  string(FIND "${tactical_actor_damage_feedback_header_contents}"
+    "${damage_feedback_operation}("
+    damage_feedback_operation_declaration)
+  string(FIND "${tactical_actor_damage_feedback_source_contents}"
+    "TacticalActorDamageFeedback::${damage_feedback_operation}("
+    damage_feedback_operation_definition)
+  if(damage_feedback_operation_declaration EQUAL -1 OR
+     damage_feedback_operation_definition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical actor damage feedback lost '${damage_feedback_operation}' ownership")
+  endif()
+endforeach()
+
+foreach(retired_soldier_control_presentation_definition IN ITEMS
+    "SelectFireAnimation("
+    "SelectFallAnimation("
+    "PickSoldierReadyAnimation("
+    "CalcScreamVolume("
+    "DoGenericHit("
+    "SoldierGotHitGunFire("
+    "SoldierGotHitExplosion("
+    "SoldierGotHitBlade("
+    "SoldierGotHitPunch("
+    "SoldierGotHitVehicle("
+    "SetDamageDisplayCounter(")
+  string(FIND "${tactical_actor_source_contents}"
+    "${retired_soldier_control_presentation_definition}"
+    retired_soldier_control_presentation_returned)
+  if(NOT retired_soldier_control_presentation_returned EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier Control.cpp regained retired presentation definition '${retired_soldier_control_presentation_definition}'")
+  endif()
+endforeach()
+
+string(FIND "${headless_test_contents}"
+  "tactical actor animation selection and hit feedback own ready, fire, fall, scream, reaction, uniform, and damage-display behavior"
+  actor_presentation_extraction_coverage)
+if(actor_presentation_extraction_coverage EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical actor animation-selection and hit-feedback extraction lost combined headless coverage")
+endif()
+
 string(FIND "${tactical_actor_profile_classification_header_contents}"
   "profileTableIndex("
   profile_classification_declaration)
@@ -5427,6 +5502,7 @@ foreach(required_actor_domain_source IN ITEMS
   "TacticalActor.cpp"
   "TacticalActorAnimationFootprint.cpp"
   "TacticalActorAnimationFrames.cpp"
+  "TacticalActorAnimationSelection.cpp"
   "TacticalActorAnimationTransitions.cpp"
   "TacticalActorAppearance.cpp"
   "TacticalActorAssignments.cpp"

@@ -62,8 +62,6 @@
 // InWaterOrGas - gas stuff
 // RoamingRange - point patrol stuff
 
-// sevenfm
-extern UINT16 PickSoldierReadyAnimation(TacticalActor *pSoldier, BOOLEAN fEndReady, BOOLEAN fHipStance);
 extern SECTOR_EXT_DATA	SectorExternalData[256][4];
 
 UINT8 Urgency[NUM_STATUS_STATES][NUM_MORALE_STATES] =

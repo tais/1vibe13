@@ -759,14 +759,27 @@ level, grid, movement-cost, route, and face state. Robots reject cower
 requests, and repeated requests for the current cower posture are accepted
 without restarting the animation. Combat rules, maps, movement costs,
 animations, audio, XML, Lua, and network formats remain unchanged.
-`TacticalActorDamageFeedback::presentHit` is the bounded application-side
-entry point for the established hit grunt and portrait flash. Damage resolution
-and vehicle damage call it instead of restoring the aggregate feedback method.
-The domain preserves the one-second grunt throttle and the rule that the
-tactical screen flashes only in-sector actors while non-tactical screens may
-flash any actor. It validates body, profile, NPC sound-set, and face-registry
-indexes before reaching legacy presentation tables. Battle sounds, portraits,
-UI timing, damage rules, XML, Lua, saves, and network formats remain unchanged.
+`TacticalActorAnimationSelection::selectFire`, `selectFall`, and
+`pickReady` are the application-side animation-choice boundary. Tactical
+orientation, ranged actions, route settlement, UI, points, overhead, and
+tactical AI call this contract instead of declaring the former global
+selection helpers. Empty hands and malformed body, animation, inventory, item,
+or stance values resolve to a neutral result before legacy animation, item, or
+weapon tables are indexed.
+
+`TacticalActorDamageFeedback` is the complete immediate hit-presentation
+boundary. In addition to `presentHit`, it owns scream-volume calculation,
+generic and weapon-specific reaction selection, uniform-damage flags, and the
+floating damage-display cursor. Damage resolution, vehicle feedback, and
+overhead presentation call this contract instead of restoring
+`CalcScreamVolume`, `DoGenericHit`, `SoldierGotHit*`, or
+`SetDamageDisplayCounter`. The domain preserves the one-second grunt throttle,
+the tactical-screen in-sector flash rule, hit animations, lethal-hit uniform
+damage, and the active damage-cursor restart behavior. It validates body,
+animation, item, direction, profile, NPC sound-set, and face-registry indexes
+before reaching legacy tables. Animation and damage rules, battle sounds,
+portraits, UI timing, uniform flags, XML, Lua, saves, and network formats remain
+unchanged.
 `TacticalActorProfileClassification::profileTableIndex` is the bounded
 application-side entry point for selecting the optional generated enemy or
 militia profile table. Actor creation and display-name resolution call it
