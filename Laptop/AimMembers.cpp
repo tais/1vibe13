@@ -1332,8 +1332,8 @@ static auto DrawDiscountedDailyCosts() -> void
 BOOLEAN	UpdateMercInfo(void)
 {
 	//UINT16					PosY = 300;
-	CHAR16					MercInfoString[ SIZE_MERC_BIO_INFO ];
-	CHAR16					AdditionalInfoString[ SIZE_MERC_BIO_INFO ];
+	CHAR16					MercInfoString[ SIZE_MERC_BIO_INFO ]{};
+	CHAR16					AdditionalInfoString[ SIZE_MERC_BIO_INFO ]{};
 	const CampaignAimSitePolicy aimSitePolicy(
 		GetGameContext().capabilities());
 

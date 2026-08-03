@@ -1,5 +1,7 @@
 ﻿#include "laptop.h"
 #include "email.h"
+#include "CampaignLaptopCommunicationsPolicy.h"
+#include "GameContext.h"
 #include "Utilities.h"
 #include "WCheck.h"
 #include "DEBUG.H"
@@ -22,14 +24,57 @@
 #include "soldier profile type.h"
 #include "message.h"
 
-#ifdef JA2UB
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
 #include "ub_config.h"
 
-#define		EMAIL_EDT_FILE_JA25			"BINARYDATA\\Email25.edt"
-#define		EMAIL_EDT_FILE_JA2		"BINARYDATA\\Email.edt"
-#endif
+constexpr const char* EMAIL_EDT_FILE_JA25 = "BINARYDATA\\Email25.edt";
+constexpr const char* EMAIL_EDT_FILE_JA2 = "BINARYDATA\\Email.edt";
+
+namespace
+{
+using CommunicationsPolicy = CampaignLaptopCommunicationsPolicy;
+
+CommunicationsPolicy CurrentCommunicationsPolicy()
+{
+	return CommunicationsPolicy(GetGameContext().capabilities());
+}
+
+bool UsesArulcoEmailCatalog(UINT8 emailVersion)
+{
+	return emailVersion == TYPE_EMAIL_BOBBY_R_EMAIL_JA2_EDT ||
+		emailVersion == TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT ||
+		emailVersion == TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT;
+}
+
+bool UsesCampaignEmailCatalog(UINT8 emailVersion)
+{
+	return emailVersion == TYPE_EMAIL_EMAIL_EDT ||
+		emailVersion == TYPE_EMAIL_EMAIL_EDT_NAME_MERC;
+}
+
+bool LoadEmailRecord(
+	UINT8 emailVersion, INT32 messageOffset, CHAR16* destination)
+{
+	destination[0] = L'\0';
+	if (UsesArulcoEmailCatalog(emailVersion))
+	{
+		LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA2, destination,
+			MAIL_STRING_SIZE * messageOffset, MAIL_STRING_SIZE);
+		return true;
+	}
+	if (!UsesCampaignEmailCatalog(emailVersion)) return false;
+
+	const CommunicationsPolicy policy = CurrentCommunicationsPolicy();
+	const char* campaignFile =
+		policy.usesUnfinishedBusinessCatalog() && FileExists(EMAIL_EDT_FILE_JA25)
+			? EMAIL_EDT_FILE_JA25
+			: EMAIL_EDT_FILE_JA2;
+	LoadEncryptedDataFromFile(campaignFile, destination,
+		MAIL_STRING_SIZE * messageOffset, MAIL_STRING_SIZE);
+	return true;
+}
+}
 
 using namespace std;
 
@@ -329,10 +374,9 @@ void AddEmailRecordToList( STR16 pString );
 void UpDateMessageRecordList( void );
 void HandleAnySpecialEmailMessageEvents(INT32 iMessageId );
 BOOLEAN HandleMailSpecialMessages( UINT16 usMessageId, INT32 *iResults,	EmailPtr pMail );
-#ifdef JA2UB
-BOOLEAN HandleNewUBMailSpecialMessages( UINT16 usMessageId, INT32 *iResults, EmailPtr pMail );
+void HandleUnfinishedBusinessMailSpecialMessages(
+	INT32* iResults, EmailPtr pMail);
 void AddBobbyREmailJA2(INT32 iMessageOffset, INT32 iMessageLength, UINT8 ubSender, INT32 iDate, INT32 iCurrentIMPPosition, INT16 iCurrentShipmentDestinationID, UINT8 EmailType );
-#endif
 void HandleIMPCharProfileResultsMessage(	void );
 void HandleEmailViewerButtonStates( void );
 void SetUpIconForButton( void );
@@ -660,34 +704,16 @@ void RenderEmail( void )
 
 void AddEmailWithSpecialData(INT32 iMessageOffset, INT32 iMessageLength, UINT8 ubSender, INT32 iDate, INT32 iFirstData, UINT32 uiSecondData, UINT8 EmailType, UINT32 EmailAIM, UINT16 EnumEmailXML)
 {
-	if ( EnumEmailXML != XML_NOEMAIL && gEmails.size() > 0 )
+	if (EnumEmailXML != static_cast<UINT16>(XML_NOEMAIL) && !gEmails.empty())
 	{
 		AddEmailWithSpecialDataXML(EnumEmailXML, iDate, -1, -1, false, iFirstData, uiSecondData, iMessageOffset, -1, -1, -1);
 	}
 	else
 	{
-		CHAR16 pSubject[MAIL_STRING_SIZE];
-		Email	FakeEmail;
+		CHAR16 pSubject[MAIL_STRING_SIZE]{};
+		Email FakeEmail{};
 		// starts at iSubjectOffset amd goes iSubjectLength, reading in string
-#ifdef JA2UB	
-		if ( EmailType == TYPE_EMAIL_EMAIL_EDT )
-		{
-			if ( FileExists(EMAIL_EDT_FILE_JA25) )
-			{
-				LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA25, pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-			}
-			else
-			{
-				LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA2, pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-			}
-		}
-		else if ( EmailType == TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT || EmailType == TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT )
-		{
-			LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA2, pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-		}
-#else
-		LoadEncryptedDataFromFile("BINARYDATA\\Email.edt", pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-#endif	
+		LoadEmailRecord(EmailType, iMessageOffset, pSubject);
 
 		//Make a fake email that will contain the codes ( ie the merc ID )
 		FakeEmail.iFirstData = iFirstData;
@@ -821,11 +847,9 @@ void AddEmailFromXML(INT32 iMessageOffset, INT32 iDate, INT32 iCurrentIMPPositio
 }
 
 
-#ifdef JA2UB
 void AddBobbyREmailJA2(INT32 iMessageOffset, INT32 iMessageLength, UINT8 ubSender, INT32 iDate, INT32 iCurrentIMPPosition, INT16 iCurrentShipmentDestinationID, UINT8 EmailType )
 {
-	CHAR16 pSubject[MAIL_STRING_SIZE];
-	UINT8 subjectLine = 0;
+	CHAR16 pSubject[MAIL_STRING_SIZE]{};
 	
 	LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA2, pSubject, MAIL_STRING_SIZE*(iMessageOffset), MAIL_STRING_SIZE);
 	
@@ -842,7 +866,6 @@ void AddBobbyREmailJA2(INT32 iMessageOffset, INT32 iMessageLength, UINT8 ubSende
 
 	return;
 }
-#endif
 
 //--- End XML Read Mail ---
 
@@ -876,8 +899,7 @@ void AddEmailWFMercAvailable(INT32 iMessageOffset, INT32 iMessageLength, UINT8 u
 
 void AddEmail(INT32 iMessageOffset, INT32 iMessageLength, UINT8 ubSender, INT32 iDate, INT32 iCurrentIMPPosition, INT16 iCurrentShipmentDestinationID, UINT8 EmailType, UINT16 EnumEmailXML)
 {
-    CHAR16 pSubject[MAIL_STRING_SIZE];
-    UINT8 subjectLine = 0;
+	    CHAR16 pSubject[MAIL_STRING_SIZE]{};
 
 	if ( EnumEmailXML != static_cast<UINT16>(XML_NOEMAIL) && gEmails.size() > 0 )
 	{
@@ -885,36 +907,9 @@ void AddEmail(INT32 iMessageOffset, INT32 iMessageLength, UINT8 ubSender, INT32 
 	}
 	else
 	{
-#ifdef JA2UB	
-        if ( EmailType == TYPE_EMAIL_EMAIL_EDT )
-        {
-            if ( FileExists(EMAIL_EDT_FILE_JA25) )
-                LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA25, pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-            else
-                LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA2, pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-        }
-        else if ( EmailType == TYPE_EMAIL_BOBBY_R_EMAIL_JA2_EDT || EmailType == TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT || EmailType == TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT )
-        {
-            LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA2, pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-        }
-        else if ( EmailType == TYPE_EMAIL_BOBBY_R )
-        {
-            /*	if (EmailBobbyRText[0] !='\0')
-                    wcscpy( pSubject, EmailBobbyRText[0] );
-                else
-                    wcscpy( pSubject, L"None" );
-            */
-        }
-        // add message to list
-        AddEmailMessage(iMessageOffset, iMessageLength, pSubject, iDate, ubSender, FALSE, 0, 0, 0, 0, 0, 0, iCurrentIMPPosition, iCurrentShipmentDestinationID, EmailType, TYPE_E_NONE);
-
-#else
-
-        // WANNE: Short work in both ways
-        LoadEncryptedDataFromFile("BINARYDATA\\Email.edt", pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-        // add message to list
-        AddEmailMessage(iMessageOffset, iMessageLength, pSubject, iDate, ubSender, FALSE, 0, 0, 0, 0, 0, 0, iCurrentIMPPosition, iCurrentShipmentDestinationID, EmailType, TYPE_E_NONE);
-#endif
+	        LoadEmailRecord(EmailType, iMessageOffset, pSubject);
+	        // add message to list
+	        AddEmailMessage(iMessageOffset, iMessageLength, pSubject, iDate, ubSender, FALSE, 0, 0, 0, 0, 0, 0, iCurrentIMPPosition, iCurrentShipmentDestinationID, EmailType, TYPE_E_NONE);
 
         // if we are in fact in the laptop, redraw icons, might be change in mail status
         if ( fCurrentlyInLaptop == TRUE )
@@ -928,31 +923,10 @@ void AddEmail(INT32 iMessageOffset, INT32 iMessageLength, UINT8 ubSender, INT32 
 
 void AddPreReadEmail(INT32 iMessageOffset, INT32 iMessageLength, UINT8 ubSender, INT32 iDate, UINT8 EmailType)
 {
-    CHAR16 pSubject[MAIL_STRING_SIZE];
-
-#ifdef JA2UB	
-    if ( EmailType == TYPE_EMAIL_EMAIL_EDT )
-    {
-        if ( FileExists(EMAIL_EDT_FILE_JA25) )
-            LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA25, pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-        else
-            LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA2, pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-    }
-    else if ( EmailType == TYPE_EMAIL_BOBBY_R_EMAIL_JA2_EDT || EmailType == TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT || EmailType == TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT )
-    {
-        LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA2, pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-    }
-
-    // add message to list
-    AddEmailMessage(iMessageOffset, iMessageLength, pSubject, iDate, ubSender, TRUE, 0, 0, 0, 0, 0, 0, -1, -1, EmailType, TYPE_E_NONE);
-
-#else
-
-    // starts at iSubjectOffset amd goes iSubjectLength, reading in string
-    LoadEncryptedDataFromFile("BINARYDATA\\Email.edt", pSubject, MAIL_STRING_SIZE * (iMessageOffset), MAIL_STRING_SIZE);
-    // add message to list
-    AddEmailMessage(iMessageOffset, iMessageLength, pSubject, iDate, ubSender, TRUE, 0, 0, 0, 0, 0, 0, -1, -1, EmailType, TYPE_E_NONE);
-#endif
+	    CHAR16 pSubject[MAIL_STRING_SIZE]{};
+	    LoadEmailRecord(EmailType, iMessageOffset, pSubject);
+	    // add message to list
+	    AddEmailMessage(iMessageOffset, iMessageLength, pSubject, iDate, ubSender, TRUE, 0, 0, 0, 0, 0, 0, -1, -1, EmailType, TYPE_E_NONE);
 
     // if we are in fact in the laptop, redraw icons, might be change in mail status
     if ( fCurrentlyInLaptop == TRUE )
@@ -1929,7 +1903,7 @@ INT32 DisplayEmailMessage(EmailPtr pMail)
 	INT32 iHeight=0;
 	INT32 iCounter=1;
 //	CHAR16 pString[MAIL_STRING_SIZE/2 + 1];
-	CHAR16 pString[MAIL_STRING_SIZE];
+	CHAR16 pString[MAIL_STRING_SIZE]{};
 	INT32 iOffSet=0;
 	RecordPtr pTempRecord;
 	BOOLEAN fDonePrintingMessage = FALSE;
@@ -1960,21 +1934,11 @@ INT32 DisplayEmailMessage(EmailPtr pMail)
 	else if ( pMail->EmailVersion == TYPE_EMAIL_XML )
 		HandleAnySpecialEmailMessageEvents(pMail->iThirdData);
 
-	if ( pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT ) //|| pMail->EmailVersion == TYPE_EMAIL_BOBBY_R_EMAIL_JA2_EDT || pMail->EmailVersion == TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT )
-		HandleMailSpecialMessages( ( UINT16 ) ( iOffSet ), &iViewerPositionY, pMail);
-	else if ( pMail->EmailVersion == TYPE_EMAIL_XML )
-		HandleMailSpecialMessages(pMail->iThirdData, &iViewerPositionY, pMail);
-
-	#ifdef JA2UB
-	if ( pMail->EmailType != TYPE_E_NONE || pMail->EmailVersion == TYPE_EMAIL_XML )
-	{
-		HandleNewUBMailSpecialMessages( 198, &iViewerPositionY, pMail );
-		HandleNewUBMailSpecialMessages( 170, &iViewerPositionY, pMail );
-		HandleNewUBMailSpecialMessages( 211, &iViewerPositionY, pMail );
-		HandleNewUBMailSpecialMessages( 206, &iViewerPositionY, pMail );
-		HandleNewUBMailSpecialMessages( 217, &iViewerPositionY, pMail );
-	}
-	#endif
+	const UINT16 specialMessageId = pMail->EmailVersion == TYPE_EMAIL_XML
+		? static_cast<UINT16>(pMail->iThirdData)
+		: static_cast<UINT16>(iOffSet);
+	HandleMailSpecialMessages(
+		specialMessageId, &iViewerPositionY, pMail);
 	
 	PreProcessEmail( pMail );
 	
@@ -3293,38 +3257,22 @@ void UpDateMessageRecordList( void )
 
 void HandleAnySpecialEmailMessageEvents(INT32 iMessageId )
 {
-	// handles any special message events
-#ifdef JA2UB
-	switch( iMessageId )
+	const CommunicationsPolicy policy = CurrentCommunicationsPolicy();
+	if (policy.isMakeContactMessage(static_cast<UINT16>(iMessageId)))
 	{
-		case EMAIL_MAKECONTACT:
-			if( !( gJa25SaveStruct.ubEmailFromSectorFlag & SECTOR_EMAIL__ANOTHER_SECTOR ) )
-			{
-				AddStrategicEvent( EVENT_SEND_ENRICO_UNDERSTANDING_EMAIL, GetWorldTotalMin() + ( 2 * 60 ) + Random( 120 ), 0 );
-			}
-			break;
-
-		case( IMP_EMAIL_AGAIN ):
-			SetBookMark(IMP_BOOKMARK);
-			break;
-		case( IMP_EMAIL_INTRO ):
-			SetBookMark(IMP_BOOKMARK);
-			break;
+		if (!(gJa25SaveStruct.ubEmailFromSectorFlag &
+			SECTOR_EMAIL__ANOTHER_SECTOR))
+		{
+			AddStrategicEvent(EVENT_SEND_ENRICO_UNDERSTANDING_EMAIL,
+				GetWorldTotalMin() + (2 * 60) + Random(120), 0);
+		}
 	}
-#else
-	// handles any special message events
 
-	switch( iMessageId )
+	if (iMessageId == policy.impReminderOffset() ||
+		iMessageId == policy.impIntroOffset())
 	{
-
-		case( IMP_EMAIL_AGAIN ):
 		SetBookMark(IMP_BOOKMARK);
-		break;
-	case( IMP_EMAIL_INTRO ):
-		SetBookMark(IMP_BOOKMARK);
-		break;
 	}
-#endif	
 }
 
 void ReDisplayBoxes( void )
@@ -3349,132 +3297,142 @@ void ReDisplayBoxes( void )
 	}
 }
 
-#ifdef JA2UB
-
-BOOLEAN HandleNewUBMailSpecialMessages( UINT16 usMessageId, INT32 *iResults, EmailPtr pMail )
+void HandleUnfinishedBusinessMailSpecialMessages(
+	INT32* iResults, EmailPtr pMail)
 {
-	BOOLEAN fSpecialCase = FALSE;
-	
-	wstring wstrMail;
-	wstring::size_type index;
-	CHAR16 szMail[MAIL_STRING_SIZE];
+	const CommunicationsPolicy policy = CurrentCommunicationsPolicy();
+	if (!policy.usesUnfinishedBusinessCatalog()) return;
 
-	if ( (pMail->EmailType == TYPE_E_INSURANCE_L3 && pMail->EmailVersion == TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT && usMessageId == 170) || (pMail->EmailVersion == TYPE_EMAIL_XML && pMail->iThirdData == 170) )
+	const auto matches = [pMail](
+		const CommunicationsPolicy::EmailRecord& record)
 	{
-		if ( gGameUBOptions.LaptopLinkInsurance == TRUE )
-			ModifyInsuranceEmails( usMessageId, iResults, pMail );
+		return (pMail->EmailVersion == TYPE_EMAIL_XML &&
+			pMail->iThirdData == record.offset) ||
+			(pMail->EmailVersion != TYPE_EMAIL_XML &&
+				pMail->EmailType == static_cast<UINT8>(record.substitution));
+	};
+
+	const auto payment = policy.insuranceRecord(
+		CommunicationsPolicy::InsuranceNotice::Payment);
+	const auto fraud = policy.insuranceRecord(
+		CommunicationsPolicy::InsuranceNotice::VerySuspiciousFraud);
+	const auto death = policy.deadMercNoticeRecord();
+	const auto noRefund = policy.aimNoRefundRecord();
+	if ((matches(payment) || matches(fraud)) &&
+		gGameUBOptions.LaptopLinkInsurance == TRUE)
+	{
+		ModifyInsuranceEmails(
+			static_cast<UINT16>(pMail->EmailVersion == TYPE_EMAIL_XML
+				? pMail->iThirdData : pMail->usOffset),
+			iResults, pMail);
+		return;
 	}
-	else if ( (pMail->EmailType == TYPE_E_INSURANCE_L2 && pMail->EmailVersion == TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT && usMessageId == INSUR_1HOUR_FRAUD) || (pMail->EmailVersion == TYPE_EMAIL_XML && pMail->iThirdData == INSUR_1HOUR_FRAUD) )
+	if ((matches(death) || matches(noRefund)) &&
+		gGameUBOptions.fDeadMerc == TRUE)
 	{
-		if ( gGameUBOptions.LaptopLinkInsurance == TRUE )
-			ModifyInsuranceEmails( usMessageId, iResults, pMail );
+		ModifyInsuranceEmails(
+			static_cast<UINT16>(pMail->EmailVersion == TYPE_EMAIL_XML
+				? pMail->iThirdData : pMail->usOffset),
+			iResults, pMail);
+		return;
 	}
-	else if ( (pMail->EmailType == TYPE_E_AIM_L1 && pMail->EmailVersion == TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT && usMessageId == 206) || (pMail->EmailVersion == TYPE_EMAIL_XML && pMail->iThirdData == 206) )
+
+	const auto shipment = policy.bobbyShipmentRecord();
+	if (!matches(shipment) || gGameUBOptions.fBobbyRSite != TRUE ||
+		pMessageRecordList)
 	{
-		if ( gGameUBOptions.fDeadMerc == TRUE )
-			ModifyInsuranceEmails( usMessageId, iResults, pMail );
+		return;
 	}
-	else if ( (pMail->EmailType == TYPE_E_AIM_L3 && pMail->EmailVersion == TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT && usMessageId == 217) || (pMail->EmailVersion == TYPE_EMAIL_XML && pMail->iThirdData == 217) )
+
+	gusCurShipmentDestinationID = pMail->iCurrentShipmentDestinationID;
+	for (UINT16 line = 0; line < shipment.length; ++line)
 	{
-		if ( gGameUBOptions.fDeadMerc == TRUE )
-			ModifyInsuranceEmails( usMessageId, iResults, pMail );
-	}
-	//Dealtar's Airport Externalization		
-	else if ( (pMail->EmailType == TYPE_EMAIL_BOBBY_R_L1 && gGameUBOptions.fBobbyRSite == TRUE && pMail->EmailVersion == TYPE_EMAIL_BOBBY_R_EMAIL_JA2_EDT) || (pMail->EmailVersion == TYPE_EMAIL_XML && pMail->iThirdData == 198) )
-	{
-			if (!pMessageRecordList)
+		wstring mail;
+		if (pMail->EmailVersion == TYPE_EMAIL_XML &&
+			pMail->usOffset < gEmails.size() &&
+			line < gEmails[pMail->usOffset].Messages.size())
+		{
+			mail = gEmails[pMail->usOffset].Messages[line];
+		}
+		else
+		{
+			CHAR16 mailRecord[MAIL_STRING_SIZE]{};
+			LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA2, mailRecord,
+				MAIL_STRING_SIZE * (shipment.offset + line), MAIL_STRING_SIZE);
+			mail = mailRecord;
+		}
+
+		const wstring placeholder = L"$DESTINATIONNAME$";
+		const auto placeholderPosition = mail.find(placeholder);
+		if (placeholderPosition != wstring::npos &&
+			gusCurShipmentDestinationID > 0)
+		{
+			RefToDestinationStruct destination =
+				gPostalService.GetDestination(gusCurShipmentDestinationID);
+			if (destination.usID == gusCurShipmentDestinationID)
 			{
-				// WANNE.MAIL: Fix
-				gusCurShipmentDestinationID = -1;	// Reset
-				gusCurShipmentDestinationID = pMail->iCurrentShipmentDestinationID;
-
-				// Loop through each line of the shipment EDT-file
-				for (int i = 0; i < BOBBYR_SHIPMENT_ARRIVED_LENGTH; ++i)
-				{
-					
-					wstrMail.clear();
-					if ( pMail->EmailVersion == TYPE_EMAIL_XML && pMail->usOffset < gEmails.size() )
-					{
-						wstrMail = gEmails[pMail->usOffset].Messages[i];
-					}
-					else
-					{
-						LoadEncryptedDataFromFile("BINARYDATA\\Email.edt", szMail, MAIL_STRING_SIZE *usMessageId, MAIL_STRING_SIZE);
-					}
-
-					wstrMail = szMail;
-
-					index = wstrMail.find(L"$DESTINATIONNAME$");
-
-					// WANNE.MAIL: Fix
-					if (gusCurShipmentDestinationID > 0)
-					{
-						if (index != wstring::npos)
-						{
-							wstrMail.erase(index, strlen("$DESTINATIONNAME$"));
-							RefToDestinationStruct ds = gPostalService.GetDestination(gusCurShipmentDestinationID);
-							wstrMail.insert(index, ds.wstrName.c_str());
-						}
-					}
-
-					AddEmailRecordToList((STR16)wstrMail.c_str());
-
-					usMessageId++;
-				}
+				mail.replace(placeholderPosition, placeholder.length(),
+					destination.wstrName);
 			}
-			giPrevMessageId = giMessageId;
+		}
+		AddEmailRecordToList(const_cast<STR16>(mail.c_str()));
 	}
-
-	return fSpecialCase;
+	giPrevMessageId = giMessageId;
 }
-
-#endif
 
 BOOLEAN HandleMailSpecialMessages( UINT16 usMessageId, INT32 *iResults, EmailPtr pMail )
 {
 	BOOLEAN fSpecialCase = FALSE;
+	const CommunicationsPolicy policy = CurrentCommunicationsPolicy();
+
+	// UB's IMP result and Bobby shipment records both use offset 198. The mail
+	// version is therefore part of the identity, not just the numeric record.
+	if (policy.isImpProfileResultsMessage(usMessageId,
+		pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT))
+	{
+		HandleIMPCharProfileResultsMessage();
+		return TRUE;
+	}
+
+	if (policy.usesUnfinishedBusinessCatalog())
+	{
+		HandleUnfinishedBusinessMailSpecialMessages(iResults, pMail);
+		return FALSE;
+	}
 
 	// this procedure will handle special cases of email messages that are not stored in email.edt, or need special processing
 	switch( usMessageId )
 	{
-		case( IMP_EMAIL_PROFILE_RESULTS ):
-
-			HandleIMPCharProfileResultsMessage( );
-			fSpecialCase = TRUE;
-			break;
-#ifdef JA2UB
-//no UB
-#else
-		case( MERC_INTRO ):
+		case JA2_EMAIL_MERC_INTRO:
 			SetBookMark( MERC_BOOKMARK );
 			fReDrawScreenFlag = TRUE;
 			break;
 		
-		case INSUR_PAYMENT:
-		case INSUR_SUSPIC:
-		case INSUR_SUSPIC_2:
-		case INSUR_INVEST_OVER:
-		case INSUR_CHEAT_FRAUD:
-		case INSUR_1HOUR_FRAUD:
-		case MERC_DIED_ON_OTHER_ASSIGNMENT:
-		case AIM_MEDICAL_DEPOSIT_REFUND:
-		case AIM_MEDICAL_DEPOSIT_NO_REFUND:
-		case AIM_MEDICAL_DEPOSIT_PARTIAL_REFUND:
+		case JA2_EMAIL_INSURANCE_PAYMENT:
+		case JA2_EMAIL_INSURANCE_SUSPICIOUS:
+		case JA2_EMAIL_INSURANCE_SUSPICIOUS_REPEAT:
+		case JA2_EMAIL_INSURANCE_INVESTIGATION_OVER:
+		case JA2_EMAIL_INSURANCE_POLICY_VIOLATION:
+		case JA2_EMAIL_INSURANCE_ONE_HOUR_FRAUD:
+		case JA2_EMAIL_MERC_DIED_OTHER_ASSIGNMENT:
+		case JA2_EMAIL_AIM_MEDICAL_DEPOSIT_REFUND:
+		case JA2_EMAIL_AIM_MEDICAL_DEPOSIT_NO_REFUND:
+		case JA2_EMAIL_AIM_MEDICAL_DEPOSIT_PARTIAL_REFUND:
 			ModifyInsuranceEmails(usMessageId, iResults, pMail);
 			break;
 
-		case MERC_NEW_SITE_ADDRESS:
+		case JA2_EMAIL_MERC_NEW_SITE_ADDRESS:
 			//Set the book mark so the player can access the site
 			SetBookMark( MERC_BOOKMARK );
 			break;
 					
 		//Dealtar's Airport Externalization
-		case BOBBYR_SHIPMENT_ARRIVED:
+		case JA2_EMAIL_BOBBYR_SHIPMENT_ARRIVED:
 			if (!pMessageRecordList)
 			{
 				wstring wstrMail;
 				wstring::size_type index;
-				CHAR16 szMail[MAIL_STRING_SIZE];
+				CHAR16 szMail[MAIL_STRING_SIZE]{};
 
 				// WANNE.MAIL: Fix
 				gusCurShipmentDestinationID = -1;	// Reset
@@ -3484,13 +3442,17 @@ BOOLEAN HandleMailSpecialMessages( UINT16 usMessageId, INT32 *iResults, EmailPtr
 				for (int i = 0; i < pMail->usLength; ++i)
 				{
 					wstrMail.clear();
-					if ( pMail->EmailVersion == TYPE_EMAIL_XML && pMail->usOffset < gEmails.size())
+					if (pMail->EmailVersion == TYPE_EMAIL_XML &&
+						pMail->usOffset < gEmails.size() &&
+						static_cast<size_t>(i) <
+							gEmails[pMail->usOffset].Messages.size())
 					{
 						wstrMail = gEmails[pMail->usOffset].Messages[i];
 					}
 					else
 					{
-						LoadEncryptedDataFromFile("BINARYDATA\\Email.edt", szMail, MAIL_STRING_SIZE *usMessageId, MAIL_STRING_SIZE);
+						LoadEncryptedDataFromFile(EMAIL_EDT_FILE_JA2, szMail,
+							MAIL_STRING_SIZE * usMessageId, MAIL_STRING_SIZE);
 						wstrMail = szMail;
 					}
 
@@ -3510,9 +3472,14 @@ BOOLEAN HandleMailSpecialMessages( UINT16 usMessageId, INT32 *iResults, EmailPtr
 					{
 						if (index != wstring::npos)
 						{
-							wstrMail.erase(index, strlen("$DESTINATIONNAME$"));
-							RefToDestinationStruct ds = gPostalService.GetDestination(gusCurShipmentDestinationID);
-							wstrMail.insert(index, ds.wstrName.c_str());
+							RefToDestinationStruct ds =
+								gPostalService.GetDestination(gusCurShipmentDestinationID);
+							if (ds.usID == gusCurShipmentDestinationID)
+							{
+								wstrMail.erase(index,
+									wcslen(L"$DESTINATIONNAME$"));
+								wstrMail.insert(index, ds.wstrName.c_str());
+							}
 						}
 					}
 
@@ -3524,27 +3491,24 @@ BOOLEAN HandleMailSpecialMessages( UINT16 usMessageId, INT32 *iResults, EmailPtr
 			giPrevMessageId = giMessageId;
 		break;
 
-		case(PMC_INTRO) :
+		case JA2_EMAIL_PMC_INTRO:
 			SetBookMark( PMC_BOOKMARK );
 			fReDrawScreenFlag = TRUE;
 			break;
 
-		case(MILITIAROSTER_INTRO) :
+		case JA2_EMAIL_MILITIA_ROSTER_INTRO:
 			SetBookMark( MILITIAROSTER_BOOKMARK );
 			fReDrawScreenFlag = TRUE;
 			break;
 
-		case INTEL_ENRICO_INTRO:
+		case JA2_EMAIL_INTEL_INTRO:
 			SetBookMark( INTELMARKET_BOOKMARK );
 			fReDrawScreenFlag = TRUE;
 			break;
-#endif
 	}
 
 	return fSpecialCase;
 }
-#ifdef JA2UB
-
 #define IMP_RESULTS_INTRO_LENGTH 9
 
 #define IMP_RESULTS_PERSONALITY_INTRO IMP_RESULTS_INTRO_LENGTH	// 0 - 9
@@ -3669,134 +3633,7 @@ BOOLEAN HandleMailSpecialMessages( UINT16 usMessageId, INT32 *iResults, EmailPtr
 #define IMP_RESULTS_END IMP_PORTRAIT_FEMALE_5 + 5
 #define IMP_RESULTS_END_LENGTH 3
 
-#else
-
-#define IMP_RESULTS_INTRO_LENGTH 9
-
-#define IMP_RESULTS_PERSONALITY_INTRO IMP_RESULTS_INTRO_LENGTH
-#define IMP_RESULTS_PERSONALITY_INTRO_LENGTH 5
-#define IMP_PERSONALITY_NORMAL IMP_RESULTS_PERSONALITY_INTRO + IMP_RESULTS_PERSONALITY_INTRO_LENGTH
-#define IMP_PERSONALITY_LENGTH 4
-#define IMP_PERSONALITY_HEAT IMP_PERSONALITY_NORMAL + IMP_PERSONALITY_LENGTH
-#define IMP_PERSONALITY_NERVOUS IMP_PERSONALITY_HEAT + IMP_PERSONALITY_LENGTH
-#define IMP_PERSONALITY_CLAUSTROPHOBIC IMP_PERSONALITY_NERVOUS + IMP_PERSONALITY_LENGTH
-#define IMP_PERSONALITY_NONSWIMMER IMP_PERSONALITY_CLAUSTROPHOBIC + IMP_PERSONALITY_LENGTH
-#define IMP_PERSONALITY_FEAR_OF_INSECTS IMP_PERSONALITY_NONSWIMMER + IMP_PERSONALITY_LENGTH
-#define IMP_PERSONALITY_FORGETFUL IMP_PERSONALITY_FEAR_OF_INSECTS + IMP_PERSONALITY_LENGTH + 1
-#define IMP_PERSONALITY_PSYCHO IMP_PERSONALITY_FORGETFUL + IMP_PERSONALITY_LENGTH
-#define IMP_RESULTS_ATTITUDE_INTRO IMP_PERSONALITY_PSYCHO + IMP_PERSONALITY_LENGTH + 1 
-#define IMP_RESULTS_ATTITUDE_LENGTH 5
-#define IMP_ATTITUDE_LENGTH 5
-#define IMP_ATTITUDE_NORMAL IMP_RESULTS_ATTITUDE_INTRO + IMP_RESULTS_ATTITUDE_LENGTH
-#define IMP_ATTITUDE_FRIENDLY IMP_ATTITUDE_NORMAL + IMP_ATTITUDE_LENGTH
-#define IMP_ATTITUDE_LONER IMP_ATTITUDE_FRIENDLY + IMP_ATTITUDE_LENGTH + 1
-#define IMP_ATTITUDE_OPTIMIST IMP_ATTITUDE_LONER + IMP_ATTITUDE_LENGTH + 1
-#define IMP_ATTITUDE_PESSIMIST IMP_ATTITUDE_OPTIMIST + IMP_ATTITUDE_LENGTH + 1
-#define IMP_ATTITUDE_AGGRESSIVE IMP_ATTITUDE_PESSIMIST + IMP_ATTITUDE_LENGTH + 1
-#define IMP_ATTITUDE_ARROGANT IMP_ATTITUDE_AGGRESSIVE + IMP_ATTITUDE_LENGTH + 1
-#define IMP_ATTITUDE_ASSHOLE IMP_ATTITUDE_ARROGANT + IMP_ATTITUDE_LENGTH + 1
-#define IMP_ATTITUDE_COWARD IMP_ATTITUDE_ASSHOLE + IMP_ATTITUDE_LENGTH
-#define IMP_RESULTS_SKILLS IMP_ATTITUDE_COWARD + IMP_ATTITUDE_LENGTH + 1
-#define IMP_RESULTS_SKILLS_LENGTH 7 
-#define IMP_SKILLS_IMPERIAL_SKILLS IMP_RESULTS_SKILLS + IMP_RESULTS_SKILLS_LENGTH + 1 
-#define IMP_SKILLS_IMPERIAL_MARK IMP_SKILLS_IMPERIAL_SKILLS + 1
-#define IMP_SKILLS_IMPERIAL_MECH IMP_SKILLS_IMPERIAL_SKILLS + 2
-#define IMP_SKILLS_IMPERIAL_EXPL IMP_SKILLS_IMPERIAL_SKILLS + 3
-#define IMP_SKILLS_IMPERIAL_MED  IMP_SKILLS_IMPERIAL_SKILLS + 4
-
-#define IMP_SKILLS_NEED_TRAIN_SKILLS IMP_SKILLS_IMPERIAL_MED + 1
-#define IMP_SKILLS_NEED_TRAIN_MARK IMP_SKILLS_NEED_TRAIN_SKILLS + 1
-#define IMP_SKILLS_NEED_TRAIN_MECH IMP_SKILLS_NEED_TRAIN_SKILLS + 2
-#define IMP_SKILLS_NEED_TRAIN_EXPL IMP_SKILLS_NEED_TRAIN_SKILLS + 3
-#define IMP_SKILLS_NEED_TRAIN_MED IMP_SKILLS_NEED_TRAIN_SKILLS + 4
-
-#define IMP_SKILLS_NO_SKILL IMP_SKILLS_NEED_TRAIN_MED + 1
-#define IMP_SKILLS_NO_SKILL_MARK  IMP_SKILLS_NO_SKILL + 1
-#define IMP_SKILLS_NO_SKILL_MECH  IMP_SKILLS_NO_SKILL + 2
-#define IMP_SKILLS_NO_SKILL_EXPL  IMP_SKILLS_NO_SKILL + 3
-#define IMP_SKILLS_NO_SKILL_MED   IMP_SKILLS_NO_SKILL + 4
-
-#define IMP_SKILLS_SPECIAL_INTRO IMP_SKILLS_NO_SKILL_MED + 1
-#define IMP_SKILLS_SPECIAL_INTRO_LENGTH 2
-#define IMP_SKILLS_SPECIAL_LOCK IMP_SKILLS_SPECIAL_INTRO + IMP_SKILLS_SPECIAL_INTRO_LENGTH
-#define IMP_SKILLS_SPECIAL_HAND IMP_SKILLS_SPECIAL_LOCK + 1
-#define IMP_SKILLS_SPECIAL_ELEC IMP_SKILLS_SPECIAL_HAND + 1
-#define IMP_SKILLS_SPECIAL_NIGHT IMP_SKILLS_SPECIAL_ELEC + 1
-#define IMP_SKILLS_SPECIAL_THROW IMP_SKILLS_SPECIAL_NIGHT + 1
-#define IMP_SKILLS_SPECIAL_TEACH IMP_SKILLS_SPECIAL_THROW + 1
-#define IMP_SKILLS_SPECIAL_HEAVY IMP_SKILLS_SPECIAL_TEACH + 1
-#define IMP_SKILLS_SPECIAL_AUTO IMP_SKILLS_SPECIAL_HEAVY + 1
-#define IMP_SKILLS_SPECIAL_STEALTH IMP_SKILLS_SPECIAL_AUTO + 1
-#define IMP_SKILLS_SPECIAL_AMBI IMP_SKILLS_SPECIAL_STEALTH + 1
-#define IMP_SKILLS_SPECIAL_THIEF IMP_SKILLS_SPECIAL_AMBI + 1
-#define IMP_SKILLS_SPECIAL_MARTIAL IMP_SKILLS_SPECIAL_THIEF + 1
-#define IMP_SKILLS_SPECIAL_KNIFE IMP_SKILLS_SPECIAL_MARTIAL + 1
-
-#define IMP_RESULTS_PHYSICAL IMP_SKILLS_SPECIAL_KNIFE + 1
-#define IMP_RESULTS_PHYSICAL_LENGTH 7
-
-#define IMP_PHYSICAL_SUPER IMP_RESULTS_PHYSICAL + IMP_RESULTS_PHYSICAL_LENGTH
-#define IMP_PHYSICAL_SUPER_LENGTH 1
-
-#define IMP_PHYSICAL_SUPER_HEALTH IMP_PHYSICAL_SUPER + IMP_PHYSICAL_SUPER_LENGTH
-#define IMP_PHYSICAL_SUPER_AGILITY IMP_PHYSICAL_SUPER_HEALTH + 1
-#define IMP_PHYSICAL_SUPER_DEXTERITY IMP_PHYSICAL_SUPER_AGILITY + 1
-#define IMP_PHYSICAL_SUPER_STRENGTH IMP_PHYSICAL_SUPER_DEXTERITY + 1
-#define IMP_PHYSICAL_SUPER_LEADERSHIP IMP_PHYSICAL_SUPER_STRENGTH + 1
-#define IMP_PHYSICAL_SUPER_WISDOM IMP_PHYSICAL_SUPER_LEADERSHIP + 1
- 
-#define IMP_PHYSICAL_LOW IMP_PHYSICAL_SUPER_WISDOM + 1
-#define IMP_PHYSICAL_LOW_LENGTH 1
-
-#define IMP_PHYSICAL_LOW_HEALTH IMP_PHYSICAL_LOW + IMP_PHYSICAL_LOW_LENGTH
-#define IMP_PHYSICAL_LOW_AGILITY IMP_PHYSICAL_LOW_HEALTH + 1
-#define IMP_PHYSICAL_LOW_DEXTERITY IMP_PHYSICAL_LOW_AGILITY + 2
-#define IMP_PHYSICAL_LOW_STRENGTH IMP_PHYSICAL_LOW_DEXTERITY + 1
-#define IMP_PHYSICAL_LOW_LEADERSHIP IMP_PHYSICAL_LOW_STRENGTH + 1
-#define IMP_PHYSICAL_LOW_WISDOM IMP_PHYSICAL_LOW_LEADERSHIP + 1
-
-
-#define IMP_PHYSICAL_VERY_LOW IMP_PHYSICAL_LOW_WISDOM + 1
-#define IMP_PHYSICAL_VERY_LOW_LENGTH 1
-
-#define IMP_PHYSICAL_VERY_LOW_HEALTH IMP_PHYSICAL_VERY_LOW + IMP_PHYSICAL_VERY_LOW_LENGTH
-#define IMP_PHYSICAL_VERY_LOW_AGILITY IMP_PHYSICAL_VERY_LOW_HEALTH + 1
-#define IMP_PHYSICAL_VERY_LOW_DEXTERITY IMP_PHYSICAL_VERY_LOW_AGILITY + 1
-#define IMP_PHYSICAL_VERY_LOW_STRENGTH IMP_PHYSICAL_VERY_LOW_DEXTERITY + 1
-#define IMP_PHYSICAL_VERY_LOW_LEADERSHIP IMP_PHYSICAL_VERY_LOW_STRENGTH + 1
-#define IMP_PHYSICAL_VERY_LOW_WISDOM IMP_PHYSICAL_VERY_LOW_LEADERSHIP + 1
-
-
-#define IMP_PHYSICAL_END IMP_PHYSICAL_VERY_LOW_WISDOM + 1
-#define IMP_PHYSICAL_END_LENGTH 3
-
-#define IMP_RESULTS_PORTRAIT  IMP_PHYSICAL_END + IMP_PHYSICAL_END_LENGTH
-#define IMP_RESULTS_PORTRAIT_LENGTH 6
-
-
-#define IMP_PORTRAIT_MALE_1 IMP_RESULTS_PORTRAIT + IMP_RESULTS_PORTRAIT_LENGTH
-#define IMP_PORTRAIT_MALE_2 IMP_PORTRAIT_MALE_1 + 4
-#define IMP_PORTRAIT_MALE_3 IMP_PORTRAIT_MALE_2 + 4
-#define IMP_PORTRAIT_MALE_4 IMP_PORTRAIT_MALE_3 + 4
-#define IMP_PORTRAIT_MALE_5 IMP_PORTRAIT_MALE_4 + 4
-#define IMP_PORTRAIT_MALE_6 IMP_PORTRAIT_MALE_5 + 4
-
-#define IMP_PORTRAIT_FEMALE_1 IMP_PORTRAIT_MALE_6 + 4
-#define IMP_PORTRAIT_FEMALE_2 IMP_PORTRAIT_FEMALE_1 + 4
-#define IMP_PORTRAIT_FEMALE_3 IMP_PORTRAIT_FEMALE_2 + 4
-#define IMP_PORTRAIT_FEMALE_4 IMP_PORTRAIT_FEMALE_3 + 4
-#define IMP_PORTRAIT_FEMALE_5 IMP_PORTRAIT_FEMALE_4 + 4
-#define IMP_PORTRAIT_FEMALE_6 IMP_PORTRAIT_FEMALE_5 + 4
- 
-
-
-#define IMP_RESULTS_END IMP_PORTRAIT_FEMALE_6 + 1
-#define IMP_RESULTS_END_LENGTH 3
-
-
-#endif
-
-void HandleIMPCharProfileResultsMessage( void)
+void HandleIMPCharProfileResultsMessage(void)
 {
 	// special case, IMP profile return
 	INT32 iHeight=0;
@@ -5440,13 +5277,19 @@ UINT32  cnt;
 // Pre Process the mail, when clicking on a mail in the mail list
 void PreProcessEmail( EmailPtr pMail )
 {
-	RecordPtr pTempRecord, pCurrentRecord, pLastRecord , pTempList;
-	CHAR16 pString[MAIL_STRING_SIZE];
+	RecordPtr pTempRecord = nullptr;
+	RecordPtr pCurrentRecord = nullptr;
+	RecordPtr pLastRecord = nullptr;
+	RecordPtr pTempList = nullptr;
+	CHAR16 pString[MAIL_STRING_SIZE]{};
 	INT32 iCounter = 0, iHeight = 0, iOffSet = 0;
 	BOOLEAN fGoingOffCurrentPage = FALSE;
 	INT32 iYPositionOnPage = 0;
 
 	iOffSet=(INT32)pMail->usOffset;
+	const bool isImpProfileResults = CurrentCommunicationsPolicy()
+		.isImpProfileResultsMessage(pMail->usOffset,
+			pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT);
 
 	// set record ptr to head of list
 	pTempRecord=pMessageRecordList;
@@ -5509,36 +5352,13 @@ void PreProcessEmail( EmailPtr pMail )
 	{
 		while(pMail->usLength > iCounter)
 		{
-			// read one record from email file
-			// read one record from email file
-#ifdef JA2UB
-			//if ( pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT || pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT_NAME_MERC )
-			//{
-				if (FileExists(EMAIL_EDT_FILE_JA25) )
-				{
-					if ( pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT || pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT_NAME_MERC )
-					LoadEncryptedDataFromFile( EMAIL_EDT_FILE_JA25, pString, MAIL_STRING_SIZE * ( iOffSet + iCounter ), MAIL_STRING_SIZE );
-				}
-				else
-				{
-					if ( pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT || pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT_NAME_MERC )
-						LoadEncryptedDataFromFile( EMAIL_EDT_FILE_JA2, pString, MAIL_STRING_SIZE * ( iOffSet + iCounter ), MAIL_STRING_SIZE );
-				}
-			//}
-			if ( pMail->EmailVersion == TYPE_EMAIL_BOBBY_R_EMAIL_JA2_EDT || pMail->EmailVersion == TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT || pMail->EmailVersion == TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT )
+			pString[0] = L'\0';
+			if (!LoadEmailRecord(
+					pMail->EmailVersion, iOffSet + iCounter, pString) &&
+				pMail->EmailVersion == TYPE_EMAIL_XML)
 			{
-				LoadEncryptedDataFromFile( EMAIL_EDT_FILE_JA2, pString, MAIL_STRING_SIZE * ( iOffSet + iCounter ), MAIL_STRING_SIZE );	
-			}
-#else
-			if ( pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT || pMail->EmailVersion == TYPE_EMAIL_EMAIL_EDT_NAME_MERC )
-				LoadEncryptedDataFromFile( "BINARYDATA\\Email.edt", pString, MAIL_STRING_SIZE * ( iOffSet + iCounter ), MAIL_STRING_SIZE );
-#endif
-			
-			else if ( pMail->EmailVersion == TYPE_EMAIL_XML )
-			{
-				wcscpy(pString, L"\0");
 				if ( pMail->usOffset < gEmails.size() && (size_t)iCounter < gEmails[pMail->usOffset].Messages.size() )
-					wcscat(pString, gEmails[pMail->usOffset].Messages[iCounter].c_str());
+					wcscpy(pString, gEmails[pMail->usOffset].Messages[iCounter].c_str());
 			}
 
 			// ----------------
@@ -5704,7 +5524,8 @@ void PreProcessEmail( EmailPtr pMail )
 
 //def removed
 	// pass the subject line
-	if ( pTempRecord && pMail->usOffset != IMP_EMAIL_PROFILE_RESULTS && pMail->EmailVersion != TYPE_EMAIL_XML )
+	if (pTempRecord && !isImpProfileResults &&
+		pMail->EmailVersion != TYPE_EMAIL_XML)
 	{
 		pTempRecord = pTempRecord->Next;
 	}
@@ -5756,7 +5577,8 @@ void PreProcessEmail( EmailPtr pMail )
 	{
 		fOnLastPageFlag = TRUE;
 
-		if( pTempRecord && pMail->usOffset != IMP_EMAIL_PROFILE_RESULTS && pMail->EmailVersion != TYPE_EMAIL_XML )
+		if (pTempRecord && !isImpProfileResults &&
+			pMail->EmailVersion != TYPE_EMAIL_XML)
 		{
 			pTempRecord = pTempRecord->Next;
 		}
@@ -5772,8 +5594,6 @@ void PreProcessEmail( EmailPtr pMail )
 		pEmailPageInfo[ 0 ].pFirstRecord = pTempRecord ;
 		pEmailPageInfo[ 0 ].iPageNumber = 0;
 		
-		Assert(pTempRecord);		// required, otherwise we're testing pCurrentRecord when undefined later
-
 		while( pTempRecord )
 		{
 			pCurrentRecord = pTempRecord;
@@ -5801,7 +5621,8 @@ void PreProcessEmail( EmailPtr pMail )
 		fOnLastPageFlag = FALSE;
 		pTempList = pMessageRecordList;
 
-		if( pTempList && pMail->usOffset != IMP_EMAIL_PROFILE_RESULTS && pMail->EmailVersion != TYPE_EMAIL_XML )
+		if (pTempList && !isImpProfileResults &&
+			pMail->EmailVersion != TYPE_EMAIL_XML)
 		{
 			pTempList = pTempList->Next;
 		}
@@ -5905,37 +5726,19 @@ void ModifyInsuranceEmails( UINT16 usMessageId, INT32 *iResults, EmailPtr pMail 
 	// list doesn't exist, reload
 	if( !pTempRecord )
 	{
-        for ( ubCnt = 0; ubCnt < pMail->usLength; ubCnt++ )
+	        for ( ubCnt = 0; ubCnt < pMail->usLength; ubCnt++ )
 		{
-			// read one record from email file
-#ifdef JA2UB
-			if ( pMail->EmailVersion != TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT || pMail->EmailVersion != TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT )
-			{
-				if (FileExists(EMAIL_EDT_FILE_JA25))
-				{
-					LoadEncryptedDataFromFile( EMAIL_EDT_FILE_JA25, pString, MAIL_STRING_SIZE * usMessageId, MAIL_STRING_SIZE );
-				}
-				else
-				{
-					LoadEncryptedDataFromFile( EMAIL_EDT_FILE_JA2, pString, MAIL_STRING_SIZE * usMessageId, MAIL_STRING_SIZE );
-				}	
-			}
-
-			if ( pMail->EmailType == TYPE_E_INSURANCE_L3 || pMail->EmailType == TYPE_E_INSURANCE_L2 || pMail->EmailType == TYPE_E_AIM_L1 || pMail->EmailType == TYPE_E_AIM_L3 || 
-			   pMail->EmailVersion == TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT || pMail->EmailVersion == TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT )
-			{
-				LoadEncryptedDataFromFile( EMAIL_EDT_FILE_JA2, pString, MAIL_STRING_SIZE * usMessageId, MAIL_STRING_SIZE );
-			}	
-#else
-			if ( pMail->EmailVersion == TYPE_EMAIL_XML && pMail->usOffset < gEmails.size() )
+			pString[0] = L'\0';
+			if (pMail->EmailVersion == TYPE_EMAIL_XML &&
+				pMail->usOffset < gEmails.size() &&
+				ubCnt < gEmails[pMail->usOffset].Messages.size())
 			{
 				wcscpy(pString, gEmails[pMail->usOffset].Messages[ubCnt].c_str());
 			}
 			else
 			{
-				LoadEncryptedDataFromFile( "BINARYDATA\\Email.edt", pString, MAIL_STRING_SIZE * usMessageId, MAIL_STRING_SIZE );
+				LoadEmailRecord(pMail->EmailVersion, usMessageId, pString);
 			}
-#endif
 			//Replace the $MERCNAME$ and $AMOUNT$ with the mercs name and the amountm if the string contains the keywords.
 			ReplaceMercNameAndAmountWithProperData( pString, pMail );
 
@@ -6122,12 +5925,10 @@ BOOLEAN ReplaceMercNameAndAmountWithProperData( CHAR16 *pFinishedString, EmailPt
 	return( TRUE );
 }
 
-#ifdef JA2BETAVERSION
 void AddAllEmails()
 {	
-#ifdef JA2UB
-//no UB
-#else
+	if (CurrentCommunicationsPolicy().usesUnfinishedBusinessCatalog()) return;
+
 	const auto date = GetWorldTotalMin();
 	const auto money = 1000000; // 1 MILLION DOLLARS!
 	const auto mercID = 0;
@@ -6136,12 +5937,14 @@ void AddAllEmails()
 		// Insurance emails
 		if ( i >= XML_INSURANCE_APPROVED && i <= XML_INSURANCE_POLICYVIOLATION )
 		{
-			AddEmailWithSpecialDataXML(i, date, -1, -1, false, money, mercID, INSUR_PAYMENT, -1, -1, -1);
+			AddEmailWithSpecialDataXML(i, date, -1, -1, false, money,
+				mercID, JA2_EMAIL_INSURANCE_PAYMENT, -1, -1, -1);
 		}
 		// BR Shipment arrival
 		else if ( i == XML_BR_SHIPMENTARRIVAL )
 		{
-			AddEmailFromXML(i, date, -1, 1, false, -1, -1, BOBBYR_SHIPMENT_ARRIVED, -1, -1, -1);
+			AddEmailFromXML(i, date, -1, 1, false, -1, -1,
+				JA2_EMAIL_BOBBYR_SHIPMENT_ARRIVED, -1, -1, -1);
 		}
 		// AIM Notification of death
 		// Medical deposit refunds
@@ -6149,17 +5952,15 @@ void AddAllEmails()
 		{
 			const auto money = 1000000; // 1 MILLION DOLLARS!
 			const auto mercID = 0;
-			AddEmailWithSpecialDataXML(i, date, -1, -1, false, money, mercID, MERC_DIED_ON_OTHER_ASSIGNMENT, -1, -1, -1);
+			AddEmailWithSpecialDataXML(i, date, -1, -1, false, money,
+				mercID, JA2_EMAIL_MERC_DIED_OTHER_ASSIGNMENT, -1, -1, -1);
 		}
 		else
 		{
 			AddEmailFromXML(i, date, -1, -1, false, 0, 0, 0, 0, 0, 0);
 		}
 	}
-
-#endif	
 }
-#endif
 
 BOOLEAN SaveNewEmailDataToSaveGameFile( HWFILE hFile )
 {

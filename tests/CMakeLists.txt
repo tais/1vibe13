@@ -72,6 +72,16 @@ target_include_directories(campaign_aim_site_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_aim_site_policy COMMAND campaign_aim_site_policy_tests)
 
+# Email catalogs, insurance templates, and shipment notices are selected at
+# runtime. The same data-free target pins the boundary checks used by Laptop's
+# legacy containers, dropdowns, and mail-order scrolling.
+add_executable(laptop_communications_policy_tests
+  laptop_communications_policy_tests.cpp)
+target_include_directories(laptop_communications_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2 ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME laptop_communications_policy
+  COMMAND laptop_communications_policy_tests)
+
 # A dedicated process replaces global allocation hooks while measuring the
 # observer hot path. Keeping it separate avoids coupling allocation accounting
 # to unrelated adapter tests or their setup work.

@@ -1929,22 +1929,28 @@ BOOLEAN DisplayGrenadeBombInfo(UINT16 usIndex, UINT16 usTextPosY, BOOLEAN fUsed,
 BOOLEAN DisplayBigItemImage(UINT16 usIndex, UINT16 PosY)
 {
 	INT16		PosX, sCenX, sCenY;
-	UINT32		usHeight, usWidth;
-	INT32		sOffsetX, sOffsetY;
+	UINT32		usHeight = 0, usWidth = 0;
+	INT32		sOffsetX = 0, sOffsetY = 0;
 	ETRLEObject	*pTrav;
 	INVTYPE		*pItem;
-	UINT32		uiImage;
-	HVOBJECT	hPixHandle;
+	UINT32		uiImage = 0;
+	HVOBJECT	hPixHandle = nullptr;
 
 	PosX = BOBBYR_GRID_PIC_X;
 
 	pItem = &Item[ usIndex ];
-	LoadTileGraphicForItem(pItem, &uiImage);
+	if (!LoadTileGraphicForItem(pItem, &uiImage))
+		return FALSE;
 
-	GetVideoObject(&hPixHandle, uiImage);
-	if (hPixHandle == nullptr) { SET_ERROR("Error: Could not load item uiIndex %d graphics. ubGraphicType %d and ubGraphicNum %d", usIndex, pItem->ubGraphicType, pItem->ubGraphicNum); AssertMsg(false, gubErrorText); }
+	if (!GetVideoObject(&hPixHandle, uiImage) || !hPixHandle)
+	{
+		SET_ERROR("Error: Could not load item uiIndex %d graphics. ubGraphicType %d and ubGraphicNum %d", usIndex, pItem->ubGraphicType, pItem->ubGraphicNum);
+		AssertMsg(false, gubErrorText);
+		DeleteVideoObjectFromIndex(uiImage);
+		return FALSE;
+	}
 
-	if(hPixHandle->ubBitDepth == 8)
+	if(hPixHandle->ubBitDepth == 8 && hPixHandle->pETRLEObject)
 	{
 		pTrav = &(hPixHandle->pETRLEObject[ 0 ] );
 	
@@ -1961,7 +1967,7 @@ BOOLEAN DisplayBigItemImage(UINT16 usIndex, UINT16 PosY)
 		sOffsetX				= hPixHandle->p16BPPObject->sOffsetX;
 		sOffsetY				= hPixHandle->p16BPPObject->sOffsetY;
 	}
-	else if(hPixHandle->ubBitDepth == 32)
+	else if(hPixHandle->ubBitDepth == 32 && hPixHandle->p16BPPObject)
 	{
 		usHeight				= hPixHandle->p16BPPObject->usHeight;
 		usWidth					= hPixHandle->p16BPPObject->usWidth;
@@ -1971,6 +1977,8 @@ BOOLEAN DisplayBigItemImage(UINT16 usIndex, UINT16 PosY)
     else
     {
         Assert(false);
+		DeleteVideoObjectFromIndex(uiImage);
+		return FALSE;
     }
 
 //	sCenX = PosX + ( abs( BOBBYR_GRID_PIC_WIDTH - usWidth ) / 2 );

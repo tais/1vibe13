@@ -4,6 +4,7 @@
 */
 
 #include "laptop.h"
+#include "LaptopSafety.h"
 #include "insurance.h"
 #include "insurance Contract.h"
 #include "WCheck.h"
@@ -236,6 +237,11 @@ void IntelBuyButtonCallback( GUI_BUTTON *btn, INT32 reason )
 			btn->uiFlags &= ~( BUTTON_CLICKED_ON );
 
 			INT16 mapregion = DropDownTemplate<DROPDOWN_INTEL_BUY>::getInstance().GetSelectedEntryKey();
+			if (!IsValidIntelMapRegion(mapregion))
+			{
+				Assert(FALSE);
+				return;
+			}
 
 			int intelcost = 50;
 			if ( btn->IDNum == gIntelBuyButton[1] )
@@ -245,11 +251,11 @@ void IntelBuyButtonCallback( GUI_BUTTON *btn, INT32 reason )
 			{
 				AddIntel( -intelcost, TRUE );
 
-				LaptopSaveInfo.usMapIntelFlags |= 1 << mapregion;
+				LaptopSaveInfo.usMapIntelFlags |= UINT32{1} << mapregion;
 
 				// if we buy an advanced scan, also add seond flag
 				if ( btn->IDNum == gIntelBuyButton[1] )
-					LaptopSaveInfo.usMapIntelFlags |= 1 << ( 16 + mapregion );
+					LaptopSaveInfo.usMapIntelFlags |= UINT32{1} << (16 + mapregion);
 
 				fIntelRedraw = TRUE;
 			}
@@ -263,10 +269,11 @@ void EnterIntelmarket()
 
 	for ( INT16 i = 0; i < 16; ++i )
 	{
-		if ( !( LaptopSaveInfo.usMapIntelFlags & ( 1 << i ) ) )
+		if (!(LaptopSaveInfo.usMapIntelFlags & (UINT32{1} << i)))
 		{
-			swprintf( gIntelBuyMapPartNamesStr[i], szIntelWebsiteText[TEXT_INTEL_MAPREGION_1 + i] );
-			gIntelBuyMapPartNamesStr[i][63] = '/0';
+			wcsncpy(gIntelBuyMapPartNamesStr[i],
+				szIntelWebsiteText[TEXT_INTEL_MAPREGION_1 + i], 63);
+			gIntelBuyMapPartNamesStr[i][63] = L'\0';
 
 			dropdownvector.push_back( std::make_pair( i, gIntelBuyMapPartNamesStr[i] ) );
 		}

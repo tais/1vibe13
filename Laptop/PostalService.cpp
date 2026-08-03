@@ -1,4 +1,7 @@
 #include "SaveLoadMap.h"
+#include "CampaignLaptopCommunicationsPolicy.h"
+#include "GameContext.h"
+#include "LaptopSafety.h"
 #include "Structure Wrap.h"
 #include "Tactical Save.h"
 #include "PostalService.h"
@@ -10,6 +13,7 @@
 #include <list>
 #include <string>
 #include <iostream>
+#include <memory>
 #include "Quests.h"
 #include "Strategic Town Loyalty.h"
 #include "email.h"
@@ -19,9 +23,7 @@
 #include "connect.h"
 #include "Strategic Event Handler.h"
 
-#ifdef JA2UB
 #include "ub_config.h"
-#endif
 
 using namespace std;
 
@@ -54,6 +56,15 @@ using namespace std;
 extern StrategicMapElement StrategicMap[];
 
 extern INT16 gusCurShipmentDestinationID;
+
+namespace
+{
+RefToDestinationStruct InvalidDestination()
+{
+	static DestinationStruct invalidDestination{};
+	return invalidDestination;
+}
+}
 
 
 
@@ -102,10 +113,10 @@ CPostalService::CPostalService()
 void CPostalService::Clear(bool clearDataOnly)
 {
 	_Shipments.clear();
+	_UsedShipmentIDList.clear();
 
 	if (!clearDataOnly)
 	{
-		_UsedShipmentIDList.clear();;
 		_DeliveryCallbacks.clear();
 		_Destinations.clear();
 		_UsedDestinationIDList.clear();
@@ -117,23 +128,23 @@ UINT16 CPostalService::CreateNewShipment(UINT16 usDestinationID, UINT8  ubDelive
 {
 	if(	usDestinationID >= _UsedDestinationIDList.size() ||
 		!_UsedDestinationIDList[usDestinationID] ||
-		ubDeliveryMethodIndex > _DeliveryMethods.size() )
+		ubDeliveryMethodIndex >= _DeliveryMethods.size() ||
+		!IsValidLaptopIndex(
+			_DeliveryMethods[ubDeliveryMethodIndex].destinationDeliveryInfos.size(),
+			usDestinationID))
 	{
 		Assert(0);
 		return 0;
 	}
 
 	_Destinations.sort(DESTINATION_LIST_ASCENDING);
-	DestinationList::const_iterator dli = _Destinations.begin();
-	
-	while(DESTINATION(dli).usID != usDestinationID)
+	const auto dli = FindLaptopRecordById(
+		_Destinations.cbegin(), _Destinations.cend(), usDestinationID,
+		[](const DestinationStruct& destination) { return destination.usID; });
+	if (dli == _Destinations.cend())
 	{
-		if(dli == _Destinations.end())
-		{
-			Assert(0);
-			return 0;
-		}
-		dli++;
+		Assert(0);
+		return 0;
 	}
 
 	UINT16 usNewID = 1;
@@ -163,10 +174,12 @@ UINT16 CPostalService::CreateNewShipment(UINT16 usDestinationID, UINT8  ubDelive
 		}
 	}
 
-	ShipmentStruct shs;
+	ShipmentStruct shs{};
 	shs.usID			= usNewID;
 	shs.pDestination	= &(DESTINATION(dli));
-	shs.pDestinationDeliveryInfo = &(_DeliveryMethods[ubDeliveryMethodIndex].pDestinationDeliveryInfos->at(DESTINATION(dli).usID));
+	shs.pDestinationDeliveryInfo = &(
+		_DeliveryMethods[ubDeliveryMethodIndex].destinationDeliveryInfos.at(
+			DESTINATION(dli).usID));
 	shs.sSenderID		= sSenderID;
 	shs.ShipmentStatus	= SHIPMENT_STATIONARY;
 	shs.uiOrderDate		= GetWorldDay();
@@ -178,7 +191,7 @@ UINT16 CPostalService::CreateNewShipment(UINT16 usDestinationID, UINT8  ubDelive
 
 BOOLEAN CPostalService::AddPackageToShipment(UINT16 usShipmentID, UINT16 usItemIndex, UINT8 ubNumber, INT8 bItemQuality)
 {
-	if(	usShipmentID > _UsedShipmentIDList.size() ||
+	if(	!IsValidLaptopIndex(_UsedShipmentIDList.size(), usShipmentID) ||
 		!_UsedShipmentIDList[usShipmentID])
 	{
 		Assert(0);
@@ -186,19 +199,16 @@ BOOLEAN CPostalService::AddPackageToShipment(UINT16 usShipmentID, UINT16 usItemI
 	}
 
 	_Shipments.sort(SHIPMENT_LIST_ASCENDING);
-	ShipmentListIterator sli = _Shipments.begin();
-
-	while(SHIPMENT(sli).usID != usShipmentID)
+	const auto sli = FindLaptopRecordById(
+		_Shipments.begin(), _Shipments.end(), usShipmentID,
+		[](const ShipmentStruct& shipment) { return shipment.usID; });
+	if (sli == _Shipments.end())
 	{
-		if(sli == _Shipments.end())
-		{
-			Assert(0);
-			return FALSE;
-		}
-		sli++;
+		Assert(0);
+		return FALSE;
 	}
 
-	ShipmentPackageStruct sps;
+	ShipmentPackageStruct sps{};
 	sps.usItemIndex = usItemIndex;
 	sps.ubNumber = ubNumber;
 	sps.bItemQuality = bItemQuality;
@@ -211,23 +221,20 @@ BOOLEAN CPostalService::AddPackageToShipment(UINT16 usShipmentID, UINT16 usItemI
 BOOLEAN CPostalService::SendShipment(UINT16 usShipmentID)
 {
 	BOOLEAN BR_FAST_SHIP = gGameExternalOptions.fBobbyRayFastShipments;
-	if( usShipmentID > _UsedShipmentIDList.size() ||
+	if( !IsValidLaptopIndex(_UsedShipmentIDList.size(), usShipmentID) ||
 		!_UsedShipmentIDList[usShipmentID])
 	{
 		Assert(0);
 		return FALSE;
 	}
 
-	ShipmentListIterator sli = _Shipments.begin();
-
-	while(SHIPMENT(sli).usID != usShipmentID)
+	const auto sli = FindLaptopRecordById(
+		_Shipments.begin(), _Shipments.end(), usShipmentID,
+		[](const ShipmentStruct& shipment) { return shipment.usID; });
+	if (sli == _Shipments.end() || !SHIPMENT(sli).pDestinationDeliveryInfo)
 	{
-		if(sli == _Shipments.end())
-		{
-			Assert(0);
-			return FALSE;
-		}
-		sli++;
+		Assert(0);
+		return FALSE;
 	}
 
 	SHIPMENT(sli).ShipmentStatus = SHIPMENT_INTRANSIT;
@@ -265,23 +272,21 @@ BOOLEAN CPostalService::DeliverShipment(UINT16 usShipmentID)
 	UINT32 sMapPos;
 	BOOLEAN		fPablosStoleSomething = FALSE;
 
-	if(	usShipmentID > _UsedShipmentIDList.size() ||
+	if(	!IsValidLaptopIndex(_UsedShipmentIDList.size(), usShipmentID) ||
 		!_UsedShipmentIDList[usShipmentID])
 	{
 		Assert(0);
 		return FALSE;
 	}
 
-	ShipmentListIterator sli = _Shipments.begin();
-
-	while(SHIPMENT(sli).usID != usShipmentID)
+	const auto sli = FindLaptopRecordById(
+		_Shipments.begin(), _Shipments.end(), usShipmentID,
+		[](const ShipmentStruct& shipment) { return shipment.usID; });
+	if (sli == _Shipments.end() || !SHIPMENT(sli).pDestination ||
+		!SHIPMENT(sli).pDestinationDeliveryInfo)
 	{
-		if(sli == _Shipments.end())
-		{
-			Assert(0);
-			return FALSE;
-		}
-		sli++;
+		Assert(0);
+		return FALSE;
 	}
 
 	if(SHIPMENT(sli).ShipmentStatus == SHIPMENT_STATIONARY)
@@ -289,21 +294,23 @@ BOOLEAN CPostalService::DeliverShipment(UINT16 usShipmentID)
 		return FALSE;
 	}
 	
-	PCShipmentManipulator ShipmentManipulator = new CShipmentManipulator(this, &SHIPMENT(sli));
+	CShipmentManipulator shipmentManipulator(this, &SHIPMENT(sli));
 
 	// Delivery callback code goes here
-	if(_DeliveryCallbacks[0].DeliveryCallbackFunc)
+	if(!_DeliveryCallbacks.empty() && _DeliveryCallbacks[0].DeliveryCallbackFunc)
 	{
-		_DeliveryCallbacks[0].DeliveryCallbackFunc(*ShipmentManipulator);
+		_DeliveryCallbacks[0].DeliveryCallbackFunc(shipmentManipulator);
 	}
 
-	if(ShipmentManipulator->_fContinueCallbackChain)
+	if(shipmentManipulator._fContinueCallbackChain)
 	{
-		if( SHIPMENT(sli).sSenderID + 2 <= (INT16)_DeliveryCallbacks.size() &&
-			_DeliveryCallbacks[SHIPMENT(sli).sSenderID + 1].DeliveryCallbackFunc)
+		const INT32 callbackIndex = SHIPMENT(sli).sSenderID + 1;
+		if (callbackIndex >= 0 &&
+			IsValidLaptopIndex(_DeliveryCallbacks.size(), callbackIndex) &&
+			_DeliveryCallbacks[callbackIndex].DeliveryCallbackFunc)
 		{
 			// WANNE: This calls the BobbyRDeliveryCallback() method in BobbyRMailOrder.cpp
-			_DeliveryCallbacks[SHIPMENT(sli).sSenderID + 1].DeliveryCallbackFunc(*ShipmentManipulator);
+			_DeliveryCallbacks[callbackIndex].DeliveryCallbackFunc(shipmentManipulator);
 		}
 	}
 	
@@ -316,8 +323,16 @@ BOOLEAN CPostalService::DeliverShipment(UINT16 usShipmentID)
 
 
 	RefToShipmentStruct shs = SHIPMENT(sli);
+	if (shs.pDestination->ubMapX == 0 ||
+		shs.pDestination->ubMapX >= MAP_WORLD_X - 1 ||
+		shs.pDestination->ubMapY == 0 ||
+		shs.pDestination->ubMapY >= MAP_WORLD_Y - 1)
+	{
+		Assert(0);
+		return FALSE;
+	}
 
-	// Sector is enemy controlled or shipment sector does not exist (->ubMapX = 0, ubMapY = 0)  -> Clear the shipments
+	// Enemy-controlled destinations consume the shipment without placing items.
 	if( StrategicMap[ CALCULATE_STRATEGIC_INDEX( shs.pDestination->ubMapX, shs.pDestination->ubMapY ) ].fEnemyControlled )
 	{
 		shs.ShipmentPackages.clear();
@@ -403,18 +418,12 @@ BOOLEAN CPostalService::DeliverShipment(UINT16 usShipmentID)
 			usNumberOfItems += shs.ShipmentPackages[i].ubNumber;
 		}
 
-		OBJECTTYPE *pObject;
-		OBJECTTYPE *pStolenObject;
-		if(!fSectorLoaded)
+		std::unique_ptr<OBJECTTYPE[]> deliveredObjects;
+		std::unique_ptr<OBJECTTYPE[]> stolenObjects;
+		if (!fSectorLoaded && usNumberOfItems > 0)
 		{
-			pObject = new OBJECTTYPE[usNumberOfItems];
-			pStolenObject = new OBJECTTYPE[ usNumberOfItems ];
-
-			if(!pObject || !pStolenObject)
-			{
-				Assert(0);
-				return FALSE;
-			}
+			deliveredObjects = std::make_unique<OBJECTTYPE[]>(usNumberOfItems);
+			stolenObjects = std::make_unique<OBJECTTYPE[]>(usNumberOfItems);
 		}
 
 		UINT		uiCount=0;
@@ -485,14 +494,14 @@ BOOLEAN CPostalService::DeliverShipment(UINT16 usShipmentID)
 					// Pablo steals the item
 					if ( !fPablosStoleLastItem && uiChanceOfTheft > 0 && Random( 100 ) < (uiChanceOfTheft + cnt) )
 					{
-						pStolenObject[ uiStolenCount ] = gTempObject;
+						stolenObjects[uiStolenCount] = gTempObject;
 						uiStolenCount++;
 						fPablosStoleSomething = TRUE;
 						fPablosStoleLastItem = TRUE;
 					}
 					else
 					{
-						pObject[ uiCount ] = tempObject;
+						deliveredObjects[uiCount] = tempObject;
 						uiCount++;
 					}
 				}
@@ -508,12 +517,10 @@ BOOLEAN CPostalService::DeliverShipment(UINT16 usShipmentID)
 			if (uiCount > 0)
 			{
 				if( !AddItemsToUnLoadedSector(	shs.pDestination->ubMapX, shs.pDestination->ubMapY, 
-					shs.pDestination->ubMapZ, shs.pDestination->sGridNo, uiCount, pObject, 0, 0, 0, -1, FALSE ) )
+					shs.pDestination->ubMapZ, shs.pDestination->sGridNo, uiCount, deliveredObjects.get(), 0, 0, 0, -1, FALSE ) )
 				{
 					Assert( 0 );
 				}
-				delete[]( pObject );
-				pObject = NULL;
 			}
 
 			// Stolen items by Pablo
@@ -521,12 +528,10 @@ BOOLEAN CPostalService::DeliverShipment(UINT16 usShipmentID)
 			{
 				// Delivered items
 				if( !AddItemsToUnLoadedSector(	shs.pDestination->ubMapX, shs.pDestination->ubMapY, 
-					shs.pDestination->ubMapZ, PABLOS_STOLEN_DEST_GRIDNO, uiStolenCount, pStolenObject, 0, 0, 0, -1, FALSE ) )
+					shs.pDestination->ubMapZ, PABLOS_STOLEN_DEST_GRIDNO, uiStolenCount, stolenObjects.get(), 0, 0, 0, -1, FALSE ) )
 				{
 					Assert( 0 );
 				}
-				delete[]( pStolenObject );
-				pStolenObject = NULL;
 			}
 		}
 
@@ -563,38 +568,44 @@ BOOLEAN CPostalService::DeliverShipment(UINT16 usShipmentID)
 		if (!is_networked)
 		{
 		
-		StopTimeCompression();
-#ifdef JA2UB
-	if ( gGameUBOptions.fBobbyRSite == TRUE )
-	{
-			// Shipment from Bobby Ray
-		if ( shs.sSenderID == BOBBYR_SENDER_ID )
-		{
-			if ( gEmails.size() > 0 )
+			StopTimeCompression();
+			const CampaignLaptopCommunicationsPolicy communicationsPolicy(
+				GetGameContext().capabilities());
+			if (shs.sSenderID == BOBBYR_SENDER_ID &&
+				communicationsPolicy.bobbyShipmentNoticeAvailable(
+					gGameUBOptions.fBobbyRSite == TRUE))
 			{
-				AddEmailFromXML(XML_BR_SHIPMENTARRIVAL, GetWorldTotalMin(), -1, gusCurShipmentDestinationID, false, -1, -1, 198, -1, -1, -1);
+				const auto record = communicationsPolicy.bobbyShipmentRecord();
+				if (communicationsPolicy.usesUnfinishedBusinessCatalog())
+				{
+					if (!gEmails.empty())
+					{
+						AddEmailFromXML(XML_BR_SHIPMENTARRIVAL,
+							GetWorldTotalMin(), -1, gusCurShipmentDestinationID,
+							false, -1, -1, record.offset, -1, -1, -1);
+					}
+					else
+					{
+						AddBobbyREmailJA2(record.offset, record.length, BOBBY_R,
+							GetWorldTotalMin(), -1, gusCurShipmentDestinationID,
+							TYPE_EMAIL_BOBBY_R_EMAIL_JA2_EDT);
+					}
+				}
+				else
+				{
+					AddEmail(record.offset, record.length, BOBBY_R,
+						GetWorldTotalMin(), -1, gusCurShipmentDestinationID,
+						TYPE_EMAIL_EMAIL_EDT, XML_BR_SHIPMENTARRIVAL);
+				}
 			}
-			else
+			else if (shs.sSenderID == JOHN_KULBA_SENDER_ID &&
+				communicationsPolicy.johnKulbaShipmentNoticeAvailable())
 			{
-				AddBobbyREmailJA2(198, 4, BOBBY_R, GetWorldTotalMin(), -1, gusCurShipmentDestinationID, TYPE_EMAIL_BOBBY_R_EMAIL_JA2_EDT);
-				// Shipment from John Kulba
-			//else
-			//	AddEmail( JOHN_KULBA_GIFT_IN_DRASSEN, JOHN_KULBA_GIFT_IN_DRASSEN_LENGTH, JOHN_KULBA, GetWorldTotalMin(), -1, gusCurShipmentDestinationID, TYPE_EMAIL_EMAIL_EDT);
+				const auto record = communicationsPolicy.johnKulbaShipmentRecord();
+				AddEmail(record.offset, record.length, JOHN_KULBA,
+					GetWorldTotalMin(), -1, gusCurShipmentDestinationID,
+					TYPE_EMAIL_EMAIL_EDT, XML_JOHNKULBA_SENTGUNS);
 			}
-		}
-	}
-#else
-		// Shipment from Bobby Ray
-		if ( shs.sSenderID == BOBBYR_SENDER_ID )
-		{
-			AddEmail(BOBBYR_SHIPMENT_ARRIVED, BOBBYR_SHIPMENT_ARRIVED_LENGTH, BOBBY_R, GetWorldTotalMin(), -1, gusCurShipmentDestinationID, TYPE_EMAIL_EMAIL_EDT, XML_BR_SHIPMENTARRIVAL);
-		}
-		// Shipment from John Kulba
-		else
-		{
-			AddEmail(JOHN_KULBA_GIFT_IN_DRASSEN, JOHN_KULBA_GIFT_IN_DRASSEN_LENGTH, JOHN_KULBA, GetWorldTotalMin(), -1, gusCurShipmentDestinationID, TYPE_EMAIL_EMAIL_EDT, XML_JOHNKULBA_SENTGUNS);
-		}
-#endif
 		}
 
 		shs.ShipmentPackages.clear();
@@ -615,23 +626,21 @@ BOOLEAN CPostalService::DeliverShipment(UINT16 usShipmentID)
 
 BOOLEAN CPostalService::DeliverShipmentForMultiplayer(UINT16 usShipmentID)
 {
-	if(	usShipmentID > _UsedShipmentIDList.size() ||
+	if(	!IsValidLaptopIndex(_UsedShipmentIDList.size(), usShipmentID) ||
 		!_UsedShipmentIDList[usShipmentID])
 	{
 		Assert(0);
 		return FALSE;
 	}
 
-	ShipmentListIterator sli = _Shipments.begin();
-
-	while(SHIPMENT(sli).usID != usShipmentID)
+	const auto sli = FindLaptopRecordById(
+		_Shipments.begin(), _Shipments.end(), usShipmentID,
+		[](const ShipmentStruct& shipment) { return shipment.usID; });
+	if (sli == _Shipments.end() || !SHIPMENT(sli).pDestination ||
+		!SHIPMENT(sli).pDestinationDeliveryInfo)
 	{
-		if(sli == _Shipments.end())
-		{
-			Assert(0);
-			return FALSE;
-		}
-		sli++;
+		Assert(0);
+		return FALSE;
 	}
 
 	if(SHIPMENT(sli).ShipmentStatus == SHIPMENT_STATIONARY)
@@ -639,20 +648,22 @@ BOOLEAN CPostalService::DeliverShipmentForMultiplayer(UINT16 usShipmentID)
 		return FALSE;
 	}
 	
-	PCShipmentManipulator ShipmentManipulator = new CShipmentManipulator(this, &SHIPMENT(sli));
+	CShipmentManipulator shipmentManipulator(this, &SHIPMENT(sli));
 
 	// Delivery callback code goes here
-	if(_DeliveryCallbacks[0].DeliveryCallbackFunc)
+	if(!_DeliveryCallbacks.empty() && _DeliveryCallbacks[0].DeliveryCallbackFunc)
 	{
-		_DeliveryCallbacks[0].DeliveryCallbackFunc(*ShipmentManipulator);
+		_DeliveryCallbacks[0].DeliveryCallbackFunc(shipmentManipulator);
 	}
 
-	if(ShipmentManipulator->_fContinueCallbackChain)
+	if(shipmentManipulator._fContinueCallbackChain)
 	{
-		if( SHIPMENT(sli).sSenderID + 2 <= (INT16)_DeliveryCallbacks.size() &&
-			_DeliveryCallbacks[SHIPMENT(sli).sSenderID + 1].DeliveryCallbackFunc)
+		const INT32 callbackIndex = SHIPMENT(sli).sSenderID + 1;
+		if (callbackIndex >= 0 &&
+			IsValidLaptopIndex(_DeliveryCallbacks.size(), callbackIndex) &&
+			_DeliveryCallbacks[callbackIndex].DeliveryCallbackFunc)
 		{
-			_DeliveryCallbacks[SHIPMENT(sli).sSenderID + 1].DeliveryCallbackFunc(*ShipmentManipulator);
+			_DeliveryCallbacks[callbackIndex].DeliveryCallbackFunc(shipmentManipulator);
 		}
 	}
 	
@@ -692,17 +703,9 @@ BOOLEAN CPostalService::DeliverShipmentForMultiplayer(UINT16 usShipmentID)
 			usNumberOfItems += shs.ShipmentPackages[i].ubNumber;
 		}
 
-		OBJECTTYPE *pObject;
-		if(!fSectorLoaded)
-		{
-			pObject = new OBJECTTYPE[usNumberOfItems];
-
-			if(!pObject)
-			{
-				Assert(0);
-				return FALSE;
-			}
-		}
+		std::unique_ptr<OBJECTTYPE[]> deliveredObjects;
+		if (!fSectorLoaded && usNumberOfItems > 0)
+			deliveredObjects = std::make_unique<OBJECTTYPE[]>(usNumberOfItems);
 
 		UINT		uiCount=0;
 		UINT8		ubItemsDelivered, ubTempNumItems;
@@ -734,7 +737,7 @@ BOOLEAN CPostalService::DeliverShipmentForMultiplayer(UINT16 usShipmentID)
 				}
 				else
 				{
-					pObject[ uiCount ] = tempObject;
+					deliveredObjects[uiCount] = tempObject;
 					uiCount++;
 				}
 
@@ -742,15 +745,13 @@ BOOLEAN CPostalService::DeliverShipmentForMultiplayer(UINT16 usShipmentID)
 			}
 		}
 
-		if( !fSectorLoaded )
+		if (!fSectorLoaded && uiCount > 0)
 		{
 			if( !AddItemsToUnLoadedSector(	gsMercArriveSectorX, gsMercArriveSectorY, 
-				0, 12880, uiCount, pObject, 0, WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE, 0, 1, FALSE ) )
+				0, 12880, uiCount, deliveredObjects.get(), 0, WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE, 0, 1, FALSE ) )
 			{
 				Assert( 0 );
 			}
-			delete[]( pObject );
-			pObject = NULL;
 		}
 
 		shs.ShipmentPackages.clear();
@@ -777,7 +778,7 @@ BOOLEAN CPostalService::RegisterDeliveryCallback(INT16 sSenderID, PtrToDeliveryC
 		return 0;
 	}
 
-	DeliveryCallbackDataStruct dcd;
+	DeliveryCallbackDataStruct dcd{};
 	
 	dcd.sSenderID=-1;
 	dcd.DeliveryCallbackFunc = NULL;
@@ -821,12 +822,15 @@ BOOLEAN CPostalService::LoadShipmentListFromSaveGameFile(HWFILE hFile)
 	{
 		_Shipments.clear();
 	}
+	_UsedShipmentIDList.clear();
 
 	FileRead(hFile, &sls, sizeof(ShipmentListSaveFileDataHeaderStruct), &uiBytesRead);
 	if(uiBytesRead != sizeof(ShipmentListSaveFileDataHeaderStruct))
 	{
 		return FALSE;
 	}
+	if (sls.uiNumberOfShipments > MAX_SHIPMENTS)
+		return FALSE;
 		
 	ShipmentPackageStruct		sps;	
 		
@@ -847,10 +851,23 @@ BOOLEAN CPostalService::LoadShipmentListFromSaveGameFile(HWFILE hFile)
 		//memset(&shs, 0, sizeof(ShipmentStruct));		
 
 		// WANNE: This is the fix for the item duplication!
-		ShipmentStruct	shs;
+		ShipmentStruct shs{};
 
 		shs.pDestination	= &(_GetDestination(sfs.usDestinationID));
-		shs.pDestinationDeliveryInfo = &(_DeliveryMethods[sfs.ubDeliveryMethodIndex].pDestinationDeliveryInfos->at(sfs.usDestinationID));
+		if (shs.pDestination->usID != sfs.usDestinationID)
+			return FALSE;
+		if (!IsValidLaptopIndex(_DeliveryMethods.size(),
+			sfs.ubDeliveryMethodIndex) ||
+			!IsValidLaptopIndex(
+				_DeliveryMethods[sfs.ubDeliveryMethodIndex]
+					.destinationDeliveryInfos.size(),
+				sfs.usDestinationID))
+		{
+			return FALSE;
+		}
+		shs.pDestinationDeliveryInfo = &(
+			_DeliveryMethods[sfs.ubDeliveryMethodIndex]
+				.destinationDeliveryInfos.at(sfs.usDestinationID));
 		shs.ShipmentStatus	= sfs.ShipmentStatus;
 		shs.sReceiverID		= sfs.sReceiverID;
 		shs.sSenderID		= sfs.sSenderID;
@@ -973,7 +990,7 @@ UINT16 CPostalService::AddDestination(UINT32 uiIndex, UINT8 ubMapX, UINT8 ubMapY
 	}
 
 	// Alright, we've found a suitable ID, let's add the destination
-	DestinationStruct newDestination;
+	DestinationStruct newDestination{};
 
 	newDestination.sGridNo	=	sGridNo;
 	newDestination.wstrName =	pszName;
@@ -1003,10 +1020,14 @@ UINT16 CPostalService::RemoveDestination(UINT16 usDestinationID)
 	}
 	// ID  is known and in use
 	_Destinations.sort(DESTINATION_LIST_ASCENDING);
-	DestinationList::iterator dli = _Destinations.begin();
-
-	while( ( (RefToDestinationStruct)*dli ).usID != usDestinationID )
-		dli++;
+	const auto dli = FindLaptopRecordById(
+		_Destinations.begin(), _Destinations.end(), usDestinationID,
+		[](const DestinationStruct& destination) { return destination.usID; });
+	if (dli == _Destinations.end())
+	{
+		Assert(0);
+		return 0;
+	}
 
 	_Destinations.erase(dli);
 	_UsedDestinationIDList[usDestinationID] = FALSE;
@@ -1074,22 +1095,19 @@ RefToShipmentList CPostalService::LookupShipmentList(void) const
 RefToDestinationStruct CPostalService::GetDestination(UINT16 usDestinationID) const
 {
 	if(	usDestinationID >= _UsedDestinationIDList.size() ||
-		!_UsedDestinationIDList[usDestinationID])
+		!_UsedDestinationIDList[usDestinationID] || _Destinations.empty())
 	{
 		Assert(0);
-		return DESTINATION(_Destinations.begin());  // was end() -> UB deref; begin() is a valid fallback ref
+		return InvalidDestination();
 	}
 
-	DestinationList::const_iterator dli = _Destinations.begin();
-
-	while(DESTINATION(dli).usID != usDestinationID)
+	const auto dli = FindLaptopRecordById(
+		_Destinations.cbegin(), _Destinations.cend(), usDestinationID,
+		[](const DestinationStruct& destination) { return destination.usID; });
+	if (dli == _Destinations.cend())
 	{
-		if(dli == _Destinations.end())
-		{
-			Assert(0);
-			return DESTINATION(_Destinations.begin());  // was end() -> UB deref; begin() is a valid fallback ref
-		}
-		dli++;
+		Assert(0);
+		return InvalidDestination();
 	}
 
 	return DESTINATION(dli);
@@ -1097,10 +1115,9 @@ RefToDestinationStruct CPostalService::GetDestination(UINT16 usDestinationID) co
 
 UINT8 CPostalService::AddDeliveryMethod(STR16 pszDescription)
 {
-	DeliveryMethodStruct dms;
+	DeliveryMethodStruct dms{};
 
 	dms.wstrDescription = pszDescription;
-	dms.pDestinationDeliveryInfos = new DestinationDeliveryInfoTable;
 
 	_DeliveryMethods.push_back(dms);
 
@@ -1109,67 +1126,69 @@ UINT8 CPostalService::AddDeliveryMethod(STR16 pszDescription)
 
 UINT16 CPostalService::SetDestinationDeliveryInfo(UINT8 ubDeliveryMethodIndex, UINT32 uiDestinationIndex, UINT16 usDestinationFee, INT8 bDaysAhead)
 {
-	if( (ubDeliveryMethodIndex > _DeliveryMethods.size() - 1) )
+	if (!IsValidLaptopIndex(_DeliveryMethods.size(), ubDeliveryMethodIndex))
 	{
 		Assert(0);
 		return 0;
 	}
 
-	_DeliveryMethods[ubDeliveryMethodIndex].pDestinationDeliveryInfos->resize(_UsedDestinationIDList.size());
+	_DeliveryMethods[ubDeliveryMethodIndex].destinationDeliveryInfos.resize(
+		_UsedDestinationIDList.size());
 
 	_Destinations.sort(DESTINATION_LIST_ASCENDING);
 
-	DestinationList::const_iterator dli = _Destinations.begin();
-
-	while( DESTINATION(dli).uiIndex != uiDestinationIndex)
+	const auto dli = FindLaptopRecordById(
+		_Destinations.cbegin(), _Destinations.cend(), uiDestinationIndex,
+		[](const DestinationStruct& destination) { return destination.uiIndex; });
+	if (dli == _Destinations.cend())
 	{
-		if(dli == _Destinations.end() )
-		{
-			Assert(0);
-			return 0;	// No destination with the specified index found
-		}
-		dli++;
+		Assert(0);
+		return 0;	// No destination with the specified index found
 	}
 
-	_DeliveryMethods[ubDeliveryMethodIndex].pDestinationDeliveryInfos->at(DESTINATION(dli).usID).ubParentDeliveryMethodIndex = ubDeliveryMethodIndex;
-	_DeliveryMethods[ubDeliveryMethodIndex].pDestinationDeliveryInfos->at(DESTINATION(dli).usID).usDestinationFee = usDestinationFee;
-	_DeliveryMethods[ubDeliveryMethodIndex].pDestinationDeliveryInfos->at(DESTINATION(dli).usID).bDaysAhead = bDaysAhead;
+	auto& deliveryInfo = _DeliveryMethods[ubDeliveryMethodIndex]
+		.destinationDeliveryInfos.at(DESTINATION(dli).usID);
+	deliveryInfo.ubParentDeliveryMethodIndex = ubDeliveryMethodIndex;
+	deliveryInfo.usDestinationFee = usDestinationFee;
+	deliveryInfo.bDaysAhead = bDaysAhead;
 	
 	return uiDestinationIndex;
 }
 
 UINT16 CPostalService::GetDestinationFee(UINT8 ubDeliveryMethodIndex, UINT16 usDestinationID)
 {
-	if(_UsedDestinationIDList.empty() || 
+	if(_UsedDestinationIDList.empty() ||
+		!IsValidLaptopIndex(_DeliveryMethods.size(), ubDeliveryMethodIndex) ||
 		usDestinationID >= _UsedDestinationIDList.size() ||
-		!_UsedDestinationIDList[usDestinationID])
+		!_UsedDestinationIDList[usDestinationID] ||
+		!IsValidLaptopIndex(
+			_DeliveryMethods[ubDeliveryMethodIndex].destinationDeliveryInfos.size(),
+			usDestinationID))
 	{
 		Assert(0);
 		return 0;
 	}
 
-	return _DeliveryMethods[ubDeliveryMethodIndex].pDestinationDeliveryInfos->at(usDestinationID).usDestinationFee;
+	return _DeliveryMethods[ubDeliveryMethodIndex]
+		.destinationDeliveryInfos.at(usDestinationID).usDestinationFee;
 }
 
 RefToDestinationStruct CPostalService::_GetDestination(UINT16 usDestinationID)
 {
 	if(	usDestinationID >= _UsedDestinationIDList.size() ||
-		!_UsedDestinationIDList[usDestinationID])
+		!_UsedDestinationIDList[usDestinationID] || _Destinations.empty())
 	{
 		Assert(0);
-		return DESTINATION(_Destinations.begin());  // was end() -> UB deref; begin() is a valid fallback ref
+		return InvalidDestination();
 	}
 
-	DestinationList::const_iterator dli = _Destinations.begin();
-
-	while(DESTINATION(dli).usID != usDestinationID)
+	const auto dli = FindLaptopRecordById(
+		_Destinations.cbegin(), _Destinations.cend(), usDestinationID,
+		[](const DestinationStruct& destination) { return destination.usID; });
+	if (dli == _Destinations.cend())
 	{
-		if(dli == _Destinations.end())
-		{
-			Assert(0);
-			return DESTINATION(_Destinations.begin());  // was end() -> UB deref; begin() is a valid fallback ref
-		}
-		dli++;
+		Assert(0);
+		return InvalidDestination();
 	}
 
 	return DESTINATION(dli);

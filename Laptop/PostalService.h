@@ -86,7 +86,7 @@ typedef DestinationDeliveryInfoTableIterator& RefToDestinationDeliveryInfoTableI
 typedef struct
 {
 	wstring wstrDescription;
-	PDestinationDeliveryInfoTable pDestinationDeliveryInfos;
+	DestinationDeliveryInfoTable destinationDeliveryInfos;
 } DeliveryMethodStruct;
 typedef DeliveryMethodStruct& RefToDeliveryMethodStruct;
 typedef DeliveryMethodStruct* PDeliveryMethodStruct;

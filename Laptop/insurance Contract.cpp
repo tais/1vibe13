@@ -1,4 +1,7 @@
 	#include "laptop.h"
+#include "CampaignLaptopCommunicationsPolicy.h"
+#include "GameContext.h"
+#include "LaptopSafety.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActor.h"
 #include "TacticalActorEmploymentTypes.h"
@@ -27,13 +30,11 @@
 	#include "Strategic Status.h"
 	#include "Assignments.h"
 	#include "Map Screen Interface.h"
-	#include "Interface.h"				// added by Flugente
-#include <vector>
-
-#ifdef JA2UB
-#include "ub_config.h"
+#include "Interface.h"				// added by Flugente
 #include "Quests.h"
-#endif
+#include "ub_config.h"
+#include <limits>
+#include <vector>
 
 #define		INS_CTRCT_ORDER_GRID_WIDTH					132
 #define		INS_CTRCT_ORDER_GRID_HEIGHT					216
@@ -1312,18 +1313,33 @@ BOOLEAN AddLifeInsurancePayout( TacticalActor *pSoldier )
 	UINT32 uiDaysToPay;
 
 
-	Assert(pSoldier != NULL);
-	Assert(pSoldier->identity().profile() != NO_PROFILE);
+	if (!pSoldier || pSoldier->identity().profile() == NO_PROFILE ||
+		pSoldier->identity().profile() >= NUM_PROFILES)
+	{
+		Assert(FALSE);
+		return FALSE;
+	}
 
 	pProfile = &(gMercProfiles[ pSoldier->identity().profile() ]);
 
 	//if we need to add more array elements
 	if( LaptopSaveInfo.ubNumberLifeInsurancePayouts <= LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed )
 	{
-		LaptopSaveInfo.ubNumberLifeInsurancePayouts++;
-		LaptopSaveInfo.pLifeInsurancePayouts = (LIFE_INSURANCE_PAYOUT *) MemRealloc( LaptopSaveInfo.pLifeInsurancePayouts, sizeof( LIFE_INSURANCE_PAYOUT ) * LaptopSaveInfo.ubNumberLifeInsurancePayouts	);
-		if( LaptopSaveInfo.pLifeInsurancePayouts == NULL )
+		if (LaptopSaveInfo.ubNumberLifeInsurancePayouts ==
+			std::numeric_limits<UINT8>::max())
+		{
+			Assert(FALSE);
+			return FALSE;
+		}
+		const UINT8 newPayoutCount =
+			LaptopSaveInfo.ubNumberLifeInsurancePayouts + 1;
+		auto* resizedPayouts = static_cast<LIFE_INSURANCE_PAYOUT*>(MemRealloc(
+			LaptopSaveInfo.pLifeInsurancePayouts,
+			sizeof(LIFE_INSURANCE_PAYOUT) * newPayoutCount));
+		if (!resizedPayouts)
 			return( FALSE );
+		LaptopSaveInfo.pLifeInsurancePayouts = resizedPayouts;
+		LaptopSaveInfo.ubNumberLifeInsurancePayouts = newPayoutCount;
 
 		memset( &LaptopSaveInfo.pLifeInsurancePayouts[ LaptopSaveInfo.ubNumberLifeInsurancePayouts - 1 ], 0, sizeof( LIFE_INSURANCE_PAYOUT ) );
 	}
@@ -1333,6 +1349,11 @@ BOOLEAN AddLifeInsurancePayout( TacticalActor *pSoldier )
 		//get an empty element in the array
 		if( !LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].fActive )
 			break;
+	}
+	if (ubPayoutID >= LaptopSaveInfo.ubNumberLifeInsurancePayouts)
+	{
+		Assert(FALSE);
+		return FALSE;
 	}
 
 	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubSoldierID = pSoldier->identity().id();
@@ -1364,7 +1385,10 @@ BOOLEAN AddLifeInsurancePayout( TacticalActor *pSoldier )
 	}
 
 	// calculate how many full, insured days of work the merc is going to miss
-	uiDaysToPay = pSoldier->employment().insuranceLengthDays() - ( GetWorldDay() + 1 - pSoldier->employment().insuranceStartDay() );
+	uiDaysToPay = RemainingLaptopDays(
+		pSoldier->employment().insuranceLengthDays(),
+		static_cast<INT32>(GetWorldDay()) + 1 -
+			pSoldier->employment().insuranceStartDay());
 
 	// calculate & store how much is to be paid out
 	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].iPayOutPrice = uiDaysToPay * uiCostPerDay;
@@ -1390,8 +1414,79 @@ BOOLEAN AddLifeInsurancePayout( TacticalActor *pSoldier )
 }
 
 
+namespace
+{
+using CommunicationsPolicy = CampaignLaptopCommunicationsPolicy;
+
+static_assert(static_cast<UINT8>(
+	CommunicationsPolicy::Substitution::InsuranceVerySuspiciousFraud) ==
+	TYPE_E_INSURANCE_L2);
+static_assert(static_cast<UINT8>(
+	CommunicationsPolicy::Substitution::InsurancePayment) ==
+	TYPE_E_INSURANCE_L3);
+static_assert(static_cast<UINT8>(
+	CommunicationsPolicy::Substitution::InsuranceFirstInvestigation) ==
+	TYPE_E_INSURANCE_L4);
+static_assert(static_cast<UINT8>(
+	CommunicationsPolicy::Substitution::InsuranceRepeatInvestigation) ==
+	TYPE_E_INSURANCE_L5);
+static_assert(static_cast<UINT8>(
+	CommunicationsPolicy::Substitution::InsuranceInvestigationComplete) ==
+	TYPE_E_INSURANCE_L6);
+
+bool IsValidInsurancePayout(UINT16 payoutId)
+{
+	return LaptopSaveInfo.pLifeInsurancePayouts &&
+		IsValidLaptopIndex(
+			LaptopSaveInfo.ubNumberLifeInsurancePayouts, payoutId) &&
+		LaptopSaveInfo.pLifeInsurancePayouts[payoutId].fActive &&
+		LaptopSaveInfo.pLifeInsurancePayouts[payoutId].ubMercID < NUM_PROFILES;
+}
+
+void SendInsuranceNotice(
+	CommunicationsPolicy::InsuranceNotice notice,
+	INT32 payoutPrice,
+	UINT8 mercId,
+	UINT16 xmlEmail)
+{
+	const CommunicationsPolicy policy(GetGameContext().capabilities());
+	if (!policy.insuranceAvailable(
+			gubQuest[QUEST_FIX_LAPTOP] == QUESTDONE,
+			gGameUBOptions.LaptopQuestEnabled == TRUE,
+			gGameUBOptions.LaptopLinkInsurance == TRUE))
+	{
+		return;
+	}
+
+	const CommunicationsPolicy::EmailRecord record =
+		policy.insuranceRecord(notice);
+	if (!record.available) return;
+
+	const UINT8 emailVersion = policy.usesUnfinishedBusinessCatalog()
+		? TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT
+		: TYPE_EMAIL_EMAIL_EDT;
+	AddEmailWithSpecialData(
+		record.offset,
+		record.length,
+		INSURANCE_COMPANY,
+		GetWorldTotalMin(),
+		payoutPrice,
+		mercId,
+		emailVersion,
+		static_cast<UINT8>(record.substitution),
+		xmlEmail);
+}
+}
+
+
 void StartInsuranceInvestigation( UINT16	ubPayoutID )
 {
+	if (!IsValidInsurancePayout(ubPayoutID))
+	{
+		Assert(FALSE);
+		return;
+	}
+
 	const auto mercID = LaptopSaveInfo.pLifeInsurancePayouts[ubPayoutID].ubMercID;
 	const auto payoutPrice = LaptopSaveInfo.pLifeInsurancePayouts[ubPayoutID].iPayOutPrice;
 
@@ -1399,34 +1494,16 @@ void StartInsuranceInvestigation( UINT16	ubPayoutID )
 	if (gStrategicStatus.ubInsuranceInvestigationsCnt == 0)
 	{
 		// first offense
-#ifdef JA2UB
-// no UB
-	if( gubQuest[ QUEST_FIX_LAPTOP ] == QUESTDONE || gGameUBOptions.LaptopQuestEnabled == FALSE )
-	{
-		if ( gGameUBOptions.LaptopLinkInsurance == TRUE )
-		{
-			AddEmailWithSpecialData(173, INSUR_SUSPIC_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT, TYPE_E_INSURANCE_L4, XML_INSURANCE_SUSPICIOUS);
-		}
-	}
-#else
-		AddEmailWithSpecialData(INSUR_SUSPIC, INSUR_SUSPIC_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_INSURANCE_SUSPICIOUS);
-#endif
+		SendInsuranceNotice(
+			CommunicationsPolicy::InsuranceNotice::FirstInvestigation,
+			payoutPrice, mercID, XML_INSURANCE_SUSPICIOUS);
 	}
 	else
 	{
 		// subsequent offense
-#ifdef JA2UB
-// no UB
-	if( gubQuest[ QUEST_FIX_LAPTOP ] == QUESTDONE || gGameUBOptions.LaptopQuestEnabled == FALSE )
-	{
-		if ( gGameUBOptions.LaptopLinkInsurance == TRUE )
-		{
-			AddEmailWithSpecialData(179, INSUR_SUSPIC_2_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT, TYPE_E_INSURANCE_L5, XML_INSURANCE_INVESTIGATION);
-		}
-	}
-#else
-		AddEmailWithSpecialData(INSUR_SUSPIC_2, INSUR_SUSPIC_2_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_INSURANCE_INVESTIGATION);
-#endif
+		SendInsuranceNotice(
+			CommunicationsPolicy::InsuranceNotice::RepeatInvestigation,
+			payoutPrice, mercID, XML_INSURANCE_INVESTIGATION);
 	}
 
 	UINT8 ubDays;
@@ -1451,6 +1528,12 @@ void StartInsuranceInvestigation( UINT16	ubPayoutID )
 
 void EndInsuranceInvestigation( UINT16	ubPayoutID )
 {
+	if (!IsValidInsurancePayout(ubPayoutID))
+	{
+		Assert(FALSE);
+		return;
+	}
+
 	const auto mercID = LaptopSaveInfo.pLifeInsurancePayouts[ubPayoutID].ubMercID;
 	const auto payoutPrice = LaptopSaveInfo.pLifeInsurancePayouts[ubPayoutID].iPayOutPrice;
 
@@ -1458,41 +1541,23 @@ void EndInsuranceInvestigation( UINT16	ubPayoutID )
 	if ( gMercProfiles[ mercID ].ubSuspiciousDeath == VERY_SUSPICIOUS_DEATH )
 	{
 		// fraud, no payout!
-#ifdef JA2UB
-        if ( gubQuest[QUEST_FIX_LAPTOP] == QUESTDONE || gGameUBOptions.LaptopQuestEnabled == FALSE )
-        {
-            if ( gGameUBOptions.LaptopLinkInsurance == TRUE )
-            {
-                AddEmailWithSpecialData(INSUR_1HOUR_FRAUD, INSUR_1HOUR_FRAUD_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT, TYPE_E_INSURANCE_L2, XML_INSURANCE_REFUSED);
-            }
-        }
-#else
-		AddEmailWithSpecialData(INSUR_1HOUR_FRAUD, INSUR_1HOUR_FRAUD_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_INSURANCE_REFUSED);
-#endif
+		SendInsuranceNotice(
+			CommunicationsPolicy::InsuranceNotice::VerySuspiciousFraud,
+			payoutPrice, mercID, XML_INSURANCE_REFUSED);
 	}
 	// Flugente: also don't pay out if the death was suspicious. I mean, we get this if there were no enemies of the player straight up shot the guy...
 	else if ( gMercProfiles[mercID].ubSuspiciousDeath == SUSPICIOUS_DEATH )
 	{
-#ifdef JA2UB
-		// WANNE: I really don't know if we should call something here. At least it fixed the compilation error when compiling UB version.
-#else
 		// fraud, no payout!
-		AddEmailWithSpecialData(INSUR_CHEAT_FRAUD, INSUR_CHEAT_FRAUD_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_INSURANCE_POLICYVIOLATION);
-#endif 
+		SendInsuranceNotice(
+			CommunicationsPolicy::InsuranceNotice::SuspiciousDeathFraud,
+			payoutPrice, mercID, XML_INSURANCE_POLICYVIOLATION);
 	}
 	else
 	{
-#ifdef JA2UB
-	if( gubQuest[ QUEST_FIX_LAPTOP ] == QUESTDONE || gGameUBOptions.LaptopQuestEnabled == FALSE )
-	{
-		if ( gGameUBOptions.LaptopLinkInsurance == TRUE )
-		{
-			AddEmailWithSpecialData(176, INSUR_INVEST_OVER_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT, TYPE_E_INSURANCE_L6, XML_INSURANCE_COMPLETED);
-		}
-	}
-#else
-		AddEmailWithSpecialData(INSUR_INVEST_OVER, INSUR_INVEST_OVER_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_INSURANCE_COMPLETED);
-#endif
+		SendInsuranceNotice(
+			CommunicationsPolicy::InsuranceNotice::InvestigationComplete,
+			payoutPrice, mercID, XML_INSURANCE_COMPLETED);
 
 		// only now make a payment (immediately)
 		InsuranceContractPayLifeInsuranceForDeadMerc( ubPayoutID );
@@ -1503,6 +1568,12 @@ void EndInsuranceInvestigation( UINT16	ubPayoutID )
 //void InsuranceContractPayLifeInsuranceForDeadMerc( LIFE_INSURANCE_PAYOUT *pPayoutStruct )
 void InsuranceContractPayLifeInsuranceForDeadMerc( UINT16 ubPayoutID )
 {
+	if (!IsValidInsurancePayout(ubPayoutID))
+	{
+		Assert(FALSE);
+		return;
+	}
+
 	const auto mercID = LaptopSaveInfo.pLifeInsurancePayouts[ubPayoutID].ubMercID;
 	const auto payoutPrice = LaptopSaveInfo.pLifeInsurancePayouts[ubPayoutID].iPayOutPrice;
 	TacticalActor* soldier = GetJa2SoldierRepository().resolve(
@@ -1528,20 +1599,13 @@ void InsuranceContractPayLifeInsuranceForDeadMerc( UINT16 ubPayoutID )
 	if( gMercProfiles[ mercID ].ubSuspiciousDeath == 0 )
 	{
 		//Add an email telling the user that he received an insurance payment
-#ifdef JA2UB
-	if( gubQuest[ QUEST_FIX_LAPTOP ] == QUESTDONE || gGameUBOptions.LaptopQuestEnabled == FALSE )
-	{
-		if ( gGameUBOptions.LaptopLinkInsurance == TRUE )
-		{
-			AddEmailWithSpecialData(170, INSUR_PAYMENT_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_INSURANCE_COMPANY_EMAIL_JA2_EDT, TYPE_E_INSURANCE_L3, XML_INSURANCE_APPROVED);
-		}
-	}
-#else
-		AddEmailWithSpecialData(INSUR_PAYMENT, INSUR_PAYMENT_LENGTH, INSURANCE_COMPANY, GetWorldTotalMin(), payoutPrice, mercID, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_INSURANCE_APPROVED);
-#endif
+		SendInsuranceNotice(
+			CommunicationsPolicy::InsuranceNotice::Payment,
+			payoutPrice, mercID, XML_INSURANCE_APPROVED);
 	}
 
-	LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed --;
+	if (LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed > 0)
+		LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed--;
 	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].fActive = FALSE;
 //	MemFree( pPayoutStruct );
 }
@@ -1668,9 +1732,12 @@ UINT32	GetTimeRemainingOnSoldiersInsuranceContract( TacticalActor *pSoldier )
 	{
 		//if the insurance contract hasnt started yet
 		if( (INT32)GetWorldDay() < pSoldier->employment().insuranceStartDay() )
-			return( pSoldier->employment().insuranceLengthDays() );
-		else
-			return( ( pSoldier->employment().insuranceLengthDays() - ( GetWorldDay() - pSoldier->employment().insuranceStartDay() ) ) );
+			return RemainingLaptopDays(
+				pSoldier->employment().insuranceLengthDays(), 0);
+		return RemainingLaptopDays(
+			pSoldier->employment().insuranceLengthDays(),
+			static_cast<INT32>(GetWorldDay()) -
+				pSoldier->employment().insuranceStartDay());
 	}
 	else
 		return( 0 );
