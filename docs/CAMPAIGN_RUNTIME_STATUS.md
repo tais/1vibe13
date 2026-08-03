@@ -56,7 +56,13 @@ also preserves its 100-purchase legacy records and shipment serialization:
 while validated adapters retain the existing data format and publish loaded
 state only after complete reads. `BobbyRMailOrder.cpp` is consequently shared
 by every application host; Laptop now builds 72 common sources and only 26
-per-application variants.
+per-application variants. The subsequent Laptop input-boundary pass keeps that
+same common ownership: every Laptop XML reader uses the campaign-neutral
+`LocalizationInputModel` for bounded chunks, strict numeric/boolean parsing,
+explicit preservation of documented `-1` byte sentinels, and index validation,
+then publishes staged records only after a complete document. The legacy UTF-8
+adapter remains above the engine boundary, and the existing XML schemas,
+numeric IDs, and fixed game structures are unchanged.
 
 ## Literal remaining tail
 

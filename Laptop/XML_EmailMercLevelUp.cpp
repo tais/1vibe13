@@ -1,5 +1,10 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
+#include <algorithm>
+#include <array>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -14,6 +19,10 @@ struct
 
 	CHAR8		szCharData[MAIL_STRING_SIZE+1];
 	EMAIL_MERC_LEVEL_UP_VALUES	curEmailMercLevelUp;
+	std::array<EMAIL_MERC_LEVEL_UP_VALUES, NUM_PROFILES>* records;
+	std::array<bool, NUM_PROFILES>* seen;
+	bool valid;
+	bool hasIndex;
 
 	UINT32			maxArraySize;
 	UINT32			curIndex;
@@ -22,8 +31,6 @@ struct
 }
 
 typedef emailMercLevelUpParseData;
-
-BOOLEAN EmailMercLevelUp_TextOnly;
 
 static void XMLCALL
 emailMercLevelUpStartElementHandle(void *userData, const XML_Char *name, const XML_Char **atts)
@@ -41,6 +48,8 @@ emailMercLevelUpStartElementHandle(void *userData, const XML_Char *name, const X
 		else if(strcmp(name, "EMAIL") == 0 && pData->curElement == ELEMENT_LIST)
 		{
 			pData->curElement = ELEMENT;
+			pData->curEmailMercLevelUp = EMAIL_MERC_LEVEL_UP_VALUES{};
+			pData->hasIndex = false;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
@@ -66,11 +75,9 @@ emailMercLevelUpCharacterDataHandle(void *userData, const XML_Char *str, int len
 {
 	emailMercLevelUpParseData * pData = (emailMercLevelUpParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 
@@ -89,38 +96,45 @@ emailMercLevelUpEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
-			if ( pData->curEmailMercLevelUp.uiIndex < NUM_PROFILES )
+			if (!pData->hasIndex ||
+				!LaptopLocalizationModel::IsIndexInRange(
+					pData->records->size(),
+					pData->curEmailMercLevelUp.uiIndex))
 			{
-			if (!EmailMercLevelUp_TextOnly)
+				pData->valid = false;
+			}
+			else
+			{
+				const auto index = pData->curEmailMercLevelUp.uiIndex;
+				if ((*pData->seen)[index])
+					pData->valid = false;
+				else if (pData->valid)
 				{
-					wcscpy(EmailMercLevelUpText[pData->curEmailMercLevelUp.uiIndex].szSubject, pData->curEmailMercLevelUp.szSubject);
-					wcscpy(EmailMercLevelUpText[pData->curEmailMercLevelUp.uiIndex].szMessage, pData->curEmailMercLevelUp.szMessage);
+					(*pData->records)[index] = pData->curEmailMercLevelUp;
+					(*pData->seen)[index] = true;
 				}
-				else
-				{
-					wcscpy(EmailMercLevelUpText[pData->curEmailMercLevelUp.uiIndex].szSubject, pData->curEmailMercLevelUp.szSubject);
-					wcscpy(EmailMercLevelUpText[pData->curEmailMercLevelUp.uiIndex].szMessage, pData->curEmailMercLevelUp.szMessage);
-				}		
 			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curEmailMercLevelUp.uiIndex	= (UINT8) atol(pData->szCharData);
+			pData->hasIndex = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->curEmailMercLevelUp.uiIndex);
+			pData->valid = pData->valid && pData->hasIndex;
 		}
 		else if(strcmp(name, "Subject") == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curEmailMercLevelUp.szSubject, sizeof(pData->curEmailMercLevelUp.szSubject)/sizeof(pData->curEmailMercLevelUp.szSubject[0]) );
-			pData->curEmailMercLevelUp.szSubject[sizeof(pData->curEmailMercLevelUp.szSubject)/sizeof(pData->curEmailMercLevelUp.szSubject[0]) - 1] = '\0';
+			pData->valid = pData->valid && LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->curEmailMercLevelUp.szSubject);
 		}
 		else if(strcmp(name, "Message") == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curEmailMercLevelUp.szMessage, sizeof(pData->curEmailMercLevelUp.szMessage)/sizeof(pData->curEmailMercLevelUp.szMessage[0]) );
-			pData->curEmailMercLevelUp.szMessage[sizeof(pData->curEmailMercLevelUp.szMessage)/sizeof(pData->curEmailMercLevelUp.szMessage[0]) - 1] = '\0';
+			pData->valid = pData->valid && LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->curEmailMercLevelUp.szMessage);
 		}
 		pData->maxReadDepth--;
 	}
@@ -129,13 +143,16 @@ emailMercLevelUpEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInEmailMercLevelUp(STR fileName, BOOLEAN localizedVersion)
 {
-	emailMercLevelUpParseData pData;
+	emailMercLevelUpParseData pData{};
+	std::array<EMAIL_MERC_LEVEL_UP_VALUES, NUM_PROFILES> pending{};
+	std::array<bool, NUM_PROFILES> seen{};
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading EmailMercLevelUp.xml" );
 
-	EmailMercLevelUp_TextOnly = localizedVersion;
-
-	memset(&pData,0,sizeof(pData));
+	std::copy_n(EmailMercLevelUpText, NUM_PROFILES, pending.begin());
+	pData.records = &pending;
+	pData.seen = &seen;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, emailMercLevelUpStartElementHandle,
@@ -154,6 +171,10 @@ BOOLEAN ReadInEmailMercLevelUp(STR fileName, BOOLEAN localizedVersion)
 		}
 		return FALSE;
 	}
+	if (!pData.valid)
+		return FALSE;
+
+	std::copy(pending.begin(), pending.end(), EmailMercLevelUpText);
 
 	return( TRUE );
 }

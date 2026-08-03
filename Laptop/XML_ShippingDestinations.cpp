@@ -1,5 +1,7 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
 #include "sgp.h"
 #include "Overhead Types.h"
 #include "Overhead.h"
@@ -9,6 +11,8 @@
 #include "XML.h"
 #include "PostalService.h"
 #include <string>
+#include <algorithm>
+#include <iterator>
 #include <vector>
 
 using namespace std;
@@ -32,14 +36,21 @@ struct
 	CHAR8						szCharData[MAX_CHAR_DATA_LENGTH+1];
 
 	DestinationReadInStruct		tempDest;
+	std::vector<DestinationReadInStruct>* destinations;
+	BOOLEAN					localizedVersion;
+	bool					valid;
+	bool					hasIndex;
+	bool					hasName;
+	bool					hasMapX;
+	bool					hasMapY;
+	bool					hasMapZ;
+	bool					hasGridNo;
 	UINT32						maxArraySize;
 	UINT32						curIndex;
 	UINT32						currentDepth;
 	UINT32						maxReadDepth;
 }
 typedef destinationParseData;
-
-BOOLEAN ShippingDestinations_TextOnly;
 
 static void XMLCALL
 destinationStartElementHandle(void *userData, const XML_Char *name, const XML_Char **atts)
@@ -57,7 +68,13 @@ destinationStartElementHandle(void *userData, const XML_Char *name, const XML_Ch
 		else if(strcmp(name, "DESTINATION") == 0 && pData->curElement == ELEMENT_LIST)
 		{
 			pData->curElement = ELEMENT;
-			memset(&pData->tempDest, 0, sizeof(DestinationReadInStruct));
+			pData->tempDest = DestinationReadInStruct{};
+			pData->hasIndex = false;
+			pData->hasName = false;
+			pData->hasMapX = false;
+			pData->hasMapY = false;
+			pData->hasMapZ = false;
+			pData->hasGridNo = false;
 			pData->maxReadDepth++;
 			pData->curIndex++;
 		}
@@ -86,11 +103,9 @@ destinationCharacterDataHandle(void *userData, const XML_Char *str, int len)
 {
 	destinationParseData * pData = (destinationParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 static void XMLCALL
@@ -108,66 +123,59 @@ destinationEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;
 			
-			if( !ShippingDestinations_TextOnly )
+			if (!pData->hasIndex || !pData->hasName ||
+				(!pData->localizedVersion &&
+					(!pData->hasMapX || !pData->hasMapY ||
+						!pData->hasMapZ || !pData->hasGridNo)))
 			{
-				// We are reading the base data in the first pass of the file
-				gPostalService.AddDestination(pData->tempDest.uiIndex, pData->tempDest.ubMapX, pData->tempDest.ubMapY, pData->tempDest.ubMapZ, pData->tempDest.sGridNo, pData->tempDest.szName);
+				pData->valid = false;
 			}
-			else
-			{
-				// We are in second pass, during the loadup of the localization file.
-				// We should have legitimate data for the <uiIndex> and <name> elements.
-				// using uiIndex, iterate thru gPostalService::_Destinations till we find the correct 
-				// DestinationStruct, and change its wstrName
-
-				DestinationList::const_iterator dli = gPostalService.LookupDestinationList().begin();
-				
-				while(DESTINATION(dli).uiIndex != pData->tempDest.uiIndex)
-				{
-					dli++;
-					if(dli == gPostalService.LookupDestinationList().end() )
-					{
-						// this doesnt really work, displays a message but then exits imediately, 
-						// but at least it doesnt generate a software exception.. which would prolly actually make this string readable
-						AssertMsg( 0, "Loading invalid uiIndex inside ShippingDestinations.xml." );
-					}
-					
-				}
-				DESTINATION(dli).wstrName = pData->tempDest.szName; 
-
-			}
+			if (pData->valid)
+				pData->destinations->push_back(pData->tempDest);
 		}
 		else if(strcmp(name, "name") == 0)
 		{
 			pData->curElement = ELEMENT;
-			MultiByteToWideChar(CP_UTF8, 0, pData->szCharData, -1, pData->tempDest.szName, MAX_DEST_NAME_LENGTH);
+			pData->hasName = LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->tempDest.szName);
+			pData->valid = pData->valid && pData->hasName;
 
 		}
 		else if(strcmp(name, "ubMapX") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->tempDest.ubMapX = (UINT8)strtoul(pData->szCharData, NULL, 10); 
+			pData->hasMapX = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->tempDest.ubMapX);
+			pData->valid = pData->valid && pData->hasMapX;
 		}
 		else if(strcmp(name, "ubMapY") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->tempDest.ubMapY = (UINT8)strtoul(pData->szCharData, NULL, 10); 
+			pData->hasMapY = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->tempDest.ubMapY);
+			pData->valid = pData->valid && pData->hasMapY;
 
 		}
 		else if(strcmp(name, "ubMapZ") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->tempDest.ubMapZ = (UINT8)strtoul(pData->szCharData, NULL, 10); 
+			pData->hasMapZ = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->tempDest.ubMapZ);
+			pData->valid = pData->valid && pData->hasMapZ;
 		}
 		else if(strcmp(name, "sGridNo") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->tempDest.sGridNo = (UINT32) atoi(pData->szCharData);
+			pData->hasGridNo = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->tempDest.sGridNo);
+			pData->valid = pData->valid && pData->hasGridNo;
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->tempDest.uiIndex = (UINT8)strtoul(pData->szCharData, NULL, 10); 
+			pData->hasIndex = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->tempDest.uiIndex);
+			pData->valid = pData->valid && pData->hasIndex;
 		}
 
 
@@ -179,15 +187,14 @@ destinationEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInShippingDestinations(STR fileName, BOOLEAN localizedVersion)
 {
-	destinationParseData pData;
+	destinationParseData pData{};
+	std::vector<DestinationReadInStruct> pendingDestinations;
 
-	ShippingDestinations_TextOnly = localizedVersion;
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading ShippingDestinations.xml" );
 
-	// Initialize Data container
-	memset(&pData,0,sizeof(pData));
-	pData.maxArraySize = sizeof(UINT16);
-	pData.curIndex = -1;
+	pData.destinations = &pendingDestinations;
+	pData.localizedVersion = localizedVersion;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, destinationStartElementHandle, destinationEndElementHandle,
@@ -203,6 +210,68 @@ BOOLEAN ReadInShippingDestinations(STR fileName, BOOLEAN localizedVersion)
 			LiveMessage(message.data());
 		}
 		return FALSE;
+	}
+	if (!pData.valid || pendingDestinations.size() > MAX_DESTINATIONS)
+		return FALSE;
+
+	for (auto first = pendingDestinations.begin();
+		first != pendingDestinations.end(); ++first)
+	{
+		if (std::find_if(std::next(first), pendingDestinations.end(),
+			[first](const DestinationReadInStruct& destination)
+			{
+				return destination.uiIndex == first->uiIndex;
+			}) != pendingDestinations.end())
+		{
+			return FALSE;
+		}
+	}
+
+	auto& liveDestinations = gPostalService.LookupDestinationList();
+	if (!localizedVersion)
+	{
+		if (liveDestinations.size() + pendingDestinations.size() >
+			MAX_DESTINATIONS)
+		{
+			return FALSE;
+		}
+		for (const auto& pending : pendingDestinations)
+		{
+			if (std::find_if(liveDestinations.begin(), liveDestinations.end(),
+				[&pending](const DestinationStruct& destination)
+				{
+					return destination.uiIndex == pending.uiIndex;
+				}) != liveDestinations.end())
+			{
+				return FALSE;
+			}
+		}
+		for (auto& pending : pendingDestinations)
+		{
+			gPostalService.AddDestination(pending.uiIndex, pending.ubMapX,
+				pending.ubMapY, pending.ubMapZ, pending.sGridNo,
+				pending.szName);
+		}
+	}
+	else
+	{
+		std::vector<DestinationStruct*> localizedDestinations;
+		localizedDestinations.reserve(pendingDestinations.size());
+		for (const auto& pending : pendingDestinations)
+		{
+			const auto found = std::find_if(
+				liveDestinations.begin(), liveDestinations.end(),
+				[&pending](const DestinationStruct& destination)
+				{
+					return destination.uiIndex == pending.uiIndex;
+				});
+			if (found == liveDestinations.end())
+				return FALSE;
+			localizedDestinations.push_back(&*found);
+		}
+		for (std::size_t index = 0; index < pendingDestinations.size(); ++index)
+			localizedDestinations[index]->wstrName =
+				pendingDestinations[index].szName;
 	}
 
 	return( TRUE );

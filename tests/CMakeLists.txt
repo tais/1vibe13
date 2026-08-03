@@ -92,6 +92,16 @@ target_include_directories(bobby_ray_commerce_model_tests
 add_test(NAME bobby_ray_commerce_model
   COMMAND bobby_ray_commerce_model_tests)
 
+# XML callbacks receive text in arbitrary chunks. Keep accumulation, strict
+# integer narrowing, explicit legacy-byte sentinels, index validation, and
+# fixed-buffer copying data-free.
+add_executable(laptop_localization_input_model_tests
+  laptop_localization_input_model_tests.cpp)
+target_include_directories(laptop_localization_input_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME laptop_localization_input_model
+  COMMAND laptop_localization_input_model_tests)
+
 # A dedicated process replaces global allocation hooks while measuring the
 # observer hot path. Keeping it separate avoids coupling allocation accounting
 # to unrelated adapter tests or their setup work.

@@ -1,5 +1,7 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
 #include "sgp.h"
 #include "Overhead Types.h"
 #include "Overhead.h"
@@ -9,6 +11,10 @@
 #include "XML.h"
 #include "PostalService.h"
 #include <string>
+#include <algorithm>
+#include <iterator>
+#include <limits>
+#include <utility>
 #include <vector>
 
 using namespace std;
@@ -21,11 +27,13 @@ typedef struct
 	UINT16	usDestinationFee;
 	INT8	bDaysAhead;
 }DestinationDeliveryInfoReadInStruct;
-typedef DestinationDeliveryInfoReadInStruct& RefToDestinationDeliveryInfoReadInStruct;
 typedef vector<DestinationDeliveryInfoReadInStruct> DestinationDeliveryInfoReadInTable;
-typedef DestinationDeliveryInfoReadInTable& RefToDestinationDeliveryInfoReadInTable;
-typedef DestinationDeliveryInfoReadInTable::iterator DestinationDeliveryInfoReadInTableIterator;
-typedef DestinationDeliveryInfoReadInTableIterator& RefToDestinationDeliveryInfoReadInTableIterator;
+
+struct DeliveryMethodReadInStruct
+{
+	CHAR16 szDescription[MAX_DELIVERYMETHOD_DESC_LENGTH + 1];
+	DestinationDeliveryInfoReadInTable destinationDeliveryInfos;
+};
 
 enum
 {
@@ -44,18 +52,14 @@ struct
 
 	CHAR8						szCharData[MAX_CHAR_DATA_LENGTH+1];
 
-	struct
-	{
-		CHAR16 szDescription[MAX_DELIVERYMETHOD_DESC_LENGTH+1];
-		DestinationDeliveryInfoReadInTable* DestinationDeliveryInfos;
-	}CurDeliveryMethod;
-
-	struct
-	{
-		UINT32	uiDestinationIndex;
-		UINT16	usDestinationFee;
-		INT8	bDaysAhead;
-	}CurDestinationDeliveryInfo;
+	DeliveryMethodReadInStruct CurDeliveryMethod;
+	DestinationDeliveryInfoReadInStruct CurDestinationDeliveryInfo;
+	std::vector<DeliveryMethodReadInStruct>* deliveryMethods;
+	bool valid;
+	bool hasDescription;
+	bool hasDestinationIndex;
+	bool hasDestinationFee;
+	bool hasDaysAhead;
 
 	UINT32						maxArraySize;
 	UINT32						currentDepth;
@@ -79,6 +83,8 @@ deliveryMethodStartElementHandle(void *userData, const XML_Char *name, const XML
 		else if(strcmp(name, "DELIVERYMETHOD") == 0 && pData->curElement == DELIVERYMETHOD_ELEMENT_TABLE)
 		{
 			pData->curElement = DELIVERYMETHOD_ELEMENT;
+			pData->CurDeliveryMethod = DeliveryMethodReadInStruct{};
+			pData->hasDescription = false;
 			pData->maxReadDepth++;
 		}
 		else if(pData->curElement == DELIVERYMETHOD_ELEMENT &&
@@ -99,6 +105,11 @@ deliveryMethodStartElementHandle(void *userData, const XML_Char *name, const XML
 				(strcmp(name, "DESTINATIONDELIVERYINFO") == 0))
 		{
 			pData->curElement = DESTINATIONDELIVERYINFO_ELEMENT;
+			pData->CurDestinationDeliveryInfo =
+				DestinationDeliveryInfoReadInStruct{};
+			pData->hasDestinationIndex = false;
+			pData->hasDestinationFee = false;
+			pData->hasDaysAhead = false;
 
 			pData->maxReadDepth++;
 		}
@@ -124,11 +135,9 @@ deliveryMethodCharacterDataHandle(void *userData, const XML_Char *str, int len)
 {
 	deliveryMethodParseData * pData = (deliveryMethodParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 static void XMLCALL
@@ -145,26 +154,18 @@ deliveryMethodEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "DELIVERYMETHOD") == 0)
 		{
 			pData->curElement = DELIVERYMETHOD_ELEMENT_TABLE;
-			UINT8 ubCurrentDM = gPostalService.AddDeliveryMethod(pData->CurDeliveryMethod.szDescription);
-			
-			DestinationDeliveryInfoReadInTableIterator dfriti = pData->CurDeliveryMethod.DestinationDeliveryInfos->begin();
-
-			while(dfriti != pData->CurDeliveryMethod.DestinationDeliveryInfos->end())
-			{
-				gPostalService.SetDestinationDeliveryInfo(ubCurrentDM, ((RefToDestinationDeliveryInfoReadInStruct)*dfriti).uiDestinationIndex, ((RefToDestinationDeliveryInfoReadInStruct)*dfriti).usDestinationFee, ((RefToDestinationDeliveryInfoReadInStruct)*dfriti).bDaysAhead);
-				dfriti++;
-			}
-
-			// Clean up
-			pData->CurDeliveryMethod.DestinationDeliveryInfos->clear();
-			memset(pData->CurDeliveryMethod.szDescription, 0, sizeof(pData->CurDeliveryMethod.szDescription));
-			pData->CurDestinationDeliveryInfo.uiDestinationIndex = 0;
-			pData->CurDestinationDeliveryInfo.uiDestinationIndex = 0;
+			if (!pData->hasDescription)
+				pData->valid = false;
+			if (pData->valid)
+				pData->deliveryMethods->push_back(
+					std::move(pData->CurDeliveryMethod));
 		}
 		else if(strcmp(name, "description") == 0)
 		{
 			pData->curElement = DELIVERYMETHOD_ELEMENT;
-			MultiByteToWideChar(CP_UTF8, 0, pData->szCharData, -1, &pData->CurDeliveryMethod.szDescription[0], MAX_DELIVERYMETHOD_DESC_LENGTH);
+			pData->hasDescription = LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->CurDeliveryMethod.szDescription);
+			pData->valid = pData->valid && pData->hasDescription;
 		}
 		else if(strcmp(name, "DESTINATIONDELIVERYINFOTABLE") == 0)
 		{
@@ -173,30 +174,42 @@ deliveryMethodEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "DESTINATIONDELIVERYINFO") == 0)
 		{
 			pData->curElement = DESTINATIONDELIVERYINFO_ELEMENT_TABLE;
-			DestinationDeliveryInfoReadInStruct dfris;
-
-			dfris.uiDestinationIndex = pData->CurDestinationDeliveryInfo.uiDestinationIndex;
-			dfris.usDestinationFee = pData->CurDestinationDeliveryInfo.usDestinationFee;
-			dfris.bDaysAhead = pData->CurDestinationDeliveryInfo.bDaysAhead;
-
-			memset(&pData->CurDestinationDeliveryInfo, 0, sizeof(pData->CurDestinationDeliveryInfo));
-
-			pData->CurDeliveryMethod.DestinationDeliveryInfos->push_back(dfris);
+			if (!pData->hasDestinationIndex || !pData->hasDestinationFee ||
+				!pData->hasDaysAhead)
+			{
+				pData->valid = false;
+			}
+			if (pData->valid)
+			{
+				pData->CurDeliveryMethod.destinationDeliveryInfos.push_back(
+					pData->CurDestinationDeliveryInfo);
+			}
 		}
 		else if(strcmp(name, "uiDestinationIndex") == 0)
 		{
 			pData->curElement = DESTINATIONDELIVERYINFO_ELEMENT;
-			pData->CurDestinationDeliveryInfo.uiDestinationIndex = strtoul(pData->szCharData, NULL, 10);
+			pData->hasDestinationIndex =
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData,
+					pData->CurDestinationDeliveryInfo.uiDestinationIndex);
+			pData->valid = pData->valid && pData->hasDestinationIndex;
 		}
 		else if(strcmp(name, "usDestinationFee") == 0)
 		{
 			pData->curElement = DESTINATIONDELIVERYINFO_ELEMENT;
-			pData->CurDestinationDeliveryInfo.usDestinationFee = (UINT16) strtoul(pData->szCharData, NULL, 10);
+			pData->hasDestinationFee =
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData,
+					pData->CurDestinationDeliveryInfo.usDestinationFee);
+			pData->valid = pData->valid && pData->hasDestinationFee;
 		}
 		else if(strcmp(name, "bDaysAhead") == 0)
 		{
 			pData->curElement = DESTINATIONDELIVERYINFO_ELEMENT;
-			pData->CurDestinationDeliveryInfo.bDaysAhead = (INT8) strtoul(pData->szCharData, NULL, 10);
+			pData->hasDaysAhead = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData,
+				pData->CurDestinationDeliveryInfo.bDaysAhead);
+			pData->valid = pData->valid && pData->hasDaysAhead;
 		}
 
 		pData->maxReadDepth--;
@@ -207,14 +220,13 @@ deliveryMethodEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInDeliveryMethods(STR fileName)
 {
-	deliveryMethodParseData pData;
-	DestinationDeliveryInfoReadInTable destinationInfos;
+	deliveryMethodParseData pData{};
+	std::vector<DeliveryMethodReadInStruct> pendingDeliveryMethods;
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading DeliveryMethods.xml" );
 
-	memset(&pData,0,sizeof(pData));
-	pData.CurDeliveryMethod.DestinationDeliveryInfos = &destinationInfos;
-	pData.maxArraySize = sizeof(UINT16);
+	pData.deliveryMethods = &pendingDeliveryMethods;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, deliveryMethodStartElementHandle, deliveryMethodEndElementHandle,
@@ -231,9 +243,53 @@ BOOLEAN ReadInDeliveryMethods(STR fileName)
 		}
 		return FALSE;
 	}
+	if (!pData.valid || pendingDeliveryMethods.empty() ||
+		pendingDeliveryMethods.size() >
+			static_cast<std::size_t>(std::numeric_limits<UINT8>::max()) + 1 ||
+		gPostalService.GetDeliveryMethodCount() != 0)
+	{
+		return FALSE;
+	}
 
-	// Interface stuff for the old game code. Once Bobby Ray and the laptop are fully C++'ized and/or externalised, this stuff can go
+	const auto& destinations = gPostalService.LookupDestinationList();
+	for (const auto& method : pendingDeliveryMethods)
+	{
+		for (auto first = method.destinationDeliveryInfos.begin();
+			first != method.destinationDeliveryInfos.end(); ++first)
+		{
+			if (std::find_if(std::next(first),
+				method.destinationDeliveryInfos.end(),
+				[first](const DestinationDeliveryInfoReadInStruct& info)
+				{
+					return info.uiDestinationIndex ==
+						first->uiDestinationIndex;
+				}) != method.destinationDeliveryInfos.end())
+			{
+				return FALSE;
+			}
+			if (std::find_if(destinations.begin(), destinations.end(),
+				[first](const DestinationStruct& destination)
+				{
+					return destination.uiIndex ==
+						first->uiDestinationIndex;
+				}) == destinations.end())
+			{
+				return FALSE;
+			}
+		}
+	}
 
+	for (auto& method : pendingDeliveryMethods)
+	{
+		const UINT8 deliveryMethod =
+			gPostalService.AddDeliveryMethod(method.szDescription);
+		for (const auto& info : method.destinationDeliveryInfos)
+		{
+			gPostalService.SetDestinationDeliveryInfo(deliveryMethod,
+				info.uiDestinationIndex, info.usDestinationFee,
+				info.bDaysAhead);
+		}
+	}
 
 	return( TRUE );
 }

@@ -1161,6 +1161,11 @@ UINT8 CPostalService::AddDeliveryMethod(STR16 pszDescription)
 	return _DeliveryMethods.size() - 1;
 }
 
+std::size_t CPostalService::GetDeliveryMethodCount() const noexcept
+{
+	return _DeliveryMethods.size();
+}
+
 UINT16 CPostalService::SetDestinationDeliveryInfo(UINT8 ubDeliveryMethodIndex, UINT32 uiDestinationIndex, UINT16 usDestinationFee, INT8 bDaysAhead)
 {
 	if (!IsValidLaptopIndex(_DeliveryMethods.size(), ubDeliveryMethodIndex))

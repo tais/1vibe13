@@ -1437,6 +1437,146 @@ foreach(required_bobby_ray_commerce_assertion IN ITEMS
   endif()
 endforeach()
 
+# Laptop XML/localization input is staged behind one dependency-free boundary
+# model and one legacy UTF-8 adapter. Expat may split character data at any
+# byte, and malformed or oversized data must not narrow, truncate, address an
+# exact-end slot, or partially publish live Laptop state.
+file(READ "${SOURCE_ROOT}/Laptop/LocalizationInputModel.h"
+  runtime_laptop_localization_model_contents)
+foreach(required_laptop_localization_model_fragment IN ITEMS
+    "AppendText"
+    "ParseInteger"
+    "ParseIntegerOrMinusOneSentinel"
+    "ParseBoolean"
+    "IsIndexInRange"
+    "CopyText"
+    "std::from_chars")
+  string(FIND "${runtime_laptop_localization_model_contents}"
+    "${required_laptop_localization_model_fragment}"
+    required_laptop_localization_model_position)
+  if(required_laptop_localization_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop localization input model lost '${required_laptop_localization_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/LocalizationInputAdapter.h"
+  runtime_laptop_localization_adapter_contents)
+foreach(required_laptop_localization_adapter_fragment IN ITEMS
+    "ConvertUtf8"
+    "required <= 0"
+    "std::array<CHAR16, Capacity> converted"
+    "std::copy(converted.begin(), converted.end(), destination)")
+  string(FIND "${runtime_laptop_localization_adapter_contents}"
+    "${required_laptop_localization_adapter_fragment}"
+    required_laptop_localization_adapter_position)
+  if(required_laptop_localization_adapter_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop localization adapter lost '${required_laptop_localization_adapter_fragment}'")
+  endif()
+endforeach()
+
+file(GLOB runtime_laptop_xml_input_sources
+  "${SOURCE_ROOT}/Laptop/XML_*.cpp")
+foreach(runtime_laptop_xml_input_source IN LISTS
+    runtime_laptop_xml_input_sources)
+  file(READ "${runtime_laptop_xml_input_source}"
+    runtime_laptop_xml_input_contents)
+  foreach(required_laptop_xml_input_fragment IN ITEMS
+      "LocalizationInputAdapter.h"
+      "LaptopLocalizationModel::AppendText"
+      "pData.valid"
+      "pending")
+    string(FIND "${runtime_laptop_xml_input_contents}"
+      "${required_laptop_xml_input_fragment}"
+      required_laptop_xml_input_position)
+    if(required_laptop_xml_input_position EQUAL -1)
+      message(FATAL_ERROR
+        "${runtime_laptop_xml_input_source} bypassed transactional Laptop XML input '${required_laptop_xml_input_fragment}'")
+    endif()
+  endforeach()
+
+  string(REGEX MATCH
+    "(strncat|wcscpy|MultiByteToWideChar|atol|atoi|strtoul)[ \t\r\n]*\\("
+    retired_laptop_xml_input_operation
+    "${runtime_laptop_xml_input_contents}")
+  if(retired_laptop_xml_input_operation)
+    message(FATAL_ERROR
+      "${runtime_laptop_xml_input_source} restored unchecked text conversion or numeric narrowing '${retired_laptop_xml_input_operation}'")
+  endif()
+  string(REGEX MATCH "[A-Za-z0-9_]+_TextOnly"
+    retired_laptop_xml_global_mode
+    "${runtime_laptop_xml_input_contents}")
+  if(retired_laptop_xml_global_mode)
+    message(FATAL_ERROR
+      "${runtime_laptop_xml_input_source} restored mutable parser mode '${retired_laptop_xml_global_mode}'")
+  endif()
+endforeach()
+
+foreach(laptop_xml_boundary_caller_and_fragment IN ITEMS
+    "Laptop/XML_BriefingRoom.cpp|destinationSize"
+    "Laptop/XML_BriefingRoom.cpp|uiBytesRead != SIZE_MERC_BIO_INFO"
+    "Laptop/XML_BriefingRoom.cpp|SIZE_MERC_ADDITIONAL_INFO / 2"
+    "Laptop/XML_AIMAvailability.cpp|ParseIntegerOrMinusOneSentinel"
+    "Laptop/XML_ConditionsForMercAvailability.cpp|ParseIntegerOrMinusOneSentinel"
+    "Laptop/XML_OldAIMArchive.cpp|std::array<OLD_MERC_ARCHIVES_VALUES, NUM_PROFILES>"
+    "Laptop/XML_ShippingDestinations.cpp|found == liveDestinations.end()"
+    "Laptop/XML_DeliveryMethods.cpp|GetDeliveryMethodCount() != 0"
+    "Ja2/Init.cpp|gBriefingRoomData, NUM_MISSION, 4")
+  string(REPLACE "|" ";" laptop_xml_boundary_caller_parts
+    "${laptop_xml_boundary_caller_and_fragment}")
+  list(GET laptop_xml_boundary_caller_parts 0 laptop_xml_boundary_caller)
+  list(GET laptop_xml_boundary_caller_parts 1 laptop_xml_boundary_fragment)
+  file(READ "${SOURCE_ROOT}/${laptop_xml_boundary_caller}"
+    laptop_xml_boundary_caller_contents)
+  string(FIND "${laptop_xml_boundary_caller_contents}"
+    "${laptop_xml_boundary_fragment}" laptop_xml_boundary_caller_position)
+  if(laptop_xml_boundary_caller_position EQUAL -1)
+    message(FATAL_ERROR
+      "${laptop_xml_boundary_caller} lost Laptop XML boundary '${laptop_xml_boundary_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_laptop_localization_test_fragment IN ITEMS
+    "laptop_localization_input_model_tests.cpp"
+    "laptop_localization_input_model")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_laptop_localization_test_fragment}"
+    required_laptop_localization_test_position)
+  if(required_laptop_localization_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop localization input model lost its headless test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "laptop_localization_input_model_tests"
+  runtime_laptop_localization_ci_position)
+if(runtime_laptop_localization_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Laptop localization input model test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_localization_input_model_tests.cpp"
+  runtime_laptop_localization_test_contents)
+foreach(required_laptop_localization_assertion IN ITEMS
+    "AppendText(text, \"cde\", 3)"
+    "AppendText(unterminated, \"x\", 1)"
+    "ParseInteger(\"256\", byte)"
+    "ParseInteger(\"-129\", value)"
+    "ParseIntegerOrMinusOneSentinel(\"-1\", value)"
+    "ParseIntegerOrMinusOneSentinel(\"-2\", value)"
+    "ParseBoolean(\"2\", flag)"
+    "IsIndexInRange(255, 255)"
+    "CopyText(destination, unterminated)")
+  string(FIND "${runtime_laptop_localization_test_contents}"
+    "${required_laptop_localization_assertion}"
+    required_laptop_localization_assertion_position)
+  if(required_laptop_localization_assertion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop localization tests lost '${required_laptop_localization_assertion}'")
+  endif()
+endforeach()
+
 foreach(required_laptop_communications_test_fragment IN ITEMS
     "laptop_communications_policy_tests.cpp"
     "laptop_communications_policy")

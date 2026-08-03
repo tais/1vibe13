@@ -1293,14 +1293,16 @@ if( g_lang != i18n::Lang::en ) {
 	strcpy(fileName, directoryName);
 	strcat(fileName, BRIEFINGROOMFILENAME);
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
-	SGP_THROW_IFFALSE(ReadInBriefingRoom(fileName,FALSE,gBriefingRoomData, 4), BRIEFINGROOMFILENAME);
+	SGP_THROW_IFFALSE(ReadInBriefingRoom(fileName, FALSE,
+		gBriefingRoomData, NUM_MISSION, 4), BRIEFINGROOMFILENAME);
 	
 if( g_lang != i18n::Lang::en ) {
 		AddLanguagePrefix(fileName);
 		if ( FileExists(fileName) )
 		{
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
-			SGP_THROW_IFFALSE(ReadInBriefingRoom(fileName,TRUE,gBriefingRoomData, 4), fileName);
+			SGP_THROW_IFFALSE(ReadInBriefingRoom(fileName, TRUE,
+				gBriefingRoomData, NUM_MISSION, 4), fileName);
 		}
 }
 

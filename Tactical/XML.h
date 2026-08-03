@@ -555,7 +555,8 @@ extern BOOLEAN ReadInEmailMercAvailable(STR fileName, BOOLEAN localizedVersion);
 extern BOOLEAN ReadInEmailMercLevelUp(STR fileName, BOOLEAN localizedVersion);
 extern BOOLEAN ReadInExternalizedEmails(STR fileName, BOOLEAN localizedVersion);
 
-extern BOOLEAN ReadInBriefingRoom(STR fileName, BOOLEAN localizedVersion, BRIEFINGROOM_M_DATA *Ency, UINT32 FileType2 );
+extern BOOLEAN ReadInBriefingRoom(STR fileName, BOOLEAN localizedVersion,
+	BRIEFINGROOM_M_DATA *Ency, UINT32 destinationSize, UINT32 fileType);
 extern BOOLEAN ReadInMinerals(STR fileName, BOOLEAN localizedVersion);
 
 extern BOOLEAN ReadInNewVehicles(STR fileName, BOOLEAN localizedVersion);

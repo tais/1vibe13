@@ -1,5 +1,10 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
+#include <algorithm>
+#include <array>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -13,7 +18,11 @@ struct
 
 	CHAR8		szCharData[MAX_CHAR_1000_DATA_LENGTH+1];
 	OLD_MERC_ARCHIVES_VALUES	curAimOldArchives;
-	OLD_MERC_ARCHIVES_VALUES *	curArray;
+	std::array<OLD_MERC_ARCHIVES_VALUES, NUM_PROFILES>* records;
+	std::array<bool, NUM_PROFILES>* seen;
+	BOOLEAN localizedVersion;
+	bool valid;
+	bool hasIndex;
 
 	UINT32			maxArraySize;
 	UINT32			curIndex;
@@ -21,8 +30,6 @@ struct
 	UINT32			maxReadDepth;
 }
 typedef aimOldArchivesParseData;
-
-BOOLEAN AimOldArchives_TextOnly;
 
 static void XMLCALL
 aimOldArchivesStartElementHandle(void *userData, const XML_Char *name, const XML_Char **atts)
@@ -40,6 +47,8 @@ aimOldArchivesStartElementHandle(void *userData, const XML_Char *name, const XML
 		else if(strcmp(name, "MERC") == 0 && pData->curElement == ELEMENT_LIST)
 		{
 			pData->curElement = ELEMENT;
+			pData->curAimOldArchives = OLD_MERC_ARCHIVES_VALUES{};
+			pData->hasIndex = false;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
@@ -67,11 +76,9 @@ aimOldArchivesCharacterDataHandle(void *userData, const XML_Char *str, int len)
 {
 	aimOldArchivesParseData * pData = (aimOldArchivesParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_1000_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_1000_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 
@@ -90,36 +97,56 @@ aimOldArchivesEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
-			if (!AimOldArchives_TextOnly)
-				{		
-					gAimOldArchives[pData->curAimOldArchives.uiIndex].uiIndex = pData->curAimOldArchives.uiIndex;
-					gAimOldArchives[pData->curAimOldArchives.uiIndex].FaceID = pData->curAimOldArchives.FaceID;
-					wcscpy(gAimOldArchives[pData->curAimOldArchives.uiIndex].szBio, pData->curAimOldArchives.szBio);
-					wcscpy(gAimOldArchives[pData->curAimOldArchives.uiIndex].szName, pData->curAimOldArchives.szName);
-					wcscpy(gAimOldArchives[pData->curAimOldArchives.uiIndex].szNickName, pData->curAimOldArchives.szNickName);
-				}
-				else
+			if (!pData->hasIndex ||
+				!LaptopLocalizationModel::IsIndexInRange(
+					pData->records->size(),
+					pData->curAimOldArchives.uiIndex))
+			{
+				pData->valid = false;
+			}
+			else
+			{
+				const auto index = pData->curAimOldArchives.uiIndex;
+				if ((*pData->seen)[index])
 				{
-				//	gAimOldArchives[pData->curAimOldArchives.uiIndex].uiIndex = pData->curAimOldArchives.uiIndex;
-				//	gAimOldArchives[pData->curAimOldArchives.uiIndex].FaceID = pData->curAimOldArchives.FaceID;
-					
-					wcscpy(gAimOldArchives[pData->curAimOldArchives.uiIndex].szBio, pData->curAimOldArchives.szBio);
-					wcscpy(gAimOldArchives[pData->curAimOldArchives.uiIndex].szName, pData->curAimOldArchives.szName);
-					wcscpy(gAimOldArchives[pData->curAimOldArchives.uiIndex].szNickName, pData->curAimOldArchives.szNickName);
-				}		
+					pData->valid = false;
+				}
+				else if (pData->valid && !pData->localizedVersion)
+				{
+					(*pData->records)[index] = pData->curAimOldArchives;
+					(*pData->seen)[index] = true;
+				}
+				else if (pData->valid)
+				{
+					auto& destination = (*pData->records)[index];
+					pData->valid =
+						LaptopLocalizationModel::CopyText(
+							destination.szBio,
+							pData->curAimOldArchives.szBio) &&
+						LaptopLocalizationModel::CopyText(
+							destination.szName,
+							pData->curAimOldArchives.szName) &&
+						LaptopLocalizationModel::CopyText(
+							destination.szNickName,
+							pData->curAimOldArchives.szNickName);
+					(*pData->seen)[index] = pData->valid;
+				}
+			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curAimOldArchives.uiIndex	= (UINT8) atol(pData->szCharData);
+			pData->hasIndex = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->curAimOldArchives.uiIndex);
+			pData->valid = pData->valid && pData->hasIndex;
 		}
 		else if(strcmp(name, "NickName") == 0)
 		{
 		
 			pData->curElement = ELEMENT;
 			
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curAimOldArchives.szNickName, sizeof(pData->curAimOldArchives.szNickName)/sizeof(pData->curAimOldArchives.szNickName[0]) );
-			pData->curAimOldArchives.szNickName[sizeof(pData->curAimOldArchives.szNickName)/sizeof(pData->curAimOldArchives.szNickName[0]) - 1] = '\0';
+			pData->valid = pData->valid && LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->curAimOldArchives.szNickName);
 
 		}	
 		else if(strcmp(name, "Name") == 0)
@@ -127,8 +154,8 @@ aimOldArchivesEndElementHandle(void *userData, const XML_Char *name)
 		
 			pData->curElement = ELEMENT;
 			
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curAimOldArchives.szName, sizeof(pData->curAimOldArchives.szName)/sizeof(pData->curAimOldArchives.szName[0]) );
-			pData->curAimOldArchives.szName[sizeof(pData->curAimOldArchives.szName)/sizeof(pData->curAimOldArchives.szName[0]) - 1] = '\0';
+			pData->valid = pData->valid && LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->curAimOldArchives.szName);
 
 		}	
 		else if(strcmp(name, "Bio") == 0)
@@ -136,14 +163,16 @@ aimOldArchivesEndElementHandle(void *userData, const XML_Char *name)
 		
 			pData->curElement = ELEMENT;
 			
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curAimOldArchives.szBio, sizeof(pData->curAimOldArchives.szBio)/sizeof(pData->curAimOldArchives.szBio[0]) );
-			pData->curAimOldArchives.szBio[sizeof(pData->curAimOldArchives.szBio)/sizeof(pData->curAimOldArchives.szBio[0]) - 1] = '\0';
+			pData->valid = pData->valid && LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->curAimOldArchives.szBio);
 
 		}	
 		else if(strcmp(name, "FaceID") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curAimOldArchives.FaceID	= (INT16) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curAimOldArchives.FaceID);
 		}	
 		
 		pData->maxReadDepth--;
@@ -153,13 +182,17 @@ aimOldArchivesEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInAimOldArchive(STR fileName, BOOLEAN localizedVersion)
 {
-	aimOldArchivesParseData pData;
+	aimOldArchivesParseData pData{};
+	std::array<OLD_MERC_ARCHIVES_VALUES, NUM_PROFILES> pending{};
+	std::array<bool, NUM_PROFILES> seen{};
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading OldAIMArchive.xml" );
 
-	AimOldArchives_TextOnly = localizedVersion;
-
-	memset(&pData,0,sizeof(pData));
+	std::copy_n(gAimOldArchives, pending.size(), pending.begin());
+	pData.records = &pending;
+	pData.seen = &seen;
+	pData.localizedVersion = localizedVersion;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, aimOldArchivesStartElementHandle, aimOldArchivesEndElementHandle,
@@ -177,6 +210,10 @@ BOOLEAN ReadInAimOldArchive(STR fileName, BOOLEAN localizedVersion)
 		}
 		return FALSE;
 	}
+	if (!pData.valid)
+		return FALSE;
+
+	std::copy(pending.begin(), pending.end(), gAimOldArchives);
 
 	return( TRUE );
 }
