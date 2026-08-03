@@ -29,6 +29,15 @@ target_include_directories(campaign_map_change_code_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_map_change_codes COMMAND campaign_map_change_code_tests)
 
+# Application campaign choices are runtime policy above Engine/Core. This
+# data-free target proves both built-in campaign paths without relying on the
+# executable's JA2UB compile definition or legacy application globals.
+add_executable(campaign_application_policy_tests
+  campaign_application_policy_tests.cpp)
+target_include_directories(campaign_application_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_application_policy COMMAND campaign_application_policy_tests)
+
 # A dedicated process replaces global allocation hooks while measuring the
 # observer hot path. Keeping it separate avoids coupling allocation accounting
 # to unrelated adapter tests or their setup work.

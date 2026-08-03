@@ -39,6 +39,7 @@
 #include "Game Clock.h"
 #include "Game Init.h"
 #include "GameContext.h"
+#include "CampaignApplicationPolicy.h"
 #include "SoldierRepository.h"
 
 //DEF: Test Code
@@ -72,11 +73,9 @@
 #include "Animated ProgressBar.h"
 #include "connect.h"
 
-#ifdef JA2UB
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
 #include "ub_config.h"
-#endif
 
 #define		ARE_IN_FADE_IN( )		( gfFadeIn || gfFadeInitialized )
 
@@ -225,7 +224,9 @@ void FadeOutGameScreen( )
 }
 
 void EnterTacticalScreen( )
-{	
+{
+	const CampaignApplicationPolicy campaignPolicy(
+		GetGameContext().capabilities());
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("EnterTacticalScreen"));
 	guiTacticalLeaveScreen = FALSE;
 
@@ -326,15 +327,11 @@ void EnterTacticalScreen( )
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("EnterTacticalScreen: check meanwhile"));
 
-#ifdef JA2UB
-/* Ja25 No meanwhiles */
-#else
 	// Locate if in meanwhile...
-	if ( AreInMeanwhile( ) )
+	if (campaignPolicy.hasMeanwhileScenes() && AreInMeanwhile())
 	{
 		LocateToMeanwhileCharacter( );
 	}
-#endif
 
 	if ( gTacticalStatus.uiFlags & IN_DEIDRANNA_ENDGAME )
 	{
@@ -431,6 +428,8 @@ extern INT32 iInterfaceDialogueBox;
 UINT32	MainGameScreenHandle(void)
 {
 	UINT32		uiNewScreen = GAME_SCREEN;
+	const CampaignApplicationPolicy campaignPolicy(
+		GetGameContext().capabilities());
 	//DO NOT MOVE THIS FUNCTION CALL!!!
 	//This determines if the help screen should be active
 //	if( ( !gfTacticalDoHeliRun && !gfFirstHeliRun ) && ShouldTheHelpScreenComeUp( HELP_SCREEN_TACTICAL, FALSE ) )
@@ -457,11 +456,8 @@ UINT32	MainGameScreenHandle(void)
 		#endif
 	}
 
-#ifdef JA2UB
-	//jA25 UB
-	//Handle the strategic AI
-	JA25_HandleUpdateOfStrategicAi();
-#endif
+	if (campaignPolicy.runsUnfinishedBusinessTacticalHooks())
+		JA25_HandleUpdateOfStrategicAi();
 
 #if 0
 	{
@@ -611,22 +607,12 @@ UINT32	MainGameScreenHandle(void)
 	{
 		gfGameScreenLocateToSoldier = FALSE;
 
-#ifdef JA2UB		
-		//if it is the first time in the game, and we are doing the heli crash code, locate to a different spot
-		if( gfFirstTimeInGameHeliCrash && gGameUBOptions.InGameHeli == FALSE )
+		if (campaignPolicy.runsUnfinishedBusinessTacticalHooks())
 		{
-			InternalLocateGridNo( gGameUBOptions.LOCATEGRIDNO, TRUE ); // 15427
-        }
-        else
-        {
-            if ( gGameUBOptions.InGameHeliCrash == TRUE )
-				//InternalLocateGridNo( gMapInformation.sNorthGridNo, TRUE );
-				  InternalLocateGridNo( gGameUBOptions.LOCATEGRIDNO, TRUE );
-            else
-				InternalLocateGridNo( gGameUBOptions.LOCATEGRIDNO, TRUE );
-        }
-#else
-		if (gfFirstHeliRun)
+			// UB uses its configured arrival grid for the helicopter and crash paths.
+			InternalLocateGridNo(gGameUBOptions.LOCATEGRIDNO, TRUE);
+		}
+		else if (gfFirstHeliRun)
 		{
 			InternalLocateGridNo( gGameExternalOptions.iInitialMercArrivalLocation, TRUE );
 		}
@@ -634,7 +620,6 @@ UINT32	MainGameScreenHandle(void)
 		{
 			InternalLocateGridNo(gMapInformation.sCenterGridNo, TRUE);
 		}
-#endif
 		// Flugente: we might have reloaded the game, so we are currently not dropping mercs out of a helicopter
 		gfIngagedInDrop = FALSE;
 
@@ -657,14 +642,11 @@ UINT32	MainGameScreenHandle(void)
 		return( GAME_SCREEN );
 	}
 
-#ifdef JA2UB
-	if ( !ARE_IN_FADE_IN( ) )
+	if (campaignPolicy.runsUnfinishedBusinessTacticalHooks() &&
+		!ARE_IN_FADE_IN())
 	{
-	//	HandleAirRaid( );
-		
 		HandlePowerGenAlarm();
 	}
-#endif
 
 	if ( gfGameScreenLocateToSoldier )
 	{
@@ -737,9 +719,8 @@ UINT32	MainGameScreenHandle(void)
   	{
 		HandleAutoBandagePending( );
      
-#ifdef JA2UB
-		HandleThePlayerBeNotifiedOfSomeoneElseInSector();
-#endif
+		if (campaignPolicy.runsUnfinishedBusinessTacticalHooks())
+			HandleThePlayerBeNotifiedOfSomeoneElseInSector();
      }
 
 
@@ -971,12 +952,8 @@ UINT32	MainGameScreenHandle(void)
 	DisplayFrameRate( );
 	
 	
-//UB       
-#ifdef JA2UB
- /* JA2UB */
-#else
-	CheckForMeanwhileOKStart( );
-#endif
+	if (campaignPolicy.hasMeanwhileScenes())
+		CheckForMeanwhileOKStart( );
 
 	ScrollString( );
 
@@ -1199,6 +1176,8 @@ void InitHelicopterEntranceByMercs( void )
 {
 	if( DidGameJustStart() )
 	{
+		const CampaignApplicationPolicy campaignPolicy(
+			GetGameContext().capabilities());
 		AIR_RAID_DEFINITION	AirRaidDef;
 
 		// Update clock ahead from STARTING_TIME to make mercs arrive!
@@ -1230,18 +1209,16 @@ void InitHelicopterEntranceByMercs( void )
 		// Madd - nevermind initial air strike.	It just seems silly, since Deidranna doesn't know the mercs are there.
 		//if ( gGameOptions.fAirStrikes )
 		//	ScheduleAirRaid( &AirRaidDef );
-#ifdef JA2UB		
-		if ( gGameUBOptions.InGameHeli == FALSE )
+		if (campaignPolicy.runsUnfinishedBusinessTacticalHooks() &&
+			gGameUBOptions.InGameHeli == FALSE)
 			HandleInitialEventsInHeliCrash(); //JA25 UB
-#endif
 		gfTacticalDoHeliRun = TRUE;
 		gfFirstHeliRun			= TRUE;
 
-#ifdef JA2UB
-		SetHelicopterDroppoint( gGameUBOptions.LOCATEGRIDNO );
-#else
-		SetHelicopterDroppoint( gGameExternalOptions.iInitialMercArrivalLocation );
-#endif
+		SetHelicopterDroppoint(
+			campaignPolicy.runsUnfinishedBusinessTacticalHooks()
+				? gGameUBOptions.LOCATEGRIDNO
+				: gGameExternalOptions.iInitialMercArrivalLocation);
 
 		SetHelicopterDropDirection(NORTH);
 

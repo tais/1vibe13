@@ -257,12 +257,8 @@ DEALER_POSSIBLE_INV gTonyInventory[MAXITEMS+1];// =
 //
 // Devin		( Explosives )
 //
-//Betty UB
-#ifdef JA2UB
 DEALER_POSSIBLE_INV gBettyInventory[MAXITEMS+1];// =
-#else
 DEALER_POSSIBLE_INV gDevinInventory[MAXITEMS+1];// =
-#endif
 //{
 //	{	STUN_GRENADE,							3 },
 //	{	TEARGAS_GRENADE,					3 },
@@ -660,11 +656,8 @@ DEALER_POSSIBLE_INV gArnieInventory[MAXITEMS+1];// =
 //
 // Perko			( REPAIR)
 //
-#ifdef JA2UB
 DEALER_POSSIBLE_INV gRaulInventory[MAXITEMS+1];
-#else
 DEALER_POSSIBLE_INV gPerkoInventory[MAXITEMS+1];// =
-#endif
 //{
 //	// NO INVENTORY
 //

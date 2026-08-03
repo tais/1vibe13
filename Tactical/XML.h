@@ -109,9 +109,7 @@ typedef PARSE_STAGE;
 #define ENEMYARMOURDROPSFILENAME				"Inventory\\EnemyArmourDrops.xml"
 #define ENEMYMISCDROPSFILENAME					"Inventory\\EnemyMiscDrops.xml"
 
-#ifdef JA2UB
-	#define MERCSTARTINGGEAR25FILENAME			"Inventory\\MercStartingGear25.xml"
-#endif
+#define MERCSTARTINGGEAR25FILENAME			"Inventory\\MercStartingGear25.xml"
 
 #define MERCHANTSFILENAME						"NPCInventory\\Merchants.xml"
 #define TONYINVENTORYFILENAME					"NPCInventory\\TonyInventory.xml"
@@ -139,10 +137,8 @@ typedef PARSE_STAGE;
 #define ADITIONALDEALER_INVENTORYFILENAME_A	"NPCInventory\\AdditionalDealer_"
 #define ADITIONALDEALER_INVENTORYFILENAME_B	"_Inventory.xml"
 
-#ifdef JA2UB
-	#define BETTYINVENTORYFILENAME				"NPCInventory\\BettyInventory.xml"
-	#define RAULINVENTORYFILENAME				"NPCInventory\\RaulInventory.xml"
-#endif
+#define BETTYINVENTORYFILENAME				"NPCInventory\\BettyInventory.xml"
+#define RAULINVENTORYFILENAME				"NPCInventory\\RaulInventory.xml"
 
 #define SOUNDSFILENAME							"Sounds\\Sounds.xml"
 #define BURSTSOUNDSFILENAME						"Sounds\\BurstSounds.xml"
@@ -220,10 +216,8 @@ typedef PARSE_STAGE;
 #define MERCPROFILESFILENAME					"MercProfiles.xml"
 #define LOADSCREENHINTSFILENAME					"LoadScreenHints.xml"
 
-#ifdef JA2UB
-	#define MERCPROFILESFILENAME25				"MercProfiles25.xml"
-	#define MERCOPINIONSFILENAME25				"MercOpinions25.xml"
-#endif
+#define MERCPROFILESFILENAME25				"MercProfiles25.xml"
+#define MERCOPINIONSFILENAME25				"MercOpinions25.xml"
 
 #define MERCQUOTEFILENAME						"MercQuote.xml"
 #define OLDAIMARCHIVEFILENAME					"OldAIMArchive.xml"

@@ -4,6 +4,8 @@
 	#include "Campaign Types.h"
 	#include "Game Clock.h"
 	#include "GameSettings.h"
+	#include "GameContext.h"
+	#include "CampaignApplicationPolicy.h"
 	#include "random.h"
 	#include "DEBUG.H"
 	#include "local.h"
@@ -18,9 +20,7 @@
 extern HVSURFACE ghFrameBuffer;
 extern BOOLEAN gfSchedulesHosed;
 
-#ifdef JA2UB
-	#include "Ja25 Strategic Ai.h"
-#endif
+#include "Ja25 Strategic Ai.h"
 UINT8 gubLastLoadingScreenID = LOADINGSCREEN_NOTHING;
 FLOAT fLoadingScreenAspectRatio;
 //BOOLEAN bShowSmallImage = FALSE;
@@ -110,6 +110,8 @@ UINT8 GetLoadScreenID(INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ)
 {
 	const UINT8 ubSectorID = SECTOR( sSectorX, sSectorY );
 	const BOOLEAN fNight = NightTime(); //before 5AM or after 9PM
+	const CampaignApplicationPolicy campaignPolicy(
+		GetGameContext().capabilities());
 
 	requestedX = sSectorX; requestedY = sSectorY; requestedZ = bSectorZ;
 
@@ -217,112 +219,82 @@ UINT8 GetLoadScreenID(INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ)
 				}
 			/* WANNE: Sir-Tech System */
 		}
-#ifdef JA2UB
-
 		case 1:
 		{
+			if (campaignPolicy.usesUnfinishedBusinessUndergroundLoadScreens())
+			{
+				switch( ubSectorID )
+				{
+					case SEC_I13:
+					case SEC_J13:
+						return LOADINGSCREEN_MINE;
+					case SEC_J14:
+					case SEC_K14:
+						return LOADINGSCREEN_TUNNELS;
+					case SEC_K15:
+						if( gJa25SaveStruct.ubLoadScreenStairTraversal == LS__GOING_UP_STAIRS )
+							return LOADINGSCREEN_UP_STAIRS;
+						if( gJa25SaveStruct.ubLoadScreenStairTraversal == LS__GOING_DOWN_STAIRS )
+							return LOADINGSCREEN_DOWN_STAIRS;
+						return LOADINGSCREEN_COMPLEX_BASEMENT_GENERIC;
+					default:
+						return LOADINGSCREEN_BASEMENT;
+				}
+			}
+
 			switch( ubSectorID )
 			{
-				case SEC_I13:
-				case SEC_J13:
-					return fNight ? LOADINGSCREEN_MINE : LOADINGSCREEN_MINE;
-				//tunnels
-				case SEC_J14:
-				case SEC_K14:
-					return LOADINGSCREEN_TUNNELS;
-				case SEC_K15:
-				{
-					if( gJa25SaveStruct.ubLoadScreenStairTraversal == LS__GOING_UP_STAIRS )
-						return  LOADINGSCREEN_UP_STAIRS;
-					else if( gJa25SaveStruct.ubLoadScreenStairTraversal == LS__GOING_DOWN_STAIRS )
-						return LOADINGSCREEN_DOWN_STAIRS;
-					else
-						return LOADINGSCREEN_COMPLEX_BASEMENT_GENERIC;
-				}
-				default:
+				case SEC_A10: // Miguel's basement
+				case SEC_I13: // Alma prison dungeon
+				case SEC_J9:  // Tixa prison dungeon
+				case SEC_K4:  // Orta weapons plant
+				case SEC_O3:  // Meduna
+				case SEC_P3:  // Meduna
 					return LOADINGSCREEN_BASEMENT;
+				default:
+					return LOADINGSCREEN_MINE;
 			}
 		}
 		case 2:
 		{
+			if (!campaignPolicy.usesUnfinishedBusinessUndergroundLoadScreens())
+				return LOADINGSCREEN_CAVE;
+
 			switch( ubSectorID )
 			{
 				case SEC_K15:
-				{	
-					//if we are going up stairs, else traversing at same level
 					if( gJa25SaveStruct.ubLoadScreenStairTraversal == LS__GOING_UP_STAIRS )
 						return LOADINGSCREEN_UP_STAIRS;
-					else if( gJa25SaveStruct.ubLoadScreenStairTraversal == LS__GOING_DOWN_STAIRS )
+					if( gJa25SaveStruct.ubLoadScreenStairTraversal == LS__GOING_DOWN_STAIRS )
 						return LOADINGSCREEN_DOWN_STAIRS;
-					else
-						return LOADINGSCREEN_COMPLEX_BASEMENT;
-				}
+					return LOADINGSCREEN_COMPLEX_BASEMENT;
 				case SEC_L15:
-				{
-					//if we are going up stairs, else traversing at same level
 					if( gJa25SaveStruct.ubLoadScreenStairTraversal == LS__GOING_UP_STAIRS )
 						return LOADINGSCREEN_UP_STAIRS;
-					else
-						return LOADINGSCREEN_COMPLEX_BASEMENT;
-				}
+					return LOADINGSCREEN_COMPLEX_BASEMENT;
 				default:
 					return LOADINGSCREEN_BASEMENT;
 			}
 		}
 		case 3:
 		{
+			if (!campaignPolicy.usesUnfinishedBusinessUndergroundLoadScreens())
+				return LOADINGSCREEN_CAVE;
+
 			switch( ubSectorID )
 			{
 				case SEC_L15:
-				{
-					//if we are going up stairs, else traversing at same level
 					if( gJa25SaveStruct.ubLoadScreenStairTraversal == LS__GOING_DOWN_STAIRS )
 						return LOADINGSCREEN_DOWN_STAIRS;
-					else
-						return LOADINGSCREEN_COMPLEX_BASEMENT_GENERIC;
-				}
+					return LOADINGSCREEN_COMPLEX_BASEMENT_GENERIC;
 				default:
 					return LOADINGSCREEN_CAVE;
 			}
 		}
-		break;
-			return LOADINGSCREEN_CAVE;
 		default:
-
-    /*
-    case 1:
-    case 2:
-    case 3:
-         return LOADINGSCREEN_CAVE;
-    break;
-	return LOADINGSCREEN_CAVE;
-   default:
-   */
-#else
-			// Basement Level 1
-			case 1:
-				switch( ubSectorID )
-				{
-					case SEC_A10:	//Miguel's basement
-					case SEC_I13:	//Alma prison dungeon
-					case SEC_J9:	//Tixa prison dungeon
-					case SEC_K4:	//Orta weapons plant
-					case SEC_O3:	//Meduna
-					case SEC_P3:	//Meduna
-						return LOADINGSCREEN_BASEMENT;
-					default:		//rest are mines
-						return LOADINGSCREEN_MINE;
-				}
-			// Basement Level 2 and 3
-			case 2:
-			case 3:
-				//all level 2 and 3 maps are caves!
-				return LOADINGSCREEN_CAVE;
-			default:
-#endif
-				// shouldn't ever happen
-				Assert( FALSE );
-				return fNight ? LOADINGSCREEN_NIGHTGENERIC : LOADINGSCREEN_DAYGENERIC;
+			// shouldn't ever happen
+			Assert( FALSE );
+			return fNight ? LOADINGSCREEN_NIGHTGENERIC : LOADINGSCREEN_DAYGENERIC;
 		}
 	
 	} /* WANNE: Sir-Tech System - END */

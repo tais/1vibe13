@@ -25,20 +25,29 @@ numeric records.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 386 active conditionals in 81
+milestone its per-file baseline contains 360 active conditionals in 74
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 147 |
-| Tactical gameplay/content | 139 |
+| Tactical gameplay/content | 131 |
 | Strategic gameplay/content | 63 |
-| JA2 application shell | 25 |
+| JA2 compatibility shell/layout | 7 |
 | Tactical AI | 8 |
 | Editor | 1 |
 | Multiplayer | 1 |
 | Tile engine | 1 |
 | Utilities | 1 |
+
+The common content loader, tactical game-screen loop, helicopter arrival,
+underground loading-screen selection, XML campaign paths, and alternative
+dealer inventory storage no longer contribute to this tail. Those paths use
+`CampaignApplicationPolicy` and are guarded by a data-free headless test plus
+named architecture checks. The seven remaining `Ja2` conditionals are the
+compiled host-capability seed, the two alternate new-game-screen
+implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;
+they are deliberately separate compatibility seams.
 
 The largest individual legacy leaves are:
 

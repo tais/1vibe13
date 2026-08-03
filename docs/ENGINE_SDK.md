@@ -97,6 +97,15 @@ bootstrap callback after deterministic rollback for local application
 diagnostics. It is not portable package state and must never be serialized or
 used as a package-to-package contract.
 
+JA2 application code that must select between the built-in campaigns uses the
+value-only `CampaignApplicationPolicy` above `Engine/Core`. It owns the common
+content-loader, tactical-loop, helicopter-arrival, and underground-load-screen
+decisions; both choices are covered by a standalone data-free CTest. Engine or
+package contracts must continue to consume capabilities and declared content,
+not include this application policy or test the legacy `JA2UB` build macro.
+The policy does not expose mutable globals, platform services, dealer IDs, or
+save records, and it changes no existing XML path or content format.
+
 The `engine_sdk_consumer` CTest installs the component, copies its fixture away
 from the repository tree, rejects source/build paths in the exported metadata,
 and builds the fresh project against `find_package(JA2Engine)`. It exercises
