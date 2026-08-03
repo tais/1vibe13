@@ -1,5 +1,7 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
 #include "sgp.h"
 #include "Debug Control.h"
 #include "expat.h"
@@ -8,22 +10,26 @@
 #include "LuaInitNPCs.h"
 #include "email.h"
 
+#include <utility>
+
 struct
 {
     PARSE_STAGE	curElement;
 
     CHAR8		szCharData[MAIL_STRING_SIZE + 1];
     CHAR16      currentMessage[MAIL_STRING_SIZE];
+    EMAIL_XML   currentEmail;
+    std::vector<EMAIL_XML>* emails;
     UINT16      currentEmailIndex;
     UINT16      currentMessageIndex;
+    BOOLEAN     localizedVersion;
+    bool        valid;
 
     UINT32		maxArraySize;
     UINT32		curIndex;
     UINT32		currentDepth;
     UINT32		maxReadDepth;
 } typedef EmailXMLParseData;
-
-BOOLEAN Emails_TextOnly;
 
 static void XMLCALL
 EmailOtherStartElementHandle(void* userData, const XML_Char* name, const XML_Char** atts)
@@ -41,6 +47,8 @@ EmailOtherStartElementHandle(void* userData, const XML_Char* name, const XML_Cha
         else if (strcmp(name, "EMAIL") == 0 && pData->curElement == ELEMENT_LIST)
         {
             pData->curElement = ELEMENT;
+            pData->currentEmail = EMAIL_XML{};
+            pData->currentMessageIndex = 0;
 
             pData->maxReadDepth++; //we are not skipping this element
         }
@@ -67,11 +75,9 @@ EmailOtherCharacterDataHandle(void* userData, const XML_Char* str, int len)
 {
     EmailXMLParseData* pData = (EmailXMLParseData*)userData;
 
-    if ((pData->currentDepth <= pData->maxReadDepth) &&
-        (strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-        ) {
-        strncat(pData->szCharData, str, __min((unsigned int)len, MAX_CHAR_DATA_LENGTH - strlen(pData->szCharData)));
-    }
+    if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+        pData->valid = LaptopLocalizationModel::AppendText(
+            pData->szCharData, str, len);
 }
 
 
@@ -89,50 +95,78 @@ EmailOtherEndElementHandle(void* userData, const XML_Char* name)
         else if (strcmp(name, "EMAIL") == 0)
         {
             pData->curElement = ELEMENT_LIST;
-            if ( Emails_TextOnly )
+            if (!pData->localizedVersion)
             {
+                pData->emails->push_back(std::move(pData->currentEmail));
+            }
+            else
+            {
+                const auto index = pData->currentEmailIndex;
+                if (index >= pData->emails->size() ||
+                    pData->currentMessageIndex !=
+                        (*pData->emails)[index].Messages.size())
+                {
+                    pData->valid = false;
+                }
                 pData->currentEmailIndex += 1;
-                pData->currentMessageIndex = 0;
             }
         }
         else if (strcmp(name, "Sender") == 0)
         {
             pData->curElement = ELEMENT;
-            if ( !Emails_TextOnly )
+            if (!pData->localizedVersion)
             {
-                gEmails.push_back(EMAIL_XML {});
-                gEmails.back().Sender = atol(pData->szCharData);
+                pData->valid = pData->valid &&
+                    LaptopLocalizationModel::ParseInteger(
+                        pData->szCharData, pData->currentEmail.Sender);
             }
         }
         else if (strcmp(name, "Subject") == 0)
         {
             pData->curElement = ELEMENT;
-            if ( !Emails_TextOnly )
+            if (!pData->localizedVersion)
             {
-                if (!gEmails.empty()) MultiByteToWideChar(CP_UTF8, 0, pData->szCharData, -1, gEmails.back().Subject, sizeof(gEmails.back().Subject) / sizeof(gEmails.back().Subject[0]));
+                pData->valid = pData->valid && LaptopLocalization::ConvertUtf8(
+                    pData->szCharData, pData->currentEmail.Subject);
             }
             else
             {
                 // Replace existing text with localized version
                 const auto i = pData->currentEmailIndex;
-                if (i < gEmails.size()) MultiByteToWideChar(CP_UTF8, 0, pData->szCharData, -1, gEmails[i].Subject, sizeof(gEmails[i].Subject) / sizeof(gEmails[i].Subject[0]));
+                if (i >= pData->emails->size())
+                    pData->valid = false;
+                else
+                    pData->valid = pData->valid &&
+                        LaptopLocalization::ConvertUtf8(
+                            pData->szCharData, (*pData->emails)[i].Subject);
             }
         }
         else if (strcmp(name, "Message") == 0)
         {
             pData->curElement = ELEMENT;
-            MultiByteToWideChar(CP_UTF8, 0, pData->szCharData, -1, pData->currentMessage, sizeof(pData->currentMessage) / sizeof(pData->currentMessage[0]));
+            pData->valid = pData->valid && LaptopLocalization::ConvertUtf8(
+                pData->szCharData, pData->currentMessage);
 
-            if ( !Emails_TextOnly )
+            if (!pData->localizedVersion)
             {
-                if (!gEmails.empty()) gEmails.back().Messages.emplace_back(pData->currentMessage);
+                if (pData->valid)
+                    pData->currentEmail.Messages.emplace_back(
+                        pData->currentMessage);
             }
             else
             {
                 // Replace existing text with localized version
                 const auto i = pData->currentEmailIndex;
                 const auto j = pData->currentMessageIndex;
-                if (i < gEmails.size() && j < gEmails[i].Messages.size()) gEmails[i].Messages[j] = pData->currentMessage;
+                if (i >= pData->emails->size() ||
+                    j >= (*pData->emails)[i].Messages.size())
+                {
+                    pData->valid = false;
+                }
+                else if (pData->valid)
+                {
+                    (*pData->emails)[i].Messages[j] = pData->currentMessage;
+                }
 
                 pData->currentMessageIndex++;
             }
@@ -149,24 +183,23 @@ EmailOtherEndElementHandle(void* userData, const XML_Char* name)
     pData->currentDepth--;
 }
 
-static void PrepareExternalizedEmailsDocument(void*)
-{
-    gEmails.reserve(XML_JA2UB_SPECK_DISMISSALREFUND);
-}
-
 BOOLEAN ReadInExternalizedEmails(STR fileName, BOOLEAN localizedVersion)
 {
-    EmailXMLParseData pData;
+    EmailXMLParseData pData{};
+    std::vector<EMAIL_XML> pendingEmails =
+        localizedVersion ? gEmails : std::vector<EMAIL_XML>{};
 
     DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading Emails.xml");
 
-    Emails_TextOnly = localizedVersion;
-
-    memset(&pData, 0, sizeof(pData));
+    if (!localizedVersion)
+        pendingEmails.reserve(XML_JA2UB_SPECK_DISMISSALREFUND);
+    pData.emails = &pendingEmails;
+    pData.localizedVersion = localizedVersion;
+    pData.valid = true;
 
     const LegacyXmlCallbacks callbacks{
         &pData, EmailOtherStartElementHandle, EmailOtherEndElementHandle,
-        EmailOtherCharacterDataHandle, PrepareExternalizedEmailsDocument};
+        EmailOtherCharacterDataHandle};
     const LegacyXmlResult result =
         ParseLegacyXmlFile(fileName, callbacks);
     if (!result)
@@ -180,6 +213,13 @@ BOOLEAN ReadInExternalizedEmails(STR fileName, BOOLEAN localizedVersion)
         }
         return FALSE;
     }
+
+    if (!pData.valid ||
+        (localizedVersion &&
+            pData.currentEmailIndex != pendingEmails.size()))
+        return FALSE;
+
+    gEmails.swap(pendingEmails);
 
     return(TRUE);
 }

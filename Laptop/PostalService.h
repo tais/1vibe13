@@ -11,6 +11,7 @@
 #include "Game Event Hook.h"
 #include "Game Events.h"
 #include <list>
+#include <cstddef>
 #include <string>
 #include <iostream>
 
@@ -229,6 +230,7 @@ public:
 	// Delivery method management
 	UINT8 AddDeliveryMethod(STR16 pszDescription);
 	UINT16 SetDestinationDeliveryInfo(UINT8 ubDeliveryMethodIndex, UINT32 uiDestinationIndex, UINT16 usDestinationFee, INT8 bDaysAhead);
+	std::size_t GetDeliveryMethodCount() const noexcept;
 	UINT16 GetDestinationFee(UINT8 ubDeliveryMethodIndex, UINT16 usDestinationID);
 	RefToDeliveryMethodStruct GetDeliveryMethod(UINT8 ubDeliveryMethodIndex) const;
 

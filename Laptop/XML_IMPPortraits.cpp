@@ -1,5 +1,10 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+	#include "LocalizationInputAdapter.h"
+
+	#include <algorithm>
+	#include <array>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -14,7 +19,10 @@ struct
 
 	CHAR8		szCharData[MAX_CHAR_DATA_LENGTH+1];
 	IMP_FACE_VALUES	curIMPPortraits;
-	IMP_FACE_VALUES *	curArray;
+	std::array<IMP_FACE_VALUES, NUM_PROFILES>* records;
+	std::array<bool, NUM_PROFILES>* seen;
+	bool valid;
+	bool hasIndex;
 
 	UINT32			maxArraySize;
 	UINT32			curIndex;
@@ -23,8 +31,6 @@ struct
 	//CHAR16 gzIMPPortraits[MAX_IMP_NAMES_CHARS];
 }
 typedef impPortraitsParseData;
-
-BOOLEAN IMPPortraits_TextOnly;
 
 IMP_FACE_VALUES gIMPFaceValues[NUM_PROFILES];
 
@@ -44,6 +50,8 @@ impPortraitsStartElementHandle(void *userData, const XML_Char *name, const XML_C
 		else if(strcmp(name, "IMP") == 0 && pData->curElement == ELEMENT_LIST)
 		{
 			pData->curElement = ELEMENT;
+			pData->curIMPPortraits = IMP_FACE_VALUES{};
+			pData->hasIndex = false;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
@@ -77,11 +85,9 @@ impPortraitsCharacterDataHandle(void *userData, const XML_Char *str, int len)
 {
 	impPortraitsParseData * pData = (impPortraitsParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH) )
-	{
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 static void XMLCALL
@@ -99,80 +105,107 @@ impPortraitsEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
-			if ( pData->curIMPPortraits.uiIndex < NUM_PROFILES )	// unbounded XML uiIndex -> OOB write into gIMPFaceValues[NUM_PROFILES]
+			if (!pData->hasIndex ||
+				!LaptopLocalizationModel::IsIndexInRange(
+					pData->records->size(), pData->curIMPPortraits.uiIndex))
 			{
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].uiEyeXPositions = pData->curIMPPortraits.uiEyeXPositions;
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].uiEyeYPositions = pData->curIMPPortraits.uiEyeYPositions;
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].uiMouthXPositions = pData->curIMPPortraits.uiMouthXPositions;
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].uiMouthYPositions = pData->curIMPPortraits.uiMouthYPositions;
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].PortraitId = pData->curIMPPortraits.PortraitId;
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].bSex = pData->curIMPPortraits.bSex;
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].iCurrentSkin = pData->curIMPPortraits.iCurrentSkin;
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].iCurrentShirt = pData->curIMPPortraits.iCurrentShirt;
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].iCurrentHair = pData->curIMPPortraits.iCurrentHair;
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].iCurrentPants = pData->curIMPPortraits.iCurrentPants;
-			gIMPFaceValues[pData->curIMPPortraits.uiIndex].bBigBody = pData->curIMPPortraits.bBigBody;
+				pData->valid = false;
+			}
+			else
+			{
+				const auto index = pData->curIMPPortraits.uiIndex;
+				if ((*pData->seen)[index])
+					pData->valid = false;
+				else if (pData->valid)
+				{
+					(*pData->records)[index] = pData->curIMPPortraits;
+					(*pData->seen)[index] = true;
+				}
 			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.uiIndex	= (UINT16) atol(pData->szCharData);
+			pData->hasIndex = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->curIMPPortraits.uiIndex);
+			pData->valid = pData->valid && pData->hasIndex;
 		}
 		else if(strcmp(name, "PortraitId") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.PortraitId	= (INT32) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curIMPPortraits.PortraitId);
 		}
 		else if(strcmp(name, "bSex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.bSex	= (BOOLEAN) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseBoolean(
+					pData->szCharData, pData->curIMPPortraits.bSex);
 		}
 		else if(strcmp(name, "usEyesX") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.uiEyeXPositions	= (INT8) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curIMPPortraits.uiEyeXPositions);
 		}
 		else if(strcmp(name, "usEyesY") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.uiEyeYPositions	=  (INT8) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curIMPPortraits.uiEyeYPositions);
 		}
 		else if(strcmp(name, "usMouthX") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.uiMouthXPositions	= (INT8) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curIMPPortraits.uiMouthXPositions);
 		}
 		else if(strcmp(name, "usMouthY") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.uiMouthYPositions	=  (INT8) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curIMPPortraits.uiMouthYPositions);
 		}
 		else if(strcmp(name, "DefaultSkin") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.iCurrentSkin	=  (INT32) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curIMPPortraits.iCurrentSkin);
 		}		
 		else if(strcmp(name, "DefaultHair") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.iCurrentHair	=  (INT32) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curIMPPortraits.iCurrentHair);
 		}
 		else if(strcmp(name, "DefaultShirt") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.iCurrentShirt	=  (INT32) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curIMPPortraits.iCurrentShirt);
 		}	
 		else if(strcmp(name, "DefaultPants") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.iCurrentPants	=  (INT32) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curIMPPortraits.iCurrentPants);
 		}		
 		else if(strcmp(name, "DefaultBigBody") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPPortraits.bBigBody	=  (INT32) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseBoolean(
+					pData->szCharData, pData->curIMPPortraits.bBigBody);
 		}	
 	
 		pData->maxReadDepth--;
@@ -182,13 +215,16 @@ impPortraitsEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInIMPPortraits(STR fileName, BOOLEAN localizedVersion)
 {
-	impPortraitsParseData pData;
+	impPortraitsParseData pData{};
+	std::array<IMP_FACE_VALUES, NUM_PROFILES> pending{};
+	std::array<bool, NUM_PROFILES> seen{};
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading IMPPortraits.xml" );
 
-	IMPPortraits_TextOnly = localizedVersion;
-
-	memset(&pData,0,sizeof(pData));
+	std::copy_n(gIMPFaceValues, pending.size(), pending.begin());
+	pData.records = &pending;
+	pData.seen = &seen;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, impPortraitsStartElementHandle, impPortraitsEndElementHandle,
@@ -206,6 +242,10 @@ BOOLEAN ReadInIMPPortraits(STR fileName, BOOLEAN localizedVersion)
 		}
 		return FALSE;
 	}
+	if (!pData.valid)
+		return FALSE;
+
+	std::copy(pending.begin(), pending.end(), gIMPFaceValues);
 
 	return( TRUE );
 }

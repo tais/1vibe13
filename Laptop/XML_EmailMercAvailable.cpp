@@ -1,5 +1,10 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
+#include <algorithm>
+#include <array>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -14,6 +19,12 @@ struct
 
 	CHAR8		szCharData[MAIL_STRING_SIZE+1];
 	EMAIL_MERC_AVAILABLE_VALUES	curEmailMercAvailable;
+	std::array<EMAIL_MERC_AVAILABLE_VALUES, NUM_PROFILES>* records;
+	std::array<bool, NUM_PROFILES>* seen;
+	bool valid;
+	bool hasIndex;
+	bool hasSubject;
+	bool hasMessage;
 
 	UINT32			maxArraySize;
 	UINT32			curIndex;
@@ -22,8 +33,6 @@ struct
 }
 
 typedef emailMercAvailableParseData;
-
-BOOLEAN EmailMercAvailable_TextOnly;
 
 static void XMLCALL
 emailMercAvailableStartElementHandle(void *userData, const XML_Char *name, const XML_Char **atts)
@@ -41,6 +50,10 @@ emailMercAvailableStartElementHandle(void *userData, const XML_Char *name, const
 		else if(strcmp(name, "EMAIL") == 0 && pData->curElement == ELEMENT_LIST)
 		{
 			pData->curElement = ELEMENT;
+			pData->curEmailMercAvailable = EMAIL_MERC_AVAILABLE_VALUES{};
+			pData->hasIndex = false;
+			pData->hasSubject = false;
+			pData->hasMessage = false;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
@@ -66,11 +79,9 @@ emailMercAvailableCharacterDataHandle(void *userData, const XML_Char *str, int l
 {
 	emailMercAvailableParseData * pData = (emailMercAvailableParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 
@@ -89,38 +100,50 @@ emailMercAvailableEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
-			if ( pData->curEmailMercAvailable.uiIndex < NUM_PROFILES )
+			if (!pData->hasIndex ||
+				!LaptopLocalizationModel::IsIndexInRange(
+					pData->records->size(),
+					pData->curEmailMercAvailable.uiIndex))
 			{
-			if (!EmailMercAvailable_TextOnly)
+				pData->valid = false;
+			}
+			else
+			{
+				const auto index = pData->curEmailMercAvailable.uiIndex;
+				if ((*pData->seen)[index])
+					pData->valid = false;
+				else if (pData->valid)
 				{
-					wcscpy(EmailMercAvailableText[pData->curEmailMercAvailable.uiIndex].szSubject, pData->curEmailMercAvailable.szSubject);
-					wcscpy(EmailMercAvailableText[pData->curEmailMercAvailable.uiIndex].szMessage, pData->curEmailMercAvailable.szMessage);
+					(*pData->records)[index] = pData->curEmailMercAvailable;
+					(*pData->seen)[index] = true;
 				}
-				else
-				{
-					wcscpy(EmailMercAvailableText[pData->curEmailMercAvailable.uiIndex].szSubject, pData->curEmailMercAvailable.szSubject);
-					wcscpy(EmailMercAvailableText[pData->curEmailMercAvailable.uiIndex].szMessage, pData->curEmailMercAvailable.szMessage);
-				}		
 			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curEmailMercAvailable.uiIndex	= (UINT8) atol(pData->szCharData);
+			pData->hasIndex = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData,
+				pData->curEmailMercAvailable.uiIndex);
+			pData->valid = pData->valid && pData->hasIndex;
 		}
 		else if(strcmp(name, "Subject") == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curEmailMercAvailable.szSubject, sizeof(pData->curEmailMercAvailable.szSubject)/sizeof(pData->curEmailMercAvailable.szSubject[0]) );
-			pData->curEmailMercAvailable.szSubject[sizeof(pData->curEmailMercAvailable.szSubject)/sizeof(pData->curEmailMercAvailable.szSubject[0]) - 1] = '\0';
+			pData->hasSubject = LaptopLocalization::ConvertUtf8(
+				pData->szCharData,
+				pData->curEmailMercAvailable.szSubject);
+			pData->valid = pData->valid && pData->hasSubject;
 		}
 		else if(strcmp(name, "Message") == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curEmailMercAvailable.szMessage, sizeof(pData->curEmailMercAvailable.szMessage)/sizeof(pData->curEmailMercAvailable.szMessage[0]) );
-			pData->curEmailMercAvailable.szMessage[sizeof(pData->curEmailMercAvailable.szMessage)/sizeof(pData->curEmailMercAvailable.szMessage[0]) - 1] = '\0';
+			pData->hasMessage = LaptopLocalization::ConvertUtf8(
+				pData->szCharData,
+				pData->curEmailMercAvailable.szMessage);
+			pData->valid = pData->valid && pData->hasMessage;
 		}
 		pData->maxReadDepth--;
 	}
@@ -129,13 +152,16 @@ emailMercAvailableEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInEmailMercAvailable(STR fileName, BOOLEAN localizedVersion)
 {
-	emailMercAvailableParseData pData;
+	emailMercAvailableParseData pData{};
+	std::array<EMAIL_MERC_AVAILABLE_VALUES, NUM_PROFILES> pending{};
+	std::array<bool, NUM_PROFILES> seen{};
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading EmailMercAvailable.xml" );
 
-	EmailMercAvailable_TextOnly = localizedVersion;
-
-	memset(&pData,0,sizeof(pData));
+	std::copy_n(EmailMercAvailableText, NUM_PROFILES, pending.begin());
+	pData.records = &pending;
+	pData.seen = &seen;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, emailMercAvailableStartElementHandle,
@@ -154,6 +180,10 @@ BOOLEAN ReadInEmailMercAvailable(STR fileName, BOOLEAN localizedVersion)
 		}
 		return FALSE;
 	}
+	if (!pData.valid)
+		return FALSE;
+
+	std::copy(pending.begin(), pending.end(), EmailMercAvailableText);
 
 	return( TRUE );
 }

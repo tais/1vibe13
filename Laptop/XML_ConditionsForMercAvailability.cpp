@@ -1,5 +1,10 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
+#include <algorithm>
+#include <array>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -13,7 +18,11 @@ struct
 
 	CHAR8		szCharData[MAX_CHAR_DATA_LENGTH+1];
 	CONTITION_FOR_MERC_AVAILABLE	curMercAvailability;
-	CONTITION_FOR_MERC_AVAILABLE *	curArray;
+	std::array<CONTITION_FOR_MERC_AVAILABLE, NUM_PROFILES>* records;
+	std::array<CONTITION_FOR_MERC_AVAILABLE_TEMP, NUM_PROFILES>* temporaryRecords;
+	std::array<bool, NUM_PROFILES>* seen;
+	bool valid;
+	bool hasIndex;
 
 	UINT32			maxArraySize;
 	UINT32			curIndex;
@@ -21,8 +30,6 @@ struct
 	UINT32			maxReadDepth;
 }
 typedef mercAvailabilityParseData;
-
-BOOLEAN MercAvailability_TextOnly;
 
 static void XMLCALL
 mercAvailabilityStartElementHandle(void *userData, const XML_Char *name, const XML_Char **atts)
@@ -40,6 +47,8 @@ mercAvailabilityStartElementHandle(void *userData, const XML_Char *name, const X
 		else if(strcmp(name, "MERC") == 0 && pData->curElement == ELEMENT_LIST)
 		{
 			pData->curElement = ELEMENT;
+			pData->curMercAvailability = CONTITION_FOR_MERC_AVAILABLE{};
+			pData->hasIndex = false;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
@@ -72,11 +81,9 @@ mercCharacterDataHandle(void *userData, const XML_Char *str, int len)
 {
 	mercAvailabilityParseData * pData = (mercAvailabilityParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 
@@ -95,103 +102,105 @@ mercAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
-			if ( pData->curMercAvailability.uiIndex < NUM_PROFILES && pData->curMercAvailability.ProfilId < NUM_PROFILES )
+			if (!pData->hasIndex ||
+				!LaptopLocalizationModel::IsIndexInRange(
+					pData->records->size(),
+					pData->curMercAvailability.uiIndex) ||
+				!LaptopLocalizationModel::IsIndexInRange(
+					NUM_PROFILES, pData->curMercAvailability.ProfilId))
 			{
-			if (!MercAvailability_TextOnly)
-				{		
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].uiIndex = pData->curMercAvailability.uiIndex;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].ProfilId = pData->curMercAvailability.ProfilId;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].usMoneyPaid = pData->curMercAvailability.usMoneyPaid;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].usDay = pData->curMercAvailability.usDay;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].ubMercArrayID = pData->curMercAvailability.uiIndex;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].NewMercsAvailable = pData->curMercAvailability.NewMercsAvailable;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].StartMercsAvailable = pData->curMercAvailability.StartMercsAvailable;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].MercBio = pData->curMercAvailability.MercBio;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].Drunk = pData->curMercAvailability.Drunk;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].uiAlternateIndex = pData->curMercAvailability.uiAlternateIndex;
-					
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].uiIndex = pData->curMercAvailability.uiIndex;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].ProfilId = pData->curMercAvailability.ProfilId;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].usMoneyPaid = pData->curMercAvailability.usMoneyPaid;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].usDay = pData->curMercAvailability.usDay;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].ubMercArrayID = pData->curMercAvailability.uiIndex;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].NewMercsAvailable = pData->curMercAvailability.NewMercsAvailable;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].StartMercsAvailable = pData->curMercAvailability.StartMercsAvailable;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].MercBio = pData->curMercAvailability.MercBio;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].Drunk = pData->curMercAvailability.Drunk;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].uiAlternateIndex = pData->curMercAvailability.uiAlternateIndex;
-				}
-				else
+				pData->valid = false;
+			}
+			else
+			{
+				const auto index = pData->curMercAvailability.uiIndex;
+				if ((*pData->seen)[index])
+					pData->valid = false;
+				else if (pData->valid)
 				{
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].uiIndex = pData->curMercAvailability.uiIndex;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].ProfilId = pData->curMercAvailability.ProfilId;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].usMoneyPaid = pData->curMercAvailability.usMoneyPaid;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].usDay = pData->curMercAvailability.usDay;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].ubMercArrayID = pData->curMercAvailability.uiIndex;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].NewMercsAvailable = pData->curMercAvailability.NewMercsAvailable;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].StartMercsAvailable = pData->curMercAvailability.StartMercsAvailable;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].MercBio = pData->curMercAvailability.MercBio;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].Drunk = pData->curMercAvailability.Drunk;
-					gConditionsForMercAvailability[pData->curMercAvailability.uiIndex].uiAlternateIndex = pData->curMercAvailability.uiAlternateIndex;
-					
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].uiIndex = pData->curMercAvailability.uiIndex;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].ProfilId = pData->curMercAvailability.ProfilId;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].usMoneyPaid = pData->curMercAvailability.usMoneyPaid;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].usDay = pData->curMercAvailability.usDay;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].ubMercArrayID = pData->curMercAvailability.uiIndex;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].NewMercsAvailable = pData->curMercAvailability.NewMercsAvailable;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].StartMercsAvailable = pData->curMercAvailability.StartMercsAvailable;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].MercBio = pData->curMercAvailability.MercBio;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].Drunk = pData->curMercAvailability.Drunk;
-					gConditionsForMercAvailabilityTemp[pData->curMercAvailability.uiIndex].uiAlternateIndex = pData->curMercAvailability.uiAlternateIndex;
-
-				}		
+					auto record = pData->curMercAvailability;
+					record.ubMercArrayID = index;
+					(*pData->records)[index] = record;
+					auto& temporary = (*pData->temporaryRecords)[index];
+					temporary.usMoneyPaid = record.usMoneyPaid;
+					temporary.usDay = record.usDay;
+					temporary.ubMercArrayID = index;
+					temporary.uiIndex = index;
+					temporary.ProfilId = record.ProfilId;
+					temporary.NewMercsAvailable = record.NewMercsAvailable;
+					temporary.StartMercsAvailable = record.StartMercsAvailable;
+					temporary.MercBio = record.MercBio;
+					temporary.Drunk = record.Drunk;
+					temporary.uiAlternateIndex = record.uiAlternateIndex;
+					(*pData->seen)[index] = true;
+				}
 			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curMercAvailability.uiIndex	= (UINT8) atol(pData->szCharData);
+			pData->hasIndex = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->curMercAvailability.uiIndex);
+			pData->valid = pData->valid && pData->hasIndex;
 		}
 		else if(strcmp(name, "usMoneyPaid") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curMercAvailability.usMoneyPaid	= (UINT16) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curMercAvailability.usMoneyPaid);
 		}
 		else if(strcmp(name, "usDay") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curMercAvailability.usDay	= (UINT16) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curMercAvailability.usDay);
 		}
 		else if(strcmp(name, "ProfilId") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curMercAvailability.ProfilId	= (UINT8) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curMercAvailability.ProfilId);
 		}
 		else if(strcmp(name, "NewMercsAvailable") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curMercAvailability.NewMercsAvailable	= (BOOLEAN) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseBoolean(
+					pData->szCharData,
+					pData->curMercAvailability.NewMercsAvailable);
 		}	
 		else if(strcmp(name, "StartMercsAvailable") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curMercAvailability.StartMercsAvailable	= (BOOLEAN) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseBoolean(
+					pData->szCharData,
+					pData->curMercAvailability.StartMercsAvailable);
 		}	
 		else if(strcmp(name, "MercBioID") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curMercAvailability.MercBio	= (UINT8) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curMercAvailability.MercBio);
 		}	
 		else if(strcmp(name, "Drunk") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curMercAvailability.Drunk	= (BOOLEAN) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseBoolean(
+					pData->szCharData, pData->curMercAvailability.Drunk);
 		}
 		else if(strcmp(name, "uiAlternateIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curMercAvailability.uiAlternateIndex	= (UINT8) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseIntegerOrMinusOneSentinel(
+					pData->szCharData,
+					pData->curMercAvailability.uiAlternateIndex);
 		}
 		
 		else if(pData->curElement == ELEMENT_PROPERTY)
@@ -207,13 +216,22 @@ mercAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInMercAvailability(STR fileName, BOOLEAN localizedVersion)
 {
-	mercAvailabilityParseData pData;
+	mercAvailabilityParseData pData{};
+	std::array<CONTITION_FOR_MERC_AVAILABLE, NUM_PROFILES> pending{};
+	std::array<CONTITION_FOR_MERC_AVAILABLE_TEMP, NUM_PROFILES>
+		pendingTemporary{};
+	std::array<bool, NUM_PROFILES> seen{};
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading MercAvailability.xml" );
 
-	MercAvailability_TextOnly = localizedVersion;
-
-	memset(&pData,0,sizeof(pData));
+	std::copy_n(gConditionsForMercAvailability, pending.size(),
+		pending.begin());
+	std::copy_n(gConditionsForMercAvailabilityTemp, pendingTemporary.size(),
+		pendingTemporary.begin());
+	pData.records = &pending;
+	pData.temporaryRecords = &pendingTemporary;
+	pData.seen = &seen;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, mercAvailabilityStartElementHandle, mercAvailabilityEndElementHandle,
@@ -231,6 +249,13 @@ BOOLEAN ReadInMercAvailability(STR fileName, BOOLEAN localizedVersion)
 		}
 		return FALSE;
 	}
+	if (!pData.valid)
+		return FALSE;
+
+	std::copy(pending.begin(), pending.end(),
+		gConditionsForMercAvailability);
+	std::copy(pendingTemporary.begin(), pendingTemporary.end(),
+		gConditionsForMercAvailabilityTemp);
 
 	return( TRUE );
 }

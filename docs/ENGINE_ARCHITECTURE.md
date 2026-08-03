@@ -1025,6 +1025,20 @@ the engine must not contain SDL types in its public domain model.
   leaving Laptop with 72 shared and 26 per-application translation units.
   Focused data-free boundary tests, architecture checks, all-host builds, and
   the sanitizer matrix protect the extraction.
+- Laptop XML/localization input now crosses one dependency-free
+  `LocalizationInputModel` and one legacy UTF-8 adapter. All 13 Laptop XML
+  readers accumulate arbitrary Expat chunks with fixed-capacity checks, parse
+  integral and boolean fields without narrowing (including explicit mapping of
+  documented `-1` byte sentinels), validate signed/exact-end indices, and stage
+  records before publishing global arrays, vectors, or
+  PostalService collections. This removes the Old A.I.M. archive index-255
+  write, localized shipping end-iterator dereference, briefing raw-array and
+  page/image overruns, inherited/duplicated IMP voice records, and partial
+  global state after malformed or truncated documents. The XML schemas,
+  external IDs, fixed game structures, and save layouts are unchanged. A
+  data-free boundary test and architecture-wide parser ratchet are included in
+  normal and AddressSanitizer CI; the detailed fault inventory remains in
+  `LAPTOP_CODE_WALKTHROUGH.md`.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

@@ -1,5 +1,10 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
+#include <algorithm>
+#include <array>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -15,7 +20,10 @@ struct
 
 	CHAR8		szCharData[MAX_CHAR_DATA_LENGTH+1];
 	HISTORY_VALUES		curMercHistorys;
-	HISTORY_VALUES *	curArray;
+	std::array<HISTORY_VALUES, 500>* records;
+	std::array<bool, 500>* seen;
+	bool valid;
+	bool hasIndex;
 
 	UINT32			maxArraySize;
 	UINT32			curIndex;
@@ -24,8 +32,6 @@ struct
 	//CHAR16 gzMercNames[MAX_ENEMY_NAMES_CHARS];
 }
 typedef mercHistoryParseData;
-
-BOOLEAN MercHistory_TextOnly;
 
 static void XMLCALL
 mercHistoryStartElementHandle(void *userData, const XML_Char *name, const XML_Char **atts)
@@ -43,6 +49,8 @@ mercHistoryStartElementHandle(void *userData, const XML_Char *name, const XML_Ch
 		else if(strcmp(name, "TEXT") == 0 && pData->curElement == ELEMENT_LIST)
 		{
 			pData->curElement = ELEMENT;
+			pData->curMercHistorys = HISTORY_VALUES{};
+			pData->hasIndex = false;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
@@ -68,11 +76,9 @@ mercHistoryCharacterDataHandle(void *userData, const XML_Char *str, int len)
 {
 	mercHistoryParseData * pData = (mercHistoryParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 
@@ -91,32 +97,39 @@ mercHistoryEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
-			if ( pData->curMercHistorys.uiIndex < 500 )
+			if (!pData->hasIndex ||
+				!LaptopLocalizationModel::IsIndexInRange(
+					pData->records->size(),
+					pData->curMercHistorys.uiIndex))
 			{
-			if (!MercHistory_TextOnly)
+				pData->valid = false;
+			}
+			else
+			{
+				const auto index = pData->curMercHistorys.uiIndex;
+				if ((*pData->seen)[index])
+					pData->valid = false;
+				else if (pData->valid)
 				{
-					wcscpy(HistoryName[pData->curMercHistorys.uiIndex].sHistory, pData->curMercHistorys.sHistory);	
-					//wcscpy(pHistoryStrings[pData->curMercHistorys.uiIndex], pData->curMercHistorys.sHistory);
+					(*pData->records)[index] = pData->curMercHistorys;
+					(*pData->seen)[index] = true;
 				}
-				else
-				{
-					wcscpy(HistoryName[pData->curMercHistorys.uiIndex].sHistory, pData->curMercHistorys.sHistory);
-					//wcscpy(pHistoryStrings[pData->curMercHistorys.uiIndex], pData->curMercHistorys.sHistory);					
-				}		
 			}
 		
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curMercHistorys.uiIndex	= (UINT16) atol(pData->szCharData);
+			pData->hasIndex = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->curMercHistorys.uiIndex);
+			pData->valid = pData->valid && pData->hasIndex;
 		}
 		else if(strcmp(name, "sHistory") == 0)
 		{
 			pData->curElement = ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curMercHistorys.sHistory, sizeof(pData->curMercHistorys.sHistory)/sizeof(pData->curMercHistorys.sHistory[0]) );
-			pData->curMercHistorys.sHistory[sizeof(pData->curMercHistorys.sHistory)/sizeof(pData->curMercHistorys.sHistory[0]) - 1] = '\0';
+			pData->valid = pData->valid && LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->curMercHistorys.sHistory);
 		}
 		pData->maxReadDepth--;
 	}
@@ -128,13 +141,16 @@ mercHistoryEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInHistorys(STR fileName, BOOLEAN localizedVersion)
 {
-	mercHistoryParseData pData;
+	mercHistoryParseData pData{};
+	std::array<HISTORY_VALUES, 500> pending{};
+	std::array<bool, 500> seen{};
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading History.xml" );
 
-	MercHistory_TextOnly = localizedVersion;
-
-	memset(&pData,0,sizeof(pData));
+	std::copy_n(HistoryName, pending.size(), pending.begin());
+	pData.records = &pending;
+	pData.seen = &seen;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, mercHistoryStartElementHandle, mercHistoryEndElementHandle,
@@ -152,6 +168,10 @@ BOOLEAN ReadInHistorys(STR fileName, BOOLEAN localizedVersion)
 		}
 		return FALSE;
 	}
+	if (!pData.valid)
+		return FALSE;
+
+	std::copy(pending.begin(), pending.end(), HistoryName);
 
 	return( TRUE );
 }

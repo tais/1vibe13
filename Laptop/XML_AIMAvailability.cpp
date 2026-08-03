@@ -1,5 +1,10 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
+#include <algorithm>
+#include <array>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -13,7 +18,11 @@ struct
 
 	CHAR8		szCharData[MAX_CHAR_DATA_LENGTH+1];
 	AIM_AVAILABLE	curAimAvailability;
-	AIM_AVAILABLE *	curArray;
+	std::array<AIM_AVAILABLE, NUM_PROFILES>* records;
+	std::array<AIM_AVAILABLE_TEMP, NUM_PROFILES>* temporaryRecords;
+	std::array<bool, NUM_PROFILES>* seen;
+	bool valid;
+	bool hasIndex;
 
 	UINT32			maxArraySize;
 	UINT32			curIndex;
@@ -21,8 +30,6 @@ struct
 	UINT32			maxReadDepth;
 }
 typedef aimAvailabilityParseData;
-
-BOOLEAN AimAvailability_TextOnly;
 
 static void XMLCALL
 aimAvailabilityStartElementHandle(void *userData, const XML_Char *name, const XML_Char **atts)
@@ -40,6 +47,8 @@ aimAvailabilityStartElementHandle(void *userData, const XML_Char *name, const XM
 		else if(strcmp(name, "AIM") == 0 && pData->curElement == ELEMENT_LIST)
 		{
 			pData->curElement = ELEMENT;
+			pData->curAimAvailability = AIM_AVAILABLE{};
+			pData->hasIndex = false;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
@@ -66,11 +75,9 @@ aimCharacterDataHandle(void *userData, const XML_Char *str, int len)
 {
 	aimAvailabilityParseData * pData = (aimAvailabilityParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 
@@ -89,49 +96,53 @@ aimAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
-			if (pData->curAimAvailability.uiIndex < NUM_PROFILES)
+			if (!pData->hasIndex ||
+				!LaptopLocalizationModel::IsIndexInRange(
+					pData->records->size(),
+					pData->curAimAvailability.uiIndex))
 			{
-			if (!AimAvailability_TextOnly)
-				{		
-					gAimAvailability[pData->curAimAvailability.uiIndex].uiIndex = pData->curAimAvailability.uiIndex;
-					gAimAvailability[pData->curAimAvailability.uiIndex].ProfilId = pData->curAimAvailability.ProfilId;
-					gAimAvailability[pData->curAimAvailability.uiIndex].ubAimArrayID = pData->curAimAvailability.uiIndex;
-					gAimAvailability[pData->curAimAvailability.uiIndex].AimBio = pData->curAimAvailability.AimBio;
-					
-					gAimAvailabilityTemp[pData->curAimAvailability.uiIndex].uiIndex = pData->curAimAvailability.uiIndex;
-					gAimAvailabilityTemp[pData->curAimAvailability.uiIndex].ProfilId = pData->curAimAvailability.ProfilId;
-					gAimAvailabilityTemp[pData->curAimAvailability.uiIndex].ubAimArrayID = pData->curAimAvailability.uiIndex;
-					gAimAvailabilityTemp[pData->curAimAvailability.uiIndex].AimBio = pData->curAimAvailability.AimBio;
-				}
-				else
+				pData->valid = false;
+			}
+			else
+			{
+				const auto index = pData->curAimAvailability.uiIndex;
+				if ((*pData->seen)[index])
+					pData->valid = false;
+				else if (pData->valid)
 				{
-					gAimAvailability[pData->curAimAvailability.uiIndex].uiIndex = pData->curAimAvailability.uiIndex;
-					gAimAvailability[pData->curAimAvailability.uiIndex].ProfilId = pData->curAimAvailability.ProfilId;
-					gAimAvailability[pData->curAimAvailability.uiIndex].ubAimArrayID = pData->curAimAvailability.uiIndex;
-					gAimAvailability[pData->curAimAvailability.uiIndex].AimBio = pData->curAimAvailability.AimBio;
-					
-					gAimAvailabilityTemp[pData->curAimAvailability.uiIndex].uiIndex = pData->curAimAvailability.uiIndex;
-					gAimAvailabilityTemp[pData->curAimAvailability.uiIndex].ProfilId = pData->curAimAvailability.ProfilId;
-					gAimAvailabilityTemp[pData->curAimAvailability.uiIndex].ubAimArrayID = pData->curAimAvailability.uiIndex;
-					gAimAvailabilityTemp[pData->curAimAvailability.uiIndex].AimBio = pData->curAimAvailability.AimBio;
-				}		
+					auto record = pData->curAimAvailability;
+					record.ubAimArrayID = index;
+					(*pData->records)[index] = record;
+					auto& temporary = (*pData->temporaryRecords)[index];
+					temporary.uiIndex = index;
+					temporary.ProfilId = record.ProfilId;
+					temporary.ubAimArrayID = index;
+					temporary.AimBio = record.AimBio;
+					(*pData->seen)[index] = true;
+				}
 			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curAimAvailability.uiIndex	= (UINT8) atol(pData->szCharData);
+			pData->hasIndex = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->curAimAvailability.uiIndex);
+			pData->valid = pData->valid && pData->hasIndex;
 		}
 		else if(strcmp(name, "ProfilId") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curAimAvailability.ProfilId	= (UINT8) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseIntegerOrMinusOneSentinel(
+					pData->szCharData, pData->curAimAvailability.ProfilId);
 		}	
 		else if(strcmp(name, "AimBioID") == 0 ||
 			strcmp(name, "AIMBioID") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curAimAvailability.AimBio	= (UINT8) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseIntegerOrMinusOneSentinel(
+					pData->szCharData, pData->curAimAvailability.AimBio);
 		}	
 		
 		pData->maxReadDepth--;
@@ -141,13 +152,20 @@ aimAvailabilityEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInAimAvailability(STR fileName, BOOLEAN localizedVersion)
 {
-	aimAvailabilityParseData pData;
+	aimAvailabilityParseData pData{};
+	std::array<AIM_AVAILABLE, NUM_PROFILES> pending{};
+	std::array<AIM_AVAILABLE_TEMP, NUM_PROFILES> pendingTemporary{};
+	std::array<bool, NUM_PROFILES> seen{};
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading AimAvailability.xml" );
 
-	AimAvailability_TextOnly = localizedVersion;
-
-	memset(&pData,0,sizeof(pData));
+	std::copy_n(gAimAvailability, pending.size(), pending.begin());
+	std::copy_n(gAimAvailabilityTemp, pendingTemporary.size(),
+		pendingTemporary.begin());
+	pData.records = &pending;
+	pData.temporaryRecords = &pendingTemporary;
+	pData.seen = &seen;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, aimAvailabilityStartElementHandle, aimAvailabilityEndElementHandle,
@@ -165,6 +183,12 @@ BOOLEAN ReadInAimAvailability(STR fileName, BOOLEAN localizedVersion)
 		}
 		return FALSE;
 	}
+	if (!pData.valid)
+		return FALSE;
+
+	std::copy(pending.begin(), pending.end(), gAimAvailability);
+	std::copy(pendingTemporary.begin(), pendingTemporary.end(),
+		gAimAvailabilityTemp);
 
 	return( TRUE );
 }

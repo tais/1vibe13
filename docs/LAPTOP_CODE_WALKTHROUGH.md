@@ -129,15 +129,64 @@ escaped before it was attached to an email node. Both temporary allocations
 now have scoped ownership across every early return, and the architecture check
 pins those ownership guards.
 
+## XML and localization input boundary batch
+
+The third cohesive batch puts all 13 Laptop XML readers behind the
+dependency-free `LocalizationInputModel` and the legacy-facing
+`LocalizationInputAdapter`. Expat callbacks still adapt the established XML
+schemas and game structures, but they now build temporary records and publish
+them only after the complete document and every record have validated. The
+batch fixes the following confirmed faults:
+
+- callback text chunks used truncating `strncat` calls whose bound differed
+  from several actual buffers, while failed UTF-8 conversion was ignored and
+  could publish empty or stale fixed-buffer text;
+- `atol`, `atoi`, and `strtoul` results were narrowed into byte, signed-byte,
+  boolean, and index fields without distinguishing the documented `-1` byte
+  sentinels from other negative, overflowing, trailing, or exact-end values;
+- most readers wrote global arrays, vectors, and PostalService collections
+  from inside callbacks, so malformed or truncated documents left partially
+  replaced live state even though the reader returned failure;
+- repeated IMP voice loads appended duplicate records, and missing fields
+  inherited values from the previous voice because the current record was not
+  reset;
+- Old A.I.M. archives accepted index 255 for the 255-element profile array;
+- localized shipping-destination lookup dereferenced `begin()` before checking
+  an empty list and continued past `end()` after a missing external ID;
+- briefing-room XML supplied an unbounded index to a raw caller array, accepted
+  page/image counts beyond its four-entry layout, and silently skipped the
+  `SecretCode` element because only its closing callback recognized the tag;
+- delivery methods mutated PostalService while parsing and retained a raw
+  callback pointer to the current method; all external destination IDs and
+  duplicates are now resolved before any method is installed;
+- localized email documents could address missing email/message records and
+  then commit an incomplete overlay; base and localized reads now require the
+  complete staged shape before swapping it into `gEmails`; and
+- the adjacent briefing biography reader leaked its file on seek/short-read
+  failures and passed byte counts to a character-count decoder, including the
+  biography size for the smaller additional-info record.
+
+The shared model accumulates arbitrary callback chunks without partial writes,
+parses integral values with range-preserving `from_chars`, accepts only 0/1 as
+legacy booleans, explicitly maps only documented `-1` byte sentinels to 255,
+checks signed and exact-end indices, and copies fixed arrays without modifying
+the destination on failure. UTF-8 conversion likewise uses a temporary fixed
+array and commits only after capacity and conversion checks.
+Focused data-free tests cover exact capacity, overflow, unterminated buffers,
+malformed and out-of-range integers, strict booleans, signed/exact-end indices,
+and copy failure without mutation. Architecture CI applies the adapter and
+transactional-state requirements to every `Laptop/XML_*.cpp`, rejects the
+retired conversion/narrowing calls and mutable parser-mode globals, pins the
+specific crash boundaries, and admits the focused target to ASan CI.
+
 ## Remaining walkthrough
 
 The next passes should stay cohesive and prioritize:
 
-1. XML/localization length validation and remaining fixed-buffer string sinks.
-2. IMP page lifecycle, generated-character state, and cross-page index
+1. IMP page lifecycle, generated-character state, and cross-page index
    contracts.
-3. `files.cpp`, history, and the remaining compile-time campaign content tail.
-4. UI resource handles and mouse-region create/destroy symmetry across every
+2. `files.cpp`, history, and the remaining compile-time campaign content tail.
+3. UI resource handles and mouse-region create/destroy symmetry across every
    Laptop page.
 
 Every batch must include focused tests, all-host compilation, architecture and

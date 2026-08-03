@@ -1,5 +1,7 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
 #include "sgp.h"
 #include "Debug Control.h"
 #include "expat.h"
@@ -12,7 +14,11 @@ struct
 
 	CHAR8		szCharData[MAX_CHAR_DATA_LENGTH + 1];
 	IMP_VOICESET	curIMPVoice;
-	IMP_VOICESET*	curArray;
+	std::vector<IMP_VOICESET>* voices;
+	bool valid;
+	bool hasName;
+	bool hasVoiceSet;
+	bool hasSex;
 
 	UINT32			maxArraySize;
 	UINT32			curIndex;
@@ -39,6 +45,10 @@ impVoicesStartElementHandle( void *userData, const XML_Char *name, const XML_Cha
 		else if ( strcmp( name, "VOICE" ) == 0 && pData->curElement == ELEMENT_LIST )
 		{
 			pData->curElement = ELEMENT;
+			pData->curIMPVoice = IMP_VOICESET{};
+			pData->hasName = false;
+			pData->hasVoiceSet = false;
+			pData->hasSex = false;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
@@ -63,11 +73,9 @@ impVoicesCharacterDataHandle( void *userData, const XML_Char *str, int len )
 {
 	impVoiceParseData * pData = (impVoiceParseData *)userData;
 
-	if ( (pData->currentDepth <= pData->maxReadDepth) &&
-		 (strlen( pData->szCharData ) < MAX_CHAR_DATA_LENGTH) )
-	{
-		strncat( pData->szCharData, str, __min( (unsigned int)len, MAX_CHAR_DATA_LENGTH - strlen( pData->szCharData ) ) );
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 static void XMLCALL
@@ -85,9 +93,13 @@ impVoicesEndElementHandle( void *userData, const XML_Char *name )
 		{
 			pData->curElement = ELEMENT_LIST;
 
-			pData->curIMPVoice.exists = TRUE;
-
-			gIMPVoice.push_back( pData->curIMPVoice );
+			if (!pData->hasName || !pData->hasVoiceSet || !pData->hasSex)
+				pData->valid = false;
+			if (pData->valid)
+			{
+				pData->curIMPVoice.exists = TRUE;
+				pData->voices->push_back(pData->curIMPVoice);
+			}
 
 			++pData->curIndex;
 		}
@@ -95,18 +107,23 @@ impVoicesEndElementHandle( void *userData, const XML_Char *name )
 		{
 			pData->curElement = ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curIMPVoice.szVoiceSetName, sizeof(pData->curIMPVoice.szVoiceSetName) / sizeof(pData->curIMPVoice.szVoiceSetName[0]) );
-			pData->curIMPVoice.szVoiceSetName[sizeof(pData->curIMPVoice.szVoiceSetName) / sizeof(pData->curIMPVoice.szVoiceSetName[0]) - 1] = '\0';
+			pData->hasName = LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->curIMPVoice.szVoiceSetName);
+			pData->valid = pData->valid && pData->hasName;
 		}
 		else if ( strcmp( name, "voiceset" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPVoice.voiceset = (UINT16)atol( pData->szCharData );
+			pData->hasVoiceSet = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->curIMPVoice.voiceset);
+			pData->valid = pData->valid && pData->hasVoiceSet;
 		}
 		else if ( strcmp( name, "bSex" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curIMPVoice.bSex = (BOOLEAN)atol( pData->szCharData );
+			pData->hasSex = LaptopLocalizationModel::ParseBoolean(
+				pData->szCharData, pData->curIMPVoice.bSex);
+			pData->valid = pData->valid && pData->hasSex;
 		}
 
 		pData->maxReadDepth--;
@@ -116,11 +133,13 @@ impVoicesEndElementHandle( void *userData, const XML_Char *name )
 
 BOOLEAN ReadInIMPVoices( STR fileName )
 {
-	impVoiceParseData pData;
+	impVoiceParseData pData{};
+	std::vector<IMP_VOICESET> pendingVoices;
 
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Loading IMPVoices.xml" );
 
-	memset( &pData, 0, sizeof(pData) );
+	pData.voices = &pendingVoices;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, impVoicesStartElementHandle, impVoicesEndElementHandle,
@@ -137,6 +156,10 @@ BOOLEAN ReadInIMPVoices( STR fileName )
 		}
 		return FALSE;
 	}
+	if (!pData.valid)
+		return FALSE;
+
+	gIMPVoice.swap(pendingVoices);
 
 	return(TRUE);
 }

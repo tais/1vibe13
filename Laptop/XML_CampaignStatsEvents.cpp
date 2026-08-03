@@ -1,5 +1,10 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
+#include <algorithm>
+#include <array>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -12,7 +17,11 @@ struct
 
 	CHAR8		szCharData[MAX_CHAR_DATA_LENGTH+1];
 	CAMPAIGNSTATSEVENT		curItem;
-	CAMPAIGNSTATSEVENT*		curArray;
+	std::array<CAMPAIGNSTATSEVENT, NUM_CAMPAIGNSTATSEVENTS>* records;
+	std::array<bool, NUM_CAMPAIGNSTATSEVENTS>* seen;
+	BOOLEAN localizedVersion;
+	bool valid;
+	bool hasIndex;
 
 	UINT32			maxArraySize;
 	UINT32			curIndex;
@@ -21,8 +30,6 @@ struct
 	CHAR16 gzBackground[MAX_ENEMY_NAMES_CHARS];
 }
 typedef CSEParseData;
-
-BOOLEAN localizedTextOnly_CSE;
 
 static void XMLCALL
 CSEStartElementHandle(void *userData, const XML_Char *name, const XML_Char **atts)
@@ -35,17 +42,14 @@ CSEStartElementHandle(void *userData, const XML_Char *name, const XML_Char **att
 		{
 			pData->curElement = ELEMENT_LIST;
 
-			if ( !localizedTextOnly_CSE )
-				memset(pData->curArray,0,sizeof(CAMPAIGNSTATSEVENT)*pData->maxArraySize);
-
 			pData->maxReadDepth++; //we are not skipping this element
 		}
 		else if(strcmp(name, "EVENT") == 0 && pData->curElement == ELEMENT_LIST)
 		{
 			pData->curElement = ELEMENT;
 
-			if ( !localizedTextOnly_CSE )
-				memset(&pData->curItem,0,sizeof(CAMPAIGNSTATSEVENT));
+			pData->curItem = CAMPAIGNSTATSEVENT{};
+			pData->hasIndex = false;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
@@ -79,11 +83,9 @@ CSECharacterDataHandle(void *userData, const XML_Char *str, int len)
 {
 	CSEParseData * pData = (CSEParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 static void XMLCALL
@@ -101,32 +103,50 @@ CSEEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;	
 			
-			if(pData->curItem.uiIndex < pData->maxArraySize)
+			if (!pData->hasIndex ||
+				!LaptopLocalizationModel::IsIndexInRange(
+					pData->records->size(), pData->curItem.uiIndex))
 			{
-				if ( localizedTextOnly_CSE )
+				pData->valid = false;
+			}
+			else
+			{
+				const auto index = pData->curItem.uiIndex;
+				if ((*pData->seen)[index])
 				{
-					// WANNE: Do not only copy the first szText, but copy ALL the szTexts!
-					//wcscpy(pData->curArray[pData->curItem.uiIndex].szText[0],pData->curItem.szText[0]);
+					pData->valid = false;
+				}
+				else if (pData->valid && pData->localizedVersion)
+				{
 					for (int i = 0; i < MAX_CAMPAIGNSTATSEVENTS_TEXTS; i++)
 					{
-						wcscpy(zCampaignStatsEvent[pData->curItem.uiIndex].szText[i], pData->curItem.szText[i]);
-					}					
+						pData->valid = pData->valid &&
+							LaptopLocalizationModel::CopyText(
+								(*pData->records)[index].szText[i],
+								pData->curItem.szText[i]);
+					}
+					(*pData->seen)[index] = pData->valid;
 				}
-				else
+				else if (pData->valid)
 				{
-					pData->curArray[pData->curItem.uiIndex] = pData->curItem;
+					(*pData->records)[index] = pData->curItem;
+					(*pData->seen)[index] = true;
 				}
 			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.uiIndex	= (UINT16) atol(pData->szCharData);
+			pData->hasIndex = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->curItem.uiIndex);
+			pData->valid = pData->valid && pData->hasIndex;
 		}
 		else if(strcmp(name, "usCityTaken") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usCityTaken = (UINT8) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curItem.usCityTaken);
 		}
 		else
 		{
@@ -139,8 +159,9 @@ CSEEndElementHandle(void *userData, const XML_Char *name)
 				{
 					pData->curElement = ELEMENT;
 			
-					MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szText[i], sizeof(pData->curItem.szText[i])/sizeof(pData->curItem.szText[i][0]) );
-					pData->curItem.szText[i][sizeof(pData->curItem.szText[i])/sizeof(pData->curItem.szText[i][0]) - 1] = '\0';
+					pData->valid = pData->valid &&
+						LaptopLocalization::ConvertUtf8(
+							pData->szCharData, pData->curItem.szText[i]);
 
 					break;
 				}
@@ -154,15 +175,18 @@ CSEEndElementHandle(void *userData, const XML_Char *name)
 
 BOOLEAN ReadInCampaignStatsEvents(STR fileName, BOOLEAN localizedVersion)
 {
-	CSEParseData pData;
+	CSEParseData pData{};
+	std::array<CAMPAIGNSTATSEVENT, NUM_CAMPAIGNSTATSEVENTS> pending{};
+	std::array<bool, NUM_CAMPAIGNSTATSEVENTS> seen{};
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading CampaignStatsEvents.xml" );
 
-	localizedTextOnly_CSE = localizedVersion;
-
-	memset(&pData,0,sizeof(pData));
-	pData.curArray = zCampaignStatsEvent;
-	pData.maxArraySize = NUM_CAMPAIGNSTATSEVENTS;
+	if (localizedVersion)
+		std::copy_n(zCampaignStatsEvent, pending.size(), pending.begin());
+	pData.records = &pending;
+	pData.seen = &seen;
+	pData.localizedVersion = localizedVersion;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, CSEStartElementHandle, CSEEndElementHandle,
@@ -179,6 +203,10 @@ BOOLEAN ReadInCampaignStatsEvents(STR fileName, BOOLEAN localizedVersion)
 		}
 		return FALSE;
 	}
+	if (!pData.valid)
+		return FALSE;
+
+	std::copy(pending.begin(), pending.end(), zCampaignStatsEvent);
 
 	return( TRUE );
 }

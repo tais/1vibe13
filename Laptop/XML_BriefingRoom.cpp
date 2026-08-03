@@ -1,5 +1,10 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "LocalizationInputAdapter.h"
+
+#include <algorithm>
+#include <vector>
+
 	#include "sgp.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -40,17 +45,16 @@ typedef struct
 	UINT32			currentDepth;
 	UINT32			maxReadDepth;
 	BRIEFINGROOM_M_DATA *destination;
+	std::vector<bool>* seen;
+	UINT32			destinationSize;
 	UINT32			fileType;
+	BOOLEAN		localizedVersion;
+	bool			valid;
+	bool			hasIndex;
 }encyclopediaLocationParseData;
-
-
-BOOLEAN EncyclopediaLocation_TextOnly;
-
-BRIEFINGROOM_M_DATA *pEncy;
 
 //extern BOOLEAN LoadMercBioInfo(UINT8 ubIndex, STR16 pInfoString, STR16 pAddInfo);
 
-UINT32 FileType = 0;
 UINT32 MaxPage = 0;
 UINT8 mID = 0;
 UINT8			gMercArray[ NUM_PROFILES ];
@@ -68,7 +72,7 @@ BOOLEAN bMERC;
 
 BOOLEAN LoadEncyclopediaMercBio( UINT8 ubIndex, CHAR16 *pInfoString, CHAR16 *pAddInfo, UINT32 Type )
 {
-	HWFILE		hFile=NULL;
+	HWFILE		hFile=0;
 	UINT32		uiBytesRead;
 	//UINT16		i;
 	UINT32		uiStartSeekAmount;
@@ -89,29 +93,35 @@ BOOLEAN LoadEncyclopediaMercBio( UINT8 ubIndex, CHAR16 *pInfoString, CHAR16 *pAd
 
 	if ( FileSeek( hFile, uiStartSeekAmount, FILE_SEEK_FROM_START ) == FALSE )
 	{
+		FileClose(hFile);
 		return( FALSE );
 	}
 
-	if( !FileRead( hFile, pInfoString, SIZE_MERC_BIO_INFO, &uiBytesRead) )
+	if( !FileRead( hFile, pInfoString, SIZE_MERC_BIO_INFO, &uiBytesRead) ||
+		uiBytesRead != SIZE_MERC_BIO_INFO )
 	{
+		FileClose(hFile);
 		return( FALSE );
 	}
-	
-	DecodeString(pInfoString, SIZE_MERC_BIO_INFO);
+
+	DecodeString(pInfoString, SIZE_MERC_BIO_INFO / 2);
 
 	// Get the additional info
 	uiStartSeekAmount = ((SIZE_MERC_BIO_INFO + SIZE_MERC_ADDITIONAL_INFO) * ubIndex )+ SIZE_MERC_BIO_INFO ;
 	if ( FileSeek( hFile, uiStartSeekAmount, FILE_SEEK_FROM_START ) == FALSE )
 	{
+		FileClose(hFile);
 		return( FALSE );
 	}
 
-	if( !FileRead( hFile, pAddInfo, SIZE_MERC_ADDITIONAL_INFO, &uiBytesRead) )
+	if( !FileRead( hFile, pAddInfo, SIZE_MERC_ADDITIONAL_INFO, &uiBytesRead) ||
+		uiBytesRead != SIZE_MERC_ADDITIONAL_INFO )
 	{
+		FileClose(hFile);
 		return( FALSE );
 	}
 
-	DecodeString(pAddInfo, SIZE_MERC_BIO_INFO);
+	DecodeString(pAddInfo, SIZE_MERC_ADDITIONAL_INFO / 2);
 
 	FileClose(hFile);
 	return(TRUE);
@@ -186,6 +196,8 @@ encyclopediaLocationStartElementHandle(void *userData, const XML_Char *name, con
 		else if(strcmp(name, "DATA") == 0 && pData->curElement == ENCYCLOPEDIA_ELEMENT_LIST)
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT;
+			pData->curEncyclopediaData = BRIEFINGROOM_M_DATA{};
+			pData->hasIndex = false;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
@@ -197,6 +209,7 @@ encyclopediaLocationStartElementHandle(void *userData, const XML_Char *name, con
 				strcmp(name, "MaxImages") == 0 ||
 				strcmp(name, "ImagePositionX") == 0 ||
 				strcmp(name, "ImagePositionY") == 0 ||
+				strcmp(name, "SecretCode") == 0 ||
 				strcmp(name, "NextMission") == 0 ))
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT_PROPERTY;
@@ -216,11 +229,9 @@ encyclopediaLocationCharacterDataHandle(void *userData, const XML_Char *str, int
 {
 	encyclopediaLocationParseData * pData = (encyclopediaLocationParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
+	if (pData->currentDepth <= pData->maxReadDepth && pData->valid)
+		pData->valid = LaptopLocalizationModel::AppendText(
+			pData->szCharData, str, len);
 }
 
 static void XMLCALL
@@ -238,92 +249,107 @@ encyclopediaLocationEndElementHandle(void *userData, const XML_Char *name)
 		}
 		else if(strcmp(name, "DATA") == 0)
 		{
-			pData->curElement = ENCYCLOPEDIA_ELEMENT_LIST;	
-			
-			if (!EncyclopediaLocation_TextOnly)
+			pData->curElement = ENCYCLOPEDIA_ELEMENT_LIST;
+			if (!pData->hasIndex ||
+				!LaptopLocalizationModel::IsIndexInRange(
+					pData->destinationSize,
+					pData->curEncyclopediaData.uiIndex) ||
+				pData->curEncyclopediaData.MaxPages > MAX_PAGES ||
+				pData->curEncyclopediaData.MaxImages < 0 ||
+				pData->curEncyclopediaData.MaxImages > MAX_IMAGES)
+			{
+				pData->valid = false;
+			}
+			else
+			{
+				const auto index = pData->curEncyclopediaData.uiIndex;
+				if ((*pData->seen)[index])
 				{
-					wcscpy(pEncy[pData->curEncyclopediaData.uiIndex].Name, pData->curEncyclopediaData.Name);	
-					
-					pEncy[pData->curEncyclopediaData.uiIndex].uiIndex = pData->curEncyclopediaData.uiIndex;
-					pEncy[pData->curEncyclopediaData.uiIndex].MaxPages = pData->curEncyclopediaData.MaxPages;
-					pEncy[pData->curEncyclopediaData.uiIndex].MaxImages = pData->curEncyclopediaData.MaxImages;
-					
-					//if ( pData->curEncyclopediaData.MaxImages > MAX_IMAGES ) 
-						//pEncy[pData->curEncyclopediaData.uiIndex].MaxImages = 0;
-
-					//if ( pData->curEncyclopediaData.MaxPages > MAX_PAGES ) 
-						//pEncy[pData->curEncyclopediaData.uiIndex].MaxPages = 0;						
-					
-					if (pData->curEncyclopediaData.Hidden == FALSE )
-					   pEncy[pData->curEncyclopediaData.uiIndex].Hidden = TRUE;
-					else
-					   pEncy[pData->curEncyclopediaData.uiIndex].Hidden = FALSE;
-					   
-				
-					if ( FileType == 4 ) //briefing room
-						pEncy[pData->curEncyclopediaData.uiIndex].NextMission = pData->curEncyclopediaData.NextMission;
-					else
-						pEncy[pData->curEncyclopediaData.uiIndex].NextMission = -1;
-					
-					pEncy[pData->curEncyclopediaData.uiIndex].MissionID = pData->curEncyclopediaData.uiIndex;
-					
-					pEncy[pData->curEncyclopediaData.uiIndex].sImagePositionX[0] = pData->curEncyclopediaData.sImagePositionX[0];
-					pEncy[pData->curEncyclopediaData.uiIndex].sImagePositionY[0] = pData->curEncyclopediaData.sImagePositionY[0];
-					
+					pData->valid = false;
 				}
-				else
+				else if (pData->valid && pData->localizedVersion)
 				{
-					wcscpy(pEncy[pData->curEncyclopediaData.uiIndex].Name, pData->curEncyclopediaData.Name);	
-				}		
+					pData->valid = LaptopLocalizationModel::CopyText(
+						pData->destination[index].Name,
+						pData->curEncyclopediaData.Name);
+					(*pData->seen)[index] = pData->valid;
+				}
+				else if (pData->valid)
+				{
+					auto record = pData->curEncyclopediaData;
+					record.Hidden = !record.Hidden;
+					record.NextMission = pData->fileType == 4 ?
+						record.NextMission : -1;
+					record.MissionID = index;
+					pData->destination[index] = record;
+					(*pData->seen)[index] = true;
+				}
+			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT;
-			pData->curEncyclopediaData.uiIndex	= (UINT32) strtoul(pData->szCharData, NULL, 0);
+			pData->hasIndex = LaptopLocalizationModel::ParseInteger(
+				pData->szCharData, pData->curEncyclopediaData.uiIndex);
+			pData->valid = pData->valid && pData->hasIndex;
 		}
 		else if(strcmp(name, "Name") == 0 )
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curEncyclopediaData.Name, sizeof(pData->curEncyclopediaData.Name)/sizeof(pData->curEncyclopediaData.Name[0]) );
-			pData->curEncyclopediaData.Name[sizeof(pData->curEncyclopediaData.Name)/sizeof(pData->curEncyclopediaData.Name[0]) - 1] = '\0';
+			pData->valid = pData->valid && LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->curEncyclopediaData.Name);
 		}
 		else if(strcmp(name, "Hidden") == 0)
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT;
-			pData->curEncyclopediaData.Hidden	= (BOOLEAN) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseBoolean(
+					pData->szCharData, pData->curEncyclopediaData.Hidden);
 		}
 		else if(strcmp(name, "MaxPages") == 0)
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT;
-			pData->curEncyclopediaData.MaxPages	= (UINT32) strtoul(pData->szCharData, NULL, 0);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curEncyclopediaData.MaxPages);
 		}
 		else if(strcmp(name, "MaxImages") == 0)
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT;
-			pData->curEncyclopediaData.MaxImages	= (INT32) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curEncyclopediaData.MaxImages);
 		}
 		else if(strcmp(name, "ImagePositionX") == 0)
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT;
-			pData->curEncyclopediaData.sImagePositionX[0]	= (UINT32) strtoul(pData->szCharData, NULL, 0);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData,
+					pData->curEncyclopediaData.sImagePositionX[0]);
 		}
 		else if(strcmp(name, "ImagePositionY") == 0)
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT;
-			pData->curEncyclopediaData.sImagePositionY[0]	= (UINT32) strtoul(pData->szCharData, NULL, 0);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData,
+					pData->curEncyclopediaData.sImagePositionY[0]);
 		}
 		else if(strcmp(name, "SecretCode") == 0 )
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curEncyclopediaData.sCode, sizeof(pData->curEncyclopediaData.sCode)/sizeof(pData->curEncyclopediaData.sCode[0]) );
-			pData->curEncyclopediaData.sCode[sizeof(pData->curEncyclopediaData.sCode)/sizeof(pData->curEncyclopediaData.sCode[0]) - 1] = '\0';
+			pData->valid = pData->valid && LaptopLocalization::ConvertUtf8(
+				pData->szCharData, pData->curEncyclopediaData.sCode);
 		}
 		else if(strcmp(name, "NextMission") == 0)
 		{
 			pData->curElement = ENCYCLOPEDIA_ELEMENT;
-			pData->curEncyclopediaData.NextMission	= (INT32) atol(pData->szCharData);
+			pData->valid = pData->valid &&
+				LaptopLocalizationModel::ParseInteger(
+					pData->szCharData, pData->curEncyclopediaData.NextMission);
 		}		
 		
 		
@@ -332,30 +358,29 @@ encyclopediaLocationEndElementHandle(void *userData, const XML_Char *name)
 	pData->currentDepth--;
 }
 
-static void PrepareBriefingRoomDocument(void *userData)
+BOOLEAN ReadInBriefingRoom(STR fileName, BOOLEAN localizedVersion,
+	BRIEFINGROOM_M_DATA *Ency, UINT32 destinationSize, UINT32 fileType)
 {
-	encyclopediaLocationParseData *pData =
-		(encyclopediaLocationParseData *)userData;
-	pEncy = pData->destination;
-	FileType = pData->fileType;
-}
-
-BOOLEAN ReadInBriefingRoom(STR fileName, BOOLEAN localizedVersion, BRIEFINGROOM_M_DATA *Ency, UINT32 FileType2 )
-{
-	encyclopediaLocationParseData pData;
+	if (!Ency || destinationSize == 0)
+		return FALSE;
+	encyclopediaLocationParseData pData{};
+	std::vector<BRIEFINGROOM_M_DATA> pending(
+		Ency, Ency + destinationSize);
+	std::vector<bool> seen(destinationSize, false);
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading BriefingRoom.xml" );
 
-	EncyclopediaLocation_TextOnly = localizedVersion;
-
-	memset(&pData,0,sizeof(pData));
-	pData.destination = Ency;
-	pData.fileType = FileType2;
+	pData.destination = pending.data();
+	pData.seen = &seen;
+	pData.destinationSize = destinationSize;
+	pData.fileType = fileType;
+	pData.localizedVersion = localizedVersion;
+	pData.valid = true;
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, encyclopediaLocationStartElementHandle,
 		encyclopediaLocationEndElementHandle,
-		encyclopediaLocationCharacterDataHandle, PrepareBriefingRoomDocument};
+		encyclopediaLocationCharacterDataHandle};
 	const LegacyXmlResult result =
 		ParseLegacyXmlFile(fileName, callbacks);
 	if (!result)
@@ -369,6 +394,10 @@ BOOLEAN ReadInBriefingRoom(STR fileName, BOOLEAN localizedVersion, BRIEFINGROOM_
 		}
 		return FALSE;
 	}
+	if (!pData.valid)
+		return FALSE;
+
+	std::copy(pending.begin(), pending.end(), Ency);
 
 	return( TRUE );
 }
