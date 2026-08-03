@@ -48,6 +48,7 @@
 	#include "Town Militia.h"
 	#include "DynamicDialogue.h"	// added by Flugente for HandleDynamicOpinionsDailyRefresh()
 	#include "GameContext.h"
+#include "CampaignMercenaryPolicy.h"
 
 #include "ub_config.h"
 
@@ -185,6 +186,8 @@ void StrategicHandlePlayerTeamMercDeath( TacticalActor *pSoldier )
 // MercDailyUpdate() gets called every day at midnight.	If something is to happen to a merc that day, add an event for it.
 void MercDailyUpdate()
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	SoldierID		id;
 	SoldierID		lastid;
 	TacticalActor		*pSoldier;
@@ -277,7 +280,10 @@ void MercDailyUpdate()
 			gMercProfiles[pSoldier->identity().profile()].ubMiscFlags3 |= PROFILE_MISC_FLAG3_PLAYER_HAD_CHANCE_TO_HIRE;
 			
 			//handle Slay differently if SlayForever is enabled
-			if( pSoldier->identity().profile() == SLAY && gGameExternalOptions.fEnableSlayForever == TRUE)
+			if( mercenaryPolicy.isProfile(
+					pSoldier->identity().profile(),
+					CampaignProfileCode::Role::Slay) &&
+				gGameExternalOptions.fEnableSlayForever == TRUE)
 			{
 			}
 			//if the character is an RPC
@@ -453,16 +459,14 @@ void MercDailyUpdate()
 					// if the player has left a message for this merc
 					if ( pProfile->ubMiscFlags3 & PROFILE_MISC_FLAG3_PLAYER_LEFT_MSG_FOR_MERC_AT_AIM )
 					{
-						iOffset = AIM_REPLY_BARRY;
+						iOffset = mercenaryPolicy.aimAvailabilityEmailOffset();
 
 						//remove the Flag, so if the merc goes on another assignment, the player can leave an email.
 						pProfile->ubMiscFlags3 &= ~PROFILE_MISC_FLAG3_PLAYER_LEFT_MSG_FOR_MERC_AT_AIM;
-#ifdef JA2UB
-
-						//if the Laptop is NOT broken
-						if( gubQuest[ QUEST_FIX_LAPTOP ] != QUESTINPROGRESS && gGameUBOptions.LaptopQuestEnabled == TRUE )
+						if (mercenaryPolicy.shouldSendAimAvailabilityEmail(
+								gGameUBOptions.LaptopQuestEnabled == TRUE,
+								gubQuest[QUEST_FIX_LAPTOP] == QUESTINPROGRESS))
 						{
-#endif
 						// Read from EmailMercAvailable.xml
 						UINT8 pMerc = 0;
 						UINT8 iMerc = 0;
@@ -487,7 +491,7 @@ void MercDailyUpdate()
 						if (cnt < 170)
 						{
 							// TO DO: send E-mail to player telling him the merc has returned from an assignment
-							AddEmail( ( UINT8 )( iOffset + ( cnt * AIM_REPLY_LENGTH_BARRY ) ), AIM_REPLY_LENGTH_BARRY, (UINT8) cnt, GetWorldTotalMin(), -1, -1 , TYPE_EMAIL_EMAIL_EDT_NAME_MERC);
+							AddEmail( ( UINT8 )( iOffset + ( cnt * mercenaryPolicy.aimAvailabilityEmailLength() ) ), mercenaryPolicy.aimAvailabilityEmailLength(), (UINT8) cnt, GetWorldTotalMin(), -1, -1 , TYPE_EMAIL_EMAIL_EDT_NAME_MERC);
 						}
 						else
 						{
@@ -497,7 +501,7 @@ void MercDailyUpdate()
 								UINT16 iMsgLength = cnt;
 
 								// Fake Barry Unger mail, but with the msgLength of the WF merc ID -> Correct in PreProcessEmail()
-								AddEmailWFMercAvailable( ( UINT8 )( iOffset + 0 * AIM_REPLY_LENGTH_BARRY ), iMsgLength, cnt, GetWorldTotalMin(), -1 , TYPE_EMAIL_EMAIL_EDT_NAME_MERC);							
+								AddEmailWFMercAvailable( ( UINT8 )iOffset, iMsgLength, cnt, GetWorldTotalMin(), -1 , TYPE_EMAIL_EMAIL_EDT_NAME_MERC);
 							}
 							// Generic mail
 							else
@@ -506,16 +510,14 @@ void MercDailyUpdate()
 								UINT16 iMsgLength = cnt;
 
 								// Fake Barry Unger mail, but with the msgLength of the WF merc ID -> Correct in PreProcessEmail()
-								AddEmailWFMercAvailable( ( UINT8 )( iOffset + 0 * AIM_REPLY_LENGTH_BARRY ), iMsgLength, cnt, GetWorldTotalMin(), -1 , TYPE_EMAIL_EMAIL_EDT_NAME_MERC);							
+								AddEmailWFMercAvailable( ( UINT8 )iOffset, iMsgLength, cnt, GetWorldTotalMin(), -1 , TYPE_EMAIL_EMAIL_EDT_NAME_MERC);
 							}
 						}
 					
 					}
 						// WANNE: Should we stop time compression. I don't know.
 						//StopTimeCompression();
-#ifdef JA2UB
-		}
-#endif
+						}
 					}
 				}
 			}
@@ -565,11 +567,8 @@ void MercDailyUpdate()
 	
 	// build quit list
 	//BuildMercQuitList( pQuitList );
-#ifdef JA2UB
-//no UB
-#else
-	HandleSlayDailyEvent( );
-#endif
+	if (mercenaryPolicy.runsSlayDailyEvent())
+		HandleSlayDailyEvent( );
 	// rebuild list for mapscreen
 	ReBuildCharactersList( );
 	
@@ -828,6 +827,8 @@ void MercComplainAboutEquipment( UINT8 ubProfile )
 
 void UpdateBuddyAndHatedCounters( void )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	SoldierID bMercID, bOtherID, bLastTeamID;
 	INT32 iLoop;
 	UINT8 ubOtherProfileID;
@@ -1094,11 +1095,19 @@ void UpdateBuddyAndHatedCounters( void )
 											//pProfile->bHated[2] = pProfile->bLearnToHate;
 											pProfile->bMercOpinion[ubOtherProfileID] = HATED_OPINION;
 											}
-#ifdef JA2UB
-											if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC || (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC &&  ( /* pSoldier->identity().profile() == DEVIN || */ pSoldier->identity().profile() == SLAY || pSoldier->identity().profile() == IGGY || pSoldier->identity().profile() == CONRAD ) ) )
-#else
-											if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC || (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC && (pSoldier->identity().profile() == DEVIN || pSoldier->identity().profile() == SLAY || pSoldier->identity().profile() == IGGY || pSoldier->identity().profile() == CONRAD ) ) )
-#endif
+											const bool isNpcContractMerc =
+												pSoldier->employment().mercenaryType() == MERC_TYPE__NPC &&
+												((mercenaryPolicy.includesDevinInNpcContractGroup() &&
+													mercenaryPolicy.isProfile(
+														pSoldier->identity().profile(),
+														CampaignProfileCode::Role::Devin)) ||
+												 mercenaryPolicy.isProfile(
+													 pSoldier->identity().profile(),
+													 CampaignProfileCode::Role::Slay) ||
+												 pSoldier->identity().profile() == IGGY ||
+												 pSoldier->identity().profile() == CONRAD);
+											if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC ||
+												isNpcContractMerc)
 											{
 												// Leave now! ( handle equipment too )....
 												TacticalCharacterDialogue( pSoldier, QUOTE_MERC_QUIT_LEARN_TO_HATE );

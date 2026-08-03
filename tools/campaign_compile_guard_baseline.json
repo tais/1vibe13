@@ -33,10 +33,8 @@
     "Strategic/Map Screen Interface Border.cpp": 2,
     "Strategic/Map Screen Interface Map.h": 1,
     "Strategic/Map Screen Interface.cpp": 3,
-    "Strategic/Merc Contract.cpp": 4,
     "Strategic/PreBattle Interface.cpp": 2,
     "Strategic/Strategic Event Handler.cpp": 2,
-    "Strategic/Strategic Merc Handler.cpp": 4,
     "Strategic/Strategic Status.cpp": 1,
     "Strategic/Strategic Town Loyalty.cpp": 3,
     "Strategic/Town Militia.cpp": 1,
@@ -52,14 +50,10 @@
     "Tactical/Handle UI.cpp": 1,
     "Tactical/Interface.cpp": 5,
     "Tactical/Items.cpp": 2,
-    "Tactical/Merc Entering.cpp": 3,
-    "Tactical/Merc Hiring.cpp": 9,
     "Tactical/Soldier Add.cpp": 3,
     "Tactical/Soldier Ani.cpp": 4,
-    "Tactical/Soldier Create.cpp": 4,
     "Tactical/Soldier Init List.cpp": 2,
-    "Tactical/Soldier Profile.cpp": 9,
-    "Tactical/Soldier Profile.h": 3,
+    "Tactical/Soldier Profile.h": 1,
     "Tactical/Strategic Exit GUI.cpp": 2,
     "Tactical/TeamTurns.cpp": 3,
     "Tactical/Weapons.cpp": 1,
@@ -71,5 +65,5 @@
     "Utils/Timer Control.cpp": 1
   },
   "schema": 1,
-  "total": 310
+  "total": 275
 }

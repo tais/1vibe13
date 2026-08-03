@@ -282,6 +282,7 @@ set(runtime_campaign_implementation_files
 set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignDealerPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
   "${SOURCE_ROOT}/Ja2/CompiledGameplayBootstrap.cpp"
   "${SOURCE_ROOT}/Ja2/gameloop.cpp"
   "${SOURCE_ROOT}/Ja2/gamescreen.cpp"
@@ -309,10 +310,12 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.cpp"
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.h"
   "${SOURCE_ROOT}/Strategic/MapScreen Quotes.cpp"
+  "${SOURCE_ROOT}/Strategic/Merc Contract.cpp"
   "${SOURCE_ROOT}/Strategic/Player Command.cpp"
   "${SOURCE_ROOT}/Strategic/Queen Command.cpp"
   "${SOURCE_ROOT}/Strategic/Quests.cpp"
   "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
+  "${SOURCE_ROOT}/Strategic/Strategic Merc Handler.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.h"
   "${SOURCE_ROOT}/Tactical/Action Items.h"
@@ -326,9 +329,13 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Tactical/End Game.h"
   "${SOURCE_ROOT}/Tactical/Interface Control.cpp"
   "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  "${SOURCE_ROOT}/Tactical/Merc Entering.cpp"
+  "${SOURCE_ROOT}/Tactical/Merc Hiring.cpp"
   "${SOURCE_ROOT}/Tactical/Merc Hiring.h"
   "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+  "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
+  "${SOURCE_ROOT}/Tactical/Soldier Profile.cpp"
   "${SOURCE_ROOT}/Tactical/ShopKeeper Interface.cpp"
   "${SOURCE_ROOT}/Tactical/ShopKeeper Quotes.h"
   "${SOURCE_ROOT}/Tactical/TacticalActor.h"
@@ -346,12 +353,16 @@ set(runtime_campaign_selection_files
 foreach(runtime_campaign_file IN LISTS
     runtime_campaign_implementation_files runtime_campaign_selection_files)
   file(READ "${runtime_campaign_file}" runtime_campaign_contents)
-  string(REGEX MATCH
-    "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB"
-    compiled_campaign_identity "${runtime_campaign_contents}")
-  if(compiled_campaign_identity)
-    message(FATAL_ERROR
-      "Runtime campaign code regained compiled JA2UB identity in ${runtime_campaign_file}")
+  string(FIND "${runtime_campaign_contents}" "JA2UB"
+    runtime_campaign_identity_hint)
+  if(NOT runtime_campaign_identity_hint EQUAL -1)
+    string(REGEX MATCH
+      "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB"
+      compiled_campaign_identity "${runtime_campaign_contents}")
+    if(compiled_campaign_identity)
+      message(FATAL_ERROR
+        "Runtime campaign code regained compiled JA2UB identity in ${runtime_campaign_file}")
+    endif()
   endif()
 endforeach()
 
@@ -662,6 +673,147 @@ foreach(required_dealer_policy_assertion IN ITEMS
   if(required_dealer_policy_assertion_position EQUAL -1)
     message(FATAL_ERROR
       "Runtime dealer policy lost test coverage for '${required_dealer_policy_assertion}'")
+  endif()
+endforeach()
+
+# Mercenary profiles, hiring, arrival, recruitment, contracts, and daily
+# lifecycle rules now select campaign behavior at runtime. The policy remains
+# data-free, campaign-colliding profile aliases do not return to migrated
+# callers, and the existing raw profile/email/quote records stay unchanged.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
+  runtime_campaign_mercenary_policy_contents)
+foreach(required_mercenary_policy_fragment IN ITEMS
+    "class CampaignMercenaryPolicy"
+    "primaryProfileDataFile"
+    "shouldSendMedicalDepositEmail")
+  string(FIND "${runtime_campaign_mercenary_policy_contents}"
+    "${required_mercenary_policy_fragment}"
+    required_mercenary_policy_position)
+  if(required_mercenary_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime mercenary policy lost '${required_mercenary_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Merc Hiring.cpp"
+  runtime_campaign_merc_hiring_contents)
+string(FIND "${runtime_campaign_merc_hiring_contents}"
+  "shouldStartArrivalHelicopter" required_merc_hiring_position)
+if(required_merc_hiring_position EQUAL -1)
+  message(FATAL_ERROR
+    "Mercenary hiring/arrival lost runtime campaign routing")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Merc Entering.cpp"
+  runtime_campaign_merc_entering_contents)
+string(FIND "${runtime_campaign_merc_entering_contents}"
+  "mercenaryPolicy.helicopterDropGridNo"
+  runtime_campaign_merc_entering_position)
+if(runtime_campaign_merc_entering_position EQUAL -1)
+  message(FATAL_ERROR
+    "Helicopter insertion lost runtime campaign grid selection")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
+  runtime_campaign_soldier_create_contents)
+string(FIND "${runtime_campaign_soldier_create_contents}"
+  "usesUnfinishedBusinessSectorCoolness" required_soldier_create_position)
+if(required_soldier_create_position EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier creation lost runtime campaign routing")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Profile.cpp"
+  runtime_campaign_soldier_profile_contents)
+string(FIND "${runtime_campaign_soldier_profile_contents}"
+  "initialAssignmentChanceMultiplier" required_soldier_profile_position)
+if(required_soldier_profile_position EQUAL -1)
+  message(FATAL_ERROR
+    "Mercenary profile lifecycle lost runtime campaign routing")
+endif()
+
+file(READ "${SOURCE_ROOT}/Strategic/Merc Contract.cpp"
+  runtime_campaign_merc_contract_contents)
+string(FIND "${runtime_campaign_merc_contract_contents}"
+  "shouldSendMedicalDepositEmail" required_merc_contract_position)
+if(required_merc_contract_position EQUAL -1)
+  message(FATAL_ERROR
+    "Mercenary contracts lost runtime campaign routing")
+endif()
+
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Merc Handler.cpp"
+  runtime_campaign_merc_handler_contents)
+string(FIND "${runtime_campaign_merc_handler_contents}"
+  "includesDevinInNpcContractGroup" required_merc_handler_position)
+if(required_merc_handler_position EQUAL -1)
+  message(FATAL_ERROR
+    "Strategic mercenary handling lost runtime campaign routing")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Profile.h"
+  runtime_campaign_profile_layout_contents)
+string(FIND "${runtime_campaign_profile_layout_contents}"
+  "RPC65 = 65" required_profile_layout_position)
+if(required_profile_layout_position EQUAL -1)
+  message(FATAL_ERROR
+    "Legacy profile layout lost its stable RPC65 alias")
+endif()
+
+file(READ "${SOURCE_ROOT}/Laptop/email.h"
+  runtime_campaign_mercenary_email_contents)
+foreach(required_mercenary_email_fragment IN ITEMS
+    "JA2_EMAIL_AIM_MEDICAL_DEPOSIT_REFUND = 26"
+    "JA25_EMAIL_AIM_MEDICAL_DEPOSIT_REFUND = 27"
+    "JA2_EMAIL_JOHN_KULBA_MISSED_FLIGHT_1 = 224")
+  string(FIND "${runtime_campaign_mercenary_email_contents}"
+    "${required_mercenary_email_fragment}" required_mercenary_email_position)
+  if(required_mercenary_email_position EQUAL -1)
+    message(FATAL_ERROR
+      "Mercenary lifecycle lost stable email record '${required_mercenary_email_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/Speck Quotes.h"
+  runtime_campaign_mercenary_quote_contents)
+string(FIND "${runtime_campaign_mercenary_quote_contents}"
+  "JA2_SPECK_PLAYABLE_QUOTE_LARRY_RELAPSED = 100"
+  runtime_campaign_mercenary_quote_position)
+if(runtime_campaign_mercenary_quote_position EQUAL -1)
+  message(FATAL_ERROR
+    "Mercenary lifecycle lost the stable Larry-relapse quote record")
+endif()
+
+foreach(required_mercenary_policy_test_fragment IN ITEMS
+    "campaign_mercenary_policy_tests.cpp"
+    "campaign_mercenary_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_mercenary_policy_test_fragment}"
+    required_mercenary_policy_test_position)
+  if(required_mercenary_policy_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime mercenary policy lost its headless test target")
+  endif()
+endforeach()
+
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_mercenary_policy_tests" runtime_mercenary_policy_ci_position)
+if(runtime_mercenary_policy_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the runtime mercenary policy test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_mercenary_policy_tests.cpp"
+  runtime_campaign_mercenary_test_contents)
+foreach(required_mercenary_policy_assertion IN ITEMS
+    "GameCampaign::Arulco"
+    "GameCampaign::UnfinishedBusiness"
+    "CampaignProfileCode::Role::Slay")
+  string(FIND "${runtime_campaign_mercenary_test_contents}"
+    "${required_mercenary_policy_assertion}"
+    required_mercenary_policy_assertion_position)
+  if(required_mercenary_policy_assertion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime mercenary policy lost test coverage for '${required_mercenary_policy_assertion}'")
   endif()
 endforeach()
 

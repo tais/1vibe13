@@ -38,6 +38,7 @@
 	#include "GameSettings.h"
 	#include "DynamicDialogue.h"// added by Flugente
 #include "GameContext.h"
+#include "CampaignMercenaryPolicy.h"
 #include "connect.h"
 #include "Map Information.h"
 
@@ -108,6 +109,8 @@ UINT32		GetInitialHeliGridNo( );
 UINT16	GetInitialHeliRandomTime();
 INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	TacticalActor	*pSoldier;
 	SoldierID	iNewIndex;
 	UINT8		ubCurrentSoldier = pHireMerc->ubProfileID;
@@ -157,7 +160,8 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 		return( MERC_HIRE_FAILED );
 	}
 
-#ifdef JA2UB
+	if ( mercenaryPolicy.givesUnfinishedBusinessHireGear() )
+	{
 	//JA25 UB
 	//MErc mercs come with an umbrella
 	if ( gMercProfiles[ubCurrentSoldier].Type == PROFILETYPE_MERC )
@@ -183,8 +187,8 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 			AddItemToMerc( iNewIndex, SAM_GARVER_COMBAT_KNIFE ); //1353
 		}
 	}
-#else //ja25: No enrico, therefore, no email
-	if( DidGameJustStart() )
+	}
+	else if( mercenaryPolicy.givesInitialArulcoLetter() && DidGameJustStart() )
 	{
 		// OK, CHECK FOR FIRST GUY, GIVE HIM SPECIAL ITEM!
 		if ( iNewIndex == 0 )
@@ -218,7 +222,6 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 		// ATE: Insert for demo , not using the heli sequence....
 		pHireMerc->ubInsertionCode				= INSERTION_CODE_CHOPPER;
 	}
-#endif
 
 	//record how long the merc will be gone for
 	pMerc->bMercStatus = (UINT8)pHireMerc->iTotalContractLength;
@@ -260,20 +263,18 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	{
 	if( DidGameJustStart() )
 	{
-#ifdef JA2UB
-		//ja25ub
-		//set a flag so we know we are doing the heli crash
-		if ( gGameUBOptions.InGameHeliCrash == TRUE || gGameUBOptions.InGameHeli == FALSE)
-			gfFirstTimeInGameHeliCrash = TRUE; //AA FALSE ??
-		else
-			gfFirstTimeInGameHeliCrash = FALSE;
+		if ( mercenaryPolicy.usesUnfinishedBusinessRules() )
+		{
+			//set a flag so we know we are doing the heli crash
+			gfFirstTimeInGameHeliCrash =
+				gGameUBOptions.InGameHeliCrash == TRUE ||
+				gGameUBOptions.InGameHeli == FALSE;
+		}
 
-		// Set time of initial merc arrival in minutes
-#endif
 		pHireMerc->uiTimeTillMercArrives = ( gGameExternalOptions.iGameStartingTime + gGameExternalOptions.iFirstArrivalDelay ) / NUM_SEC_IN_MIN;
-#ifdef JA2UB
 
-	if ( gGameUBOptions.InGameHeli == FALSE )
+	if ( mercenaryPolicy.usesGroundArrival(
+			gGameUBOptions.InGameHeli == TRUE) )
 	{
 		// Set the gridno for the soldier
 		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
@@ -295,10 +296,6 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 		{
 		pHireMerc->ubInsertionCode				= INSERTION_CODE_CHOPPER;
 		}
-#else
-		// Set insertion for first time in chopper
-		pHireMerc->ubInsertionCode				= INSERTION_CODE_CHOPPER;
-#endif
 		//set when the merc's contract is finished
 		pSoldier->employment().endTime() = GetMidnightOfFutureDayInMinutes( pSoldier->employment().totalLength() ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
 	}
@@ -388,10 +385,8 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 		pSoldier->employment().mercenaryType() = MERC_TYPE__NPC;
 		//pSoldier->iTotalContractCharge = -1;
 	}
-#ifdef JA2UB
-	//Ja25:  Need to set start time for all mercs
-	pSoldier->employment().startTime() = GetWorldDay( );
-#endif
+	if ( mercenaryPolicy.setsStartDayForEveryHire() )
+		pSoldier->employment().startTime() = GetWorldDay( );
 	//remove the merc from the Personnel screens departed list ( if they have never been hired before, its ok to call it )
 	RemoveNewlyHiredMercFromPersonnelDepartedList( pSoldier->identity().profile() );
 
@@ -409,6 +404,8 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 
 void MercArrivesCallback( SoldierID ubSoldierID )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	MERCPROFILESTRUCT				*pMerc;
 	TacticalActor							*pSoldier;
 	UINT32									uiTimeOfPost;
@@ -444,10 +441,8 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	pMerc = &gMercProfiles[ pSoldier->identity().profile() ];
 
 // anv: handle Kulba's odyssey
-#ifdef JA2UB
-	// too many Kulbas
-#else
-	if(pSoldier->identity().profile() == JOHN_MERC)
+	if( mercenaryPolicy.runsJohnKulbaArrivalDelay() &&
+		pSoldier->identity().profile() == JOHN_MERC )
 	{
 		// just in case
 		if( LaptopSaveInfo.ubJohnPossibleMissedFlights > 3 )
@@ -458,11 +453,11 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 			pSoldier->deployment().arrivalTime() = pSoldier->deployment().arrivalTime() + 720 + Random ( 720 );
 			AddStrategicEvent( EVENT_DELAYED_HIRING_OF_MERC, pSoldier->deployment().arrivalTime(),	pSoldier->identity().id() );
 			if ( LaptopSaveInfo.ubJohnPossibleMissedFlights == 3 )
-				AddEmail(JOHN_KULBA_MISSED_FLIGHT_1, JOHN_KULBA_MISSED_FLIGHT_1_LENGTH, JOHN_KULBA, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JOHNKULBA_MISSEDTRANSFERFLIGHT);
+				AddEmail(JA2_EMAIL_JOHN_KULBA_MISSED_FLIGHT_1, JA2_EMAIL_JOHN_KULBA_MISSED_FLIGHT_1_LENGTH, JOHN_KULBA, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JOHNKULBA_MISSEDTRANSFERFLIGHT);
 			else if ( LaptopSaveInfo.ubJohnPossibleMissedFlights == 2 )
-				AddEmail(JOHN_KULBA_MISSED_FLIGHT_2, JOHN_KULBA_MISSED_FLIGHT_2_LENGTH, JOHN_KULBA, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JOHNKULBA_CRASHLANDEDHELI);
+				AddEmail(JA2_EMAIL_JOHN_KULBA_MISSED_FLIGHT_2, JA2_EMAIL_JOHN_KULBA_MISSED_FLIGHT_2_LENGTH, JOHN_KULBA, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JOHNKULBA_CRASHLANDEDHELI);
 			else if ( LaptopSaveInfo.ubJohnPossibleMissedFlights == 1 )
-				AddEmail(JOHN_KULBA_MISSED_FLIGHT_3, JOHN_KULBA_MISSED_FLIGHT_3_LENGTH, JOHN_KULBA, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JOHNKULBA_AMBUSHEDBYCATS);
+				AddEmail(JA2_EMAIL_JOHN_KULBA_MISSED_FLIGHT_3, JA2_EMAIL_JOHN_KULBA_MISSED_FLIGHT_3_LENGTH, JOHN_KULBA, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JOHNKULBA_AMBUSHEDBYCATS);
 			LaptopSaveInfo.ubJohnPossibleMissedFlights--;
 			return;
 		}
@@ -472,7 +467,6 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 			LaptopSaveInfo.ubJohnPossibleMissedFlights = 3;
 		}
 	}
-#endif
 	//shadooow: if all mercs were killed or captured and default arrival sector is Omerta, force helidrop arrival animation
 	if (GetCurrentScreen() == MAP_SCREEN && pSoldier->deployment().usesLandingZoneForArrival() && !gWorldSectorX && !gWorldSectorY && gbWorldSectorZ == -1 &&
 		gsMercArriveSectorX == gGameExternalOptions.ubDefaultArrivalSectorX && gsMercArriveSectorY == gGameExternalOptions.ubDefaultArrivalSectorY)
@@ -514,11 +508,16 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 		// OK, If this sector is currently loaded, and guy does not have CHOPPER insertion code....
 		// ( which means we are at beginning of game if so )
 		// Setup chopper....
-		#ifdef JA2UB
-		if ( pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER && pSoldier->deployment().sectorX() == gGameExternalOptions.ubDefaultArrivalSectorX && pSoldier->deployment().sectorY() == gGameExternalOptions.ubDefaultArrivalSectorY && gGameUBOptions.InGameHeli == TRUE )
-		#else
-		if (pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER )
-		#endif
+		const bool isAtDefaultArrivalSector =
+			pSoldier->deployment().sectorX() ==
+				gGameExternalOptions.ubDefaultArrivalSectorX &&
+			pSoldier->deployment().sectorY() ==
+				gGameExternalOptions.ubDefaultArrivalSectorY;
+		if ( mercenaryPolicy.shouldStartArrivalHelicopter(
+				pSoldier->deployment().strategicInsertionCode() ==
+					INSERTION_CODE_CHOPPER,
+				isAtDefaultArrivalSector,
+				gGameUBOptions.InGameHeli == TRUE) )
 		{
 			gfTacticalDoHeliRun = TRUE;
 			if (gfFirstHeliRun)
@@ -547,12 +546,16 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	// Strategic map arrival to a sector that's not loaded
 	else
 	{
-#ifdef JA2UB
-		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
-		pSoldier->deployment().strategicInsertionData() = gGameUBOptions.LOCATEGRIDNO;
-#else
-		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_CENTER;
-#endif
+		if ( mercenaryPolicy.usesGridInsertionForOffscreenArrival() )
+		{
+			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+			pSoldier->deployment().strategicInsertionData() =
+				gGameUBOptions.LOCATEGRIDNO;
+		}
+		else
+		{
+			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_CENTER;
+		}
 	}
 
 	if ( pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER )
@@ -570,12 +573,12 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 
 			TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_MINESECTOREVENT, 2, 0 );
 			
-//ja25ub
-#ifdef JA2UB
-			//if its the first time in, dont say anything
-			if( !gfFirstTimeInGameHeliCrash )
-#endif
-			TacticalCharacterDialogue( pSoldier, QUOTE_MERC_REACHED_DESTINATION );
+			if( mercenaryPolicy.shouldPlayReachedDestinationQuote(
+					gfFirstTimeInGameHeliCrash != FALSE) )
+			{
+				TacticalCharacterDialogue(
+					pSoldier, QUOTE_MERC_REACHED_DESTINATION );
+			}
 
 			TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_MINESECTOREVENT, 3, 0 );
 			TacticalCharacterDialogueWithSpecialEventEx( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_UNSET_ARRIVES_FLAG, 0, 0, 0 );
@@ -688,14 +691,14 @@ void HandleMercArrivesQuotes( TacticalActor *pSoldier )
 	SoldierID	cnt, usLastTeamID;
 	INT8			bHated;
 	TacticalActor	*pTeamSoldier;
-#ifdef JA2UB
-	//if we are at the begining of the game going through the initial heli scequence
-	if( pSoldier->deployment().arrivalGetupPending() )
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
+	if( mercenaryPolicy.shouldSkipBuddyArrivalHandling(
+			pSoldier->deployment().arrivalGetupPending()) )
 	{
 		//we can "leave" this function cause we dont want to do anything with buddy system
 		return;
 	}
-#endif	
 	// If we are approaching with helicopter, don't say any ( yet )
 	if ( pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER )
 	{

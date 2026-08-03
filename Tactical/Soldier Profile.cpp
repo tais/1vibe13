@@ -48,16 +48,13 @@
 	#include "LuaInitNPCs.h"		// added by Flugente
 #include "AimFacialIndex.h"
 #include "connect.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
-
-#ifdef JA2UB
 #include "Ja25_Tactical.h"
-#else
-	// anv: for playable Speck
 #include "mercs.h"
 #include "Speck Quotes.h"
-	#include "LaptopSave.h"
-#endif
+#include "LaptopSave.h"
 
 
 #ifdef JA2EDITOR
@@ -140,7 +137,8 @@ UINT8			gubBasicInventoryPositions[] = {
 UINT8	gubTerrorists[NUM_TERRORISTS + 1] =
 {
 	DRUGGIST,
-	SLAY,
+	CampaignProfileCode::profile(
+		GameCampaign::Arulco, CampaignProfileCode::Role::Slay),
 	ANNIE,
 	CHRIS,
 	TIFFANY,
@@ -561,13 +559,13 @@ INT8 RandomPercentRange( UINT8 iPRange, BOOLEAN fBellCurve )
 // WANNE - BMP: DONE!
 BOOLEAN LoadMercProfiles(void)
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"LoadMercProfiles");
 //	FILE *fptr;
 	HWFILE fptr;
-	STR8 pFileName = "BINARYDATA\\Prof.dat";
-#ifdef JA2UB
-	STR8 pFileName_UB = "BINARYDATA\\JA25PROF.DAT";
-#endif
+	STR8 pFileName = mercenaryPolicy.fallbackProfileDataFile();
+	STR8 primaryProfileDataFile = mercenaryPolicy.primaryProfileDataFile();
 	STR8 pFileName1_Normal = "BINARYDATA\\Prof_Novice_NormalGuns.dat";
 	STR8 pFileName2_Normal = "BINARYDATA\\Prof_Experienced_NormalGuns.dat";
 	STR8 pFileName3_Normal = "BINARYDATA\\Prof_Expert_NormalGuns.dat";
@@ -616,17 +614,11 @@ BOOLEAN LoadMercProfiles(void)
 	}
 	else
 	{
-
-#ifdef JA2UB
-		fptr = FileOpen(pFileName_UB, FILE_ACCESS_READ, FALSE );   //ub
-		if( !fptr )
+		fptr = FileOpen(primaryProfileDataFile, FILE_ACCESS_READ, FALSE );
+		if( !fptr && mercenaryPolicy.usesUnfinishedBusinessRules() )
 		{
-			fptr = FileOpen(pFileName, FILE_ACCESS_READ, FALSE );   //ja
+			fptr = FileOpen(pFileName, FILE_ACCESS_READ, FALSE );
 		}
-#else
-		fptr = FileOpen(pFileName, FILE_ACCESS_READ, FALSE );
-#endif
-
 	}
 	
 	if( !fptr )
@@ -640,6 +632,8 @@ BOOLEAN LoadMercProfiles(void)
 	{
 		gProfileType[uiProfileId] = PROFILETYPE_NONE;
 	}
+	gubTerrorists[1] =
+		mercenaryPolicy.profile(CampaignProfileCode::Role::Slay);
 
 	int profileIndex = -1;
 
@@ -1182,6 +1176,8 @@ void DecideActiveTerrorists( void )
 
 void MakeRemainingTerroristsTougher( void )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	UINT8					ubRemainingTerrorists = 0, ubLoop;
 	UINT16				usNewItem, usOldItem;
 	UINT8					ubRemainingDifficulty;
@@ -1190,18 +1186,18 @@ void MakeRemainingTerroristsTougher( void )
 	{
 		if ( gMercProfiles[ gubTerrorists[ ubLoop ] ].bMercStatus != MERC_IS_DEAD && gMercProfiles[ gubTerrorists[ ubLoop ] ].sSectorX != 0 && gMercProfiles[ gubTerrorists[ ubLoop ] ].sSectorY != 0 )
 		{
-#ifdef JA2UB
-//no Ub
-#else
-			if ( gubTerrorists[ ubLoop ] == SLAY )
+			if ( mercenaryPolicy.excludesRecruitedSlayFromTerrorists() &&
+				mercenaryPolicy.isProfile(
+					gubTerrorists[ubLoop], CampaignProfileCode::Role::Slay) )
 			{
-				if ( FindSoldierByProfileID( SLAY, TRUE ) != NULL )
+				if ( FindSoldierByProfileID(
+						mercenaryPolicy.profile(CampaignProfileCode::Role::Slay),
+						TRUE ) != NULL )
 				{
 					// Slay on player's team, doesn't count towards remaining terrorists
 					continue;
 				}
 			}
-#endif
 			ubRemainingTerrorists++;
 		}
 	}
@@ -1265,19 +1261,18 @@ void MakeRemainingTerroristsTougher( void )
 	{
 		if ( gMercProfiles[ gubTerrorists[ ubLoop ] ].bMercStatus != MERC_IS_DEAD && gMercProfiles[ gubTerrorists[ ubLoop ] ].sSectorX != 0 && gMercProfiles[ gubTerrorists[ ubLoop ] ].sSectorY != 0 )
 		{
-		
-#ifdef JA2UB
-// no UB
-#else
-			if ( gubTerrorists[ ubLoop ] == SLAY )
+			if ( mercenaryPolicy.excludesRecruitedSlayFromTerrorists() &&
+				mercenaryPolicy.isProfile(
+					gubTerrorists[ubLoop], CampaignProfileCode::Role::Slay) )
 			{
-				if ( FindSoldierByProfileID( SLAY, TRUE ) != NULL )
+				if ( FindSoldierByProfileID(
+						mercenaryPolicy.profile(CampaignProfileCode::Role::Slay),
+						TRUE ) != NULL )
 				{
 					// Slay on player's team, doesn't count towards remaining terrorists
 					continue;
 				}
 			}
-#endif
 			if ( usOldItem != NOTHING )
 			{
 				RemoveObjectFromSoldierProfile( gubTerrorists[ ubLoop ], usOldItem );
@@ -1410,6 +1405,8 @@ void MakeRemainingAssassinsTougher( void )
 
 void StartSomeMercsOnAssignment(void)
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	MERCPROFILESTRUCT *pProfile;
 	UINT32 uiChance;
 
@@ -1419,29 +1416,15 @@ void StartSomeMercsOnAssignment(void)
 		if ( IsProfileIdAnAimOrMERCMerc( (UINT8)uiCnt ) )
 		{
 		pProfile = &(gMercProfiles[ uiCnt ]);
-#ifdef JA2UB		
-		//Make sure stigie and Gaston are available at the start of the game
-/*		if( uiCnt == 59 || uiCnt == 58 )
-		{
-			pProfile->bMercStatus = MERC_OK;
-			pProfile->uiDayBecomesAvailable = 0;
-			pProfile->uiPrecedentQuoteSaid = 0;
-			pProfile->ubDaysOfMoraleHangover = 0;
-
-			continue;
-		}
-*/
-		//if the merc is dead, dont modify anything
-		if( pProfile->bMercStatus == MERC_IS_DEAD )
+		if( mercenaryPolicy.usesUnfinishedBusinessRules() &&
+			pProfile->bMercStatus == MERC_IS_DEAD )
 		{
 			continue;
 		}
 
 		// calc chance to start on assignment
-		uiChance = 3 * pProfile->bExpLevel; //5 Ja25 UB
-#else
-		uiChance = 5 * pProfile->bExpLevel;
-#endif
+		uiChance = mercenaryPolicy.initialAssignmentChanceMultiplier() *
+			pProfile->bExpLevel;
 
 		// tais: disable mercs being on assignment (this check is just for at the start of the campaign)
 		if (Random(100) < uiChance && gGameExternalOptions.fMercsOnAssignment < 1)
@@ -1749,6 +1732,8 @@ TacticalActor *ChangeSoldierTeam( TacticalActor *pSoldier, UINT8 ubTeam )
 
 BOOLEAN RecruitRPC( UINT8 ubCharNum )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	TacticalActor *pSoldier, *pNewSoldier;
 
 	// Get soldier pointer
@@ -1772,7 +1757,8 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 		return( FALSE );
 	}
 
-	if ( ubCharNum == SLAY )
+	if ( mercenaryPolicy.isProfile(
+			ubCharNum, CampaignProfileCode::Role::Slay) )
 	{
 		if(gGameExternalOptions.fEnableSlayForever == TRUE)
 		{
@@ -1794,15 +1780,25 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 		EndQuest( QUEST_FREE_DYNAMO, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 	}
 	// SANDRO - give exp and records quest point, if finally recruiting Miguel
-	else if ( ubCharNum == MIGUEL && first_time_recruited)
+	else if ( mercenaryPolicy.isProfile(
+			ubCharNum, CampaignProfileCode::Role::Miguel) &&
+		first_time_recruited )
 	{
-		GiveQuestRewardPoint( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), 6, MIGUEL );
+		GiveQuestRewardPoint(
+			pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(),
+			6, mercenaryPolicy.profile(CampaignProfileCode::Role::Miguel) );
 	}
 
 	if ( gGameOptions.fNewTraitSystem )
 	{
 		// Flugente: people recruited in Arulco are known to the enemy as civilians or even soldiers. So they will be covert when recruited. Of course, this is not for the rebels...
-		if ( ubCharNum == DEVIN || ubCharNum == HAMOUS || ubCharNum == SLAY || ubCharNum == VINCE || ubCharNum == MADDOG || ubCharNum == MICKY )
+		if ( mercenaryPolicy.isProfile(
+				ubCharNum, CampaignProfileCode::Role::Devin) ||
+			mercenaryPolicy.isProfile(
+				ubCharNum, CampaignProfileCode::Role::Hamous) ||
+			mercenaryPolicy.isProfile(
+				ubCharNum, CampaignProfileCode::Role::Slay) ||
+			ubCharNum == VINCE || ubCharNum == MADDOG || ubCharNum == MICKY )
 		{
 			pNewSoldier->featureFlags().primaryFlags() |= (SOLDIER_COVERT_CIV|SOLDIER_COVERT_NPC_SPECIAL);
 		}
@@ -1847,19 +1843,20 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 			SwapObjs( pNewSoldier, bSlot, HANDPOS, TRUE );
 		}
 	}
-#ifdef JA2UB
-// no Ja25 UB
-#else
-	if ( ubCharNum == IRA && first_time_recruited)
+	if ( mercenaryPolicy.triggersIraRecruitmentRecord() &&
+		mercenaryPolicy.isProfile(
+			ubCharNum, CampaignProfileCode::Role::Ira) &&
+		first_time_recruited )
 	{
 		// trigger 0th PCscript line
-		TriggerNPCRecord( IRA, 0 );
+		TriggerNPCRecord( ubCharNum, 0 );
 	}
-#endif
 	// Set whatkind of merc am i
 	pNewSoldier->employment().mercenaryType() = MERC_TYPE__NPC;
 
-	if ( ubCharNum == SLAY && gGameExternalOptions.fEnableSlayForever == TRUE )
+	if ( mercenaryPolicy.isProfile(
+			ubCharNum, CampaignProfileCode::Role::Slay) &&
+		gGameExternalOptions.fEnableSlayForever == TRUE )
 	{
 		pNewSoldier->employment().mercenaryType() = MERC_TYPE__AIM_MERC;
 	}
@@ -1873,10 +1870,10 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 
 	//remove the merc from the Personnel screens departed list ( if they have never been hired before, its ok to call it )
 	RemoveNewlyHiredMercFromPersonnelDepartedList( pSoldier->identity().profile() );
-#ifdef JA2UB	
-	//If this is a special NPC, play a quote from the team mates
-	HandlePlayingQuoteWhenHiringNpc( pNewSoldier->identity().profile() );
-#endif
+	if ( mercenaryPolicy.playsNpcRecruitmentTeamQuote() )
+	{
+		HandlePlayingQuoteWhenHiringNpc( pNewSoldier->identity().profile() );
+	}
 
 	// Flugente: additional dialogue
 	AdditionalTacticalCharacterDialogue_AllInSectorRadiusCall( ubCharNum, ADE_DIALOGUE_RPC_RECRUIT_SUCCESS, ubCharNum );
@@ -2401,16 +2398,16 @@ TacticalActor* SwapToProfile( TacticalActor * pSoldier, UINT8 ubDestProfile )
 	{
 		SetFactTrue( FACT_LARRY_CHANGED );
 
-#ifdef JA2UB
-#else
+		const CampaignMercenaryPolicy mercenaryPolicy(
+			GetGameContext().capabilities());
 		// anv: make speck whine about it immediately if on team
-		if( !IsSpeckComAvailable() )
+		if( mercenaryPolicy.notifiesSpeckOfLarryRelapse() &&
+			!IsSpeckComAvailable() )
 		{
-			TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), SPECK_PLAYABLE_QUOTE_LARRY_RELAPSED );
+			TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_LARRY_RELAPSED );
 			// don't bring this up again
 			LaptopSaveInfo.uiSpeckQuoteFlags |= SPECK_QUOTE__ALREADY_TOLD_PLAYER_THAT_LARRY_RELAPSED;
 		}
-#endif
 	}
 	else if ( pSoldier->identity().profile() == LARRY_NORMAL )
 	{

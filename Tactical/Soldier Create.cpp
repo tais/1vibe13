@@ -59,10 +59,9 @@
 #include "connect.h"
 #include "message.h"
 #include "GameInitOptionsScreen.h"
-
-#ifdef JA2UB
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 #include "Ja25_Tactical.h"
-#endif
 
 
 extern INT32 GetTheStateOfDepartedMerc(INT32 iId);
@@ -4164,6 +4163,8 @@ extern void DistributeInitialGear(MERCPROFILESTRUCT *pProfile);
 
 void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	UINT32			cnt, cnt2;
 	MERCPROFILESTRUCT*		pProfile;
 	BOOLEAN success;
@@ -4269,8 +4270,8 @@ void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStr
 						// and if a case isn't handled here it's better to not give any key than
 						// to provide one which doesn't work and would confuse everything.
 						
-						#ifdef JA2UB						
-							if ( pCreateStruct->ubProfile == MORRIS_UB )
+						if ( mercenaryPolicy.usesUnfinishedBusinessRules() &&
+							pCreateStruct->ubProfile == MORRIS_UB )
 						{
 								if ( pProfile->inv[ cnt ] >= KEY_1 && pProfile->inv[ cnt ] <= KEY_32)
 								{
@@ -4282,14 +4283,9 @@ void CopyProfileItems( TacticalActor *pSoldier, SOLDIERCREATE_STRUCT *pCreateStr
 								//	memset( &(pSoldier->inventory()[cnt]), 0, sizeof( OBJECTTYPE ) );
 								//}
 							}
-						#endif
-						
+
 						switch( pCreateStruct->ubProfile )
 						{
-#ifdef JA2UB						
-
-#endif
-
 							// WANNE: Changed KEY_32 to KEY_8 because we only have 8 keys defined in Items.xml
 							case BREWSTER:
 								if ( pProfile->inv[ cnt ] >= KEY_1 && pProfile->inv[ cnt ] <= KEY_8){
@@ -4390,6 +4386,8 @@ void TrashAllSoldiers( )
 
 UINT8 GetLocationModifier( UINT8 ubSoldierClass )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	UINT8 ubLocationModifier = 0;	
 	INT16 sSectorX, sSectorY, sSectorZ;
 
@@ -4398,7 +4396,8 @@ UINT8 GetLocationModifier( UINT8 ubSoldierClass )
 	if ( !GetCurrentBattleSectorXYZ( &sSectorX, &sSectorY, &sSectorZ ) )
 		return 0;
 
-#ifdef JA2UB
+	if ( mercenaryPolicy.usesUnfinishedBusinessSectorCoolness() )
+	{
 	//Ja25 UB
 	//switch on the sector, to determine modifer
 	//the modifier is based between 0 and 40.  40 being the "hardest"
@@ -4523,7 +4522,9 @@ UINT8 GetLocationModifier( UINT8 ubSoldierClass )
 		}
 		break;
 	}
-#else	
+	}
+	else
+	{
 	// HEADROCK HAM 5:
 	// The calculation has been replaced with an XML table.
 
@@ -4561,8 +4562,7 @@ UINT8 GetLocationModifier( UINT8 ubSoldierClass )
 	// adjust for distance from Queen's palace (P3) (0 to +30)
 	ubLocationModifier = ( ( MAX_PALACE_DISTANCE - ubPalaceDistance ) * DIFF_FACTOR_PALACE_DISTANCE ) / MAX_PALACE_DISTANCE;
 	*/
-
-#endif
+	}
 	return( ubLocationModifier );
 }
 

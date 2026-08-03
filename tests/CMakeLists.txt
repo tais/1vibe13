@@ -47,6 +47,14 @@ target_include_directories(campaign_dealer_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_dealer_policy COMMAND campaign_dealer_policy_tests)
 
+# Profile IDs and mercenary lifecycle behavior differ between campaigns while
+# both implementations must remain available to every host.
+add_executable(campaign_mercenary_policy_tests
+  campaign_mercenary_policy_tests.cpp)
+target_include_directories(campaign_mercenary_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_mercenary_policy COMMAND campaign_mercenary_policy_tests)
+
 # A dedicated process replaces global allocation hooks while measuring the
 # observer hot path. Keeping it separate avoids coupling allocation accounting
 # to unrelated adapter tests or their setup work.
