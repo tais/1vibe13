@@ -30,6 +30,8 @@
 	#include "personnel.h"
 	#include "Encyclopedia_new.h"	//update encyclopedia item visibility when viewing that item
 	#include "mousesystem.h"
+	#include "CampaignMercSitePolicy.h"
+	#include "GameContext.h"
 
 #include "Cheats.h"
 #include "connect.h"
@@ -429,8 +431,8 @@ static void TryToHireMERC()
 	}
 	else
 	{
-#ifdef JA2UB
-		if ( gSelectedMercKit == 0 ) // First kit is free, due to M.E.R.C special offer
+		if (CampaignMercSitePolicy(GetGameContext().capabilities())
+				.firstEquipmentKitIsFree(gSelectedMercKit))
 		{
 			fMercBuyEquipment = 1;
 			MercProcessHireAfterGear();
@@ -440,10 +442,6 @@ static void TryToHireMERC()
 			//prompt to buy gear
 			DoLapTopMessageBox( MSG_BOX_BLUE_ON_GREY, MercInfo[MERC_FILES_BUY_GEAR], LAPTOP_SCREEN, MSG_BOX_FLAG_YESNO, MercHireButtonGearYesNoCallback );
 		}
-#else
-		//prompt to buy gear
-		DoLapTopMessageBox( MSG_BOX_BLUE_ON_GREY, MercInfo[MERC_FILES_BUY_GEAR], LAPTOP_SCREEN, MSG_BOX_FLAG_YESNO, MercHireButtonGearYesNoCallback );
-#endif // JA2UB
 	}
 }
 
@@ -460,11 +458,12 @@ void SelectMercsFaceRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 		if( LaptopSaveInfo.gubPlayersMercAccountStatus == MERC_ACCOUNT_SUSPENDED )
 		{
 			guiCurrentLaptopMode = LAPTOP_MODE_MERC;
-#ifdef JA2UB
-		//	gusMercVideoSpeckSpeech = SPECK_QUOTE_ALTERNATE_OPENING_5_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED;
-#else
-			gusMercVideoSpeckSpeech = SPECK_QUOTE_ALTERNATE_OPENING_5_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED;
-#endif
+			if (CampaignMercSitePolicy(GetGameContext().capabilities())
+					.hasAccountManagement())
+			{
+				gusMercVideoSpeckSpeech =
+					SPECK_QUOTE_ALTERNATE_OPENING_5_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED;
+			}
 			gubArrivedFromMercSubSite = MERC_CAME_FROM_HIRE_PAGE;
 
 		}
@@ -583,17 +582,6 @@ void RenderMercsFiles()
 
 		if (gConditionsForMercAvailabilityTemp[GetAvailableMercIndex(gubCurMercIndex)].MercBio != 255)
 		{
-// WANNE: @anv: Disabled the alternate BIO for John Kulba, because it is to specific for 1.13 and not very good for modders.
-/*
-#ifdef JA2UB
-			LoadAndDisplayMercBio( gConditionsForMercAvailabilityTemp[gubCurMercIndex].MercBio );
-#else
-			// anv: handle John Kulba's alternate bio if Mary died during escort
-			if( gConditionsForMercAvailabilityTemp[GetAvailableMercIndex(gubCurMercIndex)].ProfilId == JOHN_MERC && gMercProfiles[ MARY ].bMercStatus == MERC_IS_DEAD )
-				LoadAndDisplayMercBio( gConditionsForMercAvailabilityTemp[GetAvailableMercIndex(gubCurMercIndex)].MercBio + 1 );
-			else
-#endif
-*/
 			LoadAndDisplayMercBio( gConditionsForMercAvailabilityTemp[GetAvailableMercIndex(gubCurMercIndex)].MercBio );
 
 		}
@@ -708,14 +696,15 @@ void BtnMercHireButtonCallback(GUI_BUTTON *btn,INT32 reason)
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
 			//if the players account is suspended, go back to the main screen and have Speck inform the players
-			if( LaptopSaveInfo.gubPlayersMercAccountStatus == MERC_ACCOUNT_SUSPENDED )
+		if( LaptopSaveInfo.gubPlayersMercAccountStatus == MERC_ACCOUNT_SUSPENDED )
+		{
+			guiCurrentLaptopMode = LAPTOP_MODE_MERC;
+			if (CampaignMercSitePolicy(GetGameContext().capabilities())
+					.hasAccountManagement())
 			{
-				guiCurrentLaptopMode = LAPTOP_MODE_MERC;
-#ifdef JA2UB
-			//	gusMercVideoSpeckSpeech = SPECK_QUOTE_ALTERNATE_OPENING_5_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED;
-#else
-				gusMercVideoSpeckSpeech = SPECK_QUOTE_ALTERNATE_OPENING_5_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED;
-#endif
+				gusMercVideoSpeckSpeech =
+					SPECK_QUOTE_ALTERNATE_OPENING_5_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED;
+			}
 				gubArrivedFromMercSubSite = MERC_CAME_FROM_HIRE_PAGE;
 
 			}
@@ -938,32 +927,16 @@ void LoadAndDisplayMercBio( UINT8 ubMercID )
 	CHAR16	sText[400];
 	UINT32	uiStartLoc = 0;
 
-	//load and display the merc bio
-//#ifdef JA2UB
-//	//Ja25 UB
-//	if( ubMercID < 17 )
-//		uiStartLoc = MERC_BIO_SIZE * ubMercID;
-//	else
-//		uiStartLoc = MERC_BIO_SIZE * ( ubMercID - 7 );
-//#else
+	// Load and display the M.E.R.C. biography record.
 	uiStartLoc = MERC_BIO_SIZE * ubMercID;
-//#endif
 		
 	LoadEncryptedDataFromFile(MERCBIOFILE, sText, uiStartLoc, MERC_BIO_INFO_TEXT_SIZE);
 
 	if( sText[0] != 0 )	
 		DisplayWrappedString(MERC_BIO_TEXT_X, MERC_BIO_TEXT_Y, MERC_BIO_WIDTH, 2, MERC_BIO_FONT, MERC_BIO_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);	
 	
-	//load and display the merc's additioanl info (if any)
-//#ifdef JA2UB	
-	//Ja25 UB
-//	if( ubMercID < 17 )
-//		uiStartLoc = MERC_BIO_SIZE * ubMercID + MERC_BIO_INFO_TEXT_SIZE;
-//	else
-//		uiStartLoc = MERC_BIO_SIZE * ( ubMercID - 7 ) + MERC_BIO_INFO_TEXT_SIZE;	
-//#else
+	// Load and display the merc's additional information, if any.
 	uiStartLoc = MERC_BIO_SIZE * ubMercID + MERC_BIO_INFO_TEXT_SIZE;
-//#endif	
 	LoadEncryptedDataFromFile(MERCBIOFILE, sText, uiStartLoc, MERC_BIO_ADD_INFO_TEXT_SIZE);
 	
 	if( sText[0] != 0 )
@@ -976,6 +949,8 @@ void LoadAndDisplayMercBio( UINT8 ubMercID )
 
 void DisplayMercsStats( UINT8 ubMercID )
 {
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 	UINT16 usPosY, usPosX;
 	CHAR16 sPage[60];
 	std::wstring sString{};
@@ -1052,19 +1027,18 @@ void DisplayMercsStats( UINT8 ubMercID )
 	DrawNumeralsToScreen(gMercProfiles[ ubMercID ].bMedical, 3, MERC_STATS_SECOND_NUM_COL_X, usPosY, MERC_STATS_FONT, ubColor);
 	usPosY += MERC_SPACE_BN_LINES;
 
-	//Merc Salary
-#ifdef JA2UB
-	// One time "Fee" instead of "Salary" per day
-	DrawTextToScreen( CharacterInfo[AIM_MEMBER_FEE], MERC_STATS_SECOND_COL_X, usPosY, 0, MERC_TITLE_FONT, MERC_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED );
-
-	usPosX = MERC_STATS_SECOND_COL_X + StringPixLength( CharacterInfo[AIM_MEMBER_FEE], MERC_NAME_FONT );
-	sString = FormatMoney(gMercProfiles[ubMercID].uiWeeklySalary);
-#else
-	DrawTextToScreen( MercInfo[MERC_FILES_SALARY], MERC_STATS_SECOND_COL_X, usPosY, 0, MERC_STATS_FONT, MERC_STATIC_STATS_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED );
-
-	usPosX = MERC_STATS_SECOND_COL_X + StringPixLength( MercInfo[MERC_FILES_SALARY], MERC_NAME_FONT );
-	sString = FormatMoney(gMercProfiles[ubMercID].sSalary) + L" " + std::wstring(MercInfo[MERC_FILES_PER_DAY]);
-#endif // JA2UB
+	if (mercSitePolicy.chargesEquipmentUpFront())
+	{
+		DrawTextToScreen( CharacterInfo[AIM_MEMBER_FEE], MERC_STATS_SECOND_COL_X, usPosY, 0, MERC_TITLE_FONT, MERC_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED );
+		usPosX = MERC_STATS_SECOND_COL_X + StringPixLength( CharacterInfo[AIM_MEMBER_FEE], MERC_NAME_FONT );
+		sString = FormatMoney(gMercProfiles[ubMercID].uiWeeklySalary);
+	}
+	else
+	{
+		DrawTextToScreen( MercInfo[MERC_FILES_SALARY], MERC_STATS_SECOND_COL_X, usPosY, 0, MERC_STATS_FONT, MERC_STATIC_STATS_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED );
+		usPosX = MERC_STATS_SECOND_COL_X + StringPixLength( MercInfo[MERC_FILES_SALARY], MERC_NAME_FONT );
+		sString = FormatMoney(gMercProfiles[ubMercID].sSalary) + L" " + std::wstring(MercInfo[MERC_FILES_PER_DAY]);
+	}
 
 	DrawTextToScreen( sString.data(), usPosX, usPosY, 95, MERC_NAME_FONT, MERC_DYNAMIC_STATS_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
 
@@ -1084,8 +1058,7 @@ void DisplayMercsStats( UINT8 ubMercID )
 		{
 			gMercProfiles[ ubMercID ].usOptionalGearCost = 0;
 		}
-#ifdef JA2UB
-		if ( gSelectedMercKit == 0 ) // First kit is free, due to M.E.R.C special offer
+		if (mercSitePolicy.firstEquipmentKitIsFree(gSelectedMercKit))
 		{
 			gMercProfiles[ubMercID].usOptionalGearCost = 0;
 
@@ -1094,7 +1067,6 @@ void DisplayMercsStats( UINT8 ubMercID )
 			swprintf( NsString, MercInfo[MERC_FILES_SPECIAL_OFFER] );
 			DrawTextToScreen( NsString, usPosX, y, 95, MERC_TITLE_FONT, MERC_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED );
 		}
-#endif // JA2UB
 
 		swprintf( NsString, L"+ " );
 		sString = FormatMoney(gMercProfiles[ ubMercID ].usOptionalGearCost);
@@ -1106,11 +1078,10 @@ void DisplayMercsStats( UINT8 ubMercID )
 		DrawTextToScreen( MercInfo[MERC_FILES_TOTAL], MERC_STATS_SECOND_COL_X, usPosY, 0, MERC_NAME_FONT, MERC_STATIC_STATS_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 
 		swprintf(N2sString, L"= ");
-#ifdef JA2UB
-		sString = FormatMoney(gMercProfiles[ubMercID].usOptionalGearCost + gMercProfiles[ubMercID].uiWeeklySalary);
-#else
-		sString = FormatMoney(gMercProfiles[ ubMercID ].usOptionalGearCost+gMercProfiles[ ubMercID ].sSalary);
-#endif
+		sString = FormatMoney(gMercProfiles[ubMercID].usOptionalGearCost +
+			mercSitePolicy.contractRate(
+				gMercProfiles[ubMercID].sSalary,
+				gMercProfiles[ubMercID].uiWeeklySalary));
 		wcscat( N2sString, sString.data() );
 		DrawTextToScreen( N2sString, usPosX, usPosY, 95, MERC_NAME_FONT, MERC_DYNAMIC_STATS_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
 	}
@@ -1128,6 +1099,8 @@ UINT8	GetStatsColor( INT8 bStat )
 
 BOOLEAN MercFilesHireMerc(UINT8 ubMercID)
 {
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 	MERC_HIRE_STRUCT HireMercStruct;
 	INT8	bReturnCode;
 	INT32 Namount=0;
@@ -1148,18 +1121,16 @@ BOOLEAN MercFilesHireMerc(UINT8 ubMercID)
 		if( gMercProfiles[ ubMercID ].bMercStatus != MERC_IS_DEAD )
 		{
 			guiCurrentLaptopMode = LAPTOP_MODE_MERC;
-#ifdef JA2UB
-			gusMercVideoSpeckSpeech = SPECK_QUOTE_PLAYER_TRIES_TO_HIRE_ALREADY_HIRED_MERC;
-#else
-			// anv: unlocked unused Biff unavailable quote and added one for Speck
-			 if( ubMercID == BIFF )
+			if (mercSitePolicy.usesUnfinishedBusinessSite())
+			{
+				gusMercVideoSpeckSpeech = SPECK_QUOTE_PLAYER_TRIES_TO_HIRE_ALREADY_HIRED_MERC;
+			}
+			else if( ubMercID == BIFF )
 				gusMercVideoSpeckSpeech = SPECK_QUOTE_BIFF_UNAVALIABLE;
 			else if( ubMercID == SPECK_PLAYABLE )
 				gusMercVideoSpeckSpeech = SPECK_QUOTE_SPECK_UNAVAILABLE;
 			else
 				gusMercVideoSpeckSpeech = SPECK_QUOTE_PLAYER_TRIES_TO_HIRE_ALREADY_HIRED_MERC;
-
-#endif
 			gubArrivedFromMercSubSite = MERC_CAME_FROM_HIRE_PAGE;
 		}
 
@@ -1205,20 +1176,19 @@ BOOLEAN MercFilesHireMerc(UINT8 ubMercID)
 		return(FALSE);
 	}
 
-#ifdef JA2UB
-	Namount = 0;
-	Namount += gMercProfiles[ubMercID].uiWeeklySalary;
-	if ( gSelectedMercKit > 0 )
+	if (mercSitePolicy.chargesEquipmentUpFront())
 	{
-		Namount += gMercProfiles[ubMercID].usOptionalGearCost;
-	}
+		Namount = static_cast<INT32>(mercSitePolicy.initialHireCharge(
+			gMercProfiles[ubMercID].uiWeeklySalary,
+			gMercProfiles[ubMercID].usOptionalGearCost,
+			gSelectedMercKit));
 
-	if ( Namount > LaptopSaveInfo.iCurrentBalance )
-	{
-		DoLapTopMessageBox( MSG_BOX_LAPTOP_DEFAULT, gzSkiAtmText[SKI_ATM_MODE_TEXT_SELECT_INUSUFFICIENT_FUNDS], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL );
-		return(FALSE);
+		if ( Namount > LaptopSaveInfo.iCurrentBalance )
+		{
+			DoLapTopMessageBox( MSG_BOX_LAPTOP_DEFAULT, gzSkiAtmText[SKI_ATM_MODE_TEXT_SELECT_INUSUFFICIENT_FUNDS], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL );
+			return(FALSE);
+		}
 	}
-#endif // JA2UB
 
 
 	bReturnCode = HireMerc( &HireMercStruct );
@@ -1242,25 +1212,24 @@ BOOLEAN MercFilesHireMerc(UINT8 ubMercID)
 			AddTransactionToPlayersBook( HIRED_MERC, ubMercID, GetWorldTotalMin(), Namount );
 		}
 		
-#ifdef JA2UB
-		//add an entry in the finacial page for the hiring of the merc
-		INT32 totalCost = gMercProfiles[ubMercID].uiWeeklySalary;
-		if ( gSelectedMercKit > 0 ) // First kit is included in the initial fee
+		if (mercSitePolicy.chargesEquipmentUpFront())
 		{
-			totalCost += gMercProfiles[ubMercID].usOptionalGearCost;
+			const INT32 totalCost = static_cast<INT32>(
+				mercSitePolicy.initialHireCharge(
+					gMercProfiles[ubMercID].uiWeeklySalary,
+					gMercProfiles[ubMercID].usOptionalGearCost,
+					gSelectedMercKit));
+			AddTransactionToPlayersBook(PAY_SPECK_FOR_MERC, ubMercID, GetWorldTotalMin(), -totalCost );
 		}
-		AddTransactionToPlayersBook(PAY_SPECK_FOR_MERC, ubMercID, GetWorldTotalMin(), -totalCost );
-#endif
 
 		//JMich_MMG: Setting the flag that we bought the gear and still haven't paid for it if we succesfully hired the merc
 		if ( fMercBuyEquipment )
 		{
 			gMercProfiles[ ubMercID ].ubMiscFlags |= PROFILE_MISC_FLAG_ALREADY_USED_ITEMS;
-#ifdef JA2UB
-			// Gear cost gets added to initial hiring fee in UB
-#else
-			gMercProfiles[ ubMercID ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_MERC_GEARKIT_UNPAID;
-#endif // JA2UB
+			if (mercSitePolicy.marksPurchasedEquipmentUnpaid())
+			{
+				gMercProfiles[ ubMercID ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_MERC_GEARKIT_UNPAID;
+			}
 		}
 
 		return(TRUE);
@@ -1349,11 +1318,13 @@ void HandleMercsFilesKeyBoardInput( )
 						if( LaptopSaveInfo.gubPlayersMercAccountStatus == MERC_ACCOUNT_SUSPENDED )
 						{
 							guiCurrentLaptopMode = LAPTOP_MODE_MERC;
-#ifdef JA2UB
-							//gusMercVideoSpeckSpeech = SPECK_QUOTE_ALTERNATE_OPENING_5_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED;
-#else
-							gusMercVideoSpeckSpeech = SPECK_QUOTE_ALTERNATE_OPENING_5_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED;
-#endif
+							if (CampaignMercSitePolicy(
+									GetGameContext().capabilities())
+									.hasAccountManagement())
+							{
+								gusMercVideoSpeckSpeech =
+									SPECK_QUOTE_ALTERNATE_OPENING_5_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED;
+							}
 							gubArrivedFromMercSubSite = MERC_CAME_FROM_HIRE_PAGE;
 
 						}
@@ -1837,14 +1808,17 @@ void MercHireButtonGearYesNoCallback (UINT8 bExitValue)
 	//no, no gear 
 	else
 	{
-#ifdef JA2UB
-		// Switch to the free, first kit
-		gSelectedMercKit = 0;
-		MercWeaponKitSelectionUpdate( gSelectedMercKit );
-		fMercBuyEquipment = 1;
-#else
-		fMercBuyEquipment = 0;
-#endif // JA2UB
+		if (CampaignMercSitePolicy(GetGameContext().capabilities())
+				.firstEquipmentKitIsFree(0))
+		{
+			gSelectedMercKit = 0;
+			MercWeaponKitSelectionUpdate( gSelectedMercKit );
+			fMercBuyEquipment = 1;
+		}
+		else
+		{
+			fMercBuyEquipment = 0;
+		}
 	}
 	
 	MercProcessHireAfterGear();

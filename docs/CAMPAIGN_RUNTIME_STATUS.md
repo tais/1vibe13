@@ -18,7 +18,11 @@ availability, and campaign-specific Slay handling use
 `CampaignMercenaryPolicy`. Tactical AI, strategic events, laptop/personnel UI,
 multiplayer, save migration, and tactical gameplay now resolve Miguel through
 Slay by semantic role as well. The shared profile enum no longer exposes raw
-campaign-colliding aliases.
+campaign-colliding aliases. The M.E.R.C. landing, account, hire, files, and
+Speck-dialogue paths use `CampaignMercSitePolicy`; both campaigns' account,
+billing, equipment, availability, and dialogue behavior are emitted in every
+host. Eight colliding Speck dialogue roles are resolved through
+`CampaignSpeckQuoteCode::Role` rather than campaign-ambiguous raw aliases.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -31,18 +35,19 @@ existing numeric records. In particular, dealer save and merchant-XML storage
 remain 80 raw slots: the typed dealer policy resolves the campaign-dependent
 meanings of the colliding slots 5-18 without changing their serialized values.
 The mercenary policy likewise resolves the established one-slot profile shift
-for Miguel through Slay and preserves both campaigns' profile, email, and quote
-record numbers.
+for Miguel through Slay. The M.E.R.C. policy preserves both campaigns' profile,
+account, finance, email, and speech records, including the exact 19- and
+20-entry idle-quote rosters and the shifted Speck records 76-83 versus 94-101.
 
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 265 active conditionals in 58
+milestone its per-file baseline contains 191 active conditionals in 52
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
-| Laptop content/pages | 146 |
+| Laptop content/pages | 72 |
 | Tactical gameplay/content | 52 |
 | Strategic gameplay/content | 48 |
 | JA2 compatibility shell/layout | 7 |
@@ -57,8 +62,11 @@ underground loading-screen selection, XML campaign paths, dealer identity and
 inventory routing, shopkeeper behavior, and the migrated mercenary lifecycle
 no longer contribute to this tail. Those paths use
 `CampaignApplicationPolicy`, `CampaignDealerPolicy`, and
-`CampaignMercenaryPolicy` and are guarded by data-free headless tests plus
-named architecture checks. The seven remaining `Ja2` conditionals are the
+`CampaignMercenaryPolicy`. The full M.E.R.C. site cluster no longer contributes
+either: account creation and settlement, hire pricing and gear, site
+availability, and Speck dialogue use `CampaignMercSitePolicy` and typed quote
+roles. All four policies are guarded by data-free headless tests plus named
+architecture checks. The seven remaining `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
 implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;
 they are deliberately separate compatibility seams.
@@ -74,17 +82,19 @@ The largest individual legacy leaves are:
 
 | File | Conditionals |
 | --- | ---: |
-| `Laptop/mercs.cpp` | 48 |
 | `Laptop/AimLinks.cpp` | 16 |
 | `Laptop/email.cpp` | 14 |
-| `Laptop/mercs Account.cpp` | 12 |
 | `Strategic/mapscreen.cpp` | 12 |
 | `Strategic/LuaInitNPCs.cpp` | 11 |
-| `Laptop/mercs Files.cpp` | 10 |
 | `Laptop/AimMembers.cpp` | 9 |
 | `Laptop/files.cpp` | 9 |
 | `Tactical/Handle Doors.cpp` | 8 |
 | `Laptop/insurance Contract.cpp` | 7 |
+| `Tactical/Campaign.cpp` | 6 |
+| `Laptop/email.h` | 5 |
+| `Strategic/Luaglobal.cpp` | 5 |
+| `Tactical/Civ Quotes.cpp` | 5 |
+| `Tactical/Interface.cpp` | 5 |
 
 These are not dependencies of `Engine/Core`; they are legacy application,
 page, campaign-content, and gameplay implementations above the runtime
