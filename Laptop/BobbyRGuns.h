@@ -65,7 +65,8 @@ void UpdateMiscFilterButtons();
 
 void EnterInitBobbyRGuns();
 void DailyUpdateOfBobbyRaysUsedInventory();
-UINT16 CalcBobbyRayCost( UINT16 usIndex, UINT16 usBobbyIndex, BOOLEAN fUsed);
+UINT16 CalcBobbyRayCost( UINT16 usIndex, UINT16 usBobbyIndex, BOOLEAN fUsed,
+	INT8 bItemQuality = 100);
 //void CalculateFirstAndLastIndexs();
 void SetFirstLastPagesForUsed(INT32 iFilter);
 void SetFirstLastPagesForNew( UINT32 uiClass, INT32 iFilter , INT32 iSubFilter = -1); // Madd: added iSubFilter for new BR filter options

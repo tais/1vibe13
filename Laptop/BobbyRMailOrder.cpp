@@ -25,6 +25,7 @@
 	#include "PostalService.h"
 	#include "english.h"
 	#include <list>
+	#include <memory>
 
 #include "Strategic Event Handler.h"
 #include "connect.h"
@@ -285,6 +286,61 @@ BOOLEAN		gfRemoveItemsFromStock=FALSE;
 NewBobbyRayOrderStruct	*gpNewBobbyrShipments;
 INT32			giNumberOfNewBobbyRShipment;
 
+static UINT8 GetConfiguredBobbyRayPurchaseLimit()
+{
+	return static_cast<UINT8>(BobbyRayCommerceModel::PurchaseLimit(
+		gGameExternalOptions.ubBobbyRayMaxPurchaseAmount));
+}
+
+static void ClearBobbyRayPurchases()
+{
+	memset(BobbyRayPurchases, 0, sizeof(BobbyRayPurchases));
+}
+
+struct NewBobbyRayOrderAllocationDeleter
+{
+	void operator()(NewBobbyRayOrderStruct *orders) const noexcept
+	{
+		if (orders) MemFree(orders);
+	}
+};
+
+static BOOLEAN NormalizeNewBobbyRayOrder(NewBobbyRayOrderStruct& order)
+{
+	if (order.fActive &&
+		(order.ubDeliveryLoc > BR_VANCOUVER || order.ubDeliveryMethod > 2))
+	{
+		return FALSE;
+	}
+
+	const UINT8 readableCount =
+		BobbyRayCommerceModel::PurchaseRecordCount(order.ubNumberPurchases);
+	UINT8 writeIndex = 0;
+	for (UINT8 readIndex = 0; readIndex < readableCount; ++readIndex)
+	{
+		BobbyRayPurchaseStruct purchase = order.BobbyRayPurchase[readIndex];
+		if (!purchase.ubNumberPurchased || purchase.usItemIndex == 0 ||
+			purchase.usItemIndex >= MAXITEMS)
+		{
+			continue;
+		}
+		if (purchase.bItemQuality < 0)
+			purchase.bItemQuality = 0;
+		else if (purchase.bItemQuality > 100)
+			purchase.bItemQuality = 100;
+		order.BobbyRayPurchase[writeIndex++] = purchase;
+	}
+	for (std::size_t index = writeIndex;
+		index < BobbyRayCommerceModel::PurchaseCapacity; ++index)
+	{
+		order.BobbyRayPurchase[index] = BobbyRayPurchaseStruct{};
+	}
+	order.ubNumberPurchases = writeIndex;
+	if (order.fActive && writeIndex == 0)
+		return FALSE;
+	return TRUE;
+}
+
 
 //
 //Buttons
@@ -371,6 +427,16 @@ UINT8 guiNumOfDisplayedCities=0;
 vector<PDestinationStruct> gDestinationTable;
 vector<PShipmentStruct> gShipmentTable;
 
+void RefreshBobbyRayShipmentSnapshot()
+{
+	gShipmentTable.clear();
+	for (auto shipment = gPostalService.LookupShipmentList().begin();
+		shipment != gPostalService.LookupShipmentList().end(); ++shipment)
+	{
+		gShipmentTable.push_back(&SHIPMENT(shipment));
+	}
+}
+
 // WANNE: This method gets called when the shippment arrived
 void BobbyRDeliveryCallback(RefToCShipmentManipulator ShipmentManipulator)
 {
@@ -407,8 +473,7 @@ void GameInitBobbyRMailOrder()
 	else
 		gubSelectedLight = 0;
 
-	gpNewBobbyrShipments = NULL;
-	giNumberOfNewBobbyRShipment = 0;
+	ShutDownBobbyRNewMailOrders();
 }
 
 BOOLEAN EnterBobbyRMailOrder()
@@ -831,7 +896,7 @@ void BtnBobbyRClearOrderCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-		memset(&BobbyRayPurchases, 0, sizeof(BobbyRayPurchaseStruct) * gGameExternalOptions.ubBobbyRayMaxPurchaseAmount);
+		ClearBobbyRayPurchases();
 		gubSelectedLight = 0;
 		gfReDrawBobbyOrder = TRUE;
 		gbSelectedCity = -1;
@@ -901,103 +966,6 @@ void BtnBobbyRAcceptOrderCallback(GUI_BUTTON *btn,INT32 reason)
 					DoLapTopMessageBox( MSG_BOX_LAPTOP_DEFAULT, zTemp, LAPTOP_SCREEN, MSG_BOX_FLAG_YESNO, ConfirmBobbyRPurchaseMessageBoxCallBack );
 				}
 
-/*				//if the shipment is going to Drassen, add the inventory
-				if( gbSelectedCity == BR_DRASSEN )
-				{
-//					BobbyRayOrderStruct *pBobbyRayPurchase;
-//					UINT32	uiResetTimeSec;
-					UINT8	i, ubCount;
-					UINT8	cnt;
-					INT8		bDaysAhead;
-
-					//if we need to add more array elements for the Order Array
-					if( LaptopSaveInfo.usNumberOfBobbyRayOrderItems <= LaptopSaveInfo.usNumberOfBobbyRayOrderUsed )
-					{
-						LaptopSaveInfo.usNumberOfBobbyRayOrderItems++;
-						LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray = MemRealloc( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray, sizeof( BobbyRayOrderStruct ) * LaptopSaveInfo.usNumberOfBobbyRayOrderItems );
-						if( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray == NULL )
-							return;
-
-						memset( &LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ LaptopSaveInfo.usNumberOfBobbyRayOrderItems - 1 ], 0, sizeof( BobbyRayOrderStruct ) );
-					}
-
-					for( cnt =0; cnt< LaptopSaveInfo.usNumberOfBobbyRayOrderItems; cnt++ )
-					{
-						//get an empty element in the array
-						if( !LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].fActive )
-							break;
-					}
-
-					//gets reset when the confirm order graphic disappears
-					gfCanAcceptOrder = FALSE;
-
-//					pBobbyRayPurchase = MemAlloc( sizeof( BobbyRayOrderStruct ) );
-//					memset(pBobbyRayPurchase, 0, sizeof( BobbyRayOrderStruct ) );
-
-
-					ubCount = 0;
-					for(i=0; i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
-					{
-						//if the item was purchased
-						if( BobbyRayPurchases[ i ].ubNumberPurchased )
-						{
-							//copy the purchases into the struct that will be added to the queue
-							memcpy(&LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].BobbyRayPurchase[ ubCount ] , &BobbyRayPurchases[i],	sizeof(BobbyRayPurchaseStruct));
-							ubCount ++;
-						}
-					}
-
-					LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].ubNumberPurchases = ubCount;
-					LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].fActive = TRUE;
-					LaptopSaveInfo.usNumberOfBobbyRayOrderUsed++;
-
-					//get the length of time to receive the shipment
-					if( gubSelectedLight == 0 )
-					{
-						bDaysAhead = OVERNIGHT_EXPRESS;
-						//uiResetTimeSec = GetMidnightOfFutureDayInMinutes( OVERNIGHT_EXPRESS );
-					}
-					else if( gubSelectedLight == 1 )
-					{
-						bDaysAhead = TWO_BUSINESS_DAYS;
-						//uiResetTimeSec = GetMidnightOfFutureDayInMinutes( TWO_BUSINESS_DAYS );
-					}
-					else if( gubSelectedLight == 2 )
-					{
-						bDaysAhead = STANDARD_SERVICE;
-						//uiResetTimeSec = GetMidnightOfFutureDayInMinutes( STANDARD_SERVICE );
-					}
-					else
-					{
-						bDaysAhead = 0;
-						//uiResetTimeSec = 0;
-					}
-
-					if (gMercProfiles[99].bLife == 0)
-					{
-						// Sal is dead, so Pablo is dead, so the airport is badly run
-						bDaysAhead += (UINT8) Random( 5 ) + 1;
-					}
-
-					//add a random amount between so it arrives between 8:00 am and noon
-					//uiResetTimeSec += (8 + Random(4) ) * 60;
-
-					//AddStrategicEvent( EVENT_BOBBYRAY_PURCHASE, uiResetTimeSec, cnt);
-					AddFutureDayStrategicEvent(		EVENT_BOBBYRAY_PURCHASE, (8 + Random(4) ) * 60, cnt, bDaysAhead );
-
-				}
-
-				//Add the transaction to the finance page
-				AddTransactionToPlayersBook(BOBBYR_PURCHASE, 0, GetWorldTotalMin(), -giGrandTotal);
-
-				//display the confirm order graphic
-				gfDrawConfirmOrderGrpahic = TRUE;
-
-				//Get rid of the city drop dowm, if it is being displayed
-				gubDropDownAction = BR_DROP_DOWN_DESTROY;
-
-				MSYS_EnableRegion(&gSelectedConfirmOrderRegion);
-*/
 			}
 		}
 
@@ -1018,7 +986,6 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 	CHAR16	sBack[400];
 	CHAR16	sTemp[20];
 	UINT16	usPosY, usPosX, usHeight;
-	UINT32	uiStartLoc=0;
 	UINT32	uiTotal;
 	UINT16	usStringLength;
 	UINT16	usPixLength;
@@ -1069,14 +1036,23 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 	{
 		return;
 	}
+	const UINT16 purchaseLimit = static_cast<UINT16>(fCalledFromOrderPage
+		? GetConfiguredBobbyRayPurchaseLimit()
+		: BobbyRayCommerceModel::PurchaseCapacity);
 
 	//loop through the array of purchases to display only the items that are purchased
 	usPosY = usGridY+BOBBYR_GRID_FIRST_COLUMN_Y + 4;
-	for(i=gubPurchaseAtTopOfList; i<gubPurchaseAtTopOfList + BOBBYR_NUM_DISPLAYED_ITEMS ; i++)
+	const UINT16 displayEnd = static_cast<UINT16>(
+		BobbyRayCommerceModel::BoundedLength(
+			static_cast<std::size_t>(gubPurchaseAtTopOfList) +
+				BOBBYR_NUM_DISPLAYED_ITEMS,
+			purchaseLimit));
+	for(i = gubPurchaseAtTopOfList; i < displayEnd; ++i)
 	{
 		//if the item was purchased
 //		if( BobbyRayPurchases[ i ].ubNumberPurchased )
-		if( pBobbyRayPurchase[i].ubNumberPurchased )
+		if( pBobbyRayPurchase[i].ubNumberPurchased &&
+			pBobbyRayPurchase[i].usItemIndex < MAXITEMS)
 		{
 			uiTotal = 0;
 
@@ -1091,16 +1067,6 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 			DrawTextToScreen(sTemp, (UINT16)(usGridX+BOBBYR_GRID_SECOND_COLUMN_X-2), usPosY, BOBBYR_GRID_SECOND_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
 
 			//Display Items Name
-			if( pBobbyRayPurchase[i].fUsed )
-			{
-				uiStartLoc = BOBBYR_ITEM_DESC_FILE_SIZE * LaptopSaveInfo.BobbyRayUsedInventory[ pBobbyRayPurchase[i].usBobbyItemIndex ].usItemIndex;
-			}
-			else
-			{
-				uiStartLoc = BOBBYR_ITEM_DESC_FILE_SIZE * LaptopSaveInfo.BobbyRayInventory[ pBobbyRayPurchase[i].usBobbyItemIndex ].usItemIndex;
-			}
-
-
 			if( pBobbyRayPurchase[i].fUsed )
 			{
 				LoadBRName(pBobbyRayPurchase[i].usItemIndex,sBack);
@@ -1128,9 +1094,9 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 			DrawTextToScreen(sText, (UINT16)(usGridX+BOBBYR_GRID_THIRD_COLUMN_X+2), usPosY, BOBBYR_GRID_THIRD_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 
 			//unit price
-			DrawTextToScreen(FormatMoney(CalcBobbyRayCost(pBobbyRayPurchase[i].usItemIndex, pBobbyRayPurchase[i].usBobbyItemIndex, pBobbyRayPurchase[i].fUsed)).data(), (UINT16)(usGridX+BOBBYR_GRID_FOURTH_COLUMN_X-2), usPosY, BOBBYR_GRID_FOURTH_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+			DrawTextToScreen(FormatMoney(CalcBobbyRayCost(pBobbyRayPurchase[i].usItemIndex, pBobbyRayPurchase[i].usBobbyItemIndex, pBobbyRayPurchase[i].fUsed, pBobbyRayPurchase[i].bItemQuality)).data(), (UINT16)(usGridX+BOBBYR_GRID_FOURTH_COLUMN_X-2), usPosY, BOBBYR_GRID_FOURTH_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
 
-			uiTotal += CalcBobbyRayCost( pBobbyRayPurchase[i].usItemIndex, pBobbyRayPurchase[i].usBobbyItemIndex, pBobbyRayPurchase[i].fUsed ) * pBobbyRayPurchase[i].ubNumberPurchased;
+			uiTotal += CalcBobbyRayCost( pBobbyRayPurchase[i].usItemIndex, pBobbyRayPurchase[i].usBobbyItemIndex, pBobbyRayPurchase[i].fUsed, pBobbyRayPurchase[i].bItemQuality ) * pBobbyRayPurchase[i].ubNumberPurchased;
 
 			DrawTextToScreen(FormatMoney(uiTotal).data(), (UINT16)(usGridX+BOBBYR_GRID_FIFTH_COLUMN_X-2), usPosY, BOBBYR_GRID_FIFTH_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
 
@@ -1138,13 +1104,12 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 		}
 	}
 	guidivisor = 0;
-	for (i=0;i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
+	for (i = 0; i < purchaseLimit; ++i)
 	{
 		if( pBobbyRayPurchase[i].ubNumberPurchased )
 		{
 			guidivisor++;
-		}
-		uiTotal = CalcBobbyRayCost( pBobbyRayPurchase[i].usItemIndex, pBobbyRayPurchase[i].usBobbyItemIndex, pBobbyRayPurchase[i].fUsed ) * pBobbyRayPurchase[i].ubNumberPurchased;
+			uiTotal = CalcBobbyRayCost( pBobbyRayPurchase[i].usItemIndex, pBobbyRayPurchase[i].usBobbyItemIndex, pBobbyRayPurchase[i].fUsed, pBobbyRayPurchase[i].bItemQuality ) * pBobbyRayPurchase[i].ubNumberPurchased;
 			//add the current item total to the sub total
 			if( fCalledFromOrderPage )
 			{
@@ -1154,6 +1119,7 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 			{
 				iSubTotal += uiTotal;
 			}
+		}
 	}
 	if (guidivisor != 0)
 	{
@@ -1282,6 +1248,12 @@ void DisplayShippingCosts( BOOLEAN fCalledFromOrderPage, INT32 iSubTotal, UINT16
 	}
 	else
 	{
+		if (!IsValidLaptopIndex(gShipmentTable.size(), iOrderNum) ||
+			!gShipmentTable[iOrderNum] ||
+			!gShipmentTable[iOrderNum]->pDestinationDeliveryInfo)
+		{
+			return;
+		}
 		//Dealtar's Airport Externalization.
 		/* Old code:
 		UINT16	usStandardCost;
@@ -1309,7 +1281,10 @@ void DisplayShippingCosts( BOOLEAN fCalledFromOrderPage, INT32 iSubTotal, UINT16
 
 		while(spi != gShipmentTable[iOrderNum]->ShipmentPackages.end())
 		{
-			uiPackageWeight += Item[((ShipmentPackageStruct&)*spi).usItemIndex].ubWeight * ((ShipmentPackageStruct&)*spi).ubNumber;
+			const ShipmentPackageStruct& package = *spi;
+			if (package.usItemIndex < MAXITEMS)
+				uiPackageWeight += Item[package.usItemIndex].ubWeight *
+					package.ubNumber;
 			++spi;
 		}
 
@@ -1438,7 +1413,7 @@ void SelectConfirmOrderRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 		RemovePurchasedItemsFromBobbyRayInventory();
 
 			//delete the order
-		memset(&BobbyRayPurchases, 0, sizeof(BobbyRayPurchaseStruct) * gGameExternalOptions.ubBobbyRayMaxPurchaseAmount);
+		ClearBobbyRayPurchases();
 		gubSelectedLight = 0;
 		gfDestroyConfirmGrphiArea = TRUE;
 		gubSelectedLight = 0;
@@ -1453,7 +1428,7 @@ void SelectConfirmOrderRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 		RemovePurchasedItemsFromBobbyRayInventory();
 
 		//delete the order
-		memset(&BobbyRayPurchases, 0, sizeof(BobbyRayPurchaseStruct) * gGameExternalOptions.ubBobbyRayMaxPurchaseAmount);
+		ClearBobbyRayPurchases();
 		gubSelectedLight = 0;
 		gfDestroyConfirmGrphiArea = TRUE;
 		gubSelectedLight = 0;
@@ -1884,29 +1859,38 @@ void RemovePurchasedItemsFromBobbyRayInventory()
 {
 	INT16 i;
 
-	for(i=0; i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
+	for(i=0; i<GetConfiguredBobbyRayPurchaseLimit(); i++)
 	{
 		//if the item was purchased
-		if( BobbyRayPurchases[ i ].ubNumberPurchased )
+		if( BobbyRayPurchases[ i ].ubNumberPurchased &&
+			BobbyRayPurchases[i].usItemIndex < MAXITEMS)
 		{
 			//if the item is used
 			if( BobbyRayPurchases[ i ].fUsed)
 			{
-				//removee it from Bobby Rays Inventory
-				if( ( LaptopSaveInfo.BobbyRayUsedInventory[ BobbyRayPurchases[ i ].usBobbyItemIndex ].ubQtyOnHand - BobbyRayPurchases[ i ].ubNumberPurchased) > 0 )
-					LaptopSaveInfo.BobbyRayUsedInventory[ BobbyRayPurchases[ i ].usBobbyItemIndex ].ubQtyOnHand -= BobbyRayPurchases[ i ].ubNumberPurchased;
-				else
-					LaptopSaveInfo.BobbyRayUsedInventory[ BobbyRayPurchases[ i ].usBobbyItemIndex ].ubQtyOnHand = 0;
+				if (!BobbyRayCommerceModel::IsIndexInBoundedList(
+						BobbyRayPurchases[i].usBobbyItemIndex,
+						LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_USED],
+						MAXITEMS))
+					continue;
+				auto& stock = LaptopSaveInfo.BobbyRayUsedInventory[
+					BobbyRayPurchases[i].usBobbyItemIndex].ubQtyOnHand;
+				stock = BobbyRayCommerceModel::RemoveStock(
+					stock, BobbyRayPurchases[i].ubNumberPurchased);
 			}
 
 			//else the purchase is new
 			else
 			{
-				//removee it from Bobby Rays Inventory
-				if( (LaptopSaveInfo.BobbyRayInventory[ BobbyRayPurchases[ i ].usBobbyItemIndex ].ubQtyOnHand - BobbyRayPurchases[ i ].ubNumberPurchased) > 0 )
-					LaptopSaveInfo.BobbyRayInventory[ BobbyRayPurchases[ i ].usBobbyItemIndex ].ubQtyOnHand -= BobbyRayPurchases[ i ].ubNumberPurchased;
-				else
-					LaptopSaveInfo.BobbyRayInventory[ BobbyRayPurchases[ i ].usBobbyItemIndex ].ubQtyOnHand = 0;
+				if (!BobbyRayCommerceModel::IsIndexInBoundedList(
+						BobbyRayPurchases[i].usBobbyItemIndex,
+						LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_NEW],
+						MAXITEMS))
+					continue;
+				auto& stock = LaptopSaveInfo.BobbyRayInventory[
+					BobbyRayPurchases[i].usBobbyItemIndex].ubQtyOnHand;
+				stock = BobbyRayCommerceModel::RemoveStock(
+					stock, BobbyRayPurchases[i].ubNumberPurchased);
 			}
 		}
 	}
@@ -1919,7 +1903,7 @@ BOOLEAN IsAnythingPurchasedFromBobbyRayPage()
 	UINT16 i;
 	BOOLEAN	fReturnType = FALSE;
 
-	for(i=0; i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
+	for(i=0; i<GetConfiguredBobbyRayPurchaseLimit(); i++)
 	{
 		//if the item was purchased
 		if( BobbyRayPurchases[ i ].ubNumberPurchased )
@@ -2278,16 +2262,6 @@ UINT32	CalcCostFromWeightOfPackage( UINT8	ubTypeOfService )
 	//Get the package's weight
 	uiTotalWeight = CalcPackageTotalWeight();
 
-/*	for(i=0; i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
-	{
-		//if the item was purchased
-		if( BobbyRayPurchases[ i ].ubNumberPurchased )
-		{
-			//add the current weight to the total
-			uiTotalWeight += Item[ BobbyRayPurchases[ i ].usItemIndex ].ubWeight * BobbyRayPurchases[ i ].ubNumberPurchased;
-		}
-	}
-*/
 	Assert ( ubTypeOfService < 3);
 
 	//Dealtar's Airport Externalization
@@ -2348,6 +2322,65 @@ void ShutDownBobbyRNewMailOrders()
 	giNumberOfNewBobbyRShipment = 0;
 }
 
+BOOLEAN ImportOldBobbyRayOrders(
+	const BobbyRayOrderStruct *orders, UINT8 slotCount)
+{
+	if (!orders && slotCount != 0)
+		return FALSE;
+
+	const std::size_t activeUpperBound =
+		BobbyRayCommerceModel::CountActiveOrders(orders, slotCount);
+	if (activeUpperBound == 0)
+	{
+		ShutDownBobbyRNewMailOrders();
+		return TRUE;
+	}
+
+	const std::size_t allocationSize =
+		activeUpperBound * sizeof(NewBobbyRayOrderStruct);
+	std::unique_ptr<NewBobbyRayOrderStruct[],
+		NewBobbyRayOrderAllocationDeleter> imported(
+			static_cast<NewBobbyRayOrderStruct*>(MemAlloc(allocationSize)));
+	if (!imported)
+		return FALSE;
+	memset(imported.get(), 0, allocationSize);
+
+	INT32 writeIndex = 0;
+	for (UINT8 readIndex = 0; readIndex < slotCount; ++readIndex)
+	{
+		if (!orders[readIndex].fActive)
+			continue;
+
+		NewBobbyRayOrderStruct& destination = imported[writeIndex];
+		destination.fActive = TRUE;
+		destination.ubDeliveryLoc = BR_DRASSEN;
+		destination.ubDeliveryMethod = 0;
+		destination.uiPackageWeight = 1;
+		destination.uiOrderedOnDayNum = GetWorldDay();
+		destination.fDisplayedInShipmentPage = TRUE;
+		const UINT8 purchaseCount =
+			BobbyRayCommerceModel::PurchaseRecordCount(
+				orders[readIndex].ubNumberPurchases);
+		for (UINT8 purchaseIndex = 0;
+			purchaseIndex < purchaseCount; ++purchaseIndex)
+		{
+			destination.BobbyRayPurchase[purchaseIndex] =
+				orders[readIndex].BobbyRayPurchase[purchaseIndex];
+		}
+		destination.ubNumberPurchases = purchaseCount;
+		if (!NormalizeNewBobbyRayOrder(destination))
+			continue;
+		++writeIndex;
+	}
+
+	ShutDownBobbyRNewMailOrders();
+	if (writeIndex == 0)
+		return TRUE;
+	gpNewBobbyrShipments = imported.release();
+	giNumberOfNewBobbyRShipment = writeIndex;
+	return TRUE;
+}
+
 INT8 CalculateOrderDelay( UINT8 ubSelectedService )
 {
 	INT8 bDaysAhead;
@@ -2382,75 +2415,21 @@ INT8 CalculateOrderDelay( UINT8 ubSelectedService )
 
 void PurchaseBobbyOrder()
 {
-	//if the shipment is going to Drassen, add the inventory
-//	if( gbSelectedCity == BR_DRASSEN || gbSelectedCity == BR_MEDUNA )
-	if(gbSelectedCity >= 0)
+	if (!IsValidLaptopIndex(gDestinationTable.size(), gbSelectedCity) ||
+		!gDestinationTable[gbSelectedCity])
 	{
-	//					BobbyRayOrderStruct *pBobbyRayPurchase;
-	//					UINT32	uiResetTimeSec;
-//		UINT8	i, ubCount;
-//		UINT8	cnt;
-//		INT8		bDaysAhead;
-
-/*
-		//if we need to add more array elements for the Order Array
-		if( LaptopSaveInfo.usNumberOfBobbyRayOrderItems <= LaptopSaveInfo.usNumberOfBobbyRayOrderUsed )
-		{
-			LaptopSaveInfo.usNumberOfBobbyRayOrderItems++;
-			LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray = MemRealloc( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray, sizeof( BobbyRayOrderStruct ) * LaptopSaveInfo.usNumberOfBobbyRayOrderItems );
-			if( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray == NULL )
-				return;
-
-			memset( &LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ LaptopSaveInfo.usNumberOfBobbyRayOrderItems - 1 ], 0, sizeof( BobbyRayOrderStruct ) );
-		}
-
-		for( cnt =0; cnt< LaptopSaveInfo.usNumberOfBobbyRayOrderItems; cnt++ )
-		{
-			//get an empty element in the array
-			if( !LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].fActive )
-				break;
-		}
-*/
-
-		//gets reset when the confirm order graphic disappears
-		gfCanAcceptOrder = FALSE;
-
-	//					pBobbyRayPurchase = MemAlloc( sizeof( BobbyRayOrderStruct ) );
-	//					memset(pBobbyRayPurchase, 0, sizeof( BobbyRayOrderStruct ) );
-
-
-
-/*
-		ubCount = 0;
-		for(i=0; i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
-		{
-			//if the item was purchased
-			if( BobbyRayPurchases[ i ].ubNumberPurchased )
-			{
-				//copy the purchases into the struct that will be added to the queue
-				memcpy(&LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].BobbyRayPurchase[ ubCount ] , &BobbyRayPurchases[i],	sizeof(BobbyRayPurchaseStruct));
-				ubCount ++;
-			}
-		}
-
-		LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].ubNumberPurchases = ubCount;
-		LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].fActive = TRUE;
-		LaptopSaveInfo.usNumberOfBobbyRayOrderUsed++;
-*/
-
-	//add the delivery
-	//AddNewBobbyRShipment( BobbyRayPurchases, gbSelectedCity, gubSelectedLight, TRUE, CalcPackageTotalWeight() );
-	AddNewBobbyRShipment( BobbyRayPurchases, gDestinationTable[gbSelectedCity]->usID, gubSelectedLight, TRUE, CalcPackageTotalWeight() );
-
-/*
-		//get the length of time to receive the shipment
-		bDaysAhead = CalculateOrderDelay( gubSelectedLight );
-
-		//AddStrategicEvent( EVENT_BOBBYRAY_PURCHASE, uiResetTimeSec, cnt);
-		AddFutureDayStrategicEvent( EVENT_BOBBYRAY_PURCHASE, (8 + Random(4) ) * 60, cnt, bDaysAhead );
-*/
-
+		Assert(0);
+		return;
 	}
+
+	if (!AddNewBobbyRShipment(BobbyRayPurchases,
+			gDestinationTable[gbSelectedCity]->usID, gubSelectedLight, TRUE,
+			CalcPackageTotalWeight()))
+	{
+		Assert(0);
+		return;
+	}
+	gfCanAcceptOrder = FALSE;
 
 	//Add the transaction to the finance page
 	AddTransactionToPlayersBook(BOBBYR_PURCHASE, 0, GetWorldTotalMin(), -giGrandTotal);
@@ -2469,79 +2448,26 @@ void PurchaseBobbyOrder()
 
 void AddJohnsGunShipment()
 {
-	BobbyRayPurchaseStruct Temp[ 100 ];
-//	UINT8	cnt;
-	INT8		bDaysAhead;
+	BobbyRayPurchaseStruct Temp[
+		BobbyRayCommerceModel::PurchaseCapacity];
+	memset(Temp, 0, sizeof(Temp));
 
-	//clear out the memory
-	memset( Temp, 0, sizeof( BobbyRayPurchaseStruct ) * gGameExternalOptions.ubBobbyRayMaxPurchaseAmount );
-
-/*
-	//if we need to add more array elements for the Order Array
-	if( LaptopSaveInfo.usNumberOfBobbyRayOrderItems <= LaptopSaveInfo.usNumberOfBobbyRayOrderUsed )
-	{
-		LaptopSaveInfo.usNumberOfBobbyRayOrderItems++;
-		LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray = MemRealloc( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray, sizeof( BobbyRayOrderStruct ) * LaptopSaveInfo.usNumberOfBobbyRayOrderItems );
-		if( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray == NULL )
-			return;
-
-		memset( &LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ LaptopSaveInfo.usNumberOfBobbyRayOrderItems - 1 ], 0, sizeof( BobbyRayOrderStruct ) );
-	}
-
-	for( cnt =0; cnt< LaptopSaveInfo.usNumberOfBobbyRayOrderItems; cnt++ )
-	{
-		//get an empty element in the array
-		if( !LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].fActive )
-			break;
-	}
-*/
-
-	// want to add two guns (Automags, AUTOMAG_III), and four clips of ammo.
-
-	
-
-
+	// Add two Automags and two packages of compatible ammunition.
 	Temp[0].usItemIndex = AUTOMAG_III;
 	Temp[0].ubNumberPurchased = 2;
 	Temp[0].bItemQuality = 100;
-	Temp[0].usBobbyItemIndex = 0;// does this get used anywhere???
 	Temp[0].fUsed = FALSE;
-	
-//	memcpy( &(LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].BobbyRayPurchase[0]), &Temp, sizeof(BobbyRayPurchaseStruct) );
 
-	// WANNE: We have to check if profile 1.13 is available or not, to get the correct ammo
-	BOOLEAN isData113ProfileAvailable = FALSE;
-	if(getVFS()->getProfileStack()->getProfile(L"v1.13") != NULL)	
-		isData113ProfileAvailable = TRUE;	
-	else
-		isData113ProfileAvailable = FALSE;
-
-	if (isData113ProfileAvailable)
+	if (getVFS()->getProfileStack()->getProfile(L"v1.13") != NULL)
 		Temp[1].usItemIndex = 557;
 	else
 		Temp[1].usItemIndex = CLIP762N_5_AP;
-
 	Temp[1].ubNumberPurchased = 2;
 	Temp[1].bItemQuality = 5;
-	Temp[1].usBobbyItemIndex = 0;// does this get used anywhere???
 	Temp[1].fUsed = FALSE;
 
-/*
-	memcpy( &(LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].BobbyRayPurchase[1]), &Temp, sizeof(BobbyRayPurchaseStruct) );
-
-
-	LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].ubNumberPurchases = 2;
-	LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].fActive = TRUE;
-	LaptopSaveInfo.usNumberOfBobbyRayOrderUsed++;
-*/
-	bDaysAhead = CalculateOrderDelay( 2 ) + 2;
-
-	//add a random amount between so it arrives between 8:00 am and noon
-//	AddFutureDayStrategicEvent( EVENT_BOBBYRAY_PURCHASE, (8 + Random(4) ) * 60, cnt, bDaysAhead );
-
-	//add the delivery	( weight is not needed as it will not be displayed )
-	//AddNewBobbyRShipment( Temp, BR_DRASSEN, bDaysAhead, FALSE, 0 );
-	AddNewBobbyRShipment( Temp, 3, bDaysAhead, FALSE, 1 );
+	if (!AddNewBobbyRShipment(Temp, 3, 2, FALSE, 1))
+		Assert(0);
 }
 
 
@@ -2556,7 +2482,7 @@ void ConfirmBobbyRPurchaseMessageBoxCallBack( UINT8 bExitValue )
 
 void EnterInitBobbyRayOrder()
 {
-	memset(&BobbyRayPurchases, 0, sizeof(BobbyRayPurchaseStruct) * gGameExternalOptions.ubBobbyRayMaxPurchaseAmount);
+	ClearBobbyRayPurchases();
 	
 	if (is_networked)
 		gubSelectedLight = 2; //hayden
@@ -2589,10 +2515,11 @@ UINT32	CalcPackageTotalWeight()
 	UINT32	uiTotalWeight=0;
 
 	//loop through all the packages
-	for(i=0; i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
+	for(i=0; i<GetConfiguredBobbyRayPurchaseLimit(); i++)
 	{
 		//if the item was purchased
-		if( BobbyRayPurchases[ i ].ubNumberPurchased )
+		if( BobbyRayPurchases[ i ].ubNumberPurchased &&
+			BobbyRayPurchases[i].usItemIndex < MAXITEMS)
 		{
 			//add the current weight to the total
 			uiTotalWeight += Item[ BobbyRayPurchases[ i ].usItemIndex ].ubWeight * BobbyRayPurchases[ i ].ubNumberPurchased;
@@ -2674,123 +2601,46 @@ void DrawBobbyROrderTitle()
 }
 
 
-//Dealtar's Airport Externalization
-/*
-BOOLEAN AddNewBobbyRShipment( BobbyRayPurchaseStruct *pPurchaseStruct, UINT8 ubDeliveryLoc, UINT8 ubDeliveryMethod, BOOLEAN fPruchasedFromBobbyR, UINT32 uiPackageWeight )
-{
-	INT32	iCnt;
-	INT32	iFoundSpot = -1;
-	UINT8	ubItemCount=0;
-	UINT8	i;
-	INT8	bDaysAhead=0;
-//	UINT32	uiPackageWeight;
-//	gpNewBobbyrShipments = NULL;
-//	giNumberOfNewBobbyRShipment = 0;
-
-	//loop through and see if there is a free spot to insert the new order
-	for( iCnt=0; iCnt<giNumberOfNewBobbyRShipment; iCnt++ )
-	{
-		if( !gpNewBobbyrShipments->fActive )
-		{
-			iFoundSpot = iCnt;
-			break;
-		}
-	}
-
-	if( iFoundSpot == -1 )
-	{
-		//increment the number of spots used
-		giNumberOfNewBobbyRShipment++;
-
-		//allocate some more memory
-		gpNewBobbyrShipments = (NewBobbyRayOrderStruct *) MemRealloc( gpNewBobbyrShipments, sizeof( NewBobbyRayOrderStruct ) * giNumberOfNewBobbyRShipment );
-
-		iFoundSpot = giNumberOfNewBobbyRShipment - 1;
-	}
-
-	//memset the memory
-	memset( &gpNewBobbyrShipments[ iFoundSpot ], 0, sizeof( NewBobbyRayOrderStruct ) );
-
-	gpNewBobbyrShipments[ iFoundSpot ].fActive = TRUE;
-	gpNewBobbyrShipments[ iFoundSpot ].ubDeliveryLoc = ubDeliveryLoc;
-	gpNewBobbyrShipments[ iFoundSpot ].ubDeliveryMethod = ubDeliveryMethod;
-
-	if( fPruchasedFromBobbyR )
-		gpNewBobbyrShipments[ iFoundSpot ].fDisplayedInShipmentPage = TRUE;
-	else
-		gpNewBobbyrShipments[ iFoundSpot ].fDisplayedInShipmentPage = FALSE;
-
-	//get the package weight, if the weight is "below" the minimum, use the minimum
-	if(	uiPackageWeight < MIN_SHIPPING_WEIGHT )
-	{
-		gpNewBobbyrShipments[ iFoundSpot ].uiPackageWeight = MIN_SHIPPING_WEIGHT;
-	}
-	else
-	{
-		gpNewBobbyrShipments[ iFoundSpot ].uiPackageWeight = uiPackageWeight;
-	}
-
-	gpNewBobbyrShipments[ iFoundSpot ].uiOrderedOnDayNum = GetWorldDay();
-
-	//count the number of purchases
-	ubItemCount = 0;
-	for(i=0; i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
-	{
-		//if the item was purchased
-		if( pPurchaseStruct[ i ].ubNumberPurchased )
-		{
-			// copy the new data into the order struct
-			memcpy( &gpNewBobbyrShipments[ iFoundSpot ].BobbyRayPurchase[ ubItemCount ], &pPurchaseStruct[i], sizeof( BobbyRayPurchaseStruct ) );
-
-			//copy the purchases into the struct that will be added to the queue
-//			memcpy(&LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ cnt ].BobbyRayPurchase[ ubCount ] , &BobbyRayPurchases[i],	sizeof(BobbyRayPurchaseStruct));
-			ubItemCount++;
-		}
-	}
-
-	gpNewBobbyrShipments[ iFoundSpot ].ubNumberPurchases = ubItemCount;
-
-
-	//get the length of time to receive the shipment
-	if( fPruchasedFromBobbyR )
-		bDaysAhead = CalculateOrderDelay( ubDeliveryMethod );
-	else
-		bDaysAhead = ubDeliveryMethod;
-
-
-	//AddStrategicEvent( EVENT_BOBBYRAY_PURCHASE, uiResetTimeSec, cnt);
-	if(is_client)
-	{
-	BobbyRayPurchaseEventCallback( iFoundSpot); //hayden - instant delivery ?
-	//AddStrategicEventUsingSeconds( EVENT_BOBBYRAY_PURCHASE, GetWorldDayInSeconds() + 10, iFoundSpot );
-	}
-	else
-	{
-	AddFutureDayStrategicEvent( EVENT_BOBBYRAY_PURCHASE, (8 + Random(4) ) * 60, iFoundSpot, bDaysAhead );
-	}
-
-	return( TRUE );
-}
-*/
 BOOLEAN AddNewBobbyRShipment( BobbyRayPurchaseStruct *pPurchaseStruct, UINT16 usDeliveryLoc, UINT8 ubDeliveryMethod, BOOLEAN fPurchasedFromBobbyR, UINT32 uiPackageWeight )
 {
-	UINT16 usID;
+	if (!pPurchaseStruct)
+		return FALSE;
+	BOOLEAN hasPackage = FALSE;
+	for (std::size_t index = 0;
+		index < BobbyRayCommerceModel::PurchaseCapacity; ++index)
+	{
+		const BobbyRayPurchaseStruct& purchase = pPurchaseStruct[index];
+		if (!purchase.ubNumberPurchased)
+			continue;
+		if (purchase.usItemIndex == 0 || purchase.usItemIndex >= MAXITEMS)
+			return FALSE;
+		hasPackage = TRUE;
+	}
+	if (!hasPackage)
+		return FALSE;
 
 	// Shipment from Bobby Ray
+	UINT16 usID;
 	if(fPurchasedFromBobbyR)
 		usID = gPostalService.CreateNewShipment(usDeliveryLoc, ubDeliveryMethod, BOBBYR_SENDER_ID);
 	// Shipment from John Kulba (Automag 2)
 	else
 		usID = gPostalService.CreateNewShipment(usDeliveryLoc, 2, JOHN_KULBA_SENDER_ID);
 
-	for(int i=0; i < gGameExternalOptions.ubBobbyRayMaxPurchaseAmount && pPurchaseStruct[i].usItemIndex > 0; i++)
+	if (usID == 0)
+		return FALSE;
+	for (std::size_t index = 0;
+		index < BobbyRayCommerceModel::PurchaseCapacity; ++index)
 	{
-		gPostalService.AddPackageToShipment(usID, pPurchaseStruct[i].usItemIndex, pPurchaseStruct[i].ubNumberPurchased, pPurchaseStruct[i].bItemQuality);
+		const BobbyRayPurchaseStruct& purchase = pPurchaseStruct[index];
+		if (!purchase.ubNumberPurchased)
+			continue;
+		if (!gPostalService.AddPackageToShipment(usID, purchase.usItemIndex,
+			purchase.ubNumberPurchased, purchase.bItemQuality))
+			return FALSE;
 	}
 
-	gPostalService.SendShipment(usID);
-
-	return TRUE;
+	return gPostalService.SendShipment(usID);
 }
 
 
@@ -2799,6 +2649,8 @@ UINT16	CountNumberOfBobbyPurchasesThatAreInTransit()
 	UINT16	usItemCount=0;
 	INT32		iCnt;
 
+	if (!gpNewBobbyrShipments || giNumberOfNewBobbyRShipment <= 0)
+		return 0;
 	for( iCnt=0; iCnt<giNumberOfNewBobbyRShipment; iCnt++ )
 	{
 		if( gpNewBobbyrShipments[iCnt].fActive )
@@ -2814,7 +2666,7 @@ void SortBobbyRayPurchases()
 {
 	INT16 ubLastEmptyIndex = -1;
 
-	for ( UINT8 i = 0; i < gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++ )
+	for (UINT8 i = 0; i < GetConfiguredBobbyRayPurchaseLimit(); ++i)
 	{
 		// we have no item here
 		if ( BobbyRayPurchases[i].ubNumberPurchased == 0 )
@@ -2846,23 +2698,32 @@ BOOLEAN NewWayOfSavingBobbyRMailOrdersToSaveGameFile( HWFILE hFile )
 {
 	INT32		iCnt;
 	UINT32	uiNumBytesWritten;
+	if (giNumberOfNewBobbyRShipment < 0 ||
+		static_cast<std::size_t>(giNumberOfNewBobbyRShipment) >
+			BobbyRayCommerceModel::MaximumLegacyShipmentSlots ||
+		(giNumberOfNewBobbyRShipment != 0 && !gpNewBobbyrShipments))
+	{
+		return FALSE;
+	}
 
 	//Write the number of orders
 	FileWrite( hFile, &giNumberOfNewBobbyRShipment, sizeof( INT32 ), &uiNumBytesWritten );
 	if( uiNumBytesWritten != sizeof( INT32 ) )
 	{
-		FileClose( hFile );
 		return( FALSE );
 	}
 
 	//loop through and save all the mail order slots
 	for( iCnt=0; iCnt<giNumberOfNewBobbyRShipment; iCnt++ )
 	{
+		NewBobbyRayOrderStruct order = gpNewBobbyrShipments[iCnt];
+		if (!NormalizeNewBobbyRayOrder(order))
+			return FALSE;
 		//Write the order
-		FileWrite( hFile, &gpNewBobbyrShipments[iCnt], sizeof( NewBobbyRayOrderStruct ), &uiNumBytesWritten );
+		FileWrite(hFile, &order, sizeof(NewBobbyRayOrderStruct),
+			&uiNumBytesWritten);
 		if( uiNumBytesWritten != sizeof( NewBobbyRayOrderStruct ) )
 		{
-			FileClose( hFile );
 			return( FALSE );
 		}
 	}
@@ -2874,50 +2735,56 @@ BOOLEAN NewWayOfSavingBobbyRMailOrdersToSaveGameFile( HWFILE hFile )
 
 BOOLEAN NewWayOfLoadingBobbyRMailOrdersToSaveGameFile( HWFILE hFile )
 {
-	INT32		iCnt;
+	INT32		slotCount = 0;
 	UINT32	uiNumBytesRead;
 
-	//clear out the old list
-	ShutDownBobbyRNewMailOrders();
-
-
 	//Read the number of orders
-	FileRead( hFile, &giNumberOfNewBobbyRShipment, sizeof( INT32 ), &uiNumBytesRead );
+	FileRead(hFile, &slotCount, sizeof(INT32), &uiNumBytesRead);
 	if( uiNumBytesRead != sizeof( INT32 ) )
 	{
-		FileClose( hFile );
 		return( FALSE );
 	}
-
-	if ( giNumberOfNewBobbyRShipment == 0 )
+	const INT32 filePosition = FileGetPos(hFile);
+	const UINT32 fileSize = FileGetSize(hFile);
+	if (filePosition < 0 || static_cast<UINT32>(filePosition) > fileSize ||
+		!BobbyRayCommerceModel::LegacyShipmentCountFits(
+			slotCount, fileSize - static_cast<UINT32>(filePosition),
+			sizeof(NewBobbyRayOrderStruct)))
 	{
-		gpNewBobbyrShipments = NULL;
-	}
-	else
-	{
-		//Allocate memory for the list
-		gpNewBobbyrShipments = (NewBobbyRayOrderStruct *) MemAlloc( sizeof( NewBobbyRayOrderStruct ) * giNumberOfNewBobbyRShipment );
-
-        if( gpNewBobbyrShipments == NULL )
-		{
-			Assert(0);
-			return(FALSE );
-		}
-		memset(gpNewBobbyrShipments, 0, (sizeof( NewBobbyRayOrderStruct ) * giNumberOfNewBobbyRShipment) );
-
-		//loop through and load all the mail order slots
-		for( iCnt=0; iCnt<giNumberOfNewBobbyRShipment; iCnt++ )
-		{
-			//Read the order
-			FileRead( hFile, &gpNewBobbyrShipments[iCnt], sizeof( NewBobbyRayOrderStruct ), &uiNumBytesRead );
-			if( uiNumBytesRead != sizeof( NewBobbyRayOrderStruct ) )
-			{
-				FileClose( hFile );
-				return( FALSE );
-			}
-		}
+		return FALSE;
 	}
 
+	if (slotCount == 0)
+	{
+		ShutDownBobbyRNewMailOrders();
+		return TRUE;
+	}
+
+	const std::size_t allocationSize =
+		static_cast<std::size_t>(slotCount) * sizeof(NewBobbyRayOrderStruct);
+	std::unique_ptr<NewBobbyRayOrderStruct[],
+		NewBobbyRayOrderAllocationDeleter> loaded(
+			static_cast<NewBobbyRayOrderStruct*>(MemAlloc(allocationSize)));
+	if (!loaded)
+	{
+		return FALSE;
+	}
+	memset(loaded.get(), 0, allocationSize);
+
+	for (INT32 index = 0; index < slotCount; ++index)
+	{
+		FileRead(hFile, &loaded[index], sizeof(NewBobbyRayOrderStruct),
+			&uiNumBytesRead);
+		if (uiNumBytesRead != sizeof(NewBobbyRayOrderStruct) ||
+			!NormalizeNewBobbyRayOrder(loaded[index]))
+		{
+			return FALSE;
+		}
+	}
+
+	ShutDownBobbyRNewMailOrders();
+	gpNewBobbyrShipments = loaded.release();
+	giNumberOfNewBobbyRShipment = slotCount;
 	return( TRUE );
 }
 

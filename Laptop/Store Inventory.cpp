@@ -790,12 +790,18 @@ void SetupStoreInventory( STORE_INVENTORY *pInventoryArray, BOOLEAN fUsed )
 	UINT16 i;
 	UINT16 usItemIndex;
 	UINT8 ubNumBought;
+	if (!pInventoryArray || fUsed >= BOBBY_RAY_LISTS)
+		return;
+	const UINT16 inventoryLength = static_cast<UINT16>(
+		BobbyRayCommerceModel::BoundedLength(
+			LaptopSaveInfo.usInventoryListLength[fUsed], MAXITEMS));
 
 	//loop through all items BR can stock to init a starting quantity on hand
-	for(i = 0; i < LaptopSaveInfo.usInventoryListLength[fUsed]; ++i)
+	for(i = 0; i < inventoryLength; ++i)
 	{
 		usItemIndex = pInventoryArray[ i ].usItemIndex;
-		Assert( usItemIndex < MAXITEMS );
+		if (usItemIndex >= MAXITEMS)
+			continue;
 
 		ubNumBought = DetermineInitialInvItems( -1, usItemIndex, StoreInventory[ usItemIndex ][ fUsed ], fUsed);
 		if ( ubNumBought > 0)
@@ -827,25 +833,30 @@ void SetupStoreInventory( STORE_INVENTORY *pInventoryArray, BOOLEAN fUsed )
 BOOLEAN DoesGunOfSameClassExistInInventory( UINT8 ubItemIndex, UINT8 ubDealerID )
 {
 	STORE_INVENTORY *pInventoryArray;
+	if (ubDealerID >= BOBBY_RAY_LISTS)
+		return FALSE;
 
 	pInventoryArray = GetPtrToStoreInventory( ubDealerID );
 	if( pInventoryArray == NULL )
 		return( FALSE );
 	
-	//go through all of the guns
-	for ( UINT16 i = 0; i<gMAXITEMS_READ; ++i )
+	const UINT16 inventoryLength = static_cast<UINT16>(
+		BobbyRayCommerceModel::BoundedLength(
+			LaptopSaveInfo.usInventoryListLength[ubDealerID], MAXITEMS));
+	for (UINT16 slot = 0; slot < inventoryLength; ++slot)
 	{
+		const UINT16 itemIndex = pInventoryArray[slot].usItemIndex;
+		if (!pInventoryArray[slot].ubQtyOnHand ||
+			itemIndex >= gMAXITEMS_READ || itemIndex >= MAXITEMS)
+			continue;
+
 		//if it's the class we are looking for
-		if( Weapon[ i ].ubWeaponClass == ubItemIndex )
+		if( Weapon[itemIndex].ubWeaponClass == ubItemIndex )
 		{
 			// and it's a sufficiently cool gun to be counted as good
-			if (Item[ i ].ubCoolness >= 4)
+			if (Item[itemIndex].ubCoolness >= 4)
 			{
-				//if there is already a qty on hand, then we found a match
-				if( pInventoryArray[ i ].ubQtyOnHand )
-				{
-					return(TRUE);
-				}
+				return(TRUE);
 			}
 		}
 	}

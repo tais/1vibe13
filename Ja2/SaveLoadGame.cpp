@@ -9,6 +9,7 @@
 #include "FileMan.h"
 #include "SaveSerializer.h"
 #include <cstddef>      // offsetof
+#include <memory>
 #include <string>
 #include <string.h>
 #include <stdio.h>
@@ -772,11 +773,9 @@ static BOOLEAN LoadArmsDealerInventoryFromSavedGameFile( HWFILE hFile )
 		OLD_ARMS_DEALER_STATUS_101 gOldArmsDealerStatus[NUM_ARMS_DEALERS];
 		//OLD_DEALER_ITEM_HEADER_101 gOldArmsDealersInventory[NUM_ARMS_DEALERS][MAXITEMS];
 
-		//pointer to an array of OLD_DEALER_ITEM_HEADER_101 that is sized [NUM_ARMS_DEALERS][MAXITEMS]
-		typedef OLD_DEALER_ITEM_HEADER_101(*pointerToArmsDealersInventoryArray)[NUM_ARMS_DEALERS][MAXITEMS];
-
-		pointerToArmsDealersInventoryArray pOldArmsDealersInventory
-			= (pointerToArmsDealersInventoryArray) new OLD_DEALER_ITEM_HEADER_101[NUM_ARMS_DEALERS][MAXITEMS];
+		auto oldArmsDealersInventory =
+			std::make_unique<OLD_DEALER_ITEM_HEADER_101[]>(
+				NUM_ARMS_DEALERS * MAXITEMS);
 
 
 		// Elgin was added to the dealers list in Game Version #54, enlarging these 2 tables...
@@ -801,7 +800,9 @@ static BOOLEAN LoadArmsDealerInventoryFromSavedGameFile( HWFILE hFile )
 		{
 			return( FALSE );
 		}
-		if (!FileRead( hFile, (*pOldArmsDealersInventory), uiDealersSaved * sizeof( OLD_DEALER_ITEM_HEADER_101 ) * MAXITEMS, &uiNumBytesRead ))
+		if (!FileRead(hFile, oldArmsDealersInventory.get(),
+			uiDealersSaved * sizeof(OLD_DEALER_ITEM_HEADER_101) * MAXITEMS,
+			&uiNumBytesRead))
 		{
 			return( FALSE );
 		}
@@ -828,29 +829,32 @@ static BOOLEAN LoadArmsDealerInventoryFromSavedGameFile( HWFILE hFile )
 			for ( usItemIndex = 1; usItemIndex < gMAXITEMS_READ; ++usItemIndex )
 			{
 				//some things are much much better stored in status now
-				gArmsDealerStatus[ubArmsDealer].fPreviouslyEligible[usItemIndex] = (*pOldArmsDealersInventory)[ubArmsDealer][usItemIndex].fPreviouslyEligible;
-				gArmsDealerStatus[ubArmsDealer].ubStrayAmmo[usItemIndex] = (*pOldArmsDealersInventory)[ubArmsDealer][usItemIndex].ubStrayAmmo;
+				OLD_DEALER_ITEM_HEADER_101& oldInventory =
+					oldArmsDealersInventory[
+						ubArmsDealer * MAXITEMS + usItemIndex];
+				gArmsDealerStatus[ubArmsDealer].fPreviouslyEligible[usItemIndex] = oldInventory.fPreviouslyEligible;
+				gArmsDealerStatus[ubArmsDealer].ubStrayAmmo[usItemIndex] = oldInventory.ubStrayAmmo;
 
 				//if there are any perfect items, insert them immediately
-				if ((*pOldArmsDealersInventory)[ubArmsDealer][usItemIndex].ubPerfectItems)
+				if (oldInventory.ubPerfectItems)
 				{
 					gArmsDealersInventory[ubArmsDealer].push_back(DEALER_SPECIAL_ITEM());
 					DEALER_SPECIAL_ITEM* pPerfectItem = &gArmsDealersInventory[ubArmsDealer].back();
-					CreateObjectForDealer(usItemIndex, 100, (*pOldArmsDealersInventory)[ubArmsDealer][usItemIndex].ubPerfectItems, &pPerfectItem->object);
+					CreateObjectForDealer(usItemIndex, 100, oldInventory.ubPerfectItems, &pPerfectItem->object);
 					//cannot set to 100, could be ammo
 					pPerfectItem->bItemCondition = pPerfectItem->object[0]->data.objectStatus;
 				}
 
 				//if there are any items on order, order them
-				if ((*pOldArmsDealersInventory)[ubArmsDealer][usItemIndex].ubQtyOnOrder)
+				if (oldInventory.ubQtyOnOrder)
 				{
 					OrderDealerItems(ubArmsDealer, usItemIndex,
-						(*pOldArmsDealersInventory)[ubArmsDealer][usItemIndex].ubQtyOnOrder,
-						(*pOldArmsDealersInventory)[ubArmsDealer][usItemIndex].uiOrderArrivalTime);
+						oldInventory.ubQtyOnOrder,
+						oldInventory.uiOrderArrivalTime);
 				}
 
 				//if there are any special elements allocated for this item, load them
-				for ( int x = 0; x < (*pOldArmsDealersInventory)[ubArmsDealer][usItemIndex].ubElementsAlloced; ++x)
+				for ( int x = 0; x < oldInventory.ubElementsAlloced; ++x)
 				{
 					if (!FileRead( hFile, &oldSpecial, sizeof( OLD_DEALER_SPECIAL_ITEM_101 ), &uiNumBytesRead ))
 					{
@@ -858,11 +862,10 @@ static BOOLEAN LoadArmsDealerInventoryFromSavedGameFile( HWFILE hFile )
 					}
 					//not all elements alloced are full, some are empty!
 					//convert and add to arms dealer list (if applicable)
-					loadedSpecial.ConvertFrom101((*pOldArmsDealersInventory)[ubArmsDealer][usItemIndex], oldSpecial, ubArmsDealer, usItemIndex);
+					loadedSpecial.ConvertFrom101(oldInventory, oldSpecial, ubArmsDealer, usItemIndex);
 				}
 			}
 		}
-		delete [] pOldArmsDealersInventory;
 	}
 
 	// we need to refresh our selection at this point, as lua data may depend on campaign specifics
@@ -6802,13 +6805,21 @@ BOOLEAN SaveEmailToSavedGame( HWFILE hFile )
 }
 
 
+struct SavedEmailSubjectAllocationDeleter
+{
+	void operator()(CHAR16 *subject) const noexcept
+	{
+		if (subject) MemFree(subject);
+	}
+};
+
 BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 {
 	UINT32		uiNumOfEmails=0;
 	UINT32		uiSizeOfSubject=0;
 	EmailPtr	pEmail = pEmailList;
 	EmailPtr	pTempEmail = NULL;
-	UINT8			*pData = NULL;
+	std::unique_ptr<CHAR16, SavedEmailSubjectAllocationDeleter> subject;
 	UINT32		cnt;
 	SavedEmailStruct SavedEmail;
 	UINT32		uiNumBytesRead=0;
@@ -6843,10 +6854,11 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 		}
 
 		//allocate space for the subject
-		pData = (UINT8 *) MemAlloc( EMAIL_SUBJECT_LENGTH * sizeof( CHAR16 ) );
-		if( pData == NULL )
+		subject.reset(static_cast<CHAR16*>(
+			MemAlloc(EMAIL_SUBJECT_LENGTH * sizeof(CHAR16))));
+		if (!subject)
 			return( FALSE );
-		memset( pData, 0, EMAIL_SUBJECT_LENGTH * sizeof( CHAR16 ) );
+		memset(subject.get(), 0, EMAIL_SUBJECT_LENGTH * sizeof(CHAR16));
 
 		//Get the subject. Guard against a stored length that would overflow the
 		//fixed buffer (corrupt or cross-platform save); the memset above keeps it
@@ -6855,7 +6867,7 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 		{
 			return(FALSE);
 		}
-		FileRead( hFile, pData, uiSizeOfSubject, &uiNumBytesRead );
+		FileRead(hFile, subject.get(), uiSizeOfSubject, &uiNumBytesRead);
 		if( uiNumBytesRead != uiSizeOfSubject )
 		{
 			return(FALSE);
@@ -6910,7 +6922,7 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 		pTempEmail->iId = SavedEmail.iId;
 		pTempEmail->fRead = SavedEmail.fRead;
 		pTempEmail->fNew = SavedEmail.fNew;
-		pTempEmail->pSubject = (CHAR16 *) pData;
+		pTempEmail->pSubject = subject.release();
 		pTempEmail->iFirstData = SavedEmail.iFirstData;
 		pTempEmail->uiSecondData = SavedEmail.uiSecondData;
 		pTempEmail->iThirdData = SavedEmail.iThirdData;
@@ -9060,46 +9072,16 @@ void UpdateMercMercContractInfo()
 
 void HandleOldBobbyRMailOrders()
 {
-	INT32 iCnt;
-	INT32	iNewListCnt=0;
-
 	if( LaptopSaveInfo.usNumberOfBobbyRayOrderUsed != 0 )
 	{
-		//Allocate memory for the list
-		gpNewBobbyrShipments = (NewBobbyRayOrderStruct *) MemAlloc( sizeof( NewBobbyRayOrderStruct ) * LaptopSaveInfo.usNumberOfBobbyRayOrderUsed );
-		if( gpNewBobbyrShipments == NULL )
-		{
-			Assert(0);
+		if (!ImportOldBobbyRayOrders(
+				LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray,
+				LaptopSaveInfo.usNumberOfBobbyRayOrderItems))
 			return;
-		}
-
-		giNumberOfNewBobbyRShipment = LaptopSaveInfo.usNumberOfBobbyRayOrderUsed;
-
-		//loop through and add the old items to the new list
-		for( iCnt=0; iCnt< LaptopSaveInfo.usNumberOfBobbyRayOrderItems; iCnt++ )
-		{
-			//if this slot is used
-			if( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[iCnt].fActive )
-			{
-				//copy over the purchase info
-				memcpy( gpNewBobbyrShipments[ iNewListCnt ].BobbyRayPurchase,
-								LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[iCnt].BobbyRayPurchase,
-								sizeof( BobbyRayPurchaseStruct ) * gGameExternalOptions.ubBobbyRayMaxPurchaseAmount );
-
-				gpNewBobbyrShipments[ iNewListCnt ].fActive = TRUE;
-				gpNewBobbyrShipments[ iNewListCnt ].ubDeliveryLoc = BR_DRASSEN;
-				gpNewBobbyrShipments[ iNewListCnt ].ubDeliveryMethod = 0;
-				gpNewBobbyrShipments[ iNewListCnt ].ubNumberPurchases = LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[iCnt].ubNumberPurchases;
-				gpNewBobbyrShipments[ iNewListCnt ].uiPackageWeight = 1;
-				gpNewBobbyrShipments[ iNewListCnt ].uiOrderedOnDayNum = GetWorldDay();
-				gpNewBobbyrShipments[ iNewListCnt ].fDisplayedInShipmentPage = TRUE;
-
-				iNewListCnt++;
-			}
-		}
 
 		//Clear out the old list
 		LaptopSaveInfo.usNumberOfBobbyRayOrderUsed = 0;
+		LaptopSaveInfo.usNumberOfBobbyRayOrderItems = 0;
 		MemFree( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray );
 		LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray = NULL;
 	}

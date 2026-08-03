@@ -50,7 +50,13 @@ The A.I.M. policy preserves its existing bookmarks, artwork and text records,
 daily/weekly/biweekly salaries, medical deposits, equipment prices, and finance
 transactions. The communications policy likewise preserves Email.edt,
 Email25.edt, XML identifiers, sender bytes, substitution tags, finance/history
-records, and save layouts.
+records, and save layouts. Bobby Ray's subsequent commerce-state extraction
+also preserves its 100-purchase legacy records and shipment serialization:
+`BobbyRayCommerceModel` supplies campaign-neutral capacity/count/value rules,
+while validated adapters retain the existing data format and publish loaded
+state only after complete reads. `BobbyRMailOrder.cpp` is consequently shared
+by every application host; Laptop now builds 72 common sources and only 26
+per-application variants.
 
 ## Literal remaining tail
 

@@ -126,7 +126,8 @@ void CPostalService::Clear(bool clearDataOnly)
 
 UINT16 CPostalService::CreateNewShipment(UINT16 usDestinationID, UINT8  ubDeliveryMethodIndex, INT16 sSenderID)
 {
-	if(	usDestinationID >= _UsedDestinationIDList.size() ||
+	if(	_Shipments.size() >= MAX_SHIPMENTS ||
+		usDestinationID >= _UsedDestinationIDList.size() ||
 		!_UsedDestinationIDList[usDestinationID] ||
 		ubDeliveryMethodIndex >= _DeliveryMethods.size() ||
 		!IsValidLaptopIndex(
@@ -192,7 +193,9 @@ UINT16 CPostalService::CreateNewShipment(UINT16 usDestinationID, UINT8  ubDelive
 BOOLEAN CPostalService::AddPackageToShipment(UINT16 usShipmentID, UINT16 usItemIndex, UINT8 ubNumber, INT8 bItemQuality)
 {
 	if(	!IsValidLaptopIndex(_UsedShipmentIDList.size(), usShipmentID) ||
-		!_UsedShipmentIDList[usShipmentID])
+		!_UsedShipmentIDList[usShipmentID] || usItemIndex == 0 ||
+		usItemIndex >= MAXITEMS || !ubNumber || bItemQuality < 0 ||
+		bItemQuality > 100)
 	{
 		Assert(0);
 		return FALSE;
@@ -202,7 +205,9 @@ BOOLEAN CPostalService::AddPackageToShipment(UINT16 usShipmentID, UINT16 usItemI
 	const auto sli = FindLaptopRecordById(
 		_Shipments.begin(), _Shipments.end(), usShipmentID,
 		[](const ShipmentStruct& shipment) { return shipment.usID; });
-	if (sli == _Shipments.end())
+	if (sli == _Shipments.end() ||
+		SHIPMENT(sli).ShipmentPackages.size() >=
+			BobbyRayCommerceModel::PurchaseCapacity)
 	{
 		Assert(0);
 		return FALSE;
@@ -231,7 +236,8 @@ BOOLEAN CPostalService::SendShipment(UINT16 usShipmentID)
 	const auto sli = FindLaptopRecordById(
 		_Shipments.begin(), _Shipments.end(), usShipmentID,
 		[](const ShipmentStruct& shipment) { return shipment.usID; });
-	if (sli == _Shipments.end() || !SHIPMENT(sli).pDestinationDeliveryInfo)
+	if (sli == _Shipments.end() || !SHIPMENT(sli).pDestinationDeliveryInfo ||
+		SHIPMENT(sli).ShipmentPackages.empty())
 	{
 		Assert(0);
 		return FALSE;
@@ -815,47 +821,43 @@ BOOLEAN CPostalService::RegisterDeliveryCallback(INT16 sSenderID, PtrToDeliveryC
 BOOLEAN CPostalService::LoadShipmentListFromSaveGameFile(HWFILE hFile)
 {
 	UINT32 uiBytesRead=0;
-	ShipmentListSaveFileDataHeaderStruct sls;
-	// Read in shipment list data header
-
-	if(!_Shipments.empty())
-	{
-		_Shipments.clear();
-	}
-	_UsedShipmentIDList.clear();
+	ShipmentListSaveFileDataHeaderStruct sls{};
 
 	FileRead(hFile, &sls, sizeof(ShipmentListSaveFileDataHeaderStruct), &uiBytesRead);
 	if(uiBytesRead != sizeof(ShipmentListSaveFileDataHeaderStruct))
 	{
 		return FALSE;
 	}
-	if (sls.uiNumberOfShipments > MAX_SHIPMENTS)
+	if (sls.uiNumberOfShipments > MAX_SHIPMENTS ||
+		sls.uiShipmentDataSize != sizeof(ShipmentSaveFileDataStruct) ||
+		sls.uiPackageDataSize != sizeof(ShipmentPackageStruct))
 		return FALSE;
-		
-	ShipmentPackageStruct		sps;	
-		
-	for(int i = 0; i < (int)sls.uiNumberOfShipments; i++)
+
+	ShipmentList loadedShipments;
+	std::vector<BOOLEAN> loadedShipmentIDs;
+
+	for (UINT32 i = 0; i < sls.uiNumberOfShipments; ++i)
 	{
-		ShipmentSaveFileDataStruct	sfs;
+		ShipmentSaveFileDataStruct sfs{};
 
 		// Read in shipment data header
-		memset(&sfs, 0, sizeof(ShipmentSaveFileDataStruct));
 		uiBytesRead = 0;
 		FileRead(hFile, &sfs, sizeof(ShipmentSaveFileDataStruct), &uiBytesRead);
 		if(uiBytesRead != sizeof(ShipmentSaveFileDataStruct))
 		{
 			return FALSE;
 		}
-		
-		// WANNE: Bugfix: Fixed CTD in VS 2008 Release EXE (by birdflu) -> This leads to item duplication!!!
-		//memset(&shs, 0, sizeof(ShipmentStruct));		
-
-		// WANNE: This is the fix for the item duplication!
-		ShipmentStruct shs{};
-
-		shs.pDestination	= &(_GetDestination(sfs.usDestinationID));
-		if (shs.pDestination->usID != sfs.usDestinationID)
+		if (sfs.usID == 0 || sfs.usID > MAX_SHIPMENTS ||
+			sfs.ShipmentStatus < SHIPMENT_STATIONARY ||
+			sfs.ShipmentStatus > SHIPMENT_CANCEL_DELIVERY ||
+			sfs.uiNumberOfPackages == 0 ||
+			sfs.uiNumberOfPackages >
+				BobbyRayCommerceModel::PurchaseCapacity ||
+			(IsValidLaptopIndex(loadedShipmentIDs.size(), sfs.usID) &&
+				loadedShipmentIDs[sfs.usID]))
+		{
 			return FALSE;
+		}
 		if (!IsValidLaptopIndex(_DeliveryMethods.size(),
 			sfs.ubDeliveryMethodIndex) ||
 			!IsValidLaptopIndex(
@@ -865,6 +867,14 @@ BOOLEAN CPostalService::LoadShipmentListFromSaveGameFile(HWFILE hFile)
 		{
 			return FALSE;
 		}
+		const auto destination = FindLaptopRecordById(
+			_Destinations.begin(), _Destinations.end(), sfs.usDestinationID,
+			[](const DestinationStruct& value) { return value.usID; });
+		if (destination == _Destinations.end())
+			return FALSE;
+
+		ShipmentStruct shs{};
+		shs.pDestination = &DESTINATION(destination);
 		shs.pDestinationDeliveryInfo = &(
 			_DeliveryMethods[sfs.ubDeliveryMethodIndex]
 				.destinationDeliveryInfos.at(sfs.usDestinationID));
@@ -874,28 +884,35 @@ BOOLEAN CPostalService::LoadShipmentListFromSaveGameFile(HWFILE hFile)
 		shs.usID			= sfs.usID;
 		shs.uiOrderDate		= sfs.uiOrderDate;
 				
-		_UsedShipmentIDList.resize(sfs.usID+1);
-		_UsedShipmentIDList[sfs.usID] = TRUE;
+		loadedShipmentIDs.resize(sfs.usID + 1, FALSE);
+		loadedShipmentIDs[sfs.usID] = TRUE;
 
-		for(int j=0; j < (int)sfs.uiNumberOfPackages; j++)
+		for (UINT32 j = 0; j < sfs.uiNumberOfPackages; ++j)
 		{
-			uiBytesRead=0;
-			memset(&sps, 0, sizeof(ShipmentPackageStruct));
+			ShipmentPackageStruct sps{};
+			uiBytesRead = 0;
 			FileRead(hFile, &sps, sizeof(ShipmentPackageStruct), &uiBytesRead);
-			if(uiBytesRead != sizeof(ShipmentPackageStruct))
+			if (uiBytesRead != sizeof(ShipmentPackageStruct) ||
+				sps.usItemIndex == 0 || sps.usItemIndex >= MAXITEMS ||
+				!sps.ubNumber || sps.bItemQuality < 0 ||
+				sps.bItemQuality > 100)
 			{
 				return FALSE;
 			}
-			shs.ShipmentPackages.push_back(sps);			
+			shs.ShipmentPackages.push_back(sps);
 		}
-		_Shipments.push_back(shs);		
+		loadedShipments.push_back(shs);
 	}
 
+	_Shipments.swap(loadedShipments);
+	_UsedShipmentIDList.swap(loadedShipmentIDs);
 	return TRUE;
 }
 
 BOOLEAN CPostalService::SaveShipmentListToSaveGameFile(HWFILE hFile)
 {
+	if (_Shipments.size() > MAX_SHIPMENTS)
+		return FALSE;
 	ShipmentListSaveFileDataHeaderStruct sls;
 
 	sls.uiNumberOfShipments = _Shipments.size();
@@ -920,6 +937,18 @@ BOOLEAN CPostalService::SaveShipmentListToSaveGameFile(HWFILE hFile)
 
 	while(sli != _Shipments.end() )
 	{
+		if (!SHIPMENT(sli).pDestination ||
+			!SHIPMENT(sli).pDestinationDeliveryInfo ||
+			SHIPMENT(sli).usID == 0 ||
+			SHIPMENT(sli).usID > MAX_SHIPMENTS ||
+			SHIPMENT(sli).ShipmentStatus < SHIPMENT_STATIONARY ||
+			SHIPMENT(sli).ShipmentStatus > SHIPMENT_CANCEL_DELIVERY ||
+			SHIPMENT(sli).ShipmentPackages.empty() ||
+			SHIPMENT(sli).ShipmentPackages.size() >
+				BobbyRayCommerceModel::PurchaseCapacity)
+		{
+			return FALSE;
+		}
 		memset(&sfs, 0, sizeof(ShipmentSaveFileDataStruct));
 		uiBytesWritten = 0;
 
@@ -940,6 +969,14 @@ BOOLEAN CPostalService::SaveShipmentListToSaveGameFile(HWFILE hFile)
 
 		for(int i = 0; i < (int)SHIPMENT(sli).ShipmentPackages.size(); i++)
 		{
+			const ShipmentPackageStruct& package =
+				SHIPMENT(sli).ShipmentPackages[i];
+			if (package.usItemIndex == 0 || package.usItemIndex >= MAXITEMS ||
+				!package.ubNumber || package.bItemQuality < 0 ||
+				package.bItemQuality > 100)
+			{
+				return FALSE;
+			}
 			memset(&sps, 0, sizeof(ShipmentPackageStruct));
 			uiBytesWritten = 0;
 
