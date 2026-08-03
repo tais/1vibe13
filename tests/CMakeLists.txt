@@ -82,6 +82,16 @@ target_include_directories(laptop_communications_policy_tests
 add_test(NAME laptop_communications_policy
   COMMAND laptop_communications_policy_tests)
 
+# File-viewer briefings/artwork and history quest text are selected at runtime.
+# This data-free target pins both campaigns and every optional-asset fallback,
+# including paired quest start/completion record indices.
+add_executable(laptop_campaign_content_policy_tests
+  laptop_campaign_content_policy_tests.cpp)
+target_include_directories(laptop_campaign_content_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME laptop_campaign_content_policy
+  COMMAND laptop_campaign_content_policy_tests)
+
 # Bobby Ray's configured cart size, fixed legacy save records, stock counters,
 # and shipment-region arrays meet at old raw-storage boundaries. Keep the
 # capacity/ownership model independently executable and data-free.

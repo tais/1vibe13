@@ -1,5 +1,8 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "CampaignLaptopContentPolicy.h"
+#include "GameContext.h"
+
 	#include "builddefines.h"
 	#include <stdio.h>
 	#include <list>
@@ -20,11 +23,6 @@
 	#include "XML.h"
 	#include "expat.h"
 	#include "Debug Control.h"
-
-#ifdef JA2UB
-#include "ub_config.h"
-#endif
-
 #define TOP_X														LAPTOP_SCREEN_UL_X
 #define TOP_Y														LAPTOP_SCREEN_UL_Y
 #define BLOCK_FILE_HEIGHT								10
@@ -50,11 +48,6 @@
 #define FILES_LIST_Y										( 9 * BLOCK_HEIGHT )
 #define FILES_LIST_WIDTH								100
 
-#ifdef JA2UB
-#define LENGTH_OF_ENRICO_FILE						39	//Ja25 68
-#else
-#define LENGTH_OF_ENRICO_FILE						68
-#endif
 #define MAX_FILE_MESSAGE_PAGE_SIZE			325
 #define MAX_TEXT_FILE_MESSAGE_PAGE_SIZE		(350)
 #define VIEWER_MESSAGE_BODY_START_Y			FILES_LIST_Y
@@ -67,13 +60,22 @@
 #define	FILES_COUNTER_2_WIDTH						43
 #define	FILES_COUNTER_3_WIDTH						45
 
-#ifdef JA2UB
-#define RIS_EDT_FILE_JA25  "BINARYDATA\\RIS25.edt"
-#define RIS_EDT_FILE_JA2  "BINARYDATA\\RIS.edt"
+namespace
+{
+using ContentPolicy = CampaignLaptopContentPolicy;
 
-#define MAP_JA25  "LAPTOP\\TraconaMap.sti"
-#define MAP_JA2 "LAPTOP\\ArucoFilesMap.sti"
-#endif
+ContentPolicy CurrentLaptopContentPolicy()
+{
+	return ContentPolicy(GetGameContext().capabilities());
+}
+
+const char* CurrentFilesMapPath()
+{
+	const ContentPolicy policy = CurrentLaptopContentPolicy();
+	return policy.filesMapPath(
+		FileExists(ContentPolicy::unfinishedBusinessMapPath()));
+}
+}
 
 // the highlighted line
 INT32 iHighLightFileLine=-1;
@@ -877,7 +879,7 @@ void ClearFilesList( void )
 {
 	// remove each element from list of transactions
 	FilesUnitPtr pFilesList=pFilesListHead;
-	FilesUnitPtr pFilesNode=pFilesList;
+	FilesUnitPtr pFilesNode;
 
 	// while there are elements in the list left, delete them
 	while( pFilesList )
@@ -1288,7 +1290,6 @@ FileRecordWidthPtr CreateWidthRecordsForMissionBriefingFile( void )
 	// and the next..
 //	pTempRecord->Next = CreateRecordWidth( 45, 200,0, 0 );
 	pTempRecord->Next = CreateRecordWidth( FILES_COUNTER_3_WIDTH, 200,0, 0 );
-	pTempRecord = pTempRecord->Next;
 
 	return( pRecordListHead );
 
@@ -1433,19 +1434,7 @@ BOOLEAN HandleMissionBriefingFiles( UINT8 ubFormat )
 	{
 		// title bar
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-		//Ja25, new map	
-#ifdef JA2UB
-		if (FileExists(MAP_JA25))
-		{
-		FilenameForBPP("LAPTOP\\TraconaMap.sti", VObjectDesc.ImageFile);
-		}
-		else
-		{
-		FilenameForBPP("LAPTOP\\ArucoFilesMap.sti", VObjectDesc.ImageFile);
-		}
-#else
-		FilenameForBPP("LAPTOP\\ArucoFilesMap.sti", VObjectDesc.ImageFile);
-#endif
+		FilenameForBPP(CurrentFilesMapPath(), VObjectDesc.ImageFile);
 		CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
 
 		// get title bar object
@@ -1461,19 +1450,7 @@ BOOLEAN HandleMissionBriefingFiles( UINT8 ubFormat )
 	{
 		// title bar
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-		//Ja25, new map	
-#ifdef JA2UB
-		if (FileExists(MAP_JA25))
-		{
-		FilenameForBPP("LAPTOP\\TraconaMap.sti", VObjectDesc.ImageFile);
-		}
-		else
-		{
-		FilenameForBPP("LAPTOP\\ArucoFilesMap.sti", VObjectDesc.ImageFile);
-		}
-#else
-		FilenameForBPP("LAPTOP\\ArucoFilesMap.sti", VObjectDesc.ImageFile);
-#endif
+		FilenameForBPP(CurrentFilesMapPath(), VObjectDesc.ImageFile);
 		CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
 
 		// get title bar object
@@ -1572,21 +1549,14 @@ BOOLEAN HandleSpecialFiles( UINT8 ubFormat )
 			// load data
 			// read one record from file manager file
 
-			WidthList = CreateWidthRecordsForAruloIntelFile( );
-		while( iCounter < LENGTH_OF_ENRICO_FILE )
+		const ContentPolicy policy = CurrentLaptopContentPolicy();
+		const ContentPolicy::BriefingCatalog briefing = policy.briefingCatalog(
+			FileExists(ContentPolicy::unfinishedBusinessBriefingPath()));
+		WidthList = CreateWidthRecordsForAruloIntelFile( );
+		while( iCounter < briefing.recordCount )
 			{
-#ifdef JA2UB			
-				if (FileExists(RIS_EDT_FILE_JA25))
-				{
-				LoadEncryptedDataFromFile( RIS_EDT_FILE_JA25, sString, FILE_STRING_SIZE * ( iCounter ) * 2, FILE_STRING_SIZE * 2 );
-				}
-				else
-				{
-				LoadEncryptedDataFromFile( RIS_EDT_FILE_JA25, sString, FILE_STRING_SIZE * ( iCounter ) * 2, FILE_STRING_SIZE * 2 );
-				}
-#else
-			LoadEncryptedDataFromFile( "BINARYDATA\\RIS.EDT", sString, FILE_STRING_SIZE * ( iCounter ) * 2, FILE_STRING_SIZE * 2 );
-#endif
+			LoadEncryptedDataFromFile( briefing.path, sString,
+				FILE_STRING_SIZE * ( iCounter ) * 2, FILE_STRING_SIZE * 2 );
 				AddStringToFilesList( sString );
 				iCounter++;
 			}
@@ -1634,10 +1604,6 @@ BOOLEAN HandleSpecialFiles( UINT8 ubFormat )
 
 					}
 				}
-
-				// reset width
-				iFileLineWidth = 350;
-				iFileStartX = (UINT16) ( FILE_VIEWER_X +	10 );
 
 				// based on the record we are at, selected X start position and the width to wrap the line, to fit around pictures
 
@@ -1734,19 +1700,7 @@ BOOLEAN HandleSpecialFiles( UINT8 ubFormat )
 	{
 		// title bar
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-#ifdef JA2UB
-		//Ja25, new map	
-		if (FileExists(MAP_JA25))
-		{
-		FilenameForBPP("LAPTOP\\TraconaMap.sti", VObjectDesc.ImageFile);
-		}
-		else
-		{
-		FilenameForBPP("LAPTOP\\ArucoFilesMap.sti", VObjectDesc.ImageFile);
-		}
-#else
-		FilenameForBPP("LAPTOP\\ArucoFilesMap.sti", VObjectDesc.ImageFile);
-#endif
+		FilenameForBPP(CurrentFilesMapPath(), VObjectDesc.ImageFile);
 		CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
 
 		// get title bar object
@@ -1758,49 +1712,23 @@ BOOLEAN HandleSpecialFiles( UINT8 ubFormat )
 		DeleteVideoObjectFromIndex( uiPicture );
 
 	}
-
-#ifdef JA2UB
-//JA25 : no picture needed
-#else
-	else if( giFilesPage == 4 )
+	else if( const char* biographyPicture =
+		CurrentLaptopContentPolicy().biographyPicturePath(giFilesPage) )
 	{
-		// kid pic
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-		FilenameForBPP("LAPTOP\\Enrico_Y.sti", VObjectDesc.ImageFile);
+		FilenameForBPP(biographyPicture, VObjectDesc.ImageFile);
 		CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
 
 		// get title bar object
 	GetVideoObject(&hHandle, uiPicture);
 
 	// blt title bar to screen
-	BltVideoObject(FRAME_BUFFER, hHandle, 0,iScreenWidthOffset + 260, iScreenHeightOffset + 225, VO_BLT_SRCTRANSPARENCY,NULL);
-
-		DeleteVideoObjectFromIndex( uiPicture );
-
-	}
-#endif
-
-#ifdef JA2UB
-//Ja25 No picture 
-#else
-	else if( giFilesPage == 5 )
-	{
-
-
-			// wedding pic
-		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-		FilenameForBPP("LAPTOP\\Enrico_W.sti", VObjectDesc.ImageFile);
-		CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
-
-		// get title bar object
-	GetVideoObject(&hHandle, uiPicture);
-
-	// blt title bar to screen
-	BltVideoObject(FRAME_BUFFER, hHandle, 0,iScreenWidthOffset + 260, iScreenHeightOffset + 85, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hHandle, 0,iScreenWidthOffset + 260,
+		giFilesPage == 4 ? iScreenHeightOffset + 225 : iScreenHeightOffset + 85,
+		VO_BLT_SRCTRANSPARENCY,NULL);
 
 		DeleteVideoObjectFromIndex( uiPicture );
 	}
-#endif	
 	return ( TRUE );
 }
 
@@ -2079,7 +2007,6 @@ FileRecordWidthPtr CreateWidthRecordsForAruloIntelFile( void )
 	// and the next..
 //	pTempRecord->Next = CreateRecordWidth( 45, 200,0, 0 );
 	pTempRecord->Next = CreateRecordWidth( FILES_COUNTER_3_WIDTH, 200,0, 0 );
-	pTempRecord = pTempRecord->Next;
 
 	return( pRecordListHead );
 
@@ -2103,8 +2030,6 @@ FileRecordWidthPtr CreateWidthRecordsForTerroristFile( void )
 	pTempRecord = pTempRecord->Next;
 
 	pTempRecord->Next = CreateRecordWidth( 6, 170,0, 0 );
-	pTempRecord = pTempRecord->Next;
-
 
 	return( pRecordListHead );
 
@@ -2117,7 +2042,7 @@ void ClearOutWidthRecordsList( FileRecordWidthPtr pFileRecordWidthList )
 	FileRecordWidthPtr pDeleteRecord = NULL;
 
 	// set up to head of the list
-	pTempRecord = pDeleteRecord = pFileRecordWidthList;
+	pTempRecord = pFileRecordWidthList;
 
 	// error check
 	if( pFileRecordWidthList == NULL )

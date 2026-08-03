@@ -1058,6 +1058,24 @@ the engine must not contain SDL types in its public domain model.
   a variadic format string. Architecture CI prevents direct page writes,
   variable render formats, retired face-offset indexing, fixed import filename
   buffers, or removal of the staged import boundary.
+- Laptop file-viewer and history campaign content now uses the value-only
+  `CampaignLaptopContentPolicy`. The policy selects the Arulco/UB briefing
+  catalog and record count, Arulco/Tracona map artwork, Arulco-only biography
+  artwork, and exact quest start/completion text record from runtime
+  capabilities plus explicit optional-asset availability. `files.cpp` and
+  `history.cpp` retain only probing, encrypted-text loading, and rendering and
+  are compiled once in the 74-source shared Laptop partition, leaving 24
+  per-application variants. Missing `RIS25.edt` now falls back to `RIS.edt`
+  rather than retrying the absent file, and missing `quests25.edt` selects the
+  paired odd completion record rather than the even start record. Missing-
+  profile killed-merc history records now render the established diagnostic in
+  every host instead of leaving release/shared output unset. Empty history-page
+  writes also close the file opened before the empty-list check. Data-free tests
+  cover both campaigns and all absent-asset paths; architecture CI keeps both
+  callers guard-free, shared, and routed through the policy, and pins the
+  resource-closing early return. Existing artwork/
+  text paths, briefing/history records, saves, XML, Lua, and package formats
+  are unchanged.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

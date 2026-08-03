@@ -53,8 +53,8 @@ extern UINT32	guiBottomButton2; // symbol already declared globally in AimPolici
 extern UINT32	guiContentButton; // symbol already declared globally in AimPolicies.cpp (jonathanl)
 
 extern UINT8	gubCurPageNum; // symbol already declared globally in AimPolicies.cpp (jonathanl)
-extern BOOLEAN	gfInToc =	FALSE; // symbol already declared globally in AimPolicies.cpp (jonathanl)
-extern UINT8	gubAimHistoryMenuButtonDown=255; // symbol already declared globally in AimPolicies.cpp (jonathanl)
+BOOLEAN	gfInToc =	FALSE;
+UINT8	gubAimHistoryMenuButtonDown=255;
 
 BOOLEAN		gfExitingAimHistory;
 BOOLEAN		AimHistorySubPagesVisitedFlag[ NUM_AIM_HISTORY_PAGES ];
@@ -204,7 +204,6 @@ void RenderAimHistory()
 			DisplayAimHistoryParagraph(WORD_FROM_FOUNDER, 1);
 
 			// display coloniel Mohanned...
-			usPosY = AIM_HISTORY_PARAGRAPH_Y + (GetFontHeight(AIM_HISTORY_TEXT_FONT) + 2)* 5 + LAPTOP_SCREEN_WEB_DELTA_Y;
 			if(!g_bUseXML_Strings)
 			{
 				UINT32 uiStartLoc = AIM_HISTORY_LINE_SIZE * COLONEL_MOHANNED;
@@ -447,8 +446,6 @@ BOOLEAN DisplayAimHistoryParagraph(UINT8	ubPageNum, UINT8 ubNumParagraphs)
 BOOLEAN InitTocMenu()
 {
 	UINT16		i, usPosY;
-	UINT16		usHeight;
-	UINT16		usWidth=0;
 	CHAR16		sText[400];
 	UINT8		ubLocInFile[] = {
 					IN_THE_BEGINNING,
@@ -461,7 +458,6 @@ BOOLEAN InitTocMenu()
 
 	GetVideoObject(&hContentButtonHandle, guiContentButton);
 
-	usHeight = GetFontHeight(AIM_HISTORY_TOC_TEXT_FONT);
 	usPosY = AIM_HISTORY_CONTENTBUTTON_Y;
 	for(i=0; i<NUM_AIM_HISTORY_PAGES; i++)
 	{
@@ -474,8 +470,6 @@ BOOLEAN InitTocMenu()
 		{
 			Loc::GetString(Loc::AIM_HISTORY, L"Line", ubLocInFile[i], sText, 400);
 		}
-		usWidth = StringPixLength(sText, AIM_HISTORY_TOC_TEXT_FONT);
-
 		//if the mouse regions havent been inited, init them
 		if( !gfInToc )
 		{
@@ -634,11 +628,11 @@ void DisableAimHistoryButton()
 	if( gfExitingAimHistory == TRUE)
 		return;
 
-	if( (gubCurPageNum == 0 ) )
+	if( gubCurPageNum == 0 )
 	{
 		ButtonList[ guiHistoryMenuButton[ 0 ] ]->uiFlags |= (BUTTON_CLICKED_ON );
 	}
-	else if(	( gubCurPageNum == 5) )
+	else if( gubCurPageNum == 5 )
 	{
 		ButtonList[ guiHistoryMenuButton[ AIM_HISTORY_MENU_BUTTON_AMOUNT-1 ] ]->uiFlags |= (BUTTON_CLICKED_ON );
 	}

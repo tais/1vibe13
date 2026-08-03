@@ -238,30 +238,68 @@ coordinate table and fixed filename buffers, and includes the focused target
 in the AddressSanitizer build. It also rejects three-argument `mprintf` calls
 whose format is a variable anywhere in the IMP page cluster.
 
+## File viewer and history runtime-content batch
+
+The fifth batch moves the complete remaining `files.cpp` and `history.cpp`
+campaign-content seam behind the dependency-free
+`CampaignLaptopContentPolicy`. It fixes four confirmed defects:
+
+- when a UB installation did not contain `RIS25.edt`, the file viewer's
+  fallback branch attempted to load the same missing file again instead of
+  using `RIS.edt`; and
+- when `quests25.edt` was absent, a completed UB quest loaded the even
+  quest-start record from `quests.edt` instead of its paired odd completion
+  record; and
+- a killed-merc history record with `NO_PROFILE` only initialized its rendered
+  text in beta application builds, leaving the shared/release path with stale
+  output; and
+- writing an empty history page returned after opening the history file but
+  failed to close its handle.
+
+The policy selects the 68-record Arulco or 39-record UB briefing view, its
+installed-data fallback, Arulco/Tracona map artwork, Arulco-only biography
+artwork, and exact quest start/completion record. The page implementations
+still own asset probing, encrypted-text loading, and rendering. Both are now
+compiled once in the shared Laptop partition, which contains 74 common
+translation units and 24 application variants, and neither contains a
+compile-time `JA2UB` identity.
+
+The focused data-free test covers both campaigns, present and absent optional
+assets, exact briefing counts, map and biography selection, and paired quest
+record indices. Architecture CI pins every policy caller, shared build
+ownership, both corrected fallbacks, the compile-guard reduction, and ASan CI
+admission. The missing-profile history diagnostic is now unconditional, and
+the empty-page early-return close is pinned as well.
+Installed text/artwork names and briefing, history, quest, save, XML, Lua, and
+package formats are unchanged. The all-host warning pass also removes an empty
+Laptop declaration, mistaken `extern` definitions, redundant comparison
+wrappers, a nested comment marker, and behavior-neutral dead stores encountered
+while rebuilding and statically analyzing the shared and per-application page
+partitions. The targeted path-sensitive analyzer is clean for every production
+translation unit changed by this batch.
+
 ## Remaining walkthrough
 
-The IMP lifecycle item is complete. The remaining audit queue is deliberately
-grouped into larger reviewable batches:
+The IMP lifecycle and runtime-content items are complete. The remaining audit
+queue is deliberately grouped into larger reviewable batches:
 
-1. Combine `files.cpp`, history pages, and their remaining compile-time
-   campaign-content branches behind runtime policy.
-2. Give video objects, button images, and temporary render assets scoped or
+1. Give video objects, button images, and temporary render assets scoped or
    explicitly paired ownership across every Laptop page.
-3. Audit mouse-region creation/removal counts and callback lifetimes across
+2. Audit mouse-region creation/removal counts and callback lifetimes across
    page re-entry, empty data, and early resource-load failure.
-4. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
+3. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
    validate all rendered text buffers before formatting.
-5. Audit the remaining Laptop binary readers and writers for exact reads,
+4. Audit the remaining Laptop binary readers and writers for exact reads,
    bounded allocation, staged publication, and failure-safe file ownership.
-6. Consolidate non-IMP page re-entry and global selection state so cancelled,
+5. Consolidate non-IMP page re-entry and global selection state so cancelled,
    failed, and repeated visits start from a documented state.
-7. Verify every remaining fixed array and paginated list against negative,
+6. Verify every remaining fixed array and paginated list against negative,
    exact-end, empty, and stale-selection cases.
-8. Audit pointer and iterator lifetimes in mutable email, personnel, shipment,
+7. Audit pointer and iterator lifetimes in mutable email, personnel, shipment,
    insurance, A.I.M., and M.E.R.C. UI collections after callbacks mutate them.
-9. Make finance, history, email, and hire side effects transactional wherever a
+8. Make finance, history, email, and hire side effects transactional wherever a
    Laptop workflow can fail after partially committing an operation.
-10. Run a final domain-wide static-analysis/warning pass, remove superseded
+9. Run a final domain-wide static-analysis/warning pass, remove superseded
     dead paths, and convert every confirmed finding into a focused regression
     test or an architecture ratchet.
 

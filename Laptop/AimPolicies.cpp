@@ -305,7 +305,7 @@ void RenderAimPolicies()
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, DEFINITIONS_1, (FLOAT)1.1) + AIM_POLICY_PARAGRAPH_GAP;
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, DEFINITIONS_2, (FLOAT)1.2) + AIM_POLICY_PARAGRAPH_GAP;
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, DEFINITIONS_3, (FLOAT)1.3) + AIM_POLICY_PARAGRAPH_GAP;
-			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, DEFINITIONS_4, (FLOAT)1.4);
+			(void)DisplayAimPolicyParagraph(usNumPixles, DEFINITIONS_4, (FLOAT)1.4);
 			break;
 
 		case 3:
@@ -315,7 +315,7 @@ void RenderAimPolicies()
 			usNumPixles += DisplayAimPolicySubParagraph(usNumPixles, LENGTH_OF_ENGAGEMENT_1_1, (FLOAT)2.11) + AIM_POLICY_PARAGRAPH_GAP;
 			usNumPixles += DisplayAimPolicySubParagraph(usNumPixles, LENGTH_OF_ENGAGEMENT_1_2, (FLOAT)2.12) + AIM_POLICY_PARAGRAPH_GAP;
 			usNumPixles += DisplayAimPolicySubParagraph(usNumPixles, LENGTH_OF_ENGAGEMENT_1_3, (FLOAT)2.13) + AIM_POLICY_PARAGRAPH_GAP;
-			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, LENGTH_OF_ENGAGEMENT_2, (FLOAT)2.2) + AIM_POLICY_PARAGRAPH_GAP;
+			(void)DisplayAimPolicyParagraph(usNumPixles, LENGTH_OF_ENGAGEMENT_2, (FLOAT)2.2);
 			break;
 
 		case 4:
@@ -331,7 +331,7 @@ void RenderAimPolicies()
 
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, LOCATION_0F_ENGAGEMENT_2_4, (FLOAT)3.3) + AIM_POLICY_PARAGRAPH_GAP;
 
-			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, LOCATION_0F_ENGAGEMENT_3, (FLOAT)3.4) + AIM_POLICY_PARAGRAPH_GAP;
+			(void)DisplayAimPolicyParagraph(usNumPixles, LOCATION_0F_ENGAGEMENT_3, (FLOAT)3.4);
 			break;
 
 		case 5:
@@ -339,13 +339,13 @@ void RenderAimPolicies()
 			usNumPixles = AIM_POLICY_PARAGRAPH_Y;
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, CONTRACT_EXTENSIONS_1, (FLOAT)4.1) + AIM_POLICY_PARAGRAPH_GAP;
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, CONTRACT_EXTENSIONS_2, (FLOAT)4.2) + AIM_POLICY_PARAGRAPH_GAP;
-			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, CONTRACT_EXTENSIONS_3, (FLOAT)4.3) + AIM_POLICY_PARAGRAPH_GAP;
+			(void)DisplayAimPolicyParagraph(usNumPixles, CONTRACT_EXTENSIONS_3, (FLOAT)4.3);
 			break;
 
 		case 6:
 			DisplayAimPolicyTitle(AIM_POLICY_SUBTITLE_Y, TERMS_OF_PAYMENT, (FLOAT)5.0);
 			usNumPixles = AIM_POLICY_PARAGRAPH_Y;
-			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, TERMS_OF_PAYMENT_1, (FLOAT)5.1) + AIM_POLICY_PARAGRAPH_GAP;
+			(void)DisplayAimPolicyParagraph(usNumPixles, TERMS_OF_PAYMENT_1, (FLOAT)5.1);
 			break;
 
 		case 7:
@@ -353,7 +353,7 @@ void RenderAimPolicies()
 			usNumPixles = AIM_POLICY_PARAGRAPH_Y;
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, TERMS_OF_ENGAGEMENT_1, (FLOAT)6.1) + AIM_POLICY_PARAGRAPH_GAP;
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, TERMS_OF_ENGAGEMENT_2A, (FLOAT)6.2) + AIM_POLICY_PARAGRAPH_GAP;
-			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, TERMS_OF_ENGAGEMENT_2B, (FLOAT)0.0) + AIM_POLICY_PARAGRAPH_GAP;
+			(void)DisplayAimPolicyParagraph(usNumPixles, TERMS_OF_ENGAGEMENT_2B, (FLOAT)0.0);
 			break;
 
 		case 8:
@@ -363,14 +363,14 @@ void RenderAimPolicies()
 
 			usNumPixles += DisplayAimPolicySubParagraph(usNumPixles, ENGAGEMENT_TERMINATION_1_1, (FLOAT)7.11) + AIM_POLICY_PARAGRAPH_GAP;
 			usNumPixles += DisplayAimPolicySubParagraph(usNumPixles, ENGAGEMENT_TERMINATION_1_2, (FLOAT)7.12) + AIM_POLICY_PARAGRAPH_GAP;
-			usNumPixles += DisplayAimPolicySubParagraph(usNumPixles, ENGAGEMENT_TERMINATION_1_3, (FLOAT)7.13) + AIM_POLICY_PARAGRAPH_GAP;
+			(void)DisplayAimPolicySubParagraph(usNumPixles, ENGAGEMENT_TERMINATION_1_3, (FLOAT)7.13);
 			break;
 
 		case 9:
 			DisplayAimPolicyTitle(AIM_POLICY_SUBTITLE_Y, EQUIPMENT_AND_INVENTORY, (FLOAT)8.0);
 			usNumPixles = AIM_POLICY_PARAGRAPH_Y;
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, EQUIPMENT_AND_INVENTORY_1, (FLOAT)8.1) + AIM_POLICY_PARAGRAPH_GAP;
-			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, EQUIPMENT_AND_INVENTORY_2, (FLOAT)8.2) + AIM_POLICY_PARAGRAPH_GAP;
+			(void)DisplayAimPolicyParagraph(usNumPixles, EQUIPMENT_AND_INVENTORY_2, (FLOAT)8.2);
 			break;
 
 		case 10:
@@ -382,7 +382,7 @@ void RenderAimPolicies()
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, POLICY_MEDICAL_2, (FLOAT)9.2) + AIM_POLICY_PARAGRAPH_GAP;
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, POLICY_MEDICAL_3A, (FLOAT)9.3) + AIM_POLICY_PARAGRAPH_GAP;
 			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, POLICY_MEDICAL_3B, (FLOAT)0.0) + AIM_POLICY_PARAGRAPH_GAP;
-			usNumPixles += DisplayAimPolicyParagraph(usNumPixles, POLICY_MEDICAL_4, (FLOAT)9.4) + AIM_POLICY_PARAGRAPH_GAP;
+			(void)DisplayAimPolicyParagraph(usNumPixles, POLICY_MEDICAL_4, (FLOAT)9.4);
 			break;
 	}
 
@@ -459,7 +459,6 @@ BOOLEAN ExitAimPolicyMenuBar(void)
 BOOLEAN DrawAimPolicyMenu()
 {
 	UINT16		i, usPosY;
-	UINT16		usHeight;
 	CHAR16		sText[400];
 	HVOBJECT	hContentButtonHandle;
 	UINT8		ubLocInFile[]= {
@@ -475,7 +474,6 @@ BOOLEAN DrawAimPolicyMenu()
 
 	GetVideoObject(&hContentButtonHandle, guiContentButton);
 
-	usHeight = GetFontHeight(AIM_POLICY_TOC_FONT);
 	usPosY = AIM_POLICY_TOC_Y;
 	for(i=0; i<NUM_AIM_POLICY_TOC_BUTTONS; i++)
 	{
@@ -501,11 +499,9 @@ BOOLEAN DrawAimPolicyMenu()
 BOOLEAN InitAimPolicyTocMenu(void)
 {
 	UINT16			i, usPosY;
-	UINT16			usHeight;
 	if(gfInPolicyToc)
 		return(TRUE);
 
-	usHeight = GetFontHeight(AIM_POLICY_TOC_FONT);
 	usPosY = AIM_POLICY_TOC_Y;
 	for(i=0; i<NUM_AIM_POLICY_TOC_BUTTONS; i++)
 	{
@@ -890,12 +886,12 @@ void DisableAimPolicyButton()
 	if( gfExitingAimPolicy == TRUE || gfAimPolicyMenuBarLoaded == FALSE )
 		return;
 
-	if( (gubCurPageNum == AIM_POLICY_TOC_PAGE ) )
+	if( gubCurPageNum == AIM_POLICY_TOC_PAGE )
 	{
 		ButtonList[ guiPoliciesMenuButton[ 0 ] ]->uiFlags |= (BUTTON_CLICKED_ON );
 		ButtonList[ guiPoliciesMenuButton[ 2 ] ]->uiFlags |= (BUTTON_CLICKED_ON );
 	}
-	else if(	( gubCurPageNum == AIM_POLICY_LAST_PAGE ) )
+	else if( gubCurPageNum == AIM_POLICY_LAST_PAGE )
 	{
 		ButtonList[ guiPoliciesMenuButton[ 3 ] ]->uiFlags |= (BUTTON_CLICKED_ON );
 	}

@@ -1302,19 +1302,21 @@ file(READ "${SOURCE_ROOT}/Laptop/CMakeLists.txt"
   runtime_laptop_manifest_contents)
 string(FIND "${runtime_laptop_manifest_contents}" "set(LaptopVariantSrc"
   runtime_laptop_variant_manifest_position)
-foreach(required_common_laptop_communications_source IN ITEMS
+foreach(required_common_laptop_runtime_source IN ITEMS
     "BobbyRMailOrder.cpp"
     "email.cpp"
+    "files.cpp"
+    "history.cpp"
     "insurance Contract.cpp"
     "PostalService.cpp")
   string(FIND "${runtime_laptop_manifest_contents}"
-    "${required_common_laptop_communications_source}"
-    common_laptop_communications_source_position)
-  if(common_laptop_communications_source_position EQUAL -1 OR
-      common_laptop_communications_source_position GREATER
+    "${required_common_laptop_runtime_source}"
+    common_laptop_runtime_source_position)
+  if(common_laptop_runtime_source_position EQUAL -1 OR
+      common_laptop_runtime_source_position GREATER
         runtime_laptop_variant_manifest_position)
     message(FATAL_ERROR
-      "Laptop common manifest lost ${required_common_laptop_communications_source}")
+      "Laptop common manifest lost ${required_common_laptop_runtime_source}")
   endif()
 endforeach()
 
@@ -1763,6 +1765,120 @@ foreach(required_laptop_communications_assertion IN ITEMS
   if(required_laptop_communications_assertion_position EQUAL -1)
     message(FATAL_ERROR
       "Laptop communications/safety tests lost '${required_laptop_communications_assertion}'")
+  endif()
+endforeach()
+
+# File-viewer briefing catalogs/artwork and history quest text are runtime
+# content choices. Both campaigns and their fallback assets must remain in one
+# value-only policy, while the legacy pages only probe, load, and render the
+# selected records.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignLaptopContentPolicy.h"
+  runtime_laptop_campaign_content_policy_contents)
+foreach(required_laptop_campaign_content_policy_fragment IN ITEMS
+    "class CampaignLaptopContentPolicy"
+    "briefingCatalog("
+    "filesMapPath("
+    "biographyPicturePath("
+    "questTextRecord("
+    "unfinishedBusinessBriefingAvailable"
+    "unfinishedBusinessQuestTextAvailable"
+    "completed ? 1 : 0")
+  string(FIND "${runtime_laptop_campaign_content_policy_contents}"
+    "${required_laptop_campaign_content_policy_fragment}"
+    required_laptop_campaign_content_policy_position)
+  if(required_laptop_campaign_content_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop campaign content policy lost '${required_laptop_campaign_content_policy_fragment}'")
+  endif()
+endforeach()
+
+foreach(laptop_campaign_content_caller_and_fragment IN ITEMS
+    "Laptop/files.cpp|briefingCatalog("
+    "Laptop/files.cpp|filesMapPath("
+    "Laptop/files.cpp|biographyPicturePath("
+    "Laptop/history.cpp|questTextRecord(")
+  string(REPLACE "|" ";" laptop_campaign_content_caller_parts
+    "${laptop_campaign_content_caller_and_fragment}")
+  list(GET laptop_campaign_content_caller_parts 0
+    laptop_campaign_content_caller)
+  list(GET laptop_campaign_content_caller_parts 1
+    laptop_campaign_content_fragment)
+  file(READ "${SOURCE_ROOT}/${laptop_campaign_content_caller}"
+    laptop_campaign_content_caller_contents)
+  string(FIND "${laptop_campaign_content_caller_contents}"
+    "${laptop_campaign_content_fragment}"
+    laptop_campaign_content_caller_position)
+  if(laptop_campaign_content_caller_position EQUAL -1)
+    message(FATAL_ERROR
+      "${laptop_campaign_content_caller} bypassed runtime Laptop content selection '${laptop_campaign_content_fragment}'")
+  endif()
+  string(REGEX MATCH
+    "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB"
+    compiled_laptop_campaign_content
+    "${laptop_campaign_content_caller_contents}")
+  if(compiled_laptop_campaign_content)
+    message(FATAL_ERROR
+      "${laptop_campaign_content_caller} regained compile-time campaign content selection")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/history.cpp"
+  runtime_laptop_history_contents)
+string(FIND "${runtime_laptop_history_contents}"
+  "L\"ERROR!!!\tNO_PROFILE\"" runtime_laptop_history_no_profile_position)
+if(runtime_laptop_history_no_profile_position EQUAL -1)
+  message(FATAL_ERROR
+    "Laptop history lost its unconditional missing-profile render fallback")
+endif()
+string(REGEX MATCH
+  "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2BETAVERSION"
+  compiled_laptop_history_beta_identity "${runtime_laptop_history_contents}")
+if(compiled_laptop_history_beta_identity)
+  message(FATAL_ERROR
+    "Laptop history regained application-only beta rendering behavior")
+endif()
+string(FIND "${runtime_laptop_history_contents}"
+  "if( pList == NULL )\n\t{\n\t\tFileClose( hFileHandle );\n\t\treturn( FALSE );"
+  runtime_laptop_history_empty_write_closes_file)
+if(runtime_laptop_history_empty_write_closes_file EQUAL -1)
+  message(FATAL_ERROR
+    "Laptop history empty-page write no longer closes its open file")
+endif()
+
+foreach(required_laptop_campaign_content_test_fragment IN ITEMS
+    "laptop_campaign_content_policy_tests.cpp"
+    "laptop_campaign_content_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_laptop_campaign_content_test_fragment}"
+    required_laptop_campaign_content_test_position)
+  if(required_laptop_campaign_content_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop campaign content policy lost its headless test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "laptop_campaign_content_policy_tests"
+  runtime_laptop_campaign_content_ci_position)
+if(runtime_laptop_campaign_content_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Laptop campaign content policy test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_campaign_content_policy_tests.cpp"
+  runtime_laptop_campaign_content_test_contents)
+foreach(required_laptop_campaign_content_assertion IN ITEMS
+    "briefingCatalog(false)"
+    "BINARYDATA\\\\RIS.edt"
+    "filesMapPath(false)"
+    "biographyPicturePath(4) == nullptr"
+    "questTextRecord(7, true, false)"
+    "ubQuestEndFallback.recordIndex == 15")
+  string(FIND "${runtime_laptop_campaign_content_test_contents}"
+    "${required_laptop_campaign_content_assertion}"
+    required_laptop_campaign_content_assertion_position)
+  if(required_laptop_campaign_content_assertion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop campaign content tests lost '${required_laptop_campaign_content_assertion}'")
   endif()
 endforeach()
 

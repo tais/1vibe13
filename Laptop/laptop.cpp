@@ -150,9 +150,6 @@ enum{
 };
 
 enum{
-
-};
-enum{
 	NO_REGION=0,
 	EMAIL_REGION,
 	WWW_REGION,
@@ -1717,7 +1714,7 @@ void EnterNewLaptopMode()
 	else
 	{
 		// do not exit previous mode if coming from sliding bar handler
-		if( ( fEnteredNewLapTopDueToHandleSlidingBars == FALSE ) )
+		if( fEnteredNewLapTopDueToHandleSlidingBars == FALSE )
 		{
 		ExitLaptopMode(guiPreviousLaptopMode);
 		}
@@ -2372,7 +2369,7 @@ UINT32 LaptopScreenHandle()
 			iLaptopMonitorCenterY = SCREEN_HEIGHT - 70 + 16 + sYOffset;
 
 			uiTimeRange = 1000;
-			iPercentage = iRealPercentage = 0;
+			iRealPercentage = 0;
 			uiStartTime = GetJA2NoPauseClock();	// no-pause: this zoom is a blocking, input-less loop -- the pausable clock freezes it solid when game-time is paused
 
 			BlitBufferToBuffer( FRAME_BUFFER, guiSAVEBUFFER, iScreenWidthOffset, iScreenHeightOffset,
@@ -3136,7 +3133,7 @@ BOOLEAN LeaveLapTopScreen( void )
 				iLaptopMonitorCenterY = SCREEN_HEIGHT - 70 + 16 + sYOffset;
 
 				uiTimeRange = 1000;
-				iPercentage = iRealPercentage = 100;
+				iRealPercentage = 100;
 				uiStartTime = GetJA2NoPauseClock();	// no-pause: this zoom is a blocking, input-less loop -- the pausable clock freezes it solid when game-time is paused
 
 				BlitBufferToBuffer( FRAME_BUFFER, guiSAVEBUFFER, iScreenWidthOffset, iScreenHeightOffset,
@@ -4222,10 +4219,6 @@ void BookmarkCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 			return;
 		}
 	}
-	else if(iReason & MSYS_CALLBACK_REASON_RBUTTON_UP)
-	{
-		iCount=MSYS_GetRegionUserData(pRegion, 0);
-	}
 }
 
 
@@ -4743,8 +4736,6 @@ BOOLEAN DisplayLoadPending( void )
 		iCounter=0;
 		iBaseTime=GetJA2NoPauseClock();
 		iTotalTime+=iDifference;
-	iTempTime=iTotalTime;
-
 	}
 
 	// new mail, don't redraw
@@ -5024,11 +5015,10 @@ void PostButtonRendering( void )
 void ShouldNewMailBeDisplayed()
 {
 
-	BOOLEAN fReDraw=FALSE;
 	switch( guiCurrentLaptopMode )
 	{
 		case LAPTOP_MODE_AIM_MEMBERS:
-			fReDraw = DisableNewMailMessage();
+			(void)DisableNewMailMessage();
 			break;
 	}
 /*
@@ -6189,7 +6179,7 @@ void PrintNumberOnTeam( void )
 	TacticalActor *pSoldier, *pTeamSoldier;
 	SoldierID cnt = 0;
 	INT32 iCounter=0;
-	UINT16 usPosX, usPosY, usFontHeight, usStrLength;
+	UINT16 usPosX, usPosY;
 
 
 	SetFont( FONT10ARIAL );
@@ -6215,9 +6205,6 @@ void PrintNumberOnTeam( void )
 
 
 	swprintf( pString, L"%s %d",pPersonnelString[ 0 ], iCounter );
-
-	usFontHeight = GetFontHeight( FONT10ARIAL );
-	usStrLength = StringPixLength( pString, FONT10ARIAL );
 
 	if( ButtonList[ gLaptopButton[ 3 ] ]->uiFlags & BUTTON_CLICKED_ON )
 	{
