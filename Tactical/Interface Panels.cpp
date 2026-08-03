@@ -83,6 +83,8 @@
 	#include "Food.h"	// added by Flugente
 #include "SoldierRepository.h"
 #include <language.hpp>
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -3071,7 +3073,11 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		{
 			GetMoraleString( GetSMCurrentMerc(), pMoraleStr );
 			// Flugente: food info if food system is active
-			if ( UsingFoodSystem() && GetSMCurrentMerc()->identity().profile() != ROBOT && !IsVehicle(GetSMCurrentMerc()) )
+			if ( UsingFoodSystem() &&
+				!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+					GetSMCurrentMerc()->identity().profile(),
+					CampaignProfileCode::Role::Robot) &&
+				!IsVehicle(GetSMCurrentMerc()) )
 			{
 				swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], GetSMCurrentMerc()->vitals().health(), GetSMCurrentMerc()->vitals().maximumHealth(), GetSMCurrentMerc()->vitals().breath(), GetSMCurrentMerc()->vitals().maximumBreath(), pMoraleStr, (INT32)(100*(GetSMCurrentMerc()->condition().drinkLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(GetSMCurrentMerc()->condition().foodLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
 			}
@@ -5699,7 +5705,11 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 						{
 							GetMoraleString( pSoldier, pMoraleStr );
 			
-							if ( UsingFoodSystem() && pSoldier->identity().profile() != ROBOT && !IsVehicle(pSoldier) )
+							if ( UsingFoodSystem() &&
+								!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+									pSoldier->identity().profile(),
+									CampaignProfileCode::Role::Robot) &&
+								!IsVehicle(pSoldier) )
 							{
 								swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pMoraleStr, (INT32)(100*(pSoldier->condition().drinkLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(pSoldier->condition().foodLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
 							}

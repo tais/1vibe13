@@ -292,6 +292,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/Loading Screen.h"
   "${SOURCE_ROOT}/Ja2/MainMenuScreen.cpp"
   "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp"
+  "${SOURCE_ROOT}/Ja2/MPScoreScreen.cpp"
   "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
   "${SOURCE_ROOT}/Ja2/SaveLoadScreen.cpp"
   "${SOURCE_ROOT}/Ja2/ub_config.cpp"
@@ -301,6 +302,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignProfileCodes.h"
   "${SOURCE_ROOT}/Laptop/laptop.cpp"
   "${SOURCE_ROOT}/Laptop/laptop.h"
+  "${SOURCE_ROOT}/Laptop/personnel.cpp"
   "${SOURCE_ROOT}/Strategic/Campaign Init.cpp"
   "${SOURCE_ROOT}/Strategic/Campaign Types.h"
   "${SOURCE_ROOT}/Strategic/Game Init.cpp"
@@ -315,7 +317,9 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Strategic/Queen Command.cpp"
   "${SOURCE_ROOT}/Strategic/Quests.cpp"
   "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
+  "${SOURCE_ROOT}/Strategic/Strategic Event Handler.cpp"
   "${SOURCE_ROOT}/Strategic/Strategic Merc Handler.cpp"
+  "${SOURCE_ROOT}/Strategic/Strategic Town Loyalty.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.h"
   "${SOURCE_ROOT}/Tactical/Action Items.h"
@@ -327,6 +331,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Tactical/Dialogue Control.h"
   "${SOURCE_ROOT}/Tactical/End Game.cpp"
   "${SOURCE_ROOT}/Tactical/End Game.h"
+  "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
   "${SOURCE_ROOT}/Tactical/Interface Control.cpp"
   "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
   "${SOURCE_ROOT}/Tactical/Merc Entering.cpp"
@@ -335,6 +340,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   "${SOURCE_ROOT}/Tactical/Soldier Control.h"
   "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
+  "${SOURCE_ROOT}/Tactical/Soldier Profile.h"
   "${SOURCE_ROOT}/Tactical/Soldier Profile.cpp"
   "${SOURCE_ROOT}/Tactical/ShopKeeper Interface.cpp"
   "${SOURCE_ROOT}/Tactical/ShopKeeper Quotes.h"
@@ -676,10 +682,11 @@ foreach(required_dealer_policy_assertion IN ITEMS
   endif()
 endforeach()
 
-# Mercenary profiles, hiring, arrival, recruitment, contracts, and daily
-# lifecycle rules now select campaign behavior at runtime. The policy remains
-# data-free, campaign-colliding profile aliases do not return to migrated
-# callers, and the existing raw profile/email/quote records stay unchanged.
+# Mercenary profiles, hiring, arrival, recruitment, contracts, tactical AI,
+# strategic events, UI, and daily lifecycle rules now select campaign behavior
+# at runtime. The policy remains data-free, campaign-colliding profile aliases
+# cannot return to the shared profile layout or migrated callers, and the
+# existing raw profile/email/quote records stay unchanged.
 file(READ "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
   runtime_campaign_mercenary_policy_contents)
 foreach(required_mercenary_policy_fragment IN ITEMS
@@ -692,6 +699,56 @@ foreach(required_mercenary_policy_fragment IN ITEMS
   if(required_mercenary_policy_position EQUAL -1)
     message(FATAL_ERROR
       "Runtime mercenary policy lost '${required_mercenary_policy_fragment}'")
+  endif()
+endforeach()
+
+set(semantic_profile_runtime_callers
+  "${SOURCE_ROOT}/Ja2/GameInitOptionsScreen.cpp"
+  "${SOURCE_ROOT}/Ja2/Intro.cpp"
+  "${SOURCE_ROOT}/Ja2/MPScoreScreen.cpp"
+  "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  "${SOURCE_ROOT}/Laptop/personnel.cpp"
+  "${SOURCE_ROOT}/Multiplayer/client.cpp"
+  "${SOURCE_ROOT}/Strategic/Assignments.cpp"
+  "${SOURCE_ROOT}/Strategic/Auto Resolve.cpp"
+  "${SOURCE_ROOT}/Strategic/Game Init.cpp"
+  "${SOURCE_ROOT}/Strategic/Hourly Update.cpp"
+  "${SOURCE_ROOT}/Strategic/Map Screen Interface Map.cpp"
+  "${SOURCE_ROOT}/Strategic/Meanwhile.cpp"
+  "${SOURCE_ROOT}/Strategic/Strategic Event Handler.cpp"
+  "${SOURCE_ROOT}/Strategic/Strategic Town Loyalty.cpp"
+  "${SOURCE_ROOT}/Strategic/mapscreen.cpp"
+  "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
+  "${SOURCE_ROOT}/Tactical/Food.cpp"
+  "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Dialogue.cpp"
+  "${SOURCE_ROOT}/Tactical/Interface Panels.cpp"
+  "${SOURCE_ROOT}/Tactical/Soldier Ani.cpp"
+  "${SOURCE_ROOT}/Tactical/Soldier Init List.cpp"
+  "${SOURCE_ROOT}/Tactical/TacticalActorModifiers.cpp"
+  "${SOURCE_ROOT}/Tactical/TeamTurns.cpp"
+  "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  "${SOURCE_ROOT}/TacticalAI/AIUtils.cpp"
+  "${SOURCE_ROOT}/TacticalAI/Attacks.cpp"
+  "${SOURCE_ROOT}/TacticalAI/FindLocations.cpp"
+  "${SOURCE_ROOT}/TacticalAI/NPC.cpp")
+foreach(semantic_profile_runtime_caller IN LISTS
+    semantic_profile_runtime_callers)
+  file(READ "${semantic_profile_runtime_caller}"
+    semantic_profile_runtime_caller_contents)
+  string(FIND "${semantic_profile_runtime_caller_contents}"
+    "CampaignProfileCode::Role" semantic_profile_runtime_caller_position)
+  if(semantic_profile_runtime_caller_position EQUAL -1)
+    message(FATAL_ERROR
+      "Semantic campaign-profile caller lost runtime role routing in ${semantic_profile_runtime_caller}")
+  endif()
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(MIGUEL|CARLOS|IRA|DIMITRI|DEVIN|HAMOUS|SLAY)([^A-Za-z0-9_]|$)"
+    retired_semantic_profile_alias
+    "${semantic_profile_runtime_caller_contents}")
+  if(retired_semantic_profile_alias)
+    message(FATAL_ERROR
+      "Campaign-colliding raw profile alias returned in ${semantic_profile_runtime_caller}: ${retired_semantic_profile_alias}")
   endif()
 endforeach()
 
@@ -758,12 +815,20 @@ if(required_profile_layout_position EQUAL -1)
   message(FATAL_ERROR
     "Legacy profile layout lost its stable RPC65 alias")
 endif()
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])(MIGUEL|CARLOS|IRA|DIMITRI|DEVIN|ROBOT|HAMOUS|SLAY)([^A-Za-z0-9_]|$)"
+  retired_profile_enumerator "${runtime_campaign_profile_layout_contents}")
+if(retired_profile_enumerator)
+  message(FATAL_ERROR
+    "Shared profile layout regained campaign-colliding alias '${retired_profile_enumerator}'")
+endif()
 
 file(READ "${SOURCE_ROOT}/Laptop/email.h"
   runtime_campaign_mercenary_email_contents)
 foreach(required_mercenary_email_fragment IN ITEMS
     "JA2_EMAIL_AIM_MEDICAL_DEPOSIT_REFUND = 26"
     "JA25_EMAIL_AIM_MEDICAL_DEPOSIT_REFUND = 27"
+    "JA2_EMAIL_ENRICO_MIGUEL = 149"
     "JA2_EMAIL_JOHN_KULBA_MISSED_FLIGHT_1 = 224")
   string(FIND "${runtime_campaign_mercenary_email_contents}"
     "${required_mercenary_email_fragment}" required_mercenary_email_position)
@@ -807,6 +872,17 @@ file(READ "${SOURCE_ROOT}/tests/campaign_mercenary_policy_tests.cpp"
 foreach(required_mercenary_policy_assertion IN ITEMS
     "GameCampaign::Arulco"
     "GameCampaign::UnfinishedBusiness"
+    "arulcoProfiles"
+    "{57, 58, 59, 60, 61, 62, 63, 64}"
+    "unfinishedBusinessProfiles"
+    "{58, 59, 60, 61, 62, 63, 64, 65}"
+    "CampaignProfileCode::Role::Miguel"
+    "CampaignProfileCode::Role::Carlos"
+    "CampaignProfileCode::Role::Ira"
+    "CampaignProfileCode::Role::Dimitri"
+    "CampaignProfileCode::Role::Devin"
+    "CampaignProfileCode::Role::Robot"
+    "CampaignProfileCode::Role::Hamous"
     "CampaignProfileCode::Role::Slay")
   string(FIND "${runtime_campaign_mercenary_test_contents}"
     "${required_mercenary_policy_assertion}"

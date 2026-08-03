@@ -49,6 +49,8 @@
 #include "LuaInitNPCs.h"		// added by Flugente
 #include "Soldier macros.h"		// added by Flugente
 #include "Creature Spreading.h"	// added by Flugente
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 #ifdef JA2UB
 #else
@@ -632,14 +634,17 @@ BOOLEAN AddPlacementToWorld( SOLDIERINITNODE *curr, GROUP *pGroup = NULL )
 			{
 				if( curr->pDetailedPlacement->ubBodyType == ICECREAMTRUCK )
 				{ //Check to see if Hamous is here and not recruited.	If so, add truck
-					if( gMercProfiles[ HAMOUS ].sSectorX != gWorldSectorX ||
-						gMercProfiles[ HAMOUS ].sSectorY != gWorldSectorY ||
-						gMercProfiles[ HAMOUS ].bSectorZ )
+					const UINT8 hamous = CampaignMercenaryPolicy(
+						GetGameContext().capabilities())
+						.profile(CampaignProfileCode::Role::Hamous);
+					if( gMercProfiles[ hamous ].sSectorX != gWorldSectorX ||
+						gMercProfiles[ hamous ].sSectorY != gWorldSectorY ||
+						gMercProfiles[ hamous ].bSectorZ )
 					{ //not here, so don't add
 						return TRUE;
 					}
 					//Hamous is here.	Check to make sure he isn't recruited.
-					if( gMercProfiles[ HAMOUS ].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED )
+					if( gMercProfiles[ hamous ].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED )
 					{
 						return TRUE;
 					}

@@ -29,6 +29,8 @@
 	#include "Soldier macros.h"
 	#include "strategicmap.h"
 	#include "DynamicDialogue.h"			// added by Flugente
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -170,7 +172,9 @@ BOOLEAN ApplyFood( TacticalActor *pSoldier, OBJECTTYPE *pObject, UINT16 usPoints
 		return( FALSE);
 
 	// dont feed our machines
-	if ( pSoldier->identity().profile() == ROBOT || IsVehicle(pSoldier) )
+	if ( CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+			pSoldier->identity().profile(), CampaignProfileCode::Role::Robot) ||
+		IsVehicle(pSoldier) )
 		return( FALSE);
 
 	UINT32 foodtype = Item[pObject->usItem].foodtype;
@@ -769,6 +773,8 @@ void EatFromInventory( TacticalActor *pSoldier, BOOLEAN fcanteensonly )
 
 void HourlyFoodUpdate( void )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	SoldierID bMercID, bLastTeamID;
 	TacticalActor * pSoldier = NULL;
 
@@ -780,7 +786,10 @@ void HourlyFoodUpdate( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 		//if the merc is active, and in Arulco
-		if ( pSoldier && pSoldier->roster().active() && !AM_AN_EPC(pSoldier) && pSoldier->identity().profile() != ROBOT && !IsVehicle(pSoldier) && !(pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
+		if ( pSoldier && pSoldier->roster().active() && !AM_AN_EPC(pSoldier) &&
+			!mercenaryPolicy.isProfile(
+				pSoldier->identity().profile(), CampaignProfileCode::Role::Robot) &&
+			!IsVehicle(pSoldier) && !(pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
 		{			
 			// digestion
 			HourlyFoodSituationUpdate( pSoldier );
@@ -1148,7 +1157,9 @@ void DrinkFromWaterTap( TacticalActor* pSoldier )
 		return;
 
 	// dont feed our machines
-	if ( pSoldier->identity().profile() == ROBOT || IsVehicle( pSoldier ) )
+	if ( CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+			pSoldier->identity().profile(), CampaignProfileCode::Role::Robot) ||
+		IsVehicle( pSoldier ) )
 		return;
 
 	if ( UsingFoodSystem() )

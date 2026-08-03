@@ -37,6 +37,8 @@
 	#include "random.h"
 
 #include "GameInitOptionsScreen.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 #define MAX_MEANWHILE_PROFILES	10
 
@@ -720,6 +722,9 @@ BOOLEAN AreInMeanwhile( )
 
 void ProcessImplicationsOfMeanwhile( void )
 {
+	const UINT8 robot = CampaignMercenaryPolicy(
+		GetGameContext().capabilities())
+		.profile(CampaignProfileCode::Role::Robot);
 	switch( gCurrentMeanwhileDef.ubMeanwhileID )
 	{
 		case END_OF_PLAYERS_FIRST_BATTLE:
@@ -814,9 +819,9 @@ void ProcessImplicationsOfMeanwhile( void )
 				gMercProfiles[ MADLAB ].sSectorY = sSectorY;
 				gMercProfiles[ MADLAB ].bSectorZ = 0;
 
-				gMercProfiles[ ROBOT ].sSectorX = sSectorX;
-				gMercProfiles[ ROBOT ].sSectorY = sSectorY;
-				gMercProfiles[ ROBOT ].bSectorZ = 0;
+				gMercProfiles[ robot ].sSectorX = sSectorX;
+				gMercProfiles[ robot ].sSectorY = sSectorY;
+				gMercProfiles[ robot ].bSectorZ = 0;
 			}
 			break;
 		case NW_SAM:

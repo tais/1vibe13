@@ -2685,7 +2685,11 @@ void HandleQuestCodeOnSectorEntry( INT16 sNewSectorX, INT16 sNewSectorY, INT8 bN
 	if ( CheckFact( FACT_ROBOT_RECRUITED_AND_MOVED, 0 ) == FALSE )
 	{
 		TacticalActor * pRobot;
-		pRobot = FindSoldierByProfileID( ROBOT, TRUE );
+		pRobot = FindSoldierByProfileID(
+			CampaignProfileCode::profile(
+				GetGameContext().capabilities().campaign,
+				CampaignProfileCode::Role::Robot),
+			TRUE );
 		if ( pRobot )
 		{
 			// robot is on our team and we have changed sectors, so we can
@@ -6198,7 +6202,7 @@ void HandleSlayDailyEvent( void )
 		return;
 	}
 
-	// ATE: This function is used to check for the ultimate last day SLAY can stay for
+	// ATE: This function checks the ultimate last day Slay can stay.
 	// he may decide to leave randomly while asleep...
 	//if the user hasnt renewed yet, and is still leaving today
 	if ( (pSoldier->employment().endTime() / 1440) <= (INT32)GetWorldDay( ) )

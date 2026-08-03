@@ -35,6 +35,8 @@
 	#include "Soldier Profile.h"
 	#include "Rotting Corpses.h"	// sevenfm
 	#include "SoldierRepository.h"
+	#include "CampaignMercenaryPolicy.h"
+	#include "GameContext.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1284,7 +1286,9 @@ INT32 FindSpotMaxDistFromOpponents(TacticalActor *pSoldier)
 		}
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->identity().profile() != SLAY)
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY &&
+			!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+				pOpponent->identity().profile(), CampaignProfileCode::Role::Slay))
 		{
 			continue;	// next opponent
 		}

@@ -18,6 +18,8 @@
 #include "Text.h"
 #include "_Ja25EnglishText.h"
 #include "Soldier Profile.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 #include "SaveLoadScreen.h"
 #include <vfs/Core/vfs.h>
 #include <vfs/Tools/vfs_property_container.h>
@@ -2400,7 +2402,10 @@ void DoneFadeOutForExitGameInitOptionScreen( void )
 	{
 		if( gfKeyState[ CTRL ] )
 		{
-			gMercProfiles[ MIGUEL ].bMercStatus = MERC_IS_DEAD;
+			gMercProfiles[CampaignMercenaryPolicy(
+				GetGameContext().capabilities())
+				.profile(CampaignProfileCode::Role::Miguel)].bMercStatus =
+				MERC_IS_DEAD;
 			gMercProfiles[ SKYRIDER ].bMercStatus = MERC_IS_DEAD;
 		}
 
@@ -4688,7 +4693,10 @@ void DoneFadeOutForExitGameInitOptionScreen( void )
 	{
 		if( gfKeyState[ CTRL ] )
 		{
-			gMercProfiles[ MIGUEL ].bMercStatus = MERC_IS_DEAD;
+			gMercProfiles[CampaignMercenaryPolicy(
+				GetGameContext().capabilities())
+				.profile(CampaignProfileCode::Role::Miguel)].bMercStatus =
+				MERC_IS_DEAD;
 			gMercProfiles[ SKYRIDER ].bMercStatus = MERC_IS_DEAD;
 		}
 
@@ -4786,4 +4794,3 @@ void RenderGIOSmallSelectionFrame(INT16 sX, INT16 sY)
 }
 
 #endif
-

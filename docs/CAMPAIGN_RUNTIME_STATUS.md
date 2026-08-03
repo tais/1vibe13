@@ -15,7 +15,10 @@ lifecycle/router emit both campaign paths and select them through
 transactions now do the same through `CampaignDealerPolicy`. Mercenary profile
 loading, hiring and arrival, recruitment, creation, contract refunds, daily
 availability, and campaign-specific Slay handling use
-`CampaignMercenaryPolicy`.
+`CampaignMercenaryPolicy`. Tactical AI, strategic events, laptop/personnel UI,
+multiplayer, save migration, and tactical gameplay now resolve Miguel through
+Slay by semantic role as well. The shared profile enum no longer exposes raw
+campaign-colliding aliases.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -34,14 +37,14 @@ record numbers.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 275 active conditionals in 63
+milestone its per-file baseline contains 265 active conditionals in 58
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
-| Laptop content/pages | 147 |
-| Tactical gameplay/content | 54 |
-| Strategic gameplay/content | 55 |
+| Laptop content/pages | 146 |
+| Tactical gameplay/content | 52 |
+| Strategic gameplay/content | 48 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 8 |
 | Editor | 1 |
@@ -60,12 +63,12 @@ compiled host-capability seed, the two alternate new-game-screen
 implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;
 they are deliberately separate compatibility seams.
 
-One profile-enum conditional remains in `Tactical/Soldier Profile.h`: the raw
-legacy aliases from Miguel through Slay collide with the next campaign's IDs.
-Migrated lifecycle callers no longer use those aliases, but unrelated content
-callers still do. Removing that final header guard requires completing the
-repository-wide semantic-profile migration rather than assigning one
-campaign's meaning to shared raw names.
+The repository-wide semantic-profile migration is complete for the colliding
+Miguel-through-Slay range. `Tactical/Soldier Profile.h` retains the stable raw
+slot boundary at 65 but contains neither a campaign guard nor campaign-specific
+names for slots 57-65. Gameplay callers resolve those meanings through
+`CampaignProfileCode::Role` and `CampaignMercenaryPolicy`; architecture CI
+rejects restoration of the retired raw aliases.
 
 The largest individual legacy leaves are:
 
@@ -74,8 +77,8 @@ The largest individual legacy leaves are:
 | `Laptop/mercs.cpp` | 48 |
 | `Laptop/AimLinks.cpp` | 16 |
 | `Laptop/email.cpp` | 14 |
-| `Strategic/mapscreen.cpp` | 14 |
 | `Laptop/mercs Account.cpp` | 12 |
+| `Strategic/mapscreen.cpp` | 12 |
 | `Strategic/LuaInitNPCs.cpp` | 11 |
 | `Laptop/mercs Files.cpp` | 10 |
 | `Laptop/AimMembers.cpp` | 9 |

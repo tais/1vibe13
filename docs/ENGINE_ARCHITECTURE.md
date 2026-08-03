@@ -959,15 +959,16 @@ the engine must not contain SDL types in its public domain model.
   `JA25PROF.DAT` at runtime; hiring gear, initial arrival and helicopter
   behavior, John Kulba delays, initial away assignments, RPC recruitment,
   sector coolness, AIM availability notices, medical-deposit refunds, and
-  daily Slay/contract rules are all emitted in every host. Semantic profile
-  roles resolve the established Miguel-through-Slay one-slot shift without
-  changing raw profile data, and campaign-qualified email and Speck quote IDs
-  retain their existing records. Data-free tests cover both campaign policies,
-  while architecture CI rejects compile-time campaign identity and checks
-  runtime role routing in the six migrated lifecycle implementations.
-  The one remaining profile-enum guard is an explicit compatibility seam for
-  unrelated legacy callers and will disappear with the repository-wide
-  semantic-profile migration.
+  daily Slay/contract rules are all emitted in every host. The semantic-profile
+  migration now covers tactical AI, strategic events, laptop/personnel UI,
+  multiplayer, save migration, and tactical gameplay too. Semantic roles
+  resolve the established Miguel-through-Slay one-slot shift without changing
+  raw profile data; the shared profile enum no longer declares campaign-
+  colliding raw aliases or selects them at compile time. Campaign-qualified
+  email and Speck quote IDs retain their existing records. Data-free tests pin
+  all eight role mappings in both campaigns, while architecture CI rejects
+  compile-time campaign identity, restoration of the raw aliases, or removal
+  of runtime role routing from the migrated implementations.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

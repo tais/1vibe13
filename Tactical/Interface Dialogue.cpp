@@ -79,6 +79,7 @@
 	#include "TacticalEntityHost.h"
 #include "Simulation Commands.h"
 #include "GameContext.h"
+#include "CampaignMercenaryPolicy.h"
 #include "SoldierRepository.h"
 #include "LuaInitNPCs.h"
 #include "Luaglobal.h"
@@ -2038,6 +2039,8 @@ bool TryHandleCampaignDialogueAction(
 
 void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	SoldierID	cnt;
 	TacticalActor *pSoldier, *pSoldier2;
 	TacticalActor* dialogueDestination =
@@ -2155,7 +2158,11 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				gMercProfiles[ 60 ].sSectorY = 1;
 				gMercProfiles[ 60 ].bSectorZ = 1;
 */
-				ChangeNpcToDifferentSector( DIMITRI, gModSettings.ubHideoutSectorX, gModSettings.ubHideoutSectorY, gModSettings.ubHideoutSectorZ);
+				ChangeNpcToDifferentSector(
+					mercenaryPolicy.profile(CampaignProfileCode::Role::Dimitri),
+					gModSettings.ubHideoutSectorX,
+					gModSettings.ubHideoutSectorY,
+					gModSettings.ubHideoutSectorZ);
 
 				gFadeOutDoneCallback = DoneFadeOutActionBasement;
 
@@ -3321,9 +3328,13 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 					CancelAIAction( pSoldier, FORCE );
 					// make stand up if not standing already
-					if ( ubTargetNPC == SLAY && pSoldier->identity().bodyType() == CRIPPLECIV )
+					if ( mercenaryPolicy.isProfile(
+							ubTargetNPC, CampaignProfileCode::Role::Slay) &&
+						pSoldier->identity().bodyType() == CRIPPLECIV )
 					{
-						HandleNPCDoAction( SLAY, NPC_ACTION_GET_OUT_OF_WHEELCHAIR, ubQuoteNum );
+						HandleNPCDoAction(
+							ubTargetNPC, NPC_ACTION_GET_OUT_OF_WHEELCHAIR,
+							ubQuoteNum );
 					}
 					else if (!PTR_STANDING)
 					{
@@ -3433,12 +3444,15 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 			case NPC_ACTION_MADLAB_ATTACHES_GOOD_CAMERA:
 				SetFactFalse( FACT_MADLAB_HAS_GOOD_CAMERA );
 				pSoldier = FindSoldierByProfileID( MADLAB, FALSE );
-				pSoldier2 = FindSoldierByProfileID( ROBOT, FALSE );
+				pSoldier2 = FindSoldierByProfileID(
+					mercenaryPolicy.profile(CampaignProfileCode::Role::Robot),
+					FALSE );
 
 				// WANNE: If we get the 2nd (repaired) robot, first recruit, then give the robot the weapon from madlab
 				if (gubFact[FACT_ROBOT_READY_SECOND_TIME] == TRUE)
 				{
-					RecruitEPC( ROBOT );
+					RecruitEPC(
+						mercenaryPolicy.profile(CampaignProfileCode::Role::Robot) );
 				}
 
 				// Give the robot the weapon, we gave madlab earlier
@@ -3456,7 +3470,8 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 				// WANNE: This is out first robot. Recruit it AFTER we gave him the weapon!
 				if (gubFact[FACT_ROBOT_READY_SECOND_TIME] == FALSE)
-					RecruitEPC( ROBOT );
+					RecruitEPC(
+						mercenaryPolicy.profile(CampaignProfileCode::Role::Robot) );
 				
 				break;
 
@@ -4401,14 +4416,18 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				break;
 
 			case NPC_ACTION_MAKE_MIGUEL_STATIONARY:
-				pSoldier = FindSoldierByProfileID( MIGUEL, FALSE );
+				{
+				const UINT8 miguel =
+					mercenaryPolicy.profile(CampaignProfileCode::Role::Miguel);
+				pSoldier = FindSoldierByProfileID( miguel, FALSE );
 				if ( pSoldier )
 				{
-					gMercProfiles[ MIGUEL ].ubMiscFlags3 |= PROFILE_MISC_FLAG3_PERMANENT_INSERTION_CODE;
-					gMercProfiles[ MIGUEL ].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-					gMercProfiles[ MIGUEL ].usStrategicInsertionData = pSoldier->position().gridNo();
-					gMercProfiles[ MIGUEL ].fUseProfileInsertionInfo = TRUE;
+					gMercProfiles[ miguel ].ubMiscFlags3 |= PROFILE_MISC_FLAG3_PERMANENT_INSERTION_CODE;
+					gMercProfiles[ miguel ].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+					gMercProfiles[ miguel ].usStrategicInsertionData = pSoldier->position().gridNo();
+					gMercProfiles[ miguel ].fUseProfileInsertionInfo = TRUE;
 					pSoldier->aiBehavior().orders() = STATIONARY;
+				}
 				}
 				break;
 

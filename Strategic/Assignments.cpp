@@ -91,6 +91,8 @@
 #include "TacticalActorSkills.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldItemHost.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 //forward declarations of common classes to eliminate includes
 extern int POP_UP_BOX_X;
@@ -8468,6 +8470,8 @@ int intelarray[INTEL_MAXINFO];
 
 void BuildIntelInfoArray()
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	int lastsectorofunknowngeneral = -1;
 
 	for ( int i = 0; i < INTEL_MAXINFO; ++i )
@@ -8521,7 +8525,8 @@ void BuildIntelInfoArray()
 		{
 			int cnt = i - ( 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID );
 			
-			int profile = SLAY;
+			int profile =
+				mercenaryPolicy.profile(CampaignProfileCode::Role::Slay);
 			if ( cnt == 1 )	profile = ANNIE;
 			else if ( cnt == 2 )	profile = CHRIS;
 			else if ( cnt == 3 )	profile = TIFFANY;

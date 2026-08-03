@@ -47,6 +47,8 @@
 
 // anv: for enemy taunts
 #include "Civ Quotes.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 extern INT16 DirIncrementer[8];
 
@@ -1794,7 +1796,9 @@ void CalcBestStab(TacticalActor *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBlade
 			continue;		
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->identity().profile() != SLAY)
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY &&
+			!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+				pOpponent->identity().profile(), CampaignProfileCode::Role::Slay))
 			continue;	// next opponent
 
 #ifdef DEBUGATTACKS

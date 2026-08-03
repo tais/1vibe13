@@ -48,6 +48,8 @@
 #include "TacticalEntityHost.h"
 #include "TacticalActorEquipment.h"
 #include "TacticalActorRadio.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // SANDRO - In this file, all APBPConstants[AP_CROUCH] and APBPConstants[AP_PRONE] were changed to GetAPsCrouch() and GetAPsProne()
@@ -1452,7 +1454,9 @@ INT32 ClosestKnownOpponent(TacticalActor *pSoldier, INT32 * psGridNo, INT8 * pbL
 			continue;
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->identity().profile() != SLAY)
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY &&
+			!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+				pOpponent->identity().profile(), CampaignProfileCode::Role::Slay))
 		{
 			continue;	// next opponent
 		}
@@ -1566,7 +1570,9 @@ INT32 ClosestSeenOpponent(TacticalActor *pSoldier, INT32 * psGridNo, INT8 * pbLe
 			continue;
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpp->identity().profile() != SLAY)
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY &&
+			!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+				pOpp->identity().profile(), CampaignProfileCode::Role::Slay))
 		{
 			continue;	// next opponent
 		}
@@ -1662,7 +1668,9 @@ INT32 ClosestSeenOpponentWithRoof(TacticalActor *pSoldier, INT32 * psGridNo, INT
 			continue;
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpp->identity().profile() != SLAY)
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY &&
+			!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+				pOpp->identity().profile(), CampaignProfileCode::Role::Slay))
 		{
 			continue;	// next opponent
 		}
@@ -2472,7 +2480,9 @@ INT8 CalcMorale(TacticalActor *pSoldier)
 			continue;			// next merc
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->identity().profile() != SLAY)
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY &&
+			!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+				pOpponent->identity().profile(), CampaignProfileCode::Role::Slay))
 		{
 			continue;	// next opponent
 		}
@@ -3768,7 +3778,9 @@ INT8 CalcMoraleNew(TacticalActor *pSoldier)
 			continue;			// next merc
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->identity().profile() != SLAY)
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY &&
+			!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+				pOpponent->identity().profile(), CampaignProfileCode::Role::Slay))
 		{
 			continue;	// next opponent
 		}
@@ -4834,7 +4846,9 @@ BOOLEAN ValidOpponent(TacticalActor* pSoldier, TacticalActor* pOpponent)
 		pOpponent->vitals().health() == 0 ||
 		CONSIDERED_NEUTRAL(pSoldier, pOpponent) ||
 		pSoldier->roster().side() == pOpponent->roster().side() ||
-		pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->identity().profile() != SLAY ||
+		pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY &&
+			!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+				pOpponent->identity().profile(), CampaignProfileCode::Role::Slay) ||
 		(pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle(pOpponent->vehicleState().tacticalVehicleId()) == 0) ||
 		gTacticalStatus.bBoxingState == BOXING && (pSoldier->status().flags() & SOLDIER_BOXER) && !(pOpponent->status().flags() & SOLDIER_BOXER) ||
 		pOpponent->identity().bodyType() == CROW)

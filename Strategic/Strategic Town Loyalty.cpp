@@ -42,6 +42,7 @@
 #include <language.hpp>
 
 #include "GameInitOptionsScreen.h"
+#include "CampaignMercenaryPolicy.h"
 extern WorldItems gAllWorldItems;
 
 // loyalty Omerta drops to and maxes out at if the player betrays the rebels
@@ -1994,11 +1995,10 @@ void CheckIfEntireTownHasBeenLiberated( INT8 bTownId, INT16 sSectorX, INT16 sSec
 			// set fact is has been lib'ed and set history event
 			AddHistoryToPlayersLog( HISTORY_LIBERATED_TOWN, bTownId, GetWorldTotalMin(), sSectorX, sSectorY );
 
-#ifdef JA2UB
-//Ja25: No meanhwiles
-#else
-			HandleMeanWhileEventPostingForTownLiberation( bTownId );
-#endif
+			if ( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				HandleMeanWhileEventPostingForTownLiberation( bTownId );
+			}
 
 			// Flugente: campaign stats: if we captured an entire city for the first time, take note of that. We don't have to note the city here, as that is obvious from the sector anyway
 			gCurrentIncident.usOneTimeEventFlags |= INCIDENT_ONETIMEEVENT_CITY_LIBERATED;
@@ -2028,15 +2028,12 @@ void CheckIfEntireTownHasBeenLost( INT8 bTownId, INT16 sSectorX, INT16 sSectorY 
 	if ( MilitiaTrainingAllowedInSector( sSectorX, sSectorY, 0 ) && IsTownUnderCompleteControlByEnemy(bTownId) )
 	{
 
-#ifdef JA2UB
-//Ja25 No meanwhile
-#else
-		// the whole town is under enemy control, check if we libed this town before
-		if ( gTownLoyalty[ bTownId ].fLiberatedAlready )
+		if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
+			gTownLoyalty[ bTownId ].fLiberatedAlready )
 		{
+			// the whole town is under enemy control after having been liberated
 			HandleMeanWhileEventPostingForTownLoss( bTownId );
 		}
-#endif
 	}
 }
 
@@ -2050,14 +2047,18 @@ void HandleLoyaltyChangeForNPCAction( UINT8 ubNPCProfileId )
 #ifdef LUA_STRATEGY_TOWN_LOYALTY
 		LetHandleLoyaltyChangeForNPCAction( ubNPCProfileId, 0 );
 #else
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
+	if ( mercenaryPolicy.isProfile(
+			ubNPCProfileId, CampaignProfileCode::Role::Miguel) )
+	{
+		// Omerta loyalty increases when Miguel receives Enrico's letter.
+		IncrementTownLoyalty( OMERTA, LOYALTY_BONUS_MIGUEL_READS_LETTER );
+		return;
+	}
 
 	switch ( ubNPCProfileId )
 	{
-		case MIGUEL:
-			// Omerta loyalty increases when Miguel receives letter from Enrico
-			IncrementTownLoyalty( OMERTA, LOYALTY_BONUS_MIGUEL_READS_LETTER );
-			break;
-
 		case DOREEN:
 			// having freed the child labourers... she is releasing them herself!
 			IncrementTownLoyalty( DRASSEN, LOYALTY_BONUS_CHILDREN_FREED_DOREEN_SPARED );
@@ -2082,14 +2083,13 @@ void HandleLoyaltyChangeForNPCAction( UINT8 ubNPCProfileId )
 			// NOTE: This affects Chitzena,too, a second time, so first value is discounted for it
 			IncrementTownLoyaltyEverywhere( LOYALTY_BONUS_YANNI_WHEN_CHALICE_RETURNED_GLOBAL );
 			break;
-#ifdef JA2UB
-// ja25 UB
-#else      
 		case AUNTIE:
-			// Bloodcats killed
-			IncrementTownLoyalty( ALMA, LOYALTY_BONUS_AUNTIE_WHEN_BLOODCATS_KILLED );
+			if ( !mercenaryPolicy.usesUnfinishedBusinessRules() )
+			{
+				// Bloodcats killed
+				IncrementTownLoyalty( ALMA, LOYALTY_BONUS_AUNTIE_WHEN_BLOODCATS_KILLED );
+			}
 			break;
-#endif
 		case MATT:
 			// Brother Dynamo freed
 			IncrementTownLoyalty( ALMA, LOYALTY_BONUS_MATT_WHEN_DYNAMO_FREED );

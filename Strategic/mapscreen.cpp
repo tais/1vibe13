@@ -112,6 +112,8 @@
 
 #include "connect.h" //hayden
 #include "InterfaceItemImages.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 #include <language.hpp>
 
 #ifdef JA2UB
@@ -3122,7 +3124,9 @@ void DrawCharacterInfo(INT16 sCharNumber)
 		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}
 	// what kind of merc
-	else if(pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || pSoldier->identity().profile() == SLAY )
+	else if(pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ||
+		CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+			pSoldier->identity().profile(), CampaignProfileCode::Role::Slay) )
 	{
 		FLOAT dTimeLeft = 0.0;
 
@@ -15818,19 +15822,18 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 
 INT32 GetContractExpiryTime( TacticalActor *pSoldier )
 {
-#ifdef JA2UB
-/* JA25 UB  */
-#else
-	if( ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) || ( pSoldier->identity().profile() == SLAY ) )
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
+	if( !mercenaryPolicy.usesUnfinishedBusinessRules() &&
+		( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ||
+			mercenaryPolicy.isProfile(
+				pSoldier->identity().profile(), CampaignProfileCode::Role::Slay) ) )
 	{
 		return ( pSoldier->employment().endTime() );
 	}
-	else	
-#endif
-	{
-		// never - really high number
-		return ( 999999 );
-	}
+
+	// never - really high number
+	return ( 999999 );
 }
 
 
@@ -16885,16 +16888,18 @@ void GetMapscreenMercDestinationString( TacticalActor *pSoldier, CHAR16 sString[
 
 void GetMapscreenMercDepartureString( TacticalActor *pSoldier, CHAR16 sString[], UINT8 *pubFontColor )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	INT32 iMinsRemaining = 0;
 	INT32 iDaysRemaining = 0;
 	INT32 iHoursRemaining = 0;
 
-#ifdef JA2UB
-//Ja25:		Removed the aim merc check because aim mercs are hired for a 1 time fee
-	if( ( pSoldier->identity().profile() != SLAY ) || pSoldier->vitals().health() == 0 )
-#else
-	if( ( pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC && pSoldier->identity().profile() != SLAY ) || pSoldier->vitals().health() == 0 )
-#endif
+	const bool isSlay = mercenaryPolicy.isProfile(
+		pSoldier->identity().profile(), CampaignProfileCode::Role::Slay);
+	const bool hasTimedContract = isSlay ||
+		(!mercenaryPolicy.usesUnfinishedBusinessRules() &&
+			pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC);
+	if( !hasTimedContract || pSoldier->vitals().health() == 0 )
 	{
 		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}

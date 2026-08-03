@@ -1,7 +1,8 @@
 	#include "types.h"
 	#include "MPScoreScreen.h"
 	#include "GameSettings.h"
-	#include "GameContext.h"
+#include "GameContext.h"
+#include "CampaignMercenaryPolicy.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "Font Control.h"
@@ -596,7 +597,10 @@ void DoneFadeOutForExitMPSScreen( void )
 	{
 		if( gfKeyState[ CTRL ] )
 		{
-			gMercProfiles[ MIGUEL ].bMercStatus = MERC_IS_DEAD;
+			gMercProfiles[CampaignMercenaryPolicy(
+				GetGameContext().capabilities())
+				.profile(CampaignProfileCode::Role::Miguel)].bMercStatus =
+				MERC_IS_DEAD;
 			gMercProfiles[ SKYRIDER ].bMercStatus = MERC_IS_DEAD;
 		}
 

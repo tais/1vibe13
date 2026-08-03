@@ -30,6 +30,7 @@
 #include "Queen Command.h"
 #include "SaveLoadGame.h"
 #include "GameContext.h"
+#include "CampaignMercenaryPolicy.h"
 #include "RuntimeSaveState.h"
 #include "SoldierRepository.h"
 #include "TacticalEntityHost.h"
@@ -6416,15 +6417,18 @@ if( g_lang == i18n::Lang::de ) {
 	// Fix robot
 	if ( guiCurrentSaveGameVersion <= 87 )
 	{
-		if ( gMercProfiles[ ROBOT ].inv[ VESTPOS ] == SPECTRA_VEST )
+		const UINT8 robot = CampaignMercenaryPolicy(
+			GetGameContext().capabilities())
+			.profile(CampaignProfileCode::Role::Robot);
+		if ( gMercProfiles[ robot ].inv[ VESTPOS ] == SPECTRA_VEST )
 		{
 			// update this
-			gMercProfiles[ ROBOT ].inv[ VESTPOS ] = SPECTRA_VEST_18;
-			gMercProfiles[ ROBOT ].inv[ HELMETPOS ] = SPECTRA_HELMET_18;
-			gMercProfiles[ ROBOT ].inv[ LEGPOS ] = SPECTRA_LEGGINGS_18;
-			gMercProfiles[ ROBOT ].bAgility = 50;
+			gMercProfiles[ robot ].inv[ VESTPOS ] = SPECTRA_VEST_18;
+			gMercProfiles[ robot ].inv[ HELMETPOS ] = SPECTRA_HELMET_18;
+			gMercProfiles[ robot ].inv[ LEGPOS ] = SPECTRA_LEGGINGS_18;
+			gMercProfiles[ robot ].bAgility = 50;
 
-			TacticalActor* pSoldier = FindSoldierByProfileID( ROBOT, FALSE );
+			TacticalActor* pSoldier = FindSoldierByProfileID( robot, FALSE );
 			if ( pSoldier )
 			{
 				pSoldier->inventory()[ VESTPOS ].usItem = SPECTRA_VEST_18;

@@ -112,6 +112,8 @@
 #include "mapscreen.h"
 
 #include "MessageBoxScreen.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_init.h>
@@ -1550,6 +1552,8 @@ void recieveDISMISS(RPCParameters *rpcParameters)
 
 void recieveHIRE(RPCParameters *rpcParameters)
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	RPC_REQUIRE_BYTES(rpcParameters, send_hire_struct);	// short-frame guard (M6/H13)
 	send_hire_struct* sHireMerc = (send_hire_struct*)rpcParameters->input;
 
@@ -1612,7 +1616,8 @@ void recieveHIRE(RPCParameters *rpcParameters)
 	pSoldier->awareness().markVisible();
 #endif
 
-	if(MercCreateStruct.ubProfile==SLAY)//slay
+	if(mercenaryPolicy.isProfile(
+			MercCreateStruct.ubProfile, CampaignProfileCode::Role::Slay))
 	{
 		pSoldier->identity().bodyType() = REGMALE;
 		gMercProfiles[ pSoldier->identity().profile() ].ubBodyType = REGMALE;

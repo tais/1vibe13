@@ -81,6 +81,8 @@
 #include "Plan.h"
 #include "PlanFactoryLibrary.h"
 #include "AbstractPlanFactory.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 #ifdef JA2UB
 #include "Ja25_Tactical.h"
@@ -1225,7 +1227,10 @@ SoldierID GetMostThreateningOpponent( TacticalActor *pSoldier )
 			continue;
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pTargetSoldier->identity().profile() != SLAY)
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY &&
+			!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+				pTargetSoldier->identity().profile(),
+				CampaignProfileCode::Role::Slay))
 		{
 			continue;  // next opponent
 		}

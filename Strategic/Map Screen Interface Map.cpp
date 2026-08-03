@@ -55,6 +55,8 @@
 #include "Facilities.h"
 
 #include "LaptopSave.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 #include <language.hpp>
 
 // added by Flugente
@@ -8685,6 +8687,8 @@ extern BOOLEAN GetFacilityProductionState( INT16 sSectorX, INT16 sSectorY, INT8 
 
 void DetermineMapIntelData( INT32 asSectorZ )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	// clear data
 	for ( int i = 0; i < 256; ++i )
 	{
@@ -8728,7 +8732,8 @@ void DetermineMapIntelData( INT32 asSectorZ )
 		// uncovered terrorists we know of
 		for ( int cnt = 0; cnt < 6; ++cnt )
 		{
-			int profile = SLAY;
+			int profile =
+				mercenaryPolicy.profile(CampaignProfileCode::Role::Slay);
 			if		( cnt == 1 )	profile = ANNIE;
 			else if ( cnt == 2 )	profile = CHRIS;
 			else if ( cnt == 3 )	profile = TIFFANY;
