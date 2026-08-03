@@ -67,6 +67,7 @@ set(engine_core_public_headers
   RuntimeSaveContainer.h
   RuntimeSession.h
   RuntimeUpdate.h
+  ResourceHandleSet.h
   ServiceCatalog.h
   SimulationTick.h
   StateController.h

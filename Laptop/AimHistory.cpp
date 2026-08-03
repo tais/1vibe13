@@ -6,12 +6,15 @@
 	#include "WordWrap.h"
 	#include "Encrypted File.h"
 	#include "Text.h"
+	#include "LaptopPageResourceOwner.h"
+	#include "LaptopSafety.h"
 
 #include "LocalizedStrings.h"
 
 // Defines
 
-#define	NUM_AIM_HISTORY_PAGES					5
+#define	NUM_AIM_HISTORY_CONTENT_PAGES		5
+#define	NUM_AIM_HISTORY_PAGES					(NUM_AIM_HISTORY_CONTENT_PAGES + 1)
 
 #define AIM_HISTORY_TITLE_FONT				FONT14ARIAL
 #define AIM_HISTORY_TITLE_COLOR				AIM_GREEN
@@ -65,7 +68,7 @@ void ResetAimHistoryButtons();
 void DisableAimHistoryButton();
 
 
-MOUSE_REGION	gSelectedHistoryTocMenuRegion[ NUM_AIM_HISTORY_PAGES ];
+MOUSE_REGION	gSelectedHistoryTocMenuRegion[ NUM_AIM_HISTORY_CONTENT_PAGES ];
 void SelectHistoryTocMenuRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
 //Bottom Menu Buttons
@@ -81,6 +84,13 @@ BOOLEAN DisplayAimHistoryParagraph(UINT8	ubPageNum, UINT8 ubNumParagraphs);
 BOOLEAN InitTocMenu();
 BOOLEAN ExitTocMenu();
 void ChangingAimHistorySubPage( UINT8 ubSubPageNumber );
+
+namespace
+{
+LaptopPageResourceOwner gAimHistoryResources;
+LaptopPageResourceOwner gAimHistoryMenuResources;
+LaptopPageResourceOwner gAimHistoryTocResources;
+}
 
 
 // These enums represent which paragraph they are located in the AimHist.edt file
@@ -118,24 +128,37 @@ void GameInitAimHistory()
 
 void EnterInitAimHistory()
 {
-	memset( &AimHistorySubPagesVisitedFlag, 0, NUM_AIM_HISTORY_PAGES);
+	memset(AimHistorySubPagesVisitedFlag, 0,
+		sizeof(AimHistorySubPagesVisitedFlag));
 }
 
 
 BOOLEAN EnterAimHistory()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner stagedResources;
 
 	gfExitingAimHistory = FALSE;
-	InitAimDefaults();
-	InitAimHistoryMenuBar();
+	ExitTocMenu();
+	gAimHistoryResources.clear();
 
 	// load the Content Buttons graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\ContentButton.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiContentButton));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiContentButton));
 
-	gubCurPageNum = (UINT8) giCurrentSubPage;
+	CHECKF(InitAimDefaults());
+	if (!InitAimHistoryMenuBar())
+	{
+		RemoveAimDefaults();
+		return FALSE;
+	}
+
+	gAimHistoryResources = std::move(stagedResources);
+
+	gubCurPageNum = IsValidLaptopIndex(
+		NUM_AIM_HISTORY_PAGES, giCurrentSubPage)
+		? static_cast<UINT8>(giCurrentSubPage) : 0;
 	RenderAimHistory();
 
 
@@ -148,14 +171,11 @@ BOOLEAN EnterAimHistory()
 void ExitAimHistory()
 {
 	gfExitingAimHistory = TRUE;
-	RemoveAimDefaults();
+	gAimHistoryResources.clear();
+	ExitTocMenu();
 	ExitAimHistoryMenuBar();
-
-	DeleteVideoObjectFromIndex(guiContentButton);
+	RemoveAimDefaults();
 	giCurrentSubPage = gubCurPageNum;
-
-	if(gfInToc)
-		ExitTocMenu();
 
 }
 
@@ -259,18 +279,23 @@ void RenderAimHistory()
 BOOLEAN InitAimHistoryMenuBar(void)
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner stagedResources;
 	UINT16					i, usPosX;
+
+	gAimHistoryMenuResources.clear();
 
 	// load the Bottom Buttons graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BottomButton.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBottomButton));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiBottomButton));
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BottomButton2.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBottomButton2));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiBottomButton2));
 
-	guiHistoryMenuButtonImage =	LoadButtonImage("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1 );
+	CHECKF(stagedResources.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1),
+		guiHistoryMenuButtonImage));
 	usPosX = AIM_HISTORY_MENU_X;
 	for(i=0; i<AIM_HISTORY_MENU_BUTTON_AMOUNT; i++)
 	{
@@ -280,12 +305,13 @@ BOOLEAN InitAimHistoryMenuBar(void)
 //		SetButtonCursor(guiHistoryMenuButton[i], CURSOR_WWW);
 //		MSYS_SetBtnUserData( guiHistoryMenuButton[i], 0, i+1);
 
-		guiHistoryMenuButton[i] = CreateIconAndTextButton( guiHistoryMenuButtonImage, AimHistoryText[i+AIM_HISTORY_PREVIOUS], FONT10ARIAL,
-														AIM_BUTTON_ON_COLOR, DEFAULT_SHADOW,
+		const INT32 button = CreateIconAndTextButton( guiHistoryMenuButtonImage, AimHistoryText[i+AIM_HISTORY_PREVIOUS], FONT10ARIAL,
+												AIM_BUTTON_ON_COLOR, DEFAULT_SHADOW,
 														AIM_BUTTON_OFF_COLOR, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														usPosX, AIM_HISTORY_MENU_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnHistoryMenuButtonCallback);
+												usPosX, AIM_HISTORY_MENU_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnHistoryMenuButtonCallback);
+		CHECKF(stagedResources.addButton(button, guiHistoryMenuButton[i]));
 		SetButtonCursor(guiHistoryMenuButton[i], CURSOR_WWW);
 		MSYS_SetBtnUserData( guiHistoryMenuButton[i], 0, i+1);
 
@@ -294,21 +320,14 @@ BOOLEAN InitAimHistoryMenuBar(void)
 
 	}
 
+	gAimHistoryMenuResources = std::move(stagedResources);
 	return(TRUE);
 }
 
 
 BOOLEAN ExitAimHistoryMenuBar(void)
 {
-	int i;
-
-//	DeleteVideoObjectFromIndex(guiHistoryMenuButtonImage);
-	UnloadButtonImage( guiHistoryMenuButtonImage );
-
-
-	for(i=0; i<AIM_HISTORY_MENU_BUTTON_AMOUNT; i++)
- 		RemoveButton( guiHistoryMenuButton[i] );
-
+	gAimHistoryMenuResources.clear();
 	return(TRUE);
 }
 
@@ -350,7 +369,7 @@ void SelectHistoryMenuButtonsRegionCallBack(MOUSE_REGION * pRegion, INT32 iReaso
 			//Next Page
 			else if( rValue == 4 )
 			{
-				if( gubCurPageNum < NUM_AIM_HISTORY_PAGES )
+				if( gubCurPageNum < NUM_AIM_HISTORY_CONTENT_PAGES )
 				{
 					gubCurPageNum++;
 					ChangingAimHistorySubPage( gubCurPageNum );
@@ -447,6 +466,8 @@ BOOLEAN InitTocMenu()
 {
 	UINT16		i, usPosY;
 	CHAR16		sText[400];
+	LaptopPageResourceOwner stagedResources;
+	const BOOLEAN initializeToc = !gfInToc;
 	UINT8		ubLocInFile[] = {
 					IN_THE_BEGINNING,
 					THE_ISLAND_METAVIRA,
@@ -455,11 +476,13 @@ BOOLEAN InitTocMenu()
 					INCORPORATION};
 
 	HVOBJECT	hContentButtonHandle;
+	if (initializeToc)
+		gAimHistoryTocResources.clear();
 
 	GetVideoObject(&hContentButtonHandle, guiContentButton);
 
 	usPosY = AIM_HISTORY_CONTENTBUTTON_Y;
-	for(i=0; i<NUM_AIM_HISTORY_PAGES; i++)
+	for(i=0; i<NUM_AIM_HISTORY_CONTENT_PAGES; i++)
 	{
 		if(!g_bUseXML_Strings)
 		{
@@ -471,12 +494,12 @@ BOOLEAN InitTocMenu()
 			Loc::GetString(Loc::AIM_HISTORY, L"Line", ubLocInFile[i], sText, 400);
 		}
 		//if the mouse regions havent been inited, init them
-		if( !gfInToc )
+		if(initializeToc)
 		{
 			//Mouse region for the history toc buttons
 			MSYS_DefineRegion( &gSelectedHistoryTocMenuRegion[i], AIM_HISTORY_TOC_X, usPosY, (UINT16)(AIM_HISTORY_TOC_X + AIM_CONTENTBUTTON_WIDTH), (UINT16)(usPosY + AIM_CONTENTBUTTON_HEIGHT), MSYS_PRIORITY_HIGH,
 									CURSOR_WWW, MSYS_NO_CALLBACK, SelectHistoryTocMenuRegionCallBack);
-			MSYS_AddRegion(&gSelectedHistoryTocMenuRegion[i]);
+			stagedResources.addRegion(gSelectedHistoryTocMenuRegion[i]);
 			MSYS_SetRegionUserData( &gSelectedHistoryTocMenuRegion[i], 0, i+1);
 		}
 
@@ -486,6 +509,8 @@ BOOLEAN InitTocMenu()
 
 		usPosY += AIM_HISTORY_TOC_GAP_Y;
 	}
+	if (initializeToc)
+		gAimHistoryTocResources = std::move(stagedResources);
 	gfInToc = TRUE;
 	return(TRUE);
 }
@@ -496,14 +521,8 @@ BOOLEAN InitTocMenu()
 
 BOOLEAN ExitTocMenu()
 {
-	UINT16 i;
-
-	if( gfInToc )
-	{
-		gfInToc = FALSE;
-		for(i=0; i<NUM_AIM_HISTORY_PAGES; i++)
-			MSYS_RemoveRegion( &gSelectedHistoryTocMenuRegion[i]);
-	}
+	gAimHistoryTocResources.clear();
+	gfInToc = FALSE;
 
 	return(TRUE);
 }
@@ -581,7 +600,7 @@ void BtnHistoryMenuButtonCallback(GUI_BUTTON *btn,INT32 reason)
 				//Next Page
 				else if( ubRetValue == 4 )
 				{
-					if( gubCurPageNum < NUM_AIM_HISTORY_PAGES )
+					if( gubCurPageNum < NUM_AIM_HISTORY_CONTENT_PAGES )
 					{
 						gubCurPageNum++;
 						ChangingAimHistorySubPage( gubCurPageNum );
@@ -642,6 +661,9 @@ void DisableAimHistoryButton()
 
 void ChangingAimHistorySubPage( UINT8 ubSubPageNumber )
 {
+	if (!IsValidLaptopIndex(NUM_AIM_HISTORY_PAGES, ubSubPageNumber))
+		return;
+
 	fLoadPendingFlag = TRUE;
 
 	if( AimHistorySubPagesVisitedFlag[ ubSubPageNumber ] == FALSE )

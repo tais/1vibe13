@@ -13,6 +13,7 @@
 	#include "GameSettings.h"
 	#include "english.h"
 	#include "sysutil.h"
+	#include "LaptopPageResourceOwner.h"
 
 #include "LocalizedStrings.h"
 #include <soldier profile type.h>
@@ -202,6 +203,13 @@ UINT8		GetNextAimAd( UINT8 ubCurrentAd );
 
 BOOLEAN		fFirstTimeIn=TRUE;
 
+namespace
+{
+LaptopPageResourceOwner gAimPageResources;
+LaptopPageResourceOwner gAimDefaultResources;
+LaptopPageResourceOwner gAimMenuResources;
+}
+
 //Hotkey Assignment
 void HandleAimKeyBoardInput();
 
@@ -220,62 +228,65 @@ void GameInitAIM()
 BOOLEAN EnterAIM()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner stagedResources;
 
 	gubWarningTimer = 0;
 	gubCurrentAdvertisment = AIM_AD_WARNING_BOX;
 	LaptopInitAim();
 
-	InitAimDefaults();
+	gAimPageResources.clear();
 
 	// load the MemberShipcard graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\membercard.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMemberCard));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiMemberCard));
 
 	// load the Policies graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Policies.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiPolicies));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiPolicies));
 
 	// load the Links graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Links.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiLinks));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiLinks));
 
 	// load the History graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_HISTORY );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiHistory));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiHistory));
 
 	// load the Wanring graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_WARNING );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiWarning));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiWarning));
 
 	// load the flower advertisment and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\flowerad_16.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFlowerAdvertisement));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiFlowerAdvertisement));
 
 	// load the your ad advertisment and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_YOURAD13 );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiAdForAdsImages));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiAdForAdsImages));
 
 	// load the insurance advertisment and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_INSURANCEAD10 );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsuranceAdImages));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiInsuranceAdImages));
 
 	// load the funeral advertisment and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_FUNERALAD9 );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFuneralAdImages));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiFuneralAdImages));
 
 	// load the funeral advertisment and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_BOBBYRAYAD21 );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBobbyRAdImages ));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiBobbyRAdImages ));
+
+	CHECKF(InitAimDefaults());
 
 
 
@@ -284,27 +295,27 @@ BOOLEAN EnterAIM()
 	//Mouse region for the MebershipCard
 	MSYS_DefineRegion( &gSelectedMemberCardRegion, MEMBERCARD_X, MEMBERCARD_Y , (MEMBERCARD_X + LINK_SIZE_X), (MEMBERCARD_Y + LINK_SIZE_Y), MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectMemberCardRegionCallBack );
-	MSYS_AddRegion(&gSelectedMemberCardRegion);
+	CHECKF(stagedResources.addRegion(gSelectedMemberCardRegion));
 
 	//Mouse region for the Policies
 	MSYS_DefineRegion( &gSelectedPoliciesRegion, POLICIES_X, POLICIES_Y , (POLICIES_X + LINK_SIZE_X), (POLICIES_Y + LINK_SIZE_Y), MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectPoliciesRegionCallBack );
-	MSYS_AddRegion(&gSelectedPoliciesRegion);
+	CHECKF(stagedResources.addRegion(gSelectedPoliciesRegion));
 
 	//Mouse region for the History
 	MSYS_DefineRegion( &gSelectedHistoryRegion, HISTORY_X, HISTORY_Y , (HISTORY_X + LINK_SIZE_X), (HISTORY_Y + LINK_SIZE_Y), MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectHistoryRegionCallBack );
-	MSYS_AddRegion(&gSelectedHistoryRegion);
+	CHECKF(stagedResources.addRegion(gSelectedHistoryRegion));
 
 	//Mouse region for the Links
 	MSYS_DefineRegion( &gSelectedLinksRegion, LINKS_X, LINKS_Y , (LINKS_X + LINK_SIZE_X), (LINKS_Y + LINK_SIZE_Y), MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinksRegionCallBack );
-	MSYS_AddRegion(&gSelectedLinksRegion);
+	CHECKF(stagedResources.addRegion(gSelectedLinksRegion));
 
 	//Mouse region for the Links
 	MSYS_DefineRegion( &gSelectedBannerRegion, AIM_AD_TOP_LEFT_X, AIM_AD_TOP_LEFT_Y, AIM_AD_BOTTOM_RIGHT_X, AIM_AD_BOTTOM_RIGHT_Y, MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectBannerRegionCallBack);
-	MSYS_AddRegion(&gSelectedBannerRegion);
+	CHECKF(stagedResources.addRegion(gSelectedBannerRegion));
 
 	// disable the region because only certain banners will be 'clickable'
 	MSYS_DisableRegion(&gSelectedBannerRegion);
@@ -312,6 +323,7 @@ BOOLEAN EnterAIM()
 	gubAimMenuButtonDown=255;
 
 	fFirstTimeIn = FALSE;
+	gAimPageResources = std::move(stagedResources);
 	RenderAIM();
 
 	return( TRUE );
@@ -324,26 +336,8 @@ void LaptopInitAim()
 
 void ExitAIM()
 {
+	gAimPageResources.clear();
 	RemoveAimDefaults();
-
-	DeleteVideoObjectFromIndex(guiMemberCard);
-	DeleteVideoObjectFromIndex(guiPolicies);
-	DeleteVideoObjectFromIndex(guiLinks);
-	DeleteVideoObjectFromIndex(guiHistory);
-	DeleteVideoObjectFromIndex(guiWarning);
-	DeleteVideoObjectFromIndex(guiFlowerAdvertisement);
-	DeleteVideoObjectFromIndex(guiAdForAdsImages);
-	DeleteVideoObjectFromIndex(guiInsuranceAdImages);
-	DeleteVideoObjectFromIndex(guiFuneralAdImages);
-	DeleteVideoObjectFromIndex(guiBobbyRAdImages);
-
-
-	// Remove Mouse Regions
-	MSYS_RemoveRegion( &gSelectedMemberCardRegion);
-	MSYS_RemoveRegion( &gSelectedPoliciesRegion);
-	MSYS_RemoveRegion( &gSelectedLinksRegion);
-	MSYS_RemoveRegion( &gSelectedHistoryRegion);
-	MSYS_RemoveRegion( &gSelectedBannerRegion);
 }
 
 void HandleAIM()
@@ -473,44 +467,45 @@ void SelectLinksRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 BOOLEAN InitAimDefaults()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner stagedResources;
+
+	gAimDefaultResources.clear();
 
 	// load the Rust bacground graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\rustbackground.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiRustBackGround));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiRustBackGround));
 
 	// load the Aim Symbol graphic and add it
 	if(gGameExternalOptions.gfUseNewStartingGearInterface)
 	{
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		GetMLGFilename( VObjectDesc.ImageFile, MLG_AIMSYMBOL_SMALL );
-		CHECKF(AddVideoObject(&VObjectDesc, &guiAimSymbol));
+		CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiAimSymbol));
 		//Mouse region for the Links
 		MSYS_DefineRegion( &gSelectedAimLogo, AIM_SYMBOL_SMALL_X, AIM_SYMBOL_SMALL_Y, AIM_SYMBOL_SMALL_X+AIM_SYMBOL_SMALL_WIDTH, AIM_SYMBOL_SMALL_Y+AIM_SYMBOL_SMALL_HEIGHT, MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectAimLogoRegionCallBack);
-		MSYS_AddRegion(&gSelectedAimLogo);
+		CHECKF(stagedResources.addRegion(gSelectedAimLogo));
 	}
 	else
 	{
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		GetMLGFilename( VObjectDesc.ImageFile, MLG_AIMSYMBOL );
-		CHECKF(AddVideoObject(&VObjectDesc, &guiAimSymbol));
+		CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiAimSymbol));
 		//Mouse region for the Links
 		MSYS_DefineRegion( &gSelectedAimLogo, AIM_SYMBOL_X, AIM_SYMBOL_Y, AIM_SYMBOL_X+AIM_SYMBOL_WIDTH, AIM_SYMBOL_Y+AIM_SYMBOL_HEIGHT, MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectAimLogoRegionCallBack);
-		MSYS_AddRegion(&gSelectedAimLogo);
+		CHECKF(stagedResources.addRegion(gSelectedAimLogo));
 	}
 
-
+	gAimDefaultResources = std::move(stagedResources);
 
 	return(TRUE);
 }
 
 BOOLEAN RemoveAimDefaults()
 {
-	DeleteVideoObjectFromIndex(guiRustBackGround);
-	DeleteVideoObjectFromIndex(guiAimSymbol);
-	MSYS_RemoveRegion( &gSelectedAimLogo);
+	gAimDefaultResources.clear();
 
 	return(TRUE);
 }
@@ -626,18 +621,23 @@ BOOLEAN InitAimMenuBar(void)
 {
 	UINT8	i;
 	UINT16	usPosX;
+	LaptopPageResourceOwner stagedResources;
 
-	guiBottomButtonImage =	LoadButtonImage("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1 );
+	gAimMenuResources.clear();
+	CHECKF(stagedResources.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1),
+		guiBottomButtonImage));
 
 	usPosX = BOTTOM_BUTTON_START_X;
 	for(i=0; i<BOTTOM_BUTTON_AMOUNT; i++)
 	{
-		guiBottomButtons[i] = CreateIconAndTextButton( guiBottomButtonImage, AimBottomMenuText[i], FONT10ARIAL,
-														AIM_BUTTON_ON_COLOR, DEFAULT_SHADOW,
+		const INT32 button = CreateIconAndTextButton( guiBottomButtonImage, AimBottomMenuText[i], FONT10ARIAL,
+												AIM_BUTTON_ON_COLOR, DEFAULT_SHADOW,
 														AIM_BUTTON_OFF_COLOR, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														usPosX, BOTTOM_BUTTON_START_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnAimBottomButtonsCallback);
+												usPosX, BOTTOM_BUTTON_START_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnAimBottomButtonsCallback);
+		CHECKF(stagedResources.addButton(button, guiBottomButtons[i]));
 		SetButtonCursor(guiBottomButtons[i], CURSOR_LAPTOP_SCREEN);
 
 
@@ -646,27 +646,18 @@ BOOLEAN InitAimMenuBar(void)
 
 		usPosX += BOTTOM_BUTTON_START_WIDTH;
 	}
+	gAimMenuResources = std::move(stagedResources);
 	return(TRUE);
 }
 BOOLEAN ExitAimMenuBar(void)
 {
-	UINT8	i;
-
-	UnloadButtonImage( guiBottomButtonImage );
-
-	for(i=0; i<BOTTOM_BUTTON_AMOUNT; i++)
-	{
-		RemoveButton( guiBottomButtons[i] );
-	}
+	gAimMenuResources.clear();
 	return(TRUE);
 }
 
 
 void BtnAimBottomButtonsCallback(GUI_BUTTON *btn,INT32 reason)
 {
-	UINT32		bNewValue;
-
-	bNewValue = MSYS_GetBtnUserData( btn, 0 );
 	gubAimMenuButtonDown = 255;
 	if(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{

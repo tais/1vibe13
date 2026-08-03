@@ -7,13 +7,13 @@
 	#include "aim.h"
 	#include "Soldier Profile.h"
 	#include "TacticalActor.h"
-	#include "email.h"
 	#include "Text.h"
 	#include "AimSort.h"
 	#include "Assignments.h"
 	#include "GameSettings.h"
 	#include "english.h"
 	#include "sysutil.h"
+	#include "LaptopPageResourceOwner.h"
 
 
 extern UINT8	gubCurrentSortMode; // symbol already defined in AimSort.cpp (jonathanl)
@@ -76,6 +76,11 @@ INT32		guiPreviousNewProfilesNextButtonImage;
 void BtnNewProfilesButtonCallback(GUI_BUTTON *btn,INT32 reason);
 
 INT32 PAGE_BUTTON;
+
+namespace
+{
+LaptopPageResourceOwner gAimFacialIndexResources;
+}
 
 //Hotkey Assignment
 void HandleAimFacialIndexKeyBoardInput();
@@ -165,13 +170,13 @@ void BtnNewProfilesButtonCallback(GUI_BUTTON *btn,INT32 reason)
 BOOLEAN EnterAimFacialIndex()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner stagedResources;
 	UINT8	i;
 	UINT16		usPosX, usPosY, x,y;
 	STR				sFaceLoc = "FACES\\";
 	char			sTemp[100];
 	
-	UINT8 p = 0;
-
+	gAimFacialIndexResources.clear();
 	for(i=0; i<MAX_NUMBER_MERCS; i++)
 	{
 		gAimProfiles[i] = TRUE;
@@ -180,18 +185,21 @@ BOOLEAN EnterAimFacialIndex()
 	// load the Portait graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\MugShotBorder3.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMugShotBorder));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiMugShotBorder));
 	
 	//Page button
-	guiPreviousNewProfilesNextButtonImage =	LoadButtonImage("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1 ); //New profiles
+	CHECKF(stagedResources.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1),
+		guiPreviousNewProfilesNextButtonImage));
 	
 	STR16 buttonText = GetPageButtonText();
-	PAGE_BUTTON = CreateIconAndTextButton( guiPreviousNewProfilesNextButtonImage, buttonText, FONT14ARIAL,
+	const INT32 pageButton = CreateIconAndTextButton( guiPreviousNewProfilesNextButtonImage, buttonText, FONT14ARIAL,
 														FONT_MCOLOR_DKWHITE, DEFAULT_SHADOW,
 														138, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														IMAGE_OFFSET_X + 6, IMAGE_OFFSET_Y + 35, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnNewProfilesButtonCallback);
+												IMAGE_OFFSET_X + 6, IMAGE_OFFSET_Y + 35, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnNewProfilesButtonCallback);
+	CHECKF(stagedResources.addButton(pageButton, PAGE_BUTTON));
 	SetButtonCursor(PAGE_BUTTON, CURSOR_WWW );
 	
 	usPosX = AIM_FI_FIRST_MUGSHOT_X;
@@ -208,7 +216,7 @@ BOOLEAN EnterAimFacialIndex()
 				MSYS_DefineRegion( &gMercFaceMouseRegions[ i ], usPosX, usPosY, (INT16)(usPosX + AIM_FI_PORTRAIT_WIDTH), (INT16)(usPosY + AIM_FI_PORTRAIT_HEIGHT), MSYS_PRIORITY_HIGH,
 									CURSOR_WWW, SelectMercFaceMoveRegionCallBack, SelectMercFaceRegionCallBack);
 				// Add region
-				MSYS_AddRegion( &gMercFaceMouseRegions[ i ] );
+				CHECKF(stagedResources.addRegion(gMercFaceMouseRegions[i]));
 				MSYS_SetRegionUserData( &gMercFaceMouseRegions[ i ], 0, i);
 
 			if (gGameExternalOptions.fReadProfileDataFromXML)
@@ -225,8 +233,8 @@ BOOLEAN EnterAimFacialIndex()
 			}
 			VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 			FilenameForBPP(sTemp, VObjectDesc.ImageFile);
-			if( !AddVideoObject(&VObjectDesc, &guiAimFiFace[i]) )
-				return( FALSE );
+			CHECKF(stagedResources.addVideoObject(
+				&VObjectDesc, guiAimFiFace[i]));
 			}
 			
 			usPosX += AIM_FI_PORTRAIT_WIDTH + AIM_FI_MUGSHOT_GAP_X;
@@ -239,12 +247,16 @@ BOOLEAN EnterAimFacialIndex()
 	MSYS_DefineRegion( &gScreenMouseRegions, LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y, LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y, MSYS_PRIORITY_HIGH-1,
 						CURSOR_LAPTOP_SCREEN, MSYS_NO_CALLBACK, SelectScreenRegionCallBack);
 	// Add region
-	MSYS_AddRegion( &gScreenMouseRegions );
+	CHECKF(stagedResources.addRegion(gScreenMouseRegions));
 
+	CHECKF(InitAimDefaults());
+	if (!InitAimMenuBar())
+	{
+		RemoveAimDefaults();
+		return FALSE;
+	}
 
-	InitAimMenuBar();
-	InitAimDefaults();
-
+	gAimFacialIndexResources = std::move(stagedResources);
 	RenderAimFacialIndex();
 
 	return( TRUE );
@@ -252,28 +264,9 @@ BOOLEAN EnterAimFacialIndex()
 
 void ExitAimFacialIndex()
 {
-	UINT8	i;
-
+	gAimFacialIndexResources.clear();
 	RemoveAimDefaults();
-
-	DeleteVideoObjectFromIndex(guiMugShotBorder);
-
-
-	for(i=0; i<NUM_PROFILES; i++) //MAX_NUMBER_MERCS
-	{
-		if ( gAimProfiles[i] == TRUE )
-		{
-			DeleteVideoObjectFromIndex( guiAimFiFace[i]);
-			MSYS_RemoveRegion( &gMercFaceMouseRegions[ i ]);
-		}
-	}
-	
-	RemoveButton( PAGE_BUTTON );
-	
-	
 	ExitAimMenuBar();
-
-	MSYS_RemoveRegion( &gScreenMouseRegions);
 }
 
 void HandleAimFacialIndex()
@@ -393,15 +386,8 @@ void SelectMercFaceMoveRegionCallBack(MOUSE_REGION * pRegion, INT32 reason )
 {
 	UINT8	ubMercNum;
 	UINT16 usPosX, usPosY;
-	UINT16 ty1, ty2, tx1, tx2;
 
 	ubMercNum = (UINT8) MSYS_GetRegionUserData( pRegion, 0 );
-
-	ty1 = AIM_FI_FIRST_MUGSHOT_Y;
-	ty2 = (AIM_FI_PORTRAIT_HEIGHT + AIM_FI_MUGSHOT_GAP_Y);
-
-	tx1 = AIM_FI_FIRST_MUGSHOT_X;
-	tx2 = (AIM_FI_PORTRAIT_WIDTH + AIM_FI_MUGSHOT_GAP_X);
 
 	usPosY = ubMercNum / AIM_FI_NUM_MUGSHOTS_X;
 	usPosY = AIM_FI_FIRST_MUGSHOT_Y + (AIM_FI_PORTRAIT_HEIGHT + AIM_FI_MUGSHOT_GAP_Y) * usPosY;
@@ -584,4 +570,3 @@ void HandleAimFacialIndexKeyBoardInput()
 		}
 	}
 }
-

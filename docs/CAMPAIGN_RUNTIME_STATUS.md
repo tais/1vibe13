@@ -59,8 +59,7 @@ also preserves its 100-purchase legacy records and shipment serialization:
 while validated adapters retain the existing data format and publish loaded
 state only after complete reads. `BobbyRMailOrder.cpp` is consequently shared
 by every application host. The subsequent file/history content extraction
-makes those pages shared as well; Laptop now builds 74 common sources and only
-24 per-application variants. The subsequent Laptop input-boundary pass keeps that
+makes those pages shared as well. The subsequent Laptop input-boundary pass keeps that
 same common ownership: every Laptop XML reader uses the campaign-neutral
 `LocalizationInputModel` for bounded chunks, strict numeric/boolean parsing,
 explicit preservation of documented `-1` byte sentinels, and index validation,
@@ -78,6 +77,11 @@ fallbacks: `RIS25.edt` falls back to `RIS.edt`, and a quest completion retains
 its paired odd record when `quests25.edt` is absent. Missing-profile killed-
 merc records also retain their diagnostic in every host rather than leaving
 release/shared output unset.
+The subsequent A.I.M. resource-ownership pass makes Facial Index, Links, and
+Members shared as well, so Laptop now builds 77 common translation units and
+only 21 per-application variants. A staged owner covers the complete A.I.M.
+page cluster's video objects, surfaces, button images, buttons, and mouse-region
+registrations without changing content, save data, or campaign behavior.
 
 ## Literal remaining tail
 

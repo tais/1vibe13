@@ -278,15 +278,65 @@ while rebuilding and statically analyzing the shared and per-application page
 partitions. The targeted path-sensitive analyzer is clean for every production
 translation unit changed by this batch.
 
+## A.I.M. page resource ownership and re-entry batch
+
+The sixth batch introduces the dependency-free `ResourceHandleSet` transaction
+and the legacy-facing `LaptopPageResourceOwner`. Numeric video, surface,
+button-image, and button handles plus static mouse-region registrations are
+acquired into a staging owner. A page publishes the complete owner only after
+every fallible acquisition succeeds; an early return therefore releases the
+partial set. Teardown always removes regions and buttons before unloading their
+images and render assets. `UniqueResourceHandle` now also models APIs whose
+invalid value is signed `-1`, where handle zero remains valid.
+
+The A.I.M. landing page, defaults, navigation bar, Archives, Facial Index,
+History, Links, Members, Policies, and Sort now use this boundary. The Members
+conversion includes its transient portrait, gear controls, modal confirmation,
+video-conference title surfaces, close control, and every conference-mode
+button group. Confirmed faults fixed in this batch include:
+
+- every chained page entry leaked all earlier video objects, regions, images,
+  and buttons when a later acquisition failed;
+- Archives never released `guiPageButtons`, and removed all 20 Alumni regions
+  even when only sparse profile records had registered a subset;
+- several pages unloaded shared button images before removing their buttons;
+- Facial Index registered each portrait region before its matching portrait
+  load, then removed regions based on a different profile-count bound;
+- Archives indexed page 3 through a three-entry visited array and History
+  indexed page 5 through a five-entry array; both pages plus Policies also
+  trusted a persisted negative or exact-end current-subpage value;
+- failed Members video-conference transitions published the new mode despite
+  partial creation, leaked intermediate mode resources, and could exhaust the
+  face pool; transitions now commit their mode only after complete creation and
+  remain retryable after failure;
+- the Members confirmation popup disabled its close control before fallible
+  loads and copied caller text into two fixed 400-character buffers without a
+  bound; and
+- the Policies agreement controls were destroyed and recreated on every render
+  of the agreement page.
+
+`AimFacialIndex.cpp`, `AimLinks.cpp`, and `AimMembers.cpp` no longer depend on
+application compile identity and join the common Laptop object partition. The
+partition now contains 77 common translation units and 21 per-application
+variants. Focused headless tests cover signed invalid sentinels, valid handle
+zero, failed acquisition without publication, staging rollback, committed
+transfer, and exactly-once release. Architecture CI pins the owner layers,
+every migrated page, common build ownership, and rejects restoration of raw
+resource acquisition or teardown in the cluster. All-host builds, the complete
+headless suites, sanitizer builds, and targeted static analysis remain required
+before merge.
+
 ## Remaining walkthrough
 
-The IMP lifecycle and runtime-content items are complete. The remaining audit
-queue is deliberately grouped into larger reviewable batches:
+The IMP lifecycle, runtime-content, and first complete A.I.M. ownership slice
+are complete. The remaining audit queue is deliberately grouped into larger
+reviewable batches:
 
-1. Give video objects, button images, and temporary render assets scoped or
-   explicitly paired ownership across every Laptop page.
-2. Audit mouse-region creation/removal counts and callback lifetimes across
-   page re-entry, empty data, and early resource-load failure.
+1. Extend scoped video, surface, button-image, button, and temporary-render
+   ownership from the completed A.I.M. cluster across every remaining Laptop
+   page.
+2. Extend the completed A.I.M. mouse-region and re-entry audit across the
+   remaining pages, especially empty data and callback-driven mutation.
 3. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
    validate all rendered text buffers before formatting.
 4. Audit the remaining Laptop binary readers and writers for exact reads,

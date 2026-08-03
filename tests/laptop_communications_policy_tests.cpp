@@ -106,8 +106,9 @@ int main()
 		"record 10 triggers the UB-only make-contact event");
 
 	Check(IsValidLaptopIndex(1, 0) && !IsValidLaptopIndex(1, 1) &&
-		!IsValidLaptopIndex(0, 0),
-		"Laptop index checks reject the exact end boundary");
+		!IsValidLaptopIndex(0, 0) &&
+		!IsValidLaptopIndex(4, static_cast<std::size_t>(-1)),
+		"Laptop index checks reject negative and exact-end boundaries");
 	Check(!IsValidIntelMapRegion(-1) && IsValidIntelMapRegion(0) &&
 		IsValidIntelMapRegion(15) && !IsValidIntelMapRegion(16),
 		"intel map shifts are limited to valid regions");

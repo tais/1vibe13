@@ -1,4 +1,3 @@
-	#include "email.h"
 	#include "laptop.h"
 	#include "AimMembers.h"
 	#include "aim.h"
@@ -52,7 +51,8 @@
 #include "connect.h"
 #include "fresh_header.h"
 #include "Encrypted File.h"
-#include "InterfaceItemImages.h"
+	#include "InterfaceItemImages.h"
+	#include "LaptopPageResourceOwner.h"
 #include <sstream>
 #include <vector>
 #include <language.hpp>
@@ -568,7 +568,6 @@ INT32		guiPreviousContactNextButtonImage;
 
 //tais: nsgi, gearkit selection buttons and eventhandlers
 INT32	giWeaponboxSelectionButton[NUM_MERCSTARTINGGEAR_KITS];
-BOOLEAN giWeaponboxSelectionButtonsCreated = FALSE;
 
 void BtnWeaponboxSelectButtonCallback(GUI_BUTTON *btn,INT32 reason);
 
@@ -669,9 +668,8 @@ void		StopMercTalking();
 UINT8		DisplayTransparentSnow(UINT8 ubMode, UINT32 uiImageIdentifier, UINT8 ubMaxImages, BOOLEAN bForward);
 
 //tais: nsgi, kit selection
-void CreateWeaponBoxMouseRegions();
-void CreateKitSelectionButtons();
-void EraseKitSelectionButtons( );
+BOOLEAN CreateWeaponBoxMouseRegions(LaptopPageResourceOwner& resources);
+BOOLEAN CreateKitSelectionButtons(LaptopPageResourceOwner& resources);
 void CreateWeaponBoxBackground();
 void EnableWeaponKitSelectionButtons();
 void RefreshWeaponKitSelectionButtons();
@@ -715,6 +713,14 @@ void HandleAimMemberMouseInput(void);
 
 void WaitForMercToFinishTalkingOrUserToClick();
 
+namespace
+{
+LaptopPageResourceOwner gAimMembersResources;
+LaptopPageResourceOwner gAimMembersPopupResources;
+LaptopPageResourceOwner gAimMembersVideoConferenceResources;
+LaptopPageResourceOwner gAimMembersVideoCloseResources;
+}
+
 
 //*******************************************
 //
@@ -751,69 +757,75 @@ BOOLEAN EnterAIMMembers()
 {
 	VOBJECT_DESC	VObjectDesc;
 	VSURFACE_DESC		vs_desc;
+	LaptopPageResourceOwner stagedResources;
+
+	gAimMembersPopupResources.clear();
+	gAimMembersVideoConferenceResources.clear();
+	gAimMembersVideoCloseResources.clear();
+	gAimMembersResources.clear();
 
 	// Create a background video surface to blt the face onto
 	vs_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT | VSURFACE_SYSTEM_MEM_USAGE;
 	vs_desc.usWidth = AIM_MEMBER_VIDEO_FACE_WIDTH;
 	vs_desc.usHeight = AIM_MEMBER_VIDEO_FACE_HEIGHT;
 	vs_desc.ubBitDepth = 16;
-	CHECKF( AddVideoSurface( &vs_desc, &guiVideoFaceBackground) );
+	CHECKF(stagedResources.addVideoSurface(&vs_desc, guiVideoFaceBackground));
 
 	// load the stats graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\stats.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiStats));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiStats));
 
 	// load the Price graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\price.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiPrice));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiPrice));
 
 	// load the Portait graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\portrait.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiPortrait));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiPortrait));
 
 	// load the WeaponBox graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	if(gGameExternalOptions.gfUseNewStartingGearInterface) FilenameForBPP("LAPTOP\\newweaponbox.sti", VObjectDesc.ImageFile);
 	else FilenameForBPP("LAPTOP\\weaponbox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiWeaponBox));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiWeaponBox));
 
 	// load the videoconf Popup graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\VideoConfPopup.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiVideoConfPopup));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiVideoConfPopup));
 
 	// load the video conf terminal graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\VideoConfTerminal.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiVideoConfTerminal));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiVideoConfTerminal));
 
 	// load the background snow for the video conf terminal
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BWSnow.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBWSnow));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiBWSnow));
 
 	// load the fuzzy line for the video conf terminal
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\FuzzLine.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFuzzLine));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiFuzzLine));
 
 	// load the line distortion for the video conf terminal
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\LineInterference.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiStraightLine));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiStraightLine));
 
 	// load the translucent snow for the video conf terminal
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\TransSnow.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiTransSnow));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiTransSnow));
 
 	// load the translucent snow for the video conf terminal
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\VideoContractCharge.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiVideoContractCharge));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiVideoContractCharge));
 
 
 	//** Mouse Regions **
@@ -827,10 +839,11 @@ BOOLEAN EnterAIMMembers()
 		MSYS_DefineRegion( &gSelectedFaceRegion, PORTRAIT_X, PORTRAIT_Y , PORTRAIT_X + PORTRAIT_WIDTH , PORTRAIT_Y + PORTRAIT_HEIGHT, MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, SelectFaceMovementRegionCallBack, SelectFaceRegionCallBack );
 	}
-	MSYS_AddRegion(&gSelectedFaceRegion);
+	CHECKF(stagedResources.addRegion(gSelectedFaceRegion));
 
 	//tais: nsgi, create mousregions for tooltips
-	if(gGameExternalOptions.gfUseNewStartingGearInterface) CreateWeaponBoxMouseRegions();
+	if(gGameExternalOptions.gfUseNewStartingGearInterface)
+		CHECKF(CreateWeaponBoxMouseRegions(stagedResources));
 
 	//Set the fast help for the mouse region
 	//	SetRegionFastHelpText( &gSelectedFaceRegion, AimMemberText[ AIM_MEMBER_CLICK_INSTRUCTIONS ] );
@@ -839,72 +852,81 @@ BOOLEAN EnterAIMMembers()
 	// if user clicks in the area, the merc will shut up!
 	MSYS_DefineRegion( &gSelectedShutUpMercRegion, LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y ,LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y, MSYS_PRIORITY_HIGH-1,
 							CURSOR_LAPTOP_SCREEN, MSYS_NO_CALLBACK, SelectShutUpMercRegionCallBack);
-	MSYS_AddRegion(&gSelectedShutUpMercRegion);
+	CHECKF(stagedResources.addRegion(gSelectedShutUpMercRegion));
 	//have it disbled at first
 	MSYS_DisableRegion(&gSelectedShutUpMercRegion);
 
 
 	//Button Regions
-	giXToCloseVideoConfButtonImage = LoadButtonImage("LAPTOP\\x_button.sti", -1,0,-1,1,-1 );
-
-	guiPreviousContactNextButtonImage =	LoadButtonImage("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1 );
+	CHECKF(stagedResources.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\x_button.sti", -1,0,-1,1,-1),
+		giXToCloseVideoConfButtonImage));
+	CHECKF(stagedResources.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1),
+		guiPreviousContactNextButtonImage));
 
 	if(gGameExternalOptions.gfUseNewStartingGearInterface)
 	{
-		giPreviousButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_PREVIOUS], AIM_M_FONT_PREV_NEXT_CONTACT,
+		const INT32 previousButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_PREVIOUS], AIM_M_FONT_PREV_NEXT_CONTACT,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														PREVIOUS_X_NSGI, PREVIOUS_BOX_Y_NSGI, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnPreviousButtonCallback);
+												PREVIOUS_X_NSGI, PREVIOUS_BOX_Y_NSGI, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnPreviousButtonCallback);
+		CHECKF(stagedResources.addButton(previousButton, giPreviousButton));
 		SetButtonCursor(giPreviousButton, CURSOR_WWW );
 
 
-		giContactButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_CONTACT], AIM_M_FONT_PREV_NEXT_CONTACT,
+		const INT32 contactButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_CONTACT], AIM_M_FONT_PREV_NEXT_CONTACT,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														CONTACT_X_NSGI, CONTACT_BOX_Y_NSGI, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnContactButtonCallback);
+												CONTACT_X_NSGI, CONTACT_BOX_Y_NSGI, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnContactButtonCallback);
+		CHECKF(stagedResources.addButton(contactButton, giContactButton));
 		SetButtonCursor(giContactButton, CURSOR_WWW );
 
 
 
-		giNextButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_NEXT], AIM_M_FONT_PREV_NEXT_CONTACT,
+		const INT32 nextButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_NEXT], AIM_M_FONT_PREV_NEXT_CONTACT,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														NEXT_X_NSGI, NEXT_BOX_Y_NSGI, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnNextButtonCallback);
+												NEXT_X_NSGI, NEXT_BOX_Y_NSGI, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnNextButtonCallback);
+		CHECKF(stagedResources.addButton(nextButton, giNextButton));
 		SetButtonCursor(giNextButton, CURSOR_WWW );
 	}
 	else
 	{
-		giPreviousButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_PREVIOUS], AIM_M_FONT_PREV_NEXT_CONTACT,
+		const INT32 previousButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_PREVIOUS], AIM_M_FONT_PREV_NEXT_CONTACT,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														PREVIOUS_X, PREVIOUS_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnPreviousButtonCallback);
+												PREVIOUS_X, PREVIOUS_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnPreviousButtonCallback);
+		CHECKF(stagedResources.addButton(previousButton, giPreviousButton));
 		SetButtonCursor(giPreviousButton, CURSOR_WWW );
 
 
-		giContactButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_CONTACT], AIM_M_FONT_PREV_NEXT_CONTACT,
+		const INT32 contactButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_CONTACT], AIM_M_FONT_PREV_NEXT_CONTACT,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														CONTACT_X, CONTACT_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnContactButtonCallback);
+												CONTACT_X, CONTACT_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnContactButtonCallback);
+		CHECKF(stagedResources.addButton(contactButton, giContactButton));
 		SetButtonCursor(giContactButton, CURSOR_WWW );
 
 
 
-		giNextButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_NEXT], AIM_M_FONT_PREV_NEXT_CONTACT,
+		const INT32 nextButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_NEXT], AIM_M_FONT_PREV_NEXT_CONTACT,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														NEXT_X, NEXT_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnNextButtonCallback);
+												NEXT_X, NEXT_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnNextButtonCallback);
+		CHECKF(stagedResources.addButton(nextButton, giNextButton));
 		SetButtonCursor(giNextButton, CURSOR_WWW );
 	}
 
@@ -913,7 +935,7 @@ BOOLEAN EnterAIMMembers()
 
 	//tais: nsgi create kit selection buttons
 	if(gGameExternalOptions.gfUseNewStartingGearInterface) 
-		CreateKitSelectionButtons();
+		CHECKF(CreateKitSelectionButtons(stagedResources));
 
 	gfStopMercFromTalking = FALSE;
 	gubVideoConferencingMode = (UINT8)giCurrentSubPage;
@@ -921,18 +943,42 @@ BOOLEAN EnterAIMMembers()
 
 	gfRenderTopLevel = FALSE;
 
+	CHECKF(InitAimDefaults());
+	if (!InitAimMenuBar())
+	{
+		RemoveAimDefaults();
+		return FALSE;
+	}
+
 	// if we are re-entering but the video conference should still be up
 	if( gubVideoConferencingMode != 0 )
 	{
 		//if we need to re initialize the talking face
 		if( gubVideoConferencingMode !=	AIM_VIDEO_FIRST_CONTACT_MERC_MODE)
-			InitVideoFace(gbCurrentSoldier);
+		{
+			if (!InitVideoFace(gbCurrentSoldier))
+			{
+				ExitAimMenuBar();
+				RemoveAimDefaults();
+				return FALSE;
+			}
+		}
 
-		InitDeleteVideoConferencePopUp();
+		if (!InitDeleteVideoConferencePopUp())
+		{
+			if (gfVideoFaceActive && giMercFaceIndex != -1)
+				DeleteFace(giMercFaceIndex);
+			gfVideoFaceActive = FALSE;
+			giMercFaceIndex = -1;
+			gAimMembersVideoConferenceResources.clear();
+			gAimMembersVideoCloseResources.clear();
+			ExitAimMenuBar();
+			RemoveAimDefaults();
+			return FALSE;
+		}
 	}
 
-	InitAimMenuBar();
-	InitAimDefaults();
+	gAimMembersResources = std::move(stagedResources);
 
 	//LoadTextMercPopupImages( BASIC_MERC_POPUP_BACKGROUND, BASIC_MERC_POPUP_BORDER);
 
@@ -945,8 +991,6 @@ BOOLEAN EnterAIMMembers()
 
 void ExitAIMMembers()
 {
-	RemoveAimDefaults();
-
 	//if we are exiting and the transfer of funds popup is enable, make sure we dont come back to it
 	if( gubPopUpBoxAction )
 		giCurrentSubPage = AIM_VIDEO_NOT_DISPLAYED_MODE;
@@ -965,45 +1009,10 @@ void ExitAIMMembers()
 	gfVideoFaceActive = FALSE;
 	giMercFaceIndex = -1;
 
-	DeleteVideoSurfaceFromIndex(guiVideoFaceBackground);
-
-	DeleteVideoObjectFromIndex(guiStats);
-	DeleteVideoObjectFromIndex(guiPrice);
-	DeleteVideoObjectFromIndex(guiPortrait);
-	DeleteVideoObjectFromIndex(guiWeaponBox);
-	DeleteVideoObjectFromIndex(guiVideoConfPopup);
-	DeleteVideoObjectFromIndex(guiVideoConfTerminal);
-	DeleteVideoObjectFromIndex(guiBWSnow);
-	DeleteVideoObjectFromIndex(guiFuzzLine);
-	DeleteVideoObjectFromIndex(guiStraightLine);
-	DeleteVideoObjectFromIndex(guiTransSnow);
-	DeleteVideoObjectFromIndex(guiVideoContractCharge);
-
-	UnloadButtonImage( guiPreviousContactNextButtonImage );
-	UnloadButtonImage( giXToCloseVideoConfButtonImage );
-
-	//tais: nsgi, erase tooltip regions and buttons
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
-	{
-		//tais: tooltips for weaponbox
-		for ( int i = 0; i<WEAPONBOX_TOTAL_ITEMS; ++i )
-		{
-			MSYS_RemoveRegion( &gWeaponboxFasthelpRegion[i] );
-		}
-		
-		EraseKitSelectionButtons( );
-	}
-
-	RemoveButton( giPreviousButton );
-	RemoveButton( giContactButton );
-	RemoveButton( giNextButton );
-
-	MSYS_RemoveRegion( &gSelectedFaceRegion);
-	MSYS_RemoveRegion( &gSelectedShutUpMercRegion);
-
-	ExitAimMenuBar();
-
 	InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+	gAimMembersResources.clear();
+	ExitAimMenuBar();
+	RemoveAimDefaults();
 
 	RemoveTextMercPopupImages( );
 
@@ -1161,7 +1170,6 @@ BOOLEAN RenderAIMMembers()
 			//Display Option Gear Cost text
 			DrawTextToScreen(CharacterInfo[AIM_MEMBER_OPTIONAL_GEAR_NSGI], AIM_MEMBER_OPTIONAL_GEAR_X_NSGI, EXPLOSIVE_Y_NSGI, AIM_CONTRACT_WIDTH_NSGI, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED	);
 
-			uiPosX = AIM_MEMBER_OPTIONAL_GEAR_X_NSGI + StringPixLength( CharacterInfo[AIM_MEMBER_OPTIONAL_GEAR_NSGI], AIM_M_FONT_STATIC_TEXT) + 5;
 			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].usOptionalGearCost).data(), AIM_MEMBER_OPTIONAL_GEAR_COST_X_NSGI, EXPLOSIVE_Y_NSGI, FEE_WIDTH_NSGI, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
 		}
 	}
@@ -1617,7 +1625,6 @@ BOOLEAN DisplayMercsInventory(UINT8 ubMercID)
 
 	if(gGameExternalOptions.gfUseNewStartingGearInterface)
 	{		
-		UINT16 wnameY = AIM_MEMBER_WEAPON_NAME_Y;
 		PosX = WEAPONBOX_X_NSGI+3;		// + 3 ( 1 to take care of the shadow, +2 to get past the weapon box border )
 		PosY = WEAPONBOX_Y_NSGI;
 
@@ -1984,7 +1991,8 @@ BOOLEAN DisplayMercsFace()
 	}
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP(sTemp, VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFace));
+	LaptopPageResourceOwner faceResource;
+	CHECKF(faceResource.addVideoObject(&VObjectDesc, guiFace));
 
 	if(gGameExternalOptions.gfUseNewStartingGearInterface)
 	{
@@ -2080,8 +2088,6 @@ BOOLEAN DisplayMercsFace()
 			DrawTextToScreen(AimPopUpText[AIM_MEMBER_ON_ASSIGNMENT], FACE_X+1, FACE_Y+107, FACE_WIDTH, FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
 		}
 	}
-	DeleteVideoObjectFromIndex(guiFace);
-
 	return( TRUE );
 }
 
@@ -2283,12 +2289,9 @@ UINT8	GetStatColor( INT8 bStat )
 //displays the dots between the stats and the stat name
 void DisplayDots(UINT16 usNameX, UINT16 usNameY, UINT16 usStatX, STR16 pString)
 {
-	INT16 sNumberOfDots;
 	UINT16 usStringLength = StringPixLength(pString, AIM_M_FONT_STATIC_TEXT);
 	INT16	i;
 	UINT16 usPosX;
-
-	sNumberOfDots = (usStatX - usNameX - usStringLength) / 7;
 
 	usPosX = usStatX;
 	for(i=usNameX + usStringLength; i <= usPosX; usPosX-=7)
@@ -2771,6 +2774,7 @@ UINT32 DisplayMercChargeAmount()
 BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2, UINT16 usPosX, UINT16 usPosY, UINT8 ubData)
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner stagedResources;
 	HVOBJECT			hPopupBoxHandle;
 	static UINT16				usPopUpBoxPosX, usPopUpBoxPosY;
 	static CHAR16				sPopUpString1[400], sPopUpString2[400];
@@ -2783,16 +2787,21 @@ BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2
 			if( fPopUpBoxActive )
 				return(FALSE);
 
-			//Disable the 'X' to close the pop upi video
-			DisableButton( giXToCloseVideoConfButton );
+			gAimMembersPopupResources.clear();
 
 			if(sString1 != NULL)
-				wcscpy(sPopUpString1, sString1);
+			{
+				wcsncpy(sPopUpString1, sString1, 399);
+				sPopUpString1[399] = L'\0';
+			}
 			else
 				sPopUpString1[0] = L'\0';
 
 			if(sString2 != NULL)
-				wcscpy(sPopUpString2, sString2);
+			{
+				wcsncpy(sPopUpString2, sString2, 399);
+				sPopUpString2[399] = L'\0';
+			}
 			else
 				sPopUpString2[0] = L'\0';
 
@@ -2802,23 +2811,29 @@ BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2
 			// load the popup box graphic
 			VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 			FilenameForBPP("LAPTOP\\VideoConfPopUp.sti", VObjectDesc.ImageFile);
-			CHECKF(AddVideoObject(&VObjectDesc, &guiPopUpBox));
+			CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiPopUpBox));
 
 			GetVideoObject(&hPopupBoxHandle, guiPopUpBox);
 			BltVideoObject(FRAME_BUFFER, hPopupBoxHandle, 0,usPosX, usPosY, VO_BLT_SRCTRANSPARENCY,NULL);
 
 			//Create the popup boxes button
-			guiPopUpImage = LoadButtonImage("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1 );
-			guiPopUpOkButton = CreateIconAndTextButton( guiPopUpImage, VideoConfercingText[AIM_MEMBER_OK],
-															FONT14ARIAL,
+			CHECKF(stagedResources.addButtonImage(
+				LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1),
+				guiPopUpImage));
+			const INT32 popupButton = CreateIconAndTextButton( guiPopUpImage, VideoConfercingText[AIM_MEMBER_OK],
+													FONT14ARIAL,
 															AIM_POPUP_BOX_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 															AIM_POPUP_BOX_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 															TEXT_CJUSTIFIED,
-															(UINT16)(usPosX+AIM_POPUP_BOX_BUTTON_OFFSET_X), (UINT16)(usPosY+AIM_POPUP_BOX_BUTTON_OFFSET_Y), BUTTON_TOGGLE, MSYS_PRIORITY_HIGH+5,
-															DEFAULT_MOVE_CALLBACK, BtnPopUpOkButtonCallback);
+													(UINT16)(usPosX+AIM_POPUP_BOX_BUTTON_OFFSET_X), (UINT16)(usPosY+AIM_POPUP_BOX_BUTTON_OFFSET_Y), BUTTON_TOGGLE, MSYS_PRIORITY_HIGH+5,
+													DEFAULT_MOVE_CALLBACK, BtnPopUpOkButtonCallback);
+			CHECKF(stagedResources.addButton(popupButton, guiPopUpOkButton));
 			SetButtonCursor(guiPopUpOkButton, CURSOR_LAPTOP_SCREEN);
 			MSYS_SetBtnUserData( guiPopUpOkButton, 0, ubData);
 
+			gAimMembersPopupResources = std::move(stagedResources);
+			// Disable the close control only after the popup is complete.
+			DisableButton( giXToCloseVideoConfButton );
 			fPopUpBoxActive = TRUE;
 			gubPopUpBoxAction = AIM_POPUP_DISPLAY;
 
@@ -2875,9 +2890,7 @@ BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2
 			//Disable the 'X' to close the pop upi video
 			EnableButton( giXToCloseVideoConfButton );
 
-			UnloadButtonImage( guiPopUpImage );
-			RemoveButton( guiPopUpOkButton );
-			DeleteVideoObjectFromIndex( guiPopUpBox );
+			gAimMembersPopupResources.clear();
 
 			fPopUpBoxActive = FALSE;
 			gubPopUpBoxAction = AIM_POPUP_NOTHING;
@@ -3224,23 +3237,13 @@ void DisplayTextForMercFaceVideoPopUp(STR16 pString)
 
 void SelectShutUpMercRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 {
-	BOOLEAN fInCallBack=TRUE;
-
-	if(fInCallBack)
+	if (iReason & MSYS_CALLBACK_REASON_INIT)
 	{
-		if (iReason & MSYS_CALLBACK_REASON_INIT)
-		{
-		}
-		else if (iReason & MSYS_CALLBACK_REASON_RBUTTON_UP)
-		{
-			gfStopMercFromTalking = TRUE;
-		}
-		else if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
-		{
-			fInCallBack = FALSE;
-			gfStopMercFromTalking = TRUE;
-			fInCallBack = TRUE;
-		}
+	}
+	else if (iReason & (MSYS_CALLBACK_REASON_RBUTTON_UP |
+		MSYS_CALLBACK_REASON_LBUTTON_UP))
+	{
+		gfStopMercFromTalking = TRUE;
 	}
 }
 
@@ -3499,7 +3502,6 @@ BOOLEAN DisplaySnowBackground()
 	{
 		gfFirstTimeInContactScreen = FALSE;
 		gubCurrentCount = 0;
-		ubCount = 0;
 
 		if( gubVideoConferencingMode == AIM_VIDEO_FIRST_CONTACT_MERC_MODE && gfAimMemberCanMercSayOpeningQuote )
 			InitVideoFaceTalking(gbCurrentSoldier, QUOTE_GREETING);
@@ -3526,15 +3528,10 @@ BOOLEAN DisplaySnowBackground()
 BOOLEAN DisplayBlackBackground(UINT8 ubMaxNumOfLoops)
 {
 	UINT32		uiCurrentTime = 0;
-	UINT8			ubCount;
 
 	uiCurrentTime = GetJA2NoPauseClock();	// no-pause: UI animation must advance even when game-time is paused, else the contact opening sticks on static forever
 
-	if(gubCurrentCount < ubMaxNumOfLoops)
-	{
-		ubCount = gubCurrentCount;
-	}
-	else
+	if(gubCurrentCount >= ubMaxNumOfLoops)
 	{
 		gubCurrentCount = 0;
 		return(TRUE);
@@ -3912,10 +3909,9 @@ void BtnXToCloseVideoConfButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 BOOLEAN InitDeleteVideoConferencePopUp( )
 {
-	static BOOLEAN	fXRegionActive = FALSE;
-	static BOOLEAN	fVideoConferenceCreated = FALSE;
 	const CampaignAimSitePolicy aimSitePolicy(
 		GetGameContext().capabilities());
+	LaptopPageResourceOwner stagedResources;
 	UINT8	i;
 	UINT16	usPosX, usPosY;
 	VOBJECT_DESC	VObjectDesc;
@@ -3938,14 +3934,15 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 	//and disable the ability to click on the BIG face to go to different screen
 	if( ( gubVideoConferencingMode != AIM_VIDEO_NOT_DISPLAYED_MODE) && ( gubVideoConferencingMode != AIM_VIDEO_POPUP_MODE) )
 	{
-		if( !fXRegionActive )
+		if(gAimMembersVideoCloseResources.empty())
 		{
-			giXToCloseVideoConfButton = QuickCreateButton(giXToCloseVideoConfButtonImage, AIM_MEMBER_VIDEO_CONF_XCLOSE_X, AIM_MEMBER_VIDEO_CONF_XCLOSE_Y,
+			const INT32 closeButton = QuickCreateButton(giXToCloseVideoConfButtonImage, AIM_MEMBER_VIDEO_CONF_XCLOSE_X, AIM_MEMBER_VIDEO_CONF_XCLOSE_Y,
 																	BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																	DEFAULT_MOVE_CALLBACK, BtnXToCloseVideoConfButtonCallback);
+			CHECKF(gAimMembersVideoCloseResources.addButton(
+				closeButton, giXToCloseVideoConfButton));
 			SetButtonCursor(giXToCloseVideoConfButton, CURSOR_LAPTOP_SCREEN);
 			SpecifyDisabledButtonStyle( giXToCloseVideoConfButton, DISABLED_STYLE_NONE );
-			fXRegionActive = TRUE;
 
 			MSYS_DisableRegion(&gSelectedFaceRegion);
 		}
@@ -3956,7 +3953,6 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 	// The video conference is not displayed
 	if( gubVideoConferencingMode ==	AIM_VIDEO_NOT_DISPLAYED_MODE )
 	{
-		gubVideoConferencingPreviousMode = gubVideoConferencingMode;
 		gfRedrawScreen = TRUE;
 
 		if( gfVideoFaceActive )
@@ -3973,12 +3969,7 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 
 		gfVideoFaceActive = FALSE;
 
-		if( fXRegionActive )
-		{
-
-			RemoveButton(giXToCloseVideoConfButton );
-			fXRegionActive = FALSE;
-		}
+		gAimMembersVideoCloseResources.clear();
 
 		MSYS_DisableRegion(&gSelectedShutUpMercRegion);
 
@@ -3993,8 +3984,6 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		}
 
 
-		fVideoConferenceCreated = FALSE;
-
 		fNewMailFlag = gfIsNewMailFlagSet;
 		gfIsNewMailFlagSet = FALSE;
 
@@ -4003,9 +3992,6 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 
 	if( gubVideoConferencingMode == AIM_VIDEO_POPUP_MODE )
 	{
-
-		gubVideoConferencingPreviousMode = gubVideoConferencingMode;
-
 		if( gfJustSwitchedVideoConferenceMode )
 		{
 			UINT32 uiVideoBackgroundGraphic;
@@ -4015,14 +4001,17 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 			// load the answering machine graphic and add it
 			VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 			FilenameForBPP("LAPTOP\\VideoTitleBar.sti", VObjectDesc.ImageFile);
-			CHECKF(AddVideoObject(&VObjectDesc, &uiVideoBackgroundGraphic));
+			LaptopPageResourceOwner titleGraphic;
+			CHECKF(titleGraphic.addVideoObject(
+				&VObjectDesc, uiVideoBackgroundGraphic));
 
 			// Create a background video surface to blt the face onto
 			vs_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT | VSURFACE_SYSTEM_MEM_USAGE;
 			vs_desc.usWidth = AIM_MEMBER_VIDEO_TITLE_BAR_WIDTH;
 			vs_desc.usHeight = AIM_MEMBER_VIDEO_TITLE_BAR_HEIGHT;
 			vs_desc.ubBitDepth = 16;
-			CHECKF( AddVideoSurface( &vs_desc, &guiVideoTitleBar) );
+			CHECKF(stagedResources.addVideoSurface(
+				&vs_desc, guiVideoTitleBar));
 
 
 			gfAimMemberCanMercSayOpeningQuote = TRUE;
@@ -4030,7 +4019,6 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 			GetVideoObject(&hImageHandle, uiVideoBackgroundGraphic);
 			BltVideoObject(guiVideoTitleBar, hImageHandle, 0,0,0, VO_BLT_SRCTRANSPARENCY,NULL);
 
-			DeleteVideoObjectFromIndex(uiVideoBackgroundGraphic);
 		}
 	}
 
@@ -4038,7 +4026,6 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 	// The opening animation of the vc (fuzzy screen, then goes to black)
 	if( gubVideoConferencingMode == AIM_VIDEO_INIT_MODE )
 	{
-		gubVideoConferencingPreviousMode = gubVideoConferencingMode;
  		gubMercAttitudeLevel = 0;
 
 		if (is_networked)
@@ -4056,7 +4043,6 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		guiLastHandleMercTime = 0;
 		gfHangUpMerc = FALSE;
 
-		fVideoConferenceCreated = TRUE;
 	}
 
 	// The screen in which you first contact the merc, you have the option to hang up or goto hire merc screen
@@ -4066,26 +4052,27 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		if( ( gubVideoConferencingPreviousMode == AIM_VIDEO_INIT_MODE) || ( gubVideoConferencingPreviousMode == AIM_VIDEO_NOT_DISPLAYED_MODE) )
 		{
 			//Put the merc face up on the screen
-			InitVideoFace(gbCurrentSoldier);
+			CHECKF(InitVideoFace(gbCurrentSoldier));
 
 //			if( gubVideoConferencingPreviousMode == AIM_VIDEO_INIT_MODE)
 //				InitVideoFaceTalking(gbCurrentSoldier, QUOTE_GREETING);
 		}
 
-		gubVideoConferencingPreviousMode = gubVideoConferencingMode;
-
 		// Hang up button
 		usPosX = AIM_MEMBER_AUTHORIZE_PAY_X;
-		guiVideoConferenceButtonImage[2] = LoadButtonImage("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1 );
+		CHECKF(stagedResources.addButtonImage(
+			LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1),
+			guiVideoConferenceButtonImage[2]));
 		for(i=0; i<2; i++)
 		{
-			giAuthorizeButton[i] = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[i+AIM_MEMBER_HIRE],
+			const INT32 button = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[i+AIM_MEMBER_HIRE],
 															FONT12ARIAL,
 															AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 															AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 															TEXT_CJUSTIFIED,
-															usPosX, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-															DEFAULT_MOVE_CALLBACK, BtnFirstContactButtonCallback);
+																	usPosX, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+																	DEFAULT_MOVE_CALLBACK, BtnFirstContactButtonCallback);
+			CHECKF(stagedResources.addButton(button, giAuthorizeButton[i]));
 
 			MSYS_SetBtnUserData( giAuthorizeButton[i], 0, i);
 			SetButtonCursor(giAuthorizeButton[i], CURSOR_LAPTOP_SCREEN);
@@ -4108,19 +4095,20 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		// The screen in which you set the contract length, and the ability to buy equipment..
 	if( gubVideoConferencingMode == AIM_VIDEO_HIRE_MERC_MODE)
 	{
-		gubVideoConferencingPreviousMode = gubVideoConferencingMode;
-
 		// Contract Length button
-		guiVideoConferenceButtonImage[0] = LoadButtonImage("LAPTOP\\VideoConfButtons.sti", -1,0,-1,1,-1 );
+		CHECKF(stagedResources.addButtonImage(
+			LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,0,-1,1,-1),
+			guiVideoConferenceButtonImage[0]));
 		usPosY = AIM_MEMBER_BUY_CONTRACT_LENGTH_Y;
 		for(i=0; i<3; i++)
 		{
-			giContractLengthButton[i] = CreateIconAndTextButton( guiVideoConferenceButtonImage[0], VideoConfercingText[i+AIM_MEMBER_ONE_DAY], FONT12ARIAL,
+			const INT32 button = CreateIconAndTextButton( guiVideoConferenceButtonImage[0], VideoConfercingText[i+AIM_MEMBER_ONE_DAY], FONT12ARIAL,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																TEXT_LJUSTIFIED,
-																AIM_MEMBER_BUY_CONTRACT_LENGTH_X, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-																DEFAULT_MOVE_CALLBACK, BtnContractLengthButtonCallback);
+																		AIM_MEMBER_BUY_CONTRACT_LENGTH_X, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+																		DEFAULT_MOVE_CALLBACK, BtnContractLengthButtonCallback);
+			CHECKF(stagedResources.addButton(button, giContractLengthButton[i]));
 
 			SetButtonCursor(giContractLengthButton[i], CURSOR_LAPTOP_SCREEN);
 			MSYS_SetBtnUserData( giContractLengthButton[i], 0, i);
@@ -4137,13 +4125,14 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		usPosY = AIM_MEMBER_BUY_CONTRACT_LENGTH_Y;
 		for(i=0; i<2; i++)
 		{
-			giBuyEquipmentButton[i] = CreateIconAndTextButton( guiVideoConferenceButtonImage[0], VideoConfercingText[i+AIM_MEMBER_NO_EQUIPMENT],
+			const INT32 button = CreateIconAndTextButton( guiVideoConferenceButtonImage[0], VideoConfercingText[i+AIM_MEMBER_NO_EQUIPMENT],
 																	FONT12ARIAL,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																TEXT_LJUSTIFIED,
-																AIM_MEMBER_BUY_EQUIPMENT_X, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-																DEFAULT_MOVE_CALLBACK, BtnBuyEquipmentButtonCallback);
+																	AIM_MEMBER_BUY_EQUIPMENT_X, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+																	DEFAULT_MOVE_CALLBACK, BtnBuyEquipmentButtonCallback);
+			CHECKF(stagedResources.addButton(button, giBuyEquipmentButton[i]));
 
 			SetButtonCursor(giBuyEquipmentButton[i], CURSOR_LAPTOP_SCREEN);
 			MSYS_SetBtnUserData( giBuyEquipmentButton[i], 0, i);
@@ -4162,16 +4151,19 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 
 		// Authorize button
 		usPosX = AIM_MEMBER_AUTHORIZE_PAY_X;
-		guiVideoConferenceButtonImage[1] = LoadButtonImage("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1 );
+		CHECKF(stagedResources.addButtonImage(
+			LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1),
+			guiVideoConferenceButtonImage[1]));
 		for(i=0; i<2; i++)
 		{
-				giAuthorizeButton[i] = CreateIconAndTextButton( guiVideoConferenceButtonImage[1], VideoConfercingText[i+AIM_MEMBER_TRANSFER_FUNDS],
+				const INT32 button = CreateIconAndTextButton( guiVideoConferenceButtonImage[1], VideoConfercingText[i+AIM_MEMBER_TRANSFER_FUNDS],
 																FONT12ARIAL,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																TEXT_CJUSTIFIED,
-																usPosX, AIM_MEMBER_AUTHORIZE_PAY_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-																DEFAULT_MOVE_CALLBACK, BtnAuthorizeButtonCallback);
+																		usPosX, AIM_MEMBER_AUTHORIZE_PAY_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+																		DEFAULT_MOVE_CALLBACK, BtnAuthorizeButtonCallback);
+			CHECKF(stagedResources.addButton(button, giAuthorizeButton[i]));
 
 			SetButtonCursor(giAuthorizeButton[i], CURSOR_LAPTOP_SCREEN);
 			MSYS_SetBtnUserData( giAuthorizeButton[i], 0, i);
@@ -4206,21 +4198,23 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		// The merc is not home and the player gets the answering machine
 	if( gubVideoConferencingMode ==	AIM_VIDEO_MERC_ANSWERING_MACHINE_MODE )
 	{
-		gubVideoConferencingPreviousMode = gubVideoConferencingMode;
-
 		gfIsAnsweringMachineActive = TRUE;
 
 		// Leave msg button
 		usPosX = AIM_MEMBER_AUTHORIZE_PAY_X;
-		guiVideoConferenceButtonImage[2] = LoadButtonImage("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1 );
+		CHECKF(stagedResources.addButtonImage(
+			LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1),
+			guiVideoConferenceButtonImage[2]));
 
-		giAnsweringMachineButton[0] = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[AIM_MEMBER_LEAVE_MESSAGE],
+		const INT32 leaveMessageButton = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[AIM_MEMBER_LEAVE_MESSAGE],
 														FONT12ARIAL,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														TEXT_CJUSTIFIED,
-														usPosX, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnAnsweringMachineButtonCallback);
+																usPosX, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+																DEFAULT_MOVE_CALLBACK, BtnAnsweringMachineButtonCallback);
+		CHECKF(stagedResources.addButton(
+			leaveMessageButton, giAnsweringMachineButton[0]));
 		MSYS_SetBtnUserData( giAnsweringMachineButton[0], 0, 0);
 		SetButtonCursor(giAnsweringMachineButton[0], CURSOR_LAPTOP_SCREEN);
 
@@ -4230,32 +4224,26 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 
 		usPosX += AIM_MEMBER_AUTHORIZE_PAY_GAP;
 
-		giAnsweringMachineButton[1] = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[AIM_MEMBER_HANG_UP],
+		const INT32 hangUpButton = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[AIM_MEMBER_HANG_UP],
 														FONT12ARIAL,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														TEXT_CJUSTIFIED,
-														usPosX, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnAnsweringMachineButtonCallback);
+																usPosX, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+																DEFAULT_MOVE_CALLBACK, BtnAnsweringMachineButtonCallback);
+		CHECKF(stagedResources.addButton(
+			hangUpButton, giAnsweringMachineButton[1]));
 
 		MSYS_SetBtnUserData( giAnsweringMachineButton[1], 0, 1);
 		SetButtonCursor(giAnsweringMachineButton[1], CURSOR_LAPTOP_SCREEN);
 
 		//The face must be inited even though the face wont appear.	It is so the voice is played
-		InitVideoFace(gbCurrentSoldier);
+		CHECKF(InitVideoFace(gbCurrentSoldier));
 
 		//Make sure the merc doesnt ramble away to the player
 		gubMercAttitudeLevel = QUOTE_DELAY_NO_ACTION;
 
 
-//
-//DEF: TEST
-//
-/*		// load the answering machine graphic and add it
-		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-		FilenameForBPP("LAPTOP\\explosion.sti", VObjectDesc.ImageFile);
-		CHECKF(AddVideoObject(&VObjectDesc, &guiAnsweringMachineImage));
-*/
 		gubCurrentStaticMode = VC_NO_STATIC;
 	}
 
@@ -4265,18 +4253,19 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 	// The merc is home but for some reason doesnt want to work for player
 	if( gubVideoConferencingMode == AIM_VIDEO_MERC_UNAVAILABLE_MODE)
 	{
-		gubVideoConferencingPreviousMode = gubVideoConferencingMode;
-
 		// The hangup button
-		guiVideoConferenceButtonImage[2] = LoadButtonImage("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1 );
+		CHECKF(stagedResources.addButtonImage(
+			LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1),
+			guiVideoConferenceButtonImage[2]));
 
-		giHangUpButton = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[AIM_MEMBER_HANG_UP],
+		const INT32 hangUpButton = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[AIM_MEMBER_HANG_UP],
 														FONT12ARIAL,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														TEXT_CJUSTIFIED,
-														AIM_MEMBER_HANG_UP_X, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnHangUpButtonCallback);
+																AIM_MEMBER_HANG_UP_X, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+																DEFAULT_MOVE_CALLBACK, BtnHangUpButtonCallback);
+		CHECKF(stagedResources.addButton(hangUpButton, giHangUpButton));
 
 		MSYS_SetBtnUserData( giHangUpButton, 0, 1);
 		SetButtonCursor(giHangUpButton, CURSOR_LAPTOP_SCREEN);
@@ -4284,7 +4273,7 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		//set the flag saying specifying that merc is busy
 		gubMercAttitudeLevel = QUOTE_MERC_BUSY;
 
-		InitVideoFace(gbCurrentSoldier);
+		CHECKF(InitVideoFace(gbCurrentSoldier));
 	}
 
 	if( gubVideoConferencingMode == 	AIM_VIDEO_POPDOWN_MODE )
@@ -4297,159 +4286,62 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 			return( TRUE );
 		}
 
-		gubVideoConferencingPreviousMode = gubVideoConferencingMode;
-
 		gfIsAnsweringMachineActive = FALSE;
 
 
 		// load the Video conference background graphic and add it
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP("LAPTOP\\VideoTitleBar.sti", VObjectDesc.ImageFile);
-		CHECKF(AddVideoObject(&VObjectDesc, &uiVideoBackgroundGraphic));
+		LaptopPageResourceOwner titleGraphic;
+		CHECKF(titleGraphic.addVideoObject(
+			&VObjectDesc, uiVideoBackgroundGraphic));
 
 		// Create a background video surface to blt the face onto
 		vs_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT | VSURFACE_SYSTEM_MEM_USAGE;
 		vs_desc.usWidth = AIM_MEMBER_VIDEO_TITLE_BAR_WIDTH;
 		vs_desc.usHeight = AIM_MEMBER_VIDEO_TITLE_BAR_HEIGHT;
 		vs_desc.ubBitDepth = 16;
-		CHECKF( AddVideoSurface( &vs_desc, &guiVideoTitleBar) );
+		CHECKF(stagedResources.addVideoSurface(
+			&vs_desc, guiVideoTitleBar));
 
 
 		GetVideoObject(&hImageHandle, uiVideoBackgroundGraphic);
 		BltVideoObject(guiVideoTitleBar, hImageHandle, 0,0,0, VO_BLT_SRCTRANSPARENCY,NULL);
 
-		DeleteVideoObjectFromIndex(uiVideoBackgroundGraphic);
 	}
 
 //	gfWaitingForMercToStopTalkingOrUserToClick = FALSE;
 
 	//reset the time in which the merc will get annoyed
 	guiMercAttitudeTime = GetJA2Clock();
+	gAimMembersVideoConferenceResources = std::move(stagedResources);
+	gubVideoConferencingPreviousMode = gubVideoConferencingMode;
 	return(TRUE);
 }
 
 
 BOOLEAN DeleteVideoConfPopUp()
 {
-	UINT16 i;
-
 	//reset ( in case merc was going to say something
 	DelayMercSpeech( 0, 0, 0, FALSE, TRUE );
 
-	switch(	gubVideoConferencingPreviousMode )
+	if (gubVideoConferencingPreviousMode == AIM_VIDEO_POPDOWN_MODE)
 	{
-		// The video conference is not displayed
-		case AIM_VIDEO_NOT_DISPLAYED_MODE:
+		// Preserve the title surface while a modal popup postpones the
+		// pop-down transition.
+		if (gubPopUpBoxAction == AIM_POPUP_DISPLAY)
+			return TRUE;
+
+		if (gfWaitingForMercToStopTalkingOrUserToClick)
 		{
-
-			break;
-		}
-
-
-		case AIM_VIDEO_POPUP_MODE:
-		{
-			DeleteVideoSurfaceFromIndex(guiVideoTitleBar);
-			break;
-		}
-
-		// The opening animation of the vc (fuzzy screen, then goes to black)
-		case AIM_VIDEO_INIT_MODE:
-		{
-
-			break;
-		}
-
-
-
-		// The screen in which you first contact the merc, you have the option to hang up or goto hire merc screen
-		case AIM_VIDEO_FIRST_CONTACT_MERC_MODE:
-		{
-			//Remove the video conf buttons images
-			UnloadButtonImage(guiVideoConferenceButtonImage[2]);
-
-			//Remove the Hangup	buttons
-			for(i=0; i<2; i++)
-				RemoveButton(giAuthorizeButton[i] );
-
-			break;
-		}
-
-
-
-		// The screen in which you set the contract length, and the ability to buy equipment..
-		case AIM_VIDEO_HIRE_MERC_MODE:
-		{
-			//Remove the video conf buttons images
-			for(i=0; i<2; i++)
-				UnloadButtonImage(guiVideoConferenceButtonImage[i]);
-
-			//Remove the Contracy Length button
-			for(i=0; i<3; i++)
-				RemoveButton(giContractLengthButton[i] );
-
-			for(i=0; i<2; i++)
-				RemoveButton(giBuyEquipmentButton[i] );
-
-			for(i=0; i<2; i++)
-				RemoveButton(giAuthorizeButton[i] );
-
-			break;
-		}
-
-
-
-
-		// The merc is not home and the player gets the answering machine
-		case AIM_VIDEO_MERC_ANSWERING_MACHINE_MODE:
-		{
-			if( gubPopUpBoxAction == AIM_POPUP_DISPLAY )
-			{
-//				return( TRUE );
-			}
-
-			//Remove the video conf buttons images
-			UnloadButtonImage(guiVideoConferenceButtonImage[2]);
-
-			//Remove the Answering machine buttons
-			for(i=0; i<2; i++)
-				RemoveButton(giAnsweringMachineButton[i] );
-
-//			DeleteVideoObjectFromIndex(guiAnsweringMachineImage);
-			break;
-		}
-
-
-
-
-		// The merc is home but doesnt want to work for player
-		case AIM_VIDEO_MERC_UNAVAILABLE_MODE:
-		{
-			RemoveButton(giHangUpButton );
-			UnloadButtonImage(guiVideoConferenceButtonImage[2]);
-			break;
-		}
-
-		case AIM_VIDEO_POPDOWN_MODE:
-		{
-			if( gubPopUpBoxAction == AIM_POPUP_DISPLAY )
-			{
-				return( TRUE );
-			}
-
-			if( gfWaitingForMercToStopTalkingOrUserToClick )
-			{
-				gfWaitingForMercToStopTalkingOrUserToClick = FALSE;
-
-//				DisplayPopUpBoxExplainingMercArrivalLocationAndTime( giIdOfLastHiredMerc );
-			}
-
-
 			gfWaitingForMercToStopTalkingOrUserToClick = FALSE;
-			DeleteVideoSurfaceFromIndex(guiVideoTitleBar);
-			break;
-		}
 
+//			DisplayPopUpBoxExplainingMercArrivalLocationAndTime( giIdOfLastHiredMerc );
+		}
+		gfWaitingForMercToStopTalkingOrUserToClick = FALSE;
 	}
+
+	gAimMembersVideoConferenceResources.clear();
 	return(TRUE);
 }
 
@@ -5652,7 +5544,7 @@ void DisplayAimMemberClickOnFaceHelpText()
 	SetRegionFastHelpText( &gSelectedFaceRegion, sString );
 }
 
-void CreateWeaponBoxMouseRegions()
+BOOLEAN CreateWeaponBoxMouseRegions(LaptopPageResourceOwner& resources)
 {
 	UINT16	i, x, uiPosX, uiPosY;
 	UINT16	itemcounter = 0;
@@ -5662,45 +5554,33 @@ void CreateWeaponBoxMouseRegions()
 		uiPosY = WEAPONBOX_Y_NSGI + (WEAPONBOX_SIZE_Y_NSGI*i);
 		for(x=0; x<WEAPONBOX_COLUMNS; x++) {
 			MSYS_DefineRegion(&gWeaponboxFasthelpRegion[itemcounter],uiPosX,uiPosY,uiPosX+WEAPONBOX_SIZE_X_NSGI,uiPosY+WEAPONBOX_SIZE_Y_NSGI,MSYS_PRIORITY_HIGHEST, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, MSYS_NO_CALLBACK);
-			MSYS_AddRegion(&gWeaponboxFasthelpRegion[itemcounter]);
+			CHECKF(resources.addRegion(gWeaponboxFasthelpRegion[itemcounter]));
 			MSYS_DisableRegion(&gWeaponboxFasthelpRegion[itemcounter]);
 			uiPosX += WEAPONBOX_SIZE_X_NSGI;
 			++itemcounter;
 		}
 	}
+	return TRUE;
 }
-void CreateKitSelectionButtons()
+BOOLEAN CreateKitSelectionButtons(LaptopPageResourceOwner& resources)
 {
 	//tais: nsgi, create kit selection buttons one to five
 	for ( int i = 0; i < NUM_MERCSTARTINGGEAR_KITS; ++i )
 	{
-		giWeaponboxSelectionButton[i] = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_GEAR_KIT_ONE + i], AIM_M_KIT_BUTTON_FONT,
+		const INT32 button = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_GEAR_KIT_ONE + i], AIM_M_KIT_BUTTON_FONT,
 																 AIM_M_KIT_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 																 AIM_M_KIT_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 																 TEXT_CJUSTIFIED,
 																 WEAPONBOX_LOADOUT_ONE_X + i * (WEAPONBOX_BUTTON_START_WIDTH + WEAPONBOX_LOADOUT_BUTTON_X_DISTANCE),
 																 WEAPONBOX_LOADOUT_ONE_Y - 4,
 																 BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-																 DEFAULT_MOVE_CALLBACK, BtnWeaponboxSelectButtonCallback );
+																	 DEFAULT_MOVE_CALLBACK, BtnWeaponboxSelectButtonCallback );
+		CHECKF(resources.addButton(button, giWeaponboxSelectionButton[i]));
 
 		SetButtonCursor( giWeaponboxSelectionButton[i], CURSOR_WWW );
 	}
 
-	giWeaponboxSelectionButtonsCreated = TRUE;
-}
-
-void EraseKitSelectionButtons( )
-{
-	if ( giWeaponboxSelectionButtonsCreated )
-	{
-		//tais: remove weaponbox kit selection buttons
-		for ( int i = 0; i < NUM_MERCSTARTINGGEAR_KITS; ++i )
-		{
-			RemoveButton( giWeaponboxSelectionButton[i] );
-		}
-
-		giWeaponboxSelectionButtonsCreated = FALSE;
-	}
+	return TRUE;
 }
 
 void CreateWeaponBoxBackground()

@@ -7,6 +7,8 @@
 	#include "Encrypted File.h"
 	#include "Text.h"
 	#include "GameSettings.h"
+	#include "LaptopPageResourceOwner.h"
+	#include "LaptopSafety.h"
 
 #include "LocalizedStrings.h"
 
@@ -190,6 +192,14 @@ BOOLEAN	DisplayAimPolicyTitle(UINT16 usPosY, UINT8	ubPageNum, FLOAT fNumber);
 UINT16 DisplayAimPolicyParagraph(UINT16 usPosY, UINT8	ubPageNum, FLOAT fNumber);
 UINT16 DisplayAimPolicySubParagraph(UINT16 usPosY, UINT8	ubPageNum, FLOAT fNumber);
 
+namespace
+{
+LaptopPageResourceOwner gAimPoliciesResources;
+LaptopPageResourceOwner gAimPoliciesMenuResources;
+LaptopPageResourceOwner gAimPoliciesTocResources;
+LaptopPageResourceOwner gAimPoliciesAgreementResources;
+}
+
 
 
 void GameInitAimPolicies()
@@ -199,17 +209,24 @@ void GameInitAimPolicies()
 
 void EnterInitAimPolicies()
 {
-	memset( &AimPoliciesSubPagesVisitedFlag, 0, NUM_AIM_POLICY_PAGES);
+	memset(AimPoliciesSubPagesVisitedFlag, 0,
+		sizeof(AimPoliciesSubPagesVisitedFlag));
 }
 
 
 BOOLEAN EnterAimPolicies()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner stagedResources;
 
-	InitAimDefaults();
+	gAimPoliciesResources.clear();
+	gAimPoliciesMenuResources.clear();
+	gAimPoliciesTocResources.clear();
+	gAimPoliciesAgreementResources.clear();
 
-	gubCurPageNum = (UINT8) giCurrentSubPage;
+	gubCurPageNum = IsValidLaptopIndex(
+		NUM_AIM_POLICY_PAGES, giCurrentSubPage)
+		? static_cast<UINT8>(giCurrentSubPage) : 0;
 
 	gfAimPolicyMenuBarLoaded = FALSE;
 	gfExitingAimPolicy = FALSE;
@@ -217,25 +234,31 @@ BOOLEAN EnterAimPolicies()
 	gubPoliciesAgreeButtonDown = 255;
 	gubAimPolicyMenuButtonDown	= 255;
 
-	if( gubCurPageNum != 0)
-		InitAimPolicyMenuBar();
-
 	gfInPolicyToc = FALSE;
+	gfInAgreementPage = FALSE;
 
 	// load the Bottom Buttons graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BottomButton.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBottomButton));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiBottomButton));
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BottomButton2.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBottomButton2));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiBottomButton2));
 
 	// load the Content Buttons graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\ContentButton.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiContentButton));
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiContentButton));
 
+	CHECKF(InitAimDefaults());
+	if (gubCurPageNum != 0 && !InitAimPolicyMenuBar())
+	{
+		RemoveAimDefaults();
+		return FALSE;
+	}
+
+	gAimPoliciesResources = std::move(stagedResources);
 	RenderAimPolicies();
 	return(TRUE);
 }
@@ -244,18 +267,10 @@ void ExitAimPolicies()
 {
 	gfExitingAimPolicy = TRUE;
 
-	DeleteVideoObjectFromIndex(guiBottomButton);
-	DeleteVideoObjectFromIndex(guiBottomButton2);
-	DeleteVideoObjectFromIndex(guiContentButton);
-
-	if( gfAimPolicyMenuBarLoaded )
-		ExitAimPolicyMenuBar();
-
-	if(gfInPolicyToc)
-		ExitAimPolicyTocMenu();
-
-	if( gfInAgreementPage )
-		ExitAgreementButton();
+	ExitAgreementButton();
+	ExitAimPolicyTocMenu();
+	ExitAimPolicyMenuBar();
+	gAimPoliciesResources.clear();
 	RemoveAimDefaults();
 
 	giCurrentSubPage = gubCurPageNum;
@@ -281,14 +296,15 @@ void RenderAimPolicies()
 
 	DisplayAimPolicyTitleText();
 
-	if( gfInAgreementPage )
+	if( gfInAgreementPage && gubCurPageNum != 0 )
 		ExitAgreementButton();
 
 	switch( gubCurPageNum )
 	{
 		case 0:
 			DisplayAimPolicyStatement();
-			InitAgreementRegion();
+			if (!gfInAgreementPage)
+				InitAgreementRegion();
 			break;
 
 		case 1:
@@ -397,13 +413,17 @@ void RenderAimPolicies()
 
 BOOLEAN InitAimPolicyMenuBar(void)
 {
+	LaptopPageResourceOwner stagedResources;
 	UINT16					i, usPosX;
 
 	if(gfAimPolicyMenuBarLoaded)
 		return(TRUE);
 
 	//Load graphic for buttons
-	guiPoliciesMenuButtonImage =	LoadButtonImage("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1 );
+	gAimPoliciesMenuResources.clear();
+	CHECKF(stagedResources.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1),
+		guiPoliciesMenuButtonImage));
 
 	usPosX = AIM_POLICY_MENU_X;
 	for(i=0; i<AIM_POLICY_MENU_BUTTON_AMOUNT; i++)
@@ -415,12 +435,13 @@ BOOLEAN InitAimPolicyMenuBar(void)
 //		SetButtonCursor(guiPoliciesMenuButton[i], CURSOR_WWW);
 //		MSYS_SetBtnUserData( guiPoliciesMenuButton[i], 0, i);
 
-		guiPoliciesMenuButton[i] = CreateIconAndTextButton( guiPoliciesMenuButtonImage, AimPolicyText[i], FONT10ARIAL,
+		const INT32 button = CreateIconAndTextButton( guiPoliciesMenuButtonImage, AimPolicyText[i], FONT10ARIAL,
 														AIM_BUTTON_ON_COLOR, DEFAULT_SHADOW,
 														AIM_BUTTON_OFF_COLOR, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														usPosX, AIM_POLICY_MENU_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnPoliciesMenuButtonCallback);
+												usPosX, AIM_POLICY_MENU_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnPoliciesMenuButtonCallback);
+		CHECKF(stagedResources.addButton(button, guiPoliciesMenuButton[i]));
 		SetButtonCursor(guiPoliciesMenuButton[i], CURSOR_WWW);
 		MSYS_SetBtnUserData( guiPoliciesMenuButton[i], 0, i);
 
@@ -432,6 +453,7 @@ BOOLEAN InitAimPolicyMenuBar(void)
 
 
 
+	gAimPoliciesMenuResources = std::move(stagedResources);
 	gfAimPolicyMenuBarLoaded = TRUE;
 
 	return(TRUE);
@@ -439,16 +461,7 @@ BOOLEAN InitAimPolicyMenuBar(void)
 
 BOOLEAN ExitAimPolicyMenuBar(void)
 {
-	int i;
-
-	if( !gfAimPolicyMenuBarLoaded )
-		return( FALSE );
-
-	for(i=0; i<AIM_POLICY_MENU_BUTTON_AMOUNT; i++)
-		RemoveButton( guiPoliciesMenuButton[i]);
-
-	UnloadButtonImage( guiPoliciesMenuButtonImage );
-
+	gAimPoliciesMenuResources.clear();
 	gfAimPolicyMenuBarLoaded = FALSE;
 
 	return(TRUE);
@@ -498,21 +511,24 @@ BOOLEAN DrawAimPolicyMenu()
 
 BOOLEAN InitAimPolicyTocMenu(void)
 {
+	LaptopPageResourceOwner stagedResources;
 	UINT16			i, usPosY;
 	if(gfInPolicyToc)
 		return(TRUE);
 
+	gAimPoliciesTocResources.clear();
 	usPosY = AIM_POLICY_TOC_Y;
 	for(i=0; i<NUM_AIM_POLICY_TOC_BUTTONS; i++)
 	{
 		//Mouse region for the toc buttons
 		MSYS_DefineRegion( &gSelectedPolicyTocMenuRegion[i], AIM_POLICY_TOC_X, usPosY, (UINT16)(AIM_POLICY_TOC_X + AIM_CONTENTBUTTON_WIDTH), (UINT16)(usPosY + AIM_CONTENTBUTTON_HEIGHT), MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectPolicyTocMenuRegionCallBack);
-		MSYS_AddRegion(&gSelectedPolicyTocMenuRegion[i]);
+		stagedResources.addRegion(gSelectedPolicyTocMenuRegion[i]);
 		MSYS_SetRegionUserData( &gSelectedPolicyTocMenuRegion[i], 0, i+2);
 
 		usPosY += AIM_POLICY_TOC_GAP_Y;
 	}
+	gAimPoliciesTocResources = std::move(stagedResources);
 	gfInPolicyToc = TRUE;
 
 	return(TRUE);
@@ -522,11 +538,8 @@ BOOLEAN InitAimPolicyTocMenu(void)
 
 BOOLEAN ExitAimPolicyTocMenu()
 {
-	UINT16 i;
-
+	gAimPoliciesTocResources.clear();
 	gfInPolicyToc = FALSE;
-	for(i=0; i<NUM_AIM_POLICY_TOC_BUTTONS; i++)
-		MSYS_RemoveRegion( &gSelectedPolicyTocMenuRegion[i]);
 
 	return(TRUE);
 }
@@ -618,12 +631,18 @@ BOOLEAN	DisplayAimPolicyStatement(void)
 
 BOOLEAN InitAgreementRegion(void)
 {
+	LaptopPageResourceOwner stagedResources;
 	UINT16	usPosX,i;
+	if (gfInAgreementPage)
+		return TRUE;
 
 	gfExitingPolicesAgreeButton = FALSE;
+	gAimPoliciesAgreementResources.clear();
 
 	//Load graphic for buttons
-	guiPoliciesButtonImage =	LoadButtonImage("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1 );
+	CHECKF(stagedResources.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1),
+		guiPoliciesButtonImage));
 
 	usPosX = AIM_POLICY_AGREEMENT_X;
 	for(i=0; i < 2; i++)
@@ -634,12 +653,13 @@ BOOLEAN InitAgreementRegion(void)
 //		SetButtonCursor(guiPoliciesAgreeButton[i], CURSOR_WWW);
 //		MSYS_SetBtnUserData( guiPoliciesAgreeButton[i], 0, i);
 
-		guiPoliciesAgreeButton[i] = CreateIconAndTextButton( guiPoliciesButtonImage, AimPolicyText[i+AIM_POLICIES_DISAGREE], AIM_POLICY_TOC_FONT,
+		const INT32 button = CreateIconAndTextButton( guiPoliciesButtonImage, AimPolicyText[i+AIM_POLICIES_DISAGREE], AIM_POLICY_TOC_FONT,
 														AIM_POLICY_AGREE_TOC_COLOR_ON, DEFAULT_SHADOW,
 														AIM_POLICY_AGREE_TOC_COLOR_OFF, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-														usPosX, AIM_POLICY_AGREEMENT_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, BtnPoliciesAgreeButtonCallback);
+												usPosX, AIM_POLICY_AGREEMENT_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnPoliciesAgreeButtonCallback);
+		CHECKF(stagedResources.addButton(button, guiPoliciesAgreeButton[i]));
 		SetButtonCursor(guiPoliciesAgreeButton[i], CURSOR_WWW);
 		MSYS_SetBtnUserData( guiPoliciesAgreeButton[i], 0, i);
 
@@ -647,21 +667,15 @@ BOOLEAN InitAgreementRegion(void)
 
 		usPosX += 125;
 	}
+	gAimPoliciesAgreementResources = std::move(stagedResources);
 	gfInAgreementPage = TRUE;
 	return(TRUE);
 }
 
 BOOLEAN ExitAgreementButton(void)
 {
-	UINT8 i;
-
 	gfExitingPolicesAgreeButton = TRUE;
-
-	UnloadButtonImage( guiPoliciesButtonImage);
-
-	for(i=0; i<2; i++)
-	RemoveButton( guiPoliciesAgreeButton[ i ]);
-
+	gAimPoliciesAgreementResources.clear();
 	gfInAgreementPage = FALSE;
 
 	return(TRUE);
@@ -900,6 +914,9 @@ void DisableAimPolicyButton()
 
 void ChangingAimPoliciesSubPage( UINT8 ubSubPageNumber )
 {
+	if (!IsValidLaptopIndex(NUM_AIM_POLICY_PAGES, ubSubPageNumber))
+		return;
+
 	fLoadPendingFlag = TRUE;
 
 	if( AimPoliciesSubPagesVisitedFlag[ ubSubPageNumber ] == FALSE )

@@ -61,6 +61,7 @@
 #include "video.h"
 #include "vobject.h"
 #include "vsurface.h"
+#include <Engine/Core/ResourceHandleSet.h>
 #include <Engine/Core/UniqueResourceHandle.h>
 #include <Engine/Core/UniqueResourcePtr.h>
 #include <Engine/Core/EngineHost.h>
@@ -501,6 +502,26 @@ struct TestResourceReleaser
 	}
 };
 using TestResourceHandle = UniqueResourceHandle<TestResourceTag, TestResourceReleaser>;
+static_assert(!std::is_copy_constructible<
+	ResourceHandleSet<TestResourceHandle>>::value,
+	"resource transactions must remain move-only");
+static_assert(std::is_nothrow_move_constructible<
+	ResourceHandleSet<TestResourceHandle>>::value,
+	"resource transactions must transfer ownership without failure");
+
+struct TestSignedResourceTag {};
+static std::int32_t g_releasedSignedResource = -1;
+static UINT32 g_signedResourceReleaseCount = 0;
+struct TestSignedResourceReleaser
+{
+	void operator()(std::int32_t value) const
+	{
+		g_releasedSignedResource = value;
+		++g_signedResourceReleaseCount;
+	}
+};
+using TestSignedResourceHandle = UniqueResourceHandle<TestSignedResourceTag,
+	TestSignedResourceReleaser, std::int32_t, -1>;
 
 static UINT32 g_popupCallbackDestructionCount = 0;
 static UINT32 g_popupCallbackCallCount = 0;
@@ -2025,6 +2046,52 @@ int main( int, char** )
 		}
 		CHECK( g_releasedResource == 126 && g_resourceReleaseCount == 2,
 		       "resource handle destructor releases exactly once" );
+	}
+
+	{
+		g_signedResourceReleaseCount = 0;
+		TestSignedResourceHandle invalid;
+		CHECK( !invalid && invalid.get() == -1,
+		       "resource handles preserve a configured signed invalid sentinel" );
+		{
+			TestSignedResourceHandle zero( 0 );
+			CHECK( zero && zero.get() == 0,
+			       "zero remains valid when the resource API uses minus one" );
+		}
+		CHECK( g_releasedSignedResource == 0 && g_signedResourceReleaseCount == 1,
+		       "signed-sentinel resource handles release slot zero" );
+	}
+
+	{
+		g_resourceReleaseCount = 0;
+		UINT32 published = 999;
+		{
+			ResourceHandleSet<TestResourceHandle> staged;
+			CHECK( staged.add( TestResourceHandle( 210 ), published ) &&
+			       published == 210 && staged.size() == 1,
+			       "resource sets publish only successfully owned handles" );
+			CHECK( !staged.add( TestResourceHandle(), published ) &&
+			       published == 210 && staged.size() == 1,
+			       "failed acquisition leaves the published value and set unchanged" );
+		}
+		CHECK( g_releasedResource == 210 && g_resourceReleaseCount == 1,
+		       "an uncommitted resource set rolls back every acquired handle" );
+	}
+
+	{
+		g_resourceReleaseCount = 0;
+		ResourceHandleSet<TestResourceHandle> committed;
+		{
+			ResourceHandleSet<TestResourceHandle> staged;
+			CHECK( staged.add( TestResourceHandle( 211 ) ),
+			       "resource sets accept a valid staged handle" );
+			committed = std::move( staged );
+		}
+		CHECK( g_resourceReleaseCount == 0 && committed.size() == 1,
+		       "moving a staged set commits its resource beyond staging scope" );
+		committed.clear();
+		CHECK( g_releasedResource == 211 && g_resourceReleaseCount == 1,
+		       "clearing a committed resource set releases exactly once" );
 	}
 
 	{

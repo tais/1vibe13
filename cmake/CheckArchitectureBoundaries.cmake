@@ -1303,6 +1303,14 @@ file(READ "${SOURCE_ROOT}/Laptop/CMakeLists.txt"
 string(FIND "${runtime_laptop_manifest_contents}" "set(LaptopVariantSrc"
   runtime_laptop_variant_manifest_position)
 foreach(required_common_laptop_runtime_source IN ITEMS
+    "aim.cpp"
+    "AimArchives.cpp"
+    "AimFacialIndex.cpp"
+    "AimHistory.cpp"
+    "AimLinks.cpp"
+    "AimMembers.cpp"
+    "AimPolicies.cpp"
+    "AimSort.cpp"
     "BobbyRMailOrder.cpp"
     "email.cpp"
     "files.cpp"
@@ -1317,6 +1325,126 @@ foreach(required_common_laptop_runtime_source IN ITEMS
         runtime_laptop_variant_manifest_position)
     message(FATAL_ERROR
       "Laptop common manifest lost ${required_common_laptop_runtime_source}")
+  endif()
+endforeach()
+
+# A.I.M. pages publish legacy numeric handles only after a complete resource
+# transaction succeeds. The dependency-free set supports APIs whose valid
+# range includes zero, while the Laptop adapter releases regions and buttons
+# before their backing images and render assets. Migrated pages must not
+# regain open-coded acquisition or teardown paths.
+file(READ "${SOURCE_ROOT}/Engine/Core/UniqueResourceHandle.h"
+  runtime_unique_resource_handle_contents)
+foreach(required_resource_handle_fragment IN ITEMS
+    "typename Value = std::uint32_t"
+    "Value InvalidValue = Value{}"
+    "value_ != InvalidValue")
+  string(FIND "${runtime_unique_resource_handle_contents}"
+    "${required_resource_handle_fragment}"
+    required_resource_handle_position)
+  if(required_resource_handle_position EQUAL -1)
+    message(FATAL_ERROR
+      "Numeric resource ownership lost '${required_resource_handle_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Engine/Core/ResourceHandleSet.h"
+  runtime_resource_handle_set_contents)
+foreach(required_resource_handle_set_fragment IN ITEMS
+    "ResourceHandleSet(const ResourceHandleSet&) = delete"
+    "ResourceHandleSet(ResourceHandleSet&&) noexcept = default"
+    "handles_.push_back(std::move(handle))"
+    "publishedValue = handles_.back().get()"
+    "void clear()")
+  string(FIND "${runtime_resource_handle_set_contents}"
+    "${required_resource_handle_set_fragment}"
+    required_resource_handle_set_position)
+  if(required_resource_handle_set_position EQUAL -1)
+    message(FATAL_ERROR
+      "Transactional resource set lost '${required_resource_handle_set_fragment}'")
+  endif()
+endforeach()
+
+foreach(aim_page_bound_and_fragment IN ITEMS
+    "Laptop/AimArchives.cpp|NUM_AIM_ARCHIVE_PAGES\t\t\t4"
+    "Laptop/AimArchives.cpp|IsValidLaptopIndex(NUM_AIM_ARCHIVE_PAGES"
+    "Laptop/AimHistory.cpp|NUM_AIM_HISTORY_PAGES\t\t\t\t\t(NUM_AIM_HISTORY_CONTENT_PAGES + 1)"
+    "Laptop/AimHistory.cpp|IsValidLaptopIndex(NUM_AIM_HISTORY_PAGES"
+    "Laptop/AimPolicies.cpp|IsValidLaptopIndex(NUM_AIM_POLICY_PAGES")
+  string(REPLACE "|" ";" aim_page_bound_parts
+    "${aim_page_bound_and_fragment}")
+  list(GET aim_page_bound_parts 0 aim_page_bound_source)
+  list(GET aim_page_bound_parts 1 aim_page_bound_fragment)
+  file(READ "${SOURCE_ROOT}/${aim_page_bound_source}"
+    aim_page_bound_contents)
+  string(FIND "${aim_page_bound_contents}" "${aim_page_bound_fragment}"
+    aim_page_bound_position)
+  if(aim_page_bound_position EQUAL -1)
+    message(FATAL_ERROR
+      "${aim_page_bound_source} lost bounded page state '${aim_page_bound_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/LaptopPageResourceOwner.h"
+  runtime_laptop_page_resource_owner_contents)
+foreach(required_laptop_page_resource_fragment IN ITEMS
+    "ResourceHandleSet<UniqueVideoObjectHandle>"
+    "ResourceHandleSet<UniqueVideoSurfaceHandle>"
+    "ResourceHandleSet<UniqueButtonImageHandle>"
+    "ResourceHandleSet<UniqueButtonHandle>"
+    "ResourceHandleSet<UniqueMouseRegionRegistration>"
+    "regions_.clear()"
+    "buttons_.clear()"
+    "buttonImages_.clear()")
+  string(FIND "${runtime_laptop_page_resource_owner_contents}"
+    "${required_laptop_page_resource_fragment}"
+    required_laptop_page_resource_position)
+  if(required_laptop_page_resource_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop page resource owner lost '${required_laptop_page_resource_fragment}'")
+  endif()
+endforeach()
+
+foreach(aim_owned_resource_source IN ITEMS
+    "Laptop/aim.cpp"
+    "Laptop/AimArchives.cpp"
+    "Laptop/AimFacialIndex.cpp"
+    "Laptop/AimHistory.cpp"
+    "Laptop/AimLinks.cpp"
+    "Laptop/AimMembers.cpp"
+    "Laptop/AimPolicies.cpp"
+    "Laptop/AimSort.cpp")
+  file(READ "${SOURCE_ROOT}/${aim_owned_resource_source}"
+    aim_owned_resource_contents)
+  string(FIND "${aim_owned_resource_contents}"
+    "LaptopPageResourceOwner" aim_page_owner_position)
+  if(aim_page_owner_position EQUAL -1)
+    message(FATAL_ERROR
+      "${aim_owned_resource_source} lost transactional page ownership")
+  endif()
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(CHECKF[ \t]*\\([ \t]*)?(AddVideoObject|AddVideoSurface|DeleteVideoObjectFromIndex|DeleteVideoSurfaceFromIndex|LoadButtonImage|UnloadButtonImage|RemoveButton|MSYS_AddRegion|MSYS_RemoveRegion)[ \t]*\\("
+    raw_aim_page_resource_lifecycle
+    "${aim_owned_resource_contents}")
+  if(raw_aim_page_resource_lifecycle)
+    message(FATAL_ERROR
+      "${aim_owned_resource_source} restored open-coded resource ownership '${raw_aim_page_resource_lifecycle}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  runtime_resource_handle_test_contents)
+foreach(required_resource_handle_test_fragment IN ITEMS
+    "TestSignedResourceHandle"
+    "zero remains valid when the resource API uses minus one"
+    "failed acquisition leaves the published value and set unchanged"
+    "moving a staged set commits its resource beyond staging scope")
+  string(FIND "${runtime_resource_handle_test_contents}"
+    "${required_resource_handle_test_fragment}"
+    required_resource_handle_test_position)
+  if(required_resource_handle_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Resource ownership tests lost '${required_resource_handle_test_fragment}'")
   endif()
 endforeach()
 
