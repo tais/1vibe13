@@ -983,6 +983,18 @@ the engine must not contain SDL types in its public domain model.
   implementation/header files guard-free and rejects restoration of ambiguous
   raw quote aliases. Account/save fields, profiles, finance records, laptop
   text, speech, email data, images, XML, Lua, and package formats are unchanged.
+- The complete A.I.M. links/member cluster now uses the value-only
+  `CampaignAimSitePolicy`. The links page keeps a typed, table-driven lifecycle
+  for Bobby Ray, the mortuary, and insurance; Arulco enables all three while UB
+  applies its existing configuration values. Member pages select detailed
+  salaries and contract choices versus the fixed UB mission fee at runtime,
+  including the established medical-deposit/equipment arithmetic, one-time
+  offer, selection lights, forced equipment, and hidden controls. Data-free
+  tests exercise link overrides and exact one-day, one-week, two-week, invalid,
+  deposit, equipment, and UB charge paths. Architecture CI keeps both pages
+  guard-free and requires their typed lifecycle helpers and runtime routing.
+  Bookmarks, artwork, localized text, profiles, salary values, finance records,
+  save fields, XML, Lua, and package formats are unchanged.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

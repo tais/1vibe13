@@ -280,6 +280,7 @@ set(runtime_campaign_implementation_files
   "${SOURCE_ROOT}/Tactical/Ja25_Tactical.cpp"
   "${SOURCE_ROOT}/Tactical/Ja25_Tactical.h")
 set(runtime_campaign_selection_files
+  "${SOURCE_ROOT}/Ja2/CampaignAimSitePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignDealerPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercSitePolicy.h"
@@ -303,6 +304,8 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignMapChangeCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignProfileCodes.h"
   "${SOURCE_ROOT}/Laptop/Speck Quotes.h"
+  "${SOURCE_ROOT}/Laptop/AimLinks.cpp"
+  "${SOURCE_ROOT}/Laptop/AimMembers.cpp"
   "${SOURCE_ROOT}/Laptop/laptop.cpp"
   "${SOURCE_ROOT}/Laptop/laptop.h"
   "${SOURCE_ROOT}/Laptop/mercs Account.cpp"
@@ -1056,6 +1059,103 @@ foreach(required_merc_site_policy_assertion IN ITEMS
   if(required_merc_site_policy_assertion_position EQUAL -1)
     message(FATAL_ERROR
       "Runtime M.E.R.C. site policy lost test coverage for '${required_merc_site_policy_assertion}'")
+  endif()
+endforeach()
+
+# A.I.M.'s complete links/member cluster selects configurable UB links, salary
+# presentation, mission-fee pricing, and video-conference controls at runtime.
+# Both callers and the value-only policy must remain guard-free in every host.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignAimSitePolicy.h"
+  runtime_campaign_aim_site_policy_contents)
+foreach(required_aim_site_policy_fragment IN ITEMS
+    "class CampaignAimSitePolicy"
+    "linkEnabled"
+    "usesMissionFee"
+    "showsSalaryBreakdown"
+    "showsOneTimeFeeOffer"
+    "contractCharge"
+    "hidesContractAndEquipmentButtons")
+  string(FIND "${runtime_campaign_aim_site_policy_contents}"
+    "${required_aim_site_policy_fragment}"
+    required_aim_site_policy_position)
+  if(required_aim_site_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime A.I.M. site policy lost '${required_aim_site_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/AimLinks.cpp"
+  runtime_campaign_aim_links_contents)
+foreach(required_aim_links_fragment IN ITEMS
+    "CampaignAimSitePolicy"
+    "enum class AimLink"
+    "RefreshAimLinkAvailability"
+    "AIM_LINK_GRAPHICS"
+    "linkEnabled")
+  string(FIND "${runtime_campaign_aim_links_contents}"
+    "${required_aim_links_fragment}" required_aim_links_position)
+  if(required_aim_links_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. links page lost runtime lifecycle routing '${required_aim_links_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/AimMembers.cpp"
+  runtime_campaign_aim_members_contents)
+foreach(required_aim_members_fragment IN ITEMS
+    "CampaignAimSitePolicy"
+    "usesMissionFee"
+    "showsSalaryBreakdown"
+    "showsOneTimeFeeOffer"
+    "showsSelectionLights"
+    "contractCharge"
+    "hidesContractAndEquipmentButtons")
+  string(FIND "${runtime_campaign_aim_members_contents}"
+    "${required_aim_members_fragment}" required_aim_members_position)
+  if(required_aim_members_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. member page lost runtime routing '${required_aim_members_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_aim_site_policy_test_fragment IN ITEMS
+    "campaign_aim_site_policy_tests.cpp"
+    "campaign_aim_site_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_aim_site_policy_test_fragment}"
+    required_aim_site_policy_test_position)
+  if(required_aim_site_policy_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime A.I.M. site policy lost its headless test target")
+  endif()
+endforeach()
+
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_aim_site_policy_tests" runtime_aim_site_policy_ci_position)
+if(runtime_aim_site_policy_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the runtime A.I.M. site policy test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_aim_site_policy_tests.cpp"
+  runtime_campaign_aim_site_test_contents)
+foreach(required_aim_site_policy_assertion IN ITEMS
+    "GameCampaign::Arulco"
+    "GameCampaign::UnfinishedBusiness"
+    "linkEnabled(false)"
+    "showsSalaryBreakdown"
+    "showsOneTimeFeeOffer"
+    "oneDay"
+    "oneWeek"
+    "twoWeeks"
+    "!= 1700"
+    "!= 700")
+  string(FIND "${runtime_campaign_aim_site_test_contents}"
+    "${required_aim_site_policy_assertion}"
+    required_aim_site_policy_assertion_position)
+  if(required_aim_site_policy_assertion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime A.I.M. site policy lost test coverage for '${required_aim_site_policy_assertion}'")
   endif()
 endforeach()
 
