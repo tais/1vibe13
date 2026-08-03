@@ -31,6 +31,9 @@ Kulba shipment notifications use `CampaignLaptopCommunicationsPolicy`. The
 shared implementation disambiguates semantic mail kinds before interpreting
 legacy offsets, including UB's collision between IMP profile results and the
 Bobby Ray shipment record at offset 198.
+File-viewer briefing/text/artwork and history quest-text selection use
+`CampaignLaptopContentPolicy`; both campaigns and the optional UB asset
+fallbacks coexist in the shared `files.cpp` and `history.cpp` implementations.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -55,8 +58,9 @@ also preserves its 100-purchase legacy records and shipment serialization:
 `BobbyRayCommerceModel` supplies campaign-neutral capacity/count/value rules,
 while validated adapters retain the existing data format and publish loaded
 state only after complete reads. `BobbyRMailOrder.cpp` is consequently shared
-by every application host; Laptop now builds 72 common sources and only 26
-per-application variants. The subsequent Laptop input-boundary pass keeps that
+by every application host. The subsequent file/history content extraction
+makes those pages shared as well; Laptop now builds 74 common sources and only
+24 per-application variants. The subsequent Laptop input-boundary pass keeps that
 same common ownership: every Laptop XML reader uses the campaign-neutral
 `LocalizationInputModel` for bounded chunks, strict numeric/boolean parsing,
 explicit preservation of documented `-1` byte sentinels, and index validation,
@@ -68,16 +72,22 @@ The subsequent IMP lifecycle pass follows the same campaign-neutral ownership:
 selection, while staged IMP import publishes a complete profile only after
 validation and successful hire. It changes neither campaign selection nor the
 legacy IMP `.dat`/`.dat2`, portrait XML, profile, finance, or history formats.
+The file/history content pass preserves the existing RIS, quest, map, and
+biography asset names and record layouts while correcting missing-UB-asset
+fallbacks: `RIS25.edt` falls back to `RIS.edt`, and a quest completion retains
+its paired odd record when `quests25.edt` is absent. Missing-profile killed-
+merc records also retain their diagnostic in every host rather than leaving
+release/shared output unset.
 
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 142 active conditionals in 47
+milestone its per-file baseline contains 130 active conditionals in 45
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
-| Laptop content/pages | 23 |
+| Laptop content/pages | 11 |
 | Tactical gameplay/content | 52 |
 | Strategic gameplay/content | 48 |
 | JA2 compatibility shell/layout | 7 |
@@ -98,7 +108,8 @@ availability, and Speck dialogue use `CampaignMercSitePolicy` and typed quote
 roles. The A.I.M. links/member cluster no longer contributes either: link
 availability, salary/mission-fee presentation, contract charging, and hiring
 controls use `CampaignAimSitePolicy`. Email, insurance, and shipment notices
-use `CampaignLaptopCommunicationsPolicy`. All six policies are guarded by
+use `CampaignLaptopCommunicationsPolicy`; file-viewer and history content uses
+`CampaignLaptopContentPolicy`. All seven policies are guarded by
 data-free headless tests plus named architecture checks. The seven remaining
 `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
@@ -118,7 +129,6 @@ The largest individual legacy leaves are:
 | --- | ---: |
 | `Strategic/mapscreen.cpp` | 12 |
 | `Strategic/LuaInitNPCs.cpp` | 11 |
-| `Laptop/files.cpp` | 9 |
 | `Tactical/Handle Doors.cpp` | 8 |
 | `Tactical/Campaign.cpp` | 6 |
 | `Strategic/Luaglobal.cpp` | 5 |

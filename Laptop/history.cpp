@@ -1,3 +1,6 @@
+#include "CampaignLaptopContentPolicy.h"
+#include "GameContext.h"
+
 	#include "laptop.h"
 	#include "history.h"
 	#include "Game Clock.h"
@@ -66,10 +69,23 @@ UINT32 guiSHADELINE;
 //UINT32 guiVERTLINE;
 //UINT32 guiBIGBOX;
 
-#ifdef JA2UB
-#define		QUEST_EDT_FILE_JA25			"BINARYDATA\\quests25.edt"
-#define		QUEST_EDT_FILE_JA2		"BINARYDATA\\quests.edt"
-#endif
+namespace
+{
+using ContentPolicy = CampaignLaptopContentPolicy;
+
+ContentPolicy CurrentLaptopContentPolicy()
+{
+	return ContentPolicy(GetGameContext().capabilities());
+}
+
+ContentPolicy::QuestTextRecord CurrentQuestTextRecord(
+	UINT8 quest, bool completed)
+{
+	const ContentPolicy policy = CurrentLaptopContentPolicy();
+	return policy.questTextRecord(quest, completed,
+		FileExists(ContentPolicy::unfinishedBusinessQuestTextPath()));
+}
+}
 
 enum{
 	PREV_PAGE_BUTTON=0,
@@ -148,7 +164,7 @@ UINT32 SetHistoryFact( UINT8 ubCode, UINT8 ubSecondCode, UINT32 uiDate, INT16 sS
 	// outside of the History system(the code in this .c file), this is the only function you'll ever need
 	UINT32 uiId=0;
 	UINT8 ubColor = 0;
-	HistoryUnitPtr pHistory = pHistoryListHead;
+	HistoryUnitPtr pHistory;
 
 	// clear the list
 	ClearHistoryList( );
@@ -192,7 +208,7 @@ UINT32 AddHistoryToPlayersLog(UINT8 ubCode, UINT8 ubSecondCode, UINT32 uiDate, I
 	// adds History item to player's log(History List), returns unique id number of it
 	// outside of the History system(the code in this .c file), this is the only function you'll ever need
 	UINT32 uiId=0;
-	HistoryUnitPtr pHistory = pHistoryListHead;
+	HistoryUnitPtr pHistory;
 
 	// clear the list
 	ClearHistoryList( );
@@ -803,7 +819,7 @@ void ClearHistoryList( void )
 	// remove each element from list of transactions
 
 	HistoryUnitPtr pHistoryList=pHistoryListHead;
-	HistoryUnitPtr pHistoryNode=pHistoryList;
+	HistoryUnitPtr pHistoryNode;
 
 	// while there are elements in the list left, delete them
 	while( pHistoryList )
@@ -994,7 +1010,7 @@ void DisplayPageNumberAndDateRange( void )
 	INT32 iLastPage=0;
 	INT32 iCounter=0;
 	UINT32 uiLastDate;
-	HistoryUnitPtr pTempHistory=pHistoryListHead;
+	HistoryUnitPtr pTempHistory;
 	CHAR16 sString[50];
 
 
@@ -1094,13 +1110,11 @@ void ProcessHistoryTransactionString(CHAR16 *pString, HistoryUnitPtr pHistory)
 			if( pHistory->ubSecondCode != NO_PROFILE )
 				//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_MERC_KILLED ], gMercProfiles[pHistory->ubSecondCode].zName );
 				sgp_swprintf(pString, 512,HistoryName[ HISTORY_MERC_KILLED ].sHistory, gMercProfiles[pHistory->ubSecondCode].zName );
-#ifdef JA2BETAVERSION
 			else
 			{
 				//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_MERC_KILLED ], L"ERROR!!!	NO_PROFILE" );
 				sgp_swprintf(pString, 512,HistoryName[ HISTORY_MERC_KILLED ].sHistory, L"ERROR!!!	NO_PROFILE" );
 			}
-#endif
 			break;
 
 		case HISTORY_HIRED_MERC_FROM_MERC:
@@ -1435,7 +1449,6 @@ BOOLEAN WriteOutHistoryRecords( UINT32 uiPage )
 	INT32 iCount =0;
 	HWFILE hFileHandle;
 	HistoryUnitPtr pList;
-	UINT32 uiByteCount=0;
 
 	// check if bad page
 	if( uiPage == 0 )
@@ -1475,12 +1488,12 @@ BOOLEAN WriteOutHistoryRecords( UINT32 uiPage )
 
 	if( pList == NULL )
 	{
+		FileClose( hFileHandle );
 		return( FALSE );
 	}
 
 	FileSeek( hFileHandle, sizeof( INT32 ) + ( uiPage - 1 ) * NUM_RECORDS_PER_PAGE * SIZE_OF_HISTORY_FILE_RECORD, FILE_SEEK_FROM_START );
 
-	uiByteCount = /*sizeof( INT32 )+ */( uiPage - 1 ) * NUM_RECORDS_PER_PAGE * SIZE_OF_HISTORY_FILE_RECORD;
 	// file exists, read in data, continue until end of page
 	while( ( iCount < NUM_RECORDS_PER_PAGE )&&( fOkToContinue ) )
 	{
@@ -1546,7 +1559,7 @@ BOOLEAN LoadPreviousHistoryPage( void )
 	ClearHistoryList( );
 
 	// load previous page
-	if( ( iCurrentHistoryPage == 1 ) )
+	if( iCurrentHistoryPage == 1 )
 	{
 		return ( FALSE );
 	}
@@ -1690,7 +1703,7 @@ BOOLEAN AppendHistoryToEndOfFile( HistoryUnitPtr pHistory )
 void ResetHistoryFact( UINT8 ubCode, INT16 sSectorX, INT16 sSectorY )
 {
 	// run through history list
-	HistoryUnitPtr pList = pHistoryListHead;
+	HistoryUnitPtr pList;
 	BOOLEAN fFound = FALSE;
 
 	// set current page to before list
@@ -1737,7 +1750,7 @@ void ResetHistoryFact( UINT8 ubCode, INT16 sSectorX, INT16 sSectorY )
 UINT32 GetTimeQuestWasStarted( UINT8 ubCode )
 {
 	// run through history list
-	HistoryUnitPtr pList = pHistoryListHead;
+	HistoryUnitPtr pList;
 	BOOLEAN fFound = FALSE;
 	UINT32 uiTime = 0;
 
@@ -1779,37 +1792,19 @@ UINT32 GetTimeQuestWasStarted( UINT8 ubCode )
 
 void GetQuestStartedString( UINT8 ubQuestValue, CHAR16 *sQuestString )
 {
-	// open the file and copy the string
-#ifdef JA2UB
-	if (FileExists(QUEST_EDT_FILE_JA25))
-	{
-	LoadEncryptedDataFromFile( QUEST_EDT_FILE_JA25, sQuestString, 160 * ( ubQuestValue * 2	), 160 );
-	}
-	else
-	{
-	LoadEncryptedDataFromFile( QUEST_EDT_FILE_JA2, sQuestString, 160 * ( ubQuestValue * 2	), 160 );
-	}
-#else
-	LoadEncryptedDataFromFile( "BINARYDATA\\quests.edt", sQuestString, 160 * ( ubQuestValue * 2	), 160 );
-#endif
+	const ContentPolicy::QuestTextRecord record =
+		CurrentQuestTextRecord(ubQuestValue, false);
+	LoadEncryptedDataFromFile(record.path, sQuestString,
+		160 * record.recordIndex, 160);
 }
 
 
 void GetQuestEndedString( UINT8 ubQuestValue, CHAR16 *sQuestString )
 {
-	// open the file and copy the string
-#ifdef JA2UB
-	if (FileExists(QUEST_EDT_FILE_JA25))
-	{
-	LoadEncryptedDataFromFile( QUEST_EDT_FILE_JA25, sQuestString, 160 * ( ( ubQuestValue	* 2 ) + 1), 160 );
-	}
-	else
-	{
-	LoadEncryptedDataFromFile( QUEST_EDT_FILE_JA2, sQuestString, 160 * ( ubQuestValue * 2	), 160 );
-	}
-#else
-	LoadEncryptedDataFromFile( "BINARYDATA\\quests.edt", sQuestString, 160 * ( ( ubQuestValue	* 2 ) + 1), 160 );
-#endif
+	const ContentPolicy::QuestTextRecord record =
+		CurrentQuestTextRecord(ubQuestValue, true);
+	LoadEncryptedDataFromFile(record.path, sQuestString,
+		160 * record.recordIndex, 160);
 }
 
 

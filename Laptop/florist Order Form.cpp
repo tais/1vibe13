@@ -148,7 +148,7 @@ typedef struct
 
 #define		FLOWER_ORDER_NUMBER_OF_DROP_DOWN_LOCATIONS		17
 
-///*
+// Retired built-in delivery locations:
 FlowerOrderLocationStruct FlowerOrderLocations[FLOWER_ORDER_NUMBER_OF_DROP_DOWN_LOCATIONS]={
 	{	&pDeliveryLocationStrings[0],	20, 15},
 	{	&pDeliveryLocationStrings[1],	95, 70},
@@ -1135,7 +1135,7 @@ BOOLEAN CreateDestroyFlowerOrderDestDropDown( UINT8 ubDropDownMode )
 
 			GetVideoObject(&hImageHandle, guiDropDownBorder);
 
-			usPosX = usPosY = 0;
+			usPosY = 0;
 			//blit top row of images
 			for(i=10; i< FLOWER_ORDER_DROP_DOWN_LOCATION_WIDTH-10; i+=10)
 			{

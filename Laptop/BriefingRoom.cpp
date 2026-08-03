@@ -445,7 +445,7 @@ void GetPlayerKeyBoardInputForBriefingRoomHomePage( void )
 		switch( InputEvent.usParam )
 			{
 			case (( ENTER ) ):
-					if(( InputEvent.usEvent == KEY_UP ) )
+					if( InputEvent.usEvent == KEY_UP )
 					{
 						// return hit, check to see if current player activation string is a valid one
 						ProcessPlayerInputActivationBriefingRoomString( );
