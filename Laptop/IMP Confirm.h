@@ -64,8 +64,8 @@ extern std::vector<IMP_VOICESET> gIMPVoice;
 
 BOOLEAN AddCharacterToPlayersTeam( void );
 BOOLEAN LoadImpCharacter( STR fileName );
-void WriteOutCurrentImpCharacter( INT32 iProfileId );
-void WriteOutCurrentImpCharacter( INT32 iProfileId, STR fileName );
+BOOLEAN WriteOutCurrentImpCharacter(INT32 profileId);
+BOOLEAN WriteOutCurrentImpCharacter(INT32 profileId, const char* fileName);
 
 void ResetIMPCharactersEyesAndMouthOffsets( UINT8 ubMercProfileID );
 

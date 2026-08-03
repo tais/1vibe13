@@ -102,6 +102,15 @@ target_include_directories(laptop_localization_input_model_tests
 add_test(NAME laptop_localization_input_model
   COMMAND laptop_localization_input_model_tests)
 
+# IMP page transitions, generated-profile indices, and XML-backed portrait and
+# voice cycling share one dependency-free lifecycle contract.
+add_executable(laptop_imp_creation_state_model_tests
+  laptop_imp_creation_state_model_tests.cpp)
+target_include_directories(laptop_imp_creation_state_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME laptop_imp_creation_state_model
+  COMMAND laptop_imp_creation_state_model_tests)
+
 # A dedicated process replaces global allocation hooks while measuring the
 # observer hot path. Keeping it separate avoids coupling allocation accounting
 # to unrelated adapter tests or their setup work.

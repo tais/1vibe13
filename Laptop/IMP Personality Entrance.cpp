@@ -116,7 +116,7 @@ void BtnIMPPersonalityEntranceDoneCallback(GUI_BUTTON *btn,INT32 reason)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
 		// done with begin screen, next screen
-			iCurrentImpPage = IMP_PERSONALITY_QUIZ;
+			RequestIMPPage(IMP_PERSONALITY_QUIZ);
 		fButtonPendingFlag = TRUE;
 		}
 	}

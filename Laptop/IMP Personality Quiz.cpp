@@ -911,7 +911,7 @@ void BtnIMPPersonalityQuizAnswerConfirmCallback(GUI_BUTTON *btn,INT32 reason)
 				// OPPS!, done..time to finish up
 				if( giCurrentPersonalityQuizQuestion > 15)
 				{
-					iCurrentImpPage = IMP_PERSONALITY_FINISH;
+					RequestIMPPage(IMP_PERSONALITY_FINISH);
 					// process
 					CompileQuestionsInStatsAndWhatNot( );
 				}
@@ -944,7 +944,7 @@ void BtnIMPPersonalityQuizStartOverCallback(GUI_BUTTON *btn,INT32 reason)
 			giMaxPersonalityQuizQuestion = 0;
 		fStartOverFlag = TRUE;
 
-			iCurrentImpPage = IMP_PERSONALITY;
+			RequestIMPPage(IMP_PERSONALITY);
 			fButtonPendingFlag = TRUE;
 			iCurrentAnswer = -1;
 		}
@@ -1579,7 +1579,8 @@ void PrintQuizQuestionNumber( void )
 	swprintf(sString, L"%d", giCurrentPersonalityQuizQuestion + 1);
 
 	// print current question number
-	mprintf( LAPTOP_SCREEN_UL_X + 345 , LAPTOP_SCREEN_WEB_UL_Y + 370 ,sString);
+	mprintf(LAPTOP_SCREEN_UL_X + 345, LAPTOP_SCREEN_WEB_UL_Y + 370,
+		L"%s", sString);
 
 	// total number of questions
 	mprintf( LAPTOP_SCREEN_UL_X + 383 , LAPTOP_SCREEN_WEB_UL_Y + 370 , L"16");
@@ -1660,7 +1661,6 @@ void HandleIMPQuizKeyBoard( void )
 			// OPPS!, done..time to finish up
 //			if( giCurrentPersonalityQuizQuestion > 15)
 //			{
-//				iCurrentImpPage = IMP_PERSONALITY_FINISH;
 				// process
 //				CompileQuestionsInStatsAndWhatNot( );
 //			}

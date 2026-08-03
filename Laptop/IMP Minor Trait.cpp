@@ -520,7 +520,7 @@ void BtnIMPMinorTraitFinishCallback(GUI_BUTTON *btn,INT32 reason)
 		// Flugente: setting determines whether we see the background page
 		if ( UsingBackGroundSystem() )
 		{
-			iCurrentImpPage = IMP_BACKGROUND;
+			RequestIMPPage(IMP_BACKGROUND);
 
 			fButtonPendingFlag = TRUE;
 		}
@@ -528,11 +528,11 @@ void BtnIMPMinorTraitFinishCallback(GUI_BUTTON *btn,INT32 reason)
 		else if( iCurrentProfileMode == IMP__FINISH )
 		{
 			//go back to the done screen
-			iCurrentImpPage = IMP_FINISH;
+			RequestIMPPage(IMP_FINISH);
 		}
 		else
 		{
-			iCurrentImpPage = IMP_MAIN_PAGE;
+			RequestIMPPage(IMP_MAIN_PAGE);
 
 			fButtonPendingFlag = TRUE;	
 

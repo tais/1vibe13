@@ -17,6 +17,7 @@
 	#include "GameSettings.h"
 	#include "LaptopSave.h"
 	#include "IMP Confirm.h"
+	#include "ImpCreationStateModel.h"
 
 INT32 iCurrentVoice = 0;
 UINT32 iSelectedIMPVoiceSet = 0;
@@ -59,20 +60,12 @@ static bool VoiceMatchesCharacter(size_t index)
 	return gIMPVoice[index].bSex == selectedSex;
 }
 
-static void SelectFirstMatchingVoice()
+static BOOLEAN SelectFirstMatchingVoice()
 {
-	for (size_t i = 0; i < gIMPVoice.size(); ++i)
-	{
-		if (VoiceMatchesCharacter(i))
-		{
-			iCurrentVoice = (INT32)i;
-			return;
-		}
-	}
-
-	// Preserve the legacy behavior for incomplete mod data: use the first
-	// available voice rather than leaving an out-of-range stale selection.
-	iCurrentVoice = 0;
+	const auto first = LaptopImpModel::FindFirstMatchingIndex(
+		gIMPVoice.size(), VoiceMatchesCharacter);
+	iCurrentVoice = first ? static_cast<INT32>(*first) : -1;
+	return first ? TRUE : FALSE;
 }
 
 void EnterIMPVoices( void )
@@ -141,15 +134,10 @@ void IncrementVoice()
 		return;
 	}
 
-	for (size_t offset = 1; offset <= gIMPVoice.size(); ++offset)
-	{
-		const size_t candidate = ((size_t)iCurrentVoice + offset) % gIMPVoice.size();
-		if (VoiceMatchesCharacter(candidate))
-		{
-			iCurrentVoice = (INT32)candidate;
-			return;
-		}
-	}
+	const auto next = LaptopImpModel::FindNextMatchingIndex(
+		gIMPVoice.size(), iCurrentVoice, VoiceMatchesCharacter);
+	if (next)
+		iCurrentVoice = static_cast<INT32>(*next);
 }
 
 void DecrementVoice( void )
@@ -159,16 +147,10 @@ void DecrementVoice( void )
 		return;
 	}
 
-	const size_t current = iCurrentVoice >= 0 ? (size_t)iCurrentVoice : 0;
-	for (size_t offset = 1; offset <= gIMPVoice.size(); ++offset)
-	{
-		const size_t candidate = (current + gIMPVoice.size() - (offset % gIMPVoice.size())) % gIMPVoice.size();
-		if (VoiceMatchesCharacter(candidate))
-		{
-			iCurrentVoice = (INT32)candidate;
-			return;
-		}
-	}
+	const auto previous = LaptopImpModel::FindPreviousMatchingIndex(
+		gIMPVoice.size(), iCurrentVoice, VoiceMatchesCharacter);
+	if (previous)
+		iCurrentVoice = static_cast<INT32>(*previous);
 }
 
 void CreateIMPVoicesButtons( void )
@@ -322,13 +304,14 @@ void BtnIMPVoicesDoneCallback( GUI_BUTTON *btn, INT32 reason )
 		{
 			btn->uiFlags &= ~(BUTTON_CLICKED_ON);
 
-			// Changed to continue to color choosing - SANDRO
-			iCurrentImpPage = IMP_COLOR_CHOICE_PAGE;
-			
-			if (iCurrentVoice < 0 || (size_t)iCurrentVoice >= gIMPVoice.size())
+			if (!LaptopImpModel::IsIndexInRange(gIMPVoice.size(), iCurrentVoice) ||
+				!VoiceMatchesCharacter(static_cast<std::size_t>(iCurrentVoice)))
 			{
 				return;
 			}
+
+			// Changed to continue to color choosing - SANDRO
+			RequestIMPPage(IMP_COLOR_CHOICE_PAGE);
 			iSelectedIMPVoiceSet = gIMPVoice[iCurrentVoice].voiceset;
 
 			// set button up image	pending
@@ -406,6 +389,12 @@ void IMPPortraitRegionButtonCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 void RenderVoiceIndex( void )
 {
+	if (!LaptopImpModel::IsIndexInRange(gIMPVoice.size(), iCurrentVoice) ||
+		!VoiceMatchesCharacter(static_cast<std::size_t>(iCurrentVoice)))
+	{
+		return;
+	}
+
 	CHAR16 sString[100];
 	INT16 sX, sY;
 
@@ -418,5 +407,5 @@ void RenderVoiceIndex( void )
 	SetFontForeground( FONT_WHITE );
 	SetFontBackground( FONT_BLACK );
 
-	mprintf( sX, iScreenHeightOffset + 320, sString );
+	mprintf(sX, iScreenHeightOffset + 320, L"%s", sString);
 }

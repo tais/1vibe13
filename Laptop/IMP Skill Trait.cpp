@@ -937,7 +937,7 @@ void BtnIMPSkillTraitFinishCallback(GUI_BUTTON *btn,INT32 reason)
 
 		if( gGameOptions.fNewTraitSystem )
 		{
-			iCurrentImpPage = IMP_MINOR_TRAITS_PAGE;
+			RequestIMPPage(IMP_MINOR_TRAITS_PAGE);
 			fButtonPendingFlag = TRUE;		
 		}
 		else
@@ -946,11 +946,11 @@ void BtnIMPSkillTraitFinishCallback(GUI_BUTTON *btn,INT32 reason)
 			if( iCurrentProfileMode == IMP__FINISH )
 			{
 				//go back tot he done screen
-				iCurrentImpPage = IMP_FINISH;
+				RequestIMPPage(IMP_FINISH);
 			}
 			else
 			{
-				iCurrentImpPage = IMP_MAIN_PAGE;
+				RequestIMPPage(IMP_MAIN_PAGE);
 
 				if( CameBackToSpecialtiesPageButNotFinished() )
 				{

@@ -119,7 +119,7 @@ void BtnIMPCharacterAndDisabilityEntranceDoneCallback(GUI_BUTTON *btn,INT32 reas
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
 
 		// done with begin screen, next screen
-			iCurrentImpPage = IMP_CHARACTER_PAGE;
+			RequestIMPPage(IMP_CHARACTER_PAGE);
 		fButtonPendingFlag = TRUE;
 		}
 	}

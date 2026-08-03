@@ -561,7 +561,7 @@ void DisplayGear( UINT16 usItem, UINT16 usPosX, UINT16 usPosY, BOOLEAN fWithBack
 			swprintf( sString, L"%d", aNumber );
 			INT16 sX, sY;
 			FindFontRightCoordinates( (INT16)(usPosX), (INT16)(usPosY + 6), 10, (INT16)(GetFontHeight( FONT10ARIAL )), sString, FONT10ARIAL, &sX, &sY );
-			mprintf( sX, sY, sString );
+			mprintf(sX, sY, L"%s", sString);
 		}
 	}
 }
@@ -577,7 +577,7 @@ void BtnIMPGearFinishCallback( GUI_BUTTON *btn, INT32 reason )
 	{
 		btn->uiFlags |= (BUTTON_CLICKED_ON);
 
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 		iCurrentProfileMode = IMP__FINISH;
 		fShowIMPItemHighLight = FALSE;
 	}
@@ -752,7 +752,6 @@ void StoreSelectedIMPGear()
 
 	for (const auto& kv : gIMPPocketSelectedItems) 
 	{
-		auto pocket = kv.first;
 		INT16 sItem = kv.second.first;
 		UINT8 amount = kv.second.second;
 		if (sItem)
@@ -761,6 +760,22 @@ void StoreSelectedIMPGear()
 			gIMPGearSelectedItems[sItem] = max( 1, gIMPGearSelectedItems[sItem] + amount );
 		}
 	}
+}
+
+void ResetSelectedIMPGear()
+{
+	gIMPCurrentInventoryPoolPage = 0;
+	gIMPLastInventoryPoolPage = 0;
+	gCurrentImpGearChoices = 0;
+	gIMPPossibleItems.clear();
+	gIMPPocketSelectedItems.clear();
+	gIMPGearPossibleItems.clear();
+	gIMPGearSelectedItems.clear();
+	gIMPGearGun1 = -1;
+	gIMPGearGun2 = -1;
+	gIMPGearGun3 = -1;
+	gIMPGearCost = 0;
+	fNewIMPGearMethodUsed = FALSE;
 }
 
 
@@ -1155,7 +1170,7 @@ void DisplayPagesForImpInventoryPool(void)
 		46, 13, sString, BLOCKFONT2, &sX, &sY
 	);
 
-	mprintf(sX, sY, sString);
+	mprintf(sX, sY, L"%s", sString);
 
 	SetFontDestBuffer(FRAME_BUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE);
 }
@@ -1185,7 +1200,7 @@ void DrawItemTextToInvPool(STR16 itemName, UINT32 x, UINT32 y)
 	SetFontForeground(FONT_GRAY2);
 	SetFontBackground(FONT_BLACK);
 
-	mprintf(sX,	sY,	sString);
+	mprintf(sX, sY, L"%s", sString);
 }
 
 

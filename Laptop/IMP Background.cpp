@@ -426,11 +426,11 @@ void BtnIMPBackgroundFinishCallback(GUI_BUTTON *btn,INT32 reason)
 		if( iCurrentProfileMode == IMP__FINISH )
 		{
 			//go back tot he done screen
-			iCurrentImpPage = IMP_FINISH;
+			RequestIMPPage(IMP_FINISH);
 		}
 		else
 		{
-			iCurrentImpPage = IMP_MAIN_PAGE;
+			RequestIMPPage(IMP_MAIN_PAGE);
 
 			fButtonPendingFlag = TRUE;
 

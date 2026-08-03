@@ -63,6 +63,11 @@ explicit preservation of documented `-1` byte sentinels, and index validation,
 then publishes staged records only after a complete document. The legacy UTF-8
 adapter remains above the engine boundary, and the existing XML schemas,
 numeric IDs, and fixed game structures are unchanged.
+The subsequent IMP lifecycle pass follows the same campaign-neutral ownership:
+`ImpCreationStateModel` validates page, portrait, voice, and free-profile
+selection, while staged IMP import publishes a complete profile only after
+validation and successful hire. It changes neither campaign selection nor the
+legacy IMP `.dat`/`.dat2`, portrait XML, profile, finance, or history formats.
 
 ## Literal remaining tail
 

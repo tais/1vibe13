@@ -178,7 +178,8 @@ void DisplayPlayerActivationString( void )
 
 	// reset shadow
 	SetFontShadow(DEFAULT_SHADOW);
-	mprintf(IMP_PLAYER_ACTIVATION_STRING_X, IMP_PLAYER_ACTIVATION_STRING_Y, pPlayerActivationString);
+	mprintf(IMP_PLAYER_ACTIVATION_STRING_X, IMP_PLAYER_ACTIVATION_STRING_Y,
+		L"%s", pPlayerActivationString);
 
 
 	fNewCharInActivationString = FALSE;
@@ -410,7 +411,7 @@ void ProcessPlayerInputActivationString( void )
 			// Kaiden: Need to reset skills, attributes and personalities with the new UB Method.
 			ResetSkillsAttributesAndPersonality( );
 			ClearAllSkillsList( );
-			iCurrentImpPage = IMP_MAIN_PAGE;
+			RequestIMPPage(IMP_MAIN_PAGE);
 		}
 		else
 		{
@@ -559,7 +560,7 @@ void BtnIMPAboutUsCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
-		iCurrentImpPage = IMP_ABOUT_US;
+		RequestIMPPage(IMP_ABOUT_US);
 			fButtonPendingFlag = TRUE;
 		}
 	}

@@ -221,7 +221,8 @@ BOOLEAN ReadInIMPPortraits(STR fileName, BOOLEAN localizedVersion)
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading IMPPortraits.xml" );
 
-	std::copy_n(gIMPFaceValues, pending.size(), pending.begin());
+	if (localizedVersion)
+		std::copy_n(gIMPFaceValues, pending.size(), pending.begin());
 	pData.records = &pending;
 	pData.seen = &seen;
 	pData.valid = true;
@@ -253,6 +254,7 @@ BOOLEAN ReadInIMPPortraits(STR fileName, BOOLEAN localizedVersion)
 void LoadIMPPortraitsTEMP()
 {
 	UINT32 cnt2 = 0;
+	std::fill_n(gIMPValues, NUM_PROFILES, IMP_VALUES{});
 
 	for ( UINT32 cnt = 0; cnt < NUM_PROFILES; ++cnt )
 	{
