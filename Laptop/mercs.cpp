@@ -24,13 +24,11 @@
 	#include "Game Event Hook.h"
 	#include "Quests.h"
 	#include "AimMembers.h"
+	#include "CampaignMercSitePolicy.h"
 	#include "CampaignProfileCodes.h"
-
-#ifdef JA2UB
-#include "Ja25_Tactical.h"
-#include "Ja25 Strategic Ai.h"
-#include "Speck Quotes.h"
-#endif
+	#include "GameContext.h"
+	#include "Ja25_Tactical.h"
+	#include "Ja25 Strategic Ai.h"
 
 #include "connect.h"
 
@@ -107,11 +105,7 @@ UINT8 NUMBER_OF_BAD_MERCS = -1;
 
 #define		SPECK_IDLE_CHAT_DELAY						10000
 
-#ifdef JA2UB
-#define		MERC_NUMBER_OF_RANDOM_QUOTES		20//19//14
-#else
-#define		MERC_NUMBER_OF_RANDOM_QUOTES		19//14
-#endif
+#define		MERC_MAX_NUMBER_OF_RANDOM_QUOTES		20
 
 
 #define		MERC_FIRST_MERC									BIFF
@@ -221,42 +215,9 @@ typedef struct
 	UINT32	uiNumberOfTimesQuoteSaid;
 
 } NUMBER_TIMES_QUOTE_SAID;
-NUMBER_TIMES_QUOTE_SAID			gNumberOfTimesQuoteSaid[ MERC_NUMBER_OF_RANDOM_QUOTES ] =
-{
-#ifdef JA2UB
-		{ SPECK_QUOTE_BIFF_DEAD_WHEN_IMPORTING, 0 },
-#endif
-		{ SPECK_QUOTE_RANDOM_CHIT_CHAT_1, 0 },
-		{ SPECK_QUOTE_RANDOM_CHIT_CHAT_2, 0 },
-
-#ifdef JA2UB
-		{ SPECK_QUOTE_RANDOM_CHIT_CHAT_3, 0 },
-#endif
-
-		{ SPECK_QUOTE_ADVERTISE_GASTON, 0 },
-		{ SPECK_QUOTE_ADVERTISE_STOGIE, 0 },
-
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_BIFF, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_HAYWIRE, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_GASKET, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_RAZOR, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_FLO, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_GUMPY, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_LARRY, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_COUGER, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_NUMB, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_BUBBA, 0 },
-
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_AIM_SLANDER_1, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_AIM_SLANDER_2, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_AIM_SLANDER_3, 0 },
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_AIM_SLANDER_4, 0 },
-
-#ifdef JA2UB
-#else
-		{ SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_HIMSELF, 0 },
-#endif
-};
+NUMBER_TIMES_QUOTE_SAID gNumberOfTimesQuoteSaid[
+	MERC_MAX_NUMBER_OF_RANDOM_QUOTES ] = {};
+UINT8 gubNumberOfMercRandomQuotes = 0;
 
 
 //
@@ -327,11 +288,10 @@ void			ShouldAnyNewMercMercBecomeAvailable();
 BOOLEAN		CanMercBeAvailableYet( UINT8 ubMercToCheck );
 UINT32		CalcMercDaysServed();
 void		RevaluateMercArray();	// silversurfer: for better savegame compatibility
-#ifdef JA2UB
+void		InitializeMercRandomQuotes();
 void			MarkSpeckImportantQuoteUsed( UINT32 uiQuoteNum );
 BOOLEAN		HasImportantSpeckQuoteBeingSaid( UINT32 uiQuoteNum );
 INT8			IsSpeckQuoteImportantQuote( UINT32 uiQuoteNum );
-#endif
 //ppp
 
 BOOLEAN SaveNewMercsToSaveGameFile( HWFILE hFile )
@@ -482,6 +442,27 @@ BOOLEAN CanMercBeAvailableDuringInit( UINT8 ubMercToCheck )// anv: for all mercs
 	return ( TRUE );
 }
 
+void InitializeMercRandomQuotes()
+{
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
+	gubNumberOfMercRandomQuotes = static_cast<UINT8>(
+		mercSitePolicy.randomQuoteCount());
+	Assert(gubNumberOfMercRandomQuotes <= MERC_MAX_NUMBER_OF_RANDOM_QUOTES);
+
+	for (UINT8 index = 0; index < gubNumberOfMercRandomQuotes; ++index)
+	{
+		gNumberOfTimesQuoteSaid[index].ubQuoteID = static_cast<UINT8>(
+			mercSitePolicy.randomQuote(index));
+		gNumberOfTimesQuoteSaid[index].uiNumberOfTimesQuoteSaid = 0;
+	}
+	for (UINT8 index = gubNumberOfMercRandomQuotes;
+		index < MERC_MAX_NUMBER_OF_RANDOM_QUOTES; ++index)
+	{
+		gNumberOfTimesQuoteSaid[index] = {};
+	}
+}
+
 void GameInitMercs()
 {
 	UINT8 i;
@@ -531,6 +512,7 @@ void GameInitMercs()
 
 	LaptopSaveInfo.gubPlayersMercAccountStatus = MERC_NO_ACCOUNT;
 	gubCurMercIndex = 0;
+	InitializeMercRandomQuotes();
 
 	if(!gGameExternalOptions.fAllMercsAvailable)
 	{
@@ -540,17 +522,17 @@ void GameInitMercs()
 	{
 		LaptopSaveInfo.gubLastMercIndex =	LAST_MERC_ID; //NUMBER_OF_BAD_MERCS;
 	}
-	
-#ifdef JA2UB	
-	//Ja25.  create an account immediately
+
+	if (CampaignMercSitePolicy(GetGameContext().capabilities())
+			.createsAccountAtGameStart())
 	{
+		// UB creates an account immediately.
 		//open an account
 		LaptopSaveInfo.gubPlayersMercAccountStatus = MERC_ACCOUNT_VALID;
 
 		//Get an account number
 		LaptopSaveInfo.guiPlayersMercAccountNumber = Random( 99999 );
 	}
-#endif
 
 	gubCurrentMercVideoMode = MERC_VIDEO_NO_VIDEO_MODE;
 	gfMercVideoIsBeingDisplayed = FALSE;
@@ -613,16 +595,15 @@ BOOLEAN EnterMercs()
 
 	// Account Box button
 	guiAccountBoxButtonImage	= LoadButtonImage("LAPTOP\\SmallButtons.sti", -1,0,-1,1,-1 );
-#ifdef JA2UB
-// no UB
-#else
-	guiAccountBoxButton = QuickCreateButton(guiAccountBoxButtonImage, MERC_ACCOUNT_BUTTON_X, MERC_ACCOUNT_BUTTON_Y,
-																BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-																DEFAULT_MOVE_CALLBACK, BtnAccountBoxButtonCallback);
-	SetButtonCursor(guiAccountBoxButton, CURSOR_LAPTOP_SCREEN);
-	SpecifyDisabledButtonStyle( guiAccountBoxButton, DISABLED_STYLE_SHADED);
-
-#endif
+	if (CampaignMercSitePolicy(GetGameContext().capabilities())
+			.hasAccountManagement())
+	{
+		guiAccountBoxButton = QuickCreateButton(guiAccountBoxButtonImage, MERC_ACCOUNT_BUTTON_X, MERC_ACCOUNT_BUTTON_Y,
+															BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+															DEFAULT_MOVE_CALLBACK, BtnAccountBoxButtonCallback);
+		SetButtonCursor(guiAccountBoxButton, CURSOR_LAPTOP_SCREEN);
+		SpecifyDisabledButtonStyle( guiAccountBoxButton, DISABLED_STYLE_SHADED);
+	}
 	guiFileBoxButton = QuickCreateButton(guiAccountBoxButtonImage, MERC_FILE_BUTTON_X, MERC_FILE_BUTTON_Y,
 																BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																DEFAULT_MOVE_CALLBACK, BtnFileBoxButtonCallback);
@@ -720,11 +701,11 @@ void ExitMercs()
 
 	UnloadButtonImage( guiAccountBoxButtonImage );
 	RemoveButton( guiFileBoxButton );
-#ifdef JA2UB
-//JA25: removed		RemoveButton( guiAccountBoxButton );
-#else
-	RemoveButton( guiAccountBoxButton );
-#endif
+	if (CampaignMercSitePolicy(GetGameContext().capabilities())
+			.hasAccountManagement())
+	{
+		RemoveButton( guiAccountBoxButton );
+	}
 	RemoveMercBackGround();
 
 	DeleteVideoSurfaceFromIndex( guiMercVideoFaceBackground );
@@ -764,17 +745,16 @@ void HandleMercs()
 		gfMercSiteScreenIsReDrawn = TRUE;
 	}
 
-#ifdef JA2UB
-#else
 	// anv: stop, Speck can't say anything because he's out of reach
-	if( !IsSpeckComAvailable() )
+	if (CampaignMercSitePolicy(GetGameContext().capabilities())
+			.requiresAvailableSpeckForDialogue() &&
+		!IsSpeckComAvailable())
 	{
 		gusMercVideoSpeckSpeech = MERC_VIDEO_SPECK_SPEECH_NOT_TALKING;
 		gubCurrentMercVideoMode = MERC_VIDEO_NO_VIDEO_MODE;
 		RenderMercs();
 		gfRedrawMercSite = TRUE;
 	}
-#endif
 
 	//if Speck has something to say, say it
 	if( gusMercVideoSpeckSpeech != MERC_VIDEO_SPECK_SPEECH_NOT_TALKING )// && !gfDoneIntroSpeech )
@@ -823,6 +803,8 @@ void HandleMercs()
 void RenderMercs()
 {
 	HVOBJECT hPixHandle;
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 
 	DrawMecBackGround();
 
@@ -845,17 +827,18 @@ void RenderMercs()
 	//Text on the Speck Portrait
 	DisplayWrappedString(MERC_PORTRAIT_TEXT_X, MERC_PORTRAIT_TEXT_Y, MERC_PORTRAIT_TEXT_WIDTH, 2, MERC_TEXT_FONT, MERC_TEXT_COLOR, MercHomePageText[MERC_SPECK_OWNER], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 
-#ifdef JA2UB
-	//Display the "ask about or special offer
-	DisplayWrappedString(MERC_ACCOUNT_BOX_TEXT_X, MERC_ACCOUNT_BOX_TEXT_Y, 230, 2, MERC_TEXT_FONT, MERC_TEXT_COLOR, gzNewLaptopMessages[ LPTP_MSG__MERC_SPECIAL_OFFER ], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-#else
-/* ja25:*/
-	//Text on the Account Box
-	if( LaptopSaveInfo.gubPlayersMercAccountStatus == MERC_NO_ACCOUNT )
-		DisplayWrappedString(MERC_ACCOUNT_BOX_TEXT_X, MERC_ACCOUNT_BOX_TEXT_Y, MERC_ACCOUNT_BOX_TEXT_WIDTH, 2, MERC_TEXT_FONT, MERC_TEXT_COLOR, MercHomePageText[MERC_OPEN_ACCOUNT], FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+	if (mercSitePolicy.showsSpecialOffer())
+	{
+		DisplayWrappedString(MERC_ACCOUNT_BOX_TEXT_X, MERC_ACCOUNT_BOX_TEXT_Y, 230, 2, MERC_TEXT_FONT, MERC_TEXT_COLOR, gzNewLaptopMessages[ LPTP_MSG__MERC_SPECIAL_OFFER ], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+	}
 	else
-		DisplayWrappedString(MERC_ACCOUNT_BOX_TEXT_X, MERC_ACCOUNT_BOX_TEXT_Y, MERC_ACCOUNT_BOX_TEXT_WIDTH, 2, MERC_TEXT_FONT, MERC_TEXT_COLOR, MercHomePageText[MERC_VIEW_ACCOUNT], FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-#endif
+	{
+		// Text on the account box.
+		if( LaptopSaveInfo.gubPlayersMercAccountStatus == MERC_NO_ACCOUNT )
+			DisplayWrappedString(MERC_ACCOUNT_BOX_TEXT_X, MERC_ACCOUNT_BOX_TEXT_Y, MERC_ACCOUNT_BOX_TEXT_WIDTH, 2, MERC_TEXT_FONT, MERC_TEXT_COLOR, MercHomePageText[MERC_OPEN_ACCOUNT], FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+		else
+			DisplayWrappedString(MERC_ACCOUNT_BOX_TEXT_X, MERC_ACCOUNT_BOX_TEXT_Y, MERC_ACCOUNT_BOX_TEXT_WIDTH, 2, MERC_TEXT_FONT, MERC_TEXT_COLOR, MercHomePageText[MERC_VIEW_ACCOUNT], FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+	}
 	//Text on the Files Box
 	DisplayWrappedString(MERC_FILE_BOX_TEXT_X, MERC_FILE_BOX_TEXT_Y, MERC_FILE_BOX_TEXT_WIDTH, 2, MERC_TEXT_FONT, MERC_TEXT_COLOR, MercHomePageText[MERC_VIEW_FILES], FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
 
@@ -863,13 +846,11 @@ void RenderMercs()
 	if( iMercPopUpBox != -1 )
 	{
 
-#ifdef JA2UB
-//JA25: removed			DrawButton( guiAccountBoxButton );
-//		ButtonList[ guiAccountBoxButton ]->uiFlags |= BUTTON_FORCE_UNDIRTY;
-#else
-		DrawButton( guiAccountBoxButton );
-		ButtonList[ guiAccountBoxButton ]->uiFlags |= BUTTON_FORCE_UNDIRTY;
-#endif
+		if (mercSitePolicy.hasAccountManagement())
+		{
+			DrawButton( guiAccountBoxButton );
+			ButtonList[ guiAccountBoxButton ]->uiFlags |= BUTTON_FORCE_UNDIRTY;
+		}
 		RenderMercPopUpBoxFromIndex( iMercPopUpBox, gusSpeckDialogueX, MERC_TEXT_BOX_POS_Y, FRAME_BUFFER);
 	}
 
@@ -878,11 +859,8 @@ void RenderMercs()
 
 	//if the page is redrawn, and we are in video conferencing, redraw the VC backgrund graphic
 	gfMercSiteScreenIsReDrawn = TRUE;
-#ifdef JA2UB
-//JA25: removed	ButtonList[ guiAccountBoxButton ]->uiFlags &= ~BUTTON_FORCE_UNDIRTY;
-#else
-	ButtonList[ guiAccountBoxButton ]->uiFlags &= ~BUTTON_FORCE_UNDIRTY;
-#endif
+	if (mercSitePolicy.hasAccountManagement())
+		ButtonList[ guiAccountBoxButton ]->uiFlags &= ~BUTTON_FORCE_UNDIRTY;
 	InvalidateRegion(LAPTOP_SCREEN_UL_X,LAPTOP_SCREEN_WEB_UL_Y,LAPTOP_SCREEN_LR_X,LAPTOP_SCREEN_WEB_LR_Y);
 }
 
@@ -915,9 +893,6 @@ BOOLEAN RemoveMercBackGround()
 }
 
 
-#ifdef JA2UB
-//no UB
-#else
 void BtnAccountBoxButtonCallback(GUI_BUTTON *btn,INT32 reason)
 {
 	if(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
@@ -952,7 +927,6 @@ void BtnAccountBoxButtonCallback(GUI_BUTTON *btn,INT32 reason)
 		InvalidateRegion(btn->Area.RegionTopLeftX, btn->Area.RegionTopLeftY, btn->Area.RegionBottomRightX, btn->Area.RegionBottomRightY);
 	}
 }
-#endif
 
 void BtnFileBoxButtonCallback(GUI_BUTTON *btn,INT32 reason)
 {
@@ -982,6 +956,8 @@ void BtnFileBoxButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 void DailyUpdateOfMercSite( UINT16 usDate)
 {
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 	TacticalActor *pSoldier;
 	SoldierID	sSoldierID;
 	INT16		i;
@@ -1022,77 +998,67 @@ void DailyUpdateOfMercSite( UINT16 usDate)
 //				pSoldier->employment().totalLength()++;
 			}
 
-#ifdef JA2UB
-//JA25:  MERC does a 1 time fee, no longer pay as you go 
-#else
-
-			//Get the longest time
-			if( gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength > iNumDays )
-				iNumDays = gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength;
-#endif
+			if (mercSitePolicy.usesDeferredBilling() &&
+				gMercProfiles[pSoldier->identity().profile()]
+					.iMercMercContractLength > iNumDays)
+			{
+				iNumDays = gMercProfiles[pSoldier->identity().profile()]
+					.iMercMercContractLength;
+			}
 		}
 	}
 
-#ifdef JA2UB
-//JA25:  No longer pay as you go, now pay up front
-#else
-	//if the players hasnt paid for a while, get email him to tell him to pay
-	//iTotalContractLength
-	if( iNumDays > MERC_NUM_DAYS_TILL_ACCOUNT_INVALID )
+	if (mercSitePolicy.usesDeferredBilling())
 	{
-		if( LaptopSaveInfo.gubPlayersMercAccountStatus != MERC_ACCOUNT_INVALID )
+		// If the player has not paid for a while, notify or suspend them.
+		if( iNumDays > MERC_NUM_DAYS_TILL_ACCOUNT_INVALID )
 		{
-			LaptopSaveInfo.gubPlayersMercAccountStatus = MERC_ACCOUNT_INVALID;
-			if( IsSpeckComAvailable() )
+			if( LaptopSaveInfo.gubPlayersMercAccountStatus != MERC_ACCOUNT_INVALID )
 			{
-				AddEmail(MERC_INVALID, MERC_INVALID_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_NOTICE);
+				LaptopSaveInfo.gubPlayersMercAccountStatus = MERC_ACCOUNT_INVALID;
+				if( IsSpeckComAvailable() )
+				{
+					AddEmail(JA2_EMAIL_MERC_INVALID, JA2_EMAIL_MERC_INVALID_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_NOTICE);
+				}
+				else
+				{
+					TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ) , SPECK_PLAYABLE_QUOTE_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED );
+				}
 			}
-			else
+		}
+		else if( iNumDays > MERC_NUM_DAYS_TILL_ACCOUNT_SUSPENDED )
+		{
+			if( LaptopSaveInfo.gubPlayersMercAccountStatus != MERC_ACCOUNT_SUSPENDED )
 			{
-				// anv: Have speck complain personally
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ) , SPECK_PLAYABLE_QUOTE_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED );
+				LaptopSaveInfo.gubPlayersMercAccountStatus = MERC_ACCOUNT_SUSPENDED;
+				if( IsSpeckComAvailable() )
+				{
+					AddEmail(JA2_EMAIL_MERC_WARNING, JA2_EMAIL_MERC_WARNING_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_DELINQUENT);
+					LaptopSaveInfo.uiSpeckQuoteFlags |= SPECK_QUOTE__SENT_EMAIL_ABOUT_LACK_OF_PAYMENT;
+				}
+				else
+				{
+					TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ) , SPECK_PLAYABLE_QUOTE_PLAYER_OWES_SPECK_ALMOST_BANKRUPT_2);
+				}
+			}
+		}
+		else if( iNumDays > MERC_NUM_DAYS_TILL_FIRST_WARNING)
+		{
+			if( LaptopSaveInfo.gubPlayersMercAccountStatus != MERC_ACCOUNT_VALID_FIRST_WARNING )
+			{
+				LaptopSaveInfo.gubPlayersMercAccountStatus = MERC_ACCOUNT_VALID_FIRST_WARNING;
+				if( IsSpeckComAvailable() )
+				{
+					AddEmail(JA2_EMAIL_MERC_FIRST_WARNING, JA2_EMAIL_MERC_FIRST_WARNING_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_PLEASEPAY);
+					LaptopSaveInfo.uiSpeckQuoteFlags |= SPECK_QUOTE__SENT_EMAIL_ABOUT_LACK_OF_PAYMENT;
+				}
+				else
+				{
+					TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ) , SPECK_PLAYABLE_QUOTE_PLAYER_OWES_SPECK_ALMOST_BANKRUPT_1 );
+				}
 			}
 		}
 	}
-	else if( iNumDays > MERC_NUM_DAYS_TILL_ACCOUNT_SUSPENDED )
-	{
-		if( LaptopSaveInfo.gubPlayersMercAccountStatus != MERC_ACCOUNT_SUSPENDED )
-		{
-			LaptopSaveInfo.gubPlayersMercAccountStatus = MERC_ACCOUNT_SUSPENDED;
-			if( IsSpeckComAvailable() )
-			{
-				AddEmail(MERC_WARNING, MERC_WARNING_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_DELINQUENT);
-
-				// Have speck complain next time player come to site
-				LaptopSaveInfo.uiSpeckQuoteFlags |= SPECK_QUOTE__SENT_EMAIL_ABOUT_LACK_OF_PAYMENT;
-			}
-			else
-			{
-				// anv: Have speck complain personally
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ) , SPECK_PLAYABLE_QUOTE_PLAYER_OWES_SPECK_ALMOST_BANKRUPT_2);
-			}
-		}
-	}
-	else if( iNumDays > MERC_NUM_DAYS_TILL_FIRST_WARNING)
-	{
-		if( LaptopSaveInfo.gubPlayersMercAccountStatus != MERC_ACCOUNT_VALID_FIRST_WARNING )
-		{
-			LaptopSaveInfo.gubPlayersMercAccountStatus = MERC_ACCOUNT_VALID_FIRST_WARNING;
-			if( IsSpeckComAvailable() )
-			{
-				AddEmail(MERC_FIRST_WARNING, MERC_FIRST_WARNING_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_SPECK_PLEASEPAY);
-
-				// Have speck complain next time player come to site
-				LaptopSaveInfo.uiSpeckQuoteFlags |= SPECK_QUOTE__SENT_EMAIL_ABOUT_LACK_OF_PAYMENT;
-			}
-			else
-			{
-				// anv: Have speck complain personally
-				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ) , SPECK_PLAYABLE_QUOTE_PLAYER_OWES_SPECK_ALMOST_BANKRUPT_1 );
-			}
-		}
-	}
-#endif
 
 	//Check and act if any new Merc Mercs should become available
 	ShouldAnyNewMercMercBecomeAvailable();
@@ -1222,10 +1188,8 @@ void DailyUpdateOfMercSite( UINT16 usDate)
 
 	// If the merc site has never gone down, the number of MERC payment days is above 'X',
 	// and the players account status is ok ( cant have the merc site going down when the player owes him money, player may lose account that way )
-#ifdef JA2UB
-// no UB
-#else
-	if( ShouldTheMercSiteServerGoDown() )
+	if( mercSitePolicy.supportsServerOutage() &&
+		ShouldTheMercSiteServerGoDown() )
 	{
 		UINT32	uiTimeInMinutes=0;
 
@@ -1243,7 +1207,6 @@ void DailyUpdateOfMercSite( UINT16 usDate)
 		//Add an event that will get the site back up and running
 		AddStrategicEvent( EVENT_MERC_SITE_BACK_ONLINE, uiTimeInMinutes, 0 );
 	}
-#endif
 }
 
 
@@ -1837,13 +1800,13 @@ void HandleTalkingSpeck()
 
 					if( iMercPopUpBox != -1 )
 					{
-#ifdef JA2UB
-//JA25: removed							DrawButton( guiAccountBoxButton );
-//JA25: removed							ButtonList[ guiAccountBoxButton ]->uiFlags |= BUTTON_FORCE_UNDIRTY;
-#else
-						DrawButton( guiAccountBoxButton );
-						ButtonList[ guiAccountBoxButton ]->uiFlags |= BUTTON_FORCE_UNDIRTY;
-#endif
+						if (CampaignMercSitePolicy(
+								GetGameContext().capabilities())
+								.hasAccountManagement())
+						{
+							DrawButton( guiAccountBoxButton );
+							ButtonList[ guiAccountBoxButton ]->uiFlags |= BUTTON_FORCE_UNDIRTY;
+						}
 
 						RenderMercPopUpBoxFromIndex( iMercPopUpBox, gusSpeckDialogueX, MERC_TEXT_BOX_POS_Y, FRAME_BUFFER);
 					}
@@ -1953,16 +1916,14 @@ BOOLEAN	GetSpeckConditionalOpening( BOOLEAN fJustEnteredScreen )
 	UINT8	ubCnt;
 	BOOLEAN	fCanSayLackOfPaymentQuote = TRUE;
 	BOOLEAN fCanUseIdleTag = FALSE;
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 
 	//If we just entered the screen, reset some variables
 	if( fJustEnteredScreen )
 	{
 		gfDoneIntroSpeech = FALSE;
-#ifdef JA2UB
-		usQuoteToSay = SPECK_QUOTE_NEW_INTRO_1;
-#else
-		usQuoteToSay = 0;
-#endif
+		usQuoteToSay = mercSitePolicy.firstVisitIntroFirst();
 		return( FALSE );
 	}
 
@@ -1974,26 +1935,21 @@ BOOLEAN	GetSpeckConditionalOpening( BOOLEAN fJustEnteredScreen )
 
 	gfDoneIntroSpeech = TRUE;
 
-	//set the opening quote based on if the player has been here before
-
-#ifdef JA2UB
-	if( LaptopSaveInfo.ubPlayerBeenToMercSiteStatus == MERC_SITE_FIRST_VISIT && usQuoteToSay <= SPECK_QUOTE_NEW_INTRO_7 ) //!= 0 )
-#else
-	if( LaptopSaveInfo.ubPlayerBeenToMercSiteStatus == MERC_SITE_FIRST_VISIT && usQuoteToSay <= 8 ) //!= 0 )
-#endif
+	bool handledOpening = false;
+	if (LaptopSaveInfo.ubPlayerBeenToMercSiteStatus ==
+			MERC_SITE_FIRST_VISIT &&
+		usQuoteToSay <= mercSitePolicy.firstVisitIntroLast())
 	{
 		StartSpeckTalking( usQuoteToSay );
 		usQuoteToSay++;
-#ifdef JA2UB
-		if( usQuoteToSay <= SPECK_QUOTE_NEW_INTRO_7 )
-#else
-		if( usQuoteToSay <= 8 )
-#endif
+		if( usQuoteToSay <= mercSitePolicy.firstVisitIntroLast() )
 			gfDoneIntroSpeech = FALSE;
+		handledOpening = true;
 	}
-#ifdef JA2UB
-	//else if its the first time back since the laptop went down
-	else if( gJa25SaveStruct.fHaveAimandMercOffferItems && !HasImportantSpeckQuoteBeingSaid( SPECK_QUOTE_2ND_INTRO_LAPTOP_WORKING_AGAIN_1 ) )
+	else if (mercSitePolicy.usesUnfinishedBusinessSite() &&
+		gJa25SaveStruct.fHaveAimandMercOffferItems &&
+		!HasImportantSpeckQuoteBeingSaid(
+			SPECK_QUOTE_2ND_INTRO_LAPTOP_WORKING_AGAIN_1))
 	{
 		StartSpeckTalking( SPECK_QUOTE_2ND_INTRO_LAPTOP_WORKING_AGAIN_1 );
 		StartSpeckTalking( SPECK_QUOTE_2ND_INTRO_LAPTOP_WORKING_AGAIN_2 );
@@ -2001,83 +1957,62 @@ BOOLEAN	GetSpeckConditionalOpening( BOOLEAN fJustEnteredScreen )
 		StartSpeckTalking( SPECK_QUOTE_2ND_INTRO_LAPTOP_WORKING_AGAIN_4 );
 		StartSpeckTalking( SPECK_QUOTE_2ND_INTRO_LAPTOP_WORKING_AGAIN_5 );
 		StartSpeckTalking( SPECK_QUOTE_2ND_INTRO_LAPTOP_WORKING_AGAIN_6 );
-	} 	
-#else
-	//if its the players second visit
-	else if( LaptopSaveInfo.ubPlayerBeenToMercSiteStatus == MERC_SITE_SECOND_VISIT )
+		handledOpening = true;
+	}
+	else if (mercSitePolicy.hasAccountManagement() &&
+		LaptopSaveInfo.ubPlayerBeenToMercSiteStatus ==
+			MERC_SITE_SECOND_VISIT)
 	{
 		StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_1_TOUGH_START );
 		fCanUseIdleTag = TRUE;
+		handledOpening = true;
 	}
-#endif
-	// We have been here at least 2 times before, Check which quote we should use
-	else
+
+	if (!handledOpening && mercSitePolicy.usesUnfinishedBusinessSite())
 	{
-		//if the player has not hired any MERC mercs before
-		// CJC Dec 1 2002: fixing this, so near-bankrupt msg will play
-#ifdef JA2UB		
 		if( !IsAnyMercMercsHired( ) && CalcMercDaysServed() == 0)
 			StartSpeckTalking( SPECK_QUOTE_DEFAULT_INTRO_HAVENT_HIRED_MERCS );
 		else
 			StartSpeckTalking( SPECK_QUOTE_DEFAULT_INTRO_HAVE_HIRED_MERCS );
-#endif
 
-#ifdef JA2UB
-//JA25: not using quote quote
-#else
-		//if the player has not hired any MERC mercs before
+		if( CountNumberOfMercMercsWhoAreDead() >= 2 &&
+			LaptopSaveInfo.ubSpeckCanSayPlayersLostQuote )
+		{
+			StartSpeckTalking(
+				SPECK_QUOTE_ALTERNATE_OPENING_12_PLAYERS_LOST_MERCS );
+			LaptopSaveInfo.ubSpeckCanSayPlayersLostQuote = 0;
+		}
+		else
+		{
+			// Preserve the original UB opening path's random-stream advance.
+			(void)Random(100);
+		}
+	}
+	else if (!handledOpening)
+	{
 		if( !IsAnyMercMercsHired( ) && CalcMercDaysServed() == 0)
 		{
 			StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_2_BUSINESS_BAD );
 		}
-#endif
-#ifdef JA2UB
-//JA25: not using quote quote
-#else
-		//else if it is the first visit since the server went down
 		else if( LaptopSaveInfo.fFirstVisitSinceServerWentDown == TRUE )
 		{
 			LaptopSaveInfo.fFirstVisitSinceServerWentDown = 2;
 			StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_9_FIRST_VISIT_SINCE_SERVER_WENT_DOWN );
 			fCanUseIdleTag = TRUE;
 		}
-#endif
-/*
-		//else if new mercs are available
-		else if( LaptopSaveInfo.fNewMercsAvailableAtMercSite )
-		{
-			LaptopSaveInfo.fNewMercsAvailableAtMercSite = FALSE;
-
-			StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_11_NEW_MERCS_AVAILABLE );
-		}
-*/
-		//else if lots of MERC mercs are DEAD, and speck can say the quote ( dont want him to continously say it )
-#ifdef JA2UB
-		if( CountNumberOfMercMercsWhoAreDead() >= 2 && LaptopSaveInfo.ubSpeckCanSayPlayersLostQuote )
-#else
 		else if( CountNumberOfMercMercsWhoAreDead() >= 2 && LaptopSaveInfo.ubSpeckCanSayPlayersLostQuote )
-#endif
 		{
 			StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_12_PLAYERS_LOST_MERCS );
 
 			//Set it so speck Wont say the quote again till someone else dies
 			LaptopSaveInfo.ubSpeckCanSayPlayersLostQuote = 0;
 		}
-#ifdef JA2UB
-//JA25: not using quote quote
-#else
-		//else if player owes lots of money
 		else if( LaptopSaveInfo.gubPlayersMercAccountStatus == MERC_ACCOUNT_SUSPENDED )
 		{
 			StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_5_PLAYER_OWES_SPECK_ACCOUNT_SUSPENDED );
 
 			fCanSayLackOfPaymentQuote = FALSE;
 		}
-#endif
-		//else if the player owes speck a large sum of money, have speck say so
-#ifdef JA2UB
-//JA25: not using quote quote
-#else
 		else if ( CalculateHowMuchPlayerOwesSpeck( ) > gGameExternalOptions.usMERCBankruptWarning )
 		{
 			StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_6_PLAYER_OWES_SPECK_ALMOST_BANKRUPT_1 );
@@ -2085,60 +2020,33 @@ BOOLEAN	GetSpeckConditionalOpening( BOOLEAN fJustEnteredScreen )
 
 			fCanSayLackOfPaymentQuote = FALSE;
 		}
-#endif
 		else
 		{
-#ifdef JA2UB
-			UINT8	ubNumMercsDead = NumberOfMercMercsDead();
-			BOOLEAN fCanUseIdleTag = FALSE;
-#endif
 			UINT8	ubRandom = ( UINT8 ) Random( 100 );
-#ifdef JA2UB
-//JA25: not using quote quote
-#else
-			//if business is good
-//			if( ubRandom < 40 && ubNumMercsDead < 2 && CountNumberOfMercMercsHired() > 1 )
 			if( ubRandom < 40 && AreAnyOfTheNewMercsAvailable() && CountNumberOfMercMercsHired() > 1 )
 			{
 				StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_3_BUSINESS_GOOD );
 				fCanUseIdleTag = TRUE;
 			}
-#endif
-			//or if still trying to recruit ( the last recruit hasnt arrived and the player has paid for some of his mercs )
-//			else if( ubRandom < 80 && LaptopSaveInfo.gbNumDaysTillFourthMercArrives != -1 && LaptopSaveInfo.gbNumDaysTillFirstMercArrives < MERC_NUM_DAYS_TILL_FIRST_MERC_AVAILABLE )
-#ifdef JA2UB
-//JA25: not using quote quote
-#else
 			else if( ubRandom < 80 && gConditionsForMercAvailability[ LaptopSaveInfo.ubLastMercAvailableId ].usMoneyPaid <= LaptopSaveInfo.uiTotalMoneyPaidToSpeck && CanMercBeAvailableYet( LaptopSaveInfo.ubLastMercAvailableId ) )
 			{
 				StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_4_TRYING_TO_RECRUIT );
 				fCanUseIdleTag = TRUE;
 			}
-
-			//else use the generic opening
 			else
-#endif
 			{
-#ifdef JA2UB
-//JA25: not using quote quote
-#else
 				StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_10_GENERIC_OPENING );
 
 				fCanUseIdleTag = TRUE;
 
-//JA25: not using quote quote
-				//if the	merc hasnt said the line before
 				if( !LaptopSaveInfo.fSaidGenericOpeningInMercSite )
 				{
 					LaptopSaveInfo.fSaidGenericOpeningInMercSite = TRUE;
 					StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_10_TAG_FOR_20 );
 				}
 			}
-#endif
 		}
-#ifdef JA2UB
-//no UB
-#else
+
 		if( fCanUseIdleTag )
 		{
 			UINT8 ubRandom = Random( 100 );
@@ -2165,48 +2073,36 @@ BOOLEAN	GetSpeckConditionalOpening( BOOLEAN fJustEnteredScreen )
 						Assert( 0 );
 				}
 			}
-#endif
 		}
 	}
 
-#ifdef JA2UB
-//JA25: not using quote quote
-#else
-	//If Speck has sent an email to the player, and the player still hasnt paid, has speck complain about it.
-	// CJC Dec 1 2002 ACTUALLY HOOKED IN THAT CHECK
-	if (fCanSayLackOfPaymentQuote)
+	if (mercSitePolicy.hasAccountManagement())
 	{
-		if( LaptopSaveInfo.uiSpeckQuoteFlags & SPECK_QUOTE__SENT_EMAIL_ABOUT_LACK_OF_PAYMENT )
+		if (fCanSayLackOfPaymentQuote &&
+			LaptopSaveInfo.uiSpeckQuoteFlags &
+				SPECK_QUOTE__SENT_EMAIL_ABOUT_LACK_OF_PAYMENT)
 		{
 			LaptopSaveInfo.uiSpeckQuoteFlags &= ~SPECK_QUOTE__SENT_EMAIL_ABOUT_LACK_OF_PAYMENT;
-
 			StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_TAG_PLAYER_OWES_MONEY );
 		}
-	}
 
-	//if new mercs are available
-	if( LaptopSaveInfo.fNewMercsAvailableAtMercSite )
-	{
-		LaptopSaveInfo.fNewMercsAvailableAtMercSite = FALSE;
-
-		StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_11_NEW_MERCS_AVAILABLE );
+		if( LaptopSaveInfo.fNewMercsAvailableAtMercSite )
+		{
+			LaptopSaveInfo.fNewMercsAvailableAtMercSite = FALSE;
+			StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_11_NEW_MERCS_AVAILABLE );
+		}
 	}
-#endif
 
 	//if any mercs are dead
 	if( IsAnyMercMercsDead() )
 	{
 		UINT8 ubMercID;
-		//if no merc has died before
-#ifdef JA2UB
-//JA25: not using quote quote
-#else
-		if( !LaptopSaveInfo.fHasAMercDiedAtMercSite )
+		if (mercSitePolicy.hasAccountManagement() &&
+			!LaptopSaveInfo.fHasAMercDiedAtMercSite)
 		{
 			LaptopSaveInfo.fHasAMercDiedAtMercSite = TRUE;
 			StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_TAG_FIRST_MERC_DIES );
 		}
-#endif
 		//loop through all the mercs and see if any are dead and the quote is not said
 		for( ubCnt=0; ubCnt<NUMBER_OF_MERCS; ubCnt++ )
 		{
@@ -2220,14 +2116,21 @@ BOOLEAN	GetSpeckConditionalOpening( BOOLEAN fJustEnteredScreen )
 					//set the flag
 					gMercProfiles[ ubMercID ].ubMiscFlags3 |= PROFILE_MISC_FLAG3_MERC_MERC_IS_DEAD_AND_QUOTE_SAID;
 
-					#ifdef JA2UB
-						if ( ubMercID == GASTON_UB )
-							StartSpeckTalking( SPECK_QUOTE_GASTON_DEAD );
-						else if ( ubMercID == STOGIE_UB )
-							StartSpeckTalking( SPECK_QUOTE_STOGIE_DEAD );
-					#endif
-
-					switch( ubMercID )
+					const UINT8 gaston = mercSitePolicy.usesUnfinishedBusinessSite()
+						? GASTON_UB : GASTON;
+					const UINT8 stogie = mercSitePolicy.usesUnfinishedBusinessSite()
+						? STOGIE_UB : STOGIE;
+					if (ubMercID == gaston)
+					{
+						StartSpeckTalking(mercSitePolicy.quote(
+							CampaignSpeckQuoteCode::Role::GastonDead));
+					}
+					else if (ubMercID == stogie)
+					{
+						StartSpeckTalking(mercSitePolicy.quote(
+							CampaignSpeckQuoteCode::Role::StogieDead));
+					}
+					else switch( ubMercID )
 					{
 						case BIFF:
 							StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_TAG_BIFF_IS_DEAD );
@@ -2268,16 +2171,6 @@ BOOLEAN	GetSpeckConditionalOpening( BOOLEAN fJustEnteredScreen )
 						case BUBBA:
 							StartSpeckTalking( SPECK_QUOTE_ALTERNATE_OPENING_TAG_BUBBA_IS_DEAD );
 							break;
-#ifdef JA2UB
-
-#else
-						case GASTON:
-							StartSpeckTalking( SPECK_QUOTE_GASTON_DEAD );
-							break;
-						case STOGIE:
-							StartSpeckTalking( SPECK_QUOTE_STOGIE_DEAD );
-							break;
-#endif
 					};
 
 				}
@@ -2285,11 +2178,8 @@ BOOLEAN	GetSpeckConditionalOpening( BOOLEAN fJustEnteredScreen )
 		}
 	}
 
-#ifdef JA2UB
-//JA25: not using quote quote
-#else
-	//if flo has married the cousin
-	if( gubFact[ FACT_PC_MARRYING_DARYL_IS_FLO ] )
+	if (mercSitePolicy.hasAccountManagement() &&
+		gubFact[FACT_PC_MARRYING_DARYL_IS_FLO])
 	{
 		//if speck hasnt said the quote before, and Biff is NOT dead
 		if( !LaptopSaveInfo.fSpeckSaidFloMarriedCousinQuote && !IsMercDead( BIFF ) )
@@ -2300,7 +2190,6 @@ BOOLEAN	GetSpeckConditionalOpening( BOOLEAN fJustEnteredScreen )
 			MakeBiffAwayForCoupleOfDays();
 		}
 	}
-#endif
 
 	//if larry has relapsed
 	if( HasLarryRelapsed() && !( LaptopSaveInfo.uiSpeckQuoteFlags & SPECK_QUOTE__ALREADY_TOLD_PLAYER_THAT_LARRY_RELAPSED ) )
@@ -2448,98 +2337,59 @@ void RemoveSpeckPopupTextBox()
 void HandlePlayerHiringMerc( UINT8 ubHiredMercID )
 {
 	gusMercVideoSpeckSpeech = MERC_VIDEO_SPECK_SPEECH_NOT_TALKING;
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
+	const UINT8 gaston = mercSitePolicy.usesUnfinishedBusinessSite()
+		? GASTON_UB : GASTON;
+	const UINT8 stogie = mercSitePolicy.usesUnfinishedBusinessSite()
+		? STOGIE_UB : STOGIE;
 
-	//if the players is in good finacial standing
-//DEF: 3/19/99: Dont know why this was done
-//	if( LaptopSaveInfo.iCurrentBalance >= 2000 )
+	if (ubHiredMercID == gaston)
 	{
-	#ifdef JA2UB
-		//Gaston is hired
-		if ( ubHiredMercID == GASTON_UB ) 	
+		if( IsMercMercAvailable( FLO ) )
+			StartSpeckTalking(mercSitePolicy.quote(
+				CampaignSpeckQuoteCode::Role::PlayerHiresGaston));
+	}
+	else if (ubHiredMercID == stogie)
+	{
+		if( IsMercMercAvailable( BIFF ) )
+			StartSpeckTalking(mercSitePolicy.quote(
+				CampaignSpeckQuoteCode::Role::PlayerHiresStogie));
+	}
+	else switch( ubHiredMercID )
+	{
+		case BIFF:
+			if( IsMercMercAvailable( LARRY_NORMAL ) || IsMercMercAvailable( LARRY_DRUNK ) )
+				StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_BIFF_SPECK_PLUGS_LARRY );
+			if( IsMercMercAvailable( FLO ) )
+				StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_BIFF_SPECK_PLUGS_FLO );
+			break;
+		case HAYWIRE:
+			if( IsMercMercAvailable( RAZOR ) )
+				StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_HAYWIRE_SPECK_PLUGS_RAZOR );
+			break;
+		case RAZOR:
+			if( IsMercMercAvailable( HAYWIRE ) )
+				StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_RAZOR_SPECK_PLUGS_HAYWIRE );
+			break;
+		case FLO:
+			if( IsMercMercAvailable( BIFF ) )
+				StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_FLO_SPECK_PLUGS_BIFF );
+			break;
+		case LARRY_NORMAL:
+		case LARRY_DRUNK:
+			if( IsMercMercAvailable( BIFF ) )
+				StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_LARRY_SPECK_PLUGS_BIFF );
+			break;
+		case SPECK_PLAYABLE:
+			if (mercSitePolicy.hasAccountManagement())
 			{
-				//if biff is available, advertise for biff
-				if( IsMercMercAvailable( FLO ) )
-					StartSpeckTalking( SPECK_QUOTE_PLAYER_HIRES_GASTON );
-			}
-		//Stogie is hired	
-		else if ( ubHiredMercID == STOGIE_UB )	
-			{
-				//if biff is available, advertise for biff
-				if( IsMercMercAvailable( BIFF ) )
-					StartSpeckTalking( SPECK_QUOTE_PLAYER_HIRES_STOGIE );	
-			}
-	#endif
-		//determine which quote to say based on the merc that was hired
-		switch( ubHiredMercID )
-		{
-			//Biff is hired
-			case BIFF:
-				//if Larry is available, advertise for larry
-				if( IsMercMercAvailable( LARRY_NORMAL ) || IsMercMercAvailable( LARRY_DRUNK ) )
-					StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_BIFF_SPECK_PLUGS_LARRY );
-
-				//if flo is available, advertise for flo
-				if( IsMercMercAvailable( FLO ) )
-					StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_BIFF_SPECK_PLUGS_FLO );
-				break;
-
-			//haywire is hired
-			case HAYWIRE:
-				//if razor is available, advertise for razor
-				if( IsMercMercAvailable( RAZOR ) )
-					StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_HAYWIRE_SPECK_PLUGS_RAZOR );
-				break;
-
-			//razor is hired
-			case RAZOR:
-				//if haywire is available, advertise for haywire
-				if( IsMercMercAvailable( HAYWIRE ) )
-					StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_RAZOR_SPECK_PLUGS_HAYWIRE );
-				break;
-
-
-			//flo is hired
-			case FLO:
-				//if biff is available, advertise for biff
-				if( IsMercMercAvailable( BIFF ) )
-					StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_FLO_SPECK_PLUGS_BIFF );
-				break;
-
-
-			//larry is hired
-			case LARRY_NORMAL:
-			case LARRY_DRUNK:
-				//if biff is available, advertise for biff
-				if( IsMercMercAvailable( BIFF ) )
-					StartSpeckTalking( SPECK_QUOTE_PLAYERS_HIRES_LARRY_SPECK_PLUGS_BIFF );
-				break;
-#ifdef JA2UB
-
-#else
-			//Gaston is hired
-			case GASTON:
-				//if biff is available, advertise for biff
-				if( IsMercMercAvailable( FLO ) )
-					StartSpeckTalking( SPECK_QUOTE_PLAYER_HIRES_GASTON );
-				break;
-
-			//Stogie is hired
-			case STOGIE:
-				//if biff is available, advertise for biff
-				if( IsMercMercAvailable( BIFF ) )
-					StartSpeckTalking( SPECK_QUOTE_PLAYER_HIRES_STOGIE );
-				break;
-
-			// anv: Speck is hired
-			case SPECK_PLAYABLE:
 				if( IsMercOnTeam( VICKI, FALSE, FALSE ) )
 					StartSpeckTalking( SPECK_QUOTE_PLAYER_HIRES_SPECK_TOGETHER_WITH_VICKI );
 				else
 					StartSpeckTalking( SPECK_QUOTE_PLAYER_HIRES_SPECK );
-				break;
-#endif
-			
-		}
+			}
+			break;
 	}
 
 	gubArrivedFromMercSubSite = MERC_CAME_FROM_HIRE_PAGE;
@@ -2568,36 +2418,33 @@ BOOLEAN IsMercMercAvailable( UINT8 ubMercID )
 
 BOOLEAN ShouldSpeckStartTalkingDueToActionOnSubPage()
 {
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 	//if the merc came from the hire screen
 	if( gfJustHiredAMercMerc )
 	{
 
 		HandlePlayerHiringMerc( GetAvailableMercIDFromMERCArray( gubCurMercIndex ) );
-
-#ifdef JA2UB
-#else
-		if( IsSpeckComAvailable() )
-#endif
+		if (!mercSitePolicy.requiresAvailableSpeckForDialogue() ||
+			IsSpeckComAvailable())
 		{
-#ifdef JA2UB
-			//if it hasnt been said, say the better equipment quote
-			if( !HasImportantSpeckQuoteBeingSaid( SPECK_QUOTE_BETTER_STARTING_EQPMNT_TAG_ON ) )
+			if (mercSitePolicy.usesImportantUnfinishedBusinessQuotes() &&
+				!HasImportantSpeckQuoteBeingSaid(
+					SPECK_QUOTE_BETTER_STARTING_EQPMNT_TAG_ON))
 			{
 				StartSpeckTalking( SPECK_QUOTE_BETTER_STARTING_EQPMNT_TAG_ON );
 			}
-#endif
 			//get speck to say the thank you 
 			if( Random( 100 ) > 50 )
 				StartSpeckTalking( SPECK_QUOTE_GENERIC_THANKS_FOR_HIRING_MERCS_1 );
 			else
 			    StartSpeckTalking( SPECK_QUOTE_GENERIC_THANKS_FOR_HIRING_MERCS_2 );
-#ifdef JA2UB
-			//if it hasnt been said, say the encouraged to shop quote
-			if( !HasImportantSpeckQuoteBeingSaid( SPECK_QUOTE_ENCOURAGE_SHOP_TAG_ON ) )
+			if (mercSitePolicy.usesImportantUnfinishedBusinessQuotes() &&
+				!HasImportantSpeckQuoteBeingSaid(
+					SPECK_QUOTE_ENCOURAGE_SHOP_TAG_ON))
 			{
 				StartSpeckTalking( SPECK_QUOTE_ENCOURAGE_SHOP_TAG_ON );
 			}
-#endif
 		}
 		gfJustHiredAMercMerc = FALSE;
 //				gfDoneIntroSpeech = TRUE;
@@ -2781,16 +2628,15 @@ void HandleSpeckIdleConversation( BOOLEAN fReset )
 			if( sLeastSaidQuote != -1 )
 				gusMercVideoSpeckSpeech = (UINT8)sLeastSaidQuote;
 
-			//Say the aim slander quotes the least
+			// Say the AIM slander quotes the least.
 			if( sLeastSaidQuote >= 47 && sLeastSaidQuote <= 57 )
 			{
 				IncreaseMercRandomQuoteValue( (UINT8)sLeastSaidQuote, 1 );
 			}
-#ifdef JA2UB			
-			//if its the biff is dead quote, only say the quote once
-			else if( sLeastSaidQuote == SPECK_QUOTE_BIFF_DEAD_WHEN_IMPORTING )
+			else if (CampaignMercSitePolicy(GetGameContext().capabilities())
+					.usesUnfinishedBusinessSite() &&
+				sLeastSaidQuote == SPECK_QUOTE_BIFF_DEAD_WHEN_IMPORTING)
 				IncreaseMercRandomQuoteValue( (UINT8)sLeastSaidQuote, 255 );
-#endif
 			else if( sLeastSaidQuote != -1 )
 				IncreaseMercRandomQuoteValue( (UINT8)sLeastSaidQuote, 3 );
 		}
@@ -2806,7 +2652,7 @@ INT16	GetRandomQuoteThatHasBeenSaidTheLeast( )
 	UINT8	cnt;
 	INT16	sSmallestNumber=255;
 
-	for( cnt=0; cnt<MERC_NUMBER_OF_RANDOM_QUOTES; cnt++)
+	for( cnt=0; cnt<gubNumberOfMercRandomQuotes; cnt++)
 	{
 		//if the quote can be said ( the merc has not been hired )
 		if( CanMercQuoteBeSaid( gNumberOfTimesQuoteSaid[cnt].ubQuoteID ) )
@@ -2829,7 +2675,7 @@ void IncreaseMercRandomQuoteValue( UINT8 ubQuoteID, UINT8 ubValue )
 {
 	UINT8	cnt;
 
-	for( cnt=0; cnt<MERC_NUMBER_OF_RANDOM_QUOTES; cnt++)
+	for( cnt=0; cnt<gubNumberOfMercRandomQuotes; cnt++)
 	{
 		if( gNumberOfTimesQuoteSaid[ cnt ].ubQuoteID == ubQuoteID )
 		{
@@ -2925,18 +2771,44 @@ void DrawMercVideoBackGround()
 
 void DisableMercSiteButton()
 {
-	if( iMercPopUpBox != -1 )
+	if( iMercPopUpBox != -1 &&
+		CampaignMercSitePolicy(GetGameContext().capabilities())
+			.hasAccountManagement())
 	{
-#ifdef JA2UB
-//JA25: removed			ButtonList[ guiAccountBoxButton ]->uiFlags |= BUTTON_FORCE_UNDIRTY;
-#else
 		ButtonList[ guiAccountBoxButton ]->uiFlags |= BUTTON_FORCE_UNDIRTY;
-#endif
 	}
 }
 
 BOOLEAN CanMercQuoteBeSaid( UINT32 uiQuoteID )
 {
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
+	if (uiQuoteID == mercSitePolicy.quote(
+			CampaignSpeckQuoteCode::Role::AdvertiseGaston))
+	{
+		return IsMercMercAvailable(
+			mercSitePolicy.usesUnfinishedBusinessSite()
+				? GASTON_UB : GASTON);
+	}
+	if (uiQuoteID == mercSitePolicy.quote(
+			CampaignSpeckQuoteCode::Role::AdvertiseStogie))
+	{
+		return IsMercMercAvailable(
+			mercSitePolicy.usesUnfinishedBusinessSite()
+				? STOGIE_UB : STOGIE);
+	}
+	if (mercSitePolicy.usesUnfinishedBusinessSite() &&
+		uiQuoteID == SPECK_QUOTE_BIFF_DEAD_WHEN_IMPORTING)
+	{
+		return gJa25SaveStruct.fBiffWasKilledWhenImportingSave;
+	}
+	if (mercSitePolicy.hasAccountManagement() &&
+		uiQuoteID ==
+			SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_HIMSELF)
+	{
+		return IsMercMercAvailable(SPECK_PLAYABLE);
+	}
+
 	BOOLEAN fRetVal = TRUE;
 
 	//switch onb the quote being said, if hes plugging a merc that has already been hired, dont say it
@@ -2991,42 +2863,6 @@ BOOLEAN CanMercQuoteBeSaid( UINT32 uiQuoteID )
 			if( !IsMercMercAvailable( BUBBA ) )
 				fRetVal = FALSE;
 			break;
-
-#ifdef JA2UB
-#else
-		//anv: playable Speck
-		case SPECK_QUOTE_PLAYER_NOT_DOING_ANYTHING_SPECK_SELLS_HIMSELF:
-			if( !IsMercMercAvailable( SPECK_PLAYABLE ) )
-				fRetVal = FALSE;
-			break;
-#endif
-
-#ifdef JA2UB
-		case SPECK_QUOTE_BIFF_DEAD_WHEN_IMPORTING:
-			if( !gJa25SaveStruct.fBiffWasKilledWhenImportingSave )
-				fRetVal = FALSE;
-			break;
-
-		case SPECK_QUOTE_ADVERTISE_GASTON:
-			if( !IsMercMercAvailable( GASTON_UB ) )//GASTON
-				fRetVal = FALSE;
-			break;
-
-		case SPECK_QUOTE_ADVERTISE_STOGIE:
-			if( !IsMercMercAvailable( STOGIE_UB ) )//STOGIE
-				fRetVal = FALSE;
-			break;
-#else
-		case SPECK_QUOTE_ADVERTISE_GASTON:
-			if( !IsMercMercAvailable( GASTON ) )
-				fRetVal = FALSE;
-			break;
-
-		case SPECK_QUOTE_ADVERTISE_STOGIE:
-			if( !IsMercMercAvailable( STOGIE ) )
-				fRetVal = FALSE;
-			break;
-#endif
 	}
 
 
@@ -3104,51 +2940,45 @@ BOOLEAN CanMercBeAvailableYet( UINT8 ubMercToCheck )
 	//if( !IsMercHireable( GetMercIDFromMERCArray( gConditionsForMercAvailability[ ubMercToCheck ].ubMercArrayID ) ) )
 	//	return( FALSE );
 
-	// anv: John Kulba should be recruitable after escort quest
-#ifdef JA2UB
-	// too many Kulbas
-#else
-	// if merc is Kulba, he was escorted as a civilian and enough days passed
-	if( gConditionsForMercAvailability[ ubMercToCheck ].ProfilId == JOHN_MERC )
+	if (CampaignMercSitePolicy(GetGameContext().capabilities())
+			.supportsArulcoRecruitableMercs())
 	{
-		if(gGameExternalOptions.fEnableRecruitableJohnKulba == TRUE)
+		// If the merc is Kulba, he was escorted as a civilian and enough
+		// days have passed.
+		if( gConditionsForMercAvailability[ ubMercToCheck ].ProfilId == JOHN_MERC )
 		{
-			if( LaptopSaveInfo.bJohnEscorted == TRUE
-				&& LaptopSaveInfo.uiJohnEscortedDate + gGameExternalOptions.ubRecruitableJohnKulbaDelay <= GetWorldDay() )
+			if(gGameExternalOptions.fEnableRecruitableJohnKulba == TRUE)
 			{
-				return( TRUE );
-			}			else
+				if( LaptopSaveInfo.bJohnEscorted == TRUE
+					&& LaptopSaveInfo.uiJohnEscortedDate + gGameExternalOptions.ubRecruitableJohnKulbaDelay <= GetWorldDay() )
+				{
+					return( TRUE );
+				}
+				return( FALSE );
+			}
+			return( FALSE );
+		}
+
+		// If JA1 natives are turned off, prevent them from being available.
+		if(gGameExternalOptions.fEnableRecruitableJA1Natives == FALSE)
+		{
+			if( gConditionsForMercAvailability[ ubMercToCheck ].ProfilId == ELIO ||
+				gConditionsForMercAvailability[ ubMercToCheck ].ProfilId == JUAN ||
+				gConditionsForMercAvailability[ ubMercToCheck ].ProfilId == WAHAN )
 			{
 				return( FALSE );
 			}
 		}
-		else
-		{
-			return( FALSE );	
-		}	
-	}
 
-	// anv: if JA1 natives are turned off, prevent them from being be available
-	if(gGameExternalOptions.fEnableRecruitableJA1Natives == FALSE)
-	{
-		if( gConditionsForMercAvailability[ ubMercToCheck ].ProfilId == ELIO || 
-			gConditionsForMercAvailability[ ubMercToCheck ].ProfilId == JUAN || 
-			gConditionsForMercAvailability[ ubMercToCheck ].ProfilId == WAHAN ) 
+		// If recruitable Speck is turned off, prevent him from being available.
+		if(gGameExternalOptions.fEnableRecruitableSpeck == FALSE)
 		{
-			return( FALSE );
+			if( gConditionsForMercAvailability[ ubMercToCheck ].ProfilId == SPECK_PLAYABLE )
+			{
+				return( FALSE );
+			}
 		}
 	}
-
-	// anv: if recruitable Speck is turned off, prevent him from being available
-	if(gGameExternalOptions.fEnableRecruitableSpeck == FALSE)
-	{
-		if( gConditionsForMercAvailability[ ubMercToCheck ].ProfilId == SPECK_PLAYABLE )
-		{
-			return( FALSE );		
-		}
-	}
-
-#endif
 	
 	//if player has paid enough money for the merc to be available, and the it is after the current day
 	if( gConditionsForMercAvailability[ ubMercToCheck ].usMoneyPaid <= LaptopSaveInfo.uiTotalMoneyPaidToSpeck &&
@@ -3162,6 +2992,8 @@ BOOLEAN CanMercBeAvailableYet( UINT8 ubMercToCheck )
 
 void NewMercsAvailableAtMercSiteCallBack()
 {
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 	// rftr: don't spam the user's email when MERC has multiple new personnel available on the same day
 	bool sentNewMercsEmail = false;
 
@@ -3195,17 +3027,16 @@ void NewMercsAvailableAtMercSiteCallBack()
 				//gConditionsForMercAvailability[gConditionsForMercAvailability[i].uiIndex].NewMercsAvailable = TRUE;				LaptopSaveInfo.ubLastMercAvailableId = gConditionsForMercAvailability[i].uiIndex;
 				gConditionsForMercAvailability[i].StartMercsAvailable = TRUE;
 
-#ifdef JA2UB
-				if (!sentNewMercsEmail)
+				if (mercSitePolicy.usesUnfinishedBusinessSite())
 				{
-					sentNewMercsEmail = true;
-					AddEmail(NEW_MERCS_AT_MERC, NEW_MERCS_AT_MERC_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT);
+					if (!sentNewMercsEmail)
+					{
+						sentNewMercsEmail = true;
+						AddEmail(NEW_MERCS_AT_MERC, NEW_MERCS_AT_MERC_LENGTH, SPECK_FROM_MERC, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT);
+					}
+					LaptopSaveInfo.fNewMercsAvailableAtMercSite = TRUE;
 				}
-
-				//new mercs are available
-				LaptopSaveInfo.fNewMercsAvailableAtMercSite = TRUE;
-#else
-				if (IsSpeckComAvailable())
+				else if (IsSpeckComAvailable())
 				{
 					if (!sentNewMercsEmail)
 					{
@@ -3221,7 +3052,6 @@ void NewMercsAvailableAtMercSiteCallBack()
 					// anv: Have speck inform player personally
 					TacticalCharacterDialogue(FindSoldierByProfileID(SPECK_PLAYABLE, TRUE), SPECK_PLAYABLE_QUOTE_NEW_MERCS_AVAILABLE);
 				}
-#endif
 			}
 		}
 	}
@@ -3259,7 +3089,7 @@ UINT32 CalcMercDaysServed()
 	}
 	return( uiDaysServed );
 }
-#ifdef JA2UB
+
 INT8	IsSpeckQuoteImportantQuote( UINT32 uiQuoteNum )
 {
 	INT32 iFlag=-1;
@@ -3306,4 +3136,3 @@ void MarkSpeckImportantQuoteUsed( UINT32 uiQuoteNum )
 
 	gJa25SaveStruct.ubImportantSpeckQuotesSaidBefore |= ( 1 << iFlag );
 }
-#endif

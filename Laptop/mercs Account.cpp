@@ -17,6 +17,8 @@
 	#include "Text.h"
 	#include "Speck Quotes.h"
 	#include "Multi Language Graphic Utils.h"
+	#include "CampaignMercSitePolicy.h"
+	#include "GameContext.h"
 
 #define		MERC_ACCOUNT_TEXT_FONT				FONT14ARIAL
 #define		MERC_ACCOUNT_TEXT_COLOR				FONT_MCOLOR_WHITE
@@ -80,12 +82,8 @@ INT32		guiAccountButtonImage;
 BOOLEAN	gfMercPlayerDoesntHaveEnoughMoney_DisplayWarning = FALSE;
 
 // The Authorize button
-#ifdef JA2UB
-// not UB
-#else
 void BtnMercAuthorizeButtonCallback(GUI_BUTTON *btn,INT32 reason);
 UINT32	guiMercAuthorizeBoxButton;
-#endif
 INT32		guiMercAuthorizeButtonImage;
 
 
@@ -181,6 +179,8 @@ void BtnAccountNextPageButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 INT32 GetNumberOfHiredMercs()
 {
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 	UINT8 usMercID;
 	UINT8 i = 0;
 	UINT8 count = 0;
@@ -204,11 +204,10 @@ INT32 GetNumberOfHiredMercs()
 		if( IsMercOnTeam( (UINT8)usMercID, FALSE, FALSE )	|| gMercProfiles[ usMercID ].iMercMercContractLength != 0 )
 		{
 		
-			#ifdef JA2UB
-			uiContractCharge = gMercProfiles[ usMercID ].uiWeeklySalary * gMercProfiles[ usMercID ].iMercMercContractLength;
-			#else
-			uiContractCharge = gMercProfiles[ usMercID ].sSalary * gMercProfiles[ usMercID ].iMercMercContractLength;
-			#endif
+			uiContractCharge = mercSitePolicy.contractRate(
+				gMercProfiles[usMercID].sSalary,
+				gMercProfiles[usMercID].uiWeeklySalary) *
+				gMercProfiles[usMercID].iMercMercContractLength;
 			//JMich_MMG: If gearkit unpaid for, add it to cost
 			if ( gMercProfiles[ usMercID ].ubMiscFlags2 & PROFILE_MISC_FLAG2_MERC_GEARKIT_UNPAID)
 			{
@@ -296,19 +295,19 @@ BOOLEAN EnterMercsAccount()
 
 
 	guiMercAuthorizeButtonImage = LoadButtonImage("LAPTOP\\BigButtons.sti", -1,0,-1,1,-1 );
-#ifdef JA2UB
-// not UB
-#else
-	guiMercAuthorizeBoxButton = CreateIconAndTextButton( guiMercAuthorizeButtonImage, MercAccountText[MERC_ACCOUNT_AUTHORIZE],
-													FONT12ARIAL,
+	if (CampaignMercSitePolicy(GetGameContext().capabilities())
+			.hasAccountManagement())
+	{
+		guiMercAuthorizeBoxButton = CreateIconAndTextButton( guiMercAuthorizeButtonImage, MercAccountText[MERC_ACCOUNT_AUTHORIZE],
+												FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_AC_AUTHORIZE_BUTTON_X, MERC_AC_AUTHORIZE_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 													DEFAULT_MOVE_CALLBACK, BtnMercAuthorizeButtonCallback);
-	SetButtonCursor(guiMercAuthorizeBoxButton, CURSOR_LAPTOP_SCREEN);
-	SpecifyDisabledButtonStyle( guiMercAuthorizeBoxButton, DISABLED_STYLE_SHADED);
-#endif
+		SetButtonCursor(guiMercAuthorizeBoxButton, CURSOR_LAPTOP_SCREEN);
+		SpecifyDisabledButtonStyle( guiMercAuthorizeBoxButton, DISABLED_STYLE_SHADED);
+	}
 
 	guiMercBackBoxButton = CreateIconAndTextButton( guiMercAuthorizeButtonImage, MercAccountText[MERC_ACCOUNT_HOME],
 													FONT12ARIAL,
@@ -344,11 +343,11 @@ void ExitMercsAccount()
 
 	UnloadButtonImage( guiMercAuthorizeButtonImage );
 	
-	#ifdef JA2UB
-	//not UB
-	#else
-	RemoveButton( guiMercAuthorizeBoxButton );
-	#endif
+	if (CampaignMercSitePolicy(GetGameContext().capabilities())
+			.hasAccountManagement())
+	{
+		RemoveButton( guiMercAuthorizeBoxButton );
+	}
 	
 	RemoveButton( guiMercBackBoxButton );
 
@@ -411,15 +410,13 @@ void RenderMercsAccount()
 
 	DisplayHiredMercs();
 
-	#ifdef JA2UB
-	//not UB
-	#else
 	// giMercTotalContractCharge	gets set with the price in DisplayHiredMercs(), so if there is currently no charge, disable the button
-	if( giMercTotalContractCharge == 0 )
+	if (CampaignMercSitePolicy(GetGameContext().capabilities())
+			.hasAccountManagement() &&
+		giMercTotalContractCharge == 0)
 	{
 		DisableButton( guiMercAuthorizeBoxButton );
 	}
-	#endif
 
 
 
@@ -428,9 +425,6 @@ void RenderMercsAccount()
 	InvalidateRegion(LAPTOP_SCREEN_UL_X,LAPTOP_SCREEN_WEB_UL_Y,LAPTOP_SCREEN_LR_X,LAPTOP_SCREEN_WEB_LR_Y);
 }
 
-#ifdef JA2UB
-//not UB
-#else
 void BtnMercAuthorizeButtonCallback(GUI_BUTTON *btn,INT32 reason)
 {
 	if(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
@@ -461,7 +455,6 @@ void BtnMercAuthorizeButtonCallback(GUI_BUTTON *btn,INT32 reason)
 		InvalidateRegion(btn->Area.RegionTopLeftX, btn->Area.RegionTopLeftY, btn->Area.RegionBottomRightX, btn->Area.RegionBottomRightY);
 	}
 }
-#endif
 
 void BtnMercBackButtonCallback(GUI_BUTTON *btn,INT32 reason)
 {
@@ -491,6 +484,8 @@ void BtnMercBackButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 void DisplayHiredMercs()
 {
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 	UINT16	usPosY;
 	UINT32	uiContractCharge;
 	CHAR16	sTemp[40];
@@ -553,21 +548,15 @@ void DisplayHiredMercs()
 			swprintf(sTemp, L"%d", gMercProfiles[ usMercID ].iMercMercContractLength );
 			DrawTextToScreen(sTemp, MERC_AC_SECOND_COLUMN_X, usPosY, MERC_AC_SECOND_COLUMN_WIDTH, MERC_ACCOUNT_DYNAMIC_TEXT_FONT, ubFontColor, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 
-			//Display the mercs rate
-#ifdef JA2UB
-			swprintf(sTemp, L"$%6d",gMercProfiles[ usMercID ].uiWeeklySalary );
-#else
-			swprintf(sTemp, L"$%6d",gMercProfiles[ usMercID ].sSalary );
-#endif
+			const UINT32 contractRate = mercSitePolicy.contractRate(
+				gMercProfiles[usMercID].sSalary,
+				gMercProfiles[usMercID].uiWeeklySalary);
+			swprintf(sTemp, L"$%6d", contractRate);
 
 			DrawTextToScreen(sTemp, MERC_AC_THIRD_COLUMN_X, usPosY, MERC_AC_THIRD_COLUMN_WIDTH, MERC_ACCOUNT_DYNAMIC_TEXT_FONT, ubFontColor, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 
-			//Display the total charge
-#ifdef JA2UB
-			uiContractCharge = gMercProfiles[ usMercID ].uiWeeklySalary * gMercProfiles[ usMercID ].iMercMercContractLength;
-#else
-			uiContractCharge = gMercProfiles[ usMercID ].sSalary * gMercProfiles[ usMercID ].iMercMercContractLength;
-#endif
+			uiContractCharge = contractRate *
+				gMercProfiles[usMercID].iMercMercContractLength;
 
 			//JMich_MMG: If gearkit unpaid for, add its cost
 			if ( gMercProfiles[ usMercID ].ubMiscFlags2 & PROFILE_MISC_FLAG2_MERC_GEARKIT_UNPAID)
@@ -595,6 +584,8 @@ void DisplayHiredMercs()
 
 void SettleMercAccounts()
 {
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 //	TacticalActor *pSoldier;
 	INT16	i;
 	UINT8 ubMercID;
@@ -610,12 +601,10 @@ void SettleMercAccounts()
 		//if the merc is on the team, or does the player owe money for a fired merc
 		if( IsMercOnTeam( ubMercID, FALSE, FALSE ) || ( gMercProfiles[ ubMercID ].iMercMercContractLength != 0 ) )
 		{
-			//Calc the contract charge
-			#ifdef JA2UB
-			iContractCharge = gMercProfiles[ ubMercID ].uiWeeklySalary * gMercProfiles[ ubMercID ].iMercMercContractLength;
-			#else
-			iContractCharge = gMercProfiles[ ubMercID ].sSalary * gMercProfiles[ ubMercID ].iMercMercContractLength;
-			#endif
+			iContractCharge = mercSitePolicy.contractRate(
+				gMercProfiles[ubMercID].sSalary,
+				gMercProfiles[ubMercID].uiWeeklySalary) *
+				gMercProfiles[ubMercID].iMercMercContractLength;
 			//JMich_MMG: If gearkit unpaid for, add its cost
 			if (gMercProfiles[ ubMercID ].ubMiscFlags2 & PROFILE_MISC_FLAG2_MERC_GEARKIT_UNPAID)
 			{
@@ -646,38 +635,25 @@ void SettleMercAccounts()
 		return;
 	}
 
-	// add the transaction to the finance page
-	
-	#ifdef JA2UB
+	// Add the transaction to the finance page.
 	AddTransactionToPlayersBook( PAY_SPECK_FOR_MERC, GetMercIDFromMERCArray( gubCurMercIndex ), GetWorldTotalMin(), -iPartialPayment );
-	#else
-	AddTransactionToPlayersBook( PAY_SPECK_FOR_MERC, GetMercIDFromMERCArray( gubCurMercIndex ), GetWorldTotalMin(), -iPartialPayment );
-	#endif
 	
 	AddHistoryToPlayersLog( HISTORY_SETTLED_ACCOUNTS_AT_MERC, GetMercIDFromMERCArray( gubCurMercIndex ), GetWorldTotalMin(), -1, -1 );
 
 	//Increment the amount of money paid to speck
 	LaptopSaveInfo.uiTotalMoneyPaidToSpeck += iPartialPayment;
-#ifdef JA2UB
-//not ub
-#else
-	//If the player only made a partial payment
-	if( iPartialPayment != giMercTotalContractCharge )
-		gusMercVideoSpeckSpeech = SPECK_QUOTE_PLAYER_MAKES_PARTIAL_PAYMENT;
-	else
+	if (mercSitePolicy.usesDeferredBilling())
 	{
-		gusMercVideoSpeckSpeech = SPECK_QUOTE_PLAYER_MAKES_FULL_PAYMENT;
-
-		//if the merc's account was in suspense, re-enable it
-		// CJC Dec 1 2002: an invalid account become valid again.
-		//if( LaptopSaveInfo.gubPlayersMercAccountStatus != MERC_ACCOUNT_INVALID )
+		if( iPartialPayment != giMercTotalContractCharge )
+			gusMercVideoSpeckSpeech = SPECK_QUOTE_PLAYER_MAKES_PARTIAL_PAYMENT;
+		else
+		{
+			gusMercVideoSpeckSpeech = SPECK_QUOTE_PLAYER_MAKES_FULL_PAYMENT;
 			LaptopSaveInfo.gubPlayersMercAccountStatus = MERC_ACCOUNT_VALID;
-
-
-		// Since the player has paid, make sure speck wont complain about the lack of payment
-		LaptopSaveInfo.uiSpeckQuoteFlags &= ~SPECK_QUOTE__SENT_EMAIL_ABOUT_LACK_OF_PAYMENT;
+			LaptopSaveInfo.uiSpeckQuoteFlags &=
+				~SPECK_QUOTE__SENT_EMAIL_ABOUT_LACK_OF_PAYMENT;
+		}
 	}
-#endif
 	//Go to the merc homepage to say the quote
 	guiCurrentLaptopMode = LAPTOP_MODE_MERC;
 	gubArrivedFromMercSubSite = MERC_CAME_FROM_ACCOUNTS_PAGE;
@@ -796,6 +772,8 @@ void MercAuthorizePaymentMessageBoxCallBack( UINT8 bExitValue )
 
 UINT32	CalculateHowMuchPlayerOwesSpeck()
 {
+	const CampaignMercSitePolicy mercSitePolicy(
+		GetGameContext().capabilities());
 	UINT8				i=0;
 	UINT32			uiContractCharge=0;
 	UINT16			usMercID;
@@ -814,12 +792,10 @@ UINT32	CalculateHowMuchPlayerOwesSpeck()
 		usMercID = GetMercIDFromMERCArray( i );
 		//if( IsMercOnTeam( (UINT8)usMercID ) )
 		{
-			//Calc salary for the # of days the merc has worked since last paid
-			#ifdef JA2UB
-			uiContractCharge += gMercProfiles[ usMercID ].uiWeeklySalary * gMercProfiles[ usMercID ].iMercMercContractLength;
-			#else
-			uiContractCharge += gMercProfiles[ usMercID ].sSalary * gMercProfiles[ usMercID ].iMercMercContractLength;
-			#endif
+			uiContractCharge += mercSitePolicy.contractRate(
+				gMercProfiles[usMercID].sSalary,
+				gMercProfiles[usMercID].uiWeeklySalary) *
+				gMercProfiles[usMercID].iMercMercContractLength;
 			//JMich_MMG: If gearkit unpaid for, add its cost
 			if ( gMercProfiles[ usMercID ].ubMiscFlags2 & PROFILE_MISC_FLAG2_MERC_GEARKIT_UNPAID)
 			{

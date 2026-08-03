@@ -969,6 +969,20 @@ the engine must not contain SDL types in its public domain model.
   all eight role mappings in both campaigns, while architecture CI rejects
   compile-time campaign identity, restoration of the raw aliases, or removal
   of runtime role routing from the migrated implementations.
+- The complete M.E.R.C. laptop domain now uses the value-only
+  `CampaignMercSitePolicy`. Landing, account, hire, files, and Speck-dialogue
+  paths select immediate versus player-created accounts, deferred versus
+  up-front billing, mission fees, the free first equipment kit, account
+  warnings, server outages, recruitable Arulco mercs, and UB important quotes
+  at runtime. `CampaignSpeckQuoteCode::Role` resolves the eight dialogue roles
+  whose records are 76-83 in Arulco and 94-101 in Unfinished Business; the
+  exact 19- and 20-entry idle-dialogue rosters remain campaign data rather than
+  host identity. Campaign-qualified constants also pin the existing Arulco
+  warning email offsets. Data-free tests exercise both complete policy paths
+  and every colliding quote role, while architecture CI keeps all six M.E.R.C.
+  implementation/header files guard-free and rejects restoration of ambiguous
+  raw quote aliases. Account/save fields, profiles, finance records, laptop
+  text, speech, email data, images, XML, Lua, and package formats are unchanged.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

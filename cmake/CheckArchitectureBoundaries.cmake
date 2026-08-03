@@ -282,7 +282,9 @@ set(runtime_campaign_implementation_files
 set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignDealerPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignMercSitePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignSpeckQuoteCodes.h"
   "${SOURCE_ROOT}/Ja2/CompiledGameplayBootstrap.cpp"
   "${SOURCE_ROOT}/Ja2/gameloop.cpp"
   "${SOURCE_ROOT}/Ja2/gamescreen.cpp"
@@ -300,8 +302,14 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignActionCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignMapChangeCodes.h"
   "${SOURCE_ROOT}/Ja2/CampaignProfileCodes.h"
+  "${SOURCE_ROOT}/Laptop/Speck Quotes.h"
   "${SOURCE_ROOT}/Laptop/laptop.cpp"
   "${SOURCE_ROOT}/Laptop/laptop.h"
+  "${SOURCE_ROOT}/Laptop/mercs Account.cpp"
+  "${SOURCE_ROOT}/Laptop/mercs Files.cpp"
+  "${SOURCE_ROOT}/Laptop/mercs No Account.cpp"
+  "${SOURCE_ROOT}/Laptop/mercs.cpp"
+  "${SOURCE_ROOT}/Laptop/mercs.h"
   "${SOURCE_ROOT}/Laptop/personnel.cpp"
   "${SOURCE_ROOT}/Strategic/Campaign Init.cpp"
   "${SOURCE_ROOT}/Strategic/Campaign Types.h"
@@ -840,13 +848,30 @@ endforeach()
 
 file(READ "${SOURCE_ROOT}/Laptop/Speck Quotes.h"
   runtime_campaign_mercenary_quote_contents)
-string(FIND "${runtime_campaign_mercenary_quote_contents}"
-  "JA2_SPECK_PLAYABLE_QUOTE_LARRY_RELAPSED = 100"
-  runtime_campaign_mercenary_quote_position)
-if(runtime_campaign_mercenary_quote_position EQUAL -1)
-  message(FATAL_ERROR
-    "Mercenary lifecycle lost the stable Larry-relapse quote record")
-endif()
+file(READ "${SOURCE_ROOT}/Ja2/CampaignSpeckQuoteCodes.h"
+  runtime_campaign_speck_quote_code_contents)
+foreach(required_mercenary_quote_fragment IN ITEMS
+    "JA2_SPECK_PLAYABLE_QUOTE_LARRY_RELAPSED"
+    "JA2_SPECK_PLAYABLE_QUOTE_FLO_MARRIED")
+  string(FIND "${runtime_campaign_mercenary_quote_contents}"
+    "${required_mercenary_quote_fragment}"
+    runtime_campaign_mercenary_quote_position)
+  if(runtime_campaign_mercenary_quote_position EQUAL -1)
+    message(FATAL_ERROR
+      "Mercenary lifecycle lost quote alias '${required_mercenary_quote_fragment}'")
+  endif()
+endforeach()
+foreach(required_mercenary_quote_code_fragment IN ITEMS
+    "PlayableLarryRelapsed = 100"
+    "PlayableFloMarried = 101")
+  string(FIND "${runtime_campaign_speck_quote_code_contents}"
+    "${required_mercenary_quote_code_fragment}"
+    runtime_campaign_mercenary_quote_code_position)
+  if(runtime_campaign_mercenary_quote_code_position EQUAL -1)
+    message(FATAL_ERROR
+      "Mercenary lifecycle lost stable quote record '${required_mercenary_quote_code_fragment}'")
+  endif()
+endforeach()
 
 foreach(required_mercenary_policy_test_fragment IN ITEMS
     "campaign_mercenary_policy_tests.cpp"
@@ -890,6 +915,147 @@ foreach(required_mercenary_policy_assertion IN ITEMS
   if(required_mercenary_policy_assertion_position EQUAL -1)
     message(FATAL_ERROR
       "Runtime mercenary policy lost test coverage for '${required_mercenary_policy_assertion}'")
+  endif()
+endforeach()
+
+# The complete M.E.R.C. laptop domain now selects account lifecycle, billing,
+# equipment offers, availability, and Speck speech records at runtime. Quote
+# roles with campaign-local record numbers must stay typed; restoring a raw
+# alias would silently give one campaign the other campaign's dialogue.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignMercSitePolicy.h"
+  runtime_campaign_merc_site_policy_contents)
+foreach(required_merc_site_policy_fragment IN ITEMS
+    "class CampaignMercSitePolicy"
+    "createsAccountAtGameStart"
+    "usesDeferredBilling"
+    "firstEquipmentKitIsFree"
+    "initialHireCharge"
+    "randomQuoteCount")
+  string(FIND "${runtime_campaign_merc_site_policy_contents}"
+    "${required_merc_site_policy_fragment}"
+    required_merc_site_policy_position)
+  if(required_merc_site_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime M.E.R.C. site policy lost '${required_merc_site_policy_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_speck_quote_role IN ITEMS
+    "AdvertiseGaston"
+    "AdvertiseStogie"
+    "GastonDead"
+    "StogieDead"
+    "PlayerHiresGaston"
+    "PlayerHiresStogie"
+    "RandomChitChat1"
+    "RandomChitChat2")
+  string(FIND "${runtime_campaign_speck_quote_code_contents}"
+    "${required_speck_quote_role}" required_speck_quote_role_position)
+  if(required_speck_quote_role_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime Speck quote routing lost role '${required_speck_quote_role}'")
+  endif()
+endforeach()
+
+foreach(retired_speck_quote_alias IN ITEMS
+    "SPECK_QUOTE_ADVERTISE_GASTON"
+    "SPECK_QUOTE_ADVERTISE_STOGIE"
+    "SPECK_QUOTE_GASTON_DEAD"
+    "SPECK_QUOTE_STOGIE_DEAD"
+    "SPECK_QUOTE_PLAYER_HIRES_GASTON"
+    "SPECK_QUOTE_PLAYER_HIRES_STOGIE"
+    "SPECK_QUOTE_RANDOM_CHIT_CHAT_1"
+    "SPECK_QUOTE_RANDOM_CHIT_CHAT_2")
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_speck_quote_alias}([^A-Za-z0-9_]|$)"
+    retired_speck_quote_alias_match
+    "${runtime_campaign_mercenary_quote_contents}")
+  if(retired_speck_quote_alias_match)
+    message(FATAL_ERROR
+      "Campaign-colliding raw Speck quote alias returned: ${retired_speck_quote_alias}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/mercs.cpp"
+  runtime_campaign_merc_site_contents)
+foreach(required_merc_site_runtime_fragment IN ITEMS
+    "CampaignMercSitePolicy"
+    "CampaignSpeckQuoteCode::Role::AdvertiseGaston"
+    "CampaignSpeckQuoteCode::Role::GastonDead"
+    "InitializeMercRandomQuotes"
+    "usesDeferredBilling"
+    "supportsServerOutage")
+  string(FIND "${runtime_campaign_merc_site_contents}"
+    "${required_merc_site_runtime_fragment}"
+    required_merc_site_runtime_position)
+  if(required_merc_site_runtime_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. landing page lost runtime routing '${required_merc_site_runtime_fragment}'")
+  endif()
+endforeach()
+
+foreach(merc_site_runtime_caller IN ITEMS
+    "${SOURCE_ROOT}/Laptop/mercs Account.cpp"
+    "${SOURCE_ROOT}/Laptop/mercs Files.cpp"
+    "${SOURCE_ROOT}/Laptop/mercs No Account.cpp")
+  file(READ "${merc_site_runtime_caller}"
+    merc_site_runtime_caller_contents)
+  string(FIND "${merc_site_runtime_caller_contents}"
+    "CampaignMercSitePolicy" merc_site_runtime_caller_position)
+  if(merc_site_runtime_caller_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. subpage lost runtime campaign routing in ${merc_site_runtime_caller}")
+  endif()
+endforeach()
+
+foreach(required_merc_site_email_fragment IN ITEMS
+    "JA2_EMAIL_MERC_WARNING = 30"
+    "JA2_EMAIL_MERC_INVALID = 32"
+    "JA2_EMAIL_MERC_FIRST_WARNING = 36")
+  string(FIND "${runtime_campaign_mercenary_email_contents}"
+    "${required_merc_site_email_fragment}" required_merc_site_email_position)
+  if(required_merc_site_email_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. site lost stable email record '${required_merc_site_email_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_merc_site_policy_test_fragment IN ITEMS
+    "campaign_merc_site_policy_tests.cpp"
+    "campaign_merc_site_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_merc_site_policy_test_fragment}"
+    required_merc_site_policy_test_position)
+  if(required_merc_site_policy_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime M.E.R.C. site policy lost its headless test target")
+  endif()
+endforeach()
+
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_merc_site_policy_tests" runtime_merc_site_policy_ci_position)
+if(runtime_merc_site_policy_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the runtime M.E.R.C. site policy test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_merc_site_policy_tests.cpp"
+  runtime_campaign_merc_site_test_contents)
+foreach(required_merc_site_policy_assertion IN ITEMS
+    "GameCampaign::Arulco"
+    "GameCampaign::UnfinishedBusiness"
+    "expectedArulcoRandomQuotes"
+    "expectedUnfinishedBusinessRandomQuotes"
+    "{76, 77, 78, 79, 80, 81, 82, 83}"
+    "{94, 95, 96, 97, 98, 99, 100, 101}"
+    "firstEquipmentKitIsFree(0)"
+    "initialHireCharge(900, 300, 1)")
+  string(FIND "${runtime_campaign_merc_site_test_contents}"
+    "${required_merc_site_policy_assertion}"
+    required_merc_site_policy_assertion_position)
+  if(required_merc_site_policy_assertion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime M.E.R.C. site policy lost test coverage for '${required_merc_site_policy_assertion}'")
   endif()
 endforeach()
 

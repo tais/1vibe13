@@ -9,6 +9,8 @@
 	#include "random.h"
 	#include "Text.h"
 	#include "Speck Quotes.h"
+	#include "CampaignMercSitePolicy.h"
+	#include "GameContext.h"
 
 
 
@@ -145,11 +147,11 @@ void BtnOpenAccountBoxButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 			//Get an account number
 			LaptopSaveInfo.guiPlayersMercAccountNumber = Random( 99999 );
-#ifdef JA2UB
-		//	gusMercVideoSpeckSpeech = SPECK_QUOTE_THANK_PLAYER_FOR_OPENING_ACCOUNT;
-#else
+		if (CampaignMercSitePolicy(GetGameContext().capabilities())
+				.hasAccountManagement())
+		{
 			gusMercVideoSpeckSpeech = SPECK_QUOTE_THANK_PLAYER_FOR_OPENING_ACCOUNT;
-#endif
+		}
 			guiCurrentLaptopMode = LAPTOP_MODE_MERC;
 			gubArrivedFromMercSubSite = MERC_CAME_FROM_ACCOUNTS_PAGE;
 
