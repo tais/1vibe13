@@ -942,12 +942,18 @@ the engine must not contain SDL types in its public domain model.
   helicopter-crash hooks the same way. Underground loading screens retain the
   distinct Arulco mine/cave mapping and UB tunnel/stair/complex mapping without
   a compiled branch. Both campaigns' XML path constants and four alternative
-  dealer inventory buffers are emitted in every host, while the still-legacy
-  dealer numeric layouts remain campaign-specific. A dedicated data-free test
-  exercises every policy decision, and architecture CI prevents these migrated
-  application sources from regaining `JA2UB`. This changes no data filename,
-  item/dealer ID, loading-screen ID, save record, map, XML, Lua, or package
-  format.
+  dealer inventory buffers are emitted in every host. `CampaignDealerPolicy`
+  now separates semantic dealer identities from their raw persisted positions:
+  it resolves both complete rosters, including the different meanings of slots
+  5-18, while the 19 original slots, Tina at 19, the first extension at 20, and
+  the total 80-slot save/XML layout remain unchanged. Dealer restocking,
+  simulated sales, repairs, death handling, inventory routing, and shopkeeper
+  quotes, pricing, transactions, and quest facts select the active roster at
+  runtime. Dedicated data-free tests exercise the application and dealer policy
+  decisions, and architecture CI prevents these migrated sources from regaining
+  `JA2UB` or raw campaign-colliding dealer aliases. This changes no data
+  filename, raw item/dealer record, loading-screen ID, save record, map, XML,
+  Lua, or package format.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

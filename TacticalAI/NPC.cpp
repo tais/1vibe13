@@ -1597,7 +1597,9 @@ BOOLEAN HandleNPCBeingGivenMoneyByPlayer( UINT8 ubNPC, UINT32 uiMoneyAmount, UIN
 			gMercProfiles[ WALTER ].iBalance += uiMoneyAmount;
 			break;
 		case FRANK:
-			gArmsDealerStatus[ ARMS_DEALER_FRANK ].uiArmsDealersCash += uiMoneyAmount;
+			gArmsDealerStatus[
+				GetCampaignArmsDealerID(CampaignDealer::Frank)]
+				.uiArmsDealersCash += uiMoneyAmount;
 			break;
 		case GERARD:
 			gMercProfiles[ GERARD ].iBalance += uiMoneyAmount;

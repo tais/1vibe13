@@ -281,6 +281,7 @@ set(runtime_campaign_implementation_files
   "${SOURCE_ROOT}/Tactical/Ja25_Tactical.h")
 set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignDealerPolicy.h"
   "${SOURCE_ROOT}/Ja2/CompiledGameplayBootstrap.cpp"
   "${SOURCE_ROOT}/Ja2/gameloop.cpp"
   "${SOURCE_ROOT}/Ja2/gamescreen.cpp"
@@ -315,6 +316,10 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.h"
   "${SOURCE_ROOT}/Tactical/Action Items.h"
+  "${SOURCE_ROOT}/Tactical/Arms Dealer Init.cpp"
+  "${SOURCE_ROOT}/Tactical/Arms Dealer Init.h"
+  "${SOURCE_ROOT}/Tactical/ArmsDealerInvInit.cpp"
+  "${SOURCE_ROOT}/Tactical/ArmsDealerInvInit.h"
   "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
   "${SOURCE_ROOT}/Tactical/Dialogue Control.h"
   "${SOURCE_ROOT}/Tactical/End Game.cpp"
@@ -324,6 +329,8 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Tactical/Merc Hiring.h"
   "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   "${SOURCE_ROOT}/Tactical/Soldier Control.h"
+  "${SOURCE_ROOT}/Tactical/ShopKeeper Interface.cpp"
+  "${SOURCE_ROOT}/Tactical/ShopKeeper Quotes.h"
   "${SOURCE_ROOT}/Tactical/TacticalActor.h"
   "${SOURCE_ROOT}/Tactical/Tactical Save.cpp"
   "${SOURCE_ROOT}/Tactical/Tactical Turns.cpp"
@@ -350,8 +357,8 @@ endforeach()
 
 # The application shell now makes content-load, tactical-loop, arrival, and
 # loading-screen decisions through one value-only campaign policy. Both data
-# sets and their storage contracts must stay compiled into each host even
-# though legacy dealer IDs remain campaign-specific compatibility records.
+# sets and their storage contracts must stay compiled into each host. Dealer
+# identities are now typed while their legacy persisted slots remain stable.
 file(READ "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
   runtime_campaign_application_policy_contents)
 foreach(required_application_policy_fragment IN ITEMS
@@ -487,6 +494,174 @@ foreach(required_campaign_policy_assertion IN ITEMS
   if(required_campaign_policy_assertion_position EQUAL -1)
     message(FATAL_ERROR
       "Runtime application campaign policy lost test coverage for '${required_campaign_policy_assertion}'")
+  endif()
+endforeach()
+
+# Dealer and shopkeeper behavior uses a typed runtime identity because raw
+# save/XML slots 5-18 have different meanings in the two campaign rosters.
+# The persisted 80-slot layout must remain unchanged while both inventories
+# and both behavior paths stay linkable from every host.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignDealerPolicy.h"
+  runtime_campaign_dealer_policy_contents)
+foreach(required_dealer_policy_fragment IN ITEMS
+    "enum class CampaignDealer"
+    "class CampaignDealerPolicy"
+    "usesUnfinishedBusinessRoster"
+    "dealerId(CampaignDealer dealer)"
+    "dealerAt(int rawDealerId)"
+    "CampaignDealer::Devin) == 5"
+    "CampaignDealer::Howard) == 5"
+    "CampaignDealer::Perko) == 16"
+    "CampaignDealer::Raul) == 15")
+  string(FIND "${runtime_campaign_dealer_policy_contents}"
+    "${required_dealer_policy_fragment}" required_dealer_policy_position)
+  if(required_dealer_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime dealer policy lost '${required_dealer_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Arms Dealer Init.h"
+  runtime_campaign_dealer_header_contents)
+foreach(required_dealer_layout_fragment IN ITEMS
+    "ARMS_DEALER_LEGACY_SLOT_5"
+    "ARMS_DEALER_LEGACY_SLOT_18"
+    "static_assert(ARMS_DEALER_TINA == 19)"
+    "static_assert(ARMS_DEALER_ADDITIONAL_1 == 20)"
+    "static_assert(NUM_ARMS_DEALERS == 80)"
+    "GetCampaignArmsDealerID"
+    "GetCampaignArmsDealerFromID"
+    "IsCampaignArmsDealer")
+  string(FIND "${runtime_campaign_dealer_header_contents}"
+    "${required_dealer_layout_fragment}" required_dealer_layout_position)
+  if(required_dealer_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime dealer boundary lost persisted-layout contract '${required_dealer_layout_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Arms Dealer Init.cpp"
+  runtime_campaign_dealer_init_contents)
+foreach(required_dealer_runtime_fragment IN ITEMS
+    "CurrentCampaignDealerPolicy"
+    "usesUnfinishedBusinessRoster"
+    "GetCampaignArmsDealerID"
+    "IsCampaignArmsDealer(ubArmsDealer, CampaignDealer::Raul)"
+    "IsCampaignArmsDealer(ubArmsDealer, CampaignDealer::Betty)")
+  string(FIND "${runtime_campaign_dealer_init_contents}"
+    "${required_dealer_runtime_fragment}" required_dealer_runtime_position)
+  if(required_dealer_runtime_position EQUAL -1)
+    message(FATAL_ERROR
+      "Dealer lifecycle lost runtime campaign routing '${required_dealer_runtime_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/ArmsDealerInvInit.cpp"
+  runtime_campaign_dealer_inventory_contents)
+foreach(required_dealer_inventory_fragment IN ITEMS
+    "GetCampaignArmsDealerFromID"
+    "CampaignDealer::Betty"
+    "CampaignDealer::Devin"
+    "CampaignDealer::Raul"
+    "CampaignDealer::Perko"
+    "ARMS_DEALER_ADDITIONAL_1")
+  string(FIND "${runtime_campaign_dealer_inventory_contents}"
+    "${required_dealer_inventory_fragment}" required_dealer_inventory_position)
+  if(required_dealer_inventory_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime dealer inventory routing lost '${required_dealer_inventory_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/ShopKeeper Interface.cpp"
+  runtime_campaign_shopkeeper_contents)
+foreach(required_shopkeeper_runtime_fragment IN ITEMS
+    "UsesUnfinishedBusinessDealerRoster"
+    "SelectedDealerIs(CampaignDealer::Betty)"
+    "SelectedDealerIs(CampaignDealer::Raul)"
+    "SelectedDealerIs(CampaignDealer::Devin)"
+    "SelectedDealerIs(CampaignDealer::Perko)")
+  string(FIND "${runtime_campaign_shopkeeper_contents}"
+    "${required_shopkeeper_runtime_fragment}" required_shopkeeper_runtime_position)
+  if(required_shopkeeper_runtime_position EQUAL -1)
+    message(FATAL_ERROR
+      "Shopkeeper behavior lost runtime campaign routing '${required_shopkeeper_runtime_fragment}'")
+  endif()
+endforeach()
+
+foreach(retired_dealer_id IN ITEMS
+    "ARMS_DEALER_DEVIN"
+    "ARMS_DEALER_HOWARD"
+    "ARMS_DEALER_SAM"
+    "ARMS_DEALER_FRANK"
+    "ARMS_DEALER_BAR_BRO_1"
+    "ARMS_DEALER_BAR_BRO_2"
+    "ARMS_DEALER_BAR_BRO_3"
+    "ARMS_DEALER_BAR_BRO_4"
+    "ARMS_DEALER_MICKY"
+    "ARMS_DEALER_ARNIE"
+    "ARMS_DEALER_FREDO"
+    "ARMS_DEALER_PERKO"
+    "ARMS_DEALER_RAUL"
+    "ARMS_DEALER_ELGIN"
+    "ARMS_DEALER_MANNY"
+    "ARMS_DEALER_BETTY")
+  string(FIND
+    "${runtime_campaign_dealer_header_contents}${runtime_campaign_dealer_init_contents}${runtime_campaign_dealer_inventory_contents}${runtime_campaign_shopkeeper_contents}"
+    "${retired_dealer_id}" retired_dealer_id_position)
+  if(NOT retired_dealer_id_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign-colliding raw dealer alias returned: ${retired_dealer_id}")
+  endif()
+endforeach()
+
+foreach(dealer_runtime_caller IN ITEMS
+    "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+    "${SOURCE_ROOT}/TacticalAI/NPC.cpp")
+  file(READ "${dealer_runtime_caller}" dealer_runtime_caller_contents)
+  string(FIND "${dealer_runtime_caller_contents}"
+    "GetCampaignArmsDealerID" dealer_runtime_caller_position)
+  if(dealer_runtime_caller_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign-colliding dealer caller lost runtime identity in ${dealer_runtime_caller}")
+  endif()
+endforeach()
+
+foreach(required_dealer_policy_test_fragment IN ITEMS
+    "campaign_dealer_policy_tests.cpp"
+    "campaign_dealer_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_dealer_policy_test_fragment}"
+    required_dealer_policy_test_position)
+  if(required_dealer_policy_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime dealer policy lost its headless test target")
+  endif()
+endforeach()
+
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_dealer_policy_tests" runtime_dealer_policy_ci_position)
+if(runtime_dealer_policy_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the runtime dealer policy test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_dealer_policy_tests.cpp"
+  runtime_campaign_dealer_test_contents)
+foreach(required_dealer_policy_assertion IN ITEMS
+    "arulcoRoster"
+    "unfinishedBusinessRoster"
+    "CheckRoster"
+    "CampaignDealer::Raul"
+    "CampaignDealer::Betty"
+    "CampaignDealer::Devin"
+    "CampaignDealer::Perko"
+    "dealerAt(79)")
+  string(FIND "${runtime_campaign_dealer_test_contents}"
+    "${required_dealer_policy_assertion}" required_dealer_policy_assertion_position)
+  if(required_dealer_policy_assertion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime dealer policy lost test coverage for '${required_dealer_policy_assertion}'")
   endif()
 endforeach()
 

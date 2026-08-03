@@ -42,9 +42,6 @@
     "Strategic/Town Militia.cpp": 1,
     "Strategic/mapscreen.cpp": 14,
     "Strategic/strategic.cpp": 2,
-    "Tactical/Arms Dealer Init.cpp": 12,
-    "Tactical/Arms Dealer Init.h": 6,
-    "Tactical/ArmsDealerInvInit.cpp": 6,
     "Tactical/Campaign.cpp": 6,
     "Tactical/Civ Quotes.cpp": 5,
     "Tactical/Civ Quotes.h": 1,
@@ -57,8 +54,6 @@
     "Tactical/Items.cpp": 2,
     "Tactical/Merc Entering.cpp": 3,
     "Tactical/Merc Hiring.cpp": 9,
-    "Tactical/ShopKeeper Interface.cpp": 25,
-    "Tactical/ShopKeeper Quotes.h": 1,
     "Tactical/Soldier Add.cpp": 3,
     "Tactical/Soldier Ani.cpp": 4,
     "Tactical/Soldier Create.cpp": 4,
@@ -76,5 +71,5 @@
     "Utils/Timer Control.cpp": 1
   },
   "schema": 1,
-  "total": 360
+  "total": 310
 }

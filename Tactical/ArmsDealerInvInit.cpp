@@ -700,219 +700,94 @@ static INT8 GetMaxItemAmount( DEALER_POSSIBLE_INV *pInv, UINT16 usItemIndex )
 
 INT8 GetDealersMaxItemAmount( UINT8 ubDealerID, UINT16 usItemIndex )
 {
-	switch( ubDealerID )
-	{
-	
-#ifdef JA2UB
-		case ARMS_DEALER_BETTY:
-			return( GetMaxItemAmount( gBettyInventory, usItemIndex ) );
-			break;
-#endif			
-  // Ja25: Not in exp.
-		case ARMS_DEALER_TONY:
-			return( GetMaxItemAmount( gTonyInventory, usItemIndex ) );
-			break;
+	DEALER_POSSIBLE_INV* inventory =
+		GetPointerToDealersPossibleInventory(ubDealerID);
+	if (inventory != NULL)
+		return GetMaxItemAmount(inventory, usItemIndex);
 
-		case ARMS_DEALER_FRANK:
-			return( GetMaxItemAmount( gFrankInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_MICKY:
-			return( GetMaxItemAmount( gMickyInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_ARNIE:
-			return( GetMaxItemAmount( gArnieInventory, usItemIndex ) );
-			break;
-#ifdef JA2UB
-		case ARMS_DEALER_RAUL:
-			return( GetMaxItemAmount( gRaulInventory, usItemIndex ) ); //
-			break;
-#else			
-		case ARMS_DEALER_PERKO:
-			return( GetMaxItemAmount( gPerkoInventory, usItemIndex ) );
-			break;
-#endif
-		case ARMS_DEALER_KEITH:
-			return( GetMaxItemAmount( gKeithInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_BAR_BRO_1:
-			return( GetMaxItemAmount( gHerveInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_BAR_BRO_2:
-			return( GetMaxItemAmount( gPeterInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_BAR_BRO_3:
-			return( GetMaxItemAmount( gAlbertoInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_BAR_BRO_4:
-			return( GetMaxItemAmount( gCarloInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_JAKE:
-			return( GetMaxItemAmount( gJakeInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_FRANZ:
-			return( GetMaxItemAmount( gFranzInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_HOWARD:
-			return( GetMaxItemAmount( gHowardInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_SAM:
-			return( GetMaxItemAmount( gSamInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_FREDO:
-			return( GetMaxItemAmount( gFredoInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_GABBY:
-			return( GetMaxItemAmount( gGabbyInventory, usItemIndex ) );
-			break;
-#ifdef JA2UB
-			//no ub
-#else
-		case ARMS_DEALER_DEVIN:
-			return( GetMaxItemAmount( gDevinInventory, usItemIndex ) );
-			break;
-#endif
-		case ARMS_DEALER_ELGIN:
-			return( GetMaxItemAmount( gElginInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_MANNY:
-			return( GetMaxItemAmount( gMannyInventory, usItemIndex ) );
-			break;
-
-		case ARMS_DEALER_TINA:
-			return( GetMaxItemAmount( gTinaInventory, usItemIndex ) );
-			break;
-
-		default:
-			{
-				if ( ubDealerID < NUM_ARMS_DEALERS )
-				{
-					UINT8 additionaldealernumber = ubDealerID - ARMS_DEALER_ADDITIONAL_1;
-					return( GetMaxItemAmount( gArmsDealerAdditional[additionaldealernumber], usItemIndex ) );
-				}
-			}
-			Assert( FALSE );
-			return( 0 );
-			break;
-	}
+	Assert(FALSE);
+	return 0;
 }
 
 DEALER_POSSIBLE_INV *GetPointerToDealersPossibleInventory( UINT16 ubArmsDealerID )
 {
-	switch( ubArmsDealerID )
+	if (ubArmsDealerID >= ARMS_DEALER_ADDITIONAL_1 &&
+		ubArmsDealerID < NUM_ARMS_DEALERS)
 	{
-	#ifdef JA2UB
-		case ARMS_DEALER_BETTY:
+		const UINT16 additionalDealerNumber =
+			ubArmsDealerID - ARMS_DEALER_ADDITIONAL_1;
+		return gArmsDealerAdditional[additionalDealerNumber];
+	}
+
+	switch( GetCampaignArmsDealerFromID(ubArmsDealerID) )
+	{
+		case CampaignDealer::Betty:
 			return( gBettyInventory );
-			break;
-	#endif
-		case ARMS_DEALER_TONY:
+
+		case CampaignDealer::Tony:
 			return( gTonyInventory );
-			break;
 
-		case ARMS_DEALER_FRANK:
+		case CampaignDealer::Frank:
 			return( gFrankInventory );
-			break;
 
-		case ARMS_DEALER_MICKY:
+		case CampaignDealer::Micky:
 			return( gMickyInventory );
-			break;
 
-		case ARMS_DEALER_ARNIE:
+		case CampaignDealer::Arnie:
 			return( gArnieInventory );
-			break;
 
-#ifdef JA2UB
-		case ARMS_DEALER_RAUL:
+		case CampaignDealer::Raul:
 			return( gRaulInventory );
-			break;
-#else
-		case ARMS_DEALER_PERKO:
+
+		case CampaignDealer::Perko:
 			return( gPerkoInventory );
-			break;
-#endif
-		case ARMS_DEALER_KEITH:
+
+		case CampaignDealer::Keith:
 			return( gKeithInventory );
-			break;
 
-		case ARMS_DEALER_BAR_BRO_1:
+		case CampaignDealer::BarBro1:
 			return( gHerveInventory );
-			break;
 
-		case ARMS_DEALER_BAR_BRO_2:
+		case CampaignDealer::BarBro2:
 			return( gPeterInventory );
-			break;
 
-		case ARMS_DEALER_BAR_BRO_3:
+		case CampaignDealer::BarBro3:
 			return( gAlbertoInventory );
-			break;
 
-		case ARMS_DEALER_BAR_BRO_4:
+		case CampaignDealer::BarBro4:
 			return( gCarloInventory );
-			break;
 
-		case ARMS_DEALER_JAKE:
+		case CampaignDealer::Jake:
 			return( gJakeInventory );
-			break;
 
-		case ARMS_DEALER_FRANZ:
+		case CampaignDealer::Franz:
 			return( gFranzInventory );
-			break;
 
-		case ARMS_DEALER_HOWARD:
+		case CampaignDealer::Howard:
 			return( gHowardInventory );
-			break;
 
-		case ARMS_DEALER_SAM:
+		case CampaignDealer::Sam:
 			return( gSamInventory );
-			break;
 
-		case ARMS_DEALER_FREDO:
+		case CampaignDealer::Fredo:
 			return( gFredoInventory );
-			break;
 
-		case ARMS_DEALER_GABBY:
+		case CampaignDealer::Gabby:
 			return( gGabbyInventory );
-			break;
-#ifdef JA2UB
-			//no UB
-#else
-		case ARMS_DEALER_DEVIN:
+
+		case CampaignDealer::Devin:
 			return( gDevinInventory );
-			break;
-#endif			
-		case ARMS_DEALER_ELGIN:
+
+		case CampaignDealer::Elgin:
 			return( gElginInventory );
-			break;
 
-		case ARMS_DEALER_MANNY:
+		case CampaignDealer::Manny:
 			return( gMannyInventory );
-			break;
 
-		case ARMS_DEALER_TINA:
+		case CampaignDealer::Tina:
 			return( gTinaInventory );
-			break;
 
 		default:
-			{
-				if ( ubArmsDealerID < NUM_ARMS_DEALERS )
-				{
-					UINT16 additionaldealernumber = ubArmsDealerID - ARMS_DEALER_ADDITIONAL_1;
-					return( gArmsDealerAdditional[additionaldealernumber] );
-				}
-			}
 			return( NULL );
 	}
 }
@@ -1013,7 +888,7 @@ static UINT8 GetCurrentSuitabilityForItem( INT8 bArmsDealer, UINT16 usItemIndex,
 			ubMaxCoolness += gGameOptions.ubBobbyRayQuality;
 		}
 	}
-	else if (bArmsDealer == ARMS_DEALER_DEVIN)
+	else if (GetCampaignArmsDealerFromID(bArmsDealer) == CampaignDealer::Devin)
 	{
 		// almost everything Devin sells is pretty cool (4+), so gotta apply a minimum or he'd have nothing early on
 		if ( ubMinCoolness < 3 )

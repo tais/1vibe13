@@ -38,6 +38,15 @@ target_include_directories(campaign_application_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_application_policy COMMAND campaign_application_policy_tests)
 
+# Dealer identities overlap in the legacy persisted slots. This data-free
+# policy test verifies both complete rosters and their inverse mapping without
+# selecting behavior through a host compile definition.
+add_executable(campaign_dealer_policy_tests
+  campaign_dealer_policy_tests.cpp)
+target_include_directories(campaign_dealer_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_dealer_policy COMMAND campaign_dealer_policy_tests)
+
 # A dedicated process replaces global allocation hooks while measuring the
 # observer hot path. Keeping it separate avoids coupling allocation accounting
 # to unrelated adapter tests or their setup work.
