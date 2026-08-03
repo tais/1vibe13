@@ -5925,7 +5925,6 @@ BOOLEAN ReplaceMercNameAndAmountWithProperData( CHAR16 *pFinishedString, EmailPt
 	return( TRUE );
 }
 
-#ifdef JA2BETAVERSION
 void AddAllEmails()
 {	
 	if (CurrentCommunicationsPolicy().usesUnfinishedBusinessCatalog()) return;
@@ -5962,7 +5961,6 @@ void AddAllEmails()
 		}
 	}
 }
-#endif
 
 BOOLEAN SaveNewEmailDataToSaveGameFile( HWFILE hFile )
 {
