@@ -280,9 +280,14 @@ set(runtime_campaign_implementation_files
   "${SOURCE_ROOT}/Tactical/Ja25_Tactical.cpp"
   "${SOURCE_ROOT}/Tactical/Ja25_Tactical.h")
 set(runtime_campaign_selection_files
+  "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
   "${SOURCE_ROOT}/Ja2/CompiledGameplayBootstrap.cpp"
   "${SOURCE_ROOT}/Ja2/gameloop.cpp"
+  "${SOURCE_ROOT}/Ja2/gamescreen.cpp"
   "${SOURCE_ROOT}/Ja2/Intro.cpp"
+  "${SOURCE_ROOT}/Ja2/Init.cpp"
+  "${SOURCE_ROOT}/Ja2/Loading Screen.cpp"
+  "${SOURCE_ROOT}/Ja2/Loading Screen.h"
   "${SOURCE_ROOT}/Ja2/MainMenuScreen.cpp"
   "${SOURCE_ROOT}/Ja2/MPHostScreen.cpp"
   "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
@@ -322,6 +327,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Tactical/TacticalActor.h"
   "${SOURCE_ROOT}/Tactical/Tactical Save.cpp"
   "${SOURCE_ROOT}/Tactical/Tactical Turns.cpp"
+  "${SOURCE_ROOT}/Tactical/XML.h"
   "${SOURCE_ROOT}/Tactical/opplist.cpp"
   "${SOURCE_ROOT}/Tactical/opplist.h"
   "${SOURCE_ROOT}/Tactical/interface Dialogue.h"
@@ -339,6 +345,138 @@ foreach(runtime_campaign_file IN LISTS
   if(compiled_campaign_identity)
     message(FATAL_ERROR
       "Runtime campaign code regained compiled JA2UB identity in ${runtime_campaign_file}")
+  endif()
+endforeach()
+
+# The application shell now makes content-load, tactical-loop, arrival, and
+# loading-screen decisions through one value-only campaign policy. Both data
+# sets and their storage contracts must stay compiled into each host even
+# though legacy dealer IDs remain campaign-specific compatibility records.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
+  runtime_campaign_application_policy_contents)
+foreach(required_application_policy_fragment IN ITEMS
+    "class CampaignApplicationPolicy"
+    "usesLocalizedArulcoMercData"
+    "usesArulcoMerchantRoster"
+    "hasMeanwhileScenes"
+    "runsUnfinishedBusinessTacticalHooks"
+    "usesUnfinishedBusinessUndergroundLoadScreens"
+    "shouldLoadExternalEnemyDeployment")
+  string(FIND "${runtime_campaign_application_policy_contents}"
+    "${required_application_policy_fragment}"
+    required_application_policy_position)
+  if(required_application_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Application campaign policy lost '${required_application_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/Init.cpp"
+  runtime_campaign_content_load_contents)
+foreach(required_campaign_content_fragment IN ITEMS
+    "CampaignApplicationPolicy campaignPolicy"
+    "MERCSTARTINGGEAR25FILENAME"
+    "MERCSTARTINGGEARFILENAME"
+    "BETTYINVENTORYFILENAME"
+    "DEVININVENTORYFILENAME"
+    "MERCPROFILESFILENAME25"
+    "MERCPROFILESFILENAME"
+    "shouldLoadExternalEnemyDeployment")
+  string(FIND "${runtime_campaign_content_load_contents}"
+    "${required_campaign_content_fragment}"
+    required_campaign_content_position)
+  if(required_campaign_content_position EQUAL -1)
+    message(FATAL_ERROR
+      "Common content loading lost runtime campaign selection '${required_campaign_content_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/gamescreen.cpp"
+  runtime_campaign_tactical_shell_contents)
+foreach(required_campaign_tactical_fragment IN ITEMS
+    "CampaignApplicationPolicy campaignPolicy"
+    "hasMeanwhileScenes"
+    "runsUnfinishedBusinessTacticalHooks"
+    "JA25_HandleUpdateOfStrategicAi"
+    "HandlePowerGenAlarm"
+    "HandleInitialEventsInHeliCrash")
+  string(FIND "${runtime_campaign_tactical_shell_contents}"
+    "${required_campaign_tactical_fragment}"
+    required_campaign_tactical_position)
+  if(required_campaign_tactical_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical application shell lost runtime campaign selection '${required_campaign_tactical_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/Loading Screen.cpp"
+  runtime_campaign_loadscreen_contents)
+foreach(required_campaign_loadscreen_fragment IN ITEMS
+    "usesUnfinishedBusinessUndergroundLoadScreens"
+    "LOADINGSCREEN_TUNNELS"
+    "LOADINGSCREEN_COMPLEX_BASEMENT"
+    "LOADINGSCREEN_MINE"
+    "LOADINGSCREEN_CAVE")
+  string(FIND "${runtime_campaign_loadscreen_contents}"
+    "${required_campaign_loadscreen_fragment}"
+    required_campaign_loadscreen_position)
+  if(required_campaign_loadscreen_position EQUAL -1)
+    message(FATAL_ERROR
+      "Loading-screen selection lost campaign path '${required_campaign_loadscreen_fragment}'")
+  endif()
+endforeach()
+
+foreach(common_campaign_storage_file IN ITEMS
+    "${SOURCE_ROOT}/Tactical/ArmsDealerInvInit.cpp"
+    "${SOURCE_ROOT}/Tactical/ArmsDealerInvInit.h")
+  file(READ "${common_campaign_storage_file}"
+    common_campaign_storage_contents)
+  foreach(required_campaign_storage_fragment IN ITEMS
+      "gBettyInventory"
+      "gDevinInventory"
+      "gRaulInventory"
+      "gPerkoInventory")
+    string(FIND "${common_campaign_storage_contents}"
+      "${required_campaign_storage_fragment}"
+      required_campaign_storage_position)
+    if(required_campaign_storage_position EQUAL -1)
+      message(FATAL_ERROR
+        "Common campaign inventory storage lost '${required_campaign_storage_fragment}' in ${common_campaign_storage_file}")
+    endif()
+  endforeach()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  runtime_campaign_policy_test_build_contents)
+foreach(required_campaign_policy_test_fragment IN ITEMS
+    "campaign_application_policy_tests.cpp"
+    "campaign_application_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_policy_test_fragment}"
+    required_campaign_policy_test_position)
+  if(required_campaign_policy_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime application campaign policy lost its headless test target")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_application_policy_tests.cpp"
+  runtime_campaign_policy_test_contents)
+foreach(required_campaign_policy_assertion IN ITEMS
+    "GameCampaign::UnfinishedBusiness"
+    "usesLocalizedArulcoMercData"
+    "usesArulcoMerchantRoster"
+    "hasMeanwhileScenes"
+    "runsUnfinishedBusinessTacticalHooks"
+    "usesUnfinishedBusinessUndergroundLoadScreens"
+    "shouldLoadExternalEnemyDeployment(false)"
+    "shouldLoadExternalEnemyDeployment(true)")
+  string(FIND "${runtime_campaign_policy_test_contents}"
+    "${required_campaign_policy_assertion}"
+    required_campaign_policy_assertion_position)
+  if(required_campaign_policy_assertion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime application campaign policy lost test coverage for '${required_campaign_policy_assertion}'")
   endif()
 endforeach()
 

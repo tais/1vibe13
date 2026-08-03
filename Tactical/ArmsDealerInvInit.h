@@ -53,13 +53,9 @@ int CompareItemsForSorting( UINT16 usItem1Index, UINT16 usItem2Index, UINT16 ubI
 UINT8 GetDealerItemCategoryNumber( UINT16 usItemIndex );
 BOOLEAN CanDealerItemBeSoldUsed( UINT16 usItemIndex );
 
-extern DEALER_POSSIBLE_INV gTonyInventory[MAXITEMS+1]; 
-
-#ifdef JA2UB
+extern DEALER_POSSIBLE_INV gTonyInventory[MAXITEMS+1];
 extern DEALER_POSSIBLE_INV gBettyInventory[MAXITEMS+1];
-#else  //ja25 ub Biggins
 extern DEALER_POSSIBLE_INV gDevinInventory[MAXITEMS+1];
-#endif
 
 extern DEALER_POSSIBLE_INV gFranzInventory[MAXITEMS+1];
 extern DEALER_POSSIBLE_INV gKeithInventory[MAXITEMS+1];
@@ -76,11 +72,8 @@ extern DEALER_POSSIBLE_INV gAlbertoInventory[MAXITEMS+1];
 extern DEALER_POSSIBLE_INV gCarloInventory[MAXITEMS+1];
 extern DEALER_POSSIBLE_INV gMickyInventory[MAXITEMS+1];
 extern DEALER_POSSIBLE_INV gArnieInventory[MAXITEMS+1];
-#ifdef JA2UB
 extern DEALER_POSSIBLE_INV gRaulInventory[MAXITEMS+1];
-#else
 extern DEALER_POSSIBLE_INV gPerkoInventory[MAXITEMS+1];
-#endif
 extern DEALER_POSSIBLE_INV gFredoInventory[MAXITEMS+1];
 
 // added by Flugente 2012-12-19

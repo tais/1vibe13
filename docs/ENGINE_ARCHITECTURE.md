@@ -934,6 +934,20 @@ the engine must not contain SDL types in its public domain model.
   preprocessor branches are migrated incrementally. The architecture check
   prevents the dedicated modules and migrated composition callers from
   regaining a `JA2UB` build guard.
+- The common application shell now selects campaign content and tactical flow
+  through the value-only `CampaignApplicationPolicy`. Rules content loading
+  chooses the established MercStartingGear, profile/opinion, merchant, and
+  enemy-deployment files at runtime; tactical entry and frame handling choose
+  meanwhile, JA25 strategic-AI, power-generator, sector-notification, and
+  helicopter-crash hooks the same way. Underground loading screens retain the
+  distinct Arulco mine/cave mapping and UB tunnel/stair/complex mapping without
+  a compiled branch. Both campaigns' XML path constants and four alternative
+  dealer inventory buffers are emitted in every host, while the still-legacy
+  dealer numeric layouts remain campaign-specific. A dedicated data-free test
+  exercises every policy decision, and architecture CI prevents these migrated
+  application sources from regaining `JA2UB`. This changes no data filename,
+  item/dealer ID, loading-screen ID, save record, map, XML, Lua, or package
+  format.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

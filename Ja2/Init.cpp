@@ -32,6 +32,7 @@
 #include "Summary Info.h"
 #include "GameSettings.h"
 #include "GameContext.h"
+#include "CampaignApplicationPolicy.h"
 #include "RuntimeReportHost.h"
 #include "TacticalWorldAdapter.h"
 #include "Game Init.h"
@@ -55,10 +56,6 @@
 #include "aim.h"
 #include "mainmenuscreen.h"
 #include "email.h"
-
-#ifdef JA2UB
-#include "Ja25_Tactical.h"
-#endif
 
 #include "ub_config.h"
 
@@ -146,6 +143,8 @@ static void ResetEmptyRPCFaceSlots()
 BOOLEAN LoadExternalGameplayData(STR directoryName, BOOLEAN isMultiplayer)
 {
 	char fileName[MAX_PATH];
+	const CampaignApplicationPolicy campaignPolicy(
+		GetGameContext().capabilities());
 
 	//zilpin: pellet spread patterns externalized in XML
 	//If file not found, or error, then the old hard-coded defaults are used by LOS.cpp
@@ -440,29 +439,28 @@ if( g_lang != i18n::Lang::en ) {
 }
 
 
-#ifdef JA2UB
+	if (!campaignPolicy.usesLocalizedArulcoMercData())
+	{
+		strcpy(fileName, directoryName);
+		strcat(fileName, MERCSTARTINGGEAR25FILENAME);
+		SGP_THROW_IFFALSE(ReadInMercStartingGearStats(fileName, FALSE),MERCSTARTINGGEAR25FILENAME);
+	}
+	else
+	{
+		// CHRISL:
+		strcpy(fileName, directoryName);
+		strcat(fileName, MERCSTARTINGGEARFILENAME);
+		SGP_THROW_IFFALSE(ReadInMercStartingGearStats(fileName, FALSE), MERCSTARTINGGEARFILENAME);
 
-	strcpy(fileName, directoryName);
-	strcat(fileName, MERCSTARTINGGEAR25FILENAME);
-	SGP_THROW_IFFALSE(ReadInMercStartingGearStats(fileName, FALSE),MERCSTARTINGGEAR25FILENAME);
-
-#else
-
-	// CHRISL:
-	strcpy(fileName, directoryName);
-	strcat(fileName, MERCSTARTINGGEARFILENAME);
-	SGP_THROW_IFFALSE(ReadInMercStartingGearStats(fileName, FALSE), MERCSTARTINGGEARFILENAME);
-
-	if( g_lang != i18n::Lang::en ) {
-		AddLanguagePrefix(fileName);
-		if ( FileExists(fileName) )
-		{
-			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
-			SGP_THROW_IFFALSE(ReadInMercStartingGearStats(fileName,TRUE), fileName);
+		if( g_lang != i18n::Lang::en ) {
+			AddLanguagePrefix(fileName);
+			if ( FileExists(fileName) )
+			{
+				DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
+				SGP_THROW_IFFALSE(ReadInMercStartingGearStats(fileName,TRUE), fileName);
+			}
 		}
 	}
-
-#endif
 
 	strcpy(fileName, directoryName);
 	strcat(fileName, WEAPONSFILENAME);
@@ -556,28 +554,27 @@ if( g_lang != i18n::Lang::en ) {
 	strcat(fileName, TONYINVENTORYFILENAME);
 	SGP_THROW_IFFALSE(ReadInInventoryStats(gTonyInventory,fileName),TONYINVENTORYFILENAME);
 
-#ifdef JA2UB
-//ja25 ub Biggins
+	if (!campaignPolicy.usesArulcoMerchantRoster())
+	{
+		// JA25 UB merchants.
+		strcpy(fileName, directoryName);
+		strcat(fileName, BETTYINVENTORYFILENAME);
+		SGP_THROW_IFFALSE(ReadInInventoryStats(gBettyInventory,fileName),BETTYINVENTORYFILENAME);
 
-	strcpy(fileName, directoryName);
-	strcat(fileName, BETTYINVENTORYFILENAME);
-	SGP_THROW_IFFALSE(ReadInInventoryStats(gBettyInventory,fileName),BETTYINVENTORYFILENAME);
+		strcpy(fileName, directoryName);
+		strcat(fileName, RAULINVENTORYFILENAME);
+		SGP_THROW_IFFALSE(ReadInInventoryStats(gRaulInventory,fileName),RAULINVENTORYFILENAME);
+	}
+	else
+	{
+		strcpy(fileName, directoryName);
+		strcat(fileName, DEVININVENTORYFILENAME);
+		SGP_THROW_IFFALSE(ReadInInventoryStats(gDevinInventory,fileName),DEVININVENTORYFILENAME);
 
-	//UB
-	strcpy(fileName, directoryName);
-	strcat(fileName, RAULINVENTORYFILENAME);
-	SGP_THROW_IFFALSE(ReadInInventoryStats(gRaulInventory,fileName),RAULINVENTORYFILENAME);
-
-#else
-	strcpy(fileName, directoryName);
-	strcat(fileName, DEVININVENTORYFILENAME);
-	SGP_THROW_IFFALSE(ReadInInventoryStats(gDevinInventory,fileName),DEVININVENTORYFILENAME);
-
-	strcpy(fileName, directoryName);
-	strcat(fileName, PERKOINVENTORYFILENAME);
-	SGP_THROW_IFFALSE(ReadInInventoryStats(gPerkoInventory,fileName),PERKOINVENTORYFILENAME);
-
-#endif
+		strcpy(fileName, directoryName);
+		strcat(fileName, PERKOINVENTORYFILENAME);
+		SGP_THROW_IFFALSE(ReadInInventoryStats(gPerkoInventory,fileName),PERKOINVENTORYFILENAME);
+	}
 
 	strcpy(fileName, directoryName);
 	strcat(fileName, FRANZINVENTORYFILENAME);
@@ -686,10 +683,9 @@ if( g_lang != i18n::Lang::en ) {
 	strcat(fileName, HELISITESFILENAME);
 	SGP_THROW_IFFALSE(ReadInHeliInfo(fileName),HELISITESFILENAME);
 
-#ifdef JA2UB
-	if ( gGameUBOptions.EnemyXML == TRUE ) 
+	if (campaignPolicy.shouldLoadExternalEnemyDeployment(
+		gGameUBOptions.EnemyXML == TRUE))
 	{
-#endif
 		// Lesh: army externalization
 		strcpy(fileName, directoryName);
 		strcat(fileName, GARRISONFILENAME);
@@ -698,9 +694,7 @@ if( g_lang != i18n::Lang::en ) {
 		strcpy(fileName, directoryName);
 		strcat(fileName, PATROLFILENAME);
 		SGP_THROW_IFFALSE(ReadInPatrolInfo(fileName),PATROLFILENAME);
-#ifdef JA2UB
 	}
-#endif
 
 	strcpy(fileName, directoryName);
 	strcat(fileName, COMPOSITIONFILENAME);
@@ -776,64 +770,64 @@ if( g_lang != i18n::Lang::en ) {
 	// SANDRO - always initialize those files, we need it on game start
 	if (gGameExternalOptions.fReadProfileDataFromXML)
 	{
-#ifdef JA2UB		
-		// UB25
-		strcpy(fileName, directoryName);
-		strcat(fileName, MERCPROFILESFILENAME25); 
-		
-		if ( FileExists(fileName) )
-		{	
-		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));		
-		SGP_THROW_IFFALSE(ReadInMercProfiles(fileName, FALSE), MERCPROFILESFILENAME25);
-		
-		if( g_lang != i18n::Lang::en ) {
-			AddLanguagePrefix(fileName);
+		if (campaignPolicy.usesUnfinishedBusinessContent())
+		{
+			strcpy(fileName, directoryName);
+			strcat(fileName, MERCPROFILESFILENAME25);
+
+			if (FileExists(fileName))
+			{
+				DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
+				SGP_THROW_IFFALSE(ReadInMercProfiles(fileName, FALSE), MERCPROFILESFILENAME25);
+
+				if( g_lang != i18n::Lang::en ) {
+					AddLanguagePrefix(fileName);
+					if ( FileExists(fileName) )
+					{
+						DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
+						if(!ReadInMercProfiles(fileName,TRUE))
+							return FALSE;
+					}
+				}
+			}
+
+			strcpy(fileName, directoryName);
+			strcat(fileName, MERCOPINIONSFILENAME25);
 			if ( FileExists(fileName) )
 			{
 				DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
-				if(!ReadInMercProfiles(fileName,TRUE))
-				return FALSE;
+				SGP_THROW_IFFALSE(ReadInMercOpinions(fileName), MERCOPINIONSFILENAME25);
 			}
 		}
-		}
-
-		strcpy(fileName, directoryName);
-		strcat(fileName, MERCOPINIONSFILENAME25);
-		if ( FileExists(fileName) )
-		{		
+		else
+		{
+			// HEADROCK PROFEX: Read in Merc Profile data to replace PROF.DAT data
+			strcpy(fileName, directoryName);
+			strcat(fileName, MERCPROFILESFILENAME);
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
-			SGP_THROW_IFFALSE(ReadInMercOpinions(fileName), MERCOPINIONSFILENAME25);
-		}
-#else
+			SGP_THROW_IFFALSE(ReadInMercProfiles(fileName, FALSE), MERCPROFILESFILENAME);
 
-		// HEADROCK PROFEX: Read in Merc Profile data to replace PROF.DAT data
-		strcpy(fileName, directoryName);
-		strcat(fileName, MERCPROFILESFILENAME);
-		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
-		SGP_THROW_IFFALSE(ReadInMercProfiles(fileName, FALSE), MERCPROFILESFILENAME);
-
-		if( g_lang != i18n::Lang::en ) {
-			AddLanguagePrefix(fileName);
-			if ( FileExists(fileName) )
-			{
-				DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
-				SGP_THROW_IFFALSE(ReadInMercProfiles(fileName,TRUE), fileName);
+			if( g_lang != i18n::Lang::en ) {
+				AddLanguagePrefix(fileName);
+				if ( FileExists(fileName) )
+				{
+					DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
+					SGP_THROW_IFFALSE(ReadInMercProfiles(fileName,TRUE), fileName);
+				}
 			}
+
+			// HEADROCK PROFEX: Read in Merc Opinion data to replace PROF.DAT data
+			strcpy(fileName, directoryName);
+			strcat(fileName, MERCOPINIONSFILENAME);
+			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
+			SGP_THROW_IFFALSE(ReadInMercOpinions(fileName), MERCOPINIONSFILENAME);
+
+			// WANNE: Read in the MercQuotes.xml file
+			strcpy(fileName, directoryName);
+			strcat(fileName, MERCQUOTEFILENAME);
+			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
+			SGP_THROW_IFFALSE(ReadInMercQuotes(QuoteExp, fileName), MERCQUOTEFILENAME);
 		}
-
-		// HEADROCK PROFEX: Read in Merc Opinion data to replace PROF.DAT data
-		strcpy(fileName, directoryName);
-		strcat(fileName, MERCOPINIONSFILENAME);
-		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
-		SGP_THROW_IFFALSE(ReadInMercOpinions(fileName), MERCOPINIONSFILENAME);
-
-		// WANNE: Read in the MercQuotes.xml file
-		strcpy(fileName, directoryName);
-		strcat(fileName, MERCQUOTEFILENAME);
-		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LoadExternalGameplayData, fileName = %s", fileName));
-		SGP_THROW_IFFALSE(ReadInMercQuotes(QuoteExp, fileName), MERCQUOTEFILENAME);
-
-#endif
 	}
 		
 	// HEADROCK HAM 3.6: Read in customized Bloodcat Placements

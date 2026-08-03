@@ -5,10 +5,6 @@
     "Ja2/GameInitOptionsScreen.cpp": 1,
     "Ja2/GameSettings.h": 2,
     "Ja2/GameVersion.cpp": 3,
-    "Ja2/Init.cpp": 6,
-    "Ja2/Loading Screen.cpp": 2,
-    "Ja2/Loading Screen.h": 1,
-    "Ja2/gamescreen.cpp": 9,
     "Laptop/AimLinks.cpp": 16,
     "Laptop/AimMembers.cpp": 9,
     "Laptop/IMP HomePage.cpp": 3,
@@ -48,8 +44,7 @@
     "Strategic/strategic.cpp": 2,
     "Tactical/Arms Dealer Init.cpp": 12,
     "Tactical/Arms Dealer Init.h": 6,
-    "Tactical/ArmsDealerInvInit.cpp": 8,
-    "Tactical/ArmsDealerInvInit.h": 2,
+    "Tactical/ArmsDealerInvInit.cpp": 6,
     "Tactical/Campaign.cpp": 6,
     "Tactical/Civ Quotes.cpp": 5,
     "Tactical/Civ Quotes.h": 1,
@@ -73,7 +68,6 @@
     "Tactical/Strategic Exit GUI.cpp": 2,
     "Tactical/TeamTurns.cpp": 3,
     "Tactical/Weapons.cpp": 1,
-    "Tactical/XML.h": 3,
     "Tactical/soldier profile type.h": 1,
     "TacticalAI/AIMain.cpp": 2,
     "TacticalAI/DecideAction.cpp": 2,
@@ -82,5 +76,5 @@
     "Utils/Timer Control.cpp": 1
   },
   "schema": 1,
-  "total": 385
+  "total": 360
 }
