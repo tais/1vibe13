@@ -407,12 +407,12 @@ void BtnIMPDisabilityTraitFinishCallback(GUI_BUTTON *btn,INT32 reason)
 		//if( iCurrentProfileMode == IMP__FINISH )
 		//{
 			//go back to the done screen
-		iCurrentImpPage = IMP_PREJUDICE;
+		RequestIMPPage(IMP_PREJUDICE);
 		fButtonPendingFlag = TRUE;
 		//}
 		/*else
 		{
-			iCurrentImpPage = IMP_PREJUDICE;
+			RequestIMPPage(IMP_PREJUDICE);
 
 			if( CameBackToDisabilityTraitPageButNotFinished() )
 			{

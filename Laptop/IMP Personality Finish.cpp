@@ -368,7 +368,7 @@ void BtnIMPPersonalityFinishOkCallback(GUI_BUTTON *btn,INT32 reason)
 
 			// button pending, wait a frame
 			fButtonPendingFlag = TRUE;
-			iCurrentImpPage = IMP_MAIN_PAGE;
+			RequestIMPPage(IMP_MAIN_PAGE);
 
 
 			if( iCurrentProfileMode != IMP__FINISH )
@@ -377,7 +377,7 @@ void BtnIMPPersonalityFinishOkCallback(GUI_BUTTON *btn,INT32 reason)
 			}
 			else
 			{
-				iCurrentImpPage = IMP_FINISH;//IMP__ATTRIBUTES;
+				RequestIMPPage(IMP_FINISH);//IMP__ATTRIBUTES;
 			}
 		}
 	}

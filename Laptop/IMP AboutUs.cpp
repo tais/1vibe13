@@ -121,7 +121,7 @@ void BtnIMPBackCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
-		iCurrentImpPage = IMP_HOME_PAGE;
+		RequestIMPPage(IMP_HOME_PAGE);
 		}
 	}
 }

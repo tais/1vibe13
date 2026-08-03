@@ -18,5 +18,6 @@ void	DisplayGear( UINT16 usItem, UINT16 usPosX, UINT16 usPosY, BOOLEAN fWithBack
 
 void	GiveIMPSelectedGear( MERCPROFILESTRUCT *pProfile );
 INT32	GetIMPGearCost();
+void	ResetSelectedIMPGear();
 
 #endif

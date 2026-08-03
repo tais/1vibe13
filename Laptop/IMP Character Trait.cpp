@@ -400,12 +400,12 @@ void BtnIMPCharacterTraitFinishCallback(GUI_BUTTON *btn,INT32 reason)
 		//if( iCurrentProfileMode == IMP__FINISH )
 		//{
 			//go back tot he done screen
-		iCurrentImpPage = IMP_DISABILITY_PAGE;
+		RequestIMPPage(IMP_DISABILITY_PAGE);
 		fButtonPendingFlag = TRUE;
 		//}
 		/*else
 		{
-			iCurrentImpPage = IMP_DISABILITY_PAGE;
+			RequestIMPPage(IMP_DISABILITY_PAGE);
 
 			if( CameBackToCharacterTraitPageButNotFinished() )
 			{

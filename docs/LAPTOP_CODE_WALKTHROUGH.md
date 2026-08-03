@@ -179,15 +179,91 @@ transactional-state requirements to every `Laptop/XML_*.cpp`, rejects the
 retired conversion/narrowing calls and mutable parser-mode globals, pins the
 specific crash boundaries, and admits the focused target to ASan CI.
 
+## IMP creation lifecycle and import transaction batch
+
+The fourth batch gives IMP navigation and bounded selections a dependency-free
+`ImpCreationStateModel`, while `CharProfile` remains the legacy-facing owner of
+page entry/exit and rendering. It fixes the following confirmed faults:
+
+- any Laptop source could assign the current IMP page, including negative or
+  exact-end values; the non-terminating assertion did not prevent the visited
+  array from being indexed with the invalid value;
+- the visited-page reset stopped at `IMP_CONFIRM`, leaving every later IMP page
+  with state inherited from an earlier creation session;
+- portrait-next indexed after incrementing past the array, portrait cycling
+  recursively skipped the other sex forever when mod data had no match, and
+  an empty selection could pass an uninitialized filename to video loading;
+- voice selection fell back to index zero even for an empty or sex-incompatible
+  voice catalog, and rendering and completion later indexed it as valid;
+- exhausting all IMP profile slots returned `-1`, which character creation then
+  used as an index into `gMercProfiles`;
+- XML eye and mouth coordinates were mistakenly treated as indices into a
+  retired 50-by-4 offset table, allowing custom coordinates to address outside
+  the table instead of being copied as values;
+- repacking a smaller portrait XML document retained enabled entries from the
+  previous load, and a new base document retained omitted records from the old
+  base state;
+- IMP import leaked its file on several short-read paths, changed the global
+  save version and live profile before validation completed, trusted the saved
+  portrait and profile type, and charged the player before confirming that the
+  merc could be hired;
+- creation marked IMP complete and charged the player without checking that a
+  free profile was created and hired successfully;
+- import/export and existence checks concatenated user-controlled nicknames
+  into 13- and 32-byte arrays, sometimes without a terminator; and
+- starting another IMP retained attribute increments, trait lists, portrait,
+  voice, selected gear, gear cost, and the new-gear mode from the previous
+  merc; and
+- IMP pages passed player-entered names and activation codes, XML voice names,
+  and localized strings directly as variadic `mprintf` formats, so `%`
+  sequences could consume absent arguments and crash or corrupt rendering.
+
+Navigation now has one validated owner and read-only compatibility view.
+Portrait, voice, and preferred/free-slot searches are bounded, wrap explicitly,
+and return no value for empty catalogs. Profile construction validates names,
+slot, and portrait before initialization; face coordinates are copied directly
+from the validated XML record. Import reads into a temporary initialized
+profile through a scoped file handle, temporarily adapts the saved version,
+validates the complete record, computes affordability without publishing the
+slot, and rolls back live state if hiring fails. Finance, history, completion,
+and persistence side effects occur only after successful hire. The on-disk IMP
+format and portrait XML schema are unchanged.
+
+The focused headless model test covers negative and exact-end pages, reset and
+visited transitions, signed indices, empty/no-match catalogs, forward/backward
+wrap, invalid current selections, preferred free slots, occupied preferred
+slots, and fully occupied slot sets. Architecture CI makes `CharProfile` the
+only page writer, pins the staged import and rollback path, rejects the retired
+coordinate table and fixed filename buffers, and includes the focused target
+in the AddressSanitizer build. It also rejects three-argument `mprintf` calls
+whose format is a variable anywhere in the IMP page cluster.
+
 ## Remaining walkthrough
 
-The next passes should stay cohesive and prioritize:
+The IMP lifecycle item is complete. The remaining audit queue is deliberately
+grouped into larger reviewable batches:
 
-1. IMP page lifecycle, generated-character state, and cross-page index
-   contracts.
-2. `files.cpp`, history, and the remaining compile-time campaign content tail.
-3. UI resource handles and mouse-region create/destroy symmetry across every
-   Laptop page.
+1. Combine `files.cpp`, history pages, and their remaining compile-time
+   campaign-content branches behind runtime policy.
+2. Give video objects, button images, and temporary render assets scoped or
+   explicitly paired ownership across every Laptop page.
+3. Audit mouse-region creation/removal counts and callback lifetimes across
+   page re-entry, empty data, and early resource-load failure.
+4. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
+   validate all rendered text buffers before formatting.
+5. Audit the remaining Laptop binary readers and writers for exact reads,
+   bounded allocation, staged publication, and failure-safe file ownership.
+6. Consolidate non-IMP page re-entry and global selection state so cancelled,
+   failed, and repeated visits start from a documented state.
+7. Verify every remaining fixed array and paginated list against negative,
+   exact-end, empty, and stale-selection cases.
+8. Audit pointer and iterator lifetimes in mutable email, personnel, shipment,
+   insurance, A.I.M., and M.E.R.C. UI collections after callbacks mutate them.
+9. Make finance, history, email, and hire side effects transactional wherever a
+   Laptop workflow can fail after partially committing an operation.
+10. Run a final domain-wide static-analysis/warning pass, remove superseded
+    dead paths, and convert every confirmed finding into a focused regression
+    test or an architecture ratchet.
 
 Every batch must include focused tests, all-host compilation, architecture and
 compile-guard ratchets, the normal headless suite, and a fresh ASan run before

@@ -352,7 +352,7 @@ void BtnIMPPrejudiceFinishCallback(GUI_BUTTON *btn,INT32 reason)
 		if( iCurrentProfileMode == IMP__FINISH )
 		{
 			//go back tot he done screen
-			iCurrentImpPage = IMP_FINISH;
+			RequestIMPPage(IMP_FINISH);
 		}
 		// Flugente: setting determines whether we see the background page
 		else
@@ -369,7 +369,7 @@ void BtnIMPPrejudiceFinishCallback(GUI_BUTTON *btn,INT32 reason)
 			bRacist						= ( INT8)DropDownTemplate<DROPDOWNNR_RACIST>::getInstance().GetSelectedEntryKey();
 			bSexist						= (UINT8)DropDownTemplate<DROPDOWNNR_SEXIST>::getInstance().GetSelectedEntryKey();
 
-			iCurrentImpPage = IMP_MAIN_PAGE;
+			RequestIMPPage(IMP_MAIN_PAGE);
 
 			if( CameBackToPrejudicePageButNotFinished() )
 			{

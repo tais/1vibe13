@@ -23,6 +23,10 @@
 	#include "IMP Color Choosing.h"
 	#include "IMP Minor Trait.h"
 	#include "IMP Voices.h"
+	#include "ImpCreationStateModel.h"
+	#include "LocalizationInputModel.h"
+
+	#include <algorithm>
 
 #include "IMP Confirm.h"
 
@@ -43,92 +47,45 @@ INT32 iLastElementInPersonalityList = 0;
 
 extern BOOLEAN fLoadingCharacterForPreviousImpProfile;
 
-// positions of the face x and y for eyes and mouth for the 10 portraits
-
-INT16 sFacePositions[ NUMBER_OF_PLAYER_PORTRAITS ][ 4 ];
-/*{
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-	{0,0,0,0},
-};
-
-STR8 pPlayerSelectedFaceFileNames[ NUMBER_OF_PLAYER_PORTRAITS ]=
-{
-	"Faces\\200.sti",
-	"Faces\\201.sti",
-	"Faces\\202.sti",
-	"Faces\\203.sti",
-	"Faces\\204.sti",
-	"Faces\\205.sti",
-	"Faces\\206.sti",
-	"Faces\\207.sti",
-	"Faces\\208.sti",
-	"Faces\\209.sti",
-	"Faces\\210.sti",
-	"Faces\\211.sti",
-	"Faces\\212.sti",
-	"Faces\\213.sti",
-	"Faces\\214.sti",
-	"Faces\\215.sti",
-};
-
-STR8 pPlayerSelectedBigFaceFileNames[ NUMBER_OF_PLAYER_PORTRAITS ]=
-{
-	"Faces\\BigFaces\\200.sti",
-	"Faces\\BigFaces\\201.sti",
-	"Faces\\BigFaces\\202.sti",
-	"Faces\\BigFaces\\203.sti",
-	"Faces\\BigFaces\\204.sti",
-	"Faces\\BigFaces\\205.sti",
-	"Faces\\BigFaces\\206.sti",
-	"Faces\\BigFaces\\207.sti",
-	"Faces\\BigFaces\\208.sti",
-	"Faces\\BigFaces\\209.sti",
-	"Faces\\BigFaces\\210.sti",
-	"Faces\\BigFaces\\211.sti",
-	"Faces\\BigFaces\\212.sti",
-	"Faces\\BigFaces\\213.sti",
-	"Faces\\BigFaces\\214.sti",
-	"Faces\\BigFaces\\215.sti",
-};
-*/
-
 // function declarations
-void SelectMercFace( void );
+BOOLEAN SelectMercFace( void );
 void SetMercSkinAndHairColors( void );
 BOOLEAN ShouldThisMercHaveABigBody( void );
 
 
-void CreateACharacterFromPlayerEnteredStats( void )
+BOOLEAN CreateACharacterFromPlayerEnteredStats(INT32 profileId)
 {
+	if (!IsIMPSlotFree(profileId) ||
+		!IsValidSelectedIMPPortrait(iPortraitNumber))
+	{
+		return FALSE;
+	}
+
+	CHAR16 fullName[NAME_LENGTH]{};
+	CHAR16 nickname[NICKNAME_LENGTH]{};
+	if (!LaptopLocalizationModel::CopyText(fullName, pFullName) ||
+		!LaptopLocalizationModel::CopyText(nickname, pNickName))
+	{
+		return FALSE;
+	}
+
 	// Kaiden: Seems like as good a place as any to stash this function call to
 	// ensure that these lists don't get overwritten or Nulled due to the amount
 	// of changes and revisions that have been made to personalities and attitudes.
 	CreatePlayersPersonalitySkillsAndAttitude();
 	
-	LaptopSaveInfo.iIMPIndex = GetFreeIMPSlot( -1 );
+	LaptopSaveInfo.iIMPIndex = profileId;
 
 	//shadooow: fixes many old values and items remaining when replacing dead/pow IMP
 	gMercProfiles[LaptopSaveInfo.iIMPIndex].initialize();
 
 	// copy over full name
-	wcscpy( gMercProfiles[ LaptopSaveInfo.iIMPIndex ].zName, pFullName );
+	std::copy_n(fullName, NAME_LENGTH,
+		gMercProfiles[LaptopSaveInfo.iIMPIndex].zName);
 
 	// the nickname
-	wcscpy( gMercProfiles[ LaptopSaveInfo.iIMPIndex ].zNickname, pNickName );
+	std::copy_n(nickname, NICKNAME_LENGTH,
+		gMercProfiles[LaptopSaveInfo.iIMPIndex].zNickname);
 
 	// gender
 	if ( fCharacterIsMale == TRUE )
@@ -196,7 +153,8 @@ void CreateACharacterFromPlayerEnteredStats( void )
 	gMercProfiles[ LaptopSaveInfo.iIMPIndex ].bMercStatus = 0;
 
 	// face
-	SelectMercFace( );
+	if (!SelectMercFace())
+		return FALSE;
 
 	//  Option for badass added - SANDRO
 	if (bBadAssSelected())
@@ -220,6 +178,7 @@ void CreateACharacterFromPlayerEnteredStats( void )
 	gMercProfiles[LaptopSaveInfo.iIMPIndex].bHated[3] = 255;
 	gMercProfiles[LaptopSaveInfo.iIMPIndex].bHated[4] = 255;
 	gMercProfiles[LaptopSaveInfo.iIMPIndex].bLearnToHate = 255;
+	return TRUE;
 }
 
 void CreatePlayerAttitude( void )
@@ -480,12 +439,12 @@ void CreatePlayersPersonalitySkillsAndAttitude( void )
 
 void ResetSkillsAttributesAndPersonality( void )
 {
-	// reset count of skills attributes and personality
-
+	std::fill_n(PersonalityList, ATTITUDE_LIST_SIZE, 0);
+	std::fill_n(SkillsList, ATTITUDE_LIST_SIZE, 0);
+	std::fill_n(BackupSkillsList, ATTITUDE_LIST_SIZE, 0);
+	std::fill_n(AttitudeList, ATTITUDE_LIST_SIZE, 0);
 	iLastElementInPersonalityList = 0;
-
 	iLastElementInSkillsList = 0;
-
 	iLastElementInAttitudeList = 0;
 }
 
@@ -508,48 +467,29 @@ void ResetIncrementCharacterAttributes( void )
 	iAddMechanical = 0;
 }
 
-void SelectMercFace( void )
+BOOLEAN SelectMercFace( void )
 {
-/*
-UINT32 cnt;
-		
-		for ( cnt = 0; cnt < MAX_NEW_IMP_PORTRAITS; cnt++ )
-		{
-			sFacePositions[ cnt ][ 0 ] = 0;
-			sFacePositions[ cnt ][ 1 ] = 0;
-			sFacePositions[ cnt ][ 2 ] = 0;
-			sFacePositions[ cnt ][ 3 ] = 0;
-		}
-		*/
-	// this procedure will select the approriate face for the merc and save offsets
+	if (!LaptopImpModel::IsIndexInRange(NUM_PROFILES, LaptopSaveInfo.iIMPIndex) ||
+		!IsValidSelectedIMPPortrait(iPortraitNumber))
+	{
+		return FALSE;
+	}
 
-	// grab face filename
-//	strcpy( gMercProfiles[ LaptopSaveInfo.iIMPIndex ].ubUnusedFaceFileName , pPlayerSelectedFaceFileNames[ iPortraitNumber ]);
+	// Select the face and copy its data-driven animation offsets.
 
 	gMercProfiles[LaptopSaveInfo.iIMPIndex].ubFaceIndex = (UINT8)iPortraitNumber;
 
 	// eyes
-	gMercProfiles[LaptopSaveInfo.iIMPIndex].usEyesX = sFacePositions[gIMPValues[iPortraitNumber].uiEyeXPositions][0];
-	gMercProfiles[LaptopSaveInfo.iIMPIndex].usEyesY = sFacePositions[gIMPValues[iPortraitNumber].uiEyeYPositions][1];
+	gMercProfiles[LaptopSaveInfo.iIMPIndex].usEyesX = gIMPValues[iPortraitNumber].uiEyeXPositions;
+	gMercProfiles[LaptopSaveInfo.iIMPIndex].usEyesY = gIMPValues[iPortraitNumber].uiEyeYPositions;
 
 	// mouth
-	gMercProfiles[LaptopSaveInfo.iIMPIndex].usMouthX = sFacePositions[gIMPValues[iPortraitNumber].uiMouthXPositions][2];
-	gMercProfiles[LaptopSaveInfo.iIMPIndex].usMouthY = sFacePositions[gIMPValues[iPortraitNumber].uiMouthYPositions][3];
+	gMercProfiles[LaptopSaveInfo.iIMPIndex].usMouthX = gIMPValues[iPortraitNumber].uiMouthXPositions;
+	gMercProfiles[LaptopSaveInfo.iIMPIndex].usMouthY = gIMPValues[iPortraitNumber].uiMouthYPositions;
 
-	// now the offsets
-	/*
-	gMercProfiles[ LaptopSaveInfo.iIMPIndex ].ubFaceIndex = 200 + ( UINT8 )iPortraitNumber;
-
-	// eyes
-	gMercProfiles[ LaptopSaveInfo.iIMPIndex ].usEyesX = sFacePositions[ iPortraitNumber ][ 0 ];
-	gMercProfiles[ LaptopSaveInfo.iIMPIndex ].usEyesY = sFacePositions[ iPortraitNumber ][ 1 ];
-
-	// mouth
-	gMercProfiles[ LaptopSaveInfo.iIMPIndex ].usMouthX = sFacePositions[ iPortraitNumber ][ 2 ];
-	gMercProfiles[ LaptopSaveInfo.iIMPIndex ].usMouthY = sFacePositions[ iPortraitNumber ][ 3 ];
-	*/
 	// set merc skins and hair color
 	SetMercSkinAndHairColors( );
+	return TRUE;
 }
 
 void SetMercSkinAndHairColors( void )

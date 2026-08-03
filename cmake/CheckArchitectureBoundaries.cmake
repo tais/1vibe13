@@ -1577,6 +1577,153 @@ foreach(required_laptop_localization_assertion IN ITEMS
   endif()
 endforeach()
 
+# IMP creation owns navigation and bounded selection in one dependency-free
+# model. Legacy pages may observe the current page through a read-only
+# compatibility view, but only CharProfile may mutate it. Profile creation and
+# import must validate slots, portraits, and complete file records before
+# publishing live mercenary state.
+file(READ "${SOURCE_ROOT}/Laptop/ImpCreationStateModel.h"
+  runtime_laptop_imp_creation_model_contents)
+foreach(required_laptop_imp_creation_model_fragment IN ITEMS
+    "ScopedRollback"
+    "NavigationState"
+    "static_assert(PageCount > 0"
+    "IsPageValid"
+    "RequestPage"
+    "ResetVisited"
+    "IsIndexInRange"
+    "FindFirstMatchingIndex"
+    "FindPreferredOrFirstMatchingIndex"
+    "FindNextMatchingIndex"
+    "FindPreviousMatchingIndex")
+  string(FIND "${runtime_laptop_imp_creation_model_contents}"
+    "${required_laptop_imp_creation_model_fragment}"
+    required_laptop_imp_creation_model_position)
+  if(required_laptop_imp_creation_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop IMP creation model lost '${required_laptop_imp_creation_model_fragment}'")
+  endif()
+endforeach()
+
+foreach(laptop_imp_boundary_caller_and_fragment IN ITEMS
+    "Laptop/CharProfile.h|extern const INT32& iCurrentImpPage"
+    "Laptop/CharProfile.cpp|gImpNavigation.RequestPage(page)"
+    "Laptop/CharProfile.cpp|ResetSelectedIMPGear()"
+    "Laptop/IMP MainPage.cpp|FindPreferredOrFirstMatchingIndex"
+    "Laptop/IMP Portraits.cpp|FindNextMatchingIndex"
+    "Laptop/IMP Portraits.cpp|IsSelectableIMPPortraitForGender"
+    "Laptop/IMP Voices.cpp|FindPreviousMatchingIndex"
+    "Laptop/IMP Compile Character.cpp|IsIMPSlotFree(profileId)"
+    "Laptop/IMP Compile Character.cpp|LaptopLocalizationModel::CopyText"
+    "Laptop/IMP Confirm.cpp|class ScopedImpFile"
+    "Laptop/IMP Confirm.cpp|ReadImpFileExact"
+    "Laptop/IMP Confirm.cpp|MERCPROFILESTRUCT pendingProfile"
+    "Laptop/IMP Confirm.cpp|pendingProfile.Type != PROFILETYPE_IMP"
+    "Laptop/IMP Confirm.cpp|ScopedRollback<MERCPROFILESTRUCT>"
+    "Laptop/IMP Confirm.cpp|profileId == -1"
+    "Laptop/IMP Confirm.cpp|WriteImpFileExact"
+    "Laptop/XML_IMPPortraits.cpp|std::fill_n(gIMPValues")
+  string(REPLACE "|" ";" laptop_imp_boundary_caller_parts
+    "${laptop_imp_boundary_caller_and_fragment}")
+  list(GET laptop_imp_boundary_caller_parts 0 laptop_imp_boundary_caller)
+  list(GET laptop_imp_boundary_caller_parts 1 laptop_imp_boundary_fragment)
+  file(READ "${SOURCE_ROOT}/${laptop_imp_boundary_caller}"
+    laptop_imp_boundary_caller_contents)
+  string(FIND "${laptop_imp_boundary_caller_contents}"
+    "${laptop_imp_boundary_fragment}" laptop_imp_boundary_caller_position)
+  if(laptop_imp_boundary_caller_position EQUAL -1)
+    message(FATAL_ERROR
+      "${laptop_imp_boundary_caller} lost IMP creation boundary '${laptop_imp_boundary_fragment}'")
+  endif()
+endforeach()
+
+file(GLOB runtime_laptop_imp_page_sources
+  "${SOURCE_ROOT}/Laptop/*.h"
+  "${SOURCE_ROOT}/Laptop/*.cpp")
+foreach(runtime_laptop_imp_page_source IN LISTS runtime_laptop_imp_page_sources)
+  if(runtime_laptop_imp_page_source STREQUAL
+      "${SOURCE_ROOT}/Laptop/CharProfile.cpp")
+    continue()
+  endif()
+  file(READ "${runtime_laptop_imp_page_source}"
+    runtime_laptop_imp_page_contents)
+  string(REGEX MATCH "iCurrentImpPage[ \t\r\n]*=[^=]"
+    retired_laptop_imp_page_assignment "${runtime_laptop_imp_page_contents}")
+  if(retired_laptop_imp_page_assignment)
+    message(FATAL_ERROR
+      "${runtime_laptop_imp_page_source} restored direct IMP page mutation; use RequestIMPPage")
+  endif()
+
+  if(runtime_laptop_imp_page_source MATCHES "/Laptop/IMP[ _]")
+    string(REGEX MATCH
+      "mprintf[ \t\r\n]*\\([^,;]*,[^,;]*,[ \t\r\n]*[A-KM-Za-km-z_][A-Za-z0-9_]*(\\[[^]]*\\])?[ \t\r\n]*\\)"
+      retired_laptop_imp_variable_format "${runtime_laptop_imp_page_contents}")
+    if(retired_laptop_imp_variable_format)
+      message(FATAL_ERROR
+        "${runtime_laptop_imp_page_source} passes IMP text as an mprintf format string; use an explicit %s format")
+    endif()
+  endif()
+endforeach()
+
+foreach(retired_laptop_imp_creation_fragment IN ITEMS
+    "sFacePositions"
+    "char zImpFileName["
+    "char zFileName[")
+  file(READ "${SOURCE_ROOT}/Laptop/IMP Confirm.cpp"
+    retired_laptop_imp_confirm_contents)
+  file(READ "${SOURCE_ROOT}/Laptop/IMP Compile Character.cpp"
+    retired_laptop_imp_compile_contents)
+  string(FIND
+    "${retired_laptop_imp_confirm_contents}${retired_laptop_imp_compile_contents}"
+    "${retired_laptop_imp_creation_fragment}"
+    retired_laptop_imp_creation_position)
+  if(NOT retired_laptop_imp_creation_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop IMP creation restored retired unsafe storage '${retired_laptop_imp_creation_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_laptop_imp_test_fragment IN ITEMS
+    "laptop_imp_creation_state_model_tests.cpp"
+    "laptop_imp_creation_state_model")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_laptop_imp_test_fragment}"
+    required_laptop_imp_test_position)
+  if(required_laptop_imp_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop IMP creation model lost its headless test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "laptop_imp_creation_state_model_tests"
+  runtime_laptop_imp_creation_ci_position)
+if(runtime_laptop_imp_creation_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Laptop IMP creation model test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_imp_creation_state_model_tests.cpp"
+  runtime_laptop_imp_creation_test_contents)
+foreach(required_laptop_imp_test_assertion IN ITEMS
+    "ScopedRollback<int> rollback"
+    "publishedValue == 7"
+    "publishedValue == 23"
+    "navigation.RequestPage(-1)"
+    "navigation.RequestPage(4)"
+    "FindPreferredOrFirstMatchingIndex(selectable.size(), 4"
+    "FindPreferredOrFirstMatchingIndex(selectable.size(), -1"
+    "FindPreferredOrFirstMatchingIndex(0, 0"
+    "FindNextMatchingIndex(0, 0"
+    "FindPreviousMatchingIndex(5, 0, never)")
+  string(FIND "${runtime_laptop_imp_creation_test_contents}"
+    "${required_laptop_imp_test_assertion}"
+    required_laptop_imp_test_assertion_position)
+  if(required_laptop_imp_test_assertion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop IMP creation tests lost '${required_laptop_imp_test_assertion}'")
+  endif()
+endforeach()
+
 foreach(required_laptop_communications_test_fragment IN ITEMS
     "laptop_communications_policy_tests.cpp"
     "laptop_communications_policy")

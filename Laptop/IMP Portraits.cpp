@@ -12,16 +12,12 @@
 	#include "Cursors.h"
 	#include "laptop.h"
 	#include "IMP Text System.h"
+	#include "ImpCreationStateModel.h"
 
 #include "IMP Confirm.h"
 
 //current and last pages
 INT32 iCurrentPortrait = 0;
-INT32 iLastPicture = 7;
-
-INT32 iLastPictureF;
-INT32 iLastPictureM;
-
 // buttons needed for the IMP portrait screen
 INT32 giIMPPortraitButton[ 3 ];
 INT32 giIMPPortraitButtonImage[ 3 ];
@@ -48,14 +44,12 @@ void BtnIMPPortraitDoneCallback(GUI_BUTTON *btn,INT32 reason);
 
 void EnterIMPPortraits( void )
 {
-	iCurrentPortrait = 0;
-
-	// Flugente: for safety, make sure we have a pic of the fitting gender
-	// this will lead to a loop if there is no data for a gender - then again, this was always the case
-	if ( gIMPValues[iCurrentPortrait].bSex == fCharacterIsMale )
-	{
-		IncrementPictureIndex( );
-	}
+	const auto first = LaptopImpModel::FindFirstMatchingIndex(
+		MAX_NEW_IMP_PORTRAITS,
+		[](std::size_t index) {
+			return IsValidSelectedIMPPortrait(static_cast<INT32>(index)) == TRUE;
+		});
+	iCurrentPortrait = first ? static_cast<INT32>(*first) : -1;
 
 	// create buttons
 	CreateIMPPortraitButtons( );
@@ -102,21 +96,19 @@ void HandleIMPPortraits( void )
 
 BOOLEAN RenderPortrait( INT16 sX, INT16 sY )
 {
+	if (!IsValidSelectedIMPPortrait(iCurrentPortrait))
+		return FALSE;
+
 	// render the portrait of the current picture
-	VOBJECT_DESC	VObjectDesc;
+	VOBJECT_DESC	VObjectDesc{};
 	HVOBJECT hHandle;
 	UINT32 uiGraphicHandle;
 
 	// load it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 
-	if ( gIMPValues[iCurrentPortrait].Enabled == 1 )
-	{
-		///sprintf( VObjectDesc.ImageFile, "Faces\\BigFaces\\%02d.sti", gIMPMaleValues[ iCurrentPortrait ].PortraitId );
-		sprintf( VObjectDesc.ImageFile, "IMPFaces\\BigFaces\\%02d.sti", gIMPValues[iCurrentPortrait].PortraitId );
-	}
+	sprintf( VObjectDesc.ImageFile, "IMPFaces\\BigFaces\\%02d.sti", gIMPValues[iCurrentPortrait].PortraitId );
 
-	//FilenameForBPP( pPlayerSelectedBigFaceFileNames[ iCurrentPortrait ] , VObjectDesc.ImageFile);
 	CHECKF( AddVideoObject( &VObjectDesc, &uiGraphicHandle ) );
 
 	// show it
@@ -131,48 +123,42 @@ BOOLEAN RenderPortrait( INT16 sX, INT16 sY )
 
 void IncrementPictureIndex( void )
 {
-	++iCurrentPortrait;
-	
-	if ( gIMPValues[iCurrentPortrait].uiIndex == iCurrentPortrait && gIMPValues[iCurrentPortrait].PortraitId != 0 )
-	{
-		iCurrentPortrait = gIMPValues[iCurrentPortrait].uiIndex;
-	}
-	else
-	{
-		iCurrentPortrait = 0;
-	}
-
-	// if gender of face is wrong, repeat process
-	if ( gIMPValues[iCurrentPortrait].bSex == fCharacterIsMale )
-	{
-		IncrementPictureIndex( );
-	}
+	const auto next = LaptopImpModel::FindNextMatchingIndex(
+		MAX_NEW_IMP_PORTRAITS, iCurrentPortrait,
+		[](std::size_t index) {
+			return IsValidSelectedIMPPortrait(static_cast<INT32>(index)) == TRUE;
+		});
+	if (next)
+		iCurrentPortrait = static_cast<INT32>(*next);
 }
 
 void DecrementPicture( void )
 {
-	--iCurrentPortrait;
+	const auto previous = LaptopImpModel::FindPreviousMatchingIndex(
+		MAX_NEW_IMP_PORTRAITS, iCurrentPortrait,
+		[](std::size_t index) {
+			return IsValidSelectedIMPPortrait(static_cast<INT32>(index)) == TRUE;
+		});
+	if (previous)
+		iCurrentPortrait = static_cast<INT32>(*previous);
+}
 
-	if ( iCurrentPortrait < 0 )
-	{
-		for ( UINT32 cnt = 0; cnt < MAX_NEW_IMP_PORTRAITS; cnt++ )
-		{
-			if ( gIMPValues[cnt].uiIndex == cnt && gIMPValues[cnt].PortraitId != 0 )
-			{
-				iLastPictureM = gIMPValues[cnt].uiIndex;
-			}
-		}
+BOOLEAN IsValidSelectedIMPPortrait(INT32 portraitIndex)
+{
+	return IsSelectableIMPPortraitForGender(portraitIndex, fCharacterIsMale);
+}
 
-		iLastPicture = iLastPictureM;
+BOOLEAN IsSelectableIMPPortraitForGender(INT32 portraitIndex, BOOLEAN isMale)
+{
+	if (!LaptopImpModel::IsIndexInRange(MAX_NEW_IMP_PORTRAITS, portraitIndex))
+		return FALSE;
 
-		iCurrentPortrait = iLastPicture;
-	}
-
-	// if gender of face is wrong, repeat process
-	if ( gIMPValues[iCurrentPortrait].bSex == fCharacterIsMale )
-	{
-		DecrementPicture();
-	}
+	const IMP_VALUES& portrait = gIMPValues[portraitIndex];
+	// Portrait XML stores MALE/FEMALE (0/1), while this legacy selector stores
+	// "is male" (TRUE/FALSE), so a matching selection has opposite bit values.
+	return portrait.Enabled == 1 &&
+		portrait.uiIndex == static_cast<UINT16>(portraitIndex) &&
+		portrait.PortraitId != 0 && portrait.bSex != isMale;
 }
 
 void CreateIMPPortraitButtons( void )
@@ -306,40 +292,15 @@ void BtnIMPPortraitDoneCallback(GUI_BUTTON *btn,INT32 reason)
 		{
 			btn->uiFlags&=~(BUTTON_CLICKED_ON);
 			
-			// Changed to go to voice selection after portrait selection - SANDRO
-			iCurrentImpPage = IMP_VOICE;
-			// Following part has been cut out
+			if (!IsValidSelectedIMPPortrait(iCurrentPortrait))
+				return;
 
-			// go to main page
-			//iCurrentImpPage = IMP_MAIN_PAGE;
-/*
-			// current mode now is voice
-		if( iCurrentProfileMode < IMP__VOICE )
-			{
-		iCurrentProfileMode = IMP__VOICE;
-			}
-*/
-			// if we are already done, leave
-	/* if( iCurrentProfileMode == IMP__FINISH )
-			{
-		iCurrentImpPage = IMP_FINISH;
-			}
-			else
-			{
-				if( CameBackToPortraitsPageButNotFinished() )
-				{
-//					iCurrentProfileMode = IMP__VOICE;
-			iCurrentImpPage = IMP_MAIN_PAGE;
-				}
-				else
-				{
-					iCurrentProfileMode = IMP__VOICE;
-				}
-			}*/
+			// Changed to go to voice selection after portrait selection - SANDRO
+			RequestIMPPage(IMP_VOICE);
 
 			// grab picture number
 			
-			iPortraitNumber = gIMPValues[iCurrentPortrait].uiIndex; //iCurrentPortrait
+			iPortraitNumber = iCurrentPortrait;
 
 			fButtonPendingFlag = TRUE;
 		}

@@ -317,7 +317,7 @@ void BtnIMPFinishDoneCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 			btn->uiFlags&=~(BUTTON_CLICKED_ON);
-			iCurrentImpPage = IMP_CONFIRM;
+			RequestIMPPage(IMP_CONFIRM);
 			//CreateACharacterFromPlayerEnteredStats( );
 			fButtonPendingFlag = TRUE;
 			iCurrentProfileMode = IMP__REGISTRY;
@@ -355,7 +355,7 @@ void BtnIMPFinishPersonalityCallback(GUI_BUTTON *btn,INT32 reason)
 			fButtonPendingFlag = TRUE;
 			uiBaseTime = 0;
 		fAnimateFlag = FALSE;
-		iCurrentImpPage = IMP_PERSONALITY_QUIZ;
+		RequestIMPPage(IMP_PERSONALITY_QUIZ);
 			SpecifyButtonText( giIMPFinishButton[2], pImpButtonText[ 2 ] );
 		}
 	}
@@ -412,7 +412,7 @@ void BtnIMPFinishAttributesCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
-		iCurrentImpPage = IMP_ATTRIBUTE_PAGE;
+		RequestIMPPage(IMP_ATTRIBUTE_PAGE);
 			fButtonPendingFlag = TRUE;
 			SpecifyButtonText( giIMPFinishButton[2], pImpButtonText[ 2 ] );
 		}
@@ -620,7 +620,7 @@ BOOLEAN RenderCharProfileFinishFace( void )
 	SetFontBackground( FONT_BLACK );
 	SetFont( FONT12ARIAL );
 
-	mprintf( 253, 350, pNickName );
+	mprintf(253, 350, L"%s", pNickName);
 
 	return( TRUE );
 
@@ -641,24 +641,22 @@ void RenderCharFullName( void )
 	DrawTextToScreen( sString, LAPTOP_SCREEN_UL_X - 111, LAPTOP_TITLE_Y, LAPTOP_TEXT_WIDTH, FONT14ARIAL, FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
 
 	//FindFontCenterCoordinates(LAPTOP_SCREEN_UL_X - 111, LAPTOP_TITLE_Y, LAPTOP_TEXT_WIDTH, 0 , sString , FONT14ARIAL, &sX, &sY);
-	//mprintf( sX, iScreenHeightOffset + LAPTOP_SCREEN_WEB_DELTA_Y + 33, sString );
 	return;
 }
 
 
 BOOLEAN LoadCharacterPortrait( void )
 {
+	if (!IsValidSelectedIMPPortrait(iPortraitNumber))
+		return FALSE;
+
 	// this function will load the character's portrait, to be used on portrait button
-	VOBJECT_DESC	VObjectDesc;
+	VOBJECT_DESC	VObjectDesc{};
 
 	// load it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		
-	if ( gIMPValues[iPortraitNumber].Enabled == 1 )
-	{
-		//sprintf( VObjectDesc.ImageFile, "Faces\\%02d.sti", gIMPMaleValues[ iPortraitNumber ].PortraitId );
-		sprintf( VObjectDesc.ImageFile, "IMPFaces\\%02d.sti", gIMPValues[iPortraitNumber].PortraitId );
-	}
+	sprintf( VObjectDesc.ImageFile, "IMPFaces\\%02d.sti", gIMPValues[iPortraitNumber].PortraitId );
 	
 	CHECKF(AddVideoObject(&VObjectDesc, &guiCHARACTERPORTRAIT));
 
@@ -678,7 +676,7 @@ void FinishMessageBoxCallBack( UINT8 bExitValue )
 	// yes, so start over, else stay here and do nothing for now
 	if( bExitValue == MSG_BOX_RETURN_YES )
 	{
-		iCurrentImpPage = IMP_HOME_PAGE;
+		RequestIMPPage(IMP_HOME_PAGE);
 		fButtonPendingFlag = TRUE;
 		iCurrentProfileMode = IMP__REGISTRY;
 		fFinishedCharGeneration = FALSE;

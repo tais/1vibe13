@@ -2,6 +2,7 @@
 #define __CHARPROFILE_H
 
 #include "types.h"
+#include <cstddef>
 void GameInitCharProfile();
 void EnterCharProfile();
 void ExitCharProfile();
@@ -12,7 +13,8 @@ void InitIMPSubPageList( void );
 
 extern BOOLEAN fButtonPendingFlag;
 extern BOOLEAN fReDrawCharProfile;
-extern INT32 iCurrentImpPage;
+extern const INT32& iCurrentImpPage;
+BOOLEAN RequestIMPPage(INT32 page);
 
 // attributes
 extern INT32 iStrength;
@@ -32,8 +34,10 @@ extern INT32 iMechanical;
 extern BOOLEAN fCharacterIsMale;
 
 // name?
-extern CHAR16 pFullName[];
-extern CHAR16 pNickName[];
+inline constexpr std::size_t IMP_FULL_NAME_CAPACITY = 32;
+inline constexpr std::size_t IMP_NICKNAME_CAPACITY = 32;
+extern CHAR16 pFullName[IMP_FULL_NAME_CAPACITY];
+extern CHAR16 pNickName[IMP_NICKNAME_CAPACITY];
 
 // skills
 extern INT32 iSkillA;

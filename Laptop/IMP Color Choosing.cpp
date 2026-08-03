@@ -171,7 +171,7 @@ void EnterIMPColorChoice( void )
 	bBigBody = FALSE;
 	bBadAss = FALSE;
 
-	if ( gIMPValues[iPortraitNumber].uiIndex == iPortraitNumber )
+	if ( IsValidSelectedIMPPortrait(iPortraitNumber) )
 	{
 		iCurrentSkin = gIMPValues[iPortraitNumber].iCurrentSkin;
 		iCurrentHair = gIMPValues[iPortraitNumber].iCurrentHair;
@@ -959,7 +959,7 @@ void BtnIMPColorChoiceFinishCallback(GUI_BUTTON *btn,INT32 reason)
 		btn->uiFlags|=(BUTTON_CLICKED_ON);
 
 		// finished here
-		iCurrentImpPage = IMP_MAIN_PAGE;
+		RequestIMPPage(IMP_MAIN_PAGE);
 		//fButtonPendingFlag = TRUE;
 		if( iCurrentProfileMode != IMP__FINISH )
 		{

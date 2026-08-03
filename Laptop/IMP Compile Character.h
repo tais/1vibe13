@@ -7,7 +7,7 @@
 
 void AddAnAttitudeToAttitudeList( INT8 bAttitude );
 void CreatePlayerAttitude( void );
-void CreateACharacterFromPlayerEnteredStats( void );
+BOOLEAN CreateACharacterFromPlayerEnteredStats(INT32 profileId);
 void CreatePlayerSkills( void );
 void CreatePlayersPersonalitySkillsAndAttitude( void );
 void AddAPersonalityToPersonalityList( INT8 bPersonlity );
@@ -18,6 +18,4 @@ void ResetIncrementCharacterAttributes( void );
 void HandleMercStatsForChangesInFace( void );
 void ClearAllSkillsList( void );
 
-extern STR8 pPlayerSelectedFaceFileNames[ NUMBER_OF_PLAYER_PORTRAITS ];
-extern STR8 pPlayerSelectedBigFaceFileNames[ NUMBER_OF_PLAYER_PORTRAITS ];
 #endif

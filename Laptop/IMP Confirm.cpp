@@ -24,6 +24,7 @@
 	#include "email.h"
 	#include "Game Event Hook.h"
 	#include "LaptopSave.h"
+	#include "ImpCreationStateModel.h"
 	#include "strategic.h"
 	#include "Weapons.h"
 	#include "random.h"
@@ -35,6 +36,8 @@
 #include <vfs/Core/vfs.h>
 #include <vfs/Aspects/vfs_settings.h>
 
+#include <string>
+
 #include "Soldier Profile.h"
 
 #include "SaveLoadGame.h"
@@ -43,6 +46,55 @@
 //#define IMP_FILENAME_SUFFIX ".dat"
 #define OLD_IMP_FILENAME_SUFFIX ".dat"
 #define NEW_IMP_FILENAME_SUFFIX ".dat2"
+
+namespace
+{
+class ScopedImpFile
+{
+public:
+	explicit ScopedImpFile(HWFILE handle = 0) noexcept : handle_(handle) {}
+	~ScopedImpFile()
+	{
+		Close();
+	}
+
+	ScopedImpFile(const ScopedImpFile&) = delete;
+	ScopedImpFile& operator=(const ScopedImpFile&) = delete;
+
+	void Reset(HWFILE handle = 0) noexcept
+	{
+		Close();
+		handle_ = handle;
+	}
+
+	void Close() noexcept
+	{
+		if (handle_)
+		{
+			FileClose(handle_);
+			handle_ = 0;
+		}
+	}
+
+	HWFILE Get() const noexcept { return handle_; }
+	explicit operator bool() const noexcept { return handle_ != 0; }
+
+private:
+	HWFILE handle_ = 0;
+};
+
+bool ReadImpFileExact(HWFILE file, void* destination, UINT32 size)
+{
+	UINT32 bytesRead = 0;
+	return FileRead(file, destination, size, &bytesRead) && bytesRead == size;
+}
+
+bool WriteImpFileExact(HWFILE file, const void* source, UINT32 size)
+{
+	UINT32 bytesWritten = 0;
+	return FileWrite(file, source, size, &bytesWritten) && bytesWritten == size;
+}
+}
 
 
 
@@ -246,6 +298,12 @@ void DestroyConfirmButtons( void )
 
 BOOLEAN AddCharacterToPlayersTeam( void )
 {
+	if (!LaptopImpModel::IsIndexInRange(NUM_PROFILES, LaptopSaveInfo.iIMPIndex) ||
+		!IsValidSelectedIMPPortrait(iPortraitNumber))
+	{
+		return FALSE;
+	}
+
 	MERC_HIRE_STRUCT HireMercStruct;
 
 	// last minute chage to make sure merc with right facehas not only the right body but body specific skills...
@@ -275,10 +333,7 @@ BOOLEAN AddCharacterToPlayersTeam( void )
 	HireMercStruct.ubInsertionCode	= INSERTION_CODE_ARRIVING_GAME;
 	HireMercStruct.uiTimeTillMercArrives = GetMercArrivalTimeOfDay( );
 
-	if ( gIMPValues[iPortraitNumber].PortraitId != 0 )
-	{
-		SetProfileFaceData( HireMercStruct.ubProfileID, (UINT8)(gIMPValues[iPortraitNumber].PortraitId), gIMPValues[iPortraitNumber].uiEyeXPositions, gIMPValues[iPortraitNumber].uiEyeYPositions, gIMPValues[iPortraitNumber].uiMouthXPositions, gIMPValues[iPortraitNumber].uiMouthYPositions );
-	}		
+	SetProfileFaceData( HireMercStruct.ubProfileID, (UINT8)(gIMPValues[iPortraitNumber].PortraitId), gIMPValues[iPortraitNumber].uiEyeXPositions, gIMPValues[iPortraitNumber].uiEyeYPositions, gIMPValues[iPortraitNumber].uiMouthXPositions, gIMPValues[iPortraitNumber].uiMouthYPositions );
 		
 	//if we succesfully hired the merc
 	if( !HireMerc( &HireMercStruct ) )
@@ -326,7 +381,24 @@ void	BtnIMPConfirmYes(GUI_BUTTON *btn,INT32 reason)
 				 return;
 			}
 
-			CreateACharacterFromPlayerEnteredStats( );
+			const INT32 profileId = GetFreeIMPSlot(-1);
+			if (profileId == -1)
+			{
+				DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[9],
+					LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+				return;
+			}
+
+			LaptopImpModel::ScopedRollback<MERCPROFILESTRUCT> profileRollback(
+				gMercProfiles[profileId]);
+			LaptopImpModel::ScopedRollback<INT32> indexRollback(
+				LaptopSaveInfo.iIMPIndex);
+			if (!CreateACharacterFromPlayerEnteredStats(profileId))
+				return;
+			if (!AddCharacterToPlayersTeam())
+				return;
+			profileRollback.Commit();
+			indexRollback.Commit();
 
 			// line moved by CJC Nov 28 2002 to AFTER the check for money
 			LaptopSaveInfo.fIMPCompletedFlag = TRUE;
@@ -337,13 +409,11 @@ void	BtnIMPConfirmYes(GUI_BUTTON *btn,INT32 reason)
 			AddTransactionToPlayersBook(IMP_PROFILE, (UINT8)(LaptopSaveInfo.iIMPIndex), GetWorldTotalMin( ), - ( iIMPCost ) );
 
 			AddHistoryToPlayersLog( HISTORY_CHARACTER_GENERATED, 0,GetWorldTotalMin( ), -1, -1 );
-			AddCharacterToPlayersTeam( );
-
 			// write the created imp merc
 			WriteOutCurrentImpCharacter( ( UINT8 )( LaptopSaveInfo.iIMPIndex ) );
 
 			fButtonPendingFlag = TRUE;
-			iCurrentImpPage = IMP_HOME_PAGE;
+			RequestIMPPage(IMP_HOME_PAGE);
 
 			//Kaiden: Below is the Imp personality E-mail as it was.
 /*
@@ -385,7 +455,7 @@ void BtnIMPConfirmNo( GUI_BUTTON *btn,INT32 reason )
 		if( btn->uiFlags & BUTTON_CLICKED_ON )
 		{
 
-			iCurrentImpPage = IMP_FINISH;
+			RequestIMPPage(IMP_FINISH);
 
 			/*
 
@@ -393,14 +463,14 @@ void BtnIMPConfirmNo( GUI_BUTTON *btn,INT32 reason )
 			ResetCharacterStats();
 
 			fButtonPendingFlag = TRUE;
-			iCurrentImpPage = IMP_HOME_PAGE;
+			RequestIMPPage(IMP_HOME_PAGE);
 			*/
 			/*
 			if( fNoAlreadySelected == TRUE )
 			{
 				// already selected no 
 				fButtonPendingFlag = TRUE;
-				iCurrentImpPage = IMP_HOME_PAGE;
+				RequestIMPPage(IMP_HOME_PAGE);
 			}
 		fNoAlreadySelected = TRUE;
 			*/
@@ -431,7 +501,7 @@ void BtnIMPConfirmNo( GUI_BUTTON *btn,INT32 reason )
 			{
 				// already selected no 
 				fButtonPendingFlag = TRUE;
-				iCurrentImpPage = IMP_HOME_PAGE;
+				RequestIMPPage(IMP_HOME_PAGE);
 			}
 		fNoAlreadySelected = TRUE;
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
@@ -988,11 +1058,9 @@ void MakeProfileInvItemAnySlot(MERCPROFILESTRUCT *pProfile, UINT16 usItem, UINT8
 void RedistributeStartingItems(MERCPROFILESTRUCT *pProfile, UINT16 usItem, UINT8 sPocket)
 {
 	UINT16	lbeIndex, iSize;
-	UINT8	lbeClass;
 	UINT16	inv[NUM_INV_SLOTS], istatus[NUM_INV_SLOTS], inumber[NUM_INV_SLOTS];
 
 	lbeIndex = Item[usItem].ubClassIndex;
-	lbeClass = LoadBearingEquipment[lbeIndex].lbeClass;
 
 	// Move non-worn items into temporary storage
 	for(int i=INV_START_POS; i<NUM_INV_SLOTS; i++)
@@ -1323,116 +1391,87 @@ INT32 AnyFreeBigEnoughPocket(MERCPROFILESTRUCT *pProfile, INVNODE *tInv)
 	return(-1);
 }
 
-void WriteOutCurrentImpCharacter( INT32 iProfileId )
+BOOLEAN WriteOutCurrentImpCharacter(INT32 profileId)
 {
-	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("WriteOutCurrentImpCharacter: IMP.dat"));
-	char zImpFileName[13];
-	strcpy(zImpFileName,IMP_MERC_FILENAME);
-	// Changed by ADB, rev 1513, to resolve IMPs created prior to structural changes
-	//strcat(zImpFileName,IMP_FILENAME_SUFFIX);
-	strcat(zImpFileName,NEW_IMP_FILENAME_SUFFIX);
-	WriteOutCurrentImpCharacter ( iProfileId, zImpFileName);
+	if (!LaptopImpModel::IsIndexInRange(NUM_PROFILES, profileId) ||
+		!IsValidSelectedIMPPortrait(iPortraitNumber))
+	{
+		return FALSE;
+	}
 
+	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("WriteOutCurrentImpCharacter: IMP.dat"));
+	const std::string impFileName =
+		std::string(IMP_MERC_FILENAME) + NEW_IMP_FILENAME_SUFFIX;
+	const BOOLEAN wroteDefault =
+		WriteOutCurrentImpCharacter(profileId, impFileName.c_str());
 
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("WriteOutCurrentImpCharacter: Nickname.dat"));
-
-	char zFileName[32];
+	std::string nickname;
 	if(vfs::Settings::getUseUnicode())
 	{
-		strncpy(zFileName, vfs::String::as_utf8(gMercProfiles[iProfileId].zNickname,10).c_str(), 32);
+		nickname = vfs::String::as_utf8(
+			gMercProfiles[profileId].zNickname, NICKNAME_LENGTH).c_str();
 	}
 	else
 	{
-		vfs::String::narrow(gMercProfiles[iProfileId].zNickname, 10, zFileName, 32);
+		char narrowNickname[32]{};
+		vfs::String::narrow(gMercProfiles[profileId].zNickname,
+			NICKNAME_LENGTH, narrowNickname, sizeof(narrowNickname));
+		nickname = narrowNickname;
 	}
+	const std::string nicknameFileName = nickname + NEW_IMP_FILENAME_SUFFIX;
 
-	// Changed by ADB, rev 1513
-	//strcat(zFileName,IMP_FILENAME_SUFFIX);
-	strcat(zFileName,NEW_IMP_FILENAME_SUFFIX);
-
-	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("WriteOutCurrentImpCharacter: %s", zFileName));
-	WriteOutCurrentImpCharacter ( iProfileId, zFileName);
+	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("WriteOutCurrentImpCharacter: %s", nicknameFileName.c_str()));
+	return wroteDefault && WriteOutCurrentImpCharacter(
+		profileId, nicknameFileName.c_str());
 }
 
-void WriteOutCurrentImpCharacter( INT32 iProfileId, STR fileName )
+BOOLEAN WriteOutCurrentImpCharacter(INT32 profileId, const char* fileName)
 {
-	// grab the profile number and write out what is contained there in 
-	HWFILE hFile;
-	UINT32 uiBytesWritten = 0;
+	if (!fileName || fileName[0] == '\0' ||
+		!LaptopImpModel::IsIndexInRange(NUM_PROFILES, profileId) ||
+		!IsValidSelectedIMPPortrait(iPortraitNumber))
+	{
+		return FALSE;
+	}
 
 	// open the file for writing
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("WriteOutCurrentImpCharacter: %s", fileName));
-	hFile = FileOpen(fileName, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, FALSE);
+	ScopedImpFile file(FileOpen(
+		fileName, FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, FALSE));
+	if (!file)
+		return FALSE;
 
 	// ADB we need to indicate that we have saved under the new format
-	int nine = 9999;
-	if (!FileWrite(hFile, &nine, sizeof( INT32 ), &uiBytesWritten))
+	const INT32 sentinel = 9999;
+	const INT32 version = SAVE_GAME_VERSION;
+	if (!WriteImpFileExact(file.Get(), &sentinel, sizeof(sentinel)) ||
+		!WriteImpFileExact(file.Get(), &version, sizeof(version)) ||
+		!WriteImpFileExact(file.Get(), &profileId, sizeof(profileId)) ||
+		!WriteImpFileExact(file.Get(), &iPortraitNumber,
+			sizeof(iPortraitNumber)) ||
+		!gMercProfiles[profileId].Save(file.Get()))
 	{
-		if (hFile)
-			FileClose(hFile);
-		return;
+		return FALSE;
 	}
 
-	int version = SAVE_GAME_VERSION;
-	if (!FileWrite(hFile, &version, sizeof( INT32 ), &uiBytesWritten))
-	{
-		if (hFile)
-			FileClose(hFile);
-		return;
-	}
-
-	// write out the profile id
-	if (!FileWrite(hFile, &iProfileId, sizeof( INT32 ), &uiBytesWritten))
-	{
-		if (hFile)
-			FileClose(hFile);
-		return;
-	}
-
-	// write out the portrait id
-	if (!FileWrite(hFile, &iPortraitNumber, sizeof( INT32 ), &uiBytesWritten))
-	{
-		if (hFile)
-			FileClose(hFile);
-		return;
-	}
-
-	// write out the profile itself
-	if ( !gMercProfiles[ iProfileId ].Save(hFile) )
-	{
-		if (hFile)
-			FileClose(hFile);
-		return;
-	}
-
-	// close file
-	if (hFile)
-		FileClose(hFile);
-
-	return;
+	return TRUE;
 }
 
 BOOLEAN ImpExists ( STR nickName )
 {
-	// Changed by ADB, rev 1513, to resolve IMPs created prior to structural changes
-	char zFileName[32];
+	if (!nickName || nickName[0] == '\0')
+		return FALSE;
 
-	strcpy(zFileName,nickName);
-	//strcat(zFileName,IMP_FILENAME_SUFFIX);
-	strcat(zFileName,OLD_IMP_FILENAME_SUFFIX);
-
-	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("ImpExists: %s",	zFileName));
-	//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("ImpExists: %d", FileExistsNoDB(zFileName) ));
-	BOOLEAN oldExists = FileExistsNoDB(zFileName);
-	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("OLD ImpExists: %s",	zFileName));
+	const std::string baseName(nickName);
+	const std::string oldFileName = baseName + OLD_IMP_FILENAME_SUFFIX;
+	const BOOLEAN oldExists = FileExistsNoDB(oldFileName.c_str());
+	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("OLD ImpExists: %s",	oldFileName.c_str()));
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("OLD ImpExists: %d", oldExists ));
 
-	//return FileExistsNoDB(zFileName);
-	strcpy(zFileName,nickName);
-	strcat(zFileName,NEW_IMP_FILENAME_SUFFIX);
-
-	BOOLEAN newExists = FileExistsNoDB(zFileName);
-	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("NEW ImpExists: %s",	zFileName));
+	const std::string newFileName = baseName + NEW_IMP_FILENAME_SUFFIX;
+	const BOOLEAN newExists = FileExistsNoDB(newFileName.c_str());
+	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("NEW ImpExists: %s",	newFileName.c_str()));
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("NEW ImpExists: %d", newExists ));
 
 	return (oldExists || newExists);
@@ -1440,189 +1479,158 @@ BOOLEAN ImpExists ( STR nickName )
 
 BOOLEAN LoadImpCharacter( STR nickName )
 {
-	INT32 iProfileId = 0;
-	HWFILE hFile;
-	UINT32 uiBytesRead = 0;
-
-	char zFileName[32];
-
-	//ADB first try to load the new kind
-	strcpy(zFileName,nickName);
-	//strcat(zFileName,IMP_FILENAME_SUFFIX);
-	strcat(zFileName,NEW_IMP_FILENAME_SUFFIX);
-
-	// open the file for reading
-	hFile = FileOpen(zFileName, FILE_ACCESS_READ, FALSE);
-
-	// valid file?
-	if( !hFile )
+	const auto showLoadFailure = []() {
+		DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[7],
+			LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+	};
+	if (!nickName || nickName[0] == '\0')
 	{
-		//DoLapTopMessageBox( MSG_BOX_IMP_STYLE, pImpPopUpStrings[ 7 ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
-		//return FALSE;
-		//if the new kind doesn't exist, load the old kind
-		strcpy(zFileName,nickName);
-		strcat(zFileName,OLD_IMP_FILENAME_SUFFIX);
-
-		// open the file for reading
-		hFile = FileOpen(zFileName, FILE_ACCESS_READ, FALSE);
-
-		// valid file?
-		if( !hFile )
-		{
-			DoLapTopMessageBox( MSG_BOX_IMP_STYLE, pImpPopUpStrings[ 7 ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
-			return FALSE;
-		}
-	}
-
-	// read in the profile
-	if (!FileRead(hFile, &iProfileId, sizeof( INT32 ), &uiBytesRead))
-	{
-		DoLapTopMessageBox( MSG_BOX_IMP_STYLE, pImpPopUpStrings[ 7 ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+		showLoadFailure();
 		return FALSE;
 	}
 
-	int version = SAVE_GAME_VERSION;
+	const std::string baseName(nickName);
+	ScopedImpFile file(FileOpen(
+		(baseName + NEW_IMP_FILENAME_SUFFIX).c_str(), FILE_ACCESS_READ, FALSE));
+	if (!file)
+	{
+		file.Reset(FileOpen((baseName + OLD_IMP_FILENAME_SUFFIX).c_str(),
+			FILE_ACCESS_READ, FALSE));
+	}
+	if (!file)
+	{
+		showLoadFailure();
+		return FALSE;
+	}
+
+	INT32 preferredProfileId = 0;
+	if (!ReadImpFileExact(file.Get(), &preferredProfileId, sizeof(preferredProfileId)))
+	{
+		showLoadFailure();
+		return FALSE;
+	}
+
+	INT32 version = SAVE_GAME_VERSION;
 	bool isOldVersion = true;
-	if (iProfileId == 9999) {
-		//ADB if we saved under the original version, then iProfileId is some low number
-		//if we saved under the new version, then it's 9999, and we need to know what version it was saved under
+	if (preferredProfileId == 9999)
+	{
 		isOldVersion = false;
-
-		//load the version, atm not used
-		if (!FileRead(hFile, &version, sizeof( INT32 ), &uiBytesRead))
+		if (!ReadImpFileExact(file.Get(), &version, sizeof(version)) ||
+			version <= 0 || version > SAVE_GAME_VERSION ||
+			!ReadImpFileExact(file.Get(), &preferredProfileId,
+				sizeof(preferredProfileId)))
 		{
-			DoLapTopMessageBox( MSG_BOX_IMP_STYLE, pImpPopUpStrings[ 7 ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
-			return FALSE;
-		}
-
-		//load the REAL iProfileId
-		if (!FileRead(hFile, &iProfileId, sizeof( INT32 ), &uiBytesRead))
-		{
-			DoLapTopMessageBox( MSG_BOX_IMP_STYLE, pImpPopUpStrings[ 7 ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+			showLoadFailure();
 			return FALSE;
 		}
 	}
 
-	// read in the portrait
-	if (!FileRead(hFile, &iPortraitNumber ,sizeof( INT32 ), &uiBytesRead))
+	INT32 pendingPortrait = -1;
+	if (!ReadImpFileExact(file.Get(), &pendingPortrait, sizeof(pendingPortrait)))
 	{
-		DoLapTopMessageBox( MSG_BOX_IMP_STYLE, pImpPopUpStrings[ 7 ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+		showLoadFailure();
 		return FALSE;
 	}
 
-	// Set the ID of the new IMP
-	iProfileId = GetFreeIMPSlot(iProfileId);
-
-	// We can create the new imp, beacuse we found an empty slot
-	if (iProfileId != -1)
+	const INT32 profileId = GetFreeIMPSlot(preferredProfileId);
+	if (profileId == -1)
 	{
-		LaptopSaveInfo.iIMPIndex = iProfileId;
-		
-		// anv: before loading profile we need to set guiCurrentSaveGameVersion to profile's version
-		// and set it back to SAVE_GAME_VERSION right after or else new saves will be broken!
-		guiCurrentSaveGameVersion = version;
-
-		if ( !gMercProfiles[ iProfileId ].Load(hFile, isOldVersion, false, false) )
-		{
-			guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
-			DoLapTopMessageBox( MSG_BOX_IMP_STYLE, pImpPopUpStrings[ 7 ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
-			return FALSE;
-		}
-
-		/// Flugente: until the introduction of a separate variable for the voiceset, the voice was identical with the slot
-		if ( guiCurrentSaveGameVersion < SEPARATE_VOICESETS )
-		{
-			gMercProfiles[iProfileId].usVoiceIndex = iProfileId;
-		}
-
-		// Flugente: if this is an older savefile, load from separate structure
-		if ( guiCurrentSaveGameVersion < PROFILETYPE_STORED )
-		{
-			gMercProfiles[iProfileId].Type = gProfileType[iProfileId];
-		}
-
-		guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
-
-		// close file
-		FileClose(hFile);
-		//CHRISL: At this point, we need to resort profile inventory so that NewInv items don't accidentally appear in OldInv
-		DistributeInitialGear(&gMercProfiles[iProfileId]);
-
-		// silversurfer: Store current IMP cost. Function iGetProfileCost() already takes the new slot into account.
-		// If we create the IMP first we would charge too much.
-		INT32 iIMPCost = GetProfileCost(FALSE, TRUE);
-
-		// Flugente: as we do not store the cost of the gear in the IMP file, we have to determine the cost here
-		iIMPCost += max(0, GetEquippedGearCost( &gMercProfiles[iProfileId] ) - gGameExternalOptions.iIMPProfileCost );
-
-		// Changed to find actual IMP cost - SANDRO
-		if( LaptopSaveInfo.iCurrentBalance < iIMPCost )
-		{
-			DoLapTopMessageBox( MSG_BOX_IMP_STYLE, pImpPopUpStrings[ 3 ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
-
-			// not enough
-			return FALSE;
-		}
-		
-		/*
-			//new camo face
-			if ( gGameExternalOptions.fShowCamouflageFaces == TRUE )
-				{
-					gCamoFace[iProfileId].gCamoface = TRUE;
-					gCamoFace[iProfileId].gUrbanCamoface = FALSE;
-					gCamoFace[iProfileId].gDesertCamoface = FALSE;
-					gCamoFace[iProfileId].gSnowCamoface = FALSE;
-				}
-		*/
-
-		// charge the player
-		// is the character male?
-		fCharacterIsMale = ( gMercProfiles[ iProfileId ].bSex == MALE );
-		fLoadingCharacterForPreviousImpProfile = TRUE;
-		// Changed to find actual IMP cost - SANDRO
-		AddTransactionToPlayersBook(IMP_PROFILE,0, GetWorldTotalMin( ), - ( iIMPCost ) );
-		AddHistoryToPlayersLog( HISTORY_CHARACTER_GENERATED, 0,GetWorldTotalMin( ), -1, -1 );
-		LaptopSaveInfo.iIMPIndex = iProfileId;
-		AddCharacterToPlayersTeam( );
-		// WANNE: Email is sent immediatly after the imp was created. So no need to send it later again
-		//AddFutureDayStrategicEvent( EVENT_DAY2_ADD_EMAIL_FROM_IMP, 60 * 7, 0, 2 );
-		LaptopSaveInfo.fIMPCompletedFlag = TRUE;
-		fPausedReDrawScreenFlag = TRUE;
-		fLoadingCharacterForPreviousImpProfile = FALSE;
-
-		return TRUE;
-	}
-	else
-	{
-		// close file
-		FileClose(hFile);
-
-		// WDS: Allow flexible numbers of IMPs of each sex
-		//	note: check this
-
-		// You cannot have more than 3 I.M.P characters with the same gender on your team.
-		DoLapTopMessageBox( MSG_BOX_IMP_STYLE, pImpPopUpStrings[ 9 ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+		DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[9],
+			LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
 		return FALSE;
 	}
+
+	MERCPROFILESTRUCT pendingProfile{};
+	pendingProfile.initialize();
+	const UINT32 previousSaveVersion = guiCurrentSaveGameVersion;
+	guiCurrentSaveGameVersion = version;
+	const BOOLEAN loaded = pendingProfile.Load(file.Get(), isOldVersion, false, false);
+	guiCurrentSaveGameVersion = previousSaveVersion;
+	if (!loaded)
+	{
+		showLoadFailure();
+		return FALSE;
+	}
+	file.Close();
+
+	if (version < SEPARATE_VOICESETS)
+		pendingProfile.usVoiceIndex = profileId;
+	if (version < PROFILETYPE_STORED)
+		pendingProfile.Type = gProfileType[profileId];
+	if (pendingProfile.Type != PROFILETYPE_IMP)
+	{
+		showLoadFailure();
+		return FALSE;
+	}
+
+	const BOOLEAN pendingIsMale = pendingProfile.bSex == MALE;
+	if (!IsSelectableIMPPortraitForGender(pendingPortrait, pendingIsMale))
+	{
+		showLoadFailure();
+		return FALSE;
+	}
+
+	DistributeInitialGear(&pendingProfile);
+	INT32 impCost = GetProfileCost(FALSE, FALSE);
+	impCost += max(0, GetEquippedGearCost(&pendingProfile) -
+		gGameExternalOptions.iIMPProfileCost);
+	if (LaptopSaveInfo.iCurrentBalance < impCost)
+	{
+		DoLapTopMessageBox(MSG_BOX_IMP_STYLE, pImpPopUpStrings[3],
+			LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+		return FALSE;
+	}
+
+	LaptopImpModel::ScopedRollback<MERCPROFILESTRUCT> profileRollback(
+		gMercProfiles[profileId]);
+	LaptopImpModel::ScopedRollback<INT32> indexRollback(
+		LaptopSaveInfo.iIMPIndex);
+	LaptopImpModel::ScopedRollback<INT32> portraitRollback(iPortraitNumber);
+	LaptopImpModel::ScopedRollback<BOOLEAN> sexRollback(fCharacterIsMale);
+	LaptopImpModel::ScopedRollback<BOOLEAN> loadingRollback(
+		fLoadingCharacterForPreviousImpProfile);
+	gMercProfiles[profileId] = pendingProfile;
+	LaptopSaveInfo.iIMPIndex = profileId;
+	iPortraitNumber = pendingPortrait;
+	fCharacterIsMale = pendingIsMale;
+	fLoadingCharacterForPreviousImpProfile = TRUE;
+	if (!AddCharacterToPlayersTeam())
+		return FALSE;
+	profileRollback.Commit();
+	indexRollback.Commit();
+	portraitRollback.Commit();
+	sexRollback.Commit();
+
+	AddTransactionToPlayersBook(IMP_PROFILE, 0, GetWorldTotalMin(), -impCost);
+	AddHistoryToPlayersLog(HISTORY_CHARACTER_GENERATED, 0,
+		GetWorldTotalMin(), -1, -1);
+	LaptopSaveInfo.fIMPCompletedFlag = TRUE;
+	fPausedReDrawScreenFlag = TRUE;
+	return TRUE;
 }
 
 
 
 void ResetIMPCharactersEyesAndMouthOffsets( UINT8 ubMercProfileID )
 {
-	// ATE: Check boundary conditions!
-/*	
-    if( ( ( gMercProfiles[ ubMercProfileID ].ubFaceIndex - 200 ) > MAX_NEW_IMP_PORTRAITS ) || ( ubMercProfileID >= PROF_HUMMER ) )  // 16
-	{
-	return;
-	}
-*/
-	
-	gMercProfiles[ubMercProfileID].usEyesX = gIMPValues[gMercProfiles[ubMercProfileID].ubFaceIndex].uiEyeXPositions;
-	gMercProfiles[ubMercProfileID].usEyesY = gIMPValues[gMercProfiles[ubMercProfileID].ubFaceIndex].uiEyeYPositions;
+	if (!LaptopImpModel::IsIndexInRange(NUM_PROFILES, ubMercProfileID))
+		return;
 
-	gMercProfiles[ubMercProfileID].usMouthX = gIMPValues[gMercProfiles[ubMercProfileID].ubFaceIndex].uiMouthXPositions;
-	gMercProfiles[ubMercProfileID].usMouthY = gIMPValues[gMercProfiles[ubMercProfileID].ubFaceIndex].uiMouthYPositions;
+	MERCPROFILESTRUCT& profile = gMercProfiles[ubMercProfileID];
+	if (profile.Type != PROFILETYPE_IMP)
+		return;
+
+	const INT32 portraitIndex = profile.ubFaceIndex;
+	if (!IsSelectableIMPPortraitForGender(
+			portraitIndex, profile.bSex == MALE))
+	{
+		return;
+	}
+
+	profile.usEyesX = gIMPValues[portraitIndex].uiEyeXPositions;
+	profile.usEyesY = gIMPValues[portraitIndex].uiEyeYPositions;
+	profile.usMouthX = gIMPValues[portraitIndex].uiMouthXPositions;
+	profile.usMouthY = gIMPValues[portraitIndex].uiMouthYPositions;
 }
 
 

@@ -146,7 +146,7 @@ void BtnIMPAttributeFinishYesCallback(GUI_BUTTON *btn,INT32 reason)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
 		// gone far enough
-		iCurrentImpPage = IMP_MAIN_PAGE;
+		RequestIMPPage(IMP_MAIN_PAGE);
 //		if( iCurrentProfileMode < IMP__PORTRAIT )
 			if( !CameBackToAttributesPageButNotFinished() )
 			{
@@ -155,7 +155,7 @@ void BtnIMPAttributeFinishYesCallback(GUI_BUTTON *btn,INT32 reason)
 		// if we are already done, leave
 	 if( iCurrentProfileMode == IMP__FINISH)
 			{
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 			}
 
 			// SET ATTRIBUTES NOW
@@ -196,7 +196,7 @@ void BtnIMPAttributeFinishNoCallback(GUI_BUTTON *btn,INT32 reason)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
 		// if no, return to attribute
-		iCurrentImpPage = IMP_ATTRIBUTE_PAGE;
+		RequestIMPPage(IMP_ATTRIBUTE_PAGE);
 		fReturnStatus = TRUE;
 		fButtonPendingFlag = TRUE;
 		}

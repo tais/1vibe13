@@ -356,7 +356,7 @@ void BtnIMPBeginScreenDoneCallback(GUI_BUTTON *btn,INT32 reason)
 			if( fFinishedCharGeneration )
 			{
 				// simply reviewing name and gender, exit to finish page
-				iCurrentImpPage = IMP_FINISH;
+				RequestIMPPage(IMP_FINISH);
 				fButtonPendingFlag = TRUE;
 				return;
 			}
@@ -414,7 +414,7 @@ void BtnIMPBeginScreenDoneCallback(GUI_BUTTON *btn,INT32 reason)
 				// no easter egg?...then proceed along
 				if( fEggOnYouFace == FALSE )
 				{
-					iCurrentImpPage = IMP_MAIN_PAGE;
+					RequestIMPPage(IMP_MAIN_PAGE);
 					fButtonPendingFlag = TRUE;
 				}
 			}
@@ -869,7 +869,8 @@ void DisplayPlayerFullNameString( void )
 
 	// reset shadow
 	SetFontShadow(DEFAULT_SHADOW);
-	mprintf(LAPTOP_SCREEN_UL_X + 196, FULL_NAME_CURSOR_Y + 1, pFullNameString);
+	mprintf(LAPTOP_SCREEN_UL_X + 196, FULL_NAME_CURSOR_Y + 1,
+		L"%s", pFullNameString);
 
 
 	fNewCharInString = FALSE;
@@ -900,7 +901,8 @@ void DisplayPlayerNickNameString( void )
 
 	// reset shadow
 	SetFontShadow(DEFAULT_SHADOW);
-	mprintf( LAPTOP_SCREEN_UL_X + 196, NICK_NAME_CURSOR_Y + 4, pNickNameString);
+	mprintf(LAPTOP_SCREEN_UL_X + 196, NICK_NAME_CURSOR_Y + 4,
+		L"%s", pNickNameString);
 
 
 	fNewCharInString = FALSE;
@@ -1303,7 +1305,9 @@ void Print8CharacterOnlyString( void )
 	SetFont( FONT12ARIAL );
 	SetFontShadow(NO_SHADOW);
 
-	mprintf(iScreenWidthOffset + 430, iScreenHeightOffset + LAPTOP_SCREEN_WEB_DELTA_Y + 228,pIMPBeginScreenStrings[ 0 ]);
+	mprintf(iScreenWidthOffset + 430,
+		iScreenHeightOffset + LAPTOP_SCREEN_WEB_DELTA_Y + 228,
+		L"%s", pIMPBeginScreenStrings[0]);
 
 	// reset shadow
 	SetFontShadow(DEFAULT_SHADOW);
@@ -1338,7 +1342,7 @@ BOOLEAN CheckCharacterInputForEgg( void )
 		iSkillB = AUTO_WEAPS_OT;
 	iPersonality = NO_DISABILITY;
 		iAttitude = ATT_ASSHOLE;
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 //		LaptopSaveInfo.iCurrentVoice = 1;
 //		LaptopSaveInfo.iCharIndex = 1;
 		iPortraitNumber = 2;
@@ -1363,7 +1367,7 @@ BOOLEAN CheckCharacterInputForEgg( void )
 		iSkillB = AUTO_WEAPS_OT;
 	iPersonality = NO_DISABILITY;
 		iAttitude = ATT_FRIENDLY;
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 //		LaptopSaveInfo.iCurrentVoice = 1;
 //		LaptopSaveInfo.iCharIndex = 1;
 		iPortraitNumber = 1;
@@ -1388,7 +1392,7 @@ BOOLEAN CheckCharacterInputForEgg( void )
 		iSkillB = AUTO_WEAPS_OT;
 	iPersonality = NO_DISABILITY;
 		iAttitude = ATT_FRIENDLY;
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 //		LaptopSaveInfo.iCurrentVoice = 2;
 //		LaptopSaveInfo.iCharIndex = 2;
 		iPortraitNumber = 1;
@@ -1416,7 +1420,7 @@ BOOLEAN CheckCharacterInputForEgg( void )
 
 		iPersonality = NO_DISABILITY;
 		iAttitude = ATT_AGGRESSIVE;
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 //		LaptopSaveInfo.iCurrentVoice = 1;
 //		LaptopSaveInfo.iCharIndex = 1;
 		iPortraitNumber = 4;
@@ -1444,7 +1448,7 @@ BOOLEAN CheckCharacterInputForEgg( void )
 
 		iPersonality = NO_DISABILITY;
 		iAttitude = ATT_ARROGANT;
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 //		LaptopSaveInfo.iCurrentVoice = 1;
 //		LaptopSaveInfo.iCharIndex = 1;
 		iPortraitNumber = 2;
@@ -1472,7 +1476,7 @@ BOOLEAN CheckCharacterInputForEgg( void )
 
 		iPersonality = NO_DISABILITY;
 		iAttitude = ATT_AGGRESSIVE;
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 //		LaptopSaveInfo.iCurrentVoice = 1;
 //		LaptopSaveInfo.iCharIndex = 1;
 		iPortraitNumber = 4;
@@ -1500,7 +1504,7 @@ BOOLEAN CheckCharacterInputForEgg( void )
 
 		iPersonality = NO_DISABILITY;
 		iAttitude = ATT_LONER;
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 //		LaptopSaveInfo.iCurrentVoice = 1;
 //		LaptopSaveInfo.iCharIndex = 1;
 		iPortraitNumber = 3;
@@ -1525,7 +1529,7 @@ BOOLEAN CheckCharacterInputForEgg( void )
 		iSkillB = AUTO_WEAPS_OT;
 	iPersonality = PSYCHO;
 		iAttitude = ATT_ASSHOLE;
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 //		LaptopSaveInfo.iCurrentVoice = 1;
 //		LaptopSaveInfo.iCharIndex = 1;
 		iPortraitNumber = 2;
@@ -1582,7 +1586,7 @@ BOOLEAN CheckCharacterInputForEgg( void )
 
 		iPersonality = NO_DISABILITY;
 		iAttitude = ATT_LONER;
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 //		LaptopSaveInfo.iCurrentVoice = 1;
 //		LaptopSaveInfo.iCharIndex = 1;
 		iPortraitNumber = 3;
@@ -1612,7 +1616,7 @@ BOOLEAN CheckCharacterInputForEgg( void )
 
 		iPersonality = NO_DISABILITY;
 		iAttitude = ATT_LONER;
-		iCurrentImpPage = IMP_FINISH;
+		RequestIMPPage(IMP_FINISH);
 		LaptopSaveInfo.iIMPIndex = 54;
 		iPortraitNumber = 5;
 		return (TRUE );

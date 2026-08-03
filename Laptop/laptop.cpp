@@ -4340,7 +4340,7 @@ void GoToWebPage(INT32 iPageId )
 		fLoadPendingFlag = TRUE;
 				fFastLoadFlag =	TRUE;
 			}
-			iCurrentImpPage = IMP_HOME_PAGE;
+			RequestIMPPage(IMP_HOME_PAGE);
 		break;
 		case( MERC_BOOKMARK ):
 

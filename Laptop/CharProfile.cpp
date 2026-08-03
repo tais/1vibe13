@@ -19,8 +19,10 @@
 	#include "IMP Personality Finish.h"
 	#include "IMPVideoObjects.h"
 	#include "IMP Confirm.h"
+	#include "IMP Compile Character.h"
 	#include "MessageBoxScreen.h"
 	#include "LaptopSave.h"
+	#include "ImpCreationStateModel.h"
 	// These 5 added - SANDRO
 	#include "IMP Character and Disability Entrance.h"
 	#include "IMP Character Trait.h"
@@ -39,8 +41,17 @@ BOOLEAN fButtonPendingFlag = FALSE;
 BOOLEAN fAddCreatedCharToPlayersTeam = FALSE;
 BOOLEAN fReEnterIMP = FALSE;
 
-INT32 iCurrentImpPage = IMP_HOME_PAGE;
-INT32 iPreviousImpPage = -1;
+namespace
+{
+LaptopImpModel::NavigationState<IMP_NUM_PAGES> gImpNavigation(IMP_HOME_PAGE);
+}
+
+const INT32& iCurrentImpPage = gImpNavigation.CurrentPageReference();
+
+BOOLEAN RequestIMPPage(INT32 page)
+{
+	return gImpNavigation.RequestPage(page) ? TRUE : FALSE;
+}
 
 
 // attributes
@@ -61,8 +72,8 @@ INT32 iMechanical = 55;
 BOOLEAN fCharacterIsMale = TRUE;
 
 // name and nick name
-CHAR16 pFullName[ 32 ];
-CHAR16 pNickName[ 32 ];
+CHAR16 pFullName[IMP_FULL_NAME_CAPACITY];
+CHAR16 pNickName[IMP_NICKNAME_CAPACITY];
 
 // skills
 INT32 iSkillA = 0;
@@ -108,8 +119,6 @@ INT32 iAddMechanical = 0;
 INT32 giIMPButton[1];
 INT32 giIMPButtonImage[1];
 
-// visted subpages
-BOOLEAN fVisitedIMPSubPages[ IMP_NUM_PAGES ];
 extern INT32 iCurrentPortrait;
 extern INT32 iCurrentVoice;
 extern	INT32 giMaxPersonalityQuizQuestion;
@@ -127,17 +136,15 @@ extern void SetAttributes( void );
 
 void GameInitCharProfile()
 {
+	gImpNavigation.Reset(IMP_HOME_PAGE);
 	LaptopSaveInfo.iIMPIndex = 0;
-	iCurrentPortrait = 0;
-	iCurrentProfileMode = 0;
-	iSelectedIMPVoiceSet = 0;
-	iPortraitNumber = 0;
+	ResetCharacterStats();
 }
 
 void EnterCharProfile()
 {
 	// reset previous page
-	iPreviousImpPage = -1;
+	gImpNavigation.Reenter();
 
 	// grab the graphics
 	LoadImpGraphics( );
@@ -162,24 +169,21 @@ void HandleCharProfile()
 	}
 
 	// button pending, but not changing mode, still need a rernder, but under different circumstances
-	if( ( fButtonPendingFlag == TRUE )&&( iCurrentImpPage == iPreviousImpPage ) )
+	if( ( fButtonPendingFlag == TRUE ) && !gImpNavigation.PageChanged() )
 	{
 		RenderCharProfile( );
 	}
 
 	// page has changed, handle the fact..get rid of old page, load up new, and re render
-	if( ( iCurrentImpPage != iPreviousImpPage ) )
+	if( gImpNavigation.PageChanged() )
 	{
 		if( fDoneLoadPending == FALSE )
 		{
-			//make sure we are not hosing memory
-			Assert( iCurrentImpPage < IMP_NUM_PAGES );
-			
 			fFastLoadFlag = HasTheCurrentIMPPageBeenVisited( );
-			fVisitedIMPSubPages[ iCurrentImpPage ] = TRUE;
+			gImpNavigation.MarkCurrentPageVisited();
 			fConnectingToSubPage = TRUE;
 
-			if( iPreviousImpPage != -1 )
+			if( gImpNavigation.PreviousPage() != -1 )
 			{
 				fLoadPendingFlag = TRUE;
 				MarkButtonsDirty();
@@ -191,7 +195,7 @@ void HandleCharProfile()
 			}
 		}
 
-		fVisitedIMPSubPages[ iCurrentImpPage ] = TRUE;
+		gImpNavigation.MarkCurrentPageVisited();
 
 		if( fButtonPendingFlag == TRUE )
 		{
@@ -204,7 +208,7 @@ void HandleCharProfile()
 		ExitOldIMPMode( );
 
 		// set previous page
-		iPreviousImpPage = iCurrentImpPage;
+		gImpNavigation.CompleteTransition();
 
 		// enter new
 		EnterNewIMPMode( );
@@ -395,15 +399,16 @@ void RenderCharProfile()
 void ExitOldIMPMode( void )
 {
 	// exit old mode
+	const INT32 previousPage = gImpNavigation.PreviousPage();
 
-	if( iPreviousImpPage == -1 )
+	if( previousPage == -1 )
 	{
 		// don't both, leave
 	return;
 
 	}
 	// remove old mode
-	switch( iPreviousImpPage )
+	switch( previousPage )
 	{
 		case( IMP_HOME_PAGE ):
 			ExitImpHomePage( );
@@ -645,6 +650,20 @@ void ResetCharacterStats( void )
 	// names
 	memset( &pFullName, 0 , sizeof( pFullName) );
 	memset( &pNickName, 0 , sizeof( pNickName) );
+
+	ResetIncrementCharacterAttributes();
+	ResetSkillsAttributesAndPersonality();
+	ClearAllSkillsList();
+	ResetSelectedIMPGear();
+
+	fCharacterIsMale = TRUE;
+	iCurrentPortrait = -1;
+	iPortraitNumber = -1;
+	iCurrentVoice = -1;
+	iSelectedIMPVoiceSet = 0;
+	iCurrentProfileMode = IMP__REGISTRY;
+	fFinishedCharGeneration = FALSE;
+	fReviewStats = FALSE;
 }
 
 
@@ -810,7 +829,7 @@ void BtnIMPCancelCallback(GUI_BUTTON *btn,INT32 reason)
 			// back to the main page, otherwise, back to home page
 			if( iCurrentImpPage == IMP_MAIN_PAGE )
 			{
-			iCurrentImpPage = IMP_HOME_PAGE;
+				RequestIMPPage(IMP_HOME_PAGE);
 			fButtonPendingFlag = TRUE;
 			iCurrentProfileMode = 0;
 			fFinishedCharGeneration = FALSE;
@@ -818,7 +837,7 @@ void BtnIMPCancelCallback(GUI_BUTTON *btn,INT32 reason)
 			}
 			else if( iCurrentImpPage == IMP_FINISH )
 			{
-				iCurrentImpPage = IMP_MAIN_PAGE;
+				RequestIMPPage(IMP_MAIN_PAGE);
 				iCurrentProfileMode = 4;
 				fFinishedCharGeneration = FALSE;
 			 fButtonPendingFlag = TRUE;
@@ -833,7 +852,7 @@ void BtnIMPCancelCallback(GUI_BUTTON *btn,INT32 reason)
 				giMaxPersonalityQuizQuestion = 0;
 		fStartOverFlag = TRUE;
 				iCurrentAnswer = -1;
-				iCurrentImpPage = IMP_PERSONALITY;
+				RequestIMPPage(IMP_PERSONALITY);
 				fButtonPendingFlag = TRUE;
 			}
 
@@ -844,7 +863,7 @@ void BtnIMPCancelCallback(GUI_BUTTON *btn,INT32 reason)
 					SetAttributes( );
 					fFirstIMPAttribTime = TRUE;
 				}
-			iCurrentImpPage = IMP_MAIN_PAGE;
+			RequestIMPPage(IMP_MAIN_PAGE);
 				iCurrentAnswer = -1;
 			}
 	}
@@ -857,24 +876,14 @@ void BtnIMPCancelCallback(GUI_BUTTON *btn,INT32 reason)
 
 void InitIMPSubPageList( void )
 {
-	INT32 iCounter = 0;
-
-	for(iCounter = 0; iCounter < IMP_CONFIRM; iCounter++ )
-	{
-		fVisitedIMPSubPages[ iCounter ] = FALSE ;
-	}
-
-	return;
+	gImpNavigation.ResetVisited();
 }
 
 BOOLEAN HasTheCurrentIMPPageBeenVisited( void )
 {
 	// returns if we have vsisted the current IMP PageAlready
 
-	//make sure we are not hosing memory
-	Assert( iCurrentImpPage < IMP_NUM_PAGES );
-
-	return ( fVisitedIMPSubPages[ iCurrentImpPage ]);
+	return gImpNavigation.HasCurrentPageBeenVisited() ? TRUE : FALSE;
 }
 
 

@@ -1030,7 +1030,7 @@ void BtnIMPAttributeFinishCallback(GUI_BUTTON *btn,INT32 reason)
 		{
 			btn->uiFlags&=~(BUTTON_CLICKED_ON);
 						
-			iCurrentImpPage = IMP_GEAR_ENTRANCE;
+			RequestIMPPage(IMP_GEAR_ENTRANCE);
 			fButtonPendingFlag = TRUE;
 			
 			// SET ATTRIBUTES NOW
@@ -1232,7 +1232,7 @@ void RenderAttributeBoxes( void )
 				swprintf( sString, L"%d", iCurrentStrength );
 				sX += LAPTOP_SCREEN_UL_X;
 				sY += LAPTOP_SCREEN_WEB_UL_Y;
-				mprintf(sX + 13, sY + 3, sString);
+				mprintf(sX + 13, sY + 3, L"%s", sString);
 		break;
 			case (DEXTERITY_ATTRIBUTE):
 		 // blt in strength slider
@@ -1246,7 +1246,7 @@ void RenderAttributeBoxes( void )
 				swprintf( sString, L"%d", iCurrentDexterity );
 			sX += LAPTOP_SCREEN_UL_X;
 				sY += LAPTOP_SCREEN_WEB_UL_Y;
-				mprintf(sX + 13, sY + 3, sString);
+				mprintf(sX + 13, sY + 3, L"%s", sString);
 
 		break;
 			case (AGILITY_ATTRIBUTE):
@@ -1261,7 +1261,7 @@ void RenderAttributeBoxes( void )
 				swprintf( sString, L"%d", iCurrentAgility );
 				sX += LAPTOP_SCREEN_UL_X;
 				sY += LAPTOP_SCREEN_WEB_UL_Y;
-				mprintf(sX + 13, sY + 3, sString);
+				mprintf(sX + 13, sY + 3, L"%s", sString);
 
 		break;
 			case (WISDOM_ATTRIBUTE):
@@ -1276,7 +1276,7 @@ void RenderAttributeBoxes( void )
 				swprintf( sString, L"%d", iCurrentWisdom );
 				sX += LAPTOP_SCREEN_UL_X;
 				sY += LAPTOP_SCREEN_WEB_UL_Y;
-				mprintf(sX + 13, sY + 3, sString);
+				mprintf(sX + 13, sY + 3, L"%s", sString);
 		break;
 		case (LEADERSHIP_ATTRIBUTE):
 		 // blt in strength slider
@@ -1289,7 +1289,7 @@ void RenderAttributeBoxes( void )
 				swprintf( sString, L"%d", iCurrentLeaderShip );
 				sX += LAPTOP_SCREEN_UL_X;
 				sY += LAPTOP_SCREEN_WEB_UL_Y;
-				mprintf(sX + 13 , sY + 3, sString);
+				mprintf(sX + 13, sY + 3, L"%s", sString);
 		break;
 			case (HEALTH_ATTRIBUTE):
 		 // blt in health slider
@@ -1303,7 +1303,7 @@ void RenderAttributeBoxes( void )
 				swprintf( sString, L"%d", iCurrentHealth );
 			sY += LAPTOP_SCREEN_WEB_UL_Y;
 				sX += LAPTOP_SCREEN_UL_X;
-				mprintf(sX + 13, sY + 3, sString);
+				mprintf(sX + 13, sY + 3, L"%s", sString);
 		break;
 		case (MARKSMANSHIP_SKILL):
 		 // blt in marksmanship slider
@@ -1318,7 +1318,7 @@ void RenderAttributeBoxes( void )
 				swprintf( sString, L"%d", iCurrentMarkmanship );
 			sY += LAPTOP_SCREEN_WEB_UL_Y;
 				sX += LAPTOP_SCREEN_UL_X;
-				mprintf(sX + 13, sY + 3, sString);
+				mprintf(sX + 13, sY + 3, L"%s", sString);
 		break;
 		case (MEDICAL_SKILL):
 		 // blt in medical slider
@@ -1333,7 +1333,7 @@ void RenderAttributeBoxes( void )
 				swprintf( sString, L"%d", iCurrentMedical );
 			sY += LAPTOP_SCREEN_WEB_UL_Y;
 				sX += LAPTOP_SCREEN_UL_X;
-				mprintf(sX + 13, sY + 3, sString);
+				mprintf(sX + 13, sY + 3, L"%s", sString);
 		break;
 		case (MECHANICAL_SKILL):
 		 // blt in mech slider
@@ -1349,7 +1349,7 @@ void RenderAttributeBoxes( void )
 				swprintf( sString, L"%d", iCurrentMechanical );
 			sY += LAPTOP_SCREEN_WEB_UL_Y;
 				sX += LAPTOP_SCREEN_UL_X;
-				mprintf(sX + 13, sY + 3, sString);
+				mprintf(sX + 13, sY + 3, L"%s", sString);
 		break;
 			case (EXPLOSIVE_SKILL):
 		 // blt in explosive slider
@@ -1364,7 +1364,7 @@ void RenderAttributeBoxes( void )
 				swprintf( sString, L"%d", iCurrentExplosives );
 			sY += LAPTOP_SCREEN_WEB_UL_Y;
 				sX += LAPTOP_SCREEN_UL_X;
-				mprintf(sX + 13, sY + 3, sString);
+				mprintf(sX + 13, sY + 3, L"%s", sString);
 		break;
 
 		}
@@ -2042,7 +2042,8 @@ void DrawBonusPointsRemaining( void )
 	SetFontBackground( FONT_BLACK );
 	SetFont( FONT12ARIAL );
 	// print string
-	mprintf( LAPTOP_SCREEN_UL_X + 425 ,LAPTOP_SCREEN_WEB_UL_Y + 51, sString );
+	mprintf(LAPTOP_SCREEN_UL_X + 425, LAPTOP_SCREEN_WEB_UL_Y + 51,
+		L"%s", sString);
 
 	InvalidateRegion( LAPTOP_SCREEN_UL_X + 425, LAPTOP_SCREEN_WEB_UL_Y + 51, LAPTOP_SCREEN_UL_X + 475, LAPTOP_SCREEN_WEB_UL_Y + 71 );
 }

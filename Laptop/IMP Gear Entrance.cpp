@@ -113,7 +113,7 @@ void BtnIMPGearBeginCallbackOld( GUI_BUTTON *btn, INT32 reason )
 		{
 			btn->uiFlags &= ~(BUTTON_CLICKED_ON);
 			
-			iCurrentImpPage = IMP_FINISH;
+			RequestIMPPage(IMP_FINISH);
 			iCurrentProfileMode = IMP__FINISH;
 
 			fButtonPendingFlag = TRUE;
@@ -137,7 +137,7 @@ void BtnIMPGearBeginCallbackNew( GUI_BUTTON *btn, INT32 reason )
 		if ( btn->uiFlags & BUTTON_CLICKED_ON )
 		{
 			btn->uiFlags &= ~(BUTTON_CLICKED_ON);
-			iCurrentImpPage = IMP_GEAR;
+			RequestIMPPage(IMP_GEAR);
 			fButtonPendingFlag = TRUE;
 
 			fNewIMPGearMethodUsed = TRUE;

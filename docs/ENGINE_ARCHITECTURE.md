@@ -1039,6 +1039,25 @@ the engine must not contain SDL types in its public domain model.
   data-free boundary test and architecture-wide parser ratchet are included in
   normal and AddressSanitizer CI; the detailed fault inventory remains in
   `LAPTOP_CODE_WALKTHROUGH.md`.
+- IMP creation navigation and bounded selection now use the dependency-free
+  `ImpCreationStateModel`. `CharProfile` is the sole page-state owner and
+  exposes only a read-only compatibility view plus validated transition
+  requests; portrait, voice, and free-profile selection use finite searches
+  that represent an empty result explicitly. Character creation and imported
+  IMP loading validate the profile slot, gender-compatible portrait, complete
+  file records, version, profile type, and balance before publishing live
+  state. Import failure restores the prior profile and draft selectors, while
+  successful creation charges and records history only after hiring succeeds.
+  Full draft reset now clears accumulated traits, attribute increments,
+  portrait/voice choices, and both legacy and selected-gear state. The legacy
+  `.dat`/`.dat2` layout, profile records, portrait XML schema, finance/history
+  records, and campaign behavior are unchanged. Focused data-free tests cover
+  negative/exact-end navigation, empty and wrapping selections, preferred/free
+  slots, and fully occupied sets. All IMP-site user, XML, and localized text is
+  rendered through an explicit string format rather than being interpreted as
+  a variadic format string. Architecture CI prevents direct page writes,
+  variable render formats, retired face-offset indexing, fixed import filename
+  buffers, or removal of the staged import boundary.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

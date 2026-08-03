@@ -19,6 +19,7 @@
 	#include "GameSettings.h"
 	#include "Soldier Profile.h"
 	#include "Soldier Profile Constants.h"
+	#include "ImpCreationStateModel.h"
 	#include "Squads.h"
 	#include "Overhead.h"		// added by Flugente for OUR_TEAM_SIZE_NO_VEHICLE
 
@@ -142,7 +143,7 @@ void HandleIMPMainPage( void )
 
 	if ( CheckIfFinishedCharacterGeneration( ) )
 	{
-	iCurrentImpPage = IMP_FINISH;
+	RequestIMPPage(IMP_FINISH);
 	}
 	// shade out buttons that should be shaded/unselectable
 	//ShadeUnSelectableButtons( );
@@ -363,7 +364,7 @@ void BtnIMPMainPageBackCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
-		iCurrentImpPage = IMP_HOME_PAGE;
+		RequestIMPPage(IMP_HOME_PAGE);
 			fButtonPendingFlag = TRUE;
 			iCurrentProfileMode = IMP__REGISTRY;
 			fFinishedCharGeneration = FALSE;
@@ -409,7 +410,7 @@ void BtnIMPMainPageBeginCallback(GUI_BUTTON *btn,INT32 reason)
 				else
 				{
 					// change name
-					iCurrentImpPage = IMP_BEGIN;
+					RequestIMPPage(IMP_BEGIN);
 					fButtonPendingFlag = TRUE;
 				}
 			}
@@ -443,7 +444,7 @@ void BtnIMPMainPagePersonalityCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
-		iCurrentImpPage = IMP_PERSONALITY;
+		RequestIMPPage(IMP_PERSONALITY);
 			fButtonPendingFlag = TRUE;
 		}
 	}
@@ -472,7 +473,7 @@ void BtnIMPMainPageAttributesCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
-		iCurrentImpPage = IMP_ATTRIBUTE_ENTRANCE;
+		RequestIMPPage(IMP_ATTRIBUTE_ENTRANCE);
 			fButtonPendingFlag = TRUE;
 		}
 	}
@@ -501,7 +502,7 @@ void BtnIMPMainPagePortraitCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
-		iCurrentImpPage = IMP_PORTRAIT;
+		RequestIMPPage(IMP_PORTRAIT);
 			fButtonPendingFlag = TRUE;
 		}
 	}
@@ -530,8 +531,7 @@ void BtnIMPMainPageVoiceCallback(GUI_BUTTON *btn,INT32 reason)
 		{
 		btn->uiFlags&=~(BUTTON_CLICKED_ON);
 		// changed to go to character analysis - SANDRO
-		iCurrentImpPage = IMP_CHARACTER_AND_DISABILITY_ENTRANCE;
-		//iCurrentImpPage = IMP_VOICE;
+		RequestIMPPage(IMP_CHARACTER_AND_DISABILITY_ENTRANCE);
 			fButtonPendingFlag = TRUE;
 		}
 	}
@@ -681,7 +681,7 @@ void BeginMessageBoxCallBack( UINT8 bExitValue )
 	// yes, so start over, else stay here and do nothing for now
 	if( bExitValue == MSG_BOX_RETURN_YES )
 	{
-		iCurrentImpPage = IMP_BEGIN;
+		RequestIMPPage(IMP_BEGIN);
 		iCurrentProfileMode = IMP__REGISTRY;
 	}
 	else if( bExitValue == MSG_BOX_RETURN_OK )
@@ -774,47 +774,27 @@ INT32 CountEmptyIMPSlots()
 
 INT32 GetFreeIMPSlot(INT32 iDefaultIMPId)
 {
-	// We have a default imp id (90210 or nickname)
-	if (iDefaultIMPId != -1)
-	{
-		if (IsIMPSlotFree(iDefaultIMPId))
-		{
-			return iDefaultIMPId;
-		}
-	}
-
-	// The default IMP id is already used, find next free imp id
-
-	// Find a free imp slot
-	for (int i = 0; i < NUM_PROFILES; ++i)
-	{
-		// Found a free imp slot
-		if (IsIMPSlotFree(i))
-		{
-			return i;
-		}
-	}
-
-	/* Didn't find one */
-	return -1;
+	const auto slot = LaptopImpModel::FindPreferredOrFirstMatchingIndex(
+		NUM_PROFILES, iDefaultIMPId, [](std::size_t index) {
+			return IsIMPSlotFree(static_cast<INT32>(index)) == TRUE;
+		});
+	return slot ? static_cast<INT32>(*slot) : -1;
 }
 
 
 BOOLEAN LoadCharacterPortraitForMainPage( void )
 {
 	// this function will load the character's portrait, to be used on portrait button
-	VOBJECT_DESC	VObjectDesc;
+	VOBJECT_DESC	VObjectDesc{};
 
 	if( IMP_CanWeDisplayPortrait( ) )
 	{
+		if (!IsValidSelectedIMPPortrait(iPortraitNumber))
+			return FALSE;
+
 		// load it
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-		
-		if ( gIMPValues[iPortraitNumber].Enabled == 1 )
-		{
-			//	sprintf( VObjectDesc.ImageFile, "Faces\\%02d.sti", gIMPMaleValues[ iPortraitNumber ].PortraitId );
-			sprintf( VObjectDesc.ImageFile, "IMPFaces\\%02d.sti", gIMPValues[iPortraitNumber].PortraitId );
-		}
+		sprintf( VObjectDesc.ImageFile, "IMPFaces\\%02d.sti", gIMPValues[iPortraitNumber].PortraitId );
 		
 		CHECKF(AddVideoObject(&VObjectDesc, &guiCHARACTERPORTRAITFORMAINPAGE));
 		
