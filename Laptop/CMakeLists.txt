@@ -1,7 +1,10 @@
 set(LaptopCommonSrc
 "${CMAKE_CURRENT_SOURCE_DIR}/aim.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/AimArchives.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/AimFacialIndex.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/AimHistory.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/AimLinks.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/AimMembers.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/AimPolicies.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/AimSort.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/BaseTable.cpp"
@@ -78,9 +81,6 @@ set(LaptopCommonSrc
 # Laptop is the broadest campaign-facing module. These sources differ for at
 # least one of JA2, UB, Map Editor, or UB Map Editor in Release or Debug/ASan.
 set(LaptopVariantSrc
-"${CMAKE_CURRENT_SOURCE_DIR}/AimFacialIndex.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/AimLinks.cpp"
-"${CMAKE_CURRENT_SOURCE_DIR}/AimMembers.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/BobbyR.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/BobbyRGuns.cpp"
 "${CMAKE_CURRENT_SOURCE_DIR}/CampaignHistory_Summary.cpp"

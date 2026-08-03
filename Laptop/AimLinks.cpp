@@ -8,6 +8,7 @@
 	#include "CampaignAimSitePolicy.h"
 	#include "GameContext.h"
 	#include "ub_config.h"
+	#include "LaptopPageResourceOwner.h"
 
 #include <array>
 
@@ -48,6 +49,7 @@ static constexpr std::array<UINT8, AIM_LINK_COUNT> AIM_LINK_PAGES = {
 static std::array<UINT32, AIM_LINK_COUNT> gAimLinkImages;
 static std::array<MOUSE_REGION, AIM_LINK_COUNT> gAimLinkRegions;
 static std::array<BOOLEAN, AIM_LINK_COUNT> gAimLinkEnabled;
+static LaptopPageResourceOwner gAimLinkResources;
 
 static bool IsUnfinishedBusinessLinkConfigured(AimLink link)
 {
@@ -95,9 +97,9 @@ void GameInitAimLinks()
 BOOLEAN EnterAimLinks()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner stagedResources;
 
-	InitAimDefaults();
-	InitAimMenuBar();
+	gAimLinkResources.clear();
 	RefreshAimLinkAvailability();
 
 	for (std::size_t index = 0; index < AIM_LINK_COUNT; ++index)
@@ -107,32 +109,32 @@ BOOLEAN EnterAimLinks()
 
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		GetMLGFilename(VObjectDesc.ImageFile, AIM_LINK_GRAPHICS[index]);
-		CHECKF(AddVideoObject(&VObjectDesc, &gAimLinkImages[index]));
+		CHECKF(stagedResources.addVideoObject(
+			&VObjectDesc, gAimLinkImages[index]));
 
 		const UINT16 linkY = AimLinkY(index);
 		MSYS_DefineRegion( &gAimLinkRegions[index], AIM_LINK_BOBBY_LINK_X, linkY , AIM_LINK_BOBBY_LINK_X + AIM_LINK_LINK_WIDTH, (UINT16)(linkY + AIM_LINK_LINK_HEIGHT), MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack );
-		MSYS_AddRegion(&gAimLinkRegions[index]);
+		CHECKF(stagedResources.addRegion(gAimLinkRegions[index]));
 		MSYS_SetRegionUserData(
 			&gAimLinkRegions[index], 0, AIM_LINK_PAGES[index]);
 	}
 
+	CHECKF(InitAimDefaults());
+	if (!InitAimMenuBar())
+	{
+		RemoveAimDefaults();
+		return FALSE;
+	}
+	gAimLinkResources = std::move(stagedResources);
 	RenderAimLinks();
 	return(TRUE);
 }
 
 void ExitAimLinks()
 {
+	gAimLinkResources.clear();
 	RemoveAimDefaults();
-
-	for (std::size_t index = 0; index < AIM_LINK_COUNT; ++index)
-	{
-		if (!gAimLinkEnabled[index])
-			continue;
-		DeleteVideoObjectFromIndex(gAimLinkImages[index]);
-		MSYS_RemoveRegion(&gAimLinkRegions[index]);
-	}
-
 	ExitAimMenuBar();
 
 }

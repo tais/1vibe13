@@ -3,13 +3,16 @@
 
 #include <cstdint>
 
-// Dependency-free move-only ownership for numeric registry handles.
-template <typename Tag, typename Releaser>
+// Dependency-free move-only ownership for numeric registry handles. Value and
+// InvalidValue adapt APIs that use a signed -1 sentinel while preserving the
+// established unsigned-zero default.
+template <typename Tag, typename Releaser,
+	typename Value = std::uint32_t, Value InvalidValue = Value{}>
 class UniqueResourceHandle
 {
 public:
 	UniqueResourceHandle() = default;
-	explicit UniqueResourceHandle(std::uint32_t value) : value_(value) {}
+	explicit UniqueResourceHandle(Value value) : value_(value) {}
 	~UniqueResourceHandle() { reset(); }
 
 	UniqueResourceHandle(const UniqueResourceHandle&) = delete;
@@ -22,24 +25,24 @@ public:
 		return *this;
 	}
 
-	explicit operator bool() const { return value_ != 0; }
-	std::uint32_t get() const { return value_; }
+	explicit operator bool() const { return value_ != InvalidValue; }
+	Value get() const { return value_; }
 
-	std::uint32_t release()
+	Value release()
 	{
-		const std::uint32_t value = value_;
-		value_ = 0;
+		const Value value = value_;
+		value_ = InvalidValue;
 		return value;
 	}
 
-	void reset(std::uint32_t replacement = 0)
+	void reset(Value replacement = InvalidValue)
 	{
-		if (value_ != 0 && value_ != replacement) Releaser{}(value_);
+		if (value_ != InvalidValue && value_ != replacement) Releaser{}(value_);
 		value_ = replacement;
 	}
 
 private:
-	std::uint32_t value_ = 0;
+	Value value_ = InvalidValue;
 };
 
 #endif

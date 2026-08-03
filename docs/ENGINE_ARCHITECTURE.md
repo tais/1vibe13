@@ -1076,6 +1076,23 @@ the engine must not contain SDL types in its public domain model.
   resource-closing early return. Existing artwork/
   text paths, briefing/history records, saves, XML, Lua, and package formats
   are unchanged.
+- A.I.M. page resources now cross one transactional ownership boundary.
+  `ResourceHandleSet` is dependency-free and commits move-only handles as a
+  complete set; `UniqueResourceHandle` supports both unsigned-zero and signed
+  `-1` invalid sentinels. `LaptopPageResourceOwner` adapts that contract to
+  legacy video objects, surfaces, button images, buttons, and static mouse
+  regions, preserving the numeric compatibility views while releasing input
+  registrations and buttons before their backing images and render assets.
+  Landing/default/menu, Archives, Facial Index, History, Links, Members,
+  Policies, and Sort all stage acquisition before publication. Members also
+  applies the boundary to modal and video-conference mode transitions, which
+  commit their state only after complete creation. This removes partial-entry
+  leaks, sparse-region over-removal, image-before-button teardown, an Archives
+  graphic leak, and non-retryable half-created conference modes. Facial Index,
+  Links, and Members consequently join the campaign-neutral partition, leaving
+  Laptop with 77 shared translation units and 21 variants. Headless ownership
+  tests and architecture ratchets cover rollback, commit, signed sentinels,
+  destruction order, callers, and common build ownership.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared
