@@ -136,7 +136,14 @@
 #define		BOBBYR_PERCENT_FUNTCIONAL_Y				BOBBYR_ORDER_SUBTOTAL_Y + 15
 
 
-BobbyRayPurchaseStruct BobbyRayPurchases[ 100 ];
+BobbyRayPurchaseStruct BobbyRayPurchases[
+	BobbyRayCommerceModel::PurchaseCapacity ];
+
+static UINT8 GetConfiguredBobbyRayPurchaseLimit()
+{
+	return static_cast<UINT8>(BobbyRayCommerceModel::PurchaseLimit(
+		gGameExternalOptions.ubBobbyRayMaxPurchaseAmount));
+}
 
 //BobbyRayOrderStruct *BobbyRayOrdersOnDeliveryArray=NULL;
 //UINT8	usNumberOfBobbyRayOrderItems = 0;
@@ -2903,6 +2910,15 @@ void SelectBigImageRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 void PurchaseBobbyRayItem(UINT16	usItemNumber, BOOLEAN fAllItems )
 {
 	UINT8	ubPurchaseNumber;
+	const UINT8 inventoryKind =
+		guiCurrentLaptopMode == LAPTOP_MODE_BOBBY_R_USED
+			? BOBBY_RAY_USED : BOBBY_RAY_NEW;
+	if (!BobbyRayCommerceModel::IsIndexInBoundedList(
+			usItemNumber,
+			LaptopSaveInfo.usInventoryListLength[inventoryKind], MAXITEMS))
+	{
+		return;
+	}
 
 	ubPurchaseNumber = CheckIfItemIsPurchased(usItemNumber);
 
@@ -2931,7 +2947,7 @@ void PurchaseBobbyRayItem(UINT16	usItemNumber, BOOLEAN fAllItems )
 				{
 					//display error popup because the player is trying to purchase more thenn 10 items
 					CHAR16 sMaxPurchase[255];
-					swprintf(sMaxPurchase, L"%s%d%s", BobbyRText[ BOBBYR_MORE_THEN_10_PURCHASES_A], gGameExternalOptions.ubBobbyRayMaxPurchaseAmount, BobbyRText[ BOBBYR_MORE_THEN_10_PURCHASES_B]);
+					swprintf(sMaxPurchase, L"%s%d%s", BobbyRText[ BOBBYR_MORE_THEN_10_PURCHASES_A], GetConfiguredBobbyRayPurchaseLimit(), BobbyRText[ BOBBYR_MORE_THEN_10_PURCHASES_B]);
 					DoLapTopMessageBox( MSG_BOX_LAPTOP_DEFAULT, sMaxPurchase, LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
 
 				}
@@ -2979,7 +2995,7 @@ void PurchaseBobbyRayItem(UINT16	usItemNumber, BOOLEAN fAllItems )
 				{
 					//display error popup because the player is trying to purchase more thenn 10 items
 					CHAR16 sMaxPurchase[255];
-					swprintf(sMaxPurchase, L"%s%d%s", BobbyRText[ BOBBYR_MORE_THEN_10_PURCHASES_A], gGameExternalOptions.ubBobbyRayMaxPurchaseAmount, BobbyRText[ BOBBYR_MORE_THEN_10_PURCHASES_B]);
+					swprintf(sMaxPurchase, L"%s%d%s", BobbyRText[ BOBBYR_MORE_THEN_10_PURCHASES_A], GetConfiguredBobbyRayPurchaseLimit(), BobbyRText[ BOBBYR_MORE_THEN_10_PURCHASES_B]);
 					DoLapTopMessageBox( MSG_BOX_LAPTOP_DEFAULT, sMaxPurchase, LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
 				}
 			}
@@ -3009,7 +3025,7 @@ UINT8 CheckIfItemIsPurchased(UINT16 usItemNumber)
 {
 	UINT8	i;
 
-	for(i=0; i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
+	for(i=0; i<GetConfiguredBobbyRayPurchaseLimit(); i++)
 	{
 		if( ( usItemNumber == BobbyRayPurchases[i].usBobbyItemIndex ) && ( BobbyRayPurchases[i].ubNumberPurchased != 0 ) && ( BobbyRayPurchases[i].fUsed == gfOnUsedPage ) )
 			return(i);
@@ -3021,7 +3037,7 @@ UINT8 GetNextPurchaseNumber()
 {
 	UINT8	i;
 
-	for(i=0; i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
+	for(i=0; i<GetConfiguredBobbyRayPurchaseLimit(); i++)
 	{
 		if( ( BobbyRayPurchases[i].usBobbyItemIndex == 0) && ( BobbyRayPurchases[i].ubNumberPurchased == 0 ) )
 			return(i);
@@ -3417,14 +3433,30 @@ void UpdateMiscFilterButtons()
 	//}
 }
 
-UINT16 CalcBobbyRayCost( UINT16 usIndex, UINT16 usBobbyIndex, BOOLEAN fUsed)
+UINT16 CalcBobbyRayCost( UINT16 usIndex, UINT16 usBobbyIndex, BOOLEAN fUsed,
+	INT8 bItemQuality)
 {
-	DOUBLE value;
-	if( fUsed )
-		value = Item[ LaptopSaveInfo.BobbyRayUsedInventory[ usBobbyIndex ].usItemIndex ].usPrice *
-								( .5 + .5 * ( LaptopSaveInfo.BobbyRayUsedInventory[ usBobbyIndex ].ubItemQuality ) / 100 ) + .5;
-	else
-		value = Item[ LaptopSaveInfo.BobbyRayInventory[ usBobbyIndex ].usItemIndex ].usPrice;
+	if (usIndex >= MAXITEMS)
+		return 0;
+	DOUBLE value = Item[usIndex].usPrice;
+	if (fUsed)
+	{
+		INT32 quality = bItemQuality;
+		if (BobbyRayCommerceModel::IsIndexInBoundedList(
+				usBobbyIndex,
+				LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_USED],
+				MAXITEMS) &&
+			LaptopSaveInfo.BobbyRayUsedInventory[usBobbyIndex].usItemIndex ==
+				usIndex)
+		{
+			quality = LaptopSaveInfo.BobbyRayUsedInventory[
+				usBobbyIndex].ubItemQuality;
+		}
+		if (quality < 0) quality = 0;
+		if (quality > 100) quality = 100;
+		value *= .5 + .5 * quality / 100.0;
+		value += .5;
+	}
 
 	return( (UINT16) value);
 }
@@ -3435,12 +3467,12 @@ UINT32 CalculateTotalPurchasePrice()
 	UINT16	i;
 	UINT32	uiTotal = 0;
 
-	for(i=0; i<gGameExternalOptions.ubBobbyRayMaxPurchaseAmount; i++)
+	for(i=0; i<GetConfiguredBobbyRayPurchaseLimit(); i++)
 	{
 		//if the item was purchased
 		if( BobbyRayPurchases[ i ].ubNumberPurchased )
 		{
-			uiTotal += CalcBobbyRayCost( BobbyRayPurchases[ i ].usItemIndex, BobbyRayPurchases[ i ].usBobbyItemIndex, BobbyRayPurchases[ i ].fUsed ) * BobbyRayPurchases[ i ].ubNumberPurchased;
+			uiTotal += CalcBobbyRayCost( BobbyRayPurchases[ i ].usItemIndex, BobbyRayPurchases[ i ].usBobbyItemIndex, BobbyRayPurchases[ i ].fUsed, BobbyRayPurchases[i].bItemQuality ) * BobbyRayPurchases[ i ].ubNumberPurchased;
 		}
 	}
 

@@ -1,6 +1,7 @@
 	#include "laptop.h"
 	#include "BobbyR.h"
 	#include "BobbyRGuns.h"
+	#include "BobbyRMailOrder.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "WordWrap.h"
@@ -215,11 +216,6 @@ BOOLEAN EnterBobbyR()
 		gDestinationTable.erase(gDestinationTable.begin(), gDestinationTable.end());
 	}
 
-	if (!gShipmentTable.empty())
-	{
-		gShipmentTable.erase(gShipmentTable.begin(), gShipmentTable.end());
-	}
-
 	DestinationList::const_iterator dli = gPostalService.LookupDestinationList().begin();
 
 	while (dli != gPostalService.LookupDestinationList().end())
@@ -229,13 +225,7 @@ BOOLEAN EnterBobbyR()
 
 	}
 
-	ShipmentListIterator sli = gPostalService.LookupShipmentList().begin();
-
-	while (sli != gPostalService.LookupShipmentList().end())
-	{
-		gShipmentTable.push_back(&SHIPMENT(sli));
-		sli++;
-	}
+	RefreshBobbyRayShipmentSnapshot();
 
 	// Dealtar: The following code had to be put here, because GameInitBobbyR() is called
 	// before XML data is read into gPostalService due to the screen order in
@@ -654,8 +644,6 @@ BOOLEAN InitBobbyRayNewInventory()
 
 	// remember how many entries in the list are valid
 	LaptopSaveInfo.usInventoryListLength[ BOBBY_RAY_NEW ] = usBobbyrIndex;
-	// also mark the end of the list of valid item entries
-	LaptopSaveInfo.BobbyRayInventory[ usBobbyrIndex ].usItemIndex = BOBBYR_NO_ITEMS;
 
 	return(TRUE);
 }
@@ -689,8 +677,6 @@ BOOLEAN InitBobbyRayUsedInventory()
 
 	// remember how many entries in the list are valid
 	LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_USED] = usBobbyrIndex;
-	// also mark the end of the list of valid item entries
-	LaptopSaveInfo.BobbyRayUsedInventory[ usBobbyrIndex ].usItemIndex = BOBBYR_NO_ITEMS;
 
 	return(TRUE);
 }
@@ -709,12 +695,16 @@ void DailyUpdateOfBobbyRaysNewInventory()
 	SimulateBobbyRayCustomer(LaptopSaveInfo.BobbyRayInventory, BOBBY_RAY_NEW);
 
 	//loop through all items BR can stock to see what needs reordering
-	for(i = 0; i < LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_NEW]; ++i)
+	const UINT16 inventoryLength = static_cast<UINT16>(
+		BobbyRayCommerceModel::BoundedLength(
+			LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_NEW], MAXITEMS));
+	for(i = 0; i < inventoryLength; ++i)
 	{
 		// the index is NOT the item #, get that from the table
 		usItemIndex = LaptopSaveInfo.BobbyRayInventory[ i ].usItemIndex;
 
-		Assert(usItemIndex < MAXITEMS);
+		if (usItemIndex >= MAXITEMS)
+			continue;
 
 		DebugMsg(TOPIC_JA2, DBG_LEVEL_3,String("DailyUpdateOfBobbyRaysNewInventory: checking item = %d, qty on order = %d",usItemIndex,LaptopSaveInfo.BobbyRayInventory[ i ].ubQtyOnOrder));
 		// make sure this item is still sellable in the latest version of the store inventory
@@ -773,7 +763,10 @@ void DailyUpdateOfBobbyRaysUsedInventory()
 	//simulate other buyers by reducing the current quantity on hand
 	SimulateBobbyRayCustomer(LaptopSaveInfo.BobbyRayUsedInventory, BOBBY_RAY_USED);
 
-	for(i = 0; i < LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_USED]; i++)
+	const UINT16 inventoryLength = static_cast<UINT16>(
+		BobbyRayCommerceModel::BoundedLength(
+			LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_USED], MAXITEMS));
+	for(i = 0; i < inventoryLength; i++)
 	{
 		//if the used item isn't already on order
 		if( LaptopSaveInfo.BobbyRayUsedInventory[ i ].ubQtyOnOrder == 0 || gGameOptions.ubBobbyRayQuality == BR_AWESOME )
@@ -783,7 +776,8 @@ void DailyUpdateOfBobbyRaysUsedInventory()
 			{
 				// the index is NOT the item #, get that from the table
 				usItemIndex = LaptopSaveInfo.BobbyRayUsedInventory[ i ].usItemIndex;
-				Assert(usItemIndex < MAXITEMS);
+				if (usItemIndex >= MAXITEMS)
+					continue;
 
 				// make sure this item is still sellable in the latest version of the store inventory
 				if ( StoreInventory[ usItemIndex ][ BOBBY_RAY_USED ] == 0 )
@@ -825,12 +819,14 @@ UINT8 HowManyBRItemsToOrder(UINT16 usItemIndex, UINT8 ubCurrentlyOnHand, UINT8 u
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3,String("HowManyBRItemsToOrder: item = %d",usItemIndex));
 
-	Assert(usItemIndex < MAXITEMS);
+	if (usItemIndex >= MAXITEMS ||
+		ubBobbyRayNewUsed >= BOBBY_RAY_LISTS)
+	{
+		Assert(0);
+		return 0;
+	}
 	// formulas below will fail if there are more items already in stock than optimal
 	//Assert(ubCurrentlyOnHand <= StoreInventory[ usItemIndex ][ ubBobbyRayNewUsed ] * gGameOptions.ubBobbyRayQuantity) ;
-	Assert(ubBobbyRayNewUsed < BOBBY_RAY_LISTS);
-
-
 	// decide if he can get stock for this item (items are reordered an entire batch at a time)
 	if (ItemTransactionOccurs( -1, usItemIndex, DEALER_BUYING, ubBobbyRayNewUsed ))
 	{
@@ -901,7 +897,10 @@ void AddFreshBobbyRayInventory( UINT16 usItemIndex )
 
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3,String("AddFreshBobbyRayInventory: item = %d, qty on hand = %d, qty on order = %d", usItemIndex,pInventoryArray[ sInventorySlot ].ubQtyOnHand, pInventoryArray[ sInventorySlot ].ubQtyOnOrder ));
 
-	pInventoryArray[ sInventorySlot ].ubQtyOnHand += pInventoryArray[ sInventorySlot ].ubQtyOnOrder;
+	pInventoryArray[ sInventorySlot ].ubQtyOnHand =
+		BobbyRayCommerceModel::AddStock(
+			pInventoryArray[sInventorySlot].ubQtyOnHand,
+			pInventoryArray[sInventorySlot].ubQtyOnOrder);
 	pInventoryArray[ sInventorySlot ].ubItemQuality = ubItemQuality;
 
 #ifdef BR_INVENTORY_TURNOVER_DEBUG
@@ -917,8 +916,13 @@ void AddFreshBobbyRayInventory( UINT16 usItemIndex )
 INT16 GetInventorySlotForItem(STORE_INVENTORY *pInventoryArray, UINT16 usItemIndex, BOOLEAN fUsed)
 {
 	INT16 i;
+	if (!pInventoryArray || fUsed >= BOBBY_RAY_LISTS)
+		return -1;
 
-	for(i = 0; i < LaptopSaveInfo.usInventoryListLength[fUsed]; i++)
+	const UINT16 inventoryLength = static_cast<UINT16>(
+		BobbyRayCommerceModel::BoundedLength(
+			LaptopSaveInfo.usInventoryListLength[fUsed], MAXITEMS));
+	for(i = 0; i < inventoryLength; i++)
 	{
 		//if we have some of this item in stock
 		if( pInventoryArray[ i ].usItemIndex == usItemIndex)
@@ -936,12 +940,18 @@ void SimulateBobbyRayCustomer(STORE_INVENTORY *pInventoryArray, BOOLEAN fUsed)
 {
 	INT16 i;
 	UINT8 ubItemsSold;
+	if (!pInventoryArray || fUsed >= BOBBY_RAY_LISTS)
+		return;
+	const UINT16 inventoryLength = static_cast<UINT16>(
+		BobbyRayCommerceModel::BoundedLength(
+			LaptopSaveInfo.usInventoryListLength[fUsed], MAXITEMS));
 
 	//loop through all items BR can stock to see what gets sold
-	for(i = 0; i < LaptopSaveInfo.usInventoryListLength[fUsed]; i++)
+	for(i = 0; i < inventoryLength; i++)
 	{
 		//if we have some of this item in stock
-		if( pInventoryArray[ i ].ubQtyOnHand > 0)
+		if( pInventoryArray[ i ].ubQtyOnHand > 0 &&
+			pInventoryArray[i].usItemIndex < MAXITEMS)
 		{
 			ubItemsSold = HowManyItemsAreSold( -1, pInventoryArray[ i ].usItemIndex, pInventoryArray[ i ].ubQtyOnHand, fUsed);
 			pInventoryArray[ i ].ubQtyOnHand -= ubItemsSold;

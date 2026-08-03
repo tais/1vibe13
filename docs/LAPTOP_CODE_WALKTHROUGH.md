@@ -74,17 +74,70 @@ live-actor resolver and that missing current actors remain safely nullable.
 Architecture CI pins runtime callers, common build ownership, and the
 AddressSanitizer target.
 
+## Bobby Ray commerce ownership batch
+
+The second cohesive batch moves Bobby Ray's capacity, count, stock, and
+visibility rules into the dependency-free `BobbyRayCommerceModel`, while the
+legacy adapters continue to own the established save records and game-facing
+types. It fixes the following confirmed faults:
+
+- both inventory initializers wrote an end sentinel after a potentially full
+  `MAXITEMS` array;
+- the external maximum-purchase setting drove loops, clears, copies, and
+  package construction over fixed 100-entry cart and order arrays;
+- corrupt old-order counters could request inconsistent allocations, and the
+  migration allocated by a trusted active count before copying a different
+  number of records;
+- legacy order and shipment loads published raw allocations before all reads
+  succeeded, leaking or retaining partial state after a short/corrupt file;
+- PostalService trusted serialized structure sizes, shipment/package counts,
+  IDs, item indices, quality, and duplicate shipment IDs, while destroying the
+  current shipment list before validation completed;
+- placing an order could open the shipment page with a stale pointer snapshot,
+  and region removal used the changing live count instead of the number of
+  regions actually created;
+- shipment selection bounded iteration by the number of active records rather
+  than the list size, so delivered records before an active shipment made rows
+  unselectable;
+- a missing catalog lookup stored the exact-end `MAXITEMS` index for later use,
+  and same-class inventory lookup treated an item ID as a sorted-list slot;
+- inventory list lengths, package item IDs, and purchase slot IDs were trusted
+  at several render/update boundaries; and
+- stock subtraction could underflow while incoming stock could wrap the
+  byte-sized quantity counter.
+
+Cart configuration is now clamped at the legacy physical capacity; inventory,
+order, and shipment lengths are normalized before use; stock operations
+saturate; and both legacy mail-order and PostalService loads build temporary
+owned collections and swap them into live state only on success. The save
+format and its fixed structures remain unchanged. `BobbyRMailOrder.cpp` also
+moves into the campaign-neutral Laptop partition, which now contains 72 shared
+translation units and 26 application variants. Its two superseded shipment
+implementations and their raw-reallocation/configuration-sized loops have been
+removed, leaving the validated PostalService path as the sole implementation.
+
+The focused headless test covers zero, exact-end, oversized, negative,
+inconsistent-count, byte-underflow, byte-overflow, visibility, and active-count
+derivation cases. Architecture CI pins every production adapter, the shared
+build ownership, retired sentinel writes, the focused target, and its ASan CI
+admission.
+
+The targeted analyzer rerun also exposed two adjacent save-migration leaks:
+the pre-v101 dealer-inventory matrix escaped on short reads, including failures
+inside its nested special-item stream, and an oversized/truncated email subject
+escaped before it was attached to an email node. Both temporary allocations
+now have scoped ownership across every early return, and the architecture check
+pins those ownership guards.
+
 ## Remaining walkthrough
 
 The next passes should stay cohesive and prioritize:
 
-1. Bobby Ray/store inventory and order/save allocation ownership beyond the
-   communications path.
-2. XML/localization length validation and remaining fixed-buffer string sinks.
-3. IMP page lifecycle, generated-character state, and cross-page index
+1. XML/localization length validation and remaining fixed-buffer string sinks.
+2. IMP page lifecycle, generated-character state, and cross-page index
    contracts.
-4. `files.cpp`, history, and the remaining compile-time campaign content tail.
-5. UI resource handles and mouse-region create/destroy symmetry across every
+3. `files.cpp`, history, and the remaining compile-time campaign content tail.
+4. UI resource handles and mouse-region create/destroy symmetry across every
    Laptop page.
 
 Every batch must include focused tests, all-host compilation, architecture and

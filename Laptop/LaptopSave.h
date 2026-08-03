@@ -3,6 +3,7 @@
 
 //#include "Item Types.h"
 #include "FileMan.h"
+#include "BobbyRayCommerceModel.h"
 #include "Store Inventory.h"
 
 //forward declarations of common classes to eliminate includes
@@ -54,7 +55,8 @@ typedef struct
 typedef struct
 {
 	BOOLEAN	fActive;
-	BobbyRayPurchaseStruct BobbyRayPurchase[ 100 ];
+	BobbyRayPurchaseStruct BobbyRayPurchase[
+		BobbyRayCommerceModel::PurchaseCapacity ];
 	UINT8	ubNumberPurchases;
 } BobbyRayOrderStruct;
 
@@ -196,7 +198,8 @@ typedef struct
 
 extern	LaptopSaveInfoStruct LaptopSaveInfo;
 
-extern BobbyRayPurchaseStruct BobbyRayPurchases[ 100 ];
+extern BobbyRayPurchaseStruct BobbyRayPurchases[
+	BobbyRayCommerceModel::PurchaseCapacity ];
 
 
 

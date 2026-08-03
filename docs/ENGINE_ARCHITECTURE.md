@@ -1011,6 +1011,20 @@ the engine must not contain SDL types in its public domain model.
   uninitialized biography/email data, and missing image-object validation.
   The ongoing audit and follow-up priorities are recorded in
   `LAPTOP_CODE_WALKTHROUGH.md`.
+- Bobby Ray commerce now owns its fixed-capacity and persisted-count rules in
+  the dependency-free `BobbyRayCommerceModel`. The model clamps the external
+  cart setting to the 100-record legacy storage contract, bounds inventory and
+  shipment views, validates old order counts before allocation, derives active
+  counts from owned records, and saturates byte-sized stock arithmetic. The
+  storefront, mail-order, shipment, PostalService, and save adapters preserve
+  the existing structures and on-disk layouts, but load into temporary owned
+  storage and publish only after a complete validated read. This removes the
+  exact-end inventory sentinel writes, configuration-sized cart overruns,
+  corrupt-save allocation/write paths, stale shipment snapshots, and stock
+  underflow/overflow. `BobbyRMailOrder.cpp` is now campaign-neutral as well,
+  leaving Laptop with 72 shared and 26 per-application translation units.
+  Focused data-free boundary tests, architecture checks, all-host builds, and
+  the sanitizer matrix protect the extraction.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

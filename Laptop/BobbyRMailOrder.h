@@ -44,6 +44,9 @@ void HandleBobbyRMailOrder();
 void RenderBobbyRMailOrder();
 
 void BobbyRayMailOrderEndGameShutDown();
+void ShutDownBobbyRNewMailOrders();
+BOOLEAN ImportOldBobbyRayOrders(
+	const BobbyRayOrderStruct *orders, UINT8 slotCount);
 void EnterInitBobbyRayOrder();
 void AddJohnsGunShipment();
 
@@ -59,7 +62,8 @@ typedef struct
 	BOOLEAN	fActive;							
 	UINT8		ubDeliveryLoc;				// the city the shipment is going to
 	UINT8		ubDeliveryMethod;			// type of delivery: next day, 2 days ...
-	BobbyRayPurchaseStruct BobbyRayPurchase[ 100 ];
+	BobbyRayPurchaseStruct BobbyRayPurchase[
+		BobbyRayCommerceModel::PurchaseCapacity ];
 	UINT8		ubNumberPurchases;
 
 	UINT32	uiPackageWeight;
@@ -75,6 +79,7 @@ extern	NewBobbyRayOrderStruct	*gpNewBobbyrShipments;
 extern	INT32			giNumberOfNewBobbyRShipment;
 
 BOOLEAN AddNewBobbyRShipment( BobbyRayPurchaseStruct *pPurchaseStruct, UINT16 usDeliveryLoc, UINT8 ubDeliveryMethod, BOOLEAN fPurchasedFromBobbyR, UINT32 uiPackageWeight );
+void RefreshBobbyRayShipmentSnapshot();
 
 UINT16	CountNumberOfBobbyPurchasesThatAreInTransit();
 

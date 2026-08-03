@@ -1303,6 +1303,7 @@ file(READ "${SOURCE_ROOT}/Laptop/CMakeLists.txt"
 string(FIND "${runtime_laptop_manifest_contents}" "set(LaptopVariantSrc"
   runtime_laptop_variant_manifest_position)
 foreach(required_common_laptop_communications_source IN ITEMS
+    "BobbyRMailOrder.cpp"
     "email.cpp"
     "insurance Contract.cpp"
     "PostalService.cpp")
@@ -1314,6 +1315,125 @@ foreach(required_common_laptop_communications_source IN ITEMS
         runtime_laptop_variant_manifest_position)
     message(FATAL_ERROR
       "Laptop common manifest lost ${required_common_laptop_communications_source}")
+  endif()
+endforeach()
+
+# Bobby Ray commerce uses one dependency-free capacity/value contract while
+# the legacy page, save, and PostalService adapters retain their established
+# serialized structures. Runtime configuration and corrupt persisted counts
+# must never define the size of fixed arrays or publish partially read state.
+file(READ "${SOURCE_ROOT}/Laptop/BobbyRayCommerceModel.h"
+  runtime_bobby_ray_commerce_model_contents)
+foreach(required_bobby_ray_commerce_model_fragment IN ITEMS
+    "PurchaseCapacity = 100"
+    "PurchaseLimit"
+    "LegacyOrderCountsAreConsistent"
+    "LegacyShipmentCountFits"
+    "VisibleShipmentCount"
+    "RemoveStock"
+    "AddStock"
+    "CountActiveOrders")
+  string(FIND "${runtime_bobby_ray_commerce_model_contents}"
+    "${required_bobby_ray_commerce_model_fragment}"
+    required_bobby_ray_commerce_model_position)
+  if(required_bobby_ray_commerce_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray commerce model lost '${required_bobby_ray_commerce_model_fragment}'")
+  endif()
+endforeach()
+
+foreach(bobby_ray_bounded_purchase_source IN ITEMS
+    "Laptop/BobbyRMailOrder.cpp"
+    "Laptop/BobbyRGuns.cpp")
+  file(READ "${SOURCE_ROOT}/${bobby_ray_bounded_purchase_source}"
+    bobby_ray_bounded_purchase_contents)
+  string(REGEX MATCHALL "ubBobbyRayMaxPurchaseAmount"
+    bobby_ray_configured_purchase_uses
+    "${bobby_ray_bounded_purchase_contents}")
+  list(LENGTH bobby_ray_configured_purchase_uses
+    bobby_ray_configured_purchase_use_count)
+  if(NOT bobby_ray_configured_purchase_use_count EQUAL 1)
+    message(FATAL_ERROR
+      "${bobby_ray_bounded_purchase_source} bypassed the single bounded purchase-limit adapter")
+  endif()
+endforeach()
+
+foreach(bobby_ray_commerce_caller_and_fragment IN ITEMS
+    "Laptop/BobbyRGuns.cpp|GetConfiguredBobbyRayPurchaseLimit"
+    "Laptop/BobbyR.cpp|BobbyRayCommerceModel::AddStock"
+    "Laptop/BobbyRMailOrder.cpp|ImportOldBobbyRayOrders"
+    "Laptop/BobbyRMailOrder.cpp|LegacyShipmentCountFits"
+    "Laptop/BobbyRShipments.cpp|VisibleShipmentCount"
+    "Laptop/laptop.cpp|LegacyOrderCountsAreConsistent"
+    "Ja2/SaveLoadGame.cpp|ImportOldBobbyRayOrders"
+    "Ja2/SaveLoadGame.cpp|make_unique<OLD_DEALER_ITEM_HEADER_101[]>"
+    "Ja2/SaveLoadGame.cpp|SavedEmailSubjectAllocationDeleter"
+    "Laptop/PostalService.cpp|loadedShipments"
+    "Laptop/PostalService.cpp|PurchaseCapacity")
+  string(REPLACE "|" ";" bobby_ray_commerce_caller_parts
+    "${bobby_ray_commerce_caller_and_fragment}")
+  list(GET bobby_ray_commerce_caller_parts 0 bobby_ray_commerce_caller)
+  list(GET bobby_ray_commerce_caller_parts 1 bobby_ray_commerce_fragment)
+  file(READ "${SOURCE_ROOT}/${bobby_ray_commerce_caller}"
+    bobby_ray_commerce_caller_contents)
+  string(FIND "${bobby_ray_commerce_caller_contents}"
+    "${bobby_ray_commerce_fragment}" bobby_ray_commerce_caller_position)
+  if(bobby_ray_commerce_caller_position EQUAL -1)
+    message(FATAL_ERROR
+      "${bobby_ray_commerce_caller} bypassed ${bobby_ray_commerce_fragment}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/BobbyR.cpp"
+  runtime_bobby_ray_storefront_contents)
+foreach(retired_bobby_ray_inventory_sentinel IN ITEMS
+    "BobbyRayInventory[ usBobbyrIndex ].usItemIndex = BOBBYR_NO_ITEMS"
+    "BobbyRayUsedInventory[ usBobbyrIndex ].usItemIndex = BOBBYR_NO_ITEMS")
+  string(FIND "${runtime_bobby_ray_storefront_contents}"
+    "${retired_bobby_ray_inventory_sentinel}"
+    retired_bobby_ray_inventory_sentinel_position)
+  if(NOT retired_bobby_ray_inventory_sentinel_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray restored an exact-end inventory sentinel write")
+  endif()
+endforeach()
+
+foreach(required_bobby_ray_commerce_test_fragment IN ITEMS
+    "bobby_ray_commerce_model_tests.cpp"
+    "bobby_ray_commerce_model")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_bobby_ray_commerce_test_fragment}"
+    required_bobby_ray_commerce_test_position)
+  if(required_bobby_ray_commerce_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray commerce model lost its headless test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "bobby_ray_commerce_model_tests" runtime_bobby_ray_commerce_ci_position)
+if(runtime_bobby_ray_commerce_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Bobby Ray commerce model test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/bobby_ray_commerce_model_tests.cpp"
+  runtime_bobby_ray_commerce_test_contents)
+foreach(required_bobby_ray_commerce_assertion IN ITEMS
+    "PurchaseLimit(255)"
+    "!IsIndexInBoundedList(10, 10, 10)"
+    "!LegacyOrderCountsAreConsistent(3, 4)"
+    "LegacyShipmentCountFits(-1"
+    "MaximumLegacyShipmentSlots + 1"
+    "VisibleShipmentCount(20, 18, 13)"
+    "RemoveStock(5, 8)"
+    "AddStock(250, 8)"
+    "CountActiveOrders<Order>(nullptr, 3)")
+  string(FIND "${runtime_bobby_ray_commerce_test_contents}"
+    "${required_bobby_ray_commerce_assertion}"
+    required_bobby_ray_commerce_assertion_position)
+  if(required_bobby_ray_commerce_assertion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray commerce tests lost '${required_bobby_ray_commerce_assertion}'")
   endif()
 endforeach()
 

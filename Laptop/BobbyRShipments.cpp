@@ -96,6 +96,7 @@ INT32		giBobbyRShipmentHomeImage;
 
 
 MOUSE_REGION	gSelectedPreviousShipmentsRegion[BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS];
+UINT32 gSelectedPreviousShipmentRegionCount = 0;
 void SelectPreviousShipmentsRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
 
@@ -128,6 +129,7 @@ void GameInitBobbyRShipments()
 BOOLEAN EnterBobbyRShipments()
 {
 	VOBJECT_DESC	VObjectDesc;
+	RefreshBobbyRayShipmentSnapshot();
 
 	InitBobbyRWoodBackground();
 
@@ -196,7 +198,7 @@ BOOLEAN EnterBobbyRShipments()
 
 		while(psi != gShipmentTable.end())
 		{
-			if(((PShipmentStruct)*psi)->ShipmentStatus == SHIPMENT_INTRANSIT)
+			if (*psi && (*psi)->ShipmentStatus == SHIPMENT_INTRANSIT)
 			{
 				giBobbyRShipmentSelectedShipment = iCnt;
 			}
@@ -283,8 +285,10 @@ void RenderBobbyRShipments()
 //	HVOBJECT hPixHandle;
 
 	// Dealtar: this must be static as this is accessed after this function has returned
-	static BobbyRayPurchaseStruct brps[100];
-	for(int i = 0; i < 100; i++) //JMich
+	static BobbyRayPurchaseStruct brps[
+		BobbyRayCommerceModel::PurchaseCapacity];
+	for (std::size_t i = 0;
+		i < BobbyRayCommerceModel::PurchaseCapacity; ++i)
 	{
 		memset(&brps[i], 0, sizeof(BobbyRayPurchaseStruct));
 	}
@@ -307,8 +311,14 @@ void RenderBobbyRShipments()
 	{
 		ShipmentPackageList::iterator spli = gShipmentTable[giBobbyRShipmentSelectedShipment]->ShipmentPackages.begin();
 		int j;
-		for(unsigned i = 0; i < gShipmentTable[giBobbyRShipmentSelectedShipment]->ShipmentPackages.size() && i < 100; i++, spli++)
+		for (std::size_t i = 0;
+			i < gShipmentTable[giBobbyRShipmentSelectedShipment]
+				->ShipmentPackages.size() &&
+			i < BobbyRayCommerceModel::PurchaseCapacity; ++i, ++spli)
 		{
+			if (spli->usItemIndex == 0 || spli->usItemIndex >= MAXITEMS ||
+				!spli->ubNumber)
+				continue;
 			brps[i].bItemQuality = ((ShipmentPackageStruct)*spli).bItemQuality;
 			brps[i].ubNumberPurchased = ((ShipmentPackageStruct)*spli).ubNumber;
 			brps[i].usItemIndex = ((ShipmentPackageStruct)*spli).usItemIndex;
@@ -316,25 +326,17 @@ void RenderBobbyRShipments()
 
 			if(brps[i].fUsed)
 			{
-				for(j=0; j < MAXITEMS; j++)
-				{
-					if(LaptopSaveInfo.BobbyRayUsedInventory[j].usItemIndex == brps[i].usItemIndex)
-					{
-						break;
-					}
-				}
-				brps[i].usBobbyItemIndex = j;
+				j = GetInventorySlotForItem(
+					LaptopSaveInfo.BobbyRayUsedInventory,
+					brps[i].usItemIndex, BOBBY_RAY_USED);
+				brps[i].usBobbyItemIndex = j >= 0 ? j : 0;
 			}
 			else
 			{
-				for(j=0; j < MAXITEMS; j++)
-				{
-					if(LaptopSaveInfo.BobbyRayInventory[j].usItemIndex == brps[i].usItemIndex)
-					{
-						break;
-					}
-				}
-				brps[i].usBobbyItemIndex = j;
+				j = GetInventorySlotForItem(
+					LaptopSaveInfo.BobbyRayInventory,
+					brps[i].usItemIndex, BOBBY_RAY_NEW);
+				brps[i].usBobbyItemIndex = j >= 0 ? j : 0;
 			}
 		}
 	}
@@ -458,20 +460,12 @@ void DisplayPreviousShipments()
 	UINT32	uiItemCnt;
 	UINT8		ubFontColor = BOBBYR_SHIPMENT_STATIC_TEXT_COLOR;
 	
-	ShipmentListIterator sli = gPostalService.LookupShipmentList().begin();
-
-	uiNumItems = (UINT32)gPostalService.LookupShipmentList().size();
-	if(uiNumItems > BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS)
-		uiNumItems = BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS;
-	// gShipmentTable is a snapshot taken on the Bobby Ray FRONT page; placing an order grows the
-	// live list and jumps straight to this page without refreshing it, so the loop below (bounded
-	// by the LIVE list size) would index gShipmentTable[uiCnt] past its end -> wild-pointer deref.
-	// Bound by the snapshot size too.
-	if(uiNumItems > gShipmentTable.size())
-		uiNumItems = (UINT32)gShipmentTable.size();
+	uiNumItems = static_cast<UINT32>(gShipmentTable.size());
 
 	//loop through all the shipments
-	for( uiCnt=0; uiCnt<uiNumItems; uiCnt++ )
+	UINT32 displayedCount = 0;
+	for (uiCnt = 0; uiCnt < uiNumItems &&
+		displayedCount < BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS; ++uiCnt)
 	{
 		/*
 		//if it is a valid shipment, and can be displayed at bobby r
@@ -479,8 +473,10 @@ void DisplayPreviousShipments()
 				gpNewBobbyrShipments[ giBobbyRShipmentSelectedShipment ].fDisplayedInShipmentPage )
 		*/
 		// if it is a shipment that is active (= in transit)
-		if( gShipmentTable[ uiCnt ]->ShipmentStatus == SHIPMENT_INTRANSIT)
+		if (gShipmentTable[uiCnt] &&
+			gShipmentTable[uiCnt]->ShipmentStatus == SHIPMENT_INTRANSIT)
 		{
+			++displayedCount;
 			if( uiCnt == (UINT32)giBobbyRShipmentSelectedShipment )
 			{
 				ubFontColor = FONT_MCOLOR_WHITE;
@@ -526,14 +522,18 @@ void CreatePreviousShipmentsMouseRegions()
 	UINT16	usWidth = BOBBYR_SHIPMENT_DELIVERY_GRID_WIDTH;
 	UINT16	usHeight = GetFontHeight( BOBBYR_SHIPMENT_STATIC_TEXT_FONT );
 	//UINT32	uiNumItems = CountNumberOfBobbyPurchasesThatAreInTransit();
-	UINT32	uiNumItems = gPostalService.GetShipmentCount(SHIPMENT_INTRANSIT);
-
-		// WDS - If there are more than 13 shipments only show 13 because
-		// that is all that will fit on the screen.  If you show more things
-		// get corrupted.
-		UINT32 max = uiNumItems;
-		if (max > MAX_SHIPMENTS_THAT_FIT_ON_SCREEN)
-			max = MAX_SHIPMENTS_THAT_FIT_ON_SCREEN;
+	UINT32 snapshotInTransit = 0;
+	for (const PShipmentStruct shipment : gShipmentTable)
+	{
+		if (shipment && shipment->ShipmentStatus == SHIPMENT_INTRANSIT)
+			++snapshotInTransit;
+	}
+	const UINT32 max = static_cast<UINT32>(
+		BobbyRayCommerceModel::VisibleShipmentCount(
+			gPostalService.GetShipmentCount(SHIPMENT_INTRANSIT),
+			snapshotInTransit,
+			BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS));
+	gSelectedPreviousShipmentRegionCount = max;
 
 	for( uiCnt=0; uiCnt<max; uiCnt++ )
 	{
@@ -548,15 +548,12 @@ void CreatePreviousShipmentsMouseRegions()
 
 void RemovePreviousShipmentsMouseRegions()
 {
-	UINT32 uiCnt;
-	//UINT32	uiNumItems = CountNumberOfBobbyPurchasesThatAreInTransit();
-	UINT32	uiNumItems = gPostalService.GetShipmentCount(SHIPMENT_INTRANSIT);
-
-
-	for( uiCnt=0; uiCnt<uiNumItems; uiCnt++ )
+	for (UINT32 uiCnt = 0;
+		uiCnt < gSelectedPreviousShipmentRegionCount; ++uiCnt)
 	{
-	MSYS_RemoveRegion( &gSelectedPreviousShipmentsRegion[uiCnt] );
+		MSYS_RemoveRegion( &gSelectedPreviousShipmentsRegion[uiCnt] );
 	}
+	gSelectedPreviousShipmentRegionCount = 0;
 }
 
 void SelectPreviousShipmentsRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
@@ -571,7 +568,9 @@ void SelectPreviousShipmentsRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason
 
 
 //		if( CountNumberOfBobbyPurchasesThatAreInTransit() > iSlotID )
-		if( gPostalService.GetShipmentCount(SHIPMENT_INTRANSIT) > iSlotID )
+		if (iSlotID >= 0 &&
+			static_cast<UINT32>(iSlotID) <
+				gSelectedPreviousShipmentRegionCount)
 		{
 			INT32 iCnt;
 			INT32	iValidShipmentCounter=0;
@@ -580,10 +579,12 @@ void SelectPreviousShipmentsRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason
 
 			//loop through and get the "x" iSlotID shipment
 //			for( iCnt=0; iCnt<giNumberOfNewBobbyRShipment; iCnt++ )
-			for( iCnt=0; iCnt<gPostalService.GetShipmentCount(SHIPMENT_INTRANSIT) && iCnt<(INT32)gShipmentTable.size(); iCnt++ )	// bound by the snapshot too (same stale-gShipmentTable OOB as DisplayPreviousShipments)
+			for (iCnt = 0; iCnt < static_cast<INT32>(gShipmentTable.size());
+				++iCnt)
 			{
 //				if( gpNewBobbyrShipments[iCnt].fActive )
-				if( gShipmentTable[iCnt]->ShipmentStatus == SHIPMENT_INTRANSIT )
+				if (gShipmentTable[iCnt] &&
+					gShipmentTable[iCnt]->ShipmentStatus == SHIPMENT_INTRANSIT)
 				{
 					if( iValidShipmentCounter == iSlotID )
 					{

@@ -99,6 +99,8 @@
 #include "End Game.h"
 #include "GameContext.h"
 
+#include <memory>
+
 
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
@@ -7158,10 +7160,86 @@ template<class Ar> static void XferLaptopSaveInfo( Ar& ar, LaptopSaveInfoStruct&
 	ar.bytes(s.bPadding, sizeof(s.bPadding));
 }
 
+static void NormalizeBobbyRayInventory(
+	STORE_INVENTORY *inventory, UINT16& persistedLength)
+{
+	const std::size_t readableLength =
+		BobbyRayCommerceModel::BoundedLength(persistedLength, MAXITEMS);
+	std::size_t writeIndex = 0;
+	for (std::size_t readIndex = 0; readIndex < readableLength; ++readIndex)
+	{
+		if (inventory[readIndex].usItemIndex >= MAXITEMS)
+			continue;
+		if (writeIndex != readIndex)
+			inventory[writeIndex] = inventory[readIndex];
+		if (inventory[writeIndex].ubItemQuality > 100)
+			inventory[writeIndex].ubItemQuality = 100;
+		++writeIndex;
+	}
+	persistedLength = static_cast<UINT16>(writeIndex);
+}
+
+static void NormalizeOldBobbyRayOrder(BobbyRayOrderStruct& order)
+{
+	const UINT8 readableCount =
+		BobbyRayCommerceModel::PurchaseRecordCount(order.ubNumberPurchases);
+	UINT8 writeIndex = 0;
+	for (UINT8 readIndex = 0; readIndex < readableCount; ++readIndex)
+	{
+		const BobbyRayPurchaseStruct& purchase =
+			order.BobbyRayPurchase[readIndex];
+		if (!purchase.ubNumberPurchased || purchase.usItemIndex == 0 ||
+			purchase.usItemIndex >= MAXITEMS)
+			continue;
+		order.BobbyRayPurchase[writeIndex++] = purchase;
+	}
+	for (std::size_t index = writeIndex;
+		index < BobbyRayCommerceModel::PurchaseCapacity; ++index)
+	{
+		order.BobbyRayPurchase[index] = BobbyRayPurchaseStruct{};
+	}
+	order.ubNumberPurchases = writeIndex;
+	if (writeIndex == 0)
+		order.fActive = FALSE;
+}
+
+struct BobbyRayOrderAllocationDeleter
+{
+	void operator()(BobbyRayOrderStruct *orders) const noexcept
+	{
+		if (orders) MemFree(orders);
+	}
+};
+
+struct LifeInsuranceAllocationDeleter
+{
+	void operator()(LIFE_INSURANCE_PAYOUT *payouts) const noexcept
+	{
+		if (payouts) MemFree(payouts);
+	}
+};
+
 BOOLEAN SaveLaptopInfoToSavedGame( HWFILE hFile )
 {
 	UINT32	uiNumBytesWritten=0;
 	UINT32	uiSize;
+
+	NormalizeBobbyRayInventory(LaptopSaveInfo.BobbyRayInventory,
+		LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_NEW]);
+	NormalizeBobbyRayInventory(LaptopSaveInfo.BobbyRayUsedInventory,
+		LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_USED]);
+	if (!BobbyRayCommerceModel::LegacyOrderCountsAreConsistent(
+			LaptopSaveInfo.usNumberOfBobbyRayOrderItems,
+			LaptopSaveInfo.usNumberOfBobbyRayOrderUsed) ||
+		(LaptopSaveInfo.usNumberOfBobbyRayOrderUsed != 0 &&
+			!LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray) ||
+		LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed >
+			LaptopSaveInfo.ubNumberLifeInsurancePayouts ||
+		(LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed != 0 &&
+			!LaptopSaveInfo.pLifeInsurancePayouts))
+	{
+		return FALSE;
+	}
 
 	// Save The laptop information
 	{
@@ -7213,25 +7291,20 @@ BOOLEAN LoadLaptopInfoFromSavedGame( HWFILE hFile )
 	UINT32	uiNumBytesRead=0;
 	UINT32	uiSize;
 
-	//if there is memory allocated for the BobbyR orders
-	if( LaptopSaveInfo.usNumberOfBobbyRayOrderItems )
-	{
-		//Free the memory
-		if( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray )
-			MemFree( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray );
-		LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray = NULL;
-	}
+	if (LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray)
+		MemFree(LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray);
+	LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray = NULL;
+	LaptopSaveInfo.usNumberOfBobbyRayOrderItems = 0;
+	LaptopSaveInfo.usNumberOfBobbyRayOrderUsed = 0;
 
 	//if there is memory allocated for life insurance payouts
-	if( LaptopSaveInfo.ubNumberLifeInsurancePayouts )
+	if (LaptopSaveInfo.pLifeInsurancePayouts)
 	{
-		if( !LaptopSaveInfo.pLifeInsurancePayouts )
-			Assert( 0 );	//Should never happen
-
-		//Free the memory
 		MemFree( LaptopSaveInfo.pLifeInsurancePayouts );
 		LaptopSaveInfo.pLifeInsurancePayouts = NULL;
 	}
+	LaptopSaveInfo.ubNumberLifeInsurancePayouts = 0;
+	LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed = 0;
 
 	// Load The laptop information
 	{
@@ -7244,20 +7317,53 @@ BOOLEAN LoadLaptopInfoFromSavedGame( HWFILE hFile )
 		}
 	}
 
+	NormalizeBobbyRayInventory(LaptopSaveInfo.BobbyRayInventory,
+		LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_NEW]);
+	NormalizeBobbyRayInventory(LaptopSaveInfo.BobbyRayUsedInventory,
+		LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_USED]);
+	if (!BobbyRayCommerceModel::LegacyOrderCountsAreConsistent(
+			LaptopSaveInfo.usNumberOfBobbyRayOrderItems,
+			LaptopSaveInfo.usNumberOfBobbyRayOrderUsed) ||
+		LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed >
+			LaptopSaveInfo.ubNumberLifeInsurancePayouts)
+	{
+		return FALSE;
+	}
+
 	//If there is anything in the Bobby Ray Orders on Delivery
 	if( LaptopSaveInfo.usNumberOfBobbyRayOrderUsed )
 	{
 		//Allocate memory for the information
 		uiSize = sizeof( BobbyRayOrderStruct ) * LaptopSaveInfo.usNumberOfBobbyRayOrderItems;
 
-		LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray = (BobbyRayOrderStruct *) MemAlloc( uiSize );
-		Assert( LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray );
+		std::unique_ptr<BobbyRayOrderStruct[], BobbyRayOrderAllocationDeleter>
+			loadedOrders(static_cast<BobbyRayOrderStruct*>(MemAlloc(uiSize)));
+		if (!loadedOrders)
+			return FALSE;
 
 		// Load The laptop information
-		FileRead( hFile, LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray, uiSize, &uiNumBytesRead );
+		FileRead(hFile, loadedOrders.get(), uiSize, &uiNumBytesRead);
 		if( uiNumBytesRead != uiSize )
 		{
 			return(FALSE);
+		}
+		for (UINT8 index = 0;
+			index < LaptopSaveInfo.usNumberOfBobbyRayOrderItems; ++index)
+		{
+			NormalizeOldBobbyRayOrder(loadedOrders[index]);
+		}
+		LaptopSaveInfo.usNumberOfBobbyRayOrderUsed = static_cast<UINT8>(
+			BobbyRayCommerceModel::CountActiveOrders(
+				loadedOrders.get(),
+				LaptopSaveInfo.usNumberOfBobbyRayOrderItems));
+		if (LaptopSaveInfo.usNumberOfBobbyRayOrderUsed == 0)
+		{
+			LaptopSaveInfo.usNumberOfBobbyRayOrderItems = 0;
+		}
+		else
+		{
+			LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray =
+				loadedOrders.release();
 		}
 	}
 	else
@@ -7272,15 +7378,19 @@ BOOLEAN LoadLaptopInfoFromSavedGame( HWFILE hFile )
 		//Allocate memory for the information
 		uiSize = sizeof( LIFE_INSURANCE_PAYOUT ) * LaptopSaveInfo.ubNumberLifeInsurancePayouts;
 
-		LaptopSaveInfo.pLifeInsurancePayouts = (LIFE_INSURANCE_PAYOUT *) MemAlloc( uiSize );
-		Assert( LaptopSaveInfo.pLifeInsurancePayouts );
+		std::unique_ptr<LIFE_INSURANCE_PAYOUT[],
+			LifeInsuranceAllocationDeleter> loadedPayouts(
+				static_cast<LIFE_INSURANCE_PAYOUT*>(MemAlloc(uiSize)));
+		if (!loadedPayouts)
+			return FALSE;
 
 		// Load The laptop information
-		FileRead( hFile, LaptopSaveInfo.pLifeInsurancePayouts, uiSize, &uiNumBytesRead );
+		FileRead(hFile, loadedPayouts.get(), uiSize, &uiNumBytesRead);
 		if( uiNumBytesRead != uiSize )
 		{
 			return(FALSE);
 		}
+		LaptopSaveInfo.pLifeInsurancePayouts = loadedPayouts.release();
 	}
 	else
 	{

@@ -82,6 +82,16 @@ target_include_directories(laptop_communications_policy_tests
 add_test(NAME laptop_communications_policy
   COMMAND laptop_communications_policy_tests)
 
+# Bobby Ray's configured cart size, fixed legacy save records, stock counters,
+# and shipment-region arrays meet at old raw-storage boundaries. Keep the
+# capacity/ownership model independently executable and data-free.
+add_executable(bobby_ray_commerce_model_tests
+  bobby_ray_commerce_model_tests.cpp)
+target_include_directories(bobby_ray_commerce_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME bobby_ray_commerce_model
+  COMMAND bobby_ray_commerce_model_tests)
+
 # A dedicated process replaces global allocation hooks while measuring the
 # observer hot path. Keeping it separate avoids coupling allocation accounting
 # to unrelated adapter tests or their setup work.
