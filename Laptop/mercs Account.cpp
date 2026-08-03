@@ -14,11 +14,14 @@
 	#include "history.h"
 	#include "email.h"
 	#include "LaptopSave.h"
+	#include "LaptopPageResourceOwner.h"
 	#include "Text.h"
 	#include "Speck Quotes.h"
 	#include "Multi Language Graphic Utils.h"
 	#include "CampaignMercSitePolicy.h"
 	#include "GameContext.h"
+
+#include <utility>
 
 #define		MERC_ACCOUNT_TEXT_FONT				FONT14ARIAL
 #define		MERC_ACCOUNT_TEXT_COLOR				FONT_MCOLOR_WHITE
@@ -103,6 +106,11 @@ void DisplayHiredMercs();
 void SettleMercAccounts();
 void MercAuthorizePaymentMessageBoxCallBack( UINT8 bExitValue );
 
+namespace
+{
+	LaptopPageResourceOwner gMercAccountResources;
+}
+
 void BtnAccountPrevPageButtonCallback(GUI_BUTTON *btn,INT32 reason)
 {
 	if(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
@@ -116,7 +124,8 @@ void BtnAccountPrevPageButtonCallback(GUI_BUTTON *btn,INT32 reason)
 		{
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-			iCurrentAccountPage--;
+			if (iCurrentAccountPage > 0)
+				iCurrentAccountPage--;
 
 			if (iCurrentAccountPage == 0)
 			{
@@ -153,7 +162,8 @@ void BtnAccountNextPageButtonCallback(GUI_BUTTON *btn,INT32 reason)
 		{
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-			iCurrentAccountPage++;
+			if (iCurrentAccountPage < iTotalAccountPages - 1)
+				iCurrentAccountPage++;
 
 			if (iCurrentAccountPage == iTotalAccountPages - 1)
 			{
@@ -231,6 +241,7 @@ void GameInitMercsAccount()
 BOOLEAN EnterMercsAccount()
 {
 	UINT8 mercOverPage = 0;
+	LaptopPageResourceOwner staged;
 
 	iCurrentAccountPage = 0;
 
@@ -249,73 +260,83 @@ BOOLEAN EnterMercsAccount()
 
 	VOBJECT_DESC	VObjectDesc;
 
-	InitMercBackGround();
+	gMercAccountResources.clear();
+	if (!AddMercBackGround(staged)) return FALSE;
 
 	// Merce order grid (the last page)
 	// load the Arrow graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_ORDERGRID );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMercOrderGrid));
+	if (!staged.addVideoObject(&VObjectDesc, guiMercOrderGrid)) return FALSE;
 
 	// Merce order grid 0 (all other pages)
 	// load the Arrow graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\OrderGrid0.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMercOrderGrid0));
+	if (!staged.addVideoObject(&VObjectDesc, guiMercOrderGrid0)) return FALSE;
 
 	// load the Arrow graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\AccountNumber.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiAccountNumberGrid));
+	if (!staged.addVideoObject(&VObjectDesc,
+		guiAccountNumberGrid)) return FALSE;
 
 
-	guiAccountButtonImage = LoadButtonImage("LAPTOP\\BigButtons.sti", -1,0,-1,1,-1 );
+	if (!staged.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\BigButtons.sti", -1, 0, -1, 1, -1),
+		guiAccountButtonImage)) return FALSE;
 
 	// Prev Button
-	guiAccountPrevButton = CreateIconAndTextButton( guiAccountButtonImage, MercAccountPageText[0],
+	if (!staged.addButton(CreateIconAndTextButton( guiAccountButtonImage, MercAccountPageText[0],
 													FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_AC_PREV_BUTTON_X, MERC_AC_PREV_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnAccountPrevPageButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnAccountPrevPageButtonCallback),
+		guiAccountPrevButton)) return FALSE;
 	SetButtonCursor(guiAccountPrevButton, CURSOR_LAPTOP_SCREEN);
 	SpecifyDisabledButtonStyle( guiAccountPrevButton, DISABLED_STYLE_SHADED);
 
 	// Next Button
-	guiAccountNextButton = CreateIconAndTextButton( guiAccountButtonImage, MercAccountPageText[1],
+	if (!staged.addButton(CreateIconAndTextButton( guiAccountButtonImage, MercAccountPageText[1],
 													FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_AC_NEXT_BUTTON_X, MERC_AC_NEXT_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnAccountNextPageButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnAccountNextPageButtonCallback),
+		guiAccountNextButton)) return FALSE;
 	SetButtonCursor(guiAccountNextButton, CURSOR_LAPTOP_SCREEN);
 	SpecifyDisabledButtonStyle( guiAccountNextButton, DISABLED_STYLE_SHADED);
 
 
-	guiMercAuthorizeButtonImage = LoadButtonImage("LAPTOP\\BigButtons.sti", -1,0,-1,1,-1 );
+	if (!staged.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\BigButtons.sti", -1, 0, -1, 1, -1),
+		guiMercAuthorizeButtonImage)) return FALSE;
 	if (CampaignMercSitePolicy(GetGameContext().capabilities())
 			.hasAccountManagement())
 	{
-		guiMercAuthorizeBoxButton = CreateIconAndTextButton( guiMercAuthorizeButtonImage, MercAccountText[MERC_ACCOUNT_AUTHORIZE],
+		if (!staged.addButton(CreateIconAndTextButton( guiMercAuthorizeButtonImage, MercAccountText[MERC_ACCOUNT_AUTHORIZE],
 												FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_AC_AUTHORIZE_BUTTON_X, MERC_AC_AUTHORIZE_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnMercAuthorizeButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnMercAuthorizeButtonCallback),
+			guiMercAuthorizeBoxButton)) return FALSE;
 		SetButtonCursor(guiMercAuthorizeBoxButton, CURSOR_LAPTOP_SCREEN);
 		SpecifyDisabledButtonStyle( guiMercAuthorizeBoxButton, DISABLED_STYLE_SHADED);
 	}
 
-	guiMercBackBoxButton = CreateIconAndTextButton( guiMercAuthorizeButtonImage, MercAccountText[MERC_ACCOUNT_HOME],
+	if (!staged.addButton(CreateIconAndTextButton( guiMercAuthorizeButtonImage, MercAccountText[MERC_ACCOUNT_HOME],
 													FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_AC_CANCEL_BUTTON_X, MERC_AC_CANCEL_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnMercBackButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnMercBackButtonCallback),
+		guiMercBackBoxButton)) return FALSE;
 	SetButtonCursor(guiMercBackBoxButton, CURSOR_LAPTOP_SCREEN);
 	SpecifyDisabledButtonStyle( guiMercBackBoxButton, DISABLED_STYLE_SHADED);
 
@@ -333,30 +354,14 @@ BOOLEAN EnterMercsAccount()
 		DisableButton(guiAccountNextButton);
 	}
 
+	gMercAccountResources = std::move(staged);
+
 	return( TRUE );
 }
 
 void ExitMercsAccount()
 {
-	DeleteVideoObjectFromIndex(guiMercOrderGrid);
-	DeleteVideoObjectFromIndex(guiAccountNumberGrid);
-
-	UnloadButtonImage( guiMercAuthorizeButtonImage );
-	
-	if (CampaignMercSitePolicy(GetGameContext().capabilities())
-			.hasAccountManagement())
-	{
-		RemoveButton( guiMercAuthorizeBoxButton );
-	}
-	
-	RemoveButton( guiMercBackBoxButton );
-
-	DeleteVideoObjectFromIndex(guiMercOrderGrid0);
-	UnloadButtonImage( guiAccountButtonImage );
-	RemoveButton ( guiAccountPrevButton );
-	RemoveButton ( guiAccountNextButton );
-
-	RemoveMercBackGround();
+	gMercAccountResources.clear();
 }
 
 void HandleMercsAccount()
@@ -528,8 +533,6 @@ void DisplayHiredMercs()
 				ubFontColor = MERC_ACCOUNT_DEAD_TEXT_COLOR;
 			else
 				ubFontColor = MERC_ACCOUNT_DYNAMIC_TEXT_COLOR;
-
-			uiContractCharge = 0;
 
 			//Display Mercs Name
 			if ( gMercProfiles[usMercID].ubMiscFlags2 & PROFILE_MISC_FLAG2_MERC_GEARKIT_UNPAID )

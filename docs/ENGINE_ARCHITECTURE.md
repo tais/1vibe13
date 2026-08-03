@@ -1093,6 +1093,22 @@ the engine must not contain SDL types in its public domain model.
   Laptop with 77 shared translation units and 21 variants. Headless ownership
   tests and architecture ratchets cover rollback, commit, signed sentinels,
   destruction order, callers, and common build ownership.
+- The complete M.E.R.C. site now uses that transactional ownership boundary as
+  well. Landing, Files/gear, Account, and No Account stage their background,
+  video objects and surface, button images, buttons, portrait/help/subtitle
+  regions, and transient Speck video controls before committing a complete
+  page. Files also scopes its transient portrait and owns the previously leaked
+  gear-kit image. Failed page entry, button creation, face allocation/rendering,
+  and framebuffer locking now stop without publishing an active video mode or
+  dereferencing an invalid handle. `MercSiteNavigationModel` clamps stale or
+  corrupt roster selections and prevents alternate-profile navigation from
+  decrementing index zero to 255; Account callbacks likewise cannot step past
+  their page range, and leaving the site clears its active-site flag. The final
+  John availability compile branch is runtime-selected by
+  `CampaignMercSitePolicy`, so all four implementations join the shared Laptop
+  partition: 81 common translation units and 17 variants. Data-free navigation
+  tests plus architecture ratchets pin the bounds, failure checks, owner use,
+  runtime policy, raw-lifecycle exclusion, and common build ownership.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

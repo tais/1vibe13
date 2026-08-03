@@ -6,11 +6,14 @@
 	#include "WordWrap.h"
 	#include "Cursors.h"
 	#include "LaptopSave.h"
+	#include "LaptopPageResourceOwner.h"
 	#include "random.h"
 	#include "Text.h"
 	#include "Speck Quotes.h"
 	#include "CampaignMercSitePolicy.h"
 	#include "GameContext.h"
+
+#include <utility>
 
 
 
@@ -45,6 +48,11 @@ INT32		guiOpenAccountBoxButtonImage;
 void BtnCancelBoxButtonCallback(GUI_BUTTON *btn,INT32 reason);
 UINT32	guiCancelBoxButton;
 
+namespace
+{
+	LaptopPageResourceOwner gMercNoAccountResources;
+}
+
 
 
 void GameInitMercsNoAccount()
@@ -55,38 +63,45 @@ void GameInitMercsNoAccount()
 BOOLEAN EnterMercsNoAccount()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner staged;
 
-	InitMercBackGround();
+	gMercNoAccountResources.clear();
+	if (!AddMercBackGround(staged)) return FALSE;
 
 	// load the Account box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\NoAccountBox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiNoAccountImage));
+	if (!staged.addVideoObject(&VObjectDesc, guiNoAccountImage)) return FALSE;
 
 
 	// Open Accouint button
-	guiOpenAccountBoxButtonImage = LoadButtonImage("LAPTOP\\BigButtons.sti", -1,0,-1,1,-1 );
+	if (!staged.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\BigButtons.sti", -1, 0, -1, 1, -1),
+		guiOpenAccountBoxButtonImage)) return FALSE;
 
-	guiOpenAccountBoxButton = CreateIconAndTextButton( guiOpenAccountBoxButtonImage, MercNoAccountText[MERC_NO_ACC_OPEN_ACCOUNT],
+	if (!staged.addButton(CreateIconAndTextButton( guiOpenAccountBoxButtonImage, MercNoAccountText[MERC_NO_ACC_OPEN_ACCOUNT],
 													FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_OPEN_BUTTON_X, MERC_OPEN_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnOpenAccountBoxButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnOpenAccountBoxButtonCallback),
+		guiOpenAccountBoxButton)) return FALSE;
 	SetButtonCursor(guiOpenAccountBoxButton, CURSOR_LAPTOP_SCREEN);
 	SpecifyDisabledButtonStyle( guiOpenAccountBoxButton, DISABLED_STYLE_SHADED);
 
 
-	guiCancelBoxButton = CreateIconAndTextButton( guiOpenAccountBoxButtonImage, MercNoAccountText[MERC_NO_ACC_CANCEL],
+	if (!staged.addButton(CreateIconAndTextButton( guiOpenAccountBoxButtonImage, MercNoAccountText[MERC_NO_ACC_CANCEL],
 													FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_CANCEL_BUTTON_X, MERC_CANCEL_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnCancelBoxButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnCancelBoxButtonCallback),
+		guiCancelBoxButton)) return FALSE;
 	SetButtonCursor(guiCancelBoxButton, CURSOR_LAPTOP_SCREEN);
 	SpecifyDisabledButtonStyle( guiCancelBoxButton, DISABLED_STYLE_SHADED);
+	gMercNoAccountResources = std::move(staged);
 
 	RenderMercsNoAccount();
 
@@ -95,13 +110,7 @@ BOOLEAN EnterMercsNoAccount()
 
 void ExitMercsNoAccount()
 {
-	DeleteVideoObjectFromIndex(guiNoAccountImage);
-
-	UnloadButtonImage( guiOpenAccountBoxButtonImage );
-	RemoveButton( guiOpenAccountBoxButton );
-	RemoveButton( guiCancelBoxButton );
-
-	RemoveMercBackGround();
+	gMercNoAccountResources.clear();
 }
 
 void HandleMercsNoAccount()

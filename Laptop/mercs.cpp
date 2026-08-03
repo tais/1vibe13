@@ -15,6 +15,7 @@
 	#include "Merc Hiring.h"
 	#include "random.h"
 	#include "LaptopSave.h"
+	#include "LaptopPageResourceOwner.h"
 	#include "GameSettings.h"
 	#include "TacticalActorEmploymentTypes.h"
 	#include "Text.h"
@@ -31,6 +32,8 @@
 	#include "Ja25 Strategic Ai.h"
 
 #include "connect.h"
+
+#include <utility>
 
 UINT8	NUMBER_OF_MERCS = 0;
 UINT8	LAST_MERC_ID = -1;
@@ -243,6 +246,13 @@ INT32		guiXToCloseMercVideoButtonImage;
 MOUSE_REGION		gMercSiteSubTitleMouseRegion;
 void MercSiteSubTitleRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
+namespace
+{
+	LaptopPageResourceOwner gMercPageResources;
+	LaptopPageResourceOwner gMercVideoCloseResources;
+	LaptopPageResourceOwner gMercSubtitleResources;
+}
+
 
 BOOLEAN LoadNewMercsFromLoadGameFile( HWFILE hFile );
 BOOLEAN SaveNewMercsToSaveGameFile( HWFILE hFile );
@@ -255,7 +265,7 @@ BOOLEAN SaveNewMercsToSaveGameFile( HWFILE hFile );
 //*******************************
 
 BOOLEAN		StartSpeckTalking(UINT16 usQuoteNum);
-void			InitMercVideoFace();
+BOOLEAN		InitMercVideoFace();
 BOOLEAN		HandleSpeckTalking( BOOLEAN fReset );
 //BOOLEAN	PixelateVideoMercImage();
 BOOLEAN		PixelateVideoMercImage( BOOLEAN fUp, UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UINT16 usHeight);
@@ -433,11 +443,10 @@ BOOLEAN CanMercBeAvailableDuringInit( UINT8 ubMercToCheck )// anv: for all mercs
 			return ( FALSE );
 	}
 
-#ifdef JA25
-#else
-	if( gConditionsForMercAvailability[ubMercToCheck].ProfilId == JOHN_MERC )
+	if (!CampaignMercSitePolicy(GetGameContext().capabilities())
+			.usesUnfinishedBusinessSite() &&
+		gConditionsForMercAvailability[ubMercToCheck].ProfilId == JOHN_MERC)
 		return ( FALSE );
-#endif
 
 	return ( TRUE );
 }
@@ -554,59 +563,74 @@ BOOLEAN EnterMercs()
 {
 	VOBJECT_DESC	VObjectDesc;
 	VSURFACE_DESC		vs_desc;
+	LaptopPageResourceOwner staged;
 
 	SetBookMark( MERC_BOOKMARK );
 
 	//Reset a static variable
 	HandleSpeckTalking( TRUE );
 
-	InitMercBackGround();
+	if (gfMercVideoIsBeingDisplayed)
+	{
+		DeleteFace(giVideoSpeckFaceIndex);
+		gfMercVideoIsBeingDisplayed = FALSE;
+	}
+	gMercVideoCloseResources.clear();
+	RemoveSpeckPopupTextBox();
+	gMercPageResources.clear();
+
+	if (!AddMercBackGround(staged)) return FALSE;
 
 	// load the Account box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\AccountBox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiAccountBox));
+	if (!staged.addVideoObject(&VObjectDesc, guiAccountBox)) return FALSE;
 
 	// load the files Box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\FilesBox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFilesBox));
+	if (!staged.addVideoObject(&VObjectDesc, guiFilesBox)) return FALSE;
 
 	// load the MercSymbol graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\MERCSymbol.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMercSymbol));
+	if (!staged.addVideoObject(&VObjectDesc, guiMercSymbol)) return FALSE;
 
 	// load the SpecPortrait graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\SpecPortrait.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiSpecPortrait));
+	if (!staged.addVideoObject(&VObjectDesc, guiSpecPortrait)) return FALSE;
 
 	// load the Arrow graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Arrow.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiArrow));
+	if (!staged.addVideoObject(&VObjectDesc, guiArrow)) return FALSE;
 
 	// load the Merc video conf background graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\SpeckComWindow.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMercVideoPopupBackground));
+	if (!staged.addVideoObject(&VObjectDesc,
+		guiMercVideoPopupBackground)) return FALSE;
 
 
 	// Account Box button
-	guiAccountBoxButtonImage	= LoadButtonImage("LAPTOP\\SmallButtons.sti", -1,0,-1,1,-1 );
+	if (!staged.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\SmallButtons.sti", -1, 0, -1, 1, -1),
+		guiAccountBoxButtonImage)) return FALSE;
 	if (CampaignMercSitePolicy(GetGameContext().capabilities())
 			.hasAccountManagement())
 	{
-		guiAccountBoxButton = QuickCreateButton(guiAccountBoxButtonImage, MERC_ACCOUNT_BUTTON_X, MERC_ACCOUNT_BUTTON_Y,
-															BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-															DEFAULT_MOVE_CALLBACK, BtnAccountBoxButtonCallback);
+		if (!staged.addButton(QuickCreateButton(guiAccountBoxButtonImage,
+			MERC_ACCOUNT_BUTTON_X, MERC_ACCOUNT_BUTTON_Y, BUTTON_TOGGLE,
+			MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+			BtnAccountBoxButtonCallback), guiAccountBoxButton)) return FALSE;
 		SetButtonCursor(guiAccountBoxButton, CURSOR_LAPTOP_SCREEN);
 		SpecifyDisabledButtonStyle( guiAccountBoxButton, DISABLED_STYLE_SHADED);
 	}
-	guiFileBoxButton = QuickCreateButton(guiAccountBoxButtonImage, MERC_FILE_BUTTON_X, MERC_FILE_BUTTON_Y,
-																BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-																DEFAULT_MOVE_CALLBACK, BtnFileBoxButtonCallback);
+	if (!staged.addButton(QuickCreateButton(guiAccountBoxButtonImage,
+		MERC_FILE_BUTTON_X, MERC_FILE_BUTTON_Y, BUTTON_TOGGLE,
+		MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+		BtnFileBoxButtonCallback), guiFileBoxButton)) return FALSE;
 	SetButtonCursor(guiFileBoxButton, CURSOR_LAPTOP_SCREEN);
 	SpecifyDisabledButtonStyle( guiFileBoxButton, DISABLED_STYLE_SHADED);
 
@@ -626,7 +650,10 @@ BOOLEAN EnterMercs()
 	vs_desc.usWidth = MERC_VIDEO_FACE_WIDTH;
 	vs_desc.usHeight = MERC_VIDEO_FACE_HEIGHT;
 	vs_desc.ubBitDepth = 16;
-	CHECKF( AddVideoSurface( &vs_desc, &guiMercVideoFaceBackground) );
+	if (!staged.addVideoSurface(&vs_desc,
+		guiMercVideoFaceBackground)) return FALSE;
+
+	gMercPageResources = std::move(staged);
 
 
 	RenderMercs();
@@ -683,32 +710,17 @@ BOOLEAN EnterMercs()
 void ExitMercs()
 {
 	StopSpeckFromTalking( );
+	RemoveSpeckPopupTextBox();
 
 	if( gfMercVideoIsBeingDisplayed )
 	{
 		gfMercVideoIsBeingDisplayed = FALSE;
 		DeleteFace( giVideoSpeckFaceIndex	);
-		InitDestroyXToCloseVideoWindow( FALSE );
 		gubCurrentMercVideoMode = MERC_VIDEO_NO_VIDEO_MODE;
 	}
+	InitDestroyXToCloseVideoWindow(FALSE);
 
-	DeleteVideoObjectFromIndex(guiAccountBox);
-	DeleteVideoObjectFromIndex(guiFilesBox);
-	DeleteVideoObjectFromIndex(guiMercSymbol);
-	DeleteVideoObjectFromIndex(guiSpecPortrait);
-	DeleteVideoObjectFromIndex(guiArrow);
-	DeleteVideoObjectFromIndex(guiMercVideoPopupBackground);
-
-	UnloadButtonImage( guiAccountBoxButtonImage );
-	RemoveButton( guiFileBoxButton );
-	if (CampaignMercSitePolicy(GetGameContext().capabilities())
-			.hasAccountManagement())
-	{
-		RemoveButton( guiAccountBoxButton );
-	}
-	RemoveMercBackGround();
-
-	DeleteVideoSurfaceFromIndex( guiMercVideoFaceBackground );
+	gMercPageResources.clear();
 
 /*
 	//Set that we have been here before
@@ -721,16 +733,13 @@ void ExitMercs()
 	gfJustEnteredMercSite = TRUE;
 	gusMercVideoSpeckSpeech = MERC_VIDEO_SPECK_SPEECH_NOT_TALKING;
 
-	//Remove the merc text box if one is available
-	RemoveSpeckPopupTextBox();
-
 	//Set up so next time we come in, we know we came from a differnt page
 	gubArrivedFromMercSubSite = MERC_CAME_FROM_OTHER_PAGE;
 
 	gfJustHiredAMercMerc = FALSE;
 
 	//Since we are leaving the site, set the flag
-	gfInMercSite = TRUE;
+	gfInMercSite = FALSE;
 
 	//Empty the Queue cause Speck could still have a quote in waiting
 	EmptyDialogueQueue( );
@@ -750,6 +759,13 @@ void HandleMercs()
 			.requiresAvailableSpeckForDialogue() &&
 		!IsSpeckComAvailable())
 	{
+		if (gfMercVideoIsBeingDisplayed)
+		{
+			DeleteFace(giVideoSpeckFaceIndex);
+			gfMercVideoIsBeingDisplayed = FALSE;
+		}
+		InitDestroyXToCloseVideoWindow(FALSE);
+		RemoveSpeckPopupTextBox();
 		gusMercVideoSpeckSpeech = MERC_VIDEO_SPECK_SPEECH_NOT_TALKING;
 		gubCurrentMercVideoMode = MERC_VIDEO_NO_VIDEO_MODE;
 		RenderMercs();
@@ -765,9 +781,15 @@ void HandleMercs()
 			// Blt the video window background
 			DrawMercVideoBackGround();
 
-			InitDestroyXToCloseVideoWindow( TRUE );
-
-			InitMercVideoFace();
+			if (!InitDestroyXToCloseVideoWindow(TRUE) ||
+				!InitMercVideoFace())
+			{
+				InitDestroyXToCloseVideoWindow(FALSE);
+				gusMercVideoSpeckSpeech =
+					MERC_VIDEO_SPECK_SPEECH_NOT_TALKING;
+				gubCurrentMercVideoMode = MERC_VIDEO_NO_VIDEO_MODE;
+				return;
+			}
 			gubCurrentMercVideoMode = MERC_VIDEO_INIT_VIDEO_MODE;
 
 //			gfMercSiteScreenIsReDrawn = TRUE;
@@ -865,30 +887,20 @@ void RenderMercs()
 }
 
 
-BOOLEAN InitMercBackGround()
+BOOLEAN AddMercBackGround(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the Merc background graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\MERCBackGround.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMercBackGround));
-
-	return(TRUE);
+	return owner.addVideoObject(&VObjectDesc, guiMercBackGround);
 }
 
 
 BOOLEAN DrawMecBackGround()
 {
 	WebPageTileBackground(4, 4, MERC_BACKGROUND_WIDTH, MERC_BACKGROUND_HEIGHT, guiMercBackGround);
-	return(TRUE);
-}
-
-
-BOOLEAN RemoveMercBackGround()
-{
-	DeleteVideoObjectFromIndex(guiMercBackGround);
-
 	return(TRUE);
 }
 
@@ -1211,22 +1223,38 @@ void DailyUpdateOfMercSite( UINT16 usDate)
 
 
 // anv: Gets the actually available merc. For use in displaying unlocked mercs on MERC website.
+UINT16 CountAvailableMercsAtMercSite()
+{
+	UINT16 count = 0;
+	for (UINT16 index = 0; index < NUM_PROFILES; ++index)
+	{
+		if (gConditionsForMercAvailability[index].StartMercsAvailable)
+			++count;
+	}
+	return count;
+}
+
 UINT8 GetAvailableMercIndex(UINT8 gubCurMercIndex)
 {
 	UINT8 returnID = 0;
-	if( gubCurMercIndex < NUM_PROFILES )
+	UINT16 availableIndex = 0;
+	BOOLEAN found = FALSE;
+	for (UINT16 index = 0; index < NUM_PROFILES; ++index)
 	{
-		UINT8 availableID = 0;
-		UINT8 ID = 0;
-		//go through mercs, but only consider those unlocked
-		while( availableID < gubCurMercIndex && ID < NUM_PROFILES - 1 )
+		if (!gConditionsForMercAvailability[index].StartMercsAvailable)
+			continue;
+		if (availableIndex == gubCurMercIndex)
 		{
-			ID++;
-			if( gConditionsForMercAvailability[ ID ].StartMercsAvailable == TRUE )
-				availableID++;
-			
+			returnID = static_cast<UINT8>(index);
+			found = TRUE;
+			break;
 		}
-		returnID =  ID;
+		++availableIndex;
+	}
+	if (!found)
+	{
+		Assert(0);
+		return 0;
 	}
 
 	// Is this a drunken merc (e.g Larry) and has an additional drunken profile
@@ -1242,7 +1270,7 @@ UINT8 GetAvailableMercIndex(UINT8 gubCurMercIndex)
 			else
 			{
 				Assert(0);
-				return( TRUE );
+				return 0;
 			}
 		}
 		else
@@ -1324,22 +1352,31 @@ BOOLEAN InitDeleteMercVideoConferenceMode()
 }
 */
 
-void InitMercVideoFace()
+BOOLEAN InitMercVideoFace()
 {
 	//Alocates space, and loads the sti for SPECK
 //	giVideoSpeckFaceIndex = InternalInitFace( NO_PROFILE, NOBODY, 0, MERC_VIDEO_MERC_ID_FOR_SPECKS, 3000, 2000 );
-		giVideoSpeckFaceIndex = InitFace( MERC_VIDEO_MERC_ID_FOR_SPECKS, NOBODY, 0 );
+	giVideoSpeckFaceIndex = InitFace(MERC_VIDEO_MERC_ID_FOR_SPECKS,
+		NOBODY, 0);
+	if (giVideoSpeckFaceIndex == -1) return FALSE;
 
 	// Sets up the eyes blinking and the mouth moving
 //	InternalSetAutoFaceActive( guiMercVideoFaceBackground, FACE_AUTO_RESTORE_BUFFER , giVideoSpeckFaceIndex, 0, 0, 8, 9, 7, 25 );
-		SetAutoFaceActive( guiMercVideoFaceBackground, FACE_AUTO_RESTORE_BUFFER , giVideoSpeckFaceIndex, 0, 0);
+	SetAutoFaceActive(guiMercVideoFaceBackground, FACE_AUTO_RESTORE_BUFFER,
+		giVideoSpeckFaceIndex, 0, 0);
 
 
 	//Renders the face to the background
-	RenderAutoFace( giVideoSpeckFaceIndex );
+	if (!RenderAutoFace(giVideoSpeckFaceIndex))
+	{
+		DeleteFace(giVideoSpeckFaceIndex);
+		giVideoSpeckFaceIndex = -1;
+		return FALSE;
+	}
 
 	//enables the global flag indicating the the video is being displayed
 	gfMercVideoIsBeingDisplayed = TRUE;
+	return TRUE;
 
 }
 
@@ -1498,7 +1535,7 @@ BOOLEAN PixelateVideoMercImage( BOOLEAN fUp, UINT16 usPosX, UINT16 usPosY, UINT1
 	i=0;
 
 	pBuffer = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiPitch );
-	Assert( pBuffer );
+	if (!pBuffer) return FALSE;
 
 	if( ubPixelationAmount == 255 )
 	{
@@ -1589,15 +1626,11 @@ BOOLEAN DistortVideoMercImage( UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UIN
 	UINT16	usEndOnLine=0;
 
 	pBuffer = (PIXEL *)LockVideoSurface( FRAME_BUFFER, &uiPitch );
-	Assert( pBuffer );
+	if (!pBuffer) return FALSE;
 
 	uiPitch /= 2;
-	j=MERC_VIDEO_FACE_Y;
-	i=MERC_VIDEO_FACE_X;
 
-	DestColor = pBuffer[ (j*uiPitch) + i ];
-
-	if( usDistortionValue >= usPosY+usHeight )
+	if (usHeight == 0 || usDistortionValue >= usHeight)
 	{
 		usDistortionValue = 0;
 		uiReturnValue = TRUE;
@@ -1610,7 +1643,7 @@ BOOLEAN DistortVideoMercImage( UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UIN
 
 
 		if( usDistortionValue + 10 >= usHeight )
-			usEndOnLine = usHeight-1;
+			usEndOnLine = usHeight;
 		else
 			usEndOnLine = usDistortionValue + 10;
 
@@ -1643,28 +1676,25 @@ BOOLEAN DistortVideoMercImage( UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UIN
 
 BOOLEAN InitDestroyXToCloseVideoWindow( BOOLEAN fCreate )
 {
-	static BOOLEAN fButtonCreated=FALSE;
-
-	//if we are asked to create the buttons and the button isnt already created
-	if( fCreate && !fButtonCreated )
+	if (!fCreate)
 	{
-		guiXToCloseMercVideoButtonImage = LoadButtonImage("LAPTOP\\CloseButton.sti", -1,0,-1,1,-1 );
-
-		guiXToCloseMercVideoButton = QuickCreateButton( guiXToCloseMercVideoButtonImage, MERC_X_TO_CLOSE_VIDEO_X, MERC_X_TO_CLOSE_VIDEO_Y,
-																	BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-																	DEFAULT_MOVE_CALLBACK, BtnXToCloseMercVideoButtonCallback);
-		SetButtonCursor(guiXToCloseMercVideoButton, CURSOR_LAPTOP_SCREEN);
-
-		fButtonCreated = TRUE;
+		gMercVideoCloseResources.clear();
+		return TRUE;
 	}
 
-	//if we are asked to destroy the buttons and the buttons are created
-	if( !fCreate && fButtonCreated )
-	{
-		UnloadButtonImage( guiXToCloseMercVideoButtonImage );
-		RemoveButton( guiXToCloseMercVideoButton );
-		fButtonCreated = FALSE;
-	}
+	if (!gMercVideoCloseResources.empty()) return TRUE;
+
+	LaptopPageResourceOwner staged;
+	if (!staged.addButtonImage(
+		LoadButtonImageOwned("LAPTOP\\CloseButton.sti", -1, 0, -1, 1, -1),
+		guiXToCloseMercVideoButtonImage)) return FALSE;
+	if (!staged.addButton(QuickCreateButton(guiXToCloseMercVideoButtonImage,
+		MERC_X_TO_CLOSE_VIDEO_X, MERC_X_TO_CLOSE_VIDEO_Y, BUTTON_TOGGLE,
+		MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+		BtnXToCloseMercVideoButtonCallback),
+		guiXToCloseMercVideoButton)) return FALSE;
+	SetButtonCursor(guiXToCloseMercVideoButton, CURSOR_LAPTOP_SCREEN);
+	gMercVideoCloseResources = std::move(staged);
 
 	return(TRUE);
 }
@@ -1888,9 +1918,12 @@ void DisplayTextForSpeckVideoPopUp(STR16 pString)
 	//check to make sure the region is not already initialized
 	if( !( gMercSiteSubTitleMouseRegion.uiFlags & MSYS_REGION_EXISTS ) )
 	{
+		gMercSubtitleResources.clear();
 		MSYS_DefineRegion( &gMercSiteSubTitleMouseRegion, gusSpeckDialogueX, MERC_TEXT_BOX_POS_Y, (INT16)(gusSpeckDialogueX + gusSpeckDialogueActualWidth), (INT16)(MERC_TEXT_BOX_POS_Y + usActualHeight), MSYS_PRIORITY_HIGH,
 									CURSOR_LAPTOP_SCREEN, MSYS_NO_CALLBACK, MercSiteSubTitleRegionCallBack );
-		MSYS_AddRegion( &gMercSiteSubTitleMouseRegion );
+		LaptopPageResourceOwner staged;
+		staged.addRegion(gMercSiteSubTitleMouseRegion);
+		gMercSubtitleResources = std::move(staged);
 	}
 }
 
@@ -2317,11 +2350,9 @@ void MercSiteSubTitleRegionCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 void RemoveSpeckPopupTextBox()
 {
+	gMercSubtitleResources.clear();
 	if( iMercPopUpBox == -1 )
 		return;
-
-	if( gMercSiteSubTitleMouseRegion.uiFlags & MSYS_REGION_EXISTS )
-		MSYS_RemoveRegion( &gMercSiteSubTitleMouseRegion );
 
 	if( RemoveMercPopupBoxFromIndex( iMercPopUpBox ) )
 	{
