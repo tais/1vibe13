@@ -460,6 +460,16 @@ foreach(required_campaign_policy_test_fragment IN ITEMS
   endif()
 endforeach()
 
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  runtime_campaign_policy_ci_contents)
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_application_policy_tests"
+  runtime_campaign_policy_ci_position)
+if(runtime_campaign_policy_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the runtime application campaign policy test target")
+endif()
+
 file(READ "${SOURCE_ROOT}/tests/campaign_application_policy_tests.cpp"
   runtime_campaign_policy_test_contents)
 foreach(required_campaign_policy_assertion IN ITEMS
