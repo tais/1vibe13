@@ -37,10 +37,9 @@
 	// HEADROCK HAM 3.5: Need this to see if enemies present at starting sector
 	#include "Overhead.h"
 	#include "Map Information.h"	// added by Flugente
-
-#ifdef JA2UB
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 #include "ub_config.h"
-#endif
 
 
 //forward declarations of common classes to eliminate includes
@@ -477,6 +476,8 @@ void StartHelicopterRun()
 
 void HandleHeliDrop( BOOLEAN fPlayer )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	UINT8 ubScriptCode;
 	UINT32	uiClock;
 	static INT32 iVol = 0;
@@ -501,16 +502,12 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 				TacticalActor* heliMerc = GetJa2SoldierRepository().resolve(
 					gusHeliSeats[cnt].i);
 				// Add merc to sector
-				#ifdef JA2UB
-				//gusHeliSeats[ cnt ]->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
-				heliMerc->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
-				heliMerc->deployment().strategicInsertionData() = gGameUBOptions.LOCATEGRIDNO;
-				#else
 				//gusHeliSeats[ cnt ]->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
 				heliMerc->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 				heliMerc->deployment().strategicInsertionData() =
-					gGameExternalOptions.iInitialMercArrivalLocation;
-				#endif
+					mercenaryPolicy.helicopterDropGridNo(
+						gGameExternalOptions.iInitialMercArrivalLocation,
+						gGameUBOptions.LOCATEGRIDNO);
 				// HEADROCK HAM 3.5: Externalized!
 				UpdateMercInSector(
 					heliMerc,
@@ -567,17 +564,14 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 				TacticalActor* heliMerc = GetJa2SoldierRepository().resolve(
 					gusHeliSeats[cnt].i);
 				// Add merc to sector
-#ifdef JA2UB
-				//gusHeliSeats[ cnt ]->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
-				heliMerc->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
-				heliMerc->deployment().strategicInsertionData() = gGameUBOptions.LOCATEGRIDNO;
-#else
 				//gusHeliSeats[ cnt ]->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
 				heliMerc->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 				// sevenfm: if soldiers land into enemy sector, use gsGridNoSweetSpot
 				//gusHeliSeats[ cnt ]->deployment().strategicInsertionData() = gGameExternalOptions.iInitialMercArrivalLocation;
-				heliMerc->deployment().strategicInsertionData() = gsGridNoSweetSpot;
-				#endif
+				heliMerc->deployment().strategicInsertionData() =
+					mercenaryPolicy.helicopterDropGridNo(
+						gsGridNoSweetSpot,
+						gGameUBOptions.LOCATEGRIDNO);
 				// HEADROCK HAM 3.5: Externalized!
 				UpdateMercInSector(
 					heliMerc,

@@ -38,10 +38,9 @@
 
 #include "GameSettings.h"
 #include "connect.h"
-
-#ifdef JA2UB
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 #include "ub_config.h"
-#endif
 
 void CalculateMedicalDepositRefund( TacticalActor *pSoldier );
 void NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( TacticalActor *pSoldier, BOOLEAN fAddRehireButton );
@@ -1003,6 +1002,8 @@ BOOLEAN BeginStrategicRemoveMerc( TacticalActor *pSoldier, BOOLEAN fAddRehireBut
 
 BOOLEAN StrategicRemoveMerc( TacticalActor *pSoldier )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	UINT8	ubHistoryCode=0;
 
 
@@ -1092,7 +1093,9 @@ BOOLEAN StrategicRemoveMerc( TacticalActor *pSoldier )
 	if( gMercProfiles[ pSoldier->identity().profile() ].bMercStatus != MERC_IS_DEAD )
 	{
 		//shadooow: this allows RPCs to re-appear in the areas we recruited them initially after being fired
-		if (pSoldier->identity().profile() != SLAY || gGameExternalOptions.fEnableSlayForever)
+		if (!mercenaryPolicy.isProfile(
+				pSoldier->identity().profile(), CampaignProfileCode::Role::Slay) ||
+			gGameExternalOptions.fEnableSlayForever)
 		{			
 			gMercProfiles[pSoldier->identity().profile()].ubMiscFlags &= (~PROFILE_MISC_FLAG_RECRUITED);
 		}
@@ -1169,6 +1172,13 @@ BOOLEAN StrategicRemoveMerc( TacticalActor *pSoldier )
 
 void CalculateMedicalDepositRefund( TacticalActor *pSoldier )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
+	const bool shouldSendEmail =
+		mercenaryPolicy.shouldSendMedicalDepositEmail(
+			gGameUBOptions.LaptopQuestEnabled == TRUE,
+			gubQuest[QUEST_FIX_LAPTOP] == QUESTDONE,
+			gGameUBOptions.fDeadMerc == TRUE);
 	INT32		iRefundAmount=0;
 
 	//if the merc didnt have any medical deposit, exit
@@ -1183,18 +1193,17 @@ void CalculateMedicalDepositRefund( TacticalActor *pSoldier )
 		AddTransactionToPlayersBook(FULL_MEDICAL_REFUND, pSoldier->identity().profile(), GetWorldTotalMin(), pSoldier->employment().medicalDeposit() );
 
 		//add an email
-#ifdef JA2UB
-//no UB
-	if( gubQuest[ QUEST_FIX_LAPTOP ] == QUESTDONE || gGameUBOptions.LaptopQuestEnabled == FALSE )
-	{
-		if ( gGameUBOptions.fDeadMerc == TRUE )
+		if (shouldSendEmail)
 		{
-			AddEmailWithSpecialData(27, AIM_MEDICAL_DEPOSIT_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->identity().profile(), TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L2, XML_AIM_REFUND);
+			if (mercenaryPolicy.usesUnfinishedBusinessMedicalDepositEmail())
+			{
+				AddEmailWithSpecialData(JA25_EMAIL_AIM_MEDICAL_DEPOSIT_REFUND, JA25_EMAIL_AIM_MEDICAL_DEPOSIT_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->identity().profile(), TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L2, XML_AIM_REFUND);
+			}
+			else
+			{
+				AddEmailWithSpecialData(JA2_EMAIL_AIM_MEDICAL_DEPOSIT_REFUND, JA2_EMAIL_AIM_MEDICAL_DEPOSIT_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->identity().profile(), TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_REFUND);
+			}
 		}
-	}
-#else
-		AddEmailWithSpecialData(AIM_MEDICAL_DEPOSIT_REFUND, AIM_MEDICAL_DEPOSIT_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->identity().profile(), TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_REFUND);
-#endif
 	}
 	//else if the merc is a dead, refund NOTHING!!
 	else if( pSoldier->vitals().health() <= 0 )
@@ -1203,17 +1212,17 @@ void CalculateMedicalDepositRefund( TacticalActor *pSoldier )
 		//AddTransactionToPlayersBook( NO_MEDICAL_REFUND, pSoldier->identity().profile(), GetWorldTotalMin(), 0 );
 
 		//add an email
-#ifdef JA2UB
-	if( gubQuest[ QUEST_FIX_LAPTOP ] == QUESTDONE || gGameUBOptions.LaptopQuestEnabled == FALSE )
-	{
-		if ( gGameUBOptions.fDeadMerc == TRUE )
+		if (shouldSendEmail)
 		{
-			AddEmailWithSpecialData(217, AIM_MEDICAL_DEPOSIT_NO_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->identity().profile(), TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L3, XML_AIM_NOREFUND);
+			if (mercenaryPolicy.usesUnfinishedBusinessMedicalDepositEmail())
+			{
+				AddEmailWithSpecialData(JA25_EMAIL_AIM_MEDICAL_DEPOSIT_NO_REFUND, JA25_EMAIL_AIM_MEDICAL_DEPOSIT_NO_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->identity().profile(), TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L3, XML_AIM_NOREFUND);
+			}
+			else
+			{
+				AddEmailWithSpecialData(JA2_EMAIL_AIM_MEDICAL_DEPOSIT_NO_REFUND, JA2_EMAIL_AIM_MEDICAL_DEPOSIT_NO_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->identity().profile(), TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_NOREFUND);
+			}
 		}
-	}
-#else
-		AddEmailWithSpecialData(AIM_MEDICAL_DEPOSIT_NO_REFUND, AIM_MEDICAL_DEPOSIT_NO_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->identity().profile(), TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_NOREFUND);
-#endif
 	}
 	//else the player is injured, refund a partial amount
 	else
@@ -1225,18 +1234,17 @@ void CalculateMedicalDepositRefund( TacticalActor *pSoldier )
 		AddTransactionToPlayersBook( PARTIAL_MEDICAL_REFUND, pSoldier->identity().profile(), GetWorldTotalMin(), iRefundAmount );
 
 		//add an email
-#ifdef JA2UB
-// no UB
-	if( gubQuest[ QUEST_FIX_LAPTOP ] == QUESTDONE || gGameUBOptions.LaptopQuestEnabled == FALSE )
-	{
-		if ( gGameUBOptions.fDeadMerc == TRUE )
+		if (shouldSendEmail)
 		{
-			AddEmailWithSpecialData(214, AIM_MEDICAL_DEPOSIT_PARTIAL_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), iRefundAmount, pSoldier->identity().profile(), TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L4, XML_AIM_PARTIALREFUND);
+			if (mercenaryPolicy.usesUnfinishedBusinessMedicalDepositEmail())
+			{
+				AddEmailWithSpecialData(JA25_EMAIL_AIM_MEDICAL_DEPOSIT_PARTIAL_REFUND, JA25_EMAIL_AIM_MEDICAL_DEPOSIT_PARTIAL_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), iRefundAmount, pSoldier->identity().profile(), TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L4, XML_AIM_PARTIALREFUND);
+			}
+			else
+			{
+				AddEmailWithSpecialData(JA2_EMAIL_AIM_MEDICAL_DEPOSIT_PARTIAL_REFUND, JA2_EMAIL_AIM_MEDICAL_DEPOSIT_PARTIAL_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), iRefundAmount, pSoldier->identity().profile(), TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_PARTIALREFUND);
+			}
 		}
-	}
-#else
-		AddEmailWithSpecialData(AIM_MEDICAL_DEPOSIT_PARTIAL_REFUND, AIM_MEDICAL_DEPOSIT_PARTIAL_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), iRefundAmount, pSoldier->identity().profile(), TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_PARTIALREFUND);
-#endif
 	}
 }
 

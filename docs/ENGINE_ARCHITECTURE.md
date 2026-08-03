@@ -954,6 +954,20 @@ the engine must not contain SDL types in its public domain model.
   `JA2UB` or raw campaign-colliding dealer aliases. This changes no data
   filename, raw item/dealer record, loading-screen ID, save record, map, XML,
   Lua, or package format.
+- Mercenary lifecycle decisions now use the value-only
+  `CampaignMercenaryPolicy`. Profile loading selects `Prof.dat` or
+  `JA25PROF.DAT` at runtime; hiring gear, initial arrival and helicopter
+  behavior, John Kulba delays, initial away assignments, RPC recruitment,
+  sector coolness, AIM availability notices, medical-deposit refunds, and
+  daily Slay/contract rules are all emitted in every host. Semantic profile
+  roles resolve the established Miguel-through-Slay one-slot shift without
+  changing raw profile data, and campaign-qualified email and Speck quote IDs
+  retain their existing records. Data-free tests cover both campaign policies,
+  while architecture CI rejects compile-time campaign identity and checks
+  runtime role routing in the six migrated lifecycle implementations.
+  The one remaining profile-enum guard is an explicit compatibility seam for
+  unrelated legacy callers and will disappear with the repository-wide
+  semantic-profile migration.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

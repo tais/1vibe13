@@ -12,7 +12,10 @@ action decoding, tactical overhead/endgame flow, map changes and sector state,
 strategic ownership/movement, queen command, quests/facts, and the laptop
 lifecycle/router emit both campaign paths and select them through
 `GameCapabilities`. Dealer inventory, lifecycle, repair rules, and shopkeeper
-transactions now do the same through `CampaignDealerPolicy`.
+transactions now do the same through `CampaignDealerPolicy`. Mercenary profile
+loading, hiring and arrival, recruitment, creation, contract refunds, daily
+availability, and campaign-specific Slay handling use
+`CampaignMercenaryPolicy`.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -24,18 +27,21 @@ constants and typed profile/action/map-change/dealer resolvers preserve the
 existing numeric records. In particular, dealer save and merchant-XML storage
 remain 80 raw slots: the typed dealer policy resolves the campaign-dependent
 meanings of the colliding slots 5-18 without changing their serialized values.
+The mercenary policy likewise resolves the established one-slot profile shift
+for Miguel through Slay and preserves both campaigns' profile, email, and quote
+record numbers.
 
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 310 active conditionals in 69
+milestone its per-file baseline contains 275 active conditionals in 63
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 147 |
-| Tactical gameplay/content | 81 |
-| Strategic gameplay/content | 63 |
+| Tactical gameplay/content | 54 |
+| Strategic gameplay/content | 55 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 8 |
 | Editor | 1 |
@@ -45,13 +51,21 @@ first-party files:
 
 The common content loader, tactical game-screen loop, helicopter arrival,
 underground loading-screen selection, XML campaign paths, dealer identity and
-inventory routing, and shopkeeper behavior no longer contribute to this tail.
-Those paths use `CampaignApplicationPolicy` and `CampaignDealerPolicy` and are
-guarded by data-free headless tests plus named architecture checks. The seven
-remaining `Ja2` conditionals are the compiled host-capability seed, the two
-alternate new-game-screen implementations, product/build labels, and the
-legacy `GAME_SETTINGS` layout; they are deliberately separate compatibility
-seams.
+inventory routing, shopkeeper behavior, and the migrated mercenary lifecycle
+no longer contribute to this tail. Those paths use
+`CampaignApplicationPolicy`, `CampaignDealerPolicy`, and
+`CampaignMercenaryPolicy` and are guarded by data-free headless tests plus
+named architecture checks. The seven remaining `Ja2` conditionals are the
+compiled host-capability seed, the two alternate new-game-screen
+implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;
+they are deliberately separate compatibility seams.
+
+One profile-enum conditional remains in `Tactical/Soldier Profile.h`: the raw
+legacy aliases from Miguel through Slay collide with the next campaign's IDs.
+Migrated lifecycle callers no longer use those aliases, but unrelated content
+callers still do. Removing that final header guard requires completing the
+repository-wide semantic-profile migration rather than assigning one
+campaign's meaning to shared raw names.
 
 The largest individual legacy leaves are:
 
@@ -66,8 +80,8 @@ The largest individual legacy leaves are:
 | `Laptop/mercs Files.cpp` | 10 |
 | `Laptop/AimMembers.cpp` | 9 |
 | `Laptop/files.cpp` | 9 |
-| `Tactical/Merc Hiring.cpp` | 9 |
-| `Tactical/Soldier Profile.cpp` | 9 |
+| `Tactical/Handle Doors.cpp` | 8 |
+| `Laptop/insurance Contract.cpp` | 7 |
 
 These are not dependencies of `Engine/Core`; they are legacy application,
 page, campaign-content, and gameplay implementations above the runtime
