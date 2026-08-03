@@ -5,8 +5,6 @@
     "Ja2/GameInitOptionsScreen.cpp": 1,
     "Ja2/GameSettings.h": 2,
     "Ja2/GameVersion.cpp": 3,
-    "Laptop/AimLinks.cpp": 16,
-    "Laptop/AimMembers.cpp": 9,
     "Laptop/IMP HomePage.cpp": 3,
     "Laptop/IMP Text System.cpp": 3,
     "Laptop/PostalService.cpp": 2,
@@ -54,5 +52,5 @@
     "Utils/Timer Control.cpp": 1
   },
   "schema": 1,
-  "total": 191
+  "total": 166
 }

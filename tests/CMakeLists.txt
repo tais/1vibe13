@@ -64,6 +64,14 @@ target_include_directories(campaign_merc_site_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_merc_site_policy COMMAND campaign_merc_site_policy_tests)
 
+# A.I.M. links, salary presentation, contract pricing, and hiring controls are
+# selected at runtime. This data-free target pins both complete policy paths.
+add_executable(campaign_aim_site_policy_tests
+  campaign_aim_site_policy_tests.cpp)
+target_include_directories(campaign_aim_site_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_aim_site_policy COMMAND campaign_aim_site_policy_tests)
+
 # A dedicated process replaces global allocation hooks while measuring the
 # observer hot path. Keeping it separate avoids coupling allocation accounting
 # to unrelated adapter tests or their setup work.

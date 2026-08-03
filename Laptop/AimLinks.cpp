@@ -5,18 +5,14 @@
 	#include "WordWrap.h"
 	#include "Text.h"
 	#include "Multi Language Graphic Utils.h"
+	#include "CampaignAimSitePolicy.h"
+	#include "GameContext.h"
+	#include "ub_config.h"
 
-#ifdef JA2UB
-#include "ub_config.h"
-#endif
+#include <array>
 
 #define		AIM_LINK_TITLE_FONT						FONT14ARIAL
 #define		AIM_LINK_TITLE_COLOR					AIM_GREEN
-
-#define	AIM_LINK_FONT									FONT12ARIAL
-#define	AIM_LINK_COLOR								AIM_FONT_GOLD
-
-#define		AIM_LINK_NUM_LINKS						3
 
 #define		AIM_LINK_LINK_OFFSET_Y				94//90
 
@@ -26,37 +22,68 @@
 #define		AIM_LINK_BOBBY_LINK_X					LAPTOP_SCREEN_UL_X + 40
 #define		AIM_LINK_BOBBY_LINK_Y					LAPTOP_SCREEN_WEB_UL_Y + 91
 
-#define		AIM_LINK_FUNERAL_LINK_X				AIM_LINK_BOBBY_LINK_X
-#define		AIM_LINK_FUNERAL_LINK_Y				AIM_LINK_BOBBY_LINK_Y + AIM_LINK_LINK_OFFSET_Y
-
-#define		AIM_LINK_INSURANCE_LINK_X			AIM_LINK_BOBBY_LINK_X
-#define		AIM_LINK_INSURANCE_LINK_Y			AIM_LINK_FUNERAL_LINK_Y + AIM_LINK_LINK_OFFSET_Y
-
 #define		AIM_LINK_TITLE_X							IMAGE_OFFSET_X + 149
 #define		AIM_LINK_TITLE_Y							AIM_SYMBOL_Y + AIM_SYMBOL_SIZE_Y + 10
 #define		AIM_LINK_TITLE_WIDTH					AIM_SYMBOL_WIDTH
 
-#define		AIM_LINK_LINK_TEXT_1_Y				AIM_LINK_BOBBY_LINK_Y + 71
-#define		AIM_LINK_LINK_TEXT_2_Y				AIM_LINK_FUNERAL_LINK_Y + 36
-#define		AIM_LINK_LINK_TEXT_3_Y				AIM_LINK_INSURANCE_LINK_Y + 45
+enum class AimLink : UINT8
+{
+	BobbyRay,
+	Funeral,
+	Insurance,
+	Count
+};
 
+static constexpr auto AIM_LINK_COUNT =
+	static_cast<std::size_t>(AimLink::Count);
+static constexpr std::array<UINT16, AIM_LINK_COUNT> AIM_LINK_GRAPHICS = {
+	MLG_BOBBYRAYLINK,
+	MLG_MORTUARYLINK,
+	MLG_INSURANCELINK};
+static constexpr std::array<UINT8, AIM_LINK_COUNT> AIM_LINK_PAGES = {
+	BOBBYR_BOOKMARK,
+	FUNERAL_BOOKMARK,
+	INSURANCE_BOOKMARK};
 
-	#ifdef JA2UB
-	INT16 LinkID = 3;
-	#endif
+static std::array<UINT32, AIM_LINK_COUNT> gAimLinkImages;
+static std::array<MOUSE_REGION, AIM_LINK_COUNT> gAimLinkRegions;
+static std::array<BOOLEAN, AIM_LINK_COUNT> gAimLinkEnabled;
 
+static bool IsUnfinishedBusinessLinkConfigured(AimLink link)
+{
+	switch (link)
+	{
+		case AimLink::BobbyRay:
+			return gGameUBOptions.LaptopLinkBobby == TRUE;
+		case AimLink::Funeral:
+			return gGameUBOptions.LaptopLinkFuneral == TRUE;
+		case AimLink::Insurance:
+			return gGameUBOptions.LaptopLinkInsurance == TRUE;
+		case AimLink::Count:
+		default:
+			return false;
+	}
+}
 
+static void RefreshAimLinkAvailability()
+{
+	const CampaignAimSitePolicy aimSitePolicy(
+		GetGameContext().capabilities());
+	for (std::size_t index = 0; index < AIM_LINK_COUNT; ++index)
+	{
+		gAimLinkEnabled[index] = aimSitePolicy.linkEnabled(
+			IsUnfinishedBusinessLinkConfigured(
+				static_cast<AimLink>(index)));
+	}
+}
 
-UINT32		guiBobbyLink;
-UINT32		guiFuneralLink;
-UINT32		guiInsuranceLink;
-UINT8			gubLinkPages[]={
-							BOBBYR_BOOKMARK,
-							FUNERAL_BOOKMARK,
-							INSURANCE_BOOKMARK};
+static UINT16 AimLinkY(std::size_t linkIndex)
+{
+	return static_cast<UINT16>(
+		AIM_LINK_BOBBY_LINK_Y + linkIndex * AIM_LINK_LINK_OFFSET_Y);
+}
 
 //Clicking on guys Face
-MOUSE_REGION	gSelectedLinkRegion[ AIM_LINK_NUM_LINKS ] ;
 void SelectLinkRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
 
@@ -68,89 +95,27 @@ void GameInitAimLinks()
 BOOLEAN EnterAimLinks()
 {
 	VOBJECT_DESC	VObjectDesc;
-	UINT16					usPosY;	
-	
+
 	InitAimDefaults();
 	InitAimMenuBar();
+	RefreshAimLinkAvailability();
 
-	#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkBobby == TRUE )
+	for (std::size_t index = 0; index < AIM_LINK_COUNT; ++index)
 	{
-	#endif
-	// load the Bobby link graphic and add it
-	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	GetMLGFilename( VObjectDesc.ImageFile, MLG_BOBBYRAYLINK );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBobbyLink));
-	#ifdef JA2UB
-	}
-	#endif
-	
-	#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkFuneral == TRUE )
-	{
-	#endif
-	// load the Funeral graphic and add it
-	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	GetMLGFilename( VObjectDesc.ImageFile, MLG_MORTUARYLINK );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFuneralLink));
-	#ifdef JA2UB
-	}
-	#endif
-	
-	#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-	{
-	#endif
-	// load the Insurance graphic and add it
-	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	GetMLGFilename( VObjectDesc.ImageFile, MLG_INSURANCELINK );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsuranceLink));
-	#ifdef JA2UB
-	}
-	#endif
-	
-	#ifdef JA2UB
-		usPosY = AIM_LINK_BOBBY_LINK_Y;
-		if (gGameUBOptions.LaptopLinkBobby == TRUE )
-		{
-		MSYS_DefineRegion( &gSelectedLinkRegion[0], AIM_LINK_BOBBY_LINK_X, usPosY , AIM_LINK_BOBBY_LINK_X + AIM_LINK_LINK_WIDTH, (UINT16)(usPosY + AIM_LINK_LINK_HEIGHT), MSYS_PRIORITY_HIGH,
+		if (!gAimLinkEnabled[index])
+			continue;
+
+		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
+		GetMLGFilename(VObjectDesc.ImageFile, AIM_LINK_GRAPHICS[index]);
+		CHECKF(AddVideoObject(&VObjectDesc, &gAimLinkImages[index]));
+
+		const UINT16 linkY = AimLinkY(index);
+		MSYS_DefineRegion( &gAimLinkRegions[index], AIM_LINK_BOBBY_LINK_X, linkY , AIM_LINK_BOBBY_LINK_X + AIM_LINK_LINK_WIDTH, (UINT16)(linkY + AIM_LINK_LINK_HEIGHT), MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack );
-		MSYS_AddRegion(&gSelectedLinkRegion[0]);
-		MSYS_SetRegionUserData( &gSelectedLinkRegion[0], 0, gubLinkPages[0]);
-		//usPosY += AIM_LINK_LINK_OFFSET_Y;	
-		}
-		
-		usPosY = AIM_LINK_FUNERAL_LINK_Y;	
-		if (gGameUBOptions.LaptopLinkFuneral == TRUE )
-		{
-		MSYS_DefineRegion( &gSelectedLinkRegion[1], AIM_LINK_FUNERAL_LINK_X, usPosY , AIM_LINK_FUNERAL_LINK_X + AIM_LINK_LINK_WIDTH, (UINT16)(usPosY + AIM_LINK_LINK_HEIGHT), MSYS_PRIORITY_HIGH,
-								CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack );
-		MSYS_AddRegion(&gSelectedLinkRegion[1]);
-		MSYS_SetRegionUserData( &gSelectedLinkRegion[1], 0, gubLinkPages[1]);
-		//usPosY += AIM_LINK_LINK_OFFSET_Y;	
-		}
-		
-		usPosY = AIM_LINK_INSURANCE_LINK_Y;
-		if (gGameUBOptions.LaptopLinkInsurance== TRUE )
-		{
-		MSYS_DefineRegion( &gSelectedLinkRegion[2], AIM_LINK_INSURANCE_LINK_X, usPosY , AIM_LINK_INSURANCE_LINK_X + AIM_LINK_LINK_WIDTH, (UINT16)(usPosY + AIM_LINK_LINK_HEIGHT), MSYS_PRIORITY_HIGH,
-								CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack );
-		MSYS_AddRegion(&gSelectedLinkRegion[2]);
-		MSYS_SetRegionUserData( &gSelectedLinkRegion[2], 0, gubLinkPages[2]);
-		usPosY += AIM_LINK_LINK_OFFSET_Y;	
-		}
-	
-	#else	
-	usPosY = AIM_LINK_BOBBY_LINK_Y;
-	for(UINT8 i=0; i<AIM_LINK_NUM_LINKS; i++)
-	{
-		MSYS_DefineRegion( &gSelectedLinkRegion[i], AIM_LINK_BOBBY_LINK_X, usPosY , AIM_LINK_BOBBY_LINK_X + AIM_LINK_LINK_WIDTH, (UINT16)(usPosY + AIM_LINK_LINK_HEIGHT), MSYS_PRIORITY_HIGH,
-								CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack );
-		MSYS_AddRegion(&gSelectedLinkRegion[i]);
-		MSYS_SetRegionUserData( &gSelectedLinkRegion[i], 0, gubLinkPages[i]);
-		usPosY += AIM_LINK_LINK_OFFSET_Y;
+		MSYS_AddRegion(&gAimLinkRegions[index]);
+		MSYS_SetRegionUserData(
+			&gAimLinkRegions[index], 0, AIM_LINK_PAGES[index]);
 	}
-	#endif
 
 	RenderAimLinks();
 	return(TRUE);
@@ -159,37 +124,15 @@ BOOLEAN EnterAimLinks()
 void ExitAimLinks()
 {
 	RemoveAimDefaults();
-	
-	#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkBobby == TRUE )
-		DeleteVideoObjectFromIndex(guiBobbyLink);
-	
-	if (gGameUBOptions.LaptopLinkFuneral == TRUE )
-		DeleteVideoObjectFromIndex(guiFuneralLink);
-	
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-		DeleteVideoObjectFromIndex(guiInsuranceLink);
-	
-	if (gGameUBOptions.LaptopLinkBobby == TRUE )
-		MSYS_RemoveRegion( &gSelectedLinkRegion[0]);
-	
-	if (gGameUBOptions.LaptopLinkFuneral == TRUE )
-		MSYS_RemoveRegion( &gSelectedLinkRegion[1]);
-	
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-		MSYS_RemoveRegion( &gSelectedLinkRegion[2]);
-		
-	#else
-	
-	DeleteVideoObjectFromIndex(guiBobbyLink);
-	DeleteVideoObjectFromIndex(guiFuneralLink);
-	DeleteVideoObjectFromIndex(guiInsuranceLink);
-	
-	for(INT16 i=0; i<AIM_LINK_NUM_LINKS; i++)
-		MSYS_RemoveRegion( &gSelectedLinkRegion[i]);
-	#endif
-	
-	
+
+	for (std::size_t index = 0; index < AIM_LINK_COUNT; ++index)
+	{
+		if (!gAimLinkEnabled[index])
+			continue;
+		DeleteVideoObjectFromIndex(gAimLinkImages[index]);
+		MSYS_RemoveRegion(&gAimLinkRegions[index]);
+	}
+
 	ExitAimMenuBar();
 
 }
@@ -206,37 +149,15 @@ void RenderAimLinks()
 	DrawAimDefaults();
 	DisableAimButton();
 
-	#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkBobby == TRUE )
+	for (std::size_t index = 0; index < AIM_LINK_COUNT; ++index)
 	{
-	#endif
-	GetVideoObject(&hPixHandle, guiBobbyLink);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, AIM_LINK_BOBBY_LINK_X, AIM_LINK_BOBBY_LINK_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-	#ifdef JA2UB
+		if (!gAimLinkEnabled[index])
+			continue;
+		GetVideoObject(&hPixHandle, gAimLinkImages[index]);
+		BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+			AIM_LINK_BOBBY_LINK_X, AimLinkY(index),
+			VO_BLT_SRCTRANSPARENCY, NULL);
 	}
-	#endif
-	
-	#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkFuneral == TRUE )
-	{
-	#endif
-	GetVideoObject(&hPixHandle, guiFuneralLink);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, AIM_LINK_FUNERAL_LINK_X, AIM_LINK_FUNERAL_LINK_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-//	DrawTextToScreen(AimLinkText[AIM_LINK_FUNERAL], AIM_LINK_BOBBY_LINK_X, AIM_LINK_LINK_TEXT_2_Y, AIM_LINK_LINK_WIDTH, AIM_LINK_FONT, AIM_LINK_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-	#ifdef JA2UB
-	}
-	#endif
-	
-	#ifdef JA2UB
-	if (gGameUBOptions.LaptopLinkInsurance == TRUE )
-	{
-	#endif
-	GetVideoObject(&hPixHandle, guiInsuranceLink);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, AIM_LINK_INSURANCE_LINK_X, AIM_LINK_INSURANCE_LINK_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-//	DrawTextToScreen(AimLinkText[AIM_LINK_LISTENING], AIM_LINK_BOBBY_LINK_X, AIM_LINK_LINK_TEXT_3_Y, AIM_LINK_LINK_WIDTH, AIM_LINK_FONT, AIM_LINK_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-	#ifdef JA2UB
-	}
-	#endif
 	
 	//Draw Link Title
 	DrawTextToScreen(AimLinkText[AIM_LINK_TITLE], AIM_LINK_TITLE_X, AIM_LINK_TITLE_Y, AIM_LINK_TITLE_WIDTH, AIM_LINK_TITLE_FONT, AIM_LINK_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);

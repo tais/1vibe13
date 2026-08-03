@@ -22,7 +22,11 @@ campaign-colliding aliases. The M.E.R.C. landing, account, hire, files, and
 Speck-dialogue paths use `CampaignMercSitePolicy`; both campaigns' account,
 billing, equipment, availability, and dialogue behavior are emitted in every
 host. Eight colliding Speck dialogue roles are resolved through
-`CampaignSpeckQuoteCode::Role` rather than campaign-ambiguous raw aliases.
+`CampaignSpeckQuoteCode::Role` rather than campaign-ambiguous raw aliases. The
+A.I.M. links and member pages use `CampaignAimSitePolicy`: configurable UB
+links, mission-fee presentation, fixed contract pricing, one-time-offer text,
+and hidden hiring controls coexist with Arulco's complete link and contract UI
+in every host.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -38,16 +42,19 @@ The mercenary policy likewise resolves the established one-slot profile shift
 for Miguel through Slay. The M.E.R.C. policy preserves both campaigns' profile,
 account, finance, email, and speech records, including the exact 19- and
 20-entry idle-quote rosters and the shifted Speck records 76-83 versus 94-101.
+The A.I.M. policy preserves its existing bookmarks, artwork and text records,
+daily/weekly/biweekly salaries, medical deposits, equipment prices, and finance
+transactions.
 
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 191 active conditionals in 52
+milestone its per-file baseline contains 166 active conditionals in 50
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
-| Laptop content/pages | 72 |
+| Laptop content/pages | 47 |
 | Tactical gameplay/content | 52 |
 | Strategic gameplay/content | 48 |
 | JA2 compatibility shell/layout | 7 |
@@ -65,8 +72,11 @@ no longer contribute to this tail. Those paths use
 `CampaignMercenaryPolicy`. The full M.E.R.C. site cluster no longer contributes
 either: account creation and settlement, hire pricing and gear, site
 availability, and Speck dialogue use `CampaignMercSitePolicy` and typed quote
-roles. All four policies are guarded by data-free headless tests plus named
-architecture checks. The seven remaining `Ja2` conditionals are the
+roles. The A.I.M. links/member cluster no longer contributes either: link
+availability, salary/mission-fee presentation, contract charging, and hiring
+controls use `CampaignAimSitePolicy`. All five policies are guarded by
+data-free headless tests plus named architecture checks. The seven remaining
+`Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
 implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;
 they are deliberately separate compatibility seams.
@@ -82,11 +92,9 @@ The largest individual legacy leaves are:
 
 | File | Conditionals |
 | --- | ---: |
-| `Laptop/AimLinks.cpp` | 16 |
 | `Laptop/email.cpp` | 14 |
 | `Strategic/mapscreen.cpp` | 12 |
 | `Strategic/LuaInitNPCs.cpp` | 11 |
-| `Laptop/AimMembers.cpp` | 9 |
 | `Laptop/files.cpp` | 9 |
 | `Tactical/Handle Doors.cpp` | 8 |
 | `Laptop/insurance Contract.cpp` | 7 |
