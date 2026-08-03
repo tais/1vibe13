@@ -80,19 +80,8 @@ enum NPCIDs
 	COUGAR,
 	NUMB,
 	BUBBA,
-#ifdef JA2UB
-	MIGUEL = 58,  	//Ja25:		Was 57
-#else
-	MIGUEL = 57,
-#endif
-	CARLOS,
-	IRA,
-	DIMITRI,
-
-	DEVIN,	// 61
-	ROBOT,
-	HAMOUS,
-	SLAY,
+	// Profiles 57-65 are campaign data. Their semantic Miguel-through-Slay
+	// roles are resolved through CampaignProfileCode at runtime.
 	RPC65 = 65,
 	DYNAMO,
 	SHANK,

@@ -29,6 +29,8 @@
 #include "Vehicles.h"
 #include "Weapons.h"
 #include "tiledef.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 #include <algorithm>
 #include <cmath>
@@ -725,12 +727,16 @@ std::uint16_t TacticalActorModifiers::interactiveActionSkill(
 	std::uint16_t type)
 {
 	auto* const self = &actor;
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 
 	switch (type)
 	{
 		case INTERACTIVE_STRUCTURE_HACKABLE:
 		{
-			if (self->identity().profile() == ROBOT || IsVehicle(self))
+			if (mercenaryPolicy.isProfile(
+					self->identity().profile(), CampaignProfileCode::Role::Robot) ||
+				IsVehicle(self))
 				return 0;
 
 			UINT16 skill = backgroundValue(actor, BG_HACKERSKILL);
@@ -771,7 +777,9 @@ std::uint16_t TacticalActorModifiers::interactiveActionSkill(
 
 		case INTERACTIVE_STRUCTURE_READFILE:
 		{
-			if (self->identity().profile() == ROBOT || IsVehicle(self))
+			if (mercenaryPolicy.isProfile(
+					self->identity().profile(), CampaignProfileCode::Role::Robot) ||
+				IsVehicle(self))
 				return 0;
 
 			// reading is governed by wisdom
@@ -781,7 +789,9 @@ std::uint16_t TacticalActorModifiers::interactiveActionSkill(
 
 		case INTERACTIVE_STRUCTURE_WATERTAP:
 		{
-			if (self->identity().profile() == ROBOT || IsVehicle(self))
+			if (mercenaryPolicy.isProfile(
+					self->identity().profile(), CampaignProfileCode::Role::Robot) ||
+				IsVehicle(self))
 				return 0;
 
 			// we are pros at drinking water
@@ -791,7 +801,9 @@ std::uint16_t TacticalActorModifiers::interactiveActionSkill(
 
 		case INTERACTIVE_STRUCTURE_SODAMACHINE:
 		{
-			if (self->identity().profile() == ROBOT || IsVehicle(self))
+			if (mercenaryPolicy.isProfile(
+					self->identity().profile(), CampaignProfileCode::Role::Robot) ||
+				IsVehicle(self))
 				return 0;
 
 			// we are pros at buying from a vending machine
@@ -801,7 +813,9 @@ std::uint16_t TacticalActorModifiers::interactiveActionSkill(
 
 		case INTERACTIVE_STRUCTURE_MINIGAME:
 		{
-			if (self->identity().profile() == ROBOT || IsVehicle(self))
+			if (mercenaryPolicy.isProfile(
+					self->identity().profile(), CampaignProfileCode::Role::Robot) ||
+				IsVehicle(self))
 				return 0;
 
 			// we are pros at playing games
@@ -811,7 +825,9 @@ std::uint16_t TacticalActorModifiers::interactiveActionSkill(
 
 		case INTERACTIVE_STRUCTURE_VARIOUS:
 		{
-			if (self->identity().profile() == ROBOT || IsVehicle(self))
+			if (mercenaryPolicy.isProfile(
+					self->identity().profile(), CampaignProfileCode::Role::Robot) ||
+				IsVehicle(self))
 				return 0;
 
 			// no idea what we're doing, but we're probably good at it

@@ -57,7 +57,9 @@
 	#include "Drugs And Alcohol.h"	// added by Flugente for DoesMercHavePersonality( ... )
 	#include "SaveLoadGame.h"
 	#include "SoldierRepository.h"
-	
+	#include "CampaignMercenaryPolicy.h"
+	#include "GameContext.h"
+
 #ifdef JA2UB
 #include "Ja25_Tactical.h"
 #include "Ja25_Tactical.h"
@@ -344,7 +346,8 @@ BOOLEAN EnsureQuoteFileLoaded( UINT8 ubNPC )
 {
 	BOOLEAN			fLoadFile = FALSE;
 
-	if ( ubNPC == ROBOT )
+	if ( CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+			ubNPC, CampaignProfileCode::Role::Robot) )
 	{
 		return( FALSE );
 	}

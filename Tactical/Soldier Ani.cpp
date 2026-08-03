@@ -87,6 +87,8 @@
 #include "Civ Quotes.h"
 #include "connect.h"
 #include "fresh_header.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 #ifdef JA2UB
 #else
@@ -5156,7 +5158,10 @@ void KickOutWheelchair( TacticalActor *pSoldier )
 
 	(void)TacticalActorRouteExecution::stopAt(*pSoldier, sNewGridNo, pSoldier->position().direction() );
 	pSoldier->identity().bodyType() = REGMALE;
-	if ( pSoldier->identity().profile() == SLAY && pSoldier->roster().team() == CIV_TEAM && !pSoldier->aiBehavior().neutral() )
+	if ( CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+			pSoldier->identity().profile(), CampaignProfileCode::Role::Slay) &&
+		pSoldier->roster().team() == CIV_TEAM &&
+		!pSoldier->aiBehavior().neutral() )
 	{
 		HandleNPCDoAction( pSoldier->identity().profile(), NPC_ACTION_THREATENINGLY_RAISE_GUN, 0 );
 	}

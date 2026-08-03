@@ -1,5 +1,6 @@
 #include "CampaignMercenaryPolicy.h"
 
+#include <array>
 #include <cstring>
 
 int main()
@@ -81,14 +82,27 @@ int main()
 		unfinishedBusiness.includesDevinInNpcContractGroup())
 		return 2;
 
-	for (int role = static_cast<int>(CampaignProfileCode::Role::Miguel);
-		role <= static_cast<int>(CampaignProfileCode::Role::Slay); ++role)
+	constexpr std::array<std::uint8_t, 8> arulcoProfiles =
+		{57, 58, 59, 60, 61, 62, 63, 64};
+	constexpr std::array<std::uint8_t, 8> unfinishedBusinessProfiles =
+		{58, 59, 60, 61, 62, 63, 64, 65};
+	constexpr std::array<CampaignProfileCode::Role, 8> profileRoles = {
+		CampaignProfileCode::Role::Miguel,
+		CampaignProfileCode::Role::Carlos,
+		CampaignProfileCode::Role::Ira,
+		CampaignProfileCode::Role::Dimitri,
+		CampaignProfileCode::Role::Devin,
+		CampaignProfileCode::Role::Robot,
+		CampaignProfileCode::Role::Hamous,
+		CampaignProfileCode::Role::Slay};
+	for (std::size_t role = 0; role < profileRoles.size(); ++role)
 	{
-		const auto profileRole = static_cast<CampaignProfileCode::Role>(role);
+		const auto profileRole = profileRoles[role];
 		const std::uint8_t arulcoProfile = arulco.profile(profileRole);
 		const std::uint8_t unfinishedBusinessProfile =
 			unfinishedBusiness.profile(profileRole);
-		if (unfinishedBusinessProfile != arulcoProfile + 1 ||
+		if (arulcoProfile != arulcoProfiles[role] ||
+			unfinishedBusinessProfile != unfinishedBusinessProfiles[role] ||
 			!arulco.isProfile(arulcoProfile, profileRole) ||
 			!unfinishedBusiness.isProfile(
 				unfinishedBusinessProfile, profileRole) ||

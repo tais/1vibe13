@@ -37,6 +37,7 @@
 #include "LuaInitNPCs.h"
 #include "SaveLoadGame.h"
 #include "GameContext.h"
+#include "CampaignMercenaryPolicy.h"
 #include "GameSettings.h"
 #include "connect.h"
 #include "Options Screen.h"
@@ -1233,7 +1234,10 @@ void HourlyCheckIfSlayAloneSoHeCanLeave()
 	if (gGameExternalOptions.fEnableSlayForever || gGameExternalOptions.ubHourlyChanceSlayWillLeave < 1) return;
 
 	TacticalActor *pSoldier;
-	pSoldier = FindSoldierByProfileID( SLAY, TRUE );
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
+	pSoldier = FindSoldierByProfileID(
+		mercenaryPolicy.profile(CampaignProfileCode::Role::Slay), TRUE );
 	if( !pSoldier )
 	{
 		return;

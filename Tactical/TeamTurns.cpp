@@ -61,6 +61,8 @@
 #include "TacticalActor.h"
 #include "Grid Direction.h"
 #include "Soldier Profile Constants.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 
 #ifdef JA2UB
@@ -2952,7 +2954,10 @@ BOOLEAN NPCFirstDraw( TacticalActor * pSoldier, TacticalActor * pTargetSoldier )
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"NPCFirstDraw");
 	// if attacking an NPC check to see who draws first!
 
-	if ( pTargetSoldier->identity().profile() != NO_PROFILE && pTargetSoldier->identity().profile() != SLAY && pTargetSoldier->aiBehavior().neutral() && pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == SEEN_CURRENTLY && (	FindAIUsableObjClass( pTargetSoldier, IC_WEAPON ) != NO_SLOT ) )
+	if ( pTargetSoldier->identity().profile() != NO_PROFILE &&
+		!CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+			pTargetSoldier->identity().profile(), CampaignProfileCode::Role::Slay) &&
+		pTargetSoldier->aiBehavior().neutral() && pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == SEEN_CURRENTLY && (	FindAIUsableObjClass( pTargetSoldier, IC_WEAPON ) != NO_SLOT ) )
 	{
 		UINT8	ubLargerHalf, ubSmallerHalf, ubTargetLargerHalf, ubTargetSmallerHalf;
 

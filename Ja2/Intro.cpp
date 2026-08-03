@@ -5,6 +5,7 @@
 #include	"Utilities.h"
 #include "Intro.h"
 #include "GameContext.h"
+#include "CampaignMercenaryPolicy.h"
 #include "Cinematics.h"
 #include "Cinematics Bink.h"
 #include "mainmenuscreen.h"
@@ -622,7 +623,10 @@ EGameVideos GetNextIntroVideo( EGameVideos uiCurrentVideo )
 				case INTRO_FIRST_VIDEO:
 				{
 					//if Miguel is dead, play the flic with out him in it
-					if( gMercProfiles[ MIGUEL ].bMercStatus == MERC_IS_DEAD )
+					const UINT8 miguel = CampaignMercenaryPolicy(
+						GetGameContext().capabilities())
+						.profile(CampaignProfileCode::Role::Miguel);
+					if( gMercProfiles[ miguel ].bMercStatus == MERC_IS_DEAD )
 						iStringToUse = INTRO_END_END_SPEECH_NO_MIGUEL;
 					else
 						iStringToUse = INTRO_END_END_SPEECH_MIGUEL;

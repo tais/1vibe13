@@ -80,6 +80,7 @@
 #include "Dialogue Control.h"
 #include "GameSettings.h"
 #include "GameContext.h"
+#include "CampaignMercenaryPolicy.h"
 #include "LOS.h"
 #include "Campaign Types.h"
 #include "Queen Command.h"
@@ -6777,7 +6778,11 @@ BOOLEAN HandleTalkInit(	)
 			// ATE: if our own guy...
 			if ( pTSoldier->roster().team() == gbPlayerNum && !AM_AN_EPC( pTSoldier ) )
 			{
-				if ( pTSoldier->identity().profile() == DIMITRI )
+				const CampaignMercenaryPolicy mercenaryPolicy(
+					GetGameContext().capabilities());
+				if ( mercenaryPolicy.isProfile(
+						pTSoldier->identity().profile(),
+						CampaignProfileCode::Role::Dimitri) )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 32 ], pTSoldier->GetName() );
 					return( FALSE );
@@ -6830,14 +6835,13 @@ BOOLEAN HandleTalkInit(	)
 					ubQuoteNum = QUOTE_NEGATIVE_COMPANY;
 					break;
 				}
-#ifdef JA2UB
-// ja25 UB
-#else
-				if ( pTSoldier->identity().profile() == IRA )
+				if ( !mercenaryPolicy.usesUnfinishedBusinessRules() &&
+					mercenaryPolicy.isProfile(
+						pTSoldier->identity().profile(),
+						CampaignProfileCode::Role::Ira) )
 				{
 					ubQuoteNum = QUOTE_PASSING_DISLIKE;
 				}
-#endif
 				TacticalCharacterDialogue( pTSoldier, ubQuoteNum );
 
 				return( FALSE );

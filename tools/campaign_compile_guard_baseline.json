@@ -22,7 +22,6 @@
     "Laptop/mercs No Account.cpp": 1,
     "Laptop/mercs.cpp": 48,
     "Laptop/mercs.h": 1,
-    "Laptop/personnel.cpp": 1,
     "Multiplayer/connect.h": 1,
     "Strategic/Assignments.cpp": 4,
     "Strategic/Auto Resolve.cpp": 1,
@@ -34,11 +33,9 @@
     "Strategic/Map Screen Interface Map.h": 1,
     "Strategic/Map Screen Interface.cpp": 3,
     "Strategic/PreBattle Interface.cpp": 2,
-    "Strategic/Strategic Event Handler.cpp": 2,
     "Strategic/Strategic Status.cpp": 1,
-    "Strategic/Strategic Town Loyalty.cpp": 3,
     "Strategic/Town Militia.cpp": 1,
-    "Strategic/mapscreen.cpp": 14,
+    "Strategic/mapscreen.cpp": 12,
     "Strategic/strategic.cpp": 2,
     "Tactical/Campaign.cpp": 6,
     "Tactical/Civ Quotes.cpp": 5,
@@ -47,13 +44,11 @@
     "Tactical/Faces.cpp": 4,
     "Tactical/Handle Doors.cpp": 8,
     "Tactical/Handle Items.cpp": 3,
-    "Tactical/Handle UI.cpp": 1,
     "Tactical/Interface.cpp": 5,
     "Tactical/Items.cpp": 2,
     "Tactical/Soldier Add.cpp": 3,
     "Tactical/Soldier Ani.cpp": 4,
     "Tactical/Soldier Init List.cpp": 2,
-    "Tactical/Soldier Profile.h": 1,
     "Tactical/Strategic Exit GUI.cpp": 2,
     "Tactical/TeamTurns.cpp": 3,
     "Tactical/Weapons.cpp": 1,
@@ -65,5 +60,5 @@
     "Utils/Timer Control.cpp": 1
   },
   "schema": 1,
-  "total": 275
+  "total": 265
 }

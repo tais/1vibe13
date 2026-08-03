@@ -24,6 +24,8 @@
 
 #include "Luaglobal.h"
 #include "LuaInitNPCs.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -645,6 +647,8 @@ void CheckForKingpinsMoneyMissing( BOOLEAN fFirstCheck )
 
 void HandleNPCSystemEvent( UINT32 uiEvent )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 
 //   LetLuaHandleNPCSystemEvent( uiEvent, 0 );
 //#if 0
@@ -687,11 +691,10 @@ void HandleNPCSystemEvent( UINT32 uiEvent )
 						// KP knows money is gone, hasn't told player, if this event is called then the 2
 						// days are up... send email
 
-#ifdef JA2UB
-// no UB
-#else						
-						AddEmail(KING_PIN_LETTER, KING_PIN_LETTER_LENGTH, KING_PIN, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KINGPIN_STOLEMONEY);
-#endif
+						if ( !mercenaryPolicy.usesUnfinishedBusinessRules() )
+						{
+							AddEmail(KING_PIN_LETTER, KING_PIN_LETTER_LENGTH, KING_PIN, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_KINGPIN_STOLEMONEY);
+						}
 						StartQuest( QUEST_KINGPIN_MONEY, gMercProfiles[ KINGPIN ].sSectorX, gMercProfiles[ KINGPIN ].sSectorY );
 						// add event to send terrorists two days from now
 						AddFutureDayStrategicEvent( EVENT_SET_BY_NPC_SYSTEM, Random( 120 ), FACT_KINGPIN_KNOWS_MONEY_GONE, 2 );
@@ -745,13 +748,15 @@ void HandleNPCSystemEvent( UINT32 uiEvent )
 
 			case NPC_ACTION_READY_ROBOT:
 				{
+					const UINT8 robot = mercenaryPolicy.profile(
+						CampaignProfileCode::Role::Robot);
 					if ( CheckFact( FACT_FIRST_ROBOT_DESTROYED, 0 ) )
 					{
 						// second robot ready
 						SetFactTrue( FACT_ROBOT_READY_SECOND_TIME );
 						// resurrect robot
-						gMercProfiles[ ROBOT ].bLife = gMercProfiles[ ROBOT ].bLifeMax;
-						gMercProfiles[ ROBOT ].bMercStatus = MERC_OK;
+						gMercProfiles[ robot ].bLife = gMercProfiles[ robot ].bLifeMax;
+						gMercProfiles[ robot ].bMercStatus = MERC_OK;
 					}
 					else
 					{
@@ -759,9 +764,9 @@ void HandleNPCSystemEvent( UINT32 uiEvent )
 						SetFactTrue( FACT_ROBOT_READY );
 					}
 
-					gMercProfiles[ ROBOT ].sSectorX = gMercProfiles[ MADLAB ].sSectorX;
-					gMercProfiles[ ROBOT ].sSectorY = gMercProfiles[ MADLAB ].sSectorY;
-					gMercProfiles[ ROBOT ].bSectorZ = gMercProfiles[ MADLAB ].bSectorZ;
+					gMercProfiles[ robot ].sSectorX = gMercProfiles[ MADLAB ].sSectorX;
+					gMercProfiles[ robot ].sSectorY = gMercProfiles[ MADLAB ].sSectorY;
+					gMercProfiles[ robot ].bSectorZ = gMercProfiles[ MADLAB ].bSectorZ;
 
 
 				}
@@ -793,11 +798,13 @@ void HandleNPCSystemEvent( UINT32 uiEvent )
 				break;
 
 			case NPC_ACTION_SEND_ENRICO_MIGUEL_EMAIL:
-#ifdef JA2UB
-// no UB
-#else
-				AddEmail(ENRICO_MIGUEL, ENRICO_MIGUEL_LENGTH, MAIL_ENRICO, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_ENRICO_GREATNEWS);
-#endif
+				if ( !mercenaryPolicy.usesUnfinishedBusinessRules() )
+				{
+					AddEmail(JA2_EMAIL_ENRICO_MIGUEL,
+						JA2_EMAIL_ENRICO_MIGUEL_LENGTH, MAIL_ENRICO,
+						GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT,
+						XML_ENRICO_GREATNEWS);
+				}
 				break;
 
 			case NPC_ACTION_TIMER_FOR_VEHICLE:
@@ -886,6 +893,12 @@ static INT32 TakeRecruitsByForce( UINT8 poolRecruitPerc, INT32 maxToTake )
 
 void HandleEarlyMorningEvents( void )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
+	const UINT8 devin =
+		mercenaryPolicy.profile(CampaignProfileCode::Role::Devin);
+	const UINT8 hamous =
+		mercenaryPolicy.profile(CampaignProfileCode::Role::Hamous);
 	// Flugente: no reason to put this into LUA
 	for ( UINT8 sX = 1; sX < MAP_WORLD_X - 1; ++sX )
 	{
@@ -1006,37 +1019,37 @@ void HandleEarlyMorningEvents( void )
 		}
 	}
 
-	if ( gMercProfiles[ DEVIN ].ubLastDateSpokenTo == 0 )
+	if ( gMercProfiles[ devin ].ubLastDateSpokenTo == 0 )
 	{
 		// Does Devin move?
-		gMercProfiles[ DEVIN ].bNPCData++;
-		if ( gMercProfiles[ DEVIN ].bNPCData > 3 )
+		gMercProfiles[ devin ].bNPCData++;
+		if ( gMercProfiles[ devin ].bNPCData > 3 )
 		{
-			if ( ! ( (gWorldSectorX == gMercProfiles[ DEVIN ].sSectorX) && (gWorldSectorY == gMercProfiles[DEVIN].sSectorY) && (gbWorldSectorZ == 0) ) )
+			if ( ! ( (gWorldSectorX == gMercProfiles[ devin ].sSectorX) && (gWorldSectorY == gMercProfiles[devin].sSectorY) && (gbWorldSectorZ == 0) ) )
 			{
 				// ok, Devin's sector not loaded, so time to move!
 				// might be same sector as before, if so, oh well!
 				switch( Random( 5 ) )
 				{
 					case 0:
-						gMercProfiles[ DEVIN ].sSectorX = 9;
-						gMercProfiles[ DEVIN ].sSectorY = MAP_ROW_G;
+						gMercProfiles[ devin ].sSectorX = 9;
+						gMercProfiles[ devin ].sSectorY = MAP_ROW_G;
 						break;
 					case 1:
-						gMercProfiles[ DEVIN ].sSectorX = 13;
-						gMercProfiles[ DEVIN ].sSectorY = MAP_ROW_D;
+						gMercProfiles[ devin ].sSectorX = 13;
+						gMercProfiles[ devin ].sSectorY = MAP_ROW_D;
 						break;
 					case 2:
-						gMercProfiles[ DEVIN ].sSectorX = 5;
-						gMercProfiles[ DEVIN ].sSectorY = MAP_ROW_C;
+						gMercProfiles[ devin ].sSectorX = 5;
+						gMercProfiles[ devin ].sSectorY = MAP_ROW_C;
 						break;
 					case 3:
-						gMercProfiles[ DEVIN ].sSectorX = 2;
-						gMercProfiles[ DEVIN ].sSectorY = MAP_ROW_H;
+						gMercProfiles[ devin ].sSectorX = 2;
+						gMercProfiles[ devin ].sSectorY = MAP_ROW_H;
 						break;
 					case 4:
-						gMercProfiles[ DEVIN ].sSectorX = 6;
-						gMercProfiles[ DEVIN ].sSectorY = MAP_ROW_C;
+						gMercProfiles[ devin ].sSectorX = 6;
+						gMercProfiles[ devin ].sSectorY = MAP_ROW_C;
 						break;
 				}
 			}
@@ -1047,39 +1060,39 @@ void HandleEarlyMorningEvents( void )
 
 	// stop moving the truck if Hamous is dead!!
 	// stop moving them if the player has the truck or Hamous is hired!
-	if ( gMercProfiles[ HAMOUS ].bLife > 0 && FindSoldierByProfileID( HAMOUS, TRUE ) == NULL && FindSoldierByProfileID( PROF_ICECREAM, TRUE ) == NULL && (! ( (gWorldSectorX == gMercProfiles[ HAMOUS ].sSectorX) && (gWorldSectorY == gMercProfiles[HAMOUS].sSectorY) && (gbWorldSectorZ == 0) )) )
+	if ( gMercProfiles[ hamous ].bLife > 0 && FindSoldierByProfileID( hamous, TRUE ) == NULL && FindSoldierByProfileID( PROF_ICECREAM, TRUE ) == NULL && (! ( (gWorldSectorX == gMercProfiles[ hamous ].sSectorX) && (gWorldSectorY == gMercProfiles[hamous].sSectorY) && (gbWorldSectorZ == 0) )) )
 	{
-		// ok, HAMOUS's sector not loaded, so time to move!
+		// Hamous's sector is not loaded, so it is time to move.
 		// might be same sector as before, if so, oh well!
 		switch( Random( 5 ) )
 		{
 			case 0:
-				gMercProfiles[ HAMOUS ].sSectorX = 6;
-				gMercProfiles[ HAMOUS ].sSectorY = MAP_ROW_G;
+				gMercProfiles[ hamous ].sSectorX = 6;
+				gMercProfiles[ hamous ].sSectorY = MAP_ROW_G;
 				gMercProfiles[ PROF_ICECREAM ].sSectorX = 6;
 				gMercProfiles[ PROF_ICECREAM ].sSectorY = MAP_ROW_G;
 				break;
 			case 1:
-				gMercProfiles[ HAMOUS ].sSectorX = 12;
-				gMercProfiles[ HAMOUS ].sSectorY = MAP_ROW_F;
+				gMercProfiles[ hamous ].sSectorX = 12;
+				gMercProfiles[ hamous ].sSectorY = MAP_ROW_F;
 				gMercProfiles[ PROF_ICECREAM ].sSectorX = 12;
 				gMercProfiles[ PROF_ICECREAM ].sSectorY = MAP_ROW_F;
 				break;
 			case 2:
-				gMercProfiles[ HAMOUS ].sSectorX = 7;
-				gMercProfiles[ HAMOUS ].sSectorY = MAP_ROW_D;
+				gMercProfiles[ hamous ].sSectorX = 7;
+				gMercProfiles[ hamous ].sSectorY = MAP_ROW_D;
 				gMercProfiles[ PROF_ICECREAM ].sSectorX = 7;
 				gMercProfiles[ PROF_ICECREAM ].sSectorY = MAP_ROW_D;
 				break;
 			case 3:
-				gMercProfiles[ HAMOUS ].sSectorX = 3;
-				gMercProfiles[ HAMOUS ].sSectorY = MAP_ROW_D;
+				gMercProfiles[ hamous ].sSectorX = 3;
+				gMercProfiles[ hamous ].sSectorY = MAP_ROW_D;
 				gMercProfiles[ PROF_ICECREAM ].sSectorX = 3;
 				gMercProfiles[ PROF_ICECREAM ].sSectorY = MAP_ROW_D;
 				break;
 			case 4:
-				gMercProfiles[ HAMOUS ].sSectorX = 9;
-				gMercProfiles[ HAMOUS ].sSectorY = MAP_ROW_D;
+				gMercProfiles[ hamous ].sSectorX = 9;
+				gMercProfiles[ hamous ].sSectorY = MAP_ROW_D;
 				gMercProfiles[ PROF_ICECREAM ].sSectorX = 9;
 				gMercProfiles[ PROF_ICECREAM ].sSectorY = MAP_ROW_D;
 				break;

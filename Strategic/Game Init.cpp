@@ -57,6 +57,7 @@
 	#include "World Items.h"
 	#include "TacticalWorldAdapter.h"
 #include "GameContext.h"
+#include "CampaignMercenaryPolicy.h"
 
 #include "connect.h"
 #include "XML.h"
@@ -109,12 +110,14 @@ static bool IsUnfinishedBusinessCampaign()
 }
 
 static void InitNPCs( void )
-{		
+{
 
 #ifdef LUA_GAME_INIT_NPCS
 	LetLuaGameInit(1);
 #else
 
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	MERCPROFILESTRUCT * pProfile;
 
 	// add the pilot at a random location!
@@ -290,7 +293,8 @@ static void InitNPCs( void )
 	gbHospitalPriceModifier = 0;
 
 	// set up Devin so he will be placed ASAP
-	gMercProfiles[ DEVIN ].bNPCData = 3;
+	gMercProfiles[
+		mercenaryPolicy.profile(CampaignProfileCode::Role::Devin)].bNPCData = 3;
 	
 #endif
 

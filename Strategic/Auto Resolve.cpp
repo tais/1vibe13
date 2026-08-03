@@ -75,6 +75,8 @@
 #include "MilitiaIndividual.h"			// added by Flugente
 #include "Rebel Command.h"
 #include "Reinforcement.h"
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 //#define INVULNERABILITY
 
@@ -2344,7 +2346,10 @@ void CreateAutoResolveInterface()
 			// reuse madlab's robot's face
 			VOBJECT_DESC VObjectDesc;
 			VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ ROBOT ].ubFaceIndex );
+			const UINT8 robot = CampaignMercenaryPolicy(
+				GetGameContext().capabilities())
+				.profile(CampaignProfileCode::Role::Robot);
+			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ robot ].ubFaceIndex );
 			AddVideoObject(&VObjectDesc, &gpEnemies[index].uiVObjectID);
 		}
 		for ( i = 0; i < gpAR->ubElites; ++i, ++index )

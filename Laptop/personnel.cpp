@@ -42,6 +42,8 @@
 #include "IMP Background.h"			// added by Flugente for AssignBackgroundHelpText()
 #include "NPC.h"					// added by Flugente for GetEffectiveApproachValue(...)
 #include "Drugs And Alcohol.h"		// added by Flugente for DoesMercHaveDisability(...)
+#include "CampaignMercenaryPolicy.h"
+#include "GameContext.h"
 
 
 // WDS - make number of mercenaries, etc. be configurable
@@ -2805,7 +2807,9 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 		PosY = iScreenHeightOffset + 200 + 8 +( ubItemCount * ( 29 ) );
 
 		//if the character is a robot, only display the inv for the hand pos
-		if( pSoldier->identity().profile() == ROBOT && ubCounter != HANDPOS )
+		if( CampaignMercenaryPolicy(GetGameContext().capabilities()).isProfile(
+				pSoldier->identity().profile(), CampaignProfileCode::Role::Robot) &&
+			ubCounter != HANDPOS )
 		{
 			continue;
 		}
@@ -6214,6 +6218,8 @@ BOOLEAN IsPastMercOther( INT32 iId )
 
 void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 {
+	const CampaignMercenaryPolicy mercenaryPolicy(
+		GetGameContext().capabilities());
 	INT32 iCounter=0;
 	CHAR16 sString[50];
 	CHAR16 sStringA[ 50 ];
@@ -6255,13 +6261,18 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 		case 0:
 		{
 
-#ifdef JA2UB
-			wcscpy( sString, gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
-			mprintf(x, y, pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT]);
-#else
+			if ( mercenaryPolicy.usesUnfinishedBusinessRules() )
+			{
+				wcscpy( sString, gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
+				mprintf(x, y, pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT]);
+			}
+			else
+			{
 			static const UINT32 uiMinutesInDay = 24 * 60;
 
-			if ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || pSoldier->identity().profile() == SLAY )
+			if ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ||
+				mercenaryPolicy.isProfile(
+					pSoldier->identity().profile(), CampaignProfileCode::Role::Slay) )
 			{
 				INT32 iTimeLeftOnContract = CalcTimeLeftOnMercContract( pSoldier );
 
@@ -6299,7 +6310,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 				wcscpy( sString, gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 				mprintf( x, y, pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT] );
 			}
-#endif
+			}
 			FindFontRightCoordinates( (INT16)(x + Prsnl_DATA_OffSetX), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
 			mprintf( sX, y, sString );
 		}

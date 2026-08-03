@@ -244,6 +244,8 @@ static BOOLEAN gInjectedFastForwardKeyDown = FALSE;
 extern VIDEO_OVERLAY gVideoOverlays[];
 extern UINT32 guiNumVideoOverlays;
 
+static_assert(RPC65 == 65 && DYNAMO == 66 && SHANK == 67,
+	"semantic campaign profiles must not shift the legacy profile layout");
 static_assert(
 	std::is_same<decltype( gWorldSectorX ), const INT16&>::value &&
 		std::is_same<decltype( gWorldSectorY ), const INT16&>::value &&
