@@ -283,6 +283,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignAimSitePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignDealerPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignLaptopCommunicationsPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercSitePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMercenaryPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignSpeckQuoteCodes.h"
@@ -306,6 +307,8 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Laptop/Speck Quotes.h"
   "${SOURCE_ROOT}/Laptop/AimLinks.cpp"
   "${SOURCE_ROOT}/Laptop/AimMembers.cpp"
+  "${SOURCE_ROOT}/Laptop/email.cpp"
+  "${SOURCE_ROOT}/Laptop/insurance Contract.cpp"
   "${SOURCE_ROOT}/Laptop/laptop.cpp"
   "${SOURCE_ROOT}/Laptop/laptop.h"
   "${SOURCE_ROOT}/Laptop/mercs Account.cpp"
@@ -314,6 +317,7 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Laptop/mercs.cpp"
   "${SOURCE_ROOT}/Laptop/mercs.h"
   "${SOURCE_ROOT}/Laptop/personnel.cpp"
+  "${SOURCE_ROOT}/Laptop/PostalService.cpp"
   "${SOURCE_ROOT}/Strategic/Campaign Init.cpp"
   "${SOURCE_ROOT}/Strategic/Campaign Types.h"
   "${SOURCE_ROOT}/Strategic/Game Init.cpp"
@@ -1156,6 +1160,202 @@ foreach(required_aim_site_policy_assertion IN ITEMS
   if(required_aim_site_policy_assertion_position EQUAL -1)
     message(FATAL_ERROR
       "Runtime A.I.M. site policy lost test coverage for '${required_aim_site_policy_assertion}'")
+  endif()
+endforeach()
+
+# Laptop communications now select campaign catalogs, insurance templates,
+# shipment notices, and overlapping special-message IDs at runtime. The same
+# batch hardens the legacy collection and resource lifetimes found by the
+# Laptop-wide static-analysis walkthrough.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignLaptopCommunicationsPolicy.h"
+  runtime_laptop_communications_policy_contents)
+foreach(required_laptop_communications_policy_fragment IN ITEMS
+    "class CampaignLaptopCommunicationsPolicy"
+    "insuranceAvailable"
+    "insuranceRecord"
+    "bobbyShipmentRecord"
+    "johnKulbaShipmentNoticeAvailable"
+    "impProfileResultsOffset"
+    "isImpProfileResultsMessage")
+  string(FIND "${runtime_laptop_communications_policy_contents}"
+    "${required_laptop_communications_policy_fragment}"
+    required_laptop_communications_policy_position)
+  if(required_laptop_communications_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime Laptop communications policy lost '${required_laptop_communications_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/email.cpp"
+  runtime_laptop_email_contents)
+foreach(required_runtime_laptop_email_fragment IN ITEMS
+    "CampaignLaptopCommunicationsPolicy"
+    "LoadEmailRecord"
+    "HandleUnfinishedBusinessMailSpecialMessages"
+    "isImpProfileResultsMessage"
+    "static_cast<UINT16>(XML_NOEMAIL)"
+    "RecordPtr pCurrentRecord = nullptr")
+  string(FIND "${runtime_laptop_email_contents}"
+    "${required_runtime_laptop_email_fragment}"
+    required_runtime_laptop_email_position)
+  if(required_runtime_laptop_email_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop email lost runtime/safety routing '${required_runtime_laptop_email_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/insurance Contract.cpp"
+  runtime_laptop_insurance_contents)
+foreach(required_runtime_laptop_insurance_fragment IN ITEMS
+    "CampaignLaptopCommunicationsPolicy"
+    "IsValidInsurancePayout"
+    "SendInsuranceNotice"
+    "resizedPayouts")
+  string(FIND "${runtime_laptop_insurance_contents}"
+    "${required_runtime_laptop_insurance_fragment}"
+    required_runtime_laptop_insurance_position)
+  if(required_runtime_laptop_insurance_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop insurance lost runtime/safety routing '${required_runtime_laptop_insurance_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/PostalService.cpp"
+  runtime_laptop_postal_contents)
+file(READ "${SOURCE_ROOT}/Laptop/PostalService.h"
+  runtime_laptop_postal_header_contents)
+foreach(required_runtime_laptop_postal_fragment IN ITEMS
+    "CampaignLaptopCommunicationsPolicy"
+    "FindLaptopRecordById"
+    "std::unique_ptr<OBJECTTYPE[]>"
+    "CShipmentManipulator shipmentManipulator"
+    "IsValidLaptopIndex")
+  string(FIND "${runtime_laptop_postal_contents}"
+    "${required_runtime_laptop_postal_fragment}"
+    required_runtime_laptop_postal_position)
+  if(required_runtime_laptop_postal_position EQUAL -1)
+    message(FATAL_ERROR
+      "PostalService lost runtime/safety routing '${required_runtime_laptop_postal_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_laptop_postal_header_contents}"
+  "DestinationDeliveryInfoTable destinationDeliveryInfos"
+  runtime_laptop_postal_owned_table_position)
+if(runtime_laptop_postal_owned_table_position EQUAL -1)
+  message(FATAL_ERROR
+    "PostalService delivery methods no longer own their destination tables by value")
+endif()
+
+file(READ "${SOURCE_ROOT}/Laptop/LaptopSafety.h"
+  runtime_laptop_safety_contents)
+foreach(required_laptop_safety_fragment IN ITEMS
+    "IsValidLaptopIndex"
+    "IsValidIntelMapRegion"
+    "HasScrollableBobbyOrder"
+    "RemainingLaptopDays"
+    "FindLaptopRecordById"
+    "ResolveLaptopRosterActor")
+  string(FIND "${runtime_laptop_safety_contents}"
+    "${required_laptop_safety_fragment}"
+    required_laptop_safety_position)
+  if(required_laptop_safety_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop safety boundary lost '${required_laptop_safety_fragment}'")
+  endif()
+endforeach()
+
+foreach(laptop_safety_caller_and_fragment IN ITEMS
+    "Laptop/BobbyRMailOrder.cpp|HasScrollableBobbyOrder"
+    "Laptop/BobbyRShipments.cpp|IsValidLaptopIndex"
+    "Laptop/Intelmarket.cpp|IsValidIntelMapRegion"
+    "Laptop/personnel.cpp|ResolveLaptopRosterActor")
+  string(REPLACE "|" ";" laptop_safety_caller_parts
+    "${laptop_safety_caller_and_fragment}")
+  list(GET laptop_safety_caller_parts 0 laptop_safety_caller)
+  list(GET laptop_safety_caller_parts 1 laptop_safety_fragment)
+  file(READ "${SOURCE_ROOT}/${laptop_safety_caller}"
+    laptop_safety_caller_contents)
+  string(FIND "${laptop_safety_caller_contents}"
+    "${laptop_safety_fragment}" laptop_safety_caller_position)
+  if(laptop_safety_caller_position EQUAL -1)
+    message(FATAL_ERROR
+      "${laptop_safety_caller} bypassed ${laptop_safety_fragment}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/personnel.cpp"
+  runtime_laptop_personnel_contents)
+foreach(required_laptop_personnel_safety_fragment IN ITEMS
+    "gTacticalStatus.Team[ OUR_TEAM ].bFirstID"
+    "gTacticalStatus.Team[ OUR_TEAM ].bLastID"
+    "const bool currentTeamMode = fCurrentTeamMode != FALSE")
+  string(FIND "${runtime_laptop_personnel_contents}"
+    "${required_laptop_personnel_safety_fragment}"
+    required_laptop_personnel_safety_position)
+  if(required_laptop_personnel_safety_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop personnel lost '${required_laptop_personnel_safety_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/CMakeLists.txt"
+  runtime_laptop_manifest_contents)
+string(FIND "${runtime_laptop_manifest_contents}" "set(LaptopVariantSrc"
+  runtime_laptop_variant_manifest_position)
+foreach(required_common_laptop_communications_source IN ITEMS
+    "email.cpp"
+    "insurance Contract.cpp"
+    "PostalService.cpp")
+  string(FIND "${runtime_laptop_manifest_contents}"
+    "${required_common_laptop_communications_source}"
+    common_laptop_communications_source_position)
+  if(common_laptop_communications_source_position EQUAL -1 OR
+      common_laptop_communications_source_position GREATER
+        runtime_laptop_variant_manifest_position)
+    message(FATAL_ERROR
+      "Laptop common manifest lost ${required_common_laptop_communications_source}")
+  endif()
+endforeach()
+
+foreach(required_laptop_communications_test_fragment IN ITEMS
+    "laptop_communications_policy_tests.cpp"
+    "laptop_communications_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_laptop_communications_test_fragment}"
+    required_laptop_communications_test_position)
+  if(required_laptop_communications_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop communications policy lost its headless test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "laptop_communications_policy_tests"
+  runtime_laptop_communications_ci_position)
+if(runtime_laptop_communications_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Laptop communications policy test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_communications_policy_tests.cpp"
+  runtime_laptop_communications_test_contents)
+foreach(required_laptop_communications_assertion IN ITEMS
+    "GameCampaign::Arulco"
+    "GameCampaign::UnfinishedBusiness"
+    "SuspiciousDeathFraud"
+    "impProfileResultsOffset() == 198"
+    "IsValidLaptopIndex(1, 1)"
+    "IsValidIntelMapRegion(-1)"
+    "HasScrollableBobbyOrder(0)"
+    "RemainingLaptopDays(7, 8)"
+    "missing == records.end()"
+    "ResolveLaptopRosterActor(false"
+    "resolverCalls == 0")
+  string(FIND "${runtime_laptop_communications_test_contents}"
+    "${required_laptop_communications_assertion}"
+    required_laptop_communications_assertion_position)
+  if(required_laptop_communications_assertion_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop communications/safety tests lost '${required_laptop_communications_assertion}'")
   endif()
 endforeach()
 

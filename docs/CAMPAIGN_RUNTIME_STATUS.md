@@ -26,7 +26,11 @@ host. Eight colliding Speck dialogue roles are resolved through
 A.I.M. links and member pages use `CampaignAimSitePolicy`: configurable UB
 links, mission-fee presentation, fixed contract pricing, one-time-offer text,
 and hidden hiring controls coexist with Arulco's complete link and contract UI
-in every host.
+in every host. Email catalog selection, insurance notices, and Bobby Ray/John
+Kulba shipment notifications use `CampaignLaptopCommunicationsPolicy`. The
+shared implementation disambiguates semantic mail kinds before interpreting
+legacy offsets, including UB's collision between IMP profile results and the
+Bobby Ray shipment record at offset 198.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -44,17 +48,19 @@ account, finance, email, and speech records, including the exact 19- and
 20-entry idle-quote rosters and the shifted Speck records 76-83 versus 94-101.
 The A.I.M. policy preserves its existing bookmarks, artwork and text records,
 daily/weekly/biweekly salaries, medical deposits, equipment prices, and finance
-transactions.
+transactions. The communications policy likewise preserves Email.edt,
+Email25.edt, XML identifiers, sender bytes, substitution tags, finance/history
+records, and save layouts.
 
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 166 active conditionals in 50
+milestone its per-file baseline contains 142 active conditionals in 47
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
-| Laptop content/pages | 47 |
+| Laptop content/pages | 23 |
 | Tactical gameplay/content | 52 |
 | Strategic gameplay/content | 48 |
 | JA2 compatibility shell/layout | 7 |
@@ -74,7 +80,8 @@ either: account creation and settlement, hire pricing and gear, site
 availability, and Speck dialogue use `CampaignMercSitePolicy` and typed quote
 roles. The A.I.M. links/member cluster no longer contributes either: link
 availability, salary/mission-fee presentation, contract charging, and hiring
-controls use `CampaignAimSitePolicy`. All five policies are guarded by
+controls use `CampaignAimSitePolicy`. Email, insurance, and shipment notices
+use `CampaignLaptopCommunicationsPolicy`. All six policies are guarded by
 data-free headless tests plus named architecture checks. The seven remaining
 `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
@@ -92,17 +99,15 @@ The largest individual legacy leaves are:
 
 | File | Conditionals |
 | --- | ---: |
-| `Laptop/email.cpp` | 14 |
 | `Strategic/mapscreen.cpp` | 12 |
 | `Strategic/LuaInitNPCs.cpp` | 11 |
 | `Laptop/files.cpp` | 9 |
 | `Tactical/Handle Doors.cpp` | 8 |
-| `Laptop/insurance Contract.cpp` | 7 |
 | `Tactical/Campaign.cpp` | 6 |
-| `Laptop/email.h` | 5 |
 | `Strategic/Luaglobal.cpp` | 5 |
 | `Tactical/Civ Quotes.cpp` | 5 |
 | `Tactical/Interface.cpp` | 5 |
+| `Laptop/email.h` | 4 |
 
 These are not dependencies of `Engine/Core`; they are legacy application,
 page, campaign-content, and gameplay implementations above the runtime

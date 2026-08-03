@@ -995,6 +995,22 @@ the engine must not contain SDL types in its public domain model.
   guard-free and requires their typed lifecycle helpers and runtime routing.
   Bookmarks, artwork, localized text, profiles, salary values, finance records,
   save fields, XML, Lua, and package formats are unchanged.
+- Laptop communications now use the value-only
+  `CampaignLaptopCommunicationsPolicy`. Email subject/body loading selects
+  Email.edt or Email25.edt from runtime capabilities; insurance and shipment
+  producers select exact catalog offsets, substitution tags, and availability
+  rules without host compilation. Semantic classification resolves the legacy
+  collision where UB assigns offset 198 to both IMP profile results and Bobby
+  Ray shipment text. `email.cpp`, `insurance Contract.cpp`, and
+  `PostalService.cpp` are consequently shared Laptop translation units in all
+  hosts, and architecture CI prevents them from regaining `JA2UB` guards.
+  A data-free test pins both campaigns' catalog, insurance, shipment, IMP, and
+  index-boundary decisions. The accompanying Laptop safety walkthrough fixed
+  exact-end vector access, end-iterator dereferences, shipment callback and
+  item-array leaks, a mail-order region use-after-free, invalid Intel shifts,
+  uninitialized biography/email data, and missing image-object validation.
+  The ongoing audit and follow-up priorities are recorded in
+  `LAPTOP_CODE_WALKTHROUGH.md`.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

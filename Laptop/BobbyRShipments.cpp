@@ -1,5 +1,6 @@
 	#include "laptop.h"
-	#include "BobbyRShipments.h"
+#include "BobbyRShipments.h"
+#include "LaptopSafety.h"
 	#include "BobbyR.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
@@ -297,7 +298,12 @@ void RenderBobbyRShipments()
 
 	DisplayShipmentGrid();
 
-	if(giBobbyRShipmentSelectedShipment != -1) 
+	const bool hasSelectedShipment =
+		giBobbyRShipmentSelectedShipment >= 0 &&
+		IsValidLaptopIndex(gShipmentTable.size(),
+			giBobbyRShipmentSelectedShipment) &&
+		gShipmentTable[giBobbyRShipmentSelectedShipment];
+	if (hasSelectedShipment)
 	{
 		ShipmentPackageList::iterator spli = gShipmentTable[giBobbyRShipmentSelectedShipment]->ShipmentPackages.begin();
 		int j;
@@ -348,7 +354,7 @@ void RenderBobbyRShipments()
 	}
 	*/
 
-	if( giBobbyRShipmentSelectedShipment != -1 &&
+	if (hasSelectedShipment &&
 		gShipmentTable[ giBobbyRShipmentSelectedShipment ]->ShipmentStatus == SHIPMENT_INTRANSIT) // &&
 	{
 		DisplayPurchasedItems( FALSE, BOBBYR_SHIPMENT_ORDER_GRID_X, BOBBYR_SHIPMENT_ORDER_GRID_Y,&brps[0], FALSE, giBobbyRShipmentSelectedShipment );

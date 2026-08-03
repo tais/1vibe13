@@ -338,7 +338,7 @@ BOOLEAN EnterPMCContract( )
 						if ( gFacilityTypes[cnt].usFacilityFlags & FACILITYTYPE_PMCENTRYPOINT )
 						{
 							GetSectorIDString( sX, sY, 0, gPMCSectorNamesstr[count], TRUE );
-							gPMCSectorNamesstr[count][63] = '/0';
+								gPMCSectorNamesstr[count][63] = L'\0';
 						
 							dropdownvector.push_back( std::make_pair( SECTOR( sX, sY ), gPMCSectorNamesstr[count] ) );
 

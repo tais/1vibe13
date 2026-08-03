@@ -1497,7 +1497,7 @@ void RefreshMercWeaponKitSelectionButtons()
 	UINT8 ubMercID = GetAvailableMercIDFromMERCArray( gubCurMercIndex );
 	UINT8 i;
 	STR16 KitLabel;
-	if (ubMercID != -1)
+	if (ubMercID < NUM_PROFILES)
 	{
 		for (i=0;i<NUM_MERCSTARTINGGEAR_KITS;i++)
 		{
@@ -1774,7 +1774,8 @@ void MercWeaponKitSelectionUpdate(UINT8 selectedInventory)
 					// for an item stack, we obviously need to account fot the number of items
 					// for single items, the number is not always set, so just to be sure...
 					int number = 1;
-					if ( gMercProfileGear[ubMercID][selectedInventory].iNumber.size( ) >= uiLoop )
+					if (uiLoop <
+						gMercProfileGear[ubMercID][selectedInventory].iNumber.size())
 						number = max( 1, gMercProfileGear[ubMercID][selectedInventory].iNumber[uiLoop] );
 
 					//add the cost

@@ -17,6 +17,7 @@
 	#include "Game Clock.h"
 	#include "finances.h"
 	#include "LaptopSave.h"
+	#include "LaptopSafety.h"
 	#include "Map Screen Interface Map.h"
 	#include "input.h"
 	#include "english.h"
@@ -523,17 +524,17 @@ void EnterPersonnel( void )
 		currentTeamList[idx] = NOBODY;
 	}
 
-	// Fill in the current team list
+	// Snapshot the player-team range. The actor at slot zero is not guaranteed
+	// to exist, and a missing actor inside the range must not be dereferenced by
+	// the loop condition on the next iteration.
 	maxCurrentTeamIndex = -1;
-	TacticalActor *pTeamSoldier =
-		GetJa2SoldierRepository().resolve(0);
-	if ( !pTeamSoldier )
-		return;
-	for (SoldierID idx = gTacticalStatus.Team[ pTeamSoldier->roster().team() ].bFirstID;
-	     idx <= gTacticalStatus.Team[ pTeamSoldier->roster().team() ].bLastID;
+	const SoldierID firstTeamId = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
+	const SoldierID lastTeamId = gTacticalStatus.Team[ OUR_TEAM ].bLastID;
+	for (SoldierID idx = firstTeamId;
+	     idx <= lastTeamId;
 		 ++idx)
 	{
-		pTeamSoldier =
+		TacticalActor* pTeamSoldier =
 			GetJa2SoldierRepository().resolve(idx.i);
 
 		// WANNE: Bugfix: Also show the roboter in ther personnel screen. This bug was introduced in revision 2498, when Many Mercenary was included.
@@ -4301,6 +4302,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 	INT32		iStat = 0;
 	INT32		iDepartedId = -1;
 	SoldierID	iId;
+	const bool currentTeamMode = fCurrentTeamMode != FALSE;
 
 	// set up font
 	SetFont( FONT10ARIAL );
@@ -4315,7 +4317,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 	mprintf( sX, PERS_STAT_AVG_Y, pPersonnelCurrentTeamStatsStrings[ 0 ] );
 
 	// nobody on team leave
-	if (fCurrentTeamMode) {
+	if (currentTeamMode) {
 		if (maxCurrentTeamIndex == -1) {
 			return;
 		}
@@ -4327,7 +4329,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 
 	for( iCounter = 0; iCounter < 11; iCounter++ )
 	{
-		if (fCurrentTeamMode) {
+		if (currentTeamMode) {
 			iId = GetIdOfMercWithLowestStat( iCounter );
 			if( iId == NOBODY )
 				continue;
@@ -4344,13 +4346,15 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			SetFontForeground( PERS_TEXT_FONT_COLOR );
 		}
 
-		TacticalActor* currentSoldier =
-			fCurrentTeamMode
-				? GetJa2SoldierRepository().resolve(iId.i)
-				: NULL;
-		if ( fCurrentTeamMode && !currentSoldier )
+		TacticalActor* currentSoldier = ResolveLaptopRosterActor(
+			currentTeamMode, iId.i,
+			[](UINT16 id)
+			{
+				return GetJa2SoldierRepository().resolve(id);
+			});
+		if ( currentTeamMode && !currentSoldier )
 			continue;
-		if (fCurrentTeamMode) {
+		if (currentTeamMode) {
 			swprintf( sString, L"%s",
 				currentSoldier->GetName() );
 		} else {
@@ -4363,7 +4367,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 		switch (iCounter) {
 			case 0:
 				// health
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat =
 						currentSoldier->vitals().maximumHealth();
 				} else {
@@ -4372,7 +4376,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 			case 1:
 				// agility
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().agility();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bAgility;
@@ -4380,7 +4384,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 			case 2:
 				// dexterity
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().dexterity();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bDexterity;
@@ -4388,7 +4392,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 			case 3:
 				// strength
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().strength();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bStrength;
@@ -4396,7 +4400,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 			case 4:
 				// leadership
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().leadership();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bLeadership;
@@ -4404,7 +4408,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 			case 5:
 				// wisdom
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().wisdom();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bWisdom;
@@ -4412,7 +4416,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 			case 6:
 				// exper
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().experienceLevel();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExpLevel;
@@ -4420,7 +4424,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 			case 7:
 				//mrkmanship
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().marksmanship();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMarksmanship;
@@ -4428,7 +4432,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 			case 8:
 				// mech
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().mechanical();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMechanical;
@@ -4436,7 +4440,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 			case 9:
 				// exp
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().explosives();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExplosive;
@@ -4444,7 +4448,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 			case 10:
 				// med
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().medical();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMedical;
@@ -4470,6 +4474,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 	INT32 iStat = 0;
 	SoldierID iId;
 	INT32 iDepartedId = -1;
+	const bool currentTeamMode = fCurrentTeamMode != FALSE;
 
 	// set up font
 	SetFont( FONT10ARIAL );
@@ -4484,7 +4489,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 	mprintf( sX, PERS_STAT_AVG_Y, pPersonnelCurrentTeamStatsStrings[ 2 ] );
 
 	// nobody on team leave
-	if (fCurrentTeamMode) {
+	if (currentTeamMode) {
 		if (maxCurrentTeamIndex == -1) {
 			return;
 		}
@@ -4496,7 +4501,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 
 	for( iCounter = 0; iCounter < 11; iCounter++ )
 	{
-		if ( fCurrentTeamMode )
+		if ( currentTeamMode )
 		{
 			iId = GetIdOfMercWithHighestStat( iCounter );
 			if ( iId == NOBODY )
@@ -4519,13 +4524,15 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			SetFontForeground( PERS_TEXT_FONT_COLOR );
 		}
 
-		TacticalActor* currentSoldier =
-			fCurrentTeamMode
-				? GetJa2SoldierRepository().resolve(iId.i)
-				: NULL;
-		if ( fCurrentTeamMode && !currentSoldier )
+		TacticalActor* currentSoldier = ResolveLaptopRosterActor(
+			currentTeamMode, iId.i,
+			[](UINT16 id)
+			{
+				return GetJa2SoldierRepository().resolve(id);
+			});
+		if ( currentTeamMode && !currentSoldier )
 			continue;
-		if (fCurrentTeamMode)
+		if (currentTeamMode)
 		{
 			swprintf( sString, L"%s",
 				currentSoldier->GetName() );
@@ -4541,7 +4548,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 		switch (iCounter) {
 			case 0:
 				// health
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat =
 						currentSoldier->vitals().maximumHealth();
 				} else {
@@ -4550,7 +4557,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 			case 1:
 				// agility
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().agility();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bAgility;
@@ -4558,7 +4565,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 			case 2:
 				// dexterity
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().dexterity();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bDexterity;
@@ -4566,7 +4573,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 			case 3:
 				// strength
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().strength();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bStrength;
@@ -4574,7 +4581,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 			case 4:
 				// leadership
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().leadership();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bLeadership;
@@ -4582,7 +4589,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 			case 5:
 				// wisdom
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().wisdom();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bWisdom;
@@ -4590,7 +4597,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 			case 6:
 				// exper
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().experienceLevel();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExpLevel;
@@ -4598,7 +4605,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 			case 7:
 				//mrkmanship
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().marksmanship();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMarksmanship;
@@ -4606,7 +4613,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 			case 8:
 				// mech
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().mechanical();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMechanical;
@@ -4614,7 +4621,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 			case 9:
 				// exp
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().explosives();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExplosive;
@@ -4622,7 +4629,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 			case 10:
 				// med
-				if (fCurrentTeamMode) {
+				if (currentTeamMode) {
 					iStat = currentSoldier->statistics().medical();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMedical;

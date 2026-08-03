@@ -7,13 +7,10 @@
     "Ja2/GameVersion.cpp": 3,
     "Laptop/IMP HomePage.cpp": 3,
     "Laptop/IMP Text System.cpp": 3,
-    "Laptop/PostalService.cpp": 2,
-    "Laptop/email.cpp": 14,
-    "Laptop/email.h": 5,
+    "Laptop/email.h": 4,
     "Laptop/files.cpp": 9,
     "Laptop/florist Order Form.cpp": 1,
     "Laptop/history.cpp": 3,
-    "Laptop/insurance Contract.cpp": 7,
     "Multiplayer/connect.h": 1,
     "Strategic/Assignments.cpp": 4,
     "Strategic/Auto Resolve.cpp": 1,
@@ -52,5 +49,5 @@
     "Utils/Timer Control.cpp": 1
   },
   "schema": 1,
-  "total": 166
+  "total": 142
 }

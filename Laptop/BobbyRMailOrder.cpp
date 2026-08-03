@@ -12,6 +12,7 @@
 	#include "Game Event Hook.h"
 	#include "random.h"
 	#include "LaptopSave.h"
+	#include "LaptopSafety.h"
 	#include "Soldier Profile.h"
 	#include "input.h"
 	#include "line.h"
@@ -1210,7 +1211,7 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 		MSYS_EnableRegion(&gSelectedUpDownArrowOnGridScrollAreaRegion[1]);
 		gfDrawGridArrowMouseRegions = TRUE;
 	}
-	if (guidivisor > 1)
+	if (HasScrollableBobbyOrder(guidivisor))
 	{//Scroll Bar
 		usPosX = usGridX + BOBBYR_GRID_SCROLL_COLUMN_X;
 		usPosY = usGridY + BOBBYR_GRID_SCROLL_UP_ARROW_Y + BOBBYR_SCROLL_ARROW_HEIGHT;
@@ -1225,12 +1226,10 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 					MSYS_RemoveRegion( &gSelectedGridScrollColumnRegion[i] );
 				}
 				delete [] gSelectedGridScrollColumnRegion;
+				gSelectedGridScrollColumnRegion = NULL;
 			}
-			if (gSelectedGridScrollColumnRegionSize != guidivisor)
-			{
-				gSelectedGridScrollColumnRegion = new MOUSE_REGION[guidivisor];
-				gSelectedGridScrollColumnRegionSize = guidivisor;
-			}
+			gSelectedGridScrollColumnRegion = new MOUSE_REGION[guidivisor];
+			gSelectedGridScrollColumnRegionSize = guidivisor;
 			for(i=0; i<guidivisor; i++)
 			{
 				MSYS_DefineRegion( &gSelectedGridScrollColumnRegion[i], usPosX, usPosY, (UINT16)(usPosX+BOBBYR_SCROLL_ARROW_WIDTH), (UINT16)(usPosY+usHeight), MSYS_PRIORITY_HIGH,
@@ -1244,6 +1243,18 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 		}
 		//Draw the rectangle
 		DrawOrderGoldRectangle( usGridX, usGridY);
+	}
+	else if (gSelectedGridScrollColumnRegion != NULL)
+	{
+		for (i = 0; i < gSelectedGridScrollColumnRegionSize; ++i)
+		{
+			MSYS_DisableRegion(&gSelectedGridScrollColumnRegion[i]);
+			MSYS_RemoveRegion(&gSelectedGridScrollColumnRegion[i]);
+		}
+		delete [] gSelectedGridScrollColumnRegion;
+		gSelectedGridScrollColumnRegion = NULL;
+		gSelectedGridScrollColumnRegionSize = 0;
+		gfDrawGridColumnMouseRegion = FALSE;
 	}
 	DisplayShippingCosts( fCalledFromOrderPage, iSubTotal, usGridX, usGridY, iOrderNum );
 }
@@ -2215,7 +2226,7 @@ void SelectUpDownArrowOnGridScrollAreaRegionCallBack(MOUSE_REGION * pRegion, INT
 
 void DrawOrderGoldRectangle (UINT16 usGridX, UINT16 usGridY)
 {
-	if (guidivisor == 1) return;
+	if (!HasScrollableBobbyOrder(guidivisor)) return;
 	UINT32 uiDestPitchBYTES;
 	UINT8	*pDestBuf;
 	UINT16 usWidth, usTempHeight, usTempPosY, usHeight;
