@@ -16,12 +16,10 @@
 	#include "Scheduling.h"
 	#include "GameSettings.h"
 	#include "LuaInitNPCs.h"	// added by Flugente
-
-#ifdef JA2UB
+	#include "GameContext.h"
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
 #include "ub_config.h"
-#endif
 
 #include <list>
 
@@ -49,6 +47,11 @@ std::vector<ARMS_DEALER_INFO>	armsDealerInfo (NUM_ARMS_DEALERS);
 ARMS_DEALER_STATUS	gArmsDealerStatus[ NUM_ARMS_DEALERS ];
 std::vector<DealerItemList>	gArmsDealersInventory;
 
+static CampaignDealerPolicy CurrentCampaignDealerPolicy()
+{
+	return CampaignDealerPolicy(GetGameContext().capabilities());
+}
+
 
 
 
@@ -57,7 +60,6 @@ void		AddItemToArmsDealerInventory( UINT8 ubArmsDealer, OBJECTTYPE& object );
 
 void		RemoveRandomItemFromArmsDealerInventory( UINT8 ubArmsDealer, UINT16 usItemIndex, UINT8 ubHowMany );
 
-void		DailyCheckOnItemQuantities();
 void		SimulateArmsDealerCustomer();
 
 BOOLEAN AdjustCertainDealersInventory();
@@ -71,10 +73,8 @@ UINT8		DetermineDealerItemCondition( UINT8 ubArmsDealer, UINT16 usItemIndex );
 
 BOOLEAN DoesItemAppearInDealerInventoryList( UINT8 ubArmsDealer, UINT16 usItemIndex, BOOLEAN fPurchaseFromPlayer );
 
-#ifdef JA2UB
 void AddTexsVideosToBettysInventory();
 BOOLEAN CanThisItemBeSoldToSimulatedCustomer( UINT8 ubArmsDealerID, UINT16 usItemIndex );
-#endif
 
 void GuaranteeMinimumAlcohol( UINT8 ubArmsDealer );
 
@@ -315,11 +315,7 @@ void DailyUpdateOfArmsDealersInventory()
 	SimulateArmsDealerCustomer();
 
 	//if there are some items that are out of stock, order some more
-#ifdef JA2UB
 	DailyCheckOnItemQuantities( FALSE );
-#else
-	DailyCheckOnItemQuantities();
-#endif
 
 	// Flugente: if we are a lua-based merchant, stop selling items we didn't explicitly want to be sold
 	RemoveNonIntelItems();
@@ -361,13 +357,11 @@ void SimulateArmsDealerCustomer()
 		{
 			if ( Item[usItemIndex].usItemClass	== 0 )
 				break;
-#ifdef JA2UB			
-			//JA25 UB//			
-			if( !CanThisItemBeSoldToSimulatedCustomer( ubArmsDealer, usItemIndex ) )
+			if( CurrentCampaignDealerPolicy().usesUnfinishedBusinessRoster() &&
+				!CanThisItemBeSoldToSimulatedCustomer( ubArmsDealer, usItemIndex ) )
 			{
 				continue;
 			}
-#endif			
 			//if there are some of these in stock
 			if( numPerfectItems[usItemIndex] > 0)
 			{
@@ -411,12 +405,10 @@ void SimulateArmsDealerCustomer()
 	}
 }
 
-#ifdef JA2UB
-void DailyCheckOnItemQuantities( BOOLEAN fInstallyHaveItemsAppear )
-#else
-void DailyCheckOnItemQuantities()
-#endif
+void DailyCheckOnItemQuantities( BOOLEAN fInstantlyHaveItemsAppear )
 {
+	const bool usesUnfinishedBusinessRoster =
+		CurrentCampaignDealerPolicy().usesUnfinishedBusinessRoster();
 	UINT8		ubArmsDealer;
 	UINT16	usItemIndex;
 	UINT8		ubMaxSupply;
@@ -461,14 +453,12 @@ void DailyCheckOnItemQuantities()
 					{
 						iter->ubQtyOnOrder = 0;
 						iter->uiOrderArrivalTime = 0;
-#ifdef JA2UB						
-						//JA25 UB if the dealer is RAUL
-						if( ubArmsDealer == ARMS_DEALER_RAUL )
+						if( usesUnfinishedBusinessRoster &&
+							IsCampaignArmsDealer(ubArmsDealer, CampaignDealer::Raul) )
 						{
 							//set the fact the raul refreshed his inventory
 							SetFactTrue( FACT_RAULS_INVENTORY_CHANGED_SINCE_LAST_VISIT );
 						}
-#endif
 					}
 				}
 			}
@@ -498,14 +488,14 @@ void DailyCheckOnItemQuantities()
 						{
 							// figure out how many items to reorder (items are reordered an entire batch at a time)
 							ubNumItems = HowManyItemsToReorder( ubMaxSupply, itemsInStock);
-#ifdef JA2UB							
 							//if the dealer is betty, and we are to ADD the stuff instantly
-							if( ubArmsDealer == ARMS_DEALER_BETTY && fInstallyHaveItemsAppear &&
+							if( usesUnfinishedBusinessRoster &&
+								IsCampaignArmsDealer(ubArmsDealer, CampaignDealer::Betty) &&
+								fInstantlyHaveItemsAppear &&
 									( usItemIndex == MEDICKIT || usItemIndex == FIRSTAIDKIT ) )
 							{
 								ubNumItems = ubMaxSupply + ubMaxSupply/2;
 							}
-#endif
 							// if this is the first day the player is eligible to have access to this thing
 							if ( gArmsDealerStatus[ubArmsDealer].fPreviouslyEligible[ usItemIndex ] == false )
 							{
@@ -515,8 +505,7 @@ void DailyCheckOnItemQuantities()
 							}
 							else
 							{
-#ifdef JA2UB							
-								if( fInstallyHaveItemsAppear )
+								if( usesUnfinishedBusinessRoster && fInstantlyHaveItemsAppear )
 								{
 									ubReorderDays = 0;
 								}
@@ -524,10 +513,6 @@ void DailyCheckOnItemQuantities()
 								{
 									ubReorderDays = ( UINT8) ( armsDealerInfo[ ubArmsDealer ].daysDelayMin + Random( armsDealerInfo[ ubArmsDealer ].daysDelayMax - armsDealerInfo[ ubArmsDealer ].daysDelayMin ) );
 								}
-								
-#else
-								ubReorderDays = ( UINT8) ( armsDealerInfo[ ubArmsDealer ].daysDelayMin + Random( armsDealerInfo[ ubArmsDealer ].daysDelayMax - armsDealerInfo[ ubArmsDealer ].daysDelayMin ) );
-#endif
 								//Determine when the inventory should arrive
 								uiArrivalDay = GetWorldDay() + ubReorderDays;	// consider changing this to minutes
 								// post new order
@@ -639,6 +624,17 @@ void RemoveNonIntelItems()
 
 BOOLEAN AdjustCertainDealersInventory( )
 {
+	const bool usesUnfinishedBusinessRoster =
+		CurrentCampaignDealerPolicy().usesUnfinishedBusinessRoster();
+	const UINT8 frank = GetCampaignArmsDealerID(CampaignDealer::Frank);
+	const UINT8 barBro1 = GetCampaignArmsDealerID(CampaignDealer::BarBro1);
+	const UINT8 barBro2 = GetCampaignArmsDealerID(CampaignDealer::BarBro2);
+	const UINT8 barBro3 = GetCampaignArmsDealerID(CampaignDealer::BarBro3);
+	const UINT8 barBro4 = GetCampaignArmsDealerID(CampaignDealer::BarBro4);
+	const UINT8 elgin = GetCampaignArmsDealerID(CampaignDealer::Elgin);
+	const UINT8 manny = GetCampaignArmsDealerID(CampaignDealer::Manny);
+	const UINT8 sam = GetCampaignArmsDealerID(CampaignDealer::Sam);
+
 	//Adjust Tony's items (this restocks *instantly* 1/day, doesn't use the reorder system)
 	GuaranteeAtLeastOneItemOfType( ARMS_DEALER_TONY, ARMS_DEALER_BIG_GUNS );
 	LimitArmsDealersInventory( ARMS_DEALER_TONY, ARMS_DEALER_BIG_GUNS, 2 );
@@ -646,16 +642,16 @@ BOOLEAN AdjustCertainDealersInventory( )
 	LimitArmsDealersInventory( ARMS_DEALER_TONY, ARMS_DEALER_AMMO, 8 );
 
 	//Adjust all bartenders' alcohol levels to a minimum
-	GuaranteeMinimumAlcohol( ARMS_DEALER_FRANK );
-	GuaranteeMinimumAlcohol( ARMS_DEALER_BAR_BRO_1 );
-	GuaranteeMinimumAlcohol( ARMS_DEALER_BAR_BRO_2 );
-	GuaranteeMinimumAlcohol( ARMS_DEALER_BAR_BRO_3 );
-	GuaranteeMinimumAlcohol( ARMS_DEALER_BAR_BRO_4 );
-	GuaranteeMinimumAlcohol( ARMS_DEALER_ELGIN );
-	GuaranteeMinimumAlcohol( ARMS_DEALER_MANNY );
+	GuaranteeMinimumAlcohol( frank );
+	GuaranteeMinimumAlcohol( barBro1 );
+	GuaranteeMinimumAlcohol( barBro2 );
+	GuaranteeMinimumAlcohol( barBro3 );
+	GuaranteeMinimumAlcohol( barBro4 );
+	GuaranteeMinimumAlcohol( elgin );
+	GuaranteeMinimumAlcohol( manny );
 
 	//make sure Sam (hardware guy) has at least one empty jar
-	GuaranteeAtLeastXItemsOfIndex( ARMS_DEALER_SAM, JAR, 1 );
+	GuaranteeAtLeastXItemsOfIndex( sam, JAR, 1 );
 
 	if ( CheckFact( FACT_ESTONI_REFUELLING_POSSIBLE, 0 ) )
 	{
@@ -668,14 +664,17 @@ BOOLEAN AdjustCertainDealersInventory( )
 	{
 		GuaranteeAtLeastXItemsOfIndex( ARMS_DEALER_FRANZ, VIDEO_CAMERA, 1 );
 	}
-#ifdef JA2UB
+	if ( usesUnfinishedBusinessRoster )
+	{
+		const UINT8 raul = GetCampaignArmsDealerID(CampaignDealer::Raul);
+		const UINT8 betty = GetCampaignArmsDealerID(CampaignDealer::Betty);
 	//------------UB---------------------
 		
 	//if Raul hasnt yet sold the barret
-	if( !( gArmsDealerStatus[ ARMS_DEALER_RAUL ].ubSpecificDealerFlags & ARMS_DEALER_FLAG__RAUL_HAS_SOLD_BARRETT_TO_PLAYER ) )
+	if( !( gArmsDealerStatus[ raul ].ubSpecificDealerFlags & ARMS_DEALER_FLAG__RAUL_HAS_SOLD_BARRETT_TO_PLAYER ) )
 	{
 		//Guarentee at least 1 Barrett
-		GuaranteeAtLeastXItemsOfIndex( ARMS_DEALER_RAUL, BARRETT_UB, 1 );
+		GuaranteeAtLeastXItemsOfIndex( raul, BARRETT_UB, 1 );
 	}
 
 	/*
@@ -684,32 +683,32 @@ BOOLEAN AdjustCertainDealersInventory( )
 	//if the player hasnt done the "killed the annoying bloodcats" quest for betty, 
 	if( gubQuest[ QUEST_FIX_LAPTOP ] != QUESTDONE && gGameUBOptions.LaptopQuestEnabled == TRUE )
 	{
-		GuaranteeAtLeastXItemsOfIndex( ARMS_DEALER_BETTY, LAPTOP_TRANSMITTER , 1 ); //4500
+		GuaranteeAtLeastXItemsOfIndex( betty, LAPTOP_TRANSMITTER , 1 ); //4500
 	}
 	else
 	{
-		GuaranteeAtMostNumOfItemsForItem( ARMS_DEALER_BETTY, LAPTOP_TRANSMITTER, 0 ); //4500
+		GuaranteeAtMostNumOfItemsForItem( betty, LAPTOP_TRANSMITTER, 0 ); //4500
 	}
 	*/
 	
 	if( gGameUBOptions.LaptopQuestEnabled == FALSE )
 	{
-		GuaranteeAtMostNumOfItemsForItem( ARMS_DEALER_BETTY, LAPTOP_TRANSMITTER, 0 ); //4500
+		GuaranteeAtMostNumOfItemsForItem( betty, LAPTOP_TRANSMITTER, 0 ); //4500
 	}
 	
 	if( gubQuest[ QUEST_GET_RID_BLOODCATS_AT_BETTYS ] != QUESTDONE )
 	{
 		//make sure she doesnt sell these items just yet
-		GuaranteeAtMostNumOfItemsForItem( ARMS_DEALER_BETTY, FIRSTAIDKIT, 0 );
-		GuaranteeAtMostNumOfItemsForItem( ARMS_DEALER_BETTY, MEDICKIT, 0 );
-		GuaranteeAtMostNumOfItemsForItem( ARMS_DEALER_BETTY, COMPOUND18, 0 );
-		GuaranteeAtMostNumOfItemsForItem( ARMS_DEALER_BETTY, CERAMIC_PLATES, 0 );
-		GuaranteeAtMostNumOfItemsForItem( ARMS_DEALER_BETTY, LAME_BOY, 0 );
+		GuaranteeAtMostNumOfItemsForItem( betty, FIRSTAIDKIT, 0 );
+		GuaranteeAtMostNumOfItemsForItem( betty, MEDICKIT, 0 );
+		GuaranteeAtMostNumOfItemsForItem( betty, COMPOUND18, 0 );
+		GuaranteeAtMostNumOfItemsForItem( betty, CERAMIC_PLATES, 0 );
+		GuaranteeAtMostNumOfItemsForItem( betty, LAME_BOY, 0 );
 	}
 
 	//Guarntee 1 laptop transmitter to be at betty's
-	GuaranteeAtLeastXItemsOfIndex( ARMS_DEALER_BETTY, PORNOS, 1 );
-#endif
+	GuaranteeAtLeastXItemsOfIndex( betty, PORNOS, 1 );
+	}
 	return( TRUE );
 }
 
@@ -1159,6 +1158,21 @@ INT8 GetArmsDealerIDFromMercID( UINT8 ubMercID )
 	return( -1 );
 }
 
+INT8 GetCampaignArmsDealerID( CampaignDealer dealer )
+{
+	return static_cast<INT8>(CurrentCampaignDealerPolicy().dealerId(dealer));
+}
+
+CampaignDealer GetCampaignArmsDealerFromID( INT16 rawDealerId )
+{
+	return CurrentCampaignDealerPolicy().dealerAt(rawDealerId);
+}
+
+BOOLEAN IsCampaignArmsDealer( INT16 rawDealerId, CampaignDealer dealer )
+{
+	return CurrentCampaignDealerPolicy().isDealer(rawDealerId, dealer);
+}
+
 UINT8 GetTypeOfArmsDealer( UINT8	ubDealerID )
 {
 	return( armsDealerInfo[ ubDealerID ].ubTypeOfArmsDealer );
@@ -1275,18 +1289,12 @@ BOOLEAN CanDealerRepairItem( UINT8 ubArmsDealer, UINT16 usItemIndex )
 		return(FALSE);
 	}
 	
-//#ifdef JA2UB	
 //Ja25: TEMP!!!
 //	return( FALSE );
-//#endif
-	switch ( ubArmsDealer )
+	switch ( GetCampaignArmsDealerFromID(ubArmsDealer) )
 	{
-		case ARMS_DEALER_ARNIE:
-#ifdef JA2UB
-//Ja25 neither in exp.
-#else		
-		case ARMS_DEALER_PERKO:
-#endif		
+		case CampaignDealer::Arnie:
+		case CampaignDealer::Perko:
 			// repairs ANYTHING non-electronic
 			if ( !ItemIsElectronic(usItemIndex) )
 			{
@@ -1294,7 +1302,7 @@ BOOLEAN CanDealerRepairItem( UINT8 ubArmsDealer, UINT16 usItemIndex )
 			}
 			break;
 
-		case ARMS_DEALER_FREDO:
+		case CampaignDealer::Fredo:
 			// repairs ONLY electronics
 			if (ItemIsElectronic(usItemIndex))
 			{
@@ -1729,14 +1737,14 @@ BOOLEAN AddDeadArmsDealerItemsToWorld( UINT8 usProfileID, SoldierID aMercID )
 		Assert(0);
 		return( FALSE );
 	}
-#ifdef JA2UB	//RAUL
 	//Ja25 UB
 	//if Raul blew him,self up, dont drop any items
-	if( pSoldier->identity().profile() == RAUL_UB /* RAUL */ && IsJa25GeneralFlagSet( JA_GF__RAUL_BLOW_HIMSELF_UP ) )
+	if( CurrentCampaignDealerPolicy().usesUnfinishedBusinessRoster() &&
+		pSoldier->identity().profile() == RAUL_UB /* RAUL */ &&
+		IsJa25GeneralFlagSet( JA_GF__RAUL_BLOW_HIMSELF_UP ) )
 	{
 		return( TRUE );
 	}
-#endif
 	//loop through all the items in the dealer's inventory, and drop them all where the dealer was set up.
 	for (DealerItemList::iterator iter = gArmsDealersInventory[bArmsDealer].begin();
 		iter != gArmsDealersInventory[bArmsDealer].end(); ++iter) {
@@ -1965,7 +1973,8 @@ UINT32 CalculateSimpleItemRepairTime( UINT8 ubArmsDealer, UINT16 usItemIndex, IN
 	// repairs on electronic items take twice as long if the guy doesn't have the skill
 	// for dealers, this means anyone but Fredo the Electronics guy takes twice as long (but doesn't charge double)
 	// (Mind you, current he's the ONLY one who CAN repair Electronics at all!	Oh well.)
-	if( ItemIsElectronic(usItemIndex) && ( ubArmsDealer != ARMS_DEALER_FREDO ) )
+	if( ItemIsElectronic(usItemIndex) &&
+		!IsCampaignArmsDealer(ubArmsDealer, CampaignDealer::Fredo) )
 	{
 		uiTimeToRepair *= 2;
 	}
@@ -2137,7 +2146,8 @@ UINT16 CalcValueOfItemToDealer( UINT8 ubArmsDealer, UINT16 usItemIndex, BOOLEAN 
 
 	// Micky & Gabby specialize in creature parts & such, the others don't buy these at all (exception: jars)
 	if ( ( !ItemIsJar(usItemIndex)) &&
-				( DoesItemAppearInDealerInventoryList( ARMS_DEALER_MICKY, usItemIndex, TRUE ) ||
+				( DoesItemAppearInDealerInventoryList(
+					GetCampaignArmsDealerID(CampaignDealer::Micky), usItemIndex, TRUE ) ||
 					DoesItemAppearInDealerInventoryList( ARMS_DEALER_GABBY, usItemIndex, TRUE ) ) )
 	{
 		return( 0 );
@@ -2347,22 +2357,23 @@ UINT32 CalculateMinutesClosedBetween( UINT8 ubArmsDealer, UINT32 uiStartTime, UI
 
 	return ( uiMinutesClosed );
 }
-#ifdef JA2UB
 //JA25 ub
 
 
 void AddTexsVideosToBettysInventory()
 {
-	GuaranteeAtLeastXItemsOfIndex( ARMS_DEALER_BETTY, TEX_MOVIE_ATTACK_CLYDESDALES, 1 );
-	GuaranteeAtLeastXItemsOfIndex( ARMS_DEALER_BETTY, TEX_MOVIE_WILD_EAST, 1 );
-	GuaranteeAtLeastXItemsOfIndex( ARMS_DEALER_BETTY, TEX_MOVIE_HAVE_HONDA, 1 );
+	const INT8 betty = GetCampaignArmsDealerID(CampaignDealer::Betty);
+	if (betty < 0)
+		return;
+	GuaranteeAtLeastXItemsOfIndex( betty, TEX_MOVIE_ATTACK_CLYDESDALES, 1 );
+	GuaranteeAtLeastXItemsOfIndex( betty, TEX_MOVIE_WILD_EAST, 1 );
+	GuaranteeAtLeastXItemsOfIndex( betty, TEX_MOVIE_HAVE_HONDA, 1 );
 }
 
 BOOLEAN CanThisItemBeSoldToSimulatedCustomer( UINT8 ubArmsDealerID, UINT16 usItemIndex )
 {
-	switch( ubArmsDealerID )
+	if ( IsCampaignArmsDealer(ubArmsDealerID, CampaignDealer::Betty) )
 	{
-		case ARMS_DEALER_BETTY:
 			//if the item is..
 
 			if( usItemIndex == TEX_MOVIE_ATTACK_CLYDESDALES ||  //1356  ||
@@ -2372,9 +2383,7 @@ BOOLEAN CanThisItemBeSoldToSimulatedCustomer( UINT8 ubArmsDealerID, UINT16 usIte
 			{
 				return( FALSE );
 			}
-			break;
 	}
 
 	return( TRUE );
 }
-#endif

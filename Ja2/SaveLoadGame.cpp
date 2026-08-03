@@ -807,11 +807,13 @@ static BOOLEAN LoadArmsDealerInventoryFromSavedGameFile( HWFILE hFile )
 
 		if ( !fIncludesElgin ) {
 			// initialize Elgin now...
-			InitializeOneArmsDealer( ARMS_DEALER_ELGIN );
+			InitializeOneArmsDealer(
+				GetCampaignArmsDealerID(CampaignDealer::Elgin));
 		}
 		if ( !fIncludesManny ) {
 			// initialize Manny now...
-			InitializeOneArmsDealer( ARMS_DEALER_MANNY );
+			InitializeOneArmsDealer(
+				GetCampaignArmsDealerID(CampaignDealer::Manny));
 		}
 
 		OLD_DEALER_SPECIAL_ITEM_101 oldSpecial;
