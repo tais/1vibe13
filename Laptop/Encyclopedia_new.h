@@ -15,7 +15,7 @@ enum ENC_SUBPAGE_T {
 extern ENC_SUBPAGE_T geENC_SubPage;//current subpage
 
 /// values for \ref gbEncyclopediaData_ItemVisible, can be set by using \ref EncyclopediaSetItemAsVisible(). During campain those values can only be increased, never decreased. If you want to reset to 0 use \ref EncyclopediaInitItemsVisibility instead.
-typedef enum ENC_ITEM_VISIBILITY_T {
+enum ENC_ITEM_VISIBILITY_T {
 ENC_ITEM_NOT_DISCOVERED = 0,			///< item is not visible in encyclopedia
 ENC_ITEM_DISCOVERED_NOT_REACHABLE,		///< item is visible in encyclopedia if external option allows not reachable items to be added as discovered. example: item in sector stash but is not reachable, item has been seen on enemy soldier.
 ENC_ITEM_DISCOVERED_NOT_INSPECTABLE,	///< item is visible in encyclopedia if external option allows not inspectable items to be added as discovered. Item is potentially reachable, but can not be inspected. example: item got displayed in bobby rays screen, item got displayed in merc/aim laptop screen.

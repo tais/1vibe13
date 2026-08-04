@@ -10,6 +10,7 @@
 	#include "laptop.h"
 	#include "IMP Text System.h"
 	#include "Text.h"
+#include "ImpPageResourceOwner.h"
 
 
 // IMP personality entrance buttons
@@ -25,6 +26,7 @@ void WriteIMPCharacterAndDisabilityEntranceText( void );
 
 void EnterIMPCharacterAndDisabilityEntrance( void )
 {
+	BeginImpPageResources();
 	// create buttons needed
 	CreateIMPCharacterAndDisabilityEntranceButtons( );
 

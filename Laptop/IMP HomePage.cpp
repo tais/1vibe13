@@ -27,6 +27,7 @@
 #ifdef JA2UB
 #include "ub_config.h"
 #endif
+#include "ImpPageResourceOwner.h"
 
 void GetPlayerKeyBoardInputForIMPHomePage( void );
 void DisplayPlayerActivationString( void );
@@ -80,6 +81,7 @@ BOOLEAN fNewCharInActivationString = FALSE;
 
 void EnterImpHomePage( void )
 {
+	BeginImpPageResources();
 	// upon entry to Imp home page
 	memset(pPlayerActivationString, 0, sizeof(pPlayerActivationString));
 

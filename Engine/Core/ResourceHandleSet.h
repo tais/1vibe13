@@ -1,6 +1,7 @@
 #ifndef ENGINE_CORE_RESOURCE_HANDLE_SET_H
 #define ENGINE_CORE_RESOURCE_HANDLE_SET_H
 
+#include <algorithm>
 #include <cstddef>
 #include <utility>
 #include <vector>
@@ -32,6 +33,15 @@ public:
 		if (!handle) return false;
 		handles_.push_back(std::move(handle));
 		publishedValue = handles_.back().get();
+		return true;
+	}
+
+	bool erase(value_type value)
+	{
+		const auto found = std::find_if(handles_.begin(), handles_.end(),
+			[value](const Handle& handle) { return handle.get() == value; });
+		if (found == handles_.end()) return false;
+		handles_.erase(found);
 		return true;
 	}
 

@@ -3339,6 +3339,276 @@ foreach(required_laptop_campaign_content_assertion IN ITEMS
   endif()
 endforeach()
 
+# The scheduled Laptop walkthrough is closed by one shared dependency-free UI
+# boundary, transactional ownership in the residual shell/page/widget cluster,
+# per-page ownership for every IMP screen, and a real compile check for the
+# otherwise dormant Encyclopedia implementation.
+file(READ "${SOURCE_ROOT}/Laptop/LaptopUiStateModel.h"
+  runtime_laptop_ui_state_model_contents)
+foreach(required_laptop_ui_state_model_fragment IN ITEMS
+    "IsValidIndex"
+    "NormalizeIndex"
+    "AdjacentIndex"
+    "PageCount"
+    "NormalizePageStart"
+    "NormalizeWindowStart"
+    "CopyText"
+    "AppendText"
+    "IsExactTransfer"
+    "NormalizeSentinelList"
+    "AppendUniqueSentinel"
+    "RemoveSentinelValue")
+  string(FIND "${runtime_laptop_ui_state_model_contents}"
+    "${required_laptop_ui_state_model_fragment}"
+    required_laptop_ui_state_model_position)
+  if(required_laptop_ui_state_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop UI state boundary lost '${required_laptop_ui_state_model_fragment}'")
+  endif()
+endforeach()
+
+set(runtime_laptop_closure_owned_sources
+  "Laptop/BaseTable.cpp"
+  "Laptop/DropDown.cpp"
+  "Laptop/DynamicDialogueWidget.cpp"
+  "Laptop/BriefingRoom.cpp"
+  "Laptop/BriefingRoomM.cpp"
+  "Laptop/BriefingRoom_Data.cpp"
+  "Laptop/FacilityProduction.cpp"
+  "Laptop/Intelmarket.cpp"
+  "Laptop/MilitiaWebsite.cpp"
+  "Laptop/PMC.cpp"
+  "Laptop/WHO.cpp"
+  "Laptop/files.cpp"
+  "Laptop/laptop.cpp"
+  "Laptop/merccompare.cpp"
+  "Laptop/Encyclopedia_new.cpp"
+  "Laptop/Encyclopedia_Data_new.cpp")
+foreach(runtime_laptop_closure_owned_source IN LISTS
+    runtime_laptop_closure_owned_sources)
+  file(READ "${SOURCE_ROOT}/${runtime_laptop_closure_owned_source}"
+    runtime_laptop_closure_owned_contents)
+  string(FIND "${runtime_laptop_closure_owned_contents}"
+    "LaptopPageResourceOwner" runtime_laptop_closure_owner_position)
+  if(runtime_laptop_closure_owner_position EQUAL -1)
+    message(FATAL_ERROR
+      "${runtime_laptop_closure_owned_source} lost transactional Laptop ownership")
+  endif()
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(AddVideoObject|DeleteVideoObjectFromIndex|AddVideoSurface|DeleteVideoSurfaceFromIndex|LoadButtonImage|UnloadButtonImage|RemoveButton)[ \t\r\n]*\\("
+    raw_laptop_closure_resource_lifecycle
+    "${runtime_laptop_closure_owned_contents}")
+  if(raw_laptop_closure_resource_lifecycle)
+    message(FATAL_ERROR
+      "${runtime_laptop_closure_owned_source} restored raw resource lifecycle '${raw_laptop_closure_resource_lifecycle}'")
+  endif()
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(wcs(cpy|ncpy|cat|ncat)|swprintf|sprintf|str(cpy|ncpy|cat|ncat))[ \t\r\n]*\\("
+    unsafe_laptop_closure_text_operation
+    "${runtime_laptop_closure_owned_contents}")
+  if(unsafe_laptop_closure_text_operation)
+    message(FATAL_ERROR
+      "${runtime_laptop_closure_owned_source} restored unbounded text '${unsafe_laptop_closure_text_operation}'")
+  endif()
+endforeach()
+
+set(runtime_laptop_imp_page_sources
+  "Laptop/IMP AboutUs.cpp"
+  "Laptop/IMP Attribute Entrance.cpp"
+  "Laptop/IMP Attribute Finish.cpp"
+  "Laptop/IMP Attribute Selection.cpp"
+  "Laptop/IMP Background.cpp"
+  "Laptop/IMP Begin Screen.cpp"
+  "Laptop/IMP Character Trait.cpp"
+  "Laptop/IMP Character and Disability Entrance.cpp"
+  "Laptop/IMP Color Choosing.cpp"
+  "Laptop/IMP Confirm.cpp"
+  "Laptop/IMP Disability Trait.cpp"
+  "Laptop/IMP Finish.cpp"
+  "Laptop/IMP Gear Entrance.cpp"
+  "Laptop/IMP Gear.cpp"
+  "Laptop/IMP HomePage.cpp"
+  "Laptop/IMP MainPage.cpp"
+  "Laptop/IMP Minor Trait.cpp"
+  "Laptop/IMP Personality Entrance.cpp"
+  "Laptop/IMP Personality Finish.cpp"
+  "Laptop/IMP Personality Quiz.cpp"
+  "Laptop/IMP Portraits.cpp"
+  "Laptop/IMP Prejudice.cpp"
+  "Laptop/IMP Skill Trait.cpp"
+  "Laptop/IMP Voices.cpp")
+foreach(runtime_laptop_imp_page_source IN LISTS runtime_laptop_imp_page_sources)
+  file(READ "${SOURCE_ROOT}/${runtime_laptop_imp_page_source}"
+    runtime_laptop_imp_page_contents)
+  foreach(required_laptop_imp_page_fragment IN ITEMS
+      "ImpPageResourceOwner.h" "BeginImpPageResources")
+    string(FIND "${runtime_laptop_imp_page_contents}"
+      "${required_laptop_imp_page_fragment}"
+      required_laptop_imp_page_position)
+    if(required_laptop_imp_page_position EQUAL -1)
+      message(FATAL_ERROR
+        "${runtime_laptop_imp_page_source} bypassed per-page IMP ownership '${required_laptop_imp_page_fragment}'")
+    endif()
+  endforeach()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/IMPVideoObjects.cpp"
+  runtime_laptop_imp_video_object_contents)
+foreach(required_laptop_imp_video_object_fragment IN ITEMS
+    "static LaptopPageResourceOwner gImpGraphicResources"
+    "gImpGraphicResources.addVideoObject"
+    "gImpGraphicResources.clear")
+  string(FIND "${runtime_laptop_imp_video_object_contents}"
+    "${required_laptop_imp_video_object_fragment}"
+    required_laptop_imp_video_object_position)
+  if(required_laptop_imp_video_object_position EQUAL -1)
+    message(FATAL_ERROR
+      "IMP shared graphics lost '${required_laptop_imp_video_object_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/files.cpp" runtime_laptop_closure_files_contents)
+foreach(required_laptop_files_closure_fragment IN ITEMS
+    "MemAlloc((length + 1) * sizeof(CHAR16))"
+    "recordCount >= MAX_FILES_LIST_LENGTH"
+    "FileStringPtr next = pFileString->Next"
+    "if (!LoadEncryptedDataFromFile"
+    "LaptopUiStateModel::IsValidIndex(NUM_PROFILES, profileId)"
+    "ReadLaptopFileExact"
+    "WriteLaptopFileExact"
+    "LaptopPageResourceOwner stagedResources")
+  string(FIND "${runtime_laptop_closure_files_contents}"
+    "${required_laptop_files_closure_fragment}"
+    required_laptop_files_closure_position)
+  if(required_laptop_files_closure_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Files closure lost '${required_laptop_files_closure_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/laptop.cpp"
+  runtime_laptop_closure_shell_contents)
+foreach(required_laptop_shell_closure_fragment IN ITEMS
+    "CreateMouseRegionsForLaptopNotifications"
+    "DestroyMouseRegionsForLaptopNotifications"
+    "NormalizeBookmarkList"
+    "LaptopSaveInfoStruct pendingInfo{}"
+    "gLaptopCoreResources"
+    "gLaptopNotificationRegionResources")
+  string(FIND "${runtime_laptop_closure_shell_contents}"
+    "${required_laptop_shell_closure_fragment}"
+    required_laptop_shell_closure_position)
+  if(required_laptop_shell_closure_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop shell closure lost '${required_laptop_shell_closure_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/BriefingRoom_Data.cpp"
+  runtime_laptop_closure_briefing_contents)
+file(READ "${SOURCE_ROOT}/Laptop/merccompare.cpp"
+  runtime_laptop_closure_merccompare_contents)
+file(READ "${SOURCE_ROOT}/Laptop/Encyclopedia_Data_new.cpp"
+  runtime_laptop_closure_encyclopedia_contents)
+foreach(required_laptop_transient_owner_fragment IN ITEMS
+    "LaptopUiStateModel::AdjacentIndex"
+    "UniqueVideoObjectHandle")
+  string(FIND
+    "${runtime_laptop_closure_briefing_contents}${runtime_laptop_closure_encyclopedia_contents}"
+    "${required_laptop_transient_owner_fragment}"
+    required_laptop_transient_owner_position)
+  if(required_laptop_transient_owner_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop briefing/Encyclopedia closure lost '${required_laptop_transient_owner_fragment}'")
+  endif()
+endforeach()
+foreach(required_laptop_encyclopedia_safety_fragment IN ITEMS
+    "CHAR16 questStartedString[160] = {}"
+    "GUI_BUTTON* otherButton ="
+    "GUI_BUTTON* createdButton = GetButtonPtr")
+  string(FIND
+    "${runtime_laptop_closure_encyclopedia_contents}${runtime_laptop_closure_briefing_contents}"
+    "${required_laptop_encyclopedia_safety_fragment}"
+    required_laptop_encyclopedia_safety_position)
+  if(required_laptop_encyclopedia_safety_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop dormant-path safety lost '${required_laptop_encyclopedia_safety_fragment}'")
+  endif()
+endforeach()
+foreach(required_laptop_merccompare_closure_fragment IN ITEMS
+    "DisplayMercFace"
+    "UniqueVideoObjectHandle"
+    "gMercCompareMatrixResources"
+    "NUMBER_OF_SQUADS")
+  string(FIND "${runtime_laptop_closure_merccompare_contents}"
+    "${required_laptop_merccompare_closure_fragment}"
+    required_laptop_merccompare_closure_position)
+  if(required_laptop_merccompare_closure_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Merc Compare closure lost '${required_laptop_merccompare_closure_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_laptop_closure_test_build_fragment IN ITEMS
+    "laptop_ui_state_model_tests.cpp"
+    "laptop_ui_state_model"
+    "laptop_encyclopedia_compile_check"
+    "ENCYCLOPEDIA_WORKS")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_laptop_closure_test_build_fragment}"
+    required_laptop_closure_test_build_position)
+  if(required_laptop_closure_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop closure lost test/compile target '${required_laptop_closure_test_build_fragment}'")
+  endif()
+endforeach()
+foreach(required_laptop_closure_ci_fragment IN ITEMS
+    "laptop_ui_state_model_tests"
+    "laptop_encyclopedia_compile_check")
+  string(FIND "${runtime_campaign_policy_ci_contents}"
+    "${required_laptop_closure_ci_fragment}"
+    required_laptop_closure_ci_position)
+  if(required_laptop_closure_ci_position EQUAL -1)
+    message(FATAL_ERROR
+      "AddressSanitizer CI lost Laptop closure target '${required_laptop_closure_ci_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_ui_state_model_tests.cpp"
+  runtime_laptop_ui_state_test_contents)
+foreach(required_laptop_ui_state_test_fragment IN ITEMS
+    "signed negative indices are rejected"
+    "adjacent selection rejects both ends and stale indices"
+    "zero-sized pages cannot divide by zero"
+    "hidden and exact-end page slots are rejected"
+    "scrolling windows clamp both stale and undersized end positions"
+    "bounded copies truncate and terminate"
+    "binary transfers must be exact"
+    "full sentinel lists reject insertion without an exact-end write")
+  string(FIND "${runtime_laptop_ui_state_test_contents}"
+    "${required_laptop_ui_state_test_fragment}"
+    required_laptop_ui_state_test_position)
+  if(required_laptop_ui_state_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop UI state tests lost '${required_laptop_ui_state_test_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/docs/LAPTOP_CODE_WALKTHROUGH.md"
+  runtime_laptop_walkthrough_contents)
+foreach(required_laptop_closure_documentation_fragment IN ITEMS
+    "Shared shell, widgets, residual pages, and dormant-path closure"
+    "All 98 Laptop translation units"
+    "no remaining Laptop audit batch")
+  string(FIND "${runtime_laptop_walkthrough_contents}"
+    "${required_laptop_closure_documentation_fragment}"
+    required_laptop_closure_documentation_position)
+  if(required_laptop_closure_documentation_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop closure documentation lost '${required_laptop_closure_documentation_fragment}'")
+  endif()
+endforeach()
+
 # Save/load and process-lifetime campaign bootstrap now use one compiled
 # representation. Every host emits the JA25 persistence sections and the
 # runtime campaign decides which restored state and startup hooks take effect.

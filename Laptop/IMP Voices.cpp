@@ -18,6 +18,7 @@
 	#include "LaptopSave.h"
 	#include "IMP Confirm.h"
 	#include "ImpCreationStateModel.h"
+#include "ImpPageResourceOwner.h"
 
 INT32 iCurrentVoice = 0;
 UINT32 iSelectedIMPVoiceSet = 0;
@@ -70,6 +71,7 @@ static BOOLEAN SelectFirstMatchingVoice()
 
 void EnterIMPVoices( void )
 {
+	BeginImpPageResources();
 	SelectFirstMatchingVoice();
 	
 	// create buttons
@@ -399,7 +401,8 @@ void RenderVoiceIndex( void )
 	INT16 sX, sY;
 
 	// render the voice index value on the the blank portrait
-	swprintf( sString, L"%s", gIMPVoice[iCurrentVoice].szVoiceSetName );
+	LaptopUiStateModel::CopyText(
+		sString, gIMPVoice[iCurrentVoice].szVoiceSetName);
 
 	FindFontCenterCoordinates( 290 + LAPTOP_UL_X, 0, 100, 0, sString, FONT12ARIAL, &sX, &sY );
 

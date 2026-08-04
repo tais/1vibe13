@@ -24,6 +24,7 @@
 	#include "Overhead.h"		// added by Flugente for OUR_TEAM_SIZE_NO_VEHICLE
 
 #include "IMP Confirm.h"
+#include "ImpPageResourceOwner.h"
 
 #define MAIN_PAGE_BUTTON_TEXT_WIDTH 95
 
@@ -96,6 +97,7 @@ BOOLEAN IsIMPSlotFree(INT32 iIMPId)
 
 void EnterIMPMainPage( void )
 {
+	BeginImpPageResources();
 	// turn off review mode
 	fReviewStats = FALSE;
 	
@@ -277,14 +279,7 @@ void CreateIMPMainPageButtons( void )
 	*/
 
 	// Changed to display "Character" instead of "Voice" - SANDRO
-	//if( iCurrentProfileMode != IMP__VOICE		&&	iCurrentProfileMode != IMP__PORTRAIT )
-	//{
-	//	swprintf( sString, pImpButtonText[ 5 ], GetVoiceCountFromVoiceSlot(iCurrentVoice) );
-	//}
-	//else
-	//{
-		swprintf( sString, pImpButtonText[ 25 ] ); // "Character"
-	//}
+	LaptopUiStateModel::CopyText(sString, pImpButtonText[25]);
 
 	//Voice
 	giIMPMainPageButton[5] = CreateIconAndTextButton( giIMPMainPageButtonImage[ 5 ], sString, FONT12ARIAL,
@@ -794,7 +789,9 @@ BOOLEAN LoadCharacterPortraitForMainPage( void )
 
 		// load it
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-		sprintf( VObjectDesc.ImageFile, "IMPFaces\\%02d.sti", gIMPValues[iPortraitNumber].PortraitId );
+		std::snprintf(VObjectDesc.ImageFile,
+			std::size(VObjectDesc.ImageFile), "IMPFaces\\%02d.sti",
+			gIMPValues[iPortraitNumber].PortraitId);
 		
 		CHECKF(AddVideoObject(&VObjectDesc, &guiCHARACTERPORTRAITFORMAINPAGE));
 		

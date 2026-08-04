@@ -12,6 +12,13 @@
 	#include "Quests.h"
 	#include "Tactical Save.h"
 	#include "BriefingRoom_Data.h"
+	#include "LaptopPageResourceOwner.h"
+	#include "LaptopRecordFile.h"
+	#include "LaptopUiStateModel.h"
+	#include "VideoResourceHandle.h"
+	#include <algorithm>
+	#include <cstdio>
+	#include <iterator>
 
 
 #define MAX_FILTR_LOCATION_BUTTONS 11
@@ -43,7 +50,7 @@ UINT32 FiltrID = 0;
 BOOLEAN ResetVal = FALSE;
 
 UINT32 IDPageEncyData;
-void InitData ( BOOLEAN bInit );
+static void InitData(BOOLEAN bInit);
 
 #define		ENCYCLOPEDIA_LOCATION_PAGE1_X					(LAPTOP_SCREEN_UL_X + 100)
 #define		ENCYCLOPEDIA_LOCATION_PAGE1_Y					(LAPTOP_SCREEN_WEB_UL_Y + 357)
@@ -83,10 +90,10 @@ void RenderButtonDisabled2();
 void RenderButtonDisabled3();
 void RenderButtonDisabled4();
 void RenderBoxDisabledButton();
-BOOLEAN  RenderMap();
+static BOOLEAN RenderMap();
 void CopyToTemp ( BRIEFINGROOM_M_DATA *Ency, BOOLEAN bFiltr, INT32 sort, INT32 TypFiltr, BOOLEAN ShowBox );
 void ResetTemp();
-void UnLoadMenuButtons ();
+static BOOLEAN LoadSoundButtons(LaptopPageResourceOwner& owner);
 
 #ifdef ENCYCLOPEDIA_WORKS
 MOUSE_REGION	gSelectedEncyclopediaTextRegion[ MAX_FILTR_LOCATION_BUTTONS ];
@@ -101,10 +108,10 @@ BOOLEAN bPage3 = FALSE;
 #define MAX_MISSION_BUTTONS 2
 
 BOOLEAN bSoundButtons = FALSE;
-UINT32 	guiSoundButtons[ MAX_MISSION_BUTTONS ];
-UINT32	uiSoundSampleBR;
+INT32 	guiSoundButtons[ MAX_MISSION_BUTTONS ] = {
+	BUTTON_NO_SLOT, BUTTON_NO_SLOT};
+UINT32	uiSoundSampleBR = NO_SAMPLE;
 INT32  	guiSoundButtonsImage = -1;
-MOUSE_REGION	gSelectedSoundButtonTextRegion[ MAX_MISSION_BUTTONS ];
 void SelectSoundButtonsRegionCallBack(GUI_BUTTON * btn, INT32 reason );
 
 BOOLEAN LoadBriefingRoomFromLoadGameFile( HWFILE hFile );
@@ -147,11 +154,24 @@ BRIEFINGROOM_M_DATA gLoadBriefingRoomReservedData1[];
 #endif // ENABLE_BRIEFINGROOM
 
 UINT32		guiRustEncyclopediaBackGround;
+static LaptopPageResourceOwner gBriefingDataResources;
+
+#ifdef ENABLE_BRIEFINGROOM
+static BRIEFINGROOM_M_DATA* CurrentBriefingEntry()
+{
+	if (MaxLocation <= 0 ||
+		!LaptopUiStateModel::IsValidIndex(NUM_MAX_TEMP, LocationID) ||
+		LocationID >= static_cast<UINT32>(MaxLocation))
+		return nullptr;
+	return &gbriefingRoomDataTemp[LocationID];
+}
+#endif
 
 void ShowNPCEncyclopediaEntry(UINT8 ubNPC, BOOLEAN hidden)
 {
 #ifdef ENABLE_BRIEFINGROOM
-	gLoadBriefingRoomReservedData2[ubNPC].Hidden = TRUE;
+	if (LaptopUiStateModel::IsValidIndex(NUM_PROFILES, ubNPC))
+		gLoadBriefingRoomReservedData2[ubNPC].Hidden = hidden;
 #endif
 }
 
@@ -161,29 +181,23 @@ BOOLEAN DrawEncyclopediaDefaults()
   HVOBJECT hRustBackGroundHandle;
 
 	// Blt the rust background
-	GetVideoObject(&hRustBackGroundHandle, guiRustEncyclopediaBackGround);
+	if (!GetVideoObject(&hRustBackGroundHandle, guiRustEncyclopediaBackGround))
+		return FALSE;
 	BltVideoObject(FRAME_BUFFER, hRustBackGroundHandle, 0,RUSTBACKGROUND_1_X, RUSTBACKGROUND_1_Y, VO_BLT_SRCTRANSPARENCY,NULL);
 #endif // ENABLE_BRIEFINGROOM
 	return(TRUE);
 }
 
-BOOLEAN RemoveEncyclopediaDefaults()
+static BOOLEAN LoadEncyclopediaDefaults(LaptopPageResourceOwner& owner)
 {
-#ifdef ENABLE_BRIEFINGROOM 
-	DeleteVideoObjectFromIndex(guiRustEncyclopediaBackGround);
-#endif // ENABLE_BRIEFINGROOM
-	return(TRUE);
-}
-
-BOOLEAN InitEncyclopediaDefaults()
-{
-#ifdef ENABLE_BRIEFINGROOM 
+#ifdef ENABLE_BRIEFINGROOM
   VOBJECT_DESC    VObjectDesc;
 
 	// load the Rust bacground graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("BriefingRoom\\background.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiRustEncyclopediaBackGround));
+	CHECKF(owner.addVideoObject(
+		&VObjectDesc, guiRustEncyclopediaBackGround));
 
 #endif // ENABLE_BRIEFINGROOM
 	return(TRUE);
@@ -224,13 +238,11 @@ void ResetTemp()
 
 void BackupBRandEncyclopedia ( BRIEFINGROOM_M_DATA *EncyBackup, BRIEFINGROOM_M_DATA *Ency, UINT32 NUM)
 {
-#ifdef ENABLE_BRIEFINGROOM 
+#ifdef ENABLE_BRIEFINGROOM
+	if (!EncyBackup || !Ency) return;
+	const UINT32 NUM_TEMP = std::min(NUM, static_cast<UINT32>(NUM_MISSION));
 
-	UINT32 i,NUM_TEMP;
-
-	NUM_TEMP = NUM_MISSION;
-		
-  	for(i=0; i<NUM_TEMP; i++)
+	for(UINT32 i = 0; i < NUM_TEMP; ++i)
 	{
 		Ency[i].uiIndex = EncyBackup[i].uiIndex;
 		
@@ -303,7 +315,8 @@ void CopyToTemp ( BRIEFINGROOM_M_DATA *Ency, BOOLEAN bFiltr, INT32 sort, INT32 T
 
 			bBoxShow = FALSE;	
 					
-			wcscpy(gbriefingRoomDataTemp[MaxLocation].Name, Ency[i].Name);
+			LaptopUiStateModel::CopyText(
+				gbriefingRoomDataTemp[MaxLocation].Name, Ency[i].Name);
 			
 			gbriefingRoomDataTemp[MaxLocation].sImagePositionX[0] = Ency[i].sImagePositionX[0];
 			gbriefingRoomDataTemp[MaxLocation].sImagePositionY[0] = Ency[i].sImagePositionY[0];
@@ -329,30 +342,40 @@ void CopyToTemp ( BRIEFINGROOM_M_DATA *Ency, BOOLEAN bFiltr, INT32 sort, INT32 T
 #endif // ENABLE_BRIEFINGROOM
 }
 
-void InitSoundButtons()
+static BOOLEAN LoadSoundButtons(LaptopPageResourceOwner& owner)
 {
-	UINT16	usPosY, i;
-	guiSoundButtonsImage =	LoadButtonImage("BriefingRoom\\BUTTONF.sti", BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE );
+	INT32 pendingButtons[MAX_MISSION_BUTTONS] = {
+		BUTTON_NO_SLOT, BUTTON_NO_SLOT};
+	auto buttonImage = LoadButtonImageOwned("BriefingRoom\\BUTTONF.sti",
+		BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE);
+	CHECKF(buttonImage);
+	INT32 pendingImage = BUTTON_NO_IMAGE;
+	CHECKF(owner.addButtonImage(std::move(buttonImage), pendingImage));
 
-	usPosY = ENCYCLOPEDIA_LOCATION_FILTER_Y;
-	for(i=0; i<MAX_MISSION_BUTTONS; i++)
+	UINT16 usPosY = ENCYCLOPEDIA_LOCATION_FILTER_Y;
+	for (UINT16 i = 0; i < MAX_MISSION_BUTTONS; ++i)
 	{
-		guiSoundButtons[i] = CreateIconAndTextButton( guiSoundButtonsImage, pOtherButtonsText[i], ENCYCLOPEDIA_LOCATION_PAGE_FONT,
-														ENCYCLOPEDIA_LOCATION_PAGE_COLOR_UP, DEFAULT_SHADOW,
-														ENCYCLOPEDIA_LOCATION_PAGE_COLOR_DOWN, DEFAULT_SHADOW,
-														TEXT_CJUSTIFIED,
-														ENCYCLOPEDIA_LOCATION_PAGE1_X-92, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, SelectSoundButtonsRegionCallBack);
-		SetButtonCursor(guiSoundButtons[i], CURSOR_WWW);
-		MSYS_SetBtnUserData( guiSoundButtons[i], 0, i);
+		const INT32 button = CreateIconAndTextButton( pendingImage,
+			pOtherButtonsText[i], ENCYCLOPEDIA_LOCATION_PAGE_FONT,
+												ENCYCLOPEDIA_LOCATION_PAGE_COLOR_UP, DEFAULT_SHADOW,
+												ENCYCLOPEDIA_LOCATION_PAGE_COLOR_DOWN, DEFAULT_SHADOW,
+												TEXT_CJUSTIFIED,
+												ENCYCLOPEDIA_LOCATION_PAGE1_X-92, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, SelectSoundButtonsRegionCallBack);
+		CHECKF(owner.addButton(button, pendingButtons[i]));
+		SetButtonCursor(pendingButtons[i], CURSOR_WWW);
+		MSYS_SetBtnUserData(pendingButtons[i], 0, i);
 		usPosY += ENCYCLOPEDIA_FILTR_BUTTON_GAP;
-		
-		SetRegionFastHelpText( &gSelectedSoundButtonTextRegion[ i ], pOtherButtonsHelpText[i] );
-		SetButtonFastHelpText( guiSoundButtons[ i ], pOtherButtonsHelpText[i]  );	
+		SetButtonFastHelpText(pendingButtons[i], pOtherButtonsHelpText[i]);
 	}
+
+	guiSoundButtonsImage = pendingImage;
+	std::copy(std::begin(pendingButtons), std::end(pendingButtons),
+		std::begin(guiSoundButtons));
+	return TRUE;
 }
 
-void InitData ( BOOLEAN bInit)
+static void InitData(BOOLEAN bInit)
 {
 #ifdef ENABLE_BRIEFINGROOM
 
@@ -383,9 +406,6 @@ void InitData ( BOOLEAN bInit)
 	
     if ( bBriefingRoomSpecialMission  == TRUE || bBriefingRoom == TRUE ) bSoundButtons = TRUE; else bSoundButtons = FALSE;
 	
-	if ( bSoundButtons == TRUE )
-		InitSoundButtons();
-		
 	ResetVal = bInit;
 #endif // ENABLE_BRIEFINGROOM
 }
@@ -394,53 +414,68 @@ BOOLEAN EnterEncyclopediaLocation()
 {
 #ifdef ENABLE_BRIEFINGROOM
 	CHAR8 str[MAX_ENCYCLOPEDIA_CHARS];
-    
+	LaptopPageResourceOwner stagedResources;
+
 	InitData (ResetVal);
+	if (bSoundButtons)
+		CHECKF(LoadSoundButtons(stagedResources));
 
 #ifdef ENCYCLOPEDIA_WORKS
 	UINT16	usPosX, usPosY, i;
-	InitEncyclopediaDefaults();
-	
-	guiEncyclopediaLocationPageButtonImage =	LoadButtonImage("ENCYCLOPEDIA\\BottomButtons2.sti", -1,0,-1,1,-1 );
+	CHECKF(LoadEncyclopediaDefaults(stagedResources));
+
+	auto locationButtonImage = LoadButtonImageOwned(
+		"ENCYCLOPEDIA\\BottomButtons2.sti", -1, 0, -1, 1, -1);
+	CHECKF(locationButtonImage);
+	CHECKF(stagedResources.addButtonImage(std::move(locationButtonImage),
+		guiEncyclopediaLocationPageButtonImage));
 
 	usPosX = ENCYCLOPEDIA_LOCATION_PAGE1_X+15;
 	usPosY = ENCYCLOPEDIA_LOCATION_PAGE1_Y;
 
 	for(i=0; i<3; i++)
 	{
-		guiEncyclopediaLocationPageButton[i] = CreateIconAndTextButton( guiEncyclopediaLocationPageButtonImage, pSectorPageText[i], ENCYCLOPEDIA_LOCATION_PAGE_FONT,
+		const INT32 button = CreateIconAndTextButton( guiEncyclopediaLocationPageButtonImage, pSectorPageText[i], ENCYCLOPEDIA_LOCATION_PAGE_FONT,
 														ENCYCLOPEDIA_LOCATION_PAGE_COLOR_UP, DEFAULT_SHADOW,
 														ENCYCLOPEDIA_LOCATION_PAGE_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
 														usPosX, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, SelectEncyclopediaLocationRegionCallBack);
+												DEFAULT_MOVE_CALLBACK, SelectEncyclopediaLocationRegionCallBack);
+		CHECKF(stagedResources.addButton(button,
+			guiEncyclopediaLocationPageButton[i]));
 		SetButtonCursor(guiEncyclopediaLocationPageButton[i], CURSOR_WWW);
 		MSYS_SetBtnUserData( guiEncyclopediaLocationPageButton[i], 0, i);
 		usPosX += ENCYCLOPEDIA_LOCATION_PAGE_GAP;
 	}
 	
-	usPosX=0;
 	//Load graphic for buttons
-	guiEncyclopediaiPageButtonImage =	LoadButtonImage("ENCYCLOPEDIA\\BottomButtons2.sti", -1,0,-1,1,-1 );
+	auto pageButtonImage = LoadButtonImageOwned(
+		"ENCYCLOPEDIA\\BottomButtons2.sti", -1, 0, -1, 1, -1);
+	CHECKF(pageButtonImage);
+	CHECKF(stagedResources.addButtonImage(std::move(pageButtonImage),
+		guiEncyclopediaiPageButtonImage));
 
 	usPosX = ENCYCLOPEDIA_LOCATION_PAGE1_X-44;
 	usPosY = ENCYCLOPEDIA_LOCATION_PAGE1_Y-130;
 
 	for(i=0; i<3; i++)
 	{
-		guiEncyclopediaPageButton[i] = CreateIconAndTextButton( guiEncyclopediaiPageButtonImage, pLocationPageText[i], ENCYCLOPEDIA_LOCATION_PAGE_FONT,
+		const INT32 button = CreateIconAndTextButton( guiEncyclopediaiPageButtonImage, pLocationPageText[i], ENCYCLOPEDIA_LOCATION_PAGE_FONT,
 														ENCYCLOPEDIA_LOCATION_PAGE_COLOR_UP, DEFAULT_SHADOW,
 														ENCYCLOPEDIA_LOCATION_PAGE_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
 														usPosX, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														DEFAULT_MOVE_CALLBACK, SelectEncyclopediaLocationPageRegionCallBack);
+												DEFAULT_MOVE_CALLBACK, SelectEncyclopediaLocationPageRegionCallBack);
+		CHECKF(stagedResources.addButton(button,
+			guiEncyclopediaPageButton[i]));
 		SetButtonCursor(guiEncyclopediaPageButton[i], CURSOR_WWW);
 		MSYS_SetBtnUserData( guiEncyclopediaPageButton[i], 0, i);
 
 		usPosX += ENCYCLOPEDIA_LOCATION_PAGE_GAP+60;
 	}
 #endif
-	
+	gBriefingDataResources = std::move(stagedResources);
+
 	fFirstTimeInEncyclopediaLocation = FALSE;
 
 	RenderEncyclopediaLocation(FALSE);
@@ -452,21 +487,31 @@ BOOLEAN EnterEncyclopediaLocation()
 	DisableButton( guiEncyclopediaLocationPageButton[0] );	
 #endif
 
-	if ( gbriefingRoomDataTemp[LocationID].CheckMission == MISSIONSTART || gbriefingRoomDataTemp[LocationID].CheckMission == MISSIONEND )				
-		DisableButton ( guiSoundButtons[1] );
-	else if ( gbriefingRoomDataTemp[LocationID].CheckMission == MISSIONNOSTARTED )	
-		EnableButton ( guiSoundButtons[1] );
+	if (const BRIEFINGROOM_M_DATA* entry = CurrentBriefingEntry())
+	{
+		if (entry->CheckMission == MISSIONSTART ||
+			entry->CheckMission == MISSIONEND)
+			DisableButton(guiSoundButtons[1]);
+		else if (entry->CheckMission == MISSIONNOSTARTED)
+			EnableButton(guiSoundButtons[1]);
 	
 #ifdef ENCYCLOPEDIA_WORKS
 	if ( MaxLocation == -1 || MaxLocation == 0 || MaxLocation == 1 ) 
 		DisableButton( guiEncyclopediaLocationPageButton[2] );
 #endif
 
-		sprintf(str, "BriefingRoom\\mission%d.wav", gbriefingRoomDataTemp[LocationID].MissionID);
+		std::snprintf(str, std::size(str), "BriefingRoom\\mission%d.wav",
+			entry->MissionID);
 		if( FileExists(str)  )
 			EnableButton ( guiSoundButtons[0] );
 		else
 			DisableButton( guiSoundButtons[0] );
+	}
+	else if (bSoundButtons)
+	{
+		DisableButton(guiSoundButtons[0]);
+		DisableButton(guiSoundButtons[1]);
+	}
 
 	RenderMap();
 
@@ -475,44 +520,17 @@ BOOLEAN EnterEncyclopediaLocation()
 	return(TRUE);
 }
 
-void UnLoadMenuButtons ()
-{
-
-}
-
 void ExitEncyclopediaLocation()
 {
-	UINT16	i;
-
-#ifdef ENCYCLOPEDIA_WORKS
-	RemoveEncyclopediaDefaults();
-	
-	if (guiEncyclopediaiPageButtonImage != -1 )
-		UnloadButtonImage( guiEncyclopediaiPageButtonImage );
-	
-	if (guiEncyclopediaLocationPageButtonImage != -1 )
-		UnloadButtonImage( guiEncyclopediaLocationPageButtonImage );
-
-	for(i=0; i<3; i++)
- 		RemoveButton( guiEncyclopediaPageButton[i] );
-		
-	for(i=0; i<3; i++)
- 		RemoveButton( guiEncyclopediaLocationPageButton[i] );
-#endif
-
-	if ( bSoundButtons == TRUE )
+	if (uiSoundSampleBR != NO_SAMPLE)
 	{
-		if ( guiSoundButtonsImage != -1 )
-		{
-			UnloadButtonImage( guiSoundButtonsImage );
-		
-			for(i=0; i<MAX_MISSION_BUTTONS; i++)
-			{
-				RemoveButton( guiSoundButtons[i] );
-				MSYS_RemoveRegion( &gSelectedSoundButtonTextRegion[i]);
-			}
-		}
+		SoundStop(uiSoundSampleBR);
+		uiSoundSampleBR = NO_SAMPLE;
 	}
+	gBriefingDataResources.clear();
+	guiSoundButtonsImage = BUTTON_NO_IMAGE;
+	std::fill(std::begin(guiSoundButtons), std::end(guiSoundButtons),
+		BUTTON_NO_SLOT);
 	
 
 	bSoundButtons = FALSE;
@@ -597,51 +615,35 @@ void RenderBoxDisabledButton()
 #endif // ENABLE_BRIEFINGROOM
 }
 
-BOOLEAN  RenderMap()
+static BOOLEAN RenderMap()
 {
 #ifdef ENABLE_BRIEFINGROOM
-  VOBJECT_DESC	VObjectDesc;
-  char fileName[500];
-  CHAR8	zImage[MAX_ENCYCLOPEDIA_CHARS];
-  
-  BOOLEAN bImage = TRUE;
+	BRIEFINGROOM_M_DATA* entry = CurrentBriefingEntry();
+	if (!entry || (!bBriefingRoom && !bBriefingRoomSpecialMission) ||
+		entry->MaxImages < 0)
+		return TRUE;
 
-    VObjectDesc.fCreateFlags = VSURFACE_CREATE_FROMFILE;	
-	
-	if ( IDimage > -1  )
-	{
-		sprintf(zImage, "BriefingRoom\\mission%d_%d.STI", gbriefingRoomDataTemp[LocationID].MissionID,IDimage);
-		if( FileExists(zImage)  )
-		{
-			strcpy(fileName, zImage);
-			bImage = TRUE;
-		}
-	}
-	
-	if (IDimage == -1 || IDimage > MaxImages ) //|| IDimage > 4 )
-		{
-			IDimage = 0;
-		}
-			
-	if (IDimage == -1 ) IDimage = 0;
-	
-	
-	if( !FileExists(fileName) )
+	const INT32 lastImage = std::min(MaxImages, entry->MaxImages);
+	if (IDimage < 0 || IDimage > lastImage) IDimage = 0;
+
+	CHAR8 imagePath[MAX_ENCYCLOPEDIA_CHARS] = {};
+	std::snprintf(imagePath, std::size(imagePath),
+		"BriefingRoom\\mission%d_%d.STI", entry->MissionID, IDimage);
+	if (!FileExists(imagePath))
 	{
 		IDimage = -1;
-	}	
-	
-	if ( IDimage > -1 && gbriefingRoomDataTemp[LocationID].MaxImages != -1 && (bBriefingRoom == TRUE || bBriefingRoomSpecialMission == TRUE ) )
-	{
-		strcpy(VObjectDesc.ImageFile, fileName);
-		CHECKF(AddVideoObject(&VObjectDesc,&gbriefingRoomDataTemp[LocationID].uiIndex));
-		//BltVideoObjectFromIndex( FRAME_BUFFER, gbriefingRoomDataTemp[LocationID].uiIndex, 0 , ENCYCLOPEDIA_LOCATION_BOX_X + 50 ,  ENCYCLOPEDIA_LOCATION_BOX_Y - 210, VO_BLT_SRCTRANSPARENCY, NULL );
-		BltVideoObjectFromIndex( FRAME_BUFFER, gbriefingRoomDataTemp[LocationID].uiIndex, 0 , ENCYCLOPEDIA_IMAGE_X + gbriefingRoomDataTemp[LocationID].sImagePositionX[0] ,  ENCYCLOPEDIA_IMAGE_Y + gbriefingRoomDataTemp[LocationID].sImagePositionY[0], VO_BLT_SRCTRANSPARENCY, NULL );
+		return TRUE;
 	}
-	
-	
-	
 
+	VOBJECT_DESC description{};
+	description.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+	LaptopUiStateModel::CopyText(description.ImageFile, imagePath);
+	UniqueVideoObjectHandle graphic = AddVideoObjectOwned(&description);
+	CHECKF(graphic);
+	CHECKF(BltVideoObjectFromIndex(FRAME_BUFFER, graphic.get(), 0,
+		ENCYCLOPEDIA_IMAGE_X + entry->sImagePositionX[0],
+		ENCYCLOPEDIA_IMAGE_Y + entry->sImagePositionY[0],
+		VO_BLT_SRCTRANSPARENCY, NULL));
 #endif // ENABLE_BRIEFINGROOM
 	return(TRUE);
 }
@@ -653,38 +655,51 @@ void RenderEncyclopediaLocation( BOOLEAN bHidden )
   UINT8		ubNumLines=11; 
   UINT16	usPosY;
   //UINT8			ubFontHeight;
-  UINT16	usStringPixLength;
   CHAR16	zString[512]; 
   CHAR16	zString2[512];
   
  CHAR16 P1[1120],P2[1120];
- CHAR8 fileNameEdt[80];
+	CHAR8 fileNameEdt[80];
+	BRIEFINGROOM_M_DATA* entry = CurrentBriefingEntry();
 			
   P1[0] = 0;
   P2[0] = 0;
 
 
 	DrawEncyclopediaDefaults();
-	
+
 	DisplayEncyclopediaLocationText();
+	if (!entry)
+	{
+		InvalidateRegion(LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y,
+			LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y);
+		return;
+	}
 	
 	//ubFontHeight = (UINT8)GetFontHeight(ENCYCLOPEDIA_LOCATION_BOX_FONT);
 	
-    sprintf(fileNameEdt, "BriefingRoom\\EDT\\mission%d.edt", gbriefingRoomDataTemp[LocationID].MissionID);
-	LoadEncryptedDataFromFile(fileNameEdt, P1, 1120*2*ID, 1120);
-
 	bPage2 = TRUE;
 	bPage3 = TRUE;
 
-	ENCYCLOPEDIA_PAGE = gbriefingRoomDataTemp[LocationID].MaxPages-1;
-	
-	MaxImages = gbriefingRoomDataTemp[LocationID].MaxImages;//-1;
+	ENCYCLOPEDIA_PAGE = entry->MaxPages > 0 ?
+		static_cast<INT32>(entry->MaxPages - 1) : 0;
+	ID = std::max(0, std::min(ID, ENCYCLOPEDIA_PAGE));
+	std::snprintf(fileNameEdt, std::size(fileNameEdt),
+		"BriefingRoom\\EDT\\mission%d.edt", entry->MissionID);
+	LoadEncryptedDataFromFile(fileNameEdt, P1, 1120*2*ID, 1120);
+
+	MaxImages = entry->MaxImages;
 	
 
-	if ( bBriefingRoom == TRUE || bBriefingRoomSpecialMission == TRUE && ResetVal == FALSE )
+	if ((bBriefingRoom || bBriefingRoomSpecialMission) && !ResetVal)
 	{
-		swprintf( zString, gbriefingRoomDataTemp[LocationID].Name );
-        wcscpy( zString2,zString );
+		LaptopUiStateModel::CopyText(zString, entry->Name);
+		LaptopUiStateModel::CopyText(zString2, zString);
+	}
+	else
+	{
+		zString[0] = L'\0';
+		zString2[0] = L'\0';
 	}
 	
 	ShadowVideoSurfaceRect( FRAME_BUFFER, ENCYCLOPEDIA_LOCATION_BOX_X+ENCYCLOPEDIA_LOCATION_BOX_SHADOW_GAP, ENCYCLOPEDIA_LOCATION_BOX_Y + 13 + ENCYCLOPEDIA_LOCATION_BOX_SHADOW_GAP - 227 , ENCYCLOPEDIA_LOCATION_BOX_X + ENCYCLOPEDIA_LOCATION_BOX_WIDTH + ENCYCLOPEDIA_LOCATION_BOX_SHADOW_GAP, ENCYCLOPEDIA_LOCATION_BOX_Y + ENCYCLOPEDIA_LOCATION_BOX_SHADOW_GAP-42);
@@ -704,7 +719,8 @@ void RenderEncyclopediaLocation( BOOLEAN bHidden )
 	
 	if ( IDimage == -1 || MaxImages == -1 ) IDimage = 0;	
 	
-    sprintf(fileNameEdt, "BriefingRoom\\EDT\\description%d.edt", gbriefingRoomDataTemp[LocationID].MissionID);
+	std::snprintf(fileNameEdt, std::size(fileNameEdt),
+		"BriefingRoom\\EDT\\description%d.edt", entry->MissionID);
 	if ( FileExists(fileNameEdt)  )
 		LoadEncryptedDataFromFile(fileNameEdt, P2, 1120*2*IDimage, 1120);
 	
@@ -738,16 +754,10 @@ void RenderEncyclopediaLocation( BOOLEAN bHidden )
 		usStringPixLength = StringPixLength( P3, ENCYCLOPEDIA_LOCATION_BOX_FONT);
 	else if (ID == 3 ) // && gbriefingRoomDataTemp[LocationID].sDesc4 != '\0' )
 	*/
-		usStringPixLength = StringPixLength( P2, ENCYCLOPEDIA_LOCATION_BOX_FONT);
-		
 	//Inventory name
 	if (bBriefingRoom == TRUE || ResetVal == FALSE ) 
 	DisplayWrappedString(ENCYCLOPEDIA_LOCATION_BOX_X, ENCYCLOPEDIA_LOCATION_BOX_Y-225, ENCYCLOPEDIA_LOCATION_BOX_TEXT_WIDTH, 6, FONT14ARIAL, ENCYCLOPEDIA_LOCATION_BOX_COLOR, zString2, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 
-	//reset
-	if ( ResetVal == TRUE )
-	usStringPixLength = StringPixLength( L"", ENCYCLOPEDIA_LOCATION_BOX_FONT);
-		
 	usPosY = ENCYCLOPEDIA_LOCATION_BOX_Y + 13;
 	
 	//draw top line of the popup background
@@ -785,9 +795,10 @@ void RenderEncyclopediaLocation( BOOLEAN bHidden )
 		DisableButton( guiEncyclopediaPageButton[1] );
 #endif
 
-	if ( gbriefingRoomDataTemp[LocationID].CheckMission == MISSIONSTART || gbriefingRoomDataTemp[LocationID].CheckMission == MISSIONEND )				
+	if (entry->CheckMission == MISSIONSTART ||
+		entry->CheckMission == MISSIONEND)
 		DisableButton ( guiSoundButtons[1] );
-	else if ( gbriefingRoomDataTemp[LocationID].CheckMission == MISSIONNOSTARTED )	
+	else if (entry->CheckMission == MISSIONNOSTARTED)
 		EnableButton ( guiSoundButtons[1] );
 	
 	//if ( ResetVal == TRUE ) 
@@ -798,9 +809,11 @@ void RenderEncyclopediaLocation( BOOLEAN bHidden )
 }
 
 void SelectEncyclopediaLocationPageRegionCallBack(GUI_BUTTON * btn, INT32 reason )
-{ 
+{
 #ifdef ENABLE_BRIEFINGROOM
 	UINT8	ubRetValue = (UINT8)MSYS_GetBtnUserData( btn, 0 );
+	BRIEFINGROOM_M_DATA* entry = CurrentBriefingEntry();
+	if (!entry) return;
 	
 	if(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{
@@ -814,7 +827,10 @@ void SelectEncyclopediaLocationPageRegionCallBack(GUI_BUTTON * btn, INT32 reason
 			
 			if ( ubRetValue == 2 )
 			{
-				ID++;
+				const auto nextPage = LaptopUiStateModel::AdjacentIndex(
+					entry->MaxPages, ID, true);
+				if (!nextPage) return;
+				ID = static_cast<INT32>(*nextPage);
 				
 #ifdef ENCYCLOPEDIA_WORKS
 				if ( ID == ENCYCLOPEDIA_PAGE || ID > ENCYCLOPEDIA_PAGE ) DisableButton( guiEncyclopediaPageButton[2] );
@@ -826,8 +842,10 @@ void SelectEncyclopediaLocationPageRegionCallBack(GUI_BUTTON * btn, INT32 reason
 			}
 			else if ( ubRetValue == 0 )
 			{
-				ID--;
-				//if ( ID < 0 ) ID = 0;
+				const auto previousPage = LaptopUiStateModel::AdjacentIndex(
+					entry->MaxPages, ID, false);
+				if (!previousPage) return;
+				ID = static_cast<INT32>(*previousPage);
 
 #ifdef ENCYCLOPEDIA_WORKS
 				if ( ID == 0 ) DisableButton( guiEncyclopediaPageButton[0] );
@@ -838,9 +856,11 @@ void SelectEncyclopediaLocationPageRegionCallBack(GUI_BUTTON * btn, INT32 reason
 			}
 			else if ( ubRetValue == 1 )
 			{
-				IDimage++;
-				
-				if (  IDimage > MaxImages || IDimage == -1 ) IDimage = 0;
+				const std::size_t imageCount = MaxImages >= 0 ?
+					static_cast<std::size_t>(MaxImages) + 1 : 0;
+				const auto nextImage = LaptopUiStateModel::AdjacentIndex(
+					imageCount, IDimage, true);
+				IDimage = nextImage ? static_cast<INT32>(*nextImage) : 0;
 	
 				RenderEncyclopediaLocation(FALSE);
 				RenderMap();
@@ -870,10 +890,14 @@ void SelectEncyclopediaLocationRegionCallBack(GUI_BUTTON * btn, INT32 reason )
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 			if ( ubRetValue == 2 )
 			{
-				IDNewLocation++;
+				const auto nextLocation = LaptopUiStateModel::AdjacentIndex(
+					static_cast<std::size_t>(std::max(0, MaxLocation)),
+					static_cast<INT32>(LocationID), true);
+				if (!nextLocation) return;
+				IDNewLocation = static_cast<INT32>(*nextLocation);
 				ID = 0;
-				
-				LocationID = IDNewLocation;
+
+				LocationID = *nextLocation;
 				
 #ifdef ENCYCLOPEDIA_WORKS
 				if ( IDNewLocation == MaxLocation - 1 || IDNewLocation == -1 ) DisableButton( guiEncyclopediaLocationPageButton[2] );
@@ -905,11 +929,15 @@ void SelectEncyclopediaLocationRegionCallBack(GUI_BUTTON * btn, INT32 reason )
 			}
 			else if ( ubRetValue == 0 )
 			{
+				const auto previousLocation = LaptopUiStateModel::AdjacentIndex(
+					static_cast<std::size_t>(std::max(0, MaxLocation)),
+					static_cast<INT32>(LocationID), false);
+				if (!previousLocation) return;
 				ID = 0;
-				
-				IDNewLocation--;
-				
-				LocationID = IDNewLocation;
+
+				IDNewLocation = static_cast<INT32>(*previousLocation);
+
+				LocationID = *previousLocation;
 				
 #ifdef ENCYCLOPEDIA_WORKS
 				if ( IDNewLocation == 0 || IDNewLocation == -1 ) DisableButton( guiEncyclopediaLocationPageButton[0] );
@@ -974,6 +1002,8 @@ void SelectSoundButtonsRegionCallBack(GUI_BUTTON * btn, INT32 reason )
 #ifdef ENABLE_BRIEFINGROOM
 	UINT8	ubRetValue = (UINT8)MSYS_GetBtnUserData( btn, 0 );
 	CHAR8 str[MAX_ENCYCLOPEDIA_CHARS];
+	BRIEFINGROOM_M_DATA* entry = CurrentBriefingEntry();
+	if (!entry) return;
 	
 	if(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{
@@ -997,18 +1027,23 @@ void SelectSoundButtonsRegionCallBack(GUI_BUTTON * btn, INT32 reason )
 						SoundStop( uiSoundSampleBR );
 					}			
 					
-					sprintf(str, "BriefingRoom\\mission%d.wav", gbriefingRoomDataTemp[LocationID].MissionID);
+					std::snprintf(str, std::size(str),
+						"BriefingRoom\\mission%d.wav", entry->MissionID);
 					uiSoundSampleBR = PlayJA2SampleFromFile( str, RATE_11025, HIGHVOLUME, 1, MIDDLE );
 					
 				}
 				
 				if ( ubRetValue == 1 )
 				{
-					if ( gBriefingRoomData[gbriefingRoomDataTemp[LocationID].MissionID].CheckMission == MISSIONNOSTARTED )
+					if (LaptopUiStateModel::IsValidIndex(
+						NUM_MISSION, entry->MissionID) &&
+						gBriefingRoomData[entry->MissionID].CheckMission ==
+							MISSIONNOSTARTED)
 					{
-					
-						gbriefingRoomDataTemp[LocationID].CheckMission = MISSIONSTART;
-						gBriefingRoomData[gbriefingRoomDataTemp[LocationID].MissionID].CheckMission = MISSIONSTART;	
+
+						entry->CheckMission = MISSIONSTART;
+						gBriefingRoomData[entry->MissionID].CheckMission =
+							MISSIONSTART;
 						
 						DisableButton ( guiSoundButtons[1] );
 					}
@@ -1025,8 +1060,8 @@ void SelectSoundButtonsRegionCallBack(GUI_BUTTON * btn, INT32 reason )
 						SoundStop( uiSoundSampleBR );
 					}			
 					
-					//sprintf(str, gbriefingRoomDataTemp[LocationID].sSounds);
-					sprintf(str, "BriefingRoom\\mission%d.wav", gbriefingRoomDataTemp[LocationID].MissionID);
+					std::snprintf(str, std::size(str),
+						"BriefingRoom\\mission%d.wav", entry->MissionID);
 					uiSoundSampleBR = PlayJA2SampleFromFile( str, RATE_11025, HIGHVOLUME, 1, MIDDLE );
 			
 				}
@@ -1049,7 +1084,6 @@ void SelectSoundButtonsRegionCallBack(GUI_BUTTON * btn, INT32 reason )
 BOOLEAN SaveBriefingRoomToSaveGameFile( HWFILE hFile )
 {
 #ifdef ENABLE_BRIEFINGROOM
-	UINT32	uiNumBytesWritten;
 	UINT32 i;
 #endif
 	
@@ -1062,8 +1096,8 @@ BOOLEAN SaveBriefingRoomToSaveGameFile( HWFILE hFile )
 		saveBriefingRoomData[i].CheckMission = gBriefingRoomData[ i ].CheckMission;
 	}
 
-	FileWrite( hFile, &saveBriefingRoomData, sizeof( saveBriefingRoomData), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( saveBriefingRoomData ) )
+	if (!WriteLaptopFileExact(hFile, &saveBriefingRoomData,
+		sizeof(saveBriefingRoomData)))
 	{
 		return( FALSE );
 	}
@@ -1075,8 +1109,8 @@ BOOLEAN SaveBriefingRoomToSaveGameFile( HWFILE hFile )
 		saveBriefingRoomSpecialMissionData[i].CheckMission = gBriefingRoomSpecialMissionData[ i ].CheckMission;
 	}
 
-	FileWrite( hFile, &saveBriefingRoomSpecialMissionData, sizeof( saveBriefingRoomSpecialMissionData), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( saveBriefingRoomSpecialMissionData ) )
+	if (!WriteLaptopFileExact(hFile, &saveBriefingRoomSpecialMissionData,
+		sizeof(saveBriefingRoomSpecialMissionData)))
 	{
 		return( FALSE );
 	}
@@ -1152,13 +1186,17 @@ BOOLEAN LoadBriefingRoomFromLoadGameFile( HWFILE hFile )
 #ifdef ENABLE_BRIEFINGROOM
 	UINT32	uiNumBytesRead;
 	UINT32 i;
+	decltype(saveBriefingRoomData) pendingData{};
+	decltype(saveBriefingRoomSpecialMissionData) pendingSpecialData{};
 
 	// Flugente: compatibility fix
 	BOOLEAN briefingroomreadingdone = FALSE;
 
 	//Briefing room
-	FileRead( hFile, &saveBriefingRoomData, sizeof( saveBriefingRoomData), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( saveBriefingRoomData ) )
+	uiNumBytesRead = 0;
+	const BOOLEAN readResult = FileRead(hFile, &pendingData,
+		sizeof(pendingData), &uiNumBytesRead);
+	if (!readResult || uiNumBytesRead != sizeof(pendingData))
 	{
 		// Flugente: one can start a game without this feature and later switch to an exe where it is enabled. At that point, loading the savgame would not be possible - 
 		// the game expects saveBriefingRoomData but doesn't get any. Pretty odd, considering that the data has ALREADY BEEN READ into gBriefingRoomData at this point. Sigh.
@@ -1172,21 +1210,20 @@ BOOLEAN LoadBriefingRoomFromLoadGameFile( HWFILE hFile )
 
 	if ( !briefingroomreadingdone )
 	{
-		for(i=0; i<NUM_MISSION; ++i)
-		{
-			gBriefingRoomData[ i ].Hidden = saveBriefingRoomData[i].Hidden;
-			gBriefingRoomData[ i ].CheckMission = saveBriefingRoomData[i].CheckMission;
-		}
-		
 		//Briefing room , special mission
-		FileRead( hFile, &saveBriefingRoomSpecialMissionData, sizeof( saveBriefingRoomSpecialMissionData), &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( saveBriefingRoomSpecialMissionData ) )
+		if (!ReadLaptopFileExact(hFile, &pendingSpecialData,
+			sizeof(pendingSpecialData)))
 		{
 			return( FALSE );
 		}
 
+		memcpy(saveBriefingRoomData, pendingData, sizeof(pendingData));
+		memcpy(saveBriefingRoomSpecialMissionData, pendingSpecialData,
+			sizeof(pendingSpecialData));
 		for(i=0; i<NUM_MISSION; ++i)
 		{
+			gBriefingRoomData[i].Hidden = pendingData[i].Hidden;
+			gBriefingRoomData[i].CheckMission = pendingData[i].CheckMission;
 			gBriefingRoomSpecialMissionData[ i ].Hidden = saveBriefingRoomSpecialMissionData[i].Hidden;
 			gBriefingRoomSpecialMissionData[ i ].CheckMission = saveBriefingRoomSpecialMissionData[i].CheckMission;
 		}

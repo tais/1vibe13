@@ -21,6 +21,7 @@
     #include "IMP Minor Trait.h"
 	#include "GameSettings.h"
 	#include "Interface.h"
+#include "ImpPageResourceOwner.h"
 
 
 
@@ -119,6 +120,7 @@ void		ResetDisplaySkills();
 
 void EnterIMPBackground( void )
 {
+	BeginImpPageResources();
 	VOBJECT_DESC	VObjectDesc;
 		
 	//add the skill trait buttons
@@ -464,18 +466,20 @@ void AssignBackgroundHelpText( UINT16 ubNumber, MOUSE_REGION* pMouseregion )
 	CHAR16	apStr[ 4500 ];
 	CHAR16	atStr[  260 ];
 
-	swprintf( apStr, L"" );
-	
-	if (!ubNumber)
+	apStr[0] = L'\0';
+
+	if (!pMouseregion || !LaptopUiStateModel::IsValidIndex(
+		NUM_BACKGROUND, ubNumber) || ubNumber == 0)
 		return;
 
-	swprintf(atStr, zBackground[ubNumber].szName);
-	wcscat(apStr, atStr);
-	wcscat(apStr, L"\n");
+	LaptopUiStateModel::CopyText(atStr, zBackground[ubNumber].szName);
+	LaptopUiStateModel::AppendText(apStr, atStr);
+	LaptopUiStateModel::AppendText(apStr, L"\n");
 
-	swprintf(atStr, zBackground[ubNumber].szDescription);
-	wcscat(apStr, atStr);
-	wcscat(apStr, L"\n");
+	LaptopUiStateModel::CopyText(atStr,
+		zBackground[ubNumber].szDescription);
+	LaptopUiStateModel::AppendText(apStr, atStr);
+	LaptopUiStateModel::AppendText(apStr, L"\n");
 
 	// ability description
 	if (gGameExternalOptions.fBackgroundTooltipDetails)
@@ -488,8 +492,9 @@ void AssignBackgroundHelpText( UINT16 ubNumber, MOUSE_REGION* pMouseregion )
 
 			if (zBackground[ubNumber].uiFlags & ((UINT64)1 << i))
 			{
-				swprintf(atStr, szBackgroundText_Flags[i]);
-				wcscat(apStr, atStr);
+				LaptopUiStateModel::CopyText(
+					atStr, szBackgroundText_Flags[i]);
+				LaptopUiStateModel::AppendText(apStr, atStr);
 			}
 		}
 
@@ -498,32 +503,41 @@ void AssignBackgroundHelpText( UINT16 ubNumber, MOUSE_REGION* pMouseregion )
 		{
 			if (BG_DISLIKEBG == i && zBackground[ubNumber].value[i])
 			{
-				swprintf(atStr, szBackgroundText_Value[strused]);
-				wcscat(apStr, atStr);
+				LaptopUiStateModel::CopyText(
+					atStr, szBackgroundText_Value[strused]);
+				LaptopUiStateModel::AppendText(apStr, atStr);
 			}
 			else if (BG_TRACKER_ABILITY == i && zBackground[ubNumber].value[i])
 			{
-				swprintf(atStr, szBackgroundText_Value[strused], (UINT16)((gSkillTraitValues.usSVTrackerMaxRange * zBackground[ubNumber].value[i]) / 100));
-				wcscat(apStr, atStr);
+				sgp_swprintf(atStr, std::size(atStr),
+					szBackgroundText_Value[strused],
+					(UINT16)((gSkillTraitValues.usSVTrackerMaxRange *
+						zBackground[ubNumber].value[i]) / 100));
+				LaptopUiStateModel::AppendText(apStr, atStr);
 			}
 			else if (BG_SMOKERTYPE == i)
 			{
 				if (zBackground[ubNumber].value[i] == 1)
-					swprintf(atStr, szBackgroundText_Value[strused]);
+					LaptopUiStateModel::CopyText(
+						atStr, szBackgroundText_Value[strused]);
 				else
-					swprintf(atStr, szBackgroundText_Value[strused + 1]);
+					LaptopUiStateModel::CopyText(
+						atStr, szBackgroundText_Value[strused + 1]);
 
-				wcscat(apStr, L" ");
-				wcscat(apStr, atStr);
-				wcscat(apStr, L"\n");
+				LaptopUiStateModel::AppendText(apStr, L" ");
+				LaptopUiStateModel::AppendText(apStr, atStr);
+				LaptopUiStateModel::AppendText(apStr, L"\n");
 
 				// smoke has 2 texts, so extra increase of counter is needed
 				++strused;
 			}
 			else if (zBackground[ubNumber].value[i])
 			{
-				swprintf(atStr, szBackgroundText_Value[strused], zBackground[ubNumber].value[i] > 0 ? L"+" : L"", zBackground[ubNumber].value[i]);
-				wcscat(apStr, atStr);
+				sgp_swprintf(atStr, std::size(atStr),
+					szBackgroundText_Value[strused],
+					zBackground[ubNumber].value[i] > 0 ? L"+" : L"",
+					zBackground[ubNumber].value[i]);
+				LaptopUiStateModel::AppendText(apStr, atStr);
 			}
 
 			++strused;

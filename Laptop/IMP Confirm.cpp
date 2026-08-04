@@ -41,6 +41,7 @@
 #include "Soldier Profile.h"
 
 #include "SaveLoadGame.h"
+#include "ImpPageResourceOwner.h"
 
 // Changed by ADB (rev 1513) to resolve IMPs created prior to structural changes
 //#define IMP_FILENAME_SUFFIX ".dat"
@@ -221,6 +222,7 @@ void BtnIMPConfirmYes( GUI_BUTTON *btn,INT32 reason );
 
 void EnterIMPConfirm( void )
 {
+	BeginImpPageResources();
 	// create buttons
 	CreateConfirmButtons( );
 	return;

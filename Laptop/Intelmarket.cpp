@@ -30,6 +30,8 @@
 #include "Game Clock.h"
 #include "LuaInitNPCs.h"
 #include "Game Event Hook.h"
+#include "LaptopPageResourceOwner.h"
+#include "LaptopUiStateModel.h"
 
 #define		MERCOMP_FONT_COLOR								2
 #define		CAMPHIS_FONT_COLOR_RED							FONT_MCOLOR_RED
@@ -65,6 +67,18 @@ extern UINT32	guiMercCompareLogoImage;
 
 //link to the various pages
 MOUSE_REGION	gMercCompareLinkRegion_IM[NUM_LINKS];
+static LaptopPageResourceOwner gIntelMarketPageResources;
+static LaptopPageResourceOwner gIntelMarketBuyResources;
+static LaptopPageResourceOwner gIntelMarketSellResources;
+
+namespace
+{
+class ScopedDefaultFontShadow
+{
+public:
+	~ScopedDefaultFontShadow() { SetFontShadow(DEFAULT_SHADOW); }
+};
+}
 
 void SelectLinkRegionCallBack_IM( MOUSE_REGION * pRegion, INT32 iReason )
 {
@@ -87,28 +101,28 @@ void SelectLinkRegionCallBack_IM( MOUSE_REGION * pRegion, INT32 iReason )
 	}
 }
 
-void InitDefaults_IM()
+static BOOLEAN LoadDefaults_IM(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the Insurance bullet graphic and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\bullet.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareBulletImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiMercCompareBulletImage));
 
 	// load the Flower Account Box graphic and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\BackGroundTile.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBackGround ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiInsuranceBackGround));
 
 	// load the red bar on the side of the page and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\LargeBar.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBigRedLineImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiInsuranceBigRedLineImage));
 
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\PressLogos.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareLogoImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiMercCompareLogoImage));
 
 	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
 	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
@@ -116,11 +130,12 @@ void InitDefaults_IM()
 	{
 		MSYS_DefineRegion( &gMercCompareLinkRegion_IM[i], usPosX, usPosY, (UINT16)( usPosX + CAMPAIGN_HISTORY_LINK_TEXT_WIDTH ), usPosY + CAMPAIGN_HISTORY_LINK_STEP_Y, MSYS_PRIORITY_HIGH,
 			CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack_IM );
-		MSYS_AddRegion( &gMercCompareLinkRegion_IM[i] );
+		CHECKF(owner.addRegion(gMercCompareLinkRegion_IM[i]));
 		MSYS_SetRegionUserData( &gMercCompareLinkRegion_IM[i], 0, i );
 
 		usPosY += CAMPAIGN_HISTORY_LINK_STEP_Y;
 	}
+	return TRUE;
 }
 
 void DisplayDefaults_IM()
@@ -158,17 +173,6 @@ void DisplayDefaults_IM()
 	BltVideoObject( FRAME_BUFFER, hPixHandle, 5, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
 
 	SetFontShadow( DEFAULT_SHADOW );
-}
-
-void RemoveDefaults_IM()
-{
-	DeleteVideoObjectFromIndex( guiInsuranceBackGround );
-	DeleteVideoObjectFromIndex( guiInsuranceBigRedLineImage );
-	DeleteVideoObjectFromIndex( guiMercCompareBulletImage );
-	DeleteVideoObjectFromIndex( guiMercCompareLogoImage );
-
-	for ( int i = 0; i<NUM_LINKS; ++i )
-		MSYS_RemoveRegion( &gMercCompareLinkRegion_IM[i] );
 }
 
 ////////////////////////// INTELMARKET Sell intel for stuff ////////////////////////////////
@@ -265,15 +269,16 @@ void IntelBuyButtonCallback( GUI_BUTTON *btn, INT32 reason )
 
 void EnterIntelmarket()
 {
+	LaptopPageResourceOwner stagedResources;
+	if (!LoadDefaults_IM(stagedResources)) return;
 	std::vector<std::pair<INT16, STR16> > dropdownvector;
 
 	for ( INT16 i = 0; i < 16; ++i )
 	{
 		if (!(LaptopSaveInfo.usMapIntelFlags & (UINT32{1} << i)))
 		{
-			wcsncpy(gIntelBuyMapPartNamesStr[i],
-				szIntelWebsiteText[TEXT_INTEL_MAPREGION_1 + i], 63);
-			gIntelBuyMapPartNamesStr[i][63] = L'\0';
+			LaptopUiStateModel::CopyText(gIntelBuyMapPartNamesStr[i],
+				szIntelWebsiteText[TEXT_INTEL_MAPREGION_1 + i]);
 
 			dropdownvector.push_back( std::make_pair( i, gIntelBuyMapPartNamesStr[i] ) );
 		}
@@ -292,7 +297,7 @@ void EnterIntelmarket()
 		DropDownTemplate<DROPDOWN_INTEL_BUY>::getInstance().ClearEntries();
 	}
 
-	InitDefaults_IM();
+	gIntelMarketPageResources = std::move(stagedResources);
 	
 	BuildIntelInfoArray();
 	GetIntelInfoOfferings( sIntelInfo );
@@ -304,25 +309,12 @@ void EnterIntelmarket()
 
 void ExitIntelmarket()
 {
-	RemoveDefaults_IM();
-
-	for ( int i = 0; i < INTELINFO_MAXNUMBER; ++i )
-	{
-		if ( gIntelmarketbuyLinkRegion_Exists[i] )
-			MSYS_RemoveRegion( &gIntelmarketbuyLinkRegion[i] );
-
-		gIntelmarketbuyLinkRegion_Exists[i] = FALSE;
-	}
-
-	for ( int i = 0; i < 3; ++i )
-	{
-		if ( gIntelBuyButtonCreated[i] )
-		{
-			RemoveButton( gIntelBuyButton[i] );
-
-			gIntelBuyButtonCreated[i] = FALSE;
-		}
-	}
+	gIntelMarketBuyResources.clear();
+	std::fill(std::begin(gIntelmarketbuyLinkRegion_Exists),
+		std::end(gIntelmarketbuyLinkRegion_Exists), FALSE);
+	std::fill(std::begin(gIntelBuyButtonCreated),
+		std::end(gIntelBuyButtonCreated), FALSE);
+	gIntelMarketPageResources.clear();
 
 	DropDownTemplate<DROPDOWN_INTEL_BUY>::getInstance().Destroy();
 }
@@ -339,60 +331,60 @@ void HandleIntelmarket()
 
 void RenderIntelmarket()
 {
-	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	CHAR16		sText[800] = {};
 	UINT16	usPosX, usPosY;
 	HVOBJECT	hPixHandle;
 
 	//Get the bullet
-	GetVideoObject( &hPixHandle, guiMercCompareBulletImage );
+	if (!GetVideoObject(&hPixHandle, guiMercCompareBulletImage)) return;
 
-	for ( int i = 0; i < INTELINFO_MAXNUMBER; ++i )
-	{
-		if ( gIntelmarketbuyLinkRegion_Exists[i] )
-			MSYS_RemoveRegion( &gIntelmarketbuyLinkRegion[i] );
-
-		gIntelmarketbuyLinkRegion_Exists[i] = FALSE;
-	}
-
-	for ( int i = 0; i < 3; ++i )
-	{
-		if ( gIntelBuyButtonCreated[i] )
-		{
-			RemoveButton( gIntelBuyButton[i] );
-
-			gIntelBuyButtonCreated[i] = FALSE;
-		}
-	}
+	gIntelMarketBuyResources.clear();
+	std::fill(std::begin(gIntelmarketbuyLinkRegion_Exists),
+		std::end(gIntelmarketbuyLinkRegion_Exists), FALSE);
+	std::fill(std::begin(gIntelBuyButtonCreated),
+		std::end(gIntelBuyButtonCreated), FALSE);
+	LaptopPageResourceOwner stagedResources;
 
 	DisplayDefaults_IM();
 
 	SetFontShadow( MERCOMP_FONT_SHADOW );
+	ScopedDefaultFontShadow restoreFontShadow;
 
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = MCA_START_CONTENT_Y;
 	
 	FLOAT budget = GetIntel();
 
-	swprintf( sText, szIntelWebsiteText[TEXT_INTEL_BUDGET], (int)(budget) );
+	sgp_swprintf(sText, 800, szIntelWebsiteText[TEXT_INTEL_BUDGET],
+		(int)budget);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	usPosY += 12;
 
 	if ( DropDownTemplate<DROPDOWN_INTEL_BUY>::getInstance().HasEntries() )
 	{
-		swprintf( sText, szIntelWebsiteText[TEXT_INTEL_AIRREGION], ( (1 + GetWorldHour() / 8) * 8 ) );
+		sgp_swprintf(sText, 800,
+			szIntelWebsiteText[TEXT_INTEL_AIRREGION],
+			((1 + GetWorldHour() / 8) * 8));
 		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 		DropDownTemplate<DROPDOWN_INTEL_BUY>::getInstance().Display();
 
 		SetFontShadow( MERCOMP_FONT_SHADOW );
 
-		gIntelBuyButton[0] = CreateTextButton( szIntelWebsiteText[TEXT_INTEL_AIRREGION_BUY1], CAMPHIS_FONT_MED, ( 50 <= budget ? FONT_BLACK : FONT_RED ), FONT_BLACK, BUTTON_USE_DEFAULT,
-			usPosX + 140, usPosY, 150, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, IntelBuyButtonCallback );
+		if (!stagedResources.addButton(CreateTextButton(
+			szIntelWebsiteText[TEXT_INTEL_AIRREGION_BUY1], CAMPHIS_FONT_MED,
+			(50 <= budget ? FONT_BLACK : FONT_RED), FONT_BLACK,
+			BUTTON_USE_DEFAULT, usPosX + 140, usPosY, 150, 20,
+			BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+			IntelBuyButtonCallback), gIntelBuyButton[0])) return;
 		gIntelBuyButtonCreated[0] = TRUE;
 
-		gIntelBuyButton[1] = CreateTextButton( szIntelWebsiteText[TEXT_INTEL_AIRREGION_BUY2], CAMPHIS_FONT_MED, ( 70 <= budget ? FONT_BLACK : FONT_RED ), FONT_BLACK, BUTTON_USE_DEFAULT,
-			usPosX + 300, usPosY, 150, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, IntelBuyButtonCallback );
+		if (!stagedResources.addButton(CreateTextButton(
+			szIntelWebsiteText[TEXT_INTEL_AIRREGION_BUY2], CAMPHIS_FONT_MED,
+			(70 <= budget ? FONT_BLACK : FONT_RED), FONT_BLACK,
+			BUTTON_USE_DEFAULT, usPosX + 300, usPosY, 150, 20,
+			BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+			IntelBuyButtonCallback), gIntelBuyButton[1])) return;
 		gIntelBuyButtonCreated[1] = TRUE;
 	}
 
@@ -412,7 +404,8 @@ void RenderIntelmarket()
 		{
 			if ( !anyfound )
 			{
-				swprintf( sText, szIntelWebsiteText[TEXT_INTEL_TEXT_1] );
+				LaptopUiStateModel::CopyText(sText,
+					szIntelWebsiteText[TEXT_INTEL_TEXT_1]);
 				usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 				usPosY += 20;
 
@@ -422,7 +415,8 @@ void RenderIntelmarket()
 			// display bullet
 			BltVideoObject( FRAME_BUFFER, hPixHandle, 0, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
 
-			swprintf( sText, szIntelWebsiteText[TEXT_INTEL_OFFER_1], intelcost, sIntelText );
+			sgp_swprintf(sText, 800,
+				szIntelWebsiteText[TEXT_INTEL_OFFER_1], intelcost, sIntelText);
 			UINT16 yoffset = DisplayWrappedString( usPosX + 25, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X - 25, 2,
 				CAMPHIS_FONT_MED, ( sIntelInfo[cnt] > -1 ) ? ( intelcost <= budget ? FONT_BLACK : FONT_RED ) : FONT_GRAY4, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
@@ -430,7 +424,8 @@ void RenderIntelmarket()
 			{
 				MSYS_DefineRegion( &gIntelmarketbuyLinkRegion[cnt], usPosX + 25, usPosY, (UINT16)( usPosX + 25 + StringPixLength( sText, CAMPHIS_FONT_MED ) ), usPosY + yoffset,
 					MSYS_PRIORITY_HIGH, CURSOR_WWW, MSYS_NO_CALLBACK, BuyLinkRegionCallBack );
-				MSYS_AddRegion( &gIntelmarketbuyLinkRegion[cnt] );
+				if (!stagedResources.addRegion(
+					gIntelmarketbuyLinkRegion[cnt])) return;
 				MSYS_SetRegionUserData( &gIntelmarketbuyLinkRegion[cnt], 0, sIntelInfo[cnt] );
 				MSYS_SetRegionUserData( &gIntelmarketbuyLinkRegion[cnt], 1, intelcost );
 				gIntelmarketbuyLinkRegion_Exists[cnt] = TRUE;
@@ -443,9 +438,9 @@ void RenderIntelmarket()
 
 	if ( !anyfound )
 	{
-		swprintf( sText, szIntelWebsiteText[TEXT_INTEL_TEXT_2] );
-		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		usPosY += 20;
+		LaptopUiStateModel::CopyText(sText,
+			szIntelWebsiteText[TEXT_INTEL_TEXT_2]);
+		DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 
 	SetFontShadow( DEFAULT_SHADOW );
@@ -453,6 +448,7 @@ void RenderIntelmarket()
 	MarkButtonsDirty();
 	RenderWWWProgramTitleBar();
 	InvalidateRegion( LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y, LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y );
+	gIntelMarketBuyResources = std::move(stagedResources);
 }
 ////////////////////////// INTELMARKET Sell intel for stuff ////////////////////////////////
 
@@ -460,14 +456,16 @@ void RenderIntelmarket()
 ////////////////////////// INTELMARKET About us ////////////////////////////////
 void EnterIntelmarket_About()
 {
-	InitDefaults_IM();
+	LaptopPageResourceOwner stagedResources;
+	if (!LoadDefaults_IM(stagedResources)) return;
+	gIntelMarketPageResources = std::move(stagedResources);
 
 	RenderIntelmarket_About();
 }
 
 void ExitIntelmarket_About()
 {
-	RemoveDefaults_IM();
+	gIntelMarketPageResources.clear();
 }
 
 void HandleIntelmarket_About()
@@ -477,8 +475,7 @@ void HandleIntelmarket_About()
 
 void RenderIntelmarket_About()
 {
-	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	CHAR16		sText[800] = {};
 	UINT16	usPosX, usPosY;
 	HVOBJECT	hPixHandle;
 
@@ -497,7 +494,7 @@ void RenderIntelmarket_About()
 		// display bullet
 		BltVideoObject( FRAME_BUFFER, hPixHandle, 0, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
 
-		swprintf( sText, szIntelWebsiteText[i] );
+		LaptopUiStateModel::CopyText(sText, szIntelWebsiteText[i]);
 		usPosY += DisplayWrappedString( usPosX + 25, usPosY, LAPTOP_SCREEN_LR_X - ( LAPTOP_SCREEN_UL_X + 25 ), 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		usPosY += 4;
 	}
@@ -537,18 +534,29 @@ void IntelSellButtonCallback( GUI_BUTTON *btn, INT32 reason )
 
 			if ( btn->IDNum == gIntelSellButton[0] )
 			{
+				if (gPhotoFactsTakenVector.empty()) return;
+				const auto current = LaptopUiStateModel::NormalizeIndex(
+					gPhotoFactsTakenVector.size(), gPhotoFactsCurrentTaken);
+				gPhotoFactsCurrentTaken = static_cast<INT16>(*current);
 				gPhotoFactsCurrentTaken -= 1;
 				if ( gPhotoFactsCurrentTaken < 0 )
 					gPhotoFactsCurrentTaken = gPhotoFactsTakenVector.size() - 1;
 			}
 			else if ( btn->IDNum == gIntelSellButton[1] )
 			{
+				if (gPhotoFactsTakenVector.empty()) return;
+				const auto current = LaptopUiStateModel::NormalizeIndex(
+					gPhotoFactsTakenVector.size(), gPhotoFactsCurrentTaken);
+				gPhotoFactsCurrentTaken = static_cast<INT16>(*current);
 				gPhotoFactsCurrentTaken += 1;
 				if ( gPhotoFactsCurrentTaken >= gPhotoFactsTakenVector.size() )
 					gPhotoFactsCurrentTaken = 0;
 			}
 			else if ( btn->IDNum == gIntelSellButton[2] )
 			{
+				if (!LaptopUiStateModel::IsValidIndex(
+					gPhotoFactsTakenVector.size(), gPhotoFactsCurrentTaken))
+					return;
 				INT16 factid = gPhotoFactsTakenVector[gPhotoFactsCurrentTaken].first;
 
 				if ( factid >= 0 )
@@ -560,12 +568,20 @@ void IntelSellButtonCallback( GUI_BUTTON *btn, INT32 reason )
 			}
 			else if ( btn->IDNum == gIntelSellButton[3] )
 			{
+				if (gPhotoFactsVerifiedVector.empty()) return;
+				const auto current = LaptopUiStateModel::NormalizeIndex(
+					gPhotoFactsVerifiedVector.size(), gPhotoFactsCurrentVerified);
+				gPhotoFactsCurrentVerified = static_cast<INT16>(*current);
 				gPhotoFactsCurrentVerified -= 1;
 				if ( gPhotoFactsCurrentVerified < 0 )
 					gPhotoFactsCurrentVerified = gPhotoFactsVerifiedVector.size() - 1;
 			}
 			else if ( btn->IDNum == gIntelSellButton[4] )
 			{
+				if (gPhotoFactsVerifiedVector.empty()) return;
+				const auto current = LaptopUiStateModel::NormalizeIndex(
+					gPhotoFactsVerifiedVector.size(), gPhotoFactsCurrentVerified);
+				gPhotoFactsCurrentVerified = static_cast<INT16>(*current);
 				gPhotoFactsCurrentVerified += 1;
 				if ( gPhotoFactsCurrentVerified >= gPhotoFactsVerifiedVector.size() )
 					gPhotoFactsCurrentVerified = 0;
@@ -578,11 +594,13 @@ void IntelSellButtonCallback( GUI_BUTTON *btn, INT32 reason )
 
 void AddPhotoFactTaken(UINT8 aType, INT16 asIndex, STR16 aText)
 {
+	if (!LaptopUiStateModel::IsValidIndex(256, asIndex) || !aText) return;
 	switch ( aType )
 	{
 	case PHOTOFACT_TAKEN:
 		{
-			swprintf( gIntelPhotoTakenTextChar16[asIndex], L"%s", aText );
+			LaptopUiStateModel::CopyText(
+				gIntelPhotoTakenTextChar16[asIndex], aText);
 
 			gPhotoFactsTakenVector.push_back( std::make_pair( asIndex, gIntelPhotoTakenTextChar16[asIndex] ) );
 		}
@@ -590,7 +608,8 @@ void AddPhotoFactTaken(UINT8 aType, INT16 asIndex, STR16 aText)
 
 	case PHOTOFACT_VERIFIED:
 		{
-			swprintf( gIntelPhotoVerifiedTextChar16[asIndex], L"%s", aText );
+			LaptopUiStateModel::CopyText(
+				gIntelPhotoVerifiedTextChar16[asIndex], aText);
 			
 			gPhotoFactsVerifiedVector.push_back( std::make_pair( asIndex, gIntelPhotoVerifiedTextChar16[asIndex] ) );
 		}
@@ -603,7 +622,9 @@ void AddPhotoFactTaken(UINT8 aType, INT16 asIndex, STR16 aText)
 
 void EnterIntelmarket_Sell()
 {
-	InitDefaults_IM();
+	LaptopPageResourceOwner stagedResources;
+	if (!LoadDefaults_IM(stagedResources)) return;
+	gIntelMarketPageResources = std::move(stagedResources);
 
 	fIntelRedraw = TRUE;
 
@@ -612,17 +633,11 @@ void EnterIntelmarket_Sell()
 
 void ExitIntelmarket_Sell()
 {
-	RemoveDefaults_IM();
-
-	for ( int i = 0; i < 5; ++i )
-	{
-		if ( gIntelSellButtonCreated[i] )
-		{
-			RemoveButton( gIntelSellButton[i] );
-			gIntelSellButton[i] = -1;
-			gIntelSellButtonCreated[i] = FALSE;
-		}
-	}
+	gIntelMarketSellResources.clear();
+	std::fill(std::begin(gIntelSellButton), std::end(gIntelSellButton), -1);
+	std::fill(std::begin(gIntelSellButtonCreated),
+		std::end(gIntelSellButtonCreated), FALSE);
+	gIntelMarketPageResources.clear();
 }
 
 void HandleIntelmarket_Sell()
@@ -639,8 +654,13 @@ void HandleIntelmarket_Sell()
 		// fill vector with list of all verified facts
 		LuaGetPhotoData( PHOTOFACT_VERIFIED );
 		
-		gPhotoFactsCurrentTaken = gPhotoFactsTakenVector.empty() ? -1 : std::min<size_t>( gPhotoFactsCurrentTaken, gPhotoFactsTakenVector.size() - 1);
-		gPhotoFactsCurrentVerified = gPhotoFactsVerifiedVector.empty() ? -1 : std::min<size_t>( gPhotoFactsCurrentVerified, gPhotoFactsVerifiedVector.size() - 1 );
+		const auto taken = LaptopUiStateModel::NormalizeIndex(
+			gPhotoFactsTakenVector.size(), gPhotoFactsCurrentTaken);
+		const auto verified = LaptopUiStateModel::NormalizeIndex(
+			gPhotoFactsVerifiedVector.size(), gPhotoFactsCurrentVerified);
+		gPhotoFactsCurrentTaken = taken ? static_cast<INT16>(*taken) : -1;
+		gPhotoFactsCurrentVerified =
+			verified ? static_cast<INT16>(*verified) : -1;
 
 		RenderIntelmarket_Sell();
 
@@ -650,83 +670,99 @@ void HandleIntelmarket_Sell()
 
 void RenderIntelmarket_Sell()
 {
-	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	CHAR16		sText[800] = {};
 	UINT16	usPosX, usPosY;
 	HVOBJECT	hPixHandle;
 
-	for ( int i = 0; i < 5; ++i )
-	{
-		if ( gIntelSellButtonCreated[i] )
-		{
-			RemoveButton( gIntelSellButton[i] );
-			gIntelSellButton[i] = -1;
-			gIntelSellButtonCreated[i] = FALSE;
-		}
-	}
+	gIntelMarketSellResources.clear();
+	std::fill(std::begin(gIntelSellButton), std::end(gIntelSellButton), -1);
+	std::fill(std::begin(gIntelSellButtonCreated),
+		std::end(gIntelSellButtonCreated), FALSE);
+	LaptopPageResourceOwner stagedResources;
 
 	//Get the bullet
-	GetVideoObject( &hPixHandle, guiMercCompareBulletImage );
+	if (!GetVideoObject(&hPixHandle, guiMercCompareBulletImage)) return;
 
 	DisplayDefaults_IM();
 
 	SetFontShadow( MERCOMP_FONT_SHADOW );
+	ScopedDefaultFontShadow restoreFontShadow;
 
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = MCA_START_CONTENT_Y;
 
 	FLOAT budget = GetIntel();
 
-	swprintf( sText, szIntelWebsiteText[TEXT_INTEL_BUDGET], (int)( budget ) );
+	sgp_swprintf(sText, 800, szIntelWebsiteText[TEXT_INTEL_BUDGET],
+		(int)budget);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	usPosY += 12;
 	
 	if ( gPhotoFactsCurrentTaken >= 0 && !gPhotoFactsTakenVector.empty() )
 	{
-		swprintf( sText, szIntelWebsiteText[TEXT_INTEL_SELL_1] );
+		LaptopUiStateModel::CopyText(sText,
+			szIntelWebsiteText[TEXT_INTEL_SELL_1]);
 		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - usPosX, 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		usPosY += 12;
 
-		gIntelSellButton[0] = CreateTextButton( szIntelWebsiteText[TEXT_INTEL_SELL_BUTTON_1], CAMPHIS_FONT_MED, FONT_BLACK, FONT_BLACK, BUTTON_USE_DEFAULT,
-			usPosX, usPosY, 80, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, IntelSellButtonCallback );
+		if (!stagedResources.addButton(CreateTextButton(
+			szIntelWebsiteText[TEXT_INTEL_SELL_BUTTON_1], CAMPHIS_FONT_MED,
+			FONT_BLACK, FONT_BLACK, BUTTON_USE_DEFAULT, usPosX, usPosY,
+			80, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+			IntelSellButtonCallback), gIntelSellButton[0])) return;
 		gIntelSellButtonCreated[0] = TRUE;
 
-		gIntelSellButton[1] = CreateTextButton( szIntelWebsiteText[TEXT_INTEL_SELL_BUTTON_2], CAMPHIS_FONT_MED, FONT_BLACK, FONT_BLACK, BUTTON_USE_DEFAULT,
-			usPosX, usPosY + 20, 80, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, IntelSellButtonCallback );
+		if (!stagedResources.addButton(CreateTextButton(
+			szIntelWebsiteText[TEXT_INTEL_SELL_BUTTON_2], CAMPHIS_FONT_MED,
+			FONT_BLACK, FONT_BLACK, BUTTON_USE_DEFAULT, usPosX, usPosY + 20,
+			80, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+			IntelSellButtonCallback), gIntelSellButton[1])) return;
 		gIntelSellButtonCreated[1] = TRUE;
 
-		gIntelSellButton[2] = CreateTextButton( szIntelWebsiteText[TEXT_INTEL_SELL_BUTTON_3], CAMPHIS_FONT_MED, FONT_BLACK, FONT_BLACK, BUTTON_USE_DEFAULT,
-			usPosX, usPosY + 40, 80, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, IntelSellButtonCallback );
+		if (!stagedResources.addButton(CreateTextButton(
+			szIntelWebsiteText[TEXT_INTEL_SELL_BUTTON_3], CAMPHIS_FONT_MED,
+			FONT_BLACK, FONT_BLACK, BUTTON_USE_DEFAULT, usPosX, usPosY + 40,
+			80, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+			IntelSellButtonCallback), gIntelSellButton[2])) return;
 		gIntelSellButtonCreated[2] = TRUE;
 		
-		swprintf( sText, gPhotoFactsTakenVector[gPhotoFactsCurrentTaken].second );
+		LaptopUiStateModel::CopyText(
+			sText, gPhotoFactsTakenVector[gPhotoFactsCurrentTaken].second);
 		usPosY += DisplayWrappedString( usPosX + 100, usPosY, LAPTOP_SCREEN_LR_X - (usPosX + 100), 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		usPosY += 150;
 	}
 	else
 	{
-		swprintf( sText, szIntelWebsiteText[TEXT_INTEL_SELL_NOTHING_1] );
+		LaptopUiStateModel::CopyText(sText,
+			szIntelWebsiteText[TEXT_INTEL_SELL_NOTHING_1]);
 		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - usPosX, 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		usPosY += 12;
 	}
 	
 	if ( gPhotoFactsCurrentVerified >= 0 && !gPhotoFactsVerifiedVector.empty() )
 	{
-		swprintf( sText, szIntelWebsiteText[TEXT_INTEL_SELL_ALREADYGOT_1] );
+		LaptopUiStateModel::CopyText(sText,
+			szIntelWebsiteText[TEXT_INTEL_SELL_ALREADYGOT_1]);
 		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - usPosX, 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		usPosY += 12;
 
-		gIntelSellButton[3] = CreateTextButton( szIntelWebsiteText[TEXT_INTEL_SELL_BUTTON_1], CAMPHIS_FONT_MED, FONT_BLACK, FONT_BLACK, BUTTON_USE_DEFAULT,
-			usPosX, usPosY, 80, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, IntelSellButtonCallback );
+		if (!stagedResources.addButton(CreateTextButton(
+			szIntelWebsiteText[TEXT_INTEL_SELL_BUTTON_1], CAMPHIS_FONT_MED,
+			FONT_BLACK, FONT_BLACK, BUTTON_USE_DEFAULT, usPosX, usPosY,
+			80, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+			IntelSellButtonCallback), gIntelSellButton[3])) return;
 		gIntelSellButtonCreated[3] = TRUE;
 
-		gIntelSellButton[4] = CreateTextButton( szIntelWebsiteText[TEXT_INTEL_SELL_BUTTON_2], CAMPHIS_FONT_MED, FONT_BLACK, FONT_BLACK, BUTTON_USE_DEFAULT,
-			usPosX, usPosY + 20, 80, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, IntelSellButtonCallback );
+		if (!stagedResources.addButton(CreateTextButton(
+			szIntelWebsiteText[TEXT_INTEL_SELL_BUTTON_2], CAMPHIS_FONT_MED,
+			FONT_BLACK, FONT_BLACK, BUTTON_USE_DEFAULT, usPosX, usPosY + 20,
+			80, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+			IntelSellButtonCallback), gIntelSellButton[4])) return;
 		gIntelSellButtonCreated[4] = TRUE;
 		
-		swprintf( sText, gPhotoFactsVerifiedVector[gPhotoFactsCurrentVerified].second );
-		usPosY += DisplayWrappedString( usPosX + 100, usPosY, LAPTOP_SCREEN_LR_X - (usPosX + 100), 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		usPosY += 12;
+		LaptopUiStateModel::CopyText(
+			sText, gPhotoFactsVerifiedVector[gPhotoFactsCurrentVerified].second);
+		DisplayWrappedString( usPosX + 100, usPosY, LAPTOP_SCREEN_LR_X - (usPosX + 100), 2, CAMPHIS_FONT_MED, FONT_BLACK, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 
 	SetFontShadow( DEFAULT_SHADOW );
@@ -734,5 +770,6 @@ void RenderIntelmarket_Sell()
 	MarkButtonsDirty();
 	RenderWWWProgramTitleBar();
 	InvalidateRegion( LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y, LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y );
+	gIntelMarketSellResources = std::move(stagedResources);
 }
 ////////////////////////// INTELMARKET SELL ////////////////////////////////

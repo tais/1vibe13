@@ -12,6 +12,7 @@
 	#include "laptop.h"
 	#include "IMP Text System.h"
 	#include "IMP Attribute Selection.h"
+#include "ImpPageResourceOwner.h"
 
 // buttons
 INT32 giIMPAttributeFinishButtonImage[ 2 ];
@@ -31,6 +32,7 @@ void BtnIMPAttributeFinishNoCallback(GUI_BUTTON *btn,INT32 reason);
 
 void EnterIMPAttributeFinish( void )
 {
+	BeginImpPageResources();
 	// create the needed buttons
 	CreateAttributeFinishButtons( );
 

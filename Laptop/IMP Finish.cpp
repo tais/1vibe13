@@ -19,6 +19,7 @@
 
 
 #include "IMP Confirm.h"
+#include "ImpPageResourceOwner.h"
 
 // min time btween frames of animation
 #define ANIMATE_MIN_TIME 200
@@ -73,6 +74,7 @@ extern void BtnIMPMainPagePortraitCallback(GUI_BUTTON *btn,INT32 reason);
 
 void EnterIMPFinish( void )
 {
+	BeginImpPageResources();
 
 
 	// load graphic for portrait
@@ -209,9 +211,8 @@ void CreateIMPFinishButtons( void )
 	SpecifyButtonIcon(	giIMPFinishButton[ 4 ], guiCHARACTERPORTRAIT, 0,
 													33, 23, FALSE );
 
-	// Canged to display "Character" - SANDRO
-	//swprintf( sString, pImpButtonText[ 5 ], GetVoiceCountFromVoiceSlot(iCurrentVoice));
-	swprintf( sString, pImpButtonText[ 25 ]);
+	// Changed to display "Character" - SANDRO
+	LaptopUiStateModel::CopyText(sString, pImpButtonText[25]);
 
 	// the voice button
 	giIMPFinishButtonImage[5]=	LoadButtonImage( "LAPTOP\\button_8.sti" ,-1,0,-1,1,-1 );
@@ -636,7 +637,8 @@ void RenderCharFullName( void )
 	SetFontForeground( FONT_WHITE );
 	SetFontBackground( FONT_BLACK );
 
-	swprintf( sString, pIMPFinishStrings[ 0 ], pFullName );
+	sgp_swprintf(sString, std::size(sString),
+		pIMPFinishStrings[0], pFullName);
 
 	DrawTextToScreen( sString, LAPTOP_SCREEN_UL_X - 111, LAPTOP_TITLE_Y, LAPTOP_TEXT_WIDTH, FONT14ARIAL, FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
 
@@ -656,7 +658,8 @@ BOOLEAN LoadCharacterPortrait( void )
 	// load it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		
-	sprintf( VObjectDesc.ImageFile, "IMPFaces\\%02d.sti", gIMPValues[iPortraitNumber].PortraitId );
+	std::snprintf(VObjectDesc.ImageFile, std::size(VObjectDesc.ImageFile),
+		"IMPFaces\\%02d.sti", gIMPValues[iPortraitNumber].PortraitId);
 	
 	CHECKF(AddVideoObject(&VObjectDesc, &guiCHARACTERPORTRAIT));
 

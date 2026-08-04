@@ -19,6 +19,7 @@
 	#include "IMP Disability Trait.h" 
 	#include "IMP Color Choosing.h"
 	#include "IMP Minor Trait.h"
+#include "ImpPageResourceOwner.h"
 
 
 #define STARTING_LEVEL_BOX_POS_X	( 51 )
@@ -181,6 +182,7 @@ INT32 iBonusPointsRecievedForLevelDown();
 
 void EnterIMPAttributeSelection( void )
 {
+	BeginImpPageResources();
 	// set attributes and skills
 	if( ( fReturnStatus == FALSE ) && ( fFirstIMPAttribTime == TRUE ) )
 	{
@@ -254,7 +256,8 @@ void RenderIMPAttributeSelection( void )
 		if (iMaxPointsToShow > 100 )
 			iMaxPointsToShow = 100;
 
-		swprintf(sMaxPntsString, L"%s %d%s", sgAttributeSelectionText[0], iMaxPointsToShow, L".");
+	sgp_swprintf(sMaxPntsString, std::size(sMaxPntsString), L"%s %d%s",
+		sgAttributeSelectionText[0], iMaxPointsToShow, L".");
 
 		// Explanatory text
 		DisplayWrappedString( LAPTOP_SCREEN_UL_X + 59, LAPTOP_SCREEN_WEB_UL_Y + 36,  ( 240 ), 2, FONT10ARIAL, 142, sMaxPntsString,FONT_BLACK,FALSE,0);
@@ -281,7 +284,8 @@ void RenderIMPAttributeSelection( void )
 	DrawTextToScreen( sgAttributeSelectionText[3], LAPTOP_SCREEN_UL_X + STARTING_LEVEL_BOX_POS_X + 9, LAPTOP_SCREEN_WEB_UL_Y + STARTING_LEVEL_BOX_POS_Y + 4, ( 100 ), FONT12ARIAL, FONT_WHITE, FONT_BLACK, FALSE, RIGHT_JUSTIFIED );
 
 	CHAR16 sStartLevelString[64];
-	swprintf(sStartLevelString, L"%d", iStartingLevel );
+	sgp_swprintf(sStartLevelString, std::size(sStartLevelString),
+		L"%d", iStartingLevel);
 
 	// print string
 	DrawTextToScreen( sStartLevelString, STARTING_LEVEL_BOX_POS_X + LAPTOP_SCREEN_UL_X + 99, STARTING_LEVEL_BOX_POS_Y + LAPTOP_SCREEN_WEB_UL_Y + 6, ( 100 ), FONT14ARIAL, 142, FONT_BLACK, FALSE, CENTER_JUSTIFIED );
@@ -1229,7 +1233,7 @@ void RenderAttributeBoxes( void )
 				MSYS_MoveMouseRegionTo( &pSliderBarRegions[ iCnt ], ( INT16 )(sX + LAPTOP_SCREEN_UL_X ), ( INT16 )( sY + LAPTOP_SCREEN_WEB_UL_Y ) );
 
 				// the text
-				swprintf( sString, L"%d", iCurrentStrength );
+				sgp_swprintf(sString, std::size(sString), L"%d", iCurrentStrength);
 				sX += LAPTOP_SCREEN_UL_X;
 				sY += LAPTOP_SCREEN_WEB_UL_Y;
 				mprintf(sX + 13, sY + 3, L"%s", sString);
@@ -1243,7 +1247,7 @@ void RenderAttributeBoxes( void )
 				MSYS_MoveMouseRegionTo( &pSliderBarRegions[ iCnt ], ( INT16 )(sX + LAPTOP_SCREEN_UL_X ), ( INT16 )( sY + LAPTOP_SCREEN_WEB_UL_Y ) );
 
 				// the text
-				swprintf( sString, L"%d", iCurrentDexterity );
+				sgp_swprintf(sString, std::size(sString), L"%d", iCurrentDexterity);
 			sX += LAPTOP_SCREEN_UL_X;
 				sY += LAPTOP_SCREEN_WEB_UL_Y;
 				mprintf(sX + 13, sY + 3, L"%s", sString);
@@ -1258,7 +1262,7 @@ void RenderAttributeBoxes( void )
 			MSYS_MoveMouseRegionTo( &pSliderBarRegions[ iCnt ], ( INT16 )(sX + LAPTOP_SCREEN_UL_X ), ( INT16 )( sY + LAPTOP_SCREEN_WEB_UL_Y ) );
 
 				// the text
-				swprintf( sString, L"%d", iCurrentAgility );
+				sgp_swprintf(sString, std::size(sString), L"%d", iCurrentAgility);
 				sX += LAPTOP_SCREEN_UL_X;
 				sY += LAPTOP_SCREEN_WEB_UL_Y;
 				mprintf(sX + 13, sY + 3, L"%s", sString);
@@ -1273,7 +1277,7 @@ void RenderAttributeBoxes( void )
 				MSYS_MoveMouseRegionTo( &pSliderBarRegions[ iCnt ], ( INT16 )(sX + LAPTOP_SCREEN_UL_X ), ( INT16 )( sY + LAPTOP_SCREEN_WEB_UL_Y ) );
 
 				// the text
-				swprintf( sString, L"%d", iCurrentWisdom );
+				sgp_swprintf(sString, std::size(sString), L"%d", iCurrentWisdom);
 				sX += LAPTOP_SCREEN_UL_X;
 				sY += LAPTOP_SCREEN_WEB_UL_Y;
 				mprintf(sX + 13, sY + 3, L"%s", sString);
@@ -1286,7 +1290,7 @@ void RenderAttributeBoxes( void )
 				MSYS_MoveMouseRegionTo( &pSliderBarRegions[ iCnt ], ( INT16 )(sX + LAPTOP_SCREEN_UL_X ), ( INT16 )( sY + LAPTOP_SCREEN_WEB_UL_Y ) );
 
 				// the text
-				swprintf( sString, L"%d", iCurrentLeaderShip );
+				sgp_swprintf(sString, std::size(sString), L"%d", iCurrentLeaderShip);
 				sX += LAPTOP_SCREEN_UL_X;
 				sY += LAPTOP_SCREEN_WEB_UL_Y;
 				mprintf(sX + 13, sY + 3, L"%s", sString);
@@ -1300,7 +1304,7 @@ void RenderAttributeBoxes( void )
 				MSYS_MoveMouseRegionTo( &pSliderBarRegions[ iCnt ], ( INT16 )(sX + LAPTOP_SCREEN_UL_X ), ( INT16 )( sY + LAPTOP_SCREEN_WEB_UL_Y ) );
 
 				// the text
-				swprintf( sString, L"%d", iCurrentHealth );
+				sgp_swprintf(sString, std::size(sString), L"%d", iCurrentHealth);
 			sY += LAPTOP_SCREEN_WEB_UL_Y;
 				sX += LAPTOP_SCREEN_UL_X;
 				mprintf(sX + 13, sY + 3, L"%s", sString);
@@ -1315,7 +1319,7 @@ void RenderAttributeBoxes( void )
 
 
 				// the text
-				swprintf( sString, L"%d", iCurrentMarkmanship );
+				sgp_swprintf(sString, std::size(sString), L"%d", iCurrentMarkmanship);
 			sY += LAPTOP_SCREEN_WEB_UL_Y;
 				sX += LAPTOP_SCREEN_UL_X;
 				mprintf(sX + 13, sY + 3, L"%s", sString);
@@ -1330,7 +1334,7 @@ void RenderAttributeBoxes( void )
 				MSYS_MoveMouseRegionTo( &pSliderBarRegions[ iCnt ], ( INT16 )(sX + LAPTOP_SCREEN_UL_X ), ( INT16 )( sY + LAPTOP_SCREEN_WEB_UL_Y ) );
 
 				// the text
-				swprintf( sString, L"%d", iCurrentMedical );
+				sgp_swprintf(sString, std::size(sString), L"%d", iCurrentMedical);
 			sY += LAPTOP_SCREEN_WEB_UL_Y;
 				sX += LAPTOP_SCREEN_UL_X;
 				mprintf(sX + 13, sY + 3, L"%s", sString);
@@ -1346,7 +1350,7 @@ void RenderAttributeBoxes( void )
 
 
 				// the text
-				swprintf( sString, L"%d", iCurrentMechanical );
+				sgp_swprintf(sString, std::size(sString), L"%d", iCurrentMechanical);
 			sY += LAPTOP_SCREEN_WEB_UL_Y;
 				sX += LAPTOP_SCREEN_UL_X;
 				mprintf(sX + 13, sY + 3, L"%s", sString);
@@ -1361,7 +1365,7 @@ void RenderAttributeBoxes( void )
 				MSYS_MoveMouseRegionTo( &pSliderBarRegions[ iCnt ], ( INT16 )(sX + LAPTOP_SCREEN_UL_X ), ( INT16 )( sY + LAPTOP_SCREEN_WEB_UL_Y ) );
 
 				// the text
-				swprintf( sString, L"%d", iCurrentExplosives );
+				sgp_swprintf(sString, std::size(sString), L"%d", iCurrentExplosives);
 			sY += LAPTOP_SCREEN_WEB_UL_Y;
 				sX += LAPTOP_SCREEN_UL_X;
 				mprintf(sX + 13, sY + 3, L"%s", sString);
@@ -2035,7 +2039,7 @@ void DrawBonusPointsRemaining( void )
 	}
 
 	// parse amountof bns pts remaining
-	swprintf(sString, L"%d", iCurrentBonusPoints);
+	sgp_swprintf(sString, std::size(sString), L"%d", iCurrentBonusPoints);
 
 	// set font color
 	SetFontForeground( FONT_WHITE );

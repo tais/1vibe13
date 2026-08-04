@@ -11,6 +11,7 @@
 
 #include "BriefingRoom_Data.h"
 #include "BriefingRoomM.h"
+#include "LaptopPageResourceOwner.h"
 #include "aim.h"
 #include "laptop.h"
 #include "IMP HomePage.h"
@@ -77,6 +78,11 @@ MOUSE_REGION	gSelectedBriefingRoomEnterTocMenuRegion[ 6 ];
 UINT32			guiContentButtonBriefingRoomEnter;
 
 UINT32 guiBRIEFINGROOM_MISSIONACTIVATIONINDENT;
+static LaptopPageResourceOwner gBriefingRoomMissionResources;
+static constexpr INT32 kBriefingRoomMissionActivationLength = 8;
+
+static BOOLEAN LoadBriefingRoomEnterDefaults(
+	LaptopPageResourceOwner& owner);
 
 void SelectBriefingRoomEnterLocationButton(MOUSE_REGION * pRegion, INT32 iReason );
 void SelectBriefingRoomEnterCharacterButton(MOUSE_REGION * pRegion, INT32 iReason );
@@ -143,6 +149,7 @@ BOOLEAN EnterBriefingRoomEnter()
 {
   VOBJECT_DESC    VObjectDesc;
   UINT16		i, usPosY;
+	LaptopPageResourceOwner stagedResources;
   
     //-----------------------------------------
 	// upon entry to Imp home page
@@ -160,25 +167,21 @@ BOOLEAN EnterBriefingRoomEnter()
 
 	LaptopInitBriefingRoomEnter();
 
-	InitBriefingRoomEnterDefaults();
+	CHECKF(LoadBriefingRoomEnterDefaults(stagedResources));
 	
 	// load the Rust bacground graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	//FilenameForBPP("LAPTOP\\rustbackground.sti", VObjectDesc.ImageFile);
 	FilenameForBPP("BriefingRoom\\aimlogo.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiRustBriefingRoomEnterLogoAim));
+	CHECKF(stagedResources.addVideoObject(
+		&VObjectDesc, guiRustBriefingRoomEnterLogoAim));
 
 	// load the MemberShipcard graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("BriefingRoom\\BUTTONS.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiContentButtonBriefingRoomEnter));
+	CHECKF(stagedResources.addVideoObject(
+		&VObjectDesc, guiContentButtonBriefingRoomEnter));
 	
-	// this procedure will load the activation indent into memory
-	//off
-	//VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	//FilenameForBPP("LAPTOP\\ActivationIndent.sti", VObjectDesc.ImageFile);
-	//CHECKF(AddVideoObject(&VObjectDesc, &guiBRIEFINGROOM_MISSIONACTIVATIONINDENT));
-
 	//** Mouse Regions **
 	
 	usPosY = BRIEFINGROOM_MISSION_CONTENTBUTTON_Y + 120;
@@ -188,12 +191,14 @@ BOOLEAN EnterBriefingRoomEnter()
 		MSYS_DefineRegion( &gSelectedBriefingRoomEnterTocMenuRegion[i], BRIEFINGROOM_MISSION_TOC_X+120, usPosY, (UINT16)(BRIEFINGROOM_MISSION_TOC_X+120 + BRIEFINGROOM_MISSION_BUTTON_SIZE_X), (UINT16)(usPosY + BRIEFINGROOM_MISSION_BUTTON_SIZE_Y), MSYS_PRIORITY_HIGH,
 									CURSOR_WWW, MSYS_NO_CALLBACK, SelectBriefingRoomEnterLocationButton);												
 									
-		MSYS_AddRegion(&gSelectedBriefingRoomEnterTocMenuRegion[i]);
+		CHECKF(stagedResources.addRegion(
+			gSelectedBriefingRoomEnterTocMenuRegion[i]));
 		
 		usPosY += BRIEFINGROOM_MISSION_TOC_GAP_Y;
 	}
 
 	fFirstTimeInBriefingRoomEnter = FALSE;
+	gBriefingRoomMissionResources = std::move(stagedResources);
 	
 	RenderBriefingRoomEnter();
 
@@ -207,22 +212,7 @@ void LaptopInitBriefingRoomEnter()
 
 void ExitBriefingRoomEnter()
 {
-	UINT16 i;
-	
-	RemoveBriefingRoomEnterDefaults();
-
-	DeleteVideoObjectFromIndex(guiContentButtonBriefingRoomEnter);
-	DeleteVideoObjectFromIndex(guiRustBriefingRoomEnterLogoAim);
-
-	
-	// Remove Mouse Regions
-	for(i=0; i<BRIEFINGROOM_MISSION_BUTTONS_DEF; i++)
-		MSYS_RemoveRegion( &gSelectedBriefingRoomEnterTocMenuRegion[i]);
-		
-	// remove activation indent symbol
-	//off
-	//DeleteVideoObjectFromIndex( guiBRIEFINGROOM_MISSIONACTIVATIONINDENT );
-
+	gBriefingRoomMissionResources.clear();
 }
 
 void HandleBriefingRoomEnter()
@@ -246,9 +236,7 @@ void HandleBriefingRoomEnter()
 void RenderBriefingRoomEnter()
 {
     UINT16		i, idText, usPosY;
-	UINT16		usHeight;
 	HVOBJECT	hContentButtonHandle;  
-	UINT16		usWidth=0;
 	
 	//HVOBJECT hHandle;
 	
@@ -264,7 +252,6 @@ void RenderBriefingRoomEnter()
 	
 	GetVideoObject(&hContentButtonHandle, guiContentButtonBriefingRoomEnter);
 
-	usHeight = GetFontHeight(BRIEFINGROOM_MISSION_FONT12ARIAL);
 	usPosY = BRIEFINGROOM_MISSION_CONTENTBUTTON_Y + 120;
 	for(i=0; i<BRIEFINGROOM_MISSION_BUTTONS_DEF; i++)
 	{
@@ -272,7 +259,6 @@ void RenderBriefingRoomEnter()
 	    idText = i + 16;
 		BltVideoObject(FRAME_BUFFER, hContentButtonHandle, 0,BRIEFINGROOM_MISSION_TOC_X+120, usPosY, VO_BLT_SRCTRANSPARENCY,NULL);
 
-		usWidth = StringPixLength(pMenuStrings[idText], BRIEFINGROOM_MISSION_FONT12ARIAL);
 		DrawTextToScreen(pMenuStrings[idText], BRIEFINGROOM_MISSION_TOC_X+120, (UINT16)(usPosY + BRIEFINGROOM_MISSION_TOC_Y+10), BRIEFINGROOM_MISSION_BUTTON_SIZE_X, BRIEFINGROOM_MISSION_FONT12ARIAL, BRIEFINGROOM_MISSION_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 		
 		usPosY += BRIEFINGROOM_MISSION_TOC_GAP_Y;
@@ -330,7 +316,8 @@ void SelectBriefingRoomEnterLocationButton(MOUSE_REGION * pRegion, INT32 iReason
 	} 
 }
 
-BOOLEAN InitBriefingRoomEnterDefaults()
+static BOOLEAN LoadBriefingRoomEnterDefaults(
+	LaptopPageResourceOwner& owner)
 {
   VOBJECT_DESC    VObjectDesc;
 
@@ -338,14 +325,8 @@ BOOLEAN InitBriefingRoomEnterDefaults()
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	//FilenameForBPP("LAPTOP\\rustbackground.sti", VObjectDesc.ImageFile);
 	FilenameForBPP("BriefingRoom\\background.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiRustBriefingRoomEnterBackGround));
-
-	return(TRUE);
-}
-
-BOOLEAN RemoveBriefingRoomEnterDefaults()
-{
-	DeleteVideoObjectFromIndex(guiRustBriefingRoomEnterBackGround);
+	CHECKF(owner.addVideoObject(
+		&VObjectDesc, guiRustBriefingRoomEnterBackGround));
 
 	return(TRUE);
 }
@@ -392,9 +373,10 @@ void DisplayPlayerActivationBriefingRoomEnterString( void )
 	// this function will grab the string that the player will enter for activation
 
 	// player gone too far, move back
-	if(iStringBriefingRoomEnterPos > 64)
+	if (iStringBriefingRoomEnterPos > kBriefingRoomMissionActivationLength)
 	{
-		iStringBriefingRoomEnterPos = 64;
+		iStringBriefingRoomEnterPos =
+			kBriefingRoomMissionActivationLength;
 	}
 
 	// restore background
@@ -469,6 +451,7 @@ void DisplayActivationBriefingRoomEnterStringCursor( void )
 	}
 
 	pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
+	if (!pDestBuf) return;
 	SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT );
 
 
@@ -587,7 +570,8 @@ void HandleBriefingRoomEnterTextEvent( UINT32 uiKey )
 					uiKey == '_' || uiKey == '.' || uiKey ==' ')
 			{
 				// if the current string position is at max or great, do nothing
-		if( iStringBriefingRoomEnterPos >= 8 )
+		if (iStringBriefingRoomEnterPos >=
+			kBriefingRoomMissionActivationLength)
 		{
 					break;
 				}
@@ -626,10 +610,6 @@ void HandleBriefingRoomEnterTextEvent( UINT32 uiKey )
 
 void ProcessPlayerInputActivationBriefingRoomEnterString( void )
 {
-	// prcess string to see if it matches activation string
-	char charPlayerActivationString[32];
-	wcstombs(charPlayerActivationString,pPlayerBriefingRoomEnterActivationString,32);
-
 	if( ( ( wcscmp(pPlayerBriefingRoomEnterActivationString, L"SN5631") == 0 ) || ( wcscmp(pPlayerBriefingRoomEnterActivationString, L"sn5631") == 0 ) ) ) //&&( LaptopSaveInfo.gfNewGameLaptop < 2 ) )
 	{
 	

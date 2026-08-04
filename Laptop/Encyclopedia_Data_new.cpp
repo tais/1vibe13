@@ -1,5 +1,10 @@
 	#include "types.h"
 	#include "WCheck.h"
+	#include "LaptopPageResourceOwner.h"
+	#include "LaptopUiStateModel.h"
+	#include "VideoResourceHandle.h"
+	#include <cstdio>
+	#include <iterator>
 	#include <string.h>
 	#include "GameSettings.h"
 	#include "Encyclopedia_Data_new.h"
@@ -134,6 +139,8 @@ INT32 giEncyclopedia_DataFilterBtn[ ENC_DATA_MAX_FILTERS ];	///< Filter buttons.
 INT32 giEncyclopedia_DataBtnImage;							///< Image of next/previous/main page buttons.
 INT32 giEncyclopedia_DataBtn[ 5 ];							///< previousData, mainpage, nextData, previousText, nextText.
 UINT8 guiEncyclopedia_TextPage;								///< Current text page.
+static LaptopPageResourceOwner gEncyclopediaDataResources;
+static UniqueVideoObjectHandle gEncyclopediaDataImage;
 
 //////////////
 // external data to save includes
@@ -164,7 +171,11 @@ BOOLEAN GetEncyclopediaSectorCoordsFromLocationID( INT16 encLocationID, UINT16 &
 {
 	UINT16 x,y;
 	UINT8 z;
-	CHECKF( encLocationID >= 0 );
+	constexpr INT16 locationCount =
+		(MAXIMUM_VALID_X_COORDINATE - MINIMUM_VALID_X_COORDINATE + 1) *
+		(MAXIMUM_VALID_Y_COORDINATE - MINIMUM_VALID_Y_COORDINATE + 1) *
+		(MAXIMUM_VALID_Z_COORDINATE - MINIMUM_VALID_Z_COORDINATE + 1);
+	CHECKF( encLocationID >= 0 && encLocationID < locationCount );
 	z = encLocationID % (MAXIMUM_VALID_Z_COORDINATE - MINIMUM_VALID_Z_COORDINATE + 1);
 	CHECKF( z >= MINIMUM_VALID_Z_COORDINATE && z <= MAXIMUM_VALID_Z_COORDINATE );
 	encLocationID /= (MAXIMUM_VALID_Z_COORDINATE - MINIMUM_VALID_Z_COORDINATE + 1);
@@ -192,7 +203,7 @@ BOOLEAN GetEncyclopediaLocationIDFromSectorCoords( UINT16 sSectorX, UINT16 sSect
 {
 	CHECKF( sSectorX >= MINIMUM_VALID_X_COORDINATE && sSectorX <= MAXIMUM_VALID_X_COORDINATE );
 	CHECKF( sSectorY >= MINIMUM_VALID_Y_COORDINATE && sSectorY <= MAXIMUM_VALID_Y_COORDINATE );
-	CHECKF( sSectorZ >= MINIMUM_VALID_Z_COORDINATE && sSectorZ <= MINIMUM_VALID_Z_COORDINATE );
+	CHECKF( sSectorZ >= MINIMUM_VALID_Z_COORDINATE && sSectorZ <= MAXIMUM_VALID_Z_COORDINATE );
 	
 	encLocationID = ((sSectorX-1) + (sSectorY-1) * 16) * 4 + sSectorZ;
 	return (TRUE);
@@ -219,12 +230,13 @@ INT16 GetNextPreviousLocation( INT16 curLoc, BOOLEAN next, ENC_DATA_FILTER_LOCAT
 	BOOLEAN found = FALSE;
 	CHECKBI( gGameExternalOptions.gEncyclopedia );
 	CHECKBI( geENC_SubPage == ENC_LOCATIONS );
-	//reset to 0 if out of bounds
-	if ( curLoc < 0 || curLoc > MAXID )
-		curLoc = 0;
+	const auto firstCandidate = LaptopUiStateModel::AdjacentIndex(
+		static_cast<std::size_t>(MAXID) + 1, curLoc, next != FALSE);
+	if (!firstCandidate) return ENC_DATA_NO_DATA;
 
 	//loop all sectors
-	for ( INT16 newID = curLoc + (next? 1: -1); 0 <= newID && newID <= MAXID; (next? newID++: newID--) )
+	for ( INT32 newID = static_cast<INT32>(*firstCandidate);
+		0 <= newID && newID <= MAXID; (next ? ++newID : --newID) )
 	{
 //#ifdef _DEBUG
 //		Assert(GetEncyclopediaSectorCoordsFromLocationID( newID, x, y, z ));
@@ -250,8 +262,8 @@ INT16 GetNextPreviousLocation( INT16 curLoc, BOOLEAN next, ENC_DATA_FILTER_LOCAT
 		case ENC_DATA_FILTER_L_SAM :			// Only SAM sites
 			if( IsThisSectorASAMSector( x, y, z ) )
 			{
-				break;
 				found = TRUE;
+				break;
 			}
 			continue; //no SAM
 		case ENC_DATA_FILTER_L_MINE :			// Only mines
@@ -330,18 +342,16 @@ INT16 GetNextPreviousLocation( INT16 curLoc, BOOLEAN next, ENC_DATA_FILTER_LOCAT
 INT16 GetNextPreviousCharacter( INT16 curChar, BOOLEAN next, ENC_DATA_FILTER_CHARACTER filterClass, UINT16 filterSubClass )
 {
 	extern UINT8 gubMercArray[ NUM_PROFILES ];
-	BOOLEAN notFound = TRUE;
+	const auto firstCandidate = LaptopUiStateModel::AdjacentIndex(
+		NUM_PROFILES, curChar, next != FALSE);
+	if (!firstCandidate) return ENC_DATA_NO_DATA;
 
-	//reset to -1 if out of bounds
-	if( curChar < 0 || curChar > NUM_PROFILES )
-		curChar = -1;
-
-	//loop through all profiles, start with current, direction determined by next. This wraps automatically because NUM_PROFILES+1 == sizeof(UINT8) == 256
-	for( UINT8 i = curChar + (next?1:-1); 0 <= i && i < NUM_PROFILES; (next? i++: i--) )
+	// Use a signed cursor so reverse iteration terminates instead of wrapping.
+	for( INT32 i = static_cast<INT32>(*firstCandidate);
+		0 <= i && i < NUM_PROFILES; (next ? ++i : --i) )
 	{
 		//skip index 255 (used for not valid)
-		if( i == (UINT8)-1 )
-			continue;
+		if( i == static_cast<UINT8>(-1) ) continue;
 		//todo: find a way to determine if we met that person allready and exclude cutscene
 		// skip profiles we do not have interacted with, ignoring GOODGUY and TOWN_DOESNT_CARE_ABOUT_DEATH flags
 		// NOTE: recruited flag does not get updated correctly at the moment -> needs fix (on dismiss, death, imp creation, merc/aim/npc hire ec.)
@@ -362,7 +372,6 @@ INT16 GetNextPreviousCharacter( INT16 curChar, BOOLEAN next, ENC_DATA_FILTER_CHA
 *|6a. pVehicleList(variable Size)						|VEHICLETYPE, medium struct				| YES								| Same principle as 1b, but data valid regardless of game state.
 *|6b. gNewVehicle[ NUM_PROFILES ]						|NEW_CAR, medium struct					| NO								| Used to get vehicle 'face', Snds, name ec. Index is identical to gMercProfiles.
 */
-		notFound = FALSE;
 		switch(filterClass)
 		{
 		case ENC_DATA_FILTER_C_ALL :		// All characters visible
@@ -373,14 +382,12 @@ INT16 GetNextPreviousCharacter( INT16 curChar, BOOLEAN next, ENC_DATA_FILTER_CHA
 				return i;
 			//if( gAimAvailability[ i ].ProfilId != (UINT8)-1 )
 			//	return gAimAvailability[ i ].ProfilId;
-			notFound = TRUE;//no AIM
 			break;
 		case ENC_DATA_FILTER_C_MERC :		// hireable characters from M.E.R.C.
 			//if( gubMercArray[ i ] != 0 )
 			//	return gubMercArray[ i ];
 			if( gMercProfiles[i].Type == PROFILETYPE_MERC )
 				return i;
-			notFound = TRUE;//no AIM, no MERC
 			break;
 		case ENC_DATA_FILTER_C_OTHER :		// vehicles and electronic 'chars'
 			//if( notFound && IsMercHireable( i ) && i != 254 && soldier.iVehicleId )
@@ -389,26 +396,22 @@ INT16 GetNextPreviousCharacter( INT16 curChar, BOOLEAN next, ENC_DATA_FILTER_CHA
 				return i;
 			if( (filterSubClass == 0 || filterSubClass == 2) && (gMercProfiles[i].ubMiscFlags & PROFILE_MISC_FLAG_EPCACTIVE) )
 				return i;
-			notFound = TRUE;
 			break;
 		case ENC_DATA_FILTER_C_RPC :		// Rebels
 			//if( gMercProfiles[ i ].ubCivilianGroup == REBEL_CIV_GROUP && IsMercHireable( i ) )
 			//	return i;//no
 			if ( gMercProfiles[i].Type == PROFILETYPE_RPC )
 				return i;
-			notFound = TRUE;
 			break;
 		case ENC_DATA_FILTER_C_NPC :		// non hireable characters
 			//if( gMercProfiles[ i ].ubCivilianGroup > NON_CIV_GROUP && gMercProfiles[ i ].ubCivilianGroup != REBEL_CIV_GROUP && !IsMercHireable( i ) )
 			//	return i;
 			if ( gMercProfiles[i].Type == PROFILETYPE_NPC )
 				return i;
-			notFound = TRUE;
 			break;
 		case ENC_DATA_FILTER_C_IMP :		// player created characters
 			if ( gMercProfiles[i].Type == PROFILETYPE_IMP )
 				return i;
-			notFound = TRUE;
 			break;
 		}
 	}
@@ -423,12 +426,15 @@ INT16 GetNextPreviousCharacter( INT16 curChar, BOOLEAN next, ENC_DATA_FILTER_CHA
 */
 INT16 GetNextPreviousItem( INT16 curItem, BOOLEAN next, ENC_DATA_FILTER_ITEM filterClass, UINT16 filterSubClass )
 {
-	//reset to 1 if out of bounds
-	if ( curItem < 1 || curItem >= MAXITEMS )
-		curItem = 1;
+	const auto firstCandidate = LaptopUiStateModel::AdjacentIndex(
+		MAXITEMS, curItem, next != FALSE);
+	if (!firstCandidate) return ENC_DATA_NO_DATA;
+	const INT32 firstItem = std::max<INT32>(
+		1, static_cast<INT32>(*firstCandidate));
 
 	// loop thru items, start with current, direction determined by next
-	for ( INT16 i = curItem + (next? 1 : -1); (next? i < MAXITEMS : i > 0); (next? i++: i--) )
+	for ( INT32 i = firstItem;
+		(next ? i < MAXITEMS : i > 0); (next ? ++i : --i) )
 	{
 		// last item, break!
 		if ( Item[ i ].uiIndex == 0 )
@@ -490,7 +496,7 @@ INT16 GetNextPreviousItem( INT16 curItem, BOOLEAN next, ENC_DATA_FILTER_ITEM fil
 				//not found, go ahead!
 				continue;
 			case ENC_DATA_FILTER_I_ATTACHMENT :
-				if ( !Item[ i ].attachment || !(Item[ i ].usItemClass & (IC_MISC)) )
+				if ( !ItemIsAttachment(i) || !(Item[ i ].usItemClass & IC_MISC) )
 					continue;// no attachment, skip
 				switch( filterSubClass )
 				{
@@ -590,12 +596,13 @@ INT16 GetNextPreviousItem( INT16 curItem, BOOLEAN next, ENC_DATA_FILTER_ITEM fil
 */
 INT16 GetNextPreviousQuest( INT16 curQuest, BOOLEAN next, ENC_DATA_FILTER_QUEST filterClass, UINT16 filterSubClass )
 {
-	//reset to -1 if out of bounds
-	if ( curQuest < 0 || curQuest >= MAX_QUESTS )
-		curQuest = -1;
+	const auto firstCandidate = LaptopUiStateModel::AdjacentIndex(
+		MAX_QUESTS, curQuest, next != FALSE);
+	if (!firstCandidate) return ENC_DATA_NO_DATA;
 
 	// loop thru quests, start with current, direction determined by next
-	for( INT16 i = curQuest + (next? 1: -1); 0 <= i && i < (UINT8)MAX_QUESTS; next? i++: i-- )
+	for( INT32 i = static_cast<INT32>(*firstCandidate);
+		0 <= i && i < MAX_QUESTS; (next ? ++i : --i) )
 	{
 		switch( filterClass)
 		{
@@ -633,9 +640,8 @@ BOOLEAN CreateData( INT16 newID )
 	//////
 	// clear data
 
-	// unload graphic if still exists
-	if ( gstEncyclopediaDataEntry.uiImageID )
-		DeleteVideoObjectFromIndex( gstEncyclopediaDataEntry.uiImageID );
+	// Release the previous entry image before constructing its replacement.
+	gEncyclopediaDataImage.reset();
 
 	// reset remaining data
 	memset( &gstEncyclopediaDataEntry, 0x0, sizeof(ENC_DATA_ENTRY_T) );
@@ -657,7 +663,10 @@ BOOLEAN CreateData( INT16 newID )
 	switch (geENC_SubPage)
 	{
 	case ENC_LOCATIONS :
-		//check for valid ID
+		CHECKF( LaptopUiStateModel::IsValidIndex(
+			(MAXIMUM_VALID_X_COORDINATE - MINIMUM_VALID_X_COORDINATE + 1) *
+			(MAXIMUM_VALID_Y_COORDINATE - MINIMUM_VALID_Y_COORDINATE + 1) *
+			(MAXIMUM_VALID_Z_COORDINATE - MINIMUM_VALID_Z_COORDINATE + 1), newID) );
 		// set name
 		GetSectorIDString( SECTORX( newID/(MAXIMUM_VALID_Z_COORDINATE+1) ), SECTORY( newID/(MAXIMUM_VALID_Z_COORDINATE+1) ), newID%(MAXIMUM_VALID_Z_COORDINATE+1), gstEncyclopediaDataEntry.sName, TRUE );
 		// no short description TODO
@@ -675,26 +684,31 @@ BOOLEAN CreateData( INT16 newID )
 					fileName[cnt] = '\0';
 					break;
 				}
-			sprintf(vObjDesc.ImageFile, "Encyclopedia\\Maps\\%s.STI", fileName);
+			std::snprintf(vObjDesc.ImageFile, std::size(vObjDesc.ImageFile),
+				"Encyclopedia\\Maps\\%s.STI", fileName);
 			vObjDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-			if( !FileExists(vObjDesc.ImageFile) || !AddVideoObject( &vObjDesc, &gstEncyclopediaDataEntry.uiImageID ) )//no file? try loading tiny little radar image...
+			if (FileExists(vObjDesc.ImageFile))
+				gEncyclopediaDataImage = AddVideoObjectOwned(&vObjDesc);
+			if (!gEncyclopediaDataImage)//no file? try loading tiny little radar image...
 			{
 				vObjDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-				sprintf(vObjDesc.ImageFile, "RadarMaps\\%s.STI", fileName);
-				if( !FileExists(vObjDesc.ImageFile) || !AddVideoObject( &vObjDesc, &gstEncyclopediaDataEntry.uiImageID ) )//no file? no map...
-				{
-					//if( !LoadMapGraphicForLocation( NULL, &gstEncyclopediaDataEntry.uiImageID ) )
-					gstEncyclopediaDataEntry.uiImageID = 0;
-				}
+				std::snprintf(vObjDesc.ImageFile, std::size(vObjDesc.ImageFile),
+					"RadarMaps\\%s.STI", fileName);
+				if (FileExists(vObjDesc.ImageFile))
+					gEncyclopediaDataImage = AddVideoObjectOwned(&vObjDesc);
 			}
+			gstEncyclopediaDataEntry.uiImageID =
+				gEncyclopediaDataImage ? gEncyclopediaDataImage.get() : 0;
 		}
 		break;
 	case ENC_CHARACTERS :
-		CHECKF( newID < NUM_PROFILES );
+		CHECKF( LaptopUiStateModel::IsValidIndex(NUM_PROFILES, newID) );
 		// set name
-		std::memcpy( gstEncyclopediaDataEntry.sName, gMercProfiles[ newID ].zNickname, sizeof(gMercProfiles[ newID ].zNickname) );
+		LaptopUiStateModel::CopyText(
+			gstEncyclopediaDataEntry.sName, gMercProfiles[newID].zNickname );
 		// set short description
-		std::memcpy( gstEncyclopediaDataEntry.sShortDesc, gMercProfiles[ newID ].zName, sizeof(gMercProfiles[ newID ].zName) );
+		LaptopUiStateModel::CopyText(
+			gstEncyclopediaDataEntry.sShortDesc, gMercProfiles[newID].zName );
 		//set detailed description
 		{
 			CHAR16 szMercInfo[800],szMercInfo2[800];
@@ -741,16 +755,19 @@ BOOLEAN CreateData( INT16 newID )
 			//else
 				if( gstEncyclopediaDataEntry.uiTextPage == 0 )
 			{//aditional info dont fit, print only bio
-				wcscpy_s( gstEncyclopediaDataEntry.sDescr, sizeof(gstEncyclopediaDataEntry.sDescr)/sizeof(CHAR16), szMercInfo );
+				LaptopUiStateModel::CopyText(
+					gstEncyclopediaDataEntry.sDescr, szMercInfo );
 			}
 			else if( gstEncyclopediaDataEntry.uiTextPage == 1 )
 			{//dont fit on single page, print additional info on page 1
-				wcscpy_s( gstEncyclopediaDataEntry.sDescr, sizeof(gstEncyclopediaDataEntry.sDescr)/sizeof(CHAR16), szMercInfo2 );
+				LaptopUiStateModel::CopyText(
+					gstEncyclopediaDataEntry.sDescr, szMercInfo2 );
 			}
 			else if( gstEncyclopediaDataEntry.uiTextPage == 2 )
 			{//2: debug text misc flag
 				STR16 dbgText = { L"PROFILE=%d, FLAG_RECRUITED=%d, FLAG_HAVESEENCREATURE=%d, FLAG_FORCENPCQUOTE=%d, FLAG_WOUNDEDBYPLAYER=%d, FLAG_TEMP_NPC_QUOTE_DATA_EXISTS=%d, FLAG_SAID_HOSTILE_QUOTE=%d, FLAG_EPCACTIVE=%d, FLAG_ALREADY_USED_ITEMS=%d" }; 
-				swprintf( gstEncyclopediaDataEntry.sDescr, dbgText, newID,
+				sgp_swprintf( gstEncyclopediaDataEntry.sDescr,
+					std::size(gstEncyclopediaDataEntry.sDescr), dbgText, newID,
 					gMercProfiles[newID].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED,
 					gMercProfiles[newID].ubMiscFlags & PROFILE_MISC_FLAG_HAVESEENCREATURE,
 					gMercProfiles[newID].ubMiscFlags & PROFILE_MISC_FLAG_FORCENPCQUOTE,
@@ -763,7 +780,8 @@ BOOLEAN CreateData( INT16 newID )
 			else if( gstEncyclopediaDataEntry.uiTextPage == 3 )
 			{//3: debug text misc flag2
 				STR16 dbgText = { L"PROFILE=%d, FLAG2_DONT_ADD_TO_SECTOR=%d, FLAG2_LEFT_COUNTRY=%d, FLAG2_BANDAGED_TODAY=%d, FLAG2_SAID_FIRSTSEEN_QUOTE=%d, FLAG2_NEEDS_TO_SAY_HOSTILE_QUOTE=%d, FLAG2_MARRIED_TO_HICKS=%d, FLAG2_ASKED_BY_HICKS=%d, FLAG2_MERC_GEARKIT_UNPAID=%d" }; 
-				swprintf( gstEncyclopediaDataEntry.sDescr, dbgText, newID,
+				sgp_swprintf( gstEncyclopediaDataEntry.sDescr,
+					std::size(gstEncyclopediaDataEntry.sDescr), dbgText, newID,
 					gMercProfiles[newID].ubMiscFlags2 & PROFILE_MISC_FLAG2_DONT_ADD_TO_SECTOR,
 					gMercProfiles[newID].ubMiscFlags2 & PROFILE_MISC_FLAG2_LEFT_COUNTRY,
 					gMercProfiles[newID].ubMiscFlags2 & PROFILE_MISC_FLAG2_BANDAGED_TODAY,
@@ -776,7 +794,8 @@ BOOLEAN CreateData( INT16 newID )
 			else if( gstEncyclopediaDataEntry.uiTextPage == 4 )
 			{//4: debug text misc flag3
 				STR16 dbgText = { L"PROFILE=%d, FLAG3_PLAYER_LEFT_MSG_FOR_MERC_AT_AIM=%d, FLAG3_PERMANENT_INSERTION_CODE=%d, FLAG3_PLAYER_HAD_CHANCE_TO_HIRE=%d, FLAG3_HANDLE_DONE_TRAVERSAL=%d, FLAG3_NPC_PISSED_OFF=%d, FLAG3_MERC_MERC_IS_DEAD_AND_QUOTE_SAID=%d, FLAG3_TOWN_DOESNT_CARE_ABOUT_DEATH=%d, FLAG3_GOODGUY=%d" }; 
-				swprintf( gstEncyclopediaDataEntry.sDescr, dbgText, newID,
+				sgp_swprintf( gstEncyclopediaDataEntry.sDescr,
+					std::size(gstEncyclopediaDataEntry.sDescr), dbgText, newID,
 					gMercProfiles[newID].ubMiscFlags3 & PROFILE_MISC_FLAG3_PLAYER_LEFT_MSG_FOR_MERC_AT_AIM,
 					gMercProfiles[newID].ubMiscFlags3 & PROFILE_MISC_FLAG3_PERMANENT_INSERTION_CODE,
 					gMercProfiles[newID].ubMiscFlags3 & PROFILE_MISC_FLAG3_PLAYER_HAD_CHANCE_TO_HIRE,
@@ -792,10 +811,12 @@ BOOLEAN CreateData( INT16 newID )
 		if ( gMercProfiles[newID].Type == PROFILETYPE_VEHICLE  )
 		{
 			//this is a vehicle
-			std::strcpy( vObjDesc.ImageFile, gNewVehicle[newID].szIconFace );
+			LaptopUiStateModel::CopyText(
+				vObjDesc.ImageFile, gNewVehicle[newID].szIconFace );
 			vObjDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-			if( !AddVideoObject(&vObjDesc, &gstEncyclopediaDataEntry.uiImageID) )
-				gstEncyclopediaDataEntry.uiImageID = 0;
+			gEncyclopediaDataImage = AddVideoObjectOwned(&vObjDesc);
+			gstEncyclopediaDataEntry.uiImageID =
+				gEncyclopediaDataImage ? gEncyclopediaDataImage.get() : 0;
 		}
 		else
 		{
@@ -803,55 +824,79 @@ BOOLEAN CreateData( INT16 newID )
 			if(gGameExternalOptions.fReadProfileDataFromXML)
 			{
 				// HEADROCK PROFEX: Do not read direct profile number, instead, look inside the profile for a ubFaceIndex value.
-				sprintf( fileName, "%02d.sti", gMercProfiles[newID].ubFaceIndex);
+				std::snprintf( fileName, std::size(fileName), "%02d.sti",
+					gMercProfiles[newID].ubFaceIndex );
 			}
 			else
 			{
-				sprintf( fileName, "%02d.sti", newID);
+				std::snprintf( fileName, std::size(fileName), "%02d.sti", newID );
 			}
 			//FilenameForBPP( vObjDesc.ImageFile, fileName); removed: no faces with [ID]_8.sti
-			sprintf( vObjDesc.ImageFile, "faces\\BIGFACES\\%s", fileName );
+			std::snprintf( vObjDesc.ImageFile, std::size(vObjDesc.ImageFile),
+				"faces\\BIGFACES\\%s", fileName );
 			vObjDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 		
-			if( !AddVideoObject(&vObjDesc, &gstEncyclopediaDataEntry.uiImageID) )
+			gEncyclopediaDataImage = AddVideoObjectOwned(&vObjDesc);
+			if (!gEncyclopediaDataImage)
 			{
 				//try with prefix 'B'
-				sprintf( vObjDesc.ImageFile, "faces\\B%s",fileName );
+				std::snprintf( vObjDesc.ImageFile, std::size(vObjDesc.ImageFile),
+					"faces\\B%s", fileName );
 				vObjDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-				if( !AddVideoObject(&vObjDesc, &gstEncyclopediaDataEntry.uiImageID) )
-					gstEncyclopediaDataEntry.uiImageID = 0;
+				gEncyclopediaDataImage = AddVideoObjectOwned(&vObjDesc);
 			}
+			gstEncyclopediaDataEntry.uiImageID =
+				gEncyclopediaDataImage ? gEncyclopediaDataImage.get() : 0;
 		}
 		break;
 	case ENC_ITEMS :
+		CHECKF( LaptopUiStateModel::IsValidIndex(MAXITEMS, newID) );
 		// set name
-		std::memcpy( gstEncyclopediaDataEntry.sName, Item[ newID ].szItemName, sizeof(Item[ newID ].szItemName) );
+		LaptopUiStateModel::CopyText(
+			gstEncyclopediaDataEntry.sName, Item[newID].szItemName );
 		// set short description
-		std::memcpy( gstEncyclopediaDataEntry.sShortDesc, Item[ newID ].szLongItemName, sizeof(Item[ newID ].szLongItemName) );
+		LaptopUiStateModel::CopyText(
+			gstEncyclopediaDataEntry.sShortDesc, Item[newID].szLongItemName );
 		// set detailed description
 		if( gstEncyclopediaDataEntry.uiTextPage == 0 )
-			std::memcpy( gstEncyclopediaDataEntry.sDescr, Item[ newID ].szItemDesc, sizeof(Item[ newID ].szItemDesc) );
+			LaptopUiStateModel::CopyText(
+				gstEncyclopediaDataEntry.sDescr, Item[newID].szItemDesc );
 		else
-			std::memcpy( gstEncyclopediaDataEntry.sDescr, Item[ newID ].szBRDesc, sizeof(Item[ newID ].szBRDesc) );
+			LaptopUiStateModel::CopyText(
+				gstEncyclopediaDataEntry.sDescr, Item[newID].szBRDesc );
 		// load image
-		if ( !LoadTileGraphicForItem( &Item[ newID ], &gstEncyclopediaDataEntry.uiImageID ) )
-			gstEncyclopediaDataEntry.uiImageID = 0;
-		break;
-	case ENC_QUESTS :
-		// set name
-		CHAR16 questStartedString[160],questCompletedString[160];
-		wcscpy_s( gstEncyclopediaDataEntry.sName, sizeof(gstEncyclopediaDataEntry.sName)/sizeof(CHAR16), QuestDescText[ newID ] );
-		// set description
-		GetQuestStartedString( (UINT8)newID, questStartedString );
-		wcscpy_s( gstEncyclopediaDataEntry.sDescr, sizeof(gstEncyclopediaDataEntry.sDescr)/sizeof(CHAR16), questStartedString );
-		if( gubQuest[(UINT8) newID] == QUESTDONE )
 		{
-			wcscat_s( gstEncyclopediaDataEntry.sDescr, sizeof(gstEncyclopediaDataEntry.sDescr)/sizeof(CHAR16), L"                                                                               " );
-			wcscat_s( gstEncyclopediaDataEntry.sDescr, sizeof(gstEncyclopediaDataEntry.sDescr)/sizeof(CHAR16), L"                                                                               " );
-			GetQuestEndedString( (UINT8)newID, questCompletedString );
-			wcscat_s( gstEncyclopediaDataEntry.sDescr, sizeof(gstEncyclopediaDataEntry.sDescr)/sizeof(CHAR16), questCompletedString );
+			UINT32 itemImage = 0;
+			if (LoadTileGraphicForItem(&Item[newID], &itemImage))
+				gEncyclopediaDataImage = UniqueVideoObjectHandle(itemImage);
+			gstEncyclopediaDataEntry.uiImageID =
+				gEncyclopediaDataImage ? gEncyclopediaDataImage.get() : 0;
 		}
 		break;
+	case ENC_QUESTS :
+	{
+		CHECKF( LaptopUiStateModel::IsValidIndex(MAX_QUESTS, newID) );
+		// set name
+		CHAR16 questStartedString[160] = {};
+		CHAR16 questCompletedString[160] = {};
+		LaptopUiStateModel::CopyText(
+			gstEncyclopediaDataEntry.sName, QuestDescText[newID] );
+		// set description
+		GetQuestStartedString( (UINT8)newID, questStartedString );
+		LaptopUiStateModel::CopyText(
+			gstEncyclopediaDataEntry.sDescr, questStartedString );
+		if( gubQuest[(UINT8) newID] == QUESTDONE )
+		{
+			LaptopUiStateModel::AppendText( gstEncyclopediaDataEntry.sDescr,
+				L"                                                                               " );
+			LaptopUiStateModel::AppendText( gstEncyclopediaDataEntry.sDescr,
+				L"                                                                               " );
+			GetQuestEndedString( (UINT8)newID, questCompletedString );
+			LaptopUiStateModel::AppendText(
+				gstEncyclopediaDataEntry.sDescr, questCompletedString );
+		}
+		break;
+	}
 	default :
 		return FALSE;
 	}
@@ -933,8 +978,14 @@ void BtnEncyclopedia_Data_FilterBtnCallBack( GUI_BUTTON *btn, INT32 reason )
 				if( giEncyclopedia_DataFilterBtn[ i ] != BUTTON_NO_SLOT )
 				{
 					tmpButton = GetButtonPtr( giEncyclopedia_DataFilterBtn[ i ] );
-					tmpButton->uiFlags &= (~BUTTON_CLICKED_ON);
-					InvalidateRegion(tmpButton->Area.RegionTopLeftX, tmpButton->Area.RegionTopLeftY, tmpButton->Area.RegionBottomRightX, tmpButton->Area.RegionBottomRightY);
+					if (tmpButton)
+					{
+						tmpButton->uiFlags &= (~BUTTON_CLICKED_ON);
+						InvalidateRegion(tmpButton->Area.RegionTopLeftX,
+							tmpButton->Area.RegionTopLeftY,
+							tmpButton->Area.RegionBottomRightX,
+							tmpButton->Area.RegionBottomRightY);
+					}
 				}
 			}
 			// Disable 'All' button to mark it as selected
@@ -970,12 +1021,15 @@ void BtnEncyclopedia_Data_FilterBtnCallBack( GUI_BUTTON *btn, INT32 reason )
 							guiEncyclopediaDataSubFilter++;
 						CHAR16 tempStr[8];
 						if( guiEncyclopediaDataSubFilter )
-							wcsncpy( tempStr, gFacilityTypes[ guiEncyclopediaDataSubFilter ].szFacilityShortName, 7 );// limit text to 7 chars
+							LaptopUiStateModel::CopyText(tempStr,
+								gFacilityTypes[guiEncyclopediaDataSubFilter].szFacilityShortName);
 							//SpecifyButtonText( btn->IDNum, gFacilityTypes[ guiEncyclopediaDataSubFilter ].szFacilityShortName );
 						else
-							wcsncpy( tempStr, GetDataFilterText( pEncyclopediaFilterLocationText, pEncyclopediaSubFilterLocationText, geEncyclopediaDataFilterLocation ), 7 );
+							LaptopUiStateModel::CopyText(tempStr,
+								GetDataFilterText(pEncyclopediaFilterLocationText,
+									pEncyclopediaSubFilterLocationText,
+									geEncyclopediaDataFilterLocation));
 							//SpecifyButtonText( btn->IDNum, GetDataFilterText( pEncyclopediaFilterLocationText, pEncyclopediaSubFilterLocationText, geEncyclopediaDataFilterLocation ) );
-						tempStr[7] = 0;
 						SpecifyButtonText( btn->IDNum, tempStr );
 						break;
 					default :
@@ -1135,7 +1189,10 @@ void BtnEncyclopedia_Data_FilterBtnCallBack( GUI_BUTTON *btn, INT32 reason )
 			{
 				if( giEncyclopedia_DataFilterBtn[i] != btn->IDNum && giEncyclopedia_DataFilterBtn[i] != BUTTON_NO_SLOT )
 				{
-					GetButtonPtr(giEncyclopedia_DataFilterBtn[i])->uiFlags &= (~BUTTON_CLICKED_ON);
+					GUI_BUTTON* otherButton =
+						GetButtonPtr(giEncyclopedia_DataFilterBtn[i]);
+					if (otherButton)
+						otherButton->uiFlags &= (~BUTTON_CLICKED_ON);
 				}
 			}
 			// render new data
@@ -1188,7 +1245,10 @@ void BtnEncyclopedia_Data_FilterBtnCallBack( GUI_BUTTON *btn, INT32 reason )
 		{
 			if( giEncyclopedia_DataFilterBtn[i] != btn->IDNum && giEncyclopedia_DataFilterBtn[i] != BUTTON_NO_SLOT )
 			{
-				GetButtonPtr(giEncyclopedia_DataFilterBtn[i])->uiFlags &= (~BUTTON_CLICKED_ON);
+				GUI_BUTTON* otherButton =
+					GetButtonPtr(giEncyclopedia_DataFilterBtn[i]);
+				if (otherButton)
+					otherButton->uiFlags &= (~BUTTON_CLICKED_ON);
 			}
 		}
 		// render new data
@@ -1389,6 +1449,7 @@ BOOLEAN EnterEncyclopediaData_NEW(  )
 	UINT16 filterButtonSizeX, filterButtonSizeY, buttonSizeX, buttonSizeY;
 	UINT8 numFilterButtons = 0, filterButtonHelpTextFirstID;
 	STR16 *filterButtonText, *filterButtonHelpText;
+	LaptopPageResourceOwner stagedResources;
 
 	//error if not enabled
 	CHECKF( gGameExternalOptions.gEncyclopedia );
@@ -1400,7 +1461,7 @@ BOOLEAN EnterEncyclopediaData_NEW(  )
 	// load the background graphic
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "ENCYCLOPEDIA\\encyclopediabackground.sti", VObjectDesc.ImageFile );
-	CHECKF( AddVideoObject( &VObjectDesc, &guiEncyclopediaBG ) );
+	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiEncyclopediaBG));
 
 	//////
 	// get first data, get number of buttons and text
@@ -1451,8 +1512,10 @@ BOOLEAN EnterEncyclopediaData_NEW(  )
 	//////
 	// load filter button graphic and get size, NOTE: Needs to be loaded to determine size for other UI elements, even when no filter buttons will be created.
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	giEncyclopedia_DataFilterBtnImage = LoadButtonImage( "ENCYCLOPEDIA\\BUTTONF.sti", BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE , 1, BUTTON_NO_IMAGE );
-	CHECKF( giEncyclopedia_DataFilterBtnImage != BUTTON_NO_IMAGE );
+	CHECKF(stagedResources.addButtonImage(LoadButtonImageOwned(
+		"ENCYCLOPEDIA\\BUTTONF.sti", BUTTON_NO_IMAGE, 0,
+		BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
+		giEncyclopedia_DataFilterBtnImage));
 	filterButtonSizeX = GetWidthOfButtonPic( giEncyclopedia_DataFilterBtnImage, 0 );
 	filterButtonSizeY = GetHeightOfButtonPic ( giEncyclopedia_DataFilterBtnImage, 0 );
 
@@ -1460,13 +1523,14 @@ BOOLEAN EnterEncyclopediaData_NEW(  )
 	// create filter buttons
 	for( UINT8 i = 0; i < numFilterButtons; i++ )
 	{
-		giEncyclopedia_DataFilterBtn[ i ] = CreateIconAndTextButton( giEncyclopedia_DataFilterBtnImage,//image
+		const INT32 button = CreateIconAndTextButton( giEncyclopedia_DataFilterBtnImage,//image
 			filterButtonText[ i ], BLOCKFONTNARROW, FONT_MCOLOR_DKWHITE, NO_SHADOW, FONT_GRAY4, NO_SHADOW, TEXT_CJUSTIFIED,//text
 			LAPTOP_SCREEN_UL_X + ENC_DATA_GAP, //x position: left side
 			LAPTOP_SCREEN_WEB_UL_Y + ENC_DATA_FILTER_GAP_TOP + i * (filterButtonSizeY + ENC_DATA_GAP),//y position: top + gap + previous buttons with gaps
 			BUTTON_NO_TOGGLE, MSYS_PRIORITY_HIGH, BUTTON_NO_CALLBACK, BtnEncyclopedia_Data_FilterBtnCallBack );
 		//created?
-		CHECKF( giEncyclopedia_DataFilterBtn[ i ] != BUTTON_NO_SLOT );
+		CHECKF(stagedResources.addButton(
+			button, giEncyclopedia_DataFilterBtn[i]));
 		//cursor
 		SetButtonCursor( giEncyclopedia_DataFilterBtn[ i ], CURSOR_LAPTOP_SCREEN );
 		//user data for filters
@@ -1486,68 +1550,73 @@ BOOLEAN EnterEncyclopediaData_NEW(  )
 	//////
 	// load button graphic for next/previous/main page/nextText/previousText and get size
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	giEncyclopedia_DataBtnImage = LoadButtonImage( "ENCYCLOPEDIA\\BOTTOMBUTTONS2.STI", BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE , 1, BUTTON_NO_IMAGE );
-	CHECKF( giEncyclopedia_DataBtnImage != BUTTON_NO_IMAGE );
+	CHECKF(stagedResources.addButtonImage(LoadButtonImageOwned(
+		"ENCYCLOPEDIA\\BOTTOMBUTTONS2.STI", BUTTON_NO_IMAGE, 0,
+		BUTTON_NO_IMAGE, 1, BUTTON_NO_IMAGE),
+		giEncyclopedia_DataBtnImage));
 	buttonSizeX = GetWidthOfButtonPic( giEncyclopedia_DataBtnImage, 0 );
 	buttonSizeY = GetHeightOfButtonPic( giEncyclopedia_DataBtnImage, 0 );
 
 	//////
 	// create previousText button
-	giEncyclopedia_DataBtn[ 0 ] = CreateIconAndTextButton( giEncyclopedia_DataBtnImage,//image
+	CHECKF(stagedResources.addButton(CreateIconAndTextButton( giEncyclopedia_DataBtnImage,//image
 		pLocationPageText[ 0 ], FONT10ARIAL, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, TEXT_CJUSTIFIED,//text
 		LAPTOP_SCREEN_UL_X + filterButtonSizeX + 2*ENC_DATA_GAP,//x position: left alligned to image box
 		LAPTOP_SCREEN_WEB_UL_Y + GetFontHeight(FONT14ARIAL) + ENC_DATA_IMAGE_HEIGHT + ENC_DATA_SHORT_DESC_HEIGHT + 5*ENC_DATA_GAP,//y position: below short descr box
-		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_Data_NextPreviousTextBtnCallBack );
-	CHECKF( giEncyclopedia_DataBtn[ 0 ] != BUTTON_NO_SLOT );
+		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_Data_NextPreviousTextBtnCallBack ),
+		giEncyclopedia_DataBtn[0]));
 	MSYS_SetBtnUserData( giEncyclopedia_DataBtn[ 0 ], 1 , FALSE );//previous -> next = FALSE
 
 	//////
 	// create nextText button
-	giEncyclopedia_DataBtn[ 1 ] = CreateIconAndTextButton( giEncyclopedia_DataBtnImage,//image
+	CHECKF(stagedResources.addButton(CreateIconAndTextButton( giEncyclopedia_DataBtnImage,//image
 		pLocationPageText[ 2 ], FONT10ARIAL, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, TEXT_CJUSTIFIED,//text
 		LAPTOP_SCREEN_LR_X - filterButtonSizeX - 2*ENC_DATA_GAP - buttonSizeX,//x position: right alligned to image box
 		LAPTOP_SCREEN_WEB_UL_Y + GetFontHeight(FONT14ARIAL) + ENC_DATA_IMAGE_HEIGHT + ENC_DATA_SHORT_DESC_HEIGHT + 5*ENC_DATA_GAP,//y position: below short descr box
-		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_Data_NextPreviousTextBtnCallBack );
-	CHECKF( giEncyclopedia_DataBtn[ 1 ] != BUTTON_NO_SLOT );
+		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_Data_NextPreviousTextBtnCallBack ),
+		giEncyclopedia_DataBtn[1]));
 	MSYS_SetBtnUserData( giEncyclopedia_DataBtn[ 1 ], 1 , TRUE );//next -> next = TRUE
 
 	//////
 	// create previousData button
-	giEncyclopedia_DataBtn[ 2 ] = CreateIconAndTextButton( giEncyclopedia_DataBtnImage,//image
+	CHECKF(stagedResources.addButton(CreateIconAndTextButton( giEncyclopedia_DataBtnImage,//image
 		pSectorPageText[ 0 ], FONT10ARIAL, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, TEXT_CJUSTIFIED,//text
 		LAPTOP_SCREEN_UL_X + LAPTOP_SCREEN_WIDTH/2 - 2*buttonSizeX,//x position: center of laptop - 2* button size
 		LAPTOP_SCREEN_WEB_UL_Y + GetFontHeight(FONT14ARIAL) + ENC_DATA_IMAGE_HEIGHT + ENC_DATA_SHORT_DESC_HEIGHT + buttonSizeY + ENC_DATA_DESC_HEIGHT + 7*ENC_DATA_GAP,//y position: below all
-		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_Data_NextPreviousDataBtnCallBack );
-	CHECKF( giEncyclopedia_DataBtn[ 2 ] != BUTTON_NO_SLOT );
+		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_Data_NextPreviousDataBtnCallBack ),
+		giEncyclopedia_DataBtn[2]));
 	MSYS_SetBtnUserData( giEncyclopedia_DataBtn[ 2 ], 1 , FALSE );//previous -> next = FALSE
 
 	//////
 	// create main page button
-	giEncyclopedia_DataBtn[ 3 ] = CreateIconAndTextButton( giEncyclopedia_DataBtnImage,//image
+	CHECKF(stagedResources.addButton(CreateIconAndTextButton( giEncyclopedia_DataBtnImage,//image
 		pSectorPageText[ 1 ], FONT10ARIAL, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, TEXT_CJUSTIFIED,//text
 		LAPTOP_SCREEN_UL_X + LAPTOP_SCREEN_WIDTH/2 - buttonSizeX/2,//x position: center of laptop
 		LAPTOP_SCREEN_WEB_UL_Y + GetFontHeight(FONT14ARIAL) + ENC_DATA_IMAGE_HEIGHT + ENC_DATA_SHORT_DESC_HEIGHT + buttonSizeY + ENC_DATA_DESC_HEIGHT + 7*ENC_DATA_GAP,//y position: below all
-		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_newSelectDataPageBtnCallBack );
-	CHECKF( giEncyclopedia_DataBtn[ 3 ] != BUTTON_NO_SLOT );
+		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_newSelectDataPageBtnCallBack ),
+		giEncyclopedia_DataBtn[3]));
 	MSYS_SetBtnUserData( giEncyclopedia_DataBtn[ 3 ], 1 , ENC_MAINPAGE );
 
 	//////
 	// create nextData button
-	giEncyclopedia_DataBtn[ 4 ] = CreateIconAndTextButton( giEncyclopedia_DataBtnImage,//image
+	CHECKF(stagedResources.addButton(CreateIconAndTextButton( giEncyclopedia_DataBtnImage,//image
 		pSectorPageText[ 2 ], FONT10ARIAL, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, TEXT_CJUSTIFIED,//text
 		LAPTOP_SCREEN_UL_X + LAPTOP_SCREEN_WIDTH/2 + buttonSizeX,//x position: center of laptop + buttonsize
 		LAPTOP_SCREEN_WEB_UL_Y + GetFontHeight(FONT14ARIAL) + ENC_DATA_IMAGE_HEIGHT + ENC_DATA_SHORT_DESC_HEIGHT + buttonSizeY + ENC_DATA_DESC_HEIGHT + 7*ENC_DATA_GAP,//y position: below all
-		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_Data_NextPreviousDataBtnCallBack );
-	CHECKF( giEncyclopedia_DataBtn[ 4 ] != BUTTON_NO_SLOT );
+		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_Data_NextPreviousDataBtnCallBack ),
+		giEncyclopedia_DataBtn[4]));
 	MSYS_SetBtnUserData( giEncyclopedia_DataBtn[ 4 ], 1 , TRUE );//next -> next = TRUE
 
 	//////
 	// set cursors and make button down state slightly shifted
 	for( UINT8 i = 0; i < 5; i++ )
 	{
+		GUI_BUTTON* createdButton = GetButtonPtr(giEncyclopedia_DataBtn[i]);
+		CHECKF(createdButton);
 		SetButtonCursor( giEncyclopedia_DataBtn[ i ], CURSOR_LAPTOP_SCREEN );
-		GetButtonPtr( giEncyclopedia_DataBtn[ i ] )->fShiftImage = TRUE;
+		createdButton->fShiftImage = TRUE;
 	}
+	gEncyclopediaDataResources = std::move(stagedResources);
 
 	//////
 	// fill data, also creates video object for image and deletes old one.
@@ -1566,14 +1635,14 @@ BOOLEAN EnterEncyclopediaData_NEW(  )
 BOOLEAN ExitEncyclopediaData_NEW(  )
 {
 	extern UINT32	guiEncyclopediaBG;//background image from Encyclopedia main page
-	BOOLEAN success = TRUE;
 	// error if not enabled
 	CHECKF( gGameExternalOptions.gEncyclopedia );
 	// error if the laptop mode does not match encyclopedia
 	CHECKF( LAPTOP_MODE_ENCYCLOPEDIA_DATA == guiPreviousLaptopMode );
 
-	// Delete background
-	success &= DeleteVideoObjectFromIndex( guiEncyclopediaBG );
+	// Delete page resources before invalidating their numeric compatibility views.
+	gEncyclopediaDataResources.clear();
+	gEncyclopediaDataImage.reset();
 	guiEncyclopediaBG = 0;
 
 	// Reset filters
@@ -1583,44 +1652,14 @@ BOOLEAN ExitEncyclopediaData_NEW(  )
 	geEncyclopediaDataFilterItem = ENC_DATA_FILTER_I_ALL;
 	geEncyclopediaDataFilterQuest = ENC_DATA_FILTER_Q_ALL;
 	
-	// Reset data and remove data image
-	success &= CreateData( -1 );
-
-	// Destroy filter buttons
-	for( UINT8 i = 0; i < (UINT8)(sizeof(giEncyclopedia_DataFilterBtn)/sizeof(INT32)); i++ )
-	{
-		if( giEncyclopedia_DataFilterBtn[ i ] != BUTTON_NO_SLOT )
-		{
-			RemoveButton( giEncyclopedia_DataFilterBtn[ i ] );
-			giEncyclopedia_DataFilterBtn[ i ] = BUTTON_NO_SLOT;
-		}
-	}
-
-	// Delete filter button image
-	if ( giEncyclopedia_DataFilterBtnImage != BUTTON_NO_IMAGE )
-	{
-		UnloadButtonImage( giEncyclopedia_DataFilterBtnImage );
-		giEncyclopedia_DataFilterBtnImage = BUTTON_NO_IMAGE;
-	}
-
-	// Delete navigation buttons
-	for( UINT8 i = 0; i < (UINT8)(sizeof(giEncyclopedia_DataBtn)/sizeof(INT32)); i++ )
-	{
-		if ( giEncyclopedia_DataBtn[ i ] != BUTTON_NO_SLOT )
-		{
-			RemoveButton( giEncyclopedia_DataBtn[ i ] );
-			giEncyclopedia_DataBtn[ i ] = BUTTON_NO_SLOT;
-		}
-	}
-
-	// Delete navigation button image
-	if ( giEncyclopedia_DataBtnImage != BUTTON_NO_IMAGE )
-	{
-		UnloadButtonImage( giEncyclopedia_DataBtnImage );
-		giEncyclopedia_DataBtnImage = BUTTON_NO_IMAGE;
-	}
-
-	return success;
+	CreateData(-1);
+	std::fill(std::begin(giEncyclopedia_DataFilterBtn),
+		std::end(giEncyclopedia_DataFilterBtn), BUTTON_NO_SLOT);
+	std::fill(std::begin(giEncyclopedia_DataBtn),
+		std::end(giEncyclopedia_DataBtn), BUTTON_NO_SLOT);
+	giEncyclopedia_DataFilterBtnImage = BUTTON_NO_IMAGE;
+	giEncyclopedia_DataBtnImage = BUTTON_NO_IMAGE;
+	return TRUE;
 }
 
 /**

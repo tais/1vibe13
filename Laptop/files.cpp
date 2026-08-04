@@ -2,10 +2,18 @@
 
 #include "CampaignLaptopContentPolicy.h"
 #include "GameContext.h"
+#include "LaptopPageResourceOwner.h"
+#include "LaptopRecordFile.h"
+#include "LaptopUiStateModel.h"
 
 	#include "builddefines.h"
 	#include <stdio.h>
+	#include <algorithm>
+	#include <cstdio>
+	#include <array>
+	#include <limits>
 	#include <list>
+	#include <vector>
 	#include "laptop.h"
 	#include "files.h"
 	#include "Game Clock.h"
@@ -75,6 +83,38 @@ const char* CurrentFilesMapPath()
 	return policy.filesMapPath(
 		FileExists(ContentPolicy::unfinishedBusinessMapPath()));
 }
+
+struct PersistedFileRecord
+{
+	UINT8 code = 0;
+	UINT32 date = 0;
+	CHAR8 firstPicture[128] = {};
+	CHAR8 secondPicture[128] = {};
+	UINT8 format = 0;
+	BOOLEAN read = FALSE;
+};
+
+constexpr UINT32 kPersistedFileRecordSize =
+	sizeof(UINT8) + sizeof(UINT32) + 128 + 128 + sizeof(UINT8) +
+	sizeof(BOOLEAN);
+
+LaptopPageResourceOwner gFilesPageResources;
+
+class ScopedDefaultFontShadow
+{
+public:
+	~ScopedDefaultFontShadow() { SetFontShadow(DEFAULT_SHADOW); }
+};
+
+BOOLEAN GetVideoFrame(UINT32 handle, UINT16 frame, HVOBJECT* object)
+{
+	if (!object)
+		return FALSE;
+
+	*object = nullptr;
+	return GetVideoObject(object, handle) && *object &&
+		frame < (*object)->usNumberOfObjects;
+}
 }
 
 // the highlighted line
@@ -83,6 +123,83 @@ INT32 iHighLightFileLine=-1;
 
 // the files record list
 FilesUnitPtr pFilesListHead=NULL;
+
+namespace
+{
+constexpr UINT32 kInvalidFileRecordId =
+	std::numeric_limits<UINT32>::max();
+
+void DestroyFilesList(FilesUnitPtr& head)
+{
+	while (head)
+	{
+		FilesUnitPtr record = head;
+		head = head->Next;
+		if (record->pPicFileNameList[0])
+			MemFree(record->pPicFileNameList[0]);
+		if (record->pPicFileNameList[1])
+			MemFree(record->pPicFileNameList[1]);
+		MemFree(record);
+	}
+}
+
+bool AppendFilesRecord(FilesUnitPtr& head, UINT8 code, UINT32 date,
+	UINT8 format, const CHAR8* firstPicture, const CHAR8* secondPicture,
+	BOOLEAN read, UINT32& id, bool rejectDuplicate = false)
+{
+	FilesUnitPtr tail = head;
+	std::size_t recordCount = 0;
+	while (tail)
+	{
+		++recordCount;
+		if (tail->ubCode == code)
+		{
+			if (rejectDuplicate) return false;
+			id = tail->uiIdNumber;
+			return true;
+		}
+		if (!tail->Next) break;
+		tail = tail->Next;
+	}
+	if (recordCount >= MAX_FILES_LIST_LENGTH) return false;
+
+	id = tail ? tail->uiIdNumber + 1 : 0;
+	if (tail && id == 0) return false;
+	FilesUnitPtr record =
+		static_cast<FilesUnitPtr>(MemAlloc(sizeof(FilesUnit)));
+	if (!record) return false;
+	record->Next = NULL;
+	record->ubCode = code;
+	record->uiDate = date;
+	record->uiIdNumber = id;
+	record->ubFormat = format;
+	record->fRead = read;
+	record->pPicFileNameList[0] = NULL;
+	record->pPicFileNameList[1] = NULL;
+
+	const CHAR8* pictures[2] = {firstPicture, secondPicture};
+	for (UINT8 index = 0; index < 2; ++index)
+	{
+		if (!pictures[index] || pictures[index][0] == '\0') continue;
+		const std::size_t length = strlen(pictures[index]);
+		record->pPicFileNameList[index] =
+			static_cast<CHAR8*>(MemAlloc(length + 1));
+		if (!record->pPicFileNameList[index])
+		{
+			if (record->pPicFileNameList[0])
+				MemFree(record->pPicFileNameList[0]);
+			MemFree(record);
+			return false;
+		}
+		memcpy(record->pPicFileNameList[index], pictures[index], length);
+		record->pPicFileNameList[index][length] = '\0';
+	}
+
+	if (tail) tail->Next = record;
+	else head = record;
+	return true;
+}
+}
 
 FileStringPtr pFileStringList = NULL;
 
@@ -146,7 +263,7 @@ UINT16 usProfileIdsForTerroristFiles[]={
 };
 // buttons for next and previous pages
 UINT32 giFilesPageButtons[ 2 ];
-UINT32 giFilesPageButtonsImage[ 2 ];
+INT32 giFilesPageButtonsImage[ 2 ] = {-1, -1};
 
 
 // the previous and next pages buttons
@@ -162,9 +279,10 @@ MOUSE_REGION pFilesRegions[MAX_FILES_PAGE];
 
 // function definitions
 void RenderFilesBackGround( void );
-BOOLEAN LoadFiles( void );
-void RemoveFiles( void );
-UINT32 ProcessAndEnterAFilesRecord( UINT8 ubCode, UINT32 uiDate, UINT8 ubFormat,STR8 pFirstPicFile, STR8 pSecondPicFile, BOOLEAN fRead );
+BOOLEAN LoadFiles(LaptopPageResourceOwner& owner);
+UINT32 ProcessAndEnterAFilesRecord(UINT8 ubCode, UINT32 uiDate,
+	UINT8 ubFormat, const CHAR8* pFirstPicFile,
+	const CHAR8* pSecondPicFile, BOOLEAN fRead);
 void OpenAndReadFilesFile( void );
 BOOLEAN OpenAndWriteFilesFile( void );
 void ClearFilesList( void );
@@ -173,14 +291,12 @@ void DrawFilesListBackGround( void );
 void DisplayFilesList( void );
 BOOLEAN OpenAndWriteFilesFile( void );
 void DisplayFileMessage( void );
-void InitializeFilesMouseRegions( void );
-void RemoveFilesMouseRegions( void );
+BOOLEAN InitializeFilesMouseRegions(LaptopPageResourceOwner& owner);
 BOOLEAN DisplayFormattedText( void );
 
 
 // buttons
-void CreateButtonsForFilesPage( void );
-void DeleteButtonsForFilesPage( void );
+BOOLEAN CreateButtonsForFilesPage(LaptopPageResourceOwner& owner);
 void HandleFileViewerButtonStates( void );
 
 
@@ -192,7 +308,7 @@ void CheckForUnreadFiles( void );
 
 // file string structure manipulations
 void ClearFileStringList( void );
-void AddStringToFilesList( STR16 pString );
+BOOLEAN AddStringToFilesList( STR16 pString );
 BOOLEAN HandleSpecialFiles( UINT8 ubFormat );
 BOOLEAN HandleSpecialTerroristFile( INT32 iFileNumber, STR sPictureName );
 
@@ -280,7 +396,12 @@ static AdditionalFiles_Descriptor* AdditionalFiles_LoadTextFile( FilesUnitPtr fi
 				while ( FileReadLine( hFile, &utf8Line ) )
 				{
 					std::wstring wcharLine = utf8_to_wstring( utf8Line );
-					AddStringToFilesList( (STR16) wcharLine.c_str() );
+					if (!AddStringToFilesList((STR16)wcharLine.c_str()))
+					{
+						FileClose(hFile);
+						ClearFileStringList();
+						return NULL;
+					}
 				}
 				FileClose( hFile );
 			}
@@ -357,8 +478,15 @@ static void XMLCALL AdditionalFiles_CharacterDataHandler( void *userData, const 
 {
 	AdditionalFiles_ParseData *pData = (AdditionalFiles_ParseData*) userData;
 
-	if ( pData->currentDepth <= pData->maxReadDepth && strlen( pData->szCharData ) < MAX_CHAR_DATA_LENGTH )
-		strncat( pData->szCharData, str, __min( (unsigned int)len, MAX_CHAR_DATA_LENGTH - strlen( pData->szCharData ) ) );
+	if (pData->currentDepth > pData->maxReadDepth || !str || len <= 0)
+		return;
+	const std::size_t currentLength = strlen(pData->szCharData);
+	if (currentLength >= MAX_CHAR_DATA_LENGTH) return;
+	const std::size_t copyLength = std::min(
+		static_cast<std::size_t>(len),
+		static_cast<std::size_t>(MAX_CHAR_DATA_LENGTH) - currentLength);
+	memcpy(pData->szCharData + currentLength, str, copyLength);
+	pData->szCharData[currentLength + copyLength] = '\0';
 }
 
 // Process the closing tag in this expat callback.
@@ -388,10 +516,12 @@ static void XMLCALL AdditionalFiles_EndElementHandler( void *userData, const XML
 			{
 				std::string strName( pData->szCharData );
 				std::wstring wstrName = utf8_to_wstring( strName );
-				wcsncpy( pData->parsedData.name, wstrName.c_str(), ADDFILES_NAME_MAX_LENGTH );
+				LaptopUiStateModel::CopyText(
+					pData->parsedData.name, wstrName.c_str());
 			}
 			else if ( strcmp( name, "Path" ) == 0 )
-				strncpy( (CHAR8*)pData->parsedData.path, pData->szCharData, ADDFILES_PATH_MAX_LENGTH );
+				LaptopUiStateModel::CopyText(
+					pData->parsedData.path, pData->szCharData);
 			else if ( strcmp( name, "AtInit" ) == 0 )
 				pData->parsedData.atInit = (BOOLEAN)atol( pData->szCharData );
 			else if ( strcmp( name, "Font" ) == 0 )
@@ -446,6 +576,7 @@ UINT32 AddFilesToPlayersLog(UINT8 ubCode, UINT32 uiDate, UINT8 ubFormat, STR8 pF
 
 	// process the actual data
 	uiId = ProcessAndEnterAFilesRecord(ubCode, uiDate, ubFormat ,pFirstPicFile, pSecondPicFile, FALSE );
+	if (uiId == kInvalidFileRecordId) return uiId;
 
 	// set unread flag, if nessacary
 	CheckForUnreadFiles( );
@@ -484,21 +615,20 @@ void GameInitFiles( )
 
 void EnterFiles()
 {
+	LaptopPageResourceOwner stagedResources;
 
 	// load grpahics for files system
-	LoadFiles( );
+	if (!LoadFiles(stagedResources) ||
+		!InitializeFilesMouseRegions(stagedResources) ||
+		!CreateButtonsForFilesPage(stagedResources))
+		return;
+	gFilesPageResources = std::move(stagedResources);
 
 	//AddFilesToPlayersLog(1, 0, 0,"LAPTOP\\portrait.sti", "LAPTOP\\portrait.sti");
 	//AddFilesToPlayersLog(0, 0, 3,"LAPTOP\\portrait.sti", "LAPTOP\\portrait.sti");
 	//AddFilesToPlayersLog(2, 0, 1,"LAPTOP\\portrait.sti", "LAPTOP\\portrait.sti");
 	// in files mode now, set the fact
 	fInFilesMode=TRUE;
-
-	// initialize mouse regions
-	InitializeFilesMouseRegions( );
-
-	// create buttons
-	CreateButtonsForFilesPage( );
 
 	// now set start states
 	HandleFileViewerButtonStates( );
@@ -528,16 +658,9 @@ void ExitFiles()
 	// write files list out to disk
 	OpenAndWriteFilesFile( );
 
-	// remove mouse regions
-	RemoveFilesMouseRegions( );
-
-	// delete buttons
-	DeleteButtonsForFilesPage( );
-
 	fInFilesMode = FALSE;
 
-	// remove files
-	RemoveFiles( );
+	gFilesPageResources.clear();
 
 	// clear and allow to re-load all the stuff at next Laptop opening
 	g_AdditionalFilesList.clear();
@@ -573,8 +696,9 @@ void RenderFiles()
 
 
 	// display border
-	GetVideoObject(&hHandle, guiLaptopBACKGROUND);
-	BltVideoObject(FRAME_BUFFER, hHandle, 0,iScreenWidthOffset + 108, iScreenHeightOffset + 23, VO_BLT_SRCTRANSPARENCY,NULL);
+	if (GetVideoFrame(guiLaptopBACKGROUND, 0, &hHandle))
+		BltVideoObject(FRAME_BUFFER, hHandle, 0, iScreenWidthOffset + 108,
+			iScreenHeightOffset + 23, VO_BLT_SRCTRANSPARENCY, NULL);
 
 }
 
@@ -585,14 +709,14 @@ void RenderFilesBackGround( void )
 	HVOBJECT hHandle;
 
 	// get title bar object
-	GetVideoObject(&hHandle, guiTITLE);
-
-	// blt title bar to screen
-	BltVideoObject(FRAME_BUFFER, hHandle, 0,TOP_X, TOP_Y - 2, VO_BLT_SRCTRANSPARENCY,NULL);
+	if (GetVideoFrame(guiTITLE, 0, &hHandle))
+		BltVideoObject(FRAME_BUFFER, hHandle, 0, TOP_X, TOP_Y - 2,
+			VO_BLT_SRCTRANSPARENCY, NULL);
 
 	// get and blt the top part of the screen, video object and blt to screen
-	GetVideoObject( &hHandle, guiTOP );
-	BltVideoObject( FRAME_BUFFER, hHandle, 0,TOP_X, TOP_Y + 22, VO_BLT_SRCTRANSPARENCY, NULL );
+	if (GetVideoFrame(guiTOP, 0, &hHandle))
+		BltVideoObject(FRAME_BUFFER, hHandle, 0, TOP_X, TOP_Y + 22,
+			VO_BLT_SRCTRANSPARENCY, NULL);
 
 
 
@@ -609,14 +733,14 @@ void DrawFilesTitleText( void )
 	SetFontShadow(DEFAULT_SHADOW);
 
 	// draw the pages title
-	mprintf(TITLE_X,TITLE_Y,pFilesTitle[0]);
+	mprintf(TITLE_X, TITLE_Y, L"%s", pFilesTitle[0]);
 
 
 	return;
 }
 
 
-BOOLEAN LoadFiles( void )
+BOOLEAN LoadFiles(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 	// load files video objects into memory
@@ -624,251 +748,137 @@ BOOLEAN LoadFiles( void )
 	// title bar
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\programtitlebar.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiTITLE));
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiTITLE));
 
 	// top portion of the screen background
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\fileviewer.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiTOP));
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiTOP));
 
 
 	// the highlight
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\highlight.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiHIGHLIGHT));
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiHIGHLIGHT));
 
 		// top portion of the screen background
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\fileviewerwhite.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFileBack));
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiFileBack));
 
 	return (TRUE);
 }
 
-void RemoveFiles( void )
+UINT32 ProcessAndEnterAFilesRecord(UINT8 ubCode, UINT32 uiDate,
+	UINT8 ubFormat, const CHAR8* pFirstPicFile,
+	const CHAR8* pSecondPicFile, BOOLEAN fRead)
 {
-
-	// delete files video objects from memory
-
-
-	DeleteVideoObjectFromIndex(guiTOP);
-	DeleteVideoObjectFromIndex(guiTITLE);
-	DeleteVideoObjectFromIndex(guiHIGHLIGHT);
-	DeleteVideoObjectFromIndex(guiFileBack);
-
-
-	return;
-}
-
-UINT32 ProcessAndEnterAFilesRecord( UINT8 ubCode, UINT32 uiDate, UINT8 ubFormat ,STR8 pFirstPicFile, STR8 pSecondPicFile, BOOLEAN fRead )
-{
-	UINT32 uiId=0;
-	FilesUnitPtr pFiles=pFilesListHead;
-
- 	// add to Files list
-	if(pFiles)
-	{
-		while(pFiles)
-		{
-		// check to see if the file is already there
-			if(pFiles->ubCode==ubCode)
-			{
-				// if so, return it's id number
-				return ( pFiles->uiIdNumber );
-			}
-
-			// next in the list
-			pFiles = pFiles->Next;
-		}
-
-		// reset pointer
-		pFiles=pFilesListHead;
-
-		// go to end of list
-		while(pFiles->Next)
-		{
-			pFiles = pFiles->Next;
-		}
-		// alloc space
-		pFiles->Next = (files *) MemAlloc(sizeof(FilesUnit));
-
-		// increment id number
-		uiId = pFiles->uiIdNumber + 1;
-
-		// set up information passed
-		pFiles = pFiles->Next;
-		pFiles->Next = NULL;
-		pFiles->ubCode = ubCode;
-		pFiles->uiDate = uiDate;
-	pFiles->uiIdNumber = uiId;
-		pFiles->ubFormat = ubFormat;
-		pFiles->fRead = fRead;
-	}
-	else
-	{
-		// alloc space
-		pFiles = (FilesUnitPtr) MemAlloc(sizeof(FilesUnit));
-
-		// setup info passed
-		pFiles->Next = NULL;
-		pFiles->ubCode = ubCode;
-		pFiles->uiDate = uiDate;
-	pFiles->uiIdNumber = uiId;
-	pFilesListHead = pFiles;
-		pFiles->ubFormat=ubFormat;
-		pFiles->fRead = fRead;
-	}
-
-	// null out ptr's to picture file names
-	pFiles->pPicFileNameList[0] = NULL;
-	pFiles->pPicFileNameList[1] = NULL;
-
-	// copy file name strings
-
-	// first file
-	if(pFirstPicFile)
-	{
-	if((pFirstPicFile[0]) != 0)
-		{
-		pFiles->pPicFileNameList[0] = (CHAR8 *) MemAlloc(strlen(pFirstPicFile) + 1 );
-	 strcpy( pFiles->pPicFileNameList[0], pFirstPicFile);
-			pFiles->pPicFileNameList[0][strlen(pFirstPicFile)] = 0;
-		}
-	}
-
-	// second file
-
-	if(pSecondPicFile)
-	{
-	if((pSecondPicFile[0]) != 0)
-		{
-	 pFiles->pPicFileNameList[1] = (CHAR8 *) MemAlloc(strlen(pSecondPicFile) + 1 );
-	 strcpy( pFiles->pPicFileNameList[1], pSecondPicFile);
-			pFiles->pPicFileNameList[1][ strlen( pSecondPicFile ) ] = 0;
-		}
-	}
-
-	// return unique id
-	return uiId;
+	UINT32 id = kInvalidFileRecordId;
+	if (!AppendFilesRecord(pFilesListHead, ubCode, uiDate, ubFormat,
+		pFirstPicFile, pSecondPicFile, fRead, id))
+		return kInvalidFileRecordId;
+	return id;
 }
 
 void OpenAndReadFilesFile( void )
 {
-	// this procedure will open and read in data to the finance list
-	HWFILE hFileHandle;
-	UINT8 ubCode;
-	UINT32 uiDate;
-	INT32 iBytesRead=0;
-	UINT32 uiByteCount=0;
-	CHAR8 pFirstFilePath[128];
-	CHAR8 pSecondFilePath[128];
-	UINT8 ubFormat;
-	BOOLEAN fRead;
-
-	// clear out the old list
-	ClearFilesList( );
-
 	// no file, return
 	if ( ! (FileExists( FILES_DAT_FILE ) ) )
 		return;
 
-	// open file
- 	hFileHandle=FileOpen( FILES_DAT_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
+	ScopedLaptopFile file(FileOpen(FILES_DAT_FILE,
+		FILE_OPEN_EXISTING | FILE_ACCESS_READ, FALSE));
+	if (!file) return;
+	const UINT32 fileSize = FileGetSize(file.Get());
+	if (fileSize % kPersistedFileRecordSize != 0) return;
+	if (fileSize / kPersistedFileRecordSize > MAX_FILES_LIST_LENGTH) return;
 
-	// failed to get file, return
-	if(!hFileHandle)
+	FilesUnitPtr pendingHead = NULL;
+	for (UINT32 offset = 0; offset < fileSize;
+		offset += kPersistedFileRecordSize)
 	{
-		return;
+		PersistedFileRecord record{};
+		if (!ReadLaptopFileExact(file.Get(), &record.code,
+				sizeof(record.code)) ||
+			!ReadLaptopFileExact(file.Get(), &record.date,
+				sizeof(record.date)) ||
+			!ReadLaptopFileExact(file.Get(), record.firstPicture,
+				sizeof(record.firstPicture)) ||
+			!ReadLaptopFileExact(file.Get(), record.secondPicture,
+				sizeof(record.secondPicture)) ||
+			!ReadLaptopFileExact(file.Get(), &record.format,
+				sizeof(record.format)) ||
+			!ReadLaptopFileExact(file.Get(), &record.read,
+				sizeof(record.read)))
+		{
+			DestroyFilesList(pendingHead);
+			return;
+		}
+		record.firstPicture[127] = '\0';
+		record.secondPicture[127] = '\0';
+		UINT32 id = kInvalidFileRecordId;
+		if (!AppendFilesRecord(pendingHead, record.code, record.date,
+			record.format, record.firstPicture, record.secondPicture,
+			record.read, id, true))
+		{
+			DestroyFilesList(pendingHead);
+			return;
+		}
 	}
 
-	// make sure file is more than 0 length
-	if ( FileGetSize( hFileHandle ) == 0 )
-	{
-	FileClose( hFileHandle );
-		return;
-	}
-
-	// file exists, read in data, continue until file end
-	while( FileGetSize( hFileHandle ) > uiByteCount)
-	{
-
-		// read in data
-	FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-
-	FileRead( hFileHandle, &pFirstFilePath,	128, (UINT32 *)&iBytesRead );
-	pFirstFilePath[127] = '\0';   // FILES.DAT field may not be NUL-terminated -> bound the strlen/strcpy below
-
-	FileRead( hFileHandle, &pSecondFilePath,	128, (UINT32 *)&iBytesRead );
-	pSecondFilePath[127] = '\0';
-
-		FileRead( hFileHandle, &ubFormat,	sizeof(UINT8), (UINT32 *)&iBytesRead );
-
-		FileRead( hFileHandle, &fRead,	sizeof(UINT8), (UINT32 *)&iBytesRead );
-		// add transaction
-	ProcessAndEnterAFilesRecord(ubCode, uiDate, ubFormat,pFirstFilePath, pSecondFilePath, fRead);
-
-		// increment byte counter
-	uiByteCount += sizeof( UINT32 ) + sizeof( UINT8 )+ 128 + 128 + sizeof(UINT8) + sizeof( BOOLEAN );
-	}
-
-	// close file
-	FileClose( hFileHandle );
-
-	return;
+	DestroyFilesList(pFilesListHead);
+	pFilesListHead = pendingHead;
 }
 
 
 BOOLEAN OpenAndWriteFilesFile( void )
 {
-	// this procedure will open and write out data from the finance list
-	HWFILE hFileHandle;
 	FilesUnitPtr pFilesList=pFilesListHead;
-	CHAR8 pFirstFilePath[128];
-	CHAR8 pSecondFilePath[128];
-
-	memset(&pFirstFilePath, 0, sizeof( pFirstFilePath ) );
-	memset(&pSecondFilePath, 0, sizeof( pSecondFilePath ) );
-
-	if( pFilesList != NULL )
-	{
-		if(pFilesList->pPicFileNameList[0])
-		{
-			strcpy(pFirstFilePath, pFilesList->pPicFileNameList[0]);
-		}
-		if(pFilesList->pPicFileNameList[1])
-		{
-			strcpy(pSecondFilePath, pFilesList->pPicFileNameList[1]);
-		}
-	}
 
 	// open file
- 	hFileHandle=FileOpen( FILES_DAT_FILE, FILE_ACCESS_WRITE|FILE_CREATE_ALWAYS, FALSE);
+	ScopedLaptopFile file(FileOpen(FILES_DAT_FILE,
+		FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, FALSE));
 
 	// if no file exits, do nothing
-	if(!hFileHandle)
+	if(!file)
 	{
 		return ( FALSE );
 	}
 	// write info, while there are elements left in the list
 	while(pFilesList)
 	{
+		PersistedFileRecord record{};
+		record.code = pFilesList->ubCode;
+		record.date = pFilesList->uiDate;
+		record.format = pFilesList->ubFormat;
+		record.read = pFilesList->fRead;
+		if (pFilesList->pPicFileNameList[0])
+			LaptopUiStateModel::CopyText(record.firstPicture,
+				pFilesList->pPicFileNameList[0]);
+		if (pFilesList->pPicFileNameList[1])
+			LaptopUiStateModel::CopyText(record.secondPicture,
+				pFilesList->pPicFileNameList[1]);
 		// now write date and amount, and code
-	FileWrite( hFileHandle, &(pFilesList->ubCode),	sizeof ( UINT8 ), NULL );
-		FileWrite( hFileHandle, &(pFilesList->uiDate),	sizeof ( UINT32 ), NULL );
-	FileWrite( hFileHandle, &(pFirstFilePath),	128, NULL );
-	FileWrite( hFileHandle, &(pSecondFilePath),	128, NULL );
-	FileWrite( hFileHandle, &(pFilesList->ubFormat), sizeof(UINT8), NULL );
-		FileWrite( hFileHandle, &(pFilesList->fRead), sizeof(UINT8), NULL );
+		if (!WriteLaptopFileExact(file.Get(), &record.code,
+				sizeof(record.code)) ||
+			!WriteLaptopFileExact(file.Get(), &record.date,
+				sizeof(record.date)) ||
+			!WriteLaptopFileExact(file.Get(), record.firstPicture,
+				sizeof(record.firstPicture)) ||
+			!WriteLaptopFileExact(file.Get(), record.secondPicture,
+				sizeof(record.secondPicture)) ||
+			!WriteLaptopFileExact(file.Get(), &record.format,
+				sizeof(record.format)) ||
+			!WriteLaptopFileExact(file.Get(), &record.read,
+				sizeof(record.read)))
+			return FALSE;
 
 		// next element in list
 		pFilesList = pFilesList->Next;
 
 	}
 
-	// close file
-	FileClose( hFileHandle );
+	file.Close();
 	// clear out the old list
 	ClearFilesList( );
 
@@ -877,33 +887,7 @@ BOOLEAN OpenAndWriteFilesFile( void )
 
 void ClearFilesList( void )
 {
-	// remove each element from list of transactions
-	FilesUnitPtr pFilesList=pFilesListHead;
-	FilesUnitPtr pFilesNode;
-
-	// while there are elements in the list left, delete them
-	while( pFilesList )
-	{
-	// set node to list head
-		pFilesNode=pFilesList;
-
-		// set list head to next node
-		pFilesList=pFilesList->Next;
-
-		// if present, dealloc string
-	if(pFilesNode->pPicFileNameList[0])
-		{
-		MemFree(pFilesNode->pPicFileNameList[0]);
-		}
-
-	if(pFilesNode->pPicFileNameList[1])
-		{
-		MemFree(pFilesNode->pPicFileNameList[1]);
-		}
-		// delete current node
-		MemFree(pFilesNode);
-	}
-	pFilesListHead=NULL;
+	DestroyFilesList(pFilesListHead);
 	return;
 }
 
@@ -941,19 +925,29 @@ void DisplayFilesList( void )
 		if (iCounter==iHighLightFileLine)
 		{
 			// render highlight
-			GetVideoObject(&hHandle, guiHIGHLIGHT);
-			BltVideoObject(FRAME_BUFFER, hHandle, 0, FILES_SENDER_TEXT_X - 5, iScreenHeightOffset + ( ( iCounter + 9 ) * BLOCK_HEIGHT) + ( iCounter * 2 ) - 4 , VO_BLT_SRCTRANSPARENCY,NULL);
+			if (GetVideoFrame(guiHIGHLIGHT, 0, &hHandle))
+				BltVideoObject(FRAME_BUFFER, hHandle, 0,
+					FILES_SENDER_TEXT_X - 5,
+					iScreenHeightOffset + ((iCounter + 9) * BLOCK_HEIGHT) +
+						(iCounter * 2) - 4,
+					VO_BLT_SRCTRANSPARENCY, NULL);
 		}
 
 		if ( pFilesList->ubCode <= LAST_JA2_VANILLA_FILE )
 		{
-			mprintf( FILES_SENDER_TEXT_X, iScreenHeightOffset + ((iCounter + 9) * BLOCK_HEIGHT) + (iCounter * 2) - 2, pFilesSenderList[pFilesList->ubCode] );
+			mprintf(FILES_SENDER_TEXT_X,
+				iScreenHeightOffset + ((iCounter + 9) * BLOCK_HEIGHT) +
+					(iCounter * 2) - 2,
+				L"%s", pFilesSenderList[pFilesList->ubCode]);
 		}
 		else  // additional file case
 		{
 			AdditionalFiles_Descriptor *descr = AdditionalFiles_GetDescriptor( pFilesList->ubCode );
 			if ( descr )
-				mprintf( FILES_SENDER_TEXT_X, iScreenHeightOffset + ((iCounter + 9) * BLOCK_HEIGHT) + (iCounter * 2) - 2, descr->name );
+				mprintf(FILES_SENDER_TEXT_X,
+					iScreenHeightOffset + ((iCounter + 9) * BLOCK_HEIGHT) +
+						(iCounter * 2) - 2,
+					L"%s", descr->name);
 		}
 
 		iCounter++;
@@ -994,7 +988,7 @@ void DisplayFileMessage( void )
 }
 
 
-void InitializeFilesMouseRegions( void )
+BOOLEAN InitializeFilesMouseRegions(LaptopPageResourceOwner& owner)
 {
 	INT32 iCounter=0;
 	// init mouseregions
@@ -1002,21 +996,12 @@ void InitializeFilesMouseRegions( void )
 	{
 	MSYS_DefineRegion(&pFilesRegions[iCounter],FILES_LIST_X ,(INT16)iScreenHeightOffset + (FILES_LIST_Y + iCounter * ( BLOCK_HEIGHT + 2 ) ), FILES_LIST_X + FILES_LIST_WIDTH ,(INT16)iScreenHeightOffset + (FILES_LIST_Y + ( iCounter + 1 ) * ( BLOCK_HEIGHT + 2 ) ),
 			MSYS_PRIORITY_NORMAL+2,MSYS_NO_CURSOR, MSYS_NO_CALLBACK, FilesBtnCallBack );
-	MSYS_AddRegion(&pFilesRegions[iCounter]);
+		CHECKF(owner.addRegion(pFilesRegions[iCounter]));
 		MSYS_SetRegionUserData(&pFilesRegions[iCounter],0,iCounter);
 	}
 
 
-	return;
-}
-
-void RemoveFilesMouseRegions( void )
-{
-	INT32 iCounter=0;
-	for(iCounter=0; iCounter <MAX_FILES_PAGE; iCounter++)
-	{
-	MSYS_RemoveRegion( &pFilesRegions[iCounter]);
-	}
+	return TRUE;
 }
 
 void FilesBtnCallBack(MOUSE_REGION * pRegion, INT32 iReason )
@@ -1040,11 +1025,7 @@ void FilesBtnCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 
 	// reset iHighLightListLine
 	iHighLightFileLine = -1;
-
-	if( iHighLightFileLine == iFileId )
-	{
-		return;
-	}
+	if (iFileId < 0) return;
 
 
 	// make sure is a valid
@@ -1082,14 +1063,16 @@ BOOLEAN DisplayFormattedText( void )
 	UINT16 usFirstHeight = 0;
 	UINT16 usSecondWidth;
 	UINT16 usSecondHeight;
+	UINT16 firstImageOffset = 0;
+	INT32 combinedWidth = 0;
 	UINT32 uiCounter = 0;
 	UINT32 uiLength = 0;
 	UINT32 uiHeight = 0;
 	UINT32 uiOffSet = 0;
 	CHAR16 sString[2048];
 	HVOBJECT hHandle;
-	UINT32 uiFirstTempPicture;
-	UINT32 uiSecondTempPicture;
+	UniqueVideoObjectHandle firstTempPicture;
+	UniqueVideoObjectHandle secondTempPicture;
 	VOBJECT_DESC	VObjectDesc;
 	INT16 usFreeSpace = 0;
 	static INT32 iOldMessageCode = 0;
@@ -1099,15 +1082,17 @@ BOOLEAN DisplayFormattedText( void )
 	// get the file that was highlighted
 	for ( INT32 i = 0; i < iHighLightFileLine; i++ )
 	{
+		if (!pFilesList) return FALSE;
 		pFilesList = pFilesList->Next;
 	}
+	if (!pFilesList) return FALSE;
 
 	// set file as read
 	pFilesList->fRead = TRUE;
 
 	// clear the file string structure list
 	// get file background object
-	GetVideoObject(&hHandle, guiFileBack);
+	if (!GetVideoFrame(guiFileBack, 0, &hHandle)) return FALSE;
 
 	// blt background to screen
 	BltVideoObject(FRAME_BUFFER, hHandle, 0, FILE_VIEWER_X, FILE_VIEWER_Y - 4, VO_BLT_SRCTRANSPARENCY,NULL);
@@ -1121,6 +1106,7 @@ BOOLEAN DisplayFormattedText( void )
 
 	// no shadow
 	SetFontShadow(NO_SHADOW);
+	ScopedDefaultFontShadow restoreFontShadow;
 
 	switch( pFilesList->ubFormat )
 	{
@@ -1129,7 +1115,9 @@ BOOLEAN DisplayFormattedText( void )
 			while(uiLength > uiCounter)
 			{
 				// read one record from file manager file
-				LoadEncryptedDataFromFile( "BINARYDATA\\Files.edt", sString, FILE_STRING_SIZE * ( uiOffSet + uiCounter ) * 2, FILE_STRING_SIZE * 2 );
+				if (!LoadEncryptedDataFromFile("BINARYDATA\\Files.edt",
+					sString, FILE_STRING_SIZE * (uiOffSet + uiCounter) * 2,
+					FILE_STRING_SIZE * 2)) return FALSE;
 
 				// display string and get height
 				uiHeight += IanDisplayWrappedString(FILE_VIEWER_X + 4, ( UINT16 )( FILE_VIEWER_Y + uiHeight ), FILE_VIEWER_WIDTH, FILE_GAP, FILES_TEXT_FONT, FILE_TEXT_COLOR, sString,0,FALSE,0);
@@ -1144,18 +1132,25 @@ BOOLEAN DisplayFormattedText( void )
 			// second format, one picture, all text below
 
 		// load graphic
+			if (!pFilesList->pPicFileNameList[0]) return FALSE;
 			VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP( pFilesList->pPicFileNameList[ 0 ], VObjectDesc.ImageFile );
-		CHECKF(AddVideoObject( &VObjectDesc, &uiFirstTempPicture ) );
+			firstTempPicture = AddVideoObjectOwned(&VObjectDesc);
+			CHECKF(firstTempPicture);
 
-		GetVideoObjectETRLESubregionProperties( uiFirstTempPicture, 0, &usFirstWidth,	&usFirstHeight );
+		if (!GetVideoObjectETRLESubregionProperties(firstTempPicture.get(), 0,
+			&usFirstWidth, &usFirstHeight)) return FALSE;
 
 
 			// get file background object
-		GetVideoObject(&hHandle, uiFirstTempPicture);
+			if (!GetVideoFrame(firstTempPicture.get(), 0, &hHandle)) return FALSE;
 
 		// blt background to screen
-		BltVideoObject(FRAME_BUFFER, hHandle, 0, FILE_VIEWER_X + 4 + ( FILE_VIEWER_WIDTH - usFirstWidth ) / 2, FILE_VIEWER_Y + 10, VO_BLT_SRCTRANSPARENCY,NULL);
+		firstImageOffset = usFirstWidth < FILE_VIEWER_WIDTH
+			? (FILE_VIEWER_WIDTH - usFirstWidth) / 2 : 0;
+		BltVideoObject(FRAME_BUFFER, hHandle, 0,
+			FILE_VIEWER_X + 4 + firstImageOffset, FILE_VIEWER_Y + 10,
+			VO_BLT_SRCTRANSPARENCY, NULL);
 
 			uiHeight = usFirstHeight + 20;
 
@@ -1163,7 +1158,9 @@ BOOLEAN DisplayFormattedText( void )
 			while(uiLength > uiCounter)
 			{
 				// read one record from file manager file
-				LoadEncryptedDataFromFile( "BINARYDATA\\Files.edt", sString, FILE_STRING_SIZE * ( uiOffSet + uiCounter ) * 2, FILE_STRING_SIZE * 2 );
+				if (!LoadEncryptedDataFromFile("BINARYDATA\\Files.edt",
+					sString, FILE_STRING_SIZE * (uiOffSet + uiCounter) * 2,
+					FILE_STRING_SIZE * 2)) return FALSE;
 
 				// display string and get height
 				uiHeight += IanDisplayWrappedString(FILE_VIEWER_X + 4, ( UINT16 )( FILE_VIEWER_Y + uiHeight ), FILE_VIEWER_WIDTH, FILE_GAP, FILES_TEXT_FONT, FILE_TEXT_COLOR, sString,0,FALSE,0);
@@ -1172,9 +1169,6 @@ BOOLEAN DisplayFormattedText( void )
 				uiCounter++;
 			}
 
-		// delete video object
-			DeleteVideoObjectFromIndex( uiFirstTempPicture );
-
 		break;
 
 		case 2:
@@ -1182,31 +1176,38 @@ BOOLEAN DisplayFormattedText( void )
 			// third format, two pictures, side by side with all text below
 
 			// load first graphic
+			if (!pFilesList->pPicFileNameList[0] ||
+				!pFilesList->pPicFileNameList[1]) return FALSE;
 			VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP( pFilesList->pPicFileNameList[ 0 ], VObjectDesc.ImageFile );
-		CHECKF(AddVideoObject( &VObjectDesc, &uiFirstTempPicture));
+			firstTempPicture = AddVideoObjectOwned(&VObjectDesc);
+			CHECKF(firstTempPicture);
 
 			// load second graphic
 			VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP( pFilesList->pPicFileNameList[ 1 ] , VObjectDesc.ImageFile );
-		CHECKF(AddVideoObject( &VObjectDesc, &uiSecondTempPicture ) );
+			secondTempPicture = AddVideoObjectOwned(&VObjectDesc);
+			CHECKF(secondTempPicture);
 
-		GetVideoObjectETRLESubregionProperties( uiFirstTempPicture, 0, &usFirstWidth,	&usFirstHeight );
-			GetVideoObjectETRLESubregionProperties( uiSecondTempPicture, 0, &usSecondWidth,	&usSecondHeight );
+		if (!GetVideoObjectETRLESubregionProperties(firstTempPicture.get(), 0,
+				&usFirstWidth, &usFirstHeight) ||
+			!GetVideoObjectETRLESubregionProperties(secondTempPicture.get(), 0,
+				&usSecondWidth, &usSecondHeight)) return FALSE;
 
-		// get free space;
-			usFreeSpace = FILE_VIEWER_WIDTH - usFirstWidth - usSecondWidth;
-
-			usFreeSpace /= 3;
+		// Keep oversized optional artwork from underflowing unsigned layout.
+			combinedWidth = static_cast<INT32>(usFirstWidth) +
+				static_cast<INT32>(usSecondWidth);
+			usFreeSpace = static_cast<INT16>(std::max<INT32>(0,
+				static_cast<INT32>(FILE_VIEWER_WIDTH) - combinedWidth) / 3);
 		// get file background object
-		GetVideoObject(&hHandle, uiFirstTempPicture);
+		if (!GetVideoFrame(firstTempPicture.get(), 0, &hHandle)) return FALSE;
 
 
 		// blt background to screen
 		BltVideoObject(FRAME_BUFFER, hHandle, 0, FILE_VIEWER_X + usFreeSpace, FILE_VIEWER_Y + 10, VO_BLT_SRCTRANSPARENCY,NULL);
 
 		// get file background object
-		GetVideoObject(&hHandle, uiSecondTempPicture);
+		if (!GetVideoFrame(secondTempPicture.get(), 0, &hHandle)) return FALSE;
 
 			// get position for second picture
 			usFreeSpace *= 2;
@@ -1216,11 +1217,6 @@ BOOLEAN DisplayFormattedText( void )
 		BltVideoObject(FRAME_BUFFER, hHandle, 0, FILE_VIEWER_X + usFreeSpace, FILE_VIEWER_Y + 10, VO_BLT_SRCTRANSPARENCY,NULL);
 
 
-
-		// delete video object
-			DeleteVideoObjectFromIndex(uiFirstTempPicture);
-			DeleteVideoObjectFromIndex(uiSecondTempPicture);
-
 			// put in text
 			uiHeight = usFirstHeight + 20;
 
@@ -1228,7 +1224,9 @@ BOOLEAN DisplayFormattedText( void )
 			while(uiLength > uiCounter)
 			{
 				// read one record from file manager file
-				LoadEncryptedDataFromFile( "BINARYDATA\\Files.edt", sString, FILE_STRING_SIZE * ( uiOffSet + uiCounter ) * 2, FILE_STRING_SIZE * 2 );
+				if (!LoadEncryptedDataFromFile("BINARYDATA\\Files.edt",
+					sString, FILE_STRING_SIZE * (uiOffSet + uiCounter) * 2,
+					FILE_STRING_SIZE * 2)) return FALSE;
 
 				// display string and get height
 				uiHeight += IanDisplayWrappedString(FILE_VIEWER_X + 4, ( UINT16 )( FILE_VIEWER_Y + uiHeight ), FILE_VIEWER_WIDTH, FILE_GAP, FILES_TEXT_FONT, FILE_TEXT_COLOR, sString,0,FALSE,0);
@@ -1243,21 +1241,23 @@ BOOLEAN DisplayFormattedText( void )
 		case 3:
 			// picture on the left, with text on right and below
 			// load first graphic
-			HandleSpecialTerroristFile( pFilesList->ubCode, pFilesList->pPicFileNameList[ 0 ] );
+			if (!HandleSpecialTerroristFile(pFilesList->ubCode,
+				pFilesList->pPicFileNameList[0])) return FALSE;
 			break;
 
 		case 4:
 			// picture on the left, with text on right and below
 			// load first graphic
-			HandleMissionBriefingFiles( pFilesList->ubFormat );
+			if (!HandleMissionBriefingFiles(pFilesList->ubFormat))
+				return FALSE;
 			break;
 
 		case FFORMAT_ADDITIONAL_TEXT:
-			HandleAdditionalTextFile( pFilesList );
+			if (!HandleAdditionalTextFile(pFilesList)) return FALSE;
 			break;
 
 		default:
-			HandleSpecialFiles( pFilesList->ubFormat );
+			if (!HandleSpecialFiles(pFilesList->ubFormat)) return FALSE;
 	}
 
 	HandleFileViewerButtonStates( );
@@ -1278,6 +1278,7 @@ FileRecordWidthPtr CreateWidthRecordsForMissionBriefingFile( void )
 		// first record width
 //	pTempRecord = CreateRecordWidth( 7, 350, 200,0 );
 	pTempRecord = CreateRecordWidth( FILES_COUNTER_1_WIDTH, 200, 0,0 );
+	if (!pTempRecord) return NULL;
 
 	// set up head of list now
 	pRecordListHead = pTempRecord;
@@ -1285,11 +1286,21 @@ FileRecordWidthPtr CreateWidthRecordsForMissionBriefingFile( void )
 	// next record
 //	pTempRecord->Next = CreateRecordWidth( 43, 200,0, 0 );
 	pTempRecord->Next = CreateRecordWidth( FILES_COUNTER_2_WIDTH, 200,0, 0 );
+	if (!pTempRecord->Next)
+	{
+		ClearOutWidthRecordsList(pRecordListHead);
+		return NULL;
+	}
 	pTempRecord = pTempRecord->Next;
 
 	// and the next..
 //	pTempRecord->Next = CreateRecordWidth( 45, 200,0, 0 );
 	pTempRecord->Next = CreateRecordWidth( FILES_COUNTER_3_WIDTH, 200,0, 0 );
+	if (!pTempRecord->Next)
+	{
+		ClearOutWidthRecordsList(pRecordListHead);
+		return NULL;
+	}
 
 	return( pRecordListHead );
 
@@ -1310,7 +1321,6 @@ BOOLEAN HandleMissionBriefingFiles( UINT8 ubFormat )
 	FileRecordWidthPtr WidthList = NULL;
 
 
-	UINT32 uiPicture;
 	HVOBJECT hHandle;
 	VOBJECT_DESC VObjectDesc;
 
@@ -1324,11 +1334,24 @@ BOOLEAN HandleMissionBriefingFiles( UINT8 ubFormat )
 			// read one record from file manager file
 
 			WidthList = CreateWidthRecordsForMissionBriefingFile( );
-		while( iCounter < 250 )
-			{			
-				LoadEncryptedDataFromFile( "binarydata\\MissionBriefing.EDT", sString, FILE_STRING_SIZE * ( iCounter ) * 2, FILE_STRING_SIZE * 2 );
+			if (!WidthList) return FALSE;
+			while( iCounter < 250 )
+			{
+				if (!LoadEncryptedDataFromFile("binarydata\\MissionBriefing.EDT",
+					sString, FILE_STRING_SIZE * iCounter * 2,
+					FILE_STRING_SIZE * 2))
+				{
+					ClearOutWidthRecordsList(WidthList);
+					ClearFileStringList();
+					return FALSE;
+				}
 				
-				AddStringToFilesList( sString );
+				if (!AddStringToFilesList(sString))
+				{
+					ClearOutWidthRecordsList(WidthList);
+					ClearFileStringList();
+					return FALSE;
+				}
 				iCounter++;
 			}
 
@@ -1354,7 +1377,7 @@ BOOLEAN HandleMissionBriefingFiles( UINT8 ubFormat )
 			{
 				uiFlags = IAN_WRAP_NO_SHADOW;
 						// copy over string
-				wcscpy( sString, pTempString->pString );
+				LaptopUiStateModel::CopyText(sString, pTempString->pString);
 
 				if( sString[ 0 ] == 0 )
 				{
@@ -1435,15 +1458,14 @@ BOOLEAN HandleMissionBriefingFiles( UINT8 ubFormat )
 		// title bar
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP(CurrentFilesMapPath(), VObjectDesc.ImageFile);
-		CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
+		UniqueVideoObjectHandle picture = AddVideoObjectOwned(&VObjectDesc);
+		CHECKF(picture);
 
 		// get title bar object
-	GetVideoObject(&hHandle, uiPicture);
+	CHECKF(GetVideoFrame(picture.get(), 0, &hHandle));
 
 	// blt title bar to screen
 	BltVideoObject(FRAME_BUFFER, hHandle, 0,iScreenWidthOffset + 300, iScreenHeightOffset + 270, VO_BLT_SRCTRANSPARENCY,NULL);
-
-		DeleteVideoObjectFromIndex( uiPicture );
 
 	}
 	else 	if( giFilesPage == 1 )
@@ -1451,15 +1473,14 @@ BOOLEAN HandleMissionBriefingFiles( UINT8 ubFormat )
 		// title bar
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP(CurrentFilesMapPath(), VObjectDesc.ImageFile);
-		CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
+		UniqueVideoObjectHandle picture = AddVideoObjectOwned(&VObjectDesc);
+		CHECKF(picture);
 
 		// get title bar object
-	GetVideoObject(&hHandle, uiPicture);
+	CHECKF(GetVideoFrame(picture.get(), 0, &hHandle));
 
 	// blt title bar to screen
 	BltVideoObject(FRAME_BUFFER, hHandle, 0,iScreenWidthOffset + 300, iScreenHeightOffset + 270, VO_BLT_SRCTRANSPARENCY,NULL);
-
-		DeleteVideoObjectFromIndex( uiPicture );
 
 	}
 
@@ -1481,6 +1502,11 @@ static BOOLEAN HandleAdditionalTextFile( FilesUnitPtr file )
 	
 	// Create list of width(s). Actually, text file view needs only one of it.
 	FileRecordWidthPtr widthList = CreateRecordWidth( 0, FILE_VIEWER_WIDTH, 0, 0 );
+	if (!widthList)
+	{
+		ClearFileStringList();
+		return FALSE;
+	}
 	FileStringPtr pFileString = GetFirstStringOnThisPage( pFileStringList,
 			uiFont, FILE_VIEWER_WIDTH, FILE_GAP, giFilesPage, MAX_TEXT_FILE_MESSAGE_PAGE_SIZE, widthList );
 
@@ -1536,7 +1562,6 @@ BOOLEAN HandleSpecialFiles( UINT8 ubFormat )
 	FileRecordWidthPtr WidthList = NULL;
 
 
-	UINT32 uiPicture;
 	HVOBJECT hHandle;
 	VOBJECT_DESC VObjectDesc;
 
@@ -1553,11 +1578,22 @@ BOOLEAN HandleSpecialFiles( UINT8 ubFormat )
 		const ContentPolicy::BriefingCatalog briefing = policy.briefingCatalog(
 			FileExists(ContentPolicy::unfinishedBusinessBriefingPath()));
 		WidthList = CreateWidthRecordsForAruloIntelFile( );
+		if (!WidthList) return FALSE;
 		while( iCounter < briefing.recordCount )
 			{
-			LoadEncryptedDataFromFile( briefing.path, sString,
-				FILE_STRING_SIZE * ( iCounter ) * 2, FILE_STRING_SIZE * 2 );
-				AddStringToFilesList( sString );
+			if (!LoadEncryptedDataFromFile(briefing.path, sString,
+				FILE_STRING_SIZE * iCounter * 2, FILE_STRING_SIZE * 2))
+			{
+				ClearOutWidthRecordsList(WidthList);
+				ClearFileStringList();
+				return FALSE;
+			}
+				if (!AddStringToFilesList(sString))
+				{
+					ClearOutWidthRecordsList(WidthList);
+					ClearFileStringList();
+					return FALSE;
+				}
 				iCounter++;
 			}
 
@@ -1583,7 +1619,7 @@ BOOLEAN HandleSpecialFiles( UINT8 ubFormat )
 			{
 				uiFlags = IAN_WRAP_NO_SHADOW;
 						// copy over string
-				wcscpy( sString, pTempString->pString );
+				LaptopUiStateModel::CopyText(sString, pTempString->pString);
 
 				if( sString[ 0 ] == 0 )
 				{
@@ -1701,15 +1737,14 @@ BOOLEAN HandleSpecialFiles( UINT8 ubFormat )
 		// title bar
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP(CurrentFilesMapPath(), VObjectDesc.ImageFile);
-		CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
+		UniqueVideoObjectHandle picture = AddVideoObjectOwned(&VObjectDesc);
+		CHECKF(picture);
 
 		// get title bar object
-	GetVideoObject(&hHandle, uiPicture);
+	CHECKF(GetVideoFrame(picture.get(), 0, &hHandle));
 
 	// blt title bar to screen
 	BltVideoObject(FRAME_BUFFER, hHandle, 0,iScreenWidthOffset + 300, iScreenHeightOffset + 270, VO_BLT_SRCTRANSPARENCY,NULL);
-
-		DeleteVideoObjectFromIndex( uiPicture );
 
 	}
 	else if( const char* biographyPicture =
@@ -1717,36 +1752,47 @@ BOOLEAN HandleSpecialFiles( UINT8 ubFormat )
 	{
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP(biographyPicture, VObjectDesc.ImageFile);
-		CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
+		UniqueVideoObjectHandle picture = AddVideoObjectOwned(&VObjectDesc);
+		CHECKF(picture);
 
 		// get title bar object
-	GetVideoObject(&hHandle, uiPicture);
+		CHECKF(GetVideoFrame(picture.get(), 0, &hHandle));
 
 	// blt title bar to screen
 	BltVideoObject(FRAME_BUFFER, hHandle, 0,iScreenWidthOffset + 260,
 		giFilesPage == 4 ? iScreenHeightOffset + 225 : iScreenHeightOffset + 85,
 		VO_BLT_SRCTRANSPARENCY,NULL);
 
-		DeleteVideoObjectFromIndex( uiPicture );
+
 	}
 	return ( TRUE );
 }
 
 
-void AddStringToFilesList( STR16 pString )
+BOOLEAN AddStringToFilesList( STR16 pString )
 {
+	if (!pString) return FALSE;
 
 	FileStringPtr pFileString;
 	FileStringPtr pTempString = pFileStringList;
 
 	// create string structure
 	pFileString = (FileStringPtr) MemAlloc( sizeof( FileString ) );
+	if (!pFileString) return FALSE;
 
 
-	// alloc string and copy
-	pFileString->pString = (CHAR16 *) MemAlloc( ( wcslen( pString ) * sizeof(CHAR16) ) + 2 );
-	wcscpy( pFileString->pString, pString );
-	pFileString->pString[ wcslen( pString ) ] = 0;
+	// Allocate the terminator in CHAR16 units as well. The former +2 byte
+	// allocation overflowed on platforms where CHAR16 is wider than two bytes.
+	const std::size_t length = wcslen(pString);
+	pFileString->pString = static_cast<CHAR16*>(
+		MemAlloc((length + 1) * sizeof(CHAR16)));
+	if (!pFileString->pString)
+	{
+		MemFree(pFileString);
+		return FALSE;
+	}
+	memcpy(pFileString->pString, pString, length * sizeof(CHAR16));
+	pFileString->pString[length] = 0;
 
 	// set Next to NULL
 
@@ -1765,71 +1811,48 @@ void AddStringToFilesList( STR16 pString )
 	}
 
 
-	return;
+	return TRUE;
 }
 
 
 void ClearFileStringList( void )
 {
-	FileStringPtr pFileString;
-	FileStringPtr pDeleteFileString;
-
-	pFileString = pFileStringList;
-
-	if( pFileString == NULL )
+	FileStringPtr pFileString = pFileStringList;
+	while (pFileString)
 	{
-		return;
+		FileStringPtr next = pFileString->Next;
+		MemFree(pFileString->pString);
+		MemFree(pFileString);
+		pFileString = next;
 	}
-	while( pFileString->Next)
-	{
-		pDeleteFileString = pFileString;
-		pFileString = pFileString->Next;
-		MemFree( pDeleteFileString->pString);
-		MemFree( pDeleteFileString );
-	}
-
-	// last one
-	MemFree( pFileString );
 
 	pFileStringList = NULL;
-
-
 }
 
 
-void CreateButtonsForFilesPage( void )
+BOOLEAN CreateButtonsForFilesPage(LaptopPageResourceOwner& owner)
 {
 	// will create buttons for the files page
-	giFilesPageButtonsImage[0]=	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,0,-1,1,-1 );
-	giFilesPageButtons[0] = QuickCreateButton( giFilesPageButtonsImage[0], PREVIOUS_FILE_PAGE_BUTTON_X,	PREVIOUS_FILE_PAGE_BUTTON_Y,
+	CHECKF(owner.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\arrows.sti", -1, 0, -1, 1, -1),
+		giFilesPageButtonsImage[0]));
+	CHECKF(owner.addButton(QuickCreateButton( giFilesPageButtonsImage[0], PREVIOUS_FILE_PAGE_BUTTON_X,	PREVIOUS_FILE_PAGE_BUTTON_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnPreviousFilePageCallback );
+										(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnPreviousFilePageCallback ),
+		giFilesPageButtons[0]));
 
-	giFilesPageButtonsImage[ 1 ]=	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,6,-1,7,-1 );
-	giFilesPageButtons[ 1 ] = QuickCreateButton( giFilesPageButtonsImage[ 1 ], NEXT_FILE_PAGE_BUTTON_X,	NEXT_FILE_PAGE_BUTTON_Y ,
+	CHECKF(owner.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\arrows.sti", -1, 6, -1, 7, -1),
+		giFilesPageButtonsImage[1]));
+	CHECKF(owner.addButton(QuickCreateButton( giFilesPageButtonsImage[ 1 ], NEXT_FILE_PAGE_BUTTON_X,	NEXT_FILE_PAGE_BUTTON_Y ,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnNextFilePageCallback );
+										(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnNextFilePageCallback ),
+		giFilesPageButtons[1]));
 
 	SetButtonCursor(giFilesPageButtons[ 0 ], CURSOR_LAPTOP_SCREEN);
 	SetButtonCursor(giFilesPageButtons[ 1 ], CURSOR_LAPTOP_SCREEN);
 
-	return;
-}
-
-
-
-void DeleteButtonsForFilesPage( void )
-{
-
-	// destroy buttons for the files page
-
-	RemoveButton(giFilesPageButtons[ 0 ] );
-	UnloadButtonImage( giFilesPageButtonsImage[ 0 ] );
-
-	RemoveButton(giFilesPageButtons[ 1 ] );
-	UnloadButtonImage( giFilesPageButtonsImage[ 1 ] );
-
-	return;
+	return TRUE;
 }
 
 
@@ -1975,6 +1998,7 @@ FileRecordWidthPtr CreateRecordWidth( 	INT32 iRecordNumber, INT32 iRecordWidth, 
 	// allocs and inits a width info record for the multipage file viewer...this will tell the procedure that does inital computation on which record is the start of the current page
 	// how wide special records are ( ones that share space with pictures )
 	pTempRecord = (FileRecordWidthPtr) MemAlloc( sizeof( FileRecordWidth ) );
+	if (!pTempRecord) return NULL;
 
 	pTempRecord->Next = NULL;
 	pTempRecord->iRecordNumber = iRecordNumber;
@@ -1995,6 +2019,7 @@ FileRecordWidthPtr CreateWidthRecordsForAruloIntelFile( void )
 		// first record width
 //	pTempRecord = CreateRecordWidth( 7, 350, 200,0 );
 	pTempRecord = CreateRecordWidth( FILES_COUNTER_1_WIDTH, 350, MAX_FILE_MESSAGE_PAGE_SIZE,0 );
+	if (!pTempRecord) return NULL;
 
 	// set up head of list now
 	pRecordListHead = pTempRecord;
@@ -2002,11 +2027,21 @@ FileRecordWidthPtr CreateWidthRecordsForAruloIntelFile( void )
 	// next record
 //	pTempRecord->Next = CreateRecordWidth( 43, 200,0, 0 );
 	pTempRecord->Next = CreateRecordWidth( FILES_COUNTER_2_WIDTH, 200,0, 0 );
+	if (!pTempRecord->Next)
+	{
+		ClearOutWidthRecordsList(pRecordListHead);
+		return NULL;
+	}
 	pTempRecord = pTempRecord->Next;
 
 	// and the next..
 //	pTempRecord->Next = CreateRecordWidth( 45, 200,0, 0 );
 	pTempRecord->Next = CreateRecordWidth( FILES_COUNTER_3_WIDTH, 200,0, 0 );
+	if (!pTempRecord->Next)
+	{
+		ClearOutWidthRecordsList(pRecordListHead);
+		return NULL;
+	}
 
 	return( pRecordListHead );
 
@@ -2021,15 +2056,26 @@ FileRecordWidthPtr CreateWidthRecordsForTerroristFile( void )
 
 		// first record width
 	pTempRecord = CreateRecordWidth( 4, 170, 0,0 );
+	if (!pTempRecord) return NULL;
 
 	// set up head of list now
 	pRecordListHead = pTempRecord;
 
 	// next record
 	pTempRecord->Next = CreateRecordWidth( 5, 170,0, 0 );
+	if (!pTempRecord->Next)
+	{
+		ClearOutWidthRecordsList(pRecordListHead);
+		return NULL;
+	}
 	pTempRecord = pTempRecord->Next;
 
 	pTempRecord->Next = CreateRecordWidth( 6, 170,0, 0 );
+	if (!pTempRecord->Next)
+	{
+		ClearOutWidthRecordsList(pRecordListHead);
+		return NULL;
+	}
 
 	return( pRecordListHead );
 
@@ -2086,6 +2132,7 @@ void OpenFirstUnreadFile( void )
 	 if(	pFilesList->fRead == FALSE )
 		{
 			iHighLightFileLine = iCounter;
+			break;
 		}
 
 		// next element in list
@@ -2142,7 +2189,6 @@ BOOLEAN HandleSpecialTerroristFile( INT32 iFileNumber, STR sPictureName )
 	BOOLEAN fGoingOffCurrentPage = FALSE;
 	FileRecordWidthPtr WidthList = NULL;
 	INT32 iOffset = 0;
-	UINT32 uiPicture;
 	HVOBJECT hHandle;
 	VOBJECT_DESC VObjectDesc;
 	CHAR sTemp[ 128 ];
@@ -2154,12 +2200,25 @@ BOOLEAN HandleSpecialTerroristFile( INT32 iFileNumber, STR sPictureName )
 
 	// grab width list
 	WidthList = CreateWidthRecordsForTerroristFile( );
+	if (!WidthList) return FALSE;
 
 
 	while( iCounter < ubFileRecordsLength[ iFileNumber ] )
 	{
-		LoadEncryptedDataFromFile( "BINARYDATA\\files.EDT", sString, FILE_STRING_SIZE * ( iOffset + iCounter ) * 2, FILE_STRING_SIZE * 2 );
-		AddStringToFilesList( sString );
+		if (!LoadEncryptedDataFromFile("BINARYDATA\\files.EDT", sString,
+			FILE_STRING_SIZE * (iOffset + iCounter) * 2,
+			FILE_STRING_SIZE * 2))
+		{
+			ClearOutWidthRecordsList(WidthList);
+			ClearFileStringList();
+			return FALSE;
+		}
+		if (!AddStringToFilesList(sString))
+		{
+			ClearOutWidthRecordsList(WidthList);
+			ClearFileStringList();
+			return FALSE;
+		}
 		iCounter++;
 	}
 
@@ -2185,7 +2244,7 @@ BOOLEAN HandleSpecialTerroristFile( INT32 iFileNumber, STR sPictureName )
 		{
 			uiFlags = IAN_WRAP_NO_SHADOW;
 					// copy over string
-			wcscpy( sString, pTempString->pString );
+			LaptopUiStateModel::CopyText(sString, pTempString->pString);
 
 			if( sString[ 0 ] == 0 )
 			{
@@ -2256,39 +2315,49 @@ BOOLEAN HandleSpecialTerroristFile( INT32 iFileNumber, STR sPictureName )
 			// show picture
 			if( ( giFilesPage == 0 ) && ( iCounter == 5 ) )
 			{
+				const UINT16 profileId =
+					usProfileIdsForTerroristFiles[iFileNumber + 1];
+				if (!LaptopUiStateModel::IsValidIndex(NUM_PROFILES, profileId))
+				{
+					ClearOutWidthRecordsList(WidthList);
+					ClearFileStringList();
+					return FALSE;
+				}
 				if (gGameExternalOptions.fReadProfileDataFromXML)
 				{
 					// HEADROCK PROFEX: Do not read direct profile number, instead, look inside the profile for a ubFaceIndex value.
-					sprintf( sTemp, "%s%02d.sti", "FACES\\BIGFACES\\", gMercProfiles[usProfileIdsForTerroristFiles[iFileNumber + 1]].ubFaceIndex );
+					std::snprintf(sTemp, sizeof(sTemp),
+						"FACES\\BIGFACES\\%02d.sti",
+						gMercProfiles[profileId].ubFaceIndex);
 				}
 				else
 				{
-					sprintf( sTemp, "%s%02d.sti", "FACES\\BIGFACES\\", usProfileIdsForTerroristFiles[iFileNumber + 1] );
+					std::snprintf(sTemp, sizeof(sTemp),
+						"FACES\\BIGFACES\\%02d.sti", profileId);
 				}
 
 				VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 				FilenameForBPP(sTemp, VObjectDesc.ImageFile);
-				CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
+				UniqueVideoObjectHandle picture = AddVideoObjectOwned(&VObjectDesc);
+				CHECKF(picture);
 
 				//Blt face to screen to
-				GetVideoObject(&hHandle, uiPicture);
+				CHECKF(GetVideoFrame(picture.get(), 0, &hHandle));
 
 //def: 3/24/99
 //				BltVideoObject(FRAME_BUFFER, hHandle, 0,( INT16 ) (	FILE_VIEWER_X +	30 ), ( INT16 ) ( iYPositionOnPage + 5), VO_BLT_SRCTRANSPARENCY,NULL);
 				BltVideoObject(FRAME_BUFFER, hHandle, 0,( INT16 ) (	FILE_VIEWER_X +	30 ), ( INT16 ) ( iScreenHeightOffset + iYPositionOnPage + 21), VO_BLT_SRCTRANSPARENCY,NULL);
 
-				DeleteVideoObjectFromIndex( uiPicture );
-
 				VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 				FilenameForBPP("LAPTOP\\InterceptBorder.sti", VObjectDesc.ImageFile);
-				CHECKF(AddVideoObject(&VObjectDesc, &uiPicture));
+				picture = AddVideoObjectOwned(&VObjectDesc);
+				CHECKF(picture);
 
 				//Blt face to screen to
-				GetVideoObject(&hHandle, uiPicture);
+				CHECKF(GetVideoFrame(picture.get(), 0, &hHandle));
 
 				BltVideoObject(FRAME_BUFFER, hHandle, 0,( INT16 ) (	FILE_VIEWER_X +	25 ), ( INT16 ) ( iScreenHeightOffset + iYPositionOnPage + 16 ), VO_BLT_SRCTRANSPARENCY,NULL);
 
-				DeleteVideoObjectFromIndex( uiPicture );
 			}
 
 			iCounter++;

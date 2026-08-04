@@ -13,6 +13,7 @@
 	#include "IMP Text System.h"
 	#include "input.h"
 	#include "english.h"
+#include "ImpPageResourceOwner.h"
 
 
 // Kaiden this line was commented before I screwed with it
@@ -103,6 +104,7 @@ void NextQuestionButtonCallback( GUI_BUTTON *btn, INT32 iReason );
 
 void EnterIMPPersonalityQuiz( void )
 {
+	BeginImpPageResources();
 
 	// void answers out the quiz
 	memset( &iQuizAnswerList, -1, sizeof( INT32 ) * MAX_NUMBER_OF_IMP_QUESTIONS );
@@ -475,7 +477,8 @@ void AddIMPPersonalityQuizAnswerButtons( INT32 iNumberOfButtons )
 
 			break;
 		}
-		swprintf( sString, L"%d", iCounter + 1 );
+			sgp_swprintf(sString, std::size(sString),
+				L"%d", iCounter + 1);
 		SpecifyButtonUpTextColors( giIMPPersonalityQuizAnswerButton[ iCounter ], FONT_WHITE, FONT_BLACK );
 		SpecifyButtonDownTextColors( giIMPPersonalityQuizAnswerButton[ iCounter ], FONT_WHITE, FONT_BLACK	);
 		SpecifyButtonTextOffsets( giIMPPersonalityQuizAnswerButton[ iCounter ], +23, +12, TRUE );
@@ -1576,7 +1579,8 @@ void PrintQuizQuestionNumber( void )
 	SetFontBackground( FONT_BLACK );
 
 	// get current question number into a string
-	swprintf(sString, L"%d", giCurrentPersonalityQuizQuestion + 1);
+	sgp_swprintf(sString, std::size(sString),
+		L"%d", giCurrentPersonalityQuizQuestion + 1);
 
 	// print current question number
 	mprintf(LAPTOP_SCREEN_UL_X + 345, LAPTOP_SCREEN_WEB_UL_Y + 370,

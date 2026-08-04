@@ -9,6 +9,7 @@
 	#include "Cursors.h"
 	#include "laptop.h"
 	#include "IMP Text System.h"
+#include "ImpPageResourceOwner.h"
 
 // the buttons
 UINT32 giIMPAttributeEntranceButtonImage[ 1 ];
@@ -26,6 +27,7 @@ void BtnIMPAttributeBeginCallback(GUI_BUTTON *btn,INT32 reason);
 
 void EnterIMPAttributeEntrance( void )
 {
+	BeginImpPageResources();
 
 	CreateIMPAttributeEntranceButtons( );
 

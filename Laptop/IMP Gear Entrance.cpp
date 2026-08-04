@@ -15,6 +15,7 @@
 #include "laptop.h"
 #include "IMP Text System.h"
 #include "Text.h"
+#include "ImpPageResourceOwner.h"
 
 // the buttons
 UINT32 giIMPGearEntranceButtonImage[2];
@@ -38,6 +39,7 @@ BOOLEAN IsIMPGearUsed()
 
 void EnterIMPGearEntrance( void )
 {
+	BeginImpPageResources();
 	CreateIMPGearEntranceButtons( );
 }
 

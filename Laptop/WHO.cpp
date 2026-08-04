@@ -26,6 +26,8 @@
 #include "Quests.h"
 #include "finances.h"
 #include "Game Clock.h"
+#include "LaptopPageResourceOwner.h"
+#include "LaptopUiStateModel.h"
 
 
 #define		MERCOMP_FONT_COLOR								2
@@ -62,6 +64,17 @@ extern UINT32	guiMercCompareLogoImage;
 
 //link to the various pages
 MOUSE_REGION	gLinkRegion_WHO[NUM_LINKS];
+static LaptopPageResourceOwner gWHOPageResources;
+static LaptopPageResourceOwner gWHOContractResources;
+
+namespace
+{
+class ScopedDefaultFontShadow
+{
+public:
+	~ScopedDefaultFontShadow() { SetFontShadow(DEFAULT_SHADOW); }
+};
+}
 
 void SelectLinkRegionCallBack_WHO( MOUSE_REGION * pRegion, INT32 iReason )
 {
@@ -84,28 +97,28 @@ void SelectLinkRegionCallBack_WHO( MOUSE_REGION * pRegion, INT32 iReason )
 	}
 }
 
-void InitDefaults_WHO( )
+static BOOLEAN LoadDefaults_WHO(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the Insurance bullet graphic and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\bullet.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareBulletImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiMercCompareBulletImage));
 
 	// load the Flower Account Box graphic and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\BackGroundTile.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBackGround ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiInsuranceBackGround));
 
 	// load the red bar on the side of the page and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\LargeBar.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBigRedLineImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiInsuranceBigRedLineImage));
 
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\PressLogos.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareLogoImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiMercCompareLogoImage));
 
 	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
 	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
@@ -113,39 +126,43 @@ void InitDefaults_WHO( )
 	{
 		MSYS_DefineRegion( &gLinkRegion_WHO[i], usPosX, usPosY, (UINT16)(usPosX + CAMPAIGN_HISTORY_LINK_TEXT_WIDTH), usPosY + CAMPAIGN_HISTORY_LINK_STEP_Y, MSYS_PRIORITY_HIGH,
 						   CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack_WHO );
-		MSYS_AddRegion( &gLinkRegion_WHO[i] );
+		CHECKF(owner.addRegion(gLinkRegion_WHO[i]));
 		MSYS_SetRegionUserData( &gLinkRegion_WHO[i], 0, i );
 
 		usPosY += CAMPAIGN_HISTORY_LINK_STEP_Y;
 	}
+	return TRUE;
 }
 
 void DisplayDefaults_WHO( )
 {
-	HVOBJECT	hPixHandle;
-	GetVideoObject( &hPixHandle, guiMercCompareLogoImage );
+	HVOBJECT hPixHandle = nullptr;
+	const BOOLEAN hasLogo = GetVideoObject(
+		&hPixHandle, guiMercCompareLogoImage) && hPixHandle &&
+		hPixHandle->usNumberOfObjects > 2;
 
 	SetFontShadow( MERCOMP_FONT_SHADOW );
 
 	CHAR16 sText[800];
-	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
-	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
+	UINT16 usPosX;
+	UINT16 usPosY;
 
 	WebPageTileBackground( 4, 4, BACKGROUND_WIDTH, CAMPAIGN_HISTORY_BACKGROUND_HEIGHT, guiInsuranceBackGround );
 
 	//Display the title slogan
-	swprintf( sText, szWHOWebSite[TEXT_WHO_WEBSITENAME] );
+	LaptopUiStateModel::CopyText(sText, szWHOWebSite[TEXT_WHO_WEBSITENAME]);
 	DrawTextToScreen( sText, CAMPAIGN_HISTORY_BIG_TITLE_X, CAMPAIGN_HISTORY_BIG_TITLE_Y, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, CAMPHIS_FONT_BIG, MERCOMP_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	//Display the subtitle slogan
-	swprintf( sText, szWHOWebSite[TEXT_WHO_SLOGAN] );
+	LaptopUiStateModel::CopyText(sText, szWHOWebSite[TEXT_WHO_SLOGAN]);
 	DrawTextToScreen( sText, CAMPAIGN_HISTORY_SUBTITLE_X, CAMPAIGN_HISTORY_SUBTITLE_Y, 0, CAMPHIS_FONT_BIG, MERCOMP_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	usPosX = CAMPAIGN_HISTORY_LINK_START_X;
 	usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
 	for ( int i = 0; i<NUM_LINKS; ++i )
 	{
-		swprintf( sText, szWHOWebSite[TEXT_WHO_SUBSITE1 + i] );
+		LaptopUiStateModel::CopyText(sText,
+			szWHOWebSite[TEXT_WHO_SUBSITE1 + i]);
 		DisplayWrappedString( usPosX, usPosY, CAMPAIGN_HISTORY_LINK_TEXT_WIDTH, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 		usPosY += CAMPAIGN_HISTORY_LINK_STEP_Y;
@@ -159,26 +176,19 @@ void DisplayDefaults_WHO( )
 
 	usPosX = LAPTOP_SCREEN_LR_X - 60;
 	usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
-	BltVideoObject( FRAME_BUFFER, hPixHandle, 2, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	if (hasLogo)
+		BltVideoObject(FRAME_BUFFER, hPixHandle, 2, usPosX, usPosY,
+			VO_BLT_SRCTRANSPARENCY, NULL);
 
 	SetFontShadow( DEFAULT_SHADOW );
-}
-
-void RemoveDefaults_WHO( )
-{
-	DeleteVideoObjectFromIndex( guiInsuranceBackGround );
-	DeleteVideoObjectFromIndex( guiInsuranceBigRedLineImage );
-	DeleteVideoObjectFromIndex( guiMercCompareBulletImage );
-	DeleteVideoObjectFromIndex( guiMercCompareLogoImage );
-
-	for ( int i = 0; i<NUM_LINKS; ++i )
-		MSYS_RemoveRegion( &gLinkRegion_WHO[i] );
 }
 
 ////////////////////////// MAIN PAGE ////////////////////////////////
 BOOLEAN EnterWHOMain( )
 {
-	InitDefaults_WHO( );
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadDefaults_WHO(stagedResources));
+	gWHOPageResources = std::move(stagedResources);
 
 	RenderWHOMain( );
 
@@ -187,7 +197,7 @@ BOOLEAN EnterWHOMain( )
 
 void ExitWHOMain( )
 {
-	RemoveDefaults_WHO( );
+	gWHOPageResources.clear();
 }
 
 void HandleWHOMain( )
@@ -198,7 +208,7 @@ void HandleWHOMain( )
 void RenderWHOMain( )
 {
 	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	sText[0] = L'\0';
 	UINT16	usPosX, usPosY;
 
 	DisplayDefaults_WHO( );
@@ -210,7 +220,7 @@ void RenderWHOMain( )
 		
 	for ( int i = TEXT_WHO_MAIN1; i < TEXT_WHO_CONTRACT1; ++i )
 	{
-		swprintf( sText, szWHOWebSite[i] );
+		LaptopUiStateModel::CopyText(sText, szWHOWebSite[i]);
 		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 		usPosY += 10;
@@ -254,7 +264,9 @@ void SelectLinkRegionCallBack_WHO_Contract( MOUSE_REGION * pRegion, INT32 iReaso
 
 BOOLEAN EnterWHOContract( )
 {
-	InitDefaults_WHO( );
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadDefaults_WHO(stagedResources));
+	gWHOPageResources = std::move(stagedResources);
 	
 	RenderWHOContract( );
 
@@ -263,13 +275,9 @@ BOOLEAN EnterWHOContract( )
 
 void ExitWHOContract( )
 {
-	if ( gLinkRegionDefined )
-	{
-		MSYS_RemoveRegion( &gLinkRegion_WHO_Contract );
-		gLinkRegionDefined = FALSE;
-	}
-
-	RemoveDefaults_WHO( );
+	gWHOContractResources.clear();
+	gLinkRegionDefined = FALSE;
+	gWHOPageResources.clear();
 }
 
 void HandleWHOContract( )
@@ -280,36 +288,43 @@ void HandleWHOContract( )
 void RenderWHOContract( )
 {
 	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	sText[0] = L'\0';
 	UINT16	usPosX, usPosY;
 
 	DisplayDefaults_WHO( );
 
 	SetFontShadow( MERCOMP_FONT_SHADOW );
+	ScopedDefaultFontShadow restoreFontShadow;
 
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = MCA_START_CONTENT_Y;
 	
-	swprintf( sText, szWHOWebSite[TEXT_WHO_CONTRACT1] );
+	LaptopUiStateModel::CopyText(sText, szWHOWebSite[TEXT_WHO_CONTRACT1]);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
-	swprintf( sText, szWHOWebSite[TEXT_WHO_CONTRACT1 + 1] );
+	LaptopUiStateModel::CopyText(sText,
+		szWHOWebSite[TEXT_WHO_CONTRACT1 + 1]);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
-	swprintf( sText, szWHOWebSite[TEXT_WHO_CONTRACT1 + 2], gGameExternalOptions.sDiseaseWHOSubscriptionCost );
+	sgp_swprintf(sText, std::size(sText),
+		szWHOWebSite[TEXT_WHO_CONTRACT1 + 2],
+		gGameExternalOptions.sDiseaseWHOSubscriptionCost);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	usPosY += 10;
 
-	swprintf( sText, szWHOWebSite[TEXT_WHO_CONTRACT1 + 3] );
+	LaptopUiStateModel::CopyText(sText,
+		szWHOWebSite[TEXT_WHO_CONTRACT1 + 3]);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	usPosY += 10;
 
 	if ( gubFact[FACT_DISEASE_WHODATA_SUBSCRIBED] )
-		swprintf( sText, szWHOWebSite[TEXT_WHO_CONTRACT_ACQUIRED] );
+		LaptopUiStateModel::CopyText(sText,
+			szWHOWebSite[TEXT_WHO_CONTRACT_ACQUIRED]);
 	else
-		swprintf( sText, szWHOWebSite[TEXT_WHO_CONTRACT_ACQUIRED_NOT] );
+		LaptopUiStateModel::CopyText(sText,
+			szWHOWebSite[TEXT_WHO_CONTRACT_ACQUIRED_NOT]);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	
 	usPosY += 10;
@@ -318,12 +333,16 @@ void RenderWHOContract( )
 	{
 		MSYS_DefineRegion( &gLinkRegion_WHO_Contract, usPosX, usPosY, (UINT16)(usPosX + CAMPAIGN_HISTORY_LINK_TEXT_WIDTH), usPosY + CAMPAIGN_HISTORY_LINK_STEP_Y, MSYS_PRIORITY_HIGH,
 						   CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack_WHO_Contract );
-		MSYS_AddRegion( &gLinkRegion_WHO_Contract );
+		if (!gWHOContractResources.addRegion(gLinkRegion_WHO_Contract))
+			return;
 		MSYS_SetRegionUserData( &gLinkRegion_WHO_Contract, 0, 1 );
 		gLinkRegionDefined = TRUE;
 	}
 
-	swprintf( sText, gubFact[FACT_DISEASE_WHODATA_SUBSCRIBED] ? szWHOWebSite[TEXT_WHO_CONTRACT_BUTTON_UNSUBSCRIBE] : szWHOWebSite[TEXT_WHO_CONTRACT_BUTTON_SUBSCRIBE] );
+	LaptopUiStateModel::CopyText(sText,
+		gubFact[FACT_DISEASE_WHODATA_SUBSCRIBED] ?
+			szWHOWebSite[TEXT_WHO_CONTRACT_BUTTON_UNSUBSCRIBE] :
+			szWHOWebSite[TEXT_WHO_CONTRACT_BUTTON_SUBSCRIBE]);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	//Display the red bar under the link at the bottom.	and the text
@@ -340,7 +359,9 @@ void RenderWHOContract( )
 ////////////////////////// HELPFUL TIPS PAGE ////////////////////////////////
 BOOLEAN EnterWHOTips( )
 {
-	InitDefaults_WHO( );
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadDefaults_WHO(stagedResources));
+	gWHOPageResources = std::move(stagedResources);
 
 	RenderWHOTips( );
 
@@ -349,7 +370,7 @@ BOOLEAN EnterWHOTips( )
 
 void ExitWHOTips( )
 {
-	RemoveDefaults_WHO( );
+	gWHOPageResources.clear();
 }
 
 void HandleWHOTips( )
@@ -360,16 +381,19 @@ void HandleWHOTips( )
 void RenderWHOTips( )
 {
 	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	sText[0] = L'\0';
 	UINT16	usPosX, usPosY;
 	HVOBJECT	hPixHandle;
 
-	//Get the bullet
-	GetVideoObject( &hPixHandle, guiMercCompareBulletImage );
+	// Missing or malformed decoration must not crash the page renderer.
+	const BOOLEAN hasBullet = GetVideoObject(
+		&hPixHandle, guiMercCompareBulletImage) && hPixHandle &&
+		hPixHandle->usNumberOfObjects > 0;
 	
 	DisplayDefaults_WHO( );
 
 	SetFontShadow( MERCOMP_FONT_SHADOW );
+	ScopedDefaultFontShadow restoreFontShadow;
 
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = MCA_START_CONTENT_Y;
@@ -377,9 +401,11 @@ void RenderWHOTips( )
 	for ( int i = TEXT_WHO_TIPS1; i < TEXT_WHO_MAX; ++i )
 	{
 		// display bullet
-		BltVideoObject( FRAME_BUFFER, hPixHandle, 0, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+		if (hasBullet)
+			BltVideoObject(FRAME_BUFFER, hPixHandle, 0, usPosX, usPosY,
+				VO_BLT_SRCTRANSPARENCY, NULL);
 
-		swprintf( sText, szWHOWebSite[ i ] );
+		LaptopUiStateModel::CopyText(sText, szWHOWebSite[i]);
 		usPosY += DisplayWrappedString( usPosX + 25, usPosY, LAPTOP_SCREEN_LR_X - (LAPTOP_SCREEN_UL_X + 25), 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 

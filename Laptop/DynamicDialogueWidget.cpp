@@ -6,6 +6,9 @@
 
 #include "DynamicDialogueWidget.h"
 
+#include <algorithm>
+#include <iterator>
+
 #include "WCheck.h"
 #include "renderworld.h"
 #include "Font Control.h"
@@ -40,7 +43,7 @@ DDBox::DDBox( UINT8 aID )
 	musHeight = 0;
 	musWidth = 0;						// width of text field
 
-	swprintf( mText, L"" );
+	LaptopUiStateModel::CopyText(mText, L"");
 
 	musCreationTime = musEndTime = GetJA2Clock( );
 
@@ -68,7 +71,7 @@ DDBox::Init( UINT16 sX, UINT16 sY )
 
 	musEndTime = musCreationTime = GetJA2Clock( );
 
-	musFaceImage = 0;
+	mFaceImage.reset();
 
 	mfInit = TRUE;
 }
@@ -90,9 +93,7 @@ DDBox::Destroy( )
 	if ( !IsInit( ) )
 		return;
 
-	DeleteVideoObjectFromIndex( musFaceImage );
-
-	musFaceImage = 0;
+	mFaceImage.reset();
 		
 	mfInit = FALSE;
 	mfDisplayed = FALSE;
@@ -102,7 +103,6 @@ DDBox::Destroy( )
 
 	Refresh( );
 	
-	RemoveDDBox( GetID( ) );
 }
 
 void
@@ -114,6 +114,8 @@ DDBox::Display( )
 	// it is possible that we cannot instantly create the video object. Thus we try until we are sucessful
 	if ( !mfFaceImageExists )
 	{
+		if (!LaptopUiStateModel::IsValidIndex(
+			NUM_PROFILES, mEvent.usSpeaker)) return;
 		VOBJECT_DESC	VObjectDesc;
 		char			sTemp[100];
 
@@ -123,16 +125,19 @@ DDBox::Display( )
 		// IMP faces are stored elsewhere
 		if ( gMercProfiles[mEvent.usSpeaker].Type == PROFILETYPE_IMP )
 		{
-			sprintf( sTemp, "IMPFACES\\%02d.sti", gMercProfiles[mEvent.usSpeaker].ubFaceIndex );
+			snprintf(sTemp, sizeof(sTemp), "IMPFACES\\%02d.sti",
+				gMercProfiles[mEvent.usSpeaker].ubFaceIndex);
 		}
 		else
 		{
-			sprintf( sTemp, "FACES\\%02d.sti", gMercProfiles[mEvent.usSpeaker].ubFaceIndex );
+			snprintf(sTemp, sizeof(sTemp), "FACES\\%02d.sti",
+				gMercProfiles[mEvent.usSpeaker].ubFaceIndex);
 		}
 
 		FilenameForBPP( sTemp, VObjectDesc.ImageFile );
 
-		if ( AddVideoObject( &VObjectDesc, &musFaceImage ) )
+		mFaceImage = AddVideoObjectOwned(&VObjectDesc);
+		if (mFaceImage)
 			mfFaceImageExists = TRUE;
 	}
 
@@ -140,7 +145,7 @@ DDBox::Display( )
 	{
 		HVOBJECT		hPixHandle;
 		//Get the merc's face
-		if ( GetVideoObject( &hPixHandle, musFaceImage ) )
+		if ( GetVideoObject( &hPixHandle, mFaceImage.get() ) )
 		{
 			//if the merc is dead, shade the face red
 			if ( IsMercDead( mEvent.usSpeaker ) )
@@ -149,7 +154,7 @@ DDBox::Display( )
 				hPixHandle->pShades[0] = Create16BPPPaletteShaded( hPixHandle->pPaletteEntry, 255, 55, 55, TRUE );
 
 				//set the red pallete to the face
-				SetObjectHandleShade( musFaceImage, 0 );
+				SetObjectHandleShade(mFaceImage.get(), 0);
 			}
 
 			//Get and display the mercs face
@@ -184,7 +189,8 @@ DDBox::Refresh( )
 		// outdated -> destroy
 		else if ( musEndTime < GetJA2Clock( ) )
 		{
-			Destroy( );
+			RemoveDDBox(GetID());
+			return;
 		}
 		else
 		{
@@ -284,6 +290,7 @@ GetDDBox( UINT8 aID )
 			}
 		}
 	}
+	delete gDDBox;
 
 	return NULL;
 }
@@ -295,11 +302,10 @@ BOOLEAN RemoveDDBox( UINT8 aID )
 	{
 		if ( gDDBoxList[i] != NULL && gDDBoxList[i]->GetID( ) == aID )
 		{
-			gDDBoxList[i]->Destroy( );
-
-			MemFree( gDDBoxList[i] );
-
+			DDBox* box = gDDBoxList[i];
 			gDDBoxList[i] = NULL;
+			box->Destroy();
+			delete box;
 			
 			return TRUE;
 		}
@@ -413,7 +419,7 @@ IMPDialogueChooseBox::IMPDialogueChooseBox( )
 
 	mEntryVector.clear( );
 
-	swprintf( mText, L"" );
+	LaptopUiStateModel::CopyText(mText, L"");
 
 	mSelectedEntry = 0;
 
@@ -458,8 +464,10 @@ void
 IMPDialogueChooseBox::Create( UINT16 sX, UINT16 sY )
 {
 	Destroy( );
+	if (mEntryVector.empty()) return;
 
 	Init( sX, sY );
+	LaptopPageResourceOwner stagedResources;
 	
 	sY += IMPDIALOGUECHOOSEBOX_BAR_Y_OFFSET;
 
@@ -469,7 +477,7 @@ IMPDialogueChooseBox::Create( UINT16 sX, UINT16 sY )
 		{
 			MSYS_DefineRegion( &mChoiceRegion[i], GetX( ) - 4, sY, GetX( ) + musWidth + 4, sY + musFontHeight, MSYS_PRIORITY_HIGH,
 							   CURSOR_WWW, MSYS_NO_CALLBACK, CallBackWrapper( (void*) this, DROPDOWN_REGION, &IMPDialogueChooseBox::Dummyfunc ) );
-			MSYS_AddRegion( &mChoiceRegion[i] );
+			if (!stagedResources.addRegion(mChoiceRegion[i])) return;
 			MSYS_SetRegionUserData( &mChoiceRegion[i], 0, i );
 
 			mChoiceRegionDefined[i] = TRUE;
@@ -479,6 +487,7 @@ IMPDialogueChooseBox::Create( UINT16 sX, UINT16 sY )
 	}
 
 	mfDisplayed = TRUE;
+	mResources = std::move(stagedResources);
 }
 
 void
@@ -487,14 +496,9 @@ IMPDialogueChooseBox::Destroy( )
 	if ( !IsInit( ) )
 		return;
 
-	for ( UINT8 i = 0; i < DOST_CHOICE_MAX; ++i )
-	{
-		if ( mChoiceRegionDefined[i] )
-		{
-			MSYS_RemoveRegion( &mChoiceRegion[i] );
-			mChoiceRegionDefined[i] = FALSE;
-		}
-	}
+	mResources.clear();
+	std::fill(std::begin(mChoiceRegionDefined),
+		std::end(mChoiceRegionDefined), FALSE);
 
 	mfInit = FALSE;
 	mfDisplayed = FALSE;
@@ -511,11 +515,13 @@ IMPDialogueChooseBox::Display( )
 		return;
 
 	//  we draw a line that shows us how much time we have for the decision
-	UINT32 totaltime = std::max<INT32>( 0, musEndTime - musCreationTime );
+	UINT32 totaltime = musEndTime > musCreationTime
+		? musEndTime - musCreationTime : 0;
 
 	if ( totaltime )
 	{
-		UINT32 timeleft = musEndTime - GetJA2Clock( );
+		UINT32 timeleft = musEndTime > GetJA2Clock()
+			? musEndTime - GetJA2Clock() : 0;
 		FLOAT factor = (FLOAT)timeleft / (FLOAT)totaltime;
 
 		UINT32 maxwidth = min( IMPDIALOGUECHOOSEBOX_BAR_MAXLENGTH, SCREEN_WIDTH / 2 );
@@ -567,6 +573,7 @@ IMPDialogueChooseBox::Refresh( )
 void
 IMPDialogueChooseBox::DrawTopEntry( )
 {
+	if (mEntryVector.empty()) return;
 	// make sure we don't get bogus values
 	mSelectedEntry = std::min<size_t>( mSelectedEntry, mEntryVector.size( ) - 1 );
 
@@ -599,7 +606,10 @@ IMPDialogueChooseBox::SelectDropDownRegionCallBack( MOUSE_REGION * pRegion, INT3
 	}
 	else if ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
-		mSelectedEntry = (UINT16)MSYS_GetRegionUserData( pRegion, 0 );
+		const UINT16 selected =
+			(UINT16)MSYS_GetRegionUserData(pRegion, 0);
+		if (LaptopUiStateModel::IsValidIndex(
+			mEntryVector.size(), selected)) mSelectedEntry = selected;
 	}
 }
 
@@ -686,11 +696,10 @@ void DestroyAllDynamicDialogueBoxes( )
 	{
 		if ( gDDBoxList[i] != NULL )
 		{
-			gDDBoxList[i]->Destroy( );
-
-			MemFree( gDDBoxList[i] );
-
+			DDBox* box = gDDBoxList[i];
 			gDDBoxList[i] = NULL;
+			box->Destroy();
+			delete box;
 		}
 	}
 

@@ -32,8 +32,10 @@
 	#include "types.h"
 	#include "WCheck.h"
 	#include "DEBUG.H"
-	#include "GameSettings.h"
-	#include "FileMan.h"
+		#include "GameSettings.h"
+		#include "FileMan.h"
+		#include "LaptopPageResourceOwner.h"
+		#include "LaptopRecordFile.h"
 	#include "laptop.h"//UI dimensions, mouse regions
 	#include "Utilities.h"//file names
 	#include "vobject.h"//video objects
@@ -47,7 +49,9 @@
 	//#include "Campaign Types.h"
 	//#include "Quests.h"
 	//#include "Tactical Save.h"
-	#include "Encyclopedia_Data_new.h"
+		#include "Encyclopedia_Data_new.h"
+		#include <algorithm>
+		#include <iterator>
 
 #ifdef ENCYCLOPEDIA_WORKS
 /** @defgroup ENCYCLOPEDIA Encyclopedia
@@ -67,6 +71,7 @@ UINT32 guiEncyclopediaAimLogo;
 ///@{ buttons, graphics and regions for main page
 INT32 giEncyclopediaBtn[ ENC_NUM_SUBPAGES ];
 INT32 giEncyclopediaBtnImage;
+static LaptopPageResourceOwner gEncyclopediaResources;
 #define ENC_BTN_GAP 6
 #define ENC_AIMLOGO_GAP_TOP 20
 #define ENC_AIMLOGO_GAP_BOTTOM 40
@@ -141,6 +146,7 @@ BOOLEAN EnterEncyclopedia_NEW(  )
 	VOBJECT_DESC	VObjectDesc;
 	HVOBJECT hVObject;
 	UINT16 buttonSizeX, buttonSizeY, logoBottomY;
+	LaptopPageResourceOwner stagedResources;
 
 	//error if not enabled
 	CHECKF( gGameExternalOptions.gEncyclopedia );
@@ -152,40 +158,45 @@ BOOLEAN EnterEncyclopedia_NEW(  )
 	// load the background graphic
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "ENCYCLOPEDIA\\encyclopediabackground.sti", VObjectDesc.ImageFile );
-	CHECKF( AddVideoObject( &VObjectDesc, &guiEncyclopediaBG ) );
+	CHECKF(stagedResources.addVideoObject(
+		&VObjectDesc, guiEncyclopediaBG));
 	//////
 	// load AIM Logo
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "ENCYCLOPEDIA\\encyclopedialogoaim.sti", VObjectDesc.ImageFile );
-	CHECKF( AddVideoObject( &VObjectDesc, &guiEncyclopediaAimLogo ) );
+	CHECKF(stagedResources.addVideoObject(
+		&VObjectDesc, guiEncyclopediaAimLogo));
 	// get bottom Y of logo from image
-	GetVideoObject( &hVObject, guiEncyclopediaAimLogo );
-	CHECKF(hVObject);CHECKF(hVObject->pETRLEObject);
+	CHECKF(GetVideoObject(&hVObject, guiEncyclopediaAimLogo) && hVObject &&
+		hVObject->pETRLEObject && hVObject->usNumberOfObjects > 0);
 	logoBottomY = hVObject->pETRLEObject->usHeight + LAPTOP_SCREEN_WEB_UL_Y + ENC_AIMLOGO_GAP_TOP;
 
 	//////
 	// load button graphic for the data pages
-	giEncyclopediaBtnImage = LoadButtonImage( "ENCYCLOPEDIA\\CONTENTBUTTON.STI", BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE , 0, BUTTON_NO_IMAGE );
-	if ( giEncyclopediaBtnImage == BUTTON_NO_IMAGE )
-		return FALSE;
+	CHECKF(stagedResources.addButtonImage(LoadButtonImageOwned(
+		"ENCYCLOPEDIA\\CONTENTBUTTON.STI", BUTTON_NO_IMAGE, 0,
+		BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE), giEncyclopediaBtnImage));
 	buttonSizeX = GetWidthOfButtonPic( giEncyclopediaBtnImage, 0 );
 	buttonSizeY = GetHeightOfButtonPic( giEncyclopediaBtnImage, 0 );
 	//////
 	// create buttons and set user data
 	for ( UINT8 i = 0; i < ENC_NUM_SUBPAGES; i++ )
 	{
-		giEncyclopediaBtn[ i ] = CreateIconAndTextButton( giEncyclopediaBtnImage,
+		const INT32 button = CreateIconAndTextButton( giEncyclopediaBtnImage,
 			pMenuStrings[ i ], FONT12ARIAL, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, FONT_FCOLOR_WHITE, DEFAULT_SHADOW, TEXT_CJUSTIFIED,
 			LAPTOP_SCREEN_UL_X + (LAPTOP_SCREEN_WIDTH)/2 - buttonSizeX/2,//upper left x: center of laptop screen - 1/2 buttonsize
 			logoBottomY + ENC_AIMLOGO_GAP_BOTTOM + i * (ENC_BTN_GAP + buttonSizeY),//upper left y: below logo + logo gap + previous buttons and button gaps
 			BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 			DEFAULT_MOVE_CALLBACK, BtnEncyclopedia_newSelectDataPageBtnCallBack );
-		CHECKF( giEncyclopediaBtn[ i ] >= 0 );
+		CHECKF(stagedResources.addButton(button, giEncyclopediaBtn[i]));
+		GUI_BUTTON* createdButton = GetButtonPtr(giEncyclopediaBtn[i]);
+		CHECKF(createdButton);
 		SetButtonCursor( giEncyclopediaBtn[ i ], CURSOR_LAPTOP_SCREEN );
 		MSYS_SetBtnUserData( giEncyclopediaBtn[ i ], 1, i + 1 );
-		GetButtonPtr( giEncyclopediaBtn[ i ] )->fShiftImage = TRUE;
+		createdButton->fShiftImage = TRUE;
 		//SpecifyButtonSoundScheme( giEncyclopediaDataBtn[ i ], BUTTON_SOUND_SCHEME_BIGSWITCH3 );
 	}
+	gEncyclopediaResources = std::move(stagedResources);
 	return TRUE;
 }
 
@@ -197,35 +208,13 @@ BOOLEAN EnterEncyclopedia_NEW(  )
 */
 BOOLEAN ExitEncyclopedia_NEW(  )
 {
-	BOOLEAN success = TRUE;
-	
-	//error if not enabled
-	success &= !gGameExternalOptions.gEncyclopedia;
-	//error if the laptop mode does not match encyclopedia
-	success &= !( LAPTOP_MODE_ENCYCLOPEDIA == guiPreviousLaptopMode );
-	// destroy background graphic
-	success &= DeleteVideoObjectFromIndex( guiEncyclopediaBG );
-	// destroy AIM logo
-	success &= DeleteVideoObjectFromIndex( guiEncyclopediaAimLogo );
-
-	// destroy buttons
-	for ( UINT8 i = 0; i < ENC_NUM_SUBPAGES; i++ )
-		if ( giEncyclopediaBtn[ i ] != BUTTON_NO_SLOT )
-		{
-			RemoveButton( giEncyclopediaBtn[ i ] );
-			giEncyclopediaBtn[ i ] = BUTTON_NO_SLOT;
-		}
-		else
-			success = FALSE;
-	// destroy button graphic
-	if ( giEncyclopediaBtnImage != BUTTON_NO_IMAGE )
-	{
-		UnloadButtonImage( giEncyclopediaBtnImage );
-		giEncyclopediaBtnImage = BUTTON_NO_IMAGE;
-	}
-	else
-		success = FALSE;
-	return success;
+	gEncyclopediaResources.clear();
+	guiEncyclopediaBG = 0;
+	guiEncyclopediaAimLogo = 0;
+	giEncyclopediaBtnImage = BUTTON_NO_IMAGE;
+	std::fill(std::begin(giEncyclopediaBtn),
+		std::end(giEncyclopediaBtn), BUTTON_NO_SLOT);
+	return TRUE;
 }
 
 /**
@@ -293,11 +282,8 @@ void EncyclopediaInitItemsVisibility()
 */
 BOOLEAN SaveEncyclopediaItemVisibility( HWFILE hFile )
 {
-	UINT32 bytesWritten;
-
-	CHECKF( FileWrite( hFile, gbEncyclopediaData_ItemVisible, MAXITEMS, &bytesWritten ) );
-
-	return (TRUE);
+	return WriteLaptopFileExact(hFile, gbEncyclopediaData_ItemVisible,
+		MAXITEMS) ? TRUE : FALSE;
 }
 
 /**
@@ -307,11 +293,10 @@ BOOLEAN SaveEncyclopediaItemVisibility( HWFILE hFile )
 */
 BOOLEAN LoadEncyclopediaItemVisibility( HWFILE hFile )
 {
-	UINT32 bytesRead;
-
-	CHECKF( FileRead( hFile, gbEncyclopediaData_ItemVisible, MAXITEMS, &bytesRead) );
-
-	return (TRUE);
+	UINT8 pendingVisibility[MAXITEMS] = {};
+	if (!ReadLaptopFileExact(hFile, pendingVisibility, MAXITEMS)) return FALSE;
+	memcpy(gbEncyclopediaData_ItemVisible, pendingVisibility, MAXITEMS);
+	return TRUE;
 }
 ///@}
 

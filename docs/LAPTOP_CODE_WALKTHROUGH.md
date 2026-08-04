@@ -759,33 +759,65 @@ bounded text, retired duplicate helpers, and focused test admission. The
 targeted path-sensitive analyzer is clean for all three production translation
 units changed by the batch.
 
-## Remaining walkthrough
+## Shared shell, widgets, residual pages, and dormant-path closure
 
-The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., Florist/Funeral,
-Insurance, Bobby Ray, finance/history, email, Personnel, and Campaign History
-ownership slices are complete.
-The remaining audit queue is deliberately grouped into larger reviewable
-batches:
+The sixteenth and final scheduled batch closes the audit queue across the
+Laptop shell, shared widgets, IMP pages, remaining service pages, briefing and
+Encyclopedia code, and the residual file/list boundaries. The dependency-free
+`LaptopUiStateModel` now supplies the common signed/exact-end index,
+pagination, scrolling-window, adjacent-selection, sentinel-list, bounded-text,
+and exact-transfer rules instead of leaving each page to reproduce them.
 
-1. Extend scoped video, surface, button-image, button, and temporary-render
-   ownership from the completed site, ledger, email, Personnel, and Campaign
-   History clusters across every remaining Laptop page.
-2. Extend the completed site-cluster mouse-region and re-entry audit across
-   the remaining pages, especially empty data and callback-driven mutation.
-3. Extend the IMP/Personnel format-string and bounded-text rules to the
-   remaining Laptop pages.
-4. Audit the remaining Laptop binary readers and writers for exact reads,
-   bounded allocation, staged publication, and failure-safe file ownership.
-5. Consolidate non-IMP page re-entry and global selection state so cancelled,
-   failed, and repeated visits start from a documented state.
-6. Verify every remaining fixed array and paginated list against negative,
-   exact-end, empty, and stale-selection cases.
-7. Make remaining hire and roster side effects transactional wherever a Laptop
-   workflow can fail after partially committing an operation.
-8. Run a final domain-wide static-analysis/warning pass, remove superseded
-    dead paths, and convert every confirmed finding into a focused regression
-    test or an architecture ratchet.
+Confirmed faults fixed by this batch include:
 
-Every batch must include focused tests, all-host compilation, architecture and
-compile-guard ratchets, the normal headless suite, and a fresh ASan run before
-merge.
+- shell bookmarks, notification regions, program buttons, title bars,
+  minimize/error overlays, and desktop graphics could partially publish or
+  tear down resources in an unsafe order after a failed or repeated entry;
+- the shared table, drop-down, and dialogue widgets accepted stale selections,
+  exposed hidden rows, divided or indexed through empty data, and mixed
+  callback-replaced regions with longer-lived page resources;
+- IMP pages shared raw numeric video handles across transitions, so one page
+  could unload another page's graphics, while numerous localized/profile/item
+  strings were copied or formatted without a destination bound;
+- Files allocated only two bytes for a wide-string terminator, overflowing on
+  platforms with four-byte `CHAR16`, and its saved/list text and terrorist face
+  paths trusted allocation, profile, and buffer assumptions;
+- briefing, facility, intel, militia, PMC, WHO, postal, and comparison pages
+  leaked partial entry resources or transient graphics, retained stale
+  callback state, and trusted exact-end records, matrix slots, town/profile,
+  item, preference, and squad indices;
+- Merc Compare leaked its first transient face on every comparison render;
+  the Briefing Room leaked each map image it rendered and could navigate from
+  invalid locations or pages; and
+- the disabled Encyclopedia implementation no longer compiled when enabled
+  and contained an unreachable SAM-site match, a sector-Z typo, unsigned
+  reverse traversal, unchecked profile/item/quest access, uninitialized image
+  paths and quest text, null button-slot dereferences, partial-entry leaks, and
+  exit functions that always reported failure.
+
+Shell and page entry now stage complete `LaptopPageResourceOwner`
+transactions. IMP retains its numeric compatibility surface through one
+per-page facade, while dynamic artwork uses move-only handles. Callback-driven
+widget/table/matrix regions have independent replaceable owners. Remaining
+fixed buffers use terminating bounded helpers or size-aware formatting, binary
+transfers require their exact legacy sizes, and mutable selections derive
+bounds from current containers rather than persisted counters.
+
+The established save layouts, page IDs, resource filenames, localized text,
+XML/Lua data, profile/item identities, and campaign behavior are unchanged.
+Focused headless tests cover all shared model boundaries and independently
+removable resource handles. The dormant Encyclopedia/Briefing implementation
+is compiled with `ENCYCLOPEDIA_WORKS` in every host configuration. Architecture,
+compile-guard, string-sink, all-host, headless, and ASan checks protect the
+closure.
+
+## Closure status
+
+All 98 Laptop translation units have now received the structural walkthrough,
+and every scheduled ownership, input-boundary, persistence, navigation,
+bounded-text, and static-analysis batch in this document is complete. There is
+no remaining Laptop audit batch on the architecture agenda. This is a domain
+closure milestone, not a claim that future gameplay or data-dependent defects
+are impossible; newly discovered defects should be handled as focused normal
+maintenance with regression tests and, where the rule is architectural, a
+ratchet here and in `CheckArchitectureBoundaries.cmake`.

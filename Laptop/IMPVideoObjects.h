@@ -5,6 +5,8 @@
 
 // the functions
 
+void ClearImpVideoObjects();
+
 // metal background
 void RenderProfileBackGround( void );
 void RemoveProfileBackGround( void );

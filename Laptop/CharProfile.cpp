@@ -22,7 +22,8 @@
 	#include "IMP Compile Character.h"
 	#include "MessageBoxScreen.h"
 	#include "LaptopSave.h"
-	#include "ImpCreationStateModel.h"
+#include "ImpCreationStateModel.h"
+#include "LaptopPageResourceOwner.h"
 	// These 5 added - SANDRO
 	#include "IMP Character and Disability Entrance.h"
 	#include "IMP Character Trait.h"
@@ -118,6 +119,7 @@ INT32 iAddMechanical = 0;
 // IMP global buttons
 INT32 giIMPButton[1];
 INT32 giIMPButtonImage[1];
+static LaptopPageResourceOwner gImpCancelButtonResources;
 
 extern INT32 iCurrentPortrait;
 extern INT32 iCurrentVoice;
@@ -126,7 +128,7 @@ extern	BOOLEAN fStartOverFlag;
 
 void ExitOldIMPMode( void );
 void EnterNewIMPMode( void );
-void LoadImpGraphics( void );
+BOOLEAN LoadImpGraphics( void );
 void RemoveImpGraphics( void );
 void CreateIMPButtons( void );
 void DestroyIMPButtons( void );
@@ -147,7 +149,7 @@ void EnterCharProfile()
 	gImpNavigation.Reenter();
 
 	// grab the graphics
-	LoadImpGraphics( );
+	if (!LoadImpGraphics()) fReDrawCharProfile = FALSE;
 }
 
 void ExitCharProfile()
@@ -668,144 +670,70 @@ void ResetCharacterStats( void )
 
 
 
-void LoadImpGraphics( void )
+BOOLEAN LoadImpGraphics( void )
 {
 	// load all graphics needed for IMP
-
-	LoadProfileBackGround( );
-	LoadIMPSymbol( );
-	LoadBeginIndent( );
-	LoadActivationIndent( );
-	LoadFrontPageIndent( );
-	LoadAnalyse( );
-	LoadAttributeGraph( );
-	LoadAttributeGraphBar( );
-
-	LoadFullNameIndent( );
-	LoadNameIndent( );
-	LoadGenderIndent( );
-	LoadNickNameIndent( );
-
-	//LoadSmallFrame( );
-
-	LoadSmallSilhouette( );
-	LoadLargeSilhouette( );
-
-	LoadAttributeFrame( );
-	LoadSliderBar( );
-
-	LoadButton2Image( );
-	LoadButton4Image( );
-	LoadButton1Image( );
-
-	LoadPortraitFrame( );
-	LoadMainIndentFrame( );
-
-	LoadQtnLongIndentFrame( );
-	LoadQtnShortIndentFrame( );
-	LoadQtnLongIndentHighFrame( );
-	LoadQtnShortIndentHighFrame( );
-	LoadQtnShort2IndentFrame( );
-	LoadQtnShort2IndentHighFrame( );
-
-	LoadQtnIndentFrame( );
-	LoadAttrib1IndentFrame( );
-	LoadAttrib2IndentFrame( );
-	LoadAvgMercIndentFrame( );
-	LoadAboutUsIndentFrame( );
-
-	// Added by SANDRO
-	LoadAttribStartingLevelFrame( );
-	LoadColorChoiceFrame( );
-	LoadImpGearSelection();
-	return;
+	ClearImpVideoObjects();
+	if (!LoadProfileBackGround() || !LoadIMPSymbol() ||
+		!LoadBeginIndent() || !LoadActivationIndent() ||
+		!LoadFrontPageIndent() || !LoadAnalyse() ||
+		!LoadAttributeGraph() || !LoadAttributeGraphBar() ||
+		!LoadFullNameIndent() || !LoadNameIndent() ||
+		!LoadGenderIndent() || !LoadNickNameIndent() ||
+		!LoadSmallSilhouette() || !LoadLargeSilhouette() ||
+		!LoadAttributeFrame() || !LoadSliderBar() ||
+		!LoadButton2Image() || !LoadButton4Image() ||
+		!LoadButton1Image() || !LoadPortraitFrame() ||
+		!LoadMainIndentFrame() || !LoadQtnLongIndentFrame() ||
+		!LoadQtnShortIndentFrame() || !LoadQtnLongIndentHighFrame() ||
+		!LoadQtnShortIndentHighFrame() || !LoadQtnShort2IndentFrame() ||
+		!LoadQtnShort2IndentHighFrame() || !LoadQtnIndentFrame() ||
+		!LoadAttrib1IndentFrame() || !LoadAttrib2IndentFrame() ||
+		!LoadAvgMercIndentFrame() || !LoadAboutUsIndentFrame() ||
+		!LoadAttribStartingLevelFrame() || !LoadColorChoiceFrame() ||
+		!LoadImpGearSelection())
+	{
+		ClearImpVideoObjects();
+		return FALSE;
+	}
+	return TRUE;
 
 }
 
 void RemoveImpGraphics( void )
 {
-	// remove all graphics needed for IMP
-
-	RemoveProfileBackGround( );
-	DeleteIMPSymbol( );
-	DeleteBeginIndent( );
-	DeleteActivationIndent( );
-	DeleteFrontPageIndent( );
-	DeleteAnalyse( );
-	DeleteAttributeGraph( );
-	DeleteAttributeBarGraph( );
-
-	DeleteFullNameIndent( );
-	DeleteNameIndent( );
-	DeleteGenderIndent( );
-	DeleteNickNameIndent( );
-
-	//DeleteSmallFrame( );
-
-	DeleteSmallSilhouette( );
-	DeleteLargeSilhouette( );
-
-	DeleteAttributeFrame( );
-	DeleteSliderBar( );
-
-	DeleteButton2Image( );
-	DeleteButton4Image( );
-	DeleteButton1Image( );
-
-	DeletePortraitFrame( );
-	DeleteMainIndentFrame( );
-
-	DeleteQtnLongIndentFrame( );
-	DeleteQtnShortIndentFrame( );
-	DeleteQtnLongIndentHighFrame( );
-	DeleteQtnShortIndentHighFrame( );
-	DeleteQtnShort2IndentFrame( );
-	DeleteQtnShort2IndentHighFrame( );
-
-	DeleteQtnIndentFrame( );
-	DeleteAttrib1IndentFrame( );
-	DeleteAttrib2IndentFrame( );
-	DeleteAvgMercIndentFrame( );
-	DeleteAboutUsIndentFrame( );
-
-	 // Added by SANDRO
-	DeleteAttribStartingLevelFrame( );
-	DeleteColorChoiceFrame( );
-	DeleteImpGearSelection();
-
-	return;
+	ClearImpVideoObjects();
 }
 
 void CreateIMPButtons( void )
 {
 	// create all the buttons global to the IMP system
-
-	giIMPButtonImage[ 0 ] = LoadButtonImage( "LAPTOP\\button_3.sti" ,-1,0,-1,1,-1 );
+	LaptopPageResourceOwner stagedResources;
+	if (!stagedResources.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\button_3.sti", -1, 0, -1, 1, -1),
+		giIMPButtonImage[0])) return;
 
 
 	// cancel
-	giIMPButton[0] = CreateIconAndTextButton( giIMPButtonImage[0], pImpButtonText[ 19 ], FONT12ARIAL,
+	if (!stagedResources.addButton(CreateIconAndTextButton( giIMPButtonImage[0], pImpButtonText[ 19 ], FONT12ARIAL,
 														FONT_WHITE, DEFAULT_SHADOW,
 														FONT_WHITE, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
 														LAPTOP_SCREEN_UL_X + 15, LAPTOP_SCREEN_WEB_UL_Y + ( 360 ), BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-														BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnIMPCancelCallback);
+												BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnIMPCancelCallback),
+		giIMPButton[0])) return;
 
 	SpecifyButtonTextSubOffsets( giIMPButton[0], 0, -1, FALSE );
 
 	// set up generic www cursor
 	SetButtonCursor(giIMPButton[ 0 ], CURSOR_WWW);
-
-	return;
+	gImpCancelButtonResources = std::move(stagedResources);
 }
 
 void DestroyIMPButtons( void )
 {
 	// destroy the buttons we created
-	RemoveButton(giIMPButton[0] );
-	UnloadButtonImage(giIMPButtonImage[0] );
-
-	return;
+	gImpCancelButtonResources.clear();
 }
 
 void BtnIMPCancelCallback(GUI_BUTTON *btn,INT32 reason)

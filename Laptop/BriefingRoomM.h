@@ -10,8 +10,6 @@ void ExitBriefingRoomEnter();
 void HandleBriefingRoomEnter();
 void RenderBriefingRoomEnter();
 
-BOOLEAN RemoveBriefingRoomEnterDefaults();
-BOOLEAN InitBriefingRoomEnterDefaults();
 BOOLEAN DrawBriefingRoomEnterDefaults();
 
 BOOLEAN DisplayBriefingRoomEnterSlogan();

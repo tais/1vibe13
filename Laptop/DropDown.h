@@ -7,6 +7,8 @@
  */
 
 #include "LaptopSave.h"
+#include "LaptopPageResourceOwner.h"
+#include "LaptopUiStateModel.h"
 
 /*
  * helpful draw functions that used to draw the boundaries of the dropdown. The old way of adding sti objects to paint boundaries is... lets say, inefficient
@@ -221,14 +223,17 @@ public:
 	/*
 	 * Set help text decribing what can be selected
 	 */
-	void SetHelpText( STR16 aText )			{ swprintf( mHelpText, L"" ); wcscat( mHelpText, aText ); }
+	void SetHelpText( STR16 aText )			{
+		LaptopUiStateModel::CopyText(mHelpText, aText);
+	}
 
 	/*
 	 * Get key of selected entry
 	 */
 	INT16	GetSelectedEntryKey()
 	{ 
-		if ( mEntryVector.empty() )
+		if (!LaptopUiStateModel::IsValidIndex(
+			mEntryVector.size(), mSelectedEntry))
 			return -1;
 		
 		return mEntryVector[mSelectedEntry].first;
@@ -349,6 +354,9 @@ private:
 	UINT16	mNumDisplayedEntries;		// number of entries displayed. Calculated internally, no need to change by user
 
 	BOOLEAN mfDropScrollBar;			// do we need a scrollbar and a down arrow?
+	UINT32 mGoldArrowImages;
+	LaptopPageResourceOwner mBaseResources;
+	LaptopPageResourceOwner mDropResources;
 };
 
 template<int N>

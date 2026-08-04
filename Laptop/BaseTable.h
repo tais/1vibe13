@@ -375,9 +375,12 @@ private:
 	BOOLEAN				mScrollBarDefined;
 
 	INT32				mScrollArrow[2];
-	UINT32				mScrollArrowImage[2];
+	INT32				mScrollArrowImage[2];
+	UINT32				mHelpScreenBackground;
 
 	MOUSE_REGION		mScrollRegion;
+	LaptopPageResourceOwner mPageResources;
+	LaptopPageResourceOwner mScrollResources;
 
 	UINT32				mFirstEntryShown;
 	UINT32				mLastEntryShown;

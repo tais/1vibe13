@@ -29,6 +29,12 @@
 #include "GameSettings.h"
 #include "Soldier Profile Constants.h"
 #include "TacticalActor.h"
+#include "LaptopPageResourceOwner.h"
+#include "LaptopUiStateModel.h"
+#include "VideoResourceHandle.h"
+
+#include <cstdio>
+#include <iterator>
 
 
 #define		MERCOMP_FONT_COLOR								2
@@ -65,6 +71,7 @@ UINT32	guiMercCompareLogoImage;
 
 //link to the various pages
 MOUSE_REGION	gMercCompareLinkRegion[NUM_LINKS];
+static LaptopPageResourceOwner gMercComparePageResources;
 
 void SelectLinkRegionCallBack_MercCompare( MOUSE_REGION * pRegion, INT32 iReason )
 {
@@ -89,36 +96,38 @@ void SelectLinkRegionCallBack_MercCompare( MOUSE_REGION * pRegion, INT32 iReason
 	}
 }
 
-void GetMercCompareText( UINT8 ubNumber, CHAR16 *pString )
+static void GetMercCompareText(UINT8 ubNumber, CHAR16 (&pString)[800])
 {
-	if ( ubNumber >= TEXT_MERCCOMPARE_MAX )
-		wcscpy( pString, gzMercCompare[0] );
-
-	wcscpy( pString, szMercCompareWebSite[ubNumber] );
+	if (ubNumber >= TEXT_MERCCOMPARE_MAX)
+	{
+		LaptopUiStateModel::CopyText(pString, gzMercCompare[0]);
+		return;
+	}
+	LaptopUiStateModel::CopyText(pString, szMercCompareWebSite[ubNumber]);
 }
 
-void InitDefaults( )
+static BOOLEAN LoadMercCompareDefaults(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the Insurance bullet graphic and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\bullet.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareBulletImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiMercCompareBulletImage));
 
 	// load the Flower Account Box graphic and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\BackGroundTile.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBackGround ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiInsuranceBackGround));
 
 	// load the red bar on the side of the page and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\LargeBar.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBigRedLineImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiInsuranceBigRedLineImage));
 
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\PressLogos.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareLogoImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiMercCompareLogoImage));
 
 	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
 	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
@@ -126,23 +135,26 @@ void InitDefaults( )
 	{
 		MSYS_DefineRegion( &gMercCompareLinkRegion[i], usPosX, usPosY, (UINT16)(usPosX + CAMPAIGN_HISTORY_LINK_TEXT_WIDTH), usPosY + CAMPAIGN_HISTORY_LINK_STEP_Y, MSYS_PRIORITY_HIGH,
 						   CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack_MercCompare );
-		MSYS_AddRegion( &gMercCompareLinkRegion[i] );
+		CHECKF(owner.addRegion(gMercCompareLinkRegion[i]));
 		MSYS_SetRegionUserData( &gMercCompareLinkRegion[i], 0, i );
 
 		usPosY += CAMPAIGN_HISTORY_LINK_STEP_Y;
 	}
+	return TRUE;
 }
 
 void DisplayDefaults( )
 {
-	HVOBJECT	hPixHandle;
-	GetVideoObject( &hPixHandle, guiMercCompareLogoImage );
+	HVOBJECT hPixHandle = nullptr;
+	const BOOLEAN hasLogo = GetVideoObject(
+		&hPixHandle, guiMercCompareLogoImage) && hPixHandle &&
+		hPixHandle->usNumberOfObjects > 1;
 
 	SetFontShadow( MERCOMP_FONT_SHADOW );
 
 	CHAR16 sText[800];
-	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
-	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
+	UINT16 usPosX;
+	UINT16 usPosY;
 
 	WebPageTileBackground( 4, 4, BACKGROUND_WIDTH, CAMPAIGN_HISTORY_BACKGROUND_HEIGHT, guiInsuranceBackGround );
 
@@ -172,25 +184,18 @@ void DisplayDefaults( )
 
 	usPosX = LAPTOP_SCREEN_LR_X - 110;
 	usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
-	BltVideoObject( FRAME_BUFFER, hPixHandle, 1, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	if (hasLogo)
+		BltVideoObject(FRAME_BUFFER, hPixHandle, 1, usPosX, usPosY,
+			VO_BLT_SRCTRANSPARENCY, NULL);
 
 	SetFontShadow( DEFAULT_SHADOW );
 }
 
-void RemoveDefaults( )
-{
-	DeleteVideoObjectFromIndex( guiInsuranceBackGround );
-	DeleteVideoObjectFromIndex( guiInsuranceBigRedLineImage );
-	DeleteVideoObjectFromIndex( guiMercCompareBulletImage );
-	DeleteVideoObjectFromIndex( guiMercCompareLogoImage );
-
-	for ( int i = 0; i<NUM_LINKS; ++i )
-		MSYS_RemoveRegion( &gMercCompareLinkRegion[i] );
-}
-
 BOOLEAN EnterMercCompareMain( )
 {
-	InitDefaults( );
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadMercCompareDefaults(stagedResources));
+	gMercComparePageResources = std::move(stagedResources);
 
 	RenderMercCompareMain( );
 
@@ -199,7 +204,7 @@ BOOLEAN EnterMercCompareMain( )
 
 void ExitMercCompareMain( )
 {
-	RemoveDefaults( );
+	gMercComparePageResources.clear();
 }
 
 void HandleMercCompareMain( )
@@ -210,12 +215,14 @@ void HandleMercCompareMain( )
 void RenderMercCompareMain( )
 {
 	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	sText[0] = L'\0';
 	UINT16	usPosX, usPosY;
 	HVOBJECT	hPixHandle;
 
-	//Get the bullet
-	GetVideoObject( &hPixHandle, guiMercCompareBulletImage );
+	// Missing or malformed decoration must not crash the page renderer.
+	const BOOLEAN hasBullet = GetVideoObject(
+		&hPixHandle, guiMercCompareBulletImage) && hPixHandle &&
+		hPixHandle->usNumberOfObjects > 0;
 
 	DisplayDefaults( );
 
@@ -224,15 +231,18 @@ void RenderMercCompareMain( )
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = MCA_START_CONTENT_Y;
 
-	swprintf( sText, szMercCompareWebSite[TEXT_MERCCOMPARE_INTRO1] );
-	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+	LaptopUiStateModel::CopyText(sText,
+		szMercCompareWebSite[TEXT_MERCCOMPARE_INTRO1]);
+	DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	for ( int i = TEXT_MERCCOMPARE_BULLET1; i < TEXT_MERCCOMPARE_BULLET4; ++i )
 	{
 		// display bullet
-		BltVideoObject( FRAME_BUFFER, hPixHandle, 0, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+		if (hasBullet)
+			BltVideoObject(FRAME_BUFFER, hPixHandle, 0, usPosX, usPosY,
+				VO_BLT_SRCTRANSPARENCY, NULL);
 				
-		swprintf( sText, szMercCompareWebSite[i] );
+		LaptopUiStateModel::CopyText(sText, szMercCompareWebSite[i]);
 		DrawTextToScreen( sText, usPosX + 25, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 		usPosY += 15;
@@ -240,8 +250,9 @@ void RenderMercCompareMain( )
 
 	usPosY += 15;
 
-	swprintf( sText, szMercCompareWebSite[TEXT_MERCCOMPARE_INTRO2] );
-	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+	LaptopUiStateModel::CopyText(sText,
+		szMercCompareWebSite[TEXT_MERCCOMPARE_INTRO2]);
+	DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	SetFontShadow( DEFAULT_SHADOW );
 
@@ -254,8 +265,10 @@ void RenderMercCompareMain( )
 ////////////////////////// MERC COMPARE CUSTOMERS ////////////////////////////////
 
 BOOLEAN EnterMercCompareCustomers( )
-{	
-	InitDefaults( );
+{
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadMercCompareDefaults(stagedResources));
+	gMercComparePageResources = std::move(stagedResources);
 	
 	RenderMercCompareCustomers( );
 
@@ -264,7 +277,7 @@ BOOLEAN EnterMercCompareCustomers( )
 
 void ExitMercCompareCustomers( )
 {
-	RemoveDefaults( );
+	gMercComparePageResources.clear();
 }
 
 void HandleMercCompareCustomers( )
@@ -275,12 +288,14 @@ void HandleMercCompareCustomers( )
 void RenderMercCompareCustomers( )
 {
 	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	sText[0] = L'\0';
 	UINT16	usPosX, usPosY;
 	HVOBJECT	hPixHandle;
 
-	//Get the bullet
-	GetVideoObject( &hPixHandle, guiMercCompareBulletImage );
+	// Missing or malformed decoration must not crash the page renderer.
+	const BOOLEAN hasBullet = GetVideoObject(
+		&hPixHandle, guiMercCompareBulletImage) && hPixHandle &&
+		hPixHandle->usNumberOfObjects > 0;
 
 	DisplayDefaults( );
 
@@ -289,7 +304,8 @@ void RenderMercCompareCustomers( )
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = MCA_START_CONTENT_Y;
 
-	swprintf( sText, szMercCompareWebSite[TEXT_MERCCOMPARE_QUOTEINTRO] );
+	LaptopUiStateModel::CopyText(sText,
+		szMercCompareWebSite[TEXT_MERCCOMPARE_QUOTEINTRO]);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	// choose 3 random customer quotes out of the pool of all quotes
@@ -305,14 +321,18 @@ void RenderMercCompareCustomers( )
 	for ( std::set<UINT8>::iterator it = quoteset.begin(); it != itend; ++it )
 	{
 		// display bullet
-		BltVideoObject( FRAME_BUFFER, hPixHandle, 0, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+		if (hasBullet)
+			BltVideoObject(FRAME_BUFFER, hPixHandle, 0, usPosX, usPosY,
+				VO_BLT_SRCTRANSPARENCY, NULL);
 
-		swprintf( sText, szMercCompareWebSite[TEXT_MERCCOMPARE_QUOTE1 + 2 * (*it)] );
+		LaptopUiStateModel::CopyText(sText,
+			szMercCompareWebSite[TEXT_MERCCOMPARE_QUOTE1 + 2 * (*it)]);
 		usPosY += DisplayWrappedString( usPosX + 25, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X - 25, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 		usPosY += 10;
 
-		swprintf( sText, szMercCompareWebSite[TEXT_MERCCOMPARE_QUOTE1 + 2 * (*it) + 1] );
+		LaptopUiStateModel::CopyText(sText,
+			szMercCompareWebSite[TEXT_MERCCOMPARE_QUOTE1 + 2 * (*it) + 1]);
 		usPosY += DisplayWrappedString( usPosX + 180, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X - 25, 2, FONT12ROMAN, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		usPosY += 30;
 	}
@@ -340,7 +360,9 @@ template<>	void	DropDownTemplate<DROPDOWNNR_MERCCOMPARE2>::SetRefresh( )	{ fMerc
 
 BOOLEAN EnterMercCompareAnalyze()
 {
-	InitDefaults( );
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadMercCompareDefaults(stagedResources));
+	gMercComparePageResources = std::move(stagedResources);
 
 	// We fill two dropdowns with all mercs on our team
 	std::vector<std::pair<INT16, STR16> > mercvector;
@@ -383,7 +405,7 @@ BOOLEAN EnterMercCompareAnalyze()
 
 void ExitMercCompareAnalyze()
 {
-	RemoveDefaults( );
+	gMercComparePageResources.clear();
 
 	DropDownTemplate<DROPDOWNNR_MERCCOMPARE1>::getInstance( ).Destroy( );
 	DropDownTemplate<DROPDOWNNR_MERCCOMPARE2>::getInstance( ).Destroy( );
@@ -401,12 +423,8 @@ void HandleMercCompareAnalyze()
 void RenderMercCompareAnalyze()
 {
 	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	sText[0] = L'\0';
 	UINT16	usPosX, usPosY;
-	HVOBJECT	hPixHandle;
-
-	//Get the bullet
-	GetVideoObject( &hPixHandle, guiMercCompareBulletImage );
 
 	DisplayDefaults( );
 
@@ -427,8 +445,9 @@ void RenderMercCompareAnalyze()
 	}
 	else
 	{
-		swprintf( sText, szMercCompareWebSite[TEXT_MERCCOMPARE_ERROR_NOBODYTHERE] );
-		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+		LaptopUiStateModel::CopyText(sText,
+			szMercCompareWebSite[TEXT_MERCCOMPARE_ERROR_NOBODYTHERE]);
+		DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 	
 	SetFontShadow( DEFAULT_SHADOW );
@@ -439,15 +458,44 @@ void RenderMercCompareAnalyze()
 }
 ////////////////////////// MERC COMPARE ANALYZE ////////////////////////////////
 
+static BOOLEAN DisplayMercFace(UINT8 profileId, UINT16 x, UINT16 y)
+{
+	if (!LaptopUiStateModel::IsValidIndex(NUM_PROFILES, profileId))
+		return FALSE;
+
+	CHAR8 relativePath[100] = {};
+	std::snprintf(relativePath, std::size(relativePath), "%s\\%02d.sti",
+		gMercProfiles[profileId].Type == PROFILETYPE_IMP ?
+			"IMPFACES" : "FACES",
+		gMercProfiles[profileId].ubFaceIndex);
+
+	VOBJECT_DESC description{};
+	description.fCreateFlags = VOBJECT_CREATE_FROMFILE;
+	FilenameForBPP(relativePath, description.ImageFile);
+	UniqueVideoObjectHandle faceImage = AddVideoObjectOwned(&description);
+	CHECKF(faceImage);
+
+	HVOBJECT faceObject = nullptr;
+	CHECKF(GetVideoObject(&faceObject, faceImage.get()) && faceObject);
+	CHECKF(faceObject->usNumberOfObjects > 0);
+	if (IsMercDead(profileId))
+	{
+		faceObject->pShades[0] = Create16BPPPaletteShaded(
+			faceObject->pPaletteEntry, DEAD_MERC_COLOR_RED,
+			DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE);
+		SetObjectHandleShade(faceImage.get(), 0);
+	}
+
+	BltVideoObject(FRAME_BUFFER, faceObject, 0, x, y,
+		VO_BLT_SRCTRANSPARENCY, NULL);
+	return TRUE;
+}
+
 
 BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 {
-	VOBJECT_DESC 	VObjectDesc;
-	HVOBJECT			hPixHandle;
 	UINT16			usPosX, usPosY, usPosY2;
-	UINT32			uiInsMercFaceImage;
 	INT32			iCostOfContract = 0;
-	char				sTemp[100];
 	CHAR16			sText[800];
 	BOOLEAN			fDisplayMercContractStateTextColorInRed = FALSE;
 	
@@ -457,8 +505,29 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 
 	MERCPROFILESTRUCT*	pProfileA = &(gMercProfiles[usProfileA]);
 	MERCPROFILESTRUCT*	pProfileB = &(gMercProfiles[usProfileB]);
-
-	if ( !pProfileA || !pProfileB )
+	const auto hasValidPreferences = [](const MERCPROFILESTRUCT& profile)
+	{
+		return LaptopUiStateModel::IsValidIndex(
+			NUM_REFINEMENT, profile.bRefinement) &&
+			LaptopUiStateModel::IsValidIndex(
+				NUM_CARELEVELS, profile.bRefinementCareLevel) &&
+			LaptopUiStateModel::IsValidIndex(
+				NUM_CARELEVELS, profile.bAppearanceCareLevel) &&
+			LaptopUiStateModel::IsValidIndex(
+				NUM_CARELEVELS, profile.bHatedNationalityCareLevel) &&
+			LaptopUiStateModel::IsValidIndex(
+				NUM_NATIONALITIES, profile.bNationality) &&
+			(profile.bHatedNationality == -1 ||
+				LaptopUiStateModel::IsValidIndex(
+					NUM_NATIONALITIES, profile.bHatedNationality)) &&
+			LaptopUiStateModel::IsValidIndex(NUM_RACES, profile.bRace) &&
+			LaptopUiStateModel::IsValidIndex(NUM_RACIST, profile.bRacist) &&
+			LaptopUiStateModel::IsValidIndex(
+				NUM_APPEARANCES, profile.bAppearance) &&
+			LaptopUiStateModel::IsValidIndex(NUM_SEXIST, profile.bSexist);
+	};
+	if (!hasValidPreferences(*pProfileA) ||
+		!hasValidPreferences(*pProfileB))
 		return FALSE;
 
 	SoldierID idA = GetSoldierIDFromMercID( usProfileA );
@@ -478,77 +547,10 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = MCA_START_CONTENT_Y;
 		
-	// load the mercs face graphic and add it
-	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-
-	// face 1
-	// IMP faces are stored elsewhere
-	if ( gMercProfiles[usProfileA].Type == PROFILETYPE_IMP )
-	{
-		sprintf( sTemp, "IMPFACES\\%02d.sti", gMercProfiles[usProfileA].ubFaceIndex );
-		FilenameForBPP( sTemp, VObjectDesc.ImageFile );
-		CHECKF( AddVideoObject( &VObjectDesc, &uiInsMercFaceImage ) );
-	}
-	else
-	{
-		sprintf( sTemp, "FACES\\%02d.sti", gMercProfiles[usProfileA].ubFaceIndex );
-		FilenameForBPP( sTemp, VObjectDesc.ImageFile );
-		CHECKF( AddVideoObject( &VObjectDesc, &uiInsMercFaceImage ) );
-	}
-
-	//Get the merc's face
-	GetVideoObject( &hPixHandle, uiInsMercFaceImage );
-
-	//if the merc is dead, shade the face red
-	if ( IsMercDead( usProfileA ) )
-	{
-		//if the merc is dead
-		//shade the face red, (to signify that he is dead)
-		hPixHandle->pShades[0] = Create16BPPPaletteShaded( hPixHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
-
-		//set the red pallete to the face
-		SetObjectHandleShade( uiInsMercFaceImage, 0 );
-	}
-
-	//Get and display the mercs face
-	BltVideoObject( FRAME_BUFFER, hPixHandle, 0, usPosX + 5, usPosY + 4, VO_BLT_SRCTRANSPARENCY, NULL );
+	CHECKF(DisplayMercFace(usProfileA, usPosX + 5, usPosY + 4));
 
 	usPosX += MCA_SIDEOFFSET;
-
-	// face 2
-	// IMP faces are stored elsewhere
-	if ( gMercProfiles[usProfileB].Type == PROFILETYPE_IMP )
-	{
-		sprintf( sTemp, "IMPFACES\\%02d.sti", gMercProfiles[usProfileB].ubFaceIndex );
-		FilenameForBPP( sTemp, VObjectDesc.ImageFile );
-		CHECKF( AddVideoObject( &VObjectDesc, &uiInsMercFaceImage ) );
-	}
-	else
-	{
-		sprintf( sTemp, "FACES\\%02d.sti", gMercProfiles[usProfileB].ubFaceIndex );
-		FilenameForBPP( sTemp, VObjectDesc.ImageFile );
-		CHECKF( AddVideoObject( &VObjectDesc, &uiInsMercFaceImage ) );
-	}
-
-	//Get the merc's face
-	GetVideoObject( &hPixHandle, uiInsMercFaceImage );
-
-	//if the merc is dead, shade the face red
-	if ( IsMercDead( usProfileB ) )
-	{
-		//if the merc is dead
-		//shade the face red, (to signify that he is dead)
-		hPixHandle->pShades[0] = Create16BPPPaletteShaded( hPixHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
-
-		//set the red pallete to the face
-		SetObjectHandleShade( uiInsMercFaceImage, 0 );
-	}
-
-	//Get and display the mercs face
-	BltVideoObject( FRAME_BUFFER, hPixHandle, 0, usPosX + 5, usPosY + 4, VO_BLT_SRCTRANSPARENCY, NULL );
-
-	// the face images isn't needed anymore so delete it
-	DeleteVideoObjectFromIndex( uiInsMercFaceImage );
+	CHECKF(DisplayMercFace(usProfileB, usPosX + 5, usPosY + 4));
 
 	usPosX -= MCA_SIDEOFFSET;
 	usPosY += 50;
@@ -556,16 +558,16 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 	SetFontShadow( MERCOMP_FONT_SHADOW );
 
 	// base opinions
-	swprintf( sText, gzMercCompare[1] );
+	LaptopUiStateModel::CopyText(sText, gzMercCompare[1]);
 	DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	INT8 val = pProfileA->bMercOpinion[usProfileB];
-	swprintf( sText, L"%d", val );
+	sgp_swprintf(sText, std::size(sText), L"%d", val);
 	DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	val = pProfileB->bMercOpinion[usProfileA];
-	swprintf( sText, L"%d", val );
+	sgp_swprintf(sText, std::size(sText), L"%d", val);
 	usPosY += DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	
 	// refinement
@@ -599,9 +601,12 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 	
 	if ( fRefinementfoundA )
 	{
-		swprintf( sText, (val < 0) ? gzMercCompare[2] : gzMercCompare[3], szRefinementTextTypes[pProfileB->bRefinement], szCareLevelText[pProfileA->bRefinementCareLevel] );
+		sgp_swprintf(sText, std::size(sText),
+			(val < 0) ? gzMercCompare[2] : gzMercCompare[3],
+			szRefinementTextTypes[pProfileB->bRefinement],
+			szCareLevelText[pProfileA->bRefinementCareLevel]);
 		DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		swprintf( sText, L"%d", val );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
 		DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 
@@ -635,9 +640,12 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 
 	if ( fRefinementfoundB )
 	{
-		swprintf( sText, (val < 0) ? gzMercCompare[2] : gzMercCompare[3], szRefinementTextTypes[pProfileA->bRefinement], szCareLevelText[pProfileB->bRefinementCareLevel] );
+		sgp_swprintf(sText, std::size(sText),
+			(val < 0) ? gzMercCompare[2] : gzMercCompare[3],
+			szRefinementTextTypes[pProfileA->bRefinement],
+			szCareLevelText[pProfileB->bRefinementCareLevel]);
 		DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		swprintf( sText, L"%d", val );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
 		DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 
@@ -656,9 +664,12 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 			else
 				val = 0;
 
-			swprintf( sText, pProfileA->bRacist == RACIST_VERY ? gzMercCompare[4] : gzMercCompare[5], szNationalityTextAdjective[pProfileA->bHatedNationality] );
+			sgp_swprintf(sText, std::size(sText),
+				pProfileA->bRacist == RACIST_VERY ?
+					gzMercCompare[4] : gzMercCompare[5],
+				szNationalityTextAdjective[pProfileA->bHatedNationality]);
 			DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-			swprintf( sText, L"%d", val );
+			sgp_swprintf(sText, std::size(sText), L"%d", val);
 			DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		}
 
@@ -671,9 +682,12 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 			else
 				val = 0;
 
-			swprintf( sText, pProfileB->bRacist == RACIST_VERY ? gzMercCompare[4] : gzMercCompare[5], szNationalityTextAdjective[pProfileB->bHatedNationality] );
+			sgp_swprintf(sText, std::size(sText),
+				pProfileB->bRacist == RACIST_VERY ?
+					gzMercCompare[4] : gzMercCompare[5],
+				szNationalityTextAdjective[pProfileB->bHatedNationality]);
 			DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-			swprintf( sText, L"%d", val );
+			sgp_swprintf(sText, std::size(sText), L"%d", val);
 			DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		}
 
@@ -692,9 +706,12 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 			else
 				val = 0;
 				
-			swprintf( sText, pProfileA->bRacist == RACIST_VERY ? gzMercCompare[6] : gzMercCompare[7], szRaceText[pProfileB->bRace] );
+			sgp_swprintf(sText, std::size(sText),
+				pProfileA->bRacist == RACIST_VERY ?
+					gzMercCompare[6] : gzMercCompare[7],
+				szRaceText[pProfileB->bRace]);
 			DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-			swprintf( sText, L"%d", val );
+			sgp_swprintf(sText, std::size(sText), L"%d", val);
 			DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		}
 
@@ -707,9 +724,12 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 			else
 				val = 0;
 
-			swprintf( sText, pProfileB->bRacist == RACIST_VERY ? gzMercCompare[6] : gzMercCompare[7], szRaceText[pProfileA->bRace] );
+			sgp_swprintf(sText, std::size(sText),
+				pProfileB->bRacist == RACIST_VERY ?
+					gzMercCompare[6] : gzMercCompare[7],
+				szRaceText[pProfileA->bRace]);
 			DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-			swprintf( sText, L"%d", val );
+			sgp_swprintf(sText, std::size(sText), L"%d", val);
 			DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		}
 
@@ -732,9 +752,11 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 
 	if ( val != 0 )
 	{
-		swprintf( sText, (pProfileA->bAppearanceCareLevel == CARELEVEL_EXTREME) ? gzMercCompare[8] : gzMercCompare[9] );
+		LaptopUiStateModel::CopyText(sText,
+			(pProfileA->bAppearanceCareLevel == CARELEVEL_EXTREME) ?
+				gzMercCompare[8] : gzMercCompare[9]);
 		DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		swprintf( sText, L"%d", val );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
 		DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		fAppearanceDone = TRUE;
 	}
@@ -753,9 +775,11 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 
 	if ( val != 0 )
 	{
-		swprintf( sText, (pProfileB->bAppearanceCareLevel == CARELEVEL_EXTREME) ? gzMercCompare[8] : gzMercCompare[9] );
+		LaptopUiStateModel::CopyText(sText,
+			(pProfileB->bAppearanceCareLevel == CARELEVEL_EXTREME) ?
+				gzMercCompare[8] : gzMercCompare[9]);
 		DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		swprintf( sText, L"%d", val );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
 		DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		fAppearanceDone = TRUE;
 	}
@@ -782,9 +806,11 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 
 			if ( val != 0 )
 			{
-				swprintf( sText, (pProfileA->bSexist == VERY_SEXIST) ? gzMercCompare[10] : gzMercCompare[11] );
+				LaptopUiStateModel::CopyText(sText,
+					(pProfileA->bSexist == VERY_SEXIST) ?
+						gzMercCompare[10] : gzMercCompare[11]);
 				DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-				swprintf( sText, L"%d", val );
+				sgp_swprintf(sText, std::size(sText), L"%d", val);
 				DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 				fSexismDone = TRUE;
 			}
@@ -805,9 +831,11 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 
 			if ( val != 0 )
 			{
-				swprintf( sText, (pProfileB->bSexist == VERY_SEXIST) ? gzMercCompare[10] : gzMercCompare[11] );
+				LaptopUiStateModel::CopyText(sText,
+					(pProfileB->bSexist == VERY_SEXIST) ?
+						gzMercCompare[10] : gzMercCompare[11]);
 				DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-				swprintf( sText, L"%d", val );
+				sgp_swprintf(sText, std::size(sText), L"%d", val);
 				DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 				fSexismDone = TRUE;
 			}
@@ -822,14 +850,14 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 	{
 		val = -2;
 
-		swprintf( sText, gzMercCompare[12] );
+		LaptopUiStateModel::CopyText(sText, gzMercCompare[12]);
 		DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		swprintf( sText, L"%d", val );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
 		DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		
-		swprintf( sText, gzMercCompare[12] );
+		LaptopUiStateModel::CopyText(sText, gzMercCompare[12]);
 		DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		swprintf( sText, L"%d", val );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
 		usPosY += DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 
@@ -843,14 +871,18 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 		else
 			val = 1;
 
-		swprintf( sText, smokerA == 1 ? szBackgroundText_Value[BG_SMOKERTYPE] : szBackgroundText_Value[BG_SMOKERTYPE + 1] );
+		LaptopUiStateModel::CopyText(sText, smokerA == 1 ?
+			szBackgroundText_Value[BG_SMOKERTYPE] :
+			szBackgroundText_Value[BG_SMOKERTYPE + 1]);
 		DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		swprintf( sText, L"%d", val );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
 		DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
-		swprintf( sText, smokerB == 1 ? szBackgroundText_Value[BG_SMOKERTYPE] : szBackgroundText_Value[BG_SMOKERTYPE + 1] );
+		LaptopUiStateModel::CopyText(sText, smokerB == 1 ?
+			szBackgroundText_Value[BG_SMOKERTYPE] :
+			szBackgroundText_Value[BG_SMOKERTYPE + 1]);
 		DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		swprintf( sText, L"%d", val );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
 		usPosY += DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 
@@ -862,18 +894,18 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 		if ( HasBackgroundFlag( usProfileA, BACKGROUND_XENOPHOBIC ) )
 		{
 			val = -gGameExternalOptions.sMoraleModXenophobicBackGround;
-			swprintf( sText, gzMercCompare[13] );
+			LaptopUiStateModel::CopyText(sText, gzMercCompare[13]);
 			DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-			swprintf( sText, L"%d", val );
+			sgp_swprintf(sText, std::size(sText), L"%d", val);
 			usPosY += DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		}
 
 		if ( HasBackgroundFlag( usProfileB, BACKGROUND_XENOPHOBIC ) )
 		{
 			val = -gGameExternalOptions.sMoraleModXenophobicBackGround;
-			swprintf( sText, gzMercCompare[13] );
+			LaptopUiStateModel::CopyText(sText, gzMercCompare[13]);
 			DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY2, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-			swprintf( sText, L"%d", val );
+			sgp_swprintf(sText, std::size(sText), L"%d", val);
 			usPosY2 += DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY2, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		}
 	}
@@ -887,9 +919,11 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 
 			if ( val )
 			{
-				swprintf( sText, szMercCompareEventText[opinionevent], gMercProfiles[usProfileB].zNickname );
+				sgp_swprintf(sText, std::size(sText),
+					szMercCompareEventText[opinionevent],
+					gMercProfiles[usProfileB].zNickname);
 				DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-				swprintf( sText, L"%d", val );
+				sgp_swprintf(sText, std::size(sText), L"%d", val);
 				usPosY += DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 			}
 
@@ -897,9 +931,11 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 
 			if ( val )
 			{
-				swprintf( sText, szMercCompareEventText[opinionevent], gMercProfiles[usProfileA].zNickname );
+				sgp_swprintf(sText, std::size(sText),
+					szMercCompareEventText[opinionevent],
+					gMercProfiles[usProfileA].zNickname);
 				DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY2, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-				swprintf( sText, L"%d", val );
+				sgp_swprintf(sText, std::size(sText), L"%d", val);
 				usPosY2 += DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY2, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 			}
 		}
@@ -910,9 +946,9 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 
 	if ( val )
 	{
-		swprintf( sText, gzMercCompare[14] );
+		LaptopUiStateModel::CopyText(sText, gzMercCompare[14]);
 		DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		swprintf( sText, L"%d", val );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
 		usPosY += DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 
@@ -920,9 +956,9 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 
 	if ( val )
 	{
-		swprintf( sText, gzMercCompare[14] );
+		LaptopUiStateModel::CopyText(sText, gzMercCompare[14]);
 		DisplayWrappedString( usPosX + MCA_SIDEOFFSET, usPosY2, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-		swprintf( sText, L"%d", val );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
 		usPosY2 += DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY2, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 
@@ -930,31 +966,32 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 	val = SoldierRelation( pSoldierA, pSoldierB );
 	BOOLEAN addhint1 = ( val >= BUDDY_OPINION  || val <= HATED_OPINION );
 
-	swprintf( sText, gzMercCompare[15] );
+	LaptopUiStateModel::CopyText(sText, gzMercCompare[15]);
 	DisplayWrappedString( usPosX + MCA_NUMBEROFFSET - 10, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	usPosY += 12;
 	if ( addhint1 )
-		swprintf( sText, L"%d * ", val );
+		sgp_swprintf(sText, std::size(sText), L"%d * ", val);
 	else
-		swprintf( sText, L"%d", val );
-	usPosY += DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
+	DisplayWrappedString( usPosX + MCA_NUMBEROFFSET, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	
 	val = SoldierRelation( pSoldierB, pSoldierA );
 	BOOLEAN addhint2 = (val >= BUDDY_OPINION || val <= HATED_OPINION);
 
-	swprintf( sText, gzMercCompare[15] );
+	LaptopUiStateModel::CopyText(sText, gzMercCompare[15]);
 	DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET - 10, usPosY2, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	usPosY2 += 12;
 	if ( addhint2 )
-		swprintf( sText, L"%d * ", val );
+		sgp_swprintf(sText, std::size(sText), L"%d * ", val);
 	else
-		swprintf( sText, L"%d", val );
-	usPosY2 += DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY2, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+		sgp_swprintf(sText, std::size(sText), L"%d", val);
+	DisplayWrappedString( usPosX + MCA_SIDEOFFSET + MCA_NUMBEROFFSET, usPosY2, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	
 	// add a note that opinion is always between HATED_OPINION and BUDDY_OPINION otherwise players will shout 'bug!'
 	if ( addhint1 || addhint2 )
 	{
-		swprintf( sText, gzMercCompare[17], HATED_OPINION, BUDDY_OPINION );
+		sgp_swprintf(sText, std::size(sText), gzMercCompare[17],
+			HATED_OPINION, BUDDY_OPINION);
 		DisplayWrappedString( usPosX, LAPTOP_SCREEN_LR_Y, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, FONT10ARIAL, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 
@@ -967,7 +1004,7 @@ BOOLEAN fMercCompareMatrixRedraw = FALSE;
 
 //link to the various pages
 MOUSE_REGION	gMercCompareMatrixLinkRegion[100];
-BOOLEAN			gMercCompareMatrixLinkDefined[100] = { FALSE };
+static LaptopPageResourceOwner gMercCompareMatrixResources;
 void SelectMercCompareMatrixRegionCallBack( MOUSE_REGION * pRegion, INT32 iReason );
 
 // two dropdowns, which we'll use to toggle between our mercs
@@ -979,7 +1016,9 @@ CHAR16 sSquadString[NUMBER_OF_SQUADS][80];
 
 BOOLEAN EnterMercCompareMatrix( )
 {
-	InitDefaults( );
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadMercCompareDefaults(stagedResources));
+	gMercComparePageResources = std::move(stagedResources);
 
 	// We fill two dropdowns with all mercs on our team
 	std::vector<std::pair<INT16, STR16> > dropdownvector;
@@ -995,7 +1034,8 @@ BOOLEAN EnterMercCompareMatrix( )
 			GetJa2SoldierRepository().resolve(id.i);
 		if ( soldier && soldier->roster().active() &&
 			soldier->identity().profile() != NO_PROFILE &&
-			soldier->assignment().current() < ON_DUTY )
+			LaptopUiStateModel::IsValidIndex(NUMBER_OF_SQUADS,
+				soldier->assignment().current()) )
 		{
 			if ( squadmap.find( soldier->assignment().current() ) ==
 				squadmap.end() )
@@ -1010,13 +1050,18 @@ BOOLEAN EnterMercCompareMatrix( )
 	{
 		if ( (*it).second > 1 )
 		{
-			if ( gGameExternalOptions.fUseXMLSquadNames && ( *it ).first < gSquadNameVector.size() )
+			if ( gGameExternalOptions.fUseXMLSquadNames &&
+				LaptopUiStateModel::IsValidIndex(
+					gSquadNameVector.size(), (*it).first) &&
+				LaptopUiStateModel::IsValidIndex(NUMBER_OF_SQUADS, squadcnt))
 			{
-				swprintf( sSquadString[squadcnt], L"%s", gSquadNameVector[( *it ).first].c_str() );
+				LaptopUiStateModel::CopyText(sSquadString[squadcnt],
+					gSquadNameVector[(*it).first].c_str());
 
 				dropdownvector.push_back( std::make_pair( ( *it ).first, sSquadString[squadcnt] ) );
 			}
-			else
+			else if (LaptopUiStateModel::IsValidIndex(
+				NUMBER_OF_SQUADS, (*it).first))
 				dropdownvector.push_back( std::make_pair( (*it).first, pSquadMenuStrings[(*it).first] ) );
 		}
 
@@ -1037,18 +1082,10 @@ BOOLEAN EnterMercCompareMatrix( )
 
 void ExitMercCompareMatrix( )
 {
-	RemoveDefaults( );
+	gMercComparePageResources.clear();
+	gMercCompareMatrixResources.clear();
 
 	DropDownTemplate<DROPDOWNNR_MERCCOMPARE_SQUADSELECTION>::getInstance( ).Destroy( );
-
-	for ( int i = 0; i < 100; ++i )
-	{
-		if ( gMercCompareMatrixLinkDefined[i] )
-		{
-			MSYS_RemoveRegion( &gMercCompareMatrixLinkRegion[i] );
-			gMercCompareMatrixLinkDefined[i] = FALSE;
-		}
-	}
 }
 
 void HandleMercCompareMatrix( )
@@ -1063,7 +1100,7 @@ void HandleMercCompareMatrix( )
 void RenderMercCompareMatrix( )
 {
 	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	sText[0] = L'\0';
 	UINT16	usPosX, usPosY;
 
 	DisplayDefaults( );
@@ -1073,14 +1110,7 @@ void RenderMercCompareMatrix( )
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = MCA_START_CONTENT_Y;
 
-	for ( int i = 0; i < 100; ++i )
-	{
-		if ( gMercCompareMatrixLinkDefined[i] )
-		{
-			MSYS_RemoveRegion( &gMercCompareMatrixLinkRegion[i] );
-			gMercCompareMatrixLinkDefined[i] = FALSE;
-		}
-	}
+	gMercCompareMatrixResources.clear();
 
 	if ( DropDownTemplate<DROPDOWNNR_MERCCOMPARE_SQUADSELECTION>::getInstance().HasEntries() )
 	{
@@ -1105,7 +1135,9 @@ void RenderMercCompareMatrix( )
 				soldier->assignment().current() == gSquadToShow )
 			{
 				// remember squamember
-				squadvector.push_back( soldier->identity().profile() );
+					if (LaptopUiStateModel::IsValidIndex(
+						NUM_PROFILES, soldier->identity().profile()))
+						squadvector.push_back(soldier->identity().profile());
 			}
 		}
 
@@ -1119,7 +1151,8 @@ void RenderMercCompareMatrix( )
 			usPosX += spacepermerc;
 
 			// write the names of all squamembers on top of the table
-			swprintf( sText, gMercProfiles[(*it)].zNickname );
+				LaptopUiStateModel::CopyText(
+					sText, gMercProfiles[*it].zNickname);
 			DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 			DisplaySmallColouredLineWithShadow( usPosX - 10, usPosY - 6, usPosX - 10, usPosY + 17 * (squadvector.size( ) + 1) - 5, FROMRGB( 0, 255, 0 ) );
@@ -1151,7 +1184,11 @@ void RenderMercCompareMatrix( )
 			DisplaySmallColouredLineWithShadow( usPosX, usPosY - 5, usPosX + spacepermerc * (squadvector.size( ) + 1), usPosY - 5, FROMRGB( 0, 255, 0 ) );
 		
 			// write name on the left side
-			swprintf( sText, gMercProfiles[pSoldierA->identity().profile()].zNickname );
+				if (!LaptopUiStateModel::IsValidIndex(
+					NUM_PROFILES, pSoldierA->identity().profile()))
+					continue;
+				LaptopUiStateModel::CopyText(sText,
+					gMercProfiles[pSoldierA->identity().profile()].zNickname);
 			DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 			usPosX += spacepermerc;
@@ -1174,34 +1211,36 @@ void RenderMercCompareMatrix( )
 				if ( !pSoldierB )
 					continue;
 
-				if ( !gMercCompareMatrixLinkDefined[currentmouseregion] )
+				if (currentmouseregion <
+					std::size(gMercCompareMatrixLinkRegion))
 				{
 					MSYS_DefineRegion( &gMercCompareMatrixLinkRegion[currentmouseregion], usPosX - 5, usPosY, usPosX + spacepermerc - 5, usPosY + 17, MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectMercCompareMatrixRegionCallBack );
-					MSYS_AddRegion( &gMercCompareMatrixLinkRegion[currentmouseregion] );
+					if (!gMercCompareMatrixResources.addRegion(
+						gMercCompareMatrixLinkRegion[currentmouseregion]))
+						continue;
 
 					// both profilenumbers are combined to a single value which can later be reinterpreted.
 					// Note: this will fail if the profile IDs are bigger than UINT16 (currently UINT8)
 					MSYS_SetRegionUserData( &gMercCompareMatrixLinkRegion[currentmouseregion], 0, ((pSoldierA->identity().profile() << 8) | pSoldierB->identity().profile()) );
-					gMercCompareMatrixLinkDefined[currentmouseregion] = TRUE;
 					++currentmouseregion;
 				}
 						
 				// write down both relations						
 				INT8 val = SoldierRelation( pSoldierA, pSoldierB );
-				swprintf( sText, L"%d", val );
+				sgp_swprintf(sText, std::size(sText), L"%d", val);
 				DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 				usPosX += 15;
 
-				swprintf( sText, gzMercCompare[16] );
+				LaptopUiStateModel::CopyText(sText, gzMercCompare[16]);
 				DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 				usPosX += 5;
 
 				val = SoldierRelation( pSoldierB, pSoldierA );
-				swprintf( sText, L"%d", val );
+				sgp_swprintf(sText, std::size(sText), L"%d", val);
 				DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, (val > 0) ? FONT_MCOLOR_LTGREEN : (val < 0) ? FONT_MCOLOR_LTRED : MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
-				usPosX += spacepermerc - 20;
+				usPosX += spacepermerc > 20 ? spacepermerc - 20 : 0;
 			}
 		}
 
@@ -1212,8 +1251,9 @@ void RenderMercCompareMatrix( )
 	}
 	else
 	{
-		swprintf( sText, szMercCompareWebSite[TEXT_MERCCOMPARE_ERROR_NOBODYTHERE] );
-		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+		LaptopUiStateModel::CopyText(sText,
+			szMercCompareWebSite[TEXT_MERCCOMPARE_ERROR_NOBODYTHERE]);
+		DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 	
 	SetFontShadow( DEFAULT_SHADOW );
@@ -1231,9 +1271,16 @@ void SelectMercCompareMatrixRegionCallBack( MOUSE_REGION * pRegion, INT32 iReaso
 	else if ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
 		INT32 uiLink = MSYS_GetRegionUserData( pRegion, 0 );
+		const INT32 firstProfile = uiLink >> 8;
+		const INT32 secondProfile = uiLink & 0xff;
+		if (!LaptopUiStateModel::IsValidIndex(
+			NUM_PROFILES, firstProfile) ||
+			!LaptopUiStateModel::IsValidIndex(
+				NUM_PROFILES, secondProfile))
+			return;
 
-		gMercCompareProfile1 = uiLink >> 8;
-		gMercCompareProfile2 = uiLink & ~0xFFFFFF00;
+		gMercCompareProfile1 = firstProfile;
+		gMercCompareProfile2 = secondProfile;
 
 		guiCurrentLaptopMode = LAPTOP_MODE_MERCCOMPARE_ANALYZE;
 	}

@@ -42,8 +42,8 @@ BaseTable::Init( UINT16 sX, UINT16 sY, UINT16 sX_End, UINT16 sY_End )
 	SetX( sX );
 	SetY( sY );
 
-	SetWidth( sX_End - sX );
-	SetHeight( sY_End - sY );
+	SetWidth(sX_End > sX ? sX_End - sX : 0);
+	SetHeight(sY_End > sY ? sY_End - sY : 0);
 
 	for ( std::vector<BaseTable*>::iterator it = mRegisteredMembers.begin( ); it != mRegisteredMembers.end( ); ++it )
 	{
@@ -132,14 +132,19 @@ void cdp_statusbar_func_dummy( UINT32 aId, PIXEL& arCol1, UINT16& arVal1, PIXEL&
 void
 ColumnDataProvider::CalcRequiredLength( )
 {
-	mRequiredLength = std::max<UINT32>( mRequiredLength, 6 * wcslen( mName ) );
+	if (mName)
+		mRequiredLength = std::max<UINT32>(mRequiredLength,
+			6 * wcslen(mName));
 
 	switch ( GetProviderType() )
 	{
 	case CDP_STRING:
 		for ( UINT32 i = 0; i < mNumberOfEntries; ++i )
 		{
-			mRequiredLength = std::max<UINT32>( mRequiredLength, 6 * wcslen( GetString( i ) ) );
+			const STR16 value = GetString(i);
+			if (value)
+				mRequiredLength = std::max<UINT32>(mRequiredLength,
+					6 * wcslen(value));
 		}
 		break;
 		
@@ -292,7 +297,9 @@ TabBox::Create( UINT16 sX, UINT16 sY, UINT16 sX_End, UINT16 sY_End )
 		if ( !(*it).mMouseRegion_Defined && IsMouseRegionActive() )
 		{
 			// determine required width of mouse region
-			UINT32 textwidth = 7 * wcslen( (*it).mTestPanel->GetName( ) );
+			const STR16 name = (*it).mTestPanel->GetName();
+			UINT32 textwidth = name && name[0] ? 7 * wcslen(name) : 0;
+			if (textwidth == 0) continue;
 
 			MSYS_DefineRegion( &(*it).mMouseRegion, usPosX, GetY( ), usPosX + textwidth, GetY( ) + TESTTABLE_OFFSET_ROW, MSYS_PRIORITY_HIGH,
 							   CURSOR_WWW,
@@ -337,8 +344,7 @@ TabBox::Display( )
 	
 	DestroyMouseRegions();
 
-	CHAR16	sText[800];
-	swprintf( sText, L"" );
+	CHAR16	sText[800] = {};
 	UINT16 usPosX = GetX( );
 
 	UINT16 panelcnt = 0;
@@ -353,7 +359,9 @@ TabBox::Display( )
 		if ( IsActive() )
 		{
 			// determine required width
-			UINT32 textwidth = 7 * wcslen( (*it).mTestPanel->GetName( ) );
+			const STR16 name = (*it).mTestPanel->GetName();
+			UINT32 textwidth = name && name[0] ? 7 * wcslen(name) : 0;
+			if (textwidth == 0) continue;
 
 			if ( (*it).mTestPanel->IsActive( ) )
 			{
@@ -383,7 +391,7 @@ TabBox::Display( )
 			// right
 			Display2Line2ShadowVertical( usPosX + textwidth - 3, GetY( ) + GetFrameWorkSpace( ) / 2, GetY( ) + TESTTABLE_OFFSET_ROW, GetColorLineShadow( ), GetColorLine( ) );
 		
-			swprintf( sText, (*it).mTestPanel->GetName( ) );
+			LaptopUiStateModel::CopyText(sText, name);
 			DrawTextToScreen( sText, usPosX + 7, GetY( ) + 7, GetWidth( ), TESTTABLE_FONT_MED, TESTTABLE_FONT_COLOR_REGULAR, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 			// mouse region
@@ -406,6 +414,12 @@ TabBox::Display( )
 
 	BaseTable::Display( );
 
+	if (selectedwidth == 0)
+	{
+		SetFontShadow(DEFAULT_SHADOW);
+		return;
+	}
+
 	// to indicate which frame is the active one we 'delete' the border to the content below
 	ColorFillVideoSurfaceArea( FRAME_BUFFER,
 							   selectedx + GetFrameWorkSpace( ), GetY( ) + TESTTABLE_OFFSET_ROW,
@@ -417,6 +431,7 @@ TabBox::Display( )
 
 	// right
 	Display2Line2ShadowVertical( selectedx + selectedwidth - 3, GetY( ) + TESTTABLE_OFFSET_ROW - 3, GetY( ) + TESTTABLE_OFFSET_ROW + 1, GetColorLineShadow( ), GetColorLine( ) );
+	SetFontShadow(DEFAULT_SHADOW);
 }
 
 void
@@ -472,6 +487,9 @@ TabBox::RegionClickCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 TestTable::TestTable( )
 : BaseTable( ),
 mScrollBarDefined( FALSE ),
+mScrollArrow{-1, -1},
+mScrollArrowImage{-1, -1},
+mHelpScreenBackground(0),
 mFirstEntryShown(0),
 mLastEntryShown( 0 ),
 mColorSeparator( FROMRGB( 0, 255, 0 ) )
@@ -484,48 +502,41 @@ TestTable::Init( UINT16 sX, UINT16 sY, UINT16 sX_End, UINT16 sY_End )
 	SetX( sX );
 	SetY( sY );
 
-	SetHeight( sY_End - sY );
-	SetWidth( sX_End - sX );
+	SetHeight(sY_End > sY ? sY_End - sY : 0);
+	SetWidth(sX_End > sX ? sX_End - sX : 0);
 	
 	CalcRows( );
 
 	SetInit( TRUE );
 }
 
-extern UINT32 guiHelpScreenBackGround;
-
 void
 TestTable::Create( UINT16 sX, UINT16 sY, UINT16 sX_End, UINT16 sY_End )
 {
+	Destroy();
+	LaptopPageResourceOwner stagedResources;
 	VOBJECT_DESC	VObjectDesc;
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "INTERFACE\\HelpScreen.sti", VObjectDesc.ImageFile );
-	if ( !AddVideoObject( &VObjectDesc, &guiHelpScreenBackGround ) )
-		return;
-
-	Destroy( );
+	if (!stagedResources.addVideoObject(
+		&VObjectDesc, mHelpScreenBackground)) return;
 
 	Init( sX, sY, sX_End, sY_End );
+	mPageResources = std::move(stagedResources);
 }
 
 void
 TestTable::Destroy( )
 {
-	if ( !IsInit( ) )
-		return;
-
-	if ( mScrollBarDefined )
+	if (!IsInit())
 	{
-		for ( UINT16 i = 0; i < 2; ++i )
-		{
-			RemoveButton( mScrollArrow[i] );
-			UnloadButtonImage( mScrollArrowImage[i] );
-		}
-
-		MSYS_RemoveRegion( &mScrollRegion );
-
-		mScrollBarDefined = FALSE;
+		mScrollResources.clear();
+		mPageResources.clear();
+		return;
 	}
+
+	mScrollResources.clear();
+	mScrollBarDefined = FALSE;
 
 	for ( std::vector<ColumnDataProvider>::iterator it = mColumnDataProviderVector.begin( ), itend = mColumnDataProviderVector.end(); it != itend; ++it )
 	{
@@ -534,7 +545,7 @@ TestTable::Destroy( )
 
 	ClearColumnDataProvider();
 
-	DeleteVideoObjectFromIndex( guiHelpScreenBackGround );
+	mPageResources.clear();
 
 	SetInit( FALSE );
 
@@ -547,8 +558,7 @@ TestTable::Display( )
 	if ( !IsInit( ) )
 		return;
 
-	CHAR16	sText[800];
-	swprintf( sText, L"" );
+	CHAR16	sText[800] = {};
 	UINT16	usPosX, usPosY;
 
 	usPosX = GetX( );
@@ -560,7 +570,7 @@ TestTable::Display( )
 	{
 		for ( std::vector<ColumnDataProvider>::iterator it = mColumnDataProviderVector.begin( ); it != mColumnDataProviderVector.end( ); ++it )
 		{
-			swprintf( sText, (*it).GetName( ) );
+			LaptopUiStateModel::CopyText(sText, (*it).GetName());
 			DrawTextToScreen( sText, usPosX, usPosY, GetWidth( ), TESTTABLE_FONT_MED, TESTTABLE_FONT_COLOR_REGULAR, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 			usPosX += (*it).GetRequiredLength( );
@@ -574,13 +584,16 @@ TestTable::Display( )
 		{
 			usPosX = GetX( );
 
-			DisplaySmallColouredLineWithShadow( usPosX, usPosY - 2, usPosX + GetWidth( ) - SCROLLARROW_WIDTH, usPosY - 2, GetColorSeparator() );
+			const UINT16 lineEnd = GetWidth() > SCROLLARROW_WIDTH
+				? usPosX + GetWidth() - SCROLLARROW_WIDTH : usPosX;
+			DisplaySmallColouredLineWithShadow(usPosX, usPosY - 2,
+				lineEnd, usPosY - 2, GetColorSeparator());
 			
 			for ( std::vector<ColumnDataProvider>::iterator it = mColumnDataProviderVector.begin( ), itend = mColumnDataProviderVector.end(); it != itend; ++it )
 			{
 				if ( it->GetProviderType() == ColumnDataProvider::CDP_STRING )
 				{
-					swprintf( sText, ( *it ).GetString( i ) );
+					LaptopUiStateModel::CopyText(sText, (*it).GetString(i));
 
 					DrawTextToScreen( sText, usPosX, usPosY + 7, GetWidth(), TESTTABLE_FONT_MED, ( *it ).GetColour( i ), FONT_MCOLOR_BLACK, FALSE, 0 );
 				}
@@ -599,10 +612,10 @@ TestTable::Display( )
 
 					it->GetStatusBarData( i, col1, val1, col2, val2, col3, val3, col4, val4 );
 
-					UINT16 height1 = ( heightperrow * val1 ) / 100;
-					UINT16 height2 = ( heightperrow * val2 ) / 100;
-					UINT16 height3 = ( heightperrow * val3 ) / 100;
-					UINT16 height4 = ( heightperrow * val4 ) / 100;
+					UINT16 height1 = (heightperrow * std::min<UINT16>(val1, 100)) / 100;
+					UINT16 height2 = (heightperrow * std::min<UINT16>(val2, 100)) / 100;
+					UINT16 height3 = (heightperrow * std::min<UINT16>(val3, 100)) / 100;
+					UINT16 height4 = (heightperrow * std::min<UINT16>(val4, 100)) / 100;
 
 					UINT16 endY = usPosY + heightperrow - 1;
 
@@ -650,7 +663,8 @@ TestTable::Display( )
 		UINT32 totalentries = GetNumberOfDataRows( );
 
 		// do we need scrollbars in the first place?
-		if ( shownentries < totalentries )
+		if (shownentries < totalentries &&
+			GetHeight() > 2 * SCROLLARROW_HEIGTH)
 		{
 			// length of scrollbar and length of scrollbar element
 			UINT32 scrollbarheigth = GetHeight( ) - 2 * SCROLLARROW_HEIGTH;
@@ -690,16 +704,9 @@ TestTable::DestroyMouseRegions()
 		(*it).DestroyMouseRegions( );
 	}
 
-	if ( mScrollBarDefined )
+	if (mScrollBarDefined)
 	{
-		for ( UINT16 i = 0; i < 2; ++i )
-		{
-			RemoveButton( mScrollArrow[i] );
-			UnloadButtonImage( mScrollArrowImage[i] );
-		}
-
-		MSYS_RemoveRegion( &mScrollRegion );
-
+		mScrollResources.clear();
 		mScrollBarDefined = FALSE;
 	}
 
@@ -737,7 +744,10 @@ TestTable::RegionMoveCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 				if ( scrollbarheigth > 0  )
 				{					
-					FLOAT rate = (FLOAT)(pRegion->MouseYPos - GetY( ) + SCROLLARROW_HEIGTH) / (FLOAT)(scrollbarheigth);
+					const INT32 relative = std::max<INT32>(0,
+						pRegion->MouseYPos - (GetY() + SCROLLARROW_HEIGTH));
+					FLOAT rate = std::min<FLOAT>(1.0f,
+						(FLOAT)relative / (FLOAT)scrollbarheigth);
 
 					mLastEntryShown = rate * GetNumberOfDataRows();
 				}
@@ -791,6 +801,7 @@ TestTable::ButtonClickCallBack( GUI_BUTTON *btn, INT32 reason )
 				--mFirstEntryShown;
 
 			mLastEntryShown = mFirstEntryShown + GetNumberOfDataRowsShown( );
+			CalcRows();
 		}
 		// down-arrow
 		else if ( btn->IDNum == this->mScrollArrow[1] )
@@ -798,7 +809,7 @@ TestTable::ButtonClickCallBack( GUI_BUTTON *btn, INT32 reason )
 			// do slightly different things!
 			mLastEntryShown = min( mLastEntryShown + 1, GetNumberOfDataRows( ) );
 
-			mFirstEntryShown = mLastEntryShown - GetNumberOfDataRowsShown( );
+			CalcRows();
 		}
 		// this should not happen
 		else
@@ -817,19 +828,14 @@ TestTable::ButtonClickCallBack( GUI_BUTTON *btn, INT32 reason )
 void
 TestTable::CalcRows()
 {
-	// don't show more entries than exist
-	UINT32 numrows	 = GetNumberOfDataRows( );
-	UINT32 rowsshown = GetNumberOfDataRowsShown( );
-
-	mLastEntryShown = max( mLastEntryShown, rowsshown );
-	mLastEntryShown = min( mLastEntryShown, numrows );
-
-	if ( mLastEntryShown > rowsshown )
-		mFirstEntryShown = mLastEntryShown - rowsshown;
-	else
-		mFirstEntryShown = 0;
-
-	mLastEntryShown = mFirstEntryShown + rowsshown;
+	const std::size_t numrows = GetNumberOfDataRows();
+	const std::size_t rowsshown = GetNumberOfDataRowsShown();
+	mFirstEntryShown = static_cast<UINT32>(
+		LaptopUiStateModel::NormalizeWindowStart(
+			numrows, rowsshown, mLastEntryShown));
+	mLastEntryShown = static_cast<UINT32>(
+		LaptopUiStateModel::NormalizeWindowEnd(
+			numrows, rowsshown, mLastEntryShown));
 }
 
 void
@@ -839,30 +845,38 @@ TestTable::CreateScrollAreaButtons( )
 	{
 		if ( IsMouseRegionActive() )
 		{
+			LaptopPageResourceOwner stagedResources;
 			MSYS_DefineRegion( &mScrollRegion, GetX( ) + GetWidth( ) - SCROLLARROW_WIDTH - 2, GetY( ), GetX( ) + GetWidth( ) - 2, GetY( ) + GetHeight( ) - 2, MSYS_PRIORITY_HIGHEST,
 							   CURSOR_WWW,
 							   RegionCallBackWrapper( (void*) this, CALLBACK_REGION_MOVE, &RegionDummyfunc ),
 							   RegionCallBackWrapper( (void*) this, CALLBACK_REGION_CLICK, &RegionDummyfunc ) );
-			MSYS_AddRegion( &mScrollRegion );
+			if (!stagedResources.addRegion(mScrollRegion)) return;
 			MSYS_SetRegionUserData( &mScrollRegion, 0, 0 );
 
-			mScrollArrowImage[0] = LoadButtonImage( "INTERFACE\\HelpScreen.sti", 14, 10, 11, 12, 13 );
-			mScrollArrowImage[1] = UseLoadedButtonImage( mScrollArrowImage[0], 19, 15, 16, 17, 18 );
+			if (!stagedResources.addButtonImage(LoadButtonImageOwned(
+				"INTERFACE\\HelpScreen.sti", 14, 10, 11, 12, 13),
+				mScrollArrowImage[0])) return;
+			if (!stagedResources.addButtonImage(UniqueButtonImageHandle(
+				UseLoadedButtonImage(mScrollArrowImage[0], 19, 15, 16, 17, 18)),
+				mScrollArrowImage[1])) return;
 
 			//Create the scroll arrows
-			mScrollArrow[0] = QuickCreateButton( mScrollArrowImage[0], GetX( ) + GetWidth( ) - SCROLLARROW_WIDTH - 2, GetY( ),
-												 BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST,
-												 ButtonCallBackWrapper( (void*) this, CALLBACK_BUTTON_MOVE, &ButtonDummyfunc ),
-												 ButtonCallBackWrapper( (void*) this, CALLBACK_BUTTON_CLICK, &ButtonDummyfunc ) );
+			const INT32 upButton = QuickCreateButton( mScrollArrowImage[0], GetX( ) + GetWidth( ) - SCROLLARROW_WIDTH - 2, GetY( ),
+											 BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST,
+											 ButtonCallBackWrapper( (void*) this, CALLBACK_BUTTON_MOVE, &ButtonDummyfunc ),
+											 ButtonCallBackWrapper( (void*) this, CALLBACK_BUTTON_CLICK, &ButtonDummyfunc ) );
+			if (!stagedResources.addButton(upButton, mScrollArrow[0])) return;
 			MSYS_SetBtnUserData( mScrollArrow[0], 0, 0 );
 
 			//Create the scroll arrows
-			mScrollArrow[1] = QuickCreateButton( mScrollArrowImage[1], GetX( ) + GetWidth( ) - SCROLLARROW_WIDTH - 2, GetY( ) + GetHeight( ) - SCROLLARROW_HEIGTH - 2,
-												 BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST,
-												 ButtonCallBackWrapper( (void*) this, CALLBACK_BUTTON_MOVE, &ButtonDummyfunc ),
-												 ButtonCallBackWrapper( (void*) this, CALLBACK_BUTTON_CLICK, &ButtonDummyfunc ) );
+			const INT32 downButton = QuickCreateButton( mScrollArrowImage[1], GetX( ) + GetWidth( ) - SCROLLARROW_WIDTH - 2, GetY( ) + GetHeight( ) - SCROLLARROW_HEIGTH - 2,
+											 BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST,
+											 ButtonCallBackWrapper( (void*) this, CALLBACK_BUTTON_MOVE, &ButtonDummyfunc ),
+											 ButtonCallBackWrapper( (void*) this, CALLBACK_BUTTON_CLICK, &ButtonDummyfunc ) );
+			if (!stagedResources.addButton(downButton, mScrollArrow[1])) return;
 			MSYS_SetBtnUserData( mScrollArrow[1], 0, 1 );
 
+			mScrollResources = std::move(stagedResources);
 			mScrollBarDefined = TRUE;
 		}
 		else
@@ -871,7 +885,7 @@ TestTable::CreateScrollAreaButtons( )
 			HVOBJECT	hArrowHandle;
 
 			//get and display the up and down arrows
-			GetVideoObject( &hArrowHandle, guiHelpScreenBackGround );
+			GetVideoObject( &hArrowHandle, mHelpScreenBackground );
 
 			if ( hArrowHandle )
 			{
