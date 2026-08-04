@@ -1908,6 +1908,7 @@ RecordPtr GetFirstRecordOnThisPage( RecordPtr RecordList, INT32 iFont, UINT16 us
 	// while we are not on the current page
 	while( iCurrentPage < iPage )
 	{
+		const RecordPtr firstRecordOnPage = CurrentRecord;
 		// build record list to this point
 		while( ( iCurrentPositionOnThisPage + IanWrappedStringHeight(0, 0, usWidth, ubGap,
 															iFont, 0, CurrentRecord->pRecord,
@@ -1927,6 +1928,14 @@ RecordPtr GetFirstRecordOnThisPage( RecordPtr RecordList, INT32 iFont, UINT16 us
 			{
 				return( CurrentRecord );
 			}
+		}
+		// A single localized/XML record may be taller than the page. It still
+		// owns one page; force progress so callers cannot loop forever while
+		// counting or building the remaining email pages.
+		if (CurrentRecord == firstRecordOnPage)
+		{
+			CurrentRecord = CurrentRecord->Next;
+			if (!CurrentRecord) return nullptr;
 		}
 
 		// reset position

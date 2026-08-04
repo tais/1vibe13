@@ -1094,6 +1094,23 @@ the engine must not contain SDL types in its public domain model.
   architecture/ASan ratchets cover malformed, empty, stale, exact-end,
   overflow, and early-campaign cases while preserving all established finance,
   history, quest, save, XML, Lua, and campaign-content records.
+- Laptop email now owns the base inbox, opened-message viewer, new-mail modal,
+  and delete confirmation as four independent resource transactions.
+  `LaptopEmailListModel` provides dependency-free inbox/body pagination,
+  stale-page and signed/exact-end bounds, fixed-width persistence checks,
+  bounded text operations, Wildfire subject mapping, and stable newest-unread
+  ordering. Message insertion, deletion, explicit page rebuilding, and save
+  replacement stage a complete page topology before publishing it; failed
+  allocation or malformed input therefore leaves the live inbox intact.
+  Scoped exact FileMan adapters validate subject byte sizes, termination,
+  unique IDs, counts, and metadata before replacing saved state. Viewer paths
+  bound profile and record indices, cap the fixed body-page table, and force
+  pagination progress for an oversized record. Sorts move the complete message
+  payload, and all localized/saved text is bounded and rendered through an
+  explicit format. Focused data-free tests plus architecture and ASan ratchets
+  cover those boundaries while preserving `Email.edt`/`Email25.edt`, XML IDs,
+  sender bytes, substitution tags, save structures, campaign policy, artwork,
+  and the 82-common/16-variant Laptop partition.
 - A.I.M. page resources now cross one transactional ownership boundary.
   `ResourceHandleSet` is dependency-free and commits move-only handles as a
   complete set; `UniqueResourceHandle` supports both unsigned-zero and signed

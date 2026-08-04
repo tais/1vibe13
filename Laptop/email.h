@@ -792,7 +792,7 @@ void RenderEmail();
 
 // message manipulation
 void AddEmailMessage(INT32 iMessageOffset, INT32 iMessageLength,STR16 pSubject, INT32 iDate, UINT8 ubSender, BOOLEAN fAlreadyRead, INT32 iFirstData, UINT32 uiSecondData, INT32 iThirdData, INT32 iFourthData, UINT32 uiFifthData, UINT32 uiSixData, INT32 iCurrentIMPPosition, INT16 iCurrentShipmentDestinationID, UINT8 EmailType, UINT32 EmailAIM );
-void RemoveEmailMessage(INT32 iId);
+BOOLEAN RemoveEmailMessage(INT32 iId);
 EmailPtr GetEmailMessage(INT32 iId);
 void LookForUnread();
 
@@ -804,11 +804,10 @@ BOOLEAN DisplayNewMailBox();
 void CreateDestroyNewMailButton();
 void CreateDestroyDeleteNoticeMailButton();
 void AddDeleteRegionsToMessageRegion(INT32 iViewerY);
-void DisplayEmailHeaders( void );
 void ReDrawNewMailBox( void );
 void ReDisplayBoxes( void );
 void ShutDownEmailList();
-void AddMessageToPages(INT32 iMessageId);
+BOOLEAN ReplaceEmailListFromSavedGame(EmailPtr loadedEmailList);
 
 #ifdef JA2BETAVERSION
 	void AddAllEmails();
