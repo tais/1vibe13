@@ -121,6 +121,15 @@ quest behavior, Lua/XML interfaces, and campaign content remain unchanged;
 malformed tails, stale pages, overflow, partial publication, borrowed handles,
 and the retired corrupt history page writer are rejected above the runtime
 campaign boundary.
+The email ownership batch retains that shared/variant split and the existing
+runtime communications policy. Four scoped resource transactions now cover the
+inbox and its transient modes, while dependency-free page, index, serialized-
+width, fixed-text, and unread-order rules protect the mutable list. Complete
+page topology and loaded-message replacements are staged before publication;
+exact FileMan adapters reject malformed or duplicate saved records without
+discarding the live inbox. The established email catalogs, XML identifiers,
+sender and substitution semantics, save structures, artwork, and campaign
+behavior remain unchanged.
 
 ## Literal remaining tail
 

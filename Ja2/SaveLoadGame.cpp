@@ -9,6 +9,7 @@
 #include "FileMan.h"
 #include "SaveSerializer.h"
 #include <cstddef>      // offsetof
+#include <cstring>
 #include <memory>
 #include <string>
 #include <string.h>
@@ -22,6 +23,8 @@
 #include "Font.h"
 #include "Font Control.h"
 #include "email.h"
+#include "LaptopEmailListModel.h"
+#include "LaptopRecordFile.h"
 #include "strategicmap.h"
 #include "Game Events.h"
 #include "Game Clock.h"
@@ -6722,56 +6725,48 @@ BOOLEAN LoadFilesFromSavedGame( STR pSrcFileName, HWFILE hFile )
 BOOLEAN SaveEmailToSavedGame( HWFILE hFile )
 {
 	UINT32	uiNumOfEmails=0;
-	UINT32		uiSizeOfEmails=0;
 	EmailPtr	pEmail = pEmailList;
 	UINT32	cnt;
 	UINT32	uiStringLength=0;
-	UINT32	uiNumBytesWritten=0;
-
-	SavedEmailStruct SavedEmail;
 
 	//loop through all the email to find out the total number
 	while(pEmail)
 	{
-		if ( uiNumOfEmails < EMAIL_VAL ) gEmailT[ uiNumOfEmails ].EmailVersion = 0; //reset
-		if ( uiNumOfEmails < EMAIL_VAL ) gEmailT[ uiNumOfEmails ].EmailVersion = pEmail->EmailVersion;
+		if (uiNumOfEmails < EMAIL_VAL)
+		{
+			gEmailT[uiNumOfEmails] = {};
+			gEmailT[uiNumOfEmails].EmailVersion = pEmail->EmailVersion;
+			gEmailT[uiNumOfEmails].EmailType = pEmail->EmailType;
+		}
 		pEmail=pEmail->Next;
 		uiNumOfEmails++;
+		if (uiNumOfEmails > EMAIL_VAL) return FALSE;
 	}
-
-	uiSizeOfEmails = sizeof( Email ) * uiNumOfEmails;
 
 	//write the number of email messages
-	FileWrite( hFile, &uiNumOfEmails, sizeof( UINT32 ), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( UINT32 ) )
-	{
-		return(FALSE);
-	}
+	if (!WriteLaptopFileExact(
+			hFile, &uiNumOfEmails, sizeof(uiNumOfEmails))) return FALSE;
 
 	//loop trhough all the emails, add each one individually
 	pEmail = pEmailList;
 	for( cnt=0; cnt<uiNumOfEmails; ++cnt)
 	{
-		//Get the strng length of the subject. sizeof(CHAR16), not a hardcoded 2:
-		//CHAR16/wchar_t is 4 bytes on macOS/Linux, so *2 truncated the subject to
-		//half length and stored no full terminator.
-		uiStringLength = ( wcslen( pEmail->pSubject ) + 1 ) * sizeof( CHAR16 );
+		std::size_t subjectLength = 0;
+		if (!pEmail || !LaptopEmailListModel::BoundedLength(
+				pEmail->pSubject, MAIL_STRING_SIZE - 1, subjectLength)) return FALSE;
+		uiStringLength = static_cast<UINT32>(
+			(subjectLength + 1) * sizeof(CHAR16));
 
 		//write the length of the current emails subject to the saved game file
-		FileWrite( hFile, &uiStringLength, sizeof( UINT32 ), &uiNumBytesWritten );
-		if( uiNumBytesWritten != sizeof( UINT32 ) )
-		{
-			return(FALSE);
-		}
+		if (!WriteLaptopFileExact(
+				hFile, &uiStringLength, sizeof(uiStringLength))) return FALSE;
 
 		//write the subject of the current email to the saved game file
-		FileWrite( hFile, pEmail->pSubject, uiStringLength, &uiNumBytesWritten );
-		if( uiNumBytesWritten != uiStringLength )
-		{
-			return(FALSE);
-		}
+		if (!WriteLaptopFileExact(
+				hFile, pEmail->pSubject, uiStringLength)) return FALSE;
 
 		//Get the current emails data and asign it to the 'Saved email' struct
+		SavedEmailStruct SavedEmail{};
 		SavedEmail.usOffset = pEmail->usOffset;
 		SavedEmail.usLength = pEmail->usLength;
 		SavedEmail.ubSender = pEmail->ubSender;
@@ -6791,11 +6786,8 @@ BOOLEAN SaveEmailToSavedGame( HWFILE hFile )
 		SavedEmail.iCurrentShipmentDestinationID = pEmail->iCurrentShipmentDestinationID;
 
 		// write the email header to the saved game file
-		FileWrite( hFile, &SavedEmail, sizeof( SavedEmailStruct ), &uiNumBytesWritten );
-		if( uiNumBytesWritten != sizeof( SavedEmailStruct ) )
-		{
-			return(FALSE);
-		}
+		if (!WriteLaptopFileExact(
+				hFile, &SavedEmail, sizeof(SavedEmail))) return FALSE;
 
 		//advance to the next email
 		pEmail = pEmail->Next;
@@ -6813,68 +6805,56 @@ struct SavedEmailSubjectAllocationDeleter
 	}
 };
 
+struct LoadedEmailListDeleter
+{
+	void operator()(EmailPtr email) const noexcept
+	{
+		while (email)
+		{
+			EmailPtr next = email->Next;
+			if (email->pSubject) MemFree(email->pSubject);
+			MemFree(email);
+			email = next;
+		}
+	}
+};
+
 BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 {
 	UINT32		uiNumOfEmails=0;
 	UINT32		uiSizeOfSubject=0;
-	EmailPtr	pEmail = pEmailList;
-	EmailPtr	pTempEmail = NULL;
+	EmailPtr tail = nullptr;
+	std::unique_ptr<Email, LoadedEmailListDeleter> loadedEmails;
 	std::unique_ptr<CHAR16, SavedEmailSubjectAllocationDeleter> subject;
 	UINT32		cnt;
-	SavedEmailStruct SavedEmail;
-	UINT32		uiNumBytesRead=0;
-
-	//Delete the existing list of emails
-	ShutDownEmailList();
-
-	pEmailList = NULL;
-	//Allocate memory for the header node
-	pEmailList = (EmailPtr) MemAlloc( sizeof( Email ) );
-	if( pEmailList == NULL )
-		return( FALSE );
-
-	memset( pEmailList, 0, sizeof( Email ) );
 
 	//read in the number of email messages
-	FileRead( hFile, &uiNumOfEmails, sizeof( UINT32 ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( UINT32 ) )
-	{
-		return(FALSE);
-	}
+	if (!ReadLaptopFileExact(
+			hFile, &uiNumOfEmails, sizeof(uiNumOfEmails)) ||
+		uiNumOfEmails > EMAIL_VAL) return FALSE;
 
 	//loop through all the emails, add each one individually
-	pEmail = pEmailList;
 	for( cnt=0; cnt<uiNumOfEmails; cnt++)
 	{
 		//get the length of the email subject
-		FileRead( hFile, &uiSizeOfSubject, sizeof( UINT32 ), &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( UINT32 ) )
-		{
-			return(FALSE);
-		}
+		if (!ReadLaptopFileExact(
+				hFile, &uiSizeOfSubject, sizeof(uiSizeOfSubject)) ||
+			!LaptopEmailListModel::IsSerializedSubjectSizeValid(
+				uiSizeOfSubject, sizeof(CHAR16), MAIL_STRING_SIZE - 1))
+			return FALSE;
 
 		//allocate space for the subject
 		subject.reset(static_cast<CHAR16*>(
-			MemAlloc(EMAIL_SUBJECT_LENGTH * sizeof(CHAR16))));
-		if (!subject)
-			return( FALSE );
-		memset(subject.get(), 0, EMAIL_SUBJECT_LENGTH * sizeof(CHAR16));
-
-		//Get the subject. Guard against a stored length that would overflow the
-		//fixed buffer (corrupt or cross-platform save); the memset above keeps it
-		//null-terminated.
-		if( uiSizeOfSubject > EMAIL_SUBJECT_LENGTH * sizeof( CHAR16 ) )
-		{
-			return(FALSE);
-		}
-		FileRead(hFile, subject.get(), uiSizeOfSubject, &uiNumBytesRead);
-		if( uiNumBytesRead != uiSizeOfSubject )
-		{
-			return(FALSE);
-		}
+			MemAlloc(uiSizeOfSubject)));
+		if (!subject || !ReadLaptopFileExact(
+				hFile, subject.get(), uiSizeOfSubject)) return FALSE;
+		const std::size_t subjectCharacters =
+			uiSizeOfSubject / sizeof(CHAR16);
+		if (subject.get()[subjectCharacters - 1] != L'\0') return FALSE;
 
 		//CHRISL: Adjust this so we can change the SavedEmailStruct without hurting savegame compatability
- 		//get the rest of the data from the email
+		//get the rest of the data from the email
+		SavedEmailStruct SavedEmail{};
 		INT32	numBytesRead = 0, temp;
 		numBytesRead = ReadFieldByField(hFile, &SavedEmail.usOffset, sizeof(SavedEmail.usOffset), sizeof(UINT16), numBytesRead);
 		numBytesRead = ReadFieldByField(hFile, &SavedEmail.usLength, sizeof(SavedEmail.usLength), sizeof(UINT16), numBytesRead);
@@ -6904,63 +6884,52 @@ BOOLEAN LoadEmailFromSavedGame( HWFILE hFile )
 		{
 			return(FALSE);
 		}
+		if (!LaptopEmailListModel::IsIndexInRange(
+				SavedEmail.iId, EMAIL_VAL)) return FALSE;
+		for (EmailPtr existing = loadedEmails.get(); existing;
+			existing = existing->Next)
+		{
+			if (existing->iId == SavedEmail.iId) return FALSE;
+		}
 
 		//
 		//add the email
 		//
 
 		//if we havent allocated space yet
-		pTempEmail = (EmailPtr) MemAlloc( sizeof( Email ) );
-		if( pTempEmail == NULL )
-			return( FALSE );
-		memset( pTempEmail, 0, sizeof( Email ) );
-
-		pTempEmail->usOffset = SavedEmail.usOffset;
-		pTempEmail->usLength = SavedEmail.usLength;
-		pTempEmail->ubSender = SavedEmail.ubSender;
-		pTempEmail->iDate = SavedEmail.iDate;
-		pTempEmail->iId = SavedEmail.iId;
-		pTempEmail->fRead = SavedEmail.fRead;
-		pTempEmail->fNew = SavedEmail.fNew;
-		pTempEmail->pSubject = subject.release();
-		pTempEmail->iFirstData = SavedEmail.iFirstData;
-		pTempEmail->uiSecondData = SavedEmail.uiSecondData;
-		pTempEmail->iThirdData = SavedEmail.iThirdData;
-		pTempEmail->iFourthData = SavedEmail.iFourthData;
-		pTempEmail->uiFifthData = SavedEmail.uiFifthData;
-		pTempEmail->uiSixData = SavedEmail.uiSixData;
-		pTempEmail->iCurrentIMPPosition = SavedEmail.iCurrentIMPPosition;
+		EmailPtr loadedEmail = static_cast<EmailPtr>(MemAlloc(sizeof(Email)));
+		if (!loadedEmail) return FALSE;
+		std::memset(loadedEmail, 0, sizeof(Email));
+		loadedEmail->usOffset = SavedEmail.usOffset;
+		loadedEmail->usLength = SavedEmail.usLength;
+		loadedEmail->ubSender = SavedEmail.ubSender;
+		loadedEmail->iDate = SavedEmail.iDate;
+		loadedEmail->iId = SavedEmail.iId;
+		loadedEmail->fRead = SavedEmail.fRead;
+		loadedEmail->fNew = SavedEmail.fNew;
+		loadedEmail->pSubject = subject.release();
+		loadedEmail->iFirstData = SavedEmail.iFirstData;
+		loadedEmail->uiSecondData = SavedEmail.uiSecondData;
+		loadedEmail->iThirdData = SavedEmail.iThirdData;
+		loadedEmail->iFourthData = SavedEmail.iFourthData;
+		loadedEmail->uiFifthData = SavedEmail.uiFifthData;
+		loadedEmail->uiSixData = SavedEmail.uiSixData;
+		loadedEmail->iCurrentIMPPosition = SavedEmail.iCurrentIMPPosition;
 
 		// WANNE.MAIL: Fix
-		pTempEmail->iCurrentShipmentDestinationID = SavedEmail.iCurrentShipmentDestinationID;
+		loadedEmail->iCurrentShipmentDestinationID =
+			SavedEmail.iCurrentShipmentDestinationID;
 
 		//add the current email in
-		pEmail->Next = pTempEmail;
-		pTempEmail->Prev = pEmail;
-
-		//moved to the next email
-		pEmail = pEmail->Next;
-
-		AddMessageToPages( pTempEmail->iId );
-
+		loadedEmail->Prev = tail;
+		if (tail) tail->Next = loadedEmail;
+		else loadedEmails.reset(loadedEmail);
+		tail = loadedEmail;
 	}
 
-	//if there are emails
-	if( cnt )
-	{
-		//the first node of the LL was a dummy, node,get rid	of it
-		pTempEmail = pEmailList;
-		pEmailList = pEmailList->Next;
-		pEmailList->Prev = NULL;
-		MemFree( pTempEmail );
-	}
-	else
-	{
-		MemFree( pEmailList );
-		pEmailList = NULL;
-	}
-
-	return( TRUE );
+	if (!ReplaceEmailListFromSavedGame(loadedEmails.get())) return FALSE;
+	loadedEmails.release();
+	return TRUE;
 }
 
 

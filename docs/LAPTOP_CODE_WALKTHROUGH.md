@@ -595,15 +595,70 @@ overflow, signed balance and summary overflow, and legacy day adjustment.
 Architecture CI pins both owners, exact-I/O integration, safe navigation, test
 admission, and removal of the superseded paths.
 
+## Email ownership, mutable inbox, and persistence batch
+
+The thirteenth cohesive batch treats the inbox, opened-message viewer, new-mail
+notification, and delete confirmation as one ownership domain. Four independent
+`LaptopPageResourceOwner` transactions cover the base page and each transient
+mode, so a failed image, button, or region acquisition rolls back without
+publishing a half-entered screen and a later entry can retry. The
+dependency-free `LaptopEmailListModel` supplies inbox and body page counts,
+stale-page normalization, signed/exact-end index validation, persisted-width
+checks, bounded fixed-buffer text operations, and deterministic unread-message
+ordering.
+
+Confirmed faults fixed by this batch include:
+
+- partial page or modal entry leaked graphics and input registrations, while
+  teardown could remove buttons after their backing images;
+- new-mail rendering shadowed the persisted modal-state flag with a separate
+  function-static value, while two other page/button-state flags were write-only;
+- insertion published a message before rebuilding its page list, deletion
+  destroyed the live node before allocation could succeed, and save loading
+  discarded the current inbox before validating its replacement;
+- malformed subject sizes and IDs could allocate or index outside the fixed
+  legacy contracts, and email metadata restored version but not type;
+- the newest-unread command selected the oldest message, sorting exchanged
+  only part of a message payload, and stale saved page/row state could select a
+  missing page or exact-end message;
+- Wildfire subject selection could underflow an eight-bit record number, while
+  profile-backed sender and IMP-result paths accepted invalid profile indices;
+- an oversized single body record could prevent page construction from making
+  progress, and the body-page table could overrun its fixed sentinel slot;
+- several localized or saved strings were copied or appended without a bound,
+  and runtime email text could be interpreted as a variadic format string; and
+- the merc-available body path requested more than 170 records even though it
+  only selected one of two bodies.
+
+Message insertion, removal, explicit page rebuilding, and save replacement now
+stage a complete page topology before publishing it. Save/load uses scoped
+exact I/O, validates counts, IDs, subject alignment and termination, rejects
+duplicates, restores both metadata fields, and keeps the live inbox untouched
+on failure. Viewer preprocessing bounds profile and record access, normalizes
+body pages, and forces progress for a record taller than one page. Sorting now
+moves the complete persisted and presentation payload together, and the
+newest-unread choice is stable by date then message ID.
+
+The existing `Email.edt`/`Email25.edt`, XML identifiers, sender bytes,
+substitution tags, fixed save structures, campaign policy, artwork, and
+82-common/16-variant Laptop partition are unchanged. A dedicated headless
+target covers empty, stale, exact-end, overflow, malformed-size, fixed-buffer,
+body-page, Wildfire-offset, and unread-order cases. Architecture CI pins the
+four owners, staged list/page publication, exact persistence, safe rendering,
+test admission, and removal of the superseded resource and list paths. The
+focused analyzer pass over `email.cpp` is clean; the adjoining save/load pass
+reports no finding in the email persistence region.
+
 ## Remaining walkthrough
 
 The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., Florist/Funeral,
-Insurance, Bobby Ray, and finance/history ownership slices are complete. The
-remaining audit queue is deliberately grouped into larger reviewable batches:
+Insurance, Bobby Ray, finance/history, and email ownership slices are complete.
+The remaining audit queue is deliberately grouped into larger reviewable
+batches:
 
 1. Extend scoped video, surface, button-image, button, and temporary-render
-   ownership from the completed site and finance/history clusters across every
-   remaining Laptop page, beginning with email and its mutable message list.
+   ownership from the completed site, ledger, and email clusters across every
+   remaining Laptop page, beginning with Personnel and its mutable roster.
 2. Extend the completed site-cluster mouse-region and re-entry audit across
    the remaining pages, especially empty data and callback-driven mutation.
 3. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
@@ -614,9 +669,9 @@ remaining audit queue is deliberately grouped into larger reviewable batches:
    failed, and repeated visits start from a documented state.
 6. Verify every remaining fixed array and paginated list against negative,
    exact-end, empty, and stale-selection cases.
-7. Audit pointer and iterator lifetimes in the remaining mutable email and
-   personnel UI collections after callbacks mutate them.
-8. Make email and remaining hire side effects transactional wherever a Laptop
+7. Audit pointer and iterator lifetimes in the remaining mutable Personnel UI
+   collections after callbacks mutate them.
+8. Make remaining hire and roster side effects transactional wherever a Laptop
    workflow can fail after partially committing an operation.
 9. Run a final domain-wide static-analysis/warning pass, remove superseded
     dead paths, and convert every confirmed finding into a focused regression

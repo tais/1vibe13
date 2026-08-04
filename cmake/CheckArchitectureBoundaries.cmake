@@ -2823,6 +2823,177 @@ foreach(required_laptop_record_page_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# Email owns one mutable inbox/page graph plus several independently replaced
+# UI overlays. Keep its bounds and text rules dependency-free, its resource
+# acquisition transactional, and its save publication staged.
+file(READ "${SOURCE_ROOT}/Laptop/LaptopEmailListModel.h"
+  runtime_laptop_email_list_model_contents)
+foreach(required_laptop_email_list_model_fragment IN ITEMS
+    "NormalizeInboxPage"
+    "IsIndexInRange"
+    "CanStoreUnsigned16"
+    "CanAppendMessage"
+    "IsMoreRecent"
+    "WildfireSubjectLine"
+    "NormalizeBodyPage"
+    "HasNextBodyPage"
+    "CopyText"
+    "AppendText"
+    "BoundedLength"
+    "IsSerializedSubjectSizeValid")
+  string(FIND "${runtime_laptop_email_list_model_contents}"
+    "${required_laptop_email_list_model_fragment}"
+    required_laptop_email_list_model_position)
+  if(required_laptop_email_list_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop email-list model lost '${required_laptop_email_list_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/email.cpp" runtime_laptop_email_contents)
+foreach(required_laptop_email_safety_fragment IN ITEMS
+    "gEmailPageResources"
+    "gEmailMessageResources"
+    "gEmailNewMailResources"
+    "gEmailDeleteResources"
+    "BuildEmailPages"
+    "CommitEmailPages"
+    "ReplaceEmailListFromSavedGame"
+    "NormalizeInboxPage"
+    "WildfireSubjectLine"
+    "NormalizeBodyPage"
+    "CopyEmailText"
+    "gEmailRecordBuildFailed"
+    "IsMoreRecent"
+    "WriteLaptopFileExact"
+    "ReadLaptopFileExact"
+    "pA->iFirstData"
+    "pA->iCurrentShipmentDestinationID"
+	"An indivisible record taller than a page"
+    "pEmail->EmailType = gEmailT[uiNumOfEmails].EmailType")
+  string(FIND "${runtime_laptop_email_contents}"
+    "${required_laptop_email_safety_fragment}"
+    required_laptop_email_safety_position)
+  if(required_laptop_email_safety_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop email safety lost '${required_laptop_email_safety_fragment}'")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "AddVideoObject[ \t\r\n]*\\(|DeleteVideoObjectFromIndex[ \t\r\n]*\\(|LoadButtonImage[ \t\r\n]*\\(|UnloadButtonImage[ \t\r\n]*\\(|RemoveButton[ \t\r\n]*\\(|MSYS_(Add|Remove)Region[ \t\r\n]*\\("
+  raw_laptop_email_resource_lifecycle "${runtime_laptop_email_contents}")
+if(raw_laptop_email_resource_lifecycle)
+  message(FATAL_ERROR
+    "Laptop email restored open-coded resource lifecycle '${raw_laptop_email_resource_lifecycle}'")
+endif()
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])File(Read|Write)[ \t\r\n]*\\("
+  raw_laptop_email_file_io "${runtime_laptop_email_contents}")
+if(raw_laptop_email_file_io)
+  message(FATAL_ERROR
+    "Laptop email bypassed exact file I/O '${raw_laptop_email_file_io}'")
+endif()
+string(REGEX MATCH
+  "mprintf[ \t\r\n]*\\([^,\r\n]+,[^,\r\n]+,[ \t\r\n]*[A-KM-Za-km-z_][A-Za-z0-9_]*(\\[[^]]*\\])?[ \t\r\n]*\\)"
+  unsafe_laptop_email_render_format "${runtime_laptop_email_contents}")
+if(unsafe_laptop_email_render_format)
+  message(FATAL_ERROR
+    "Laptop email restored a variable render format '${unsafe_laptop_email_render_format}'")
+endif()
+string(REGEX MATCH "(^|[^A-Za-z0-9_])(wcs(cpy|ncpy|cat|ncat)|swprintf)[ \t\r\n]*\\("
+  unsafe_laptop_email_text_copy "${runtime_laptop_email_contents}")
+if(unsafe_laptop_email_text_copy)
+  message(FATAL_ERROR
+    "Laptop email restored an unbounded text operation '${unsafe_laptop_email_text_copy}'")
+endif()
+
+foreach(retired_laptop_email_fragment IN ITEMS
+    "AddEmailPage"
+    "RemoveEmailPage"
+    "AddMessageToPages"
+    "ReplaceBiffNameWithProperMercName"
+    "CreateDestroyNextPreviousRegions"
+    "DestroyMailScreenButtons"
+    "DisplayEmailHeaders"
+    "fJustStartedEmail"
+    "gfPageButtonsWereCreated"
+    "static BOOLEAN fOldNewMailFlag")
+  string(FIND "${runtime_laptop_email_contents}"
+    "${retired_laptop_email_fragment}" retired_laptop_email_position)
+  if(NOT retired_laptop_email_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop email restored retired path '${retired_laptop_email_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  runtime_save_load_game_contents)
+foreach(required_laptop_email_save_fragment IN ITEMS
+    "LoadedEmailListDeleter"
+    "IsSerializedSubjectSizeValid"
+    "ReadLaptopFileExact"
+    "WriteLaptopFileExact"
+    "ReplaceEmailListFromSavedGame(loadedEmails.get())")
+  string(FIND "${runtime_save_load_game_contents}"
+    "${required_laptop_email_save_fragment}"
+    required_laptop_email_save_position)
+  if(required_laptop_email_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop email save boundary lost '${required_laptop_email_save_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/WordWrap.cpp"
+  runtime_word_wrap_contents)
+string(FIND "${runtime_word_wrap_contents}"
+  "if (CurrentRecord == firstRecordOnPage)"
+  email_oversized_record_progress_position)
+if(email_oversized_record_progress_position EQUAL -1)
+  message(FATAL_ERROR
+    "Email pagination lost oversized-record progress protection")
+endif()
+
+foreach(required_laptop_email_test_build_fragment IN ITEMS
+    "laptop_email_list_model_tests.cpp"
+    "laptop_email_list_model")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_laptop_email_test_build_fragment}"
+    required_laptop_email_test_build_position)
+  if(required_laptop_email_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop email-list model lost its focused test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "laptop_email_list_model_tests" runtime_laptop_email_ci_position)
+if(runtime_laptop_email_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Laptop email-list model target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_email_list_model_tests.cpp"
+  runtime_laptop_email_test_contents)
+foreach(required_laptop_email_test_fragment IN ITEMS
+    "Inbox page counts handle empty and exact-page message sets"
+    "Saved inbox pages normalize empty and stale values"
+    "Profile and message indices reject negative and exact-end values"
+    "Persisted email offsets reject narrowing and negative values"
+    "Message ID generation rejects capacity and signed overflow"
+    "Most-recent unread selection uses date then message ID"
+    "Wildfire subjects reject underflow and preserve paired indices"
+    "Message body pages reserve a bounded sentinel entry"
+    "Fixed email text copies terminate exact, long, and null inputs"
+    "Subject bounds reject unterminated and malformed serialized text")
+  string(FIND "${runtime_laptop_email_test_contents}"
+    "${required_laptop_email_test_fragment}"
+    required_laptop_email_test_position)
+  if(required_laptop_email_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop email-list tests lost '${required_laptop_email_test_fragment}'")
+  endif()
+endforeach()
+
 foreach(required_laptop_campaign_content_test_fragment IN ITEMS
     "laptop_campaign_content_policy_tests.cpp"
     "laptop_campaign_content_policy")

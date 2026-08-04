@@ -369,8 +369,11 @@ fixed:
   read into a fixed buffer. *(fixed)*
 - **explosion queue count** (`TileEngine/Explosion Control.cpp`) — `UINT8` global
   read/written as `sizeof(UINT32)` → 3-byte global overflow. *(fixed)*
-- **email subject** (`Ja2/SaveLoadGame.cpp`) — `*2` wchar size; load read now
-  bounded against the fixed `EMAIL_SUBJECT_LENGTH` buffer. *(fixed)*
+- **email subject** (`Ja2/SaveLoadGame.cpp`) — legacy `*2` wchar sizing and a
+  fixed destination. Save now bounds the live subject to `MAIL_STRING_SIZE`;
+  load validates a nonzero, `sizeof(CHAR16)`-aligned byte count, allocates that
+  exact size, requires its terminator, rejects duplicate/out-of-range message
+  IDs, and publishes the staged inbox only after every record succeeds. *(fixed)*
 
 Greps for the same shapes elsewhere came up clean (e.g. `gubModderLuaData` is a
 misleadingly-named `INT32[]`, correctly serialized). Exhaustive crash-hunting is
@@ -406,7 +409,7 @@ pointer-alignment padding differs between 32- and 64-bit):
 | `SAVED_GAME_HEADER` | CHAR16 desc + GAME_OPTIONS | `wstr` desc; scalar GAME_OPTIONS as bytes; read before version gate |
 | `TacticalStatusType` | CHAR16 top-message | `wstr`; SoldierID via `.i`; scalar `Team[]` as bytes |
 | `MERCPROFILESTRUCT`, `TacticalActor`, `SOLDIERCREATE_STRUCT` | CHAR16 names | (original migration) `wstr` |
-| email subject, map-screen messages | CHAR16 `*2` | `sizeof(CHAR16)` + bounded reads |
+| email subject, map-screen messages | CHAR16 `*2` | `sizeof(CHAR16)` + exact, bounded reads; email list staged before publication |
 | `VEHICLETYPE` | ptrs (pMercPath, pPassengers) | skip; passenger profile IDs as fixed `u32` |
 | `PathSt` (vehicle/militia/merc paths) | ptrs (pNext/pPrev) | shared node helper; links rebuilt |
 | `STRATEGICEVENT` | linked-list `next`, runtime ID | EVQ2 queue section: magic/version/count plus six semantic fields per node; links and IDs rebuilt transactionally |

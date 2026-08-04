@@ -138,6 +138,16 @@ target_include_directories(laptop_record_page_model_tests
 add_test(NAME laptop_record_page_model
   COMMAND laptop_record_page_model_tests)
 
+# Email's mutable message/page lists, persisted indices, and localized buffers
+# meet at a legacy raw-storage boundary. Keep empty, stale, exact-end,
+# overflow, and truncation behavior independently executable and data-free.
+add_executable(laptop_email_list_model_tests
+  laptop_email_list_model_tests.cpp)
+target_include_directories(laptop_email_list_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME laptop_email_list_model
+  COMMAND laptop_email_list_model_tests)
+
 # XML callbacks receive text in arbitrary chunks. Keep accumulation, strict
 # integer narrowing, explicit legacy-byte sentinels, index validation, and
 # fixed-buffer copying data-free.

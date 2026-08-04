@@ -3838,12 +3838,6 @@ void DrawButtonText()
 	if(fErrorFlag)
 		DrawTextOnErrorButton();
 
-	switch(guiCurrentLaptopMode)
-	{
-		case LAPTOP_MODE_EMAIL:
-			DisplayEmailHeaders( );
-			break;
-	}
 }
 
 void InitBookMarkList()
