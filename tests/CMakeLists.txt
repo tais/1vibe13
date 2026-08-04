@@ -82,6 +82,15 @@ target_include_directories(laptop_communications_policy_tests
 add_test(NAME laptop_communications_policy
   COMMAND laptop_communications_policy_tests)
 
+# Insurance page navigation, purchase validation, coverage arithmetic, and
+# payout counts must remain safe without the legacy UI or campaign globals.
+add_executable(insurance_site_model_tests
+  insurance_site_model_tests.cpp)
+target_include_directories(insurance_site_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME insurance_site_model
+  COMMAND insurance_site_model_tests)
+
 # File-viewer briefings/artwork and history quest text are selected at runtime.
 # This data-free target pins both campaigns and every optional-asset fallback,
 # including paired quest start/completion record indices.

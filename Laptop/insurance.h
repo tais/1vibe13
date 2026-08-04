@@ -21,6 +21,7 @@
 #define		INS_INFO_RIGHT_ARROW_BUTTON_X			409 + LAPTOP_SCREEN_UL_X
 #define		INS_INFO_RIGHT_ARROW_BUTTON_Y			INS_INFO_LEFT_ARROW_BUTTON_Y
 
+class LaptopPageResourceOwner;
 
 
 void GameInitInsurance();
@@ -29,9 +30,8 @@ void ExitInsurance();
 void HandleInsurance();
 void RenderInsurance();
 
-BOOLEAN InitInsuranceDefaults();
+BOOLEAN AddInsuranceDefaults(LaptopPageResourceOwner& owner);
 void DisplayInsuranceDefaults();
-void RemoveInsuranceDefaults();
 void DisplaySmallColouredLineWithShadow( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, UINT32 colour = FROMRGB( 255, 0, 0 ) );
 void GetInsuranceText( UINT8 ubNumber, CHAR16 *pString );
 

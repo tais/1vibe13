@@ -28,6 +28,7 @@ INT32	CalculateInsuranceContractCost( INT32 iLength, UINT8 ubMercID );
 
 void InsuranceContractEndGameShutDown();
 
-void PurchaseOrExtendInsuranceForSoldier( TacticalActor *pSoldier, UINT32 uiInsuranceLength );
+BOOLEAN PurchaseOrExtendInsuranceForSoldier(
+	TacticalActor *pSoldier, UINT32 uiInsuranceLength );
 
 #endif

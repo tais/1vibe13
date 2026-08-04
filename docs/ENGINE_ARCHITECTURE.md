@@ -1127,6 +1127,23 @@ the engine must not contain SDL types in its public domain model.
   Data-free tests and architecture ratchets pin navigation, empty/stale data,
   text bounds, runtime campaign behavior, dynamic ownership, and the absence
   of raw resource lifecycle calls.
+- Insurance is one transactionally owned four-page service site. Home,
+  information, comments, and contract pages stage shared defaults with their
+  page-specific graphics, button images, buttons, and regions; the contract
+  page gives its callback-replaced form controls an independent owner and
+  scopes transient portraits. `InsuranceSiteModel` bounds the mutable
+  insurable-roster pages and all five information pages, validates purchases
+  before finance/history/employment publication, preserves remaining coverage
+  when extending, clamps expired employment rather than converting negative
+  days to a huge unsigned value, and rejects inconsistent payout counts.
+  Insurance purchases no longer charge and then overwrite the extension with
+  the old length, while rejected purchases leave policy state untouched.
+  Payout creation bounds multiplication and shutdown resets both storage
+  counters. The premium formula, payout/save records, runtime communications
+  policy, and 82-common/16-variant Laptop partition are unchanged. A dedicated
+  data-free test and architecture ratchets pin page/transaction bounds,
+  replaceable ownership, retired stale arrays, all-host CI coverage, and raw
+  lifecycle exclusion.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

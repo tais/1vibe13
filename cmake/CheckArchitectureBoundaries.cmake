@@ -1703,6 +1703,138 @@ foreach(required_florist_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# The complete Insurance site stages shared/default and page-specific
+# resources as one transaction. Its mutable roster/form controls have a
+# separate replaceable owner, while dependency-free policy arithmetic keeps
+# stale pages, rejected purchases, expired contracts, and payout counts safe.
+foreach(insurance_owned_resource_source IN ITEMS
+    "Laptop/insurance.cpp"
+    "Laptop/insurance Info.cpp"
+    "Laptop/insurance Contract.cpp"
+    "Laptop/insurance Comments.cpp")
+  file(READ "${SOURCE_ROOT}/${insurance_owned_resource_source}"
+    insurance_owned_resource_contents)
+  string(FIND "${insurance_owned_resource_contents}"
+    "LaptopPageResourceOwner" insurance_page_owner_position)
+  if(insurance_page_owner_position EQUAL -1)
+    message(FATAL_ERROR
+      "${insurance_owned_resource_source} lost transactional page ownership")
+  endif()
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(CHECKF[ \t]*\\([ \t]*)?(AddVideoObject|AddVideoSurface|DeleteVideoObjectFromIndex|DeleteVideoSurfaceFromIndex|LoadButtonImage|UnloadButtonImage|RemoveButton|MSYS_AddRegion|MSYS_RemoveRegion)[ \t]*\\("
+    raw_insurance_page_resource_lifecycle
+    "${insurance_owned_resource_contents}")
+  if(raw_insurance_page_resource_lifecycle)
+    message(FATAL_ERROR
+      "${insurance_owned_resource_source} restored open-coded resource ownership '${raw_insurance_page_resource_lifecycle}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/InsuranceSiteModel.h"
+  runtime_insurance_site_model_contents)
+foreach(required_insurance_model_fragment IN ITEMS
+    "InsuranceContractPageStart"
+    "InsuranceContractPageSize"
+    "NextInsuranceContractPageStart"
+    "PreviousInsuranceContractPageStart"
+    "IsInsuranceInfoPage"
+    "IsInsuranceMercProfile"
+    "ValidateInsurancePurchase"
+    "InsuranceCoverageAfterPurchase"
+    "RemainingInsuranceEmploymentDays"
+    "InsurancePayoutCountsAreConsistent"
+    "InsurancePayoutStorageIsConsistent")
+  string(FIND "${runtime_insurance_site_model_contents}"
+    "${required_insurance_model_fragment}" required_insurance_model_position)
+  if(required_insurance_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Insurance site model lost '${required_insurance_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/insurance Contract.cpp"
+  runtime_insurance_contract_site_contents)
+foreach(required_insurance_contract_fragment IN ITEMS
+    "gInsuranceContractFormResources.clear()"
+    "gInsuranceContractFormResources = std::move(stagedForms)"
+    "gInsuranceMercProfiles"
+    "NormalizeInsuranceContractPage()"
+    "UniqueVideoObjectHandle faceImage"
+    "ValidateInsurancePurchase(uiInsuranceLength"
+    "InsuranceCoverageAfterPurchase("
+    "InsurancePayoutStorageIsConsistent("
+    "LaptopSaveInfo.ubNumberLifeInsurancePayouts = 0")
+  string(FIND "${runtime_insurance_contract_site_contents}"
+    "${required_insurance_contract_fragment}"
+    required_insurance_contract_position)
+  if(required_insurance_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Insurance contract safety lost '${required_insurance_contract_fragment}'")
+  endif()
+endforeach()
+foreach(retired_insurance_contract_fragment IN ITEMS
+    "gubInsuranceMercArray"
+    "gsForm1InsuranceLengthNumber"
+    "CreateDestroyInsuranceContractFormButtons")
+  string(FIND "${runtime_insurance_contract_site_contents}"
+    "${retired_insurance_contract_fragment}"
+    retired_insurance_contract_position)
+  if(NOT retired_insurance_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "Insurance contract restored stale state '${retired_insurance_contract_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/insurance Info.cpp"
+  runtime_insurance_info_site_contents)
+foreach(required_insurance_info_fragment IN ITEMS
+    "InsuranceInfoSubPagesVisitedFlag[ INS_INFO_LAST_PAGE ]"
+    "std::fill(std::begin(InsuranceInfoSubPagesVisitedFlag)"
+    "IsInsuranceInfoPage(ubSubPageNumber")
+  string(FIND "${runtime_insurance_info_site_contents}"
+    "${required_insurance_info_fragment}"
+    required_insurance_info_position)
+  if(required_insurance_info_position EQUAL -1)
+    message(FATAL_ERROR
+      "Insurance information-page safety lost '${required_insurance_info_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_insurance_test_build_fragment IN ITEMS
+    "insurance_site_model_tests.cpp"
+    "insurance_site_model")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_insurance_test_build_fragment}"
+    required_insurance_test_build_position)
+  if(required_insurance_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Insurance site model lost its headless test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "insurance_site_model_tests" runtime_insurance_site_ci_position)
+if(runtime_insurance_site_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Insurance site model test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/insurance_site_model_tests.cpp"
+  runtime_insurance_site_test_contents)
+foreach(required_insurance_test_fragment IN ITEMS
+    "Insurance roster pages handle empty, stale, and final partial pages"
+    "Insurance page and profile indices reject exact-end sentinels"
+    "Insurance purchases validate every prerequisite before committing"
+    "Expired employment cannot underflow into a huge insurance term"
+    "Insurance payout counts and backing storage stay consistent")
+  string(FIND "${runtime_insurance_site_test_contents}"
+    "${required_insurance_test_fragment}"
+    required_insurance_test_position)
+  if(required_insurance_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Insurance site tests lost '${required_insurance_test_fragment}'")
+  endif()
+endforeach()
+
 # Bobby Ray commerce uses one dependency-free capacity/value contract while
 # the legacy page, save, and PostalService adapters retain their established
 # serialized structures. Runtime configuration and corrupt persisted counts

@@ -1,6 +1,8 @@
 	#include "laptop.h"
 #include "CampaignLaptopCommunicationsPolicy.h"
 #include "GameContext.h"
+#include "InsuranceSiteModel.h"
+#include "LaptopPageResourceOwner.h"
 #include "LaptopSafety.h"
 #include "TacticalActorModifiers.h"
 #include "TacticalActor.h"
@@ -16,7 +18,6 @@
 	#include "Soldier Profile.h"
 	#include "Soldier Profile Constants.h"
 	#include "Overhead.h"
-	#include "Text Input.h"
 	#include "Soldier Add.h"
 	#include "SoldierRepository.h"
 	#include "Game Clock.h"
@@ -33,7 +34,12 @@
 #include "Interface.h"				// added by Flugente
 #include "Quests.h"
 #include "ub_config.h"
+#include "VideoResourceHandle.h"
+#include <algorithm>
+#include <array>
+#include <cstdint>
 #include <limits>
+#include <utility>
 #include <vector>
 
 #define		INS_CTRCT_ORDER_GRID_WIDTH					132
@@ -89,8 +95,6 @@
 #define		INS_CTRCT_ACCEPT_BTN_X											( 132 / 2 - 43 / 2 ) //6
 #define		INS_CTRCT_ACCEPT_BTN_Y											193
 
-#define		INS_CTRCT_CLEAR_BTN_X												86
-
 #define		INS_CTRCT_BOTTON_LINK_Y										351 + LAPTOP_SCREEN_WEB_UL_Y
 
 #define		INS_CTRCT_BOTTOM_LINK_RED_BAR_X						171 + LAPTOP_SCREEN_UL_X
@@ -115,22 +119,12 @@
 UINT32	guiInsOrderGridImage;
 UINT32	guiInsOrderBulletImage;
 
-INT16		gsForm1InsuranceLengthNumber;
-INT16		gsForm2InsuranceLengthNumber;
-INT16		gsForm3InsuranceLengthNumber;
-
-UINT8		gubMercIDForMercInForm1;
-UINT8		gubMercIDForMercInForm2;
-UINT8		gubMercIDForMercInForm3;
-
 UINT8		gubNumberofDisplayedInsuranceGrids;
 
 BOOLEAN	gfChangeInsuranceFormButtons = FALSE;
 
-// WDS - make number of mercenaries, etc. be configurable
-std::vector<UINT8> gubInsuranceMercArray (CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS, 0);
+std::vector<UINT8> gInsuranceMercProfiles;
 INT16		gsCurrentInsuranceMercIndex;
-INT16		gsMaxPlayersOnTeam;
 
 
 //link to the varios pages
@@ -146,19 +140,21 @@ void		BtnInsContractNextButtonCallBack(GUI_BUTTON *btn,INT32 reason);
 UINT32	guiInsContractNextBackButton;
 
 
-//Graphic for Accept, Clear button for form 1
-INT32		guiInsuranceAcceptClearForm1ButtonImage;
 void		BtnInsuranceAcceptClearForm1ButtonCallback(GUI_BUTTON *btn,INT32 reason);
-UINT32	guiInsuranceAcceptClearForm1Button;
 
-//Graphic for Accept, Clear button for form 2
 void		BtnInsuranceAcceptClearForm2ButtonCallback(GUI_BUTTON *btn,INT32 reason);
-UINT32	guiInsuranceAcceptClearForm2Button;
 
-//Graphic for Accept, Clear button for form 3
 void		BtnInsuranceAcceptClearForm3ButtonCallback(GUI_BUTTON *btn,INT32 reason);
-UINT32	guiInsuranceAcceptClearForm3Button;
 
+namespace
+{
+LaptopPageResourceOwner gInsuranceContractResources;
+LaptopPageResourceOwner gInsuranceContractFormResources;
+std::array<UINT8, kInsuranceContractsPerPage> gInsuranceMercForForm{
+	NO_PROFILE, NO_PROFILE, NO_PROFILE};
+std::array<INT32, kInsuranceContractsPerPage> gInsuranceFormButtons{
+	-1, -1, -1};
+}
 
 
 
@@ -166,76 +162,62 @@ UINT32	guiInsuranceAcceptClearForm3Button;
 //	Function Prototypes
 //
 BOOLEAN		DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID );
-INT8			GetNumberOfHireMercsStartingFromID( UINT8 ubStartMercID );
-//INT32			CalculateInsuranceCost( TacticalActor *pSoldier, BOOLEAN fHaveInsurance );
-void			InsuranceContractUserTextFieldCallBack( UINT8 ubID, BOOLEAN fEntering );
-UINT16		CountInsurableMercs();
 void			DisableInsuranceContractNextPreviousbuttons();
-void			CreateDestroyInsuranceContractFormButtons( BOOLEAN fCreate);
-void			HandleAcceptButton( SoldierID ubSoldierID, UINT8 ubFormID );
+BOOLEAN		AddInsuranceContractFormButtons(
+	LaptopPageResourceOwner& owner, UINT8 formCount,
+	std::array<INT32, kInsuranceContractsPerPage>& buttons);
+void			HandleAcceptButton( SoldierID ubSoldierID );
 FLOAT		DiffFromNormRatio( INT16 sThisValue, INT16 sNormalValue );
 void			InsContractNoMercsPopupCallBack( UINT8 bExitValue );
 void			BuildInsuranceArray();
+void			NormalizeInsuranceContractPage();
 BOOLEAN		MercIsInsurable( TacticalActor *pSoldier );
-//UINT32		GetContractLengthForFormNumber( UINT8 ubFormID );
 void			EnableDisableInsuranceContractAcceptButtons();
 UINT32		GetTimeRemainingOnSoldiersContract( TacticalActor *pSoldier );
 UINT32		GetTimeRemainingOnSoldiersInsuranceContract( TacticalActor *pSoldier );
-void			EnableDisableIndividualInsuranceContractButton( UINT8 ubMercIDForMercInForm1, UINT32 *puiAcceptButton );
+void			EnableDisableIndividualInsuranceContractButton(
+	UINT8 mercProfile, INT32 button);
 BOOLEAN		CanSoldierExtendInsuranceContract( TacticalActor *pSoldier );
 INT32		CalculateSoldiersInsuranceContractLength( TacticalActor *pSoldier );
 INT32		CalcStartDayOfInsurance( TacticalActor *pSoldier );
 
 BOOLEAN		AreAnyAimMercsOnTeam( );
-//ppp
-
-
-
-
 void GameInitInsuranceContract()
 {
-	gsCurrentInsuranceMercIndex = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
+	gsCurrentInsuranceMercIndex = 0;
 }
-
-
-void EnterLaptopInitInsuranceContract()
-{
-	CHAR16		zTextField[14];
-
-	swprintf( zTextField, L"%d", 0 );
-	SetInputFieldStringWith16BitString( 1, zTextField );
-	SetInputFieldStringWith16BitString( 2, zTextField );
-	SetInputFieldStringWith16BitString( 3, zTextField );
-
-}
-
 
 
 BOOLEAN EnterInsuranceContract()
 {
 	VOBJECT_DESC	VObjectDesc;
 	UINT16					usPosX,i;
+	LaptopPageResourceOwner staged;
+	LaptopPageResourceOwner stagedForms;
+	std::array<INT32, kInsuranceContractsPerPage> stagedFormButtons{
+		-1, -1, -1};
 
 	//build the list of mercs that are can be displayed
 	BuildInsuranceArray();
-
-	gubNumberofDisplayedInsuranceGrids = GetNumberOfHireMercsStartingFromID( (UINT8) gsCurrentInsuranceMercIndex );
-	if( gubNumberofDisplayedInsuranceGrids > 3 )
-		gubNumberofDisplayedInsuranceGrids = 3;
-
-	InitInsuranceDefaults();
+	NormalizeInsuranceContractPage();
+	gfChangeInsuranceFormButtons = FALSE;
+	gInsuranceContractFormResources.clear();
+	gInsuranceContractResources.clear();
+	if (!AddInsuranceDefaults(staged)) return FALSE;
 
 
 
 	// load the Insurance title graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\InsOrderGrid.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsOrderGridImage));
+	if (!staged.addVideoObject(&VObjectDesc, guiInsOrderGridImage))
+		return FALSE;
 
 	// load the Insurance bullet graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\bullet.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsOrderBulletImage));
+	if (!staged.addVideoObject(&VObjectDesc, guiInsOrderBulletImage))
+		return FALSE;
 
 
 	usPosX = INS_CTRCT_BOTTOM_LINK_RED_BAR_X;
@@ -243,7 +225,8 @@ BOOLEAN EnterInsuranceContract()
 	{
 		MSYS_DefineRegion( &gSelectedInsuranceContractLinkRegion[i], usPosX, INS_CTRCT_BOTTON_LINK_RED_BAR_Y-37, (UINT16)(usPosX + INS_CTRCT_BOTTOM_LINK_RED_WIDTH), INS_CTRCT_BOTTON_LINK_RED_BAR_Y+2, MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectInsuranceContractRegionCallBack);
-		MSYS_AddRegion(&gSelectedInsuranceContractLinkRegion[i]);
+		if (!staged.addRegion(gSelectedInsuranceContractLinkRegion[i]))
+			return FALSE;
 		MSYS_SetRegionUserData( &gSelectedInsuranceContractLinkRegion[i], 0, i );
 
 		usPosX += INS_CTRCT_BOTTOM_LINK_RED_BAR_OFFSET;
@@ -251,30 +234,41 @@ BOOLEAN EnterInsuranceContract()
 
 
 	//left arrow
-	guiInsContractPrevButtonImage	= LoadButtonImage("LAPTOP\\InsLeftButton.sti", 2,0,-1,1,-1 );
-	guiInsContractPrevBackButton = CreateIconAndTextButton( guiInsContractPrevButtonImage, InsContractText[INS_CONTRACT_PREVIOUS], INS_FONT_BIG,
-													INS_FONT_COLOR, INS_FONT_SHADOW,
-													INS_FONT_COLOR, INS_FONT_SHADOW,
-													TEXT_CJUSTIFIED,
-													INS_INFO_LEFT_ARROW_BUTTON_X, INS_INFO_LEFT_ARROW_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnInsContractPrevButtonCallback);
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\InsLeftButton.sti", 2, 0, -1, 1, -1),
+		guiInsContractPrevButtonImage)) return FALSE;
+	if (!staged.addButton(CreateIconAndTextButton( guiInsContractPrevButtonImage, InsContractText[INS_CONTRACT_PREVIOUS], INS_FONT_BIG,
+												INS_FONT_COLOR, INS_FONT_SHADOW,
+												INS_FONT_COLOR, INS_FONT_SHADOW,
+												TEXT_CJUSTIFIED,
+												INS_INFO_LEFT_ARROW_BUTTON_X, INS_INFO_LEFT_ARROW_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnInsContractPrevButtonCallback),
+		guiInsContractPrevBackButton)) return FALSE;
 	SetButtonCursor( guiInsContractPrevBackButton, CURSOR_WWW );
 	SpecifyButtonTextOffsets( guiInsContractPrevBackButton, 17, 16, FALSE );
 
 
 	//Right arrow
-	guiInsContractNextButtonImage	= LoadButtonImage("LAPTOP\\InsRightButton.sti", 2,0,-1,1,-1 );
-	guiInsContractNextBackButton = CreateIconAndTextButton( guiInsContractNextButtonImage, InsContractText[INS_CONTRACT_NEXT], INS_FONT_BIG,
-													INS_FONT_COLOR, INS_FONT_SHADOW,
-													INS_FONT_COLOR, INS_FONT_SHADOW,
-													TEXT_CJUSTIFIED,
-													INS_INFO_RIGHT_ARROW_BUTTON_X, INS_INFO_RIGHT_ARROW_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnInsContractNextButtonCallBack);
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\InsRightButton.sti", 2, 0, -1, 1, -1),
+		guiInsContractNextButtonImage)) return FALSE;
+	if (!staged.addButton(CreateIconAndTextButton( guiInsContractNextButtonImage, InsContractText[INS_CONTRACT_NEXT], INS_FONT_BIG,
+												INS_FONT_COLOR, INS_FONT_SHADOW,
+												INS_FONT_COLOR, INS_FONT_SHADOW,
+												TEXT_CJUSTIFIED,
+												INS_INFO_RIGHT_ARROW_BUTTON_X, INS_INFO_RIGHT_ARROW_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												DEFAULT_MOVE_CALLBACK, BtnInsContractNextButtonCallBack),
+		guiInsContractNextBackButton)) return FALSE;
 	SetButtonCursor( guiInsContractNextBackButton, CURSOR_WWW );
 	SpecifyButtonTextOffsets( guiInsContractNextBackButton, 18, 16, FALSE );
 
 	//create the new set of buttons
-	CreateDestroyInsuranceContractFormButtons( TRUE );
+	if (!AddInsuranceContractFormButtons(stagedForms,
+			gubNumberofDisplayedInsuranceGrids, stagedFormButtons))
+		return FALSE;
+	gInsuranceContractResources = std::move(staged);
+	gInsuranceContractFormResources = std::move(stagedForms);
+	gInsuranceFormButtons = stagedFormButtons;
 
 //	RenderInsuranceContract();
 	return(TRUE);
@@ -282,46 +276,40 @@ BOOLEAN EnterInsuranceContract()
 
 void ExitInsuranceContract()
 {
-	UINT8 i;
-
-	RemoveInsuranceDefaults();
-
-	DeleteVideoObjectFromIndex( guiInsOrderGridImage );
-
-	DeleteVideoObjectFromIndex( guiInsOrderBulletImage );
-
-	for(i=0; i<2; i++)
-		MSYS_RemoveRegion( &gSelectedInsuranceContractLinkRegion[i]);
-
-	//the previous button
-	UnloadButtonImage( guiInsContractPrevButtonImage );
-	RemoveButton( guiInsContractPrevBackButton );
-
-	//the next button
-	UnloadButtonImage( guiInsContractNextButtonImage );
-	RemoveButton( guiInsContractNextBackButton );
-
-	CreateDestroyInsuranceContractFormButtons( FALSE );
+	gInsuranceContractFormResources.clear();
+	gInsuranceContractResources.clear();
+	gInsuranceFormButtons.fill(-1);
+	gInsuranceMercForForm.fill(NO_PROFILE);
 }
 
 
 
 void HandleInsuranceContract()
 {
+	if (!gfChangeInsuranceFormButtons)
+	{
+		const std::vector<UINT8> previousProfiles =
+			gInsuranceMercProfiles;
+		BuildInsuranceArray();
+		gfChangeInsuranceFormButtons =
+			previousProfiles != gInsuranceMercProfiles;
+	}
 	if( gfChangeInsuranceFormButtons )
 	{
-		//remove the old buttons from the page
-		CreateDestroyInsuranceContractFormButtons( FALSE );
-
-		//Get the new number of displayed insurance grids
-		gubNumberofDisplayedInsuranceGrids = GetNumberOfHireMercsStartingFromID( (UINT8) gsCurrentInsuranceMercIndex );
-		if( gubNumberofDisplayedInsuranceGrids > 3 )
-			gubNumberofDisplayedInsuranceGrids = 3;
-
-		//create the new set of buttons
-		CreateDestroyInsuranceContractFormButtons( TRUE );
-
-		//reset the flag
+		LaptopPageResourceOwner stagedForms;
+		std::array<INT32, kInsuranceContractsPerPage>
+			stagedFormButtons{-1, -1, -1};
+		BuildInsuranceArray();
+		NormalizeInsuranceContractPage();
+		if (!AddInsuranceContractFormButtons(stagedForms,
+				gubNumberofDisplayedInsuranceGrids,
+				stagedFormButtons))
+		{
+			return;
+		}
+		gInsuranceContractFormResources.clear();
+		gInsuranceContractFormResources = std::move(stagedForms);
+		gInsuranceFormButtons = stagedFormButtons;
 		gfChangeInsuranceFormButtons = FALSE;
 
 		//force a redraw of the screen to erase the old buttons
@@ -341,8 +329,8 @@ void RenderInsuranceContract()
 	HVOBJECT	hPixHandle;
 	CHAR16		sText[800];
 	UINT8			ubCount=0;
-	INT16			sMercID;
-	INT16			sNextMercID;
+	UINT8			sMercID;
+	std::size_t rosterIndex;
 	UINT16		usPosX;
 	TacticalActor *pSoldier = NULL;
 
@@ -395,25 +383,26 @@ void RenderInsuranceContract()
 	DisplaySmallColouredLineWithShadow( INS_CTRCT_FIRST_BULLET_TEXT_X, INS_CTRCT_RED_BAR_UNDER_INSTRUCTION_TEXT_Y, INS_CTRCT_FIRST_BULLET_TEXT_X + INS_CTRCT_INTSRUCTION_TEXT_WIDTH, INS_CTRCT_RED_BAR_UNDER_INSTRUCTION_TEXT_Y );
 
 
-	sNextMercID =	gsCurrentInsuranceMercIndex;
-	while( ( ubCount < gubNumberofDisplayedInsuranceGrids ) && ( sNextMercID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID ) )
+	gInsuranceMercForForm.fill(NO_PROFILE);
+	rosterIndex = static_cast<std::size_t>(std::max<INT16>(
+		gsCurrentInsuranceMercIndex, 0));
+	while (ubCount < gubNumberofDisplayedInsuranceGrids &&
+		rosterIndex < gInsuranceMercProfiles.size())
 	{
-		sMercID = gubInsuranceMercArray[ sNextMercID ];
+		sMercID = gInsuranceMercProfiles[rosterIndex];
 
 		SoldierID ID = GetSoldierIDFromMercID( sMercID );
 		if ( ID != NOBODY )
 		{
 			TacticalActor* soldier =
 				GetJa2SoldierRepository().resolve(ID.i);
-			if( ( sMercID != -1 ) &&
-				MercIsInsurable( soldier ) )
+			if (MercIsInsurable(soldier))
 			{
-				DisplayOrderGrid( ubCount, (UINT8)sMercID );
-				ubCount++;
+				if (DisplayOrderGrid(ubCount, sMercID)) ubCount++;
 			}
 		}
 
-		sNextMercID++;
+		rosterIndex++;
 	}
 
 	//if there are no valid mercs to insure
@@ -459,8 +448,11 @@ void BtnInsContractPrevButtonCallback(GUI_BUTTON *btn,INT32 reason)
 		{
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-			if( gsCurrentInsuranceMercIndex > 2 )
-				gsCurrentInsuranceMercIndex -= 3;
+			gsCurrentInsuranceMercIndex = static_cast<INT16>(
+				PreviousInsuranceContractPageStart(
+					static_cast<std::size_t>(std::max<INT16>(
+						gsCurrentInsuranceMercIndex, 0)),
+					gInsuranceMercProfiles.size()));
 
 			//signal that we want to change the number of forms on the page
 			gfChangeInsuranceFormButtons = TRUE;
@@ -490,7 +482,11 @@ void BtnInsContractNextButtonCallBack(GUI_BUTTON *btn,INT32 reason)
 		{
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-			gsCurrentInsuranceMercIndex += 3;
+			gsCurrentInsuranceMercIndex = static_cast<INT16>(
+				NextInsuranceContractPageStart(
+					static_cast<std::size_t>(std::max<INT16>(
+						gsCurrentInsuranceMercIndex, 0)),
+					gInsuranceMercProfiles.size()));
 
 			//signal that we want to change the number of forms on the page
 			gfChangeInsuranceFormButtons = TRUE;
@@ -512,51 +508,41 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 {
 	VOBJECT_DESC		VObjectDesc;
 	HVOBJECT			hPixHandle;
-	UINT16			usPosX, usPosY;
-	UINT32			uiInsMercFaceImage;
+	UINT16			usPosX;
 	INT32			iCostOfContract=0;
 	char				sTemp[100];
 	CHAR16			sText[800];
 	BOOLEAN			fDisplayMercContractStateTextColorInRed = FALSE;
-	SoldierID		usID = GetSoldierIDFromMercID( ubMercID );
-
-	if ( usID == NOBODY )
+	if (ubMercID >= NUM_PROFILES ||
+		ubGridNumber >= gInsuranceMercForForm.size())
 	{
 		return(FALSE);
 	}
+	SoldierID usID = GetSoldierIDFromMercID(ubMercID);
+	if (usID == NOBODY) return FALSE;
 
 	TacticalActor	*pSoldier =
 		GetJa2SoldierRepository().resolve(usID.i);
 	if ( !pSoldier )
 		return(FALSE);
-	usPosX=usPosY=0;
-
 	switch( ubGridNumber )
 	{
 		case 0:
 			usPosX = INS_CTRCT_ORDER_GRID1_X;
-			gubMercIDForMercInForm1 = ubMercID;
-			gsForm1InsuranceLengthNumber = (INT16) pSoldier->employment().insuranceLengthDays();
 			break;
 
 		case 1:
 			usPosX = INS_CTRCT_ORDER_GRID2_X;
-			gubMercIDForMercInForm2 = ubMercID;
-			gsForm2InsuranceLengthNumber = (INT16) pSoldier->employment().insuranceLengthDays();
 			break;
 
 		case 2:
 			usPosX = INS_CTRCT_ORDER_GRID3_X;
-			gubMercIDForMercInForm3 = ubMercID;
-			gsForm3InsuranceLengthNumber = (INT16) pSoldier->employment().insuranceLengthDays();
 			break;
 
 		default:
 			//should never get in here
-			Assert(0);
-			break;
+			return FALSE;
 	}
-
 	//Get and display the insurance order grid #1
 	GetVideoObject(&hPixHandle, guiInsOrderGridImage );
 	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, usPosX, INS_CTRCT_ORDER_GRID1_Y, VO_BLT_SRCTRANSPARENCY,NULL);
@@ -564,9 +550,13 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 
 	// load the mercs face graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	sprintf(sTemp, "FACES\\%02d.sti", gMercProfiles[pSoldier->identity().profile()].ubFaceIndex );
+	snprintf(sTemp, sizeof(sTemp), "FACES\\%02d.sti",
+		gMercProfiles[pSoldier->identity().profile()].ubFaceIndex );
 	FilenameForBPP( sTemp, VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &uiInsMercFaceImage));
+	UniqueVideoObjectHandle faceImage = AddVideoObjectOwned(&VObjectDesc);
+	if (!faceImage) return FALSE;
+	const UINT32 uiInsMercFaceImage = faceImage.get();
+	gInsuranceMercForForm[ubGridNumber] = ubMercID;
 
 	//Get the merc's face
 	GetVideoObject(&hPixHandle, uiInsMercFaceImage );
@@ -584,9 +574,6 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 
 	//Get and display the mercs face
 	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, usPosX+INS_CTRCT_OG_FACE_OFFSET_X, INS_CTRCT_ORDER_GRID1_Y+INS_CTRCT_OG_FACE_OFFSET_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-
-	// the face images isn't needed anymore so delete it
-	DeleteVideoObjectFromIndex( uiInsMercFaceImage );
 
 	//display the mercs nickname
 	DrawTextToScreen(gMercProfiles[ ubMercID ].zNickname, (UINT16)(usPosX + INS_CTRCT_OG_NICK_NAME_OFFSET_X), INS_CTRCT_ORDER_GRID1_Y + INS_CTRCT_OG_NICK_NAME_OFFSET_Y, 0, INS_FONT_MED, INS_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
@@ -764,26 +751,17 @@ void BtnInsuranceAcceptClearForm1ButtonCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 			UINT8		ubButton = (UINT8) MSYS_GetBtnUserData( btn, 0 );
-			SoldierID	ubSoldierID =  GetSoldierIDFromMercID( gubMercIDForMercInForm1 );
+			const UINT8 mercProfile = gInsuranceMercForForm[0];
+			SoldierID ubSoldierID = NOBODY;
+			if (IsInsuranceMercProfile(mercProfile, NUM_PROFILES))
+				ubSoldierID = GetSoldierIDFromMercID(mercProfile);
 
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
 			//the accept button
-			if( ubButton == 0 )
+			if( ubButton == 0 && ubSoldierID != NOBODY )
 			{
-				TacticalActor* soldier =
-					GetJa2SoldierRepository().resolve(
-						ubSoldierID.i);
-				//handle the accept button, (global to all accept button
-				HandleAcceptButton( ubSoldierID, 1 );
-
-				//specify the length of the insurance contract
-				if ( soldier )
-					soldier->employment().insuranceLengthDays() =
-						gsForm1InsuranceLengthNumber;
-
-				//reset the insurance length
-				gsForm1InsuranceLengthNumber = 0;
+				HandleAcceptButton( ubSoldierID );
 			}
 
 			//redraw the screen
@@ -813,26 +791,17 @@ void BtnInsuranceAcceptClearForm2ButtonCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 			UINT8		ubButton = (UINT8) MSYS_GetBtnUserData( btn, 0 );
-			SoldierID	ubSoldierID = GetSoldierIDFromMercID( gubMercIDForMercInForm2 );
+			const UINT8 mercProfile = gInsuranceMercForForm[1];
+			SoldierID ubSoldierID = NOBODY;
+			if (IsInsuranceMercProfile(mercProfile, NUM_PROFILES))
+				ubSoldierID = GetSoldierIDFromMercID(mercProfile);
 
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
 			//the accept button
-			if( ubButton == 0 )
+			if( ubButton == 0 && ubSoldierID != NOBODY )
 			{
-				TacticalActor* soldier =
-					GetJa2SoldierRepository().resolve(
-						ubSoldierID.i);
-				//handle the accept button, (global to all accept button
-				HandleAcceptButton( ubSoldierID, 2 );
-
-				//specify the length of the insurance contract
-				if ( soldier )
-					soldier->employment().insuranceLengthDays() =
-						gsForm2InsuranceLengthNumber;
-
-				//reset the insurance length
-				gsForm2InsuranceLengthNumber = 0;
+				HandleAcceptButton( ubSoldierID );
 			}
 
 			//redraw the screen
@@ -863,26 +832,17 @@ void BtnInsuranceAcceptClearForm3ButtonCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 			UINT8		ubButton = (UINT8) MSYS_GetBtnUserData( btn, 0 );
-			SoldierID	ubSoldierID = GetSoldierIDFromMercID( gubMercIDForMercInForm3 );
+			const UINT8 mercProfile = gInsuranceMercForForm[2];
+			SoldierID ubSoldierID = NOBODY;
+			if (IsInsuranceMercProfile(mercProfile, NUM_PROFILES))
+				ubSoldierID = GetSoldierIDFromMercID(mercProfile);
 
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
 			//the accept button
-			if( ubButton == 0 )
+			if( ubButton == 0 && ubSoldierID != NOBODY )
 			{
-				TacticalActor* soldier =
-					GetJa2SoldierRepository().resolve(
-						ubSoldierID.i);
-				//handle the accept button, (global to all accept button
-				HandleAcceptButton( ubSoldierID, 3 );
-
-				//specify the length of the insurance contract
-				if ( soldier )
-					soldier->employment().insuranceLengthDays() =
-						gsForm3InsuranceLengthNumber;
-
-				//reset the insurance length
-				gsForm3InsuranceLengthNumber = 0;
+				HandleAcceptButton( ubSoldierID );
 			}
 
 			//redraw the screen
@@ -899,55 +859,6 @@ void BtnInsuranceAcceptClearForm3ButtonCallback(GUI_BUTTON *btn,INT32 reason)
 }
 
 
-
-INT8 GetNumberOfHireMercsStartingFromID( UINT8 ubStartMercID )
-{
-	UINT8	i;
-	UINT8	ubCount=0;
-
-	for( i=0; i<gsMaxPlayersOnTeam; i++)
-	{
-		if( i>= ubStartMercID )
-		{
-			ubCount++;
-		}
-	}
-
-	return( ubCount );
-}
-
-
-/*
-INT32 CalculateInsuranceCost( TacticalActor *pSoldier, BOOLEAN fHaveInsurance )
-{
-	INT32			iAmount=0;
-	UINT32		uiInsuranceContractLength = 0;
-
-	uiInsuranceContractLength = CalculateSoldiersInsuranceContractLength( pSoldier );
-
-	//If the soldier already has life insurance, then the user is changing the length of the contract
-	if( pSoldier->employment().lifeInsurance() )
-	{
-		//if the user is changing the contract length
-		if( uiInsuranceContractLength != 0 )
-		{
-			iAmount = CalculateInsuranceContractCost( uiInsuranceContractLength, pSoldier->identity().profile());
-		}
-		//else we are just calculating the new figure
-		else
-		{
-			iAmount = 0;
-		}
-	}
-	//else the merc doesn't have life insurance
-	else
-	{
-		iAmount = CalculateInsuranceContractCost( uiInsuranceContractLength, pSoldier->identity().profile());
-	}
-
-	return( iAmount );
-}
-*/
 
 void SelectInsuranceContractRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 {
@@ -968,30 +879,13 @@ void SelectInsuranceContractRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason
 	}
 }
 
-UINT16 CountInsurableMercs()
-{
-	UINT16 bCount = 0;
-
-	// Set locator to first merc
-	SoldierID Soldier = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
-	SoldierID bLastTeamID = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
-
-	for ( ; Soldier <= bLastTeamID; ++Soldier)
-	{
-		if (MercIsInsurable(
-			GetJa2SoldierRepository().resolve(Soldier.i)))
-		{
-			bCount++;
-		}
-	}
-
-	return( bCount );
-}
-
 void DisableInsuranceContractNextPreviousbuttons()
 {
 	//disable the next button if there is no more mercs to display
-	if( ( gsCurrentInsuranceMercIndex + gubNumberofDisplayedInsuranceGrids ) < CountInsurableMercs() )
+	const std::size_t current = static_cast<std::size_t>(
+		std::max<INT16>(gsCurrentInsuranceMercIndex, 0));
+	if (NextInsuranceContractPageStart(current,
+			gInsuranceMercProfiles.size()) != current)
 	{
 		EnableButton( guiInsContractNextBackButton );
 	}
@@ -999,7 +893,7 @@ void DisableInsuranceContractNextPreviousbuttons()
 		DisableButton( guiInsContractNextBackButton );
 
 	//if we are currently displaying the first set of mercs, disable the previous button
-	if( gsCurrentInsuranceMercIndex < 3 )
+	if (current == 0)
 	{
 		DisableButton( guiInsContractPrevBackButton );
 	}
@@ -1008,102 +902,55 @@ void DisableInsuranceContractNextPreviousbuttons()
 
 }
 
-void CreateDestroyInsuranceContractFormButtons( BOOLEAN fCreate)
+BOOLEAN AddInsuranceContractFormButtons(
+	LaptopPageResourceOwner& owner, UINT8 formCount,
+	std::array<INT32, kInsuranceContractsPerPage>& buttons)
 {
-	static BOOLEAN	fButtonsCreated = FALSE;
+	buttons.fill(-1);
+	formCount = static_cast<UINT8>(std::min<std::size_t>(
+		formCount, kInsuranceContractsPerPage));
+	if (formCount == 0) return TRUE;
 
-	if( fCreate && !fButtonsCreated )
+	INT32 image = -1;
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\AcceptClearBox.sti", -1, 0, -1, 1, -1), image))
+		return FALSE;
+
+	const std::array<INT16, kInsuranceContractsPerPage> positions{
+		static_cast<INT16>(INS_CTRCT_ORDER_GRID1_X +
+			INS_CTRCT_ACCEPT_BTN_X),
+		static_cast<INT16>(INS_CTRCT_ORDER_GRID2_X +
+			INS_CTRCT_ACCEPT_BTN_X),
+		static_cast<INT16>(INS_CTRCT_ORDER_GRID3_X +
+			INS_CTRCT_ACCEPT_BTN_X)};
+	const std::array<GUI_CALLBACK, kInsuranceContractsPerPage> callbacks{
+		BtnInsuranceAcceptClearForm1ButtonCallback,
+		BtnInsuranceAcceptClearForm2ButtonCallback,
+		BtnInsuranceAcceptClearForm3ButtonCallback};
+	for (UINT8 i = 0; i < formCount; ++i)
 	{
-		//place the 3 accept buttons for the different forms
-
-		//The accept button image
-		guiInsuranceAcceptClearForm1ButtonImage	= LoadButtonImage("LAPTOP\\AcceptClearBox.sti", -1,0,-1,1,-1 );
-
-		if( gubNumberofDisplayedInsuranceGrids >= 1 )
-		{
-			//the accept button for form 1
-			guiInsuranceAcceptClearForm1Button = CreateIconAndTextButton( guiInsuranceAcceptClearForm1ButtonImage, InsContractText[INS_CONTRACT_ACCEPT], INS_FONT_MED,
-															INS_FONT_BTN_COLOR, INS_FONT_BTN_SHADOW_COLOR,
-															INS_FONT_BTN_COLOR, INS_FONT_BTN_SHADOW_COLOR,
-															TEXT_CJUSTIFIED,
-															INS_CTRCT_ORDER_GRID1_X+INS_CTRCT_ACCEPT_BTN_X, INS_CTRCT_ORDER_GRID1_Y+INS_CTRCT_ACCEPT_BTN_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-															DEFAULT_MOVE_CALLBACK, BtnInsuranceAcceptClearForm1ButtonCallback);
-			SetButtonCursor( guiInsuranceAcceptClearForm1Button, CURSOR_LAPTOP_SCREEN );
-			MSYS_SetBtnUserData( guiInsuranceAcceptClearForm1Button, 0, 0);
-		}
-
-
-
-		if( gubNumberofDisplayedInsuranceGrids >= 2 )
-		{
-			//the accept button for form 2
-			guiInsuranceAcceptClearForm2Button = CreateIconAndTextButton( guiInsuranceAcceptClearForm1ButtonImage, InsContractText[INS_CONTRACT_ACCEPT], INS_FONT_MED,
-															INS_FONT_BTN_COLOR, INS_FONT_BTN_SHADOW_COLOR,
-															INS_FONT_BTN_COLOR, INS_FONT_BTN_SHADOW_COLOR,
-															TEXT_CJUSTIFIED,
-															INS_CTRCT_ORDER_GRID2_X+INS_CTRCT_ACCEPT_BTN_X, INS_CTRCT_ORDER_GRID1_Y+INS_CTRCT_ACCEPT_BTN_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-															DEFAULT_MOVE_CALLBACK, BtnInsuranceAcceptClearForm2ButtonCallback);
-			SetButtonCursor(guiInsuranceAcceptClearForm2Button, CURSOR_LAPTOP_SCREEN );
-			MSYS_SetBtnUserData( guiInsuranceAcceptClearForm2Button, 0, 0);
-
-		}
-
-
-
-
-		if( gubNumberofDisplayedInsuranceGrids >= 3 )
-		{
-			//the accept button for form 3
-			guiInsuranceAcceptClearForm3Button = CreateIconAndTextButton( guiInsuranceAcceptClearForm1ButtonImage, InsContractText[INS_CONTRACT_ACCEPT], INS_FONT_MED,
-															INS_FONT_BTN_COLOR, INS_FONT_BTN_SHADOW_COLOR,
-															INS_FONT_BTN_COLOR, INS_FONT_BTN_SHADOW_COLOR,
-															TEXT_CJUSTIFIED,
-															INS_CTRCT_ORDER_GRID3_X+INS_CTRCT_ACCEPT_BTN_X, INS_CTRCT_ORDER_GRID1_Y+INS_CTRCT_ACCEPT_BTN_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-															DEFAULT_MOVE_CALLBACK, BtnInsuranceAcceptClearForm3ButtonCallback);
-			SetButtonCursor( guiInsuranceAcceptClearForm3Button, CURSOR_LAPTOP_SCREEN );
-			MSYS_SetBtnUserData( guiInsuranceAcceptClearForm3Button, 0, 0);
-		}
-
-		fButtonsCreated = TRUE;
+		if (!owner.addButton(CreateIconAndTextButton(image,
+				InsContractText[INS_CONTRACT_ACCEPT], INS_FONT_MED,
+				INS_FONT_BTN_COLOR, INS_FONT_BTN_SHADOW_COLOR,
+				INS_FONT_BTN_COLOR, INS_FONT_BTN_SHADOW_COLOR,
+				TEXT_CJUSTIFIED, positions[i],
+				INS_CTRCT_ORDER_GRID1_Y + INS_CTRCT_ACCEPT_BTN_Y,
+				BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+				DEFAULT_MOVE_CALLBACK, callbacks[i]), buttons[i]))
+			return FALSE;
+		SetButtonCursor(buttons[i], CURSOR_LAPTOP_SCREEN);
+		MSYS_SetBtnUserData(buttons[i], 0, 0);
 	}
-
-	if( fButtonsCreated && ! fCreate )
-	{
-		//the accept image
-		UnloadButtonImage( guiInsuranceAcceptClearForm1ButtonImage );
-
-		if( gubNumberofDisplayedInsuranceGrids >= 1 )
-		{
-			//the accept for the first form
-			RemoveButton( guiInsuranceAcceptClearForm1Button );
-		}
-
-		if( gubNumberofDisplayedInsuranceGrids >= 2 )
-		{
-			//the accept clear for the second form
-			RemoveButton( guiInsuranceAcceptClearForm2Button );
-		}
-
-		if( gubNumberofDisplayedInsuranceGrids >= 3 )
-		{
-			//the accept clear for the third form
-			RemoveButton( guiInsuranceAcceptClearForm3Button );
-		}
-
-		fButtonsCreated = FALSE;
-	}
+	return TRUE;
 }
 
 
 
-void HandleAcceptButton( SoldierID ubSoldierID, UINT8 ubFormID )
+void HandleAcceptButton( SoldierID ubSoldierID )
 {
-	//passed in either 1,2,3 should be 0,1,2
-	ubFormID--;
-
 	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(ubSoldierID.i);
-	if ( soldier )
+	if (soldier && MercIsInsurable(soldier))
 		PurchaseOrExtendInsuranceForSoldier(
 			soldier,
 			CalculateSoldiersInsuranceContractLength( soldier ) );
@@ -1168,11 +1015,12 @@ INT32	CalculateInsuranceContractCost( INT32 iLength, UINT8 ubMercID )
 	INT16	sTotalSkill=0;
 	FLOAT flSkillFactor, flFitnessFactor, flExpFactor, flSurvivalFactor;
 	FLOAT flRiskFactor;
-	UINT32 uiDailyInsurancePremium;
-	UINT32 uiTotalInsurancePremium;
+	std::uint64_t uiDailyInsurancePremium;
+	std::uint64_t uiTotalInsurancePremium;
 	TacticalActor	*pSoldier;
 
 
+	if (iLength <= 0 || ubMercID >= NUM_PROFILES) return 0;
 	const SoldierID soldierID = GetSoldierIDFromMercID( ubMercID );
 	pSoldier = GetJa2SoldierRepository().resolve(soldierID.i);
 	if ( !pSoldier )
@@ -1234,11 +1082,16 @@ INT32	CalculateInsuranceContractCost( INT32 iLength, UINT8 ubMercID )
 	}
 
 	// premium depend on merc's salary, the base insurance rate, and the individual's risk factor at this time
-	uiDailyInsurancePremium = (UINT32) (pProfile->sSalary * INSURANCE_PREMIUM_RATE * flRiskFactor / 100.0f + 0.5f);
+	uiDailyInsurancePremium = static_cast<std::uint64_t>(
+		pProfile->sSalary * INSURANCE_PREMIUM_RATE * flRiskFactor /
+		100.0f + 0.5f);
 	// multiply by the insurance contract length
-	uiTotalInsurancePremium = uiDailyInsurancePremium * iLength;
+	uiTotalInsurancePremium = uiDailyInsurancePremium *
+		static_cast<std::uint64_t>(iLength);
 
-	return( uiTotalInsurancePremium );
+	return static_cast<INT32>(std::min<std::uint64_t>(
+		uiTotalInsurancePremium,
+		static_cast<std::uint64_t>(std::numeric_limits<INT32>::max())));
 }
 
 
@@ -1287,7 +1140,10 @@ void BuildInsuranceArray()
 {
 	SoldierID Soldier = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 	SoldierID bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
-	gsMaxPlayersOnTeam = 0;
+	std::vector<UINT8> insurableProfiles;
+	if (bLastTeamID >= Soldier)
+		insurableProfiles.reserve(static_cast<std::size_t>(
+			bLastTeamID.i - Soldier.i + 1));
 
 	// store profile #s of all insurable mercs in an array
 	for ( ; Soldier <= bLastTeamID; ++Soldier)
@@ -1296,11 +1152,22 @@ void BuildInsuranceArray()
 			GetJa2SoldierRepository().resolve(Soldier.i);
 		if( MercIsInsurable(soldier) )
 		{
-			gubInsuranceMercArray[ gsMaxPlayersOnTeam ] =
-				soldier->identity().profile();
-			gsMaxPlayersOnTeam++;
+			insurableProfiles.push_back(soldier->identity().profile());
 		}
 	}
+	gInsuranceMercProfiles = std::move(insurableProfiles);
+}
+
+void NormalizeInsuranceContractPage()
+{
+	const std::size_t requested = static_cast<std::size_t>(
+		std::max<INT16>(gsCurrentInsuranceMercIndex, 0));
+	const std::size_t start = InsuranceContractPageStart(
+		requested, gInsuranceMercProfiles.size());
+	gsCurrentInsuranceMercIndex = static_cast<INT16>(start);
+	gubNumberofDisplayedInsuranceGrids = static_cast<UINT8>(
+		InsuranceContractPageSize(start,
+			gInsuranceMercProfiles.size()));
 }
 
 
@@ -1321,6 +1188,14 @@ BOOLEAN AddLifeInsurancePayout( TacticalActor *pSoldier )
 	}
 
 	pProfile = &(gMercProfiles[ pSoldier->identity().profile() ]);
+	if (!InsurancePayoutStorageIsConsistent(
+			LaptopSaveInfo.ubNumberLifeInsurancePayouts,
+			LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed,
+			LaptopSaveInfo.pLifeInsurancePayouts != nullptr))
+	{
+		Assert(FALSE);
+		return FALSE;
+	}
 
 	//if we need to add more array elements
 	if( LaptopSaveInfo.ubNumberLifeInsurancePayouts <= LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed )
@@ -1356,10 +1231,6 @@ BOOLEAN AddLifeInsurancePayout( TacticalActor *pSoldier )
 		return FALSE;
 	}
 
-	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubSoldierID = pSoldier->identity().id();
-	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubMercID = pSoldier->identity().profile();
-	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].fActive = TRUE;
-
 	// This uses the merc's latest salaries, ignoring that they may be higher than the salaries paid under the current
 	// contract if the guy has recently gained a level.	We could store his daily salary when he was last contracted,
 	// and use that, but it still doesn't easily account for the fact that renewing a leveled merc early means that the
@@ -1390,8 +1261,21 @@ BOOLEAN AddLifeInsurancePayout( TacticalActor *pSoldier )
 		static_cast<INT32>(GetWorldDay()) + 1 -
 			pSoldier->employment().insuranceStartDay());
 
-	// calculate & store how much is to be paid out
-	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].iPayOutPrice = uiDaysToPay * uiCostPerDay;
+	const std::uint64_t payoutPrice =
+		static_cast<std::uint64_t>(uiDaysToPay) * uiCostPerDay;
+	if (payoutPrice > static_cast<std::uint64_t>(
+			std::numeric_limits<INT32>::max()))
+	{
+		Assert(FALSE);
+		return FALSE;
+	}
+
+	LIFE_INSURANCE_PAYOUT& payout =
+		LaptopSaveInfo.pLifeInsurancePayouts[ubPayoutID];
+	payout.ubSoldierID = pSoldier->identity().id();
+	payout.ubMercID = pSoldier->identity().profile();
+	payout.iPayOutPrice = static_cast<INT32>(payoutPrice);
+	payout.fActive = TRUE;
 
 	// 4pm next day
 	uiTimeInMinutes = GetMidnightOfFutureDayInMinutes( 1 ) + 16 * 60;
@@ -1436,7 +1320,10 @@ static_assert(static_cast<UINT8>(
 
 bool IsValidInsurancePayout(UINT16 payoutId)
 {
-	return LaptopSaveInfo.pLifeInsurancePayouts &&
+	return InsurancePayoutStorageIsConsistent(
+			LaptopSaveInfo.ubNumberLifeInsurancePayouts,
+			LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed,
+			LaptopSaveInfo.pLifeInsurancePayouts != nullptr) &&
 		IsValidLaptopIndex(
 			LaptopSaveInfo.ubNumberLifeInsurancePayouts, payoutId) &&
 		LaptopSaveInfo.pLifeInsurancePayouts[payoutId].fActive &&
@@ -1620,12 +1507,15 @@ void InsuranceContractEndGameShutDown()
 		MemFree( LaptopSaveInfo.pLifeInsurancePayouts );
 		LaptopSaveInfo.pLifeInsurancePayouts = NULL;
 	}
+	LaptopSaveInfo.ubNumberLifeInsurancePayouts = 0;
+	LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed = 0;
 }
 
 
 BOOLEAN MercIsInsurable( TacticalActor *pSoldier )
 {
-	if ( !pSoldier )
+	if (!pSoldier || !IsInsuranceMercProfile(
+			pSoldier->identity().profile(), NUM_PROFILES))
 		return(FALSE);
 
 	// only A.I.M. mercs currently on player's team
@@ -1651,82 +1541,54 @@ BOOLEAN MercIsInsurable( TacticalActor *pSoldier )
 
 void EnableDisableInsuranceContractAcceptButtons()
 {
-	//If it is the first grid
-	if( gubNumberofDisplayedInsuranceGrids >= 1 )
-	{
-		EnableDisableIndividualInsuranceContractButton( gubMercIDForMercInForm1, &guiInsuranceAcceptClearForm1Button );
-	}
-
-	//If it is the 2nd grid
-	if( gubNumberofDisplayedInsuranceGrids >= 2 )
-	{
-		EnableDisableIndividualInsuranceContractButton( gubMercIDForMercInForm2, &guiInsuranceAcceptClearForm2Button );
-	}
-
-	//If it is the 3rd grid
-	if( gubNumberofDisplayedInsuranceGrids >= 3 )
-	{
-		EnableDisableIndividualInsuranceContractButton( gubMercIDForMercInForm3, &guiInsuranceAcceptClearForm3Button );
-	}
+	for (std::size_t i = 0;
+		i < gubNumberofDisplayedInsuranceGrids &&
+		i < gInsuranceFormButtons.size(); ++i)
+		EnableDisableIndividualInsuranceContractButton(
+			gInsuranceMercForForm[i], gInsuranceFormButtons[i]);
 }
 
 
-void EnableDisableIndividualInsuranceContractButton( UINT8 ubMercIDForMercInForm, UINT32 *puiAcceptButton )
+void EnableDisableIndividualInsuranceContractButton(
+	UINT8 mercProfile, INT32 button)
 {
-	SoldierID sSoldierID = GetSoldierIDFromMercID( ubMercIDForMercInForm );
-	if( sSoldierID == NOBODY)
+	if (button < 0) return;
+	if (!IsInsuranceMercProfile(mercProfile, NUM_PROFILES))
+	{
+		DisableButton(button);
 		return;
+	}
+	SoldierID sSoldierID = GetSoldierIDFromMercID(mercProfile);
+	if (sSoldierID == NOBODY)
+	{
+		DisableButton(button);
+		return;
+	}
 	TacticalActor* soldier =
 		GetJa2SoldierRepository().resolve(sSoldierID.i);
 	if ( !soldier )
+	{
+		DisableButton(button);
 		return;
+	}
 
 	// if the soldiers contract can be extended, enable the button
 	if( CanSoldierExtendInsuranceContract( soldier ) )
-		EnableButton( *puiAcceptButton );
+		EnableButton(button);
 
 	// else the soldier cant extend their insurance contract, disable the button
 	else
-		DisableButton( *puiAcceptButton );
+		DisableButton(button);
 
 	//if the merc is dead, disable the button
-	if( IsMercDead( ubMercIDForMercInForm ) )
-		DisableButton( *puiAcceptButton );
+	if( IsMercDead(mercProfile) )
+		DisableButton(button);
 }
 
-
-/*
-UINT32	GetContractLengthForFormNumber( UINT8 ubFormID )
-{
-	UINT8	ubMercID;
-	TacticalActor	*pSoldier;
-
-	switch( ubFormID )
-	{
-		case 0:
-			ubMercID = gubMercIDForMercInForm1;
-			break;
-		case 1:
-			ubMercID = gubMercIDForMercInForm1;
-			break;
-		case 2:
-			ubMercID = gubMercIDForMercInForm1;
-			break;
-
-		default:
-			Assert( 0 );
-			break;
-	}
-
-	const SoldierID soldierID = GetSoldierIDFromMercID( ubMercID );
-	pSoldier = GetJa2SoldierRepository().resolve(soldierID.i);
-
-	return( pSoldier ? pSoldier->employment().totalLength() : 0 );
-}
-*/
 
 UINT32	GetTimeRemainingOnSoldiersInsuranceContract( TacticalActor *pSoldier )
 {
+	if (!pSoldier) return 0;
 	//if the soldier has life insurance
 	if( pSoldier->employment().lifeInsurance() )
 	{
@@ -1745,94 +1607,81 @@ UINT32	GetTimeRemainingOnSoldiersInsuranceContract( TacticalActor *pSoldier )
 
 UINT32	GetTimeRemainingOnSoldiersContract( TacticalActor *pSoldier )
 {
-	INT32 iDayMercLeaves = ( pSoldier->employment().endTime() / 1440 ) - 1;
+	if (!pSoldier) return 0;
+	std::int64_t dayMercLeaves =
+		(static_cast<std::int64_t>(pSoldier->employment().endTime()) /
+			1440) - 1;
 
 	//Since the merc is leaving in the afternoon, we must adjust since the time left would be different if we did the calc
 	//at 11:59 or 12:01 ( noon )
 	if( pSoldier->employment().endTime() % 1440 )
-		iDayMercLeaves++;
-
-	// Subtract todays day number
-	iDayMercLeaves = iDayMercLeaves - GetWorldDay();
-
-	if( iDayMercLeaves > pSoldier->employment().totalLength() )
-		iDayMercLeaves = pSoldier->employment().totalLength();
-
-	return( iDayMercLeaves );
-//	return( ( pSoldier->employment().endTime() - (INT32)GetWorldTotalMin( ) ) / 1440 );
+		dayMercLeaves++;
+	return RemainingInsuranceEmploymentDays(dayMercLeaves, GetWorldDay(),
+		pSoldier->employment().totalLength());
 }
 
 
-void PurchaseOrExtendInsuranceForSoldier( TacticalActor *pSoldier, UINT32 uiInsuranceLength )
+BOOLEAN PurchaseOrExtendInsuranceForSoldier(
+	TacticalActor *pSoldier, UINT32 uiInsuranceLength )
 {
-	INT32	iAmountOfMoneyTransfer = -1;
-
-	if( pSoldier == NULL )
-		AssertMsg( 0, "Soldier pointer is NULL!" );
-
-	//if the user doesnt have insruance already,
-	if( !(pSoldier->employment().lifeInsurance() ) )
+	if (!pSoldier || pSoldier->identity().profile() == NO_PROFILE ||
+		pSoldier->identity().profile() >= NUM_PROFILES)
 	{
-		//specify the start date of the contract
-		pSoldier->employment().insuranceStartDay() = CalcStartDayOfInsurance( pSoldier );
-		pSoldier->employment().insuranceStartTime() = GetWorldTotalMin();
+		AssertMsg(FALSE, "Invalid soldier passed to insurance purchase");
+		return FALSE;
 	}
 
-	//transfer money
-	iAmountOfMoneyTransfer = CalculateInsuranceContractCost( uiInsuranceLength, pSoldier->identity().profile() );
-
-	//if the user did have insruance already,
-	if( pSoldier->employment().lifeInsurance() )
+	const BOOLEAN hadInsurance =
+		pSoldier->employment().lifeInsurance() != 0;
+	const UINT32 currentCoverage = hadInsurance
+		? GetTimeRemainingOnSoldiersInsuranceContract(pSoldier)
+		: 0;
+	const UINT32 maximumCoverage =
+		GetTimeRemainingOnSoldiersContract(pSoldier);
+	const INT32 cost = CalculateInsuranceContractCost(
+		static_cast<INT32>(std::min<UINT32>(uiInsuranceLength,
+			std::numeric_limits<INT32>::max())),
+		pSoldier->identity().profile());
+	const InsurancePurchaseValidation validation =
+		ValidateInsurancePurchase(uiInsuranceLength, cost,
+			LaptopSaveInfo.iCurrentBalance);
+	if (validation != InsurancePurchaseValidation::Ready)
 	{
-		//specify the start date of the contract
-		pSoldier->employment().insuranceStartDay() = CalcStartDayOfInsurance( pSoldier );
-	}
-
-	//add transaction to finaces page
-	//if the player has life insurance
-	if( pSoldier->employment().lifeInsurance() )
-	{
-		//if the player is extending the contract
-		if( iAmountOfMoneyTransfer > 0 )
-			AddTransactionToPlayersBook(	EXTENDED_INSURANCE, pSoldier->identity().profile(), GetWorldTotalMin(), -( iAmountOfMoneyTransfer ) );
-		else
-			Assert(0);
-	}
-	else
-	{
-		//if the player doesnt have enough money, tell him
-		if( LaptopSaveInfo.iCurrentBalance < iAmountOfMoneyTransfer )
+		if (validation == InsurancePurchaseValidation::InsufficientFunds)
 		{
-			CHAR16		sText[800];
-
-			GetInsuranceText( INS_MLTI_NOT_ENOUGH_FUNDS, sText );
-			if( GetCurrentScreen() == LAPTOP_SCREEN )
-				DoLapTopMessageBox( MSG_BOX_RED_ON_WHITE, sText, LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+			CHAR16 sText[800];
+			GetInsuranceText(INS_MLTI_NOT_ENOUGH_FUNDS, sText);
+			if (GetCurrentScreen() == LAPTOP_SCREEN)
+				DoLapTopMessageBox(MSG_BOX_RED_ON_WHITE, sText,
+					LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
 			else
-				DoMapMessageBox( MSG_BOX_RED_ON_WHITE, sText, MAP_SCREEN, MSG_BOX_FLAG_OK, NULL);
+				DoMapMessageBox(MSG_BOX_RED_ON_WHITE, sText,
+					MAP_SCREEN, MSG_BOX_FLAG_OK, NULL);
 		}
-		else
-		{
-			//else if the player has enought to cover the bill, let him
-
-			//the player just purchased life insurance
-			AddTransactionToPlayersBook(	PURCHASED_INSURANCE, pSoldier->identity().profile(), GetWorldTotalMin(), -( iAmountOfMoneyTransfer ) );
-
-			//add an entry in the history page for the purchasing of life insurance
-			AddHistoryToPlayersLog(HISTORY_PURCHASED_INSURANCE, pSoldier->identity().profile(), GetWorldTotalMin(), -1, -1 );
-
-			//Set that we have life insurance
-			pSoldier->employment().lifeInsurance() = 1;
-		}
+		return FALSE;
 	}
 
-	pSoldier->employment().insuranceLengthDays() += uiInsuranceLength;
+	const INT32 newCoverage = InsuranceCoverageAfterPurchase(
+		currentCoverage, uiInsuranceLength, maximumCoverage);
+	if (newCoverage <= 0 ||
+		static_cast<UINT32>(newCoverage) <= currentCoverage)
+		return FALSE;
 
-	//make sure the length doesnt exceed the contract length
-	if( ( GetTimeRemainingOnSoldiersInsuranceContract( pSoldier ) ) > GetTimeRemainingOnSoldiersContract( pSoldier ) )
-	{
-		pSoldier->employment().insuranceLengthDays() -= GetTimeRemainingOnSoldiersInsuranceContract( pSoldier ) - GetTimeRemainingOnSoldiersContract( pSoldier );
-	}
+	const UINT32 now = GetWorldTotalMin();
+	AddTransactionToPlayersBook(hadInsurance
+			? EXTENDED_INSURANCE : PURCHASED_INSURANCE,
+		pSoldier->identity().profile(), now, -cost);
+	if (!hadInsurance)
+		AddHistoryToPlayersLog(HISTORY_PURCHASED_INSURANCE,
+			pSoldier->identity().profile(), now, -1, -1);
+
+	pSoldier->employment().insuranceStartDay() =
+		CalcStartDayOfInsurance(pSoldier);
+	if (!hadInsurance)
+		pSoldier->employment().insuranceStartTime() = now;
+	pSoldier->employment().insuranceLengthDays() = newCoverage;
+	pSoldier->employment().lifeInsurance() = 1;
+	return TRUE;
 }
 
 BOOLEAN	CanSoldierExtendInsuranceContract( TacticalActor *pSoldier )
@@ -1849,7 +1698,8 @@ BOOLEAN	CanSoldierExtendInsuranceContract( TacticalActor *pSoldier )
 
 INT32 CalculateSoldiersInsuranceContractLength( TacticalActor *pSoldier )
 {
-	if ( !pSoldier )
+	if (!pSoldier || pSoldier->identity().profile() == NO_PROFILE ||
+		pSoldier->identity().profile() >= NUM_PROFILES)
 		return( 0 );
 
 	INT32 iInsuranceContractLength=0;
@@ -1917,14 +1767,13 @@ INT32	CalcStartDayOfInsurance( TacticalActor *pSoldier )
 BOOLEAN AreAnyAimMercsOnTeam( )
 {
 	SoldierID Soldier = gTacticalStatus.Team[gbPlayerNum].bFirstID;
-	SoldierID bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 
 	for( ; Soldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++Soldier)
 	{
 		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(Soldier.i);
 		//check to see if any of the mercs are AIM mercs
-		if( soldier &&
+		if( soldier && soldier->roster().active() &&
 			soldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 		{
 			return TRUE;
