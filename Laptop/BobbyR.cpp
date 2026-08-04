@@ -2,8 +2,8 @@
 	#include "BobbyR.h"
 	#include "BobbyRGuns.h"
 	#include "BobbyRMailOrder.h"
+	#include "LaptopPageResourceOwner.h"
 	#include "Utilities.h"
-	#include "WCheck.h"
 	#include "WordWrap.h"
 	#include "Cursors.h"
 	#include "Interface Items.h"
@@ -140,6 +140,8 @@ UINT32	guiHandle;
 UINT32	guiWoodBackground;
 UINT32	guiUnderConstructionImage;
 
+LaptopPageResourceOwner gBobbyRResources;
+
 /*
 UINT16	gusFirstGunIndex;
 UINT16	gusLastGunIndex;
@@ -173,14 +175,9 @@ UINT8		gubBobbyRPages[]={
 						LAPTOP_MODE_BOBBY_R_AMMO,
 						LAPTOP_MODE_BOBBY_R_ARMOR};
 
-//Dealtar's Airport Externalization.						
-BOOLEAN gfBobbyRInitialized = 0;
+//Dealtar's Airport Externalization.
 extern CPostalService gPostalService;
-extern UINT8 guiNumOfDisplayedCities;
-extern vector < PDestinationStruct > gDestinationTable;
 extern vector < PShipmentStruct > gShipmentTable;
-extern MOUSE_REGION *gSelectedDropDownRegion;
-extern MOUSE_REGION *gSelectedScrollAreaDropDownRegion;
 extern void BobbyRDeliveryCallback(RefToCShipmentManipulator ShipmentManipulator);
 //End Dealtar's Airport Externalization.
 
@@ -188,8 +185,8 @@ extern void BobbyRDeliveryCallback(RefToCShipmentManipulator ShipmentManipulator
 MOUSE_REGION	gSelectedBobbiesSignMenuRegion[ BOBBIES_NUMBER_SIGNS ];
 void SelectBobbiesSignMenuRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
-BOOLEAN InitBobbiesMouseRegion(UINT8 ubNumerRegions, UINT16 *usMouseRegionPosArray, MOUSE_REGION *MouseRegion);
-BOOLEAN RemoveBobbiesMouseRegion(UINT8 ubNumberRegions, MOUSE_REGION *Mouse_Region);
+BOOLEAN InitBobbiesMouseRegion(UINT8 ubNumerRegions, UINT16 *usMouseRegionPosArray,
+	MOUSE_REGION *MouseRegion, LaptopPageResourceOwner& owner);
 void HandleBobbyRUnderConstructionAni( BOOLEAN fReset );
 
 void SimulateBobbyRayCustomer(STORE_INVENTORY *pInventoryArray, BOOLEAN fUsed);
@@ -207,39 +204,12 @@ void GameInitBobbyR()
 BOOLEAN EnterBobbyR()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner staged;
 	UINT8 i;
 
-	//Dealtar's Airport Externalization.
-	// Update the destination and shipment tables upon entering Bobby R
-	if (!gDestinationTable.empty())
-	{
-		gDestinationTable.erase(gDestinationTable.begin(), gDestinationTable.end());
-	}
-
-	DestinationList::const_iterator dli = gPostalService.LookupDestinationList().begin();
-
-	while (dli != gPostalService.LookupDestinationList().end())
-	{
-		gDestinationTable.push_back(&DESTINATION(dli));
-		dli++;
-
-	}
-
+	gBobbyRResources.clear();
+	RefreshBobbyRayDestinationSnapshot();
 	RefreshBobbyRayShipmentSnapshot();
-
-	// Dealtar: The following code had to be put here, because GameInitBobbyR() is called
-	// before XML data is read into gPostalService due to the screen order in
-	// screens.cpp -> GameScreens[]
-	if (!gfBobbyRInitialized)
-	{
-		gfBobbyRInitialized = TRUE;
-		gSelectedDropDownRegion = new MOUSE_REGION[gPostalService.LookupDestinationList().size()];
-		gSelectedScrollAreaDropDownRegion = new MOUSE_REGION[gPostalService.LookupDestinationList().size()];
-		int x = gPostalService.LookupDestinationList().size();
-		guiNumOfDisplayedCities = (x < 10) ? x : 10;
-		//gDestinationTable.resize(gPostalService.LookupDestinationList().size());
-	}
-	//End Dealtar's Airport Externalization.
 	// an array of mouse regions for the bobbies signs.	Top Left corner, bottom right corner
 	UINT16	usMouseRegionPosArray[20];
 	usMouseRegionPosArray[0]  = BOBBIES_USED_SIGN_X;
@@ -263,40 +233,41 @@ BOOLEAN EnterBobbyR()
 	usMouseRegionPosArray[18] = BOBBIES_ARMOUR_SIGN_X + BOBBIES_ARMOUR_SIGN_WIDTH;
 	usMouseRegionPosArray[19] = BOBBIES_ARMOUR_SIGN_Y + BOBBIES_ARMOUR_SIGN_HEIGHT;
 
-	InitBobbyRWoodBackground();
+	if (!InitBobbyRWoodBackground(staged)) return FALSE;
 
 	// load the Bobbyname graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_BOBBYNAME );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBobbyName));
+	if (!staged.addVideoObject(&VObjectDesc, guiBobbyName)) return FALSE;
 
 	// load the plaque graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BobbyPlaques.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiPlaque));
+	if (!staged.addVideoObject(&VObjectDesc, guiPlaque)) return FALSE;
 
 	// load the TopHinge graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BobbyTopHinge.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiTopHinge));
+	if (!staged.addVideoObject(&VObjectDesc, guiTopHinge)) return FALSE;
 
 	// load the BottomHinge graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BobbyBottomHinge.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBottomHinge));
+	if (!staged.addVideoObject(&VObjectDesc, guiBottomHinge)) return FALSE;
 
 	// load the Store Plaque graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_STOREPLAQUE );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiStorePlaque));
+	if (!staged.addVideoObject(&VObjectDesc, guiStorePlaque)) return FALSE;
 
 	// load the Handle graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BobbyHandle.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiHandle));
+	if (!staged.addVideoObject(&VObjectDesc, guiHandle)) return FALSE;
 
 
-	InitBobbiesMouseRegion(BOBBIES_NUMBER_SIGNS, usMouseRegionPosArray, gSelectedBobbiesSignMenuRegion);
+	if (!InitBobbiesMouseRegion(BOBBIES_NUMBER_SIGNS, usMouseRegionPosArray,
+		gSelectedBobbiesSignMenuRegion, staged)) return FALSE;
 
 
 	if( !LaptopSaveInfo.fBobbyRSiteCanBeAccessed )
@@ -304,7 +275,8 @@ BOOLEAN EnterBobbyR()
 		// load the Handle graphic and add it
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP("LAPTOP\\UnderConstruction.sti", VObjectDesc.ImageFile);
-		CHECKF(AddVideoObject(&VObjectDesc, &guiUnderConstructionImage));
+		if (!staged.addVideoObject(&VObjectDesc,
+			guiUnderConstructionImage)) return FALSE;
 
 		for(i=0; i<BOBBIES_NUMBER_SIGNS; i++)
 		{
@@ -313,6 +285,7 @@ BOOLEAN EnterBobbyR()
 
 		LaptopSaveInfo.ubHaveBeenToBobbyRaysAtLeastOnceWhileUnderConstruction = BOBBYR_BEEN_TO_SITE_ONCE;
 	}
+	gBobbyRResources = std::move(staged);
 
 
 	SetBookMark(BOBBYR_BOOKMARK);
@@ -325,23 +298,7 @@ BOOLEAN EnterBobbyR()
 
 void ExitBobbyR()
 {
-
-	DeleteVideoObjectFromIndex(guiBobbyName);
-	DeleteVideoObjectFromIndex(guiPlaque);
-	DeleteVideoObjectFromIndex(guiTopHinge);
-	DeleteVideoObjectFromIndex(guiBottomHinge);
-	DeleteVideoObjectFromIndex(guiStorePlaque);
-	DeleteVideoObjectFromIndex(guiHandle);
-
-	if( !LaptopSaveInfo.fBobbyRSiteCanBeAccessed )
-	{
-		DeleteVideoObjectFromIndex(guiUnderConstructionImage);
-	}
-
-
-	DeleteBobbyRWoodBackground();
-
-	RemoveBobbiesMouseRegion(BOBBIES_NUMBER_SIGNS, gSelectedBobbiesSignMenuRegion);
+	gBobbyRResources.clear();
 
 	guiLastBobbyRayPage = LAPTOP_MODE_BOBBY_R;
 }
@@ -442,21 +399,15 @@ void RenderBobbyR()
 
 
 
-BOOLEAN InitBobbyRWoodBackground()
+BOOLEAN InitBobbyRWoodBackground(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the Wood bacground graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BobbyWood.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiWoodBackground));
+	if (!owner.addVideoObject(&VObjectDesc, guiWoodBackground)) return FALSE;
 
-	return(TRUE);
-}
-
-BOOLEAN DeleteBobbyRWoodBackground()
-{
-	DeleteVideoObjectFromIndex(guiWoodBackground);
 	return(TRUE);
 }
 
@@ -485,7 +436,8 @@ BOOLEAN DrawBobbyRWoodBackground()
 }
 
 
-BOOLEAN InitBobbiesMouseRegion(UINT8 ubNumerRegions, UINT16 *usMouseRegionPosArray, MOUSE_REGION *MouseRegion)
+BOOLEAN InitBobbiesMouseRegion(UINT8 ubNumerRegions, UINT16 *usMouseRegionPosArray,
+	MOUSE_REGION *MouseRegion, LaptopPageResourceOwner& owner)
 {
 	UINT8 i,ubCount=0;
 
@@ -494,24 +446,11 @@ BOOLEAN InitBobbiesMouseRegion(UINT8 ubNumerRegions, UINT16 *usMouseRegionPosArr
 		//Mouse region for the toc buttons
 		MSYS_DefineRegion( &MouseRegion[i], usMouseRegionPosArray[ubCount], usMouseRegionPosArray[ubCount+1], usMouseRegionPosArray[ubCount+2], usMouseRegionPosArray[ubCount+3], MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectBobbiesSignMenuRegionCallBack);
-		MSYS_AddRegion(&MouseRegion[i]);
+		if (!owner.addRegion(MouseRegion[i])) return FALSE;
 		MSYS_SetRegionUserData( &MouseRegion[i], 0, gubBobbyRPages[i]);
 
 		ubCount +=4;
 	}
-
-
-	return(TRUE);
-}
-
-
-BOOLEAN RemoveBobbiesMouseRegion(UINT8 ubNumberRegions, MOUSE_REGION *Mouse_Region)
-{
-	UINT8 i;
-
-	for(i=0; i<ubNumberRegions; i++)
-		MSYS_RemoveRegion( &Mouse_Region[i]);
-
 	return(TRUE);
 }
 

@@ -7,6 +7,7 @@
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
 class TacticalActor;
+class LaptopPageResourceOwner;
 
 
 
@@ -53,8 +54,7 @@ extern	UINT32	guiLastBobbyRayPage;
 
 //BOOLEAN WebPageTileBackground(UINT8 ubNumX, UINT8 ubNumY, UINT16 usWidth, UINT16 usHeight, UINT32 uiBackGround);
 BOOLEAN DrawBobbyRWoodBackground();
-BOOLEAN DeleteBobbyRWoodBackground();
-BOOLEAN InitBobbyRWoodBackground();
+BOOLEAN InitBobbyRWoodBackground(LaptopPageResourceOwner& owner);
 void DailyUpdateOfBobbyRaysNewInventory();
 void DailyUpdateOfBobbyRaysUsedInventory();
 void OrderBobbyRItem(UINT16 usItemIndex);

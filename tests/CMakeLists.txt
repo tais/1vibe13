@@ -120,6 +120,15 @@ target_include_directories(bobby_ray_catalogue_model_tests
 add_test(NAME bobby_ray_catalogue_model
   COMMAND bobby_ray_catalogue_model_tests)
 
+# Bobby Ray destination windows and shipment rows are sparse, mutable UI
+# views. Keep empty, stale, exact-end, and visible-slot rules data-free.
+add_executable(bobby_ray_fulfilment_model_tests
+  bobby_ray_fulfilment_model_tests.cpp)
+target_include_directories(bobby_ray_fulfilment_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME bobby_ray_fulfilment_model
+  COMMAND bobby_ray_fulfilment_model_tests)
+
 # XML callbacks receive text in arbitrary chunks. Keep accumulation, strict
 # integer narrowing, explicit legacy-byte sentinels, index validation, and
 # fixed-buffer copying data-free.

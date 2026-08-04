@@ -499,17 +499,60 @@ the four shared catalogue implementations is clean; obsolete layout-result,
 image-dimension, and keyboard-state dead stores found during that pass were
 removed.
 
+## Bobby Ray fulfilment ownership and list-safety batch
+
+The eleventh cohesive batch completes the connected Bobby Ray home,
+mail-order, and shipment pages. Each page now stages its wood background,
+graphics, title link, buttons, button images, and fixed regions through
+`LaptopPageResourceOwner`. The mail-order destination drop-down, order-grid
+scroll controls, and shipment-row regions use independent replaceable owners
+with stable vector-backed region storage.
+
+Confirmed faults fixed by this batch include:
+
+- failed entry could leak any resources created before the failing load, and
+  both order and shipment exits unloaded button images before removing the
+  buttons that referenced them;
+- externalized destination mouse arrays were allocated only on the first home
+  visit, never freed or resized, and could therefore leak or be overrun after
+  destination data changed;
+- an empty destination list divided by zero while building its scroll track,
+  underflowed its list-window start, and later dereferenced destination zero;
+- destination selection narrowed through signed and unsigned eight-bit state,
+  while queued drop-down callbacks trusted stale visible slots;
+- order-grid regions survived a later empty render and could continue to
+  mutate a list that no longer had scrollable rows;
+- the shipment page loaded a new order-grid video object on every redraw and
+  never released those per-render objects; and
+- shipment callbacks manually remapped sparse live rows and initial entry
+  selected records beyond the visible shipment-row capacity.
+
+`BobbyRayFulfilmentModel` now owns dependency-free visible counts, stale
+window normalization, empty/exact-end selection rules, bounded next/previous
+navigation, visible-slot mapping, and sparse-record mapping. The live pages
+use those rules at destination refresh, drop-down movement, arrow callbacks,
+shipment entry, and shipment-row callbacks. Inventory, pricing, order and
+shipment records, PostalService behavior, save layouts, artwork, campaign
+policy, and the 82-common/16-variant Laptop partition are unchanged. A
+dedicated headless target covers empty, short, oversized, stale, hidden,
+exact-end, keyboard, and sparse-row cases; architecture CI pins all owners,
+replaceable region sets, scoped shipment grids, test admission, and raw
+lifecycle exclusion. The focused analyzer pass over the shared mail-order and
+shipment sources plus all three storefront host variants is clean; obsolete
+drop-down layout and keyboard-modifier dead stores found during that pass were
+removed.
+
 ## Remaining walkthrough
 
 The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., Florist/Funeral, and
-Insurance ownership slices and the five-page Bobby Ray catalogue cluster are
-complete. The remaining audit queue is
-deliberately grouped into larger reviewable batches:
+Insurance ownership slices and both Bobby Ray page clusters are complete. The
+remaining audit queue is deliberately grouped into larger reviewable batches:
 
 1. Extend scoped video, surface, button-image, button, and temporary-render
    ownership from the completed A.I.M., M.E.R.C., Florist/Funeral, and
-   Insurance clusters across every remaining Laptop page, beginning with the
-   connected Bobby Ray home/mail-order/shipment fulfilment cluster.
+   Insurance and Bobby Ray clusters across every remaining Laptop page,
+   beginning with the connected finance, history, and email document/list
+   pages.
 2. Extend the completed site-cluster mouse-region and re-entry audit across
    the remaining pages, especially empty data and callback-driven mutation.
 3. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
@@ -520,8 +563,8 @@ deliberately grouped into larger reviewable batches:
    failed, and repeated visits start from a documented state.
 6. Verify every remaining fixed array and paginated list against negative,
    exact-end, empty, and stale-selection cases.
-7. Audit pointer and iterator lifetimes in the remaining mutable email,
-   personnel, and shipment UI collections after callbacks mutate them.
+7. Audit pointer and iterator lifetimes in the remaining mutable email and
+   personnel UI collections after callbacks mutate them.
 8. Make finance, history, email, and hire side effects transactional wherever a
    Laptop workflow can fail after partially committing an operation.
 9. Run a final domain-wide static-analysis/warning pass, remove superseded

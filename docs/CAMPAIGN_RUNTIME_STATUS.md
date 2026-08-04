@@ -106,6 +106,13 @@ transactional ownership boundary. Shared catalogue controls and replaceable
 item regions now have ordered lifetime ownership, while dependency-free page,
 visible-slot, and data-index rules harden empty/stale navigation and malformed
 LBE input without changing inventory, purchasing, campaign, or save behavior.
+The adjoining Bobby Ray fulfilment batch retains the same split and makes the
+home, mail-order, and shipment pages one transactional ownership boundary.
+Replaceable destination, order-scroll, and shipment-row regions now use stable
+owned storage; dependency-free empty, stale, visible-slot, and sparse-record
+rules remove destination-list crashes and stale callbacks, while shipment
+redraws no longer leak order-grid graphics. Pricing, inventory, PostalService,
+order/shipment saves, and campaign behavior remain unchanged.
 
 ## Literal remaining tail
 

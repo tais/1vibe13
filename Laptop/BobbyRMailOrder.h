@@ -3,6 +3,8 @@
 
 #include "LaptopSave.h"
 
+class LaptopPageResourceOwner;
+
 
 //Dealtar's Airport Externalization.
 #define		BOBBYR_SENDER_ID						0
@@ -50,8 +52,7 @@ BOOLEAN ImportOldBobbyRayOrders(
 void EnterInitBobbyRayOrder();
 void AddJohnsGunShipment();
 
-BOOLEAN CreateBobbyRayOrderTitle();
-void DestroyBobbyROrderTitle();
+BOOLEAN CreateBobbyRayOrderTitle(LaptopPageResourceOwner& owner);
 void DrawBobbyROrderTitle();
 
 void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16 usGridY, BobbyRayPurchaseStruct *pBobbyRayPurchase, BOOLEAN fJustDisplayTitles, INT32 iOrderNum );
@@ -79,7 +80,9 @@ extern	NewBobbyRayOrderStruct	*gpNewBobbyrShipments;
 extern	INT32			giNumberOfNewBobbyRShipment;
 
 BOOLEAN AddNewBobbyRShipment( BobbyRayPurchaseStruct *pPurchaseStruct, UINT16 usDeliveryLoc, UINT8 ubDeliveryMethod, BOOLEAN fPurchasedFromBobbyR, UINT32 uiPackageWeight );
+void RefreshBobbyRayDestinationSnapshot();
 void RefreshBobbyRayShipmentSnapshot();
+void ClearBobbyRayOrderGridMouseRegions();
 
 UINT16	CountNumberOfBobbyPurchasesThatAreInTransit();
 
