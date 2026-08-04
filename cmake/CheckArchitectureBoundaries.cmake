@@ -2,6 +2,24 @@ if(NOT DEFINED SOURCE_ROOT)
   message(FATAL_ERROR "SOURCE_ROOT is required")
 endif()
 
+file(READ "${SOURCE_ROOT}/CMakeLists.txt" root_build_contents)
+foreach(required_lua_fetch_fragment IN ITEMS
+    "https://github.com/lua/lua/archive/refs/tags/v5.5.0.tar.gz"
+    "SHA256=a33484f7ce4c14e12ea4d51cc5a7353bff2796a8074004b96ae2dc246f33f16e"
+    "set(LUA_SOURCE_ROOT"
+    "lua|luac|onelua|ltests")
+  string(FIND "${root_build_contents}" "${required_lua_fetch_fragment}"
+    required_lua_fetch_fragment_position)
+  if(required_lua_fetch_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Pinned Lua mirror integration lost '${required_lua_fetch_fragment}'")
+  endif()
+endforeach()
+if(root_build_contents MATCHES "www[.]lua[.]org/ftp")
+  message(FATAL_ERROR
+    "The single-host Lua FTP dependency returned; keep CI on the pinned official mirror")
+endif()
+
 file(GLOB_RECURSE core_files
   "${SOURCE_ROOT}/Engine/Core/*.h"
   "${SOURCE_ROOT}/Engine/Core/*.hpp"
