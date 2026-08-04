@@ -326,16 +326,56 @@ resource acquisition or teardown in the cluster. All-host builds, the complete
 headless suites, sanitizer builds, and targeted static analysis remain required
 before merge.
 
+## M.E.R.C. site ownership, navigation, and video batch
+
+The seventh batch applies the same transaction to the complete M.E.R.C. site:
+landing, Files/gear, Account, and No Account. Page backgrounds now participate
+in each page transaction rather than committing before later fallible loads.
+The Files transaction includes its five gear-kit buttons and all 21 inventory
+help regions; its transient portrait is scoped to the render call. Speck's
+close control and subtitle region have independent owners because their
+lifetimes follow video/dialogue state rather than page entry.
+
+Confirmed faults fixed by this batch include:
+
+- every M.E.R.C. page leaked all earlier objects, images, buttons, and regions
+  when a later page acquisition failed;
+- Files never unloaded `guiMercWeaponKitButtonImage`, while several exits
+  unloaded button images before removing the buttons that referenced them;
+- Files could decrement `gubCurMercIndex` from zero to 255 while skipping an
+  alternate profile, and accepted stale saved selections beyond the configured
+  available roster;
+- the visible-roster resolver assumed condition slot zero was the first
+  available merc, so a sparse availability list selected the wrong profile;
+- Speck video startup used a failed `InitFace` result as an index, retained a
+  close button after failed startup, and dereferenced failed framebuffer locks
+  in non-asserting builds;
+- the distortion scan compared a relative row with an absolute screen
+  coordinate, leaving most of a distortion cycle inert;
+- Account callbacks could underflow or advance beyond their page count if
+  invoked despite disabled controls; and
+- `ExitMercs` set `gfInMercSite` to true, leaving the site marked active after
+  teardown.
+
+The final John-availability compile branch now uses `CampaignMercSitePolicy`.
+All four sources therefore join the campaign-neutral Laptop partition, which
+now contains 81 common translation units and 17 per-application variants.
+Data-free tests cover empty, stale, exact-end, and alternate-profile navigation;
+architecture CI pins the failure checks, runtime policy, owner use, common
+manifest, and absence of raw resource lifecycle calls. All-host builds, the
+complete headless suites, sanitizer builds, and targeted static analysis remain
+required before merge.
+
 ## Remaining walkthrough
 
-The IMP lifecycle, runtime-content, and first complete A.I.M. ownership slice
-are complete. The remaining audit queue is deliberately grouped into larger
+The IMP lifecycle, runtime-content, A.I.M., and M.E.R.C. ownership slices are
+complete. The remaining audit queue is deliberately grouped into larger
 reviewable batches:
 
 1. Extend scoped video, surface, button-image, button, and temporary-render
-   ownership from the completed A.I.M. cluster across every remaining Laptop
-   page.
-2. Extend the completed A.I.M. mouse-region and re-entry audit across the
+   ownership from the completed A.I.M. and M.E.R.C. clusters across every
+   remaining Laptop page.
+2. Extend the completed A.I.M./M.E.R.C. mouse-region and re-entry audit across the
    remaining pages, especially empty data and callback-driven mutation.
 3. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
    validate all rendered text buffers before formatting.

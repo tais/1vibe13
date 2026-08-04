@@ -1311,6 +1311,10 @@ foreach(required_common_laptop_runtime_source IN ITEMS
     "AimMembers.cpp"
     "AimPolicies.cpp"
     "AimSort.cpp"
+    "mercs Account.cpp"
+    "mercs Files.cpp"
+    "mercs No Account.cpp"
+    "mercs.cpp"
     "BobbyRMailOrder.cpp"
     "email.cpp"
     "files.cpp"
@@ -1445,6 +1449,112 @@ foreach(required_resource_handle_test_fragment IN ITEMS
   if(required_resource_handle_test_position EQUAL -1)
     message(FATAL_ERROR
       "Resource ownership tests lost '${required_resource_handle_test_fragment}'")
+  endif()
+endforeach()
+
+# The complete M.E.R.C. site shares the same transactional resource boundary
+# as A.I.M. and selects its campaign behavior at runtime. Persisted roster
+# indices and alternate-profile navigation remain bounded, while video startup
+# must not publish a failed face or framebuffer lock.
+foreach(merc_owned_resource_source IN ITEMS
+    "Laptop/mercs.cpp"
+    "Laptop/mercs Account.cpp"
+    "Laptop/mercs Files.cpp"
+    "Laptop/mercs No Account.cpp")
+  file(READ "${SOURCE_ROOT}/${merc_owned_resource_source}"
+    merc_owned_resource_contents)
+  string(FIND "${merc_owned_resource_contents}"
+    "LaptopPageResourceOwner" merc_page_owner_position)
+  if(merc_page_owner_position EQUAL -1)
+    message(FATAL_ERROR
+      "${merc_owned_resource_source} lost transactional page ownership")
+  endif()
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(CHECKF[ \t]*\\([ \t]*)?(AddVideoObject|AddVideoSurface|DeleteVideoObjectFromIndex|DeleteVideoSurfaceFromIndex|LoadButtonImage|UnloadButtonImage|RemoveButton|MSYS_AddRegion|MSYS_RemoveRegion)[ \t]*\\("
+    raw_merc_page_resource_lifecycle
+    "${merc_owned_resource_contents}")
+  if(raw_merc_page_resource_lifecycle)
+    message(FATAL_ERROR
+      "${merc_owned_resource_source} restored open-coded resource ownership '${raw_merc_page_resource_lifecycle}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/MercSiteNavigationModel.h"
+  runtime_merc_navigation_model_contents)
+foreach(required_merc_navigation_fragment IN ITEMS
+    "ClampMercSiteIndex"
+    "availableCount == 0"
+    "SkipMercSiteAlternatePredecessor"
+    "hasAlternateProfile && index > 0")
+  string(FIND "${runtime_merc_navigation_model_contents}"
+    "${required_merc_navigation_fragment}"
+    required_merc_navigation_position)
+  if(required_merc_navigation_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. navigation lost '${required_merc_navigation_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/mercs.cpp" runtime_merc_site_contents)
+foreach(required_merc_site_fragment IN ITEMS
+    "CountAvailableMercsAtMercSite"
+    "if (!pBuffer) return FALSE"
+    "if (giVideoSpeckFaceIndex == -1) return FALSE"
+    "gfInMercSite = FALSE"
+    ".usesUnfinishedBusinessSite()")
+  string(FIND "${runtime_merc_site_contents}" "${required_merc_site_fragment}"
+    required_merc_site_position)
+  if(required_merc_site_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. site safety lost '${required_merc_site_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_merc_site_contents}" "#ifdef JA25"
+  merc_compile_identity_position)
+if(NOT merc_compile_identity_position EQUAL -1)
+  message(FATAL_ERROR
+    "M.E.R.C. restored campaign compile-identity selection")
+endif()
+
+file(READ "${SOURCE_ROOT}/Laptop/mercs Files.cpp"
+  runtime_merc_files_contents)
+foreach(required_merc_files_fragment IN ITEMS
+    "ClampMercSiteIndex("
+    "SkipMercSiteAlternatePredecessor("
+    "CreateMercKitSelectionButtons(staged)"
+    "CreateMercWeaponBoxMouseRegions(staged)")
+  string(FIND "${runtime_merc_files_contents}" "${required_merc_files_fragment}"
+    required_merc_files_position)
+  if(required_merc_files_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. Files safety lost '${required_merc_files_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/mercs Account.cpp"
+  runtime_merc_account_contents)
+foreach(required_merc_account_fragment IN ITEMS
+    "if (iCurrentAccountPage > 0)"
+    "if (iCurrentAccountPage < iTotalAccountPages - 1)")
+  string(FIND "${runtime_merc_account_contents}"
+    "${required_merc_account_fragment}" required_merc_account_position)
+  if(required_merc_account_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. Account bounds lost '${required_merc_account_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_communications_policy_tests.cpp"
+  runtime_merc_navigation_test_contents)
+foreach(required_merc_navigation_test_fragment IN ITEMS
+    "M.E.R.C. persisted selections clamp to the available roster"
+    "M.E.R.C. alternate-profile navigation cannot underflow index zero")
+  string(FIND "${runtime_merc_navigation_test_contents}"
+    "${required_merc_navigation_test_fragment}"
+    required_merc_navigation_test_position)
+  if(required_merc_navigation_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. navigation tests lost '${required_merc_navigation_test_fragment}'")
   endif()
 endforeach()
 

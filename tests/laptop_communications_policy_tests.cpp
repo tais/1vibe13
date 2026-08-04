@@ -1,5 +1,6 @@
 #include "CampaignLaptopCommunicationsPolicy.h"
 #include "LaptopSafety.h"
+#include "MercSiteNavigationModel.h"
 
 #include <array>
 #include <cstdint>
@@ -109,6 +110,15 @@ int main()
 		!IsValidLaptopIndex(0, 0) &&
 		!IsValidLaptopIndex(4, static_cast<std::size_t>(-1)),
 		"Laptop index checks reject negative and exact-end boundaries");
+	Check(ClampMercSiteIndex(4, 0) == 0 &&
+		ClampMercSiteIndex(4, 3) == 2 &&
+		ClampMercSiteIndex(1, 3) == 1,
+		"M.E.R.C. persisted selections clamp to the available roster");
+	Check(SkipMercSiteAlternatePredecessor(0, true) == 0 &&
+		SkipMercSiteAlternatePredecessor(1, true) == 0 &&
+		SkipMercSiteAlternatePredecessor(2, true) == 1 &&
+		SkipMercSiteAlternatePredecessor(2, false) == 2,
+		"M.E.R.C. alternate-profile navigation cannot underflow index zero");
 	Check(!IsValidIntelMapRegion(-1) && IsValidIntelMapRegion(0) &&
 		IsValidIntelMapRegion(15) && !IsValidIntelMapRegion(16),
 		"intel map shifts are limited to valid regions");

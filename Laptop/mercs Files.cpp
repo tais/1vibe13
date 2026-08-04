@@ -18,6 +18,8 @@
 	#include "message.h"
 	#include "Font.h"
 	#include "LaptopSave.h"
+	#include "LaptopPageResourceOwner.h"
+	#include "MercSiteNavigationModel.h"
 	#include "Text.h"
 	#include "Speck Quotes.h"
 	#include "Multi Language Graphic Utils.h"
@@ -37,6 +39,8 @@
 #include "connect.h"
 #include "fresh_header.h"
 #include "aim.h"
+
+#include <utility>
 
 #define		MERCBIOFILE												"BINARYDATA\\MercBios.edt"
 
@@ -200,7 +204,7 @@ UINT32		lguiWeaponBox;
 
 //JMich_MMG: Image for the inventory boxes.
 UINT32	guiMercWeaponBox;
-UINT32	guiMercWeaponKitButtonImage;
+INT32	guiMercWeaponKitButtonImage;
 void EnableMercWeaponKitSelectionButtons();
 void CreateMercWeaponBoxBackground();
 
@@ -253,7 +257,7 @@ UINT32 guiBioInvButton;
 //JMich_MMG: Mouseregion for item tooltips
 MOUSE_REGION	gMercWeaponboxFasthelpRegion[MERC_WEAPONBOX_TOTAL_ITEMS];
 extern void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber );
-void CreateMercWeaponBoxMouseRegions();
+BOOLEAN CreateMercWeaponBoxMouseRegions(LaptopPageResourceOwner& owner);
 extern void HelpTextDoneCallback( void );
 
 //JMich_MMG: Merc Kit Selection Buttons
@@ -288,11 +292,16 @@ void HandleMercsFilesMouseInput( );
 
 //JMich_MMG: Declaration of the display inventory function
 BOOLEAN DisplayMERCMercsInventory(UINT8 ubMercID);
-void CreateMercKitSelectionButtons();
+BOOLEAN CreateMercKitSelectionButtons(LaptopPageResourceOwner& owner);
 void DisableMercWeaponKitSelectionButtons();
 void RefreshMercWeaponKitSelectionButtons();
 void MercWeaponKitSelectionUpdate(UINT8 selectedInventory = 0);
 UINT8	gSelectedMercKit;
+
+namespace
+{
+	LaptopPageResourceOwner gMercFilesResources;
+}
 
 
 void GameInitMercsFiles()
@@ -303,8 +312,16 @@ void GameInitMercsFiles()
 BOOLEAN EnterMercsFiles()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner staged;
 
-	InitMercBackGround();
+	gMercFilesResources.clear();
+	const UINT16 availableCount = CountAvailableMercsAtMercSite();
+	if (availableCount == 0) return FALSE;
+	LaptopSaveInfo.gubLastMercIndex = static_cast<UINT8>(ClampMercSiteIndex(
+		LaptopSaveInfo.gubLastMercIndex, availableCount));
+	gubCurMercIndex = static_cast<UINT8>(ClampMercSiteIndex(
+		gubCurMercIndex, LaptopSaveInfo.gubLastMercIndex + 1));
+	if (!AddMercBackGround(staged)) return FALSE;
 
 	//JMich_MMG: Initialize the page to be used
 	gubCurMercFilesTogglePage = MERC_FILES_BIO_PAGE;
@@ -312,111 +329,108 @@ BOOLEAN EnterMercsFiles()
 	// load the stats box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_STATSBOX );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiStatsBox));
+	if (!staged.addVideoObject(&VObjectDesc, guiStatsBox)) return FALSE;
 
 	// load the Portrait box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\PortraitBox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiPortraitBox));
+	if (!staged.addVideoObject(&VObjectDesc, guiPortraitBox)) return FALSE;
 
 	// load the bio box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BioBox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBioBox));
+	if (!staged.addVideoObject(&VObjectDesc, guiBioBox)) return FALSE;
 
 	// load the WeaponBox graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\weaponbox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &lguiWeaponBox));
+	if (!staged.addVideoObject(&VObjectDesc, lguiWeaponBox)) return FALSE;
 
 	// load the WeaponBox graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\mercbox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMercWeaponBox));
+	if (!staged.addVideoObject(&VObjectDesc, guiMercWeaponBox)) return FALSE;
 
 	//** Mouse Regions **
 	// mouse region for skills/traits tooltip on merc portrait
 	MSYS_DefineRegion( &gMercSelectedFaceRegion, MERC_FACE_X, MERC_FACE_Y , MERC_FACE_X + MERC_FACE_WIDTH , MERC_FACE_Y + MERC_FACE_HEIGHT, MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectMercsFaceRegionCallBack );
-	MSYS_AddRegion(&gMercSelectedFaceRegion);
+	if (!staged.addRegion(gMercSelectedFaceRegion)) return FALSE;
 
 	// Prev Box button
-	guiButtonImage	= LoadButtonImage("LAPTOP\\mercmediumbuttons.sti", -1,0,-1,1,-1 );
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\mercmediumbuttons.sti", -1, 0, -1, 1, -1),
+		guiButtonImage)) return FALSE;
 	// Weapon Kit Button
-	guiMercWeaponKitButtonImage = LoadButtonImage("LAPTOP\\MERCGEARKITBUTTON.sti", -1,0,-1,1,-1 );
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\MERCGEARKITBUTTON.sti", -1, 0, -1, 1, -1),
+		guiMercWeaponKitButtonImage)) return FALSE;
 
-	guiPrevButton = CreateIconAndTextButton( guiButtonImage, MercInfo[MERC_FILES_PREVIOUS],
+	if (!staged.addButton(CreateIconAndTextButton( guiButtonImage, MercInfo[MERC_FILES_PREVIOUS],
 													FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_FILES_PREV_BUTTON_X, MERC_FILES_PREV_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnMercPrevButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnMercPrevButtonCallback),
+		guiPrevButton)) return FALSE;
 
 	SetButtonCursor(guiPrevButton, CURSOR_LAPTOP_SCREEN);
 	SpecifyDisabledButtonStyle( guiPrevButton, DISABLED_STYLE_SHADED);
 
 	//Next Button
-	guiNextButton = CreateIconAndTextButton( guiButtonImage, MercInfo[MERC_FILES_NEXT],
+	if (!staged.addButton(CreateIconAndTextButton( guiButtonImage, MercInfo[MERC_FILES_NEXT],
 													FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_FILES_NEXT_BUTTON_X, MERC_FILES_NEXT_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnMercNextButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnMercNextButtonCallback),
+		guiNextButton)) return FALSE;
 
 	SetButtonCursor(guiNextButton, CURSOR_LAPTOP_SCREEN);
 	SpecifyDisabledButtonStyle( guiNextButton, DISABLED_STYLE_SHADED);
 
 	//Hire button
-	guiHireButton = CreateIconAndTextButton( guiButtonImage, MercInfo[MERC_FILES_HIRE],
+	if (!staged.addButton(CreateIconAndTextButton( guiButtonImage, MercInfo[MERC_FILES_HIRE],
 													FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_FILES_HIRE_BUTTON_X, MERC_FILES_HIRE_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnMercHireButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnMercHireButtonCallback),
+		guiHireButton)) return FALSE;
 	SetButtonCursor(guiHireButton, CURSOR_LAPTOP_SCREEN);
 	SpecifyDisabledButtonStyle( guiHireButton, DISABLED_STYLE_SHADED);
 
 	//Back button
-	guiMercBackButton = CreateIconAndTextButton( guiButtonImage, MercInfo[MERC_FILES_HOME],
+	if (!staged.addButton(CreateIconAndTextButton( guiButtonImage, MercInfo[MERC_FILES_HOME],
 													FONT12ARIAL,
 													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 													TEXT_CJUSTIFIED,
 													MERC_FILES_BACK_BUTTON_X, MERC_FILES_BACK_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnMercFilesBackButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnMercFilesBackButtonCallback),
+		guiMercBackButton)) return FALSE;
 	SetButtonCursor(guiMercBackButton, CURSOR_LAPTOP_SCREEN);
 	SpecifyDisabledButtonStyle( guiMercBackButton, DISABLED_STYLE_SHADED);
 	
 	//JMich_MMG: Bio/Inv button
-	if (gubCurMercFilesTogglePage + 1 == NUM_MERC_PAGES)
-	{
-			guiBioInvButton = CreateIconAndTextButton( guiButtonImage, MercInfo[MERC_FILES_BIO],
-													FONT12ARIAL,
-													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
-													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
-													TEXT_CJUSTIFIED,
-													MERC_FILES_BIO_INV_BUTTON_X, MERC_FILES_BIO_INV_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnMercFilesBioInvToggleButtonCallback);
+	STR16 toggleText = MercInfo[gubCurMercFilesTogglePage + 1 ==
+		NUM_MERC_PAGES ? MERC_FILES_BIO :
+		MERC_FILES_BIO + gubCurMercFilesTogglePage + 1];
+	if (!staged.addButton(CreateIconAndTextButton(guiButtonImage, toggleText,
+		FONT12ARIAL, MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
+		MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW, TEXT_CJUSTIFIED,
+		MERC_FILES_BIO_INV_BUTTON_X, MERC_FILES_BIO_INV_BUTTON_Y,
+		BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK,
+		BtnMercFilesBioInvToggleButtonCallback), guiBioInvButton)) return FALSE;
 	SetButtonCursor(guiBioInvButton, CURSOR_LAPTOP_SCREEN);
-	}
-	else
-	{
-			guiBioInvButton = CreateIconAndTextButton( guiButtonImage, MercInfo[MERC_FILES_BIO + gubCurMercFilesTogglePage + 1],
-													FONT12ARIAL,
-													MERC_BUTTON_UP_COLOR, DEFAULT_SHADOW,
-													MERC_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
-													TEXT_CJUSTIFIED,
-													MERC_FILES_BIO_INV_BUTTON_X, MERC_FILES_BIO_INV_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnMercFilesBioInvToggleButtonCallback);
-	SetButtonCursor(guiBioInvButton, CURSOR_LAPTOP_SCREEN);
-	}
 	SpecifyDisabledButtonStyle( guiBioInvButton, DISABLED_STYLE_SHADED);
-	CreateMercKitSelectionButtons();
-	CreateMercWeaponBoxMouseRegions();
+	if (!CreateMercKitSelectionButtons(staged) ||
+		!CreateMercWeaponBoxMouseRegions(staged)) return FALSE;
 	DisableMercWeaponKitSelectionButtons();
+	gMercFilesResources = std::move(staged);
 //	RenderMercsFiles();
 	return( TRUE );
 }
@@ -509,34 +523,7 @@ void BtnMercFilesBioInvToggleButtonCallback (GUI_BUTTON *btn, INT32 reason)
 
 void ExitMercsFiles()
 {
-	UINT8 i;
-	DeleteVideoObjectFromIndex(guiPortraitBox);
-	DeleteVideoObjectFromIndex(guiStatsBox);
-	DeleteVideoObjectFromIndex(guiBioBox);
-	//JMich_MMG: Deleting the image for inventory boxes
-	DeleteVideoObjectFromIndex(guiMercWeaponBox);
-
-	MSYS_RemoveRegion( &gMercSelectedFaceRegion);
-
-	UnloadButtonImage( guiButtonImage );
-	RemoveButton( guiPrevButton );
-	RemoveButton( guiNextButton );
-	RemoveButton( guiHireButton );
-
-	RemoveButton( guiMercBackButton );
-	DeleteVideoObjectFromIndex(lguiWeaponBox);//hayden
-
-	//JMich_MMG: removing buttons
-	RemoveButton (guiBioInvButton );
-	for (i = 0; i<NUM_MERCSTARTINGGEAR_KITS; i++)
-	{
-		RemoveButton( guiMercWeaponBoxSelectionButton[i] );
-	}
-	for (i = 0; i<MERC_WEAPONBOX_TOTAL_ITEMS;i++)
-	{
-		MSYS_RemoveRegion( &gMercWeaponboxFasthelpRegion[i] );
-	}
-	RemoveMercBackGround();
+	gMercFilesResources.clear();
 }
 
 void HandleMercsFiles()
@@ -760,6 +747,7 @@ BOOLEAN DisplayMercFace( UINT8 ubMercID)
 	MERCPROFILESTRUCT	*pMerc;
 	VOBJECT_DESC	VObjectDesc;
 	TacticalActor			*pSoldier=NULL;
+	LaptopPageResourceOwner faceResource;
 
 	// Portrait Frame
 	GetVideoObject(&hPortraitHandle, guiPortraitBox);
@@ -782,7 +770,7 @@ BOOLEAN DisplayMercFace( UINT8 ubMercID)
 	}
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP(sTemp, VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMercFace));
+	if (!faceResource.addVideoObject(&VObjectDesc, guiMercFace)) return FALSE;
 
 	//Blt face to screen
 	GetVideoObject(&hFaceHandle, guiMercFace);
@@ -838,8 +826,6 @@ BOOLEAN DisplayMercFace( UINT8 ubMercID)
 	{
 		DisplayWrappedString(MERC_FACE_X, MERC_FACE_Y+MERC_PORTRAIT_TEXT_OFFSET_Y, MERC_FACE_WIDTH, 2, FONT14ARIAL, 145, MercInfo[MERC_FILES_MERC_OUTSTANDING], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 	}
-
-	DeleteVideoObjectFromIndex(guiMercFace);
 
 	return( TRUE );
 }
@@ -1438,22 +1424,24 @@ void HandleMercsFilesMouseInput()
 }
 
 //JMich_MMG: Kit Selection Buttons
-void CreateMercKitSelectionButtons()
+BOOLEAN CreateMercKitSelectionButtons(LaptopPageResourceOwner& owner)
 {
 	INT32 i;
 
 	for (i=0;i<NUM_MERCSTARTINGGEAR_KITS;i++)
 	{
-		guiMercWeaponBoxSelectionButton[i]=CreateIconAndTextButton( guiMercWeaponKitButtonImage, CharacterInfo[AIM_MEMBER_GEAR_KIT_ONE+i], MERC_M_KIT_BUTTON_FONT,
-																MERC_M_KIT_BUTTON_UP_COLOR, DEFAULT_SHADOW,
+		if (!owner.addButton(CreateIconAndTextButton( guiMercWeaponKitButtonImage, CharacterInfo[AIM_MEMBER_GEAR_KIT_ONE+i], MERC_M_KIT_BUTTON_FONT,
+																		MERC_M_KIT_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 																MERC_M_KIT_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 																TEXT_CJUSTIFIED,
 																MERC_WEAPONBOX_LOADOUT_ONE_X + i * (MERC_WEAPONBOX_BUTTON_START_WIDTH + MERC_WEAPONBOX_LOADOUT_BUTTON_X_DISTANCE),
-																MERC_WEAPONBOX_LOADOUT_ONE_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-																DEFAULT_MOVE_CALLBACK, BtnMercWeaponboxSelectButtonCallback);
+																		MERC_WEAPONBOX_LOADOUT_ONE_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+																		DEFAULT_MOVE_CALLBACK, BtnMercWeaponboxSelectButtonCallback),
+			guiMercWeaponBoxSelectionButton[i])) return FALSE;
 		SetButtonCursor(guiMercWeaponBoxSelectionButton[i], CURSOR_WWW );
 		MSYS_SetBtnUserData(guiMercWeaponBoxSelectionButton[i],0, i );
 	}
+	return TRUE;
 }
 void BtnMercWeaponboxSelectButtonCallback( GUI_BUTTON * btn, INT32 Reason)
 {
@@ -1529,7 +1517,6 @@ BOOLEAN DisplayMERCMercsInventory(UINT8 ubMercID)
 	if ( (gMercProfiles[ ubMercID ].ubMiscFlags & PROFILE_MISC_FLAG_ALREADY_USED_ITEMS && !gGameExternalOptions.fGearKitsAlwaysAvailable ) )
 		return( TRUE );
 
-		UINT16 wnameY = MERC_MEMBER_WEAPON_NAME_Y;
 		PosX = MERC_WEAPONBOX_X_NSGI+3;		// + 3 ( 1 to take care of the shadow, +2 to get past the weapon box border )
 		PosY = MERC_WEAPONBOX_Y_NSGI;
 
@@ -1618,7 +1605,7 @@ BOOLEAN DisplayMERCMercsInventory(UINT8 ubMercID)
 	return(TRUE);
 }
 //JMich_MMG: Creating the mouseregion for tooltips
-void CreateMercWeaponBoxMouseRegions()
+BOOLEAN CreateMercWeaponBoxMouseRegions(LaptopPageResourceOwner& owner)
 {
 	UINT16	i, x, uiPosX, uiPosY;
 	UINT16	itemcounter = 0;
@@ -1628,12 +1615,14 @@ void CreateMercWeaponBoxMouseRegions()
 		uiPosY = MERC_WEAPONBOX_Y_NSGI + (MERC_WEAPONBOX_SIZE_Y_NSGI*i);
 		for(x=0; x<MERC_WEAPONBOX_COLUMNS; x++) {
 			MSYS_DefineRegion(&gMercWeaponboxFasthelpRegion[itemcounter],uiPosX,uiPosY,uiPosX+MERC_WEAPONBOX_SIZE_X_NSGI,uiPosY+MERC_WEAPONBOX_SIZE_Y_NSGI,MSYS_PRIORITY_HIGHEST, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, MSYS_NO_CALLBACK);
-			MSYS_AddRegion(&gMercWeaponboxFasthelpRegion[itemcounter]);
+			if (!owner.addRegion(gMercWeaponboxFasthelpRegion[itemcounter]))
+				return FALSE;
 			MSYS_DisableRegion(&gMercWeaponboxFasthelpRegion[itemcounter]);
 			uiPosX += MERC_WEAPONBOX_SIZE_X_NSGI;
 			itemcounter++;
 		}
 	}
+	return TRUE;
 }
 
 //JMich_MMG: Enabling of kit selection buttons
@@ -1897,10 +1886,10 @@ void PrevMercMember()
 	}
 	// WANNE: If current profile has an alternate profile, skip the previous one, because it is the alternate profile,
 	// otherwise we have both profiles available in MERC!
-	if (gConditionsForMercAvailability[ GetAvailableMercIndex(gubCurMercIndex) ].uiAlternateIndex != 255)
-	{
-		gubCurMercIndex--;
-	}
+	gubCurMercIndex = static_cast<UINT8>(SkipMercSiteAlternatePredecessor(
+		gubCurMercIndex,
+		gConditionsForMercAvailability[
+			GetAvailableMercIndex(gubCurMercIndex)].uiAlternateIndex != 255));
 
 	fReDrawScreenFlag = TRUE;
 	RenderMercsFiles();

@@ -82,6 +82,12 @@ Members shared as well, so Laptop now builds 77 common translation units and
 only 21 per-application variants. A staged owner covers the complete A.I.M.
 page cluster's video objects, surfaces, button images, buttons, and mouse-region
 registrations without changing content, save data, or campaign behavior.
+The subsequent M.E.R.C. ownership pass makes its landing, Files, Account, and
+No Account implementations shared too, bringing Laptop to 81 common
+translation units and 17 variants. The same staged owner now covers the whole
+site, its gear controls and help regions, and Speck's transient subtitle and
+video controls; `CampaignMercSitePolicy` replaces the last host-identity branch
+without changing profile, billing, dialogue, XML, or save records.
 
 ## Literal remaining tail
 

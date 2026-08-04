@@ -3,6 +3,8 @@
 
 #include "soldier profile type.h"
 
+class LaptopPageResourceOwner;
+
 #define		MERC_BUTTON_UP_COLOR													FONT_MCOLOR_WHITE
 #define		MERC_BUTTON_DOWN_COLOR												FONT_MCOLOR_DKWHITE
 
@@ -117,14 +119,14 @@ void HandleMercs();
 void RenderMercs();
 
 
-BOOLEAN InitMercBackGround();
+BOOLEAN AddMercBackGround(LaptopPageResourceOwner& owner);
 BOOLEAN DrawMecBackGround();
-BOOLEAN RemoveMercBackGround();
 void DailyUpdateOfMercSite( UINT16 usDate);
 UINT8 GetMercIDFromMERCArray(UINT8 ubMercID);
 
 UINT8 GetAvailableMercIndex(UINT8 gubCurMercIndex);
 UINT8 GetAvailableMercIDFromMERCArray(UINT8 ubMercID);
+UINT16 CountAvailableMercsAtMercSite();
 
 void DisplayTextForSpeckVideoPopUp(STR16 pString);
 
