@@ -100,6 +100,12 @@ four already-common pages one transactional resource boundary. Contract forms
 and mutable roster pagination are runtime-safe, and purchase, extension, and
 payout state is validated before publication without changing campaign mail,
 premium calculations, saves, or data records.
+The Bobby Ray catalogue batch retains the same split and makes the five
+already-common Guns, Ammunition, Armour, Miscellaneous, and Used pages one
+transactional ownership boundary. Shared catalogue controls and replaceable
+item regions now have ordered lifetime ownership, while dependency-free page,
+visible-slot, and data-index rules harden empty/stale navigation and malformed
+LBE input without changing inventory, purchasing, campaign, or save behavior.
 
 ## Literal remaining tail
 

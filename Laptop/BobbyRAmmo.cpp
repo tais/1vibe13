@@ -2,14 +2,21 @@
 	#include "BobbyRAmmo.h"
 	#include "BobbyRGuns.h"
 	#include "BobbyR.h"
+	#include "LaptopPageResourceOwner.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "WordWrap.h"
 	#include "Encrypted File.h"
 	#include "Text.h"
+	#include <utility>
 
 UINT32		guiAmmoBackground;
 UINT32		guiAmmoGrid;
+
+namespace
+{
+LaptopPageResourceOwner gBobbyRAmmoResources;
+}
 
 BOOLEAN DisplayAmmoInfo();
 
@@ -21,20 +28,23 @@ void GameInitBobbyRAmmo()
 BOOLEAN EnterBobbyRAmmo()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner staged;
+	DeleteMouseRegionForBigImage();
+	gBobbyRAmmoResources.clear();
 
 	//gfBigImageMouseRegionCreated = FALSE;
 
 	// load the background graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\ammobackground.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiAmmoBackground));
+	if (!staged.addVideoObject(&VObjectDesc, guiAmmoBackground)) return FALSE;
 
 	// load the gunsgrid graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\ammogrid.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiAmmoGrid));
+	if (!staged.addVideoObject(&VObjectDesc, guiAmmoGrid)) return FALSE;
 
-	InitBobbyBrTitle();
+	if (!InitBobbyBrTitle(staged)) return FALSE;
 
 	guiPrevAmmoFilterMode = -1;
 	guiCurrentAmmoFilterMode = -1;
@@ -42,8 +52,9 @@ BOOLEAN EnterBobbyRAmmo()
 	SetFirstLastPagesForNew( IC_AMMO, guiCurrentAmmoFilterMode );
 
 	//Draw menu bar
-	InitBobbyMenuBar( );
-	InitBobbyRAmmoFilterBar();
+	if (!InitBobbyMenuBar(staged) ||
+		!InitBobbyRAmmoFilterBar(staged)) return FALSE;
+	gBobbyRAmmoResources = std::move(staged);
 
 	RenderBobbyRAmmo( );
 
@@ -52,14 +63,8 @@ BOOLEAN EnterBobbyRAmmo()
 
 void ExitBobbyRAmmo()
 {
-	DeleteVideoObjectFromIndex(guiAmmoBackground);
-	DeleteVideoObjectFromIndex(guiAmmoGrid);
-	DeleteBobbyMenuBar();
-
-	DeleteBobbyRAmmoFilter();
-
-	DeleteBobbyBrTitle();
 	DeleteMouseRegionForBigImage();
+	gBobbyRAmmoResources.clear();
 
 	giCurrentSubPage = gusCurWeaponIndex;
 	guiLastBobbyRayPage = LAPTOP_MODE_BOBBY_R_AMMO;

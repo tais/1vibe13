@@ -2,14 +2,21 @@
 	#include "BobbyRMisc.h"
 	#include "BobbyR.h"
 	#include "BobbyRGuns.h"
+	#include "LaptopPageResourceOwner.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "WordWrap.h"
 	#include "Text.h"
+	#include <utility>
 
 
 UINT32		guiMiscBackground;
 UINT32		guiMiscGrid;
+
+namespace
+{
+LaptopPageResourceOwner gBobbyRMiscResources;
+}
 
 
 
@@ -21,18 +28,21 @@ void GameInitBobbyRMisc()
 BOOLEAN EnterBobbyRMisc()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner staged;
+	DeleteMouseRegionForBigImage();
+	gBobbyRMiscResources.clear();
 
 	// load the background graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\miscbackground.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMiscBackground));
+	if (!staged.addVideoObject(&VObjectDesc, guiMiscBackground)) return FALSE;
 
 	// load the gunsgrid graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\miscgrid.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMiscGrid));
+	if (!staged.addVideoObject(&VObjectDesc, guiMiscGrid)) return FALSE;
 
-	InitBobbyBrTitle();
+	if (!InitBobbyBrTitle(staged)) return FALSE;
 
 	guiPrevMiscFilterMode = -1;
 	guiCurrentMiscFilterMode = -1;
@@ -42,9 +52,10 @@ BOOLEAN EnterBobbyRMisc()
 	SetFirstLastPagesForNew( IC_BOBBY_MISC, guiCurrentMiscFilterMode, guiCurrentMiscSubFilterMode );
 
 	//Draw menu bar
-	InitBobbyMenuBar( );
+	if (!InitBobbyMenuBar(staged)) return FALSE;
 
-	InitBobbyRMiscFilterBar();
+	if (!InitBobbyRMiscFilterBar(staged)) return FALSE;
+	gBobbyRMiscResources = std::move(staged);
 
 //	CalculateFirstAndLastIndexs();
 
@@ -55,15 +66,8 @@ BOOLEAN EnterBobbyRMisc()
 
 void ExitBobbyRMisc()
 {
-	DeleteVideoObjectFromIndex(guiMiscBackground);
-	DeleteVideoObjectFromIndex(guiMiscGrid);
-	DeleteBobbyBrTitle();
-
-	DeleteBobbyMenuBar();
-
-	DeleteBobbyRMiscFilter();
-
 	DeleteMouseRegionForBigImage();
+	gBobbyRMiscResources.clear();
 
 	guiLastBobbyRayPage = LAPTOP_MODE_BOBBY_R_MISC;
 }
