@@ -96,6 +96,11 @@ public:
 		return !usesUnfinishedBusinessCatalog();
 	}
 
+	constexpr bool flowerDeliveryMeanwhileAvailable() const noexcept
+	{
+		return !usesUnfinishedBusinessCatalog();
+	}
+
 	constexpr EmailRecord insuranceRecord(InsuranceNotice notice) const noexcept
 	{
 		const Catalog catalog = Catalog::Arulco;

@@ -1,11 +1,14 @@
 	#include "laptop.h"
 	#include "funeral.h"
-	#include "WCheck.h"
 	#include "Utilities.h"
 	#include "WordWrap.h"
 	#include "Cursors.h"
 	#include "Text.h"
 	#include "Multi Language Graphic Utils.h"
+	#include "FloristSiteModel.h"
+	#include "LaptopPageResourceOwner.h"
+
+#include <utility>
 
 
 #define		FUNERAL_SENTENCE_FONT							FONT12ARIAL
@@ -107,6 +110,10 @@ void SelectRipSignRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
 void DisplayFuneralRipTombStone();
 
+namespace
+{
+	LaptopPageResourceOwner gFuneralResources;
+}
 
 
 void GameInitFuneral()
@@ -118,41 +125,44 @@ BOOLEAN EnterFuneral()
 {
 	VOBJECT_DESC	VObjectDesc;
 	UINT16					usPosX, i;
+	LaptopPageResourceOwner staged;
+
+	gFuneralResources.clear();
 
 	// load the Closed graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_CLOSED );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiClosedSign));
+	if (!staged.addVideoObject(&VObjectDesc, guiClosedSign)) return FALSE;
 
 	// load the Left column graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\LeftColumn.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiLeftColumn));
+	if (!staged.addVideoObject(&VObjectDesc, guiLeftColumn)) return FALSE;
 
 	// load the Link carving graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\LinkCarving.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiLinkCarving));
+	if (!staged.addVideoObject(&VObjectDesc, guiLinkCarving)) return FALSE;
 
 	// load the Marble graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Marble.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMarbleBackground));
+	if (!staged.addVideoObject(&VObjectDesc, guiMarbleBackground)) return FALSE;
 
 	// load the McGillicuttys sign graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_MCGILLICUTTYS );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMcGillicuttys));
+	if (!staged.addVideoObject(&VObjectDesc, guiMcGillicuttys)) return FALSE;
 
 	// load the Mortuary	graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_MORTUARY );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMortuary));
+	if (!staged.addVideoObject(&VObjectDesc, guiMortuary)) return FALSE;
 
 	// load the right column graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\RightColumn.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiRightColumn));
+	if (!staged.addVideoObject(&VObjectDesc, guiRightColumn)) return FALSE;
 
 
 	usPosX = FUNERAL_LINK_1_X;
@@ -162,7 +172,7 @@ BOOLEAN EnterFuneral()
 
 		MSYS_DefineRegion( &gSelectedFuneralLinkRegion[i], usPosX, FUNERAL_LINK_1_Y, (UINT16)(usPosX + FUNERAL_LINK_1_WIDTH), (UINT16)(FUNERAL_LINK_1_Y + FUNERAL_LINK_1_HEIGHT), MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectFuneralLinkRegionCallBack );
-		MSYS_AddRegion(&gSelectedFuneralLinkRegion[i]);
+		if (!staged.addRegion(gSelectedFuneralLinkRegion[i])) return FALSE;
 		MSYS_SetRegionUserData( &gSelectedFuneralLinkRegion[i], 0, i );
 
 		usPosX += FUNERAL_LINK_OFFSET_X;
@@ -170,9 +180,10 @@ BOOLEAN EnterFuneral()
 
 	MSYS_DefineRegion( &gSelectedRipSignRegion, FUNERAL_CLOSED_RIP_SIGN_X, FUNERAL_CLOSED_RIP_SIGN_Y, (UINT16)(FUNERAL_CLOSED_RIP_SIGN_X + FUNERAL_CLOSED_WIDTH), (UINT16)(FUNERAL_CLOSED_RIP_SIGN_Y + FUNERAL_CLOSED_HEIGHT), MSYS_PRIORITY_HIGH+1,
 						CURSOR_LAPTOP_SCREEN, MSYS_NO_CALLBACK, SelectRipSignRegionCallBack );
-	MSYS_AddRegion(&gSelectedRipSignRegion);
+	if (!staged.addRegion(gSelectedRipSignRegion)) return FALSE;
 	MSYS_DisableRegion(&gSelectedRipSignRegion);
 
+	gFuneralResources = std::move(staged);
 
 	SetBookMark( FUNERAL_BOOKMARK );
 
@@ -182,22 +193,7 @@ BOOLEAN EnterFuneral()
 
 void ExitFuneral()
 {
-	UINT8 i;
-
-	DeleteVideoObjectFromIndex(guiClosedSign);
-	DeleteVideoObjectFromIndex(guiLeftColumn);
-	DeleteVideoObjectFromIndex(guiLinkCarving);
-	DeleteVideoObjectFromIndex(guiMarbleBackground);
-	DeleteVideoObjectFromIndex(guiMcGillicuttys);
-	DeleteVideoObjectFromIndex(guiMortuary);
-	DeleteVideoObjectFromIndex(guiRightColumn);
-
-	for(i=0; i<FUNERAL_NUMBER_OF_LINKS; i++)
-	{
-	MSYS_RemoveRegion( &gSelectedFuneralLinkRegion[i]);
-	}
-
-	MSYS_RemoveRegion( &gSelectedRipSignRegion );
+	gFuneralResources.clear();
 }
 
 void HandleFuneral()
@@ -241,7 +237,14 @@ void RenderFuneral()
 		usStringHeight = IanWrappedStringHeight( 0, 0, FUNERAL_LINK_TEXT_WIDTH, 2,
 															FUNERAL_SENTENCE_FONT, 0, sFuneralString[i+FUNERAL_SEND_FLOWERS],
 															0, 0, 0 );
-		DisplayWrappedString( (UINT16)(usPosX+FUNERAL_LINK_TEXT_OFFSET_X), (UINT16)(FUNERAL_LINK_1_Y + (FUNERAL_LINK_1_HEIGHT - usStringHeight) / 2), FUNERAL_LINK_TEXT_WIDTH, 2, FUNERAL_SENTENCE_FONT, FUNERAL_TITLE_COLOR, sFuneralString[i+FUNERAL_SEND_FLOWERS], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+		DisplayWrappedString((UINT16)(usPosX +
+			FUNERAL_LINK_TEXT_OFFSET_X),
+			static_cast<UINT16>(FUNERAL_LINK_1_Y +
+				CenteredFloristTextOffset(FUNERAL_LINK_1_HEIGHT,
+					usStringHeight)),
+			FUNERAL_LINK_TEXT_WIDTH, 2, FUNERAL_SENTENCE_FONT,
+			FUNERAL_TITLE_COLOR, sFuneralString[i + FUNERAL_SEND_FLOWERS],
+			FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 
 
 		usPosX += FUNERAL_LINK_OFFSET_X;

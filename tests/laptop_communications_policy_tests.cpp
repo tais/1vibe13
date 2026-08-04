@@ -1,4 +1,5 @@
 #include "CampaignLaptopCommunicationsPolicy.h"
+#include "FloristSiteModel.h"
 #include "LaptopSafety.h"
 #include "MercSiteNavigationModel.h"
 
@@ -88,6 +89,9 @@ int main()
 		"Arulco retains the John Kulba shipment notice");
 	Check(!unfinishedBusiness.johnKulbaShipmentNoticeAvailable(),
 		"UB does not emit the Arulco-only John Kulba notice");
+	Check(arulco.flowerDeliveryMeanwhileAvailable() &&
+		!unfinishedBusiness.flowerDeliveryMeanwhileAvailable(),
+		"flower delivery meanwhile scenes remain Arulco-only");
 	Check(unfinishedBusiness.deadMercNoticeRecord().offset == 206 &&
 		unfinishedBusiness.aimNoRefundRecord().offset == 217,
 		"UB AIM substitutions retain their Arulco record IDs");
@@ -119,6 +123,31 @@ int main()
 		SkipMercSiteAlternatePredecessor(2, true) == 1 &&
 		SkipMercSiteAlternatePredecessor(2, false) == 2,
 		"M.E.R.C. alternate-profile navigation cannot underflow index zero");
+	Check(ClampFloristIndex(9, 0) == 0 &&
+		ClampFloristIndex(12, 10) == 9 &&
+		ClampFloristIndex(4, 10) == 4,
+		"Florist selections clamp empty and stale content indices");
+	Check(FloristGalleryPageStart(10, kFloristGalleryFlowerCount,
+			kFloristGalleryPageSize) == 9 &&
+		FloristGalleryPageCount(0, kFloristGalleryPageSize) == 0 &&
+		FloristGalleryPageCount(9, kFloristGalleryPageSize) == 3 &&
+		FloristGalleryPageCount(kFloristGalleryFlowerCount,
+			kFloristGalleryPageSize) == kFloristGalleryPageCount &&
+		NextFloristGalleryPageStart(6, kFloristGalleryFlowerCount,
+			kFloristGalleryPageSize) == 9 &&
+		NextFloristGalleryPageStart(9, kFloristGalleryFlowerCount,
+			kFloristGalleryPageSize) == 9 &&
+		PreviousFloristGalleryPageStart(0, kFloristGalleryFlowerCount,
+			kFloristGalleryPageSize) == 0 &&
+		PreviousFloristGalleryPageStart(9, kFloristGalleryFlowerCount,
+			kFloristGalleryPageSize) == 6 &&
+		FloristGalleryPageNumber(10, kFloristGalleryFlowerCount,
+			kFloristGalleryPageSize) == 3,
+		"Florist gallery navigation stays within its final partial page");
+	Check(CenteredFloristTextOffset(100, 40) == 30 &&
+		CenteredFloristTextOffset(100, 100) == 0 &&
+		CenteredFloristTextOffset(100, 120) == 0,
+		"Florist and Funeral localized text centering cannot underflow");
 	Check(!IsValidIntelMapRegion(-1) && IsValidIntelMapRegion(0) &&
 		IsValidIntelMapRegion(15) && !IsValidIntelMapRegion(16),
 		"intel map shifts are limited to valid regions");

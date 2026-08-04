@@ -366,17 +366,57 @@ manifest, and absence of raw resource lifecycle calls. All-host builds, the
 complete headless suites, sanitizer builds, and targeted static analysis remain
 required before merge.
 
+## Florist and Funeral service-site batch
+
+The eighth batch deliberately groups the complete four-page Florist workflow
+with Funeral, whose primary action enters that workflow. Each page now stages
+its default title/background, page graphics, button images, buttons, and mouse
+regions as one transaction. The flower gallery owns its replaceable image and
+button set separately, while the order form independently owns delivery rows
+whose lifetime follows the open drop-down rather than the page.
+
+Confirmed faults fixed by this batch include:
+
+- all five pages leaked earlier acquisitions when a later graphic, image, or
+  button failed, and several exits released button images before their buttons;
+- the order form allocated its destination-region array only once, then rebuilt
+  its shared destination table from mutable XML on later visits, allowing a
+  larger catalog to write past the old allocation;
+- leaving while the delivery drop-down was open retained its dynamically added
+  regions and static "created" flag, while text-field teardown attempted to
+  read fields after input mode had already been killed;
+- an empty destination catalog and stale destination or flower selection were
+  dereferenced by rendering, pricing, drop-down, and purchase callbacks;
+- stale gallery starts could underflow the remaining-item calculation, and the
+  previous exact-end workaround relied on a hard-coded visited-array index;
+- malformed flower price text left an uninitialized value in both gallery and
+  order rendering;
+- localized card or Funeral link text taller than its container underflowed an
+  unsigned centering offset; and
+- the order form's Meduna scene still depended on `#ifdef JA2UB`.
+
+`FloristSiteModel` now owns the dependency-free selection, page, and centering
+bounds. `CampaignLaptopCommunicationsPolicy` selects the delivery scene at
+runtime, allowing the order form to join the common build and moving Laptop to
+82 common translation units and 16 variants. Focused tests cover empty, stale,
+exact-end, partial-page, campaign, and tall-text cases; architecture CI pins
+the dynamic owner, storage refresh, text lifecycle, runtime policy, common
+manifest, and raw-lifecycle exclusion. All-host builds, the complete headless
+suites, sanitizer builds, and targeted static analysis remain required before
+merge.
+
 ## Remaining walkthrough
 
-The IMP lifecycle, runtime-content, A.I.M., and M.E.R.C. ownership slices are
-complete. The remaining audit queue is deliberately grouped into larger
-reviewable batches:
+The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., and Florist/Funeral
+ownership slices are complete. The remaining audit queue is deliberately
+grouped into larger reviewable batches:
 
 1. Extend scoped video, surface, button-image, button, and temporary-render
-   ownership from the completed A.I.M. and M.E.R.C. clusters across every
-   remaining Laptop page.
-2. Extend the completed A.I.M./M.E.R.C. mouse-region and re-entry audit across the
-   remaining pages, especially empty data and callback-driven mutation.
+   ownership from the completed A.I.M., M.E.R.C., and Florist/Funeral clusters
+   across every remaining Laptop page.
+2. Extend the completed A.I.M./M.E.R.C./Florist/Funeral mouse-region and
+   re-entry audit across the remaining pages, especially empty data and
+   callback-driven mutation.
 3. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
    validate all rendered text buffers before formatting.
 4. Audit the remaining Laptop binary readers and writers for exact reads,

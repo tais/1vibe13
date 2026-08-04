@@ -88,6 +88,13 @@ translation units and 17 variants. The same staged owner now covers the whole
 site, its gear controls and help regions, and Speck's transient subtitle and
 video controls; `CampaignMercSitePolicy` replaces the last host-identity branch
 without changing profile, billing, dialogue, XML, or save records.
+The Florist/Funeral service-site batch then makes flower delivery campaign
+behavior runtime-owned and promotes `florist Order Form.cpp`, bringing Laptop
+to 82 common translation units and 16 variants. Five connected pages now own
+their complete page resources transactionally, including gallery swaps and
+the XML-sized delivery drop-down; dependency-free bounds cover mutable
+destination and gallery state without changing order, finance, postal, or
+save formats.
 
 ## Literal remaining tail
 

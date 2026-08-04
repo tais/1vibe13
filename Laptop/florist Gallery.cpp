@@ -1,13 +1,18 @@
 	#include "laptop.h"
 	#include "florist.h"
 	#include "florist Gallery.h"
-	#include "WCheck.h"
 	#include "Utilities.h"
 	#include "WordWrap.h"
 	#include "Cursors.h"
 	#include "stdio.h"
 	#include "Encrypted File.h"
 	#include "Text.h"
+	#include "FloristSiteModel.h"
+	#include "LaptopPageResourceOwner.h"
+
+#include <algorithm>
+#include <iterator>
+#include <utility>
 
 
 
@@ -24,8 +29,8 @@
 #define	FLOR_GALLERY_FLOWER_DESC_FONT					FONT12ARIAL
 #define	FLOR_GALLERY_FLOWER_DESC_COLOR				FONT_MCOLOR_WHITE
 
-#define	FLOR_GALLERY_NUMBER_FLORAL_BUTTONS		3
-#define	FLOR_GALLERY_NUMBER_FLORAL_IMAGES			10
+#define	FLOR_GALLERY_NUMBER_FLORAL_BUTTONS		kFloristGalleryPageSize
+#define	FLOR_GALLERY_NUMBER_FLORAL_IMAGES			kFloristGalleryFlowerCount
 
 #define	FLOR_GALLERY_FLOWER_DESC_TEXT_FONT		FONT12ARIAL
 #define	FLOR_GALLERY_FLOWER_DESC_TEXT_COLOR		FONT_MCOLOR_WHITE
@@ -60,13 +65,12 @@ UINT32	guiCurrentlySelectedFlower=0;
 
 UINT8		gubCurFlowerIndex=0;
 UINT8		gubCurNumberOfFlowers=0;
-UINT8		gubPrevNumberOfFlowers=0;
 BOOLEAN gfRedrawFloristGallery=FALSE;
 
-BOOLEAN		FloristGallerySubPagesVisitedFlag[ 4 ];
+BOOLEAN		FloristGallerySubPagesVisitedFlag[kFloristGalleryPageCount];
 
 //Floral buttons
-extern INT32	guiGalleryButtonImage; // symbol already defined in florist.cpp (jonathanl)
+INT32	guiGalleryFlowerButtonImage;
 void			BtnGalleryFlowerButtonCallback(GUI_BUTTON *btn,INT32 reason);
 // File-private: same name is used as a scalar UINT32 in
 // Laptop/florist.cpp (different size + meaning).
@@ -79,11 +83,15 @@ void		BtnFloralGalleryBackButtonCallback(GUI_BUTTON *btn,INT32 reason);
 UINT32		guiFloralGalleryButton[2];
 
 
-BOOLEAN InitFlowerButtons();
-void DeleteFlowerButtons();
+BOOLEAN InitFlowerButtons(LaptopPageResourceOwner& owner);
 BOOLEAN DisplayFloralDescriptions();
 void ChangingFloristGallerySubPage( UINT8 ubSubPageNumber );
 
+namespace
+{
+	LaptopPageResourceOwner gFloristGalleryResources;
+	LaptopPageResourceOwner gFloristGalleryFlowerResources;
+}
 
 void GameInitFloristGallery()
 {
@@ -92,64 +100,68 @@ void GameInitFloristGallery()
 
 void EnterInitFloristGallery()
 {
-	memset( &FloristGallerySubPagesVisitedFlag, 0, 4);
+	std::fill(std::begin(FloristGallerySubPagesVisitedFlag),
+		std::end(FloristGallerySubPagesVisitedFlag), FALSE);
 }
 
 
 BOOLEAN EnterFloristGallery()
 {
-	InitFloristDefaults();
+	LaptopPageResourceOwner staged;
+	LaptopPageResourceOwner stagedFlowers;
+	gFloristGalleryFlowerResources.clear();
+	gFloristGalleryResources.clear();
+	gubCurFlowerIndex = static_cast<UINT8>(FloristGalleryPageStart(
+		gubCurFlowerIndex, FLOR_GALLERY_NUMBER_FLORAL_IMAGES,
+		FLOR_GALLERY_NUMBER_FLORAL_BUTTONS));
+	if (!AddFloristDefaults(staged)) return FALSE;
 
 	//the next previous buttons
-	guiFloralGalleryButtonImage	= LoadButtonImage("LAPTOP\\FloristButtons.sti", -1,0,-1,1,-1 );
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\FloristButtons.sti", -1, 0, -1, 1, -1),
+		guiFloralGalleryButtonImage)) return FALSE;
 
-	guiFloralGalleryButton[0] = CreateIconAndTextButton( guiFloralGalleryButtonImage, sFloristGalleryText[FLORIST_GALLERY_PREV], FLORIST_BUTTON_TEXT_FONT,
+	if (!staged.addButton(CreateIconAndTextButton( guiFloralGalleryButtonImage, sFloristGalleryText[FLORIST_GALLERY_PREV], FLORIST_BUTTON_TEXT_FONT,
 													FLORIST_BUTTON_TEXT_UP_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													FLORIST_BUTTON_TEXT_DOWN_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													FLOR_GALLERY_BACK_BUTTON_X, FLOR_GALLERY_BACK_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnFloralGalleryBackButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnFloralGalleryBackButtonCallback),
+		guiFloralGalleryButton[0])) return FALSE;
 	SetButtonCursor(guiFloralGalleryButton[0], CURSOR_WWW );
 
-	guiFloralGalleryButton[1] = CreateIconAndTextButton( guiFloralGalleryButtonImage, sFloristGalleryText[FLORIST_GALLERY_NEXT], FLORIST_BUTTON_TEXT_FONT,
+	if (!staged.addButton(CreateIconAndTextButton( guiFloralGalleryButtonImage, sFloristGalleryText[FLORIST_GALLERY_NEXT], FLORIST_BUTTON_TEXT_FONT,
 													FLORIST_BUTTON_TEXT_UP_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													FLORIST_BUTTON_TEXT_DOWN_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													FLOR_GALLERY_NEXT_BUTTON_X, FLOR_GALLERY_NEXT_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnFloralGalleryNextButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnFloralGalleryNextButtonCallback),
+		guiFloralGalleryButton[1])) return FALSE;
 	SetButtonCursor(guiFloralGalleryButton[1], CURSOR_WWW );
 
+	if (!InitFlowerButtons(stagedFlowers)) return FALSE;
+	gFloristGalleryResources = std::move(staged);
+	gFloristGalleryFlowerResources = std::move(stagedFlowers);
 	RenderFloristGallery();
-
-	InitFlowerButtons();
 
 	return(TRUE);
 }
 
 void ExitFloristGallery()
 {
-	UINT16 i;
-
-	RemoveFloristDefaults();
-
-	for(i=0; i<2; i++)
-		RemoveButton( guiFloralGalleryButton[i] );
-
-	UnloadButtonImage( guiFloralGalleryButtonImage	);
-
-	DeleteFlowerButtons();
-
+	gFloristGalleryFlowerResources.clear();
+	gFloristGalleryResources.clear();
 }
 
 void HandleFloristGallery()
 {
 	if( gfRedrawFloristGallery )
 	{
+		LaptopPageResourceOwner staged;
+		if (!InitFlowerButtons(staged)) return;
+		gFloristGalleryFlowerResources.clear();
+		gFloristGalleryFlowerResources = std::move(staged);
 		gfRedrawFloristGallery=FALSE;
-
-		//
-		DeleteFlowerButtons();
-		InitFlowerButtons();
 
 		fPausedReDrawScreenFlag = TRUE;
 	}
@@ -185,10 +197,13 @@ void BtnFloralGalleryNextButtonCallback(GUI_BUTTON *btn,INT32 reason)
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
 
-			if( (gubCurFlowerIndex + 3 ) <= FLOR_GALLERY_NUMBER_FLORAL_IMAGES )
-				gubCurFlowerIndex += 3;
-
-			ChangingFloristGallerySubPage( gubCurFlowerIndex );
+			const UINT8 next = static_cast<UINT8>(
+				NextFloristGalleryPageStart(gubCurFlowerIndex,
+					FLOR_GALLERY_NUMBER_FLORAL_IMAGES,
+					FLOR_GALLERY_NUMBER_FLORAL_BUTTONS));
+			if (next == gubCurFlowerIndex) return;
+			gubCurFlowerIndex = next;
+			ChangingFloristGallerySubPage(gubCurFlowerIndex);
 
 			InvalidateRegion(btn->Area.RegionTopLeftX, btn->Area.RegionTopLeftY, btn->Area.RegionBottomRightX, btn->Area.RegionBottomRightY);
 
@@ -219,10 +234,10 @@ void BtnFloralGalleryBackButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 			if( gubCurFlowerIndex != 0 )
 			{
-				if( gubCurFlowerIndex >=3 )
-					gubCurFlowerIndex -= 3;
-				else
-					gubCurFlowerIndex = 0;
+				gubCurFlowerIndex = static_cast<UINT8>(
+					PreviousFloristGalleryPageStart(gubCurFlowerIndex,
+						FLOR_GALLERY_NUMBER_FLORAL_IMAGES,
+						FLOR_GALLERY_NUMBER_FLORAL_BUTTONS));
 
 				ChangingFloristGallerySubPage( gubCurFlowerIndex );
 			}
@@ -274,7 +289,7 @@ void BtnGalleryFlowerButtonCallback(GUI_BUTTON *btn,INT32 reason)
 }
 
 
-BOOLEAN InitFlowerButtons()
+BOOLEAN InitFlowerButtons(LaptopPageResourceOwner& owner)
 {
 	UINT16 i,j, count;
 	UINT16 usPosY;
@@ -282,22 +297,23 @@ BOOLEAN InitFlowerButtons()
 	VOBJECT_DESC	VObjectDesc;
 
 
-	if( (FLOR_GALLERY_NUMBER_FLORAL_IMAGES - gubCurFlowerIndex) >= 3 )
-		gubCurNumberOfFlowers = 3;
-	else
-		gubCurNumberOfFlowers = FLOR_GALLERY_NUMBER_FLORAL_IMAGES - gubCurFlowerIndex;
-
-	gubPrevNumberOfFlowers = gubCurNumberOfFlowers;
+	gubCurFlowerIndex = static_cast<UINT8>(FloristGalleryPageStart(
+		gubCurFlowerIndex, FLOR_GALLERY_NUMBER_FLORAL_IMAGES,
+		FLOR_GALLERY_NUMBER_FLORAL_BUTTONS));
+	gubCurNumberOfFlowers = static_cast<UINT8>(std::min<UINT16>(
+		FLOR_GALLERY_NUMBER_FLORAL_BUTTONS,
+		FLOR_GALLERY_NUMBER_FLORAL_IMAGES - gubCurFlowerIndex));
 
 	//the 10 pictures of the flowers
 	count = gubCurFlowerIndex;
 	for(i=0; i<gubCurNumberOfFlowers; i++)
 	{
 		// load the handbullet graphic and add it
-		sprintf( sTemp, "LAPTOP\\Flower_%d.sti", count);
+		snprintf(sTemp, sizeof(sTemp), "LAPTOP\\Flower_%d.sti", count);
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP(sTemp, VObjectDesc.ImageFile);
-		CHECKF(AddVideoObject(&VObjectDesc, &guiFlowerImages[i]));
+		if (!owner.addVideoObject(&VObjectDesc, guiFlowerImages[i]))
+			return FALSE;
 		count++;
 	}
 
@@ -305,12 +321,15 @@ BOOLEAN InitFlowerButtons()
 	usPosY = FLOR_GALLERY_FLOWER_BUTTON_Y;
 //	usPosX = FLOR_GALLERY_FLOWER_BUTTON_X;
 	count = gubCurFlowerIndex;
-	guiGalleryButtonImage	= LoadButtonImage("LAPTOP\\GalleryButtons.sti", -1,0,-1,1,-1 );
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\GalleryButtons.sti", -1, 0, -1, 1, -1),
+		guiGalleryFlowerButtonImage)) return FALSE;
 	for(j=0; j<gubCurNumberOfFlowers; j++)
 	{
-		guiGalleryButton[j] = QuickCreateButton( guiGalleryButtonImage, FLOR_GALLERY_FLOWER_BUTTON_X, usPosY,
+		if (!owner.addButton(QuickCreateButton( guiGalleryFlowerButtonImage, FLOR_GALLERY_FLOWER_BUTTON_X, usPosY,
 																	BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-																	DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnGalleryFlowerButtonCallback);
+																	DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnGalleryFlowerButtonCallback),
+			guiGalleryButton[j])) return FALSE;
 		SetButtonCursor( guiGalleryButton[j], CURSOR_WWW);
 		MSYS_SetBtnUserData( guiGalleryButton[j], 0, count);
 
@@ -326,7 +345,9 @@ BOOLEAN InitFlowerButtons()
 		SpecifyButtonText( guiFloralGalleryButton[0], sFloristGalleryText[FLORIST_GALLERY_PREV] );
 
 	//if it is the last page disable the next button
-	if( gubCurFlowerIndex == FLOR_GALLERY_NUMBER_FLORAL_IMAGES-1 )
+	if (NextFloristGalleryPageStart(gubCurFlowerIndex,
+			FLOR_GALLERY_NUMBER_FLORAL_IMAGES,
+			FLOR_GALLERY_NUMBER_FLORAL_BUTTONS) == gubCurFlowerIndex)
 		DisableButton( guiFloralGalleryButton[1] );
 	else
 		EnableButton( guiFloralGalleryButton[1] );
@@ -336,35 +357,18 @@ BOOLEAN InitFlowerButtons()
 }
 
 
-void DeleteFlowerButtons()
-{
-	UINT16 i;
-
-	for(i=0; i<gubPrevNumberOfFlowers; i++)
-	{
-		DeleteVideoObjectFromIndex( guiFlowerImages[i] );
-	}
-
-	UnloadButtonImage( guiGalleryButtonImage );
-
-	for(i=0; i<gubPrevNumberOfFlowers; i++)
-	{
-		RemoveButton( guiGalleryButton[i] );
-	}
-
-}
-
-
 BOOLEAN DisplayFloralDescriptions()
 {
 	CHAR16		sTemp[ 640 ];
 	UINT32	uiStartLoc=0, i;
-	UINT16	usPosY, usPrice;
+	UINT16	usPosY, usPrice = 0;
 
-	if( (FLOR_GALLERY_NUMBER_FLORAL_IMAGES - gubCurFlowerIndex) >= 3 )
-		gubCurNumberOfFlowers = 3;
-	else
-		gubCurNumberOfFlowers = FLOR_GALLERY_NUMBER_FLORAL_IMAGES - gubCurFlowerIndex;
+	gubCurFlowerIndex = static_cast<UINT8>(FloristGalleryPageStart(
+		gubCurFlowerIndex, FLOR_GALLERY_NUMBER_FLORAL_IMAGES,
+		FLOR_GALLERY_NUMBER_FLORAL_BUTTONS));
+	gubCurNumberOfFlowers = static_cast<UINT8>(std::min<UINT16>(
+		FLOR_GALLERY_NUMBER_FLORAL_BUTTONS,
+		FLOR_GALLERY_NUMBER_FLORAL_IMAGES - gubCurFlowerIndex));
 
 	usPosY = FLOR_GALLERY_FLOWER_BUTTON_Y;
 	for(i=0; i<gubCurNumberOfFlowers; i++)
@@ -377,7 +381,7 @@ BOOLEAN DisplayFloralDescriptions()
 		//Display Flower Price
 		uiStartLoc = FLOR_GALLERY_TEXT_TOTAL_SIZE * (i + gubCurFlowerIndex) + FLOR_GALLERY_TEXT_TITLE_SIZE;
 		LoadEncryptedDataFromFile(FLOR_GALLERY_TEXT_FILE, sTemp, uiStartLoc, FLOR_GALLERY_TEXT_PRICE_SIZE);
-		swscanf( sTemp, L"%hu", &usPrice);
+		if (swscanf(sTemp, L"%hu", &usPrice) != 1) usPrice = 0;
 		swprintf( sTemp, L"$%d.00 %s", usPrice, pMessageStrings[ MSG_USDOLLAR_ABBREVIATION ] );
 		DrawTextToScreen(sTemp, FLOR_GALLERY_FLOWER_TITLE_X, (UINT16)(usPosY+FLOR_GALLERY_FLOWER_PRICE_OFFSET_Y), 0, FLOR_GALLERY_FLOWER_PRICE_FONT, FLOR_GALLERY_FLOWER_PRICE_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
 
@@ -395,22 +399,19 @@ BOOLEAN DisplayFloralDescriptions()
 
 void ChangingFloristGallerySubPage( UINT8 ubSubPageNumber )
 {
+	const std::size_t subPageNumber = FloristGalleryPageNumber(
+		ubSubPageNumber, FLOR_GALLERY_NUMBER_FLORAL_IMAGES,
+		FLOR_GALLERY_NUMBER_FLORAL_BUTTONS);
+	if (subPageNumber >= std::size(FloristGallerySubPagesVisitedFlag))
+		return;
 	fLoadPendingFlag = TRUE;
 
-	//there are 3 flowers per page
-	if( ubSubPageNumber == FLOR_GALLERY_NUMBER_FLORAL_IMAGES )
-    {
-		ubSubPageNumber = 3;  // last valid gallery sub-page (was 4 -> OOB write on the [4] visited-flag array)
-    }
-	else
-		ubSubPageNumber = ubSubPageNumber / 3;
-
-	if( FloristGallerySubPagesVisitedFlag[ ubSubPageNumber ] == FALSE )
+	if( FloristGallerySubPagesVisitedFlag[subPageNumber] == FALSE )
 	{
 		fConnectingToSubPage = TRUE;
 		fFastLoadFlag = FALSE;
 
-		FloristGallerySubPagesVisitedFlag[ ubSubPageNumber ] = TRUE;
+		FloristGallerySubPagesVisitedFlag[subPageNumber] = TRUE;
 	}
 	else
 	{
