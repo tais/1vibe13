@@ -23,6 +23,7 @@
 	#include "GameSettings.h"
 	#include "Interface.h"
 	#include "DropDown.h"
+#include "ImpPageResourceOwner.h"
 
 
 //*******************************************************************
@@ -86,6 +87,7 @@ template<>	void	DropDownTemplate<DROPDOWNNR_RACISTFEATURE>::SetRefresh()		{ gfIM
 
 void EnterIMPPrejudice( void )
 {
+	BeginImpPageResources();
 	RenderProfileBackGround();
 				
 	giIMPPrejudiceFinishButtonImage =	LoadButtonImage( "LAPTOP\\button_5.sti" ,-1,0,-1,1,-1 );

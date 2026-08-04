@@ -25,6 +25,7 @@
 	#include "LaptopSave.h"
 
 #include <language.hpp>
+#include "ImpPageResourceOwner.h"
 
 #define FULL_NAME_CURSOR_Y LAPTOP_SCREEN_WEB_UL_Y + 138
 #define NICK_NAME_CURSOR_Y LAPTOP_SCREEN_WEB_UL_Y + 195
@@ -123,6 +124,7 @@ void MvtOnFemaleRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
 void EnterIMPBeginScreen( void )
 {
+	BeginImpPageResources();
 
 	// reset all variables
 
@@ -132,8 +134,8 @@ void EnterIMPBeginScreen( void )
 	// if we are not restarting...then copy over name, set cursor and array positions
 	if( iCurrentProfileMode != IMP__REGISTRY )
 	{
-	wcscpy( pFullNameString, pFullName );
-	wcscpy( pNickNameString, pNickName );
+		LaptopUiStateModel::CopyText(pFullNameString, pFullName);
+		LaptopUiStateModel::CopyText(pNickNameString, pNickName);
 		uiFullNameCharacterPosition = wcslen( pFullNameString );
 	uiNickNameCharacterPosition = wcslen( pNickNameString );
 	uiFullNameCursorPosition = 196 + LAPTOP_SCREEN_UL_X + StringPixLength( pFullNameString, FONT14ARIAL );
@@ -232,7 +234,7 @@ void ExitIMPBeginScreen( void )
 	// remove mouse regions
 	DestroyIMPBeginScreenMouseRegions( );
 
-	wcscpy( pFullName, pFullNameString );
+	LaptopUiStateModel::CopyText(pFullName, pFullNameString);
 
 	// is nick name too long?..shorten
 	if( wcslen( pNickNameString ) > 8 )
@@ -242,7 +244,7 @@ void ExitIMPBeginScreen( void )
 	}
 
 
-	wcscpy( pNickName, pNickNameString );
+	LaptopUiStateModel::CopyText(pNickName, pNickNameString);
 
 	// set gender
 	fCharacterIsMale = bGenderFlag;
@@ -1325,8 +1327,8 @@ BOOLEAN CheckCharacterInputForEgg( void )
 #else
 	if( ( wcscmp( pFullNameString, L"retraC kraM") == 0 ) && ( wcscmp( pNickNameString, L"BdyCnt") ) )
 	{
-		wcscpy( pFullNameString, L"Mark Carter");
-		wcscpy( pNickNameString, L"BodyCount");
+		LaptopUiStateModel::CopyText(pFullNameString, L"Mark Carter");
+		LaptopUiStateModel::CopyText(pNickNameString, L"BodyCount");
 	bGenderFlag = IMP_MALE;
 		iHealth = 99;
 		iAgility = 99;
@@ -1350,8 +1352,8 @@ BOOLEAN CheckCharacterInputForEgg( void )
 	}
 	else if ( ( wcscmp( pFullNameString, L"hcnerF evaD") == 0)&&( wcscmp( pNickNameString, L"Feral") == 0))
 	{
-	wcscpy( pFullNameString, L"Dave French");
-		wcscpy( pNickNameString, L"Feral");
+	LaptopUiStateModel::CopyText(pFullNameString, L"Dave French");
+		LaptopUiStateModel::CopyText(pNickNameString, L"Feral");
 	bGenderFlag = IMP_MALE;
 		iHealth = 90;
 		iAgility = 95;
@@ -1375,8 +1377,8 @@ BOOLEAN CheckCharacterInputForEgg( void )
 	}
 	else if ( ( wcscmp( pFullNameString, L"Marnes") == 0)&&( wcscmp( pNickNameString, L"Marnes") == 0))
 	{
-	wcscpy( pFullNameString, L"Kris Marnes");
-		wcscpy( pNickNameString, L"Marnes");
+	LaptopUiStateModel::CopyText(pFullNameString, L"Kris Marnes");
+		LaptopUiStateModel::CopyText(pNickNameString, L"Marnes");
 	bGenderFlag = IMP_MALE;
 		iHealth = 100;
 		iAgility = 100;
@@ -1400,8 +1402,8 @@ BOOLEAN CheckCharacterInputForEgg( void )
 	}
 	else if( ( wcscmp( pFullNameString, L"neslO namroN") == 0 ) && ( wcscmp( pNickNameString, L"N.R.G") == 0) )
 	{
-		wcscpy( pFullNameString, L"Norman Olsen");
-		wcscpy( pNickNameString, L"N.R.G");
+		LaptopUiStateModel::CopyText(pFullNameString, L"Norman Olsen");
+		LaptopUiStateModel::CopyText(pNickNameString, L"N.R.G");
 	bGenderFlag = IMP_MALE;
 		iHealth = 99;
 		iAgility = 99;
@@ -1428,8 +1430,8 @@ BOOLEAN CheckCharacterInputForEgg( void )
 	}
 		else if( ( wcscmp( pFullNameString, L"snommE werdnA") == 0 ) && ( wcscmp( pNickNameString, L"Bubba") == 0) )
 	{
-		wcscpy( pFullNameString, L"Andrew Emmons");
-		wcscpy( pNickNameString, L"Bubba");
+		LaptopUiStateModel::CopyText(pFullNameString, L"Andrew Emmons");
+		LaptopUiStateModel::CopyText(pNickNameString, L"Bubba");
 	bGenderFlag =IMP_MALE;
 		iHealth = 97;
 		iAgility = 98;
@@ -1456,8 +1458,8 @@ BOOLEAN CheckCharacterInputForEgg( void )
 	}
 	else if( ( wcscmp( pFullNameString, L"nalehW yeoJ") == 0 ) && ( wcscmp( pNickNameString, L"Joeker") == 0) )
 	{
-		wcscpy( pFullNameString, L"Joey Whelan");
-		wcscpy( pNickNameString, L"Joeker");
+		LaptopUiStateModel::CopyText(pFullNameString, L"Joey Whelan");
+		LaptopUiStateModel::CopyText(pNickNameString, L"Joeker");
 	bGenderFlag = 0;
 		iHealth = 99;
 		iAgility = 99;
@@ -1484,8 +1486,8 @@ BOOLEAN CheckCharacterInputForEgg( void )
 	}
 	else if( ( wcscmp( pFullNameString, L"gnehC cirE") == 0 ) && ( wcscmp( pNickNameString, L"BlakAddr") == 0) )
 	{
-		wcscpy( pFullNameString, L"Eric Cheng");
-		wcscpy( pNickNameString, L"BlakAddr");
+		LaptopUiStateModel::CopyText(pFullNameString, L"Eric Cheng");
+		LaptopUiStateModel::CopyText(pNickNameString, L"BlakAddr");
 	bGenderFlag = IMP_MALE;
 		iHealth = 99;
 		iAgility = 99;
@@ -1512,8 +1514,8 @@ BOOLEAN CheckCharacterInputForEgg( void )
 	}
 	else if( ( wcscmp( pFullNameString, L"Karters Killer Kru") == 0 ) && ( wcscmp( pNickNameString, L"Bitchin") == 0) )
 	{
-		wcscpy( pFullNameString, L"Mark Carter");
-		wcscpy( pNickNameString, L"BodyCount");
+		LaptopUiStateModel::CopyText(pFullNameString, L"Mark Carter");
+		LaptopUiStateModel::CopyText(pNickNameString, L"BodyCount");
 	bGenderFlag = IMP_MALE;
 		iHealth = 99;
 		iAgility = 99;
@@ -1566,8 +1568,8 @@ BOOLEAN CheckCharacterInputForEgg( void )
 	}
 	else if( ( wcscmp( pFullNameString, L"dleifmaC sirhC") == 0 ) && ( wcscmp( pNickNameString, L"SSR") == 0) )
 	{
-		wcscpy( pFullNameString, L"James Bolivar DiGriz");
-		wcscpy( pNickNameString, L"DiGriz");
+		LaptopUiStateModel::CopyText(pFullNameString, L"James Bolivar DiGriz");
+		LaptopUiStateModel::CopyText(pNickNameString, L"DiGriz");
 	bGenderFlag = IMP_MALE;
 		iHealth = 99;
 		iAgility = 80;
@@ -1596,8 +1598,8 @@ BOOLEAN CheckCharacterInputForEgg( void )
 	#endif
 	if( ( wcscmp( pFullNameString, L"Test Female") == 0 ) && ( wcscmp( pNickNameString, L"Test") == 0) )
 	{
-		wcscpy( pFullNameString, L"Test Female");
-		wcscpy( pNickNameString, L"Test");
+		LaptopUiStateModel::CopyText(pFullNameString, L"Test Female");
+		LaptopUiStateModel::CopyText(pNickNameString, L"Test");
 	bGenderFlag = IMP_FEMALE;
 		iHealth = 55;
 		iAgility = 55;

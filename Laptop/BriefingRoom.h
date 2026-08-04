@@ -10,8 +10,6 @@ void ExitBriefingRoom();
 void HandleBriefingRoom();
 void RenderBriefingRoom();
 
-BOOLEAN RemoveBriefingRoomDefaults();
-BOOLEAN InitBriefingRoomDefaults();
 BOOLEAN DrawBriefingRoomDefaults();
 
 BOOLEAN DisplayBriefingRoomSlogan();

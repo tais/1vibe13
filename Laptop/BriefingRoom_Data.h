@@ -121,8 +121,6 @@ extern BRIEFINGROOM_M_DATA gBriefingRoomData[];
 extern void BackupBRandEncyclopedia ( BRIEFINGROOM_M_DATA *EncyBackup, BRIEFINGROOM_M_DATA *Ency, UINT32 NUM);
 
 extern UINT32 IDPageEncyData;
-extern void InitData ( BOOLEAN bInit);
-extern void UnLoadMenuButtons ();
 extern BOOLEAN ResetVal;
 
 extern void CopyToTemp ( BRIEFINGROOM_M_DATA *Ency, BOOLEAN bFiltr, INT32 sort, INT32 TypFiltr, BOOLEAN ShowBox );

@@ -29,6 +29,7 @@
 #include "IMP Skill Trait.h"
 #include "IMP Minor Trait.h"
 #include "IMP Gear Entrance.h"
+#include "ImpPageResourceOwner.h"
 
 extern BOOLEAN gfGlowTimerExpired;
 BOOLEAN fShowIMPItemHighLight = FALSE;
@@ -157,6 +158,7 @@ void ImpInventoryPoolPrevBtn(GUI_BUTTON* btn, INT32 reason);
 
 void EnterIMPGear( void )
 {
+	BeginImpPageResources();
 	RenderProfileBackGround( );
 
 	giIMPGearFinishButtonImage = LoadButtonImage( "LAPTOP\\button_5.sti", -1, 0, -1, 1, -1 );
@@ -509,7 +511,8 @@ void IMPGearDisplay( )
 	if ( gIMPGearCost > gGameExternalOptions.iIMPProfileCost )
 	{
 		CHAR16 wTemp[50];
-		swprintf( wTemp, szIMPGearWebSiteText[6], GetIMPGearCost(), gGameExternalOptions.iIMPProfileCost );
+		sgp_swprintf(wTemp, std::size(wTemp), szIMPGearWebSiteText[6],
+			GetIMPGearCost(), gGameExternalOptions.iIMPProfileCost);
 		DrawTextToScreen( wTemp, LAPTOP_SCREEN_UL_X + 100, LAPTOP_SCREEN_WEB_UL_Y + 360, LAPTOP_TEXT_WIDTH, FONT12ARIAL, IMP_GEAR__COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED );
 	}
 }
@@ -517,7 +520,7 @@ void IMPGearDisplay( )
 
 void DisplayGear( UINT16 usItem, UINT16 usPosX, UINT16 usPosY, BOOLEAN fWithBackGround, UINT8 aNumber, BOOLEAN fDisplayNumber )
 {
-	if ( usItem )
+	if (LaptopUiStateModel::IsValidIndex(MAXITEMS, usItem) && usItem != 0)
 	{
 		if ( fWithBackGround )
 		{
@@ -532,7 +535,10 @@ void DisplayGear( UINT16 usItem, UINT16 usPosX, UINT16 usPosY, BOOLEAN fWithBack
 
 		UINT16 usGraphicNum = g_bUsePngItemImages ? 0 : pItem->ubGraphicNum;
 
-		GetVideoObject( &hVObject, GetInterfaceGraphicForItem( pItem ) );
+		const UINT32 interfaceGraphic = GetInterfaceGraphicForItem(pItem);
+		if (!GetVideoObject(&hVObject, interfaceGraphic) || !hVObject ||
+			!hVObject->pETRLEObject)
+			return;
 
 		if ( usGraphicNum < hVObject->usNumberOfObjects )
 		{
@@ -558,7 +564,7 @@ void DisplayGear( UINT16 usItem, UINT16 usPosX, UINT16 usPosY, BOOLEAN fWithBack
 		if ( fDisplayNumber && aNumber > 1 )
 		{
 			CHAR16 sString[128];
-			swprintf( sString, L"%d", aNumber );
+				sgp_swprintf(sString, std::size(sString), L"%d", aNumber);
 			INT16 sX, sY;
 			FindFontRightCoordinates( (INT16)(usPosX), (INT16)(usPosY + 6), 10, (INT16)(GetFontHeight( FONT10ARIAL )), sString, FONT10ARIAL, &sX, &sY );
 			mprintf(sX, sY, L"%s", sString);
@@ -1161,7 +1167,9 @@ void DisplayPagesForImpInventoryPool(void)
 	SetFontDestBuffer(FRAME_BUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE);
 
 	// grab current and last pages
-	swprintf(sString, L"%d / %d", gIMPCurrentInventoryPoolPage + 1, gIMPLastInventoryPoolPage + 1);
+	sgp_swprintf(sString, std::size(sString), L"%d / %d",
+		gIMPCurrentInventoryPoolPage + 1,
+		gIMPLastInventoryPoolPage + 1);
 
 	// grab centered coords
 	FindFontCenterCoordinates(
@@ -1180,7 +1188,7 @@ void DrawItemTextToInvPool(STR16 itemName, UINT32 x, UINT32 y)
 {
 	// the name
 	CHAR16 sString[64];
-	wcscpy(sString, itemName);
+	LaptopUiStateModel::CopyText(sString, itemName);
 
 	if (StringPixLength(sString, SMALLCOMPFONT) >= (65))
 	{
@@ -1206,7 +1214,12 @@ void DrawItemTextToInvPool(STR16 itemName, UINT32 x, UINT32 y)
 
 void RenderImpGearSelectionChoices(UINT32 pocket)
 {
-	CHAR16 tooltipText[5000];
+	if (!LaptopUiStateModel::IsValidIndex(
+		std::size(gIMPPossibleItems), pocket) ||
+		!LaptopUiStateModel::IsValidIndex(
+			std::size(gIMPPocketSelectedItems), pocket))
+		return;
+	CHAR16 tooltipText[5000] = {};
 	const UINT32 xOffset = gIMPInvPoolLayout.x + 24; // top left coords of the first item slot in selection grid sti
 	const UINT32 yOffset = gIMPInvPoolLayout.y + 8;
 	const UINT32 xStep = 72; // steps to the next slot column and row
@@ -1218,14 +1231,16 @@ void RenderImpGearSelectionChoices(UINT32 pocket)
 		SetRegionFastHelpText(&gIMPGearInvPoolRegion[i], szIMPGearPocketText[55]);
 	}
 
-	const UINT32 pageShift = gIMPCurrentInventoryPoolPage * IMP_GEAR_INV_SLOTS;
-	UINT32 end = gIMPPossibleItems[pocket].size();
-	if (gIMPCurrentInventoryPoolPage < gIMPLastInventoryPoolPage)
-	{
-		end = pageShift + 25;
-	}
+	const std::size_t itemCount = gIMPPossibleItems[pocket].size();
+	const std::size_t requestedStart =
+		static_cast<std::size_t>(gIMPCurrentInventoryPoolPage) *
+		IMP_GEAR_INV_SLOTS;
+	const std::size_t pageShift = LaptopUiStateModel::NormalizePageStart(
+		itemCount, IMP_GEAR_INV_SLOTS, requestedStart);
+	const std::size_t end = std::min(itemCount,
+		pageShift + static_cast<std::size_t>(IMP_GEAR_INV_SLOTS));
 
-	for (UINT32 i = 0 + pageShift; i < end; i++)
+	for (std::size_t i = pageShift; i < end; ++i)
 	{
 		const auto item = gIMPPossibleItems[pocket][i].first;
 		const auto x = xOffset + (UINT8)((i - pageShift)%5) * xStep;
@@ -1239,13 +1254,15 @@ void RenderImpGearSelectionChoices(UINT32 pocket)
 		DrawItemTextToInvPool(gIMPPossibleItems[pocket][i].second, xText, yText);
 		// Update tool tip to contain item name
 		const auto itemIndex = gIMPPossibleItems[pocket][i].first;
-		if (itemIndex != 0)
+		if (LaptopUiStateModel::IsValidIndex(MAXITEMS, itemIndex) &&
+			itemIndex != 0)
 		{
 			extern void GetHelpTextForItemInLaptop(CHAR16 *pzStr, UINT16 usItemNumber);
 			GetHelpTextForItemInLaptop(tooltipText, itemIndex);
 
-			wcscat(tooltipText, L"\n");
-			wcscat(tooltipText, szIMPGearPocketText[55]);
+			LaptopUiStateModel::AppendText(tooltipText, L"\n");
+			LaptopUiStateModel::AppendText(
+				tooltipText, szIMPGearPocketText[55]);
 			SetRegionFastHelpText(&gIMPGearInvPoolRegion[i - pageShift], tooltipText);
 		}
 

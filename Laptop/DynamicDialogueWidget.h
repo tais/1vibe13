@@ -11,6 +11,9 @@
 #include "Morale.h"
 #include "DropDown.h"
 #include "DynamicDialogue.h"
+#include "LaptopPageResourceOwner.h"
+#include "LaptopUiStateModel.h"
+#include "VideoResourceHandle.h"
 
 #define		MYBOX_TEXT_MAXWIDTH						200
 #define		MYBOX_FACE_OFFSET						53
@@ -50,8 +53,7 @@ public:
 	*/
 	void SetText( STR16 aText )
 	{
-		swprintf( mText, L"" );
-		wcscat( mText, aText );
+		LaptopUiStateModel::CopyText(mText, aText);
 	}
 
 	/*
@@ -112,7 +114,7 @@ private:
 
 	UINT8	musID;
 
-	UINT32	musFaceImage;
+	UniqueVideoObjectHandle mFaceImage;
 
 	DynamicOpinionSpeechEvent mEvent;
 };
@@ -158,26 +160,36 @@ public:
 	* Set the content of a dropdown. Each entry consists of an INT16 key, by which you can later identify which entry was selected, and a STR16 that will be displayed.
 	* There can be multiple instances of the same key or name.
 	*/
-	void SetEntries( std::vector<std::pair<INT16, STR16> >& arEntryVec )	{ mEntryVector = arEntryVec; }
+	void SetEntries( std::vector<std::pair<INT16, STR16> >& arEntryVec )	{
+		const std::size_t count = std::min<std::size_t>(
+			DOST_CHOICE_MAX, arEntryVec.size());
+		mEntryVector.assign(arEntryVec.begin(), arEntryVec.begin() + count);
+		mSelectedEntry = 0;
+	}
 
 	/*
 	* Set help text decribing what can be selected
 	*/
 	void SetText( STR16 aText )
 	{
-		swprintf( mText, L"" );
-		wcscat( mText, aText );
+		LaptopUiStateModel::CopyText(mText, aText);
 	}
 
 	/*
 	* Set help text decribing what can be selected
 	*/
-	void SetHelpText( STR16 aText )		{ swprintf( mHelpText, L"" ); wcscat( mHelpText, aText ); }
+	void SetHelpText( STR16 aText )		{
+		LaptopUiStateModel::CopyText(mHelpText, aText);
+	}
 
 	/*
 	* Get key of selected entry
 	*/
-	INT16	GetSelectedEntryKey( )		{ return mEntryVector[mSelectedEntry].first; }
+	INT16	GetSelectedEntryKey( )		{
+		return LaptopUiStateModel::IsValidIndex(
+			mEntryVector.size(), mSelectedEntry)
+			? mEntryVector[mSelectedEntry].first : -1;
+	}
 
 	/*
 	* Get width of entire DropDownBase
@@ -271,6 +283,7 @@ private:
 	UINT32  musEndTime;
 
 	DynamicOpinionSpeechEvent mEvent;
+	LaptopPageResourceOwner mResources;
 };
 
 // due to the way callbacks on mouse regions are handled, we need a static object that we can 'hook' on. Thus we use this singleton

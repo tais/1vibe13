@@ -2095,6 +2095,21 @@ int main( int, char** )
 	}
 
 	{
+		g_resourceReleaseCount = 0;
+		ResourceHandleSet<TestResourceHandle> resources;
+		CHECK( resources.add( TestResourceHandle( 212 ) ) &&
+		       resources.add( TestResourceHandle( 213 ) ),
+		       "resource sets track independently removable handles" );
+		CHECK( resources.erase( 212 ) && !resources.erase( 999 ) &&
+		       resources.size() == 1 && g_releasedResource == 212 &&
+		       g_resourceReleaseCount == 1,
+		       "erasing a tracked handle releases only that resource" );
+		resources.clear();
+		CHECK( g_releasedResource == 213 && g_resourceReleaseCount == 2,
+		       "remaining resources still release during owner teardown" );
+	}
+
+	{
 		CHECK( !std::is_copy_constructible<POPUP_OPTION>::value &&
 		       !std::is_copy_assignable<POPUP_OPTION>::value &&
 		       !std::is_move_constructible<POPUP_OPTION>::value &&

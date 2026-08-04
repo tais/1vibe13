@@ -19,6 +19,7 @@
 	#include "Soldier Create.h" // added by Flugente for enums
 
 #include "IMP Confirm.h"
+#include "ImpPageResourceOwner.h"
 
 // Skin colors
 /*STR16 sSkinTexts[]={
@@ -167,6 +168,7 @@ BOOLEAN		RenderFigure();
 
 void EnterIMPColorChoice( void )
 {
+	BeginImpPageResources();
 	VOBJECT_DESC	VObjectDesc;
 	bBigBody = FALSE;
 	bBadAss = FALSE;
@@ -491,11 +493,13 @@ void AddIMPColorChoiceButtons()
 		CHAR16 sBadAssHelpText[200];
 		if( gGameOptions.fNewTraitSystem )
 		{
-			swprintf( sBadAssHelpText, L"%s%s", gzIMPColorChoosingText[4], gzIMPColorChoosingText[5]);
+			sgp_swprintf(sBadAssHelpText, std::size(sBadAssHelpText),
+				L"%s%s", gzIMPColorChoosingText[4], gzIMPColorChoosingText[5]);
 		}
 		else
 		{
-			swprintf( sBadAssHelpText, L"%s", gzIMPColorChoosingText[4]);
+			LaptopUiStateModel::CopyText(
+				sBadAssHelpText, gzIMPColorChoosingText[4]);
 		}
 		SetButtonFastHelpText( giIMPColorChoiceButton[ 10 ], sBadAssHelpText );
 

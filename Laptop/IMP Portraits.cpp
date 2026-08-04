@@ -15,6 +15,7 @@
 	#include "ImpCreationStateModel.h"
 
 #include "IMP Confirm.h"
+#include "ImpPageResourceOwner.h"
 
 //current and last pages
 INT32 iCurrentPortrait = 0;
@@ -44,6 +45,7 @@ void BtnIMPPortraitDoneCallback(GUI_BUTTON *btn,INT32 reason);
 
 void EnterIMPPortraits( void )
 {
+	BeginImpPageResources();
 	const auto first = LaptopImpModel::FindFirstMatchingIndex(
 		MAX_NEW_IMP_PORTRAITS,
 		[](std::size_t index) {
@@ -107,7 +109,9 @@ BOOLEAN RenderPortrait( INT16 sX, INT16 sY )
 	// load it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 
-	sprintf( VObjectDesc.ImageFile, "IMPFaces\\BigFaces\\%02d.sti", gIMPValues[iCurrentPortrait].PortraitId );
+	std::snprintf(VObjectDesc.ImageFile, std::size(VObjectDesc.ImageFile),
+		"IMPFaces\\BigFaces\\%02d.sti",
+		gIMPValues[iCurrentPortrait].PortraitId);
 
 	CHECKF( AddVideoObject( &VObjectDesc, &uiGraphicHandle ) );
 

@@ -8,6 +8,7 @@
 	#include "Cursors.h"
 	#include "laptop.h"
 	#include "IMP Text System.h"
+#include "ImpPageResourceOwner.h"
 
 // IMP AboutUs buttons
 INT32 giIMPAboutUsButton[1];
@@ -21,6 +22,7 @@ void BtnIMPBackCallback(GUI_BUTTON *btn,INT32 reason);
 
 void EnterIMPAboutUs( void )
 {
+	BeginImpPageResources();
 
 	// create buttons
 	CreateIMPAboutUsButtons( );

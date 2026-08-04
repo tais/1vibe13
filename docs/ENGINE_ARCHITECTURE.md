@@ -1141,6 +1141,21 @@ the engine must not contain SDL types in its public domain model.
   cover those contracts. Existing incident POD/header order and widths,
   configured tail-retention semantics, artwork, text, XML, Lua, and campaign
   behavior are unchanged.
+- The scheduled Laptop safety refactor is complete across all 98 translation
+  units. The shell, shared table/drop-down/dialogue widgets, every IMP page,
+  Briefing Room, Facility Production, Intel Market, militia, PMC, WHO, Files,
+  Postal Service, and Merc Compare now share transactional resource ownership
+  and the dependency-free `LaptopUiStateModel` boundary for signed/exact-end
+  selection, page/window normalization, adjacent traversal, sentinel repair,
+  bounded text, and exact binary transfers. IMP's legacy numeric graphics are
+  retained behind a per-page ownership facade; temporary faces, maps, and item
+  artwork use move-only handles. The dormant Encyclopedia path is bounds-safe
+  and compiled with `ENCYCLOPEDIA_WORKS` in every host so disabled code cannot
+  decay unnoticed. Focused model/resource tests plus architecture,
+  compile-guard, string-sink, all-host, headless, and ASan ratchets protect the
+  closure. Save layouts, page and data IDs, resource paths, localization,
+  XML/Lua inputs, and campaign behavior remain unchanged. The detailed fault
+  inventory and closure criteria live in `LAPTOP_CODE_WALKTHROUGH.md`.
 - A.I.M. page resources now cross one transactional ownership boundary.
   `ResourceHandleSet` is dependency-free and commits move-only handles as a
   complete set; `UniqueResourceHandle` supports both unsigned-zero and signed

@@ -19,6 +19,8 @@
 #include "BaseTable.h"
 #include "Campaign Types.h"
 #include "GameSettings.h"
+#include "LaptopPageResourceOwner.h"
+#include "LaptopUiStateModel.h"
 
 // Forward-declare the TestTableTemplate<4> specializations defined
 // later in this file so clang doesn't error out on
@@ -27,150 +29,28 @@
 template<> void TestTableTemplate<4>::SetRefresh();
 template<> void TestTableTemplate<4>::Init( UINT16 sX, UINT16 sY, UINT16 sX_End, UINT16 sY_End );
 
-/*#define		MERCOMP_FONT_COLOR								2
-#define		CAMPHIS_FONT_BIG								FONT14ARIAL
-#define		CAMPHIS_FONT_MED								FONT12ARIAL
-#define		CAMPHIS_FONT_SMALL								FONT10ARIAL*/
-
 #define		MERCOMP_FONT_SHADOW								FONT_MCOLOR_WHITE
-
-/*#define		CAMPAIGN_HISTORY_LINK_START_X					LAPTOP_SCREEN_UL_X
-#define		CAMPAIGN_HISTORY_LINK_START_Y					LAPTOP_SCREEN_WEB_UL_Y + 5
-#define		CAMPAIGN_HISTORY_LINK_TEXT_WIDTH				107
-#define		CAMPAIGN_HISTORY_LINK_STEP_Y					14
-
-#define		BACKGROUND_WIDTH								125
-#define		CAMPAIGN_HISTORY_BACKGROUND_HEIGHT				100
-
-#define		CAMPAIGN_HISTORY_BIG_TITLE_X					115 + LAPTOP_SCREEN_UL_X
-#define		CAMPAIGN_HISTORY_BIG_TITLE_Y					10 + LAPTOP_SCREEN_WEB_UL_Y*/
 
 #define		NUM_LINKS										0
 #define		MCA_START_CONTENT_Y								(LAPTOP_SCREEN_WEB_UL_Y + NUM_LINKS * 17)
 
-//extern UINT32	guiInsuranceBackGround;
-//extern UINT32	guiInsuranceBigRedLineImage;
-//extern UINT32	guiMercCompareBulletImage;
-//extern UINT32	guiMercCompareLogoImage;
-
-//link to the various pages
-//MOUSE_REGION	gLinkRegion_Production[NUM_LINKS];
-
 UINT32 gCHECKBOXLib = 0;
+static LaptopPageResourceOwner gFacilityProductionResources;
 
-/*void SelectLinkRegionCallBack_Production( MOUSE_REGION * pRegion, INT32 iReason )
-{
-	if ( iReason & MSYS_CALLBACK_REASON_INIT )
-	{
-	}
-	else if ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP )
-	{
-		UINT32 uiLink = MSYS_GetRegionUserData( pRegion, 0 );
-
-		if ( uiLink == 0 )
-			guiCurrentLaptopMode = LAPTOP_MODE_PMC_MAIN;
-		else if ( uiLink == 1 )
-			guiCurrentLaptopMode = LAPTOP_MODE_PMC_CONTRACT_MILITIA;
-		else if ( uiLink == 2 )
-			guiCurrentLaptopMode = LAPTOP_MODE_BROKEN_LINK;
-	}
-	else if ( iReason & MSYS_CALLBACK_REASON_RBUTTON_UP )
-	{
-	}
-}*/
-
-void InitDefaults_Production()
+static BOOLEAN LoadDefaults_Production(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
-	/*// load the Insurance bullet graphic and add it
-	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-	FilenameForBPP( "LAPTOP\\bullet.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareBulletImage ) );*/
-
-	/*// load the Flower Account Box graphic and add it
-	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-	FilenameForBPP( "LAPTOP\\BackGroundTile.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBackGround ) );*/
-
-	/*// load the red bar on the side of the page and add it
-	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-	FilenameForBPP( "LAPTOP\\LargeBar.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBigRedLineImage ) );*/
-
-	/*VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-	FilenameForBPP( "LAPTOP\\PressLogos.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareLogoImage ) );*/
-
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "Interface\\OptionsCheckBoxes.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &gCHECKBOXLib ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, gCHECKBOXLib));
 
-	/*UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
-	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
-	for ( int i = 0; i<NUM_LINKS; ++i )
-	{
-		MSYS_DefineRegion( &gLinkRegion_Production[i], usPosX, usPosY, (UINT16)( usPosX + CAMPAIGN_HISTORY_LINK_TEXT_WIDTH ), usPosY + CAMPAIGN_HISTORY_LINK_STEP_Y, MSYS_PRIORITY_HIGH,
-			CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack_Production );
-		MSYS_AddRegion( &gLinkRegion_Production[i] );
-		MSYS_SetRegionUserData( &gLinkRegion_Production[i], 0, i );
-
-		usPosY += CAMPAIGN_HISTORY_LINK_STEP_Y;
-	}*/
+	return TRUE;
 }
 
 void DisplayDefaults_Production()
 {	
 	SetFontShadow( MERCOMP_FONT_SHADOW );
-	
-	// we don't have any links atm, so end here
-
-	/*WebPageTileBackground( 4, 4, BACKGROUND_WIDTH, CAMPAIGN_HISTORY_BACKGROUND_HEIGHT, guiInsuranceBackGround );
-	
-	CHAR16 sText[800];
-	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
-	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
-	
-	//Display the title slogan
-	swprintf( sText, L"bla" );
-	DrawTextToScreen( sText, CAMPAIGN_HISTORY_BIG_TITLE_X, CAMPAIGN_HISTORY_BIG_TITLE_Y, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, CAMPHIS_FONT_BIG, MERCOMP_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, 0 );
-	
-	usPosX = CAMPAIGN_HISTORY_LINK_START_X;
-	usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
-	for ( int i = 0; i<NUM_LINKS; ++i )
-	{
-		swprintf( sText, L"TODO link" );
-		DisplayWrappedString( usPosX, usPosY, CAMPAIGN_HISTORY_LINK_TEXT_WIDTH, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-
-		usPosY += CAMPAIGN_HISTORY_LINK_STEP_Y;
-
-		//Display the red bar under the link at the bottom.	and the text
-		DisplaySmallColouredLineWithShadow( usPosX, usPosY - 2, LAPTOP_SCREEN_UL_X + CAMPAIGN_HISTORY_LINK_TEXT_WIDTH, usPosY - 2, FROMRGB( 240, 240, 20 ) );
-	}
-
-	// closing line that separates header from individual page
-	DisplaySmallColouredLineWithShadow( usPosX, usPosY - 2, LAPTOP_SCREEN_LR_X, usPosY - 2, FROMRGB( 240, 240, 20 ) );
-
-	usPosX = LAPTOP_SCREEN_LR_X - 110;
-	usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
-
-	HVOBJECT	hPixHandle;
-	GetVideoObject( &hPixHandle, guiMercCompareLogoImage );
-	BltVideoObject( FRAME_BUFFER, hPixHandle, 3, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
-
-	SetFontShadow( DEFAULT_SHADOW );*/
-}
-
-void RemoveDefaults_Production()
-{
-	//DeleteVideoObjectFromIndex( guiInsuranceBackGround );
-	//DeleteVideoObjectFromIndex( guiInsuranceBigRedLineImage );
-	//DeleteVideoObjectFromIndex( guiMercCompareBulletImage );
-	//DeleteVideoObjectFromIndex( guiMercCompareLogoImage );
-	DeleteVideoObjectFromIndex( gCHECKBOXLib );
-
-	//for ( int i = 0; i<NUM_LINKS; ++i )
-		//MSYS_RemoveRegion( &gLinkRegion_Production[i] );
 }
 
 ////////////////////////// MAIN PAGE ////////////////////////////////
@@ -221,7 +101,8 @@ void FilterProductionData()
 						
 						// despite what is set, several other things can turn a factory off, like loyalty or lua-defined quest checks
 						if ( progress < -10
-							|| (ubTownID != BLANK_SECTOR
+							|| (ubTownID != BLANK_SECTOR &&
+								ubTownID < NUM_TOWNS
 							&& gTownLoyalty[ubTownID].ubRating < prodit->usOptional_LoyaltyRequired ) )
 						{
 							data.active = false;
@@ -258,7 +139,8 @@ BOOLEAN gfFacilityProductionRedraw = FALSE;
 
 BOOLEAN EnterFacilityProduction()
 {
-	InitDefaults_Production();
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadDefaults_Production(stagedResources));
 
 	FilterProductionData();
 
@@ -273,6 +155,7 @@ BOOLEAN EnterFacilityProduction()
 	gTestPanel3.RegisterMemberThingy( &TestTableTemplate<4>::getInstance() );
 
 	TestTableTemplate<4>::getInstance().SetMouseRegionActive( TRUE );
+	gFacilityProductionResources = std::move(stagedResources);
 
 	RenderFacilityProduction();
 
@@ -285,7 +168,7 @@ void ExitFacilityProduction()
 
 	WriteAlteredProductionData();
 
-	RemoveDefaults_Production();
+	gFacilityProductionResources.clear();
 }
 
 void HandleFacilityProduction()
@@ -321,7 +204,7 @@ static CHAR16	gProductionHelpText[100];
 
 STR16 Sectornamegetter_Production( UINT32 aNum )
 {
-	swprintf( gProductionHelpText, L"NAME NOT FOUND" );
+	LaptopUiStateModel::CopyText(gProductionHelpText, L"NAME NOT FOUND");
 
 	if ( aNum < gProductionVector.size() )
 	{
@@ -333,14 +216,17 @@ STR16 Sectornamegetter_Production( UINT32 aNum )
 
 STR16 Product_Production( UINT32 aNum )
 {
-	swprintf( gProductionHelpText, L"NOTHING" );
+	LaptopUiStateModel::CopyText(gProductionHelpText, L"NOTHING");
 
 	if ( aNum < gProductionVector.size() )
 	{
-		if ( wcslen( gProductionVector[aNum].xmldata.szProductionName ) > 0 )
-			swprintf( gProductionHelpText, L"%s", gProductionVector[aNum].xmldata.szProductionName );
-		else if ( gProductionVector[aNum].xmldata.usItemToCreate != NOTHING )
-			swprintf( gProductionHelpText, L"%s", Item[gProductionVector[aNum].xmldata.usItemToCreate].szItemName );
+		if (gProductionVector[aNum].xmldata.szProductionName[0] != L'\0')
+			LaptopUiStateModel::CopyText(gProductionHelpText,
+				gProductionVector[aNum].xmldata.szProductionName);
+		else if (gProductionVector[aNum].xmldata.usItemToCreate != NOTHING &&
+			gProductionVector[aNum].xmldata.usItemToCreate < MAXITEMS)
+			LaptopUiStateModel::CopyText(gProductionHelpText,
+				Item[gProductionVector[aNum].xmldata.usItemToCreate].szItemName);
 	}
 
 	return gProductionHelpText;
@@ -348,36 +234,34 @@ STR16 Product_Production( UINT32 aNum )
 
 STR16 PreProduct_Production( UINT32 aNum )
 {
-	swprintf( gProductionHelpText, L"--" );
+	LaptopUiStateModel::CopyText(gProductionHelpText, L"--");
 
 	if ( aNum < gProductionVector.size() )
 	{
 		bool first = true;
 		for ( std::vector<PRODUCTION_LINE_PREPRODUCT>::iterator it = gProductionVector[aNum].xmldata.usOptional_PreProducts.begin(), itend = gProductionVector[aNum].xmldata.usOptional_PreProducts.end(); it != itend; ++it )
 		{
+			if (it->item >= MAXITEMS) continue;
+			CHAR16 itemText[100] = {};
 			if ( it->requiredforonecreation > 1 )
 			{
-				if ( first )
-				{
-					swprintf( gProductionHelpText, L"%s (%d)", Item[it->item].szItemName, it->requiredforonecreation );
-					first = false;
-				}
-				else
-				{
-					swprintf( gProductionHelpText, L"%s, %s (%d)", gProductionHelpText, Item[it->item].szItemName, it->requiredforonecreation );
-				}
+				sgp_swprintf(itemText, 100, L"%s (%d)",
+					Item[it->item].szItemName, it->requiredforonecreation);
 			}
 			else
 			{
-				if ( first )
-				{
-					swprintf( gProductionHelpText, L"%s", Item[it->item].szItemName );
-					first = false;
-				}
-				else
-				{
-					swprintf( gProductionHelpText, L"%s, %s", gProductionHelpText, Item[it->item].szItemName );
-				}
+				LaptopUiStateModel::CopyText(
+					itemText, Item[it->item].szItemName);
+			}
+			if (first)
+			{
+				LaptopUiStateModel::CopyText(gProductionHelpText, itemText);
+				first = false;
+			}
+			else
+			{
+				LaptopUiStateModel::AppendText(gProductionHelpText, L", ");
+				LaptopUiStateModel::AppendText(gProductionHelpText, itemText);
 			}
 		}
 	}
@@ -391,7 +275,7 @@ UINT8 ColourGetter_Production( UINT32 aNum )
 	{
 		UINT8 ubTownID = GetTownIdForSector( SECTORX( gProductionVector[aNum].sector ), SECTORY( gProductionVector[aNum].sector ) );
 
-		if ( ubTownID != BLANK_SECTOR
+		if ( ubTownID != BLANK_SECTOR && ubTownID < NUM_TOWNS
 			&& gTownLoyalty[ubTownID].ubRating < gProductionVector[aNum].xmldata.usOptional_LoyaltyRequired )
 		{
 			return 164;
@@ -403,11 +287,12 @@ UINT8 ColourGetter_Production( UINT32 aNum )
 
 STR16 Loyalty_Production( UINT32 aNum )
 {
-	swprintf( gProductionHelpText, L"--" );
+	LaptopUiStateModel::CopyText(gProductionHelpText, L"--");
 
 	if ( aNum < gProductionVector.size() && gProductionVector[aNum].xmldata.usOptional_LoyaltyRequired > 0 )
 	{
-		swprintf( gProductionHelpText, L"%d+", gProductionVector[aNum].xmldata.usOptional_LoyaltyRequired );
+		sgp_swprintf(gProductionHelpText, std::size(gProductionHelpText),
+			L"%d+", gProductionVector[aNum].xmldata.usOptional_LoyaltyRequired);
 	}
 
 	return gProductionHelpText;
@@ -415,11 +300,12 @@ STR16 Loyalty_Production( UINT32 aNum )
 
 STR16 Costgetter_Production( UINT32 aNum )
 {
-	swprintf( gProductionHelpText, L"--" );
+	LaptopUiStateModel::CopyText(gProductionHelpText, L"--");
 
 	if ( aNum < gProductionVector.size() && gProductionVector[aNum].xmldata.sHourlyCost )
 	{
-		swprintf( gProductionHelpText, L"%d$", gProductionVector[aNum].xmldata.sHourlyCost );
+		sgp_swprintf(gProductionHelpText, std::size(gProductionHelpText),
+			L"%d$", gProductionVector[aNum].xmldata.sHourlyCost);
 	}
 
 	return gProductionHelpText;
@@ -427,11 +313,14 @@ STR16 Costgetter_Production( UINT32 aNum )
 
 STR16 Minutesgetter_Production( UINT32 aNum )
 {
-	swprintf( gProductionHelpText, L"--:--" );
+	LaptopUiStateModel::CopyText(gProductionHelpText, L"--:--");
 
 	if ( aNum < gProductionVector.size() )
 	{
-		swprintf( gProductionHelpText, L"%02d:%02d", gProductionVector[aNum].xmldata.sMinutesRequired / 60, gProductionVector[aNum].xmldata.sMinutesRequired % 60 );
+		sgp_swprintf(gProductionHelpText, std::size(gProductionHelpText),
+			L"%02d:%02d",
+			gProductionVector[aNum].xmldata.sMinutesRequired / 60,
+			gProductionVector[aNum].xmldata.sMinutesRequired % 60);
 	}
 
 	return gProductionHelpText;
@@ -471,7 +360,9 @@ void Factory_ProgressBar( UINT32 aId, PIXEL& arCol1, UINT16& arVal1, PIXEL& arCo
 		arCol1 = Get16BPPColor( FROMRGB( gGameExternalOptions.ubStatProgressBarsRed, gGameExternalOptions.ubStatProgressBarsGreen, gGameExternalOptions.ubStatProgressBarsBlue ) );
 
 		if ( productiontime > -1 && gProductionVector[aId].xmldata.sMinutesRequired > 0 )
-			arVal1 = min( 100, 100 * productiontime / gProductionVector[aId].xmldata.sMinutesRequired );
+			arVal1 = static_cast<UINT16>(std::min<INT64>(100,
+				100LL * productiontime /
+					gProductionVector[aId].xmldata.sMinutesRequired));
 		else
 			arVal1 = 0;
 	}

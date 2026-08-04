@@ -49,6 +49,12 @@ public:
 		return regions_.add(RegisterMouseRegionOwned(&region));
 	}
 
+	bool removeVideoObject(UINT32 value) { return videoObjects_.erase(value); }
+	bool removeVideoSurface(UINT32 value) { return videoSurfaces_.erase(value); }
+	bool removeButtonImage(INT32 value) { return buttonImages_.erase(value); }
+	bool removeButton(INT32 value) { return buttons_.erase(value); }
+	bool removeRegion(MOUSE_REGION& region) { return regions_.erase(&region); }
+
 	void clear()
 	{
 		regions_.clear();

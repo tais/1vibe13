@@ -17,6 +17,7 @@
 	#include "IMP Compile Character.h"
 	#include "GameSettings.h"
 	#include "personnel.h"		// added by Flugente
+#include "ImpPageResourceOwner.h"
 
 
 
@@ -126,6 +127,7 @@ INT8		NumAvailableMinorTraits();
 
 void EnterIMPMinorTrait( void )
 {
+	BeginImpPageResources();
 	UINT8 ubCnt;
 
 //	UINT32 ubCnt;
@@ -477,8 +479,8 @@ void IMPMinorTraitDisplaySkills()
 		//draw the text to the screenx
 		DrawTextToScreen( gzIMPSkillTraitsTextNewMinor[ uiCnt ], usPosX, usPosY, 0, IMP_MINOR_TRAIT__FONT, IMP_MINOR_TRAIT__COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED );
 		
-		CHAR16	apStr[5000];
-		swprintf( apStr, L"" );
+			CHAR16	apStr[5000];
+			apStr[0] = L'\0';
 		AssignPersonnelSkillTraitHelpText( gusNewMinorTraitRemap[uiCnt], FALSE, FALSE, apStr );
 
 		// Set region help text

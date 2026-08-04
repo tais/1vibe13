@@ -13,6 +13,7 @@
 	#include "WordWrap.h"
 	#include "CharProfile.h"
 	#include "GameSettings.h"
+#include "ImpPageResourceOwner.h"
 
 
 //*******************************************************************
@@ -101,6 +102,7 @@ void AssignDisabilityHelpText( UINT8 ubNumber );
 
 void EnterIMPDisabilityTrait( void )
 {
+	BeginImpPageResources();
 
 	VOBJECT_DESC	VObjectDesc;
 
@@ -479,9 +481,12 @@ INT8 iPlayersAttributePointsBonusForDisabilitySelected()
 void AssignDisabilityHelpText( UINT8 ubNumber )
 {
 	CHAR16	apStr[ 2000 ];
+	if (!LaptopUiStateModel::IsValidIndex(
+		std::size(gMR_DisabilityHelpTextRegions), ubNumber))
+		return;
 
-	swprintf( apStr, L"" );
-	swprintf( apStr, gzIMPDisabilitiesHelpTexts[ubNumber] );
+	LaptopUiStateModel::CopyText(
+		apStr, gzIMPDisabilitiesHelpTexts[ubNumber]);
 
 	// Set region help text
 	SetRegionFastHelpText( &(gMR_DisabilityHelpTextRegions[ubNumber]), apStr );

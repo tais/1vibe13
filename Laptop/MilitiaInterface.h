@@ -114,6 +114,7 @@ private:
 
 	INT32		mButtonFire;
 	BOOLEAN		mButtonFireCreated;
+	LaptopPageResourceOwner mButtonResources;
 };
 
 class MilitiaPersonalInventoryTable : public TestPanel
@@ -225,7 +226,8 @@ private:
 	// close buttons
 	BOOLEAN					mCloseButtonDefined;
 	INT32					mCloseButton;
-	UINT32					mCloseImage;
+	INT32					mCloseImage;
+	LaptopPageResourceOwner mCloseResources;
 };
 
 extern MilitiaInidividualMainWidget militiaindividualmainwidget;

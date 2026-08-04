@@ -19,6 +19,7 @@
 	#include "IMP Minor Trait.h"
 	#include "Soldier Profile.h"
 	#include "personnel.h"		// added by Flugente
+#include "ImpPageResourceOwner.h"
 
 
 
@@ -153,6 +154,7 @@ MOUSE_REGION	gMR_SkillTraitHelpTextRegions[IMP_SKILL_TRAITS__NUMBER_SKILLS];
 
 void EnterIMPSkillTrait( void )
 {
+	BeginImpPageResources();
 //	UINT32 uiCnt;
 	VOBJECT_DESC	VObjectDesc;
 
@@ -887,7 +889,10 @@ void IMPSkillTraitDisplaySkills()
 			if ( gfSkillTraitQuestions[ uiCnt ] && gfSkillTraitQuestions2[ uiCnt ] && uiCnt != IMP_SKILL_TRAITS__NONE )
 			{
 				CHAR16 sSkillTraitString[50];
-				swprintf(sSkillTraitString, L"%s %s", gzIMPSkillTraitsText[ uiCnt ], gzIMPSkillTraitsText[ IMP_SKILL_TRAITS__NUMBER_SKILLS+1 ]);
+				sgp_swprintf(sSkillTraitString,
+					std::size(sSkillTraitString), L"%s %s",
+					gzIMPSkillTraitsText[uiCnt],
+					gzIMPSkillTraitsText[IMP_SKILL_TRAITS__NUMBER_SKILLS + 1]);
 				DrawTextToScreen( sSkillTraitString, usPosX, usPosY, 0, IMP_SKILL_TRAIT__FONT, IMP_SKILL_TRAIT__COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED );
 			}
 			else
@@ -896,7 +901,7 @@ void IMPSkillTraitDisplaySkills()
 
 		// assign help texts
 		CHAR16	apStr[5000];
-		swprintf( apStr, L"" );
+		apStr[0] = L'\0';
 		AssignPersonnelSkillTraitHelpText(gGameOptions.fNewTraitSystem ? gusNewMajorTraitRemap[uiCnt] : gusOldMajorTraitRemap[uiCnt], ((gfSkillTraitQuestions[uiCnt] && gfSkillTraitQuestions2[uiCnt]) ? TRUE : FALSE), fCharacterIsMale && !bBigBodySelected( ), apStr );
 
 		// Set region help text

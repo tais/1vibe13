@@ -33,6 +33,7 @@
 
 #include "connect.h"
 
+#include <iterator>
 #include <utility>
 
 UINT8	NUMBER_OF_MERCS = 0;
@@ -308,8 +309,9 @@ BOOLEAN SaveNewMercsToSaveGameFile( HWFILE hFile )
 {
 	UINT32	uiNumBytesWritten;
 
-	FileWrite( hFile, &gConditionsForMercAvailability, sizeof( gConditionsForMercAvailability), &uiNumBytesWritten );
-	if( uiNumBytesWritten != sizeof( gConditionsForMercAvailability ) )
+	if (!FileWrite(hFile, &gConditionsForMercAvailability,
+		sizeof(gConditionsForMercAvailability), &uiNumBytesWritten) ||
+		uiNumBytesWritten != sizeof(gConditionsForMercAvailability))
 	{
 		return( FALSE );
 	}
@@ -322,8 +324,9 @@ BOOLEAN LoadNewMercsFromLoadGameFile( HWFILE hFile )
 	UINT32	uiNumBytesRead;
 	CONTITION_FOR_MERC_AVAILABLE ConditionsForMercAvailabilityLoad[ NUM_PROFILES ];
 
-	FileRead( hFile, &ConditionsForMercAvailabilityLoad, sizeof( ConditionsForMercAvailabilityLoad ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( ConditionsForMercAvailabilityLoad ) )
+	if (!FileRead(hFile, &ConditionsForMercAvailabilityLoad,
+		sizeof(ConditionsForMercAvailabilityLoad), &uiNumBytesRead) ||
+		uiNumBytesRead != sizeof(ConditionsForMercAvailabilityLoad))
 	{
 		return( FALSE );
 	}
@@ -1884,9 +1887,9 @@ void DisplayTextForSpeckVideoPopUp(STR16 pString)
 	if( !gGameSettings.fOptions[ TOPTION_SUBTITLES ] )
 		return;
 
-//	wcscpy(gsSpeckDialogueTextPopUp, pString);
 	//add the "" around the speech.
-	swprintf( gsSpeckDialogueTextPopUp, L"\"%s\"", pString );
+	sgp_swprintf(gsSpeckDialogueTextPopUp,
+		std::size(gsSpeckDialogueTextPopUp), L"\"%s\"", pString);
 
 	gfDisplaySpeckTextBox = TRUE;
 

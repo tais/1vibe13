@@ -25,13 +25,23 @@
 #include "Interface Items.h"
 #include "Interface.h"		// for DIRTYLEVEL2
 #include "TacticalActor.h"
+#include "LaptopUiStateModel.h"
 
 extern BOOLEAN gfMilitiaWebsiteMainRedraw;
 
 UINT32	guTraitImages = 0;
 
+namespace
+{
+class ScopedDefaultFontShadow
+{
+public:
+	~ScopedDefaultFontShadow() { SetFontShadow(DEFAULT_SHADOW); }
+};
+}
+
 MilitiaServiceRecordTable::MilitiaServiceRecordTable( )
-: BaseTable( )
+: BaseTable( ), mMilitiaId(0)
 {
 }
 
@@ -75,11 +85,7 @@ MilitiaServiceRecordTable::Display( )
 	DestroyMouseRegions( );
 
 	SetFontShadow( NO_SHADOW );
-	
-	CHAR16	sText[800];
-	swprintf( sText, L"" );
-	UINT16 usPosX = GetX( ) + 10;
-	UINT16 usPosY = GetY( ) + 10;
+	ScopedDefaultFontShadow restoreFontShadow;
 	
 	MILITIA militia;
 	if ( GetMilitia( mMilitiaId, &militia ) )
@@ -108,6 +114,7 @@ MilitiaServiceRecordTable::SetRefresh( )
 /////////////////////////////////////////////////////
 MilitiaPersonalDataTable::MilitiaPersonalDataTable( )
 : TestPanel( )
+, mMilitiaId(0)
 , mButtonFire(-1)
 , mButtonFireCreated(FALSE)
 {
@@ -158,8 +165,9 @@ void MilitiaPersonalDataTableFireCallback( GUI_BUTTON *btn, INT32 reason )
 		{
 			if ( !(militia.flagmask & (MILITIAFLAG_DEAD | MILITIAFLAG_FIRED | MILITIAFLAG_DESERTION )) )
 			{
-				CHAR16 sString[256];
-				swprintf( sString, szIdividualMilitiaWebsiteText[1], militia.GetName( ) );
+				CHAR16 sString[256] = {};
+				sgp_swprintf(sString, 256,
+					szIdividualMilitiaWebsiteText[1], militia.GetName());
 
 				DoLowerScreenIndependantMessageBox( sString, MSG_BOX_FLAG_YESNO, MilitiaPersonalDataTableFireConfirmationCallback );
 			}
@@ -182,11 +190,8 @@ MilitiaPersonalDataTable::Destroy( )
 	if ( !IsInit( ) )
 		return;
 
-	if ( mButtonFireCreated )
-	{
-		RemoveButton( mButtonFire );
-		mButtonFireCreated = FALSE;
-	}
+	mButtonResources.clear();
+	mButtonFireCreated = FALSE;
 
 	TestPanel::Destroy( );
 }
@@ -202,8 +207,7 @@ MilitiaPersonalDataTable::Display( )
 	MILITIA militia;
 	if ( GetMilitia( mMilitiaId, &militia ) )
 	{
-		CHAR16	sText[800];
-		swprintf( sText, L"" );
+		CHAR16	sText[800] = {};
 		UINT16 usPosX = GetX( ) + 10;
 		UINT16 usPosY = GetY( ) + 10;
 
@@ -211,7 +215,7 @@ MilitiaPersonalDataTable::Display( )
 		{
 			VOBJECT_DESC	VObjectDesc;
 			HVOBJECT hHandle;
-			UINT32 uiGraphicHandle;
+			UniqueVideoObjectHandle graphic;
 			BOOLEAN success = TRUE;
 		
 			// load it
@@ -233,13 +237,21 @@ MilitiaPersonalDataTable::Display( )
 			if ( success )
 			{
 				// safety check if loaded
-				CHECKV( AddVideoObject( &VObjectDesc, &uiGraphicHandle ) );
+				graphic = AddVideoObjectOwned(&VObjectDesc);
+				if (!graphic) success = FALSE;
 
 				// Get it
-				GetVideoObject( &hHandle, uiGraphicHandle );
+				if (success && !GetVideoObject(&hHandle, graphic.get()))
+					success = FALSE;
 
-				if ( hHandle )
+				if (success && hHandle)
 				{
+					const auto blitFrame = [&](UINT16 frame)
+					{
+						if (frame < hHandle->usNumberOfObjects)
+							BltVideoObject(FRAME_BUFFER, hHandle, frame,
+								usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL);
+					};
 					UINT8 vest = GREENVEST;
 					UINT8 pants = BEIGEPANTS;
 					if ( militia.militiarank == REGULAR_MILITIA)
@@ -248,17 +260,15 @@ MilitiaPersonalDataTable::Display( )
 						vest = BLUEVEST;
 
 					// show background first
-					BltVideoObject( FRAME_BUFFER, hHandle, 0, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+					blitFrame(0);
 					// show skin (1 - 4)
-					BltVideoObject( FRAME_BUFFER, hHandle, (militia.skin + 1), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+					blitFrame(std::min<UINT8>(militia.skin, 3) + 1);
 					// show head (5 - 9)
-					BltVideoObject( FRAME_BUFFER, hHandle, (militia.hair + 5), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+					blitFrame(std::min<UINT8>(militia.hair, 4) + 5);
 					// show vest (10 - 20)
-					BltVideoObject( FRAME_BUFFER, hHandle, (vest + 10), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+					blitFrame(std::min<UINT8>(vest, 10) + 10);
 					// show pants (21 - 26)
-					BltVideoObject( FRAME_BUFFER, hHandle, (pants + 21), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
-
-					DeleteVideoObjectFromIndex( uiGraphicHandle );
+					blitFrame(std::min<UINT8>(pants, 5) + 21);
 				}
 			}
 		}
@@ -266,45 +276,52 @@ MilitiaPersonalDataTable::Display( )
 		usPosX += 120;
 
 		SetFontShadow( NO_SHADOW );
+		ScopedDefaultFontShadow restoreFontShadow;
 				
 		if ( militia.flagmask & MILITIAFLAG_DEAD )
 		{
-			swprintf( sText, szIdividualMilitiaWebsiteText[5] );
+			LaptopUiStateModel::CopyText(sText,
+				szIdividualMilitiaWebsiteText[5]);
 			DrawTextToScreen( sText, usPosX, usPosY + 5, GetWidth( ), FONT12ARIAL, FONT_MCOLOR_RED, FONT_MCOLOR_BLACK, FALSE, 0 );
-			usPosY += 20;
 		}
 		else if ( militia.flagmask & MILITIAFLAG_FIRED )
 		{
-			swprintf( sText, szIdividualMilitiaWebsiteText[6] );
+			LaptopUiStateModel::CopyText(sText,
+				szIdividualMilitiaWebsiteText[6]);
 			DrawTextToScreen( sText, usPosX, usPosY + 5, GetWidth( ), FONT12ARIAL, FONT_MCOLOR_DKGRAY, FONT_MCOLOR_BLACK, FALSE, 0 );
 			usPosY += 20;
 		}
 		else if ( militia.flagmask & MILITIAFLAG_DESERTION )
 		{
-			swprintf( sText, szIdividualMilitiaWebsiteText[19] );
+			LaptopUiStateModel::CopyText(sText,
+				szIdividualMilitiaWebsiteText[19]);
 			DrawTextToScreen( sText, usPosX, usPosY + 5, GetWidth(), FONT12ARIAL, FONT_MCOLOR_DKGRAY, FONT_MCOLOR_BLACK, FALSE, 0 );
 			usPosY += 20;
 		}
 		else
 		{
-			swprintf( sText, szIdividualMilitiaWebsiteText[7] );
+			LaptopUiStateModel::CopyText(sText,
+				szIdividualMilitiaWebsiteText[7]);
 			DrawTextToScreen( sText, usPosX, usPosY + 5, GetWidth( ), FONT12ARIAL, FONT_MCOLOR_LTGREEN, FONT_MCOLOR_BLACK, FALSE, 0 );
 			usPosY += 20;
 		}
 		
 		if ( gGameExternalOptions.fIndividualMilitia_ManageHealth )
 		{
-			swprintf( sText, szIdividualMilitiaWebsiteText[15], militia.healthratio );
+			sgp_swprintf(sText, 800,
+				szIdividualMilitiaWebsiteText[15], militia.healthratio);
 			
 			DrawTextToScreen( sText, usPosX, usPosY + 5, GetWidth( ), FONT12ARIAL, 2, FONT_MCOLOR_BLACK, FALSE, 0 );
 			usPosY += 20;
 		}
 		
-		swprintf( sText, szIdividualMilitiaWebsiteText[3], militia.GetWage( ), militia.age );
+		sgp_swprintf(sText, 800, szIdividualMilitiaWebsiteText[3],
+			militia.GetWage(), militia.age);
 		DrawTextToScreen( sText, usPosX, usPosY + 5, GetWidth( ), FONT12ARIAL, 2, FONT_MCOLOR_BLACK, FALSE, 0 );
 		usPosY += 20;
 
-		swprintf( sText, szIdividualMilitiaWebsiteText[4], militia.kills, militia.assists );
+		sgp_swprintf(sText, 800, szIdividualMilitiaWebsiteText[4],
+			militia.kills, militia.assists);
 		DrawTextToScreen( sText, usPosX, usPosY + 5, GetWidth( ), FONT12ARIAL, 2, FONT_MCOLOR_BLACK, FALSE, 0 );
 		usPosY += 20;		
 
@@ -312,11 +329,8 @@ MilitiaPersonalDataTable::Display( )
 		usPosX -= 2;
 
 		// button for firing this guy
-		if ( mButtonFireCreated )
-		{
-			RemoveButton( mButtonFire );
-			mButtonFireCreated = FALSE;
-		}
+		mButtonResources.clear();
+		mButtonFireCreated = FALSE;
 
 		// if we can still fire this guy, set up the button
 		if ( !(militia.flagmask & (MILITIAFLAG_DEAD | MILITIAFLAG_FIRED | MILITIAFLAG_DESERTION )) )
@@ -326,17 +340,17 @@ MilitiaPersonalDataTable::Display( )
 			if ( SectorOursAndPeaceful( SECTORX( militia.sector ), SECTORY( militia.sector ), 0 )
 				|| SectorIsImpassable( militia.sector ) )
 			{
-				mButtonFire = CreateTextButton( szIdividualMilitiaWebsiteText[8], FONT12ARIAL, FONT_YELLOW, FONT_BLACK, BUTTON_USE_DEFAULT,
-												usPosX, usPosY, 120, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, MilitiaPersonalDataTableFireCallback );
-
-				mButtonFireCreated = TRUE;
+				const INT32 fireButton = CreateTextButton( szIdividualMilitiaWebsiteText[8], FONT12ARIAL, FONT_YELLOW, FONT_BLACK, BUTTON_USE_DEFAULT,
+											usPosX, usPosY, 120, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, MilitiaPersonalDataTableFireCallback );
+				mButtonFireCreated = mButtonResources.addButton(
+					fireButton, mButtonFire) ? TRUE : FALSE;
 			}
 			else
 			{
-				mButtonFire = CreateTextButton( szIdividualMilitiaWebsiteText[8], FONT12ARIAL, FONT_RED, FONT_BLACK, BUTTON_USE_DEFAULT,
-												usPosX, usPosY, 120, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, NULL );
-
-				mButtonFireCreated = TRUE;
+				const INT32 fireButton = CreateTextButton( szIdividualMilitiaWebsiteText[8], FONT12ARIAL, FONT_RED, FONT_BLACK, BUTTON_USE_DEFAULT,
+											usPosX, usPosY, 120, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, NULL );
+				mButtonFireCreated = mButtonResources.addButton(
+					fireButton, mButtonFire) ? TRUE : FALSE;
 			}
 		}
 
@@ -358,18 +372,15 @@ MilitiaPersonalDataTable::DestroyMouseRegions( )
 	if ( !IsInit( ) )
 		return;
 
-	if ( mButtonFireCreated )
-	{
-		RemoveButton( mButtonFire );
-		mButtonFireCreated = FALSE;
-	}
+	mButtonResources.clear();
+	mButtonFireCreated = FALSE;
 
 	BaseTable::DestroyMouseRegions( );
 }
 
 /////////////////////////////////////////////
 MilitiaPersonalInventoryTable::MilitiaPersonalInventoryTable( )
-: TestPanel( )
+: TestPanel( ), mMilitiaId(0)
 {
 }
 
@@ -410,9 +421,9 @@ MilitiaPersonalInventoryTable::Display( )
 	DestroyMouseRegions( );
 
 	SetFontShadow( NO_SHADOW );
+	ScopedDefaultFontShadow restoreFontShadow;
 
-	CHAR16	sText[800];
-	swprintf( sText, L"" );
+	CHAR16	sText[800] = {};
 	UINT16 usPosX = GetX( ) + 10;
 	UINT16 usPosY = GetY( ) + 10;
 
@@ -426,7 +437,8 @@ MilitiaPersonalInventoryTable::Display( )
 		{
 			OBJECTTYPE* pObj = &(pSoldier)->inventory()[pocketIndex];
 
-			if ( pObj == NULL || pObj->ubNumberOfObjects == NOTHING || pObj->usItem == NOTHING )
+			if (pObj->ubNumberOfObjects == NOTHING || pObj->usItem == NOTHING ||
+				pObj->usItem >= MAXITEMS)
 				continue;
 						
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, usPosX, usPosY, usPosX + 60, usPosY + 23, Get16BPPColor( FROMRGB( 255, 255, 255 ) ) );
@@ -448,9 +460,9 @@ MilitiaPersonalInventoryTable::Display( )
 		MILITIA militia;
 		if( GetMilitia( mMilitiaId, &militia ) )
 		{
-			swprintf( sText, szIdividualMilitiaWebsiteText[16], militia.GetName( ) );
+			sgp_swprintf(sText, 800,
+				szIdividualMilitiaWebsiteText[16], militia.GetName());
 			DrawTextToScreen( sText, usPosX, usPosY + 5, GetWidth( ), FONT12ARIAL, 2, FONT_MCOLOR_BLACK, FALSE, 0 );
-			usPosY += 20;
 		}
 	}
 
@@ -481,7 +493,10 @@ extern STR16 ItemLongNamegetter( UINT32 aNum );
 
 MilitiaInidividualMainWidget::MilitiaInidividualMainWidget( )
 : TestPanel( ),
-  mMilitiaId( 0 )
+  mMilitiaId(0),
+  mCloseButtonDefined(FALSE),
+  mCloseButton(-1),
+  mCloseImage(-1)
 {
 }
 
@@ -561,12 +576,12 @@ MilitiaInidividualMainWidget::Display( )
 	TestPanel::Display( );
 
 	SetFontShadow( NO_SHADOW );
+	ScopedDefaultFontShadow restoreFontShadow;
 	
 	MILITIA militia;
 	if ( GetMilitia( mMilitiaId, &militia ) )
 	{
-		CHAR16	sText[800];
-		swprintf( sText, L"" );
+		CHAR16	sText[800] = {};
 		UINT16 usPosX = GetX( );
 		UINT16 usPosY = GetY( );
 
@@ -575,16 +590,19 @@ MilitiaInidividualMainWidget::Display( )
 		UINT16 imageid = 0;
 		GetFaceData( mMilitiaId, imagelib, imageid );
 
-		BltVideoObjectFromIndex( FRAME_BUFFER, imagelib, imageid, usPosX + 4, usPosY + 4, VO_BLT_SRCTRANSPARENCY, NULL );
+		HVOBJECT faceHandle;
+		if (GetVideoObject(&faceHandle, imagelib) && faceHandle &&
+			imageid < faceHandle->usNumberOfObjects)
+			BltVideoObject(FRAME_BUFFER, faceHandle, imageid,
+				usPosX + 4, usPosY + 4, VO_BLT_SRCTRANSPARENCY, NULL);
 
 		usPosX += 44;
 		usPosY += 8;
 
 		// name
-		swprintf( sText, L"%s - %s", militia.GetName( ), militia.GetSector( ) );
+		sgp_swprintf(sText, 800, L"%s - %s",
+			militia.GetName(), militia.GetSector());
 		DrawTextToScreen( sText, usPosX, usPosY + 5, GetWidth( ), FONT12ARIAL, 2, FONT_MCOLOR_BLACK, FALSE, 0 );
-
-		usPosX += 7 * wcslen( sText );
 
 		/*// gun
 		ItemImage( mMilitiaId, imagelib, imageid );
@@ -592,21 +610,25 @@ MilitiaInidividualMainWidget::Display( )
 
 		usPosX += 90;*/
 
-		//swprintf( sText, ItemLongNamegetter( mMilitiaId ) );
-		//DrawTextToScreen( sText, usPosX, usPosY + 5, GetWidth( ), FONT12ARIAL, 2, FONT_MCOLOR_BLACK, FALSE, 0 );
-
-		//usPosX += 7 * wcslen( sText );
-		usPosY += 30;
 	}
 
-	mCloseImage = LoadButtonImage( "INTERFACE\\skilltree.sti", 71, 71, 71, 71, 71 );
+	mCloseResources.clear();
+	if (!mCloseResources.addButtonImage(LoadButtonImageOwned(
+		"INTERFACE\\skilltree.sti", 71, 71, 71, 71, 71), mCloseImage))
+		return;
 
 	// save changes
-	mCloseButton = QuickCreateButton( mCloseImage,
+	const INT32 closeButton = QuickCreateButton( mCloseImage,
 										 GetX( ) + GetWidth( ) - 26, GetY( ) + 4,
 										 BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST,
 										 MSYS_NO_CALLBACK,
 										 CloseButtonCallback );
+	if (!mCloseResources.addButton(closeButton, mCloseButton))
+	{
+		mCloseResources.clear();
+		mCloseButtonDefined = FALSE;
+		return;
+	}
 	mCloseButtonDefined = TRUE;
 }
 
@@ -621,9 +643,7 @@ MilitiaInidividualMainWidget::DestroyMouseRegions( )
 {
 	if ( mCloseButtonDefined )
 	{
-		RemoveButton( mCloseButton );
-		UnloadButtonImage( mCloseImage );
-
+		mCloseResources.clear();
 		mCloseButtonDefined = FALSE;
 	}
 

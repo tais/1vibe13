@@ -170,6 +170,26 @@ target_include_directories(laptop_campaign_history_model_tests
 add_test(NAME laptop_campaign_history_model
   COMMAND laptop_campaign_history_model_tests)
 
+# The final Laptop audit shares one dependency-free contract for the remaining
+# mutable pages: signed/exact-end selections, stale pagination, bounded text,
+# and exact binary transfers.
+add_executable(laptop_ui_state_model_tests
+  laptop_ui_state_model_tests.cpp)
+target_include_directories(laptop_ui_state_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME laptop_ui_state_model
+  COMMAND laptop_ui_state_model_tests)
+
+# Encyclopedia is disabled in the current product configuration, but it is
+# still maintained source rather than dead text. Compile its complete path in
+# every host so dormant bounds and ownership code cannot silently decay.
+add_library(laptop_encyclopedia_compile_check OBJECT
+  "${CMAKE_SOURCE_DIR}/Laptop/Encyclopedia_new.cpp"
+  "${CMAKE_SOURCE_DIR}/Laptop/Encyclopedia_Data_new.cpp"
+  "${CMAKE_SOURCE_DIR}/Laptop/BriefingRoom_Data.cpp")
+target_compile_definitions(laptop_encyclopedia_compile_check
+  PRIVATE ENCYCLOPEDIA_WORKS)
+
 # XML callbacks receive text in arbitrary chunks. Keep accumulation, strict
 # integer narrowing, explicit legacy-byte sentinels, index validation, and
 # fixed-buffer copying data-free.

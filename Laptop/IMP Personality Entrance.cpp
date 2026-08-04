@@ -9,6 +9,7 @@
 	#include "Cursors.h"
 	#include "laptop.h"
 	#include "IMP Text System.h"
+#include "ImpPageResourceOwner.h"
 
 // IMP personality entrance buttons
 INT32 giIMPPersonalityEntranceButton[1];
@@ -23,6 +24,7 @@ void BtnIMPPersonalityEntranceDoneCallback(GUI_BUTTON *btn,INT32 reason);
 
 void EnterIMPPersonalityEntrance( void )
 {
+	BeginImpPageResources();
 	// create buttons needed
 	CreateIMPPersonalityEntranceButtons( );
 

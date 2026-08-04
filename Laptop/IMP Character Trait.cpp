@@ -13,6 +13,7 @@
 	#include "WordWrap.h"
 	#include "CharProfile.h"
 	#include "GameSettings.h"
+#include "ImpPageResourceOwner.h"
 
 
 //*******************************************************************
@@ -96,6 +97,7 @@ void AssignCharacterTraitHelpText( UINT8 ubNumber );
 
 void EnterIMPCharacterTrait( void )
 {
+	BeginImpPageResources();
 	VOBJECT_DESC	VObjectDesc;
 
 	//add the skill trait buttons
@@ -450,8 +452,12 @@ INT8 iChosenCharacterTrait()
 void AssignCharacterTraitHelpText( UINT8 ubNumber )
 {
 	CHAR16	apStr[ 2000 ];
+	if (!LaptopUiStateModel::IsValidIndex(
+		std::size(gMR_CharacterTraitHelpTextRegions), ubNumber))
+		return;
 
-	swprintf( apStr, gzIMPNewCharacterTraitsHelpTexts[ubNumber] );
+	LaptopUiStateModel::CopyText(
+		apStr, gzIMPNewCharacterTraitsHelpTexts[ubNumber]);
 
 	// Set region help text
 	SetRegionFastHelpText( &(gMR_CharacterTraitHelpTextRegions[ubNumber]), apStr );

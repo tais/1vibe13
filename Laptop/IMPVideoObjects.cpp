@@ -8,6 +8,7 @@
 	#include "Multi Language Graphic Utils.h"
 	#include "IMP Attribute Selection.h"
 	#include "GameSettings.h"
+	#include "LaptopPageResourceOwner.h"
 
 // globals
 
@@ -55,6 +56,12 @@ UINT32 guiCOLORCHOICEFRAME;
 UINT32 gIMPINVENTORY;
 SGPRectangle gIMPGearLayout;
 SGPRectangle gIMPInvPoolLayout;
+static LaptopPageResourceOwner gImpGraphicResources;
+
+void ClearImpVideoObjects()
+{
+	gImpGraphicResources.clear();
+}
 
 
 // position defines
@@ -72,7 +79,7 @@ BOOLEAN LoadProfileBackGround( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\MetalBackGround.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBACKGROUND));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiBACKGROUND));
 
 
 	return (TRUE) ;
@@ -82,7 +89,7 @@ void RemoveProfileBackGround( void )
 {
 
 	// remove background
-	DeleteVideoObjectFromIndex( guiBACKGROUND );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -127,7 +134,7 @@ BOOLEAN LoadIMPSymbol( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_IMPSYMBOL );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiIMPSYMBOL));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiIMPSYMBOL));
 
 	return (TRUE) ;
 }
@@ -137,7 +144,7 @@ void DeleteIMPSymbol( void )
 {
 
 	// remove IMP symbol
-	DeleteVideoObjectFromIndex( guiIMPSYMBOL );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -167,7 +174,7 @@ BOOLEAN LoadBeginIndent( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BeginScreenIndent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBEGININDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiBEGININDENT));
 
 	return (TRUE) ;
 }
@@ -178,7 +185,7 @@ void DeleteBeginIndent( void )
 
 	// remove indent symbol
 
-	DeleteVideoObjectFromIndex( guiBEGININDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -211,7 +218,7 @@ BOOLEAN LoadActivationIndent( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\ActivationIndent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiACTIVATIONINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiACTIVATIONINDENT));
 
 	return (TRUE) ;
 }
@@ -221,7 +228,7 @@ void DeleteActivationIndent( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiACTIVATIONINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -250,7 +257,7 @@ BOOLEAN LoadFrontPageIndent( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\FrontPageIndent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFRONTPAGEINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiFRONTPAGEINDENT));
 
 	return (TRUE) ;
 }
@@ -260,7 +267,7 @@ void DeleteFrontPageIndent( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiFRONTPAGEINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -291,7 +298,7 @@ BOOLEAN LoadAnalyse( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Analyze.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiANALYSE));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiANALYSE));
 
 	return (TRUE) ;
 }
@@ -301,7 +308,7 @@ void DeleteAnalyse( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiANALYSE );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -333,7 +340,7 @@ BOOLEAN LoadAttributeGraph( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Attributegraph.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiATTRIBUTEGRAPH));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiATTRIBUTEGRAPH));
 
 	return (TRUE) ;
 }
@@ -343,7 +350,7 @@ void DeleteAttributeGraph( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiATTRIBUTEGRAPH );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -375,7 +382,7 @@ BOOLEAN LoadAttributeGraphBar( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\AttributegraphBar.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiATTRIBUTEGRAPHBAR));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiATTRIBUTEGRAPHBAR));
 
 	return (TRUE) ;
 }
@@ -385,7 +392,7 @@ void DeleteAttributeBarGraph( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiATTRIBUTEGRAPHBAR );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -417,7 +424,7 @@ BOOLEAN LoadFullNameIndent( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\FullNameIndent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFULLNAMEINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiFULLNAMEINDENT));
 
 	return (TRUE);
 }
@@ -427,7 +434,7 @@ void DeleteFullNameIndent( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiFULLNAMEINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -457,7 +464,7 @@ BOOLEAN LoadNickNameIndent( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\NickName.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiNICKNAMEINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiNICKNAMEINDENT));
 
 	return (TRUE);
 }
@@ -467,7 +474,7 @@ void DeleteNickNameIndent( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiNICKNAMEINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -496,7 +503,7 @@ BOOLEAN LoadNameIndent( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\NameIndent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiNAMEINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiNAMEINDENT));
 
 	return (TRUE);
 }
@@ -506,7 +513,7 @@ void DeleteNameIndent( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiNAMEINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -538,7 +545,7 @@ BOOLEAN LoadGenderIndent( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\GenderIndent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiGENDERINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiGENDERINDENT));
 
 	return (TRUE);
 }
@@ -548,7 +555,7 @@ void DeleteGenderIndent( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiGENDERINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -578,7 +585,7 @@ BOOLEAN LoadSmallFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\SmallFrame.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiSMALLFRAME));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiSMALLFRAME));
 
 	return (TRUE);
 }
@@ -588,7 +595,7 @@ void DeleteSmallFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiSMALLFRAME );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -618,7 +625,7 @@ BOOLEAN LoadSmallSilhouette( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\SmallSilhouette.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiSMALLSILHOUETTE));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiSMALLSILHOUETTE));
 
 	return (TRUE);
 }
@@ -628,7 +635,7 @@ void DeleteSmallSilhouette( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiSMALLSILHOUETTE );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -657,7 +664,7 @@ BOOLEAN LoadLargeSilhouette( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\largesilhouette.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiLARGESILHOUETTE));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiLARGESILHOUETTE));
 
 	return (TRUE);
 }
@@ -667,7 +674,7 @@ void DeleteLargeSilhouette( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiLARGESILHOUETTE );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -695,7 +702,7 @@ BOOLEAN LoadAttributeFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\attributeframe.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiATTRIBUTEFRAME));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiATTRIBUTEFRAME));
 
 	return (TRUE);
 }
@@ -705,7 +712,7 @@ void DeleteAttributeFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiATTRIBUTEFRAME );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -782,7 +789,7 @@ BOOLEAN LoadSliderBar( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\attributeslider.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiSLIDERBAR));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiSLIDERBAR));
 
 	return (TRUE);
 }
@@ -792,7 +799,7 @@ void DeleteSliderBar( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiSLIDERBAR );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -822,7 +829,7 @@ BOOLEAN LoadButton2Image( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\button_2.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBUTTON2IMAGE));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiBUTTON2IMAGE));
 
 	return (TRUE);
 }
@@ -832,7 +839,7 @@ void DeleteButton2Image( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiBUTTON2IMAGE );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -859,7 +866,7 @@ BOOLEAN LoadButton4Image( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\button_4.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBUTTON4IMAGE));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiBUTTON4IMAGE));
 
 	return (TRUE);
 }
@@ -869,7 +876,7 @@ void DeleteButton4Image( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiBUTTON4IMAGE );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -897,7 +904,7 @@ BOOLEAN LoadButton1Image( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\button_1.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBUTTON1IMAGE));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiBUTTON1IMAGE));
 
 	return (TRUE);
 }
@@ -907,7 +914,7 @@ void DeleteButton1Image( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiBUTTON1IMAGE );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -935,7 +942,7 @@ BOOLEAN LoadPortraitFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Voice_PortraitFrame.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiPORTRAITFRAME));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiPORTRAITFRAME));
 
 	return (TRUE);
 }
@@ -945,7 +952,7 @@ void DeletePortraitFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiPORTRAITFRAME );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -974,7 +981,7 @@ BOOLEAN LoadMainIndentFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\mainprofilepageindent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiMAININDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiMAININDENT));
 
 	return (TRUE);
 }
@@ -984,7 +991,7 @@ void DeleteMainIndentFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiMAININDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1012,7 +1019,7 @@ BOOLEAN LoadQtnLongIndentFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\longindent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiLONGINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiLONGINDENT));
 
 	return (TRUE);
 }
@@ -1022,7 +1029,7 @@ void DeleteQtnLongIndentFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiLONGINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1049,7 +1056,7 @@ BOOLEAN LoadQtnShortIndentFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\shortindent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiSHORTINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiSHORTINDENT));
 
 	return (TRUE);
 }
@@ -1059,7 +1066,7 @@ void DeleteQtnShortIndentFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiSHORTINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1086,7 +1093,7 @@ BOOLEAN LoadQtnLongIndentHighFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\longindenthigh.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiLONGHINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiLONGHINDENT));
 
 	return (TRUE);
 }
@@ -1096,7 +1103,7 @@ void DeleteQtnLongIndentHighFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiLONGHINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1123,7 +1130,7 @@ BOOLEAN LoadQtnShortIndentHighFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\shortindenthigh.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiSHORTHINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiSHORTHINDENT));
 
 	return (TRUE);
 }
@@ -1133,7 +1140,7 @@ void DeleteQtnShortIndentHighFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiSHORTHINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1161,7 +1168,7 @@ BOOLEAN LoadQtnIndentFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\questionindent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiQINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiQINDENT));
 
 	return (TRUE);
 }
@@ -1171,7 +1178,7 @@ void DeleteQtnIndentFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiQINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1199,7 +1206,7 @@ BOOLEAN LoadAttrib1IndentFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\attributescreenindent_1.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiA1INDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiA1INDENT));
 
 	return (TRUE);
 }
@@ -1209,7 +1216,7 @@ void DeleteAttrib1IndentFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiA1INDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1236,7 +1243,7 @@ BOOLEAN LoadAttrib2IndentFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\attributescreenindent_2.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiA2INDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiA2INDENT));
 
 	return (TRUE);
 }
@@ -1246,7 +1253,7 @@ void DeleteAttrib2IndentFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiA2INDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1273,7 +1280,7 @@ BOOLEAN LoadAvgMercIndentFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\anaveragemercindent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiAVGMERCINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiAVGMERCINDENT));
 
 	return (TRUE);
 }
@@ -1283,7 +1290,7 @@ void DeleteAvgMercIndentFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiAVGMERCINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1312,7 +1319,7 @@ BOOLEAN LoadAboutUsIndentFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\aboutusindent.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiABOUTUSINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiABOUTUSINDENT));
 
 	return (TRUE);
 }
@@ -1322,7 +1329,7 @@ void DeleteAboutUsIndentFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiABOUTUSINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1350,7 +1357,7 @@ BOOLEAN LoadQtnShort2IndentFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\shortindent2.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiSHORT2INDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiSHORT2INDENT));
 
 	return (TRUE);
 }
@@ -1360,7 +1367,7 @@ void DeleteQtnShort2IndentFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiSHORT2INDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1387,7 +1394,7 @@ BOOLEAN LoadQtnShort2IndentHighFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\shortindent2High.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiSHORT2HINDENT));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiSHORT2HINDENT));
 
 	return (TRUE);
 }
@@ -1397,7 +1404,7 @@ void DeleteQtnShort2IndentHighFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiSHORT2HINDENT );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1426,7 +1433,7 @@ BOOLEAN LoadAttribStartingLevelFrame( void )
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\STARTINGLEVELBAR.sti", VObjectDesc.ImageFile);
 
-	CHECKF(AddVideoObject(&VObjectDesc, &guiASTARTLEVEL));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiASTARTLEVEL));
 
 	return (TRUE);
 }
@@ -1436,7 +1443,7 @@ void DeleteAttribStartingLevelFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiASTARTLEVEL );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1463,7 +1470,7 @@ BOOLEAN LoadColorChoiceFrame( void )
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\COLORCHOICEFRAME.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiCOLORCHOICEFRAME));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, guiCOLORCHOICEFRAME));
 
 	return (TRUE);
 }
@@ -1473,7 +1480,7 @@ void DeleteColorChoiceFrame( void )
 {
 
 	// remove activation indent symbol
-	DeleteVideoObjectFromIndex( guiCOLORCHOICEFRAME );
+	ClearImpVideoObjects();
 
 	return;
 }
@@ -1503,7 +1510,7 @@ BOOLEAN LoadImpGearSelection(void)
 	{
 		FilenameForBPP("INTERFACE\\ImpGearSelection.sti", VObjectDesc.ImageFile);
 	}
-	CHECKF(AddVideoObject(&VObjectDesc, &gIMPINVENTORY));
+	CHECKF(gImpGraphicResources.addVideoObject(&VObjectDesc, gIMPINVENTORY));
 
 	gIMPGearLayout = { LAPTOP_SCREEN_UL_X + 37,  LAPTOP_SCREEN_WEB_UL_Y + 48, 429, 257 };
 	if (!UsingNewInventorySystem())
@@ -1518,7 +1525,7 @@ BOOLEAN LoadImpGearSelection(void)
 
 void DeleteImpGearSelection(void)
 {
-	DeleteVideoObjectFromIndex(gIMPINVENTORY);
+	ClearImpVideoObjects();
 	return;
 }
 

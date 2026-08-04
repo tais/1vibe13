@@ -10,6 +10,7 @@
 	#include "laptop.h"
 	#include "IMP Text System.h"
 	#include "IMP Compile Character.h"
+#include "ImpPageResourceOwner.h"
 
 // this is the amount of time, the player waits until booted back to main profileing screen
 
@@ -52,6 +53,7 @@ void BtnIMPPersonalityFinishOkCallback(GUI_BUTTON *btn,INT32 reason);
 
 void EnterIMPPersonalityFinish( void )
 {
+	BeginImpPageResources();
 
 	// reset states
 	fCreateFinishOkButton = FALSE;

@@ -823,8 +823,9 @@ BOOLEAN CPostalService::LoadShipmentListFromSaveGameFile(HWFILE hFile)
 	UINT32 uiBytesRead=0;
 	ShipmentListSaveFileDataHeaderStruct sls{};
 
-	FileRead(hFile, &sls, sizeof(ShipmentListSaveFileDataHeaderStruct), &uiBytesRead);
-	if(uiBytesRead != sizeof(ShipmentListSaveFileDataHeaderStruct))
+	if (!FileRead(hFile, &sls, sizeof(ShipmentListSaveFileDataHeaderStruct),
+		&uiBytesRead) ||
+		uiBytesRead != sizeof(ShipmentListSaveFileDataHeaderStruct))
 	{
 		return FALSE;
 	}
@@ -842,8 +843,8 @@ BOOLEAN CPostalService::LoadShipmentListFromSaveGameFile(HWFILE hFile)
 
 		// Read in shipment data header
 		uiBytesRead = 0;
-		FileRead(hFile, &sfs, sizeof(ShipmentSaveFileDataStruct), &uiBytesRead);
-		if(uiBytesRead != sizeof(ShipmentSaveFileDataStruct))
+		if (!FileRead(hFile, &sfs, sizeof(ShipmentSaveFileDataStruct),
+			&uiBytesRead) || uiBytesRead != sizeof(ShipmentSaveFileDataStruct))
 		{
 			return FALSE;
 		}
@@ -891,8 +892,9 @@ BOOLEAN CPostalService::LoadShipmentListFromSaveGameFile(HWFILE hFile)
 		{
 			ShipmentPackageStruct sps{};
 			uiBytesRead = 0;
-			FileRead(hFile, &sps, sizeof(ShipmentPackageStruct), &uiBytesRead);
-			if (uiBytesRead != sizeof(ShipmentPackageStruct) ||
+			if (!FileRead(hFile, &sps, sizeof(ShipmentPackageStruct),
+					&uiBytesRead) ||
+				uiBytesRead != sizeof(ShipmentPackageStruct) ||
 				sps.usItemIndex == 0 || sps.usItemIndex >= MAXITEMS ||
 				!sps.ubNumber || sps.bItemQuality < 0 ||
 				sps.bItemQuality > 100)
@@ -920,8 +922,9 @@ BOOLEAN CPostalService::SaveShipmentListToSaveGameFile(HWFILE hFile)
 	sls.uiShipmentDataSize	= sizeof(ShipmentSaveFileDataStruct);
 
 	UINT32 uiBytesWritten=0;
-	FileWrite(hFile, &sls, sizeof(ShipmentListSaveFileDataHeaderStruct), &uiBytesWritten);
-	if(uiBytesWritten != sizeof(ShipmentListSaveFileDataHeaderStruct))
+	if (!FileWrite(hFile, &sls, sizeof(ShipmentListSaveFileDataHeaderStruct),
+		&uiBytesWritten) ||
+		uiBytesWritten != sizeof(ShipmentListSaveFileDataHeaderStruct))
 	{
 		return FALSE;
 	}
@@ -961,8 +964,9 @@ BOOLEAN CPostalService::SaveShipmentListToSaveGameFile(HWFILE hFile)
 		sfs.usID					= SHIPMENT(sli).usID;
 		sfs.uiOrderDate				= SHIPMENT(sli).uiOrderDate;
 		
-		FileWrite(hFile, &sfs, sizeof(ShipmentSaveFileDataStruct), &uiBytesWritten);		
-		if(uiBytesWritten != sizeof(ShipmentSaveFileDataStruct))
+		if (!FileWrite(hFile, &sfs, sizeof(ShipmentSaveFileDataStruct),
+			&uiBytesWritten) ||
+			uiBytesWritten != sizeof(ShipmentSaveFileDataStruct))
 		{
 			return FALSE;
 		}
@@ -983,8 +987,9 @@ BOOLEAN CPostalService::SaveShipmentListToSaveGameFile(HWFILE hFile)
 			sps.bItemQuality	= SHIPMENT(sli).ShipmentPackages[i].bItemQuality;
 			sps.ubNumber		= SHIPMENT(sli).ShipmentPackages[i].ubNumber;
 			sps.usItemIndex		= SHIPMENT(sli).ShipmentPackages[i].usItemIndex;
-			FileWrite(hFile, &sps, sizeof(ShipmentPackageStruct), &uiBytesWritten);
-			if(uiBytesWritten != sizeof(ShipmentPackageStruct))
+			if (!FileWrite(hFile, &sps, sizeof(ShipmentPackageStruct),
+				&uiBytesWritten) ||
+				uiBytesWritten != sizeof(ShipmentPackageStruct))
 			{
 				return FALSE;
 			}

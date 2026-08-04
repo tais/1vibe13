@@ -36,6 +36,8 @@
 #include "Town Militia.h"
 #include "Strategic Town Loyalty.h"
 #include "MilitiaIndividual.h"
+#include "LaptopPageResourceOwner.h"
+#include "LaptopUiStateModel.h"
 
 std::vector<PMCReinforcesHireEvent> gPMCHiringEvents;
 PMCGlobalData gPMCData;
@@ -74,6 +76,27 @@ extern UINT32	guiMercCompareLogoImage;
 
 //link to the various pages
 MOUSE_REGION	gLinkRegion_PMC[NUM_LINKS];
+static LaptopPageResourceOwner gPMCPageResources;
+static LaptopPageResourceOwner gPMCContractResources;
+
+namespace
+{
+class ScopedDefaultFontShadow
+{
+public:
+	~ScopedDefaultFontShadow() { SetFontShadow(DEFAULT_SHADOW); }
+};
+
+BOOLEAN BlitMilitiaFrame(HVOBJECT object, UINT16 frame, UINT16 x, UINT16 y)
+{
+	if (!object || frame >= object->usNumberOfObjects)
+		return FALSE;
+
+	BltVideoObject(FRAME_BUFFER, object, frame, x, y,
+		VO_BLT_SRCTRANSPARENCY, NULL);
+	return TRUE;
+}
+}
 
 void SelectLinkRegionCallBack_PMC( MOUSE_REGION * pRegion, INT32 iReason )
 {
@@ -96,28 +119,28 @@ void SelectLinkRegionCallBack_PMC( MOUSE_REGION * pRegion, INT32 iReason )
 	}
 }
 
-void InitDefaults_PMC( )
+static BOOLEAN LoadDefaults_PMC(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the Insurance bullet graphic and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\bullet.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareBulletImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiMercCompareBulletImage));
 
 	// load the Flower Account Box graphic and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\BackGroundTile.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBackGround ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiInsuranceBackGround));
 
 	// load the red bar on the side of the page and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\LargeBar.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBigRedLineImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiInsuranceBigRedLineImage));
 
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\PressLogos.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareLogoImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiMercCompareLogoImage));
 
 	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
 	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
@@ -125,39 +148,43 @@ void InitDefaults_PMC( )
 	{
 		MSYS_DefineRegion( &gLinkRegion_PMC[i], usPosX, usPosY, (UINT16)(usPosX + CAMPAIGN_HISTORY_LINK_TEXT_WIDTH), usPosY + CAMPAIGN_HISTORY_LINK_STEP_Y, MSYS_PRIORITY_HIGH,
 						   CURSOR_WWW, MSYS_NO_CALLBACK, SelectLinkRegionCallBack_PMC );
-		MSYS_AddRegion( &gLinkRegion_PMC[i] );
+		CHECKF(owner.addRegion(gLinkRegion_PMC[i]));
 		MSYS_SetRegionUserData( &gLinkRegion_PMC[i], 0, i );
 
 		usPosY += CAMPAIGN_HISTORY_LINK_STEP_Y;
 	}
+	return TRUE;
 }
 
 void DisplayDefaults_PMC( )
 {
-	HVOBJECT	hPixHandle;
-	GetVideoObject( &hPixHandle, guiMercCompareLogoImage );
+	HVOBJECT hPixHandle = nullptr;
+	const BOOLEAN hasLogo = GetVideoObject(
+		&hPixHandle, guiMercCompareLogoImage) && hPixHandle &&
+		hPixHandle->usNumberOfObjects > 3;
 
 	SetFontShadow( MERCOMP_FONT_SHADOW );
 
 	CHAR16 sText[800];
-	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
-	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
+	UINT16 usPosX;
+	UINT16 usPosY;
 
 	WebPageTileBackground( 4, 4, BACKGROUND_WIDTH, CAMPAIGN_HISTORY_BACKGROUND_HEIGHT, guiInsuranceBackGround );
 
 	//Display the title slogan
-	swprintf( sText, szPMCWebSite[TEXT_PMC_WEBSITENAME] );
+	LaptopUiStateModel::CopyText(sText, szPMCWebSite[TEXT_PMC_WEBSITENAME]);
 	DrawTextToScreen( sText, CAMPAIGN_HISTORY_BIG_TITLE_X, CAMPAIGN_HISTORY_BIG_TITLE_Y, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, CAMPHIS_FONT_BIG, MERCOMP_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	//Display the subtitle slogan
-	swprintf( sText, szPMCWebSite[TEXT_PMC_SLOGAN] );
+	LaptopUiStateModel::CopyText(sText, szPMCWebSite[TEXT_PMC_SLOGAN]);
 	DrawTextToScreen( sText, CAMPAIGN_HISTORY_SUBTITLE_X, CAMPAIGN_HISTORY_SUBTITLE_Y, 0, CAMPHIS_FONT_BIG, MERCOMP_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	usPosX = CAMPAIGN_HISTORY_LINK_START_X;
 	usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
 	for ( int i = 0; i<NUM_LINKS; ++i )
 	{
-		swprintf( sText, szPMCWebSite[TEXT_PMC_SUBSITE1 + i] );
+		LaptopUiStateModel::CopyText(sText,
+			szPMCWebSite[TEXT_PMC_SUBSITE1 + i]);
 		DisplayWrappedString( usPosX, usPosY, CAMPAIGN_HISTORY_LINK_TEXT_WIDTH, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 		usPosY += CAMPAIGN_HISTORY_LINK_STEP_Y;
@@ -171,26 +198,19 @@ void DisplayDefaults_PMC( )
 
 	usPosX = LAPTOP_SCREEN_LR_X - 110;
 	usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
-	BltVideoObject( FRAME_BUFFER, hPixHandle, 3, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	if (hasLogo)
+		BltVideoObject(FRAME_BUFFER, hPixHandle, 3, usPosX, usPosY,
+			VO_BLT_SRCTRANSPARENCY, NULL);
 
 	SetFontShadow( DEFAULT_SHADOW );
-}
-
-void RemoveDefaults_PMC( )
-{
-	DeleteVideoObjectFromIndex( guiInsuranceBackGround );
-	DeleteVideoObjectFromIndex( guiInsuranceBigRedLineImage );
-	DeleteVideoObjectFromIndex( guiMercCompareBulletImage );
-	DeleteVideoObjectFromIndex( guiMercCompareLogoImage );
-
-	for ( int i = 0; i<NUM_LINKS; ++i )
-		MSYS_RemoveRegion( &gLinkRegion_PMC[i] );
 }
 
 ////////////////////////// MAIN PAGE ////////////////////////////////
 BOOLEAN EnterPMCMain( )
 {
-	InitDefaults_PMC( );
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadDefaults_PMC(stagedResources));
+	gPMCPageResources = std::move(stagedResources);
 
 	RenderPMCMain( );
 
@@ -199,7 +219,7 @@ BOOLEAN EnterPMCMain( )
 
 void ExitPMCMain( )
 {
-	RemoveDefaults_PMC( );
+	gPMCPageResources.clear();
 }
 
 void HandlePMCMain( )
@@ -210,7 +230,7 @@ void HandlePMCMain( )
 void RenderPMCMain( )
 {
 	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	sText[0] = L'\0';
 	UINT16	usPosX, usPosY;
 
 	DisplayDefaults_PMC( );
@@ -222,7 +242,7 @@ void RenderPMCMain( )
 
 	for ( int i = TEXT_PMC_MAIN1; i < TEXT_PMC_CONTRACT_TEAM_INTRO; ++i )
 	{
-		swprintf( sText, szPMCWebSite[i] );
+		LaptopUiStateModel::CopyText(sText, szPMCWebSite[i]);
 		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 		usPosY += 10;
@@ -315,7 +335,9 @@ CHAR16 gPMCSectorNamesstr[10][64];
 
 BOOLEAN EnterPMCContract( )
 {
-	InitDefaults_PMC( );
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadDefaults_PMC(stagedResources));
+	gPMCPageResources = std::move(stagedResources);
 
 	InitPMCData();
 		
@@ -374,27 +396,16 @@ BOOLEAN EnterPMCContract( )
 
 void ExitPMCContract( )
 {
-	for ( int i = 0; i < 4; ++i )
-	{
-		if ( gPMCButtonCreated[i] )
-		{
-			// delete militia panel bottom
-			RemoveButton( gPMCButton[i] );
-			UnloadButtonImage( gPMCButtonImage[i] );
-
-			gPMCButtonCreated[i] = FALSE;
-		}
-	}
+	gPMCContractResources.clear();
+	std::fill(std::begin(gPMCButtonCreated),
+		std::end(gPMCButtonCreated), FALSE);
+	std::fill(std::begin(gPMCButton), std::end(gPMCButton), -1);
+	gPMCHireButtonCreated = FALSE;
+	gPMCHireButton = -1;
 
 	DropDownTemplate<DROPDOWNNR_PMC_LOCATION>::getInstance( ).Destroy( );
 
-	if ( gPMCHireButtonCreated )
-	{
-		RemoveButton( gPMCHireButton );
-		gPMCHireButtonCreated = FALSE;
-	}
-	
-	RemoveDefaults_PMC( );
+	gPMCPageResources.clear();
 }
 
 void HandlePMCContract( )
@@ -433,24 +444,24 @@ BOOLEAN RenderMilitiaExamples( )
 	}
 
 	// safety check if loaded
-	CHECKF( AddVideoObject( &VObjectDesc, &uiGraphicHandle ) );
+	UniqueVideoObjectHandle graphic = AddVideoObjectOwned(&VObjectDesc);
+	CHECKF(graphic);
+	uiGraphicHandle = graphic.get();
 
 	// Get it
-	GetVideoObject( &hHandle, uiGraphicHandle );
+	CHECKF(GetVideoObject(&hHandle, uiGraphicHandle) && hHandle);
 
 	// show background first
-	BltVideoObject( FRAME_BUFFER, hHandle, 0, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	CHECKF(BlitMilitiaFrame(hHandle, 0, usPosX, usPosY));
 
 	// show skin (1 - 4)
-	BltVideoObject( FRAME_BUFFER, hHandle, (pmcdata[0].usSkin + 1), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	CHECKF(BlitMilitiaFrame(hHandle, pmcdata[0].usSkin + 1, usPosX, usPosY));
 	// show head (5 - 9)
-	BltVideoObject( FRAME_BUFFER, hHandle, (pmcdata[0].usHair + 5), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	CHECKF(BlitMilitiaFrame(hHandle, pmcdata[0].usHair + 5, usPosX, usPosY));
 	// show vest (10 - 20)
-	BltVideoObject( FRAME_BUFFER, hHandle, (pmcdata[0].usVest + 10), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	CHECKF(BlitMilitiaFrame(hHandle, pmcdata[0].usVest + 10, usPosX, usPosY));
 	// show pants (21 - 26)
-	BltVideoObject( FRAME_BUFFER, hHandle, (pmcdata[0].usPants + 21), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
-
-	DeleteVideoObjectFromIndex( uiGraphicHandle );
+	CHECKF(BlitMilitiaFrame(hHandle, pmcdata[0].usPants + 21, usPosX, usPosY));
 
 	// veteran militia
 	usPosX = LAPTOP_SCREEN_UL_X + 250;
@@ -471,24 +482,24 @@ BOOLEAN RenderMilitiaExamples( )
 	}
 
 	// safety check if loaded
-	CHECKF( AddVideoObject( &VObjectDesc, &uiGraphicHandle ) );
+	graphic = AddVideoObjectOwned(&VObjectDesc);
+	CHECKF(graphic);
+	uiGraphicHandle = graphic.get();
 
 	// Get it
-	GetVideoObject( &hHandle, uiGraphicHandle );
+	CHECKF(GetVideoObject(&hHandle, uiGraphicHandle) && hHandle);
 
 	// show background first
-	BltVideoObject( FRAME_BUFFER, hHandle, 0, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	CHECKF(BlitMilitiaFrame(hHandle, 0, usPosX, usPosY));
 
 	// show skin (1 - 4)
-	BltVideoObject( FRAME_BUFFER, hHandle, (pmcdata[1].usSkin + 1), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	CHECKF(BlitMilitiaFrame(hHandle, pmcdata[1].usSkin + 1, usPosX, usPosY));
 	// show head (5 - 9)
-	BltVideoObject( FRAME_BUFFER, hHandle, (pmcdata[1].usHair + 5), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	CHECKF(BlitMilitiaFrame(hHandle, pmcdata[1].usHair + 5, usPosX, usPosY));
 	// show vest (10 - 20)
-	BltVideoObject( FRAME_BUFFER, hHandle, (pmcdata[1].usVest + 10), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	CHECKF(BlitMilitiaFrame(hHandle, pmcdata[1].usVest + 10, usPosX, usPosY));
 	// show pants (21 - 26)
-	BltVideoObject( FRAME_BUFFER, hHandle, (pmcdata[1].usPants + 21), usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
-
-	DeleteVideoObjectFromIndex( uiGraphicHandle );
+	CHECKF(BlitMilitiaFrame(hHandle, pmcdata[1].usPants + 21, usPosX, usPosY));
 
 	return (TRUE);
 }
@@ -514,7 +525,7 @@ void PMCButtonCallback( GUI_BUTTON *btn, INT32 reason )
 			else if ( btn->IDNum == gPMCButton[3] )
 				pmcdata[1].usToHire = std::max<int>( pmcdata[1].usToHire - 1, 0 );
 
-			RenderPMCContract();
+			fPMCContractRedraw = TRUE;
 		}
 	}
 }
@@ -531,9 +542,7 @@ void PMCTeamHireCallback( GUI_BUTTON *btn, INT32 reason )
 		// only proceed if we selected people
 		if ( pmcdata[0].usToHire || pmcdata[1].usToHire )
 		{
-			AddTransactionToPlayersBook( PMC_CONTRACT, 0, GetWorldTotalMin( ), (-1) * (INT32)(pmcdata[0].usToHire * GetMilitiaCostPMC( REGULAR_MILITIA ) + pmcdata[1].usToHire * GetMilitiaCostPMC( ELITE_MILITIA )) );
-		
-			PMCReinforcesHireEvent hiringevent;
+			PMCReinforcesHireEvent hiringevent{};
 
 			// look for a free ID
 			UINT8 id = 0;
@@ -556,22 +565,58 @@ void PMCTeamHireCallback( GUI_BUTTON *btn, INT32 reason )
 				if ( found == TRUE )
 					break;
 			}
+			if (!found) return;
+
+			const INT16 selectedSector =
+				DropDownTemplate<DROPDOWNNR_PMC_LOCATION>::getInstance( )
+					.GetSelectedEntryKey();
+			if (selectedSector < 0 || selectedSector > 255 ||
+				pmcdata[0].usToHire > gPMCData.usRegularsAvailable ||
+				pmcdata[1].usToHire > gPMCData.usVeteransAvailable)
+				return;
+
+			const UINT64 totalCostWide =
+				static_cast<UINT64>(pmcdata[0].usToHire) *
+					GetMilitiaCostPMC(REGULAR_MILITIA) +
+				static_cast<UINT64>(pmcdata[1].usToHire) *
+					GetMilitiaCostPMC(ELITE_MILITIA);
+			if (totalCostWide > static_cast<UINT64>(
+					std::numeric_limits<INT32>::max()) ||
+				totalCostWide > static_cast<UINT64>(
+				std::max<INT32>(LaptopSaveInfo.iCurrentBalance, 0))) return;
+			const UINT32 totalCost = static_cast<UINT32>(totalCostWide);
 
 			hiringevent.usId = id;
 			hiringevent.usRegulars = pmcdata[0].usToHire;
 			hiringevent.usVeterans = pmcdata[1].usToHire;
-			hiringevent.usSectorToArrive = (UINT8)DropDownTemplate<DROPDOWNNR_PMC_LOCATION>::getInstance( ).GetSelectedEntryKey( );
+			hiringevent.usSectorToArrive = static_cast<UINT8>(selectedSector);
 			hiringevent.usTimeToArrive = GetWorldTotalMin() + 1440;
-
-			gPMCData.usRegularsHired += hiringevent.usRegulars;
-			gPMCData.usVeteransHired += hiringevent.usVeterans;
-			gPMCData.usTotalMoneyEarned += pmcdata[0].usToHire * GetMilitiaCostPMC( REGULAR_MILITIA ) + pmcdata[1].usToHire * GetMilitiaCostPMC( ELITE_MILITIA );
-
-			gPMCHiringEvents.push_back( hiringevent );
 
 			// The ETA is, well, just an ETA - randomise it a bit
 			UINT32 realarrivaltime = hiringevent.usTimeToArrive - 60 + Random(180);
-			AddStrategicEvent( EVENT_PMC_REINFORCEMENT_ARRIVAL, realarrivaltime, hiringevent.usId );
+			gPMCHiringEvents.push_back(hiringevent);
+			if (!AddStrategicEvent(EVENT_PMC_REINFORCEMENT_ARRIVAL,
+				realarrivaltime, hiringevent.usId))
+			{
+				gPMCHiringEvents.pop_back();
+				return;
+			}
+
+			AddTransactionToPlayersBook(PMC_CONTRACT, 0,
+				GetWorldTotalMin(), -static_cast<INT32>(totalCost));
+			gPMCData.usRegularsHired = static_cast<UINT16>(
+				std::min<UINT32>(std::numeric_limits<UINT16>::max(),
+					static_cast<UINT32>(gPMCData.usRegularsHired) +
+						hiringevent.usRegulars));
+			gPMCData.usVeteransHired = static_cast<UINT16>(
+				std::min<UINT32>(std::numeric_limits<UINT16>::max(),
+					static_cast<UINT32>(gPMCData.usVeteransHired) +
+						hiringevent.usVeterans));
+			gPMCData.usTotalMoneyEarned =
+				std::numeric_limits<UINT32>::max() -
+					gPMCData.usTotalMoneyEarned < totalCost
+					? std::numeric_limits<UINT32>::max()
+					: gPMCData.usTotalMoneyEarned + totalCost;
 		
 			gPMCData.usRegularsAvailable -= pmcdata[0].usToHire;
 			pmcdata[0].usToHire = 0;
@@ -580,7 +625,10 @@ void PMCTeamHireCallback( GUI_BUTTON *btn, INT32 reason )
 			pmcdata[1].usToHire = 0;		
 				
 			CHAR16 sString[256];
-			swprintf( sString, szPMCWebSite[TEXT_PMC_CONFIRMATION], ((GetWorldTotalMin( ) + 1440) % 1440) / 60, ((GetWorldTotalMin( ) + 1440) % 1440) % 60 );
+				sgp_swprintf(sString, std::size(sString),
+					szPMCWebSite[TEXT_PMC_CONFIRMATION],
+					((GetWorldTotalMin() + 1440) % 1440) / 60,
+					((GetWorldTotalMin() + 1440) % 1440) % 60);
 
 			DoLowerScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, PMCConfirmationCallback );
 		}
@@ -590,119 +638,145 @@ void PMCTeamHireCallback( GUI_BUTTON *btn, INT32 reason )
 void RenderPMCContract( )
 {
 	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	sText[0] = L'\0';
 	UINT16	usPosX, usPosY;
 
 	DisplayDefaults_PMC( );
 
 	SetFontShadow( MERCOMP_FONT_SHADOW );
+	ScopedDefaultFontShadow restoreFontShadow;
 	
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = MCA_START_CONTENT_Y;
 
-	swprintf( sText, szPMCWebSite[TEXT_PMC_CONTRACT_TEAM_INTRO] );
-	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+	LaptopUiStateModel::CopyText(sText,
+		szPMCWebSite[TEXT_PMC_CONTRACT_TEAM_INTRO]);
+	DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	
 	// show example pics of militia
 	RenderMilitiaExamples( );
 
-	for ( int i = 0; i < 4; ++i )
-	{
-		if ( gPMCButtonCreated[i] )
-		{
-			// delete militia panel bottom
-			RemoveButton( gPMCButton[i] );
-			UnloadButtonImage( gPMCButtonImage[i] );
-
-			gPMCButtonCreated[i] = FALSE;
-		}
-	}
-
-	gPMCButtonImage[0] = LoadButtonImage( "INTERFACE\\plusminusbuttons.sti", -1, 0, -1, 0, -1 );
-	gPMCButtonImage[1] = LoadButtonImage( "INTERFACE\\plusminusbuttons.sti", -1, 1, -1, 1, -1 );
-	gPMCButtonImage[2] = LoadButtonImage( "INTERFACE\\plusminusbuttons.sti", -1, 0, -1, 0, -1 );
-	gPMCButtonImage[3] = LoadButtonImage( "INTERFACE\\plusminusbuttons.sti", -1, 1, -1, 1, -1 );
+	gPMCContractResources.clear();
+	std::fill(std::begin(gPMCButtonCreated),
+		std::end(gPMCButtonCreated), FALSE);
+	std::fill(std::begin(gPMCButton), std::end(gPMCButton), -1);
+	gPMCHireButtonCreated = FALSE;
+	gPMCHireButton = -1;
+	LaptopPageResourceOwner stagedResources;
+	CHECKV(stagedResources.addButtonImage(LoadButtonImageOwned(
+		"INTERFACE\\plusminusbuttons.sti", -1, 0, -1, 0, -1),
+		gPMCButtonImage[0]));
+	CHECKV(stagedResources.addButtonImage(LoadButtonImageOwned(
+		"INTERFACE\\plusminusbuttons.sti", -1, 1, -1, 1, -1),
+		gPMCButtonImage[1]));
+	CHECKV(stagedResources.addButtonImage(LoadButtonImageOwned(
+		"INTERFACE\\plusminusbuttons.sti", -1, 0, -1, 0, -1),
+		gPMCButtonImage[2]));
+	CHECKV(stagedResources.addButtonImage(LoadButtonImageOwned(
+		"INTERFACE\\plusminusbuttons.sti", -1, 1, -1, 1, -1),
+		gPMCButtonImage[3]));
 
 	// regulars
 	usPosX = LAPTOP_SCREEN_UL_X + 120;
 	usPosY = MCA_START_CONTENT_Y + 20;
 	
-	swprintf( sText, szPMCWebSite[TEXT_PMC_REGULAR] );
-	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+	LaptopUiStateModel::CopyText(sText, szPMCWebSite[TEXT_PMC_REGULAR]);
+	DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	usPosY += 10;
 
-	swprintf( sText, szPMCWebSite[TEXT_PMC_DETAIL], gPMCData.usRegularsAvailable, GetMilitiaCostPMC( REGULAR_MILITIA ) );
-	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+	sgp_swprintf(sText, std::size(sText), szPMCWebSite[TEXT_PMC_DETAIL],
+		gPMCData.usRegularsAvailable, GetMilitiaCostPMC(REGULAR_MILITIA));
+	DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
-	gPMCButton[0] = QuickCreateButton( gPMCButtonImage[0], usPosX, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1, BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)PMCButtonCallback );
+	CHECKV(stagedResources.addButton(QuickCreateButton(gPMCButtonImage[0],
+		usPosX, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
+		BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)PMCButtonCallback),
+		gPMCButton[0]));
 	gPMCButtonCreated[0] = TRUE;
-	gPMCButton[1] = QuickCreateButton( gPMCButtonImage[1], usPosX + 20, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1, BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)PMCButtonCallback );
+	CHECKV(stagedResources.addButton(QuickCreateButton(gPMCButtonImage[1],
+		usPosX + 20, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
+		BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)PMCButtonCallback),
+		gPMCButton[1]));
 	gPMCButtonCreated[1] = TRUE;
 
 	usPosY += 20;
 
-	swprintf( sText, szPMCWebSite[TEXT_PMC_DETAIL + 1], pmcdata[0].usToHire );
+	sgp_swprintf(sText, std::size(sText),
+		szPMCWebSite[TEXT_PMC_DETAIL + 1], pmcdata[0].usToHire);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
-	swprintf( sText, szPMCWebSite[TEXT_PMC_DETAIL + 2], pmcdata[0].usToHire * GetMilitiaCostPMC( REGULAR_MILITIA ) );
-	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+	sgp_swprintf(sText, std::size(sText),
+		szPMCWebSite[TEXT_PMC_DETAIL + 2],
+		pmcdata[0].usToHire * GetMilitiaCostPMC(REGULAR_MILITIA));
+	DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		
 	// veterans
 	usPosX = LAPTOP_SCREEN_UL_X + 370;
 	usPosY = MCA_START_CONTENT_Y + 20;
 
-	swprintf( sText, szPMCWebSite[TEXT_PMC_VETERAN] );
+	LaptopUiStateModel::CopyText(sText, szPMCWebSite[TEXT_PMC_VETERAN]);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	usPosY += 10;
 
-	swprintf( sText, szPMCWebSite[TEXT_PMC_DETAIL], gPMCData.usVeteransAvailable, GetMilitiaCostPMC( ELITE_MILITIA ) );
+	sgp_swprintf(sText, std::size(sText), szPMCWebSite[TEXT_PMC_DETAIL],
+		gPMCData.usVeteransAvailable, GetMilitiaCostPMC(ELITE_MILITIA));
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
-	gPMCButton[2] = QuickCreateButton( gPMCButtonImage[2], usPosX, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1, BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)PMCButtonCallback );
+	CHECKV(stagedResources.addButton(QuickCreateButton(gPMCButtonImage[2],
+		usPosX, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
+		BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)PMCButtonCallback),
+		gPMCButton[2]));
 	gPMCButtonCreated[2] = TRUE;
-	gPMCButton[3] = QuickCreateButton( gPMCButtonImage[3], usPosX + 20, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1, BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)PMCButtonCallback );
+	CHECKV(stagedResources.addButton(QuickCreateButton(gPMCButtonImage[3],
+		usPosX + 20, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
+		BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)PMCButtonCallback),
+		gPMCButton[3]));
 	gPMCButtonCreated[3] = TRUE;
 
 	usPosY += 20;
 
-	swprintf( sText, szPMCWebSite[TEXT_PMC_DETAIL + 1], pmcdata[1].usToHire );
+	sgp_swprintf(sText, std::size(sText),
+		szPMCWebSite[TEXT_PMC_DETAIL + 1], pmcdata[1].usToHire);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
-	swprintf( sText, szPMCWebSite[TEXT_PMC_DETAIL + 2], pmcdata[1].usToHire * GetMilitiaCostPMC( ELITE_MILITIA ) );
-	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+	sgp_swprintf(sText, std::size(sText),
+		szPMCWebSite[TEXT_PMC_DETAIL + 2],
+		pmcdata[1].usToHire * GetMilitiaCostPMC(ELITE_MILITIA));
+	DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = MCA_START_CONTENT_Y + 158;
 
-	swprintf( sText, szPMCWebSite[TEXT_PMC_SELECTAREA] );
+	LaptopUiStateModel::CopyText(sText, szPMCWebSite[TEXT_PMC_SELECTAREA]);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	usPosY += 10;
 
-	swprintf( sText, szPMCWebSite[TEXT_PMC_TOTALCOST], pmcdata[0].usToHire * GetMilitiaCostPMC( REGULAR_MILITIA ) + pmcdata[1].usToHire * GetMilitiaCostPMC( ELITE_MILITIA ) );
+	sgp_swprintf(sText, std::size(sText), szPMCWebSite[TEXT_PMC_TOTALCOST],
+		pmcdata[0].usToHire * GetMilitiaCostPMC(REGULAR_MILITIA) +
+			pmcdata[1].usToHire * GetMilitiaCostPMC(ELITE_MILITIA));
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 		
-	swprintf( sText, szPMCWebSite[TEXT_PMC_ETA], ((GetWorldTotalMin( ) + 1440) % 1440) / 60, ((GetWorldTotalMin( ) + 1440) % 1440) % 60 );
+	sgp_swprintf(sText, std::size(sText), szPMCWebSite[TEXT_PMC_ETA],
+		((GetWorldTotalMin() + 1440) % 1440) / 60,
+		((GetWorldTotalMin() + 1440) % 1440) % 60);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
-
-	if ( gPMCHireButtonCreated )
-	{
-		RemoveButton( gPMCHireButton );
-		gPMCHireButtonCreated = FALSE;
-	}
 
 	if ( DropDownTemplate<DROPDOWNNR_PMC_LOCATION>::getInstance().HasEntries() )
 	{
-		gPMCHireButton = CreateTextButton( szPMCWebSite[TEXT_PMC_CONTRACTBUTTON], CAMPHIS_FONT_MED, FONT_YELLOW, FONT_BLACK, BUTTON_USE_DEFAULT,
-														usPosX, usPosY, 100, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH, DEFAULT_MOVE_CALLBACK, PMCTeamHireCallback );
+		CHECKV(stagedResources.addButton(CreateTextButton(
+			szPMCWebSite[TEXT_PMC_CONTRACTBUTTON], CAMPHIS_FONT_MED,
+			FONT_YELLOW, FONT_BLACK, BUTTON_USE_DEFAULT, usPosX, usPosY,
+			100, 20, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+			DEFAULT_MOVE_CALLBACK, PMCTeamHireCallback), gPMCHireButton));
 		gPMCHireButtonCreated = TRUE;
 	}
 	else
 	{
-		swprintf( sText, szPMCWebSite[TEXT_PMC_NODROPOFF] );
-		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+		LaptopUiStateModel::CopyText(sText, szPMCWebSite[TEXT_PMC_NODROPOFF]);
+		DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 	
 	usPosY += 50;
@@ -712,8 +786,14 @@ void RenderPMCContract( )
 	{
 		CHAR16 sectorname[64];
 		GetSectorIDString( SECTORX( gPMCHiringEvents[0].usSectorToArrive ), SECTORY( gPMCHiringEvents[0].usSectorToArrive ), 0, sectorname, TRUE );
-		swprintf( sText, szPMCWebSite[TEXT_PMC_NEXTDEPLOYMENT], gPMCHiringEvents[0].usRegulars, gPMCHiringEvents[0].usVeterans, sectorname, (gPMCHiringEvents[0].usTimeToArrive % 1440) / 60, (gPMCHiringEvents[0].usTimeToArrive % 1440) % 60, 1 + (gPMCHiringEvents[0].usTimeToArrive / 1440) );
-		usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
+		sgp_swprintf(sText, std::size(sText),
+			szPMCWebSite[TEXT_PMC_NEXTDEPLOYMENT],
+			gPMCHiringEvents[0].usRegulars,
+			gPMCHiringEvents[0].usVeterans, sectorname,
+			(gPMCHiringEvents[0].usTimeToArrive % 1440) / 60,
+			(gPMCHiringEvents[0].usTimeToArrive % 1440) % 60,
+			1 + (gPMCHiringEvents[0].usTimeToArrive / 1440));
+		DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 	}
 
 	DropDownTemplate<DROPDOWNNR_PMC_LOCATION>::getInstance( ).Display( );
@@ -721,6 +801,7 @@ void RenderPMCContract( )
 	MarkButtonsDirty( );
 	RenderWWWProgramTitleBar( );
 	InvalidateRegion( LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y, LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y );
+	gPMCContractResources = std::move(stagedResources);
 }
 ////////////////////////// CONTRACT PAGE ////////////////////////////////
 
@@ -787,25 +868,33 @@ UINT32 gPMCSaveCheck = 0xF123456F;
 BOOLEAN SavePMC( HWFILE hwFile )
 {
 	UINT32 uiNumBytesWritten = 0;
+	auto writeExact = [&](const void* value, UINT32 size)
+	{
+		uiNumBytesWritten = 0;
+		return FileWrite(hwFile, value, size, &uiNumBytesWritten) &&
+			LaptopUiStateModel::IsExactTransfer(size, uiNumBytesWritten);
+	};
 
-	if ( !FileWrite( hwFile, &gPMCData, sizeof(PMCGlobalData), &uiNumBytesWritten ) )
+	if (!writeExact(&gPMCData, sizeof(PMCGlobalData)))
 		return(FALSE);
 
 	// in order to save a vector, we first save its size and then its content
-	UINT32 size = gPMCHiringEvents.size( );
-	if ( !FileWrite( hwFile, &size, sizeof(UINT32), &uiNumBytesWritten ) )
+	if (gPMCHiringEvents.size() > 255) return FALSE;
+	UINT32 size = static_cast<UINT32>(gPMCHiringEvents.size());
+	if (!writeExact(&size, sizeof(UINT32)))
 		return(FALSE);
 
-	if ( !FileWrite( hwFile, &gPMCSaveCheck, sizeof(UINT32), &uiNumBytesWritten ) )
+	if (!writeExact(&gPMCSaveCheck, sizeof(UINT32)))
 		return(FALSE);
 
 	for ( UINT32 i = 0; i < size; ++i )
 	{
-		if ( !FileWrite( hwFile, &gPMCHiringEvents[i], sizeof(PMCReinforcesHireEvent), &uiNumBytesWritten ) )
+		if (!writeExact(&gPMCHiringEvents[i],
+			sizeof(PMCReinforcesHireEvent)))
 			return(FALSE);
 	}
 
-	if ( !FileWrite( hwFile, &gPMCSaveCheck, sizeof(UINT32), &uiNumBytesWritten ) )
+	if (!writeExact(&gPMCSaveCheck, sizeof(UINT32)))
 		return(FALSE);
 
 	return(TRUE);
@@ -815,34 +904,47 @@ BOOLEAN LoadPMC( HWFILE hwFile )
 {
 	if ( guiCurrentSaveGameVersion >= PMC_WEBSITE )
 	{
-		gPMCHiringEvents.clear();
-
+		PMCGlobalData pendingData{};
+		std::vector<PMCReinforcesHireEvent> pendingEvents;
 		UINT32 numBytesRead = 0;
-
-		numBytesRead = ReadFieldByField( hwFile, &gPMCData, sizeof(gPMCData), sizeof(PMCGlobalData), numBytesRead );
-
+		auto readExact = [&](void* value, UINT32 size)
+		{
+			numBytesRead = 0;
+			return FileRead(hwFile, value, size, &numBytesRead) &&
+				LaptopUiStateModel::IsExactTransfer(size, numBytesRead);
+		};
+		if (!readExact(&pendingData, sizeof(PMCGlobalData))) return FALSE;
 		UINT32 size = 0;
-		numBytesRead = ReadFieldByField( hwFile, &size, sizeof(size), sizeof(UINT32), numBytesRead );
+		if (!readExact(&size, sizeof(UINT32)) || size > 255) return FALSE;
 
 		UINT32 safetycheck1 = 0;
-		numBytesRead = ReadFieldByField( hwFile, &safetycheck1, sizeof(safetycheck1), sizeof(UINT32), numBytesRead );
+		if (!readExact(&safetycheck1, sizeof(UINT32)) ||
+			safetycheck1 != gPMCSaveCheck) return FALSE;
+		pendingEvents.reserve(size);
 
 		for ( UINT32 i = 0; i < size; ++i )
 		{
-			PMCReinforcesHireEvent event;
-			numBytesRead = ReadFieldByField( hwFile, &event, sizeof(event), sizeof(PMCReinforcesHireEvent), 0 );
-
-			gPMCHiringEvents.push_back( event );
+			PMCReinforcesHireEvent event{};
+			if (!readExact(&event, sizeof(PMCReinforcesHireEvent)))
+				return FALSE;
+			if (std::any_of(pendingEvents.begin(), pendingEvents.end(),
+				[&](const PMCReinforcesHireEvent& existing)
+				{
+					return existing.usId == event.usId;
+				})) return FALSE;
+			pendingEvents.push_back(event);
 		}
 
 		UINT32 safetycheck2 = 0;
-		numBytesRead = ReadFieldByField( hwFile, &safetycheck2, sizeof(safetycheck2), sizeof(UINT32), numBytesRead );
+		if (!readExact(&safetycheck2, sizeof(UINT32))) return FALSE;
 
 		if ( safetycheck1 != gPMCSaveCheck || safetycheck2 != gPMCSaveCheck )
 		{
 			ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"Eyecatcher corruption detected while loading PMC data!" );
 			return FALSE;
 		}
+		gPMCData = pendingData;
+		gPMCHiringEvents = std::move(pendingEvents);
 	}
 	else
 	{

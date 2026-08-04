@@ -45,6 +45,8 @@
 #include "Interface Items.h"
 #include "InterfaceItemImages.h"
 #include "CampaignStats.h"
+#include "LaptopPageResourceOwner.h"
+#include "LaptopUiStateModel.h"
 
 
 #define		MERCOMP_FONT_COLOR								2
@@ -82,54 +84,61 @@ extern UINT32	guiMercCompareLogoImage;
 extern UINT32	gusMostImportantPage;
 
 UINT32 gARFacesLib = 0;
+static LaptopPageResourceOwner gMilitiaWebsiteResources;
 
-void InitDefaults_MilitiaWebsite( )
+static BOOLEAN LoadDefaults_MilitiaWebsite(
+	LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the Insurance bullet graphic and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\bullet.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareBulletImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiMercCompareBulletImage));
 
 	// load the Flower Account Box graphic and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\BackGroundTile.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBackGround ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiInsuranceBackGround));
 
 	// load the red bar on the side of the page and add it
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\LargeBar.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiInsuranceBigRedLineImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiInsuranceBigRedLineImage));
 
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\PressLogos.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &guiMercCompareLogoImage ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, guiMercCompareLogoImage));
 
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "Interface\\SmFaces.sti", VObjectDesc.ImageFile );
-	CHECKV( AddVideoObject( &VObjectDesc, &gARFacesLib ) );
+	CHECKF(owner.addVideoObject(&VObjectDesc, gARFacesLib));
+	return TRUE;
 }
 
 void DisplayDefaults_MilitiaWebsite( )
 {
-	HVOBJECT	hPixHandle;
-	GetVideoObject( &hPixHandle, guiMercCompareLogoImage );
+	HVOBJECT hPixHandle = nullptr;
+	const BOOLEAN hasLogo = GetVideoObject(
+		&hPixHandle, guiMercCompareLogoImage) && hPixHandle &&
+		hPixHandle->usNumberOfObjects > 4;
 
 	SetFontShadow( NO_SHADOW );
 
 	CHAR16 sText[800];
 	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
-	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
+	UINT16 usPosY;
 
 	WebPageTileBackground( 4, 4, BACKGROUND_WIDTH, CAMPAIGN_HISTORY_BACKGROUND_HEIGHT, guiInsuranceBackGround );
 
 	//Display the title slogan
-	swprintf( sText, szMilitiaWebSite[TEXT_MILITIAWEBSITE_WEBSITENAME] );
+	LaptopUiStateModel::CopyText(sText,
+		szMilitiaWebSite[TEXT_MILITIAWEBSITE_WEBSITENAME]);
 	DrawTextToScreen( sText, usPosX, CAMPAIGN_HISTORY_BIG_TITLE_Y, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, CAMPHIS_FONT_BIG, MERCOMP_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	//Display the subtitle slogan
-	swprintf( sText, szMilitiaWebSite[TEXT_MILITIAWEBSITE_SLOGAN] );
+	LaptopUiStateModel::CopyText(sText,
+		szMilitiaWebSite[TEXT_MILITIAWEBSITE_SLOGAN]);
 	DrawTextToScreen( sText, usPosX, CAMPAIGN_HISTORY_SUBTITLE_Y, 0, CAMPHIS_FONT_BIG, MERCOMP_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 	usPosX = CAMPAIGN_HISTORY_LINK_START_X;
@@ -140,17 +149,11 @@ void DisplayDefaults_MilitiaWebsite( )
 
 	usPosX = LAPTOP_SCREEN_LR_X - 60;
 	usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
-	BltVideoObject( FRAME_BUFFER, hPixHandle, 4, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY, NULL );
+	if (hasLogo)
+		BltVideoObject(FRAME_BUFFER, hPixHandle, 4, usPosX, usPosY,
+			VO_BLT_SRCTRANSPARENCY, NULL);
 
 	SetFontShadow( NO_SHADOW );
-}
-
-void RemoveDefaults_MilitiaWebsite( )
-{
-	DeleteVideoObjectFromIndex( guiInsuranceBackGround );
-	DeleteVideoObjectFromIndex( guiInsuranceBigRedLineImage );
-	DeleteVideoObjectFromIndex( guiMercCompareBulletImage );
-	DeleteVideoObjectFromIndex( guiMercCompareLogoImage );
 }
 
 ////////////////////////// MAIN PAGE ////////////////////////////////
@@ -264,7 +267,9 @@ template<>	void	DropDownTemplate<DROPDOWN_MILTIAWEBSITE_FILTER_SECTOR>::SetRefre
 
 BOOLEAN EnterMilitiaWebsiteMain( )
 {
-	InitDefaults_MilitiaWebsite( );
+	LaptopPageResourceOwner stagedResources;
+	CHECKF(LoadDefaults_MilitiaWebsite(stagedResources));
+	gMilitiaWebsiteResources = std::move(stagedResources);
 
 	if ( !gGameExternalOptions.fIndividualMilitia )
 		return TRUE;
@@ -340,7 +345,6 @@ BOOLEAN EnterMilitiaWebsiteMain( )
 				DropDownTemplate<DROPDOWN_MILTIAWEBSITE_FILTER_SECTOR>::getInstance( ).SetEntries( filtervector );
 				DropDownTemplate<DROPDOWN_MILTIAWEBSITE_FILTER_SECTOR>::getInstance( ).SetSelectedEntryKey( -1 );
 				DropDownTemplate<DROPDOWN_MILTIAWEBSITE_FILTER_SECTOR>::getInstance( ).Create( usDropX, MCA_START_CONTENT_Y + 4 );
-				usDropX = DropDownTemplate<DROPDOWN_MILTIAWEBSITE_FILTER_SECTOR>::getInstance( ).GetLastX( ) + 10;
 			}
 			else
 			{
@@ -389,9 +393,7 @@ void ExitMilitiaWebsiteMain( )
 
 	gTestPanel3.Destroy( );
 
-	RemoveDefaults_MilitiaWebsite( );
-
-	DeleteVideoObjectFromIndex( gARFacesLib );
+	gMilitiaWebsiteResources.clear();
 }
 
 void HandleMilitiaWebsiteMain( )
@@ -527,30 +529,58 @@ STR16 OperationText( UINT32 aNum )
 			STR16 originsectorstr = militia.GetOriginSector( );
 
 			if ( battlereport.flagmask & MILITIA_BATTLEREPORT_FLAG_RECRUITED_TURNCOAT )
-				swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[11], day, hours, minutes, originsectorstr );
+					sgp_swprintf(gMilitiaOperationText,
+						std::size(gMilitiaOperationText),
+						szIndividualMilitiaBattleReportText[11],
+						day, hours, minutes, originsectorstr);
 			else if ( militia.origin == MO_PMC )
-				swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[8], day, hours, minutes, originsectorstr );
+					sgp_swprintf(gMilitiaOperationText,
+						std::size(gMilitiaOperationText),
+						szIndividualMilitiaBattleReportText[8],
+						day, hours, minutes, originsectorstr);
 			else if ( militia.origin == MO_DEFECTOR )
-				swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[9], day, hours, minutes, originsectorstr );
+					sgp_swprintf(gMilitiaOperationText,
+						std::size(gMilitiaOperationText),
+						szIndividualMilitiaBattleReportText[9],
+						day, hours, minutes, originsectorstr);
 			else
-				swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[1], day, hours, minutes, originsectorstr );
+					sgp_swprintf(gMilitiaOperationText,
+						std::size(gMilitiaOperationText),
+						szIndividualMilitiaBattleReportText[1],
+						day, hours, minutes, originsectorstr);
 		}
 		else if ( battlereport.flagmask & MILITIA_BATTLEREPORT_FLAG_PROMOTED )
-			swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[2], day, hours, minutes );
+			sgp_swprintf(gMilitiaOperationText,
+				std::size(gMilitiaOperationText),
+				szIndividualMilitiaBattleReportText[2], day, hours, minutes);
 		else if ( battlereport.flagmask & MILITIA_BATTLEREPORT_FLAG_DIED )
-			swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[3], operationame );
+			sgp_swprintf(gMilitiaOperationText,
+				std::size(gMilitiaOperationText),
+				szIndividualMilitiaBattleReportText[3], operationame);
 		else if ( battlereport.flagmask & MILITIA_BATTLEREPORT_FLAG_WOUNDED_COMA )
-			swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[6], operationame );
+			sgp_swprintf(gMilitiaOperationText,
+				std::size(gMilitiaOperationText),
+				szIndividualMilitiaBattleReportText[6], operationame);
 		else if ( battlereport.flagmask & MILITIA_BATTLEREPORT_FLAG_KILLEDENEMY )
-			swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[7], operationame );
+			sgp_swprintf(gMilitiaOperationText,
+				std::size(gMilitiaOperationText),
+				szIndividualMilitiaBattleReportText[7], operationame);
 		else if ( battlereport.flagmask & MILITIA_BATTLEREPORT_FLAG_WOUNDED_HEAVY )
-			swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[5], operationame );
+			sgp_swprintf(gMilitiaOperationText,
+				std::size(gMilitiaOperationText),
+				szIndividualMilitiaBattleReportText[5], operationame);
 		else if ( battlereport.flagmask & MILITIA_BATTLEREPORT_FLAG_WOUNDED_SMALL )
-			swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[4], operationame );
+			sgp_swprintf(gMilitiaOperationText,
+				std::size(gMilitiaOperationText),
+				szIndividualMilitiaBattleReportText[4], operationame);
 		else if ( battlereport.flagmask & MILITIA_BATTLEREPORT_FLAG_FIRED )
-			swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[10], day, hours, minutes );
+			sgp_swprintf(gMilitiaOperationText,
+				std::size(gMilitiaOperationText),
+				szIndividualMilitiaBattleReportText[10], day, hours, minutes);
 		else
-			swprintf( gMilitiaOperationText, szIndividualMilitiaBattleReportText[0], operationame );
+			sgp_swprintf(gMilitiaOperationText,
+				std::size(gMilitiaOperationText),
+				szIndividualMilitiaBattleReportText[0], operationame);
 
 		return gMilitiaOperationText;
 	}
@@ -561,9 +591,10 @@ STR16 OperationText( UINT32 aNum )
 CHAR16	gItemLongNamegetterText[800];
 STR16 ItemLongNamegetter( UINT32 aNum )
 {
-	if ( aNum < gIndividualMilitiaVector.size( ) )
+	if (aNum < MAXITEMS)
 	{
-		swprintf( gItemLongNamegetterText, L"%s", Item[aNum].szLongItemName );
+		LaptopUiStateModel::CopyText(
+			gItemLongNamegetterText, Item[aNum].szLongItemName);
 
 		return gItemLongNamegetterText;
 	}
