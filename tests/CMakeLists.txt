@@ -159,6 +159,17 @@ target_include_directories(laptop_personnel_roster_model_tests
 add_test(NAME laptop_personnel_roster_model
   COMMAND laptop_personnel_roster_model_tests)
 
+# Campaign History combines persisted incident tails with mutable summary,
+# detail, and news navigation. Keep stale/empty page rules, report retention,
+# saturating totals, exact transfers, picture bounds, direction composition,
+# and bounded fixed-buffer copying independently executable and data-free.
+add_executable(laptop_campaign_history_model_tests
+  laptop_campaign_history_model_tests.cpp)
+target_include_directories(laptop_campaign_history_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME laptop_campaign_history_model
+  COMMAND laptop_campaign_history_model_tests)
+
 # XML callbacks receive text in arbitrary chunks. Keep accumulation, strict
 # integer narrowing, explicit legacy-byte sentinels, index validation, and
 # fixed-buffer copying data-free.

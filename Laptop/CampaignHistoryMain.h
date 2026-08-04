@@ -19,15 +19,15 @@
 #define		CAMPAIGN_HISTORY_LINK_TEXT_WIDTH				107
 #define		CAMPAIGN_HISTORY_LINK_STEP_Y					14
 
+class LaptopPageResourceOwner;
+
 void GameInitCampaignHistory();
 BOOLEAN EnterCampaignHistory();
 void ExitCampaignHistory();
 void HandleCampaignHistory();
 void RenderCampaignHistory();
 
-BOOLEAN InitCampaignHistoryDefaults();
+BOOLEAN LoadCampaignHistoryDefaults(LaptopPageResourceOwner& owner);
 void DisplayCampaignHistoryDefaults();
-void RemoveCampaignHistoryDefaults();
-void GetCampaignHistoryText( UINT8 ubNumber, CHAR16 *pString );
 
 #endif //__CAMPAIGNHISTORY_MAIN_H

@@ -1438,6 +1438,192 @@ foreach(required_laptop_personnel_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# Campaign History combines a mutable incident ledger with four page modes.
+# Keep navigation, retention, arithmetic, transfer, picture, and text bounds in
+# a dependency-free model; keep page acquisition transactional; and do not
+# restore the raw resource/text or partial-load paths retired by this audit.
+file(READ "${SOURCE_ROOT}/Laptop/CampaignHistoryModel.h"
+  runtime_laptop_campaign_history_model_contents)
+foreach(required_laptop_campaign_history_model_fragment IN ITEMS
+    "IsValidIndex"
+    "NormalizePage"
+    "NextPage"
+    "PreviousPage"
+    "RetainedIncidentCount"
+    "ShouldRetainIncident"
+    "SaturatingAddUnsigned"
+    "SaturatingAddSigned"
+    "SaturatingAddFinite"
+    "IsExactTransfer"
+    "FrameIndex"
+    "JoinSelectedDirections"
+    "CopyTextFromPointer")
+  string(FIND "${runtime_laptop_campaign_history_model_contents}"
+    "${required_laptop_campaign_history_model_fragment}"
+    required_laptop_campaign_history_model_position)
+  if(required_laptop_campaign_history_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Campaign History model lost '${required_laptop_campaign_history_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/CampaignHistoryText.h"
+  runtime_laptop_campaign_history_text_contents)
+foreach(required_laptop_campaign_history_text_fragment IN ITEMS
+    "FormatCampaignHistoryText"
+    "CampaignHistoryModel::CopyText"
+    "CampaignHistoryModel::CopyTextFromPointer"
+    "sgp_swprintf(destination, Capacity")
+  string(FIND "${runtime_laptop_campaign_history_text_contents}"
+    "${required_laptop_campaign_history_text_fragment}"
+    required_laptop_campaign_history_text_position)
+  if(required_laptop_campaign_history_text_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Campaign History text boundary lost '${required_laptop_campaign_history_text_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/CampaignHistoryMain.cpp"
+  runtime_laptop_campaign_history_main_contents)
+file(READ "${SOURCE_ROOT}/Laptop/CampaignHistory_Summary.cpp"
+  runtime_laptop_campaign_history_summary_contents)
+file(READ "${SOURCE_ROOT}/Laptop/CampaignStats.cpp"
+  runtime_laptop_campaign_stats_contents)
+file(READ "${SOURCE_ROOT}/Laptop/CampaignStats.h"
+  runtime_laptop_campaign_stats_header_contents)
+
+foreach(required_laptop_campaign_history_main_fragment IN ITEMS
+    "gCampaignHistoryResources"
+    "LoadCampaignHistoryDefaults(stagedResources)"
+    "gCampaignHistoryResources = std::move(stagedResources)"
+    "CampaignHistoryModel::CopyTextFromPointer")
+  string(FIND "${runtime_laptop_campaign_history_main_contents}"
+    "${required_laptop_campaign_history_main_fragment}"
+    required_laptop_campaign_history_main_position)
+  if(required_laptop_campaign_history_main_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Campaign History main page lost '${required_laptop_campaign_history_main_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_laptop_campaign_history_summary_fragment IN ITEMS
+    "gCampaignHistorySummaryResources"
+    "gCampaignHistoryMostImportantResources"
+    "gCampaignHistoryNewsResources"
+    "IncidentCount()"
+    "CampaignHistoryModel::NormalizePage"
+    "CampaignHistoryModel::NextPage"
+    "CampaignHistoryModel::PreviousPage"
+    "CampaignHistoryModel::FrameIndex"
+    "RenderCampaignHistory_News()")
+  string(FIND "${runtime_laptop_campaign_history_summary_contents}"
+    "${required_laptop_campaign_history_summary_fragment}"
+    required_laptop_campaign_history_summary_position)
+  if(required_laptop_campaign_history_summary_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Campaign History report pages lost '${required_laptop_campaign_history_summary_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_laptop_campaign_stats_fragment IN ITEMS
+    "const Incident_Stats original = *this"
+    "const Campaign_Stats original = *this"
+    "*this = original"
+    "CampaignHistoryModel::IsExactTransfer"
+    "CampaignHistoryModel::ShouldRetainIncident"
+    "CampaignHistoryModel::SaturatingAddUnsigned"
+    "CampaignHistoryModel::SaturatingAddSigned"
+    "CampaignHistoryModel::SaturatingAddFinite"
+    "std::begin(usRatingAlignmentPadding)"
+    "std::begin(usFlagsAlignmentPadding)"
+    "std::fill(std::begin(usFiller)"
+    "Incident_Stats::GetAttackerDirString")
+  string(FIND "${runtime_laptop_campaign_stats_contents}"
+    "${required_laptop_campaign_stats_fragment}"
+    required_laptop_campaign_stats_position)
+  if(required_laptop_campaign_stats_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Campaign History persistence/statistics lost '${required_laptop_campaign_stats_fragment}'")
+  endif()
+endforeach()
+
+foreach(laptop_campaign_history_source_contents IN ITEMS
+    runtime_laptop_campaign_history_main_contents
+    runtime_laptop_campaign_history_summary_contents
+    runtime_laptop_campaign_stats_contents)
+  string(REGEX MATCH
+    "AddVideoObject[ \\t\\r\\n]*\\(|DeleteVideoObjectFromIndex[ \\t\\r\\n]*\\(|MSYS_(Add|Remove)Region[ \\t\\r\\n]*\\("
+    raw_laptop_campaign_history_resource_lifecycle
+    "${${laptop_campaign_history_source_contents}}")
+  if(raw_laptop_campaign_history_resource_lifecycle)
+    message(FATAL_ERROR
+      "Laptop Campaign History restored open-coded resource lifecycle '${raw_laptop_campaign_history_resource_lifecycle}'")
+  endif()
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(wcs(cpy|ncpy|cat|ncat)|swprintf)[ \\t\\r\\n]*\\("
+    unsafe_laptop_campaign_history_text_operation
+    "${${laptop_campaign_history_source_contents}}")
+  if(unsafe_laptop_campaign_history_text_operation)
+    message(FATAL_ERROR
+      "Laptop Campaign History restored an unbounded text operation '${unsafe_laptop_campaign_history_text_operation}'")
+  endif()
+endforeach()
+
+foreach(retired_laptop_campaign_history_fragment IN ITEMS
+    "RemoveCampaignHistoryDefaults"
+    "InitCampaignHistoryDefaults"
+    "StartIncident("
+    "tmpdirstring"
+    "tmpnr")
+  string(FIND
+    "${runtime_laptop_campaign_history_main_contents}${runtime_laptop_campaign_history_summary_contents}${runtime_laptop_campaign_stats_contents}${runtime_laptop_campaign_stats_header_contents}"
+    "${retired_laptop_campaign_history_fragment}"
+    retired_laptop_campaign_history_position)
+  if(NOT retired_laptop_campaign_history_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Campaign History restored retired path '${retired_laptop_campaign_history_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_laptop_campaign_history_test_build_fragment IN ITEMS
+    "laptop_campaign_history_model_tests.cpp"
+    "laptop_campaign_history_model")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_laptop_campaign_history_test_build_fragment}"
+    required_laptop_campaign_history_test_build_position)
+  if(required_laptop_campaign_history_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Campaign History model lost its focused test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "laptop_campaign_history_model_tests"
+  runtime_laptop_campaign_history_ci_position)
+if(runtime_laptop_campaign_history_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Laptop Campaign History model target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_campaign_history_model_tests.cpp"
+  runtime_laptop_campaign_history_test_contents)
+foreach(required_laptop_campaign_history_test_fragment IN ITEMS
+    "Index validation rejects negative and exact-end values"
+    "Empty, stale, and exact-end incident pages normalize safely"
+    "Report limits retain all short histories and only the requested tail"
+    "Incident and aggregate counters saturate instead of wrapping"
+    "Persistence accepts only successful exact-size transfers"
+    "Picture selection rejects empty libraries before modulo"
+    "Direction text is deterministic for zero through four directions"
+    "Campaign History text copies terminate and bound fixed sources")
+  string(FIND "${runtime_laptop_campaign_history_test_contents}"
+    "${required_laptop_campaign_history_test_fragment}"
+    required_laptop_campaign_history_test_position)
+  if(required_laptop_campaign_history_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Campaign History tests lost '${required_laptop_campaign_history_test_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/Laptop/CMakeLists.txt"
   runtime_laptop_manifest_contents)
 string(FIND "${runtime_laptop_manifest_contents}" "set(LaptopVariantSrc"

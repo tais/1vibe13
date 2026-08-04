@@ -424,6 +424,16 @@ dead, fired, and other profile arrays keep their established order, width, and
 rendered view and stages category mutations in memory before copying them back
 to those same arrays.
 
+The Campaign History safety extraction likewise preserves its existing
+campaign header and `Incident_Stats` POD field order and widths. Saves now
+require exact byte counts and initialize the already-persisted filler and
+alignment bytes;
+loads validate into the object transactionally and restore the previous live
+ledger after a short header or incident record. The configured report limit
+still retains the newest tail of the serialized history, but limits larger
+than the saved count now correctly retain every available report instead of
+underflowing the cutoff. No save-version or on-disk layout change is required.
+
 `signed long` fields (e.g. TacticalActor's `lUnregainableBreath`) are pinned to
 32-bit (`ar.slong`). Same-platform saves were always fine; this pass makes saves
 **shareable across Win/Lin/Mac**. Verification remains by playtest until a test

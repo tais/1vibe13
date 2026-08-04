@@ -16,6 +16,10 @@
 	#include "Text.h"
 	#include "Multi Language Graphic Utils.h"
 	#include "CampaignHistoryMain.h"
+	#include "CampaignHistoryText.h"
+	#include "LaptopPageResourceOwner.h"
+
+	#include <utility>
 
 
 #define		BACKGROUND_WIDTH				125
@@ -34,6 +38,31 @@ extern UINT32	guiInsuranceBigRedLineImage;
 UINT32	guiCampaignBulletImage;
 UINT32	guiCampaignLogoImage;
 
+namespace
+{
+LaptopPageResourceOwner gCampaignHistoryResources;
+
+void GetCampaignHistoryText(UINT8 textId, CHAR16 (&destination)[800])
+{
+	if (textId >= TEXT_CAMPAIGNHISTORY_MAX)
+	{
+		CampaignHistoryModel::CopyText(destination, L"bla");
+		return;
+	}
+
+	if (textId == TEXT_CAMPAIGNHISTORY_NAME_PRESSORGANISATION ||
+		textId == TEXT_CAMPAIGNHISTORY_NAME_PRESSORGANISATION_SUBTITLE)
+	{
+		FormatCampaignHistoryText(destination,
+			szCampaignHistoryWebSite[textId], pCountryNames[COUNTRY_NAME]);
+		return;
+	}
+
+	CampaignHistoryModel::CopyTextFromPointer(
+		destination, szCampaignHistoryWebSite[textId]);
+}
+}
+
 
 //link to the various pages
 MOUSE_REGION	gCampaignHistoryLinkRegion[4];
@@ -48,13 +77,17 @@ void GameInitCampaignHistory()
 BOOLEAN EnterCampaignHistory()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner stagedResources;
 
-	InitCampaignHistoryDefaults();
+	if (!LoadCampaignHistoryDefaults(stagedResources)) return FALSE;
 
 	// load the Insurance bullet graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\bullet.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiCampaignBulletImage));
+	if (!stagedResources.addVideoObject(
+		&VObjectDesc, guiCampaignBulletImage)) return FALSE;
+
+	gCampaignHistoryResources = std::move(stagedResources);
 	
 	RenderCampaignHistory();
 
@@ -63,10 +96,7 @@ BOOLEAN EnterCampaignHistory()
 
 void ExitCampaignHistory()
 {
-	RemoveCampaignHistoryDefaults();
-
-	DeleteVideoObjectFromIndex( guiCampaignBulletImage );
-	DeleteVideoObjectFromIndex( guiCampaignLogoImage );
+	gCampaignHistoryResources.clear();
 }
 
 void HandleCampaignHistory()
@@ -77,7 +107,7 @@ void HandleCampaignHistory()
 void RenderCampaignHistory()
 {
 	CHAR16		sText[800];
-	swprintf( sText, L"" );
+	FormatCampaignHistoryText( sText, L"" );
 	UINT16	usPosX, usPosY;
 	HVOBJECT	hPixHandle;
 
@@ -91,7 +121,7 @@ void RenderCampaignHistory()
 	usPosX = LAPTOP_SCREEN_UL_X;
 	usPosY = LAPTOP_SCREEN_WEB_UL_Y + 80;
 
-	swprintf(sText, szCampaignHistoryWebSite[TEXT_CAMPAIGNHISTORY_DESCRIPTION_1], pCountryNames[COUNTRY_NAME]);
+	FormatCampaignHistoryText(sText, szCampaignHistoryWebSite[TEXT_CAMPAIGNHISTORY_DESCRIPTION_1], pCountryNames[COUNTRY_NAME]);
 	usPosY += DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X-LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, CAMPHIS_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0);
 
 	for(int i = TEXT_CAMPAIGNHISTORY_NAME_MINISTRY; i < TEXT_CAMPAIGNHISTORY_NAME_PRESSORGANISATION_SUBTITLE; ++i)
@@ -103,13 +133,13 @@ void RenderCampaignHistory()
 		{
 			case TEXT_CAMPAIGNHISTORY_NAME_REBEL:
 			case TEXT_CAMPAIGNHISTORY_NAME_PRESSORGANISATION_SUBTITLE:
-				swprintf(sText, szCampaignHistoryWebSite[i], pCountryNames[COUNTRY_NAME] );
+				FormatCampaignHistoryText(sText, szCampaignHistoryWebSite[i], pCountryNames[COUNTRY_NAME] );
 				break;
 			case TEXT_CAMPAIGNHISTORY_NAME_MINISTRY:
-				swprintf(sText, szCampaignHistoryWebSite[i], pCountryNames[COUNTRY_NOUN] );
+				FormatCampaignHistoryText(sText, szCampaignHistoryWebSite[i], pCountryNames[COUNTRY_NOUN] );
 				break;
 			default:
-				swprintf(sText, szCampaignHistoryWebSite[i] );
+				FormatCampaignHistoryText(sText, szCampaignHistoryWebSite[i] );
 		}
 		
 		DrawTextToScreen( sText, usPosX + 25, usPosY, LAPTOP_SCREEN_LR_X-LAPTOP_SCREEN_UL_X, CAMPHIS_FONT_MED, CAMPHIS_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, 0 );
@@ -125,23 +155,24 @@ void RenderCampaignHistory()
 }
 
 
-BOOLEAN InitCampaignHistoryDefaults()
+BOOLEAN LoadCampaignHistoryDefaults(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the Flower Account Box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BackGroundTile.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsuranceBackGround));
+	if (!owner.addVideoObject(&VObjectDesc, guiInsuranceBackGround)) return FALSE;
 	
 	// load the red bar on the side of the page and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\LargeBar.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsuranceBigRedLineImage));
+	if (!owner.addVideoObject(
+		&VObjectDesc, guiInsuranceBigRedLineImage)) return FALSE;
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\PressLogos.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiCampaignLogoImage));
+	if (!owner.addVideoObject(&VObjectDesc, guiCampaignLogoImage)) return FALSE;
 
 	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
 	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
@@ -149,7 +180,7 @@ BOOLEAN InitCampaignHistoryDefaults()
 	{
 		MSYS_DefineRegion( &gCampaignHistoryLinkRegion[i], usPosX, usPosY, (UINT16)(usPosX + CAMPAIGN_HISTORY_LINK_TEXT_WIDTH), usPosY+CAMPAIGN_HISTORY_LINK_STEP_Y, MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectCampaignHistoryRegionCallBack);
-		MSYS_AddRegion(&gCampaignHistoryLinkRegion[i]);
+		if (!owner.addRegion(gCampaignHistoryLinkRegion[i])) return FALSE;
 		MSYS_SetRegionUserData( &gCampaignHistoryLinkRegion[i], 0, i );
 
 		usPosY += CAMPAIGN_HISTORY_LINK_STEP_Y;
@@ -166,8 +197,8 @@ void DisplayCampaignHistoryDefaults()
 	SetFontShadow( CAMPHIS_FONT_SHADOW );
 
 	CHAR16 sText[800];
-	UINT16 usPosX = CAMPAIGN_HISTORY_LINK_START_X;
-	UINT16 usPosY = CAMPAIGN_HISTORY_LINK_START_Y;
+	UINT16 usPosX;
+	UINT16 usPosY;
 
 	WebPageTileBackground( 4, 4, BACKGROUND_WIDTH, CAMPAIGN_HISTORY_BACKGROUND_HEIGHT, guiInsuranceBackGround );
 
@@ -201,36 +232,6 @@ void DisplayCampaignHistoryDefaults()
 
 	SetFontShadow( DEFAULT_SHADOW );
 }
-
-void RemoveCampaignHistoryDefaults()
-{
-	DeleteVideoObjectFromIndex( guiInsuranceBackGround );
-	DeleteVideoObjectFromIndex( guiInsuranceBigRedLineImage );
-	
-	for(int i=0; i<4; ++i)
-		MSYS_RemoveRegion( &gCampaignHistoryLinkRegion[i]);
-}
-
-void GetCampaignHistoryText( UINT8 ubNumber, CHAR16 *pString )
-{
-	UINT32	uiStartLoc=0;
-	CHAR16		sText[800];
-
-	if ( ubNumber >= TEXT_CAMPAIGNHISTORY_MAX )
-		wcscpy(	pString, L"bla" );
-		
-	switch( ubNumber )
-	{
-		case TEXT_CAMPAIGNHISTORY_NAME_PRESSORGANISATION:
-		case TEXT_CAMPAIGNHISTORY_NAME_PRESSORGANISATION_SUBTITLE:
-			swprintf( sText, szCampaignHistoryWebSite[ ubNumber ], pCountryNames[COUNTRY_NAME] );
-			wcscpy(	pString, sText );
-			break;
-		default:
-			wcscpy(	pString, szCampaignHistoryWebSite[ubNumber] );
-	}
-}
-
 
 void SelectCampaignHistoryRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 {
