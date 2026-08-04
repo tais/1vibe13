@@ -1,5 +1,7 @@
 	#include "laptop.h"
 	#include "personnel.h"
+	#include "LaptopPageResourceOwner.h"
+	#include "PersonnelRosterModel.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "DEBUG.H"
@@ -45,6 +47,11 @@
 #include "Drugs And Alcohol.h"		// added by Flugente for DoesMercHaveDisability(...)
 #include "CampaignMercenaryPolicy.h"
 #include "GameContext.h"
+
+#include <array>
+#include <limits>
+#include <utility>
+#include <vector>
 
 
 // WDS - make number of mercenaries, etc. be configurable
@@ -229,7 +236,6 @@ POINT pPersonnelScreenPoints[]=
 
 UINT32 guiSCREEN;
 extern UINT32 guiTITLE; // symbol already defined in laptop.cpp (jonathanl)
-UINT32 guiFACE;
 UINT32 guiDEPARTEDTEAM;
 UINT32 guiCURRENTTEAM;
 UINT32 guiPersonnelInventory;
@@ -248,28 +254,13 @@ INT32 giPersonnelATMStartButtonImage[PERSONNEL_NUM_BTN];
 INT32 giPersonnelATMButton;
 INT32 giPersonnelATMButtonImage;
 
-// WDS - make number of mercenaries, etc. be configurable
-// For the active mercenary screen...
-// the id of currently displayed merc in right half of screen
-INT32 iCurrentPersonSelectedId = -1;
-
-// For the departed screen...
-INT32 iCurPortraitId = 0;
-INT32 giCurrentUpperLeftPortraitNumber = 0;
-
 // which mode are we showing?..current team?...or deadly departed?
 BOOLEAN fCurrentTeamMode = TRUE;
 
 static bool showPersonnelButtons{ true };
 
-// create buttons for scrolling departures
-BOOLEAN fCreatePeronnelDepartureButton = FALSE;
-
 // waitr one frame
 BOOLEAN fOneFrameDelayInPersonnel = FALSE;
-
-// whther or not we are creating mouse regions to place over portraits
-BOOLEAN fCreatePersonnelPortraitMouseRegions = FALSE;
 
 // WDS - make number of mercenaries, etc. be configurable
 // mouse regions
@@ -279,42 +270,105 @@ MOUSE_REGION gTogglePastCurrentTeam[ 2 ];
 
 MOUSE_REGION gMouseScrollPersonnelINV;
 
-
-// create mouse regions for past/current toggles
-BOOLEAN fCreateRegionsForPastCurrentToggle = FALSE;
-
-// WDS - make number of mercenaries, etc. be configurable
-// List of ids of current team members, dea or alive
-SoldierID currentTeamList[CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS];
-// The index of the last current team members
-int maxCurrentTeamIndex = -1;
-// The id of currently displayed merc
-INT32 currentTeamIndex = -1;
-// The id of the first merc on the screen (upper left hand corner)
-INT32 currentTeamFirstIndex = 0;
+// Popup help-text regions are owned individually because the active set is
+// rebuilt as the selected roster entry and information panel change.
+MOUSE_REGION gSkillTraitHelpTextRegion[13];
 
 
-void LoadPersonnelGraphics( void );
-void RemovePersonnelGraphics( void );
+namespace
+{
+LaptopPageResourceOwner gPersonnelPageResources;
+LaptopPageResourceOwner gPersonnelDepartedResources;
+LaptopPageResourceOwner gPersonnelInventoryResources;
+LaptopPageResourceOwner gPersonnelAtmResources;
+std::array<LaptopPageResourceOwner, 13> gPersonnelTraitResources;
+
+std::vector<SoldierID> currentTeamList;
+std::vector<PersonnelRosterModel::DepartedEntry> gDepartedRoster;
+PersonnelRosterModel::RosterCursor gCurrentRosterCursor(MAX_MERCS_ON_SCREEN);
+PersonnelRosterModel::RosterCursor gDepartedRosterCursor(MAX_MERCS_ON_SCREEN);
+
+void RefreshDepartedRoster()
+{
+	gDepartedRoster = PersonnelRosterModel::BuildDepartedRoster(
+		LaptopSaveInfo.ubDeadCharactersList,
+		LaptopSaveInfo.ubLeftCharactersList,
+		LaptopSaveInfo.ubOtherCharactersList,
+		static_cast<INT16>(-1), NUM_PROFILES);
+	gDepartedRosterCursor.normalize(gDepartedRoster.size());
+}
+
+const PersonnelRosterModel::DepartedEntry* SelectedDepartedEntry()
+{
+	if (!gDepartedRosterCursor.hasSelection() ||
+		gDepartedRosterCursor.selected() >= gDepartedRoster.size()) return nullptr;
+	return &gDepartedRoster[gDepartedRosterCursor.selected()];
+}
+
+const MERCPROFILESTRUCT* ProfileFor(const TacticalActor* soldier)
+{
+	if (!soldier || !PersonnelRosterModel::IsValidProfileId(
+		soldier->identity().profile(), NUM_PROFILES)) return nullptr;
+	return &gMercProfiles[soldier->identity().profile()];
+}
+
+INT32 DailyCostFor(const TacticalActor* soldier)
+{
+	const MERCPROFILESTRUCT* profile = ProfileFor(soldier);
+	if (!profile) return 0;
+	if (soldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
+	{
+		if (soldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK)
+			return static_cast<INT32>(profile->uiBiWeeklySalary / 14);
+		if (soldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK)
+			return static_cast<INT32>(profile->uiWeeklySalary / 7);
+		return std::max<INT32>(profile->sSalary, 0);
+	}
+	if (soldier->employment().mercenaryType() == MERC_TYPE__MERC)
+		return std::max<INT32>(profile->sSalary, 0);
+	return 0;
+}
+
+void ClearPersonnelTraitRegion(std::size_t index)
+{
+	if (index >= gPersonnelTraitResources.size()) return;
+	gPersonnelTraitResources[index].clear();
+}
+
+bool PublishPersonnelTraitRegion(std::size_t index)
+{
+	if (index >= gPersonnelTraitResources.size()) return false;
+	if (!gPersonnelTraitResources[index].addRegion(
+		gSkillTraitHelpTextRegion[index])) return false;
+	return true;
+}
+
+template<std::size_t Capacity>
+void AppendPersonnelText(CHAR16 (&destination)[Capacity],
+	const CHAR16* source)
+{
+	PersonnelRosterModel::AppendText(destination, source);
+}
+}
+
+
+BOOLEAN LoadPersonnelGraphics(LaptopPageResourceOwner& owner);
 void RenderPersonnel( void );
 void RenderPersonnelStats(INT32 iId, INT32 iSlot);
 void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFired, BOOLEAN fOther );
 void LeftButtonCallBack(GUI_BUTTON *btn,INT32 reason);
 void RightButtonCallBack(GUI_BUTTON *btn,INT32 reason);
 void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason );
-void CreatePersonnelButtons( void );
-void DeletePersonnelButtons( void );
+BOOLEAN CreatePersonnelButtons(LaptopPageResourceOwner& owner);
 void DisplayHeader( void );
 void DisplayCharName( SoldierID iId, INT32 iSlot );
 void DisplayCharStats(SoldierID iId, INT32 iSlot);
 void DisplayCharPersonality( SoldierID iId, INT32 iSlot );
 void SetPersonnelButtonStates( void );
-void CreateDestroyButtonsForPersonnelDepartures( void );
-void LoadPersonnelScreenBackgroundGraphics( void );
-void DeletePersonnelScreenBackgroundGraphics( void );
+BOOLEAN LoadPersonnelScreenBackgroundGraphics(LaptopPageResourceOwner& owner);
 void RenderPersonnelScreenBackground( void );
 INT32 GetNumberOfMercsOnPlayersTeam( void );
-void CreateDestroyMouseRegionsForPersonnelPortraits( void );
+BOOLEAN CreatePersonnelPortraitMouseRegions(LaptopPageResourceOwner& owner);
 void DisplayPicturesOfCurrentTeam( void );
 void DisplayFaceOfDisplayedMerc( );
 void DisplayNumberOnCurrentTeam( void );
@@ -334,7 +388,7 @@ INT32 GetNumberOfOtherOnPastTeam( void );
 INT32 GetNumberOfLeftOnPastTeam( void );
 INT32 GetNumberOfDeadOnPastTeam( void );
 void DisplayStateOfPastTeamMembers( void );
-void CreateDestroyCurrentDepartedMouseRegions( void );
+BOOLEAN CreateCurrentDepartedMouseRegions(LaptopPageResourceOwner& owner);
 void PersonnelCurrentTeamCallback( MOUSE_REGION * pRegion, INT32 iReason );
 void PersonnelDepartedTeamCallback( MOUSE_REGION * pRegion, INT32 iReason );
 void CreateDestroyButtonsForDepartedTeamList( void );
@@ -342,11 +396,9 @@ void DepartedDownCallBack(GUI_BUTTON *btn,INT32 reason);
 void DepartedUpCallBack(GUI_BUTTON *btn,INT32 reason);
 void DisplayPastMercsPortraits( void );
 void DisplayPortraitOfPastMerc( INT32 iId , INT32 iCounter, BOOLEAN fDead, BOOLEAN fFired, BOOLEAN fOther );
-INT32 GetIdOfPastMercInSlot( INT32 iSlot );
 void DisplayDepartedCharStats(INT32 iId, INT32 iSlot, INT32 iState);
 void EnableDisableDeparturesButtons( void );
 void DisplayDepartedCharName( INT32 iId, INT32 iSlot, INT32 iState );
-INT32 GetTheStateOfDepartedMerc( INT32 iId );
 void DisplayPersonnelTextOnTitleBar( void );
 INT32 GetIdOfDepartedMercWithHighestStat( INT32 iStat );
 INT32 GetIdOfDepartedMercWithLowestStat( INT32 iStat );
@@ -378,12 +430,6 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot );
 INT32 CalcTimeLeftOnMercContract( TacticalActor *pSoldier );
 
 
-// what state is the past merc in?
-BOOLEAN IsPastMercDead( INT32 iId );
-BOOLEAN IsPastMercFired( INT32 iId );
-BOOLEAN IsPastMercOther( INT32 iId );
-
-
 // display box around currently selected merc
 BOOLEAN DisplayHighLightBox( void );
 
@@ -404,10 +450,6 @@ void CreateDestroyStartATMButton( void );
 // atm misc functions
 
 void DisplayAmountOnCurrentMerc( void );
-
-// SANDRO - added variables for popup help text windows
-MOUSE_REGION	gSkillTraitHelpTextRegion[13];
-BOOLEAN fAddedTraitRegion[13] = { FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE };
 
 void AssignPersonnelCharacterTraitHelpText( UINT8 ubCharacterNumber );
 void AssignPersonnelDisabilityHelpText( UINT8 ubDisabilityNumber );
@@ -490,9 +532,6 @@ void InitVariables(void)
 	pPersonnelScreenPoints[18].x = iScreenWidthOffset + 140;		// Personal Header // 18
 	pPersonnelScreenPoints[18].y = iScreenHeightOffset + 33;
 
-	pPersonnelScreenPoints[18].x = iScreenWidthOffset + 422+PrsnlOffSetX;
-	pPersonnelScreenPoints[18].y = iScreenHeightOffset + 330+PrsnlOffSetY;
-
 	pPersonnelScreenPoints[19].x = iScreenWidthOffset + 422+PrsnlOffSetX;
 	pPersonnelScreenPoints[19].y = iScreenHeightOffset + 333+PrsnlOffSetY;
 
@@ -519,23 +558,18 @@ void EnterPersonnel( void )
 {
 	InitVariables();
 
-	// Clear out the current team list
-	for (unsigned idx=0; idx < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; idx++) {
-		currentTeamList[idx] = NOBODY;
-	}
-
 	// Snapshot the player-team range. The actor at slot zero is not guaranteed
 	// to exist, and a missing actor inside the range must not be dereferenced by
 	// the loop condition on the next iteration.
-	maxCurrentTeamIndex = -1;
+	currentTeamList.clear();
+	currentTeamList.reserve(giMAXIMUM_NUMBER_OF_PLAYER_SLOTS);
 	const SoldierID firstTeamId = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 	const SoldierID lastTeamId = gTacticalStatus.Team[ OUR_TEAM ].bLastID;
-	for (SoldierID idx = firstTeamId;
-	     idx <= lastTeamId;
-		 ++idx)
+	for (INT32 rawId = firstTeamId.i; rawId <= lastTeamId.i; ++rawId)
 	{
+		const SoldierID idx = rawId;
 		TacticalActor* pTeamSoldier =
-			GetJa2SoldierRepository().resolve(idx.i);
+			GetJa2SoldierRepository().resolve(rawId);
 
 		// WANNE: Bugfix: Also show the roboter in ther personnel screen. This bug was introduced in revision 2498, when Many Mercenary was included.
 		//if ((pTeamSoldier->roster().active()) &&
@@ -544,51 +578,35 @@ void EnterPersonnel( void )
 
 		if (pTeamSoldier && (pTeamSoldier->roster().active()) &&
 			!(pTeamSoldier->status().flags() & SOLDIER_VEHICLE))
-		{		
-			currentTeamList[++maxCurrentTeamIndex] = idx;
+		{
+			currentTeamList.push_back(idx);
 		}
 	}
 
-	if (currentTeamList[0] < NOBODY)
-		currentTeamIndex = 0;
-	else
-		currentTeamIndex = -1;
-	currentTeamFirstIndex = 0;
+	gCurrentRosterCursor.reset(currentTeamList.size());
+	RefreshDepartedRoster();
+	gDepartedRosterCursor.reset(gDepartedRoster.size());
 
 	fReDrawScreenFlag=TRUE;
 
 	uiCurrentInventoryIndex = 0;
 	guiSliderPosition = 0;
 
-	iCurrentPersonSelectedId = -1;
-	iCurPortraitId = 0;
-
-	// load graphics for screen
-	LoadPersonnelGraphics( );
-
 	showPersonnelButtons = true;
-
-	// create buttons needed
-	CreateDestroyButtonsForPersonnelDepartures( );
-
-	// load personnel
-	LoadPersonnelScreenBackgroundGraphics( );
+	LaptopPageResourceOwner staged;
+	if (!LoadPersonnelGraphics(staged) ||
+		!LoadPersonnelScreenBackgroundGraphics(staged) ||
+		!CreatePersonnelPortraitMouseRegions(staged) ||
+		!CreateCurrentDepartedMouseRegions(staged) ||
+		!CreatePersonnelButtons(staged))
+	{
+		showPersonnelButtons = false;
+		return;
+	}
+	gPersonnelPageResources = std::move(staged);
 
 	// render screen
 	RenderPersonnel( );
-
-	fCreatePersonnelPortraitMouseRegions = TRUE;
-
-	CreateDestroyMouseRegionsForPersonnelPortraits( );
-	// set states of en- dis able buttons
-	//SetPersonnelButtonStates( );
-
-	fCreateRegionsForPastCurrentToggle = TRUE;
-
-	CreateDestroyCurrentDepartedMouseRegions( );
-
-	// create buttons for screen
-	CreatePersonnelButtons( );
 
 	// set states of en- dis able buttons
 	SetPersonnelButtonStates( );
@@ -598,54 +616,18 @@ void EnterPersonnel( void )
 
 void ExitPersonnel( void )
 {
-	if (!fCurrentTeamMode) {
-		fCurrentTeamMode = TRUE;
-		CreateDestroyButtonsForDepartedTeamList( );
-		fCurrentTeamMode = FALSE;
-	}
-
 	showPersonnelButtons = false;
-	CreateDestroyStartATMButton( );
-
 	gubPersonnelInfoState = PERSONNEL_STAT_BTN;
-
-	CreateDestroyPersonnelInventoryScrollButtons( );
-
-	// get rid of graphics
-	RemovePersonnelGraphics( );
-
-	DeletePersonnelScreenBackgroundGraphics(	);
-
-	CreateDestroyButtonsForPersonnelDepartures( );
-
-	// delete buttons
-	DeletePersonnelButtons( );
-
-	fCreatePersonnelPortraitMouseRegions = FALSE;
-
-	// delete mouse regions
-	CreateDestroyMouseRegionsForPersonnelPortraits( );
-
-	fCreateRegionsForPastCurrentToggle = FALSE;
-
-	CreateDestroyCurrentDepartedMouseRegions( );
-	
-	// SANDRO - remove the regions
-	for( INT8 i = 0; i < 13; i++ )
-	{
-		if( fAddedTraitRegion[i] )
-		{
-			MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[i] );
-			fAddedTraitRegion[i] = FALSE;
-		}
-	}
+	gPersonnelAtmResources.clear();
+	gPersonnelInventoryResources.clear();
+	gPersonnelDepartedResources.clear();
+	for (std::size_t i = 0; i < gPersonnelTraitResources.size(); ++i)
+		ClearPersonnelTraitRegion(i);
+	gPersonnelPageResources.clear();
 }
 
 void HandlePersonnel( void )
 {
-	//RenderButtonsFastHelp( );
-	CreateDestroyButtonsForPersonnelDepartures( );
-
 	// create / destroy buttons for scrolling departed list
 	CreateDestroyButtonsForDepartedTeamList( );
 
@@ -661,7 +643,7 @@ void HandlePersonnel( void )
 	HandlePersonnelKeyboard( );
 }
 
-void LoadPersonnelGraphics( void )
+BOOLEAN LoadPersonnelGraphics(LaptopPageResourceOwner& owner)
 {
 	// load graphics needed for personnel screen
 	VOBJECT_DESC	VObjectDesc;
@@ -671,31 +653,22 @@ void LoadPersonnelGraphics( void )
 	// title bar
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\programtitlebar.sti", VObjectDesc.ImageFile);
-	CHECKV(AddVideoObject(&VObjectDesc, &guiTITLE));
+	if (!owner.addVideoObject(&VObjectDesc, guiTITLE)) return FALSE;
 
 	// the background grpahics
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\personnelwindow.sti", VObjectDesc.ImageFile);
-	CHECKV(AddVideoObject(&VObjectDesc, &guiSCREEN));
+	if (!owner.addVideoObject(&VObjectDesc, guiSCREEN)) return FALSE;
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\personnel_inventory.sti", VObjectDesc.ImageFile);
-	CHECKV(AddVideoObject(&VObjectDesc, &guiPersonnelInventory));
+	if (!owner.addVideoObject(&VObjectDesc, guiPersonnelInventory)) return FALSE;
 
 	// load ? marks for tooltips
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\PERSONNEL_TOOLTIP_MARK.sti", VObjectDesc.ImageFile);
-	CHECKV(AddVideoObject(&VObjectDesc, &guiQMark));
-}
-
-void RemovePersonnelGraphics( void )
-{
-	// delete graphics needed for personnel screen
-
-	DeleteVideoObjectFromIndex(guiSCREEN);
-	DeleteVideoObjectFromIndex(guiTITLE);
-	DeleteVideoObjectFromIndex(guiPersonnelInventory);
-	DeleteVideoObjectFromIndex(guiQMark);
+	if (!owner.addVideoObject(&VObjectDesc, guiQMark)) return FALSE;
+	return TRUE;
 }
 
 void RenderPersonnel( void )
@@ -793,7 +766,7 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 		profileId = activeSoldier->identity().profile();
 	}
 
-	if ( profileId < 0 )
+	if (!PersonnelRosterModel::IsValidProfileId(profileId, NUM_PROFILES))
 		return;
 
 	char sTemp[100];
@@ -805,14 +778,10 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 	// special case?..player generated merc
 	if (fCurrentTeamMode) 
 	{
-		if ( gMercProfiles[profileId].Type == PROFILETYPE_IMP )
-		{
-			sprintf( sTemp, "%s%02d.sti", IMP_FACES_DIR, gMercProfiles[profileId].ubFaceIndex );
-		}
-		else
-		{
-			sprintf( sTemp, "%s%02d.sti", FACES_DIR, gMercProfiles[profileId].ubFaceIndex );
-		}
+		const char* directory = gMercProfiles[profileId].Type == PROFILETYPE_IMP
+			? IMP_FACES_DIR : FACES_DIR;
+		snprintf(sTemp, sizeof(sTemp), "%s%02d.sti", directory,
+			gMercProfiles[profileId].ubFaceIndex);
 		
 		// TODO: Check if needed!
 		if( activeSoldier &&
@@ -830,22 +799,20 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 			return;
 		}
 
-		if ( gMercProfiles[profileId].Type == PROFILETYPE_IMP )
-		{
-			sprintf( sTemp, "%s%02d.sti", IMP_FACES_DIR, gMercProfiles[profileId].ubFaceIndex );
-		}
-		else
-		{
-			sprintf( sTemp, "%s%02d.sti", FACES_DIR, gMercProfiles[profileId].ubFaceIndex );
-		}
+		const char* directory = gMercProfiles[profileId].Type == PROFILETYPE_IMP
+			? IMP_FACES_DIR : FACES_DIR;
+		snprintf(sTemp, sizeof(sTemp), "%s%02d.sti", directory,
+			gMercProfiles[profileId].ubFaceIndex);
 	}
 
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP(sTemp, VObjectDesc.ImageFile);
-	CHECKV(AddVideoObject(&VObjectDesc, &guiFACE));
+	UniqueVideoObjectHandle face = AddVideoObjectOwned(&VObjectDesc);
+	if (!face) return;
+	const UINT32 faceHandle = face.get();
 
 	//Blt face to screen to
-	GetVideoObject(&hFaceHandle, guiFACE);
+	GetVideoObject(&hFaceHandle, faceHandle);
 
 	if (fCurrentTeamMode) 
 	{
@@ -853,7 +820,7 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 		{
 			hFaceHandle->pShades[ 0 ]		= Create16BPPPaletteShaded( hFaceHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
 			//set the red pallete to the face
-			SetObjectHandleShade( guiFACE, 0 );
+			SetObjectHandleShade(faceHandle, 0);
 		}
 	} 
 	else 
@@ -862,7 +829,7 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 		{
 			hFaceHandle->pShades[ 0 ]		= Create16BPPPaletteShaded( hFaceHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
 			//set the red pallete to the face
-			SetObjectHandleShade( guiFACE, 0 );
+			SetObjectHandleShade(faceHandle, 0);
 		}
 	}
 
@@ -886,278 +853,73 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 		}
 	}
 
-	DeleteVideoObjectFromIndex(guiFACE);
 }
 
 
 // WDS - make number of mercenaries, etc. be configurable
 static BOOLEAN NextPersonnelFace( void )
 {
-	if (fCurrentTeamMode)
-	{
-		// Anyone to display?
-		if (currentTeamIndex == -1) {
-			return TRUE;
-		}
-
-		fReDrawScreenFlag = TRUE;
-		// wrap around?
-		if (currentTeamIndex == maxCurrentTeamIndex) {
-			currentTeamIndex = 0;
-			currentTeamFirstIndex = 0;
-			return FALSE;
-		} else if ((currentTeamIndex+1) % MAX_MERCS_ON_SCREEN == 0) {
-			currentTeamFirstIndex += MAX_MERCS_ON_SCREEN;
-		}
-		++currentTeamIndex;
-	} else {
-		// Anyone to display?
-		if (iCurPortraitId == -1) {
-			return TRUE;
-		}
-
-		if ( ( ( iCurPortraitId + 1) == ( GetNumberOfDeadOnPastTeam( ) + GetNumberOfLeftOnPastTeam( ) + GetNumberOfOtherOnPastTeam( ) ) - giCurrentUpperLeftPortraitNumber ) ) {
-			// about to go off the end
-			giCurrentUpperLeftPortraitNumber = 0;
-			iCurPortraitId = 0;
-		} else if(	iCurPortraitId == MAX_MERCS_ON_SCREEN-1 ) {
-			giCurrentUpperLeftPortraitNumber += MAX_MERCS_ON_SCREEN;
-			iCurPortraitId = 0;
-		} else {
-			iCurPortraitId++;
-		}
-		// get of this merc in this slot
-
-		iCurrentPersonSelectedId =	iCurPortraitId;
-		fReDrawScreenFlag = TRUE;
-	}
-
-	return TRUE;
+	const bool changed = fCurrentTeamMode
+		? gCurrentRosterCursor.next(currentTeamList.size())
+		: gDepartedRosterCursor.next(gDepartedRoster.size());
+	if (changed) fReDrawScreenFlag = TRUE;
+	return changed ? TRUE : FALSE;
 }
 
 static BOOLEAN PrevPersonnelFace( void )
 {
-	if (fCurrentTeamMode) {
-		// Anyone to display?
-		if (currentTeamIndex == -1) {
-			return TRUE;
-		}
-
-		fReDrawScreenFlag = TRUE;
-		// wrap around?
-		if (currentTeamIndex == 0 ) {
-			currentTeamIndex = maxCurrentTeamIndex;
-			currentTeamFirstIndex = (currentTeamIndex / MAX_MERCS_ON_SCREEN) * MAX_MERCS_ON_SCREEN;
-			if (currentTeamIndex == 0) {
-				return FALSE;
-			}
-		} else {
-			if ((currentTeamIndex) % MAX_MERCS_ON_SCREEN == 0) {
-				currentTeamFirstIndex -= MAX_MERCS_ON_SCREEN;
-			}
-			currentTeamIndex--;
-		}
-	}
-	else
-	{
-		// Anyone to display?
-		if (iCurPortraitId == -1) {
-			return TRUE;
-		}
-
-		if	( ( iCurPortraitId == 0 ) && ( giCurrentUpperLeftPortraitNumber == 0 ) )
-		{
-			// about to go off the end
-			giCurrentUpperLeftPortraitNumber = ( GetNumberOfDeadOnPastTeam( ) + GetNumberOfLeftOnPastTeam( ) + GetNumberOfOtherOnPastTeam( ) ) - ( GetNumberOfDeadOnPastTeam( ) + GetNumberOfLeftOnPastTeam( ) + GetNumberOfOtherOnPastTeam( ) ) % MAX_MERCS_ON_SCREEN;
-			iCurPortraitId = ( GetNumberOfDeadOnPastTeam( ) + GetNumberOfLeftOnPastTeam( ) + GetNumberOfOtherOnPastTeam( ) ) % MAX_MERCS_ON_SCREEN ;
-			iCurPortraitId--;
-
-		}
-		else if(	iCurPortraitId == 0 )
-		{
-			giCurrentUpperLeftPortraitNumber -= MAX_MERCS_ON_SCREEN;
-			iCurPortraitId = MAX_MERCS_ON_SCREEN-1;
-		}
-		else
-		{
-			iCurPortraitId--;
-		}
-		// get of this merc in this slot
-
-		iCurrentPersonSelectedId =	iCurPortraitId;
-		fReDrawScreenFlag = TRUE;
-	}
-
-	return TRUE;
+	const bool changed = fCurrentTeamMode
+		? gCurrentRosterCursor.previous(currentTeamList.size())
+		: gDepartedRosterCursor.previous(gDepartedRoster.size());
+	if (changed) fReDrawScreenFlag = TRUE;
+	return changed ? TRUE : FALSE;
 }
 
 static BOOLEAN NextPersonnelFacePage(void)
 {
-	if (fCurrentTeamMode)
-	{
-		// Anyone to display?
-		if (currentTeamIndex == -1) {
-			return TRUE;
-		}
-
-		fReDrawScreenFlag = TRUE;
-		// wrap around?
-		currentTeamIndex += MAX_MERCS_ON_SCREEN;
-		if (currentTeamIndex >= maxCurrentTeamIndex)
-		{
-			currentTeamIndex = 0;
-			currentTeamFirstIndex = 0;
-			return FALSE;
-		}
-		else
-		{
-			currentTeamFirstIndex += MAX_MERCS_ON_SCREEN;
-		}
-	}
-	else {
-		// Anyone to display?
-		if (iCurPortraitId == -1) {
-			return TRUE;
-		}
-
-		iCurPortraitId += MAX_MERCS_ON_SCREEN;
-		if (iCurPortraitId >= (GetNumberOfDeadOnPastTeam() + GetNumberOfLeftOnPastTeam() + GetNumberOfOtherOnPastTeam()) - giCurrentUpperLeftPortraitNumber)
-		{
-			// about to go off the end
-			giCurrentUpperLeftPortraitNumber = 0;
-			iCurPortraitId = 0;
-		}
-		else
-		{
-			giCurrentUpperLeftPortraitNumber += MAX_MERCS_ON_SCREEN;
-			iCurPortraitId = 0;
-		}
-
-		// get of this merc in this slot
-		iCurrentPersonSelectedId = iCurPortraitId;
-		fReDrawScreenFlag = TRUE;
-	}
-
-	return TRUE;
+	const bool changed = fCurrentTeamMode
+		? gCurrentRosterCursor.nextPage(currentTeamList.size())
+		: gDepartedRosterCursor.nextPage(gDepartedRoster.size());
+	if (changed) fReDrawScreenFlag = TRUE;
+	return changed ? TRUE : FALSE;
 }
 
 static BOOLEAN PrevPersonnelFacePage(void)
 {
-	if (fCurrentTeamMode) {
-		// Anyone to display?
-		if (currentTeamIndex == -1) {
-			return TRUE;
-		}
-
-		fReDrawScreenFlag = TRUE;
-		currentTeamIndex -= MAX_MERCS_ON_SCREEN;
-		// wrap around?
-		if (currentTeamIndex <= 0) {
-			currentTeamIndex = maxCurrentTeamIndex;
-			currentTeamFirstIndex = (currentTeamIndex / MAX_MERCS_ON_SCREEN) * MAX_MERCS_ON_SCREEN;
-			if (currentTeamIndex == 0) {
-				return FALSE;
-			}
-		}
-		else {
-			currentTeamFirstIndex -= MAX_MERCS_ON_SCREEN;
-		}
-	}
-	else
-	{
-		// Anyone to display?
-		if (iCurPortraitId == -1) {
-			return TRUE;
-		}
-
-		iCurPortraitId -= MAX_MERCS_ON_SCREEN;
-
-		if ((iCurPortraitId <= 0) && (giCurrentUpperLeftPortraitNumber == 0))
-		{
-			// about to go off the end
-			giCurrentUpperLeftPortraitNumber = (GetNumberOfDeadOnPastTeam() + GetNumberOfLeftOnPastTeam() + GetNumberOfOtherOnPastTeam()) - (GetNumberOfDeadOnPastTeam() + GetNumberOfLeftOnPastTeam() + GetNumberOfOtherOnPastTeam()) % MAX_MERCS_ON_SCREEN;
-			iCurPortraitId = (GetNumberOfDeadOnPastTeam() + GetNumberOfLeftOnPastTeam() + GetNumberOfOtherOnPastTeam()) % MAX_MERCS_ON_SCREEN;
-		}
-		else
-		{
-			giCurrentUpperLeftPortraitNumber -= MAX_MERCS_ON_SCREEN;
-			iCurPortraitId = MAX_MERCS_ON_SCREEN - 1;
-		}
-		// get of this merc in this slot
-
-		iCurrentPersonSelectedId = iCurPortraitId;
-		fReDrawScreenFlag = TRUE;
-	}
-
-	return TRUE;
+	const bool changed = fCurrentTeamMode
+		? gCurrentRosterCursor.previousPage(currentTeamList.size())
+		: gDepartedRosterCursor.previousPage(gDepartedRoster.size());
+	if (changed) fReDrawScreenFlag = TRUE;
+	return changed ? TRUE : FALSE;
 }
 
 
-void CreatePersonnelButtons( void )
+BOOLEAN CreatePersonnelButtons(LaptopPageResourceOwner& owner)
 {
 
 	// left button
-	giPersonnelButtonImage[0]=	LoadButtonImage( "LAPTOP\\personnelbuttons.sti" ,-1,0,-1,1,-1 );
-	giPersonnelButton[0] = QuickCreateButton( giPersonnelButtonImage[0], PREV_MERC_FACE_X, MERC_FACE_SCROLL_Y,
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\personnelbuttons.sti", -1, 0, -1, 1, -1),
+		giPersonnelButtonImage[0])) return FALSE;
+	if (!owner.addButton(QuickCreateButton( giPersonnelButtonImage[0], PREV_MERC_FACE_X, MERC_FACE_SCROLL_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)LeftButtonCallBack);
+										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)LeftButtonCallBack),
+		giPersonnelButton[0])) return FALSE;
 
 	// right button
-	giPersonnelButtonImage[1]=	LoadButtonImage( "LAPTOP\\personnelbuttons.sti" ,-1,2,-1,3,-1 );
-	giPersonnelButton[1] = QuickCreateButton( giPersonnelButtonImage[1], NEXT_MERC_FACE_X, MERC_FACE_SCROLL_Y,
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\personnelbuttons.sti", -1, 2, -1, 3, -1),
+		giPersonnelButtonImage[1])) return FALSE;
+	if (!owner.addButton(QuickCreateButton( giPersonnelButtonImage[1], NEXT_MERC_FACE_X, MERC_FACE_SCROLL_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)RightButtonCallBack);
-
-
-
-	/*
-	// left button
-	giPersonnelButtonImage[0]=	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,0,-1,1,-1 );
-	giPersonnelButton[0] = QuickCreateButton( giPersonnelButtonImage[0], LEFT_BUTTON_X, BUTTON_Y,
-										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)LeftButtonCallBack);
-
-	// right button
-	giPersonnelButtonImage[1]=	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,6,-1,7,-1 );
-	giPersonnelButton[1] = QuickCreateButton( giPersonnelButtonImage[1], RIGHT_BUTTON_X, BUTTON_Y,
-										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)RightButtonCallBack);
-
-	// left FF button
-	giPersonnelButtonImage[2]=	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,3,-1,4,-1 );
-	giPersonnelButton[2] = QuickCreateButton( giPersonnelButtonImage[2], LEFT_BUTTON_X, BUTTON_Y + 22,
-										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)LeftFFButtonCallBack);
-
-	// right ff button
-	giPersonnelButtonImage[3]=	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,9,-1,10,-1 );
-	giPersonnelButton[3] = QuickCreateButton( giPersonnelButtonImage[3], RIGHT_BUTTON_X, BUTTON_Y + 22,
-										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)RightFFButtonCallBack);
-	*/
+										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)RightButtonCallBack),
+		giPersonnelButton[1])) return FALSE;
 	// set up cursors
 	SetButtonCursor(giPersonnelButton[0], CURSOR_LAPTOP_SCREEN);
 	SetButtonCursor(giPersonnelButton[1], CURSOR_LAPTOP_SCREEN);
-	//SetButtonCursor(giPersonnelButton[2], CURSOR_LAPTOP_SCREEN);
-	//SetButtonCursor(giPersonnelButton[3], CURSOR_LAPTOP_SCREEN);
 
 
-	return;
-}
-
-void DeletePersonnelButtons( void )
-{
-
-	RemoveButton(giPersonnelButton[0] );
-	UnloadButtonImage(giPersonnelButtonImage[0] );
-	RemoveButton(giPersonnelButton[1] );
-	UnloadButtonImage( giPersonnelButtonImage[1] );
-	/*RemoveButton(giPersonnelButton[2] );
-	UnloadButtonImage( giPersonnelButtonImage[2] );
-	RemoveButton(giPersonnelButton[3] );
-	UnloadButtonImage( giPersonnelButtonImage[3] );
-	*/
-	return;
+	return TRUE;
 }
 
 
@@ -1234,7 +996,7 @@ void DisplayHeader( void )
 	SetFontForeground(PERS_FONT_COLOR);
 	SetFontBackground( 0 );
 
-	mprintf(pPersonnelScreenPoints[18].x,pPersonnelScreenPoints[18].y,pPersonnelTitle[0]);
+	mprintf(pPersonnelScreenPoints[18].x,pPersonnelScreenPoints[18].y,L"%s", pPersonnelTitle[0]);
 
 	return;
 }
@@ -1259,6 +1021,8 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	pSoldier = GetJa2SoldierRepository().resolve(Id.i);
 	if ( !pSoldier )
 		return;
+	const MERCPROFILESTRUCT* profile = ProfileFor(pSoldier);
+	if (!profile) return;
 
 	SetFont(CHAR_NAME_FONT);
 	SetFontForeground(PERS_TEXT_FONT_COLOR);
@@ -1282,7 +1046,7 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 
 		if( bTownId != BLANK_SECTOR )
 		{
-			swprintf( sTownName, L"%s", pTownNames[ bTownId ] );
+			sgp_swprintf(sTownName, std::size(sTownName), L"%s", pTownNames[ bTownId ] );
 		}
 	}
 
@@ -1291,12 +1055,12 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	if( sTownName[0] != L'\0' )
 	{
 		//nick name - town name
-		swprintf( sString, L"%s - %s", gMercProfiles[pSoldier->identity().profile()].zNickname, sTownName );
+		sgp_swprintf(sString, std::size(sString), L"%s - %s", profile->zNickname, sTownName );
 	}
 	else
 	{
 		//nick name
-		swprintf( sString, L"%s", gMercProfiles[pSoldier->identity().profile()].zNickname );
+		sgp_swprintf(sString, std::size(sString), L"%s", profile->zNickname );
 	}
 
 
@@ -1310,12 +1074,12 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	}
 
 	//Display the mercs name
-	mprintf( sX + iSlot*IMAGE_BOX_WIDTH, CHAR_NAME_Y, sString );
+	mprintf( sX + iSlot*IMAGE_BOX_WIDTH, CHAR_NAME_Y, L"%s", sString );
 
 	if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->assignment().current() < std::min<size_t>(ON_DUTY, gSquadNameVector.size() ) )
-		swprintf( sString, L"%s", gSquadNameVector[pSoldier->assignment().current()].c_str() );
+		sgp_swprintf(sString, std::size(sString), L"%s", gSquadNameVector[pSoldier->assignment().current()].c_str() );
 	else
-		swprintf( sString, L"%s", pPersonnelAssignmentStrings[pSoldier->assignment().current()]);
+		sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelAssignmentStrings[pSoldier->assignment().current()]);
 
 	// nick name - assignment
 	FindFontCenterCoordinates(IMAGE_BOX_X-5,0,IMAGE_BOX_WIDTH + 90 , 0,sString,CHAR_NAME_FONT, &sX, &sY );
@@ -1326,7 +1090,7 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 		sX = ( INT16 )pPersonnelScreenPoints[ 0 ].x;
 	}
 
-	mprintf(sX+iSlot*IMAGE_BOX_WIDTH, CHAR_LOC_Y, sString );
+	mprintf(sX+iSlot*IMAGE_BOX_WIDTH, CHAR_LOC_Y, L"%s", sString );
 
 
 	//
@@ -1334,17 +1098,17 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	//
 
 	//first get height of text to be displayed
-	iHeightOfText = DisplayWrappedString(IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y), IMAGE_NAME_WIDTH, 1, PERS_FONT, PERS_FONT_COLOR, gMercProfiles[pSoldier->identity().profile()].zName, 0, FALSE, CENTER_JUSTIFIED | DONT_DISPLAY_TEXT );
+	iHeightOfText = DisplayWrappedString(IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y), IMAGE_NAME_WIDTH, 1, PERS_FONT, PERS_FONT_COLOR, profile->zName, 0, FALSE, CENTER_JUSTIFIED | DONT_DISPLAY_TEXT );
 
 	//if the string will rap
 	if( ( iHeightOfText - 2 ) > GetFontHeight( PERS_FONT ) )
 	{
 		//raise where we display it, and rap it
-		DisplayWrappedString(IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y - GetFontHeight( PERS_FONT )), IMAGE_NAME_WIDTH, 1, PERS_FONT, PERS_FONT_COLOR, gMercProfiles[pSoldier->identity().profile()].zName, 0, FALSE, CENTER_JUSTIFIED);
+		DisplayWrappedString(IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y - GetFontHeight( PERS_FONT )), IMAGE_NAME_WIDTH, 1, PERS_FONT, PERS_FONT_COLOR, profile->zName, 0, FALSE, CENTER_JUSTIFIED);
 	}
 	else
 	{
-		DrawTextToScreen( gMercProfiles[pSoldier->identity().profile()].zName, IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y), IMAGE_NAME_WIDTH, PERS_FONT, PERS_FONT_COLOR, 0, FALSE, CENTER_JUSTIFIED );
+		DrawTextToScreen( profile->zName, IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y), IMAGE_NAME_WIDTH, PERS_FONT, PERS_FONT_COLOR, 0, FALSE, CENTER_JUSTIFIED );
 	}
 
 /*
@@ -1354,7 +1118,7 @@ Moved so the name of the town will be in the same line as the name
 	if( pSoldier->assignment().current() == ASSIGNMENT_POW )
 	{
 //		FindFontCenterCoordinates(IMAGE_BOX_X-5,0,IMAGE_BOX_WIDTH, 0,pPOWStrings[ 1 ],CHAR_NAME_FONT, &sX, &sY );
-//	mprintf(sX+iSlot*IMAGE_BOX_WIDTH, CHAR_NAME_Y+20,pPOWStrings[ 1 ] );
+//	mprintf(sX+iSlot*IMAGE_BOX_WIDTH, CHAR_NAME_Y+20,L"%s", pPOWStrings[ 1 ] );
 	}
 	else if( pSoldier->assignment().current() == IN_TRANSIT )
 	{
@@ -1368,7 +1132,7 @@ Moved so the name of the town will be in the same line as the name
 		if( bTownId != BLANK_SECTOR )
 		{
 			FindFontCenterCoordinates( IMAGE_BOX_X - 5, 0, IMAGE_BOX_WIDTH, 0, pTownNames[ bTownId ], CHAR_NAME_FONT, &sX, &sY );
-			mprintf( sX + ( iSlot * IMAGE_BOX_WIDTH ), CHAR_NAME_Y + 20, pTownNames[ bTownId ]);
+			mprintf( sX + ( iSlot * IMAGE_BOX_WIDTH ), CHAR_NAME_Y + 20, L"%s", pTownNames[ bTownId ]);
 		}
 	}
 */
@@ -1384,16 +1148,16 @@ static void PrintStatChange(const INT16 change, const INT32 x, const INT32 y, CH
 
 		sgp_swprintf( sString, 32, change > 0 ? L"( +%d )" : L"( %d )", change );
 		FindFontRightCoordinates( (INT16)(x + TEXT_BOX_WIDTH - 20 + TEXT_DELTA_OFFSET), 0, 30, 0, sString, PERS_FONT, &sX, &sY );
-		mprintf( sX, y, sString );
+		mprintf( sX, y, L"%s", sString );
 	}
 }
 
 static void PrintCharStatText(const INT32 x, const INT32 y, const INT32 iCounter, const STR16 sString)
 {
 	INT16 sX, sY;
-	mprintf( x, y, pPersonnelScreenStrings[iCounter] );
+	mprintf( x, y, L"%s", pPersonnelScreenStrings[iCounter] );
 	FindFontRightCoordinates( x, 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
-	mprintf( sX, y, sString );
+	mprintf( sX, y, L"%s", sString );
 }
 
 void DisplayCharStats( SoldierID iId, INT32 iSlot )
@@ -1411,11 +1175,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 	// SANDRO - remove the regions
 	for ( INT8 i = 0; i < 13; i++ )
 	{
-		if ( fAddedTraitRegion[i] )
-		{
-			MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[i] );
-			fAddedTraitRegion[i] = FALSE;
-		}
+		ClearPersonnelTraitRegion(i);
 	}
 
 
@@ -1440,11 +1200,11 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				const INT16 change = pMercProfile->bLifeDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_HEALTH]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d/%d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
+				sgp_swprintf(sString, std::size(sString), L"%d/%d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 			}
 			else
 			{
-				swprintf( sString, pPOWStrings[1] );
+				sgp_swprintf(sString, std::size(sString), L"%s", pPOWStrings[1] );
 			}
 
 			PrintCharStatText( x, y, iCounter, sString );
@@ -1456,11 +1216,11 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bAgilityDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->statistics().agility() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pSoldier->statistics().agility() );
 			}
 			else
 			{
-				swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 			}
 
 			PrintCharStatText( x, y, iCounter, sString );
@@ -1472,11 +1232,11 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bDexterityDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->statistics().dexterity() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pSoldier->statistics().dexterity() );
 			}
 			else
 			{
-				swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 			}
 
 			PrintCharStatText( x, y, iCounter, sString );
@@ -1488,11 +1248,11 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bStrengthDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->statistics().strength() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pSoldier->statistics().strength() );
 			}
 			else
 			{
-				swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 			}
 
 			PrintCharStatText( x, y, iCounter, sString );
@@ -1504,11 +1264,11 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bLeadershipDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_LEADERSHIP]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->statistics().leadership() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pSoldier->statistics().leadership() );
 			}
 			else
 			{
-				swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 			}
 
 			PrintCharStatText( x, y, iCounter, sString );
@@ -1520,11 +1280,11 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bWisdomDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->statistics().wisdom() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pSoldier->statistics().wisdom() );
 			}
 			else
 			{
-				swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 			}
 
 			PrintCharStatText( x, y, iCounter, sString );
@@ -1536,18 +1296,18 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 
 				if ( pMercProfile->bExpLevelDelta > 0 )
 				{
-					swprintf( sString, L"( %+d )", pMercProfile->bExpLevelDelta );
+					sgp_swprintf(sString, std::size(sString), L"( %+d )", pMercProfile->bExpLevelDelta );
 					FindFontRightCoordinates( (INT16)(x + TEXT_BOX_WIDTH - 20 + TEXT_DELTA_OFFSET), 0, 30, 0, sString, PERS_FONT, &sX, &sY );
-					mprintf( sX, y, sString );
+					mprintf( sX, y, L"%s", sString );
 				}
 				//else
 				//{
-				swprintf( sString, L"%d", pSoldier->statistics().experienceLevel() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pSoldier->statistics().experienceLevel() );
 				//}
 			}
 			else
 			{
-				swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 			}
 
 
@@ -1560,11 +1320,11 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bMarksmanshipDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MARKSMANSHIP]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->statistics().marksmanship() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pSoldier->statistics().marksmanship() );
 			}
 			else
 			{
-				swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 			}
 
 			PrintCharStatText( x, y, iCounter, sString );
@@ -1576,11 +1336,11 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bMechanicDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MECHANICAL]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->statistics().mechanical() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pSoldier->statistics().mechanical() );
 			}
 			else
 			{
-				swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 			}
 
 			PrintCharStatText( x, y, iCounter, sString );
@@ -1592,11 +1352,11 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bExplosivesDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_EXPLOSIVES]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->statistics().explosives() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pSoldier->statistics().explosives() );
 			}
 			else
 			{
-				swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 			}
 
 			PrintCharStatText( x, y, iCounter, sString );
@@ -1608,11 +1368,11 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bMedicalDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->statistics().medical() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pSoldier->statistics().medical() );
 			}
 			else
 			{
-				swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 			}
 
 			PrintCharStatText( x, y, iCounter, sString );
@@ -1628,27 +1388,23 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				const UINT8 loc = 21;
 				const UINT8 regionnr = 12;
 
-				mprintf( (INT16)(pPersonnelScreenPoints[loc].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + 15), pPersonnelRecordsHelpTexts[47] ); //L"Background:"
+				mprintf( (INT16)(pPersonnelScreenPoints[loc].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + 15), L"%s", pPersonnelRecordsHelpTexts[47] ); //L"Background:"
 
 				if ( !pMercProfile->usBackground )
-					swprintf( sString, pwMiscSectorStrings[3] ); //L"unknown"
+					sgp_swprintf(sString, std::size(sString), L"%s", pwMiscSectorStrings[3] ); //L"unknown"
 				else
-					swprintf( sString, zBackground[pMercProfile->usBackground].szShortName );
+					sgp_swprintf(sString, std::size(sString), L"%s", zBackground[pMercProfile->usBackground].szShortName );
 
 				FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[loc].x + (iSlot*TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
-				mprintf( sX, (pPersonnelScreenPoints[loc].y + 15), sString );
+				mprintf( sX, (pPersonnelScreenPoints[loc].y + 15), L"%s", sString );
 
 				// Add specific region for fast help window
-				if ( fAddedTraitRegion[regionnr] )
-				{
-					MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[regionnr] );
-				}
+				ClearPersonnelTraitRegion(regionnr);
 				MSYS_DefineRegion( &gSkillTraitHelpTextRegion[regionnr], (sX - 3), (UINT16)(pPersonnelScreenPoints[loc].y + 15),
 								   (sX + StringPixLength( sString, PERS_FONT ) + 3), (UINT16)(pPersonnelScreenPoints[loc].y + 23), MSYS_PRIORITY_HIGH,
 								   MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
 
-				MSYS_AddRegion( &gSkillTraitHelpTextRegion[regionnr] );
-				fAddedTraitRegion[regionnr] = TRUE;
+				PublishPersonnelTraitRegion(regionnr);
 
 				// Info about our background
 				AssignBackgroundHelpText( pMercProfile->usBackground, &(gSkillTraitHelpTextRegion[12]) );
@@ -1663,24 +1419,20 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				   const UINT8 loc = 22;
 				   const UINT8 regionnr = 8;
 
-				   mprintf( (INT16)(pPersonnelScreenPoints[loc].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + 15), pPersonnelRecordsHelpTexts[48] ); //L"Personality:"
+				   mprintf( (INT16)(pPersonnelScreenPoints[loc].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + 15), L"%s", pPersonnelRecordsHelpTexts[48] ); //L"Personality:"
 
-				   swprintf( sString, L"->" );
+				   sgp_swprintf(sString, std::size(sString), L"%s", L"->" );
 
 				   FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[loc].x + (iSlot*TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
-				   mprintf( sX, (pPersonnelScreenPoints[loc].y + 15), sString );
+				   mprintf( sX, (pPersonnelScreenPoints[loc].y + 15), L"%s", sString );
 
 				   // Add specific region for fast help window
-				   if ( fAddedTraitRegion[regionnr] )
-				   {
-					   MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[regionnr] );
-				   }
+				   ClearPersonnelTraitRegion(regionnr);
 				   MSYS_DefineRegion( &gSkillTraitHelpTextRegion[regionnr], (sX - 3), (UINT16)(pPersonnelScreenPoints[loc].y + 15),
 									  (sX + StringPixLength( sString, PERS_FONT ) + 3), (UINT16)(pPersonnelScreenPoints[loc].y + 23), MSYS_PRIORITY_HIGH,
 									  MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
 
-				   MSYS_AddRegion( &gSkillTraitHelpTextRegion[regionnr] );
-				   fAddedTraitRegion[regionnr] = TRUE;
+				   PublishPersonnelTraitRegion(regionnr);
 
 				   // assign bubblehelp text
 				   AssignPersonalityHelpText( pSoldier, &(gSkillTraitHelpTextRegion[regionnr]) );
@@ -1695,34 +1447,30 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 
 			// WANNE: With old trait system, display "Attitudes" instead of "Character"
 			if ( gGameOptions.fNewTraitSystem )
-				mprintf( (INT16)(pPersonnelScreenPoints[23].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[23].y + 15), pPersonnelRecordsHelpTexts[43] ); //L"Character:"
+				mprintf( (INT16)(pPersonnelScreenPoints[23].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[23].y + 15), L"%s", pPersonnelRecordsHelpTexts[43] ); //L"Character:"
 			else
-				mprintf( (INT16)(pPersonnelScreenPoints[23].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[23].y + 15), pPersonnelRecordsHelpTexts[45] ); //L"Attitudes:"
+				mprintf( (INT16)(pPersonnelScreenPoints[23].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[23].y + 15), L"%s", pPersonnelRecordsHelpTexts[45] ); //L"Attitudes:"
 
 			if ( gGameOptions.fNewTraitSystem )
-				swprintf( sString, gzIMPCharacterTraitText[pMercProfile->bCharacterTrait] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gzIMPCharacterTraitText[pMercProfile->bCharacterTrait] );
 			else
-				swprintf( sString, gzIMPAttitudesText[pMercProfile->bAttitude] );
+				sgp_swprintf(sString, std::size(sString), L"%s", gzIMPAttitudesText[pMercProfile->bAttitude] );
 
 			FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[23].x + (iSlot*TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
-			mprintf( sX, (pPersonnelScreenPoints[23].y + 15), sString );
+			mprintf( sX, (pPersonnelScreenPoints[23].y + 15), L"%s", sString );
 
 			//GetVideoObject(&hHandle, guiQMark);
 			//BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[23].x + 148), ( pPersonnelScreenPoints[23].y + 5), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if ( fAddedTraitRegion[5] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[5] );
-			}
+			ClearPersonnelTraitRegion(5);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[5], (sX - 3), (UINT16)(pPersonnelScreenPoints[23].y + 15),	// 10
 							   (sX + StringPixLength( sString, PERS_FONT ) + 3), (UINT16)(pPersonnelScreenPoints[23].y + 23), MSYS_PRIORITY_HIGH,	// 17
 							   MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
 			//MSYS_DefineRegion( &gSkillTraitHelpTextRegion[3], (UINT16)( pPersonnelScreenPoints[23].x + 147 ), (UINT16)(pPersonnelScreenPoints[23].y + 4),
 			//				(UINT16)( pPersonnelScreenPoints[23].x + 166 ), (UINT16)(pPersonnelScreenPoints[23].y + 15), MSYS_PRIORITY_HIGH,
 			//					MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[5] );
-			fAddedTraitRegion[5] = TRUE;
+			PublishPersonnelTraitRegion(5);
 			// Assign the text
 
 			// Only new traits have help text
@@ -1737,7 +1485,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				UINT8 loc = 25;
 				UINT8 regionnr = 6;
 
-				mprintf( (INT16)( pPersonnelScreenPoints[loc].x + ( iSlot*TEXT_BOX_WIDTH ) ), ( pPersonnelScreenPoints[loc].y + 10 ), pPersonnelRecordsHelpTexts[44] ); //L"Disability:"
+				mprintf( (INT16)( pPersonnelScreenPoints[loc].x + ( iSlot*TEXT_BOX_WIDTH ) ), ( pPersonnelScreenPoints[loc].y + 10 ), L"%s", pPersonnelRecordsHelpTexts[44] ); //L"Disability:"
 
 				int numdisabilities = 0;
 				UINT8 disabilityfound = 0;
@@ -1751,24 +1499,20 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				}
 
 				if ( numdisabilities <= 1 )
-					swprintf( sString, gzIMPDisabilityTraitText[disabilityfound] );
+					sgp_swprintf(sString, std::size(sString), L"%s", gzIMPDisabilityTraitText[disabilityfound] );
 				else
-					swprintf( sString, L"%s, ...", gzIMPDisabilityTraitText[disabilityfound] );
+					sgp_swprintf(sString, std::size(sString), L"%s, ...", gzIMPDisabilityTraitText[disabilityfound] );
 				
 				FindFontRightCoordinates( (INT16)( pPersonnelScreenPoints[loc].x + ( iSlot*TEXT_BOX_WIDTH ) ), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
-				mprintf( sX, ( pPersonnelScreenPoints[loc].y + 10 ), sString );
+				mprintf( sX, ( pPersonnelScreenPoints[loc].y + 10 ), L"%s", sString );
 
 				// Add specific region for fast help window
-				if ( fAddedTraitRegion[regionnr] )
-				{
-					MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[regionnr] );
-				}
+				ClearPersonnelTraitRegion(regionnr);
 				MSYS_DefineRegion( &gSkillTraitHelpTextRegion[regionnr], ( sX - 3 ), (UINT16)( pPersonnelScreenPoints[loc].y + 10 ),
 					( sX + StringPixLength( sString, PERS_FONT ) + 3 ), (UINT16)( pPersonnelScreenPoints[loc].y + 17 ), MSYS_PRIORITY_HIGH,
 					MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
 
-				MSYS_AddRegion( &gSkillTraitHelpTextRegion[regionnr] );
-				fAddedTraitRegion[regionnr] = TRUE;
+				PublishPersonnelTraitRegion(regionnr);
 
 				// Assign the text
 				if ( numdisabilities <= 1 )
@@ -1787,7 +1531,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				   INT8	bScreenLocIndex = 19;	//if you change the '19', change it below in the if statement
 
 				   //Display the 'Skills' text
-				   mprintf( (INT16)(pPersonnelScreenPoints[bScreenLocIndex].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[bScreenLocIndex].y), pPersonnelScreenStrings[PRSNL_TXT_SKILLS] );
+				   mprintf( (INT16)(pPersonnelScreenPoints[bScreenLocIndex].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[bScreenLocIndex].y), L"%s", pPersonnelScreenStrings[PRSNL_TXT_SKILLS] );
 
 				   //KM: April 16, 1999
 				   //Added support for the German version, which has potential string overrun problems.	For example, the text "Skills:" can
@@ -1821,24 +1565,20 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 
 						   if ( bNumSkillTraits == 0 )
 						   {
-							   swprintf( sString, L"%s", pPersonnelScreenStrings[PRSNL_TXT_NOSKILLS] );
+							   sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelScreenStrings[PRSNL_TXT_NOSKILLS] );
 
 							   FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[bScreenLocIndex].x + (iSlot*TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
-							   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, sString );
+							   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, L"%s", sString );
 
 							   // Add specific region for fast help window
-							   if ( fAddedTraitRegion[0] )
-							   {
-								   MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[0] );
-							   }
+							   ClearPersonnelTraitRegion(0);
 							   MSYS_DefineRegion( &gSkillTraitHelpTextRegion[0], (sX - 3), (UINT16)(pPersonnelScreenPoints[bScreenLocIndex].y),
 												  (sX + StringPixLength( sString, PERS_FONT ) + 3), (UINT16)(pPersonnelScreenPoints[bScreenLocIndex].y + 7), MSYS_PRIORITY_HIGH,
 												  MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-							   MSYS_AddRegion( &gSkillTraitHelpTextRegion[0] );
-							   fAddedTraitRegion[0] = TRUE;
+							   PublishPersonnelTraitRegion(0);
 
 							   // Assign the text
-							   swprintf( apStr, L"" );
+							   sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 							   AssignPersonnelSkillTraitHelpText( 0, FALSE, (gMercProfiles[iId].ubBodyType == REGMALE), apStr );
 
 							   // Set region help text
@@ -1848,7 +1588,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 						   else
 						   {
 							   CHAR16 sString2[500];
-							   swprintf( sString2, L"" );
+							   sgp_swprintf(sString2, std::size(sString2), L"%s", L"" );
 							   BOOLEAN fDisplayMoreTraits = FALSE;
 
 							   for ( UINT8 ubCnt = 0; ubCnt < bNumSkillTraits; ubCnt++ )
@@ -1856,12 +1596,12 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 								   if ( ubCnt >= 3 && bNumSkillTraits > 4 )
 								   {
 									   fDisplayMoreTraits = TRUE;
-									   swprintf( sString, L"%s\n", gzMercSkillTextNew[ubTempSkillArray[ubCnt]] );
-									   wcscat( sString2, sString );
+									   sgp_swprintf(sString, std::size(sString), L"%s\n", gzMercSkillTextNew[ubTempSkillArray[ubCnt]] );
+									   AppendPersonnelText( sString2, sString );
 								   }
 								   else
 								   {
-									   swprintf( sString, L"%s", gzMercSkillTextNew[ubTempSkillArray[ubCnt]] );
+									   sgp_swprintf(sString, std::size(sString), L"%s", gzMercSkillTextNew[ubTempSkillArray[ubCnt]] );
 
 									   if ( ubTempSkillArray[ubCnt] > NEWTRAIT_MERCSKILL_EXPERTOFFSET )
 									   {
@@ -1875,7 +1615,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 										   sY = (INT16)(pPersonnelScreenPoints[19].y + (ubCnt * 12));
 
 										   SetFont( FONT10ARIALBOLD );
-										   mprintf( sX, sY, sString );
+										   mprintf( sX, sY, L"%s", sString );
 										   SetFont( PERS_FONT );
 									   }
 									   else
@@ -1888,20 +1628,16 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 										   }
 										   sY = (INT16)(pPersonnelScreenPoints[19].y + (ubCnt * 12));
 
-										   mprintf( sX, sY, sString );
+										   mprintf( sX, sY, L"%s", sString );
 
 									   }
 
 									   // Add specific region for fast help window
-									   if ( fAddedTraitRegion[ubCnt] )
-									   {
-										   MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[ubCnt] );
-									   }
+									   ClearPersonnelTraitRegion(ubCnt);
 									   MSYS_DefineRegion( &gSkillTraitHelpTextRegion[ubCnt], (sX), (sY),
 														  (sX + StringPixLength( sString, PERS_FONT )), (sY + 7), MSYS_PRIORITY_HIGH,
 														  MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-									   MSYS_AddRegion( &gSkillTraitHelpTextRegion[ubCnt] );
-									   fAddedTraitRegion[ubCnt] = TRUE;
+									   PublishPersonnelTraitRegion(ubCnt);
 
 									   // Assign the text
 									   BOOLEAN fExpert = (ubTempSkillArray[ubCnt] > NEWTRAIT_MERCSKILL_EXPERTOFFSET);
@@ -1910,7 +1646,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 									   if ( fExpert )
 										   traitnr -= NEWTRAIT_MERCSKILL_EXPERTOFFSET;
 
-									   swprintf( apStr, L"" );
+									   sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 									   AssignPersonnelSkillTraitHelpText( traitnr, fExpert, (pMercProfile->ubBodyType == REGMALE), apStr );
 
 									   // Set region help text
@@ -1922,7 +1658,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 							   // if we have more skills than we can display, show "more" and create a tooltip box with the rest of them
 							   if ( fDisplayMoreTraits )
 							   {
-								   swprintf( sString, L"%s", gzMercSkillTextNew[2 * NEWTRAIT_MERCSKILL_EXPERTOFFSET + 1] ); // display "More..."
+								   sgp_swprintf(sString, std::size(sString), L"%s", gzMercSkillTextNew[2 * NEWTRAIT_MERCSKILL_EXPERTOFFSET + 1] ); // display "More..."
 								   FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[19].x + (iSlot*TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
 								   if ( sX <= iMinimumX )
 								   {
@@ -1931,18 +1667,14 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 								   }
 								   sY = (INT16)(pPersonnelScreenPoints[19].y + 36);
 
-								   mprintf( sX, sY, sString );
+								   mprintf( sX, sY, L"%s", sString );
 
 								   // Add specific region for fast help window
-								   if ( fAddedTraitRegion[4] )
-								   {
-									   MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[4] );
-								   }
+								   ClearPersonnelTraitRegion(4);
 								   MSYS_DefineRegion( &gSkillTraitHelpTextRegion[4], (sX), (sY),
 													  (sX + StringPixLength( sString, PERS_FONT )), (sY + 7), MSYS_PRIORITY_HIGH,
 													  MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-								   MSYS_AddRegion( &gSkillTraitHelpTextRegion[4] );
-								   fAddedTraitRegion[4] = TRUE;
+								   PublishPersonnelTraitRegion(4);
 								   // Set region help text
 								   SetRegionFastHelpText( &(gSkillTraitHelpTextRegion[4]), sString2 );
 								   SetRegionHelpEndCallback( &gSkillTraitHelpTextRegion[4], MSYS_NO_CALLBACK );
@@ -1958,7 +1690,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 						   //if the 2 skills are the same, add the '(expert)' at the end
 						   if ( bSkill1 == bSkill2 && bSkill1 != 0 )
 						   {
-							   swprintf( sString, L"%s %s", gzMercSkillText[bSkill1], gzMercSkillText[EXPERT] );
+							   sgp_swprintf(sString, std::size(sString), L"%s %s", gzMercSkillText[bSkill1], gzMercSkillText[EXPERT] );
 
 							   FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[bScreenLocIndex].x + (iSlot*TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
 
@@ -1970,21 +1702,17 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 								   sX = (INT16)std::max<INT32>( sX, iMinimumX );
 							   }
 
-							   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, sString );
+							   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, L"%s", sString );
 
 							   // Add specific region for fast help window
-							   if ( fAddedTraitRegion[0] )
-							   {
-								   MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[0] );
-							   }
+							   ClearPersonnelTraitRegion(0);
 							   MSYS_DefineRegion( &gSkillTraitHelpTextRegion[0], (sX - 3), (UINT16)(pPersonnelScreenPoints[bScreenLocIndex].y),
 												  (sX + StringPixLength( sString, PERS_FONT ) + 3), (UINT16)(pPersonnelScreenPoints[bScreenLocIndex].y + 7), MSYS_PRIORITY_HIGH,
 												  MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-							   MSYS_AddRegion( &gSkillTraitHelpTextRegion[0] );
-							   fAddedTraitRegion[0] = TRUE;
+							   PublishPersonnelTraitRegion(0);
 
 							   // Assign the text
-							   swprintf( apStr, L"" );
+							   sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 							   AssignPersonnelSkillTraitHelpText( bSkill1, TRUE, (gMercProfiles[iId].ubBodyType == REGMALE), apStr );
 
 							   // Set region help text
@@ -1996,28 +1724,24 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 							   //Display the first skill
 							   if ( bSkill1 != 0 )
 							   {
-								   swprintf( sString, L"%s", gzMercSkillText[bSkill1] );
+								   sgp_swprintf(sString, std::size(sString), L"%s", gzMercSkillText[bSkill1] );
 
 								   FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[bScreenLocIndex].x + (iSlot*TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
 
 								   //KM: April 16, 1999
 								   //Perform the potential overrun check
 								   sX = (INT16)std::max<INT32>( sX, iMinimumX );
-								   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, sString );
+								   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, L"%s", sString );
 
 								   // Add specific region for fast help window
-								   if ( fAddedTraitRegion[0] )
-								   {
-									   MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[0] );
-								   }
+								   ClearPersonnelTraitRegion(0);
 								   MSYS_DefineRegion( &gSkillTraitHelpTextRegion[0], (sX - 3), (UINT16)(pPersonnelScreenPoints[bScreenLocIndex].y),
 													  (sX + StringPixLength( sString, PERS_FONT ) + 3), (UINT16)(pPersonnelScreenPoints[bScreenLocIndex].y + 7), MSYS_PRIORITY_HIGH,
 													  MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-								   MSYS_AddRegion( &gSkillTraitHelpTextRegion[0] );
-								   fAddedTraitRegion[0] = TRUE;
+								   PublishPersonnelTraitRegion(0);
 
 								   // Assign the text
-								   swprintf( apStr, L"" );
+								   sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 								   AssignPersonnelSkillTraitHelpText( bSkill1, FALSE, (gMercProfiles[iId].ubBodyType == REGMALE), apStr );
 
 								   // Set region help text
@@ -2030,28 +1754,24 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 							   //Display the second skill
 							   if ( bSkill2 != 0 )
 							   {
-								   swprintf( sString, L"%s", gzMercSkillText[bSkill2] );
+								   sgp_swprintf(sString, std::size(sString), L"%s", gzMercSkillText[bSkill2] );
 
 								   FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[bScreenLocIndex].x + (iSlot*TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
 
 								   //KM: April 16, 1999
 								   //Perform the potential overrun check
 								   sX = (INT16)std::max<INT32>( sX, iMinimumX );
-								   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, sString );
+								   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, L"%s", sString );
 
 								   // Add specific region for fast help window
-								   if ( fAddedTraitRegion[1] )
-								   {
-									   MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[1] );
-								   }
+								   ClearPersonnelTraitRegion(1);
 								   MSYS_DefineRegion( &gSkillTraitHelpTextRegion[1], (sX - 3), (UINT16)(pPersonnelScreenPoints[bScreenLocIndex].y),
 													  (sX + StringPixLength( sString, PERS_FONT ) + 3), (UINT16)(pPersonnelScreenPoints[bScreenLocIndex].y + 7), MSYS_PRIORITY_HIGH,
 													  MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-								   MSYS_AddRegion( &gSkillTraitHelpTextRegion[1] );
-								   fAddedTraitRegion[1] = TRUE;
+								   PublishPersonnelTraitRegion(1);
 
 								   // Assign the text
-								   swprintf( apStr, L"" );
+								   sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 								   AssignPersonnelSkillTraitHelpText( bSkill2, FALSE, (gMercProfiles[iId].ubBodyType == REGMALE), apStr );
 
 								   // Set region help text
@@ -2064,24 +1784,20 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 							   //if no skill was displayed
 							   if ( bScreenLocIndex == 19 )
 							   {
-								   swprintf( sString, L"%s", pPersonnelScreenStrings[PRSNL_TXT_NOSKILLS] );
+								   sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelScreenStrings[PRSNL_TXT_NOSKILLS] );
 
 								   FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[bScreenLocIndex].x + (iSlot*TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
-								   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, sString );
+								   mprintf( sX, pPersonnelScreenPoints[bScreenLocIndex].y, L"%s", sString );
 
 								   // Add specific region for fast help window
-								   if ( fAddedTraitRegion[0] )
-								   {
-									   MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[0] );
-								   }
+								   ClearPersonnelTraitRegion(0);
 								   MSYS_DefineRegion( &gSkillTraitHelpTextRegion[0], (sX - 3), (UINT16)(pPersonnelScreenPoints[bScreenLocIndex].y),
 													  (sX + StringPixLength( sString, PERS_FONT ) + 3), (UINT16)(pPersonnelScreenPoints[bScreenLocIndex].y + 7), MSYS_PRIORITY_HIGH,
 													  MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-								   MSYS_AddRegion( &gSkillTraitHelpTextRegion[0] );
-								   fAddedTraitRegion[0] = TRUE;
+								   PublishPersonnelTraitRegion(0);
 
 								   // Assign the text
-								   swprintf( apStr, L"" );
+								   sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 								   AssignPersonnelSkillTraitHelpText( bSkill1, FALSE, (gMercProfiles[iId].ubBodyType == REGMALE), apStr );
 
 								   // Set region help text
@@ -2093,7 +1809,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				   }
 				   else
 				   {
-					   swprintf( sString, L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
+					   sgp_swprintf(sString, std::size(sString), L"%s", gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION] );
 				   }
 		}
 			break;
@@ -2109,16 +1825,13 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 		GetJa2SoldierRepository().resolve(iId.i);
 	if ( !pSoldier )
 		return;
-	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->identity().profile()];
+	const MERCPROFILESTRUCT *pMercProfile = ProfileFor(pSoldier);
+	if (!pMercProfile) return;
 
 	// SANDRO - remove the regions
 	for( INT8 i = 0; i < 13; ++i )
 	{
-		if( fAddedTraitRegion[i] )
-		{
-			MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[i] );
-			fAddedTraitRegion[i] = FALSE;
-		}
+		ClearPersonnelTraitRegion(i);
 	}
 
 	if ( !pSoldier || pSoldier->status().flags() & SOLDIER_VEHICLE || AM_A_ROBOT( pSoldier ) || pSoldier->identity().profile() == NO_PROFILE )
@@ -2131,29 +1844,27 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 
 	for ( int i = APPROACH_FRIENDLY; i <= APPROACH_RECRUIT; ++i )
 	{
-		mprintf( (INT16)(pPersonnelScreenPoints[loc].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + 15), szLaptopStatText[LAPTOP_STAT_TEXT_FRIENDLY_APPROACH-1 + i] ); // APPROACH_FRIENDLY is 1 so fix the offset
+		mprintf( (INT16)(pPersonnelScreenPoints[loc].x + (iSlot*TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + 15), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FRIENDLY_APPROACH-1 + i] ); // APPROACH_FRIENDLY is 1 so fix the offset
 
 		CHAR16 sStr[200];
-		swprintf( sStr, L"" );
+		sgp_swprintf(sStr, std::size(sStr), L"%s", L"" );
 		CHAR16 sString[200];
-		swprintf( sString, L"" );
+		sgp_swprintf(sString, std::size(sString), L"%s", L"" );
 		INT32 val = GetEffectiveApproachValue( pSoldier->identity().profile(), i, sString );
 	
-		swprintf( sStr, L"%d", val );
+		sgp_swprintf(sStr, std::size(sStr), L"%d", val );
 
 		FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[loc].x + (iSlot*TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, sStr, PERS_FONT, &sX, &sY );
-		mprintf( sX, (pPersonnelScreenPoints[loc].y + 15), sStr );
+		mprintf( sX, (pPersonnelScreenPoints[loc].y + 15), L"%s", sStr );
 
 		// Add specific region for fast help window
-		if ( fAddedTraitRegion[region] )
-			MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[region] );
+		ClearPersonnelTraitRegion(region);
 
 		MSYS_DefineRegion( &gSkillTraitHelpTextRegion[region], (sX - 3), (UINT16)(pPersonnelScreenPoints[loc].y + 15),
 						   (sX + StringPixLength( sString, PERS_FONT ) + 3), (UINT16)(pPersonnelScreenPoints[loc].y + 23), MSYS_PRIORITY_HIGH,
 						   MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
 
-		MSYS_AddRegion( &gSkillTraitHelpTextRegion[region] );
-		fAddedTraitRegion[region] = TRUE;
+		PublishPersonnelTraitRegion(region);
 	
 		// Set region help text
 		SetRegionFastHelpText( &(gSkillTraitHelpTextRegion[region]), sString );
@@ -2166,25 +1877,23 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 	if ( (pMercProfile->ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY) )
 	{
 		CHAR16 sStr1[200];
-		swprintf( sStr1, szLaptopStatText[LAPTOP_STAT_TEXT_GOOD_GUY] );
+		sgp_swprintf(sStr1, std::size(sStr1), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_GOOD_GUY] );
 
 		CHAR16 sStr2[200];
-		swprintf( sStr2, szLaptopStatText[LAPTOP_STAT_TEXT_REFUSES_TO_ATTACK_NON_HOSTILES], pSoldier->GetName( ) );
+		sgp_swprintf(sStr2, std::size(sStr2), szLaptopStatText[LAPTOP_STAT_TEXT_REFUSES_TO_ATTACK_NON_HOSTILES], pSoldier->GetName( ) );
 
 		sX = pPersonnelScreenPoints[loc].x + (iSlot*TEXT_BOX_WIDTH);
 
-		mprintf( (INT16)(sX), (pPersonnelScreenPoints[loc].y + 15), sStr1 );
+		mprintf( (INT16)(sX), (pPersonnelScreenPoints[loc].y + 15), L"%s", sStr1 );
 
 		// Add specific region for fast help window
-		if ( fAddedTraitRegion[region] )
-			MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[region] );
+		ClearPersonnelTraitRegion(region);
 
 		MSYS_DefineRegion( &gSkillTraitHelpTextRegion[region], (sX - 3), (UINT16)(pPersonnelScreenPoints[loc].y + 15),
 						   (sX + StringPixLength( sStr2, PERS_FONT ) + 3), (UINT16)(pPersonnelScreenPoints[loc].y + 23), MSYS_PRIORITY_HIGH,
 						   MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
 
-		MSYS_AddRegion( &gSkillTraitHelpTextRegion[region] );
-		fAddedTraitRegion[region] = TRUE;
+		PublishPersonnelTraitRegion(region);
 
 		// Set region help text
 		SetRegionFastHelpText( &(gSkillTraitHelpTextRegion[region]), sStr2 );
@@ -2199,9 +1908,9 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 		if (pMercProfile->fRegresses)
 		{
 			CHAR16 sStr2[200];
-			swprintf(sStr2, szLaptopStatText[LAPTOP_STAT_TEXT_MERC_REGRESSES]);
+			sgp_swprintf(sStr2, std::size(sStr2), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_MERC_REGRESSES]);
 
-			mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + 15), sStr2);
+			mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + 15), L"%s", sStr2);
 
 			++loc;
 			++region;
@@ -2214,167 +1923,167 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 			CHAR16 statTxt[200];
 			// health
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_HEALTH_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_HEALTH_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierLife <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierLife >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 				yOffset += 10;
 			}
 			// strength
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_STRENGTH_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_STRENGTH_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierStrength <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierStrength >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 				yOffset += 10;
 			}
 			// agility
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_AGILITY_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AGILITY_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierAgility <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierAgility >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 				yOffset += 10;
 			}
 			// dexterity
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_DEXTERITY_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_DEXTERITY_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierDexterity <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierDexterity >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 				yOffset += 10;
 			}
 			// wisdom
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_WISDOM_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_WISDOM_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierWisdom <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierWisdom >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 				yOffset += 10;
 			}
 			// marksmanship
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_MARKSMANSHIP_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_MARKSMANSHIP_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierMarksmanship <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierMarksmanship >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 				yOffset += 10;
 			}
 			// explosives
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_EXPLOSIVES_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_EXPLOSIVES_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierExplosive <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierExplosive >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 				yOffset += 10;
 			}
 			// leadership
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_LEADERSHIP_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_LEADERSHIP_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierLeadership <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierLeadership >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 				yOffset += 10;
 			}
 			// medical
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_MEDICAL_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_MEDICAL_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierMedical <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierMedical >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 				yOffset += 10;
 			}
 			// mechanical
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_MECHANICAL_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_MECHANICAL_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierMechanical <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierMechanical >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 				yOffset += 10;
 			}
 			// exp level
 			{
-				swprintf(statTxt, szLaptopStatText[LAPTOP_STAT_TEXT_EXPERIENCE_SPEED]);
-				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_EXPERIENCE_SPEED]);
+				mprintf((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 
 				if (pMercProfile->bGrowthModifierExpLevel <= THRESHOLD_FAST)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_FAST]);
 				else if (pMercProfile->bGrowthModifierExpLevel >= THRESHOLD_SLOW)
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_SLOW]);
 				else
-					swprintf(statTxt, L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
+					sgp_swprintf(statTxt, std::size(statTxt), L"%s", szLaptopStatText[LAPTOP_STAT_TEXT_AVERAGE]);
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[loc].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH, 0, statTxt, PERS_FONT, &sX, &sY);
-				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), statTxt);
+				mprintf(sX, (pPersonnelScreenPoints[loc].y + yOffset), L"%s", statTxt);
 			}
 		}
 	}
@@ -2383,41 +2092,18 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 
 void SetPersonnelButtonStates( void )
 {
-	// this function will look at what page we are viewing, enable and disable buttons as needed
-
-	if( ! PrevPersonnelFace( ) )
+	const std::size_t count = fCurrentTeamMode
+		? currentTeamList.size() : gDepartedRoster.size();
+	if (count > 1)
 	{
-		// first page, disable left buttons
-
-//		DisableButton( 	giPersonnelButton[ 2 ] );
-		DisableButton( 	giPersonnelButton[ 0 ] );
+		EnableButton(giPersonnelButton[0]);
+		EnableButton(giPersonnelButton[1]);
 	}
 	else
 	{
-		// enable buttons
-	NextPersonnelFace( );
-
-		// enable buttons
-//		EnableButton( giPersonnelButton[ 2 ] );
-		EnableButton( giPersonnelButton[ 0 ] );
+		DisableButton(giPersonnelButton[0]);
+		DisableButton(giPersonnelButton[1]);
 	}
-
-	if( ! NextPersonnelFace( ) )
-	{
-
-//		DisableButton( 	giPersonnelButton[ 3 ] );
-		DisableButton( 	giPersonnelButton[ 1 ] );
-	}
-	else
-	{
-	// decrement page
-	PrevPersonnelFace( );
-			// enable buttons
-//		EnableButton( giPersonnelButton[ 3 ] );
-		EnableButton( giPersonnelButton[ 1 ] );
-	}
-
-	return;
 }
 
 
@@ -2436,7 +2122,7 @@ void RenderPersonnelScreenBackground( void )
 }
 
 
-void LoadPersonnelScreenBackgroundGraphics( void )
+BOOLEAN LoadPersonnelScreenBackgroundGraphics(LaptopPageResourceOwner& owner)
 {
 	// will load the graphics for the personeel screen background
 	VOBJECT_DESC	VObjectDesc;
@@ -2444,62 +2130,25 @@ void LoadPersonnelScreenBackgroundGraphics( void )
 	// departed bar
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\departed.sti", VObjectDesc.ImageFile);
-	CHECKV(AddVideoObject(&VObjectDesc, &guiDEPARTEDTEAM));
+	if (!owner.addVideoObject(&VObjectDesc, guiDEPARTEDTEAM)) return FALSE;
 
 	// current bar
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\CurrentTeam.sti", VObjectDesc.ImageFile);
-	CHECKV(AddVideoObject(&VObjectDesc, &guiCURRENTTEAM));
-}
-
-void DeletePersonnelScreenBackgroundGraphics( void )
-{
-	// delete background V/O's
-
-	DeleteVideoObjectFromIndex( guiCURRENTTEAM );
-	DeleteVideoObjectFromIndex( guiDEPARTEDTEAM );
-
-}
-
-void CreateDestroyButtonsForPersonnelDepartures( void )
-{
-	static BOOLEAN fCreated = FALSE;
-
-	// create/ destroy personnel departures buttons as needed
-
-	// create button?..if not created
-	if( ( fCreatePeronnelDepartureButton == TRUE)&&( fCreated == FALSE ) )
-	{
-		fCreated = TRUE;
-	}
-	else if( ( fCreatePeronnelDepartureButton == FALSE ) && ( fCreated == TRUE ) )
-	{
-		fCreated = FALSE;
-	}
-
-
-	return;
+	if (!owner.addVideoObject(&VObjectDesc, guiCURRENTTEAM)) return FALSE;
+	return TRUE;
 }
 
 
 INT32 GetNumberOfMercsOnPlayersTeam( void )
 {
-	TacticalActor *pTeamSoldier;
-	INT32 cnt=0;
 	INT32 iCounter = 0;
-
-	// grab number on team
-	TacticalActor* pSoldier =
-		GetJa2SoldierRepository().resolve(0);
-	if ( !pSoldier )
-		return 0;
-
-	// no soldiers
-
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID;
-		cnt++ )
+	const SoldierID firstTeamId = gTacticalStatus.Team[OUR_TEAM].bFirstID;
+	const SoldierID lastTeamId = gTacticalStatus.Team[OUR_TEAM].bLastID;
+	for (INT32 rawId = firstTeamId.i; rawId <= lastTeamId.i; ++rawId)
 	{
-		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
+		const TacticalActor* pTeamSoldier =
+			GetJa2SoldierRepository().resolve(rawId);
 		if( pTeamSoldier && ( pTeamSoldier->roster().active()) &&
 			!( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pTeamSoldier->vitals().health() > 0 ) )
@@ -2510,38 +2159,17 @@ INT32 GetNumberOfMercsOnPlayersTeam( void )
 }
 
 
-void	CreateDestroyMouseRegionsForPersonnelPortraits( void )
+BOOLEAN CreatePersonnelPortraitMouseRegions(LaptopPageResourceOwner& owner)
 {
-	// creates/ destroys mouse regions for portraits
-
-	static BOOLEAN fCreated = FALSE;
-	INT16 sCounter = 0;
-
-	if( ( fCreated == FALSE )&&( fCreatePersonnelPortraitMouseRegions == TRUE ) )
+	for (INT16 sCounter = 0;
+		sCounter < PERSONNEL_PORTRAIT_NUMBER; ++sCounter)
 	{
-		// create regions
-		for( sCounter = 0; sCounter < PERSONNEL_PORTRAIT_NUMBER; sCounter++ )
-		{
-			MSYS_DefineRegion(&gPortraitMouseRegions[ sCounter ], ( INT16 ) ( SMALL_PORTRAIT_START_X + ( sCounter % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH ), ( INT16 ) ( SMALL_PORTRAIT_START_Y +	( sCounter / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT ) , ( INT16 ) ( ( SMALL_PORTRAIT_START_X ) + ( ( sCounter % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH )	+	SMALL_PORTRAIT_WIDTH ) , ( INT16 )( SMALL_PORTRAIT_START_Y + ( sCounter / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT + SMALL_PORTRAIT_HEIGHT ),
+		MSYS_DefineRegion(&gPortraitMouseRegions[ sCounter ], ( INT16 ) ( SMALL_PORTRAIT_START_X + ( sCounter % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH ), ( INT16 ) ( SMALL_PORTRAIT_START_Y +	( sCounter / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT ) , ( INT16 ) ( ( SMALL_PORTRAIT_START_X ) + ( ( sCounter % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH )	+	SMALL_PORTRAIT_WIDTH ) , ( INT16 )( SMALL_PORTRAIT_START_Y + ( sCounter / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT + SMALL_PORTRAIT_HEIGHT ),
 		 MSYS_PRIORITY_HIGHEST,CURSOR_LAPTOP_SCREEN, MSYS_NO_CALLBACK, PersonnelPortraitCallback);
-			MSYS_SetRegionUserData( &gPortraitMouseRegions[ sCounter ] ,0 , sCounter );
-			MSYS_AddRegion( &gPortraitMouseRegions[ sCounter ] );
-		}
-
-		fCreated = TRUE;
-
+		MSYS_SetRegionUserData( &gPortraitMouseRegions[ sCounter ] ,0 , sCounter );
+		if (!owner.addRegion(gPortraitMouseRegions[sCounter])) return FALSE;
 	}
-	else if( ( fCreated == TRUE ) && ( fCreatePersonnelPortraitMouseRegions == FALSE ) )
-	{
-		// destroy regions
-		for( sCounter = 0; sCounter < PERSONNEL_PORTRAIT_NUMBER; sCounter++ )
-		{
-		MSYS_RemoveRegion( &gPortraitMouseRegions[ sCounter ] );
-		}
-
-		fCreated = FALSE;
-	}
-	return;
+	return TRUE;
 }
 
 
@@ -2549,65 +2177,55 @@ void	CreateDestroyMouseRegionsForPersonnelPortraits( void )
 // Will display the MAX_MERCS_ON_SCREEN small portraits of the current team
 void DisplayPicturesOfCurrentTeam( void )
 {
-	if (!fCurrentTeamMode)
-		return;
-
-	// No one on team, just leave
-	if (maxCurrentTeamIndex == -1)
-		return;
+	if (!fCurrentTeamMode || currentTeamList.empty()) return;
 
 	char sTemp[100];
 	HVOBJECT hFaceHandle;
 	VOBJECT_DESC	VObjectDesc;
 
-	int countOnScreen = 0;
-	for (int currentOnSreenIndex = currentTeamFirstIndex; 
-		 currentOnSreenIndex <= maxCurrentTeamIndex;
-		 ++currentOnSreenIndex) {
-		if (++countOnScreen > MAX_MERCS_ON_SCREEN) {
-			// Ran out of room...
-			return;
-		} // if
+	std::size_t countOnScreen = 0;
+	const std::size_t first = gCurrentRosterCursor.first();
+	for (std::size_t rosterIndex = first;
+		rosterIndex < currentTeamList.size() &&
+		countOnScreen < MAX_MERCS_ON_SCREEN;
+		++rosterIndex)
+	{
 
 		TacticalActor *pSoldier =
 			GetJa2SoldierRepository().resolve(
-				currentTeamList[currentOnSreenIndex].i);
+				currentTeamList[rosterIndex].i);
 		if ( !pSoldier )
 			continue;
-		
-		if ( pSoldier->identity().profile() >= 0 )
-		{
-			if ( gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP )
-			{
-				sprintf( sTemp, "%s%02d.sti", IMP_SMALL_FACES_DIR, gMercProfiles[pSoldier->identity().profile()].ubFaceIndex );
-			}
-			else
-			{
-				sprintf( sTemp, "%s%02d.sti", SMALL_FACES_DIR, gMercProfiles[pSoldier->identity().profile()].ubFaceIndex );
-			}
-		}
-		
+		const INT32 profileId = pSoldier->identity().profile();
+		if (!PersonnelRosterModel::IsValidProfileId(profileId, NUM_PROFILES))
+			continue;
+		const char* directory = gMercProfiles[profileId].Type == PROFILETYPE_IMP
+			? IMP_SMALL_FACES_DIR : SMALL_FACES_DIR;
+		snprintf(sTemp, sizeof(sTemp), "%s%02d.sti", directory,
+			gMercProfiles[profileId].ubFaceIndex);
+
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		FilenameForBPP(sTemp, VObjectDesc.ImageFile);
-		CHECKV(AddVideoObject(&VObjectDesc, &guiFACE));
+		UniqueVideoObjectHandle face = AddVideoObjectOwned(&VObjectDesc);
+		if (!face) continue;
+		const UINT32 faceHandle = face.get();
 
 		//Blt face to screen to
-		GetVideoObject(&hFaceHandle, guiFACE);
+		GetVideoObject(&hFaceHandle, faceHandle);
 
 		if (pSoldier->vitals().health() <= 0) {
 			hFaceHandle->pShades[ 0 ] = Create16BPPPaletteShaded( hFaceHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
 			//set the red pallete to the face
-			SetObjectHandleShade( guiFACE, 0 );
+			SetObjectHandleShade(faceHandle, 0);
 		} // if
 
-		BltVideoObject(FRAME_BUFFER, hFaceHandle, 0,( INT16 ) ( SMALL_PORTRAIT_START_X+ ( (countOnScreen-1) % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH ), ( INT16 ) ( SMALL_PORTRAIT_START_Y + ( (countOnScreen-1) / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT ), VO_BLT_SRCTRANSPARENCY,NULL);
+		BltVideoObject(FRAME_BUFFER, hFaceHandle, 0,( INT16 ) ( SMALL_PORTRAIT_START_X+ ( countOnScreen % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH ), ( INT16 ) ( SMALL_PORTRAIT_START_Y + ( countOnScreen / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT ), VO_BLT_SRCTRANSPARENCY,NULL);
 
 		if (pSoldier->vitals().health() <= 0)	{
 			//if the merc is dead, display it
-			DrawTextToScreen(AimPopUpText[AIM_MEMBER_DEAD], ( INT16 ) ( SMALL_PORTRAIT_START_X+ ( (countOnScreen-1) % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH ), ( INT16 ) ( SMALL_PORTRAIT_START_Y + ( (countOnScreen-1) / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT + SMALL_PORT_HEIGHT / 2 ), SMALL_PORTRAIT_WIDTH_NO_BORDERS, FONT10ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
+			DrawTextToScreen(AimPopUpText[AIM_MEMBER_DEAD], ( INT16 ) ( SMALL_PORTRAIT_START_X+ ( countOnScreen % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH ), ( INT16 ) ( SMALL_PORTRAIT_START_Y + ( countOnScreen / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT + SMALL_PORT_HEIGHT / 2 ), SMALL_PORTRAIT_WIDTH_NO_BORDERS, FONT10ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
 		} // if
-
-		DeleteVideoObjectFromIndex(guiFACE);
+		++countOnScreen;
 	}
 }
 
@@ -2615,42 +2233,34 @@ void DisplayPicturesOfCurrentTeam( void )
 
 void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason )
 {
-	INT32 iPortraitId = 0;
-	INT32 iOldPortraitId;
-
-	iPortraitId = MSYS_GetRegionUserData(pRegion, 0);
+	const INT32 iPortraitId = MSYS_GetRegionUserData(pRegion, 0);
+	if (iPortraitId < 0) return;
 
 	// callback handler for the minize region that is attatched to the laptop program icon
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
 		if (fCurrentTeamMode) {
-			if (iPortraitId + currentTeamFirstIndex > maxCurrentTeamIndex) {
-				return;
-			}
-			iOldPortraitId = currentTeamIndex - currentTeamFirstIndex;
-			currentTeamIndex = iPortraitId + currentTeamFirstIndex;
+			const std::size_t oldSelection = gCurrentRosterCursor.selected();
+			if (!gCurrentRosterCursor.selectVisible(
+				static_cast<std::size_t>(iPortraitId), currentTeamList.size())) return;
 			fReDrawScreenFlag = TRUE;
 			// if the selected merc is valid, and they are a POW, change to the inventory display
 			TacticalActor* selectedSoldier =
-				currentTeamIndex != -1
-					? GetJa2SoldierRepository().resolve(
-						currentTeamList[currentTeamIndex].i)
-					: NULL;
+				GetJa2SoldierRepository().resolve(
+					currentTeamList[gCurrentRosterCursor.selected()].i);
 			if( selectedSoldier &&
 				selectedSoldier->assignment().current() == ASSIGNMENT_POW &&
 				gubPersonnelInfoState == PERSONNEL_INV_BTN ) {
 				gubPersonnelInfoState = PERSONNEL_STAT_BTN;
 			}
-		} else {
-			if (iPortraitId >= GetNumberOfPastMercsOnPlayersTeam()) {
-				return;
+			if (oldSelection != gCurrentRosterCursor.selected())
+			{
+				uiCurrentInventoryIndex = 0;
+				guiSliderPosition = 0;
 			}
-			iOldPortraitId = iCurrentPersonSelectedId;
-			iCurrentPersonSelectedId = iPortraitId;
+		} else {
+			if (!gDepartedRosterCursor.selectVisible(
+				static_cast<std::size_t>(iPortraitId), gDepartedRoster.size())) return;
 			fReDrawScreenFlag = TRUE;
-			iCurPortraitId = iPortraitId;
-		}
-
-		if( iOldPortraitId != iPortraitId ) {
 			uiCurrentInventoryIndex = 0;
 			guiSliderPosition = 0;
 		}
@@ -2659,22 +2269,17 @@ void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	if( iReason & MSYS_CALLBACK_REASON_RBUTTON_UP )
 	{
 		if (fCurrentTeamMode) {
-			// valid portrait, set up id
-			if (iPortraitId + currentTeamFirstIndex > maxCurrentTeamIndex) {
-				// not a valid id, leave
-				return;
-			}
-
-			//if the user is rigt clicking on the same face
-			if (currentTeamIndex == iPortraitId + currentTeamFirstIndex) {
+			const std::size_t requested = gCurrentRosterCursor.first() +
+				static_cast<std::size_t>(iPortraitId);
+			if (requested == gCurrentRosterCursor.selected()) {
 				//increment the info page when the user right clicks
 				if( gubPersonnelInfoState < PERSONNEL_NUM_BTN-1 )
 					gubPersonnelInfoState++;
 				else
 					gubPersonnelInfoState = PERSONNEL_STAT_BTN;
 			}
-
-			currentTeamIndex = iPortraitId + currentTeamFirstIndex;
+			if (!gCurrentRosterCursor.selectVisible(
+				static_cast<std::size_t>(iPortraitId), currentTeamList.size())) return;
 			fReDrawScreenFlag = TRUE;
 
 			uiCurrentInventoryIndex = 0;
@@ -2682,10 +2287,8 @@ void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 			//if the selected merc is valid, and they are a POW, change to the inventory display
 			TacticalActor* selectedSoldier =
-				currentTeamIndex != -1
-					? GetJa2SoldierRepository().resolve(
-						currentTeamList[currentTeamIndex].i)
-					: NULL;
+				GetJa2SoldierRepository().resolve(
+					currentTeamList[gCurrentRosterCursor.selected()].i);
 			if( selectedSoldier &&
 				selectedSoldier->assignment().current() == ASSIGNMENT_POW &&
 				gubPersonnelInfoState == PERSONNEL_INV_BTN) {
@@ -2699,42 +2302,41 @@ void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason )
 void DisplayFaceOfDisplayedMerc( )
 {
 	// if showing inventory, leave
-	if (fCurrentTeamMode) 
+	if (fCurrentTeamMode)
 	{
-		if (currentTeamIndex == -1) 
-		{
-			return;
-		}
+		if (!gCurrentRosterCursor.hasSelection() ||
+			gCurrentRosterCursor.selected() >= currentTeamList.size()) return;
+		const SoldierID selectedId =
+			currentTeamList[gCurrentRosterCursor.selected()];
 		DisplayHighLightBox();
-		RenderPersonnelFace(-1, currentTeamList[currentTeamIndex], FALSE, FALSE, FALSE );
-		DisplayCharName(currentTeamList[currentTeamIndex], 0 );
+		RenderPersonnelFace(-1, selectedId, FALSE, FALSE, FALSE );
+		DisplayCharName(selectedId, 0 );
 		if ( gubPersonnelInfoState == PERSONNEL_INV_BTN )
 		{
 			return;
 		}
 
-		RenderPersonnelStats(currentTeamList[currentTeamIndex], 0 );
-	} 
-	else 
+		RenderPersonnelStats(selectedId, 0 );
+	}
+	else
 	{
-		if (iCurrentPersonSelectedId == -1) 
-		{
-			return;
-		}
+		const auto* departed = SelectedDepartedEntry();
+		if (!departed) return;
 
 		DisplayHighLightBox();
-
-		// Hier dürfte der Aufruf falsch sein
-
-		RenderPersonnelFace(	GetIdOfPastMercInSlot( iCurrentPersonSelectedId ), 0, IsPastMercDead( iCurrentPersonSelectedId ), IsPastMercFired( iCurrentPersonSelectedId ), IsPastMercOther( iCurrentPersonSelectedId ) );
-		DisplayDepartedCharName(	GetIdOfPastMercInSlot( iCurrentPersonSelectedId ), 0, GetTheStateOfDepartedMerc( GetIdOfPastMercInSlot( iCurrentPersonSelectedId	) ) );
+		const INT32 state = static_cast<INT32>(departed->state);
+		RenderPersonnelFace(departed->profileId, 0,
+			departed->state == PersonnelRosterModel::DepartedState::Dead,
+			departed->state == PersonnelRosterModel::DepartedState::Fired,
+			departed->state == PersonnelRosterModel::DepartedState::Other);
+		DisplayDepartedCharName(departed->profileId, 0, state);
 		
 		if ( gubPersonnelInfoState == PERSONNEL_INV_BTN )
 		{
 			return;
 		}
 		
-		DisplayDepartedCharStats( GetIdOfPastMercInSlot( iCurrentPersonSelectedId ), 0, GetTheStateOfDepartedMerc( GetIdOfPastMercInSlot( iCurrentPersonSelectedId	) ) );
+		DisplayDepartedCharStats(departed->profileId, 0, state);
 	}
 }
 
@@ -2747,28 +2349,24 @@ void DisplayInventoryForSelectedChar( void )
 
 	CreateDestroyPersonnelInventoryScrollButtons( );
 
-	if (fCurrentTeamMode) {
-		RenderInventoryForCharacter (currentTeamList[currentTeamIndex], 0 );
-	} else {
-		RenderInventoryForCharacter (GetIdOfPastMercInSlot(iCurrentPersonSelectedId), 0 );
-	}
+	if (!fCurrentTeamMode || !gCurrentRosterCursor.hasSelection() ||
+		gCurrentRosterCursor.selected() >= currentTeamList.size()) return;
+	RenderInventoryForCharacter(
+		currentTeamList[gCurrentRosterCursor.selected()], 0);
 }
 
 void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 {
-	UINT8 ubCounter = 0;
 	TacticalActor *pSoldier;
-	INT16 sIndex;
 	HVOBJECT hHandle;
 	ETRLEObject	*pTrav;
 	INVTYPE			*pItem;
 	INT16				PosX, PosY, sCenX, sCenY;
 	UINT32			usHeight, usWidth;
-	UINT8 ubItemCount = 0;
-	UINT8 ubUpToCount = 0;
+	std::size_t ubItemCount = 0;
+	std::size_t ubUpToCount = 0;
 	INT16 sX, sY;
 	CHAR16 sString[ 128 ];
-	INT32 cnt = 0;
 	INT32 iTotalAmmo = 0;
 
 	GetVideoObject(&hHandle, guiPersonnelInventory);
@@ -2777,11 +2375,7 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 	// SANDRO - remove the regions
 	for( INT8 i = 0; i < 13; i++ )
 	{
-		if( fAddedTraitRegion[i] )
-		{
-			MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[i] );
-			fAddedTraitRegion[i] = FALSE;
-		}
+		ClearPersonnelTraitRegion(i);
 	}
 
 	if (!fCurrentTeamMode) {
@@ -2801,8 +2395,8 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 		return;
 	}
 
-	UINT8 invsize = pSoldier->inventory().size();
-	for( ubCounter = 0; ubCounter < invsize; ++ubCounter )
+	const std::size_t invsize = pSoldier->inventory().size();
+	for (std::size_t ubCounter = 0; ubCounter < invsize; ++ubCounter)
 	{
 		PosX = iScreenWidthOffset + 397 + 3;
 		PosY = iScreenHeightOffset + 200 + 8 +( ubItemCount * ( 29 ) );
@@ -2815,7 +2409,8 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 			continue;
 		}
 
-		if( pSoldier->inventory()[ ubCounter ].exists() == true )
+		const auto& object = pSoldier->inventory()[ubCounter];
+		if (object.exists())
 		{
 			if( uiCurrentInventoryIndex > ubUpToCount )
 			{
@@ -2823,11 +2418,17 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 			}
 			else
 			{
-				sIndex = ( pSoldier->inventory()[ ubCounter ].usItem );
-				pItem = &Item[ sIndex ];
+				const UINT16 itemIndex = object.usItem;
+				if (!PersonnelRosterModel::IsValidIndex(itemIndex, MAXITEMS))
+					continue;
+				pItem = &Item[itemIndex];
 
-				GetVideoObject( &hHandle, GetInterfaceGraphicForItem( pItem ) );
+				const UINT32 interfaceGraphic = GetInterfaceGraphicForItem(pItem);
+				if (!GetVideoObject(&hHandle, interfaceGraphic) || !hHandle)
+					continue;
 				UINT16 usGraphicNum = g_bUsePngItemImages ? 0 : pItem->ubGraphicNum;
+				if (usGraphicNum >= hHandle->usNumberOfObjects ||
+					!hHandle->pETRLEObject) continue;
 				pTrav = &(hHandle->pETRLEObject[ usGraphicNum ] );
 
 				usHeight				= (UINT32)pTrav->usHeight;
@@ -2837,10 +2438,10 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 				sCenY = PosY + ( abs( 22 - (int)usHeight ) / 2 ) - pTrav->sOffsetY;
 
 				// shadow
-				if(gGameSettings.fOptions[ TOPTION_SHOW_ITEM_SHADOW ]) BltVideoObjectOutlineShadowFromIndex( FRAME_BUFFER, GetInterfaceGraphicForItem( pItem ), usGraphicNum, sCenX-2, sCenY+2);
+				if(gGameSettings.fOptions[ TOPTION_SHOW_ITEM_SHADOW ]) BltVideoObjectOutlineShadowFromIndex( FRAME_BUFFER, interfaceGraphic, usGraphicNum, sCenX-2, sCenY+2);
 
 				//blt the item
-				BltVideoObjectOutlineFromIndex( FRAME_BUFFER, GetInterfaceGraphicForItem( pItem ), usGraphicNum, sCenX, sCenY, 0, FALSE );
+				BltVideoObjectOutlineFromIndex( FRAME_BUFFER, interfaceGraphic, usGraphicNum, sCenX, sCenY, 0, FALSE );
 
 				SetFont( FONT10ARIAL );
 				SetFontForeground( FONT_WHITE );
@@ -2848,7 +2449,7 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 				SetFontDestBuffer( FRAME_BUFFER, 0,0,SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
 
 				// grab item name
-				LoadItemInfo(sIndex, sString, NULL );
+				LoadItemInfo(itemIndex, sString, NULL );
 
 				// shorten if needed
 				if( StringPixLength( sString, FONT10ARIAL) > ( 171 - 75 ) )
@@ -2857,25 +2458,29 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 				}
 
 				// print name
-				mprintf( PosX + 65, PosY + 3, sString );
+				mprintf(PosX + 65, PosY + 3, L"%s", sString);
 
 				// condition
-				if ( Item[pSoldier->inventory()[ ubCounter ].usItem ].usItemClass & IC_AMMO )
+				if (pItem->usItemClass & IC_AMMO)
 				{
 					// Ammo
 					iTotalAmmo = 0;
-					for( cnt = 0; cnt < pSoldier->inventory()[ ubCounter ].ubNumberOfObjects; cnt++ )
+					for (UINT8 cnt = 0; cnt < object.ubNumberOfObjects; ++cnt)
 					{
 						// get total ammo
-						iTotalAmmo += pSoldier->inventory()[ ubCounter ][cnt]->data.ubShotsLeft;
+						iTotalAmmo += object[cnt]->data.ubShotsLeft;
 					}
-					swprintf( sString, L"%d/%d", iTotalAmmo, ( pSoldier->inventory()[ ubCounter ].ubNumberOfObjects * Magazine[ Item[pSoldier->inventory()[ ubCounter ].usItem ].ubClassIndex ].ubMagSize ) );
+					const UINT16 classIndex = pItem->ubClassIndex;
+					const UINT32 capacity = PersonnelRosterModel::IsValidIndex(
+						classIndex, MAXITEMS + 1)
+						? object.ubNumberOfObjects * Magazine[classIndex].ubMagSize : 0;
+					sgp_swprintf(sString, 128, L"%d/%u", iTotalAmmo, capacity);
 					FindFontRightCoordinates( ( INT16 )( PosX + 65 ), ( INT16 ) ( PosY + 15 ), ( INT16 ) ( 171 - 75 ),
 					( INT16 )( GetFontHeight( FONT10ARIAL ) ), sString, FONT10ARIAL, &sX, &sY );
 				}
 				else
 				{
-						swprintf( sString, L"%2d%%%%", pSoldier->inventory()[ ubCounter ][0]->data.objectStatus );
+						sgp_swprintf(sString, 128, L"%2d%%%%", object[0]->data.objectStatus);
 						FindFontRightCoordinates( ( INT16 )( PosX + 65 ), ( INT16 ) ( PosY + 15 ), ( INT16 ) ( 171 - 75 ),
 							( INT16 )( GetFontHeight( FONT10ARIAL ) ), sString, FONT10ARIAL, &sX, &sY );
 
@@ -2884,11 +2489,17 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 
 
 
-				mprintf( sX, sY, sString );
+				mprintf(sX, sY, L"%s", sString);
 
-				if ( Item[pSoldier->inventory()[ ubCounter ].usItem ].usItemClass & IC_GUN )
+				if (pItem->usItemClass & IC_GUN)
 				{
-					swprintf( sString, L"%s", AmmoCaliber[ Weapon[ Item[	pSoldier->inventory()[ ubCounter ].usItem ].ubClassIndex ].ubCalibre ]);
+					const UINT16 classIndex = pItem->ubClassIndex;
+					if (!PersonnelRosterModel::IsValidIndex(classIndex, MAXITEMS))
+						continue;
+					const UINT8 calibre = Weapon[classIndex].ubCalibre;
+					if (!PersonnelRosterModel::IsValidIndex(calibre, MAXITEMS))
+						continue;
+					sgp_swprintf(sString, 128, L"%s", AmmoCaliber[calibre]);
 
 					// shorten if needed
 					if( StringPixLength( sString, FONT10ARIAL) > ( 171 - 75 ) )
@@ -2897,18 +2508,18 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 					}
 
 					// print name
-					mprintf( PosX + 65, PosY + 15 , sString );
+					mprintf(PosX + 65, PosY + 15, L"%s", sString);
 
 
 				}
 
 				// if more than 1?
-				if( pSoldier->inventory()[ ubCounter ].ubNumberOfObjects > 1 )
+				if (object.ubNumberOfObjects > 1)
 				{
-					swprintf( sString, L"x%d",	pSoldier->inventory()[ ubCounter ].ubNumberOfObjects );
+					sgp_swprintf(sString, 128, L"x%d", object.ubNumberOfObjects);
 					FindFontRightCoordinates( ( INT16 )( PosX ), ( INT16 ) ( PosY + 15 ), ( INT16 ) ( 58 ),
 						( INT16 )( GetFontHeight( FONT10ARIAL ) ), sString, FONT10ARIAL, &sX, &sY );
-					mprintf( sX, sY, sString );
+					mprintf(sX, sY, L"%s", sString);
 				}
 
 				// display info about it
@@ -3026,6 +2637,11 @@ void EnableDisableInventoryScrollButtons( void )
 		return;
 	}
 
+	const std::size_t itemCount = static_cast<std::size_t>(
+		std::max(GetNumberOfInventoryItemsOnCurrentMerc(), 0));
+	uiCurrentInventoryIndex = static_cast<UINT8>(
+		PersonnelRosterModel::NormalizeWindowStart(uiCurrentInventoryIndex,
+			itemCount, NUMBER_OF_INVENTORY_PERSONNEL));
 	if( uiCurrentInventoryIndex == 0 )
 	{
 		ButtonList[ giPersonnelInventoryButtons[ 0 ] ]->uiFlags &= ~( BUTTON_CLICKED_ON );
@@ -3037,7 +2653,8 @@ void EnableDisableInventoryScrollButtons( void )
 	}
 
 
-	if( ( INT32 )uiCurrentInventoryIndex >= ( INT32 )( GetNumberOfInventoryItemsOnCurrentMerc( ) - NUMBER_OF_INVENTORY_PERSONNEL ) )
+	if (!PersonnelRosterModel::CanScrollWindowDown(uiCurrentInventoryIndex,
+		itemCount, NUMBER_OF_INVENTORY_PERSONNEL))
 	{
 		ButtonList[ giPersonnelInventoryButtons[ 1 ] ]->uiFlags &= ~( BUTTON_CLICKED_ON );
 		DisableButton( giPersonnelInventoryButtons[ 1 ] );
@@ -3054,12 +2671,13 @@ void EnableDisableInventoryScrollButtons( void )
 INT32 GetNumberOfInventoryItemsOnCurrentMerc( void )
 {
 	// in current team mode?..nope...move on
-	if (!fCurrentTeamMode)
+	if (!fCurrentTeamMode || !gCurrentRosterCursor.hasSelection() ||
+		gCurrentRosterCursor.selected() >= currentTeamList.size())
 		return( 0 );
 
 	TacticalActor *pSoldier =
 		GetJa2SoldierRepository().resolve(
-			currentTeamList[currentTeamIndex].i);
+			currentTeamList[gCurrentRosterCursor.selected()].i);
 	if ( !pSoldier )
 		return 0;
 
@@ -3076,21 +2694,26 @@ INT32 GetNumberOfInventoryItemsOnCurrentMerc( void )
 
 void CreateDestroyPersonnelInventoryScrollButtons( void )
 {
-	static BOOLEAN fCreated = FALSE;
-
-//	if( ( fShowInventory == TRUE ) && ( fCreated == FALSE ) )
-	if ( (gubPersonnelInfoState == PERSONNEL_INV_BTN) && (fCreated == FALSE) )
+	const bool shouldCreate = fCurrentTeamMode &&
+		gubPersonnelInfoState == PERSONNEL_INV_BTN;
+	if (shouldCreate && gPersonnelInventoryResources.empty())
 	{
-		// create buttons
-		giPersonnelInventoryButtonsImages[ 0 ]=	LoadButtonImage( "LAPTOP\\personnel_inventory.sti" ,-1,1,-1,2,-1 );
-	giPersonnelInventoryButtons[ 0 ] = QuickCreateButton( giPersonnelInventoryButtonsImages[0], iScreenWidthOffset + 176 + 397, iScreenHeightOffset + 2 + 200,
+		LaptopPageResourceOwner staged;
+		if (!staged.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\personnel_inventory.sti", -1, 1, -1, 2, -1),
+			giPersonnelInventoryButtonsImages[0])) return;
+		if (!staged.addButton(QuickCreateButton( giPersonnelInventoryButtonsImages[0], iScreenWidthOffset + 176 + 397, iScreenHeightOffset + 2 + 200,
 					 BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-											BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)InventoryUpButtonCallback);
+											BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)InventoryUpButtonCallback),
+			giPersonnelInventoryButtons[0])) return;
 
-		giPersonnelInventoryButtonsImages[ 1 ]=	LoadButtonImage( "LAPTOP\\personnel_inventory.sti" ,-1,3,-1,4,-1 );
-	giPersonnelInventoryButtons[ 1 ] = QuickCreateButton( giPersonnelInventoryButtonsImages[1], iScreenWidthOffset + 397 + 176, iScreenHeightOffset + 200 + 223,
+		if (!staged.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\personnel_inventory.sti", -1, 3, -1, 4, -1),
+			giPersonnelInventoryButtonsImages[1])) return;
+		if (!staged.addButton(QuickCreateButton( giPersonnelInventoryButtonsImages[1], iScreenWidthOffset + 397 + 176, iScreenHeightOffset + 200 + 223,
 					 BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-											BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)InventoryDownButtonCallback);
+											BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)InventoryDownButtonCallback),
+			giPersonnelInventoryButtons[1])) return;
 
 			// set up cursors for these buttons
 		SetButtonCursor( giPersonnelInventoryButtons[ 0 ], CURSOR_LAPTOP_SCREEN);
@@ -3098,21 +2721,12 @@ void CreateDestroyPersonnelInventoryScrollButtons( void )
 
 		MSYS_DefineRegion( &gMouseScrollPersonnelINV, X_OF_PERSONNEL_SCROLL_REGION, Y_OF_PERSONNEL_SCROLL_REGION, X_OF_PERSONNEL_SCROLL_REGION + X_SIZE_OF_PERSONNEL_SCROLL_REGION, Y_OF_PERSONNEL_SCROLL_REGION + Y_SIZE_OF_PERSONNEL_SCROLL_REGION,
 			MSYS_PRIORITY_HIGHEST - 3, CURSOR_LAPTOP_SCREEN, MSYS_NO_CALLBACK, HandleSliderBarClickCallback );
-
-		fCreated = TRUE;
+		if (!staged.addRegion(gMouseScrollPersonnelINV)) return;
+		gPersonnelInventoryResources = std::move(staged);
 	}
-//	else if( ( fCreated == TRUE ) && ( fShowInventory == FALSE ) )
-	else if( ( fCreated == TRUE ) && ( gubPersonnelInfoState != PERSONNEL_INV_BTN ) )
+	else if (!shouldCreate && !gPersonnelInventoryResources.empty())
 	{
-		// destroy buttons
-		RemoveButton(giPersonnelInventoryButtons[0] );
-	UnloadButtonImage(giPersonnelInventoryButtonsImages[0] );
-	RemoveButton(giPersonnelInventoryButtons[1] );
-	UnloadButtonImage(giPersonnelInventoryButtonsImages[1] );
-
-		MSYS_RemoveRegion( &gMouseScrollPersonnelINV );
-
-		fCreated = FALSE;
+		gPersonnelInventoryResources.clear();
 	}
 }
 
@@ -3128,15 +2742,16 @@ void DisplayNumberOnCurrentTeam( void )
 	SetFontForeground( PERS_TEXT_FONT_COLOR );
 
 	if (fCurrentTeamMode) {
-		swprintf( sString, L"%s ( %d )", pPersonelTeamStrings[ 0 ], maxCurrentTeamIndex+1 );
+		sgp_swprintf(sString, 32, L"%s ( %zu )",
+			pPersonelTeamStrings[0], currentTeamList.size());
 		sX = PERS_CURR_TEAM_X;
 	} else {
-		swprintf( sString, L"%s", pPersonelTeamStrings[ 0 ] );
+		sgp_swprintf(sString, std::size(sString), L"%s", pPersonelTeamStrings[ 0 ] );
 
 		FindFontCenterCoordinates( PERS_CURR_TEAM_X, 0, 65, 0,sString, FONT10ARIAL, &sX, &sY );
 	}
 
-	mprintf( sX, PERS_CURR_TEAM_Y, sString );
+	mprintf( sX, PERS_CURR_TEAM_Y, L"%s", sString );
 
 	// now the cost of the current team, if applicable
 	DisplayCostOfCurrentTeam( );
@@ -3155,193 +2770,57 @@ void DisplayNumberDeparted( void )
 	SetFontForeground( PERS_TEXT_FONT_COLOR );
 
 	if (!fCurrentTeamMode) {
-		swprintf( sString, L"%s ( %d )", pPersonelTeamStrings[ 1 ], GetNumberOfPastMercsOnPlayersTeam( ) );
+		sgp_swprintf(sString, std::size(sString), L"%s ( %d )", pPersonelTeamStrings[ 1 ], GetNumberOfPastMercsOnPlayersTeam( ) );
 		sX = PERS_CURR_TEAM_X;
 	} else {
-		swprintf( sString, L"%s", pPersonelTeamStrings[ 1 ] );
+		sgp_swprintf(sString, std::size(sString), L"%s", pPersonelTeamStrings[ 1 ] );
 		FindFontCenterCoordinates( PERS_CURR_TEAM_X, 0, 65, 0,sString, FONT10ARIAL, &sX, &sY );
 	}
 
-	mprintf( sX, PERS_DEPART_TEAM_Y, sString );
+	mprintf( sX, PERS_DEPART_TEAM_Y, L"%s", sString );
 }
 
 
 INT32 GetTotalDailyCostOfCurrentTeam( void )
 {
-	// will return the total daily cost of the current team
-
-	TacticalActor *pSoldier;
-	INT32 cnt=0;
-	INT32 iCostOfTeam = 0;
-
-	// run through active soldiers
-	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
+	std::uint64_t total = 0;
+	for (const SoldierID id : currentTeamList)
 	{
-		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-
-		if( pSoldier && ( pSoldier->roster().active()) &&
-			( pSoldier->vitals().health() > 0 ) )
-		{
-			// valid soldier, get cost
-			if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
-			{
-				// daily rate
-				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
-				{
-					// 2 week contract
-				iCostOfTeam += gMercProfiles[pSoldier->identity().profile()].uiBiWeeklySalary / 14;
-				}
-				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
-				{
-					// 1 week contract
-				iCostOfTeam += gMercProfiles[ pSoldier->identity().profile() ].uiWeeklySalary / 7 ;
-				}
-				else
-				{
-
-					iCostOfTeam += gMercProfiles[ pSoldier->identity().profile() ].sSalary;
-				}
-			}
-			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
-			{
-				// MERC Merc
-				iCostOfTeam += gMercProfiles[ pSoldier->identity().profile() ].sSalary;
-			}
-			else
-			{
-					// no cost
-				iCostOfTeam += 0;
-			}
-		}
+		const TacticalActor* soldier = GetJa2SoldierRepository().resolve(id.i);
+		if (!soldier || !soldier->roster().active() ||
+			soldier->status().flags() & SOLDIER_VEHICLE ||
+			soldier->vitals().health() <= 0) continue;
+		total += static_cast<std::uint64_t>(DailyCostFor(soldier));
 	}
-	return iCostOfTeam;
+	return PersonnelRosterModel::ClampCurrency(total);
 }
 
 INT32 GetLowestDailyCostOfCurrentTeam( void )
 {
-	// will return the lowest daily cost of the current team
-
-	TacticalActor *pSoldier;
-	INT32 cnt=0;
-	INT32 iLowest = 999999;
-//	INT32 iId =0;
-	INT32 iCost = 0;
-
-	// run through active soldiers
-	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
+	INT32 lowest = std::numeric_limits<INT32>::max();
+	for (const SoldierID id : currentTeamList)
 	{
-		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-
-		if( pSoldier && ( pSoldier->roster().active() ) &&
-			!( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
-			( pSoldier->vitals().health() > 0 ) )
-		{
-			// valid soldier, get cost
-			if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
-			{
-				// daily rate
-				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
-				{
-					// 2 week contract
-				iCost = gMercProfiles[ pSoldier->identity().profile() ].uiBiWeeklySalary / 14;
-				}
-				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
-				{
-					// 1 week contract
-				iCost = gMercProfiles[ pSoldier->identity().profile() ].uiWeeklySalary / 7 ;
-				}
-				else
-				{
-
-					iCost = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
-				}
-			}
-			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
-			{
-				// MERC Merc
-				iCost = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
-			}
-			else
-			{
-					// no cost
-				iCost = 0;
-			}
-
-			if( iCost <= iLowest )
-			{
-				iLowest = iCost;
-			}
-		}
-
-		}
-
-	// if no mercs, send 0
-	if( iLowest == 999999 )
-	{
-		iLowest = 0;
+		const TacticalActor* soldier = GetJa2SoldierRepository().resolve(id.i);
+		if (!soldier || !soldier->roster().active() ||
+			soldier->status().flags() & SOLDIER_VEHICLE ||
+			soldier->vitals().health() <= 0) continue;
+		lowest = std::min(lowest, DailyCostFor(soldier));
 	}
-	
-	return iLowest;
+	return lowest == std::numeric_limits<INT32>::max() ? 0 : lowest;
 }
 
 INT32 GetHighestDailyCostOfCurrentTeam( void )
 {
-	// will return the lowest daily cost of the current team
-
-	TacticalActor *pSoldier;
-	INT32 cnt=0;
-	INT32 iHighest = 0;
-//	INT32 iId =0;
-	INT32 iCost = 0;
-
-	// run through active soldiers
-	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++)
+	INT32 highest = 0;
+	for (const SoldierID id : currentTeamList)
 	{
-		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-
-		if( pSoldier && ( pSoldier->roster().active()) &&
-			!( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
-			( pSoldier->vitals().health() > 0 ) )
-		{
-			// valid soldier, get cost
-			if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
-			{
-				// daily rate
-				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
-				{
-					// 2 week contract
-				iCost = gMercProfiles[ pSoldier->identity().profile() ].uiBiWeeklySalary / 14;
-				}
-				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK	)
-				{
-					// 1 week contract
-				iCost = gMercProfiles[ pSoldier->identity().profile() ].uiWeeklySalary / 7 ;
-				}
-				else
-				{
-
-					iCost = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
-				}
-			}
-			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
-			{
-				// MERC Merc
-				iCost = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
-			}
-			else
-			{
-					// no cost
-				iCost = 0;
-			}
-			
-			if( iCost >= iHighest )
-			{
-				iHighest = iCost;
-			}
-		}
-
-		}
-	return iHighest;
+		const TacticalActor* soldier = GetJa2SoldierRepository().resolve(id.i);
+		if (!soldier || !soldier->roster().active() ||
+			soldier->status().flags() & SOLDIER_VEHICLE ||
+			soldier->vitals().health() <= 0) continue;
+		highest = std::max(highest, DailyCostFor(soldier));
+	}
+	return highest;
 }
 
 void DisplayCostOfCurrentTeam( void )
@@ -3357,28 +2836,28 @@ void DisplayCostOfCurrentTeam( void )
 	if (fCurrentTeamMode) {
 		std::wstring sString{};
 		// daily cost
-		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_COST_Y, pPersonelTeamStrings[ 2 ] );
+		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_COST_Y, L"%s", pPersonelTeamStrings[ 2 ] );
 
 		sString = FormatMoney( GetTotalDailyCostOfCurrentTeam( ) );
 		FindFontRightCoordinates((INT16)(PERS_CURR_TEAM_COST_X),0,PERS_CURR_TEAM_WIDTH,0,sString.data(), PERS_FONT, &sX, &sY);
 
-		mprintf( sX ,PERS_CURR_TEAM_COST_Y, sString.data() );
+		mprintf( sX ,PERS_CURR_TEAM_COST_Y, L"%s", sString.data() );
 
 		// highest cost
-		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_HIGHEST_Y, pPersonelTeamStrings[ 3 ] );
+		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_HIGHEST_Y, L"%s", pPersonelTeamStrings[ 3 ] );
 
 		sString = FormatMoney( GetHighestDailyCostOfCurrentTeam( ) );
 		FindFontRightCoordinates((INT16)(PERS_CURR_TEAM_COST_X),0,PERS_CURR_TEAM_WIDTH,0,sString.data(), PERS_FONT, &sX, &sY);
 
-		mprintf( sX ,PERS_CURR_TEAM_HIGHEST_Y, sString.data() );
+		mprintf( sX ,PERS_CURR_TEAM_HIGHEST_Y, L"%s", sString.data() );
 
 		// the lowest cost
-		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_LOWEST_Y, pPersonelTeamStrings[ 4 ] );
+		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_LOWEST_Y, L"%s", pPersonelTeamStrings[ 4 ] );
 
 		sString = FormatMoney( GetLowestDailyCostOfCurrentTeam( ) );
 		FindFontRightCoordinates((INT16)(PERS_CURR_TEAM_COST_X),0,PERS_CURR_TEAM_WIDTH,0,sString.data(), PERS_FONT, &sX, &sY);
 
-		mprintf( sX ,PERS_CURR_TEAM_LOWEST_Y, sString.data() );
+		mprintf( sX ,PERS_CURR_TEAM_LOWEST_Y, L"%s", sString.data() );
 	}
 }
 
@@ -3389,51 +2868,11 @@ INT32 GetIdOfDepartedMercWithHighestStat( INT32 iStat )
 	INT32 iId = -1;
 	INT32 iValue =0;
 	MERCPROFILESTRUCT *pTeamSoldier;
-	INT32 cnt=0;
-	INT8 bCurrentList = 0;
-	INT16 *bCurrentListValue = LaptopSaveInfo.ubDeadCharactersList;
-	BOOLEAN fNotDone = TRUE;
 	TacticalActor *pSoldier;
-	UINT32 uiLoopCounter;
 
-	// run through active soldiers
-	for( uiLoopCounter=0; fNotDone ; uiLoopCounter++ )
+	for (const auto& entry : gDepartedRoster)
 	{
-		//if we are at the end of
-		if( uiLoopCounter == NUM_PROFILES && bCurrentList == 2 )
-		{
-			fNotDone = FALSE;
-			continue;
-		}
-
-		// check if we need to move to the next list
-		if( uiLoopCounter == NUM_PROFILES )
-		{
-			if( bCurrentList == 0 )
-			{
-				bCurrentList = 1;
-			bCurrentListValue = LaptopSaveInfo.ubLeftCharactersList;
-			}
-			else if( bCurrentList == 1 )
-			{
-				bCurrentList = 2;
-				bCurrentListValue = LaptopSaveInfo.ubOtherCharactersList;
-			}
-
-			//reset the loop counter
-			uiLoopCounter = 0;
-		}
-
-		// get the id of the grunt
-		cnt = *bCurrentListValue;
-
-		// do we need to reset the count?
-		if( cnt == -1 )
-		{
-			bCurrentListValue++;
-			continue;
-		}
-
+		const INT32 cnt = entry.profileId;
 		pTeamSoldier = &( gMercProfiles[ cnt ] );
 
 		switch( iStat )
@@ -3538,7 +2977,6 @@ INT32 GetIdOfDepartedMercWithHighestStat( INT32 iStat )
 			break;
 		}
 
-		bCurrentListValue++;
 	}
 	
 	return( iId );
@@ -3551,61 +2989,11 @@ INT32 GetIdOfDepartedMercWithLowestStat( INT32 iStat )
 	INT32 iId = -1;
 	INT32 iValue =9999999;
 	MERCPROFILESTRUCT *pTeamSoldier;
-	INT32 cnt=0;
-	INT8 bCurrentList = 0;
-	INT16 *bCurrentListValue = LaptopSaveInfo.ubDeadCharactersList;
-	BOOLEAN fNotDone = TRUE;
 	TacticalActor		*pSoldier;
-	UINT32 uiLoopCounter;
 
-	// run through active soldiers
-//	while( fNotDone )
-	for( uiLoopCounter=0; fNotDone ; uiLoopCounter++ )
+	for (const auto& entry : gDepartedRoster)
 	{
-/*
-		// check if we are in fact not done
-		if( ( bCurrentList == 2 ) && ( *bCurrentListValue == -1 ) )
-		{
-			fNotDone = FALSE;
-			continue;
-		}
-*/
-		//if we are at the end of
-		if( uiLoopCounter == NUM_PROFILES && bCurrentList == 2 )
-		{
-			fNotDone = FALSE;
-			continue;
-		}
-
-		// check if we need to move to the next list
-//		if( *bCurrentListValue == -1 )
-		if( uiLoopCounter == NUM_PROFILES )
-		{
-			if( bCurrentList == 0 )
-			{
-				bCurrentList = 1;
-			bCurrentListValue = LaptopSaveInfo.ubLeftCharactersList;
-			}
-			else if( bCurrentList == 1 )
-			{
-				bCurrentList = 2;
-				bCurrentListValue = LaptopSaveInfo.ubOtherCharactersList;
-			}
-
-			//reset the loop counter
-			uiLoopCounter = 0;
-		}
-
-		// get the id of the grunt
-		cnt = *bCurrentListValue;
-
-		// do we need to reset the count?
-		if( cnt == -1 )
-		{
-			bCurrentListValue++;
-			continue;
-		}
-
+		const INT32 cnt = entry.profileId;
 		pTeamSoldier = &( gMercProfiles[ cnt ] );
 
 
@@ -3710,7 +3098,6 @@ INT32 GetIdOfDepartedMercWithLowestStat( INT32 iStat )
 			break;
 		}
 
-		bCurrentListValue++;
 	}
 
 
@@ -3724,11 +3111,11 @@ SoldierID GetIdOfMercWithHighestStat( INT32 iStat )
 	INT32 iId = NOBODY;
 	INT32 iValue =0;
 	TacticalActor *pTeamSoldier;
-	INT32 cnt=0;
 
 	// run through active soldiers
-	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
+	for (const SoldierID id : currentTeamList)
 	{
+		const INT32 cnt = id.i;
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier && ( pTeamSoldier->roster().active()) &&
 			!( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) &&
@@ -3846,11 +3233,11 @@ SoldierID GetIdOfMercWithLowestStat( INT32 iStat )
 	SoldierID iId = NOBODY;
 	INT32 iValue =999999;
 	TacticalActor *pTeamSoldier;
-	INT32 cnt=0;
 
 	// run through active soldiers
-	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
+	for (const SoldierID id : currentTeamList)
 	{
+		const INT32 cnt = id.i;
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier && ( pTeamSoldier->roster().active()) &&
 			!( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) &&
@@ -3970,15 +3357,15 @@ INT32 GetAvgStatOfCurrentTeamStat( INT32 iStat )
 	// will return the id value of the merc on the players team with highest in this stat
 	// -1 means error
 	TacticalActor *pTeamSoldier;
-	INT32 cnt=0;
 	INT32 iTotalStatValue = 0;
 	INT8	bNumberOfPows = 0;
 	UINT8	ubNumberOfMercsInCalculation = 0;
 
 
 	// run through active soldiers
-	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
+	for (const SoldierID id : currentTeamList)
 	{
+		const INT32 cnt = id.i;
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( !pTeamSoldier )
 			continue;
@@ -4080,67 +3467,12 @@ INT32 GetAvgStatOfCurrentTeamStat( INT32 iStat )
 
 INT32 GetAvgStatOfPastTeamStat( INT32 iStat )
 {
-	// will return the id value of the merc on the players team with highest in this stat
-	// -1 means error
-	INT32 cnt=0;
 	INT32 iTotalStatValue = 0;
-	INT32 iId = -1;
 	MERCPROFILESTRUCT *pTeamSoldier;
-	INT8 bCurrentList = 0;
-	INT16 *bCurrentListValue = LaptopSaveInfo.ubDeadCharactersList;
-	BOOLEAN fNotDone = TRUE;
-	UINT32 uiLoopCounter;
 
-	// run through active soldiers
-
-	//while( fNotDone )
-	for( uiLoopCounter=0; fNotDone ; uiLoopCounter++ )
+	for (const auto& entry : gDepartedRoster)
 	{
-/*
-		// check if we are in fact not done
-		if( ( bCurrentList == 2 ) && ( *bCurrentListValue == -1 ) )
-		{
-			fNotDone = FALSE;
-			continue;
-		}
-*/
-
-		//if we are at the end of
-		if( uiLoopCounter == NUM_PROFILES && bCurrentList == 2 )
-		{
-			fNotDone = FALSE;
-			continue;
-		}
-
-		// check if we need to move to the next list
-//		if( *bCurrentListValue == -1 )
-		if( uiLoopCounter == NUM_PROFILES )
-		{
-			if( bCurrentList == 0 )
-			{
-				bCurrentList = 1;
-			bCurrentListValue = LaptopSaveInfo.ubLeftCharactersList;
-			}
-			else if( bCurrentList == 1 )
-			{
-				bCurrentList = 2;
-				bCurrentListValue = LaptopSaveInfo.ubOtherCharactersList;
-			}
-
-			//reset the loop counter
-			uiLoopCounter = 0;
-		}
-
-		// get the id of the grunt
-		cnt = *bCurrentListValue;
-
-		// do we need to reset the count?
-		if( cnt == -1 )
-		{
-			bCurrentListValue++;
-			continue;
-		}
-
+		const INT32 cnt = entry.profileId;
 		pTeamSoldier = &( gMercProfiles[ cnt ] );
 
 
@@ -4193,7 +3525,6 @@ INT32 GetAvgStatOfPastTeamStat( INT32 iStat )
 			case 7:
 			//mrkmanship
 
-					iId = cnt;
 					iTotalStatValue += pTeamSoldier->bMarksmanship;
 
 
@@ -4217,17 +3548,10 @@ INT32 GetAvgStatOfPastTeamStat( INT32 iStat )
 			break;
 		}
 
-		bCurrentListValue++;
 	}
 
-	if( GetNumberOfPastMercsOnPlayersTeam( ) > 0 )
-	{
-	return( iTotalStatValue / GetNumberOfPastMercsOnPlayersTeam( ) );
-	}
-	else
-	{
-		return( 0 );
-	}
+	return gDepartedRoster.empty() ? 0
+		: iTotalStatValue / static_cast<INT32>(gDepartedRoster.size());
 }
 
 void DisplayAverageStatValuesForCurrentTeam( void )
@@ -4247,11 +3571,11 @@ void DisplayAverageStatValuesForCurrentTeam( void )
 	// center
 	FindFontCenterCoordinates( PERS_STAT_AVG_X, 0 ,PERS_STAT_AVG_WIDTH, 0 , pPersonnelCurrentTeamStatsStrings[ 1 ], FONT10ARIAL , &sX, &sY );
 
-	mprintf( sX, PERS_STAT_AVG_Y, pPersonnelCurrentTeamStatsStrings[ 1 ] );
+	mprintf( sX, PERS_STAT_AVG_Y, L"%s", pPersonnelCurrentTeamStatsStrings[ 1 ] );
 
 	// nobody on team leave
 	if (fCurrentTeamMode) {
-		if (maxCurrentTeamIndex == -1) {
+		if (currentTeamList.empty()) {
 			return;
 		}
 	} else  {
@@ -4278,18 +3602,18 @@ void DisplayAverageStatValuesForCurrentTeam( void )
 
 			//if there are no values
 			if( iValue == -1 )
-				swprintf( sString, L"%s", pPOWStrings[ 1 ] );
+				sgp_swprintf(sString, std::size(sString), L"%s", pPOWStrings[ 1 ] );
 			else
-				swprintf( sString, L"%d", iValue );
+				sgp_swprintf(sString, std::size(sString), L"%d", iValue );
 
 		}
 		else
 		{
-			swprintf( sString, L"%d", GetAvgStatOfPastTeamStat( iCounter ) );
+			sgp_swprintf(sString, std::size(sString), L"%d", GetAvgStatOfPastTeamStat( iCounter ) );
 		}
 		// center
 		FindFontCenterCoordinates( PERS_STAT_AVG_X, 0 ,PERS_STAT_AVG_WIDTH, 0 , sString, FONT10ARIAL , &sX, &sY );
-		mprintf( sX, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), sString );
+		mprintf( sX, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), L"%s", sString );
 	}
 }
 
@@ -4314,11 +3638,11 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 	// center
 	FindFontCenterCoordinates( PERS_STAT_LOWEST_X, 0 ,PERS_STAT_LOWEST_WIDTH, 0 , pPersonnelCurrentTeamStatsStrings[ 0 ], FONT10ARIAL , &sX, &sY );
 
-	mprintf( sX, PERS_STAT_AVG_Y, pPersonnelCurrentTeamStatsStrings[ 0 ] );
+	mprintf( sX, PERS_STAT_AVG_Y, L"%s", pPersonnelCurrentTeamStatsStrings[ 0 ] );
 
 	// nobody on team leave
 	if (currentTeamMode) {
-		if (maxCurrentTeamIndex == -1) {
+		if (currentTeamList.empty()) {
 			return;
 		}
 	} else  {
@@ -4355,14 +3679,14 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 		if ( currentTeamMode && !currentSoldier )
 			continue;
 		if (currentTeamMode) {
-			swprintf( sString, L"%s",
+			sgp_swprintf(sString, std::size(sString), L"%s",
 				currentSoldier->GetName() );
 		} else {
 			// get name
-			swprintf( sString, L"%s", gMercProfiles[ iDepartedId ].zNickname );
+			sgp_swprintf(sString, std::size(sString), L"%s", gMercProfiles[ iDepartedId ].zNickname );
 		}
 		// print name
-		mprintf( PERS_STAT_LOWEST_X, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), sString );
+		mprintf( PERS_STAT_LOWEST_X, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), L"%s", sString );
 
 		switch (iCounter) {
 			case 0:
@@ -4456,11 +3780,11 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 				break;
 		}
 
-		swprintf( sString, L"%d", iStat );
+		sgp_swprintf(sString, std::size(sString), L"%d", iStat );
 
 		// right justify
 		FindFontRightCoordinates(	PERS_STAT_LOWEST_X, 0 ,PERS_STAT_LOWEST_WIDTH, 0 , sString, FONT10ARIAL , &sX, &sY );
-		mprintf( sX, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), sString );
+		mprintf( sX, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), L"%s", sString );
 	}
 }
 
@@ -4486,11 +3810,11 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 	// center
 	FindFontCenterCoordinates( PERS_STAT_HIGHEST_X, 0 ,PERS_STAT_LOWEST_WIDTH, 0 , pPersonnelCurrentTeamStatsStrings[ 2 ], FONT10ARIAL , &sX, &sY );
 
-	mprintf( sX, PERS_STAT_AVG_Y, pPersonnelCurrentTeamStatsStrings[ 2 ] );
+	mprintf( sX, PERS_STAT_AVG_Y, L"%s", pPersonnelCurrentTeamStatsStrings[ 2 ] );
 
 	// nobody on team leave
 	if (currentTeamMode) {
-		if (maxCurrentTeamIndex == -1) {
+		if (currentTeamList.empty()) {
 			return;
 		}
 	} else  {
@@ -4534,16 +3858,16 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			continue;
 		if (currentTeamMode)
 		{
-			swprintf( sString, L"%s",
+			sgp_swprintf(sString, std::size(sString), L"%s",
 				currentSoldier->GetName() );
 		}
 		else
 		{
 			// get name
-			swprintf( sString, L"%s", gMercProfiles[ iDepartedId ].zNickname );
+			sgp_swprintf(sString, std::size(sString), L"%s", gMercProfiles[ iDepartedId ].zNickname );
 		}
 		// print name
-		mprintf( PERS_STAT_HIGHEST_X, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), sString );
+		mprintf( PERS_STAT_HIGHEST_X, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), L"%s", sString );
 
 		switch (iCounter) {
 			case 0:
@@ -4637,11 +3961,11 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 				break;
 		}
 
-		swprintf( sString, L"%d", iStat );
+		sgp_swprintf(sString, std::size(sString), L"%d", iStat );
 
 		// right justify
 		FindFontRightCoordinates(	PERS_STAT_HIGHEST_X, 0 ,PERS_STAT_LOWEST_WIDTH, 0 , sString, FONT10ARIAL , &sX, &sY );
-		mprintf( sX, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), sString );
+		mprintf( sX, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), L"%s", sString );
 	}
 }
 
@@ -4672,7 +3996,7 @@ void DisplayPersonnelTeamStats( void )
 			SetFontForeground( PERS_TEXT_FONT_COLOR );
 		}
 
-		mprintf( PERS_STAT_LIST_X, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), pPersonnelTeamStatsStrings[ iCounter ] );
+		mprintf( PERS_STAT_LIST_X, PERS_STAT_AVG_Y + ( iCounter + 1 ) * ( GetFontHeight( FONT10ARIAL ) + 3 ), L"%s", pPersonnelTeamStatsStrings[ iCounter ] );
 	}
 
 
@@ -4682,20 +4006,7 @@ void DisplayPersonnelTeamStats( void )
 
 INT32 GetNumberOfPastMercsOnPlayersTeam( void )
 {
-	INT32 iPastNumberOfMercs = 0;
-	// will run through the alist of past mercs on the players team and return thier number
-
-	// dead
-	iPastNumberOfMercs += GetNumberOfDeadOnPastTeam( );
-
-	// left
-	iPastNumberOfMercs += GetNumberOfLeftOnPastTeam( );
-
-	// other
-	iPastNumberOfMercs += GetNumberOfOtherOnPastTeam( );
-
-
-	return iPastNumberOfMercs;
+	return static_cast<INT32>(gDepartedRoster.size());
 }
 
 
@@ -4705,26 +4016,18 @@ void InitPastCharactersList( void )
 	memset( &LaptopSaveInfo.ubDeadCharactersList, -1, sizeof( LaptopSaveInfo.ubDeadCharactersList ) );
 	memset( &LaptopSaveInfo.ubLeftCharactersList, -1, sizeof( LaptopSaveInfo.ubLeftCharactersList ) );
 	memset( &LaptopSaveInfo.ubOtherCharactersList, -1, sizeof( LaptopSaveInfo.ubOtherCharactersList ) );
-
-	return;
+	RefreshDepartedRoster();
 }
 
 
 INT32 GetNumberOfDeadOnPastTeam( void )
 {
 
-	INT32 iNumberDead = 0;
-	INT32 iCounter = 0;
-
-//	for( iCounter = 0; ( ( iCounter < 256) && ( LaptopSaveInfo.ubDeadCharactersList[ iCounter ] != -1 ) ) ; iCounter ++ )
-	for( iCounter = 0; iCounter < 256 ; iCounter ++ )
-	{
-		if( LaptopSaveInfo.ubDeadCharactersList[ iCounter ] != -1 )
-			iNumberDead++;
-	}
-
-
-	return( iNumberDead );
+	return static_cast<INT32>(std::count_if(gDepartedRoster.begin(),
+		gDepartedRoster.end(), [](const auto& entry)
+		{
+			return entry.state == PersonnelRosterModel::DepartedState::Dead;
+		}));
 
 }
 
@@ -4732,17 +4035,11 @@ INT32 GetNumberOfDeadOnPastTeam( void )
 INT32 GetNumberOfLeftOnPastTeam( void )
 {
 
-	INT32 iNumberLeft = 0;
-	INT32 iCounter = 0;
-
-	for( iCounter = 0; iCounter < 256 ; iCounter ++ )
-	{
-		if( LaptopSaveInfo.ubLeftCharactersList[ iCounter ] != -1 )
-			iNumberLeft++;
-	}
-
-
-	return( iNumberLeft );
+	return static_cast<INT32>(std::count_if(gDepartedRoster.begin(),
+		gDepartedRoster.end(), [](const auto& entry)
+		{
+			return entry.state == PersonnelRosterModel::DepartedState::Fired;
+		}));
 
 }
 
@@ -4750,17 +4047,11 @@ INT32 GetNumberOfLeftOnPastTeam( void )
 INT32 GetNumberOfOtherOnPastTeam( void )
 {
 
-	INT32 iNumberOther = 0;
-	INT32 iCounter = 0;
-
-	for( iCounter = 0; iCounter < 256 ; iCounter ++ )
-	{
-		if( LaptopSaveInfo.ubOtherCharactersList[ iCounter ] != -1 )
-			iNumberOther++;
-	}
-
-
-	return( iNumberOther );
+	return static_cast<INT32>(std::count_if(gDepartedRoster.begin(),
+		gDepartedRoster.end(), [](const auto& entry)
+		{
+			return entry.state == PersonnelRosterModel::DepartedState::Other;
+		}));
 
 }
 
@@ -4779,67 +4070,56 @@ void DisplayStateOfPastTeamMembers( void )
 	// display numbers fired, dead and othered
 	if (!fCurrentTeamMode) {
 		// dead
-		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_COST_Y, pPersonelTeamStrings[ 5 ] );
-		swprintf( sString, L"%d", GetNumberOfDeadOnPastTeam( ) );
+		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_COST_Y, L"%s", pPersonelTeamStrings[ 5 ] );
+		sgp_swprintf(sString, std::size(sString), L"%d", GetNumberOfDeadOnPastTeam( ) );
 
 		FindFontRightCoordinates((INT16)(PERS_CURR_TEAM_COST_X),0,PERS_DEPART_TEAM_WIDTH,0,sString, PERS_FONT,	&sX, &sY);
 
-		mprintf( sX ,PERS_CURR_TEAM_COST_Y, sString );
+		mprintf( sX ,PERS_CURR_TEAM_COST_Y, L"%s", sString );
 
 		// fired
-		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_HIGHEST_Y, pPersonelTeamStrings[ 6 ] );
-		swprintf( sString, L"%d", GetNumberOfLeftOnPastTeam( ) );
+		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_HIGHEST_Y, L"%s", pPersonelTeamStrings[ 6 ] );
+		sgp_swprintf(sString, std::size(sString), L"%d", GetNumberOfLeftOnPastTeam( ) );
 
 		FindFontRightCoordinates((INT16)(PERS_CURR_TEAM_COST_X),0,PERS_DEPART_TEAM_WIDTH,0,sString, PERS_FONT,	&sX, &sY);
 
-		mprintf( sX ,PERS_CURR_TEAM_HIGHEST_Y, sString );
+		mprintf( sX ,PERS_CURR_TEAM_HIGHEST_Y, L"%s", sString );
 
 		// other
-		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_LOWEST_Y, pPersonelTeamStrings[ 7 ] );
-		swprintf( sString, L"%d", GetNumberOfOtherOnPastTeam( ) );
+		mprintf(	PERS_CURR_TEAM_COST_X, PERS_CURR_TEAM_LOWEST_Y, L"%s", pPersonelTeamStrings[ 7 ] );
+		sgp_swprintf(sString, std::size(sString), L"%d", GetNumberOfOtherOnPastTeam( ) );
 
 		FindFontRightCoordinates((INT16)(PERS_CURR_TEAM_COST_X),0,PERS_DEPART_TEAM_WIDTH,0,sString, PERS_FONT,	&sX, &sY);
 
-		mprintf( sX ,PERS_CURR_TEAM_LOWEST_Y, sString );
+		mprintf( sX ,PERS_CURR_TEAM_LOWEST_Y, L"%s", sString );
 	}
 }
 
 
 
-void CreateDestroyCurrentDepartedMouseRegions( void )
+BOOLEAN CreateCurrentDepartedMouseRegions(LaptopPageResourceOwner& owner)
 {
-
-	static BOOLEAN fCreated = FALSE;
-
-	// will arbitrate the creation/deletion of mouse regions for current/past team toggles
-
-
-	if( ( fCreateRegionsForPastCurrentToggle == TRUE ) && ( fCreated == FALSE ) )
-	{
-		// not created, create
-		MSYS_DefineRegion(&gTogglePastCurrentTeam[ 0 ], PERS_TOGGLE_CUR_DEPART_X, PERS_TOGGLE_CUR_Y, PERS_TOGGLE_CUR_DEPART_X + PERS_TOGGLE_CUR_DEPART_WIDTH, PERS_TOGGLE_CUR_Y + PERS_TOGGLE_CUR_DEPART_HEIGHT,
+	MSYS_DefineRegion(&gTogglePastCurrentTeam[ 0 ], PERS_TOGGLE_CUR_DEPART_X, PERS_TOGGLE_CUR_Y, PERS_TOGGLE_CUR_DEPART_X + PERS_TOGGLE_CUR_DEPART_WIDTH, PERS_TOGGLE_CUR_Y + PERS_TOGGLE_CUR_DEPART_HEIGHT,
 		 MSYS_PRIORITY_HIGHEST - 3 ,CURSOR_LAPTOP_SCREEN, MSYS_NO_CALLBACK, PersonnelCurrentTeamCallback);
-
-		MSYS_AddRegion( &gTogglePastCurrentTeam[ 0 ] );
-
-		MSYS_DefineRegion(&gTogglePastCurrentTeam[ 1 ], PERS_TOGGLE_CUR_DEPART_X, PERS_TOGGLE_DEPART_Y , PERS_TOGGLE_CUR_DEPART_X + PERS_TOGGLE_CUR_DEPART_WIDTH, PERS_TOGGLE_DEPART_Y + PERS_TOGGLE_CUR_DEPART_HEIGHT,
+	if (!owner.addRegion(gTogglePastCurrentTeam[0])) return FALSE;
+	MSYS_DefineRegion(&gTogglePastCurrentTeam[ 1 ], PERS_TOGGLE_CUR_DEPART_X, PERS_TOGGLE_DEPART_Y , PERS_TOGGLE_CUR_DEPART_X + PERS_TOGGLE_CUR_DEPART_WIDTH, PERS_TOGGLE_DEPART_Y + PERS_TOGGLE_CUR_DEPART_HEIGHT,
 		 MSYS_PRIORITY_HIGHEST - 3,CURSOR_LAPTOP_SCREEN, MSYS_NO_CALLBACK, PersonnelDepartedTeamCallback);
+	return owner.addRegion(gTogglePastCurrentTeam[1]) ? TRUE : FALSE;
+}
 
-		MSYS_AddRegion( &gTogglePastCurrentTeam[ 1 ] );
-
-		fCreated = TRUE;
-
-	}
-	else if( ( fCreateRegionsForPastCurrentToggle == FALSE ) && ( fCreated == TRUE ) )
-	{
-		// created, get rid of
-
-		MSYS_RemoveRegion( &gTogglePastCurrentTeam[ 0 ] );
-		MSYS_RemoveRegion( &gTogglePastCurrentTeam[ 1 ] );
-		fCreated = FALSE;
-	}
-
-	return;
+INT32 GetTheStateOfDepartedMerc(INT32 profileId)
+{
+	const auto state = PersonnelRosterModel::FindDepartedState(
+		LaptopSaveInfo.ubDeadCharactersList,
+		LaptopSaveInfo.ubLeftCharactersList,
+		LaptopSaveInfo.ubOtherCharactersList,
+		profileId, static_cast<INT16>(-1), NUM_PROFILES);
+	if (!state) return -1;
+	if (*state == PersonnelRosterModel::DepartedState::Dead)
+		return DEPARTED_DEAD;
+	if (*state == PersonnelRosterModel::DepartedState::Fired)
+		return DEPARTED_FIRED;
+	return DEPARTED_OTHER;
 }
 
 
@@ -4847,13 +4127,8 @@ void CreateDestroyCurrentDepartedMouseRegions( void )
 void PersonnelCurrentTeamCallback( MOUSE_REGION * pRegion, INT32 iReason ) {
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
 		fCurrentTeamMode = TRUE;
-		// how many people do we have?..if you have someone set default to 0
-		if( maxCurrentTeamIndex >= 0 ) {
-			// get id of first merc in list
-			currentTeamIndex = 0;
-		} else {
-			currentTeamIndex = -1;
-		} // else
+		gCurrentRosterCursor.reset(currentTeamList.size());
+		SetPersonnelButtonStates();
 		fReDrawScreenFlag = TRUE;
 	} // if
 }
@@ -4862,14 +4137,11 @@ void PersonnelCurrentTeamCallback( MOUSE_REGION * pRegion, INT32 iReason ) {
 void PersonnelDepartedTeamCallback( MOUSE_REGION * pRegion, INT32 iReason ) {
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP) {
 		fCurrentTeamMode = FALSE;
-		// how many departed people?
-		if (GetNumberOfPastMercsOnPlayersTeam() > 0) {
-			iCurrentPersonSelectedId = 0;
-		} else {
-			iCurrentPersonSelectedId = -1;
-		}
+		RefreshDepartedRoster();
+		gDepartedRosterCursor.reset(gDepartedRoster.size());
 		//Switch the panel on the right to be the stat panel
 		gubPersonnelInfoState = PERSONNEL_STAT_BTN;
+		SetPersonnelButtonStates();
 		fReDrawScreenFlag = TRUE;
 	}
 }
@@ -4878,35 +4150,33 @@ void PersonnelDepartedTeamCallback( MOUSE_REGION * pRegion, INT32 iReason ) {
 
 void CreateDestroyButtonsForDepartedTeamList( void )
 {
-	// creates/ destroys the buttons for cdeparted team list
-	static BOOLEAN fCreated = FALSE;
-
-	if ((!fCurrentTeamMode) && (!fCreated)) {
-		// not created. create
-		giPersonnelButtonImage[ 4 ]=	LoadButtonImage( "LAPTOP\\departuresbuttons.sti" ,-1,0,-1,2,-1 );
-		giPersonnelButton[ 4 ] = QuickCreateButton( giPersonnelButtonImage[4], PERS_DEPARTED_UP_X, PERS_DEPARTED_UP_Y,
+	if (!fCurrentTeamMode && gPersonnelDepartedResources.empty()) {
+		LaptopPageResourceOwner staged;
+		if (!staged.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\departuresbuttons.sti", -1, 0, -1, 2, -1),
+			giPersonnelButtonImage[4])) return;
+		if (!staged.addButton(QuickCreateButton( giPersonnelButtonImage[4], PERS_DEPARTED_UP_X, PERS_DEPARTED_UP_Y,
 											BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-											BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)DepartedUpCallBack);
+											BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)DepartedUpCallBack),
+			giPersonnelButton[4])) return;
 
 		// right button
-		giPersonnelButtonImage[ 5 ]=	LoadButtonImage( "LAPTOP\\departuresbuttons.sti" ,-1,1,-1,3,-1 );
-		giPersonnelButton[ 5 ] = QuickCreateButton( giPersonnelButtonImage[5], PERS_DEPARTED_UP_X, PERS_DEPARTED_DOWN_Y,
+		if (!staged.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\departuresbuttons.sti", -1, 1, -1, 3, -1),
+			giPersonnelButtonImage[5])) return;
+		if (!staged.addButton(QuickCreateButton( giPersonnelButtonImage[5], PERS_DEPARTED_UP_X, PERS_DEPARTED_DOWN_Y,
 											BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-											BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)DepartedDownCallBack);
+											BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)DepartedDownCallBack),
+			giPersonnelButton[5])) return;
 
 		// set up cursors for these buttons
 		SetButtonCursor( giPersonnelButton[ 4 ], CURSOR_LAPTOP_SCREEN);
 		SetButtonCursor( giPersonnelButton[ 5 ], CURSOR_LAPTOP_SCREEN);
 
-		fCreated = TRUE;
+		gPersonnelDepartedResources = std::move(staged);
 	}
-	else if ((fCurrentTeamMode) && (fCreated)) {
-		// created. destroy
-		RemoveButton(giPersonnelButton[4] );
-		UnloadButtonImage(giPersonnelButtonImage[4] );
-		RemoveButton(giPersonnelButton[5] );
-		UnloadButtonImage(giPersonnelButtonImage[5] );
-		fCreated = FALSE;
+	else if (fCurrentTeamMode && !gPersonnelDepartedResources.empty()) {
+		gPersonnelDepartedResources.clear();
 		fReDrawScreenFlag = TRUE;
 	}
 }
@@ -4929,8 +4199,7 @@ void DepartedUpCallBack(GUI_BUTTON *btn,INT32 reason)
 	{
 		if(btn->uiFlags & BUTTON_CLICKED_ON) {
 			btn->uiFlags&=~(BUTTON_CLICKED_ON);
-			if(	giCurrentUpperLeftPortraitNumber - MAX_MERCS_ON_SCREEN >= 0 ) {
-				giCurrentUpperLeftPortraitNumber -= MAX_MERCS_ON_SCREEN;
+			if (gDepartedRosterCursor.pageUp(gDepartedRoster.size())) {
 				fReDrawScreenFlag = TRUE;
 			}
 		}
@@ -4956,9 +4225,8 @@ void DepartedDownCallBack(GUI_BUTTON *btn,INT32 reason)
 		if(btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 			btn->uiFlags&=~(BUTTON_CLICKED_ON);
-			if( ( giCurrentUpperLeftPortraitNumber + MAX_MERCS_ON_SCREEN ) < ( GetNumberOfDeadOnPastTeam( ) + GetNumberOfLeftOnPastTeam( ) + GetNumberOfOtherOnPastTeam( ) ) )
+			if (gDepartedRosterCursor.pageDown(gDepartedRoster.size()))
 			{
-				giCurrentUpperLeftPortraitNumber+=MAX_MERCS_ON_SCREEN;
 				fReDrawScreenFlag = TRUE;
 			}
 		}
@@ -4966,181 +4234,56 @@ void DepartedDownCallBack(GUI_BUTTON *btn,INT32 reason)
 }
 
 
-// display past mercs portraits, starting at giCurrentUpperLeftPortraitNumber and going up MAX_MERCS_ON_SCREEN mercs
-// start at dead mercs, then fired, then other
+// Display the bounded current page from the flattened departed-roster view.
 void DisplayPastMercsPortraits( void )
 {
-	// not time to display
-	if (fCurrentTeamMode) {
-		return;
-	}
-
-	INT32 iCounter = 0;
-	INT32 iStartArray = 0; // 0 = dead list, 1 = fired list, 2 = other list
-
-	// go through dead list
-	for( INT32 iCounterA = 0; ( iCounter < giCurrentUpperLeftPortraitNumber ); iCounterA++ ) {
-		if( LaptopSaveInfo.ubDeadCharactersList[ iCounterA ] != -1 )
-			iCounter++;
-	}
-
-	if( iCounter < giCurrentUpperLeftPortraitNumber) {
-		// now the fired list
-		for( INT32 iCounterA = 0; ( ( iCounter < giCurrentUpperLeftPortraitNumber ) ); iCounterA++ ) {
-			if( LaptopSaveInfo.ubLeftCharactersList[ iCounterA ] != -1 ) {
-				iCounter++;
-			}
-		}
-
-		if( iCounter < MAX_MERCS_ON_SCREEN ) {
-			iStartArray = 0;
-		} else {
-			iStartArray = 1;
-		}
-	} else {
-		iStartArray = 0;
-	}
-
-	if( ( iCounter < giCurrentUpperLeftPortraitNumber ) && ( iStartArray != 0 ) ) {
-		// now the fired list
-		for( INT32 iCounterA = 0; ( iCounter < giCurrentUpperLeftPortraitNumber ); iCounterA++ ) {
-			if( LaptopSaveInfo.ubOtherCharactersList[ iCounterA ] != -1 )
-				iCounter++;
-		}
-
-		if( iCounter < MAX_MERCS_ON_SCREEN ) {
-			iStartArray = 1;
-		} else {
-			iStartArray = 2;
-		}
-	} else if( iStartArray != 0 ) {
-		iStartArray = 1;
-	}
-
-	//; we now have the array to start in, the position
-
-	iCounter = 0;
-	INT32 iCounterA = 0;
-
-	if( iStartArray == 0 ) {
-	// run through list and display
-		for( ; iCounter < MAX_MERCS_ON_SCREEN && iCounterA < 256; iCounterA++ ) {
-			// show dead pictures
-			if( LaptopSaveInfo.ubDeadCharactersList[ iCounterA ] != -1 ) {
-				DisplayPortraitOfPastMerc( LaptopSaveInfo.ubDeadCharactersList[ iCounterA ], iCounter, TRUE, FALSE, FALSE );
-				iCounter++;
-			}
-		}
-
-		// reset counter A for the next array, if applicable
-		iCounterA = 0;
-	}
-	if( iStartArray <= 1 ) {
-		for( ; ( iCounter < MAX_MERCS_ON_SCREEN	&& iCounterA < 256 ); iCounterA++) {
-			// show fired pics
-			if( LaptopSaveInfo.ubLeftCharactersList[ iCounterA ] != -1 ) {
-				DisplayPortraitOfPastMerc( LaptopSaveInfo.ubLeftCharactersList[ iCounterA ], iCounter, FALSE, TRUE, FALSE );
-				iCounter++;
-			}
-		}
-		// reset counter A for the next array, if applicable
-		iCounterA = 0;
-	}
-
-	for( ; ( iCounter < MAX_MERCS_ON_SCREEN	&& iCounterA < 256 ); iCounterA++ ) {
-		// show other pics
-		if( LaptopSaveInfo.ubOtherCharactersList[ iCounterA ] != -1 ) {
-			DisplayPortraitOfPastMerc( LaptopSaveInfo.ubOtherCharactersList[ iCounterA ], iCounter, FALSE, FALSE, TRUE );
-			iCounter++;
-		}
-	}
-}
-
-
-// returns ID of Merc in this slot
-INT32 GetIdOfPastMercInSlot( INT32 iSlot )
-{
-	// not time to display
-	if (fCurrentTeamMode) {
-		return -1;
-	}
-
-	INT32 iCounter =-1;
-	INT32 iCounterA =0;
-	if( iSlot >= ( ( GetNumberOfDeadOnPastTeam( ) + GetNumberOfLeftOnPastTeam( ) + GetNumberOfOtherOnPastTeam( ) ) - giCurrentUpperLeftPortraitNumber ) )	// >= : slot == total is one past the last valid entry (OOB scan/index below)
+	if (fCurrentTeamMode) return;
+	gDepartedRosterCursor.normalize(gDepartedRoster.size());
+	const std::size_t first = gDepartedRosterCursor.first();
+	const std::size_t end = std::min(first + MAX_MERCS_ON_SCREEN,
+		gDepartedRoster.size());
+	for (std::size_t rosterIndex = first; rosterIndex < end; ++rosterIndex)
 	{
-		// invalid slot
-		return iCurrentPersonSelectedId;
+		const auto& entry = gDepartedRoster[rosterIndex];
+		DisplayPortraitOfPastMerc(entry.profileId,
+			static_cast<INT32>(rosterIndex - first),
+			entry.state == PersonnelRosterModel::DepartedState::Dead,
+			entry.state == PersonnelRosterModel::DepartedState::Fired,
+			entry.state == PersonnelRosterModel::DepartedState::Other);
 	}
-	// go through dead list
-	for( iCounterA = 0; ( ( iCounter ) < iSlot + giCurrentUpperLeftPortraitNumber);	iCounterA++ )
-	{
-		if( LaptopSaveInfo.ubDeadCharactersList[ iCounterA ] != -1 )
-			iCounter++;
-	}
-
-	if( iSlot + giCurrentUpperLeftPortraitNumber == iCounter)
-	{
-		return	( LaptopSaveInfo.ubDeadCharactersList[ iCounterA - 1] );
-	}
-
-	// now the fired list
-	iCounterA =0;
-	for( iCounterA = 0; ( ( ( iCounter	)< iSlot + giCurrentUpperLeftPortraitNumber) ); iCounterA++ )
-	{
-		if( LaptopSaveInfo.ubLeftCharactersList[ iCounterA ] != -1 )
-			iCounter++;
-	}
-
-	if( iSlot + giCurrentUpperLeftPortraitNumber == iCounter)
-	{
-		return	( LaptopSaveInfo.ubLeftCharactersList[ iCounterA	- 1 ] );
-	}
-
-
-	// now the fired list
-	iCounterA =0;
-	for( iCounterA = 0; ( ( ( iCounter ) < ( iSlot + giCurrentUpperLeftPortraitNumber ) ) ); iCounterA++ )
-	{
-		if( LaptopSaveInfo.ubOtherCharactersList[ iCounterA ] != -1 )
-			++iCounter;
-	}
-
-	return( LaptopSaveInfo.ubOtherCharactersList[ iCounterA	- 1] );
 }
 
 
 void DisplayPortraitOfPastMerc( INT32 iId , INT32 iCounter, BOOLEAN fDead, BOOLEAN fFired, BOOLEAN fOther )
 {
+	if (!PersonnelRosterModel::IsValidProfileId(iId, NUM_PROFILES) ||
+		iCounter < 0 || iCounter >= MAX_MERCS_ON_SCREEN) return;
 	char sTemp[100];
 	HVOBJECT hFaceHandle;
 	VOBJECT_DESC	VObjectDesc;
 	
-	if ( gMercProfiles[iId].Type == PROFILETYPE_IMP )
-	{
-		sprintf( sTemp, "%s%02d.sti", IMP_SMALL_FACES_DIR, gMercProfiles[iId].ubFaceIndex );
-	}
-	else
-	{
-		sprintf( sTemp, "%s%02d.sti", SMALL_FACES_DIR, gMercProfiles[iId].ubFaceIndex );
-	}
+	const char* directory = gMercProfiles[iId].Type == PROFILETYPE_IMP
+		? IMP_SMALL_FACES_DIR : SMALL_FACES_DIR;
+	snprintf(sTemp, sizeof(sTemp), "%s%02d.sti", directory,
+		gMercProfiles[iId].ubFaceIndex);
 	
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP(sTemp, VObjectDesc.ImageFile);
-	CHECKV(AddVideoObject(&VObjectDesc, &guiFACE));
+	UniqueVideoObjectHandle face = AddVideoObjectOwned(&VObjectDesc);
+	if (!face) return;
+	const UINT32 faceHandle = face.get();
 
 	//Blt face to screen to
-	GetVideoObject(&hFaceHandle, guiFACE);
+	GetVideoObject(&hFaceHandle, faceHandle);
 
 	if( fDead ) {
 		hFaceHandle->pShades[ 0 ]		= Create16BPPPaletteShaded( hFaceHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
 		//set the red pallete to the face
-		SetObjectHandleShade( guiFACE, 0 );
+		SetObjectHandleShade(faceHandle, 0);
 	}
 
 	BltVideoObject(FRAME_BUFFER, hFaceHandle, 0,( INT16 ) ( SMALL_PORTRAIT_START_X+ ( iCounter % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH ), ( INT16 ) ( SMALL_PORTRAIT_START_Y + ( iCounter / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT ), VO_BLT_SRCTRANSPARENCY,NULL);
 
-	DeleteVideoObjectFromIndex(guiFACE);
 }
 
 
@@ -5148,6 +4291,7 @@ void DisplayPortraitOfPastMerc( INT32 iId , INT32 iCounter, BOOLEAN fDead, BOOLE
 
 void DisplayDepartedCharStats(INT32 iId, INT32 iSlot, INT32 iState)
 {
+	if (!PersonnelRosterModel::IsValidProfileId(iId, NUM_PROFILES)) return;
 	INT32 iCounter=0;
 	CHAR16 sString[50];
 	INT16 sX, sY;
@@ -5162,11 +4306,7 @@ void DisplayDepartedCharStats(INT32 iId, INT32 iSlot, INT32 iState)
 	// SANDRO - remove the regions
 	for( INT8 i = 0; i < 13; i++ )
 	{
-		if( fAddedTraitRegion[i] )
-		{
-			MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[i] );
-			fAddedTraitRegion[i] = FALSE;
-		}
+		ClearPersonnelTraitRegion(i);
 	}
 
 	// display the stats for a char
@@ -5180,145 +4320,137 @@ void DisplayDepartedCharStats(INT32 iId, INT32 iSlot, INT32 iState)
 			// dead?
 			if( iState == 0 )
 			{
-			swprintf(sString, L"%d/%d",0,gMercProfiles[iId].bLife);
+			sgp_swprintf(sString, std::size(sString), L"%d/%d",0,gMercProfiles[iId].bLife);
 			}
 			else
 			{
-				swprintf(sString, L"%d/%d",gMercProfiles[iId].bLife,gMercProfiles[iId].bLife);
+				sgp_swprintf(sString, std::size(sString), L"%d/%d",gMercProfiles[iId].bLife,gMercProfiles[iId].bLife);
 			}
 
-			mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+			mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 		FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-		mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+		mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 			break;
 		case 1:
 			// agility
-		swprintf(sString, L"%d",gMercProfiles[iId].bAgility);
-		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+		sgp_swprintf(sString, std::size(sString), L"%d",gMercProfiles[iId].bAgility);
+		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 		FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-		mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+		mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 			break;
 		case 2:
 		// dexterity
-		swprintf(sString, L"%d",gMercProfiles[iId].bDexterity);
-		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+		sgp_swprintf(sString, std::size(sString), L"%d",gMercProfiles[iId].bDexterity);
+		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 		FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-		mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+		mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 			break;
 		case 3:
 		// strength
-		swprintf(sString, L"%d",gMercProfiles[iId].bStrength);
-		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+		sgp_swprintf(sString, std::size(sString), L"%d",gMercProfiles[iId].bStrength);
+		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 		FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-		mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+		mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 		break;
 		case 4:
 		// leadership
-		swprintf(sString, L"%d",gMercProfiles[iId].bLeadership);
-		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+		sgp_swprintf(sString, std::size(sString), L"%d",gMercProfiles[iId].bLeadership);
+		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 		FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-		mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+		mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 		break;
 		case 5:
 		// wisdom
-		swprintf(sString, L"%d",gMercProfiles[iId].bWisdom);
-		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+		sgp_swprintf(sString, std::size(sString), L"%d",gMercProfiles[iId].bWisdom);
+		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 		FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-		mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+		mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 		break;
 		case 6:
 		// exper
-		swprintf(sString, L"%d",gMercProfiles[iId].bExpLevel);
-		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+		sgp_swprintf(sString, std::size(sString), L"%d",gMercProfiles[iId].bExpLevel);
+		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 		FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-		mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+		mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 		break;
 		case 7:
 			//mrkmanship
-		swprintf(sString, L"%d",gMercProfiles[iId].bMarksmanship);
-		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+		sgp_swprintf(sString, std::size(sString), L"%d",gMercProfiles[iId].bMarksmanship);
+		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 		FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-		mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+		mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 		break;
 	 case 8:
 		// mech
-		swprintf(sString, L"%d",gMercProfiles[iId].bMechanical);
-		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+		sgp_swprintf(sString, std::size(sString), L"%d",gMercProfiles[iId].bMechanical);
+		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 		FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-		mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+		mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 		break;
 	 case 9:
 		// exp
-		swprintf(sString, L"%d",gMercProfiles[iId].bExplosive);
-		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+		sgp_swprintf(sString, std::size(sString), L"%d",gMercProfiles[iId].bExplosive);
+		mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 		FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-		mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+		mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 		break;
 		case 10:
 		// med
-			mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,pPersonnelScreenStrings[iCounter]);
+			mprintf((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter].y,L"%s", pPersonnelScreenStrings[iCounter]);
 
-		swprintf(sString, L"%d",gMercProfiles[iId].bMedical);
+		sgp_swprintf(sString, std::size(sString), L"%d",gMercProfiles[iId].bMedical);
 
 
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-			mprintf(sX,pPersonnelScreenPoints[iCounter].y,sString);
+			mprintf(sX,pPersonnelScreenPoints[iCounter].y,L"%s", sString);
 		break;
 
 
 		case 14:
 		// kills
-			mprintf((INT16)(pPersonnelScreenPoints[20].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[20].y - 12),pPersonnelScreenStrings[PRSNL_TXT_KILLS]);
+			mprintf((INT16)(pPersonnelScreenPoints[20].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[20].y - 12),L"%s", pPersonnelScreenStrings[PRSNL_TXT_KILLS]);
 
-			swprintf(sString, L"%d",(gMercProfiles[iId].records.usKillsElites + gMercProfiles[iId].records.usKillsRegulars + gMercProfiles[iId].records.usKillsAdmins + gMercProfiles[iId].records.usKillsHostiles + gMercProfiles[iId].records.usKillsCreatures + gMercProfiles[iId].records.usKillsZombies + gMercProfiles[iId].records.usKillsTanks + gMercProfiles[iId].records.usKillsOthers));
+			sgp_swprintf(sString, std::size(sString), L"%d",(gMercProfiles[iId].records.usKillsElites + gMercProfiles[iId].records.usKillsRegulars + gMercProfiles[iId].records.usKillsAdmins + gMercProfiles[iId].records.usKillsHostiles + gMercProfiles[iId].records.usKillsCreatures + gMercProfiles[iId].records.usKillsZombies + gMercProfiles[iId].records.usKillsTanks + gMercProfiles[iId].records.usKillsOthers));
 
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[20].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-			mprintf(sX,(pPersonnelScreenPoints[20].y - 12),sString);
+			mprintf(sX,(pPersonnelScreenPoints[20].y - 12),L"%s", sString);
 
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[20].x + 148), ( pPersonnelScreenPoints[20].y - 13 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[7] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[7] );
-			}
+			ClearPersonnelTraitRegion(7);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[7], (UINT16)( pPersonnelScreenPoints[20].x + 147 ), (UINT16)( pPersonnelScreenPoints[20].y - 14 ),
 							(UINT16)( pPersonnelScreenPoints[20].x + 166 ), (UINT16)(pPersonnelScreenPoints[20].y - 3), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[7] );
-			fAddedTraitRegion[7] = TRUE;
+			PublishPersonnelTraitRegion(7);
 			// Assign the text
 			AssignPersonnelKillsHelpText( iId );
 
 		break;
 		case 15:
 			// assists
-			mprintf((INT16)(pPersonnelScreenPoints[21].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[21].y - 10),pPersonnelScreenStrings[PRSNL_TXT_ASSISTS]);
-			swprintf(sString, L"%d",(gMercProfiles[iId].records.usAssistsMercs + gMercProfiles[iId].records.usAssistsMilitia + gMercProfiles[iId].records.usAssistsOthers));
+			mprintf((INT16)(pPersonnelScreenPoints[21].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[21].y - 10),L"%s", pPersonnelScreenStrings[PRSNL_TXT_ASSISTS]);
+			sgp_swprintf(sString, std::size(sString), L"%d",(gMercProfiles[iId].records.usAssistsMercs + gMercProfiles[iId].records.usAssistsMilitia + gMercProfiles[iId].records.usAssistsOthers));
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[21].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-			mprintf(sX,(pPersonnelScreenPoints[21].y - 10),sString);
+			mprintf(sX,(pPersonnelScreenPoints[21].y - 10),L"%s", sString);
 		
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[21].x + 148), ( pPersonnelScreenPoints[21].y - 11 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[8] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[8] );
-			}
+			ClearPersonnelTraitRegion(8);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[8], (UINT16)( pPersonnelScreenPoints[21].x + 147 ), (UINT16)( pPersonnelScreenPoints[21].y - 12 ),
 							(UINT16)( pPersonnelScreenPoints[21].x + 166 ), (UINT16)(pPersonnelScreenPoints[21].y - 1), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[8] );
-			fAddedTraitRegion[8] = TRUE;
+			PublishPersonnelTraitRegion(8);
 			// Assign the text
 			AssignPersonnelAssistsHelpText( iId );
 
 		break;
 		case 16:
 			// shots/hits
-			mprintf((INT16)(pPersonnelScreenPoints[22].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[22].y - 8),pPersonnelScreenStrings[PRSNL_TXT_HIT_PERCENTAGE]);
+			mprintf((INT16)(pPersonnelScreenPoints[22].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[22].y - 8),L"%s", pPersonnelScreenStrings[PRSNL_TXT_HIT_PERCENTAGE]);
 			uiHits = ( UINT32 )gMercProfiles[iId].records.usShotsHit;
 			uiHits *= 100;
 
@@ -5336,97 +4468,81 @@ void DisplayDepartedCharStats(INT32 iId, INT32 iSlot, INT32 iState)
 			}
 
 
-			swprintf(sString, L"%d %%%%",uiHits);
+			sgp_swprintf(sString, std::size(sString), L"%d %%%%",uiHits);
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[22].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
 			sX += StringPixLength( sSpecialCharacters[0],	PERS_FONT );
-			mprintf(sX,(pPersonnelScreenPoints[22].y - 8),sString);
+			mprintf(sX,(pPersonnelScreenPoints[22].y - 8),L"%s", sString);
 			
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[22].x + 148), ( pPersonnelScreenPoints[22].y - 9 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[9] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[9] );
-			}
+			ClearPersonnelTraitRegion(9);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[9], (UINT16)( pPersonnelScreenPoints[22].x + 147 ), (UINT16)( pPersonnelScreenPoints[22].y - 10 ),
 							(UINT16)( pPersonnelScreenPoints[22].x + 166 ), (UINT16)(pPersonnelScreenPoints[22].y + 1), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[9] );
-			fAddedTraitRegion[9] = TRUE;
+			PublishPersonnelTraitRegion(9);
 			// Assign the text
 			AssignPersonnelHitPercentageHelpText( iId );
 
 		break;
 		case 17:
 			// Achievements
-			mprintf((INT16)(pPersonnelScreenPoints[23].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[23].y - 6),pPersonnelScreenStrings[PRSNL_TXT_ACHIEVEMNTS]);
-			swprintf(sString, L"%d %%%%",CalculateMercsAchievementPercentage( iId ));
+			mprintf((INT16)(pPersonnelScreenPoints[23].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[23].y - 6),L"%s", pPersonnelScreenStrings[PRSNL_TXT_ACHIEVEMNTS]);
+			sgp_swprintf(sString, std::size(sString), L"%d %%%%",CalculateMercsAchievementPercentage( iId ));
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[23].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
 			sX += StringPixLength( sSpecialCharacters[0],	PERS_FONT );
-			mprintf(sX,(pPersonnelScreenPoints[23].y - 6),sString);
+			mprintf(sX,(pPersonnelScreenPoints[23].y - 6),L"%s", sString);
 			
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[23].x + 148), ( pPersonnelScreenPoints[23].y - 7 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[10] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[10] );
-			}
+			ClearPersonnelTraitRegion(10);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[10], (UINT16)( pPersonnelScreenPoints[23].x + 147 ), (UINT16)( pPersonnelScreenPoints[23].y - 8 ),
 							(UINT16)( pPersonnelScreenPoints[23].x + 166 ), (UINT16)(pPersonnelScreenPoints[23].y + 3), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[10] );
-			fAddedTraitRegion[10] = TRUE;
+			PublishPersonnelTraitRegion(10);
 			// Assign the text
 			AssignPersonnelAchievementsHelpText( iId );
 
 		break;
 		case 18:
 			// battles
-			mprintf((INT16)(pPersonnelScreenPoints[24].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[24].y - 4),pPersonnelScreenStrings[PRSNL_TXT_BATTLES]);
-			swprintf(sString, L"%d",(gMercProfiles[iId].records.usBattlesTactical + gMercProfiles[iId].records.usBattlesAutoresolve));
+			mprintf((INT16)(pPersonnelScreenPoints[24].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[24].y - 4),L"%s", pPersonnelScreenStrings[PRSNL_TXT_BATTLES]);
+			sgp_swprintf(sString, std::size(sString), L"%d",(gMercProfiles[iId].records.usBattlesTactical + gMercProfiles[iId].records.usBattlesAutoresolve));
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[24].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-			mprintf(sX,(pPersonnelScreenPoints[24].y - 4),sString);
+			mprintf(sX,(pPersonnelScreenPoints[24].y - 4),L"%s", sString);
 			
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[24].x + 148), ( pPersonnelScreenPoints[24].y - 5 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[11] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[11] );
-			}
+			ClearPersonnelTraitRegion(11);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[11], (UINT16)( pPersonnelScreenPoints[24].x + 147 ), (UINT16)( pPersonnelScreenPoints[24].y - 6 ),
 							(UINT16)( pPersonnelScreenPoints[24].x + 166 ), (UINT16)(pPersonnelScreenPoints[24].y + 5), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[11] );
-			fAddedTraitRegion[11] = TRUE;
+			PublishPersonnelTraitRegion(11);
 			// Assign the text
 			AssignPersonnelBattlesHelpText( iId );
 
 		break;
 		case 19:
 			// wounds
-			mprintf((INT16)(pPersonnelScreenPoints[25].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[25].y - 2),pPersonnelScreenStrings[PRSNL_TXT_TIMES_WOUNDED]);
-			swprintf(sString, L"%d",(gMercProfiles[iId].records.usTimesWoundedShot + gMercProfiles[iId].records.usTimesWoundedStabbed + (gMercProfiles[iId].records.usTimesWoundedPunched/2) + gMercProfiles[iId].records.usTimesWoundedBlasted));
+			mprintf((INT16)(pPersonnelScreenPoints[25].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[25].y - 2),L"%s", pPersonnelScreenStrings[PRSNL_TXT_TIMES_WOUNDED]);
+			sgp_swprintf(sString, std::size(sString), L"%d",(gMercProfiles[iId].records.usTimesWoundedShot + gMercProfiles[iId].records.usTimesWoundedStabbed + (gMercProfiles[iId].records.usTimesWoundedPunched/2) + gMercProfiles[iId].records.usTimesWoundedBlasted));
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[25].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-			mprintf(sX,(pPersonnelScreenPoints[25].y - 2),sString);
+			mprintf(sX,(pPersonnelScreenPoints[25].y - 2),L"%s", sString);
 			
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[25].x + 148), ( pPersonnelScreenPoints[25].y - 3 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[12] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[12] );
-			}
+			ClearPersonnelTraitRegion(12);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[12], (UINT16)( pPersonnelScreenPoints[25].x + 147 ), (UINT16)( pPersonnelScreenPoints[25].y - 4 ),
 							(UINT16)( pPersonnelScreenPoints[25].x + 166 ), (UINT16)(pPersonnelScreenPoints[25].y + 7), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[12] );
-			fAddedTraitRegion[12] = TRUE;
+			PublishPersonnelTraitRegion(12);
 			// Assign the text
 			AssignPersonnelWoundsHelpText( iId );
 
@@ -5449,11 +4565,11 @@ void EnableDisableDeparturesButtons( void )
 	DisableButton( giPersonnelButton[ 4 ] );
 	DisableButton( giPersonnelButton[ 5 ] );
 
-	if( giCurrentUpperLeftPortraitNumber != 0 ) {
+	if (gDepartedRosterCursor.canPageUp()) {
 		// enable up button
 		EnableButton( giPersonnelButton[ 4 ] );
 	}
-	if( ( GetNumberOfDeadOnPastTeam( ) + GetNumberOfLeftOnPastTeam( ) + GetNumberOfOtherOnPastTeam( ) ) - giCurrentUpperLeftPortraitNumber	>= MAX_MERCS_ON_SCREEN ) {
+	if (gDepartedRosterCursor.canPageDown(gDepartedRoster.size())) {
 		// enable down button
 		EnableButton( giPersonnelButton[ 5 ] );
 	}
@@ -5470,12 +4586,13 @@ void DisplayDepartedCharName( INT32 iId, INT32 iSlot, INT32 iState )
 	SetFontForeground(PERS_TEXT_FONT_COLOR);
 	SetFontBackground(FONT_BLACK);
 
-	if( ( iState == -1 )||( iId == -1 ) )
+	if (iState < 0 ||
+		!PersonnelRosterModel::IsValidProfileId(iId, NUM_PROFILES))
 	{
 		return;
 	}
 
-	swprintf( sString, L"%s", gMercProfiles[ iId ].zNickname );
+	sgp_swprintf(sString, std::size(sString), L"%s", gMercProfiles[ iId ].zNickname );
 
 		// nick name - assignment
 	FindFontCenterCoordinates(IMAGE_BOX_X-5,0,IMAGE_BOX_WIDTH + 90 , 0,sString,CHAR_NAME_FONT, &sX, &sY );
@@ -5486,18 +4603,18 @@ void DisplayDepartedCharName( INT32 iId, INT32 iSlot, INT32 iState )
 		sX = ( INT16 )pPersonnelScreenPoints[ 0 ].x;
 	}
 
-	mprintf( sX + iSlot * IMAGE_BOX_WIDTH, CHAR_NAME_Y, sString );
+	mprintf( sX + iSlot * IMAGE_BOX_WIDTH, CHAR_NAME_Y, L"%s", sString );
 
 
 	// state
 	if( gMercProfiles[ iId ].ubMiscFlags2 & PROFILE_MISC_FLAG2_MARRIED_TO_HICKS )
 	{
 		//displaye 'married'
-		swprintf( sString, L"%s", pPersonnelDepartedStateStrings[ DEPARTED_MARRIED ] );
+		sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelDepartedStateStrings[ DEPARTED_MARRIED ] );
 	}
 	else if(	iState == DEPARTED_DEAD )
 	{
-		swprintf( sString, L"%s", pPersonnelDepartedStateStrings[ DEPARTED_DEAD ] );
+		sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelDepartedStateStrings[ DEPARTED_DEAD ] );
 	}
 	//if the merc is an AIM merc
 	//else if( iId < BIFF )
@@ -5505,9 +4622,9 @@ void DisplayDepartedCharName( INT32 iId, INT32 iSlot, INT32 iState )
 	{
 		//if dismissed
 		if( iState == DEPARTED_FIRED )
-			swprintf( sString, L"%s", pPersonnelDepartedStateStrings[ DEPARTED_FIRED ] );
+			sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelDepartedStateStrings[ DEPARTED_FIRED ] );
 		else
-			swprintf( sString, L"%s", pPersonnelDepartedStateStrings[ DEPARTED_CONTRACT_EXPIRED ] );
+			sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelDepartedStateStrings[ DEPARTED_CONTRACT_EXPIRED ] );
 	}
 
 	//else if its a MERC merc
@@ -5515,18 +4632,18 @@ void DisplayDepartedCharName( INT32 iId, INT32 iSlot, INT32 iState )
 	else if ( gMercProfiles[iId].Type == PROFILETYPE_MERC )
 	{
 		if( iState == DEPARTED_FIRED )
-			swprintf( sString, L"%s", pPersonnelDepartedStateStrings[ DEPARTED_FIRED ] );
+			sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelDepartedStateStrings[ DEPARTED_FIRED ] );
 		else
-			swprintf( sString, L"%s", pPersonnelDepartedStateStrings[ DEPARTED_QUIT ] );
+			sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelDepartedStateStrings[ DEPARTED_QUIT ] );
 	}
 	//must be a RPC
 	//else
 	else if ( gMercProfiles[iId].Type == PROFILETYPE_RPC )
 	{
 		if( iState == DEPARTED_FIRED )
-			swprintf( sString, L"%s", pPersonnelDepartedStateStrings[ DEPARTED_FIRED ] );
+			sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelDepartedStateStrings[ DEPARTED_FIRED ] );
 		else
-			swprintf( sString, L"%s", pPersonnelDepartedStateStrings[ DEPARTED_QUIT ] );
+			sgp_swprintf(sString, std::size(sString), L"%s", pPersonnelDepartedStateStrings[ DEPARTED_QUIT ] );
 	}
 
 	// nick name - assignment
@@ -5538,40 +4655,7 @@ void DisplayDepartedCharName( INT32 iId, INT32 iSlot, INT32 iState )
 		sX = ( INT16 )pPersonnelScreenPoints[ 0 ].x;
 	}
 
-	mprintf( sX + iSlot * IMAGE_BOX_WIDTH, CHAR_NAME_Y + 10 , sString );
-}
-
-
-INT32 GetTheStateOfDepartedMerc( INT32 iId )
-{
-	INT32 iCounter =0;
-	// will runt hrough each list until merc is found, if not a -1 is returned
-
-	for( iCounter = 0; iCounter < 256; iCounter++ )
-	{
-		if ( LaptopSaveInfo.ubDeadCharactersList[ iCounter ] == iId )
-		{
-			return( DEPARTED_DEAD );
-		}
-	}
-
-	for( iCounter = 0; iCounter < 256; iCounter++ )
-	{
-		if ( LaptopSaveInfo.ubLeftCharactersList[ iCounter ] == iId )
-		{
-			return( DEPARTED_FIRED );
-		}
-	}
-
-	for( iCounter = 0; iCounter < 256; iCounter++ )
-	{
-		if ( LaptopSaveInfo.ubOtherCharactersList[ iCounter ] == iId )
-		{
-			return( DEPARTED_OTHER );
-		}
-	}
-
-	return( -1 );
+	mprintf( sX + iSlot * IMAGE_BOX_WIDTH, CHAR_NAME_Y + 10 , L"%s", sString );
 }
 
 
@@ -5585,7 +4669,7 @@ void DisplayPersonnelTextOnTitleBar( void )
 	SetFontBackground( FONT_BLACK );
 
 	// printf the title
-	mprintf( PERS_TITLE_X, PERS_TITLE_Y, pPersTitleText[0] );
+	mprintf( PERS_TITLE_X, PERS_TITLE_Y, L"%s", pPersTitleText[0] );
 
 	// reset the shadow
 
@@ -5593,34 +4677,29 @@ void DisplayPersonnelTextOnTitleBar( void )
 
 BOOLEAN DisplayHighLightBox( void )
 {
-	// is the current selected face valid?
-	if (fCurrentTeamMode) {
-		if( currentTeamIndex == -1 ) {
-			return FALSE;
-		}
-	} else {
-		if( iCurrentPersonSelectedId == -1 ) {
-			return FALSE;
-		}
-	}
+	const auto& cursor = fCurrentTeamMode
+		? gCurrentRosterCursor : gDepartedRosterCursor;
+	if (!cursor.hasSelection() || cursor.visibleSlot() >= MAX_MERCS_ON_SCREEN)
+		return FALSE;
 
 	// bounding
 	VOBJECT_DESC VObjectDesc;
-	UINT32 uiBox = 0;
 	HVOBJECT hHandle;
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\PicBorde.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &uiBox));
+	UniqueVideoObjectHandle box = AddVideoObjectOwned(&VObjectDesc);
+	if (!box) return FALSE;
+	const UINT32 uiBox = box.get();
 
 	// blit it
 	GetVideoObject(&hHandle, uiBox);
-	if (fCurrentTeamMode)
-		BltVideoObject(FRAME_BUFFER, hHandle, 0,( INT16 ) ( SMALL_PORTRAIT_START_X+ ( (currentTeamIndex-currentTeamFirstIndex) % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH - 2 ), ( INT16 ) ( SMALL_PORTRAIT_START_Y + ( (currentTeamIndex-currentTeamFirstIndex) / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT - 3 ), VO_BLT_SRCTRANSPARENCY,NULL);
-	else
-		BltVideoObject(FRAME_BUFFER, hHandle, 0,( INT16 ) ( SMALL_PORTRAIT_START_X+ ( iCurrentPersonSelectedId % PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_WIDTH - 2 ), ( INT16 ) ( SMALL_PORTRAIT_START_Y + ( iCurrentPersonSelectedId / PERSONNEL_PORTRAIT_NUMBER_WIDTH ) * SMALL_PORT_HEIGHT - 3 ), VO_BLT_SRCTRANSPARENCY,NULL);
-
-	// deleteit
-	DeleteVideoObjectFromIndex( uiBox );
+	const std::size_t slot = cursor.visibleSlot();
+	BltVideoObject(FRAME_BUFFER, hHandle, 0,
+		(INT16)(SMALL_PORTRAIT_START_X +
+			(slot % PERSONNEL_PORTRAIT_NUMBER_WIDTH) * SMALL_PORT_WIDTH - 2),
+		(INT16)(SMALL_PORTRAIT_START_Y +
+			(slot / PERSONNEL_PORTRAIT_NUMBER_WIDTH) * SMALL_PORT_HEIGHT - 3),
+		VO_BLT_SRCTRANSPARENCY, NULL);
 
 	return ( TRUE );
 }
@@ -5628,66 +4707,42 @@ BOOLEAN DisplayHighLightBox( void )
 // add to dead list
 void AddCharacterToDeadList( TacticalActor *pSoldier )
 {
-	for ( INT32 iCounter = 0; iCounter < 256; ++iCounter )
-	{
-		if( LaptopSaveInfo.ubDeadCharactersList[ iCounter ] == -1 )
-		{
-			// valid slot, merc not found yet, insert here
-			LaptopSaveInfo.ubDeadCharactersList[ iCounter ] = pSoldier->identity().profile();
-
-			// leave
-			return;
-		}
-
-		// are they already in the list?
-		if( LaptopSaveInfo.ubDeadCharactersList[ iCounter ] == pSoldier->identity().profile() )
-		{
-			return;
-		}
-	}
+	if (!pSoldier) return;
+	PersonnelRosterModel::MoveDepartedProfile(
+		LaptopSaveInfo.ubDeadCharactersList,
+		LaptopSaveInfo.ubLeftCharactersList,
+		LaptopSaveInfo.ubOtherCharactersList,
+		static_cast<INT16>(pSoldier->identity().profile()),
+		PersonnelRosterModel::DepartedState::Dead,
+		static_cast<INT16>(-1), NUM_PROFILES);
+	RefreshDepartedRoster();
 }
 
 
 void AddCharacterToFiredList( TacticalActor *pSoldier )
 {
-	for ( INT32 iCounter = 0; iCounter < 256; ++iCounter )
-	{
-		if( LaptopSaveInfo.ubLeftCharactersList[ iCounter ] == -1 )
-		{
-			// valid slot, merc not found yet, inset here
-			LaptopSaveInfo.ubLeftCharactersList[ iCounter ] = pSoldier->identity().profile();
-
-			// leave
-			return;
-		}
-
-		// are they already in the list?
-		if( LaptopSaveInfo.ubLeftCharactersList[ iCounter ] == pSoldier->identity().profile() )
-		{
-			return;
-		}
-	}
+	if (!pSoldier) return;
+	PersonnelRosterModel::MoveDepartedProfile(
+		LaptopSaveInfo.ubDeadCharactersList,
+		LaptopSaveInfo.ubLeftCharactersList,
+		LaptopSaveInfo.ubOtherCharactersList,
+		static_cast<INT16>(pSoldier->identity().profile()),
+		PersonnelRosterModel::DepartedState::Fired,
+		static_cast<INT16>(-1), NUM_PROFILES);
+	RefreshDepartedRoster();
 }
 
 void AddCharacterToOtherList( TacticalActor *pSoldier )
 {
-	for ( INT32 iCounter = 0; iCounter < 256; ++iCounter )
-	{
-		if( LaptopSaveInfo.ubOtherCharactersList[ iCounter ] == -1 )
-		{
-			// valid slot, merc not found yet, inset here
-			LaptopSaveInfo.ubOtherCharactersList[ iCounter ] = pSoldier->identity().profile();
-
-			// leave
-			return;
-		}
-
-		// are they already in the list?
-		if( LaptopSaveInfo.ubOtherCharactersList[ iCounter ] == pSoldier->identity().profile() )
-		{
-			return;
-		}
-	}
+	if (!pSoldier) return;
+	PersonnelRosterModel::MoveDepartedProfile(
+		LaptopSaveInfo.ubDeadCharactersList,
+		LaptopSaveInfo.ubLeftCharactersList,
+		LaptopSaveInfo.ubOtherCharactersList,
+		static_cast<INT16>(pSoldier->identity().profile()),
+		PersonnelRosterModel::DepartedState::Other,
+		static_cast<INT16>(-1), NUM_PROFILES);
+	RefreshDepartedRoster();
 }
 
 
@@ -5696,44 +4751,24 @@ void AddCharacterToOtherList( TacticalActor *pSoldier )
 //to be on your team list, and departed list )
 BOOLEAN RemoveNewlyHiredMercFromPersonnelDepartedList( UINT8 ubProfile )
 {
-	for ( INT32 iCounter = 0; iCounter < 256; ++iCounter )
-	{
-		// are they already in the Dead list?
-		if( LaptopSaveInfo.ubDeadCharactersList[ iCounter ] == ubProfile )
-		{
-			//Reset the fact that they were once hired
-			LaptopSaveInfo.ubDeadCharactersList[ iCounter ] = -1;
-			return( TRUE );
-		}
-
-		// are they already in the other list?
-		if( LaptopSaveInfo.ubLeftCharactersList[ iCounter ] == ubProfile )
-		{
-			//Reset the fact that they were once hired
-			LaptopSaveInfo.ubLeftCharactersList[ iCounter ] = -1;
-			return( TRUE );
-		}
-
-		// are they already in the list?
-		if( LaptopSaveInfo.ubOtherCharactersList[ iCounter ] == ubProfile )
-		{
-			//Reset the fact that they were once hired
-			LaptopSaveInfo.ubOtherCharactersList[ iCounter ] = -1;
-			return( TRUE );
-		}
-	}
-
-	return( FALSE );
+	const bool removed = PersonnelRosterModel::RemoveDepartedProfile(
+		LaptopSaveInfo.ubDeadCharactersList,
+		LaptopSaveInfo.ubLeftCharactersList,
+		LaptopSaveInfo.ubOtherCharactersList,
+		static_cast<INT16>(ubProfile), static_cast<INT16>(-1));
+	RefreshDepartedRoster();
+	return removed ? TRUE : FALSE;
 }
 
 // grab the id of the first merc being displayed
 INT32 GetIdOfFirstDisplayedMerc( )
 {
 	if (fCurrentTeamMode) {
-		return currentTeamList[currentTeamFirstIndex];
+		return gCurrentRosterCursor.first() < currentTeamList.size()
+			? currentTeamList[gCurrentRosterCursor.first()].i : -1;
 	} else {
-		// run through list of soldier on players old team...the slot id will be translated
-		return 0;
+		return gDepartedRosterCursor.first() < gDepartedRoster.size()
+			? gDepartedRoster[gDepartedRosterCursor.first()].profileId : -1;
 	}
 }
 
@@ -5742,14 +4777,15 @@ BOOLEAN RenderAtmPanel( void )
 {
 
 	VOBJECT_DESC VObjectDesc;
-	UINT32 uiBox = 0;
 	HVOBJECT hHandle;
 
 	// just show basic panel
 	// bounding
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\AtmButtons.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &uiBox));
+	UniqueVideoObjectHandle box = AddVideoObjectOwned(&VObjectDesc);
+	if (!box) return FALSE;
+	const UINT32 uiBox = box.get();
 
 	GetVideoObject(&hHandle, uiBox);
 	BltVideoObject(FRAME_BUFFER, hHandle, 0,( INT16 ) ( ATM_UL_X ), ( INT16 ) ( ATM_UL_Y ), VO_BLT_SRCTRANSPARENCY,NULL);
@@ -5758,8 +4794,6 @@ BOOLEAN RenderAtmPanel( void )
 	GetVideoObject(&hHandle, uiBox);
 	BltVideoObject(FRAME_BUFFER, hHandle, 1,( INT16 ) ( ATM_UL_X + 1 ), ( INT16 ) ( ATM_UL_Y + 18), VO_BLT_SRCTRANSPARENCY,NULL);
 
-
-	DeleteVideoObjectFromIndex( uiBox );
 
 	//DisplayAmountOnCurrentMerc( );
 
@@ -5771,19 +4805,22 @@ BOOLEAN RenderAtmPanel( void )
 
 void CreateDestroyStartATMButton( void )
 {
-	static BOOLEAN fCreated = FALSE;
-
-	if( ( fCreated == FALSE ) && showPersonnelButtons )
+	if (showPersonnelButtons && gPersonnelAtmResources.empty())
 	{
+		LaptopPageResourceOwner staged;
 		INT16 x = iScreenWidthOffset + 519;
 		INT16 y = iScreenHeightOffset + 74;
 
 		for ( int i = 0; i < PERSONNEL_NUM_BTN; ++i )
 		{
-			giPersonnelATMStartButtonImage[i] = LoadButtonImage( "LAPTOP\\AtmButtons.sti", -1, 2, -1, 3, -1 );
-			giPersonnelATMStartButton[i] = QuickCreateButton( giPersonnelATMStartButtonImage[i], x, y,
-															  BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-															  MSYS_NO_CALLBACK, (GUI_CALLBACK)PersonnelDataButtonCallback );
+			if (!staged.addButtonImage(LoadButtonImageOwned(
+				"LAPTOP\\AtmButtons.sti", -1, 2, -1, 3, -1),
+				giPersonnelATMStartButtonImage[i])) return;
+			if (!staged.addButton(QuickCreateButton(
+				giPersonnelATMStartButtonImage[i], x, y,
+														  BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
+														  MSYS_NO_CALLBACK, (GUI_CALLBACK)PersonnelDataButtonCallback),
+				giPersonnelATMStartButton[i])) return;
 
 			// set text and what not
 			SpecifyButtonText( giPersonnelATMStartButton[i], gsAtmStartButtonText[i] );
@@ -5793,103 +4830,43 @@ void CreateDestroyStartATMButton( void )
 
 			y += 24;
 		}
-		
-		fCreated = TRUE;
+		gPersonnelAtmResources = std::move(staged);
 	}
-	else if( ( fCreated == TRUE ) && !showPersonnelButtons )
+	else if (!showPersonnelButtons && !gPersonnelAtmResources.empty())
 	{
-		// stop showing
-		for ( int i = 0; i < PERSONNEL_NUM_BTN; ++i )
-		{
-			RemoveButton( giPersonnelATMStartButton[i] );
-			UnloadButtonImage( giPersonnelATMStartButtonImage[i] );
-		}
-
-		fCreated = FALSE;
+		gPersonnelAtmResources.clear();
 	}
 }
 
 void FindPositionOfPersInvSlider( void )
 {
-	INT32 iValue = 0;
-	INT32 iNumberOfItems = 0;
-	INT16 sSizeOfEachSubRegion = 0;
-
-	// find out how many there are
-	iValue = ( INT32 )( GetNumberOfInventoryItemsOnCurrentMerc( ) );
-
-	// otherwise there are more than one item
-	iNumberOfItems = iValue - NUMBER_OF_INVENTORY_PERSONNEL;
-
-	if( iValue <= 0 )
-	{
-		iValue = 1;
-	}
-
-	// get the subregion sizes
-	sSizeOfEachSubRegion = ( INT16 )( ( INT32 )( Y_SIZE_OF_PERSONNEL_SCROLL_REGION - SIZE_OF_PERSONNEL_CURSOR ) / ( INT32 )( iNumberOfItems	) );
-
-	// get slider position
-	guiSliderPosition = uiCurrentInventoryIndex * sSizeOfEachSubRegion;
+	const std::size_t itemCount = static_cast<std::size_t>(
+		std::max(GetNumberOfInventoryItemsOnCurrentMerc(), 0));
+	guiSliderPosition = static_cast<UINT32>(
+		PersonnelRosterModel::SliderPosition(uiCurrentInventoryIndex,
+			itemCount, NUMBER_OF_INVENTORY_PERSONNEL,
+			Y_SIZE_OF_PERSONNEL_SCROLL_REGION - SIZE_OF_PERSONNEL_CURSOR));
 }
 
 
 void HandleSliderBarClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 {
-	INT32 iValue = 0;
-	INT32 iNumberOfItems = 0;
-	POINT MousePos;
-	INT16 sSizeOfEachSubRegion = 0;
-	INT16 sYPositionOnBar = 0;
-	INT16 iCurrentItemValue = 0;
-
 	if( ( iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN ) || ( iReason & MSYS_CALLBACK_REASON_LBUTTON_REPEAT ) )
 	{
-		// find out how many there are
-		iValue = ( INT32 )( GetNumberOfInventoryItemsOnCurrentMerc( ) );
+		const std::size_t itemCount = static_cast<std::size_t>(
+			std::max(GetNumberOfInventoryItemsOnCurrentMerc(), 0));
+		const INT32 relativeY = std::max<INT32>(
+			static_cast<INT32>(gusMouseYPos) - Y_OF_PERSONNEL_SCROLL_REGION, 0);
+		const std::size_t currentItemValue =
+			PersonnelRosterModel::WindowStartFromSlider(
+				static_cast<std::size_t>(relativeY), itemCount,
+				NUMBER_OF_INVENTORY_PERSONNEL,
+				Y_SIZE_OF_PERSONNEL_SCROLL_REGION - SIZE_OF_PERSONNEL_CURSOR);
 
-		// make sure there are more than one page
-		if( ( INT32 )uiCurrentInventoryIndex >=	iValue - NUMBER_OF_INVENTORY_PERSONNEL + 1 )
+		if( uiCurrentInventoryIndex != currentItemValue )
 		{
-			return;
-		}
-
-		// otherwise there are more than one item
-		iNumberOfItems = iValue - NUMBER_OF_INVENTORY_PERSONNEL;
-
-		// number of items is 0
-		if( iNumberOfItems == 0 )
-		{
-			return;
-		}
-
-		// find the x,y on the slider bar
-		MousePos.x = gusMouseXPos;
-		MousePos.y = gusMouseYPos;
-
-		// get the subregion sizes
-		sSizeOfEachSubRegion = ( INT16 )( ( INT32 )( Y_SIZE_OF_PERSONNEL_SCROLL_REGION - SIZE_OF_PERSONNEL_CURSOR ) / ( INT32 )( iNumberOfItems	) );
-
-		// get the cursor placement
-		sYPositionOnBar = (INT16) MousePos.y - Y_OF_PERSONNEL_SCROLL_REGION;
-
-		if( sSizeOfEachSubRegion == 0 )
-		{
-			return;
-		}
-
-		// get the actual item position
-		iCurrentItemValue = sYPositionOnBar / sSizeOfEachSubRegion;
-
-		if( uiCurrentInventoryIndex != iCurrentItemValue )
-		{
-			// get slider position
-			guiSliderPosition = iCurrentItemValue * sSizeOfEachSubRegion;
-
-			// set current inventory value
-			uiCurrentInventoryIndex = ( UINT8 )iCurrentItemValue;
-
-			// force update
+			uiCurrentInventoryIndex = static_cast<UINT8>(currentItemValue);
+			FindPositionOfPersInvSlider();
 			fReDrawScreenFlag = TRUE;
 		}
 	}
@@ -5929,8 +4906,7 @@ void PersonnelDataButtonCallback( GUI_BUTTON *btn, INT32 reason )
 
 INT32 GetFundsOnMerc( TacticalActor *pSoldier )
 {
-	INT32 iCurrentAmount = 0;
-	UINT32 iCurrentPocket = 0;
+	std::uint64_t currentAmount = 0;
 	// run through mercs pockets, if any money in them, add to total
 
 	// error check
@@ -5940,21 +4916,24 @@ INT32 GetFundsOnMerc( TacticalActor *pSoldier )
 	}
 
 	// run through grunts pockets and count all the spare change
-	UINT32 invsize = pSoldier->inventory().size();
-	for( iCurrentPocket = 0; iCurrentPocket < invsize; ++iCurrentPocket )
+	const std::size_t invsize = pSoldier->inventory().size();
+	for (std::size_t currentPocket = 0; currentPocket < invsize;
+		++currentPocket)
 	{
-		if ( Item[ pSoldier->inventory()[ iCurrentPocket ] .usItem ].usItemClass == IC_MONEY )
-		{
-			iCurrentAmount += pSoldier->inventory()[ iCurrentPocket ][0]->data.money.uiMoneyAmount;
-		}
+		const auto& object = pSoldier->inventory()[currentPocket];
+		if (!object.exists() || !PersonnelRosterModel::IsValidIndex(
+			object.usItem, MAXITEMS) ||
+			Item[object.usItem].usItemClass != IC_MONEY) continue;
+		currentAmount += object[0]->data.money.uiMoneyAmount;
 	}
 
-	return iCurrentAmount;
+	return PersonnelRosterModel::ClampCurrency(currentAmount);
 }
 
 void UpDateStateOfStartButton( void )
 {
-	if (!showPersonnelButtons)
+	if (!showPersonnelButtons || gPersonnelAtmResources.empty() ||
+		gubPersonnelInfoState >= PERSONNEL_NUM_BTN)
 		return;
 
 	for ( int i = 0; i < PERSONNEL_NUM_BTN; ++i )
@@ -5963,12 +4942,13 @@ void UpDateStateOfStartButton( void )
 	ButtonList[giPersonnelATMStartButton[gubPersonnelInfoState]]->uiFlags |= BUTTON_CLICKED_ON;
 
 	// if in current mercs and the currently selected guy is valid, enable button, else disable it
-	if (fCurrentTeamMode && currentTeamIndex != -1)
+	if (fCurrentTeamMode && gCurrentRosterCursor.hasSelection() &&
+		gCurrentRosterCursor.selected() < currentTeamList.size())
 	{
 		for ( int i = 0; i < PERSONNEL_NUM_BTN; ++i )
 			EnableButton( giPersonnelATMStartButton[ i ] );
 
-		SoldierID iId = currentTeamList[currentTeamIndex];
+		SoldierID iId = currentTeamList[gCurrentRosterCursor.selected()];
 		TacticalActor* soldier =
 			GetJa2SoldierRepository().resolve(iId.i);
 
@@ -5999,12 +4979,13 @@ void DisplayAmountOnCurrentMerc( void )
 	std::wstring sString{};
 	INT16 sX, sY;
 
-	if (currentTeamIndex == -1) {
+	if (!fCurrentTeamMode || !gCurrentRosterCursor.hasSelection() ||
+		gCurrentRosterCursor.selected() >= currentTeamList.size()) {
 		pSoldier = NULL;
 	} else {
 		// set soldier
 		pSoldier = GetJa2SoldierRepository().resolve(
-			currentTeamList[currentTeamIndex].i);
+			currentTeamList[gCurrentRosterCursor.selected()].i);
 	}
 
 	sString = FormatMoney( GetFundsOnMerc( pSoldier ) );
@@ -6020,7 +5001,7 @@ void DisplayAmountOnCurrentMerc( void )
 	FindFontRightCoordinates( ATM_DISPLAY_X, ATM_DISPLAY_Y, ATM_DISPLAY_WIDTH, ATM_DISPLAY_HEIGHT, sString.data(), ATM_FONT, &sX, &sY);
 
 	// print string
-	mprintf( sX, sY, sString.data() );
+	mprintf(sX, sY, L"%s", sString.c_str());
 }
 
 void HandlePersonnelKeyboard( void )
@@ -6058,10 +5039,10 @@ void HandlePersonnelKeyboard( void )
 
 						//if the selected merc is valid, and they are a POW, change to the inventory display
 						TacticalActor* selectedSoldier =
-							currentTeamIndex != -1
-								? GetJa2SoldierRepository().resolve(
-									currentTeamList[currentTeamIndex].i)
-								: NULL;
+							gCurrentRosterCursor.hasSelection() &&
+							gCurrentRosterCursor.selected() < currentTeamList.size()
+								? GetJa2SoldierRepository().resolve(currentTeamList[
+									gCurrentRosterCursor.selected()].i) : NULL;
 						if( selectedSoldier &&
 							selectedSoldier->assignment().current() ==
 								ASSIGNMENT_POW &&
@@ -6087,10 +5068,10 @@ void HandlePersonnelKeyboard( void )
 
 						//if the selected merc is valid, and they are a POW, change to the inventory display
 						TacticalActor* selectedSoldier =
-							currentTeamIndex != -1
-								? GetJa2SoldierRepository().resolve(
-									currentTeamList[currentTeamIndex].i)
-								: NULL;
+							gCurrentRosterCursor.hasSelection() &&
+							gCurrentRosterCursor.selected() < currentTeamList.size()
+								? GetJa2SoldierRepository().resolve(currentTeamList[
+									gCurrentRosterCursor.selected()].i) : NULL;
 						if( selectedSoldier &&
 							selectedSoldier->assignment().current() ==
 								ASSIGNMENT_POW &&
@@ -6136,25 +5117,17 @@ void HandlePersonnelKeyboard( void )
 					if ( !fCurrentTeamMode )
 					{
 						fCurrentTeamMode = TRUE;
-						// how many people do we have?..if you have someone set default to 0
-						if( maxCurrentTeamIndex >= 0 )
-							// get id of first merc in list
-							currentTeamIndex = 0;
-						else
-							currentTeamIndex = -1;
+						gCurrentRosterCursor.reset(currentTeamList.size());
 					}
 					else
 					{
 						fCurrentTeamMode = FALSE;
-						// how many departed people?
-						if (GetNumberOfPastMercsOnPlayersTeam() > 0) {
-							iCurrentPersonSelectedId = 0;
-						} else {
-							iCurrentPersonSelectedId = -1;
-						}
+						RefreshDepartedRoster();
+						gDepartedRosterCursor.reset(gDepartedRoster.size());
 						//Switch the panel on the right to be the stat panel
 						gubPersonnelInfoState = PERSONNEL_STAT_BTN;
 					}
+					SetPersonnelButtonStates();
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
 				break;
@@ -6187,42 +5160,6 @@ void HandlePersonnelKeyboard( void )
 	}
 }
 
-BOOLEAN IsPastMercDead( INT32 iId )
-{
-	if( GetTheStateOfDepartedMerc( GetIdOfPastMercInSlot( iId ) ) == DEPARTED_DEAD )
-	{
-		return( TRUE );
-	}
-	else
-	{
-		return( FALSE );
-	}
-}
-
-BOOLEAN IsPastMercFired( INT32 iId )
-{
-	if( GetTheStateOfDepartedMerc( GetIdOfPastMercInSlot( iId )	) == DEPARTED_FIRED )
-	{
-		return( TRUE );
-	}
-	else
-	{
-		return( FALSE );
-	}
-}
-
-BOOLEAN IsPastMercOther( INT32 iId )
-{
-	if( GetTheStateOfDepartedMerc( GetIdOfPastMercInSlot( iId )	) == DEPARTED_OTHER )
-	{
-		return( TRUE );
-	}
-	else
-	{
-		return( FALSE );
-	}
-}
-
 void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 {
 	const CampaignMercenaryPolicy mercenaryPolicy(
@@ -6237,18 +5174,15 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 	// SANDRO - remove the regions
 	for( INT8 i = 0; i < 13; i++ )
 	{
-		if( fAddedTraitRegion[i] )
-		{
-			MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[i] );
-			fAddedTraitRegion[i] = FALSE;
-		}
+		ClearPersonnelTraitRegion(i);
 	}
 
 	TacticalActor *pSoldier =
 		GetJa2SoldierRepository().resolve(iId.i);
 	if ( !pSoldier )
 		return;
-	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->identity().profile()];
+	const MERCPROFILESTRUCT *pMercProfile = ProfileFor(pSoldier);
+	if (!pMercProfile) return;
 	const STRUCT_Records *pRecords = &pMercProfile->records;
 
 	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
@@ -6270,8 +5204,9 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 
 			if ( mercenaryPolicy.usesUnfinishedBusinessRules() )
 			{
-				wcscpy( sString, gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
-				mprintf(x, y, pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT]);
+				PersonnelRosterModel::CopyText(sString,
+					gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION]);
+				mprintf(x, y, L"%s", pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT]);
 			}
 			else
 			{
@@ -6299,27 +5234,28 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 				// if there is going to be a both days and hours left on the contract
 				if( days > 0)
 				{
-					swprintf( sString, L"%d%s %d%s / %d%s", days, gpStrategicString[STR_PB_DAYS_ABBREVIATION], hours, gpStrategicString[STR_PB_HOURS_ABBREVIATION], pSoldier->employment().totalLength(), gpStrategicString[STR_PB_DAYS_ABBREVIATION] );
-					mprintf( x, y, pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT] );
+					sgp_swprintf(sString, std::size(sString), L"%d%s %d%s / %d%s", days, gpStrategicString[STR_PB_DAYS_ABBREVIATION], hours, gpStrategicString[STR_PB_HOURS_ABBREVIATION], pSoldier->employment().totalLength(), gpStrategicString[STR_PB_DAYS_ABBREVIATION] );
+					mprintf( x, y, L"%s", pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT] );
 				}
 
 				//else there is under a day left
 				else
 				{
 					//DEF: removed 2/7/99
-					swprintf(sString, L"%d%s / %d%s", hours, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ], pSoldier->employment().totalLength(), gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
-					mprintf( x, y, pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT] );
+					sgp_swprintf(sString, std::size(sString), L"%d%s / %d%s", hours, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ], pSoldier->employment().totalLength(), gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
+					mprintf( x, y, L"%s", pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT] );
 				}
 
 			}
 			else
 			{
-				wcscpy( sString, gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
-				mprintf( x, y, pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT] );
+				PersonnelRosterModel::CopyText(sString,
+					gpStrategicString[STR_PB_NOTAPPLICABLE_ABBREVIATION]);
+				mprintf( x, y, L"%s", pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT] );
 			}
 			}
 			FindFontRightCoordinates( (INT16)(x + Prsnl_DATA_OffSetX), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
-			mprintf( sX, y, sString );
+			mprintf( sX, y, L"%s", sString );
 		}
 		break;
 
@@ -6328,14 +5264,14 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 		case 1:
 
 			// total contract time served
-			mprintf( x, y, pPersonnelScreenStrings[PRSNL_TXT_TOTAL_SERVICE] );
+			mprintf( x, y, L"%s", pPersonnelScreenStrings[PRSNL_TXT_TOTAL_SERVICE] );
 
 			//./DEF 2/4/99: total service days used to be calced as 'days -1'
 
-			swprintf(sString, L"%d %s",pMercProfile->usTotalDaysServed, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
+			sgp_swprintf(sString, std::size(sString), L"%d %s",pMercProfile->usTotalDaysServed, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
 
 			FindFontRightCoordinates( (INT16)(x + Prsnl_DATA_OffSetX), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
-			mprintf(sX,y,sString);
+			mprintf(sX,y,L"%s", sString);
 		break;
 
 //		case 13:
@@ -6362,63 +5298,63 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 					uiDailyCost = pMercProfile->sSalary;
 				}
 
-//				swprintf( sString, L"%d",uiDailyCost * pSoldier->employment().totalLength() );
-				swprintf( sString, L"%d", pMercProfile->uiTotalCostToDate );
+//				sgp_swprintf(sString, std::size(sString), L"%d",uiDailyCost * pSoldier->employment().totalLength() );
+				sgp_swprintf(sString, std::size(sString), L"%d", pMercProfile->uiTotalCostToDate );
 			}
 			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 			{
-//					swprintf( sString, L"%d",pMercProfile->sSalary * pMercProfile->iMercMercContractLength );
-					swprintf( sString, L"%d", pMercProfile->uiTotalCostToDate );
+//					sgp_swprintf(sString, std::size(sString), L"%d",pMercProfile->sSalary * pMercProfile->iMercMercContractLength );
+					sgp_swprintf(sString, std::size(sString), L"%d", pMercProfile->uiTotalCostToDate );
 			}
 			else
 			{
 				//Display a $0 amount
-//				swprintf( sString, L"0" );
+//				sgp_swprintf(sString, std::size(sString), L"%s", L"0" );
 
-				swprintf( sString, L"%d", pMercProfile->uiTotalCostToDate );
+				sgp_swprintf(sString, std::size(sString), L"%d", pMercProfile->uiTotalCostToDate );
 			}
 */
-				swprintf( sString, L"%s", FormatMoney(pMercProfile->uiTotalCostToDate).data() );
+				sgp_swprintf(sString, std::size(sString), L"%s", FormatMoney(pMercProfile->uiTotalCostToDate).data() );
 
 /*
 DEF:3/19/99:
 			if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 			{
-			swprintf( sStringA, L"%s", pPersonnelScreenStrings[ PRSNL_TXT_UNPAID_AMOUNT ] );
+			sgp_swprintf(sStringA, std::size(sStringA), L"%s", pPersonnelScreenStrings[ PRSNL_TXT_UNPAID_AMOUNT ] );
 			}
 			else
 */
 			{
-				swprintf( sStringA, L"%s", pPersonnelScreenStrings[ PRSNL_TXT_TOTAL_COST ]	);
+				sgp_swprintf(sStringA, std::size(sStringA), L"%s", pPersonnelScreenStrings[ PRSNL_TXT_TOTAL_COST ]	);
 			}
 
 			FindFontRightCoordinates( (INT16)(x + Prsnl_DATA_OffSetX), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
-			mprintf( x, y, sStringA );
+			mprintf( x, y, L"%s", sStringA );
 
 			// print contract cost
-			mprintf( sX, y, sString );
+			mprintf( sX, y, L"%s", sString );
 
 			if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 			{
 				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
 					// 2 week contract
-					swprintf( sString, L"%s", FormatMoney( pMercProfile->uiBiWeeklySalary / 14 ).data() );
+					sgp_swprintf(sString, std::size(sString), L"%s", FormatMoney( pMercProfile->uiBiWeeklySalary / 14 ).data() );
 				}
 				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 				{
 					// 1 week contract
-					swprintf( sString, L"%s", FormatMoney( pMercProfile->uiWeeklySalary / 7 ).data() );
+					sgp_swprintf(sString, std::size(sString), L"%s", FormatMoney( pMercProfile->uiWeeklySalary / 7 ).data() );
 				}
 				else
 				{
 					// daily rate
-					swprintf( sString, L"%s", FormatMoney( pMercProfile->sSalary ).data() );
+					sgp_swprintf(sString, std::size(sString), L"%s", FormatMoney( pMercProfile->sSalary ).data() );
 				}
 			}
 			else
 			{
-				swprintf( sString, L"%s", FormatMoney( pMercProfile->sSalary ).data() );
+				sgp_swprintf(sString, std::size(sString), L"%s", FormatMoney( pMercProfile->sSalary ).data() );
 			}
 
 			FindFontRightCoordinates( (INT16)(x + Prsnl_DATA_OffSetX), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
@@ -6426,8 +5362,8 @@ DEF:3/19/99:
 			iCounter++;
 
 			// now print daily rate
-			mprintf( sX, pPersonnelScreenPoints[iCounter + 1].y, sString );
-			mprintf( pPersonnelScreenPoints[iCounter + 1].x + (iSlot * TEXT_BOX_WIDTH), pPersonnelScreenPoints[iCounter + 1].y, pPersonnelScreenStrings[PRSNL_TXT_DAILY_COST] );
+			mprintf( sX, pPersonnelScreenPoints[iCounter + 1].y, L"%s", sString );
+			mprintf( pPersonnelScreenPoints[iCounter + 1].x + (iSlot * TEXT_BOX_WIDTH), pPersonnelScreenPoints[iCounter + 1].y, L"%s", pPersonnelScreenStrings[PRSNL_TXT_DAILY_COST] );
 
 			break;
 
@@ -6437,21 +5373,21 @@ DEF:3/19/99:
 			//if its a merc merc, display the salary oweing
 			if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 			{
-				mprintf((INT16)(pPersonnelScreenPoints[iCounter-1].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter-1].y,pPersonnelScreenStrings[PRSNL_TXT_UNPAID_AMOUNT]);
+				mprintf((INT16)(pPersonnelScreenPoints[iCounter-1].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter-1].y,L"%s", pPersonnelScreenStrings[PRSNL_TXT_UNPAID_AMOUNT]);
 
-				swprintf( sString, L"%s", FormatMoney( pMercProfile->sSalary * pMercProfile->iMercMercContractLength ).data() );
+				sgp_swprintf(sString, std::size(sString), L"%s", FormatMoney( pMercProfile->sSalary * pMercProfile->iMercMercContractLength ).data() );
 
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter-1].x+(iSlot*TEXT_BOX_WIDTH)+Prsnl_DATA_OffSetX),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-				mprintf(sX,pPersonnelScreenPoints[iCounter-1].y,sString);
+				mprintf(sX,pPersonnelScreenPoints[iCounter-1].y,L"%s", sString);
 			}
 			else
 			{
-				mprintf((INT16)(pPersonnelScreenPoints[iCounter-1].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter-1].y,pPersonnelScreenStrings[PRSNL_TXT_MED_DEPOSIT]);
+				mprintf((INT16)(pPersonnelScreenPoints[iCounter-1].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter-1].y,L"%s", pPersonnelScreenStrings[PRSNL_TXT_MED_DEPOSIT]);
 
-				swprintf(sString, L"%s", FormatMoney(pMercProfile->sMedicalDepositAmount).data());
+				sgp_swprintf(sString, std::size(sString), L"%s", FormatMoney(pMercProfile->sMedicalDepositAmount).data());
 
 				FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[iCounter-1].x+(iSlot*TEXT_BOX_WIDTH)+Prsnl_DATA_OffSetX),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-				mprintf(sX,pPersonnelScreenPoints[iCounter-1].y,sString);
+				mprintf(sX,pPersonnelScreenPoints[iCounter-1].y,L"%s", sString);
 			}
 
 
@@ -6462,50 +5398,42 @@ DEF:3/19/99:
 
 		case 14:
 		// kills
-			mprintf((INT16)(pPersonnelScreenPoints[20].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[20].y - 12),pPersonnelScreenStrings[PRSNL_TXT_KILLS]);
+			mprintf((INT16)(pPersonnelScreenPoints[20].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[20].y - 12),L"%s", pPersonnelScreenStrings[PRSNL_TXT_KILLS]);
 
-			swprintf(sString, L"%d",(pRecords->usKillsElites + pRecords->usKillsRegulars + pRecords->usKillsAdmins + pRecords->usKillsHostiles + pRecords->usKillsCreatures + pRecords->usKillsZombies + pRecords->usKillsTanks + pRecords->usKillsOthers));
+			sgp_swprintf(sString, std::size(sString), L"%d",(pRecords->usKillsElites + pRecords->usKillsRegulars + pRecords->usKillsAdmins + pRecords->usKillsHostiles + pRecords->usKillsCreatures + pRecords->usKillsZombies + pRecords->usKillsTanks + pRecords->usKillsOthers));
 
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[20].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-			mprintf(sX,(pPersonnelScreenPoints[20].y - 12),sString);
+			mprintf(sX,(pPersonnelScreenPoints[20].y - 12),L"%s", sString);
 
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[20].x + 148), ( pPersonnelScreenPoints[20].y - 13 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[7] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[7] );
-			}
+			ClearPersonnelTraitRegion(7);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[7], (UINT16)( pPersonnelScreenPoints[20].x + 147 ), (UINT16)( pPersonnelScreenPoints[20].y - 14 ),
 							(UINT16)( pPersonnelScreenPoints[20].x + 166 ), (UINT16)(pPersonnelScreenPoints[20].y - 3), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[7] );
-			fAddedTraitRegion[7] = TRUE;
+			PublishPersonnelTraitRegion(7);
 			// Assign the text
 			AssignPersonnelKillsHelpText( pSoldier->identity().profile() );
 
 		break;
 		case 15:
 			// assists
-			mprintf((INT16)(pPersonnelScreenPoints[21].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[21].y - 10),pPersonnelScreenStrings[PRSNL_TXT_ASSISTS]);
-			swprintf(sString, L"%d",(pRecords->usAssistsMercs + pRecords->usAssistsMilitia + pRecords->usAssistsOthers));
+			mprintf((INT16)(pPersonnelScreenPoints[21].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[21].y - 10),L"%s", pPersonnelScreenStrings[PRSNL_TXT_ASSISTS]);
+			sgp_swprintf(sString, std::size(sString), L"%d",(pRecords->usAssistsMercs + pRecords->usAssistsMilitia + pRecords->usAssistsOthers));
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[21].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-			mprintf(sX,(pPersonnelScreenPoints[21].y - 10),sString);
+			mprintf(sX,(pPersonnelScreenPoints[21].y - 10),L"%s", sString);
 		
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[21].x + 148), ( pPersonnelScreenPoints[21].y - 11 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[8] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[8] );
-			}
+			ClearPersonnelTraitRegion(8);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[8], (UINT16)( pPersonnelScreenPoints[21].x + 147 ), (UINT16)( pPersonnelScreenPoints[21].y - 12 ),
 							(UINT16)( pPersonnelScreenPoints[21].x + 166 ), (UINT16)(pPersonnelScreenPoints[21].y - 1), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[8] );
-			fAddedTraitRegion[8] = TRUE;
+			PublishPersonnelTraitRegion(8);
 			// Assign the text
 			AssignPersonnelAssistsHelpText( pSoldier->identity().profile() );
 
@@ -6513,7 +5441,7 @@ DEF:3/19/99:
 		case 16:
 		{
 			// shots/hits
-			mprintf( (INT16)(pPersonnelScreenPoints[22].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[22].y - 8), pPersonnelScreenStrings[PRSNL_TXT_HIT_PERCENTAGE] );
+			mprintf( (INT16)(pPersonnelScreenPoints[22].x + (iSlot * TEXT_BOX_WIDTH)), (pPersonnelScreenPoints[22].y - 8), L"%s", pPersonnelScreenStrings[PRSNL_TXT_HIT_PERCENTAGE] );
 			uiHits = (UINT32)pRecords->usShotsHit;
 			uiHits *= 100;
 
@@ -6532,97 +5460,81 @@ DEF:3/19/99:
 			}
 
 
-			swprintf( sString, L"%d %%%%", uiHits );
+			sgp_swprintf(sString, std::size(sString), L"%d %%%%", uiHits );
 			FindFontRightCoordinates( (INT16)(pPersonnelScreenPoints[22].x + (iSlot * TEXT_BOX_WIDTH)), 0, TEXT_BOX_WIDTH - 20, 0, sString, PERS_FONT, &sX, &sY );
 			sX += StringPixLength( sSpecialCharacters[0], PERS_FONT );
-			mprintf( sX, (pPersonnelScreenPoints[22].y - 8), sString );
+			mprintf( sX, (pPersonnelScreenPoints[22].y - 8), L"%s", sString );
 
 			GetVideoObject( &hHandle, guiQMark );
 			BltVideoObject( FRAME_BUFFER, hHandle, 0, (pPersonnelScreenPoints[22].x + 148), (pPersonnelScreenPoints[22].y - 9), VO_BLT_SRCTRANSPARENCY, NULL );
 
 			// Add specific region for fast help window
-			if ( fAddedTraitRegion[9] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[9] );
-			}
+			ClearPersonnelTraitRegion(9);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[9], (UINT16)(pPersonnelScreenPoints[22].x + 147), (UINT16)(pPersonnelScreenPoints[22].y - 10),
 				(UINT16)(pPersonnelScreenPoints[22].x + 166), (UINT16)(pPersonnelScreenPoints[22].y + 1), MSYS_PRIORITY_HIGH,
 				MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[9] );
-			fAddedTraitRegion[9] = TRUE;
+			PublishPersonnelTraitRegion(9);
 			// Assign the text
 			AssignPersonnelHitPercentageHelpText( pSoldier->identity().profile() );
 		}
 		break;
 		case 17:
 			// Achievements
-			mprintf((INT16)(pPersonnelScreenPoints[23].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[23].y - 6),pPersonnelScreenStrings[PRSNL_TXT_ACHIEVEMNTS]);
-			swprintf(sString, L"%d %%%%", CalculateMercsAchievementPercentage( pSoldier->identity().profile() ));
+			mprintf((INT16)(pPersonnelScreenPoints[23].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[23].y - 6),L"%s", pPersonnelScreenStrings[PRSNL_TXT_ACHIEVEMNTS]);
+			sgp_swprintf(sString, std::size(sString), L"%d %%%%", CalculateMercsAchievementPercentage( pSoldier->identity().profile() ));
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[23].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
 			sX += StringPixLength( sSpecialCharacters[0],	PERS_FONT );
-			mprintf(sX,(pPersonnelScreenPoints[23].y - 6),sString);
+			mprintf(sX,(pPersonnelScreenPoints[23].y - 6),L"%s", sString);
 			
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[23].x + 148), ( pPersonnelScreenPoints[23].y - 7 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[10] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[10] );
-			}
+			ClearPersonnelTraitRegion(10);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[10], (UINT16)( pPersonnelScreenPoints[23].x + 147 ), (UINT16)( pPersonnelScreenPoints[23].y - 8 ),
 							(UINT16)( pPersonnelScreenPoints[23].x + 166 ), (UINT16)(pPersonnelScreenPoints[23].y + 3), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[10] );
-			fAddedTraitRegion[10] = TRUE;
+			PublishPersonnelTraitRegion(10);
 			// Assign the text
 			AssignPersonnelAchievementsHelpText( pSoldier->identity().profile() );
 
 		break;
 		case 18:
 			// battles
-			mprintf((INT16)(pPersonnelScreenPoints[24].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[24].y - 4),pPersonnelScreenStrings[PRSNL_TXT_BATTLES]);
-			swprintf(sString, L"%d",(pRecords->usBattlesTactical + pRecords->usBattlesAutoresolve));
+			mprintf((INT16)(pPersonnelScreenPoints[24].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[24].y - 4),L"%s", pPersonnelScreenStrings[PRSNL_TXT_BATTLES]);
+			sgp_swprintf(sString, std::size(sString), L"%d",(pRecords->usBattlesTactical + pRecords->usBattlesAutoresolve));
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[24].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-			mprintf(sX,(pPersonnelScreenPoints[24].y - 4),sString);
+			mprintf(sX,(pPersonnelScreenPoints[24].y - 4),L"%s", sString);
 			
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[24].x + 148), ( pPersonnelScreenPoints[24].y - 5 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[11] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[11] );
-			}
+			ClearPersonnelTraitRegion(11);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[11], (UINT16)( pPersonnelScreenPoints[24].x + 147 ), (UINT16)( pPersonnelScreenPoints[24].y - 6 ),
 							(UINT16)( pPersonnelScreenPoints[24].x + 166 ), (UINT16)(pPersonnelScreenPoints[24].y + 5), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[11] );
-			fAddedTraitRegion[11] = TRUE;
+			PublishPersonnelTraitRegion(11);
 			// Assign the text
 			AssignPersonnelBattlesHelpText( pSoldier->identity().profile() );
 
 		break;
 		case 19:
 			// wounds
-			mprintf((INT16)(pPersonnelScreenPoints[25].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[25].y - 2),pPersonnelScreenStrings[PRSNL_TXT_TIMES_WOUNDED]);
-			swprintf(sString, L"%d",(pRecords->usTimesWoundedShot + pRecords->usTimesWoundedStabbed + (pRecords->usTimesWoundedPunched/2) + pRecords->usTimesWoundedBlasted));
+			mprintf((INT16)(pPersonnelScreenPoints[25].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[25].y - 2),L"%s", pPersonnelScreenStrings[PRSNL_TXT_TIMES_WOUNDED]);
+			sgp_swprintf(sString, std::size(sString), L"%d",(pRecords->usTimesWoundedShot + pRecords->usTimesWoundedStabbed + (pRecords->usTimesWoundedPunched/2) + pRecords->usTimesWoundedBlasted));
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[25].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
-			mprintf(sX,(pPersonnelScreenPoints[25].y - 2),sString);
+			mprintf(sX,(pPersonnelScreenPoints[25].y - 2),L"%s", sString);
 			
 			GetVideoObject(&hHandle, guiQMark);
 			BltVideoObject( FRAME_BUFFER, hHandle, 0,(pPersonnelScreenPoints[25].x + 148), ( pPersonnelScreenPoints[25].y - 3 ), VO_BLT_SRCTRANSPARENCY,NULL );
 
 			// Add specific region for fast help window
-			if( fAddedTraitRegion[12] )
-			{
-				MSYS_RemoveRegion( &gSkillTraitHelpTextRegion[12] );
-			}
+			ClearPersonnelTraitRegion(12);
 			MSYS_DefineRegion( &gSkillTraitHelpTextRegion[12], (UINT16)( pPersonnelScreenPoints[25].x + 147 ), (UINT16)( pPersonnelScreenPoints[25].y - 4 ),
 							(UINT16)( pPersonnelScreenPoints[25].x + 166 ), (UINT16)(pPersonnelScreenPoints[25].y + 7), MSYS_PRIORITY_HIGH,
 								MSYS_NO_CURSOR, MSYS_NO_CALLBACK, NULL );
-			MSYS_AddRegion( &gSkillTraitHelpTextRegion[12] );
-			fAddedTraitRegion[12] = TRUE;
+			PublishPersonnelTraitRegion(12);
 			// Assign the text
 			AssignPersonnelWoundsHelpText( pSoldier->identity().profile() );
 
@@ -6640,6 +5552,7 @@ DEF:3/19/99:
 INT32 CalcTimeLeftOnMercContract( TacticalActor *pSoldier )
 {
 	INT32 iTimeLeftOnContract = -1;
+	if (!pSoldier) return iTimeLeftOnContract;
 
 	if(pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 	{
@@ -6650,7 +5563,8 @@ INT32 CalcTimeLeftOnMercContract( TacticalActor *pSoldier )
 	}
 	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 	{
-		iTimeLeftOnContract = gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength;
+		const MERCPROFILESTRUCT* profile = ProfileFor(pSoldier);
+		if (profile) iTimeLeftOnContract = profile->iMercMercContractLength;
 	}
 
 	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
@@ -6667,7 +5581,8 @@ INT32 CalcTimeLeftOnMercContract( TacticalActor *pSoldier )
 }
 
 // SANDRO - Popup text windows for traits
-void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLevel, BOOLEAN fRegMale, CHAR16 *apStr )
+void AssignPersonnelSkillTraitHelpText(UINT8 ubTraitNumber,
+	BOOLEAN fExpertLevel, BOOLEAN fRegMale, CHAR16 (&apStr)[5000])
 {
 	//CHAR16	apStr[ 5000 ];
 	CHAR16	atStr[ 1500 ];
@@ -6678,1023 +5593,1023 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 		{
 			case AUTO_WEAPONS_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubAWBonusCtHAssaultRifles != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsAutoWeapons[0], ( gSkillTraitValues.ubAWBonusCtHAssaultRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsAutoWeapons[0], ( gSkillTraitValues.ubAWBonusCtHAssaultRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAWBonusCtHSMGs != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsAutoWeapons[1], ( gSkillTraitValues.ubAWBonusCtHSMGs * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsAutoWeapons[1], ( gSkillTraitValues.ubAWBonusCtHSMGs * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAWBonusCtHLMGs != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsAutoWeapons[2], ( gSkillTraitValues.ubAWBonusCtHLMGs * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsAutoWeapons[2], ( gSkillTraitValues.ubAWBonusCtHLMGs * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAWFiringSpeedBonusLMGs != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsAutoWeapons[3], ( gSkillTraitValues.ubAWFiringSpeedBonusLMGs * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsAutoWeapons[3], ( gSkillTraitValues.ubAWFiringSpeedBonusLMGs * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAWPercentReadyLMGReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsAutoWeapons[4], ( gSkillTraitValues.ubAWPercentReadyLMGReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsAutoWeapons[4], ( gSkillTraitValues.ubAWPercentReadyLMGReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAWAutoFirePenaltyReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsAutoWeapons[5], ( gSkillTraitValues.ubAWAutoFirePenaltyReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsAutoWeapons[5], ( gSkillTraitValues.ubAWAutoFirePenaltyReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAWUnwantedBulletsReduction > 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsAutoWeapons[6]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsAutoWeapons[6]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				// Flugente: focus is a skill that can be used by multiple traits. For simplicity, the ini values are in the sniper trait section
 				if ( gSkillTraitValues.ubSNFocusRadius != 0 && gSkillTraitValues.sSNFocusInterruptBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[19], gSkillTraitValues.sSNFocusInterruptBonus );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[19], gSkillTraitValues.sSNFocusInterruptBonus );
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case HEAVY_WEAPONS_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubHWGrenadeLaunchersAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsHeavyWeapons[0], ( gSkillTraitValues.ubHWGrenadeLaunchersAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsHeavyWeapons[0], ( gSkillTraitValues.ubHWGrenadeLaunchersAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubHWRocketLaunchersAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsHeavyWeapons[1], ( gSkillTraitValues.ubHWRocketLaunchersAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsHeavyWeapons[1], ( gSkillTraitValues.ubHWRocketLaunchersAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubHWBonusCtHGrenadeLaunchers != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsHeavyWeapons[2], ( gSkillTraitValues.ubHWBonusCtHGrenadeLaunchers * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsHeavyWeapons[2], ( gSkillTraitValues.ubHWBonusCtHGrenadeLaunchers * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubHWBonusCtHRocketLaunchers != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsHeavyWeapons[3], ( gSkillTraitValues.ubHWBonusCtHRocketLaunchers * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsHeavyWeapons[3], ( gSkillTraitValues.ubHWBonusCtHRocketLaunchers * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubHWMortarAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsHeavyWeapons[4], ( gSkillTraitValues.ubHWMortarAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsHeavyWeapons[4], ( gSkillTraitValues.ubHWMortarAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubHWMortarCtHPenaltyReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsHeavyWeapons[5], ( gSkillTraitValues.ubHWMortarCtHPenaltyReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsHeavyWeapons[5], ( gSkillTraitValues.ubHWMortarCtHPenaltyReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubHWDamageTanksBonusPercent != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsHeavyWeapons[6], ( gSkillTraitValues.ubHWDamageTanksBonusPercent * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsHeavyWeapons[6], ( gSkillTraitValues.ubHWDamageTanksBonusPercent * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubHWDamageBonusPercentForHW != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsHeavyWeapons[7], ( gSkillTraitValues.ubHWDamageBonusPercentForHW * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsHeavyWeapons[7], ( gSkillTraitValues.ubHWDamageBonusPercentForHW * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				// Flugente: focus is a skill that can be used by multiple traits. For simplicity, the ini values are in the sniper trait section
 				if ( gSkillTraitValues.ubSNFocusRadius != 0 && gSkillTraitValues.sSNFocusInterruptBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[19], gSkillTraitValues.sSNFocusInterruptBonus );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[19], gSkillTraitValues.sSNFocusInterruptBonus );
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case SNIPER_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubSNBonusCtHRifles != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[0], ( gSkillTraitValues.ubSNBonusCtHRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[0], ( gSkillTraitValues.ubSNBonusCtHRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSNBonusCtHSniperRifles != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[1], ( gSkillTraitValues.ubSNBonusCtHSniperRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[1], ( gSkillTraitValues.ubSNBonusCtHSniperRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSNEffRangeToTargetReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[2], ( gSkillTraitValues.ubSNEffRangeToTargetReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[2], ( gSkillTraitValues.ubSNEffRangeToTargetReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSNAimingBonusPerClick != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[3], ( gSkillTraitValues.ubSNAimingBonusPerClick * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[3], ( gSkillTraitValues.ubSNAimingBonusPerClick * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSNDamageBonusPerClick != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[4], ( gSkillTraitValues.ubSNDamageBonusPerClick * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[4], ( gSkillTraitValues.ubSNDamageBonusPerClick * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
 					if( gSkillTraitValues.ubSNDamageBonusFromNumClicks == 0)
 					{
-						wcscat( apStr, gzIMPMajorTraitsHelpTextsSniper[5] );
-						wcscat( apStr, gzIMPMajorTraitsHelpTextsSniper[6] );
+						AppendPersonnelText( apStr, gzIMPMajorTraitsHelpTextsSniper[5] );
+						AppendPersonnelText( apStr, gzIMPMajorTraitsHelpTextsSniper[6] );
 					}
 					else if( gSkillTraitValues.ubSNDamageBonusFromNumClicks == 1 )
 					{
-						wcscat( atStr, gzIMPMajorTraitsHelpTextsSniper[6] );
+						AppendPersonnelText( atStr, gzIMPMajorTraitsHelpTextsSniper[6] );
 					}
 					else
 					{
-						wcscat( atStr, gzIMPMajorTraitsHelpTextsSniper[6] );
-						wcscat( atStr, gzIMPMajorTraitsHelpTextsSniper[gSkillTraitValues.ubSNDamageBonusFromNumClicks + 4] );
+						AppendPersonnelText( atStr, gzIMPMajorTraitsHelpTextsSniper[6] );
+						AppendPersonnelText( atStr, gzIMPMajorTraitsHelpTextsSniper[gSkillTraitValues.ubSNDamageBonusFromNumClicks + 4] );
 					}
-					wcscat( atStr, L"\n" );
-					wcscat( apStr, atStr );
+					AppendPersonnelText( atStr, L"\n" );
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSNChamberRoundAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[14], ( gSkillTraitValues.ubSNChamberRoundAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[14], ( gSkillTraitValues.ubSNChamberRoundAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSNAimClicksAdded != 0 )
 				{
 					if( UsingNewCTHSystem() == true )
 					{
 						if( gSkillTraitValues.ubSNAimClicksAdded == 1 && !fExpertLevel )
-							swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[17]);
+							sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsSniper[17]);
 						else
-							swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[18], ( gSkillTraitValues.ubSNAimClicksAdded * (fExpertLevel ? 2 : 1)));
+							sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[18], ( gSkillTraitValues.ubSNAimClicksAdded * (fExpertLevel ? 2 : 1)));
 					}
 					else
 					{
 						if( gSkillTraitValues.ubSNAimClicksAdded == 1 && !fExpertLevel )
-							swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[15]);
+							sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsSniper[15]);
 						else
-							swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[16], ( gSkillTraitValues.ubSNAimClicksAdded * (fExpertLevel ? 2 : 1)));
+							sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[16], ( gSkillTraitValues.ubSNAimClicksAdded * (fExpertLevel ? 2 : 1)));
 					}
-					wcscat( apStr, atStr );
+					AppendPersonnelText( apStr, atStr );
 				}
 
 				if ( gSkillTraitValues.ubSNFocusRadius != 0 && gSkillTraitValues.sSNFocusInterruptBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[19], gSkillTraitValues.sSNFocusInterruptBonus );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[19], gSkillTraitValues.sSNFocusInterruptBonus );
+					AppendPersonnelText( apStr, atStr );
 				}
 
 				break;
 			}
 			case RANGER_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubRABonusCtHRifles != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[0], ( gSkillTraitValues.ubRABonusCtHRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsRanger[0], ( gSkillTraitValues.ubRABonusCtHRifles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubRABonusCtHShotguns != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[1], ( gSkillTraitValues.ubRABonusCtHShotguns * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsRanger[1], ( gSkillTraitValues.ubRABonusCtHShotguns * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubRAPumpShotgunsAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[2], ( gSkillTraitValues.ubRAPumpShotgunsAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsRanger[2], ( gSkillTraitValues.ubRAPumpShotgunsAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubRAFiringSpeedBonusShotguns != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[3], ( gSkillTraitValues.ubRAFiringSpeedBonusShotguns * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsRanger[3], ( gSkillTraitValues.ubRAFiringSpeedBonusShotguns * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubRAReloadSpeedShotgunsManual != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[7], ( gSkillTraitValues.ubRAReloadSpeedShotgunsManual * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsRanger[7], ( gSkillTraitValues.ubRAReloadSpeedShotgunsManual * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubRAAimClicksAdded != 0 )
 				{
 					if( gSkillTraitValues.ubRAAimClicksAdded == 1 && !fExpertLevel )
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[4], (UINT8)( gSkillTraitValues.ubRAAimClicksAdded * (fExpertLevel ? 2 : 1) ) );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsRanger[4], (UINT8)( gSkillTraitValues.ubRAAimClicksAdded * (fExpertLevel ? 2 : 1) ) );
 					else
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[5], (UINT8)( gSkillTraitValues.ubRAAimClicksAdded * (fExpertLevel ? 2 : 1) ) );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsRanger[5], (UINT8)( gSkillTraitValues.ubRAAimClicksAdded * (fExpertLevel ? 2 : 1) ) );
 
-					wcscat( apStr, atStr );
+					AppendPersonnelText( apStr, atStr );
 					// half of the above bonus also applies to rifles
 					if( (gSkillTraitValues.ubRAAimClicksAdded >= 2 && !fExpertLevel) || (gSkillTraitValues.ubRAAimClicksAdded == 1 && fExpertLevel) )
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[8], (UINT8)( gSkillTraitValues.ubRAAimClicksAdded * (fExpertLevel ? 2 : 1) / 2.0f));
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsRanger[8], (UINT8)( gSkillTraitValues.ubRAAimClicksAdded * (fExpertLevel ? 2 : 1) / 2.0f));
 					else
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[9], (UINT8)( gSkillTraitValues.ubRAAimClicksAdded * (fExpertLevel ? 2 : 1) / 2.0f));
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsRanger[9], (UINT8)( gSkillTraitValues.ubRAAimClicksAdded * (fExpertLevel ? 2 : 1) / 2.0f));
 
-					wcscat( apStr, atStr );
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubRAEffectiveRangeBonusShotguns != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsRanger[6], ( gSkillTraitValues.ubRAEffectiveRangeBonusShotguns * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsRanger[6], ( gSkillTraitValues.ubRAEffectiveRangeBonusShotguns * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				// Flugente: focus is a skill that can be used by multiple traits. For simplicity, the ini values are in the sniper trait section
 				if ( gSkillTraitValues.ubSNFocusRadius != 0 && gSkillTraitValues.sSNFocusInterruptBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[19], gSkillTraitValues.sSNFocusInterruptBonus );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[19], gSkillTraitValues.sSNFocusInterruptBonus );
+					AppendPersonnelText( apStr, atStr );
 				}
 
 				break;
 			}
 			case GUNSLINGER_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubGSFiringSpeedBonusPistols != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[0], ( gSkillTraitValues.ubGSFiringSpeedBonusPistols * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsGunslinger[0], ( gSkillTraitValues.ubGSFiringSpeedBonusPistols * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubGSEffectiveRangeBonusPistols != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[1], ( gSkillTraitValues.ubGSEffectiveRangeBonusPistols * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsGunslinger[1], ( gSkillTraitValues.ubGSEffectiveRangeBonusPistols * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubGSBonusCtHPistols != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[2], ( gSkillTraitValues.ubGSBonusCtHPistols * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsGunslinger[2], ( gSkillTraitValues.ubGSBonusCtHPistols * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubGSBonusCtHMachinePistols != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[3], ( gSkillTraitValues.ubGSBonusCtHMachinePistols * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsGunslinger[3], ( gSkillTraitValues.ubGSBonusCtHMachinePistols * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
 					if( gSkillTraitValues.ubGSCtHMPExcludeAuto )
-						wcscat( atStr, gzIMPMajorTraitsHelpTextsGunslinger[4] );
-					wcscat( atStr, L"\n");
-					wcscat( apStr, atStr );
+						AppendPersonnelText( atStr, gzIMPMajorTraitsHelpTextsGunslinger[4] );
+					AppendPersonnelText( atStr, L"\n");
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubGSAimingBonusPerClick != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[5], ( gSkillTraitValues.ubGSAimingBonusPerClick * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsGunslinger[5], ( gSkillTraitValues.ubGSAimingBonusPerClick * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubGSPercentReadyPistolsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[6], ( gSkillTraitValues.ubGSPercentReadyPistolsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsGunslinger[6], ( gSkillTraitValues.ubGSPercentReadyPistolsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubGSRealoadSpeedHandgunsBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[7], ( gSkillTraitValues.ubGSRealoadSpeedHandgunsBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsGunslinger[7], ( gSkillTraitValues.ubGSRealoadSpeedHandgunsBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubGSAimClicksAdded != 0 )
 				{
 					if( gSkillTraitValues.ubGSAimClicksAdded == 1 && !fExpertLevel )
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[8], ( gSkillTraitValues.ubGSAimClicksAdded * (fExpertLevel ? 2 : 1)));
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsGunslinger[8], ( gSkillTraitValues.ubGSAimClicksAdded * (fExpertLevel ? 2 : 1)));
 					else
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[9], ( gSkillTraitValues.ubGSAimClicksAdded * (fExpertLevel ? 2 : 1)));
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsGunslinger[9], ( gSkillTraitValues.ubGSAimClicksAdded * (fExpertLevel ? 2 : 1)));
 
-					wcscat( apStr, atStr );
+					AppendPersonnelText( apStr, atStr );
 				}
 				// Flugente: focus is a skill that can be used by multiple traits. For simplicity, the ini values are in the sniper trait section
 				if ( gSkillTraitValues.ubSNFocusRadius != 0 && gSkillTraitValues.sSNFocusInterruptBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSniper[19], gSkillTraitValues.sSNFocusInterruptBonus );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSniper[19], gSkillTraitValues.sSNFocusInterruptBonus );
+					AppendPersonnelText( apStr, atStr );
 				}
 
 				// Flugente: can we fan the hammer on certain guns (it's effectively a hidden mode of revolvers)?
 				if ( gSkillTraitValues.fCanFanTheHammer )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsGunslinger[10] );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsGunslinger[10] );
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case MARTIAL_ARTS_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubMAPunchAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[0], ( gSkillTraitValues.ubMAPunchAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[0], ( gSkillTraitValues.ubMAPunchAPsReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMABonusCtHBareHands != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[1], ( gSkillTraitValues.ubMABonusCtHBareHands * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[1], ( gSkillTraitValues.ubMABonusCtHBareHands * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMABonusCtHBrassKnuckles != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[2], ( gSkillTraitValues.ubMABonusCtHBrassKnuckles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[2], ( gSkillTraitValues.ubMABonusCtHBrassKnuckles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMABonusDamageHandToHand != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[3], ( gSkillTraitValues.ubMABonusDamageHandToHand * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[3], ( gSkillTraitValues.ubMABonusDamageHandToHand * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMABonusBreathDamageHandToHand != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[4], ( gSkillTraitValues.ubMABonusBreathDamageHandToHand * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[4], ( gSkillTraitValues.ubMABonusBreathDamageHandToHand * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.usMALostBreathRegainPenalty != 0 )
 				{
 					if( (gSkillTraitValues.usMALostBreathRegainPenalty * (fExpertLevel ? 2 : 1)) <= 25)
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[5]);
+						sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsMartialArts[5]);
 					else if( (gSkillTraitValues.usMALostBreathRegainPenalty * (fExpertLevel ? 2 : 1)) <= 50)
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[6]);
+						sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsMartialArts[6]);
 					else if( (gSkillTraitValues.usMALostBreathRegainPenalty * (fExpertLevel ? 2 : 1)) <= 100)
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[7]);
+						sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsMartialArts[7]);
 					else if( (gSkillTraitValues.usMALostBreathRegainPenalty * (fExpertLevel ? 2 : 1)) <= 200)
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[8]);
+						sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsMartialArts[8]);
 					else if( (gSkillTraitValues.usMALostBreathRegainPenalty * (fExpertLevel ? 2 : 1)) <= 400)
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[9]);
+						sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsMartialArts[9]);
 					else if( (gSkillTraitValues.usMALostBreathRegainPenalty * (fExpertLevel ? 2 : 1)) <= 700)
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[10]);
+						sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsMartialArts[10]);
 					else
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[11]);
+						sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsMartialArts[11]);
 
-					wcscat( apStr, atStr );
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.usMAAimedPunchDamageBonus != 0 )
 				{
 					if ( !fRegMale || (gSkillTraitValues.fPermitExtraAnimationsOnlyToMA && !fExpertLevel) )
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[12], ( gSkillTraitValues.usMAAimedPunchDamageBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[12], ( gSkillTraitValues.usMAAimedPunchDamageBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
 					else
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[13], ( gSkillTraitValues.usMAAimedPunchDamageBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[13], ( gSkillTraitValues.usMAAimedPunchDamageBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
 
-					wcscat( apStr, atStr );
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMAChanceToDodgeHtH != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[14], ( gSkillTraitValues.ubMAChanceToDodgeHtH * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[14], ( gSkillTraitValues.ubMAChanceToDodgeHtH * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMAOnTopCTDHtHBareHanded != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[15], ( gSkillTraitValues.ubMAOnTopCTDHtHBareHanded * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[15], ( gSkillTraitValues.ubMAOnTopCTDHtHBareHanded * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 					if( gSkillTraitValues.ubMAOnTopCTDHtHBrassKnuckles == gSkillTraitValues.ubMAOnTopCTDHtHBareHanded ) 
-						wcscat( apStr, gzIMPMajorTraitsHelpTextsMartialArts[16] );
+						AppendPersonnelText( apStr, gzIMPMajorTraitsHelpTextsMartialArts[16] );
 					else if( gSkillTraitValues.ubMAOnTopCTDHtHBrassKnuckles > 0 )
 					{
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[17], ( gSkillTraitValues.ubMAOnTopCTDHtHBrassKnuckles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[17], ( gSkillTraitValues.ubMAOnTopCTDHtHBrassKnuckles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+						AppendPersonnelText( apStr, atStr );
 					}
-					wcscat( apStr, L"\n" );
+					AppendPersonnelText( apStr, L"\n" );
 				}
 				else if( gSkillTraitValues.ubMAOnTopCTDHtHBrassKnuckles != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[18], ( gSkillTraitValues.ubMAOnTopCTDHtHBrassKnuckles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[18], ( gSkillTraitValues.ubMAOnTopCTDHtHBrassKnuckles * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMAChanceToDodgeMelee != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[19], ( gSkillTraitValues.ubMAChanceToDodgeMelee * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[19], ( gSkillTraitValues.ubMAChanceToDodgeMelee * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMAReducedAPsToSteal != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[20], ( gSkillTraitValues.ubMAReducedAPsToSteal * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[20], ( gSkillTraitValues.ubMAReducedAPsToSteal * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMAAPsChangeStanceReduction != 0 && ( gSkillTraitValues.ubMAAPsChangeStanceReduction == gSkillTraitValues.ubMAApsTurnAroundReduction == gSkillTraitValues.ubMAAPsClimbOrJumpReduction ))
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[21], ( gSkillTraitValues.ubMAAPsChangeStanceReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[21], ( gSkillTraitValues.ubMAAPsChangeStanceReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				else 
 				{
 					if( gSkillTraitValues.ubMAAPsChangeStanceReduction != 0 )
 					{
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[22], ( gSkillTraitValues.ubMAAPsChangeStanceReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[22], ( gSkillTraitValues.ubMAAPsChangeStanceReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+						AppendPersonnelText( apStr, atStr );
 					}
 					if( gSkillTraitValues.ubMAApsTurnAroundReduction != 0 )
 					{
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[23], ( gSkillTraitValues.ubMAApsTurnAroundReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[23], ( gSkillTraitValues.ubMAApsTurnAroundReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+						AppendPersonnelText( apStr, atStr );
 					}
 					if( gSkillTraitValues.ubMAAPsClimbOrJumpReduction != 0 )
 					{
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[24], ( gSkillTraitValues.ubMAAPsClimbOrJumpReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[24], ( gSkillTraitValues.ubMAAPsClimbOrJumpReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+						AppendPersonnelText( apStr, atStr );
 					}
 				}
 				if( gSkillTraitValues.ubMAReducedAPsRegisteredWhenMoving != 0 && UsingImprovedInterruptSystem() )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[27], ( gSkillTraitValues.ubMAReducedAPsRegisteredWhenMoving * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[27], ( gSkillTraitValues.ubMAReducedAPsRegisteredWhenMoving * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMAChanceToCkickDoors != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[25], ( gSkillTraitValues.ubMAChanceToCkickDoors * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsMartialArts[25], ( gSkillTraitValues.ubMAChanceToCkickDoors * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 
 				if ( fRegMale &&
 					((gSkillTraitValues.fPermitExtraAnimationsOnlyToMA && fExpertLevel) ||
 					!gSkillTraitValues.fPermitExtraAnimationsOnlyToMA ))
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsMartialArts[26]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsMartialArts[26]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case SQUADLEADER_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubSLBonusAPsPercent != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[0], ( gSkillTraitValues.ubSLBonusAPsPercent * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[0], ( gSkillTraitValues.ubSLBonusAPsPercent * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSLEffectiveLevelInRadius != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[1], ( gSkillTraitValues.ubSLEffectiveLevelInRadius * (fExpertLevel ? 2 : 1)), (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[1], ( gSkillTraitValues.ubSLEffectiveLevelInRadius * (fExpertLevel ? 2 : 1)), (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSLEffectiveLevelAsStandby != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[2], ( gSkillTraitValues.ubSLEffectiveLevelAsStandby * (fExpertLevel ? 2 : 1)));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[2], ( gSkillTraitValues.ubSLEffectiveLevelAsStandby * (fExpertLevel ? 2 : 1)));
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSLCollectiveInterruptsBonus != 0 && UsingImprovedInterruptSystem() )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[11], ( gSkillTraitValues.ubSLCollectiveInterruptsBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[11], ( gSkillTraitValues.ubSLCollectiveInterruptsBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSLOverallSuppresionBonusPercent != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[3], ( gSkillTraitValues.ubSLOverallSuppresionBonusPercent * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0], (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[3], ( gSkillTraitValues.ubSLOverallSuppresionBonusPercent * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0], (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSLMoraleGainBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[4], ( gSkillTraitValues.ubSLMoraleGainBonus * (fExpertLevel ? 2 : 1)));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[4], ( gSkillTraitValues.ubSLMoraleGainBonus * (fExpertLevel ? 2 : 1)));
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSLMoraleLossReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[5], ( gSkillTraitValues.ubSLMoraleLossReduction * (fExpertLevel ? 2 : 1)));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[5], ( gSkillTraitValues.ubSLMoraleLossReduction * (fExpertLevel ? 2 : 1)));
+					AppendPersonnelText( apStr, atStr );
 				}
 							
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[6], gSkillTraitValues.usSLRadiusNormal);
-				wcscat( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[6], gSkillTraitValues.usSLRadiusNormal);
+				AppendPersonnelText( apStr, atStr );
 				if( gSkillTraitValues.usSLRadiusExtendedEar > gSkillTraitValues.usSLRadiusNormal )
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[7], gSkillTraitValues.usSLRadiusExtendedEar);
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[7], gSkillTraitValues.usSLRadiusExtendedEar);
 
-				wcscat( apStr, atStr );
-				wcscat( apStr, L"\n" );
+				AppendPersonnelText( apStr, atStr );
+				AppendPersonnelText( apStr, L"\n" );
 
 				if( gSkillTraitValues.ubSLMaxBonuses > 1 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[8], gSkillTraitValues.ubSLMaxBonuses ) ;
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[8], gSkillTraitValues.ubSLMaxBonuses ) ;
+					AppendPersonnelText( apStr, atStr );
 				}
 				
 				if( gSkillTraitValues.ubSLFearResistance != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[9], ( gSkillTraitValues.ubSLFearResistance * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0], (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[9], ( gSkillTraitValues.ubSLFearResistance * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0], (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSLDeathMoralelossMultiplier != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSquadleader[10], (1 + ( gSkillTraitValues.ubSLDeathMoralelossMultiplier * (fExpertLevel ? 2 : 1))), (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSquadleader[10], (1 + ( gSkillTraitValues.ubSLDeathMoralelossMultiplier * (fExpertLevel ? 2 : 1))), (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case TECHNICIAN_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.usTERepairSpeedBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[0], ( gSkillTraitValues.usTERepairSpeedBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[0], ( gSkillTraitValues.usTERepairSpeedBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.usTELockpickingBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[1], ( gSkillTraitValues.usTELockpickingBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[1], ( gSkillTraitValues.usTELockpickingBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.usTEDisarmElTrapBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[2], ( gSkillTraitValues.usTEDisarmElTrapBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[2], ( gSkillTraitValues.usTEDisarmElTrapBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.usTEAttachingItemsBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[3], ( gSkillTraitValues.usTEAttachingItemsBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[3], ( gSkillTraitValues.usTEAttachingItemsBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTEUnjamGunBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[4], ( gSkillTraitValues.ubTEUnjamGunBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[4], ( gSkillTraitValues.ubTEUnjamGunBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTERepairElectronicsPenaltyReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[5], ( gSkillTraitValues.ubTERepairElectronicsPenaltyReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[5], ( gSkillTraitValues.ubTERepairElectronicsPenaltyReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTEChanceToDetectTrapsBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[6], ( gSkillTraitValues.ubTEChanceToDetectTrapsBonus * (fExpertLevel ? 2 : 1)));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[6], ( gSkillTraitValues.ubTEChanceToDetectTrapsBonus * (fExpertLevel ? 2 : 1)));
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTECtHControlledRobotBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[7], ( gSkillTraitValues.ubTECtHControlledRobotBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0], (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[7], ( gSkillTraitValues.ubTECtHControlledRobotBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0], (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTETraitsNumToRepairRobot == 2 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[8], (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[8], (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
+					AppendPersonnelText( apStr, atStr );
 				}
 				else if( gSkillTraitValues.ubTETraitsNumToRepairRobot == 1 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[8], (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[8], (fExpertLevel ? gzMercSkillTextNew[ubTraitNumber + NEWTRAIT_MERCSKILL_EXPERTOFFSET] : gzMercSkillTextNew[ubTraitNumber]));
+					AppendPersonnelText( apStr, atStr );
 
 					if( gSkillTraitValues.ubTERepairRobotPenaltyReduction != 0 && fExpertLevel)
 					{
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[9], ( gSkillTraitValues.ubTERepairRobotPenaltyReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsTechnician[9], ( gSkillTraitValues.ubTERepairRobotPenaltyReduction * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+						AppendPersonnelText( apStr, atStr );
 					}
 				}
 				if ( gGameExternalOptions.fAdvRepairSystem && gSkillTraitValues.fTETraitsCanRestoreItemThreshold )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsTechnician[10] );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsTechnician[10] );
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case DOCTOR_NT:
 			{
 				BOOLEAN fCanSurgery = FALSE;
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubDONumberTraitsNeededForSurgery != 0 && ((gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop) > 0))
 				{
 					if( gSkillTraitValues.ubDONumberTraitsNeededForSurgery <= (fExpertLevel ? 2 : 1))
 					{
 						fCanSurgery = TRUE;
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsDoctor[0]);
-						wcscat( apStr, atStr );
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsDoctor[1], (gSkillTraitValues.ubDOSurgeryHealPercentBase + ( gSkillTraitValues.ubDOSurgeryHealPercentOnTop * (fExpertLevel ? 2 : 1))), sSpecialCharacters[0]);
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsDoctor[0]);
+						AppendPersonnelText( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsDoctor[1], (gSkillTraitValues.ubDOSurgeryHealPercentBase + ( gSkillTraitValues.ubDOSurgeryHealPercentOnTop * (fExpertLevel ? 2 : 1))), sSpecialCharacters[0]);
+						AppendPersonnelText( apStr, atStr );
 						if( gSkillTraitValues.usDOSurgeryMedBagConsumption >= 60 )
-							wcscat( apStr, gzIMPMajorTraitsHelpTextsDoctor[2] );
+							AppendPersonnelText( apStr, gzIMPMajorTraitsHelpTextsDoctor[2] );
 
-						wcscat( apStr, L"\n" );
+						AppendPersonnelText( apStr, L"\n" );
 
 						if ( gSkillTraitValues.ubDOSurgeryHealPercentBloodbag )
 						{
-							swprintf( atStr, gzIMPMajorTraitsHelpTextsDoctor[10], gSkillTraitValues.ubDOSurgeryHealPercentBloodbag, sSpecialCharacters[0] );
-							wcscat( apStr, atStr );
+							sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsDoctor[10], gSkillTraitValues.ubDOSurgeryHealPercentBloodbag, sSpecialCharacters[0] );
+							AppendPersonnelText( apStr, atStr );
 						}
 					}
 				}
 				if( (gSkillTraitValues.usDORepairStatsRateBasic + gSkillTraitValues.usDORepairStatsRateOnTop) > 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsDoctor[3]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsDoctor[3]);
+					AppendPersonnelText( apStr, atStr );
 					if( fCanSurgery )
-						wcscat( apStr, gzIMPMajorTraitsHelpTextsDoctor[4] );
+						AppendPersonnelText( apStr, gzIMPMajorTraitsHelpTextsDoctor[4] );
 
-					wcscat( apStr, gzIMPMajorTraitsHelpTextsDoctor[5] );
+					AppendPersonnelText( apStr, gzIMPMajorTraitsHelpTextsDoctor[5] );
 				}
 				if( gSkillTraitValues.usDODoctorAssignmentBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsDoctor[6], ( gSkillTraitValues.usDODoctorAssignmentBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsDoctor[6], ( gSkillTraitValues.usDODoctorAssignmentBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubDOBandagingSpeedPercent != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsDoctor[7], ( gSkillTraitValues.ubDOBandagingSpeedPercent * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsDoctor[7], ( gSkillTraitValues.ubDOBandagingSpeedPercent * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubDONaturalRegenBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsDoctor[8], ( gSkillTraitValues.ubDONaturalRegenBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsDoctor[8], ( gSkillTraitValues.ubDONaturalRegenBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 					if( gSkillTraitValues.ubDOMaxRegenBonuses > 1 )
 					{
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsDoctor[9], gSkillTraitValues.ubDOMaxRegenBonuses ) ;
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsDoctor[9], gSkillTraitValues.ubDOMaxRegenBonuses ) ;
+						AppendPersonnelText( apStr, atStr );
 					}
-					wcscat( apStr, L"\n" );
+					AppendPersonnelText( apStr, L"\n" );
 				}
 				break;
 			}
 			case AMBIDEXTROUS_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubAMPenaltyDoubleReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsAmbidextrous[0], gSkillTraitValues.ubAMPenaltyDoubleReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsAmbidextrous[0], gSkillTraitValues.ubAMPenaltyDoubleReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAMReloadSpeedMagazines != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsAmbidextrous[1], gSkillTraitValues.ubAMReloadSpeedMagazines, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsAmbidextrous[1], gSkillTraitValues.ubAMReloadSpeedMagazines, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAMReloadSpeedLoose != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsAmbidextrous[2], gSkillTraitValues.ubAMReloadSpeedLoose, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsAmbidextrous[2], gSkillTraitValues.ubAMReloadSpeedLoose, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAMPickItemsAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsAmbidextrous[3], gSkillTraitValues.ubAMPickItemsAPsReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsAmbidextrous[3], gSkillTraitValues.ubAMPickItemsAPsReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAMWorkBackpackAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsAmbidextrous[4], gSkillTraitValues.ubAMWorkBackpackAPsReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsAmbidextrous[4], gSkillTraitValues.ubAMWorkBackpackAPsReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAMHandleDoorsAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsAmbidextrous[5], gSkillTraitValues.ubAMHandleDoorsAPsReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsAmbidextrous[5], gSkillTraitValues.ubAMHandleDoorsAPsReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAMHandleBombsAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsAmbidextrous[6], gSkillTraitValues.ubAMHandleBombsAPsReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsAmbidextrous[6], gSkillTraitValues.ubAMHandleBombsAPsReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubAMAttachingItemsAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsAmbidextrous[7], gSkillTraitValues.ubAMAttachingItemsAPsReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsAmbidextrous[7], gSkillTraitValues.ubAMAttachingItemsAPsReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case MELEE_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubMEBladesAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[0], gSkillTraitValues.ubMEBladesAPsReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsMelee[0], gSkillTraitValues.ubMEBladesAPsReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMECtHBladesBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[1], gSkillTraitValues.ubMECtHBladesBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsMelee[1], gSkillTraitValues.ubMECtHBladesBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMECtHBluntBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[2], gSkillTraitValues.ubMECtHBluntBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsMelee[2], gSkillTraitValues.ubMECtHBluntBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMEDamageBonusBlades != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[3], gSkillTraitValues.ubMEDamageBonusBlades, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsMelee[3], gSkillTraitValues.ubMEDamageBonusBlades, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMEDamageBonusBlunt != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[4], gSkillTraitValues.ubMEDamageBonusBlunt, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsMelee[4], gSkillTraitValues.ubMEDamageBonusBlunt, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.usMEAimedMeleeAttackDamageBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[5], gSkillTraitValues.usMEAimedMeleeAttackDamageBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsMelee[5], gSkillTraitValues.usMEAimedMeleeAttackDamageBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMEDodgeBladesBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[6], gSkillTraitValues.ubMEDodgeBladesBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsMelee[6], gSkillTraitValues.ubMEDodgeBladesBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMECtDBladesOnTopWithBladeInHands != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[7], gSkillTraitValues.ubMECtDBladesOnTopWithBladeInHands, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsMelee[7], gSkillTraitValues.ubMECtDBladesOnTopWithBladeInHands, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMEDodgeBluntBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[8], gSkillTraitValues.ubMEDodgeBluntBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsMelee[8], gSkillTraitValues.ubMEDodgeBluntBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubMECtDBluntOnTopWithBladeInHands != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsMelee[9], gSkillTraitValues.ubMECtDBluntOnTopWithBladeInHands, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsMelee[9], gSkillTraitValues.ubMECtDBluntOnTopWithBladeInHands, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case THROWING_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubTHBladesAPsReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[0], gSkillTraitValues.ubTHBladesAPsReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[0], gSkillTraitValues.ubTHBladesAPsReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHBladesMaxRange != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[1], gSkillTraitValues.ubTHBladesMaxRange, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[1], gSkillTraitValues.ubTHBladesMaxRange, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHBladesCtHBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[2], gSkillTraitValues.ubTHBladesCtHBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[2], gSkillTraitValues.ubTHBladesCtHBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHBladesCtHBonusPerClick != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[3], gSkillTraitValues.ubTHBladesCtHBonusPerClick, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[3], gSkillTraitValues.ubTHBladesCtHBonusPerClick, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHBladesDamageBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[4], gSkillTraitValues.ubTHBladesDamageBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[4], gSkillTraitValues.ubTHBladesDamageBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHBladesDamageBonusPerClick != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[5], gSkillTraitValues.ubTHBladesDamageBonusPerClick, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[5], gSkillTraitValues.ubTHBladesDamageBonusPerClick, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHBladesSilentCriticalHitChance != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[6], gSkillTraitValues.ubTHBladesSilentCriticalHitChance, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[6], gSkillTraitValues.ubTHBladesSilentCriticalHitChance, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHBladesCriticalHitMultiplierBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[7], gSkillTraitValues.ubTHBladesCriticalHitMultiplierBonus);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[7], gSkillTraitValues.ubTHBladesCriticalHitMultiplierBonus);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHBladesAimClicksAdded != 0 )
 				{
 					if( gSkillTraitValues.ubTHBladesAimClicksAdded == 1 )
-						swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[8], gSkillTraitValues.ubTHBladesAimClicksAdded );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[8], gSkillTraitValues.ubTHBladesAimClicksAdded );
 					else
-						swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[9], gSkillTraitValues.ubTHBladesAimClicksAdded );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[9], gSkillTraitValues.ubTHBladesAimClicksAdded );
 
-					wcscat( apStr, atStr );
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHAPsNeededToThrowGrenadesReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[10], gSkillTraitValues.ubTHAPsNeededToThrowGrenadesReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[10], gSkillTraitValues.ubTHAPsNeededToThrowGrenadesReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHMaxRangeToThrowGrenades != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[11], gSkillTraitValues.ubTHMaxRangeToThrowGrenades, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[11], gSkillTraitValues.ubTHMaxRangeToThrowGrenades, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTHCtHWhenThrowingGrenades != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsThrowing[12], gSkillTraitValues.ubTHCtHWhenThrowingGrenades, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsThrowing[12], gSkillTraitValues.ubTHCtHWhenThrowingGrenades, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case NIGHT_OPS_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubNOeSightRangeBonusInDark != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsNightOps[0], gSkillTraitValues.ubNOeSightRangeBonusInDark, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsNightOps[0], gSkillTraitValues.ubNOeSightRangeBonusInDark, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubNOHearingRangeBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsNightOps[1], gSkillTraitValues.ubNOHearingRangeBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsNightOps[1], gSkillTraitValues.ubNOHearingRangeBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubNOHearingRangeBonusInDark != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsNightOps[2], gSkillTraitValues.ubNOHearingRangeBonusInDark, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsNightOps[2], gSkillTraitValues.ubNOHearingRangeBonusInDark, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubNOIterruptsBonusInDark != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsNightOps[3], gSkillTraitValues.ubNOIterruptsBonusInDark, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsNightOps[3], gSkillTraitValues.ubNOIterruptsBonusInDark, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubNONeedForSleepReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsNightOps[4], gSkillTraitValues.ubNONeedForSleepReduction);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsNightOps[4], gSkillTraitValues.ubNONeedForSleepReduction);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case STEALTHY_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubSTStealthModeSpeedBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsStealthy[0], gSkillTraitValues.ubSTStealthModeSpeedBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsStealthy[0], gSkillTraitValues.ubSTStealthModeSpeedBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSTBonusToMoveQuietly != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsStealthy[1], gSkillTraitValues.ubSTBonusToMoveQuietly, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsStealthy[1], gSkillTraitValues.ubSTBonusToMoveQuietly, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSTStealthBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsStealthy[2], gSkillTraitValues.ubSTStealthBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsStealthy[2], gSkillTraitValues.ubSTStealthBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSTReducedAPsRegistered != 0 && UsingImprovedInterruptSystem() )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsStealthy[4], gSkillTraitValues.ubSTReducedAPsRegistered, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsStealthy[4], gSkillTraitValues.ubSTReducedAPsRegistered, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSTStealthPenaltyForMovingReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsStealthy[3], gSkillTraitValues.ubSTStealthPenaltyForMovingReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsStealthy[3], gSkillTraitValues.ubSTStealthPenaltyForMovingReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case ATHLETICS_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubATAPsMovementReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsAthletics[0], gSkillTraitValues.ubATAPsMovementReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsAthletics[0], gSkillTraitValues.ubATAPsMovementReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubATBPsMovementReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsAthletics[1], gSkillTraitValues.ubATBPsMovementReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsAthletics[1], gSkillTraitValues.ubATBPsMovementReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case BODYBUILDING_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubBBDamageResistance != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsBodybuilding[0], gSkillTraitValues.ubBBDamageResistance, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsBodybuilding[0], gSkillTraitValues.ubBBDamageResistance, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubBBCarryWeightBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsBodybuilding[1], gSkillTraitValues.ubBBCarryWeightBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsBodybuilding[1], gSkillTraitValues.ubBBCarryWeightBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubBBBreathLossForHtHImpactReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsBodybuilding[2], gSkillTraitValues.ubBBBreathLossForHtHImpactReduction, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsBodybuilding[2], gSkillTraitValues.ubBBBreathLossForHtHImpactReduction, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.usBBIncreasedNeededDamageToFallDown != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsBodybuilding[3], gSkillTraitValues.usBBIncreasedNeededDamageToFallDown, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsBodybuilding[3], gSkillTraitValues.usBBIncreasedNeededDamageToFallDown, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case DEMOLITIONS_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubDEDamageOfBombsAndMines != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsDemolitions[0], gSkillTraitValues.ubDEDamageOfBombsAndMines, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsDemolitions[0], gSkillTraitValues.ubDEDamageOfBombsAndMines, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubDEAttachDetonatorCheckBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsDemolitions[1], gSkillTraitValues.ubDEAttachDetonatorCheckBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsDemolitions[1], gSkillTraitValues.ubDEAttachDetonatorCheckBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubDEPlantAndRemoveBombCheckBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsDemolitions[2], gSkillTraitValues.ubDEPlantAndRemoveBombCheckBonus, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsDemolitions[2], gSkillTraitValues.ubDEPlantAndRemoveBombCheckBonus, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubDEPlacedBombLevelBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsDemolitions[3], gSkillTraitValues.ubDEPlacedBombLevelBonus);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsDemolitions[3], gSkillTraitValues.ubDEPlacedBombLevelBonus);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubDEShapedChargeDamageMultiplier != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsDemolitions[4], gSkillTraitValues.ubDEShapedChargeDamageMultiplier);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsDemolitions[4], gSkillTraitValues.ubDEShapedChargeDamageMultiplier);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case TEACHING_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubTGBonusToTrainMilitia != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsTeaching[0], gSkillTraitValues.ubTGBonusToTrainMilitia, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsTeaching[0], gSkillTraitValues.ubTGBonusToTrainMilitia, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTGEffectiveLDRToTrainMilitia != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsTeaching[1], gSkillTraitValues.ubTGEffectiveLDRToTrainMilitia, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsTeaching[1], gSkillTraitValues.ubTGEffectiveLDRToTrainMilitia, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTGBonusToTeachOtherMercs != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsTeaching[2], gSkillTraitValues.ubTGBonusToTeachOtherMercs, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsTeaching[2], gSkillTraitValues.ubTGBonusToTeachOtherMercs, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTGEffectiveSkillValueForTeaching != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsTeaching[3], gSkillTraitValues.ubTGEffectiveSkillValueForTeaching);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsTeaching[3], gSkillTraitValues.ubTGEffectiveSkillValueForTeaching);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubTGBonusOnPractising != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsTeaching[4], gSkillTraitValues.ubTGBonusOnPractising, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsTeaching[4], gSkillTraitValues.ubTGBonusOnPractising, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case SCOUTING_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gSkillTraitValues.ubSCSightRangebonusWithScopes != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsScouting[0], gSkillTraitValues.ubSCSightRangebonusWithScopes, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsScouting[0], gSkillTraitValues.ubSCSightRangebonusWithScopes, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.usSCSightRangebonusWithBinoculars != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsScouting[1], gSkillTraitValues.usSCSightRangebonusWithBinoculars, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsScouting[1], gSkillTraitValues.usSCSightRangebonusWithBinoculars, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSCTunnelVisionReducedWithBinoculars != 0 )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsScouting[2], gSkillTraitValues.ubSCTunnelVisionReducedWithBinoculars, sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsScouting[2], gSkillTraitValues.ubSCTunnelVisionReducedWithBinoculars, sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.fSCCanDetectEnemyPresenseAround  )
 				{
 					if( gSkillTraitValues.fSCCanDetermineEnemyNumbersAround )
 					{
-						swprintf( atStr, gzIMPMinorTraitsHelpTextsScouting[3]);
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMinorTraitsHelpTextsScouting[3]);
+						AppendPersonnelText( apStr, atStr );
 					}
 					else
 					{
-						swprintf( atStr, gzIMPMinorTraitsHelpTextsScouting[4]);
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMinorTraitsHelpTextsScouting[4]);
+						AppendPersonnelText( apStr, atStr );
 					}
 				}
 				if( gSkillTraitValues.fSCPreventsTheEnemyToAmbushMercs )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsScouting[5]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMinorTraitsHelpTextsScouting[5]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.fSCPreventsBloodcatsAmbushes )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsScouting[6]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMinorTraitsHelpTextsScouting[6]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case COVERT_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsCovertOps[0]);
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsCovertOps[0]);
+				AppendPersonnelText( apStr, atStr );
 
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsCovertOps[1]);
-				wcscat( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsCovertOps[1]);
+				AppendPersonnelText( apStr, atStr );
 
 				if ( !fExpertLevel )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsCovertOps[2], gSkillTraitValues.sCOCloseDetectionRange);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsCovertOps[2], gSkillTraitValues.sCOCloseDetectionRange);
+					AppendPersonnelText( apStr, atStr );
 				}
 
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsCovertOps[3], gSkillTraitValues.sCOCloseDetectionRangeSoldierCorpse);
-				wcscat( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsCovertOps[3], gSkillTraitValues.sCOCloseDetectionRangeSoldierCorpse);
+				AppendPersonnelText( apStr, atStr );
 
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsCovertOps[4], ( gSkillTraitValues.sCOMeleeCTHBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-				wcscat( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsCovertOps[4], ( gSkillTraitValues.sCOMeleeCTHBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+				AppendPersonnelText( apStr, atStr );
 
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsCovertOps[5], ( gSkillTraitValues.sCoMeleeInstakillBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-				wcscat( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsCovertOps[5], ( gSkillTraitValues.sCoMeleeInstakillBonus * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+				AppendPersonnelText( apStr, atStr );
 				
 				INT16 apreduction =  ( gSkillTraitValues.sCODisguiseAPReduction * (fExpertLevel ? 2 : 1));
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsCovertOps[6], apreduction, sSpecialCharacters[0]);
-				wcscat( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsCovertOps[6], apreduction, sSpecialCharacters[0]);
+				AppendPersonnelText( apStr, atStr );
 
 				if ( gSkillTraitValues.fCOTurncoats )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsCovertOps[7] );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsCovertOps[7] );
+					AppendPersonnelText( apStr, atStr );
 				}
 
 				break;
@@ -7703,89 +6618,89 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 			// Flugente: Radio Operator
 			case RADIO_OPERATOR_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsRadioOperator[0]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsRadioOperator[1]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsRadioOperator[2]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsRadioOperator[3]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsRadioOperator[4]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsRadioOperator[5]);
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsRadioOperator[0]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsRadioOperator[1]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsRadioOperator[2]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsRadioOperator[3]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsRadioOperator[4]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsRadioOperator[5]);
+				AppendPersonnelText( apStr, atStr );
 				break;
 			}
 			case SNITCH_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPMinorTraitsHelpTextsSnitch[0]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPMinorTraitsHelpTextsSnitch[1]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPMinorTraitsHelpTextsSnitch[2]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPMinorTraitsHelpTextsSnitch[3]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPMinorTraitsHelpTextsSnitch[4]);
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMinorTraitsHelpTextsSnitch[0]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMinorTraitsHelpTextsSnitch[1]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMinorTraitsHelpTextsSnitch[2]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMinorTraitsHelpTextsSnitch[3]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMinorTraitsHelpTextsSnitch[4]);
+				AppendPersonnelText( apStr, atStr );
 				if( gSkillTraitValues.ubSNTPassiveReputationGain )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsSnitch[5],gSkillTraitValues.ubSNTPassiveReputationGain);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsSnitch[5],gSkillTraitValues.ubSNTPassiveReputationGain);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( gSkillTraitValues.ubSNTHearingRangeBonus )
 				{
-					swprintf( atStr, gzIMPMinorTraitsHelpTextsSnitch[6],gSkillTraitValues.ubSNTHearingRangeBonus);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMinorTraitsHelpTextsSnitch[6],gSkillTraitValues.ubSNTHearingRangeBonus);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case SURVIVAL_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 
 				if ( gSkillTraitValues.ubSVGroupTimeSpentForTravellingFoot != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[0], gSkillTraitValues.ubSVGroupTimeSpentForTravellingFoot, sSpecialCharacters[0] );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[0], gSkillTraitValues.ubSVGroupTimeSpentForTravellingFoot, sSpecialCharacters[0] );
+					AppendPersonnelText( apStr, atStr );
 				}
 				if ( gSkillTraitValues.ubSVGroupTimeSpentForTravellingVehicle != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[1], gSkillTraitValues.ubSVGroupTimeSpentForTravellingVehicle, sSpecialCharacters[0] );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[1], gSkillTraitValues.ubSVGroupTimeSpentForTravellingVehicle, sSpecialCharacters[0] );
+					AppendPersonnelText( apStr, atStr );
 				}
 				if ( gSkillTraitValues.ubSVBreathForTravellingReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[2], gSkillTraitValues.ubSVBreathForTravellingReduction, sSpecialCharacters[0] );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[2], gSkillTraitValues.ubSVBreathForTravellingReduction, sSpecialCharacters[0] );
+					AppendPersonnelText( apStr, atStr );
 				}
 				if ( gSkillTraitValues.dSVWeatherPenaltiesReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[3], (UINT8)(100 * gSkillTraitValues.dSVWeatherPenaltiesReduction), sSpecialCharacters[0] );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[3], (UINT8)(100 * gSkillTraitValues.dSVWeatherPenaltiesReduction), sSpecialCharacters[0] );
+					AppendPersonnelText( apStr, atStr );
 				}
 
 				if ( gSkillTraitValues.ubSVCamoWornountSpeedReduction != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[4], gSkillTraitValues.ubSVCamoWornountSpeedReduction, sSpecialCharacters[0] );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[4], gSkillTraitValues.ubSVCamoWornountSpeedReduction, sSpecialCharacters[0] );
+					AppendPersonnelText( apStr, atStr );
 				}
 
 				if ( gSkillTraitValues.usSVTrackerMaxRange && gSkillTraitValues.usSVTrackerAbility )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[5], (gSkillTraitValues.usSVTrackerAbility * gSkillTraitValues.usSVTrackerMaxRange / 100) );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[5], (gSkillTraitValues.usSVTrackerAbility * gSkillTraitValues.usSVTrackerMaxRange / 100) );
+					AppendPersonnelText( apStr, atStr );
 				}
 
 				if ( gGameExternalOptions.fDisease )
 				{
 					if ( gSkillTraitValues.usSVDiseaseResistance != 0 )
 					{
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[6], gSkillTraitValues.usSVDiseaseResistance > 0 ? L"+" : L"", gSkillTraitValues.usSVDiseaseResistance );
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[6], gSkillTraitValues.usSVDiseaseResistance > 0 ? L"+" : L"", gSkillTraitValues.usSVDiseaseResistance );
+						AppendPersonnelText( apStr, atStr );
 					}
 				}
 
@@ -7793,14 +6708,14 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 				{
 					if ( gSkillTraitValues.sSVFoodConsumption != 0 )
 					{
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[7], gSkillTraitValues.sSVFoodConsumption > 0 ? L"+" : L"", gSkillTraitValues.sSVFoodConsumption );
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[7], gSkillTraitValues.sSVFoodConsumption > 0 ? L"+" : L"", gSkillTraitValues.sSVFoodConsumption );
+						AppendPersonnelText( apStr, atStr );
 					}
 
 					if ( gSkillTraitValues.sSVDrinkConsumption != 0 )
 					{
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[8], gSkillTraitValues.sSVDrinkConsumption > 0 ? L"+" : L"", gSkillTraitValues.sSVDrinkConsumption );
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[8], gSkillTraitValues.sSVDrinkConsumption > 0 ? L"+" : L"", gSkillTraitValues.sSVDrinkConsumption );
+						AppendPersonnelText( apStr, atStr );
 					}
 				}
 
@@ -7808,24 +6723,24 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 				{
 					if ( gSkillTraitValues.usSVSnakeDefense > 0 )
 					{
-						swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[9], gSkillTraitValues.usSVSnakeDefense );
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[9], gSkillTraitValues.usSVSnakeDefense );
+						AppendPersonnelText( apStr, atStr );
 					}
 				}
 
 				if ( gSkillTraitValues.ubSVCamoEffectivenessBonus != 0 )
 				{
-					swprintf( atStr, gzIMPMajorTraitsHelpTextsSurvival[10], gSkillTraitValues.ubSVCamoEffectivenessBonus );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPMajorTraitsHelpTextsSurvival[10], gSkillTraitValues.ubSVCamoEffectivenessBonus );
+					AppendPersonnelText( apStr, atStr );
 				}
 
 				break;
 			}
 			case NO_SKILLTRAIT_NT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsNone[0] );
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsNone[0] );
+				AppendPersonnelText( apStr, atStr );
 				break;
 			}
 		}
@@ -7836,179 +6751,179 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 		{
 			case LOCKPICKING_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gbSkillTraitBonus[LOCKPICKING_OT] != 0 )
 				{
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[0], ( gbSkillTraitBonus[LOCKPICKING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[0], ( gbSkillTraitBonus[LOCKPICKING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case HANDTOHAND_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gbSkillTraitBonus[HANDTOHAND_OT] != 0 )
 				{
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[1], (  gbSkillTraitBonus[HANDTOHAND_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[2], (  3 * gbSkillTraitBonus[HANDTOHAND_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[3], (  gbSkillTraitBonus[HANDTOHAND_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[1], (  gbSkillTraitBonus[HANDTOHAND_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[2], (  3 * gbSkillTraitBonus[HANDTOHAND_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[3], (  gbSkillTraitBonus[HANDTOHAND_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case ELECTRONICS_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[4] );
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPOldSkillTraitsHelpTexts[4] );
+				AppendPersonnelText( apStr, atStr );
 				break;
 			}
 			case NIGHTOPS_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[5], (fExpertLevel ? 2 : 1));
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[6], (fExpertLevel ? 2 : 1));
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[7], (fExpertLevel ? 2 : 1));
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[8], (fExpertLevel ? 2 : 1));
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[9], (fExpertLevel ? 2 : 1));
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[5], (fExpertLevel ? 2 : 1));
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[6], (fExpertLevel ? 2 : 1));
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[7], (fExpertLevel ? 2 : 1));
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[8], (fExpertLevel ? 2 : 1));
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[9], (fExpertLevel ? 2 : 1));
+				AppendPersonnelText( apStr, atStr );
 				break;
 			}
 			case THROWING_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gbSkillTraitBonus[THROWING_OT] != 0 )
 				{
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[10], (  gbSkillTraitBonus[THROWING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[11], (  gbSkillTraitBonus[THROWING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[12], (  10 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[10], (  gbSkillTraitBonus[THROWING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[11], (  gbSkillTraitBonus[THROWING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[12], (  10 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case TEACHING_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gGameExternalOptions.ubTeachBonusToTrain != 0 )
 				{
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[13], (  gGameExternalOptions.ubTeachBonusToTrain * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[13], (  gGameExternalOptions.ubTeachBonusToTrain * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				if( (gGameExternalOptions.usTeacherTraitEffectOnLeadership - 100) > 0 )
 				{
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[14], (  (gGameExternalOptions.usTeacherTraitEffectOnLeadership - 100) * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[14], (  (gGameExternalOptions.usTeacherTraitEffectOnLeadership - 100) * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case HEAVY_WEAPS_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gbSkillTraitBonus[HEAVY_WEAPS_OT] != 0 )
 				{
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[15], (  gbSkillTraitBonus[HEAVY_WEAPS_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[15], (  gbSkillTraitBonus[HEAVY_WEAPS_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case AUTO_WEAPS_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[16], (  2 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[17] );
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[16], (  2 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPOldSkillTraitsHelpTexts[17] );
+				AppendPersonnelText( apStr, atStr );
 				break;
 			}
 			case STEALTHY_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[18], (  25 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[18], (  25 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+				AppendPersonnelText( apStr, atStr );
 				if( gGameExternalOptions.ubStealthTraitCoverValue != 0 )
 				{
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[19], (  gGameExternalOptions.ubStealthTraitCoverValue * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[19], (  gGameExternalOptions.ubStealthTraitCoverValue * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case AMBIDEXT_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[20] );
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPOldSkillTraitsHelpTexts[20] );
+				AppendPersonnelText( apStr, atStr );
 				break;
 			}
 			case MARTIALARTS_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gbSkillTraitBonus[MARTIALARTS_OT] != 0 )
 				{
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[28], (  gbSkillTraitBonus[MARTIALARTS_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[29], (  gbSkillTraitBonus[MARTIALARTS_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[30], (  gbSkillTraitBonus[MARTIALARTS_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[31], (  gbSkillTraitBonus[MARTIALARTS_OT] * 2 / 3 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[32], (  gbSkillTraitBonus[MARTIALARTS_OT] / 2 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[28], (  gbSkillTraitBonus[MARTIALARTS_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[29], (  gbSkillTraitBonus[MARTIALARTS_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[30], (  gbSkillTraitBonus[MARTIALARTS_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[31], (  gbSkillTraitBonus[MARTIALARTS_OT] * 2 / 3 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[32], (  gbSkillTraitBonus[MARTIALARTS_OT] / 2 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[33]);
-				wcscat( apStr, atStr );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[34]);
-				wcscat( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPOldSkillTraitsHelpTexts[33]);
+				AppendPersonnelText( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPOldSkillTraitsHelpTexts[34]);
+				AppendPersonnelText( apStr, atStr );
 				break;
 			}
 			case KNIFING_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gbSkillTraitBonus[KNIFING_OT] != 0 )
 				{
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[21], (  gbSkillTraitBonus[KNIFING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[22], (  gbSkillTraitBonus[KNIFING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[23], (  gbSkillTraitBonus[KNIFING_OT] / 3 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[24], (  gbSkillTraitBonus[KNIFING_OT] / 2 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[21], (  gbSkillTraitBonus[KNIFING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[22], (  gbSkillTraitBonus[KNIFING_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[23], (  gbSkillTraitBonus[KNIFING_OT] / 3 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[24], (  gbSkillTraitBonus[KNIFING_OT] / 2 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
 				break;
 			}
 			case PROF_SNIPER_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
 				if( gbSkillTraitBonus[PROF_SNIPER_OT] != 0 )
 				{
-					swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[25], (  gbSkillTraitBonus[PROF_SNIPER_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[25], (  gbSkillTraitBonus[PROF_SNIPER_OT] * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+					AppendPersonnelText( apStr, atStr );
 				}
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[26], (  10 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
-				wcscat( apStr, atStr );
+				sgp_swprintf(atStr, std::size(atStr), gzIMPOldSkillTraitsHelpTexts[26], (  10 * (fExpertLevel ? 2 : 1)), sSpecialCharacters[0]);
+				AppendPersonnelText( apStr, atStr );
 				break;
 			}
 			case CAMOUFLAGED_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPOldSkillTraitsHelpTexts[27] );
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPOldSkillTraitsHelpTexts[27] );
+				AppendPersonnelText( apStr, atStr );
 				break;
 			}
 			case NO_SKILLTRAIT_OT:
 			{
-				sgp_swprintf( apStr, 5000, L"" );
-				swprintf( atStr, gzIMPMajorTraitsHelpTextsNone[0] );
-				wcscat( apStr, atStr );
+				sgp_swprintf( apStr, 5000, L"%s", L"" );
+				sgp_swprintf(atStr, std::size(atStr), L"%s", gzIMPMajorTraitsHelpTextsNone[0] );
+				AppendPersonnelText( apStr, atStr );
 				break;
 			}
 		}
@@ -8018,10 +6933,12 @@ void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLeve
 // SANDRO - Popup text windows for character 
 void AssignPersonnelCharacterTraitHelpText( UINT8 ubCharacterNumber )
 {
+	if (!PersonnelRosterModel::IsValidIndex(
+		ubCharacterNumber, NUM_CHAR_TRAITS)) return;
 	CHAR16	apStr[ 1000 ];
 
-	swprintf( apStr, L"" );
-	swprintf( apStr, gzIMPNewCharacterTraitsHelpTexts[ubCharacterNumber] );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", gzIMPNewCharacterTraitsHelpTexts[ubCharacterNumber] );
 
 	// Set region help text
 	SetRegionFastHelpText( &(gSkillTraitHelpTextRegion[5]), apStr );
@@ -8032,10 +6949,12 @@ void AssignPersonnelCharacterTraitHelpText( UINT8 ubCharacterNumber )
 // SANDRO - Popup text windows for disability 
 void AssignPersonnelDisabilityHelpText( UINT8 ubDisabilityNumber )
 {
+	if (!PersonnelRosterModel::IsValidIndex(
+		ubDisabilityNumber, NUM_DISABILITIES)) return;
 	CHAR16	apStr[ 500 ];
 
-	swprintf( apStr, L"" );
-	swprintf( apStr, gzIMPDisabilitiesHelpTexts[ubDisabilityNumber] );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", gzIMPDisabilitiesHelpTexts[ubDisabilityNumber] );
 
 	// Set region help text
 	SetRegionFastHelpText( &(gSkillTraitHelpTextRegion[6]), apStr );
@@ -8044,17 +6963,20 @@ void AssignPersonnelDisabilityHelpText( UINT8 ubDisabilityNumber )
 
 void AssignPersonnelMultipleDisabilityHelpText( const TacticalActor* pSoldier )
 {
+	if (!pSoldier) return;
 	CHAR16	apStr[1000];
-
-	int numdisabilities = 0;
-	UINT8 disabilityfound = 0;
-	swprintf( apStr, L"" );
+	CHAR16 atStr[500];
+	sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 	for ( UINT8 i = NO_DISABILITY + 1; i < NUM_DISABILITIES; ++i )
 	{
 		if ( DoesMercHaveDisability( pSoldier, i ) )
 		{
-			swprintf( apStr, L"%s%s\n", apStr, gzIMPDisabilityTraitText[i] );
-			swprintf( apStr, L"%s%s\n\n", apStr, gzIMPDisabilitiesHelpTexts[i] );
+			sgp_swprintf(atStr, std::size(atStr), L"%s\n",
+				gzIMPDisabilityTraitText[i]);
+			AppendPersonnelText(apStr, atStr);
+			sgp_swprintf(atStr, std::size(atStr), L"%s\n\n",
+				gzIMPDisabilitiesHelpTexts[i]);
+			AppendPersonnelText(apStr, atStr);
 		}
 	}
 
@@ -8065,56 +6987,57 @@ void AssignPersonnelMultipleDisabilityHelpText( const TacticalActor* pSoldier )
 
 void AssignPersonnelKillsHelpText( INT32 ubProfile )
 {
+	if (!PersonnelRosterModel::IsValidProfileId(ubProfile, NUM_PROFILES)) return;
 	CHAR16	apStr[ 1000 ];
 	CHAR16	atStr[ 150 ];
 
-	swprintf( apStr, L"" );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 	if (gMercProfiles[ubProfile].records.usKillsElites > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 0 ], gMercProfiles[ubProfile].records.usKillsElites );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 0 ], gMercProfiles[ubProfile].records.usKillsElites );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usKillsRegulars > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 1 ], gMercProfiles[ubProfile].records.usKillsRegulars );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 1 ], gMercProfiles[ubProfile].records.usKillsRegulars );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usKillsAdmins > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 2 ], gMercProfiles[ubProfile].records.usKillsAdmins );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 2 ], gMercProfiles[ubProfile].records.usKillsAdmins );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usKillsHostiles > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 3 ], gMercProfiles[ubProfile].records.usKillsHostiles );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 3 ], gMercProfiles[ubProfile].records.usKillsHostiles );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usKillsCreatures > 0 || fShowRecordsIfZero)
 	{
 		// WANNE: Only display the monster info, when we play with monsters!
 		if (gGameOptions.ubGameStyle == STYLE_SCIFI && gGameExternalOptions.fEnableCrepitus)
 		{
-			swprintf(atStr, pPersonnelRecordsHelpTexts[ 4 ], gMercProfiles[ubProfile].records.usKillsCreatures );
-			wcscat( apStr, atStr );
+			sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 4 ], gMercProfiles[ubProfile].records.usKillsCreatures );
+			AppendPersonnelText( apStr, atStr );
 		}
 	}
 	if (gMercProfiles[ubProfile].records.usKillsTanks > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 5 ], gMercProfiles[ubProfile].records.usKillsTanks );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 5 ], gMercProfiles[ubProfile].records.usKillsTanks );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usKillsOthers > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 6 ], gMercProfiles[ubProfile].records.usKillsOthers );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 6 ], gMercProfiles[ubProfile].records.usKillsOthers );
+		AppendPersonnelText( apStr, atStr );
 	}
 
 	if (gGameSettings.fOptions[TOPTION_ZOMBIES] )
 	{
 		if (gMercProfiles[ubProfile].records.usKillsZombies > 0 || fShowRecordsIfZero)
 		{
-			swprintf(atStr, pPersonnelRecordsHelpTexts[ 46 ], gMercProfiles[ubProfile].records.usKillsZombies );
-			wcscat( apStr, atStr );
+			sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 46 ], gMercProfiles[ubProfile].records.usKillsZombies );
+			AppendPersonnelText( apStr, atStr );
 		}
 	}
 
@@ -8125,24 +7048,25 @@ void AssignPersonnelKillsHelpText( INT32 ubProfile )
 
 void AssignPersonnelAssistsHelpText( INT32 ubProfile )
 {
+	if (!PersonnelRosterModel::IsValidProfileId(ubProfile, NUM_PROFILES)) return;
 	CHAR16	apStr[ 350 ];
 	CHAR16	atStr[ 80 ];
 
-	swprintf( apStr, L"" );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 	if (gMercProfiles[ubProfile].records.usAssistsMercs > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 7 ], gMercProfiles[ubProfile].records.usAssistsMercs );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 7 ], gMercProfiles[ubProfile].records.usAssistsMercs );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usAssistsMilitia > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 8 ], gMercProfiles[ubProfile].records.usAssistsMilitia );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 8 ], gMercProfiles[ubProfile].records.usAssistsMilitia );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usAssistsOthers > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 9 ], gMercProfiles[ubProfile].records.usAssistsOthers );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 9 ], gMercProfiles[ubProfile].records.usAssistsOthers );
+		AppendPersonnelText( apStr, atStr );
 	}
 
 	// Set region help text
@@ -8152,49 +7076,50 @@ void AssignPersonnelAssistsHelpText( INT32 ubProfile )
 
 void AssignPersonnelHitPercentageHelpText( INT32 ubProfile )
 {
+	if (!PersonnelRosterModel::IsValidProfileId(ubProfile, NUM_PROFILES)) return;
 	CHAR16	apStr[ 1000 ];
 	CHAR16	atStr[ 150 ];
 
-	swprintf( apStr, L"" );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 	if (gMercProfiles[ubProfile].records.usShotsFired > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 10 ], gMercProfiles[ubProfile].records.usShotsFired );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 10 ], gMercProfiles[ubProfile].records.usShotsFired );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usMissilesLaunched > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 11 ], gMercProfiles[ubProfile].records.usMissilesLaunched );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 11 ], gMercProfiles[ubProfile].records.usMissilesLaunched );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usGrenadesThrown > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 12 ], gMercProfiles[ubProfile].records.usGrenadesThrown );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 12 ], gMercProfiles[ubProfile].records.usGrenadesThrown );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usKnivesThrown > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 13 ], gMercProfiles[ubProfile].records.usKnivesThrown );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 13 ], gMercProfiles[ubProfile].records.usKnivesThrown );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usBladeAttacks > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 14 ], gMercProfiles[ubProfile].records.usBladeAttacks );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 14 ], gMercProfiles[ubProfile].records.usBladeAttacks );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usHtHAttacks > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 15 ], gMercProfiles[ubProfile].records.usHtHAttacks );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 15 ], gMercProfiles[ubProfile].records.usHtHAttacks );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usShotsHit > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 16 ], gMercProfiles[ubProfile].records.usShotsHit );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 16 ], gMercProfiles[ubProfile].records.usShotsHit );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if ( gMercProfiles[ubProfile].records.usDamageDealt > 0 || fShowRecordsIfZero )
 	{
-		swprintf( atStr, pPersonnelRecordsHelpTexts[52], gMercProfiles[ubProfile].records.usDamageDealt );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[52], gMercProfiles[ubProfile].records.usDamageDealt );
+		AppendPersonnelText( apStr, atStr );
 	}
 
 	// Set region help text
@@ -8204,54 +7129,55 @@ void AssignPersonnelHitPercentageHelpText( INT32 ubProfile )
 
 void AssignPersonnelAchievementsHelpText( INT32 ubProfile )
 {
+	if (!PersonnelRosterModel::IsValidProfileId(ubProfile, NUM_PROFILES)) return;
 	CHAR16	apStr[ 1000 ];
 	CHAR16	atStr[ 80 ];
 
-	swprintf( apStr, L"" );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 	if (gMercProfiles[ubProfile].records.usLocksPicked > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 17 ], gMercProfiles[ubProfile].records.usLocksPicked );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 17 ], gMercProfiles[ubProfile].records.usLocksPicked );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usLocksBreached > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 18 ], gMercProfiles[ubProfile].records.usLocksBreached );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 18 ], gMercProfiles[ubProfile].records.usLocksBreached );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usTrapsRemoved > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 19 ], gMercProfiles[ubProfile].records.usTrapsRemoved );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 19 ], gMercProfiles[ubProfile].records.usTrapsRemoved );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usExpDetonated > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 20 ], gMercProfiles[ubProfile].records.usExpDetonated );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 20 ], gMercProfiles[ubProfile].records.usExpDetonated );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usItemsRepaired > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 21 ], gMercProfiles[ubProfile].records.usItemsRepaired );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 21 ], gMercProfiles[ubProfile].records.usItemsRepaired );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usItemsCombined > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 22 ], gMercProfiles[ubProfile].records.usItemsCombined );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 22 ], gMercProfiles[ubProfile].records.usItemsCombined );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usItemsStolen > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 23 ], gMercProfiles[ubProfile].records.usItemsStolen );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 23 ], gMercProfiles[ubProfile].records.usItemsStolen );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usMilitiaTrained > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 24 ], gMercProfiles[ubProfile].records.usMilitiaTrained );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 24 ], gMercProfiles[ubProfile].records.usMilitiaTrained );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usMercsBandaged > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 25 ], gMercProfiles[ubProfile].records.usMercsBandaged );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 25 ], gMercProfiles[ubProfile].records.usMercsBandaged );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usSurgeriesMade > 0 || fShowRecordsIfZero)
 	{
@@ -8260,21 +7186,21 @@ void AssignPersonnelAchievementsHelpText( INT32 ubProfile )
 			switch( gSkillTraitValues.ubDONumberTraitsNeededForSurgery )
 			{
 				case 0: 
-					swprintf(atStr, pPersonnelRecordsHelpTexts[ 26 ], gMercProfiles[ubProfile].records.usSurgeriesMade );
-					wcscat( apStr, atStr );
+					sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 26 ], gMercProfiles[ubProfile].records.usSurgeriesMade );
+					AppendPersonnelText( apStr, atStr );
 					break;
 				case 1: 
 					if ( ProfileHasSkillTrait( ubProfile, DOCTOR_NT ) > 0 )
 					{
-						swprintf(atStr, pPersonnelRecordsHelpTexts[ 26 ], gMercProfiles[ubProfile].records.usSurgeriesMade );
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 26 ], gMercProfiles[ubProfile].records.usSurgeriesMade );
+						AppendPersonnelText( apStr, atStr );
 					}
 					break;
 				case 2: 
 					if ( ProfileHasSkillTrait( ubProfile, DOCTOR_NT ) > 1 )
 					{
-						swprintf(atStr, pPersonnelRecordsHelpTexts[ 26 ], gMercProfiles[ubProfile].records.usSurgeriesMade );
-						wcscat( apStr, atStr );
+						sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 26 ], gMercProfiles[ubProfile].records.usSurgeriesMade );
+						AppendPersonnelText( apStr, atStr );
 					}
 					break;
 				default:
@@ -8284,36 +7210,36 @@ void AssignPersonnelAchievementsHelpText( INT32 ubProfile )
 	}
 	if ( gMercProfiles[ubProfile].records.usPointsHealed /100 > 0 || fShowRecordsIfZero )
 	{
-		swprintf( atStr, pPersonnelRecordsHelpTexts[53], gMercProfiles[ubProfile].records.usPointsHealed / 100 );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[53], gMercProfiles[ubProfile].records.usPointsHealed / 100 );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usNPCsDiscovered > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 27 ], gMercProfiles[ubProfile].records.usNPCsDiscovered );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 27 ], gMercProfiles[ubProfile].records.usNPCsDiscovered );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usSectorsDiscovered > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 28 ], gMercProfiles[ubProfile].records.usSectorsDiscovered );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 28 ], gMercProfiles[ubProfile].records.usSectorsDiscovered );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usAmbushesExperienced > 0 || fShowRecordsIfZero)
 	{
 		if ( gGameOptions.fNewTraitSystem && ( ProfileHasSkillTrait( ubProfile, SCOUTING_NT ) > 0 ) )
 		{
-			swprintf(atStr, pPersonnelRecordsHelpTexts[ 29 ], gMercProfiles[ubProfile].records.usAmbushesExperienced );
-			wcscat( apStr, atStr );
+			sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 29 ], gMercProfiles[ubProfile].records.usAmbushesExperienced );
+			AppendPersonnelText( apStr, atStr );
 		}
 	}
 	if (gMercProfiles[ubProfile].records.ubQuestsHandled > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 30 ], gMercProfiles[ubProfile].records.ubQuestsHandled );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 30 ], gMercProfiles[ubProfile].records.ubQuestsHandled );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if ( gMercProfiles[ubProfile].records.usInterrogations > 0 || fShowRecordsIfZero )
 	{
-		swprintf( atStr, pPersonnelRecordsHelpTexts[49], gMercProfiles[ubProfile].records.usInterrogations );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[49], gMercProfiles[ubProfile].records.usInterrogations );
+		AppendPersonnelText( apStr, atStr );
 	}
 
 	// Set region help text
@@ -8323,37 +7249,38 @@ void AssignPersonnelAchievementsHelpText( INT32 ubProfile )
 
 void AssignPersonnelBattlesHelpText( INT32 ubProfile )
 {
+	if (!PersonnelRosterModel::IsValidProfileId(ubProfile, NUM_PROFILES)) return;
 	CHAR16	apStr[ 400 ];
 	CHAR16	atStr[ 80 ];
 
-	swprintf( apStr, L"" );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 	if (gMercProfiles[ubProfile].records.usBattlesTactical > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 31 ], gMercProfiles[ubProfile].records.usBattlesTactical );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 31 ], gMercProfiles[ubProfile].records.usBattlesTactical );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usBattlesAutoresolve > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 32 ], gMercProfiles[ubProfile].records.usBattlesAutoresolve );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 32 ], gMercProfiles[ubProfile].records.usBattlesAutoresolve );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usBattlesRetreated > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 33 ], gMercProfiles[ubProfile].records.usBattlesRetreated );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 33 ], gMercProfiles[ubProfile].records.usBattlesRetreated );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usAmbushesExperienced > 0 || fShowRecordsIfZero)
 	{		
 		if (!( gGameOptions.fNewTraitSystem && ( ProfileHasSkillTrait( ubProfile, SCOUTING_NT ) > 0 ) ))
 		{
-			swprintf(atStr, pPersonnelRecordsHelpTexts[ 34 ], gMercProfiles[ubProfile].records.usAmbushesExperienced );
-			wcscat( apStr, atStr );
+			sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 34 ], gMercProfiles[ubProfile].records.usAmbushesExperienced );
+			AppendPersonnelText( apStr, atStr );
 		}
 	}
 	if (gMercProfiles[ubProfile].records.usLargestBattleFought > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 35 ], gMercProfiles[ubProfile].records.usLargestBattleFought );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 35 ], gMercProfiles[ubProfile].records.usLargestBattleFought );
+		AppendPersonnelText( apStr, atStr );
 	}
 
 	// Set region help text
@@ -8365,63 +7292,64 @@ void AssignPersonnelBattlesHelpText( INT32 ubProfile )
 
 void AssignPersonnelWoundsHelpText( INT32 ubProfile )
 {
+	if (!PersonnelRosterModel::IsValidProfileId(ubProfile, NUM_PROFILES)) return;
 	CHAR16	apStr[ 500 ];
 	CHAR16	atStr[ 80 ];
 
-	swprintf( apStr, L"" );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 	if (gMercProfiles[ubProfile].records.usTimesWoundedShot > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 36 ], gMercProfiles[ubProfile].records.usTimesWoundedShot );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 36 ], gMercProfiles[ubProfile].records.usTimesWoundedShot );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usTimesWoundedStabbed > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 37 ], gMercProfiles[ubProfile].records.usTimesWoundedStabbed );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 37 ], gMercProfiles[ubProfile].records.usTimesWoundedStabbed );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usTimesWoundedPunched > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 38 ], gMercProfiles[ubProfile].records.usTimesWoundedPunched );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 38 ], gMercProfiles[ubProfile].records.usTimesWoundedPunched );
+		AppendPersonnelText( apStr, atStr );
 	}
 	if (gMercProfiles[ubProfile].records.usTimesWoundedBlasted > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 39 ], gMercProfiles[ubProfile].records.usTimesWoundedBlasted );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 39 ], gMercProfiles[ubProfile].records.usTimesWoundedBlasted );
+		AppendPersonnelText( apStr, atStr );
 	}
 	
 	if (gMercProfiles[ubProfile].records.usTimesSurgeryUndergoed > 0 || fShowRecordsIfZero)
 	{
 		if ( gGameOptions.fNewTraitSystem )
 		{
-			swprintf(atStr, pPersonnelRecordsHelpTexts[ 41 ], gMercProfiles[ubProfile].records.usTimesSurgeryUndergoed );
-			wcscat( apStr, atStr );
+			sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 41 ], gMercProfiles[ubProfile].records.usTimesSurgeryUndergoed );
+			AppendPersonnelText( apStr, atStr );
 		}
 	}
 
 	if (gMercProfiles[ubProfile].records.usFacilityAccidents > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 42 ], gMercProfiles[ubProfile].records.usFacilityAccidents );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 42 ], gMercProfiles[ubProfile].records.usFacilityAccidents );
+		AppendPersonnelText( apStr, atStr );
 	}
 
 	// WANNE: Moved to the end
 	if (gMercProfiles[ubProfile].records.usTimesStatDamaged > 0 || fShowRecordsIfZero)
 	{
-		swprintf(atStr, pPersonnelRecordsHelpTexts[ 40 ], gMercProfiles[ubProfile].records.usTimesStatDamaged );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[ 40 ], gMercProfiles[ubProfile].records.usTimesStatDamaged );
+		AppendPersonnelText( apStr, atStr );
 	}
 
 	if ( gMercProfiles[ubProfile].records.usTimesInfected > 0 || fShowRecordsIfZero )
 	{
-		swprintf( atStr, pPersonnelRecordsHelpTexts[50], gMercProfiles[ubProfile].records.usTimesInfected );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[50], gMercProfiles[ubProfile].records.usTimesInfected );
+		AppendPersonnelText( apStr, atStr );
 	}
 
 	if ( gMercProfiles[ubProfile].records.usDamageTaken > 0 || fShowRecordsIfZero )
 	{
-		swprintf( atStr, pPersonnelRecordsHelpTexts[51], gMercProfiles[ubProfile].records.usDamageTaken );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), pPersonnelRecordsHelpTexts[51], gMercProfiles[ubProfile].records.usDamageTaken );
+		AppendPersonnelText( apStr, atStr );
 	}
 
 	// Set region help text
@@ -8431,9 +7359,10 @@ void AssignPersonnelWoundsHelpText( INT32 ubProfile )
 
 INT8 CalculateMercsAchievementPercentage( INT32 ubProfile )
 {
+	if (!PersonnelRosterModel::IsValidProfileId(ubProfile, NUM_PROFILES)) return 0;
 	TacticalActor *pTeamSoldier;
-	UINT32 uiMercPoints, uiMercPercentage; 
-	unsigned long ulTotalMercPoints = 0;
+	std::uint64_t uiMercPoints;
+	std::uint64_t ulTotalMercPoints = 0;
 
 	// run through active soldiers
 	SoldierID id = gTacticalStatus.Team[gbPlayerNum].bFirstID;
@@ -8447,7 +7376,10 @@ INT8 CalculateMercsAchievementPercentage( INT32 ubProfile )
 		// Only count stats of merc (not vehicles)
 		if ( !( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
-			if( pTeamSoldier->roster().active() && pTeamSoldier->vitals().health() > 0 && pTeamSoldier->identity().profile() != 0 )
+				if (pTeamSoldier->roster().active() &&
+					pTeamSoldier->vitals().health() > 0 &&
+					PersonnelRosterModel::IsValidProfileId(
+						pTeamSoldier->identity().profile(), NUM_PROFILES))
 			{
 				const STRUCT_Records &records = gMercProfiles[pTeamSoldier->identity().profile()].records;
 
@@ -8518,11 +7450,10 @@ INT8 CalculateMercsAchievementPercentage( INT32 ubProfile )
 	// Calculate percentage
 	if( ulTotalMercPoints != 0 )
 	{
-		uiMercPercentage = (UINT32)(100.0f * (FLOAT)uiMercPoints / (FLOAT)ulTotalMercPoints + 0.5f);
-
-		uiMercPercentage = std::min<UINT32>( 100, uiMercPercentage );
-
-		return( (UINT8)(uiMercPercentage) );
+		const std::uint64_t percentage =
+			(uiMercPoints * 100 + ulTotalMercPoints / 2) /
+			ulTotalMercPoints;
+		return static_cast<INT8>(std::min<std::uint64_t>(100, percentage));
 	}
 	else
 		return( 0 );
@@ -8534,27 +7465,39 @@ void AssignPersonalityHelpText( const TacticalActor* pSoldier, MOUSE_REGION* pMo
 	CHAR16	apStr[ 4500 ];
 	CHAR16	atStr[  260 ];
 
-	swprintf( apStr, L"" );
+	sgp_swprintf(apStr, std::size(apStr), L"%s", L"" );
 	
-	if ( pSoldier )
+	const MERCPROFILESTRUCT* profile = ProfileFor(pSoldier);
+	if (profile &&
+		PersonnelRosterModel::IsValidIndex(profile->bAppearance, NUM_APPEARANCES) &&
+		PersonnelRosterModel::IsValidIndex(profile->bAppearanceCareLevel, NUM_CARELEVELS) &&
+		PersonnelRosterModel::IsValidIndex(profile->bRefinement, NUM_REFINEMENT) &&
+		PersonnelRosterModel::IsValidIndex(profile->bRefinementCareLevel, NUM_CARELEVELS) &&
+		PersonnelRosterModel::IsValidIndex(profile->bNationality, NUM_NATIONALITIES) &&
+		(profile->bHatedNationality < 0 || PersonnelRosterModel::IsValidIndex(
+			profile->bHatedNationality, NUM_NATIONALITIES)) &&
+		PersonnelRosterModel::IsValidIndex(profile->bHatedNationalityCareLevel, NUM_CARELEVELS) &&
+		PersonnelRosterModel::IsValidIndex(profile->bRacist, NUM_RACIST) &&
+		PersonnelRosterModel::IsValidIndex(profile->bRace, NUM_RACES) &&
+		PersonnelRosterModel::IsValidIndex(profile->bSexist, NUM_SEXIST))
 	{
-		swprintf(atStr, L"- %s %s %s %s %s\n", szPersonalityDisplayText[0], szAppearanceText[gMercProfiles[ pSoldier->identity().profile() ].bAppearance], szPersonalityDisplayText[1], szCareLevelText[gMercProfiles[ pSoldier->identity().profile() ].bAppearanceCareLevel], szPersonalityDisplayText[2] );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), L"- %s %s %s %s %s\n", szPersonalityDisplayText[0], szAppearanceText[profile->bAppearance], szPersonalityDisplayText[1], szCareLevelText[profile->bAppearanceCareLevel], szPersonalityDisplayText[2] );
+		AppendPersonnelText( apStr, atStr );
 
-		swprintf(atStr, L"- %s %s %s %s %s\n", szPersonalityDisplayText[3], szRefinementText[gMercProfiles[ pSoldier->identity().profile() ].bRefinement], szPersonalityDisplayText[4], szCareLevelText[gMercProfiles[ pSoldier->identity().profile() ].bRefinementCareLevel], szPersonalityDisplayText[5] );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), L"- %s %s %s %s %s\n", szPersonalityDisplayText[3], szRefinementText[profile->bRefinement], szPersonalityDisplayText[4], szCareLevelText[profile->bRefinementCareLevel], szPersonalityDisplayText[5] );
+		AppendPersonnelText( apStr, atStr );
 
-		if ( gMercProfiles[ pSoldier->identity().profile() ].bHatedNationality < 0 )
-			swprintf(atStr, L"- %s %s %s\n", szPersonalityDisplayText[6], szNationalityText[gMercProfiles[ pSoldier->identity().profile() ].bNationality], szNationalityText_Special[0] );
+		if (profile->bHatedNationality < 0)
+			sgp_swprintf(atStr, std::size(atStr), L"- %s %s %s\n", szPersonalityDisplayText[6], szNationalityText[profile->bNationality], szNationalityText_Special[0] );
 		else
-			swprintf(atStr, L"- %s %s %s %s %s.\n", szPersonalityDisplayText[6], szNationalityText[gMercProfiles[ pSoldier->identity().profile() ].bNationality], szPersonalityDisplayText[7], szNationalityText[gMercProfiles[ pSoldier->identity().profile() ].bHatedNationality], szCareLevelText[gMercProfiles[ pSoldier->identity().profile() ].bHatedNationalityCareLevel] );
-		wcscat( apStr, atStr );
+			sgp_swprintf(atStr, std::size(atStr), L"- %s %s %s %s %s.\n", szPersonalityDisplayText[6], szNationalityText[profile->bNationality], szPersonalityDisplayText[7], szNationalityText[profile->bHatedNationality], szCareLevelText[profile->bHatedNationalityCareLevel] );
+		AppendPersonnelText( apStr, atStr );
 
-		swprintf(atStr, L"- %s %s %s-%s %s\n", szPersonalityDisplayText[6], szRacistText[gMercProfiles[ pSoldier->identity().profile() ].bRacist], szPersonalityDisplayText[9], szRaceText[gMercProfiles[ pSoldier->identity().profile() ].bRace], szPersonalityDisplayText[10] );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), L"- %s %s %s-%s %s\n", szPersonalityDisplayText[6], szRacistText[profile->bRacist], szPersonalityDisplayText[9], szRaceText[profile->bRace], szPersonalityDisplayText[10] );
+		AppendPersonnelText( apStr, atStr );
 
-		swprintf(atStr, L"- %s %s.\n", szPersonalityDisplayText[6], szSexistText[gMercProfiles[ pSoldier->identity().profile() ].bSexist] );
-		wcscat( apStr, atStr );
+		sgp_swprintf(atStr, std::size(atStr), L"- %s %s.\n", szPersonalityDisplayText[6], szSexistText[profile->bSexist] );
+		AppendPersonnelText( apStr, atStr );
 	}
 
 	if ( pMouseregion )

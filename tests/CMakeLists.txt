@@ -148,6 +148,17 @@ target_include_directories(laptop_email_list_model_tests
 add_test(NAME laptop_email_list_model
   COMMAND laptop_email_list_model_tests)
 
+# Personnel's live and departed rosters are sparse, mutable views backed by
+# fixed legacy save arrays. Keep profile validation, duplicate repair,
+# transactional category changes, page selection, and inventory windows
+# independently executable and data-free.
+add_executable(laptop_personnel_roster_model_tests
+  laptop_personnel_roster_model_tests.cpp)
+target_include_directories(laptop_personnel_roster_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME laptop_personnel_roster_model
+  COMMAND laptop_personnel_roster_model_tests)
+
 # XML callbacks receive text in arbitrary chunks. Keep accumulation, strict
 # integer narrowing, explicit legacy-byte sentinels, index validation, and
 # fixed-buffer copying data-free.
