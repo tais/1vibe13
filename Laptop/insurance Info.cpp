@@ -7,6 +7,12 @@
 	#include "Cursors.h"
 	#include "Insurance Text.h"
 	#include "Text.h"
+#include "InsuranceSiteModel.h"
+#include "LaptopPageResourceOwner.h"
+
+#include <algorithm>
+#include <iterator>
+#include <utility>
 
 
 #define		INS_INFO_FRAUD_TEXT_COLOR					FONT_MCOLOR_RED
@@ -30,13 +36,11 @@
 #define		INS_INFO_TOC_SUBTITLE_X						INS_INFO_SUBTITLE_X
 
 
-#define		INS_INFO_LINK_TO_CONTRACT_X				235 + LAPTOP_SCREEN_UL_X
 #define		INS_INFO_LINK_TO_CONTRACT_Y				392 + LAPTOP_SCREEN_WEB_UL_Y
 #define		INS_INFO_LINK_TO_CONTRACT_WIDTH		97//107
 
 #define		INS_INFO_LINK_START_OFFSET				20//14
 #define		INS_INFO_LINK_START_X							262 + INS_INFO_LINK_START_OFFSET + iScreenWidthOffset // ROMAN
-#define		INS_INFO_LINK_START_Y							392 + LAPTOP_SCREEN_WEB_UL_Y
 
 #define		INS_INFO_LINK_TO_CONTRACT_TEXT_Y	355 + LAPTOP_SCREEN_WEB_UL_Y
 
@@ -55,7 +59,7 @@ enum
 };
 UINT8	gubCurrentInsInfoSubPage = 0;
 
-BOOLEAN		InsuranceInfoSubPagesVisitedFlag[ INS_INFO_LAST_PAGE-1 ];
+BOOLEAN		InsuranceInfoSubPagesVisitedFlag[ INS_INFO_LAST_PAGE ];
 
 
 
@@ -85,6 +89,10 @@ void DisableArrowButtonsIfOnLastOrFirstPage();
 void ChangingInsuranceInfoSubPage( UINT8 ubSubPageNumber );
 void DisplayInfoTocPage();
 
+namespace
+{
+LaptopPageResourceOwner gInsuranceInfoResources;
+}
 
 void GameInitInsuranceInfo()
 {
@@ -93,7 +101,8 @@ void GameInitInsuranceInfo()
 
 void EnterInitInsuranceInfo()
 {
-	memset( &InsuranceInfoSubPagesVisitedFlag, 0, INS_INFO_LAST_PAGE-1);
+	std::fill(std::begin(InsuranceInfoSubPagesVisitedFlag),
+		std::end(InsuranceInfoSubPagesVisitedFlag), FALSE);
 
 }
 
@@ -101,35 +110,43 @@ BOOLEAN EnterInsuranceInfo()
 {
 	VOBJECT_DESC	VObjectDesc;
 	UINT16					usPosX;
+	LaptopPageResourceOwner staged;
 
-	InitInsuranceDefaults();
+	gInsuranceInfoResources.clear();
+	if (!AddInsuranceDefaults(staged)) return FALSE;
 
 	// load the Insurance bullet graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\bullet.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBulletImage));
+	if (!staged.addVideoObject(&VObjectDesc, guiBulletImage)) return FALSE;
 
 
 	//left arrow
-	guiInsPrevButtonImage	= LoadButtonImage("LAPTOP\\InsLeftButton.sti", 2,0,-1,1,-1 );
-	guiInsPrevBackButton = CreateIconAndTextButton( guiInsPrevButtonImage, InsInfoText[INS_INFO_PREVIOUS], INS_FONT_BIG,
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\InsLeftButton.sti", 2, 0, -1, 1, -1),
+		guiInsPrevButtonImage)) return FALSE;
+	if (!staged.addButton(CreateIconAndTextButton( guiInsPrevButtonImage, InsInfoText[INS_INFO_PREVIOUS], INS_FONT_BIG,
 													INS_FONT_COLOR, INS_FONT_SHADOW,
 													INS_FONT_COLOR, INS_FONT_SHADOW,
 													TEXT_CJUSTIFIED,
 													INS_INFO_LEFT_ARROW_BUTTON_X, INS_INFO_LEFT_ARROW_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnInsPrevButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnInsPrevButtonCallback),
+		guiInsPrevBackButton)) return FALSE;
 	SetButtonCursor( guiInsPrevBackButton, CURSOR_WWW );
 	SpecifyButtonTextOffsets( guiInsPrevBackButton, 17, 16, FALSE );
 
 
 	//Right arrow
-	guiInsNextButtonImage	= LoadButtonImage("LAPTOP\\InsRightButton.sti", 2,0,-1,1,-1 );
-	guiInsNextBackButton = CreateIconAndTextButton( guiInsNextButtonImage, InsInfoText[INS_INFO_NEXT], INS_FONT_BIG,
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\InsRightButton.sti", 2, 0, -1, 1, -1),
+		guiInsNextButtonImage)) return FALSE;
+	if (!staged.addButton(CreateIconAndTextButton( guiInsNextButtonImage, InsInfoText[INS_INFO_NEXT], INS_FONT_BIG,
 													INS_FONT_COLOR, INS_FONT_SHADOW,
 													INS_FONT_COLOR, INS_FONT_SHADOW,
 													TEXT_CJUSTIFIED,
 													INS_INFO_RIGHT_ARROW_BUTTON_X, INS_INFO_RIGHT_ARROW_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnInsNextButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnInsNextButtonCallback),
+		guiInsNextBackButton)) return FALSE;
 	SetButtonCursor( guiInsNextBackButton, CURSOR_WWW );
 	SpecifyButtonTextOffsets( guiInsNextBackButton, 18, 16, FALSE );
 
@@ -139,15 +156,16 @@ BOOLEAN EnterInsuranceInfo()
 	//link to go to the home page
 	MSYS_DefineRegion( &gSelectedInsuranceInfoHomeLinkRegion, usPosX, INS_INFO_LINK_TO_CONTRACT_Y-37, (UINT16)(usPosX + INS_INFO_LINK_TO_CONTRACT_WIDTH), INS_INFO_LINK_TO_CONTRACT_Y+2, MSYS_PRIORITY_HIGH,
 					CURSOR_WWW, MSYS_NO_CALLBACK, SelectInsuranceInfoHomeLinkRegionCallBack);
-	MSYS_AddRegion(&gSelectedInsuranceInfoHomeLinkRegion);
+	if (!staged.addRegion(gSelectedInsuranceInfoHomeLinkRegion)) return FALSE;
 
 	usPosX += INS_INFO_LINK_START_OFFSET + INS_INFO_LINK_TO_CONTRACT_WIDTH;
 	MSYS_DefineRegion( &gSelectedInsuranceInfoLinkRegion, usPosX, INS_INFO_LINK_TO_CONTRACT_Y-37, (UINT16)(usPosX + INS_INFO_LINK_TO_CONTRACT_WIDTH), INS_INFO_LINK_TO_CONTRACT_Y+2, MSYS_PRIORITY_HIGH,
 					CURSOR_WWW, MSYS_NO_CALLBACK, SelectInsuranceLinkRegionCallBack);
-	MSYS_AddRegion(&gSelectedInsuranceInfoLinkRegion);
+	if (!staged.addRegion(gSelectedInsuranceInfoLinkRegion)) return FALSE;
 
 
 	gubCurrentInsInfoSubPage = INS_INFO_INFO_TOC;
+	gInsuranceInfoResources = std::move(staged);
 
 	RenderInsuranceInfo();
 
@@ -156,19 +174,7 @@ BOOLEAN EnterInsuranceInfo()
 
 void ExitInsuranceInfo()
 {
-	RemoveInsuranceDefaults();
-
-
-	UnloadButtonImage( guiInsPrevButtonImage );
-	RemoveButton( guiInsPrevBackButton );
-
-	UnloadButtonImage( guiInsNextButtonImage );
-	RemoveButton( guiInsNextBackButton );
-
-	MSYS_RemoveRegion( &gSelectedInsuranceInfoLinkRegion);
-	MSYS_RemoveRegion( &gSelectedInsuranceInfoHomeLinkRegion);
-
-	DeleteVideoObjectFromIndex( guiBulletImage );
+	gInsuranceInfoResources.clear();
 }
 
 void HandleInsuranceInfo()
@@ -181,6 +187,9 @@ void RenderInsuranceInfo()
 	CHAR16		sText[800];
 	UINT16		usPosX;
 
+	if (!IsInsuranceInfoPage(gubCurrentInsInfoSubPage,
+			INS_INFO_LAST_PAGE))
+		gubCurrentInsInfoSubPage = INS_INFO_INFO_TOC;
 	DisableArrowButtonsIfOnLastOrFirstPage();
 
 	DisplayInsuranceDefaults();
@@ -359,8 +368,7 @@ void DisplaySubmitClaimPage()
 	usNewLineOffset += INS_INFO_SPACE_BN_PARAGRAPHS;
 
 	GetInsuranceText( INS_MLTI_SHOULD_SUCH_A_SITUATION, sText );
-	usNewLineOffset += DisplayWrappedString( INS_INFO_FIRST_PARAGRAPH_X, usNewLineOffset, INS_INFO_FIRST_PARAGRAPH_WIDTH, 2, INS_FONT_MED, INS_FONT_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-	usNewLineOffset += INS_INFO_SPACE_BN_PARAGRAPHS;
+	DisplayWrappedString( INS_INFO_FIRST_PARAGRAPH_X, usNewLineOffset, INS_INFO_FIRST_PARAGRAPH_WIDTH, 2, INS_FONT_MED, INS_FONT_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 
 }
 
@@ -404,8 +412,7 @@ void DisplayPremiumPage()
 	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, INS_INFO_FIRST_PARAGRAPH_X, usNewLineOffset, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	GetInsuranceText( INS_MLTI_EMPLOOYEES_TRAINING_AND_EXP, sText );
-	usNewLineOffset += DisplayWrappedString( INS_INFO_FIRST_PARAGRAPH_X+INSURANCE_BULLET_TEXT_OFFSET_X, usNewLineOffset, INS_INFO_FIRST_PARAGRAPH_WIDTH, 2, INS_FONT_MED, INS_FONT_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-	usNewLineOffset += INS_INFO_SPACE_BN_PARAGRAPHS;
+	DisplayWrappedString( INS_INFO_FIRST_PARAGRAPH_X+INSURANCE_BULLET_TEXT_OFFSET_X, usNewLineOffset, INS_INFO_FIRST_PARAGRAPH_WIDTH, 2, INS_FONT_MED, INS_FONT_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 }
 
 
@@ -433,7 +440,6 @@ void DisplayRenewingPremiumPage()
 	//display the LOWER PREMIUM FOR RENWING EARLY
 	GetInsuranceText( INS_SNGL_LOWER_PREMIUMS_4_RENEWING, sText );
 	DisplayWrappedString( INS_INFO_FIRST_PARAGRAPH_X, (UINT16)(usNewLineOffset-1), INS_INFO_FIRST_PARAGRAPH_WIDTH, 2, INS_FONT_BIG, INS_INFO_FRAUD_TEXT_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-	usNewLineOffset += INS_INFO_SPACE_BN_PARAGRAPHS + 2;
 
 /*
 	//Get and display the insurance bullet
@@ -469,8 +475,7 @@ void DisplayCancelationPagePage()
 	usNewLineOffset += INS_INFO_SPACE_BN_PARAGRAPHS;
 
 	GetInsuranceText( INS_MLTI_1_HOUR_EXCLUSION_B, sText );
-	usNewLineOffset += DisplayWrappedString( INS_INFO_FIRST_PARAGRAPH_X, usNewLineOffset, INS_INFO_FIRST_PARAGRAPH_WIDTH, 2, INS_FONT_MED, INS_FONT_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-	usNewLineOffset += INS_INFO_SPACE_BN_PARAGRAPHS;
+	DisplayWrappedString( INS_INFO_FIRST_PARAGRAPH_X, usNewLineOffset, INS_INFO_FIRST_PARAGRAPH_WIDTH, 2, INS_FONT_MED, INS_FONT_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 }
 
 void DisableArrowButtonsIfOnLastOrFirstPage()
@@ -490,6 +495,7 @@ void DisableArrowButtonsIfOnLastOrFirstPage()
 
 void ChangingInsuranceInfoSubPage( UINT8 ubSubPageNumber )
 {
+	if (!IsInsuranceInfoPage(ubSubPageNumber, INS_INFO_LAST_PAGE)) return;
 	fLoadPendingFlag = TRUE;
 
 	if( InsuranceInfoSubPagesVisitedFlag[ ubSubPageNumber ] == FALSE )
@@ -563,8 +569,7 @@ void DisplayInfoTocPage()
 	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, INS_INFO_FIRST_PARAGRAPH_X, usNewLineOffset, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	GetInsuranceText( INS_MLTI_QUICKLY_AND_EFFICIENT, sText );
-	usNewLineOffset += DisplayWrappedString( INS_INFO_FIRST_PARAGRAPH_X+INSURANCE_BULLET_TEXT_OFFSET_X, usNewLineOffset, INS_INFO_FIRST_PARAGRAPH_WIDTH, 2, INS_FONT_MED, INS_FONT_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-	usNewLineOffset += INS_INFO_SPACE_BN_PARAGRAPHS;
+	DisplayWrappedString( INS_INFO_FIRST_PARAGRAPH_X+INSURANCE_BULLET_TEXT_OFFSET_X, usNewLineOffset, INS_INFO_FIRST_PARAGRAPH_WIDTH, 2, INS_FONT_MED, INS_FONT_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 }
 
 

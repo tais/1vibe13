@@ -10,6 +10,9 @@
 	#include "Encrypted File.h"
 	#include "Text.h"
 	#include "Multi Language Graphic Utils.h"
+#include "LaptopPageResourceOwner.h"
+
+#include <utility>
 
 
 #define		INSURANCE_BACKGROUND_WIDTH					125
@@ -23,7 +26,6 @@
 
 #define		INSURANCE_TOP_RED_BAR_X							LAPTOP_SCREEN_UL_X + 66
 #define		INSURANCE_TOP_RED_BAR_Y							109 + LAPTOP_SCREEN_WEB_UL_Y
-#define		INSURANCE_TOP_RED_BAR_Y1						31 + LAPTOP_SCREEN_WEB_UL_Y
 
 #define		INSURANCE_BOTTOM_RED_BAR_Y					345 + LAPTOP_SCREEN_WEB_UL_Y
 
@@ -79,6 +81,10 @@ void SelectInsuranceRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 MOUSE_REGION	gSelectedInsuranceTitleLinkRegion;
 void SelectInsuranceTitleLinkRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
+namespace
+{
+LaptopPageResourceOwner gInsuranceResources;
+}
 
 void GameInitInsurance()
 {
@@ -89,32 +95,38 @@ BOOLEAN EnterInsurance()
 {
 	VOBJECT_DESC	VObjectDesc;
 	UINT16					usPosX, i;
+	LaptopPageResourceOwner staged;
 
 	SetBookMark( INSURANCE_BOOKMARK );
 
-	InitInsuranceDefaults();
+	gInsuranceResources.clear();
+	if (!AddInsuranceDefaults(staged)) return FALSE;
 
 	// load the Insurance title graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_INSURANCETITLE );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsuranceTitleImage));
+	if (!staged.addVideoObject(&VObjectDesc, guiInsuranceTitleImage))
+		return FALSE;
 
 	// load the red bar on the side of the page and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Bullet.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsuranceBulletImage));
+	if (!staged.addVideoObject(&VObjectDesc, guiInsuranceBulletImage))
+		return FALSE;
 
 	usPosX = INSURANCE_BOTTOM_LINK_RED_BAR_X;
 	for(i=0; i<3; i++)
 	{
 		MSYS_DefineRegion( &gSelectedInsuranceLinkRegion[i], usPosX, INSURANCE_BOTTOM_LINK_RED_BAR_Y-37, (UINT16)(usPosX + INSURANCE_BOTTOM_LINK_RED_BAR_WIDTH), INSURANCE_BOTTOM_LINK_RED_BAR_Y+2, MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectInsuranceRegionCallBack);
-		MSYS_AddRegion(&gSelectedInsuranceLinkRegion[i]);
+		if (!staged.addRegion(gSelectedInsuranceLinkRegion[i]))
+			return FALSE;
 		MSYS_SetRegionUserData( &gSelectedInsuranceLinkRegion[i], 0, i );
 
 		usPosX += INSURANCE_BOTTOM_LINK_RED_BAR_OFFSET;
 	}
 
+	gInsuranceResources = std::move(staged);
 	RenderInsurance();
 
 	// reset the current merc index on the insurance contract page
@@ -125,16 +137,7 @@ BOOLEAN EnterInsurance()
 
 void ExitInsurance()
 {
-	UINT8 i;
-
-	RemoveInsuranceDefaults();
-
-	DeleteVideoObjectFromIndex( guiInsuranceTitleImage );
-	DeleteVideoObjectFromIndex( guiInsuranceBulletImage );
-
-	for(i=0; i<3; i++)
-		MSYS_RemoveRegion( &gSelectedInsuranceLinkRegion[i]);
-
+	gInsuranceResources.clear();
 }
 
 void HandleInsurance()
@@ -215,24 +218,27 @@ void RenderInsurance()
 }
 
 
-BOOLEAN InitInsuranceDefaults()
+BOOLEAN AddInsuranceDefaults(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the Flower Account Box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BackGroundTile.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsuranceBackGround));
+	if (!owner.addVideoObject(&VObjectDesc, guiInsuranceBackGround))
+		return FALSE;
 
 	// load the red bar on the side of the page and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\LeftTile.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsuranceRedBarImage));
+	if (!owner.addVideoObject(&VObjectDesc, guiInsuranceRedBarImage))
+		return FALSE;
 
 	// load the red bar on the side of the page and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\LargeBar.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsuranceBigRedLineImage));
+	if (!owner.addVideoObject(&VObjectDesc, guiInsuranceBigRedLineImage))
+		return FALSE;
 
 	//if it is not the first page, display the small title
 	if( guiCurrentLaptopMode != LAPTOP_MODE_INSURANCE )
@@ -240,12 +246,14 @@ BOOLEAN InitInsuranceDefaults()
 		// load the small title for the every page other then the first page
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		GetMLGFilename( VObjectDesc.ImageFile, MLG_SMALLTITLE );
-		CHECKF(AddVideoObject(&VObjectDesc, &guiInsuranceSmallTitleImage));
+		if (!owner.addVideoObject(&VObjectDesc, guiInsuranceSmallTitleImage))
+			return FALSE;
 
 		//create the link to the home page on the small titles
 		MSYS_DefineRegion( &gSelectedInsuranceTitleLinkRegion, INSURANCE_SMALL_TITLE_X+85, INSURANCE_SMALL_TITLE_Y, (UINT16)(INSURANCE_SMALL_TITLE_X + INSURANCE_SMALL_TITLE_WIDTH), (UINT16)(INSURANCE_SMALL_TITLE_Y+INSURANCE_SMALL_TITLE_HEIGHT), MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectInsuranceTitleLinkRegionCallBack);
-		MSYS_AddRegion(&gSelectedInsuranceTitleLinkRegion);
+		if (!owner.addRegion(gSelectedInsuranceTitleLinkRegion))
+			return FALSE;
 	}
 
 	return( TRUE );
@@ -268,22 +276,13 @@ void DisplayInsuranceDefaults()
 		usPosY += INSURANCE_BACKGROUND_HEIGHT;
 	}
 
-	//display the top red bar
-	switch( guiCurrentLaptopMode )
+	//display the top red bar on the home page
+	if (guiCurrentLaptopMode == LAPTOP_MODE_INSURANCE)
 	{
-		case LAPTOP_MODE_INSURANCE:
-			usPosY = INSURANCE_TOP_RED_BAR_Y;
-
-			//display the top red bar
-			GetVideoObject(&hPixHandle, guiInsuranceBigRedLineImage );
-			BltVideoObject(FRAME_BUFFER, hPixHandle, 0, INSURANCE_TOP_RED_BAR_X, usPosY, VO_BLT_SRCTRANSPARENCY,NULL);
-
-			break;
-
-		case LAPTOP_MODE_INSURANCE_INFO:
-		case LAPTOP_MODE_INSURANCE_CONTRACT:
-			usPosY = INSURANCE_TOP_RED_BAR_Y1;
-			break;
+		GetVideoObject(&hPixHandle, guiInsuranceBigRedLineImage );
+		BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+			INSURANCE_TOP_RED_BAR_X, INSURANCE_TOP_RED_BAR_Y,
+			VO_BLT_SRCTRANSPARENCY, NULL);
 	}
 
 	//display the Bottom red bar
@@ -299,27 +298,13 @@ void DisplayInsuranceDefaults()
 	}
 }
 
-void RemoveInsuranceDefaults()
-{
-	DeleteVideoObjectFromIndex( guiInsuranceBackGround );
-	DeleteVideoObjectFromIndex( guiInsuranceRedBarImage );
-	DeleteVideoObjectFromIndex( guiInsuranceBigRedLineImage );
-
-	//if it is not the first page, display the small title
-	if( guiPreviousLaptopMode != LAPTOP_MODE_INSURANCE )
-	{
-		DeleteVideoObjectFromIndex( guiInsuranceSmallTitleImage );
-		MSYS_RemoveRegion( &gSelectedInsuranceTitleLinkRegion );
-	}
-}
-
-
 void DisplaySmallColouredLineWithShadow( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY, UINT32 colour )
 {
 	UINT32 uiDestPitchBYTES;
 	UINT8 *pDestBuf;
 
 	pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
+	if (!pDestBuf) return;
 
 	SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
@@ -386,9 +371,6 @@ void SelectInsuranceTitleLinkRegionCallBack(MOUSE_REGION * pRegion, INT32 iReaso
 	{
 	}
 }
-
-
-
 
 
 

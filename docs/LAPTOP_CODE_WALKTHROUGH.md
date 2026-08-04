@@ -405,18 +405,65 @@ manifest, and raw-lifecycle exclusion. All-host builds, the complete headless
 suites, sanitizer builds, and targeted static analysis remain required before
 merge.
 
+## Insurance site ownership and policy-transaction batch
+
+The ninth cohesive batch covers the Insurance home, information, comments,
+and contract pages as one service-site boundary. Each page now stages its
+shared defaults together with its own video objects, button images, buttons,
+and regions before publishing a complete entry. The contract page owns its
+replaceable form controls separately, and mercenary portraits use a scoped
+temporary handle.
+
+Confirmed faults fixed by this batch include:
+
+- every page leaked earlier defaults or page resources when a later
+  acquisition failed, and the information/contract exits unloaded button
+  images before removing the buttons that referenced them;
+- the information-page visited array allocated four entries for five pages,
+  so visiting the cancellation page wrote one byte past the array;
+- the contract page indexed a fixed, partially refreshed profile array using
+  mutable global pagination state, allowing stale entries and exact-end page
+  indices after the team changed;
+- form controls used a static creation flag and the current rather than the
+  originally created form count during teardown, making failed and repeated
+  replacement unsafe;
+- accepting a policy charged the player and then restored the old policy
+  length, discarding the purchased extension;
+- an insufficient-funds purchase changed the policy start fields and always
+  added the requested length after displaying the rejection; extensions also
+  skipped the final balance check;
+- an expired employment contract returned a negative day count as a huge
+  unsigned insurance term;
+- corrupt payout usage counts or missing backing storage could drive
+  allocation/publication from an inconsistent state, payout multiplication
+  could overflow, and end-game shutdown left stale capacity counters behind;
+  and
+- a failed framebuffer lock was passed to the Insurance line renderer.
+
+`InsuranceSiteModel` now owns dependency-free roster pagination, information
+page bounds, purchase prerequisites, saturating coverage arithmetic, expired
+employment handling, and payout storage/count consistency. Purchase and
+extension callbacks re-resolve their selected actor and validate the complete operation
+before finance, history, or employment state is changed. The existing
+insurance records, premium formula, campaign communications policy, save
+layout, and common Laptop build ownership remain unchanged. A dedicated
+headless target covers empty/stale/exact-end rosters, final partial pages,
+purchase rejection, extension saturation, expired contracts, invalid profile
+sentinels, and corrupt payout storage/counts; architecture CI pins the owner
+boundaries, dynamic replacement, retired stale state, test target, and absence
+of raw lifecycle calls.
+
 ## Remaining walkthrough
 
-The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., and Florist/Funeral
-ownership slices are complete. The remaining audit queue is deliberately
-grouped into larger reviewable batches:
+The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., Florist/Funeral, and
+Insurance ownership slices are complete. The remaining audit queue is
+deliberately grouped into larger reviewable batches:
 
 1. Extend scoped video, surface, button-image, button, and temporary-render
-   ownership from the completed A.I.M., M.E.R.C., and Florist/Funeral clusters
-   across every remaining Laptop page.
-2. Extend the completed A.I.M./M.E.R.C./Florist/Funeral mouse-region and
-   re-entry audit across the remaining pages, especially empty data and
-   callback-driven mutation.
+   ownership from the completed A.I.M., M.E.R.C., Florist/Funeral, and
+   Insurance clusters across every remaining Laptop page.
+2. Extend the completed site-cluster mouse-region and re-entry audit across
+   the remaining pages, especially empty data and callback-driven mutation.
 3. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
    validate all rendered text buffers before formatting.
 4. Audit the remaining Laptop binary readers and writers for exact reads,
@@ -425,8 +472,8 @@ grouped into larger reviewable batches:
    failed, and repeated visits start from a documented state.
 6. Verify every remaining fixed array and paginated list against negative,
    exact-end, empty, and stale-selection cases.
-7. Audit pointer and iterator lifetimes in mutable email, personnel, shipment,
-   insurance, A.I.M., and M.E.R.C. UI collections after callbacks mutate them.
+7. Audit pointer and iterator lifetimes in the remaining mutable email,
+   personnel, and shipment UI collections after callbacks mutate them.
 8. Make finance, history, email, and hire side effects transactional wherever a
    Laptop workflow can fail after partially committing an operation.
 9. Run a final domain-wide static-analysis/warning pass, remove superseded

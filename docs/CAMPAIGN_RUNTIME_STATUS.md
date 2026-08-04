@@ -95,6 +95,11 @@ their complete page resources transactionally, including gallery swaps and
 the XML-sized delivery drop-down; dependency-free bounds cover mutable
 destination and gallery state without changing order, finance, postal, or
 save formats.
+The Insurance batch retains that 82-common/16-variant split while making all
+four already-common pages one transactional resource boundary. Contract forms
+and mutable roster pagination are runtime-safe, and purchase, extension, and
+payout state is validated before publication without changing campaign mail,
+premium calculations, saves, or data records.
 
 ## Literal remaining tail
 

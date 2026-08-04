@@ -7,6 +7,9 @@
 	#include "WordWrap.h"
 	#include "Cursors.h"
 	#include "Text.h"
+#include "LaptopPageResourceOwner.h"
+
+#include <utility>
 
 
 #define		INS_CMNT_TITLE_Y								52 + LAPTOP_SCREEN_WEB_UL_Y
@@ -16,7 +19,6 @@
 
 #define		INS_CMNT_REDLINE_WIDTH					384
 
-#define		INS_CMNT_COMMENT_OFFSET_Y				20
 
 #define		INS_CMNT_NEXT_COMMENT_OFFSET_Y	65
 
@@ -40,6 +42,10 @@ void SelectInsuranceCommentLinkRegionCallBack(MOUSE_REGION * pRegion, INT32 iRea
 
 BOOLEAN DisplayComment( UINT8 ubCommentorsName, UINT8 ubComment, UINT16 usPosY );
 
+namespace
+{
+LaptopPageResourceOwner gInsuranceCommentsResources;
+}
 
 
 void GameInitInsuranceComments()
@@ -52,20 +58,24 @@ BOOLEAN EnterInsuranceComments()
 	VOBJECT_DESC	VObjectDesc;
 	UINT8 i;
 	UINT16 usPosX;
+	LaptopPageResourceOwner staged;
 
-	InitInsuranceDefaults();
+	gInsuranceCommentsResources.clear();
+	if (!AddInsuranceDefaults(staged)) return FALSE;
 
 	// load the Insurance bullet graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\bullet.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiInsCmntBulletImage));
+	if (!staged.addVideoObject(&VObjectDesc, guiInsCmntBulletImage))
+		return FALSE;
 
 	usPosX = INS_CMNT_FIRST_BULLET_X-6;
 	for( i=0; i<3; i++)
 	{
 		MSYS_DefineRegion( &gSelectedInsuranceCommentLinkRegion[i], usPosX, INS_CMNT_LINK_Y-1, (UINT16)(usPosX + INS_CMNT_LINK_WIDTH), INS_CMNT_LINK_Y+INS_CMNT_LINK_HEIGHT+1, MSYS_PRIORITY_HIGH,
 					CURSOR_WWW, MSYS_NO_CALLBACK, SelectInsuranceCommentLinkRegionCallBack);
-		MSYS_AddRegion(&gSelectedInsuranceCommentLinkRegion[i]);
+		if (!staged.addRegion(gSelectedInsuranceCommentLinkRegion[i]))
+			return FALSE;
 		MSYS_SetRegionUserData( &gSelectedInsuranceCommentLinkRegion[i], 0, i );
 
 		usPosX += INS_CMNT_LINK_OFFSET_X;
@@ -74,6 +84,7 @@ BOOLEAN EnterInsuranceComments()
 
 
 
+	gInsuranceCommentsResources = std::move(staged);
 	RenderInsuranceComments();
 
 	return(TRUE);
@@ -81,12 +92,7 @@ BOOLEAN EnterInsuranceComments()
 
 void ExitInsuranceComments()
 {
-	UINT8 i;
-	RemoveInsuranceDefaults();
-	DeleteVideoObjectFromIndex( guiInsCmntBulletImage );
-
-	for(i=0; i<3; i++)
-		MSYS_RemoveRegion( &gSelectedInsuranceCommentLinkRegion[i]);
+	gInsuranceCommentsResources.clear();
 }
 
 void HandleInsuranceComments()
@@ -196,7 +202,7 @@ BOOLEAN DisplayComment( UINT8 ubCommentorsName, UINT8 ubComment, UINT16 usPosY )
 	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, INS_CMNT_FIRST_BULLET_X, usPosY, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	//Display the commenters comment
-	GetInsuranceText( ubComment, sText );			//+INS_CMNT_COMMENT_OFFSET_Y
+	GetInsuranceText( ubComment, sText );
 	sNumPixels = DisplayWrappedString( INS_CMNT_FIRST_BULLET_X+INSURANCE_BULLET_TEXT_OFFSET_X, (UINT16)(usPosY), INS_CMNT_COMMENT_TEXT_WIDTH, 2, INS_FONT_MED, INS_FONT_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 
 	//Display the red bar under the link at the bottom
