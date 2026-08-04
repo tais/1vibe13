@@ -1,12 +1,15 @@
 	#include "laptop.h"
 	#include "florist.h"
 	#include "florist Cards.h"
-	#include "WCheck.h"
 	#include "Utilities.h"
 	#include "WordWrap.h"
 	#include "Cursors.h"
 	#include "Encrypted File.h"
 	#include "Text.h"
+	#include "FloristSiteModel.h"
+	#include "LaptopPageResourceOwner.h"
+
+#include <utility>
 
 
 
@@ -48,6 +51,10 @@ INT32		guiFlowerCardsButtonImage;
 void		BtnFlowerCardsBackButtonCallback(GUI_BUTTON *btn,INT32 reason);
 UINT32	guiFlowerCardsBackButton;
 
+namespace
+{
+	LaptopPageResourceOwner gFloristCardsResources;
+}
 
 
 void GameInitFloristCards()
@@ -60,13 +67,15 @@ BOOLEAN EnterFloristCards()
 	UINT16 i, j, usPosX, usPosY;
 	VOBJECT_DESC	VObjectDesc;
 	UINT8						ubCount;
+	LaptopPageResourceOwner staged;
 
-	InitFloristDefaults();
+	gFloristCardsResources.clear();
+	if (!AddFloristDefaults(staged)) return FALSE;
 
 	// load the Flower Account Box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\CardBlank.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiCardBackground));
+	if (!staged.addVideoObject(&VObjectDesc, guiCardBackground)) return FALSE;
 
 	ubCount = 0;
 	usPosY = FLORIST_CARD_FIRST_POS_Y;
@@ -77,7 +86,8 @@ BOOLEAN EnterFloristCards()
 		{
 			MSYS_DefineRegion( &gSelectedFloristCardsRegion[ubCount], usPosX, usPosY, (UINT16)(usPosX + FLORIST_CARD_CARD_WIDTH), (UINT16)(usPosY + FLORIST_CARD_CARD_HEIGHT), MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectFloristCardsRegionCallBack );
-			MSYS_AddRegion(&gSelectedFloristCardsRegion[ubCount]);
+			if (!staged.addRegion(gSelectedFloristCardsRegion[ubCount]))
+				return FALSE;
 			MSYS_SetRegionUserData( &gSelectedFloristCardsRegion[ubCount], 0, ubCount );
 			ubCount++;
 			usPosX += FLORIST_CARD_FIRST_OFFSET_X;
@@ -86,15 +96,19 @@ BOOLEAN EnterFloristCards()
 	}
 
 
-	guiFlowerCardsButtonImage	= LoadButtonImage("LAPTOP\\FloristButtons.sti", -1,0,-1,1,-1 );
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\FloristButtons.sti", -1, 0, -1, 1, -1),
+		guiFlowerCardsButtonImage)) return FALSE;
 
-	guiFlowerCardsBackButton = CreateIconAndTextButton( guiFlowerCardsButtonImage, sFloristCards[FLORIST_CARDS_BACK], FLORIST_BUTTON_TEXT_FONT,
+	if (!staged.addButton(CreateIconAndTextButton( guiFlowerCardsButtonImage, sFloristCards[FLORIST_CARDS_BACK], FLORIST_BUTTON_TEXT_FONT,
 													FLORIST_BUTTON_TEXT_UP_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													FLORIST_BUTTON_TEXT_DOWN_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													FLORIST_CARD_BACK_BUTTON_X, FLORIST_CARD_BACK_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnFlowerCardsBackButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnFlowerCardsBackButtonCallback),
+		guiFlowerCardsBackButton)) return FALSE;
 	SetButtonCursor(guiFlowerCardsBackButton, CURSOR_WWW );
+	gFloristCardsResources = std::move(staged);
 
 
 	//passing the currently selected card to -1, so it is not used
@@ -106,17 +120,7 @@ BOOLEAN EnterFloristCards()
 
 void ExitFloristCards()
 {
-	UINT8	i;
-
-	RemoveFloristDefaults();
-	DeleteVideoObjectFromIndex( guiCardBackground );
-
-	//card gallery
-	for(i=0; i<9; i++)
-		MSYS_RemoveRegion( &gSelectedFloristCardsRegion[i]);
-
-	UnloadButtonImage( guiFlowerCardsButtonImage );
-	RemoveButton( guiFlowerCardsBackButton );
+	gFloristCardsResources.clear();
 }
 
 void HandleFloristCards()
@@ -152,12 +156,13 @@ void RenderFloristCards()
 			uiStartLoc = FLOR_CARD_TEXT_TITLE_SIZE * ubCount;
 			LoadEncryptedDataFromFile(FLOR_CARD_TEXT_FILE, sTemp, uiStartLoc, FLOR_CARD_TEXT_TITLE_SIZE);
 
-//			DisplayWrappedString((UINT16)(usPosX+7), (UINT16)(usPosY+15), FLORIST_CARD_TEXT_WIDTH, 2, FLORIST_CARDS_SENTENCE_FONT, FLORIST_CARDS_SENTENCE_COLOR,	sTemp, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 				usHeightOffset = IanWrappedStringHeight( (UINT16)(usPosX+7), (UINT16)(usPosY), FLORIST_CARD_TEXT_WIDTH, 2,
 															FLORIST_CARDS_SENTENCE_FONT, FLORIST_CARDS_SENTENCE_COLOR, sTemp,
 															0, FALSE, 0);
 
-				usHeightOffset = ( FLORIST_CARD_TEXT_HEIGHT - usHeightOffset ) / 2;
+				usHeightOffset = static_cast<UINT16>(
+					CenteredFloristTextOffset(FLORIST_CARD_TEXT_HEIGHT,
+						usHeightOffset));
 
 
 				IanDisplayWrappedString( (UINT16)(usPosX+7), (UINT16)(usPosY+10+usHeightOffset), FLORIST_CARD_TEXT_WIDTH, 2,

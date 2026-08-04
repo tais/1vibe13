@@ -8,6 +8,7 @@
 #define		FLORIST_BUTTON_TEXT_DOWN_COLOR		2
 #define		FLORIST_BUTTON_TEXT_SHADOW_COLOR	128
 
+class LaptopPageResourceOwner;
 
 
 
@@ -17,9 +18,8 @@ void ExitFlorist();
 void HandleFlorist();
 void RenderFlorist();
 
-void RemoveFloristDefaults();
 void DisplayFloristDefaults();
-BOOLEAN InitFloristDefaults();
+BOOLEAN AddFloristDefaults(LaptopPageResourceOwner& owner);
 
 
 

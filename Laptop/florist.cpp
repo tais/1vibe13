@@ -2,13 +2,15 @@
 	#include "florist.h"
 	#include "florist Order Form.h"
 	#include "florist Gallery.h"
-	#include "WCheck.h"
 	#include "Utilities.h"
 	#include "WordWrap.h"
 	#include "Cursors.h"
 	#include "florist Cards.h"
 	#include "Text.h"
 	#include "Multi Language Graphic Utils.h"
+	#include "LaptopPageResourceOwner.h"
+
+#include <utility>
 
 
 #define		FLORIST_SENTENCE_FONT							FONT12ARIAL
@@ -59,8 +61,6 @@ UINT32		guiLargeTitleSymbol;
 UINT32		guiSmallTitleSymbol;
 
 
-BOOLEAN		gfHomePageActive=FALSE;		//Specifies whether or not the home page or the sub pages are active
-
 //Buttons
 
 //Graphic for button
@@ -75,6 +75,10 @@ static UINT32	guiGalleryButton;
 MOUSE_REGION	gSelectedFloristTitleHomeLinkRegion;
 void SelectFloristTitleHomeLinkRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
+namespace
+{
+	LaptopPageResourceOwner gFloristResources;
+}
 
 void GameInitFlorist()
 {
@@ -84,25 +88,31 @@ void GameInitFlorist()
 BOOLEAN EnterFlorist()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner staged;
 
 	SetBookMark( FLORIST_BOOKMARK );
 
-	InitFloristDefaults();
+	gFloristResources.clear();
+	if (!AddFloristDefaults(staged)) return FALSE;
 
 	// load the handbullet graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\HandBullet.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiHandBullet));
+	if (!staged.addVideoObject(&VObjectDesc, guiHandBullet)) return FALSE;
 
-	guiGalleryButtonImage	= LoadButtonImage("LAPTOP\\FloristButtons.sti", -1,0,-1,1,-1 );
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\FloristButtons.sti", -1, 0, -1, 1, -1),
+		guiGalleryButtonImage)) return FALSE;
 
-	guiGalleryButton = CreateIconAndTextButton( guiGalleryButtonImage, sFloristText[FLORIST_GALLERY], FLORIST_BUTTON_TEXT_FONT,
+	if (!staged.addButton(CreateIconAndTextButton( guiGalleryButtonImage, sFloristText[FLORIST_GALLERY], FLORIST_BUTTON_TEXT_FONT,
 													FLORIST_BUTTON_TEXT_UP_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													FLORIST_BUTTON_TEXT_DOWN_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													FLORIST_GALLERY_BUTTON_X, FLORIST_GALLERY_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnGalleryButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnGalleryButtonCallback),
+		guiGalleryButton)) return FALSE;
 	SetButtonCursor(guiGalleryButton, CURSOR_WWW );
+	gFloristResources = std::move(staged);
 
 	//reset the currently selected card
 	gbCurrentlySelectedCard = -1;
@@ -125,14 +135,7 @@ BOOLEAN EnterFlorist()
 
 void ExitFlorist()
 {
-
-	DeleteVideoObjectFromIndex(guiHandBullet);
-
-	RemoveFloristDefaults();
-
-	UnloadButtonImage( guiGalleryButtonImage );
-
-	RemoveButton( guiGalleryButton );
+	gFloristResources.clear();
 }
 
 void HandleFlorist()
@@ -177,14 +180,14 @@ void RenderFlorist()
 }
 
 
-BOOLEAN InitFloristDefaults()
+BOOLEAN AddFloristDefaults(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the Florist background graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\leafback.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFloristBackground));
+	if (!owner.addVideoObject(&VObjectDesc, guiFloristBackground)) return FALSE;
 
 	//if its the first page
 	if( guiCurrentLaptopMode == LAPTOP_MODE_FLORIST )
@@ -192,20 +195,22 @@ BOOLEAN InitFloristDefaults()
 		// load the small title graphic and add it
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		GetMLGFilename( VObjectDesc.ImageFile, MLG_LARGEFLORISTSYMBOL );
-		CHECKF(AddVideoObject(&VObjectDesc, &guiLargeTitleSymbol));
+		if (!owner.addVideoObject(&VObjectDesc,
+			guiLargeTitleSymbol)) return FALSE;
 	}
 	else
 	{
 		// load the leaf back graphic and add it
 		VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 		GetMLGFilename( VObjectDesc.ImageFile, MLG_SMALLFLORISTSYMBOL );
-		CHECKF(AddVideoObject(&VObjectDesc, &guiSmallTitleSymbol));
+		if (!owner.addVideoObject(&VObjectDesc,
+			guiSmallTitleSymbol)) return FALSE;
 
 
 		//flower title homepage link
 		MSYS_DefineRegion( &gSelectedFloristTitleHomeLinkRegion, FLORIST_SMALL_TITLE_X, FLORIST_SMALL_TITLE_Y, (UINT16)(FLORIST_SMALL_TITLE_X + FLORIST_SMALL_TITLE_WIDTH), (UINT16)(FLORIST_SMALL_TITLE_Y + FLORIST_SMALL_TITLE_HEIGHT), MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectFloristTitleHomeLinkRegionCallBack );
-		MSYS_AddRegion(&gSelectedFloristTitleHomeLinkRegion);
+		if (!owner.addRegion(gSelectedFloristTitleHomeLinkRegion)) return FALSE;
 	}
 
 	return(TRUE);
@@ -220,38 +225,15 @@ void DisplayFloristDefaults()
 	//if its the first page
 	if( guiCurrentLaptopMode == LAPTOP_MODE_FLORIST )
 	{
-		gfHomePageActive = TRUE;
 		GetVideoObject(&hPixHandle, guiLargeTitleSymbol);
 		BltVideoObject(FRAME_BUFFER, hPixHandle, 0,FLORIST_BIG_TITLE_X, FLORIST_BIG_TITLE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
 	}
 	else
 	{
-		gfHomePageActive = FALSE;
 		GetVideoObject(&hPixHandle, guiSmallTitleSymbol);
 		BltVideoObject(FRAME_BUFFER, hPixHandle, 0,FLORIST_SMALL_TITLE_X, FLORIST_SMALL_TITLE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
 	}
 }
-
-void RemoveFloristDefaults()
-{
-	DeleteVideoObjectFromIndex( guiFloristBackground );
-
-	//if its the first page
-	if( gfHomePageActive )
-	{
-		//delete the big title
-		DeleteVideoObjectFromIndex( guiLargeTitleSymbol );
-	}
-	else
-	{
-		//delete the little title
-		DeleteVideoObjectFromIndex( guiSmallTitleSymbol );
-
-		MSYS_RemoveRegion( &gSelectedFloristTitleHomeLinkRegion );
-	}
-}
-
-
 
 void BtnGalleryButtonCallback(GUI_BUTTON *btn,INT32 reason)
 {

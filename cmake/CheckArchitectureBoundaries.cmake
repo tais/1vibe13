@@ -1311,6 +1311,7 @@ foreach(required_common_laptop_runtime_source IN ITEMS
     "AimMembers.cpp"
     "AimPolicies.cpp"
     "AimSort.cpp"
+    "florist Order Form.cpp"
     "mercs Account.cpp"
     "mercs Files.cpp"
     "mercs No Account.cpp"
@@ -1555,6 +1556,150 @@ foreach(required_merc_navigation_test_fragment IN ITEMS
   if(required_merc_navigation_test_position EQUAL -1)
     message(FATAL_ERROR
       "M.E.R.C. navigation tests lost '${required_merc_navigation_test_fragment}'")
+  endif()
+endforeach()
+
+# Florist and Funeral form one transactionally owned service-site cluster.
+# Gallery/destination indices remain safe across re-entry and mutable XML
+# content, localized text cannot underflow its centering calculation, and the
+# Arulco-only delivery scene is selected from runtime campaign capabilities.
+foreach(florist_owned_resource_source IN ITEMS
+    "Laptop/florist.cpp"
+    "Laptop/florist Cards.cpp"
+    "Laptop/florist Gallery.cpp"
+    "Laptop/florist Order Form.cpp"
+    "Laptop/funeral.cpp")
+  file(READ "${SOURCE_ROOT}/${florist_owned_resource_source}"
+    florist_owned_resource_contents)
+  string(FIND "${florist_owned_resource_contents}"
+    "LaptopPageResourceOwner" florist_page_owner_position)
+  if(florist_page_owner_position EQUAL -1)
+    message(FATAL_ERROR
+      "${florist_owned_resource_source} lost transactional page ownership")
+  endif()
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(CHECKF[ \t]*\\([ \t]*)?(AddVideoObject|AddVideoSurface|DeleteVideoObjectFromIndex|DeleteVideoSurfaceFromIndex|LoadButtonImage|UnloadButtonImage|RemoveButton|MSYS_AddRegion|MSYS_RemoveRegion)[ \t]*\\("
+    raw_florist_page_resource_lifecycle
+    "${florist_owned_resource_contents}")
+  if(raw_florist_page_resource_lifecycle)
+    message(FATAL_ERROR
+      "${florist_owned_resource_source} restored open-coded resource ownership '${raw_florist_page_resource_lifecycle}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/FloristSiteModel.h"
+  runtime_florist_site_model_contents)
+foreach(required_florist_model_fragment IN ITEMS
+    "ClampFloristIndex"
+    "itemCount == 0"
+    "FloristGalleryPageCount"
+    "NextFloristGalleryPageStart"
+    "PreviousFloristGalleryPageStart"
+    "FloristGalleryPageNumber"
+    "CenteredFloristTextOffset")
+  string(FIND "${runtime_florist_site_model_contents}"
+    "${required_florist_model_fragment}" required_florist_model_position)
+  if(required_florist_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Florist site model lost '${required_florist_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/florist Gallery.cpp"
+  runtime_florist_gallery_contents)
+foreach(required_florist_gallery_fragment IN ITEMS
+    "std::fill(std::begin(FloristGallerySubPagesVisitedFlag)"
+    "FloristGallerySubPagesVisitedFlag[kFloristGalleryPageCount]"
+    "gFloristGalleryFlowerResources.clear()"
+    "gFloristGalleryFlowerResources = std::move(staged)"
+    "NextFloristGalleryPageStart("
+    "PreviousFloristGalleryPageStart("
+    "FloristGalleryPageNumber("
+    "if (swscanf(sTemp, L\"%hu\", &usPrice) != 1) usPrice = 0")
+  string(FIND "${runtime_florist_gallery_contents}"
+    "${required_florist_gallery_fragment}"
+    required_florist_gallery_position)
+  if(required_florist_gallery_position EQUAL -1)
+    message(FATAL_ERROR
+      "Florist gallery safety lost '${required_florist_gallery_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_florist_gallery_contents}"
+  "gFloristGalleryFlowerResources.clear()"
+  florist_gallery_last_dynamic_clear REVERSE)
+string(FIND "${runtime_florist_gallery_contents}"
+  "gFloristGalleryFlowerResources = std::move(staged)"
+  florist_gallery_last_dynamic_commit REVERSE)
+if(florist_gallery_last_dynamic_clear EQUAL -1 OR
+    florist_gallery_last_dynamic_commit EQUAL -1 OR
+    florist_gallery_last_dynamic_clear GREATER
+      florist_gallery_last_dynamic_commit)
+  message(FATAL_ERROR
+    "Florist gallery dynamic replacement lost dependency-ordered teardown")
+endif()
+
+file(READ "${SOURCE_ROOT}/Laptop/florist Order Form.cpp"
+  runtime_florist_order_contents)
+foreach(required_florist_order_fragment IN ITEMS
+    "std::vector<MOUSE_REGION> gSelectedFlowerDropDownRegion"
+    "RefreshFloristDestinations()"
+    "gSelectedFlowerDropDownRegion.resize(gDestinationTable.size())"
+    "gFloristDropDownResources.clear()"
+    "CaptureFlowerOrderTextInputBoxes()"
+    "gDestinationTable.empty()"
+    ".flowerDeliveryMeanwhileAvailable()")
+  string(FIND "${runtime_florist_order_contents}"
+    "${required_florist_order_fragment}" required_florist_order_position)
+  if(required_florist_order_position EQUAL -1)
+    message(FATAL_ERROR
+      "Florist order safety lost '${required_florist_order_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_florist_order_contents}" "#ifdef JA2UB"
+  florist_compile_identity_position)
+if(NOT florist_compile_identity_position EQUAL -1)
+  message(FATAL_ERROR
+    "Florist order restored campaign compile-identity selection")
+endif()
+
+foreach(florist_centering_caller_and_fragment IN ITEMS
+    "Laptop/florist Cards.cpp|CenteredFloristTextOffset("
+    "Laptop/funeral.cpp|CenteredFloristTextOffset(")
+  string(REPLACE "|" ";" florist_centering_parts
+    "${florist_centering_caller_and_fragment}")
+  list(GET florist_centering_parts 0 florist_centering_source)
+  list(GET florist_centering_parts 1 florist_centering_fragment)
+  file(READ "${SOURCE_ROOT}/${florist_centering_source}"
+    florist_centering_contents)
+  string(FIND "${florist_centering_contents}"
+    "${florist_centering_fragment}" florist_centering_position)
+  if(florist_centering_position EQUAL -1)
+    message(FATAL_ERROR
+      "${florist_centering_source} bypassed bounded localized-text centering")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/CampaignLaptopCommunicationsPolicy.h"
+  runtime_florist_policy_contents)
+string(FIND "${runtime_florist_policy_contents}"
+  "flowerDeliveryMeanwhileAvailable" runtime_florist_policy_position)
+if(runtime_florist_policy_position EQUAL -1)
+  message(FATAL_ERROR
+    "Laptop communications policy lost Florist delivery-scene selection")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_communications_policy_tests.cpp"
+  runtime_florist_test_contents)
+foreach(required_florist_test_fragment IN ITEMS
+    "flower delivery meanwhile scenes remain Arulco-only"
+    "Florist selections clamp empty and stale content indices"
+    "Florist gallery navigation stays within its final partial page"
+    "Florist and Funeral localized text centering cannot underflow")
+  string(FIND "${runtime_florist_test_contents}"
+    "${required_florist_test_fragment}" required_florist_test_position)
+  if(required_florist_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Florist tests lost '${required_florist_test_fragment}'")
   endif()
 endforeach()
 

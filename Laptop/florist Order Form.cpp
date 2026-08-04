@@ -1,7 +1,6 @@
 	#include "laptop.h"
 	#include "florist.h"
 	#include "florist Order Form.h"
-	#include "WCheck.h"
 	#include "Utilities.h"
 	#include "WordWrap.h"
 	#include "Cursors.h"
@@ -17,8 +16,15 @@
 	#include "LaptopSave.h"
 	#include "random.h"
 	#include "PostalService.h"
+	#include "CampaignLaptopCommunicationsPolicy.h"
+	#include "FloristSiteModel.h"
+	#include "GameContext.h"
+	#include "LaptopPageResourceOwner.h"
 
 #include "Meanwhile.h"
+
+#include <utility>
+#include <vector>
 
 
 #define		FLOWER_ORDER_TINY_FONT					FONT10ARIAL
@@ -39,9 +45,6 @@
 
 #define		FLOWER_ORDER_SENTIMENT_BOX_X			LAPTOP_SCREEN_UL_X + 14
 #define		FLOWER_ORDER_SENTIMENT_BOX_Y			LAPTOP_SCREEN_WEB_UL_Y + 226
-#define		FLOWER_ORDER_SENTIMENT_BOX_WIDTH	468
-#define		FLOWER_ORDER_SENTIMENT_BOX_HEIGHT	27
-
 #define		FLOWER_ORDER_NAME_BOX_X						LAPTOP_SCREEN_UL_X + 60
 #define		FLOWER_ORDER_NAME_BOX_Y						LAPTOP_SCREEN_WEB_UL_Y + 314 - FLOWER_ORDER_SMALLER_PS_OFFSET_Y
 
@@ -74,10 +77,8 @@
 #define		FLOWER_ORDER_ORDER_NUM_NAME_X			FLOWER_ORDER_BOUQUET_NAME_X
 #define		FLOWER_ORDER_ORDER_NUM_NAME_Y			FLOWER_ORDER_FLOWER_NAME_Y + 15//FLOWER_ORDER_BOUQUET_NAME_Y + 15
 
-#define		FLOWER_ORDER_DATE_X								FLOWER_ORDER_FLOWER_NAME_X
 #define		FLOWER_ORDER_DATE_Y								LAPTOP_SCREEN_WEB_UL_Y + 126
 
-#define		FLOWER_ORDER_LOCATION_X						FLOWER_ORDER_FLOWER_NAME_X
 #define		FLOWER_ORDER_LOCATION_Y						FLOWER_ORDER_DELIVERY_LOCATION_Y + 4
 
 #define		FLOWER_ORDER_ADDITIONAL_SERVICES_X	FLOWER_ORDER_FLOWER_BOX_X
@@ -137,39 +138,6 @@
 #define		FLOWER_ORDER_PERSONEL_SENTIMENT_NUM_CHARS			75
 #define		FLOWER_ORDER_NAME_FIELD_NUM_CHARS							35
 
-/* // Buggler: Externalized by tagging to BobbyR locations & shipping costs
-typedef struct
-{
-	STR16 *psCityLoc;
-	UINT8	ubNextDayDeliveryCost;
-	UINT8	ubWhenItGetsThereCost;
-} FlowerOrderLocationStruct;
-
-
-#define		FLOWER_ORDER_NUMBER_OF_DROP_DOWN_LOCATIONS		17
-
-// Retired built-in delivery locations:
-FlowerOrderLocationStruct FlowerOrderLocations[FLOWER_ORDER_NUMBER_OF_DROP_DOWN_LOCATIONS]={
-	{	&pDeliveryLocationStrings[0],	20, 15},
-	{	&pDeliveryLocationStrings[1],	95, 70},
-	{	&pDeliveryLocationStrings[2],	100, 75},
-	{	&pDeliveryLocationStrings[3],	50, 35},
-	{	&pDeliveryLocationStrings[4],	70, 50},
-	{	&pDeliveryLocationStrings[5],	45, 35},
-	{	&pDeliveryLocationStrings[6],	30, 25},
-	{	&pDeliveryLocationStrings[7],	100, 75},
-	{	&pDeliveryLocationStrings[8],	100, 75},
-	{	&pDeliveryLocationStrings[9],	30, 25},
-	{	&pDeliveryLocationStrings[10],	95, 70},
-	{	&pDeliveryLocationStrings[11],	30, 25},
-	{	&pDeliveryLocationStrings[12],	40, 30},
-	{	&pDeliveryLocationStrings[13],	45, 35},
-	{	&pDeliveryLocationStrings[14],	95, 70},
-	{	&pDeliveryLocationStrings[15],	50, 40},
-	{	&pDeliveryLocationStrings[16],	40, 30}
-};
-*/
-
 UINT32		guiDeliveryLocation;
 UINT32		guiFlowerFrame;
 UINT32		guiCurrentlySelectedFlowerImage;
@@ -198,7 +166,7 @@ enum
 };
 //the current mode of the drop down display
 UINT8	gubFlowerDestDropDownMode;
-UINT8	gubCurrentlySelectedFlowerLocation;
+std::size_t gCurrentlySelectedFlowerLocation;
 
 
 CHAR16		gsSentimentTextField[ FLOWER_ORDER_PERSONEL_SENTIMENT_NUM_CHARS ] = {0} ;
@@ -245,30 +213,31 @@ MOUSE_REGION	gSelectedFloristDisableDropDownRegion;
 void SelectFloristDisableDropDownRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
 
-//mouse region for the drop down city location area
-//MOUSE_REGION	gSelectedFlowerDropDownRegion[ FLOWER_ORDER_NUMBER_OF_DROP_DOWN_LOCATIONS ];
-MOUSE_REGION	*gSelectedFlowerDropDownRegion;
+// Mouse regions for the current XML-sized destination list.
+std::vector<MOUSE_REGION> gSelectedFlowerDropDownRegion;
 void SelectFlowerDropDownRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 void SelectFlowerDropDownMovementCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
 //Dealtar's Airport Externalization.
-BOOLEAN gfFlowerInitialized = 0;
-extern UINT8 guiNumOfDisplayedCities;
-extern vector < PDestinationStruct > gDestinationTable;
+extern std::vector<PDestinationStruct> gDestinationTable;
 extern CPostalService gPostalService;
 
-//to select typing in the personal sentiment box
-//MOUSE_REGION	gSelectedFloristPersonalSentimentBoxRegion;
-//void SelectFloristPersonalSentimentBoxRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
-
+namespace
+{
+	LaptopPageResourceOwner gFloristOrderResources;
+	LaptopPageResourceOwner gFloristDropDownResources;
+	bool gFlowerOrderTextInputActive = false;
+}
 
 void DisplayFloristCheckBox();
 void DisplayFlowerDynamicItems();
 BOOLEAN CreateDestroyFlowerOrderDestDropDown( UINT8 ubDropDownMode );
-void FlowerOrderDrawSelectedCity( UINT8 ubNumber );
+void FlowerOrderDrawSelectedCity(std::size_t number);
 void FlowerOrderDisplayShippingLocationCity();
 void InitFlowerOrderTextInputBoxes();
 void DestroyFlowerOrderTextInputBoxes();
+void CaptureFlowerOrderTextInputBoxes();
+void RefreshFloristDestinations();
 void HandleFloristOrderKeyBoardInput();
 void FlowerOrderUserTextFieldCallBack( UINT8 ubID, BOOLEAN fEntering);
 
@@ -286,80 +255,99 @@ BOOLEAN EnterFloristOrderForm()
 	UINT8	i;
 	char sTemp[40];
 	UINT16 usPosX, usWidth, usHeight;
+	LaptopPageResourceOwner staged;
 
-	InitFloristDefaults();
+	gFloristDropDownResources.clear();
+	gFloristOrderResources.clear();
+	DestroyFlowerOrderTextInputBoxes();
+	RefreshFloristDestinations();
+	guiCurrentlySelectedFlower = static_cast<UINT32>(ClampFloristIndex(
+		guiCurrentlySelectedFlower, kFloristGalleryFlowerCount));
+	gCurrentlySelectedFlowerLocation = ClampFloristIndex(
+		gCurrentlySelectedFlowerLocation, gDestinationTable.size());
+	if (!AddFloristDefaults(staged)) return FALSE;
 
 
 	// load the DeliveryLocation graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\DeliveryLocation.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiDeliveryLocation));
+	if (!staged.addVideoObject(&VObjectDesc, guiDeliveryLocation)) return FALSE;
 
 	// load the Flower frame graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\FlowerFrame.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFlowerFrame));
+	if (!staged.addVideoObject(&VObjectDesc, guiFlowerFrame)) return FALSE;
 
 	// load the Personel sentiments graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\PersonalSentiments.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiPersonalSentiments));
+	if (!staged.addVideoObject(&VObjectDesc,
+		guiPersonalSentiments)) return FALSE;
 
 	// load the Name Box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\NameBox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiNameBox));
+	if (!staged.addVideoObject(&VObjectDesc, guiNameBox)) return FALSE;
 
 	// load the Check Box graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\OrderCheckBox.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiFlowerOrderCheckBoxButtonImage));
+	if (!staged.addVideoObject(&VObjectDesc,
+		guiFlowerOrderCheckBoxButtonImage)) return FALSE;
 
 	// load the currently selected flower bouquet
-	sprintf( sTemp, "LAPTOP\\Flower_%d.sti", guiCurrentlySelectedFlower);
+	snprintf(sTemp, sizeof(sTemp), "LAPTOP\\Flower_%u.sti",
+		guiCurrentlySelectedFlower);
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( sTemp, VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiCurrentlySelectedFlowerImage));
+	if (!staged.addVideoObject(&VObjectDesc,
+		guiCurrentlySelectedFlowerImage)) return FALSE;
 
 
 	// border
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "INTERFACE\\TactPopUp.sti", VObjectDesc.ImageFile );
-	CHECKF( AddVideoObject( &VObjectDesc, &guiDropDownBorder ) );
+	if (!staged.addVideoObject(&VObjectDesc, guiDropDownBorder)) return FALSE;
 
 
-	guiFlowerOrderButtonImage	= LoadButtonImage("LAPTOP\\FloristButtons.sti", -1,0,-1,1,-1 );
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\FloristButtons.sti", -1, 0, -1, 1, -1),
+		guiFlowerOrderButtonImage)) return FALSE;
 
-	guiFlowerOrderBackButton = CreateIconAndTextButton( guiFlowerOrderButtonImage, sOrderFormText[FLORIST_ORDER_BACK], FLORIST_BUTTON_TEXT_FONT,
+	if (!staged.addButton(CreateIconAndTextButton( guiFlowerOrderButtonImage, sOrderFormText[FLORIST_ORDER_BACK], FLORIST_BUTTON_TEXT_FONT,
 													FLORIST_BUTTON_TEXT_UP_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													FLORIST_BUTTON_TEXT_DOWN_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													FLOWER_ORDER_BACK_BUTTON_X, FLOWER_ORDER_BACK_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnFlowerOrderBackButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnFlowerOrderBackButtonCallback),
+		guiFlowerOrderBackButton)) return FALSE;
 	SetButtonCursor(guiFlowerOrderBackButton, CURSOR_WWW );
 
-	guiFlowerOrderSendButton = CreateIconAndTextButton( guiFlowerOrderButtonImage, sOrderFormText[FLORIST_ORDER_SEND], FLORIST_BUTTON_TEXT_FONT,
+	if (!staged.addButton(CreateIconAndTextButton( guiFlowerOrderButtonImage, sOrderFormText[FLORIST_ORDER_SEND], FLORIST_BUTTON_TEXT_FONT,
 													FLORIST_BUTTON_TEXT_UP_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													FLORIST_BUTTON_TEXT_DOWN_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													FLOWER_ORDER_SEND_BUTTON_X, FLOWER_ORDER_SEND_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnFlowerOrderSendButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnFlowerOrderSendButtonCallback),
+		guiFlowerOrderSendButton)) return FALSE;
 	SetButtonCursor(guiFlowerOrderSendButton, CURSOR_WWW );
 
-	guiFlowerOrderClearButton = CreateIconAndTextButton( guiFlowerOrderButtonImage, sOrderFormText[FLORIST_ORDER_CLEAR], FLORIST_BUTTON_TEXT_FONT,
+	if (!staged.addButton(CreateIconAndTextButton( guiFlowerOrderButtonImage, sOrderFormText[FLORIST_ORDER_CLEAR], FLORIST_BUTTON_TEXT_FONT,
 													FLORIST_BUTTON_TEXT_UP_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													FLORIST_BUTTON_TEXT_DOWN_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													FLOWER_ORDER_CLEAR_BUTTON_X, FLOWER_ORDER_CLEAR_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnFlowerOrderClearButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnFlowerOrderClearButtonCallback),
+		guiFlowerOrderClearButton)) return FALSE;
 	SetButtonCursor(guiFlowerOrderClearButton, CURSOR_WWW );
 
-	guiFlowerOrderGalleryButton = CreateIconAndTextButton( guiFlowerOrderButtonImage, sOrderFormText[FLORIST_ORDER_GALLERY], FLORIST_BUTTON_TEXT_FONT,
+	if (!staged.addButton(CreateIconAndTextButton( guiFlowerOrderButtonImage, sOrderFormText[FLORIST_ORDER_GALLERY], FLORIST_BUTTON_TEXT_FONT,
 													FLORIST_BUTTON_TEXT_UP_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													FLORIST_BUTTON_TEXT_DOWN_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													FLOWER_ORDER_GALLERY_BUTTON_X, FLOWER_ORDER_GALLERY_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnFlowerOrderGalleryButtonCallback);
+													DEFAULT_MOVE_CALLBACK, BtnFlowerOrderGalleryButtonCallback),
+		guiFlowerOrderGalleryButton)) return FALSE;
 	SetButtonCursor(guiFlowerOrderGalleryButton, CURSOR_WWW );
 
 
@@ -369,37 +357,37 @@ BOOLEAN EnterFloristOrderForm()
 	i=0;
 	MSYS_DefineRegion( &gSelectedFloristCheckBoxRegion[i], FLOWER_ORDER_CHECK_BOX_0_X, FLOWER_ORDER_CHECK_BOX_0_Y, (UINT16)(FLOWER_ORDER_CHECK_BOX_0_X + FLOWER_ORDER_CHECK_WIDTH), (UINT16)(FLOWER_ORDER_CHECK_BOX_0_Y + FLOWER_ORDER_CHECK_HEIGHT), MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectFlorsitCheckBoxRegionCallBack );
-	MSYS_AddRegion(&gSelectedFloristCheckBoxRegion[i]);
+	if (!staged.addRegion(gSelectedFloristCheckBoxRegion[i])) return FALSE;
 	MSYS_SetRegionUserData( &gSelectedFloristCheckBoxRegion[i], 0, i );
 	i++;
 
 	MSYS_DefineRegion( &gSelectedFloristCheckBoxRegion[i], FLOWER_ORDER_CHECK_BOX_1_X, FLOWER_ORDER_CHECK_BOX_1_Y, (UINT16)(FLOWER_ORDER_CHECK_BOX_1_X + FLOWER_ORDER_CHECK_WIDTH), (UINT16)(FLOWER_ORDER_CHECK_BOX_1_Y + FLOWER_ORDER_CHECK_HEIGHT), MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectFlorsitCheckBoxRegionCallBack );
-	MSYS_AddRegion(&gSelectedFloristCheckBoxRegion[i]);
+	if (!staged.addRegion(gSelectedFloristCheckBoxRegion[i])) return FALSE;
 	MSYS_SetRegionUserData( &gSelectedFloristCheckBoxRegion[i], 0, i );
 	i++;
 
 	MSYS_DefineRegion( &gSelectedFloristCheckBoxRegion[i], FLOWER_ORDER_CHECK_BOX_2_X, FLOWER_ORDER_CHECK_BOX_2_Y, (UINT16)(FLOWER_ORDER_CHECK_BOX_2_X + FLOWER_ORDER_CHECK_WIDTH), (UINT16)(FLOWER_ORDER_CHECK_BOX_2_Y + FLOWER_ORDER_CHECK_HEIGHT), MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectFlorsitCheckBoxRegionCallBack );
-	MSYS_AddRegion(&gSelectedFloristCheckBoxRegion[i]);
+	if (!staged.addRegion(gSelectedFloristCheckBoxRegion[i])) return FALSE;
 	MSYS_SetRegionUserData( &gSelectedFloristCheckBoxRegion[i], 0, i );
 	i++;
 
 	MSYS_DefineRegion( &gSelectedFloristCheckBoxRegion[i], FLOWER_ORDER_CHECK_BOX_3_X, FLOWER_ORDER_CHECK_BOX_3_Y, (UINT16)(FLOWER_ORDER_CHECK_BOX_3_X + FLOWER_ORDER_CHECK_WIDTH), (UINT16)(FLOWER_ORDER_CHECK_BOX_3_Y + FLOWER_ORDER_CHECK_HEIGHT), MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectFlorsitCheckBoxRegionCallBack );
-	MSYS_AddRegion(&gSelectedFloristCheckBoxRegion[i]);
+	if (!staged.addRegion(gSelectedFloristCheckBoxRegion[i])) return FALSE;
 	MSYS_SetRegionUserData( &gSelectedFloristCheckBoxRegion[i], 0, i );
 	i++;
 
 	MSYS_DefineRegion( &gSelectedFloristCheckBoxRegion[i], FLOWER_ORDER_CHECK_BOX_4_X, FLOWER_ORDER_CHECK_BOX_4_Y, (UINT16)(FLOWER_ORDER_CHECK_BOX_4_X + FLOWER_ORDER_CHECK_WIDTH), (UINT16)(FLOWER_ORDER_CHECK_BOX_4_Y + FLOWER_ORDER_CHECK_HEIGHT), MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectFlorsitCheckBoxRegionCallBack );
-	MSYS_AddRegion(&gSelectedFloristCheckBoxRegion[i]);
+	if (!staged.addRegion(gSelectedFloristCheckBoxRegion[i])) return FALSE;
 	MSYS_SetRegionUserData( &gSelectedFloristCheckBoxRegion[i], 0, i );
 	i++;
 
 	MSYS_DefineRegion( &gSelectedFloristCheckBoxRegion[i], FLOWER_ORDER_CHECK_BOX_5_X, FLOWER_ORDER_CHECK_BOX_5_Y, (UINT16)(FLOWER_ORDER_CHECK_BOX_5_X + FLOWER_ORDER_CHECK_WIDTH), (UINT16)(FLOWER_ORDER_CHECK_BOX_5_Y + FLOWER_ORDER_CHECK_HEIGHT), MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectFlorsitCheckBoxRegionCallBack );
-	MSYS_AddRegion(&gSelectedFloristCheckBoxRegion[i]);
+	if (!staged.addRegion(gSelectedFloristCheckBoxRegion[i])) return FALSE;
 	MSYS_SetRegionUserData( &gSelectedFloristCheckBoxRegion[i], 0, i );
 	i++;
 
@@ -408,41 +396,36 @@ BOOLEAN EnterFloristOrderForm()
 	usHeight = GetFontHeight(FLOWER_ORDER_SMALL_FONT);
 	MSYS_DefineRegion( &gSelectedFloristCardGalleryLinkRegion, usPosX, FLOWER_ORDER_LINK_TO_CARD_GALLERY_Y, (UINT16)(usPosX + usWidth), (UINT16)(FLOWER_ORDER_LINK_TO_CARD_GALLERY_Y + usHeight), MSYS_PRIORITY_HIGH,
 						CURSOR_WWW, MSYS_NO_CALLBACK, SelectFloristCardGalleryLinkRegionCallBack );
-	MSYS_AddRegion(&gSelectedFloristCardGalleryLinkRegion);
+	if (!staged.addRegion(gSelectedFloristCardGalleryLinkRegion)) return FALSE;
 
 
 	//flower link
 	MSYS_DefineRegion( &gSelectedFloristGalleryLinkRegion, FLOWER_ORDER_FLOWER_BOX_X, FLOWER_ORDER_FLOWER_BOX_Y, (UINT16)(FLOWER_ORDER_FLOWER_BOX_X + FLOWER_ORDER_FLOWER_BOX_WIDTH), (UINT16)(FLOWER_ORDER_FLOWER_BOX_Y + FLOWER_ORDER_FLOWER_BOX_HEIGHT), MSYS_PRIORITY_HIGH,
 					CURSOR_WWW, MSYS_NO_CALLBACK, SelectFloristGalleryLinkRegionCallBack );
-	MSYS_AddRegion(&gSelectedFloristGalleryLinkRegion);
+	if (!staged.addRegion(gSelectedFloristGalleryLinkRegion)) return FALSE;
 
 	//drop down city location
 	MSYS_DefineRegion( &gSelectedFloristDropDownRegion, FLOWER_ORDER_DELIVERY_LOCATION_X, FLOWER_ORDER_DELIVERY_LOCATION_Y, (UINT16)(FLOWER_ORDER_DELIVERY_LOCATION_X + FLOWER_ORDER_DELIVERY_LOCATION_WIDTH), (UINT16)(FLOWER_ORDER_DELIVERY_LOCATION_Y + FLOWER_ORDER_DELIVERY_LOCATION_HEIGHT), MSYS_PRIORITY_HIGH,
 					CURSOR_WWW, MSYS_NO_CALLBACK, SelectFloristDropDownRegionCallBack);
-	MSYS_AddRegion(&gSelectedFloristDropDownRegion);
+	if (!staged.addRegion(gSelectedFloristDropDownRegion)) return FALSE;
 
 		//to disable the drop down city location
 	MSYS_DefineRegion( &gSelectedFloristDisableDropDownRegion, LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y, LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y, MSYS_PRIORITY_HIGH+2,
 					CURSOR_LAPTOP_SCREEN, MSYS_NO_CALLBACK, SelectFloristDisableDropDownRegionCallBack);
-	MSYS_AddRegion(&gSelectedFloristDisableDropDownRegion);
+	if (!staged.addRegion(gSelectedFloristDisableDropDownRegion)) return FALSE;
 	MSYS_DisableRegion(&gSelectedFloristDisableDropDownRegion);
+	if (gDestinationTable.empty())
+	{
+		DisableButton(guiFlowerOrderSendButton);
+		MSYS_DisableRegion(&gSelectedFloristDropDownRegion);
+	}
 
-
-	//to select typing in the personal sentiment box
-//	MSYS_DefineRegion( &gSelectedFloristPersonalSentimentBoxRegion, FLOWER_ORDER_SENTIMENT_BOX_X, FLOWER_ORDER_SENTIMENT_BOX_Y, (UINT16)(FLOWER_ORDER_SENTIMENT_BOX_X + FLOWER_ORDER_SENTIMENT_BOX_WIDTH), (UINT16)(FLOWER_ORDER_SENTIMENT_BOX_Y + FLOWER_ORDER_SENTIMENT_BOX_HEIGHT), MSYS_PRIORITY_HIGH,
-//					CURSOR_WWW, MSYS_NO_CALLBACK, SelectFloristPersonalSentimentBoxRegionCallBack);
-//	MSYS_AddRegion( &gSelectedFloristPersonalSentimentBoxRegion );
-
+	gFloristOrderResources = std::move(staged);
 	InitFlowerOrderTextInputBoxes();
 
 	LaptopSaveInfo.uiFlowerOrderNumber += Random( 5 ) + 1;
 
 	RenderFloristOrderForm();
-
-//	guiFlowerPrice = 0;
-//	gubFlowerDestDropDownMode = FLOWER_ORDER_DROP_DOWN_NO_ACTION;
-//	gubCurrentlySelectedFlowerLocation = 0;
-
 	return(TRUE);
 }
 
@@ -450,55 +433,18 @@ void InitFloristOrderFormVariables()
 {
 	guiFlowerPrice = 0;
 	gubFlowerDestDropDownMode = FLOWER_ORDER_DROP_DOWN_NO_ACTION;
-	gubCurrentlySelectedFlowerLocation = 0;
+	gCurrentlySelectedFlowerLocation = 0;
 }
 
 
 void ExitFloristOrderForm()
 {
-	UINT8	i;
-	RemoveFloristDefaults();
-
-	DeleteVideoObjectFromIndex( guiDeliveryLocation );
-	DeleteVideoObjectFromIndex( guiFlowerFrame );
-	DeleteVideoObjectFromIndex( guiNameBox );
-	DeleteVideoObjectFromIndex( guiPersonalSentiments );
-	DeleteVideoObjectFromIndex( guiFlowerOrderCheckBoxButtonImage );
-	DeleteVideoObjectFromIndex( guiCurrentlySelectedFlowerImage );
-	DeleteVideoObjectFromIndex(guiDropDownBorder);
-
-	for(i=0; i<6; i++)
-		MSYS_RemoveRegion( &gSelectedFloristCheckBoxRegion[i]);
-
-	//card gallery link
-	MSYS_RemoveRegion( &gSelectedFloristCardGalleryLinkRegion);
-
-	//flower link
-	MSYS_RemoveRegion( &gSelectedFloristGalleryLinkRegion);
-
-	//flower link
-	MSYS_RemoveRegion( &gSelectedFloristDropDownRegion);
-
-	//to select typing in the personal sentiment box
-//	MSYS_RemoveRegion( &gSelectedFloristPersonalSentimentBoxRegion);
-
-	//disable the drop down window
-	MSYS_RemoveRegion( &gSelectedFloristDisableDropDownRegion);
-
-	UnloadButtonImage( guiFlowerOrderButtonImage );
-
-	RemoveButton( guiFlowerOrderBackButton );
-	RemoveButton( guiFlowerOrderSendButton );
-	RemoveButton( guiFlowerOrderClearButton );
-	RemoveButton( guiFlowerOrderGalleryButton );
-
-	//Store the text fields
-	Get16BitStringFromField( 1, gsSentimentTextField, 75 );
-	Get16BitStringFromField( 2, gsNameTextField, 35 );
-	gbCurrentlySelectedCard = -1;
-
-
+	CaptureFlowerOrderTextInputBoxes();
 	DestroyFlowerOrderTextInputBoxes();
+	gFloristDropDownResources.clear();
+	gubFlowerDestDropDownMode = FLOWER_ORDER_DROP_DOWN_NO_ACTION;
+	gFloristOrderResources.clear();
+	gbCurrentlySelectedCard = -1;
 }
 
 void HandleFloristOrderForm()
@@ -649,25 +595,26 @@ void BtnFlowerOrderSendButtonCallback(GUI_BUTTON *btn,INT32 reason)
 		if (btn->uiFlags & BUTTON_CLICKED_ON)
 		{
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
+			if (gDestinationTable.empty() ||
+				gCurrentlySelectedFlowerLocation >= gDestinationTable.size() ||
+				!gDestinationTable[gCurrentlySelectedFlowerLocation])
+			{
+				return;
+			}
 
 			//add an entry in the finacial page for the medical deposit
 			AddTransactionToPlayersBook(	PURCHASED_FLOWERS, 0, GetWorldTotalMin(), -(INT32)(guiFlowerPrice) );
 
-			if ( gubCurrentlySelectedFlowerLocation == 7 )
+			if ( gCurrentlySelectedFlowerLocation == 7 )
 			{
-#ifdef JA2UB
-// no UB
-#else
-				// sent to meduna!
-				if ( gfFLoristCheckBox0Down )
+				const CampaignLaptopCommunicationsPolicy policy(
+					GetGameContext().capabilities());
+				if (policy.flowerDeliveryMeanwhileAvailable())
 				{
-					HandleFlowersMeanwhileScene( 0 );
+					// sent to Meduna
+					HandleFlowersMeanwhileScene(
+						gfFLoristCheckBox0Down ? 0 : 1);
 				}
-				else
-				{
-					HandleFlowersMeanwhileScene( 1 );
-				}
-#endif
 			}
 
 			//increment the order number
@@ -884,23 +831,7 @@ void DisplayFlowerDynamicItems()
 	UINT32	uiStartLoc=0;
 	UINT16	usPosX;
 	CHAR16	sTemp[ 640 ];
-//	CHAR16	sText[ 640 ];
-	UINT16	usPrice;
-/*
-	//display the card saying
-	if( gbCurrentlySelectedCard != -1 )
-	{
-		//Get and display the card saying
-		//Display Flower Desc
-
-		uiStartLoc = FLOR_CARD_TEXT_TITLE_SIZE * + gbCurrentlySelectedCard;
-		LoadEncryptedDataFromFile( FLOR_CARD_TEXT_FILE, sTemp, uiStartLoc, FLOR_CARD_TEXT_TITLE_SIZE);
-
-		CleanOutControlCodesFromString(sTemp, sText);
-
-		DisplayWrappedString( (UINT16)(FLOWER_ORDER_SENTIMENT_BOX_X+10), (UINT16)(FLOWER_ORDER_SENTIMENT_BOX_Y+7), FLOWER_ORDER_PERSONAL_SENT_TEXT_WIDTH, 2, FLOWER_ORDER_SMALL_FONT, FLOWER_ORDER_SMALL_COLOR,	sText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-	}
-*/
+	UINT16	usPrice = 0;
 	//order number
 	usPosX = StringPixLength( sOrderFormText[FLORIST_ORDER_ORDER_NUMBER], FLOWER_ORDER_SMALL_FONT) + 5 + FLOWER_ORDER_ORDER_NUM_NAME_X;
 	swprintf(sTemp, L"%d", LaptopSaveInfo.uiFlowerOrderNumber );
@@ -927,16 +858,21 @@ void DisplayFlowerDynamicItems()
 	usPosX = StringPixLength( sOrderFormText[FLORIST_ORDER_PRICE], FLOWER_ORDER_SMALL_FONT) + 5 + FLOWER_ORDER_BOUQUET_NAME_X;
 	uiStartLoc = FLOR_GALLERY_TEXT_TOTAL_SIZE * guiCurrentlySelectedFlower + FLOR_GALLERY_TEXT_TITLE_SIZE;
 	LoadEncryptedDataFromFile(FLOR_GALLERY_TEXT_FILE, sTemp, uiStartLoc, FLOR_GALLERY_TEXT_PRICE_SIZE);
-	swscanf( sTemp, L"%hu", &usPrice);
+	if (swscanf(sTemp, L"%hu", &usPrice) != 1) usPrice = 0;
+
+	if (gDestinationTable.empty() ||
+		gCurrentlySelectedFlowerLocation >= gDestinationTable.size() ||
+		!gDestinationTable[gCurrentlySelectedFlowerLocation])
+	{
+		return;
+	}
 
 	//if its the next day delivery
 	if( gfFLoristCheckBox0Down )
-		//guiFlowerPrice += usPrice + FlowerOrderLocations[ gubCurrentlySelectedFlowerLocation ].ubNextDayDeliveryCost;
-		guiFlowerPrice += usPrice + gPostalService.GetDestinationFee(0, gDestinationTable[gubCurrentlySelectedFlowerLocation]->usID) / 2;
+		guiFlowerPrice += usPrice + gPostalService.GetDestinationFee(0, gDestinationTable[gCurrentlySelectedFlowerLocation]->usID) / 2;
 	//else its the 'when it gets there' delivery
 	else
-		//guiFlowerPrice += usPrice + FlowerOrderLocations[ gubCurrentlySelectedFlowerLocation ].ubWhenItGetsThereCost;
-		guiFlowerPrice += usPrice + gPostalService.GetDestinationFee(1, gDestinationTable[gubCurrentlySelectedFlowerLocation]->usID) / 2;
+		guiFlowerPrice += usPrice + gPostalService.GetDestinationFee(1, gDestinationTable[gCurrentlySelectedFlowerLocation]->usID) / 2;
 
 	swprintf( sTemp, L"$%d.00 %s", guiFlowerPrice, pMessageStrings[ MSG_USDOLLAR_ABBREVIATION ] );
 	DrawTextToScreen( sTemp, usPosX, FLOWER_ORDER_BOUQUET_NAME_Y, 0, FLOWER_ORDER_SMALL_FONT, FLOWER_ORDER_SMALL_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED );
@@ -988,8 +924,13 @@ void SelectFlowerDropDownRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 	}
 	else if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
 	{
-		gubCurrentlySelectedFlowerLocation = (UINT8)MSYS_GetRegionUserData( pRegion, 0 );
-		FlowerOrderDrawSelectedCity( gubCurrentlySelectedFlowerLocation );
+		const INT32 selected = MSYS_GetRegionUserData(pRegion, 0);
+		if (selected < 0 ||
+			static_cast<std::size_t>(selected) >= gDestinationTable.size())
+			return;
+		gCurrentlySelectedFlowerLocation =
+			static_cast<std::size_t>(selected);
+		FlowerOrderDrawSelectedCity(gCurrentlySelectedFlowerLocation);
 		gubFlowerDestDropDownMode = FLOWER_ORDER_DROP_DOWN_DESTROY;
 	}
 }
@@ -1003,10 +944,14 @@ void SelectFlowerDropDownMovementCallBack(MOUSE_REGION * pRegion, INT32 reason )
 	}
 	else if( reason & MSYS_CALLBACK_REASON_GAIN_MOUSE )
 	{
+		const INT32 selected = MSYS_GetRegionUserData(pRegion, 0);
+		if (selected < 0 ||
+			static_cast<std::size_t>(selected) >= gDestinationTable.size())
+			return;
 		pRegion->uiFlags |= BUTTON_CLICKED_ON ;
-
-		gubCurrentlySelectedFlowerLocation = (UINT8)MSYS_GetRegionUserData( pRegion, 0 );
-		FlowerOrderDrawSelectedCity( gubCurrentlySelectedFlowerLocation );
+		gCurrentlySelectedFlowerLocation =
+			static_cast<std::size_t>(selected);
+		FlowerOrderDrawSelectedCity(gCurrentlySelectedFlowerLocation);
 
 		InvalidateRegion(pRegion->RegionTopLeftX, pRegion->RegionTopLeftY, pRegion->RegionBottomRightX, pRegion->RegionBottomRightY);
 	}
@@ -1018,7 +963,6 @@ void SelectFlowerDropDownMovementCallBack(MOUSE_REGION * pRegion, INT32 reason )
 BOOLEAN CreateDestroyFlowerOrderDestDropDown( UINT8 ubDropDownMode )
 {
 	static UINT16 usHeight;
-	static BOOLEAN fMouseRegionsCreated=FALSE;
 
 	switch( ubDropDownMode )
 	{
@@ -1030,62 +974,47 @@ BOOLEAN CreateDestroyFlowerOrderDestDropDown( UINT8 ubDropDownMode )
 
 		case 	FLOWER_ORDER_DROP_DOWN_CREATE:
 		{
-			UINT8 i;
+			std::size_t i;
 			UINT16 usPosX, usPosY;
 			UINT16 usTemp;
 			UINT16 usFontHeight = GetFontHeight( FLOWER_ORDER_DROP_DOWN_FONT );
-			UINT8 ubTextFieldID;
+			LaptopPageResourceOwner staged;
 
-			if( fMouseRegionsCreated )
+			if (!gFloristDropDownResources.empty())
 			{
-				return(FALSE);
-				break;
+				gubFlowerDestDropDownMode = FLOWER_ORDER_DROP_DOWN_DISPLAY;
+				return TRUE;
+			}
+			if (gDestinationTable.empty() ||
+				gSelectedFlowerDropDownRegion.size() !=
+					gDestinationTable.size())
+			{
+				gubFlowerDestDropDownMode = FLOWER_ORDER_DROP_DOWN_NO_ACTION;
+				return FALSE;
 			}
 
-//Get the current text from the text box
-			ubTextFieldID = (UINT8) GetActiveFieldID();
-
-			//if its the personel sentiment field
-			if( ubTextFieldID == 1 )
-			{
-				Get16BitStringFromField( ubTextFieldID, gsSentimentTextField, 75 );
-			}
-			else if( ubTextFieldID == 2 )
-			{
-				//else its the name field
-				Get16BitStringFromField( ubTextFieldID, gsNameTextField, 35 );
-			}
-
-			SetActiveField(0);
-
-
-
-			fMouseRegionsCreated = TRUE;
+			CaptureFlowerOrderTextInputBoxes();
+			DestroyFlowerOrderTextInputBoxes();
 
 			usPosX = FLOWER_ORDER_DROP_DOWN_CITY_START_X;
 			usPosY = FLOWER_ORDER_DROP_DOWN_CITY_START_Y;
-			//for( i=0; i< FLOWER_ORDER_NUMBER_OF_DROP_DOWN_LOCATIONS; i++)
-			for( i=0; i< gPostalService.LookupDestinationList().size(); i++)
+			for (i = 0; i < gDestinationTable.size(); ++i)
 			{
 				MSYS_DefineRegion( &gSelectedFlowerDropDownRegion[i], usPosX, (UINT16)(usPosY+4), (UINT16)(usPosX+FLOWER_ORDER_DROP_DOWN_LOCATION_WIDTH), (UINT16)(usPosY+usFontHeight), MSYS_PRIORITY_HIGH+3,
 										CURSOR_WWW, SelectFlowerDropDownMovementCallBack, SelectFlowerDropDownRegionCallBack);
-				MSYS_AddRegion(&gSelectedFlowerDropDownRegion[i]);
-				MSYS_SetRegionUserData( &gSelectedFlowerDropDownRegion[ i ], 0, i);
+				if (!staged.addRegion(gSelectedFlowerDropDownRegion[i]))
+					return FALSE;
+				MSYS_SetRegionUserData(&gSelectedFlowerDropDownRegion[i],
+					0, static_cast<INT32>(i));
 
 				usPosY += usFontHeight + 2;
 			}
 			usTemp = FLOWER_ORDER_DROP_DOWN_CITY_START_Y;
 			usHeight = usPosY - usTemp + 10;
 
-
+			gFloristDropDownResources = std::move(staged);
 			gubFlowerDestDropDownMode = FLOWER_ORDER_DROP_DOWN_DISPLAY;
-		MSYS_EnableRegion(&gSelectedFloristDisableDropDownRegion);
-
-
-			//disable the text entry fields
-//			DisableAllTextFields();
-				Get16BitStringFromField( 1, gsSentimentTextField, 75 );
-				KillTextInputMode();
+			MSYS_EnableRegion(&gSelectedFloristDisableDropDownRegion);
 
 			//disable the clear order and accept order buttons, (their rendering interferes with the drop down graphics)
 		}
@@ -1093,25 +1022,22 @@ BOOLEAN CreateDestroyFlowerOrderDestDropDown( UINT8 ubDropDownMode )
 
 		case 	FLOWER_ORDER_DROP_DOWN_DESTROY:
 		{
-			UINT8 i;
-
-			if( !fMouseRegionsCreated )
+			if (gFloristDropDownResources.empty())
+			{
+				gubFlowerDestDropDownMode = FLOWER_ORDER_DROP_DOWN_NO_ACTION;
 				break;
+			}
 
-			//for( i=0; i< FLOWER_ORDER_NUMBER_OF_DROP_DOWN_LOCATIONS; i++)
-			for( i=0; i< gPostalService.LookupDestinationList().size(); i++)
-			MSYS_RemoveRegion( &gSelectedFlowerDropDownRegion[i]);
+			gFloristDropDownResources.clear();
 
 			//display the name on the title bar
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, FLOWER_ORDER_DROP_DOWN_LOCATION_X+3, FLOWER_ORDER_DELIVERY_LOCATION_Y+3, FLOWER_ORDER_DROP_DOWN_LOCATION_X+FLOWER_ORDER_DROP_DOWN_LOCATION_WIDTH,	FLOWER_ORDER_DELIVERY_LOCATION_Y+FLOWER_ORDER_DELIVERY_LOCATION_HEIGHT-2, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
-			//DrawTextToScreen( *(FlowerOrderLocations[ gubCurrentlySelectedFlowerLocation ].psCityLoc), FLOWER_ORDER_DROP_DOWN_CITY_START_X+6, FLOWER_ORDER_DROP_DOWN_CITY_START_Y+3, 0, FLOWER_ORDER_DROP_DOWN_FONT, FLOWER_ORDER_DROP_DOWN_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-			DrawTextToScreen( (STR16)gDestinationTable[ gubCurrentlySelectedFlowerLocation ]->wstrName.c_str(), FLOWER_ORDER_DROP_DOWN_CITY_START_X+6, FLOWER_ORDER_DROP_DOWN_CITY_START_Y+3, 0, FLOWER_ORDER_DROP_DOWN_FONT, FLOWER_ORDER_DROP_DOWN_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
+			FlowerOrderDisplayShippingLocationCity();
 
 			//enable the drop down region
-		MSYS_DisableRegion(&gSelectedFloristDisableDropDownRegion);
+			MSYS_DisableRegion(&gSelectedFloristDisableDropDownRegion);
 
 			fPausedReDrawScreenFlag = TRUE;
-			fMouseRegionsCreated	= FALSE;
 			gubFlowerDestDropDownMode = FLOWER_ORDER_DROP_DOWN_NO_ACTION;
 
 			//enable the text entry fields
@@ -1121,7 +1047,7 @@ BOOLEAN CreateDestroyFlowerOrderDestDropDown( UINT8 ubDropDownMode )
 
 		case 	FLOWER_ORDER_DROP_DOWN_DISPLAY:
 		{
-			UINT8 i;
+			UINT16 i;
 			UINT16 usPosY, usPosX;
 			UINT16 usFontHeight = GetFontHeight( FLOWER_ORDER_DROP_DOWN_FONT );
 			HVOBJECT	hImageHandle;
@@ -1167,15 +1093,23 @@ BOOLEAN CreateDestroyFlowerOrderDestDropDown( UINT8 ubDropDownMode )
 
 			//Display the list of cities
 			usPosY = FLOWER_ORDER_DROP_DOWN_CITY_START_Y + 3;
-			//for( i=0; i< FLOWER_ORDER_NUMBER_OF_DROP_DOWN_LOCATIONS; i++)
-			for( i=0; i< gPostalService.LookupDestinationList().size(); i++)
+			for (std::size_t destinationIndex = 0;
+				destinationIndex < gDestinationTable.size();
+				++destinationIndex)
 			{
-				//DrawTextToScreen( *(FlowerOrderLocations[i].psCityLoc), FLOWER_ORDER_DROP_DOWN_CITY_START_X+6, usPosY, 0, FLOWER_ORDER_DROP_DOWN_FONT, FLOWER_ORDER_DROP_DOWN_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-				DrawTextToScreen( (STR16)gDestinationTable[i]->wstrName.c_str(), FLOWER_ORDER_DROP_DOWN_CITY_START_X+6, usPosY, 0, FLOWER_ORDER_DROP_DOWN_FONT, FLOWER_ORDER_DROP_DOWN_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
+				if (gDestinationTable[destinationIndex])
+				{
+					DrawTextToScreen((STR16)gDestinationTable[
+						destinationIndex]->wstrName.c_str(),
+						FLOWER_ORDER_DROP_DOWN_CITY_START_X + 6, usPosY,
+						0, FLOWER_ORDER_DROP_DOWN_FONT,
+						FLOWER_ORDER_DROP_DOWN_COLOR, FONT_MCOLOR_BLACK,
+						FALSE, LEFT_JUSTIFIED);
+				}
 				usPosY += usFontHeight + 2;
 			}
 
-			FlowerOrderDrawSelectedCity( gubCurrentlySelectedFlowerLocation );
+			FlowerOrderDrawSelectedCity(gCurrentlySelectedFlowerLocation);
 
 		InvalidateRegion(LAPTOP_SCREEN_UL_X,LAPTOP_SCREEN_WEB_UL_Y,LAPTOP_SCREEN_LR_X,LAPTOP_SCREEN_WEB_LR_Y);
 		}
@@ -1185,19 +1119,25 @@ BOOLEAN CreateDestroyFlowerOrderDestDropDown( UINT8 ubDropDownMode )
 }
 
 
-void FlowerOrderDrawSelectedCity( UINT8 ubNumber )
+void FlowerOrderDrawSelectedCity(std::size_t number)
 {
+	if (number >= gDestinationTable.size() ||
+		!gDestinationTable[number]) return;
 	UINT16 usPosY;
 	UINT16 usFontHeight = GetFontHeight( FLOWER_ORDER_DROP_DOWN_FONT );
 
-	usPosY = (usFontHeight + 2) * ubNumber + FLOWER_ORDER_DROP_DOWN_CITY_START_Y;
+	usPosY = static_cast<UINT16>((usFontHeight + 2) * number +
+		FLOWER_ORDER_DROP_DOWN_CITY_START_Y);
 
 	//display the name in the list
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, FLOWER_ORDER_DROP_DOWN_CITY_START_X, usPosY+2, FLOWER_ORDER_DROP_DOWN_CITY_START_X+FLOWER_ORDER_DROP_DOWN_LOCATION_WIDTH-9,	usPosY+usFontHeight+4, Get16BPPColor( FROMRGB( 255, 255, 255 ) ) );
 
 	SetFontShadow(NO_SHADOW);
-	//DrawTextToScreen( *(FlowerOrderLocations[ubNumber].psCityLoc), FLOWER_ORDER_DROP_DOWN_CITY_START_X+6, (UINT16)(usPosY+3), 0, FLOWER_ORDER_DROP_DOWN_FONT, 2, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-	DrawTextToScreen( (STR16)gDestinationTable[ubNumber]->wstrName.c_str(), FLOWER_ORDER_DROP_DOWN_CITY_START_X+6, (UINT16)(usPosY+3), 0, FLOWER_ORDER_DROP_DOWN_FONT, 2, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
+	DrawTextToScreen((STR16)gDestinationTable[number]->wstrName.c_str(),
+		FLOWER_ORDER_DROP_DOWN_CITY_START_X + 6,
+		static_cast<UINT16>(usPosY + 3), 0,
+		FLOWER_ORDER_DROP_DOWN_FONT, 2, FONT_MCOLOR_BLACK,
+		FALSE, LEFT_JUSTIFIED);
 	SetFontShadow(DEFAULT_SHADOW);
 
 	FlowerOrderDisplayShippingLocationCity();
@@ -1210,8 +1150,14 @@ void FlowerOrderDisplayShippingLocationCity()
 {
 	//display the name on the title bar
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, FLOWER_ORDER_DROP_DOWN_LOCATION_X+3, FLOWER_ORDER_DELIVERY_LOCATION_Y+3, FLOWER_ORDER_DROP_DOWN_LOCATION_X+FLOWER_ORDER_DROP_DOWN_LOCATION_WIDTH,	FLOWER_ORDER_DELIVERY_LOCATION_Y+FLOWER_ORDER_DELIVERY_LOCATION_HEIGHT-2, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
-	//DrawTextToScreen( *(FlowerOrderLocations[ gubCurrentlySelectedFlowerLocation ].psCityLoc), FLOWER_ORDER_DELIVERY_LOCATION_X+5, FLOWER_ORDER_DELIVERY_LOCATION_Y+5, 0, FLOWER_ORDER_SMALL_FONT, FLOWER_ORDER_SMALL_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-	DrawTextToScreen( (STR16)gDestinationTable[ gubCurrentlySelectedFlowerLocation ]->wstrName.c_str(), FLOWER_ORDER_DELIVERY_LOCATION_X+5, FLOWER_ORDER_DELIVERY_LOCATION_Y+5, 0, FLOWER_ORDER_SMALL_FONT, FLOWER_ORDER_SMALL_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
+	if (gCurrentlySelectedFlowerLocation >= gDestinationTable.size() ||
+		!gDestinationTable[gCurrentlySelectedFlowerLocation]) return;
+	DrawTextToScreen((STR16)gDestinationTable[
+		gCurrentlySelectedFlowerLocation]->wstrName.c_str(),
+		FLOWER_ORDER_DELIVERY_LOCATION_X + 5,
+		FLOWER_ORDER_DELIVERY_LOCATION_Y + 5, 0,
+		FLOWER_ORDER_SMALL_FONT, FLOWER_ORDER_SMALL_COLOR,
+		FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 }
 
 
@@ -1222,7 +1168,9 @@ void InitFlowerOrderTextInputBoxes()
 	CHAR16	sText[ 640 ];
 
 
+	if (gFlowerOrderTextInputActive) return;
 	InitTextInputMode();
+	gFlowerOrderTextInputActive = true;
 	SetTextInputFont( (UINT16)FONT12ARIAL );
 	Set16BPPTextFieldColor( Get16BPPColor(FROMRGB( 255, 255, 255) ) );
 	SetBevelColors( Get16BPPColor(FROMRGB(136, 138, 135)), Get16BPPColor(FROMRGB(24, 61, 81)) );
@@ -1242,6 +1190,8 @@ void InitFlowerOrderTextInputBoxes()
 		CleanOutControlCodesFromString(sTemp, sText);
 
 		wcsncpy( gsSentimentTextField, sText, FLOWER_ORDER_PERSONEL_SENTIMENT_NUM_CHARS - 1 );
+		gsSentimentTextField[
+			FLOWER_ORDER_PERSONEL_SENTIMENT_NUM_CHARS - 1] = L'\0';
 
 		gbCurrentlySelectedCard = -1;
 
@@ -1261,7 +1211,19 @@ void InitFlowerOrderTextInputBoxes()
 
 void DestroyFlowerOrderTextInputBoxes()
 {
+	if (!gFlowerOrderTextInputActive) return;
 	KillTextInputMode();
+	gFlowerOrderTextInputActive = false;
+}
+
+void CaptureFlowerOrderTextInputBoxes()
+{
+	if (!gFlowerOrderTextInputActive) return;
+	Get16BitStringFromField(1, gsSentimentTextField,
+		FLOWER_ORDER_PERSONEL_SENTIMENT_NUM_CHARS);
+	Get16BitStringFromField(2, gsNameTextField,
+		FLOWER_ORDER_NAME_FIELD_NUM_CHARS);
+	SetActiveField(0);
 }
 
 
@@ -1294,13 +1256,6 @@ void HandleFloristOrderKeyBoardInput()
 
 					SetActiveField(0);
 					break;
-
-				/*
-				case ESC:
-					SetActiveField(0);
-					break;
-				*/
-
 				default:
 					HandleKeyBoardShortCutsForLapTop( InputEvent.usEvent, InputEvent.usParam, InputEvent.usKeyState );
 					break;
@@ -1334,36 +1289,30 @@ void InitFloristOrderForm()
 
 	guiFlowerPrice = 0;
 
-	gubCurrentlySelectedFlowerLocation = 0;
+	gCurrentlySelectedFlowerLocation = 0;
 	gbCurrentlySelectedCard = -1;
 
 	gsSentimentTextField[0] = 0;
 	gsNameTextField[0] = 0;
+	RefreshFloristDestinations();
+}
+
+void RefreshFloristDestinations()
+{
+	gFloristDropDownResources.clear();
+	gubFlowerDestDropDownMode = FLOWER_ORDER_DROP_DOWN_NO_ACTION;
 
 	//Dealtar's Airport Externalization.
 	// Update the destination and shipment tables upon entering Bobby R
-	if (!gDestinationTable.empty())
-	{
-		gDestinationTable.erase(gDestinationTable.begin(), gDestinationTable.end());
-	}
+	gDestinationTable.clear();
 
-	DestinationList::const_iterator dli = gPostalService.LookupDestinationList().begin();
+	auto& destinations = gPostalService.LookupDestinationList();
+	gDestinationTable.reserve(destinations.size());
+	for (auto& destination : destinations)
+		gDestinationTable.push_back(&destination);
 
-	while (dli != gPostalService.LookupDestinationList().end())
-	{
-		gDestinationTable.push_back(&DESTINATION(dli));
-		dli++;
-
-	}
-	
-	// Dealtar/Buggler: The following code had to be put here, because GameInitFloristOrderForm() is called
-	// before XML data is read into gPostalService due to the screen order in screens.cpp -> GameScreens[]
-	if (!gfFlowerInitialized)
-	{
-		gfFlowerInitialized = TRUE;
-		gSelectedFlowerDropDownRegion = new MOUSE_REGION[gPostalService.LookupDestinationList().size()];
-		int x = gPostalService.LookupDestinationList().size();
-		guiNumOfDisplayedCities = (x < 10) ? x : 10;
-		//gDestinationTable.resize(gPostalService.LookupDestinationList().size());
-	}
+	gSelectedFlowerDropDownRegion.clear();
+	gSelectedFlowerDropDownRegion.resize(gDestinationTable.size());
+	gCurrentlySelectedFlowerLocation = ClampFloristIndex(
+		gCurrentlySelectedFlowerLocation, gDestinationTable.size());
 }

@@ -1109,6 +1109,24 @@ the engine must not contain SDL types in its public domain model.
   partition: 81 common translation units and 17 variants. Data-free navigation
   tests plus architecture ratchets pin the bounds, failure checks, owner use,
   runtime policy, raw-lifecycle exclusion, and common build ownership.
+- Florist and Funeral are treated as one connected service-site ownership
+  boundary. The home, flower gallery, card gallery, order form, and Funeral
+  page stage their images, button images, buttons, and mouse regions before
+  publication. Gallery flower controls and the order form's XML-sized
+  destination regions use independent transactions because callbacks replace
+  them while the surrounding page remains active. `FloristSiteModel` clamps
+  stale flower/destination selections, keeps next/previous navigation within
+  the final partial gallery page, and prevents tall localized card/link text
+  from underflowing unsigned centering offsets. The order form rebuilds region
+  storage with the current postal catalog, tolerates an empty catalog without
+  dereferencing element zero, preserves both text fields across drop-down
+  transitions, terminates copied card text, and initializes malformed flower
+  prices deterministically. Its Arulco-only delivery scene is selected by
+  `CampaignLaptopCommunicationsPolicy`, so the order implementation joins the
+  common Laptop partition: 82 shared translation units and 16 variants.
+  Data-free tests and architecture ratchets pin navigation, empty/stale data,
+  text bounds, runtime campaign behavior, dynamic ownership, and the absence
+  of raw resource lifecycle calls.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared
