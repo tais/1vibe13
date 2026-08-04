@@ -4,6 +4,8 @@
  */
 
 #include "CampaignStats.h"
+#include "CampaignHistoryModel.h"
+#include "CampaignHistoryText.h"
 #include "TacticalActorConditions.h"
 #include "message.h"
 #include "SaveLoadGame.h"
@@ -20,6 +22,12 @@
 #include "DynamicDialogue.h"
 #include "TacticalActor.h"
 
+#include <algorithm>
+#include <array>
+#include <iterator>
+#include <limits>
+#include <string>
+
 Campaign_Stats	gCampaignStats;
 Incident_Stats	gCurrentIncident;		// we might save during an incident, thus we have to store the ongoing incident
 
@@ -32,9 +40,13 @@ Incident_Stats::clear()
 	usTime				= 0;
 	usSector			= 0;
 	usLevel				= 0;
+	std::fill(std::begin(usRatingAlignmentPadding),
+		std::end(usRatingAlignmentPadding), 0);
 	usInterestRating	= 0;
 	usNPCDied			= 0;
 	usCivFactionFought	= 0;
+	std::fill(std::begin(usFlagsAlignmentPadding),
+		std::end(usFlagsAlignmentPadding), 0);
 	usIncidentFlags		= 0;
 	usOneTimeEventFlags = 0;
 		
@@ -47,6 +59,7 @@ Incident_Stats::clear()
 		usParticipants[i]	= 0;
 		usPromotions[i]		= 0;
 	}
+	std::fill(std::begin(usFiller), std::end(usFiller), 0);
 }
 
 // determine how 'interesting' an incident is - the more happens, the more interesting it is
@@ -104,7 +117,10 @@ Incident_Stats::Save( HWFILE hFile )
 {
 	UINT32 uiNumBytesWritten = 0;
 
-	if ( !FileWrite( hFile, this, SIZEOF_INCIDENT_STATS_POD, &uiNumBytesWritten ) )
+	const bool wrote =
+		FileWrite(hFile, this, SIZEOF_INCIDENT_STATS_POD, &uiNumBytesWritten) != FALSE;
+	if (!CampaignHistoryModel::IsExactTransfer(
+		wrote, uiNumBytesWritten, SIZEOF_INCIDENT_STATS_POD))
 	{
 		return(FALSE);
 	}
@@ -117,6 +133,7 @@ Incident_Stats::Load( HWFILE hwFile )
 {
 	if(guiCurrentSaveGameVersion >= CAMPAIGNSTATS)
 	{
+		const Incident_Stats original = *this;
 		UINT32 numBytesRead = 0;
 		
 		numBytesRead = ReadFieldByField(hwFile, &usID,					sizeof(usID),				sizeof(UINT32), numBytesRead);
@@ -139,7 +156,10 @@ Incident_Stats::Load( HWFILE hwFile )
 		numBytesRead = ReadFieldByField(hwFile, &usFiller,				sizeof(usFiller),			sizeof(UINT8), numBytesRead);
 		
 		if( numBytesRead != SIZEOF_INCIDENT_STATS_POD )
+		{
+			*this = original;
 			return(FALSE);
+		}
 	}
 
 	return( TRUE );
@@ -148,6 +168,9 @@ Incident_Stats::Load( HWFILE hwFile )
 void
 Incident_Stats::AddStat( TacticalActor* pSoldier, UINT8 aType )
 {
+	if (!CampaignHistoryModel::IsValidIndex(
+		aType, CAMPAIGNHISTORY_TYPE_MAX)) return;
+
 	UINT8 group = CAMPAIGNHISTORY_SD_MERC;
 
 	if ( pSoldier )
@@ -160,6 +183,7 @@ Incident_Stats::AddStat( TacticalActor* pSoldier, UINT8 aType )
 
 		case ENEMY_TEAM:
 		{
+			group = CAMPAIGNHISTORY_SD_ENEMY_ARMY;
 			if ( ARMED_VEHICLE( pSoldier ) || ENEMYROBOT( pSoldier ) )
 				group = CAMPAIGNHISTORY_SD_ENEMY_TANK;
 			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR )
@@ -182,6 +206,7 @@ Incident_Stats::AddStat( TacticalActor* pSoldier, UINT8 aType )
 
 		case MILITIA_TEAM:
 		{
+			group = CAMPAIGNHISTORY_SD_MILITIA_REGULAR;
 			if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA )
 				group = CAMPAIGNHISTORY_SD_MILITIA_GREEN;
 			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA )
@@ -210,7 +235,8 @@ Incident_Stats::AddStat( TacticalActor* pSoldier, UINT8 aType )
 	{
 	case CAMPAIGNHISTORY_TYPE_KILL:
 		{
-			usKills[group]++;
+			usKills[group] = CampaignHistoryModel::SaturatingAddUnsigned(
+				usKills[group], static_cast<UINT16>(1));
 
 			if ( pSoldier )
 			{
@@ -223,131 +249,127 @@ Incident_Stats::AddStat( TacticalActor* pSoldier, UINT8 aType )
 		break;
 
 	case CAMPAIGNHISTORY_TYPE_WOUND:
-		usWounds[group]++;
+		usWounds[group] = CampaignHistoryModel::SaturatingAddUnsigned(
+			usWounds[group], static_cast<UINT16>(1));
 		break;
 
 	case CAMPAIGNHISTORY_TYPE_PRISONER:
-		usPrisoners[group]++;
+		usPrisoners[group] = CampaignHistoryModel::SaturatingAddUnsigned(
+			usPrisoners[group], static_cast<UINT16>(1));
 		break;
 
 	case CAMPAIGNHISTORY_TYPE_SHOT:
-		usShots[group]++;
+		usShots[group] = CampaignHistoryModel::SaturatingAddUnsigned(
+			usShots[group], static_cast<UINT16>(1));
 		break;
 
 	case CAMPAIGNHISTORY_TYPE_PARTICIPANT:
-		usParticipants[group]++;
+		usParticipants[group] = CampaignHistoryModel::SaturatingAddUnsigned(
+			usParticipants[group], static_cast<UINT16>(1));
 		break;
 
 	case CAMPAIGNHISTORY_TYPE_PROMOTION:
-	default:
-		usPromotions[group]++;
+		usPromotions[group] = CampaignHistoryModel::SaturatingAddUnsigned(
+			usPromotions[group], static_cast<UINT16>(1));
 		break;
+
+	default:
+		return;
 	}
 }
 
-UINT8 tmpnr = 0;
-static CHAR16	tmpdirstring[2][ 50 ];	// we need 2 arrays, in case we need 2 name pointers in one string
-STR16
-Incident_Stats::GetAttackerDirString( BOOLEAN fAttacker )
+std::wstring
+Incident_Stats::GetAttackerDirString( BOOLEAN fAttacker ) const
 {
-	CHAR16	helperstr[ 50 ];
-	swprintf(helperstr, L"" );
-
-	++tmpnr;
-	if ( tmpnr > 1 )
-		tmpnr = 0;
-
-	tmpdirstring[tmpnr][0] =  '\0' ;
-
 	UINT8 dirs = 0;
 	CHAR16	dir1[ 10 ], dir2[ 10 ], dir3[ 10 ], dir4[ 10 ];
-	swprintf(dir1, L"" );
-	swprintf(dir2, L"" );
-	swprintf(dir3, L"" );
-	swprintf(dir4, L"" );
+	FormatCampaignHistoryText(dir1, L"" );
+	FormatCampaignHistoryText(dir2, L"" );
+	FormatCampaignHistoryText(dir3, L"" );
+	FormatCampaignHistoryText(dir4, L"" );
 
 	if ( (fAttacker && usIncidentFlags & INCIDENT_ATTACK_ENEMY) || (!fAttacker && usIncidentFlags & INCIDENT_ATTACK_PLAYERSIDE) )
 	{
 		if ( usIncidentFlags & INCIDENT_ATTACKDIR_NORTH_ENEMY )
 		{
-			swprintf(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_NORTH] );
+			FormatCampaignHistoryText(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_NORTH] );
 			++dirs;
 
 			if ( usIncidentFlags & INCIDENT_ATTACKDIR_WEST_ENEMY )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_WEST] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_WEST] );
 				++dirs;
 
 				if ( usIncidentFlags & INCIDENT_ATTACKDIR_SOUTH_ENEMY )
 				{
-					swprintf(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
+					FormatCampaignHistoryText(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
 					++dirs;
 
 					if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST_ENEMY )
 					{
-						swprintf(dir4, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+						FormatCampaignHistoryText(dir4, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 						++dirs;
 					}
 				}
 				else if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST_ENEMY )
 				{
-					swprintf(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+					FormatCampaignHistoryText(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 					++dirs;
 				}
 			}
 			else if ( usIncidentFlags & INCIDENT_ATTACKDIR_SOUTH_ENEMY )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
 				++dirs;
 
 				if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST_ENEMY )
 				{
-					swprintf(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+					FormatCampaignHistoryText(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 					++dirs;
 				}
 			}
 			else if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST_ENEMY )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 				++dirs;
 			}
 		}
 		else if ( usIncidentFlags & INCIDENT_ATTACKDIR_WEST_ENEMY )
 		{
-			swprintf(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_WEST] );
+			FormatCampaignHistoryText(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_WEST] );
 			++dirs;
 
 			if ( usIncidentFlags & INCIDENT_ATTACKDIR_SOUTH_ENEMY )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
 				++dirs;
 
 				if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST_ENEMY )
 				{
-					swprintf(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+					FormatCampaignHistoryText(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 					++dirs;
 				}
 			}
 			else if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST_ENEMY )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 				++dirs;
 			}
 		}
 		else if ( usIncidentFlags & INCIDENT_ATTACKDIR_SOUTH_ENEMY )
 		{
-			swprintf(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
+			FormatCampaignHistoryText(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
 			++dirs;
 
 			if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST_ENEMY )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 				++dirs;
 			}
 		}
 		else if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST_ENEMY )
 		{
-			swprintf(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+			FormatCampaignHistoryText(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 			++dirs;
 		}
 	}
@@ -355,117 +377,93 @@ Incident_Stats::GetAttackerDirString( BOOLEAN fAttacker )
 	{
 		if ( usIncidentFlags & INCIDENT_ATTACKDIR_NORTH )
 		{
-			swprintf(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_NORTH] );
+			FormatCampaignHistoryText(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_NORTH] );
 			++dirs;
 
 			if ( usIncidentFlags & INCIDENT_ATTACKDIR_WEST )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_WEST] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_WEST] );
 				++dirs;
 
 				if ( usIncidentFlags & INCIDENT_ATTACKDIR_SOUTH )
 				{
-					swprintf(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
+					FormatCampaignHistoryText(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
 					++dirs;
 
 					if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST )
 					{
-						swprintf(dir4, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+						FormatCampaignHistoryText(dir4, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 						++dirs;
 					}
 				}
 				else if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST )
 				{
-					swprintf(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+					FormatCampaignHistoryText(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 					++dirs;
 				}
 			}
 			else if ( usIncidentFlags & INCIDENT_ATTACKDIR_SOUTH )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
 				++dirs;
 
 				if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST )
 				{
-					swprintf(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+					FormatCampaignHistoryText(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 					++dirs;
 				}
 			}
 			else if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 				++dirs;
 			}
 		}
 		else if ( usIncidentFlags & INCIDENT_ATTACKDIR_WEST )
 		{
-			swprintf(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_WEST] );
+			FormatCampaignHistoryText(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_WEST] );
 			++dirs;
 
 			if ( usIncidentFlags & INCIDENT_ATTACKDIR_SOUTH )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
 				++dirs;
 
 				if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST )
 				{
-					swprintf(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+					FormatCampaignHistoryText(dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 					++dirs;
 				}
 			}
 			else if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 				++dirs;
 			}
 		}
 		else if ( usIncidentFlags & INCIDENT_ATTACKDIR_SOUTH )
 		{
-			swprintf(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
+			FormatCampaignHistoryText(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_SOUTH] );
 			++dirs;
 
 			if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST )
 			{
-				swprintf(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+				FormatCampaignHistoryText(dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 				++dirs;
 			}
 		}
 		else if ( usIncidentFlags & INCIDENT_ATTACKDIR_EAST )
 		{
-			swprintf(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
+			FormatCampaignHistoryText(dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_EAST] );
 			++dirs;
 		}
 	}
 
-	switch ( dirs )
-	{
-	case 4:
-		swprintf(helperstr, L"%s, %s, %s %s %s", dir1, dir2, dir3, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_AND], dir4 );
-		break;
-
-	case 3:
-		swprintf(helperstr, L"%s, %s %s %s", dir1, dir2, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_AND], dir3 );
-		break;
-
-	case 2:
-		swprintf(helperstr, L"%s %s %s", dir1, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_AND], dir2 );
-		break;
-
-	case 1:
-		swprintf(helperstr, L"%s", dir1 );
-		break;
-
-	case 0:
-		swprintf(helperstr, szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_UNKNOWNLOCATION] );
-		break;
-
-	default:
-		break;
-	}
-
-	wcscat( tmpdirstring[tmpnr], helperstr );
-
-	return tmpdirstring[tmpnr];
+	const std::array<const wchar_t*, 4> directions =
+		{dir1, dir2, dir3, dir4};
+	return CampaignHistoryModel::JoinSelectedDirections(directions, dirs,
+		szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_AND],
+		szCampaignHistoryDetail[TEXT_CAMPAIGNHISTORY_DETAIL_UNKNOWNLOCATION]);
 }
 
 void
@@ -473,7 +471,7 @@ Incident_Stats::GetTerrainandType(UINT8& arTerrain, UINT8& arType)
 {
 	if ( usLevel > 0 )
 		arTerrain = CAMPAINGHISTORY_PICLIBRARY_TERRAIN_UNDERGROUND;
-	else
+	else if (CampaignHistoryModel::IsValidIndex(usSector, SectorInfo.size()))
 	{
 		SECTORINFO *pSector = &SectorInfo[ usSector ];
 
@@ -548,6 +546,10 @@ Incident_Stats::GetTerrainandType(UINT8& arTerrain, UINT8& arType)
 				break;
 		}
 	}
+	else
+	{
+		arTerrain = CAMPAINGHISTORY_PICLIBRARY_TERRAIN_SPARSE;
+	}
 
 	if ( usIncidentFlags & INCIDENT_AIRDROP )
 		arType = CAMPAINGHISTORY_PICLIBRARY_TYPE_AIRDROP;
@@ -561,7 +563,7 @@ Incident_Stats::GetTerrainandType(UINT8& arTerrain, UINT8& arType)
 
 Campaign_Stats::Campaign_Stats()
 {
-	//*mspSelf = *this;
+	clear();
 }
 
 Campaign_Stats::~Campaign_Stats()
@@ -582,8 +584,15 @@ Campaign_Stats::GetObject()
 void
 Campaign_Stats::clear()
 {
-	memset((void*)this, 0, SIZEOF_CAMPAIGN_STATS_POD);
-
+	std::fill(std::begin(usKills), std::end(usKills), 0);
+	std::fill(std::begin(usWounds), std::end(usWounds), 0);
+	std::fill(std::begin(usPrisoners), std::end(usPrisoners), 0);
+	std::fill(std::begin(usShots), std::end(usShots), 0);
+	std::fill(std::begin(sMoneyEarned), std::end(sMoneyEarned), 0);
+	std::fill(std::begin(usConsumed), std::end(usConsumed), 0.0f);
+	usNumIncidents = 0;
+	usHighestID = 0;
+	std::fill(std::begin(usFiller), std::end(usFiller), 0);
 	mIncidentVector.clear();
 }
 
@@ -592,9 +601,17 @@ Campaign_Stats::Save( HWFILE hFile )
 {
 	if(guiCurrentSaveGameVersion >= CAMPAIGNSTATS)
 	{
+		if (mIncidentVector.size() >
+			static_cast<std::size_t>(std::numeric_limits<UINT32>::max()))
+			return FALSE;
+		usNumIncidents = static_cast<UINT32>(mIncidentVector.size());
 		UINT32 uiNumBytesWritten = 0;
 
-		if ( !FileWrite( hFile, this, SIZEOF_CAMPAIGN_STATS_POD, &uiNumBytesWritten ) )
+		const bool wrote =
+			FileWrite(hFile, this, SIZEOF_CAMPAIGN_STATS_POD,
+				&uiNumBytesWritten) != FALSE;
+		if (!CampaignHistoryModel::IsExactTransfer(
+			wrote, uiNumBytesWritten, SIZEOF_CAMPAIGN_STATS_POD))
 			return(FALSE);
 
 		std::vector<Incident_Stats>::iterator itend = mIncidentVector.end();
@@ -613,6 +630,7 @@ Campaign_Stats::Load( HWFILE hwFile )
 {
 	if(guiCurrentSaveGameVersion >= CAMPAIGNSTATS)
 	{
+		const Campaign_Stats original = *this;
 		clear();
 
 		UINT32 numBytesRead = 0;
@@ -631,16 +649,23 @@ Campaign_Stats::Load( HWFILE hwFile )
 		numBytesRead = ReadFieldByField(hwFile, &usFiller,			sizeof(usFiller),			sizeof(UINT8), numBytesRead);
 
 		if( numBytesRead != SIZEOF_CAMPAIGN_STATS_POD )
+		{
+			*this = original;
 			return(FALSE);
+		}
 
 		for (UINT32 i = 0; i < usNumIncidents; ++i)
 		{
 			Incident_Stats incident;
 			if ( !incident.Load ( hwFile ) )
+			{
+				*this = original;
 				return(FALSE);
-			
+			}
+
 			// if option is active, only read the last reports and forget the rest
-			if ( gGameExternalOptions.usReportsToLoad < 0 || i >= usNumIncidents - gGameExternalOptions.usReportsToLoad )
+			if (CampaignHistoryModel::ShouldRetainIncident(i, usNumIncidents,
+				gGameExternalOptions.usReportsToLoad))
 				mIncidentVector.push_back(incident);
 		}
 
@@ -659,15 +684,22 @@ Campaign_Stats::AddNewIncident(Incident_Stats arIncident)
 	arIncident.CalcInterestRating();
 
 	mIncidentVector.push_back(arIncident);
-	++usNumIncidents;
+	usNumIncidents = mIncidentVector.size() >
+		static_cast<std::size_t>(std::numeric_limits<UINT32>::max())
+		? std::numeric_limits<UINT32>::max()
+		: static_cast<UINT32>(mIncidentVector.size());
 
 	// update kills/wounds/prisoner numbers
 	for (UINT16 i = 0; i < CAMPAIGNHISTORY_SD_MAX; ++i)
 	{
-		usKills[i]		+= arIncident.usKills[i];
-		usWounds[i]		+= arIncident.usWounds[i];
-		usPrisoners[i]	+= arIncident.usPrisoners[i];
-		usShots[i]	    += arIncident.usShots[i];
+		usKills[i] = CampaignHistoryModel::SaturatingAddUnsigned(
+			usKills[i], static_cast<UINT32>(arIncident.usKills[i]));
+		usWounds[i] = CampaignHistoryModel::SaturatingAddUnsigned(
+			usWounds[i], static_cast<UINT32>(arIncident.usWounds[i]));
+		usPrisoners[i] = CampaignHistoryModel::SaturatingAddUnsigned(
+			usPrisoners[i], static_cast<UINT32>(arIncident.usPrisoners[i]));
+		usShots[i] = CampaignHistoryModel::SaturatingAddUnsigned(
+			usShots[i], static_cast<UINT32>(arIncident.usShots[i]));
 	}
 }
 
@@ -680,7 +712,8 @@ Campaign_Stats::AddMoneyEarned(UINT8 aType, INT32 aVal)
 		return;
 	}
 
-	sMoneyEarned[aType] += aVal;
+	sMoneyEarned[aType] = CampaignHistoryModel::SaturatingAddSigned(
+		sMoneyEarned[aType], aVal);
 }
 
 void
@@ -692,7 +725,8 @@ Campaign_Stats::AddConsumption(UINT8 aType, FLOAT aVal)
 		return;
 	}
 
-	usConsumed[aType] += aVal;
+	usConsumed[aType] = CampaignHistoryModel::SaturatingAddFinite(
+		usConsumed[aType], aVal);
 }
 
 // add this incident to the campaign stats and then clear it
@@ -727,7 +761,13 @@ void FinishIncident(INT16 sX, INT16 sY, INT8 sZ)
 	// due to odd coding, we do not know when an incident starts
 	// (checking for entering combat isn't enough, as we do that multiple times per battle)
 	// we thus set the relevant data when finishing an incident
-	gCampaignStats.usHighestID++;
+	if (gCampaignStats.usHighestID == std::numeric_limits<UINT32>::max())
+	{
+		gCurrentIncident.clear();
+		return;
+	}
+	gCampaignStats.usHighestID = CampaignHistoryModel::SaturatingAddUnsigned(
+		gCampaignStats.usHighestID, 1U);
 	
 	gCurrentIncident.usID = gCampaignStats.usHighestID;
 	gCurrentIncident.usTime = GetWorldTotalSeconds();
@@ -751,17 +791,6 @@ void FinishIncident(INT16 sX, INT16 sY, INT8 sZ)
 	gCurrentIncident.clear();
 }
 
-// start a new incident
-void StartIncident(INT16 sX, INT16 sY, INT8 sZ)
-{
-	gCampaignStats.usHighestID++;
-
-	gCurrentIncident.usID = gCampaignStats.usHighestID;
-	gCurrentIncident.usTime = GetWorldTotalSeconds();
-	gCurrentIncident.usSector = SECTOR(sX, sY);
-	gCurrentIncident.usLevel = sZ;
-}
-
 INT32 GetPositionOfIncident( UINT32 aIncidentId )
 {
 	INT32 cnt = 0;
@@ -781,7 +810,7 @@ INT32 GetPositionOfIncident( UINT32 aIncidentId )
 static CHAR16	gIncidentNameText[100];
 STR16	GetIncidentName( UINT32 aIncidentId )
 {
-	swprintf( gIncidentNameText, L"NAME NOT FOUND" );
+	FormatCampaignHistoryText( gIncidentNameText, L"NAME NOT FOUND" );
 
 	std::vector<Incident_Stats>::iterator itend = gCampaignStats.mIncidentVector.end( );
 	for ( std::vector<Incident_Stats>::iterator it = gCampaignStats.mIncidentVector.begin( ); it != itend; ++it )
@@ -793,7 +822,7 @@ STR16	GetIncidentName( UINT32 aIncidentId )
 			UINT32 prefix = (incident.usTime + incident.usKills[CAMPAIGNHISTORY_SD_ENEMY_ARMY] + incident.usID) % CAMPAIGNSTATS_OPERATION_NUM_PREFIX;
 			UINT32 suffix = (incident.usTime + incident.usShots[CAMPAIGNHISTORY_SD_MERC] + 7 * incident.usID) % CAMPAIGNSTATS_OPERATION_NUM_SUFFIX;
 
-			swprintf( gIncidentNameText, szCampaignStatsOperationPrefix[prefix], szCampaignStatsOperationSuffix[suffix] );
+			FormatCampaignHistoryText( gIncidentNameText, szCampaignStatsOperationPrefix[prefix], szCampaignStatsOperationSuffix[suffix] );
 
 			break;
 		}
@@ -804,5 +833,6 @@ STR16	GetIncidentName( UINT32 aIncidentId )
 
 UINT32 GetIdOfCurrentlyOngoingIncident()
 {
-	return gCampaignStats.usHighestID + 1;
+	return CampaignHistoryModel::SaturatingAddUnsigned(
+		gCampaignStats.usHighestID, 1U);
 }

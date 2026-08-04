@@ -8,6 +8,7 @@
  */
 
 #include "types.h"
+#include <string>
 class TacticalActor;
 
 // -------- added by Flugente: various flags for incidents --------
@@ -175,7 +176,7 @@ enum {
 class Incident_Stats
 {
 public:
-	Incident_Stats() {}
+	Incident_Stats() { clear(); }
 	~Incident_Stats()	{}
 
 	void clear();
@@ -188,7 +189,7 @@ public:
 
 	void	AddStat( TacticalActor* pSoldier, UINT8 aType );
 
-	STR16	GetAttackerDirString( BOOLEAN fAttacker );
+	std::wstring GetAttackerDirString(BOOLEAN fAttacker) const;
 
 	void	GetTerrainandType(UINT8& arTerrain, UINT8& arType);
 
@@ -198,6 +199,7 @@ public:
 	UINT32				usTime;
 	UINT8				usSector;
 	UINT8				usLevel;
+	UINT8				usRatingAlignmentPadding[2];
 
 	// every incident has a rating, which signifies how 'interesting' it is. We use this to show
 	// the most interesting incidents of the entire campaign on the website - 'milestones' of the war
@@ -206,6 +208,7 @@ public:
 	// NPC involvement
 	UINT8				usNPCDied;
 	UINT8				usCivFactionFought;
+	UINT8				usFlagsAlignmentPadding[6];
 
 	// various notable properties of this incident
 	UINT64				usIncidentFlags;
@@ -239,6 +242,16 @@ public:
 };
 
 #define SIZEOF_INCIDENT_STATS_POD offsetof( Incident_Stats, endOfPOD )
+static_assert(offsetof(Incident_Stats, usRatingAlignmentPadding) == 10,
+	"Incident save layout changed before the rating alignment bytes");
+static_assert(offsetof(Incident_Stats, usInterestRating) == 12,
+	"Incident save layout changed before the interest rating");
+static_assert(offsetof(Incident_Stats, usFlagsAlignmentPadding) == 18,
+	"Incident save layout changed before the flags alignment bytes");
+static_assert(offsetof(Incident_Stats, usIncidentFlags) == 24,
+	"Incident save layout changed before the incident flags");
+static_assert(SIZEOF_INCIDENT_STATS_POD == 212,
+	"Incident save POD byte count changed");
 
 enum {
 	CAMPAIGN_MONEY_START,
@@ -270,7 +283,7 @@ public:
 
 	void clear();
 
-	//Campaign_Stats* GetObject();	// TODO: ist das überhaupt nötig?
+	//Campaign_Stats* GetObject();	// TODO: ist das Ã¼berhaupt nÃ¶tig?
 
 	BOOLEAN		Save( HWFILE hFile );
 	BOOLEAN		Load( HWFILE hwFile );
@@ -317,15 +330,14 @@ private:
 };
 
 #define SIZEOF_CAMPAIGN_STATS_POD offsetof( Campaign_Stats, endOfPOD )
+static_assert(SIZEOF_CAMPAIGN_STATS_POD == 260,
+	"Campaign History header byte count changed");
 
 extern Campaign_Stats	gCampaignStats;
 extern Incident_Stats	gCurrentIncident;		// we might save during an incident, thus we have to store the ongoing incident
 
 // add this incident to the campaign stats and then clear it
 void FinishIncident(INT16 sX, INT16 sY, INT8 sZ);
-
-// start a new incident
-void StartIncident(INT16 sX, INT16 sY, INT8 sZ);
 
 INT32 GetPositionOfIncident( UINT32 aIncidentId );
 STR16	GetIncidentName( UINT32 aIncidentId );

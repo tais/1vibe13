@@ -1126,6 +1126,21 @@ the engine must not contain SDL types in its public domain model.
   Existing actor/profile identities, departed `LaptopSaveInfo` arrays and
   `-1` sentinel, save layout, artwork, text, records, and campaign behavior are
   unchanged.
+- Laptop Campaign History now separates incident navigation, configured report
+  retention, exact-transfer validation, saturating statistics, picture-frame
+  selection, direction composition, and bounded text through the
+  dependency-free `CampaignHistoryModel` and the legacy-facing
+  `CampaignHistoryText` adapter. Landing, summary, incident-detail, and news
+  resources publish as complete `LaptopPageResourceOwner` transactions;
+  missing optional picture libraries no longer alias shared ownership or block
+  text rendering. Incident and campaign loads stage against the prior live
+  value and publish only after every expected byte and retained report has
+  loaded, while saves require exact writes. Live vector size is the sole page
+  bound, so empty, stale, and exact-end state cannot underflow or index a
+  serialized count. Focused headless tests plus architecture and ASan ratchets
+  cover those contracts. Existing incident POD/header order and widths,
+  configured tail-retention semantics, artwork, text, XML, Lua, and campaign
+  behavior are unchanged.
 - A.I.M. page resources now cross one transactional ownership boundary.
   `ResourceHandleSet` is dependency-free and commits move-only handles as a
   complete set; `UniqueResourceHandle` supports both unsigned-zero and signed

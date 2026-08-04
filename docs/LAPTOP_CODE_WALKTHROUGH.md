@@ -701,17 +701,75 @@ slider behavior, signed currency saturation, and text truncation. Architecture
 and ASan ratchets pin the model, owners, retired-state removal, safe resource
 and text paths, and focused test admission.
 
+## Campaign History ownership, report navigation, and persistence batch
+
+The fifteenth cohesive batch treats Campaign History's landing, summary,
+incident-detail, and news pages together with the mutable campaign/incident
+ledger. The dependency-free `CampaignHistoryModel` owns incident-page
+normalization and wrapping, configured report retention, exact-transfer checks,
+saturating arithmetic, picture-frame selection, direction composition, and
+bounded fixed-buffer copies. `CampaignHistoryText` is the legacy-facing bounded
+format adapter for localized and generated report text.
+
+Confirmed faults fixed by this batch include:
+
+- failed page entry leaked previously loaded graphics and registered regions,
+  while the incident page aliased every failed picture-library handle to the
+  event image and later deleted that shared handle once per failed library;
+- empty incident histories underflowed previous-page navigation, stale page
+  state and the serialized incident count could index beyond the live vector,
+  and an oversized configured report limit underflowed the load-retention
+  threshold and discarded every loaded report;
+- empty picture libraries caused modulo by zero, event and ordinary picture
+  frames were not checked against their loaded object counts, and missing
+  artwork could be dereferenced instead of rendering the report without art;
+- the News entry path rendered the Summary page, and invalid landing-page text
+  IDs copied a fallback but then continued into an out-of-range localization
+  lookup;
+- incident and campaign saves accepted short writes, while short loads
+  published partially overwritten records or destroyed the existing live
+  ledger before the complete replacement had been validated;
+- incident filler and implicit alignment bytes and part of the campaign
+  aggregate could remain uninitialized, while counters, money, consumption,
+  incident IDs, and multi-category display sums could wrap, overflow, or
+  retain NaN;
+- unknown enemy and militia classes were attributed to the mercenary group,
+  and unknown statistic types fell through into the promotion counter; and
+- report construction used more than 130 unbounded wide-string operations and
+  two rotating global direction buffers, making nested formatting truncate,
+  alias, or overwrite earlier text.
+
+All four pages now stage shared and page-specific resources through
+`LaptopPageResourceOwner` and publish only a complete acquisition. Failed
+optional picture libraries simply have no independently owned handle; reports
+remain text-renderable. Every page derives bounds from the live incident
+vector. Campaign and incident loads retain the previous object until every
+expected byte and retained record has loaded, while saves require exact byte
+counts. Aggregate counters and IDs saturate, floating totals remain finite,
+and direction text is returned as an owned `std::wstring`.
+
+The established incident POD field order and widths, campaign header order,
+configured tail-retention behavior, artwork names, localized strings, XML,
+Lua, and campaign behavior are unchanged. Focused headless tests cover
+negative/exact-end/stale/empty navigation, short and oversized report limits,
+integer and floating-point saturation, short transfers, empty picture
+libraries, all direction combinations, and unterminated/truncated fixed text.
+Architecture and ASan ratchets pin the model, ownership and persistence paths,
+bounded text, retired duplicate helpers, and focused test admission. The
+targeted path-sensitive analyzer is clean for all three production translation
+units changed by the batch.
+
 ## Remaining walkthrough
 
 The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., Florist/Funeral,
-Insurance, Bobby Ray, finance/history, email, and Personnel ownership slices
-are complete.
+Insurance, Bobby Ray, finance/history, email, Personnel, and Campaign History
+ownership slices are complete.
 The remaining audit queue is deliberately grouped into larger reviewable
 batches:
 
 1. Extend scoped video, surface, button-image, button, and temporary-render
-   ownership from the completed site, ledger, email, and Personnel clusters
-   across every remaining Laptop page.
+   ownership from the completed site, ledger, email, Personnel, and Campaign
+   History clusters across every remaining Laptop page.
 2. Extend the completed site-cluster mouse-region and re-entry audit across
    the remaining pages, especially empty data and callback-driven mutation.
 3. Extend the IMP/Personnel format-string and bounded-text rules to the
