@@ -1111,6 +1111,21 @@ the engine must not contain SDL types in its public domain model.
   cover those boundaries while preserving `Email.edt`/`Email25.edt`, XML IDs,
   sender bytes, substitution tags, save structures, campaign policy, artwork,
   and the 82-common/16-variant Laptop partition.
+- Laptop Personnel now separates live UI state from legacy actor and save
+  storage through the dependency-free `PersonnelRosterModel`. Live and
+  departed views share bounded cursor/page rules; departed-list construction
+  filters corrupt IDs and duplicates, and category changes stage all three
+  fixed arrays before publication. Inventory windows and sliders normalize
+  empty, exact-page, and stale offsets without zero divisors. Main-page,
+  departed, inventory, ATM, tooltip, and transient render resources publish as
+  scoped transactions through `LaptopPageResourceOwner` or move-only handles.
+  Profile, item, graphic, class, and personality-table access is checked;
+  currency totals saturate; and Personnel text uses bounded formatting,
+  terminating append/copy helpers, and explicit render formats. Focused
+  data-free tests plus architecture and ASan ratchets cover those contracts.
+  Existing actor/profile identities, departed `LaptopSaveInfo` arrays and
+  `-1` sentinel, save layout, artwork, text, records, and campaign behavior are
+  unchanged.
 - A.I.M. page resources now cross one transactional ownership boundary.
   `ResourceHandleSet` is dependency-free and commits move-only handles as a
   complete set; `UniqueResourceHandle` supports both unsigned-zero and signed

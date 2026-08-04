@@ -1301,18 +1301,140 @@ foreach(laptop_safety_caller_and_fragment IN ITEMS
   endif()
 endforeach()
 
+# Personnel owns a mutable live roster, three persisted departed lists, and
+# several independently replaced UI overlays. Keep its navigation and repair
+# rules dependency-free and every resource set transactional.
+file(READ "${SOURCE_ROOT}/Laptop/PersonnelRosterModel.h"
+  runtime_laptop_personnel_model_contents)
+foreach(required_laptop_personnel_model_fragment IN ITEMS
+    "class RosterCursor"
+    "BuildDepartedRoster"
+    "FindDepartedState"
+    "MoveDepartedProfile"
+    "RemoveDepartedProfile"
+    "NormalizeWindowStart"
+    "SliderPosition"
+    "WindowStartFromSlider"
+    "ClampCurrency"
+    "CopyText"
+    "AppendText")
+  string(FIND "${runtime_laptop_personnel_model_contents}"
+    "${required_laptop_personnel_model_fragment}"
+    required_laptop_personnel_model_position)
+  if(required_laptop_personnel_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Personnel roster model lost '${required_laptop_personnel_model_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/Laptop/personnel.cpp"
   runtime_laptop_personnel_contents)
 foreach(required_laptop_personnel_safety_fragment IN ITEMS
-    "gTacticalStatus.Team[ OUR_TEAM ].bFirstID"
-    "gTacticalStatus.Team[ OUR_TEAM ].bLastID"
-    "const bool currentTeamMode = fCurrentTeamMode != FALSE")
+    "gPersonnelPageResources"
+    "gPersonnelDepartedResources"
+    "gPersonnelInventoryResources"
+    "gPersonnelAtmResources"
+    "gPersonnelTraitResources"
+    "std::vector<SoldierID> currentTeamList"
+    "RosterCursor gCurrentRosterCursor"
+    "RosterCursor gDepartedRosterCursor"
+    "RefreshDepartedRoster"
+    "GetTheStateOfDepartedMerc"
+    "ProfileFor"
+    "MoveDepartedProfile"
+    "RemoveDepartedProfile"
+    "SliderPosition"
+    "WindowStartFromSlider"
+    "AppendPersonnelText"
+    "PersonnelRosterModel::ClampCurrency")
   string(FIND "${runtime_laptop_personnel_contents}"
     "${required_laptop_personnel_safety_fragment}"
     required_laptop_personnel_safety_position)
   if(required_laptop_personnel_safety_position EQUAL -1)
     message(FATAL_ERROR
-      "Laptop personnel lost '${required_laptop_personnel_safety_fragment}'")
+      "Laptop Personnel safety lost '${required_laptop_personnel_safety_fragment}'")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "AddVideoObject[ \t\r\n]*\\(|DeleteVideoObjectFromIndex[ \t\r\n]*\\(|LoadButtonImage[ \t\r\n]*\\(|UnloadButtonImage[ \t\r\n]*\\(|RemoveButton[ \t\r\n]*\\(|MSYS_(Add|Remove)Region[ \t\r\n]*\\("
+  raw_laptop_personnel_resource_lifecycle "${runtime_laptop_personnel_contents}")
+if(raw_laptop_personnel_resource_lifecycle)
+  message(FATAL_ERROR
+    "Laptop Personnel restored open-coded resource lifecycle '${raw_laptop_personnel_resource_lifecycle}'")
+endif()
+string(REGEX MATCH
+  "mprintf[ \t\r\n]*\\([^,\r\n]+,[^,\r\n]+,[ \t\r\n]*[A-KM-Za-km-z_][A-Za-z0-9_]*(\\[[^]]*\\])?[ \t\r\n]*\\)"
+  unsafe_laptop_personnel_render_format "${runtime_laptop_personnel_contents}")
+if(unsafe_laptop_personnel_render_format)
+  message(FATAL_ERROR
+    "Laptop Personnel restored a variable render format '${unsafe_laptop_personnel_render_format}'")
+endif()
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])(wcs(cpy|ncpy|cat|ncat)|swprintf)[ \t\r\n]*\\("
+  unsafe_laptop_personnel_text_copy "${runtime_laptop_personnel_contents}")
+if(unsafe_laptop_personnel_text_copy)
+  message(FATAL_ERROR
+    "Laptop Personnel restored an unbounded text operation '${unsafe_laptop_personnel_text_copy}'")
+endif()
+
+foreach(retired_laptop_personnel_fragment IN ITEMS
+    "iCurrentPersonSelectedId"
+    "iCurPortraitId"
+    "giCurrentUpperLeftPortraitNumber"
+    "maxCurrentTeamIndex"
+    "currentTeamIndex"
+    "currentTeamFirstIndex"
+    "CreateDestroyButtonsForPersonnelDepartures"
+    "GetIdOfPastMercInSlot"
+    "IsPastMercDead"
+    "IsPastMercFired"
+    "IsPastMercOther"
+    "fAddedTraitRegion")
+  string(FIND "${runtime_laptop_personnel_contents}"
+    "${retired_laptop_personnel_fragment}" retired_laptop_personnel_position)
+  if(NOT retired_laptop_personnel_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Personnel restored retired path '${retired_laptop_personnel_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_laptop_personnel_test_build_fragment IN ITEMS
+    "laptop_personnel_roster_model_tests.cpp"
+    "laptop_personnel_roster_model")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_laptop_personnel_test_build_fragment}"
+    required_laptop_personnel_test_build_position)
+  if(required_laptop_personnel_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Personnel roster model lost its focused test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "laptop_personnel_roster_model_tests"
+  runtime_laptop_personnel_ci_position)
+if(runtime_laptop_personnel_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Laptop Personnel roster model target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_personnel_roster_model_tests.cpp"
+  runtime_laptop_personnel_test_contents)
+foreach(required_laptop_personnel_test_fragment IN ITEMS
+    "Empty rosters have no selectable or navigable entry"
+    "Page navigation reaches a one-entry final page and wraps"
+    "Departed views filter corrupt IDs and cross-list duplicates"
+    "A full destination rejects additions without partial mutation"
+    "Inventory windows normalize empty, exact, and stale offsets"
+    "Inventory slider mapping handles exact-page, midpoint, and bounds cases"
+    "Currency totals clamp instead of overflowing signed UI values"
+    "Personnel text helpers always terminate and report truncation")
+  string(FIND "${runtime_laptop_personnel_test_contents}"
+    "${required_laptop_personnel_test_fragment}"
+    required_laptop_personnel_test_position)
+  if(required_laptop_personnel_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop Personnel tests lost '${required_laptop_personnel_test_fragment}'")
   endif()
 endforeach()
 

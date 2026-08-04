@@ -53,6 +53,8 @@ enum
 	TEXT_NUM_DEPARTED
 };
 
+INT32 GetTheStateOfDepartedMerc(INT32 profileId);
+
 void GameInitPersonnel();
 void EnterPersonnel();
 void ExitPersonnel();
@@ -76,6 +78,7 @@ INT32 GetFundsOnMerc( TacticalActor *pSoldier );
 
 BOOLEAN RemoveNewlyHiredMercFromPersonnelDepartedList( UINT8 ubProfile );
 
-void AssignPersonnelSkillTraitHelpText( UINT8 ubTraitNumber, BOOLEAN fExpertLevel, BOOLEAN fRegMale, CHAR16 *apStr );
+void AssignPersonnelSkillTraitHelpText(UINT8 ubTraitNumber,
+	BOOLEAN fExpertLevel, BOOLEAN fRegMale, CHAR16 (&apStr)[5000]);
 
 #endif

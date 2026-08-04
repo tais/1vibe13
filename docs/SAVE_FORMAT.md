@@ -418,6 +418,12 @@ pointer-alignment padding differs between 32- and 64-bit):
 | `BULLET` | ptrs (firer/tracer/anitiles) | skip; firer re-derived from ID |
 | `GROUP` + `WAYPOINT` | ptrs (waypoints/union/next) | skip; sub-lists saved separately, links rebuilt |
 
+The Personnel ownership extraction does not change this schema. Its fixed
+dead, fired, and other profile arrays keep their established order, width, and
+`-1` empty sentinel. `PersonnelRosterModel` only validates and deduplicates the
+rendered view and stages category mutations in memory before copying them back
+to those same arrays.
+
 `signed long` fields (e.g. TacticalActor's `lUnregainableBreath`) are pinned to
 32-bit (`ar.slong`). Same-platform saves were always fine; this pass makes saves
 **shareable across Win/Lin/Mac**. Verification remains by playtest until a test

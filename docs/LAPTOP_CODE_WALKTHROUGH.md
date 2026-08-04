@@ -649,31 +649,82 @@ test admission, and removal of the superseded resource and list paths. The
 focused analyzer pass over `email.cpp` is clean; the adjoining save/load pass
 reports no finding in the email persistence region.
 
+## Personnel roster, resource ownership, and text-safety batch
+
+The fourteenth cohesive batch treats Personnel's live roster, three persisted
+departed categories, inventory window, ATM controls, and popup regions as one
+mutable page domain. The dependency-free `PersonnelRosterModel` owns selection
+and pagination rules, departed-list normalization and transactional category
+changes, inventory-window/slider arithmetic, index validation, saturating
+currency conversion, and bounded fixed-buffer text helpers.
+
+Confirmed faults fixed by this batch include:
+
+- page entry assumed actor slot zero existed and several later statistics and
+  cost loops repeated that assumption instead of using the captured player
+  roster;
+- current and departed selection used six partially synchronized integer
+  globals, allowing stale, exact-end, and partial-last-page selections;
+- departed rendering walked three fixed save arrays with unbounded searches,
+  trusted corrupt profile IDs, duplicated profiles across categories, and
+  could partially mutate the lists when a destination was full;
+- the inventory scrollbar divided by zero for exactly eight visible items and
+  produced invalid positions for empty, short, and stale windows;
+- inventory rendering trusted saved item IDs, interface-graphic frames,
+  weapon/magazine class indices, and object presence before dereferencing;
+- Personnel initialization overwrote the title coordinate with an unrelated
+  data coordinate, displacing the page heading;
+- main, departed, inventory, ATM, tooltip, portrait, and transient-overlay
+  resources used independent open-coded creation flags and teardown orders,
+  leaving partial-entry leaks and stale callback registrations possible;
+- carried-cash and team-cost totals could overflow signed display values;
+- achievement and help-text paths trusted profile and personality-table
+  indices, excluded valid profile zero, and built popup strings through about
+  300 unbounded concatenations; one multi-disability path also formatted a
+  buffer using that same buffer as an input; and
+- localized and runtime strings were passed directly to variadic rendering or
+  unbounded formatting functions.
+
+The live roster is now a bounded `std::vector<SoldierID>` snapshot and both
+views use `RosterCursor`. Departed arrays retain their established fixed save
+layout and `-1` sentinel, while views filter invalid IDs and duplicates and
+category moves stage all three arrays before publication. Every page resource
+set uses `LaptopPageResourceOwner`; temporary video objects use scoped handles.
+All Personnel fixed-buffer formatting is bounded, concatenation always
+terminates, and rendered data uses an explicit format.
+
+The save format, profile IDs, departed array order, artwork, localized text,
+finance/history records, and campaign behavior are unchanged. Focused headless
+tests cover empty/stale/exact-end rosters, partial pages, duplicate and corrupt
+departed entries, full-destination rollback, inventory window and exact-page
+slider behavior, signed currency saturation, and text truncation. Architecture
+and ASan ratchets pin the model, owners, retired-state removal, safe resource
+and text paths, and focused test admission.
+
 ## Remaining walkthrough
 
 The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., Florist/Funeral,
-Insurance, Bobby Ray, finance/history, and email ownership slices are complete.
+Insurance, Bobby Ray, finance/history, email, and Personnel ownership slices
+are complete.
 The remaining audit queue is deliberately grouped into larger reviewable
 batches:
 
 1. Extend scoped video, surface, button-image, button, and temporary-render
-   ownership from the completed site, ledger, and email clusters across every
-   remaining Laptop page, beginning with Personnel and its mutable roster.
+   ownership from the completed site, ledger, email, and Personnel clusters
+   across every remaining Laptop page.
 2. Extend the completed site-cluster mouse-region and re-entry audit across
    the remaining pages, especially empty data and callback-driven mutation.
-3. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
-   validate all rendered text buffers before formatting.
+3. Extend the IMP/Personnel format-string and bounded-text rules to the
+   remaining Laptop pages.
 4. Audit the remaining Laptop binary readers and writers for exact reads,
    bounded allocation, staged publication, and failure-safe file ownership.
 5. Consolidate non-IMP page re-entry and global selection state so cancelled,
    failed, and repeated visits start from a documented state.
 6. Verify every remaining fixed array and paginated list against negative,
    exact-end, empty, and stale-selection cases.
-7. Audit pointer and iterator lifetimes in the remaining mutable Personnel UI
-   collections after callbacks mutate them.
-8. Make remaining hire and roster side effects transactional wherever a Laptop
+7. Make remaining hire and roster side effects transactional wherever a Laptop
    workflow can fail after partially committing an operation.
-9. Run a final domain-wide static-analysis/warning pass, remove superseded
+8. Run a final domain-wide static-analysis/warning pass, remove superseded
     dead paths, and convert every confirmed finding into a focused regression
     test or an architecture ratchet.
 
