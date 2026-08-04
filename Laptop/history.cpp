@@ -1,11 +1,13 @@
 #include "CampaignLaptopContentPolicy.h"
 #include "GameContext.h"
+#include "LaptopPageResourceOwner.h"
+#include "LaptopRecordFile.h"
+#include "LaptopRecordPageModel.h"
 
 	#include "laptop.h"
 	#include "history.h"
 	#include "Game Clock.h"
 	#include "Utilities.h"
-	#include "WCheck.h"
 	#include "DEBUG.H"
 	#include "WordWrap.h"
 	#include "Encrypted File.h"
@@ -14,11 +16,14 @@
 	#include "Soldier Profile Constants.h"
 	#include "strategicmap.h"
 	#include "QuestText.h"
+	#include "Quests.h"
 	#include "Text.h"
 	#include "message.h"
 	#include "LaptopSave.h"
 
 #include "connect.h"
+
+#include <limits>
 
 #define TOP_X											LAPTOP_SCREEN_UL_X
 #define TOP_Y											LAPTOP_SCREEN_UL_Y
@@ -58,20 +63,74 @@
 #define BTN_Y											iScreenHeightOffset + 53
 
 // graphics handles
-extern UINT32 guiTITLE; // symbol already defined in laptop.cpp (jonathanl)
+UINT32 guiHistoryTitle;
 //UINT32 guiGREYFRAME;
-extern UINT32 guiTOP; // symbol already defined in finances.cpp (jonathanl)
+UINT32 guiHistoryTop;
 //UINT32 guiMIDDLE;
 //UINT32 guiBOTTOM;
 //UINT32 guiLINE;
-extern UINT32 guiLONGLINE; // symbol already defined in finances.cpp (jonathanl)
-UINT32 guiSHADELINE;
+UINT32 guiHistoryLongLine;
+UINT32 guiHistoryShadeLine;
 //UINT32 guiVERTLINE;
 //UINT32 guiBIGBOX;
 
 namespace
 {
 using ContentPolicy = CampaignLaptopContentPolicy;
+constexpr LaptopRecordPageModel::FileLayout HistoryFileLayout{
+	0, SIZE_OF_HISTORY_FILE_RECORD};
+constexpr UINT32 InvalidHistoryRecordId = UINT32_MAX;
+
+struct HistoryRecordData
+{
+	UINT8 code = 0;
+	UINT8 secondCode = 0;
+	UINT32 date = 0;
+	INT16 sectorX = 0;
+	INT16 sectorY = 0;
+	INT8 sectorZ = 0;
+	UINT8 color = 0;
+};
+
+bool ReadHistoryRecordExact(HWFILE file, HistoryRecordData& record)
+{
+	return ReadLaptopFileExact(file, &record.code, sizeof(record.code)) &&
+		ReadLaptopFileExact(file, &record.secondCode,
+			sizeof(record.secondCode)) &&
+		ReadLaptopFileExact(file, &record.date, sizeof(record.date)) &&
+		ReadLaptopFileExact(file, &record.sectorX, sizeof(record.sectorX)) &&
+		ReadLaptopFileExact(file, &record.sectorY, sizeof(record.sectorY)) &&
+		ReadLaptopFileExact(file, &record.sectorZ, sizeof(record.sectorZ)) &&
+		ReadLaptopFileExact(file, &record.color, sizeof(record.color));
+}
+
+bool WriteHistoryRecordExact(HWFILE file, const HistoryUnit& record)
+{
+	return WriteLaptopFileExact(file, &record.ubCode, sizeof(record.ubCode)) &&
+		WriteLaptopFileExact(file, &record.ubSecondCode,
+			sizeof(record.ubSecondCode)) &&
+		WriteLaptopFileExact(file, &record.uiDate, sizeof(record.uiDate)) &&
+		WriteLaptopFileExact(file, &record.sSectorX, sizeof(record.sSectorX)) &&
+		WriteLaptopFileExact(file, &record.sSectorY, sizeof(record.sSectorY)) &&
+		WriteLaptopFileExact(file, &record.bSectorZ, sizeof(record.bSectorZ)) &&
+		WriteLaptopFileExact(file, &record.ubColor, sizeof(record.ubColor));
+}
+
+std::size_t HistoryRecordCountOnDisk()
+{
+	if (!FileExists(HISTORY_DATA_FILE)) return 0;
+	ScopedLaptopFile file(FileOpen(HISTORY_DATA_FILE,
+		FILE_OPEN_EXISTING | FILE_ACCESS_READ, FALSE));
+	if (!file) return 0;
+	return LaptopRecordPageModel::RecordCount(
+		FileGetSize(file.Get()), HistoryFileLayout);
+}
+
+std::size_t HistoryRecordPageCountOnDisk()
+{
+	return LaptopRecordPageModel::PageCount(
+		HistoryRecordCountOnDisk(), NUM_RECORDS_PER_PAGE);
+}
 
 ContentPolicy CurrentLaptopContentPolicy()
 {
@@ -99,6 +158,7 @@ HISTORY_VALUES HistoryName[500];
 // the page flipping buttons
 INT32 giHistoryButton[4];
 INT32 giHistoryButtonImage[4];
+LaptopPageResourceOwner gHistoryPageResources;
 BOOLEAN fInHistoryMode=FALSE;
 
 
@@ -114,38 +174,30 @@ HistoryUnitPtr pHistoryListHead=NULL;
 HistoryUnitPtr pCurrentHistory=NULL;
 
 
-// last page in list
-UINT32 guiLastPageInHistoryRecordsList = 0;
+// number of persisted history pages (the display remains page one when empty)
+std::size_t gHistoryRecordPageCount = 0;
 
 // function definitions
-BOOLEAN LoadHistory( void );
+BOOLEAN LoadHistory(LaptopPageResourceOwner& owner);
 void RenderHistoryBackGround( void );
-void RemoveHistory( void );
-void CreateHistoryButtons( void );
-void DestroyHistoryButtons( void );
-void CreateHistoryButtons( void );
+BOOLEAN CreateHistoryButtons(LaptopPageResourceOwner& owner);
 void DrawHistoryTitleText( void );
 UINT32 ProcessAndEnterAHistoryRecord( UINT8 ubCode, UINT32 uiDate, UINT8 ubSecondCode, INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ, UINT8 ubColor );
-void OpenAndReadHistoryFile( void );
+BOOLEAN OpenAndReadHistoryFile( void );
 BOOLEAN OpenAndWriteHistoryFile( void );
 void ClearHistoryList( void );
 void DisplayHistoryListHeaders( void );
 void DisplayHistoryListBackground( void );
 void DrawAPageofHistoryRecords( void );
-BOOLEAN IncrementCurrentPageHistoryDisplay( void );
 void DisplayPageNumberAndDateRange( void );
 void ProcessHistoryTransactionString(CHAR16 *pString, HistoryUnitPtr pHistory);
 void SetHistoryButtonStates( void );
 BOOLEAN LoadInHistoryRecords( UINT32 uiPage );
 BOOLEAN LoadNextHistoryPage( void );
 BOOLEAN LoadPreviousHistoryPage( void );
-void SetLastPageInHistoryRecords( void );
-UINT32 ReadInLastElementOfHistoryListAndReturnIdNumber( void );
-BOOLEAN AppendHistoryToEndOfFile( HistoryUnitPtr pHistory );
-BOOLEAN WriteOutHistoryRecords( UINT32 uiPage );
+BOOLEAN AppendHistoryToEndOfFile(const HistoryUnit& historyRecord);
 void		GetQuestStartedString( UINT8 ubQuestValue, CHAR16 *sQuestString );
 void		GetQuestEndedString( UINT8 ubQuestValue, CHAR16 *sQuestString );
-INT32		GetNumberOfHistoryPages();
 
 
 #ifdef JA2TESTVERSION
@@ -158,84 +210,62 @@ void BtnHistoryDisplayNextPageCallBack(GUI_BUTTON *btn,INT32 reason);
 void BtnHistoryDisplayPrevPageCallBack(GUI_BUTTON *btn,INT32 reason);
 void BtnHistoryFirstLastPageCallBack(GUI_BUTTON *btn,INT32 reason);
 
-UINT32 SetHistoryFact( UINT8 ubCode, UINT8 ubSecondCode, UINT32 uiDate, INT16 sSectorX, INT16 sSectorY )
+namespace
 {
-	// adds History item to player's log(History List), returns unique id number of it
-	// outside of the History system(the code in this .c file), this is the only function you'll ever need
-	UINT32 uiId=0;
-	UINT8 ubColor = 0;
-	HistoryUnitPtr pHistory;
-
-	// clear the list
-	ClearHistoryList( );
-
-	// process the actual data
-	if( ubCode == HISTORY_QUEST_FINISHED )
+UINT32 AddPersistedHistoryRecord(UINT8 code, UINT8 secondCode,
+	UINT32 date, INT16 sectorX, INT16 sectorY, UINT8 color)
+{
+	const std::size_t existingRecords = HistoryRecordCountOnDisk();
+	ClearHistoryList();
+	const UINT32 id = ProcessAndEnterAHistoryRecord(
+		code, date, secondCode, sectorX, sectorY, 0, color);
+	if (id == InvalidHistoryRecordId || !pHistoryListHead)
 	{
-		ubColor = 0;
+		ClearHistoryList();
+		Assert(0);
+		return InvalidHistoryRecordId;
+	}
+	pHistoryListHead->uiIdNumber = static_cast<UINT32>(existingRecords);
+	if (!AppendHistoryToEndOfFile(*pHistoryListHead))
+	{
+		ClearHistoryList();
+		Assert(0);
+		return InvalidHistoryRecordId;
+	}
+
+	ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE,
+		pMessageStrings[MSG_HISTORY_UPDATED]);
+	gHistoryRecordPageCount = HistoryRecordPageCountOnDisk();
+	if (fInHistoryMode)
+	{
+		iCurrentHistoryPage = static_cast<INT32>(
+			LaptopRecordPageModel::NormalizeOneBasedPage(
+				static_cast<std::size_t>(iCurrentHistoryPage < 1
+					? 1 : iCurrentHistoryPage),
+				gHistoryRecordPageCount));
+		LoadInHistoryRecords(static_cast<UINT32>(iCurrentHistoryPage));
+		SetHistoryButtonStates();
+		fReDrawScreenFlag = TRUE;
 	}
 	else
 	{
-		ubColor = 1;
+		ClearHistoryList();
 	}
-	uiId = ProcessAndEnterAHistoryRecord(ubCode, uiDate,	ubSecondCode, sSectorX, sSectorY, 0, ubColor);
-	ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_HISTORY_UPDATED ] );
+	return static_cast<UINT32>(existingRecords);
+}
+}
 
-	// history list head
-	pHistory = pHistoryListHead;
-
-	// append to end of file
-	AppendHistoryToEndOfFile( pHistory );
-
-
-	// if in history mode, reload current page
-	if( fInHistoryMode )
-	{
-	iCurrentHistoryPage--;
-
-		// load in first page
-	LoadNextHistoryPage( );
-	}
-
-
-	// return unique id of this transaction
-	return uiId;
+UINT32 SetHistoryFact( UINT8 ubCode, UINT8 ubSecondCode, UINT32 uiDate, INT16 sSectorX, INT16 sSectorY )
+{
+	return AddPersistedHistoryRecord(ubCode, ubSecondCode, uiDate,
+		sSectorX, sSectorY, ubCode == HISTORY_QUEST_FINISHED ? 0 : 1);
 }
 
 
 UINT32 AddHistoryToPlayersLog(UINT8 ubCode, UINT8 ubSecondCode, UINT32 uiDate, INT16 sSectorX, INT16 sSectorY)
 {
-	// adds History item to player's log(History List), returns unique id number of it
-	// outside of the History system(the code in this .c file), this is the only function you'll ever need
-	UINT32 uiId=0;
-	HistoryUnitPtr pHistory;
-
-	// clear the list
-	ClearHistoryList( );
-
-	// process the actual data
-	uiId = ProcessAndEnterAHistoryRecord(ubCode, uiDate,	ubSecondCode, sSectorX, sSectorY, 0, 0);
-	ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_HISTORY_UPDATED ] );
-
-	// history list head
-	pHistory = pHistoryListHead;
-
-	// append to end of file
-	AppendHistoryToEndOfFile( pHistory );
-
-
-	// if in history mode, reload current page
-	if( fInHistoryMode )
-	{
-	iCurrentHistoryPage--;
-
-		// load in first page
-	LoadNextHistoryPage( );
-	}
-
-
-	// return unique id of this transaction
-	return uiId;
+	return AddPersistedHistoryRecord(ubCode, ubSecondCode, uiDate,
+		sSectorX, sSectorY, 0);
 }
 
 
@@ -253,21 +283,31 @@ void GameInitHistory()
 
 void EnterHistory()
 {
+	LaptopPageResourceOwner staged;
+	gHistoryPageResources.clear();
+	fInHistoryMode=FALSE;
 
 	// load the graphics
-	LoadHistory( );
+	if (!LoadHistory(staged)) return;
 
 	// create History buttons
-	CreateHistoryButtons( );
+	if (!CreateHistoryButtons(staged)) return;
+	gHistoryPageResources = std::move(staged);
 
-	// reset current to first page
-	if( LaptopSaveInfo.iCurrentHistoryPage > 0 )
-		iCurrentHistoryPage = LaptopSaveInfo.iCurrentHistoryPage - 1;
-	else
-		iCurrentHistoryPage = 0;
-
-	// load in first page
-	LoadNextHistoryPage( );
+	// Normalize stale saved pages before exposing the staged page resources.
+	gHistoryRecordPageCount = HistoryRecordPageCountOnDisk();
+	iCurrentHistoryPage = static_cast<INT32>(
+		LaptopRecordPageModel::NormalizeOneBasedPage(
+			static_cast<std::size_t>(LaptopSaveInfo.iCurrentHistoryPage > 0
+				? LaptopSaveInfo.iCurrentHistoryPage : 1),
+			gHistoryRecordPageCount));
+	ClearHistoryList();
+	if (gHistoryRecordPageCount > 0 &&
+		!LoadInHistoryRecords(static_cast<UINT32>(iCurrentHistoryPage)))
+	{
+		iCurrentHistoryPage = 1;
+		ClearHistoryList();
+	}
 
 
 	// render hbackground
@@ -300,11 +340,7 @@ void ExitHistory()
 	// write out history list to file
 	//OpenAndWriteHistoryFile( );
 
-	// delete graphics
-	RemoveHistory( );
-
-	// delete buttons
-	DestroyHistoryButtons( );
+	gHistoryPageResources.clear();
 
 	ClearHistoryList( );
 
@@ -346,7 +382,7 @@ void RenderHistory( void )
 }
 
 
-BOOLEAN LoadHistory( void )
+BOOLEAN LoadHistory(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 	// load History video objects into memory
@@ -354,46 +390,28 @@ BOOLEAN LoadHistory( void )
 	// title bar
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\programtitlebar.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiTITLE));
+	if (!owner.addVideoObject(&VObjectDesc, guiHistoryTitle)) return FALSE;
 
 	// top portion of the screen background
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\historywindow.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiTOP));
+	if (!owner.addVideoObject(&VObjectDesc, guiHistoryTop)) return FALSE;
 
 
 	// shaded line
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\historylines.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiSHADELINE));
+	if (!owner.addVideoObject(&VObjectDesc,
+		guiHistoryShadeLine)) return FALSE;
 
-/*
-Not being used???	DF commented out
-	// vert	line
-	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	FilenameForBPP("LAPTOP\\historyvertline.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiVERTLINE));
-*/
 	// black divider line - long ( 480 length)
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\divisionline480.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiLONGLINE));
+	if (!owner.addVideoObject(&VObjectDesc,
+		guiHistoryLongLine)) return FALSE;
 
 	return (TRUE);
 }
-
-void RemoveHistory( void )
-{
-
-	// delete history video objects from memory
-	DeleteVideoObjectFromIndex(guiLONGLINE);
-	DeleteVideoObjectFromIndex(guiTOP);
-	DeleteVideoObjectFromIndex(guiTITLE);
-	DeleteVideoObjectFromIndex(guiSHADELINE);
-
-	return;
-}
-
 
 void RenderHistoryBackGround( void )
 {
@@ -401,14 +419,14 @@ void RenderHistoryBackGround( void )
 	HVOBJECT hHandle;
 
 	// get title bar object
-	GetVideoObject(&hHandle, guiTITLE);
+	GetVideoObject(&hHandle, guiHistoryTitle);
 
 	// blt title bar to screen
 	BltVideoObject(FRAME_BUFFER, hHandle, 0,TOP_X, TOP_Y -2 , VO_BLT_SRCTRANSPARENCY,NULL);
 
 
 	// get and blt the top part of the screen, video object and blt to screen
-	GetVideoObject(&hHandle, guiTOP);
+	GetVideoObject(&hHandle, guiHistoryTop);
 	BltVideoObject(FRAME_BUFFER, hHandle, 0,TOP_X, TOP_Y + 22, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	// display background for history list
@@ -425,39 +443,51 @@ void DrawHistoryTitleText( void )
 	SetFontShadow(DEFAULT_SHADOW);
 
 	// draw the pages title
-	mprintf(TITLE_X,TITLE_Y,pHistoryTitle[0]);
+	mprintf(TITLE_X, TITLE_Y, L"%s", pHistoryTitle[0]);
 
 	return;
 }
 
-void CreateHistoryButtons( void )
+BOOLEAN CreateHistoryButtons(LaptopPageResourceOwner& owner)
 {
 
 	// the prev page button
-	giHistoryButtonImage[PREV_PAGE_BUTTON]=	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,0,-1,1,-1 );
-	giHistoryButton[PREV_PAGE_BUTTON] = QuickCreateButton( giHistoryButtonImage[PREV_PAGE_BUTTON], PREV_BTN_X, BTN_Y,
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\arrows.sti", -1, 0, -1, 1, -1),
+		giHistoryButtonImage[PREV_PAGE_BUTTON])) return FALSE;
+	if (!owner.addButton(QuickCreateButton( giHistoryButtonImage[PREV_PAGE_BUTTON], PREV_BTN_X, BTN_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnHistoryDisplayPrevPageCallBack);
+										(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnHistoryDisplayPrevPageCallBack),
+		giHistoryButton[PREV_PAGE_BUTTON])) return FALSE;
 
 	// the next page button
-	giHistoryButtonImage[NEXT_PAGE_BUTTON]=	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,6,-1,7,-1 );
-	giHistoryButton[NEXT_PAGE_BUTTON] = QuickCreateButton( giHistoryButtonImage[NEXT_PAGE_BUTTON], NEXT_BTN_X, BTN_Y,
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\arrows.sti", -1, 6, -1, 7, -1),
+		giHistoryButtonImage[NEXT_PAGE_BUTTON])) return FALSE;
+	if (!owner.addButton(QuickCreateButton( giHistoryButtonImage[NEXT_PAGE_BUTTON], NEXT_BTN_X, BTN_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-											(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnHistoryDisplayNextPageCallBack);
+											(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnHistoryDisplayNextPageCallBack),
+		giHistoryButton[NEXT_PAGE_BUTTON])) return FALSE;
 
 	//button to go to the first page
-	giHistoryButtonImage[FIRST_PAGE_BUTTON]=	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,3,-1,4,-1 );
-	giHistoryButton[FIRST_PAGE_BUTTON] = QuickCreateButton( giHistoryButtonImage[FIRST_PAGE_BUTTON], FIRST_PAGE_X, BTN_Y,
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\arrows.sti", -1, 3, -1, 4, -1),
+		giHistoryButtonImage[FIRST_PAGE_BUTTON])) return FALSE;
+	if (!owner.addButton(QuickCreateButton( giHistoryButtonImage[FIRST_PAGE_BUTTON], FIRST_PAGE_X, BTN_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-											(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnHistoryFirstLastPageCallBack);
+											(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnHistoryFirstLastPageCallBack),
+		giHistoryButton[FIRST_PAGE_BUTTON])) return FALSE;
 	
 	MSYS_SetBtnUserData( giHistoryButton[FIRST_PAGE_BUTTON], 0, 0 );
 
 	//button to go to the last page
-	giHistoryButtonImage[LAST_PAGE_BUTTON]=	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,9,-1,10,-1 );
-	giHistoryButton[LAST_PAGE_BUTTON] = QuickCreateButton( giHistoryButtonImage[LAST_PAGE_BUTTON], LAST_PAGE_X, BTN_Y,
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\arrows.sti", -1, 9, -1, 10, -1),
+		giHistoryButtonImage[LAST_PAGE_BUTTON])) return FALSE;
+	if (!owner.addButton(QuickCreateButton( giHistoryButtonImage[LAST_PAGE_BUTTON], LAST_PAGE_X, BTN_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-											(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnHistoryFirstLastPageCallBack);
+											(GUI_CALLBACK)BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnHistoryFirstLastPageCallBack),
+		giHistoryButton[LAST_PAGE_BUTTON])) return FALSE;
 
 	MSYS_SetBtnUserData( giHistoryButton[LAST_PAGE_BUTTON], 0, 1 );
 
@@ -467,20 +497,7 @@ void CreateHistoryButtons( void )
 	SetButtonCursor(giHistoryButton[2], CURSOR_LAPTOP_SCREEN);
 	SetButtonCursor(giHistoryButton[3], CURSOR_LAPTOP_SCREEN);
 
-	return;
-}
-
-
-void DestroyHistoryButtons( void )
-{
-	// remove History buttons and images from memory
-	UINT32 uiCnt;
-
-	for( uiCnt=0; uiCnt<4; uiCnt++ )
-	{
-		RemoveButton( giHistoryButton[ uiCnt ] );
-		UnloadButtonImage( giHistoryButtonImage[ uiCnt ] );
-	}
+	return TRUE;
 }
 
 void BtnHistoryDisplayPrevPageCallBack(GUI_BUTTON *btn,INT32 reason)
@@ -558,16 +575,18 @@ void BtnHistoryFirstLastPageCallBack(GUI_BUTTON *btn,INT32 reason)
 		if( uiButton == 0 )
 		{
 			iCurrentHistoryPage = 1;
-			LoadInHistoryRecords( iCurrentHistoryPage );
+			if (gHistoryRecordPageCount > 0)
+				LoadInHistoryRecords(iCurrentHistoryPage);
 			DrawAPageofHistoryRecords( );
 		}
 
 		//else its the last page button
 		else
 		{
-			LoadInHistoryRecords( GetNumberOfHistoryPages() + 1 );
-
-			iCurrentHistoryPage = GetNumberOfHistoryPages() + 1;
+			iCurrentHistoryPage = static_cast<INT32>(
+				gHistoryRecordPageCount > 0 ? gHistoryRecordPageCount : 1);
+			if (gHistoryRecordPageCount > 0)
+				LoadInHistoryRecords(static_cast<UINT32>(iCurrentHistoryPage));
 		}
 
 		// set button state
@@ -577,72 +596,6 @@ void BtnHistoryFirstLastPageCallBack(GUI_BUTTON *btn,INT32 reason)
 		// redraw screen
 		fReDrawScreenFlag=TRUE;
 	}
-}
-
-BOOLEAN IncrementCurrentPageHistoryDisplay( void )
-{
-	// run through list, from pCurrentHistory, to NUM_RECORDS_PER_PAGE +1 HistoryUnits
-	HWFILE hFileHandle;
-	UINT32	uiFileSize=0;
-	UINT32	uiSizeOfRecordsOnEachPage = 0;
-
-	if ( ! (FileExists( HISTORY_DATA_FILE ) ) )
-		return( FALSE );
-
-	// open file
- 	hFileHandle=FileOpen( HISTORY_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		return( FALSE );
-	}
-
-	// make sure file is more than 0 length
-	if ( FileGetSize( hFileHandle ) == 0 )
-	{
-	FileClose( hFileHandle );
-		return( FALSE );
-	}
-
-	uiFileSize = FileGetSize( hFileHandle ) - 1;
-	uiSizeOfRecordsOnEachPage = ( NUM_RECORDS_PER_PAGE * ( sizeof( UINT8 ) + sizeof( UINT32 ) + 3*sizeof( UINT8 )+ sizeof(INT16) + sizeof( INT16 ) ) );
-
-	// is the file long enough?
-//	if( ( FileGetSize( hFileHandle ) - 1 ) / ( NUM_RECORDS_PER_PAGE * ( sizeof( UINT8 ) + sizeof( UINT32 ) + 3*sizeof( UINT8 )+ sizeof(INT16) + sizeof( INT16 ) ) ) + 1 < ( UINT32 )( iCurrentHistoryPage + 1 ) )
-	if( uiFileSize / uiSizeOfRecordsOnEachPage + 1 < ( UINT32 )( iCurrentHistoryPage + 1 ) )
-	{
-		// nope
-		FileClose( hFileHandle );
-	return( FALSE );
-	}
-	else
-	{
-		iCurrentHistoryPage++;
-		FileClose( hFileHandle );
-	}
-
-
-	/*
-	// haven't reached end of list and not yet at beginning of next page
-	while( ( pTempHistory )&&( ! fOkToIncrementPage ) )
-	{
-	// found the next page,	first record thereof
-		if(iCounter==NUM_RECORDS_PER_PAGE+1)
-		{
-			fOkToIncrementPage=TRUE;
-		pCurrentHistory=pTempHistory->Next;
-		}
-
-		//next record
-		pTempHistory=pTempHistory->Next;
-	iCounter++;
-	}
-*/
-	// if ok to increment, increment
-
-
-	return( TRUE );
 }
 
 
@@ -660,6 +613,7 @@ UINT32 ProcessAndEnterAHistoryRecord( UINT8 ubCode, UINT32 uiDate, UINT8 ubSecon
 
 		// alloc space
 		pHistory->Next = (history *) MemAlloc(sizeof(HistoryUnit));
+		if (!pHistory->Next) return InvalidHistoryRecordId;
 
 		// increment id number
 		uiId = pHistory->uiIdNumber + 1;
@@ -681,6 +635,7 @@ UINT32 ProcessAndEnterAHistoryRecord( UINT8 ubCode, UINT32 uiDate, UINT8 ubSecon
 	{
 		// alloc space
 		pHistory = (HistoryUnitPtr) MemAlloc(sizeof(HistoryUnit));
+		if (!pHistory) return InvalidHistoryRecordId;
 
 		// setup info passed
 		pHistory->Next = NULL;
@@ -700,117 +655,71 @@ UINT32 ProcessAndEnterAHistoryRecord( UINT8 ubCode, UINT32 uiDate, UINT8 ubSecon
 }
 
 
-void OpenAndReadHistoryFile( void )
+BOOLEAN OpenAndReadHistoryFile( void )
 {
-	// this procedure will open and read in data to the History list
-
-	HWFILE hFileHandle;
-	UINT8 ubCode, ubSecondCode;
-	UINT32 uiDate;
-	INT16 sSectorX, sSectorY;
-	INT8 bSectorZ = 0;
-	UINT8 ubColor;
-	INT32 iBytesRead=0;
-	UINT32 uiByteCount=0;
-
-	// clear out the old list
-	ClearHistoryList( );
-
-	// no file, return
-	if ( ! (FileExists( HISTORY_DATA_FILE ) ) )
-		return;
-
-	// open file
- 	hFileHandle=FileOpen( HISTORY_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
+	ClearHistoryList();
+	if (!FileExists(HISTORY_DATA_FILE)) return TRUE;
+	ScopedLaptopFile file(FileOpen(HISTORY_DATA_FILE,
+		FILE_OPEN_EXISTING | FILE_ACCESS_READ, FALSE));
+	if (!file) return FALSE;
+	const std::size_t fileBytes = FileGetSize(file.Get());
+	if (!LaptopRecordPageModel::IsWellFormedFile(
+		fileBytes, HistoryFileLayout)) return FALSE;
+	const std::size_t count = LaptopRecordPageModel::RecordCount(
+		fileBytes, HistoryFileLayout);
+	for (std::size_t index = 0; index < count; ++index)
 	{
-		return;
-	}
-
-	// make sure file is more than 0 length
-	if ( FileGetSize( hFileHandle ) == 0 )
-	{
-	FileClose( hFileHandle );
-		return;
-	}
-
-	// file exists, read in data, continue until file end
-	while( FileGetSize( hFileHandle ) > uiByteCount)
-	{
-		// read in other data
-	FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubSecondCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-	FileRead( hFileHandle, &sSectorX, sizeof(INT16), (UINT32 *)&iBytesRead );
-	FileRead( hFileHandle, &sSectorY, sizeof(INT16), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &bSectorZ, sizeof(INT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubColor, sizeof( UINT8 ), (UINT32 *)&iBytesRead );
+		HistoryRecordData record;
+		if (!ReadHistoryRecordExact(file.Get(), record))
+		{
+			ClearHistoryList();
+			return FALSE;
+		}
 
 		#ifdef JA2TESTVERSION
-		//perform a check on the data to see if it is pooched
-		PerformCheckOnHistoryRecord( 1, sSectorX, sSectorY, bSectorZ );
+		PerformCheckOnHistoryRecord(1, record.sectorX,
+			record.sectorY, record.sectorZ);
 		#endif
 
-		// add transaction
-	ProcessAndEnterAHistoryRecord( ubCode, uiDate, ubSecondCode, sSectorX, sSectorY, bSectorZ, ubColor );
-
-		// increment byte counter
-	uiByteCount +=	SIZE_OF_HISTORY_FILE_RECORD;
+		if (ProcessAndEnterAHistoryRecord(record.code, record.date,
+			record.secondCode, record.sectorX, record.sectorY,
+			record.sectorZ, record.color) == InvalidHistoryRecordId)
+		{
+			ClearHistoryList();
+			return FALSE;
+		}
 	}
-
-	// close file
-	FileClose( hFileHandle );
-
-	return;
+	pCurrentHistory = pHistoryListHead;
+	return TRUE;
 }
 
 BOOLEAN OpenAndWriteHistoryFile( void )
 {
-	// this procedure will open and write out data from the History list
+	if (!FileExists(HISTORY_DATA_FILE)) return FALSE;
+	ScopedLaptopFile file(FileOpen(HISTORY_DATA_FILE,
+		FILE_OPEN_EXISTING | FILE_ACCESS_WRITE, FALSE));
+	if (!file) return FALSE;
+	const std::size_t recordCount = LaptopRecordPageModel::RecordCount(
+		FileGetSize(file.Get()), HistoryFileLayout);
+	std::size_t listCount = 0;
+	for (HistoryUnitPtr record = pHistoryListHead;
+		record; record = record->Next) ++listCount;
+	if (recordCount != listCount ||
+		!LaptopRecordPageModel::IsWellFormedFile(
+			FileGetSize(file.Get()), HistoryFileLayout) ||
+		!FileSeek(file.Get(), 0, FILE_SEEK_FROM_START)) return FALSE;
 
-	HWFILE hFileHandle;
-	HistoryUnitPtr pHistoryList=pHistoryListHead;
-
-
-	// open file
- 	hFileHandle=FileOpen( HISTORY_DATA_FILE, FILE_ACCESS_WRITE|FILE_CREATE_ALWAYS, FALSE);
-
-	// if no file exits, do nothing
-	if(!hFileHandle)
+	for (HistoryUnitPtr record = pHistoryListHead;
+		record; record = record->Next)
 	{
-		return ( FALSE );
-	}
-	// write info, while there are elements left in the list
-	while(pHistoryList)
-	{
-
 		#ifdef JA2TESTVERSION
-		//perform a check on the data to see if it is pooched
-		PerformCheckOnHistoryRecord( 2, pHistoryList->sSectorX, pHistoryList->sSectorY, pHistoryList->bSectorZ );
+		PerformCheckOnHistoryRecord(2, record->sSectorX,
+			record->sSectorY, record->bSectorZ);
 		#endif
-
-		// now write date and amount, and code
-	FileWrite( hFileHandle, &(pHistoryList->ubCode ),	sizeof ( UINT8 ), NULL );
-	FileWrite( hFileHandle, &(pHistoryList->ubSecondCode ),	sizeof ( UINT8 ), NULL );
-		FileWrite( hFileHandle, &(pHistoryList->uiDate ),	sizeof ( UINT32 ), NULL );
-	FileWrite( hFileHandle, &(pHistoryList->sSectorX ),	sizeof ( INT16 ), NULL );
-		FileWrite( hFileHandle, &(pHistoryList->sSectorY ),	sizeof ( INT16 ), NULL );
-		FileWrite( hFileHandle, &(pHistoryList->bSectorZ ),	sizeof ( INT8 ), NULL );
-		FileWrite( hFileHandle, &(pHistoryList->ubColor ),	sizeof ( UINT8 ), NULL );
-
-		// next element in list
-		pHistoryList = pHistoryList->Next;
-
+		if (!WriteHistoryRecordExact(file.Get(), *record)) return FALSE;
 	}
-
-	// close file
-	FileClose( hFileHandle );
-	// clear out the old list
-	ClearHistoryList( );
-
-	return ( TRUE );
+	ClearHistoryList();
+	return TRUE;
 }
 
 
@@ -834,6 +743,7 @@ void ClearHistoryList( void )
 		MemFree(pHistoryNode);
 	}
 	pHistoryListHead=NULL;
+	pCurrentHistory=NULL;
 
 	return;
 }
@@ -851,15 +761,15 @@ void DisplayHistoryListHeaders( void )
 
 	// the date header
 	FindFontCenterCoordinates(RECORD_DATE_X + 5,0,RECORD_DATE_WIDTH,0, pHistoryHeaders[0], HISTORY_TEXT_FONT,&usX, &usY);
-	mprintf(usX, RECORD_HEADER_Y, pHistoryHeaders[0]);
+	mprintf(usX, RECORD_HEADER_Y, L"%s", pHistoryHeaders[0]);
 
 	// the date header
 	FindFontCenterCoordinates(RECORD_DATE_X + RECORD_DATE_WIDTH + 5,0,RECORD_LOCATION_WIDTH,0, pHistoryHeaders[ 3 ], HISTORY_TEXT_FONT,&usX, &usY);
-	mprintf(usX, RECORD_HEADER_Y, pHistoryHeaders[3]);
+	mprintf(usX, RECORD_HEADER_Y, L"%s", pHistoryHeaders[3]);
 
 	// event header
 	FindFontCenterCoordinates(RECORD_DATE_X + RECORD_DATE_WIDTH + RECORD_LOCATION_WIDTH + 5,0,RECORD_LOCATION_WIDTH,0, pHistoryHeaders[ 3 ], HISTORY_TEXT_FONT,&usX, &usY);
-	mprintf(usX, RECORD_HEADER_Y, pHistoryHeaders[4]);
+	mprintf(usX, RECORD_HEADER_Y, L"%s", pHistoryHeaders[4]);
 	// reset shadow
 	SetFontShadow(DEFAULT_SHADOW);
 	return;
@@ -875,7 +785,7 @@ void DisplayHistoryListBackground( void )
 
 
 	// get shaded line object
-	GetVideoObject(&hHandle, guiSHADELINE);
+	GetVideoObject(&hHandle, guiHistoryShadeLine);
 	for(iCounter=0; iCounter <11; iCounter++)
 	{
 	// blt title bar to screen
@@ -883,7 +793,7 @@ void DisplayHistoryListBackground( void )
 	}
 
 	// the long hortizontal line int he records list display region
-	GetVideoObject(&hHandle, guiLONGLINE);
+	GetVideoObject(&hHandle, guiHistoryLongLine);
 	BltVideoObject(FRAME_BUFFER, hHandle, 0,TOP_X + 9, (TOP_DIVLINE_Y ), VO_BLT_SRCTRANSPARENCY,NULL);
 	BltVideoObject(FRAME_BUFFER, hHandle, 0,TOP_X + 9, (TOP_DIVLINE_Y + BOX_HEIGHT * 2 * 11	), VO_BLT_SRCTRANSPARENCY,NULL);
 
@@ -926,19 +836,20 @@ void DrawHistoryRecordsText( void )
 		// get and write the date
 		swprintf(sString, L"%d", ( pCurHistory->uiDate / ( 24 * 60 ) ) );
 		FindFontCenterCoordinates(RECORD_DATE_X + 5, 0, RECORD_DATE_WIDTH,0, sString, HISTORY_TEXT_FONT,&usX, &usY);
-		mprintf(usX, RECORD_Y + ( iCounter * ( BOX_HEIGHT ) ) + 3, sString);
+		mprintf(usX, RECORD_Y + ( iCounter * ( BOX_HEIGHT ) ) + 3,
+			L"%s", sString);
 
 		// now the actual history text
-	//FindFontCenterCoordinates(RECORD_DATE_X + RECORD_DATE_WIDTH,0,RECORD_HISTORY_WIDTH,0,	pHistoryStrings[pCurHistory->ubCode], HISTORY_TEXT_FONT,&usX, &usY);
 		ProcessHistoryTransactionString(sString, pCurHistory);
-//	mprintf(RECORD_DATE_X + RECORD_DATE_WIDTH + 25, RECORD_Y + ( iCounter * ( BOX_HEIGHT ) ) + 3, pHistoryStrings[pCurHistory->ubCode] );
-		mprintf(RECORD_DATE_X + RECORD_LOCATION_WIDTH +RECORD_DATE_WIDTH + 15, RECORD_Y + ( iCounter * ( BOX_HEIGHT ) ) + 3, sString );
+		mprintf(RECORD_DATE_X + RECORD_LOCATION_WIDTH +RECORD_DATE_WIDTH + 15,
+			RECORD_Y + ( iCounter * ( BOX_HEIGHT ) ) + 3, L"%s", sString );
 		
 		// no location
 		if( ( pCurHistory->sSectorX == -1 )||( pCurHistory->sSectorY == -1 ) )
 		{
 			FindFontCenterCoordinates( RECORD_DATE_X + RECORD_DATE_WIDTH, 0,RECORD_LOCATION_WIDTH + 10, 0,	pHistoryLocations[0] ,HISTORY_TEXT_FONT, &sX, &sY );
-			mprintf(sX, RECORD_Y + ( iCounter * ( BOX_HEIGHT ) ) + 3, pHistoryLocations[0] );
+			mprintf(sX, RECORD_Y + ( iCounter * ( BOX_HEIGHT ) ) + 3,
+				L"%s", pHistoryLocations[0] );
 		}
 		else
 		{
@@ -947,7 +858,8 @@ void DrawHistoryRecordsText( void )
 
 			ReduceStringLength( sString, RECORD_LOCATION_WIDTH + 10, HISTORY_TEXT_FONT );
 
-			mprintf(sX, RECORD_Y + ( iCounter * ( BOX_HEIGHT ) ) + 3, sString );
+			mprintf(sX, RECORD_Y + ( iCounter * ( BOX_HEIGHT ) ) + 3,
+				L"%s", sString );
 		}
 
 		// restore font color
@@ -1007,7 +919,6 @@ void DisplayPageNumberAndDateRange( void )
 {
 	// this function will go through the list of 'histories' starting at current until end or
 	// MAX_PER_PAGE...it will get the date range and the page number
-	INT32 iLastPage=0;
 	INT32 iCounter=0;
 	UINT32 uiLastDate;
 	HistoryUnitPtr pTempHistory;
@@ -1024,10 +935,10 @@ void DisplayPageNumberAndDateRange( void )
 	if( !pCurrentHistory )
 	{
 	swprintf( sString, L"%s %d / %d",pHistoryHeaders[1], 1, 1 );
-	mprintf( PAGE_NUMBER_X, PAGE_NUMBER_Y, sString );
+	mprintf(PAGE_NUMBER_X, PAGE_NUMBER_Y, L"%s", sString);
 
 	swprintf( sString, L"%s %d - %d",pHistoryHeaders[2], 1 , 1 );
-	mprintf( HISTORY_DATE_X, HISTORY_DATE_Y, sString );
+	mprintf(HISTORY_DATE_X, HISTORY_DATE_Y, L"%s", sString);
 
 	// reset shadow
 	SetFontShadow(DEFAULT_SHADOW);
@@ -1049,8 +960,6 @@ void DisplayPageNumberAndDateRange( void )
 	iLastPage=iCounter/NUM_RECORDS_PER_PAGE;
 */
 
-	iLastPage = GetNumberOfHistoryPages();
-
 	// set temp to current, to get last date
 	pTempHistory=pCurrentHistory;
 
@@ -1070,11 +979,14 @@ void DisplayPageNumberAndDateRange( void )
 
 	// get the last page
 
-	swprintf( sString, L"%s %d / %d",pHistoryHeaders[1], iCurrentHistoryPage , iLastPage + 1 );
-	mprintf( PAGE_NUMBER_X, PAGE_NUMBER_Y, sString );
+	const std::size_t displayedPageCount =
+		gHistoryRecordPageCount > 0 ? gHistoryRecordPageCount : 1;
+	swprintf( sString, L"%s %d / %d",pHistoryHeaders[1],
+		iCurrentHistoryPage, static_cast<INT32>(displayedPageCount));
+	mprintf(PAGE_NUMBER_X, PAGE_NUMBER_Y, L"%s", sString);
 
 	swprintf( sString, L"%s %d - %d",pHistoryHeaders[2], pCurrentHistory->uiDate / ( 24 * 60 ) , uiLastDate/( 24 * 60 ) );
-	mprintf( HISTORY_DATE_X, HISTORY_DATE_Y, sString );
+	mprintf(HISTORY_DATE_X, HISTORY_DATE_Y, L"%s", sString);
 
 
 	// reset shadow
@@ -1087,29 +999,29 @@ void DisplayPageNumberAndDateRange( void )
 void ProcessHistoryTransactionString(CHAR16 *pString, HistoryUnitPtr pHistory)
 {
 	CHAR16 sString[ 128 ];
-
-	// Corrupt/tampered HISTORY.DAT can carry an out-of-range ubSecondCode which is used
-	// unguarded as gMercProfiles[ubSecondCode] in ~20 places in the switch below -> OOB read.
-	// Clamp it once here so every downstream index is bounded.
-	if ( pHistory->ubSecondCode >= NUM_PROFILES )
-		pHistory->ubSecondCode = 0;
+	const std::size_t profile = LaptopRecordPageModel::BoundedIndex(
+		pHistory->ubSecondCode, NUM_PROFILES);
+	const std::size_t town = LaptopRecordPageModel::BoundedIndex(
+		pHistory->ubSecondCode, MAX_TOWNS);
+	const std::size_t quest = LaptopRecordPageModel::BoundedIndex(
+		pHistory->ubSecondCode, MAX_QUESTS);
 
 	switch( pHistory->ubCode)
 	{
 		case HISTORY_ENTERED_HISTORY_MODE:
-			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_ENTERED_HISTORY_MODE ]);
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_ENTERED_HISTORY_MODE ].sHistory);
+			sgp_swprintf(pString, 512, L"%s",
+				HistoryName[HISTORY_ENTERED_HISTORY_MODE].sHistory);
 			break;
 
 		case HISTORY_HIRED_MERC_FROM_AIM:
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_HIRED_MERC_FROM_AIM ], gMercProfiles[pHistory->ubSecondCode].zName	);
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_HIRED_MERC_FROM_AIM ].sHistory, gMercProfiles[pHistory->ubSecondCode].zName	);
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_HIRED_MERC_FROM_AIM ].sHistory, gMercProfiles[profile].zName	);
 			break;
 
 		case HISTORY_MERC_KILLED:
 			if( pHistory->ubSecondCode != NO_PROFILE )
 				//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_MERC_KILLED ], gMercProfiles[pHistory->ubSecondCode].zName );
-				sgp_swprintf(pString, 512,HistoryName[ HISTORY_MERC_KILLED ].sHistory, gMercProfiles[pHistory->ubSecondCode].zName );
+				sgp_swprintf(pString, 512,HistoryName[ HISTORY_MERC_KILLED ].sHistory, gMercProfiles[profile].zName );
 			else
 			{
 				//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_MERC_KILLED ], L"ERROR!!!	NO_PROFILE" );
@@ -1119,100 +1031,100 @@ void ProcessHistoryTransactionString(CHAR16 *pString, HistoryUnitPtr pHistory)
 
 		case HISTORY_HIRED_MERC_FROM_MERC:
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_HIRED_MERC_FROM_MERC ],	gMercProfiles[pHistory->ubSecondCode].zName );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_HIRED_MERC_FROM_MERC ].sHistory,	gMercProfiles[pHistory->ubSecondCode].zName );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_HIRED_MERC_FROM_MERC ].sHistory,	gMercProfiles[profile].zName );
 			break;
 
 		case HISTORY_SETTLED_ACCOUNTS_AT_MERC:
-			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_SETTLED_ACCOUNTS_AT_MERC ] );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_SETTLED_ACCOUNTS_AT_MERC ].sHistory );
+			sgp_swprintf(pString, 512, L"%s",
+				HistoryName[HISTORY_SETTLED_ACCOUNTS_AT_MERC].sHistory);
 			break;
 		case HISTORY_ACCEPTED_ASSIGNMENT_FROM_ENRICO:
-			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_ACCEPTED_ASSIGNMENT_FROM_ENRICO ] );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_ACCEPTED_ASSIGNMENT_FROM_ENRICO ].sHistory);
+			sgp_swprintf(pString, 512, L"%s",
+				HistoryName[HISTORY_ACCEPTED_ASSIGNMENT_FROM_ENRICO].sHistory);
 			break;
 		case( HISTORY_CHARACTER_GENERATED ):
-			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_CHARACTER_GENERATED ] );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_CHARACTER_GENERATED ].sHistory );
+			sgp_swprintf(pString, 512, L"%s",
+				HistoryName[HISTORY_CHARACTER_GENERATED].sHistory);
 		break;
 		case( HISTORY_PURCHASED_INSURANCE ):
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_PURCHASED_INSURANCE ], gMercProfiles[pHistory->ubSecondCode].zNickname );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_PURCHASED_INSURANCE ].sHistory, gMercProfiles[pHistory->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_PURCHASED_INSURANCE ].sHistory, gMercProfiles[profile].zNickname );
 		break;
 		case( HISTORY_CANCELLED_INSURANCE ):
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_CANCELLED_INSURANCE ], gMercProfiles[pHistory->ubSecondCode].zNickname );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_CANCELLED_INSURANCE ].sHistory, gMercProfiles[pHistory->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_CANCELLED_INSURANCE ].sHistory, gMercProfiles[profile].zNickname );
 		break;
 		case( HISTORY_INSURANCE_CLAIM_PAYOUT ):
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_INSURANCE_CLAIM_PAYOUT ], gMercProfiles[pHistory->ubSecondCode].zNickname );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_INSURANCE_CLAIM_PAYOUT ].sHistory, gMercProfiles[pHistory->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_INSURANCE_CLAIM_PAYOUT ].sHistory, gMercProfiles[profile].zNickname );
 		break;
 
 		case HISTORY_EXTENDED_CONTRACT_1_DAY:
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_EXTENDED_CONTRACT_1_DAY ], gMercProfiles[pHistory->ubSecondCode].zNickname );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_EXTENDED_CONTRACT_1_DAY ].sHistory, gMercProfiles[pHistory->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_EXTENDED_CONTRACT_1_DAY ].sHistory, gMercProfiles[profile].zNickname );
 			break;
 
 		case HISTORY_EXTENDED_CONTRACT_1_WEEK:
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_EXTENDED_CONTRACT_1_WEEK ], gMercProfiles[pHistory->ubSecondCode].zNickname );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_EXTENDED_CONTRACT_1_WEEK ].sHistory, gMercProfiles[pHistory->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_EXTENDED_CONTRACT_1_WEEK ].sHistory, gMercProfiles[profile].zNickname );
 			break;
 
 		case HISTORY_EXTENDED_CONTRACT_2_WEEK:
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_EXTENDED_CONTRACT_2_WEEK ], gMercProfiles[pHistory->ubSecondCode].zNickname );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_EXTENDED_CONTRACT_2_WEEK ].sHistory, gMercProfiles[pHistory->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_EXTENDED_CONTRACT_2_WEEK ].sHistory, gMercProfiles[profile].zNickname );
 			break;
 
 		case( HISTORY_MERC_FIRED ):
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_MERC_FIRED ], gMercProfiles[pHistory->ubSecondCode].zNickname );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_MERC_FIRED ].sHistory, gMercProfiles[pHistory->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_MERC_FIRED ].sHistory, gMercProfiles[profile].zNickname );
 		break;
 
 		case( HISTORY_MERC_QUIT ):
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_MERC_QUIT ], gMercProfiles[pHistory->ubSecondCode].zNickname );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_MERC_QUIT ].sHistory, gMercProfiles[pHistory->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_MERC_QUIT ].sHistory, gMercProfiles[profile].zNickname );
 		break;
 
 		case( HISTORY_QUEST_STARTED ):
-			GetQuestStartedString( pHistory->ubSecondCode, sString );
-			sgp_swprintf(pString, 512,sString );
+			GetQuestStartedString(static_cast<UINT8>(quest), sString);
+			sgp_swprintf(pString, 512, L"%s", sString);
 
 		break;
 		case( HISTORY_QUEST_FINISHED ):
-			GetQuestEndedString( pHistory->ubSecondCode, sString );
-			sgp_swprintf(pString, 512,sString );
+			GetQuestEndedString(static_cast<UINT8>(quest), sString);
+			sgp_swprintf(pString, 512, L"%s", sString);
 
 		break;
 		case( HISTORY_TALKED_TO_MINER ):
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_TALKED_TO_MINER ], pTownNames[ pHistory->ubSecondCode ] );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_TALKED_TO_MINER ].sHistory, pTownNames[ pHistory->ubSecondCode ] );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_TALKED_TO_MINER ].sHistory, pTownNames[town] );
 		break;
 		case( HISTORY_LIBERATED_TOWN ):
 			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_LIBERATED_TOWN ], pTownNames[ pHistory->ubSecondCode ] );
-			sgp_swprintf(pString, 512,HistoryName[ HISTORY_LIBERATED_TOWN ].sHistory, pTownNames[ pHistory->ubSecondCode ] );
+			sgp_swprintf(pString, 512,HistoryName[ HISTORY_LIBERATED_TOWN ].sHistory, pTownNames[town] );
 			break;
 		case( HISTORY_CHEAT_ENABLED ):
-			//sgp_swprintf(pString, 512,pHistoryStrings[ HISTORY_CHEAT_ENABLED ] );
-			  sgp_swprintf(pString, 512,HistoryName[ HISTORY_CHEAT_ENABLED ].sHistory );
+			sgp_swprintf(pString, 512, L"%s",
+				HistoryName[HISTORY_CHEAT_ENABLED].sHistory);
 			break;
 		case HISTORY_TALKED_TO_FATHER_WALKER:
-			//sgp_swprintf( pString, 512,pHistoryStrings[ HISTORY_TALKED_TO_FATHER_WALKER ] );
-			sgp_swprintf( pString, 512,HistoryName[ HISTORY_TALKED_TO_FATHER_WALKER ].sHistory );
+			sgp_swprintf(pString, 512, L"%s",
+				HistoryName[HISTORY_TALKED_TO_FATHER_WALKER].sHistory);
 			break;
 		case HISTORY_MERC_MARRIED_OFF:
 			//sgp_swprintf( pString, 512,pHistoryStrings[ HISTORY_MERC_MARRIED_OFF ], gMercProfiles[pHistory->ubSecondCode].zNickname );
-			sgp_swprintf( pString, 512,HistoryName[ HISTORY_MERC_MARRIED_OFF ].sHistory, gMercProfiles[pHistory->ubSecondCode].zNickname );
+			sgp_swprintf( pString, 512,HistoryName[ HISTORY_MERC_MARRIED_OFF ].sHistory, gMercProfiles[profile].zNickname );
 			break;
 		case HISTORY_MERC_CONTRACT_EXPIRED:
 			//sgp_swprintf( pString, 512,pHistoryStrings[ HISTORY_MERC_CONTRACT_EXPIRED ], gMercProfiles[pHistory->ubSecondCode].zName );
-			sgp_swprintf( pString, 512,HistoryName[ HISTORY_MERC_CONTRACT_EXPIRED ].sHistory, gMercProfiles[pHistory->ubSecondCode].zName );
+			sgp_swprintf( pString, 512,HistoryName[ HISTORY_MERC_CONTRACT_EXPIRED ].sHistory, gMercProfiles[profile].zName );
 			break;
 		case HISTORY_RPC_JOINED_TEAM:
 			//sgp_swprintf( pString, 512,pHistoryStrings[ HISTORY_RPC_JOINED_TEAM ], gMercProfiles[pHistory->ubSecondCode].zName );
-			sgp_swprintf( pString, 512,HistoryName[ HISTORY_RPC_JOINED_TEAM ].sHistory, gMercProfiles[pHistory->ubSecondCode].zName );
+			sgp_swprintf( pString, 512,HistoryName[ HISTORY_RPC_JOINED_TEAM ].sHistory, gMercProfiles[profile].zName );
 			break;
 		case HISTORY_ENRICO_COMPLAINED:
-			//sgp_swprintf( pString, 512,pHistoryStrings[ HISTORY_ENRICO_COMPLAINED ] );
-			sgp_swprintf( pString, 512,HistoryName[ HISTORY_ENRICO_COMPLAINED ].sHistory );
+			sgp_swprintf(pString, 512, L"%s",
+				HistoryName[HISTORY_ENRICO_COMPLAINED].sHistory);
 			break;
 		case HISTORY_MINE_RUNNING_OUT:
 		case HISTORY_MINE_RAN_OUT:
@@ -1220,7 +1132,7 @@ void ProcessHistoryTransactionString(CHAR16 *pString, HistoryUnitPtr pHistory)
 		case HISTORY_MINE_REOPENED:
 			// all the same format
 			//sgp_swprintf(pString, 512,pHistoryStrings[ pHistory->ubCode ], pTownNames[ pHistory->ubSecondCode ] );
-			sgp_swprintf(pString, 512,HistoryName[ pHistory->ubCode ].sHistory, pTownNames[ pHistory->ubSecondCode ] );
+			sgp_swprintf(pString, 512,HistoryName[ pHistory->ubCode ].sHistory, pTownNames[town] );
 			break;
 		case HISTORY_LOST_BOXING:
 		case HISTORY_WON_BOXING:
@@ -1228,7 +1140,7 @@ void ProcessHistoryTransactionString(CHAR16 *pString, HistoryUnitPtr pHistory)
 		case HISTORY_NPC_KILLED:
 		case HISTORY_MERC_KILLED_CHARACTER:
 			//sgp_swprintf( pString, 512,pHistoryStrings[ pHistory->ubCode ], gMercProfiles[pHistory->ubSecondCode].zNickname );
-			sgp_swprintf( pString, 512,HistoryName[ pHistory->ubCode ].sHistory, gMercProfiles[pHistory->ubSecondCode].zNickname );
+			sgp_swprintf( pString, 512,HistoryName[ pHistory->ubCode ].sHistory, gMercProfiles[profile].zNickname );
 			break;
 
 		// ALL SIMPLE HISTORY LOG MSGS, NO PARAMS
@@ -1302,492 +1214,190 @@ void DrawHistoryLocation( INT16 sSectorX, INT16 sSectorY )
 
 void SetHistoryButtonStates( void )
 {
-	// this function will look at what page we are viewing, enable and disable buttons as needed
-
-	if( iCurrentHistoryPage == 1 )
+	const bool hasPrevious = iCurrentHistoryPage > 1;
+	const bool hasNext = iCurrentHistoryPage >= 1 &&
+		static_cast<std::size_t>(iCurrentHistoryPage) <
+			gHistoryRecordPageCount;
+	if (hasPrevious)
 	{
-		// first page, disable left buttons
-		DisableButton( 	giHistoryButton[PREV_PAGE_BUTTON] );
-		DisableButton( 	giHistoryButton[FIRST_PAGE_BUTTON] );
-
+		EnableButton(giHistoryButton[PREV_PAGE_BUTTON]);
+		EnableButton(giHistoryButton[FIRST_PAGE_BUTTON]);
 	}
 	else
 	{
-		// enable buttons
-		EnableButton( giHistoryButton[PREV_PAGE_BUTTON] );
-		EnableButton( giHistoryButton[FIRST_PAGE_BUTTON] );
-
+		DisableButton(giHistoryButton[PREV_PAGE_BUTTON]);
+		DisableButton(giHistoryButton[FIRST_PAGE_BUTTON]);
 	}
-
-	if( IncrementCurrentPageHistoryDisplay( ) )
+	if (hasNext)
 	{
-		// decrement page
-		iCurrentHistoryPage--;
-		DrawAPageofHistoryRecords( );
-
-		// enable buttons
-		EnableButton( giHistoryButton[ NEXT_PAGE_BUTTON ] );
-		EnableButton( giHistoryButton[ LAST_PAGE_BUTTON ] );
-
+		EnableButton(giHistoryButton[NEXT_PAGE_BUTTON]);
+		EnableButton(giHistoryButton[LAST_PAGE_BUTTON]);
 	}
 	else
 	{
-		DisableButton( giHistoryButton[ NEXT_PAGE_BUTTON ] );
-		DisableButton( giHistoryButton[ LAST_PAGE_BUTTON ] );
+		DisableButton(giHistoryButton[NEXT_PAGE_BUTTON]);
+		DisableButton(giHistoryButton[LAST_PAGE_BUTTON]);
 	}
 }
 
 
 BOOLEAN LoadInHistoryRecords( UINT32 uiPage )
 {
-	// loads in records belogning, to page uiPage
-	// no file, return
-	BOOLEAN fOkToContinue=TRUE;
-	INT32 iCount =0;
-	HWFILE hFileHandle;
-	UINT8 ubCode, ubSecondCode;
-	INT16 sSectorX, sSectorY;
-	INT8	bSectorZ;
-	UINT32 uiDate;
-	UINT8 ubColor;
-	INT32 iBytesRead=0;
-	UINT32 uiByteCount=0;
-
-	// check if bad page
-	if( uiPage == 0 )
+	ClearHistoryList();
+	if (uiPage == 0 || !FileExists(HISTORY_DATA_FILE)) return FALSE;
+	ScopedLaptopFile file(FileOpen(HISTORY_DATA_FILE,
+		FILE_OPEN_EXISTING | FILE_ACCESS_READ, FALSE));
+	if (!file) return FALSE;
+	const std::size_t fileBytes = FileGetSize(file.Get());
+	if (!LaptopRecordPageModel::IsWellFormedFile(
+		fileBytes, HistoryFileLayout)) return FALSE;
+	const std::size_t recordCount = LaptopRecordPageModel::RecordCount(
+		fileBytes, HistoryFileLayout);
+	const std::size_t pageIndex = static_cast<std::size_t>(uiPage - 1);
+	const std::size_t pageCount = LaptopRecordPageModel::PageCount(
+		recordCount, NUM_RECORDS_PER_PAGE);
+	if (!LaptopRecordPageModel::HasZeroBasedPage(pageIndex, pageCount))
+		return FALSE;
+	const std::size_t offset = LaptopRecordPageModel::PageByteOffset(
+		pageIndex, NUM_RECORDS_PER_PAGE, HistoryFileLayout);
+	if (offset == LaptopRecordPageModel::NoOffset ||
+		offset > std::numeric_limits<UINT32>::max() ||
+		!FileSeek(file.Get(), static_cast<UINT32>(offset),
+			FILE_SEEK_FROM_START)) return FALSE;
+	const std::size_t recordsOnPage = LaptopRecordPageModel::RecordsOnPage(
+		recordCount, pageIndex, NUM_RECORDS_PER_PAGE);
+	for (std::size_t index = 0; index < recordsOnPage; ++index)
 	{
-		return ( FALSE );
-	}
-
-
-	if ( ! (FileExists( HISTORY_DATA_FILE ) ) )
-		return( FALSE );
-
-	// open file
- 	hFileHandle=FileOpen( HISTORY_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		return( FALSE );
-	}
-
-	// make sure file is more than 0 length
-	if ( FileGetSize( hFileHandle ) == 0 )
-	{
-	FileClose( hFileHandle );
-		return( FALSE );
-	}
-
-	// is the file long enough?
-	if( ( FileGetSize( hFileHandle ) - 1 ) / ( NUM_RECORDS_PER_PAGE * SIZE_OF_HISTORY_FILE_RECORD ) + 1 < uiPage )
-	{
-		// nope
-		FileClose( hFileHandle );
-	return( FALSE );
-	}
-
-	FileSeek( hFileHandle, ( uiPage - 1 ) * NUM_RECORDS_PER_PAGE * ( SIZE_OF_HISTORY_FILE_RECORD), FILE_SEEK_FROM_START );
-
-	uiByteCount = ( uiPage	- 1 ) * NUM_RECORDS_PER_PAGE * (SIZE_OF_HISTORY_FILE_RECORD );
-	// file exists, read in data, continue until end of page
-	while( ( iCount < NUM_RECORDS_PER_PAGE )&&( fOkToContinue ) )
-	{
-
-		// read in other data
-	FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubSecondCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-	FileRead( hFileHandle, &sSectorX, sizeof(INT16), (UINT32 *)&iBytesRead );
-	FileRead( hFileHandle, &sSectorY, sizeof(INT16), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &bSectorZ, sizeof(INT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubColor, sizeof(UINT8), (UINT32 *)&iBytesRead );
-
-		#ifdef JA2TESTVERSION
-		//perform a check on the data to see if it is pooched
-		PerformCheckOnHistoryRecord( 3, sSectorX, sSectorY, bSectorZ );
-		#endif
-
-		// add transaction
-	ProcessAndEnterAHistoryRecord(ubCode, uiDate,	ubSecondCode, sSectorX, sSectorY, bSectorZ, ubColor);
-
-		// increment byte counter
-	uiByteCount += SIZE_OF_HISTORY_FILE_RECORD;
-
-		// we've overextended our welcome, and bypassed end of file, get out
-		if( uiByteCount >=	FileGetSize( hFileHandle ) )
+		HistoryRecordData record;
+		if (!ReadHistoryRecordExact(file.Get(), record) ||
+			ProcessAndEnterAHistoryRecord(record.code, record.date,
+				record.secondCode, record.sectorX, record.sectorY,
+				record.sectorZ, record.color) == InvalidHistoryRecordId)
 		{
-			// not ok to continue
-			fOkToContinue = FALSE;
+			ClearHistoryList();
+			return FALSE;
 		}
 
-		iCount++;
+		#ifdef JA2TESTVERSION
+		PerformCheckOnHistoryRecord(3, record.sectorX,
+			record.sectorY, record.sectorZ);
+		#endif
 	}
-
-	// close file
-	FileClose( hFileHandle );
-
-	// check to see if we in fact have a list to display
-	if( pHistoryListHead == NULL )
-	{
-		// got no records, return false
-		return( FALSE );
-	}
-
-	// set up current history
 	pCurrentHistory = pHistoryListHead;
-
-	return( TRUE );
+	return pCurrentHistory != NULL;
 }
 
-
-BOOLEAN WriteOutHistoryRecords( UINT32 uiPage )
-{
-	// loads in records belogning, to page uiPage
-	// no file, return
-	BOOLEAN fOkToContinue=TRUE;
-	INT32 iCount =0;
-	HWFILE hFileHandle;
-	HistoryUnitPtr pList;
-
-	// check if bad page
-	if( uiPage == 0 )
-	{
-		return ( FALSE );
-	}
-
-
-	if ( ! (FileExists( HISTORY_DATA_FILE ) ) )
-		return( FALSE );
-
-	// open file
- 	hFileHandle=FileOpen( HISTORY_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_WRITE ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		return( FALSE );
-	}
-
-	// make sure file is more than 0 length
-	if ( FileGetSize( hFileHandle ) == 0 )
-	{
-	FileClose( hFileHandle );
-		return( FALSE );
-	}
-
-	// is the file long enough?
-	if( ( FileGetSize( hFileHandle ) - 1 ) / ( NUM_RECORDS_PER_PAGE * SIZE_OF_HISTORY_FILE_RECORD ) + 1 < uiPage )
-	{
-		// nope
-		FileClose( hFileHandle );
-	return( FALSE );
-	}
-
-	pList = pHistoryListHead;
-
-	if( pList == NULL )
-	{
-		FileClose( hFileHandle );
-		return( FALSE );
-	}
-
-	FileSeek( hFileHandle, sizeof( INT32 ) + ( uiPage - 1 ) * NUM_RECORDS_PER_PAGE * SIZE_OF_HISTORY_FILE_RECORD, FILE_SEEK_FROM_START );
-
-	// file exists, read in data, continue until end of page
-	while( ( iCount < NUM_RECORDS_PER_PAGE )&&( fOkToContinue ) )
-	{
-
-		#ifdef JA2TESTVERSION
-		//perform a check on the data to see if it is pooched
-		PerformCheckOnHistoryRecord( 4, pList->sSectorX, pList->sSectorY, pList->bSectorZ );
-		#endif
-
-		FileWrite( hFileHandle, &(pList->ubCode ),	sizeof ( UINT8 ), NULL );
-	FileWrite( hFileHandle, &(pList->ubSecondCode ),	sizeof ( UINT8 ), NULL );
-		FileWrite( hFileHandle, &(pList->uiDate ),	sizeof ( UINT32 ), NULL );
-	FileWrite( hFileHandle, &(pList->sSectorX ),	sizeof ( INT16 ), NULL );
-		FileWrite( hFileHandle, &(pList->sSectorY ),	sizeof ( INT16 ), NULL );
-		FileWrite( hFileHandle, &(pList->bSectorZ ),	sizeof ( INT8 ), NULL );
-		FileWrite( hFileHandle, &(pList->ubColor ),	sizeof ( UINT8 ), NULL );
-
-		pList = pList->Next;
-
-		// we've overextended our welcome, and bypassed end of file, get out
-		if( pList == NULL )
-		{
-			// not ok to continue
-			fOkToContinue = FALSE;
-		}
-
-		iCount++;
-	}
-
-	// close file
-	FileClose( hFileHandle );
-
-	ClearHistoryList( );
-
-	return( TRUE );
-}
 
 BOOLEAN LoadNextHistoryPage( void )
 {
-
-	// clear out old list of records, and load in previous page worth of records
-	ClearHistoryList( );
-
-	// now load in next page's records, if we can
-	if ( LoadInHistoryRecords( iCurrentHistoryPage + 1 ) )
+	if (iCurrentHistoryPage < 1 ||
+		static_cast<std::size_t>(iCurrentHistoryPage) >=
+			gHistoryRecordPageCount) return FALSE;
+	const INT32 previousPage = iCurrentHistoryPage;
+	const UINT32 nextPage = static_cast<UINT32>(previousPage + 1);
+	if (LoadInHistoryRecords(nextPage))
 	{
-		iCurrentHistoryPage++;
-	return ( TRUE );
+		iCurrentHistoryPage = static_cast<INT32>(nextPage);
+		return TRUE;
 	}
-	else
-	{
-		LoadInHistoryRecords( iCurrentHistoryPage );
-	return ( FALSE );
-	}
-
+	LoadInHistoryRecords(static_cast<UINT32>(previousPage));
+	return FALSE;
 }
 
 
 BOOLEAN LoadPreviousHistoryPage( void )
 {
-
-	// clear out old list of records, and load in previous page worth of records
-	ClearHistoryList( );
-
-	// load previous page
-	if( iCurrentHistoryPage == 1 )
+	if (iCurrentHistoryPage <= 1) return FALSE;
+	const INT32 previousPage = iCurrentHistoryPage;
+	const UINT32 targetPage = static_cast<UINT32>(previousPage - 1);
+	if (LoadInHistoryRecords(targetPage))
 	{
-		return ( FALSE );
+		iCurrentHistoryPage = static_cast<INT32>(targetPage);
+		return TRUE;
 	}
-
-	// now load in previous page's records, if we can
-	if ( LoadInHistoryRecords( iCurrentHistoryPage - 1 ) )
-	{
-		iCurrentHistoryPage--;
-		return ( TRUE );
-	}
-	else
-	{
-		LoadInHistoryRecords( iCurrentHistoryPage );
-		return ( FALSE );
-	}
+	LoadInHistoryRecords(static_cast<UINT32>(previousPage));
+	return FALSE;
 }
 
 
-void SetLastPageInHistoryRecords( void )
+BOOLEAN AppendHistoryToEndOfFile(const HistoryUnit& historyRecord)
 {
-	// grabs the size of the file and interprets number of pages it will take up
-	HWFILE hFileHandle;
-
-	// no file, return
-	if ( ! (FileExists( HISTORY_DATA_FILE ) ) )
-		return;
-
-	// open file
- 	hFileHandle=FileOpen( HISTORY_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		guiLastPageInHistoryRecordsList = 1;
-		return;
-	}
-
-	// make sure file is more than 0 length
-	if ( FileGetSize( hFileHandle ) == 0 )
-	{
-	FileClose( hFileHandle );
-	guiLastPageInHistoryRecordsList = 1;
-		return;
-	}
-
-
-	// done with file, close it
-	FileClose( hFileHandle );
-
-	guiLastPageInHistoryRecordsList = ReadInLastElementOfHistoryListAndReturnIdNumber( ) / NUM_RECORDS_PER_PAGE;
-
-	return;
-}
-
-UINT32 ReadInLastElementOfHistoryListAndReturnIdNumber( void )
-{
-	// this function will read in the last unit in the history list, to grab it's id number
-
-
-	HWFILE hFileHandle;
-	INT32 iFileSize = 0;
-
-	// no file, return
-	if ( ! (FileExists( HISTORY_DATA_FILE ) ) )
-		return 0;
-
-	// open file
- 	hFileHandle=FileOpen( HISTORY_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		return 0;
-	}
-
-	// make sure file is more than balance size + length of 1 record - 1 byte
-	if ( FileGetSize( hFileHandle ) < SIZE_OF_HISTORY_FILE_RECORD )
-	{
-	FileClose( hFileHandle );
-	return 0;
-	}
-
-	// size is?
-	iFileSize = FileGetSize( hFileHandle );
-
-	// done with file, close it
-	FileClose( hFileHandle );
-
-	// file size	/ sizeof record in bytes is id
-	return ( (	iFileSize	) / ( SIZE_OF_HISTORY_FILE_RECORD ) );
-
-}
-
-
-BOOLEAN AppendHistoryToEndOfFile( HistoryUnitPtr pHistory )
-{
-		// will write the current finance to disk
-	HWFILE hFileHandle;
-	HistoryUnitPtr pHistoryList=pHistoryListHead;
-
-
-	// open file
- 	hFileHandle=FileOpen( HISTORY_DATA_FILE, FILE_ACCESS_WRITE|FILE_OPEN_ALWAYS, FALSE);
-
-	// if no file exits, do nothing
-	if(!hFileHandle)
-	{
-	return ( FALSE );
-	}
-
-	// go to the end
-	if( FileSeek( hFileHandle,0,FILE_SEEK_FROM_END ) == FALSE )
-	{
-		// error
-	FileClose( hFileHandle );
-		return( FALSE );
-	}
+	ScopedLaptopFile file(FileOpen(HISTORY_DATA_FILE,
+		FILE_ACCESS_WRITE | FILE_OPEN_ALWAYS, FALSE));
+	if (!file || !LaptopRecordPageModel::IsWellFormedFile(
+		FileGetSize(file.Get()), HistoryFileLayout) ||
+		!FileSeek(file.Get(), 0, FILE_SEEK_FROM_END)) return FALSE;
 
 		#ifdef JA2TESTVERSION
-		//perform a check on the data to see if it is pooched
-		PerformCheckOnHistoryRecord( 5, pHistoryList->sSectorX, pHistoryList->sSectorY, pHistoryList->bSectorZ );
+		PerformCheckOnHistoryRecord(5, historyRecord.sSectorX,
+			historyRecord.sSectorY, historyRecord.bSectorZ);
 		#endif
-
-
-		// now write date and amount, and code
-	FileWrite( hFileHandle, &(pHistoryList->ubCode ),	sizeof ( UINT8 ), NULL );
-	FileWrite( hFileHandle, &(pHistoryList->ubSecondCode ),	sizeof ( UINT8 ), NULL );
-		FileWrite( hFileHandle, &(pHistoryList->uiDate ),	sizeof ( UINT32 ), NULL );
-	FileWrite( hFileHandle, &(pHistoryList->sSectorX ),	sizeof ( INT16 ), NULL );
-		FileWrite( hFileHandle, &(pHistoryList->sSectorY ),	sizeof ( INT16 ), NULL );
-		FileWrite( hFileHandle, &(pHistoryList->bSectorZ ),	sizeof ( INT8 ), NULL );
-		FileWrite( hFileHandle, &(pHistoryList->ubColor ),	sizeof ( UINT8 ), NULL );
-
-
-		// close file
-	FileClose( hFileHandle );
-
-	return( TRUE );
+	return WriteHistoryRecordExact(file.Get(), historyRecord);
 }
 
 void ResetHistoryFact( UINT8 ubCode, INT16 sSectorX, INT16 sSectorY )
 {
-	// run through history list
-	HistoryUnitPtr pList;
-	BOOLEAN fFound = FALSE;
-
-	// set current page to before list
-	iCurrentHistoryPage = 0;
-
-	SetLastPageInHistoryRecords( );
-
-	OpenAndReadHistoryFile( );
-
-	pList = pHistoryListHead;
-
-	while( pList )
+	if (!OpenAndReadHistoryFile())
 	{
-		if( ( pList->ubSecondCode == ubCode ) && ( pList->ubCode == HISTORY_QUEST_STARTED ) )
+		ClearHistoryList();
+		Assert(0);
+		return;
+	}
+	BOOLEAN found = FALSE;
+	for (HistoryUnitPtr record = pHistoryListHead;
+		record; record = record->Next)
+	{
+		if (record->ubSecondCode == ubCode &&
+			record->ubCode == HISTORY_QUEST_STARTED)
 		{
-			// reset color
-			pList->ubColor = 0;
-			fFound = TRUE;
-
-			// save
-			OpenAndWriteHistoryFile( );
-			pList = NULL;
-		}
-
-		if( fFound != TRUE )
-		{
-			pList = pList->Next;
+			record->ubColor = 0;
+			found = TRUE;
+			break;
 		}
 	}
-
-	if( fInHistoryMode )
+	if (found)
 	{
-	iCurrentHistoryPage--;
-
-		// load in first page
-	LoadNextHistoryPage( );
+		if (!OpenAndWriteHistoryFile())
+		{
+			ClearHistoryList();
+			Assert(0);
+			return;
+		}
 	}
-
-	SetHistoryFact( HISTORY_QUEST_FINISHED, ubCode, GetWorldTotalMin(), sSectorX, sSectorY );
-	return;
+	else
+	{
+		ClearHistoryList();
+	}
+	SetHistoryFact(HISTORY_QUEST_FINISHED, ubCode,
+		GetWorldTotalMin(), sSectorX, sSectorY);
 }
 
 
 UINT32 GetTimeQuestWasStarted( UINT8 ubCode )
 {
-	// run through history list
-	HistoryUnitPtr pList;
-	BOOLEAN fFound = FALSE;
-	UINT32 uiTime = 0;
-
-	// set current page to before list
-	iCurrentHistoryPage = 0;
-
-	SetLastPageInHistoryRecords( );
-
-	OpenAndReadHistoryFile( );
-
-	pList = pHistoryListHead;
-
-	while( pList )
+	const INT32 displayedPage = iCurrentHistoryPage;
+	if (!OpenAndReadHistoryFile()) return 0;
+	UINT32 startTime = 0;
+	for (HistoryUnitPtr record = pHistoryListHead;
+		record; record = record->Next)
 	{
-		if( ( pList->ubSecondCode == ubCode ) && ( pList->ubCode == HISTORY_QUEST_STARTED ) )
+		if (record->ubSecondCode == ubCode &&
+			record->ubCode == HISTORY_QUEST_STARTED)
 		{
-			uiTime = pList->uiDate;
-			fFound = TRUE;
-
-			pList = NULL;
-		}
-
-		if( fFound != TRUE )
-		{
-			pList = pList->Next;
+			startTime = record->uiDate;
+			break;
 		}
 	}
-
-	if( fInHistoryMode )
+	ClearHistoryList();
+	if (fInHistoryMode && gHistoryRecordPageCount > 0)
 	{
-	iCurrentHistoryPage--;
-
-		// load in first page
-	LoadNextHistoryPage( );
+		iCurrentHistoryPage = static_cast<INT32>(
+			LaptopRecordPageModel::NormalizeOneBasedPage(
+				static_cast<std::size_t>(displayedPage < 1 ? 1 : displayedPage),
+				gHistoryRecordPageCount));
+		LoadInHistoryRecords(static_cast<UINT32>(iCurrentHistoryPage));
 	}
-
-	return( uiTime );
+	return startTime;
 }
 
 void GetQuestStartedString( UINT8 ubQuestValue, CHAR16 *sQuestString )
@@ -1820,46 +1430,4 @@ void PerformCheckOnHistoryRecord( UINT32 uiErrorCode, INT16 sSectorX, INT16 sSec
 	}
 }
 #endif
-
-INT32 GetNumberOfHistoryPages()
-{
-	HWFILE hFileHandle;
-	UINT32	uiFileSize=0;
-	UINT32	uiSizeOfRecordsOnEachPage = 0;
-	INT32		iNumberOfHistoryPages = 0;
-
-	if ( ! (FileExists( HISTORY_DATA_FILE ) ) )
-		return( 0 );
-
-	// open file
- 	hFileHandle=FileOpen( HISTORY_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		return( 0 );
-	}
-
-	// make sure file is more than 0 length
-	if ( FileGetSize( hFileHandle ) == 0 )
-	{
-	FileClose( hFileHandle );
-		return( 0 );
-	}
-
-	uiFileSize = FileGetSize( hFileHandle ) - 1;
-	uiSizeOfRecordsOnEachPage = ( NUM_RECORDS_PER_PAGE * ( sizeof( UINT8 ) + sizeof( UINT32 ) + 3*sizeof( UINT8 )+ sizeof(INT16) + sizeof( INT16 ) ) );
-
-	iNumberOfHistoryPages = (INT32)( uiFileSize / uiSizeOfRecordsOnEachPage );
-
-	FileClose( hFileHandle );
-
-	return( iNumberOfHistoryPages );
-}
-
-
-
-
-
-
 

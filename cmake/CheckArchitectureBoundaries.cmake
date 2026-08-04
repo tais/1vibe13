@@ -2628,13 +2628,182 @@ if(compiled_laptop_history_beta_identity)
   message(FATAL_ERROR
     "Laptop history regained application-only beta rendering behavior")
 endif()
-string(FIND "${runtime_laptop_history_contents}"
-  "if( pList == NULL )\n\t{\n\t\tFileClose( hFileHandle );\n\t\treturn( FALSE );"
-  runtime_laptop_history_empty_write_closes_file)
-if(runtime_laptop_history_empty_write_closes_file EQUAL -1)
+
+# Finance and history share one dependency-free record-page model and exact-I/O
+# owner. Both pages stage render/input resources, normalize persisted pages,
+# reject malformed record tails, and keep legacy handles out of open-coded
+# cleanup paths.
+file(READ "${SOURCE_ROOT}/Laptop/LaptopRecordPageModel.h"
+  runtime_laptop_record_page_model_contents)
+foreach(required_laptop_record_page_model_fragment IN ITEMS
+    "IsWellFormedFile"
+    "NormalizeZeroBasedPage"
+    "NormalizeOneBasedPage"
+    "PageByteOffset"
+    "RecordsOnPage"
+    "BoundedIndex"
+    "CanApplyBalanceChange"
+    "SaturatingAdd"
+    "SaturatingAddUnsigned"
+    "SaturatingSubtract"
+    "IsRecordOnDayOffset")
+  string(FIND "${runtime_laptop_record_page_model_contents}"
+    "${required_laptop_record_page_model_fragment}"
+    required_laptop_record_page_model_position)
+  if(required_laptop_record_page_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop record-page model lost '${required_laptop_record_page_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/LaptopRecordFile.h"
+  runtime_laptop_record_file_contents)
+foreach(required_laptop_record_file_fragment IN ITEMS
+    "class ScopedLaptopFile"
+    "ReadLaptopFileExact"
+    "bytesRead == size"
+    "WriteLaptopFileExact"
+    "bytesWritten == size")
+  string(FIND "${runtime_laptop_record_file_contents}"
+    "${required_laptop_record_file_fragment}"
+    required_laptop_record_file_position)
+  if(required_laptop_record_file_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop record-file boundary lost '${required_laptop_record_file_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/finances.cpp"
+  runtime_laptop_finance_contents)
+foreach(laptop_record_page_source IN ITEMS
+    runtime_laptop_finance_contents
+    runtime_laptop_history_contents)
+  string(FIND "${${laptop_record_page_source}}"
+    "LaptopPageResourceOwner" laptop_record_page_owner_position)
+  if(laptop_record_page_owner_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop ledger page lost transactional resource ownership")
+  endif()
+  string(REGEX MATCH
+    "DeleteVideoObjectFromIndex[ \t\r\n]*\\(|RemoveButton[ \t\r\n]*\\(|UnloadButtonImage[ \t\r\n]*\\("
+    raw_laptop_record_resource_lifecycle "${${laptop_record_page_source}}")
+  if(raw_laptop_record_resource_lifecycle)
+    message(FATAL_ERROR
+      "Laptop ledger page restored open-coded resource teardown '${raw_laptop_record_resource_lifecycle}'")
+  endif()
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])File(Read|Write|Close)[ \t\r\n]*\\("
+    raw_laptop_record_file_io "${${laptop_record_page_source}}")
+  if(raw_laptop_record_file_io)
+    message(FATAL_ERROR
+      "Laptop ledger page bypassed exact/scoped file ownership '${raw_laptop_record_file_io}'")
+  endif()
+  string(REGEX MATCH
+    "mprintf[ \t\r\n]*\\([^,\r\n]+,[^,\r\n]+,[ \t\r\n]*(pFinance|pHistory|sString|tmp\\.data)"
+    unsafe_laptop_record_page_format "${${laptop_record_page_source}}")
+  if(unsafe_laptop_record_page_format)
+    message(FATAL_ERROR
+      "Laptop ledger page restored a variable render format '${unsafe_laptop_record_page_format}'")
+  endif()
+endforeach()
+
+foreach(required_laptop_finance_safety_fragment IN ITEMS
+    "gFinancePageResources"
+    "ReadFinanceRecordExact"
+    "PersistFinanceTransaction"
+    "CanApplyBalanceChange"
+    "NormalizeZeroBasedPage"
+    "gFinanceRecordPageCount"
+    "IsRecordOnDayOffset"
+    "BoundedIndex"
+    "FormatFinanceMagnitude"
+    "L\"%s\", pFinanceSummary"
+    "SaturatingSubtract")
+  string(FIND "${runtime_laptop_finance_contents}"
+    "${required_laptop_finance_safety_fragment}"
+    required_laptop_finance_safety_position)
+  if(required_laptop_finance_safety_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop finance safety lost '${required_laptop_finance_safety_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_laptop_history_safety_fragment IN ITEMS
+    "gHistoryPageResources"
+    "guiHistoryTitle"
+    "ReadHistoryRecordExact"
+    "WriteHistoryRecordExact"
+    "NormalizeOneBasedPage"
+    "gHistoryRecordPageCount"
+    "BoundedIndex"
+    "L\"%s\", pHistoryTitle"
+    "sgp_swprintf(pString, 512, L\"%s\", sString)"
+    "AppendHistoryToEndOfFile(const HistoryUnit&")
+  string(FIND "${runtime_laptop_history_contents}"
+    "${required_laptop_history_safety_fragment}"
+    required_laptop_history_safety_position)
+  if(required_laptop_history_safety_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop history safety lost '${required_laptop_history_safety_fragment}'")
+  endif()
+endforeach()
+
+foreach(retired_laptop_record_page_fragment IN ITEMS
+    "IncrementCurrentPageFinancialDisplay"
+    "IncrementCurrentPageHistoryDisplay"
+    "WriteOutHistoryRecords"
+    "ReadInLastElementOfHistoryListAndReturnIdNumber"
+    "GetNumberOfHistoryPages")
+  string(FIND "${runtime_laptop_finance_contents}"
+    "${retired_laptop_record_page_fragment}"
+    retired_laptop_finance_record_page_position)
+  string(FIND "${runtime_laptop_history_contents}"
+    "${retired_laptop_record_page_fragment}"
+    retired_laptop_history_record_page_position)
+  if(NOT retired_laptop_finance_record_page_position EQUAL -1 OR
+      NOT retired_laptop_history_record_page_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop ledgers restored retired page/file path '${retired_laptop_record_page_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_laptop_record_page_test_build_fragment IN ITEMS
+    "laptop_record_page_model_tests.cpp"
+    "laptop_record_page_model")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_laptop_record_page_test_build_fragment}"
+    required_laptop_record_page_test_build_position)
+  if(required_laptop_record_page_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop record-page model lost its focused test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "laptop_record_page_model_tests"
+  runtime_laptop_record_page_ci_position)
+if(runtime_laptop_record_page_ci_position EQUAL -1)
   message(FATAL_ERROR
-    "Laptop history empty-page write no longer closes its open file")
+    "AddressSanitizer CI lost the Laptop record-page model target")
 endif()
+
+file(READ "${SOURCE_ROOT}/tests/laptop_record_page_model_tests.cpp"
+  runtime_laptop_record_page_test_contents)
+foreach(required_laptop_record_page_test_fragment IN ITEMS
+    "Record layouts reject short, partial, and zero-width files"
+    "Saved ledger pages normalize empty, zero, and stale values"
+    "Ledger offsets include headers and reject overflowing pages"
+    "Record-driven indices reject exact-end and oversized values"
+    "Finance balance publication rejects signed overflow"
+    "Ledger summaries saturate instead of overflowing signed totals"
+    "Ledger day buckets handle legacy adjustment, early days, and overflow")
+  string(FIND "${runtime_laptop_record_page_test_contents}"
+    "${required_laptop_record_page_test_fragment}"
+    required_laptop_record_page_test_position)
+  if(required_laptop_record_page_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop record-page tests lost '${required_laptop_record_page_test_fragment}'")
+  endif()
+endforeach()
 
 foreach(required_laptop_campaign_content_test_fragment IN ITEMS
     "laptop_campaign_content_policy_tests.cpp"

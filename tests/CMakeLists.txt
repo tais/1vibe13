@@ -129,6 +129,15 @@ target_include_directories(bobby_ray_fulfilment_model_tests
 add_test(NAME bobby_ray_fulfilment_model
   COMMAND bobby_ray_fulfilment_model_tests)
 
+# Finance, history, and email use persisted paginated record lists. Keep
+# malformed layouts, stale saved pages, offsets, and exact-end views data-free.
+add_executable(laptop_record_page_model_tests
+  laptop_record_page_model_tests.cpp)
+target_include_directories(laptop_record_page_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME laptop_record_page_model
+  COMMAND laptop_record_page_model_tests)
+
 # XML callbacks receive text in arbitrary chunks. Keep accumulation, strict
 # integer narrowing, explicit legacy-byte sentinels, index validation, and
 # fixed-buffer copying data-free.
