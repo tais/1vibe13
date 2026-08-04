@@ -1954,6 +1954,143 @@ foreach(required_bobby_ray_commerce_assertion IN ITEMS
   endif()
 endforeach()
 
+# Bobby Ray's five catalogue pages share one staged resource lifecycle and a
+# dependency-free pagination/input model. Page exits must release registered
+# regions and buttons before their backing images, while empty/stale pages,
+# queued callbacks, malformed LBE data, and temporary item graphics stay safe.
+foreach(bobby_ray_catalogue_source IN ITEMS
+    "Laptop/BobbyRGuns.cpp"
+    "Laptop/BobbyRAmmo.cpp"
+    "Laptop/BobbyRArmour.cpp"
+    "Laptop/BobbyRMisc.cpp"
+    "Laptop/BobbyRUsed.cpp")
+  file(READ "${SOURCE_ROOT}/${bobby_ray_catalogue_source}"
+    bobby_ray_catalogue_source_contents)
+  string(FIND "${bobby_ray_catalogue_source_contents}"
+    "LaptopPageResourceOwner" bobby_ray_catalogue_owner_position)
+  if(bobby_ray_catalogue_owner_position EQUAL -1)
+    message(FATAL_ERROR
+      "${bobby_ray_catalogue_source} lost transactional page ownership")
+  endif()
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(CHECKF[ \t]*\\([ \t]*)?(AddVideoObject|AddVideoSurface|DeleteVideoObjectFromIndex|DeleteVideoSurfaceFromIndex|LoadButtonImage|UnloadButtonImage|RemoveButton|MSYS_AddRegion|MSYS_RemoveRegion)[ \t]*\\("
+    raw_bobby_ray_catalogue_resource_lifecycle
+    "${bobby_ray_catalogue_source_contents}")
+  if(raw_bobby_ray_catalogue_resource_lifecycle)
+    message(FATAL_ERROR
+      "${bobby_ray_catalogue_source} restored open-coded resource ownership '${raw_bobby_ray_catalogue_resource_lifecycle}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/BobbyRayCatalogueModel.h"
+  runtime_bobby_ray_catalogue_model_contents)
+foreach(required_bobby_ray_catalogue_model_fragment IN ITEMS
+    "ItemsPerPage = 4"
+    "PageCount"
+    "NormalizePage"
+    "NextPage"
+    "PreviousPage"
+    "VisibleItemCount"
+    "DisplayPageNumber"
+    "IsVisibleItemSlot"
+    "IsCatalogueIndexInBounds")
+  string(FIND "${runtime_bobby_ray_catalogue_model_contents}"
+    "${required_bobby_ray_catalogue_model_fragment}"
+    required_bobby_ray_catalogue_model_position)
+  if(required_bobby_ray_catalogue_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray catalogue model lost '${required_bobby_ray_catalogue_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/BobbyRGuns.cpp"
+  runtime_bobby_ray_catalogue_contents)
+foreach(required_bobby_ray_catalogue_fragment IN ITEMS
+    "InitBobbyMenuBar(LaptopPageResourceOwner& owner)"
+    "gBobbyRBigImageResources"
+    "gBobbyRBigImageResources = std::move(stagedResources)"
+    "UniqueVideoObjectHandle itemImage"
+    "IsLoadedBobbyRayItem"
+    "BobbyRayCommerceModel::BoundedLength"
+    "BobbyRayCatalogueModel::NormalizePage"
+    "BobbyRayCatalogueModel::IsVisibleItemSlot"
+    "gubNumItemsOnScreen != ubCount"
+    "LoadBearingEquipment.size()"
+    "lbePocketIndex.size()"
+    "firstPocketIndex, LBEPocketType.size()"
+    "pocketNum.size()")
+  string(FIND "${runtime_bobby_ray_catalogue_contents}"
+    "${required_bobby_ray_catalogue_fragment}"
+    required_bobby_ray_catalogue_position)
+  if(required_bobby_ray_catalogue_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray catalogue safety lost '${required_bobby_ray_catalogue_fragment}'")
+  endif()
+endforeach()
+foreach(bobby_ray_catalogue_page_counter IN ITEMS
+    "gubCurPage"
+    "gubNumPages")
+  string(REGEX MATCH
+    "UINT(16|32|64)[ \t]+${bobby_ray_catalogue_page_counter}"
+    widened_bobby_ray_catalogue_page_counter
+    "${runtime_bobby_ray_catalogue_contents}")
+  if(NOT widened_bobby_ray_catalogue_page_counter)
+    message(FATAL_ERROR
+      "Bobby Ray catalogue page counter '${bobby_ray_catalogue_page_counter}' narrowed below 16 bits")
+  endif()
+endforeach()
+foreach(retired_bobby_ray_catalogue_fragment IN ITEMS
+    "DeleteBobbyRGunsFilter"
+    "DeleteBobbyRAmmoFilter"
+    "DeleteBobbyRArmourFilter"
+    "DeleteBobbyRMiscFilter"
+    "DeleteBobbyRUsedFilter"
+    "DeleteBobbyMenuBar")
+  string(FIND "${runtime_bobby_ray_catalogue_contents}"
+    "${retired_bobby_ray_catalogue_fragment}"
+    retired_bobby_ray_catalogue_position)
+  if(NOT retired_bobby_ray_catalogue_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray catalogue restored raw teardown '${retired_bobby_ray_catalogue_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_bobby_ray_catalogue_test_build_fragment IN ITEMS
+    "bobby_ray_catalogue_model_tests.cpp"
+    "bobby_ray_catalogue_model")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_bobby_ray_catalogue_test_build_fragment}"
+    required_bobby_ray_catalogue_test_build_position)
+  if(required_bobby_ray_catalogue_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray catalogue model lost its headless test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "bobby_ray_catalogue_model_tests" runtime_bobby_ray_catalogue_ci_position)
+if(runtime_bobby_ray_catalogue_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Bobby Ray catalogue model test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/bobby_ray_catalogue_model_tests.cpp"
+  runtime_bobby_ray_catalogue_test_contents)
+foreach(required_bobby_ray_catalogue_test_fragment IN ITEMS
+    "PageCount(1024) == 256"
+    "Catalogue page counts cover empty, full, and partial pages"
+    "Catalogue navigation clamps empty and stale page selections"
+    "Catalogue presentation normalizes empty and final partial pages"
+    "Catalogue hotkeys and callbacks reject hidden item slots"
+    "Catalogue data indices reject the exact-end value")
+  string(FIND "${runtime_bobby_ray_catalogue_test_contents}"
+    "${required_bobby_ray_catalogue_test_fragment}"
+    required_bobby_ray_catalogue_test_position)
+  if(required_bobby_ray_catalogue_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray catalogue tests lost '${required_bobby_ray_catalogue_test_fragment}'")
+  endif()
+endforeach()
+
 # Laptop XML/localization input is staged behind one dependency-free boundary
 # model and one legacy UTF-8 adapter. Expat may split character data at any
 # byte, and malformed or oversized data must not narrow, truncate, address an

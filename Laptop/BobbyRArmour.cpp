@@ -2,14 +2,21 @@
 	#include "BobbyRArmour.h"
 	#include "BobbyRGuns.h"
 	#include "BobbyR.h"
+	#include "LaptopPageResourceOwner.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "WordWrap.h"
 	#include "Text.h"
+	#include <utility>
 
 
 UINT32		guiArmourBackground;
 UINT32		guiArmourGrid;
+
+namespace
+{
+LaptopPageResourceOwner gBobbyRArmourResources;
+}
 
 
 
@@ -21,18 +28,21 @@ void GameInitBobbyRArmour()
 BOOLEAN EnterBobbyRArmour()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner staged;
+	DeleteMouseRegionForBigImage();
+	gBobbyRArmourResources.clear();
 
 	// load the background graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Armourbackground.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiArmourBackground));
+	if (!staged.addVideoObject(&VObjectDesc, guiArmourBackground)) return FALSE;
 
 	// load the gunsgrid graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Armourgrid.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiArmourGrid));
+	if (!staged.addVideoObject(&VObjectDesc, guiArmourGrid)) return FALSE;
 
-	InitBobbyBrTitle();
+	if (!InitBobbyBrTitle(staged)) return FALSE;
 
 	guiPrevArmourFilterMode = -1;
 	guiCurrentArmourFilterMode = -1;
@@ -40,9 +50,10 @@ BOOLEAN EnterBobbyRArmour()
 	SetFirstLastPagesForNew( IC_ARMOUR, guiCurrentArmourFilterMode );
 
 	//Draw menu bar
-	InitBobbyMenuBar( );
+	if (!InitBobbyMenuBar(staged)) return FALSE;
 
-	InitBobbyRArmourFilterBar();
+	if (!InitBobbyRArmourFilterBar(staged)) return FALSE;
+	gBobbyRArmourResources = std::move(staged);
 
 	RenderBobbyRArmour( );
 
@@ -51,14 +62,8 @@ BOOLEAN EnterBobbyRArmour()
 
 void ExitBobbyRArmour()
 {
-	DeleteVideoObjectFromIndex(guiArmourBackground);
-	DeleteVideoObjectFromIndex(guiArmourGrid);
-	DeleteBobbyMenuBar();
-
-	DeleteBobbyRArmourFilter();
-
-	DeleteBobbyBrTitle();
 	DeleteMouseRegionForBigImage();
+	gBobbyRArmourResources.clear();
 
 	giCurrentSubPage = gusCurWeaponIndex;
 	guiLastBobbyRayPage = LAPTOP_MODE_BOBBY_R_ARMOR;

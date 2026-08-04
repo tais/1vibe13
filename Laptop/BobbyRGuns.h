@@ -7,6 +7,8 @@
 
 #define		BOBBYR_USED_ITEMS			0xFFFFFFFF
 
+class LaptopPageResourceOwner;
+
 
 #define		BOBBYR_GUNS_BUTTON_FONT						FONT10ARIAL
 #define		BOBBYR_GUNS_TEXT_COLOR_ON					FONT_NEARBLACK // FONT_DKGREEN
@@ -33,22 +35,15 @@ void ExitBobbyRGuns();
 void HandleBobbyRGuns();
 void RenderBobbyRGuns();
 
-BOOLEAN DeleteBobbyRGunsFilter();
-BOOLEAN DeleteBobbyRAmmoFilter();
-BOOLEAN DeleteBobbyRUsedFilter();
-BOOLEAN DeleteBobbyRArmourFilter();
-BOOLEAN DeleteBobbyRMiscFilter();
-BOOLEAN InitBobbyRGunsFilterBar();
-BOOLEAN InitBobbyRAmmoFilterBar();
-BOOLEAN InitBobbyRUsedFilterBar();
-BOOLEAN InitBobbyRArmourFilterBar();
-BOOLEAN InitBobbyRMiscFilterBar();
+BOOLEAN InitBobbyRGunsFilterBar(LaptopPageResourceOwner& owner);
+BOOLEAN InitBobbyRAmmoFilterBar(LaptopPageResourceOwner& owner);
+BOOLEAN InitBobbyRUsedFilterBar(LaptopPageResourceOwner& owner);
+BOOLEAN InitBobbyRArmourFilterBar(LaptopPageResourceOwner& owner);
+BOOLEAN InitBobbyRMiscFilterBar(LaptopPageResourceOwner& owner);
 
 BOOLEAN DisplayBobbyRBrTitle();
-BOOLEAN DeleteBobbyBrTitle();
-BOOLEAN InitBobbyBrTitle();
-BOOLEAN InitBobbyMenuBar( );
-BOOLEAN DeleteBobbyMenuBar();
+BOOLEAN InitBobbyBrTitle(LaptopPageResourceOwner& owner);
+BOOLEAN InitBobbyMenuBar(LaptopPageResourceOwner& owner);
 
 
 

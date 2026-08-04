@@ -1,6 +1,8 @@
 	#include "laptop.h"
 	#include "BobbyRGuns.h"
 	#include "BobbyR.h"
+	#include "BobbyRayCatalogueModel.h"
+	#include "LaptopPageResourceOwner.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "WordWrap.h"
@@ -22,6 +24,8 @@
 	#include "input.h"
 	#include "Encyclopedia_new.h"	//update encyclopedia item visibility when viewing that item
 	#include <language.hpp>
+	#include <algorithm>
+	#include <utility>
 
 
 #define		BOBBYR_DEFAULT_MENU_COLOR					255
@@ -254,7 +258,7 @@ UINT32		guiGunBackground;
 UINT32		guiGunsGrid;
 UINT32		guiBrTitle;
 UINT16		gusCurWeaponIndex;
-UINT8			gubCurPage;
+UINT16		gubCurPage;
 UINT8			ubCatalogueButtonValues[] = {
 							LAPTOP_MODE_BOBBY_R_GUNS,
 							LAPTOP_MODE_BOBBY_R_AMMO,
@@ -265,12 +269,23 @@ UINT8			ubCatalogueButtonValues[] = {
 UINT16		gusLastItemIndex=0;
 UINT16		gusFirstItemIndex=0;
 UINT8			gubNumItemsOnScreen;
-UINT8			gubNumPages;
-UINT8			gubNumPagesMod;
+UINT16		gubNumPages;
 
 
 BOOLEAN		gfBigImageMouseRegionCreated;
 UINT16		gusItemNumberForItemsOnScreen[ BOBBYR_NUM_WEAPONS_ON_PAGE ];
+
+namespace
+{
+LaptopPageResourceOwner gBobbyRGunsResources;
+LaptopPageResourceOwner gBobbyRBigImageResources;
+
+bool IsLoadedBobbyRayItem(std::size_t itemIndex) noexcept
+{
+	return BobbyRayCatalogueModel::IsCatalogueIndexInBounds(
+		itemIndex, std::min<std::size_t>(gMAXITEMS_READ, MAXITEMS));
+}
+}
 
 
 BOOLEAN		gfOnUsedPage;
@@ -422,20 +437,22 @@ void EnterInitBobbyRGuns()
 BOOLEAN EnterBobbyRGuns()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner staged;
 
-	gfBigImageMouseRegionCreated = FALSE;
+	DeleteMouseRegionForBigImage();
+	gBobbyRGunsResources.clear();
 
 	// load the background graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\gunbackground.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiGunBackground));
+	if (!staged.addVideoObject(&VObjectDesc, guiGunBackground)) return FALSE;
 
 	// load the gunsgrid graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\gunsgrid.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiGunsGrid));
+	if (!staged.addVideoObject(&VObjectDesc, guiGunsGrid)) return FALSE;
 
-	InitBobbyBrTitle();
+	if (!InitBobbyBrTitle(staged)) return FALSE;
 
 	guiPrevGunFilterMode = -1;
 	guiCurrentGunFilterMode = -1;
@@ -444,8 +461,9 @@ BOOLEAN EnterBobbyRGuns()
 	SetFirstLastPagesForNew( IC_BOBBY_GUN, guiCurrentGunFilterMode );
 
 	//Draw menu bar
-	InitBobbyMenuBar();
-	InitBobbyRGunsFilterBar();
+	if (!InitBobbyMenuBar(staged) ||
+		!InitBobbyRGunsFilterBar(staged)) return FALSE;
+	gBobbyRGunsResources = std::move(staged);
 
 	// render once
 	RenderBobbyRGuns( );
@@ -455,14 +473,8 @@ BOOLEAN EnterBobbyRGuns()
 
 void ExitBobbyRGuns()
 {
-	DeleteVideoObjectFromIndex(guiGunBackground);
-	DeleteVideoObjectFromIndex(guiGunsGrid);
-	DeleteBobbyBrTitle();
-	DeleteBobbyMenuBar();
-
-	DeleteBobbyRGunsFilter();
-
 	DeleteMouseRegionForBigImage();
+	gBobbyRGunsResources.clear();
 
 	giCurrentSubPage = gusCurWeaponIndex;
 	guiLastBobbyRayPage = LAPTOP_MODE_BOBBY_R_GUNS;
@@ -525,33 +537,22 @@ BOOLEAN DisplayBobbyRBrTitle()
 }
 
 
-BOOLEAN InitBobbyBrTitle()
+BOOLEAN InitBobbyBrTitle(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 
 	// load the br title graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	GetMLGFilename( VObjectDesc.ImageFile, MLG_BR );
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBrTitle));
+	if (!owner.addVideoObject(&VObjectDesc, guiBrTitle)) return FALSE;
 
 	//initialize the link to the homepage by clicking on the title
 	MSYS_DefineRegion( &gSelectedTitleImageLinkRegion, BOBBYR_BRTITLE_X, BOBBYR_BRTITLE_Y, (BOBBYR_BRTITLE_X + BOBBYR_BRTITLE_WIDTH), (UINT16)(BOBBYR_BRTITLE_Y + BOBBYR_BRTITLE_HEIGHT), MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectTitleImageLinkRegionCallBack);
-	MSYS_AddRegion( &gSelectedTitleImageLinkRegion );
+	if (!owner.addRegion(gSelectedTitleImageLinkRegion)) return FALSE;
 
 
 	gusOldItemNumOnTopOfPage=65535;
-
-	return(TRUE);
-}
-
-BOOLEAN DeleteBobbyBrTitle()
-{
-	DeleteVideoObjectFromIndex(guiBrTitle);
-
-	MSYS_RemoveRegion( &gSelectedTitleImageLinkRegion);
-
-	DeleteMouseRegionForBigImage();
 
 	return(TRUE);
 }
@@ -568,7 +569,7 @@ void SelectTitleImageLinkRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 	}
 }
 
-BOOLEAN InitBobbyRGunsFilterBar()
+BOOLEAN InitBobbyRGunsFilterBar(LaptopPageResourceOwner& owner)
 {
 	UINT8	i;
 	UINT16	usPosX;
@@ -578,7 +579,10 @@ BOOLEAN InitBobbyRGunsFilterBar()
 	bCurMode = 0;
 	usPosX = FILTER_BUTTONS_GUN_START_X;
 
-	guiBobbyRFilterImage =	LoadButtonImage("LAPTOP\\CatalogueButton1.sti", -1,0,-1,1,-1 );
+	std::fill_n(guiBobbyRFilterGuns, NUMBER_GUNS_FILTER_BUTTONS, 0);
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\CatalogueButton1.sti", -1, 0, -1, 1, -1),
+			guiBobbyRFilterImage)) return FALSE;
 
 	// Loop through the filter buttons
 	for(i=0; i<NUMBER_GUNS_FILTER_BUTTONS; i++)
@@ -591,12 +595,13 @@ BOOLEAN InitBobbyRGunsFilterBar()
 		}
 
 		// Filter buttons
-		guiBobbyRFilterGuns[i] = CreateIconAndTextButton( guiBobbyRFilterImage, BobbyRFilter[BOBBYR_FILTER_GUNS_PISTOL+i], BOBBYR_GUNS_BUTTON_FONT,
+		if (!owner.addButton(CreateIconAndTextButton( guiBobbyRFilterImage, BobbyRFilter[BOBBYR_FILTER_GUNS_PISTOL+i], BOBBYR_GUNS_BUTTON_FONT,
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													usPosX, FILTER_BUTTONS_Y + usYOffset, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRFilterGunsCallback);
+											DEFAULT_MOVE_CALLBACK, BtnBobbyRFilterGunsCallback),
+			guiBobbyRFilterGuns[i])) return FALSE;
 
 		SetButtonCursor(guiBobbyRFilterGuns[i], CURSOR_LAPTOP_SCREEN);
 
@@ -610,7 +615,7 @@ BOOLEAN InitBobbyRGunsFilterBar()
 	return(TRUE);
 }
 
-BOOLEAN InitBobbyRAmmoFilterBar()
+BOOLEAN InitBobbyRAmmoFilterBar(LaptopPageResourceOwner& owner)
 {
 	UINT8	i;
 	UINT16	usPosX;
@@ -621,7 +626,10 @@ BOOLEAN InitBobbyRAmmoFilterBar()
 	bCurMode = 0;
 	usPosX = FILTER_BUTTONS_AMMO_START_X;
 
-	guiBobbyRFilterImage =	LoadButtonImage("LAPTOP\\CatalogueButton1.sti", -1,0,-1,1,-1 );
+	std::fill_n(guiBobbyRFilterAmmo, NUMBER_AMMO_FILTER_BUTTONS, 0);
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\CatalogueButton1.sti", -1, 0, -1, 1, -1),
+			guiBobbyRFilterImage)) return FALSE;
 
 	// Loop through the filter buttons
 	for(i=0; i<NUMBER_AMMO_FILTER_BUTTONS; i++)
@@ -634,12 +642,13 @@ BOOLEAN InitBobbyRAmmoFilterBar()
 		}
 
 		// Filter buttons
-		guiBobbyRFilterAmmo[i] = CreateIconAndTextButton( guiBobbyRFilterImage, BobbyRFilter[BOBBYR_FILTER_AMMO_PISTOL+i], BOBBYR_GUNS_BUTTON_FONT,
+		if (!owner.addButton(CreateIconAndTextButton( guiBobbyRFilterImage, BobbyRFilter[BOBBYR_FILTER_AMMO_PISTOL+i], BOBBYR_GUNS_BUTTON_FONT,
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													usPosX, FILTER_BUTTONS_Y + usYOffset, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRFilterAmmoCallback);
+											DEFAULT_MOVE_CALLBACK, BtnBobbyRFilterAmmoCallback),
+			guiBobbyRFilterAmmo[i])) return FALSE;
 
 		SetButtonCursor(guiBobbyRFilterAmmo[i], CURSOR_LAPTOP_SCREEN);
 
@@ -653,7 +662,7 @@ BOOLEAN InitBobbyRAmmoFilterBar()
 	return(TRUE);
 }
 
-BOOLEAN InitBobbyRArmourFilterBar()
+BOOLEAN InitBobbyRArmourFilterBar(LaptopPageResourceOwner& owner)
 {
 	UINT8	i;
 	UINT16	usPosX;
@@ -663,7 +672,10 @@ BOOLEAN InitBobbyRArmourFilterBar()
 	bCurMode = 0;
 	usPosX = FILTER_BUTTONS_GUN_START_X;
 
-	guiBobbyRFilterImage =	LoadButtonImage("LAPTOP\\CatalogueButton1.sti", -1,0,-1,1,-1 );
+	std::fill_n(guiBobbyRFilterArmour, NUMBER_ARMOUR_FILTER_BUTTONS, 0);
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\CatalogueButton1.sti", -1, 0, -1, 1, -1),
+			guiBobbyRFilterImage)) return FALSE;
 
 	// Loop through the filter buttons
 	for(i=0; i<NUMBER_ARMOUR_FILTER_BUTTONS; i++)
@@ -676,12 +688,13 @@ BOOLEAN InitBobbyRArmourFilterBar()
 		}
 
 		// Filter buttons
-		guiBobbyRFilterArmour[i] = CreateIconAndTextButton( guiBobbyRFilterImage, BobbyRFilter[BOBBYR_FILTER_ARMOUR_HELM+i], BOBBYR_GUNS_BUTTON_FONT,
-													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
-													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
-													TEXT_CJUSTIFIED,
-													usPosX, FILTER_BUTTONS_Y + usYOffset, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRFilterArmourCallback);
+		if (!owner.addButton(CreateIconAndTextButton( guiBobbyRFilterImage, BobbyRFilter[BOBBYR_FILTER_ARMOUR_HELM+i], BOBBYR_GUNS_BUTTON_FONT,
+											BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
+											BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
+											TEXT_CJUSTIFIED,
+											usPosX, FILTER_BUTTONS_Y + usYOffset, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											DEFAULT_MOVE_CALLBACK, BtnBobbyRFilterArmourCallback),
+			guiBobbyRFilterArmour[i])) return FALSE;
 
 		SetButtonCursor(guiBobbyRFilterArmour[i], CURSOR_LAPTOP_SCREEN);
 
@@ -696,14 +709,17 @@ BOOLEAN InitBobbyRArmourFilterBar()
 }
 
 
-BOOLEAN InitBobbyRUsedFilterBar()
+BOOLEAN InitBobbyRUsedFilterBar(LaptopPageResourceOwner& owner)
 {
 	UINT8	i;
 	UINT16	usPosX;
 
 	usPosX = FILTER_BUTTONS_USED_START_X;
 
-	guiBobbyRFilterImage =	LoadButtonImage("LAPTOP\\CatalogueButton1.sti", -1,0,-1,1,-1 );
+	std::fill_n(guiBobbyRFilterUsed, NUMBER_USED_FILTER_BUTTONS, 0);
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\CatalogueButton1.sti", -1, 0, -1, 1, -1),
+			guiBobbyRFilterImage)) return FALSE;
 
 	// Loop through the filter buttons
 	for(i=0; i<NUMBER_USED_FILTER_BUTTONS; i++)
@@ -715,12 +731,13 @@ BOOLEAN InitBobbyRUsedFilterBar()
 		}
 
 		// Filter buttons
-		guiBobbyRFilterUsed[i] = CreateIconAndTextButton( guiBobbyRFilterImage, BobbyRFilter[BOBBYR_FILTER_USED_GUNS+i], BOBBYR_GUNS_BUTTON_FONT,
-													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
-													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
-													TEXT_CJUSTIFIED,
-													usPosX, FILTER_BUTTONS_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRFilterUsedCallback);
+		if (!owner.addButton(CreateIconAndTextButton( guiBobbyRFilterImage, BobbyRFilter[BOBBYR_FILTER_USED_GUNS+i], BOBBYR_GUNS_BUTTON_FONT,
+											BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
+											BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
+											TEXT_CJUSTIFIED,
+											usPosX, FILTER_BUTTONS_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											DEFAULT_MOVE_CALLBACK, BtnBobbyRFilterUsedCallback),
+			guiBobbyRFilterUsed[i])) return FALSE;
 
 		SetButtonCursor(guiBobbyRFilterUsed[i], CURSOR_LAPTOP_SCREEN);
 
@@ -733,7 +750,7 @@ BOOLEAN InitBobbyRUsedFilterBar()
 	return(TRUE);
 }
 
-BOOLEAN InitBobbyRMiscFilterBar()
+BOOLEAN InitBobbyRMiscFilterBar(LaptopPageResourceOwner& owner)
 {
 	UINT8	i;
 	UINT16	usPosX = 0, usPosY = 0;
@@ -742,9 +759,11 @@ BOOLEAN InitBobbyRMiscFilterBar()
 	UINT16	usXOffset = BOBBYR_MISC_FILTER_BUTTON_GAP;
 
 	bCurMode = 0;
-	usPosX = FILTER_BUTTONS_MISC_START_X;
 
-	guiBobbyRFilterImage =	LoadButtonImage("LAPTOP\\CatalogueButton1.sti", -1,0,-1,1,-1 );
+	std::fill_n(guiBobbyRFilterMisc, NUMBER_MISC_FILTER_BUTTONS, 0);
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\CatalogueButton1.sti", -1, 0, -1, 1, -1),
+			guiBobbyRFilterImage)) return FALSE;
 
 	// Loop through the filter buttons
 	for(i=0; i<NUMBER_MISC_FILTER_BUTTONS; i++)
@@ -760,12 +779,13 @@ BOOLEAN InitBobbyRMiscFilterBar()
 		usPosY = FILTER_BUTTONS_Y + ( (bCurMode / sItemWidth) * usYOffset);
 
 		// Filter buttons
-		guiBobbyRFilterMisc[i] = CreateIconAndTextButton( guiBobbyRFilterImage, BobbyRFilter[BOBBYR_FILTER_MISC_BLADE+i], BOBBYR_GUNS_BUTTON_FONT, 
-													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR, 
-													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR, 
-													TEXT_CJUSTIFIED, 
-													usPosX, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRFilterMiscCallback);
+		if (!owner.addButton(CreateIconAndTextButton( guiBobbyRFilterImage, BobbyRFilter[BOBBYR_FILTER_MISC_BLADE+i], BOBBYR_GUNS_BUTTON_FONT,
+											BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
+											BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
+											TEXT_CJUSTIFIED,
+											usPosX, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											DEFAULT_MOVE_CALLBACK, BtnBobbyRFilterMiscCallback),
+			guiBobbyRFilterMisc[i])) return FALSE;
 
 		SetButtonCursor(guiBobbyRFilterMisc[i], CURSOR_LAPTOP_SCREEN);
 
@@ -777,35 +797,43 @@ BOOLEAN InitBobbyRMiscFilterBar()
 	return(TRUE);
 }
 
-BOOLEAN InitBobbyMenuBar(	)
+BOOLEAN InitBobbyMenuBar(LaptopPageResourceOwner& owner)
 {
 	UINT8	i;
 	UINT16	usPosX;
 	UINT8		bCurMode;
 
 	// Previous button
-	guiBobbyRPreviousPageImage = LoadButtonImage("LAPTOP\\PreviousButton.sti", -1,0,-1,1,-1 );
-	guiBobbyRPreviousPage = CreateIconAndTextButton( guiBobbyRPreviousPageImage, BobbyRText[BOBBYR_GUNS_PREVIOUS_ITEMS], BOBBYR_GUNS_BUTTON_FONT,
-													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
-													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
-													TEXT_CJUSTIFIED,
-													BOBBYR_PREVIOUS_BUTTON_X, BOBBYR_PREVIOUS_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRNextPreviousPageCallback);
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\PreviousButton.sti", -1, 0, -1, 1, -1),
+			guiBobbyRPreviousPageImage)) return FALSE;
+	if (!owner.addButton(CreateIconAndTextButton( guiBobbyRPreviousPageImage, BobbyRText[BOBBYR_GUNS_PREVIOUS_ITEMS], BOBBYR_GUNS_BUTTON_FONT,
+											BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
+											BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
+											TEXT_CJUSTIFIED,
+											BOBBYR_PREVIOUS_BUTTON_X, BOBBYR_PREVIOUS_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											DEFAULT_MOVE_CALLBACK, BtnBobbyRNextPreviousPageCallback),
+		guiBobbyRPreviousPage)) return FALSE;
 	SetButtonCursor(guiBobbyRPreviousPage, CURSOR_LAPTOP_SCREEN);
 	MSYS_SetBtnUserData( guiBobbyRPreviousPage, 0, BOBBYR_PREVIOUS_PAGE);
 	SpecifyDisabledButtonStyle( guiBobbyRPreviousPage, DISABLED_STYLE_SHADED );
 
 
-	guiBobbyRPageMenuImage =	LoadButtonImage("LAPTOP\\CatalogueButton1.sti", -1,0,-1,1,-1 );
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\CatalogueButton1.sti", -1, 0, -1, 1, -1),
+			guiBobbyRPageMenuImage)) return FALSE;
 
 	// Next button
-	guiBobbyRNextPageImage	= LoadButtonImage("LAPTOP\\NextButton.sti", -1,0,-1,1,-1 );
-	guiBobbyRNextPage = CreateIconAndTextButton( guiBobbyRNextPageImage, BobbyRText[BOBBYR_GUNS_MORE_ITEMS], BOBBYR_GUNS_BUTTON_FONT,
-													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
-													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
-													TEXT_CJUSTIFIED,
-													BOBBYR_NEXT_BUTTON_X, BOBBYR_NEXT_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRNextPreviousPageCallback);
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\NextButton.sti", -1, 0, -1, 1, -1),
+			guiBobbyRNextPageImage)) return FALSE;
+	if (!owner.addButton(CreateIconAndTextButton( guiBobbyRNextPageImage, BobbyRText[BOBBYR_GUNS_MORE_ITEMS], BOBBYR_GUNS_BUTTON_FONT,
+											BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
+											BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
+											TEXT_CJUSTIFIED,
+											BOBBYR_NEXT_BUTTON_X, BOBBYR_NEXT_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											DEFAULT_MOVE_CALLBACK, BtnBobbyRNextPreviousPageCallback),
+		guiBobbyRNextPage)) return FALSE;
 	SetButtonCursor(guiBobbyRNextPage, CURSOR_LAPTOP_SCREEN);
 	MSYS_SetBtnUserData( guiBobbyRNextPage, 0, BOBBYR_NEXT_PAGE);
 	SpecifyDisabledButtonStyle( guiBobbyRNextPage, DISABLED_STYLE_SHADED );
@@ -813,15 +841,17 @@ BOOLEAN InitBobbyMenuBar(	)
 
 	bCurMode = 0;
 	usPosX = BOBBYR_CATALOGUE_BUTTON_START_X;
+	std::fill_n(guiBobbyRPageMenu, NUM_CATALOGUE_BUTTONS, 0);
 	for(i=0; i<NUM_CATALOGUE_BUTTONS; i++)
 	{
 		// Catalogue Buttons button
-		guiBobbyRPageMenu[i] = CreateIconAndTextButton( guiBobbyRPageMenuImage, BobbyRText[BOBBYR_GUNS_GUNS+i], BOBBYR_GUNS_BUTTON_FONT,
-													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
-													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
-													TEXT_CJUSTIFIED,
-													usPosX, BOBBYR_CATALOGUE_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRPageMenuCallback);
+		if (!owner.addButton(CreateIconAndTextButton( guiBobbyRPageMenuImage, BobbyRText[BOBBYR_GUNS_GUNS+i], BOBBYR_GUNS_BUTTON_FONT,
+											BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
+											BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
+											TEXT_CJUSTIFIED,
+											usPosX, BOBBYR_CATALOGUE_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											DEFAULT_MOVE_CALLBACK, BtnBobbyRPageMenuCallback),
+			guiBobbyRPageMenu[i])) return FALSE;
 
 		SetButtonCursor(guiBobbyRPageMenu[i], CURSOR_LAPTOP_SCREEN);
 
@@ -832,127 +862,33 @@ BOOLEAN InitBobbyMenuBar(	)
 	}
 
 	// Order Form button
-	guiBobbyROrderFormImage	= LoadButtonImage("LAPTOP\\OrderFormButton.sti", -1,0,-1,1,-1 );
-	guiBobbyROrderForm = CreateIconAndTextButton( guiBobbyROrderFormImage, BobbyRText[BOBBYR_GUNS_ORDER_FORM], BOBBYR_GUNS_BUTTON_FONT,
-													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
-													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
-													TEXT_CJUSTIFIED,
-													BOBBYR_ORDER_FORM_X, BOBBYR_ORDER_FORM_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyROrderFormCallback);
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\OrderFormButton.sti", -1, 0, -1, 1, -1),
+			guiBobbyROrderFormImage)) return FALSE;
+	if (!owner.addButton(CreateIconAndTextButton( guiBobbyROrderFormImage, BobbyRText[BOBBYR_GUNS_ORDER_FORM], BOBBYR_GUNS_BUTTON_FONT,
+											BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
+											BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
+											TEXT_CJUSTIFIED,
+											BOBBYR_ORDER_FORM_X, BOBBYR_ORDER_FORM_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											DEFAULT_MOVE_CALLBACK, BtnBobbyROrderFormCallback),
+		guiBobbyROrderForm)) return FALSE;
 
 	SetButtonCursor(guiBobbyROrderForm, CURSOR_LAPTOP_SCREEN);
 
 
 	// Home button
 
-	guiBobbyRHomeImage	= LoadButtonImage("LAPTOP\\CatalogueButton.sti", -1,0,-1,1,-1 );
-	guiBobbyRHome = CreateIconAndTextButton( guiBobbyRHomeImage, BobbyRText[BOBBYR_GUNS_HOME], BOBBYR_GUNS_BUTTON_FONT,
-													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
-													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
-													TEXT_CJUSTIFIED,
-													BOBBYR_HOME_BUTTON_X, BOBBYR_HOME_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRHomeButtonCallback);
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+			"LAPTOP\\CatalogueButton.sti", -1, 0, -1, 1, -1),
+			guiBobbyRHomeImage)) return FALSE;
+	if (!owner.addButton(CreateIconAndTextButton( guiBobbyRHomeImage, BobbyRText[BOBBYR_GUNS_HOME], BOBBYR_GUNS_BUTTON_FONT,
+											BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
+											BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
+											TEXT_CJUSTIFIED,
+											BOBBYR_HOME_BUTTON_X, BOBBYR_HOME_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											DEFAULT_MOVE_CALLBACK, BtnBobbyRHomeButtonCallback),
+		guiBobbyRHome)) return FALSE;
 	SetButtonCursor(guiBobbyRHome, CURSOR_LAPTOP_SCREEN);
-
-	return(TRUE);
-}
-
-BOOLEAN DeleteBobbyRGunsFilter()
-{
-	UINT8	i;
-
-	UnloadButtonImage( guiBobbyRFilterImage );
-
-	for (i=0; i<NUMBER_GUNS_FILTER_BUTTONS; i++)
-	{
-		if(guiBobbyRFilterGuns[i])
-			RemoveButton (guiBobbyRFilterGuns[i]);
-	}
-
-	return (TRUE);
-}
-
-BOOLEAN DeleteBobbyRAmmoFilter()
-{
-	UINT8	i;
-
-	UnloadButtonImage( guiBobbyRFilterImage );
-
-	for (i=0; i<NUMBER_AMMO_FILTER_BUTTONS; i++)
-	{
-		if(guiBobbyRFilterAmmo[i])
-			RemoveButton (guiBobbyRFilterAmmo[i]);
-	}
-
-	return (TRUE);
-}
-
-BOOLEAN DeleteBobbyRUsedFilter()
-{
-	UINT8	i;
-
-	UnloadButtonImage( guiBobbyRFilterImage );
-
-	for (i=0; i<NUMBER_USED_FILTER_BUTTONS; i++)
-	{
-		if(guiBobbyRFilterUsed[i])
-			RemoveButton (guiBobbyRFilterUsed[i]);
-	}
-
-	return (TRUE);
-}
-
-BOOLEAN DeleteBobbyRArmourFilter()
-{
-	UINT8	i;
-
-	UnloadButtonImage( guiBobbyRFilterImage );
-
-	for (i=0; i<NUMBER_ARMOUR_FILTER_BUTTONS; i++)
-	{
-		if(guiBobbyRFilterArmour[i])
-			RemoveButton (guiBobbyRFilterArmour[i]);
-	}
-
-	return (TRUE);
-}
-
-BOOLEAN DeleteBobbyRMiscFilter()
-{
-	UINT8	i;
-
-	UnloadButtonImage( guiBobbyRFilterImage );
-
-	for (i=0; i<NUMBER_MISC_FILTER_BUTTONS; i++)
-	{
-		if(guiBobbyRFilterMisc[i])
-			RemoveButton (guiBobbyRFilterMisc[i]);
-	}
-
-	return (TRUE);
-}
-
-
-BOOLEAN DeleteBobbyMenuBar()
-{
-	UINT8	i;
-
-	UnloadButtonImage( guiBobbyRNextPageImage );
-	UnloadButtonImage( guiBobbyRPreviousPageImage );
-	UnloadButtonImage( guiBobbyRPageMenuImage );
-	UnloadButtonImage( guiBobbyROrderFormImage );
-	UnloadButtonImage( guiBobbyRHomeImage );
-
-	RemoveButton( guiBobbyRNextPage );
-	RemoveButton( guiBobbyRPreviousPage );
-	RemoveButton( guiBobbyROrderForm );
-	RemoveButton( guiBobbyRHome );
-
-	for(i=0; i<NUM_CATALOGUE_BUTTONS; i++)
-	{
-		if(guiBobbyRPageMenu[i])
-			RemoveButton( guiBobbyRPageMenu[i] );
-	}
 
 	return(TRUE);
 }
@@ -1389,28 +1325,20 @@ void BtnBobbyRNextPreviousPageCallback(GUI_BUTTON *btn,INT32 reason)
 		//if previous screen
 		if( bNewValue == BOBBYR_PREVIOUS_PAGE)
 		{
-			if( gubCurPage > 0 )
-			{
-				if (_KeyDown( 17 ) ) // CTRL
-					gubCurPage = 0;
-				else if (_KeyDown( 16 ) ) // SHIFT
-					gubCurPage = __max(gubCurPage - 10, 0);
-				else
-					gubCurPage--;
-			}
+			const std::size_t jump = _KeyDown(17) ? gubNumPages :
+				(_KeyDown(16) ? 10 : 1);
+			gubCurPage = static_cast<UINT16>(
+				BobbyRayCatalogueModel::PreviousPage(
+					gubCurPage, gubNumPages, jump));
 		}
 		//else next screen
 		else
 		{
-			if( gubCurPage < gubNumPages - 1 )
-			{
-				if (_KeyDown( 17 ) ) // CTRL
-					gubCurPage = gubNumPages - 1;
-				else if (_KeyDown( 16 ) ) // SHIFT
-					gubCurPage = __min(gubNumPages - 1, gubCurPage + 10);
-				else
-					gubCurPage++;
-			}
+			const std::size_t jump = _KeyDown(17) ? gubNumPages :
+				(_KeyDown(16) ? 10 : 1);
+			gubCurPage = static_cast<UINT16>(
+				BobbyRayCatalogueModel::NextPage(
+					gubCurPage, gubNumPages, jump));
 		}
 
 
@@ -1438,13 +1366,18 @@ BOOLEAN DisplayItemInfo(UINT32 uiItemClass, INT32 iFilter, INT32 iSubFilter)
 
 	PosY = BOBBYR_GRID_PIC_Y;
 	usTextPosY = BOBBYR_ITEM_DESC_START_Y;
+	gubCurPage = static_cast<UINT16>(
+		BobbyRayCatalogueModel::NormalizePage(gubCurPage, gubNumPages));
 
 	//Display the subtotal at the bottom of the screen
 	auto subtotal{ std::wstring(BobbyRText[BOBBYR_GUNS_SUB_TOTAL]) + std::wstring(L" ") + FormatMoney(CalculateTotalPurchasePrice()) };
 	DrawTextToScreen(subtotal.data(), BOBBYR_ORDER_SUBTOTAL_X, BOBBYR_ORDER_SUBTOTAL_Y, 0, BOBBYR_ORDER_TITLE_FONT, BOBBYR_ORDER_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED | TEXT_SHADOWED);
 
 	//Buggler: Display the current page & total pages at the bottom of the screen
-	swprintf( sPage, L"%d / %d", gubCurPage + 1, gubNumPages );
+	swprintf(sPage, L"%u / %u",
+		static_cast<unsigned>(BobbyRayCatalogueModel::DisplayPageNumber(
+			gubCurPage, gubNumPages)),
+		static_cast<unsigned>(gubNumPages));
 	DrawTextToScreen(sPage, BOBBYR_ORDER_PAGE_X, BOBBYR_ORDER_PAGE_Y, 0, BOBBYR_ORDER_TITLE_FONT, BOBBYR_ORDER_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED | TEXT_SHADOWED);
 
 	//Display the Used item disclaimer
@@ -1458,6 +1391,7 @@ BOOLEAN DisplayItemInfo(UINT32 uiItemClass, INT32 iFilter, INT32 iSubFilter)
 	//if there are no items then return
 	if( gusFirstItemIndex == BOBBYR_NO_ITEMS )
 	{
+		DeleteMouseRegionForBigImage();
 		if( fExitingLaptopFlag )
 			return( TRUE );
 
@@ -1481,13 +1415,9 @@ BOOLEAN DisplayItemInfo(UINT32 uiItemClass, INT32 iFilter, INT32 iSubFilter)
 
 	DisableBobbyRButtons();
 
-	if( gusOldItemNumOnTopOfPage != gusCurWeaponIndex )
-	{
-		DeleteMouseRegionForBigImage();
-
-	}
-
-	for(i=gusCurWeaponIndex; ((i<=gusLastItemIndex) && (ubCount < 4)); i++)
+	for(i=gusCurWeaponIndex;
+		((i<=gusLastItemIndex) &&
+			(ubCount < BobbyRayCatalogueModel::ItemsPerPage)); i++)
 	{
 		bAddItem = FALSE;
 
@@ -1509,6 +1439,8 @@ BOOLEAN DisplayItemInfo(UINT32 uiItemClass, INT32 iFilter, INT32 iSubFilter)
 			usItemIndex = LaptopSaveInfo.BobbyRayInventory[ i ].usItemIndex;
 			gfOnUsedPage = FALSE;
 		}
+		if (!IsLoadedBobbyRayItem(usItemIndex))
+			continue;
 
 		// skip items that aren't of the right item class
 		if( ! ( Item[ usItemIndex ].usItemClass & uiItemClass ) )
@@ -1796,8 +1728,10 @@ BOOLEAN DisplayItemInfo(UINT32 uiItemClass, INT32 iFilter, INT32 iSubFilter)
 		}
 	}
 
-	if( gusOldItemNumOnTopOfPage != gusCurWeaponIndex )
+	if( gusOldItemNumOnTopOfPage != gusCurWeaponIndex ||
+		gubNumItemsOnScreen != ubCount )
 	{
+		DeleteMouseRegionForBigImage();
 		CreateMouseRegionForBigImage(BOBBYR_GRID_PIC_Y, ubCount, pItemNumbers );
 
 		gusOldItemNumOnTopOfPage = gusCurWeaponIndex;
@@ -1838,10 +1772,10 @@ BOOLEAN DisplayGunInfo(UINT16 usIndex, UINT16 usTextPosY, BOOLEAN fUsed, UINT16 
 	usHeight = DisplayRof(usHeight, usIndex, usFontHeight);
 
 	//AP
-	usHeight = DisplayGunAP(usHeight, usIndex, usFontHeight);
+	DisplayGunAP(usHeight, usIndex, usFontHeight);
 
 	//Display the Cost and the qty bought and on hand
-	usHeight = DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
+	DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
 
 	return(TRUE);
 } //DisplayGunInfo
@@ -1865,10 +1799,10 @@ BOOLEAN DisplayNonGunWeaponInfo(UINT16 usIndex, UINT16 usTextPosY, BOOLEAN fUsed
 	usHeight = DisplayDamage(usHeight, usIndex, usFontHeight);
 
 	//AP
-	usHeight = DisplayMeleeAP(usHeight, usIndex, usFontHeight);
+	DisplayMeleeAP(usHeight, usIndex, usFontHeight);
 
 	//Display the Cost and the qty bought and on hand
-	usHeight = DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
+	DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
 
 	return(TRUE);
 } //DisplayNonGunWeaponInfo
@@ -1896,10 +1830,10 @@ BOOLEAN DisplayAmmoInfo(UINT16 usIndex, UINT16 usTextPosY, BOOLEAN fUsed, UINT16
 	// rftr: display ammo stats
 	usHeight = DisplayAmmoArmourPierceModifier(usHeight, usIndex, usFontHeight);
 	usHeight = DisplayAmmoDamageModifier(usHeight, usIndex, usFontHeight);
-	usHeight = DisplayAmmoProjectileCount(usHeight, usIndex, usFontHeight);
+	DisplayAmmoProjectileCount(usHeight, usIndex, usFontHeight);
 
 	//Display the Cost and the qty bought and on hand
-	usHeight = DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
+	DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
 
 	return(TRUE);
 } //DisplayAmmoInfo
@@ -1924,10 +1858,10 @@ BOOLEAN DisplayGrenadeBombInfo(UINT16 usIndex, UINT16 usTextPosY, BOOLEAN fUsed,
 	usHeight = DisplayExplosiveDamage(usHeight, usIndex, usFontHeight);
 
 	//Explosive Stun Damage
-	usHeight = DisplayExplosiveStunDamage(usHeight, usIndex, usFontHeight);
+	DisplayExplosiveStunDamage(usHeight, usIndex, usFontHeight);
 
 	//Display the Cost and the qty bought and on hand
-	usHeight = DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
+	DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
 
 	return(TRUE);
 } //DisplayAmmoInfo
@@ -1936,8 +1870,8 @@ BOOLEAN DisplayGrenadeBombInfo(UINT16 usIndex, UINT16 usTextPosY, BOOLEAN fUsed,
 BOOLEAN DisplayBigItemImage(UINT16 usIndex, UINT16 PosY)
 {
 	INT16		PosX, sCenX, sCenY;
-	UINT32		usHeight = 0, usWidth = 0;
-	INT32		sOffsetX = 0, sOffsetY = 0;
+	UINT32		usWidth = 0;
+	INT32		sOffsetX = 0;
 	ETRLEObject	*pTrav;
 	INVTYPE		*pItem;
 	UINT32		uiImage = 0;
@@ -1945,15 +1879,17 @@ BOOLEAN DisplayBigItemImage(UINT16 usIndex, UINT16 PosY)
 
 	PosX = BOBBYR_GRID_PIC_X;
 
+	if (!IsLoadedBobbyRayItem(usIndex))
+		return FALSE;
 	pItem = &Item[ usIndex ];
 	if (!LoadTileGraphicForItem(pItem, &uiImage))
 		return FALSE;
+	UniqueVideoObjectHandle itemImage(uiImage);
 
 	if (!GetVideoObject(&hPixHandle, uiImage) || !hPixHandle)
 	{
 		SET_ERROR("Error: Could not load item uiIndex %d graphics. ubGraphicType %d and ubGraphicNum %d", usIndex, pItem->ubGraphicType, pItem->ubGraphicNum);
 		AssertMsg(false, gubErrorText);
-		DeleteVideoObjectFromIndex(uiImage);
 		return FALSE;
 	}
 
@@ -1962,29 +1898,22 @@ BOOLEAN DisplayBigItemImage(UINT16 usIndex, UINT16 PosY)
 		pTrav = &(hPixHandle->pETRLEObject[ 0 ] );
 	
 		//center picture in frame
-		usHeight				= (UINT32)pTrav->usHeight;
 		usWidth					= (UINT32)pTrav->usWidth;
 		sOffsetX				= (INT32)pTrav->sOffsetX;
-		sOffsetY				= (INT32)pTrav->sOffsetY;
 	}
 	else if(hPixHandle->ubBitDepth == 16 && hPixHandle->p16BPPObject)
 	{
-		usHeight				= hPixHandle->p16BPPObject->usHeight;
 		usWidth					= hPixHandle->p16BPPObject->usWidth;
 		sOffsetX				= hPixHandle->p16BPPObject->sOffsetX;
-		sOffsetY				= hPixHandle->p16BPPObject->sOffsetY;
 	}
 	else if(hPixHandle->ubBitDepth == 32 && hPixHandle->p16BPPObject)
 	{
-		usHeight				= hPixHandle->p16BPPObject->usHeight;
 		usWidth					= hPixHandle->p16BPPObject->usWidth;
 		sOffsetX				= hPixHandle->p16BPPObject->sOffsetX;
-		sOffsetY				= hPixHandle->p16BPPObject->sOffsetY;
 	}
     else
     {
         Assert(false);
-		DeleteVideoObjectFromIndex(uiImage);
 		return FALSE;
     }
 
@@ -2000,7 +1929,6 @@ BOOLEAN DisplayBigItemImage(UINT16 usIndex, UINT16 PosY)
 		BltVideoObjectOutlineShadowFromIndex( FRAME_BUFFER, uiImage, 0, sCenX-2, sCenY+2);//pItem->ubGraphicNum
 	}
 	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, sCenX, sCenY, VO_BLT_SRCTRANSPARENCY,NULL);
-	DeleteVideoObjectFromIndex(uiImage);
 
 	return(TRUE);
 }
@@ -2025,10 +1953,10 @@ BOOLEAN DisplayArmourInfo(UINT16 usIndex, UINT16 usTextPosY, BOOLEAN fUsed, UINT
 	usHeight = DisplayProtection(usHeight, usIndex, usFontHeight);
 
 	//Camo
-	usHeight = DisplayCamo(usHeight, usIndex, usFontHeight);
+	DisplayCamo(usHeight, usIndex, usFontHeight);
 
 	//Display the Cost and the qty bought and on hand
-	usHeight = DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
+	DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
 
 	return(TRUE);
 } //DisplayArmourInfo
@@ -2036,21 +1964,20 @@ BOOLEAN DisplayArmourInfo(UINT16 usIndex, UINT16 usTextPosY, BOOLEAN fUsed, UINT
 
 BOOLEAN DisplayMiscInfo(UINT16 usIndex, UINT16 usTextPosY, BOOLEAN fUsed, UINT16 usBobbyIndex)
 {
-	UINT16	usHeight;
 	UINT16 usFontHeight;
 	usFontHeight = GetFontHeight(BOBBYR_ITEM_DESC_TEXT_FONT);
 
 	//CHRISL: Display extra information for LBE Items when using new inventory system
 	if((UsingNewInventorySystem() == true) && Item[usIndex].usItemClass == IC_LBEGEAR)
 	{
-		usHeight = DisplayLBEInfo(usTextPosY, usIndex, usFontHeight);
+		DisplayLBEInfo(usTextPosY, usIndex, usFontHeight);
 	}
 
 	//Display Items Name
 //	DisplayItemNameAndInfo(usTextPosY, usIndex, fUsed);
 
 	//Display the Cost and the qty bought and on hand
-	usHeight = DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
+	DisplayCostAndQty(usTextPosY, usIndex, usFontHeight, usBobbyIndex, fUsed);
 
 	return(TRUE);
 } //DisplayMiscInfo
@@ -2423,27 +2350,33 @@ UINT16 DisplayLBEInfo(UINT16 usPosY, UINT16 usIndex, UINT16 usFontHeight)
 {
 	CHAR16				sTemp[20];
 	CHAR16				pName[80];
-	int					lnCnt=0, count, size;
-	UINT16				lbeIndex;
-	UINT8				pIndex=0;
-	std::vector<int>			pocketNum;
+	int					lnCnt=0;
+	if (!IsLoadedBobbyRayItem(usIndex))
+		return usPosY;
 
-	size = LBEPocketType.size();
-	pocketNum.reserve(size);
-	lbeIndex = Item[usIndex].ubClassIndex;
-	// Determine number of each pocket definition
-	for(count = 0; count<size; count++)
+	const std::size_t lbeIndex = Item[usIndex].ubClassIndex;
+	if (!BobbyRayCatalogueModel::IsCatalogueIndexInBounds(
+			lbeIndex, LoadBearingEquipment.size()))
 	{
-		pocketNum.push_back(0);
+		return usPosY;
 	}
+	std::vector<int> pocketNum(LBEPocketType.size(), 0);
+
 	// Populate "Number" for each type of pocket this LBE item has
-	for(count = 0; count<12; count++)
+	const std::size_t pocketSlotCount = std::min<std::size_t>(
+		MAX_ITEMS_IN_LBE, LoadBearingEquipment[lbeIndex].lbePocketIndex.size());
+	for(std::size_t pocketSlot = 0; pocketSlot < pocketSlotCount; ++pocketSlot)
 	{
-		pIndex = LoadBearingEquipment[lbeIndex].lbePocketIndex[count];
-		pocketNum[pIndex]++;
+		const std::size_t pIndex =
+			LoadBearingEquipment[lbeIndex].lbePocketIndex[pocketSlot];
+		if (BobbyRayCatalogueModel::IsCatalogueIndexInBounds(
+				pIndex, pocketNum.size()))
+		{
+			pocketNum[pIndex]++;
+		}
 	}
 	// Go through and display the pocket type and number
-	for(count = 1; count<size; count++)
+	for(std::size_t count = 1; count < pocketNum.size(); ++count)
 	{
 		if(pocketNum[count]>0)
 		{
@@ -2610,14 +2543,19 @@ void SetFirstLastPagesForNew( UINT32 uiClassMask, INT32 iFilter, INT32 iSubFilte
 	BOOLEAN bCntNumItems = FALSE;
 
 	gubCurPage = 0;
+	const std::size_t inventoryLength = BobbyRayCommerceModel::BoundedLength(
+		LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_NEW], MAXITEMS);
 
 	//First loop through to get the first and last index indexs
-	for(i=0; i<MAXITEMS; ++i)
+	for(i=0; i<inventoryLength; ++i)
 	{
 		//If we have some of the inventory on hand
 		if( LaptopSaveInfo.BobbyRayInventory[ i ].ubQtyOnHand != 0 )
 		{
-			if( Item[ LaptopSaveInfo.BobbyRayInventory[ i ].usItemIndex ].usItemClass & uiClassMask )
+			usItemIndex = LaptopSaveInfo.BobbyRayInventory[i].usItemIndex;
+			if (!IsLoadedBobbyRayItem(usItemIndex))
+				continue;
+			if( Item[usItemIndex].usItemClass & uiClassMask )
 			{
 				// No Filter->Take all
 				if (iFilter == -1)
@@ -2628,9 +2566,6 @@ void SetFirstLastPagesForNew( UINT32 uiClassMask, INT32 iFilter, INT32 iSubFilte
 				else
 				{
 					bCntNumItems = FALSE;
-
-					// Get the weapon from the item
-					usItemIndex = LaptopSaveInfo.BobbyRayInventory[ i ].usItemIndex;
 
 					switch (uiClassMask)
 					{
@@ -2698,10 +2633,8 @@ void SetFirstLastPagesForNew( UINT32 uiClassMask, INT32 iFilter, INT32 iSubFilte
 
 	gusFirstItemIndex = (UINT16)sFirst;
 	gusLastItemIndex = (UINT16)sLast;
-	gubNumPages = (UINT8)( ubNumItems / (FLOAT)BOBBYR_NUM_WEAPONS_ON_PAGE );
-	gubNumPagesMod = ubNumItems % BOBBYR_NUM_WEAPONS_ON_PAGE;
-	if( gubNumPagesMod != 0 )
-		gubNumPages += 1;
+	gubNumPages = static_cast<UINT16>(
+		BobbyRayCatalogueModel::PageCount(ubNumItems));
 }
 
 //Loops through Bobby Rays Used Inventory to find the first and last index 
@@ -2715,13 +2648,18 @@ void SetFirstLastPagesForUsed(INT32 iFilter)
 
 	gubCurPage = 0;
 	BOOLEAN bCntNumItems = FALSE;
+	const std::size_t inventoryLength = BobbyRayCommerceModel::BoundedLength(
+		LaptopSaveInfo.usInventoryListLength[BOBBY_RAY_USED], MAXITEMS);
 
 	//First loop through to get the first and last index indexs
-	for(i=0; i<MAXITEMS; ++i)
+	for(i=0; i<inventoryLength; ++i)
 	{
 		//If we have some of the inventory on hand
 		if( LaptopSaveInfo.BobbyRayUsedInventory[ i ].ubQtyOnHand != 0 )
 		{
+			usItemIndex = LaptopSaveInfo.BobbyRayUsedInventory[i].usItemIndex;
+			if (!IsLoadedBobbyRayItem(usItemIndex))
+				continue;
 			// No Filter->Take all
 			if (iFilter == -1)
 			{
@@ -2730,9 +2668,6 @@ void SetFirstLastPagesForUsed(INT32 iFilter)
 			else
 			{
 				bCntNumItems = FALSE;
-				// Get the weapon from the item
-				usItemIndex = LaptopSaveInfo.BobbyRayUsedInventory[ i ].usItemIndex;
-
 				switch (iFilter)
 				{
 					case IC_BOBBY_GUN:
@@ -2798,10 +2733,8 @@ void SetFirstLastPagesForUsed(INT32 iFilter)
 
 	gusFirstItemIndex = (UINT16)sFirst;
 	gusLastItemIndex = (UINT16)sLast;
-	gubNumPages = (UINT8)( ubNumItems / (FLOAT)BOBBYR_NUM_WEAPONS_ON_PAGE );
-	gubNumPagesMod = ubNumItems % BOBBYR_NUM_WEAPONS_ON_PAGE;
-	if( gubNumPagesMod != 0 )
-		gubNumPages += 1;
+	gubNumPages = static_cast<UINT16>(
+		BobbyRayCatalogueModel::PageCount(ubNumItems));
 }
 
 
@@ -2809,6 +2742,7 @@ void CreateMouseRegionForBigImage( UINT16 usPosY, UINT8 ubCount, INT16 *pItemNum
 {
 	UINT8	i;
 	UINT16	usItem;
+	LaptopPageResourceOwner stagedResources;
 	// HEADROCK HAM 3: Increased size, to allow larger tooltips. Used for Attachments Shown on Tooltips feature.
 	// Please note, if a mod introduces a weapon that can take several hundred attachments, this value MIGHT overflow.
 	// I do not have the expertise to think of a better solution. Still, 5000 is enough for around 200 possible attachments,
@@ -2818,12 +2752,18 @@ void CreateMouseRegionForBigImage( UINT16 usPosY, UINT8 ubCount, INT16 *pItemNum
 
 	if( gfBigImageMouseRegionCreated )
 		return;
+	if (!pItemNumbers)
+		return;
+
+	ubCount = static_cast<UINT8>(std::min<std::size_t>(
+		ubCount, BobbyRayCatalogueModel::ItemsPerPage));
 
 	for(i=0; i<ubCount; i++)
 	{
 		//Mouse region for the Big Item Image
 		MSYS_DefineRegion( &gSelectedBigImageRegion[ i ], BOBBYR_GRID_PIC_X, usPosY, (BOBBYR_GRID_PIC_X + BOBBYR_GRID_PIC_WIDTH), (UINT16)(usPosY + BOBBYR_GRID_PIC_HEIGHT), MSYS_PRIORITY_HIGH, CURSOR_WWW, MSYS_NO_CALLBACK, SelectBigImageRegionCallBack);
-		MSYS_AddRegion(&gSelectedBigImageRegion[ i ]);
+		if (!stagedResources.addRegion(gSelectedBigImageRegion[i]))
+			return;
 		MSYS_SetRegionUserData( &gSelectedBigImageRegion[ i ], 0, i);
 
 		usItem = pItemNumbers[ i ];
@@ -2836,20 +2776,15 @@ void CreateMouseRegionForBigImage( UINT16 usPosY, UINT8 ubCount, INT16 *pItemNum
 		usPosY += BOBBYR_GRID_OFFSET;
 	}
 
+	gBobbyRBigImageResources.clear();
+	gBobbyRBigImageResources = std::move(stagedResources);
 	gubNumItemsOnScreen = ubCount;
-	gfBigImageMouseRegionCreated = TRUE;
+	gfBigImageMouseRegionCreated = ubCount > 0;
 }
 
 void DeleteMouseRegionForBigImage()
 {
-	UINT8 i;
-
-	if( !gfBigImageMouseRegionCreated )
-		return;
-
-	for(i=0; i<gubNumItemsOnScreen; i++)
-		MSYS_RemoveRegion( &gSelectedBigImageRegion[i]);
-
+	gBobbyRBigImageResources.clear();
 	gfBigImageMouseRegionCreated = FALSE;
 	gusOldItemNumOnTopOfPage = 65535;
 	gubNumItemsOnScreen = 0;
@@ -2860,46 +2795,48 @@ void SelectBigImageRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 {
 	if (iReason & MSYS_CALLBACK_REASON_INIT)
 	{
-
+		return;
 	}
-	else if(iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
-	{
-		UINT16 usItemNum = (UINT16)MSYS_GetRegionUserData( pRegion, 0 );
 
+	const std::size_t itemSlot = static_cast<std::size_t>(
+		MSYS_GetRegionUserData(pRegion, 0));
+	if (!BobbyRayCatalogueModel::IsVisibleItemSlot(
+			itemSlot, gubNumItemsOnScreen))
+	{
+		return;
+	}
+	const UINT16 itemNumber = gusItemNumberForItemsOnScreen[itemSlot];
+
+	if(iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
+	{
 		// HEADROCK HAM 4: Purchase all at once.
 		if (_KeyDown( 16 ) ) // SHIFT
-			PurchaseBobbyRayItem( gusItemNumberForItemsOnScreen[ usItemNum], TRUE );
+			PurchaseBobbyRayItem(itemNumber, TRUE);
 		else
-			PurchaseBobbyRayItem( gusItemNumberForItemsOnScreen[ usItemNum], FALSE );
+			PurchaseBobbyRayItem(itemNumber, FALSE);
 
 		fReDrawScreenFlag = TRUE;
 		fPausedReDrawScreenFlag = TRUE;
 	}
 	else if (iReason & MSYS_CALLBACK_REASON_RBUTTON_UP)
 	{
-		UINT16 usItemNum = (UINT16)MSYS_GetRegionUserData( pRegion, 0 );
-
 		// HEADROCK HAM 4: Unpurchase all at once.
 		if (_KeyDown( 16 ) ) // SHIFT
-			UnPurchaseBobbyRayItem( gusItemNumberForItemsOnScreen[ usItemNum], TRUE );
+			UnPurchaseBobbyRayItem(itemNumber, TRUE);
 		else
-			UnPurchaseBobbyRayItem( gusItemNumberForItemsOnScreen[ usItemNum], FALSE );
+			UnPurchaseBobbyRayItem(itemNumber, FALSE);
 		fReDrawScreenFlag = TRUE;
 		fPausedReDrawScreenFlag = TRUE;
 	}
 	else if(iReason & MSYS_CALLBACK_REASON_LBUTTON_REPEAT)
 	{
-		UINT16 usItemNum = (UINT16)MSYS_GetRegionUserData( pRegion, 0 );
-
-		PurchaseBobbyRayItem( gusItemNumberForItemsOnScreen[ usItemNum], FALSE );
+		PurchaseBobbyRayItem(itemNumber, FALSE);
 		fReDrawScreenFlag = TRUE;
 		fPausedReDrawScreenFlag = TRUE;
 	}
 	else if (iReason & MSYS_CALLBACK_REASON_RBUTTON_REPEAT)
 	{
-		UINT16 usItemNum = (UINT16)MSYS_GetRegionUserData( pRegion, 0 );
-
-		UnPurchaseBobbyRayItem( gusItemNumberForItemsOnScreen[ usItemNum], FALSE );
+		UnPurchaseBobbyRayItem(itemNumber, FALSE);
 		fReDrawScreenFlag = TRUE;
 		fPausedReDrawScreenFlag = TRUE;
 	}
@@ -3436,7 +3373,7 @@ void UpdateMiscFilterButtons()
 UINT16 CalcBobbyRayCost( UINT16 usIndex, UINT16 usBobbyIndex, BOOLEAN fUsed,
 	INT8 bItemQuality)
 {
-	if (usIndex >= MAXITEMS)
+	if (!IsLoadedBobbyRayItem(usIndex))
 		return 0;
 	DOUBLE value = Item[usIndex].usPrice;
 	if (fUsed)
@@ -3595,7 +3532,8 @@ void CalcFirstIndexForPage( STORE_INVENTORY *pInv, UINT32	uiItemClass )
 						break;
 					}
 
-					if( usNumItems <= ( gubCurPage * 4 ) )
+					if( usNumItems <= ( gubCurPage *
+						BobbyRayCatalogueModel::ItemsPerPage ) )
 						gusCurWeaponIndex = i;
 
 					usNumItems++;
@@ -3698,7 +3636,8 @@ void CalcFirstIndexForPage( STORE_INVENTORY *pInv, UINT32	uiItemClass )
 							break;
 						}
 
-						if( usNumItems <= ( gubCurPage * 4 ) )
+						if( usNumItems <= ( gubCurPage *
+							BobbyRayCatalogueModel::ItemsPerPage ) )
 							gusCurWeaponIndex = i;
 
 						usNumItems++;
@@ -3711,9 +3650,12 @@ void CalcFirstIndexForPage( STORE_INVENTORY *pInv, UINT32	uiItemClass )
 
 BOOLEAN IsAmmoMatchinWeaponType(UINT16 usItemIndex, UINT8 ubWeaponType)
 {
+	if (!IsLoadedBobbyRayItem(usItemIndex))
+		return FALSE;
 	BOOLEAN bRetValue = FALSE;
-	
-	for ( UINT32 i = 0; i < gMAXITEMS_READ; ++i )
+
+	for (std::size_t i = 0;
+		i < std::min<std::size_t>(gMAXITEMS_READ, MAXITEMS); ++i)
 	{
 		if (Item[i].usItemClass != IC_GUN )
 			continue;
@@ -3751,8 +3693,12 @@ void OutOfStockMessageBoxCallBack( UINT8 bExitValue )
 
 UINT8 CheckPlayersInventoryForGunMatchingGivenAmmoID( INT16 sItemID )
 {
+	if (sItemID < 0 || !IsLoadedBobbyRayItem(
+			static_cast<std::size_t>(sItemID)))
+	{
+		return 0;
+	}
 	UINT8	ubItemCount=0;
-	UINT8	ubPocketCount;
 
 	SoldierID 	id;
 	SoldierID 	ubFirstID = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
@@ -3766,14 +3712,18 @@ UINT8 CheckPlayersInventoryForGunMatchingGivenAmmoID( INT16 sItemID )
 		if( pSoldier && pSoldier->roster().active() )
 		{
 			//loop through all the pockets on the merc
-			UINT8 invsize = pSoldier->inventory().size();
-			for( ubPocketCount=0; ubPocketCount<invsize; ++ubPocketCount)
+			const std::size_t inventorySize = pSoldier->inventory().size();
+			for(std::size_t pocket = 0; pocket < inventorySize; ++pocket)
 			{
+				const UINT16 itemIndex = pSoldier->inventory()[pocket].usItem;
+				if (!IsLoadedBobbyRayItem(itemIndex))
+					continue;
 				//if there is a weapon here
-				if( Item[ pSoldier->inventory()[ ubPocketCount ].usItem ].usItemClass == IC_GUN )
+				if( Item[itemIndex].usItemClass == IC_GUN )
 				{
 					//if the weapon uses the same kind of ammo as the one passed in, return true
-					if( Weapon[ pSoldier->inventory()[ ubPocketCount ].usItem ].ubCalibre == Magazine[ Item[ sItemID ].ubClassIndex ].ubCalibre )
+					if( Weapon[itemIndex].ubCalibre ==
+						Magazine[Item[sItemID].ubClassIndex].ubCalibre )
 					{
 						++ubItemCount;
 					}
@@ -3807,10 +3757,9 @@ void ReportBobbyROrderError( UINT16 usItemNumber, UINT8 ubPurchaseNum, UINT8 ubQ
 void HandleBobbyRGunsKeyBoardInput()
 {
 	InputAtom					InputEvent;
-	BOOLEAN fCtrl, fAlt;
+	BOOLEAN fCtrl;
 
 	fCtrl = _KeyDown( CTRL );
-	fAlt = _KeyDown( ALT );
 
 	//while (DequeueSpecificEvent(&InputEvent, KEY_DOWN |KEY_REPEAT) == TRUE)
 	while (DequeueEvent(&InputEvent) == TRUE)
@@ -3822,52 +3771,44 @@ void HandleBobbyRGunsKeyBoardInput()
 				case LEFTARROW:
 				case 'a':
 					// previous page
-					if( gubCurPage > 0 )
-					{
-						if( fCtrl )
-							gubCurPage = 0;
-						else
-							gubCurPage--;
-					}
+					gubCurPage = static_cast<UINT16>(
+						BobbyRayCatalogueModel::PreviousPage(
+							gubCurPage, gubNumPages,
+							fCtrl ? gubNumPages : 1));
+					DeleteMouseRegionForBigImage();
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
 				break;
 				case RIGHTARROW:
 				case 'd':
 					// next page
-					if( gubCurPage < gubNumPages - 1 )
-					{
-						if( fCtrl )
-							gubCurPage = gubNumPages - 1;
-						else
-							gubCurPage++;
-					}
+					gubCurPage = static_cast<UINT16>(
+						BobbyRayCatalogueModel::NextPage(
+							gubCurPage, gubNumPages,
+							fCtrl ? gubNumPages : 1));
+					DeleteMouseRegionForBigImage();
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
 				break;
 				case SHIFT_LEFTARROW:
 				case 'A':
 					// jump to 10 pages back
-					if( gubCurPage > 0 )
-					{
-						if( fCtrl )
-							gubCurPage = 0;
-						else
-							gubCurPage = __max(gubCurPage - 10, 0);
-					}
+					gubCurPage = static_cast<UINT16>(
+						BobbyRayCatalogueModel::PreviousPage(
+							gubCurPage, gubNumPages,
+							fCtrl ? gubNumPages : 10));
+					DeleteMouseRegionForBigImage();
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
 				break;
 				case SHIFT_RIGHTARROW:
 				case 'D':
 					// jump to 10 pages forward
-					if( gubCurPage < gubNumPages - 1 )
-					{
-						if( fCtrl )
-							gubCurPage = gubNumPages - 1;
-						else
-							gubCurPage = __min(gubNumPages - 1, gubCurPage + 10);
-					}
+					gubCurPage = static_cast<UINT16>(
+						BobbyRayCatalogueModel::NextPage(
+							gubCurPage, gubNumPages,
+							fCtrl ? gubNumPages : 10));
+					DeleteMouseRegionForBigImage();
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
 				break;
@@ -3878,8 +3819,8 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '1':
 					// 1st item on screen
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) || 
-						( ( gubCurPage == gubNumPages - 1 ) ) )
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							0, gubNumItemsOnScreen))
 					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 0 ], FALSE);
@@ -3891,8 +3832,8 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '2':
 					// 2nd item on screen
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) ||
-						( ( gubCurPage == gubNumPages - 1 ) && ( ( gubNumPagesMod == 0 ) || ( gubNumPagesMod >= 2 ) ) ) )
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							1, gubNumItemsOnScreen))
 					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 1 ], FALSE);
@@ -3904,8 +3845,9 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '3':
 					// 3rd item on screen
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) ||
-						( ( gubCurPage == gubNumPages - 1 ) && ( ( gubNumPagesMod == 0 ) || ( gubNumPagesMod >= 3 ) ) ) )					{
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							2, gubNumItemsOnScreen))
+					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 2 ], FALSE);
 						else
@@ -3916,8 +3858,8 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '4':
 					// 4th item on screen
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) ||
-						( ( gubCurPage == gubNumPages -1 ) && ( gubNumPagesMod == 0 ) ) )
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							3, gubNumItemsOnScreen))
 					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 3 ], FALSE);
@@ -3929,8 +3871,8 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '!':
 					// 1st item on screen all at once
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) || 
-						( ( gubCurPage == gubNumPages - 1 ) ) )
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							0, gubNumItemsOnScreen))
 					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 0 ], TRUE);
@@ -3942,8 +3884,8 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '@':
 					// 2nd item on screen all at once
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) ||
-						( ( gubCurPage == gubNumPages - 1 ) && ( ( gubNumPagesMod == 0 ) || ( gubNumPagesMod >= 2 ) ) ) )
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							1, gubNumItemsOnScreen))
 					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 1 ], TRUE);
@@ -3955,8 +3897,9 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '#':
 					// 3rd item on screen all at once
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) ||
-						( ( gubCurPage == gubNumPages - 1 ) && ( ( gubNumPagesMod == 0 ) || ( gubNumPagesMod >= 3 ) ) ) )					{
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							2, gubNumItemsOnScreen))
+					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 2 ], TRUE);
 						else
@@ -3967,8 +3910,8 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '$':
 					// 4th item on screen all at once
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) ||
-						( ( gubCurPage == gubNumPages -1 ) && ( gubNumPagesMod == 0 ) ) )
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							3, gubNumItemsOnScreen))
 					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 3 ], TRUE);
@@ -3990,8 +3933,10 @@ void HandleBobbyRGunsKeyBoardInput()
 				case LEFTARROW:
 				case 'a':
 					// previous page
-					if( gubCurPage > 0 )
-						gubCurPage--;
+					gubCurPage = static_cast<UINT16>(
+						BobbyRayCatalogueModel::PreviousPage(
+							gubCurPage, gubNumPages));
+					DeleteMouseRegionForBigImage();
 
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
@@ -3999,8 +3944,10 @@ void HandleBobbyRGunsKeyBoardInput()
 				case RIGHTARROW:
 				case 'd':
 					// next page
-					if( gubCurPage < gubNumPages - 1 )
-						gubCurPage++;
+					gubCurPage = static_cast<UINT16>(
+						BobbyRayCatalogueModel::NextPage(
+							gubCurPage, gubNumPages));
+					DeleteMouseRegionForBigImage();
 
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
@@ -4008,25 +3955,29 @@ void HandleBobbyRGunsKeyBoardInput()
 				case SHIFT_LEFTARROW:
 				case 'A':
 					// jump to 10 pages back
-					if( gubCurPage > 0 )
-						gubCurPage = __max(gubCurPage - 10, 0);
-					
+					gubCurPage = static_cast<UINT16>(
+						BobbyRayCatalogueModel::PreviousPage(
+							gubCurPage, gubNumPages, 10));
+					DeleteMouseRegionForBigImage();
+
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
 				break;
 				case SHIFT_RIGHTARROW:
 				case 'D':
 					// jump to 10 pages forward
-					if( gubCurPage < gubNumPages - 1 )
-						gubCurPage = __min(gubNumPages - 1, gubCurPage + 10);
-					
+					gubCurPage = static_cast<UINT16>(
+						BobbyRayCatalogueModel::NextPage(
+							gubCurPage, gubNumPages, 10));
+					DeleteMouseRegionForBigImage();
+
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
 				break;
 				case '1':
 					// 1st item on screen
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) || 
-						( ( gubCurPage == gubNumPages - 1 ) ) )
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							0, gubNumItemsOnScreen))
 					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 0 ], FALSE);
@@ -4038,8 +3989,8 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '2':
 					// 2nd item on screen
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) ||
-						( ( gubCurPage == gubNumPages - 1 ) && ( ( gubNumPagesMod == 0 ) || ( gubNumPagesMod >= 2 ) ) ) )
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							1, gubNumItemsOnScreen))
 					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 1 ], FALSE);
@@ -4051,8 +4002,9 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '3':
 					// 3rd item on screen
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) ||
-						( ( gubCurPage == gubNumPages - 1 ) && ( ( gubNumPagesMod == 0 ) || ( gubNumPagesMod >= 3 ) ) ) )					{
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							2, gubNumItemsOnScreen))
+					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 2 ], FALSE);
 						else
@@ -4063,8 +4015,8 @@ void HandleBobbyRGunsKeyBoardInput()
 				break;
 				case '4':
 					// 4th item on screen
-					if( ( ( gubNumPages > 0 ) && ( gubCurPage != gubNumPages - 1 ) ) ||
-						( ( gubCurPage == gubNumPages -1 ) && ( gubNumPagesMod == 0 ) ) )
+					if (BobbyRayCatalogueModel::IsVisibleItemSlot(
+							3, gubNumItemsOnScreen))
 					{
 						if( fCtrl )
 							UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[ 3 ], FALSE);
@@ -4087,7 +4039,11 @@ void HandleBobbyRGunsKeyBoardInput()
 void HandleBobbyRayMouseWheel(void)
 {
 	// Purchase and unpurchase via mousewheel if pressing ctrl
-	for (size_t i = 0; i < BOBBYR_NUM_WEAPONS_ON_PAGE; i++)
+	const std::size_t activeRegionCount = gfBigImageMouseRegionCreated
+		? std::min<std::size_t>(gubNumItemsOnScreen,
+			BobbyRayCatalogueModel::ItemsPerPage)
+		: 0;
+	for (std::size_t i = 0; i < activeRegionCount; ++i)
 	{
 		auto &mouseRegion = gSelectedBigImageRegion[i];
 		auto wheelState = mouseRegion.WheelState * (gGameSettings.fOptions[TOPTION_INVERT_WHEEL] ? -1 : 1);
@@ -4095,14 +4051,23 @@ void HandleBobbyRayMouseWheel(void)
 		{
 			if (_KeyDown(17)) // CTRL
 			{
-				UINT16 usItemNum = (UINT16)MSYS_GetRegionUserData(&mouseRegion, 0);
+				const std::size_t itemSlot = static_cast<std::size_t>(
+					MSYS_GetRegionUserData(&mouseRegion, 0));
+				if (!BobbyRayCatalogueModel::IsVisibleItemSlot(
+						itemSlot, activeRegionCount))
+				{
+					ResetWheelState(&mouseRegion);
+					continue;
+				}
 				if (wheelState < 0)
 				{
-					PurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[usItemNum], FALSE);
+					PurchaseBobbyRayItem(
+						gusItemNumberForItemsOnScreen[itemSlot], FALSE);
 				}
 				else if (wheelState > 0)
 				{
-					UnPurchaseBobbyRayItem(gusItemNumberForItemsOnScreen[usItemNum], FALSE);
+					UnPurchaseBobbyRayItem(
+						gusItemNumberForItemsOnScreen[itemSlot], FALSE);
 				}
 				ResetWheelState(&mouseRegion);
 
@@ -4124,18 +4089,24 @@ void HandleBobbyRayMouseWheel(void)
 			const auto Wheelstate = _WheelValue * (gGameSettings.fOptions[TOPTION_INVERT_WHEEL] ? -1 : 1);
 			if (Wheelstate < 0)
 			{
-				if (gubCurPage < gubNumPages - 1)
+				const auto nextPage = BobbyRayCatalogueModel::NextPage(
+					gubCurPage, gubNumPages);
+				if (nextPage != gubCurPage)
 				{
-					gubCurPage++;
+					gubCurPage = static_cast<UINT16>(nextPage);
+					DeleteMouseRegionForBigImage();
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
 				}
 			}
 			else if (Wheelstate > 0)
 			{
-				if (gubCurPage > 0)
+				const auto previousPage = BobbyRayCatalogueModel::PreviousPage(
+					gubCurPage, gubNumPages);
+				if (previousPage != gubCurPage)
 				{
-					gubCurPage--;
+					gubCurPage = static_cast<UINT16>(previousPage);
+					DeleteMouseRegionForBigImage();
 					fReDrawScreenFlag = TRUE;
 					fPausedReDrawScreenFlag = TRUE;
 				}
@@ -4147,6 +4118,12 @@ void HandleBobbyRayMouseWheel(void)
 
 void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber )
 {
+	if (!pzStr)
+		return;
+	pzStr[0] = L'\0';
+	if (!IsLoadedBobbyRayItem(usItemNumber))
+		return;
+
 	const size_t ATTACHMENTS_STRBUF_SIZE = 3800;
 	CHAR16	zItemName[ SIZE_ITEM_NAME ];
 	UINT8	ubItemCount=0;
@@ -4476,12 +4453,26 @@ void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber )
 			swprintf(lbeStr, L"");
 			swprintf(temp, L"");
 
-			if (UsingNewInventorySystem())
+			if (UsingNewInventorySystem() &&
+				BobbyRayCatalogueModel::IsCatalogueIndexInBounds(
+					Item[usItemNumber].ubClassIndex,
+					LoadBearingEquipment.size()))
 			{
-				INVTYPE item = Item[usItemNumber];
-				LBETYPE lbe = LoadBearingEquipment[item.ubClassIndex];
+				const INVTYPE& item = Item[usItemNumber];
+				const LBETYPE& lbe = LoadBearingEquipment[item.ubClassIndex];
+				const bool validLbeClass = lbe.lbeClass >= THIGH_PACK &&
+					lbe.lbeClass <= OTHER_POCKET;
+				const auto firstPocket = std::find_if(
+					lbe.lbePocketIndex.begin(), lbe.lbePocketIndex.end(),
+					[](UINT8 pocket) { return pocket != 0; });
+				const std::size_t firstPocketIndex =
+					firstPocket == lbe.lbePocketIndex.end() ? 0 : *firstPocket;
+				const UINT8 firstPocketVolume =
+					BobbyRayCatalogueModel::IsCatalogueIndexInBounds(
+						firstPocketIndex, LBEPocketType.size())
+						? LBEPocketType[firstPocketIndex].pVolume : 0;
 
-				if (lbe.lbeAvailableVolume > 0) // if this item is a MOLLE carrier (thigh rig, vest, combat pack, backpack)
+				if (lbe.lbeAvailableVolume > 0 && validLbeClass) // if this item is a MOLLE carrier (thigh rig, vest, combat pack, backpack)
 				{
 					swprintf(temp, L"\n \n%s\n%s %d", gLbeStatsDesc[6 + lbe.lbeClass], gLbeStatsDesc[0], lbe.lbeAvailableVolume);
 					wcscat(lbeStr, temp);
@@ -4498,7 +4489,15 @@ void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber )
 						// count MOLLE slots for this carrier
 						if (attachmentSlot.nasLayoutClass == ((UINT64)1 << (lbe.lbeClass + 1)))
 						{
-							if (lbe.lbePocketsAvailable & (1 << (attachmentSlot.ubPocketMapping - 1)))
+							const std::size_t pocketBit =
+								static_cast<std::size_t>(attachmentSlot.ubPocketMapping) - 1;
+							if (!BobbyRayCatalogueModel::IsCatalogueIndexInBounds(
+									pocketBit, sizeof(lbe.lbePocketsAvailable) * 8))
+							{
+								continue;
+							}
+							if (lbe.lbePocketsAvailable &
+								(static_cast<UINT16>(1) << pocketBit))
 							{
 								// seems to be equivalent to checking attachmentSlot.fBigSlot
 								if (attachmentSlot.nasAttachmentClass == MOLLE_SMALL)
@@ -4527,16 +4526,16 @@ void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber )
 				}
 				else if (item.nasAttachmentClass == MOLLE_SMALL)
 				{
-					swprintf(temp, L"\n \n%s\n%s\n%s %d", gLbeStatsDesc[11], gLbeStatsDesc[4], gLbeStatsDesc[1], LBEPocketType[GetFirstPocketOnItem(usItemNumber)].pVolume);
+					swprintf(temp, L"\n \n%s\n%s\n%s %d", gLbeStatsDesc[11], gLbeStatsDesc[4], gLbeStatsDesc[1], firstPocketVolume);
 					wcscat(lbeStr, temp);
 				}
 				else if (item.nasAttachmentClass == MOLLE_MEDIUM)
 				{
 					// special case for hydration pack (see AttachmentPoint.xml)
-					swprintf(temp, L"\n \n%s\n%s\n%s %d", gLbeStatsDesc[11], item.ulAttachmentPoint == 4 ? gLbeStatsDesc[6] : gLbeStatsDesc[5], gLbeStatsDesc[1], LBEPocketType[GetFirstPocketOnItem(usItemNumber)].pVolume);
+					swprintf(temp, L"\n \n%s\n%s\n%s %d", gLbeStatsDesc[11], item.ulAttachmentPoint == 4 ? gLbeStatsDesc[6] : gLbeStatsDesc[5], gLbeStatsDesc[1], firstPocketVolume);
 					wcscat(lbeStr, temp);
 				}
-				else // non-MOLLE LBE
+				else if (validLbeClass) // non-MOLLE LBE
 				{
 					swprintf(temp, L"\n \n%s", gLbeStatsDesc[6 + lbe.lbeClass]);
 					wcscat(lbeStr, temp);
@@ -4558,7 +4557,14 @@ void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber )
 						if (itemIndex == usItemNumber)
 							continue;
 
-						LBETYPE otherLbe = LoadBearingEquipment[otherItem.ubClassIndex];
+						if (!BobbyRayCatalogueModel::IsCatalogueIndexInBounds(
+								otherItem.ubClassIndex,
+								LoadBearingEquipment.size()))
+						{
+							continue;
+						}
+						const LBETYPE& otherLbe =
+							LoadBearingEquipment[otherItem.ubClassIndex];
 
 						if (lbe.lbeClass == otherLbe.lbeClass)
 							continue;

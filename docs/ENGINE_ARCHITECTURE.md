@@ -1144,6 +1144,22 @@ the engine must not contain SDL types in its public domain model.
   data-free test and architecture ratchets pin page/transaction bounds,
   replaceable ownership, retired stale arrays, all-host CI coverage, and raw
   lifecycle exclusion.
+- Bobby Ray's five catalogue pages now form one transactionally owned
+  storefront cluster. Guns, Ammunition, Armour, Miscellaneous, and Used stage
+  their background/grid graphics with the shared title, menu, navigation, and
+  filter controls; callback-replaced item-image regions have an independent
+  owner, and temporary item graphics are scoped. `BobbyRayCatalogueModel`
+  supplies integer page counts, stale-page normalization, bounded jumps,
+  empty-page presentation, visible-item-slot checks, and exact-end data bounds.
+  This removes partial-entry leaks, image-before-button teardown, stale skipped
+  filter IDs, hidden-region wheel/callback access, zero-page navigation and
+  display faults, temporary-image leaks, stale item-ID reads, and malformed LBE
+  index/bit-shift paths. The catalogue inventory, filters, purchasing rules,
+  saves, artwork, runtime
+  campaign behavior, and 82-common/16-variant Laptop partition are unchanged.
+  A dedicated data-free test and architecture ratchets pin the five page
+  owners, shared and dynamic resource lifecycles, input/data bounds, all-host
+  CI coverage, and raw-lifecycle exclusion.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

@@ -453,15 +453,63 @@ sentinels, and corrupt payout storage/counts; architecture CI pins the owner
 boundaries, dynamic replacement, retired stale state, test target, and absence
 of raw lifecycle calls.
 
+## Bobby Ray catalogue ownership and input-safety batch
+
+The tenth cohesive batch covers the Guns, Ammunition, Armour, Miscellaneous,
+and Used catalogue pages together with their shared title, filter bars,
+catalogue menu, navigation controls, and item-image interaction regions. Each
+page now stages its background/grid graphics and the complete shared control
+set through `LaptopPageResourceOwner`; callback-replaced item regions have an
+independent owner, and transient item graphics use a scoped video handle.
+
+Confirmed faults fixed by this batch include:
+
+- failed entry could leak any successfully created background, grid, title,
+  filter, or menu resource, while exits unloaded button images before removing
+  the buttons that referenced them;
+- Used and Misc skipped their LBE filter under the old inventory system without
+  clearing the corresponding button ID, allowing a prior visit's stale control
+  to be updated;
+- item-image regions were registered and removed with raw mutable counts, the
+  mouse wheel inspected all four slots even when fewer regions existed, and
+  queued callbacks trusted their slot after a page/filter replacement;
+- keyboard item hotkeys inferred visibility from page remainders, including a
+  zero-page underflow path, instead of the regions actually created;
+- an empty catalogue rendered page `1 / 0`, retained a stale final-page
+  remainder, and page arithmetic narrowed the result through an eight-bit
+  counter and floating-point division;
+- temporary item graphics leaked when object lookup or bit-depth validation
+  failed; and
+- stale/corrupt inventory item IDs and malformed LBE class, pocket-vector,
+  pocket-definition, or attachment-mapping indices could address beyond loaded
+  data or perform an invalid bit shift.
+
+`BobbyRayCatalogueModel` now owns dependency-free integer page counts, stale
+page normalization, bounded next/previous jumps, empty-page presentation,
+visible-slot checks, and exact-end index validation. The live catalogue uses
+those rules for buttons, keyboard input, mouse-wheel input, callbacks, and LBE
+rendering. Existing inventory records, filters, artwork, purchasing behavior,
+save layout, campaign policy, and the 82-common/16-variant Laptop partition are
+unchanged. A dedicated headless target covers empty/full/partial and more than
+255 pages, stale navigation, hidden slots, and exact-end indices; architecture
+CI pins all five owners, shared helper ownership, dynamic-region replacement,
+scoped temporary graphics, test admission, and raw-lifecycle exclusion.
+The focused analyzer pass over all three `BobbyRGuns.cpp` host variants and
+the four shared catalogue implementations is clean; obsolete layout-result,
+image-dimension, and keyboard-state dead stores found during that pass were
+removed.
+
 ## Remaining walkthrough
 
 The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., Florist/Funeral, and
-Insurance ownership slices are complete. The remaining audit queue is
+Insurance ownership slices and the five-page Bobby Ray catalogue cluster are
+complete. The remaining audit queue is
 deliberately grouped into larger reviewable batches:
 
 1. Extend scoped video, surface, button-image, button, and temporary-render
    ownership from the completed A.I.M., M.E.R.C., Florist/Funeral, and
-   Insurance clusters across every remaining Laptop page.
+   Insurance clusters across every remaining Laptop page, beginning with the
+   connected Bobby Ray home/mail-order/shipment fulfilment cluster.
 2. Extend the completed site-cluster mouse-region and re-entry audit across
    the remaining pages, especially empty data and callback-driven mutation.
 3. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and

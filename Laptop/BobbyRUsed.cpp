@@ -2,13 +2,20 @@
 	#include "BobbyRUsed.h"
 	#include "BobbyR.h"
 	#include "BobbyRGuns.h"
+	#include "LaptopPageResourceOwner.h"
 	#include "Utilities.h"
 	#include "WCheck.h"
 	#include "WordWrap.h"
 	#include "Text.h"
+	#include <utility>
 
 UINT32		guiUsedBackground;
 UINT32		guiUsedGrid;
+
+namespace
+{
+LaptopPageResourceOwner gBobbyRUsedResources;
+}
 
 
 void GameInitBobbyRUsed()
@@ -19,20 +26,23 @@ void GameInitBobbyRUsed()
 BOOLEAN EnterBobbyRUsed()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner staged;
+	DeleteMouseRegionForBigImage();
+	gBobbyRUsedResources.clear();
 
 	//gfBigImageMouseRegionCreated = FALSE;
 
 	// load the background graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\usedbackground.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiUsedBackground));
+	if (!staged.addVideoObject(&VObjectDesc, guiUsedBackground)) return FALSE;
 
 	// load the gunsgrid graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\usedgrid.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiUsedGrid));
+	if (!staged.addVideoObject(&VObjectDesc, guiUsedGrid)) return FALSE;
 
-	InitBobbyBrTitle();
+	if (!InitBobbyBrTitle(staged)) return FALSE;
 
 	guiPrevUsedFilterMode = -1;
 	guiCurrentUsedFilterMode = -1;
@@ -40,8 +50,9 @@ BOOLEAN EnterBobbyRUsed()
 	SetFirstLastPagesForUsed(guiCurrentUsedFilterMode);
 
 	//Draw menu bar
-	InitBobbyMenuBar( );
-	InitBobbyRUsedFilterBar();
+	if (!InitBobbyMenuBar(staged) ||
+		!InitBobbyRUsedFilterBar(staged)) return FALSE;
+	gBobbyRUsedResources = std::move(staged);
 
 	RenderBobbyRUsed( );
 
@@ -50,14 +61,8 @@ BOOLEAN EnterBobbyRUsed()
 
 void ExitBobbyRUsed()
 {
-	DeleteVideoObjectFromIndex(guiUsedBackground);
-	DeleteVideoObjectFromIndex(guiUsedGrid);
-	DeleteBobbyMenuBar();
-
-	DeleteBobbyRUsedFilter();
-
-	DeleteBobbyBrTitle();
 	DeleteMouseRegionForBigImage();
+	gBobbyRUsedResources.clear();
 
 	giCurrentSubPage = gusCurWeaponIndex;
 	guiLastBobbyRayPage = LAPTOP_MODE_BOBBY_R_USED;

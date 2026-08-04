@@ -247,7 +247,7 @@ jobs:
             "${cache_args[@]}"
 
       - name: Build test binaries
-        run: cmake --build build --target ja2_headless_tests platform_legacy_tests mp_netshim_tests engine_core_tests ja2_runtime_adapter_tests tactical_observer_allocation_tests tile_cache_tests campaign_map_change_code_tests campaign_application_policy_tests campaign_dealer_policy_tests campaign_mercenary_policy_tests campaign_merc_site_policy_tests campaign_aim_site_policy_tests laptop_communications_policy_tests insurance_site_model_tests laptop_campaign_content_policy_tests bobby_ray_commerce_model_tests laptop_localization_input_model_tests laptop_imp_creation_state_model_tests
+        run: cmake --build build --target ja2_headless_tests platform_legacy_tests mp_netshim_tests engine_core_tests ja2_runtime_adapter_tests tactical_observer_allocation_tests tile_cache_tests campaign_map_change_code_tests campaign_application_policy_tests campaign_dealer_policy_tests campaign_mercenary_policy_tests campaign_merc_site_policy_tests campaign_aim_site_policy_tests laptop_communications_policy_tests insurance_site_model_tests laptop_campaign_content_policy_tests bobby_ray_commerce_model_tests bobby_ray_catalogue_model_tests laptop_localization_input_model_tests laptop_imp_creation_state_model_tests
 
       - name: Run tests under AddressSanitizer
         run: |
