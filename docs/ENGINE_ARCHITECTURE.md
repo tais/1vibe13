@@ -1069,13 +1069,31 @@ the engine must not contain SDL types in its public domain model.
   rather than retrying the absent file, and missing `quests25.edt` selects the
   paired odd completion record rather than the even start record. Missing-
   profile killed-merc history records now render the established diagnostic in
-  every host instead of leaving release/shared output unset. Empty history-page
-  writes also close the file opened before the empty-list check. Data-free tests
+  every host instead of leaving release/shared output unset. Data-free tests
   cover both campaigns and all absent-asset paths; architecture CI keeps both
-  callers guard-free, shared, and routed through the policy, and pins the
-  resource-closing early return. Existing artwork/
+  callers guard-free, shared, and routed through the policy. The later ledger
+  ownership batch supersedes the former manual history-file close ratchet with
+  scoped exact I/O. Existing artwork/
   text paths, briefing/history records, saves, XML, Lua, and package formats
   are unchanged.
+- Finance and history record pages now share the dependency-free
+  `LaptopRecordPageModel` for file-layout validation, page counts, stale-page
+  normalization, checked byte offsets, exact-end views, signed balance bounds,
+  saturating summaries, and overflow-safe legacy day buckets.
+  `LaptopRecordFile` scopes legacy FileMan handles and requires exact field
+  reads and writes. Both pages stage complete render/input resources through
+  `LaptopPageResourceOwner`, and history owns the render handles it previously
+  borrowed from finance. Finance no longer truncates its transaction ledger
+  while updating the balance and publishes campaign side effects only after a
+  checked append. Record-driven profile, town, and quest indices are bounded;
+  arbitrary quest text is rendered as data, and signed display/projection
+  arithmetic cannot overflow. History rejects malformed tails and allocation failure, its
+  active full-ledger update starts at the headerless byte-zero layout, and the
+  unused writer with the corrupt four-byte offset is retired. Direct page-count
+  bounds replace destructive navigation probes. Focused data-free tests and
+  architecture/ASan ratchets cover malformed, empty, stale, exact-end,
+  overflow, and early-campaign cases while preserving all established finance,
+  history, quest, save, XML, Lua, and campaign-content records.
 - A.I.M. page resources now cross one transactional ownership boundary.
   `ResourceHandleSet` is dependency-free and commits move-only handles as a
   complete set; `UniqueResourceHandle` supports both unsigned-zero and signed

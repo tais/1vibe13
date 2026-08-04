@@ -113,6 +113,14 @@ owned storage; dependency-free empty, stale, visible-slot, and sparse-record
 rules remove destination-list crashes and stale callbacks, while shipment
 redraws no longer leak order-grid graphics. Pricing, inventory, PostalService,
 order/shipment saves, and campaign behavior remain unchanged.
+The finance/history ledger batch also retains the same shared/variant split.
+Both pages now own complete resource transactions and use one campaign-neutral
+record-page model plus scoped exact FileMan adapters. Headered finance and
+headerless history layouts, persisted page fields, transaction/history codes,
+quest behavior, Lua/XML interfaces, and campaign content remain unchanged;
+malformed tails, stale pages, overflow, partial publication, borrowed handles,
+and the retired corrupt history page writer are rejected above the runtime
+campaign boundary.
 
 ## Literal remaining tail
 

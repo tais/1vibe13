@@ -1,13 +1,16 @@
 	#include "laptop.h"
 	#include "finances.h"
+	#include "LaptopPageResourceOwner.h"
+	#include "LaptopRecordFile.h"
+	#include "LaptopRecordPageModel.h"
 	#include "Game Clock.h"
 	#include "Utilities.h"
-	#include "WCheck.h"
 	#include "DEBUG.H"
 	#include "WordWrap.h"
 	#include "Encrypted File.h"
 	#include "Cursors.h"
 	#include "Soldier Profile.h"
+	#include "Soldier Profile Constants.h"
 	#include "Text.h"
 	#include "Strategic Mines.h"
 	#include "LaptopSave.h"
@@ -19,7 +22,10 @@
 	#include "Town Militia.h"
 	#include "CampaignStats.h"		// added by Flugente
 	#include "DynamicDialogue.h"	// added by Flugente
-	#include "GameSettings.h"
+#include "GameSettings.h"
+
+#include <string>
+#include <vector>
 
 
 // the global defines
@@ -96,6 +102,75 @@ enum{
 // sizeof one record
 #define RECORD_SIZE ( sizeof( UINT32 ) + sizeof( INT32 ) + sizeof( INT32 ) + sizeof( UINT8 ) + sizeof( UINT8 ) )
 
+namespace
+{
+constexpr LaptopRecordPageModel::FileLayout FinanceFileLayout{
+	sizeof(INT32), RECORD_SIZE};
+constexpr UINT32 InvalidFinanceRecordId = UINT32_MAX;
+
+struct FinanceRecordData
+{
+	UINT8 code = 0;
+	UINT8 secondCode = 0;
+	UINT32 date = 0;
+	INT32 amount = 0;
+	INT32 balanceToDate = 0;
+};
+
+bool ReadFinanceRecordExact(HWFILE file, FinanceRecordData& record)
+{
+	return ReadLaptopFileExact(file, &record.code, sizeof(record.code)) &&
+		ReadLaptopFileExact(file, &record.secondCode,
+			sizeof(record.secondCode)) &&
+		ReadLaptopFileExact(file, &record.date, sizeof(record.date)) &&
+		ReadLaptopFileExact(file, &record.amount, sizeof(record.amount)) &&
+		ReadLaptopFileExact(file, &record.balanceToDate,
+			sizeof(record.balanceToDate));
+}
+
+bool LoadFinanceLedger(std::vector<FinanceRecordData>& records)
+{
+	records.clear();
+	if (!FileExists(FINANCES_DATA_FILE)) return true;
+	ScopedLaptopFile file(FileOpen(FINANCES_DATA_FILE,
+		FILE_OPEN_EXISTING | FILE_ACCESS_READ, FALSE));
+	if (!file) return false;
+	const std::size_t fileBytes = FileGetSize(file.Get());
+	if (!LaptopRecordPageModel::IsWellFormedFile(
+		fileBytes, FinanceFileLayout)) return false;
+	INT32 ignoredBalance = 0;
+	if (!ReadLaptopFileExact(file.Get(), &ignoredBalance,
+		sizeof(ignoredBalance))) return false;
+	const std::size_t count = LaptopRecordPageModel::RecordCount(
+		fileBytes, FinanceFileLayout);
+	records.resize(count);
+	for (FinanceRecordData& record : records)
+	{
+		if (!ReadFinanceRecordExact(file.Get(), record))
+		{
+			records.clear();
+			return false;
+		}
+	}
+	return true;
+}
+
+std::size_t FinanceRecordCountOnDisk()
+{
+	if (!FileExists(FINANCES_DATA_FILE)) return 0;
+	ScopedLaptopFile file(FileOpen(FINANCES_DATA_FILE,
+		FILE_OPEN_EXISTING | FILE_ACCESS_READ, FALSE));
+	if (!file) return 0;
+	return LaptopRecordPageModel::RecordCount(
+		FileGetSize(file.Get()), FinanceFileLayout);
+}
+
+std::wstring FormatFinanceMagnitude(INT32 amount)
+{
+	return L"$" + std::to_wstring(LaptopRecordPageModel::Magnitude(amount));
+}
+}
+
 
 
 
@@ -129,26 +204,25 @@ extern BOOLEAN fMapScreenBottomDirty;
 // the last page loaded
 UINT32 guiLastPageLoaded = 0;
 
-// the last page altogether
-UINT32 guiLastPageInRecordsList = 0;
+// number of persisted transaction pages (the summary is page zero)
+std::size_t gFinanceRecordPageCount = 0;
 
 // finance screen buttons
 INT32 giFinanceButton[4];
 INT32 giFinanceButtonImage[4];
+LaptopPageResourceOwner gFinancePageResources;
 
 // internal functions
 UINT32 ProcessAndEnterAFinacialRecord( UINT8 ubCode, UINT32 uiDate, INT32 iAmount, UINT8 ubSecondCode, INT32 iBalanceToDate);
 void RenderBackGround( void );
-BOOLEAN LoadFinances();
+BOOLEAN LoadFinances(LaptopPageResourceOwner& owner);
 void DrawSummary( void );
 void DrawSummaryLines( void );
 void DrawFinanceTitleText( void );
 void InvalidateLapTopScreen( void );
-void RemoveFinances( void );
 void DrawSummaryText( void );
 INT32 GetCurrentBalance( void );
 void ClearFinanceList( void );
-void OpenAndReadFinancesFile( void );
 void DrawAPageOfRecords( void );
 void DrawRecordsBackGround( void );
 void DrawRecordsText( void );
@@ -156,21 +230,17 @@ void DrawRecordsColumnHeadersText( void );
 void BtnFinanceDisplayNextPageCallBack(GUI_BUTTON *btn,INT32 reason);
 void BtnFinanceFirstLastPageCallBack(GUI_BUTTON *btn,INT32 reason);
 void BtnFinanceDisplayPrevPageCallBack(GUI_BUTTON *btn,INT32 reason);
-void CreateFinanceButtons( void );
-void DestroyFinanceButtons( void );
-void IncrementCurrentPageFinancialDisplay( void );
+BOOLEAN CreateFinanceButtons(LaptopPageResourceOwner& owner);
 void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance);
 void DisplayFinancePageNumberAndDateRange( void );
-void GetBalanceFromDisk( void );
-BOOLEAN WriteBalanceToDisk( void );
-BOOLEAN AppendFinanceToEndOfFile( FinanceUnitPtr pFinance );
-UINT32 ReadInLastElementOfFinanceListAndReturnIdNumber( void );
+BOOLEAN GetBalanceFromDisk( void );
+BOOLEAN PersistFinanceTransaction(
+	const FinanceUnit& financeRecord, INT32 balance);
 void SetLastPageInRecords( void );
 BOOLEAN LoadInRecords( UINT32 uiPage );
 BOOLEAN LoadPreviousPage( void );
 BOOLEAN LoadNextPage( void );
 
-INT32 GetPreviousBalanceToDate( void );
 INT32 GetPreviousDaysIncome( void );
 INT32 GetPreviousDaysBalance( void );
 
@@ -187,49 +257,44 @@ UINT32 AddTransactionToPlayersBook (UINT8 ubCode, UINT8 ubSecondCode, UINT32 uiD
 	// adds transaction to player's book(Financial List), returns unique id number of it
 	// outside of the financial system(the code in this .c file), this is the only function you'll ever need
 
-	UINT32 uiId=0;
-	FinanceUnitPtr pFinance=pFinanceListHead;
+	if (!GetBalanceFromDisk() ||
+		!LaptopRecordPageModel::CanApplyBalanceChange(
+			LaptopSaveInfo.iCurrentBalance, iAmount))
+	{
+		Assert(0);
+		return InvalidFinanceRecordId;
+	}
+	const INT32 newBalance = static_cast<INT32>(
+		static_cast<INT64>(LaptopSaveInfo.iCurrentBalance) + iAmount);
 
-	// read in balance from file
+	ClearFinanceList();
+	const UINT32 uiId = ProcessAndEnterAFinacialRecord(
+		ubCode, uiDate, iAmount, ubSecondCode, newBalance);
+	if (uiId == InvalidFinanceRecordId || !pFinanceListHead ||
+		!PersistFinanceTransaction(*pFinanceListHead, newBalance))
+	{
+		ClearFinanceList();
+		Assert(0);
+		return InvalidFinanceRecordId;
+	}
 
-	GetBalanceFromDisk( );
-	// process the actual data
-
-	// Flugente: dynamic opinion
+	// Publish campaign state only after the complete ledger record is durable.
+	LaptopSaveInfo.iCurrentBalance = newBalance;
 	if (gGameExternalOptions.fDynamicOpinions)
-	{
 		HandleDynamicOpinionOnContractExtension(ubCode, ubSecondCode);
-	}
-
-	//
-	// If this transaction is for the hiring/extending of a mercs contract
-	//
-	if( ubCode == HIRED_MERC ||
-			ubCode == IMP_PROFILE ||
-			ubCode == PAYMENT_TO_NPC ||
-			ubCode == EXTENDED_CONTRACT_BY_1_DAY ||
-			ubCode == EXTENDED_CONTRACT_BY_1_WEEK ||
-			ubCode == EXTENDED_CONTRACT_BY_2_WEEKS
-		)
+	if (iAmount < 0 && ubSecondCode < NUM_PROFILES &&
+		(ubCode == HIRED_MERC || ubCode == IMP_PROFILE ||
+		ubCode == PAYMENT_TO_NPC ||
+		ubCode == EXTENDED_CONTRACT_BY_1_DAY ||
+		ubCode == EXTENDED_CONTRACT_BY_1_WEEK ||
+		ubCode == EXTENDED_CONTRACT_BY_2_WEEKS))
 	{
-		gMercProfiles[ ubSecondCode ].uiTotalCostToDate += -iAmount;
+		const UINT64 updatedCost =
+			static_cast<UINT64>(gMercProfiles[ubSecondCode].uiTotalCostToDate) +
+			static_cast<UINT64>(-static_cast<INT64>(iAmount));
+		gMercProfiles[ubSecondCode].uiTotalCostToDate = static_cast<UINT32>(
+			updatedCost > UINT32_MAX ? UINT32_MAX : updatedCost);
 	}
-
-	// clear list
-	ClearFinanceList( );
-
-	pFinance=pFinanceListHead;
-
-	// update balance
-	LaptopSaveInfo.iCurrentBalance += iAmount;
-
-	uiId = ProcessAndEnterAFinacialRecord(ubCode, uiDate, iAmount, ubSecondCode, LaptopSaveInfo.iCurrentBalance);
-
-	// write balance to disk
-	WriteBalanceToDisk( );
-
-	// append to end of file
-	AppendFinanceToEndOfFile( pFinance );
 
 	// set number of pages
 	SetLastPageInRecords( );
@@ -240,6 +305,16 @@ UINT32 AddTransactionToPlayersBook (UINT8 ubCode, UINT8 ubSecondCode, UINT32 uiD
 	}
 	else
 	{
+		iCurrentPage = static_cast<INT32>(
+			LaptopRecordPageModel::NormalizeZeroBasedPage(
+				static_cast<std::size_t>(iCurrentPage < 0 ? 0 : iCurrentPage),
+				gFinanceRecordPageCount + 1));
+		ClearFinanceList();
+		if (iCurrentPage > 0 &&
+			!LoadInRecords(static_cast<UINT32>(iCurrentPage)))
+		{
+			iCurrentPage = 0;
+		}
 		SetFinanceButtonStates( );
 
 		// force update
@@ -422,31 +497,28 @@ INT32 GetProjectedTotalDailyIncome( void )
 
 	// HEADROCK HAM 3.6: Facilities can make you money, and this is figured into your daily income.
 	
-	INT32 iRate = 0;
-	iRate = PredictIncomeFromPlayerMines(TRUE) + (15 * GetTotalFacilityHourlyCosts( TRUE )); // 15 hours is the average time a merc can work per day
-
-	return( iRate );
+	return LaptopRecordPageModel::SaturatingAdd(
+		PredictIncomeFromPlayerMines(TRUE),
+		LaptopRecordPageModel::SaturatingMultiply(
+			15, GetTotalFacilityHourlyCosts(TRUE)));
 }
 
 // HEADROCK HAM 3.6: Predict expenses today. Takes into account facilities, and in the future merc contracts.
 INT32 GetProjectedExpenses( void )
 {
-	INT32 iTotalExpenses = 0;
-	
-	INT32 iFacilityExpenses = GetTotalFacilityHourlyCosts( FALSE );
-	INT32 iContractExpenses = GetTotalContractExpenses();
-
-	iTotalExpenses += (iFacilityExpenses*15); // 15 hours is the average time a merc can work every day.
-	iTotalExpenses += iContractExpenses;
-	iTotalExpenses += guiTotalUpkeepForMilitia;
-
-	return (iTotalExpenses);
+	INT32 total = LaptopRecordPageModel::SaturatingMultiply(
+		GetTotalFacilityHourlyCosts(FALSE), 15);
+	total = LaptopRecordPageModel::SaturatingAdd(
+		total, GetTotalContractExpenses());
+	return LaptopRecordPageModel::SaturatingAddUnsigned(
+		total, guiTotalUpkeepForMilitia);
 }
 
 INT32 GetProjectedBalance( void )
 {
 	// return the projected balance for tommorow - total for today plus the total income, projected.
-	return( GetProjectedTotalDailyIncome( ) + GetCurrentBalance( ) );
+	return LaptopRecordPageModel::SaturatingAdd(
+		GetProjectedTotalDailyIncome(), GetCurrentBalance());
 }
 
 INT32 GetConfidenceValue()
@@ -470,14 +542,12 @@ void EnterFinances()
 {
  //entry into finanacial system, load graphics, set variables..draw screen once
  // set the fact we are in the financial display system
+	LaptopPageResourceOwner staged;
+	gFinancePageResources.clear();
+	fInFinancialMode=FALSE;
 
-	fInFinancialMode=TRUE;
 	// build finances list
 	//OpenAndReadFinancesFile( );
-
-	// reset page we are on
-	iCurrentPage = LaptopSaveInfo.iCurrentFinancesPage;
-
 
 	// get the balance
 	GetBalanceFromDisk( );
@@ -490,12 +560,34 @@ void EnterFinances()
 
 	// set number of pages
 	SetLastPageInRecords( );
+	iCurrentPage = static_cast<INT32>(
+		LaptopRecordPageModel::NormalizeZeroBasedPage(
+			static_cast<std::size_t>(
+				LaptopSaveInfo.iCurrentFinancesPage < 0
+					? 0 : LaptopSaveInfo.iCurrentFinancesPage),
+			gFinanceRecordPageCount + 1));
+	if (iCurrentPage > 0 &&
+		!LoadInRecords(static_cast<UINT32>(iCurrentPage)))
+	{
+		iCurrentPage = 0;
+		ClearFinanceList();
+	}
 
 	// load graphics into memory
-	LoadFinances( );
+	if (!LoadFinances(staged))
+	{
+		ClearFinanceList();
+		return;
+	}
 
 	// create buttons
-	CreateFinanceButtons( );
+	if (!CreateFinanceButtons(staged))
+	{
+		ClearFinanceList();
+		return;
+	}
+	gFinancePageResources = std::move(staged);
+	fInFinancialMode=TRUE;
 
 	// set button state
 	SetFinanceButtonStates( );
@@ -522,15 +614,10 @@ void ExitFinances( void )
 	// not in finance system anymore
 	fInFinancialMode=FALSE;
 
-	// destroy buttons
-	DestroyFinanceButtons( );
-
 	// clear out list
 	ClearFinanceList( );
 
-
-	// remove graphics
-	RemoveFinances( );
+	gFinancePageResources.clear();
 	return;
 
 }
@@ -575,7 +662,7 @@ void RenderFinances( void )
 	return;
 }
 
-BOOLEAN LoadFinances( void )
+BOOLEAN LoadFinances(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
 	// load Finance video objects into memory
@@ -583,43 +670,29 @@ BOOLEAN LoadFinances( void )
 	// title bar
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\programtitlebar.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiTITLE));
+	if (!owner.addVideoObject(&VObjectDesc, guiTITLE)) return FALSE;
 
 	// top portion of the screen background
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\Financeswindow.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiTOP));
+	if (!owner.addVideoObject(&VObjectDesc, guiTOP)) return FALSE;
 
 	// black divider line - long ( 480 length)
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\divisionline480.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiLONGLINE));
+	if (!owner.addVideoObject(&VObjectDesc, guiLONGLINE)) return FALSE;
 
 	// the records columns
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\recordcolumns.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiLISTCOLUMNS));
+	if (!owner.addVideoObject(&VObjectDesc, guiLISTCOLUMNS)) return FALSE;
 
 	// black divider line - long ( 480 length)
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\divisionline.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiLINE));
+	if (!owner.addVideoObject(&VObjectDesc, guiLINE)) return FALSE;
 
 	return (TRUE);
-}
-
-void RemoveFinances( void )
-{
-
-	// delete Finance video objects from memory
-	DeleteVideoObjectFromIndex(guiLONGLINE);
-	DeleteVideoObjectFromIndex(guiLINE);
-	DeleteVideoObjectFromIndex(guiLISTCOLUMNS);
-	DeleteVideoObjectFromIndex(guiTOP);
-	DeleteVideoObjectFromIndex(guiTITLE);
-
-
-	return;
 }
 
 void RenderBackGround( void )
@@ -736,23 +809,23 @@ void DrawRecordsColumnHeadersText( void )
 
 	// the date header
 	FindFontCenterCoordinates(RECORD_DATE_X,0,RECORD_DATE_WIDTH,0, pFinanceHeaders[0], FINANCE_TEXT_FONT,&usX, &usY);
-	mprintf(usX, RECORD_HEADER_Y, pFinanceHeaders[0]);
+	mprintf(usX, RECORD_HEADER_Y, L"%s", pFinanceHeaders[0]);
 
 	// debit header
 	FindFontCenterCoordinates(RECORD_DEBIT_X,0,RECORD_DEBIT_WIDTH,0, pFinanceHeaders[1], FINANCE_TEXT_FONT,&usX, &usY);
-	mprintf(usX, RECORD_HEADER_Y, pFinanceHeaders[1]);
+	mprintf(usX, RECORD_HEADER_Y, L"%s", pFinanceHeaders[1]);
 
 	// credit header
 	FindFontCenterCoordinates(RECORD_CREDIT_X,0,RECORD_CREDIT_WIDTH,0, pFinanceHeaders[2], FINANCE_TEXT_FONT,&usX, &usY);
-	mprintf(usX, RECORD_HEADER_Y, pFinanceHeaders[2]);
+	mprintf(usX, RECORD_HEADER_Y, L"%s", pFinanceHeaders[2]);
 
 	// balance header
 	FindFontCenterCoordinates(RECORD_BALANCE_X,0,RECORD_BALANCE_WIDTH,0, pFinanceHeaders[4], FINANCE_TEXT_FONT,&usX, &usY);
-	mprintf(usX, RECORD_HEADER_Y, pFinanceHeaders[4]);
+	mprintf(usX, RECORD_HEADER_Y, L"%s", pFinanceHeaders[4]);
 
 	// transaction header
 	FindFontCenterCoordinates(RECORD_TRANSACTION_X,0,RECORD_TRANSACTION_WIDTH,0, pFinanceHeaders[3], FINANCE_TEXT_FONT,&usX, &usY);
-	mprintf(usX, RECORD_HEADER_Y, pFinanceHeaders[3]);
+	mprintf(usX, RECORD_HEADER_Y, L"%s", pFinanceHeaders[3]);
 
 	SetFontShadow(DEFAULT_SHADOW);
 	return;
@@ -803,7 +876,8 @@ void DrawRecordsText( void )
 
 
 		FindFontCenterCoordinates(RECORD_DATE_X,0,RECORD_DATE_WIDTH,0, sString, FINANCE_TEXT_FONT,&usX, &usY);
-		mprintf(usX, 12+RECORD_Y + ( iCounter * ( GetFontHeight( FINANCE_TEXT_FONT ) + 6 ) ), sString);
+		mprintf(usX, 12+RECORD_Y +
+			(iCounter * (GetFontHeight(FINANCE_TEXT_FONT) + 6)), L"%s", sString);
 
 		// get and write debit/ credit
 		if(pCurFinance->iAmount >=0)
@@ -811,16 +885,18 @@ void DrawRecordsText( void )
 			// increase in asset - debit
 	 swprintf(sString, L"%s", FormatMoney(pCurFinance->iAmount).data());
 		FindFontCenterCoordinates(RECORD_DEBIT_X,0,RECORD_DEBIT_WIDTH,0, sString, FINANCE_TEXT_FONT,&usX, &usY);
-		mprintf(usX, 12+RECORD_Y + (iCounter * ( GetFontHeight( FINANCE_TEXT_FONT ) + 6 ) ), sString);
+		mprintf(usX, 12+RECORD_Y +
+			(iCounter * (GetFontHeight(FINANCE_TEXT_FONT) + 6)), L"%s", sString);
 		}
 		else
 		{
 			// decrease in asset - credit
-	 swprintf(sString, L"%s", FormatMoney(pCurFinance->iAmount * (-1)).data());
+	 swprintf(sString, L"%s", FormatFinanceMagnitude(pCurFinance->iAmount).data());
 		SetFontForeground(FONT_RED);
 
 		FindFontCenterCoordinates(RECORD_CREDIT_X ,0 , RECORD_CREDIT_WIDTH,0, sString, FINANCE_TEXT_FONT,&usX, &usY);
-		mprintf(usX, 12+RECORD_Y + (iCounter * ( GetFontHeight( FINANCE_TEXT_FONT ) + 6 ) ), sString);
+		mprintf(usX, 12+RECORD_Y +
+			(iCounter * (GetFontHeight(FINANCE_TEXT_FONT) + 6)), L"%s", sString);
 		SetFontForeground(FONT_BLACK);
 		}
 
@@ -835,19 +911,20 @@ void DrawRecordsText( void )
 		else
 		{
 		SetFontForeground(FONT_RED);
-			iBalance = ( iBalance ) * ( -1 );
-		}
+			}
 
 		// transaction string
 		ProcessTransactionString(sString, pCurFinance);
 	FindFontCenterCoordinates(RECORD_TRANSACTION_X,0,RECORD_TRANSACTION_WIDTH,0, sString, FINANCE_TEXT_FONT,&usX, &usY);
-		mprintf(usX, 12+RECORD_Y + (iCounter * ( GetFontHeight( FINANCE_TEXT_FONT ) + 6 ) ), sString);
+		mprintf(usX, 12+RECORD_Y +
+			(iCounter * (GetFontHeight(FINANCE_TEXT_FONT) + 6)), L"%s", sString);
 
 
 		// print the balance string
-	swprintf(sString, L"%s", FormatMoney(iBalance).data());
+	swprintf(sString, L"%s", FormatFinanceMagnitude(iBalance).data());
 		FindFontCenterCoordinates(RECORD_BALANCE_X,0,RECORD_BALANCE_WIDTH,0, sString, FINANCE_TEXT_FONT,&usX, &usY);
-		mprintf(usX, 12+RECORD_Y + (iCounter * ( GetFontHeight( FINANCE_TEXT_FONT ) + 6 ) ), sString);
+		mprintf(usX, 12+RECORD_Y +
+			(iCounter * (GetFontHeight(FINANCE_TEXT_FONT) + 6)), L"%s", sString);
 
 		// restore font color
 		SetFontForeground(FONT_BLACK);
@@ -880,7 +957,7 @@ void DrawFinanceTitleText( void )
 	SetFontShadow(DEFAULT_SHADOW);
 
 	// draw the pages title
-	mprintf(TITLE_X,TITLE_Y,pFinanceTitle[0]);
+	mprintf(TITLE_X, TITLE_Y, L"%s", pFinanceTitle[0]);
 
 
 	return;
@@ -909,16 +986,16 @@ void DrawSummaryText( void )
 	SetFontShadow(NO_SHADOW);
 
 	// draw summary text to the screen
-	mprintf(TEXT_X,YESTERDAYS_INCOME,pFinanceSummary[2]);
-	mprintf(TEXT_X,YESTERDAYS_OTHER,pFinanceSummary[3]);
-	mprintf(TEXT_X,YESTERDAYS_DEBITS,pFinanceSummary[4]);
-	mprintf(TEXT_X,YESTERDAYS_BALANCE,pFinanceSummary[5]);
-	mprintf(TEXT_X,TODAYS_INCOME,pFinanceSummary[6]);
-	mprintf(TEXT_X,TODAYS_OTHER,pFinanceSummary[7]);
-	mprintf(TEXT_X,TODAYS_DEBITS,pFinanceSummary[8]);
-	mprintf(TEXT_X,TODAYS_CURRENT_BALANCE, pFinanceSummary[9]);
-	mprintf(TEXT_X,TODAYS_CURRENT_FORCAST_INCOME, pFinanceSummary[10]);
-	mprintf(TEXT_X,TODAYS_CURRENT_FORCAST_BALANCE, pFinanceSummary[11]);
+	mprintf(TEXT_X, YESTERDAYS_INCOME, L"%s", pFinanceSummary[2]);
+	mprintf(TEXT_X, YESTERDAYS_OTHER, L"%s", pFinanceSummary[3]);
+	mprintf(TEXT_X, YESTERDAYS_DEBITS, L"%s", pFinanceSummary[4]);
+	mprintf(TEXT_X, YESTERDAYS_BALANCE, L"%s", pFinanceSummary[5]);
+	mprintf(TEXT_X, TODAYS_INCOME, L"%s", pFinanceSummary[6]);
+	mprintf(TEXT_X, TODAYS_OTHER, L"%s", pFinanceSummary[7]);
+	mprintf(TEXT_X, TODAYS_DEBITS, L"%s", pFinanceSummary[8]);
+	mprintf(TEXT_X, TODAYS_CURRENT_BALANCE, L"%s", pFinanceSummary[9]);
+	mprintf(TEXT_X, TODAYS_CURRENT_FORCAST_INCOME, L"%s", pFinanceSummary[10]);
+	mprintf(TEXT_X, TODAYS_CURRENT_FORCAST_BALANCE, L"%s", pFinanceSummary[11]);
 
 	// draw the actual numbers
 
@@ -929,7 +1006,7 @@ void DrawSummaryText( void )
 	tmp = FormatMoney(iBalance);
 	FindFontRightCoordinates(0,0,iScreenWidthOffset + 580,0, tmp.data(), FINANCE_TEXT_FONT, &usX, &usY);
 
-	mprintf(usX,YESTERDAYS_INCOME,tmp.data());
+	mprintf(usX, YESTERDAYS_INCOME, L"%s", tmp.data());
 
 	SetFontForeground( FONT_BLACK );
 
@@ -938,7 +1015,7 @@ void DrawSummaryText( void )
 	tmp = FormatMoney(iBalance);
 	FindFontRightCoordinates(0,0,iScreenWidthOffset + 580,0, tmp.data(),FINANCE_TEXT_FONT, &usX, &usY);
 
-	mprintf(usX,YESTERDAYS_OTHER,tmp.data());
+	mprintf(usX, YESTERDAYS_OTHER, L"%s", tmp.data());
 
 	SetFontForeground( FONT_RED );
 
@@ -952,7 +1029,7 @@ void DrawSummaryText( void )
 
 	FindFontRightCoordinates(0,0,iScreenWidthOffset + 580,0, tmp.data(),FINANCE_TEXT_FONT, &usX, &usY);
 
-	mprintf(usX,YESTERDAYS_DEBITS,tmp.data());
+	mprintf(usX, YESTERDAYS_DEBITS, L"%s", tmp.data());
 
 	SetFontForeground( FONT_BLACK );
 
@@ -967,7 +1044,7 @@ void DrawSummaryText( void )
 
 	FindFontRightCoordinates(0,0,iScreenWidthOffset + 580,0, tmp.data(),FINANCE_TEXT_FONT, &usX, &usY);
 
-	mprintf(usX,YESTERDAYS_BALANCE,tmp.data());
+	mprintf(usX, YESTERDAYS_BALANCE, L"%s", tmp.data());
 
 	SetFontForeground( FONT_BLACK );
 
@@ -977,7 +1054,7 @@ void DrawSummaryText( void )
 
 	FindFontRightCoordinates(0,0,iScreenWidthOffset + 580,0,tmp.data(),FINANCE_TEXT_FONT, &usX, &usY);
 
-	mprintf(usX,TODAYS_INCOME,tmp.data());
+	mprintf(usX, TODAYS_INCOME, L"%s", tmp.data());
 
 	SetFontForeground( FONT_BLACK );
 
@@ -987,7 +1064,7 @@ void DrawSummaryText( void )
 
 	FindFontRightCoordinates(0,0,iScreenWidthOffset + 580,0,tmp.data(),FINANCE_TEXT_FONT, &usX, &usY);
 
-	mprintf(usX,TODAYS_OTHER,tmp.data());
+	mprintf(usX, TODAYS_OTHER, L"%s", tmp.data());
 
 	SetFontForeground( FONT_RED );
 
@@ -1004,7 +1081,7 @@ void DrawSummaryText( void )
 
 	FindFontRightCoordinates(0,0,iScreenWidthOffset + 580,0,tmp.data(),FINANCE_TEXT_FONT, &usX, &usY);
 
-	mprintf(usX,TODAYS_DEBITS,tmp.data());
+	mprintf(usX, TODAYS_DEBITS, L"%s", tmp.data());
 
 	SetFontForeground( FONT_BLACK );
 
@@ -1018,7 +1095,7 @@ void DrawSummaryText( void )
 
 	tmp = FormatMoney(iBalance);
 	FindFontRightCoordinates(0,0,iScreenWidthOffset + 580,0,tmp.data(),FINANCE_TEXT_FONT, &usX, &usY);
-	mprintf(usX,TODAYS_CURRENT_BALANCE,tmp.data());
+	mprintf(usX, TODAYS_CURRENT_BALANCE, L"%s", tmp.data());
 	SetFontForeground( FONT_BLACK );
 
 
@@ -1028,7 +1105,7 @@ void DrawSummaryText( void )
 
 	FindFontRightCoordinates(0,0,iScreenWidthOffset + 580,0,tmp.data(),FINANCE_TEXT_FONT, &usX, &usY);
 
-	mprintf(usX,TODAYS_CURRENT_FORCAST_INCOME,tmp.data());
+	mprintf(usX, TODAYS_CURRENT_FORCAST_INCOME, L"%s", tmp.data());
 
 	SetFontForeground( FONT_BLACK );
 
@@ -1043,7 +1120,7 @@ void DrawSummaryText( void )
 
 	tmp = FormatMoney(iBalance);
 	FindFontRightCoordinates(0,0,iScreenWidthOffset + 580,0,tmp.data(),FINANCE_TEXT_FONT, &usX, &usY);
-	mprintf(usX,TODAYS_CURRENT_FORCAST_BALANCE,tmp.data());
+	mprintf(usX, TODAYS_CURRENT_FORCAST_BALANCE, L"%s", tmp.data());
 	SetFontForeground( FONT_BLACK );
 
 
@@ -1055,84 +1132,11 @@ void DrawSummaryText( void )
 }
 
 
-void OpenAndReadFinancesFile( void )
-{
-	// this procedure will open and read in data to the finance list
-	HWFILE hFileHandle;
-	UINT8 ubCode, ubSecondCode;
-	UINT32 uiDate;
-	INT32 iAmount;
-	INT32 iBalanceToDate;
-	INT32 iBytesRead=0;
-	UINT32 uiByteCount=0;
-
-	// clear out the old list
-	ClearFinanceList( );
-
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return;
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		// close file
-		FileClose( hFileHandle );
-
-		return;
-	}
-
-	// make sure file is more than 0 length
-	if ( FileGetSize( hFileHandle ) == 0 )
-	{
-	FileClose( hFileHandle );
-		return;
-	}
-
-	// read in balance
-	// write balance to disk first
-	FileRead( hFileHandle, &(LaptopSaveInfo.iCurrentBalance),	sizeof ( INT32 ), (UINT32 *)&iBytesRead );
-	uiByteCount += sizeof( INT32 );
-
-	AssertMsg( iBytesRead, "Failed To Read Data Entry");
-
-	// file exists, read in data, continue until file end
-	while( FileGetSize( hFileHandle ) > uiByteCount)
-	{
-		// read in other data
-		FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubSecondCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iAmount, sizeof(INT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iBalanceToDate, sizeof(INT32), (UINT32 *)&iBytesRead );
-
-		AssertMsg( iBytesRead, "Failed To Read Data Entry");
-
-		// WANNE: Fix uiDate (add 1 day!)!
-		uiDate += 1500;
-
-		// add transaction
-		ProcessAndEnterAFinacialRecord(ubCode, uiDate, iAmount, ubSecondCode, iBalanceToDate);
-
-		// increment byte counter
-		uiByteCount += sizeof( INT32 ) + sizeof( UINT32 ) + sizeof( UINT8 )+ sizeof(UINT8) + sizeof( INT32 );
-	}
-
-	// close file
-	FileClose( hFileHandle );
-
-	return;
-}
-
-
 void ClearFinanceList( void )
 {
 	// remove each element from list of transactions
 	FinanceUnitPtr pFinanceList=pFinanceListHead;
-	FinanceUnitPtr pFinanceNode=pFinanceList;
+	FinanceUnitPtr pFinanceNode;
 
 	// while there are elements in the list left, delete them
 	while( pFinanceList )
@@ -1166,6 +1170,7 @@ UINT32 ProcessAndEnterAFinacialRecord( UINT8 ubCode, UINT32 uiDate, INT32 iAmoun
 
 		// alloc space
 		pFinance->Next = (finance *) MemAlloc(sizeof(FinanceUnit));
+		if (!pFinance->Next) return InvalidFinanceRecordId;
 
 		// increment id number
 		uiId = pFinance->uiIdNumber + 1;
@@ -1188,6 +1193,7 @@ UINT32 ProcessAndEnterAFinacialRecord( UINT8 ubCode, UINT32 uiDate, INT32 iAmoun
 		// HEADROCK HAM 3.6: Fix by Warmsteel to prevent repetitive entries on finance list. Next line commented out.
 		// uiId = ReadInLastElementOfFinanceListAndReturnIdNumber( );
 		pFinance = (FinanceUnitPtr) MemAlloc(sizeof(FinanceUnit));
+		if (!pFinance) return InvalidFinanceRecordId;
 
 		// setup info passed
 		pFinance->Next = NULL;
@@ -1204,33 +1210,45 @@ UINT32 ProcessAndEnterAFinacialRecord( UINT8 ubCode, UINT32 uiDate, INT32 iAmoun
 	return uiId;
 }
 
-void CreateFinanceButtons( void )
+BOOLEAN CreateFinanceButtons(LaptopPageResourceOwner& owner)
 {
-	giFinanceButtonImage[PREV_PAGE_BUTTON] =	LoadButtonImage( "LAPTOP\\arrows.sti" ,-1,0,-1,1,-1	);
-	giFinanceButton[PREV_PAGE_BUTTON] = QuickCreateButton( giFinanceButtonImage[PREV_PAGE_BUTTON], PREV_BTN_X, BTN_Y,
+	if (!owner.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\arrows.sti", -1, 0, -1, 1, -1),
+		giFinanceButtonImage[PREV_PAGE_BUTTON])) return FALSE;
+	if (!owner.addButton(QuickCreateButton( giFinanceButtonImage[PREV_PAGE_BUTTON], PREV_BTN_X, BTN_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnFinanceDisplayPrevPageCallBack);
+										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnFinanceDisplayPrevPageCallBack),
+		giFinanceButton[PREV_PAGE_BUTTON])) return FALSE;
 
 
-	giFinanceButtonImage[NEXT_PAGE_BUTTON]=	UseLoadedButtonImage( giFinanceButtonImage[PREV_PAGE_BUTTON] ,-1,6,-1,7,-1 );
-	giFinanceButton[NEXT_PAGE_BUTTON] = QuickCreateButton( giFinanceButtonImage[NEXT_PAGE_BUTTON], NEXT_BTN_X, BTN_Y,
+	if (!owner.addButtonImage(UniqueButtonImageHandle(UseLoadedButtonImage(
+		giFinanceButtonImage[PREV_PAGE_BUTTON], -1, 6, -1, 7, -1)),
+		giFinanceButtonImage[NEXT_PAGE_BUTTON])) return FALSE;
+	if (!owner.addButton(QuickCreateButton( giFinanceButtonImage[NEXT_PAGE_BUTTON], NEXT_BTN_X, BTN_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnFinanceDisplayNextPageCallBack);
+										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnFinanceDisplayNextPageCallBack),
+		giFinanceButton[NEXT_PAGE_BUTTON])) return FALSE;
 
 
 	//button to go to the first page
-	giFinanceButtonImage[FIRST_PAGE_BUTTON]=	UseLoadedButtonImage( giFinanceButtonImage[PREV_PAGE_BUTTON], -1,3,-1,4,-1	);
-	giFinanceButton[FIRST_PAGE_BUTTON] = QuickCreateButton( giFinanceButtonImage[FIRST_PAGE_BUTTON], FIRST_PAGE_X, BTN_Y,
+	if (!owner.addButtonImage(UniqueButtonImageHandle(UseLoadedButtonImage(
+		giFinanceButtonImage[PREV_PAGE_BUTTON], -1, 3, -1, 4, -1)),
+		giFinanceButtonImage[FIRST_PAGE_BUTTON])) return FALSE;
+	if (!owner.addButton(QuickCreateButton( giFinanceButtonImage[FIRST_PAGE_BUTTON], FIRST_PAGE_X, BTN_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnFinanceFirstLastPageCallBack);
+										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnFinanceFirstLastPageCallBack),
+		giFinanceButton[FIRST_PAGE_BUTTON])) return FALSE;
 
 	MSYS_SetBtnUserData( giFinanceButton[FIRST_PAGE_BUTTON], 0, 0 );
 
 	//button to go to the last page
-	giFinanceButtonImage[LAST_PAGE_BUTTON]=	UseLoadedButtonImage( giFinanceButtonImage[PREV_PAGE_BUTTON], -1,9,-1,10,-1	);
-	giFinanceButton[LAST_PAGE_BUTTON] = QuickCreateButton( giFinanceButtonImage[LAST_PAGE_BUTTON], LAST_PAGE_X, BTN_Y,
+	if (!owner.addButtonImage(UniqueButtonImageHandle(UseLoadedButtonImage(
+		giFinanceButtonImage[PREV_PAGE_BUTTON], -1, 9, -1, 10, -1)),
+		giFinanceButtonImage[LAST_PAGE_BUTTON])) return FALSE;
+	if (!owner.addButton(QuickCreateButton( giFinanceButtonImage[LAST_PAGE_BUTTON], LAST_PAGE_X, BTN_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGHEST - 1,
-										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnFinanceFirstLastPageCallBack);
+										BtnGenericMouseMoveButtonCallback, (GUI_CALLBACK)BtnFinanceFirstLastPageCallBack),
+		giFinanceButton[LAST_PAGE_BUTTON])) return FALSE;
 	
 	MSYS_SetBtnUserData( giFinanceButton[LAST_PAGE_BUTTON], 0, 1 );
 
@@ -1239,19 +1257,7 @@ void CreateFinanceButtons( void )
 	SetButtonCursor(giFinanceButton[1], CURSOR_LAPTOP_SCREEN);
 	SetButtonCursor(giFinanceButton[2], CURSOR_LAPTOP_SCREEN);
 	SetButtonCursor(giFinanceButton[3], CURSOR_LAPTOP_SCREEN);
-	return;
-}
-
-
-void DestroyFinanceButtons( void )
-{
-	UINT32 uiCnt;
-
-	for( uiCnt=0; uiCnt<4; uiCnt++ )
-	{
-		RemoveButton( giFinanceButton[ uiCnt ] );
-		UnloadButtonImage( giFinanceButtonImage[ uiCnt ] );
-	}
+	return TRUE;
 }
 void BtnFinanceDisplayPrevPageCallBack(GUI_BUTTON *btn,INT32 reason)
 {
@@ -1278,7 +1284,6 @@ void BtnFinanceDisplayNextPageCallBack(GUI_BUTTON *btn,INT32 reason)
 	{
 	 btn->uiFlags&=~(BUTTON_CLICKED_ON);
 		// increment currentPage
-		//IncrementCurrentPageFinancialDisplay( );
 	 LoadNextPage( );
 
 		// set button state
@@ -1301,16 +1306,19 @@ void BtnFinanceFirstLastPageCallBack(GUI_BUTTON *btn,INT32 reason)
 		//if its the first page button
 		if( uiButton == 0 )
 		{
+			ClearFinanceList();
 			iCurrentPage = 0;
-			LoadInRecords( iCurrentPage );
 		}
 
 		//else its the last page button
 		else
 		{
-			LoadInRecords( guiLastPageInRecordsList + 1 );
-
-			iCurrentPage = guiLastPageInRecordsList + 1;
+			if (gFinanceRecordPageCount != 0 &&
+				LoadInRecords(static_cast<UINT32>(gFinanceRecordPageCount)))
+			{
+				iCurrentPage = static_cast<INT32>(
+					gFinanceRecordPageCount);
+			}
 		}
 
 		// set button state
@@ -1323,57 +1331,10 @@ void BtnFinanceFirstLastPageCallBack(GUI_BUTTON *btn,INT32 reason)
 }
 
 
-void IncrementCurrentPageFinancialDisplay( void )
-{
-	// run through list, from pCurrentFinance, to NUM_RECORDS_PER_PAGE +1 FinancialUnits
-	FinanceUnitPtr pTempFinance=pCurrentFinance;
-	BOOLEAN fOkToIncrementPage=FALSE;
-	INT32 iCounter=0;
-
-	// on the overview page, simply set iCurrent to head of list, and page to 1
-	if(iCurrentPage==0)
-	{
-
-		pCurrentFinance=pFinanceListHead;
-		iCurrentPage=1;
-
-		return;
-	}
-
-	// no list, we are on page 2
-	if( pTempFinance == NULL )
-	{
-		iCurrentPage = 2;
-		return;
-	}
-
-	// haven't reached end of list and not yet at beginning of next page
-	while( ( pTempFinance )&&( ! fOkToIncrementPage ) )
-	{
-	// found the next page,	first record thereof
-		if(iCounter==NUM_RECORDS_PER_PAGE+1)
-		{
-			fOkToIncrementPage=TRUE;
-		pCurrentFinance=pTempFinance->Next;
-		}
-
-		//next record
-		pTempFinance=pTempFinance->Next;
-	iCounter++;
-	}
-
-	// if ok to increment, increment
-	if(fOkToIncrementPage)
-	{
-		iCurrentPage++;
-
-	}
-
-	return;
-}
-
 void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance)
 {
+	const std::size_t profile = LaptopRecordPageModel::BoundedIndex(
+		pFinance->ubSecondCode, NUM_PROFILES);
 	switch( pFinance->ubCode)
 	{
 		case ACCRUED_INTEREST:
@@ -1389,7 +1350,7 @@ void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance)
 			break;
 
 		case HIRED_MERC:
-			sgp_swprintf(pString, 512,pMessageStrings[ MSG_HIRED_MERC ], gMercProfiles[pFinance->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,pMessageStrings[ MSG_HIRED_MERC ], gMercProfiles[profile].zNickname );
 			break;
 
 		case BOBBYR_PURCHASE:
@@ -1401,7 +1362,7 @@ void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance)
 			break;
 
 		case MEDICAL_DEPOSIT:
-			sgp_swprintf(pString, 512,pTransactionText[ MEDICAL_DEPOSIT ] , gMercProfiles[pFinance->ubSecondCode].zNickname);
+			sgp_swprintf(pString, 512,pTransactionText[ MEDICAL_DEPOSIT ] , gMercProfiles[profile].zNickname);
 			break;
 
 		case IMP_PROFILE:
@@ -1409,35 +1370,35 @@ void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance)
 			break;
 
 		case PURCHASED_INSURANCE:
-			sgp_swprintf(pString, 512,pTransactionText[ PURCHASED_INSURANCE ], gMercProfiles[pFinance->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,pTransactionText[ PURCHASED_INSURANCE ], gMercProfiles[profile].zNickname );
 			break;
 
 		case REDUCED_INSURANCE:
-			sgp_swprintf(pString, 512, pTransactionText[ REDUCED_INSURANCE ], gMercProfiles[pFinance->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512, pTransactionText[ REDUCED_INSURANCE ], gMercProfiles[profile].zNickname );
 			break;
 
 		case EXTENDED_INSURANCE:
-			sgp_swprintf(pString, 512,pTransactionText[ EXTENDED_INSURANCE ], gMercProfiles[pFinance->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,pTransactionText[ EXTENDED_INSURANCE ], gMercProfiles[profile].zNickname );
 			break;
 
 		case CANCELLED_INSURANCE:
-			sgp_swprintf(pString, 512,pTransactionText[ CANCELLED_INSURANCE ], gMercProfiles[pFinance->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,pTransactionText[ CANCELLED_INSURANCE ], gMercProfiles[profile].zNickname );
 			break;
 
 		case INSURANCE_PAYOUT:
-			sgp_swprintf(pString, 512,pTransactionText[ INSURANCE_PAYOUT ], gMercProfiles[pFinance->ubSecondCode].zNickname);
+			sgp_swprintf(pString, 512,pTransactionText[ INSURANCE_PAYOUT ], gMercProfiles[profile].zNickname);
 			break;
 
 		case EXTENDED_CONTRACT_BY_1_DAY:
-			sgp_swprintf(pString, 512,pTransactionAlternateText[ 1 ], gMercProfiles[pFinance->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,pTransactionAlternateText[ 1 ], gMercProfiles[profile].zNickname );
 			break;
 
 		case EXTENDED_CONTRACT_BY_1_WEEK:
-			sgp_swprintf(pString, 512,pTransactionAlternateText[ 2 ], gMercProfiles[pFinance->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,pTransactionAlternateText[ 2 ], gMercProfiles[profile].zNickname );
 			break;
 
 		case EXTENDED_CONTRACT_BY_2_WEEKS:
-			sgp_swprintf(pString, 512,pTransactionAlternateText[ 3 ],	gMercProfiles[pFinance->ubSecondCode].zNickname );
+			sgp_swprintf(pString, 512,pTransactionAlternateText[ 3 ],	gMercProfiles[profile].zNickname );
 			break;
 
 		case DEPOSIT_FROM_GOLD_MINE:
@@ -1450,25 +1411,25 @@ void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance)
 			break;
 
 		case FULL_MEDICAL_REFUND:
-			sgp_swprintf(pString, 512,pTransactionText[ FULL_MEDICAL_REFUND ], gMercProfiles[pFinance->ubSecondCode].zNickname);
+			sgp_swprintf(pString, 512,pTransactionText[ FULL_MEDICAL_REFUND ], gMercProfiles[profile].zNickname);
 			break;
 
 		case PARTIAL_MEDICAL_REFUND:
-			sgp_swprintf(pString, 512,pTransactionText[ PARTIAL_MEDICAL_REFUND ],	gMercProfiles[pFinance->ubSecondCode].zNickname);
+			sgp_swprintf(pString, 512,pTransactionText[ PARTIAL_MEDICAL_REFUND ],	gMercProfiles[profile].zNickname);
 			break;
 
 		case NO_MEDICAL_REFUND:
-			sgp_swprintf(pString, 512,pTransactionText[ NO_MEDICAL_REFUND ], gMercProfiles[pFinance->ubSecondCode].zNickname);
+			sgp_swprintf(pString, 512,pTransactionText[ NO_MEDICAL_REFUND ], gMercProfiles[profile].zNickname);
 			break;
 
 		case TRANSFER_FUNDS_TO_MERC:
-			sgp_swprintf(pString, 512, pTransactionText[ TRANSFER_FUNDS_TO_MERC ],	gMercProfiles[pFinance->ubSecondCode].zNickname);
+			sgp_swprintf(pString, 512, pTransactionText[ TRANSFER_FUNDS_TO_MERC ],	gMercProfiles[profile].zNickname);
 			break;
 		case TRANSFER_FUNDS_FROM_MERC:
-			sgp_swprintf(pString, 512,pTransactionText[ TRANSFER_FUNDS_FROM_MERC ], gMercProfiles[pFinance->ubSecondCode].zNickname);
+			sgp_swprintf(pString, 512,pTransactionText[ TRANSFER_FUNDS_FROM_MERC ], gMercProfiles[profile].zNickname);
 			break;
 		case 	PAYMENT_TO_NPC:
-			sgp_swprintf(pString, 512,pTransactionText[ PAYMENT_TO_NPC ], gMercProfiles[ pFinance->ubSecondCode ].zNickname );
+			sgp_swprintf(pString, 512,pTransactionText[ PAYMENT_TO_NPC ], gMercProfiles[profile].zNickname );
 			break;
 		case( TRAIN_TOWN_MILITIA ):
 			{
@@ -1487,11 +1448,11 @@ void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance)
 			break;
 
 		case( PURCHASED_ITEM_FROM_DEALER ):
-			sgp_swprintf(pString, 512,pTransactionText[ PURCHASED_ITEM_FROM_DEALER ],	gMercProfiles[ pFinance->ubSecondCode ].zNickname );
+			sgp_swprintf(pString, 512,pTransactionText[ PURCHASED_ITEM_FROM_DEALER ],	gMercProfiles[profile].zNickname );
 			break;
 
 		case( MERC_DEPOSITED_MONEY_TO_PLAYER_ACCOUNT ):
-			sgp_swprintf(pString, 512,pTransactionText[ MERC_DEPOSITED_MONEY_TO_PLAYER_ACCOUNT ],	gMercProfiles[ pFinance->ubSecondCode ].zNickname );
+			sgp_swprintf(pString, 512,pTransactionText[ MERC_DEPOSITED_MONEY_TO_PLAYER_ACCOUNT ],	gMercProfiles[profile].zNickname );
 			break;
 
 		// HEADROCK HAM 3.6: Paid for Facility Use
@@ -1532,17 +1493,16 @@ void ProcessTransactionString(CHAR16 *pString, FinanceUnitPtr pFinance)
 		case REBEL_COMMAND_BOUNTY_PAYOUT:
 			sgp_swprintf(pString, 512,L"%s", pTransactionText[REBEL_COMMAND_BOUNTY_PAYOUT]);
 			break;
+
+		default:
+			sgp_swprintf(pString, 512, L"missing finance text");
+			break;
 	}
 }
 
 
 void DisplayFinancePageNumberAndDateRange( void )
 {
-	// this function will go through the list of 'histories' starting at current until end or
-	// MAX_PER_PAGE...it will get the date range and the page number
-	INT32 iCounter=0;
-	UINT32 uiLastDate;
-	FinanceUnitPtr pTempFinance=pFinanceListHead;
 	CHAR16 sString[50];
 
 
@@ -1555,1080 +1515,305 @@ void DisplayFinancePageNumberAndDateRange( void )
 	if( !pCurrentFinance )
 	{
 		pCurrentFinance = pFinanceListHead;
-	if( !pCurrentFinance )
+		if( !pCurrentFinance )
 		{
-	 swprintf( sString, L"%s %d / %d",pFinanceHeaders[5], iCurrentPage + 1 , guiLastPageInRecordsList + 2 );
-	mprintf( PAGE_NUMBER_X, PAGE_NUMBER_Y, sString );
-		return;
+			swprintf( sString, L"%s %d / %d",pFinanceHeaders[5],
+				iCurrentPage + 1,
+				static_cast<INT32>(gFinanceRecordPageCount + 1));
+				mprintf(PAGE_NUMBER_X, PAGE_NUMBER_Y, L"%s", sString);
+			SetFontShadow(DEFAULT_SHADOW);
+			return;
 		}
 	}
 
-	uiLastDate=pCurrentFinance->uiDate;
-	// find last page
-	while(pTempFinance)
-	{
-		iCounter++;
-		pTempFinance=pTempFinance->Next;
-	}
-
-	// get the last page
-
-	swprintf( sString, L"%s %d / %d",pFinanceHeaders[5], iCurrentPage + 1 , guiLastPageInRecordsList + 2 );
-	mprintf( PAGE_NUMBER_X, PAGE_NUMBER_Y, sString );
+	swprintf( sString, L"%s %d / %d",pFinanceHeaders[5],
+		iCurrentPage + 1,
+		static_cast<INT32>(gFinanceRecordPageCount + 1));
+	mprintf(PAGE_NUMBER_X, PAGE_NUMBER_Y, L"%s", sString);
 
 	// reset shadow
 	SetFontShadow(DEFAULT_SHADOW);
 }
 
 
-BOOLEAN WriteBalanceToDisk( void )
+BOOLEAN GetBalanceFromDisk( void )
 {
-	// will write the current balance to disk
-	HWFILE hFileHandle;
-
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE, FILE_ACCESS_WRITE|FILE_CREATE_ALWAYS, FALSE);
-
-	// write balance to disk
-	FileWrite( hFileHandle, &(LaptopSaveInfo.iCurrentBalance),	sizeof ( INT32 ), NULL );
-
-	// close file
-	FileClose( hFileHandle );
-
-
-	return( TRUE );
-}
-
-void GetBalanceFromDisk( void )
-{
-	// will grab the current blanace from disk
-	// assuming file already openned
-	// this procedure will open and read in data to the finance list
-	HWFILE hFileHandle;
-	INT32 iBytesRead=0;
-
 	if(!FileExists(FINANCES_DATA_FILE))
-		return;
+		return TRUE;
 
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		LaptopSaveInfo.iCurrentBalance = 0;
-		// close file
-		FileClose( hFileHandle );
-		return;
-	}
-
-	// start at beginning
-	FileSeek( hFileHandle, 0, FILE_SEEK_FROM_START);
-
-	// get balance from disk first
-	FileRead( hFileHandle, &(LaptopSaveInfo.iCurrentBalance),	sizeof ( INT32 ), (UINT32 *)&iBytesRead );
-
-	AssertMsg( iBytesRead, "Failed To Read Data Entry");
-
-	// close file
-	FileClose( hFileHandle );
-
-	return;
+	ScopedLaptopFile file(FileOpen(FINANCES_DATA_FILE,
+		FILE_OPEN_EXISTING | FILE_ACCESS_READ, FALSE));
+	if (!file || !LaptopRecordPageModel::IsWellFormedFile(
+		FileGetSize(file.Get()), FinanceFileLayout)) return FALSE;
+	INT32 loadedBalance = 0;
+	if (!ReadLaptopFileExact(file.Get(), &loadedBalance,
+		sizeof(loadedBalance))) return FALSE;
+	LaptopSaveInfo.iCurrentBalance = loadedBalance;
+	return TRUE;
 }
 
-
-BOOLEAN AppendFinanceToEndOfFile( FinanceUnitPtr pFinance )
+BOOLEAN PersistFinanceTransaction(
+	const FinanceUnit& financeRecord, INT32 balance)
 {
-		// will write the current finance to disk
-	HWFILE hFileHandle;
-	FinanceUnitPtr pFinanceList=pFinanceListHead;
-
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE, FILE_ACCESS_WRITE|FILE_OPEN_ALWAYS, FALSE);
-
-	// if no file exits, do nothing
-	if(!hFileHandle)
-	{
-		// close file
-		FileClose( hFileHandle );
-
-	return ( FALSE );
-	}
-
-	// go to the end
-	if( FileSeek( hFileHandle,0,FILE_SEEK_FROM_END ) == FALSE )
-	{
-		// error
-	FileClose( hFileHandle );
-		return( FALSE );
-	}
-
-
-	// write finance to disk
-	// now write date and amount, and code
-	FileWrite( hFileHandle, &(pFinanceList->ubCode),	sizeof ( UINT8 ), NULL );
-	FileWrite( hFileHandle, &(pFinanceList->ubSecondCode),	sizeof ( UINT8 ), NULL );
-	FileWrite( hFileHandle, &(pFinanceList->uiDate),	sizeof ( UINT32 ), NULL );
-	FileWrite( hFileHandle, &(pFinanceList->iAmount),	sizeof ( INT32 ), NULL );
-	FileWrite( hFileHandle, &(pFinanceList->iBalanceToDate),	sizeof ( INT32 ), NULL );
-
-		// close file
-	FileClose( hFileHandle );
-
-	return( TRUE );
-}
-
-UINT32 ReadInLastElementOfFinanceListAndReturnIdNumber( void )
-{
-	// this function will read in the last unit in the finance list, to grab it's id number
-
-
-	HWFILE hFileHandle;
-	INT32 iFileSize = 0;
-
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return 0;
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		// close file
-		FileClose( hFileHandle );
-
-		return 0;
-	}
-
-	// make sure file is more than balance size + length of 1 record - 1 byte
-	if ( FileGetSize( hFileHandle ) < sizeof( INT32 ) + sizeof( UINT32 ) + sizeof( UINT8 )+ sizeof(UINT8) + sizeof( INT32 )	)
-	{
-		FileClose( hFileHandle );
-		return 0;
-	}
-
-	// size is?
-	iFileSize = FileGetSize( hFileHandle );
-
-	// done with file, close it
-	FileClose( hFileHandle );
-
-	// file size -1 / sizeof record in bytes is id
-	return ( (	iFileSize - 1 ) / ( sizeof( INT32 ) + sizeof( UINT32 ) + sizeof( UINT8 )+ sizeof(UINT8) + sizeof( INT32 )) );
-
+	ScopedLaptopFile file(FileOpen(FINANCES_DATA_FILE,
+		FILE_ACCESS_WRITE | FILE_OPEN_ALWAYS, FALSE));
+	if (!file || !LaptopRecordPageModel::IsWellFormedFile(
+		FileGetSize(file.Get()), FinanceFileLayout) ||
+		!FileSeek(file.Get(), 0, FILE_SEEK_FROM_START) ||
+		!WriteLaptopFileExact(file.Get(), &balance, sizeof(balance)) ||
+		!FileSeek(file.Get(), 0, FILE_SEEK_FROM_END)) return FALSE;
+	return WriteLaptopFileExact(file.Get(), &financeRecord.ubCode,
+			sizeof(financeRecord.ubCode)) &&
+		WriteLaptopFileExact(file.Get(), &financeRecord.ubSecondCode,
+			sizeof(financeRecord.ubSecondCode)) &&
+		WriteLaptopFileExact(file.Get(), &financeRecord.uiDate,
+			sizeof(financeRecord.uiDate)) &&
+		WriteLaptopFileExact(file.Get(), &financeRecord.iAmount,
+			sizeof(financeRecord.iAmount)) &&
+		WriteLaptopFileExact(file.Get(), &financeRecord.iBalanceToDate,
+			sizeof(financeRecord.iBalanceToDate));
 }
 
 void SetLastPageInRecords( void )
 {
-	// grabs the size of the file and interprets number of pages it will take up
-	HWFILE hFileHandle;
-
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return;
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		LaptopSaveInfo.iCurrentBalance = 0;
-
-		return;
-	}
-
-	// make sure file is more than 0 length
-	if ( FileGetSize( hFileHandle ) == 0 )
-	{
-	FileClose( hFileHandle );
-	guiLastPageInRecordsList = 1;
-		return;
-	}
-
-
-	// done with file, close it
-	FileClose( hFileHandle );
-
-	guiLastPageInRecordsList = ( ReadInLastElementOfFinanceListAndReturnIdNumber( ) - 1 )/ NUM_RECORDS_PER_PAGE;
-
-	return;
+	gFinanceRecordPageCount = LaptopRecordPageModel::PageCount(
+		FinanceRecordCountOnDisk(), NUM_RECORDS_PER_PAGE);
 }
 
 
 BOOLEAN LoadPreviousPage( void )
 {
-
-	// clear out old list of records, and load in previous page worth of records
-	ClearFinanceList( );
-
-	// load previous page
-	if( ( iCurrentPage == 1 )||( iCurrentPage == 0 ) )
+	if (iCurrentPage <= 0) return FALSE;
+	if (iCurrentPage == 1)
 	{
+		ClearFinanceList();
 		iCurrentPage = 0;
-		return ( FALSE );
+		return TRUE;
 	}
 
-	// now load in previous page's records, if we can
-	if ( LoadInRecords( iCurrentPage - 1 ) )
+	const UINT32 previousPage = static_cast<UINT32>(iCurrentPage - 1);
+	ClearFinanceList();
+	if (LoadInRecords(previousPage))
 	{
 		iCurrentPage--;
-		return ( TRUE );
+		return TRUE;
 	}
-	else
-	{
-	LoadInRecords( iCurrentPage );
-		return ( FALSE );
-	}
+	LoadInRecords(static_cast<UINT32>(iCurrentPage));
+	return FALSE;
 }
 
 BOOLEAN LoadNextPage( void )
 {
-
-	// clear out old list of records, and load in previous page worth of records
-	ClearFinanceList( );
-
-
-
-	// now load in previous page's records, if we can
-	if ( LoadInRecords( iCurrentPage + 1 ) )
+	if (iCurrentPage < 0 ||
+		static_cast<std::size_t>(iCurrentPage) >= gFinanceRecordPageCount)
+		return FALSE;
+	const UINT32 nextPage = static_cast<UINT32>(iCurrentPage + 1);
+	ClearFinanceList();
+	if (LoadInRecords(nextPage))
 	{
 		iCurrentPage++;
-	return ( TRUE );
+		return TRUE;
 	}
-	else
-	{
-		LoadInRecords( iCurrentPage );
-	return ( FALSE );
-	}
-
+	if (iCurrentPage > 0)
+		LoadInRecords(static_cast<UINT32>(iCurrentPage));
+	return FALSE;
 }
 
 BOOLEAN LoadInRecords( UINT32 uiPage )
 {
-	// loads in records belogning, to page uiPage
-	// no file, return
-	BOOLEAN fOkToContinue=TRUE;
-	INT32 iCount =0;
-	HWFILE hFileHandle;
-	UINT8 ubCode, ubSecondCode;
-	INT32 iBalanceToDate;
-	UINT32 uiDate;
-	INT32 iAmount;
-	INT32 iBytesRead=0;
-	UINT32 uiByteCount=0;
+	if (uiPage == 0 || !FileExists(FINANCES_DATA_FILE)) return FALSE;
+	ScopedLaptopFile file(FileOpen(FINANCES_DATA_FILE,
+		FILE_OPEN_EXISTING | FILE_ACCESS_READ, FALSE));
+	if (!file) return FALSE;
+	const std::size_t fileBytes = FileGetSize(file.Get());
+	if (!LaptopRecordPageModel::IsWellFormedFile(
+		fileBytes, FinanceFileLayout)) return FALSE;
+	const std::size_t recordCount =
+		LaptopRecordPageModel::RecordCount(fileBytes, FinanceFileLayout);
+	const std::size_t page = static_cast<std::size_t>(uiPage - 1);
+	const std::size_t pageCount = LaptopRecordPageModel::PageCount(
+		recordCount, NUM_RECORDS_PER_PAGE);
+	if (!LaptopRecordPageModel::HasZeroBasedPage(page, pageCount))
+		return FALSE;
+	const std::size_t offset = LaptopRecordPageModel::PageByteOffset(
+		page, NUM_RECORDS_PER_PAGE, FinanceFileLayout);
+	if (offset == LaptopRecordPageModel::NoOffset || offset > UINT32_MAX ||
+		!FileSeek(file.Get(), static_cast<UINT32>(offset),
+			FILE_SEEK_FROM_START)) return FALSE;
 
-	// check if bad page
-	if( uiPage == 0 )
+	ClearFinanceList();
+	const std::size_t recordsToRead = LaptopRecordPageModel::RecordsOnPage(
+		recordCount, page, NUM_RECORDS_PER_PAGE);
+	for (std::size_t index = 0; index < recordsToRead; ++index)
 	{
-		return ( FALSE );
-	}
-
-
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return( FALSE );
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		// close file
-		FileClose( hFileHandle );
-
-		return( FALSE );
-	}
-
-	// make sure file is more than 0 length
-	if ( FileGetSize( hFileHandle ) == 0 )
-	{
-	FileClose( hFileHandle );
-		return( FALSE );
-	}
-
-	// is the file long enough?
-	if( ( FileGetSize( hFileHandle ) - sizeof( INT32 ) - 1) / ( NUM_RECORDS_PER_PAGE * ( sizeof( INT32 ) + sizeof( UINT32 ) + sizeof( UINT8 )+ sizeof(UINT8) + sizeof( INT32 ))	) + 1 < uiPage )
-	{
-		// nope
-		FileClose( hFileHandle );
-	return( FALSE );
-	}
-
-	FileSeek( hFileHandle, sizeof( INT32 ) + ( uiPage - 1 ) * NUM_RECORDS_PER_PAGE * ( sizeof( INT32 )+ sizeof( UINT32 ) + sizeof( UINT8 )+ sizeof(UINT8) + sizeof( INT32)), FILE_SEEK_FROM_START );
-
-	uiByteCount = sizeof( INT32 )+( uiPage - 1 ) * NUM_RECORDS_PER_PAGE * ( sizeof( INT32 ) + sizeof( UINT32 ) + sizeof( UINT8 )+ sizeof(UINT8)	+ sizeof( INT32 ) );
-	// file exists, read in data, continue until end of page
-	while( ( iCount < NUM_RECORDS_PER_PAGE )&&( fOkToContinue ) &&( uiByteCount < FileGetSize( hFileHandle ) ) )
-	{
-
-		// read in data
-		FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubSecondCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iAmount, sizeof(INT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iBalanceToDate, sizeof(INT32), (UINT32 *)&iBytesRead );
-
-		AssertMsg( iBytesRead, "Failed To Read Data Entry");
-
-		// WANNE: Do not add the fix + 1 day here, because otherwise we have a day + 1 offset 
-		// WANNE: Fix uiDate (add 1 day!)!
-		//uiDate += 1500;
-
-		// add transaction
-		ProcessAndEnterAFinacialRecord(ubCode, uiDate, iAmount, ubSecondCode, iBalanceToDate);
-
-		// increment byte counter
-		uiByteCount += sizeof( INT32 ) + sizeof( UINT32 ) + sizeof( UINT8 )+ sizeof(UINT8) + sizeof( INT32 );
-
-		// we've overextended our welcome, and bypassed end of file, get out
-		if( uiByteCount >=	FileGetSize( hFileHandle ) )
+		FinanceRecordData record;
+		if (!ReadFinanceRecordExact(file.Get(), record) ||
+			ProcessAndEnterAFinacialRecord(record.code, record.date,
+				record.amount, record.secondCode,
+				record.balanceToDate) == InvalidFinanceRecordId)
 		{
-			// not ok to continue
-			fOkToContinue = FALSE;
+			ClearFinanceList();
+			return FALSE;
 		}
-
-		iCount++;
 	}
-
-	// close file
-	FileClose( hFileHandle );
-
-	// check to see if we in fact have a list to display
-	if( pFinanceListHead == NULL )
-	{
-		// got no records, return false
-		return( FALSE );
-	}
-
-	// set up current finance
 	pCurrentFinance = pFinanceListHead;
-
-	return( TRUE );
+	return pCurrentFinance != NULL;
 }
-
-INT32 GetPreviousBalanceToDate( void )
-{
-
-	// will grab balance to date of previous record
-	// grabs the size of the file and interprets number of pages it will take up
-	HWFILE hFileHandle;
-	INT32 iBytesRead=0;
-	INT32 iBalanceToDate=0;
-
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return 0;
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		// close file
-		FileClose( hFileHandle );
-
-		return 0;
-	}
-
-	if ( FileGetSize( hFileHandle ) < sizeof( INT32 ) + sizeof( UINT32 ) + sizeof( UINT8 )+ sizeof(UINT8) + sizeof( INT32 )	)
-	{
-	FileClose( hFileHandle );
-	return 0;
-	}
-
-	FileSeek( hFileHandle,	( sizeof( INT32 ) ) , FILE_SEEK_FROM_END );
-
-	// get balnce to date
-	FileRead( hFileHandle, &iBalanceToDate, sizeof(INT32), (UINT32 *)&iBytesRead );
-
-	FileClose( hFileHandle );
-
-	return iBalanceToDate;
-}
-
 
 INT32 GetPreviousDaysBalance( void )
 {
-	// find out what today is, then go back 2 days, get balance for that day
-	HWFILE hFileHandle;
-	INT32 iBytesRead=0;
-	UINT32 iDateInMinutes = 0;
-	BOOLEAN fOkToContinue = FALSE;
-	UINT32 iByteCount = 0;
-	INT32 iCounter =1;
-	UINT8 ubCode;
-	UINT8 ubSecondCode;
-	UINT32 uiDate;
-	INT32 iAmount;
-	INT32 iBalanceToDate = 0;
-	BOOLEAN fGoneTooFar= FALSE;
-
-	// what day is it?
-	iDateInMinutes = GetWorldTotalMin( ) - ( 60 * 24 );
-
-	// error checking
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return 0;
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
+	std::vector<FinanceRecordData> records;
+	if (!LoadFinanceLedger(records)) return 0;
+	const UINT32 now = GetWorldTotalMin();
+	for (auto record = records.rbegin(); record != records.rend(); ++record)
 	{
-		// close file
-		FileClose( hFileHandle );
-
-		return 0;
+		if (LaptopRecordPageModel::IsRecordOnDayOffset(
+			record->date, now, 2, 1500)) return record->balanceToDate;
 	}
-
-	// start at the end, move back until Date / 24 * 60 on the record is =	( iDateInMinutes /	( 24 * 60 ) ) - 2
-	iByteCount+= sizeof( INT32 );
-	// loop, make sure we don't pass beginning of file, if so, we have an error, and check for condifition above
-	while( ( iByteCount < FileGetSize( hFileHandle ) ) && ( ! fOkToContinue ) && ( ! fGoneTooFar ) )
-	{
-		FileSeek( hFileHandle,	RECORD_SIZE * iCounter , FILE_SEEK_FROM_END );
-
-	// incrment byte count
-	iByteCount += RECORD_SIZE;
-
-		FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubSecondCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iAmount, sizeof(INT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iBalanceToDate, sizeof(INT32), (UINT32 *)&iBytesRead );
-
-		// WANNE: Fix uiDate (add 1 day!)!
-		uiDate += 1500;
-
-		// check to see if we are far enough
-		if( ( uiDate / ( 24 * 60 ) ) == ( iDateInMinutes / ( 24 * 60 ) ) - 2 )
-		{
-			fOkToContinue = TRUE;
-		}
-
-		if( iDateInMinutes / ( 24 * 60 ) >= 2 )
-		{
-			// there are no entries for the previous day
-			if(	( uiDate / ( 24 * 60 ) ) < ( iDateInMinutes / ( 24 * 60 ) ) - 2 )
-			{
-				fGoneTooFar = TRUE;
-
-			}
-		}
-		else
-		{
-			fGoneTooFar = TRUE;
-		}
-		iCounter++;
-	}
-
-	if( fOkToContinue == FALSE )
-	{
-		// reached beginning of file, nothing found, return 0
-	// close file
-	FileClose( hFileHandle );
-		return 0;
-	}
-
-	FileClose( hFileHandle );
-
-	// reached 3 days ago, or beginning of file
-	return iBalanceToDate;
-
+	return 0;
 }
 
 
 
 INT32 GetTodaysBalance( void )
 {
-	// find out what today is, then go back 2 days, get balance for that day
-	HWFILE hFileHandle;
-	INT32 iBytesRead=0;
-	UINT32 iDateInMinutes = 0;
-	BOOLEAN fOkToContinue = FALSE;
-	UINT32 iByteCount = 0;
-	INT32 iCounter = 1;
-	UINT8 ubCode;
-	UINT8 ubSecondCode;
-	UINT32 uiDate;
-	INT32 iAmount;
-	INT32 iBalanceToDate = 0;
-	BOOLEAN fGoneTooFar= FALSE;
-
-
-
-	// what day is it?
-	iDateInMinutes = GetWorldTotalMin( );
-
-	// error checking
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return 0;
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
+	std::vector<FinanceRecordData> records;
+	if (!LoadFinanceLedger(records)) return 0;
+	const UINT32 now = GetWorldTotalMin();
+	for (auto record = records.rbegin(); record != records.rend(); ++record)
 	{
-		// close file
-		FileClose( hFileHandle );
-
-		return 0;
+		if (LaptopRecordPageModel::IsRecordOnDayOffset(
+			record->date, now, 1, 1500)) return record->balanceToDate;
 	}
-
-	// start at the end, move back until Date / 24 * 60 on the record is =	( iDateInMinutes /	( 24 * 60 ) ) - 2
-	iByteCount+= sizeof( INT32 );
-
-	// loop, make sure we don't pass beginning of file, if so, we have an error, and check for condifition above
-	while( ( iByteCount < FileGetSize( hFileHandle ) ) && ( ! fOkToContinue ) && ( ! fGoneTooFar ) )
-	{
-		FileSeek( hFileHandle,	RECORD_SIZE * iCounter , FILE_SEEK_FROM_END );
-
-	// incrment byte count
-	iByteCount += RECORD_SIZE;
-
-		FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubSecondCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iAmount, sizeof(INT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iBalanceToDate, sizeof(INT32), (UINT32 *)&iBytesRead );
-
-		AssertMsg( iBytesRead, "Failed To Read Data Entry");
-
-		// WANNE: Fix uiDate (add 1 day!)!
-		uiDate += 1500;
-
-		// check to see if we are far enough
-		if( ( uiDate / ( 24 * 60 ) ) == ( iDateInMinutes / ( 24 * 60 ) ) - 1 )
-		{
-			fOkToContinue = TRUE;
-		}
-
-		iCounter++;
-	}
-
-
-	FileClose( hFileHandle );
-
-	// not found ?
-	if( fOkToContinue == FALSE )
-	{
-		iBalanceToDate = 0;
-	}
-
-	// reached 3 days ago, or beginning of file
-	return iBalanceToDate;
+	return 0;
 }
 
 
 
 INT32 GetPreviousDaysIncome( void )
 {
-	// will return the income from the previous day
-	// which is todays starting balance - yesterdays starting balance
-	HWFILE hFileHandle;
-	INT32 iBytesRead=0;
-	UINT32 iDateInMinutes = 0;
-	BOOLEAN fOkToContinue = FALSE;
-	BOOLEAN fOkToIncrement = FALSE;
-	UINT32 iByteCount = 0;
-	INT32 iCounter = 1;
-	UINT8 ubCode;
-	UINT8 ubSecondCode;
-	UINT32 uiDate;
-	INT32 iAmount;
-	INT32 iBalanceToDate;
-	BOOLEAN fGoneTooFar = FALSE;
-	INT32 iTotalPreviousIncome = 0;
-
-	// what day is it?
-	iDateInMinutes = GetWorldTotalMin( );
-
-	// error checking
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return 0;
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
+	std::vector<FinanceRecordData> records;
+	if (!LoadFinanceLedger(records)) return 0;
+	const UINT32 now = GetWorldTotalMin();
+	INT32 total = 0;
+	for (const FinanceRecordData& record : records)
 	{
-		// close file
-		FileClose( hFileHandle );
-
-		return 0;
+		if (LaptopRecordPageModel::IsRecordOnDayOffset(
+			record.date, now, 1, 1500) &&
+			(record.code == DEPOSIT_FROM_GOLD_MINE ||
+				record.code == DEPOSIT_FROM_SILVER_MINE))
+		{
+			total = LaptopRecordPageModel::SaturatingAdd(total, record.amount);
+		}
 	}
-
-	// start at the end, move back until Date / 24 * 60 on the record is =	( iDateInMinutes /	( 24 * 60 ) ) - 2
-	iByteCount+= sizeof( INT32 );
-
-	// loop, make sure we don't pass beginning of file, if so, we have an error, and check for condifition above
-	while( ( iByteCount < FileGetSize( hFileHandle ) ) && ( ! fOkToContinue ) &&( !fGoneTooFar ) )
-	{
-	FileGetPos( hFileHandle );
-
-		FileSeek( hFileHandle,	RECORD_SIZE * iCounter , FILE_SEEK_FROM_END );
-
-	// incrment byte count
-	iByteCount += RECORD_SIZE;
-
-		FileGetPos( hFileHandle );
-
-		FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubSecondCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iAmount, sizeof(INT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iBalanceToDate, sizeof(INT32), (UINT32 *)&iBytesRead );
-
-		AssertMsg( iBytesRead, "Failed To Read Data Entry");
-
-		// WANNE: Fix uiDate (add 1 day!)!
-		uiDate += 1500;
-
-		// check to see if we are far enough
-		if( ( uiDate / ( 24 * 60 ) )== ( iDateInMinutes / ( 24 * 60 ) ) - 2 )
-		{
-			fOkToContinue = TRUE;
-		}
-
-			// there are no entries for the previous day
-		if(	( uiDate / ( 24 * 60 ) ) < ( iDateInMinutes / ( 24 * 60 ) ) - 2 )
-		{
-			fGoneTooFar = TRUE;
-
-		}
-
-		if( ( uiDate / ( 24 * 60 ) ) == ( iDateInMinutes / ( 24 * 60 ) ) - 1 )
-		{
-			// now ok to increment amount
-			fOkToIncrement = TRUE;
-		}
-
-		if( ( fOkToIncrement ) && ( ( ubCode == DEPOSIT_FROM_GOLD_MINE ) || ( ubCode == DEPOSIT_FROM_SILVER_MINE) ) )
-		{
-			// increment total
-			iTotalPreviousIncome += iAmount;
-		}
-
-		iCounter++;
-	}
-
-
-	// now run back one more day and add up the total of deposits
-
-	// close file
-	FileClose( hFileHandle );
-
-	return( iTotalPreviousIncome );
-
+	return total;
 }
 
 
 INT32 GetTodaysDaysIncome( void )
 {
-	// will return the income from the previous day
-	// which is todays starting balance - yesterdays starting balance
-	HWFILE hFileHandle;
-	INT32 iBytesRead=0;
-	UINT32 iDateInMinutes = 0;
-	BOOLEAN fOkToContinue = FALSE;
-	BOOLEAN fOkToIncrement = FALSE;
-	UINT32 iByteCount = 0;
-	INT32 iCounter = 1;
-	UINT8 ubCode;
-	UINT8 ubSecondCode;
-	UINT32 uiDate;
-	INT32 iAmount;
-	INT32 iBalanceToDate;
-	BOOLEAN fGoneTooFar = FALSE;
-	INT32 iTotalIncome = 0;
-
-	// what day is it?
-	iDateInMinutes = GetWorldTotalMin( );
-
-	// error checking
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return 0;
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
+	std::vector<FinanceRecordData> records;
+	if (!LoadFinanceLedger(records)) return 0;
+	const UINT32 now = GetWorldTotalMin();
+	INT32 total = 0;
+	for (const FinanceRecordData& record : records)
 	{
-		// close file
-	FileClose( hFileHandle );
-
-		return 0;
-	}
-
-	// start at the end, move back until Date / 24 * 60 on the record is =	( iDateInMinutes /	( 24 * 60 ) ) - 2
-	iByteCount+=sizeof( INT32 );
-
-	// loop, make sure we don't pass beginning of file, if so, we have an error, and check for condifition above
-	while( ( iByteCount < FileGetSize( hFileHandle ) ) && ( ! fOkToContinue ) &&( !fGoneTooFar ) )
-	{
-		FileSeek( hFileHandle,	RECORD_SIZE * iCounter , FILE_SEEK_FROM_END );
-
-	// incrment byte count
-	iByteCount += RECORD_SIZE;
-
-		FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubSecondCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iAmount, sizeof(INT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iBalanceToDate, sizeof(INT32), (UINT32 *)&iBytesRead );
-
-		AssertMsg( iBytesRead, "Failed To Read Data Entry");
-
-		// WANNE: Fix uiDate (add 1 day!)!
-		uiDate += 1500;
-
-		// check to see if we are far enough
-		if( ( uiDate / ( 24 * 60 ) ) == ( iDateInMinutes / ( 24 * 60 ) ) - 1 )
+		if (LaptopRecordPageModel::IsRecordOnDayOffset(
+			record.date, now, 0, 1500) &&
+			(record.code == DEPOSIT_FROM_GOLD_MINE ||
+				record.code == DEPOSIT_FROM_SILVER_MINE))
 		{
-			fOkToContinue = TRUE;
+			total = LaptopRecordPageModel::SaturatingAdd(total, record.amount);
 		}
-
-		if( ( uiDate / ( 24 * 60 ) ) > ( iDateInMinutes / ( 24 * 60 ) ) - 1 )
-		{
-			// now ok to increment amount
-			fOkToIncrement = TRUE;
-		}
-
-		if( ( fOkToIncrement ) && ( ( ubCode == DEPOSIT_FROM_GOLD_MINE ) || ( ubCode == DEPOSIT_FROM_SILVER_MINE) ) )
-		{
-			// increment total
-			iTotalIncome += iAmount;
-			fOkToIncrement = FALSE;
-		}
-
-		iCounter++;
 	}
-
-		// no entries, return nothing - no income for the day
-	if( fGoneTooFar == TRUE )
-	{
-	FileClose( hFileHandle );
-		return 0;
-	}
-
-	// now run back one more day and add up the total of deposits
-
-	// close file
-	FileClose( hFileHandle );
-
-	return( iTotalIncome );
-
+	return total;
 }
 
 void SetFinanceButtonStates( void )
 {
-	// this function will look at what page we are viewing, enable and disable buttons as needed
-
-	if( iCurrentPage == 0 )
+	const bool hasPrevious = iCurrentPage > 0;
+	const bool hasNext = iCurrentPage >= 0 &&
+		static_cast<std::size_t>(iCurrentPage) < gFinanceRecordPageCount;
+	if (hasPrevious)
 	{
-		// first page, disable left buttons
-		DisableButton( 	giFinanceButton[PREV_PAGE_BUTTON] );
-		DisableButton( 	giFinanceButton[FIRST_PAGE_BUTTON] );
+		EnableButton(giFinanceButton[PREV_PAGE_BUTTON]);
+		EnableButton(giFinanceButton[FIRST_PAGE_BUTTON]);
 	}
 	else
 	{
-		// enable buttons
-		EnableButton( giFinanceButton[PREV_PAGE_BUTTON] );
-		EnableButton( giFinanceButton[FIRST_PAGE_BUTTON] );
+		DisableButton(giFinanceButton[PREV_PAGE_BUTTON]);
+		DisableButton(giFinanceButton[FIRST_PAGE_BUTTON]);
 	}
-
-	if( LoadNextPage( ) )
+	if (hasNext)
 	{
-		// decrement page
-		LoadPreviousPage( );
-
-
-		// enable buttons
-		EnableButton( giFinanceButton[ NEXT_PAGE_BUTTON ] );
-		EnableButton( giFinanceButton[ LAST_PAGE_BUTTON ] );
-
+		EnableButton(giFinanceButton[NEXT_PAGE_BUTTON]);
+		EnableButton(giFinanceButton[LAST_PAGE_BUTTON]);
 	}
 	else
 	{
-		DisableButton( giFinanceButton[ NEXT_PAGE_BUTTON ] );
-		DisableButton( giFinanceButton[ LAST_PAGE_BUTTON ] );
+		DisableButton(giFinanceButton[NEXT_PAGE_BUTTON]);
+		DisableButton(giFinanceButton[LAST_PAGE_BUTTON]);
 	}
 }
 
 
 INT32 GetTodaysOtherDeposits( void )
 {
-	// grab todays other deposits
-
-	HWFILE hFileHandle;
-	INT32 iBytesRead=0;
-	UINT32 iDateInMinutes = 0;
-	BOOLEAN fOkToContinue = FALSE;
-	BOOLEAN fOkToIncrement = FALSE;
-	UINT32 iByteCount = 0;
-	INT32 iCounter = 1;
-	UINT8 ubCode;
-	UINT8 ubSecondCode;
-	UINT32 uiDate;
-	INT32 iAmount;
-	INT32 iBalanceToDate;
-	BOOLEAN fGoneTooFar = FALSE;
-	INT32 iTotalIncome = 0;
-
-	// what day is it?
-	iDateInMinutes = GetWorldTotalMin( );
-
-	// error checking
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return 0;
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
+	std::vector<FinanceRecordData> records;
+	if (!LoadFinanceLedger(records)) return 0;
+	const UINT32 now = GetWorldTotalMin();
+	INT32 total = 0;
+	for (const FinanceRecordData& record : records)
 	{
-		// close file
-		FileClose( hFileHandle );
-
-		return 0;
-	}
-
-	// start at the end, move back until Date / 24 * 60 on the record is =	( iDateInMinutes /	( 24 * 60 ) ) - 2
-	iByteCount+= sizeof( INT32 );
-
-	// loop, make sure we don't pass beginning of file, if so, we have an error, and check for condifition above
-	while( ( iByteCount < FileGetSize( hFileHandle ) ) && ( ! fOkToContinue ) &&( !fGoneTooFar ) )
-	{
-		FileSeek( hFileHandle,	RECORD_SIZE * iCounter , FILE_SEEK_FROM_END );
-
-		// incrment byte count
-		iByteCount += RECORD_SIZE;
-
-		FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubSecondCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iAmount, sizeof(INT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iBalanceToDate, sizeof(INT32), (UINT32 *)&iBytesRead );
-
-		AssertMsg( iBytesRead, "Failed To Read Data Entry");
-
-		// WANNE: Fix uiDate (add 1 day!)!
-		uiDate += 1500;
-
-		// check to see if we are far enough
-		if( ( uiDate / ( 24 * 60 ) ) == ( iDateInMinutes / ( 24 * 60 ) ) - 1 )
+		if (LaptopRecordPageModel::IsRecordOnDayOffset(
+			record.date, now, 0, 1500) && record.amount > 0 &&
+			record.code != DEPOSIT_FROM_GOLD_MINE &&
+			record.code != DEPOSIT_FROM_SILVER_MINE)
 		{
-			fOkToContinue = TRUE;
+			total = LaptopRecordPageModel::SaturatingAdd(total, record.amount);
 		}
-
-		if( ( uiDate / ( 24 * 60 ) ) > ( iDateInMinutes / ( 24 * 60 ) ) - 1 )
-		{
-			// now ok to increment amount
-			fOkToIncrement = TRUE;
-		}
-
-		if( ( fOkToIncrement ) && ( ( ubCode != DEPOSIT_FROM_GOLD_MINE ) && ( ubCode != DEPOSIT_FROM_SILVER_MINE) ) )
-		{
-			if( iAmount > 0 )
-			{
-				// increment total
-				iTotalIncome += iAmount;
-				fOkToIncrement = FALSE;
-			}
-		}
-
-		iCounter++;
 	}
-
-		// no entries, return nothing - no income for the day
-	if( fGoneTooFar == TRUE )
-	{
-	FileClose( hFileHandle );
-		return 0;
-	}
-
-	// now run back one more day and add up the total of deposits
-
-	// close file
-	FileClose( hFileHandle );
-
-	return( iTotalIncome );
+	return total;
 }
 
 
 INT32 GetYesterdaysOtherDeposits( void )
 {
-	HWFILE hFileHandle;
-	INT32 iBytesRead=0;
-	UINT32 iDateInMinutes = 0;
-	BOOLEAN fOkToContinue = FALSE;
-	BOOLEAN fOkToIncrement = FALSE;
-	UINT32 iByteCount = 0;
-	INT32 iCounter = 1;
-	UINT8 ubCode;
-	UINT8 ubSecondCode;
-	UINT32 uiDate;
-	INT32 iAmount;
-	INT32 iBalanceToDate;
-	BOOLEAN fGoneTooFar = FALSE;
-	INT32 iTotalPreviousIncome = 0;
-
-	// what day is it?
-	iDateInMinutes = GetWorldTotalMin( );
-
-	// error checking
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-		return 0;
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
+	std::vector<FinanceRecordData> records;
+	if (!LoadFinanceLedger(records)) return 0;
+	const UINT32 now = GetWorldTotalMin();
+	INT32 total = 0;
+	for (const FinanceRecordData& record : records)
 	{
-		// close file
-		FileClose( hFileHandle );
-
-		return 0;
+		if (LaptopRecordPageModel::IsRecordOnDayOffset(
+			record.date, now, 1, 1500) && record.amount > 0 &&
+			record.code != DEPOSIT_FROM_GOLD_MINE &&
+			record.code != DEPOSIT_FROM_SILVER_MINE)
+		{
+			total = LaptopRecordPageModel::SaturatingAdd(total, record.amount);
+		}
 	}
-
-	// start at the end, move back until Date / 24 * 60 on the record is =	( iDateInMinutes /	( 24 * 60 ) ) - 2
-	iByteCount+= sizeof( INT32 );
-
-	// loop, make sure we don't pass beginning of file, if so, we have an error, and check for condifition above
-	while( ( iByteCount < FileGetSize( hFileHandle ) ) && ( ! fOkToContinue ) &&( !fGoneTooFar ) )
-	{
-		FileSeek( hFileHandle,	RECORD_SIZE * iCounter , FILE_SEEK_FROM_END );
-
-	// incrment byte count
-	iByteCount += RECORD_SIZE;
-
-		FileRead( hFileHandle, &ubCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &ubSecondCode, sizeof(UINT8), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &uiDate, sizeof(UINT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iAmount, sizeof(INT32), (UINT32 *)&iBytesRead );
-		FileRead( hFileHandle, &iBalanceToDate, sizeof(INT32), (UINT32 *)&iBytesRead );
-
-		AssertMsg( iBytesRead, "Failed To Read Data Entry");
-
-		// WANNE: Fix uiDate (add 1 day!)!
-		uiDate += 1500;
-
-		// check to see if we are far enough
-		if( ( uiDate / ( 24 * 60 ) )== ( iDateInMinutes / ( 24 * 60 ) ) - 2 )
-		{
-			fOkToContinue = TRUE;
-		}
-
-			// there are no entries for the previous day
-		if(	( uiDate / ( 24 * 60 ) ) < ( iDateInMinutes / ( 24 * 60 ) ) - 2 )
-	{
-			fGoneTooFar = TRUE;
-
-		}
-
-		if( ( uiDate / ( 24 * 60 ) ) == ( iDateInMinutes / ( 24 * 60 ) ) - 1 )
-		{
-			// now ok to increment amount
-			fOkToIncrement = TRUE;
-		}
-
-		if( ( fOkToIncrement ) && ( ( ubCode != DEPOSIT_FROM_GOLD_MINE ) && ( ubCode != DEPOSIT_FROM_SILVER_MINE) ) )
-		{
-			if( iAmount > 0 )
-			{
-				// increment total
-				iTotalPreviousIncome += iAmount;
-			}
-		}
-
-		iCounter++;
-	}
-
-	// close file
-	FileClose( hFileHandle );
-
-	return( iTotalPreviousIncome );
+	return total;
 }
 
 
 INT32 GetTodaysDebits( void )
 {
-	// return the expenses for today
-
-	// currentbalance - todays balance - Todays income - other deposits
-
-	return( GetCurrentBalance( ) - GetTodaysBalance( ) - GetTodaysDaysIncome( ) - GetTodaysOtherDeposits( ) );
+	INT32 result = LaptopRecordPageModel::SaturatingSubtract(
+		GetCurrentBalance(), GetTodaysBalance());
+	result = LaptopRecordPageModel::SaturatingSubtract(
+		result, GetTodaysDaysIncome());
+	return LaptopRecordPageModel::SaturatingSubtract(
+		result, GetTodaysOtherDeposits());
 }
 
 INT32 GetYesterdaysDebits( void )
 {
-	// return the expenses for yesterday
-
-	return( GetTodaysBalance( ) - GetPreviousDaysBalance( ) - GetPreviousDaysIncome( ) - GetYesterdaysOtherDeposits( ) );
+	INT32 result = LaptopRecordPageModel::SaturatingSubtract(
+		GetTodaysBalance(), GetPreviousDaysBalance());
+	result = LaptopRecordPageModel::SaturatingSubtract(
+		result, GetPreviousDaysIncome());
+	return LaptopRecordPageModel::SaturatingSubtract(
+		result, GetYesterdaysOtherDeposits());
 }
-
-
-void LoadCurrentBalance( void )
-{
-	// will load the current balance from finances.dat file
-	HWFILE hFileHandle;
-	INT32 iBytesRead=0;
-
-	// is the first record in the file
-		// error checking
-	// no file, return
-	if ( ! (FileExists( FINANCES_DATA_FILE ) ) )
-	{
-		LaptopSaveInfo.iCurrentBalance= 0;
-		return;
-	}
-
-	// open file
- 	hFileHandle=FileOpen( FINANCES_DATA_FILE,( FILE_OPEN_EXISTING |	FILE_ACCESS_READ ), FALSE );
-
-	// failed to get file, return
-	if(!hFileHandle)
-	{
-		LaptopSaveInfo.iCurrentBalance= 0;
-
-		// close file
-		FileClose( hFileHandle );
-
-		return;
-	}
-
-	FileSeek( hFileHandle,	0 , FILE_SEEK_FROM_START );
-	FileRead( hFileHandle, &LaptopSaveInfo.iCurrentBalance, sizeof( INT32 ), (UINT32 *)&iBytesRead );
-
-	AssertMsg( iBytesRead, "Failed To Read Data Entry");
-	// close file
-	FileClose( hFileHandle );
-
-
-	return;
-}
-
-
-
-
-
-
 

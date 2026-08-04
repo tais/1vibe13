@@ -542,17 +542,68 @@ shipment sources plus all three storefront host variants is clean; obsolete
 drop-down layout and keyboard-modifier dead stores found during that pass were
 removed.
 
+## Finance and history ledger ownership and persistence batch
+
+The twelfth cohesive batch converts the connected finance and history record
+pages together. Both now stage graphics, buttons, and button images through
+`LaptopPageResourceOwner`; history owns its title and divider graphics instead
+of borrowing finance's numeric handles. `LaptopRecordPageModel` supplies the
+shared dependency-free rules for record layouts, page counts, stale saved-page
+normalization, checked offsets, exact-end page sizes, signed balance changes,
+saturating summaries, and legacy-adjusted day buckets. `LaptopRecordFile`
+provides scoped file handles and exact read/write adapters above FileMan.
+
+Confirmed faults fixed by this batch include:
+
+- partial entry leaked resources, and button creation could publish invalid
+  numeric handles after an intermediate failure;
+- history rendered through finance-owned numeric video handles, coupling two
+  otherwise independent page lifetimes;
+- stale persisted page numbers selected blank pages, while next-button state
+  destructively loaded another page merely to discover whether it existed;
+- short or partially written ledger records left fields uninitialized and
+  then published them into linked lists;
+- otherwise complete but malformed records could index profile and town arrays
+  with sentinel or exact-end IDs, interpret quest text as a format string, or
+  leave the first unknown finance transaction's render buffer uninitialized;
+- finance rewrote its balance with a create-always open before appending a
+  transaction; with the corrected FileMan disposition semantics that erased
+  the existing transaction ledger;
+- finance balance addition, projections, daily summaries, display magnitudes,
+  and early-campaign day arithmetic could overflow or underflow;
+- history allocation failures were dereferenced, append ignored its argument,
+  and several early returns leaked an open file; and
+- the unused history page writer added a nonexistent four-byte header to its
+  seek offset, so invoking it would overwrite bytes in the following record.
+
+Finance now validates the complete header-plus-record layout, writes the
+balance and appended record through one checked persistence operation, and
+publishes campaign balance, profile cost, statistics, and UI state only after
+the record is durable. History validates its headerless record layout, checks
+every field read/write, rejects malformed tails, assigns persisted IDs, and
+reloads only a normalized live page after an append. Its active full-ledger
+update writes from byte zero; the superseded corrupt page writer and all
+destructive page probes are gone. Both linked-list builders reject allocation
+failure and clear partial state, and finance/profile totals clamp rather than
+executing signed overflow or unbounded profile indexing.
+
+The existing finance and history file layouts, transaction and history codes,
+quest behavior, artwork, save fields, XML/Lua interfaces, campaign content
+policy, and 82-common/16-variant Laptop partition are unchanged. A dedicated
+headless target covers malformed layouts, empty/exact/stale pages, offset
+overflow, signed balance and summary overflow, and legacy day adjustment.
+Architecture CI pins both owners, exact-I/O integration, safe navigation, test
+admission, and removal of the superseded paths.
+
 ## Remaining walkthrough
 
-The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., Florist/Funeral, and
-Insurance ownership slices and both Bobby Ray page clusters are complete. The
+The IMP lifecycle, runtime-content, A.I.M., M.E.R.C., Florist/Funeral,
+Insurance, Bobby Ray, and finance/history ownership slices are complete. The
 remaining audit queue is deliberately grouped into larger reviewable batches:
 
 1. Extend scoped video, surface, button-image, button, and temporary-render
-   ownership from the completed A.I.M., M.E.R.C., Florist/Funeral, and
-   Insurance and Bobby Ray clusters across every remaining Laptop page,
-   beginning with the connected finance, history, and email document/list
-   pages.
+   ownership from the completed site and finance/history clusters across every
+   remaining Laptop page, beginning with email and its mutable message list.
 2. Extend the completed site-cluster mouse-region and re-entry audit across
    the remaining pages, especially empty data and callback-driven mutation.
 3. Extend the IMP format-string rule to the remaining non-IMP Laptop pages and
@@ -565,8 +616,8 @@ remaining audit queue is deliberately grouped into larger reviewable batches:
    exact-end, empty, and stale-selection cases.
 7. Audit pointer and iterator lifetimes in the remaining mutable email and
    personnel UI collections after callbacks mutate them.
-8. Make finance, history, email, and hire side effects transactional wherever a
-   Laptop workflow can fail after partially committing an operation.
+8. Make email and remaining hire side effects transactional wherever a Laptop
+   workflow can fail after partially committing an operation.
 9. Run a final domain-wide static-analysis/warning pass, remove superseded
     dead paths, and convert every confirmed finding into a focused regression
     test or an architecture ratchet.

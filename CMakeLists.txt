@@ -242,14 +242,22 @@ target_link_libraries(bfVFS PRIVATE 7z)
 include(FetchContent)
 FetchContent_Declare(
   lua
-  URL https://www.lua.org/ftp/lua-5.5.0.tar.gz
-  URL_HASH SHA256=57ccc32bbbd005cab75bcc52444052535af691789dba2b9016d5c50640d68b3d
+  # Use Lua's official GitHub mirror: lua.org outages otherwise prevent every
+  # CI platform from reaching even the configure step.
+  URL https://github.com/lua/lua/archive/refs/tags/v5.5.0.tar.gz
+  URL_HASH SHA256=a33484f7ce4c14e12ea4d51cc5a7353bff2796a8074004b96ae2dc246f33f16e
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(lua)
-file(GLOB LUA_SRC "${lua_SOURCE_DIR}/src/*.c")
-list(FILTER LUA_SRC EXCLUDE REGEX "/(lua|luac|onelua)[.]c$")
+if(EXISTS "${lua_SOURCE_DIR}/src/lua.h")
+  set(LUA_SOURCE_ROOT "${lua_SOURCE_DIR}/src")
+else()
+  set(LUA_SOURCE_ROOT "${lua_SOURCE_DIR}")
+endif()
+file(GLOB LUA_SRC "${LUA_SOURCE_ROOT}/*.c")
+list(FILTER LUA_SRC EXCLUDE REGEX "/(lua|luac|onelua|ltests)[.]c$")
 add_library(lua STATIC ${LUA_SRC})
-target_include_directories(lua PUBLIC "${lua_SOURCE_DIR}/src")
+target_include_directories(lua PUBLIC "${LUA_SOURCE_ROOT}")
 if(UNIX)
   target_compile_definitions(lua PRIVATE LUA_USE_POSIX LUA_USE_DLOPEN)
   target_link_libraries(lua PRIVATE dl m)
@@ -258,7 +266,7 @@ endif()
 # pick it up from the globally-included lua/ dir (which held stale 5.1 header
 # copies). Those were removed in the upgrade, so put the fetched Lua src on the
 # global include path for every target defined after this point.
-include_directories("${lua_SOURCE_DIR}/src")
+include_directories("${LUA_SOURCE_ROOT}")
 
 # Expat (XML parser). Always built from the pinned source on every platform
 # (no find_package fallback to the OS copy): the system expat's patch level
