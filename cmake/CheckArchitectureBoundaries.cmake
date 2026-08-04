@@ -2091,6 +2091,145 @@ foreach(required_bobby_ray_catalogue_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# Bobby Ray's home, order, and shipment pages form one fulfilment lifecycle.
+# Page resources and callback-replaced region sets must be owned, while empty
+# or changing external destination/shipment data stays behind a data-free
+# selection/window model.
+foreach(bobby_ray_fulfilment_source IN ITEMS
+    "Laptop/BobbyR.cpp"
+    "Laptop/BobbyRMailOrder.cpp"
+    "Laptop/BobbyRShipments.cpp")
+  file(READ "${SOURCE_ROOT}/${bobby_ray_fulfilment_source}"
+    bobby_ray_fulfilment_source_contents)
+  string(FIND "${bobby_ray_fulfilment_source_contents}"
+    "LaptopPageResourceOwner" bobby_ray_fulfilment_owner_position)
+  if(bobby_ray_fulfilment_owner_position EQUAL -1)
+    message(FATAL_ERROR
+      "${bobby_ray_fulfilment_source} lost transactional page ownership")
+  endif()
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(CHECKF[ \t]*\\([ \t]*)?(AddVideoObject|AddVideoSurface|DeleteVideoObjectFromIndex|DeleteVideoSurfaceFromIndex|LoadButtonImage|UnloadButtonImage|RemoveButton|MSYS_AddRegion|MSYS_RemoveRegion)[ \t]*\\("
+    raw_bobby_ray_fulfilment_resource_lifecycle
+    "${bobby_ray_fulfilment_source_contents}")
+  if(raw_bobby_ray_fulfilment_resource_lifecycle)
+    message(FATAL_ERROR
+      "${bobby_ray_fulfilment_source} restored open-coded resource ownership '${raw_bobby_ray_fulfilment_resource_lifecycle}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/BobbyRayFulfilmentModel.h"
+  runtime_bobby_ray_fulfilment_model_contents)
+foreach(required_bobby_ray_fulfilment_model_fragment IN ITEMS
+    "NoSelection"
+    "VisibleCount"
+    "NormalizeWindowStart"
+    "NormalizeSelection"
+    "IndexForVisibleSlot"
+    "NextSelection"
+    "PreviousSelection"
+    "IndexForMatchingSlot")
+  string(FIND "${runtime_bobby_ray_fulfilment_model_contents}"
+    "${required_bobby_ray_fulfilment_model_fragment}"
+    required_bobby_ray_fulfilment_model_position)
+  if(required_bobby_ray_fulfilment_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray fulfilment model lost '${required_bobby_ray_fulfilment_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/BobbyRMailOrder.cpp"
+  runtime_bobby_ray_fulfilment_order_contents)
+foreach(required_bobby_ray_fulfilment_order_fragment IN ITEMS
+    "gBobbyRMailOrderResources"
+    "gBobbyRDropDownResources"
+    "gBobbyROrderGridResources"
+    "std::vector<MOUSE_REGION> gSelectedDropDownRegions"
+    "std::vector<MOUSE_REGION> gSelectedGridScrollColumnRegions"
+    "RefreshBobbyRayDestinationSnapshot"
+    "ClearBobbyRayOrderGridMouseRegions"
+    "BobbyRayFulfilmentModel::IndexForVisibleSlot")
+  string(FIND "${runtime_bobby_ray_fulfilment_order_contents}"
+    "${required_bobby_ray_fulfilment_order_fragment}"
+    required_bobby_ray_fulfilment_order_position)
+  if(required_bobby_ray_fulfilment_order_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray order safety lost '${required_bobby_ray_fulfilment_order_fragment}'")
+  endif()
+endforeach()
+foreach(retired_bobby_ray_fulfilment_fragment IN ITEMS
+    "new MOUSE_REGION"
+    "delete [] gSelected"
+    "DestroyBobbyROrderTitle"
+    "DeleteBobbyRWoodBackground")
+  foreach(bobby_ray_fulfilment_source IN ITEMS
+      "Laptop/BobbyR.cpp"
+      "Laptop/BobbyRMailOrder.cpp"
+      "Laptop/BobbyRShipments.cpp")
+    file(READ "${SOURCE_ROOT}/${bobby_ray_fulfilment_source}"
+      retired_bobby_ray_fulfilment_source_contents)
+    string(FIND "${retired_bobby_ray_fulfilment_source_contents}"
+      "${retired_bobby_ray_fulfilment_fragment}"
+      retired_bobby_ray_fulfilment_position)
+    if(NOT retired_bobby_ray_fulfilment_position EQUAL -1)
+      message(FATAL_ERROR
+        "Bobby Ray fulfilment restored '${retired_bobby_ray_fulfilment_fragment}'")
+    endif()
+  endforeach()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/BobbyRShipments.cpp"
+  runtime_bobby_ray_fulfilment_shipment_contents)
+foreach(required_bobby_ray_fulfilment_shipment_fragment IN ITEMS
+    "gBobbyRShipmentResources"
+    "gBobbyRPreviousShipmentRegionResources"
+    "staged.addVideoObject(&VObjectDesc, guiBobbyROrderGrid)"
+    "BobbyRayFulfilmentModel::IndexForMatchingSlot")
+  string(FIND "${runtime_bobby_ray_fulfilment_shipment_contents}"
+    "${required_bobby_ray_fulfilment_shipment_fragment}"
+    required_bobby_ray_fulfilment_shipment_position)
+  if(required_bobby_ray_fulfilment_shipment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray shipment safety lost '${required_bobby_ray_fulfilment_shipment_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_bobby_ray_fulfilment_test_build_fragment IN ITEMS
+    "bobby_ray_fulfilment_model_tests.cpp"
+    "bobby_ray_fulfilment_model")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_bobby_ray_fulfilment_test_build_fragment}"
+    required_bobby_ray_fulfilment_test_build_position)
+  if(required_bobby_ray_fulfilment_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray fulfilment model lost its headless test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "bobby_ray_fulfilment_model_tests"
+  runtime_bobby_ray_fulfilment_ci_position)
+if(runtime_bobby_ray_fulfilment_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Bobby Ray fulfilment model test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/bobby_ray_fulfilment_model_tests.cpp"
+  runtime_bobby_ray_fulfilment_test_contents)
+foreach(required_bobby_ray_fulfilment_test_fragment IN ITEMS
+    "Fulfilment lists cap visible rows without inventing empty rows"
+    "Fulfilment list windows normalize empty, short, and stale starts"
+    "Fulfilment selections reject empty and exact-end indices"
+    "Fulfilment callbacks reject hidden and stale visible slots"
+    "Fulfilment keyboard navigation stays within empty and list bounds"
+    "Shipment rows map visible slots to sparse live records safely")
+  string(FIND "${runtime_bobby_ray_fulfilment_test_contents}"
+    "${required_bobby_ray_fulfilment_test_fragment}"
+    required_bobby_ray_fulfilment_test_position)
+  if(required_bobby_ray_fulfilment_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray fulfilment tests lost '${required_bobby_ray_fulfilment_test_fragment}'")
+  endif()
+endforeach()
+
 # Laptop XML/localization input is staged behind one dependency-free boundary
 # model and one legacy UTF-8 adapter. Expat may split character data at any
 # byte, and malformed or oversized data must not narrow, truncate, address an

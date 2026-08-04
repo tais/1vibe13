@@ -1,9 +1,10 @@
 	#include "laptop.h"
-#include "BobbyRShipments.h"
-#include "LaptopSafety.h"
+	#include "BobbyRShipments.h"
+	#include "BobbyRayFulfilmentModel.h"
+	#include "LaptopPageResourceOwner.h"
+	#include "LaptopSafety.h"
 	#include "BobbyR.h"
 	#include "Utilities.h"
-	#include "WCheck.h"
 	#include "Text.h"
 	#include "BobbyRGuns.h"
 	#include "Cursors.h"
@@ -68,16 +69,10 @@
 
 
 extern UINT8 gubPurchaseAtTopOfList;
-extern BOOLEAN gfDrawGridArrowMouseRegions;
-extern BOOLEAN gfDrawGridColumnMouseRegion;
-extern MOUSE_REGION	 gSelectedUpDownArrowOnGridScrollAreaRegion[2];
-extern void SelectUpDownArrowOnGridScrollAreaRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
-extern MOUSE_REGION	*gSelectedGridScrollColumnRegion;
-extern INT32 gSelectedGridScrollColumnRegionSize;
-extern void SelectGridScrollColumnRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
-extern void SelectGridScrollColumnMovementCallBack(MOUSE_REGION * pRegion, INT32 iReason );
-
 UINT32		guiBobbyRShipmentGrid;
+
+LaptopPageResourceOwner gBobbyRShipmentResources;
+LaptopPageResourceOwner gBobbyRPreviousShipmentRegionResources;
 
 BOOLEAN		gfBobbyRShipmentsDirty = FALSE;
 
@@ -108,7 +103,7 @@ void DisplayShipmentGrid();
 void DisplayPreviousShipments();
 void DisplayShipmentTitles();
 void RemovePreviousShipmentsMouseRegions();
-void CreatePreviousShipmentsMouseRegions();
+BOOLEAN CreatePreviousShipmentsMouseRegions();
 INT32	CountNumberValidShipmentForTheShipmentsPage();
 //ppp
 extern CPostalService gPostalService;
@@ -129,40 +124,55 @@ void GameInitBobbyRShipments()
 BOOLEAN EnterBobbyRShipments()
 {
 	VOBJECT_DESC	VObjectDesc;
+	LaptopPageResourceOwner staged;
+	gBobbyRShipmentResources.clear();
+	gBobbyRPreviousShipmentRegionResources.clear();
+	ClearBobbyRayOrderGridMouseRegions();
 	RefreshBobbyRayShipmentSnapshot();
 
-	InitBobbyRWoodBackground();
+	if (!InitBobbyRWoodBackground(staged)) return FALSE;
 
 	// load the Order Grid graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("LAPTOP\\BobbyRay_OnOrder.sti", VObjectDesc.ImageFile);
-	CHECKF(AddVideoObject(&VObjectDesc, &guiBobbyRShipmentGrid));
+	if (!staged.addVideoObject(&VObjectDesc, guiBobbyRShipmentGrid)) return FALSE;
 
 	// Gold Arrow for the scroll area
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( "LAPTOP\\GoldArrows.sti", VObjectDesc.ImageFile );
-	CHECKF( AddVideoObject( &VObjectDesc, &guiGoldArrowImages ) );
+	if (!staged.addVideoObject(&VObjectDesc, guiGoldArrowImages)) return FALSE;
 
-	guiBobbyRShipmentBackImage =	LoadButtonImage("LAPTOP\\CatalogueButton.sti", -1,0,-1,1,-1 );
-	guiBobbyRShipmetBack = CreateIconAndTextButton( guiBobbyRShipmentBackImage, BobbyROrderFormText[BOBBYR_BACK], BOBBYR_GUNS_BUTTON_FONT,
+	// The order grid is part of the page, not a per-render temporary.
+	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
+	FilenameForBPP("LAPTOP\\BobbyOrderGrid.sti", VObjectDesc.ImageFile);
+	if (!staged.addVideoObject(&VObjectDesc, guiBobbyROrderGrid)) return FALSE;
+
+	if (!staged.addButtonImage(LoadButtonImageOwned(
+		"LAPTOP\\CatalogueButton.sti", -1, 0, -1, 1, -1),
+		guiBobbyRShipmentBackImage)) return FALSE;
+	if (!staged.addButton(CreateIconAndTextButton( guiBobbyRShipmentBackImage, BobbyROrderFormText[BOBBYR_BACK], BOBBYR_GUNS_BUTTON_FONT,
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													BOBBYR_SHIPMENT_BACK_BUTTON_X, BOBBYR_SHIPMENT_BACK_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRShipmentBackCallback);
+													DEFAULT_MOVE_CALLBACK, BtnBobbyRShipmentBackCallback),
+		guiBobbyRShipmetBack)) return FALSE;
 	SetButtonCursor( guiBobbyRShipmetBack, CURSOR_LAPTOP_SCREEN);
 
 
-	giBobbyRShipmentHomeImage =	UseLoadedButtonImage( guiBobbyRShipmentBackImage, -1,0,-1,1,-1 );
-	guiBobbyRShipmentHome = CreateIconAndTextButton( giBobbyRShipmentHomeImage, BobbyROrderFormText[BOBBYR_HOME], BOBBYR_GUNS_BUTTON_FONT,
+	if (!staged.addButtonImage(UniqueButtonImageHandle(
+		UseLoadedButtonImage(guiBobbyRShipmentBackImage, -1, 0, -1, 1, -1)),
+		giBobbyRShipmentHomeImage)) return FALSE;
+	if (!staged.addButton(CreateIconAndTextButton( giBobbyRShipmentHomeImage, BobbyROrderFormText[BOBBYR_HOME], BOBBYR_GUNS_BUTTON_FONT,
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
 													BOBBYR_SHIPMENT_HOME_BUTTON_X, BOBBYR_SHIPMENT_HOME_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-													DEFAULT_MOVE_CALLBACK, BtnBobbyRShipmentHomeCallback);
+													DEFAULT_MOVE_CALLBACK, BtnBobbyRShipmentHomeCallback),
+		guiBobbyRShipmentHome)) return FALSE;
 	SetButtonCursor( guiBobbyRShipmentHome, CURSOR_LAPTOP_SCREEN);
 
-	CreateBobbyRayOrderTitle();
+	if (!CreateBobbyRayOrderTitle(staged)) return FALSE;
 
 	giBobbyRShipmentSelectedShipment = -1;
 	gubPurchaseAtTopOfList = 0;
@@ -188,84 +198,30 @@ BOOLEAN EnterBobbyRShipments()
 		}
 	}
 	*/
-	//if there are shipments
-	if( gShipmentTable.size() != 0 )
-	{
-		INT32 iCnt=0;
-
-		//get the first shipment #
-		vector<PShipmentStruct>::iterator psi = gShipmentTable.begin();
-
-		while(psi != gShipmentTable.end())
-		{
-			if (*psi && (*psi)->ShipmentStatus == SHIPMENT_INTRANSIT)
+	const std::size_t firstShipment =
+		BobbyRayFulfilmentModel::IndexForMatchingSlot(
+			gShipmentTable.size(), 0, [](std::size_t index)
 			{
-				giBobbyRShipmentSelectedShipment = iCnt;
-			}
-			psi++;
-			iCnt++;
-		}
-	}
+				return gShipmentTable[index] &&
+					gShipmentTable[index]->ShipmentStatus ==
+						SHIPMENT_INTRANSIT;
+			});
+	giBobbyRShipmentSelectedShipment = firstShipment ==
+		BobbyRayFulfilmentModel::NoSelection
+		? -1 : static_cast<INT32>(firstShipment);
 	
-	if (gfDrawGridArrowMouseRegions == TRUE)
-	{
-		MSYS_DisableRegion( &gSelectedUpDownArrowOnGridScrollAreaRegion[0]);
-		MSYS_DisableRegion( &gSelectedUpDownArrowOnGridScrollAreaRegion[1]);
-		MSYS_RemoveRegion( &gSelectedUpDownArrowOnGridScrollAreaRegion[0]);
-		MSYS_RemoveRegion( &gSelectedUpDownArrowOnGridScrollAreaRegion[1]);
-		gfDrawGridArrowMouseRegions = FALSE;
-	}
-	if (gfDrawGridColumnMouseRegion == TRUE)
-	{
-		for(int i=0; i<gSelectedGridScrollColumnRegionSize; i++)
-		{
-			MSYS_DisableRegion( &gSelectedGridScrollColumnRegion[i] );
-			MSYS_RemoveRegion( &gSelectedGridScrollColumnRegion[i] );
-		}
-		delete [] gSelectedGridScrollColumnRegion;
-		gSelectedGridScrollColumnRegion = NULL;
-		gSelectedGridScrollColumnRegionSize = 0;
-		gfDrawGridColumnMouseRegion = FALSE;
-	}
-	CreatePreviousShipmentsMouseRegions();
+	ClearBobbyRayOrderGridMouseRegions();
+	if (!CreatePreviousShipmentsMouseRegions()) return FALSE;
+	gBobbyRShipmentResources = std::move(staged);
 
 	return( TRUE );
 }
 
 void ExitBobbyRShipments()
 {
-	DeleteBobbyRWoodBackground();
-	DestroyBobbyROrderTitle();
-
-	DeleteVideoObjectFromIndex(guiBobbyRShipmentGrid);
-	DeleteVideoObjectFromIndex(guiGoldArrowImages);
-
-	UnloadButtonImage( guiBobbyRShipmentBackImage );
-	UnloadButtonImage( giBobbyRShipmentHomeImage );
-	RemoveButton( guiBobbyRShipmetBack );
-	RemoveButton( guiBobbyRShipmentHome );
-
 	RemovePreviousShipmentsMouseRegions();
-	if (gfDrawGridArrowMouseRegions == TRUE)
-	{
-		MSYS_DisableRegion( &gSelectedUpDownArrowOnGridScrollAreaRegion[0]);
-		MSYS_DisableRegion( &gSelectedUpDownArrowOnGridScrollAreaRegion[1]);
-		MSYS_RemoveRegion( &gSelectedUpDownArrowOnGridScrollAreaRegion[0]);
-		MSYS_RemoveRegion( &gSelectedUpDownArrowOnGridScrollAreaRegion[1]);
-		gfDrawGridArrowMouseRegions = FALSE;
-}
-	if (gfDrawGridColumnMouseRegion == TRUE)
-	{
-		for(int i=0; i<gSelectedGridScrollColumnRegionSize; i++)
-		{
-			MSYS_DisableRegion( &gSelectedGridScrollColumnRegion[i] );
-			MSYS_RemoveRegion( &gSelectedGridScrollColumnRegion[i] );
-		}
-		delete [] gSelectedGridScrollColumnRegion;
-		gSelectedGridScrollColumnRegion = NULL;
-		gSelectedGridScrollColumnRegionSize = 0;
-		gfDrawGridColumnMouseRegion = FALSE;
-	}
+	ClearBobbyRayOrderGridMouseRegions();
+	gBobbyRShipmentResources.clear();
 }
 
 void HandleBobbyRShipments()
@@ -424,14 +380,10 @@ void BtnBobbyRShipmentHomeCallback(GUI_BUTTON *btn,INT32 reason)
 void DisplayShipmentGrid()
 {
 	HVOBJECT hPixHandle, hPixGrid;
-	VOBJECT_DESC	VObjectDesc;
 	GetVideoObject(&hPixHandle, guiBobbyRShipmentGrid);
 	// Shipment Order Grid
 	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_SHIPMENT_DELIVERY_GRID_X, BOBBYR_SHIPMENT_DELIVERY_GRID_Y, VO_BLT_SRCTRANSPARENCY,NULL);
 
-	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	FilenameForBPP("LAPTOP\\BobbyOrderGrid.sti", VObjectDesc.ImageFile);
-	AddVideoObject(&VObjectDesc, &guiBobbyROrderGrid);
 	GetVideoObject(&hPixGrid, guiBobbyROrderGrid);
 	BltVideoObject(FRAME_BUFFER, hPixGrid, 0, BOBBYR_SHIPMENT_ORDER_GRID_X, BOBBYR_SHIPMENT_ORDER_GRID_Y, VO_BLT_SRCTRANSPARENCY,NULL);
 
@@ -515,8 +467,11 @@ void DisplayPreviousShipments()
 	}
 }
 
-void CreatePreviousShipmentsMouseRegions()
+BOOLEAN CreatePreviousShipmentsMouseRegions()
 {
+	gBobbyRPreviousShipmentRegionResources.clear();
+	gSelectedPreviousShipmentRegionCount = 0;
+	LaptopPageResourceOwner staged;
 	UINT32 uiCnt;
 	UINT16	usPosY = BOBBYR_SHIPMENT_ORDER_NUM_START_Y;
 	UINT16	usWidth = BOBBYR_SHIPMENT_DELIVERY_GRID_WIDTH;
@@ -533,26 +488,24 @@ void CreatePreviousShipmentsMouseRegions()
 			gPostalService.GetShipmentCount(SHIPMENT_INTRANSIT),
 			snapshotInTransit,
 			BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS));
-	gSelectedPreviousShipmentRegionCount = max;
-
 	for( uiCnt=0; uiCnt<max; uiCnt++ )
 	{
 		MSYS_DefineRegion( &gSelectedPreviousShipmentsRegion[uiCnt], BOBBYR_SHIPMENT_ORDER_NUM_X, usPosY, (UINT16)(BOBBYR_SHIPMENT_ORDER_NUM_X+usWidth), (UINT16)(usPosY+usHeight), MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectPreviousShipmentsRegionCallBack );
-		MSYS_AddRegion(&gSelectedPreviousShipmentsRegion[uiCnt]);
+		if (!staged.addRegion(gSelectedPreviousShipmentsRegion[uiCnt]))
+			return FALSE;
 		MSYS_SetRegionUserData( &gSelectedPreviousShipmentsRegion[uiCnt], 0, uiCnt);
 
 		usPosY += BOBBYR_SHIPMENT_GAP_BTN_LINES;
 	}
+	gBobbyRPreviousShipmentRegionResources = std::move(staged);
+	gSelectedPreviousShipmentRegionCount = max;
+	return TRUE;
 }
 
 void RemovePreviousShipmentsMouseRegions()
 {
-	for (UINT32 uiCnt = 0;
-		uiCnt < gSelectedPreviousShipmentRegionCount; ++uiCnt)
-	{
-		MSYS_RemoveRegion( &gSelectedPreviousShipmentsRegion[uiCnt] );
-	}
+	gBobbyRPreviousShipmentRegionResources.clear();
 	gSelectedPreviousShipmentRegionCount = 0;
 }
 
@@ -568,32 +521,22 @@ void SelectPreviousShipmentsRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason
 
 
 //		if( CountNumberOfBobbyPurchasesThatAreInTransit() > iSlotID )
-		if (iSlotID >= 0 &&
-			static_cast<UINT32>(iSlotID) <
-				gSelectedPreviousShipmentRegionCount)
+		if (iSlotID >= 0 && static_cast<UINT32>(iSlotID) <
+			gSelectedPreviousShipmentRegionCount)
 		{
-			INT32 iCnt;
-			INT32	iValidShipmentCounter=0;
-
-			giBobbyRShipmentSelectedShipment = -1;
-
-			//loop through and get the "x" iSlotID shipment
-//			for( iCnt=0; iCnt<giNumberOfNewBobbyRShipment; iCnt++ )
-			for (iCnt = 0; iCnt < static_cast<INT32>(gShipmentTable.size());
-				++iCnt)
-			{
-//				if( gpNewBobbyrShipments[iCnt].fActive )
-				if (gShipmentTable[iCnt] &&
-					gShipmentTable[iCnt]->ShipmentStatus == SHIPMENT_INTRANSIT)
-				{
-					if( iValidShipmentCounter == iSlotID )
+			const std::size_t shipmentIndex =
+				BobbyRayFulfilmentModel::IndexForMatchingSlot(
+					gShipmentTable.size(),
+					static_cast<std::size_t>(iSlotID),
+					[](std::size_t index)
 					{
-						giBobbyRShipmentSelectedShipment = iCnt;
-					}
-
-					iValidShipmentCounter++;
-				}
-			}
+						return gShipmentTable[index] &&
+							gShipmentTable[index]->ShipmentStatus ==
+								SHIPMENT_INTRANSIT;
+					});
+			giBobbyRShipmentSelectedShipment = shipmentIndex ==
+				BobbyRayFulfilmentModel::NoSelection
+				? -1 : static_cast<INT32>(shipmentIndex);
 		}
 
 		gfBobbyRShipmentsDirty = TRUE;
@@ -615,10 +558,6 @@ INT32	CountNumberValidShipmentForTheShipmentsPage()
 void HandleBobbyRShipmentsKeyBoardInput()
 {
 	InputAtom					InputEvent;
-	BOOLEAN fCtrl, fAlt;
-
-	fCtrl = _KeyDown( CTRL );
-	fAlt = _KeyDown( ALT );
 
 	//while (DequeueSpecificEvent(&InputEvent, KEY_DOWN |KEY_REPEAT) == TRUE)
 	while (DequeueEvent(&InputEvent) == TRUE)

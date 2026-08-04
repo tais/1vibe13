@@ -1155,11 +1155,26 @@ the engine must not contain SDL types in its public domain model.
   filter IDs, hidden-region wheel/callback access, zero-page navigation and
   display faults, temporary-image leaks, stale item-ID reads, and malformed LBE
   index/bit-shift paths. The catalogue inventory, filters, purchasing rules,
-  saves, artwork, runtime
-  campaign behavior, and 82-common/16-variant Laptop partition are unchanged.
+  saves, artwork, runtime campaign behavior, and 82-common/16-variant Laptop
+  partition are unchanged.
   A dedicated data-free test and architecture ratchets pin the five page
   owners, shared and dynamic resource lifecycles, input/data bounds, all-host
   CI coverage, and raw-lifecycle exclusion.
+- Bobby Ray's home, mail-order, and shipment pages now form the adjoining
+  transactionally owned fulfilment cluster. Fixed page resources and the
+  shared wood/title controls are staged together; externalized destination,
+  order-scroll, and shipment-row regions have independent replaceable owners
+  with stable storage. `BobbyRayFulfilmentModel` supplies visible counts, stale
+  window normalization, empty/exact-end selection handling, bounded movement,
+  visible-slot mapping, and sparse-record mapping. This removes partial-entry
+  leaks, image-before-button teardown, never-freed destination arrays, changed
+  destination-count overruns, empty-list division/underflow/dereference paths,
+  stale scroll callbacks, invisible initial shipment selection, and the
+  shipment page's per-redraw video-object leak. Pricing, inventory, order and
+  shipment records, PostalService, saves, artwork, campaign behavior, and the
+  82-common/16-variant Laptop partition are unchanged. Focused data-free tests
+  and architecture ratchets pin all three page owners, replaceable regions,
+  all-host CI coverage, ASan admission, and raw-lifecycle exclusion.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared
