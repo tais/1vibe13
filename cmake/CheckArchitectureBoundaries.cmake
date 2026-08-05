@@ -3357,13 +3357,99 @@ foreach(required_laptop_ui_state_model_fragment IN ITEMS
     "IsExactTransfer"
     "NormalizeSentinelList"
     "AppendUniqueSentinel"
-    "RemoveSentinelValue")
+    "RemoveSentinelValue"
+    "ResourceTransactionState")
   string(FIND "${runtime_laptop_ui_state_model_contents}"
     "${required_laptop_ui_state_model_fragment}"
     required_laptop_ui_state_model_position)
   if(required_laptop_ui_state_model_position EQUAL -1)
     message(FATAL_ERROR
       "Laptop UI state boundary lost '${required_laptop_ui_state_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/ImpPageResourceOwner.h"
+  runtime_laptop_imp_page_owner_contents)
+file(READ "${SOURCE_ROOT}/Laptop/ImpPageResourceState.h"
+  runtime_laptop_imp_page_state_contents)
+file(READ "${SOURCE_ROOT}/sgp/ButtonResourceHandle.h"
+  runtime_laptop_button_resource_handle_contents)
+foreach(required_laptop_imp_failure_fragment IN ITEMS
+    "FailImpPageResources"
+    "UseLoadedImpPageButtonImage"
+    "UseLoadedButtonImageOwned"
+    "#define UseLoadedButtonImage UseLoadedImpPageButtonImage"
+    "SetImpPageButtonClicked"
+    "ImpPageResourcesReady")
+  string(FIND
+    "${runtime_laptop_imp_page_owner_contents}${runtime_laptop_imp_page_state_contents}${runtime_laptop_button_resource_handle_contents}"
+    "${required_laptop_imp_failure_fragment}"
+    required_laptop_imp_failure_position)
+  if(required_laptop_imp_failure_position EQUAL -1)
+    message(FATAL_ERROR
+      "IMP failure-atomic resource ownership lost '${required_laptop_imp_failure_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/CharProfile.cpp"
+  runtime_laptop_imp_dispatch_contents)
+foreach(required_laptop_imp_dispatch_fragment IN ITEMS
+    "if (!ImpPageResourcesReady()) return"
+    "#include \"ImpPageResourceState.h\"")
+  string(FIND "${runtime_laptop_imp_dispatch_contents}"
+    "${required_laptop_imp_dispatch_fragment}"
+    required_laptop_imp_dispatch_position)
+  if(required_laptop_imp_dispatch_position EQUAL -1)
+    message(FATAL_ERROR
+      "IMP dispatcher lost failed-page guard '${required_laptop_imp_dispatch_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Encrypted File.cpp"
+  runtime_encrypted_text_reader_contents)
+foreach(required_encrypted_text_reader_fragment IN ITEMS
+    "uiBytesRead != uiByteCount"
+    "pDestString[0] = L'\\0'"
+    "pDestString[uiSeekAmount / 2 - 1] = L'\\0'"
+    "const UINT32 recordCount"
+    "uiSeekFrom = Random(recordCount)"
+    "if (!pDestString) return")
+  string(FIND "${runtime_encrypted_text_reader_contents}"
+    "${required_encrypted_text_reader_fragment}"
+    required_encrypted_text_reader_position)
+  if(required_encrypted_text_reader_position EQUAL -1)
+    message(FATAL_ERROR
+      "Encrypted text reader lost '${required_encrypted_text_reader_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/IMP Text System.cpp"
+  runtime_laptop_imp_text_contents)
+foreach(required_laptop_imp_text_fragment IN ITEMS
+    "CHAR16 sString[ 1024 ] = {}"
+    "const BOOLEAN loaded = LoadEncryptedDataFromFile"
+    "if (loaded)")
+  string(FIND "${runtime_laptop_imp_text_contents}"
+    "${required_laptop_imp_text_fragment}"
+    required_laptop_imp_text_position)
+  if(required_laptop_imp_text_position EQUAL -1)
+    message(FATAL_ERROR
+      "IMP text failure handling lost '${required_laptop_imp_text_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/sgp/Button System.cpp"
+  runtime_laptop_button_system_contents)
+foreach(required_laptop_button_guard_fragment IN ITEMS
+    "LoadedImg < 0 || LoadedImg >= MAX_BUTTON_PICS"
+    "GUI_BUTTON *b = GetButtonPtr(iBtnId)"
+    "GUI_BUTTON *b = GetButtonPtr(iButtonID)")
+  string(FIND "${runtime_laptop_button_system_contents}"
+    "${required_laptop_button_guard_fragment}"
+    required_laptop_button_guard_position)
+  if(required_laptop_button_guard_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop button compatibility boundary lost '${required_laptop_button_guard_fragment}'")
   endif()
 endforeach()
 
@@ -3584,7 +3670,9 @@ foreach(required_laptop_ui_state_test_fragment IN ITEMS
     "scrolling windows clamp both stale and undersized end positions"
     "bounded copies truncate and terminate"
     "binary transfers must be exact"
-    "full sentinel lists reject insertion without an exact-end write")
+    "full sentinel lists reject insertion without an exact-end write"
+    "resource acquisition failure stays latched for the page"
+    "a new page resets the resource failure latch")
   string(FIND "${runtime_laptop_ui_state_test_contents}"
     "${required_laptop_ui_state_test_fragment}"
     required_laptop_ui_state_test_position)
@@ -3594,12 +3682,30 @@ foreach(required_laptop_ui_state_test_fragment IN ITEMS
   endif()
 endforeach()
 
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  runtime_laptop_failure_headless_test_contents)
+foreach(required_laptop_failure_headless_test_fragment IN ITEMS
+    "encrypted text reads decode exact records and force an in-bounds terminator"
+    "short encrypted text records fail without publishing partial or stale text"
+    "missing encrypted text records clear the caller destination"
+    "legacy button operations reject invalid compatibility handles"
+    "legacy button configuration ignores invalid compatibility handles")
+  string(FIND "${runtime_laptop_failure_headless_test_contents}"
+    "${required_laptop_failure_headless_test_fragment}"
+    required_laptop_failure_headless_test_position)
+  if(required_laptop_failure_headless_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop failure-path headless tests lost '${required_laptop_failure_headless_test_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/LAPTOP_CODE_WALKTHROUGH.md"
   runtime_laptop_walkthrough_contents)
 foreach(required_laptop_closure_documentation_fragment IN ITEMS
     "Shared shell, widgets, residual pages, and dormant-path closure"
     "All 98 Laptop translation units"
-    "no remaining Laptop audit batch")
+    "no remaining Laptop audit batch"
+    "Post-closure IMP and encrypted-text hardening")
   string(FIND "${runtime_laptop_walkthrough_contents}"
     "${required_laptop_closure_documentation_fragment}"
     required_laptop_closure_documentation_position)
@@ -4180,8 +4286,9 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "Interactive UI ownership batch"
     "Text and localization safety batch"
     "Media lifecycle batch"
+    "Encrypted text-record boundary"
     "Remaining Utils inventory"
-    "following 18 translation units"
+    "following 17 translation units"
     "TextInfrastructureModel.h"
     "MediaLifecycleModel.h")
   string(FIND "${runtime_utils_walkthrough_contents}"
@@ -4199,7 +4306,8 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "UtilsUiStateModel"
     "TextInfrastructureModel"
     "MediaLifecycleModel"
-    "remaining 18 Utils")
+    "encrypted text-record"
+    "remaining 17 Utils")
   string(FIND "${runtime_engine_architecture_contents}"
     "${required_utils_architecture_fragment}"
     required_utils_architecture_position)

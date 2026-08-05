@@ -7,6 +7,7 @@
 	#include "IMP MainPage.h"
 	#include "IMP HomePage.h"
 	#include "IMPVideoObjects.h"
+	#include "ImpPageResourceState.h"
 	#include "IMP Text System.h"
 	#include "IMP Finish.h"
 	#include "IMP Skill Trait.h"
@@ -221,6 +222,8 @@ void HandleCharProfile()
 		// render title bar
 	}
 
+	if (!ImpPageResourcesReady()) return;
+
 	// handle
 	switch( iCurrentImpPage )
 	{
@@ -299,6 +302,8 @@ void HandleCharProfile()
 
 void RenderCharProfile()
 {
+	if (!ImpPageResourcesReady()) return;
+
 	// button is waiting to go up?...do nothing,
 
 	if( fButtonPendingFlag )

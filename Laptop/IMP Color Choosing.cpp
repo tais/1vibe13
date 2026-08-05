@@ -507,14 +507,14 @@ void AddIMPColorChoiceButtons()
 		// Make respective button initialy pressed
 		if ( bBigBody )
 		{
-			ButtonList[ giIMPColorChoiceButton[ 9 ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPColorChoiceButton[9], true);
 
 			// enable badass option
 			EnableButton( giIMPColorChoiceButton[ 10 ] );
 		}
 		else
 		{
-			ButtonList[ giIMPColorChoiceButton[ 8 ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPColorChoiceButton[8], true);
 
 			// disable badass option
 			DisableButton( giIMPColorChoiceButton[ 10 ] );
@@ -843,10 +843,10 @@ void HandleIMPNormalAndBigBodyButtons( BOOLEAN bPressedBigBody )
 			bBigBody = TRUE;
 
 			// Deselect normal body button
-			ButtonList[ giIMPColorChoiceButton[ 8 ] ]->uiFlags &= ~BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPColorChoiceButton[8], false);
 
 			// Select big body button
-			ButtonList[ giIMPColorChoiceButton[ 9 ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPColorChoiceButton[9], true);
 
 			// play sound
 			PlayButtonSound( giIMPColorChoiceButton[ 9 ], BUTTON_SOUND_CLICKED_OFF );
@@ -864,10 +864,10 @@ void HandleIMPNormalAndBigBodyButtons( BOOLEAN bPressedBigBody )
 			bBigBody = FALSE;
 
 			// Select normal body button
-			ButtonList[ giIMPColorChoiceButton[ 8 ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPColorChoiceButton[8], true);
 
 			// Deselect big body button
-			ButtonList[ giIMPColorChoiceButton[ 9 ] ]->uiFlags &= ~BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPColorChoiceButton[9], false);
 
 			// play sound
 			PlayButtonSound( giIMPColorChoiceButton[ 8 ], BUTTON_SOUND_CLICKED_OFF );

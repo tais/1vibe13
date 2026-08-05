@@ -6,10 +6,11 @@ Status: active architectural refactor, 5 August 2026.
 
 `Utils` contains 36 production translation units used by every application
 host. This walkthrough tracks them explicitly so a successful local fix is not
-mistaken for completion of the directory-wide audit. Three coherent batches now
+mistaken for completion of the directory-wide audit. Four coherent batches now
 cover shared interactive UI, text/localization, and media lifecycle
-infrastructure. The tactical LBE popup XML loader is included because it is the
-persistence boundary for the popup-definition graph.
+infrastructure plus the encrypted text-record boundary. The tactical LBE popup
+XML loader is included because it is the persistence boundary for the
+popup-definition graph.
 
 A batch is complete only when it has:
 
@@ -98,22 +99,41 @@ empty, foreign, exact-end, full-capacity, restart, replacement-callback, and
 repeated-shutdown cases. Both run in the Release and AddressSanitizer matrices,
 while every application host compiles the production changes.
 
+## Encrypted text-record boundary
+
+`Encrypted File.cpp` is the shared reader for Laptop's legacy EDT catalogs and
+other fixed-record text consumers. The reader previously accepted short reads,
+left destinations stale or uninitialized on open/seek/read failure, trusted an
+authored terminator that malformed records could omit, underflowed the random
+record range for undersized files, and excluded the final complete record from
+selection. Exact reads now stage in temporary 16-bit storage, failure always
+leaves an empty destination, the last in-bounds character is terminated after
+decode, invalid/empty record geometry is rejected, and random selection spans
+all complete records. Null decode input is a safe no-op.
+
+`ja2_headless_tests` exercises the real VFS/FileMan path for complete,
+unterminated, truncated, and missing records as well as destination clearing.
+Laptop's IMP renderer separately gates display on reader success, while the
+architecture boundary preserves the reader contract and tests in every host
+and AddressSanitizer build.
+
 ## Remaining Utils inventory
 
-The following 18 translation units are compiled and covered by the general
+The following 17 translation units are compiled and covered by the general
 build/test matrix, but have not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
 - Input and runtime control: `Cursors.cpp`, `Event Pump.cpp`, `KeyMap.cpp`,
   `Timer Control.cpp`, `Utilities.cpp`, and `Win Util.cpp`.
-- Data and XML boundaries: `Encrypted File.cpp`, `INIReader.cpp`,
-  `XMLProperties.cpp`, `XMLWriter.cpp`, `XML_Items.cpp`, `XML_Language.cpp`,
-  and `XML_SenderNameList.cpp`.
+- Data and XML boundaries: `INIReader.cpp`, `XMLProperties.cpp`,
+  `XMLWriter.cpp`, `XML_Items.cpp`, `XML_Language.cpp`, and
+  `XML_SenderNameList.cpp`.
 - Image and developer utilities: `Debug Control.cpp`, `MapUtility.cpp`,
   `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp`.
 
-The next Utils batch should cover the seven data/XML boundaries because their
-parsers and persistence adapters carry the highest remaining partial-state and
-untrusted-input risk. Input/runtime control and the offline image tools follow.
+The next Utils batch should cover the six remaining data/XML boundaries
+because their parsers and persistence adapters carry the highest remaining
+partial-state and untrusted-input risk. Input/runtime control and the offline
+image tools follow.
 Existing file formats, resource paths, localization strings, callbacks, visual
 layout, and game behavior remain compatibility constraints throughout the audit.

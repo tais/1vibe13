@@ -76,7 +76,7 @@ void LoadAndDisplayIMPText( INT16 sStartX, INT16 sStartY, INT16 sLineLength, INT
 {
 	// this procedure will load and display to the screen starting at postion X, Y relative to the start of the laptop screen
 	// it will access record sIMPTextRecordNumber and go until all records following it but before the next IMP record are displayed in font uiFont
-	CHAR16 sString[ 1024 ];
+	CHAR16 sString[ 1024 ] = {};
 
 	if( fShadow == FALSE )
 	{
@@ -86,28 +86,35 @@ void LoadAndDisplayIMPText( INT16 sStartX, INT16 sStartY, INT16 sLineLength, INT
 
 	// load the string
 #ifdef JA2UB
+	BOOLEAN loaded = FALSE;
 	if (FileExists(IMPTEXT_EDT_FILE_JA25))
 	{
-	LoadEncryptedDataFromFile(IMPTEXT_EDT_FILE_JA25, sString, ( UINT32 ) ( ( sIMPTextRecordNumber ) * IMP_SEEK_AMOUNT ), IMP_SEEK_AMOUNT);
+		loaded = LoadEncryptedDataFromFile(IMPTEXT_EDT_FILE_JA25, sString,
+			(UINT32)((sIMPTextRecordNumber) * IMP_SEEK_AMOUNT),
+			IMP_SEEK_AMOUNT);
 	}
 	else
 	{
-	LoadEncryptedDataFromFile(IMPTEXT_EDT_FILE_JA2, sString, ( UINT32 ) ( ( sIMPTextRecordNumber ) * IMP_SEEK_AMOUNT ), IMP_SEEK_AMOUNT);	
+		loaded = LoadEncryptedDataFromFile(IMPTEXT_EDT_FILE_JA2, sString,
+			(UINT32)((sIMPTextRecordNumber) * IMP_SEEK_AMOUNT),
+			IMP_SEEK_AMOUNT);
 	}
 #else
-	LoadEncryptedDataFromFile("BINARYDATA\\IMPText.EDT", sString, ( UINT32 ) ( ( sIMPTextRecordNumber ) * IMP_SEEK_AMOUNT ), IMP_SEEK_AMOUNT);
+	const BOOLEAN loaded = LoadEncryptedDataFromFile(
+		"BINARYDATA\\IMPText.EDT", sString,
+		(UINT32)((sIMPTextRecordNumber) * IMP_SEEK_AMOUNT),
+		IMP_SEEK_AMOUNT);
 #endif
-
-	// null put last char
-	sString[ wcslen( sString) ] = 0;
-
-
-	if( uiFlags == 0 )
+	if (loaded && uiFlags == 0)
 	{
 		uiFlags = LEFT_JUSTIFIED;
 	}
 
-	DisplayWrappedString( sStartX, ( INT16 )( sStartY	), sLineLength, 2, uiFont, ubColor, sString, FONT_BLACK,FALSE, uiFlags);
+	if (loaded)
+	{
+		DisplayWrappedString(sStartX, (INT16)(sStartY), sLineLength, 2,
+			uiFont, ubColor, sString, FONT_BLACK, FALSE, uiFlags);
+	}
 
 
 	// reset shadow

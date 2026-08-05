@@ -9,6 +9,18 @@
 
 namespace LaptopUiStateModel
 {
+	class ResourceTransactionState
+	{
+	public:
+		void begin() noexcept { failed_ = false; }
+		void fail() noexcept { failed_ = true; }
+		bool canAcquire() const noexcept { return !failed_; }
+		bool ready() const noexcept { return !failed_; }
+
+	private:
+		bool failed_ = false;
+	};
+
 	template<typename Integer>
 	constexpr bool IsValidIndex(std::size_t size, Integer index) noexcept
 	{

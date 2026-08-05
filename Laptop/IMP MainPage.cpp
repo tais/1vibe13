@@ -114,7 +114,7 @@ void EnterIMPMainPage( void )
 	UpDateIMPMainPageButtons( );
 
 	// entry into IMP about us page
-	RenderIMPMainPage( );
+	if (ImpPageResourcesReady()) RenderIMPMainPage( );
 }
 
 void ExitIMPMainPage( void )

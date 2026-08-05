@@ -1156,7 +1156,11 @@ the engine must not contain SDL types in its public domain model.
   closure. Save layouts, page and data IDs, resource paths, localization,
   XML/Lua inputs, and campaign behavior remain unchanged. The detailed fault
   inventory and closure criteria live in `LAPTOP_CODE_WALKTHROUGH.md`.
-- The post-Laptop Utils refactor now has three larger shared infrastructure
+  Post-closure validation additionally routes derived IMP button images into
+  the per-page owner, latches acquisition failure until the next page, gates
+  failed-page rendering/input, checks clicked-state compatibility handles, and
+  renders IMP EDT text only after an exact successful load.
+- The post-Laptop Utils refactor now has four larger shared infrastructure
   batches. `UtilsUiStateModel` is the dependency-free boundary for
   signed/exact-end UI indices, slider geometry, and bounded callback-ID
   mappings. Popup callbacks and definition trees now have explicit unique/deep
@@ -1180,7 +1184,11 @@ the engine must not contain SDL types in its public domain model.
   rejection; sound and positional gateways validate IDs, pointers, capacity,
   retry, and shutdown state. Focused model tests, real-engine headless
   ownership/persistence and media lifecycle tests, AddressSanitizer, and
-  architecture ratchets cover these contracts. The remaining 18 Utils
+  architecture ratchets cover these contracts. The encrypted text-record
+  boundary now clears output before I/O, accepts only exact complete records,
+  terminates decoded text in bounds, and rejects invalid or empty random
+  ranges while sampling every complete record. Real VFS/FileMan tests cover
+  complete, unterminated, truncated, and missing data. The remaining 17 Utils
   translation units are deliberately still tracked as unaudited; the detailed
   findings, inventory, and next priority order live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,

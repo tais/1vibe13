@@ -795,20 +795,20 @@ void HandleSkillTraitButtonStates( )
 		//if the skill is selected ( ie depressed )
 		if( gfSkillTraitQuestions[ uiCnt ] )
 		{
-			ButtonList[ giIMPSkillTraitAnswerButton[ uiCnt ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPSkillTraitAnswerButton[uiCnt], true);
 		}
 		else
 		{
-			ButtonList[ giIMPSkillTraitAnswerButton[ uiCnt ] ]->uiFlags &= ~BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPSkillTraitAnswerButton[uiCnt], false);
 		}
 
 		if( gfSkillTraitQuestions2[ uiCnt ] )
 		{
-			ButtonList[ giIMPSkillTraitAnswerButton2[ uiCnt ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPSkillTraitAnswerButton2[uiCnt], true);
 		}
 		else
 		{
-			ButtonList[ giIMPSkillTraitAnswerButton2[ uiCnt ] ]->uiFlags &= ~BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPSkillTraitAnswerButton2[uiCnt], false);
 		}
 	}
 }

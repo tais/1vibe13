@@ -164,7 +164,7 @@ void EnterIMPBeginScreen( void )
 
 
 	// render the screen on entry
-	RenderIMPBeginScreen( );
+	if (ImpPageResourcesReady()) RenderIMPBeginScreen( );
 
 	if( fFinishedCharGeneration )
 	{

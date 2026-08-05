@@ -821,3 +821,28 @@ closure milestone, not a claim that future gameplay or data-dependent defects
 are impossible; newly discovered defects should be handled as focused normal
 maintenance with regression tests and, where the rule is architectural, a
 ratchet here and in `CheckArchitectureBoundaries.cmake`.
+
+## Post-closure IMP and encrypted-text hardening
+
+Post-closure validation found two defects that crossed the original batch
+boundaries. Six IMP trait/background paths derived button images with
+`UseLoadedButtonImage`, but the per-page facade did not adopt those derived
+handles, so page exit could not release them. In addition, a failed page
+acquisition cleared the owner without latching failure; later setup could
+publish a new partial resource set and feed `-1` button IDs into compatibility
+APIs or direct button-slot access. Derived images now enter the same owner,
+failure remains latched until the next page begins, clicked-state access is
+checked, and the character-profile render/input dispatcher suppresses a failed
+page while still allowing a subsequent transition to reset the transaction.
+
+The IMP text renderer also called `wcslen` on an uninitialized buffer when an
+encrypted EDT record could not be opened or read. The shared encrypted-record
+reader now clears destinations before I/O, requires exact byte counts, rejects
+invalid record widths, reserves the final in-bounds character as a terminator,
+and samples from only a non-empty complete-record range. IMP renders text only
+after a successful load. The SGP button compatibility entry points used during
+page setup reject negative, exact-end, deleted, and invalid derived-image
+handles instead of relying on assertions before indexing global registries.
+Focused model tests cover the failure latch; real headless FileMan/button tests
+cover missing, truncated, unterminated, and invalid-handle paths. Architecture
+ratchets preserve the complete failure chain.

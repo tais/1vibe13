@@ -18,6 +18,15 @@ namespace
 int main()
 {
 	using namespace LaptopUiStateModel;
+	ResourceTransactionState resources;
+	Require(resources.canAcquire() && resources.ready(),
+		"resource transactions begin ready for acquisition");
+	resources.fail();
+	Require(!resources.canAcquire() && !resources.ready(),
+		"resource acquisition failure stays latched for the page");
+	resources.begin();
+	Require(resources.canAcquire() && resources.ready(),
+		"a new page resets the resource failure latch");
 
 	Require(!IsValidIndex(3, -1),
 		"signed negative indices are rejected");

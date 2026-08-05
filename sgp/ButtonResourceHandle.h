@@ -32,4 +32,12 @@ inline UniqueButtonImageHandle LoadButtonImageOwned(STR8 filename,
 		offNormal, offHilite, onNormal, onHilite));
 }
 
+inline UniqueButtonImageHandle UseLoadedButtonImageOwned(INT32 loadedImage,
+	INT32 grayed, INT32 offNormal, INT32 offHilite,
+	INT32 onNormal, INT32 onHilite)
+{
+	return UniqueButtonImageHandle(UseLoadedButtonImage(loadedImage, grayed,
+		offNormal, offHilite, onNormal, onHilite));
+}
+
 #endif

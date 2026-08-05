@@ -210,7 +210,7 @@ void EnterIMPAttributeSelection( void )
 	CreateIMPStartingLevelSelectionButtons( );
 
 	// render background
-	RenderIMPAttributeSelection( );
+	if (ImpPageResourcesReady()) RenderIMPAttributeSelection( );
 }
 
 void RenderIMPAlteredAttribute( void )

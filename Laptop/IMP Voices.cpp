@@ -81,7 +81,7 @@ void EnterIMPVoices( void )
 	CreateIMPVoiceMouseRegions( );
 
 	// render background
-	RenderIMPVoices( );
+	if (ImpPageResourcesReady()) RenderIMPVoices( );
 
 	// play voice once
 	uiVocVoiceSound = PlayVoice( );

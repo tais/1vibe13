@@ -98,7 +98,7 @@ void EnterImpHomePage( void )
 	fNotVistedImpYet = FALSE;
 
 	// render screen once
-	RenderImpHomePage( );
+	if (ImpPageResourcesReady()) RenderImpHomePage( );
 	return;
 }
 
