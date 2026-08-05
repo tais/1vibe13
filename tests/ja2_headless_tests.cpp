@@ -137,6 +137,11 @@
 #include "Disease.h"
 #include "Food.h"
 #include "popup_class.h"
+#include "popup_definition.h"
+#include "PopUpBox.h"
+#include "Animated ProgressBar.h"
+#include "Text Input.h"
+#include "mousesystem.h"
 #include "Soldier Control.h"
 #include "Grid Direction.h"
 #include "Soldier Palette.h"
@@ -2113,8 +2118,10 @@ int main( int, char** )
 		CHECK( !std::is_copy_constructible<POPUP_OPTION>::value &&
 		       !std::is_copy_assignable<POPUP_OPTION>::value &&
 		       !std::is_move_constructible<POPUP_OPTION>::value &&
-		       !std::is_copy_constructible<POPUP>::value,
-		       "popup owners cannot be copied or accidentally moved" );
+		       !std::is_copy_constructible<POPUP>::value &&
+		       (std::is_constructible<POPUP_OPTION, const std::wstring&, popupCallback*>::value) &&
+		       (!std::is_constructible<POPUP_OPTION, std::wstring*, popupCallback*>::value),
+		       "popup owners cannot be copied, moved, or constructed from ambiguous string pointers" );
 		g_popupCallbackDestructionCount = 0;
 		g_popupCallbackCallCount = 0;
 		{
@@ -2137,6 +2144,131 @@ int main( int, char** )
 		}
 		CHECK( g_popupCallbackDestructionCount == 4 && g_popupCallbackCallCount == 2,
 		       "popup option teardown does not double-delete cleared callbacks" );
+	}
+
+	{
+		popupDef source;
+		CHECK( source.addOption(L"root", 0, 0),
+		       "popup definitions own root options" );
+		popupDef* nested = source.addSubPopup(L"nested");
+		CHECK( nested && nested->addOption(L"child", 0, 0),
+		       "popup definitions own nested submenu content" );
+		CHECK( !source.addGenerator(0) &&
+		       source.addGenerator(popupGenerators::dummy) &&
+		       source.contentCount() == 3,
+		       "popup definitions reject unknown generators and retain valid content" );
+
+		popupDef copy(source);
+		source = popupDef{};
+		CHECK( source.contentCount() == 0 && copy.contentCount() == 3,
+		       "popup definition copies deeply outlive their source" );
+		popupDef assigned;
+		assigned = copy;
+		copy = popupDef{};
+		CHECK( assigned.contentCount() == 3,
+		       "popup definition assignment owns an independent deep copy" );
+	}
+
+	{
+		InitPopUpBoxList();
+		INT32 box = -1;
+		const SGPRect dimensions{ 0, 0, 120, 40 };
+		const SGPPoint position{ 10, 10 };
+		CHECK( CreatePopUpBox(&box, dimensions, position, 0) && box >= 0,
+		       "popup boxes allocate a validated registry handle" );
+		CHAR16 primary[] = L"primary";
+		CHAR16 secondary[] = L"secondary";
+		UINT32 primaryHandle = std::numeric_limits<UINT32>::max();
+		UINT32 secondaryHandle = std::numeric_limits<UINT32>::max();
+		AddMonoString(&primaryHandle, primary);
+		AddSecondColumnMonoString(&secondaryHandle, secondary);
+		CHECK( primaryHandle == 0 && secondaryHandle == 0 &&
+		       GetNumberOfLinesOfTextInBox(box) == 1 &&
+		       GetTotalNumberOfLinesOfTextInBox(box) == 2,
+		       "popup boxes own primary and secondary text transactionally" );
+		SetBoxLineForeground(box, MAX_POPUP_BOX_STRING_COUNT, 1);
+		HighLightBoxLine(box, -1);
+		RemoveOneCurrentBoxString(MAX_POPUP_BOX_STRING_COUNT, TRUE);
+		CHECK( !GetBoxShadeFlag(box, MAX_POPUP_BOX_STRING_COUNT) &&
+		       GetNumberOfLinesOfTextInBox(box, MAX_POPUP_BOX_COLUMNS) == 0,
+		       "popup box exact-end, negative, and invalid-column accesses are inert" );
+		RemoveBox(box);
+		RemoveBox(box);
+		INT32 current = 99;
+		GetCurrentBox(&current);
+		CHECK( current == -1 && GetNumberOfLinesOfTextInBox(box) == 0,
+		       "popup box teardown clears stale handles and is idempotent" );
+		INT32 first = -1;
+		INT32 second = -1;
+		CHECK( CreatePopUpBox(&first, dimensions, position, 0) &&
+		       CreatePopUpBox(&second, dimensions, position, 0),
+		       "popup registry can own multiple boxes" );
+		InitPopUpBoxList();
+		GetCurrentBox(&current);
+		CHECK( current == -1 && !IsBoxShown(first) && !IsBoxShown(second),
+		       "popup registry reset releases all boxes and current state" );
+	}
+
+	{
+		CHECK( !CreateProgressBar(MAX_PROGRESSBARS, 0, 0, 100, 10) &&
+		       !CreateProgressBar(0, 10, 0, 5, 10) &&
+		       CreateProgressBar(0, 0, 0, 100, 10),
+		       "progress bars reject invalid IDs and geometry" );
+		CHAR16 title[] = L"loading";
+		SetProgressBarTitle(0, title, 0, 0, 0);
+		SetRelativeStartAndEndPercentage(0, 120, 20, nullptr);
+		SetProgressBarColor(MAX_PROGRESSBARS, 1, 2, 3);
+		RemoveProgressBar(MAX_PROGRESSBARS);
+		CHECK( CreateProgressBar(0, 0, 0, 120, 12),
+		       "progress bar replacement releases the previous owned title" );
+		RemoveProgressBar(0);
+		RemoveProgressBar(0);
+	}
+
+	{
+		CHECK( MSYS_Init() == 1, "mouse-region registry initializes for text-input ownership tests" );
+		KillAllTextInputModes();
+		InitTextInputMode();
+		CHAR16 parentText[] = L"parent-too-long";
+		AddTextInputField(0, 0, 80, 20, MSYS_PRIORITY_NORMAL,
+		                  parentText, 6, INPUTTYPE_ASCII);
+		CHAR16 output[16] = {};
+		Get16BitStringFromField(0, output, std::size(output));
+		CHECK( TextInputMode() && GetActiveFieldID() == 0 && wcscmp(output, L"parent") == 0,
+		       "text fields own a bounded copy of caller-provided text" );
+
+		CHAR16 replacement[] = L"updated";
+		SetInputFieldStringWith16BitString(0, replacement);
+		CHAR16 smallOutput[4] = {};
+		Get16BitStringFromField(0, smallOutput, std::size(smallOutput));
+		CHECK( wcscmp(smallOutput, L"upd") == 0,
+		       "text-field reads honor the destination buffer boundary" );
+
+		InitTextInputMode();
+		CHAR16 nestedText[] = L"nested";
+		AddTextInputField(20, 20, 80, 20, MSYS_PRIORITY_NORMAL,
+		                  nestedText, 8, INPUTTYPE_ASCII);
+		Get16BitStringFromField(0, output, std::size(output));
+		CHECK( wcscmp(output, nestedText) == 0,
+		       "nested text-input modes own an independent field list" );
+		KillTextInputMode();
+		Get16BitStringFromField(0, output, std::size(output));
+		CHAR16 appendedText[] = L"tail";
+		AddTextInputField(20, 20, 80, 20, MSYS_PRIORITY_NORMAL,
+		                  appendedText, 8, INPUTTYPE_ASCII);
+		CHAR16 appendedOutput[16] = {};
+		Get16BitStringFromField(1, appendedOutput, std::size(appendedOutput));
+		CHECK( wcscmp(output, L"update") == 0 && wcscmp(appendedOutput, appendedText) == 0,
+		       "popping a nested text-input mode restores valid head, tail, and active ownership" );
+		KillAllTextInputModes();
+
+		InitTextInputMode();
+		InitTextInputMode();
+		KillTextInputMode();
+		CHECK( TextInputMode(), "an empty nested text-input mode restores its empty parent" );
+		KillAllTextInputModes();
+		CHECK( !TextInputMode(), "text-input teardown drains empty and populated ownership levels" );
+		MSYS_Shutdown();
 	}
 
 	{

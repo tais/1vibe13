@@ -33,8 +33,6 @@ typedef struct PROGRESSBAR
 	BOOLEAN fDrawBorder;
 }PROGRESSBAR;
 
-extern PROGRESSBAR *pBar[ MAX_PROGRESSBARS ];
-
 // Flugente: a structure for clothing items
 typedef struct
 {

@@ -1156,6 +1156,21 @@ the engine must not contain SDL types in its public domain model.
   closure. Save layouts, page and data IDs, resource paths, localization,
   XML/Lua inputs, and campaign behavior remain unchanged. The detailed fault
   inventory and closure criteria live in `LAPTOP_CODE_WALKTHROUGH.md`.
+- The post-Laptop Utils refactor has started with one larger shared interactive-
+  UI ownership batch. `UtilsUiStateModel` is the dependency-free boundary for
+  signed/exact-end UI indices, slider geometry, and bounded callback-ID
+  mappings. Popup callbacks and definition trees now have explicit unique/deep
+  ownership; popup labels use value/reference semantics, allowing the legacy
+  address-of-temporary compiler exemption to be removed. Popup boxes, progress
+  bars, sliders, merc text boxes, nested text input, and wrapped-string lists
+  validate handles and release partial state.
+  LBE popup XML parsing stages a complete definition map before publication.
+  Focused model tests, real-engine headless ownership tests, AddressSanitizer,
+  and architecture ratchets cover these contracts. The remaining 28 Utils
+  translation units are deliberately still tracked as unaudited; the detailed
+  findings, inventory, and next priority order live in
+  `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,
+  visual layout, XML schema, and gameplay behavior remain unchanged.
 - A.I.M. page resources now cross one transactional ownership boundary.
   `ResourceHandleSet` is dependency-free and commits move-only handles as a
   complete set; `UniqueResourceHandle` supports both unsigned-zero and signed

@@ -1,9 +1,14 @@
 #ifndef POPUP_DEFINITION
 	#define POPUP_DEFINITION
 
-#include "sgp.h"	
+#include "sgp.h"
 #include "popup_class.h"
 #include "popup_callback.h"
+
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace popupGenerators{
 
@@ -34,82 +39,78 @@ class popupDefContentGenerator;
 
 class popupDef{
 public:
-	popupDef();
-	~popupDef();
+	popupDef() = default;
+	popupDef(const popupDef& other);
+	popupDef& operator=(const popupDef& other);
+	popupDef(popupDef&&) noexcept = default;
+	popupDef& operator=(popupDef&&) noexcept = default;
+	~popupDef() = default;
 
-	BOOLEAN applyToBox(POPUP* popup);
+	BOOLEAN applyToBox(POPUP* popup) const;
 
-	BOOLEAN addOption(std::wstring* name, UINT16 callbackId, UINT16 availId);
+	BOOLEAN addOption(const std::wstring& name, UINT16 callbackId, UINT16 availId);
 
-	popupDef * addSubPopup(std::wstring* name);
-	BOOLEAN addSubPopup(popupDefSubPopupOption* sub);
+	popupDef* addSubPopup(const std::wstring& name);
+	BOOLEAN addSubPopup(std::unique_ptr<popupDefSubPopupOption> sub);
 
 	BOOLEAN addGenerator(UINT16 id);
+	std::size_t contentCount() const noexcept { return content.size(); }
 protected:
-	std::vector<popupDefContent*> content;
+	std::vector<std::unique_ptr<popupDefContent>> content;
 };
 
 class popupDefContent{
 public:
-	popupDefContent();
-	// NB: virtual. popupDef::~popupDef walks content[] and does
-	// `delete <popupDefContent*>` -- prior to this, the destructor
-	// was non-virtual so the derived destructors (popupDefOption,
-	// popupDefSubPopupOption) never ran and their `name` /
-	// `content` members leaked. macOS's malloc guard caught the
-	// resulting mismatch and SIGTRAP'd at process exit.
-	virtual ~popupDefContent();
+	popupDefContent() = default;
+	virtual ~popupDefContent() = default;
 
-	virtual BOOLEAN addToBox(POPUP * popup) = 0;
+	virtual BOOLEAN addToBox(POPUP* popup) const = 0;
+	virtual std::unique_ptr<popupDefContent> clone() const = 0;
 
 };
 
 class popupDefOption : public popupDefContent{
 public:
-	popupDefOption() : name( new std::wstring(L"Unnamed Option") ), callbackId(0), availId(0){};
-	popupDefOption( std::wstring* name, UINT16 callbackId, UINT16 availId ) : name( name ), callbackId(callbackId), availId(availId){};
+	popupDefOption() = default;
+	popupDefOption(const std::wstring& name, UINT16 callbackId, UINT16 availId)
+		: name(name), callbackId(callbackId), availId(availId) {}
 
-	~popupDefOption(){ delete this->name; };
-
-	BOOLEAN addToBox(POPUP * popup);
+	BOOLEAN addToBox(POPUP* popup) const override;
+	std::unique_ptr<popupDefContent> clone() const override;
 
 protected:
-	std::wstring* name;
-	UINT16 callbackId;
-	UINT16 availId;
+	std::wstring name = L"Unnamed Option";
+	UINT16 callbackId = 0;
+	UINT16 availId = 0;
 
 };
 
 class popupDefSubPopupOption : public popupDefContent{
 public:
-	popupDefSubPopupOption() : name( new std::wstring(L"Unnamed Submenu") ){ this->content = new popupDef(); };
-	popupDefSubPopupOption( std::wstring* name ) : name( name ){ this->content = new popupDef(); };
+	popupDefSubPopupOption() = default;
+	explicit popupDefSubPopupOption(const std::wstring& name) : name(name) {}
 
-	~popupDefSubPopupOption(){ delete this->name; delete this->content; };
-
-	BOOLEAN addToBox(POPUP * popup);
-	void rename( std::wstring* name ){
-		delete this->name;	// lets just hope nothing else was using this string. TODO: use smart pointer
-		this->name = name;
-	};
-	popupDef * getSubDef(){ return this->content; };
+	BOOLEAN addToBox(POPUP* popup) const override;
+	std::unique_ptr<popupDefContent> clone() const override;
+	void rename(const std::wstring& newName) { name = newName; }
+	popupDef* getSubDef() { return &content; }
+	const popupDef* getSubDef() const { return &content; }
 
 protected:
-	std::wstring* name;
-	popupDef * content;
+	std::wstring name = L"Unnamed Submenu";
+	popupDef content;
 };
 
 class popupDefContentGenerator: public popupDefContent{
 public:
-	popupDefContentGenerator() : generatorId(0){};
-	popupDefContentGenerator( UINT16 generatorId ) : generatorId( generatorId ){};
+	popupDefContentGenerator() = default;
+	explicit popupDefContentGenerator(UINT16 generatorId) : generatorId(generatorId) {}
 
-	~popupDefContentGenerator();
+	BOOLEAN addToBox(POPUP* popup) const override;
+	std::unique_ptr<popupDefContent> clone() const override;
 
-	BOOLEAN addToBox(POPUP * popup);
-
-protected:	
-	UINT16 generatorId;
+protected:
+	UINT16 generatorId = 0;
 };
 
 #endif

@@ -4,6 +4,7 @@
 	#include "popup_callback.h"
 	#include "types.h"
 	#include "sgp.h"
+	#include <memory>
 
 	#define MAX_POPUPS 32
 	#define POPUP_MAX_SUB_POPUPS  24
@@ -39,21 +40,6 @@
 
 	typedef void (POPUP::*POPUP_CALLBACK)(MOUSE_REGION *, INT32);
 
-	typedef struct {
-		UINT16	regionId;
-		UINT32	classId;
-	} PopupIndex ;
-
-	extern std::vector<PopupIndex>	gPopupRegionIndex;
-	extern std::vector<POPUP*>	gPopupIndex;
-
-	extern UINT32			gPopupRegionIndexCounter;
-	extern UINT32			gPopupIndexCounter;
-
-	PopupIndex * findMouseRegionInIndex(UINT16 regionId);
-	BOOLEAN registerPopupRegion(UINT16 rID, UINT32 cID);
-	BOOLEAN unregisterPopupRegion(UINT16 regionId);
-	void rebuildPopupRegionIndex(void);
 	void popupMaskCallback(MOUSE_REGION *pRegion, INT32 iReason);
 	void popupMouseMoveCallback(MOUSE_REGION *pRegion, INT32 iReason);
 	void popupMouseClickCallback(MOUSE_REGION *pRegion, INT32 iReason);
@@ -68,14 +54,12 @@
 	public:
 		POPUP_OPTION(void); // default constructor
 		POPUP_OPTION(const std::wstring& name, popupCallback* newFunction);
-		POPUP_OPTION(std::wstring* name, popupCallback* newFunction); // constructor
 		~POPUP_OPTION();			// destructor
 		POPUP_OPTION(const POPUP_OPTION&) = delete;
 		POPUP_OPTION& operator=(const POPUP_OPTION&) = delete;
 		POPUP_OPTION(POPUP_OPTION&&) = delete;
 		POPUP_OPTION& operator=(POPUP_OPTION&&) = delete;
 		// setup
-		BOOLEAN setName(std::wstring * name);
 		BOOLEAN setName(const std::wstring& name);
 		BOOLEAN setAction(popupCallback*fun);
 		BOOLEAN setAvail(popupCallback *fun);
@@ -93,9 +77,9 @@
 		std::wstring name;
 		std::wstring hint;
 //	protected:
-		popupCallback * action;
-		popupCallback * avail;
-		popupCallback * hover;
+		std::unique_ptr<popupCallback> action;
+		std::unique_ptr<popupCallback> avail;
+		std::unique_ptr<popupCallback> hover;
 
 		UINT8 color_foreground;
 		UINT8 color_background;
@@ -112,9 +96,7 @@
 		// constructor/destructor
 	POPUP_SUB_POPUP_OPTION(void);
 	POPUP_SUB_POPUP_OPTION(const std::wstring& name);
-	POPUP_SUB_POPUP_OPTION(std::wstring* name);
 	POPUP_SUB_POPUP_OPTION(const std::wstring& newName, const POPUP * parent);
-	POPUP_SUB_POPUP_OPTION(std::wstring* newName, const POPUP * parent);
 	~POPUP_SUB_POPUP_OPTION();
 
 	void showPopup();
@@ -151,7 +133,6 @@
 		POPUP(POPUP&&) = delete;
 		POPUP& operator=(POPUP&&) = delete;
 		// setup
-		POPUP_OPTION * addOption(std::wstring * name, popupCallback * action);
 		POPUP_OPTION * addOption(const std::wstring& name, popupCallback * action);
 		/*INT16 findFreeOptionIndex();*/
 		BOOLEAN addOption(POPUP_OPTION &option);
@@ -160,7 +141,6 @@
 		BOOLEAN delOption(CHAR8* name);		// Another index to through and clean, aargh
 		BOOLEAN delOption(UINT8 optIndex);
 
-		POPUP* addSubMenuOption(std::wstring * name);
 		POPUP* addSubMenuOption(const std::wstring& name);
 		BOOLEAN addSubMenuOption(POPUP_SUB_POPUP_OPTION* sub);
 		/*INT16 findFreeSubMenuOptionIndex();*/
@@ -213,7 +193,6 @@
 		BOOLEAN hideAfterRun;
 
 		// Box init functions
-		BOOLEAN CreateDestroyPopUpBoxes(void);
 		BOOLEAN CreatePopUpBoxes(void);
 		BOOLEAN DestroyPopUpBoxes(void);
 
@@ -224,12 +203,10 @@
 		void RebuildBox( void );
 
 		// Screen mask
-		void CreateDestroyScreenMask( void );
 		void CreateScreenMask( void );
 		void DestroyScreenMask( void );
 
 		// Mouse regions
-		void CreateDestroyMouseRegions( void );
 		void CreateMouseRegions( void );
 		void DestroyMouseRegions( void );
 		void AdjustMouseRegions( void );
@@ -270,10 +247,10 @@
 	private:
 		BOOLEAN PopupVisible;
 
-		popupCallback * initCallback;
-		popupCallback * EndCallback;
-		popupCallback * ShowCallback;
-		popupCallback * HideCallback;
+		std::unique_ptr<popupCallback> initCallback;
+		std::unique_ptr<popupCallback> EndCallback;
+		std::unique_ptr<popupCallback> ShowCallback;
+		std::unique_ptr<popupCallback> HideCallback;
 
 		///////////////////////
 		// Popup box vars

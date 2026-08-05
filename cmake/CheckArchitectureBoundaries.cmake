@@ -3609,6 +3609,303 @@ foreach(required_laptop_closure_documentation_fragment IN ITEMS
   endif()
 endforeach()
 
+# Shared legacy UI infrastructure is the first post-Laptop Utils audit batch.
+# Keep the state-only rules dependency-free, legacy registries implementation-
+# private, ownership explicit, parsing transactional, and both model and real-
+# engine failure-path coverage in the normal/ASan test matrix.
+file(READ "${SOURCE_ROOT}/Utils/UtilsUiStateModel.h"
+  runtime_utils_ui_state_model_contents)
+foreach(required_utils_ui_state_model_fragment IN ITEMS
+    "IsValidIndex"
+    "ClampIncrement"
+    "SliderIncrementFromPosition"
+    "SliderPositionFromIncrement"
+    "class BoundedIdDirectory")
+  string(FIND "${runtime_utils_ui_state_model_contents}"
+    "${required_utils_ui_state_model_fragment}"
+    required_utils_ui_state_model_position)
+  if(required_utils_ui_state_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils UI state boundary lost '${required_utils_ui_state_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/popup_class.h"
+  runtime_utils_popup_header_contents)
+file(READ "${SOURCE_ROOT}/Utils/popup_class.cpp"
+  runtime_utils_popup_source_contents)
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Map Inventory.cpp"
+  runtime_utils_popup_map_inventory_contents)
+file(READ "${SOURCE_ROOT}/Tactical/SkillMenu.cpp"
+  runtime_utils_popup_skill_menu_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Interface Items.cpp"
+  runtime_utils_popup_interface_items_contents)
+foreach(required_utils_popup_owner_fragment IN ITEMS
+    "std::unique_ptr<popupCallback> action"
+    "std::unique_ptr<popupCallback> initCallback"
+    "POPUP_OPTION(const std::wstring& name"
+    "addSubMenuOption(const std::wstring& name)")
+  string(FIND "${runtime_utils_popup_header_contents}"
+    "${required_utils_popup_owner_fragment}"
+    required_utils_popup_owner_position)
+  if(required_utils_popup_owner_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils popup callback ownership lost '${required_utils_popup_owner_fragment}'")
+  endif()
+endforeach()
+foreach(required_utils_popup_directory_fragment IN ITEMS
+    "BoundedIdDirectory<UINT16, UINT32>"
+    "gPopupRegionIndex.insert"
+    "gPopupRegionIndex.erase")
+  string(FIND "${runtime_utils_popup_source_contents}"
+    "${required_utils_popup_directory_fragment}"
+    required_utils_popup_directory_position)
+  if(required_utils_popup_directory_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils popup region ownership lost '${required_utils_popup_directory_fragment}'")
+  endif()
+endforeach()
+if(runtime_utils_popup_source_contents MATCHES
+    "new[ \t\r\n]+PopupIndex|findMouseRegionInIndex[^;\r\n]*->|static[ \t\r\n]+BOOLEAN[ \t\r\n]+fCreated")
+  message(FATAL_ERROR
+    "Utils popup code restored heap callback-index nodes, unchecked callback lookup, or shared wrapper state")
+endif()
+foreach(utils_popup_value_string_contents IN ITEMS
+    runtime_utils_popup_header_contents
+    runtime_utils_popup_source_contents
+    runtime_utils_popup_map_inventory_contents
+    runtime_utils_popup_skill_menu_contents
+    runtime_utils_popup_interface_items_contents)
+  if("${${utils_popup_value_string_contents}}" MATCHES
+      "&[ \t\r\n]*std::wstring|new[ \t\r\n]+std::wstring")
+    message(FATAL_ERROR
+      "Utils popup code restored temporary-address or heap-string ownership in ${utils_popup_value_string_contents}; pass labels by const reference")
+  endif()
+endforeach()
+if(runtime_utils_popup_header_contents MATCHES
+    "std::wstring[ \t\r\n]*\\*")
+  message(FATAL_ERROR
+    "Utils popup API restored ambiguous std::wstring pointer ownership; pass labels by const reference")
+endif()
+if(root_build_contents MATCHES
+    "Wno-error=address-of-temporary")
+  message(FATAL_ERROR
+    "The retired popup temporary-address warning exemption returned")
+endif()
+
+file(READ "${SOURCE_ROOT}/Utils/popup_definition.h"
+  runtime_utils_popup_definition_header_contents)
+foreach(required_utils_popup_definition_fragment IN ITEMS
+    "std::vector<std::unique_ptr<popupDefContent>> content"
+    "clone() const"
+    "popupDef(const popupDef& other)")
+  string(FIND "${runtime_utils_popup_definition_header_contents}"
+    "${required_utils_popup_definition_fragment}"
+    required_utils_popup_definition_position)
+  if(required_utils_popup_definition_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils popup-definition ownership lost '${required_utils_popup_definition_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/PopUpBox.cpp"
+  runtime_utils_popup_box_source_contents)
+file(READ "${SOURCE_ROOT}/Utils/PopUpBox.h"
+  runtime_utils_popup_box_header_contents)
+foreach(required_utils_popup_box_fragment IN ITEMS
+    "std::array<PopUpBoxPt, MAX_POPUP_BOX_COUNT> PopUpBoxList"
+    "GetPopupBox(Index handle)"
+    "IsValidTextLocation")
+  string(FIND "${runtime_utils_popup_box_source_contents}"
+    "${required_utils_popup_box_fragment}"
+    required_utils_popup_box_position)
+  if(required_utils_popup_box_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils popup-box bounds/ownership lost '${required_utils_popup_box_fragment}'")
+  endif()
+endforeach()
+if(runtime_utils_popup_box_header_contents MATCHES
+    "static[ \t\r\n]+PopUpBoxPt[ \t\r\n]+PopUpBoxList" OR
+   runtime_utils_popup_box_source_contents MATCHES
+    "CHAR16[ \t\r\n]+sString[ \t\r\n]*\\[[ \t\r\n]*100[ \t\r\n]*\\]")
+  message(FATAL_ERROR
+    "Utils popup boxes restored a header registry or fixed-size label copy")
+endif()
+
+file(READ "${SOURCE_ROOT}/Utils/Animated ProgressBar.cpp"
+  runtime_utils_progress_source_contents)
+file(READ "${SOURCE_ROOT}/Utils/Animated ProgressBar.h"
+  runtime_utils_progress_header_contents)
+foreach(required_utils_progress_fragment IN ITEMS
+    "std::array<PROGRESSBAR*, MAX_PROGRESSBARS> gProgressBars"
+    "PROGRESSBAR* GetProgressBar"
+    "UtilsUiStateModel::IsValidIndex")
+  string(FIND "${runtime_utils_progress_source_contents}"
+    "${required_utils_progress_fragment}"
+    required_utils_progress_position)
+  if(required_utils_progress_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils progress-bar registry lost '${required_utils_progress_fragment}'")
+  endif()
+endforeach()
+if(runtime_utils_progress_header_contents MATCHES
+    "extern[ \t\r\n]+PROGRESSBAR[ \t\r\n]*\\*[ \t\r\n]*pBar")
+  message(FATAL_ERROR
+    "Utils progress-bar registry became public again")
+endif()
+
+file(READ "${SOURCE_ROOT}/Utils/Slider.cpp"
+  runtime_utils_slider_contents)
+foreach(required_utils_slider_fragment IN ITEMS
+    "UtilsUiStateModel::SliderIncrementFromPosition"
+    "UtilsUiStateModel::SliderPositionFromIncrement"
+    "UniqueVideoObjectHandle gSliderBoxImage")
+  string(FIND "${runtime_utils_slider_contents}"
+    "${required_utils_slider_fragment}"
+    required_utils_slider_position)
+  if(required_utils_slider_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils slider safety lost '${required_utils_slider_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/MercTextBox.cpp"
+  runtime_utils_merc_text_box_contents)
+foreach(required_utils_merc_text_box_fragment IN ITEMS
+    "gMercPopupSystemInitialized"
+    "UtilsUiStateModel::IsValidIndex"
+    "for ( UINT32 fillIndex")
+  string(FIND "${runtime_utils_merc_text_box_contents}"
+    "${required_utils_merc_text_box_fragment}"
+    required_utils_merc_text_box_position)
+  if(required_utils_merc_text_box_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils merc-text-box ownership lost '${required_utils_merc_text_box_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Text Input.cpp"
+  runtime_utils_text_input_contents)
+foreach(required_utils_text_input_fragment IN ITEMS
+    "TEXTINPUTNODE *tail"
+    "TEXTINPUTNODE *active"
+    "std::size_t destinationSize"
+    "curr = curr->next")
+  string(FIND "${runtime_utils_text_input_contents}"
+    "${required_utils_text_input_fragment}"
+    required_utils_text_input_position)
+  if(required_utils_text_input_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils text-input stack/bounds safety lost '${required_utils_text_input_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/WordWrap.cpp"
+  runtime_utils_word_wrap_contents)
+foreach(required_utils_word_wrap_fragment IN ITEMS
+    "AppendWrappedString"
+    "DeleteWrappedString(FirstWrappedString.pNextWrappedString)"
+    "std::size(TempString)")
+  string(FIND "${runtime_utils_word_wrap_contents}"
+    "${required_utils_word_wrap_fragment}"
+    required_utils_word_wrap_position)
+  if(required_utils_word_wrap_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils word-wrap failure handling lost '${required_utils_word_wrap_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/XML_LBEPocketPopup.cpp"
+  runtime_utils_popup_xml_contents)
+foreach(required_utils_popup_xml_fragment IN ITEMS
+    "std::map<UINT8, popupDef> parsedPopups"
+    "pocketPopupParseData pData{}"
+    "LBEPocketPopup[pocketId] = std::move(definition)")
+  string(FIND "${runtime_utils_popup_xml_contents}"
+    "${required_utils_popup_xml_fragment}"
+    required_utils_popup_xml_position)
+  if(required_utils_popup_xml_position EQUAL -1)
+    message(FATAL_ERROR
+      "LBE popup XML transactional parsing lost '${required_utils_popup_xml_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  runtime_utils_ui_test_build_contents)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  runtime_utils_ui_ci_contents)
+foreach(utils_ui_test_manifest IN ITEMS
+    runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
+  string(FIND "${${utils_ui_test_manifest}}"
+    "utils_ui_state_model_tests" required_utils_ui_test_position)
+  if(required_utils_ui_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils UI model tests left the build or AddressSanitizer matrix")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/tests/utils_ui_state_model_tests.cpp"
+  runtime_utils_ui_model_test_contents)
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  runtime_utils_ui_headless_contents)
+foreach(required_utils_ui_model_test_fragment IN ITEMS
+    "UI indices reject negative and exact-end values"
+    "slider input handles zero extent, rounding, and positions past the end"
+    "callback directories reject duplicate IDs and full-capacity insertion"
+    "callback teardown clears every stale mapping")
+  string(FIND "${runtime_utils_ui_model_test_contents}"
+    "${required_utils_ui_model_test_fragment}"
+    required_utils_ui_model_test_position)
+  if(required_utils_ui_model_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils UI model tests lost '${required_utils_ui_model_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_utils_ui_headless_fragment IN ITEMS
+    "popup owners cannot be copied, moved, or constructed from ambiguous string pointers"
+    "popup option teardown does not double-delete cleared callbacks"
+    "popup registry reset releases all boxes and current state"
+    "progress bar replacement releases the previous owned title"
+    "popping a nested text-input mode restores valid head, tail, and active ownership"
+    "text-input teardown drains empty and populated ownership levels")
+  string(FIND "${runtime_utils_ui_headless_contents}"
+    "${required_utils_ui_headless_fragment}"
+    required_utils_ui_headless_position)
+  if(required_utils_ui_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils UI headless coverage lost '${required_utils_ui_headless_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
+  runtime_utils_walkthrough_contents)
+foreach(required_utils_walkthrough_fragment IN ITEMS
+    "Interactive UI ownership batch"
+    "Remaining Utils inventory"
+    "following 28 translation units"
+    "message.cpp")
+  string(FIND "${runtime_utils_walkthrough_contents}"
+    "${required_utils_walkthrough_fragment}"
+    required_utils_walkthrough_position)
+  if(required_utils_walkthrough_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils walkthrough lost '${required_utils_walkthrough_fragment}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+  runtime_engine_architecture_contents)
+foreach(required_utils_architecture_fragment IN ITEMS
+    "post-Laptop Utils refactor"
+    "UtilsUiStateModel"
+    "remaining 28 Utils")
+  string(FIND "${runtime_engine_architecture_contents}"
+    "${required_utils_architecture_fragment}"
+    required_utils_architecture_position)
+  if(required_utils_architecture_position EQUAL -1)
+    message(FATAL_ERROR
+      "Engine architecture roadmap lost '${required_utils_architecture_fragment}'")
+  endif()
+endforeach()
+
 # Save/load and process-lifetime campaign bootstrap now use one compiled
 # representation. Every host emits the JA25 persistence sections and the
 # runtime campaign decides which restored state and startup hooks take effect.

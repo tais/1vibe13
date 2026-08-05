@@ -15,15 +15,25 @@
 	#include "message.h"
 	#include "Text.h"
 	#include "Loading Screen.h"
+	#include "UtilsUiStateModel.h"
 
-double rStart, rEnd;
-double rActual;
+#include <algorithm>
+#include <array>
+#include <cstring>
 
 
 
-#define MAX_PROGRESSBARS 4
+namespace
+{
+	std::array<PROGRESSBAR*, MAX_PROGRESSBARS> gProgressBars{};
 
-PROGRESSBAR *pBar[ MAX_PROGRESSBARS ];
+	template <typename Index>
+	PROGRESSBAR* GetProgressBar(Index id)
+	{
+		if (!UtilsUiStateModel::IsValidIndex(gProgressBars.size(), id)) return nullptr;
+		return gProgressBars[static_cast<std::size_t>(id)];
+	}
+}
 
 UINT16 gusLeftmostShaded = 0;
 
@@ -108,26 +118,26 @@ void RemoveLoadingScreenProgressBar()
 // OJW - 20090422
 void CreateProgressBarNoBorder( UINT8 ubProgressBarID, UINT16 usLeft, UINT16 usTop, UINT16 usRight, UINT16 usBottom )
 {
-	CreateProgressBar( ubProgressBarID, usLeft, usTop, usRight, usBottom );
-	SetProgressBarUseBorder( ubProgressBarID, FALSE );
+	if (CreateProgressBar( ubProgressBarID, usLeft, usTop, usRight, usBottom ))
+		SetProgressBarUseBorder( ubProgressBarID, FALSE );
 }
 
 //This creates a single progress bar given the coordinates without a panel (containing a title and background).
 //A panel is automatically created if you specify a title using SetProgressBarTitle
 BOOLEAN CreateProgressBar( UINT8 ubProgressBarID, UINT16 usLeft, UINT16 usTop, UINT16 usRight, UINT16 usBottom )
 {
+	if (!UtilsUiStateModel::IsValidIndex(gProgressBars.size(), ubProgressBarID) ||
+		usRight <= usLeft || usBottom <= usTop ||
+		usRight - usLeft < 4 || usBottom - usTop < 4) return FALSE;
 
-	PROGRESSBAR *pNew;
 	//Allocate new progress bar
-	pNew = (PROGRESSBAR*)MemAlloc( sizeof( PROGRESSBAR ) );
-	Assert( pNew );
-
-	if( pBar[ ubProgressBarID ] )
-		RemoveProgressBar( ubProgressBarID );
+	PROGRESSBAR *pNew = (PROGRESSBAR*)MemAlloc( sizeof( PROGRESSBAR ) );
+	if (!pNew) return FALSE;
 
 	memset( pNew, 0, sizeof( PROGRESSBAR ) );
 
-	pBar[ ubProgressBarID ] = pNew;
+	if (GetProgressBar(ubProgressBarID)) RemoveProgressBar(ubProgressBarID);
+	gProgressBars[ubProgressBarID] = pNew;
 	pNew->ubProgressBarID = ubProgressBarID;
 	//Assign coordinates
 	pNew->usBarLeft = usLeft;
@@ -162,9 +172,8 @@ void DefineProgressBarPanel( UINT32 ubID, UINT8 r, UINT8 g, UINT8 b,
 														UINT16 usLeft, UINT16 usTop, UINT16 usRight, UINT16 usBottom )
 {
 	PROGRESSBAR *pCurr;
-	Assert( ubID < MAX_PROGRESSBARS );
-	pCurr = pBar[ ubID ];
-	if( !pCurr )
+	pCurr = GetProgressBar(ubID);
+	if( !pCurr || usRight <= usLeft || usBottom <= usTop )
 		return;
 
 	pCurr->fPanel = TRUE;
@@ -184,22 +193,19 @@ void DefineProgressBarPanel( UINT32 ubID, UINT8 r, UINT8 g, UINT8 b,
 //panel and vertically centered from the top of the panel, to the top of the progress bar.
 void SetProgressBarTitle( UINT32 ubID, STR16 pString, UINT32 usFont, UINT8 ubForeColor, UINT8 ubShadowColor )
 {
-	PROGRESSBAR *pCurr;
-	Assert( ubID < MAX_PROGRESSBARS );
-	pCurr = pBar[ ubID ];
+	PROGRESSBAR *pCurr = GetProgressBar(ubID);
 	if( !pCurr )
 		return;
-	if( pCurr->swzTitle )
-	{
-		MemFree( pCurr->swzTitle );
-		pCurr->swzTitle = NULL;
-	}
+	CHAR16* newTitle = NULL;
 	if( pString && wcslen( pString ) )
 	{
 		size_t titleLen = wcslen( pString ) + 1;
-		pCurr->swzTitle = (CHAR16 *) MemAlloc( (UINT32) ( sizeof( CHAR16 ) * titleLen ) );
-		sgp_swprintf( pCurr->swzTitle, titleLen, L"%s", pString );
+		newTitle = (CHAR16 *) MemAlloc( (UINT32) ( sizeof( CHAR16 ) * titleLen ) );
+		if (!newTitle) return;
+		std::wmemcpy(newTitle, pString, titleLen);
 	}
+	MemFree(pCurr->swzTitle);
+	pCurr->swzTitle = newTitle;
 	pCurr->usTitleFont = (UINT16)usFont;
 	pCurr->ubTitleFontForeColor = ubForeColor;
 	pCurr->ubTitleFontShadowColor = ubShadowColor;
@@ -209,9 +215,7 @@ void SetProgressBarTitle( UINT32 ubID, STR16 pString, UINT32 usFont, UINT8 ubFor
 //default to FONT12POINT1 in a black color.
 void SetProgressBarMsgAttributes( UINT32 ubID, UINT32 usFont, UINT8 ubForeColor, UINT8 ubShadowColor )
 {
-	PROGRESSBAR *pCurr;
-	Assert( ubID < MAX_PROGRESSBARS );
-	pCurr = pBar[ ubID ];
+	PROGRESSBAR *pCurr = GetProgressBar(ubID);
 	if( !pCurr )
 		return;
 	pCurr->usMsgFont = (UINT16)usFont;
@@ -222,9 +226,7 @@ void SetProgressBarMsgAttributes( UINT32 ubID, UINT32 usFont, UINT8 ubForeColor,
 //OJW - 20090422
 void SetProgressBarRenderBuffer( UINT32 ubID , UINT32 uiBufferID )
 {
-	PROGRESSBAR *pCurr;
-	Assert( ubID < MAX_PROGRESSBARS );
-	pCurr = pBar[ ubID ];
+	PROGRESSBAR *pCurr = GetProgressBar(ubID);
 	if( !pCurr )
 		return;
 	pCurr->uiFrameBuffer = uiBufferID;
@@ -232,9 +234,7 @@ void SetProgressBarRenderBuffer( UINT32 ubID , UINT32 uiBufferID )
 
 void SetProgressBarUseBorder( UINT32 ubID , BOOLEAN bBorder )
 {
-	PROGRESSBAR *pCurr;
-	Assert( ubID < MAX_PROGRESSBARS );
-	pCurr = pBar[ ubID ];
+	PROGRESSBAR *pCurr = GetProgressBar(ubID);
 	if( !pCurr )
 		return;
 	pCurr->fDrawBorder = bBorder;
@@ -244,13 +244,12 @@ void SetProgressBarUseBorder( UINT32 ubID , BOOLEAN bBorder )
 //When finished, the progress bar needs to be removed.
 void RemoveProgressBar( UINT8 ubID )
 {
-	Assert( ubID < MAX_PROGRESSBARS );
-	if( pBar[ubID] )
+	PROGRESSBAR* progressBar = GetProgressBar(ubID);
+	if( progressBar )
 	{
-		if( pBar[ubID]->swzTitle )
-			MemFree( pBar[ubID]->swzTitle );
-		MemFree( pBar[ubID] );
-		pBar[ubID] = NULL;
+		MemFree(progressBar->swzTitle);
+		MemFree(progressBar);
+		gProgressBars[ubID] = NULL;
 		return;
 	}
 }
@@ -263,6 +262,8 @@ void ResetLoadScreenHint()
 
 void ShowLoadScreenHintInLoadScreen(UINT16 bottomPosition)
 {
+	if (usCurrentLoadScreenHint == 0 ||
+		!UtilsUiStateModel::IsValidIndex(LOADSCREENHINT_MAX, usCurrentLoadScreenHint)) return;
 	DisplayWrappedString( 0, bottomPosition, SCREEN_WIDTH, 2, FONT14ARIAL, FONT_GRAY2, zLoadScreenHint[usCurrentLoadScreenHint].szName, FONT_MCOLOR_BLACK, TRUE, CENTER_JUSTIFIED );
 
 	// Next show the hint in the log (strategic / tactical)
@@ -272,7 +273,9 @@ void ShowLoadScreenHintInLoadScreen(UINT16 bottomPosition)
 void ShowLoadScreenHintInStrategicLog()
 {
 	// We should display the hint in strategic log
-	if (bShowLoadScreenHintInLog == TRUE && gGameExternalOptions.gfUseLoadScreenHints && usCurrentLoadScreenHint )
+	if (bShowLoadScreenHintInLog == TRUE && gGameExternalOptions.gfUseLoadScreenHints &&
+		usCurrentLoadScreenHint > 0 &&
+		UtilsUiStateModel::IsValidIndex(LOADSCREENHINT_MAX, usCurrentLoadScreenHint))
 	{
 		ScreenMsg( FONT_GRAY2, MSG_INTERFACE, New113Message[MSG113_HINT_TEXT], zLoadScreenHint[usCurrentLoadScreenHint].szName);
 		bShowLoadScreenHintInLog = FALSE;	
@@ -281,7 +284,9 @@ void ShowLoadScreenHintInStrategicLog()
 
 void ShowLoadScreenHintInTacticalLog()
 {	
-	if (bShowLoadScreenHintInLog == TRUE && gGameExternalOptions.gfUseLoadScreenHints && usCurrentLoadScreenHint)
+	if (bShowLoadScreenHintInLog == TRUE && gGameExternalOptions.gfUseLoadScreenHints &&
+		usCurrentLoadScreenHint > 0 &&
+		UtilsUiStateModel::IsValidIndex(LOADSCREENHINT_MAX, usCurrentLoadScreenHint))
 	{
 		ScreenMsg( FONT_GRAY2, MSG_INTERFACE, New113Message[MSG113_HINT_TEXT], zLoadScreenHint[usCurrentLoadScreenHint].szName);
 		bShowLoadScreenHintInLog = FALSE;
@@ -295,9 +300,12 @@ void SetNewLoadScreenHint()
 		return;
 
 	UINT16 lastfnd = 0;
-	UINT8 possiblehints[LOADSCREENHINT_MAX];
+	UINT16 possiblehints[LOADSCREENHINT_MAX];
+	const UINT16 availableHints = std::min<UINT16>(num_found_loadscreenhints,
+		LOADSCREENHINT_MAX - 1);
+	if (availableHints == 0) return;
 
-	for(UINT32 cnt = 1; cnt <= num_found_loadscreenhints; ++cnt)
+	for(UINT32 cnt = 1; cnt <= availableHints; ++cnt)
 	{
 		if ( !zLoadScreenHint[cnt].fAlreadyShown )
 		{
@@ -322,15 +330,10 @@ void SetNewLoadScreenHint()
 		}
 	}
 
-	UINT16 sel = possiblehints[ Random(lastfnd) ];
-	
-	// WANNE: All the loadscreen hints we have, have already been displayed. No matter, re-display a random loadscreen
-	if (sel <= 0 || sel > num_found_loadscreenhints)
-	{
-		sel = Random(num_found_loadscreenhints);
-		if (sel == 0)
-			sel++;
-	}
+	// When every hint has already been displayed, select a valid entry directly
+	// instead of indexing an uninitialized candidate array.
+	UINT16 sel = lastfnd > 0 ? possiblehints[Random(lastfnd)] :
+		static_cast<UINT16>(Random(availableHints) + 1);
 
 	zLoadScreenHint[sel].fAlreadyShown = TRUE;
 
@@ -349,11 +352,13 @@ void SetRelativeStartAndEndPercentage( UINT8 ubID, UINT16 uiRelStartPerc, UINT16
 	PROGRESSBAR *pCurr;
 	UINT16 usStartX, usStartY;
 
-	Assert( ubID < MAX_PROGRESSBARS );
-	pCurr = pBar[ ubID ];
+	pCurr = GetProgressBar(ubID);
 	if( !pCurr )
 		return;
 
+	uiRelStartPerc = std::min<UINT16>(uiRelStartPerc, 100);
+	uiRelEndPerc = std::min<UINT16>(uiRelEndPerc, 100);
+	if (uiRelEndPerc < uiRelStartPerc) std::swap(uiRelStartPerc, uiRelEndPerc);
 	pCurr->rStart = (double)uiRelStartPerc*0.01f;
 	pCurr->rEnd = (double)uiRelEndPerc*0.01f;
 
@@ -425,14 +430,14 @@ void RenderProgressBar( UINT8 ubID, UINT32 uiPercentage )
 	//UINT32 r, g;
 	INT32 end;
 
-	Assert( ubID < MAX_PROGRESSBARS );
-	pCurr = pBar[ubID];
+	pCurr = GetProgressBar(ubID);
 
 	if( pCurr == NULL )
 		return;
 
 	if( pCurr )
 	{
+		uiPercentage = std::min<UINT32>(uiPercentage, 100);
 		rActual = pCurr->rStart + (pCurr->rEnd - pCurr->rStart) * uiPercentage * 0.01;
 
 		pCurr->rLastActual = (DOUBLE)((INT32)(std::round(rActual * 100)) * 0.01);
@@ -490,9 +495,7 @@ void SetProgressBarColor( UINT8 ubID, UINT8 ubColorFillRed, UINT8 ubColorFillGre
 {
 	PROGRESSBAR *pCurr=NULL;
 
-	Assert( ubID < MAX_PROGRESSBARS );
-
-	pCurr = pBar[ubID];
+	pCurr = GetProgressBar(ubID);
 	if( pCurr == NULL )
 		return;
 
@@ -507,9 +510,7 @@ void SetProgressBarTextDisplayFlag( UINT8 ubID, BOOLEAN fDisplayText, BOOLEAN fU
 	PROGRESSBAR *pCurr=NULL;
 
 
-	Assert( ubID < MAX_PROGRESSBARS );
-
-	pCurr = pBar[ubID];
+	pCurr = GetProgressBar(ubID);
 	if( pCurr == NULL )
 		return;
 

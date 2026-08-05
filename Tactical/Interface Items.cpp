@@ -2120,7 +2120,7 @@ void addItemsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP* popup
 
 		if( optsTotal > 0 && optsTotal%15 == 0 ){ // divide to subBoxes every 10 items
 
-			POPUP * currPopupTmp = currPopup->addSubMenuOption( new std::wstring( gszPocketPopupText[POCKET_POPUP_MOAR] ) );	// the new popup
+			POPUP * currPopupTmp = currPopup->addSubMenuOption( std::wstring( gszPocketPopupText[POCKET_POPUP_MOAR] ) );	// the new popup
 			POPUP_SUB_POPUP_OPTION * currSubPopupTmp = currPopup->getSubPopupOption( currPopup->subPopupOptionCount-1 );	// the sub-popup option in prev popup
 
 			
@@ -2195,7 +2195,7 @@ void addWeaponGroupsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP
 
 	POPUP * subPopup = NULL;
 
-	subPopup = popup->addSubMenuOption( new std::wstring(BobbyRFilter[17]/*Guns*/) );
+	subPopup = popup->addSubMenuOption( std::wstring(BobbyRFilter[17]/*Guns*/) );
 	popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,
 																				10,
 																				POPUP_POSITION_RELATIVE );
@@ -2210,7 +2210,7 @@ void addWeaponGroupsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP
 	UINT8 weaponTypeCtr;
 	for( weaponTypeCtr = 1; weaponTypeCtr <= 8; weaponTypeCtr++ ){
 		
-		weaponTypePopup = subPopup->addSubMenuOption( new std::wstring( WeaponType[weaponTypeCtr] ) );
+		weaponTypePopup = subPopup->addSubMenuOption( std::wstring( WeaponType[weaponTypeCtr] ) );
 
 		for(std::map<UINT32,OBJECTTYPE*>::iterator itr = bestItems.begin(); itr != bestItems.end(); ++itr){
 
@@ -2223,20 +2223,20 @@ void addWeaponGroupsToPocketPopup( TacticalActor *pSoldier, INT16 sPocket, POPUP
 
 	}
 	
-	subPopup = popup->addSubMenuOption( new std::wstring( gszPocketPopupText[POCKET_POPUP_GRENADE_LAUNCHERS] ) );
+	subPopup = popup->addSubMenuOption( std::wstring( gszPocketPopupText[POCKET_POPUP_GRENADE_LAUNCHERS] ) );
 	popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,
 																				10,
 																				POPUP_POSITION_RELATIVE );
 	addItemsToPocketPopup( pSoldier, sPocket, subPopup, IC_LAUNCHER, -1, -1, 0 );
 
-	subPopup = popup->addSubMenuOption( new std::wstring( gszPocketPopupText[POCKET_POPUP_ROCKET_LAUNCHERS] ) );
+	subPopup = popup->addSubMenuOption( std::wstring( gszPocketPopupText[POCKET_POPUP_ROCKET_LAUNCHERS] ) );
 	popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,
 																				10,
 																				POPUP_POSITION_RELATIVE );
 	addItemsToPocketPopup( pSoldier, sPocket, subPopup, IC_GUN, -1, 0, 0);
 
 
-	subPopup = popup->addSubMenuOption( new std::wstring( gszPocketPopupText[POCKET_POPUP_MEELE_AND_THROWN] ) );
+	subPopup = popup->addSubMenuOption( std::wstring( gszPocketPopupText[POCKET_POPUP_MEELE_AND_THROWN] ) );
 	popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,
 																				10,
 																				POPUP_POSITION_RELATIVE );
@@ -2452,31 +2452,31 @@ void PocketPopupFull( TacticalActor *pSoldier, INT16 sPocket ){
 
 		POPUP * subPopup = NULL;
 
-		subPopup = popup->addSubMenuOption( new std::wstring( iEditorItemsToolbarText[0]/*Weapons*/ ) );
+		subPopup = popup->addSubMenuOption( std::wstring( iEditorItemsToolbarText[0]/*Weapons*/ ) );
 		popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,10,POPUP_POSITION_RELATIVE );
 		addWeaponGroupsToPocketPopup( pSoldier, sPocket, subPopup );
 
-		subPopup = popup->addSubMenuOption( new std::wstring( BobbyRText[BOBBYR_GUNS_AMMO]/*Ammo*/ ) );
+		subPopup = popup->addSubMenuOption( std::wstring( BobbyRText[BOBBYR_GUNS_AMMO]/*Ammo*/ ) );
 		popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,10,POPUP_POSITION_RELATIVE );
 		addAmmoToPocketPopup( pSoldier, sPocket, subPopup );
 
-		subPopup = popup->addSubMenuOption( new std::wstring( BobbyRText[BOBBYR_GUNS_ARMOR]/*Amour*/ ) );
+		subPopup = popup->addSubMenuOption( std::wstring( BobbyRText[BOBBYR_GUNS_ARMOR]/*Amour*/ ) );
 		popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,10,POPUP_POSITION_RELATIVE );
 		addArmorToPocketPopup( pSoldier, sPocket, subPopup );
 
-		subPopup = popup->addSubMenuOption( new std::wstring( BobbyRFilter[BOBBYR_FILTER_USED_LBEGEAR] /*"LBE"*/) );
+		subPopup = popup->addSubMenuOption( std::wstring( BobbyRFilter[BOBBYR_FILTER_USED_LBEGEAR] /*"LBE"*/) );
 		popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,10,POPUP_POSITION_RELATIVE );
 		addLBEToPocketPopup( pSoldier, sPocket, subPopup );
 
-		subPopup = popup->addSubMenuOption( new std::wstring( BobbyRFilter[BOBBYR_FILTER_MISC_GRENADE]/*Grenades*/ ) );
+		subPopup = popup->addSubMenuOption( std::wstring( BobbyRFilter[BOBBYR_FILTER_MISC_GRENADE]/*Grenades*/ ) );
 		popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,10,POPUP_POSITION_RELATIVE );
 		addGrenadesToPocketPopup( pSoldier, sPocket, subPopup );
 
-		subPopup = popup->addSubMenuOption( new std::wstring( BobbyRFilter[BOBBYR_FILTER_MISC_BOMB] ) );
+		subPopup = popup->addSubMenuOption( std::wstring( BobbyRFilter[BOBBYR_FILTER_MISC_BOMB] ) );
 		popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,10,POPUP_POSITION_RELATIVE );
 		addBombsToPocketPopup( pSoldier, sPocket, subPopup );
 
-		subPopup = popup->addSubMenuOption( new std::wstring( BobbyRFilter[BOBBYR_FILTER_MISC_FACE] ) );
+		subPopup = popup->addSubMenuOption( std::wstring( BobbyRFilter[BOBBYR_FILTER_MISC_FACE] ) );
 		popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,10,POPUP_POSITION_RELATIVE );
 		addFaceGearToPocketPopup( pSoldier, sPocket, subPopup );
 
@@ -2554,7 +2554,7 @@ void PocketPopupDefault( TacticalActor *pSoldier, INT16 sPocket ){
 					// default for LBE slots - grenades + ammo for merc's guns
 					addAmmoToPocketPopup( pSoldier, sPocket, popup );
 
-					POPUP * subPopup = popup->addSubMenuOption( new std::wstring( BobbyRFilter[28]/*Grenades*/ ) );
+					POPUP * subPopup = popup->addSubMenuOption( std::wstring( BobbyRFilter[28]/*Grenades*/ ) );
 					popup->getSubPopupOption( popup->subPopupOptionCount-1 )->setPopupPosition(	10,10,POPUP_POSITION_RELATIVE );
 					addGrenadesToPocketPopup( pSoldier, sPocket, subPopup );
 				} else {
