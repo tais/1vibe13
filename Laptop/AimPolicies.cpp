@@ -9,6 +9,7 @@
 	#include "GameSettings.h"
 	#include "LaptopPageResourceOwner.h"
 	#include "LaptopSafety.h"
+	#include "AimWebsiteLayout.h"
 
 #include "LocalizedStrings.h"
 
@@ -30,17 +31,7 @@
 #define AIM_POLICY_AGREE_TOC_COLOR_ON			FONT_MCOLOR_WHITE
 #define AIM_POLICY_AGREE_TOC_COLOR_OFF			FONT_MCOLOR_DKWHITE
 
-#define	AIM_POLICY_MENU_X						LAPTOP_SCREEN_UL_X + 40
-#define	AIM_POLICY_MENU_Y						(SCREEN_HEIGHT - 480)/ 2 + 390 + LAPTOP_SCREEN_WEB_DELTA_Y
 #define	AIM_POLICY_MENU_BUTTON_AMOUNT	4
-#define	AIM_POLICY_GAP_X						40 + BOTTOM_BUTTON_START_WIDTH
-
-#define	AIM_POLICY_TITLE_X						IMAGE_OFFSET_X + 149
-#define AIM_POLICY_TITLE_Y						AIM_SYMBOL_Y + AIM_SYMBOL_SIZE_Y + 11
-#define AIM_POLICY_TITLE_WIDTH				AIM_SYMBOL_WIDTH
-
-//tais: nsgi, move title up
-#define AIM_POLICY_TITLE_Y_NSGI						AIM_SYMBOL_Y + 35
 
 #define AIM_POLICY_TITLE_STATEMENT_WIDTH	300
 #define	AIM_POLICY_TITLE_STATEMENT_X	IMAGE_OFFSET_X + (500 - AIM_POLICY_TITLE_STATEMENT_WIDTH) / 2 +5//80
@@ -57,19 +48,6 @@
 #define AIM_POLICY_PARAGRAPH_GAP		6
 #define	AIM_POLICY_SUBPARAGRAPH_NUMBER	AIM_POLICY_PARAGRAPH_X
 #define	AIM_POLICY_SUBPARAGRAPH_X		AIM_POLICY_SUBPARAGRAPH_NUMBER + 25
-
-#define AIM_POLICY_TOC_X						iScreenWidthOffset + 259
-#define AIM_POLICY_TOC_Y									AIM_POLICY_SUBTITLE_Y
-#define	AIM_POLICY_TOC_GAP_Y							25
-#define AIM_POLICY_TOC_TEXT_OFFSET_X			5
-#define AIM_POLICY_TOC_TEXT_OFFSET_Y			5
-
-
-#define AIM_POLICY_AGREEMENT_X			IMAGE_OFFSET_X + 150
-#define AIM_POLICY_AGREEMENT_Y					iScreenHeightOffset + 350 + LAPTOP_SCREEN_WEB_DELTA_Y
-
-#define AIM_POLICY_DISAGREEMENT_X		AIM_POLICY_AGREEMENT_X + 125
-#define AIM_POLICY_DISAGREEMENT_Y		AIM_POLICY_AGREEMENT_Y
 
 #define AIM_POLICY_TOC_PAGE					1
 #define	AIM_POLICY_LAST_PAGE				10
@@ -198,6 +176,15 @@ LaptopPageResourceOwner gAimPoliciesResources;
 LaptopPageResourceOwner gAimPoliciesMenuResources;
 LaptopPageResourceOwner gAimPoliciesTocResources;
 LaptopPageResourceOwner gAimPoliciesAgreementResources;
+
+AimWebsiteLayoutModel::PolicyLayout CurrentAimPolicyLayout()
+{
+	return AimWebsiteLayoutModel::MakePolicyLayout(
+		gubCurPageNum == 0,
+		gGameExternalOptions.gfUseNewStartingGearInterface != FALSE,
+		{iScreenWidthOffset, iScreenHeightOffset,
+		 IMAGE_OFFSET_X, IMAGE_OFFSET_Y, LAPTOP_SCREEN_WEB_DELTA_Y});
+}
 }
 
 
@@ -414,7 +401,8 @@ void RenderAimPolicies()
 BOOLEAN InitAimPolicyMenuBar(void)
 {
 	LaptopPageResourceOwner stagedResources;
-	UINT16					i, usPosX;
+	UINT16					i;
+	const auto layout = CurrentAimPolicyLayout();
 
 	if(gfAimPolicyMenuBarLoaded)
 		return(TRUE);
@@ -425,29 +413,19 @@ BOOLEAN InitAimPolicyMenuBar(void)
 		LoadButtonImageOwned("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1),
 		guiPoliciesMenuButtonImage));
 
-	usPosX = AIM_POLICY_MENU_X;
 	for(i=0; i<AIM_POLICY_MENU_BUTTON_AMOUNT; i++)
 	{
-
-//		guiPoliciesMenuButton[i] = QuickCreateButton(guiPoliciesMenuButtonImage, usPosX, AIM_POLICY_MENU_Y,
-//																	BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-//																	DEFAULT_MOVE_CALLBACK, (GUI_CALLBACK)BtnPoliciesMenuButtonCallback);
-//		SetButtonCursor(guiPoliciesMenuButton[i], CURSOR_WWW);
-//		MSYS_SetBtnUserData( guiPoliciesMenuButton[i], 0, i);
-
+		const auto buttonPosition = layout.menuButtons.at(i);
 		const INT32 button = CreateIconAndTextButton( guiPoliciesMenuButtonImage, AimPolicyText[i], FONT10ARIAL,
 														AIM_BUTTON_ON_COLOR, DEFAULT_SHADOW,
 														AIM_BUTTON_OFF_COLOR, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-												usPosX, AIM_POLICY_MENU_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												buttonPosition.x, buttonPosition.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 												DEFAULT_MOVE_CALLBACK, BtnPoliciesMenuButtonCallback);
 		CHECKF(stagedResources.addButton(button, guiPoliciesMenuButton[i]));
 		SetButtonCursor(guiPoliciesMenuButton[i], CURSOR_WWW);
 		MSYS_SetBtnUserData( guiPoliciesMenuButton[i], 0, i);
 
-
-
-		usPosX += AIM_POLICY_GAP_X;
 	}
 
 
@@ -471,9 +449,10 @@ BOOLEAN ExitAimPolicyMenuBar(void)
 
 BOOLEAN DrawAimPolicyMenu()
 {
-	UINT16		i, usPosY;
+	UINT16		i;
 	CHAR16		sText[400];
 	HVOBJECT	hContentButtonHandle;
+	const auto layout = CurrentAimPolicyLayout();
 	UINT8		ubLocInFile[]= {
 					DEFINITIONS,
 					LENGTH_OF_ENGAGEMENT,
@@ -487,10 +466,10 @@ BOOLEAN DrawAimPolicyMenu()
 
 	GetVideoObject(&hContentButtonHandle, guiContentButton);
 
-	usPosY = AIM_POLICY_TOC_Y;
 	for(i=0; i<NUM_AIM_POLICY_TOC_BUTTONS; i++)
 	{
-		BltVideoObject(FRAME_BUFFER, hContentButtonHandle, 0,AIM_POLICY_TOC_X, usPosY, VO_BLT_SRCTRANSPARENCY,NULL);
+		const auto button = layout.tocButtons.at(i);
+		BltVideoObject(FRAME_BUFFER, hContentButtonHandle, 0,button.x, button.y, VO_BLT_SRCTRANSPARENCY,NULL);
 		if(!g_bUseXML_Strings)
 		{
 			UINT32 uiStartLoc = AIM_POLICY_LINE_SIZE * ubLocInFile[i];
@@ -500,9 +479,7 @@ BOOLEAN DrawAimPolicyMenu()
 		{
 			Loc::GetString(Loc::AIM_POLICY, L"Line", ubLocInFile[i], sText, 400);
 		}
-		DrawTextToScreen(sText, AIM_POLICY_TOC_X + AIM_POLICY_TOC_TEXT_OFFSET_X, (UINT16)(usPosY + AIM_POLICY_TOC_TEXT_OFFSET_Y), AIM_CONTENTBUTTON_WIDTH, AIM_POLICY_TOC_FONT, AIM_POLICY_TOC_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-
-		usPosY += AIM_POLICY_TOC_GAP_Y;
+		DrawTextToScreen(sText, button.x + layout.tocTextInset.x, button.y + layout.tocTextInset.y, button.width, AIM_POLICY_TOC_FONT, AIM_POLICY_TOC_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 	}
 	gfInPolicyToc = TRUE;
 
@@ -512,21 +489,20 @@ BOOLEAN DrawAimPolicyMenu()
 BOOLEAN InitAimPolicyTocMenu(void)
 {
 	LaptopPageResourceOwner stagedResources;
-	UINT16			i, usPosY;
+	UINT16			i;
+	const auto layout = CurrentAimPolicyLayout();
 	if(gfInPolicyToc)
 		return(TRUE);
 
 	gAimPoliciesTocResources.clear();
-	usPosY = AIM_POLICY_TOC_Y;
 	for(i=0; i<NUM_AIM_POLICY_TOC_BUTTONS; i++)
 	{
+		const auto button = layout.tocButtons.at(i);
 		//Mouse region for the toc buttons
-		MSYS_DefineRegion( &gSelectedPolicyTocMenuRegion[i], AIM_POLICY_TOC_X, usPosY, (UINT16)(AIM_POLICY_TOC_X + AIM_CONTENTBUTTON_WIDTH), (UINT16)(usPosY + AIM_CONTENTBUTTON_HEIGHT), MSYS_PRIORITY_HIGH,
+		MSYS_DefineRegion( &gSelectedPolicyTocMenuRegion[i], button.x, button.y, button.right(), button.bottom(), MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectPolicyTocMenuRegionCallBack);
 		stagedResources.addRegion(gSelectedPolicyTocMenuRegion[i]);
 		MSYS_SetRegionUserData( &gSelectedPolicyTocMenuRegion[i], 0, i+2);
-
-		usPosY += AIM_POLICY_TOC_GAP_Y;
 	}
 	gAimPoliciesTocResources = std::move(stagedResources);
 	gfInPolicyToc = TRUE;
@@ -573,6 +549,7 @@ void SelectPolicyTocMenuRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 BOOLEAN	DisplayAimPolicyTitleText(void)
 {
 	CHAR16	sText[400];
+	const auto layout = CurrentAimPolicyLayout();
 
 	//Load anfd display title
 	if(!g_bUseXML_Strings)
@@ -584,11 +561,9 @@ BOOLEAN	DisplayAimPolicyTitleText(void)
 	{
 		Loc::GetString(Loc::AIM_POLICY, L"Line", AIM_STATEMENT_OF_POLICY);
 	}
-	if(gubCurPageNum == 0)
-		DrawTextToScreen(sText, AIM_POLICY_TITLE_X, AIM_POLICY_TITLE_STATEMENT_Y-25, AIM_POLICY_TITLE_WIDTH, AIM_POLICY_TITLE_FONT, AIM_POLICY_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-	else
-		if(gGameExternalOptions.gfUseNewStartingGearInterface) DrawTextToScreen(sText, AIM_POLICY_TITLE_X, AIM_POLICY_TITLE_Y_NSGI, AIM_POLICY_TITLE_WIDTH, AIM_POLICY_TITLE_FONT, AIM_POLICY_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-		else DrawTextToScreen(sText, AIM_POLICY_TITLE_X, AIM_POLICY_TITLE_Y, AIM_POLICY_TITLE_WIDTH, AIM_POLICY_TITLE_FONT, AIM_POLICY_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+	DrawTextToScreen(sText, layout.title.origin.x, layout.title.origin.y,
+		layout.title.width, AIM_POLICY_TITLE_FONT, AIM_POLICY_TITLE_COLOR,
+		FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 	
 	return(TRUE);
 }
@@ -632,7 +607,8 @@ BOOLEAN	DisplayAimPolicyStatement(void)
 BOOLEAN InitAgreementRegion(void)
 {
 	LaptopPageResourceOwner stagedResources;
-	UINT16	usPosX,i;
+	UINT16	i;
+	const auto layout = CurrentAimPolicyLayout();
 	if (gfInAgreementPage)
 		return TRUE;
 
@@ -644,28 +620,19 @@ BOOLEAN InitAgreementRegion(void)
 		LoadButtonImageOwned("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1),
 		guiPoliciesButtonImage));
 
-	usPosX = AIM_POLICY_AGREEMENT_X;
 	for(i=0; i < 2; i++)
 	{
-//		guiPoliciesAgreeButton[i] = QuickCreateButton(guiPoliciesButtonImage, usPosX, AIM_POLICY_AGREEMENT_Y,
-//																	BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-//																	BUTTON_NO_CALLBACK, (GUI_CALLBACK)BtnPoliciesAgreeButtonCallback);
-//		SetButtonCursor(guiPoliciesAgreeButton[i], CURSOR_WWW);
-//		MSYS_SetBtnUserData( guiPoliciesAgreeButton[i], 0, i);
-
+		const auto buttonPosition = layout.agreementButtons.at(i);
 		const INT32 button = CreateIconAndTextButton( guiPoliciesButtonImage, AimPolicyText[i+AIM_POLICIES_DISAGREE], AIM_POLICY_TOC_FONT,
 														AIM_POLICY_AGREE_TOC_COLOR_ON, DEFAULT_SHADOW,
 														AIM_POLICY_AGREE_TOC_COLOR_OFF, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-												usPosX, AIM_POLICY_AGREEMENT_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												buttonPosition.x, buttonPosition.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 												DEFAULT_MOVE_CALLBACK, BtnPoliciesAgreeButtonCallback);
 		CHECKF(stagedResources.addButton(button, guiPoliciesAgreeButton[i]));
 		SetButtonCursor(guiPoliciesAgreeButton[i], CURSOR_WWW);
 		MSYS_SetBtnUserData( guiPoliciesAgreeButton[i], 0, i);
 
-
-
-		usPosX += 125;
 	}
 	gAimPoliciesAgreementResources = std::move(stagedResources);
 	gfInAgreementPage = TRUE;

@@ -148,6 +148,75 @@ int main()
 		CenteredFloristTextOffset(100, 100) == 0 &&
 		CenteredFloristTextOffset(100, 120) == 0,
 		"Florist and Funeral localized text centering cannot underflow");
+	constexpr FloristLayoutAnchors floristAnchors{111, 46};
+	constexpr auto floristCards = MakeFloristCardsLayout(floristAnchors);
+	Check(floristCards.pageBounds.x == 111 &&
+		floristCards.pageBounds.y == 46 &&
+		floristCards.pageBounds.width == 502 &&
+		floristCards.pageBounds.height == 400 &&
+		floristCards.cards.capacity() == kFloristCardCount &&
+		floristCards.cards.card(0).x == 118 &&
+		floristCards.cards.card(0).y == 118 &&
+		floristCards.cards.card(2).x == 466 &&
+		floristCards.cards.card(2).y == 118 &&
+		floristCards.cards.card(3).x == 118 &&
+		floristCards.cards.card(3).y == 227 &&
+		floristCards.cards.card(8).x == 466 &&
+		floristCards.cards.card(8).y == 336,
+		"Florist card drawing and hitboxes share one row-major grid");
+	Check(floristCards.title.origin.x == 111 &&
+		floristCards.title.origin.y == 99 &&
+		floristCards.title.width == 502 &&
+		floristCards.backButton.x == 119 &&
+		floristCards.backButton.y == 58 &&
+		floristCards.cardTextInsetX == 7 &&
+		floristCards.cardTextInsetY == 10 &&
+		floristCards.cardTextWidth == 121 &&
+		floristCards.cardTextHeight == 90,
+		"Florist cards retain their exact artwork and text anchors");
+	for (std::size_t cardIndex = 0;
+		cardIndex < floristCards.cards.capacity(); ++cardIndex)
+	{
+		Check(LaptopLayoutModel::Contains(
+			floristCards.pageBounds, floristCards.cards.card(cardIndex)),
+			"Every Florist card remains inside the website canvas");
+	}
+
+	constexpr auto floristGallery = MakeFloristGalleryLayout(floristAnchors);
+	constexpr auto firstGalleryRow = floristGallery.row(0);
+	constexpr auto lastGalleryRow = floristGallery.row(2);
+	Check(floristGallery.backButton.x == 119 &&
+		floristGallery.backButton.y == 58 &&
+		floristGallery.nextButton.x == 531 &&
+		floristGallery.nextButton.y == 58 &&
+		floristGallery.title.origin.x == 111 &&
+		floristGallery.title.origin.y == 94 &&
+		floristGallery.title.width == 502 &&
+		firstGalleryRow.button.x == 118 &&
+		firstGalleryRow.button.y == 120 &&
+		firstGalleryRow.title.x == 206 &&
+		firstGalleryRow.title.y == 129 &&
+		firstGalleryRow.price.x == 206 &&
+		firstGalleryRow.price.y == 146 &&
+		firstGalleryRow.description.origin.x == 206 &&
+		firstGalleryRow.description.origin.y == 161 &&
+		firstGalleryRow.description.width == 390 &&
+		lastGalleryRow.button.y == 344 &&
+		lastGalleryRow.title.y == 353 &&
+		lastGalleryRow.price.y == 370 &&
+		lastGalleryRow.description.origin.y == 385,
+		"Florist gallery buttons and descriptions share one row sequence");
+	constexpr auto shiftedFloristCards = MakeFloristCardsLayout({271, 136});
+	constexpr auto shiftedFloristGallery = MakeFloristGalleryLayout({271, 136});
+	Check(shiftedFloristCards.cards.card(0).x == 278 &&
+		shiftedFloristCards.cards.card(0).y == 208 &&
+		shiftedFloristCards.backButton.x == 279 &&
+		shiftedFloristCards.backButton.y == 148 &&
+		shiftedFloristGallery.row(0).button.x == 278 &&
+		shiftedFloristGallery.row(0).button.y == 210 &&
+		shiftedFloristGallery.nextButton.x == 691 &&
+		shiftedFloristGallery.nextButton.y == 148,
+		"Florist layout follows centered-screen offsets");
 	Check(!IsValidIntelMapRegion(-1) && IsValidIntelMapRegion(0) &&
 		IsValidIntelMapRegion(15) && !IsValidIntelMapRegion(16),
 		"intel map shifts are limited to valid regions");

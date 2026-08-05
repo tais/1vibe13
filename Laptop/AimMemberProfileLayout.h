@@ -1,33 +1,18 @@
 #ifndef LAPTOP_AIM_MEMBER_PROFILE_LAYOUT_H
 #define LAPTOP_AIM_MEMBER_PROFILE_LAYOUT_H
 
+#include "LaptopLayout.h"
+
 #include <array>
 #include <cstddef>
 
 namespace AimMemberProfileLayoutModel
 {
-	struct Point
-	{
-		int x = 0;
-		int y = 0;
-	};
-
-	struct Rect
-	{
-		int x = 0;
-		int y = 0;
-		int width = 0;
-		int height = 0;
-
-		constexpr int right() const noexcept { return x + width; }
-		constexpr int bottom() const noexcept { return y + height; }
-	};
-
-	struct TextArea
-	{
-		Point origin;
-		int width = 0;
-	};
+	using LaptopLayoutModel::Contains;
+	using LaptopLayoutModel::Overlaps;
+	using LaptopLayoutModel::Point;
+	using LaptopLayoutModel::Rect;
+	using LaptopLayoutModel::TextArea;
 
 	struct Anchors
 	{
@@ -150,19 +135,6 @@ namespace AimMemberProfileLayoutModel
 	};
 
 	constexpr std::size_t kExpandedInventoryCapacity = 21;
-
-	constexpr bool Contains(const Rect& outer, const Rect& inner) noexcept
-	{
-		return inner.x >= outer.x && inner.y >= outer.y &&
-			inner.right() <= outer.right() &&
-			inner.bottom() <= outer.bottom();
-	}
-
-	constexpr bool Overlaps(const Rect& first, const Rect& second) noexcept
-	{
-		return first.x < second.right() && second.x < first.right() &&
-			first.y < second.bottom() && second.y < first.bottom();
-	}
 
 	constexpr Layout MakeLayout(bool expandedGear, Anchors anchors) noexcept
 	{

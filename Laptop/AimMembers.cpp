@@ -51,9 +51,10 @@
 #include "connect.h"
 #include "fresh_header.h"
 #include "Encrypted File.h"
-	#include "InterfaceItemImages.h"
-	#include "LaptopPageResourceOwner.h"
+#include "InterfaceItemImages.h"
+#include "LaptopPageResourceOwner.h"
 #include "AimMemberProfileLayout.h"
+#include "AimWebsiteLayout.h"
 #include <sstream>
 #include <vector>
 #include <language.hpp>
@@ -107,97 +108,22 @@
 #define	MERC_ANNOYED_WONT_CONTACT_TIME_MINUTES	6 * 60
 #define	NUMBER_HATED_MERCS_ONTEAM							6
 
-// The fixed-pixel profile geometry lives in AimMemberProfileLayout.h.
-// Rendering and mouse hitboxes consume the same selected layout.
-//video Conferencing Info
-#define		AIM_MEMBER_VIDEO_CONF_TERMINAL_X	iScreenWidthOffset + 125
-#define		AIM_MEMBER_VIDEO_CONF_TERMINAL_Y	iScreenHeightOffset + 97 + LAPTOP_SCREEN_WEB_DELTA_Y
-
-#define		AIM_MEMBER_VIDEO_CONF_TERMINAL_WIDTH	368
-#define		AIM_MEMBER_VIDEO_CONF_TERMINAL_HEIGHT	150
-
-#define		AIM_MEMBER_VIDEO_TITLE_BAR_WIDTH			368
-#define		AIM_MEMBER_VIDEO_TITLE_BAR_HEIGHT			21
-#define		AIM_MEMBER_VIDEO_TITLE_ITERATIONS			18
-#define		AIM_MEMBER_VIDEO_TITLE_START_Y				382 + LAPTOP_SCREEN_WEB_DELTA_Y
-#define		AIM_MEMBER_VIDEO_TITLE_START_X				330
-
-#define		AIM_MEMBER_VIDEO_CONF_TERMINAL_RIGHT		AIM_MEMBER_VIDEO_CONF_TERMINAL_X + AIM_MEMBER_VIDEO_CONF_TERMINAL_WIDTH
-#define		AIM_MEMBER_VIDEO_CONF_TERMINAL_BOTTOM		AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + AIM_MEMBER_VIDEO_CONF_TERMINAL_HEIGHT
-
-
-#define		AIM_MEMBER_VIDEO_CONF_CONTRACT_IMAGE_X	AIM_MEMBER_VIDEO_CONF_TERMINAL_X + 6
-#define		AIM_MEMBER_VIDEO_CONF_CONTRACT_IMAGE_Y	AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + 130
-
-#define		AIM_MEMBER_VIDEO_CONF_XCLOSE_X		AIM_MEMBER_VIDEO_CONF_TERMINAL_X + 348
-#define		AIM_MEMBER_VIDEO_CONF_XCLOSE_Y		AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + 3
-
-#define		AIM_MEMBER_VIDEO_CONF_TITLE_BAR_HEIGHT_Y	20
-
-#define		AIM_MEMBER_BUY_CONTRACT_LENGTH_X	AIM_MEMBER_VIDEO_CONF_TERMINAL_X + 113
-#define		AIM_MEMBER_BUY_CONTRACT_LENGTH_Y	AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + AIM_MEMBER_VIDEO_CONF_TITLE_BAR_HEIGHT_Y + 15
-
-#define		AIM_MEMBER_BUY_EQUIPMENT_GAP			23
-
-#define		AIM_MEMBER_BUY_EQUIPMENT_X				AIM_MEMBER_VIDEO_CONF_TERMINAL_X + 235
-
-#define		AIM_MEMBER_AUTHORIZE_PAY_X				AIM_MEMBER_VIDEO_CONF_TERMINAL_X + 113
-#define		AIM_MEMBER_AUTHORIZE_PAY_Y				AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + AIM_MEMBER_VIDEO_CONF_TITLE_BAR_HEIGHT_Y + 92
-#define		AIM_MEMBER_AUTHORIZE_PAY_WIDTH		116
-#define		AIM_MEMBER_AUTHORIZE_PAY_GAP			122
-
-#define		AIM_MEMBER_VIDEO_FACE_X						AIM_MEMBER_VIDEO_CONF_TERMINAL_X + 7 + 1
-#define		AIM_MEMBER_VIDEO_FACE_Y						AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + AIM_MEMBER_VIDEO_CONF_TITLE_BAR_HEIGHT_Y + 6 + 1
-
-#define		AIM_MEMBER_VIDEO_FACE_WIDTH				96
-#define		AIM_MEMBER_VIDEO_FACE_HEIGHT			86
-
-#define		AIM_MEMBER_VIDEO_NAME_X						AIM_MEMBER_VIDEO_CONF_TERMINAL_X + 7
-#define		AIM_MEMBER_VIDEO_NAME_Y						AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + 5
-
-#define		AIM_CONTRACT_CHARGE_X							AIM_MEMBER_VIDEO_NAME_X
-#define		AIM_CONTRACT_CHARGE_Y							AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + AIM_MEMBER_VIDEO_CONF_TITLE_BAR_HEIGHT_Y + 98
+// Fixed-pixel profile and video-call geometry lives in the dependency-free
+// A.I.M. layout models. Rendering, controls, and animation consume the same
+// selected layouts.
 
 #define		AIM_CONTRACT_LENGTH_ONE_DAY				0
 #define		AIM_CONTRACT_LENGTH_ONE_WEEK			1
 #define		AIM_CONTRACT_LENGTH_TWO_WEEKS			2
 
-#define		AIM_SELECT_LIGHT_ON_X							105
-#define		AIM_SELECT_LIGHT_ON_Y							8
-
-#define		AIM_SELECT_LIGHT_OFF_X						105
-#define		AIM_SELECT_LIGHT_OFF_Y						7
-
-#define		AIM_CONTRACT_CHARGE_AMOUNNT_X			AIM_MEMBER_VIDEO_CONF_TERMINAL_X + 7//8
-#define		AIM_CONTRACT_CHARGE_AMOUNNT_Y			AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + AIM_MEMBER_VIDEO_CONF_TITLE_BAR_HEIGHT_Y + 111//114
-#define		AIM_CONTRACT_CHARGE_AMOUNNT_WIDTH		98
-#define		AIM_CONTRACT_CHARGE_AMOUNNT_HEIGHT	12
-
-#define	AIM_POPUP_BOX_X									iScreenWidthOffset + 260
-#define	AIM_POPUP_BOX_Y									iScreenHeightOffset + 140 + LAPTOP_SCREEN_WEB_DELTA_Y
-
-#define		AIM_POPUP_BOX_WIDTH								162
-#define		AIM_POPUP_BOX_HEIGHT							100
-#define		AIM_POPUP_BOX_STRING1_Y						6
-#define		AIM_POPUP_BOX_BUTTON_OFFSET_X			20
-#define		AIM_POPUP_BOX_BUTTON_OFFSET_Y			62
 #define		AIM_POPUP_BOX_SUCCESS							0
 #define		AIM_POPUP_BOX_FAILURE							1
-
-#define	AIM_MEMBER_HANG_UP_X							iScreenWidthOffset + 290
-#define		AIM_MEMBER_HANG_UP_Y							AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + AIM_MEMBER_VIDEO_CONF_TITLE_BAR_HEIGHT_Y + 42
-
-//#define	AIM_MEMBER_VIDEO_TALKING_TEXT_X					AIM_MEMBER_AUTHORIZE_PAY_X
-//#define	AIM_MEMBER_VIDEO_TALKING_TEXT_Y					AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + AIM_MEMBER_VIDEO_CONF_TITLE_BAR_HEIGHT_Y + 30
-//#define	AIM_MEMBER_VIDEO_TALKING_TEXT_WIDTH				240
 
 #define		VC_CONTACT_STATIC_TIME						30
 #define		VC_CONTACT_FUZZY_LINE_TIME				100
 #define		VC_NUM_LINES_SNOW									6
 #define		VC_NUM_FUZZ_LINES									10
 #define		VC_NUM_STRAIGHT_LINES							9
-
-#define		VC_ANSWER_IMAGE_DELAY							100
 
 #define		QUOTE_FIRST_ATTITUDE_TIME				3000
 #define		QUOTE_ATTITUDE_TIME							10000
@@ -209,8 +135,6 @@
 #define		QUOTE_DELAY_NO_ACTION						5
 #define		QUOTE_MERC_BUSY									6
 
-#define	TEXT_POPUP_WINDOW_X								iScreenWidthOffset + 180
-#define	TEXT_POPUP_WINDOW_Y								iScreenHeightOffset + 255 + LAPTOP_SCREEN_WEB_DELTA_Y
 #define		TEXT_POPUP_STRING_SIZE						512
 
 #define		MINIMUM_TALKING_TIME_FOR_MERC			1500
@@ -429,7 +353,7 @@ BOOLEAN DisplayVideoConferencingDisplay();
 BOOLEAN DisplayMercsVideoFace();
 void		DisplaySelectLights(BOOLEAN fContractDown, BOOLEAN fBuyEquipDown);
 UINT32	DisplayMercChargeAmount();
-BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2, UINT16 usPosX, UINT16 usPosY, UINT8 ubData);
+BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2, UINT8 ubData);
 BOOLEAN InitVideoFaceTalking(UINT8 ubMercID, UINT16 usQuoteNum);
 BOOLEAN InitVideoFace(UINT8 ubMercID);
 BOOLEAN	DisplaySnowBackground();
@@ -505,6 +429,14 @@ Layout CurrentAimMemberProfileLayout()
 		 LAPTOP_SCREEN_WEB_DELTA_Y});
 }
 
+AimWebsiteLayoutModel::VideoConferenceLayout
+CurrentAimVideoConferenceLayout()
+{
+	return AimWebsiteLayoutModel::MakeVideoConferenceLayout(
+		{iScreenWidthOffset, iScreenHeightOffset,
+		 LAPTOP_SCREEN_WEB_DELTA_Y});
+}
+
 void InvalidateAimMemberContactButton()
 {
 	const auto contact = CurrentAimMemberProfileLayout().navigation.contactButton;
@@ -550,6 +482,7 @@ BOOLEAN EnterAIMMembers()
 	VSURFACE_DESC		vs_desc;
 	LaptopPageResourceOwner stagedResources;
 	const Layout layout = CurrentAimMemberProfileLayout();
+	const auto videoLayout = CurrentAimVideoConferenceLayout();
 
 	gAimMembersPopupResources.clear();
 	gAimMembersVideoConferenceResources.clear();
@@ -558,8 +491,8 @@ BOOLEAN EnterAIMMembers()
 
 	// Create a background video surface to blt the face onto
 	vs_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT | VSURFACE_SYSTEM_MEM_USAGE;
-	vs_desc.usWidth = AIM_MEMBER_VIDEO_FACE_WIDTH;
-	vs_desc.usHeight = AIM_MEMBER_VIDEO_FACE_HEIGHT;
+	vs_desc.usWidth = videoLayout.face.width;
+	vs_desc.usHeight = videoLayout.face.height;
 	vs_desc.ubBitDepth = 16;
 	CHECKF(stagedResources.addVideoSurface(&vs_desc, guiVideoFaceBackground));
 
@@ -767,7 +700,7 @@ void ExitAIMMembers()
 	gfVideoFaceActive = FALSE;
 	giMercFaceIndex = -1;
 
-	InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+	InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 	gAimMembersResources.clear();
 	ExitAimMenuBar();
 	RemoveAimDefaults();
@@ -816,7 +749,7 @@ void HandleAIMMembers()
 	// If we have to get rid of the popup box
 	if( gubPopUpBoxAction == AIM_POPUP_DELETE )
 	{
-		InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+		InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 		//if we are exiting to display a popup box, dont rerender the display
 		if( !fExitDueToMessageBox )
@@ -868,7 +801,7 @@ void HandleAIMMembers()
 
 BOOLEAN RenderAIMMembersTopLevel()
 {
-	InitCreateDeleteAimPopUpBox( AIM_POPUP_DISPLAY, NULL, NULL, 0, 0, 0);
+	InitCreateDeleteAimPopUpBox( AIM_POPUP_DISPLAY, NULL, NULL, 0);
 
 	return(TRUE);
 }
@@ -978,7 +911,6 @@ BOOLEAN RenderAIMMembers()
 		gfIsAnsweringMachineActive = FALSE;
 	}
 
-//	InitCreateDeleteAimPopUpBox( AIM_POPUP_DISPLAY, NULL, NULL, 0, 0, 0);
 
 	//check to see if the merc is dead if so disable the contact button
 	if( IsMercDead( gbCurrentSoldier ) )
@@ -1535,7 +1467,7 @@ void BtnWeaponboxSelectButtonCallback( GUI_BUTTON *btn, INT32 reason )
 
 void PreviousAimMember(void)
 {
-	InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+	InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 	if (gbCurrentIndex > 0)
 	{
@@ -1560,7 +1492,7 @@ void PreviousAimMember(void)
 
 void NextAimMember(void)
 {
-	InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+	InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 	if (gbCurrentIndex < MAX_NUMBER_MERCS - 1)
 	{
@@ -1631,7 +1563,7 @@ void BtnContactButtonCallback(GUI_BUTTON *btn,INT32 reason)
 //					gubVideoConferencingMode = AIM_VIDEO_INIT_MODE;
 					gfFirstTimeInContactScreen = TRUE;
 				}
-				InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+				InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 			}
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 			
@@ -1948,7 +1880,7 @@ if (LaptopSaveInfo.iCurrentBalance == 4500001) {
 				if( AimMemberHireMerc() )
 				{
 					// if merc was hired
-					InitCreateDeleteAimPopUpBox(AIM_POPUP_CREATE, AimPopUpText[AIM_MEMBER_FUNDS_TRANSFER_SUCCESFUL], NULL, AIM_POPUP_BOX_X, AIM_POPUP_BOX_Y, AIM_POPUP_BOX_SUCCESS);
+					InitCreateDeleteAimPopUpBox(AIM_POPUP_CREATE, AimPopUpText[AIM_MEMBER_FUNDS_TRANSFER_SUCCESFUL], NULL, AIM_POPUP_BOX_SUCCESS);
 					DelayMercSpeech( gbCurrentSoldier, QUOTE_CONTRACT_ACCEPTANCE, 750, TRUE, FALSE );
 
 					//Disable the buttons behind the message box
@@ -2002,7 +1934,7 @@ INT8 AimMemberHireMerc()
 	if( LaptopSaveInfo.iCurrentBalance < giContractAmount )
 	{
 		//wasnt hired because of lack of funds
-		InitCreateDeleteAimPopUpBox(AIM_POPUP_CREATE, AimPopUpText[AIM_MEMBER_FUNDS_TRANSFER_FAILED], AimPopUpText[AIM_MEMBER_NOT_ENOUGH_FUNDS], AIM_POPUP_BOX_X, AIM_POPUP_BOX_Y, AIM_POPUP_BOX_FAILURE);
+		InitCreateDeleteAimPopUpBox(AIM_POPUP_CREATE, AimPopUpText[AIM_MEMBER_FUNDS_TRANSFER_FAILED], AimPopUpText[AIM_MEMBER_NOT_ENOUGH_FUNDS], AIM_POPUP_BOX_FAILURE);
 
 		//Disable the buttons behind the message box
 		EnableDisableCurrentVideoConferenceButtons( TRUE );
@@ -2101,6 +2033,7 @@ INT8 AimMemberHireMerc()
 BOOLEAN DisplayVideoConferencingDisplay()
 {
 	CHAR16		sMercName[128];
+	const auto layout = CurrentAimVideoConferenceLayout();
 	const CampaignAimSitePolicy aimSitePolicy(
 		GetGameContext().capabilities());
 
@@ -2113,12 +2046,12 @@ BOOLEAN DisplayVideoConferencingDisplay()
 	if( gubVideoConferencingMode == AIM_VIDEO_INIT_MODE)
 	{
 		swprintf( sMercName, L"%s",	VideoConfercingText[AIM_MEMBER_CONNECTING]);
-		DrawTextToScreen(sMercName, AIM_MEMBER_VIDEO_NAME_X, AIM_MEMBER_VIDEO_NAME_Y, 0, FONT12ARIAL, AIM_M_VIDEO_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+		DrawTextToScreen(sMercName, layout.name.x, layout.name.y, 0, FONT12ARIAL, AIM_M_VIDEO_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 	}
 	else
 	{
 		swprintf( sMercName, L"%s %s",	VideoConfercingText[AIM_MEMBER_VIDEO_CONF_WITH], gMercProfiles[gbCurrentSoldier].zName);
-		DrawTextToScreen(sMercName, AIM_MEMBER_VIDEO_NAME_X, AIM_MEMBER_VIDEO_NAME_Y, 0, FONT12ARIAL, AIM_M_VIDEO_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+		DrawTextToScreen(sMercName, layout.name.x, layout.name.y, 0, FONT12ARIAL, AIM_M_VIDEO_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 	}
 
 	//Display Contract charge text
@@ -2126,7 +2059,7 @@ BOOLEAN DisplayVideoConferencingDisplay()
 	{
 		// Display the contract charge
 		SetFontShadow(AIM_M_VIDEO_NAME_SHADOWCOLOR);
-		DrawTextToScreen(VideoConfercingText[AIM_MEMBER_CONTRACT_CHARGE], AIM_CONTRACT_CHARGE_X, AIM_CONTRACT_CHARGE_Y, 0, FONT12ARIAL, AIM_M_VIDEO_NAME_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+		DrawTextToScreen(VideoConfercingText[AIM_MEMBER_CONTRACT_CHARGE], layout.contractChargeLabel.x, layout.contractChargeLabel.y, 0, FONT12ARIAL, AIM_M_VIDEO_NAME_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 		SetFontShadow(DEFAULT_SHADOW);
 	}
 
@@ -2137,11 +2070,8 @@ BOOLEAN DisplayVideoConferencingDisplay()
 	{
 		CHAR16	offerText[190];
 		swprintf(offerText, zNewTacticalMessages[TACT_MSG__AIMMEMBER_ONE_TIME_FEE], gMercProfiles[gbCurrentSoldier].zNickname);
-		const auto xCoord = AIM_MEMBER_VIDEO_CONF_TERMINAL_X + 115;
-		const auto yCoord = AIM_MEMBER_VIDEO_CONF_TERMINAL_Y + 45;
-		const auto textAreaWidth = 245;
 		SetFontShadow(AIM_M_VIDEO_NAME_SHADOWCOLOR);
-		DisplayWrappedString(xCoord, yCoord, textAreaWidth, 2, AIM_M_FONT_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, offerText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+		DisplayWrappedString(layout.oneTimeFeeOffer.origin.x, layout.oneTimeFeeOffer.origin.y, layout.oneTimeFeeOffer.width, 2, AIM_M_FONT_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, offerText, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 		SetFontShadow(DEFAULT_SHADOW);
 	}
 
@@ -2162,7 +2092,7 @@ BOOLEAN DisplayVideoConferencingDisplay()
 
 		usPosX = iScreenWidthOffset + ( 613 - usActualWidth ) / 2 ;
 
-		RenderMercPopUpBoxFromIndex( iAimMembersBoxId, usPosX, TEXT_POPUP_WINDOW_Y, FRAME_BUFFER);
+		RenderMercPopUpBoxFromIndex( iAimMembersBoxId, usPosX, layout.talkingTextPopupY, FRAME_BUFFER);
 
 		if( RemoveMercPopupBoxFromIndex( iAimMembersBoxId ) )
 		{
@@ -2178,12 +2108,13 @@ BOOLEAN DisplayVideoConferencingDisplay()
 BOOLEAN DisplayMercsVideoFace()
 {
 	HVOBJECT	hTerminalHandle;
+	const auto layout = CurrentAimVideoConferenceLayout();
 	//STR				sFaceLoc = "FACES\\";
 
 	// Get and Blt Terminal Frame
 	GetVideoObject(&hTerminalHandle, guiVideoConfTerminal);
-	ShadowVideoSurfaceImage( FRAME_BUFFER, hTerminalHandle, AIM_MEMBER_VIDEO_CONF_TERMINAL_X, AIM_MEMBER_VIDEO_CONF_TERMINAL_Y);
-	BltVideoObject(FRAME_BUFFER, hTerminalHandle, 0,AIM_MEMBER_VIDEO_CONF_TERMINAL_X, AIM_MEMBER_VIDEO_CONF_TERMINAL_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	ShadowVideoSurfaceImage( FRAME_BUFFER, hTerminalHandle, layout.terminal.x, layout.terminal.y);
+	BltVideoObject(FRAME_BUFFER, hTerminalHandle, 0,layout.terminal.x, layout.terminal.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 
 	//Display the Select light on the merc
@@ -2200,57 +2131,40 @@ void DisplaySelectLights(BOOLEAN fContractDown, BOOLEAN fBuyEquipDown)
 	if (!aimSitePolicy.showsSelectionLights())
 		return;
 
-	UINT16 i, usPosY, usPosX;
+	const auto layout = CurrentAimVideoConferenceLayout();
+	UINT16 i;
 
 	//First draw the select light for the contract length buttons
-	usPosY = AIM_MEMBER_BUY_CONTRACT_LENGTH_Y;
 	for(i=0; i<3; i++)
 	{
+		const auto button = layout.contractButtons.at(i);
 		// if the if is true, the light is on
 		if( gubContractLength == i)
 		{
-			if( fContractDown)
-			{
-				usPosX = AIM_MEMBER_BUY_CONTRACT_LENGTH_X + AIM_SELECT_LIGHT_ON_X;
-				ColorFillVideoSurfaceArea( FRAME_BUFFER, usPosX, usPosY+AIM_SELECT_LIGHT_ON_Y, usPosX+8,	usPosY+AIM_SELECT_LIGHT_ON_Y+8, Get16BPPColor( FROMRGB( 0, 255, 0 ) ) );
-			}
-			else
-			{
-				usPosX = AIM_MEMBER_BUY_CONTRACT_LENGTH_X + AIM_SELECT_LIGHT_OFF_X;
-				ColorFillVideoSurfaceArea( FRAME_BUFFER, usPosX, usPosY+AIM_SELECT_LIGHT_OFF_Y, usPosX+8,	usPosY+AIM_SELECT_LIGHT_OFF_Y+8, Get16BPPColor( FROMRGB( 0, 255, 0 ) ) );
-			}
+			const auto light = layout.selectionLight(button, fContractDown != FALSE);
+			ColorFillVideoSurfaceArea( FRAME_BUFFER, light.x, light.y, light.x+8, light.y+8, Get16BPPColor( FROMRGB( 0, 255, 0 ) ) );
 		}
 		else
 		{
-			usPosX = AIM_MEMBER_BUY_CONTRACT_LENGTH_X + AIM_SELECT_LIGHT_OFF_X;
-			ColorFillVideoSurfaceArea( FRAME_BUFFER, usPosX, usPosY+AIM_SELECT_LIGHT_OFF_Y, usPosX+8,	usPosY+AIM_SELECT_LIGHT_OFF_Y+8, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
+			const auto light = layout.selectionLight(button, false);
+			ColorFillVideoSurfaceArea( FRAME_BUFFER, light.x, light.y, light.x+8, light.y+8, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
 		}
-		usPosY += AIM_MEMBER_BUY_EQUIPMENT_GAP;
 	}
 
 	//draw the select light for the buy equipment buttons
-	usPosY = AIM_MEMBER_BUY_CONTRACT_LENGTH_Y;
 	for(i=0; i<2; i++)
 	{
+		const auto button = layout.equipmentButtons.at(i);
 		if( gfBuyEquipment == i)
 		{
-			if( fBuyEquipDown)
-			{
-				usPosX = AIM_MEMBER_BUY_EQUIPMENT_X + AIM_SELECT_LIGHT_ON_X;
-				ColorFillVideoSurfaceArea( FRAME_BUFFER, usPosX, usPosY+AIM_SELECT_LIGHT_ON_Y, usPosX+8,	usPosY+AIM_SELECT_LIGHT_ON_Y+8, Get16BPPColor( FROMRGB( 0, 255, 0 ) ) );
-			}
-			else
-			{
-				usPosX = AIM_MEMBER_BUY_EQUIPMENT_X + AIM_SELECT_LIGHT_OFF_X;
-				ColorFillVideoSurfaceArea( FRAME_BUFFER, usPosX, usPosY+AIM_SELECT_LIGHT_OFF_Y, usPosX+8,	usPosY+AIM_SELECT_LIGHT_OFF_Y+8, Get16BPPColor( FROMRGB( 0, 255, 0 ) ) );
-			}
+			const auto light = layout.selectionLight(button, fBuyEquipDown != FALSE);
+			ColorFillVideoSurfaceArea( FRAME_BUFFER, light.x, light.y, light.x+8, light.y+8, Get16BPPColor( FROMRGB( 0, 255, 0 ) ) );
 		}
 		else
 		{
-			usPosX = AIM_MEMBER_BUY_EQUIPMENT_X + AIM_SELECT_LIGHT_OFF_X;
-			ColorFillVideoSurfaceArea( FRAME_BUFFER, usPosX, usPosY+AIM_SELECT_LIGHT_OFF_Y, usPosX+8,	usPosY+AIM_SELECT_LIGHT_OFF_Y+8, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
+			const auto light = layout.selectionLight(button, false);
+			ColorFillVideoSurfaceArea( FRAME_BUFFER, light.x, light.y, light.x+8, light.y+8, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
 		}
-		usPosY += AIM_MEMBER_BUY_EQUIPMENT_GAP;
 	}
 	InvalidateRegion(LAPTOP_SCREEN_UL_X,LAPTOP_SCREEN_WEB_UL_Y,LAPTOP_SCREEN_LR_X,LAPTOP_SCREEN_WEB_LR_Y);
 }
@@ -2259,6 +2173,7 @@ void DisplaySelectLights(BOOLEAN fContractDown, BOOLEAN fBuyEquipDown)
 UINT32 DisplayMercChargeAmount()
 {
 	HVOBJECT hImageHandle;
+	const auto layout = CurrentAimVideoConferenceLayout();
 	const CampaignAimSitePolicy aimSitePolicy(
 		GetGameContext().capabilities());
 
@@ -2268,7 +2183,7 @@ UINT32 DisplayMercChargeAmount()
 
 	// Display the 'black hole'for the contract charge	in the video conference terminal
 	GetVideoObject(&hImageHandle, guiVideoContractCharge);
-	BltVideoObject(FRAME_BUFFER, hImageHandle, 0,AIM_MEMBER_VIDEO_CONF_CONTRACT_IMAGE_X, AIM_MEMBER_VIDEO_CONF_CONTRACT_IMAGE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hImageHandle, 0,layout.contractImage.x, layout.contractImage.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 
 	if( FindSoldierByProfileID( gbCurrentSoldier, TRUE ) == NULL )
@@ -2296,13 +2211,13 @@ UINT32 DisplayMercChargeAmount()
 			contractAmount += VideoConfercingText[AIM_MEMBER_WITH_MEDICAL];
 		}
 
-		DrawTextToScreen(contractAmount.data(), AIM_CONTRACT_CHARGE_AMOUNNT_X + 1, AIM_CONTRACT_CHARGE_AMOUNNT_Y + 3, 0, AIM_M_VIDEO_CONTRACT_AMOUNT_FONT, AIM_M_VIDEO_CONTRACT_AMOUNT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+		DrawTextToScreen(contractAmount.data(), layout.contractChargeAmount.x + 1, layout.contractChargeAmount.y + 3, 0, AIM_M_VIDEO_CONTRACT_AMOUNT_FONT, AIM_M_VIDEO_CONTRACT_AMOUNT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 	}
 
 	return(giContractAmount);
 }
 
-BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2, UINT16 usPosX, UINT16 usPosY, UINT8 ubData)
+BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2, UINT8 ubData)
 {
 	VOBJECT_DESC	VObjectDesc;
 	LaptopPageResourceOwner stagedResources;
@@ -2310,6 +2225,7 @@ BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2
 	static UINT16				usPopUpBoxPosX, usPopUpBoxPosY;
 	static CHAR16				sPopUpString1[400], sPopUpString2[400];
 	static BOOLEAN		fPopUpBoxActive = FALSE;;
+	const auto layout = CurrentAimVideoConferenceLayout();
 
 	switch( ubFlag )
 	{
@@ -2336,8 +2252,8 @@ BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2
 			else
 				sPopUpString2[0] = L'\0';
 
-			usPopUpBoxPosX = usPosX;
-			usPopUpBoxPosY = usPosY;
+			usPopUpBoxPosX = static_cast<UINT16>(layout.popup.x);
+			usPopUpBoxPosY = static_cast<UINT16>(layout.popup.y);
 
 			// load the popup box graphic
 			VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
@@ -2345,7 +2261,7 @@ BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2
 			CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiPopUpBox));
 
 			GetVideoObject(&hPopupBoxHandle, guiPopUpBox);
-			BltVideoObject(FRAME_BUFFER, hPopupBoxHandle, 0,usPosX, usPosY, VO_BLT_SRCTRANSPARENCY,NULL);
+			BltVideoObject(FRAME_BUFFER, hPopupBoxHandle, 0,layout.popup.x, layout.popup.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 			//Create the popup boxes button
 			CHECKF(stagedResources.addButtonImage(
@@ -2356,7 +2272,7 @@ BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2
 															AIM_POPUP_BOX_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 															AIM_POPUP_BOX_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 															TEXT_CJUSTIFIED,
-													(UINT16)(usPosX+AIM_POPUP_BOX_BUTTON_OFFSET_X), (UINT16)(usPosY+AIM_POPUP_BOX_BUTTON_OFFSET_Y), BUTTON_TOGGLE, MSYS_PRIORITY_HIGH+5,
+													layout.popupButton.x, layout.popupButton.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH+5,
 													DEFAULT_MOVE_CALLBACK, BtnPopUpOkButtonCallback);
 			CHECKF(stagedResources.addButton(popupButton, guiPopUpOkButton));
 			SetButtonCursor(guiPopUpOkButton, CURSOR_LAPTOP_SCREEN);
@@ -2400,11 +2316,11 @@ BOOLEAN InitCreateDeleteAimPopUpBox(UINT8 ubFlag, STR16 sString1, STR16 sString2
 
 			SetFontShadow(AIM_M_VIDEO_NAME_SHADOWCOLOR);
 
-			usTempPosY += AIM_POPUP_BOX_STRING1_Y;
+			usTempPosY += layout.popupFirstTextY - layout.popup.y;
 			if( sPopUpString1[0]	!= L'\0')
-				usTempPosY += DisplayWrappedString(usPopUpBoxPosX, usTempPosY, AIM_POPUP_BOX_WIDTH, 2, AIM_POPUP_BOX_FONT, AIM_POPUP_BOX_COLOR,	sPopUpString1, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+				usTempPosY += DisplayWrappedString(usPopUpBoxPosX, usTempPosY, layout.popup.width, 2, AIM_POPUP_BOX_FONT, AIM_POPUP_BOX_COLOR,	sPopUpString1, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 			if( sPopUpString2[0] != L'\0')
-				DisplayWrappedString(usPopUpBoxPosX, (UINT16)(usTempPosY+4), AIM_POPUP_BOX_WIDTH, 2, AIM_POPUP_BOX_FONT, AIM_POPUP_BOX_COLOR,	sPopUpString2, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+				DisplayWrappedString(usPopUpBoxPosX, (UINT16)(usTempPosY+4), layout.popup.width, 2, AIM_POPUP_BOX_FONT, AIM_POPUP_BOX_COLOR,	sPopUpString2, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 
 			SetFontShadow(DEFAULT_SHADOW);
 
@@ -2552,7 +2468,7 @@ void BtnAnsweringMachineButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 				//Display a message box displaying a messsage that the message was recorded
 //				DoLapTopMessageBox( 10, AimPopUpText[ AIM_MEMBER_MESSAGE_RECORDED ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL );
-				InitCreateDeleteAimPopUpBox( AIM_POPUP_CREATE, L" ", AimPopUpText[ AIM_MEMBER_MESSAGE_RECORDED ], AIM_POPUP_BOX_X, AIM_POPUP_BOX_Y, AIM_POPUP_BOX_SUCCESS );
+				InitCreateDeleteAimPopUpBox( AIM_POPUP_CREATE, L" ", AimPopUpText[ AIM_MEMBER_MESSAGE_RECORDED ], AIM_POPUP_BOX_SUCCESS );
 
 
 				SpecifyDisabledButtonStyle( giAnsweringMachineButton[1], DISABLED_STYLE_NONE );
@@ -2667,6 +2583,7 @@ BOOLEAN DisplayTalkingMercFaceForVideoPopUp(INT32	iFaceIndex)
 	BOOLEAN		fIsTheMercTalking;
 	SGPRect		SrcRect;
 	SGPRect		DestRect;
+	const auto face = CurrentAimVideoConferenceLayout().face;
 
 
 	//Test
@@ -2675,10 +2592,10 @@ BOOLEAN DisplayTalkingMercFaceForVideoPopUp(INT32	iFaceIndex)
 	SrcRect.iRight = 48;
 	SrcRect.iBottom = 43;
 
-	DestRect.iLeft = AIM_MEMBER_VIDEO_FACE_X;
-	DestRect.iTop = AIM_MEMBER_VIDEO_FACE_Y;
-	DestRect.iRight = DestRect.iLeft + AIM_MEMBER_VIDEO_FACE_WIDTH;
-	DestRect.iBottom = DestRect.iTop + AIM_MEMBER_VIDEO_FACE_HEIGHT;
+	DestRect.iLeft = face.x;
+	DestRect.iTop = face.y;
+	DestRect.iRight = face.right();
+	DestRect.iBottom = face.bottom();
 
 
 
@@ -2712,11 +2629,11 @@ BOOLEAN DisplayTalkingMercFaceForVideoPopUp(INT32	iFaceIndex)
 		if( gfIsAnsweringMachineActive )
 		{
 			//display a message over the mercs face
-			DisplayWrappedString( AIM_MEMBER_VIDEO_FACE_X, AIM_MEMBER_VIDEO_FACE_Y+20, AIM_MEMBER_VIDEO_FACE_WIDTH, 2, FONT14ARIAL, 145,	AimPopUpText[ AIM_MEMBER_PRERECORDED_MESSAGE ], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
+			DisplayWrappedString( face.x, face.y+20, face.width, 2, FONT14ARIAL, 145,	AimPopUpText[ AIM_MEMBER_PRERECORDED_MESSAGE ], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
 		}
 
 
-		InvalidateRegion(AIM_MEMBER_VIDEO_FACE_X,AIM_MEMBER_VIDEO_FACE_Y, AIM_MEMBER_VIDEO_FACE_X+AIM_MEMBER_VIDEO_FACE_WIDTH,AIM_MEMBER_VIDEO_FACE_Y+AIM_MEMBER_VIDEO_FACE_HEIGHT);
+		InvalidateRegion(face.x, face.y, face.right(), face.bottom());
 	}
 
  	fIsTheMercTalking = gFacesData[iFaceIndex].fTalking;
@@ -3018,6 +2935,7 @@ BOOLEAN DisplaySnowBackground()
 	UINT32		uiCurrentTime = 0;
 	HVOBJECT	hSnowHandle;
 	UINT8	ubCount;
+	const auto face = CurrentAimVideoConferenceLayout().face;
 
 	uiCurrentTime = GetJA2NoPauseClock();	// no-pause: UI animation must advance even when game-time is paused, else the contact opening sticks on static forever
 
@@ -3048,9 +2966,9 @@ BOOLEAN DisplaySnowBackground()
 	}
 	// Get the snow background, and blit it
 	GetVideoObject(&hSnowHandle, guiBWSnow);
-	BltVideoObject(FRAME_BUFFER, hSnowHandle, ubCount,AIM_MEMBER_VIDEO_FACE_X, AIM_MEMBER_VIDEO_FACE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hSnowHandle, ubCount,face.x, face.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
-	InvalidateRegion(AIM_MEMBER_VIDEO_FACE_X,AIM_MEMBER_VIDEO_FACE_Y, AIM_MEMBER_VIDEO_FACE_X+AIM_MEMBER_VIDEO_FACE_WIDTH,AIM_MEMBER_VIDEO_FACE_Y+AIM_MEMBER_VIDEO_FACE_HEIGHT);
+	InvalidateRegion(face.x, face.y, face.right(), face.bottom());
 
 	return(FALSE);
 }
@@ -3059,6 +2977,7 @@ BOOLEAN DisplaySnowBackground()
 BOOLEAN DisplayBlackBackground(UINT8 ubMaxNumOfLoops)
 {
 	UINT32		uiCurrentTime = 0;
+	const auto face = CurrentAimVideoConferenceLayout().face;
 
 	uiCurrentTime = GetJA2NoPauseClock();	// no-pause: UI animation must advance even when game-time is paused, else the contact opening sticks on static forever
 
@@ -3075,8 +2994,8 @@ BOOLEAN DisplayBlackBackground(UINT8 ubMaxNumOfLoops)
 		guiLastHandleMercTime = uiCurrentTime;
 	}
 	// Blit color to screen
-	ColorFillVideoSurfaceArea( FRAME_BUFFER, AIM_MEMBER_VIDEO_FACE_X, AIM_MEMBER_VIDEO_FACE_Y, AIM_MEMBER_VIDEO_FACE_X+AIM_MEMBER_VIDEO_FACE_WIDTH,	AIM_MEMBER_VIDEO_FACE_Y+AIM_MEMBER_VIDEO_FACE_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
-	InvalidateRegion(AIM_MEMBER_VIDEO_FACE_X,AIM_MEMBER_VIDEO_FACE_Y, AIM_MEMBER_VIDEO_FACE_X+AIM_MEMBER_VIDEO_FACE_WIDTH,AIM_MEMBER_VIDEO_FACE_Y+AIM_MEMBER_VIDEO_FACE_HEIGHT);
+	ColorFillVideoSurfaceArea( FRAME_BUFFER, face.x, face.y, face.right(), face.bottom(), Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
+	InvalidateRegion(face.x, face.y, face.right(), face.bottom());
 
 	return(FALSE);
 }
@@ -3219,6 +3138,7 @@ UINT8 DisplayTransparentSnow(UINT8 ubMode, UINT32 uiImageIdentifier, UINT8 ubMax
 	static INT8	bCount= 0;
 	UINT32		uiCurrentTime = 0;
 	static UINT32	uiLastTime=0;
+	const auto face = CurrentAimVideoConferenceLayout().face;
 
 	uiCurrentTime = GetJA2Clock();
 
@@ -3246,7 +3166,7 @@ UINT8 DisplayTransparentSnow(UINT8 ubMode, UINT32 uiImageIdentifier, UINT8 ubMax
 
 	// Get the snow background, and blit it
 	GetVideoObject(&hFuzzLineHandle, uiImageIdentifier);
-	BltVideoObject(FRAME_BUFFER, hFuzzLineHandle, bCount,AIM_MEMBER_VIDEO_FACE_X, AIM_MEMBER_VIDEO_FACE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hFuzzLineHandle, bCount,face.x, face.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 
 	if( bForward )
@@ -3279,6 +3199,7 @@ UINT8 DisplayDistortionLine(UINT8 ubMode, UINT32 uiImageIdentifier, UINT8 ubMaxI
 	static UINT8	ubCount=255;
 	UINT32		uiCurrentTime = 0;
 	static UINT32	uiLastTime=0;
+	const auto face = CurrentAimVideoConferenceLayout().face;
 
 	uiCurrentTime = GetJA2Clock();
 
@@ -3296,7 +3217,7 @@ UINT8 DisplayDistortionLine(UINT8 ubMode, UINT32 uiImageIdentifier, UINT8 ubMaxI
 
 	// Get the snow background, and blit it
 	GetVideoObject(&hFuzzLineHandle, uiImageIdentifier);
-	BltVideoObject(FRAME_BUFFER, hFuzzLineHandle, ubCount,AIM_MEMBER_VIDEO_FACE_X, AIM_MEMBER_VIDEO_FACE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hFuzzLineHandle, ubCount,face.x, face.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	if( ubCount == ubMaxImages-1)
 	{
@@ -3315,6 +3236,7 @@ UINT8 DisplayPixelatedImage(UINT8 ubMaxImages)
 	static UINT8	ubCount=255;
 	UINT32		uiCurrentTime = 0;
 	static UINT32	uiLastTime=0;
+	const auto face = CurrentAimVideoConferenceLayout().face;
 
 	uiCurrentTime = GetJA2Clock();
 
@@ -3327,8 +3249,7 @@ UINT8 DisplayPixelatedImage(UINT8 ubMaxImages)
 		uiLastTime = uiCurrentTime;
 	}
 
-//	PixelateVideoObjectRect(	FRAME_BUFFER, AIM_MEMBER_VIDEO_FACE_X, AIM_MEMBER_VIDEO_FACE_Y, AIM_MEMBER_VIDEO_FACE_X+AIM_MEMBER_VIDEO_FACE_WIDTH-1, AIM_MEMBER_VIDEO_FACE_Y+AIM_MEMBER_VIDEO_FACE_HEIGHT-1);
-	ShadowVideoSurfaceRect( FRAME_BUFFER, AIM_MEMBER_VIDEO_FACE_X, AIM_MEMBER_VIDEO_FACE_Y, AIM_MEMBER_VIDEO_FACE_X+AIM_MEMBER_VIDEO_FACE_WIDTH-1, AIM_MEMBER_VIDEO_FACE_Y+AIM_MEMBER_VIDEO_FACE_HEIGHT-1);
+	ShadowVideoSurfaceRect( FRAME_BUFFER, face.x, face.y, face.right()-1, face.bottom()-1);
 
 	if( ubCount == ubMaxImages-1)
 	{
@@ -3444,9 +3365,9 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		GetGameContext().capabilities());
 	LaptopPageResourceOwner stagedResources;
 	UINT8	i;
-	UINT16	usPosX, usPosY;
 	VOBJECT_DESC	VObjectDesc;
 	VSURFACE_DESC		vs_desc;
+	const auto layout = CurrentAimVideoConferenceLayout();
 
 	//remove the face help text
 	gfAimMemberDisplayFaceHelpText = FALSE;
@@ -3467,7 +3388,7 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 	{
 		if(gAimMembersVideoCloseResources.empty())
 		{
-			const INT32 closeButton = QuickCreateButton(giXToCloseVideoConfButtonImage, AIM_MEMBER_VIDEO_CONF_XCLOSE_X, AIM_MEMBER_VIDEO_CONF_XCLOSE_Y,
+			const INT32 closeButton = QuickCreateButton(giXToCloseVideoConfButtonImage, layout.closeButton.x, layout.closeButton.y,
 																	BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																	DEFAULT_MOVE_CALLBACK, BtnXToCloseVideoConfButtonCallback);
 			CHECKF(gAimMembersVideoCloseResources.addButton(
@@ -3538,8 +3459,8 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 
 			// Create a background video surface to blt the face onto
 			vs_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT | VSURFACE_SYSTEM_MEM_USAGE;
-			vs_desc.usWidth = AIM_MEMBER_VIDEO_TITLE_BAR_WIDTH;
-			vs_desc.usHeight = AIM_MEMBER_VIDEO_TITLE_BAR_HEIGHT;
+			vs_desc.usWidth = layout.titleBarSource.width;
+			vs_desc.usHeight = layout.titleBarSource.height;
 			vs_desc.ubBitDepth = 16;
 			CHECKF(stagedResources.addVideoSurface(
 				&vs_desc, guiVideoTitleBar));
@@ -3590,24 +3511,23 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		}
 
 		// Hang up button
-		usPosX = AIM_MEMBER_AUTHORIZE_PAY_X;
 		CHECKF(stagedResources.addButtonImage(
 			LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1),
 			guiVideoConferenceButtonImage[2]));
 		for(i=0; i<2; i++)
 		{
+			const auto buttonPosition = layout.contactButtons.at(i);
 			const INT32 button = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[i+AIM_MEMBER_HIRE],
 															FONT12ARIAL,
 															AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 															AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 															TEXT_CJUSTIFIED,
-																	usPosX, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+															buttonPosition.x, buttonPosition.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																	DEFAULT_MOVE_CALLBACK, BtnFirstContactButtonCallback);
 			CHECKF(stagedResources.addButton(button, giAuthorizeButton[i]));
 
 			MSYS_SetBtnUserData( giAuthorizeButton[i], 0, i);
 			SetButtonCursor(giAuthorizeButton[i], CURSOR_LAPTOP_SCREEN);
-			usPosX += AIM_MEMBER_AUTHORIZE_PAY_GAP;
 		}
 
 		if( gfWaitingForMercToStopTalkingOrUserToClick )
@@ -3630,21 +3550,20 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		CHECKF(stagedResources.addButtonImage(
 			LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,0,-1,1,-1),
 			guiVideoConferenceButtonImage[0]));
-		usPosY = AIM_MEMBER_BUY_CONTRACT_LENGTH_Y;
 		for(i=0; i<3; i++)
 		{
+			const auto buttonPosition = layout.contractButtons.at(i);
 			const INT32 button = CreateIconAndTextButton( guiVideoConferenceButtonImage[0], VideoConfercingText[i+AIM_MEMBER_ONE_DAY], FONT12ARIAL,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																TEXT_LJUSTIFIED,
-																		AIM_MEMBER_BUY_CONTRACT_LENGTH_X, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+																buttonPosition.x, buttonPosition.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																		DEFAULT_MOVE_CALLBACK, BtnContractLengthButtonCallback);
 			CHECKF(stagedResources.addButton(button, giContractLengthButton[i]));
 
 			SetButtonCursor(giContractLengthButton[i], CURSOR_LAPTOP_SCREEN);
 			MSYS_SetBtnUserData( giContractLengthButton[i], 0, i);
 			SpecifyDisabledButtonStyle( giContractLengthButton[i], DISABLED_STYLE_NONE );
-			usPosY += AIM_MEMBER_BUY_EQUIPMENT_GAP;
 		}
 
 		if(is_client)//hayden : only needed for 1 day...
@@ -3653,22 +3572,21 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 						DisableButton( giContractLengthButton[2] );
 		}
 		// BuyEquipment button
-		usPosY = AIM_MEMBER_BUY_CONTRACT_LENGTH_Y;
 		for(i=0; i<2; i++)
 		{
+			const auto buttonPosition = layout.equipmentButtons.at(i);
 			const INT32 button = CreateIconAndTextButton( guiVideoConferenceButtonImage[0], VideoConfercingText[i+AIM_MEMBER_NO_EQUIPMENT],
 																	FONT12ARIAL,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																TEXT_LJUSTIFIED,
-																	AIM_MEMBER_BUY_EQUIPMENT_X, usPosY, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+															buttonPosition.x, buttonPosition.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																	DEFAULT_MOVE_CALLBACK, BtnBuyEquipmentButtonCallback);
 			CHECKF(stagedResources.addButton(button, giBuyEquipmentButton[i]));
 
 			SetButtonCursor(giBuyEquipmentButton[i], CURSOR_LAPTOP_SCREEN);
 			MSYS_SetBtnUserData( giBuyEquipmentButton[i], 0, i);
 			SpecifyDisabledButtonStyle( giBuyEquipmentButton[i], DISABLED_STYLE_SHADED );
-			usPosY += AIM_MEMBER_BUY_EQUIPMENT_GAP;
 		}
 		if( gMercProfiles[gbCurrentSoldier].usOptionalGearCost == 0 )
 			DisableButton( giBuyEquipmentButton[1] );
@@ -3681,25 +3599,24 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		}
 
 		// Authorize button
-		usPosX = AIM_MEMBER_AUTHORIZE_PAY_X;
 		CHECKF(stagedResources.addButtonImage(
 			LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1),
 			guiVideoConferenceButtonImage[1]));
 		for(i=0; i<2; i++)
 		{
-				const INT32 button = CreateIconAndTextButton( guiVideoConferenceButtonImage[1], VideoConfercingText[i+AIM_MEMBER_TRANSFER_FUNDS],
+			const auto buttonPosition = layout.authorizationButtons.at(i);
+			const INT32 button = CreateIconAndTextButton( guiVideoConferenceButtonImage[1], VideoConfercingText[i+AIM_MEMBER_TRANSFER_FUNDS],
 																FONT12ARIAL,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 																TEXT_CJUSTIFIED,
-																		usPosX, AIM_MEMBER_AUTHORIZE_PAY_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+															buttonPosition.x, buttonPosition.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																		DEFAULT_MOVE_CALLBACK, BtnAuthorizeButtonCallback);
 			CHECKF(stagedResources.addButton(button, giAuthorizeButton[i]));
 
 			SetButtonCursor(giAuthorizeButton[i], CURSOR_LAPTOP_SCREEN);
 			MSYS_SetBtnUserData( giAuthorizeButton[i], 0, i);
 			SpecifyDisabledButtonStyle( giAuthorizeButton[i], DISABLED_STYLE_NONE );
-			usPosX += AIM_MEMBER_AUTHORIZE_PAY_GAP;
 		}
 
 //		InitVideoFaceTalking(gbCurrentSoldier, QUOTE_LENGTH_OF_CONTRACT);
@@ -3732,17 +3649,17 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		gfIsAnsweringMachineActive = TRUE;
 
 		// Leave msg button
-		usPosX = AIM_MEMBER_AUTHORIZE_PAY_X;
 		CHECKF(stagedResources.addButtonImage(
 			LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1),
 			guiVideoConferenceButtonImage[2]));
 
+		const auto leaveMessagePosition = layout.contactButtons.at(0);
 		const INT32 leaveMessageButton = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[AIM_MEMBER_LEAVE_MESSAGE],
 														FONT12ARIAL,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														TEXT_CJUSTIFIED,
-																usPosX, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+														leaveMessagePosition.x, leaveMessagePosition.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																DEFAULT_MOVE_CALLBACK, BtnAnsweringMachineButtonCallback);
 		CHECKF(stagedResources.addButton(
 			leaveMessageButton, giAnsweringMachineButton[0]));
@@ -3753,14 +3670,13 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 		if( gMercProfiles[ gbCurrentSoldier ].ubMiscFlags3 & PROFILE_MISC_FLAG3_PLAYER_LEFT_MSG_FOR_MERC_AT_AIM )
 			DisableButton( giAnsweringMachineButton[0] );
 
-		usPosX += AIM_MEMBER_AUTHORIZE_PAY_GAP;
-
+		const auto hangUpPosition = layout.contactButtons.at(1);
 		const INT32 hangUpButton = CreateIconAndTextButton( guiVideoConferenceButtonImage[2], VideoConfercingText[AIM_MEMBER_HANG_UP],
 														FONT12ARIAL,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														TEXT_CJUSTIFIED,
-																usPosX, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+														hangUpPosition.x, hangUpPosition.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																DEFAULT_MOVE_CALLBACK, BtnAnsweringMachineButtonCallback);
 		CHECKF(stagedResources.addButton(
 			hangUpButton, giAnsweringMachineButton[1]));
@@ -3784,6 +3700,7 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 	// The merc is home but for some reason doesnt want to work for player
 	if( gubVideoConferencingMode == AIM_VIDEO_MERC_UNAVAILABLE_MODE)
 	{
+		const auto hangUpPosition = layout.unavailableHangUp;
 		// The hangup button
 		CHECKF(stagedResources.addButtonImage(
 			LoadButtonImageOwned("LAPTOP\\VideoConfButtons.sti", -1,2,-1,3,-1),
@@ -3794,7 +3711,7 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														AIM_M_VIDEO_NAME_COLOR, AIM_M_VIDEO_NAME_SHADOWCOLOR,
 														TEXT_CJUSTIFIED,
-																AIM_MEMBER_HANG_UP_X, AIM_MEMBER_HANG_UP_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+														hangUpPosition.x, hangUpPosition.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																DEFAULT_MOVE_CALLBACK, BtnHangUpButtonCallback);
 		CHECKF(stagedResources.addButton(hangUpButton, giHangUpButton));
 
@@ -3829,8 +3746,8 @@ BOOLEAN InitDeleteVideoConferencePopUp( )
 
 		// Create a background video surface to blt the face onto
 		vs_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT | VSURFACE_SYSTEM_MEM_USAGE;
-		vs_desc.usWidth = AIM_MEMBER_VIDEO_TITLE_BAR_WIDTH;
-		vs_desc.usHeight = AIM_MEMBER_VIDEO_TITLE_BAR_HEIGHT;
+		vs_desc.usWidth = layout.titleBarSource.width;
+		vs_desc.usHeight = layout.titleBarSource.height;
 		vs_desc.ubBitDepth = 16;
 		CHECKF(stagedResources.addVideoSurface(
 			&vs_desc, guiVideoTitleBar));
@@ -4066,71 +3983,6 @@ BOOLEAN HandleAnsweringMachineMessage()
 	return(TRUE);
 }
 */
-/*
-BOOLEAN DisplayAnimatedAnsweringMachineMsg( BOOLEAN fInit, UINT8 ubNumSubImages)
-{
-//	HVOBJECT	hImageHandle;
-	static UINT8	ubSubImage=0;
-	static UINT32 uiLastTime=0;
-	UINT32 uiCurTime = GetJA2Clock();
-	static UINT8		ubMode=0;
-
-	if( fInit )
-	{
-		ubSubImage = 0;
-		uiLastTime = 0;
-		ubMode = 0;
-	}
-
-	if( (uiCurTime - uiLastTime) > VC_ANSWER_IMAGE_DELAY )
-	{
-
-		if( ubMode == 0)
-		{
-			if( ubSubImage >= ubNumSubImages)
-				ubSubImage = 0;
-
-			// Display the Answering machine graphic
-
-			// For now just blit the guys face, and shade it
-//			GetVideoObject(&hImageHandle, guiAnsweringMachineImage);
-//			BltVideoObject(FRAME_BUFFER, hImageHandle, ubSubImage, AIM_MEMBER_VIDEO_FACE_X, AIM_MEMBER_VIDEO_FACE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-			InvalidateRegion(AIM_MEMBER_VIDEO_FACE_X,AIM_MEMBER_VIDEO_FACE_Y, AIM_MEMBER_VIDEO_FACE_X+AIM_MEMBER_VIDEO_FACE_WIDTH,AIM_MEMBER_VIDEO_FACE_Y+AIM_MEMBER_VIDEO_FACE_HEIGHT);
-
-			ubSubImage ++;
-			if( ubSubImage == ubNumSubImages)
-			{
-				ubSubImage = 0;
-				ubMode++;
-				return(TRUE);
-			}
-		}
-		else
-		{
-
-			//display the black background with text over it.
-			ColorFillVideoSurfaceArea( FRAME_BUFFER, AIM_MEMBER_VIDEO_FACE_X, AIM_MEMBER_VIDEO_FACE_Y, AIM_MEMBER_VIDEO_FACE_X+AIM_MEMBER_VIDEO_FACE_WIDTH,	AIM_MEMBER_VIDEO_FACE_Y+AIM_MEMBER_VIDEO_FACE_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
-			DisplayWrappedString(AIM_MEMBER_VIDEO_FACE_X, AIM_MEMBER_VIDEO_FACE_Y+20, AIM_MEMBER_VIDEO_FACE_WIDTH, 2, FONT14ARIAL, 145,	AimPopUpText[AIM_MEMBER_LEAVE_MSG], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-			InvalidateRegion(AIM_MEMBER_VIDEO_FACE_X,AIM_MEMBER_VIDEO_FACE_Y, AIM_MEMBER_VIDEO_FACE_X+AIM_MEMBER_VIDEO_FACE_WIDTH,AIM_MEMBER_VIDEO_FACE_Y+AIM_MEMBER_VIDEO_FACE_HEIGHT);
-
-			ubSubImage ++;
-			if( ubSubImage == ubNumSubImages * 2)
-			{
-				ubSubImage = 0;
-				ubMode=0;
-				return(TRUE);
-			}
-		}
-
-
-		//reset clock
-		uiLastTime = GetJA2Clock();
-	}
-
-	return(FALSE);
-}
-*/
-
 void ResetMercAnnoyanceAtPlayer( UINT8 ubMercID )
 {
 	//if merc is still annoyed, reset back to 0
@@ -4170,54 +4022,34 @@ BOOLEAN DisableNewMailMessage()
 BOOLEAN DisplayMovingTitleBar(BOOLEAN fForward, BOOLEAN fInit )
 {
 	static 	UINT8			ubCount;
-	UINT16		usPosX, usPosY, usPosRightX, usPosBottomY, usWidth, usHeight;
+	UINT16		usWidth, usHeight;
 	SGPRect		SrcRect;
 	SGPRect		DestRect;
 	static SGPRect		LastRect;
-	FLOAT		usTemp;
+	const auto layout = CurrentAimVideoConferenceLayout();
+	constexpr auto iterations =
+		AimWebsiteLayoutModel::VideoConferenceLayout::kTitleAnimationIterations;
 
 	if( fForward )
 	{
 		if( fInit )
 			ubCount = 1;
-
-		usTemp = (331 - 125) / (FLOAT)AIM_MEMBER_VIDEO_TITLE_ITERATIONS ;
-		usPosX = (UINT16)(331 - usTemp * ubCount);
-
-		usTemp = (490 - 405) / (FLOAT)AIM_MEMBER_VIDEO_TITLE_ITERATIONS;
-		usPosRightX = (UINT16)(405 + usTemp * ubCount);
-
-		usTemp = (AIM_MEMBER_VIDEO_TITLE_START_Y - 96) / (FLOAT)AIM_MEMBER_VIDEO_TITLE_ITERATIONS;
-		usPosY = (UINT16)(AIM_MEMBER_VIDEO_TITLE_START_Y - usTemp * ubCount);
-
-		usPosBottomY = AIM_MEMBER_VIDEO_TITLE_BAR_HEIGHT;
 	}
 	else
 	{
 		if( fInit )
-			ubCount = AIM_MEMBER_VIDEO_TITLE_ITERATIONS - 1;
-
-		usTemp = (331 - 125) / (FLOAT)AIM_MEMBER_VIDEO_TITLE_ITERATIONS ;
-		usPosX = (UINT16)(331 - usTemp * ubCount);
-
-		usTemp = (490 - 405) / (FLOAT)AIM_MEMBER_VIDEO_TITLE_ITERATIONS;
-		usPosRightX = (UINT16)(405 + usTemp * ubCount);
-
-		usTemp = (AIM_MEMBER_VIDEO_TITLE_START_Y - 96) / (FLOAT)AIM_MEMBER_VIDEO_TITLE_ITERATIONS;
-		usPosY = (UINT16)(AIM_MEMBER_VIDEO_TITLE_START_Y - usTemp * ubCount);
-
-		usPosBottomY = AIM_MEMBER_VIDEO_TITLE_BAR_HEIGHT;
+			ubCount = static_cast<UINT8>(iterations - 1);
 	}
 
-		SrcRect.iLeft = 0;
-		SrcRect.iTop = 0;
-		SrcRect.iRight = AIM_MEMBER_VIDEO_TITLE_BAR_WIDTH;
-		SrcRect.iBottom = AIM_MEMBER_VIDEO_TITLE_BAR_HEIGHT;
-
-		DestRect.iLeft = iScreenWidthOffset + usPosX;
-		DestRect.iTop = iScreenHeightOffset + usPosY;
-		DestRect.iRight = iScreenWidthOffset + usPosRightX;
-		DestRect.iBottom = DestRect.iTop + usPosBottomY;
+	const auto frame = layout.titleFrame(ubCount);
+	SrcRect.iLeft = layout.titleBarSource.x;
+	SrcRect.iTop = layout.titleBarSource.y;
+	SrcRect.iRight = layout.titleBarSource.right();
+	SrcRect.iBottom = layout.titleBarSource.bottom();
+	DestRect.iLeft = frame.x;
+	DestRect.iTop = frame.y;
+	DestRect.iRight = frame.right();
+	DestRect.iBottom = frame.bottom();
 
 	if( fForward )
 	{
@@ -4240,7 +4072,7 @@ BOOLEAN DisplayMovingTitleBar(BOOLEAN fForward, BOOLEAN fInit )
 	else
 	{
 		//Restore the old rect
-		if( ubCount < AIM_MEMBER_VIDEO_TITLE_ITERATIONS - 2 )
+		if( ubCount < iterations - 2 )
 		{
 			usWidth = (UINT16)(LastRect.iRight - LastRect.iLeft);
 			usHeight = (UINT16)(LastRect.iBottom - LastRect.iTop);
@@ -4248,7 +4080,7 @@ BOOLEAN DisplayMovingTitleBar(BOOLEAN fForward, BOOLEAN fInit )
 		}
 
 		//Save rectangle
-		if( ubCount < AIM_MEMBER_VIDEO_TITLE_ITERATIONS - 1 )
+		if( ubCount < iterations - 1 )
 		{
 			usWidth = (UINT16)(DestRect.iRight - DestRect.iLeft);
 			usHeight = (UINT16)(DestRect.iBottom - DestRect.iTop);
@@ -4268,7 +4100,7 @@ BOOLEAN DisplayMovingTitleBar(BOOLEAN fForward, BOOLEAN fInit )
 	if( fForward )
 	{
 		ubCount++;
-		if( ubCount == AIM_MEMBER_VIDEO_TITLE_ITERATIONS-1)
+		if( ubCount == iterations-1)
 			return(TRUE);
 		else
 			return(FALSE);
@@ -4509,7 +4341,7 @@ void HandleAimMemberKeyBoardInput()
 				case LEFTARROW:
 				case 'a':
 					// previous button
-					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 					if( gbCurrentIndex > 0)
 					{
@@ -4531,7 +4363,7 @@ void HandleAimMemberKeyBoardInput()
 				case RIGHTARROW:
 				case 'd':
 					// next button
-					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 					if( gbCurrentIndex < MAX_NUMBER_MERCS - 1 )
 					{
@@ -4553,7 +4385,7 @@ void HandleAimMemberKeyBoardInput()
 				case SHIFT_LEFTARROW:
 				case 'A':
 					// previous button
-					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 					if( gbCurrentIndex > 0)
 					{
@@ -4575,7 +4407,7 @@ void HandleAimMemberKeyBoardInput()
 				case SHIFT_RIGHTARROW:
 				case 'D':
 					// next button
-					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 					if( gbCurrentIndex < MAX_NUMBER_MERCS - 1 )
 					{
@@ -4605,7 +4437,7 @@ void HandleAimMemberKeyBoardInput()
 							//gubVideoConferencingMode = AIM_VIDEO_INIT_MODE;
 							gfFirstTimeInContactScreen = TRUE;
 						}
-						InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+						InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 					}
 				break;
 				case BACKSPACE:
@@ -4690,7 +4522,7 @@ void HandleAimMemberKeyBoardInput()
 				case LEFTARROW:
 				case 'a':
 					// previous button
-					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 					if( gbCurrentIndex > 0)
 						gbCurrentIndex--;
@@ -4707,7 +4539,7 @@ void HandleAimMemberKeyBoardInput()
 				case RIGHTARROW:
 				case 'd':
 					// next button
-					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 					if( gbCurrentIndex < MAX_NUMBER_MERCS -1 )
 						gbCurrentIndex++;
@@ -4724,7 +4556,7 @@ void HandleAimMemberKeyBoardInput()
 				case SHIFT_LEFTARROW:
 				case 'A':
 					// previous button
-					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 					if( gbCurrentIndex > 0)
 						gbCurrentIndex = __max(gbCurrentIndex - 10, 0);
@@ -4741,7 +4573,7 @@ void HandleAimMemberKeyBoardInput()
 				case SHIFT_RIGHTARROW:
 				case 'D':
 					// next button
-					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0, 0, 0);
+					InitCreateDeleteAimPopUpBox(AIM_POPUP_DELETE, NULL, NULL, 0);
 
 					if( gbCurrentIndex < MAX_NUMBER_MERCS - 1 )
 						gbCurrentIndex = __min(MAX_NUMBER_MERCS - 1, gbCurrentIndex + 10);
@@ -4802,35 +4634,6 @@ void WaitForMercToFinishTalkingOrUserToClick()
 	gfStopMercFromTalking = FALSE;
 }
 
-
-
-
-/*
-BOOLEAN DisplayShadedStretchedMercFace( UINT8 ubMercID, UINT16 usPosX, UINT16 usPosY )
-{
-	SGPRect		SrcRect;
-	SGPRect		DestRect;
-
-
-	//Test
-	SrcRect.iLeft = 0;
-	SrcRect.iTop = 0;
-	SrcRect.iRight = 48;
-	SrcRect.iBottom = 43;
-
-	DestRect.iLeft = AIM_MEMBER_VIDEO_FACE_X;
-	DestRect.iTop = AIM_MEMBER_VIDEO_FACE_Y;
-	DestRect.iRight = DestRect.iLeft + AIM_MEMBER_VIDEO_FACE_WIDTH;
-	DestRect.iBottom = DestRect.iTop + AIM_MEMBER_VIDEO_FACE_HEIGHT;
-
-
-	if(	!BltStretchVideoSurface(FRAME_BUFFER, guiVideoFaceBackground, 0, 0, VO_BLT_SRCTRANSPARENCY, &SrcRect, &DestRect ) )
-		return(FALSE);
-
-
-	return( TRUE );
-}
-*/
 
 
 
@@ -4987,20 +4790,20 @@ void DisplayAimMemberClickOnFaceHelpText(const Layout& layout)
 
 	DrawTextToScreen(AimMemberText[0], layout.help.leftClick.origin.x,
 		layout.help.leftClick.origin.y, layout.help.leftClick.width,
-		AIM_FI_HELP_TITLE_FONT, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK,
+		FONT12ARIAL, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK,
 		FALSE, CENTER_JUSTIFIED);
 	DrawTextToScreen(AimMemberText[1], layout.help.leftClick.origin.x,
 		layout.help.leftClick.origin.y + layout.help.descriptionOffsetY,
-		layout.help.leftClick.width, AIM_FI_HELP_FONT, AIM_FONT_MCOLOR_WHITE,
+		layout.help.leftClick.width, FONT10ARIAL, AIM_FONT_MCOLOR_WHITE,
 		FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 	//display the 'right click' onscreen help msg
 	DrawTextToScreen(AimMemberText[2], layout.help.rightClick.origin.x,
 		layout.help.rightClick.origin.y, layout.help.rightClick.width,
-		AIM_FI_HELP_TITLE_FONT, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK,
+		FONT12ARIAL, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK,
 		FALSE, CENTER_JUSTIFIED);
 	DrawTextToScreen(AimMemberText[3], layout.help.rightClick.origin.x,
 		layout.help.rightClick.origin.y + layout.help.descriptionOffsetY,
-		layout.help.rightClick.width, AIM_FI_HELP_FONT, AIM_FONT_MCOLOR_WHITE,
+		layout.help.rightClick.width, FONT10ARIAL, AIM_FONT_MCOLOR_WHITE,
 		FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 
 	// Buggler: skills/traits tooltip on merc portrait

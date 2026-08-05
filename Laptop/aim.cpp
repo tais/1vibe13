@@ -14,6 +14,7 @@
 	#include "english.h"
 	#include "sysutil.h"
 	#include "LaptopPageResourceOwner.h"
+	#include "AimWebsiteLayout.h"
 
 #include "LocalizedStrings.h"
 #include <soldier profile type.h>
@@ -208,6 +209,14 @@ namespace
 LaptopPageResourceOwner gAimPageResources;
 LaptopPageResourceOwner gAimDefaultResources;
 LaptopPageResourceOwner gAimMenuResources;
+
+AimWebsiteLayoutModel::AimDefaultsLayout CurrentAimDefaultsLayout()
+{
+	return AimWebsiteLayoutModel::MakeAimDefaultsLayout(
+		gGameExternalOptions.gfUseNewStartingGearInterface != FALSE,
+		{iScreenWidthOffset, iScreenHeightOffset,
+		 IMAGE_OFFSET_X, IMAGE_OFFSET_Y, LAPTOP_SCREEN_WEB_DELTA_Y});
+}
 }
 
 //Hotkey Assignment
@@ -468,6 +477,7 @@ BOOLEAN InitAimDefaults()
 {
 	VOBJECT_DESC	VObjectDesc;
 	LaptopPageResourceOwner stagedResources;
+	const auto layout = CurrentAimDefaultsLayout();
 
 	gAimDefaultResources.clear();
 
@@ -483,7 +493,7 @@ BOOLEAN InitAimDefaults()
 		GetMLGFilename( VObjectDesc.ImageFile, MLG_AIMSYMBOL_SMALL );
 		CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiAimSymbol));
 		//Mouse region for the Links
-		MSYS_DefineRegion( &gSelectedAimLogo, AIM_SYMBOL_SMALL_X, AIM_SYMBOL_SMALL_Y, AIM_SYMBOL_SMALL_X+AIM_SYMBOL_SMALL_WIDTH, AIM_SYMBOL_SMALL_Y+AIM_SYMBOL_SMALL_HEIGHT, MSYS_PRIORITY_HIGH,
+		MSYS_DefineRegion( &gSelectedAimLogo, layout.logo.x, layout.logo.y, layout.logo.right(), layout.logo.bottom(), MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectAimLogoRegionCallBack);
 		CHECKF(stagedResources.addRegion(gSelectedAimLogo));
 	}
@@ -493,7 +503,7 @@ BOOLEAN InitAimDefaults()
 		GetMLGFilename( VObjectDesc.ImageFile, MLG_AIMSYMBOL );
 		CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiAimSymbol));
 		//Mouse region for the Links
-		MSYS_DefineRegion( &gSelectedAimLogo, AIM_SYMBOL_X, AIM_SYMBOL_Y, AIM_SYMBOL_X+AIM_SYMBOL_WIDTH, AIM_SYMBOL_Y+AIM_SYMBOL_HEIGHT, MSYS_PRIORITY_HIGH,
+		MSYS_DefineRegion( &gSelectedAimLogo, layout.logo.x, layout.logo.y, layout.logo.right(), layout.logo.bottom(), MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectAimLogoRegionCallBack);
 		CHECKF(stagedResources.addRegion(gSelectedAimLogo));
 	}
@@ -514,34 +524,23 @@ BOOLEAN DrawAimDefaults()
 {
 	HVOBJECT hRustBackGroundHandle;
 	HVOBJECT hAimSymbolHandle;
-	UINT16	x,y, uiPosX, uiPosY;
+	const auto layout = CurrentAimDefaultsLayout();
 
 	// Blt the rust background
 	GetVideoObject(&hRustBackGroundHandle, guiRustBackGround);
 
-	uiPosY = RUSTBACKGROUND_1_Y;
-	for(y=0; y<4; y++)
+	for(std::size_t tileIndex = 0;
+		tileIndex < layout.backgroundTileCount(); ++tileIndex)
 	{
-		uiPosX = RUSTBACKGROUND_1_X;
-		for(x=0; x<4; x++)
-		{
-		BltVideoObject(FRAME_BUFFER, hRustBackGroundHandle, 0,uiPosX, uiPosY, VO_BLT_SRCTRANSPARENCY,NULL);
-			uiPosX += RUSTBACKGROUND_SIZE_X;
-		}
-		uiPosY += RUSTBACKGROUND_SIZE_Y;
+		const auto tile = layout.backgroundTile(tileIndex);
+		BltVideoObject(FRAME_BUFFER, hRustBackGroundHandle, 0,
+			tile.x, tile.y, VO_BLT_SRCTRANSPARENCY,NULL);
 	}
 
 	// Aim Symbol
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
-	{
-		GetVideoObject(&hAimSymbolHandle, guiAimSymbol);
-		BltVideoObject(FRAME_BUFFER, hAimSymbolHandle, 0,AIM_SYMBOL_SMALL_X, AIM_SYMBOL_SMALL_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-	}
-	else
-	{
-		GetVideoObject(&hAimSymbolHandle, guiAimSymbol);
-		BltVideoObject(FRAME_BUFFER, hAimSymbolHandle, 0,AIM_SYMBOL_X, AIM_SYMBOL_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-	}
+	GetVideoObject(&hAimSymbolHandle, guiAimSymbol);
+	BltVideoObject(FRAME_BUFFER, hAimSymbolHandle, 0,
+		layout.logo.x, layout.logo.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	return(TRUE);
 }

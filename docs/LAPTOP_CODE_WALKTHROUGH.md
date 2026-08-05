@@ -847,7 +847,7 @@ Focused model tests cover the failure latch; real headless FileMan/button tests
 cover missing, truncated, unterminated, and invalid-handle paths. Architecture
 ratchets preserve the complete failure chain.
 
-## Post-closure A.I.M. member-profile layout organization
+## Post-closure Laptop visual-layout organization
 
 The A.I.M. member page previously encoded its fixed-pixel artwork geometry in
 more than 200 preprocessor definitions. The legacy and expanded-equipment
@@ -860,19 +860,45 @@ The stat dot leaders were also fixed to the original 640-pixel screen origin,
 so unlike the surrounding panel they did not follow a centered widescreen
 offset.
 
-`AimMemberProfileLayoutModel` now derives both variants from one explicit set
-of screen and web-canvas anchors. Typed rectangles and text areas describe the
-portrait, stats, pricing, biography, equipment grid, kit selector, help text,
-and navigation controls. Entry-time mouse regions and run-time rendering
-consume the same selected `Layout`; equipment slots use one tested row-major
-cell mapping; and shared behavior is rendered once. The animated video-call
-overlay remains a separate stateful coordinate subsystem and can be organized
-independently without coupling it to the static profile composition.
+The dependency-free `LaptopLayoutModel` now supplies the common point,
+rectangle, text-area, containment, and overlap vocabulary. On top of it,
+`AimMemberProfileLayoutModel` derives both profile variants from one explicit
+set of screen and web-canvas anchors. Typed geometry describes the portrait,
+stats, pricing, biography, equipment grid, kit selector, help text, and
+navigation controls. Entry-time mouse regions and run-time rendering consume
+the same selected `Layout`; equipment slots use one tested row-major cell
+mapping; and shared behavior is rendered once.
+
+`AimWebsiteLayoutModel` finishes the rest of the coupled A.I.M. geometry. The
+default logo rectangle is shared by drawing and its link hitbox; rust tiles use
+one row-major canvas; and the stateful video conference derives its terminal,
+portrait, contract/equipment/contact/authorization controls, selection lights,
+message popup, and animated title frames from one layout. Facial Index drawing,
+hitboxes, nicknames, status overlays, help text, and keyboard/mouse pagination
+share one 8-by-5 grid and bounded page model. Policies likewise uses the same
+sequences for its table-of-contents drawing and regions and for its navigation
+and agreement buttons.
+
+That consolidation exposed two real Facial Index hazards. Activating the page
+button destroys and recreates its own `GUI_BUTTON`; the callback now returns
+immediately instead of invalidating through that retired pointer. Loops over
+the configurable 255-profile range now use `std::size_t` instead of an 8-bit
+counter that could wrap forever. Stale page starts normalize safely and a
+partial final page creates and renders only live profile slots.
+
+The same layout boundary now covers the remaining cross-consumer service-site
+geometry. `MercFilesLayoutModel` gives the M.E.R.C. Files equipment artwork,
+backgrounds, count text, tooltip regions, and five kit buttons one tested
+7-by-3 grid and stride. `FloristSiteModel` gives card drawing and hitboxes one
+3-by-3 grid and gives flower buttons, titles, prices, and descriptions one row
+sequence. All of these models follow the centered Laptop screen/web anchors.
 
 The artwork, authored pixel positions, localized text, equipment capacity,
-profile data, and campaign behavior are unchanged. A dependency-free headless
-test pins exact legacy and expanded coordinates, containment, non-overlap,
-row/column mapping, layout rhythm, and centered-screen translation.
-Architecture and ASan ratchets preserve the typed model, its production
-integration, removal of the parallel macro families, and focused test
-admission.
+profile data, and campaign behavior are unchanged. Remaining fixed constants
+describe page-specific artwork or text flow; geometry consumed by more than one
+drawing, input, invalidation, or control path belongs in a typed layout. Focused
+dependency-free tests pin exact legacy and expanded coordinates, containment,
+non-overlap, row/column mapping, pagination, animation interpolation, layout
+rhythm, and centered-screen translation. Architecture and ASan ratchets
+preserve the models, their production integrations, removal of the parallel
+macro families, and focused test admission.

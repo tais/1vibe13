@@ -1885,6 +1885,93 @@ foreach(required_merc_navigation_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# M.E.R.C. Files derives its equipment cells, item/count origins, tooltip
+# hitboxes, background tiles, and five kit buttons from one value-only layout.
+file(READ "${SOURCE_ROOT}/Laptop/MercFilesLayout.h"
+  runtime_merc_files_layout_contents)
+foreach(required_merc_files_layout_fragment IN ITEMS
+    "namespace MercFilesLayoutModel"
+    "struct InventoryLayout"
+    "struct KitButtonLayout"
+    "struct Layout"
+    "kInventoryCapacity = 21"
+    "kKitButtonCount = 5"
+    "constexpr Layout MakeLayout"
+    "constexpr Rect cell"
+    "constexpr Point contentOrigin"
+    "constexpr Point countTextOrigin"
+    "constexpr Rect button")
+  string(FIND "${runtime_merc_files_layout_contents}"
+    "${required_merc_files_layout_fragment}"
+    required_merc_files_layout_position)
+  if(required_merc_files_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. Files layout lost '${required_merc_files_layout_fragment}'")
+  endif()
+endforeach()
+foreach(required_merc_files_layout_integration_fragment IN ITEMS
+    "#include \"MercFilesLayout.h\""
+    "CurrentMercFilesLayout()"
+    "layout.inventory.cell"
+    "layout.inventory.contentOrigin"
+    "layout.inventory.countTextOrigin"
+    "layout.kitButtons.button"
+    "CurrentMercFilesLayout().inventory")
+  string(FIND "${runtime_merc_files_contents}"
+    "${required_merc_files_layout_integration_fragment}"
+    required_merc_files_layout_integration_position)
+  if(required_merc_files_layout_integration_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. Files bypassed shared geometry '${required_merc_files_layout_integration_fragment}'")
+  endif()
+endforeach()
+foreach(retired_merc_files_coordinate IN ITEMS
+    "MERC_WEAPONBOX_X_NSGI"
+    "MERC_WEAPONBOX_COLUMNS"
+    "MERC_WEAPONBOX_LOADOUT_ONE_X"
+    "MERC_WEAPONBOX_LOADOUT_FIVE_X")
+  string(FIND "${runtime_merc_files_contents}"
+    "${retired_merc_files_coordinate}"
+    retired_merc_files_coordinate_position)
+  if(NOT retired_merc_files_coordinate_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. Files restored retired coordinate family '${retired_merc_files_coordinate}'")
+  endif()
+endforeach()
+foreach(required_merc_files_layout_test_build_fragment IN ITEMS
+    "merc_files_layout_tests.cpp"
+    "merc_files_layout")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_merc_files_layout_test_build_fragment}"
+    required_merc_files_layout_test_build_position)
+  if(required_merc_files_layout_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. Files layout lost focused test target '${required_merc_files_layout_test_build_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "merc_files_layout_tests" required_merc_files_layout_ci_position)
+if(required_merc_files_layout_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the M.E.R.C. Files layout target")
+endif()
+file(READ "${SOURCE_ROOT}/tests/merc_files_layout_tests.cpp"
+  runtime_merc_files_layout_test_contents)
+foreach(required_merc_files_layout_test_fragment IN ITEMS
+    "inventory drawing, backgrounds, and hitboxes share one row-major grid"
+    "item artwork and count text preserve their exact cell-relative offsets"
+    "every M.E.R.C. inventory hitbox stays inside the page bounds"
+    "all five M.E.R.C. loadout buttons derive from one tested stride"
+    "M.E.R.C. inventory and loadout geometry follows centered-screen offsets")
+  string(FIND "${runtime_merc_files_layout_test_contents}"
+    "${required_merc_files_layout_test_fragment}"
+    required_merc_files_layout_test_position)
+  if(required_merc_files_layout_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "M.E.R.C. Files layout tests lost '${required_merc_files_layout_test_fragment}'")
+  endif()
+endforeach()
+
 # Florist and Funeral form one transactionally owned service-site cluster.
 # Gallery/destination indices remain safe across re-entry and mutable XML
 # content, localized text cannot underflow its centering calculation, and the
@@ -1922,12 +2009,32 @@ foreach(required_florist_model_fragment IN ITEMS
     "NextFloristGalleryPageStart"
     "PreviousFloristGalleryPageStart"
     "FloristGalleryPageNumber"
-    "CenteredFloristTextOffset")
+    "CenteredFloristTextOffset"
+    "struct FloristCardGrid"
+    "struct FloristGalleryRow"
+    "MakeFloristCardsLayout"
+    "MakeFloristGalleryLayout")
   string(FIND "${runtime_florist_site_model_contents}"
     "${required_florist_model_fragment}" required_florist_model_position)
   if(required_florist_model_position EQUAL -1)
     message(FATAL_ERROR
       "Florist site model lost '${required_florist_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/florist Cards.cpp"
+  runtime_florist_cards_contents)
+foreach(required_florist_cards_layout_fragment IN ITEMS
+    "CurrentFloristCardsLayout()"
+    "layout.cards.card"
+    "layout.title"
+    "layout.backButton")
+  string(FIND "${runtime_florist_cards_contents}"
+    "${required_florist_cards_layout_fragment}"
+    required_florist_cards_layout_position)
+  if(required_florist_cards_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "Florist cards bypassed shared geometry '${required_florist_cards_layout_fragment}'")
   endif()
 endforeach()
 
@@ -1941,6 +2048,8 @@ foreach(required_florist_gallery_fragment IN ITEMS
     "NextFloristGalleryPageStart("
     "PreviousFloristGalleryPageStart("
     "FloristGalleryPageNumber("
+    "CurrentFloristGalleryLayout()"
+    "layout.row"
     "if (swscanf(sTemp, L\"%hu\", &usPrice) != 1) usPrice = 0")
   string(FIND "${runtime_florist_gallery_contents}"
     "${required_florist_gallery_fragment}"
@@ -1948,6 +2057,21 @@ foreach(required_florist_gallery_fragment IN ITEMS
   if(required_florist_gallery_position EQUAL -1)
     message(FATAL_ERROR
       "Florist gallery safety lost '${required_florist_gallery_fragment}'")
+  endif()
+endforeach()
+foreach(retired_florist_coordinate IN ITEMS
+    "FLORIST_CARD_FIRST_POS_X"
+    "FLORIST_CARD_FIRST_OFFSET_X"
+    "FLOR_GALLERY_FLOWER_BUTTON_X"
+    "FLOR_GALLERY_FLOWER_BUTTON_OFFSET_Y"
+    "FLOR_GALLERY_FLOWER_TITLE_X")
+  string(FIND
+    "${runtime_florist_cards_contents}${runtime_florist_gallery_contents}"
+    "${retired_florist_coordinate}"
+    retired_florist_coordinate_position)
+  if(NOT retired_florist_coordinate_position EQUAL -1)
+    message(FATAL_ERROR
+      "Florist restored retired coordinate family '${retired_florist_coordinate}'")
   endif()
 endforeach()
 string(FIND "${runtime_florist_gallery_contents}"
@@ -2020,7 +2144,10 @@ foreach(required_florist_test_fragment IN ITEMS
     "flower delivery meanwhile scenes remain Arulco-only"
     "Florist selections clamp empty and stale content indices"
     "Florist gallery navigation stays within its final partial page"
-    "Florist and Funeral localized text centering cannot underflow")
+    "Florist and Funeral localized text centering cannot underflow"
+    "Florist card drawing and hitboxes share one row-major grid"
+    "Florist gallery buttons and descriptions share one row sequence"
+    "Florist layout follows centered-screen offsets")
   string(FIND "${runtime_florist_test_contents}"
     "${required_florist_test_fragment}" required_florist_test_position)
   if(required_florist_test_position EQUAL -1)
@@ -3715,22 +3842,40 @@ foreach(required_laptop_closure_documentation_fragment IN ITEMS
   endif()
 endforeach()
 
+# Laptop visual-layout models share dependency-free points, rectangles, text
+# areas, and containment helpers instead of redefining geometry primitives.
+file(READ "${SOURCE_ROOT}/Laptop/LaptopLayout.h"
+  runtime_laptop_layout_contents)
+foreach(required_laptop_layout_fragment IN ITEMS
+    "namespace LaptopLayoutModel"
+    "struct Point"
+    "struct Rect"
+    "struct TextArea"
+    "constexpr bool Contains"
+    "constexpr bool Overlaps")
+  string(FIND "${runtime_laptop_layout_contents}"
+    "${required_laptop_layout_fragment}" required_laptop_layout_position)
+  if(required_laptop_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "Shared Laptop layout primitives lost '${required_laptop_layout_fragment}'")
+  endif()
+endforeach()
+
 # A.I.M.'s static member-profile composition has one dependency-free geometry
 # model. Drawing, hitboxes, invalidation, and both equipment variants must keep
 # selecting the same layout instead of restoring parallel coordinate macros.
 file(READ "${SOURCE_ROOT}/Laptop/AimMemberProfileLayout.h"
   runtime_aim_member_profile_layout_contents)
 foreach(required_aim_member_profile_layout_fragment IN ITEMS
+    "#include \"LaptopLayout.h\""
     "namespace AimMemberProfileLayoutModel"
-    "struct Rect"
+    "using LaptopLayoutModel::Rect"
     "struct StatsLayout"
     "struct InventoryLayout"
     "struct NavigationLayout"
     "struct Layout"
     "kExpandedInventoryCapacity = 21"
     "constexpr Layout MakeLayout"
-    "constexpr bool Contains"
-    "constexpr bool Overlaps"
     "constexpr Rect cell")
   string(FIND "${runtime_aim_member_profile_layout_contents}"
     "${required_aim_member_profile_layout_fragment}"
@@ -3741,8 +3886,176 @@ foreach(required_aim_member_profile_layout_fragment IN ITEMS
   endif()
 endforeach()
 
+# A.I.M.'s remaining site-wide geometry is organized independently from the
+# member profile but uses the same primitives. Default artwork, video-call
+# state, Facial Index pagination/grid geometry, and Policies controls must keep
+# drawing and input on the same selected layouts.
+file(READ "${SOURCE_ROOT}/Laptop/AimWebsiteLayout.h"
+  runtime_aim_website_layout_contents)
+foreach(required_aim_website_layout_fragment IN ITEMS
+    "namespace AimWebsiteLayoutModel"
+    "struct AimDefaultsLayout"
+    "MakeAimDefaultsLayout"
+    "struct VideoConferenceLayout"
+    "MakeVideoConferenceLayout"
+    "titleFrame(std::size_t frame)"
+    "struct FacialIndexGrid"
+    "MakeFacialIndexLayout"
+    "FacialIndexPageCount"
+    "NormalizeFacialIndexPageStart"
+    "NextFacialIndexPageStart"
+    "PreviousFacialIndexPageStart"
+    "FacialIndexVisibleSlotCount"
+    "FacialIndexPageTextIndex"
+    "struct PolicyLayout"
+    "MakePolicyLayout")
+  string(FIND "${runtime_aim_website_layout_contents}"
+    "${required_aim_website_layout_fragment}"
+    required_aim_website_layout_position)
+  if(required_aim_website_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. website layout lost '${required_aim_website_layout_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/Laptop/AimMembers.cpp"
   runtime_aim_member_profile_contents)
+file(READ "${SOURCE_ROOT}/Laptop/AimFacialIndex.cpp"
+  runtime_aim_facial_index_contents)
+file(READ "${SOURCE_ROOT}/Laptop/AimPolicies.cpp"
+  runtime_aim_policies_contents)
+file(READ "${SOURCE_ROOT}/Laptop/aim.cpp"
+  runtime_aim_defaults_contents)
+foreach(required_aim_members_video_layout_fragment IN ITEMS
+    "CurrentAimVideoConferenceLayout()"
+    "layout.titleFrame"
+    "layout.contractButtons.at")
+  string(FIND "${runtime_aim_member_profile_contents}"
+    "${required_aim_members_video_layout_fragment}"
+    required_aim_members_video_layout_position)
+  if(required_aim_members_video_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. Members bypassed video geometry '${required_aim_members_video_layout_fragment}'")
+  endif()
+endforeach()
+foreach(required_aim_facial_index_layout_fragment IN ITEMS
+    "CurrentAimFacialIndexLayout()"
+    "layout.grid.cell"
+    "ChangeAimFacialIndexPage"
+    "FacialIndexVisibleSlotCount"
+    "for (std::size_t i = 0; i < MAX_NUMBER_MERCS; ++i)")
+  string(FIND "${runtime_aim_facial_index_contents}"
+    "${required_aim_facial_index_layout_fragment}"
+    required_aim_facial_index_layout_position)
+  if(required_aim_facial_index_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. Facial Index bypassed shared geometry '${required_aim_facial_index_layout_fragment}'")
+  endif()
+endforeach()
+string(REPLACE "\r" "" runtime_aim_facial_index_normalized_contents
+  "${runtime_aim_facial_index_contents}")
+string(FIND "${runtime_aim_facial_index_normalized_contents}"
+  "ChangeAimFacialIndexPage(true);\n\t\t\treturn;"
+  aim_facial_index_callback_return_position)
+if(aim_facial_index_callback_return_position EQUAL -1)
+  message(FATAL_ERROR
+    "A.I.M. Facial Index page callback can reuse its destroyed GUI button")
+endif()
+foreach(required_aim_policy_layout_fragment IN ITEMS
+    "CurrentAimPolicyLayout()"
+    "layout.tocButtons.at")
+  string(FIND "${runtime_aim_policies_contents}"
+    "${required_aim_policy_layout_fragment}"
+    required_aim_policy_layout_position)
+  if(required_aim_policy_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. Policies bypassed shared geometry '${required_aim_policy_layout_fragment}'")
+  endif()
+endforeach()
+foreach(required_aim_defaults_layout_fragment IN ITEMS
+    "CurrentAimDefaultsLayout()"
+    "layout.logo"
+    "layout.backgroundTile")
+  string(FIND "${runtime_aim_defaults_contents}"
+    "${required_aim_defaults_layout_fragment}"
+    required_aim_defaults_layout_position)
+  if(required_aim_defaults_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. defaults bypassed shared geometry '${required_aim_defaults_layout_fragment}'")
+  endif()
+endforeach()
+foreach(retired_aim_members_video_coordinate IN ITEMS
+    "AIM_MEMBER_VIDEO_CONF_TERMINAL_X"
+    "AIM_MEMBER_BUY_CONTRACT_LENGTH_X"
+    "AIM_POPUP_BOX_X")
+  string(FIND "${runtime_aim_member_profile_contents}"
+    "${retired_aim_members_video_coordinate}"
+    retired_aim_members_video_coordinate_position)
+  if(NOT retired_aim_members_video_coordinate_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. Members restored retired coordinate family '${retired_aim_members_video_coordinate}'")
+  endif()
+endforeach()
+foreach(retired_aim_facial_index_coordinate IN ITEMS
+    "AIM_FI_FIRST_MUGSHOT_X"
+    "AIM_FI_NUM_MUGSHOTS_X")
+  string(FIND "${runtime_aim_facial_index_contents}"
+    "${retired_aim_facial_index_coordinate}"
+    retired_aim_facial_index_coordinate_position)
+  if(NOT retired_aim_facial_index_coordinate_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. Facial Index restored retired coordinate family '${retired_aim_facial_index_coordinate}'")
+  endif()
+endforeach()
+foreach(retired_aim_policy_coordinate IN ITEMS
+    "AIM_POLICY_TOC_X"
+    "AIM_POLICY_MENU_X"
+    "AIM_POLICY_AGREEMENT_X")
+  string(FIND "${runtime_aim_policies_contents}"
+    "${retired_aim_policy_coordinate}"
+    retired_aim_policy_coordinate_position)
+  if(NOT retired_aim_policy_coordinate_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. Policies restored retired coordinate family '${retired_aim_policy_coordinate}'")
+  endif()
+endforeach()
+
+foreach(required_aim_website_layout_test_build_fragment IN ITEMS
+    "aim_website_layout_tests.cpp"
+    "aim_website_layout")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_aim_website_layout_test_build_fragment}"
+    required_aim_website_layout_test_build_position)
+  if(required_aim_website_layout_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. website layout lost focused test target '${required_aim_website_layout_test_build_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "aim_website_layout_tests" required_aim_website_layout_ci_position)
+if(required_aim_website_layout_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the A.I.M. website layout target")
+endif()
+file(READ "${SOURCE_ROOT}/tests/aim_website_layout_tests.cpp"
+  runtime_aim_website_layout_test_contents)
+foreach(required_aim_website_layout_test_fragment IN ITEMS
+    "A.I.M. logo drawing and hitboxes select one variant rectangle"
+    "video terminal and face retain their exact authored geometry"
+    "title-bar animation frames preserve legacy integer interpolation"
+    "facial-index drawing and hitboxes use one row-major grid"
+    "mouse and keyboard navigation share the same wrapping page transitions"
+    "stale pages and partial final grids cannot expose nonexistent profiles"
+    "policy table-of-contents drawing and hitboxes share one vertical sequence")
+  string(FIND "${runtime_aim_website_layout_test_contents}"
+    "${required_aim_website_layout_test_fragment}"
+    required_aim_website_layout_test_position)
+  if(required_aim_website_layout_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. website layout tests lost '${required_aim_website_layout_test_fragment}'")
+  endif()
+endforeach()
+
 foreach(required_aim_member_profile_integration_fragment IN ITEMS
     "#include \"AimMemberProfileLayout.h\""
     "Layout CurrentAimMemberProfileLayout()"
@@ -3816,9 +4129,12 @@ foreach(required_aim_member_profile_test_fragment IN ITEMS
 endforeach()
 
 foreach(required_aim_member_profile_documentation_fragment IN ITEMS
-    "Post-closure A.I.M. member-profile layout organization"
+    "Post-closure Laptop visual-layout organization"
+    "LaptopLayoutModel"
     "AimMemberProfileLayoutModel"
-    "stateful coordinate subsystem")
+    "AimWebsiteLayoutModel"
+    "MercFilesLayoutModel"
+    "FloristSiteModel")
   string(FIND "${runtime_laptop_walkthrough_contents}"
     "${required_aim_member_profile_documentation_fragment}"
     required_aim_member_profile_documentation_position)
@@ -4430,8 +4746,11 @@ foreach(required_utils_architecture_fragment IN ITEMS
   endif()
 endforeach()
 foreach(required_aim_member_architecture_fragment IN ITEMS
+    "LaptopLayoutModel"
     "AimMemberProfileLayoutModel"
-    "independent stateful subsystem")
+    "AimWebsiteLayoutModel"
+    "MercFilesLayoutModel"
+    "FloristSiteModel")
   string(FIND "${runtime_engine_architecture_contents}"
     "${required_aim_member_architecture_fragment}"
     required_aim_member_architecture_position)
