@@ -1160,10 +1160,11 @@ the engine must not contain SDL types in its public domain model.
   UI ownership batch. `UtilsUiStateModel` is the dependency-free boundary for
   signed/exact-end UI indices, slider geometry, and bounded callback-ID
   mappings. Popup callbacks and definition trees now have explicit unique/deep
-  ownership; popup labels use value/reference semantics, allowing the legacy
-  address-of-temporary compiler exemption to be removed. Popup boxes, progress
-  bars, sliders, merc text boxes, nested text input, and wrapped-string lists
-  validate handles and release partial state.
+  ownership. Popup labels use value/reference semantics and Windows stack-trace
+  logging keeps a named logger value, allowing the legacy address-of-temporary
+  compiler exemption to be removed. Popup boxes, progress bars, sliders, merc
+  text boxes, nested text input, and wrapped-string lists validate handles and
+  release partial state.
   LBE popup XML parsing stages a complete definition map before publication.
   Focused model tests, real-engine headless ownership tests, AddressSanitizer,
   and architecture ratchets cover these contracts. The remaining 28 Utils

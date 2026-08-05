@@ -3692,6 +3692,13 @@ if(root_build_contents MATCHES
   message(FATAL_ERROR
     "The retired popup temporary-address warning exemption returned")
 endif()
+file(READ "${SOURCE_ROOT}/sgp/debug_win_util.cpp"
+  runtime_windows_stack_trace_contents)
+if(runtime_windows_stack_trace_contents MATCHES
+    "&[ \t\r\n]*\\([ \t\r\n]*SGP_LOG")
+  message(FATAL_ERROR
+    "Windows stack tracing restored an address of a temporary logger")
+endif()
 
 file(READ "${SOURCE_ROOT}/Utils/popup_definition.h"
   runtime_utils_popup_definition_header_contents)
