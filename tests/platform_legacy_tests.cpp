@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -144,6 +145,17 @@ bool Write(HWFILE file, const std::string& value)
 
 void NoopOverlay(VIDEO_OVERLAY*)
 {
+}
+
+int FormatLegacyWide(
+	wchar_t* destination, std::size_t capacity, const wchar_t* format, ...)
+{
+	va_list arguments;
+	va_start(arguments, format);
+	const int written = sgp_vswprintf(
+		destination, capacity, format, arguments);
+	va_end(arguments);
+	return written;
 }
 
 std::vector<UINT8> ReadFile(const char* path)
@@ -731,6 +743,18 @@ int main()
 	static_assert(SGP_PIXEL_DEPTH == 32 && sizeof(PIXEL) == 4,
 		"the shipped SDL3 platform runtime must remain ARGB8888");
 	std::printf("== platform_legacy_tests ==\n");
+	wchar_t formattedWide[32]{};
+	const int formattedWideLength = FormatLegacyWide(
+		formattedWide, std::size(formattedWide), L"%s/%S", L"wide", "narrow");
+	Check(formattedWideLength == 11 &&
+		std::wstring(formattedWide) == L"wide/narrow",
+		"bounded variadic wide formatting preserves legacy cross-platform specifiers");
+	wchar_t truncatedWide[5]{};
+	const int truncatedWideLength = FormatLegacyWide(
+		truncatedWide, std::size(truncatedWide), L"%s", L"overflow");
+	Check((truncatedWideLength < 0 || truncatedWideLength >= 5) &&
+		truncatedWide[4] == L'\0',
+		"bounded variadic wide formatting terminates rejected oversized output");
 	Check(SDL_Init(SDL_INIT_EVENTS), "SDL event subsystem initializes");
 
 	RecordingFramePresenter recordedFrames;

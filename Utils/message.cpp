@@ -18,10 +18,14 @@
 	#include "Dialogue Control.h"
 	#include <stdio.h>
 	#include "Game Clock.h"
-	#include "GameSettings.h"
-	#include "sgp_logger.h"
+#include "GameSettings.h"
+#include "sgp_logger.h"
+#include "TextInfrastructureModel.h"
 
 #include <language.hpp>
+#include <algorithm>
+#include <array>
+#include <limits>
 typedef struct
 {
 	UINT32	uiFont;
@@ -112,7 +116,7 @@ void AlignString(ScrollStringStPtr pPermStringSt);
 INT32 GetMessageQueueSize( void );
 
 ScrollStringStPtr AddString(STR16 string, UINT16 usColor, UINT32 uiFont, BOOLEAN fStartOfNewString, UINT8 ubPriority );
-void SetString(ScrollStringStPtr pStringSt, STR16 String);
+BOOLEAN SetString(ScrollStringStPtr pStringSt, STR16 String);
 
 void SetStringPosition(ScrollStringStPtr pStringSt, UINT16 x, UINT16 y);
 void SetStringColor(ScrollStringStPtr pStringSt, UINT16 color);
@@ -138,6 +142,47 @@ extern BOOLEAN fMapScreenBottomDirty;
 
 // functions
 
+namespace
+{
+	constexpr std::size_t MessageBufferCharacters = 512;
+
+	BOOLEAN FormatMessageText(
+		CHAR16 (&destination)[MessageBufferCharacters],
+		const STR16 format,
+		va_list arguments)
+	{
+		const int written = sgp_vswprintf(
+			destination, MessageBufferCharacters, format, arguments);
+		return written >= 0 &&
+			static_cast<std::size_t>(written) < MessageBufferCharacters;
+	}
+
+	void DestroyScrollString(ScrollStringStPtr& string)
+	{
+		if (!string) return;
+		if (string->pString16) MemFree(string->pString16);
+		MemFree(string);
+		string = nullptr;
+	}
+
+	struct StagedMessageList
+	{
+		std::array<ScrollStringStPtr, 256> entries{};
+
+		~StagedMessageList()
+		{
+			for (ScrollStringStPtr& entry : entries) DestroyScrollString(entry);
+		}
+	};
+
+	bool ReadExact(HWFILE file, void* destination, UINT32 bytes)
+	{
+		UINT32 bytesRead = 0;
+		FileRead(file, destination, bytes, &bytesRead);
+		return bytesRead == bytes;
+	}
+}
+
 
 void SetStringFont(ScrollStringStPtr pStringSt, UINT32 uiFont)
 {
@@ -153,10 +198,17 @@ UINT32 GetStringFont(ScrollStringStPtr pStringSt)
 ScrollStringStPtr AddString(STR16 pString, UINT16 usColor, UINT32 uiFont, BOOLEAN fStartOfNewString, UINT8 ubPriority )
 {
 	// add a new string to the list of strings
-	ScrollStringStPtr pStringSt=NULL;
-	pStringSt= (ScrollStringStPtr)MemAlloc(sizeof(ScrollStringSt));
+	if (!pString) return NULL;
+	ScrollStringStPtr pStringSt =
+		(ScrollStringStPtr)MemAlloc(sizeof(ScrollStringSt));
+	if (!pStringSt) return NULL;
+	memset(pStringSt, 0, sizeof(ScrollStringSt));
 
-	SetString(pStringSt, pString);
+	if (!SetString(pStringSt, pString))
+	{
+		MemFree(pStringSt);
+		return NULL;
+	}
 	SetStringColor(pStringSt, usColor);
 	pStringSt->uiFont = uiFont;
 	pStringSt->fBeginningOfNewString = fStartOfNewString;
@@ -173,12 +225,18 @@ ScrollStringStPtr AddString(STR16 pString, UINT16 usColor, UINT32 uiFont, BOOLEA
 }
 
 
-void SetString(ScrollStringStPtr pStringSt, STR16 pString)
+BOOLEAN SetString(ScrollStringStPtr pStringSt, STR16 pString)
 {
-	// ARM: Why x2 + 4 ???
-	pStringSt->pString16=(CHAR16 *)MemAlloc((wcslen(pString)+2)*sizeof(CHAR16));
-	wcsncpy(pStringSt->pString16, pString, wcslen(pString));
-	pStringSt->pString16[wcslen(pString)]=0;
+	if (!pStringSt || !pString) return FALSE;
+	const std::size_t length = wcslen(pString);
+	if (length >= std::numeric_limits<UINT32>::max() / sizeof(CHAR16))
+		return FALSE;
+	CHAR16* replacement = (CHAR16*)MemAlloc((length + 1) * sizeof(CHAR16));
+	if (!replacement) return FALSE;
+	memcpy(replacement, pString, (length + 1) * sizeof(CHAR16));
+	if (pStringSt->pString16) MemFree(pStringSt->pString16);
+	pStringSt->pString16 = replacement;
+	return TRUE;
 }
 
 
@@ -619,10 +677,11 @@ void ScreenMsg( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ...)
 	if ( gfDedicatedServer )
 	{
 		va_list apTee;
-		va_start( apTee, pStringA );
-		wchar_t wzTee[512];
-		vswprintf( wzTee, 512, pStringA, apTee );
-		va_end( apTee );
+			va_start( apTee, pStringA );
+			wchar_t wzTee[512];
+			const BOOLEAN formatted = FormatMessageText(wzTee, pStringA, apTee);
+			va_end( apTee );
+			if (!formatted) return;
 		// stdout is byte-oriented (printf is used elsewhere); wprintf would fail
 		// silently once the orientation is set, so convert to plain bytes.
 		char szTee[1024];
@@ -683,9 +742,11 @@ void ScreenMsg( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ...)
 
 		}
 
-		va_start(argptr, pStringA);
-		vswprintf(DestString, pStringA, argptr);
-		va_end(argptr);
+			va_start(argptr, pStringA);
+			const BOOLEAN formatted = FormatMessageText(
+				DestString, pStringA, argptr);
+			va_end(argptr);
+			if (!formatted) return;
 
 		// pass onto tactical message and mapscreen message
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("ScreenMsg start: %s", DestString));
@@ -799,8 +860,9 @@ void TacticalScreenMsg( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 			#endif
 		#endif
 		va_start(argptr, pStringA);					// Set up variable argument pointer
-		vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+		const BOOLEAN formatted = FormatMessageText(DestString, pStringA, argptr);
 		va_end(argptr);
+		if (!formatted) return;
 		WriteMessageToFile( DestString );
 	}
 
@@ -812,8 +874,9 @@ void TacticalScreenMsg( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 			return;
 		#endif
 		va_start(argptr, pStringA);					// Set up variable argument pointer
-		vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+		const BOOLEAN formatted = FormatMessageText(DestString, pStringA, argptr);
 		va_end(argptr);
+		if (!formatted) return;
 		WriteMessageToFile( DestString );
 	}
 
@@ -831,8 +894,9 @@ void TacticalScreenMsg( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 		 pStringSt=GetNextString(pStringSt);
 
 	va_start(argptr, pStringA);			// Set up variable argument pointer
-	vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+	const BOOLEAN formatted = FormatMessageText(DestString, pStringA, argptr);
 	va_end(argptr);
+	if (!formatted) return;
 
 	if ( ubPriority == MSG_DEBUG )
 	{
@@ -871,6 +935,11 @@ void TacticalScreenMsg( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 		if(!pStringSt)
 		{
 			pStringSt=AddString(pStringWrapper->sString, usColor, uiFont, fNewString, ubPriority );
+			if (!pStringSt)
+			{
+				ClearWrappedStrings(pStringWrapperHead);
+				return;
+			}
 			fNewString = FALSE;
 			pStringSt->pNext=NULL;
 			pStringSt->pPrev=NULL;
@@ -879,6 +948,11 @@ void TacticalScreenMsg( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 		else
 		{
 			pTempStringSt=AddString(pStringWrapper->sString, usColor, uiFont, fNewString, ubPriority);
+			if (!pTempStringSt)
+			{
+				ClearWrappedStrings(pStringWrapperHead);
+				return;
+			}
 			fNewString = FALSE;
 			pTempStringSt->pPrev=pStringSt;
 			pStringSt->pNext=pTempStringSt;
@@ -888,6 +962,11 @@ void TacticalScreenMsg( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 		pStringWrapper=pStringWrapper->pNextWrappedString;
 	}
 	pTempStringSt=AddString(pStringWrapper->sString, usColor, uiFont, fNewString, ubPriority );
+	if (!pTempStringSt)
+	{
+		ClearWrappedStrings(pStringWrapperHead);
+		return;
+	}
 	if(pStringSt)
 	{
 		pStringSt->pNext=pTempStringSt;
@@ -951,8 +1030,9 @@ void MapScreenMessage( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 		#endif
 
 		va_start(argptr, pStringA);			// Set up variable argument pointer
-		vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+		const BOOLEAN formatted = FormatMessageText(DestString, pStringA, argptr);
 		va_end(argptr);
+		if (!formatted) return;
 		WriteMessageToFile( DestString );
 	}
 
@@ -960,8 +1040,9 @@ void MapScreenMessage( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 	{
 		usColor = TESTVERSION_COLOR;
 		va_start(argptr, pStringA);			// Set up variable argument pointer
-		vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+		const BOOLEAN formatted = FormatMessageText(DestString, pStringA, argptr);
 		va_end(argptr);
+		if (!formatted) return;
 
 		#ifndef JA2TESTVERSION
 			return;
@@ -972,8 +1053,9 @@ void MapScreenMessage( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 	if ( ubPriority == MSG_UI_FEEDBACK )
 	{
 		va_start(argptr, pStringA);			// Set up variable argument pointer
-		vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+		const BOOLEAN formatted = FormatMessageText(DestString, pStringA, argptr);
 		va_end(argptr);
+		if (!formatted) return;
 
 		BeginUIMessage( DestString );
 		return;
@@ -982,8 +1064,9 @@ void MapScreenMessage( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 	if ( ubPriority == MSG_SKULL_UI_FEEDBACK )
 	{
 		va_start(argptr, pStringA);			// Set up variable argument pointer
-		vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+		const BOOLEAN formatted = FormatMessageText(DestString, pStringA, argptr);
 		va_end(argptr);
+		if (!formatted) return;
 
 		InternalBeginUIMessage( TRUE, DestString );
 		return;
@@ -993,10 +1076,12 @@ void MapScreenMessage( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 	if ( ubPriority == MSG_ERROR )
 	{
 		va_start(argptr, pStringA);			// Set up variable argument pointer
-		vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+		const BOOLEAN formatted = FormatMessageText(DestString, pStringA, argptr);
 		va_end(argptr);
+		if (!formatted) return;
 
-		swprintf( DestStringA, L"DEBUG: %s", DestString );
+		TextInfrastructureModel::CopyBounded(DestStringA, L"DEBUG: ");
+		TextInfrastructureModel::AppendBounded(DestStringA, DestString);
 
 		BeginUIMessage( DestStringA );
 		WriteMessageToFile( DestStringA );
@@ -1011,8 +1096,9 @@ void MapScreenMessage( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 			( ubPriority == MSG_MAP_UI_POSITION_LOWER	) )
 	{
 		va_start(argptr, pStringA);			// Set up variable argument pointer
-		vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+		const BOOLEAN formatted = FormatMessageText(DestString, pStringA, argptr);
 		va_end(argptr);
+		if (!formatted) return;
 
 		BeginMapUIMessage( ubPriority, DestString );
 		return;
@@ -1032,8 +1118,9 @@ void MapScreenMessage( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 		 pStringSt=GetNextString(pStringSt);
 
 	va_start(argptr, pStringA);			// Set up variable argument pointer
-	vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+	const BOOLEAN formatted = FormatMessageText(DestString, pStringA, argptr);
 	va_end(argptr);
+	if (!formatted) return;
 
 	if ( ubPriority == MSG_DEBUG )
 	{
@@ -1041,8 +1128,9 @@ void MapScreenMessage( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 			return;
 		#endif
 		usColor = DEBUG_COLOR;
-		wcscpy( DestStringA, DestString );
-		swprintf( DestString, L"Debug: %s", DestStringA );
+		TextInfrastructureModel::CopyBounded(DestStringA, DestString);
+		TextInfrastructureModel::CopyBounded(DestString, L"Debug: ");
+		TextInfrastructureModel::AppendBounded(DestString, DestStringA);
 	}
 
 	if ( ubPriority == MSG_DIALOG )
@@ -1102,8 +1190,14 @@ void AddStringToMapScreenMessageList( STR16 pString, UINT16 usColor, UINT32 uiFo
 
 
 	pStringSt = (ScrollStringStPtr) MemAlloc(sizeof(ScrollStringSt));
+	if (!pStringSt) return;
+	memset(pStringSt, 0, sizeof(ScrollStringSt));
 
-	SetString(pStringSt, pString);
+	if (!SetString(pStringSt, pString))
+	{
+		MemFree(pStringSt);
+		return;
+	}
 	SetStringColor(pStringSt, usColor);
 	pStringSt->uiFont = uiFont;
 	pStringSt->fBeginningOfNewString = fStartOfNewString;
@@ -1266,7 +1360,7 @@ BOOLEAN SaveMapScreenMessagesToSaveGameFile( HWFILE hFile )
 	UINT32	uiNumBytesWritten;
 	UINT32	uiCount;
 	UINT32	uiSizeOfString;
-	StringSaveStruct StringSave;
+	StringSaveStruct StringSave{};
 
 
 	//	write to the begining of the message list
@@ -1295,6 +1389,7 @@ BOOLEAN SaveMapScreenMessagesToSaveGameFile( HWFILE hFile )
 	{
 		if( gMapScreenMessageList[ uiCount ] )
 		{
+			if (!gMapScreenMessageList[uiCount]->pString16) return FALSE;
 			// sizeof(CHAR16), not a hardcoded 2: CHAR16/wchar_t is 4 bytes on
 			// macOS/Linux, so *2 wrote only half the string and no full null
 			// terminator, leaving the loaded string unterminated.
@@ -1344,130 +1439,69 @@ BOOLEAN SaveMapScreenMessagesToSaveGameFile( HWFILE hFile )
 
 BOOLEAN LoadMapScreenMessagesFromSaveGameFile( HWFILE hFile )
 {
-	UINT32	uiNumBytesRead;
-	UINT32	uiCount;
-	UINT32	uiSizeOfString;
-	StringSaveStruct StringSave;
-	CHAR16	SavedString[ 512 ];
+	UINT8 stagedEnd = 0;
+	UINT8 stagedStart = 0;
+	UINT8 stagedCurrent = 0;
+	if (!ReadExact(hFile, &stagedEnd, sizeof(stagedEnd)) ||
+		!ReadExact(hFile, &stagedStart, sizeof(stagedStart)) ||
+		!ReadExact(hFile, &stagedCurrent, sizeof(stagedCurrent)))
+		return FALSE;
 
-	// clear tactical message queue
-	ClearTacticalMessageQueue( );
-
-	gubEndOfMapScreenMessageList = 0;
-	gubStartOfMapScreenMessageList = 0;
-	gubCurrentMapMessageString = 0;
-
-	//	Read to the begining of the message list
-	FileRead( hFile, &gubEndOfMapScreenMessageList, sizeof( UINT8 ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( UINT8 ) )
+	StagedMessageList staged;
+	for (std::size_t index = 0; index < staged.entries.size(); ++index)
 	{
-		return(FALSE);
-	}
+		UINT32 stringBytes = 0;
+		if (!ReadExact(hFile, &stringBytes, sizeof(stringBytes))) return FALSE;
+		if (stringBytes == 0) continue;
+		if (!TextInfrastructureModel::CanReadSerializedText(
+				stringBytes, sizeof(CHAR16), MessageBufferCharacters))
+			return FALSE;
 
-	//	Read the current message string
-	FileRead( hFile, &gubStartOfMapScreenMessageList, sizeof( UINT8 ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( UINT8 ) )
-	{
-		return(FALSE);
-	}
+		// Zeroed trailing storage safely terminates both current saves and old
+		// saves whose historic two-byte CHAR16 assumption cut a code unit short.
+		CHAR16 savedString[MessageBufferCharacters]{};
+		if (!ReadExact(hFile, savedString, stringBytes)) return FALSE;
+		const std::size_t terminatorIndex = std::min<std::size_t>(
+			stringBytes / sizeof(CHAR16), MessageBufferCharacters - 1);
+		savedString[terminatorIndex] = L'\0';
 
-	//	Read the current message string
-	FileRead( hFile, &gubCurrentMapMessageString, sizeof( UINT8 ), &uiNumBytesRead );
-	if( uiNumBytesRead != sizeof( UINT8 ) )
-	{
-		return(FALSE);
-	}
+		StringSaveStruct saved{};
+		if (!ReadExact(hFile, &saved, sizeof(saved))) return FALSE;
 
-	//Loopthrough all the messages
-	for( uiCount=0; uiCount<256; uiCount++)
-	{
-		//	Read to the file the size of the message
-		FileRead( hFile, &uiSizeOfString, sizeof( UINT32 ), &uiNumBytesRead );
-		if( uiNumBytesRead != sizeof( UINT32 ) )
+		ScrollStringStPtr entry =
+			(ScrollStringStPtr)MemAlloc(sizeof(ScrollStringSt));
+		if (!entry) return FALSE;
+		memset(entry, 0, sizeof(ScrollStringSt));
+		if (!SetString(entry, savedString))
 		{
-			return(FALSE);
+			MemFree(entry);
+			return FALSE;
 		}
-
-		//if there is a message
-		if( uiSizeOfString )
-		{
-			//	Read the message from the file. Guard against corrupt/oversized
-			//	lengths (would overflow SavedString) and force null-termination
-			//	(saves written with the old *2 byte-size bug stored no full
-			//	4-byte terminator, leaving the string unterminated on load).
-			if( uiSizeOfString > sizeof( SavedString ) - sizeof( CHAR16 ) )
-			{
-				return(FALSE);
-			}
-			FileRead( hFile, SavedString, uiSizeOfString, &uiNumBytesRead );
-			if( uiNumBytesRead != uiSizeOfString )
-			{
-				return(FALSE);
-			}
-			SavedString[ uiSizeOfString / sizeof( CHAR16 ) ] = 0;
-
-			//if there is an existing string,delete it
-			if( gMapScreenMessageList[ uiCount ] )
-			{
-				if( gMapScreenMessageList[ uiCount ]->pString16 )
-				{
-					MemFree( gMapScreenMessageList[ uiCount ]->pString16 );
-					gMapScreenMessageList[ uiCount ]->pString16 = NULL;
-				}
-			}
-			else
-			{
-				// There is now message here, add one
-				ScrollStringSt	*sScroll;
-
-
-				sScroll = (ScrollStringSt *) MemAlloc( sizeof( ScrollStringSt ) );
-				if( sScroll == NULL )
-					return( FALSE );
-
-				memset( sScroll, 0, sizeof( ScrollStringSt ) );
-
-				gMapScreenMessageList[ uiCount ] = sScroll;
-			}
-
-			//allocate space for the new string, sized to the actual terminated
-			//string so there is always room for the null terminator (the stored
-			//uiSizeOfString can be wrong for old/cross-platform saves).
-			UINT32 uiAllocBytes = ( wcslen( SavedString ) + 1 ) * sizeof( CHAR16 );
-			gMapScreenMessageList[ uiCount ]->pString16 = (CHAR16 *) MemAlloc( uiAllocBytes );
-			if( gMapScreenMessageList[ uiCount ]->pString16 == NULL )
-				return( FALSE );
-
-			memset( gMapScreenMessageList[ uiCount ]->pString16, 0, uiAllocBytes );
-
-			//copy the string over
-			wcscpy( gMapScreenMessageList[ uiCount ]->pString16, SavedString );
-
-
-			//Read the rest of the message information to the saved game file
-			FileRead( hFile, &StringSave, sizeof( StringSaveStruct ), &uiNumBytesRead );
-			if( uiNumBytesRead != sizeof( StringSaveStruct ) )
-			{
-				return(FALSE);
-			}
-
-			// Create	the saved string struct
-			gMapScreenMessageList[ uiCount ]->uiFont = StringSave.uiFont;
-			gMapScreenMessageList[ uiCount ]->usColor = StringSave.usColor;
-			gMapScreenMessageList[ uiCount ]->uiFlags = StringSave.uiFlags;
-			gMapScreenMessageList[ uiCount ]->fBeginningOfNewString = StringSave.fBeginningOfNewString;
-			gMapScreenMessageList[ uiCount ]->uiTimeOfLastUpdate = StringSave.uiTimeOfLastUpdate;
-		}
-		else
-			gMapScreenMessageList[ uiCount ] = NULL;
-
+		entry->uiFont = saved.uiFont;
+		entry->usColor = saved.usColor;
+		entry->uiFlags = saved.uiFlags;
+		entry->fBeginningOfNewString = saved.fBeginningOfNewString;
+		entry->uiTimeOfLastUpdate = saved.uiTimeOfLastUpdate;
+		entry->iVideoOverlay = -1;
+		staged.entries[index] = entry;
 	}
 
+	// Publish only after the complete message block has been validated and
+	// allocated. A truncated or corrupt save leaves the live queues untouched.
+	ClearTacticalMessageQueue();
+	FreeGlobalMessageList();
+	for (std::size_t index = 0; index < staged.entries.size(); ++index)
+	{
+		gMapScreenMessageList[index] = staged.entries[index];
+		staged.entries[index] = nullptr;
+	}
+	gubEndOfMapScreenMessageList = stagedEnd;
+	gubStartOfMapScreenMessageList = stagedStart;
+	gubCurrentMapMessageString = stagedCurrent;
 
-	// this will set a valid value for gubFirstMapscreenMessageIndex, which isn't being saved/restored
+	// This sets the derived first-message index, which is not persisted.
 	MoveToEndOfMapScreenMessageList();
-
-	return( TRUE );
+	return TRUE;
 }
 
 
@@ -1962,8 +1996,9 @@ void DisplayLastMessage( void )
 				}
 				else if( gMapScreenMessageList[ ubCounter ]->uiFlags == MSG_DIALOG )
 				{
-					wcscat( sString, gMapScreenMessageList[ ubCounter ]->pString16 );
-					wcscat( sString, L" " );
+					TextInfrastructureModel::AppendBounded(
+						sString, gMapScreenMessageList[ubCounter]->pString16);
+					TextInfrastructureModel::AppendBounded(sString, L" ");
 				}
 
 				if( ( gMapScreenMessageList[ ubCounter ]-> fBeginningOfNewString ) )

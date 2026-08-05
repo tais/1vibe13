@@ -97,7 +97,14 @@ BOOLEAN ProcessIfMultilingualCmdLineArgDetected( STR8 str )
 	GetFileManCurrentDirectory( CurrDir );
 
 	//Build the working directory name
-	sprintf( Dir, "%s\\%s", ExecDir, LCG_WORKINGDIRECTORY );
+	const int directoryLength = snprintf(
+		Dir, sizeof(Dir), "%s\\%s", ExecDir, LCG_WORKINGDIRECTORY);
+	if (directoryLength < 0 ||
+		static_cast<size_t>(directoryLength) >= sizeof(Dir))
+	{
+		AssertMsg( 0, "Multilingual text generator working directory is too long." );
+		return FALSE;
+	}
 
 	//Set the working directory
 	if( !SetFileManCurrentDirectory( Dir ) )
@@ -105,6 +112,11 @@ BOOLEAN ProcessIfMultilingualCmdLineArgDetected( STR8 str )
 		AssertMsg( 0, "Failed to set directory location while attempting to activate multilingual text code generator." );
 		return FALSE;
 	}
+	struct RestoreCurrentDirectory
+	{
+		STR8 directory;
+		~RestoreCurrentDirectory() { SetFileManCurrentDirectory(directory); }
+	} restore{CurrDir};
 
 	//verify that all files exist
 	if( !FileExists( LCG_ENGLISHMASTERFILE ) )
@@ -135,13 +147,13 @@ BOOLEAN ProcessIfMultilingualCmdLineArgDetected( STR8 str )
 		return FALSE;
 	}
 
-	//Mission complete!	Reset the previously known directory, and return TRUE;
-	SetFileManCurrentDirectory( CurrDir );
+	// Mission complete. The scoped restorer also covers every failure path.
 	return TRUE;
 }
 
 UINT32 CountDoubleByteStringsInFile( STR8 filename )
 {
+	if (!filename || !filename[0]) return 0;
 	FILE *fp = NULL;
 	UINT32 uiNumStrings = 0;
 

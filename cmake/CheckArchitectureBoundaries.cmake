@@ -3883,13 +3883,141 @@ foreach(required_utils_ui_headless_fragment IN ITEMS
   endif()
 endforeach()
 
+# Shared text/localization infrastructure keeps buffer, persistence, and lazy-
+# load rules dependency-free, while legacy adapters publish only complete
+# state and use one explicitly counted cross-platform variadic formatter.
+file(READ "${SOURCE_ROOT}/Utils/TextInfrastructureModel.h"
+  runtime_utils_text_state_model_contents)
+foreach(required_utils_text_model_fragment IN ITEMS
+    "IsValidIndex"
+    "CopyBounded"
+    "AppendBounded"
+    "CanReadSerializedText"
+    "struct LazyLoadState"
+    "RecordLoadResult")
+  string(FIND "${runtime_utils_text_state_model_contents}"
+    "${required_utils_text_model_fragment}"
+    required_utils_text_model_position)
+  if(required_utils_text_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils text state boundary lost '${required_utils_text_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/message.cpp"
+  runtime_utils_message_contents)
+foreach(required_utils_message_fragment IN ITEMS
+    "sgp_vswprintf"
+    "struct StagedMessageList"
+    "CanReadSerializedText"
+    "terminatorIndex = std::min"
+    "FreeGlobalMessageList();"
+    "AppendBounded(sString")
+  string(FIND "${runtime_utils_message_contents}"
+    "${required_utils_message_fragment}"
+    required_utils_message_position)
+  if(required_utils_message_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils message safety boundary lost '${required_utils_message_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_utils_message_contents}"
+  "vswprintf(DestString, pStringA" retired_utils_message_format_position)
+if(NOT retired_utils_message_format_position EQUAL -1)
+  message(FATAL_ERROR
+    "Utils message restored an uncounted variadic formatting sink")
+endif()
+
+file(READ "${SOURCE_ROOT}/Utils/Text Utils.cpp"
+  runtime_utils_text_utils_contents)
+foreach(required_utils_text_utils_fragment IN ITEMS
+    "std::min<std::size_t>(gMAXITEMS_READ, MAXITEMS)"
+    "LoadItemInfo(itemId, ItemNames[itemIndex], NULL)"
+    "vfs::String::as_utf16"
+    "vfs::String::as_utf8")
+  string(FIND "${runtime_utils_text_utils_contents}"
+    "${required_utils_text_utils_fragment}"
+    required_utils_text_utils_position)
+  if(required_utils_text_utils_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils text boundary lost '${required_utils_text_utils_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/LocalizedStrings.cpp"
+  runtime_utils_localized_strings_contents)
+foreach(required_utils_localization_fragment IN ITEMS
+    "std::array<vfs::PropertyContainer, TOPIC_COUNT>"
+    "const auto common = files.find"
+    "const auto specific = files.find"
+    "RecordLoadResult(state.lifecycle, loaded)"
+    "return true;")
+  string(FIND "${runtime_utils_localized_strings_contents}"
+    "${required_utils_localization_fragment}"
+    required_utils_localization_position)
+  if(required_utils_localization_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils localization safety boundary lost '${required_utils_localization_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/utils_text_state_model_tests.cpp"
+  runtime_utils_text_model_test_contents)
+foreach(required_utils_text_model_test_fragment IN ITEMS
+    "text indices reject negative, exact-end, and oversized values"
+    "bounded text copy truncates and terminates oversized payloads"
+    "serialized message sizes accept full buffers and reject oversized payloads"
+    "failed localization loads remain retryable")
+  string(FIND "${runtime_utils_text_model_test_contents}"
+    "${required_utils_text_model_test_fragment}"
+    required_utils_text_model_test_position)
+  if(required_utils_text_model_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils text model tests lost '${required_utils_text_model_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_utils_text_headless_fragment IN ITEMS
+    "message text replacement validates input and publishes owned storage atomically"
+    "truncated map-message loads leave the live message state untouched")
+  string(FIND "${runtime_utils_ui_headless_contents}"
+    "${required_utils_text_headless_fragment}"
+    required_utils_text_headless_position)
+  if(required_utils_text_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils text headless coverage lost '${required_utils_text_headless_fragment}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/tests/platform_legacy_tests.cpp"
+  runtime_utils_text_platform_test_contents)
+foreach(required_utils_text_platform_fragment IN ITEMS
+    "bounded variadic wide formatting preserves legacy cross-platform specifiers"
+    "bounded variadic wide formatting terminates rejected oversized output")
+  string(FIND "${runtime_utils_text_platform_test_contents}"
+    "${required_utils_text_platform_fragment}"
+    required_utils_text_platform_position)
+  if(required_utils_text_platform_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils text platform coverage lost '${required_utils_text_platform_fragment}'")
+  endif()
+endforeach()
+foreach(utils_text_test_manifest IN ITEMS
+    runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
+  string(FIND "${${utils_text_test_manifest}}"
+    "utils_text_state_model_tests" required_utils_text_test_position)
+  if(required_utils_text_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils text model tests left the build or AddressSanitizer matrix")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
   runtime_utils_walkthrough_contents)
 foreach(required_utils_walkthrough_fragment IN ITEMS
     "Interactive UI ownership batch"
+    "Text and localization safety batch"
     "Remaining Utils inventory"
-    "following 28 translation units"
-    "message.cpp")
+    "following 22 translation units"
+    "TextInfrastructureModel.h")
   string(FIND "${runtime_utils_walkthrough_contents}"
     "${required_utils_walkthrough_fragment}"
     required_utils_walkthrough_position)
@@ -3903,7 +4031,8 @@ file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
 foreach(required_utils_architecture_fragment IN ITEMS
     "post-Laptop Utils refactor"
     "UtilsUiStateModel"
-    "remaining 28 Utils")
+    "TextInfrastructureModel"
+    "remaining 22 Utils")
   string(FIND "${runtime_engine_architecture_contents}"
     "${required_utils_architecture_fragment}"
     required_utils_architecture_position)

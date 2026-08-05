@@ -1156,8 +1156,8 @@ the engine must not contain SDL types in its public domain model.
   closure. Save layouts, page and data IDs, resource paths, localization,
   XML/Lua inputs, and campaign behavior remain unchanged. The detailed fault
   inventory and closure criteria live in `LAPTOP_CODE_WALKTHROUGH.md`.
-- The post-Laptop Utils refactor has started with one larger shared interactive-
-  UI ownership batch. `UtilsUiStateModel` is the dependency-free boundary for
+- The post-Laptop Utils refactor now has two larger shared infrastructure
+  batches. `UtilsUiStateModel` is the dependency-free boundary for
   signed/exact-end UI indices, slider geometry, and bounded callback-ID
   mappings. Popup callbacks and definition trees now have explicit unique/deep
   ownership. Popup labels use value/reference semantics and Windows stack-trace
@@ -1166,8 +1166,15 @@ the engine must not contain SDL types in its public domain model.
   text boxes, nested text input, and wrapped-string lists validate handles and
   release partial state.
   LBE popup XML parsing stages a complete definition map before publication.
-  Focused model tests, real-engine headless ownership tests, AddressSanitizer,
-  and architecture ratchets cover these contracts. The remaining 28 Utils
+  `TextInfrastructureModel` now provides the corresponding signed-index,
+  bounded-copy/append, serialized-text, and retryable localization-load rules.
+  Message formatting is explicitly capacity-counted across Windows and POSIX;
+  saved map messages publish only after all 256 entries validate and allocate;
+  localization common/section cache states remain distinct; item, font, and
+  developer-tool paths validate indices, pointers, lengths, and lifecycle
+  restoration. Focused model tests, real-engine headless ownership/persistence
+  tests, AddressSanitizer, and architecture ratchets cover these contracts. The
+  remaining 22 Utils
   translation units are deliberately still tracked as unaudited; the detailed
   findings, inventory, and next priority order live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,
