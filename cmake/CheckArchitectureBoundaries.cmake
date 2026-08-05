@@ -1697,7 +1697,7 @@ foreach(required_resource_handle_set_fragment IN ITEMS
 endforeach()
 
 foreach(aim_page_bound_and_fragment IN ITEMS
-    "Laptop/AimArchives.cpp|NUM_AIM_ARCHIVE_PAGES\t\t\t4"
+    "Laptop/AimArchives.cpp|constexpr std::size_t NUM_AIM_ARCHIVE_PAGES"
     "Laptop/AimArchives.cpp|IsValidLaptopIndex(NUM_AIM_ARCHIVE_PAGES"
     "Laptop/AimHistory.cpp|NUM_AIM_HISTORY_PAGES\t\t\t\t\t(NUM_AIM_HISTORY_CONTENT_PAGES + 1)"
     "Laptop/AimHistory.cpp|IsValidLaptopIndex(NUM_AIM_HISTORY_PAGES"
@@ -4032,7 +4032,19 @@ foreach(required_aim_website_layout_fragment IN ITEMS
     "FacialIndexVisibleSlotCount"
     "FacialIndexPageTextIndex"
     "struct PolicyLayout"
-    "MakePolicyLayout")
+    "MakePolicyLayout"
+    "struct SortLayout"
+    "MakeSortLayout"
+    "criterionHitbox"
+    "orderHitbox"
+    "hasControl"
+    "struct ArchiveGrid"
+    "struct ArchivePopupLayout"
+    "struct ArchiveLayout"
+    "MakeArchiveLayout"
+    "ArchiveProfileIndex"
+    "ArchivePageHasVisible"
+    "NextArchivePage")
   string(FIND "${runtime_aim_website_layout_contents}"
     "${required_aim_website_layout_fragment}"
     required_aim_website_layout_position)
@@ -4050,6 +4062,10 @@ file(READ "${SOURCE_ROOT}/Laptop/AimPolicies.cpp"
   runtime_aim_policies_contents)
 file(READ "${SOURCE_ROOT}/Laptop/aim.cpp"
   runtime_aim_defaults_contents)
+file(READ "${SOURCE_ROOT}/Laptop/AimSort.cpp"
+  runtime_aim_sort_contents)
+file(READ "${SOURCE_ROOT}/Laptop/AimArchives.cpp"
+  runtime_aim_archives_contents)
 foreach(required_aim_members_video_layout_fragment IN ITEMS
     "CurrentAimVideoConferenceLayout()"
     "layout.titleFrame"
@@ -4106,6 +4122,73 @@ foreach(required_aim_defaults_layout_fragment IN ITEMS
   if(required_aim_defaults_layout_position EQUAL -1)
     message(FATAL_ERROR
       "A.I.M. defaults bypassed shared geometry '${required_aim_defaults_layout_fragment}'")
+  endif()
+endforeach()
+foreach(required_aim_sort_layout_fragment IN ITEMS
+    "CurrentAimSortLayout()"
+    "layout.navigationArtwork.at"
+    "layout.criterionHitbox"
+    "layout.orderHitbox"
+    "layout.criterionText"
+    "layout.orderText"
+    "layout.control"
+    "layout.hasControl"
+    "SelectAimSortCriterionRegionCallback"
+    "SelectAimSortOrderRegionCallback")
+  string(FIND "${runtime_aim_sort_contents}"
+    "${required_aim_sort_layout_fragment}"
+    required_aim_sort_layout_position)
+  if(required_aim_sort_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. Sort bypassed shared geometry '${required_aim_sort_layout_fragment}'")
+  endif()
+endforeach()
+foreach(required_aim_archive_layout_fragment IN ITEMS
+    "CurrentAimArchiveLayout()"
+    "layout.grid.frame"
+    "layout.grid.hitbox"
+    "const auto& popup = layout.popup"
+    "popup.doneButton"
+    "popup.doneHitbox"
+    "ArchiveProfileIndex"
+    "ArchivePageHasVisible"
+    "NextArchivePage")
+  string(FIND "${runtime_aim_archives_contents}"
+    "${required_aim_archive_layout_fragment}"
+    required_aim_archive_layout_position)
+  if(required_aim_archive_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. Archives bypassed shared geometry '${required_aim_archive_layout_fragment}'")
+  endif()
+endforeach()
+foreach(retired_aim_sort_coordinate_or_callback IN ITEMS
+    "AimSortCheckBoxLoc"
+    "AIM_SORT_SORT_BY_X"
+    "AIM_SORT_TO_MUGSHOTS_X"
+    "SelectPriceBoxRegionCallBack"
+    "SelectAscendBoxRegionCallBack")
+  string(FIND "${runtime_aim_sort_contents}"
+    "${retired_aim_sort_coordinate_or_callback}"
+    retired_aim_sort_coordinate_or_callback_position)
+  if(NOT retired_aim_sort_coordinate_or_callback_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. Sort restored retired split geometry '${retired_aim_sort_coordinate_or_callback}'")
+  endif()
+endforeach()
+foreach(retired_aim_archive_coordinate_or_state IN ITEMS
+    "AIM_ALUMNI_START_GRID_X"
+    "AIM_ALUMNI_GRID_OFFSET_X"
+    "AIM_ALUMNI_PAGE1_X"
+    "AIM_POPUP_X"
+    "AIM_ALUMNI_DONE_X"
+    "idPage"
+    "pageEnabled[0] = vOldMerc[0]")
+  string(FIND "${runtime_aim_archives_contents}"
+    "${retired_aim_archive_coordinate_or_state}"
+    retired_aim_archive_coordinate_or_state_position)
+  if(NOT retired_aim_archive_coordinate_or_state_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. Archives restored retired split geometry/state '${retired_aim_archive_coordinate_or_state}'")
   endif()
 endforeach()
 foreach(retired_aim_members_video_coordinate IN ITEMS
@@ -4170,7 +4253,16 @@ foreach(required_aim_website_layout_test_fragment IN ITEMS
     "facial-index drawing and hitboxes use one row-major grid"
     "mouse and keyboard navigation share the same wrapping page transitions"
     "stale pages and partial final grids cannot expose nonexistent profiles"
-    "policy table-of-contents drawing and hitboxes share one vertical sequence")
+    "policy table-of-contents drawing and hitboxes share one vertical sequence"
+    "A.I.M. Sort navigation drawing and hitboxes share one sequence"
+    "invalid A.I.M. Sort modes cannot index beyond the control model"
+    "long localized sort labels cannot overflow or underflow the panel hitboxes"
+    "all A.I.M. Sort geometry follows centered-screen translation"
+    "archive drawing, names, and face hitboxes share one row-major grid"
+    "archive popup growth keeps the done artwork and hitbox paired"
+    "archive profile mapping rejects partial-page and exact-end slots"
+    "archive pages remain discoverable when their first slot is empty"
+    "archive navigation skips sparse pages and wraps without invalid indices")
   string(FIND "${runtime_aim_website_layout_test_contents}"
     "${required_aim_website_layout_test_fragment}"
     required_aim_website_layout_test_position)

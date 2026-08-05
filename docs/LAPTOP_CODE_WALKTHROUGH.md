@@ -921,3 +921,31 @@ non-overlap, row/column mapping, pagination, animation interpolation, layout
 rhythm, and centered-screen translation. Architecture and ASan ratchets
 preserve the models, their production integrations, removal of the parallel
 macro families, and focused test admission.
+
+The same A.I.M. boundary now covers Sort and Archives. Sort previously
+populated a flat 30-element coordinate array during page entry and recovered
+each light as an unchecked `mode * 2` pair. Fifteen drawing/invalidation paths
+and fifteen individually repeated callbacks could drift from the matching
+localized-text hitboxes. `AimWebsiteLayoutModel::SortLayout` now derives the
+panel, thirteen criterion controls, two order controls, three navigation
+tiles, headings, labels, regions, and invalidation rectangles from one set of
+anchors. Table-driven regions and callbacks replace the parallel functions;
+invalid modes are ignored, and unusually long localized labels remain bounded
+to the authored panel instead of underflowing or overflowing mouse geometry.
+
+Archives drawing and input now share one tested 5-by-4 portrait grid and one
+section-based popup layout. Portrait frames, faces, nicknames, face regions,
+page controls, shadows, text, and the dynamic Done artwork/region all derive
+from `ArchiveLayout`. The migration also fixes sparse XML archive pages: page
+availability previously inspected only profiles 0, 20, 40, and 60, hiding a
+page when its first slot was empty even if later slots were populated. Page
+discovery scans each bounded page, stale selections normalize to a visible
+page, and cycling skips disabled pages without the old signed `idPage` state.
+The unused bottom-button render resource and no-op page-button machinery are
+retired.
+
+Focused dependency-free tests pin exact and centered-screen coordinates,
+drawing/input pairing, grid containment, localized hitbox bounds, invalid
+control/profile indices, partial final pages, popup growth, first-slot gaps,
+and sparse-page wrapping. Architecture and ASan admission ratchets preserve
+the layouts, integrations, retired macro/array families, and regression cases.

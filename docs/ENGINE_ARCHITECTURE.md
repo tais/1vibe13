@@ -1166,8 +1166,13 @@ the engine must not contain SDL types in its public domain model.
   invalidation, navigation, help text, and both equipment variants;
   `AimWebsiteLayoutModel` drives A.I.M. default artwork, the complete stateful
   video-call overlay and title animation, Facial Index grid/pagination, and
-  Policies controls. `MercFilesLayoutModel` and `FloristSiteModel` similarly
-  unify their equipment, card, and gallery drawing/input geometry. Focused
+  Policies controls. It also owns Sort's bounded fifteen-control panel and
+  navigation geometry and Archives' 5-by-4 portrait grid, dynamic popup, page
+  discovery, and sparse-page navigation. Sort no longer derives coordinates
+  through a flat mode-indexed array; Archives no longer decides that a page is
+  empty solely from its first profile slot. `MercFilesLayoutModel` and
+  `FloristSiteModel` similarly unify their equipment, card, and gallery
+  drawing/input geometry. Focused
   geometry tests plus architecture and ASan ratchets pin exact authored pixel
   positions, row-major mapping, animation/pagination edges, page containment,
   centered-screen translation, and non-overlapping controls.

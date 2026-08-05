@@ -392,6 +392,295 @@ namespace AimWebsiteLayoutModel
 			{125, 0}};
 		return result;
 	}
+
+	constexpr std::size_t kSortCriterionCount = 13;
+	constexpr std::size_t kSortControlCount = 15;
+	constexpr std::size_t kSortNavigationCount = 3;
+
+	struct SortLayout
+	{
+		Rect pageBounds;
+		Rect sortPanel;
+		TextArea memberTitle;
+		Point sortTitle;
+		RectSequence navigationArtwork;
+		ScreenAnchors anchors;
+
+		constexpr Point criterionText(std::size_t criterion) const noexcept
+		{
+			if (criterion == kSortCriterionCount - 1)
+				return {sortPanel.x + 22, sortPanel.y + 23};
+			return {
+				sortPanel.x + 22 + static_cast<int>(criterion / 3) * 96,
+				sortPanel.y + 36 + static_cast<int>(criterion % 3) * 13};
+		}
+
+		constexpr Rect control(std::size_t mode) const noexcept
+		{
+			if (mode < 12)
+				return {
+					sortPanel.x + 9 + static_cast<int>(mode / 3) * 96,
+					sortPanel.y + 34 + static_cast<int>(mode % 3) * 13,
+					10,
+					10};
+			if (mode == 12)
+				return {sortPanel.x + 9, sortPanel.y + 21, 10, 10};
+			if (mode == 13)
+				return {sortPanel.x + 372, sortPanel.y + 4, 10, 10};
+			if (mode == 14)
+				return {sortPanel.x + 372, sortPanel.y + 17, 10, 10};
+			return {};
+		}
+
+		constexpr bool hasControl(std::size_t mode) const noexcept
+		{
+			return mode < kSortControlCount;
+		}
+
+		constexpr Rect criterionHitbox(
+			std::size_t criterion, int textWidth) const noexcept
+		{
+			if (criterion >= kSortCriterionCount)
+				return {};
+			const Rect checkbox = control(criterion);
+			const Point text = criterionText(criterion);
+			int right = text.x + textWidth - 3;
+			if (right < checkbox.right()) right = checkbox.right();
+			if (right > sortPanel.right()) right = sortPanel.right();
+			return {
+				checkbox.x, checkbox.y, right - checkbox.x, checkbox.height};
+		}
+
+		constexpr TextArea orderText(std::size_t mode) const noexcept
+		{
+			return {{
+				sortPanel.x + 268,
+				anchors.screenY + (mode == 14 ? 141 : 128) +
+					anchors.webDeltaY},
+				100};
+		}
+
+		constexpr Rect orderHitbox(
+			std::size_t mode, int textWidth) const noexcept
+		{
+			if (mode != 13 && mode != 14)
+				return {};
+			const Rect checkbox = control(mode);
+			int left = checkbox.x - textWidth - 6;
+			if (left < sortPanel.x) left = sortPanel.x;
+			return {
+				left, checkbox.y, checkbox.right() - left, checkbox.height};
+		}
+
+		constexpr Point navigationText(std::size_t index) const noexcept
+		{
+			return {
+				anchors.screenX + 266,
+				anchors.screenY +
+					(index == 0 ? 230 : (index == 1 ? 293 : 351)) +
+					anchors.webDeltaY};
+		}
+	};
+
+	constexpr SortLayout MakeSortLayout(PageAnchors anchors) noexcept
+	{
+		SortLayout result;
+		result.pageBounds = {anchors.imageX, anchors.imageY, 502, 400};
+		result.sortPanel = {
+			anchors.imageX + 53, anchors.imageY + 96, 394, 81};
+		result.memberTitle = {{
+			result.sortPanel.x,
+			anchors.screenY + 105 + anchors.webDeltaY},
+			result.sortPanel.width};
+		result.sortTitle = {
+			result.sortPanel.x + 9, result.sortPanel.y + 8};
+		result.navigationArtwork = {
+			{anchors.imageX + 89, anchors.imageY + 184, 54, 54},
+			{0, 60}};
+		result.anchors = {
+			anchors.screenX, anchors.screenY, anchors.webDeltaY};
+		return result;
+	}
+
+	constexpr std::size_t kArchiveColumns = 5;
+	constexpr std::size_t kArchiveRows = 4;
+	constexpr std::size_t kArchivePageCapacity =
+		kArchiveColumns * kArchiveRows;
+	constexpr std::size_t kArchivePageCount = 4;
+
+	struct ArchiveGrid
+	{
+		Rect firstFrame;
+		Point step;
+
+		constexpr std::size_t capacity() const noexcept
+		{
+			return kArchivePageCapacity;
+		}
+
+		constexpr Rect frame(std::size_t slot) const noexcept
+		{
+			return {
+				firstFrame.x + static_cast<int>(slot % kArchiveColumns) * step.x,
+				firstFrame.y + static_cast<int>(slot / kArchiveColumns) * step.y,
+				firstFrame.width,
+				firstFrame.height};
+		}
+
+		constexpr Point face(std::size_t slot) const noexcept
+		{
+			const Rect bounds = frame(slot);
+			return {bounds.x + 4, bounds.y + 4};
+		}
+
+		constexpr Rect hitbox(std::size_t slot) const noexcept
+		{
+			const Rect bounds = frame(slot);
+			return {bounds.x, bounds.y, 56, 50};
+		}
+
+		constexpr TextArea nickname(std::size_t slot) const noexcept
+		{
+			const Rect bounds = frame(slot);
+			return {{bounds.x + 5, bounds.y + 55}, 56};
+		}
+	};
+
+	struct ArchivePopupLayout
+	{
+		Point origin;
+		int width = 0;
+		int textWidth = 0;
+		int sectionHeight = 0;
+		int shadowGap = 0;
+		Rect facePanel;
+		Point name;
+		TextArea description;
+		int doneX = 0;
+
+		constexpr Point section(std::size_t index) const noexcept
+		{
+			return {
+				origin.x,
+				origin.y + static_cast<int>(index) * sectionHeight};
+		}
+
+		constexpr Rect shadow(std::size_t index) const noexcept
+		{
+			const Point position = section(index);
+			return {
+				position.x + shadowGap,
+				position.y + shadowGap,
+				width,
+				sectionHeight - 1};
+		}
+
+		constexpr Rect doneButton(std::size_t middleSections) const noexcept
+		{
+			const Point bottom = section(middleSections + 1);
+			return {doneX, bottom.y - 16, 36, 16};
+		}
+
+		constexpr Rect doneHitbox(std::size_t middleSections) const noexcept
+		{
+			const Rect button = doneButton(middleSections);
+			return {button.x - 2, button.y, button.width, button.height};
+		}
+	};
+
+	struct ArchiveLayout
+	{
+		Rect pageBounds;
+		TextArea title;
+		ArchiveGrid grid;
+		Rect pageButton;
+		Rect pageControlsInvalidation;
+		ArchivePopupLayout popup;
+	};
+
+	constexpr ArchiveLayout MakeArchiveLayout(PageAnchors anchors) noexcept
+	{
+		ArchiveLayout result;
+		result.pageBounds = {anchors.imageX, anchors.imageY, 502, 400};
+		result.title = {{anchors.imageX + 149, anchors.imageY + 54}, 203};
+		result.grid = {
+			{anchors.imageX + 37, anchors.imageY + 68, 66, 64},
+			{90, 72}};
+		result.pageButton = {
+			anchors.imageX + 200, anchors.imageY + 357, 75, 18};
+		result.pageControlsInvalidation = {
+			anchors.imageX + 100, anchors.imageY + 357, 450, 18};
+		result.popup.origin = {
+			anchors.imageX + (500 - 309) / 2,
+			anchors.screenY + 120 + anchors.webDeltaY};
+		result.popup.width = 309;
+		result.popup.textWidth = 296;
+		result.popup.sectionHeight = 9;
+		result.popup.shadowGap = 4;
+		result.popup.facePanel = {
+			result.popup.origin.x + 6,
+			result.popup.origin.y + 6,
+			58,
+			52};
+		result.popup.name = {
+			result.popup.facePanel.right() + 10,
+			result.popup.facePanel.y + 20};
+		result.popup.description = {{
+			result.popup.origin.x + 8,
+			result.popup.facePanel.bottom() + 5},
+			result.popup.textWidth};
+		result.popup.doneX =
+			result.popup.origin.x + result.popup.width - 36 - 7;
+		return result;
+	}
+
+	constexpr std::size_t ArchiveProfileIndex(
+		std::size_t page, std::size_t slot,
+		std::size_t profileCount) noexcept
+	{
+		if (page >= kArchivePageCount || slot >= kArchivePageCapacity)
+			return profileCount;
+		const std::size_t index = page * kArchivePageCapacity + slot;
+		return index < profileCount ? index : profileCount;
+	}
+
+	template<typename Visibility>
+	constexpr bool ArchivePageHasVisible(
+		const Visibility* visible, std::size_t profileCount,
+		std::size_t page) noexcept
+	{
+		if (!visible || page >= kArchivePageCount)
+			return false;
+		for (std::size_t slot = 0; slot < kArchivePageCapacity; ++slot)
+		{
+			const std::size_t index =
+				ArchiveProfileIndex(page, slot, profileCount);
+			if (index == profileCount)
+				break;
+			if (visible[index])
+				return true;
+		}
+		return false;
+	}
+
+	template<typename Visibility>
+	constexpr std::size_t NextArchivePage(
+		std::size_t currentPage, const Visibility* pageEnabled,
+		std::size_t pageCount = kArchivePageCount) noexcept
+	{
+		if (!pageEnabled || pageCount == 0 ||
+			pageCount > kArchivePageCount)
+			return 0;
+		const std::size_t normalized =
+			currentPage < pageCount ? currentPage : 0;
+		for (std::size_t offset = 1; offset <= pageCount; ++offset)
+		{
+			const std::size_t page = (normalized + offset) % pageCount;
+			if (pageEnabled[page])
+				return page;
+		}
+		return normalized;
+	}
 }
 
 #endif
