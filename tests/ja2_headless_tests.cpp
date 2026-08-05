@@ -58,6 +58,7 @@
 #include "types.h"
 #include "MemMan.h"
 #include "FileMan.h"
+#include "message.h"
 #include "video.h"
 #include "vobject.h"
 #include "vsurface.h"
@@ -8017,6 +8018,17 @@ int main( int, char** )
 
 	// --- hard asserts: the fully data-free managers ---
 	CHECK( InitializeMemoryManager(), "InitializeMemoryManager()" );
+	{
+		ScrollStringSt message{};
+		CHECK(!SetString(nullptr, L"invalid") &&
+			!SetString(&message, nullptr) &&
+			SetString(&message, L"first") &&
+			std::wstring(message.pString16) == L"first" &&
+			SetString(&message, L"replacement") &&
+			std::wstring(message.pString16) == L"replacement",
+			"message text replacement validates input and publishes owned storage atomically");
+		MemFree(message.pString16);
+	}
 
 	{
 		static_assert(std::is_same_v<
@@ -16753,6 +16765,29 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+	{
+		const std::string path = "truncated-map-messages-test.bin";
+		HWFILE output = FileOpen(const_cast<char*>(path.c_str()),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+		const UINT8 savedIndices[] = {9, 4, 7};
+		UINT32 bytesWritten = 0;
+		const bool fixtureWritten = output &&
+			FileWrite(output, savedIndices, sizeof(savedIndices), &bytesWritten) &&
+			bytesWritten == sizeof(savedIndices);
+		if (output) FileClose(output);
+
+		const UINT8 previousCurrent = gubCurrentMapMessageString;
+		gubCurrentMapMessageString = 63;
+		HWFILE input = FileOpen(const_cast<char*>(path.c_str()),
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+		const bool rejected = input &&
+			!LoadMapScreenMessagesFromSaveGameFile(input);
+		if (input) FileClose(input);
+		CHECK(fixtureWritten && rejected && gubCurrentMapMessageString == 63,
+			"truncated map-message loads leave the live message state untouched");
+		gubCurrentMapMessageString = previousCurrent;
+		FileDelete(const_cast<char*>(path.c_str()));
+	}
 
 	{
 		PLAYERGROUP secondMember{};

@@ -17,9 +17,11 @@ namespace Loc
 		Italian,
 		Polish,
 		Russian,
+		Taiwanese,
+		LANGUAGE_COUNT,
 	};
 
-	static const wchar_t* LangSuffix [] = {
+	inline constexpr const wchar_t* LangSuffix[] = {
 		L"_cn",
 		L"_nl",
 		L"_en",
@@ -30,6 +32,7 @@ namespace Loc
 		L"_ru",
 		L"_tw",
 	};
+	static_assert(sizeof(LangSuffix) / sizeof(LangSuffix[0]) == LANGUAGE_COUNT);
 
 	enum Topic
 	{
@@ -38,6 +41,7 @@ namespace Loc
 		AIM_POLICY,
 		GAME_STRINGS,
 		DIALOGUE,
+		TOPIC_COUNT,
 	};
 
 	bool AssociateWithFile(Topic t, vfs::Path const& sFilename);

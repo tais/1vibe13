@@ -225,20 +225,19 @@ void ShutdownFonts( )
 // Set shades for fonts
 BOOLEAN SetFontShade( UINT32 uiFontID, INT8 bColorID )
 {
-	HVOBJECT pFont;
-
-	CHECKF( bColorID > 0 );
-	CHECKF( bColorID < 16 );
-
-	pFont	= GetFontObject( uiFontID );
-
-	pFont->pShadeCurrent = pFont->pShades[ bColorID ];
+	if (uiFontID >= MAX_FONTS || bColorID <= 0 || bColorID >= 16)
+		return FALSE;
+	if (!IsFontLoaded(static_cast<INT32>(uiFontID))) return FALSE;
+	HVOBJECT pFont = GetFontObject(static_cast<INT32>(uiFontID));
+	if (!pFont || !pFont->pShades[bColorID]) return FALSE;
+	pFont->pShadeCurrent = pFont->pShades[bColorID];
 
 	return( TRUE );
 }
 
 UINT16 CreateFontPaletteTables(HVOBJECT pObj )
 {
+	if (!pObj || !pObj->pPaletteEntry) return FALSE;
 	UINT32 count;
 	SGPPaletteEntry Pal[256];
 
@@ -296,12 +295,15 @@ UINT16 CreateFontPaletteTables(HVOBJECT pObj )
 
 UINT16	WFGetFontHeight( INT32 FontNum )
 {
+	if (FontNum < 0 || FontNum >= MAX_FONTS || !IsFontLoaded(FontNum)) return 0;
 	return( GetFontHeight( FontNum ) );
 }
 
 
 INT16 WFStringPixLength( STR16 string,INT32 UseFont )
 {
+	if (!string || UseFont < 0 || UseFont >= MAX_FONTS ||
+		!IsFontLoaded(UseFont)) return 0;
 	return( StringPixLength( string, UseFont ) );
 }
 

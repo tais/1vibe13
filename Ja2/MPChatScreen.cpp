@@ -22,6 +22,8 @@
 #include "Utilities.h"
 #include "connect.h"
 
+#include <iterator>
+
 #define		CHATBOX_WIDTH							310 // 350 is the max size, the PrepareMercPopupBox will add the X_MARGIN to both sides
 #define		CHATBOX_Y_MARGIN_NOLOG					25
 #define		CHATBOX_Y_MARGIN_LOG					80
@@ -1370,8 +1372,11 @@ void ChatLogMessage( UINT16 usColor, UINT8 ubPriority, STR16 pStringA, ... )
 		 pStringSt=GetNextString(pStringSt);*/
 
 	va_start(argptr, pStringA);			// Set up variable argument pointer
-	vswprintf(DestString, pStringA, argptr);	// process gprintf string (get output str)
+	const int formatted = sgp_vswprintf(
+		DestString, std::size(DestString), pStringA, argptr);
 	va_end(argptr);
+	if (formatted < 0 || static_cast<std::size_t>(formatted) >= std::size(DestString))
+		return;
 
 	// send message to tactical screen and map screen
 	ScreenMsg( usColor, ubPriority, DestString );
@@ -1413,8 +1418,14 @@ void AddStringToChatLogMessageList( STR16 pString, UINT16 usColor, UINT32 uiFont
 
 
 	pStringSt = (ScrollStringStPtr) MemAlloc(sizeof(ScrollStringSt));
+	if (!pStringSt) return;
+	memset(pStringSt, 0, sizeof(ScrollStringSt));
 
-	SetString(pStringSt, pString);
+	if (!SetString(pStringSt, pString))
+	{
+		MemFree(pStringSt);
+		return;
+	}
 	SetStringColor(pStringSt, usColor);
 	pStringSt->uiFont = uiFont;
 	pStringSt->fBeginningOfNewString = fStartOfNewString;

@@ -6,11 +6,10 @@ Status: active architectural refactor, 5 August 2026.
 
 `Utils` contains 36 production translation units used by every application
 host. This walkthrough tracks them explicitly so a successful local fix is not
-mistaken for completion of the directory-wide audit. The first coherent batch
-deep-audits the shared interactive-UI infrastructure: popup definitions and
-instances, popup boxes, merc text boxes, progress bars, sliders, text input,
-and word wrapping. The tactical LBE popup XML loader is included because it is
-the persistence boundary for the popup-definition graph.
+mistaken for completion of the directory-wide audit. Two coherent batches now
+cover the shared interactive-UI infrastructure and the text/localization
+infrastructure. The tactical LBE popup XML loader is included because it is the
+persistence boundary for the popup-definition graph.
 
 A batch is complete only when it has:
 
@@ -53,17 +52,38 @@ does not depend on SGP, rendering, game data, or a running application.
   private registries, transactional XML publication, bounded formatting,
   tests, documentation, and ASan target in place.
 
+## Text and localization safety batch
+
+| Owner | Faults found | Enforced state |
+| --- | --- | --- |
+| `message.cpp` | Platform-dependent unbounded variadic formatting, allocation-unsafe string creation, live-list mutation during partial save reads, uninitialized persisted padding, and unbounded last-quote concatenation | One counted compatibility formatter rejects truncation, string replacement publishes only allocated storage, all 256 saved entries stage before publication, persisted metadata is zero-initialized, and quote assembly is bounded |
+| `LocalizedStrings.cpp` | A reference to the common-file state was assigned the section state, so the real section was never marked loaded; section association always reported failure; failed loads were cached; arbitrary topics created map entries | Fixed topic arrays reject invalid values, common and section states remain distinct, associations report accurately, and only successful loads enter the retryable cache |
+| `Text Utils.cpp` | Item text indexed the global item table without validating loaded capacity, null enum tables crashed, command-line parsing dereferenced null control arguments, and UTF conversion depended on deprecated facets | Item reads reject exact-end indices and clear outputs, enum/parser boundaries validate inputs, and VFS's maintained UTF conversion owns encoding translation |
+| `Font Control.cpp` | Invalid or unloaded font IDs reached assertion-only APIs and absent shade tables were dereferenced | Font, shade, palette, and wrapper inputs are checked before accessing the font registry |
+| `ImportStrings.cpp` | Startup performed three unused localization reads and generated three-digit dialogue names through floating-point arithmetic | Import registers only required files and formats dialogue paths deterministically with integer stream width |
+| `Multilingual Text Code Generator.cpp` | Working-directory composition was unbounded and every failure after changing directory leaked process state | Path construction is counted and a scope guard restores the caller's directory on success and failure |
+
+`TextInfrastructureModel.h` owns the dependency-free signed index, bounded
+copy/append, serialized-size, and retryable lazy-load rules. The adjacent SGP
+compatibility formatter and multiplayer chat consumer use the same explicit
+capacity contract, so Windows and POSIX hosts no longer diverge at variadic
+text sinks.
+
+Verification for this batch includes `utils_text_state_model_tests` for null,
+negative, exact-end, exact-capacity, truncation, serialized-size, and failed-
+then-retried load state. `platform_legacy_tests` executes counted legacy
+`%s`/`%S` formatting and termination. `ja2_headless_tests` exercises atomic
+message replacement and proves a truncated message block cannot mutate live
+save state. All three run in the normal and AddressSanitizer matrices.
+
 ## Remaining Utils inventory
 
-The following 28 translation units are compiled and covered by the general
+The following 22 translation units are compiled and covered by the general
 build/test matrix, but have not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
 - Input and runtime control: `Cursors.cpp`, `Event Pump.cpp`, `KeyMap.cpp`,
   `Timer Control.cpp`, `Utilities.cpp`, and `Win Util.cpp`.
-- Text and localization: `Font Control.cpp`, `ImportStrings.cpp`,
-  `LocalizedStrings.cpp`, `Multilingual Text Code Generator.cpp`,
-  `Text Utils.cpp`, and `message.cpp`.
 - Media lifecycle: `Cinematics Bink.cpp`, `Cinematics.cpp`,
   `Music Control.cpp`, and `Sound Control.cpp`.
 - Data and XML boundaries: `Encrypted File.cpp`, `INIReader.cpp`,
@@ -72,9 +92,8 @@ bounds, and failure-path audit:
 - Image and developer utilities: `Debug Control.cpp`, `MapUtility.cpp`,
   `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp`.
 
-The next Utils batch should start with `message.cpp`, `Font Control.cpp`, and
-`Text Utils.cpp`, because their variadic/fixed-buffer text sinks fan out to
-most UI code. Media resource lifecycle is the next-highest crash/leak risk,
-followed by XML/data staging and the offline image tools. Existing file
+The next Utils batch should cover the four media lifecycle units because their
+audio/video handles and callbacks carry the highest remaining crash and leak
+risk. XML/data staging and the offline image tools follow. Existing file
 formats, resource paths, localization strings, callbacks, visual layout, and
 game behavior remain compatibility constraints throughout the audit.

@@ -1,11 +1,13 @@
 	#include "Text.h"
 	#include "FileMan.h"
 	#include "GameSettings.h"
+	#include "TextInfrastructureModel.h"
 	// sevenfm
-	#include <codecvt>
-	#include <locale>   // wstring_convert lives here in libstdc++; libc++ pulls it in via <codecvt>
+	#include <algorithm>
+	#include <locale>
 	#include <string>
 	#include <vector>
+	#include <vfs/Core/vfs_string.h>
 
 auto FormatMoney(INT32 iNumber) -> std::wstring
 {
@@ -27,51 +29,57 @@ auto FormatMoney(INT32 iNumber) -> std::wstring
 
 BOOLEAN LoadItemInfo(UINT16 ubIndex, CHAR16 *pNameString, CHAR16 *pInfoString )
 {
-	int j = 0;
+	if (pNameString) pNameString[0] = L'\0';
+	if (pInfoString) pInfoString[0] = L'\0';
+	if (!TextInfrastructureModel::IsValidIndex(
+			std::min<std::size_t>(gMAXITEMS_READ, MAXITEMS), ubIndex))
+		return FALSE;
 
-	if (pNameString != NULL)
-	{
-		wcsncpy( pNameString, Item[ubIndex].szLongItemName, 80);
-		pNameString[79] ='\0';
-	}
+	if (pNameString)
+		TextInfrastructureModel::CopyBounded(
+			pNameString, 80, Item[ubIndex].szLongItemName);
 
-	if(pInfoString != NULL)
-	{
-		wcsncpy( pInfoString, Item[ubIndex].szItemDesc, 400);
-		pInfoString[399] ='\0';
-	}
+	if (pInfoString)
+		TextInfrastructureModel::CopyBounded(
+			pInfoString, 400, Item[ubIndex].szItemDesc);
 
 	return(TRUE);
 }
 
 BOOLEAN LoadBRName(UINT16 ubIndex, CHAR16 *pNameString )
 {
-	if (pNameString != NULL)
-	{
-		wcsncpy( pNameString, Item[ubIndex].szBRName, 80);
-		pNameString[79] ='\0';
-	}
+	if (pNameString) pNameString[0] = L'\0';
+	if (!TextInfrastructureModel::IsValidIndex(
+			std::min<std::size_t>(gMAXITEMS_READ, MAXITEMS), ubIndex))
+		return FALSE;
+	if (pNameString)
+		TextInfrastructureModel::CopyBounded(
+			pNameString, 80, Item[ubIndex].szBRName);
 	return TRUE;
 }
 
 BOOLEAN LoadBRDesc(UINT16 ubIndex, CHAR16 *pDescString )
 {
-	if (pDescString != NULL)
-	{
-		wcsncpy( pDescString, Item[ubIndex].szBRDesc, 400);
-		pDescString[399] ='\0';
-	}
+	if (pDescString) pDescString[0] = L'\0';
+	if (!TextInfrastructureModel::IsValidIndex(
+			std::min<std::size_t>(gMAXITEMS_READ, MAXITEMS), ubIndex))
+		return FALSE;
+	if (pDescString)
+		TextInfrastructureModel::CopyBounded(
+			pDescString, 400, Item[ubIndex].szBRDesc);
 
 	return TRUE;
 }
 
 BOOLEAN LoadShortNameItemInfo(UINT16 ubIndex, CHAR16 *pNameString )
 {
-	if(pNameString != NULL)
-	{
-		wcsncpy( pNameString, Item[ubIndex].szItemName, 80 );
-		pNameString[79] ='\0';
-	}
+	if (pNameString) pNameString[0] = L'\0';
+	if (!TextInfrastructureModel::IsValidIndex(
+			std::min<std::size_t>(gMAXITEMS_READ, MAXITEMS), ubIndex))
+		return FALSE;
+	if (pNameString)
+		TextInfrastructureModel::CopyBounded(
+			pNameString, 80, Item[ubIndex].szItemName);
 
 	return(TRUE);
 }
@@ -79,12 +87,15 @@ BOOLEAN LoadShortNameItemInfo(UINT16 ubIndex, CHAR16 *pNameString )
 
 void LoadAllItemNames( void )
 {
-	for ( UINT16 usLoop = 0; usLoop < gMAXITEMS_READ; ++usLoop )
+	const std::size_t itemCount =
+		std::min<std::size_t>(gMAXITEMS_READ, MAXITEMS);
+	for (std::size_t itemIndex = 0; itemIndex < itemCount; ++itemIndex)
 	{
-		LoadItemInfo( usLoop, ItemNames[usLoop], NULL );
+		const UINT16 itemId = static_cast<UINT16>(itemIndex);
+		LoadItemInfo(itemId, ItemNames[itemIndex], NULL);
 
 		// Load short item info
-		LoadShortNameItemInfo( usLoop, ShortItemNames[usLoop] );
+		LoadShortNameItemInfo(itemId, ShortItemNames[itemIndex]);
 	}
 }
 
@@ -124,24 +135,9 @@ FLOAT GetWeightBasedOnMetricOption( UINT32 uiObjectWeight )
 	return( fWeight );
 }
 
-static inline CHAR8 *Trim(CHAR8 *&p) {
-	while(isspace(*p)) *p++ = 0;
-	CHAR8 *e = p + strlen(p) - 1;
-	while (e > p && isspace(*e)) *e-- = 0;
-	return p;
-}
-
-static inline CHAR16 *Trim(CHAR16 *&p) {
-	while(iswspace(*p)) *p++ = 0;
-	CHAR16 *e = p + wcslen(p) - 1;
-	while (e > p && iswspace(*e)) *e-- = 0;
-	return p;
-}
-
-
-int StringToEnum(const STR value, const Str8EnumLookupType *table) 
+int StringToEnum(const STR value, const Str8EnumLookupType *table)
 {
-	if (NULL == value || 0 == *value) 
+	if (NULL == value || 0 == *value || NULL == table)
 		return 0;
 
 	for (const Str8EnumLookupType *itr = table; itr->name != NULL; ++itr) {
@@ -154,7 +150,7 @@ int StringToEnum(const STR value, const Str8EnumLookupType *table)
 
 int StringToEnum(const STR8 value, const Str16EnumLookupType *table)
 {
-	if (NULL == value || 0 == *value)
+	if (NULL == value || 0 == *value || NULL == table)
 		return 0;
 
 	int result = 0;
@@ -174,7 +170,7 @@ int StringToEnum(const STR8 value, const Str16EnumLookupType *table)
 
 int StringToEnum(const STR16 value, const Str8EnumLookupType *table)
 {
-	if (NULL == value || 0 == *value)
+	if (NULL == value || 0 == *value || NULL == table)
 		return 0;
 
 	int result = 0;
@@ -193,7 +189,7 @@ int StringToEnum(const STR16 value, const Str8EnumLookupType *table)
 }
 
 int StringToEnum(const STR16 value, const Str16EnumLookupType *table) {
-	if (NULL == value || 0 == *value) 
+	if (NULL == value || 0 == *value || NULL == table)
 		return 0;
 
 	for (const Str16EnumLookupType *itr = table; itr->name != NULL; ++itr) {
@@ -226,8 +222,13 @@ void ParseCommandLine (
    int copychar;                   /* 1 = copy char to *args */
    unsigned numslash;              /* num of backslashes seen */
 
+   if (!numargs || !numchars) return;
    *numchars = 0;
    *numargs = 0;                   /* the program name at least */
+   if (!start) {
+      if (argv) *argv = NULL;
+      return;
+   }
 
    p = start;
 
@@ -330,8 +331,13 @@ void ParseCommandLine (
    int copychar;                   /* 1 = copy char to *args */
    unsigned numslash;              /* num of backslashes seen */
 
+   if (!numargs || !numchars) return;
    *numchars = 0;
    *numargs = 0;                   /* the program name at least */
+   if (!start) {
+      if (argv) *argv = NULL;
+      return;
+   }
 
    p = start;
 
@@ -415,13 +421,11 @@ void ParseCommandLine (
 // convert UTF-8 string to wstring
 std::wstring utf8_to_wstring(const std::string& str)
 {
-	std::wstring_convert<std::codecvt_utf8<wchar_t>> myconv;
-	return myconv.from_bytes(str);
+	return vfs::String::as_utf16(str);
 }
 
 // convert wstring to UTF-8 string
 std::string wstring_to_utf8(const std::wstring& str)
 {
-	std::wstring_convert<std::codecvt_utf8<wchar_t>> myconv;
-	return myconv.to_bytes(str);
+	return vfs::String::as_utf8(str);
 }
