@@ -16,8 +16,8 @@
 // usf (microseconds per frame); we advance to the next frame when
 // real time has elapsed past the current frame's display deadline.
 //
-// Audio decode is Stage C -- this stage is video-only. Cinematics
-// run silent until then.
+// Audio decode is provided by libsmacker and queued through an SDL audio
+// stream. Video timing follows the maximum of the audio and monotonic clocks.
 //
 // Bink (.BIK) support stays absent. JA2's shipped data has no .BIK
 // files, just .SMK, so the BinkInitialize / BinkPlayFlic stubs in
@@ -37,13 +37,20 @@ extern "C" {
 #include <SDL3/SDL.h>
 
 #include <Engine/Core/UniqueResourcePtr.h>
+#include <Engine/Core/UniqueResourceHandle.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
+#include "MediaLifecycleModel.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
+#include <new>
+#include <utility>
 #include <vector>
 
 static uint64_t NowNs() { return PlatformNowNanoseconds(); }
@@ -87,10 +94,21 @@ struct AudioStreamReleaser
 };
 using AudioStreamOwner = UniqueResourcePtr<SDL_AudioStream, AudioStreamReleaser>;
 
+struct FileHandleTag {};
+struct FileHandleReleaser
+{
+	void operator()(HWFILE handle) const { FileClose(handle); }
+};
+using FileHandleOwner = UniqueResourceHandle<
+	FileHandleTag, FileHandleReleaser, HWFILE, static_cast<HWFILE>(0)>;
+
 } // namespace
 
 struct SMKFLIC
 {
+	// The decoder borrows rawFile, so declaration order is deliberate: reverse
+	// destruction releases the audio stream and decoder before their source data.
+	std::vector<uint8_t> rawFile;
 	SmkHandleOwner smkHandle;                  // libsmacker handle (empty when slot is free)
 	UINT32        uiFlags        = 0;
 	UINT32        uiLeft         = 0;           // top-left blit position into FRAME_BUFFER
@@ -101,16 +119,15 @@ struct SMKFLIC
 	double        dUsecPerFrame  = 0.0;
 	uint64_t      uiFrameStartNs = 0;           // wall-clock ns at which the current frame started displaying
 	bool          fFirstFrame    = false;       // true == next poll calls smk_first() rather than smk_next()
-	std::vector<uint8_t> rawFile;               // backing memory for smk_open_memory; must outlive smkHandle
-	// Audio playback state. SMK can carry up to 7 audio tracks; we
-	// always play track 0 because that's where the SFX music lives in
-	// every JA2 cinematic. The stream is opened bound to the system's
+	// Audio playback state. SMK can carry up to 7 audio tracks; we select the
+	// lowest populated track. The stream is opened bound to the system's
 	// default playback device; data we push via SDL_PutAudioStreamData
 	// gets resampled to the device's actual format automatically.
 	AudioStreamOwner audioStream;
-	UINT32           uiAudioRate      = 0;        // sample rate of track 0 (0 == no audio)
+	UINT32           uiAudioRate      = 0;        // selected track rate (0 == no audio)
 	unsigned char    uiAudioChans     = 0;
 	unsigned char    uiAudioBits      = 0;
+	int8_t           bAudioTrack      = -1;
 	uint64_t         uiAudioBytesPush = 0;        // total raw PCM bytes pushed via SDL_PutAudioStreamData
 	uint64_t         uiAudioBytesPerSec = 0;      // rate * channels * bytes_per_sample
 	uint32_t         uiFrameIndex     = 0;        // monotonically incremented per advance; 0 == first frame
@@ -120,6 +137,47 @@ namespace {
 
 SMKFLIC gSmkList[SMK_NUM_FLICS];
 bool    gFsuspendFlics = false;
+
+bool SmkOwnsFlic(const SMKFLIC* candidate)
+{
+	if (!candidate) return false;
+	for (const SMKFLIC& flic : gSmkList)
+	{
+		if (&flic == candidate) return true;
+	}
+	return false;
+}
+
+void DisableAudio(SMKFLIC& flic)
+{
+	if (flic.smkHandle && flic.bAudioTrack >= 0)
+		smk_enable_audio(flic.smkHandle.get(),
+			static_cast<unsigned char>(flic.bAudioTrack), 0);
+	flic.audioStream.reset();
+	flic.uiAudioRate = 0;
+	flic.uiAudioChans = 0;
+	flic.uiAudioBits = 0;
+	flic.bAudioTrack = -1;
+	flic.uiAudioBytesPush = 0;
+	flic.uiAudioBytesPerSec = 0;
+}
+
+void ReleaseFlic(SMKFLIC& flic)
+{
+	DisableAudio(flic);
+	flic.smkHandle.reset();
+	std::vector<uint8_t>().swap(flic.rawFile);
+	flic.uiFlags = 0;
+	flic.uiLeft = 0;
+	flic.uiTop = 0;
+	flic.uiWidth = 0;
+	flic.uiHeight = 0;
+	flic.uiFrameCount = 0;
+	flic.dUsecPerFrame = 0.0;
+	flic.uiFrameStartNs = 0;
+	flic.fFirstFrame = false;
+	flic.uiFrameIndex = 0;
+}
 
 SMKFLIC* SmkGetFreeFlic()
 {
@@ -137,29 +195,22 @@ void BlitFrameToFrameBuffer(SMKFLIC& f, const unsigned char* palette, const unsi
 	UINT32 pitchBytes = 0;
 	PIXEL* fb = (PIXEL *)LockVideoSurface(FRAME_BUFFER, &pitchBytes);
 	if (!fb) return;
-	const int stridePx = (int)(pitchBytes / sizeof(PIXEL));
-
-	const int dstX0 = (int)f.uiLeft;
-	const int dstY0 = (int)f.uiTop;
-	const int srcW  = (int)f.uiWidth;
-	const int srcH  = (int)f.uiHeight;
-	const int dstXEnd = dstX0 + srcW;
-	const int dstYEnd = dstY0 + srcH;
-	const int clipL   = dstX0 < 0 ? -dstX0 : 0;
-	const int clipT   = dstY0 < 0 ? -dstY0 : 0;
-	const int clipR   = dstXEnd > (int)SCREEN_WIDTH  ? dstXEnd - (int)SCREEN_WIDTH  : 0;
-	const int clipB   = dstYEnd > (int)SCREEN_HEIGHT ? dstYEnd - (int)SCREEN_HEIGHT : 0;
-	const int copyW   = srcW - clipL - clipR;
-	const int copyH   = srcH - clipT - clipB;
-	if (copyW <= 0 || copyH <= 0) {
+	const std::size_t stridePx = pitchBytes / sizeof(PIXEL);
+	MediaLifecycleModel::BlitRegion region;
+	if (pitchBytes % sizeof(PIXEL) != 0 || stridePx < SCREEN_WIDTH ||
+		!MediaLifecycleModel::ComputeClippedBlit(
+			f.uiLeft, f.uiTop, f.uiWidth, f.uiHeight,
+			SCREEN_WIDTH, SCREEN_HEIGHT, region)) {
 		UnLockVideoSurface(FRAME_BUFFER);
 		return;
 	}
 
-	for (int y = 0; y < copyH; ++y) {
-		const unsigned char* srcRow = pixels + (clipT + y) * srcW + clipL;
-		PIXEL* dstRow = fb + (dstY0 + clipT + y) * stridePx + (dstX0 + clipL);
-		for (int x = 0; x < copyW; ++x) {
+	for (std::size_t y = 0; y < region.height; ++y) {
+		const unsigned char* srcRow = pixels +
+			(region.sourceY + y) * f.uiWidth + region.sourceX;
+		PIXEL* dstRow = fb +
+			(region.destinationY + y) * stridePx + region.destinationX;
+		for (std::size_t x = 0; x < region.width; ++x) {
 			const unsigned char idx = srcRow[x];
 			const unsigned char r8 = palette[idx * 3 + 0];
 			const unsigned char g8 = palette[idx * 3 + 1];
@@ -174,11 +225,13 @@ void BlitFrameToFrameBuffer(SMKFLIC& f, const unsigned char* palette, const unsi
 	UnLockVideoSurface(FRAME_BUFFER);
 }
 
-void DecodeAndBlitCurrentFrame(SMKFLIC& f)
+bool DecodeAndBlitCurrentFrame(SMKFLIC& f)
 {
 	const unsigned char* pal = smk_get_palette(f.smkHandle.get());
 	const unsigned char* px  = smk_get_video(f.smkHandle.get());
-	if (pal && px) BlitFrameToFrameBuffer(f, pal, px);
+	if (!pal || !px) return false;
+	BlitFrameToFrameBuffer(f, pal, px);
+	return true;
 }
 
 // Push the just-decoded frame's audio chunk (track 0) into our open
@@ -188,23 +241,26 @@ void DecodeAndBlitCurrentFrame(SMKFLIC& f)
 // buffer safely on the next smk_next call.
 void FeedCurrentFrameAudio(SMKFLIC& f)
 {
-	if (!f.audioStream || f.uiAudioRate == 0) return;
-	int track = -1;
-	for (int t = 0; t < 7; ++t) {
-		// Same track-pick rule as in SmkOpenFlic: lowest set bit. We
-		// re-derive it here rather than caching to keep SMKFLIC small.
-		if (smk_get_audio(f.smkHandle.get(), (unsigned char)t) != nullptr) {
-			track = t;
-			break;
-		}
+	if (!f.audioStream || f.uiAudioRate == 0 || f.bAudioTrack < 0) return;
+	const auto track = static_cast<unsigned char>(f.bAudioTrack);
+	const unsigned char* pcm = smk_get_audio(f.smkHandle.get(), track);
+	const unsigned long sz = smk_get_audio_size(f.smkHandle.get(), track);
+	if (sz == 0) return;
+	if (!pcm || !MediaLifecycleModel::CanQueueAudioChunk(sz))
+	{
+		std::fprintf(stderr, "[smk] disabling invalid audio chunk (%lu bytes)\n", sz);
+		DisableAudio(f);
+		return;
 	}
-	if (track < 0) return;
-	const unsigned char* pcm = smk_get_audio(f.smkHandle.get(), (unsigned char)track);
-	const unsigned long  sz  = smk_get_audio_size(f.smkHandle.get(), (unsigned char)track);
-	if (pcm && sz > 0) {
-		SDL_PutAudioStreamData(f.audioStream.get(), pcm, (int)sz);
-		f.uiAudioBytesPush += sz;
+	if (!SDL_PutAudioStreamData(
+		f.audioStream.get(), pcm, static_cast<int>(sz)))
+	{
+		std::fprintf(stderr, "[smk] disabling failed audio stream: %s\n", SDL_GetError());
+		DisableAudio(f);
+		return;
 	}
+	f.uiAudioBytesPush = MediaLifecycleModel::SaturatingAdd(
+		f.uiAudioBytesPush, sz);
 }
 
 } // namespace
@@ -217,7 +273,7 @@ void SmkInitialize(void* /*hWindow*/, UINT32 /*uiWidth*/, UINT32 /*uiHeight*/)
 	// legacy DirectDraw path needed them to set up a video surface; we
 	// blit straight into the shared FRAME_BUFFER instead.
 	for (int i = 0; i < SMK_NUM_FLICS; ++i) {
-		gSmkList[i] = SMKFLIC{};
+		ReleaseFlic(gSmkList[i]);
 	}
 	gFsuspendFlics = false;
 }
@@ -225,15 +281,15 @@ void SmkInitialize(void* /*hWindow*/, UINT32 /*uiWidth*/, UINT32 /*uiHeight*/)
 void SmkShutdown(void)
 {
 	for (int i = 0; i < SMK_NUM_FLICS; ++i) {
-		if (gSmkList[i].uiFlags & SMK_FLIC_OPEN) {
-			SmkCloseFlic(&gSmkList[i]);
-		}
+		ReleaseFlic(gSmkList[i]);
 	}
+	gFsuspendFlics = false;
 }
 
 SMKFLIC* SmkOpenFlic(const CHAR8* cFilename)
 {
 	VidLog("SmkOpenFlic enter '%s'", cFilename ? cFilename : "(null)");
+	if (!cFilename || !*cFilename) return nullptr;
 	SMKFLIC* p = SmkGetFreeFlic();
 	if (!p) {
 		std::fprintf(stderr, "[smk] no free flic slots\n");
@@ -241,50 +297,65 @@ SMKFLIC* SmkOpenFlic(const CHAR8* cFilename)
 	}
 
 	// Load the file through FileMan so SLF archives (Intro.slf) work.
-	HWFILE h = FileOpen(const_cast<STR>(cFilename), FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE);
-	if (!h) {
+	FileHandleOwner file(FileOpen(
+		cFilename, FILE_ACCESS_READ | FILE_OPEN_EXISTING, FALSE));
+	if (!file) {
 		std::fprintf(stderr, "[smk] FileOpen failed: %s\n", cFilename);
 		return nullptr;
 	}
-	const UINT32 size = FileGetSize(h);
+	const UINT32 size = FileGetSize(file.get());
 	if (size == 0) {
-		FileClose(h);
 		return nullptr;
 	}
-	p->rawFile.assign(size, 0);
+	SMKFLIC staged;
+	try {
+		staged.rawFile.assign(size, 0);
+	} catch (const std::bad_alloc&) {
+		std::fprintf(stderr, "[smk] allocation failed for %s (%u bytes)\n",
+			cFilename, static_cast<unsigned>(size));
+		return nullptr;
+	}
 	UINT32 bytesRead = 0;
-	FileRead(h, p->rawFile.data(), size, &bytesRead);
-	FileClose(h);
-	if (bytesRead != size) {
+	if (!FileRead(file.get(), staged.rawFile.data(), size, &bytesRead) ||
+		bytesRead != size) {
 		std::fprintf(stderr, "[smk] short read on %s: %u/%u\n", cFilename, bytesRead, size);
-		p->rawFile.clear();
 		return nullptr;
 	}
+	file.reset();
 
 	// SMK_MODE_MEMORY (0x00) -- libsmacker keeps the whole compressed
 	// stream in memory and decodes frames on demand. Fits our small SMK
 	// files (helicopter intro is ~4MB) and avoids holding a FILE* open
 	// inside the decoder while the rest of the game does I/O.
-	p->smkHandle.reset(smk_open_memory(p->rawFile.data(), p->rawFile.size()));
-	if (!p->smkHandle) {
+	staged.smkHandle.reset(smk_open_memory(
+		staged.rawFile.data(), static_cast<unsigned long>(staged.rawFile.size())));
+	if (!staged.smkHandle) {
 		std::fprintf(stderr, "[smk] smk_open_memory failed for %s\n", cFilename);
-		p->rawFile.clear();
 		return nullptr;
 	}
 	VidLog("SmkOpenFlic smk_open_memory ok (%u bytes)", (unsigned)size);
 
 	unsigned long w = 0, h_ = 0;
 	unsigned char y_scale = 0;
-	smk_info_video(p->smkHandle.get(), &w, &h_, &y_scale);
 	unsigned long fc = 0;
 	double usf = 0.0;
-	smk_info_all(p->smkHandle.get(), nullptr, &fc, &usf);
-	p->uiWidth       = (UINT32)w;
-	p->uiHeight      = (UINT32)h_;
-	p->uiFrameCount  = (UINT32)fc;
-	p->dUsecPerFrame = usf;
-
-	smk_enable_video(p->smkHandle.get(), 1);
+	if (smk_info_video(staged.smkHandle.get(), &w, &h_, &y_scale) < 0 ||
+		smk_info_all(staged.smkHandle.get(), nullptr, &fc, &usf) < 0 ||
+		w == 0 || h_ == 0 || fc == 0 || !std::isfinite(usf) || usf <= 0.0 ||
+		w > std::numeric_limits<UINT32>::max() ||
+		h_ > std::numeric_limits<UINT32>::max() ||
+		fc > std::numeric_limits<UINT32>::max() ||
+		static_cast<std::uintmax_t>(w) * static_cast<std::uintmax_t>(h_) >
+			std::numeric_limits<std::size_t>::max() ||
+		smk_enable_video(staged.smkHandle.get(), 1) < 0)
+	{
+		std::fprintf(stderr, "[smk] invalid video metadata for %s\n", cFilename);
+		return nullptr;
+	}
+	staged.uiWidth       = static_cast<UINT32>(w);
+	staged.uiHeight      = static_cast<UINT32>(h_);
+	staged.uiFrameCount  = static_cast<UINT32>(fc);
+	staged.dUsecPerFrame = usf;
 
 	// Stage C: enable the first available audio track and open an
 	// SDL_AudioStream sized for its format. libsmacker reports a
@@ -296,40 +367,43 @@ SMKFLIC* SmkOpenFlic(const CHAR8* cFilename)
 	unsigned char chans[7] = {0};
 	unsigned char depth[7] = {0};
 	unsigned long rate[7]  = {0};
-	smk_info_audio(p->smkHandle.get(), &trackMask, chans, depth, rate);
+	const bool hasAudioInfo =
+		smk_info_audio(staged.smkHandle.get(), &trackMask, chans, depth, rate) == 0;
 	int track = -1;
-	for (int t = 0; t < 7; ++t) {
+	for (int t = 0; hasAudioInfo && t < 7; ++t) {
 		if (trackMask & (1u << t)) { track = t; break; }
 	}
-	if (track >= 0 && rate[track] > 0 && chans[track] > 0) {
-		smk_enable_audio(p->smkHandle.get(), (unsigned char)track, 1);
-		p->uiAudioRate  = (UINT32)rate[track];
-		p->uiAudioChans = chans[track];
-		p->uiAudioBits  = depth[track];
-		SDL_AudioSpec spec;
+	if (track >= 0 && MediaLifecycleModel::IsSupportedAudioFormat(
+		rate[track], chans[track], depth[track]) &&
+		smk_enable_audio(staged.smkHandle.get(), static_cast<unsigned char>(track), 1) == 0) {
+		staged.uiAudioRate  = static_cast<UINT32>(rate[track]);
+		staged.uiAudioChans = chans[track];
+		staged.uiAudioBits  = depth[track];
+		staged.bAudioTrack  = static_cast<int8_t>(track);
+		SDL_AudioSpec spec{};
 		spec.format   = (depth[track] == 16) ? SDL_AUDIO_S16LE : SDL_AUDIO_U8;
 		spec.channels = chans[track];
-		spec.freq     = (int)rate[track];
-		p->audioStream.reset(SDL_OpenAudioDeviceStream(
+		spec.freq     = static_cast<int>(rate[track]);
+		staged.audioStream.reset(SDL_OpenAudioDeviceStream(
 			SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr));
-		if (p->audioStream) {
-			p->uiAudioBytesPerSec = (uint64_t)rate[track]
+		if (staged.audioStream && SDL_ResumeAudioStreamDevice(staged.audioStream.get())) {
+			staged.uiAudioBytesPerSec = static_cast<uint64_t>(rate[track])
 				* chans[track]
 				* (depth[track] == 16 ? 2 : 1);
-			SDL_ResumeAudioStreamDevice(p->audioStream.get());
 		} else {
 			std::fprintf(stderr, "[smk] SDL_OpenAudioDeviceStream failed for %s: %s\n", cFilename, SDL_GetError());
-			smk_enable_audio(p->smkHandle.get(), (unsigned char)track, 0);
-			p->uiAudioRate = 0;
+			DisableAudio(staged);
 		}
 	}
 
 	VidLog("SmkOpenFlic audio: track=%d rate=%u chans=%u bits=%u stream=%p",
-	       track, (unsigned)p->uiAudioRate, (unsigned)p->uiAudioChans,
-	       (unsigned)p->uiAudioBits, (void*)p->audioStream.get());
+	       track, (unsigned)staged.uiAudioRate, (unsigned)staged.uiAudioChans,
+	       (unsigned)staged.uiAudioBits, (void*)staged.audioStream.get());
 
-	p->uiFlags     = SMK_FLIC_OPEN;
-	p->fFirstFrame = true;
+	staged.uiFlags     = SMK_FLIC_OPEN;
+	staged.fFirstFrame = true;
+	ReleaseFlic(*p);
+	*p = std::move(staged);
 	VidLog("SmkOpenFlic done flic=%p %ux%u fc=%u", (void*)p,
 	       (unsigned)p->uiWidth, (unsigned)p->uiHeight, (unsigned)p->uiFrameCount);
 	return p;
@@ -347,32 +421,18 @@ SMKFLIC* SmkPlayFlic(const CHAR8* cFilename, UINT32 uiLeft, UINT32 uiTop, BOOLEA
 
 void SmkSetBlitPosition(SMKFLIC* pSmack, UINT32 uiLeft, UINT32 uiTop)
 {
-	if (!pSmack) return;
+	if (!SmkOwnsFlic(pSmack) || !(pSmack->uiFlags & SMK_FLIC_OPEN)) return;
 	pSmack->uiLeft = uiLeft;
 	pSmack->uiTop  = uiTop;
 }
 
 void SmkCloseFlic(SMKFLIC* pSmack)
 {
-	if (!pSmack) return;
+	if (!SmkOwnsFlic(pSmack)) return;
 	VidLog("SmkCloseFlic enter flic=%p audioStream=%p smkHandle=%p",
 	       (void*)pSmack, (void*)pSmack->audioStream.get(),
 	       (void*)pSmack->smkHandle.get());
-	// The stream owns the device since we used SDL_OpenAudioDeviceStream;
-	// resetting it releases both exactly once.
-	pSmack->audioStream.reset();
-	pSmack->uiAudioRate       = 0;
-	pSmack->uiAudioChans      = 0;
-	pSmack->uiAudioBits       = 0;
-	pSmack->uiAudioBytesPush  = 0;
-	pSmack->uiAudioBytesPerSec = 0;
-	pSmack->uiFrameIndex      = 0;
-	pSmack->uiFrameStartNs    = 0;
-	pSmack->smkHandle.reset();
-	pSmack->rawFile.clear();
-	pSmack->rawFile.shrink_to_fit();
-	pSmack->uiFlags = 0;
-	pSmack->fFirstFrame = false;
+	ReleaseFlic(*pSmack);
 	VidLog("SmkCloseFlic done flic=%p", (void*)pSmack);
 }
 
@@ -393,7 +453,8 @@ void SmkCloseFlic(SMKFLIC* pSmack)
 // Advance when either says we're past the next frame's deadline.
 static bool ShouldAdvanceFrame(const SMKFLIC& f, uint64_t nowNs)
 {
-	const double frame_deadline_us = (double)(f.uiFrameIndex + 1) * f.dUsecPerFrame;
+	const double frame_deadline_us =
+		(static_cast<double>(f.uiFrameIndex) + 1.0) * f.dUsecPerFrame;
 	if (f.audioStream && f.uiAudioBytesPerSec > 0) {
 		const int queued = SDL_GetAudioStreamQueued(f.audioStream.get());
 		const uint64_t consumed = (queued < 0 || (uint64_t)queued >= f.uiAudioBytesPush)
@@ -402,9 +463,8 @@ static bool ShouldAdvanceFrame(const SMKFLIC& f, uint64_t nowNs)
 		const double consumed_us = (double)consumed * 1e6 / (double)f.uiAudioBytesPerSec;
 		if (consumed_us >= frame_deadline_us) return true;
 	}
-	const uint64_t elapsed_ns = nowNs - f.uiFrameStartNs;
-	const double wall_us = (double)elapsed_ns / 1000.0;
-	return wall_us >= f.dUsecPerFrame;
+	return MediaLifecycleModel::HasElapsedMicroseconds(
+		f.uiFrameStartNs, nowNs, f.dUsecPerFrame);
 }
 
 BOOLEAN SmkPollFlics(void)
@@ -416,20 +476,27 @@ BOOLEAN SmkPollFlics(void)
 		if (!(f.uiFlags & SMK_FLIC_PLAYING)) continue;
 		any = true;
 		if (gFsuspendFlics) continue;
+		if (!f.smkHandle) {
+			ReleaseFlic(f);
+			continue;
+		}
 
 		// First poll: prime the decoder on frame 0 and draw it.
 		if (f.fFirstFrame) {
 			VidLog("poll first-frame: smk_first flic=%p", (void*)&f);
 			if (smk_first(f.smkHandle.get()) < 0) {
 				std::fprintf(stderr, "[smk] smk_first failed\n");
-				if (f.uiFlags & SMK_FLIC_AUTOCLOSE) SmkCloseFlic(&f);
+				ReleaseFlic(f);
 				continue;
 			}
 			f.fFirstFrame    = false;
 			f.uiFrameStartNs = nowNs;
 			f.uiFrameIndex   = 0;
 			VidLog("poll first-frame: decode+blit");
-			DecodeAndBlitCurrentFrame(f);
+			if (!DecodeAndBlitCurrentFrame(f)) {
+				ReleaseFlic(f);
+				continue;
+			}
 			VidLog("poll first-frame: feed audio");
 			FeedCurrentFrameAudio(f);
 			VidLog("poll first-frame: done");
@@ -443,12 +510,18 @@ BOOLEAN SmkPollFlics(void)
 			// Reached the end. Loop or close depending on flags.
 			if (f.uiFlags & SMK_FLIC_LOOP) {
 				if (smk_first(f.smkHandle.get()) < 0) {
-					if (f.uiFlags & SMK_FLIC_AUTOCLOSE) SmkCloseFlic(&f);
+					ReleaseFlic(f);
 					continue;
 				}
 				f.uiFrameStartNs = nowNs;
 				f.uiFrameIndex   = 0;
-				DecodeAndBlitCurrentFrame(f);
+				f.uiAudioBytesPush = 0;
+				if (f.audioStream && !SDL_ClearAudioStream(f.audioStream.get()))
+					DisableAudio(f);
+				if (!DecodeAndBlitCurrentFrame(f)) {
+					ReleaseFlic(f);
+					continue;
+				}
 				FeedCurrentFrameAudio(f);
 			} else if (f.uiFlags & SMK_FLIC_AUTOCLOSE) {
 				SmkCloseFlic(&f);
@@ -458,11 +531,14 @@ BOOLEAN SmkPollFlics(void)
 			}
 		} else if (rc < 0) {
 			std::fprintf(stderr, "[smk] smk_next failed\n");
-			if (f.uiFlags & SMK_FLIC_AUTOCLOSE) SmkCloseFlic(&f);
+			ReleaseFlic(f);
 		} else {
 			f.uiFrameStartNs = nowNs;
 			++f.uiFrameIndex;
-			DecodeAndBlitCurrentFrame(f);
+			if (!DecodeAndBlitCurrentFrame(f)) {
+				ReleaseFlic(f);
+				continue;
+			}
 			FeedCurrentFrameAudio(f);
 		}
 	}

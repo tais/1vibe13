@@ -1156,7 +1156,7 @@ the engine must not contain SDL types in its public domain model.
   closure. Save layouts, page and data IDs, resource paths, localization,
   XML/Lua inputs, and campaign behavior remain unchanged. The detailed fault
   inventory and closure criteria live in `LAPTOP_CODE_WALKTHROUGH.md`.
-- The post-Laptop Utils refactor now has two larger shared infrastructure
+- The post-Laptop Utils refactor now has three larger shared infrastructure
   batches. `UtilsUiStateModel` is the dependency-free boundary for
   signed/exact-end UI indices, slider geometry, and bounded callback-ID
   mappings. Popup callbacks and definition trees now have explicit unique/deep
@@ -1172,9 +1172,15 @@ the engine must not contain SDL types in its public domain model.
   saved map messages publish only after all 256 entries validate and allocate;
   localization common/section cache states remain distinct; item, font, and
   developer-tool paths validate indices, pointers, lengths, and lifecycle
-  restoration. Focused model tests, real-engine headless ownership/persistence
-  tests, AddressSanitizer, and architecture ratchets cover these contracts. The
-  remaining 22 Utils
+  restoration. `MediaLifecycleModel` now owns callback epochs, clipped frame
+  geometry, PCM bounds, saturated volume, positional registry recount, and
+  attenuation. Smacker file/source/decoder/SDL resources publish transactionally
+  and release in borrowing order; Bink remains an explicit safe unsupported
+  adapter; music lists have private string ownership and stale-callback
+  rejection; sound and positional gateways validate IDs, pointers, capacity,
+  retry, and shutdown state. Focused model tests, real-engine headless
+  ownership/persistence and media lifecycle tests, AddressSanitizer, and
+  architecture ratchets cover these contracts. The remaining 18 Utils
   translation units are deliberately still tracked as unaudited; the detailed
   findings, inventory, and next priority order live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,

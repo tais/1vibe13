@@ -3,7 +3,9 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdarg>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -35,6 +37,8 @@
 
 #include "FileMan.h"
 #include "Font.h"
+#include "Cinematics Bink.h"
+#include "Cinematics.h"
 #include "LogicalBodyTypes/AbstractXMLLoader.h"
 #include "MemMan.h"
 #include "Music Control.h"
@@ -42,6 +46,7 @@
 #include "Render Dirty.h"
 #include "SaveSerializer.h"
 #include "Soldier Palette.h"
+#include "Sound Control.h"
 #include "worlddef.h"
 #include "World Tile Map.h"
 #include "Tile Animation.h"
@@ -2105,6 +2110,23 @@ int main()
 	ResetPlatformTimeSource();
 
 	Check(SDL_InitSubSystem(SDL_INIT_AUDIO), "SDL dummy audio subsystem initializes");
+	SmkInitialize(nullptr, 640, 480);
+	SMKFLIC* const foreignFlic = reinterpret_cast<SMKFLIC*>(
+		static_cast<std::uintptr_t>(1));
+	SmkSetBlitPosition(foreignFlic, 10, 10);
+	SmkCloseFlic(foreignFlic);
+	SmkShutdown();
+	SmkShutdown();
+	Check(SmkOpenFlic(nullptr) == nullptr &&
+		SmkPlayFlic("", 0, 0, TRUE) == nullptr && !SmkPollFlics(),
+		"cinematic gateways reject null, empty, and foreign handles and shut down repeatedly");
+	BinkInitialize(nullptr, 640, 480);
+	BinkCloseFlic(reinterpret_cast<BINKFLIC*>(static_cast<std::uintptr_t>(1)));
+	BinkShutdownVideo();
+	BinkShutdownVideo();
+	Check(BinkPlayFlic(nullptr, 0, 0, BINK_FLIC_AUTOCLOSE) == nullptr &&
+		!BinkPollFlics(),
+		"unsupported Bink playback remains a safe idempotent compatibility stub");
 	Check(storage.writeAll("lifecycle.wav", MakeSilentWav()),
 		"audio lifecycle fixture is written through VFS");
 	Check(InitializeSoundManager(), "sound manager initializes transactionally");
@@ -2113,21 +2135,65 @@ int main()
 		"music lifecycle fixture is written through VFS");
 	InitializeMusicLists();
 	std::size_t musicEntries = 0;
-	for (const std::vector<STR>& list : MusicLists) musicEntries += list.size();
+	for (std::size_t mode = 0; mode < MAX_MUSIC; ++mode)
+		musicEntries += MusicListSize(static_cast<NewMusicList>(mode));
 	InitializeMusicLists();
 	std::size_t repeatedMusicEntries = 0;
-	for (const std::vector<STR>& list : MusicLists)
-		repeatedMusicEntries += list.size();
+	for (std::size_t mode = 0; mode < MAX_MUSIC; ++mode)
+		repeatedMusicEntries += MusicListSize(static_cast<NewMusicList>(mode));
 	ShutdownMusicLists();
 	bool musicListsEmpty = true;
-	for (const std::vector<STR>& list : MusicLists)
-		musicListsEmpty = list.empty() && musicListsEmpty;
+	for (std::size_t mode = 0; mode < MAX_MUSIC; ++mode)
+		musicListsEmpty = MusicListSize(static_cast<NewMusicList>(mode)) == 0 &&
+			musicListsEmpty;
 	ShutdownMusicLists();
 	InitializeMusicLists();
 	ShutdownMusicLists();
 	Check(musicEntries > 0 && repeatedMusicEntries == musicEntries &&
-		musicListsEmpty,
+		musicListsEmpty && MusicListEntry(MAX_MUSIC, 0) == nullptr &&
+		!MusicPlay(MAX_MUSIC, 0),
 		"music lists own entries once and support repeated stop/restart cycles");
+	Check(PlayJA2Sample(MAX_SAMPLES, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN) ==
+			NO_SAMPLE &&
+		PlayJA2StreamingSample(MAX_SAMPLES, RATE_11025, HIGHVOLUME, 1,
+			MIDDLEPAN) == NO_SAMPLE &&
+		PlayJA2Ambient(NUM_AMBIENTS, HIGHVOLUME, 1) == NO_SAMPLE &&
+		PlayJA2AmbientRandom(NUM_AMBIENTS, 1, 2) == NO_SAMPLE &&
+		PlayJA2SampleFromFile(nullptr, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN) ==
+			NO_SAMPLE &&
+		PlayJA2StreamingSampleFromFile(nullptr, RATE_11025, HIGHVOLUME, 1,
+			MIDDLEPAN, nullptr) == NO_SAMPLE &&
+		PlayWeaponSound(nullptr, HIGHVOLUME, MIDDLEPAN) == NO_SAMPLE,
+		"sound gateways reject exact-end IDs and null filenames before array access");
+	Check(InitJA2Sound() && InitJA2Sound(),
+		"JA2 sound facade initialization is idempotent");
+	DeletePositionSnd(-1);
+	DeletePositionSnd(static_cast<INT32>(MAX_POSITION_SOUND_EFFECT_SLOTS));
+	SetPositionSndGridNo(-1, 0);
+	SetPositionSndGridNo(static_cast<INT32>(MAX_POSITION_SOUND_EFFECT_SLOTS), 0);
+	Check(NewPositionSnd(0, 0, 0, MAX_SAMPLES, HIGHVOLUME) == -1,
+		"positional sound gateways reject invalid slots and sample IDs");
+	std::array<INT32, MAX_POSITION_SOUND_EFFECT_SLOTS> positionSounds{};
+	bool allocatedAllPositionSounds = true;
+	for (std::size_t index = 0; index < positionSounds.size(); ++index)
+	{
+		positionSounds[index] = NewPositionSnd(
+			0, 0, 0, 0, std::numeric_limits<UINT8>::max());
+		allocatedAllPositionSounds =
+			positionSounds[index] == static_cast<INT32>(index) &&
+			allocatedAllPositionSounds;
+	}
+	const bool positionCapacityRejected =
+		NewPositionSnd(0, 0, 0, 0, HIGHVOLUME) == -1;
+	for (INT32 positionSound : positionSounds) DeletePositionSnd(positionSound);
+	const INT32 recycledPositionSound =
+		NewPositionSnd(0, 0, 0, 0, HIGHVOLUME);
+	DeletePositionSnd(recycledPositionSound);
+	Check(allocatedAllPositionSounds && positionCapacityRejected &&
+		recycledPositionSound == 0,
+		"positional sound capacity and final-slot recount remain bounded and reusable");
+	Check(ShutdownJA2Sound() && ShutdownJA2Sound(),
+		"JA2 sound facade shutdown clears delayed and positional state repeatedly");
 	int callbackCount = 0;
 	SOUNDPARMS soundParameters{};
 	soundParameters.uiVolume = 127;
@@ -2170,6 +2236,21 @@ int main()
 	SoundServiceStreams();
 	Check(stoppedSoundRetired && callbackCount == 1,
 		"legacy completion callbacks run exactly once from the main thread");
+	InitializeMusicLists();
+	const bool firstMusicStarted = MusicPlay(MUSICLIST_MAIN_MENU, 0);
+	const UINT32 firstMusicHandle = GetMusicHandle();
+	const bool replacementMusicStarted = MusicPlay(MUSICLIST_MAIN_MENU, 0);
+	const UINT32 replacementMusicHandle = GetMusicHandle();
+	SoundServiceStreams();
+	Check(firstMusicStarted && replacementMusicStarted &&
+		firstMusicHandle != NO_SAMPLE && replacementMusicHandle != NO_SAMPLE &&
+		firstMusicHandle != replacementMusicHandle && IsMusicPlaying() &&
+		GetMusicHandle() == replacementMusicHandle,
+		"stale music completion callbacks cannot retire replacement playback");
+	ShutdownMusicLists();
+	SoundServiceStreams();
+	Check(!IsMusicPlaying() && GetMusicHandle() == NO_SAMPLE,
+		"music shutdown invalidates deferred callbacks before releasing owned lists");
 	ShutdownSoundManager();
 	ShutdownSoundManager();
 	Check(SoundGetDriverHandle() == nullptr && callbackCount == 1,

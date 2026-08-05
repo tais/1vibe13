@@ -6,9 +6,15 @@
 	#include "Overhead.h"
 	#include "Timer Control.h"
 	#include "strategicmap.h"
+	#include "MediaLifecycleModel.h"
 
-#include "Overhead Types.h"
-#include <Game Clock.h>
+	#include "Overhead Types.h"
+	#include <Game Clock.h>
+
+#include <array>
+#include <cstdint>
+#include <string>
+#include <vector>
 
 static UINT32 uiMusicHandle = NO_SAMPLE;
 static BOOLEAN fMusicPlaying = FALSE;
@@ -31,6 +37,8 @@ static BOOLEAN gfUseCreatureMusic = FALSE;
 static INT8 gbFadeSpeed = 1;
 
 static BOOLEAN gfDontRestartSong = FALSE;
+
+static MediaLifecycleModel::PlaybackEpoch gMusicPlayback;
 
 
 // Original music and their hardcoded paths
@@ -76,77 +84,59 @@ const CHAR8 *szMusicList[NUM_MUSIC] =
 };
 
 
-std::vector<STR> MusicLists[MAX_MUSIC];
+using MusicListEntries = std::array<std::vector<std::string>, MAX_MUSIC>;
+static MusicListEntries gMusicLists;
 static bool gMusicListsInitialized = false;
-BOOLEAN MusicStop(void);
+static BOOLEAN MusicStop(void);
 
-static void AddMusicToList(STR fileName, NewMusicList mode)
+static void AddMusicToList(
+	MusicListEntries& lists, STR fileName, NewMusicList mode)
 {
 	UINT8 constexpr buf = 64;
 	CHAR8 musicFile[buf];
 
-	if (SoundFileExists(fileName, musicFile, sizeof(musicFile)))
+	if (MediaLifecycleModel::IsValidIndex(
+		lists.size(), static_cast<int>(mode)) && fileName &&
+		SoundFileExists(fileName, musicFile, sizeof(musicFile)))
 	{
-		CHAR8 *music = (CHAR8 *)MemAlloc(buf * sizeof(CHAR8));
-		if (!music)
-		{
-			return;
-		}
-		memset(music, 0, sizeof(CHAR8) * buf);
-		strcpy(music, musicFile);
-		try
-		{
-			MusicLists[mode].push_back(music);
-		}
-		catch (...)
-		{
-			MemFree(music);
-			throw;
-		}
+		lists[mode].emplace_back(musicFile);
 	}
 }
 
 void InitializeMusicLists()
 {
 	if (gMusicListsInitialized) return;
-	struct InitializationGuard
-	{
-		bool committed = false;
-		~InitializationGuard()
-		{
-			if (!committed) ShutdownMusicLists();
-		}
-	} initialization;
+	MusicListEntries stagedLists;
 	UINT8 constexpr buf = 64;
 	CHAR8 fileName[buf];
 
 	// Special casing original music so they can be easily replaced with new files
-	AddMusicToList(szMusicList[MENUMIX_MUSIC], MUSICLIST_MAIN_MENU);
-	AddMusicToList(szMusicList[MARIMBAD2_MUSIC], MUSICLIST_LAPTOP);
+	AddMusicToList(stagedLists, szMusicList[MENUMIX_MUSIC], MUSICLIST_MAIN_MENU);
+	AddMusicToList(stagedLists, szMusicList[MARIMBAD2_MUSIC], MUSICLIST_LAPTOP);
 
-	AddMusicToList(szMusicList[NOTHING_A_MUSIC], MUSICLIST_TACTICAL_NOTHING);
-	AddMusicToList(szMusicList[NOTHING_B_MUSIC], MUSICLIST_TACTICAL_NOTHING);
-	AddMusicToList(szMusicList[NOTHING_C_MUSIC], MUSICLIST_TACTICAL_NOTHING);
-	AddMusicToList(szMusicList[NOTHING_D_MUSIC], MUSICLIST_TACTICAL_NOTHING);
+	AddMusicToList(stagedLists, szMusicList[NOTHING_A_MUSIC], MUSICLIST_TACTICAL_NOTHING);
+	AddMusicToList(stagedLists, szMusicList[NOTHING_B_MUSIC], MUSICLIST_TACTICAL_NOTHING);
+	AddMusicToList(stagedLists, szMusicList[NOTHING_C_MUSIC], MUSICLIST_TACTICAL_NOTHING);
+	AddMusicToList(stagedLists, szMusicList[NOTHING_D_MUSIC], MUSICLIST_TACTICAL_NOTHING);
 
-	AddMusicToList(szMusicList[TENSOR_A_MUSIC], MUSICLIST_TACTICAL_ENEMYPRESENT);
-	AddMusicToList(szMusicList[TENSOR_B_MUSIC], MUSICLIST_TACTICAL_ENEMYPRESENT);
-	AddMusicToList(szMusicList[TENSOR_C_MUSIC], MUSICLIST_TACTICAL_ENEMYPRESENT);
+	AddMusicToList(stagedLists, szMusicList[TENSOR_A_MUSIC], MUSICLIST_TACTICAL_ENEMYPRESENT);
+	AddMusicToList(stagedLists, szMusicList[TENSOR_B_MUSIC], MUSICLIST_TACTICAL_ENEMYPRESENT);
+	AddMusicToList(stagedLists, szMusicList[TENSOR_C_MUSIC], MUSICLIST_TACTICAL_ENEMYPRESENT);
 
-	AddMusicToList(szMusicList[BATTLE_A_MUSIC], MUSICLIST_TACTICAL_BATTLE);
+	AddMusicToList(stagedLists, szMusicList[BATTLE_A_MUSIC], MUSICLIST_TACTICAL_BATTLE);
 	if (SoundFileExists(szMusicList[BATTLE_B_MUSIC], fileName, sizeof(fileName)))
 	{
-		AddMusicToList(szMusicList[BATTLE_B_MUSIC], MUSICLIST_TACTICAL_BATTLE);
+		AddMusicToList(stagedLists, szMusicList[BATTLE_B_MUSIC], MUSICLIST_TACTICAL_BATTLE);
 	}
 	else
 	{
-		AddMusicToList(szMusicList[TENSOR_B_MUSIC], MUSICLIST_TACTICAL_BATTLE);
+		AddMusicToList(stagedLists, szMusicList[TENSOR_B_MUSIC], MUSICLIST_TACTICAL_BATTLE);
 	}
 
-	AddMusicToList(szMusicList[TRIUMPH_MUSIC], MUSICLIST_TACTICAL_VICTORY);
-	AddMusicToList(szMusicList[DEATH_MUSIC], MUSICLIST_TACTICAL_DEATH);
-	AddMusicToList(szMusicList[CREEPY_MUSIC], MUSICLIST_TACTICAL_CREEPY);
-	AddMusicToList(szMusicList[CREATURE_BATTLE_MUSIC], MUSICLIST_TACTICAL_CREEPY_BATTLE);
+	AddMusicToList(stagedLists, szMusicList[TRIUMPH_MUSIC], MUSICLIST_TACTICAL_VICTORY);
+	AddMusicToList(stagedLists, szMusicList[DEATH_MUSIC], MUSICLIST_TACTICAL_DEATH);
+	AddMusicToList(stagedLists, szMusicList[CREEPY_MUSIC], MUSICLIST_TACTICAL_CREEPY);
+	AddMusicToList(stagedLists, szMusicList[CREATURE_BATTLE_MUSIC], MUSICLIST_TACTICAL_CREEPY_BATTLE);
 
 
 	// Read music files into list
@@ -191,26 +181,22 @@ void InitializeMusicLists()
 		default:
 			break;
 		}
+		if (!baseFilename) continue;
 
 		for (size_t i = 0; i < 100; i++)
 		{
 			snprintf(fileName, sizeof(fileName), "%s%02zu", baseFilename, i);
-			AddMusicToList(fileName, static_cast<NewMusicList>(j));
+			AddMusicToList(stagedLists, fileName, static_cast<NewMusicList>(j));
 		}
 	}
+	gMusicLists.swap(stagedLists);
 	gMusicListsInitialized = true;
-	initialization.committed = true;
 }
 
 void ShutdownMusicLists()
 {
 	MusicStop();
-	for (std::vector<STR>& list : MusicLists)
-	{
-		for (STR music : list)
-			MemFree(const_cast<CHAR8*>(music));
-		list.clear();
-	}
+	for (std::vector<std::string>& list : gMusicLists) list.clear();
 	gMusicListsInitialized = false;
 	fMusicPlaying = FALSE;
 	fMusicFadingOut = FALSE;
@@ -220,20 +206,40 @@ void ShutdownMusicLists()
 	uiMusicHandle = NO_SAMPLE;
 }
 
+std::size_t MusicListSize(NewMusicList mode)
+{
+	return MediaLifecycleModel::IsValidIndex(
+		gMusicLists.size(), static_cast<int>(mode))
+		? gMusicLists[mode].size() : 0;
+}
+
+STR MusicListEntry(NewMusicList mode, std::size_t songIndex)
+{
+	if (!MediaLifecycleModel::IsValidIndex(
+		gMusicLists.size(), static_cast<int>(mode)) ||
+		!MediaLifecycleModel::IsValidIndex(gMusicLists[mode].size(), songIndex))
+	{
+		return nullptr;
+	}
+	return gMusicLists[mode][songIndex].c_str();
+}
+
 static STR PickRandomSongFromList(NewMusicList mode)
 {
-	if (mode >= MAX_MUSIC || MusicLists[mode].empty())
+	if (!MediaLifecycleModel::IsValidIndex(
+		gMusicLists.size(), static_cast<int>(mode)) ||
+		gMusicLists[mode].empty())
 	{
 		return NULL;
 	}
-	return MusicLists[mode][Random(MusicLists[mode].size())];
+	return gMusicLists[mode][Random(gMusicLists[mode].size())].c_str();
 }
 
 
 BOOLEAN StartMusicBasedOnMode(void);
 void DoneFadeOutDueToEndMusic(void);
-void MusicStopCallback(void *pData);
-BOOLEAN MusicStop(void);
+static void MusicStopCallback(void *pData);
+static BOOLEAN MusicStop(void);
 BOOLEAN MusicFadeOut(void);
 BOOLEAN MusicFadeIn(void);
 
@@ -248,21 +254,24 @@ BOOLEAN MusicFadeIn(void);
 //********************************************************************************
 static BOOLEAN MusicPlay(STR zFileName)
 {
-	if (!zFileName)
+	if (!zFileName || !*zFileName)
 	{
 		return FALSE;
 	}
 
-	SOUNDPARMS spParms;
+	SOUNDPARMS spParms{};
 
-	if (fMusicPlaying)
+	if (fMusicPlaying || uiMusicHandle != NO_SAMPLE)
 		MusicStop();
 
-	memset(&spParms, 0xff, sizeof(SOUNDPARMS));
+	const MediaLifecycleModel::PlaybackEpoch::Token playbackToken =
+		gMusicPlayback.begin();
 	spParms.uiPriority = PRIORITY_MAX;
 	spParms.uiVolume = 0;
 	spParms.uiLoop = 1;
+	spParms.uiPan = 64;
 	spParms.EOSCallback = MusicStopCallback;
+	spParms.pCallbackData = reinterpret_cast<void*>(playbackToken);
 
 	uiMusicHandle = SoundPlayStreamedFile(zFileName, &spParms);
 	if (uiMusicHandle != SOUND_ERROR)
@@ -274,17 +283,23 @@ static BOOLEAN MusicPlay(STR zFileName)
 		return TRUE;
 	}
 
+	gMusicPlayback.cancel();
+	uiMusicHandle = NO_SAMPLE;
+	fMusicPlaying = FALSE;
+	fMusicFadingIn = FALSE;
+	fMusicFadingOut = FALSE;
 	return FALSE;
 }
 
 BOOLEAN MusicPlay(NewMusicList mode, UINT8 songIndex)
 {
-	if (mode >= MAX_MUSIC || songIndex >= MusicLists[mode].size())
+	const STR song = MusicListEntry(mode, songIndex);
+	if (!song)
 	{
 		return FALSE;
 	}
 
-	return MusicPlay(MusicLists[mode][songIndex]);
+	return MusicPlay(song);
 }
 
 //********************************************************************************
@@ -351,19 +366,24 @@ UINT32 MusicGetVolume(void)
 //	Returns:	TRUE if the music was stopped, FALSE if an error occurred
 //
 //********************************************************************************
-BOOLEAN MusicStop(void)
+static BOOLEAN MusicStop(void)
 {
 	// WANNE: We want music in windowed mode
 	//if( 1==iScreenMode ) /* on Windowed mode, skip the music? was coded for WINDOWED_MODE that way...*/
 	//	return(FALSE);
 
-	if(uiMusicHandle != NO_SAMPLE)
+	const UINT32 handle = uiMusicHandle;
+	gMusicPlayback.cancel();
+	fMusicPlaying = FALSE;
+	fMusicFadingOut = FALSE;
+	fMusicFadingIn = FALSE;
+	gfMusicEnded = FALSE;
+	uiMusicHandle = NO_SAMPLE;
+	if(handle != NO_SAMPLE)
 	{
 		//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Music Stop %d %d", uiMusicHandle, gubMusicMode ) );
 
-		SoundStop(uiMusicHandle);
-		fMusicPlaying = FALSE;
-		uiMusicHandle = NO_SAMPLE;
+		SoundStop(handle);
 		return TRUE;
 	}
 
@@ -514,6 +534,7 @@ BOOLEAN MusicPoll(BOOLEAN /*fForce*/)
 static BOOLEAN SetMusicMode(UINT8 ubMusicMode, BOOLEAN fForce)
 {
 	static INT8 bPreviousMode = 0;
+	if (ubMusicMode > MUSIC_TACTICAL_CIV_GROUP_BATTLE) return FALSE;
 
 	// OK, check if we want to restore
 	if (ubMusicMode == MUSIC_RESTORE)
@@ -593,7 +614,7 @@ BOOLEAN StartMusicBasedOnMode(void)
 			{
 				MusicPlay(PickRandomSongFromList(MUSICLIST_TACTICAL_CREEPY));
 			}
-			else if (NightTime() && MusicLists[MUSICLIST_TACTICAL_ENEMYPRESENT_NIGHT].size() > 0)
+			else if (NightTime() && MusicListSize(MUSICLIST_TACTICAL_ENEMYPRESENT_NIGHT) > 0)
 			{
 				MusicPlay(PickRandomSongFromList(MUSICLIST_TACTICAL_ENEMYPRESENT_NIGHT));
 			}
@@ -610,7 +631,7 @@ BOOLEAN StartMusicBasedOnMode(void)
 			{
 				MusicPlay(PickRandomSongFromList(MUSICLIST_TACTICAL_CREEPY_BATTLE));
 			}
-			else if (NightTime() && MusicLists[MUSICLIST_TACTICAL_BATTLE_NIGHT].size() > 0)
+			else if (NightTime() && MusicListSize(MUSICLIST_TACTICAL_BATTLE_NIGHT) > 0)
 			{
 				MusicPlay(PickRandomSongFromList(MUSICLIST_TACTICAL_BATTLE_NIGHT));
 			}
@@ -657,11 +678,18 @@ BOOLEAN SetMusicMode(UINT8 ubMusicMode)
 }
 
 
-void MusicStopCallback(void *pData)
+static void MusicStopCallback(void *pData)
 {
 	//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Music EndCallback %d %d", uiMusicHandle, gubMusicMode	) );
 
+	const auto playbackToken = reinterpret_cast<
+		MediaLifecycleModel::PlaybackEpoch::Token>(pData);
+	if (!gMusicPlayback.accept(playbackToken)) return;
+
 	gfMusicEnded = TRUE;
+	fMusicPlaying = FALSE;
+	fMusicFadingOut = FALSE;
+	fMusicFadingIn = FALSE;
 	uiMusicHandle = NO_SAMPLE;
 
 	//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Music EndCallback completed" );
@@ -670,7 +698,7 @@ void MusicStopCallback(void *pData)
 
 void SetMusicFadeSpeed(INT8 bFadeSpeed)
 {
-	gbFadeSpeed = bFadeSpeed;
+	gbFadeSpeed = MediaLifecycleModel::ClampFadeSpeed(bFadeSpeed);
 }
 
 UINT8 GetMusicMode(void)

@@ -6,8 +6,8 @@ Status: active architectural refactor, 5 August 2026.
 
 `Utils` contains 36 production translation units used by every application
 host. This walkthrough tracks them explicitly so a successful local fix is not
-mistaken for completion of the directory-wide audit. Two coherent batches now
-cover the shared interactive-UI infrastructure and the text/localization
+mistaken for completion of the directory-wide audit. Three coherent batches now
+cover shared interactive UI, text/localization, and media lifecycle
 infrastructure. The tactical LBE popup XML loader is included because it is the
 persistence boundary for the popup-definition graph.
 
@@ -76,24 +76,44 @@ then-retried load state. `platform_legacy_tests` executes counted legacy
 message replacement and proves a truncated message block cannot mutate live
 save state. All three run in the normal and AddressSanitizer matrices.
 
+## Media lifecycle batch
+
+| Owner | Faults found | Enforced state |
+| --- | --- | --- |
+| `Cinematics.cpp` | Decoder backing memory was declared for destruction before its borrowing handle, null filenames reached `FileOpen`, file/decoder state published incrementally, unchecked dimensions and frame timing narrowed into fixed types, blit arithmetic overflowed signed integers, arbitrary opaque pointers were dereferenced, PCM byte counts narrowed to SDL's `int`, failed queue/decode operations left playback stuck, and loop audio clocks retained the prior pass | File, source bytes, decoder, and SDL stream have ordered move-only ownership; a complete staged flic publishes only after metadata validation; owned pointers, clipped geometry, clock regression, PCM format/length/accounting, queue failure, decoder failure, loop reset, initialization, close, and shutdown are bounded and deterministic |
+| `Cinematics Bink.cpp` | The compatibility surface had no direct regression coverage, so future placeholder changes could accidentally imply support or dereference caller input | The intentionally unsupported `.BIK` path remains an explicit null/false, input-agnostic, idempotent stub while shipped `.SMK` playback remains unaffected |
+| `Music Control.cpp` | Public vectors exposed manually allocated filename pointers, initialization mutated live lists incrementally, invalid list/mode values reached arrays, failed playback left mixed flags, natural completion still reported playing, negative fade speeds reversed transitions, and a deferred callback from a stopped track could retire its replacement | Private `std::string` lists publish transactionally and expose checked read-only accessors; playback has one epoch token, callbacks accept only the active incarnation, stop/shutdown invalidate pending completion, and mode/index/fade transitions are bounded |
+| `Sound Control.cpp` | Exact-end sample/ambient IDs and null filenames reached fixed arrays or `strstr`, soldier playback applied master volume twice, weapon amplification could wrap, delayed playback retained invalid IDs across shutdown, positional APIs accepted arbitrary slots/sample IDs, deleting the last entry retained a stale high-water mark, new active entries never started, failed starts became non-retryable, and attenuation could overflow or divide by a zero viewport | Every gateway validates before access, volume/pan/amplification saturate, delayed state and positional ownership reset idempotently, fixed slots recount to zero and remain reusable, new/failing playback publishes a retryable state, dead handles retire, and distance math uses bounded doubles |
+
+`MediaLifecycleModel.h` owns the dependency-free signed-index, volume, callback-
+epoch, clipped-blit, audio-format/queue, monotonic-duration, positional-prefix,
+and attenuation rules. It has no SDL, libsmacker, SGP, tactical, or application
+dependency; the legacy adapters consume it at their unsafe boundaries.
+
+Verification includes `utils_media_lifecycle_model_tests` for negative/exact-
+end indices, saturated volume, epoch cancellation/wrap, edge clipping, malformed
+audio metadata and queue sizes, regressed clocks, full deletion, and zero-size
+viewports. `platform_legacy_tests` executes the real public adapters with null,
+empty, foreign, exact-end, full-capacity, restart, replacement-callback, and
+repeated-shutdown cases. Both run in the Release and AddressSanitizer matrices,
+while every application host compiles the production changes.
+
 ## Remaining Utils inventory
 
-The following 22 translation units are compiled and covered by the general
+The following 18 translation units are compiled and covered by the general
 build/test matrix, but have not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
 - Input and runtime control: `Cursors.cpp`, `Event Pump.cpp`, `KeyMap.cpp`,
   `Timer Control.cpp`, `Utilities.cpp`, and `Win Util.cpp`.
-- Media lifecycle: `Cinematics Bink.cpp`, `Cinematics.cpp`,
-  `Music Control.cpp`, and `Sound Control.cpp`.
 - Data and XML boundaries: `Encrypted File.cpp`, `INIReader.cpp`,
   `XMLProperties.cpp`, `XMLWriter.cpp`, `XML_Items.cpp`, `XML_Language.cpp`,
   and `XML_SenderNameList.cpp`.
 - Image and developer utilities: `Debug Control.cpp`, `MapUtility.cpp`,
   `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp`.
 
-The next Utils batch should cover the four media lifecycle units because their
-audio/video handles and callbacks carry the highest remaining crash and leak
-risk. XML/data staging and the offline image tools follow. Existing file
-formats, resource paths, localization strings, callbacks, visual layout, and
-game behavior remain compatibility constraints throughout the audit.
+The next Utils batch should cover the seven data/XML boundaries because their
+parsers and persistence adapters carry the highest remaining partial-state and
+untrusted-input risk. Input/runtime control and the offline image tools follow.
+Existing file formats, resource paths, localization strings, callbacks, visual
+layout, and game behavior remain compatibility constraints throughout the audit.
