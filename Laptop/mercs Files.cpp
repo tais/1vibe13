@@ -34,6 +34,7 @@
 	#include "mousesystem.h"
 	#include "CampaignMercSitePolicy.h"
 	#include "GameContext.h"
+	#include "MercFilesLayout.h"
 
 #include "Cheats.h"
 #include "connect.h"
@@ -138,54 +139,6 @@
 
 #define		MERC_PORTRAIT_TEXT_OFFSET_Y				107
 
-//JMich_MMG: Defines for the inventory boxes
-#define		MERC_MEMBER_WEAPON_NAME_X			MERC_WEAPONBOX_X
-#define		MERC_MEMBER_WEAPON_NAME_Y			MERC_WEAPONBOX_Y + MERC_WEAPONBOX_SIZE_Y + 1
-#define		MERC_MEMBER_WEAPON_NAME_WIDTH		MERC_WEAPONBOX_SIZE_X - 2
-#define		MERC_WEAPONBOX_X					MERC_FILES_PORTRAIT_BOX_X + 3
-#define		MERC_WEAPONBOX_Y					MERC_FILES_BIO_BOX_Y + 10
-#define		MERC_WEAPONBOX_SIZE_X				61
-#define		MERC_WEAPONBOX_SIZE_Y				31
-#define		MERC_WEAPONBOX_NUMBER				8
-#define		MERC_WEAPONBOX_X_NSGI				MERC_FILES_PORTRAIT_BOX_X + 6
-#define		MERC_WEAPONBOX_Y_NSGI				MERC_FILES_BIO_BOX_Y + 10
-#define		MERC_WEAPONBOX_SIZE_X_NSGI			64
-#define		MERC_WEAPONBOX_SIZE_Y_NSGI			30
-#define		MERC_WEAPONBOX_COLUMNS				7
-#define		MERC_WEAPONBOX_ROWS					3
-#define		MERC_WEAPONBOX_TOTAL_ITEMS			MERC_WEAPONBOX_COLUMNS * MERC_WEAPONBOX_ROWS
-
-#define		MERC_WEAPONBOX_BUTTON_START_WIDTH	75
-#define		MERC_WEAPONBOX_BUTTON_START_HEIGHT	30
-
-#define		MERC_WEAPONBOX_LOADOUT_BUTTON_X_DISTANCE		20
-
-#define		MERC_WEAPONBOX_LOADOUT_ONE_X					MERC_FILES_PORTRAIT_BOX_X + 3
-#define		MERC_WEAPONBOX_LOADOUT_ONE_Y					iScreenHeightOffset + 330 + LAPTOP_SCREEN_WEB_DELTA_Y
-#define		MERC_WEAPONBOX_LOADOUT_ONE_BOX_Y				MERC_WEAPONBOX_LOADOUT_ONE_Y - 4
-#define		MERC_WEAPONBOX_LOADOUT_ONE_BR_X				MERC_WEAPONBOX_LOADOUT_ONE_X + MERC_WEAPONBOX_BUTTON_START_WIDTH
-#define		MERC_WEAPONBOX_LOADOUT_ONE_BR_Y				MERC_WEAPONBOX_LOADOUT_ONE_BOX_Y + MERC_WEAPONBOX_BUTTON_START_HEIGHT
-#define		MERC_WEAPONBOX_LOADOUT_TWO_X					MERC_WEAPONBOX_LOADOUT_ONE_X + MERC_WEAPONBOX_BUTTON_START_WIDTH + MERC_WEAPONBOX_LOADOUT_BUTTON_X_DISTANCE
-#define		MERC_WEAPONBOX_LOADOUT_TWO_Y					MERC_WEAPONBOX_LOADOUT_ONE_Y
-#define		MERC_WEAPONBOX_LOADOUT_TWO_BOX_Y				MERC_WEAPONBOX_LOADOUT_TWO_Y - 4
-#define		MERC_WEAPONBOX_LOADOUT_TWO_BR_X				MERC_WEAPONBOX_LOADOUT_TWO_X + MERC_WEAPONBOX_BUTTON_START_WIDTH
-#define		MERC_WEAPONBOX_LOADOUT_TWO_BR_Y				MERC_WEAPONBOX_LOADOUT_TWO_BOX_Y + MERC_WEAPONBOX_BUTTON_START_HEIGHT
-#define		MERC_WEAPONBOX_LOADOUT_THREE_X				MERC_WEAPONBOX_LOADOUT_TWO_X + MERC_WEAPONBOX_BUTTON_START_WIDTH + MERC_WEAPONBOX_LOADOUT_BUTTON_X_DISTANCE
-#define		MERC_WEAPONBOX_LOADOUT_THREE_Y				MERC_WEAPONBOX_LOADOUT_TWO_Y
-#define		MERC_WEAPONBOX_LOADOUT_THREE_BOX_Y			MERC_WEAPONBOX_LOADOUT_THREE_Y - 4
-#define		MERC_WEAPONBOX_LOADOUT_THREE_BR_X			MERC_WEAPONBOX_LOADOUT_THREE_X + MERC_WEAPONBOX_BUTTON_START_WIDTH
-#define		MERC_WEAPONBOX_LOADOUT_THREE_BR_Y			MERC_WEAPONBOX_LOADOUT_THREE_BOX_Y + MERC_WEAPONBOX_BUTTON_START_HEIGHT
-#define		MERC_WEAPONBOX_LOADOUT_FOUR_X				MERC_WEAPONBOX_LOADOUT_THREE_X + MERC_WEAPONBOX_BUTTON_START_WIDTH + MERC_WEAPONBOX_LOADOUT_BUTTON_X_DISTANCE
-#define		MERC_WEAPONBOX_LOADOUT_FOUR_Y				MERC_WEAPONBOX_LOADOUT_THREE_Y
-#define		MERC_WEAPONBOX_LOADOUT_FOUR_BOX_Y			MERC_WEAPONBOX_LOADOUT_FOUR_Y - 4
-#define		MERC_WEAPONBOX_LOADOUT_FOUR_BR_X				MERC_WEAPONBOX_LOADOUT_FOUR_X + MERC_WEAPONBOX_BUTTON_START_WIDTH
-#define		MERC_WEAPONBOX_LOADOUT_FOUR_BR_Y				MERC_WEAPONBOX_LOADOUT_FOUR_BOX_Y + MERC_WEAPONBOX_BUTTON_START_HEIGHT
-#define		MERC_WEAPONBOX_LOADOUT_FIVE_X				MERC_WEAPONBOX_LOADOUT_FOUR_X + MERC_WEAPONBOX_BUTTON_START_WIDTH + MERC_WEAPONBOX_LOADOUT_BUTTON_X_DISTANCE
-#define		MERC_WEAPONBOX_LOADOUT_FIVE_Y				MERC_WEAPONBOX_LOADOUT_FOUR_Y
-#define		MERC_WEAPONBOX_LOADOUT_FIVE_BOX_Y			MERC_WEAPONBOX_LOADOUT_FIVE_Y - 4
-#define		MERC_WEAPONBOX_LOADOUT_FIVE_BR_X				MERC_WEAPONBOX_LOADOUT_FIVE_X + MERC_WEAPONBOX_BUTTON_START_WIDTH
-#define		MERC_WEAPONBOX_LOADOUT_FIVE_BR_Y				MERC_WEAPONBOX_LOADOUT_FIVE_BOX_Y + MERC_WEAPONBOX_BUTTON_START_HEIGHT
-
 //JMich_MMG: defines for the inventory buttons text
 
 #define MERC_M_FONT_DYNAMIC_TEXT					FONT10ARIAL
@@ -255,13 +208,17 @@ void BtnMercFilesBioInvToggleButtonCallback(GUI_BUTTON *btn, INT32 reason);
 UINT32 guiBioInvButton;
 
 //JMich_MMG: Mouseregion for item tooltips
-MOUSE_REGION	gMercWeaponboxFasthelpRegion[MERC_WEAPONBOX_TOTAL_ITEMS];
+MOUSE_REGION	gMercWeaponboxFasthelpRegion[
+	MercFilesLayoutModel::kInventoryCapacity];
 extern void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber );
 BOOLEAN CreateMercWeaponBoxMouseRegions(LaptopPageResourceOwner& owner);
 extern void HelpTextDoneCallback( void );
 
 //JMich_MMG: Merc Kit Selection Buttons
 UINT32 guiMercWeaponBoxSelectionButton[NUM_MERCSTARTINGGEAR_KITS];
+static_assert(NUM_MERCSTARTINGGEAR_KITS ==
+	MercFilesLayoutModel::kKitButtonCount,
+	"M.E.R.C. gear-kit controls must match the authored layout");
 void BtnMercWeaponboxSelectButtonCallback( GUI_BUTTON * btn, INT32 Reason);
 
 //Mouse Regions
@@ -301,6 +258,14 @@ UINT8	gSelectedMercKit;
 namespace
 {
 	LaptopPageResourceOwner gMercFilesResources;
+
+	MercFilesLayoutModel::Layout CurrentMercFilesLayout()
+	{
+		return MercFilesLayoutModel::MakeLayout(
+			{iScreenWidthOffset, iScreenHeightOffset,
+			 LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y,
+			 LAPTOP_SCREEN_WEB_DELTA_Y});
+	}
 }
 
 
@@ -551,7 +516,7 @@ void RenderMercsFiles()
 
 	//JMich_MMG disabling tooltips and inventory buttons
 	DisableMercWeaponKitSelectionButtons();
-	for (i = 0; i<MERC_WEAPONBOX_TOTAL_ITEMS;i++)
+	for (i = 0; i<MercFilesLayoutModel::kInventoryCapacity;i++)
 	{
 		MSYS_DisableRegion( &gMercWeaponboxFasthelpRegion[i] );
 	}
@@ -1427,15 +1392,16 @@ void HandleMercsFilesMouseInput()
 BOOLEAN CreateMercKitSelectionButtons(LaptopPageResourceOwner& owner)
 {
 	INT32 i;
+	const auto layout = CurrentMercFilesLayout();
 
 	for (i=0;i<NUM_MERCSTARTINGGEAR_KITS;i++)
 	{
+		const auto button = layout.kitButtons.button(i);
 		if (!owner.addButton(CreateIconAndTextButton( guiMercWeaponKitButtonImage, CharacterInfo[AIM_MEMBER_GEAR_KIT_ONE+i], MERC_M_KIT_BUTTON_FONT,
 																		MERC_M_KIT_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 																MERC_M_KIT_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 																TEXT_CJUSTIFIED,
-																MERC_WEAPONBOX_LOADOUT_ONE_X + i * (MERC_WEAPONBOX_BUTTON_START_WIDTH + MERC_WEAPONBOX_LOADOUT_BUTTON_X_DISTANCE),
-																		MERC_WEAPONBOX_LOADOUT_ONE_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+														button.x, button.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																		DEFAULT_MOVE_CALLBACK, BtnMercWeaponboxSelectButtonCallback),
 			guiMercWeaponBoxSelectionButton[i])) return FALSE;
 		SetButtonCursor(guiMercWeaponBoxSelectionButton[i], CURSOR_WWW );
@@ -1503,7 +1469,7 @@ void RefreshMercWeaponKitSelectionButtons()
 BOOLEAN DisplayMERCMercsInventory(UINT8 ubMercID)
 {
 	UINT8			i;
-	INT16			PosX, PosY, sCenX, sCenY;
+	INT16			sCenX, sCenY;
 	UINT16			usItem;
 	INVTYPE			*pItem;
 	HVOBJECT		hVObject;
@@ -1511,18 +1477,15 @@ BOOLEAN DisplayMERCMercsInventory(UINT8 ubMercID)
 	ETRLEObject		*pTrav;
 	CHAR16			gzItemName[ 5000 ];
 	UINT8			ubItemCount=0;
-	UINT8			ubColumnCount=0;
+	const auto layout = CurrentMercFilesLayout();
 
 	//if the mercs inventory has already been purchased, dont display the inventory
 	if ( (gMercProfiles[ ubMercID ].ubMiscFlags & PROFILE_MISC_FLAG_ALREADY_USED_ITEMS && !gGameExternalOptions.fGearKitsAlwaysAvailable ) )
 		return( TRUE );
 
-		PosX = MERC_WEAPONBOX_X_NSGI+3;		// + 3 ( 1 to take care of the shadow, +2 to get past the weapon box border )
-		PosY = MERC_WEAPONBOX_Y_NSGI;
-
 		//tais: disable Weaponbox Mouseregions to stop crashing when changing kit selection and hovering over item
 		//tooltips for weaponbox
-		for(i=0;i<MERC_WEAPONBOX_TOTAL_ITEMS;i++) 
+		for(i=0;i<layout.inventory.capacity();i++)
 		{
 			MSYS_DisableRegion(&gMercWeaponboxFasthelpRegion[i]);
 		}
@@ -1533,11 +1496,11 @@ BOOLEAN DisplayMERCMercsInventory(UINT8 ubMercID)
 			usItem = gMercProfiles[ubMercID].inv[ i ];
 
 			//if its a valid item AND we are only displaying less then 8 items
-			if( usItem && ubItemCount < MERC_WEAPONBOX_TOTAL_ITEMS )
+			if( usItem && ubItemCount < layout.inventory.capacity() )
 			{
-				//increase the item count
-				ubItemCount++;
-				ubColumnCount++;
+				const std::size_t visibleIndex = ubItemCount++;
+				const auto cell = layout.inventory.cell(visibleIndex);
+				const auto content = layout.inventory.contentOrigin(visibleIndex);
 
 				pItem = &Item[ usItem ];
 				GetVideoObject( &hVObject, GetInterfaceGraphicForItem( pItem ) );
@@ -1558,8 +1521,8 @@ BOOLEAN DisplayMERCMercsInventory(UINT8 ubMercID)
 				usHeight				= (UINT32)pTrav->usHeight;
 				usWidth					= (UINT32)pTrav->usWidth;
 
-				sCenX = PosX + ( abs( MERC_WEAPONBOX_SIZE_X_NSGI - 3 - (int)usWidth ) /	2 ) - pTrav->sOffsetX;
-				sCenY = PosY + ( abs( MERC_WEAPONBOX_SIZE_Y_NSGI - (int)usHeight ) / 2 ) - pTrav->sOffsetY;
+				sCenX = content.x + ( abs( cell.width - layout.inventory.contentInsetX - (int)usWidth ) /	2 ) - pTrav->sOffsetX;
+				sCenY = content.y + ( abs( cell.height - (int)usHeight ) / 2 ) - pTrav->sOffsetY;
 
 				//blt the shadow of the item
 				if(gGameSettings.fOptions[ TOPTION_SHOW_ITEM_SHADOW ]) 
@@ -1575,25 +1538,14 @@ BOOLEAN DisplayMERCMercsInventory(UINT8 ubMercID)
 
 					swprintf( zTempStr, L"x%d", gMercProfiles[ ubMercID ].bInvNumber[ i ] );
 
-					DrawTextToScreen( zTempStr, (UINT16)(PosX-1), (UINT16)(PosY+20), MERC_MEMBER_WEAPON_NAME_WIDTH, MERC_M_FONT_DYNAMIC_TEXT, MERC_M_WEAPON_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED );
+					const auto countText = layout.inventory.countTextOrigin(visibleIndex);
+					DrawTextToScreen( zTempStr, countText.x, countText.y, layout.inventory.countTextWidth, MERC_M_FONT_DYNAMIC_TEXT, MERC_M_WEAPON_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED );
 				}
 				
 				GetHelpTextForItemInLaptop( gzItemName, usItem );
-				SetRegionFastHelpText( &(gMercWeaponboxFasthelpRegion[ubItemCount-1]), gzItemName );
-				SetRegionHelpEndCallback( &(gMercWeaponboxFasthelpRegion[ubItemCount-1]), HelpTextDoneCallback );
-				MSYS_EnableRegion( &gMercWeaponboxFasthelpRegion[ubItemCount-1] );
-
-
-				if(ubColumnCount == MERC_WEAPONBOX_COLUMNS) 
-				{
-					PosX = MERC_WEAPONBOX_X_NSGI+3;
-					PosY += MERC_WEAPONBOX_SIZE_Y_NSGI;
-					ubColumnCount = 0;
-				} 
-				else 
-				{
-					PosX += MERC_WEAPONBOX_SIZE_X_NSGI;
-				}
+				SetRegionFastHelpText( &(gMercWeaponboxFasthelpRegion[visibleIndex]), gzItemName );
+				SetRegionHelpEndCallback( &(gMercWeaponboxFasthelpRegion[visibleIndex]), HelpTextDoneCallback );
+				MSYS_EnableRegion( &gMercWeaponboxFasthelpRegion[visibleIndex] );
 
 #ifdef ENCYCLOPEDIA_WORKS
 				//Moa: update encyclopedia item visibility when item gets displayed
@@ -1607,20 +1559,14 @@ BOOLEAN DisplayMERCMercsInventory(UINT8 ubMercID)
 //JMich_MMG: Creating the mouseregion for tooltips
 BOOLEAN CreateMercWeaponBoxMouseRegions(LaptopPageResourceOwner& owner)
 {
-	UINT16	i, x, uiPosX, uiPosY;
-	UINT16	itemcounter = 0;
+	const auto inventory = CurrentMercFilesLayout().inventory;
 	//tais: Weaponbox Mouseregions
-	for(i=0; i<MERC_WEAPONBOX_ROWS; i++) {
-		uiPosX = MERC_WEAPONBOX_X_NSGI;
-		uiPosY = MERC_WEAPONBOX_Y_NSGI + (MERC_WEAPONBOX_SIZE_Y_NSGI*i);
-		for(x=0; x<MERC_WEAPONBOX_COLUMNS; x++) {
-			MSYS_DefineRegion(&gMercWeaponboxFasthelpRegion[itemcounter],uiPosX,uiPosY,uiPosX+MERC_WEAPONBOX_SIZE_X_NSGI,uiPosY+MERC_WEAPONBOX_SIZE_Y_NSGI,MSYS_PRIORITY_HIGHEST, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, MSYS_NO_CALLBACK);
-			if (!owner.addRegion(gMercWeaponboxFasthelpRegion[itemcounter]))
-				return FALSE;
-			MSYS_DisableRegion(&gMercWeaponboxFasthelpRegion[itemcounter]);
-			uiPosX += MERC_WEAPONBOX_SIZE_X_NSGI;
-			itemcounter++;
-		}
+	for(std::size_t slot=0; slot<inventory.capacity(); ++slot) {
+		const auto cell = inventory.cell(slot);
+		MSYS_DefineRegion(&gMercWeaponboxFasthelpRegion[slot],cell.x,cell.y,cell.right(),cell.bottom(),MSYS_PRIORITY_HIGHEST, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, MSYS_NO_CALLBACK);
+		if (!owner.addRegion(gMercWeaponboxFasthelpRegion[slot]))
+			return FALSE;
+		MSYS_DisableRegion(&gMercWeaponboxFasthelpRegion[slot]);
 	}
 	return TRUE;
 }
@@ -1665,17 +1611,12 @@ void CreateMercWeaponBoxBackground()
 {
 	//tais: nsgi, create background for multiline weaponbox
 	HVOBJECT	hMercWeaponBoxHandle;
-	UINT16	i, x, uiPosX, uiPosY;
+	const auto inventory = CurrentMercFilesLayout().inventory;
 
 	GetVideoObject(&hMercWeaponBoxHandle, guiMercWeaponBox);
-	for(i=0; i<MERC_WEAPONBOX_ROWS; i++) {
-		uiPosX = MERC_WEAPONBOX_X_NSGI;
-		uiPosY = MERC_WEAPONBOX_Y_NSGI + (MERC_WEAPONBOX_SIZE_Y_NSGI*i);
-		for(x=0; x<MERC_WEAPONBOX_COLUMNS; x++)
-		{
-			BltVideoObject(FRAME_BUFFER, hMercWeaponBoxHandle, 0, uiPosX, uiPosY, VO_BLT_SRCTRANSPARENCY,NULL);
-			uiPosX += MERC_WEAPONBOX_SIZE_X_NSGI;
-		}
+	for(std::size_t slot=0; slot<inventory.capacity(); ++slot) {
+		const auto cell = inventory.cell(slot);
+		BltVideoObject(FRAME_BUFFER, hMercWeaponBoxHandle, 0, cell.x, cell.y, VO_BLT_SRCTRANSPARENCY,NULL);
 	}
 }
 //JMich_MMG: Stealing tais routine (again)

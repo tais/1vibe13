@@ -1160,14 +1160,17 @@ the engine must not contain SDL types in its public domain model.
   the per-page owner, latches acquisition failure until the next page, gates
   failed-page rendering/input, checks clicked-state compatibility handles, and
   renders IMP EDT text only after an exact successful load.
-  Post-closure A.I.M. graphics maintenance moves the static member-profile
-  composition into the dependency-free `AimMemberProfileLayoutModel`. One
-  selected typed layout now drives drawing, mouse hitboxes, invalidation,
-  navigation, help text, and both legacy and expanded equipment grids instead
-  of parallel coordinate macro families and duplicated renderers. Focused
+  Post-closure Laptop graphics maintenance uses the dependency-free
+  `LaptopLayoutModel` vocabulary across typed site models.
+  `AimMemberProfileLayoutModel` drives profile drawing, mouse hitboxes,
+  invalidation, navigation, help text, and both equipment variants;
+  `AimWebsiteLayoutModel` drives A.I.M. default artwork, the complete stateful
+  video-call overlay and title animation, Facial Index grid/pagination, and
+  Policies controls. `MercFilesLayoutModel` and `FloristSiteModel` similarly
+  unify their equipment, card, and gallery drawing/input geometry. Focused
   geometry tests plus architecture and ASan ratchets pin exact authored pixel
-  positions, grid mapping, page containment, and non-overlapping controls; the
-  animated video-call overlay remains an independent stateful subsystem.
+  positions, row-major mapping, animation/pagination edges, page containment,
+  centered-screen translation, and non-overlapping controls.
 - The post-Laptop Utils refactor now has four larger shared infrastructure
   batches. `UtilsUiStateModel` is the dependency-free boundary for
   signed/exact-end UI indices, slider geometry, and bounded callback-ID
@@ -1234,6 +1237,9 @@ the engine must not contain SDL types in its public domain model.
   partition: 81 common translation units and 17 variants. Data-free navigation
   tests plus architecture ratchets pin the bounds, failure checks, owner use,
   runtime policy, raw-lifecycle exclusion, and common build ownership.
+  `MercFilesLayoutModel` additionally gives equipment backgrounds, item/count
+  drawing, tooltip hitboxes, and all five kit controls one tested 7-by-3
+  geometry, preserving their exact artwork and centered-screen offsets.
 - Florist and Funeral are treated as one connected service-site ownership
   boundary. The home, flower gallery, card gallery, order form, and Funeral
   page stage their images, button images, buttons, and mouse regions before
@@ -1251,7 +1257,9 @@ the engine must not contain SDL types in its public domain model.
   common Laptop partition: 82 shared translation units and 16 variants.
   Data-free tests and architecture ratchets pin navigation, empty/stale data,
   text bounds, runtime campaign behavior, dynamic ownership, and the absence
-  of raw resource lifecycle calls.
+  of raw resource lifecycle calls. The same `FloristSiteModel` now supplies one
+  3-by-3 card grid to both drawing and hitboxes and one gallery-row sequence to
+  flower controls, titles, prices, and descriptions.
 - Insurance is one transactionally owned four-page service site. Home,
   information, comments, and contract pages stage shared defaults with their
   page-specific graphics, button images, buttons, and regions; the contract

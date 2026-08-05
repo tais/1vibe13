@@ -16,34 +16,12 @@
 #define		FLORIST_CARDS_SENTENCE_FONT			FONT12ARIAL
 #define		FLORIST_CARDS_SENTENCE_COLOR		FONT_MCOLOR_WHITE
 
-#define		FLORIST_CARD_FIRST_POS_X				LAPTOP_SCREEN_UL_X + 7
-#define		FLORIST_CARD_FIRST_POS_Y				LAPTOP_SCREEN_WEB_UL_Y + 72
-#define		FLORIST_CARD_FIRST_OFFSET_X			174
-#define		FLORIST_CARD_FIRST_OFFSET_Y			109
-
-#define		FLORIST_CARD_CARD_WIDTH					135
-#define		FLORIST_CARD_CARD_HEIGHT				100
-
-#define		FLORIST_CARD_TEXT_WIDTH					121
-#define		FLORIST_CARD_TEXT_HEIGHT				90
-
-#define		FLORIST_CARD_TITLE_SENTENCE_X		LAPTOP_SCREEN_UL_X
-#define		FLORIST_CARD_TITLE_SENTENCE_Y		LAPTOP_SCREEN_WEB_UL_Y + 53
-#define		FLORIST_CARD_TITLE_SENTENCE_WIDTH			613 - 111
-
-#define		FLORIST_CARD_BACK_BUTTON_X			LAPTOP_SCREEN_UL_X + 8
-#define		FLORIST_CARD_BACK_BUTTON_Y			LAPTOP_SCREEN_WEB_UL_Y + 12
-
-//#define		FLORIST_CARD_
-//#define		FLORIST_CARD_
-//#define		FLORIST_CARD_
-
 UINT32		guiCardBackground;
 
 INT8			gbCurrentlySelectedCard;
 
 //link to the card gallery
-MOUSE_REGION	gSelectedFloristCardsRegion[9];
+MOUSE_REGION	gSelectedFloristCardsRegion[kFloristCardCount];
 void SelectFloristCardsRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
 
@@ -54,6 +32,12 @@ UINT32	guiFlowerCardsBackButton;
 namespace
 {
 	LaptopPageResourceOwner gFloristCardsResources;
+
+	FloristCardsLayout CurrentFloristCardsLayout()
+	{
+		return MakeFloristCardsLayout(
+			{LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y});
+	}
 }
 
 
@@ -64,10 +48,9 @@ void GameInitFloristCards()
 
 BOOLEAN EnterFloristCards()
 {
-	UINT16 i, j, usPosX, usPosY;
 	VOBJECT_DESC	VObjectDesc;
-	UINT8						ubCount;
 	LaptopPageResourceOwner staged;
+	const auto layout = CurrentFloristCardsLayout();
 
 	gFloristCardsResources.clear();
 	if (!AddFloristDefaults(staged)) return FALSE;
@@ -77,22 +60,15 @@ BOOLEAN EnterFloristCards()
 	FilenameForBPP("LAPTOP\\CardBlank.sti", VObjectDesc.ImageFile);
 	if (!staged.addVideoObject(&VObjectDesc, guiCardBackground)) return FALSE;
 
-	ubCount = 0;
-	usPosY = FLORIST_CARD_FIRST_POS_Y;
-	for(j=0; j<3; j++)
+	for(std::size_t cardIndex = 0;
+		cardIndex < layout.cards.capacity(); ++cardIndex)
 	{
-		usPosX = FLORIST_CARD_FIRST_POS_X;
-		for(i=0; i<3; i++)
-		{
-			MSYS_DefineRegion( &gSelectedFloristCardsRegion[ubCount], usPosX, usPosY, (UINT16)(usPosX + FLORIST_CARD_CARD_WIDTH), (UINT16)(usPosY + FLORIST_CARD_CARD_HEIGHT), MSYS_PRIORITY_HIGH,
+		const auto card = layout.cards.card(cardIndex);
+		MSYS_DefineRegion( &gSelectedFloristCardsRegion[cardIndex], card.x, card.y, card.right(), card.bottom(), MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectFloristCardsRegionCallBack );
-			if (!staged.addRegion(gSelectedFloristCardsRegion[ubCount]))
-				return FALSE;
-			MSYS_SetRegionUserData( &gSelectedFloristCardsRegion[ubCount], 0, ubCount );
-			ubCount++;
-			usPosX += FLORIST_CARD_FIRST_OFFSET_X;
-		}
-		usPosY += FLORIST_CARD_FIRST_OFFSET_Y;
+		if (!staged.addRegion(gSelectedFloristCardsRegion[cardIndex]))
+			return FALSE;
+		MSYS_SetRegionUserData( &gSelectedFloristCardsRegion[cardIndex], 0, cardIndex );
 	}
 
 
@@ -104,7 +80,7 @@ BOOLEAN EnterFloristCards()
 													FLORIST_BUTTON_TEXT_UP_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													FLORIST_BUTTON_TEXT_DOWN_COLOR, FLORIST_BUTTON_TEXT_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
-													FLORIST_CARD_BACK_BUTTON_X, FLORIST_CARD_BACK_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+													layout.backButton.x, layout.backButton.y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 													DEFAULT_MOVE_CALLBACK, BtnFlowerCardsBackButtonCallback),
 		guiFlowerCardsBackButton)) return FALSE;
 	SetButtonCursor(guiFlowerCardsBackButton, CURSOR_WWW );
@@ -130,49 +106,39 @@ void HandleFloristCards()
 
 void RenderFloristCards()
 {
-	UINT8	i,j, ubCount;
-	UINT16	usPosX, usPosY;
 	CHAR16		sTemp[ 640 ];
 	UINT32	uiStartLoc=0;
 	HVOBJECT hPixHandle;
 	UINT16		usHeightOffset;
+	const auto layout = CurrentFloristCardsLayout();
 
 	DisplayFloristDefaults();
 
-	DrawTextToScreen( sFloristCards[FLORIST_CARDS_CLICK_SELECTION], FLORIST_CARD_TITLE_SENTENCE_X, FLORIST_CARD_TITLE_SENTENCE_Y, FLORIST_CARD_TITLE_SENTENCE_WIDTH, FONT10ARIAL, FLORIST_CARDS_SENTENCE_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
+	DrawTextToScreen( sFloristCards[FLORIST_CARDS_CLICK_SELECTION], layout.title.origin.x, layout.title.origin.y, layout.title.width, FONT10ARIAL, FLORIST_CARDS_SENTENCE_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
 
 	GetVideoObject(&hPixHandle, guiCardBackground);
-	usPosY = FLORIST_CARD_FIRST_POS_Y;
-	ubCount = 0;
-	for(j=0; j<3; j++)
+	for(std::size_t cardIndex = 0;
+		cardIndex < layout.cards.capacity(); ++cardIndex)
 	{
-		usPosX = FLORIST_CARD_FIRST_POS_X;
-		for(i=0; i<3; i++)
-		{
-			//The flowe account box
-			BltVideoObject(FRAME_BUFFER, hPixHandle, 0, usPosX, usPosY, VO_BLT_SRCTRANSPARENCY,NULL);
+		const auto card = layout.cards.card(cardIndex);
+		//The flower account box
+		BltVideoObject(FRAME_BUFFER, hPixHandle, 0, card.x, card.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
-			//Get and display the card saying
-			uiStartLoc = FLOR_CARD_TEXT_TITLE_SIZE * ubCount;
-			LoadEncryptedDataFromFile(FLOR_CARD_TEXT_FILE, sTemp, uiStartLoc, FLOR_CARD_TEXT_TITLE_SIZE);
+		//Get and display the card saying
+		uiStartLoc = FLOR_CARD_TEXT_TITLE_SIZE * cardIndex;
+		LoadEncryptedDataFromFile(FLOR_CARD_TEXT_FILE, sTemp, uiStartLoc, FLOR_CARD_TEXT_TITLE_SIZE);
 
-				usHeightOffset = IanWrappedStringHeight( (UINT16)(usPosX+7), (UINT16)(usPosY), FLORIST_CARD_TEXT_WIDTH, 2,
-															FLORIST_CARDS_SENTENCE_FONT, FLORIST_CARDS_SENTENCE_COLOR, sTemp,
-															0, FALSE, 0);
+			usHeightOffset = IanWrappedStringHeight( card.x + layout.cardTextInsetX, card.y, layout.cardTextWidth, 2,
+														FLORIST_CARDS_SENTENCE_FONT, FLORIST_CARDS_SENTENCE_COLOR, sTemp,
+														0, FALSE, 0);
 
-				usHeightOffset = static_cast<UINT16>(
-					CenteredFloristTextOffset(FLORIST_CARD_TEXT_HEIGHT,
-						usHeightOffset));
+			usHeightOffset = static_cast<UINT16>(
+				CenteredFloristTextOffset(layout.cardTextHeight,
+					usHeightOffset));
 
-
-				IanDisplayWrappedString( (UINT16)(usPosX+7), (UINT16)(usPosY+10+usHeightOffset), FLORIST_CARD_TEXT_WIDTH, 2,
-															FLORIST_CARDS_SENTENCE_FONT, FLORIST_CARDS_SENTENCE_COLOR, sTemp,
-															0, FALSE, 0);
-
-			ubCount++;
-			usPosX += FLORIST_CARD_FIRST_OFFSET_X;
-		}
-		usPosY += FLORIST_CARD_FIRST_OFFSET_Y;
+			IanDisplayWrappedString( card.x + layout.cardTextInsetX, card.y + layout.cardTextInsetY + usHeightOffset, layout.cardTextWidth, 2,
+														FLORIST_CARDS_SENTENCE_FONT, FLORIST_CARDS_SENTENCE_COLOR, sTemp,
+														0, FALSE, 0);
 	}
 
 	MarkButtonsDirty( );

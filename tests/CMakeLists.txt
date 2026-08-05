@@ -190,6 +190,25 @@ target_include_directories(aim_member_profile_layout_tests
 add_test(NAME aim_member_profile_layout
   COMMAND aim_member_profile_layout_tests)
 
+# The remaining A.I.M. site geometry is shared by video rendering/control
+# creation, facial-index drawing/hitboxes/navigation, and policy title
+# variants. Keep those contracts executable without the legacy UI runtime.
+add_executable(aim_website_layout_tests
+  aim_website_layout_tests.cpp)
+target_include_directories(aim_website_layout_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME aim_website_layout
+  COMMAND aim_website_layout_tests)
+
+# M.E.R.C.'s inventory artwork, tooltip regions, item placement, and loadout
+# controls must consume the same dependency-free grid geometry.
+add_executable(merc_files_layout_tests
+  merc_files_layout_tests.cpp)
+target_include_directories(merc_files_layout_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME merc_files_layout
+  COMMAND merc_files_layout_tests)
+
 # Shared legacy UI helpers expose signed handles, bounded callback mappings,
 # and slider geometry to every application host. Keep exact-end, zero-extent,
 # duplicate-ID, stale-ID, and full-capacity behavior independently executable.
