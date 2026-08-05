@@ -2683,6 +2683,130 @@ foreach(required_bobby_ray_fulfilment_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# Bobby Ray presentation geometry is shared by homepage artwork/hitboxes, all
+# catalogue hosts, mail-order drawing/input/invalidation, and shipment rows.
+# Keep those relationships in one dependency-free layout rather than allowing
+# independent coordinate arrays or page-local row arithmetic to return.
+file(READ "${SOURCE_ROOT}/Laptop/BobbyRayLayout.h"
+  runtime_bobby_ray_layout_contents)
+foreach(required_bobby_ray_layout_fragment IN ITEMS
+    "struct HomeLayout"
+    "SignCount = 5"
+    "struct CatalogueLayout"
+    "ItemCount = 4"
+    "itemQuantity"
+    "itemPurchasedCount"
+    "itemQuality"
+    "struct OrderGridLayout"
+    "VisibleRowCount = 10"
+    "struct MailOrderLayout"
+    "ShippingSpeedCount = 3"
+    "destinationRow"
+    "struct ShipmentLayout"
+    "VisibleRowCount = 13"
+    "MakeHomeLayout"
+    "MakeCatalogueLayout"
+    "MakeOrderGridLayout"
+    "MakeMailOrderLayout"
+    "MakeShipmentLayout")
+  string(FIND "${runtime_bobby_ray_layout_contents}"
+    "${required_bobby_ray_layout_fragment}"
+    required_bobby_ray_layout_position)
+  if(required_bobby_ray_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray layout lost '${required_bobby_ray_layout_fragment}'")
+  endif()
+endforeach()
+
+foreach(bobby_ray_layout_caller_and_fragment IN ITEMS
+    "Laptop/BobbyR.cpp|layout.signs"
+    "Laptop/BobbyR.cpp|layout.underConstruction.at"
+    "Laptop/BobbyRGuns.cpp|layout.itemImage(i)"
+    "Laptop/BobbyRGuns.cpp|layout.filterButton"
+    "Laptop/BobbyRGuns.cpp|GetBobbyRayCatalogueColumns"
+    "Laptop/BobbyRAmmo.cpp|DrawBobbyRayCatalogueBackground"
+    "Laptop/BobbyRArmour.cpp|DrawBobbyRayCatalogueBackground"
+    "Laptop/BobbyRMisc.cpp|DrawBobbyRayCatalogueBackground"
+    "Laptop/BobbyRUsed.cpp|DrawBobbyRayCatalogueBackground"
+    "Laptop/BobbyRMailOrder.cpp|layout.shippingSpeedLights.at"
+    "Laptop/BobbyRMailOrder.cpp|layout.destinationRow"
+    "Laptop/BobbyRMailOrder.cpp|MakeOrderGridLayout"
+    "Laptop/BobbyRShipments.cpp|layout.rows.at")
+  string(REPLACE "|" ";" bobby_ray_layout_caller_parts
+    "${bobby_ray_layout_caller_and_fragment}")
+  list(GET bobby_ray_layout_caller_parts 0 bobby_ray_layout_caller)
+  list(GET bobby_ray_layout_caller_parts 1 bobby_ray_layout_fragment)
+  file(READ "${SOURCE_ROOT}/${bobby_ray_layout_caller}"
+    bobby_ray_layout_caller_contents)
+  string(FIND "${bobby_ray_layout_caller_contents}"
+    "${bobby_ray_layout_fragment}" bobby_ray_layout_caller_position)
+  if(bobby_ray_layout_caller_position EQUAL -1)
+    message(FATAL_ERROR
+      "${bobby_ray_layout_caller} bypassed ${bobby_ray_layout_fragment}")
+  endif()
+endforeach()
+
+foreach(retired_bobby_ray_layout_fragment IN ITEMS
+    "gShippingSpeedAreas"
+    "usMouseRegionPosArray"
+    "BOBBYR_ITEM_DESC_START_X"
+    "BOBBYR_ORDERGRID_X"
+    "#define\t\tBOBBYR_SHIPMENT_ORDER_NUM_X"
+    "#define\t\tBOBBYR_SHIPMENT_GAP_BTN_LINES")
+  foreach(bobby_ray_layout_source IN ITEMS
+      "Laptop/BobbyR.cpp"
+      "Laptop/BobbyRGuns.cpp"
+      "Laptop/BobbyRMailOrder.cpp"
+      "Laptop/BobbyRShipments.cpp")
+    file(READ "${SOURCE_ROOT}/${bobby_ray_layout_source}"
+      retired_bobby_ray_layout_source_contents)
+    string(FIND "${retired_bobby_ray_layout_source_contents}"
+      "${retired_bobby_ray_layout_fragment}"
+      retired_bobby_ray_layout_position)
+    if(NOT retired_bobby_ray_layout_position EQUAL -1)
+      message(FATAL_ERROR
+        "Bobby Ray restored split layout state '${retired_bobby_ray_layout_fragment}'")
+    endif()
+  endforeach()
+endforeach()
+
+foreach(required_bobby_ray_layout_test_build_fragment IN ITEMS
+    "bobby_ray_layout_tests.cpp"
+    "bobby_ray_layout")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_bobby_ray_layout_test_build_fragment}"
+    required_bobby_ray_layout_test_build_position)
+  if(required_bobby_ray_layout_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray layout lost its headless test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "bobby_ray_layout_tests" runtime_bobby_ray_layout_ci_position)
+if(runtime_bobby_ray_layout_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the Bobby Ray layout test target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/bobby_ray_layout_tests.cpp"
+  runtime_bobby_ray_layout_test_contents)
+foreach(required_bobby_ray_layout_test_fragment IN ITEMS
+    "Bobby Ray sign drawing and hitboxes use one authored sign table"
+    "catalogue artwork and item hitboxes share the four-row layout"
+    "shipping labels, hitboxes, drawing, and invalidation share one stride"
+    "destination drawing and mouse regions use one drop-down layout"
+    "order-grid scroll drawing and mouse regions share one geometry"
+    "shipment drawing and all thirteen row hitboxes share one sequence"
+    "Bobby Ray geometry follows centered-screen and web-page offsets")
+  string(FIND "${runtime_bobby_ray_layout_test_contents}"
+    "${required_bobby_ray_layout_test_fragment}"
+    required_bobby_ray_layout_test_position)
+  if(required_bobby_ray_layout_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Bobby Ray layout tests lost '${required_bobby_ray_layout_test_fragment}'")
+  endif()
+endforeach()
+
 # Laptop XML/localization input is staged behind one dependency-free boundary
 # model and one legacy UTF-8 adapter. Expat may split character data at any
 # byte, and malformed or oversized data must not narrow, truncate, address an

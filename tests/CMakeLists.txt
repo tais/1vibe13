@@ -129,6 +129,15 @@ target_include_directories(bobby_ray_fulfilment_model_tests
 add_test(NAME bobby_ray_fulfilment_model
   COMMAND bobby_ray_fulfilment_model_tests)
 
+# Homepage signs, catalogue rows, order controls/drop-downs, and shipment rows
+# must use identical geometry for drawing, input, scrolling, and invalidation.
+add_executable(bobby_ray_layout_tests
+  bobby_ray_layout_tests.cpp)
+target_include_directories(bobby_ray_layout_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME bobby_ray_layout
+  COMMAND bobby_ray_layout_tests)
+
 # Finance, history, and email use persisted paginated record lists. Keep
 # malformed layouts, stale saved pages, offsets, and exact-end views data-free.
 add_executable(laptop_record_page_model_tests

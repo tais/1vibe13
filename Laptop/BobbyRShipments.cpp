@@ -1,5 +1,6 @@
 	#include "laptop.h"
 	#include "BobbyRShipments.h"
+	#include "BobbyRayLayout.h"
 	#include "BobbyRayFulfilmentModel.h"
 	#include "LaptopPageResourceOwner.h"
 	#include "LaptopSafety.h"
@@ -16,6 +17,18 @@
 	#include "input.h"
 	#include "english.h"
 
+namespace
+{
+BobbyRayLayoutModel::ShipmentLayout BobbyRayShipmentLayout()
+{
+	return BobbyRayLayoutModel::MakeShipmentLayout({
+		LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y,
+		LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y,
+		iScreenWidthOffset, iScreenHeightOffset,
+		LAPTOP_SCREEN_WEB_DELTA_Y});
+}
+}
+
 
 
 #define		BOBBYR_SHIPMENT_TITLE_TEXT_FONT			FONT14ARIAL
@@ -23,50 +36,6 @@
 
 #define		BOBBYR_SHIPMENT_STATIC_TEXT_FONT			FONT12ARIAL
 #define		BOBBYR_SHIPMENT_STATIC_TEXT_COLOR			145
-
-
-#define		BOBBYR_BOBBY_RAY_TITLE_X					LAPTOP_SCREEN_UL_X + 171
-#define		BOBBYR_BOBBY_RAY_TITLE_Y					LAPTOP_SCREEN_WEB_UL_Y + 3
-
-#define		BOBBYR_ORDER_FORM_TITLE_X					BOBBYR_BOBBY_RAY_TITLE_X
-#define		BOBBYR_ORDER_FORM_TITLE_Y					BOBBYR_BOBBY_RAY_TITLE_Y + 37
-#define		BOBBYR_ORDER_FORM_TITLE_WIDTH			159
-
-#define		BOBBYR_SHIPMENT_DELIVERY_GRID_X						LAPTOP_SCREEN_UL_X + 2
-#define		BOBBYR_SHIPMENT_DELIVERY_GRID_Y						BOBBYR_SHIPMENT_ORDER_GRID_Y
-#define		BOBBYR_SHIPMENT_DELIVERY_GRID_WIDTH				183
-
-#define		BOBBYR_SHIPMENT_ORDER_GRID_X							LAPTOP_SCREEN_UL_X + 223
-#define		BOBBYR_SHIPMENT_ORDER_GRID_Y							LAPTOP_SCREEN_WEB_UL_Y + 62
-
-
-#define		BOBBYR_SHIPMENT_BACK_BUTTON_X							iScreenWidthOffset + 130
-#define		BOBBYR_SHIPMENT_BACK_BUTTON_Y							iScreenHeightOffset + 400 + LAPTOP_SCREEN_WEB_DELTA_Y + 4
-
-#define		BOBBYR_SHIPMENT_HOME_BUTTON_X							iScreenWidthOffset + 515
-#define		BOBBYR_SHIPMENT_HOME_BUTTON_Y							BOBBYR_SHIPMENT_BACK_BUTTON_Y
-
-#define		BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS		13
-#define     MAX_SHIPMENTS_THAT_FIT_ON_SCREEN 13
-
-
-
-#define		BOBBYR_SHIPMENT_ORDER_NUM_X							iScreenWidthOffset + 116//LAPTOP_SCREEN_UL_X + 9
-#define		BOBBYR_SHIPMENT_ORDER_NUM_START_Y					iScreenHeightOffset + 144
-#define		BOBBYR_SHIPMENT_ORDER_NUM_WIDTH						64
-
-#define		BOBBYR_SHIPMENT_GAP_BTN_LINES							20
-
-
-#define		BOBBYR_SHIPMENT_SHIPMENT_ORDER_NUM_X			BOBBYR_SHIPMENT_ORDER_NUM_X
-#define		BOBBYR_SHIPMENT_SHIPMENT_ORDER_NUM_Y			iScreenHeightOffset + 117
-
-#define		BOBBYR_SHIPMENT_NUM_ITEMS_X								iScreenWidthOffset + 183//BOBBYR_SHIPMENT_ORDER_NUM_X+BOBBYR_SHIPMENT_ORDER_NUM_WIDTH+2
-#define		BOBBYR_SHIPMENT_NUM_ITEMS_Y								BOBBYR_SHIPMENT_SHIPMENT_ORDER_NUM_Y
-#define		BOBBYR_SHIPMENT_NUM_ITEMS_WIDTH						116
-
-//#define		BOBBYR_SHIPMENT_
-
 
 extern UINT8 gubPurchaseAtTopOfList;
 UINT32		guiBobbyRShipmentGrid;
@@ -90,7 +59,8 @@ INT32		giBobbyRShipmentHomeImage;
 
 
 
-MOUSE_REGION	gSelectedPreviousShipmentsRegion[BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS];
+MOUSE_REGION gSelectedPreviousShipmentsRegion[
+	BobbyRayLayoutModel::ShipmentLayout::VisibleRowCount];
 UINT32 gSelectedPreviousShipmentRegionCount = 0;
 void SelectPreviousShipmentsRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
@@ -125,6 +95,8 @@ BOOLEAN EnterBobbyRShipments()
 {
 	VOBJECT_DESC	VObjectDesc;
 	LaptopPageResourceOwner staged;
+	const BobbyRayLayoutModel::ShipmentLayout layout =
+		BobbyRayShipmentLayout();
 	gBobbyRShipmentResources.clear();
 	gBobbyRPreviousShipmentRegionResources.clear();
 	ClearBobbyRayOrderGridMouseRegions();
@@ -154,7 +126,8 @@ BOOLEAN EnterBobbyRShipments()
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
-													BOBBYR_SHIPMENT_BACK_BUTTON_X, BOBBYR_SHIPMENT_BACK_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											layout.backButton.x, layout.backButton.y,
+											BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 													DEFAULT_MOVE_CALLBACK, BtnBobbyRShipmentBackCallback),
 		guiBobbyRShipmetBack)) return FALSE;
 	SetButtonCursor( guiBobbyRShipmetBack, CURSOR_LAPTOP_SCREEN);
@@ -167,7 +140,8 @@ BOOLEAN EnterBobbyRShipments()
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
-													BOBBYR_SHIPMENT_HOME_BUTTON_X, BOBBYR_SHIPMENT_HOME_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											layout.homeButton.x, layout.homeButton.y,
+											BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 													DEFAULT_MOVE_CALLBACK, BtnBobbyRShipmentHomeCallback),
 		guiBobbyRShipmentHome)) return FALSE;
 	SetButtonCursor( guiBobbyRShipmentHome, CURSOR_LAPTOP_SCREEN);
@@ -177,27 +151,6 @@ BOOLEAN EnterBobbyRShipments()
 	giBobbyRShipmentSelectedShipment = -1;
 	gubPurchaseAtTopOfList = 0;
 
-	/*
-	//if there are shipments
-	if( giNumberOfNewBobbyRShipment != 0 )
-	{
-		INT32 iCnt;
-
-		// WDS - If there are more than 13 shipments only show 13 because
-		// that is all that will fit on the screen.  If you show more things
-		// get corrupted.
-		INT32 max = giNumberOfNewBobbyRShipment;
-		if (max > MAX_SHIPMENTS_THAT_FIT_ON_SCREEN)
-			max = MAX_SHIPMENTS_THAT_FIT_ON_SCREEN;
-
-		//get the first shipment #
-		for( iCnt=0; iCnt<max; iCnt++ )
-		{
-			if( gpNewBobbyrShipments[iCnt].fActive )
-				giBobbyRShipmentSelectedShipment = iCnt;
-		}
-	}
-	*/
 	const std::size_t firstShipment =
 		BobbyRayFulfilmentModel::IndexForMatchingSlot(
 			gShipmentTable.size(), 0, [](std::size_t index)
@@ -243,6 +196,8 @@ void RenderBobbyRShipments()
 	// Dealtar: this must be static as this is accessed after this function has returned
 	static BobbyRayPurchaseStruct brps[
 		BobbyRayCommerceModel::PurchaseCapacity];
+	const BobbyRayLayoutModel::ShipmentLayout layout =
+		BobbyRayShipmentLayout();
 	for (std::size_t i = 0;
 		i < BobbyRayCommerceModel::PurchaseCapacity; ++i)
 	{
@@ -254,7 +209,10 @@ void RenderBobbyRShipments()
 	DrawBobbyROrderTitle();
 
 	//Output the title
-	DrawTextToScreen(gzBobbyRShipmentText[ BOBBYR_SHIPMENT__TITLE ], BOBBYR_ORDER_FORM_TITLE_X, BOBBYR_ORDER_FORM_TITLE_Y, BOBBYR_ORDER_FORM_TITLE_WIDTH, BOBBYR_SHIPMENT_TITLE_TEXT_FONT, BOBBYR_SHIPMENT_TITLE_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+	DrawTextToScreen(gzBobbyRShipmentText[BOBBYR_SHIPMENT__TITLE],
+		layout.title.origin.x, layout.title.origin.y, layout.title.width,
+		BOBBYR_SHIPMENT_TITLE_TEXT_FONT, BOBBYR_SHIPMENT_TITLE_TEXT_COLOR,
+		FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 
 	DisplayShipmentGrid();
 
@@ -297,29 +255,16 @@ void RenderBobbyRShipments()
 		}
 	}
 	
-	/*
-	if( giBobbyRShipmentSelectedShipment != -1 &&
-			gpNewBobbyrShipments[ giBobbyRShipmentSelectedShipment ].fActive &&
-			gpNewBobbyrShipments[ giBobbyRShipmentSelectedShipment ].fDisplayedInShipmentPage )
-	{
-//		DisplayPurchasedItems( FALSE, BOBBYR_SHIPMENT_ORDER_GRID_X, BOBBYR_SHIPMENT_ORDER_GRID_Y, &LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[giBobbyRShipmentSelectedShipment].BobbyRayPurchase[0], FALSE );
-		DisplayPurchasedItems( FALSE, BOBBYR_SHIPMENT_ORDER_GRID_X, BOBBYR_SHIPMENT_ORDER_GRID_Y, &gpNewBobbyrShipments[giBobbyRShipmentSelectedShipment].BobbyRayPurchase[0], FALSE, giBobbyRShipmentSelectedShipment );
-	}
-	else
-	{
-//		DisplayPurchasedItems( FALSE, BOBBYR_SHIPMENT_ORDER_GRID_X, BOBBYR_SHIPMENT_ORDER_GRID_Y, &LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[giBobbyRShipmentSelectedShipment].BobbyRayPurchase[0], TRUE );
-		DisplayPurchasedItems( FALSE, BOBBYR_SHIPMENT_ORDER_GRID_X, BOBBYR_SHIPMENT_ORDER_GRID_Y, NULL, TRUE, giBobbyRShipmentSelectedShipment );
-	}
-	*/
-
 	if (hasSelectedShipment &&
 		gShipmentTable[ giBobbyRShipmentSelectedShipment ]->ShipmentStatus == SHIPMENT_INTRANSIT) // &&
 	{
-		DisplayPurchasedItems( FALSE, BOBBYR_SHIPMENT_ORDER_GRID_X, BOBBYR_SHIPMENT_ORDER_GRID_Y,&brps[0], FALSE, giBobbyRShipmentSelectedShipment );
+		DisplayPurchasedItems(FALSE, layout.orderGrid.x, layout.orderGrid.y,
+			&brps[0], FALSE, giBobbyRShipmentSelectedShipment);
 	}
 	else
 	{
-		DisplayPurchasedItems( FALSE, BOBBYR_SHIPMENT_ORDER_GRID_X, BOBBYR_SHIPMENT_ORDER_GRID_Y, NULL, TRUE, giBobbyRShipmentSelectedShipment );
+		DisplayPurchasedItems(FALSE, layout.orderGrid.x, layout.orderGrid.y,
+			NULL, TRUE, giBobbyRShipmentSelectedShipment);
 	}
 	
 
@@ -380,55 +325,69 @@ void BtnBobbyRShipmentHomeCallback(GUI_BUTTON *btn,INT32 reason)
 void DisplayShipmentGrid()
 {
 	HVOBJECT hPixHandle, hPixGrid;
+	const BobbyRayLayoutModel::ShipmentLayout layout =
+		BobbyRayShipmentLayout();
 	GetVideoObject(&hPixHandle, guiBobbyRShipmentGrid);
 	// Shipment Order Grid
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_SHIPMENT_DELIVERY_GRID_X, BOBBYR_SHIPMENT_DELIVERY_GRID_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.deliveryGrid.x, layout.deliveryGrid.y,
+		VO_BLT_SRCTRANSPARENCY,NULL);
 
 	GetVideoObject(&hPixGrid, guiBobbyROrderGrid);
-	BltVideoObject(FRAME_BUFFER, hPixGrid, 0, BOBBYR_SHIPMENT_ORDER_GRID_X, BOBBYR_SHIPMENT_ORDER_GRID_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-
-	// Order Grid
-	//BltVideoObject(FRAME_BUFFER, hPixGrid, 0, BOBBYR_SHIPMENT_ORDER_GRID_X, BOBBYR_SHIPMENT_ORDER_GRID_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixGrid, 0,
+		layout.orderGrid.x, layout.orderGrid.y,
+		VO_BLT_SRCTRANSPARENCY,NULL);
 }
 
 
 
 void DisplayShipmentTitles()
 {
+	const BobbyRayLayoutModel::ShipmentLayout layout =
+		BobbyRayShipmentLayout();
 	//output the order #
-	DrawTextToScreen( gzBobbyRShipmentText[BOBBYR_SHIPMENT__ORDERED_ON], BOBBYR_SHIPMENT_SHIPMENT_ORDER_NUM_X, BOBBYR_SHIPMENT_SHIPMENT_ORDER_NUM_Y, BOBBYR_SHIPMENT_ORDER_NUM_WIDTH, BOBBYR_SHIPMENT_STATIC_TEXT_FONT, BOBBYR_SHIPMENT_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
+	DrawTextToScreen(gzBobbyRShipmentText[BOBBYR_SHIPMENT__ORDERED_ON],
+		layout.orderedOnHeader.origin.x, layout.orderedOnHeader.origin.y,
+		layout.orderedOnHeader.width, BOBBYR_SHIPMENT_STATIC_TEXT_FONT,
+		BOBBYR_SHIPMENT_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, CENTER_JUSTIFIED);
 
 	//Output the # of items
-	DrawTextToScreen( gzBobbyRShipmentText[BOBBYR_SHIPMENT__NUM_ITEMS], BOBBYR_SHIPMENT_NUM_ITEMS_X, BOBBYR_SHIPMENT_NUM_ITEMS_Y, BOBBYR_SHIPMENT_NUM_ITEMS_WIDTH, BOBBYR_SHIPMENT_STATIC_TEXT_FONT, BOBBYR_SHIPMENT_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
+	DrawTextToScreen(gzBobbyRShipmentText[BOBBYR_SHIPMENT__NUM_ITEMS],
+		layout.itemCountHeader.origin.x, layout.itemCountHeader.origin.y,
+		layout.itemCountHeader.width, BOBBYR_SHIPMENT_STATIC_TEXT_FONT,
+		BOBBYR_SHIPMENT_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, CENTER_JUSTIFIED);
 }
 
 void DisplayPreviousShipments()
 {
 	UINT32 uiCnt;
 	CHAR16	zText[512];
-	UINT16	usPosY = BOBBYR_SHIPMENT_ORDER_NUM_START_Y;
 	UINT32	uiNumItems; // = CountNumberValidShipmentForTheShipmentsPage();
 	UINT32	uiNumberItemsInShipments = 0;
 	UINT32	uiItemCnt;
 	UINT8		ubFontColor = BOBBYR_SHIPMENT_STATIC_TEXT_COLOR;
+	const BobbyRayLayoutModel::ShipmentLayout layout =
+		BobbyRayShipmentLayout();
 	
 	uiNumItems = static_cast<UINT32>(gShipmentTable.size());
 
 	//loop through all the shipments
 	UINT32 displayedCount = 0;
 	for (uiCnt = 0; uiCnt < uiNumItems &&
-		displayedCount < BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS; ++uiCnt)
+		displayedCount <
+			BobbyRayLayoutModel::ShipmentLayout::VisibleRowCount; ++uiCnt)
 	{
-		/*
-		//if it is a valid shipment, and can be displayed at bobby r
-		if( gpNewBobbyrShipments[ uiCnt ].fActive &&
-				gpNewBobbyrShipments[ giBobbyRShipmentSelectedShipment ].fDisplayedInShipmentPage )
-		*/
 		// if it is a shipment that is active (= in transit)
 		if (gShipmentTable[uiCnt] &&
 			gShipmentTable[uiCnt]->ShipmentStatus == SHIPMENT_INTRANSIT)
 		{
-			++displayedCount;
+			const std::size_t rowSlot = displayedCount++;
+			const LaptopLayoutModel::TextArea orderedOn =
+				layout.orderedOn(rowSlot);
+			const LaptopLayoutModel::TextArea itemCount =
+				layout.itemCount(rowSlot);
 			if( uiCnt == (UINT32)giBobbyRShipmentSelectedShipment )
 			{
 				ubFontColor = FONT_MCOLOR_WHITE;
@@ -441,18 +400,12 @@ void DisplayPreviousShipments()
 			//Display the "ordered on day num"
 			//swprintf( zText, L"%s %d", gpGameClockString[0], gpNewBobbyrShipments[ uiCnt ].uiOrderedOnDayNum );
 			swprintf( zText, L"%s %d", gpGameClockString[0], gShipmentTable[ uiCnt ]->uiOrderDate );
-			DrawTextToScreen( zText, BOBBYR_SHIPMENT_ORDER_NUM_X, usPosY, BOBBYR_SHIPMENT_ORDER_NUM_WIDTH, BOBBYR_SHIPMENT_STATIC_TEXT_FONT, ubFontColor, 0, FALSE, CENTER_JUSTIFIED );
+			DrawTextToScreen(zText, orderedOn.origin.x, orderedOn.origin.y,
+				orderedOn.width, BOBBYR_SHIPMENT_STATIC_TEXT_FONT,
+				ubFontColor, 0, FALSE, CENTER_JUSTIFIED);
 
 			uiNumberItemsInShipments = 0;
 
-			/*
-	//		for( uiItemCnt=0; uiItemCnt<LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ uiCnt ].ubNumberPurchases; uiItemCnt++ )
-			for( uiItemCnt=0; uiItemCnt<gpNewBobbyrShipments[ uiCnt ].ubNumberPurchases; uiItemCnt++ )
-			{
-	//			uiNumberItemsInShipments += LaptopSaveInfo.BobbyRayOrdersOnDeliveryArray[ uiCnt ].BobbyRayPurchase[uiItemCnt].ubNumberPurchased;
-				uiNumberItemsInShipments += gpNewBobbyrShipments[ uiCnt ].BobbyRayPurchase[uiItemCnt].ubNumberPurchased;
-			}
-			*/
 			for( uiItemCnt=0; uiItemCnt<gShipmentTable[ uiCnt ]->ShipmentPackages.size(); uiItemCnt++ )
 			{
 				uiNumberItemsInShipments += gShipmentTable[ uiCnt ]->ShipmentPackages[uiItemCnt].ubNumber;
@@ -461,8 +414,9 @@ void DisplayPreviousShipments()
 
 			//Display the # of items
 			swprintf( zText, L"%d", uiNumberItemsInShipments );
-			DrawTextToScreen( zText, BOBBYR_SHIPMENT_NUM_ITEMS_X, usPosY, BOBBYR_SHIPMENT_NUM_ITEMS_WIDTH, BOBBYR_SHIPMENT_STATIC_TEXT_FONT, ubFontColor, 0, FALSE, CENTER_JUSTIFIED );
-			usPosY += BOBBYR_SHIPMENT_GAP_BTN_LINES;
+			DrawTextToScreen(zText, itemCount.origin.x, itemCount.origin.y,
+				itemCount.width, BOBBYR_SHIPMENT_STATIC_TEXT_FONT,
+				ubFontColor, 0, FALSE, CENTER_JUSTIFIED);
 		}
 	}
 }
@@ -473,10 +427,9 @@ BOOLEAN CreatePreviousShipmentsMouseRegions()
 	gSelectedPreviousShipmentRegionCount = 0;
 	LaptopPageResourceOwner staged;
 	UINT32 uiCnt;
-	UINT16	usPosY = BOBBYR_SHIPMENT_ORDER_NUM_START_Y;
-	UINT16	usWidth = BOBBYR_SHIPMENT_DELIVERY_GRID_WIDTH;
 	UINT16	usHeight = GetFontHeight( BOBBYR_SHIPMENT_STATIC_TEXT_FONT );
-	//UINT32	uiNumItems = CountNumberOfBobbyPurchasesThatAreInTransit();
+	const BobbyRayLayoutModel::ShipmentLayout layout =
+		BobbyRayShipmentLayout();
 	UINT32 snapshotInTransit = 0;
 	for (const PShipmentStruct shipment : gShipmentTable)
 	{
@@ -487,16 +440,18 @@ BOOLEAN CreatePreviousShipmentsMouseRegions()
 		BobbyRayCommerceModel::VisibleShipmentCount(
 			gPostalService.GetShipmentCount(SHIPMENT_INTRANSIT),
 			snapshotInTransit,
-			BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS));
+			BobbyRayLayoutModel::ShipmentLayout::VisibleRowCount));
 	for( uiCnt=0; uiCnt<max; uiCnt++ )
 	{
-		MSYS_DefineRegion( &gSelectedPreviousShipmentsRegion[uiCnt], BOBBYR_SHIPMENT_ORDER_NUM_X, usPosY, (UINT16)(BOBBYR_SHIPMENT_ORDER_NUM_X+usWidth), (UINT16)(usPosY+usHeight), MSYS_PRIORITY_HIGH,
+		LaptopLayoutModel::Rect row = layout.rows.at(uiCnt);
+		row.height = usHeight;
+		MSYS_DefineRegion(&gSelectedPreviousShipmentsRegion[uiCnt],
+			row.x, row.y, row.right(), row.bottom(), MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectPreviousShipmentsRegionCallBack );
 		if (!staged.addRegion(gSelectedPreviousShipmentsRegion[uiCnt]))
 			return FALSE;
 		MSYS_SetRegionUserData( &gSelectedPreviousShipmentsRegion[uiCnt], 0, uiCnt);
 
-		usPosY += BOBBYR_SHIPMENT_GAP_BTN_LINES;
 	}
 	gBobbyRPreviousShipmentRegionResources = std::move(staged);
 	gSelectedPreviousShipmentRegionCount = max;
@@ -542,19 +497,6 @@ void SelectPreviousShipmentsRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason
 		gfBobbyRShipmentsDirty = TRUE;
 	}
 }
-
-//Dealtar's Airport Externalization
-/*
-* Function no longer used.
-INT32	CountNumberValidShipmentForTheShipmentsPage()
-{
-	if( giNumberOfNewBobbyRShipment > BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS )
-		return( BOBBYR_SHIPMENT_NUM_PREVIOUS_SHIPMENTS );
-	else
-		return( giNumberOfNewBobbyRShipment );
-}
-*/
-
 void HandleBobbyRShipmentsKeyBoardInput()
 {
 	InputAtom					InputEvent;

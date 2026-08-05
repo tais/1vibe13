@@ -1308,6 +1308,17 @@ the engine must not contain SDL types in its public domain model.
   82-common/16-variant Laptop partition are unchanged. Focused data-free tests
   and architecture ratchets pin all three page owners, replaceable regions,
   all-host CI coverage, ASan admission, and raw-lifecycle exclusion.
+- Bobby Ray presentation geometry now crosses the dependency-free
+  `BobbyRayLayout` boundary. The homepage, all five catalogue pages,
+  mail-order form, order-grid scrolling, destination drop-down, and shipment
+  list use shared typed points, rectangles, and sequences for drawing, input,
+  scrolling, and invalidation. This retires the homepage's parallel raw sign
+  coordinate array and fixes shipping-speed light invalidation that omitted
+  the web-page vertical offset. Artwork, localized text, inventory, pricing,
+  fulfilment records, save formats, and campaign behavior are unchanged. A
+  data-free geometry test pins default and shifted-screen coordinates,
+  containment, capacities, and drawing/input pairings; architecture ratchets
+  and AddressSanitizer CI cover every Bobby Ray host.
 - Strategic-event dispatch is compiled identically for both campaign hosts and
   selects Arulco-only and Unfinished Business-only callbacks from
   `GameCapabilities`. Delayed JA25 quotes, sector notifications, the shared

@@ -1,6 +1,8 @@
 #ifndef __BOBBYRGUNS_H
 #define __BOBBYRGUNS_H
 
+#include "BobbyRayLayout.h"
+
 #define		BOBBYR_ITEM_DESC_NAME_SIZE				160
 #define		BOBBYR_ITEM_DESC_INFO_SIZE				640
 #define		BOBBYR_ITEM_DESC_FILE_SIZE				800
@@ -34,6 +36,9 @@ BOOLEAN EnterBobbyRGuns();
 void ExitBobbyRGuns();
 void HandleBobbyRGuns();
 void RenderBobbyRGuns();
+
+BobbyRayLayoutModel::CatalogueLayout GetBobbyRayCatalogueLayout();
+void DrawBobbyRayCatalogueBackground(UINT32 background);
 
 BOOLEAN InitBobbyRGunsFilterBar(LaptopPageResourceOwner& owner);
 BOOLEAN InitBobbyRAmmoFilterBar(LaptopPageResourceOwner& owner);

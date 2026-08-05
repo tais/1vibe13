@@ -542,6 +542,25 @@ shipment sources plus all three storefront host variants is clean; obsolete
 drop-down layout and keyboard-modifier dead stores found during that pass were
 removed.
 
+## Bobby Ray visual-layout closure batch
+
+The Bobby Ray cluster now derives homepage artwork and sign hitboxes, all five
+catalogue canvases and item rows, mail-order controls and scrolling, and the
+thirteen visible shipment rows from the dependency-free `BobbyRayLayout`
+model. Drawing, mouse regions, scrolling, and invalidation therefore consume
+the same authored rectangles and sequences instead of maintaining parallel
+macros and mutable coordinate arrays.
+
+This closes two concrete visual risks left after the ownership work: the home
+page's twenty-value sign-region array could drift away from the five drawn
+signs, and shipping-speed lights were invalidated without the Laptop web-page
+vertical offset used to draw them. The shared layout retires both paths while
+preserving the existing artwork, localized text, inventory, pricing, order and
+shipment records, campaign policy, and save formats. A data-free headless test
+pins exact default and shifted-screen geometry, containment, row capacities,
+and drawing/input pairings; architecture and AddressSanitizer CI ratchets keep
+every Bobby Ray host on that boundary.
+
 ## Finance and history ledger ownership and persistence batch
 
 The twelfth cohesive batch converts the connected finance and history record

@@ -76,15 +76,19 @@ void HandleBobbyRUsed()
 void RenderBobbyRUsed()
 {
 	HVOBJECT hPixHandle;
+	const BobbyRayLayoutModel::CatalogueLayout layout =
+		GetBobbyRayCatalogueLayout();
 
-	WebPageTileBackground(BOBBYR_NUM_HORIZONTAL_TILES, BOBBYR_NUM_VERTICAL_TILES, BOBBYR_BACKGROUND_WIDTH, BOBBYR_BACKGROUND_HEIGHT, guiUsedBackground);
+	DrawBobbyRayCatalogueBackground(guiUsedBackground);
 
 	//Display title at top of page
 	//DisplayBobbyRBrTitle();
 
 	// GunForm
 	GetVideoObject(&hPixHandle, guiUsedGrid);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_GRIDLOC_X, BOBBYR_GRIDLOC_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.catalogueGrid.x, layout.catalogueGrid.y,
+		VO_BLT_SRCTRANSPARENCY,NULL);
 
 	DisplayItemInfo(BOBBYR_USED_ITEMS, guiCurrentUsedFilterMode);
 
