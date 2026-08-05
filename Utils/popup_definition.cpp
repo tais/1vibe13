@@ -14,67 +14,58 @@
 //	popupDef
 //////////////////////////////////////
 
-	popupDef::popupDef(){}
-
-	popupDef::~popupDef(){
-		// NB: leak content[] on purpose.
-		//
-		// The XML loader (Tactical/XML_LBEPocketPopup.cpp) does
-		//     LBEPocketPopup[id] = *pData->curPocketPopup;
-		// which shallow-copies the content* pointers into the map
-		// AND keeps them alive in the source `*curPocketPopup`
-		// (which the loader never deletes -- it just allocates a
-		// fresh popupDef for the next <popup>). The map's static
-		// destructor at process exit then tries to free the same
-		// pointers that the (now-leaked) source popupDef would
-		// also be responsible for if its destructor ever ran, and
-		// macOS's malloc guard SIGTRAPs.
-		//
-		// Real fixes: deep-copy via a clone() virtual, or change
-		// LBEPocketPopup to hold popupDef* / unique_ptr<popupDef>.
-		// For now, leak: LBEPocketPopup is process-global, the
-		// number of popup defs is bounded by the XML file (a few
-		// dozen), and the OS reclaims the memory when the process
-		// exits.
+	popupDef::popupDef(const popupDef& other)
+	{
+		content.reserve(other.content.size());
+		for (const auto& item : other.content) content.push_back(item->clone());
 	}
 
-	BOOLEAN popupDef::applyToBox(POPUP* popup){
-		for(std::vector<popupDefContent*>::iterator content=this->content.begin(); content != this->content.end(); ++content)
+	popupDef& popupDef::operator=(const popupDef& other)
+	{
+		if (this == &other) return *this;
+		popupDef replacement(other);
+		content.swap(replacement.content);
+		return *this;
+	}
+
+	BOOLEAN popupDef::applyToBox(POPUP* popup) const
+	{
+		if (!popup) return FALSE;
+		for (const auto& item : content)
 		{
-			if ( (*content)->addToBox( popup ) != TRUE ) return FALSE;
+			if (item->addToBox(popup) != TRUE) return FALSE;
 		}
 
 		return TRUE;
 	}
 
-	BOOLEAN popupDef::addOption(std::wstring* name, UINT16 callbackId, UINT16 availId){
+	BOOLEAN popupDef::addOption(const std::wstring& name, UINT16 callbackId, UINT16 availId){
 		// TODO: check for vaid callbacl/avail ID
-		
-		this->content.push_back( new popupDefOption(name,callbackId,availId) );
+		content.push_back(std::make_unique<popupDefOption>(name, callbackId, availId));
 
 		return TRUE;
 	}
 
-	popupDef * popupDef::addSubPopup(std::wstring* name){
-
-		popupDefSubPopupOption * sub = new popupDefSubPopupOption(name);
-
-		this->content.push_back( sub );
-	
-		return sub->getSubDef();
+	popupDef* popupDef::addSubPopup(const std::wstring& name){
+		auto sub = std::make_unique<popupDefSubPopupOption>(name);
+		popupDef* definition = sub->getSubDef();
+		content.push_back(std::move(sub));
+		return definition;
 	}
 
-	BOOLEAN popupDef::addSubPopup(popupDefSubPopupOption* sub){
+	BOOLEAN popupDef::addSubPopup(std::unique_ptr<popupDefSubPopupOption> sub){
 		// TODO: add check for max options
-		this->content.push_back( sub );
+		if (!sub) return FALSE;
+		content.push_back(std::move(sub));
 
 		return TRUE;
 	};
 
 	BOOLEAN popupDef::addGenerator(UINT16 id){
-		// TODO: check for valid generator id
+		if (id < popupGenerators::dummy || id > popupGenerators::addKits)
+			return FALSE;
 
-		this->content.push_back( new popupDefContentGenerator(id) );
+		content.push_back(std::make_unique<popupDefContentGenerator>(id));
 
 		return TRUE;
 	}
@@ -83,10 +74,6 @@
 //////////////////////////////////////
 //	popupDefContent
 //////////////////////////////////////
-
-	popupDefContent::popupDefContent(){}
-	popupDefContent::~popupDefContent(){}
-
 
 //////////////////////////////////////
 //	popupDefOption helpers
@@ -115,24 +102,29 @@
 //////////////////////////////////////
 	/* defined in header file
 	popupDefOption::popupDefOption(){}
-	popupDefOption::popupDefOption( std::wstring* name, UINT16 callbackId, UINT16 availId ){}
 
 	~popupDefOption::popupDefOption(){}
 	*/
-	BOOLEAN popupDefOption::addToBox(POPUP * popup){
-	
-		POPUP_OPTION * opt = new POPUP_OPTION();
+	BOOLEAN popupDefOption::addToBox(POPUP* popup) const {
+		if (!popup) return FALSE;
 
-		opt->setName( this->name );
-		if (	!setPopupDefCallback(opt, this->callbackId) 
-			||	!setPopupDefAvail(opt, this->availId) )
+		std::unique_ptr<POPUP_OPTION> opt(new POPUP_OPTION());
+
+		opt->setName(this->name);
+		if (	!setPopupDefCallback(opt.get(), this->callbackId)
+			||	!setPopupDefAvail(opt.get(), this->availId) )
 		{
-			delete opt;
 			return false;
 		}
-		
-	
-		return popup->addOption(*opt);
+
+		if (!popup->addOption(*opt)) return FALSE;
+		opt.release();
+		return TRUE;
+	}
+
+	std::unique_ptr<popupDefContent> popupDefOption::clone() const
+	{
+		return std::make_unique<popupDefOption>(*this);
 	}
 
 
@@ -141,20 +133,27 @@
 //////////////////////////////////////
 	/* defined in header file
 	popupDefSubPopupOption::popupDefSubPopupOption(){}
-	popupDefSubPopupOption::popupDefSubPopupOption( std::wstring* name ){}
-	
+
 	popupDefSubPopupOption::~popupDefSubPopupOption(){}
 	*/
-	BOOLEAN popupDefSubPopupOption::addToBox(POPUP * popup){
-	
-		POPUP_SUB_POPUP_OPTION * sub = new POPUP_SUB_POPUP_OPTION( this->name );
+	BOOLEAN popupDefSubPopupOption::addToBox(POPUP* popup) const {
+		if (!popup) return FALSE;
 
-		if( !this->content->applyToBox( sub->subPopup ) ){
-			delete sub;
+		std::unique_ptr<POPUP_SUB_POPUP_OPTION> sub(
+			new POPUP_SUB_POPUP_OPTION(this->name));
+
+		if(!content.applyToBox(sub->subPopup)){
 			return false;
 		}
 
-		return popup->addSubMenuOption(sub);	
+		if (!popup->addSubMenuOption(sub.get())) return FALSE;
+		sub.release();
+		return TRUE;
+	}
+
+	std::unique_ptr<popupDefContent> popupDefSubPopupOption::clone() const
+	{
+		return std::make_unique<popupDefSubPopupOption>(*this);
 	}
 	
 
@@ -178,15 +177,17 @@
 	*/
 
 	static BOOLEAN applyPopupContentGenerator( POPUP * popup, UINT16 generatorId ){
-
-		TacticalActor	*pSoldier;
-		GetSoldier( &pSoldier, gCharactersList[ bSelectedInfoChar ].usSolID );
+		if (!popup) return FALSE;
+		if (generatorId == popupGenerators::dummy)
+			return popup->addOption(L"Dummy generator", NULL) != NULL;
+		if (bSelectedInfoChar < 0 ||
+			bSelectedInfoChar >= CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS ||
+			!gCharactersList[bSelectedInfoChar].fValid) return FALSE;
+		TacticalActor* pSoldier = nullptr;
+		if (!GetSoldier(&pSoldier, gCharactersList[bSelectedInfoChar].usSolID) ||
+			!pSoldier) return FALSE;
 
 		switch(generatorId){
-		case popupGenerators::dummy:
-			popup->addOption(new std::wstring( L"Dummy generator" ),NULL);
-			break;
-
 		case popupGenerators::addArmor:
 			addArmorToPocketPopup( pSoldier, gsPocketUnderCursor, popup );
 			break;
@@ -240,15 +241,14 @@
 	popupDefContentGenerator::popupDefContentGenerator( UINT16 generatorId ){}
 	*/
 
-	// The destructor is virtual (inherited from popupDefContent --
-	// recently made virtual to silence the macOS malloc guard's
-	// SIGTRAP on delete-via-base-pointer). It's the key function
-	// that anchors popupDefContentGenerator's vtable in this TU.
-	popupDefContentGenerator::~popupDefContentGenerator(){}
+	BOOLEAN popupDefContentGenerator::addToBox(POPUP* popup) const {
 
-	BOOLEAN popupDefContentGenerator::addToBox(POPUP * popup){
-	
 		return applyPopupContentGenerator( popup, this->generatorId );
-	
+
+	}
+
+	std::unique_ptr<popupDefContent> popupDefContentGenerator::clone() const
+	{
+		return std::make_unique<popupDefContentGenerator>(*this);
 	}
 	

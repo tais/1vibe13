@@ -5583,7 +5583,7 @@ void CreateMapInventoryFilterMenu( )
 	swprintf( pStr, gzMapInventoryFilterOptions[ 0 ] );
 	// Add option: "SHOW ALL"
 	uiFlags = IC_MAPFILTER_ALL;
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterSet, uiFlags ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterSet, uiFlags ) );
 	if (guiMapInventoryFilter == IC_MAPFILTER_ALL)
 	{
 		// Set this option off.
@@ -5603,7 +5603,7 @@ void CreateMapInventoryFilterMenu( )
 		swprintf( pStr, gzMapInventoryFilterOptions[ 1 ]  );
 	}
 	uiFlags = IC_MAPFILTER_GUN;
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
 	gMapInventoryFilterPopup->addOption( *pOption );
 
 	if (guiMapInventoryFilter & IC_MAPFILTER_AMMO)
@@ -5617,7 +5617,7 @@ void CreateMapInventoryFilterMenu( )
 		swprintf( pStr, gzMapInventoryFilterOptions[ 2 ] );
 	}
 	uiFlags = IC_MAPFILTER_AMMO;
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
 	gMapInventoryFilterPopup->addOption( *pOption );
 
 	if (guiMapInventoryFilter & IC_MAPFILTER_EXPLOSV)
@@ -5631,7 +5631,7 @@ void CreateMapInventoryFilterMenu( )
 		swprintf( pStr, gzMapInventoryFilterOptions[ 3 ] );
 	}
 	uiFlags = IC_MAPFILTER_EXPLOSV;
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
 	gMapInventoryFilterPopup->addOption( *pOption );
 
 	if (guiMapInventoryFilter & IC_MAPFILTER_MELEE)
@@ -5645,7 +5645,7 @@ void CreateMapInventoryFilterMenu( )
 		swprintf( pStr, gzMapInventoryFilterOptions[ 4 ] );
 	}
 	uiFlags = IC_MAPFILTER_MELEE;
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
 	gMapInventoryFilterPopup->addOption( *pOption );
 
 	if (guiMapInventoryFilter & IC_MAPFILTER_ARMOR)
@@ -5659,7 +5659,7 @@ void CreateMapInventoryFilterMenu( )
 		swprintf( pStr, gzMapInventoryFilterOptions[ 5 ] );
 	}
 	uiFlags = IC_MAPFILTER_ARMOR;
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
 	gMapInventoryFilterPopup->addOption( *pOption );
 
 	if (guiMapInventoryFilter & IC_MAPFILTER_LBE)
@@ -5673,7 +5673,7 @@ void CreateMapInventoryFilterMenu( )
 		swprintf( pStr, gzMapInventoryFilterOptions[ 6 ] );
 	}
 	uiFlags = IC_MAPFILTER_LBE;
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
 	gMapInventoryFilterPopup->addOption( *pOption );
 
 	if (guiMapInventoryFilter & IC_MAPFILTER_KIT)
@@ -5687,7 +5687,7 @@ void CreateMapInventoryFilterMenu( )
 		swprintf( pStr, gzMapInventoryFilterOptions[ 7 ] );
 	}
 	uiFlags = IC_MAPFILTER_KIT;
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
 	gMapInventoryFilterPopup->addOption( *pOption );
 
 	if (guiMapInventoryFilter & IC_MAPFILTER_MISC)
@@ -5701,13 +5701,13 @@ void CreateMapInventoryFilterMenu( )
 		swprintf( pStr, gzMapInventoryFilterOptions[ 8 ] );
 	}
 	uiFlags = IC_MAPFILTER_MISC;
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterToggle, uiFlags ) );
 	gMapInventoryFilterPopup->addOption( *pOption );
 
 	swprintf( pStr, gzMapInventoryFilterOptions[ 9 ] );
 	// Add option: "HIDE ALL"
 	uiFlags = 0;
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterSet, uiFlags ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &MapInventoryFilterMenuPopup_FilterSet, uiFlags ) );
 	if (guiMapInventoryFilter == 0)
 	{
 		// Set this option off.

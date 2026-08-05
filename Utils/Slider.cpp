@@ -4,6 +4,7 @@
 	#include	"Utilities.h"
 	#include	"WCheck.h"
 	#include	"Slider.h"
+	#include	"UtilsUiStateModel.h"
 	#include	"VideoResourceHandle.h"
 	#include	"sysutil.h"
 	#include	"line.h"
@@ -112,6 +113,7 @@ void CalculateNewSliderIncrement( UINT32 uiSliderID, UINT16 usPosX );
 BOOLEAN InitSlider()
 {
 	VOBJECT_DESC	VObjectDesc;
+	if (gfSliderInited) return TRUE;
 
 	// load Slider Box Graphic graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
@@ -129,7 +131,7 @@ void ShutDownSlider()
 	SLIDER *pRemove = NULL;
 	SLIDER *pTemp = NULL;
 
-	AssertMsg( gfSliderInited, "Trying to ShutDown the Slider System when it was never inited");
+	if (!gfSliderInited) return;
 
 	//Do a cehck to see if there are still active nodes
 	pTemp = pSliderHead;
@@ -143,7 +145,9 @@ void ShutDownSlider()
 	}
 
 	//if so report an errror
-	gfSliderInited = 0;
+	gfSliderInited = FALSE;
+	gpCurrentSlider = NULL;
+	gfCurrentSliderIsAnchored = FALSE;
 	gSliderBoxImage.reset();
 }
 
@@ -153,11 +157,12 @@ INT32	AddSlider( UINT8 ubStyle, UINT16 usCursor, UINT16 usPosX, UINT16 usPosY, U
 	SLIDER *pTemp = NULL;
 	SLIDER *pNewSlider = NULL;
 
-	AssertMsg( gfSliderInited, "Trying to Add a Slider Bar when the Slider System was never inited");
-
 	//checks
-	if( ubStyle >= NUM_SLIDER_STYLES )
+	if( !gfSliderInited || ubStyle >= NUM_SLIDER_STYLES ||
+		usNumberOfIncrements == 0 || SliderChangeCallback == NULL )
 		return( -1 );
+	if ((ubStyle == SLIDER_DEFAULT_STYLE && usWidth < 8) ||
+		(ubStyle == SLIDER_VERTICAL_STEEL && usWidth == 0)) return -1;
 
 
 	pNewSlider = (SLIDER *) MemAlloc( sizeof( SLIDER ) );
@@ -218,6 +223,8 @@ INT32	AddSlider( UINT8 ubStyle, UINT16 usCursor, UINT16 usPosX, UINT16 usPosY, U
 			pNewSlider->uiFlags |= SLIDER_HORIZONTAL;
 			pNewSlider->usWidth = usWidth;
 			pNewSlider->usHeight = DEFUALT_SLIDER_SIZE;
+			pNewSlider->ubSliderWidth = 8;
+			pNewSlider->ubSliderHeight = 15;
 
 			MSYS_DefineRegion( &pNewSlider->ScrollAreaMouseRegion, usPosX, (UINT16)(usPosY-DEFUALT_SLIDER_SIZE), (UINT16)(pNewSlider->usPosX+pNewSlider->usWidth), (UINT16)(usPosY+DEFUALT_SLIDER_SIZE), sPriority,
 									usCursor, SelectedSliderMovementCallBack, SelectedSliderButtonCallBack );
@@ -295,7 +302,7 @@ void RenderAllSliderBars()
 
 void RenderSelectedSliderBar( SLIDER *pSlider )
 {
-
+	if (!pSlider) return;
 
 	if( pSlider->uiFlags & SLIDER_VERTICAL )
 	{
@@ -319,7 +326,7 @@ void RenderSliderBox( SLIDER *pSlider )
 	HVOBJECT hPixHandle;
 	SGPRect		SrcRect;
 	SGPRect		DestRect;
-
+	if (!pSlider || !gSliderBoxImage) return;
 
 	if( pSlider->uiFlags & SLIDER_VERTICAL )
 	{
@@ -380,7 +387,7 @@ void RenderSliderBox( SLIDER *pSlider )
 	if( pSlider->uiFlags & SLIDER_VERTICAL )
 	{
 		//display the slider box
-		GetVideoObject(&hPixHandle, gSliderBoxImage.get() );
+		if (!GetVideoObject(&hPixHandle, gSliderBoxImage.get())) return;
 		BltVideoObject(FRAME_BUFFER, hPixHandle, 0, pSlider->LastRect.iLeft, pSlider->LastRect.iTop, VO_BLT_SRCTRANSPARENCY,NULL);
 
 		//invalidate the area
@@ -389,7 +396,7 @@ void RenderSliderBox( SLIDER *pSlider )
 	else
 	{
 		//display the slider box
-		GetVideoObject(&hPixHandle, gSliderBoxImage.get() );
+		if (!GetVideoObject(&hPixHandle, gSliderBoxImage.get())) return;
 		BltVideoObject(FRAME_BUFFER, hPixHandle, 0, pSlider->usCurrentSliderBoxPosition, pSlider->usPosY-DEFUALT_SLIDER_SIZE, VO_BLT_SRCTRANSPARENCY,NULL);
 
 		//invalidate the area
@@ -420,6 +427,11 @@ void RemoveSliderBar( UINT32 uiSliderID )
 	}
 
 	pNodeToRemove = pTemp;
+	if (gpCurrentSlider == pNodeToRemove)
+	{
+		gpCurrentSlider = NULL;
+		gfCurrentSliderIsAnchored = FALSE;
+	}
 
 	if( pTemp == pSliderHead )
 		pSliderHead = pSliderHead->pNext;
@@ -433,10 +445,6 @@ void RemoveSliderBar( UINT32 uiSliderID )
 
 	MSYS_RemoveRegion( &pNodeToRemove->ScrollAreaMouseRegion );
 
-	//if its the last node
-	if( pNodeToRemove == pSliderHead )
-		pSliderHead = NULL;
-
 	//Remove the slider node
 	MemFree( pNodeToRemove );
 	pNodeToRemove = NULL;
@@ -448,6 +456,8 @@ void SelectedSliderMovementCallBack(MOUSE_REGION * pRegion, INT32 reason )
 	UINT32	uiSelectedSlider;
 	SLIDER *pSlider=NULL;
 
+
+	if (!pRegion) return;
 
 	//if we already have an anchored slider bar
 	if( gpCurrentSlider != NULL )
@@ -541,6 +551,8 @@ void SelectedSliderButtonCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 	UINT32	uiSelectedSlider;
 	SLIDER *pSlider=NULL;
 
+	if (!pRegion) return;
+
 	//if we already have an anchored slider bar
 	if( gpCurrentSlider != NULL )
 		return;
@@ -607,11 +619,8 @@ void SelectedSliderButtonCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 
 void CalculateNewSliderIncrement( UINT32 uiSliderID, UINT16 usPos )
 {
-	FLOAT		dNewIncrement=0.0;
 	SLIDER *pSlider;
 	UINT16	usOldIncrement;
-	BOOLEAN	fLastSpot=FALSE;
-	BOOLEAN	fFirstSpot=FALSE;
 
 	pSlider = GetSliderFromID( uiSliderID );
 	if( pSlider == NULL )
@@ -619,30 +628,10 @@ void CalculateNewSliderIncrement( UINT32 uiSliderID, UINT16 usPos )
 
 	usOldIncrement = pSlider->usCurrentIncrement;
 
-	if( pSlider->uiFlags & SLIDER_VERTICAL )
-	{
-		if( usPos >= (UINT16)(pSlider->usHeight * 0.99f ) )
-			fLastSpot = TRUE;
-
-		if( usPos <= (UINT16)(pSlider->usHeight * 0.01f ) )
-			fFirstSpot = TRUE;
-
-
-		//pSlider->usNumberOfIncrements
-		if( fFirstSpot )
-			dNewIncrement = 0;
-		else if( fLastSpot )
-			dNewIncrement = pSlider->usNumberOfIncrements;
-		else
-			dNewIncrement = ( usPos / (FLOAT)pSlider->usHeight ) * pSlider->usNumberOfIncrements;
-	}
-	else
-	{
-		dNewIncrement = ( usPos / (FLOAT)pSlider->usWidth ) * pSlider->usNumberOfIncrements;
-	}
-
-
-	pSlider->usCurrentIncrement = (UINT16)( dNewIncrement + .5 );
+	const UINT16 extent = (pSlider->uiFlags & SLIDER_VERTICAL) ?
+		pSlider->usHeight : pSlider->usWidth;
+	pSlider->usCurrentIncrement = UtilsUiStateModel::SliderIncrementFromPosition(
+		usPos, extent, pSlider->usNumberOfIncrements);
 
 	CalculateNewSliderBoxPosition( pSlider );
 
@@ -650,6 +639,7 @@ void CalculateNewSliderIncrement( UINT32 uiSliderID, UINT16 usPos )
 	//if the the new value is different
 	if( usOldIncrement != pSlider->usCurrentIncrement )
 	{
+		if (!pSlider->SliderChangeCallback) return;
 		if( pSlider->uiFlags & SLIDER_VERTICAL )
 		{
 			//Call the call back for the slider
@@ -673,6 +663,7 @@ void OptDisplayLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY,
 	UINT8 *pDestBuf;
 
 	pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
+	if (!pDestBuf) return;
 
 	SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
@@ -686,48 +677,22 @@ void OptDisplayLine( UINT16 usStartX, UINT16 usStartY, UINT16 EndX, UINT16 EndY,
 
 void CalculateNewSliderBoxPosition( SLIDER *pSlider )
 {
-	UINT16	usMaxPos;
+	if (!pSlider) return;
+	pSlider->usCurrentIncrement = UtilsUiStateModel::ClampIncrement(
+		pSlider->usCurrentIncrement, pSlider->usNumberOfIncrements);
 
 	if( pSlider->uiFlags & SLIDER_VERTICAL )
 	{
-		//if the box is in the last position
-		if( pSlider->usCurrentIncrement >= ( pSlider->usNumberOfIncrements ) )
-		{
-			pSlider->usCurrentSliderBoxPosition = pSlider->usPosY + pSlider->usHeight;// - pSlider->ubSliderHeight / 2;	// - minus box width
-		}
-
-		//else if the box is in the first position
-		else if( pSlider->usCurrentIncrement == 0 )
-		{
-			pSlider->usCurrentSliderBoxPosition = pSlider->usPosY;// - pSlider->ubSliderHeight / 2;
-		}
-		else
-		{
-			pSlider->usCurrentSliderBoxPosition = pSlider->usPosY + (UINT16)( ( pSlider->usHeight / (FLOAT)pSlider->usNumberOfIncrements ) * pSlider->usCurrentIncrement );
-		}
-
-		usMaxPos = pSlider->usPosY + pSlider->usHeight;// - pSlider->ubSliderHeight//2 + 1;
-
-		//if the box is past the edge, move it back
-		if( pSlider->usCurrentSliderBoxPosition > usMaxPos )
-			pSlider->usCurrentSliderBoxPosition = usMaxPos;
+		pSlider->usCurrentSliderBoxPosition = pSlider->usPosY +
+			UtilsUiStateModel::SliderPositionFromIncrement(pSlider->usHeight,
+				pSlider->usCurrentIncrement, pSlider->usNumberOfIncrements);
 	}
 	else
 	{
-		//if the box is in the last position
-		if( pSlider->usCurrentIncrement == ( pSlider->usNumberOfIncrements ) )
-		{
-			pSlider->usCurrentSliderBoxPosition = pSlider->usPosX + pSlider->usWidth - 8 + 1;	// - minus box width
-		}
-		else
-		{
-			pSlider->usCurrentSliderBoxPosition = pSlider->usPosX + (UINT16)( ( pSlider->usWidth / (FLOAT)pSlider->usNumberOfIncrements ) * pSlider->usCurrentIncrement );
-		}
-		usMaxPos = pSlider->usPosX + pSlider->usWidth - 8+1;
-
-		//if the box is past the edge, move it back
-		if( pSlider->usCurrentSliderBoxPosition > usMaxPos )
-			pSlider->usCurrentSliderBoxPosition = usMaxPos;
+		const UINT16 travel = pSlider->usWidth >= 7 ? pSlider->usWidth - 7 : 0;
+		pSlider->usCurrentSliderBoxPosition = pSlider->usPosX +
+			UtilsUiStateModel::SliderPositionFromIncrement(travel,
+				pSlider->usCurrentIncrement, pSlider->usNumberOfIncrements);
 	}
 }
 
@@ -759,14 +724,13 @@ void SetSliderValue( UINT32 uiSliderID, UINT32 uiNewValue )
 	if( pSlider == NULL )
 		return;
 
-	if( uiNewValue >= pSlider->usNumberOfIncrements )
-		return;
+	const UINT16 boundedValue = UtilsUiStateModel::ClampIncrement(
+		uiNewValue, pSlider->usNumberOfIncrements);
 
 	if( pSlider->uiFlags & SLIDER_VERTICAL )
-		pSlider->usCurrentIncrement = pSlider->usNumberOfIncrements - (UINT16)uiNewValue;
+		pSlider->usCurrentIncrement = pSlider->usNumberOfIncrements - boundedValue;
 	else
-		pSlider->usCurrentIncrement = (UINT16)uiNewValue;
+		pSlider->usCurrentIncrement = boundedValue;
 
 	CalculateNewSliderBoxPosition( pSlider );
 }
-

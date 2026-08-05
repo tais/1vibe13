@@ -15,15 +15,33 @@
 	#include "Lua Interpreter.h"
 	#include "popup_callback.h"
 	#include "popup_class.h"
+	#include "UtilsUiStateModel.h"
+
+	#include <algorithm>
+	#include <memory>
+	#include <optional>
+	#include <vector>
 
   //////////////////////////////////////////////////////////////////
  //	functions and variable declarations for binding the class with C callbacks
 //////////////////////////////////////////////////////////////////
 
-std::vector<PopupIndex>	gPopupRegionIndex;
-std::vector<POPUP*>		gPopupIndex;
-UINT32			gPopupRegionIndexCounter = 0;
-UINT32			gPopupIndexCounter = 0;
+namespace
+{
+	std::vector<POPUP*> gPopupIndex;
+	UtilsUiStateModel::BoundedIdDirectory<UINT16, UINT32> gPopupRegionIndex(
+		MAX_REGIONS_IN_INDEX);
+
+	BOOLEAN registerPopupRegion(UINT16 regionId, UINT32 popupId)
+	{
+		return gPopupRegionIndex.insert(regionId, popupId);
+	}
+
+	BOOLEAN unregisterPopupRegion(UINT16 regionId)
+	{
+		return gPopupRegionIndex.erase(regionId);
+	}
+}
 UINT32			POPUP::nextid = 0;
 
 UINT32 POPUP::uiPOPUPBORDERS = 0;
@@ -71,7 +89,7 @@ void reinitPopupIndex(void)
 POPUP * findPopupInIndex( UINT32 cID )
 {
 	for(std::vector<POPUP*>::iterator cPopup=gPopupIndex.begin(); cPopup != gPopupIndex.end(); ++cPopup)
-		if ((*cPopup)->id == cID){
+		if (*cPopup && (*cPopup)->id == cID){
 			return (*cPopup);
 		}
 
@@ -115,10 +133,6 @@ POPUP_OPTION::POPUP_OPTION(void)
 {
 	this->name = L"unnamed option";
 
-	this->action = 0;
-	this->avail = 0;
-	this->hover = 0;
-
 	// set highlight color
 	this->color_highlight = FONT_WHITE;
 
@@ -132,26 +146,14 @@ POPUP_OPTION::POPUP_OPTION(void)
 	this->color_shade = FONT_GRAY7 ;
 }
 
-POPUP_OPTION::~POPUP_OPTION(void)
-{
-	if(this->action)	delete(this->action);
-	if(this->avail)		delete(this->avail);
-	if(this->hover)		delete(this->hover);
-}
+POPUP_OPTION::~POPUP_OPTION(void) = default;
 
-
-POPUP_OPTION::POPUP_OPTION(std::wstring *newName, popupCallback * newFunction)
-	: POPUP_OPTION(*newName, newFunction)
-{
-}
 
 POPUP_OPTION::POPUP_OPTION(const std::wstring& newName, popupCallback * newFunction)
 {
 	this->name = newName;
 
-	this->action = newFunction;
-	this->avail = 0;
-	this->hover = 0;
+	this->action.reset(newFunction);
 
 	// set highlight color
 	this->color_highlight = FONT_WHITE;
@@ -164,12 +166,6 @@ POPUP_OPTION::POPUP_OPTION(const std::wstring& newName, popupCallback * newFunct
 
 	// shaded color..for darkened text
 	this->color_shade = FONT_GRAY7 ;
-}
-
-BOOLEAN POPUP_OPTION::setName( std::wstring * newName )
-
-{
-	return setName(*newName);
 }
 
 BOOLEAN POPUP_OPTION::setName(const std::wstring& newName)
@@ -180,33 +176,21 @@ BOOLEAN POPUP_OPTION::setName(const std::wstring& newName)
 
 BOOLEAN POPUP_OPTION::setAction( popupCallback *fun )
 {
-	if (this->action != fun)
-	{
-		delete this->action;
-		this->action = fun;
-	}
+	if (this->action.get() != fun) this->action.reset(fun);
 
 	return TRUE;
 }
 
 BOOLEAN POPUP_OPTION::setAvail( popupCallback *fun )
 {
-	if (this->avail != fun)
-	{
-		delete this->avail;
-		this->avail = fun;
-	}
+	if (this->avail.get() != fun) this->avail.reset(fun);
 
 	return TRUE;
 }
 
 BOOLEAN POPUP_OPTION::setHover( popupCallback *fun )
 {
-	if (this->hover != fun)
-	{
-		delete this->hover;
-		this->hover = fun;
-	}
+	if (this->hover.get() != fun) this->hover.reset(fun);
 
 	return TRUE;
 }
@@ -214,9 +198,9 @@ BOOLEAN POPUP_OPTION::setHover( popupCallback *fun )
 
 BOOLEAN POPUP_OPTION::checkAvailability()
 {
-	if (this->avail != 0)
+	if (this->avail)
 		return ( this->avail->call() == true );
-	else if ( this->action == 0 )	// options with no action are always shaded
+	else if ( !this->action )	// options with no action are always shaded
 		return false;
 	else
 		return true;
@@ -225,7 +209,7 @@ BOOLEAN POPUP_OPTION::checkAvailability()
 BOOLEAN POPUP_OPTION::runHoverCallback(MOUSE_REGION * pRegion)
 {
 	// TODO: pass the mouse region data to the function (if it can accept it)
-	if (this->hover != 0)
+	if (this->hover)
 		return ( this->hover->call() == true );
 	else
 		return true;
@@ -234,7 +218,7 @@ BOOLEAN POPUP_OPTION::runHoverCallback(MOUSE_REGION * pRegion)
 BOOLEAN POPUP_OPTION::run()
 {
 	// check if it's available at this time
-	if ( this->action != 0 && this->checkAvailability() )
+	if ( this->action && this->checkAvailability() )
 	{
 		this->action->call();
 
@@ -246,7 +230,7 @@ BOOLEAN POPUP_OPTION::run()
 
 BOOLEAN POPUP_OPTION::forceRun()
 {
-	if (this->action != 0)
+	if (this->action)
 		this->action->call();
 	else
 		return FALSE;
@@ -266,23 +250,9 @@ POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(void) : POPUP_OPTION()
 	this->initSubPopup();
 }
 
-POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(std::wstring* name) : POPUP_OPTION(name, NULL)
-
-{
-	this->parent = NULL;
-	this->initSubPopup();
-}
-
 POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(const std::wstring& name) : POPUP_OPTION(name, NULL)
 {
 	this->parent = NULL;
-	this->initSubPopup();
-}
-
-POPUP_SUB_POPUP_OPTION::POPUP_SUB_POPUP_OPTION(std::wstring* newName, const POPUP * parent) : POPUP_OPTION(newName, NULL)
-
-{
-	this->parent = parent;
 	this->initSubPopup();
 }
 
@@ -301,6 +271,7 @@ POPUP_SUB_POPUP_OPTION::~POPUP_SUB_POPUP_OPTION(void)
 
 void POPUP_SUB_POPUP_OPTION::showPopup()
 {
+	if (!this->subPopup) return;
 	// check if it's available at this time, if there is an avail function set
 	if ( !this->AvailabilityFunctionSet() || this->checkAvailability() )
 	{
@@ -314,11 +285,12 @@ void POPUP_SUB_POPUP_OPTION::showPopup()
 
 void POPUP_SUB_POPUP_OPTION::hidePopup()
 {
-	this->subPopup->hide();
+	if (this->subPopup) this->subPopup->hide();
 }
 
 void POPUP_SUB_POPUP_OPTION::positionSubPopup()
 {
+	if (!this->parent || !this->subPopup) return;
 	INT16 x,y;
 
 	if( this->customPositionSet )
@@ -342,6 +314,7 @@ BOOLEAN POPUP_SUB_POPUP_OPTION::run()
 }
 
 BOOLEAN POPUP_SUB_POPUP_OPTION::setPopupPosition(UINT16 x,	UINT16 y, INT8 positioningRule){
+	if (!this->subPopup) return FALSE;
 	this->customPositionSet = true;
 
 	if (positioningRule != POPUP_POSITION_RELATIVE){
@@ -442,17 +415,8 @@ POPUP::~POPUP(void)
 	if(this->PopupVisible)
 		this->hide();
 
-	for (UINT16 i = 0; i<this->options.size(); i++)
-	{
-		delete this->options[i];
-	}
-	this->options.clear();
-
-	for (UINT16 i = 0; i<this->subPopupOptions.size(); i++)
-	{
-		delete this->subPopupOptions[i];
-	}
-	this->subPopupOptions.clear();
+	for (auto* option : this->options) delete option;
+	for (auto* option : this->subPopupOptions) delete option;
 
 	#ifdef JA2TESTVERSION
 		CHAR8 debugStr[120];
@@ -462,13 +426,8 @@ POPUP::~POPUP(void)
 
 	this->removeFromIndex();
 
-	delete this->initCallback;
-	delete this->ShowCallback;
-	delete this->HideCallback;
-
 	if (this->EndCallback) {
 		this->EndCallback->call();
-		delete this->EndCallback;
 	}
 }
 
@@ -479,23 +438,21 @@ BOOLEAN POPUP::setCallback(UINT8 type, popupCallback * callback){
 
 	switch(type){
 		case POPUP_CALLBACK_INIT:
-			delete this->initCallback;
-			this->initCallback = callback;
+			if (this->initCallback.get() != callback) this->initCallback.reset(callback);
 			break;
 		case POPUP_CALLBACK_END:
-			delete this->EndCallback;
-			this->EndCallback = callback;
+			if (this->EndCallback.get() != callback) this->EndCallback.reset(callback);
 			break;
 		case POPUP_CALLBACK_SHOW:
-			delete this->ShowCallback;
-			this->ShowCallback = callback;
+			if (this->ShowCallback.get() != callback) this->ShowCallback.reset(callback);
 			break;
 		case POPUP_CALLBACK_HIDE:
-			delete this->HideCallback;
-			this->HideCallback = callback;
+			if (this->HideCallback.get() != callback) this->HideCallback.reset(callback);
 			break;
 
-		default: return false;
+		default:
+			delete callback;
+			return false;
 	}
 
 	return true;
@@ -534,7 +491,6 @@ BOOLEAN POPUP::addToIndex()
 
 	//gPopupIndex[gPopupIndexCounter] = this;
 	gPopupIndex.push_back( this );
-	gPopupIndexCounter++;
 
 	return TRUE;
 }
@@ -543,7 +499,7 @@ BOOLEAN POPUP::removeFromIndex()
 {
 
 	for(std::vector<POPUP*>::iterator cPopup=gPopupIndex.begin(); cPopup != gPopupIndex.end(); ++cPopup)
-		if ((*cPopup)->id == this->id){
+		if (*cPopup == this){
 			gPopupIndex.erase(cPopup);
 			return TRUE;
 		}
@@ -603,22 +559,19 @@ void POPUP::setInitialValues(void)
 
 // setup functions
 
-POPUP_OPTION *  POPUP::addOption(std::wstring * name, popupCallback* action)
-
-{
-	return addOption(*name, action);
-}
-
 POPUP_OPTION * POPUP::addOption(const std::wstring& name, popupCallback* action)
 {
-	if (this->optionCount < POPUP_MAX_OPTIONS)
+	if (this->optionCount + this->subPopupOptionCount < POPUP_MAX_OPTIONS)
 	{
 		this->options.push_back( new POPUP_OPTION ( name, action ) );
 		this->optionCount++;
 		return this->options.back();
 	}
 	else
+	{
+		delete action;
 		return NULL;
+	}
 }
 /*
 INT16 POPUP::findFreeOptionIndex()
@@ -633,7 +586,7 @@ INT16 POPUP::findFreeOptionIndex()
 */
 BOOLEAN POPUP::addOption(POPUP_OPTION &option)
 {
-	if (this->optionCount < POPUP_MAX_OPTIONS)
+	if (this->optionCount + this->subPopupOptionCount < POPUP_MAX_OPTIONS)
 	{	
 		this->options.push_back( &option );
 		this->optionCount++;
@@ -652,15 +605,10 @@ POPUP_OPTION * POPUP::getOption(UINT16 n)
 	return NULL;
 }
 
-POPUP * POPUP::addSubMenuOption(std::wstring * name)
-
-{
-	return addSubMenuOption(*name);
-}
-
 POPUP * POPUP::addSubMenuOption(const std::wstring& name)
 {
-	if (this->subPopupOptionCount < POPUP_MAX_SUB_POPUPS)
+	if (this->subPopupOptionCount < POPUP_MAX_SUB_POPUPS &&
+		this->optionCount + this->subPopupOptionCount < POPUP_MAX_OPTIONS)
 	{
 		this->subPopupOptions.push_back( new POPUP_SUB_POPUP_OPTION ( name, this ) );
 		this->subPopupOptionCount++;
@@ -672,7 +620,9 @@ POPUP * POPUP::addSubMenuOption(const std::wstring& name)
 
 BOOLEAN POPUP::addSubMenuOption( POPUP_SUB_POPUP_OPTION* sub )
 {
-	if (this->subPopupOptionCount < POPUP_MAX_SUB_POPUPS)
+	if (!sub) return FALSE;
+	if (this->subPopupOptionCount < POPUP_MAX_SUB_POPUPS &&
+		this->optionCount + this->subPopupOptionCount < POPUP_MAX_OPTIONS)
 	{
 		sub->parent = this;
 		this->subPopupOptions.push_back( sub );
@@ -700,22 +650,18 @@ void POPUP::recalculateWidth(void){
 INT16 POPUP::getCurrentWidth(void){
 	INT16 longestString = 0, longestStringTmp;
 
-	CHAR16 sString[ 128 ];
-
 	if (this->subPopupOptionCount > 0)
 
 		for(std::vector<POPUP_SUB_POPUP_OPTION*>::iterator cOption=this->subPopupOptions.begin(); cOption != this->subPopupOptions.end(); ++cOption)
 		{
-			swprintf( sString, (*cOption)->name.c_str() );	  
-			longestStringTmp = StringPixLength(	sString, MAP_SCREEN_FONT);
+			longestStringTmp = StringPixLength((*cOption)->name.data(), MAP_SCREEN_FONT);
 			if( longestString < longestStringTmp ) longestString = longestStringTmp;
 		}
 
 	if (this->optionCount > 0)
 		for(std::vector<POPUP_OPTION*>::iterator cOption=this->options.begin(); cOption != this->options.end(); ++cOption)
 		{
-			swprintf( sString, (*cOption)->name.c_str() );	  
-			longestStringTmp = StringPixLength(	sString, MAP_SCREEN_FONT);
+			longestStringTmp = StringPixLength((*cOption)->name.data(), MAP_SCREEN_FONT);
 			if( longestString < longestStringTmp ) longestString = longestStringTmp;
 		}
 
@@ -1142,26 +1088,6 @@ void POPUP::UpdateTextProperties()
 	ResizeBoxToText( this->boxId );
 }
 
-BOOLEAN POPUP::CreateDestroyPopUpBoxes( void )
-{
-	static BOOLEAN fCreated = FALSE;
-	BOOLEAN returnStatus = TRUE;
-
-	if( ( this->PopupVisible == TRUE ) && ( fCreated == FALSE ) )
-	{
-		returnStatus = this->CreatePopUpBoxes();
-		fCreated = TRUE;
-	}
-	else if( ( this->PopupVisible  == FALSE ) && ( fCreated == TRUE ) )
-	{
-		returnStatus = this->DestroyPopUpBoxes();
-		fCreated = FALSE;		
-	}
-
-
-	return( returnStatus );
-}
-
 BOOLEAN POPUP::CreatePopUpBoxes()
 {
 	VSURFACE_DESC		vs_desc;
@@ -1191,25 +1117,6 @@ BOOLEAN POPUP::DestroyPopUpBoxes()
 
 	gfIgnoreScrolling = FALSE;
 	return TRUE;
-}
-
-void POPUP::CreateDestroyScreenMask( void )
-{
-	static BOOLEAN fCreated = FALSE;
-
-	// not created, create
-	if( ( fCreated == FALSE ) )
-	{
-		this->CreateScreenMask();
-		fCreated = TRUE;
-	}
-	else if( ( fCreated == TRUE ) )
-	{
-		this->DestroyScreenMask();
-		fCreated = FALSE;
-	}
-
-	return;
 }
 
 void POPUP::CreateScreenMask( void )
@@ -1255,22 +1162,6 @@ void POPUP::DestroyScreenMask( void )
 }
 
 
-
-void POPUP::CreateDestroyMouseRegions( void )
-{
-	static BOOLEAN fCreated = FALSE;
-
-	if( ( this->PopupVisible == TRUE ) && ( fCreated == FALSE ) )
-	{
-		this->CreateMouseRegions();
-		fCreated = TRUE;
-	}
-	else if( ( this->PopupVisible == FALSE ) && ( fCreated == TRUE ) )
-	{
-		this->DestroyMouseRegions();
-		fCreated = FALSE;
-	}
-}
 
 void POPUP::CreateMouseRegions( void )
 {
@@ -1474,17 +1365,7 @@ void POPUP::MenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 	INT32 iValue = -1;
 	INT32 iType = 0;
 	INT32 iTotal = 0;
-	TacticalActor * pSoldier = NULL;
-	UINT8 ubVolume = 10;
-
-	// sanity check #1
-	if (!this || this->boxId < 0 || this->id > POPUP::nextid){
-		#ifdef JA2TESTVERSION
-			 __debugbreak();
-		#else
-			Assert(false);
-		#endif
-	}
+	if (!pRegion || this->boxId < 0 || findPopupInIndex(this->id) != this) return;
 
 	iValue = MSYS_GetRegionUserData( pRegion, 0 );
 	iType  = MSYS_GetRegionUserData( pRegion, 1 );
@@ -1498,28 +1379,22 @@ void POPUP::MenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 			UnHighLightBox( this->boxId );
 
 			if (iValue < POPUP_MAX_OPTIONS
-			&&	iValue < this->optionCount 
+			&&	iValue < this->optionCount
 			&&	iValue >= 0
+			&&	static_cast<std::size_t>(iValue) < this->options.size()
 			&&	this->options[iValue] != NULL)
 			{
+				const UINT32 popupId = this->id;
 				this->options[iValue]->run();	// run the option's callback
 
-				// sanity check #2
-				// if this popup was fine in check #1 but is broken now, chances are 
-				// we got deleted (or just plain broken) by the callback. 
-				if (!this || this->id > POPUP::nextid){
-					#ifdef JA2TESTVERSION
-						 __debugbreak();
-					#else
-						Assert(false);
-					#endif
-				}
+				// Option callbacks are allowed to delete their owning popup. Resolve the
+				// object again before touching it after the callback.
+				POPUP* livePopup = findPopupInIndex(popupId);
+				if (livePopup != this) return;
+				livePopup->RebuildBox();			// rebuild the box so that the changes can take effect
 
-
-				this->RebuildBox();				// rebuild the box so that the changes can take effect
-
-				if( GetBoxShadeFlag( this->boxId, iTotal ) == FALSE )	// highlight the line again, if appropriate
-					HighLightBoxLine( this->boxId, iTotal );
+				if( GetBoxShadeFlag( livePopup->boxId, iTotal ) == FALSE )	// highlight the line again, if appropriate
+					HighLightBoxLine( livePopup->boxId, iTotal );
 			}
 		}
 		break;
@@ -1530,8 +1405,9 @@ void POPUP::MenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 			UnHighLightBox( this->boxId );
 
 			if (iValue < POPUP_MAX_SUB_POPUPS
-				&&	iValue < this->subPopupOptionCount 
+				&&	iValue < this->subPopupOptionCount
 				&&	iValue >= 0
+				&&	static_cast<std::size_t>(iValue) < this->subPopupOptions.size()
 				&&	this->subPopupOptions[iValue] != NULL)
 			{
 				this->recalculateWidth();
@@ -1549,13 +1425,15 @@ void POPUP::MenuMvtCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 	INT32 iType = 0;
 	INT32 iValue = 0;
 
-	if (!this || this->boxId < 0){
-		__debugbreak();
-	}
+	if (!pRegion || this->boxId < 0 || findPopupInIndex(this->id) != this) return;
 	
 	iTotal = MSYS_GetRegionUserData( pRegion, 2 );	// set this to the total value of all mouse regions
 	iType  = MSYS_GetRegionUserData( pRegion, 1 );
 	iValue = MSYS_GetRegionUserData( pRegion, 0 );
+
+	const bool validOption = iType == REGION_OPTION && iValue >= 0 &&
+		static_cast<std::size_t>(iValue) < this->options.size() &&
+		this->options[iValue] != nullptr;
 
 	if (iReason & MSYS_CALLBACK_REASON_GAIN_MOUSE )
 	{
@@ -1564,7 +1442,7 @@ void POPUP::MenuMvtCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 		{
 			// get the string line handle
 			HighLightBoxLine( this->boxId, iTotal );
-			if ( iType == REGION_OPTION && this->options[iValue]->HoverFunctionSet() )	// if it has been set...
+			if ( validOption && this->options[iValue]->HoverFunctionSet() )	// if it has been set...
 				this->options[iValue]->runHoverCallback(pRegion);	// run the custom mouse callback
 		}
 	}
@@ -1576,7 +1454,7 @@ void POPUP::MenuMvtCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 	else if (iReason & MSYS_CALLBACK_REASON_MOVE)
 	{
 		// if the hover callback is set then also react to mouse movement within the region (only when available)
-		if( iType == REGION_OPTION && this->options[iValue]->HoverFunctionSet() && GetBoxShadeFlag( this->boxId, iTotal ) == FALSE )
+		if( validOption && this->options[iValue]->HoverFunctionSet() && GetBoxShadeFlag( this->boxId, iTotal ) == FALSE )
 		{
 			this->options[iValue]->runHoverCallback(pRegion);	// run the custom mouse callback
 			
@@ -1808,108 +1686,34 @@ void POPUP::PositionCursorForBox(void)
  //	Functions for binding POPUP class with MSYS callbacks
 //////////////////////////////////////////////////////////////////
 
-PopupIndex * findMouseRegionInIndex(UINT16 regionId)
-{
-	for(std::vector<PopupIndex>::iterator cPopupIndex=gPopupRegionIndex.begin(); cPopupIndex != gPopupRegionIndex.end(); ++cPopupIndex)
-		if ((*cPopupIndex).regionId == regionId){
-			return &(*cPopupIndex);
-		}
-
-		#ifdef JA2TESTVERSION
-			CHAR8 debugStr[120];
-			wsprintf(debugStr,"Failed to find callback to mouse region id: %i \n",regionId);
-			OutputDebugString( debugStr );
-		#endif
-
-	return NULL;
-}
-
-BOOLEAN registerPopupRegion(UINT16 rID, UINT32 cID)
-{
-	/*
-	if (gPopupRegionIndexCounter == MAX_REGIONS_IN_INDEX)
-	{	// If we can't fit in any more regions, try to rebuild the index before giving up
-		rebuildPopupRegionIndex();	  // since there may be some unregistered regions
-		if (gPopupRegionIndexCounter == MAX_REGIONS_IN_INDEX) 
-			return FALSE;	// if index still full, return false
-	}
-	*/
-
-	PopupIndex * pi = new PopupIndex;
-	pi->regionId = rID;
-	pi->classId = cID;
-
-	gPopupRegionIndex.push_back(*pi); // FIXME: memory leak
-	gPopupRegionIndexCounter++;
-
-	return TRUE;
-}
-
-BOOLEAN unregisterPopupRegion(UINT16 regionId)
-{
-	for(std::vector<PopupIndex>::iterator cPopupIndex=gPopupRegionIndex.begin(); cPopupIndex != gPopupRegionIndex.end(); ++cPopupIndex)
-		if ((*cPopupIndex).regionId == regionId){
-			gPopupRegionIndex.erase(cPopupIndex);
-			return TRUE;
-		}
-
-		#ifdef JA2TESTVERSION
-			CHAR8 debugStr[120];
-			wsprintf(debugStr,"Failed to erase mouse region index: %i \n",regionId);
-			OutputDebugString( debugStr );
-		#endif
-	return FALSE;
-}
-
-void rebuildPopupRegionIndex(void)
-{/*
-	UINT8 i,j;
-	PopupIndex	TempPopupIndex[MAX_REGIONS_IN_INDEX];
-	// cout << "cleaning index"<<endl;
-	for (i = 0; i < gPopupRegionIndexCounter; i++)
-	{
-		TempPopupIndex[i].classId = gPopupRegionIndex[i].classId;
-		TempPopupIndex[i].regionId = gPopupRegionIndex[i].regionId;
-	}
-	j=0; // actual region index
-	for (i = 0; i < gPopupRegionIndexCounter; i++)
-	{
-		if (TempPopupIndex[i].classId < MAX_POPUPS)
-		{
-			gPopupRegionIndex[j].classId = TempPopupIndex[i].classId;
-			gPopupRegionIndex[j].regionId = TempPopupIndex[i].regionId;
-			j++;
-		}
-	}
-	// We only have j elements worth keeping.
-	gPopupRegionIndexCounter = j;*/
-}
-
 void popupMaskCallback(MOUSE_REGION *pRegion, INT32 iReason)
 {
-	UINT32 cID = findMouseRegionInIndex(pRegion->IDNumber)->classId;
-	if (cID < 0) return;
+	if (!pRegion) return;
+	const auto cID = gPopupRegionIndex.find(pRegion->IDNumber);
+	if (!cID) return;
 
-	POPUP * p = findPopupInIndex(cID);
+	POPUP * p = findPopupInIndex(*cID);
 	if (p) { p->ScreenMaskBtnCallback(pRegion, iReason); }
 	
 }
 
 void popupMouseMoveCallback(MOUSE_REGION *pRegion, INT32 iReason)
 {
-	UINT32 cID = findMouseRegionInIndex(pRegion->IDNumber)->classId;
-	if (cID < 0) return;
+	if (!pRegion) return;
+	const auto cID = gPopupRegionIndex.find(pRegion->IDNumber);
+	if (!cID) return;
 
-	POPUP * p = findPopupInIndex(cID);
+	POPUP * p = findPopupInIndex(*cID);
 	if (p) p->MenuMvtCallBack(pRegion, iReason);
 }
 
 void popupMouseClickCallback(MOUSE_REGION *pRegion, INT32 iReason)
 {
-	UINT32 cID = findMouseRegionInIndex(pRegion->IDNumber)->classId;
-	if (cID < 0) return;
+	if (!pRegion) return;
+	const auto cID = gPopupRegionIndex.find(pRegion->IDNumber);
+	if (!cID) return;
 
-	POPUP * p = findPopupInIndex(cID);
+	POPUP * p = findPopupInIndex(*cID);
 	if (p) {
 		p->MenuBtnCallBack(pRegion, iReason);
 	}

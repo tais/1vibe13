@@ -180,6 +180,16 @@ target_include_directories(laptop_ui_state_model_tests
 add_test(NAME laptop_ui_state_model
   COMMAND laptop_ui_state_model_tests)
 
+# Shared legacy UI helpers expose signed handles, bounded callback mappings,
+# and slider geometry to every application host. Keep exact-end, zero-extent,
+# duplicate-ID, stale-ID, and full-capacity behavior independently executable.
+add_executable(utils_ui_state_model_tests
+  utils_ui_state_model_tests.cpp)
+target_include_directories(utils_ui_state_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Utils)
+add_test(NAME utils_ui_state_model
+  COMMAND utils_ui_state_model_tests)
+
 # Encyclopedia is disabled in the current product configuration, but it is
 # still maintained source rather than dead text. Compile its complete path in
 # every host so dormant bounds and ownership code cannot silently decay.

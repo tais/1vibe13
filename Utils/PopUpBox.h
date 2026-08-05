@@ -57,9 +57,6 @@ struct popupbox{
 typedef struct popupbox PopUpBo;
 typedef PopUpBo *PopUpBoxPt;
 
-static PopUpBoxPt PopUpBoxList[MAX_POPUP_BOX_COUNT];
-static UINT32 guiCurrentBox;
-
 // functions
 void InitPopUpBoxList();
 BOOLEAN CreatePopUpBox(INT32 *hBoxHandle, SGPRect Dimensions, SGPPoint Position, UINT32 

@@ -16,6 +16,10 @@
 	#include "Font Control.h"
 	#include "Sound Control.h"
 
+#include <algorithm>
+#include <iterator>
+#include <limits>
+
 
 CHAR16 *szClipboard;
 BOOLEAN gfNoScroll = FALSE;
@@ -34,7 +38,8 @@ UINT32 PasteClipboardText();
 void CopyToClipboard( void );
 
 
-void DoublePercentileCharacterFromStringIntoString( STR16 pSrcString, CHAR16 *pDstString );
+void DoublePercentileCharacterFromStringIntoString(
+	STR16 pSrcString, CHAR16 *pDstString, std::size_t destinationSize );
 
 //All exclusive input types are handled in this function.
 void HandleExclusiveInput( UINT32 uiKey );
@@ -78,6 +83,8 @@ typedef struct TEXTINPUTNODE{
 typedef struct STACKTEXTINPUTNODE
 {
 	TEXTINPUTNODE *head;
+	TEXTINPUTNODE *tail;
+	TEXTINPUTNODE *active;
 	TextInputColors *pColors;
 	struct STACKTEXTINPUTNODE *next;
 }STACKTEXTINPUTNODE;
@@ -98,37 +105,47 @@ TEXTINPUTNODE *gpTextInputHead = NULL, *gpTextInputTail = NULL, *gpActive = NULL
 
 //Saving current mode
 TEXTINPUTNODE *pSavedHead = NULL;
+TEXTINPUTNODE *pSavedTail = NULL;
+TEXTINPUTNODE *pSavedActive = NULL;
 TextInputColors *pSavedColors = NULL;
+BOOLEAN gfTextInputLevelSaved = FALSE;
 UINT16 gusTextInputCursor = CURSOR_IBEAM;
 
 
 //Saves the current text input mode by pushing it onto our stack, then starts a new
 //one.
-void PushTextInputLevel()
+BOOLEAN PushTextInputLevel()
 {
 	STACKTEXTINPUTNODE *pNewLevel;
 	pNewLevel = (STACKTEXTINPUTNODE*)MemAlloc( sizeof( STACKTEXTINPUTNODE ) );
-	Assert( pNewLevel );
+	if (!pNewLevel) return FALSE;
 	pNewLevel->head = gpTextInputHead;
+	pNewLevel->tail = gpTextInputTail;
+	pNewLevel->active = gpActive;
 	pNewLevel->pColors = pColors;
 	pNewLevel->next = pInputStack;
 	pInputStack = pNewLevel;
 	DisableAllTextFields();
+	return TRUE;
 }
 
 //After the currently text input mode is removed, we then restore the previous one
 //automatically.	Assert failure in this function will expose cases where you are trigger
 //happy with killing non-existant text input modes.
-void PopTextInputLevel()
+BOOLEAN PopTextInputLevel()
 {
+	if (!pInputStack) return FALSE;
 	STACKTEXTINPUTNODE *pLevel;
 	gpTextInputHead = pInputStack->head;
+	gpTextInputTail = pInputStack->tail;
+	gpActive = pInputStack->active;
 	pColors = pInputStack->pColors;
 	pLevel = pInputStack;
 	pInputStack = pInputStack->next;
 	MemFree( pLevel );
 	pLevel = NULL;
 	EnableAllTextFields();
+	return TRUE;
 }
 
 
@@ -155,17 +172,26 @@ CHAR16 gszClipboardString[256];
 //and special fields can be defined which will call a void functionName( UINT16 usFieldNum )
 void InitTextInputMode()
 {
-	if( gpTextInputHead )
+	BOOLEAN pushedLevel = FALSE;
+	if( gfTextInputMode )
 	{
 		//Instead of killing all of the currently existing text input fields, they will now (Jan16 '97)
 		//be pushed onto a stack, and preserved until we are finished with the new mode when they will
 		//automatically be re-instated when the new text input mode is killed.
-		PushTextInputLevel();
+		if (!PushTextInputLevel()) return;
+		pushedLevel = TRUE;
 		//KillTextInputMode();
 	}
 	gpTextInputHead = NULL;
+	gpTextInputTail = NULL;
+	gpActive = NULL;
 	pColors = (TextInputColors*)MemAlloc( sizeof( TextInputColors ) );
-	Assert( pColors );
+	if (!pColors)
+	{
+		if (pushedLevel) PopTextInputLevel();
+		return;
+	}
+	memset(pColors, 0, sizeof(*pColors));
 	gfTextInputMode = TRUE;
 	gfEditingText = FALSE;
 	pColors->fBevelling = FALSE;
@@ -194,9 +220,6 @@ void InitTextInputModeWithScheme( UINT8 ubSchemeID )
 void KillTextInputMode()
 {
 	TEXTINPUTNODE *curr;
-	if( !gpTextInputHead )
-//		AssertMsg( 0, "Called KillTextInputMode() without any text input mode defined.");
-		return;
 	curr = gpTextInputHead;
 	while( curr )
 	{
@@ -213,10 +236,13 @@ void KillTextInputMode()
 	MemFree( pColors );
 	pColors = NULL;
 	gpTextInputHead = NULL;
+	gpTextInputTail = NULL;
+	gpActive = NULL;
 	if( pInputStack )
 	{
 		PopTextInputLevel();
-		SetActiveField( 0 );
+		gfTextInputMode = TRUE;
+		gfEditingText = gpActive && gpActive->szString;
 	}
 	else
 	{
@@ -224,8 +250,6 @@ void KillTextInputMode()
 		gfEditingText = FALSE;
 	}
 
-	if( !gpTextInputHead )
-		gpActive = NULL;
 }
 
 //Kills all levels of text input modes.	When you init a second consecutive text input mode, without
@@ -234,7 +258,7 @@ void KillTextInputMode()
 //just uses for it :(
 void KillAllTextInputModes()
 {
-	while( gpTextInputHead )
+	while( gfTextInputMode || pInputStack )
 		KillTextInputMode();
 }
 
@@ -244,10 +268,31 @@ void KillAllTextInputModes()
 void AddTextInputField( INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, INT8 bPriority,
 											STR16 szInitText, UINT8 ubMaxChars, UINT16 usInputType )
 {
-	TEXTINPUTNODE *pNode;
-	pNode = (TEXTINPUTNODE*)MemAlloc(sizeof(TEXTINPUTNODE));
-	Assert(pNode);
+	if (!gfTextInputMode || !pColors || sWidth <= 0 || sHeight <= 0 ||
+		(gpTextInputHead && !gpTextInputTail) ||
+		(gpTextInputTail && gpTextInputTail->ubID == 255)) return;
+	TEXTINPUTNODE *pNode = (TEXTINPUTNODE*)MemAlloc(sizeof(TEXTINPUTNODE));
+	if (!pNode) return;
 	memset( pNode, 0, sizeof( TEXTINPUTNODE ) );
+	if( usInputType == INPUTTYPE_EXCLUSIVE_24HOURCLOCK ) ubMaxChars = 6;
+	pNode->szString = (CHAR16 *) MemAlloc( (ubMaxChars+1)*sizeof(CHAR16) );
+	if (!pNode->szString)
+	{
+		MemFree(pNode);
+		return;
+	}
+	if (szInitText)
+	{
+		const std::size_t sourceLength = wcslen(szInitText);
+		pNode->ubStrLen = static_cast<UINT8>(std::min<std::size_t>(sourceLength, ubMaxChars));
+		wmemcpy(pNode->szString, szInitText, pNode->ubStrLen);
+		pNode->szString[pNode->ubStrLen] = L'\0';
+	}
+	else
+	{
+		pNode->ubStrLen = 0;
+		pNode->szString[0] = L'\0';
+	}
 	pNode->next = NULL;
 	if( !gpTextInputHead ) //first entry, so we start with text input.
 	{
@@ -266,23 +311,6 @@ void AddTextInputField( INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, IN
 	}
 	//Setup the information for the node
 	pNode->usInputType = usInputType;	//setup the filter type
-	//All 24hourclock inputtypes have 6 characters.	01:23 (null terminated)
-	if( usInputType == INPUTTYPE_EXCLUSIVE_24HOURCLOCK )
-		ubMaxChars = 6;
-	//Allocate and copy the string.
-	pNode->szString = (CHAR16 *) MemAlloc( (ubMaxChars+1)*sizeof(CHAR16) );
-	Assert( pNode->szString );
-	if( szInitText )
-	{
-		pNode->ubStrLen = (UINT8)wcslen( szInitText );
-		Assert( pNode->ubStrLen <= ubMaxChars );
-		sgp_swprintf( pNode->szString, (size_t)ubMaxChars + 1, L"%s", szInitText );
-	}
-	else
-	{
-		pNode->ubStrLen = 0;
-		pNode->szString[0] = L'\0';
-	}
 	pNode->ubMaxChars = ubMaxChars; //max string length
 
 	//if this is the first field, then hilight it.
@@ -311,9 +339,12 @@ void AddTextInputField( INT16 sLeft, INT16 sTop, INT16 sWidth, INT16 sHeight, IN
 //externally, except for the TAB keys.
 void AddUserInputField( INPUT_CALLBACK userFunction )
 {
-	TEXTINPUTNODE *pNode;
-	pNode = (TEXTINPUTNODE*)MemAlloc(sizeof(TEXTINPUTNODE));
-	Assert(pNode);
+	if (!gfTextInputMode || !pColors ||
+		(gpTextInputHead && !gpTextInputTail) ||
+		(gpTextInputTail && gpTextInputTail->ubID == 255)) return;
+	TEXTINPUTNODE *pNode = (TEXTINPUTNODE*)MemAlloc(sizeof(TEXTINPUTNODE));
+	if (!pNode) return;
+	memset(pNode, 0, sizeof(*pNode));
 	pNode->next = NULL;
 	if( !gpTextInputHead ) //first entry, so we don't start with text input.
 	{
@@ -349,7 +380,10 @@ void RemoveTextInputField( UINT8 ubField )
 		if( curr->ubID == ubField )
 		{
 			if( curr == gpActive )
-				SelectNextField();
+			{
+				if (curr->next || curr->prev) SelectNextField();
+				else gpActive = NULL;
+			}
 			if( curr == gpTextInputHead )
 				gpTextInputHead = gpTextInputHead->next;
 			//Detach the node.
@@ -357,6 +391,7 @@ void RemoveTextInputField( UINT8 ubField )
 				curr->next->prev = curr->prev;
 			if( curr->prev )
 				curr->prev->next = curr->next;
+			if (curr == gpTextInputTail) gpTextInputTail = curr->prev;
 			if( curr->szString )
 			{
 				MemFree( curr->szString );
@@ -367,6 +402,8 @@ void RemoveTextInputField( UINT8 ubField )
 			curr = NULL;
 			if( !gpTextInputHead )
 			{
+				gpTextInputTail = NULL;
+				gpActive = NULL;
 				gfTextInputMode = FALSE;
 				gfEditingText = FALSE;
 			}
@@ -396,20 +433,23 @@ void SetInputFieldStringWith16BitString( UINT8 ubField, const STR16 szNewText )
 	{
 		if( curr->ubID == ubField )
 		{
-			if( szNewText)
+			if( curr->fUserField )
 			{
-				curr->ubStrLen = (UINT8)wcslen( szNewText );
-				Assert( curr->ubStrLen <= curr->ubMaxChars );
-				sgp_swprintf( curr->szString, (size_t)curr->ubMaxChars + 1, L"%s", szNewText );
+				AssertMsg( 0, String( "Attempting to illegally set text into user field %d", curr->ubID ) );
+				return;
 			}
-			else if( !curr->fUserField )
+			if( !curr->szString ) return;
+			if( szNewText )
 			{
-				curr->ubStrLen = 0;
-				curr->szString[0] = L'\0';
+				curr->ubStrLen = static_cast<UINT8>(std::min<std::size_t>(
+					wcslen(szNewText), curr->ubMaxChars));
+				wmemcpy(curr->szString, szNewText, curr->ubStrLen);
+				curr->szString[curr->ubStrLen] = L'\0';
 			}
 			else
 			{
-				AssertMsg( 0, String( "Attempting to illegally set text into user field %d", curr->ubID ) );
+				curr->ubStrLen = 0;
+				curr->szString[0] = L'\0';
 			}
 			return;
 		}
@@ -425,20 +465,21 @@ void SetInputFieldStringWith8BitString( UINT8 ubField, const STR8 szNewText )
 	{
 		if( curr->ubID == ubField )
 		{
+			if( curr->fUserField )
+			{
+				AssertMsg( 0, String( "Attempting to illegally set text into user field %d", curr->ubID ) );
+				return;
+			}
+			if( !curr->szString ) return;
 			if( szNewText )
 			{
-				curr->ubStrLen = (UINT8)strlen( szNewText );
-				Assert( curr->ubStrLen <= curr->ubMaxChars );
 				sgp_swprintf( curr->szString, (size_t)curr->ubMaxChars + 1, L"%S", szNewText );
-			}
-			else if( !curr->fUserField )
-			{
-				curr->ubStrLen = 0;
-				curr->szString[0] = L'\0';
+				curr->ubStrLen = static_cast<UINT8>(wcslen(curr->szString));
 			}
 			else
 			{
-				AssertMsg( 0, String( "Attempting to illegally set text into user field %d", curr->ubID ) );
+				curr->ubStrLen = 0;
+				curr->szString[0] = L'\0';
 			}
 			return;
 		}
@@ -449,18 +490,19 @@ void SetInputFieldStringWith8BitString( UINT8 ubField, const STR8 szNewText )
 //Allows external functions to access the strings within the fields at anytime.
 void Get8BitStringFromField( UINT8 ubField, CHAR8 *szString, UINT32 uiBufferSize )
 {
+	if (!szString || uiBufferSize == 0) return;
 	TEXTINPUTNODE *curr;
 	curr = gpTextInputHead;
 	while( curr )
 	{
-		if( curr->ubID == ubField )
+		if( curr->ubID == ubField && curr->szString )
 		{
-			size_t len = __min(uiBufferSize, wcslen(curr->szString)+1);
 #ifdef WIN32
-			sprintf_s(szString, len, "%S", curr->szString );
+			sprintf_s(szString, uiBufferSize, "%S", curr->szString );
 #else
-			snprintf(szString, len, "%S", curr->szString );
+			snprintf(szString, uiBufferSize, "%S", curr->szString );
 #endif
+			szString[uiBufferSize - 1] = '\0';
 			return;
 		}
 		curr = curr->next;
@@ -470,14 +512,17 @@ void Get8BitStringFromField( UINT8 ubField, CHAR8 *szString, UINT32 uiBufferSize
 
 void Get16BitStringFromField( UINT8 ubField, CHAR16 *szString, UINT32 uiBufferSize )
 {
+	if (!szString || uiBufferSize == 0) return;
 	TEXTINPUTNODE *curr;
 	curr = gpTextInputHead;
 	while( curr )
 	{
-		if( curr->ubID == ubField )
+		if( curr->ubID == ubField && curr->szString )
 		{
-			size_t len = __min(uiBufferSize, wcslen(curr->szString)+1);
-			sgp_swprintf( szString, len, L"%s", curr->szString );
+			const std::size_t copyLength = std::min<std::size_t>(
+				uiBufferSize - 1, wcslen(curr->szString));
+			wmemcpy(szString, curr->szString, copyLength);
+			szString[copyLength] = L'\0';
 			return;
 		}
 		curr = curr->next;
@@ -504,7 +549,9 @@ INT32 GetNumericStrictValueFromField( UINT8 ubField )
 	{
 		if( *ptr >= '0' && *ptr <= '9' )		//...make sure it is numeric...
 		{	//Multiply prev total by 10 and add converted char digit value.
-			total = total * 10 + (*ptr - '0');
+			const INT32 digit = *ptr - '0';
+			if (total > (std::numeric_limits<INT32>::max() - digit) / 10) return -1;
+			total = total * 10 + digit;
 		}
 		else																//...else the string is invalid.
 			return -1;
@@ -524,12 +571,17 @@ void SetInputFieldStringWithNumericStrictValue( UINT8 ubField, INT32 iNumber )
 		if( curr->ubID == ubField )
 		{
 			if( curr->fUserField )
-				AssertMsg( 0, String( "Attempting to illegally set text into user field %d", curr->ubID ) );
+				return;
 			if( iNumber < 0 ) //negative number converts to blank string
 				curr->szString[0] = L'\0';
 			else
 			{
-				INT32 iMax = (INT32)pow( 10.0, curr->ubMaxChars );
+				INT32 iMax = std::numeric_limits<INT32>::max();
+				if (curr->ubMaxChars < 10)
+				{
+					iMax = 1;
+					for (UINT8 digit = 0; digit < curr->ubMaxChars; ++digit) iMax *= 10;
+				}
 				if( iNumber > iMax ) //set string to max value based on number of chars.
 					sgp_swprintf( curr->szString, (size_t)curr->ubMaxChars + 1, L"%d", iMax - 1 );
 				else	//set string to the number given
@@ -670,22 +722,24 @@ void SelectPrevField()
 //but will effect all of the colors.
 void SetTextInputFont( UINT16 usFont )
 {
-	pColors->usFont = usFont;
+	if (pColors) pColors->usFont = usFont;
 }
 
 void Set16BPPTextFieldColor( PIXEL usTextFieldColor )
 {
-	pColors->usTextFieldColor = usTextFieldColor;
+	if (pColors) pColors->usTextFieldColor = usTextFieldColor;
 }
 
 void SetTextInputRegularColors( UINT8 ubForeColor, UINT8 ubShadowColor )
 {
+	if (!pColors) return;
 	pColors->ubForeColor = ubForeColor;
 	pColors->ubShadowColor = ubShadowColor;
 }
 
 void SetTextInputHilitedColors( UINT8 ubForeColor, UINT8 ubShadowColor, UINT8 ubBackColor )
 {
+	if (!pColors) return;
 	pColors->ubHiForeColor = ubForeColor;
 	pColors->ubHiShadowColor = ubShadowColor;
 	pColors->ubHiBackColor = ubBackColor;
@@ -693,6 +747,7 @@ void SetTextInputHilitedColors( UINT8 ubForeColor, UINT8 ubShadowColor, UINT8 ub
 
 void SetDisabledTextFieldColors( UINT8 ubForeColor, UINT8 ubShadowColor, PIXEL usTextFieldColor )
 {
+	if (!pColors) return;
 	pColors->fUseDisabledAutoShade = FALSE;
 	pColors->ubDisabledForeColor = ubForeColor;
 	pColors->ubDisabledShadowColor = ubShadowColor;
@@ -701,6 +756,7 @@ void SetDisabledTextFieldColors( UINT8 ubForeColor, UINT8 ubShadowColor, PIXEL u
 
 void SetBevelColors( PIXEL usBrighterColor, PIXEL usDarkerColor )
 {
+	if (!pColors) return;
 	pColors->fBevelling = TRUE;
 	pColors->usBrighterColor = usBrighterColor;
 	pColors->usDarkerColor = usDarkerColor;
@@ -708,7 +764,7 @@ void SetBevelColors( PIXEL usBrighterColor, PIXEL usDarkerColor )
 
 void SetCursorColor( PIXEL usCursorColor )
 {
-	pColors->usCursorColor = usCursorColor;
+	if (pColors) pColors->usCursorColor = usCursorColor;
 }
 
 //All CTRL and ALT keys combinations, F1-F12 keys, ENTER and ESC are ignored allowing
@@ -732,8 +788,9 @@ BOOLEAN HandleTextInput( InputAtom *Event )
 
 	//not in text input mode
 	gfNoScroll = FALSE;
-	if( !gfTextInputMode )
+	if( !Event || !gfTextInputMode )
 		return FALSE;
+	if (gfEditingText && (!gpActive || !gpActive->szString)) return FALSE;
 	//currently in a user field, so return unless TAB or SHIFT_TAB are pressed.
 	if( !gfEditingText && Event->usParam != TAB && Event->usParam != SHIFT_TAB )
 		return FALSE;
@@ -1126,6 +1183,7 @@ void DeleteHilitedText()
 
 void RemoveChar( UINT8 ubArrayIndex )
 {
+	if (!gpActive || !gpActive->szString) return;
 	BOOLEAN fDeleting = FALSE;
 	while( ubArrayIndex < gpActive->ubStrLen )
 	{
@@ -1142,6 +1200,7 @@ void RemoveChar( UINT8 ubArrayIndex )
 void MouseMovedInTextRegionCallback(MOUSE_REGION *reg, INT32 reason)
 {
 	TEXTINPUTNODE *curr;
+	if (!reg || !gpActive || !gpActive->szString || !pColors) return;
 	if( gfLeftButtonState )
 	{
 		if( reason & MSYS_CALLBACK_REASON_MOVE ||
@@ -1164,6 +1223,7 @@ void MouseMovedInTextRegionCallback(MOUSE_REGION *reg, INT32 reason)
 					}
 					curr = curr->next;
 				}
+				if (!curr || !gpActive || !gpActive->szString) return;
 			}
 			if( reason & MSYS_CALLBACK_REASON_LOST_MOUSE )
 			{
@@ -1206,6 +1266,7 @@ void MouseMovedInTextRegionCallback(MOUSE_REGION *reg, INT32 reason)
 void MouseClickedInTextRegionCallback(MOUSE_REGION *reg, INT32 reason)
 {
 	TEXTINPUTNODE *curr;
+	if (!reg || !gpActive || !gpActive->szString || !pColors) return;
 	if( reason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{
 		INT32 iClickX, iCurrCharPos, iNextCharPos;
@@ -1225,6 +1286,7 @@ void MouseClickedInTextRegionCallback(MOUSE_REGION *reg, INT32 reason)
 				}
 				curr = curr->next;
 			}
+			if (!curr || !gpActive || !gpActive->szString) return;
 		}
 		//Signifies that we are typing text now.
 		gfEditingText = TRUE;
@@ -1251,6 +1313,7 @@ void MouseClickedInTextRegionCallback(MOUSE_REGION *reg, INT32 reason)
 void RenderBackgroundField( TEXTINPUTNODE *pNode )
 {
 	UINT16 usColor;
+	if (!pNode || !pColors) return;
 	if( pColors->fBevelling )
 	{
 		ColorFillVideoSurfaceArea(FRAME_BUFFER,	pNode->region.RegionTopLeftX, pNode->region.RegionTopLeftY,
@@ -1276,7 +1339,7 @@ void RenderActiveTextField()
 	UINT32 uiCursorXPos;
 	UINT16 usOffset;
 	CHAR16 str[ 256 ];
-	if( !gpActive || !gpActive->szString )
+	if( !gpActive || !gpActive->szString || !pColors )
 		return;
 
 	SaveFontSettings();
@@ -1290,7 +1353,7 @@ void RenderActiveTextField()
 	UINT16 regionXLen = gpActive->region.RegionBottomRightX - gpActive->region.RegionTopLeftX - 6; // 3 pixel gap either side
 	CHAR16 scrollStr[ 256 ]; // the visible portion of the string based on where we moved with the cursor
 	UINT16 scrollStrLen = 0; // the length of the new string to render
-	UINT8  scrollCursorPos = gubCursorPos; // the relative position of the cursor (for drawing only)
+	UINT8  scrollCursorPos; // the relative position of the cursor (for drawing only)
 	memset(scrollStr,0,256*sizeof(CHAR16));
 	// if string to big to fit in text box...
 	if ( strPixLen > regionXLen )
@@ -1393,13 +1456,13 @@ void RenderActiveTextField()
 		SetFontForeground( pColors->ubForeColor );
 		SetFontShadow( pColors->ubShadowColor );
 		SetFontBackground( 0 );
-		DoublePercentileCharacterFromStringIntoString(  scrollStr, str );
+		DoublePercentileCharacterFromStringIntoString(scrollStr, str, std::size(str));
 		mprintf( gpActive->region.RegionTopLeftX + 3, gpActive->region.RegionTopLeftY + usOffset, str );
 	}
 	//Draw the cursor in the correct position.
-	if( gfEditingText && scrollStr )
+	if( gfEditingText )
 	{
-		DoublePercentileCharacterFromStringIntoString( scrollStr, str );
+		DoublePercentileCharacterFromStringIntoString(scrollStr, str, std::size(str));
 		uiCursorXPos = StringPixLengthArg( pColors->usFont, scrollCursorPos, str ) + 2;
 		if( GetJA2Clock()%1000 < 500 )
 		{	//draw the blinking ibeam cursor during the on blink period.
@@ -1427,8 +1490,9 @@ void RenderInactiveTextField( UINT8 ubID )
 			pNode = curr;
 			break;
 		}
+		curr = curr->next;
 	}
-	if( !pNode || !pNode->szString )
+	if( !pNode || !pNode->szString || !pColors )
 		return;
 	SaveFontSettings();
 	SetFont( pColors->usFont );
@@ -1437,7 +1501,7 @@ void RenderInactiveTextField( UINT8 ubID )
 	SetFontShadow( pColors->ubShadowColor );
 	SetFontBackground( 0 );
 	RenderBackgroundField( pNode );
-	DoublePercentileCharacterFromStringIntoString( pNode->szString, str );
+	DoublePercentileCharacterFromStringIntoString(pNode->szString, str, std::size(str));
 	mprintf( pNode->region.RegionTopLeftX + 3, pNode->region.RegionTopLeftY + usOffset, str );
 	RestoreFontSettings();
 }
@@ -1446,7 +1510,7 @@ void RenderInactiveTextFieldNode( TEXTINPUTNODE *pNode )
 {
 	UINT16 usOffset;
 	CHAR16 str[ 256 ];
-	if( !pNode || !pNode->szString )
+	if( !pNode || !pNode->szString || !pColors )
 		return;
 	SaveFontSettings();
 	SetFont( pColors->usFont );
@@ -1463,7 +1527,7 @@ void RenderInactiveTextFieldNode( TEXTINPUTNODE *pNode )
 	usOffset = (UINT16)(( pNode->region.RegionBottomRightY - pNode->region.RegionTopLeftY - GetFontHeight( pColors->usFont ) ) / 2);
 	SetFontBackground( 0 );
 	RenderBackgroundField( pNode );
-	DoublePercentileCharacterFromStringIntoString( pNode->szString, str );
+	DoublePercentileCharacterFromStringIntoString(pNode->szString, str, std::size(str));
 	mprintf( pNode->region.RegionTopLeftX + 3, pNode->region.RegionTopLeftY + usOffset, str );
 	RestoreFontSettings();
 	if( !pNode->fEnabled && pColors->fUseDisabledAutoShade )
@@ -1476,6 +1540,7 @@ void RenderInactiveTextFieldNode( TEXTINPUTNODE *pNode )
 		ClipRect.iTop = pNode->region.RegionTopLeftY;
 		ClipRect.iBottom = pNode->region.RegionBottomRightY;
 		pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
+		if (!pDestBuf) return;
 		Blt16BPPBufferShadowRect( (PIXEL *)pDestBuf, uiDestPitchBYTES, &ClipRect );
 		UnLockVideoSurface( FRAME_BUFFER );
 	}
@@ -1523,7 +1588,7 @@ void EnableTextField( UINT8 ubID )
 			{
 				if( !gpActive )
 					gpActive = curr;
-				MSYS_EnableRegion( &curr->region );
+				if (curr->szString) MSYS_EnableRegion( &curr->region );
 				curr->fEnabled = TRUE;
 			}
 			else
@@ -1545,7 +1610,7 @@ void DisableTextField( UINT8 ubID )
 				SelectNextField();
 			if( curr->fEnabled )
 			{
-				MSYS_DisableRegion( &curr->region );
+				if (curr->szString) MSYS_DisableRegion( &curr->region );
 				curr->fEnabled = FALSE;
 			}
 			else
@@ -1567,7 +1632,7 @@ void EnableTextFields( UINT8 ubFirstID, UINT8 ubLastID )
 				SelectNextField();
 			if( !curr->fEnabled )
 			{
-				MSYS_EnableRegion( &curr->region );
+				if (curr->szString) MSYS_EnableRegion( &curr->region );
 				curr->fEnabled = TRUE;
 			}
 		}
@@ -1587,7 +1652,7 @@ void DisableTextFields( UINT8 ubFirstID, UINT8 ubLastID )
 				SelectNextField();
 			if( curr->fEnabled )
 			{
-				MSYS_DisableRegion( &curr->region );
+				if (curr->szString) MSYS_DisableRegion( &curr->region );
 				curr->fEnabled = FALSE;
 			}
 		}
@@ -1603,7 +1668,7 @@ void EnableAllTextFields()
 	{
 		if( !curr->fEnabled )
 		{
-			MSYS_EnableRegion( &curr->region );
+			if (curr->szString) MSYS_EnableRegion( &curr->region );
 			curr->fEnabled = TRUE;
 		}
 		curr = curr->next;
@@ -1620,7 +1685,7 @@ void DisableAllTextFields()
 	{
 		if( curr->fEnabled )
 		{
-			MSYS_DisableRegion( &curr->region );
+			if (curr->szString) MSYS_DisableRegion( &curr->region );
 			curr->fEnabled = FALSE;
 		}
 		curr = curr->next;
@@ -1677,7 +1742,7 @@ void ExecuteCopyCommand()
 		}
 		ubCount = (UINT8)(ubEnd - ubStart);
 		szClipboard = (CHAR16 *)MemAlloc( ( ubCount + 1 ) * sizeof(CHAR16) );
-		Assert( szClipboard );
+		if (!szClipboard) return;
 		for( ubCount = ubStart; ubCount < ubEnd; ubCount++ )
 		{
 			szClipboard[ ubCount-ubStart ] = gpActive->szString[ ubCount ];
@@ -1715,30 +1780,40 @@ void ExecuteCutCommand()
 //calls.
 void SaveAndRemoveCurrentTextInputMode()
 {
-	if( pSavedHead )
-		AssertMsg( 0, "Attempting to save text input stack head, when one already exists.");
+	if (gfTextInputLevelSaved) return;
+	gfTextInputLevelSaved = TRUE;
 	pSavedHead = gpTextInputHead;
+	pSavedTail = gpTextInputTail;
+	pSavedActive = gpActive;
 	pSavedColors = pColors;
 	if( pInputStack )
 	{
 		gpTextInputHead = pInputStack->head;
+		gpTextInputTail = pInputStack->tail;
+		gpActive = pInputStack->active;
 		pColors = pInputStack->pColors;
 	}
 	else
 	{
 		gpTextInputHead = NULL;
+		gpTextInputTail = NULL;
+		gpActive = NULL;
 		pColors = NULL;
 	}
 }
 
 void RestoreSavedTextInputMode()
 {
-	if( !pSavedHead )
-		AssertMsg( 0, "Attempting to restore saved text input stack head, when one doesn't exist.");
+	if (!gfTextInputLevelSaved) return;
 	gpTextInputHead = pSavedHead;
+	gpTextInputTail = pSavedTail;
+	gpActive = pSavedActive;
 	pColors = pSavedColors;
 	pSavedHead = NULL;
+	pSavedTail = NULL;
+	pSavedActive = NULL;
 	pSavedColors = NULL;
+	gfTextInputLevelSaved = FALSE;
 }
 
 UINT16 GetTextInputCursor()
@@ -1787,7 +1862,8 @@ UINT16 GetExclusive24HourTimeValueFromField( UINT8 ubField )
 	{
 		if( curr->ubID == ubField )
 		{
-			if( curr->usInputType != INPUTTYPE_EXCLUSIVE_24HOURCLOCK )
+			if( curr->usInputType != INPUTTYPE_EXCLUSIVE_24HOURCLOCK ||
+				!curr->szString || curr->ubStrLen != 5 )
 				return 0xffff; //illegal!
 			//First validate the hours 00-23
 			if( curr->szString[0] == '2' && curr->szString[1] >= '0' &&		//20-23
@@ -1832,8 +1908,7 @@ void SetExclusive24HourTimeValue( UINT8 ubField, UINT16 usTime )
 	{
 		if( curr->ubID == ubField )
 		{
-			if( curr->fUserField )
-				AssertMsg( 0, String( "Attempting to illegally set text into user field %d", curr->ubID ) );
+			if( curr->fUserField || !curr->szString || curr->ubMaxChars < 5 ) return;
 			curr->szString[0] = (usTime / 600) + 0x30;			//10 hours
 			curr->szString[1] = (usTime / 60 % 10) + 0x30;	//1 hour
 			usTime %= 60;																		//truncate the hours
@@ -1841,19 +1916,26 @@ void SetExclusive24HourTimeValue( UINT8 ubField, UINT16 usTime )
 			curr->szString[3] = (usTime / 10) + 0x30;				//10 minutes
 			curr->szString[4] = (usTime % 10) + 0x30;				//1 minute;
 			curr->szString[5] = 0;
+			curr->ubStrLen = 5;
 			return;
 		}
 		curr = curr->next;
 	}
 }
 
-void DoublePercentileCharacterFromStringIntoString( STR16 pSrcString, CHAR16 *pDstString )
+void DoublePercentileCharacterFromStringIntoString(
+	STR16 pSrcString, CHAR16 *pDstString, std::size_t destinationSize )
 {
+	if (!pDstString || destinationSize == 0) return;
+	pDstString[0] = L'\0';
+	if (!pSrcString) return;
 	INT32 iSrcIndex = 0, iDstIndex = 0;
-	while( pSrcString[ iSrcIndex ] != 0 )
+	while( pSrcString[iSrcIndex] != 0 &&
+		static_cast<std::size_t>(iDstIndex + 1) < destinationSize )
 	{
 		if( pSrcString[ iSrcIndex ] == '%' )
 		{
+			if (static_cast<std::size_t>(iDstIndex + 2) >= destinationSize) break;
 			pDstString[ iDstIndex ] = '%';
 			iDstIndex++;
 		}

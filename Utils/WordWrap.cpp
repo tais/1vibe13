@@ -7,10 +7,37 @@
 
 #include <language.hpp>
 
+#include <cstddef>
+#include <cwchar>
+#include <iterator>
+
 #define		SINGLE_CHARACTER_WORD_FOR_WORDWRAP
 
 
 BOOLEAN	gfUseSingleCharWordsForWordWrap = FALSE;
+
+namespace
+{
+	bool AppendWrappedString(WRAPPED_STRING*& tail, const CHAR16* text)
+	{
+		if (!tail || !text) return false;
+		auto* node = static_cast<WRAPPED_STRING*>(MemAlloc(sizeof(WRAPPED_STRING)));
+		if (!node) return false;
+		node->sString = nullptr;
+		node->pNextWrappedString = nullptr;
+		const std::size_t length = std::wcslen(text);
+		node->sString = static_cast<CHAR16*>(MemAlloc((length + 1) * sizeof(CHAR16)));
+		if (!node->sString)
+		{
+			MemFree(node);
+			return false;
+		}
+		std::wmemcpy(node->sString, text, length + 1);
+		tail->pNextWrappedString = node;
+		tail = node;
+		return true;
+	}
+}
 
 
 void UseSingleCharWordsForWordWrap( BOOLEAN fUseSingleCharWords )
@@ -25,7 +52,7 @@ WRAPPED_STRING *LineWrapForSingleCharWords(INT32 iFont, UINT16 usLineWidthPixels
 	WRAPPED_STRING *pWrappedString = NULL;
 	CHAR16					TempString[1024];
 //	CHAR16		 pNullString[2];
-	INT16						usCurIndex, usEndIndex, usDestIndex;
+	INT16						usCurIndex, usDestIndex;
 	CHAR16					DestString[1024];
 	va_list					argptr;
 	BOOLEAN					fDone = FALSE;
@@ -41,16 +68,18 @@ WRAPPED_STRING *LineWrapForSingleCharWords(INT32 iFont, UINT16 usLineWidthPixels
 
 	memset(&FirstWrappedString, 0, sizeof(WRAPPED_STRING) );
 
+	if (!pusLineWidthIfWordIsWiderThenWidth || pString == NULL || usLineWidthPixels == 0)
+		return(FALSE);
 	*pusLineWidthIfWordIsWiderThenWidth = usLineWidthPixels;
 
-	if(pString == NULL)
-		return(FALSE);
-
 	va_start(argptr, pString);			// Set up variable argument pointer
-	vswprintf(TempString, pString, argptr);	// process string (get output str)
+	const int formatResult = vswprintf(TempString, pString, argptr);	// process string (get output str)
 	va_end(argptr);
+	TempString[std::size(TempString) - 1] = L'\0';
+	if (formatResult < 0) return NULL;
 
-	usCurIndex = usEndIndex = usDestIndex = 0;
+	usCurIndex = usDestIndex = 0;
+	pWrappedString = &FirstWrappedString;
 	OneChar[1] = L'\0';
 
 	while(!fDone)
@@ -74,19 +103,11 @@ WRAPPED_STRING *LineWrapForSingleCharWords(INT32 iFont, UINT16 usLineWidthPixels
 		//If we are at the end of the string
 		if(TempString[ usCurIndex	] == 0)
 		{
-			//get to next WrappedString structure
-			pWrappedString = &FirstWrappedString;
-			while(pWrappedString->pNextWrappedString != NULL)
-				pWrappedString = pWrappedString->pNextWrappedString;
-
-			//allocate memory for the string
-			pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc( sizeof(WRAPPED_STRING) );
-			pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc( (wcslen(DestString) +2 )* sizeof(CHAR16) );
-			if( pWrappedString->pNextWrappedString->sString == NULL)
-				return (NULL);
-
-			wcscpy(pWrappedString->pNextWrappedString->sString, DestString);
-			pWrappedString->pNextWrappedString->pNextWrappedString = NULL;
+			if (!AppendWrappedString(pWrappedString, DestString))
+			{
+				DeleteWrappedString(FirstWrappedString.pNextWrappedString);
+				return NULL;
+			}
 
 			return(FirstWrappedString.pNextWrappedString);
 		}
@@ -103,25 +124,15 @@ WRAPPED_STRING *LineWrapForSingleCharWords(INT32 iFont, UINT16 usLineWidthPixels
 			//End the current line
 			DestString[ usDestIndex + 1 ] = '\0';
 
-			//get to next WrappedString structure
-			pWrappedString = &FirstWrappedString;
-			while(pWrappedString->pNextWrappedString != NULL)
-				pWrappedString = pWrappedString->pNextWrappedString;
-
-			//allocate memory for the string
-			pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc(sizeof(WRAPPED_STRING));
-			pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc((wcslen(DestString) +2 )* sizeof(CHAR16) );
-
-			//Copy the string into the new struct
-			wcscpy(pWrappedString->pNextWrappedString->sString, DestString);
-			pWrappedString->pNextWrappedString->pNextWrappedString = NULL;
-
-			fNewLine = FALSE;
+			if (!AppendWrappedString(pWrappedString, DestString))
+			{
+				DeleteWrappedString(FirstWrappedString.pNextWrappedString);
+				return NULL;
+			}
 
 			usCurrentWidthPixels =0;
 			usDestIndex = 0;
 			usCurIndex++;
-			usEndIndex = usCurIndex;
 			continue;
 		}
 
@@ -156,23 +167,24 @@ WRAPPED_STRING *LineWrap(INT32 iFont, UINT16 usLineWidthPixels, UINT16 *pusLineW
 	pNullString[0]=L' ';
 	pNullString[1]=0;
 
-	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LineWrap: %s", pString));
-
 	memset(&FirstWrappedString, 0, sizeof(WRAPPED_STRING) );
 
-	*pusLineWidthIfWordIsWiderThenWidth = usLineWidthPixels;
-
-	if(pString == NULL)
+	if (!pusLineWidthIfWordIsWiderThenWidth || pString == NULL || usLineWidthPixels == 0)
 	{
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LineWrap: done"));
 		return(FALSE);
 	}
+	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LineWrap: %s", pString));
+	*pusLineWidthIfWordIsWiderThenWidth = usLineWidthPixels;
 	va_start(argptr, pString);			// Set up variable argument pointer
-	vswprintf(TempString, pString, argptr);	// process string (get output str)
+	const int formatResult = vswprintf(TempString, pString, argptr);	// process string (get output str)
 	va_end(argptr);
+	TempString[std::size(TempString) - 1] = L'\0';
+	if (formatResult < 0) return NULL;
 
-	usCurIndex = usEndIndex = usDestIndex = usLastMaxWidthIndex = 0;
+	usCurIndex = usDestIndex = 0;
 	OneChar[1] = L'\0';
+	pWrappedString = &FirstWrappedString;
 
 	while(!fDone)
 	{
@@ -204,22 +216,12 @@ WRAPPED_STRING *LineWrap(INT32 iFont, UINT16 usLineWidthPixels, UINT16 *pusLineW
 		//      NEWLINE_CHAR "±" is only used to handle Chinese ITMES.XML file.
 		if (TempString[ usCurIndex ] == 0 && !fNewLine) 
 		{
-			//get to next WrappedString structure
-			pWrappedString = &FirstWrappedString;
-			while(pWrappedString->pNextWrappedString != NULL)
-				pWrappedString = pWrappedString->pNextWrappedString;
-
-			//allocate memory for the string
-			pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc( sizeof(WRAPPED_STRING) );
-			pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc( (wcslen(DestString) +2 )* sizeof(CHAR16) );
-			if( pWrappedString->pNextWrappedString->sString == NULL)
+			if (!AppendWrappedString(pWrappedString, DestString))
 			{
 				DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LineWrap: done"));
-
-				return (NULL);
+				DeleteWrappedString(FirstWrappedString.pNextWrappedString);
+				return NULL;
 			}
-			wcscpy(pWrappedString->pNextWrappedString->sString, DestString);
-			pWrappedString->pNextWrappedString->pNextWrappedString = NULL;
 
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LineWrap: done"));
 
@@ -308,27 +310,16 @@ WRAPPED_STRING *LineWrap(INT32 iFont, UINT16 usLineWidthPixels, UINT16 *pusLineW
 				DestString[usEndIndex] = 0;
 			} //Juqi: endif
 
-			//get to next WrappedString structure
-			pWrappedString = &FirstWrappedString;
-			while(pWrappedString->pNextWrappedString != NULL)
-				pWrappedString = pWrappedString->pNextWrappedString;
-
 			if( wcslen(DestString) != 0 )
 			{
-				//allocate memory for the string
-				pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc( sizeof(WRAPPED_STRING) );
-				pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc( (wcslen(DestString) +2 )* sizeof(CHAR16) );
-				if( pWrappedString->pNextWrappedString->sString == NULL)
+				if (!AppendWrappedString(pWrappedString, DestString))
 				{
 					DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("LineWrap: done"));
-
-					return (NULL);
+					DeleteWrappedString(FirstWrappedString.pNextWrappedString);
+					return NULL;
 				}
-				wcscpy(pWrappedString->pNextWrappedString->sString, DestString);
-				pWrappedString->pNextWrappedString->pNextWrappedString = NULL;
 
 				usCurrentWidthPixels =0;
-				usDestIndex = 0;
 				usCurIndex++;
 				usEndIndex = usCurIndex;
 
@@ -351,30 +342,18 @@ WRAPPED_STRING *LineWrap(INT32 iFont, UINT16 usLineWidthPixels, UINT16 *pusLineW
 						iCounter++;
 					}
 
-					//get to next WrappedString structure
-					pWrappedString = &FirstWrappedString;
-					while(pWrappedString->pNextWrappedString != NULL)
-						pWrappedString = pWrappedString->pNextWrappedString;
-
-					//allocate memory for the string
-					pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc( sizeof(WRAPPED_STRING) );
-					pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc( (wcslen(DestString) + 2) * sizeof(CHAR16) );
-					if( pWrappedString->pNextWrappedString->sString == NULL)
-						return (NULL);
-
-					wcscpy(pWrappedString->pNextWrappedString->sString, DestString);
-					pWrappedString->pNextWrappedString->pNextWrappedString = NULL;
+					if (!AppendWrappedString(pWrappedString, DestString))
+					{
+						DeleteWrappedString(FirstWrappedString.pNextWrappedString);
+						return NULL;
+					}
 					if(fNewLine)
 					{
-					pWrappedString = &FirstWrappedString;
-					while(pWrappedString->pNextWrappedString != NULL)
-						pWrappedString = pWrappedString->pNextWrappedString;
-
-					//allocate memory for the string
-					pWrappedString->pNextWrappedString = (WRAPPED_STRING *) MemAlloc(sizeof(WRAPPED_STRING));
-					pWrappedString->pNextWrappedString->sString = (CHAR16 *) MemAlloc((wcslen(pNullString) +2 )* sizeof(CHAR16) );
-					wcscpy(pWrappedString->pNextWrappedString->sString, pNullString);
-					pWrappedString->pNextWrappedString->pNextWrappedString = NULL;
+						if (!AppendWrappedString(pWrappedString, pNullString))
+						{
+							DeleteWrappedString(FirstWrappedString.pNextWrappedString);
+							return NULL;
+						}
 					}
 
 					fDone = TRUE;
@@ -571,7 +550,6 @@ UINT16 IanDisplayWrappedString(UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UIN
 															UINT8 ubBackGroundColor, BOOLEAN fDirty, UINT32 uiFlags)
 {
 
-	UINT16	usHeight;
 	UINT16	usSourceCounter=0,usDestCounter=0,usWordLengthPixels,usLineLengthPixels=0,usPhraseLengthPixels=0;
 	UINT16	usLinesUsed=1,usLocalWidth=usWidth;
 	INT32	uiLocalFont=iFont;
@@ -580,8 +558,6 @@ UINT16 IanDisplayWrappedString(UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UIN
 	BOOLEAN fBoldOn=FALSE;
 
 	CHAR16	zLineString[128] = L"",zWordString[64]= L"";
-
-	usHeight = WFGetFontHeight( iFont );
 
 	do
 	{
@@ -852,11 +828,6 @@ DEF: commented out for Beta.	Nov 30
 						}
 
 
-						// the new color value is the next character in the word
-						if (zWordString[1] != TEXT_SPACE && zWordString[1] < 256)
-							ubLocalColor = (UINT8) zWordString[1];
-
-
 						ubLocalColor = 184;;
 
 						// calc length of what we just wrote
@@ -1048,9 +1019,6 @@ void CleanOutControlCodesFromString(STR16 pSourceString, CHAR16 *pDestString)
 
 	// this procedure will run through a STR16 and strip out all control characters. This is a nessacary as wcscmp and the like tend not to like control chars in thier strings
 
-	fRemoveCurrentChar = FALSE;
-	fRemoveCurrentCharAndNextChar = FALSE;
-
 	// while not end of source string,
 	while( pSourceString[ iSourceCounter ] != 0 )
 	{
@@ -1112,8 +1080,6 @@ void CleanOutControlCodesFromString(STR16 pSourceString, CHAR16 *pDestString)
 			iSourceCounter++;
 		}
 
-		fRemoveCurrentCharAndNextChar = FALSE;
-		fRemoveCurrentChar = FALSE;
 	}
 
 	pDestString[ iDestCounter ] = L'\0';
@@ -1132,7 +1098,6 @@ INT16 IanDisplayWrappedStringToPages(UINT16 usPosX, UINT16 usPosY, UINT16 usWidt
 															INT32 iFont, UINT8 ubColor, STR16 pString,
 															UINT8 ubBackGroundColor, BOOLEAN fDirty, UINT32 uiFlags, BOOLEAN *fOnLastPageFlag)
 {
-	UINT16	usHeight;
 	UINT16	usSourceCounter=0,usDestCounter=0,usWordLengthPixels,usLineLengthPixels=0,usPhraseLengthPixels=0;
 	UINT16	usLinesUsed=1,usLocalWidth=usWidth;
 	INT32	uiLocalFont=iFont;
@@ -1140,8 +1105,6 @@ INT16 IanDisplayWrappedStringToPages(UINT16 usPosX, UINT16 usPosY, UINT16 usWidt
 	UINT8		ubLocalColor = ubColor;
 	BOOLEAN fBoldOn=FALSE;
 	CHAR16	zLineString[640] = L"",zWordString[640]= L"";
-
-	usHeight = WFGetFontHeight(iFont);
 
 	// identical to ianwordwrap, but this one lets the user to specify the page they want to display, if the text takes more than one page
 	// multiple calls to this function will allow one to work out how many pages there are
@@ -1327,11 +1290,6 @@ INT16 IanDisplayWrappedStringToPages(UINT16 usPosX, UINT16 usPosY, UINT16 usWidt
 						// change to new color.... but first, write whatever we have in normal now...
 						DrawTextToScreen(zLineString, usLocalPosX, usPosY, usLocalWidth, uiLocalFont, ubLocalColor, ubBackGroundColor, fDirty, usJustification );
 
-						// the new color value is the next character in the word
-						if (zWordString[1] != TEXT_SPACE && zWordString[1] < 256)
-							ubLocalColor = (UINT8) zWordString[1];
-
-
 						ubLocalColor = 184;;
 
 						// calc length of what we just wrote
@@ -1497,16 +1455,12 @@ UINT16 IanWrappedStringHeight(UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UINT
 															INT32 iFont, UINT8 ubColor, STR16 pString,
 															UINT8 ubBackGroundColor, BOOLEAN fDirty, UINT32 uiFlags)
 {
-	UINT16	usHeight;
 	UINT16	usSourceCounter=0,usDestCounter=0,usWordLengthPixels,usLineLengthPixels=0,usPhraseLengthPixels=0;
 	UINT16	usLinesUsed=1,usLocalWidth=usWidth;
 	INT32	uiLocalFont=iFont;
 	UINT16	usJustification = LEFT_JUSTIFIED,usLocalPosX=usPosX;
-	UINT8		ubLocalColor = ubColor;
 	BOOLEAN fBoldOn=FALSE;
 	CHAR16	zLineString[640] = L"",zWordString[640]= L"";
-
-	usHeight = WFGetFontHeight(iFont);
 
 	// simply a cut and paste operation on Ian Display Wrapped, but will not write string to screen
 	// since this all we want to do, everything IanWrapped will do but without displaying string
@@ -1672,13 +1626,6 @@ UINT16 IanWrappedStringHeight(UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UINT
 
 					case TEXT_CODE_NEWCOLOR:
 
-						// the new color value is the next character in the word
-						if (zWordString[1] != TEXT_SPACE && zWordString[1] < 256)
-							ubLocalColor = (UINT8) zWordString[1];
-
-
-						ubLocalColor = 184;;
-
 						// calc length of what we just wrote
 						usPhraseLengthPixels = WFStringPixLength(zLineString,uiLocalFont);
 
@@ -1717,9 +1664,6 @@ UINT16 IanWrappedStringHeight(UINT16 usPosX, UINT16 usPosY, UINT16 usWidth, UINT
 
 						// erase word string
 						memset(zWordString,0,sizeof(zWordString));
-
-						// change color back to default color
-						ubLocalColor = ubColor;
 
 						// reset dest char counter
 						usDestCounter = 0;

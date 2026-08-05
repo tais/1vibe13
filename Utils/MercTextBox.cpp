@@ -6,6 +6,10 @@
 	#include "WordWrap.h"
 	#include "vobject_blitters.h"
 	#include "message.h"
+	#include "UtilsUiStateModel.h"
+
+#include <array>
+#include <cstring>
 
 
 #define		TEXT_POPUP_WINDOW_TEXT_OFFSET_X		8
@@ -76,17 +80,14 @@ MercPopUpBox *gpPopUpBoxList[ MAX_NUMBER_OF_POPUP_BOXES ];
 UINT32	guiFlags = 0;
 UINT32	guiBoxIcons;
 UINT32	guiSkullIcons;
+BOOLEAN gMercPopupSystemInitialized = FALSE;
 
 BOOLEAN SetCurrentPopUpBox( UINT32 uiId )
 {
 	// given id of the box, find it in the list and set to current
 
 	//make sure the box id is valid
-	if( uiId == (UINT32) -1 )
-	{
-		//ScreenMsg( FONT_MCOLOR_WHITE, MSG_BETAVERSION, L"Error: Trying to set Current Popup Box using -1 as an ID" );
-		return( FALSE );
-	}
+	if (!UtilsUiStateModel::IsValidIndex(MAX_NUMBER_OF_POPUP_BOXES, uiId)) return FALSE;
 
 	// see if box inited
 	if( gpPopUpBoxList[ uiId ] != NULL )
@@ -120,6 +121,8 @@ BOOLEAN InitMercPopupBox( )
 	INT32 iCounter = 0;
 	VOBJECT_DESC	VObjectDesc;
 
+	if (gMercPopupSystemInitialized) return TRUE;
+
 	// init the pop up box list
 	for( iCounter = 0; iCounter < MAX_NUMBER_OF_POPUP_BOXES; iCounter++ )
 	{
@@ -130,14 +133,17 @@ BOOLEAN InitMercPopupBox( )
 	// LOAD STOP ICON...
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("INTERFACE\\msgboxicons.sti", VObjectDesc.ImageFile);
-	if( !AddVideoObject( &VObjectDesc, &guiBoxIcons ) )
-		AssertMsg(0, "Missing INTERFACE\\msgboxicons.sti" );
+	if( !AddVideoObject( &VObjectDesc, &guiBoxIcons ) ) return FALSE;
 
 	// LOAD SKULL ICON...
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP("INTERFACE\\msgboxiconskull.sti", VObjectDesc.ImageFile);
 	if( !AddVideoObject( &VObjectDesc, &guiSkullIcons ) )
-		AssertMsg(0, "Missing INTERFACE\\msgboxiconskull.sti" );
+	{
+		DeleteVideoObjectFromIndex(guiBoxIcons);
+		return FALSE;
+	}
+	gMercPopupSystemInitialized = TRUE;
 	
 	return( TRUE );
 }
@@ -145,12 +151,19 @@ BOOLEAN InitMercPopupBox( )
 
 BOOLEAN ShutDownPopUpBoxes( )
 {
+	if (!gMercPopupSystemInitialized) return TRUE;
 	INT32 iCounter = 0;
 	for( iCounter = 0; iCounter < MAX_NUMBER_OF_POPUP_BOXES ; ++iCounter )
 	{
 		// now attempt to remove this box
 		RemoveMercPopupBoxFromIndex( iCounter );
 	}
+	DeleteVideoObjectFromIndex(guiBoxIcons);
+	DeleteVideoObjectFromIndex(guiSkullIcons);
+	gPopUpTextBox = NULL;
+	gOldPopUpTextBox = NULL;
+	guiFlags = 0;
+	gMercPopupSystemInitialized = FALSE;
 
 	return( TRUE );
 }
@@ -165,17 +178,31 @@ BOOLEAN LoadTextMercPopupImages( UINT8 ubBackgroundIndex, UINT8 ubBorderIndex)
 	VSURFACE_DESC		vs_desc;
 	VOBJECT_DESC	VObjectDesc;
 
+	if (!gPopUpTextBox ||
+		!UtilsUiStateModel::IsValidIndex(std::size(zMercBackgroundPopupFilenames), ubBackgroundIndex) ||
+		!UtilsUiStateModel::IsValidIndex(std::size(zMercBorderPopupFilenames), ubBorderIndex))
+		return FALSE;
+
+	UINT32 background = 0;
+	UINT32 border = 0;
 	// this function will load the graphics associated with the background and border index values
 
 	// the background
 	vs_desc.fCreateFlags = VSURFACE_CREATE_FROMFILE | VSURFACE_SYSTEM_MEM_USAGE;
 	strcpy(vs_desc.ImageFile,	zMercBackgroundPopupFilenames [ ubBackgroundIndex ]);
-	CHECKF(AddVideoSurface(&vs_desc, &gPopUpTextBox->uiMercTextPopUpBackground));
+	if (!AddVideoSurface(&vs_desc, &background)) return FALSE;
 
 	// border
 	VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 	FilenameForBPP( zMercBorderPopupFilenames[ ubBorderIndex ], VObjectDesc.ImageFile );
-	CHECKF( AddVideoObject( &VObjectDesc, &gPopUpTextBox->uiMercTextPopUpBorder ) );
+	if (!AddVideoObject(&VObjectDesc, &border))
+	{
+		DeleteVideoSurfaceFromIndex(background);
+		return FALSE;
+	}
+	RemoveTextMercPopupImages();
+	gPopUpTextBox->uiMercTextPopUpBackground = background;
+	gPopUpTextBox->uiMercTextPopUpBorder = border;
 
 	gPopUpTextBox->fMercTextPopupInitialized = TRUE;
 
@@ -224,6 +251,8 @@ BOOLEAN RenderMercPopupBox(INT16 sDestX, INT16 sDestY, UINT32 uiBuffer )
 //	PIXEL	*pSrcBuf;
 	
 	// will render/transfer the image from the buffer in the data structure to the buffer specified by user
+	if (!gPopUpTextBox || !gPopUpTextBox->fMercTextPopupSurfaceInitialized)
+		return FALSE;
 	BOOLEAN fReturnValue = TRUE;
 
 	// grab the destination buffer
@@ -294,14 +323,15 @@ INT32 AddPopUpBoxToList( MercPopUpBox *pPopUpTextBox )
 // get box with this id
 MercPopUpBox * GetPopUpBoxIndex( INT32 iId )
 {
-	return( gpPopUpBoxList[ iId ] );
+	if (!UtilsUiStateModel::IsValidIndex(MAX_NUMBER_OF_POPUP_BOXES, iId)) return NULL;
+	return gpPopUpBoxList[iId];
 }
 
 INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorderIndex, STR16 pString,
 							UINT16 usWidth, UINT16 usMarginX, UINT16 usMarginTopY, UINT16 usMarginBottomY,
 							UINT16 *pActualWidth, UINT16 *pActualHeight, BOOLEAN bFixedWidth)
 {
-	UINT16 usNumberVerticalPixels, usNumberOfLines;
+	UINT16 usNumberVerticalPixels;
 	UINT16 usTextWidth, usHeight;
 	UINT16 i;
 	HVOBJECT	hImageHandle;
@@ -316,15 +346,28 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 	UINT8	*pSrcBuf;
 	UINT8		ubFontColor, ubFontShadowColor;
 	PIXEL	usColorVal;
-	UINT16	usLoopEnd;
+	UINT32	usLoopEnd;
 	INT16		sDispTextXPos;
 	MercPopUpBox *pPopUpTextBox = NULL;
 
+	if (!gMercPopupSystemInitialized || !pString || !pActualWidth || !pActualHeight ||
+		!UtilsUiStateModel::IsValidIndex(std::size(zMercBackgroundPopupFilenames), ubBackgroundIndex) ||
+		!UtilsUiStateModel::IsValidIndex(std::size(zMercBorderPopupFilenames), ubBorderIndex))
+		return -1;
+	*pActualWidth = 0;
+	*pActualHeight = 0;
+	const UINT32 pendingFlags = guiFlags;
+	guiFlags = 0;
+	if (usMarginX >= MERC_BACKGROUND_WIDTH / 2 ||
+		static_cast<UINT32>(usMarginTopY) + usMarginBottomY >= MERC_BACKGROUND_HEIGHT)
+		return -1;
 	if( usWidth >= SCREEN_WIDTH )
 		return( -1 );
 
-	if( usWidth <= MERC_TEXT_MIN_WIDTH )
-		usWidth = MERC_TEXT_MIN_WIDTH;
+	const UINT16 minimumTextWidth = static_cast<UINT16>(
+		2 * MERC_TEXT_POPUP_WINDOW_TEXT_OFFSET_X + usMarginX + 1);
+	if( usWidth < minimumTextWidth ) usWidth = minimumTextWidth;
+	if (usWidth >= SCREEN_WIDTH) return -1;
 
 	// check id value, if -1, box has not been inited yet
 	if( iBoxId == -1 )
@@ -333,6 +376,8 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 
 		// create box
 		pPopUpTextBox = (MercPopUpBox *) MemAlloc( sizeof( MercPopUpBox ) );
+		if (!pPopUpTextBox) return -1;
+		std::memset(pPopUpTextBox, 0, sizeof(*pPopUpTextBox));
 
 		// copy over ptr
 		gPopUpTextBox = pPopUpTextBox;
@@ -341,6 +386,7 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 		if( LoadTextMercPopupImages( ubBackgroundIndex, ubBorderIndex ) == FALSE )
 		{
 			MemFree( pPopUpTextBox );
+			gPopUpTextBox = NULL;
 			return( -1 );
 		}
 	}
@@ -351,17 +397,13 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 
 		// grab box
 		pPopUpTextBox = GetPopUpBoxIndex( iBoxId );
-
-		// box has valid id and no instance?..error
-		Assert( pPopUpTextBox );
+		if (!pPopUpTextBox) return -1;
 
 			// copy over ptr
 		gPopUpTextBox = pPopUpTextBox;
 
 		if ( ubBackgroundIndex != pPopUpTextBox->ubBackgroundIndex || ubBorderIndex != pPopUpTextBox->ubBorderIndex || !pPopUpTextBox->fMercTextPopupInitialized)
 		{
-			//Remove old, set new
-			RemoveTextMercPopupImages( );
 			if( LoadTextMercPopupImages( ubBackgroundIndex, ubBorderIndex ) == FALSE )
 			{
 				return( -1 );
@@ -369,9 +411,22 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 		}
 	}
 
-	gPopUpTextBox->uiFlags = guiFlags;
-	// reset flags
-	guiFlags = 0;
+	gPopUpTextBox->uiFlags = pendingFlags;
+	auto failPreparation = [&]() -> INT32
+	{
+		if (pPopUpTextBox && pPopUpTextBox->fMercTextPopupSurfaceInitialized)
+		{
+			DeleteVideoSurfaceFromIndex(pPopUpTextBox->uiSourceBufferIndex);
+			pPopUpTextBox->fMercTextPopupSurfaceInitialized = FALSE;
+		}
+		if (iBoxId == -1 && pPopUpTextBox)
+		{
+			RemoveTextMercPopupImages();
+			MemFree(pPopUpTextBox);
+			gPopUpTextBox = NULL;
+		}
+		return -1;
+	};
 
 	usStringPixLength = WFStringPixLength( pString, TEXT_POPUP_FONT);	
 
@@ -387,8 +442,6 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 	}
 
 	usNumberVerticalPixels = IanWrappedStringHeight(0,0, usTextWidth, 2, TEXT_POPUP_FONT, MERC_TEXT_COLOR,	pString, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-
-	usNumberOfLines = usNumberVerticalPixels / TEXT_POPUP_GAP_BN_LINES;
 
 	usHeight = usNumberVerticalPixels + MERC_TEXT_POPUP_WINDOW_TEXT_OFFSET_X * 2;
 
@@ -418,12 +471,7 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 	//make sure the area isnt bigger then the background texture
 	if( ( usWidth >= MERC_BACKGROUND_WIDTH ) || usHeight >= MERC_BACKGROUND_HEIGHT)
 	{
-		if( iBoxId == -1 )
-		{
-			MemFree( pPopUpTextBox );
-		}
-
-		return( -1 );
+		return failPreparation();
 	}
 
 	// Create a background video surface to blt the face onto
@@ -432,7 +480,15 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 	vs_desc.usWidth = usWidth;
 	vs_desc.usHeight = usHeight;
 	vs_desc.ubBitDepth = 16;
-	CHECKF( AddVideoSurface( &vs_desc, &pPopUpTextBox->uiSourceBufferIndex) );
+	if (pPopUpTextBox->fMercTextPopupSurfaceInitialized)
+	{
+		DeleteVideoSurfaceFromIndex(pPopUpTextBox->uiSourceBufferIndex);
+		pPopUpTextBox->fMercTextPopupSurfaceInitialized = FALSE;
+	}
+	if (!AddVideoSurface(&vs_desc, &pPopUpTextBox->uiSourceBufferIndex))
+	{
+		return failPreparation();
+	}
 	pPopUpTextBox->fMercTextPopupSurfaceInitialized = TRUE;
 
 	pPopUpTextBox->sWidth = usWidth;
@@ -464,13 +520,19 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 		SetVideoSurfaceTransparency( pPopUpTextBox->uiSourceBufferIndex, transToken );
 
 		pDestBuf = (PIXEL *)LockVideoSurface( pPopUpTextBox->uiSourceBufferIndex, &uiDestPitchBYTES);
+		if (!pDestBuf)
+		{
+			DeleteVideoSurfaceFromIndex(pPopUpTextBox->uiSourceBufferIndex);
+			pPopUpTextBox->fMercTextPopupSurfaceInitialized = FALSE;
+			return failPreparation();
+		}
 
 		usColorVal = PixFromColor16( transToken );
 		usLoopEnd	= ( usWidth * usHeight );
 
-		for ( i = 0; i <usLoopEnd; ++i )
+		for ( UINT32 fillIndex = 0; fillIndex < usLoopEnd; ++fillIndex )
 		{
-			pDestBuf[ i ] = usColorVal;
+			pDestBuf[fillIndex] = usColorVal;
 		}
 
 		UnLockVideoSurface(pPopUpTextBox->uiSourceBufferIndex);
@@ -478,13 +540,16 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 	else
 	{
 		if( !GetVideoSurface( &hSrcVSurface, pPopUpTextBox->uiMercTextPopUpBackground) )
-		{
-			AssertMsg( 0, String( "Failed to GetVideoSurface for PrepareMercPopupBox.	VSurfaceID:	%d",
-				pPopUpTextBox->uiMercTextPopUpBackground ) );
-		}
+			return failPreparation();
 
 		pDestBuf = (PIXEL *)LockVideoSurface( pPopUpTextBox->uiSourceBufferIndex, &uiDestPitchBYTES);
 		pSrcBuf = LockVideoSurface( pPopUpTextBox->uiMercTextPopUpBackground, &uiSrcPitchBYTES);
+		if (!pDestBuf || !pSrcBuf)
+		{
+			if (pSrcBuf) UnLockVideoSurface(pPopUpTextBox->uiMercTextPopUpBackground);
+			if (pDestBuf) UnLockVideoSurface(pPopUpTextBox->uiSourceBufferIndex);
+			return failPreparation();
+		}
 
 		Blt8BPPDataSubTo16BPPBuffer( pDestBuf,	uiDestPitchBYTES, hSrcVSurface, pSrcBuf,uiSrcPitchBYTES,0,0, &DestRect);
 
@@ -492,9 +557,10 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 		UnLockVideoSurface(pPopUpTextBox->uiSourceBufferIndex);
 	}
 
-	GetVideoObject(&hImageHandle, pPopUpTextBox->uiMercTextPopUpBorder );
+	if (!GetVideoObject(&hImageHandle, pPopUpTextBox->uiMercTextPopUpBorder))
+		return failPreparation();
 
-	usPosX = usPosY = 0;
+	usPosY = 0;
 	//blit top row of images
 	for(i=TEXT_POPUP_GAP_BN_LINES; i< usWidth-TEXT_POPUP_GAP_BN_LINES; i+=TEXT_POPUP_GAP_BN_LINES)
 	{
@@ -574,7 +640,13 @@ INT32 PrepareMercPopupBox(	INT32 iBoxId, UINT8 ubBackgroundIndex, UINT8 ubBorder
 	if( iBoxId == -1 )
 	{
 		// now return attemp to add to pop up box list, if successful will return index
-		return( AddPopUpBoxToList( pPopUpTextBox ) );
+		const INT32 newBoxId = AddPopUpBoxToList(pPopUpTextBox);
+		if (newBoxId < 0)
+		{
+			RemoveMercPopupBox();
+			return -1;
+		}
+		return newBoxId;
 	}
 
 
@@ -596,31 +668,24 @@ BOOLEAN RemoveMercPopupBox()
 		return( FALSE );
 	}
 
-	// now check to see if inited...
-	if( gPopUpTextBox->fMercTextPopupSurfaceInitialized )
+	MercPopUpBox* box = gPopUpTextBox;
+	// now find this box in the list
+	for( iCounter = 0; iCounter < MAX_NUMBER_OF_POPUP_BOXES; ++iCounter )
 	{
-		// now find this box in the list
-		for( iCounter = 0; iCounter < MAX_NUMBER_OF_POPUP_BOXES; ++iCounter )
+		if( gpPopUpBoxList[iCounter] == box )
 		{
-			if( gpPopUpBoxList[ iCounter ] == gPopUpTextBox )
-			{
-				gpPopUpBoxList[ iCounter ] = NULL;
-				break;
-			}
+			gpPopUpBoxList[iCounter] = NULL;
+			break;
 		}
-
-		// yep, get rid of the bloody...
-		DeleteVideoSurfaceFromIndex(gPopUpTextBox->uiSourceBufferIndex);
-
-		//DEF Added 5/26
-		//Delete the background and the border
-		RemoveTextMercPopupImages( );
-
-		MemFree( gPopUpTextBox );
-
-		// reset current ptr
-		gPopUpTextBox = NULL;
 	}
+
+	if (box->fMercTextPopupSurfaceInitialized)
+		DeleteVideoSurfaceFromIndex(box->uiSourceBufferIndex);
+
+	RemoveTextMercPopupImages();
+	if (gOldPopUpTextBox == box) gOldPopUpTextBox = NULL;
+	MemFree(box);
+	gPopUpTextBox = NULL;
 
 	return(TRUE);
 }

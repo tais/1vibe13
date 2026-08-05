@@ -169,11 +169,11 @@ TraitSelection::Setup( UINT32 aVal )
 
 		if (traitarray[i] == AUTOBANDAGESKILLS)
 		{
-			pOption = new POPUP_OPTION(&std::wstring(pStr), new popupCallbackFunction<void, UINT32>(&Wrapper_Setup_AutobandageSelection, traitarray[i]));
+			pOption = new POPUP_OPTION(std::wstring(pStr), new popupCallbackFunction<void, UINT32>(&Wrapper_Setup_AutobandageSelection, traitarray[i]));
 		}
 		else
 		{
-			pOption = new POPUP_OPTION(&std::wstring(pStr), new popupCallbackFunction<void, UINT32>(&Wrapper_Setup_SkillSelection, traitarray[i]));
+			pOption = new POPUP_OPTION(std::wstring(pStr), new popupCallbackFunction<void, UINT32>(&Wrapper_Setup_SkillSelection, traitarray[i]));
 		}
 
 		// if we cannot perform this skill, grey it out
@@ -188,7 +188,7 @@ TraitSelection::Setup( UINT32 aVal )
 
 	// cancel option
 	swprintf( pStr, pSkillMenuStrings[SKILLMENU_CANCEL] );
-	pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_TraitSelection, 0 ) );
+	pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_TraitSelection, 0 ) );
 	GetPopup()->addOption( *pOption );
 		
 	// grab soldier's x,y screen position
@@ -248,11 +248,11 @@ SkillSelection::Setup( UINT32 aVal )
 					swprintf( pStr, pTraitSkillsMenuStrings[uiCounter] );
 
 					if ( uiCounter == SKILLS_RADIO_ARTILLERY)
-						pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Setup_ArtillerySector, uiCounter ) );
+						pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Setup_ArtillerySector, uiCounter ) );
 					else if ( uiCounter == SKILLS_RADIO_CALLREINFORCEMENTS)
-						pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Setup_ReinforcementSector, uiCounter ) );
+						pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Setup_ReinforcementSector, uiCounter ) );
 					else
-						pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
+						pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
 
 					// if we cannot perform this skill, grey it out
 					if (!TacticalActorSkills::canUse(
@@ -275,7 +275,7 @@ SkillSelection::Setup( UINT32 aVal )
 				{
 					swprintf( pStr, pTraitSkillsMenuStrings[uiCounter] );
 
-					pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
+					pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
 
 					// if we cannot perform this skill, grey it out
 					if (!TacticalActorSkills::canUse(
@@ -299,7 +299,7 @@ SkillSelection::Setup( UINT32 aVal )
 				{
 					swprintf( pStr, pTraitSkillsMenuStrings[uiCounter] );
 
-					pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
+					pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
 
 					// if we cannot perform this skill, grey it out
 					if (!TacticalActorSkills::canUse(
@@ -324,9 +324,9 @@ SkillSelection::Setup( UINT32 aVal )
 					swprintf( pStr, pTraitSkillsMenuStrings[uiCounter] );
 
 					if ( uiCounter == SKILLS_DRAG )
-						pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Setup_DragSelection, uiCounter ) );
+						pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Setup_DragSelection, uiCounter ) );
 					else
-						pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
+						pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_SkillSelection, uiCounter ) );
 
 					// if we cannot perform this skill, grey it out
 					if (!TacticalActorSkills::canUse(
@@ -354,7 +354,7 @@ SkillSelection::Setup( UINT32 aVal )
 				
 		// cancel option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_CANCEL] );
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_SkillSelection, 0 ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_SkillSelection, 0 ) );
 		GetPopup()->addOption( *pOption );
 	}
 
@@ -492,7 +492,7 @@ ArtillerySector::Setup( UINT32 aVal )
 		
 			swprintf( pStr, L"%c%d", loopY + 'A' - 1, loopX );
 
-			pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Setup_ArtilleryTeam, sectornr ) );
+			pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Setup_ArtilleryTeam, sectornr ) );
 
 			// grey out if no artillery can be called from this sector
 			if (!TacticalActorRadio::isValidArtillerySector(
@@ -514,7 +514,7 @@ ArtillerySector::Setup( UINT32 aVal )
 
 		// cancel option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_CANCEL] );
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_ArtillerySector, 0 ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_ArtillerySector, 0 ) );
 		GetPopup()->addOption( *pOption );
 
 		// certain traits have skills whose effects depend on wether someone is near to us (squadleader, commissar). We therefore display our radius of effect while this display is open
@@ -561,7 +561,7 @@ ArtilleryTeam::Setup( UINT32 aVal )
 		// order artillery from militia
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_MILITIA] );
 
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ArtilleryTeam, MILITIA_TEAM ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ArtilleryTeam, MILITIA_TEAM ) );
 
 		// grey out if no ArtilleryTeam can be called from this sector
 		if (!TacticalActorRadio::isValidArtillerySector(
@@ -578,7 +578,7 @@ ArtilleryTeam::Setup( UINT32 aVal )
 		// order artillery from our mercs
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_OTHERSQUADS] );
 
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, INT8>( &Wrapper_Function_ArtilleryTeam, pSoldier->roster().team() ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, INT8>( &Wrapper_Function_ArtilleryTeam, pSoldier->roster().team() ) );
 
 		// grey out if no ArtilleryTeam can be called from this sector
 		if (!TacticalActorRadio::isValidArtillerySector(
@@ -594,7 +594,7 @@ ArtilleryTeam::Setup( UINT32 aVal )
 		
 		// cancel option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_CANCEL] );
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_ArtilleryTeam, 0 ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_ArtilleryTeam, 0 ) );
 		GetPopup()->addOption( *pOption );
 
 		// certain traits have skills whose effects depend on wether someone is near to us (squadleader, commissar). We therefore display our radius of effect while this display is open
@@ -677,7 +677,7 @@ ReinforcementSector::Setup( UINT32 aVal )
 		
 			swprintf( pStr, L"%c%d", loopY + 'A' - 1, loopX );
 
-			pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Setup_ReinforcementNumber, sectornr ) );
+			pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Setup_ReinforcementNumber, sectornr ) );
 
 			// grey out if no reinforcements can be called from this sector
 			if ( !CanRequestMilitiaReinforcements( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), loopX, loopY ) )
@@ -690,7 +690,7 @@ ReinforcementSector::Setup( UINT32 aVal )
 
 		// cancel option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_CANCEL] );
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Cancel_ReinforcementSector, 0 ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Cancel_ReinforcementSector, 0 ) );
 		GetPopup()->addOption( *pOption );
 	}
 
@@ -728,7 +728,7 @@ ReinforcementNumber::Setup( UINT32 aVal )
 		
 		// 5 militia option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_X_MILITIA], 5 );
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 5 ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 5 ) );
 		
 		if ( numberofmilitia < 5 )
 		{
@@ -740,7 +740,7 @@ ReinforcementNumber::Setup( UINT32 aVal )
 
 		// 10 militia option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_X_MILITIA], 10 );
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 10 ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 10 ) );
 
 		if ( numberofmilitia < 10 )
 		{
@@ -752,7 +752,7 @@ ReinforcementNumber::Setup( UINT32 aVal )
 
 		// 15 militia option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_X_MILITIA], 15 );
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 15 ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 15 ) );
 
 		if ( numberofmilitia < 15 )
 		{
@@ -764,7 +764,7 @@ ReinforcementNumber::Setup( UINT32 aVal )
 
 		// 20 militia option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_X_MILITIA], 20 );
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 20 ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 20 ) );
 
 		if ( numberofmilitia < 20 )
 		{
@@ -774,7 +774,7 @@ ReinforcementNumber::Setup( UINT32 aVal )
 
 		// 30 militia option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_X_MILITIA], 30 );
-		pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 30 ) );
+		pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 30 ) );
 
 		if ( numberofmilitia < 30 )
 		{
@@ -784,7 +784,7 @@ ReinforcementNumber::Setup( UINT32 aVal )
 
 		// 40 militia option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_X_MILITIA], 40 );
-		pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 40 ) );
+		pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, 40 ) );
 
 		if ( numberofmilitia < 40 )
 		{
@@ -797,12 +797,12 @@ ReinforcementNumber::Setup( UINT32 aVal )
 		// all militia option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_ALL_MILITIA] );
 
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, numberofmilitia ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ReinforcementNumber, numberofmilitia ) );
 		GetPopup()->addOption( *pOption );
 
 		// cancel option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_CANCEL] );
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Cancel_ReinforcementNumber, 0 ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Cancel_ReinforcementNumber, 0 ) );
 		GetPopup()->addOption( *pOption );
 	}
 
@@ -879,7 +879,7 @@ SoldierSelection::Setup( UINT32 aVal )
 				{
 					swprintf( pStr, L"%s", candidate->GetName() );
 
-					pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT16>( &Wrapper_Function_SoldierSelection, id ) );
+					pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void, UINT16>( &Wrapper_Function_SoldierSelection, id ) );
 
 					// grey out if no artillery can be called from this sector
 					if ( 0 )
@@ -894,7 +894,7 @@ SoldierSelection::Setup( UINT32 aVal )
 
 		// cancel option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_CANCEL] );
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_SoldierSelection, 0 ) );
+		pOption = new POPUP_OPTION(std::wstring( pStr ), new popupCallbackFunction<void,UINT32>( &Wrapper_Cancel_SoldierSelection, 0 ) );
 		GetPopup()->addOption( *pOption );
 	}
 
@@ -964,7 +964,7 @@ DragSelection::Setup( UINT32 aVal )
 					GetJa2SoldierRepository()
 						.resolve(cnt.i)->GetName());
 
-				pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_DragSelection, cnt ) );
+				pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_DragSelection, cnt ) );
 				
 				GetPopup( )->addOption( *pOption );
 			}
@@ -980,7 +980,7 @@ DragSelection::Setup( UINT32 aVal )
 			swprintf( pStr, pSkillMenuStrings[SKILLMENU_CORPSES], pCorpse->name );
 
 			// we have to use an offset of NOBODY in order to differentiate between person and corpse
-			pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_DragSelection, (*it) + NOBODY ) );
+			pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_DragSelection, (*it) + NOBODY ) );
 			
 			GetPopup( )->addOption( *pOption );
 		}
@@ -1007,7 +1007,7 @@ DragSelection::Setup( UINT32 aVal )
 					swprintf(pStr, L"%s (%s)", buf, FaceDirs[gOneCDirection[ubDirection]]);
 
 					// we have to use an offset of NOBODY in order to differentiate between person and corpse
-					pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_DragSelection_GridNo, sTempGridNo ) );
+					pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_DragSelection_GridNo, sTempGridNo ) );
 
 					GetPopup()->addOption( *pOption );
 				}
@@ -1016,7 +1016,7 @@ DragSelection::Setup( UINT32 aVal )
 
 		// cancel option
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_CANCEL] );
-		pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Cancel_DragSelection, 0 ) );
+		pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Cancel_DragSelection, 0 ) );
 		GetPopup( )->addOption( *pOption );
 	}
 
@@ -1153,7 +1153,7 @@ EquipmentSelection::Setup(UINT32 aVal)
 		int nChars = MultiByteToWideChar( CP_ACP, 0, coca, -1, NULL, 0 );
 		MultiByteToWideChar( CP_UTF8, 0, coca, -1, tmpchar, nChars );
 
-		pOption = new POPUP_OPTION( &std::wstring( tmpchar ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_EquipmentSelection, i ) );
+		pOption = new POPUP_OPTION( std::wstring( tmpchar ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_EquipmentSelection, i ) );
 
 		pOption->color_foreground = FONT_GREEN;
 
@@ -1164,13 +1164,13 @@ EquipmentSelection::Setup(UINT32 aVal)
 	if ( gEquipmentSelectionMaxEntriesShown < gTemplateVector.size( ) )
 	{
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_MORE] );
-		pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_EquipmentSelection, 99999 ) );
+		pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_EquipmentSelection, 99999 ) );
 		GetPopup( )->addOption( *pOption );
 	}
 	
 	// cancel option
 	swprintf(pStr, pSkillMenuStrings[SKILLMENU_CANCEL]);
-	pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_EquipmentSelection, 99998 ) );
+	pOption = new POPUP_OPTION( std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_EquipmentSelection, 99998 ) );
 	GetPopup()->addOption(*pOption);
 	
 	SetPos(usTraitMenuPosX, usTraitMenuPosY);
