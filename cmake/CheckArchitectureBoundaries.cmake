@@ -3715,6 +3715,119 @@ foreach(required_laptop_closure_documentation_fragment IN ITEMS
   endif()
 endforeach()
 
+# A.I.M.'s static member-profile composition has one dependency-free geometry
+# model. Drawing, hitboxes, invalidation, and both equipment variants must keep
+# selecting the same layout instead of restoring parallel coordinate macros.
+file(READ "${SOURCE_ROOT}/Laptop/AimMemberProfileLayout.h"
+  runtime_aim_member_profile_layout_contents)
+foreach(required_aim_member_profile_layout_fragment IN ITEMS
+    "namespace AimMemberProfileLayoutModel"
+    "struct Rect"
+    "struct StatsLayout"
+    "struct InventoryLayout"
+    "struct NavigationLayout"
+    "struct Layout"
+    "kExpandedInventoryCapacity = 21"
+    "constexpr Layout MakeLayout"
+    "constexpr bool Contains"
+    "constexpr bool Overlaps"
+    "constexpr Rect cell")
+  string(FIND "${runtime_aim_member_profile_layout_contents}"
+    "${required_aim_member_profile_layout_fragment}"
+    required_aim_member_profile_layout_position)
+  if(required_aim_member_profile_layout_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. member-profile layout lost '${required_aim_member_profile_layout_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/AimMembers.cpp"
+  runtime_aim_member_profile_contents)
+foreach(required_aim_member_profile_integration_fragment IN ITEMS
+    "#include \"AimMemberProfileLayout.h\""
+    "Layout CurrentAimMemberProfileLayout()"
+    "const Layout layout = CurrentAimMemberProfileLayout()"
+    "CreateWeaponBoxMouseRegions(stagedResources, layout)"
+    "DisplayMercsInventory(gbCurrentSoldier, layout)"
+    "DisplayMercsFace(layout)"
+    "DisplayMercStats(layout)"
+    "DisplayAimMemberClickOnFaceHelpText(layout)"
+    "layout.navigation.contactButton"
+    "layout.inventory.cell")
+  string(FIND "${runtime_aim_member_profile_contents}"
+    "${required_aim_member_profile_integration_fragment}"
+    required_aim_member_profile_integration_position)
+  if(required_aim_member_profile_integration_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. member profile bypassed shared geometry '${required_aim_member_profile_integration_fragment}'")
+  endif()
+endforeach()
+foreach(retired_aim_member_profile_coordinate IN ITEMS
+    "STATS_X"
+    "WEAPONBOX_X"
+    "PREVIOUS_X"
+    "AIM_MERC_INFO_X"
+    "FIRST_COLUMN_DOT")
+  string(FIND "${runtime_aim_member_profile_contents}"
+    "${retired_aim_member_profile_coordinate}"
+    retired_aim_member_profile_coordinate_position)
+  if(NOT retired_aim_member_profile_coordinate_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. member profile restored retired coordinate family '${retired_aim_member_profile_coordinate}'")
+  endif()
+endforeach()
+
+foreach(required_aim_member_profile_test_build_fragment IN ITEMS
+    "aim_member_profile_layout_tests.cpp"
+    "aim_member_profile_layout")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_aim_member_profile_test_build_fragment}"
+    required_aim_member_profile_test_build_position)
+  if(required_aim_member_profile_test_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. member-profile layout lost focused test target '${required_aim_member_profile_test_build_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "aim_member_profile_layout_tests"
+  required_aim_member_profile_ci_position)
+if(required_aim_member_profile_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the A.I.M. member-profile layout target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/aim_member_profile_layout_tests.cpp"
+  runtime_aim_member_profile_test_contents)
+foreach(required_aim_member_profile_test_fragment IN ITEMS
+    "profile variants preserve their exact stats-panel origins"
+    "stat rows are derived from one consistent fifteen-pixel rhythm"
+    "equipment cells and item origins use the same row-major mapping"
+    "every expanded equipment hitbox stays inside the web page"
+    "navigation controls remain non-overlapping"
+    "all geometry, including dot leaders, follows centered-screen offsets"
+    "profile visuals and controls remain inside the fixed Laptop web canvas")
+  string(FIND "${runtime_aim_member_profile_test_contents}"
+    "${required_aim_member_profile_test_fragment}"
+    required_aim_member_profile_test_position)
+  if(required_aim_member_profile_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "A.I.M. member-profile tests lost '${required_aim_member_profile_test_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_aim_member_profile_documentation_fragment IN ITEMS
+    "Post-closure A.I.M. member-profile layout organization"
+    "AimMemberProfileLayoutModel"
+    "stateful coordinate subsystem")
+  string(FIND "${runtime_laptop_walkthrough_contents}"
+    "${required_aim_member_profile_documentation_fragment}"
+    required_aim_member_profile_documentation_position)
+  if(required_aim_member_profile_documentation_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop walkthrough lost A.I.M. layout contract '${required_aim_member_profile_documentation_fragment}'")
+  endif()
+endforeach()
+
 # Shared legacy UI infrastructure is the first post-Laptop Utils audit batch.
 # Keep the state-only rules dependency-free, legacy registries implementation-
 # private, ownership explicit, parsing transactional, and both model and real-
@@ -4314,6 +4427,17 @@ foreach(required_utils_architecture_fragment IN ITEMS
   if(required_utils_architecture_position EQUAL -1)
     message(FATAL_ERROR
       "Engine architecture roadmap lost '${required_utils_architecture_fragment}'")
+  endif()
+endforeach()
+foreach(required_aim_member_architecture_fragment IN ITEMS
+    "AimMemberProfileLayoutModel"
+    "independent stateful subsystem")
+  string(FIND "${runtime_engine_architecture_contents}"
+    "${required_aim_member_architecture_fragment}"
+    required_aim_member_architecture_position)
+  if(required_aim_member_architecture_position EQUAL -1)
+    message(FATAL_ERROR
+      "Engine architecture roadmap lost A.I.M. layout contract '${required_aim_member_architecture_fragment}'")
   endif()
 endforeach()
 

@@ -846,3 +846,33 @@ handles instead of relying on assertions before indexing global registries.
 Focused model tests cover the failure latch; real headless FileMan/button tests
 cover missing, truncated, unterminated, and invalid-handle paths. Architecture
 ratchets preserve the complete failure chain.
+
+## Post-closure A.I.M. member-profile layout organization
+
+The A.I.M. member page previously encoded its fixed-pixel artwork geometry in
+more than 200 preprocessor definitions. The legacy and expanded-equipment
+variants each carried a parallel coordinate family, and rendering, mouse
+regions, invalidation, navigation controls, equipment cells, and help text
+selected those families independently. The two variants also duplicated the
+complete stat and portrait-status renderers. That made a visual adjustment
+easy to apply to only one drawing path or to omit from the matching hitbox.
+The stat dot leaders were also fixed to the original 640-pixel screen origin,
+so unlike the surrounding panel they did not follow a centered widescreen
+offset.
+
+`AimMemberProfileLayoutModel` now derives both variants from one explicit set
+of screen and web-canvas anchors. Typed rectangles and text areas describe the
+portrait, stats, pricing, biography, equipment grid, kit selector, help text,
+and navigation controls. Entry-time mouse regions and run-time rendering
+consume the same selected `Layout`; equipment slots use one tested row-major
+cell mapping; and shared behavior is rendered once. The animated video-call
+overlay remains a separate stateful coordinate subsystem and can be organized
+independently without coupling it to the static profile composition.
+
+The artwork, authored pixel positions, localized text, equipment capacity,
+profile data, and campaign behavior are unchanged. A dependency-free headless
+test pins exact legacy and expanded coordinates, containment, non-overlap,
+row/column mapping, layout rhythm, and centered-screen translation.
+Architecture and ASan ratchets preserve the typed model, its production
+integration, removal of the parallel macro families, and focused test
+admission.

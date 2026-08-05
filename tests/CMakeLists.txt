@@ -180,6 +180,16 @@ target_include_directories(laptop_ui_state_model_tests
 add_test(NAME laptop_ui_state_model
   COMMAND laptop_ui_state_model_tests)
 
+# A.I.M.'s profile page has two fixed-pixel artwork variants. Keep drawing,
+# mouse hitboxes, stat rows, equipment cells, and navigation coordinates on one
+# independently executable geometry contract.
+add_executable(aim_member_profile_layout_tests
+  aim_member_profile_layout_tests.cpp)
+target_include_directories(aim_member_profile_layout_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Laptop)
+add_test(NAME aim_member_profile_layout
+  COMMAND aim_member_profile_layout_tests)
+
 # Shared legacy UI helpers expose signed handles, bounded callback mappings,
 # and slider geometry to every application host. Keep exact-end, zero-extent,
 # duplicate-ID, stale-ID, and full-capacity behavior independently executable.
