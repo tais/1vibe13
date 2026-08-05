@@ -313,7 +313,8 @@ INT32 UseLoadedButtonImage(INT32 LoadedImg, INT32 Grayed, INT32 OffNormal, INT32
 
 
 	// Is button image index given valid?
-	if( ButtonPictures[LoadedImg].vobj == NULL )
+	if( LoadedImg < 0 || LoadedImg >= MAX_BUTTON_PICS ||
+		ButtonPictures[LoadedImg].vobj == NULL )
 	{
 		DbgMessage(TOPIC_BUTTON_HANDLER, DBG_LEVEL_0, String("Invalid button picture handle given for pre-loaded button image %d",LoadedImg));
 		return(-1);
@@ -631,16 +632,8 @@ void UnloadButtonImage(INT32 Index)
 //
 BOOLEAN EnableButton( INT32 iButtonID )
 {
-	GUI_BUTTON *b;
+	GUI_BUTTON *b = GetButtonPtr(iButtonID);
 	UINT32 OldState;
-
-	if( iButtonID < 0 || iButtonID >= MAX_BUTTONS )
-	{
-		sprintf( str, "Attempting to EnableButton with out of range buttonID %d.", iButtonID );
-		AssertMsg( 0, str );
-	}
-
-	b = ButtonList[ iButtonID ];
 
 	// If button exists, set the ENABLED flag
 	if( b )
@@ -669,16 +662,8 @@ BOOLEAN EnableButton( INT32 iButtonID )
 //
 BOOLEAN DisableButton(INT32 iButtonID )
 {
-	GUI_BUTTON *b;
+	GUI_BUTTON *b = GetButtonPtr(iButtonID);
 	UINT32 OldState;
-
-	if( iButtonID < 0 || iButtonID >= MAX_BUTTONS )
-	{
-		sprintf( str, "Attempting to DisableButton with out of range buttonID %d.", iButtonID );
-		AssertMsg( 0, str );
-	}
-
-	b = ButtonList[ iButtonID ];
 
 	// If button exists, reset the ENABLED flag
 	if( b )
@@ -1880,8 +1865,7 @@ INT32 CreateHotSpot(INT16 xloc, INT16 yloc, INT16 Width, INT16 Height,INT16 Prio
 // will simply set the cursor for the mouse region the button occupies
 BOOLEAN SetButtonCursor(INT32 iBtnId, UINT16 crsr)
 {
-	GUI_BUTTON *b;
-	b = ButtonList[iBtnId];
+	GUI_BUTTON *b = GetButtonPtr(iBtnId);
 	if (!b)
 		return FALSE;
 	b->Area.Cursor = crsr;
@@ -2225,12 +2209,8 @@ INT32 CreateIconAndTextButton( INT32 Image, const STR16 string, UINT32 uiFont,
 //New functions
 void SpecifyButtonText( INT32 iButtonID, STR16 string )
 {
-	GUI_BUTTON *b;
-
-	Assert( iButtonID >= 0 );
-	Assert( iButtonID < MAX_BUTTONS );
-
-	b = ButtonList[ iButtonID ];
+	GUI_BUTTON *b = GetButtonPtr(iButtonID);
+	if (!b) return;
 
 	//free the previous strings memory if applicable
 	if( b->string )
@@ -2261,22 +2241,16 @@ void SpecifyButtonMultiColorFont(INT32 iButtonID, BOOLEAN fMultiColor)
 
 void SpecifyButtonFont( INT32 iButtonID, UINT32 uiFont )
 {
-	GUI_BUTTON *b;
-	Assert( iButtonID >= 0 );
-	Assert( iButtonID < MAX_BUTTONS );
-	b = ButtonList[ iButtonID ];
-	Assert( b );
+	GUI_BUTTON *b = GetButtonPtr(iButtonID);
+	if (!b) return;
 	b->usFont = (UINT16)uiFont;
 	b->uiFlags |= BUTTON_DIRTY ;
 }
 
 void SpecifyButtonUpTextColors( INT32 iButtonID, INT16 sForeColor, INT16 sShadowColor )
 {
-	GUI_BUTTON *b;
-	Assert( iButtonID >= 0 );
-	Assert( iButtonID < MAX_BUTTONS );
-	b = ButtonList[ iButtonID ];
-	Assert( b );
+	GUI_BUTTON *b = GetButtonPtr(iButtonID);
+	if (!b) return;
 	b->sForeColor = sForeColor;
 	b->sShadowColor = sShadowColor;
 	b->uiFlags |= BUTTON_DIRTY ;
@@ -2284,11 +2258,8 @@ void SpecifyButtonUpTextColors( INT32 iButtonID, INT16 sForeColor, INT16 sShadow
 
 void SpecifyButtonDownTextColors( INT32 iButtonID, INT16 sForeColorDown, INT16 sShadowColorDown )
 {
-	GUI_BUTTON *b;
-	Assert( iButtonID >= 0 );
-	Assert( iButtonID < MAX_BUTTONS );
-	b = ButtonList[ iButtonID ];
-	Assert( b );
+	GUI_BUTTON *b = GetButtonPtr(iButtonID);
+	if (!b) return;
 	b->sForeColorDown = sForeColorDown;
 	b->sShadowColorDown = sShadowColorDown;
 	b->uiFlags |= BUTTON_DIRTY ;
@@ -2361,11 +2332,8 @@ void SpecifyGeneralButtonTextAttributes( INT32 iButtonID, STR16 string, INT32 ui
 
 void SpecifyButtonTextOffsets( INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOffset, BOOLEAN fShiftText )
 {
-	GUI_BUTTON *b;
-	Assert( iButtonID >= 0 );
-	Assert( iButtonID < MAX_BUTTONS );
-	b = ButtonList[ iButtonID ];
-	Assert( b );
+	GUI_BUTTON *b = GetButtonPtr(iButtonID);
+	if (!b) return;
 	//Copy over information
 	b->bTextXOffset = bTextXOffset;
 	b->bTextYOffset = bTextYOffset;
@@ -2374,11 +2342,8 @@ void SpecifyButtonTextOffsets( INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOf
 
 void SpecifyButtonTextSubOffsets( INT32 iButtonID, INT8 bTextXOffset, INT8 bTextYOffset, BOOLEAN fShiftText )
 {
-	GUI_BUTTON *b;
-	Assert( iButtonID >= 0 );
-	Assert( iButtonID < MAX_BUTTONS );
-	b = ButtonList[ iButtonID ];
-	Assert( b );
+	GUI_BUTTON *b = GetButtonPtr(iButtonID);
+	if (!b) return;
 	//Copy over information
 	b->bTextXSubOffSet = bTextXOffset;
 	b->bTextYSubOffSet = bTextYOffset;
@@ -2388,11 +2353,8 @@ void SpecifyButtonTextSubOffsets( INT32 iButtonID, INT8 bTextXOffset, INT8 bText
 
 void SpecifyButtonTextWrappedWidth(INT32 iButtonID, INT16 sWrappedWidth)
 {
-	GUI_BUTTON *b;
-	Assert( iButtonID >= 0 );
-	Assert( iButtonID < MAX_BUTTONS );
-	b = ButtonList[ iButtonID ];
-	Assert( b );
+	GUI_BUTTON *b = GetButtonPtr(iButtonID);
+	if (!b) return;
 
 	b->sWrappedWidth = sWrappedWidth;
 }
@@ -2417,12 +2379,8 @@ void SpecifyDisabledButtonStyle( INT32 iButtonID, INT8 bStyle )
 BOOLEAN SpecifyButtonIcon( INT32 iButtonID, INT32 iVideoObjectID, UINT16 usVideoObjectIndex,
 													INT8 bXOffset, INT8 bYOffset, BOOLEAN fShiftImage )
 {
-	GUI_BUTTON *b;
-
-	Assert( iButtonID >= 0 );
-	Assert( iButtonID < MAX_BUTTONS );
-	b = ButtonList[ iButtonID ];
-	Assert( b );
+	GUI_BUTTON *b = GetButtonPtr(iButtonID);
+	if (!b) return FALSE;
 
 	b->iIconID = iVideoObjectID;
 	b->usIconIndex = usVideoObjectIndex;

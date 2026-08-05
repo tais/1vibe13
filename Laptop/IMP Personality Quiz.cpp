@@ -996,7 +996,7 @@ void ResetQuizAnswerButtons( void )
 	// now run through and reset the buttons
 	for(iCnt = 0; iCnt < iCounter; iCnt++)
 	{
-		ButtonList[ giIMPPersonalityQuizAnswerButton[ iCnt ] ]->uiFlags &= ~(BUTTON_CLICKED_ON);
+		SetImpPageButtonClicked(giIMPPersonalityQuizAnswerButton[iCnt], false);
 	}
 
 	return;
@@ -1812,7 +1812,7 @@ void ToggleQuestionNumberButtonOn( INT32 iAnswerNumber )
 		ResetQuizAnswerButtons( );
 
 		// toggle this button on
-		ButtonList[ giIMPPersonalityQuizAnswerButton[ iAnswerNumber ] ]->uiFlags |= (BUTTON_CLICKED_ON);
+		SetImpPageButtonClicked(giIMPPersonalityQuizAnswerButton[iAnswerNumber], true);
 		iCurrentAnswer = iAnswerNumber;
 	}
 

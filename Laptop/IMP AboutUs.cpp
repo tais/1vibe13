@@ -28,7 +28,7 @@ void EnterIMPAboutUs( void )
 	CreateIMPAboutUsButtons( );
 
 	// entry into IMP about us page
-	RenderIMPAboutUs( );
+	if (ImpPageResourcesReady()) RenderIMPAboutUs( );
 
 	return;
 }

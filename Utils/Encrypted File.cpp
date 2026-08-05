@@ -23,14 +23,14 @@ static BOOLEAN ReadAndWidenEncrypted(HWFILE hFile, CHAR16 *pDestString, UINT32 u
 	const UINT32 charCount = uiByteCount / 2;
 	std::vector<UINT16> tmp(charCount);
 	UINT32 uiBytesRead = 0;
-	if (!FileRead(hFile, tmp.data(), uiByteCount, &uiBytesRead))
+	if (!FileRead(hFile, tmp.data(), uiByteCount, &uiBytesRead) ||
+		uiBytesRead != uiByteCount)
 		return FALSE;
 	for (UINT32 i = 0; i < charCount; ++i)
 		pDestString[i] = (CHAR16)tmp[i];
-	// Don't NUL-terminate past charCount: callers size their buffer as
-	// exactly the number of source chars (e.g. CHAR16 sSlogan[400] for
-	// uiByteCount=800). The EDT records carry their own trailing NUL
-	// within the data, and DecodeString stops on the first zero entry.
+	// Callers size their buffers as exactly the number of source characters.
+	// The public loaders reserve the last in-bounds entry as a terminator after
+	// decoding, including when a malformed record omitted its authored NUL.
 	return TRUE;
 }
 
@@ -39,6 +39,10 @@ BOOLEAN LoadEncryptedDataFromFileRandomLine(STR pFileName, CHAR16 *pDestString, 
 {
 	HWFILE		hFile;
 	UINT32		uiSeekFrom;
+	if (!pDestString) return FALSE;
+	pDestString[0] = L'\0';
+	if (!pFileName || uiSeekAmount < 2 || (uiSeekAmount % 2) != 0)
+		return FALSE;
 
 	hFile = FileOpen(pFileName, FILE_ACCESS_READ, FALSE);
 	if ( !hFile )
@@ -47,7 +51,13 @@ BOOLEAN LoadEncryptedDataFromFileRandomLine(STR pFileName, CHAR16 *pDestString, 
 		return( FALSE );
 	}
 
-	uiSeekFrom = Random( ( FileGetSize(hFile) / uiSeekAmount ) - 1 );
+	const UINT32 recordCount = FileGetSize(hFile) / uiSeekAmount;
+	if (recordCount == 0)
+	{
+		FileClose(hFile);
+		return FALSE;
+	}
+	uiSeekFrom = Random(recordCount);
 
 	if ( FileSeek( hFile, uiSeekFrom * uiSeekAmount, FILE_SEEK_FROM_START ) == FALSE )
 	{
@@ -66,6 +76,7 @@ BOOLEAN LoadEncryptedDataFromFileRandomLine(STR pFileName, CHAR16 *pDestString, 
 	// DecodeString indexes wchar_t entries; uiSeekAmount is the file
 	// byte count (2 bytes per source char). Pass the char count.
 	DecodeString(pDestString, uiSeekAmount / 2);
+	pDestString[uiSeekAmount / 2 - 1] = L'\0';
 
 	FileClose(hFile);
 	return(TRUE);
@@ -74,6 +85,10 @@ BOOLEAN LoadEncryptedDataFromFileRandomLine(STR pFileName, CHAR16 *pDestString, 
 BOOLEAN LoadEncryptedDataFromFile(STR pFileName, CHAR16 *pDestString, UINT32 uiSeekFrom, UINT32 uiSeekAmount)
 {
 	HWFILE		hFile;
+	if (!pDestString) return FALSE;
+	pDestString[0] = L'\0';
+	if (!pFileName || uiSeekAmount < 2 || (uiSeekAmount % 2) != 0)
+		return FALSE;
 
 	hFile = FileOpen(pFileName, FILE_ACCESS_READ, FALSE);
 	if ( !hFile )
@@ -110,6 +125,7 @@ BOOLEAN LoadEncryptedDataFromFile(STR pFileName, CHAR16 *pDestString, UINT32 uiS
 	// DecodeString indexes wchar_t entries; uiSeekAmount is the file
 	// byte count (2 bytes per source char). Pass the char count.
 	DecodeString(pDestString, uiSeekAmount / 2);
+	pDestString[uiSeekAmount / 2 - 1] = L'\0';
 
 	FileClose(hFile);
 	return(TRUE);
@@ -119,6 +135,7 @@ BOOLEAN LoadEncryptedDataFromFile(STR pFileName, CHAR16 *pDestString, UINT32 uiS
 void DecodeString(CHAR16 *pDestString, UINT32 uiSeekAmount)
 {
 	UINT32		i;
+	if (!pDestString) return;
 
 	// Decrement, by 1, any value > 32
 	for(i=0; (i<uiSeekAmount) && (pDestString[i] != 0); i++ )

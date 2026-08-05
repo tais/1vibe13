@@ -37,7 +37,7 @@ void EnterIMPAttributeFinish( void )
 	CreateAttributeFinishButtons( );
 
 	// render screen
-	RenderIMPAttributeFinish( );
+	if (ImpPageResourcesReady()) RenderIMPAttributeFinish( );
 
 
 	return;

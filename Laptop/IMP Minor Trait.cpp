@@ -434,11 +434,11 @@ void HandleMinorTraitButtonStates( )
 		//if the skill is selected ( ie depressed )
 		if( gfMinorTraitQuestions[ uiCnt ] )
 		{
-			ButtonList[ giIMPMinorTraitAnswerButton[ uiCnt ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPMinorTraitAnswerButton[uiCnt], true);
 		}
 		else
 		{
-			ButtonList[ giIMPMinorTraitAnswerButton[ uiCnt ] ]->uiFlags &= ~BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPMinorTraitAnswerButton[uiCnt], false);
 		}
 	}
 }

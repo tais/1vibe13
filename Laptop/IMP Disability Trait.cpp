@@ -336,11 +336,11 @@ void HandleDisabilityTraitButtonStates( )
 		//if the skill is selected ( ie depressed )
 		if( gfDisabilityTraitQuestions[ ubCnt ] )
 		{
-			ButtonList[ giIMPDisabilityTraitAnswerButton[ ubCnt ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPDisabilityTraitAnswerButton[ubCnt], true);
 		}
 		else
 		{
-			ButtonList[ giIMPDisabilityTraitAnswerButton[ ubCnt ] ]->uiFlags &= ~BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPDisabilityTraitAnswerButton[ubCnt], false);
 		}
 	}
 }

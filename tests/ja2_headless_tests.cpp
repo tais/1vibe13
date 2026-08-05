@@ -58,6 +58,8 @@
 #include "types.h"
 #include "MemMan.h"
 #include "FileMan.h"
+#include "Encrypted File.h"
+#include "Button System.h"
 #include "message.h"
 #include "video.h"
 #include "vobject.h"
@@ -16765,6 +16767,56 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+	{
+		const std::string path = "encrypted-text-record-test.edt";
+		const UINT16 encodedRecord[] = {66, 67, 68, 69};
+		HWFILE output = FileOpen(const_cast<char*>(path.c_str()),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+		UINT32 bytesWritten = 0;
+		const bool fixtureWritten = output && FileWrite(output,
+			encodedRecord, sizeof(encodedRecord), &bytesWritten) &&
+			bytesWritten == sizeof(encodedRecord);
+		if (output) FileClose(output);
+
+		CHAR16 decoded[4] = {L'X', L'X', L'X', L'X'};
+		const bool decodedRecord = LoadEncryptedDataFromFile(
+			const_cast<char*>(path.c_str()), decoded, 0,
+			static_cast<UINT32>(sizeof(encodedRecord)));
+		CHECK(fixtureWritten && decodedRecord && decoded[0] == L'A' &&
+			decoded[1] == L'B' && decoded[2] == L'C' &&
+			decoded[3] == L'\0',
+			"encrypted text reads decode exact records and force an in-bounds terminator");
+
+		CHAR16 truncated[4] = {L'X', L'X', L'X', L'X'};
+		const bool rejectedTruncated = !LoadEncryptedDataFromFile(
+			const_cast<char*>(path.c_str()), truncated, sizeof(UINT16) * 2,
+			static_cast<UINT32>(sizeof(encodedRecord)));
+		CHECK(rejectedTruncated && truncated[0] == L'\0',
+			"short encrypted text records fail without publishing partial or stale text");
+
+		CHAR16 missing[4] = {L'X', L'X', L'X', L'X'};
+		char missingPath[] = "missing-encrypted-text-record.edt";
+		CHECK(!LoadEncryptedDataFromFile(missingPath, missing, 0,
+			static_cast<UINT32>(sizeof(encodedRecord))) &&
+			missing[0] == L'\0',
+			"missing encrypted text records clear the caller destination");
+		FileDelete(const_cast<char*>(path.c_str()));
+	}
+
+	CHECK(UseLoadedButtonImage(-1, -1, 0, -1, 1, -1) == -1 &&
+		!EnableButton(-1) && !DisableButton(MAX_BUTTONS) &&
+		!SetButtonCursor(-1, 0),
+		"legacy button operations reject invalid compatibility handles");
+	SpecifyButtonText(-1, nullptr);
+	SpecifyButtonFont(MAX_BUTTONS, 0);
+	SpecifyButtonUpTextColors(-1, 0, 0);
+	SpecifyButtonDownTextColors(MAX_BUTTONS, 0, 0);
+	SpecifyButtonTextOffsets(-1, 0, 0, FALSE);
+	SpecifyButtonTextSubOffsets(MAX_BUTTONS, 0, 0, FALSE);
+	SpecifyButtonTextWrappedWidth(-1, 0);
+	CHECK(!SpecifyButtonIcon(MAX_BUTTONS, -1, 0, 0, 0, FALSE),
+		"legacy button configuration ignores invalid compatibility handles");
+	DecodeString(nullptr, 4);
 	{
 		const std::string path = "truncated-map-messages-test.bin";
 		HWFILE output = FileOpen(const_cast<char*>(path.c_str()),

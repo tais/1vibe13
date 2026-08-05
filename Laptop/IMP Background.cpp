@@ -350,11 +350,11 @@ void HandleBackgroundButtonStates( )
 		//if the skill is selected ( ie depressed )
 		if( gfBackgroundQuestions[ uiCnt ] )
 		{
-			ButtonList[ giIMPBackgroundAnswerButton[ uiCnt ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPBackgroundAnswerButton[uiCnt], true);
 		}
 		else
 		{
-			ButtonList[ giIMPBackgroundAnswerButton[ uiCnt ] ]->uiFlags &= ~BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPBackgroundAnswerButton[uiCnt], false);
 		}
 	}
 }
@@ -958,11 +958,11 @@ void BtnIMPBackgroundNextCallback(GUI_BUTTON *btn,INT32 reason)
 			for( UINT16 uiCnt=0; uiCnt<IMP_BACKGROUND_DISPLAYED_CHOICES; ++uiCnt )
 			{
 				gfBackgroundQuestions[ uiCnt ] = FALSE;
-				ButtonList[ giIMPBackgroundAnswerButton[ uiCnt ] ]->uiFlags &= ~BUTTON_CLICKED_ON;
+				SetImpPageButtonClicked(giIMPBackgroundAnswerButton[uiCnt], false);
 			}
 			//Have the NONE trait initially selected
 			gfBackgroundQuestions[ IMP_BACKGROUND_NONE ] = TRUE;
-			ButtonList[ giIMPBackgroundAnswerButton[ IMP_BACKGROUND_NONE ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPBackgroundAnswerButton[IMP_BACKGROUND_NONE], true);
 
 			//reset choice
 			usBackground = 0;
@@ -995,11 +995,11 @@ void BtnIMPBackgroundPreviousCallback(GUI_BUTTON *btn,INT32 reason)
 			for( UINT16 uiCnt=0; uiCnt<IMP_BACKGROUND_DISPLAYED_CHOICES; ++uiCnt )
 			{
 				gfBackgroundQuestions[ uiCnt ] = FALSE;
-				ButtonList[ giIMPBackgroundAnswerButton[ uiCnt ] ]->uiFlags &= ~BUTTON_CLICKED_ON;
+				SetImpPageButtonClicked(giIMPBackgroundAnswerButton[uiCnt], false);
 			}
 			//Have the NONE trait initially selected
 			gfBackgroundQuestions[ IMP_BACKGROUND_NONE ] = TRUE;
-			ButtonList[ giIMPBackgroundAnswerButton[ IMP_BACKGROUND_NONE ] ]->uiFlags |= BUTTON_CLICKED_ON;
+			SetImpPageButtonClicked(giIMPBackgroundAnswerButton[IMP_BACKGROUND_NONE], true);
 
 			//reset choice
 			usBackground = 0;

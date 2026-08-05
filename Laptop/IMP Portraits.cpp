@@ -57,7 +57,7 @@ void EnterIMPPortraits( void )
 	CreateIMPPortraitButtons( );
 
 	// render background
-	RenderIMPPortraits( );
+	if (ImpPageResourcesReady()) RenderIMPPortraits( );
 }
 
 void RenderIMPPortraits( void )
