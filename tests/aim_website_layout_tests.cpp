@@ -179,5 +179,116 @@ int main()
 		Is(policyLegacy.agreementButtons.at(1), 386, 369),
 		"policy navigation and agreement controls derive from tested strides");
 
+	constexpr SortLayout sort = MakeSortLayout(anchors);
+	Require(Is(sort.pageBounds, 111, 46, 502, 400) &&
+		Is(sort.sortPanel, 164, 142, 394, 81) &&
+		Is(sort.memberTitle.origin, 164, 124) &&
+		sort.memberTitle.width == 394 && Is(sort.sortTitle, 173, 150),
+		"A.I.M. Sort panel and headings retain their exact authored coordinates");
+	Require(Is(sort.navigationArtwork.at(0), 200, 230, 54, 54) &&
+		Is(sort.navigationArtwork.at(2), 200, 350, 54, 54) &&
+		Is(sort.navigationText(0), 266, 249) &&
+		Is(sort.navigationText(1), 266, 312) &&
+		Is(sort.navigationText(2), 266, 370),
+		"A.I.M. Sort navigation drawing and hitboxes share one sequence");
+	Require(Is(sort.control(0), 173, 176, 10, 10) &&
+		Is(sort.control(2), 173, 202, 10, 10) &&
+		Is(sort.control(3), 269, 176, 10, 10) &&
+		Is(sort.control(11), 461, 202, 10, 10) &&
+		Is(sort.control(12), 173, 163, 10, 10) &&
+		Is(sort.control(13), 536, 146, 10, 10) &&
+		Is(sort.control(14), 536, 159, 10, 10),
+		"all fifteen sort lights use one bounded mode-to-control mapping");
+	Require(sort.hasControl(14) && !sort.hasControl(15) &&
+		Is(sort.control(15), 0, 0, 0, 0),
+		"invalid A.I.M. Sort modes cannot index beyond the control model");
+	Require(Is(sort.criterionText(0), 186, 178) &&
+		Is(sort.criterionText(3), 282, 178) &&
+		Is(sort.criterionText(11), 474, 204) &&
+		Is(sort.criterionText(12), 186, 165) &&
+		Is(sort.criterionHitbox(0, 40), 173, 176, 50, 10) &&
+		Is(sort.criterionHitbox(12, 30), 173, 163, 40, 10),
+		"sort labels and their input regions derive from the same controls");
+	Require(Is(sort.criterionHitbox(0, 1000), 173, 176, 385, 10) &&
+		Is(sort.orderHitbox(13, 1000), 164, 146, 382, 10) &&
+		LaptopLayoutModel::Contains(
+			sort.sortPanel, sort.criterionHitbox(0, 1000)) &&
+		LaptopLayoutModel::Contains(
+			sort.sortPanel, sort.orderHitbox(13, 1000)),
+		"long localized sort labels cannot overflow or underflow the panel hitboxes");
+	Require(Is(sort.orderText(13).origin, 432, 147) &&
+		Is(sort.orderText(14).origin, 432, 160) &&
+		Is(sort.orderHitbox(13, 60), 470, 146, 76, 10) &&
+		Is(sort.orderHitbox(14, 40), 490, 159, 56, 10),
+		"sort-order text, lights, hitboxes, and invalidation share one layout");
+
+	constexpr PageAnchors shiftedAnchors{160, 90, 271, 136, 19};
+	constexpr SortLayout shiftedSort = MakeSortLayout(shiftedAnchors);
+	Require(Is(shiftedSort.sortPanel, 324, 232, 394, 81) &&
+		Is(shiftedSort.navigationArtwork.at(2), 360, 440, 54, 54) &&
+		Is(shiftedSort.control(14), 696, 249, 10, 10),
+		"all A.I.M. Sort geometry follows centered-screen translation");
+
+	constexpr ArchiveLayout archive = MakeArchiveLayout(anchors);
+	Require(Is(archive.pageBounds, 111, 46, 502, 400) &&
+		Is(archive.title.origin, 260, 100) && archive.title.width == 203 &&
+		archive.grid.capacity() == kArchivePageCapacity,
+		"A.I.M. Archives title and four-by-five capacity retain authored geometry");
+	Require(Is(archive.grid.frame(0), 148, 114, 66, 64) &&
+		Is(archive.grid.frame(4), 508, 114, 66, 64) &&
+		Is(archive.grid.frame(5), 148, 186, 66, 64) &&
+		Is(archive.grid.frame(19), 508, 330, 66, 64) &&
+		Is(archive.grid.face(0), 152, 118) &&
+		Is(archive.grid.hitbox(0), 148, 114, 56, 50) &&
+		Is(archive.grid.nickname(0).origin, 153, 169) &&
+		archive.grid.nickname(0).width == 56,
+		"archive drawing, names, and face hitboxes share one row-major grid");
+	for (std::size_t slot = 0; slot < archive.grid.capacity(); ++slot)
+		Require(LaptopLayoutModel::Contains(
+			archive.pageBounds, archive.grid.frame(slot)),
+			"every archive portrait frame stays inside the web canvas");
+	Require(Is(archive.pageButton, 311, 403, 75, 18) &&
+		Is(archive.pageControlsInvalidation, 211, 403, 450, 18),
+		"archive page controls use one drawing and invalidation layout");
+
+	Require(Is(archive.popup.facePanel, 212, 145, 58, 52) &&
+		Is(archive.popup.name, 280, 165) &&
+		Is(archive.popup.description.origin, 214, 202) &&
+		archive.popup.description.width == 296 &&
+		Is(archive.popup.section(0), 206, 139) &&
+		Is(archive.popup.shadow(0), 210, 143, 309, 8),
+		"archive popup artwork and text derive from one popup anchor");
+	Require(Is(archive.popup.section(12), 206, 247) &&
+		Is(archive.popup.doneButton(11), 472, 231, 36, 16) &&
+		Is(archive.popup.doneHitbox(11), 470, 231, 36, 16),
+		"archive popup growth keeps the done artwork and hitbox paired");
+	constexpr ArchiveLayout shiftedArchive = MakeArchiveLayout(shiftedAnchors);
+	Require(Is(shiftedArchive.grid.frame(19), 668, 420, 66, 64) &&
+		Is(shiftedArchive.popup.facePanel, 372, 235, 58, 52) &&
+		Is(shiftedArchive.popup.doneButton(11), 632, 321, 36, 16),
+		"all A.I.M. Archives geometry follows centered-screen translation");
+
+	Require(ArchiveProfileIndex(0, 0, 80) == 0 &&
+		ArchiveProfileIndex(3, 19, 80) == 79 &&
+		ArchiveProfileIndex(3, 13, 73) == 73 &&
+		ArchiveProfileIndex(4, 0, 80) == 80 &&
+		ArchiveProfileIndex(0, 20, 80) == 80,
+		"archive profile mapping rejects partial-page and exact-end slots");
+	bool visibleProfiles[80] = {};
+	visibleProfiles[7] = true;
+	visibleProfiles[46] = true;
+	Require(ArchivePageHasVisible(visibleProfiles, 80, 0) &&
+		!ArchivePageHasVisible(visibleProfiles, 80, 1) &&
+		ArchivePageHasVisible(visibleProfiles, 80, 2) &&
+		!ArchivePageHasVisible(visibleProfiles, 80, 4),
+		"archive pages remain discoverable when their first slot is empty");
+	const bool enabledPages[kArchivePageCount] = {true, false, true, false};
+	const bool noPages[kArchivePageCount] = {};
+	Require(NextArchivePage(0, enabledPages) == 2 &&
+		NextArchivePage(2, enabledPages) == 0 &&
+		NextArchivePage(9, enabledPages) == 2 &&
+		NextArchivePage(1, noPages) == 1,
+		"archive navigation skips sparse pages and wraps without invalid indices");
+
 	return EXIT_SUCCESS;
 }
