@@ -2,6 +2,7 @@
 	#include "BobbyR.h"
 	#include "BobbyRGuns.h"
 	#include "BobbyRMailOrder.h"
+	#include "BobbyRayLayout.h"
 	#include "LaptopPageResourceOwner.h"
 	#include "Utilities.h"
 	#include "WordWrap.h"
@@ -39,78 +40,6 @@
 #define BOBBIES_SENTENCE_COLOR				FONT_MCOLOR_WHITE
 #define BOBBIES_SENTENCE_BACKGROUNDCOLOR			2
 
-#define BOBBY_WOOD_BACKGROUND_X				LAPTOP_SCREEN_UL_X
-#define BOBBY_WOOD_BACKGROUND_Y				LAPTOP_SCREEN_WEB_UL_Y
-#define BOBBY_WOOD_BACKGROUND_WIDTH		125
-#define BOBBY_WOOD_BACKGROUND_HEIGHT	100
-
-#define	BOBBY_RAYS_NAME_X							LAPTOP_SCREEN_UL_X + 77
-#define	BOBBY_RAYS_NAME_Y							LAPTOP_SCREEN_WEB_UL_Y + 0
-#define	BOBBY_RAYS_NAME_WIDTH					344
-#define	BOBBY_RAYS_NAME_HEIGHT				66
-
-#define BOBBYS_PLAQUES_X							LAPTOP_SCREEN_UL_X + 39
-#define BOBBYS_PLAQUES_Y							LAPTOP_SCREEN_WEB_UL_Y + 174
-#define BOBBYS_PLAQUES_WIDTH					414
-#define BOBBYS_PLAQUES_HEIGHT					190
-
-#define BOBBIES_TOPHINGE_X						LAPTOP_SCREEN_UL_X
-#define BOBBIES_TOPHINGE_Y						LAPTOP_SCREEN_WEB_UL_Y + 42
-
-#define BOBBIES_BOTTOMHINGE_X					LAPTOP_SCREEN_UL_X
-#define BOBBIES_BOTTOMHINGE_Y					LAPTOP_SCREEN_WEB_UL_Y + 338
-
-#define BOBBIES_STORE_PLAQUE_X				LAPTOP_SCREEN_UL_X + 148
-#define BOBBIES_STORE_PLAQUE_Y				LAPTOP_SCREEN_WEB_UL_Y + 66
-#define BOBBIES_STORE_PLAQUE_HEIGHT		93
-
-#define BOBBIES_HANDLE_X							LAPTOP_SCREEN_UL_X + 457
-#define BOBBIES_HANDLE_Y							LAPTOP_SCREEN_WEB_UL_Y + 147
-
-#define BOBBIES_FIRST_SENTENCE_X			LAPTOP_SCREEN_UL_X
-#define BOBBIES_FIRST_SENTENCE_Y			BOBBIES_STORE_PLAQUE_Y + BOBBIES_STORE_PLAQUE_HEIGHT - 3
-#define BOBBIES_FIRST_SENTENCE_WIDTH	500
-
-#define BOBBIES_2ND_SENTENCE_X				LAPTOP_SCREEN_UL_X
-#define BOBBIES_2ND_SENTENCE_Y				BOBBIES_FIRST_SENTENCE_Y + 13
-#define BOBBIES_2ND_SENTENCE_WIDTH		500
-
-#define BOBBIES_CENTER_SIGN_OFFSET_Y	23
-
-#define BOBBIES_USED_SIGN_X						BOBBYS_PLAQUES_X + 93
-#define BOBBIES_USED_SIGN_Y						BOBBYS_PLAQUES_Y + 32
-#define BOBBIES_USED_SIGN_WIDTH				92
-#define BOBBIES_USED_SIGN_HEIGHT			50
-#define BOBBIES_USED_SIGN_TEXT_OFFSET	BOBBIES_USED_SIGN_Y + 10
-
-#define BOBBIES_MISC_SIGN_X						BOBBYS_PLAQUES_X + 238
-#define BOBBIES_MISC_SIGN_Y						BOBBYS_PLAQUES_Y + 27
-#define BOBBIES_MISC_SIGN_WIDTH				103
-#define BOBBIES_MISC_SIGN_HEIGHT			57
-#define BOBBIES_MISC_SIGN_TEXT_OFFSET	BOBBIES_MISC_SIGN_Y + BOBBIES_CENTER_SIGN_OFFSET_Y
-
-#define BOBBIES_GUNS_SIGN_X						BOBBYS_PLAQUES_X + 3
-#define BOBBIES_GUNS_SIGN_Y						BOBBYS_PLAQUES_Y + 102
-#define BOBBIES_GUNS_SIGN_WIDTH				116
-#define BOBBIES_GUNS_SIGN_HEIGHT			75
-#define BOBBIES_GUNS_SIGN_TEXT_OFFSET BOBBIES_GUNS_SIGN_Y + BOBBIES_CENTER_SIGN_OFFSET_Y
-
-#define BOBBIES_AMMO_SIGN_X						BOBBYS_PLAQUES_X + 150
-#define BOBBIES_AMMO_SIGN_Y						BOBBYS_PLAQUES_Y + 105
-#define BOBBIES_AMMO_SIGN_WIDTH				112
-#define BOBBIES_AMMO_SIGN_HEIGHT			71
-#define BOBBIES_AMMO_SIGN_TEXT_OFFSET	BOBBIES_AMMO_SIGN_Y + BOBBIES_CENTER_SIGN_OFFSET_Y
-
-#define BOBBIES_ARMOUR_SIGN_X					BOBBYS_PLAQUES_X + 290
-#define BOBBIES_ARMOUR_SIGN_Y					BOBBYS_PLAQUES_Y + 108
-#define BOBBIES_ARMOUR_SIGN_WIDTH			114
-#define BOBBIES_ARMOUR_SIGN_HEIGHT		70
-#define BOBBIES_ARMOUR_SIGN_TEXT_OFFSET BOBBIES_ARMOUR_SIGN_Y + BOBBIES_CENTER_SIGN_OFFSET_Y
-
-#define BOBBIES_3RD_SENTENCE_X				LAPTOP_SCREEN_UL_X
-#define BOBBIES_3RD_SENTENCE_Y				BOBBIES_BOTTOMHINGE_Y + 40
-#define BOBBIES_3RD_SENTENCE_WIDTH		500
-
 #define BOBBY_R_NEW_PURCHASE_ARRIVAL_TIME		(1 * 60 * 24) // minutes in 1 day
 
 #define	BOBBY_R_USED_PURCHASE_OFFSET		MAXITEMS
@@ -118,16 +47,22 @@
 #define	BOBBYR_UNDERCONSTRUCTION_ANI_DELAY		150
 #define	BOBBYR_UNDERCONSTRUCTION_NUM_FRAMES		5
 
-#define BOBBYR_UNDERCONSTRUCTION_X					iScreenWidthOffset + 111 + ( 613 - 111 - BOBBYR_UNDERCONSTRUCTION_WIDTH) / 2
-#define BOBBYR_UNDERCONSTRUCTION_Y					iScreenHeightOffset + 175
-#define BOBBYR_UNDERCONSTRUCTION1_Y					iScreenHeightOffset + 378
+namespace
+{
+BobbyRayLayoutModel::Anchors BobbyRayAnchors()
+{
+	return {
+		LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y,
+		LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y,
+		iScreenWidthOffset, iScreenHeightOffset,
+		LAPTOP_SCREEN_WEB_DELTA_Y};
+}
 
-#define	BOBBYR_UNDERCONSTRUCTION_WIDTH				414
-#define	BOBBYR_UNDERCONSTRUCTION_HEIGHT				64
-
-#define	BOBBYR_UNDER_CONSTRUCTION_TEXT_X			LAPTOP_SCREEN_UL_X
-#define	BOBBYR_UNDER_CONSTRUCTION_TEXT_Y			BOBBYR_UNDERCONSTRUCTION_Y + 62 + 60
-#define	BOBBYR_UNDER_CONSTRUCTION_TEXT_WIDTH		613 - 111
+BobbyRayLayoutModel::HomeLayout BobbyRayHomeLayout()
+{
+	return BobbyRayLayoutModel::MakeHomeLayout(BobbyRayAnchors());
+}
+}
 
 
 
@@ -185,8 +120,8 @@ extern void BobbyRDeliveryCallback(RefToCShipmentManipulator ShipmentManipulator
 MOUSE_REGION	gSelectedBobbiesSignMenuRegion[ BOBBIES_NUMBER_SIGNS ];
 void SelectBobbiesSignMenuRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 
-BOOLEAN InitBobbiesMouseRegion(UINT8 ubNumerRegions, UINT16 *usMouseRegionPosArray,
-	MOUSE_REGION *MouseRegion, LaptopPageResourceOwner& owner);
+BOOLEAN InitBobbiesMouseRegion(MOUSE_REGION *MouseRegion,
+	LaptopPageResourceOwner& owner);
 void HandleBobbyRUnderConstructionAni( BOOLEAN fReset );
 
 void SimulateBobbyRayCustomer(STORE_INVENTORY *pInventoryArray, BOOLEAN fUsed);
@@ -210,28 +145,6 @@ BOOLEAN EnterBobbyR()
 	gBobbyRResources.clear();
 	RefreshBobbyRayDestinationSnapshot();
 	RefreshBobbyRayShipmentSnapshot();
-	// an array of mouse regions for the bobbies signs.	Top Left corner, bottom right corner
-	UINT16	usMouseRegionPosArray[20];
-	usMouseRegionPosArray[0]  = BOBBIES_USED_SIGN_X;
-	usMouseRegionPosArray[1]  = BOBBIES_USED_SIGN_Y;
-	usMouseRegionPosArray[2]  = BOBBIES_USED_SIGN_X + BOBBIES_USED_SIGN_WIDTH;
-	usMouseRegionPosArray[3]  = BOBBIES_USED_SIGN_Y + BOBBIES_USED_SIGN_HEIGHT;
-	usMouseRegionPosArray[4]  = BOBBIES_MISC_SIGN_X;
-	usMouseRegionPosArray[5]  = BOBBIES_MISC_SIGN_Y;
-	usMouseRegionPosArray[6]  = BOBBIES_MISC_SIGN_X + BOBBIES_MISC_SIGN_WIDTH;
-	usMouseRegionPosArray[7]  = BOBBIES_MISC_SIGN_Y + BOBBIES_MISC_SIGN_HEIGHT;
-	usMouseRegionPosArray[8]  = BOBBIES_GUNS_SIGN_X;
-	usMouseRegionPosArray[9]  = BOBBIES_GUNS_SIGN_Y;
-	usMouseRegionPosArray[10] = BOBBIES_GUNS_SIGN_X + BOBBIES_GUNS_SIGN_WIDTH;
-	usMouseRegionPosArray[11] = BOBBIES_GUNS_SIGN_Y + BOBBIES_GUNS_SIGN_HEIGHT;
-	usMouseRegionPosArray[12] = BOBBIES_AMMO_SIGN_X;
-	usMouseRegionPosArray[13] = BOBBIES_AMMO_SIGN_Y;
-	usMouseRegionPosArray[14] = BOBBIES_AMMO_SIGN_X + BOBBIES_AMMO_SIGN_WIDTH;
-	usMouseRegionPosArray[15] = BOBBIES_AMMO_SIGN_Y + BOBBIES_AMMO_SIGN_HEIGHT;
-	usMouseRegionPosArray[16] = BOBBIES_ARMOUR_SIGN_X;
-	usMouseRegionPosArray[17] = BOBBIES_ARMOUR_SIGN_Y;
-	usMouseRegionPosArray[18] = BOBBIES_ARMOUR_SIGN_X + BOBBIES_ARMOUR_SIGN_WIDTH;
-	usMouseRegionPosArray[19] = BOBBIES_ARMOUR_SIGN_Y + BOBBIES_ARMOUR_SIGN_HEIGHT;
 
 	if (!InitBobbyRWoodBackground(staged)) return FALSE;
 
@@ -266,7 +179,7 @@ BOOLEAN EnterBobbyR()
 	if (!staged.addVideoObject(&VObjectDesc, guiHandle)) return FALSE;
 
 
-	if (!InitBobbiesMouseRegion(BOBBIES_NUMBER_SIGNS, usMouseRegionPosArray,
+	if (!InitBobbiesMouseRegion(
 		gSelectedBobbiesSignMenuRegion, staged)) return FALSE;
 
 
@@ -312,32 +225,40 @@ void RenderBobbyR()
 {
 	HVOBJECT hPixHandle;
 	HVOBJECT hStorePlaqueHandle;
+	const BobbyRayLayoutModel::HomeLayout layout = BobbyRayHomeLayout();
 
 	DrawBobbyRWoodBackground();
 
 	// Bobby's Name
 	GetVideoObject(&hPixHandle, guiBobbyName);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,BOBBY_RAYS_NAME_X, BOBBY_RAYS_NAME_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.name.x, layout.name.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	// Plaque
 	GetVideoObject(&hPixHandle, guiPlaque);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,BOBBYS_PLAQUES_X, BOBBYS_PLAQUES_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.plaques.x, layout.plaques.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	// Top Hinge
 	GetVideoObject(&hPixHandle, guiTopHinge);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,BOBBIES_TOPHINGE_X, BOBBIES_TOPHINGE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.topHinge.x, layout.topHinge.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	// Bottom Hinge
 	GetVideoObject(&hPixHandle, guiBottomHinge);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,BOBBIES_BOTTOMHINGE_X, BOBBIES_BOTTOMHINGE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.bottomHinge.x, layout.bottomHinge.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	// StorePlaque
 	GetVideoObject(&hStorePlaqueHandle, guiStorePlaque);
-	BltVideoObject(FRAME_BUFFER, hStorePlaqueHandle, 0,BOBBIES_STORE_PLAQUE_X, BOBBIES_STORE_PLAQUE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hStorePlaqueHandle, 0,
+		layout.storePlaque.x, layout.storePlaque.y,
+		VO_BLT_SRCTRANSPARENCY,NULL);
 
 	// Handle
 	GetVideoObject(&hPixHandle, guiHandle);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,BOBBIES_HANDLE_X, BOBBIES_HANDLE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.handle.x, layout.handle.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 /*
 	if( !LaptopSaveInfo.fBobbyRSiteCanBeAccessed )
@@ -356,25 +277,33 @@ void RenderBobbyR()
 	{
 		//Bobbys first sentence
 	//	ShadowText( FRAME_BUFFER, BobbyRaysFrontText[BOBBYR_ADVERTISMENT_1], BOBBIES_SENTENCE_FONT, BOBBIES_FIRST_SENTENCE_X, BOBBIES_FIRST_SENTENCE_Y );
-		DrawTextToScreen(BobbyRaysFrontText[BOBBYR_ADVERTISMENT_1], BOBBIES_FIRST_SENTENCE_X, BOBBIES_FIRST_SENTENCE_Y, BOBBIES_FIRST_SENTENCE_WIDTH, BOBBIES_SENTENCE_FONT, BOBBIES_SENTENCE_COLOR, BOBBIES_SIGN_BACKCOLOR, FALSE, CENTER_JUSTIFIED | TEXT_SHADOWED );
+		DrawTextToScreen(BobbyRaysFrontText[BOBBYR_ADVERTISMENT_1],
+			layout.advertisements[0].origin.x,
+			layout.advertisements[0].origin.y,
+			layout.advertisements[0].width, BOBBIES_SENTENCE_FONT,
+			BOBBIES_SENTENCE_COLOR, BOBBIES_SIGN_BACKCOLOR, FALSE,
+			CENTER_JUSTIFIED | TEXT_SHADOWED );
 
 		//Bobbys second sentence
-		DrawTextToScreen(BobbyRaysFrontText[BOBBYR_ADVERTISMENT_2], BOBBIES_2ND_SENTENCE_X, BOBBIES_2ND_SENTENCE_Y, BOBBIES_2ND_SENTENCE_WIDTH, BOBBIES_SENTENCE_FONT, BOBBIES_SENTENCE_COLOR, BOBBIES_SIGN_BACKCOLOR, FALSE, CENTER_JUSTIFIED | TEXT_SHADOWED );
+		DrawTextToScreen(BobbyRaysFrontText[BOBBYR_ADVERTISMENT_2],
+			layout.advertisements[1].origin.x,
+			layout.advertisements[1].origin.y,
+			layout.advertisements[1].width, BOBBIES_SENTENCE_FONT,
+			BOBBIES_SENTENCE_COLOR, BOBBIES_SIGN_BACKCOLOR, FALSE,
+			CENTER_JUSTIFIED | TEXT_SHADOWED );
 		SetFontShadow(DEFAULT_SHADOW);
 	}
 
 
 	SetFontShadow(BOBBIES_SIGN_BACKGROUNDCOLOR);
-	//Text on the Used Sign
-	DisplayWrappedString(BOBBIES_USED_SIGN_X, BOBBIES_USED_SIGN_TEXT_OFFSET, BOBBIES_USED_SIGN_WIDTH-5, 2, BOBBIES_SIGN_FONT, BOBBIES_SIGN_COLOR, BobbyRaysFrontText[BOBBYR_USED], BOBBIES_SIGN_BACKCOLOR, FALSE, CENTER_JUSTIFIED);
-	//Text on the Misc Sign
-	DisplayWrappedString(BOBBIES_MISC_SIGN_X, BOBBIES_MISC_SIGN_TEXT_OFFSET, BOBBIES_MISC_SIGN_WIDTH, 2, BOBBIES_SIGN_FONT, BOBBIES_SIGN_COLOR, BobbyRaysFrontText[BOBBYR_MISC], BOBBIES_SIGN_BACKCOLOR, FALSE, CENTER_JUSTIFIED);
-	//Text on the Guns Sign
-	DisplayWrappedString(BOBBIES_GUNS_SIGN_X, BOBBIES_GUNS_SIGN_TEXT_OFFSET, BOBBIES_GUNS_SIGN_WIDTH, 2, BOBBIES_SIGN_FONT, BOBBIES_SIGN_COLOR, BobbyRaysFrontText[BOBBYR_GUNS], BOBBIES_SIGN_BACKCOLOR, FALSE, CENTER_JUSTIFIED);
-	//Text on the Ammo Sign
-	DisplayWrappedString(BOBBIES_AMMO_SIGN_X, BOBBIES_AMMO_SIGN_TEXT_OFFSET, BOBBIES_AMMO_SIGN_WIDTH, 2, BOBBIES_SIGN_FONT, BOBBIES_SIGN_COLOR, BobbyRaysFrontText[BOBBYR_AMMO], BOBBIES_SIGN_BACKCOLOR, FALSE, CENTER_JUSTIFIED);
-	//Text on the Armour Sign
-	DisplayWrappedString(BOBBIES_ARMOUR_SIGN_X, BOBBIES_ARMOUR_SIGN_TEXT_OFFSET, BOBBIES_ARMOUR_SIGN_WIDTH, 2, BOBBIES_SIGN_FONT, BOBBIES_SIGN_COLOR, BobbyRaysFrontText[BOBBYR_ARMOR], BOBBIES_SIGN_BACKCOLOR, FALSE, CENTER_JUSTIFIED);
+	for (std::size_t index = 0; index < layout.signs.size(); ++index)
+	{
+		const BobbyRayLayoutModel::HomeSign& sign = layout.signs[index];
+		DisplayWrappedString(sign.label.origin.x, sign.label.origin.y,
+			sign.label.width, 2, BOBBIES_SIGN_FONT, BOBBIES_SIGN_COLOR,
+			BobbyRaysFrontText[BOBBYR_USED + index],
+			BOBBIES_SIGN_BACKCOLOR, FALSE, CENTER_JUSTIFIED);
+	}
 	SetFontShadow(DEFAULT_SHADOW);
 
 
@@ -382,14 +311,21 @@ void RenderBobbyR()
 	{
 		//Bobbys Third sentence
 		SetFontShadow(BOBBIES_SENTENCE_BACKGROUNDCOLOR);
-		DrawTextToScreen(BobbyRaysFrontText[BOBBYR_ADVERTISMENT_3], BOBBIES_3RD_SENTENCE_X, BOBBIES_3RD_SENTENCE_Y, BOBBIES_3RD_SENTENCE_WIDTH, BOBBIES_SENTENCE_FONT, BOBBIES_SENTENCE_COLOR, BOBBIES_SIGN_BACKCOLOR, FALSE, CENTER_JUSTIFIED | TEXT_SHADOWED );
+		DrawTextToScreen(BobbyRaysFrontText[BOBBYR_ADVERTISMENT_3],
+			layout.advertisements[2].origin.x,
+			layout.advertisements[2].origin.y,
+			layout.advertisements[2].width, BOBBIES_SENTENCE_FONT,
+			BOBBIES_SENTENCE_COLOR, BOBBIES_SIGN_BACKCOLOR, FALSE,
+			CENTER_JUSTIFIED | TEXT_SHADOWED );
 		SetFontShadow(DEFAULT_SHADOW);
 	}
 
 	//if we cant go to any sub pages, darken the page out
 	if( !LaptopSaveInfo.fBobbyRSiteCanBeAccessed )
 	{
-		ShadowVideoSurfaceRect( FRAME_BUFFER, LAPTOP_SCREEN_UL_X,LAPTOP_SCREEN_WEB_UL_Y,LAPTOP_SCREEN_LR_X,LAPTOP_SCREEN_WEB_LR_Y );
+		ShadowVideoSurfaceRect(FRAME_BUFFER,
+			layout.pageBounds.x, layout.pageBounds.y,
+			layout.pageBounds.right(), layout.pageBounds.bottom());
 	}
 
 	RenderWWWProgramTitleBar( );
@@ -415,41 +351,36 @@ BOOLEAN InitBobbyRWoodBackground(LaptopPageResourceOwner& owner)
 BOOLEAN DrawBobbyRWoodBackground()
 {
 	HVOBJECT hWoodBackGroundHandle;
-	UINT16	x,y, uiPosX, uiPosY;
+	const BobbyRayLayoutModel::TileGrid tiles = BobbyRayHomeLayout().wood;
 
 	// Blt the Wood background
 	GetVideoObject(&hWoodBackGroundHandle, guiWoodBackground);
 
-	uiPosY = BOBBY_WOOD_BACKGROUND_Y;
-	for(y=0; y<4; y++)
+	for (std::size_t index = 0; index < tiles.capacity(); ++index)
 	{
-		uiPosX = BOBBY_WOOD_BACKGROUND_X;
-		for(x=0; x<4; x++)
-		{
-		BltVideoObject(FRAME_BUFFER, hWoodBackGroundHandle, 0,uiPosX, uiPosY, VO_BLT_SRCTRANSPARENCY,NULL);
-			uiPosX += BOBBY_WOOD_BACKGROUND_WIDTH;
-		}
-		uiPosY += BOBBY_WOOD_BACKGROUND_HEIGHT;
+		const LaptopLayoutModel::Rect tile = tiles.tile(index);
+		BltVideoObject(FRAME_BUFFER, hWoodBackGroundHandle, 0,
+			tile.x, tile.y, VO_BLT_SRCTRANSPARENCY,NULL);
 	}
 
 	return(TRUE);
 }
 
 
-BOOLEAN InitBobbiesMouseRegion(UINT8 ubNumerRegions, UINT16 *usMouseRegionPosArray,
-	MOUSE_REGION *MouseRegion, LaptopPageResourceOwner& owner)
+BOOLEAN InitBobbiesMouseRegion(MOUSE_REGION *MouseRegion,
+	LaptopPageResourceOwner& owner)
 {
-	UINT8 i,ubCount=0;
+	const BobbyRayLayoutModel::HomeLayout layout = BobbyRayHomeLayout();
 
-	for(i=0; i<ubNumerRegions; i++)
+	for (std::size_t i = 0; i < layout.signs.size(); ++i)
 	{
+		const LaptopLayoutModel::Rect bounds = layout.signs[i].bounds;
 		//Mouse region for the toc buttons
-		MSYS_DefineRegion( &MouseRegion[i], usMouseRegionPosArray[ubCount], usMouseRegionPosArray[ubCount+1], usMouseRegionPosArray[ubCount+2], usMouseRegionPosArray[ubCount+3], MSYS_PRIORITY_HIGH,
+		MSYS_DefineRegion(&MouseRegion[i], bounds.x, bounds.y,
+			bounds.right(), bounds.bottom(), MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectBobbiesSignMenuRegionCallBack);
 		if (!owner.addRegion(MouseRegion[i])) return FALSE;
 		MSYS_SetRegionUserData( &MouseRegion[i], 0, gubBobbyRPages[i]);
-
-		ubCount +=4;
 	}
 	return(TRUE);
 }
@@ -507,6 +438,7 @@ void HandleBobbyRUnderConstructionAni( BOOLEAN fReset )
 	static UINT32	uiLastTime=1;
 	static UINT16	usCount=0;
 	UINT32	uiCurTime=GetJA2Clock();
+	const BobbyRayLayoutModel::HomeLayout layout = BobbyRayHomeLayout();
 
 
 	if( LaptopSaveInfo.fBobbyRSiteCanBeAccessed )
@@ -524,14 +456,25 @@ void HandleBobbyRUnderConstructionAni( BOOLEAN fReset )
 	{
 		// The undercontsruction graphic
 		GetVideoObject(&hPixHandle, guiUnderConstructionImage );
-		BltVideoObject(FRAME_BUFFER, hPixHandle, usCount, BOBBYR_UNDERCONSTRUCTION_X, BOBBYR_UNDERCONSTRUCTION_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+		const LaptopLayoutModel::Rect top =
+			layout.underConstruction.at(0);
+		const LaptopLayoutModel::Rect bottom =
+			layout.underConstruction.at(1);
+		BltVideoObject(FRAME_BUFFER, hPixHandle, usCount,
+			top.x, top.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
-		BltVideoObject( FRAME_BUFFER, hPixHandle, usCount, BOBBYR_UNDERCONSTRUCTION_X, BOBBYR_UNDERCONSTRUCTION1_Y, VO_BLT_SRCTRANSPARENCY,NULL );
+		BltVideoObject(FRAME_BUFFER, hPixHandle, usCount,
+			bottom.x, bottom.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
-		DrawTextToScreen( BobbyRaysFrontText[ BOBBYR_UNDER_CONSTRUCTION ], BOBBYR_UNDER_CONSTRUCTION_TEXT_X, BOBBYR_UNDER_CONSTRUCTION_TEXT_Y, BOBBYR_UNDER_CONSTRUCTION_TEXT_WIDTH, FONT16ARIAL, BOBBIES_SENTENCE_COLOR, BOBBIES_SIGN_BACKCOLOR, FALSE, CENTER_JUSTIFIED | INVALIDATE_TEXT );
+		DrawTextToScreen(BobbyRaysFrontText[BOBBYR_UNDER_CONSTRUCTION],
+			layout.underConstructionText.origin.x,
+			layout.underConstructionText.origin.y,
+			layout.underConstructionText.width, FONT16ARIAL,
+			BOBBIES_SENTENCE_COLOR, BOBBIES_SIGN_BACKCOLOR, FALSE,
+			CENTER_JUSTIFIED | INVALIDATE_TEXT);
 
-	InvalidateRegion( BOBBYR_UNDERCONSTRUCTION_X, BOBBYR_UNDERCONSTRUCTION_Y, BOBBYR_UNDERCONSTRUCTION_X+BOBBYR_UNDERCONSTRUCTION_WIDTH, BOBBYR_UNDERCONSTRUCTION_Y+BOBBYR_UNDERCONSTRUCTION_HEIGHT );
-	InvalidateRegion( BOBBYR_UNDERCONSTRUCTION_X, BOBBYR_UNDERCONSTRUCTION1_Y, BOBBYR_UNDERCONSTRUCTION_X+BOBBYR_UNDERCONSTRUCTION_WIDTH, BOBBYR_UNDERCONSTRUCTION1_Y+BOBBYR_UNDERCONSTRUCTION_HEIGHT );
+		InvalidateRegion(top.x, top.y, top.right(), top.bottom());
+		InvalidateRegion(bottom.x, bottom.y, bottom.right(), bottom.bottom());
 
 		uiLastTime = GetJA2Clock();
 

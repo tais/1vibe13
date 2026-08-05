@@ -78,15 +78,19 @@ void RenderBobbyRArmour()
 {
 
 	HVOBJECT hPixHandle;
+	const BobbyRayLayoutModel::CatalogueLayout layout =
+		GetBobbyRayCatalogueLayout();
 
-	WebPageTileBackground(BOBBYR_NUM_HORIZONTAL_TILES, BOBBYR_NUM_VERTICAL_TILES, BOBBYR_BACKGROUND_WIDTH, BOBBYR_BACKGROUND_HEIGHT, guiArmourBackground);
+	DrawBobbyRayCatalogueBackground(guiArmourBackground);
 
 	//Display title at top of page
 	//DisplayBobbyRBrTitle();
 
 	// GunForm
 	GetVideoObject(&hPixHandle, guiArmourGrid);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_GRIDLOC_X, BOBBYR_GRIDLOC_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.catalogueGrid.x, layout.catalogueGrid.y,
+		VO_BLT_SRCTRANSPARENCY,NULL);
 
 	DisplayItemInfo(IC_ARMOUR, guiCurrentArmourFilterMode);
 

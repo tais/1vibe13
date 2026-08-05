@@ -1,6 +1,7 @@
 	#include "laptop.h"
 	#include "BobbyRMailOrder.h"
 	#include "BobbyR.h"
+	#include "BobbyRayLayout.h"
 	#include "BobbyRayFulfilmentModel.h"
 	#include "LaptopPageResourceOwner.h"
 	#include "Utilities.h"
@@ -35,6 +36,24 @@
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/File/vfs_file.h>
 #include <language.hpp>
+
+namespace
+{
+BobbyRayLayoutModel::Anchors BobbyRayMailOrderAnchors()
+{
+	return {
+		LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y,
+		LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y,
+		iScreenWidthOffset, iScreenHeightOffset,
+		LAPTOP_SCREEN_WEB_DELTA_Y};
+}
+
+BobbyRayLayoutModel::MailOrderLayout BobbyRayMailOrderLayout()
+{
+	return BobbyRayLayoutModel::MakeMailOrderLayout(
+		BobbyRayMailOrderAnchors());
+}
+}
 
 /*
 typedef struct
@@ -78,11 +97,6 @@ enum
 	BR_DROP_DOWN_DISPLAY,
 };
 
-//#define		BOBBYR_ORDER_NUM_SHIPPING_CITIES	17
-//#define		BOBBYR_NUM_DISPLAYED_CITIES				10
-
-#define		BOBBYR_NUM_DISPLAYED_ITEMS				10
-
 #define		OVERNIGHT_EXPRESS									1
 #define		TWO_BUSINESS_DAYS									2
 #define		STANDARD_SERVICE									3
@@ -106,144 +120,7 @@ enum
 
 #define		BOBBYR_DROPDOWN_FONT							FONT12ARIAL
 
-#define		BOBBYR_ORDERGRID_X								LAPTOP_SCREEN_UL_X + 2
-#define		BOBBYR_ORDERGRID_Y								LAPTOP_SCREEN_WEB_UL_Y + 62
 
-#define		BOBBYR_BOBBY_RAY_TITLE_X					LAPTOP_SCREEN_UL_X + 171
-#define		BOBBYR_BOBBY_RAY_TITLE_Y					LAPTOP_SCREEN_WEB_UL_Y + 3
-#define		BOBBYR_BOBBY_RAY_TITLE_WIDTH			160
-#define		BOBBYR_BOBBY_RAY_TITLE_HEIGHT			35
-
-#define		BOBBYR_LOCATION_BOX_X							LAPTOP_SCREEN_UL_X + 276
-#define		BOBBYR_LOCATION_BOX_Y							LAPTOP_SCREEN_WEB_UL_Y + 62
-
-#define		BOBBYR_DELIVERYSPEED_X						LAPTOP_SCREEN_UL_X + 276
-#define		BOBBYR_DELIVERYSPEED_Y						LAPTOP_SCREEN_WEB_UL_Y + 149
-
-#define		BOBBYR_CLEAR_ORDER_X							LAPTOP_SCREEN_UL_X + 309
-#define		BOBBYR_CLEAR_ORDER_Y							LAPTOP_SCREEN_WEB_UL_Y + 268	//LAPTOP_SCREEN_WEB_UL_Y + 252
-
-#define		BOBBYR_ACCEPT_ORDER_X							LAPTOP_SCREEN_UL_X + 299
-#define		BOBBYR_ACCEPT_ORDER_Y							LAPTOP_SCREEN_WEB_UL_Y + 303	//LAPTOP_SCREEN_WEB_UL_Y + 288
-
-#define		BOBBYR_GRID_ROW_OFFSET						20
-#define		BOBBYR_GRID_TITLE_OFFSET					27
-
-#define		BOBBYR_GRID_FIRST_COLUMN_X				23//BOBBYR_ORDERGRID_X + 3
-#define		BOBBYR_GRID_FIRST_COLUMN_Y				37//BOBBYR_ORDERGRID_Y + 37
-#define		BOBBYR_GRID_FIRST_COLUMN_WIDTH		23
-
-#define		BOBBYR_GRID_SECOND_COLUMN_X				48//BOBBYR_ORDERGRID_X + 28
-#define		BOBBYR_GRID_SECOND_COLUMN_Y				BOBBYR_GRID_FIRST_COLUMN_Y
-#define		BOBBYR_GRID_SECOND_COLUMN_WIDTH		40
-
-#define		BOBBYR_GRID_THIRD_COLUMN_X				90//BOBBYR_ORDERGRID_X + 70
-#define		BOBBYR_GRID_THIRD_COLUMN_Y				BOBBYR_GRID_FIRST_COLUMN_Y
-#define		BOBBYR_GRID_THIRD_COLUMN_WIDTH		91
-
-#define		BOBBYR_GRID_FOURTH_COLUMN_X				184//BOBBYR_ORDERGRID_X + 184
-#define		BOBBYR_GRID_FOURTH_COLUMN_Y				BOBBYR_GRID_FIRST_COLUMN_Y
-#define		BOBBYR_GRID_FOURTH_COLUMN_WIDTH		40
-
-#define		BOBBYR_GRID_FIFTH_COLUMN_X					224//BOBBYR_ORDERGRID_X + 224
-#define		BOBBYR_GRID_FIFTH_COLUMN_Y					BOBBYR_GRID_FIRST_COLUMN_Y
-#define		BOBBYR_GRID_FIFTH_COLUMN_WIDTH			42
-
-#define		BOBBYR_GRID_SCROLL_COLUMN_X				2
-#define		BOBBYR_GRID_SCROLL_COLUMN_Y				BOBBYR_GRID_FIRST_COLUMN_Y - 2
-#define		BOBBYR_GRID_SCROLL_COLUMN_WIDTH			23
-#define		BOBBYR_GRID_SCROLL_COLUMN_HEIGHT		BOBBYR_GRID_ROW_OFFSET * 10
-#define		BOBBYR_GRID_SCROLL_COLUMN_HEIGHT_MINUS_ARROWS	( BOBBYR_GRID_SCROLL_COLUMN_HEIGHT - (2 * BOBBYR_SCROLL_ARROW_HEIGHT) - 8 )
-#define		BOBBYR_GRID_SCROLL_UP_ARROW_X				BOBBYR_GRID_SCROLL_COLUMN_X + 2
-#define		BOBBYR_GRID_SCROLL_UP_ARROW_Y				BOBBYR_GRID_SCROLL_COLUMN_Y + 4
-#define		BOBBYR_GRID_SCROLL_DOWN_ARROW_X				BOBBYR_GRID_SCROLL_UP_ARROW_X
-#define		BOBBYR_GRID_SCROLL_DOWN_ARROW_Y				BOBBYR_GRID_SCROLL_COLUMN_Y+BOBBYR_GRID_SCROLL_COLUMN_HEIGHT-24
-
-#define	BOBBYR_SUBTOTAL_WIDTH							212
-#define		BOBBYR_SUBTOTAL_X									BOBBYR_GRID_FIRST_COLUMN_X - 20
-#define		BOBBYR_SUBTOTAL_Y									BOBBYR_GRID_FIRST_COLUMN_Y + BOBBYR_GRID_ROW_OFFSET * 10 + 3
-
-#define		BOBBYR_SHIPPING_N_HANDLE_Y				BOBBYR_SUBTOTAL_Y + 17
-#define	BOBBYR_GRAND_TOTAL_Y							BOBBYR_SHIPPING_N_HANDLE_Y + 20
-
-#define		BOBBYR_SHIPPING_LOCATION_TEXT_X		BOBBYR_LOCATION_BOX_X + 8
-#define		BOBBYR_SHIPPING_LOCATION_TEXT_Y		BOBBYR_LOCATION_BOX_Y + 8
-
-#define		BOBBYR_SHIPPING_SPEED_X						BOBBYR_SHIPPING_LOCATION_TEXT_X
-#define		BOBBYR_SHIPPING_SPEED_Y						BOBBYR_DELIVERYSPEED_Y + 11
-
-#define		BOBBYR_SHIPPING_COST_X						BOBBYR_SHIPPING_SPEED_X + 130
-
-#define		BOBBYR_OVERNIGHT_EXPRESS_Y				BOBBYR_DELIVERYSPEED_Y + 42
-
-#define		BOBBYR_ORDER_FORM_TITLE_X					BOBBYR_BOBBY_RAY_TITLE_X
-#define		BOBBYR_ORDER_FORM_TITLE_Y					BOBBYR_BOBBY_RAY_TITLE_Y + 37
-#define		BOBBYR_ORDER_FORM_TITLE_WIDTH			159
-
-#define		BOBBYR_BACK_BUTTON_X							iScreenWidthOffset + 130
-#define		BOBBYR_BACK_BUTTON_Y							iScreenHeightOffset + 400 + LAPTOP_SCREEN_WEB_DELTA_Y + 4
-
-#define		BOBBYR_HOME_BUTTON_X							iScreenWidthOffset + 515
-#define		BOBBYR_HOME_BUTTON_Y							BOBBYR_BACK_BUTTON_Y
-
-#define		BOBBYR_SHIPMENT_BUTTON_X					iScreenWidthOffset + ( (LAPTOP_SCREEN_UL_X - iScreenWidthOffset) + ( (LAPTOP_SCREEN_LR_X - iScreenWidthOffset) - (LAPTOP_SCREEN_UL_X - iScreenWidthOffset - 75 )) / 2)
-#define		BOBBYR_SHIPMENT_BUTTON_Y					BOBBYR_BACK_BUTTON_Y
-
-#define		SHIPPING_SPEED_LIGHT_WIDTH				9
-#define		SHIPPING_SPEED_LIGHT_HEIGHT				9
-
-#define		BOBBYR_CONFIRM_ORDER_X						iScreenWidthOffset + 220
-#define		BOBBYR_CONFIRM_ORDER_Y						iScreenHeightOffset + 170
-
-#define		BOBBYR_CITY_START_LOCATION_X			BOBBYR_LOCATION_BOX_X + 6
-#define		BOBBYR_CITY_START_LOCATION_Y			BOBBYR_LOCATION_BOX_Y + 61
-#define		BOBBYR_DROP_DOWN_WIDTH						182//203
-#define		BOBBYR_DROP_DOWN_HEIGHT						19
-#define		BOBBYR_CITY_NAME_OFFSET						6
-
-#define		BOBBYR_SCROLL_AREA_X							BOBBYR_CITY_START_LOCATION_X + BOBBYR_DROP_DOWN_WIDTH
-#define		BOBBYR_SCROLL_AREA_Y							BOBBYR_CITY_START_LOCATION_Y
-#define		BOBBYR_SCROLL_AREA_WIDTH					22
-#define		BOBBYR_SCROLL_AREA_HEIGHT					139
-#define		BOBBYR_SCROLL_AREA_HEIGHT_MINUS_ARROWS	( BOBBYR_SCROLL_AREA_HEIGHT - (2 * BOBBYR_SCROLL_ARROW_HEIGHT) - 8 )
-
-#define		BOBBYR_SCROLL_UP_ARROW_X					BOBBYR_SCROLL_AREA_X
-#define		BOBBYR_SCROLL_UP_ARROW_Y					BOBBYR_SCROLL_AREA_Y+5
-#define		BOBBYR_SCROLL_DOWN_ARROW_X				BOBBYR_SCROLL_UP_ARROW_X
-#define		BOBBYR_SCROLL_DOWN_ARROW_Y				BOBBYR_SCROLL_AREA_Y+BOBBYR_SCROLL_AREA_HEIGHT-24
-#define		BOBBYR_SCROLL_ARROW_WIDTH					18
-#define		BOBBYR_SCROLL_ARROW_HEIGHT				20
-
-
-#define		BOBBYR_SHIPPING_LOC_AREA_L_X			BOBBYR_LOCATION_BOX_X + 9
-#define		BOBBYR_SHIPPING_LOC_AREA_T_Y			BOBBYR_LOCATION_BOX_Y + 39
-
-#define		BOBBYR_SHIPPING_LOC_AREA_R_X			BOBBYR_LOCATION_BOX_X + 206
-#define		BOBBYR_SHIPPING_LOC_AREA_B_Y			BOBBYR_LOCATION_BOX_Y + 57
-
-#define		BOBBYR_SHIPPING_SPEED_NUMBER_X		BOBBYR_SHIPPING_COST_X
-#define		BOBBYR_SHIPPING_SPEED_NUMBER_WIDTH	37
-#define		BOBBYR_SHIPPING_SPEED_NUMBER_1_Y	BOBBYR_OVERNIGHT_EXPRESS_Y
-
-#define		BOBBYR_SHIPPING_SPEED_NUMBER_2_Y	BOBBYR_OVERNIGHT_EXPRESS_Y
-#define		BOBBYR_SHIPPING_SPEED_NUMBER_3_Y	BOBBYR_OVERNIGHT_EXPRESS_Y
-
-#define		BOBBYR_TOTAL_SAVED_AREA_X					BOBBYR_ORDERGRID_X + 221
-#define		BOBBYR_TOTAL_SAVED_AREA_Y					BOBBYR_ORDERGRID_Y + 237
-
-#define		BOBBYR_USED_WARNING_X							iScreenWidthOffset + 122
-#define		BOBBYR_USED_WARNING_Y							iScreenHeightOffset + 382 + LAPTOP_SCREEN_WEB_DELTA_Y
-
-
-#define		BOBBYR_PACKAXGE_WEIGHT_X					BOBBYR_LOCATION_BOX_X
-#define		BOBBYR_PACKAXGE_WEIGHT_Y					LAPTOP_SCREEN_WEB_UL_Y + 249
-#define		BOBBYR_PACKAXGE_WEIGHT_WIDTH			188
-
-
-
-UINT16 gShippingSpeedAreas[] = {585, 218 + LAPTOP_SCREEN_WEB_DELTA_Y,
-																585, 238 + LAPTOP_SCREEN_WEB_DELTA_Y,
-																585, 258 + LAPTOP_SCREEN_WEB_DELTA_Y};
 
 // Identifier for the images
 UINT32		guiBobbyRayTitle;
@@ -523,6 +400,8 @@ BOOLEAN EnterBobbyRMailOrder()
 	VOBJECT_DESC	VObjectDesc;
 	LaptopPageResourceOwner staged;
 	UINT16					i;
+	const BobbyRayLayoutModel::MailOrderLayout layout =
+		BobbyRayMailOrderLayout();
 
 	CreateDestroyBobbyRDropDown(BR_DROP_DOWN_DESTROY);
 	ClearBobbyRayOrderGridMouseRegions();
@@ -535,13 +414,6 @@ BOOLEAN EnterBobbyRMailOrder()
 	gfCanAcceptOrder = TRUE;
 	gubDropDownAction = BR_DROP_DOWN_NO_ACTION;
 	gubPurchaseAtTopOfList = 0;
-
-	gShippingSpeedAreas[0] = iScreenWidthOffset + 585;
-	gShippingSpeedAreas[1] = iScreenHeightOffset + 218 + LAPTOP_SCREEN_WEB_DELTA_Y;
-	gShippingSpeedAreas[2] = iScreenWidthOffset + 585;
-	gShippingSpeedAreas[3] = iScreenHeightOffset + 238 + LAPTOP_SCREEN_WEB_DELTA_Y;
-	gShippingSpeedAreas[4] = iScreenWidthOffset + 585;
-	gShippingSpeedAreas[5] = iScreenHeightOffset + 258 + LAPTOP_SCREEN_WEB_DELTA_Y;
 
 	// load the Order Grid graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
@@ -601,7 +473,9 @@ BOOLEAN EnterBobbyRMailOrder()
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
-													BOBBYR_CLEAR_ORDER_X, BOBBYR_CLEAR_ORDER_Y+4, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											layout.clearOrderButton.x,
+											layout.clearOrderButton.y,
+											BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 													DEFAULT_MOVE_CALLBACK, BtnBobbyRClearOrderCallback),
 		guiBobbyRClearOrder)) return FALSE;
 	SetButtonCursor(guiBobbyRClearOrder, CURSOR_LAPTOP_SCREEN);
@@ -621,7 +495,9 @@ if(g_lang == i18n::Lang::fr) {
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
-													BOBBYR_ACCEPT_ORDER_X, BOBBYR_ACCEPT_ORDER_Y+4, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											layout.acceptOrderButton.x,
+											layout.acceptOrderButton.y,
+											BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 													DEFAULT_MOVE_CALLBACK, BtnBobbyRAcceptOrderCallback),
 		guiBobbyRAcceptOrder)) return FALSE;
 	SetButtonCursor( guiBobbyRAcceptOrder, CURSOR_LAPTOP_SCREEN);
@@ -650,7 +526,8 @@ if(g_lang == i18n::Lang::fr) {
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
-													BOBBYR_BACK_BUTTON_X, BOBBYR_BACK_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											layout.backButton.x, layout.backButton.y,
+											BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 													DEFAULT_MOVE_CALLBACK, BtnBobbyRBackCallback),
 		guiBobbyRBack)) return FALSE;
 	SetButtonCursor(guiBobbyRBack, CURSOR_LAPTOP_SCREEN);
@@ -662,7 +539,8 @@ if(g_lang == i18n::Lang::fr) {
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
-													BOBBYR_HOME_BUTTON_X, BOBBYR_HOME_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											layout.homeButton.x, layout.homeButton.y,
+											BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 													DEFAULT_MOVE_CALLBACK, BtnBobbyRHomeCallback),
 		guiBobbyRHome)) return FALSE;
 	SetButtonCursor(guiBobbyRHome, CURSOR_LAPTOP_SCREEN);
@@ -675,7 +553,9 @@ if(g_lang == i18n::Lang::fr) {
 													BOBBYR_GUNS_TEXT_COLOR_ON, BOBBYR_GUNS_SHADOW_COLOR,
 													BOBBYR_GUNS_TEXT_COLOR_OFF, BOBBYR_GUNS_SHADOW_COLOR,
 													TEXT_CJUSTIFIED,
-													BOBBYR_SHIPMENT_BUTTON_X, BOBBYR_SHIPMENT_BUTTON_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+											layout.shipmentsButton.x,
+											layout.shipmentsButton.y,
+											BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 													DEFAULT_MOVE_CALLBACK, BtnBobbyRGotoShipmentPageCallback ),
 		guiBobbyRGotoShipmentPage)) return FALSE;
 	SetButtonCursor(guiBobbyRGotoShipmentPage, CURSOR_LAPTOP_SCREEN);
@@ -683,8 +563,10 @@ if(g_lang == i18n::Lang::fr) {
 
 	for(i=0; i<3; i++)
 	{
-
-		MSYS_DefineRegion( &gSelectedShippingSpeedRegion[i], gShippingSpeedAreas[i*2], gShippingSpeedAreas[i*2+1] , (UINT16)(gShippingSpeedAreas[i*2]+SHIPPING_SPEED_LIGHT_WIDTH), (UINT16)(gShippingSpeedAreas[i*2+1]+SHIPPING_SPEED_LIGHT_HEIGHT), MSYS_PRIORITY_HIGH,
+		const LaptopLayoutModel::Rect speed =
+			layout.shippingSpeedLights.at(i);
+		MSYS_DefineRegion(&gSelectedShippingSpeedRegion[i],
+			speed.x, speed.y, speed.right(), speed.bottom(), MSYS_PRIORITY_HIGH,
 								CURSOR_WWW, MSYS_NO_CALLBACK, SelectShippingSpeedRegionCallBack );
 		if (!staged.addRegion(gSelectedShippingSpeedRegion[i])) return FALSE;
 		MSYS_SetRegionUserData( &gSelectedShippingSpeedRegion[ i ], 0, i);
@@ -692,14 +574,20 @@ if(g_lang == i18n::Lang::fr) {
 
 	//confirmorder mouse region, occupies the entrie screen and is present only when the confirm order graphic
 	//s on screen.	When user clicks anywhere the graphic disappears
-	MSYS_DefineRegion( &gSelectedConfirmOrderRegion, LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y , LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y, MSYS_PRIORITY_HIGH+1,
+	MSYS_DefineRegion(&gSelectedConfirmOrderRegion,
+		layout.pageBounds.x, layout.pageBounds.y,
+		layout.pageBounds.right(), layout.pageBounds.bottom(),
+		MSYS_PRIORITY_HIGH+1,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectConfirmOrderRegionCallBack);
 	if (!staged.addRegion(gSelectedConfirmOrderRegion)) return FALSE;
 	MSYS_DisableRegion(&gSelectedConfirmOrderRegion);
 
 
 	//click on the shipping location to activate the drop down menu
-	MSYS_DefineRegion( &gSelectedActivateCityDroDownRegion, BOBBYR_SHIPPING_LOC_AREA_L_X, BOBBYR_SHIPPING_LOC_AREA_T_Y, BOBBYR_SHIPPING_LOC_AREA_R_X, BOBBYR_SHIPPING_LOC_AREA_B_Y, MSYS_PRIORITY_HIGH,
+	MSYS_DefineRegion(&gSelectedActivateCityDroDownRegion,
+		layout.selectedDestination.x, layout.selectedDestination.y,
+		layout.selectedDestination.right(),
+		layout.selectedDestination.bottom(), MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectActivateCityDroDownRegionCallBack);
 	if (!staged.addRegion(gSelectedActivateCityDroDownRegion)) return FALSE;
 	if (gDestinationTable.empty())
@@ -707,7 +595,10 @@ if(g_lang == i18n::Lang::fr) {
 
 
 	//click anywhere on the screen to close the window( only when the drop down window is active)
-	MSYS_DefineRegion( &gSelectedCloseDropDownRegion, LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y , LAPTOP_SCREEN_LR_X, LAPTOP_SCREEN_WEB_LR_Y, MSYS_PRIORITY_HIGH-1,
+	MSYS_DefineRegion(&gSelectedCloseDropDownRegion,
+		layout.pageBounds.x, layout.pageBounds.y,
+		layout.pageBounds.right(), layout.pageBounds.bottom(),
+		MSYS_PRIORITY_HIGH-1,
 							CURSOR_LAPTOP_SCREEN, MSYS_NO_CALLBACK, SelectCloseDroDownRegionCallBack);
 	if (!staged.addRegion(gSelectedCloseDropDownRegion)) return FALSE;
 	MSYS_DisableRegion(&gSelectedCloseDropDownRegion);
@@ -746,6 +637,8 @@ void ExitBobbyRMailOrder()
 
 void HandleBobbyRMailOrder()
 {
+	const BobbyRayLayoutModel::MailOrderLayout layout =
+		BobbyRayMailOrderLayout();
 	if( gfReDrawBobbyOrder )
 	{
 //		RenderBobbyRMailOrder();
@@ -759,10 +652,15 @@ void HandleBobbyRMailOrder()
 
 		// Bobbyray title
 		GetVideoObject(&hPixHandle, guiConfirmGraphic);
-		BltVideoObjectOutlineShadowFromIndex( FRAME_BUFFER, guiConfirmGraphic, 0, BOBBYR_CONFIRM_ORDER_X+3, BOBBYR_CONFIRM_ORDER_Y+3);
+		BltVideoObjectOutlineShadowFromIndex(FRAME_BUFFER,
+			guiConfirmGraphic, 0,
+			layout.confirmOrder.x + 3, layout.confirmOrder.y + 3);
 
-		BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_CONFIRM_ORDER_X, BOBBYR_CONFIRM_ORDER_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-	InvalidateRegion(LAPTOP_SCREEN_UL_X,LAPTOP_SCREEN_WEB_UL_Y,LAPTOP_SCREEN_LR_X,LAPTOP_SCREEN_WEB_LR_Y);
+		BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+			layout.confirmOrder.x, layout.confirmOrder.y,
+			VO_BLT_SRCTRANSPARENCY,NULL);
+		InvalidateRegion(layout.pageBounds.x, layout.pageBounds.y,
+			layout.pageBounds.right(), layout.pageBounds.bottom());
 
 		gfDrawConfirmOrderGrpahic = FALSE;
 	}
@@ -790,10 +688,11 @@ void HandleBobbyRMailOrder()
 
 void RenderBobbyRMailOrder()
 {
-	UINT16 usPosY;
 	HVOBJECT hPixHandle;
 	UINT16 usHeight;//usWidth,
 	CHAR16	sTemp[ 128 ];
+	const BobbyRayLayoutModel::MailOrderLayout layout =
+		BobbyRayMailOrderLayout();
 
 	DrawBobbyRWoodBackground();
 
@@ -801,19 +700,27 @@ void RenderBobbyRMailOrder()
 
 	// Order Grid
 	GetVideoObject(&hPixHandle, guiBobbyROrderGrid);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_ORDERGRID_X, BOBBYR_ORDERGRID_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.orderGrid.origin.x, layout.orderGrid.origin.y,
+		VO_BLT_SRCTRANSPARENCY,NULL);
 
 	// Location graphic
 	GetVideoObject(&hPixHandle, guiBobbyRLocationGraphic);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_LOCATION_BOX_X, BOBBYR_LOCATION_BOX_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.locationGraphic.x, layout.locationGraphic.y,
+		VO_BLT_SRCTRANSPARENCY,NULL);
 
 	// DeliverySpeedGraphic
 	GetVideoObject(&hPixHandle, guiDeliverySpeedGraphic);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_DELIVERYSPEED_X, BOBBYR_DELIVERYSPEED_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.deliverySpeedGraphic.x, layout.deliverySpeedGraphic.y,
+		VO_BLT_SRCTRANSPARENCY,NULL);
 
 	//Package Weight
 	GetVideoObject(&hPixHandle, guiPackageWeightImage);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_PACKAXGE_WEIGHT_X, BOBBYR_PACKAXGE_WEIGHT_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		layout.packageWeight.x, layout.packageWeight.y,
+		VO_BLT_SRCTRANSPARENCY,NULL);
 
 
 	//
@@ -821,67 +728,66 @@ void RenderBobbyRMailOrder()
 	//
 
 	//Output the title
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_ORDER_FORM], BOBBYR_ORDER_FORM_TITLE_X, BOBBYR_ORDER_FORM_TITLE_Y, BOBBYR_ORDER_FORM_TITLE_WIDTH, BOBBYR_ORDER_TITLE_TEXT_FONT, BOBBYR_ORDER_TITLE_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-
-/*
-	//Output the qty
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_QTY], BOBBYR_GRID_FIRST_COLUMN_X, BOBBYR_GRID_FIRST_COLUMN_Y-BOBBYR_GRID_TITLE_OFFSET, BOBBYR_GRID_FIRST_COLUMN_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-
-	//Create a string for the weight ( %s ) ( where %s is the weight string, either kg or lbs )
-	swprintf( sTemp, BobbyROrderFormText[BOBBYR_WEIGHT], GetWeightUnitString( ) );
-
-	//Output the Weight
-	DisplayWrappedString(BOBBYR_GRID_SECOND_COLUMN_X, BOBBYR_GRID_SECOND_COLUMN_Y-30, BOBBYR_GRID_SECOND_COLUMN_WIDTH, 2, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, sTemp, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
-
-	//Output the name
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_NAME], BOBBYR_GRID_THIRD_COLUMN_X, BOBBYR_GRID_THIRD_COLUMN_Y-BOBBYR_GRID_TITLE_OFFSET, BOBBYR_GRID_THIRD_COLUMN_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-
-	//Output the unit price
-	DisplayWrappedString(BOBBYR_GRID_FOURTH_COLUMN_X, BOBBYR_GRID_FOURTH_COLUMN_Y-30, BOBBYR_GRID_FOURTH_COLUMN_WIDTH, 2, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, BobbyROrderFormText[BOBBYR_UNIT_PRICE], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-
-	//Output the total
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_TOTAL], BOBBYR_GRID_FIFTH_COLUMN_X, BOBBYR_GRID_FIFTH_COLUMN_Y-BOBBYR_GRID_TITLE_OFFSET, BOBBYR_GRID_FIFTH_COLUMN_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-
-	//Output the sub total, shipping and handling, and the grand total
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_SUB_TOTAL], BOBBYR_SUBTOTAL_X, BOBBYR_SUBTOTAL_Y, BOBBYR_SUBTOTAL_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_S_H], BOBBYR_SUBTOTAL_X, BOBBYR_SHIPPING_N_HANDLE_Y, BOBBYR_SUBTOTAL_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_GRAND_TOTAL], BOBBYR_SUBTOTAL_X, BOBBYR_GRAND_TOTAL_Y, BOBBYR_SUBTOTAL_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-*/
-
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_ORDER_FORM],
+		layout.orderFormTitle.origin.x, layout.orderFormTitle.origin.y,
+		layout.orderFormTitle.width, BOBBYR_ORDER_TITLE_TEXT_FONT,
+		BOBBYR_ORDER_TITLE_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, CENTER_JUSTIFIED);
 	//Output the shipping location
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_SHIPPING_LOCATION], BOBBYR_SHIPPING_LOCATION_TEXT_X, BOBBYR_SHIPPING_LOCATION_TEXT_Y, 0, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_SHIPPING_LOCATION],
+		layout.shippingLocationLabel.x, layout.shippingLocationLabel.y, 0,
+		BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR,
+		FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 
 	//Output the shipping speed
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_SHIPPING_SPEED], BOBBYR_SHIPPING_SPEED_X, BOBBYR_SHIPPING_SPEED_Y, 0, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_SHIPPING_SPEED],
+		layout.shippingSpeedLabel.x, layout.shippingSpeedLabel.y, 0,
+		BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR,
+		FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 
 	//Create a string for the weight ( %s ) ( where %s is the weight string, either kg or lbs )
 	swprintf( sTemp, BobbyROrderFormText[BOBBYR_COST], GetWeightUnitString( ) );
 
 	//Output the cost
-	DrawTextToScreen( sTemp, BOBBYR_SHIPPING_COST_X, BOBBYR_SHIPPING_SPEED_Y, 0, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+	DrawTextToScreen(sTemp, layout.shippingCostLabel.x,
+		layout.shippingCostLabel.y, 0, BOBBYR_ORDER_STATIC_TEXT_FONT,
+		BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, LEFT_JUSTIFIED);
 
 	//Output the overnight, business days, standard service
-	usPosY = BOBBYR_OVERNIGHT_EXPRESS_Y;
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_OVERNIGHT_EXPRESS], BOBBYR_SHIPPING_SPEED_X, usPosY, 0, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-	usPosY +=BOBBYR_GRID_ROW_OFFSET;
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_BUSINESS_DAYS], BOBBYR_SHIPPING_SPEED_X, usPosY, 0, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-	usPosY +=BOBBYR_GRID_ROW_OFFSET;
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_STANDARD_SERVICE], BOBBYR_SHIPPING_SPEED_X, usPosY, 0, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+	for (std::size_t index = 0;
+		index < BobbyRayLayoutModel::MailOrderLayout::ShippingSpeedCount;
+		++index)
+	{
+		const LaptopLayoutModel::Point position =
+			layout.shippingMethodLabels.at(index);
+		DrawTextToScreen(BobbyROrderFormText[
+			BOBBYR_OVERNIGHT_EXPRESS + index], position.x, position.y, 0,
+			BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR,
+			FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+	}
 
 //	DisplayPurchasedItems();
-	DisplayPurchasedItems( TRUE, BOBBYR_ORDERGRID_X, BOBBYR_ORDERGRID_Y, BobbyRayPurchases, FALSE, -1 );
+	DisplayPurchasedItems(TRUE, layout.orderGrid.origin.x,
+		layout.orderGrid.origin.y, BobbyRayPurchases, FALSE, -1);
 
 	DrawShippingSpeedLights(gubSelectedLight);
 
 	DisplayShippingLocationCity();
 
 	//Display the 'used' text at the bottom of the screen
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_USED_TEXT], BOBBYR_USED_WARNING_X, BOBBYR_USED_WARNING_Y+1, 0, BOBBYR_DISCLAIMER_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED | TEXT_SHADOWED );
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_USED_TEXT],
+		layout.usedWarning.x, layout.usedWarning.y + 1, 0,
+		BOBBYR_DISCLAIMER_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR,
+		FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED | TEXT_SHADOWED);
 
 	//Display the minimum weight disclaimer at the bottom of the page
 	usHeight = GetFontHeight( BOBBYR_DISCLAIMER_FONT ) + 2;
 	swprintf( sTemp, L"%s %2.1f %s.", BobbyROrderFormText[BOBBYR_MINIMUM_WEIGHT], GetWeightBasedOnMetricOption( MIN_SHIPPING_WEIGHT ) / 10.0, GetWeightUnitString() );
-	DrawTextToScreen( sTemp, BOBBYR_USED_WARNING_X, (UINT16)(BOBBYR_USED_WARNING_Y+usHeight+1), 0, BOBBYR_DISCLAIMER_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED | TEXT_SHADOWED );
+	DrawTextToScreen(sTemp, layout.usedWarning.x,
+		static_cast<UINT16>(layout.usedWarning.y + usHeight + 1), 0,
+		BOBBYR_DISCLAIMER_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR,
+		FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED | TEXT_SHADOWED);
 
 
 	//Calculate and display the total package weight
@@ -1009,31 +915,65 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 	UINT32 uiDestPitchBYTES;
 	UINT8	*pDestBuf;
 	HVOBJECT	hArrowHandle;
+	const BobbyRayLayoutModel::OrderGridLayout grid =
+		BobbyRayLayoutModel::MakeOrderGridLayout({usGridX, usGridY});
 	//JMich TODO add a way to check for empty index in the middle of pBobbyRayPurchase
 	// silversurfer: Not necessary anymore. Function SortBobbyRayPurchases() will remove any empty indexes for us before we call the mail order screen.
 
 	//Output the qty
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_QTY], (UINT16)(usGridX+BOBBYR_GRID_FIRST_COLUMN_X), (UINT16)(usGridY+BOBBYR_GRID_FIRST_COLUMN_Y-BOBBYR_GRID_TITLE_OFFSET), BOBBYR_GRID_FIRST_COLUMN_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_QTY],
+		grid.columns[0].origin.x, grid.columns[0].origin.y - 27,
+		grid.columns[0].width, BOBBYR_ORDER_STATIC_TEXT_FONT,
+		BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, CENTER_JUSTIFIED);
 
 	//Create a string for the weight ( %s ) ( where %s is the weight string, either kg or lbs )
 	swprintf( sTemp, BobbyROrderFormText[BOBBYR_WEIGHT], GetWeightUnitString( ) );
 
 	//Output the Weight
-	DisplayWrappedString((UINT16)(usGridX+BOBBYR_GRID_SECOND_COLUMN_X), (UINT16)(usGridY+BOBBYR_GRID_SECOND_COLUMN_Y-30), BOBBYR_GRID_SECOND_COLUMN_WIDTH, 2, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, sTemp, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
+	DisplayWrappedString(grid.columns[1].origin.x,
+		grid.columns[1].origin.y - 30, grid.columns[1].width, 2,
+		BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR,
+		sTemp, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 
 	//Output the name
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_NAME], (UINT16)(usGridX+BOBBYR_GRID_THIRD_COLUMN_X), (UINT16)(usGridY+BOBBYR_GRID_THIRD_COLUMN_Y-BOBBYR_GRID_TITLE_OFFSET), BOBBYR_GRID_THIRD_COLUMN_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_NAME],
+		grid.columns[2].origin.x, grid.columns[2].origin.y - 27,
+		grid.columns[2].width, BOBBYR_ORDER_STATIC_TEXT_FONT,
+		BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, CENTER_JUSTIFIED);
 
 	//Output the unit price
-	DisplayWrappedString((UINT16)(usGridX+BOBBYR_GRID_FOURTH_COLUMN_X), (UINT16)(usGridY+BOBBYR_GRID_FOURTH_COLUMN_Y-30), BOBBYR_GRID_FOURTH_COLUMN_WIDTH, 2, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, BobbyROrderFormText[BOBBYR_UNIT_PRICE], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+	DisplayWrappedString(grid.columns[3].origin.x,
+		grid.columns[3].origin.y - 30, grid.columns[3].width, 2,
+		BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR,
+		BobbyROrderFormText[BOBBYR_UNIT_PRICE], FONT_MCOLOR_BLACK,
+		FALSE, CENTER_JUSTIFIED);
 
 	//Output the total
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_TOTAL], (UINT16)(usGridX+BOBBYR_GRID_FIFTH_COLUMN_X), (UINT16)(usGridY+BOBBYR_GRID_FIFTH_COLUMN_Y-BOBBYR_GRID_TITLE_OFFSET), BOBBYR_GRID_FIFTH_COLUMN_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_TOTAL],
+		grid.columns[4].origin.x, grid.columns[4].origin.y - 27,
+		grid.columns[4].width, BOBBYR_ORDER_STATIC_TEXT_FONT,
+		BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, CENTER_JUSTIFIED);
 
 	//Output the sub total, shipping and handling, and the grand total
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_SUB_TOTAL], (UINT16)(usGridX+BOBBYR_SUBTOTAL_X), (UINT16)(usGridY+BOBBYR_SUBTOTAL_Y), BOBBYR_SUBTOTAL_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_S_H], (UINT16)(usGridX+BOBBYR_SUBTOTAL_X), (UINT16)(usGridY+BOBBYR_SHIPPING_N_HANDLE_Y), BOBBYR_SUBTOTAL_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-	DrawTextToScreen(BobbyROrderFormText[BOBBYR_GRAND_TOTAL], (UINT16)(usGridX+BOBBYR_SUBTOTAL_X), (UINT16)(usGridY+BOBBYR_GRAND_TOTAL_Y), BOBBYR_SUBTOTAL_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_SUB_TOTAL],
+		grid.subtotal.origin.x, grid.subtotal.origin.y,
+		grid.subtotal.width, BOBBYR_ORDER_STATIC_TEXT_FONT,
+		BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, RIGHT_JUSTIFIED);
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_S_H],
+		grid.shippingAndHandling.origin.x,
+		grid.shippingAndHandling.origin.y,
+		grid.shippingAndHandling.width, BOBBYR_ORDER_STATIC_TEXT_FONT,
+		BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, RIGHT_JUSTIFIED);
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_GRAND_TOTAL],
+		grid.grandTotal.origin.x, grid.grandTotal.origin.y,
+		grid.grandTotal.width, BOBBYR_ORDER_STATIC_TEXT_FONT,
+		BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, RIGHT_JUSTIFIED);
 
 
 	if( fJustDisplayTitles )
@@ -1056,11 +996,11 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 		: BobbyRayCommerceModel::PurchaseCapacity);
 
 	//loop through the array of purchases to display only the items that are purchased
-	usPosY = usGridY+BOBBYR_GRID_FIRST_COLUMN_Y + 4;
+	usPosY = static_cast<UINT16>(grid.row(0).y + 4);
 	const UINT16 displayEnd = static_cast<UINT16>(
 		BobbyRayCommerceModel::BoundedLength(
 			static_cast<std::size_t>(gubPurchaseAtTopOfList) +
-				BOBBYR_NUM_DISPLAYED_ITEMS,
+				BobbyRayLayoutModel::OrderGridLayout::VisibleRowCount,
 			purchaseLimit));
 	for(i = gubPurchaseAtTopOfList; i < displayEnd; ++i)
 	{
@@ -1075,11 +1015,17 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 
 			//qty
 			swprintf(sTemp, L"%3d", pBobbyRayPurchase[i].ubNumberPurchased );
-			DrawTextToScreen(sTemp, (UINT16)(usGridX+BOBBYR_GRID_FIRST_COLUMN_X-2), usPosY, BOBBYR_GRID_FIRST_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+			DrawTextToScreen(sTemp, grid.columns[0].origin.x - 2,
+				usPosY, grid.columns[0].width, BOBBYR_ORDER_DYNAMIC_TEXT_FONT,
+				BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+				FALSE, RIGHT_JUSTIFIED);
 
 			//weight
 			swprintf( sTemp, L"%3.1f", GetWeightBasedOnMetricOption( Item[ pBobbyRayPurchase[i].usItemIndex ].ubWeight ) / (FLOAT)( 10.0 ) * pBobbyRayPurchase[i].ubNumberPurchased );
-			DrawTextToScreen(sTemp, (UINT16)(usGridX+BOBBYR_GRID_SECOND_COLUMN_X-2), usPosY, BOBBYR_GRID_SECOND_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+			DrawTextToScreen(sTemp, grid.columns[1].origin.x - 2,
+				usPosY, grid.columns[1].width, BOBBYR_ORDER_DYNAMIC_TEXT_FONT,
+				BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+				FALSE, RIGHT_JUSTIFIED);
 
 			//Display Items Name
 			if( pBobbyRayPurchase[i].fUsed )
@@ -1091,12 +1037,14 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 				LoadBRName(pBobbyRayPurchase[i].usItemIndex,sText);
 
 			//if the name is bigger then can fit into the slot, reduce the size
-			if( StringPixLength(sText, BOBBYR_ORDER_DYNAMIC_TEXT_FONT) > BOBBYR_GRID_THIRD_COLUMN_WIDTH-4 )
+			if (StringPixLength(sText, BOBBYR_ORDER_DYNAMIC_TEXT_FONT) >
+				grid.columns[2].width - 4)
 			{
 				usStringLength = wcslen(sText);
 				usPixLength=0;
 				OneChar[1] = L'\0';
-				for(j=0; (j<usStringLength)&&(usPixLength < BOBBYR_GRID_THIRD_COLUMN_WIDTH-16); j++)
+				for(j=0; (j<usStringLength)&&
+					(usPixLength < grid.columns[2].width-16); j++)
 				{
 					sBack[j] = sText[j];
 					OneChar[0] = sBack[j];
@@ -1106,16 +1054,27 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 				swprintf(sText, L"%s...", sBack);
 			}
 
-			DrawTextToScreen(sText, (UINT16)(usGridX+BOBBYR_GRID_THIRD_COLUMN_X+2), usPosY, BOBBYR_GRID_THIRD_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+			DrawTextToScreen(sText, grid.columns[2].origin.x + 2,
+				usPosY, grid.columns[2].width, BOBBYR_ORDER_DYNAMIC_TEXT_FONT,
+				BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+				FALSE, LEFT_JUSTIFIED);
 
 			//unit price
-			DrawTextToScreen(FormatMoney(CalcBobbyRayCost(pBobbyRayPurchase[i].usItemIndex, pBobbyRayPurchase[i].usBobbyItemIndex, pBobbyRayPurchase[i].fUsed, pBobbyRayPurchase[i].bItemQuality)).data(), (UINT16)(usGridX+BOBBYR_GRID_FOURTH_COLUMN_X-2), usPosY, BOBBYR_GRID_FOURTH_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+			DrawTextToScreen(FormatMoney(CalcBobbyRayCost(pBobbyRayPurchase[i].usItemIndex, pBobbyRayPurchase[i].usBobbyItemIndex, pBobbyRayPurchase[i].fUsed, pBobbyRayPurchase[i].bItemQuality)).data(),
+				grid.columns[3].origin.x - 2, usPosY,
+				grid.columns[3].width, BOBBYR_ORDER_DYNAMIC_TEXT_FONT,
+				BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+				FALSE, RIGHT_JUSTIFIED);
 
 			uiTotal += CalcBobbyRayCost( pBobbyRayPurchase[i].usItemIndex, pBobbyRayPurchase[i].usBobbyItemIndex, pBobbyRayPurchase[i].fUsed, pBobbyRayPurchase[i].bItemQuality ) * pBobbyRayPurchase[i].ubNumberPurchased;
 
-			DrawTextToScreen(FormatMoney(uiTotal).data(), (UINT16)(usGridX+BOBBYR_GRID_FIFTH_COLUMN_X-2), usPosY, BOBBYR_GRID_FIFTH_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+			DrawTextToScreen(FormatMoney(uiTotal).data(),
+				grid.columns[4].origin.x - 2, usPosY,
+				grid.columns[4].width, BOBBYR_ORDER_DYNAMIC_TEXT_FONT,
+				BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+				FALSE, RIGHT_JUSTIFIED);
 
-			usPosY += BOBBYR_GRID_ROW_OFFSET;
+			usPosY += grid.row(1).y - grid.row(0).y;
 		}
 	}
 	guidivisor = 0;
@@ -1148,19 +1107,30 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 		}
 	}
 	//Add the scroll list mouse regions
-	ColorFillVideoSurfaceArea( FRAME_BUFFER, usGridX + BOBBYR_GRID_SCROLL_COLUMN_X, usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y, usGridX + BOBBYR_GRID_SCROLL_COLUMN_X+BOBBYR_GRID_SCROLL_COLUMN_WIDTH, usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y + BOBBYR_GRID_SCROLL_COLUMN_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
+	ColorFillVideoSurfaceArea(FRAME_BUFFER,
+		grid.scrollColumn.x, grid.scrollColumn.y,
+		grid.scrollColumn.right(), grid.scrollColumn.bottom(),
+		Get16BPPColor(FROMRGB(0, 0, 0)));
 
 	pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
 	SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
 	//top
-	LineDraw(FALSE, usGridX + BOBBYR_GRID_SCROLL_COLUMN_X, usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y, usGridX + BOBBYR_GRID_SCROLL_COLUMN_X + BOBBYR_GRID_SCROLL_COLUMN_WIDTH, usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y, Get16BPPColor( FROMRGB( 235, 222, 171 ) ), pDestBuf);
+	LineDraw(FALSE, grid.scrollColumn.x, grid.scrollColumn.y,
+		grid.scrollColumn.right(), grid.scrollColumn.y,
+		Get16BPPColor(FROMRGB(235, 222, 171)), pDestBuf);
 	//bottom
-	LineDraw(FALSE, usGridX + BOBBYR_GRID_SCROLL_COLUMN_X, usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y + BOBBYR_GRID_SCROLL_COLUMN_HEIGHT, usGridX + BOBBYR_GRID_SCROLL_COLUMN_X + BOBBYR_GRID_SCROLL_COLUMN_WIDTH, usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y+BOBBYR_GRID_SCROLL_COLUMN_HEIGHT, Get16BPPColor( FROMRGB( 235, 222, 171 ) ), pDestBuf);
+	LineDraw(FALSE, grid.scrollColumn.x, grid.scrollColumn.bottom(),
+		grid.scrollColumn.right(), grid.scrollColumn.bottom(),
+		Get16BPPColor(FROMRGB(235, 222, 171)), pDestBuf);
 	//left
-	LineDraw(FALSE, usGridX + BOBBYR_GRID_SCROLL_COLUMN_X, usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y, usGridX + BOBBYR_GRID_SCROLL_COLUMN_X, usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y + BOBBYR_GRID_SCROLL_COLUMN_HEIGHT, Get16BPPColor( FROMRGB( 235, 222, 171 ) ), pDestBuf);
+	LineDraw(FALSE, grid.scrollColumn.x, grid.scrollColumn.y,
+		grid.scrollColumn.x, grid.scrollColumn.bottom(),
+		Get16BPPColor(FROMRGB(235, 222, 171)), pDestBuf);
 	//right
-	LineDraw(FALSE, usGridX + BOBBYR_GRID_SCROLL_COLUMN_X + BOBBYR_GRID_SCROLL_COLUMN_WIDTH, usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y, usGridX + BOBBYR_GRID_SCROLL_COLUMN_X + BOBBYR_GRID_SCROLL_COLUMN_WIDTH, usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y + BOBBYR_GRID_SCROLL_COLUMN_HEIGHT, Get16BPPColor( FROMRGB( 235, 222, 171 ) ), pDestBuf);
+	LineDraw(FALSE, grid.scrollColumn.right(), grid.scrollColumn.y,
+		grid.scrollColumn.right(), grid.scrollColumn.bottom(),
+		Get16BPPColor(FROMRGB(235, 222, 171)), pDestBuf);
 
 
 	// unlock frame buffer
@@ -1171,33 +1141,46 @@ void DisplayPurchasedItems( BOOLEAN fCalledFromOrderPage, UINT16 usGridX, UINT16
 	//get and display the up and down arrows
 	GetVideoObject(&hArrowHandle, guiGoldArrowImages);
 	//top arrow
-	BltVideoObject(FRAME_BUFFER, hArrowHandle, 1, usGridX + BOBBYR_GRID_SCROLL_UP_ARROW_X, usGridY + BOBBYR_GRID_SCROLL_UP_ARROW_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hArrowHandle, 1,
+		grid.scrollUp.x, grid.scrollUp.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	//bottom arrow
-	BltVideoObject(FRAME_BUFFER, hArrowHandle, 0, usGridX + BOBBYR_GRID_SCROLL_DOWN_ARROW_X, usGridY + BOBBYR_GRID_SCROLL_DOWN_ARROW_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hArrowHandle, 0,
+		grid.scrollDown.x, grid.scrollDown.y, VO_BLT_SRCTRANSPARENCY,NULL);
 
 	LaptopPageResourceOwner stagedGridResources;
-	MSYS_DefineRegion( &gSelectedUpDownArrowOnGridScrollAreaRegion[0], usGridX + BOBBYR_GRID_SCROLL_UP_ARROW_X, usGridY + BOBBYR_GRID_SCROLL_UP_ARROW_Y, (UINT16)(usGridX + BOBBYR_GRID_SCROLL_UP_ARROW_X+BOBBYR_SCROLL_ARROW_WIDTH),
-		(UINT16)(usGridY + BOBBYR_GRID_SCROLL_UP_ARROW_Y+BOBBYR_SCROLL_ARROW_HEIGHT), MSYS_PRIORITY_HIGH, CURSOR_WWW, MSYS_NO_CALLBACK, SelectUpDownArrowOnGridScrollAreaRegionCallBack);
+	MSYS_DefineRegion(&gSelectedUpDownArrowOnGridScrollAreaRegion[0],
+		grid.scrollUp.x, grid.scrollUp.y,
+		grid.scrollUp.right(), grid.scrollUp.bottom(),
+		MSYS_PRIORITY_HIGH, CURSOR_WWW, MSYS_NO_CALLBACK,
+		SelectUpDownArrowOnGridScrollAreaRegionCallBack);
 	if (!stagedGridResources.addRegion(
 		gSelectedUpDownArrowOnGridScrollAreaRegion[0])) return;
 	MSYS_SetRegionUserData( &gSelectedUpDownArrowOnGridScrollAreaRegion[ 0 ], 0, 0);
 	MSYS_EnableRegion(&gSelectedUpDownArrowOnGridScrollAreaRegion[0]);
-	MSYS_DefineRegion( &gSelectedUpDownArrowOnGridScrollAreaRegion[1], usGridX + BOBBYR_GRID_SCROLL_DOWN_ARROW_X, usGridY + BOBBYR_GRID_SCROLL_DOWN_ARROW_Y, (UINT16)(usGridX + BOBBYR_GRID_SCROLL_DOWN_ARROW_X+BOBBYR_SCROLL_ARROW_WIDTH),
-		(UINT16)(usGridY + BOBBYR_GRID_SCROLL_DOWN_ARROW_Y+BOBBYR_SCROLL_ARROW_HEIGHT), MSYS_PRIORITY_HIGH, CURSOR_WWW, MSYS_NO_CALLBACK, SelectUpDownArrowOnGridScrollAreaRegionCallBack);
+	MSYS_DefineRegion(&gSelectedUpDownArrowOnGridScrollAreaRegion[1],
+		grid.scrollDown.x, grid.scrollDown.y,
+		grid.scrollDown.right(), grid.scrollDown.bottom(),
+		MSYS_PRIORITY_HIGH, CURSOR_WWW, MSYS_NO_CALLBACK,
+		SelectUpDownArrowOnGridScrollAreaRegionCallBack);
 	if (!stagedGridResources.addRegion(
 		gSelectedUpDownArrowOnGridScrollAreaRegion[1])) return;
 	MSYS_SetRegionUserData( &gSelectedUpDownArrowOnGridScrollAreaRegion[ 1 ], 0, 1);
 	MSYS_EnableRegion(&gSelectedUpDownArrowOnGridScrollAreaRegion[1]);
 	if (HasScrollableBobbyOrder(guidivisor))
 	{//Scroll Bar
-		usPosX = usGridX + BOBBYR_GRID_SCROLL_COLUMN_X;
-		usPosY = usGridY + BOBBYR_GRID_SCROLL_UP_ARROW_Y + BOBBYR_SCROLL_ARROW_HEIGHT;
-		usHeight = BOBBYR_GRID_SCROLL_COLUMN_HEIGHT_MINUS_ARROWS / guidivisor;
+		usPosX = static_cast<UINT16>(grid.scrollColumn.x);
+		usPosY = static_cast<UINT16>(grid.scrollUp.bottom());
+		usHeight = static_cast<UINT16>(
+			(grid.scrollColumn.height - 2 * grid.scrollUp.height - 8) /
+			guidivisor);
 		gSelectedGridScrollColumnRegions.resize(guidivisor);
 		for(i=0; i<guidivisor; i++)
 		{
-				MSYS_DefineRegion( &gSelectedGridScrollColumnRegions[i], usPosX, usPosY, (UINT16)(usPosX+BOBBYR_SCROLL_ARROW_WIDTH), (UINT16)(usPosY+usHeight), MSYS_PRIORITY_HIGH,
+			MSYS_DefineRegion(&gSelectedGridScrollColumnRegions[i],
+				usPosX, usPosY,
+				static_cast<UINT16>(usPosX + grid.scrollUp.width),
+				static_cast<UINT16>(usPosY + usHeight), MSYS_PRIORITY_HIGH,
 					CURSOR_WWW, SelectGridScrollColumnMovementCallBack, SelectGridScrollColumnRegionCallBack );
 				if (!stagedGridResources.addRegion(
 					gSelectedGridScrollColumnRegions[i])) return;
@@ -1217,6 +1200,8 @@ void DisplayShippingCosts( BOOLEAN fCalledFromOrderPage, INT32 iSubTotal, UINT16
 {
 	HVOBJECT hPixHandle;
 	INT32	iShippingCost = 0;
+	const BobbyRayLayoutModel::OrderGridLayout grid =
+		BobbyRayLayoutModel::MakeOrderGridLayout({usGridX, usGridY});
 //	INT32 iTotal;
 
 	if( fCalledFromOrderPage )
@@ -1287,7 +1272,10 @@ void DisplayShippingCosts( BOOLEAN fCalledFromOrderPage, INT32 iSubTotal, UINT16
 	if( fCalledFromOrderPage )
 	{
 		GetVideoObject(&hPixHandle, guiTotalSaveArea);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_TOTAL_SAVED_AREA_X, BOBBYR_TOTAL_SAVED_AREA_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+		const LaptopLayoutModel::Point saveArea =
+			BobbyRayMailOrderLayout().totalSaveArea;
+		BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+			saveArea.x, saveArea.y, VO_BLT_SRCTRANSPARENCY,NULL);
 	}
 
 
@@ -1295,15 +1283,28 @@ void DisplayShippingCosts( BOOLEAN fCalledFromOrderPage, INT32 iSubTotal, UINT16
 	if( iSubTotal )
 	{
 		//Display the subtotal
-		DrawTextToScreen(FormatMoney(iSubTotal).data(), (UINT16)(usGridX + BOBBYR_GRID_FIFTH_COLUMN_X - 2), (UINT16)(usGridY + BOBBYR_SUBTOTAL_Y), BOBBYR_GRID_FIFTH_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+		DrawTextToScreen(FormatMoney(iSubTotal).data(),
+			grid.columns[4].origin.x - 2, grid.subtotal.origin.y,
+			grid.columns[4].width, BOBBYR_ORDER_DYNAMIC_TEXT_FONT,
+			BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+			FALSE, RIGHT_JUSTIFIED);
 
 		//Display the shipping and handling charge
-		DrawTextToScreen(FormatMoney(iShippingCost).data(), (UINT16)(usGridX + BOBBYR_GRID_FIFTH_COLUMN_X - 2), (UINT16)(usGridY + BOBBYR_SHIPPING_N_HANDLE_Y), BOBBYR_GRID_FIFTH_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+		DrawTextToScreen(FormatMoney(iShippingCost).data(),
+			grid.columns[4].origin.x - 2,
+			grid.shippingAndHandling.origin.y,
+			grid.columns[4].width, BOBBYR_ORDER_DYNAMIC_TEXT_FONT,
+			BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+			FALSE, RIGHT_JUSTIFIED);
 
 
 		//Display the grand total
 		giGrandTotal = iSubTotal + iShippingCost;
-		DrawTextToScreen(FormatMoney(giGrandTotal).data(), (UINT16)(usGridX + BOBBYR_GRID_FIFTH_COLUMN_X - 2), (UINT16)(usGridY + BOBBYR_GRAND_TOTAL_Y), BOBBYR_GRID_FIFTH_COLUMN_WIDTH, BOBBYR_ORDER_DYNAMIC_TEXT_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+		DrawTextToScreen(FormatMoney(giGrandTotal).data(),
+			grid.columns[4].origin.x - 2, grid.grandTotal.origin.y,
+			grid.columns[4].width, BOBBYR_ORDER_DYNAMIC_TEXT_FONT,
+			BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+			FALSE, RIGHT_JUSTIFIED);
 	}
 
 	InvalidateRegion(iScreenWidthOffset + 333,iScreenHeightOffset + 326,iScreenWidthOffset + 374,iScreenHeightOffset + 400);
@@ -1362,29 +1363,33 @@ void SelectShippingSpeedRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 	{
 		gubSelectedLight = (UINT8)MSYS_GetRegionUserData( pRegion, 0 );
 		DrawShippingSpeedLights( gubSelectedLight );
-		DisplayShippingCosts( TRUE, 0, BOBBYR_ORDERGRID_X, BOBBYR_ORDERGRID_Y, -1 );
+		const BobbyRayLayoutModel::OrderGridLayout orderGrid =
+			BobbyRayMailOrderLayout().orderGrid;
+		DisplayShippingCosts(TRUE, 0,
+			orderGrid.origin.x, orderGrid.origin.y, -1);
 	}
 }
 
 BOOLEAN DrawShippingSpeedLights(UINT8 ubSelected)
 {
-
-	if(ubSelected == 0)
-		ColorFillVideoSurfaceArea( FRAME_BUFFER, gShippingSpeedAreas[0], gShippingSpeedAreas[1], gShippingSpeedAreas[0]+SHIPPING_SPEED_LIGHT_WIDTH,	gShippingSpeedAreas[1]+SHIPPING_SPEED_LIGHT_HEIGHT, Get16BPPColor( FROMRGB( 0, 255, 0 ) ) );
-	else
-		ColorFillVideoSurfaceArea( FRAME_BUFFER, gShippingSpeedAreas[0], gShippingSpeedAreas[1], gShippingSpeedAreas[0]+SHIPPING_SPEED_LIGHT_WIDTH,	gShippingSpeedAreas[1]+SHIPPING_SPEED_LIGHT_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
-
-	if(ubSelected == 1)
-		ColorFillVideoSurfaceArea( FRAME_BUFFER, gShippingSpeedAreas[2], gShippingSpeedAreas[3], gShippingSpeedAreas[2]+SHIPPING_SPEED_LIGHT_WIDTH,	gShippingSpeedAreas[3]+SHIPPING_SPEED_LIGHT_HEIGHT, Get16BPPColor( FROMRGB( 0, 255, 0 ) ) );
-	else
-		ColorFillVideoSurfaceArea( FRAME_BUFFER, gShippingSpeedAreas[2], gShippingSpeedAreas[3], gShippingSpeedAreas[2]+SHIPPING_SPEED_LIGHT_WIDTH,	gShippingSpeedAreas[3]+SHIPPING_SPEED_LIGHT_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
-
-	if(ubSelected == 2)
-		ColorFillVideoSurfaceArea( FRAME_BUFFER, gShippingSpeedAreas[4], gShippingSpeedAreas[5], gShippingSpeedAreas[4]+SHIPPING_SPEED_LIGHT_WIDTH,	gShippingSpeedAreas[5]+SHIPPING_SPEED_LIGHT_HEIGHT, Get16BPPColor( FROMRGB( 0, 255, 0 ) ) );
-	else
-		ColorFillVideoSurfaceArea( FRAME_BUFFER, gShippingSpeedAreas[4], gShippingSpeedAreas[5], gShippingSpeedAreas[4]+SHIPPING_SPEED_LIGHT_WIDTH,	gShippingSpeedAreas[5]+SHIPPING_SPEED_LIGHT_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
-
-	InvalidateRegion(iScreenWidthOffset + 585, iScreenHeightOffset + 218, iScreenWidthOffset + 594, iScreenHeightOffset + 287);
+	const BobbyRayLayoutModel::MailOrderLayout layout =
+		BobbyRayMailOrderLayout();
+	for (std::size_t index = 0;
+		index < BobbyRayLayoutModel::MailOrderLayout::ShippingSpeedCount;
+		++index)
+	{
+		const LaptopLayoutModel::Rect light =
+			layout.shippingSpeedLights.at(index);
+		const UINT32 color = index == ubSelected
+			? Get16BPPColor(FROMRGB(0, 255, 0))
+			: Get16BPPColor(FROMRGB(0, 0, 0));
+		ColorFillVideoSurfaceArea(FRAME_BUFFER,
+			light.x, light.y, light.right(), light.bottom(), color);
+	}
+	const LaptopLayoutModel::Rect first = layout.shippingSpeedLights.at(0);
+	const LaptopLayoutModel::Rect last = layout.shippingSpeedLights.at(
+		BobbyRayLayoutModel::MailOrderLayout::ShippingSpeedCount - 1);
+	InvalidateRegion(first.x, first.y, last.right(), last.bottom());
 	return(TRUE);
 }
 
@@ -1426,6 +1431,8 @@ void SelectConfirmOrderRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 
 BOOLEAN CreateDestroyBobbyRDropDown( UINT8 ubDropDownAction )
 {
+	const BobbyRayLayoutModel::MailOrderLayout layout =
+		BobbyRayMailOrderLayout();
 	switch( ubDropDownAction )
 	{
 		case 	BR_DROP_DOWN_NO_ACTION:
@@ -1457,53 +1464,53 @@ BOOLEAN CreateDestroyBobbyRDropDown( UINT8 ubDropDownAction )
 			gSelectedDropDownRegions.resize(guiNumOfDisplayedCities);
 			gSelectedScrollAreaDropDownRegions.resize(destinationCount);
 
-			usPosX = BOBBYR_CITY_START_LOCATION_X;
-			usPosY = BOBBYR_CITY_START_LOCATION_Y;
-			//for( i=0; i< BOBBYR_NUM_DISPLAYED_CITIES; i++)
 			for( i=0; i< guiNumOfDisplayedCities; i++)
 			{
-				MSYS_DefineRegion( &gSelectedDropDownRegions[i], usPosX, (UINT16)(usPosY+4), (UINT16)(usPosX+BOBBYR_DROP_DOWN_WIDTH-6), (UINT16)(usPosY+usFontHeight+7), MSYS_PRIORITY_HIGH,
+				const LaptopLayoutModel::Rect row =
+					layout.destinationRow(i, usFontHeight);
+				MSYS_DefineRegion(&gSelectedDropDownRegions[i],
+					row.x, row.y, row.right(), row.bottom(), MSYS_PRIORITY_HIGH,
 										CURSOR_WWW, SelectDropDownMovementCallBack, SelectDropDownRegionCallBack);
 				if (!stagedDropDownResources.addRegion(
 					gSelectedDropDownRegions[i])) return FALSE;
 				MSYS_SetRegionUserData( &gSelectedDropDownRegions[ i ], 0,
 					static_cast<INT32>(i));
-
-				usPosY += usFontHeight + 2;
 			}
 			//create the scroll bars regions
 			//up arrow
-			usPosX = BOBBYR_SCROLL_UP_ARROW_X;
-			usPosY = BOBBYR_SCROLL_UP_ARROW_Y;
 			for(i=0; i<2; i++)
 			{
-				MSYS_DefineRegion( &gSelectedUpDownArrowOnScrollAreaRegion[i], usPosX, usPosY, (UINT16)(usPosX+BOBBYR_SCROLL_ARROW_WIDTH), (UINT16)(usPosY+BOBBYR_SCROLL_ARROW_HEIGHT), MSYS_PRIORITY_HIGH,
+				const LaptopLayoutModel::Rect arrow = i == 0
+					? layout.destinationScrollUp
+					: layout.destinationScrollDown;
+				MSYS_DefineRegion(&gSelectedUpDownArrowOnScrollAreaRegion[i],
+					arrow.x, arrow.y, arrow.right(), arrow.bottom(),
+					MSYS_PRIORITY_HIGH,
 										CURSOR_WWW, MSYS_NO_CALLBACK, SelectUpDownArrowOnScrollAreaRegionCallBack);
 				if (!stagedDropDownResources.addRegion(
 					gSelectedUpDownArrowOnScrollAreaRegion[i])) return FALSE;
 				MSYS_SetRegionUserData( &gSelectedUpDownArrowOnScrollAreaRegion[ i ], 0,
 					static_cast<INT32>(i));
-				usPosX = BOBBYR_SCROLL_DOWN_ARROW_X;
-				usPosY = BOBBYR_SCROLL_DOWN_ARROW_Y;
 			}
 
 			//the scroll area itself
-			usPosX = BOBBYR_SCROLL_AREA_X;
-			usPosY = BOBBYR_SCROLL_UP_ARROW_Y + BOBBYR_SCROLL_ARROW_HEIGHT;
-			//Dealtar's Airport Externalization.
-			/*
-			usHeight = BOBBYR_SCROLL_AREA_HEIGHT_MINUS_ARROWS / BOBBYR_ORDER_NUM_SHIPPING_CITIES;
-			for(i=0; i<BOBBYR_ORDER_NUM_SHIPPING_CITIES-1; i++)
-			*/
+			usPosX = static_cast<UINT16>(layout.destinationScroll.x);
+			usPosY = static_cast<UINT16>(layout.destinationScrollUp.bottom());
 			usHeight = static_cast<UINT16>(
-				BOBBYR_SCROLL_AREA_HEIGHT_MINUS_ARROWS / destinationCount);
+				(layout.destinationScroll.height -
+				 2 * layout.destinationScrollUp.height - 8) /
+				destinationCount);
 			if (usHeight == 0) usHeight = 1;
 			for(i=0; i<destinationCount; i++)
 			{
 				const UINT16 bottom = i + 1 == destinationCount
-					? BOBBYR_SCROLL_DOWN_ARROW_Y
+					? layout.destinationScrollDown.y
 					: static_cast<UINT16>(usPosY + usHeight);
-				MSYS_DefineRegion( &gSelectedScrollAreaDropDownRegions[i], usPosX, usPosY, (UINT16)(usPosX+BOBBYR_SCROLL_ARROW_WIDTH), bottom, MSYS_PRIORITY_HIGH+1,
+				MSYS_DefineRegion(&gSelectedScrollAreaDropDownRegions[i],
+					usPosX, usPosY,
+					static_cast<UINT16>(
+						usPosX + layout.destinationScrollUp.width),
+					bottom, MSYS_PRIORITY_HIGH+1,
 										CURSOR_LAPTOP_SCREEN, SelectScrollAreaDropDownMovementCallBack, SelectScrollAreaDropDownRegionCallBack);
 				if (!stagedDropDownResources.addRegion(
 					gSelectedScrollAreaDropDownRegions[i])) return FALSE;
@@ -1538,15 +1545,11 @@ BOOLEAN CreateDestroyBobbyRDropDown( UINT8 ubDropDownAction )
 			gSelectedScrollAreaDropDownRegions.clear();
 
 			//display the name on the title bar
-			ColorFillVideoSurfaceArea( FRAME_BUFFER, BOBBYR_SHIPPING_LOC_AREA_L_X, BOBBYR_SHIPPING_LOC_AREA_T_Y, BOBBYR_SHIPPING_LOC_AREA_L_X+175,	BOBBYR_SHIPPING_LOC_AREA_T_Y+BOBBYR_DROP_DOWN_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
-
-			/*
-			if( gbSelectedCity == -1 )
-				DrawTextToScreen( BobbyROrderFormText[BOBBYR_SELECT_DEST], BOBBYR_CITY_START_LOCATION_X+BOBBYR_CITY_NAME_OFFSET, BOBBYR_SHIPPING_LOC_AREA_T_Y+3, 0, BOBBYR_DROPDOWN_FONT, BOBBYR_ORDER_DROP_DOWN_SELEC_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-			else			
-				DrawTextToScreen( *(BobbyROrderLocations[gbSelectedCity].psCityLoc), BOBBYR_CITY_START_LOCATION_X+BOBBYR_CITY_NAME_OFFSET, BOBBYR_SHIPPING_LOC_AREA_T_Y+3, 0, BOBBYR_DROPDOWN_FONT, BOBBYR_ORDER_DROP_DOWN_SELEC_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-			*/
-
+			ColorFillVideoSurfaceArea(FRAME_BUFFER,
+				layout.selectedDestination.x, layout.selectedDestination.y,
+				layout.selectedDestination.x + 175,
+				layout.selectedDestination.bottom(),
+				Get16BPPColor(FROMRGB(0, 0, 0)));
 			//disable the r\close regiuon
 		MSYS_DisableRegion(&gSelectedCloseDropDownRegion);
 
@@ -1569,12 +1572,15 @@ BOOLEAN CreateDestroyBobbyRDropDown( UINT8 ubDropDownAction )
 		{
 			UINT8 i;
 			UINT16 usPosY, usPosX;
-			const UINT16 usHeight = BOBBYR_SCROLL_AREA_HEIGHT;
+			const UINT16 usHeight = layout.destinationList.height;
 			HVOBJECT	hImageHandle;
 		HVOBJECT	hArrowHandle;
 
 			//Display the background for the drop down window
-			ColorFillVideoSurfaceArea( FRAME_BUFFER, BOBBYR_CITY_START_LOCATION_X, BOBBYR_CITY_START_LOCATION_Y, BOBBYR_CITY_START_LOCATION_X+BOBBYR_DROP_DOWN_WIDTH,	BOBBYR_CITY_START_LOCATION_Y+BOBBYR_SCROLL_AREA_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
+			ColorFillVideoSurfaceArea(FRAME_BUFFER,
+				layout.destinationList.x, layout.destinationList.y,
+				layout.destinationList.right(), layout.destinationList.bottom(),
+				Get16BPPColor(FROMRGB(0, 0, 0)));
 
 			//
 			// Place the border around the background
@@ -1583,75 +1589,128 @@ BOOLEAN CreateDestroyBobbyRDropDown( UINT8 ubDropDownAction )
 
 			usPosY = 0;
 			//blit top & bottom row of images
-			for(i=10; i< BOBBYR_DROP_DOWN_WIDTH-10; i+=10)
+			for(i=10; i< layout.destinationList.width-10; i+=10)
 			{
 				//TOP ROW
-				BltVideoObject(FRAME_BUFFER, hImageHandle, 1,i+BOBBYR_CITY_START_LOCATION_X, usPosY+BOBBYR_CITY_START_LOCATION_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+				BltVideoObject(FRAME_BUFFER, hImageHandle, 1,
+					i + layout.destinationList.x,
+					usPosY + layout.destinationList.y,
+					VO_BLT_SRCTRANSPARENCY,NULL);
 				//BOTTOM ROW
-				BltVideoObject(FRAME_BUFFER, hImageHandle, 6,i+BOBBYR_CITY_START_LOCATION_X, usHeight-10+6+BOBBYR_CITY_START_LOCATION_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+				BltVideoObject(FRAME_BUFFER, hImageHandle, 6,
+					i + layout.destinationList.x,
+					usHeight - 10 + 6 + layout.destinationList.y,
+					VO_BLT_SRCTRANSPARENCY,NULL);
 			}
 
 			//blit the left and right row of images
 			usPosX = 0;
 			for(i=10; i< usHeight-10; i+=10)
 			{
-				BltVideoObject(FRAME_BUFFER, hImageHandle, 3,usPosX+BOBBYR_CITY_START_LOCATION_X, i+BOBBYR_CITY_START_LOCATION_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-				BltVideoObject(FRAME_BUFFER, hImageHandle, 4,usPosX+BOBBYR_DROP_DOWN_WIDTH-4+BOBBYR_CITY_START_LOCATION_X, i+BOBBYR_CITY_START_LOCATION_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+				BltVideoObject(FRAME_BUFFER, hImageHandle, 3,
+					usPosX + layout.destinationList.x,
+					i + layout.destinationList.y,
+					VO_BLT_SRCTRANSPARENCY,NULL);
+				BltVideoObject(FRAME_BUFFER, hImageHandle, 4,
+					usPosX + layout.destinationList.width - 4 +
+						layout.destinationList.x,
+					i + layout.destinationList.y,
+					VO_BLT_SRCTRANSPARENCY,NULL);
 			}
 
 			//blt the corner images for the row
 			//top left
-			BltVideoObject(FRAME_BUFFER, hImageHandle, 0, 0+BOBBYR_CITY_START_LOCATION_X, usPosY+BOBBYR_CITY_START_LOCATION_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+			BltVideoObject(FRAME_BUFFER, hImageHandle, 0,
+				layout.destinationList.x,
+				usPosY + layout.destinationList.y,
+				VO_BLT_SRCTRANSPARENCY,NULL);
 			//top right
-			BltVideoObject(FRAME_BUFFER, hImageHandle, 2, BOBBYR_DROP_DOWN_WIDTH-10+BOBBYR_CITY_START_LOCATION_X, usPosY+BOBBYR_CITY_START_LOCATION_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+			BltVideoObject(FRAME_BUFFER, hImageHandle, 2,
+				layout.destinationList.right() - 10,
+				usPosY + layout.destinationList.y,
+				VO_BLT_SRCTRANSPARENCY,NULL);
 			//bottom left
-			BltVideoObject(FRAME_BUFFER, hImageHandle, 5, 0+BOBBYR_CITY_START_LOCATION_X, usHeight-10+BOBBYR_CITY_START_LOCATION_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+			BltVideoObject(FRAME_BUFFER, hImageHandle, 5,
+				layout.destinationList.x,
+				usHeight - 10 + layout.destinationList.y,
+				VO_BLT_SRCTRANSPARENCY,NULL);
 			//bottom right
-			BltVideoObject(FRAME_BUFFER, hImageHandle, 7, BOBBYR_DROP_DOWN_WIDTH-10+BOBBYR_CITY_START_LOCATION_X, usHeight-10+BOBBYR_CITY_START_LOCATION_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+			BltVideoObject(FRAME_BUFFER, hImageHandle, 7,
+				layout.destinationList.right() - 10,
+				usHeight - 10 + layout.destinationList.y,
+				VO_BLT_SRCTRANSPARENCY,NULL);
 
 
 			DrawSelectedCity( gbSelectedCity );
 
 			//display the scroll bars regions
-			ColorFillVideoSurfaceArea( FRAME_BUFFER, BOBBYR_SCROLL_AREA_X, BOBBYR_SCROLL_AREA_Y, BOBBYR_SCROLL_AREA_X+BOBBYR_SCROLL_AREA_WIDTH,	BOBBYR_SCROLL_AREA_Y+BOBBYR_SCROLL_AREA_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
+			ColorFillVideoSurfaceArea(FRAME_BUFFER,
+				layout.destinationScroll.x, layout.destinationScroll.y,
+				layout.destinationScroll.right(),
+				layout.destinationScroll.bottom(),
+				Get16BPPColor(FROMRGB(0, 0, 0)));
 
 			//blt right bar of scroll area
-			for(i=10; i< BOBBYR_SCROLL_AREA_HEIGHT-10; i+=10)
+			for(i=10; i< layout.destinationScroll.height-10; i+=10)
 			{
-				BltVideoObject(FRAME_BUFFER, hImageHandle, 3,BOBBYR_SCROLL_AREA_X+BOBBYR_SCROLL_AREA_WIDTH-4, i+BOBBYR_CITY_START_LOCATION_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+				BltVideoObject(FRAME_BUFFER, hImageHandle, 3,
+					layout.destinationScroll.right() - 4,
+					i + layout.destinationList.y,
+					VO_BLT_SRCTRANSPARENCY,NULL);
 			}
 
 			//blit top row of images
-			for(i=0; i< BOBBYR_SCROLL_AREA_WIDTH; i+=10)
+			for(i=0; i< layout.destinationScroll.width; i+=10)
 			{
 				//TOP ROW
-				BltVideoObject(FRAME_BUFFER, hImageHandle, 1,i+BOBBYR_SCROLL_AREA_X-10, BOBBYR_SCROLL_AREA_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+				BltVideoObject(FRAME_BUFFER, hImageHandle, 1,
+					i + layout.destinationScroll.x - 10,
+					layout.destinationScroll.y,
+					VO_BLT_SRCTRANSPARENCY,NULL);
 				//BOTTOM ROW
-				BltVideoObject(FRAME_BUFFER, hImageHandle, 6,i+BOBBYR_SCROLL_AREA_X-10, BOBBYR_SCROLL_AREA_Y-10+6+BOBBYR_SCROLL_AREA_HEIGHT, VO_BLT_SRCTRANSPARENCY,NULL);
+				BltVideoObject(FRAME_BUFFER, hImageHandle, 6,
+					i + layout.destinationScroll.x - 10,
+					layout.destinationScroll.bottom() - 10 + 6,
+					VO_BLT_SRCTRANSPARENCY,NULL);
 			}
 
 			//top right
-			BltVideoObject(FRAME_BUFFER, hImageHandle, 2, BOBBYR_SCROLL_AREA_X+BOBBYR_SCROLL_AREA_WIDTH-10, BOBBYR_SCROLL_AREA_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+			BltVideoObject(FRAME_BUFFER, hImageHandle, 2,
+				layout.destinationScroll.right() - 10,
+				layout.destinationScroll.y, VO_BLT_SRCTRANSPARENCY,NULL);
 			//bottom right
-			BltVideoObject(FRAME_BUFFER, hImageHandle, 7, BOBBYR_SCROLL_AREA_X+BOBBYR_SCROLL_AREA_WIDTH-10, BOBBYR_SCROLL_AREA_Y+BOBBYR_SCROLL_AREA_HEIGHT-10, VO_BLT_SRCTRANSPARENCY,NULL);
+			BltVideoObject(FRAME_BUFFER, hImageHandle, 7,
+				layout.destinationScroll.right() - 10,
+				layout.destinationScroll.bottom() - 10,
+				VO_BLT_SRCTRANSPARENCY,NULL);
 
 			//fix
-			BltVideoObject(FRAME_BUFFER, hImageHandle, 4, BOBBYR_DROP_DOWN_WIDTH-4+BOBBYR_CITY_START_LOCATION_X, BOBBYR_CITY_START_LOCATION_Y+2, VO_BLT_SRCTRANSPARENCY,NULL);
+			BltVideoObject(FRAME_BUFFER, hImageHandle, 4,
+				layout.destinationList.right() - 4,
+				layout.destinationList.y + 2,
+				VO_BLT_SRCTRANSPARENCY,NULL);
 
 
 			//get and display the up and down arrows
 			GetVideoObject(&hArrowHandle, guiGoldArrowImages);
 			//top arrow
-			BltVideoObject(FRAME_BUFFER, hArrowHandle, 1, BOBBYR_SCROLL_UP_ARROW_X, BOBBYR_SCROLL_UP_ARROW_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+			BltVideoObject(FRAME_BUFFER, hArrowHandle, 1,
+				layout.destinationScrollUp.x,
+				layout.destinationScrollUp.y,
+				VO_BLT_SRCTRANSPARENCY,NULL);
 
 			//top arrow
-			BltVideoObject(FRAME_BUFFER, hArrowHandle, 0, BOBBYR_SCROLL_DOWN_ARROW_X, BOBBYR_SCROLL_DOWN_ARROW_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+			BltVideoObject(FRAME_BUFFER, hArrowHandle, 0,
+				layout.destinationScrollDown.x,
+				layout.destinationScrollDown.y,
+				VO_BLT_SRCTRANSPARENCY,NULL);
 
 			//display the scroll rectangle
 			DrawGoldRectangle( gbSelectedCity );
 
 
-		InvalidateRegion(LAPTOP_SCREEN_UL_X,LAPTOP_SCREEN_WEB_UL_Y,LAPTOP_SCREEN_LR_X,LAPTOP_SCREEN_WEB_LR_Y);
+			InvalidateRegion(layout.pageBounds.x, layout.pageBounds.y,
+				layout.pageBounds.right(), layout.pageBounds.bottom());
 		}
 		break;
 	}
@@ -1727,6 +1786,8 @@ void SelectDropDownMovementCallBack(MOUSE_REGION * pRegion, INT32 reason )
 void DrawSelectedCity( INT32 selectedCity )
 {
 	const UINT16 fontHeight = GetFontHeight(BOBBYR_DROPDOWN_FONT);
+	const BobbyRayLayoutModel::MailOrderLayout layout =
+		BobbyRayMailOrderLayout();
 	if (gDestinationTable.empty() || guiNumOfDisplayedCities == 0)
 	{
 		gbSelectedCity = -1;
@@ -1747,7 +1808,7 @@ void DrawSelectedCity( INT32 selectedCity )
 		gubCityAtTopOfList, gDestinationTable.size(),
 		guiNumOfDisplayedCities);
 
-	UINT16 positionY = BOBBYR_CITY_START_LOCATION_Y + 5;
+	UINT16 positionY = static_cast<UINT16>(layout.destinationList.y + 5);
 	for (std::size_t index = gubCityAtTopOfList;
 		index < gubCityAtTopOfList + guiNumOfDisplayedCities; ++index)
 	{
@@ -1755,7 +1816,7 @@ void DrawSelectedCity( INT32 selectedCity )
 		{
 			DrawTextToScreen(
 				(STR16)gDestinationTable[index]->wstrName.c_str(),
-				BOBBYR_CITY_START_LOCATION_X + BOBBYR_CITY_NAME_OFFSET,
+				layout.destinationList.x + 6,
 				positionY, 0, BOBBYR_DROPDOWN_FONT,
 				BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
 				FALSE, LEFT_JUSTIFIED);
@@ -1765,11 +1826,11 @@ void DrawSelectedCity( INT32 selectedCity )
 
 	const std::size_t highlightedIndex = selectedCity >= 0
 		? static_cast<std::size_t>(selectedCity) : gubCityAtTopOfList;
-	positionY = static_cast<UINT16>(BOBBYR_CITY_START_LOCATION_Y +
+	positionY = static_cast<UINT16>(layout.destinationList.y +
 		(fontHeight + 2) * (highlightedIndex - gubCityAtTopOfList));
 	ColorFillVideoSurfaceArea(FRAME_BUFFER,
-		BOBBYR_CITY_START_LOCATION_X + 4, positionY + 4,
-		BOBBYR_CITY_START_LOCATION_X + BOBBYR_DROP_DOWN_WIDTH - 4,
+		layout.destinationList.x + 4, positionY + 4,
+		layout.destinationList.right() - 4,
 		positionY + fontHeight + 6,
 		Get16BPPColor(FROMRGB(200, 169, 87)));
 
@@ -1778,7 +1839,7 @@ void DrawSelectedCity( INT32 selectedCity )
 	{
 		DrawTextToScreen(
 			(STR16)gDestinationTable[highlightedIndex]->wstrName.c_str(),
-			BOBBYR_CITY_START_LOCATION_X + BOBBYR_CITY_NAME_OFFSET,
+			layout.destinationList.x + 6,
 			static_cast<UINT16>(positionY + 5), 0,
 			BOBBYR_DROPDOWN_FONT, BOBBYR_FONT_BLACK,
 			FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
@@ -1797,6 +1858,8 @@ void DisplayShippingLocationCity()
 {
 	std::wstring sTemp{ L"$0" };
 	UINT16 usPosY;
+	const BobbyRayLayoutModel::MailOrderLayout layout =
+		BobbyRayMailOrderLayout();
 	const bool hasSelectedCity = gbSelectedCity >= 0 &&
 		BobbyRayFulfilmentModel::IsIndexInRange(
 			static_cast<std::size_t>(gbSelectedCity),
@@ -1805,24 +1868,34 @@ void DisplayShippingLocationCity()
 	if (!hasSelectedCity) gbSelectedCity = -1;
 
 	//display the name on the title bar
-	ColorFillVideoSurfaceArea( FRAME_BUFFER, BOBBYR_SHIPPING_LOC_AREA_L_X, BOBBYR_SHIPPING_LOC_AREA_T_Y, BOBBYR_SHIPPING_LOC_AREA_L_X+175,	BOBBYR_SHIPPING_LOC_AREA_T_Y+BOBBYR_DROP_DOWN_HEIGHT, Get16BPPColor( FROMRGB( 0, 0, 0 ) ) );
+	ColorFillVideoSurfaceArea(FRAME_BUFFER,
+		layout.selectedDestination.x, layout.selectedDestination.y,
+		layout.selectedDestination.x + 175,
+		layout.selectedDestination.bottom(),
+		Get16BPPColor(FROMRGB(0, 0, 0)));
 
 	//if there is no city selected
 	if( !hasSelectedCity )
-		DrawTextToScreen( BobbyROrderFormText[BOBBYR_SELECT_DEST], BOBBYR_CITY_START_LOCATION_X+BOBBYR_CITY_NAME_OFFSET, BOBBYR_SHIPPING_LOC_AREA_T_Y+3, 0, BOBBYR_DROPDOWN_FONT, BOBBYR_ORDER_DROP_DOWN_SELEC_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
+		DrawTextToScreen(BobbyROrderFormText[BOBBYR_SELECT_DEST],
+			layout.destinationText.x, layout.destinationText.y, 0,
+			BOBBYR_DROPDOWN_FONT, BOBBYR_ORDER_DROP_DOWN_SELEC_COLOR,
+			FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 	else
-//		DrawTextToScreen( *(BobbyROrderLocations[gbSelectedCity].psCityLoc), BOBBYR_CITY_START_LOCATION_X+BOBBYR_CITY_NAME_OFFSET, BOBBYR_SHIPPING_LOC_AREA_T_Y+3, 0, BOBBYR_DROPDOWN_FONT, BOBBYR_ORDER_DROP_DOWN_SELEC_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-		DrawTextToScreen( (STR16)gDestinationTable[gbSelectedCity]->wstrName.c_str(), BOBBYR_CITY_START_LOCATION_X+BOBBYR_CITY_NAME_OFFSET, BOBBYR_SHIPPING_LOC_AREA_T_Y+3, 0, BOBBYR_DROPDOWN_FONT, BOBBYR_ORDER_DROP_DOWN_SELEC_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
+		DrawTextToScreen((STR16)gDestinationTable[gbSelectedCity]->wstrName.c_str(),
+			layout.destinationText.x, layout.destinationText.y, 0,
+			BOBBYR_DROPDOWN_FONT, BOBBYR_ORDER_DROP_DOWN_SELEC_COLOR,
+			FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 
 
-	DisplayShippingCosts( TRUE, 0, BOBBYR_ORDERGRID_X, BOBBYR_ORDERGRID_Y, -1 );
+	DisplayShippingCosts(TRUE, 0,
+		layout.orderGrid.origin.x, layout.orderGrid.origin.y, -1);
 
 	if( gubDropDownAction == BR_DROP_DOWN_DISPLAY)
 		return;
 
 
 	//Display the shipping cost
-	usPosY = BOBBYR_OVERNIGHT_EXPRESS_Y;
+	usPosY = static_cast<UINT16>(layout.shippingMethodLabels.at(0).y);
 
 	if( hasSelectedCity )
 	{
@@ -1830,23 +1903,32 @@ void DisplayShippingLocationCity()
 		sTemp = FormatMoney(static_cast<INT32>(gPostalService.GetDestinationFee(0, gDestinationTable[gbSelectedCity]->usID) / GetWeightBasedOnMetricOption(1)));
 	}
 
-	DrawTextToScreen(sTemp.data(), BOBBYR_SHIPPING_SPEED_NUMBER_X, usPosY, BOBBYR_SHIPPING_SPEED_NUMBER_WIDTH, BOBBYR_DROPDOWN_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-	usPosY +=BOBBYR_GRID_ROW_OFFSET;
+	DrawTextToScreen(sTemp.data(), layout.shippingCostLabel.x,
+		usPosY, 37, BOBBYR_DROPDOWN_FONT,
+		BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, RIGHT_JUSTIFIED);
+	usPosY = static_cast<UINT16>(layout.shippingMethodLabels.at(1).y);
 
 	if( hasSelectedCity )
 	{
 		sTemp = FormatMoney(static_cast<INT32>(gPostalService.GetDestinationFee(1, gDestinationTable[gbSelectedCity]->usID) / GetWeightBasedOnMetricOption(1)));
 	}
 
-	DrawTextToScreen(sTemp.data(), BOBBYR_SHIPPING_SPEED_NUMBER_X, usPosY, BOBBYR_SHIPPING_SPEED_NUMBER_WIDTH, BOBBYR_DROPDOWN_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-	usPosY +=BOBBYR_GRID_ROW_OFFSET;
+	DrawTextToScreen(sTemp.data(), layout.shippingCostLabel.x,
+		usPosY, 37, BOBBYR_DROPDOWN_FONT,
+		BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, RIGHT_JUSTIFIED);
+	usPosY = static_cast<UINT16>(layout.shippingMethodLabels.at(2).y);
 
 	if( hasSelectedCity )
 	{
 		sTemp = FormatMoney(static_cast<INT32>(gPostalService.GetDestinationFee(2, gDestinationTable[gbSelectedCity]->usID) / GetWeightBasedOnMetricOption(1)));
 	}
 
-	DrawTextToScreen(sTemp.data(), BOBBYR_SHIPPING_SPEED_NUMBER_X, usPosY, BOBBYR_SHIPPING_SPEED_NUMBER_WIDTH, BOBBYR_DROPDOWN_FONT, BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+	DrawTextToScreen(sTemp.data(), layout.shippingCostLabel.x,
+		usPosY, 37, BOBBYR_DROPDOWN_FONT,
+		BOBBYR_ORDER_DYNAMIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, RIGHT_JUSTIFIED);
 }
 
 void SelectCloseDroDownRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
@@ -2018,6 +2100,8 @@ void DrawGoldRectangle( INT32 cityNumber )
 	UINT16 usPosX, usPosY;
 
 	UINT16 temp;
+	const BobbyRayLayoutModel::MailOrderLayout layout =
+		BobbyRayMailOrderLayout();
 
 	if (cityNumber < 0 ||
 		!BobbyRayFulfilmentModel::IsIndexInRange(
@@ -2027,26 +2111,33 @@ void DrawGoldRectangle( INT32 cityNumber )
 		cityNumber = 0;
 	}
 
-	usTempPosY = BOBBYR_SCROLL_UP_ARROW_Y;
-	usTempPosY += BOBBYR_SCROLL_ARROW_HEIGHT;
-	usPosX = BOBBYR_SCROLL_AREA_X;
-	usWidth = BOBBYR_SCROLL_AREA_WIDTH - 5;
-	usTempHeight = ( BOBBYR_SCROLL_AREA_HEIGHT - 2 * BOBBYR_SCROLL_ARROW_HEIGHT ) - 8;
+	usTempPosY = static_cast<UINT16>(layout.destinationScrollUp.bottom());
+	usPosX = static_cast<UINT16>(layout.destinationScroll.x);
+	usWidth = static_cast<UINT16>(layout.destinationScroll.width - 5);
+	usTempHeight = static_cast<UINT16>(
+		layout.destinationScroll.height -
+		2 * layout.destinationScrollUp.height - 8);
 
-	//usHeight = usTempHeight / (BOBBYR_ORDER_NUM_SHIPPING_CITIES+1);
 	usHeight = static_cast<UINT16>(usTempHeight /
 		(gDestinationTable.size() + 1));
 	if (usHeight == 0) usHeight = 1;
 
-	//usPosY = usTempPosY + (UINT16)( ( ( BOBBYR_SCROLL_AREA_HEIGHT - 2 * BOBBYR_SCROLL_ARROW_HEIGHT ) / (FLOAT)(BOBBYR_ORDER_NUM_SHIPPING_CITIES +1) ) * bCityNum );
-	usPosY = usTempPosY + (UINT16)( ( ( BOBBYR_SCROLL_AREA_HEIGHT - 2 * BOBBYR_SCROLL_ARROW_HEIGHT ) / (FLOAT)(gDestinationTable.size()+1) ) * cityNumber );
+	usPosY = usTempPosY + static_cast<UINT16>((
+		(layout.destinationScroll.height -
+		 2 * layout.destinationScrollUp.height) /
+		static_cast<FLOAT>(gDestinationTable.size() + 1)) * cityNumber);
 
-	temp = BOBBYR_SCROLL_AREA_Y + BOBBYR_SCROLL_AREA_HEIGHT - BOBBYR_SCROLL_ARROW_HEIGHT - usHeight - 1;
+	temp = static_cast<UINT16>(layout.destinationScroll.bottom() -
+		layout.destinationScrollDown.height - usHeight - 1);
 
 	if( usPosY >= temp )
-		usPosY = BOBBYR_SCROLL_AREA_Y + BOBBYR_SCROLL_AREA_HEIGHT - BOBBYR_SCROLL_ARROW_HEIGHT - usHeight - 5;
+		usPosY = static_cast<UINT16>(layout.destinationScroll.bottom() -
+			layout.destinationScrollDown.height - usHeight - 5);
 
-	ColorFillVideoSurfaceArea( FRAME_BUFFER, BOBBYR_SCROLL_AREA_X, usPosY, BOBBYR_SCROLL_AREA_X+usWidth,	usPosY+usHeight, Get16BPPColor( FROMRGB( 186, 165, 68 ) ) );
+	ColorFillVideoSurfaceArea(FRAME_BUFFER,
+		layout.destinationScroll.x, usPosY,
+		layout.destinationScroll.x + usWidth, usPosY + usHeight,
+		Get16BPPColor(FROMRGB(186, 165, 68)));
 
 	//display the line
 	pDestBuf = LockVideoSurface( FRAME_BUFFER, &uiDestPitchBYTES );
@@ -2088,10 +2179,6 @@ void SelectGridScrollColumnMovementCallBack(MOUSE_REGION * pRegion, INT32 reason
 			// scroll down
 			if( ubPurchaseNumber > gubPurchaseAtTopOfList )
 			{
-				// silversurfer: No idea what this was supposed to do. We always have only BOBBYR_NUM_DISPLAYED_ITEMS in the list.
-				// Why should we handle scrolling up and down differently?
-/*				if( ( ubPurchaseNumber - gubPurchaseAtTopOfList ) >= BOBBYR_NUM_DISPLAYED_ITEMS )   
-					gubPurchaseAtTopOfList = ubPurchaseNumber - BOBBYR_NUM_DISPLAYED_ITEMS + 1;     */
 				gubPurchaseAtTopOfList = ubPurchaseNumber;
 			}
 			gfReDrawBobbyOrder = TRUE;
@@ -2179,20 +2266,27 @@ void DrawOrderGoldRectangle (UINT16 usGridX, UINT16 usGridY)
 	UINT16 usWidth, usTempHeight, usTempPosY, usHeight;
 	UINT16 usPosX, usPosY;
 	UINT16 temp;
+	const BobbyRayLayoutModel::OrderGridLayout grid =
+		BobbyRayLayoutModel::MakeOrderGridLayout({usGridX, usGridY});
 
-	usTempPosY = usGridY + BOBBYR_GRID_SCROLL_UP_ARROW_Y + BOBBYR_SCROLL_ARROW_HEIGHT;
-	usPosX = usGridX + BOBBYR_GRID_SCROLL_COLUMN_X + 2;
-	usWidth = BOBBYR_GRID_SCROLL_COLUMN_WIDTH - 5;
-	usTempHeight = ( BOBBYR_GRID_SCROLL_COLUMN_HEIGHT - 2 * BOBBYR_SCROLL_ARROW_HEIGHT );
+	usTempPosY = static_cast<UINT16>(grid.scrollUp.bottom());
+	usPosX = static_cast<UINT16>(grid.scrollColumn.x + 2);
+	usWidth = static_cast<UINT16>(grid.scrollColumn.width - 5);
+	usTempHeight = static_cast<UINT16>(
+		grid.scrollColumn.height - 2 * grid.scrollUp.height);
 
 	usHeight = usTempHeight / guidivisor;
 
-	usPosY = usTempPosY + (UINT16)( ( ( BOBBYR_GRID_SCROLL_COLUMN_HEIGHT - 2 * BOBBYR_SCROLL_ARROW_HEIGHT ) /	(FLOAT)(guidivisor) ) * gubPurchaseAtTopOfList );
+	usPosY = usTempPosY + static_cast<UINT16>((
+		(grid.scrollColumn.height - 2 * grid.scrollUp.height) /
+		static_cast<FLOAT>(guidivisor)) * gubPurchaseAtTopOfList);
 
-	temp = usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y + BOBBYR_GRID_SCROLL_COLUMN_HEIGHT - BOBBYR_SCROLL_ARROW_HEIGHT - usHeight - 1;
+	temp = static_cast<UINT16>(grid.scrollColumn.bottom() -
+		grid.scrollDown.height - usHeight - 1);
 
 	if( usPosY >= temp )
-		usPosY = usGridY + BOBBYR_GRID_SCROLL_COLUMN_Y + BOBBYR_GRID_SCROLL_COLUMN_HEIGHT - BOBBYR_SCROLL_ARROW_HEIGHT - usHeight - 5;
+		usPosY = static_cast<UINT16>(grid.scrollColumn.bottom() -
+			grid.scrollDown.height - usHeight - 5);
 
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, usPosX, usPosY, usPosX+usWidth, usPosY+usHeight, Get16BPPColor( FROMRGB( 186, 165, 68 ) ) );
 
@@ -2497,15 +2591,26 @@ void DisplayPackageWeight( )
 {
 	CHAR16		zTemp[32];
 	UINT32	uiTotalWeight = CalcPackageTotalWeight();
+	const BobbyRayLayoutModel::MailOrderLayout layout =
+		BobbyRayMailOrderLayout();
 //	FLOAT			fWeight = (FLOAT)(uiTotalWeight / 10.0);
 
 	//Display the 'Package Weight' text
-	DrawTextToScreen(BobbyROrderFormText[ BOBBYR_PACKAGE_WEIGHT ], BOBBYR_PACKAXGE_WEIGHT_X+8, BOBBYR_PACKAXGE_WEIGHT_Y+4, BOBBYR_PACKAXGE_WEIGHT_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+	DrawTextToScreen(BobbyROrderFormText[BOBBYR_PACKAGE_WEIGHT],
+		layout.packageWeightText.origin.x,
+		layout.packageWeightText.origin.y,
+		layout.packageWeightText.width, BOBBYR_ORDER_STATIC_TEXT_FONT,
+		BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, LEFT_JUSTIFIED);
 
 	//Display the weight
 //	swprintf( zTemp, L"%3.1f %s", fWeight, pMessageStrings[ MSG_KILOGRAM_ABBREVIATION ] );
 	swprintf( zTemp, L"%3.1f %s", ( GetWeightBasedOnMetricOption( uiTotalWeight ) / 10.0f ), GetWeightUnitString() );
-	DrawTextToScreen( zTemp, BOBBYR_PACKAXGE_WEIGHT_X+3, BOBBYR_PACKAXGE_WEIGHT_Y+4, BOBBYR_PACKAXGE_WEIGHT_WIDTH, BOBBYR_ORDER_STATIC_TEXT_FONT, BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+	DrawTextToScreen(zTemp, layout.packageWeight.x + 3,
+		layout.packageWeightText.origin.y,
+		layout.packageWeightText.width, BOBBYR_ORDER_STATIC_TEXT_FONT,
+		BOBBYR_ORDER_STATIC_TEXT_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, RIGHT_JUSTIFIED);
 }
 
 
@@ -2534,6 +2639,7 @@ void BtnBobbyRGotoShipmentPageCallback(GUI_BUTTON *btn,INT32 reason)
 BOOLEAN CreateBobbyRayOrderTitle(LaptopPageResourceOwner& owner)
 {
 	VOBJECT_DESC	VObjectDesc;
+	const LaptopLayoutModel::Rect title = BobbyRayMailOrderLayout().title;
 
 		// load BobbyRayTitle graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
@@ -2541,7 +2647,8 @@ BOOLEAN CreateBobbyRayOrderTitle(LaptopPageResourceOwner& owner)
 	if (!owner.addVideoObject(&VObjectDesc, guiBobbyRayTitle)) return FALSE;
 
 	//the link to home page from the title
-	MSYS_DefineRegion( &gSelectedTitleLinkRegion, BOBBYR_BOBBY_RAY_TITLE_X, BOBBYR_BOBBY_RAY_TITLE_Y, (BOBBYR_BOBBY_RAY_TITLE_X + BOBBYR_BOBBY_RAY_TITLE_WIDTH), (UINT16)(BOBBYR_BOBBY_RAY_TITLE_Y + BOBBYR_BOBBY_RAY_TITLE_HEIGHT), MSYS_PRIORITY_HIGH,
+	MSYS_DefineRegion(&gSelectedTitleLinkRegion,
+		title.x, title.y, title.right(), title.bottom(), MSYS_PRIORITY_HIGH,
 							CURSOR_WWW, MSYS_NO_CALLBACK, SelectTitleLinkRegionCallBack);
 	if (!owner.addRegion(gSelectedTitleLinkRegion)) return FALSE;
 
@@ -2551,10 +2658,12 @@ BOOLEAN CreateBobbyRayOrderTitle(LaptopPageResourceOwner& owner)
 void DrawBobbyROrderTitle()
 {
 	HVOBJECT hPixHandle;
+	const LaptopLayoutModel::Rect title = BobbyRayMailOrderLayout().title;
 
 	// Bobbyray title
 	GetVideoObject(&hPixHandle, guiBobbyRayTitle);
-	BltVideoObject(FRAME_BUFFER, hPixHandle, 0, BOBBYR_BOBBY_RAY_TITLE_X, BOBBYR_BOBBY_RAY_TITLE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPixHandle, 0,
+		title.x, title.y, VO_BLT_SRCTRANSPARENCY,NULL);
 }
 
 
@@ -2748,6 +2857,8 @@ BOOLEAN NewWayOfLoadingBobbyRMailOrdersToSaveGameFile( HWFILE hFile )
 void HandleBobbyRMailOrderKeyBoardInput()
 {
 	InputAtom					InputEvent;
+	const BobbyRayLayoutModel::OrderGridLayout orderGrid =
+		BobbyRayMailOrderLayout().orderGrid;
 
 	//while (DequeueSpecificEvent(&InputEvent, KEY_DOWN |KEY_REPEAT) == TRUE)
 	while (DequeueEvent(&InputEvent) == TRUE)
@@ -2763,17 +2874,20 @@ void HandleBobbyRMailOrderKeyBoardInput()
 				case '1':
 					gubSelectedLight = 0;
 					DrawShippingSpeedLights( gubSelectedLight );
-					DisplayShippingCosts( TRUE, 0, BOBBYR_ORDERGRID_X, BOBBYR_ORDERGRID_Y, -1 );
+					DisplayShippingCosts(TRUE, 0,
+						orderGrid.origin.x, orderGrid.origin.y, -1);
 				break;
 				case '2':
 					gubSelectedLight = 1;
 					DrawShippingSpeedLights( gubSelectedLight );
-					DisplayShippingCosts( TRUE, 0, BOBBYR_ORDERGRID_X, BOBBYR_ORDERGRID_Y, -1 );
+					DisplayShippingCosts(TRUE, 0,
+						orderGrid.origin.x, orderGrid.origin.y, -1);
 				break;
 				case '3':
 					gubSelectedLight = 2;
 					DrawShippingSpeedLights( gubSelectedLight );
-					DisplayShippingCosts( TRUE, 0, BOBBYR_ORDERGRID_X, BOBBYR_ORDERGRID_Y, -1 );
+					DisplayShippingCosts(TRUE, 0,
+						orderGrid.origin.x, orderGrid.origin.y, -1);
 				break;
 				default:
 					HandleKeyBoardShortCutsForLapTop( InputEvent.usEvent, InputEvent.usParam, InputEvent.usKeyState );
