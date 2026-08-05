@@ -4010,14 +4010,180 @@ foreach(utils_text_test_manifest IN ITEMS
   endif()
 endforeach()
 
+# Shared media adapters keep callback incarnation, clipped frame geometry, PCM
+# narrowing, volume, and fixed-slot rules dependency-free. The concrete legacy
+# gateways must validate before touching arrays/opaque handles and release
+# borrowing resources in a deterministic order.
+file(READ "${SOURCE_ROOT}/Utils/MediaLifecycleModel.h"
+  runtime_utils_media_model_contents)
+foreach(required_utils_media_model_fragment IN ITEMS
+    "class PlaybackEpoch"
+    "ComputeClippedBlit"
+    "IsSupportedAudioFormat"
+    "CanQueueAudioChunk"
+    "HasElapsedMicroseconds"
+    "ActivePrefixSize"
+    "ScaleVolumeByDistance")
+  string(FIND "${runtime_utils_media_model_contents}"
+    "${required_utils_media_model_fragment}"
+    required_utils_media_model_position)
+  if(required_utils_media_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils media lifecycle model lost '${required_utils_media_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Cinematics.cpp"
+  runtime_utils_cinematics_contents)
+foreach(required_utils_cinematics_fragment IN ITEMS
+    "FileHandleOwner"
+    "SmkOwnsFlic"
+    "ReleaseFlic"
+    "MediaLifecycleModel::ComputeClippedBlit"
+    "MediaLifecycleModel::IsSupportedAudioFormat"
+    "MediaLifecycleModel::CanQueueAudioChunk"
+    "SDL_AudioSpec spec{}"
+    "MediaLifecycleModel::HasElapsedMicroseconds")
+  string(FIND "${runtime_utils_cinematics_contents}"
+    "${required_utils_cinematics_fragment}"
+    required_utils_cinematics_position)
+  if(required_utils_cinematics_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils cinematic ownership/bounds boundary lost '${required_utils_cinematics_fragment}'")
+  endif()
+endforeach()
+foreach(retired_utils_cinematics_fragment IN ITEMS
+    "gSmkList[i] = SMKFLIC{}"
+    "SDL_PutAudioStreamData(f.audioStream.get(), pcm, (int)sz)")
+  string(FIND "${runtime_utils_cinematics_contents}"
+    "${retired_utils_cinematics_fragment}"
+    retired_utils_cinematics_position)
+  if(NOT retired_utils_cinematics_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils cinematic path restored unsafe '${retired_utils_cinematics_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Cinematics Bink.cpp"
+  runtime_utils_bink_contents)
+foreach(required_utils_bink_fragment IN ITEMS
+    "BOOLEAN  BinkPollFlics(void)"
+    "void     BinkCloseFlic(BINKFLIC*)"
+    "void     BinkShutdownVideo(void)"
+    "return nullptr")
+  string(FIND "${runtime_utils_bink_contents}"
+    "${required_utils_bink_fragment}"
+    required_utils_bink_position)
+  if(required_utils_bink_position EQUAL -1)
+    message(FATAL_ERROR
+      "Unsupported Bink compatibility boundary lost '${required_utils_bink_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Music Control.cpp"
+  runtime_utils_music_contents)
+foreach(required_utils_music_fragment IN ITEMS
+    "using MusicListEntries = std::array<std::vector<std::string>"
+    "MusicListEntries stagedLists"
+    "MusicListEntry"
+    "gMusicPlayback.begin()"
+    "gMusicPlayback.cancel()"
+    "gMusicPlayback.accept(playbackToken)"
+    "ClampFadeSpeed")
+  string(FIND "${runtime_utils_music_contents}"
+    "${required_utils_music_fragment}"
+    required_utils_music_position)
+  if(required_utils_music_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils music ownership/callback boundary lost '${required_utils_music_fragment}'")
+  endif()
+endforeach()
+foreach(retired_utils_music_fragment IN ITEMS
+    "std::vector<STR> MusicLists"
+    "MemAlloc(buf"
+    "MemFree(const_cast<CHAR8*>")
+  string(FIND "${runtime_utils_music_contents}"
+    "${retired_utils_music_fragment}"
+    retired_utils_music_position)
+  if(NOT retired_utils_music_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils music restored raw filename ownership '${retired_utils_music_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Sound Control.cpp"
+  runtime_utils_sound_control_contents)
+foreach(required_utils_sound_fragment IN ITEMS
+    "IsValidSoundEffect"
+    "IsValidAmbient"
+    "HasSoundFilename"
+    "CalculateWeaponVolume"
+    "MediaLifecycleModel::ScaleVolume"
+    "MediaLifecycleModel::ActivePrefixSize"
+    "MAX_POSITION_SOUND_EFFECT_SLOTS"
+    "ResetPositionSounds"
+    "SoundIsPlaying")
+  string(FIND "${runtime_utils_sound_control_contents}"
+    "${required_utils_sound_fragment}"
+    required_utils_sound_position)
+  if(required_utils_sound_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils sound gateway/lifecycle boundary lost '${required_utils_sound_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/utils_media_lifecycle_model_tests.cpp"
+  runtime_utils_media_model_test_contents)
+foreach(required_utils_media_model_test_fragment IN ITEMS
+    "media indices reject negative, exact-end, and oversized values"
+    "stale playback callbacks cannot retire a replacement track"
+    "cinematic blits reject oversized positions and zero extents"
+    "cinematic audio validates formats and the SDL queue length boundary"
+    "positional sound recount reaches zero after the final deletion"
+    "positional sound attenuation clamps distance and zero-size viewports")
+  string(FIND "${runtime_utils_media_model_test_contents}"
+    "${required_utils_media_model_test_fragment}"
+    required_utils_media_model_test_position)
+  if(required_utils_media_model_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils media model tests lost '${required_utils_media_model_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_utils_media_platform_fragment IN ITEMS
+    "cinematic gateways reject null, empty, and foreign handles and shut down repeatedly"
+    "sound gateways reject exact-end IDs and null filenames before array access"
+    "positional sound capacity and final-slot recount remain bounded and reusable"
+    "JA2 sound facade shutdown clears delayed and positional state repeatedly"
+    "stale music completion callbacks cannot retire replacement playback"
+    "music shutdown invalidates deferred callbacks before releasing owned lists")
+  string(FIND "${runtime_utils_text_platform_test_contents}"
+    "${required_utils_media_platform_fragment}"
+    required_utils_media_platform_position)
+  if(required_utils_media_platform_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils media platform coverage lost '${required_utils_media_platform_fragment}'")
+  endif()
+endforeach()
+foreach(utils_media_test_manifest IN ITEMS
+    runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
+  string(FIND "${${utils_media_test_manifest}}"
+    "utils_media_lifecycle_model_tests" required_utils_media_test_position)
+  if(required_utils_media_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils media lifecycle model tests left the build or AddressSanitizer matrix")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
   runtime_utils_walkthrough_contents)
 foreach(required_utils_walkthrough_fragment IN ITEMS
     "Interactive UI ownership batch"
     "Text and localization safety batch"
+    "Media lifecycle batch"
     "Remaining Utils inventory"
-    "following 22 translation units"
-    "TextInfrastructureModel.h")
+    "following 18 translation units"
+    "TextInfrastructureModel.h"
+    "MediaLifecycleModel.h")
   string(FIND "${runtime_utils_walkthrough_contents}"
     "${required_utils_walkthrough_fragment}"
     required_utils_walkthrough_position)
@@ -4032,7 +4198,8 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "post-Laptop Utils refactor"
     "UtilsUiStateModel"
     "TextInfrastructureModel"
-    "remaining 22 Utils")
+    "MediaLifecycleModel"
+    "remaining 18 Utils")
   string(FIND "${runtime_engine_architecture_contents}"
     "${required_utils_architecture_fragment}"
     required_utils_architecture_position)

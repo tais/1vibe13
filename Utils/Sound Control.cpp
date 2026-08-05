@@ -6,11 +6,16 @@
 	#include "Sound Control.h"
 	#include "soundman.h"
 	#include "Overhead.h"
-	#include "Isometric Utils.h"
-	#include "renderworld.h"
-	#include "GameSettings.h"
-	#include "SoldierRepository.h"
-	#include "math.h"
+		#include "Isometric Utils.h"
+		#include "renderworld.h"
+		#include "GameSettings.h"
+		#include "MediaLifecycleModel.h"
+		#include "SoldierRepository.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <limits>
 
 #define	SOUND_FAR_VOLUME_MOD	25
 
@@ -407,14 +412,71 @@ UINT8 AmbientVols[NUM_AMBIENTS]={
 };
 
 
-SOUNDPARMS gDelayedSoundParms;
-UINT32	guiDelayedSoundNum;
+SOUNDPARMS gDelayedSoundParms{};
+UINT32	guiDelayedSoundNum = MAX_SAMPLES;
 void DelayedSoundTimerCallback( void );
+static void ResetPositionSounds();
+static bool gJa2SoundInitialized = false;
+
+namespace
+{
+	bool IsValidSoundEffect(UINT32 sound) noexcept
+	{
+		return MediaLifecycleModel::IsValidIndex(MAX_SAMPLES, sound);
+	}
+
+	bool IsValidAmbient(UINT32 ambient) noexcept
+	{
+		return MediaLifecycleModel::IsValidIndex(NUM_AMBIENTS, ambient);
+	}
+
+	bool HasSoundFilename(STR8 filename) noexcept
+	{
+		return filename && *filename;
+	}
+
+	bool IsWeaponFilename(STR8 filename) noexcept
+	{
+		if (!filename) return false;
+		constexpr char marker[] = "WEAPONS";
+		for (; *filename; ++filename)
+		{
+			std::size_t matched = 0;
+			while (marker[matched] && filename[matched])
+			{
+				const unsigned char value =
+					static_cast<unsigned char>(filename[matched]);
+				const char upper = value >= 'a' && value <= 'z'
+					? static_cast<char>(value - ('a' - 'A'))
+					: static_cast<char>(value);
+				if (upper != marker[matched]) break;
+				++matched;
+			}
+			if (!marker[matched]) return true;
+		}
+		return false;
+	}
+
+	UINT32 CalculateWeaponVolume(UINT32 requested)
+	{
+		const UINT32 base = MediaLifecycleModel::ScaleVolume(
+			requested, guiSoundEffectsVolume, HIGHVOLUME);
+		const UINT64 multiplier = 1u +
+			static_cast<UINT64>(gGameExternalOptions.guiWeaponSoundEffectsVolume) / 100u;
+		return static_cast<UINT32>(std::min<UINT64>(
+			static_cast<UINT64>(HIGHVOLUME), static_cast<UINT64>(base) * multiplier));
+	}
+}
 
 
 BOOLEAN InitJA2Sound( )
 {
 //UINT32 uiCount;
+	if (gJa2SoundInitialized) return TRUE;
+	ResetPositionSounds();
+	guiDelayedSoundNum = MAX_SAMPLES;
+	gDelayedSoundParms = SOUNDPARMS{};
+	gJa2SoundInitialized = true;
 
 	//for(uiCount=0; uiCount < NUM_SAMPLES; uiCount++)
 	//{
@@ -429,6 +491,12 @@ BOOLEAN ShutdownJA2Sound( )
 //UINT32 uiCount;
 
 	SoundStopAll();
+	if (gpCustomizableTimerCallback == DelayedSoundTimerCallback)
+		gpCustomizableTimerCallback = nullptr;
+	guiDelayedSoundNum = MAX_SAMPLES;
+	gDelayedSoundParms = SOUNDPARMS{};
+	ResetPositionSounds();
+	gJa2SoundInitialized = false;
 
 	//for(uiCount=0; uiCount < NUM_SAMPLES; uiCount++)
 	//{
@@ -443,24 +511,25 @@ UINT32 PlayJA2Sample( UINT32 usNum, UINT32 usRate, UINT32 ubVolume, UINT32 ubLoo
 {
 	//SoundLog((CHAR8 *)String(" Play sound %s on volume %d", szSoundEffects[usNum], ubVolume));
 
+	if (!IsValidSoundEffect(usNum) || !szSoundEffects[usNum][0]) return NO_SAMPLE;
+
 	SOUNDPARMS spParms;
 
 	memset(&spParms, 0xff, sizeof(SOUNDPARMS));
 
 	spParms.uiSpeed = usRate;
 
-	if ( strstr( szSoundEffects[usNum], "WEAPONS" ) == NULL )
+	if (!IsWeaponFilename(szSoundEffects[usNum]))
 	{
 		spParms.uiVolume = CalculateSoundEffectsVolume( ubVolume );
 	}
 	else
 	{
-		spParms.uiVolume = (UINT32)( ( ubVolume / (FLOAT) HIGHVOLUME ) * guiSoundEffectsVolume +.5 ) * (1 + gGameExternalOptions.guiWeaponSoundEffectsVolume / 100);
+		spParms.uiVolume = CalculateWeaponVolume(ubVolume);
 	}
 
-	spParms.uiVolume &= 0xFFL;
 	spParms.uiLoop = ubLoops;
-	spParms.uiPan = uiPan & 0xFFL;
+	spParms.uiPan = std::min<UINT32>(uiPan, 127);
 	spParms.uiPriority=GROUP_PLAYER;
 
 	//SoundLog((CHAR8 *)String(" Play sound %s on volume %d", szSoundEffects[usNum], spParms.uiVolume));
@@ -471,6 +540,8 @@ UINT32 PlayJA2Sample( UINT32 usNum, UINT32 usRate, UINT32 ubVolume, UINT32 ubLoo
 
 UINT32 PlayJA2StreamingSample( UINT32 usNum, UINT32 usRate, UINT32 ubVolume, UINT32 ubLoops, UINT32 uiPan )
 {
+	if (!IsValidSoundEffect(usNum) || !szSoundEffects[usNum][0]) return NO_SAMPLE;
+
 	SOUNDPARMS spParms;
 
 	memset(&spParms, 0xff, sizeof(SOUNDPARMS));
@@ -479,7 +550,7 @@ UINT32 PlayJA2StreamingSample( UINT32 usNum, UINT32 usRate, UINT32 ubVolume, UIN
 
 	spParms.uiVolume = CalculateSoundEffectsVolume( ubVolume );
 	spParms.uiLoop = ubLoops;
-	spParms.uiPan = uiPan;
+	spParms.uiPan = std::min<UINT32>(uiPan, 127);
 	spParms.uiPriority=GROUP_PLAYER;
 
 	return(SoundPlayStreamedFile(szSoundEffects[usNum], &spParms));
@@ -487,13 +558,15 @@ UINT32 PlayJA2StreamingSample( UINT32 usNum, UINT32 usRate, UINT32 ubVolume, UIN
 
 UINT32 PlayWeaponSound(STR8 szFileName, UINT32 ubVolume, UINT32 uiPan)
 {
+	if (!HasSoundFilename(szFileName)) return NO_SAMPLE;
+
 	SOUNDPARMS spParms;
 
 	memset(&spParms, 0xff, sizeof(SOUNDPARMS));
 	spParms.uiSpeed = RATE_11025;
-	spParms.uiVolume = CalculateSoundEffectsVolume(ubVolume);
+	spParms.uiVolume = CalculateWeaponVolume(ubVolume);
 	spParms.uiLoop = 1;
-	spParms.uiPan = uiPan;
+	spParms.uiPan = std::min<UINT32>(uiPan, 127);
 	spParms.uiPriority = GROUP_PLAYER;
 
 	return(SoundPlay((STR)szFileName, &spParms));
@@ -504,23 +577,25 @@ UINT32 PlayJA2SampleFromFile( STR8 szFileName, UINT32 usRate, UINT32 ubVolume, U
 	//SoundLog((CHAR8 *)String(" Play sound %s on volume %d", szFileName, ubVolume));
 	// does the same thing as PlayJA2Sound, but one only has to pass the filename, not the index of the sound array
 
+	if (!HasSoundFilename(szFileName)) return NO_SAMPLE;
+
 	SOUNDPARMS spParms;
 
 	memset(&spParms, 0xff, sizeof(SOUNDPARMS));
 
 	spParms.uiSpeed = usRate;
 
-	if ( strstr( szFileName, "WEAPONS" ) == NULL )
+	if (!IsWeaponFilename(szFileName))
 	{
 		spParms.uiVolume = CalculateSoundEffectsVolume( ubVolume );
 	}
 	else
 	{
-		spParms.uiVolume = (UINT32)( ( ubVolume / (FLOAT) HIGHVOLUME ) * guiSoundEffectsVolume +.5 ) * (1 + gGameExternalOptions.guiWeaponSoundEffectsVolume / 100);
+		spParms.uiVolume = CalculateWeaponVolume(ubVolume);
 	}
 
 	spParms.uiLoop = ubLoops;
-	spParms.uiPan = uiPan;
+	spParms.uiPan = std::min<UINT32>(uiPan, 127);
 	spParms.uiPriority=GROUP_PLAYER;
 
 	//SoundLog((CHAR8 *)String(" Play sound %s on volume %d", szFileName, spParms.uiVolume));
@@ -533,6 +608,8 @@ UINT32 PlayJA2StreamingSampleFromFile( STR8 szFileName, UINT32 usRate, UINT32 ub
 
 	// does the same thing as PlayJA2Sound, but one only has to pass the filename, not the index of the sound array
 
+	if (!HasSoundFilename(szFileName)) return NO_SAMPLE;
+
 	SOUNDPARMS spParms;
 
 	memset(&spParms, 0xff, sizeof(SOUNDPARMS));
@@ -540,9 +617,10 @@ UINT32 PlayJA2StreamingSampleFromFile( STR8 szFileName, UINT32 usRate, UINT32 ub
 	spParms.uiSpeed = usRate;
 	spParms.uiVolume = CalculateSoundEffectsVolume( ubVolume );
 	spParms.uiLoop = ubLoops;
-	spParms.uiPan = uiPan;
+	spParms.uiPan = std::min<UINT32>(uiPan, 127);
 	spParms.uiPriority=GROUP_PLAYER;
 	spParms.EOSCallback=EndsCallback;
+	spParms.pCallbackData=nullptr;
 
 	return( SoundPlayStreamedFile(szFileName, &spParms) );
 }
@@ -550,6 +628,8 @@ UINT32 PlayJA2StreamingSampleFromFile( STR8 szFileName, UINT32 usRate, UINT32 ub
 
 UINT32 PlayJA2Ambient( UINT32 usNum, UINT32 ubVolume, UINT32 ubLoops)
 {
+	if (!IsValidAmbient(usNum) || !szAmbientEffects[usNum][0]) return NO_SAMPLE;
+
 	SOUNDPARMS spParms;
 
 	memset(&spParms, 0xff, sizeof(SOUNDPARMS));
@@ -563,6 +643,8 @@ UINT32 PlayJA2Ambient( UINT32 usNum, UINT32 ubVolume, UINT32 ubLoops)
 
 UINT32 PlayJA2AmbientRandom( UINT32 usNum, UINT32 uiTimeMin, UINT32 uiTimeMax)
 {
+	if (!IsValidAmbient(usNum) || !szAmbientEffects[usNum][0]) return NO_SAMPLE;
+
 	RANDOMPARMS rpParms;
 
 	memset(&rpParms, 0xff, sizeof(RANDOMPARMS));
@@ -580,6 +662,7 @@ UINT32 PlayJA2AmbientRandom( UINT32 usNum, UINT32 uiTimeMin, UINT32 uiTimeMax)
 
 UINT32 PlaySoldierJA2Sample( SoldierID usID, UINT32 usNum, UINT32 usRate, UINT32 ubVolume, UINT32 ubLoops, UINT32 uiPan, BOOLEAN fCheck )
 {
+	if (!IsValidSoundEffect(usNum)) return NO_SAMPLE;
 	if( !( gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
 	{
 		TacticalActor* soldier =
@@ -587,7 +670,7 @@ UINT32 PlaySoldierJA2Sample( SoldierID usID, UINT32 usNum, UINT32 usRate, UINT32
 		// CHECK IF GUY IS ON SCREEN BEFORE PLAYING!
 		if ( soldier && ( !soldier->awareness().fullyHidden() || !fCheck ) )
 		{
-			return( PlayJA2Sample( usNum, usRate, CalculateSoundEffectsVolume( ubVolume ), ubLoops, uiPan ) );
+				return( PlayJA2Sample( usNum, usRate, ubVolume, ubLoops, uiPan ) );
 		}
 	}
 
@@ -626,12 +709,13 @@ UINT32 GetSoundEffectsVolume( )
 
 UINT32 CalculateSpeechVolume( UINT32 uiVolume )
 {
-	return( (UINT32) ( ( uiVolume / (FLOAT) HIGHVOLUME ) * guiSpeechVolume +.5 ) );
+	return MediaLifecycleModel::ScaleVolume(uiVolume, guiSpeechVolume, HIGHVOLUME);
 }
 
 UINT32 CalculateSoundEffectsVolume( UINT32 uiVolume )
 {
-	return( (UINT32) ( ( uiVolume / (FLOAT) HIGHVOLUME ) * guiSoundEffectsVolume +.5 ) );
+	return MediaLifecycleModel::ScaleVolume(
+		uiVolume, guiSoundEffectsVolume, HIGHVOLUME);
 }
 
 
@@ -734,13 +818,14 @@ INT32 SoundVolume( INT8 bInitialVolume, INT32 sGridNo )
 
 void PlayDelayedJA2Sample( UINT32 uiDelay, UINT32 usNum, UINT32 usRate, UINT32 ubVolume, UINT32 ubLoops, UINT32 uiPan )
 {
+	if (!IsValidSoundEffect(usNum) || !szSoundEffects[usNum][0]) return;
 
 	memset(&gDelayedSoundParms, 0xff, sizeof(SOUNDPARMS));
 
 	gDelayedSoundParms.uiSpeed = usRate;
 	gDelayedSoundParms.uiVolume = CalculateSoundEffectsVolume( ubVolume );
 	gDelayedSoundParms.uiLoop = ubLoops;
-	gDelayedSoundParms.uiPan = uiPan;
+	gDelayedSoundParms.uiPan = std::min<UINT32>(uiPan, 127);
 	gDelayedSoundParms.uiPriority=GROUP_PLAYER;
 
 	guiDelayedSoundNum = usNum;
@@ -748,13 +833,21 @@ void PlayDelayedJA2Sample( UINT32 uiDelay, UINT32 usNum, UINT32 usRate, UINT32 u
 	//return(SoundPlay(szSoundEffects[usNum], &spParms));
 
 	// Setup multipurpose timer....
-	SetCustomizableTimerCallbackAndDelay( uiDelay, DelayedSoundTimerCallback, FALSE );
+	SetCustomizableTimerCallbackAndDelay(
+		static_cast<INT32>(std::min<UINT32>(
+			uiDelay, static_cast<UINT32>(std::numeric_limits<INT32>::max()))),
+		DelayedSoundTimerCallback, FALSE);
 
 }
 
 void DelayedSoundTimerCallback( void )
 {
-	SoundPlay( szSoundEffects[ guiDelayedSoundNum ], &gDelayedSoundParms );
+	if (IsValidSoundEffect(guiDelayedSoundNum) &&
+		szSoundEffects[guiDelayedSoundNum][0])
+	{
+		SoundPlay(szSoundEffects[guiDelayedSoundNum], &gDelayedSoundParms);
+	}
+	guiDelayedSoundNum = MAX_SAMPLES;
 }
 
 
@@ -767,14 +860,12 @@ void DelayedSoundTimerCallback( void )
 /////////////////////////////////////////////////////////
 // Positional Ambients
 /////////////////////////////////////////////////////////
-#define		NUM_POSITION_SOUND_EFFECT_SLOTS					10
-
 typedef struct
 {
 	UINT32		uiFlags;
 	INT32		sGridNo;
-	INT32		iSoundSampleID;
-	INT32		iSoundToPlay;
+	UINT32		iSoundSampleID;
+	UINT32		iSoundToPlay;
 	UINT32		uiData;
 	BOOLEAN		fAllocated;
 	BOOLEAN		fInActive;
@@ -784,44 +875,42 @@ typedef struct
 
 
 // GLOBAL FOR SMOKE LISTING
-POSITIONSND				gPositionSndData[ NUM_POSITION_SOUND_EFFECT_SLOTS ];
-UINT32						guiNumPositionSnds = 0;
-BOOLEAN			gfPositionSoundsActive = FALSE;
+static POSITIONSND gPositionSndData[MAX_POSITION_SOUND_EFFECT_SLOTS];
+static UINT32 guiNumPositionSnds = 0;
+static BOOLEAN gfPositionSoundsActive = FALSE;
 
 
-INT32 GetFreePositionSnd( void );
-void RecountPositionSnds( void );
+static INT32 GetFreePositionSnd( void );
+static void RecountPositionSnds( void );
 
 
 
-INT32 GetFreePositionSnd( void )
+static INT32 GetFreePositionSnd( void )
 {
 	UINT32 uiCount;
+	guiNumPositionSnds = std::min<UINT32>(
+		guiNumPositionSnds, MAX_POSITION_SOUND_EFFECT_SLOTS);
 
 	for ( uiCount = 0; uiCount < guiNumPositionSnds; uiCount++ )
 	{
-		if ( (gPositionSndData[uiCount].fAllocated == FALSE) )
+		if (!gPositionSndData[uiCount].fAllocated)
 			return((INT32)uiCount);
 	}
 
-	if ( guiNumPositionSnds < NUM_POSITION_SOUND_EFFECT_SLOTS )
+	if ( guiNumPositionSnds < MAX_POSITION_SOUND_EFFECT_SLOTS )
 		return((INT32)guiNumPositionSnds++);
 
 	return(-1);
 }
 
-void RecountPositionSnds( void )
+static void RecountPositionSnds( void )
 {
-	INT32 uiCount;
-
-	for ( uiCount = guiNumPositionSnds - 1; (uiCount >= 0); uiCount-- )
-	{
-		if ( (gPositionSndData[uiCount].fAllocated) )
-		{
-			guiNumPositionSnds = (UINT32)(uiCount + 1);
-			break;
-		}
-	}
+	guiNumPositionSnds = static_cast<UINT32>(
+		MediaLifecycleModel::ActivePrefixSize(
+			MAX_POSITION_SOUND_EFFECT_SLOTS,
+			[](std::size_t index) {
+				return gPositionSndData[index].fAllocated != FALSE;
+			}));
 }
 
 
@@ -830,7 +919,11 @@ INT32 NewPositionSnd( INT32 sGridNo, UINT32 uiFlags, UINT32 uiData, UINT32 iSoun
 	POSITIONSND *pPositionSnd;
 	INT32				iPositionSndIndex;
 
-	if ( (iPositionSndIndex = GetFreePositionSnd()) == (-1) )
+	if (iSoundToPlay != POWER_GEN_FAN_SOUND && !IsValidSoundEffect(iSoundToPlay))
+		return -1;
+
+	iPositionSndIndex = GetFreePositionSnd();
+	if (iPositionSndIndex == -1)
 		return(-1);
 
 	memset( &gPositionSndData[iPositionSndIndex], 0, sizeof( POSITIONSND ) );
@@ -838,25 +931,20 @@ INT32 NewPositionSnd( INT32 sGridNo, UINT32 uiFlags, UINT32 uiData, UINT32 iSoun
 	pPositionSnd = &gPositionSndData[iPositionSndIndex];
 
 
-	// Default to inactive
-
-	if ( gfPositionSoundsActive )
-	{
-		pPositionSnd->fInActive = FALSE;
-	}
-	else
-	{
-		pPositionSnd->fInActive = TRUE;
-	}
+	// Publish inactive first. If positional playback is already active, start the
+	// new entry only after all of its state is complete.
+	pPositionSnd->fInActive = TRUE;
 
 	pPositionSnd->sGridNo = sGridNo;
 	pPositionSnd->uiData = uiData;
 	pPositionSnd->uiFlags = uiFlags;
 	pPositionSnd->fAllocated = TRUE;
 	pPositionSnd->iSoundToPlay = iSoundToPlay;
-	pPositionSnd->volume = volume;
+	pPositionSnd->volume = static_cast<UINT8>(
+		MediaLifecycleModel::ClampVolume(volume, HIGHVOLUME));
 
 	pPositionSnd->iSoundSampleID = NO_SAMPLE;
+	if (gfPositionSoundsActive) SetPositionSndsActive();
 
 	return(iPositionSndIndex);
 }
@@ -864,6 +952,8 @@ INT32 NewPositionSnd( INT32 sGridNo, UINT32 uiFlags, UINT32 uiData, UINT32 iSoun
 void DeletePositionSnd( INT32 iPositionSndIndex )
 {
 	POSITIONSND *pPositionSnd;
+	if (!MediaLifecycleModel::IsValidIndex(
+		MAX_POSITION_SOUND_EFFECT_SLOTS, iPositionSndIndex)) return;
 
 	pPositionSnd = &gPositionSndData[iPositionSndIndex];
 
@@ -876,6 +966,7 @@ void DeletePositionSnd( INT32 iPositionSndIndex )
 		if ( pPositionSnd->iSoundSampleID != NO_SAMPLE )
 		{
 			SoundStop( pPositionSnd->iSoundSampleID );
+			pPositionSnd->iSoundSampleID = NO_SAMPLE;
 		}
 
 		pPositionSnd->fAllocated = FALSE;
@@ -887,6 +978,8 @@ void DeletePositionSnd( INT32 iPositionSndIndex )
 void SetPositionSndGridNo( INT32 iPositionSndIndex, INT32 sGridNo )
 {
 	POSITIONSND *pPositionSnd;
+	if (!MediaLifecycleModel::IsValidIndex(
+		MAX_POSITION_SOUND_EFFECT_SLOTS, iPositionSndIndex)) return;
 
 	pPositionSnd = &gPositionSndData[iPositionSndIndex];
 
@@ -913,8 +1006,6 @@ void SetPositionSndsActive()
 		{
 			if ( pPositionSnd->fInActive )
 			{
-				pPositionSnd->fInActive = FALSE;
-
 				// Begin sound effect
 				// Volume 0
 				if ( pPositionSnd->iSoundToPlay == POWER_GEN_FAN_SOUND )
@@ -925,6 +1016,8 @@ void SetPositionSndsActive()
 				{
 					pPositionSnd->iSoundSampleID = PlayJA2Sample( pPositionSnd->iSoundToPlay, RATE_11025, 0, 0, MIDDLEPAN );
 				}
+				pPositionSnd->fInActive =
+					pPositionSnd->iSoundSampleID == NO_SAMPLE ? TRUE : FALSE;
 			}
 		}
 	}
@@ -1015,11 +1108,10 @@ INT8 PositionSoundVolume( INT8 bInitialVolume, INT32 sGridNo )
 {
 	INT16 sWorldX, sWorldY;
 	INT16 sScreenX, sScreenY;
-	INT16	sMiddleX, sMiddleY;
-	INT16	sDifX, sAbsDifX;
-	INT16	sDifY, sAbsDifY;
-	INT16 sMaxDistX, sMaxDistY;
-	double sMaxSoundDist, sSoundDist;
+	double sMiddleX, sMiddleY;
+	double sDifX, sDifY;
+	double sMaxDistX, sMaxDistY;
+	if (bInitialVolume <= 0) return 0;
 
 	if ( TileIsOutOfBounds( sGridNo ) )
 	{
@@ -1036,30 +1128,16 @@ INT8 PositionSoundVolume( INT8 bInitialVolume, INT32 sGridNo )
 	sMiddleX = gsTopLeftWorldX + (gsBottomRightWorldX - gsTopLeftWorldX) / 2;
 	sMiddleY = gsTopLeftWorldY + (gsBottomRightWorldY - gsTopLeftWorldY) / 2;
 
-	sDifX = sMiddleX - sScreenX;
-	sDifY = sMiddleY - sScreenY;
-
-	sAbsDifX = abs( sDifX );
-	sAbsDifY = abs( sDifY );
-
-	sMaxDistX = (INT16)((gsBottomRightWorldX - gsTopLeftWorldX) * 1.5);
-	sMaxDistY = (INT16)((gsBottomRightWorldY - gsTopLeftWorldY) * 1.5);
-
-	sMaxSoundDist = sqrt( (double)(sMaxDistX * sMaxDistX) + (sMaxDistY * sMaxDistY) );
-	sSoundDist = sqrt( (double)(sAbsDifX * sAbsDifX) + (sAbsDifY * sAbsDifY) );
-
-	if ( sSoundDist == 0 )
-	{
-		return(bInitialVolume);
-	}
-
-	if ( sSoundDist > sMaxSoundDist )
-	{
-		sSoundDist = sMaxSoundDist;
-	}
-
-	// Scale
-	return((INT8)(bInitialVolume * ((sMaxSoundDist - sSoundDist) / sMaxSoundDist)));
+	sDifX = sMiddleX - static_cast<double>(sScreenX);
+	sDifY = sMiddleY - static_cast<double>(sScreenY);
+	sMaxDistX = std::abs(static_cast<double>(
+		gsBottomRightWorldX - gsTopLeftWorldX)) * 1.5;
+	sMaxDistY = std::abs(static_cast<double>(
+		gsBottomRightWorldY - gsTopLeftWorldY)) * 1.5;
+	const double maximumDistance = std::hypot(sMaxDistX, sMaxDistY);
+	const double distance = std::hypot(sDifX, sDifY);
+	return static_cast<INT8>(MediaLifecycleModel::ScaleVolumeByDistance(
+		static_cast<UINT8>(bInitialVolume), distance, maximumDistance));
 }
 
 
@@ -1081,6 +1159,12 @@ void SetPositionSndsVolumeAndPanning()
 			{
 				if ( pPositionSnd->iSoundSampleID != NO_SAMPLE )
 				{
+					if (!SoundIsPlaying(pPositionSnd->iSoundSampleID))
+					{
+						pPositionSnd->iSoundSampleID = NO_SAMPLE;
+						pPositionSnd->fInActive = TRUE;
+						continue;
+					}
 					bVolume = PositionSoundVolume( pPositionSnd->volume, pPositionSnd->sGridNo );
 
 					if ( pPositionSnd->uiFlags & POSITION_SOUND_FROM_SOLDIER )
@@ -1117,6 +1201,18 @@ void SetPositionSndsVolumeAndPanning()
 			}
 		}
 	}
+}
+
+static void ResetPositionSounds()
+{
+	for (POSITIONSND& sound : gPositionSndData)
+	{
+		sound = POSITIONSND{};
+		sound.iSoundSampleID = NO_SAMPLE;
+		sound.fInActive = TRUE;
+	}
+	guiNumPositionSnds = 0;
+	gfPositionSoundsActive = FALSE;
 }
 
 

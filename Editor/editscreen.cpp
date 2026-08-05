@@ -1616,12 +1616,15 @@ void HandleKeyboardShortcuts( )
 					break;
 
 				case F4:
-					MusicPlay(gMusicMode, giMusicID);
-					ScreenMsg( FONT_YELLOW, MSG_INTERFACE, L"%S", MusicLists[gMusicMode][giMusicID] );
+					if (MusicPlay(gMusicMode, giMusicID))
+					{
+						ScreenMsg(FONT_YELLOW, MSG_INTERFACE, L"%S",
+							MusicListEntry(gMusicMode, giMusicID));
+					}
 
-					// Select next track 
+					// Select next track
 					giMusicID++;
-					if (giMusicID >= MusicLists[gMusicMode].size())
+					if (giMusicID >= MusicListSize(gMusicMode))
 					{
 						giMusicID = 0;
 						for (size_t i = 0; i < MAX_MUSIC; i++)

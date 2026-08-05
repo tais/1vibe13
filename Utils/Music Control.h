@@ -3,6 +3,8 @@
 
 #include "Overhead Types.h"
 
+#include <cstddef>
+
 enum MusicMode
 {
 	MUSIC_NONE,
@@ -38,10 +40,12 @@ enum NewMusicList
 	MAX_MUSIC,
 };
 
-extern std::vector<STR> MusicLists[MAX_MUSIC];
-
 void InitializeMusicLists();
 void ShutdownMusicLists();
+
+std::size_t MusicListSize(NewMusicList mode);
+// Borrowed until ShutdownMusicLists or the next initialization cycle.
+STR MusicListEntry(NewMusicList mode, std::size_t songIndex);
 
 UINT8 GetMusicMode(void);
 BOOLEAN SetMusicMode(UINT8 ubMusicMode);

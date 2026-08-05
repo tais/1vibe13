@@ -200,6 +200,16 @@ target_include_directories(utils_text_state_model_tests
 add_test(NAME utils_text_state_model
   COMMAND utils_text_state_model_tests)
 
+# Shared cinematic, music, and sound adapters own fixed slots, opaque callback
+# epochs, clipped frame geometry, PCM queue limits, and positional attenuation.
+# Keep their reusable boundary rules independently executable and data-free.
+add_executable(utils_media_lifecycle_model_tests
+  utils_media_lifecycle_model_tests.cpp)
+target_include_directories(utils_media_lifecycle_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Utils)
+add_test(NAME utils_media_lifecycle_model
+  COMMAND utils_media_lifecycle_model_tests)
+
 # Encyclopedia is disabled in the current product configuration, but it is
 # still maintained source rather than dead text. Compile its complete path in
 # every host so dormant bounds and ownership code cannot silently decay.
