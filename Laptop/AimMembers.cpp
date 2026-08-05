@@ -53,6 +53,7 @@
 #include "Encrypted File.h"
 	#include "InterfaceItemImages.h"
 	#include "LaptopPageResourceOwner.h"
+#include "AimMemberProfileLayout.h"
 #include <sstream>
 #include <vector>
 #include <language.hpp>
@@ -106,236 +107,8 @@
 #define	MERC_ANNOYED_WONT_CONTACT_TIME_MINUTES	6 * 60
 #define	NUMBER_HATED_MERCS_ONTEAM							6
 
-#define		STATS_X						IMAGE_OFFSET_X + 121
-#define		STATS_Y						IMAGE_OFFSET_Y + 66
-
-#define		PRICE_X						IMAGE_OFFSET_X + 377
-#define		PRICE_Y						STATS_Y
-#define		PRICE_WIDTH					116
-
-#define		PORTRAIT_X					IMAGE_OFFSET_X + 8
-#define		PORTRAIT_Y					STATS_Y
-#define		PORTRAIT_WIDTH				110
-#define		PORTRAIT_HEIGHT				126
-
-#define		FACE_X						PORTRAIT_X + 2
-#define		FACE_Y						PORTRAIT_Y + 2
-#define		FACE_WIDTH					106
-#define		FACE_HEIGHT					122
-
-#define		WEAPONBOX_X					IMAGE_OFFSET_X + 6
-#define		WEAPONBOX_Y					IMAGE_OFFSET_Y + 296
-#define		WEAPONBOX_SIZE_X			61
-#define		WEAPONBOX_SIZE_Y			31
-#define		WEAPONBOX_NUMBER			8
-
-#define		SPACE_BN_LINES									15
-#define		STATS_FIRST_COL		STATS_X + 9
-#define		STATS_SECOND_COL	STATS_FIRST_COL + 129
-#define		STATS_FIRST_NUM									STATS_X + 111
-#define		STATS_SECOND_NUM	STATS_X + 235
-
-#define		HEALTH_Y				STATS_Y + 34
-#define		AGILITY_Y				HEALTH_Y	+ SPACE_BN_LINES
-#define		DEXTERITY_Y				AGILITY_Y + SPACE_BN_LINES
-#define		STRENGTH_Y				DEXTERITY_Y + SPACE_BN_LINES
-#define		LEADERSHIP_Y			STRENGTH_Y + SPACE_BN_LINES
-#define		WISDOM_Y				LEADERSHIP_Y + SPACE_BN_LINES
-
-#define		EXPLEVEL_Y				HEALTH_Y
-#define		MARKSMAN_Y				AGILITY_Y
-#define		MECHANAICAL_Y			DEXTERITY_Y
-#define		EXPLOSIVE_Y				STRENGTH_Y
-#define		MEDICAL_Y				LEADERSHIP_Y
-
-#define		NAME_X					STATS_FIRST_COL
-#define		NAME_Y					STATS_Y + 7
-
-#define		FEE_X					PRICE_X + 7
-#define		FEE_Y					NAME_Y
-#define		FEE_WIDTH				37
-#define		FEE_X_UB				PRICE_X + 40
-#define		FEE_Y_UB				STATS_Y + 28
-#define		FEE_Y_UB_NSGI			STATS_Y
-
-#define		AIM_CONTRACT_X			PRICE_X + 51
-#define		AIM_CONTRACT_Y			FEE_Y
-#define		AIM_CONTRACT_WIDTH		59
-#define		AIM_CONTRACT_X_UB		PRICE_X + 19
-#define		AIM_OFFER_X				PRICE_X + 3
-#define		AIM_OFFER_WIDTH			110
-
-#define		ONEDAY_X				AIM_CONTRACT_X
-#define		ONEWEEK_X				AIM_CONTRACT_X
-#define		TWOWEEK_X				AIM_CONTRACT_X
-
-#define		PREVIOUS_X				iScreenWidthOffset + 224
-#define		PREVIOUS_Y				iScreenHeightOffset + 386 + LAPTOP_SCREEN_WEB_DELTA_Y
-#define		PREVIOUS_BOX_Y			PREVIOUS_Y - 4
-#define		PREVIOUS_BR_X			PREVIOUS_X + BOTTOM_BUTTON_START_WIDTH
-#define		PREVIOUS_BR_Y			PREVIOUS_BOX_Y + BOTTOM_BUTTON_START_HEIGHT
-
-
-#define		CONTACT_X				iScreenWidthOffset + 331
-#define		CONTACT_Y				PREVIOUS_Y
-#define		CONTACT_BOX_Y			CONTACT_Y - 4
-#define		CONTACT_BOX_WIDTH		75
-#define		CONTACT_BOX_HEIGHT		18
-#define		CONTACT_BR_X			CONTACT_X + BOTTOM_BUTTON_START_WIDTH
-#define		CONTACT_BR_Y			CONTACT_BOX_Y + BOTTOM_BUTTON_START_HEIGHT
-
-#define		NEXT_X					iScreenWidthOffset + 431
-#define		NEXT_Y					PREVIOUS_Y
-#define		NEXT_BOX_Y				NEXT_Y - 4
-#define		NEXT_BR_X				NEXT_X + BOTTOM_BUTTON_START_WIDTH
-#define		NEXT_BR_Y				NEXT_BOX_Y + BOTTOM_BUTTON_START_HEIGHT
-
-#define		AIM_PAGE_X					iScreenWidthOffset + 582
-#define		AIM_PAGE_Y					PREVIOUS_Y + 4
-
-#define		AIM_MERC_INFO_X			iScreenWidthOffset + 124
-#define		AIM_MERC_INFO_Y			iScreenHeightOffset + 223 + LAPTOP_SCREEN_WEB_DELTA_Y
-
-#define		AIM_MERC_ADD_X			AIM_MERC_ADD_INFO_X
-#define		AIM_MERC_ADD_Y			iScreenHeightOffset + 269 + LAPTOP_SCREEN_WEB_DELTA_Y
-
-#define		AIM_MERC_ADD_INFO_X		AIM_MERC_INFO_X
-#define		AIM_MERC_ADD_INFO_Y		AIM_MERC_ADD_Y + 15
-#define		AIM_MERC_INFO_WIDTH		470
-
-#define		WEAPONBOX_X					IMAGE_OFFSET_X + 6
-#define		WEAPONBOX_Y					IMAGE_OFFSET_Y + 296
-#define		WEAPONBOX_SIZE_X			61
-#define		WEAPONBOX_SIZE_Y			31
-#define		WEAPONBOX_NUMBER			8
-
-//tais: nsgi, weaponbox values
-#define		WEAPONBOX_X_NSGI			IMAGE_OFFSET_X + 24
-#define		WEAPONBOX_Y_NSGI			IMAGE_OFFSET_Y + 245
-#define		WEAPONBOX_SIZE_X_NSGI		64
-#define		WEAPONBOX_SIZE_Y_NSGI		30
-#define		WEAPONBOX_COLUMNS			7
-#define		WEAPONBOX_ROWS				3
-#define		WEAPONBOX_TOTAL_ITEMS		WEAPONBOX_COLUMNS * WEAPONBOX_ROWS
-
-#define		WEAPONBOX_BUTTON_START_WIDTH	BOTTOM_BUTTON_START_WIDTH
-#define		WEAPONBOX_BUTTON_START_HEIGHT	BOTTOM_BUTTON_START_HEIGHT
-
-#define		WEAPONBOX_LOADOUT_BUTTON_X_DISTANCE		15
-
-#define		WEAPONBOX_LOADOUT_ONE_X					iScreenWidthOffset + 143
-#define		WEAPONBOX_LOADOUT_ONE_Y					iScreenHeightOffset + 367 + LAPTOP_SCREEN_WEB_DELTA_Y
-
-//tais: nsgi changed defines, kept old to keep old looks..
-#define		STATS_X_NSGI				IMAGE_OFFSET_X + 121
-#define		STATS_Y_NSGI				IMAGE_OFFSET_Y + 34
-
-#define		PRICE_X_NSGI				IMAGE_OFFSET_X + 377
-#define		PRICE_Y_NSGI				STATS_Y_NSGI
-#define		PRICE_WIDTH_NSGI			116
-
-#define		PORTRAIT_X_NSGI				IMAGE_OFFSET_X + 8
-#define		PORTRAIT_Y_NSGI				STATS_Y_NSGI
-#define		PORTRAIT_WIDTH_NSGI			110
-#define		PORTRAIT_HEIGHT_NSGI		126
-
-#define		FACE_X_NSGI					PORTRAIT_X_NSGI + 2
-#define		FACE_Y_NSGI					PORTRAIT_Y_NSGI + 2
-#define		FACE_WIDTH_NSGI				106
-#define		FACE_HEIGHT_NSGI			122
-
-#define		SPACE_BN_LINES_NSGI			15
-#define		STATS_FIRST_COL_NSGI		STATS_X_NSGI + 9
-#define		STATS_SECOND_COL_NSGI		STATS_FIRST_COL_NSGI + 129
-#define		STATS_FIRST_NUM_NSGI		STATS_X_NSGI + 111
-#define		STATS_SECOND_NUM_NSGI		STATS_X_NSGI + 235
-
-#define		HEALTH_Y_NSGI				STATS_Y_NSGI + 34
-#define		AGILITY_Y_NSGI				HEALTH_Y_NSGI	+ SPACE_BN_LINES_NSGI
-#define		DEXTERITY_Y_NSGI			AGILITY_Y_NSGI + SPACE_BN_LINES_NSGI
-#define		STRENGTH_Y_NSGI				DEXTERITY_Y_NSGI + SPACE_BN_LINES_NSGI
-#define		LEADERSHIP_Y_NSGI			STRENGTH_Y_NSGI + SPACE_BN_LINES_NSGI
-#define		WISDOM_Y_NSGI				LEADERSHIP_Y_NSGI + SPACE_BN_LINES_NSGI
-
-#define		EXPLEVEL_Y_NSGI				HEALTH_Y_NSGI
-#define		MARKSMAN_Y_NSGI				AGILITY_Y_NSGI
-#define		MECHANAICAL_Y_NSGI			DEXTERITY_Y_NSGI
-#define		EXPLOSIVE_Y_NSGI			STRENGTH_Y_NSGI
-#define		MEDICAL_Y_NSGI				LEADERSHIP_Y_NSGI
-
-#define		NAME_X_NSGI					STATS_FIRST_COL
-#define		NAME_Y_NSGI					STATS_Y_NSGI + 7
-
-#define		FEE_X_NSGI					PRICE_X_NSGI + 7
-#define		FEE_Y_NSGI					NAME_Y_NSGI
-#define		FEE_WIDTH_NSGI				37
-
-#define		AIM_CONTRACT_X_NSGI			PRICE_X_NSGI + 51
-#define		AIM_CONTRACT_Y_NSGI			FEE_Y_NSGI
-#define		AIM_CONTRACT_WIDTH_NSGI		59
-
-#define		ONEDAY_X_NSGI				AIM_CONTRACT_X_NSGI
-#define		ONEWEEK_X_NSGI				AIM_CONTRACT_X_NSGI
-#define		TWOWEEK_X_NSGI				AIM_CONTRACT_X_NSGI
-
-#define		PREVIOUS_X_NSGI				iScreenWidthOffset + 218
-#define		PREVIOUS_Y_NSGI				iScreenHeightOffset + 391 + LAPTOP_SCREEN_WEB_DELTA_Y
-#define		PREVIOUS_BOX_Y_NSGI			PREVIOUS_Y_NSGI - 4
-#define		PREVIOUS_BR_X_NSGI			PREVIOUS_X_NSGI + BOTTOM_BUTTON_START_WIDTH
-#define		PREVIOUS_BR_Y_NSGI			PREVIOUS_BOX_Y_NSGI + BOTTOM_BUTTON_START_HEIGHT
-
-#define		CONTACT_X_NSGI				iScreenWidthOffset + 325
-#define		CONTACT_Y_NSGI				PREVIOUS_Y_NSGI
-#define		CONTACT_BOX_Y_NSGI			CONTACT_Y_NSGI - 4
-#define		CONTACT_BOX_WIDTH_NSGI		75
-#define		CONTACT_BOX_HEIGHT_NSGI		18
-#define		CONTACT_BR_X_NSGI			CONTACT_X_NSGI + BOTTOM_BUTTON_START_WIDTH
-#define		CONTACT_BR_Y_NSGI			CONTACT_BOX_Y_NSGI + BOTTOM_BUTTON_START_HEIGHT
-
-#define		NEXT_X_NSGI					iScreenWidthOffset + 425
-#define		NEXT_Y_NSGI					PREVIOUS_Y_NSGI
-#define		NEXT_BOX_Y_NSGI				NEXT_Y_NSGI - 4
-#define		NEXT_BR_X_NSGI				NEXT_X_NSGI + BOTTOM_BUTTON_START_WIDTH
-#define		NEXT_BR_Y_NSGI				NEXT_BOX_Y_NSGI + BOTTOM_BUTTON_START_HEIGHT
-
-#define		AIM_MERC_INFO_X_NSGI		iScreenWidthOffset + 122
-#define		AIM_MERC_INFO_Y_NSGI		iScreenHeightOffset + 190 + LAPTOP_SCREEN_WEB_DELTA_Y
-
-#define		AIM_MERC_ADD_X_NSGI			AIM_MERC_ADD_INFO_X_NSGI
-#define		AIM_MERC_ADD_Y_NSGI			iScreenHeightOffset + 235 + LAPTOP_SCREEN_WEB_DELTA_Y
-
-#define		AIM_MERC_ADD_INFO_X_NSGI	AIM_MERC_INFO_X_NSGI
-#define		AIM_MERC_ADD_INFO_Y_NSGI	AIM_MERC_ADD_Y_NSGI + 15
-#define		AIM_MERC_INFO_WIDTH_NSGI	470
-
-#define		AIM_MEDICAL_DEPOSIT_X_NSGI		PRICE_X_NSGI + 5
-#define		AIM_MEDICAL_DEPOSIT_Y_NSGI		LEADERSHIP_Y_NSGI
-#define		AIM_MEDICAL_DEPOSIT_WIDTH_NSGI	PRICE_WIDTH_NSGI - 6
-
-#define		AIM_MEMBER_ACTIVE_TEXT_X_NSGI		IMAGE_OFFSET_X + 149
-#define		AIM_MEMBER_ACTIVE_TEXT_Y_NSGI		AIM_SYMBOL_SMALL_Y + 5
-#define		AIM_MEMBER_ACTIVE_TEXT_WIDTH_NSGI	AIM_SYMBOL_WIDTH
-
-
-#define		AIM_MEDICAL_DEPOSIT_X		PRICE_X + 5
-#define		AIM_MEDICAL_DEPOSIT_Y		LEADERSHIP_Y
-#define		AIM_MEDICAL_DEPOSIT_WIDTH	PRICE_WIDTH - 6
-
-#define		AIM_MEMBER_ACTIVE_TEXT_X		IMAGE_OFFSET_X + 149
-#define		AIM_MEMBER_ACTIVE_TEXT_Y		AIM_SYMBOL_Y + AIM_SYMBOL_SIZE_Y - 1
-#define		AIM_MEMBER_ACTIVE_TEXT_WIDTH	AIM_SYMBOL_WIDTH
-
-#define		AIM_MEMBER_OPTIONAL_GEAR_X		AIM_MERC_INFO_X
-#define		AIM_MEMBER_OPTIONAL_GEAR_Y		WEAPONBOX_Y - 13
-
-#define		AIM_MEMBER_OPTIONAL_GEAR_X_NSGI				AIM_CONTRACT_X_NSGI
-#define		AIM_MEMBER_OPTIONAL_GEAR_Y_NSGI				WEAPONBOX_Y_NSGI - 13
-#define		AIM_MEMBER_OPTIONAL_GEAR_COST_X_NSGI		FEE_X_NSGI
-
-#define		AIM_MEMBER_WEAPON_NAME_X			WEAPONBOX_X
-#define		AIM_MEMBER_WEAPON_NAME_Y			WEAPONBOX_Y + WEAPONBOX_SIZE_Y + 1
-#define		AIM_MEMBER_WEAPON_NAME_WIDTH		WEAPONBOX_SIZE_X - 2
-
+// The fixed-pixel profile geometry lives in AimMemberProfileLayout.h.
+// Rendering and mouse hitboxes consume the same selected layout.
 //video Conferencing Info
 #define		AIM_MEMBER_VIDEO_CONF_TERMINAL_X	iScreenWidthOffset + 125
 #define		AIM_MEMBER_VIDEO_CONF_TERMINAL_Y	iScreenHeightOffset + 97 + LAPTOP_SCREEN_WEB_DELTA_Y
@@ -439,9 +212,6 @@
 #define	TEXT_POPUP_WINDOW_X								iScreenWidthOffset + 180
 #define	TEXT_POPUP_WINDOW_Y								iScreenHeightOffset + 255 + LAPTOP_SCREEN_WEB_DELTA_Y
 #define		TEXT_POPUP_STRING_SIZE						512
-
-#define	FIRST_COLUMN_DOT								328
-#define		SECOND_COLUMN_DOT									451
 
 #define		MINIMUM_TALKING_TIME_FOR_MERC			1500
 
@@ -635,7 +405,8 @@ void SelectShutUpMercRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason );
 extern void HelpTextDoneCallback( void );
 
 //tais: tooltip regions for weaponbox images
-MOUSE_REGION	gWeaponboxFasthelpRegion[WEAPONBOX_TOTAL_ITEMS];
+MOUSE_REGION	gWeaponboxFasthelpRegion[
+	AimMemberProfileLayoutModel::kExpandedInventoryCapacity];
 extern void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber );
 
 
@@ -645,11 +416,14 @@ extern void GetHelpTextForItemInLaptop( CHAR16 *pzStr, UINT16 usItemNumber );
 //
 //*******************************************
 
-BOOLEAN	UpdateMercInfo(void);
+using AimMemberProfileLayoutModel::Layout;
+
+BOOLEAN	UpdateMercInfo(const Layout& layout);
 BOOLEAN LoadMercBioInfo(UINT8 ubIndex, CHAR16 *pInfoString, CHAR16 *pAddInfo);
 BOOLEAN DisplayMercsInventory(UINT8 ubMercID);
-BOOLEAN DisplayMercsFace();
-void		DisplayMercStats();
+BOOLEAN DisplayMercsInventory(UINT8 ubMercID, const Layout& layout);
+BOOLEAN DisplayMercsFace(const Layout& layout);
+void		DisplayMercStats(const Layout& layout);
 INT8		AimMemberHireMerc();
 BOOLEAN DisplayVideoConferencingDisplay();
 BOOLEAN DisplayMercsVideoFace();
@@ -668,9 +442,11 @@ void		StopMercTalking();
 UINT8		DisplayTransparentSnow(UINT8 ubMode, UINT32 uiImageIdentifier, UINT8 ubMaxImages, BOOLEAN bForward);
 
 //tais: nsgi, kit selection
-BOOLEAN CreateWeaponBoxMouseRegions(LaptopPageResourceOwner& resources);
-BOOLEAN CreateKitSelectionButtons(LaptopPageResourceOwner& resources);
-void CreateWeaponBoxBackground();
+BOOLEAN CreateWeaponBoxMouseRegions(
+	LaptopPageResourceOwner& resources, const Layout& layout);
+BOOLEAN CreateKitSelectionButtons(
+	LaptopPageResourceOwner& resources, const Layout& layout);
+void CreateWeaponBoxBackground(const Layout& layout);
 void EnableWeaponKitSelectionButtons();
 void RefreshWeaponKitSelectionButtons();
 void DisableWeaponKitSelectionButtons();
@@ -693,7 +469,7 @@ void		DisplayDots(UINT16 usNameX, UINT16 usNameY, UINT16 usStatX, STR16 pString)
 
 void		DelayMercSpeech( UINT8 ubMercID, UINT16 usQuoteNum, UINT16 usDelay, BOOLEAN fNewQuote, BOOLEAN fReset );
 void		DisplayPopUpBoxExplainingMercArrivalLocationAndTimeCallBack( UINT8 bExitValue );
-void		DisplayAimMemberClickOnFaceHelpText();
+void		DisplayAimMemberClickOnFaceHelpText(const Layout& layout);
 
 //ppp
 
@@ -719,6 +495,21 @@ LaptopPageResourceOwner gAimMembersResources;
 LaptopPageResourceOwner gAimMembersPopupResources;
 LaptopPageResourceOwner gAimMembersVideoConferenceResources;
 LaptopPageResourceOwner gAimMembersVideoCloseResources;
+
+Layout CurrentAimMemberProfileLayout()
+{
+	return AimMemberProfileLayoutModel::MakeLayout(
+		gGameExternalOptions.gfUseNewStartingGearInterface != FALSE,
+		{iScreenWidthOffset, iScreenHeightOffset,
+		 LAPTOP_SCREEN_UL_X, LAPTOP_SCREEN_WEB_UL_Y,
+		 LAPTOP_SCREEN_WEB_DELTA_Y});
+}
+
+void InvalidateAimMemberContactButton()
+{
+	const auto contact = CurrentAimMemberProfileLayout().navigation.contactButton;
+	InvalidateRegion(contact.x, contact.y, contact.right(), contact.bottom());
+}
 }
 
 
@@ -758,6 +549,7 @@ BOOLEAN EnterAIMMembers()
 	VOBJECT_DESC	VObjectDesc;
 	VSURFACE_DESC		vs_desc;
 	LaptopPageResourceOwner stagedResources;
+	const Layout layout = CurrentAimMemberProfileLayout();
 
 	gAimMembersPopupResources.clear();
 	gAimMembersVideoConferenceResources.clear();
@@ -788,7 +580,7 @@ BOOLEAN EnterAIMMembers()
 
 	// load the WeaponBox graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	if(gGameExternalOptions.gfUseNewStartingGearInterface) FilenameForBPP("LAPTOP\\newweaponbox.sti", VObjectDesc.ImageFile);
+	if(layout.expandedGear) FilenameForBPP("LAPTOP\\newweaponbox.sti", VObjectDesc.ImageFile);
 	else FilenameForBPP("LAPTOP\\weaponbox.sti", VObjectDesc.ImageFile);
 	CHECKF(stagedResources.addVideoObject(&VObjectDesc, guiWeaponBox));
 
@@ -829,21 +621,16 @@ BOOLEAN EnterAIMMembers()
 
 
 	//** Mouse Regions **
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
-	{
-		MSYS_DefineRegion( &gSelectedFaceRegion, PORTRAIT_X_NSGI, PORTRAIT_Y_NSGI , PORTRAIT_X_NSGI + PORTRAIT_WIDTH_NSGI , PORTRAIT_Y_NSGI + PORTRAIT_HEIGHT_NSGI, MSYS_PRIORITY_HIGH,
-								CURSOR_WWW, SelectFaceMovementRegionCallBack, SelectFaceRegionCallBack );
-	}
-	else
-	{
-		MSYS_DefineRegion( &gSelectedFaceRegion, PORTRAIT_X, PORTRAIT_Y , PORTRAIT_X + PORTRAIT_WIDTH , PORTRAIT_Y + PORTRAIT_HEIGHT, MSYS_PRIORITY_HIGH,
-								CURSOR_WWW, SelectFaceMovementRegionCallBack, SelectFaceRegionCallBack );
-	}
+	MSYS_DefineRegion(&gSelectedFaceRegion,
+		layout.portrait.x, layout.portrait.y,
+		layout.portrait.right(), layout.portrait.bottom(),
+		MSYS_PRIORITY_HIGH, CURSOR_WWW,
+		SelectFaceMovementRegionCallBack, SelectFaceRegionCallBack);
 	CHECKF(stagedResources.addRegion(gSelectedFaceRegion));
 
 	//tais: nsgi, create mousregions for tooltips
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
-		CHECKF(CreateWeaponBoxMouseRegions(stagedResources));
+	if(layout.expandedGear)
+		CHECKF(CreateWeaponBoxMouseRegions(stagedResources, layout));
 
 	//Set the fast help for the mouse region
 	//	SetRegionFastHelpText( &gSelectedFaceRegion, AimMemberText[ AIM_MEMBER_CLICK_INSTRUCTIONS ] );
@@ -865,77 +652,48 @@ BOOLEAN EnterAIMMembers()
 		LoadButtonImageOwned("LAPTOP\\BottomButtons2.sti", -1,0,-1,1,-1),
 		guiPreviousContactNextButtonImage));
 
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
-	{
-		const INT32 previousButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_PREVIOUS], AIM_M_FONT_PREV_NEXT_CONTACT,
+	const INT32 previousButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_PREVIOUS], AIM_M_FONT_PREV_NEXT_CONTACT,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-												PREVIOUS_X_NSGI, PREVIOUS_BOX_Y_NSGI, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												layout.navigation.previousButton.x,
+												layout.navigation.previousButton.y,
+												BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 												DEFAULT_MOVE_CALLBACK, BtnPreviousButtonCallback);
-		CHECKF(stagedResources.addButton(previousButton, giPreviousButton));
-		SetButtonCursor(giPreviousButton, CURSOR_WWW );
+	CHECKF(stagedResources.addButton(previousButton, giPreviousButton));
+	SetButtonCursor(giPreviousButton, CURSOR_WWW );
 
 
-		const INT32 contactButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_CONTACT], AIM_M_FONT_PREV_NEXT_CONTACT,
+	const INT32 contactButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_CONTACT], AIM_M_FONT_PREV_NEXT_CONTACT,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-												CONTACT_X_NSGI, CONTACT_BOX_Y_NSGI, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												layout.navigation.contactButton.x,
+												layout.navigation.contactButton.y,
+												BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 												DEFAULT_MOVE_CALLBACK, BtnContactButtonCallback);
-		CHECKF(stagedResources.addButton(contactButton, giContactButton));
-		SetButtonCursor(giContactButton, CURSOR_WWW );
+	CHECKF(stagedResources.addButton(contactButton, giContactButton));
+	SetButtonCursor(giContactButton, CURSOR_WWW );
 
 
 
-		const INT32 nextButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_NEXT], AIM_M_FONT_PREV_NEXT_CONTACT,
+	const INT32 nextButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_NEXT], AIM_M_FONT_PREV_NEXT_CONTACT,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
 														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
 														TEXT_CJUSTIFIED,
-												NEXT_X_NSGI, NEXT_BOX_Y_NSGI, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
+												layout.navigation.nextButton.x,
+												layout.navigation.nextButton.y,
+												BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 												DEFAULT_MOVE_CALLBACK, BtnNextButtonCallback);
-		CHECKF(stagedResources.addButton(nextButton, giNextButton));
-		SetButtonCursor(giNextButton, CURSOR_WWW );
-	}
-	else
-	{
-		const INT32 previousButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_PREVIOUS], AIM_M_FONT_PREV_NEXT_CONTACT,
-														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
-														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
-														TEXT_CJUSTIFIED,
-												PREVIOUS_X, PREVIOUS_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-												DEFAULT_MOVE_CALLBACK, BtnPreviousButtonCallback);
-		CHECKF(stagedResources.addButton(previousButton, giPreviousButton));
-		SetButtonCursor(giPreviousButton, CURSOR_WWW );
-
-
-		const INT32 contactButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_CONTACT], AIM_M_FONT_PREV_NEXT_CONTACT,
-														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
-														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
-														TEXT_CJUSTIFIED,
-												CONTACT_X, CONTACT_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-												DEFAULT_MOVE_CALLBACK, BtnContactButtonCallback);
-		CHECKF(stagedResources.addButton(contactButton, giContactButton));
-		SetButtonCursor(giContactButton, CURSOR_WWW );
-
-
-
-		const INT32 nextButton = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_NEXT], AIM_M_FONT_PREV_NEXT_CONTACT,
-														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_UP, DEFAULT_SHADOW,
-														AIM_M_FONT_PREV_NEXT_CONTACT_COLOR_DOWN, DEFAULT_SHADOW,
-														TEXT_CJUSTIFIED,
-												NEXT_X, NEXT_BOX_Y, BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
-												DEFAULT_MOVE_CALLBACK, BtnNextButtonCallback);
-		CHECKF(stagedResources.addButton(nextButton, giNextButton));
-		SetButtonCursor(giNextButton, CURSOR_WWW );
-	}
+	CHECKF(stagedResources.addButton(nextButton, giNextButton));
+	SetButtonCursor(giNextButton, CURSOR_WWW );
 
 	gbCurrentSoldier = AimMercArray[gbCurrentIndex];
 	gbCurrentSoldierBio = gAimAvailability[AimMercArray[gbCurrentIndex]].AimBio;
 
 	//tais: nsgi create kit selection buttons
-	if(gGameExternalOptions.gfUseNewStartingGearInterface) 
-		CHECKF(CreateKitSelectionButtons(stagedResources));
+	if(layout.expandedGear)
+		CHECKF(CreateKitSelectionButtons(stagedResources, layout));
 
 	gfStopMercFromTalking = FALSE;
 	gubVideoConferencingMode = (UINT8)giCurrentSubPage;
@@ -1119,125 +877,103 @@ BOOLEAN RenderAIMMembers()
 {
 	HVOBJECT	hStatsHandle;
 	HVOBJECT	hPriceHandle;
-	HVOBJECT	hWeaponBoxHandle;
-	UINT16		x, uiPosX;
+	const Layout layout = CurrentAimMemberProfileLayout();
 	const CampaignAimSitePolicy aimSitePolicy(
 		GetGameContext().capabilities());
 
 	DrawAimDefaults();
 
-
-
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
+	if(layout.expandedGear)
 	{
-	
-		//tais: nsgi, refresh which kit selection buttons are enabled, renderaimmercs seems to be called upon every load or change of merc
+		// Refresh which kit selection buttons are enabled whenever the profile changes.
 		RefreshWeaponKitSelectionButtons();
+	}
 
-		// Stats
-		GetVideoObject(&hStatsHandle, guiStats);
-		BltVideoObject(FRAME_BUFFER, hStatsHandle, 0,STATS_X_NSGI, STATS_Y_NSGI, VO_BLT_SRCTRANSPARENCY,NULL);
+	GetVideoObject(&hStatsHandle, guiStats);
+	BltVideoObject(FRAME_BUFFER, hStatsHandle, 0,
+		layout.stats.panel.x, layout.stats.panel.y,
+		VO_BLT_SRCTRANSPARENCY, NULL);
+	GetVideoObject(&hPriceHandle, guiPrice);
+	BltVideoObject(FRAME_BUFFER, hPriceHandle, 0,
+		layout.price.panel.x, layout.price.panel.y,
+		VO_BLT_SRCTRANSPARENCY, NULL);
+	CreateWeaponBoxBackground(layout);
+	UpdateMercInfo(layout);
 
-		// Price
-		GetVideoObject(&hPriceHandle, guiPrice);
-		BltVideoObject(FRAME_BUFFER, hPriceHandle, 0,PRICE_X_NSGI, PRICE_Y_NSGI, VO_BLT_SRCTRANSPARENCY,NULL);
+	DrawTextToScreen(CharacterInfo[AIM_MEMBER_ACTIVE_MEMBERS],
+		layout.activeMemberTitle.origin.x,
+		layout.activeMemberTitle.origin.y,
+		layout.activeMemberTitle.width, AIM_MAINTITLE_FONT,
+		AIM_M_ACTIVE_MEMBER_TITLE_COLOR, FONT_MCOLOR_BLACK,
+		FALSE, CENTER_JUSTIFIED);
 
-		// WeaponBox
-		GetVideoObject(&hWeaponBoxHandle, guiWeaponBox);
-
-		CreateWeaponBoxBackground();
-
-		UpdateMercInfo();
-
-		//Display AIM Member text
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_ACTIVE_MEMBERS], AIM_MEMBER_ACTIVE_TEXT_X_NSGI, AIM_MEMBER_ACTIVE_TEXT_Y_NSGI, AIM_MEMBER_ACTIVE_TEXT_WIDTH_NSGI, AIM_MAINTITLE_FONT, AIM_M_ACTIVE_MEMBER_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-
-		//Draw fee & contract
-		if (aimSitePolicy.usesMissionFee())
-		{
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_UB_MISSION_FEE], AIM_CONTRACT_X_UB, AIM_CONTRACT_Y_NSGI, 0, AIM_M_FONT_PREV_NEXT_CONTACT, AIM_M_FEE_CONTRACT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		}
-		else
-		{
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_FEE], FEE_X_NSGI, FEE_Y_NSGI, 0, AIM_M_FONT_PREV_NEXT_CONTACT, AIM_M_FEE_CONTRACT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_CONTRACT], AIM_CONTRACT_X_NSGI, AIM_CONTRACT_Y_NSGI, AIM_CONTRACT_WIDTH_NSGI, AIM_M_FONT_PREV_NEXT_CONTACT, AIM_M_FEE_CONTRACT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED	);
-
-			//Draw pay period (day, week, 2 week)
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_1_DAY], ONEDAY_X_NSGI, EXPLEVEL_Y_NSGI, AIM_CONTRACT_WIDTH_NSGI, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_1_WEEK], ONEWEEK_X_NSGI, MARKSMAN_Y_NSGI, AIM_CONTRACT_WIDTH_NSGI, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_2_WEEKS], TWOWEEK_X_NSGI, MECHANAICAL_Y_NSGI, AIM_CONTRACT_WIDTH_NSGI, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-
-			//Display Option Gear Cost text
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_OPTIONAL_GEAR_NSGI], AIM_MEMBER_OPTIONAL_GEAR_X_NSGI, EXPLOSIVE_Y_NSGI, AIM_CONTRACT_WIDTH_NSGI, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED	);
-
-			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].usOptionalGearCost).data(), AIM_MEMBER_OPTIONAL_GEAR_COST_X_NSGI, EXPLOSIVE_Y_NSGI, FEE_WIDTH_NSGI, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-		}
+	if (aimSitePolicy.usesMissionFee())
+	{
+		DrawTextToScreen(CharacterInfo[AIM_MEMBER_UB_MISSION_FEE],
+			layout.price.missionFeeLabel.origin.x,
+			layout.price.missionFeeLabel.origin.y, 0,
+			AIM_M_FONT_PREV_NEXT_CONTACT, AIM_M_FEE_CONTRACT_COLOR,
+			FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 	}
 	else
 	{
-		// Stats
-		GetVideoObject(&hStatsHandle, guiStats);
-		BltVideoObject(FRAME_BUFFER, hStatsHandle, 0,STATS_X, STATS_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+		DrawTextToScreen(CharacterInfo[AIM_MEMBER_FEE],
+			layout.price.fee.origin.x, layout.price.fee.origin.y, 0,
+			AIM_M_FONT_PREV_NEXT_CONTACT, AIM_M_FEE_CONTRACT_COLOR,
+			FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+		DrawTextToScreen(CharacterInfo[AIM_MEMBER_CONTRACT],
+			layout.price.contract.origin.x,
+			layout.price.contract.origin.y,
+			layout.price.contract.width, AIM_M_FONT_PREV_NEXT_CONTACT,
+			AIM_M_FEE_CONTRACT_COLOR, FONT_MCOLOR_BLACK,
+			FALSE, RIGHT_JUSTIFIED);
 
-		// Price
-		GetVideoObject(&hPriceHandle, guiPrice);
-		BltVideoObject(FRAME_BUFFER, hPriceHandle, 0,PRICE_X, PRICE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-
-		// WeaponBox
-		GetVideoObject(&hWeaponBoxHandle, guiWeaponBox);
-
-		uiPosX = WEAPONBOX_X;
-		for(x=0; x<WEAPONBOX_NUMBER; x++)
+		const UINT16 payPeriodText[] = {
+			AIM_MEMBER_1_DAY, AIM_MEMBER_1_WEEK, AIM_MEMBER_2_WEEKS};
+		for (std::size_t i = 0; i < 3; ++i)
 		{
-			BltVideoObject(FRAME_BUFFER, hWeaponBoxHandle, 0, uiPosX, WEAPONBOX_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-			uiPosX += WEAPONBOX_SIZE_X;
+			DrawTextToScreen(CharacterInfo[payPeriodText[i]],
+				layout.price.contract.origin.x, layout.stats.rows[i],
+				layout.price.contract.width, AIM_M_FONT_STATIC_TEXT,
+				AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK,
+				FALSE, LEFT_JUSTIFIED);
 		}
 
-		UpdateMercInfo();
+		const UINT16 optionalGearText = layout.expandedGear
+			? AIM_MEMBER_OPTIONAL_GEAR_NSGI : AIM_MEMBER_OPTIONAL_GEAR;
+		DrawTextToScreen(CharacterInfo[optionalGearText],
+			layout.price.optionalGearLabel.origin.x,
+			layout.price.optionalGearLabel.origin.y,
+			layout.price.optionalGearLabel.width, AIM_M_FONT_STATIC_TEXT,
+			AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE,
+			layout.expandedGear ? RIGHT_JUSTIFIED : LEFT_JUSTIFIED);
 
-		//Display AIM Member text
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_ACTIVE_MEMBERS], AIM_MEMBER_ACTIVE_TEXT_X, AIM_MEMBER_ACTIVE_TEXT_Y, AIM_MEMBER_ACTIVE_TEXT_WIDTH, AIM_MAINTITLE_FONT, AIM_M_ACTIVE_MEMBER_TITLE_COLOR, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-
-		if (aimSitePolicy.usesMissionFee())
+		int optionalGearCostX = layout.price.optionalGearCost.origin.x;
+		if (!layout.expandedGear)
 		{
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_UB_MISSION_FEE], AIM_CONTRACT_X_UB, AIM_CONTRACT_Y, 0, AIM_M_FONT_PREV_NEXT_CONTACT, AIM_M_FEE_CONTRACT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+			optionalGearCostX += StringPixLength(
+				CharacterInfo[optionalGearText], AIM_M_FONT_STATIC_TEXT) + 5;
 		}
-		else
-		{
-			//Draw fee & contract
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_FEE], FEE_X, FEE_Y, 0, AIM_M_FONT_PREV_NEXT_CONTACT, AIM_M_FEE_CONTRACT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_CONTRACT], AIM_CONTRACT_X, AIM_CONTRACT_Y, AIM_CONTRACT_WIDTH, AIM_M_FONT_PREV_NEXT_CONTACT, AIM_M_FEE_CONTRACT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED	);
-
-			//Draw pay period (day, week, 2 week)
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_1_DAY], ONEDAY_X, EXPLEVEL_Y, AIM_CONTRACT_WIDTH, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_1_WEEK], ONEWEEK_X, MARKSMAN_Y, AIM_CONTRACT_WIDTH, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_2_WEEKS], TWOWEEK_X, MECHANAICAL_Y, AIM_CONTRACT_WIDTH, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-
-			//Display Option Gear Cost text
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_OPTIONAL_GEAR], AIM_MEMBER_OPTIONAL_GEAR_X, AIM_MEMBER_OPTIONAL_GEAR_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-
-			uiPosX = AIM_MEMBER_OPTIONAL_GEAR_X + StringPixLength( CharacterInfo[AIM_MEMBER_OPTIONAL_GEAR], AIM_M_FONT_STATIC_TEXT) + 5;
-			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].usOptionalGearCost).data(), uiPosX, AIM_MEMBER_OPTIONAL_GEAR_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-		}
+		DrawTextToScreen(
+			FormatMoney(gMercProfiles[gbCurrentSoldier].usOptionalGearCost).data(),
+			optionalGearCostX, layout.price.optionalGearCost.origin.y,
+			layout.price.optionalGearCost.width, AIM_M_FONT_STATIC_TEXT,
+			AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE,
+			layout.expandedGear ? RIGHT_JUSTIFIED : LEFT_JUSTIFIED);
 	}
 
 	DisableAimButton();
 
-	DisplayMercsInventory(gbCurrentSoldier);
-
-
-	DisplayMercsFace();
+	DisplayMercsInventory(gbCurrentSoldier, layout);
+	DisplayMercsFace(layout);
+	DisplayMercStats(layout);
 
 	if( gubVideoConferencingMode)
 	{
-		DisplayMercStats();
 		DisplayVideoConferencingDisplay();
 	}
 	else
 	{
-		//Display the mercs stats and face
-		DisplayMercStats();
-
 		gubMercAttitudeLevel=0;
 		gfIsAnsweringMachineActive = FALSE;
 	}
@@ -1258,7 +994,7 @@ BOOLEAN RenderAIMMembers()
 	//if we are to render the 'click face' text
 	if(	gfAimMemberDisplayFaceHelpText )
 	{
-		DisplayAimMemberClickOnFaceHelpText();
+		DisplayAimMemberClickOnFaceHelpText(layout);
 	}
 
 
@@ -1324,147 +1060,114 @@ void SelectFaceMovementRegionCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 
 #include "LocalizedStrings.h"
 
-static auto DrawDiscountedDailyCosts() -> void
+static auto DrawDiscountedDailyCosts(const Layout& layout) -> void
 {
 	constexpr auto offset{ 65 };
 	constexpr auto l{ L"(" };
 	constexpr auto r{ L")" };
-	const static auto nsgi = gGameExternalOptions.gfUseNewStartingGearInterface;
-	const auto width = nsgi ? FEE_WIDTH_NSGI : FEE_WIDTH;
-	const auto xOffset = nsgi ? FEE_X_NSGI : FEE_X;
+	const int x = layout.price.fee.origin.x + offset;
+	const int width = layout.price.fee.width;
 
-	DrawTextToScreen((l + FormatMoney(gMercProfiles[gbCurrentSoldier].uiWeeklySalary / 7) + r).data(), xOffset + offset, nsgi ? AGILITY_Y_NSGI : AGILITY_Y, width, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-	DrawTextToScreen((l + FormatMoney(gMercProfiles[gbCurrentSoldier].uiBiWeeklySalary / 14) + r).data(), xOffset + offset, nsgi ? DEXTERITY_Y_NSGI : DEXTERITY_Y, width, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+	DrawTextToScreen((l + FormatMoney(gMercProfiles[gbCurrentSoldier].uiWeeklySalary / 7) + r).data(), x, layout.stats.rows[1], width, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+	DrawTextToScreen((l + FormatMoney(gMercProfiles[gbCurrentSoldier].uiBiWeeklySalary / 14) + r).data(), x, layout.stats.rows[2], width, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
 }
 
-BOOLEAN	UpdateMercInfo(void)
+BOOLEAN	UpdateMercInfo(const Layout& layout)
 {
-	//UINT16					PosY = 300;
 	CHAR16					MercInfoString[ SIZE_MERC_BIO_INFO ]{};
 	CHAR16					AdditionalInfoString[ SIZE_MERC_BIO_INFO ]{};
 	const CampaignAimSitePolicy aimSitePolicy(
 		GetGameContext().capabilities());
 
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
+	if (!aimSitePolicy.showsSalaryBreakdown())
 	{
-		if (!aimSitePolicy.showsSalaryBreakdown())
-		{
-			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].uiWeeklySalary).data(), FEE_X_UB, FEE_Y_UB_NSGI, FEE_WIDTH, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-			DisplayWrappedString(AIM_OFFER_X, AGILITY_Y_NSGI, AIM_OFFER_WIDTH, 2, AIM_M_FONT_DYNAMIC_TEXT, AIM_FONT_MCOLOR_WHITE, zNewTacticalMessages[TACT_MSG__AIMMEMBER_FEE_TEXT], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-		}
-		else
-		{
-			//Display the salaries
-			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].sSalary).data(), FEE_X_NSGI, HEALTH_Y_NSGI, FEE_WIDTH_NSGI, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].uiWeeklySalary).data(), FEE_X_NSGI, AGILITY_Y_NSGI, FEE_WIDTH_NSGI, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].uiBiWeeklySalary).data(), FEE_X_NSGI, DEXTERITY_Y_NSGI, FEE_WIDTH_NSGI, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-
-			DrawDiscountedDailyCosts();
-
-			//if medical deposit is required
-			if( gMercProfiles[gbCurrentSoldier].bMedicalDeposit )
-			{
-				CHAR16	sMedicalString[40];
-
-				// Display the medical cost
-				swprintf( sMedicalString, L"%s %s", FormatMoney(gMercProfiles[gbCurrentSoldier].sMedicalDepositAmount).data(), CharacterInfo[AIM_MEMBER_MEDICAL_DEPOSIT_REQ] );
-
-				// If the string will be displayed in more then 2 lines, recenter the string
-				if( ( DisplayWrappedString( 0, 0, AIM_MEDICAL_DEPOSIT_WIDTH_NSGI, 2, AIM_FONT12ARIAL, AIM_M_COLOR_DYNAMIC_TEXT,	sMedicalString, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED | DONT_DISPLAY_TEXT ) / GetFontHeight( AIM_FONT12ARIAL ) ) > 2 )
-				{
-					DisplayWrappedString( AIM_MEDICAL_DEPOSIT_X_NSGI, (UINT16)(AIM_MEDICAL_DEPOSIT_Y_NSGI - GetFontHeight( AIM_FONT12ARIAL ) ), AIM_MEDICAL_DEPOSIT_WIDTH_NSGI, 2, AIM_FONT12ARIAL, AIM_M_COLOR_DYNAMIC_TEXT,	sMedicalString, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-				}
-				else
-					DisplayWrappedString(AIM_MEDICAL_DEPOSIT_X_NSGI, AIM_MEDICAL_DEPOSIT_Y_NSGI, AIM_MEDICAL_DEPOSIT_WIDTH_NSGI, 2, AIM_FONT12ARIAL, AIM_M_COLOR_DYNAMIC_TEXT, sMedicalString, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-			}
-		}
-
-		if(!g_bUseXML_Strings)
-		{
-		//	LoadMercBioInfo( gbCurrentSoldier, MercInfoString, AdditionalInfoString);
-			if (gbCurrentSoldierBio != 255)
-				LoadMercBioInfo( gbCurrentSoldierBio, MercInfoString, AdditionalInfoString);
-			else
-			{
-				MercInfoString[0] = 0;
-				AdditionalInfoString[0] = 0;
-			}
-		}
-		else
-		{
-			Loc::GetString(Loc::AIM_BIOGRAPHY, L"Bio", gbCurrentSoldier, MercInfoString, SIZE_MERC_BIO_INFO);
-			Loc::GetString(Loc::AIM_BIOGRAPHY, L"Add", gbCurrentSoldier, AdditionalInfoString, SIZE_MERC_BIO_INFO);
-		}
-		if( MercInfoString[0] != 0)
-		{
-			DisplayWrappedString(AIM_MERC_INFO_X_NSGI, AIM_MERC_INFO_Y_NSGI, AIM_MERC_INFO_WIDTH_NSGI, 2, AIM_M_FONT_DYNAMIC_TEXT, AIM_FONT_MCOLOR_WHITE, MercInfoString, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		}
-		if( AdditionalInfoString[0] != 0)
-		{
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_ADDTNL_INFO], AIM_MERC_ADD_X_NSGI, AIM_MERC_ADD_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-			DisplayWrappedString(AIM_MERC_ADD_INFO_X_NSGI, AIM_MERC_ADD_INFO_Y_NSGI, AIM_MERC_INFO_WIDTH_NSGI, 2, AIM_M_FONT_DYNAMIC_TEXT, AIM_FONT_MCOLOR_WHITE, AdditionalInfoString, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		}
+		DrawTextToScreen(
+			FormatMoney(gMercProfiles[gbCurrentSoldier].uiWeeklySalary).data(),
+			layout.price.missionFeeValue.origin.x,
+			layout.price.missionFeeValue.origin.y,
+			layout.price.missionFeeValue.width, AIM_M_NUMBER_FONT,
+			AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK,
+			FALSE, RIGHT_JUSTIFIED);
+		DisplayWrappedString(layout.price.missionFeeOffer.origin.x,
+			layout.price.missionFeeOffer.origin.y,
+			layout.price.missionFeeOffer.width, 2,
+			AIM_M_FONT_DYNAMIC_TEXT, AIM_FONT_MCOLOR_WHITE,
+			zNewTacticalMessages[TACT_MSG__AIMMEMBER_FEE_TEXT],
+			FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 	}
 	else
 	{
-		if (!aimSitePolicy.showsSalaryBreakdown())
+		const INT32 salaries[] = {
+			gMercProfiles[gbCurrentSoldier].sSalary,
+			static_cast<INT32>(gMercProfiles[gbCurrentSoldier].uiWeeklySalary),
+			static_cast<INT32>(gMercProfiles[gbCurrentSoldier].uiBiWeeklySalary)};
+		for (std::size_t i = 0; i < 3; ++i)
 		{
-			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].uiWeeklySalary).data(), FEE_X_UB, FEE_Y_UB, FEE_WIDTH, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-			DisplayWrappedString(AIM_OFFER_X, AGILITY_Y, AIM_OFFER_WIDTH, 2, AIM_M_FONT_DYNAMIC_TEXT, AIM_FONT_MCOLOR_WHITE, zNewTacticalMessages[TACT_MSG__AIMMEMBER_FEE_TEXT], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+			DrawTextToScreen(FormatMoney(salaries[i]).data(),
+				layout.price.fee.origin.x, layout.stats.rows[i],
+				layout.price.fee.width, AIM_M_NUMBER_FONT,
+				AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK,
+				FALSE, RIGHT_JUSTIFIED);
 		}
-		else
+
+		DrawDiscountedDailyCosts(layout);
+
+		if( gMercProfiles[gbCurrentSoldier].bMedicalDeposit )
 		{
-			//Display the salaries
-			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].sSalary).data(), FEE_X, HEALTH_Y, FEE_WIDTH, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].uiWeeklySalary).data(), FEE_X, AGILITY_Y, FEE_WIDTH, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-			DrawTextToScreen(FormatMoney(gMercProfiles[gbCurrentSoldier].uiBiWeeklySalary).data(), FEE_X, DEXTERITY_Y, FEE_WIDTH, AIM_M_NUMBER_FONT, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
-
-			DrawDiscountedDailyCosts();
-
-			//if medical deposit is required
-			if( gMercProfiles[gbCurrentSoldier].bMedicalDeposit )
+			CHAR16	sMedicalString[40];
+			swprintf(sMedicalString, L"%s %s",
+				FormatMoney(gMercProfiles[gbCurrentSoldier].sMedicalDepositAmount).data(),
+				CharacterInfo[AIM_MEMBER_MEDICAL_DEPOSIT_REQ]);
+			const int lineCount = DisplayWrappedString(0, 0,
+				layout.price.medicalDeposit.width, 2, AIM_FONT12ARIAL,
+				AIM_M_COLOR_DYNAMIC_TEXT, sMedicalString, FONT_MCOLOR_BLACK,
+				FALSE, CENTER_JUSTIFIED | DONT_DISPLAY_TEXT) /
+				GetFontHeight(AIM_FONT12ARIAL);
+			int medicalY = layout.price.medicalDeposit.origin.y;
+			if (lineCount > 2)
 			{
-				CHAR16	sMedicalString[40];
-
-				// Display the medical cost
-				swprintf( sMedicalString, L"%s %s", FormatMoney(gMercProfiles[gbCurrentSoldier].sMedicalDepositAmount).data(), CharacterInfo[AIM_MEMBER_MEDICAL_DEPOSIT_REQ] );
-
-				// If the string will be displayed in more then 2 lines, recenter the string
-				if( ( DisplayWrappedString( 0, 0, AIM_MEDICAL_DEPOSIT_WIDTH, 2, AIM_FONT12ARIAL, AIM_M_COLOR_DYNAMIC_TEXT,	sMedicalString, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED | DONT_DISPLAY_TEXT ) / GetFontHeight( AIM_FONT12ARIAL ) ) > 2 )
-				{
-					DisplayWrappedString( AIM_MEDICAL_DEPOSIT_X, (UINT16)(AIM_MEDICAL_DEPOSIT_Y - GetFontHeight( AIM_FONT12ARIAL ) ), AIM_MEDICAL_DEPOSIT_WIDTH, 2, AIM_FONT12ARIAL, AIM_M_COLOR_DYNAMIC_TEXT,	sMedicalString, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
-				}
-				else
-					DisplayWrappedString(AIM_MEDICAL_DEPOSIT_X, AIM_MEDICAL_DEPOSIT_Y, AIM_MEDICAL_DEPOSIT_WIDTH, 2, AIM_FONT12ARIAL, AIM_M_COLOR_DYNAMIC_TEXT, sMedicalString, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+				medicalY -= GetFontHeight(AIM_FONT12ARIAL);
 			}
+			DisplayWrappedString(layout.price.medicalDeposit.origin.x,
+				medicalY, layout.price.medicalDeposit.width, 2,
+				AIM_FONT12ARIAL, AIM_M_COLOR_DYNAMIC_TEXT, sMedicalString,
+				FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 		}
-		if(!g_bUseXML_Strings)
-		{
-//			LoadMercBioInfo( gbCurrentSoldier, MercInfoString, AdditionalInfoString);
+	}
 
-			if (gbCurrentSoldierBio != 255)
-				LoadMercBioInfo( gbCurrentSoldierBio, MercInfoString, AdditionalInfoString);
-			else
-			{
-				MercInfoString[0] = 0;
-				AdditionalInfoString[0] = 0;
-			}
-
-		}
-		else
-		{
-			Loc::GetString(Loc::AIM_BIOGRAPHY, L"Bio", gbCurrentSoldier, MercInfoString, SIZE_MERC_BIO_INFO);
-			Loc::GetString(Loc::AIM_BIOGRAPHY, L"Add", gbCurrentSoldier, AdditionalInfoString, SIZE_MERC_BIO_INFO);
-		}
-		if( MercInfoString[0] != 0)
-		{
-			DisplayWrappedString(AIM_MERC_INFO_X, AIM_MERC_INFO_Y, AIM_MERC_INFO_WIDTH, 2, AIM_M_FONT_DYNAMIC_TEXT, AIM_FONT_MCOLOR_WHITE, MercInfoString, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		}
-		if( AdditionalInfoString[0] != 0)
-		{
-			DrawTextToScreen(CharacterInfo[AIM_MEMBER_ADDTNL_INFO], AIM_MERC_ADD_X, AIM_MERC_ADD_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-			DisplayWrappedString(AIM_MERC_ADD_INFO_X, AIM_MERC_ADD_INFO_Y, AIM_MERC_INFO_WIDTH, 2, AIM_M_FONT_DYNAMIC_TEXT, AIM_FONT_MCOLOR_WHITE, AdditionalInfoString, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		}
+	if(!g_bUseXML_Strings)
+	{
+		if (gbCurrentSoldierBio != 255)
+			LoadMercBioInfo(gbCurrentSoldierBio,
+				MercInfoString, AdditionalInfoString);
+	}
+	else
+	{
+		Loc::GetString(Loc::AIM_BIOGRAPHY, L"Bio", gbCurrentSoldier,
+			MercInfoString, SIZE_MERC_BIO_INFO);
+		Loc::GetString(Loc::AIM_BIOGRAPHY, L"Add", gbCurrentSoldier,
+			AdditionalInfoString, SIZE_MERC_BIO_INFO);
+	}
+	if(MercInfoString[0] != 0)
+	{
+		DisplayWrappedString(layout.biography.biography.origin.x,
+			layout.biography.biography.origin.y,
+			layout.biography.biography.width, 2,
+			AIM_M_FONT_DYNAMIC_TEXT, AIM_FONT_MCOLOR_WHITE,
+			MercInfoString, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+	}
+	if(AdditionalInfoString[0] != 0)
+	{
+		DrawTextToScreen(CharacterInfo[AIM_MEMBER_ADDTNL_INFO],
+			layout.biography.additionalLabel.x,
+			layout.biography.additionalLabel.y, 0,
+			AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT,
+			FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+		DisplayWrappedString(layout.biography.additionalText.origin.x,
+			layout.biography.additionalText.origin.y,
+			layout.biography.additionalText.width, 2,
+			AIM_M_FONT_DYNAMIC_TEXT, AIM_FONT_MCOLOR_WHITE,
+			AdditionalInfoString, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
 	}
 	return(TRUE);
 }
@@ -1608,6 +1311,11 @@ BOOLEAN LoadMercBioInfo(UINT8 ubIndex, CHAR16 *pInfoString, CHAR16 *pAddInfo)
 
 BOOLEAN DisplayMercsInventory(UINT8 ubMercID)
 {
+	return DisplayMercsInventory(ubMercID, CurrentAimMemberProfileLayout());
+}
+
+BOOLEAN DisplayMercsInventory(UINT8 ubMercID, const Layout& layout)
+{
 	UINT8			i;
 	INT16			PosX, PosY, sCenX, sCenY;
 	UINT16			usItem;
@@ -1617,20 +1325,16 @@ BOOLEAN DisplayMercsInventory(UINT8 ubMercID)
 	ETRLEObject		*pTrav;
 	CHAR16			gzItemName[ 5000 ];
 	UINT8			ubItemCount=0;
-	UINT8			ubColumnCount=0;
 
 	//if the mercs inventory has already been purchased, dont display the inventory
 	if ( (gMercProfiles[ ubMercID ].ubMiscFlags & PROFILE_MISC_FLAG_ALREADY_USED_ITEMS) && !gGameExternalOptions.fGearKitsAlwaysAvailable )
 		return( TRUE );
 
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
+	if(layout.expandedGear)
 	{		
-		PosX = WEAPONBOX_X_NSGI+3;		// + 3 ( 1 to take care of the shadow, +2 to get past the weapon box border )
-		PosY = WEAPONBOX_Y_NSGI;
-
 		//tais: disable Weaponbox Mouseregions to stop crashing when changing kit selection and hovering over item
 		//tooltips for weaponbox
-		for(i=0;i<WEAPONBOX_TOTAL_ITEMS; ++i) 
+		for(i=0; i<layout.inventory.capacity(); ++i)
 		{
 			MSYS_DisableRegion(&gWeaponboxFasthelpRegion[i]);
 		}
@@ -1641,11 +1345,15 @@ BOOLEAN DisplayMercsInventory(UINT8 ubMercID)
 			usItem = gMercProfiles[ubMercID].inv[ i ];
 
 			//if its a valid item AND we are only displaying less then 8 items
-			if( usItem && ubItemCount < WEAPONBOX_TOTAL_ITEMS )
+			if( usItem && ubItemCount < layout.inventory.capacity() )
 			{
+				const std::size_t slotIndex = ubItemCount;
+				const auto content = layout.inventory.contentOrigin(slotIndex);
+				PosX = static_cast<INT16>(content.x);
+				PosY = static_cast<INT16>(content.y);
+
 				//increase the item count
 				ubItemCount++;
-				ubColumnCount++;
 
 				pItem = &Item[ usItem ];
 				GetVideoObject( &hVObject, GetInterfaceGraphicForItem( pItem ) );
@@ -1664,8 +1372,11 @@ BOOLEAN DisplayMercsInventory(UINT8 ubMercID)
 				usHeight				= (UINT32)pTrav->usHeight;
 				usWidth					= (UINT32)pTrav->usWidth;
 
-				sCenX = PosX + ( abs( WEAPONBOX_SIZE_X_NSGI - 3 - (int)usWidth ) /	2 ) - pTrav->sOffsetX;
-				sCenY = PosY + ( abs( WEAPONBOX_SIZE_Y_NSGI - (int)usHeight ) / 2 ) - pTrav->sOffsetY;
+				sCenX = PosX + ( abs( layout.inventory.firstCell.width -
+					layout.inventory.contentInsetX - (int)usWidth ) / 2 ) -
+					pTrav->sOffsetX;
+				sCenY = PosY + ( abs( layout.inventory.firstCell.height -
+					(int)usHeight ) / 2 ) - pTrav->sOffsetY;
 
 				//blt the shadow of the item
 				if(gGameSettings.fOptions[ TOPTION_SHOW_ITEM_SHADOW ]) 
@@ -1681,25 +1392,18 @@ BOOLEAN DisplayMercsInventory(UINT8 ubMercID)
 
 					swprintf( zTempStr, L"x%d", gMercProfiles[ ubMercID ].bInvNumber[ i ] );
 
-					DrawTextToScreen( zTempStr, (UINT16)(PosX-1), (UINT16)(PosY+20), AIM_MEMBER_WEAPON_NAME_WIDTH, AIM_M_FONT_DYNAMIC_TEXT, AIM_M_WEAPON_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED );
+					DrawTextToScreen( zTempStr, (UINT16)(PosX-1),
+						(UINT16)(PosY+20), layout.inventory.countTextWidth,
+						AIM_M_FONT_DYNAMIC_TEXT, AIM_M_WEAPON_TEXT_COLOR,
+						FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED );
 				}
 				
 				GetHelpTextForItemInLaptop( gzItemName, usItem );
-				SetRegionFastHelpText( &(gWeaponboxFasthelpRegion[ubItemCount-1]), gzItemName );
-				SetRegionHelpEndCallback( &(gWeaponboxFasthelpRegion[ubItemCount-1]), HelpTextDoneCallback );
-				MSYS_EnableRegion( &gWeaponboxFasthelpRegion[ubItemCount-1] );
-
-
-				if(ubColumnCount == WEAPONBOX_COLUMNS) 
-				{
-					PosX = WEAPONBOX_X_NSGI+3;
-					PosY += WEAPONBOX_SIZE_Y_NSGI;
-					ubColumnCount = 0;
-				} 
-				else 
-				{
-					PosX += WEAPONBOX_SIZE_X_NSGI;
-				}
+				SetRegionFastHelpText(
+					&gWeaponboxFasthelpRegion[slotIndex], gzItemName );
+				SetRegionHelpEndCallback(
+					&gWeaponboxFasthelpRegion[slotIndex], HelpTextDoneCallback );
+				MSYS_EnableRegion(&gWeaponboxFasthelpRegion[slotIndex]);
 
 #ifdef ENCYCLOPEDIA_WORKS
 				//Moa: update encyclopedia item visibility when item gets displayed
@@ -1710,9 +1414,7 @@ BOOLEAN DisplayMercsInventory(UINT8 ubMercID)
 	}
 	else
 	{
-		UINT16 wnameY = AIM_MEMBER_WEAPON_NAME_Y;
-		PosX = WEAPONBOX_X+3;		// + 3 ( 1 to take care of the shadow, +2 to get past the weapon box border )
-		PosY = WEAPONBOX_Y;
+		const UINT16 wnameY = static_cast<UINT16>(layout.inventory.itemNameY);
 
 		UINT8 invsize = gMercProfiles[ubMercID].inv.size();
 		for(i=0; i<invsize; ++i)
@@ -1720,8 +1422,12 @@ BOOLEAN DisplayMercsInventory(UINT8 ubMercID)
 			usItem = gMercProfiles[ubMercID].inv[ i ];
 
 			//if its a valid item AND we are only displaying less then 8 items
-			if( usItem && ubItemCount < WEAPONBOX_NUMBER )
+			if( usItem && ubItemCount < layout.inventory.capacity() )
 			{
+				const auto content = layout.inventory.contentOrigin(ubItemCount);
+				PosX = static_cast<INT16>(content.x);
+				PosY = static_cast<INT16>(content.y);
+
 				//increase the item count
 				ubItemCount++;
 
@@ -1743,8 +1449,11 @@ BOOLEAN DisplayMercsInventory(UINT8 ubMercID)
 				usHeight				= (UINT32)pTrav->usHeight;
 				usWidth					= (UINT32)pTrav->usWidth;
 
-				sCenX = PosX + ( abs( WEAPONBOX_SIZE_X - 3 - (int)usWidth ) /	2 ) - pTrav->sOffsetX;
-				sCenY = PosY + ( abs( WEAPONBOX_SIZE_Y - (int)usHeight ) / 2 ) - pTrav->sOffsetY;
+				sCenX = PosX + ( abs( layout.inventory.firstCell.width -
+					layout.inventory.contentInsetX - (int)usWidth ) / 2 ) -
+					pTrav->sOffsetX;
+				sCenY = PosY + ( abs( layout.inventory.firstCell.height -
+					(int)usHeight ) / 2 ) - pTrav->sOffsetY;
 
 				//blt the shadow of the item
 				if(gGameSettings.fOptions[ TOPTION_SHOW_ITEM_SHADOW ]) 
@@ -1760,18 +1469,19 @@ BOOLEAN DisplayMercsInventory(UINT8 ubMercID)
 
 					swprintf( zTempStr, L"x%d", gMercProfiles[ ubMercID ].bInvNumber[ i ] );
 
-					DrawTextToScreen( zTempStr, (UINT16)(PosX-1), (UINT16)(PosY+20), AIM_MEMBER_WEAPON_NAME_WIDTH, AIM_M_FONT_DYNAMIC_TEXT, AIM_M_WEAPON_TEXT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED );
+					DrawTextToScreen( zTempStr, (UINT16)(PosX-1),
+						(UINT16)(PosY+20), layout.inventory.countTextWidth,
+						AIM_M_FONT_DYNAMIC_TEXT, AIM_M_WEAPON_TEXT_COLOR,
+						FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED );
 				}
 
 				wcscpy( gzItemName, ShortItemNames[ usItem ] );
 
 				//if this will only be a single line, center it in the box
-				if( ( DisplayWrappedString( (UINT16)(PosX-1), wnameY, AIM_MEMBER_WEAPON_NAME_WIDTH, 2, AIM_M_WEAPON_TEXT_FONT, AIM_M_WEAPON_TEXT_COLOR,	gzItemName, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED | DONT_DISPLAY_TEXT ) / GetFontHeight( AIM_M_WEAPON_TEXT_FONT ) ) == 1 )
-					DisplayWrappedString( (UINT16)(PosX-1), (UINT16)(wnameY+GetFontHeight( AIM_M_WEAPON_TEXT_FONT )/2), AIM_MEMBER_WEAPON_NAME_WIDTH, 2, AIM_M_WEAPON_TEXT_FONT, AIM_M_WEAPON_TEXT_COLOR,	gzItemName, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
+				if( ( DisplayWrappedString( (UINT16)(PosX-1), wnameY, layout.inventory.countTextWidth, 2, AIM_M_WEAPON_TEXT_FONT, AIM_M_WEAPON_TEXT_COLOR,	gzItemName, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED | DONT_DISPLAY_TEXT ) / GetFontHeight( AIM_M_WEAPON_TEXT_FONT ) ) == 1 )
+					DisplayWrappedString( (UINT16)(PosX-1), (UINT16)(wnameY+GetFontHeight( AIM_M_WEAPON_TEXT_FONT )/2), layout.inventory.countTextWidth, 2, AIM_M_WEAPON_TEXT_FONT, AIM_M_WEAPON_TEXT_COLOR,	gzItemName, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
 				else
-					DisplayWrappedString( (UINT16)(PosX-1), wnameY, AIM_MEMBER_WEAPON_NAME_WIDTH, 2, AIM_M_WEAPON_TEXT_FONT, AIM_M_WEAPON_TEXT_COLOR,	gzItemName, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
-
-				PosX += WEAPONBOX_SIZE_X;
+					DisplayWrappedString( (UINT16)(PosX-1), wnameY, layout.inventory.countTextWidth, 2, AIM_M_WEAPON_TEXT_FONT, AIM_M_WEAPON_TEXT_COLOR,	gzItemName, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED );
 
 #ifdef ENCYCLOPEDIA_WORKS
 				//Moa: update encyclopedia item visibility when item gets displayed
@@ -1962,7 +1672,7 @@ BOOLEAN Stop = FALSE;
 }
 
 
-BOOLEAN DisplayMercsFace()
+BOOLEAN DisplayMercsFace(const Layout& layout)
 {
 	HVOBJECT hFaceHandle;
 	HVOBJECT hPortraitHandle;
@@ -1976,8 +1686,9 @@ BOOLEAN DisplayMercsFace()
 
 	// Portrait Frame
 	GetVideoObject(&hPortraitHandle, guiPortrait);
-	if(gGameExternalOptions.gfUseNewStartingGearInterface) BltVideoObject(FRAME_BUFFER, hPortraitHandle, 0,PORTRAIT_X_NSGI, PORTRAIT_Y_NSGI, VO_BLT_SRCTRANSPARENCY,NULL);
-	else BltVideoObject(FRAME_BUFFER, hPortraitHandle, 0,PORTRAIT_X, PORTRAIT_Y, VO_BLT_SRCTRANSPARENCY,NULL);
+	BltVideoObject(FRAME_BUFFER, hPortraitHandle, 0,
+		layout.portrait.x, layout.portrait.y,
+		VO_BLT_SRCTRANSPARENCY, NULL);
 
 	// load the Face graphic and add it
 	if (gGameExternalOptions.fReadProfileDataFromXML)
@@ -1994,288 +1705,108 @@ BOOLEAN DisplayMercsFace()
 	LaptopPageResourceOwner faceResource;
 	CHECKF(faceResource.addVideoObject(&VObjectDesc, guiFace));
 
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
+	// Both profile variants use the same face states; only their selected
+	// layout changes the placement.
+	GetVideoObject(&hFaceHandle, guiFace);
+	BltVideoObject(FRAME_BUFFER, hFaceHandle, 0,
+		layout.face.x, layout.face.y, VO_BLT_SRCTRANSPARENCY,NULL);
+
+	if( IsMercDead( gbCurrentSoldier ) )
 	{
-		//Blt face to screen
-		GetVideoObject(&hFaceHandle, guiFace);
-		BltVideoObject(FRAME_BUFFER, hFaceHandle, 0,FACE_X_NSGI, FACE_Y_NSGI, VO_BLT_SRCTRANSPARENCY,NULL);
-
-		//if the merc is dead
-		if( IsMercDead( gbCurrentSoldier ) )
-		{
-			//shade the face red, (to signif that he is dead)
-			hFaceHandle->pShades[ 0 ]		= Create16BPPPaletteShaded( hFaceHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
-
-			//get the face object
-			GetVideoObject(&hFaceHandle, guiFace);
-
-			//set the red pallete to the face
-			SetObjectHandleShade( guiFace, 0 );
-
-			//Blt face to screen
-			BltVideoObject(FRAME_BUFFER, hFaceHandle, 0,FACE_X_NSGI, FACE_Y_NSGI, VO_BLT_SRCTRANSPARENCY,NULL);
-
-			//if the merc is dead, display it
-			DrawTextToScreen(AimPopUpText[AIM_MEMBER_DEAD], FACE_X_NSGI+1, FACE_Y_NSGI+107, FACE_WIDTH_NSGI, FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-		}
-
-		//else if the merc is currently a POW or, the merc was fired as a pow
-		else if( gMercProfiles[ gbCurrentSoldier ].bMercStatus == MERC_FIRED_AS_A_POW || ( pSoldier &&	pSoldier->assignment().current() == ASSIGNMENT_POW ) )
-		{
-			ShadowVideoSurfaceRect( FRAME_BUFFER, FACE_X_NSGI, FACE_Y_NSGI, FACE_X_NSGI + FACE_WIDTH_NSGI, FACE_Y_NSGI + FACE_HEIGHT_NSGI);
-			DrawTextToScreen( pPOWStrings[0], FACE_X_NSGI+1, FACE_Y_NSGI+107, FACE_WIDTH_NSGI, FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-		}
-
-
-		//else if the merc has already been hired
-		else if( FindSoldierByProfileID( gbCurrentSoldier, TRUE ) )
-		{
-			ShadowVideoSurfaceRect( FRAME_BUFFER, FACE_X_NSGI, FACE_Y_NSGI, FACE_X_NSGI + FACE_WIDTH_NSGI, FACE_Y_NSGI + FACE_HEIGHT_NSGI);
-			DrawTextToScreen( MercInfo[MERC_FILES_ALREADY_HIRED], FACE_X_NSGI+1, FACE_Y_NSGI+107, FACE_WIDTH_NSGI, FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-		}
-
-		else if( !IsMercHireable( gbCurrentSoldier ) )
-		{
-			//else if the merc has a text file and the merc is not away
-			ShadowVideoSurfaceRect( FRAME_BUFFER, FACE_X_NSGI, FACE_Y_NSGI, FACE_X_NSGI + FACE_WIDTH_NSGI, FACE_Y_NSGI + FACE_HEIGHT_NSGI);
-			DrawTextToScreen(AimPopUpText[AIM_MEMBER_ON_ASSIGNMENT], FACE_X_NSGI+1, FACE_Y_NSGI+107, FACE_WIDTH_NSGI, FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-		}
+		// Shade the face red to signify that the merc is dead.
+		hFaceHandle->pShades[ 0 ] = Create16BPPPaletteShaded(
+			hFaceHandle->pPaletteEntry, DEAD_MERC_COLOR_RED,
+			DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
+		SetObjectHandleShade( guiFace, 0 );
+		BltVideoObject(FRAME_BUFFER, hFaceHandle, 0,
+			layout.face.x, layout.face.y, VO_BLT_SRCTRANSPARENCY,NULL);
+		DrawTextToScreen(AimPopUpText[AIM_MEMBER_DEAD],
+			layout.face.x + 1, layout.faceStatusY, layout.face.width,
+			FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 	}
-	else
+	else if( gMercProfiles[ gbCurrentSoldier ].bMercStatus == MERC_FIRED_AS_A_POW ||
+		( pSoldier && pSoldier->assignment().current() == ASSIGNMENT_POW ) )
 	{
-		//Blt face to screen
-		GetVideoObject(&hFaceHandle, guiFace);
-		BltVideoObject(FRAME_BUFFER, hFaceHandle, 0,FACE_X, FACE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-
-		//if the merc is dead
-		if( IsMercDead( gbCurrentSoldier ) )
-		{
-			//shade the face red, (to signif that he is dead)
-			hFaceHandle->pShades[ 0 ]		= Create16BPPPaletteShaded( hFaceHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
-
-			//get the face object
-			GetVideoObject(&hFaceHandle, guiFace);
-
-			//set the red pallete to the face
-			SetObjectHandleShade( guiFace, 0 );
-
-			//Blt face to screen
-			BltVideoObject(FRAME_BUFFER, hFaceHandle, 0,FACE_X, FACE_Y, VO_BLT_SRCTRANSPARENCY,NULL);
-
-			//if the merc is dead, display it
-			DrawTextToScreen(AimPopUpText[AIM_MEMBER_DEAD], FACE_X+1, FACE_Y+107, FACE_WIDTH, FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-		}
-
-		//else if the merc is currently a POW or, the merc was fired as a pow
-		else if( gMercProfiles[ gbCurrentSoldier ].bMercStatus == MERC_FIRED_AS_A_POW || ( pSoldier &&	pSoldier->assignment().current() == ASSIGNMENT_POW ) )
-		{
-			ShadowVideoSurfaceRect( FRAME_BUFFER, FACE_X, FACE_Y, FACE_X + FACE_WIDTH, FACE_Y + FACE_HEIGHT);
-			DrawTextToScreen( pPOWStrings[0], FACE_X+1, FACE_Y+107, FACE_WIDTH, FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-		}
-
-
-		//else if the merc has already been hired
-		else if( FindSoldierByProfileID( gbCurrentSoldier, TRUE ) )
-		{
-			ShadowVideoSurfaceRect( FRAME_BUFFER, FACE_X, FACE_Y, FACE_X + FACE_WIDTH, FACE_Y + FACE_HEIGHT);
-			DrawTextToScreen( MercInfo[MERC_FILES_ALREADY_HIRED], FACE_X+1, FACE_Y+107, FACE_WIDTH, FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-		}
-
-		else if( !IsMercHireable( gbCurrentSoldier ) )
-		{
-			//else if the merc has a text file and the merc is not away
-			ShadowVideoSurfaceRect( FRAME_BUFFER, FACE_X, FACE_Y, FACE_X + FACE_WIDTH, FACE_Y + FACE_HEIGHT);
-			DrawTextToScreen(AimPopUpText[AIM_MEMBER_ON_ASSIGNMENT], FACE_X+1, FACE_Y+107, FACE_WIDTH, FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-		}
+		ShadowVideoSurfaceRect(FRAME_BUFFER, layout.face.x, layout.face.y,
+			layout.face.right(), layout.face.bottom());
+		DrawTextToScreen(pPOWStrings[0], layout.face.x + 1,
+			layout.faceStatusY, layout.face.width, FONT14ARIAL, 145,
+			FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+	}
+	else if( pSoldier )
+	{
+		ShadowVideoSurfaceRect(FRAME_BUFFER, layout.face.x, layout.face.y,
+			layout.face.right(), layout.face.bottom());
+		DrawTextToScreen(MercInfo[MERC_FILES_ALREADY_HIRED],
+			layout.face.x + 1, layout.faceStatusY, layout.face.width,
+			FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
+	}
+	else if( !IsMercHireable( gbCurrentSoldier ) )
+	{
+		ShadowVideoSurfaceRect(FRAME_BUFFER, layout.face.x, layout.face.y,
+			layout.face.right(), layout.face.bottom());
+		DrawTextToScreen(AimPopUpText[AIM_MEMBER_ON_ASSIGNMENT],
+			layout.face.x + 1, layout.faceStatusY, layout.face.width,
+			FONT14ARIAL, 145, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 	}
 	return( TRUE );
 }
 
 
-void DisplayMercStats()
+void DisplayMercStats(const Layout& layout)
 {
-	UINT8	ubColor;
-	CHAR16	sPage[60];
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
+	const MERCPROFILESTRUCT& profile = gMercProfiles[gbCurrentSoldier];
+	constexpr std::array<UINT16, 6> firstLabels = {
+		AIM_MEMBER_HEALTH, AIM_MEMBER_AGILITY, AIM_MEMBER_DEXTERITY,
+		AIM_MEMBER_STRENGTH, AIM_MEMBER_LEADERSHIP, AIM_MEMBER_WISDOM};
+	constexpr std::array<UINT16, 5> secondLabels = {
+		AIM_MEMBER_EXP_LEVEL, AIM_MEMBER_MARKSMANSHIP,
+		AIM_MEMBER_MECHANICAL, AIM_MEMBER_EXPLOSIVE, AIM_MEMBER_MEDICAL};
+	const std::array<INT8, 6> firstValues = {
+		layout.expandedGear ? profile.bLifeMax : profile.bLife,
+		profile.bAgility, profile.bDexterity, profile.bStrength,
+		profile.bLeadership, profile.bWisdom};
+	const std::array<INT8, 5> secondValues = {
+		profile.bExpLevel, profile.bMarksmanship, profile.bMechanical,
+		profile.bExplosive, profile.bMedical};
+
+	for (std::size_t i = 0; i < firstLabels.size(); ++i)
 	{
-		//
-		// Display all the static text
-		//
-
-		//First column in stats box.	Health, Agility, dexterity, strength, leadership, wisdom
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_HEALTH], STATS_FIRST_COL_NSGI, HEALTH_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL_NSGI, HEALTH_Y_NSGI, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_HEALTH]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_AGILITY], STATS_FIRST_COL_NSGI, AGILITY_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL_NSGI, AGILITY_Y_NSGI, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_AGILITY]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_DEXTERITY], STATS_FIRST_COL_NSGI, DEXTERITY_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL_NSGI, DEXTERITY_Y_NSGI, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_DEXTERITY]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_STRENGTH], STATS_FIRST_COL_NSGI, STRENGTH_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL_NSGI, STRENGTH_Y_NSGI, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_STRENGTH]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_LEADERSHIP], STATS_FIRST_COL_NSGI, LEADERSHIP_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL_NSGI, LEADERSHIP_Y_NSGI, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_LEADERSHIP]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_WISDOM], STATS_FIRST_COL_NSGI, WISDOM_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL_NSGI, WISDOM_Y_NSGI, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_WISDOM]);
-
-
-		//Second column in stats box.	Exp.Level, Markmanship, mechanical, explosive, medical
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_EXP_LEVEL], STATS_SECOND_COL_NSGI, EXPLEVEL_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-		DisplayDots(STATS_SECOND_COL_NSGI, EXPLEVEL_Y_NSGI, SECOND_COLUMN_DOT, CharacterInfo[AIM_MEMBER_EXP_LEVEL]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_MARKSMANSHIP], STATS_SECOND_COL_NSGI, MARKSMAN_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT	, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_SECOND_COL_NSGI, MARKSMAN_Y_NSGI, SECOND_COLUMN_DOT, CharacterInfo[AIM_MEMBER_MARKSMANSHIP]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_MECHANICAL], STATS_SECOND_COL_NSGI, MECHANAICAL_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-		DisplayDots(STATS_SECOND_COL_NSGI, MECHANAICAL_Y_NSGI, SECOND_COLUMN_DOT, CharacterInfo[AIM_MEMBER_MECHANICAL]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_EXPLOSIVE], STATS_SECOND_COL_NSGI, EXPLOSIVE_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-		DisplayDots(STATS_SECOND_COL_NSGI, EXPLOSIVE_Y_NSGI, SECOND_COLUMN_DOT, CharacterInfo[AIM_MEMBER_EXPLOSIVE]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_MEDICAL], STATS_SECOND_COL_NSGI, MEDICAL_Y_NSGI, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-		DisplayDots(STATS_SECOND_COL_NSGI, MEDICAL_Y_NSGI, SECOND_COLUMN_DOT, CharacterInfo[AIM_MEMBER_MEDICAL]);
-
-
-		//
-		// Display all the Merc dynamic stat info
-		//
-
-		//Name
-		DrawTextToScreen(gMercProfiles[gbCurrentSoldier].zName, NAME_X_NSGI, NAME_Y_NSGI, 0, FONT14ARIAL, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-
-		// Numbers for above.	Health, Agility, dexterity, strength, leadership, wisdom
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bLifeMax );
-		DrawNumeralsToScreen( gMercProfiles[gbCurrentSoldier].bLifeMax, 3, STATS_FIRST_NUM_NSGI, HEALTH_Y_NSGI, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bAgility );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bAgility, 3, STATS_FIRST_NUM_NSGI, AGILITY_Y_NSGI, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bDexterity );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bDexterity, 3, STATS_FIRST_NUM_NSGI, DEXTERITY_Y_NSGI, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bStrength );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bStrength, 3, STATS_FIRST_NUM_NSGI, STRENGTH_Y_NSGI, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bLeadership );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bLeadership, 3, STATS_FIRST_NUM_NSGI, LEADERSHIP_Y_NSGI, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bWisdom );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bWisdom, 3, STATS_FIRST_NUM_NSGI, WISDOM_Y_NSGI, AIM_M_NUMBER_FONT, ubColor	);
-
-		//Second column in stats box.	Exp.Level, Markmanship, mechanical, explosive, medical
-
-	//	ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bExpLevel );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bExpLevel, 3, STATS_SECOND_NUM_NSGI, EXPLEVEL_Y_NSGI, AIM_M_NUMBER_FONT, FONT_MCOLOR_WHITE	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bMarksmanship );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bMarksmanship, 3, STATS_SECOND_NUM_NSGI, MARKSMAN_Y_NSGI, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bMechanical );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bMechanical, 3, STATS_SECOND_NUM_NSGI, MECHANAICAL_Y_NSGI, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bExplosive );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bExplosive, 3, STATS_SECOND_NUM_NSGI, EXPLOSIVE_Y_NSGI, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bMedical );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bMedical, 3, STATS_SECOND_NUM_NSGI, MEDICAL_Y_NSGI, AIM_M_NUMBER_FONT, ubColor	);
-	}
-	else
-	{
-		//
-		// Display all the static text
-		//
-
-		//First column in stats box.	Health, Agility, dexterity, strength, leadership, wisdom
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_HEALTH], STATS_FIRST_COL, HEALTH_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL, HEALTH_Y, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_HEALTH]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_AGILITY], STATS_FIRST_COL, AGILITY_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL, AGILITY_Y, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_AGILITY]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_DEXTERITY], STATS_FIRST_COL, DEXTERITY_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL, DEXTERITY_Y, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_DEXTERITY]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_STRENGTH], STATS_FIRST_COL, STRENGTH_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL, STRENGTH_Y, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_STRENGTH]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_LEADERSHIP], STATS_FIRST_COL, LEADERSHIP_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL, LEADERSHIP_Y, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_LEADERSHIP]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_WISDOM], STATS_FIRST_COL, WISDOM_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_FIRST_COL, WISDOM_Y, FIRST_COLUMN_DOT, CharacterInfo[AIM_MEMBER_WISDOM]);
-
-
-		//Second column in stats box.	Exp.Level, Markmanship, mechanical, explosive, medical
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_EXP_LEVEL], STATS_SECOND_COL, EXPLEVEL_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-		DisplayDots(STATS_SECOND_COL, EXPLEVEL_Y, SECOND_COLUMN_DOT, CharacterInfo[AIM_MEMBER_EXP_LEVEL]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_MARKSMANSHIP], STATS_SECOND_COL, MARKSMAN_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT	, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-		DisplayDots(STATS_SECOND_COL, MARKSMAN_Y, SECOND_COLUMN_DOT, CharacterInfo[AIM_MEMBER_MARKSMANSHIP]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_MECHANICAL], STATS_SECOND_COL, MECHANAICAL_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-		DisplayDots(STATS_SECOND_COL, MECHANAICAL_Y, SECOND_COLUMN_DOT, CharacterInfo[AIM_MEMBER_MECHANICAL]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_EXPLOSIVE], STATS_SECOND_COL, EXPLOSIVE_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-		DisplayDots(STATS_SECOND_COL, EXPLOSIVE_Y, SECOND_COLUMN_DOT, CharacterInfo[AIM_MEMBER_EXPLOSIVE]);
-
-		DrawTextToScreen(CharacterInfo[AIM_MEMBER_MEDICAL], STATS_SECOND_COL, MEDICAL_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
-		DisplayDots(STATS_SECOND_COL, MEDICAL_Y, SECOND_COLUMN_DOT, CharacterInfo[AIM_MEMBER_MEDICAL]);
-
-
-		//
-		// Display all the Merc dynamic stat info
-		//
-
-		//Name
-		DrawTextToScreen(gMercProfiles[gbCurrentSoldier].zName, NAME_X, NAME_Y, 0, FONT14ARIAL, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
-
-		// Numbers for above.	Health, Agility, dexterity, strength, leadership, wisdom
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bLife );
-		DrawNumeralsToScreen( gMercProfiles[gbCurrentSoldier].bLife, 3, STATS_FIRST_NUM, HEALTH_Y, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bAgility );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bAgility, 3, STATS_FIRST_NUM, AGILITY_Y, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bDexterity );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bDexterity, 3, STATS_FIRST_NUM, DEXTERITY_Y, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bStrength );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bStrength, 3, STATS_FIRST_NUM, STRENGTH_Y, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bLeadership );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bLeadership, 3, STATS_FIRST_NUM, LEADERSHIP_Y, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bWisdom );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bWisdom, 3, STATS_FIRST_NUM, WISDOM_Y, AIM_M_NUMBER_FONT, ubColor	);
-
-		//Second column in stats box.	Exp.Level, Markmanship, mechanical, explosive, medical
-
-	//	ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bExpLevel );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bExpLevel, 3, STATS_SECOND_NUM, EXPLEVEL_Y, AIM_M_NUMBER_FONT, FONT_MCOLOR_WHITE	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bMarksmanship );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bMarksmanship, 3, STATS_SECOND_NUM, MARKSMAN_Y, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bMechanical );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bMechanical, 3, STATS_SECOND_NUM, MECHANAICAL_Y, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bExplosive );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bExplosive, 3, STATS_SECOND_NUM, EXPLOSIVE_Y, AIM_M_NUMBER_FONT, ubColor	);
-
-		ubColor = GetStatColor( gMercProfiles[gbCurrentSoldier].bMedical );
-		DrawNumeralsToScreen(gMercProfiles[gbCurrentSoldier].bMedical, 3, STATS_SECOND_NUM, MEDICAL_Y, AIM_M_NUMBER_FONT, ubColor	);
+		DrawTextToScreen(CharacterInfo[firstLabels[i]],
+			layout.stats.firstLabelX, layout.stats.rows[i], 0,
+			AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT,
+			FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+		DisplayDots(layout.stats.firstLabelX, layout.stats.rows[i],
+			layout.stats.firstDotX, CharacterInfo[firstLabels[i]]);
+		DrawNumeralsToScreen(firstValues[i], 3, layout.stats.firstValueX,
+			layout.stats.rows[i], AIM_M_NUMBER_FONT,
+			GetStatColor(firstValues[i]));
 	}
 
-	//Buggler: Display current AIM index & total AIM members at the bottom of the screen
-	swprintf( sPage, L"%d / %d", gbCurrentIndex + 1, MAX_NUMBER_MERCS );
-	DrawTextToScreen(sPage, AIM_PAGE_X, AIM_PAGE_Y, 0, AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
+	for (std::size_t i = 0; i < secondLabels.size(); ++i)
+	{
+		DrawTextToScreen(CharacterInfo[secondLabels[i]],
+			layout.stats.secondLabelX, layout.stats.rows[i], 0,
+			AIM_M_FONT_STATIC_TEXT, AIM_M_COLOR_STATIC_TEXT,
+			FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED);
+		DisplayDots(layout.stats.secondLabelX, layout.stats.rows[i],
+			layout.stats.secondDotX, CharacterInfo[secondLabels[i]]);
+		const UINT8 color = i == 0
+			? FONT_MCOLOR_WHITE : GetStatColor(secondValues[i]);
+		DrawNumeralsToScreen(secondValues[i], 3, layout.stats.secondValueX,
+			layout.stats.rows[i], AIM_M_NUMBER_FONT, color);
+	}
+
+	DrawTextToScreen(profile.zName, layout.stats.name.x, layout.stats.name.y,
+		0, FONT14ARIAL, AIM_M_COLOR_DYNAMIC_TEXT, FONT_MCOLOR_BLACK,
+		FALSE, LEFT_JUSTIFIED);
+
+	CHAR16 sPage[60];
+	swprintf(sPage, L"%d / %d", gbCurrentIndex + 1, MAX_NUMBER_MERCS);
+	DrawTextToScreen(sPage, layout.navigation.pageNumber.x,
+		layout.navigation.pageNumber.y, 0, AIM_M_FONT_STATIC_TEXT,
+		AIM_M_COLOR_STATIC_TEXT, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED);
 }
-
 UINT8	GetStatColor( INT8 bStat )
 {
 	if( bStat >= 80 )
@@ -3051,7 +2582,7 @@ void BtnHangUpButtonCallback(GUI_BUTTON *btn,INT32 reason)
 	if(reason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{
 		btn->uiFlags |= BUTTON_CLICKED_ON;
-		InvalidateRegion(CONTACT_X,CONTACT_BOX_Y,CONTACT_BR_X,CONTACT_BR_Y);
+		InvalidateAimMemberContactButton();
 	}
 	if(reason & MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
@@ -3062,13 +2593,13 @@ void BtnHangUpButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 			btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-			InvalidateRegion(CONTACT_X,CONTACT_BOX_Y,CONTACT_BR_X,CONTACT_BR_Y);
+			InvalidateAimMemberContactButton();
 		}
 	}
 	if(reason & MSYS_CALLBACK_REASON_LOST_MOUSE)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
-		InvalidateRegion(CONTACT_X,CONTACT_BOX_Y,CONTACT_BR_X,CONTACT_BR_Y);
+		InvalidateAimMemberContactButton();
 	}
 }
 
@@ -5450,25 +4981,27 @@ void DisplayPopUpBoxExplainingMercArrivalLocationAndTimeCallBack( UINT8 bExitVal
 	}
 }
 
-void DisplayAimMemberClickOnFaceHelpText()
+void DisplayAimMemberClickOnFaceHelpText(const Layout& layout)
 {
 	CHAR16 sString[ 6000 ], sTemp[ 64 ];	// was [128]/[20]: many/long skill-trait names overflowed both
 
-	if(gGameExternalOptions.gfUseNewStartingGearInterface)
-	{
-		//display the 'left click' onscreen help msg a bit to the right
-		DrawTextToScreen( AimMemberText[0], AIM_FI_LEFT_CLICK_TEXT_X_NSGI, AIM_FI_LEFT_CLICK_TEXT_Y_NSGI, AIM_FI_CLICK_TEXT_WIDTH, AIM_FI_HELP_TITLE_FONT, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-		DrawTextToScreen( AimMemberText[1], AIM_FI_LEFT_CLICK_TEXT_X_NSGI, AIM_FI_LEFT_CLICK_TEXT_Y_NSGI+AIM_FI_CLICK_DESC_TEXT_Y_OFFSET, AIM_FI_CLICK_TEXT_WIDTH, AIM_FI_HELP_FONT, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-	}
-	else
-	{
-		//display the 'left click' onscreen help msg
-		DrawTextToScreen( AimMemberText[0], AIM_FI_LEFT_CLICK_TEXT_X, AIM_FI_LEFT_CLICK_TEXT_Y, AIM_FI_CLICK_TEXT_WIDTH, AIM_FI_HELP_TITLE_FONT, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-		DrawTextToScreen( AimMemberText[1], AIM_FI_LEFT_CLICK_TEXT_X, AIM_FI_LEFT_CLICK_TEXT_Y+AIM_FI_CLICK_DESC_TEXT_Y_OFFSET, AIM_FI_CLICK_TEXT_WIDTH, AIM_FI_HELP_FONT, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-	}
+	DrawTextToScreen(AimMemberText[0], layout.help.leftClick.origin.x,
+		layout.help.leftClick.origin.y, layout.help.leftClick.width,
+		AIM_FI_HELP_TITLE_FONT, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK,
+		FALSE, CENTER_JUSTIFIED);
+	DrawTextToScreen(AimMemberText[1], layout.help.leftClick.origin.x,
+		layout.help.leftClick.origin.y + layout.help.descriptionOffsetY,
+		layout.help.leftClick.width, AIM_FI_HELP_FONT, AIM_FONT_MCOLOR_WHITE,
+		FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 	//display the 'right click' onscreen help msg
-	DrawTextToScreen( AimMemberText[2], AIM_FI_RIGHT_CLICK_TEXT_X, AIM_FI_LEFT_CLICK_TEXT_Y, AIM_FI_CLICK_TEXT_WIDTH, AIM_FI_HELP_TITLE_FONT, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
-	DrawTextToScreen( AimMemberText[3], AIM_FI_RIGHT_CLICK_TEXT_X, AIM_FI_LEFT_CLICK_TEXT_Y+AIM_FI_CLICK_DESC_TEXT_Y_OFFSET, AIM_FI_CLICK_TEXT_WIDTH, AIM_FI_HELP_FONT, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED	);
+	DrawTextToScreen(AimMemberText[2], layout.help.rightClick.origin.x,
+		layout.help.rightClick.origin.y, layout.help.rightClick.width,
+		AIM_FI_HELP_TITLE_FONT, AIM_FONT_MCOLOR_WHITE, FONT_MCOLOR_BLACK,
+		FALSE, CENTER_JUSTIFIED);
+	DrawTextToScreen(AimMemberText[3], layout.help.rightClick.origin.x,
+		layout.help.rightClick.origin.y + layout.help.descriptionOffsetY,
+		layout.help.rightClick.width, AIM_FI_HELP_FONT, AIM_FONT_MCOLOR_WHITE,
+		FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);
 
 	// Buggler: skills/traits tooltip on merc portrait
 
@@ -5544,35 +5077,34 @@ void DisplayAimMemberClickOnFaceHelpText()
 	SetRegionFastHelpText( &gSelectedFaceRegion, sString );
 }
 
-BOOLEAN CreateWeaponBoxMouseRegions(LaptopPageResourceOwner& resources)
+BOOLEAN CreateWeaponBoxMouseRegions(
+	LaptopPageResourceOwner& resources, const Layout& layout)
 {
-	UINT16	i, x, uiPosX, uiPosY;
-	UINT16	itemcounter = 0;
 	//tais: Weaponbox Mouseregions
-	for(i=0; i<WEAPONBOX_ROWS; i++) {
-		uiPosX = WEAPONBOX_X_NSGI;
-		uiPosY = WEAPONBOX_Y_NSGI + (WEAPONBOX_SIZE_Y_NSGI*i);
-		for(x=0; x<WEAPONBOX_COLUMNS; x++) {
-			MSYS_DefineRegion(&gWeaponboxFasthelpRegion[itemcounter],uiPosX,uiPosY,uiPosX+WEAPONBOX_SIZE_X_NSGI,uiPosY+WEAPONBOX_SIZE_Y_NSGI,MSYS_PRIORITY_HIGHEST, MSYS_NO_CURSOR, MSYS_NO_CALLBACK, MSYS_NO_CALLBACK);
-			CHECKF(resources.addRegion(gWeaponboxFasthelpRegion[itemcounter]));
-			MSYS_DisableRegion(&gWeaponboxFasthelpRegion[itemcounter]);
-			uiPosX += WEAPONBOX_SIZE_X_NSGI;
-			++itemcounter;
-		}
+	for(std::size_t item = 0; item < layout.inventory.capacity(); ++item)
+	{
+		const auto cell = layout.inventory.cell(item);
+		MSYS_DefineRegion(&gWeaponboxFasthelpRegion[item],
+			cell.x, cell.y, cell.right(), cell.bottom(),
+			MSYS_PRIORITY_HIGHEST, MSYS_NO_CURSOR,
+			MSYS_NO_CALLBACK, MSYS_NO_CALLBACK);
+		CHECKF(resources.addRegion(gWeaponboxFasthelpRegion[item]));
+		MSYS_DisableRegion(&gWeaponboxFasthelpRegion[item]);
 	}
 	return TRUE;
 }
-BOOLEAN CreateKitSelectionButtons(LaptopPageResourceOwner& resources)
+BOOLEAN CreateKitSelectionButtons(
+	LaptopPageResourceOwner& resources, const Layout& layout)
 {
 	//tais: nsgi, create kit selection buttons one to five
 	for ( int i = 0; i < NUM_MERCSTARTINGGEAR_KITS; ++i )
 	{
+		const auto buttonRect = layout.kitButtons.button(i);
 		const INT32 button = CreateIconAndTextButton( guiPreviousContactNextButtonImage, CharacterInfo[AIM_MEMBER_GEAR_KIT_ONE + i], AIM_M_KIT_BUTTON_FONT,
 																 AIM_M_KIT_BUTTON_UP_COLOR, DEFAULT_SHADOW,
 																 AIM_M_KIT_BUTTON_DOWN_COLOR, DEFAULT_SHADOW,
 																 TEXT_CJUSTIFIED,
-																 WEAPONBOX_LOADOUT_ONE_X + i * (WEAPONBOX_BUTTON_START_WIDTH + WEAPONBOX_LOADOUT_BUTTON_X_DISTANCE),
-																 WEAPONBOX_LOADOUT_ONE_Y - 4,
+																 buttonRect.x, buttonRect.y,
 																 BUTTON_TOGGLE, MSYS_PRIORITY_HIGH,
 																	 DEFAULT_MOVE_CALLBACK, BtnWeaponboxSelectButtonCallback );
 		CHECKF(resources.addButton(button, giWeaponboxSelectionButton[i]));
@@ -5583,21 +5115,16 @@ BOOLEAN CreateKitSelectionButtons(LaptopPageResourceOwner& resources)
 	return TRUE;
 }
 
-void CreateWeaponBoxBackground()
+void CreateWeaponBoxBackground(const Layout& layout)
 {
-	//tais: nsgi, create background for multiline weaponbox
 	HVOBJECT	hWeaponBoxHandle;
-	UINT16	i, x, uiPosX, uiPosY;
 
 	GetVideoObject(&hWeaponBoxHandle, guiWeaponBox);
-	for(i=0; i<WEAPONBOX_ROWS; i++) {
-		uiPosX = WEAPONBOX_X_NSGI;
-		uiPosY = WEAPONBOX_Y_NSGI + (WEAPONBOX_SIZE_Y_NSGI*i);
-		for(x=0; x<WEAPONBOX_COLUMNS; x++)
-		{
-			BltVideoObject(FRAME_BUFFER, hWeaponBoxHandle, 0, uiPosX, uiPosY, VO_BLT_SRCTRANSPARENCY,NULL);
-			uiPosX += WEAPONBOX_SIZE_X_NSGI;
-		}
+	for(std::size_t item = 0; item < layout.inventory.capacity(); ++item)
+	{
+		const auto cell = layout.inventory.cell(item);
+		BltVideoObject(FRAME_BUFFER, hWeaponBoxHandle, 0,
+			cell.x, cell.y, VO_BLT_SRCTRANSPARENCY, NULL);
 	}
 }
 

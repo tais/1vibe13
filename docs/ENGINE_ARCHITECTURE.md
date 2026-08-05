@@ -1160,6 +1160,14 @@ the engine must not contain SDL types in its public domain model.
   the per-page owner, latches acquisition failure until the next page, gates
   failed-page rendering/input, checks clicked-state compatibility handles, and
   renders IMP EDT text only after an exact successful load.
+  Post-closure A.I.M. graphics maintenance moves the static member-profile
+  composition into the dependency-free `AimMemberProfileLayoutModel`. One
+  selected typed layout now drives drawing, mouse hitboxes, invalidation,
+  navigation, help text, and both legacy and expanded equipment grids instead
+  of parallel coordinate macro families and duplicated renderers. Focused
+  geometry tests plus architecture and ASan ratchets pin exact authored pixel
+  positions, grid mapping, page containment, and non-overlapping controls; the
+  animated video-call overlay remains an independent stateful subsystem.
 - The post-Laptop Utils refactor now has four larger shared infrastructure
   batches. `UtilsUiStateModel` is the dependency-free boundary for
   signed/exact-end UI indices, slider geometry, and bounded callback-ID
