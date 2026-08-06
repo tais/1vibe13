@@ -31,7 +31,7 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | ✅ Done — landed as Phase 6r. SDL3_mixer is the only audio path. |
 | 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
 | 9 | Fonts — stb_truetype, drop GDI | 🟡 GDI `WinFont.cpp` retired everywhere (no-op stubs in `WinFont.h`, `iUseWinFonts` off); stb_truetype replacement still pending. |
-| 10 | Platform packaging + CI | 🟡 CI compile-check live on **Linux + macOS + Windows** (`.github/workflows/build_unix.yml`, clang/Ninja, `--target=x86_64-pc-windows-msvc`). `JA2_ENGLISH.exe` compiles + links. Packaging/installer artifacts still pending. |
+| 10 | Platform packaging + CI | 🟡 CI compile-check and tagged zip releases are live on **Linux x64, Linux ARM64, macOS, and Windows** (`.github/workflows/build_unix.yml`, `.github/workflows/release.yml`). macOS `.app` bundles are ad-hoc signed and strictly verified after staging; native installers and AppImage packaging remain pending. |
 | ∞ | Multiplayer — port to RakNet 4 or netlib swap | Deferred indefinitely. `Multiplayer/mp_stubs.cpp` (no-op definitions, STATIC) builds on every platform; the main-menu MP button is disabled. The 32-bit Win32 `RakNetLibStatic.lib` is unused. |
 
 As of Phase 1 closing, the build hits `[100%] Built target JA2_ENGLISH`
@@ -1276,12 +1276,15 @@ all three platforms.
 
 ## Phase 10 — Platform packaging & CI
 
-- macOS: `.app` bundle, code-signing config (unsigned for now),
-  resource path resolution via `SDL_GetBasePath`.
-- Linux: AppImage (initially).
-- Windows: keep existing installer flow; produce a zip artifact too.
-- CI matrix: build all three on every PR. At minimum "configures &
-  compiles". Ideally a headless boot smoke test.
+- macOS: `.app` bundles ship in tagged zip releases and use
+  `SDL_GetBasePath`. The release workflow replaces the linker's executable-only
+  signature with an ad-hoc bundle signature, then requires strict deep
+  verification before archiving.
+- Linux: tagged x64 and ARM64 zip artifacts are live; AppImage remains pending.
+- Windows: tagged zip artifacts are live; a native installer remains pending.
+- CI builds JA2, UB, and Map Editor on every branch across Linux, macOS, and
+  Windows, with Linux ASan headless tests and build-free release-workflow
+  safety checks.
 
 ---
 

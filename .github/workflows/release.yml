@@ -199,6 +199,20 @@ jobs:
           cp Multiplayer/ja2server/ja2_mp.ini.sample   dist/ja2server/ja2_mp.ini
           cp Multiplayer/ja2server/README.md           dist/ja2server/README.md
 
+      - name: Sign and verify macOS app bundles
+        if: matrix.platform.name == 'macos'
+        shell: bash
+        run: |
+          set -eux
+          # Apple's linker emits an executable-only ad-hoc signature. Re-sign
+          # each staged bundle so Info.plist and bundle resources are sealed;
+          # otherwise codesign rejects the app after it is extracted.
+          for app in JA2 JA2UB JA2MAPEDITOR; do
+            bundle="dist/${app}_ENGLISH.app"
+            codesign --force --deep --sign - "$bundle"
+            codesign --verify --deep --strict --verbose=2 "$bundle"
+          done
+
       - name: Stage payload (windows)
         if: matrix.platform.name == 'windows'
         shell: pwsh

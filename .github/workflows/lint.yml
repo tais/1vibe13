@@ -43,3 +43,8 @@ jobs:
             --source Ja2/GameVersion.cpp \
             --version v0.9.0-test \
             --build "EN v0.9.0-test GitHub test/repository 01234567"
+
+      - name: Validate macOS release bundle signing
+        run: |
+          python3 tools/check_release_workflow.py
+          python3 -m unittest tools/test_check_release_workflow.py
