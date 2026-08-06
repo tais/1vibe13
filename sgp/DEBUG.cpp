@@ -27,14 +27,13 @@
 	#include <stdio.h>
 	#include <string>
 	#include <sstream>
+	#include <stdexcept>
 	#include "DEBUG.H"
 
 	//Kris addition
 		#include "screenids.h"
 		#include "Sys Globals.h"
 		#include "jascreens.h"
-		#include "gameloop.h"
-		#include "input.h"
 
 	// CJC added
 	#ifndef _NO_DEBUG_TXT
@@ -68,6 +67,16 @@ CHAR8 gubAssertString[512];
 #define MAX_MSG_LENGTH2 512
 CHAR8		gbTmpDebugString[8][MAX_MSG_LENGTH2];
 UINT8		gubStringIndex = 0;
+
+namespace
+{
+void ScheduleErrorScreen()
+{
+	// The outer application loop is the sole FrameDriver owner. Scheduling the
+	// screen lets the current frame unwind before error-screen dispatch begins.
+	SetPendingNewScreen(ERROR_SCREEN);
+}
+}
 
 #ifdef SGP_DEBUG
 
@@ -457,8 +466,7 @@ void _FailMessage(const char* message, unsigned lineNum, const char * functionNa
 	} else {
 		snprintf( gubErrorText, sizeof(gubErrorText), "%s", basicInformation.str().c_str());
 	}
-	SetPendingNewScreen( ERROR_SCREEN );
-	SetCurrentScreen( ERROR_SCREEN );
+	ScheduleErrorScreen();
 
 	// WDS - Automatically try to save when an assertion failure occurs
 	if (gGameExternalOptions.autoSaveOnAssertionFailure &&
@@ -466,18 +474,10 @@ void _FailMessage(const char* message, unsigned lineNum, const char * functionNa
 		SaveGame( SAVE__ASSERTION_FAILURE, L"Assertion Failure Auto Save" );
 	}
 
-	// Spin a minimal game loop while the assert error screen is up.
-	// SDL event pumping happens in main()'s top-level loop; this nested
-	// loop only fires from inside an assert handler, so it suffices to
-	// keep calling GameLoop() until gfProgramIsRunning flips false.
-	while (gfProgramIsRunning)
-	{
-		GameLoop();
-		gfSGPInputReceived = FALSE;
-	}
-
-	alreadyInThisFunction = false;
-	exit(0);
+	// Assertions are fatal to the active operation, so unwind it to the
+	// top-level SGP exception boundary. The next outer frame owns and renders
+	// the scheduled error screen without recursively entering FrameDriver.
+	throw std::runtime_error(basicInformation.str());
 }
 
 #endif
@@ -519,7 +519,7 @@ void _ExceptionMessage( sgp::Exception &ex )
 		exd.line = (*it).line;
 		g_ExceptionList.push_back(exd);
 	}
-	_FailMessage("",0,"");
+	ScheduleErrorScreen();
 }
 
 void _ExceptionMessage( vfs::Exception &ex )
@@ -535,7 +535,7 @@ void _ExceptionMessage( vfs::Exception &ex )
 		exd.line = (*it).line;
 		g_ExceptionList.push_back(exd);
 	}
-	_FailMessage("",0,"");
+	ScheduleErrorScreen();
 }
 
 #include <vfs/Core/vfs_string.h>

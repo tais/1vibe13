@@ -23,6 +23,15 @@ constexpr bool IsWellFormedFile(
 		(fileBytes - layout.headerBytes) % layout.recordBytes == 0;
 }
 
+// A create-or-open writer sees a newly created file before it has written the
+// layout header. Existing files still have to satisfy the complete layout.
+constexpr bool IsAppendableFile(
+	std::size_t fileBytes, FileLayout layout) noexcept
+{
+	return layout.recordBytes != 0 &&
+		(fileBytes == 0 || IsWellFormedFile(fileBytes, layout));
+}
+
 constexpr std::size_t RecordCount(
 	std::size_t fileBytes, FileLayout layout) noexcept
 {

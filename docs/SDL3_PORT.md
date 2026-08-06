@@ -206,10 +206,11 @@ will revive them:
   blocks gated on `_MSC_VER`.
 - [sgp/Random.cpp](../sgp/Random.cpp): `<windows.h>` and the
   `GetCursorPos` cursor-position seed contribution are gated.
-- [sgp/DEBUG.cpp](../sgp/DEBUG.cpp): the assertion message pump that
-  pumps `PeekMessage` is gated; non-Windows path just calls
-  `GameLoop` until `gfProgramIsRunning` flips. SEH blocks gated on
-  `_MSC_VER`. The `<crtdbg.h>` include is gated on `_MSC_VER`.
+- [sgp/DEBUG.cpp](../sgp/DEBUG.cpp): assertions now schedule the error
+  screen and unwind to the outer SGP exception boundary. They do not run a
+  nested platform message pump or recursively call `GameLoop`; the main SDL
+  loop remains the sole frame driver. SEH blocks are gated on `_MSC_VER`, and
+  the `<crtdbg.h>` include is gated there as well.
 
 #### Phase 3 — window, event loop, message plumbing
 
@@ -525,10 +526,9 @@ only so legacy unported translation units still compile.
    to an empty TU on clang/gcc). Added a portable `StackTrace::StackTrace`
    / `PrintBacktrace` / `OutputToStream` body in `debug_util.cpp` that
    uses `<execinfo.h>` (`backtrace` + `backtrace_symbols`, available on
-   macOS and glibc Linux). `DEBUG.cpp`'s `<windows.h>` include + the
-   inline Win32 message pump in `_FailMessage` were already
-   `_WIN32`-gated; `OutputDebugString` routes to stderr via the compat
-   layer.
+   macOS and glibc Linux). `DEBUG.cpp` no longer owns an inline platform
+   message pump; `_FailMessage` schedules the engine error screen and unwinds
+   the active frame. `OutputDebugString` routes to stderr via the compat layer.
 6. ~~[sgp/timer.cpp](../sgp/timer.cpp) — replace the `SetTimer`-driven
    game clock with a `std::chrono`-driven equivalent. Tiny file.~~
    **Done.** Dropped the SetTimer/KillTimer dance; `GetClock()` now
