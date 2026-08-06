@@ -153,6 +153,15 @@ batch fixes the following confirmed faults:
 - Old A.I.M. archives accepted index 255 for the 255-element profile array;
 - localized shipping-destination lookup dereferenced `begin()` before checking
   an empty list and continued past `end()` after a missing external ID;
+- the first strict shipping-destination validator accidentally made all four
+  map-location fields mandatory, although established base data intentionally
+  contains name-only destinations. That made alpha13 enter the error screen
+  during startup. Name-only and complete-location records are now accepted,
+  while partially supplied location groups still fail transactionally;
+- the same strict pass rejected a production campaign-news sentence of 304
+  characters even though its legacy destination is a 300-character field.
+  Conversion now stages the complete UTF-8 value before explicitly applying
+  the established 299-character-plus-terminator bound;
 - briefing-room XML supplied an unbounded index to a raw caller array, accepted
   page/image counts beyond its four-entry layout, and silently skipped the
   `SecretCode` element because only its closing callback recognized the tag;
@@ -170,14 +179,19 @@ The shared model accumulates arbitrary callback chunks without partial writes,
 parses integral values with range-preserving `from_chars`, accepts only 0/1 as
 legacy booleans, explicitly maps only documented `-1` byte sentinels to 255,
 checks signed and exact-end indices, and copies fixed arrays without modifying
-the destination on failure. UTF-8 conversion likewise uses a temporary fixed
-array and commits only after capacity and conversion checks.
+the destination on failure. UTF-8 conversion likewise stages before commit and
+rejects overflow by default; only the campaign-news reader opts into its
+documented fixed-field truncation policy.
 Focused data-free tests cover exact capacity, overflow, unterminated buffers,
 malformed and out-of-range integers, strict booleans, signed/exact-end indices,
-and copy failure without mutation. Architecture CI applies the adapter and
-transactional-state requirements to every `Laptop/XML_*.cpp`, rejects the
-retired conversion/narrowing calls and mutable parser-mode globals, pins the
-specific crash boundaries, and admits the focused target to ASan CI.
+copy failure without mutation, established name-only shipping destinations,
+complete locations, and every partial-location combination. The complete
+headless harness also parses a production-sized 304-character campaign-news
+record through the real VFS/XML adapter and verifies the fixed-field bound.
+Architecture CI applies the adapter and transactional-state requirements to
+every `Laptop/XML_*.cpp`, rejects the retired conversion/narrowing calls and
+mutable parser-mode globals, pins the specific crash boundaries, and admits the
+focused target to ASan CI.
 
 ## IMP creation lifecycle and import transaction batch
 

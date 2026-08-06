@@ -1,6 +1,8 @@
 	#include "Screens.h"
 	#include "GameContext.h"
 
+	#include <exception>
+
 int iResolution;		// INI file
 int iPlayIntro;
 int iDisableMouseScrolling;
@@ -89,6 +91,8 @@ UINT32 HandleRegisteredScreen( UINT32 screenId )
 	const StateHandleResult<UINT32> result =
 		GetGameContext().stateRegistry().handle(screenId);
 	if (result) return *result.nextState;
+	if (result.callbackException)
+		std::rethrow_exception(result.callbackException);
 	GetGameContext().log().write(LogRecord{
 		LogSeverity::Error, "states",
 		"Screen handler failed for ID " + std::to_string(screenId) +

@@ -65,7 +65,13 @@ same common ownership: every Laptop XML reader uses the campaign-neutral
 explicit preservation of documented `-1` byte sentinels, and index validation,
 then publishes staged records only after a complete document. The legacy UTF-8
 adapter remains above the engine boundary, and the existing XML schemas,
-numeric IDs, and fixed game structures are unchanged.
+numeric IDs, and fixed game structures are unchanged. In particular, the
+shipping-destination schema still permits the established name-only base
+records; map coordinates are accepted when all four location fields are
+present and rejected only when that optional group is partial. Campaign-stat
+news likewise retains the legacy fixed-field behavior for installed text that
+exceeds 299 characters: converted text is boundedly truncated and terminated
+instead of rejecting the complete startup document.
 The subsequent IMP lifecycle pass follows the same campaign-neutral ownership:
 `ImpCreationStateModel` validates page, portrait, voice, and free-profile
 selection, while staged IMP import publishes a complete profile only after

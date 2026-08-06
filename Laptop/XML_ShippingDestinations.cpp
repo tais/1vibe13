@@ -123,10 +123,10 @@ destinationEndElementHandle(void *userData, const XML_Char *name)
 		{
 			pData->curElement = ELEMENT_LIST;
 			
-			if (!pData->hasIndex || !pData->hasName ||
-				(!pData->localizedVersion &&
-					(!pData->hasMapX || !pData->hasMapY ||
-						!pData->hasMapZ || !pData->hasGridNo)))
+			if (!LaptopLocalizationModel::IsShippingDestinationRecordValid(
+				pData->localizedVersion, pData->hasIndex, pData->hasName,
+				pData->hasMapX, pData->hasMapY, pData->hasMapZ,
+				pData->hasGridNo))
 			{
 				pData->valid = false;
 			}

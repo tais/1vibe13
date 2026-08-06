@@ -2,6 +2,7 @@
 #define ENGINE_CORE_STATE_REGISTRY_H
 
 #include <cstddef>
+#include <exception>
 #include <functional>
 #include <optional>
 #include <utility>
@@ -56,6 +57,7 @@ struct StateHandleResult
 {
 	StateHandleError error = StateHandleError::None;
 	std::optional<StateId> nextState;
+	std::exception_ptr callbackException;
 
 	explicit operator bool() const
 	{
@@ -137,7 +139,8 @@ public:
 		}
 		catch (...)
 		{
-			return {StateHandleError::CallbackException, std::nullopt};
+			return {StateHandleError::CallbackException, std::nullopt,
+				std::current_exception()};
 		}
 	}
 
