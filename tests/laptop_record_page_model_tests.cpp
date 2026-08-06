@@ -27,6 +27,13 @@ int main()
 		!IsWellFormedFile(5, finance) &&
 		!IsWellFormedFile(12, FileLayout{0, 0}),
 		"Record layouts reject short, partial, and zero-width files");
+	Check(IsAppendableFile(0, finance) &&
+		IsAppendableFile(4, finance) &&
+		IsAppendableFile(18, finance) &&
+		!IsAppendableFile(3, finance) &&
+		!IsAppendableFile(5, finance) &&
+		!IsAppendableFile(0, FileLayout{0, 0}),
+		"Fresh ledgers accept their first header and record append");
 	Check(RecordCount(4, finance) == 0 &&
 		RecordCount(18, finance) == 1 &&
 		RecordCount(32, finance) == 2 &&

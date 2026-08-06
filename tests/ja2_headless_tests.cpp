@@ -139,6 +139,9 @@
 #include "GameSettings.h"
 #include "Cheats.h"
 #include "CampaignStats.h"
+#include "finances.h"
+#include "LaptopRecordFile.h"
+#include "LaptopSave.h"
 #include "Disease.h"
 #include "Food.h"
 #include "popup_class.h"
@@ -16770,6 +16773,67 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+	{
+		// New games delete the previous ledger and immediately add their
+		// starting-cash transaction. Exercise that exact FileMan/VFS path, then
+		// append a second record to prove the first one was not truncated.
+		const INT32 previousBalance = LaptopSaveInfo.iCurrentBalance;
+		const INT32 previousStartingMoney =
+			gCampaignStats.sMoneyEarned[CAMPAIGN_MONEY_START];
+		const INT32 previousOtherMoney =
+			gCampaignStats.sMoneyEarned[CAMPAIGN_MONEY_ETC];
+		LaptopSaveInfo.iCurrentBalance = 0;
+		GameInitFinances();
+		const UINT32 startingCashId = AddTransactionToPlayersBook(
+			ANONYMOUS_DEPOSIT, 7, 1234, 35000);
+		const UINT32 feeId = AddTransactionToPlayersBook(
+			TRANSACTION_FEE, 9, 1240, -500);
+
+		INT32 balance = 0;
+		UINT8 firstCode = 0;
+		UINT8 firstSecondCode = 0;
+		UINT32 firstDate = 0;
+		INT32 firstAmount = 0;
+		INT32 firstBalance = 0;
+		UINT8 secondCode = 0;
+		UINT8 secondSecondCode = 0;
+		UINT32 secondDate = 0;
+		INT32 secondAmount = 0;
+		INT32 secondBalance = 0;
+		ScopedLaptopFile ledger(FileOpen(FINANCES_DATA_FILE,
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING));
+		const bool ledgerPersisted = ledger && FileGetSize(ledger.Get()) == 32 &&
+			ReadLaptopFileExact(ledger.Get(), &balance, sizeof(balance)) &&
+			ReadLaptopFileExact(ledger.Get(), &firstCode, sizeof(firstCode)) &&
+			ReadLaptopFileExact(ledger.Get(), &firstSecondCode,
+				sizeof(firstSecondCode)) &&
+			ReadLaptopFileExact(ledger.Get(), &firstDate, sizeof(firstDate)) &&
+			ReadLaptopFileExact(ledger.Get(), &firstAmount, sizeof(firstAmount)) &&
+			ReadLaptopFileExact(ledger.Get(), &firstBalance,
+				sizeof(firstBalance)) &&
+			ReadLaptopFileExact(ledger.Get(), &secondCode, sizeof(secondCode)) &&
+			ReadLaptopFileExact(ledger.Get(), &secondSecondCode,
+				sizeof(secondSecondCode)) &&
+			ReadLaptopFileExact(ledger.Get(), &secondDate, sizeof(secondDate)) &&
+			ReadLaptopFileExact(ledger.Get(), &secondAmount,
+				sizeof(secondAmount)) &&
+			ReadLaptopFileExact(ledger.Get(), &secondBalance,
+				sizeof(secondBalance));
+		CHECK(startingCashId != UINT32_MAX && feeId != UINT32_MAX &&
+			ledgerPersisted && balance == 34500 &&
+			firstCode == ANONYMOUS_DEPOSIT && firstSecondCode == 7 &&
+			firstDate == 1234 && firstAmount == 35000 &&
+			firstBalance == 35000 && secondCode == TRANSACTION_FEE &&
+			secondSecondCode == 9 && secondDate == 1240 &&
+			secondAmount == -500 && secondBalance == 34500,
+			"new-game finance ledger persists starting cash before later transactions" );
+		ledger.Close();
+		FileDelete(FINANCES_DATA_FILE);
+		LaptopSaveInfo.iCurrentBalance = previousBalance;
+		gCampaignStats.sMoneyEarned[CAMPAIGN_MONEY_START] =
+			previousStartingMoney;
+		gCampaignStats.sMoneyEarned[CAMPAIGN_MONEY_ETC] = previousOtherMoney;
+	}
 	{
 		const std::string path = "campaign-stats-events-schema-test.xml";
 		const std::string oversizedText( 304, 'x' );

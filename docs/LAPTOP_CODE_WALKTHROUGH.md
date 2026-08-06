@@ -602,6 +602,9 @@ Confirmed faults fixed by this batch include:
 - finance rewrote its balance with a create-always open before appending a
   transaction; with the corrected FileMan disposition semantics that erased
   the existing transaction ledger;
+- the replacement create-or-open transaction path rejected a brand-new
+  zero-byte finance file before it could write the balance header, so the
+  starting-cash transaction asserted while creating every new campaign;
 - finance balance addition, projections, daily summaries, display magnitudes,
   and early-campaign day arithmetic could overflow or underflow;
 - history allocation failures were dereferenced, append ignored its argument,
@@ -612,7 +615,11 @@ Confirmed faults fixed by this batch include:
 Finance now validates the complete header-plus-record layout, writes the
 balance and appended record through one checked persistence operation, and
 publishes campaign balance, profile cost, statistics, and UI state only after
-the record is durable. History validates its headerless record layout, checks
+the record is durable. The only incomplete layout accepted is the zero-byte
+file just created for a first transaction; a FileMan/VFS headless regression
+test executes the starting-cash path and verifies that a later transaction
+appends without truncation. History validates its headerless record layout,
+checks
 every field read/write, rejects malformed tails, assigns persisted IDs, and
 reloads only a normalized live page after an append. Its active full-ledger
 update writes from byte zero; the superseded corrupt page writer and all

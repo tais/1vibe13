@@ -92,10 +92,10 @@ inline void _FailMessage(const char* message, unsigned lineNum, const char* sour
 // EXPECT / EXPECT_RET -- a RECOVERABLE precondition guard for the recurring
 // "lookup-then-deref" crash class. The dominant idiom is
 //   X* p = Find/GetSoldier(...); Assert(p); p->field;
-// but Assert is live in this build and its handler shows an error screen and
-// returns, so a NULL from a legitimate edge (just-killed merc, off-world gridno,
-// modded data) still crashes on the very next deref -- a game-killing exit on
-// ordinary input. EXPECT instead LOGS the failed condition with file:line and
+// but Assert is live in this build and its handler schedules the fatal error
+// screen, so a NULL from a legitimate edge (just-killed merc, off-world gridno,
+// modded data) still exits the current operation. EXPECT instead LOGS the failed
+// condition with file:line and
 // returns gracefully, converting that crash into a diagnosable log line.
 //
 // Use ONLY where a NULL/invalid result is a real (if rare) runtime edge with a

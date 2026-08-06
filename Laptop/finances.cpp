@@ -1557,8 +1557,8 @@ BOOLEAN PersistFinanceTransaction(
 {
 	ScopedLaptopFile file(FileOpen(FINANCES_DATA_FILE,
 		FILE_ACCESS_WRITE | FILE_OPEN_ALWAYS, FALSE));
-	if (!file || !LaptopRecordPageModel::IsWellFormedFile(
-		FileGetSize(file.Get()), FinanceFileLayout) ||
+	if (!file || !LaptopRecordPageModel::IsAppendableFile(
+			FileGetSize(file.Get()), FinanceFileLayout) ||
 		!FileSeek(file.Get(), 0, FILE_SEEK_FROM_START) ||
 		!WriteLaptopFileExact(file.Get(), &balance, sizeof(balance)) ||
 		!FileSeek(file.Get(), 0, FILE_SEEK_FROM_END)) return FALSE;

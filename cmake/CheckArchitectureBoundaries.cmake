@@ -3240,6 +3240,7 @@ file(READ "${SOURCE_ROOT}/Laptop/LaptopRecordPageModel.h"
   runtime_laptop_record_page_model_contents)
 foreach(required_laptop_record_page_model_fragment IN ITEMS
     "IsWellFormedFile"
+    "IsAppendableFile"
     "NormalizeZeroBasedPage"
     "NormalizeOneBasedPage"
     "PageByteOffset"
@@ -3314,6 +3315,7 @@ foreach(required_laptop_finance_safety_fragment IN ITEMS
     "gFinancePageResources"
     "ReadFinanceRecordExact"
     "PersistFinanceTransaction"
+    "IsAppendableFile"
     "CanApplyBalanceChange"
     "NormalizeZeroBasedPage"
     "gFinanceRecordPageCount"
@@ -3393,6 +3395,7 @@ file(READ "${SOURCE_ROOT}/tests/laptop_record_page_model_tests.cpp"
   runtime_laptop_record_page_test_contents)
 foreach(required_laptop_record_page_test_fragment IN ITEMS
     "Record layouts reject short, partial, and zero-width files"
+    "Fresh ledgers accept their first header and record append"
     "Saved ledger pages normalize empty, zero, and stale values"
     "Ledger offsets include headers and reject overflowing pages"
     "Record-driven indices reject exact-end and oversized values"
@@ -3407,6 +3410,16 @@ foreach(required_laptop_record_page_test_fragment IN ITEMS
       "Laptop record-page tests lost '${required_laptop_record_page_test_fragment}'")
   endif()
 endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  runtime_laptop_finance_headless_test_contents)
+string(FIND "${runtime_laptop_finance_headless_test_contents}"
+  "new-game finance ledger persists starting cash before later transactions"
+  runtime_laptop_finance_new_game_test_position)
+if(runtime_laptop_finance_new_game_test_position EQUAL -1)
+  message(FATAL_ERROR
+    "Laptop finance lost its FileMan/VFS new-game persistence regression test")
+endif()
 
 # Email owns one mutable inbox/page graph plus several independently replaced
 # UI overlays. Keep its bounds and text rules dependency-free, its resource
@@ -11325,6 +11338,27 @@ endforeach()
 # implements that backend, while normal FrameDriver work and established
 # RefreshScreen/PresentNow/Invalidate*/ColorFillVideoSurfaceArea callers cross
 # engine-owned contracts.
+file(READ "${SOURCE_ROOT}/sgp/DEBUG.cpp" assertion_handler_contents)
+foreach(required_assertion_transition_fragment IN ITEMS
+    "ScheduleErrorScreen"
+    "SetPendingNewScreen(ERROR_SCREEN)"
+    "throw std::runtime_error")
+  string(FIND "${assertion_handler_contents}"
+    "${required_assertion_transition_fragment}"
+    required_assertion_transition_position)
+  if(required_assertion_transition_position EQUAL -1)
+    message(FATAL_ERROR
+      "Assertion handling lost frame-safe error transition '${required_assertion_transition_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])GameLoop[ \t\r\n]*\\("
+  nested_assertion_game_loop "${assertion_handler_contents}")
+if(nested_assertion_game_loop)
+  message(FATAL_ERROR
+    "Assertion handling recursively drives GameLoop; unwind to the outer FrameDriver before rendering errors")
+endif()
+
 set(platform_video_backend_owners
   "${SOURCE_ROOT}/sgp/sdl_video.cpp"
   "${SOURCE_ROOT}/sgp/sdl_vsurface.cpp"

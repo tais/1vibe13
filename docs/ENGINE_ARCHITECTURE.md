@@ -615,7 +615,10 @@ the engine must not contain SDL types in its public domain model.
   splash, fade, and legacy UI paths reaches the same bound presenter through
   source-compatible entry points. Headless hosts use the same driver and
   gateway with injected time and presentation services instead of a window or
-  renderer.
+  renderer. Fatal legacy assertions schedule the error screen and unwind to
+  the SGP exception boundary; they never call `GameLoop` recursively from an
+  active frame. This preserves the original assertion diagnostic and leaves
+  the outer application loop as the sole frame driver.
 - `FrameTelemetry` records bounded, value-only phase timings and input/package
   failure totals for every completed live frame. Recording is best effort and
   cannot fail a frame, while tools and headless hosts can copy stable snapshots
@@ -1090,7 +1093,11 @@ the engine must not contain SDL types in its public domain model.
   normalization, checked byte offsets, exact-end views, signed balance bounds,
   saturating summaries, and overflow-safe legacy day buckets.
   `LaptopRecordFile` scopes legacy FileMan handles and requires exact field
-  reads and writes. Both pages stage complete render/input resources through
+  reads and writes. A create-or-open finance writer explicitly admits the
+  zero-byte state of a newly created ledger so it can publish the balance
+  header and first starting-cash record; every pre-existing file must still
+  satisfy the complete header-plus-record layout. Both pages stage complete
+  render/input resources through
   `LaptopPageResourceOwner`, and history owns the render handles it previously
   borrowed from finance. Finance no longer truncates its transaction ledger
   while updating the balance and publishes campaign side effects only after a
