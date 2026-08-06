@@ -2809,8 +2809,10 @@ endforeach()
 
 # Laptop XML/localization input is staged behind one dependency-free boundary
 # model and one legacy UTF-8 adapter. Expat may split character data at any
-# byte, and malformed or oversized data must not narrow, truncate, address an
-# exact-end slot, or partially publish live Laptop state.
+# byte, and malformed or oversized data must not narrow, overflow, address an
+# exact-end slot, or partially publish live Laptop state. The one established
+# campaign-news truncation is an explicit adapter policy with integration
+# coverage rather than an unchecked conversion side effect.
 file(READ "${SOURCE_ROOT}/Laptop/LocalizationInputModel.h"
   runtime_laptop_localization_model_contents)
 foreach(required_laptop_localization_model_fragment IN ITEMS
@@ -2834,9 +2836,14 @@ file(READ "${SOURCE_ROOT}/Laptop/LocalizationInputAdapter.h"
   runtime_laptop_localization_adapter_contents)
 foreach(required_laptop_localization_adapter_fragment IN ITEMS
     "ConvertUtf8"
+    "ConvertUtf8WithPolicy"
+    "TextOverflowPolicy::Reject"
+    "ConvertUtf8Truncated"
     "required <= 0"
     "std::array<CHAR16, Capacity> converted"
-    "std::copy(converted.begin(), converted.end(), destination)")
+    "std::vector<CHAR16> converted"
+    "std::array<CHAR16, Capacity> staged"
+    "std::copy(staged.begin(), staged.end(), destination)")
   string(FIND "${runtime_laptop_localization_adapter_contents}"
     "${required_laptop_localization_adapter_fragment}"
     required_laptop_localization_adapter_position)
@@ -2890,6 +2897,8 @@ foreach(laptop_xml_boundary_caller_and_fragment IN ITEMS
     "Laptop/XML_AIMAvailability.cpp|ParseIntegerOrMinusOneSentinel"
     "Laptop/XML_ConditionsForMercAvailability.cpp|ParseIntegerOrMinusOneSentinel"
     "Laptop/XML_OldAIMArchive.cpp|std::array<OLD_MERC_ARCHIVES_VALUES, NUM_PROFILES>"
+    "Laptop/XML_CampaignStatsEvents.cpp|ConvertUtf8Truncated"
+    "Laptop/XML_ShippingDestinations.cpp|IsShippingDestinationRecordValid"
     "Laptop/XML_ShippingDestinations.cpp|found == liveDestinations.end()"
     "Laptop/XML_DeliveryMethods.cpp|GetDeliveryMethodCount() != 0"
     "Ja2/Init.cpp|gBriefingRoomData, NUM_MISSION, 4")
@@ -2937,6 +2946,9 @@ foreach(required_laptop_localization_assertion IN ITEMS
     "ParseIntegerOrMinusOneSentinel(\"-2\", value)"
     "ParseBoolean(\"2\", flag)"
     "IsIndexInRange(255, 255)"
+    "IsShippingDestinationRecordValid("
+    "false, true, true, false, false, false, false"
+    "locationFields & 8"
     "CopyText(destination, unterminated)")
   string(FIND "${runtime_laptop_localization_test_contents}"
     "${required_laptop_localization_assertion}"
@@ -2944,6 +2956,20 @@ foreach(required_laptop_localization_assertion IN ITEMS
   if(required_laptop_localization_assertion_position EQUAL -1)
     message(FATAL_ERROR
       "Laptop localization tests lost '${required_laptop_localization_assertion}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  runtime_laptop_xml_integration_test_contents)
+foreach(required_laptop_xml_integration_fragment IN ITEMS
+    "std::string oversizedText( 304, 'x' )"
+    "campaign-stats XML preserves the established bounded text truncation schema")
+  string(FIND "${runtime_laptop_xml_integration_test_contents}"
+    "${required_laptop_xml_integration_fragment}"
+    required_laptop_xml_integration_position)
+  if(required_laptop_xml_integration_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop XML headless integration lost '${required_laptop_xml_integration_fragment}'")
   endif()
 endforeach()
 
@@ -6778,6 +6804,40 @@ foreach(source_file IN LISTS world_state_declaration_files)
     endif()
   endforeach()
 endforeach()
+
+# A state callback failure is an application diagnostic, not just an error
+# enum. Core retains the exception without interpreting it, and the JA2 adapter
+# rethrows it into SGP's established error-screen boundary.
+file(READ "${SOURCE_ROOT}/Engine/Core/StateRegistry.h"
+  state_registry_header_contents)
+foreach(required_state_exception_fragment IN ITEMS
+    "std::exception_ptr callbackException"
+    "std::current_exception()")
+  string(FIND "${state_registry_header_contents}"
+    "${required_state_exception_fragment}" required_state_exception_position)
+  if(required_state_exception_position EQUAL -1)
+    message(FATAL_ERROR
+      "StateRegistry lost callback diagnostic '${required_state_exception_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Ja2/Screens.cpp" state_screen_adapter_contents)
+string(FIND "${state_screen_adapter_contents}"
+  "std::rethrow_exception(result.callbackException)"
+  state_screen_exception_position)
+if(state_screen_exception_position EQUAL -1)
+  message(FATAL_ERROR
+    "JA2 screen adapter no longer forwards StateRegistry callback diagnostics")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/engine_core_tests.cpp"
+  state_registry_test_contents)
+string(FIND "${state_registry_test_contents}" "preserved handler failure"
+  state_registry_exception_test_position)
+if(state_registry_exception_test_position EQUAL -1)
+  message(FATAL_ERROR
+    "Engine Core tests no longer prove StateRegistry exception retention")
+endif()
 
 # TacticalActor is the canonical component aggregate. The staged migration
 # previously kept a second v101 record, raw POD footprint, placeholder pointers,

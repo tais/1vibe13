@@ -160,7 +160,7 @@ CSEEndElementHandle(void *userData, const XML_Char *name)
 					pData->curElement = ELEMENT;
 			
 					pData->valid = pData->valid &&
-						LaptopLocalization::ConvertUtf8(
+						LaptopLocalization::ConvertUtf8Truncated(
 							pData->szCharData, pData->curItem.szText[i]);
 
 					break;

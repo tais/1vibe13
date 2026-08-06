@@ -301,7 +301,13 @@ the engine must not contain SDL types in its public domain model.
   callbacks still receive the live root or child parser, and semantic callback
   exceptions retain their bounded message and parser position. Parser and
   buffer ownership is consequently centralized below the game layer, with an
-  architecture check preventing new production-owned Expat parsers.
+  architecture check preventing new production-owned Expat parsers. Schema
+  hardening remains compatibility-preserving: a base shipping destination may
+  omit its complete map-location group, as established game data does, while a
+  partially supplied location is rejected transactionally. Campaign-stat news
+  text also retains its established bounded truncation into the fixed
+  300-character legacy field; conversion is completed in staging before the
+  bounded result is published.
 - The legacy SGP, Utils, and Laptop manifests explicitly separate
   campaign-neutral translation units from sources that still consume
   JA2/UB/editor definitions. The neutral object layers compile once and are
@@ -597,8 +603,11 @@ the engine must not contain SDL types in its public domain model.
   The live JA2 screen table is registered once as a compatibility adapter, and
   all initialization, handling, and shutdown now run through the runtime host.
   Callback failures and exceptions become explicit results instead of unchecked
-  array dispatch, while the established numeric screen IDs and ordering remain
-  unchanged for existing game, editor, and mod code.
+  array dispatch. Handler failures retain their original exception for the
+  application adapter, which returns it to the established SGP error-reporting
+  boundary instead of replacing a useful startup diagnostic with a blank error
+  screen. The established numeric screen IDs and ordering remain unchanged for
+  existing game, editor, and mod code.
 - `FrameDriver` owns the update/present/complete sequence and deterministic
   identity of every completed application frame. The live JA2 loop is routed
   through it while preserving its established screen-update, presentation,

@@ -36,6 +36,7 @@
 #include "TacticalWorldAdapter.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -137,6 +138,7 @@
 #include "Game Events.h"
 #include "GameSettings.h"
 #include "Cheats.h"
+#include "CampaignStats.h"
 #include "Disease.h"
 #include "Food.h"
 #include "popup_class.h"
@@ -145,6 +147,7 @@
 #include "Animated ProgressBar.h"
 #include "Text Input.h"
 #include "mousesystem.h"
+#include "XML.h"
 #include "Soldier Control.h"
 #include "Grid Direction.h"
 #include "Soldier Palette.h"
@@ -16767,6 +16770,33 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+	{
+		const std::string path = "campaign-stats-events-schema-test.xml";
+		const std::string oversizedText( 304, 'x' );
+		const std::string document =
+			"<CAMPAIGNSTATSEVENTS><EVENT><uiIndex>14</uiIndex>"
+			"<szText6>" + oversizedText + "</szText6>"
+			"<usCityTaken>11</usCityTaken></EVENT></CAMPAIGNSTATSEVENTS>";
+		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
+		const UINT32 documentSize = static_cast<UINT32>( document.size() );
+		UINT32 bytesWritten = 0;
+		const bool fixtureWritten = output && FileWrite( output,
+			document.data(), documentSize, &bytesWritten ) &&
+			bytesWritten == documentSize;
+		if ( output ) FileClose( output );
+
+		std::array<CAMPAIGNSTATSEVENT, NUM_CAMPAIGNSTATSEVENTS> previous{};
+		std::copy_n( zCampaignStatsEvent, previous.size(), previous.begin() );
+		const bool loaded = fixtureWritten && ReadInCampaignStatsEvents(
+			const_cast<char*>( path.c_str() ), FALSE );
+		CHECK( loaded && zCampaignStatsEvent[14].usCityTaken == 11 &&
+			zCampaignStatsEvent[14].szText[6][298] == L'x' &&
+			zCampaignStatsEvent[14].szText[6][299] == L'\0',
+			"campaign-stats XML preserves the established bounded text truncation schema" );
+		std::copy( previous.begin(), previous.end(), zCampaignStatsEvent );
+		FileDelete( const_cast<char*>( path.c_str() ) );
+	}
 	{
 		const std::string path = "encrypted-text-record-test.edt";
 		const UINT16 encodedRecord[] = {66, 67, 68, 69};

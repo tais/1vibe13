@@ -1807,13 +1807,33 @@ int main()
 		states.initialize(6) == StateInitializationError::CallbackException,
 		"state registry contains initialization exceptions at the host boundary");
 	check(states.registerState(7, StateCallbacks<unsigned>{
-		[] { return true; }, []() -> unsigned { throw 1; }, [] { throw 1; }}) ==
+		[] { return true; },
+		[]() -> unsigned {
+			throw std::runtime_error("preserved handler failure");
+		},
+		[] { throw 1; }}) ==
 			StateRegistrationError::None &&
-		states.initialize(7) == StateInitializationError::None &&
-		states.handle(7).error == StateHandleError::CallbackException &&
+		states.initialize(7) == StateInitializationError::None,
+		"state registry accepts a state whose callback can report a failure");
+	const StateHandleResult<unsigned> failedState = states.handle(7);
+	bool retainedHandlerFailure = false;
+	if (failedState.callbackException)
+	{
+		try
+		{
+			std::rethrow_exception(failedState.callbackException);
+		}
+		catch (const std::runtime_error& error)
+		{
+			retainedHandlerFailure =
+				std::string(error.what()) == "preserved handler failure";
+		}
+	}
+	check(failedState.error == StateHandleError::CallbackException &&
+		!failedState.nextState && retainedHandlerFailure &&
 		states.shutdown(7) == StateShutdownError::CallbackException &&
 		!states.isInitialized(7),
-		"state registry reports callback exceptions and releases lifecycle state");
+		"state registry retains handler exceptions for host diagnostics and releases lifecycle state");
 
 	StateRegistry<unsigned> reentrantStates;
 	StateInitializationError nestedInitialization = StateInitializationError::None;

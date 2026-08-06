@@ -71,6 +71,24 @@ int main()
 	assert(!Model::IsIndexInRange(255, 255));
 	assert(!Model::IsIndexInRange(255, -1));
 
+	assert(Model::IsShippingDestinationRecordValid(
+		false, true, true, false, false, false, false));
+	assert(Model::IsShippingDestinationRecordValid(
+		false, true, true, true, true, true, true));
+	for (unsigned int locationFields = 1; locationFields < 15;
+		++locationFields)
+	{
+		assert(!Model::IsShippingDestinationRecordValid(false, true, true,
+			(locationFields & 1) != 0, (locationFields & 2) != 0,
+			(locationFields & 4) != 0, (locationFields & 8) != 0));
+	}
+	assert(Model::IsShippingDestinationRecordValid(
+		true, true, true, false, false, false, false));
+	assert(!Model::IsShippingDestinationRecordValid(
+		false, false, true, false, false, false, false));
+	assert(!Model::IsShippingDestinationRecordValid(
+		false, true, false, false, false, false, false));
+
 	{
 		wchar_t destination[5]{};
 		const wchar_t source[] = L"safe";

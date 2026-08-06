@@ -116,6 +116,22 @@ namespace LaptopLocalizationModel
 		return static_cast<std::size_t>(index) < size;
 	}
 
+	constexpr bool IsShippingDestinationRecordValid(bool localizedVersion,
+		bool hasIndex, bool hasName, bool hasMapX, bool hasMapY,
+		bool hasMapZ, bool hasGridNo) noexcept
+	{
+		if (!hasIndex || !hasName)
+			return false;
+		if (localizedVersion)
+			return true;
+
+		const bool hasAnyLocation =
+			hasMapX || hasMapY || hasMapZ || hasGridNo;
+		const bool hasCompleteLocation =
+			hasMapX && hasMapY && hasMapZ && hasGridNo;
+		return !hasAnyLocation || hasCompleteLocation;
+	}
+
 	template<typename Character, std::size_t DestinationCapacity,
 		std::size_t SourceCapacity>
 	bool CopyText(Character (&destination)[DestinationCapacity],
