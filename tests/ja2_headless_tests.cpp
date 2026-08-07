@@ -553,22 +553,44 @@ static BOOLEAN ReadItemXmlWithProgress(const char* phase,
 	return loaded;
 }
 
+static_assert(std::is_trivially_copyable_v<INVTYPE>,
+	"headless item rollback snapshots exact object representations");
+
+struct ItemXmlItemSnapshot
+{
+	std::size_t index = 0;
+	std::array<UINT8, sizeof(INVTYPE)> bytes{};
+};
+
 struct ItemXmlTablesSnapshot
 {
-	std::vector<UINT8> items;
+	std::vector<ItemXmlItemSnapshot> items;
 	std::vector<UINT8> storeInventory;
 	std::vector<UINT8> weaponRateOfFire;
 	UINT32 maxItemsRead = 0;
 };
 
+static bool ItemXmlItemRecordIsZero(std::size_t index)
+{
+	const UINT8* bytes = reinterpret_cast<const UINT8*>(&Item[index]);
+	return std::all_of(bytes, bytes + sizeof(INVTYPE),
+		[](UINT8 value) { return value == 0; });
+}
+
 static ItemXmlTablesSnapshot CaptureItemXmlTables()
 {
 	ItemXmlTablesSnapshot snapshot;
-	const UINT8* itemBytes = reinterpret_cast<const UINT8*>(Item);
 	const UINT8* storeBytes =
 		reinterpret_cast<const UINT8*>(StoreInventory);
 	const UINT8* rateBytes = reinterpret_cast<const UINT8*>(WeaponROF);
-	snapshot.items.assign(itemBytes, itemBytes + sizeof(Item));
+	for (std::size_t index = 0; index < MAXITEMS; ++index)
+	{
+		if (ItemXmlItemRecordIsZero(index)) continue;
+		snapshot.items.emplace_back();
+		ItemXmlItemSnapshot& savedItem = snapshot.items.back();
+		savedItem.index = index;
+		std::memcpy(savedItem.bytes.data(), &Item[index], sizeof(INVTYPE));
+	}
 	snapshot.storeInventory.assign(storeBytes,
 		storeBytes + sizeof(StoreInventory));
 	snapshot.weaponRateOfFire.assign(rateBytes,
@@ -623,7 +645,12 @@ static bool ItemXmlItemTableIsZero()
 
 static void RestoreItemXmlTables(const ItemXmlTablesSnapshot& snapshot)
 {
-	std::memcpy(Item, snapshot.items.data(), sizeof(Item));
+	std::memset(Item, 0, sizeof(Item));
+	for (const ItemXmlItemSnapshot& savedItem : snapshot.items)
+	{
+		std::memcpy(&Item[savedItem.index], savedItem.bytes.data(),
+			sizeof(INVTYPE));
+	}
 	std::memcpy(StoreInventory, snapshot.storeInventory.data(),
 		sizeof(StoreInventory));
 	std::memcpy(WeaponROF, snapshot.weaponRateOfFire.data(),

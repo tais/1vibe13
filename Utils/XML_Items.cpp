@@ -1974,7 +1974,15 @@ static void PublishBaseItemTables(
 	// high-water value before the first live-table write.
 	const UINT32 maxItemsRead =
 		static_cast<UINT32>(publication.maxItemsRead);
-	std::memcpy(Item, publication.items.data(), sizeof(Item));
+	// A complete base file replaces Item[] with a fresh zero table. Sparse
+	// staging retains only authored nonzero-class records, so clear the full
+	// production capacity before applying that prevalidated set.
+	std::memset(Item, 0, sizeof(Item));
+	for (const auto& stagedItem : publication.items)
+	{
+		std::memcpy(&Item[stagedItem.index], &stagedItem.item,
+			sizeof(INVTYPE));
+	}
 	for (std::size_t index = 0; index < MAXITEMS; ++index)
 	{
 		StoreInventory[index][BOBBY_RAY_NEW] =

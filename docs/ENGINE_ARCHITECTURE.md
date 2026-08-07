@@ -1232,14 +1232,19 @@ the engine must not contain SDL types in its public domain model.
   publication. The loaders retain duplicate-last-wins and localization-overlay
   semantics without exposing partial tables after malformed input.
   `ItemDataStagingModel` applies the same boundary to the high-fanout
-  `Items.xml` reader without allocating a second live-size item table: required
-  base loads own one reusable item candidate plus compact auxiliary staging,
-  optional localization owns field-presence patches, and the production Expat
-  adapter publishes only after the complete document passes its Slice 4
-  structural, checked index/auxiliary numeric, and overlay validations. Valid
-  out-of-range records are ignored before table access, while malformed checked
-  fields still poison the document. Duplicate payloads use the last
-  nonzero-class item, and authored auxiliary fields merge independently.
+  `Items.xml` reader without unconditionally allocating a second live-size item
+  table: required base loads own only sparse authored nonzero-class records,
+  compact index-to-slot metadata, and auxiliary staging, so item working storage
+  follows authored content rather than compiled capacity. Allocation or
+  record-copy failure is contained inside staging rather than unwinding through
+  an Expat C callback. Optional localization owns field-presence patches, and the
+  production adapter publishes only after the complete document passes its
+  Slice 4 structural, checked index/auxiliary numeric, and overlay validations;
+  base publication clears the complete live item capacity before applying the
+  sparse records. Valid out-of-range records are ignored before table access,
+  while malformed checked fields still poison the document. Duplicate payloads
+  use the last nonzero-class item, and authored auxiliary fields merge
+  independently.
   Real-VFS tests pin malformed rollback, missing indices, auxiliary overflow,
   sparse/duplicate/unsorted and empty documents, exact-end indices, localized
   partial overlays and ignored auxiliary publication, and

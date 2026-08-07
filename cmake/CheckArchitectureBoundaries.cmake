@@ -5402,11 +5402,14 @@ foreach(required_item_data_staging_model_fragment IN ITEMS
     "StanceModifierFieldCount = 11"
     "ResolveStanceInheritance"
     "struct AuxiliaryTables"
+    "struct IndexedItemRecord"
     "struct BasePublicationView"
     "class RequiredBaseLoadTransaction"
     "class OptionalLocalizedLoadTransaction"
     "stagedAuxiliary_ = liveAuxiliary"
+    "itemSlots_"
     "stagedMaxItemsRead_ = std::max"
+    "RejectedStagingFailure"
     "std::is_nothrow_invocable_v<Publisher&"
     "std::is_same_v<std::invoke_result_t<Publisher&"
     "fail(Failure::MissingRequiredResource)"
@@ -5422,7 +5425,8 @@ foreach(required_item_data_staging_model_fragment IN ITEMS
 endforeach()
 foreach(forbidden_item_data_staging_model_fragment IN ITEMS
     "struct ItemTables"
-    "ItemTables<ItemRecord> candidate")
+    "ItemTables<ItemRecord> candidate"
+    "std::vector<ItemRecord> stagedItems_")
   string(FIND "${runtime_item_data_staging_model_contents}"
     "${forbidden_item_data_staging_model_fragment}"
     forbidden_item_data_staging_model_position)
@@ -5438,8 +5442,9 @@ foreach(required_item_data_staging_model_test_fragment IN ITEMS
     "integer parsing rejects malformed and narrowing overflow"
     "character accumulation reports truncation and preserves termination"
     "stance inheritance matches stand crouch prone legacy rules"
-    "base staging owns exactly one full item candidate"
-    "base publication borrows the sole candidate without copying it"
+    "base staging retains only authored item records"
+    "base publication borrows sparse authored records without copying them"
+    "base staging contains allocation and copy failures before C callback unwind"
     "localized staging remains patch-only during validation and publish"
     "base loads publish atomically and retain unspecified auxiliary values"
     "sparse unsorted and duplicate base indices use deterministic high-water rules"
@@ -5468,7 +5473,7 @@ foreach(item_data_staging_test_manifest IN ITEMS
 endforeach()
 
 # Keep the production Items.xml adapter on the bounded transaction. Expat
-# callbacks may build the single candidate or localized patches, but live
+# callbacks may build sparse records or localized patches, but live
 # tables can change only at the checked no-fail publication boundary.
 file(READ "${SOURCE_ROOT}/Utils/XML_Items.cpp"
   runtime_item_xml_adapter_contents)
@@ -5479,7 +5484,8 @@ foreach(required_item_xml_adapter_fragment IN ITEMS
     "ValidateLocalizedItemText"
     "PublishLocalizedItemText"
     "static void PublishBaseItemTables("
-    "std::memcpy(Item, publication.items.data(), sizeof(Item))"
+    "std::memset(Item, 0, sizeof(Item))"
+    "std::memcpy(&Item[stagedItem.index], &stagedItem.item"
     "baseLoad->commit(MAXITEMS, PublishBaseItemTables)"
     "localizedLoad->resourceMissing()"
     "baseLoad->resourceMissing()"
@@ -5514,7 +5520,7 @@ endforeach()
 string(FIND "${runtime_item_xml_adapter_contents}"
   "const UINT32 maxItemsRead =" item_xml_high_water_validation_position)
 string(FIND "${runtime_item_xml_adapter_contents}"
-  "std::memcpy(Item, publication.items.data(), sizeof(Item))"
+  "std::memset(Item, 0, sizeof(Item))"
   item_xml_first_publication_position)
 if(item_xml_high_water_validation_position EQUAL -1 OR
    item_xml_first_publication_position EQUAL -1 OR
@@ -5524,6 +5530,9 @@ if(item_xml_high_water_validation_position EQUAL -1 OR
 endif()
 
 foreach(required_item_xml_headless_fragment IN ITEMS
+    "struct ItemXmlItemSnapshot"
+    "std::vector<ItemXmlItemSnapshot> items"
+    "ItemXmlItemRecordIsZero"
     "transactional item base loads use the last nonzero-class item, merged auxiliary fields, and an unsorted high-water bound"
     "valid item XML exact-end records are ignored before live table access"
     "malformed item base XML rolls back Item StoreInventory WeaponROF and loaded bound"

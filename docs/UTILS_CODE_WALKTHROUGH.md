@@ -166,12 +166,18 @@ optional localized overlays. Slice 3 established the bounded ownership and
 publication contract; Slice 4 moves the production reader behind that contract
 without changing resource paths or the XML schema:
 
-- `RequiredBaseLoadTransaction` owns exactly one fresh default item candidate,
-  but snapshots only the compact live `StoreInventory` and `WeaponROF` values. It
-  never requires a second dynamic `INVTYPE` table beside the legacy static
-  `Item[]`. This matches the legacy reload rule: the `<ITEMLIST>` root clears
-  `Item[]`, while an omitted `BR_NewInventory`, `BR_UsedInventory`, or `BR_ROF`
-  field preserves its previous auxiliary value.
+- `RequiredBaseLoadTransaction` owns only the authored nonzero-class item
+  records, a compact index-to-slot table, and snapshots of the much smaller
+  live `StoreInventory` and `WeaponROF` values. It does not preallocate a
+  dynamic `MAXITEMS`-sized `INVTYPE` table beside the legacy static `Item[]`;
+  item storage grows only with authored nonzero-class records. At commit, the
+  no-fail publisher clears the complete live `Item[]` capacity and then applies
+  the sparse staged records. This matches the legacy reload rule: the
+  `<ITEMLIST>` root clears `Item[]`, while an omitted `BR_NewInventory`,
+  `BR_UsedInventory`, or `BR_ROF` field preserves its previous auxiliary value.
+  Sparse record allocation and copy failures are contained inside `stage()` so
+  no C++ exception can unwind through the Expat C callback stack and no live
+  table is published from a failed transaction.
 - Base records may be sparse. At a duplicate index, the last record with a
   nonzero item class wins the `INVTYPE` payload; a later zero-class record does
   not erase that item. Authored auxiliary fields merge independently in file
@@ -225,14 +231,15 @@ inheritance, sparse and unsorted inputs, duplicates, ignored exact-end indices,
 zero/default slots, auxiliary retention, required/optional resources,
 incomplete and truncated documents, destination-capacity changes,
 presence-aware localization, and rollback after a late overlay rejection. A
-4-KiB tracked record also proves that base staging constructs exactly one full
-candidate and passes it to the publisher by borrowed view, while localized
-validation and publication construct no item copy. Both transactions are
-non-copyable, and compile-time publisher constraints reject throwing or
-failure-returning publication callbacks. The target runs in normal CTest and
-the Linux AddressSanitizer matrix. Architecture ratchets keep the model API,
-compatibility cases, ownership boundary, documentation, and both test manifests
-present.
+4-KiB tracked record also proves that base staging retains only authored
+records and passes them to the publisher by borrowed view. A throwing record
+proves allocation and copy failures are contained before an Expat callback can
+unwind, while localized validation and publication construct no item copy.
+Both transactions are non-copyable, and compile-time publisher constraints
+reject throwing or failure-returning publication callbacks. The target runs in
+normal CTest and the Linux AddressSanitizer matrix. Architecture ratchets keep
+the model API, compatibility cases, ownership boundary, documentation, and
+both test manifests present.
 
 The headless runtime suite additionally drives the production reader through
 the real VFS and Expat adapter. It verifies valid sparse, duplicate, unsorted,
@@ -243,7 +250,9 @@ and rollback; valid localized BR/ROF tags ignored for publication; preserved
 auxiliary values; and the required-base/optional-localization missing-file
 policy. The base publisher derives the checked exclusive high-water value
 before its first fixed-array write, and both publishers have exact `void`,
-`noexcept` contracts.
+`noexcept` contracts. The harness rollback guard snapshots only nonzero live
+`INVTYPE` records, plus the compact complete auxiliary arrays, rather than
+allocating another unconditional full item table around every integration run.
 
 Slice 5 will route production character accumulation and UTF conversion through
 checked staging, close the remaining `WriteItemStats` writer boundary, remove
