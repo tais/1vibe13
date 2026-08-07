@@ -268,6 +268,17 @@ target_include_directories(utils_media_lifecycle_model_tests
 add_test(NAME utils_media_lifecycle_model
   COMMAND utils_media_lifecycle_model_tests)
 
+# Items.xml combines a cleared base item table with persistent auxiliary
+# arrays and optional, field-presence-aware localization overlays. Keep its
+# index, narrowing, inheritance, rollback, and publish rules data-free before
+# the legacy Expat callback is moved onto the transaction in later slices.
+add_executable(item_data_staging_model_tests
+  item_data_staging_model_tests.cpp)
+target_include_directories(item_data_staging_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Utils)
+add_test(NAME item_data_staging_model
+  COMMAND item_data_staging_model_tests)
+
 # Encyclopedia is disabled in the current product configuration, but it is
 # still maintained source rather than dead text. Compile its complete path in
 # every host so dormant bounds and ownership code cannot silently decay.
