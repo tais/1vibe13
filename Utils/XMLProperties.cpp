@@ -1,5 +1,7 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
+#include "DataBoundaryModel.h"
+
 #include <vfs/Core/vfs_types.h>
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_file_raii.h>
@@ -11,6 +13,12 @@
 #include "XML_Parser.h"
 #include "XMLWriter.h"
 #include "DEBUG.H"
+
+#include <cstring>
+#include <limits>
+#include <sstream>
+#include <utility>
+#include <vector>
 
 vfs::PropertyContainer::TagMap::TagMap()
 {
@@ -117,12 +125,23 @@ public:
 	virtual void onStartElement(const XML_Char* name, const XML_Char** atts);
 	virtual void onEndElement(const XML_Char* name);
 	virtual void onTextElement(const XML_Char *str, int len);
+	bool complete() const
+	{
+		return valid && saw_container && closed_container &&
+			current_state == DO_ELEMENT_NONE;
+	}
 private:
+	bool readRequiredAttribute(vfs::String const& attribute,
+		const XML_Char** atts, vfs::String& value);
 	vfs::PropertyContainer&				_container;
 	vfs::PropertyContainer::TagMap&		_tagmap;
 	DOM_OBJECT						current_state;
 	vfs::String						current_section;
 	vfs::String						current_key;
+	bool							valid = true;
+	bool							saw_container = false;
+	bool							closed_container = false;
+	UtilsDataBoundaryModel::UnknownXmlSubtree unknown_subtree;
 };
 
 struct PropertyParserContext
@@ -148,26 +167,48 @@ static void PreparePropertyParser(XML_Parser parser, void *userData)
 
 void CPropertyXMLParser::onStartElement(const XML_Char *name, const XML_Char **atts)
 {
+	if (!valid) return;
+	if (unknown_subtree.active())
+	{
+		valid = unknown_subtree.enter();
+		return;
+	}
 	vfs::String utf8_name(name);
-	if(current_state == DO_ELEMENT_NONE && vfs::StrCmp::Equal(utf8_name,_tagmap.container()))
+	if(current_state == DO_ELEMENT_NONE && !saw_container &&
+		vfs::StrCmp::Equal(utf8_name,_tagmap.container()))
 	{
 		current_state = DO_ELEMENT_Container;
+		saw_container = true;
 	}
 	else if(current_state == DO_ELEMENT_Container && vfs::StrCmp::Equal(utf8_name, _tagmap.section()))
 	{
 		current_state = DO_ELEMENT_Section;
-		current_section = this->getAttribute(_tagmap.sectionID().utf8().c_str(),atts);
+		if (!readRequiredAttribute(
+			_tagmap.sectionID(), atts, current_section)) valid = false;
 	}
 	else if(current_state == DO_ELEMENT_Section && vfs::StrCmp::Equal(utf8_name, _tagmap.key()))
 	{
 		current_state = DO_ELEMENT_Key;
-		current_key = this->getAttribute(_tagmap.keyID().utf8().c_str(),atts);
+		if (!readRequiredAttribute(_tagmap.keyID(), atts, current_key))
+			valid = false;
 	}
+	else if (current_state != DO_ELEMENT_NONE)
+	{
+		valid = unknown_subtree.enter();
+		return;
+	}
+	else valid = false;
 	sCharData = "";
 }
 
 void CPropertyXMLParser::onEndElement(const XML_Char* name)
 {
+	if (!valid) return;
+	if (unknown_subtree.active())
+	{
+		valid = unknown_subtree.leave();
+		return;
+	}
 	vfs::String utf8_name(name);
 	if(current_state == DO_ELEMENT_Key && vfs::StrCmp::Equal(utf8_name, _tagmap.key()))
 	{
@@ -181,70 +222,96 @@ void CPropertyXMLParser::onEndElement(const XML_Char* name)
 	else if(current_state == DO_ELEMENT_Container && vfs::StrCmp::Equal(utf8_name, _tagmap.container()))
 	{
 		current_state = DO_ELEMENT_NONE;
+		closed_container = true;
 	}
+	else valid = false;
 }
 
 void CPropertyXMLParser::onTextElement(const XML_Char *str, int len)
 {
-	if(current_state == DO_ELEMENT_Key)
+	if(!unknown_subtree.active() && current_state == DO_ELEMENT_Key)
 	{
 		sCharData.append(str,len);
 	}
 }
 
+bool CPropertyXMLParser::readRequiredAttribute(
+	vfs::String const& attribute, const XML_Char** atts, vfs::String& value)
+{
+	if (!atts) return false;
+	const std::string expected = attribute.utf8();
+	for (std::size_t index = 0; atts[index] && atts[index + 1]; index += 2)
+	{
+		if (std::strcmp(atts[index], expected.c_str()) == 0)
+		{
+			value = atts[index + 1];
+			return true;
+		}
+	}
+	return false;
+}
+
+namespace
+{
+	void ThrowPropertyXmlFailure(vfs::Path const& path,
+		const wchar_t* reason)
+	{
+		std::wstringstream message;
+		message << L"Could not load property XML ["
+			<< vfs::String::as_utf16(path.to_string()) << L"]: " << reason;
+		SGP_THROW(message.str().c_str());
+	}
+
+	template <typename ReadableFile>
+	bool ParsePropertyFile(vfs::PropertyContainer& destination,
+		vfs::PropertyContainer::TagMap& tagmap, vfs::Path const& logicalPath,
+		ReadableFile& file)
+	{
+		const vfs::size_t size = file.getSize();
+		if (size == std::numeric_limits<vfs::size_t>::max())
+			ThrowPropertyXmlFailure(logicalPath, L"file is too large");
+
+		std::vector<vfs::Byte> buffer(size + 1);
+		const vfs::size_t bytesRead = file.read(buffer.data(), size);
+		if (!UtilsDataBoundaryModel::IsExactTransfer(size, bytesRead))
+			ThrowPropertyXmlFailure(logicalPath, L"short read");
+		buffer[size] = 0;
+
+		vfs::PropertyContainer staged(destination);
+		PropertyParserContext context(staged, tagmap);
+		LegacyXmlCallbacks callbacks;
+		callbacks.userData = &context;
+		callbacks.parserReady = PreparePropertyParser;
+		const LegacyXmlResult result =
+			ParseLegacyXmlBytes(buffer.data(), size, callbacks);
+		if (!result)
+		{
+			const std::string path = logicalPath.to_string();
+			const auto formatted = FormatLegacyXmlFailure(path.c_str(), result);
+			std::wstringstream message;
+			message << vfs::String::as_utf16(formatted.data());
+			SGP_THROW(message.str().c_str());
+		}
+		if (!context.document.complete())
+			ThrowPropertyXmlFailure(logicalPath, L"invalid property structure");
+
+		destination = std::move(staged);
+		return true;
+	}
+}
+
 bool vfs::PropertyContainer::initFromXMLFile(vfs::Path const& sFileName, vfs::PropertyContainer::TagMap& tagmap)
 {
-	vfs::tReadableFile *file = NULL;
-	bool delete_file = false;
 	if(getVFS()->fileExists(sFileName))
 	{
 		vfs::COpenReadFile rfile(sFileName);
-		file = &rfile.file();
-		rfile.release();
+		return ParsePropertyFile(*this, tagmap, sFileName, rfile.file());
 	}
-	else
-	{
-		vfs::CFile* rfile = new vfs::CFile(sFileName);
-		delete_file = true;
-		file = vfs::tReadableFile::cast(rfile);
-		if(!file->openRead())
-		{
-			delete file;
-			return false;
-		}
-	}
-	if(!file)
+
+	vfs::CFile file(sFileName);
+	if(!file.openRead())
 	{
 		return false;
 	}
-
-	vfs::size_t size = file->getSize();
-
-	std::vector<vfs::Byte> buffer(size+1);
-
-	SGP_TRYCATCH_RETHROW( file->read(&buffer[0],size), L"" );
-	buffer[size] = 0;
-
-	file->close();
-	if(delete_file) delete file;
-
-	PropertyParserContext context(*this, tagmap);
-	LegacyXmlCallbacks callbacks;
-	callbacks.userData = &context;
-	callbacks.parserReady = PreparePropertyParser;
-	const LegacyXmlResult result =
-		ParseLegacyXmlBytes(&buffer[0], size, callbacks);
-	if (!result)
-	{
-		const std::string logicalPath = sFileName.to_string();
-		const auto message =
-			FormatLegacyXmlFailure(logicalPath.c_str(), result);
-		const std::wstring wideMessage =
-			vfs::String::as_utf16(message.data());
-		std::wstringstream wss;
-		wss << wideMessage;
-		SGP_THROW(wss.str().c_str());
-	}
-
-	return true;
+	return ParsePropertyFile(*this, tagmap, sFileName, file);
 }

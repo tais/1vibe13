@@ -45,8 +45,10 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <list>
 #include <limits>
+#include <locale>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -60,6 +62,8 @@
 #include "MemMan.h"
 #include "FileMan.h"
 #include "Encrypted File.h"
+#include "INIReader.h"
+#include "XMLWriter.h"
 #include "Button System.h"
 #include "message.h"
 #include "video.h"
@@ -118,6 +122,7 @@
 #include "RulesPackage.h"
 #include "PackageHost.h"
 #include "RuntimeReportHost.h"
+#include <vfs/Tools/vfs_property_container.h>
 #include "RuntimeSaveState.h"
 #include "Simulation Command Legacy.h"
 #include "Simulation Commands.h"
@@ -16765,6 +16770,14 @@ int main( int, char** )
 		                                std::ios::binary | std::ios::trunc );
 		writableOverlay << "writable";
 	}
+	const std::string iniPath =
+		"ini-reader-boundary-" + vfsPriorityToken + ".ini";
+	{
+		std::ofstream output( iniPath, std::ios::binary | std::ios::trunc );
+		output << "[data]\ntext = overflow\n"
+		          "bad_integer = 12tail\n"
+		          "bad_list = 1,2tail,3\n";
+	}
 	vfs_init::VfsConfig vfsConfig;
 	vfs_init::Profile* testProfile = new vfs_init::Profile();
 	testProfile->m_name = L"headless-tests";
@@ -16773,6 +16786,201 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+	{
+		CIniReader reader( iniPath.c_str() );
+		char zeroCapacity = 'Z';
+		reader.ReadString( "data", "text", "default", &zeroCapacity, 0 );
+		reader.ReadString( "data", "text", "default", nullptr, 4 );
+		char bounded[5]{};
+		reader.ReadString( "data", "text", "default", bounded,
+		                   std::size( bounded ) );
+		std::vector<INT32> malformedList{ 77 };
+		reader.ReadINT32Array( "data", "bad_list", malformedList );
+		const std::string compatibilityCopy =
+			reader.ReadString( "data", "text", "default" );
+		CHECK( reader.Is_CIniReader_File_Found() && zeroCapacity == 'Z' &&
+		       std::string( bounded ) == "over" &&
+		       reader.ReadInteger( "data", "bad_integer", 41 ) == 41 &&
+		       malformedList == std::vector<INT32>({ 0 }) &&
+		       compatibilityCopy == "overflow",
+		       "INI reader enforces null and zero-capacity strings, strict numbers, whole-list fallback, and owned compatibility text" );
+		CIniReader::RegisterFileForMerging( vfs::Path( iniPath ) );
+		CIniReader mergedReader( iniPath.c_str(), TRUE );
+		const std::string missingMergePath =
+			"ini-reader-missing-merge-" + vfsPriorityToken + ".ini";
+		CIniReader::RegisterFileForMerging( vfs::Path( missingMergePath ) );
+		CIniReader missingMergedReader( missingMergePath.c_str(), TRUE );
+		CHECK( mergedReader.Is_CIniReader_File_Found() &&
+		       mergedReader.ReadString( "data", "text", "default" ) ==
+			       std::string( "overflow" ) &&
+		       !missingMergedReader.Is_CIniReader_File_Found(),
+		       "INI merged loading reports found only after a profile contributes a valid file" );
+		std::error_code ignoredError;
+		std::filesystem::remove( iniPath, ignoredError );
+	}
+	{
+		const std::string validPath =
+			"property-xml-valid-" + vfsPriorityToken + ".xml";
+		const std::string invalidPath =
+			"property-xml-invalid-" + vfsPriorityToken + ".xml";
+		const std::string missingAttributePath =
+			"property-xml-missing-attribute-" + vfsPriorityToken + ".xml";
+		const std::string writtenPath =
+			"property-xml-written-" + vfsPriorityToken + ".xml";
+		const std::string numericWriterPath =
+			"xml-writer-numeric-" + vfsPriorityToken + ".xml";
+		const std::string poisonedWriterPath =
+			"xml-writer-poisoned-" + vfsPriorityToken + ".xml";
+		auto writePropertyFixture = []( const std::string& path,
+		                                  const std::string& contents )
+		{
+			std::ofstream output( path, std::ios::binary | std::ios::trunc );
+			output.write( contents.data(),
+			              static_cast<std::streamsize>( contents.size() ) );
+			return static_cast<bool>( output );
+		};
+
+		vfs::PropertyContainer::TagMap tags;
+		vfs::PropertyContainer properties;
+		properties.setStringProperty( L"live", L"keep", L"before" );
+		const bool validFixture = writePropertyFixture( validPath,
+			"<Container><Future><Section name=\"ignored\"><Key name=\"bad\">"
+			"bad</Key></Section></Future><Section name=\"new\"><Key name=\"text\">"
+			"after</Key></Section></Container>" );
+		bool validLoaded = false;
+		try
+		{
+			validLoaded = validFixture && properties.initFromXMLFile(
+				vfs::Path( validPath ), tags );
+		}
+		catch ( ... )
+		{
+			validLoaded = false;
+		}
+		vfs::String kept;
+		vfs::String added;
+		vfs::String ignored;
+		CHECK( validLoaded &&
+		       properties.getStringProperty( L"live", L"keep", kept ) &&
+		       properties.getStringProperty( L"new", L"text", added ) &&
+		       !properties.getStringProperty( L"ignored", L"bad", ignored ) &&
+		       kept == L"before" && added == L"after",
+		       "property XML overlays atomically while ignoring balanced unknown subtrees" );
+
+		const bool invalidFixture = writePropertyFixture( invalidPath,
+			"<Container><Section name=\"new\"><Key name=\"text\">corrupt</Key>" );
+		bool invalidRejected = false;
+		try
+		{
+			if ( invalidFixture )
+				properties.initFromXMLFile( vfs::Path( invalidPath ), tags );
+		}
+		catch ( ... )
+		{
+			invalidRejected = true;
+		}
+		vfs::String afterInvalid;
+		CHECK( invalidRejected &&
+		       properties.getStringProperty( L"new", L"text", afterInvalid ) &&
+		       afterInvalid == L"after",
+		       "truncated property XML leaves the published overlay untouched" );
+
+		const bool missingAttributeFixture = writePropertyFixture(
+			missingAttributePath,
+			"<Container><Section><Key name=\"text\">corrupt</Key></Section>"
+			"</Container>" );
+		bool missingAttributeRejected = false;
+		try
+		{
+			if ( missingAttributeFixture )
+				properties.initFromXMLFile(
+					vfs::Path( missingAttributePath ), tags );
+		}
+		catch ( ... )
+		{
+			missingAttributeRejected = true;
+		}
+		vfs::String afterMissingAttribute;
+		CHECK( missingAttributeRejected &&
+		       properties.getStringProperty(
+			       L"new", L"text", afterMissingAttribute ) &&
+		       afterMissingAttribute == L"after",
+		       "property XML missing required identifiers rolls back staged state" );
+
+		vfs::PropertyContainer escapedProperties;
+		escapedProperties.setStringProperty(
+			L"section & \"quoted\"", L"key <&", L"<&>\"'" );
+		const bool escapedWritten = escapedProperties.writeToXMLFile(
+			vfs::Path( writtenPath ), tags );
+		vfs::PropertyContainer escapedRoundTrip;
+		bool escapedLoaded = false;
+		try
+		{
+			escapedLoaded = escapedWritten && escapedRoundTrip.initFromXMLFile(
+				vfs::Path( writtenPath ), tags );
+		}
+		catch ( ... )
+		{
+			escapedLoaded = false;
+		}
+		vfs::String escapedValue;
+		CHECK( escapedLoaded && escapedRoundTrip.getStringProperty(
+		       L"section & \"quoted\"", L"key <&", escapedValue ) &&
+		       escapedValue == L"<&>\"'",
+		       "property XML writer escapes attribute identifiers and text for round-trip" );
+
+		struct CommaDecimalPunctuation final : std::numpunct<char>
+		{
+			char do_decimal_point() const override { return ','; }
+		};
+		const std::locale previousGlobalLocale = std::locale();
+		std::locale::global( std::locale(
+			std::locale::classic(), new CommaDecimalPunctuation ) );
+		XMLWriter numericWriter;
+		numericWriter.openNode( "Root" );
+		numericWriter.addAttributeToNextValue( "ratio", 2.5 );
+		numericWriter.addValue( "Number", 1.25 );
+		numericWriter.closeNode();
+		std::locale::global( previousGlobalLocale );
+		const bool numericWriterSaved = numericWriter.writeToFile(
+			vfs::Path( numericWriterPath ) );
+		std::ifstream numericWriterInput(
+			numericWriterPath, std::ios::binary );
+		const std::string numericWriterContents(
+			(std::istreambuf_iterator<char>( numericWriterInput )),
+			std::istreambuf_iterator<char>() );
+		CHECK( numericWriterSaved &&
+		       numericWriterContents.find(
+			       "<Number ratio=\"2.5\">1.25</Number>" ) !=
+			       std::string::npos,
+		       "XML writer numeric output stays locale-independent" );
+
+		const std::string sentinel = "preserve-existing-output";
+		const bool sentinelFixture = writePropertyFixture(
+			poisonedWriterPath, sentinel );
+		XMLWriter poisonedWriter;
+		poisonedWriter.openNode( "Root" );
+		const bool validClose = poisonedWriter.closeNode();
+		const bool invalidCloseRejected = !poisonedWriter.closeNode();
+		const bool poisonedWriteRejected = !poisonedWriter.writeToFile(
+			vfs::Path( poisonedWriterPath ) );
+		std::ifstream poisonedWriterInput(
+			poisonedWriterPath, std::ios::binary );
+		const std::string poisonedWriterContents(
+			(std::istreambuf_iterator<char>( poisonedWriterInput )),
+			std::istreambuf_iterator<char>() );
+		CHECK( sentinelFixture && validClose && invalidCloseRejected &&
+		       poisonedWriteRejected && poisonedWriterContents == sentinel,
+		       "failed XML writer close poisons the document before file truncation" );
+
+		std::error_code ignoredError;
+		std::filesystem::remove( validPath, ignoredError );
+		std::filesystem::remove( invalidPath, ignoredError );
+		std::filesystem::remove( missingAttributePath, ignoredError );
+		std::filesystem::remove( writtenPath, ignoredError );
+		std::filesystem::remove( numericWriterPath, ignoredError );
+		std::filesystem::remove( poisonedWriterPath, ignoredError );
+	}
 	{
 		// New games delete the previous ledger and immediately add their
 		// starting-cash transaction. Exercise that exact FileMan/VFS path, then
