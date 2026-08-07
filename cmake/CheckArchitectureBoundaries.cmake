@@ -5594,6 +5594,117 @@ foreach(required_item_xml_headless_fragment IN ITEMS
   endif()
 endforeach()
 
+# Keep the item exporter on the shared XMLWriter/data-boundary path. The public
+# seams must preserve the compatibility wrapper while making the requested
+# count and exact file-transfer result independently testable.
+file(READ "${SOURCE_ROOT}/Utils/ItemXmlWriter.h"
+  runtime_item_xml_writer_header_contents)
+foreach(required_item_xml_writer_header_fragment IN ITEMS
+    "BoundedItemCount("
+    "return std::min(requested, capacity)"
+    "bool Write(const vfs::Path& path, std::size_t requestedCount);"
+    "bool Write(vfs::tWritableFile* file, std::size_t requestedCount);")
+  string(FIND "${runtime_item_xml_writer_header_contents}"
+    "${required_item_xml_writer_header_fragment}"
+    required_item_xml_writer_header_position)
+  if(required_item_xml_writer_header_position EQUAL -1)
+    message(FATAL_ERROR
+      "Item XML writer seam lost '${required_item_xml_writer_header_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/XML.h" runtime_tactical_xml_header_contents)
+string(FIND "${runtime_tactical_xml_header_contents}"
+  "WriteItemStatsToFile(STR fileName, UINT32 itemCount)"
+  required_item_xml_writer_public_seam_position)
+if(required_item_xml_writer_public_seam_position EQUAL -1)
+  message(FATAL_ERROR "Item XML writer lost its public path/count seam")
+endif()
+
+foreach(required_item_xml_writer_fragment IN ITEMS
+    "#include \"ItemXmlWriter.h\""
+    "#include \"XMLWriter.h\""
+    "formatted.imbue(std::locale::classic())"
+    "std::numeric_limits<double>::max_digits10"
+    "static_cast<double>(value)"
+    "codePoint == 0xfffe || codePoint == 0xffff"
+    "ItemTextToUtf8("
+    "AddSpreadPattern("
+    "patternIndex < giSpreadPatternCount"
+    "serialized = std::to_string(patternIndex)"
+    "AddItemInteger(writer, \"AvailableAttachmentPoint\""
+    "AddItemInteger(writer, \"AttachmentPoint\""
+    "AddItemInteger(writer, \"AttachToPointAPCost\""
+    "AddItemInteger(writer, \"PercentAim\""
+    "AddItemInteger(writer, \"PercentRangeBonus\", item.percentrangebonus)"
+    "AddItemInteger(writer, \"AutoFireToHitBonus\""
+    "DynamicAdjustAPConstants("
+    "item.APBonus, item.APBonus, TRUE)"
+    "AddItemFloat(writer, \"RobotDamageReduction\""
+    "AddItemInteger(writer, \"TransportGroupMinProgress\""
+    "AddItemInteger(writer, \"TransportGroupMaxProgress\""
+    "AddItemBoolean(writer, \"TripWireActivation\""
+    "AddItemBoolean(writer, \"Cigarette\""
+    "ItemXmlWriter::BoundedItemCount("
+    "BuildItemStatsXml(XMLWriter& writer, std::size_t requestedCount)"
+    "writer.writeToFile(file)"
+    "BOOLEAN WriteItemStatsToFile(STR fileName, UINT32 itemCount)"
+    "std::min<std::size_t>("
+    "vfs::Path(\"TABLEDATA\\\\Items out.xml\")")
+  string(FIND "${runtime_item_xml_adapter_contents}"
+    "${required_item_xml_writer_fragment}"
+    required_item_xml_writer_position)
+  if(required_item_xml_writer_position EQUAL -1)
+    message(FATAL_ERROR
+      "Item XML writer lost '${required_item_xml_writer_fragment}'")
+  endif()
+endforeach()
+foreach(retired_item_xml_writer_fragment IN ITEMS
+    "FilePrintf(hFile"
+    "cnt < 351"
+    "AddItemBoolean(writer, \"TripwireActivation\""
+    "AddItemBoolean(writer, \"cigarette\""
+    "AddItemFloat(writer, \"RobotDamageReductionModifier\""
+    "AddItemInteger(writer, \"PercentRangeBonus\", item.rangebonus)"
+    "AddItemInteger(writer, \"Detonator\""
+    "AddItemInteger(writer, \"RemoteDetonator\""
+    "AddItemInteger(writer, \"ItemFlag\""
+    "AddItemInteger(writer, \"fFlags\"")
+  string(FIND "${runtime_item_xml_adapter_contents}"
+    "${retired_item_xml_writer_fragment}"
+    retired_item_xml_writer_position)
+  if(NOT retired_item_xml_writer_position EQUAL -1)
+    message(FATAL_ERROR
+      "Item XML writer restored retired output '${retired_item_xml_writer_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_item_xml_writer_headless_fragment IN ITEMS
+    "item XML writer emits escaped UTF-8 and exact 79/399-character text"
+    "item XML writer preserves every 64-bit mask above 2^53 as decimal"
+    "item XML writer uses round-trip float precision under a comma locale"
+    "item XML writer keeps both signed FLT_MAX endpoints inside the reader range"
+    "item XML writer reverse-adjusts APBonus under a non-100 AP maximum"
+    "item XML writer exports corrected attachment range robot transport and spread fields"
+    "item XML writer exports PercentAim in every stance for every item"
+    "item XML writer uses canonical reader tags beyond the legacy 351-item limit and omits no-op aliases"
+    "item XML writer count seam clamps requested records to live capacity"
+    "item XML writer propagates open short-write and null-file failures exactly"
+    "item XML writer output reloads through the canonical reader schema"
+    "item XML writer text round-trips reserved UTF-8 and exact-capacity fields"
+    "item XML writer modifiers and progress bounds round-trip canonically"
+    "item XML writer flags auxiliaries and high indices round-trip canonically"
+    "item XML writer rejects XML-invalid Unicode before truncating an existing file"
+    "item XML writer rejects non-finite floats before truncating an existing file")
+  string(FIND "${runtime_utils_ui_headless_contents}"
+    "${required_item_xml_writer_headless_fragment}"
+    required_item_xml_writer_headless_position)
+  if(required_item_xml_writer_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Item XML writer coverage lost '${required_item_xml_writer_headless_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
   runtime_utils_walkthrough_contents)
 foreach(required_utils_walkthrough_fragment IN ITEMS
@@ -5603,12 +5714,13 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "Encrypted text-record boundary"
     "Data persistence foundation"
     "Indexed localization XML boundary"
-    "Item XML staging model"
-    "authored nonzero-class item"
+    "Item XML transaction and writer closure"
     "production reader through"
     "invalid UTF-8"
     "Remaining Utils inventory"
-    "following 12 translation units"
+    "following 11 translation units"
+    "XMLWriter"
+    "installed-data canonical `Cigarette`"
     "TextInfrastructureModel.h"
     "IndexedXmlModel.h"
     "MediaLifecycleModel.h"
@@ -5633,9 +5745,10 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "MediaLifecycleModel"
     "DataBoundaryModel"
     "encrypted text-record"
-    "sparse authored nonzero-class records"
-    "invocation-local character buffer"
-    "remaining 12 Utils")
+    "remaining 11 Utils"
+    "all four 64-bit masks remain exact"
+    "installed-data"
+    "injected open/short-write failures")
   string(FIND "${runtime_engine_architecture_contents}"
     "${required_utils_architecture_fragment}"
     required_utils_architecture_position)

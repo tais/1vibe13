@@ -158,7 +158,7 @@ through the real VFS/Expat adapter and proves malformed, exact-end, and
 oversized documents cannot partially replace live text or metadata. Both tests
 run in the normal and AddressSanitizer matrices.
 
-## Item XML staging model and adapter — data/XML Slices 3–5
+## Item XML transaction and writer closure — data/XML Slices 3–5 of 5
 
 `ItemDataStagingModel.h` defines the transaction and strict reader primitives,
 reusing the locale-independent data-boundary foundation, and the legacy
@@ -290,24 +290,52 @@ allocation, and failure-reporting exceptions reject the staged load. This is
 important during early startup and headless validation, where the live logger
 may not yet have been registered.
 
-The remaining half of Slice 5 is only the `WriteItemStats` writer boundary:
-escaping, locale-independent serialization, and exact-write failure cleanup.
-Until that writer half lands, `XML_Items.cpp` remains in the remaining-audit
-inventory below.
+Slice 5 closes the production `WriteItemStats` boundary. The writer now builds
+one complete document with `XMLWriter` before opening its destination and uses
+the exact-transfer result from that shared boundary. Public path/count and
+writable-file seams make success, open failure, null output, and injected short
+writes directly testable. The compatibility wrapper retains
+`TABLEDATA\Items out.xml`, but clamps `gMAXITEMS_READ` to `MAXITEMS`; the writer
+also clamps every caller-provided count before touching `Item`,
+`StoreInventory`, or `WeaponROF`.
+
+Every fixed-capacity `CHAR16` field is converted explicitly to UTF-8 without
+borrowing locale state or mutating the live text. Unterminated arrays, invalid
+surrogate sequences, out-of-range code points, and XML-invalid U+FFFE/U+FFFF
+fail before destination truncation. Integral fields are promoted before
+streaming, so the four 64-bit attachment/layout masks retain exact decimal
+values above 2^53. Finite floats are promoted exactly to `double` and use the
+classic locale with 17-digit `max_digits10` output, keeping both signed
+`FLT_MAX` endpoints inside the reader's range; non-finite values reject the
+export. `APBonus` is reverse-adjusted from the live AP scale before export so
+the reader's established adjustment is a true round trip. The writer emits the
+reader schema's canonical names and types, including all attachment-point
+fields, all eleven modifiers in each stance, `spreadPattern`, robot and
+transport fields,
+`TripWireActivation`, and installed-data canonical `Cigarette`. Numeric spread
+fallbacks round-trip when the matching spread-pattern count is loaded. The
+recognized legacy no-op tags `Detonator`, `RemoteDetonator`, `ItemFlag`, and
+`fFlags` remain deliberately absent from exports.
+
+Real-VFS headless coverage pins reserved and non-ASCII text, exact 79/399
+character capacities, exact 64-bit decimal output, locale-independent
+round-trip floats, corrected field/tag mappings, stance completeness, index
+351, count clamping, round-trip state, invalid Unicode, and exact open/short
+write failure propagation. Architecture ratchets keep the XMLWriter boundary,
+canonical spellings, deliberate no-op omissions, seams, tests, and this audit
+record in place.
 
 ## Remaining Utils inventory
 
-The following 12 translation units are compiled and covered by the general
+The following 11 translation units are compiled and covered by the general
 build/test matrix, but have not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
 - Input and runtime control: `Cursors.cpp`, `Event Pump.cpp`, `KeyMap.cpp`,
   `Timer Control.cpp`, `Utilities.cpp`, and `Win Util.cpp`.
-- Data and XML boundaries: `XML_Items.cpp`.
 - Image and developer utilities: `Debug Control.cpp`, `MapUtility.cpp`,
   `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp`.
 
-The next Utils data/XML slice should finish the `XML_Items.cpp` writer boundary.
-Input/runtime control and the offline image tools follow.
+Input/runtime control and the offline image tools are the next audit batches.
 Existing file formats, resource paths, localization strings, callbacks, visual
 layout, and game behavior remain compatibility constraints throughout the audit.
