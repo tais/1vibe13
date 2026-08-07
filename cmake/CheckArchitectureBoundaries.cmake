@@ -5084,6 +5084,148 @@ foreach(utils_data_test_manifest IN ITEMS
   endif()
 endforeach()
 
+# The two shared indexed localization loaders preserve sparse overlays and
+# duplicate-last-wins order, but they may not publish any record until the
+# complete document has passed bounded index, UTF conversion, and text-capacity
+# validation. Keep their reusable rules independent from Expat and JA2 globals.
+file(READ "${SOURCE_ROOT}/Utils/IndexedXmlModel.h"
+  runtime_utils_indexed_xml_model_contents)
+foreach(required_utils_indexed_xml_model_fragment IN ITEMS
+    "ParseBoundedIndex"
+    "IndexSyntax::CStyleUnsigned"
+    "enum class StageResult"
+    "class StagedIndexedText"
+    "StageResult stage"
+    "void publish")
+  string(FIND "${runtime_utils_indexed_xml_model_contents}"
+    "${required_utils_indexed_xml_model_fragment}"
+    required_utils_indexed_xml_model_position)
+  if(required_utils_indexed_xml_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils indexed XML model lost '${required_utils_indexed_xml_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/XML_Language.cpp"
+  runtime_utils_language_xml_contents)
+foreach(required_utils_language_xml_fragment IN ITEMS
+    "LanguageLocationParseData data("
+    "IndexedXmlModel::StagedIndexedText<std::wstring> staged"
+    "IndexedXmlModel::ParseBoundedIndex("
+    "ConvertUtf8Text<MAX_MESSAGE_NAMES_CHARS>"
+    "data.staged.publish"
+    "if (!data.localized)"
+    "if (data.fileType == TacticalMessageFileType)")
+  string(FIND "${runtime_utils_language_xml_contents}"
+    "${required_utils_language_xml_fragment}"
+    required_utils_language_xml_position)
+  if(required_utils_language_xml_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils language XML transaction lost '${required_utils_language_xml_fragment}'")
+  endif()
+endforeach()
+foreach(retired_utils_language_xml_fragment IN ITEMS
+    "LanguageLocation_TextOnly"
+    "FileTypeXml"
+    "LANGUAGE_LOCATION *pLang"
+    "strtoul("
+    "wcscpy(")
+  string(FIND "${runtime_utils_language_xml_contents}"
+    "${retired_utils_language_xml_fragment}"
+    retired_utils_language_xml_position)
+  if(NOT retired_utils_language_xml_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils language XML restored unsafe global/direct parsing '${retired_utils_language_xml_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/XML_SenderNameList.cpp"
+  runtime_utils_sender_xml_contents)
+foreach(required_utils_sender_xml_fragment IN ITEMS
+    "SenderNameParseData data"
+    "IndexedXmlModel::StagedIndexedText<std::wstring> staged"
+    "IndexedXmlModel::ParseBoundedIndex("
+    "ConvertUtf8Name<MAX_SENDER_NAMES_CHARS>"
+    "data.staged.publish")
+  string(FIND "${runtime_utils_sender_xml_contents}"
+    "${required_utils_sender_xml_fragment}"
+    required_utils_sender_xml_position)
+  if(required_utils_sender_xml_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils sender-name XML transaction lost '${required_utils_sender_xml_fragment}'")
+  endif()
+endforeach()
+foreach(retired_utils_sender_xml_fragment IN ITEMS
+    "SenderNameList_TextOnly"
+    "atol("
+    "wcscpy(")
+  string(FIND "${runtime_utils_sender_xml_contents}"
+    "${retired_utils_sender_xml_fragment}"
+    retired_utils_sender_xml_position)
+  if(NOT retired_utils_sender_xml_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils sender-name XML restored unsafe global/direct parsing '${retired_utils_sender_xml_fragment}'")
+  endif()
+endforeach()
+
+foreach(utils_indexed_xml_test_manifest IN ITEMS
+    runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
+  string(FIND "${${utils_indexed_xml_test_manifest}}"
+    "utils_indexed_xml_model_tests" required_utils_indexed_xml_test_position)
+  if(required_utils_indexed_xml_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils indexed XML model tests left the build or AddressSanitizer matrix")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/tests/utils_indexed_xml_model_tests.cpp"
+  runtime_utils_indexed_xml_test_contents)
+foreach(required_utils_indexed_xml_test_fragment IN ITEMS
+    "language indices accept 999 and reject exact-end 1000"
+    "sender indices accept 499 and reject exact-end 500"
+    "indexed XML rejects negative, overflowing, and partial numeric text"
+    "publication preserves sparse entries and duplicate-last-wins order"
+    "rejects exact-end, oversized, and zero-capacity records")
+  string(FIND "${runtime_utils_indexed_xml_test_contents}"
+    "${required_utils_indexed_xml_test_fragment}"
+    required_utils_indexed_xml_test_position)
+  if(required_utils_indexed_xml_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils indexed XML model tests lost '${required_utils_indexed_xml_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_utils_indexed_xml_platform_fragment IN ITEMS
+    "sender-name XML preserves sparse, duplicate-last-wins, unknown-tag, and index-499 behavior"
+    "malformed sender-name XML preserves the complete live table"
+    "sender-name XML rejects oversized converted text without publication"
+    "language XML preserves sparse, duplicate-last-wins, unknown-tag, and index-999 behavior"
+    "localized language XML overlays text without replacing base metadata"
+    "malformed language XML preserves text and metadata atomically"
+    "language XML validates text capacity, numeric overflow, and localized missing-file policy")
+  string(FIND "${runtime_utils_text_platform_test_contents}"
+    "${required_utils_indexed_xml_platform_fragment}"
+    required_utils_indexed_xml_platform_position)
+  if(required_utils_indexed_xml_platform_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils indexed XML platform coverage lost '${required_utils_indexed_xml_platform_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
+  runtime_utils_indexed_xml_walkthrough_contents)
+foreach(required_utils_indexed_xml_documentation_fragment IN ITEMS
+    "Indexed localization XML boundary"
+    "IndexedXmlModel.h"
+    "duplicate-last-wins"
+    "utils_indexed_xml_model_tests")
+  string(FIND "${runtime_utils_indexed_xml_walkthrough_contents}"
+    "${required_utils_indexed_xml_documentation_fragment}"
+    required_utils_indexed_xml_documentation_position)
+  if(required_utils_indexed_xml_documentation_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils indexed XML walkthrough lost '${required_utils_indexed_xml_documentation_fragment}'")
+  endif()
+endforeach()
+
 # Shared media adapters keep callback incarnation, clipped frame geometry, PCM
 # narrowing, volume, and fixed-slot rules dependency-free. The concrete legacy
 # gateways must validate before touching arrays/opaque handles and release
@@ -5256,9 +5398,11 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "Media lifecycle batch"
     "Encrypted text-record boundary"
     "Data persistence foundation"
+    "Indexed localization XML boundary"
     "Remaining Utils inventory"
-    "following 14 translation units"
+    "following 12 translation units"
     "TextInfrastructureModel.h"
+    "IndexedXmlModel.h"
     "MediaLifecycleModel.h"
     "DataBoundaryModel.h")
   string(FIND "${runtime_utils_walkthrough_contents}"
@@ -5275,9 +5419,11 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "post-Laptop Utils refactor"
     "UtilsUiStateModel"
     "TextInfrastructureModel"
+    "IndexedXmlModel"
     "MediaLifecycleModel"
+    "DataBoundaryModel"
     "encrypted text-record"
-    "remaining 17 Utils")
+    "remaining 12 Utils")
   string(FIND "${runtime_engine_architecture_contents}"
     "${required_utils_architecture_fragment}"
     required_utils_architecture_position)

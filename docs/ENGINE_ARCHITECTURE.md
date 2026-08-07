@@ -1192,7 +1192,7 @@ the engine must not contain SDL types in its public domain model.
   geometry tests plus architecture and ASan ratchets pin exact authored pixel
   positions, row-major mapping, animation/pagination edges, page containment,
   centered-screen translation, and non-overlapping controls.
-- The post-Laptop Utils refactor now has four larger shared infrastructure
+- The post-Laptop Utils refactor now has six larger shared infrastructure
   batches. `UtilsUiStateModel` is the dependency-free boundary for
   signed/exact-end UI indices, slider geometry, and bounded callback-ID
   mappings. Popup callbacks and definition trees now have explicit unique/deep
@@ -1220,7 +1220,18 @@ the engine must not contain SDL types in its public domain model.
   boundary now clears output before I/O, accepts only exact complete records,
   terminates decoded text in bounds, and rejects invalid or empty random
   ranges while sampling every complete record. Real VFS/FileMan tests cover
-  complete, unterminated, truncated, and missing data. The remaining 17 Utils
+  complete, unterminated, truncated, and missing data. `DataBoundaryModel`
+  now owns locale-independent scalar and list conversion, bounded copies,
+  transactional publication, unknown-subtree depth, XML escaping, and exact
+  transfer checks. INI overlays and property XML publish only complete staged
+  state; XML output escapes text and attributes, serializes numbers with a
+  locale-independent XML representation, and rejects incomplete or failed
+  documents before truncating a destination. `IndexedXmlModel` now gives the
+  language and sender-name XML loaders strict bounded indices,
+  terminator-aware text capacities, ordered sparse staging, and explicit
+  publication. The loaders retain duplicate-last-wins and localization-overlay
+  semantics without exposing partial tables after malformed input. The
+  remaining 12 Utils
   translation units are deliberately still tracked as unaudited; the detailed
   findings, inventory, and next priority order live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,

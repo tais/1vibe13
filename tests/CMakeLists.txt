@@ -248,6 +248,16 @@ target_include_directories(utils_data_boundary_model_tests
 add_test(NAME utils_data_boundary_model
   COMMAND utils_data_boundary_model_tests)
 
+# Indexed localization XML overlays are sparse and may repeat records, but no
+# record may reach the fixed legacy tables until every index and text payload
+# has parsed successfully. Keep those rules executable without Expat or JA2.
+add_executable(utils_indexed_xml_model_tests
+  utils_indexed_xml_model_tests.cpp)
+target_include_directories(utils_indexed_xml_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Utils)
+add_test(NAME utils_indexed_xml_model
+  COMMAND utils_indexed_xml_model_tests)
+
 # Shared cinematic, music, and sound adapters own fixed slots, opaque callback
 # epochs, clipped frame geometry, PCM queue limits, and positional attenuation.
 # Keep their reusable boundary rules independently executable and data-free.

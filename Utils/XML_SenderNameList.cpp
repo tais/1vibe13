@@ -1,129 +1,173 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 
-	#include "sgp.h"
-	#include "Debug Control.h"
-	#include "expat.h"
-	#include "XML.h"
-	#include "Interface.h"
-	#include "Text.h"
+#include "Debug Control.h"
+#include "IndexedXmlModel.h"
+#include "Text.h"
+#include "XML_SenderNameList.h"
+#include "sgp.h"
 
-struct
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstring>
+#include <iterator>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+
+namespace
 {
-	PARSE_STAGE	curElement;
+	constexpr std::size_t SenderNameCapacity = 500;
 
-	CHAR8		szCharData[MAX_CHAR_DATA_LENGTH+1];
-	SENDER_NAMES_VALUES	curSenderNameList;
-	SENDER_NAMES_VALUES *	curArray;
-
-	UINT32			maxArraySize;
-	UINT32			curIndex;
-	UINT32			currentDepth;
-	UINT32			maxReadDepth;
-}
-typedef senderNameListParseData;
-
-BOOLEAN SenderNameList_TextOnly;
-
-static void XMLCALL
-senderNameListStartElementHandle(void *userData, const XML_Char *name, const XML_Char **atts)
-{
-	senderNameListParseData * pData = (senderNameListParseData *)userData;
-
-	if(pData->currentDepth <= pData->maxReadDepth) //are we reading this element?
+	enum class SenderNameParseStage
 	{
-		if(strcmp(name, "SENDER_LIST") == 0 && pData->curElement == ELEMENT_NONE)
-		{
-			pData->curElement = ELEMENT_LIST;
-			pData->maxReadDepth++; //we are not skipping this element
-		}
-		else if(strcmp(name, "NAME") == 0 && pData->curElement == ELEMENT_LIST)
-		{
-			pData->curElement = ELEMENT;
-			pData->maxReadDepth++; //we are not skipping this element
-		}
-		else if(pData->curElement == ELEMENT &&
-			   (strcmp(name, "uiIndex") == 0 ||
-				strcmp(name, "Name") == 0 ))
-		{
-			pData->curElement = ELEMENT_PROPERTY;
+		None,
+		List,
+		Element,
+		Property
+	};
 
-			pData->maxReadDepth++; //we are not skipping this element
-		}
-
-		pData->szCharData[0] = '\0';
-	}
-
-	pData->currentDepth++;
-
-}
-
-static void XMLCALL
-senderNameListCharacterDataHandle(void *userData, const XML_Char *str, int len)
-{
-	senderNameListParseData * pData = (senderNameListParseData *)userData;
-
-	if( (pData->currentDepth <= pData->maxReadDepth) &&
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	}
-}
-
-
-static void XMLCALL
-senderNameListEndElementHandle(void *userData, const XML_Char *name)
-{
-	senderNameListParseData * pData = (senderNameListParseData *)userData;
-
-	if(pData->currentDepth <= pData->maxReadDepth) //we're at the end of an element that we've been reading
+	struct SenderNameParseData
 	{
-		if(strcmp(name, "SENDER_LIST") == 0)
-		{
-			pData->curElement = ELEMENT_NONE;
-		}
-		else if(strcmp(name, "NAME") == 0)
-		{
-			pData->curElement = ELEMENT_LIST;	
-			
-			wcscpy(pSenderNameList[pData->curSenderNameList.uiIndex], pData->curSenderNameList.Name);
-			
-		}
-		else if(strcmp(name, "uiIndex") == 0)
-		{
-			pData->curElement = ELEMENT;
-			pData->curSenderNameList.uiIndex	= (UINT16) atol(pData->szCharData);
-		}
-		else if(strcmp(name, "Name") == 0 )
-		{
-			pData->curElement = ELEMENT;
+		SenderNameParseData() : staged(SenderNameCapacity) {}
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curSenderNameList.Name, sizeof(pData->curSenderNameList.Name)/sizeof(pData->curSenderNameList.Name[0]) );
-			pData->curSenderNameList.Name[sizeof(pData->curSenderNameList.Name)/sizeof(pData->curSenderNameList.Name[0]) - 1] = '\0';
-		}
-		pData->maxReadDepth--;
+		SenderNameParseStage currentElement = SenderNameParseStage::None;
+		std::string characterData;
+		std::size_t currentIndex = 0;
+		std::wstring currentName;
+		bool sawIndex = false;
+		bool sawName = false;
+		std::size_t currentDepth = 0;
+		std::size_t maxReadDepth = 0;
+		IndexedXmlModel::StagedIndexedText<std::wstring> staged;
+	};
+
+	template <std::size_t Capacity>
+	std::wstring ConvertUtf8Name(const std::string& source)
+	{
+		const int required = MultiByteToWideChar(
+			CP_UTF8, 0, source.c_str(), -1, nullptr, 0);
+		if (required <= 0 || static_cast<std::size_t>(required) > Capacity)
+			throw std::runtime_error(
+				"Sender-name XML Name exceeds its destination capacity");
+
+		std::array<CHAR16, Capacity> converted{};
+		if (MultiByteToWideChar(CP_UTF8, 0, source.c_str(), -1,
+				converted.data(), static_cast<int>(converted.size())) != required)
+			throw std::runtime_error("Sender-name XML Name is not valid UTF-8");
+		return std::wstring(converted.data(),
+			static_cast<std::size_t>(required - 1));
 	}
 
-	pData->currentDepth--;
+	template <std::size_t Capacity>
+	void PublishName(CHAR16 (&destination)[Capacity], std::wstring_view name)
+	{
+		std::copy(name.begin(), name.end(), destination);
+		destination[name.size()] = L'\0';
+	}
+
+	void XMLCALL SenderNameStartElement(
+		void* userData, const XML_Char* name, const XML_Char** attributes)
+	{
+		(void)attributes;
+		auto* data = static_cast<SenderNameParseData*>(userData);
+
+		if (data->currentDepth <= data->maxReadDepth)
+		{
+			if (std::strcmp(name, "SENDER_LIST") == 0 &&
+				data->currentElement == SenderNameParseStage::None)
+			{
+				data->currentElement = SenderNameParseStage::List;
+				++data->maxReadDepth;
+			}
+			else if (std::strcmp(name, "NAME") == 0 &&
+				data->currentElement == SenderNameParseStage::List)
+			{
+				data->currentElement = SenderNameParseStage::Element;
+				data->currentIndex = 0;
+				data->currentName.clear();
+				data->sawIndex = false;
+				data->sawName = false;
+				++data->maxReadDepth;
+			}
+			else if (data->currentElement == SenderNameParseStage::Element &&
+				(std::strcmp(name, "uiIndex") == 0 ||
+				 std::strcmp(name, "Name") == 0))
+			{
+				data->currentElement = SenderNameParseStage::Property;
+				++data->maxReadDepth;
+			}
+			data->characterData.clear();
+		}
+		++data->currentDepth;
+	}
+
+	void XMLCALL SenderNameCharacterData(
+		void* userData, const XML_Char* characters, int length)
+	{
+		auto* data = static_cast<SenderNameParseData*>(userData);
+		if (data->currentDepth <= data->maxReadDepth && length > 0)
+			data->characterData.append(
+				characters, static_cast<std::size_t>(length));
+	}
+
+	void XMLCALL SenderNameEndElement(void* userData, const XML_Char* name)
+	{
+		auto* data = static_cast<SenderNameParseData*>(userData);
+
+		if (data->currentDepth <= data->maxReadDepth)
+		{
+			if (std::strcmp(name, "SENDER_LIST") == 0)
+			{
+				data->currentElement = SenderNameParseStage::None;
+			}
+			else if (std::strcmp(name, "NAME") == 0)
+			{
+				if (!data->sawIndex || !data->sawName)
+					throw std::runtime_error(
+						"Sender-name XML NAME requires uiIndex and Name");
+				if (data->staged.stage(data->currentIndex,
+						std::move(data->currentName), MAX_SENDER_NAMES_CHARS) !=
+					IndexedXmlModel::StageResult::Accepted)
+					throw std::runtime_error(
+						"Sender-name XML NAME is outside its table bounds");
+				data->currentElement = SenderNameParseStage::List;
+			}
+			else if (std::strcmp(name, "uiIndex") == 0)
+			{
+				const auto index = IndexedXmlModel::ParseBoundedIndex(
+					data->characterData, SenderNameCapacity,
+					IndexedXmlModel::IndexSyntax::Decimal);
+				if (!index)
+					throw std::runtime_error(
+						"Sender-name XML uiIndex is invalid or out of range");
+				data->currentIndex = index.value;
+				data->sawIndex = true;
+				data->currentElement = SenderNameParseStage::Element;
+			}
+			else if (std::strcmp(name, "Name") == 0)
+			{
+				data->currentName =
+					ConvertUtf8Name<MAX_SENDER_NAMES_CHARS>(data->characterData);
+				data->sawName = true;
+				data->currentElement = SenderNameParseStage::Element;
+			}
+			--data->maxReadDepth;
+		}
+		--data->currentDepth;
+	}
 }
-
-
-
 
 BOOLEAN ReadInSenderNameList(STR fileName, BOOLEAN localizedVersion)
 {
-	senderNameListParseData pData;
+	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading SenderNameList.xml");
+	static_assert(std::size(pSenderNameList) == SenderNameCapacity);
 
-	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading SenderNameList.xml" );
-
-	SenderNameList_TextOnly = localizedVersion;
-
-	memset(&pData,0,sizeof(pData));
-
+	SenderNameParseData data;
 	const LegacyXmlCallbacks callbacks{
-		&pData, senderNameListStartElementHandle, senderNameListEndElementHandle,
-		senderNameListCharacterDataHandle};
-	const LegacyXmlResult result =
-		ParseLegacyXmlFile(fileName, callbacks);
+		&data, SenderNameStartElement, SenderNameEndElement,
+		SenderNameCharacterData};
+	const LegacyXmlResult result = ParseLegacyXmlFile(fileName, callbacks);
 	if (!result)
 	{
 		if (result.status == LegacyXmlStatus::NotFound)
@@ -136,5 +180,9 @@ BOOLEAN ReadInSenderNameList(STR fileName, BOOLEAN localizedVersion)
 		return FALSE;
 	}
 
-	return( TRUE );
+	data.staged.publish([](std::size_t index, const std::wstring& name)
+	{
+		PublishName(pSenderNameList[index], name);
+	});
+	return TRUE;
 }
