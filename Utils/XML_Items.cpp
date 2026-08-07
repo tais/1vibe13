@@ -108,7 +108,7 @@ struct itemParseData
 };
 
 static void FailItemParse(
-	itemParseData* pData, ItemDataStagingModel::Failure failure)
+	itemParseData* pData, ItemDataStagingModel::Failure failure) noexcept
 {
 	pData->failed = true;
 	if (pData->baseLoad) pData->baseLoad->fail(failure);
@@ -198,7 +198,21 @@ static bool ParseItemText(itemParseData* pData,
 		FailItemParse(pData, ItemDataStagingModel::Failure::MalformedInput);
 		return false;
 	}
-	if (patch) *patch = ItemText(destination);
+	if (patch)
+	{
+		try
+		{
+			*patch = ItemText(destination);
+		}
+		catch (...)
+		{
+			// Localized strings allocate while Expat is inside a C callback.
+			// Convert allocation/copy failure into a rejected transaction so
+			// no C++ exception can unwind through the C parser frames.
+			FailItemParse(pData, ItemDataStagingModel::Failure::StagingFailed);
+			return false;
+		}
+	}
 	return true;
 }
 
@@ -245,8 +259,9 @@ static void PublishLocalizedItemText(std::size_t index,
 // HEADROCK HAM 4: Inherits data between stance-based modifiers
 void InheritStanceModifiers( itemParseData *pData );
 
-static void XMLCALL 
-itemStartElementHandle(void *userData, const XML_Char *name, const XML_Char **atts)
+static void
+itemStartElementHandleImpl(void *userData, const XML_Char *name,
+	const XML_Char **atts)
 {
 	itemParseData * pData = (itemParseData *)userData;
 
@@ -584,8 +599,8 @@ itemStartElementHandle(void *userData, const XML_Char *name, const XML_Char **at
 
 }
 
-static void XMLCALL
-itemCharacterDataHandle(void *userData, const XML_Char *str, int len)
+static void
+itemCharacterDataHandleImpl(void *userData, const XML_Char *str, int len)
 {
 	itemParseData * pData = (itemParseData *)userData;
 
@@ -600,8 +615,8 @@ itemCharacterDataHandle(void *userData, const XML_Char *str, int len)
 }
 
 
-static void XMLCALL
-itemEndElementHandle(void *userData, const XML_Char *name)
+static void
+itemEndElementHandleImpl(void *userData, const XML_Char *name)
 {
 	itemParseData * pData = (itemParseData *)userData;
 
@@ -621,8 +636,14 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 
 			if (!pData->failed && pData->localizedTextOnly)
 			{
-				pData->localizedLoad->stage(
+				const auto stageResult = pData->localizedLoad->stage(
 					itemIndex, std::move(pData->localizedPatch));
+				if (stageResult ==
+					ItemDataStagingModel::StageResult::RejectedStagingFailure)
+				{
+					FailItemParse(pData,
+						ItemDataStagingModel::Failure::StagingFailed);
+				}
 			}
 			else if (!pData->failed)
 			{
@@ -632,8 +653,15 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 					// HEADROCK HAM 4: Inherit stance-base modifiers upwards.
 					InheritStanceModifiers( pData );
 				}
-				pData->baseLoad->stage(itemIndex, pData->curItem,
-					publishesItem, pData->currentAuxiliary);
+				const auto stageResult = pData->baseLoad->stage(
+					itemIndex, pData->curItem, publishesItem,
+					pData->currentAuxiliary);
+				if (stageResult ==
+					ItemDataStagingModel::StageResult::RejectedStagingFailure)
+				{
+					FailItemParse(pData,
+						ItemDataStagingModel::Failure::StagingFailed);
+				}
 			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
@@ -2033,10 +2061,73 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 
 	--pData->currentDepth;
 }
+
+static void XMLCALL itemStartElementHandle(
+	void* userData, const XML_Char* name, const XML_Char** atts) noexcept
+{
+	auto* pData = static_cast<itemParseData*>(userData);
+	if (pData->failed)
+	{
+		++pData->currentDepth;
+		return;
+	}
+	try
+	{
+		itemStartElementHandleImpl(userData, name, atts);
+	}
+	catch (...)
+	{
+		// The implementation increments depth only after all throwing work.
+		// Account for this start event, then make later callbacks inert.
+		++pData->currentDepth;
+		FailItemParse(pData, ItemDataStagingModel::Failure::StagingFailed);
+	}
+}
+
+static void XMLCALL itemCharacterDataHandle(
+	void* userData, const XML_Char* str, int len) noexcept
+{
+	auto* pData = static_cast<itemParseData*>(userData);
+	if (pData->failed) return;
+	try
+	{
+		itemCharacterDataHandleImpl(userData, str, len);
+	}
+	catch (...)
+	{
+		FailItemParse(pData, ItemDataStagingModel::Failure::StagingFailed);
+	}
+}
+
+static void XMLCALL itemEndElementHandle(
+	void* userData, const XML_Char* name) noexcept
+{
+	auto* pData = static_cast<itemParseData*>(userData);
+	if (pData->failed)
+	{
+		if (pData->currentDepth > 0) --pData->currentDepth;
+		return;
+	}
+	try
+	{
+		itemEndElementHandleImpl(userData, name);
+	}
+	catch (...)
+	{
+		// The implementation decrements depth only after all throwing work.
+		// Account for this end event before suppressing later callback work.
+		if (pData->currentDepth > 0) --pData->currentDepth;
+		FailItemParse(pData, ItemDataStagingModel::Failure::StagingFailed);
+	}
+}
+
 static_assert(BOBBY_RAY_LISTS == 2,
 	"item XML staging models the established new/used store inventory schema");
 static_assert(std::is_trivially_copyable_v<INVTYPE>,
 	"transactional base publication requires an exact no-throw item copy");
+static_assert(std::is_nothrow_move_constructible_v<itemLocalizedTextPatch> &&
+	std::is_nothrow_move_assignable_v<itemLocalizedTextPatch>,
+	"localized parser patches must move without throwing before staging");
 static_assert(static_cast<std::uintmax_t>(MAXITEMS) <=
 	std::numeric_limits<UINT32>::max(),
 	"the exclusive loaded-item bound must fit gMAXITEMS_READ");

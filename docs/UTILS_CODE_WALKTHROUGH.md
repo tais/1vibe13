@@ -214,6 +214,10 @@ without changing resource paths or the XML schema:
   sized for the largest text destination's worst-case UTF-8 representation;
   conversion validates scalar sequences and the exact 79/399-code-unit payload
   limits before changing a staged text array.
+  Localized string allocation and staging-copy failures become an explicit
+  `StagingFailed` transaction result. Every Expat callback is a no-throw C
+  boundary; after an unexpected failure, later callbacks perform only balanced
+  depth bookkeeping and never inspect partially updated parser state.
   Neither base nor localized state publishes until the complete document and
   every validation implemented at this boundary succeeds. The only mutating
   boundary is a prevalidated no-fail publisher. Publication is logically atomic

@@ -917,7 +917,7 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 	const bool floatUnderflowRejected =
 		rejectsParserDocumentWithoutPublication("parser float underflow",
 			itemDocument("<ScopeMagFactor>1e-50</ScopeMagFactor>"));
-	const bool missingIndexRejected =
+	const bool parserMissingIndexRejected =
 		rejectsParserDocumentWithoutPublication("parser missing index",
 			"<ITEMLIST><ITEM><usItemClass>1</usItemClass></ITEM></ITEMLIST>");
 	const bool malformedIgnoredIndexRejected =
@@ -942,7 +942,7 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 		signedWordOverflowRejected &&
 		malformedBooleanRejected && malformedFloatRejected &&
 		nonFiniteFloatRejected && floatRangeRejected &&
-		floatUnderflowRejected && missingIndexRejected &&
+		floatUnderflowRejected && parserMissingIndexRejected &&
 		malformedIgnoredIndexRejected && lateFieldOverflowRejected,
 		"item XML strict text scalar and late-field failures roll back every live table");
 	CHECK(malformedExtraDefaultAttachmentRejected,

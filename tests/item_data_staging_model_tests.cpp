@@ -176,6 +176,25 @@ namespace
 
 	bool ThrowingRecord::throwOnCopy = false;
 
+	struct ThrowingPatch
+	{
+		ThrowingPatch() noexcept = default;
+		ThrowingPatch(const ThrowingPatch&)
+		{
+			if (throwOnCopy) throw 1;
+		}
+		ThrowingPatch(ThrowingPatch&&) noexcept = default;
+		ThrowingPatch& operator=(const ThrowingPatch&)
+		{
+			if (throwOnCopy) throw 1;
+			return *this;
+		}
+		ThrowingPatch& operator=(ThrowingPatch&&) noexcept = default;
+
+		static bool throwOnCopy;
+	};
+
+	bool ThrowingPatch::throwOnCopy = false;
 	static_assert(!std::is_copy_constructible_v<
 		RequiredBaseLoadTransaction<LargeTrackedRecord>> &&
 		!std::is_move_constructible_v<
@@ -550,24 +569,47 @@ namespace
 			"localized publication does not retain an item candidate");
 	}
 
-	void TestBaseStagingFailureContainment()
+	void TestStagingFailureContainment()
 	{
 		AuxiliaryTables liveAuxiliary(2);
 		RequiredBaseLoadTransaction<ThrowingRecord> base(
 			2, liveAuxiliary);
-		ThrowingRecord source;
+		ThrowingRecord record;
 		ThrowingRecord::throwOnCopy = true;
-		const StageResult result = base.stage(1, source, true);
+		const StageResult baseResult = base.stage(1, record, true);
 		ThrowingRecord::throwOnCopy = false;
-		int publications = 0;
+		int basePublications = 0;
 		base.complete();
-		Require(result == StageResult::RejectedStagingFailure &&
+		const bool baseRejected =
+			baseResult == StageResult::RejectedStagingFailure &&
 			base.failure() == Failure::StagingFailed &&
 			!base.commit(2,
 				[&](const BasePublicationView<ThrowingRecord>&) noexcept {
-					++publications;
-				}) && publications == 0,
-			"base staging contains allocation and copy failures before C callback unwind");
+					++basePublications;
+				}) &&
+			basePublications == 0;
+
+		OptionalLocalizedLoadTransaction<ThrowingPatch> localized(2);
+		ThrowingPatch patch;
+		ThrowingPatch::throwOnCopy = true;
+		const StageResult localizedResult = localized.stage(1, patch);
+		ThrowingPatch::throwOnCopy = false;
+		int localizedPublications = 0;
+		localized.complete();
+		const bool localizedRejected =
+			localizedResult == StageResult::RejectedStagingFailure &&
+			localized.failure() == Failure::StagingFailed &&
+			!localized.commit(2,
+				[](std::size_t, const ThrowingPatch&) noexcept {
+					return true;
+				},
+				[&](std::size_t, const ThrowingPatch&) noexcept {
+					++localizedPublications;
+				}) &&
+			localizedPublications == 0;
+
+		Require(baseRejected && localizedRejected,
+			"staging contains record and localized allocation/copy failures before C callback unwind");
 	}
 
 	void TestBasePublication()
@@ -831,7 +873,7 @@ int main()
 	TestCharacterInput();
 	TestStanceInheritance();
 	TestBoundedOwnershipAndNoFailPublication();
-	TestBaseStagingFailureContainment();
+	TestStagingFailureContainment();
 	TestBasePublication();
 	TestSparseDuplicateAndBoundsRules();
 	TestBaseRollback();

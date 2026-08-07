@@ -673,9 +673,12 @@ namespace ItemDataStagingModel
 		OptionalLocalizedLoadTransaction& operator=(
 			OptionalLocalizedLoadTransaction&&) = delete;
 
+		template <typename Patch>
 		StageResult stage(std::optional<std::size_t> index,
-			LocalizedPatch patch)
+			Patch&& patch) noexcept
 		{
+			static_assert(std::is_same_v<std::decay_t<Patch>, LocalizedPatch>,
+				"localized staging accepts only its declared patch type");
 			if (state_ != Detail::TransactionState::Loading)
 				return StageResult::RejectedInactiveTransaction;
 			if (!index)
@@ -689,7 +692,17 @@ namespace ItemDataStagingModel
 				return StageResult::IgnoredOutOfRange;
 			}
 			const bool replaced = patches_[*index].has_value();
-			patches_[*index] = std::move(patch);
+			try
+			{
+				patches_[*index] = std::forward<Patch>(patch);
+			}
+			catch (...)
+			{
+				// Patch strings may allocate. The parser callback must turn an
+				// allocation/copy failure into transaction failure, not unwind.
+				fail(Failure::StagingFailed);
+				return StageResult::RejectedStagingFailure;
+			}
 			return replaced ? StageResult::Replaced : StageResult::Inserted;
 		}
 

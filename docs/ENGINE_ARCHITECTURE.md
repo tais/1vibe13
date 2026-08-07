@@ -1251,6 +1251,9 @@ the engine must not contain SDL types in its public domain model.
   UTF-8, strict decoding rejects invalid or over-capacity text, and every scalar
   is a complete locale-independent token with schema-specific decimal,
   C-style, exact-`UINT64`, signed-boolean, finite-float, or wide-clamp semantics.
+  String allocation and staging-copy failures are contained inside the Expat C
+  callback boundary and reject the transaction before publication; later
+  callbacks only balance document depth without revisiting failed parser state.
   The shipped `usPrice=70000` modulo result is the single documented narrowing
   compatibility rule. The reader accepts the shipped canonical `<Cigarette>`
   spelling plus its lowercase compatibility alias, and validates excess
