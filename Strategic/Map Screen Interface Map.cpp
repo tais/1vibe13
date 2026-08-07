@@ -58,6 +58,7 @@
 #include "CampaignMercenaryPolicy.h"
 #include "GameContext.h"
 #include <language.hpp>
+#include <iterator>
 
 // added by Flugente
 extern CHAR16 gzSectorNames[256][4][MAX_SECTOR_NAME_LENGTH];
@@ -8536,7 +8537,7 @@ void DisplayMilitiaGroupBox()
 			// show ETA
 			CHAR16 timestring[64];
 			UINT32 uiArrivalTime = GetWorldTotalMin( ) + CalculateTravelTimeOfGroup( pGroup );
-			ConvertMinTimeToDayHourMinString( uiArrivalTime, timestring );
+			ConvertMinTimeToDayHourMinString( uiArrivalTime, timestring, std::size(timestring) );
 
 			// mouse region - clicking on a group name selects that group
 			if ( !gMilitiaGroupBoxRegionDefined[groupcnt] )
