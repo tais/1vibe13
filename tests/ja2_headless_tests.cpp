@@ -162,6 +162,7 @@
 #include "Soldier Profile.h"
 #include "Interface.h"
 #include "Handle Items.h"
+#include "Store Inventory.h"
 #include "TacticalActorAnimationFootprint.h"
 #include "TacticalActorAnimationFrames.h"
 #include "TacticalActorAnimationSelection.h"
@@ -507,6 +508,415 @@ static bool ReadFileManagerText( const std::string& logicalPath, std::string& co
 	if ( read ) return true;
 	contents.clear();
 	return false;
+}
+
+static bool WriteFileManagerText(
+	const std::string& logicalPath, const std::string& contents)
+{
+	if (contents.size() > std::numeric_limits<UINT32>::max()) return false;
+	HWFILE file = FileOpen(const_cast<char*>(logicalPath.c_str()),
+		FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+	if (!file) return false;
+	UINT32 bytesWritten = 0;
+	const UINT32 size = static_cast<UINT32>(contents.size());
+	const bool written = (size == 0 || FileWrite(file, contents.data(),
+		size, &bytesWritten)) && bytesWritten == size;
+	FileClose(file);
+	return written;
+}
+
+static void ReportItemXmlTestProgress(
+	const char* phase, const char* state)
+{
+	std::printf("diag  transactional item XML: %s %s\n", phase, state);
+	std::fflush(stdout);
+}
+
+static bool WriteItemXmlFixtureWithProgress(const char* phase,
+	const std::string& logicalPath, const std::string& contents)
+{
+	ReportItemXmlTestProgress(phase, "write begin");
+	const bool written = WriteFileManagerText(logicalPath, contents);
+	ReportItemXmlTestProgress(
+		phase, written ? "write complete" : "write failed");
+	return written;
+}
+
+static BOOLEAN ReadItemXmlWithProgress(const char* phase,
+	const std::string& logicalPath, BOOLEAN localizedVersion)
+{
+	ReportItemXmlTestProgress(phase, "read begin");
+	const BOOLEAN loaded = ReadInItemStats(
+		const_cast<char*>(logicalPath.c_str()), localizedVersion);
+	ReportItemXmlTestProgress(
+		phase, loaded ? "read accepted" : "read rejected");
+	return loaded;
+}
+
+static_assert(noexcept(ReadInItemStats(nullptr, FALSE)),
+	"the Items XML loader contains setup and diagnostic failures at its BOOLEAN boundary");
+
+static_assert(std::is_trivially_copyable_v<INVTYPE>,
+	"headless item rollback snapshots exact object representations");
+
+struct ItemXmlItemSnapshot
+{
+	std::size_t index = 0;
+	std::array<UINT8, sizeof(INVTYPE)> bytes{};
+};
+
+struct ItemXmlTablesSnapshot
+{
+	std::vector<ItemXmlItemSnapshot> items;
+	std::vector<UINT8> storeInventory;
+	std::vector<UINT8> weaponRateOfFire;
+	UINT32 maxItemsRead = 0;
+};
+
+static bool ItemXmlItemRecordIsZero(std::size_t index)
+{
+	const UINT8* bytes = reinterpret_cast<const UINT8*>(&Item[index]);
+	return std::all_of(bytes, bytes + sizeof(INVTYPE),
+		[](UINT8 value) { return value == 0; });
+}
+
+static ItemXmlTablesSnapshot CaptureItemXmlTables()
+{
+	ItemXmlTablesSnapshot snapshot;
+	const UINT8* storeBytes =
+		reinterpret_cast<const UINT8*>(StoreInventory);
+	const UINT8* rateBytes = reinterpret_cast<const UINT8*>(WeaponROF);
+	for (std::size_t index = 0; index < MAXITEMS; ++index)
+	{
+		if (ItemXmlItemRecordIsZero(index)) continue;
+		snapshot.items.emplace_back();
+		ItemXmlItemSnapshot& savedItem = snapshot.items.back();
+		savedItem.index = index;
+		std::memcpy(savedItem.bytes.data(), &Item[index], sizeof(INVTYPE));
+	}
+	snapshot.storeInventory.assign(storeBytes,
+		storeBytes + sizeof(StoreInventory));
+	snapshot.weaponRateOfFire.assign(rateBytes,
+		rateBytes + sizeof(WeaponROF));
+	snapshot.maxItemsRead = gMAXITEMS_READ;
+	return snapshot;
+}
+
+struct ItemXmlTablesDigest
+{
+	std::uint64_t items = 0;
+	std::uint64_t storeInventory = 0;
+	std::uint64_t weaponRateOfFire = 0;
+	UINT32 maxItemsRead = 0;
+
+	bool operator==(const ItemXmlTablesDigest& other) const
+	{
+		return items == other.items &&
+			storeInventory == other.storeInventory &&
+			weaponRateOfFire == other.weaponRateOfFire &&
+			maxItemsRead == other.maxItemsRead;
+	}
+};
+
+static std::uint64_t HashItemXmlBytes(const void* bytes, std::size_t size)
+{
+	const auto* cursor = static_cast<const UINT8*>(bytes);
+	std::uint64_t hash = UINT64_C(14695981039346656037);
+	for (std::size_t index = 0; index < size; ++index)
+	{
+		hash ^= cursor[index];
+		hash *= UINT64_C(1099511628211);
+	}
+	return hash;
+}
+
+static ItemXmlTablesDigest DigestItemXmlTables()
+{
+	return {
+		HashItemXmlBytes(Item, sizeof(Item)),
+		HashItemXmlBytes(StoreInventory, sizeof(StoreInventory)),
+		HashItemXmlBytes(WeaponROF, sizeof(WeaponROF)),
+		gMAXITEMS_READ};
+}
+
+static bool ItemXmlItemTableIsZero()
+{
+	const UINT8* bytes = reinterpret_cast<const UINT8*>(Item);
+	return std::all_of(bytes, bytes + sizeof(Item),
+		[](UINT8 value) { return value == 0; });
+}
+
+static void RestoreItemXmlTables(const ItemXmlTablesSnapshot& snapshot)
+{
+	std::memset(Item, 0, sizeof(Item));
+	for (const ItemXmlItemSnapshot& savedItem : snapshot.items)
+	{
+		std::memcpy(&Item[savedItem.index], savedItem.bytes.data(),
+			sizeof(INVTYPE));
+	}
+	std::memcpy(StoreInventory, snapshot.storeInventory.data(),
+		sizeof(StoreInventory));
+	std::memcpy(WeaponROF, snapshot.weaponRateOfFire.data(),
+		sizeof(WeaponROF));
+	gMAXITEMS_READ = snapshot.maxItemsRead;
+}
+
+class ScopedItemXmlTablesRestore
+{
+public:
+	explicit ScopedItemXmlTablesRestore(
+		const ItemXmlTablesSnapshot& snapshot) noexcept
+		: snapshot_(snapshot)
+	{
+	}
+
+	~ScopedItemXmlTablesRestore()
+	{
+		ReportItemXmlTestProgress("live tables", "restore begin");
+		RestoreItemXmlTables(snapshot_);
+		ReportItemXmlTestProgress("live tables", "restore complete");
+	}
+
+	ScopedItemXmlTablesRestore(const ScopedItemXmlTablesRestore&) = delete;
+	ScopedItemXmlTablesRestore& operator=(
+		const ScopedItemXmlTablesRestore&) = delete;
+
+private:
+	const ItemXmlTablesSnapshot& snapshot_;
+};
+
+static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
+{
+	ReportItemXmlTestProgress("live tables", "snapshot begin");
+	const ItemXmlTablesSnapshot originalTables = CaptureItemXmlTables();
+	ReportItemXmlTestProgress("live tables", "snapshot complete");
+	const ScopedItemXmlTablesRestore restoreTables(originalTables);
+	std::memset(Item, 0, sizeof(Item));
+	for (std::size_t index = 0; index < MAXITEMS; ++index)
+	{
+		StoreInventory[index][BOBBY_RAY_NEW] = 3;
+		StoreInventory[index][BOBBY_RAY_USED] = 4;
+		WeaponROF[index] = -1;
+	}
+	Item[0].usItemClass = 77;
+	constexpr CHAR16 staleItemName[] = L"stale-live-item";
+	static_assert(sizeof(staleItemName) <= sizeof(Item[0].szItemName));
+	std::copy_n(staleItemName,
+		sizeof(staleItemName) / sizeof(staleItemName[0]),
+		Item[0].szItemName);
+	StoreInventory[5][BOBBY_RAY_NEW] = 31;
+	StoreInventory[5][BOBBY_RAY_USED] = 32;
+	WeaponROF[5] = 33;
+	StoreInventory[2][BOBBY_RAY_NEW] = 41;
+	StoreInventory[2][BOBBY_RAY_USED] = 42;
+	WeaponROF[2] = 43;
+	gMAXITEMS_READ = 9;
+
+	const std::string basePath =
+		"transactional-items-base-" + fixtureToken + ".xml";
+	const std::string malformedBasePath =
+		"transactional-items-malformed-base-" + fixtureToken + ".xml";
+	const std::string missingIndexPath =
+		"transactional-items-missing-index-" + fixtureToken + ".xml";
+	const std::string auxiliaryOverflowPath =
+		"transactional-items-aux-overflow-" + fixtureToken + ".xml";
+	const std::string malformedOutOfRangePath =
+		"transactional-items-malformed-out-of-range-" + fixtureToken + ".xml";
+	const std::string localizedPath =
+		"transactional-items-localized-" + fixtureToken + ".xml";
+	const std::string malformedLocalizedPath =
+		"transactional-items-malformed-localized-" + fixtureToken + ".xml";
+	const std::string emptyBasePath =
+		"transactional-items-empty-base-" + fixtureToken + ".xml";
+	const std::string emptyLocalizedPath =
+		"transactional-items-empty-localized-" + fixtureToken + ".xml";
+	const std::string missingPath =
+		"transactional-items-missing-" + fixtureToken + ".xml";
+
+	const std::string baseDocument =
+		"<ITEMLIST>"
+		"<ITEM><uiIndex>5</uiIndex><szItemName>Five</szItemName>"
+		"<szLongItemName>Five Long</szLongItemName>"
+		"<szItemDesc>Five Description</szItemDesc>"
+		"<szBRName>Five Shop</szBRName>"
+		"<szBRDesc>Five Shop Description</szBRDesc>"
+		"<usItemClass>1</usItemClass><BR_NewInventory>7</BR_NewInventory>"
+		"<STAND_MODIFIERS><FlatBase>10</FlatBase></STAND_MODIFIERS>"
+		"</ITEM>"
+		"<ITEM><uiIndex>2</uiIndex><szItemName>First Two</szItemName>"
+		"<usItemClass>1</usItemClass><BR_UsedInventory>8</BR_UsedInventory>"
+		"<BR_ROF>45</BR_ROF></ITEM>"
+		"<ITEM><uiIndex>2</uiIndex><szItemName>Replacement Two</szItemName>"
+		"<szLongItemName>Replacement Long</szLongItemName>"
+		"<szItemDesc>Replacement Description</szItemDesc>"
+		"<szBRName>Replacement Shop</szBRName>"
+		"<szBRDesc>Replacement Shop Description</szBRDesc>"
+		"<usItemClass>1</usItemClass></ITEM>"
+		"<ITEM><uiIndex>2</uiIndex>"
+		"<BR_NewInventory>55</BR_NewInventory></ITEM>"
+		"<ITEM><uiIndex>" + std::to_string(MAXITEMS) +
+		"</uiIndex><szItemName>Exact End</szItemName>"
+		"<usItemClass>1</usItemClass><BR_NewInventory>200</BR_NewInventory>"
+		"<BR_UsedInventory>201</BR_UsedInventory><BR_ROF>202</BR_ROF>"
+		"</ITEM></ITEMLIST>";
+	const bool baseFixtureWritten = WriteItemXmlFixtureWithProgress(
+		"valid base", basePath, baseDocument);
+	const bool baseLoaded = baseFixtureWritten && ReadItemXmlWithProgress(
+		"valid base", basePath, FALSE);
+	CHECK(baseLoaded && Item[5].uiIndex == 5 && Item[5].usItemClass == 1 &&
+		std::wcscmp(Item[5].szItemName, L"Five") == 0 &&
+		Item[5].flatbasemodifier[0] == 10 &&
+		Item[5].flatbasemodifier[1] == 10 &&
+		Item[5].flatbasemodifier[2] == 10 && Item[2].uiIndex == 2 &&
+		std::wcscmp(Item[2].szItemName, L"Replacement Two") == 0 &&
+		StoreInventory[5][BOBBY_RAY_NEW] == 7 &&
+		StoreInventory[5][BOBBY_RAY_USED] == 32 && WeaponROF[5] == 33 &&
+		StoreInventory[2][BOBBY_RAY_NEW] == 55 &&
+		StoreInventory[2][BOBBY_RAY_USED] == 8 && WeaponROF[2] == 45 &&
+		gMAXITEMS_READ == 6,
+		"transactional item base loads use the last nonzero-class item, merged auxiliary fields, and an unsorted high-water bound");
+	CHECK(baseLoaded && Item[0].usItemClass == 0 &&
+		Item[0].szItemName[0] == L'\0' &&
+		StoreInventory[0][BOBBY_RAY_NEW] == 3 &&
+		StoreInventory[0][BOBBY_RAY_USED] == 4 && WeaponROF[0] == -1,
+		"valid item XML exact-end records are ignored before live table access");
+
+	const ItemXmlTablesDigest baseTables = DigestItemXmlTables();
+	const std::string malformedBaseDocument =
+		"<ITEMLIST><ITEM><uiIndex>1</uiIndex><szItemName>Staged</szItemName>"
+		"<usItemClass>1</usItemClass><BR_NewInventory>99</BR_NewInventory>"
+		"</ITEM><ITEM><uiIndex>3</uiIndex><usItemClass>1</usItemClass>";
+	const bool malformedBaseWritten = WriteItemXmlFixtureWithProgress(
+		"malformed base", malformedBasePath, malformedBaseDocument);
+	const bool malformedBaseRejected = malformedBaseWritten &&
+		!ReadItemXmlWithProgress("malformed base", malformedBasePath, FALSE);
+	CHECK(malformedBaseRejected && DigestItemXmlTables() == baseTables,
+		"malformed item base XML rolls back Item StoreInventory WeaponROF and loaded bound");
+
+	const std::string missingIndexDocument =
+		"<ITEMLIST><ITEM><szItemName>Missing Index</szItemName>"
+		"<usItemClass>1</usItemClass><BR_NewInventory>99</BR_NewInventory>"
+		"</ITEM></ITEMLIST>";
+	const bool missingIndexWritten = WriteItemXmlFixtureWithProgress(
+		"missing index", missingIndexPath, missingIndexDocument);
+	const bool missingIndexRejected = missingIndexWritten &&
+		!ReadItemXmlWithProgress("missing index", missingIndexPath, FALSE);
+	CHECK(missingIndexRejected && DigestItemXmlTables() == baseTables,
+		"item XML records without uiIndex poison the full base transaction");
+
+	const std::string auxiliaryOverflowDocument =
+		"<ITEMLIST><ITEM><uiIndex>1</uiIndex><szItemName>Overflow</szItemName>"
+		"<usItemClass>1</usItemClass>"
+		"<BR_NewInventory>256</BR_NewInventory></ITEM></ITEMLIST>";
+	const bool auxiliaryOverflowWritten = WriteItemXmlFixtureWithProgress(
+		"auxiliary overflow", auxiliaryOverflowPath,
+		auxiliaryOverflowDocument);
+	const bool auxiliaryOverflowRejected = auxiliaryOverflowWritten &&
+		!ReadItemXmlWithProgress(
+			"auxiliary overflow", auxiliaryOverflowPath, FALSE);
+	CHECK(auxiliaryOverflowRejected && DigestItemXmlTables() == baseTables,
+		"item XML auxiliary integer overflow rolls back every live table");
+
+	const std::string malformedOutOfRangeDocument =
+		"<ITEMLIST><ITEM><uiIndex>" + std::to_string(MAXITEMS) +
+		"</uiIndex><usItemClass>1</usItemClass>"
+		"<BR_ROF>not-a-number</BR_ROF></ITEM></ITEMLIST>";
+	const bool malformedOutOfRangeWritten = WriteItemXmlFixtureWithProgress(
+		"malformed out-of-range", malformedOutOfRangePath,
+		malformedOutOfRangeDocument);
+	const bool malformedOutOfRangeRejected = malformedOutOfRangeWritten &&
+		!ReadItemXmlWithProgress(
+			"malformed out-of-range", malformedOutOfRangePath, FALSE);
+	CHECK(malformedOutOfRangeRejected &&
+		DigestItemXmlTables() == baseTables,
+		"malformed checked fields poison item XML even in out-of-range records");
+
+	const std::string localizedDocument =
+		"<ITEMLIST>"
+		"<ITEM><uiIndex>2</uiIndex><szItemName>First Localized</szItemName>"
+		"<szItemDesc>Must Not Leak</szItemDesc></ITEM>"
+		"<ITEM><uiIndex>2</uiIndex><szItemName>Localized Two</szItemName></ITEM>"
+		"<ITEM><uiIndex>5</uiIndex>"
+		"<szItemDesc>Localized Five Description</szItemDesc>"
+		"<BR_NewInventory>201</BR_NewInventory>"
+		"<BR_UsedInventory>202</BR_UsedInventory>"
+		"<BR_ROF>203</BR_ROF></ITEM>"
+		"<ITEM><uiIndex>" + std::to_string(MAXITEMS) +
+		"</uiIndex><szItemName>Ignored Localized End</szItemName></ITEM>"
+		"</ITEMLIST>";
+	const bool localizedWritten = WriteItemXmlFixtureWithProgress(
+		"localized overlay", localizedPath, localizedDocument);
+	const bool localizedLoaded = localizedWritten && ReadItemXmlWithProgress(
+		"localized overlay", localizedPath, TRUE);
+	const ItemXmlTablesDigest localizedTables = DigestItemXmlTables();
+	CHECK(localizedLoaded &&
+		std::wcscmp(Item[2].szItemName, L"Localized Two") == 0 &&
+		std::wcscmp(Item[2].szLongItemName, L"Replacement Long") == 0 &&
+		std::wcscmp(Item[2].szItemDesc, L"Replacement Description") == 0 &&
+		std::wcscmp(Item[5].szItemName, L"Five") == 0 &&
+		std::wcscmp(Item[5].szItemDesc,
+			L"Localized Five Description") == 0 &&
+		localizedTables.storeInventory == baseTables.storeInventory &&
+		localizedTables.weaponRateOfFire == baseTables.weaponRateOfFire &&
+		gMAXITEMS_READ == baseTables.maxItemsRead,
+		"localized item overlays publish only authored text and preserve auxiliary tables");
+	CHECK(localizedLoaded &&
+		localizedTables.storeInventory == baseTables.storeInventory &&
+		localizedTables.weaponRateOfFire == baseTables.weaponRateOfFire,
+		"localized item XML ignores valid BR inventory and ROF tags for publication");
+
+	const bool emptyLocalizedWritten = WriteItemXmlFixtureWithProgress(
+		"empty localized overlay", emptyLocalizedPath,
+		"<ITEMLIST></ITEMLIST>");
+	const bool emptyLocalizedLoaded = emptyLocalizedWritten &&
+		ReadItemXmlWithProgress(
+			"empty localized overlay", emptyLocalizedPath, TRUE);
+	CHECK(emptyLocalizedLoaded && DigestItemXmlTables() == localizedTables,
+		"empty localized item XML is a successful no-op");
+
+	const std::string malformedLocalizedDocument =
+		"<ITEMLIST><ITEM><uiIndex>2</uiIndex>"
+		"<szItemName>Staged Localized Name</szItemName></ITEM>"
+		"<ITEM><uiIndex>5</uiIndex><szItemDesc>Truncated";
+	const bool malformedLocalizedWritten = WriteItemXmlFixtureWithProgress(
+		"malformed localized overlay", malformedLocalizedPath,
+		malformedLocalizedDocument);
+	const bool malformedLocalizedRejected = malformedLocalizedWritten &&
+		!ReadItemXmlWithProgress(
+			"malformed localized overlay", malformedLocalizedPath, TRUE);
+	CHECK(malformedLocalizedRejected && DigestItemXmlTables() == localizedTables,
+		"malformed localized item XML rolls back every staged text patch");
+
+	FileDelete(const_cast<char*>(missingPath.c_str()));
+	const bool optionalMissingAccepted = ReadItemXmlWithProgress(
+		"missing optional overlay", missingPath, TRUE);
+	const bool requiredMissingRejected = !ReadItemXmlWithProgress(
+		"missing required base", missingPath, FALSE);
+	CHECK(optionalMissingAccepted && requiredMissingRejected &&
+		DigestItemXmlTables() == localizedTables,
+		"item XML required base and optional localization missing-file policies preserve live tables");
+
+	const bool emptyBaseWritten = WriteItemXmlFixtureWithProgress(
+		"empty base", emptyBasePath, "<ITEMLIST></ITEMLIST>");
+	const bool emptyBaseLoaded = emptyBaseWritten && ReadItemXmlWithProgress(
+		"empty base", emptyBasePath, FALSE);
+	const ItemXmlTablesDigest emptyBaseTables = DigestItemXmlTables();
+	CHECK(emptyBaseLoaded && ItemXmlItemTableIsZero() &&
+		emptyBaseTables.storeInventory == localizedTables.storeInventory &&
+		emptyBaseTables.weaponRateOfFire ==
+			localizedTables.weaponRateOfFire &&
+		emptyBaseTables.maxItemsRead == 0,
+		"empty item base XML publishes a cleared Item table with preserved auxiliary values");
+
+	FileDelete(const_cast<char*>(basePath.c_str()));
+	FileDelete(const_cast<char*>(malformedBasePath.c_str()));
+	FileDelete(const_cast<char*>(missingIndexPath.c_str()));
+	FileDelete(const_cast<char*>(auxiliaryOverflowPath.c_str()));
+	FileDelete(const_cast<char*>(malformedOutOfRangePath.c_str()));
+	FileDelete(const_cast<char*>(localizedPath.c_str()));
+	FileDelete(const_cast<char*>(malformedLocalizedPath.c_str()));
+	FileDelete(const_cast<char*>(emptyBasePath.c_str()));
+	FileDelete(const_cast<char*>(emptyLocalizedPath.c_str()));
 }
 
 struct TestResourceTag {};
@@ -1146,6 +1556,7 @@ static std::vector<std::uint64_t> SubmitHeadlessTacticalTurn(
 
 int main( int, char** )
 {
+	std::setvbuf(stdout, nullptr, _IONBF, 0);
 	std::printf( "== ja2_headless_tests: data-free SGP boot ==\n" );
 
 	// Run headless: no window server / audio device required.
@@ -16786,6 +17197,25 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
+	try
+	{
+		RunTransactionalItemXmlTests(vfsPriorityToken);
+	}
+	catch (const std::exception& error)
+	{
+		++g_failures;
+		std::printf(
+			"FAIL  transactional item XML tests threw std::exception: %s\n",
+			error.what());
+		std::fflush(stdout);
+	}
+	catch (...)
+	{
+		++g_failures;
+		std::printf(
+			"FAIL  transactional item XML tests threw an unknown exception\n");
+		std::fflush(stdout);
+	}
 	{
 		CIniReader reader( iniPath.c_str() );
 		char zeroCapacity = 'Z';

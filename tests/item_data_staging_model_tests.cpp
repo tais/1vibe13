@@ -156,11 +156,29 @@ namespace
 	std::size_t LargeTrackedRecord::liveInstances = 0;
 	std::size_t LargeTrackedRecord::maximumLiveInstances = 0;
 
+	struct ThrowingRecord
+	{
+		ThrowingRecord() noexcept = default;
+		ThrowingRecord(const ThrowingRecord&)
+		{
+			if (throwOnCopy) throw 1;
+		}
+		ThrowingRecord& operator=(const ThrowingRecord&)
+		{
+			if (throwOnCopy) throw 1;
+			return *this;
+		}
+
+		static bool throwOnCopy;
+	};
+
+	bool ThrowingRecord::throwOnCopy = false;
+
 	static_assert(!std::is_copy_constructible_v<
 		RequiredBaseLoadTransaction<LargeTrackedRecord>> &&
 		!std::is_move_constructible_v<
 			RequiredBaseLoadTransaction<LargeTrackedRecord>>,
-		"a required base transaction cannot duplicate its full candidate");
+		"a required base transaction cannot duplicate its sparse staging state");
 	static_assert(!std::is_copy_constructible_v<
 		OptionalLocalizedLoadTransaction<LocalizedTextPatch>> &&
 		!std::is_move_constructible_v<
@@ -254,10 +272,13 @@ namespace
 		return transaction.commit(destination.items.size(),
 			[&destination](
 				const BasePublicationView<TestItem>& publication) noexcept {
+				std::fill(destination.items.begin(), destination.items.end(),
+					TestItem{});
+				for (const auto& stagedItem : publication.items)
+					destination.items[stagedItem.index] = stagedItem.item;
 				for (std::size_t index = 0;
-					index < publication.items.size(); ++index)
+					index < publication.capacity; ++index)
 				{
-					destination.items[index] = publication.items[index];
 					destination.auxiliary.storeInventory[index] =
 						publication.auxiliary.storeInventory[index];
 					destination.auxiliary.weaponRateOfFire[index] =
@@ -374,27 +395,35 @@ namespace
 		AuxiliaryTables liveAuxiliary(capacity);
 		LargeTrackedRecord::ResetCounts();
 		{
-			RequiredBaseLoadTransaction<LargeTrackedRecord> base(
-				capacity, liveAuxiliary);
-			Require(LargeTrackedRecord::liveInstances == capacity &&
-				LargeTrackedRecord::maximumLiveInstances == capacity,
-				"base staging owns exactly one full item candidate");
+			LargeTrackedRecord source;
+			{
+				RequiredBaseLoadTransaction<LargeTrackedRecord> base(
+					capacity, liveAuxiliary);
+				Require(LargeTrackedRecord::liveInstances == 1 &&
+					base.stage(capacity - 1, source, true) ==
+						StageResult::Inserted &&
+					LargeTrackedRecord::liveInstances == 2 &&
+					LargeTrackedRecord::maximumLiveInstances < capacity,
+					"base staging retains only authored item records");
 
-			base.complete();
-			std::size_t publishedItems = 0;
-			const LargeTrackedRecord* publishedAddress = nullptr;
-			Require(base.commit(capacity,
-					[&](const BasePublicationView<LargeTrackedRecord>&
-						publication) noexcept {
-						publishedItems = publication.items.size();
-						publishedAddress = publication.items.data();
-					}) &&
-				publishedItems == capacity && publishedAddress != nullptr &&
-				LargeTrackedRecord::maximumLiveInstances == capacity,
-				"base publication borrows the sole candidate without copying it");
+				base.complete();
+				std::size_t publishedItems = 0;
+				std::size_t publishedIndex = 0;
+				Require(base.commit(capacity,
+						[&](const BasePublicationView<LargeTrackedRecord>&
+							publication) noexcept {
+							publishedItems = publication.items.size();
+							publishedIndex = publication.items.front().index;
+						}) &&
+					publishedItems == 1 && publishedIndex == capacity - 1 &&
+					LargeTrackedRecord::liveInstances == 2,
+					"base publication borrows sparse authored records without copying them");
+			}
+			Require(LargeTrackedRecord::liveInstances == 1,
+				"base staging releases every sparse authored record");
 		}
 		Require(LargeTrackedRecord::liveInstances == 0,
-			"base staging releases its sole full item candidate");
+			"sparse staging leaves no retained item records");
 
 		LargeTrackedRecord::ResetCounts();
 		{
@@ -424,6 +453,26 @@ namespace
 		}
 		Require(LargeTrackedRecord::liveInstances == 0,
 			"localized publication does not retain an item candidate");
+	}
+
+	void TestBaseStagingFailureContainment()
+	{
+		AuxiliaryTables liveAuxiliary(2);
+		RequiredBaseLoadTransaction<ThrowingRecord> base(
+			2, liveAuxiliary);
+		ThrowingRecord source;
+		ThrowingRecord::throwOnCopy = true;
+		const StageResult result = base.stage(1, source, true);
+		ThrowingRecord::throwOnCopy = false;
+		int publications = 0;
+		base.complete();
+		Require(result == StageResult::RejectedStagingFailure &&
+			base.failure() == Failure::StagingFailed &&
+			!base.commit(2,
+				[&](const BasePublicationView<ThrowingRecord>&) noexcept {
+					++publications;
+				}) && publications == 0,
+			"base staging contains allocation and copy failures before C callback unwind");
 	}
 
 	void TestBasePublication()
@@ -472,8 +521,14 @@ namespace
 		replacementAuxiliary.usedInventory = 80;
 		AuxiliaryPatch inactiveAuxiliary;
 		inactiveAuxiliary.weaponRateOfFire = 99;
+		AuxiliaryPatch zeroClassAuxiliary;
+		zeroClassAuxiliary.newInventory = 11;
 
-		Require(transaction.stage(5, MakeItem(50, "first"), true,
+		Require(transaction.stage(1, TestItem{}, false,
+				zeroClassAuxiliary) == StageResult::Inserted &&
+			transaction.stage(1, MakeItem(10, "after-zero"), true) ==
+				StageResult::Replaced &&
+			transaction.stage(5, MakeItem(50, "first"), true,
 				firstAuxiliary) == StageResult::Inserted &&
 			transaction.stage(2, MakeItem(20, "lower"), true) ==
 				StageResult::Inserted &&
@@ -490,8 +545,10 @@ namespace
 
 		transaction.complete();
 		Require(PublishBase(transaction, live) && live.maxItemsRead == 6 &&
-			live.items[2].payload == 20 && live.items[5].payload == 51 &&
+			live.items[1].payload == 10 && live.items[2].payload == 20 &&
+			live.items[5].payload == 51 &&
 			live.items[4] == TestItem{} &&
+			live.auxiliary.storeInventory[1].newInventory == 11 &&
 			live.auxiliary.storeInventory[5].newInventory == 70 &&
 			live.auxiliary.storeInventory[5].usedInventory == 80 &&
 			live.auxiliary.weaponRateOfFire[2] == 99,
@@ -678,6 +735,7 @@ int main()
 	TestCharacterInput();
 	TestStanceInheritance();
 	TestBoundedOwnershipAndNoFailPublication();
+	TestBaseStagingFailureContainment();
 	TestBasePublication();
 	TestSparseDuplicateAndBoundsRules();
 	TestBaseRollback();

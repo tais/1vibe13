@@ -25,6 +25,7 @@ namespace ItemDataStagingModel
 		MissingIndex,
 		InvalidDestination,
 		OverlayRejected,
+		StagingFailed,
 	};
 
 	enum class StageResult
@@ -34,6 +35,7 @@ namespace ItemDataStagingModel
 		IgnoredOutOfRange,
 		RejectedMissingIndex,
 		RejectedInactiveTransaction,
+		RejectedStagingFailure,
 	};
 
 	enum class IntegerSyntax
@@ -327,10 +329,18 @@ namespace ItemDataStagingModel
 	};
 
 	template <typename ItemRecord>
+	struct IndexedItemRecord
+	{
+		std::size_t index = 0;
+		ItemRecord item{};
+	};
+
+	template <typename ItemRecord>
 	struct BasePublicationView
 	{
-		const std::vector<ItemRecord>& items;
+		const std::vector<IndexedItemRecord<ItemRecord>>& items;
 		const AuxiliaryTables& auxiliary;
+		std::size_t capacity = 0;
 		std::size_t maxItemsRead = 0;
 	};
 
@@ -340,8 +350,8 @@ namespace ItemDataStagingModel
 	public:
 		explicit RequiredBaseLoadTransaction(std::size_t capacity,
 			const AuxiliaryTables& liveAuxiliary)
-			: stagedItems_(capacity), stagedAuxiliary_(capacity),
-			seen_(capacity, false)
+			: stagedAuxiliary_(capacity),
+			itemSlots_(capacity, UnseenIndex)
 		{
 			if (!liveAuxiliary.consistent() ||
 				liveAuxiliary.capacity() != capacity)
@@ -364,7 +374,7 @@ namespace ItemDataStagingModel
 
 		StageResult stage(std::optional<std::size_t> index,
 			const ItemRecord& item, bool publishesItem,
-			const AuxiliaryPatch& auxiliary = {})
+			const AuxiliaryPatch& auxiliary = {}) noexcept
 		{
 			if (state_ != Detail::TransactionState::Loading)
 				return StageResult::RejectedInactiveTransaction;
@@ -373,14 +383,48 @@ namespace ItemDataStagingModel
 				fail(Failure::MissingIndex);
 				return StageResult::RejectedMissingIndex;
 			}
-			if (*index >= stagedItems_.size())
+			if (*index >= itemSlots_.size())
 			{
 				++ignoredOutOfRange_;
 				return StageResult::IgnoredOutOfRange;
 			}
 
-			const bool replaced = seen_[*index];
-			seen_[*index] = true;
+			const std::uint32_t priorSlot = itemSlots_[*index];
+			const bool replaced = priorSlot != UnseenIndex;
+			if (publishesItem)
+			{
+				try
+				{
+					if (priorSlot < SeenWithoutItem)
+					{
+						stagedItems_[priorSlot].item = item;
+					}
+					else
+					{
+						if (stagedItems_.size() >= SeenWithoutItem)
+						{
+							fail(Failure::StagingFailed);
+							return StageResult::RejectedStagingFailure;
+						}
+						stagedItems_.push_back({*index, item});
+						itemSlots_[*index] = static_cast<std::uint32_t>(
+							stagedItems_.size() - 1);
+					}
+				}
+				catch (...)
+				{
+					// This function is called by an Expat C callback. Contain
+					// allocation and record-copy failures so no C++ exception
+					// can unwind through the C parser frames.
+					fail(Failure::StagingFailed);
+					return StageResult::RejectedStagingFailure;
+				}
+			}
+			else if (priorSlot == UnseenIndex)
+			{
+				itemSlots_[*index] = SeenWithoutItem;
+			}
+
 			if (auxiliary.newInventory)
 				stagedAuxiliary_.storeInventory[*index].newInventory =
 					*auxiliary.newInventory;
@@ -393,7 +437,6 @@ namespace ItemDataStagingModel
 
 			if (publishesItem)
 			{
-				stagedItems_[*index] = item;
 				// gMAXITEMS_READ is an exclusive bound. Taking the maximum
 				// also makes valid unsorted mod files safe and deterministic.
 				stagedMaxItemsRead_ = std::max(
@@ -436,14 +479,15 @@ namespace ItemDataStagingModel
 				const BasePublicationView<ItemRecord>&>, void>,
 				"base publication reports no failure after validation");
 			if (state_ != Detail::TransactionState::Complete ||
-				destinationCapacity != stagedItems_.size())
+				destinationCapacity != itemSlots_.size())
 			{
 				if (state_ == Detail::TransactionState::Complete)
 					fail(Failure::InvalidDestination);
 				return false;
 			}
 			const BasePublicationView<ItemRecord> publication{
-				stagedItems_, stagedAuxiliary_, stagedMaxItemsRead_};
+				stagedItems_, stagedAuxiliary_, itemSlots_.size(),
+				stagedMaxItemsRead_};
 			state_ = Detail::TransactionState::Committed;
 			publisher(publication);
 			return true;
@@ -456,10 +500,14 @@ namespace ItemDataStagingModel
 		}
 
 	private:
-		std::vector<ItemRecord> stagedItems_;
+		static constexpr std::uint32_t UnseenIndex =
+			std::numeric_limits<std::uint32_t>::max();
+		static constexpr std::uint32_t SeenWithoutItem = UnseenIndex - 1;
+
+		std::vector<IndexedItemRecord<ItemRecord>> stagedItems_;
 		AuxiliaryTables stagedAuxiliary_;
+		std::vector<std::uint32_t> itemSlots_;
 		std::size_t stagedMaxItemsRead_ = 0;
-		std::vector<bool> seen_;
 		Detail::TransactionState state_ = Detail::TransactionState::Loading;
 		Failure failure_ = Failure::None;
 		std::size_t ignoredOutOfRange_ = 0;
