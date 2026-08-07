@@ -68,11 +68,29 @@ using LocalizedItemLoad =
 	ItemDataStagingModel::OptionalLocalizedLoadTransaction<
 		itemLocalizedTextPatch>;
 
+constexpr std::size_t ItemDescriptionCapacity =
+	std::extent_v<decltype(INVTYPE::szItemDesc)>;
+constexpr std::size_t ItemUtf8BytesPerTextUnit =
+	sizeof(CHAR16) == 2 ? 3 : 4;
+constexpr std::size_t ItemCharacterDataCapacity =
+	(ItemDescriptionCapacity - 1) * ItemUtf8BytesPerTextUnit + 1;
+using ItemCharacterData =
+	ItemDataStagingModel::CharacterAccumulator<ItemCharacterDataCapacity>;
+static_assert(ItemDescriptionCapacity > 1);
+static_assert(std::extent_v<decltype(INVTYPE::szBRDesc)> <=
+	ItemDescriptionCapacity);
+static_assert(std::extent_v<decltype(INVTYPE::szItemName)> <=
+	ItemDescriptionCapacity);
+static_assert(std::extent_v<decltype(INVTYPE::szLongItemName)> <=
+	ItemDescriptionCapacity);
+static_assert(std::extent_v<decltype(INVTYPE::szBRName)> <=
+	ItemDescriptionCapacity);
+
 struct itemParseData
 {
 	PARSE_STAGE curElement = ELEMENT_NONE;
 
-	CHAR8 szCharData[MAX_CHAR_DATA_LENGTH + 1]{};
+	ItemCharacterData characterData;
 	INVTYPE curItem{};
 	ItemDataStagingModel::AuxiliaryPatch currentAuxiliary;
 	itemLocalizedTextPatch localizedPatch;
@@ -104,12 +122,84 @@ static bool ParseItemInteger(
 		ItemDataStagingModel::IntegerSyntax::Decimal)
 {
 	if (ItemDataStagingModel::TryParseInteger(
-			pData->szCharData, destination, syntax))
+			pData->characterData.view(), destination, syntax))
 	{
 		return true;
 	}
 	FailItemParse(pData, ItemDataStagingModel::Failure::MalformedInput);
 	return false;
+}
+
+template <typename Integer>
+static Integer ParseItemIntegerValue(
+	itemParseData* pData,
+	ItemDataStagingModel::IntegerSyntax syntax =
+		ItemDataStagingModel::IntegerSyntax::Decimal)
+{
+	Integer value{};
+	ParseItemInteger(pData, value, syntax);
+	return value;
+}
+
+static bool ParseItemBooleanValue(itemParseData* pData)
+{
+	bool value = false;
+	if (!ItemDataStagingModel::TryParseBoolean(
+			pData->characterData.view(), value))
+	{
+		FailItemParse(pData, ItemDataStagingModel::Failure::MalformedInput);
+	}
+	return value;
+}
+
+static FLOAT ParseItemFloatValue(itemParseData* pData)
+{
+	FLOAT value = 0.0f;
+	if (!ItemDataStagingModel::TryParseFiniteFloat(
+			pData->characterData.view(), value))
+	{
+		FailItemParse(pData, ItemDataStagingModel::Failure::MalformedInput);
+	}
+	return value;
+}
+
+template <typename Integer>
+static Integer ParseItemClampedIntegerValue(itemParseData* pData,
+	std::int64_t minimum, std::int64_t maximum)
+{
+	Integer value{};
+	if (!ItemDataStagingModel::TryParseClampedInteger(
+			pData->characterData.view(), value, minimum, maximum))
+	{
+		FailItemParse(pData, ItemDataStagingModel::Failure::MalformedInput);
+	}
+	return value;
+}
+
+static UINT16 ParseLegacyItemPrice(itemParseData* pData)
+{
+	UINT32 widePrice = 0;
+	if (!ParseItemInteger(pData, widePrice)) return 0;
+	// The shipped 1.13 table contains 70000. The old Windows parser converted
+	// that complete nonnegative token to 32 bits and then deliberately exposed
+	// the established 16-bit modulo value (4464). Keep only this schema-specific
+	// compatibility rule; every other integer destination rejects width loss.
+	return static_cast<UINT16>(widePrice);
+}
+
+template <std::size_t Capacity>
+static bool ParseItemText(itemParseData* pData,
+	CHAR16 (&destination)[Capacity], std::optional<ItemText>* patch = nullptr)
+{
+	if (!pData->characterData.valid() ||
+		!ItemDataStagingModel::TryCopyUtf8(
+			pData->characterData.view(), destination))
+	{
+		FailItemParse(pData, ItemDataStagingModel::Failure::MalformedInput);
+		return false;
+	}
+	if (patch) *patch = ItemText(destination);
+	return true;
 }
 
 template <std::size_t Capacity>
@@ -382,6 +472,7 @@ itemStartElementHandle(void *userData, const XML_Char *name, const XML_Char **at
 				strcmp(name, "usSpotting") == 0 ||
 				strcmp(name, "sBackpackWeightModifier") == 0 ||
 				strcmp(name, "AllowClimbing") == 0 ||
+				strcmp(name, "Cigarette" ) == 0 ||
 				strcmp(name, "cigarette" ) == 0 ||
 				strcmp(name, "usPortionSize" ) == 0 ||
 				strcmp(name, "DiseaseprotectionFace" ) == 0 ||
@@ -486,7 +577,7 @@ itemStartElementHandle(void *userData, const XML_Char *name, const XML_Char **at
 			pData->maxReadDepth++; //we are not skipping this element
 		}
 
-		pData->szCharData[0] = '\0';
+		pData->characterData.clear();
 	}
 
 	pData->currentDepth++;
@@ -498,11 +589,14 @@ itemCharacterDataHandle(void *userData, const XML_Char *str, int len)
 {
 	itemParseData * pData = (itemParseData *)userData;
 
-	if( (pData->currentDepth <= pData->maxReadDepth) && 
-		(strlen(pData->szCharData) < MAX_CHAR_DATA_LENGTH)
-	  ){
-		strncat(pData->szCharData,str,__min((unsigned int)len,MAX_CHAR_DATA_LENGTH-strlen(pData->szCharData)));
-	  }
+	if (pData->currentDepth <= pData->maxReadDepth &&
+		(pData->curElement == ELEMENT_PROPERTY ||
+			pData->curElement == ELEMENT_SUBLIST_PROPERTY) &&
+		(len < 0 || !pData->characterData.append(
+			str, static_cast<std::size_t>(len))))
+	{
+		FailItemParse(pData, ItemDataStagingModel::Failure::MalformedInput);
+	}
 }
 
 
@@ -556,250 +650,231 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		{
 			//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"itemEndElementHandle: itemname");
 			pData->curElement = ELEMENT;
-
-			//if(MAX_CHAR_DATA_LENGTH >= strlen(pData->szCharData))
-			//	strcpy(pData->curItem.szItemName,pData->szCharData);
-			//else
-			//{
-			//	strncpy(pData->curItem.szItemName,pData->szCharData,MAX_CHAR_DATA_LENGTH);
-			//	pData->curItem.szItemName[MAX_CHAR_DATA_LENGTH] = '\0';
-			//}
-
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szItemName, sizeof(pData->curItem.szItemName)/sizeof(pData->curItem.szItemName[0]) );
-			pData->curItem.szItemName[sizeof(pData->curItem.szItemName)/sizeof(pData->curItem.szItemName[0]) - 1] = '\0';
-			if (pData->localizedTextOnly)
-				pData->localizedPatch.itemName = ItemText(pData->curItem.szItemName);
+			ParseItemText(pData, pData->curItem.szItemName,
+				pData->localizedTextOnly ? &pData->localizedPatch.itemName : nullptr);
 		}
 		else if(strcmp(name, "szLongItemName") == 0)
 		{
 			//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"itemEndElementHandle: longitemname");
 			pData->curElement = ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szLongItemName, sizeof(pData->curItem.szLongItemName)/sizeof(pData->curItem.szLongItemName[0]) );
-			pData->curItem.szLongItemName[sizeof(pData->curItem.szLongItemName)/sizeof(pData->curItem.szLongItemName[0]) - 1] = '\0';
-			if (pData->localizedTextOnly)
-				pData->localizedPatch.longItemName = ItemText(pData->curItem.szLongItemName);
+			ParseItemText(pData, pData->curItem.szLongItemName,
+				pData->localizedTextOnly ? &pData->localizedPatch.longItemName : nullptr);
 		}
 		else if(strcmp(name, "szItemDesc") == 0)
 		{
 			//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"itemEndElementHandle: itemdesc");
 			pData->curElement = ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szItemDesc, sizeof(pData->curItem.szItemDesc)/sizeof(pData->curItem.szItemDesc[0]) );
-			pData->curItem.szItemDesc[sizeof(pData->curItem.szItemDesc)/sizeof(pData->curItem.szItemDesc[0]) - 1] = '\0';
-			if (pData->localizedTextOnly)
-				pData->localizedPatch.itemDescription = ItemText(pData->curItem.szItemDesc);
+			ParseItemText(pData, pData->curItem.szItemDesc,
+				pData->localizedTextOnly ? &pData->localizedPatch.itemDescription : nullptr);
 		}
 		else if(strcmp(name, "szBRName") == 0)
 		{
 			//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"itemEndElementHandle: brname");
 			pData->curElement = ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szBRName, sizeof(pData->curItem.szBRName)/sizeof(pData->curItem.szBRName[0]) );
-			pData->curItem.szBRName[sizeof(pData->curItem.szBRName)/sizeof(pData->curItem.szBRName[0]) - 1] = '\0';
-			if (pData->localizedTextOnly)
-				pData->localizedPatch.storeName = ItemText(pData->curItem.szBRName);
+			ParseItemText(pData, pData->curItem.szBRName,
+				pData->localizedTextOnly ? &pData->localizedPatch.storeName : nullptr);
 		}
 		else if(strcmp(name, "szBRDesc") == 0)
 		{
 			//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"itemEndElementHandle: brdesc");
 			pData->curElement = ELEMENT;
 
-			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szBRDesc, sizeof(pData->curItem.szBRDesc)/sizeof(pData->curItem.szBRDesc[0]) );
-			pData->curItem.szBRDesc[sizeof(pData->curItem.szBRDesc)/sizeof(pData->curItem.szBRDesc[0]) - 1] = '\0';
-			if (pData->localizedTextOnly)
-				pData->localizedPatch.storeDescription = ItemText(pData->curItem.szBRDesc);
+			ParseItemText(pData, pData->curItem.szBRDesc,
+				pData->localizedTextOnly ? &pData->localizedPatch.storeDescription : nullptr);
 		}
 		else if(strcmp(name, "usItemClass") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usItemClass = (UINT32) strtoul(pData->szCharData, NULL, 0);
+			pData->curItem.usItemClass = ParseItemIntegerValue<UINT32>(pData, ItemDataStagingModel::IntegerSyntax::CStyle);
 		}
 		else if(strcmp(name, "nasAttachmentClass") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.nasAttachmentClass = (UINT64) atof(pData->szCharData);
+			pData->curItem.nasAttachmentClass = ParseItemIntegerValue<UINT64>(pData);
 		}
 		else if(strcmp(name, "nasLayoutClass") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.nasLayoutClass = (UINT64) atof(pData->szCharData);
+			pData->curItem.nasLayoutClass = ParseItemIntegerValue<UINT64>(pData);
 		}
 		else if(strcmp(name, "AvailableAttachmentPoint") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ulAvailableAttachmentPoint |= (UINT64) atof(pData->szCharData);
+			pData->curItem.ulAvailableAttachmentPoint |= ParseItemIntegerValue<UINT64>(pData);
 		}
 		else if(strcmp(name, "AttachmentPoint") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ulAttachmentPoint = (UINT64) atof(pData->szCharData);
+			pData->curItem.ulAttachmentPoint = ParseItemIntegerValue<UINT64>(pData);
 		}
 		else if(strcmp(name, "AttachToPointAPCost") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ubAttachToPointAPCost = (UINT8) atol(pData->szCharData);
+			pData->curItem.ubAttachToPointAPCost = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "ubClassIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ubClassIndex = (UINT16) atol(pData->szCharData);
+			pData->curItem.ubClassIndex = ParseItemIntegerValue<UINT16>(pData);
 		}
 		else if(strcmp(name, "ubCursor") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ubCursor = (UINT8) atol(pData->szCharData);
+			pData->curItem.ubCursor = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "bSoundType") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bSoundType = (INT8) atol(pData->szCharData);
+			pData->curItem.bSoundType = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if(strcmp(name, "ubGraphicType") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ubGraphicType = (UINT8) atol(pData->szCharData);
+			pData->curItem.ubGraphicType = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "ubGraphicNum") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ubGraphicNum = (UINT16) atol(pData->szCharData);
+			pData->curItem.ubGraphicNum = ParseItemIntegerValue<UINT16>(pData);
 		}
 		else if(strcmp(name, "ubWeight") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ubWeight = (UINT16) atol(pData->szCharData);
+			pData->curItem.ubWeight = ParseItemIntegerValue<UINT16>(pData);
 		}
 		else if(strcmp(name, "ubPerPocket") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ubPerPocket = (UINT8) atol(pData->szCharData);
+			pData->curItem.ubPerPocket = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "ItemSize") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ItemSize = (UINT16) atol(pData->szCharData);
+			pData->curItem.ItemSize = ParseItemIntegerValue<UINT16>(pData);
 		}
 		else if(strcmp(name, "usPrice") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usPrice = (UINT16) atol(pData->szCharData);
+			pData->curItem.usPrice = ParseLegacyItemPrice(pData);
 		}
 		else if(strcmp(name, "ubCoolness") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ubCoolness = (UINT8) atol(pData->szCharData);
+			pData->curItem.ubCoolness = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "bReliability") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bReliability = (INT8) atol(pData->szCharData);
+			pData->curItem.bReliability = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if(strcmp(name, "bRepairEase") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bRepairEase = (INT8) atol(pData->szCharData);
+			pData->curItem.bRepairEase = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if(strcmp(name, "Damageable")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_damageable;
 		}
 		else if(strcmp(name, "Repairable")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_repairable;
 		}
 		else if(strcmp(name, "WaterDamages")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_waterdamages;
 		}
 		else if(strcmp(name, "Metal")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_metal;
 		}
 		else if(strcmp(name, "Sinks")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_sinks;
 		}
 		else if(strcmp(name, "ShowStatus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_showstatus;
 		}
 		else if(strcmp(name, "HiddenAddon")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_hiddenaddon;
 		}
 		else if(strcmp(name, "TwoHanded")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_twohanded;
 		}
 		else if(strcmp(name, "NotBuyable")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_notbuyable;
 		}
 		else if(strcmp(name, "Attachment")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_attachment;
 		}
 		else if(strcmp(name, "HiddenAttachment")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_hiddenattachment;
 		}
 		else if(strcmp(name, "BigGunList")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_biggunlist;
 		}
 		else if(strcmp(name, "NotInEditor")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_notineditor;
 		}
 		else if(strcmp(name, "DefaultUndroppable")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_defaultundroppable;
 		}
 		else if(strcmp(name, "Unaerodynamic")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_unaerodynamic;
 		}
 		else if(strcmp(name, "Electronic")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_electronic;
 		}
 		else if(strcmp(name, "Inseparable")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.inseparable = (UINT8) atol(pData->szCharData);
+			pData->curItem.inseparable = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "BR_NewInventory")	 == 0)
 		{
@@ -825,265 +900,266 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "CamoBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-		 	pData->curItem.camobonus = (INT16) atol(pData->szCharData);
+			pData->curItem.camobonus = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "DesertCamoBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-		 	pData->curItem.desertCamobonus = (INT16) atol(pData->szCharData);
+			pData->curItem.desertCamobonus = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "UrbanCamoBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-		 	pData->curItem.urbanCamobonus = (INT16) atol(pData->szCharData);
+			pData->curItem.urbanCamobonus = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "SnowCamoBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-		 	pData->curItem.snowCamobonus = (INT16) atol(pData->szCharData);
+			pData->curItem.snowCamobonus = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "StealthBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.stealthbonus = (INT16) atol(pData->szCharData);
+			pData->curItem.stealthbonus = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentNoiseReduction")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.percentnoisereduction = (INT16) atol(pData->szCharData);
+			pData->curItem.percentnoisereduction = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "GasMask")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_gasmask;
 		}
 		else if(strcmp(name, "Bipod")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bipod = (INT16) atol(pData->szCharData);
+			pData->curItem.bipod = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "ToHitBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.tohitbonus = (INT16) atol(pData->szCharData);
+			pData->curItem.tohitbonus = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "RangeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.rangebonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.rangebonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentRangeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.percentrangebonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.percentrangebonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "AimBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.aimbonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.aimbonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "MinRangeForAimBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.minrangeforaimbonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.minrangeforaimbonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentAPReduction")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.percentapreduction  = (INT16) atol(pData->szCharData);
+			pData->curItem.percentapreduction  = ParseItemIntegerValue<INT16>(pData);
 		}
 
 		else if(strcmp(name, "MagSizeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.magsizebonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.magsizebonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentAutofireAPReduction")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.percentautofireapreduction  = (INT16) atol(pData->szCharData);
+			pData->curItem.percentautofireapreduction  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentBurstFireAPReduction")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.percentburstfireapreduction  = (INT16) atol(pData->szCharData);
+			pData->curItem.percentburstfireapreduction  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "AutoFireToHitBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.autofiretohitbonus   = (INT16) atol(pData->szCharData);
+			pData->curItem.autofiretohitbonus   = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "APBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.APBonus = (INT16) atol(pData->szCharData);
+			pData->curItem.APBonus = ParseItemIntegerValue<INT16>(pData);
 			pData->curItem.APBonus = (INT16)DynamicAdjustAPConstants(pData->curItem.APBonus, pData->curItem.APBonus);
 		}
 		else if(strcmp(name, "RateOfFireBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.rateoffirebonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.rateoffirebonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "BurstSizeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.burstsizebonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.burstsizebonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "BurstToHitBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bursttohitbonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.bursttohitbonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentReadyTimeAPReduction")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.percentreadytimeapreduction  = (INT16) atol(pData->szCharData);
+			pData->curItem.percentreadytimeapreduction  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentReloadTimeAPReduction")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.percentreloadtimeapreduction  = (INT16) atol(pData->szCharData);
+			pData->curItem.percentreloadtimeapreduction  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "BulletSpeedBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bulletspeedbonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.bulletspeedbonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 
 		else if(strcmp(name, "PercentStatusDrainReduction")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.percentstatusdrainreduction  = (INT16) atol(pData->szCharData);
+			pData->curItem.percentstatusdrainreduction  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "GrenadeLauncher")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_grenadelauncher;
 		}
 		else if(strcmp(name, "LockBomb")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_lockbomb;
 		}
 		else if(strcmp(name, "Flare")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_flare;
 		}
 		else if(strcmp(name, "Duckbill")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_duckbill;
 		}
 		else if(strcmp(name, "ThermalOptics")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_thermaloptics;
 		}
 		else if(strcmp(name, "SciFi")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_scifi;
 		}
 		else if(strcmp(name, "NewInv")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_newinv;
 		}
 		else if(strcmp(name, "AttachmentSystem")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ubAttachmentSystem   = (UINT8) atol(pData->szCharData);
+			pData->curItem.ubAttachmentSystem   = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "HideMuzzleFlash")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_hidemuzzleflash;
 		}
 		else if(strcmp(name, "Cannon")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_cannon;
 		}
 		else if(strcmp(name, "RocketRifle")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_rocketrifle;
 		}
 		else if(strcmp(name, "Alcohol")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.alcohol  = (FLOAT) atof(pData->szCharData);
+			pData->curItem.alcohol  = ParseItemFloatValue(pData);
 
 			pData->curItem.alcohol = max( 0.0f, pData->curItem.alcohol );
 		}
 		else if(strcmp(name, "Hardware")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_hardware;
 		}
 		else if(strcmp(name, "Medical")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_medical;
 		}
 		else if(strcmp(name, "DamageBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.damagebonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.damagebonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "MeleeDamageBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.meleedamagebonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.meleedamagebonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "Mortar")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_mortar;
 		}
 		else if(strcmp(name, "RocketLauncher")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_rocketlauncher;
 		}
 		else if(strcmp(name, "SingleShotRocketLauncher")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_singleshotrocketlauncher;
 		}
 		else if(strcmp(name, "DiscardedLauncherItem")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.discardedlauncheritem  = (UINT16) atol(pData->szCharData);
+			pData->curItem.discardedlauncheritem  = ParseItemIntegerValue<UINT16>(pData);
 		}
 		else if(strcmp(name, "BloodiedItem")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bloodieditem  = (UINT16) atol(pData->szCharData);
+			pData->curItem.bloodieditem  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "DefaultAttachment")	 == 0)
 		{
 			pData->curElement = ELEMENT;
+			const UINT16 attachment = ParseItemIntegerValue<UINT16>(pData);
 			for(UINT8 cnt = 0; cnt < MAX_DEFAULT_ATTACHMENTS; cnt++){
 				if(pData->curItem.defaultattachments[cnt] == 0){
-					pData->curItem.defaultattachments[cnt]  = (UINT16) atol(pData->szCharData);
+					pData->curItem.defaultattachments[cnt] = attachment;
 					break;
 				}
 			}
@@ -1091,221 +1167,221 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "BrassKnuckles")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_brassknuckles;
 		}
 		else if(strcmp(name, "Crowbar")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_crowbar;
 		}
 		else if(strcmp(name, "GLGrenade")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_glgrenade;
 		}
 		else if(strcmp(name, "FlakJacket")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_flakjacket;
 		}
 		else if(strcmp(name, "HearingRangeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.hearingrangebonus  = (INT16) atol(pData->szCharData);
+			pData->curItem.hearingrangebonus  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "VisionRangeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.visionrangebonus   = (INT16) atol(pData->szCharData);
+			pData->curItem.visionrangebonus   = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "NightVisionRangeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.nightvisionrangebonus   = (INT16) atol(pData->szCharData);
+			pData->curItem.nightvisionrangebonus   = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "DayVisionRangeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.dayvisionrangebonus   = (INT16) atol(pData->szCharData);
+			pData->curItem.dayvisionrangebonus   = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "CaveVisionRangeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.cavevisionrangebonus   = (INT16) atol(pData->szCharData);
+			pData->curItem.cavevisionrangebonus   = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "BrightLightVisionRangeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.brightlightvisionrangebonus    = (INT16) atol(pData->szCharData);
+			pData->curItem.brightlightvisionrangebonus    = ParseItemIntegerValue<INT16>(pData);
 		}
 		if(strcmp(name, "ItemSizeBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.itemsizebonus    = (INT16) atol(pData->szCharData);
+			pData->curItem.itemsizebonus    = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "LeatherJacket")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_leatherjacket;
 		}
 		else if(strcmp(name, "NeedsBatteries")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_needsbatteries;
 		}
 		else if(strcmp(name, "Batteries")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_batteries;
 		}
 		else if(strcmp(name, "XRay")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_xray;
 		}
 		else if(strcmp(name, "WireCutters")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_wirecutters;
 		}
 		else if(strcmp(name, "Toolkit")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_toolkit;
 		}
 		else if(strcmp(name, "Canteen")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_canteen;
 		}
 		else if(strcmp(name, "Marbles")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_marbles;
 		}
 		else if(strcmp(name, "Walkman")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_walkman;
 		}
 		else if(strcmp(name, "RemoteTrigger")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_remotetrigger;
 		}
 		else if(strcmp(name, "RobotRemoteControl")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_robotremotecontrol;
 		}
 		else if(strcmp(name, "CamouflageKit")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_camouflagekit;
 		}
 		else if(strcmp(name, "LocksmithKit")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_locksmithkit;
 		}
 		else if(strcmp(name, "Mine")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_mine;
 		}
 		else if ( strcmp( name, "AntitankMine" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_antitankmine;
 		}
 		else if(strcmp(name, "GasCan")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_gascan;
 		}
 		else if(strcmp(name, "CanAndString")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_canandstring;
 		}
 		else if(strcmp(name, "ContainsLiquid")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_containsliquid;
 		}
 		else if(strcmp(name, "FingerPrintID")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_fingerprintid;
 		}
 		else if(strcmp(name, "Rock")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_rock;
 		}
 		else if(strcmp(name, "MedicalKit")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_medicalkit;
 		}
 		else if(strcmp(name, "FirstAidKit")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_firstaidkit;
 		}
 		else if(strcmp(name, "MetalDetector")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag |= ITEM_metaldetector;
 		}
 		if(strcmp(name, "PercentTunnelVision")	 == 0) //Madd: had to scrap the "else" due to a compiler limit
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.percenttunnelvision  = (UINT8) atol(pData->szCharData);
+			pData->curItem.percenttunnelvision  = ParseItemIntegerValue<UINT8>(pData);
 		}
 		if(strcmp(name, "Jar")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_jar;
 		}
 		if(strcmp(name, "BestLaserRange")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bestlaserrange    = (INT16) atol(pData->szCharData);
+			pData->curItem.bestlaserrange    = ParseItemIntegerValue<INT16>(pData);
 		}
 		//zilpin: pellet spread patterns externalized in XML
 		if(strcmp(name, "spreadPattern") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.spreadPattern = FindSpreadPatternIndex( pData->szCharData );
+			pData->curItem.spreadPattern = FindSpreadPatternIndex( pData->characterData.c_str() );
 		}
 
 		//////////////////////////////////////////////////////////////////
@@ -1313,32 +1389,32 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "ScopeMagFactor")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.scopemagfactor  = (FLOAT) atof(pData->szCharData);
+			pData->curItem.scopemagfactor  = ParseItemFloatValue(pData);
 		}
 		else if(strcmp(name, "ProjectionFactor")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.projectionfactor  = (FLOAT) atof(pData->szCharData);
+			pData->curItem.projectionfactor  = ParseItemFloatValue(pData);
 		}
 		else if(strcmp(name, "PercentAccuracyModifier")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.percentaccuracymodifier  = (INT16) atol(pData->szCharData);
+			pData->curItem.percentaccuracymodifier  = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "RecoilModifierX")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.RecoilModifierX  = (FLOAT) atof(pData->szCharData);
+			pData->curItem.RecoilModifierX  = ParseItemFloatValue(pData);
 		}
 		else if(strcmp(name, "RecoilModifierY")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.RecoilModifierY  = (FLOAT) atof(pData->szCharData);
+			pData->curItem.RecoilModifierY  = ParseItemFloatValue(pData);
 		}
 		else if(strcmp(name, "PercentRecoilModifier") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.PercentRecoilModifier = (INT16) atol(pData->szCharData);
+			pData->curItem.PercentRecoilModifier = ParseItemIntegerValue<INT16>(pData);
 		}
 
 
@@ -1347,57 +1423,57 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "FlatBase") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.flatbasemodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.flatbasemodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentBase") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.percentbasemodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.percentbasemodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "FlatAim") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.flataimmodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.flataimmodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentAim") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.percentaimmodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.percentaimmodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentCap") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.percentcapmodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.percentcapmodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentHandling") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.percenthandlingmodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.percenthandlingmodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentTargetTrackingSpeed") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.targettrackingmodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.targettrackingmodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentDropCompensation") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.percentdropcompensationmodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.percentdropcompensationmodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentMaxCounterForce") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.maxcounterforcemodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.maxcounterforcemodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "PercentCounterForceAccuracy") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.counterforceaccuracymodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.counterforceaccuracymodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if(strcmp(name, "AimLevels") == 0)
 		{
 			pData->curElement = ELEMENT_SUBLIST;
-			pData->curItem.aimlevelsmodifier[pData->curStance] = (INT16) atol(pData->szCharData);
+			pData->curItem.aimlevelsmodifier[pData->curStance] = ParseItemIntegerValue<INT16>(pData);
 		}
 
 		//////////////////////////////////////////////////////////////////
@@ -1413,193 +1489,197 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "Barrel")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_barrel;
 		}
 		else if(strcmp(name, "usOverheatingCooldownFactor") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usOverheatingCooldownFactor  = (FLOAT) atof(pData->szCharData);
+			pData->curItem.usOverheatingCooldownFactor  = ParseItemFloatValue(pData);
 		}
 		else if(strcmp(name, "overheatTemperatureModificator") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.overheatTemperatureModificator  = (FLOAT) atof(pData->szCharData);
+			pData->curItem.overheatTemperatureModificator  = ParseItemFloatValue(pData);
 		}
 		else if(strcmp(name, "overheatCooldownModificator") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.overheatCooldownModificator  = (FLOAT) atof(pData->szCharData);
+			pData->curItem.overheatCooldownModificator  = ParseItemFloatValue(pData);
 		}
 		else if(strcmp(name, "overheatJamThresholdModificator") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.overheatJamThresholdModificator  = (FLOAT) atof(pData->szCharData);
+			pData->curItem.overheatJamThresholdModificator  = ParseItemFloatValue(pData);
 		}
 		else if(strcmp(name, "overheatDamageThresholdModificator") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.overheatDamageThresholdModificator  = (FLOAT) atof(pData->szCharData);
+			pData->curItem.overheatDamageThresholdModificator  = ParseItemFloatValue(pData);
 		}
 		else if(strcmp(name, "AttachmentClass")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.attachmentclass   = (UINT32) strtoul(pData->szCharData, NULL, 0);
+			pData->curItem.attachmentclass   = ParseItemIntegerValue<UINT32>(pData, ItemDataStagingModel::IntegerSyntax::CStyle);
 		}
 		else if(strcmp(name, "TripWireActivation")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_tripwireactivation;
 		}
 		else if(strcmp(name, "TripWire")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_tripwire;
 		}
 		else if(strcmp(name, "Directional")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_directional;
 		}
 		else if(strcmp(name, "DrugType")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.drugtype   = (UINT32) strtoul(pData->szCharData, NULL, 0);
+			pData->curItem.drugtype   = ParseItemIntegerValue<UINT32>(pData, ItemDataStagingModel::IntegerSyntax::CStyle);
 			if ( pData->curItem.drugtype >= NEW_DRUGS_MAX )	// clamp: unbounded DrugType -> OOB into NewDrug[NEW_DRUGS_MAX] in ApplyDrugs_New
 				pData->curItem.drugtype = 0;
 		}
 		else if(strcmp(name, "BlockIronSight")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_blockironsight;
 		}
 		else if(strcmp(name, "FoodType") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.foodtype = (UINT32) strtoul(pData->szCharData, NULL, 0);
+			pData->curItem.foodtype = ParseItemIntegerValue<UINT32>(pData, ItemDataStagingModel::IntegerSyntax::CStyle);
 		}
 		//JMich_SkillsModifiers: Parse new values
 		else if(strcmp(name, "LockPickModifier") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.LockPickModifier = (INT8) atol(pData->szCharData);
+			pData->curItem.LockPickModifier = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if(strcmp(name, "CrowbarModifier") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.CrowbarModifier = (UINT8) atol(pData->szCharData);
+			pData->curItem.CrowbarModifier = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "DisarmModifier") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.DisarmModifier = (UINT8) atol(pData->szCharData);
+			pData->curItem.DisarmModifier = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "RepairModifier") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.RepairModifier = (INT8) atol(pData->szCharData);
+			pData->curItem.RepairModifier = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if ( strcmp( name, "usHackingModifier" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usHackingModifier = min(100, (UINT8)atol( pData->szCharData ) );
+			pData->curItem.usHackingModifier =
+				ParseItemClampedIntegerValue<UINT8>(pData, 0, 100);
 		}
 		else if ( strcmp( name, "usBurialModifier" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usBurialModifier = min( 100, (UINT8)atol( pData->szCharData ) );
+			pData->curItem.usBurialModifier =
+				ParseItemClampedIntegerValue<UINT8>(pData, 0, 100);
 		}
 		else if(strcmp(name, "DamageChance") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usDamageChance = (UINT8) atol(pData->szCharData);
+			pData->curItem.usDamageChance = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "DirtIncreaseFactor") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.dirtIncreaseFactor = (FLOAT) atof(pData->szCharData);
+			pData->curItem.dirtIncreaseFactor = ParseItemFloatValue(pData);
 		}
 		else if(strcmp(name, "usActionItemFlag") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usActionItemFlag = (UINT32) strtoul(pData->szCharData, NULL, 0);
+			pData->curItem.usActionItemFlag = ParseItemIntegerValue<UINT32>(pData, ItemDataStagingModel::IntegerSyntax::CStyle);
 		}
 		else if(strcmp(name, "clothestype") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.clothestype = (UINT32) strtoul(pData->szCharData, NULL, 0);
+			pData->curItem.clothestype = ParseItemIntegerValue<UINT32>(pData, ItemDataStagingModel::IntegerSyntax::CStyle);
 		}
 		else if(strcmp(name, "randomitem") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.randomitem = (UINT16) atol(pData->szCharData);
+			pData->curItem.randomitem = ParseItemIntegerValue<UINT16>(pData);
 		}
 		else if(strcmp(name, "randomitemcoolnessmodificator") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.randomitemcoolnessmodificator = (INT8) atol(pData->szCharData);
-
 			// no nonsense, only values between -20 and + 20
-			pData->curItem.randomitemcoolnessmodificator = min(20, max(-20, pData->curItem.randomitemcoolnessmodificator) );
+			pData->curItem.randomitemcoolnessmodificator =
+				ParseItemClampedIntegerValue<INT8>(pData, -20, 20);
 		}
 		else if(strcmp(name, "FlashLightRange") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usFlashLightRange = (UINT8) atol(pData->szCharData);
+			pData->curItem.usFlashLightRange = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "ItemChoiceTimeSetting") == 0)
 		{
 			pData->curElement = ELEMENT;
 			// no nonsense, only values between 0 and + 2
-			pData->curItem.usItemChoiceTimeSetting = min(2, max(0, (UINT8) atol(pData->szCharData) ) );
+			pData->curItem.usItemChoiceTimeSetting =
+				ParseItemClampedIntegerValue<UINT8>(pData, 0, 2);
 		}
 		else if(strcmp(name, "buddyitem") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usBuddyItem = (UINT16) atol(pData->szCharData);
+			pData->curItem.usBuddyItem = ParseItemIntegerValue<UINT16>(pData);
 		}
 		else if(strcmp(name, "SleepModifier") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.ubSleepModifier = (UINT8) atol(pData->szCharData);
+			pData->curItem.ubSleepModifier = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if(strcmp(name, "usSpotting") == 0)
 		{
 			pData->curElement = ELEMENT;
 			// values between 0 and 100 only
-			pData->curItem.usSpotting = min(100, max(0, (INT16) atol(pData->szCharData) ) );
+			pData->curItem.usSpotting =
+				ParseItemClampedIntegerValue<INT16>(pData, 0, 100);
 		}
 		else if (strcmp(name, "sBackpackWeightModifier") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.sBackpackWeightModifier = (INT16)atol(pData->szCharData);
+			pData->curItem.sBackpackWeightModifier = ParseItemIntegerValue<INT16>(pData);
 		}
 		else if (strcmp(name, "AllowClimbing") == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_fAllowClimbing;
 		}
-		else if ( strcmp( name, "cigarette" ) == 0 )
+		else if ( strcmp( name, "Cigarette" ) == 0 ||
+			strcmp( name, "cigarette" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_cigarette;
 		}
 		else if ( strcmp( name, "usPortionSize" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usPortionSize = (UINT8)atol( pData->szCharData );
+			pData->curItem.usPortionSize = ParseItemIntegerValue<UINT8>(pData);
 		}
 		// Flugente: simple tags in the xml get translated into flags
 		else if ( strcmp( name, "DiseaseprotectionFace" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			BOOLEAN val = (BOOLEAN)atol( pData->szCharData );
+			BOOLEAN val = ParseItemBooleanValue(pData);
 
 			if ( val )
 				pData->curItem.usItemFlag |= DISEASEPROTECTION_1;
@@ -1607,7 +1687,7 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		else if ( strcmp( name, "DiseaseprotectionHand" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			BOOLEAN val = (BOOLEAN)atol( pData->szCharData );
+			BOOLEAN val = ParseItemBooleanValue(pData);
 
 			if ( val )
 				pData->curItem.usItemFlag |= DISEASEPROTECTION_2;
@@ -1615,323 +1695,333 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		else if ( strcmp( name, "usRiotShieldStrength" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usRiotShieldStrength = min( 100, (UINT16)atol( pData->szCharData ) );
+			pData->curItem.usRiotShieldStrength =
+				ParseItemClampedIntegerValue<UINT16>(pData, 0, 100);
 		}
 		else if ( strcmp( name, "usRiotShieldGraphic" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usRiotShieldGraphic = (UINT16)atol( pData->szCharData );
+			pData->curItem.usRiotShieldGraphic = ParseItemIntegerValue<UINT16>(pData);
 		}
 		else if ( strcmp( name, "Bloodbag" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= BLOOD_BAG;
 		}
 		else if ( strcmp( name, "Manpad" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= MANPAD;
 		}
 		else if ( strcmp( name, "Beartrap" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= BEARTRAP;
 		}
 		else if ( strcmp( name, "Camera" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= CAMERA;
 		}
 		else if ( strcmp( name, "Waterdrum" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= WATER_DRUM;
 		}
 		else if ( strcmp( name, "BloodcatMeat" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= MEAT_BLOODCAT;
 		}
 		else if ( strcmp( name, "CowMeat" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= MEAT_COW;
 		}
 		else if ( strcmp( name, "Beltfed" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= BELT_FED;
 		}
 		else if ( strcmp( name, "Ammobelt" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= AMMO_BELT;
 		}
 		else if ( strcmp( name, "AmmobeltVest" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= AMMO_BELT_VEST;
 		}
 		else if ( strcmp( name, "CamoRemoval" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= CAMO_REMOVAL;
 		}
 		else if ( strcmp( name, "Cleaningkit" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= CLEANING_KIT;
 		}
 		else if ( strcmp( name, "AttentionItem" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= ATTENTION_ITEM;
 		}
 		else if ( strcmp( name, "Garotte" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= GAROTTE;
 		}
 		else if ( strcmp( name, "Covert" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= COVERT;
 		}
 		else if ( strcmp( name, "Corpse" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= CORPSE;
 		}
 		else if ( strcmp( name, "BloodcatSkin" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= SKIN_BLOODCAT;
 		}
 		else if ( strcmp( name, "NoMetalDetection" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= NO_METAL_DETECTION;
 		}
 		else if ( strcmp( name, "JumpGrenade" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= JUMP_GRENADE;
 		}
 		else if ( strcmp( name, "Handcuffs" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= HANDCUFFS;
 		}
 		else if ( strcmp( name, "Taser" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= TASER;
 		}
 		else if ( strcmp( name, "ScubaBottle" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= SCUBA_BOTTLE;
 		}
 		else if ( strcmp( name, "ScubaMask" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= SCUBA_MASK;
 		}
 		else if ( strcmp( name, "ScubaFins" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= SCUBA_FINS;
 		}
 		else if ( strcmp( name, "TripwireRoll" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= TRIPWIREROLL;
 		}
 		else if ( strcmp( name, "Radioset" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= RADIO_SET;
 		}
 		else if ( strcmp( name, "SignalShell" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= SIGNAL_SHELL;
 		}
 		else if ( strcmp( name, "Soda" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= SODA;
 		}
 		else if ( strcmp( name, "RoofcollapseItem" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= ROOF_COLLAPSE_ITEM;
 		}
 		else if ( strcmp( name, "LBEexplosionproof" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= LBE_EXPLOSIONPROOF;
 		}
 		else if ( strcmp( name, "EmptyBloodbag" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= EMPTY_BLOOD_BAG;
 		}
 		else if ( strcmp( name, "MedicalSplint" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
 
-			if ( (BOOLEAN)atol( pData->szCharData ) )
+			if ( ParseItemBooleanValue(pData) )
 				pData->curItem.usItemFlag |= MEDICAL_SPLINT;
 		}
 		else if ( strcmp( name, "sFireResistance" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.sFireResistance = min( 100, (INT16)atol( pData->szCharData ) );
+			pData->curItem.sFireResistance =
+				ParseItemClampedIntegerValue<INT16>(pData,
+					std::numeric_limits<INT16>::min(), 100);
 		}
 		else if ( strcmp( name, "usAdministrationModifier" ) == 0 )
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.usAdministrationModifier = (UINT8)atol( pData->szCharData );
+			pData->curItem.usAdministrationModifier = ParseItemIntegerValue<UINT8>(pData);
 		}
 		else if (strcmp(name, "RobotDamageReduction") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.fRobotDamageReductionModifier = (FLOAT)atof(pData->szCharData);
+			pData->curItem.fRobotDamageReductionModifier = ParseItemFloatValue(pData);
 		}
 		else if (strcmp(name, "RobotStrBonus") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bRobotStrBonus = (INT8)atol(pData->szCharData);
+			pData->curItem.bRobotStrBonus = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if (strcmp(name, "RobotAgiBonus") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bRobotAgiBonus = (INT8)atol(pData->szCharData);
+			pData->curItem.bRobotAgiBonus = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if (strcmp(name, "RobotDexBonus") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bRobotDexBonus = (INT8)atol(pData->szCharData);
+			pData->curItem.bRobotDexBonus = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if (strcmp(name, "RobotTargetingSkillGrant") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bRobotTargetingSkillGrant = (INT8)atol(pData->szCharData);
+			pData->curItem.bRobotTargetingSkillGrant = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if (strcmp(name, "RobotChassisSkillGrant") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bRobotChassisSkillGrant = (INT8)atol(pData->szCharData);
+			pData->curItem.bRobotChassisSkillGrant = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if (strcmp(name, "RobotUtilitySkillGrant") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.bRobotUtilitySkillGrant = (INT8)atol(pData->szCharData);
+			pData->curItem.bRobotUtilitySkillGrant = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if (strcmp(name, "ProvidesRobotCamo") == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_fProvidesRobotCamo;
 		}
 		else if (strcmp(name, "ProvidesRobotNightVision") == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_fProvidesRobotNightVision;
 		}
 		else if (strcmp(name, "ProvidesRobotLaserBonus") == 0)
 		{
 			pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_fProvidesRobotLaserBonus;
 		}
 		else if (strcmp(name, "DiseaseSystemExclusive") == 0)
 		{
 		    pData->curElement = ELEMENT;
-			if ((BOOLEAN)atol(pData->szCharData))
+			if (ParseItemBooleanValue(pData))
 				pData->curItem.usItemFlag2 |= ITEM_DiseaseSystemExclusive;
 		}
 		else if (strcmp(name, "TransportGroupMinProgress") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.iTransportGroupMinProgress = (INT8)atoi(pData->szCharData);
+			pData->curItem.iTransportGroupMinProgress = ParseItemIntegerValue<INT8>(pData);
 		}
 		else if (strcmp(name, "TransportGroupMaxProgress") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.iTransportGroupMaxProgress = (INT8)atoi(pData->szCharData);
+			pData->curItem.iTransportGroupMaxProgress = ParseItemIntegerValue<INT8>(pData);
+		}
+		else if (strcmp(name, "ItemFlag") == 0 ||
+			strcmp(name, "fFlags") == 0 ||
+			strcmp(name, "Detonator") == 0 ||
+			strcmp(name, "RemoteDetonator") == 0)
+		{
+			// These established schema tags have never populated INVTYPE here.
+			// Keep them as explicit compatibility no-ops so they cannot trap the
+			// callback state at ELEMENT_PROPERTY and hide later fields.
+			pData->curElement = ELEMENT;
 		}
 		else
 		{
-			// A tag recognized in the start handler (so maxReadDepth was advanced and curElement
-			// pushed to a *_PROPERTY level) but with no case here -- e.g. the legacy/mod tags
-			// <ItemFlag>, <fFlags>, <Detonator>, <RemoteDetonator>. Without popping curElement we
-			// stay stuck at *_PROPERTY and then silently skip every following field in this item
-			// (zeroing graphic/weight/size/price/...). Pop back to the parent level.
+			// Defensively restore callback state if the recognized start/end tag
+			// tables ever drift apart.
 			if ( pData->curElement == ELEMENT_PROPERTY )
 				pData->curElement = ELEMENT;
 			else if ( pData->curElement == ELEMENT_SUBLIST_PROPERTY )

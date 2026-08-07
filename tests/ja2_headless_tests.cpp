@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <clocale>
 #include <cstdio>
 #include <cstring>
 #include <cwchar>
@@ -732,6 +733,19 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 		"transactional-items-empty-localized-" + fixtureToken + ".xml";
 	const std::string missingPath =
 		"transactional-items-missing-" + fixtureToken + ".xml";
+	const std::string parserPath =
+		"transactional-items-parser-" + fixtureToken + ".xml";
+	const std::string installedPath =
+		"transactional-items-installed-" + fixtureToken + ".xml";
+	const std::string exactLongName(79, 'L');
+	const std::string exactDescription(399, 'D');
+	std::string fullDefaultAttachments;
+	for (UINT16 attachment = 1;
+		attachment <= MAX_DEFAULT_ATTACHMENTS; ++attachment)
+	{
+		fullDefaultAttachments += "<DefaultAttachment>" +
+			std::to_string(attachment) + "</DefaultAttachment>";
+	}
 
 	const std::string baseDocument =
 		"<ITEMLIST>"
@@ -758,11 +772,45 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 		"</uiIndex><szItemName>Exact End</szItemName>"
 		"<usItemClass>1</usItemClass><BR_NewInventory>200</BR_NewInventory>"
 		"<BR_UsedInventory>201</BR_UsedInventory><BR_ROF>202</BR_ROF>"
-		"</ITEM></ITEMLIST>";
+		"</ITEM>"
+		"<ITEM><uiIndex>6</uiIndex>"
+		"<szItemName>Split<![CDATA[-callback-]]>Name</szItemName>"
+		"<szLongItemName>" + exactLongName + "</szLongItemName>"
+		"<szItemDesc>" + exactDescription + "</szItemDesc>"
+		"<usItemClass>0x1</usItemClass>"
+		"<nasAttachmentClass>9007199254740993</nasAttachmentClass>"
+		"<nasLayoutClass>18446744073709551615</nasLayoutClass>"
+		"<AvailableAttachmentPoint>9007199254740992</AvailableAttachmentPoint>"
+		"<AvailableAttachmentPoint>5</AvailableAttachmentPoint>"
+		"<AttachmentPoint>9007199254740993</AttachmentPoint>"
+		"<AttachmentClass>010</AttachmentClass><DrugType>0x1</DrugType>"
+		"<FoodType>010</FoodType><usActionItemFlag>0x20</usActionItemFlag>"
+		"<clothestype>010</clothestype>" + fullDefaultAttachments +
+		"<Cigarette>-1</Cigarette><Damageable>-1</Damageable>"
+		"<Repairable>0</Repairable><ScopeMagFactor>1.25</ScopeMagFactor>"
+		"<Alcohol>-2.5</Alcohol><ubGraphicType>255</ubGraphicType>"
+		"<bSoundType>-128</bSoundType>"
+		"<usPrice>70000</usPrice><usHackingModifier>999</usHackingModifier>"
+		"<usBurialModifier>-5</usBurialModifier>"
+		"<randomitemcoolnessmodificator>-999</randomitemcoolnessmodificator>"
+		"<ItemChoiceTimeSetting>-1</ItemChoiceTimeSetting>"
+		"<usSpotting>999</usSpotting>"
+		"<usRiotShieldStrength>-5</usRiotShieldStrength>"
+		"<sFireResistance>999</sFireResistance>"
+		"<ItemFlag>ignored</ItemFlag><fFlags>ignored</fFlags>"
+		"<Detonator>ignored</Detonator><RemoteDetonator>ignored</RemoteDetonator>"
+		"<ubWeight>42</ubWeight></ITEM></ITEMLIST>";
 	const bool baseFixtureWritten = WriteItemXmlFixtureWithProgress(
 		"valid base", basePath, baseDocument);
 	const bool baseLoaded = baseFixtureWritten && ReadItemXmlWithProgress(
 		"valid base", basePath, FALSE);
+	bool fullDefaultAttachmentsLoaded = baseLoaded;
+	for (UINT16 attachment = 1;
+		attachment <= MAX_DEFAULT_ATTACHMENTS; ++attachment)
+	{
+		fullDefaultAttachmentsLoaded = fullDefaultAttachmentsLoaded &&
+			Item[6].defaultattachments[attachment - 1] == attachment;
+	}
 	CHECK(baseLoaded && Item[5].uiIndex == 5 && Item[5].usItemClass == 1 &&
 		std::wcscmp(Item[5].szItemName, L"Five") == 0 &&
 		Item[5].flatbasemodifier[0] == 10 &&
@@ -773,8 +821,34 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 		StoreInventory[5][BOBBY_RAY_USED] == 32 && WeaponROF[5] == 33 &&
 		StoreInventory[2][BOBBY_RAY_NEW] == 55 &&
 		StoreInventory[2][BOBBY_RAY_USED] == 8 && WeaponROF[2] == 45 &&
-		gMAXITEMS_READ == 6,
+		gMAXITEMS_READ == 7,
 		"transactional item base loads use the last nonzero-class item, merged auxiliary fields, and an unsorted high-water bound");
+	CHECK(baseLoaded && Item[6].uiIndex == 6 &&
+		std::wcscmp(Item[6].szItemName, L"Split-callback-Name") == 0 &&
+		std::wcslen(Item[6].szLongItemName) == 79 &&
+		std::wcslen(Item[6].szItemDesc) == 399 &&
+		Item[6].nasAttachmentClass == UINT64_C(9007199254740993) &&
+		Item[6].nasLayoutClass == std::numeric_limits<UINT64>::max() &&
+		Item[6].ulAvailableAttachmentPoint == UINT64_C(9007199254740997) &&
+		Item[6].ulAttachmentPoint == UINT64_C(9007199254740993) &&
+		Item[6].attachmentclass == 8 && Item[6].drugtype == 1 &&
+		Item[6].foodtype == 8 &&
+		Item[6].usActionItemFlag == 0x20 && Item[6].clothestype == 8 &&
+		(Item[6].usItemFlag & ITEM_damageable) != 0 &&
+		(Item[6].usItemFlag & ITEM_repairable) == 0 &&
+		Item[6].scopemagfactor == 1.25f && Item[6].alcohol == 0.0f &&
+		Item[6].ubGraphicType == 255 && Item[6].bSoundType == -128 &&
+		Item[6].usPrice == 4464 &&
+		Item[6].usHackingModifier == 100 &&
+		Item[6].usBurialModifier == 0 &&
+		Item[6].randomitemcoolnessmodificator == -20 &&
+		Item[6].usItemChoiceTimeSetting == 0 && Item[6].usSpotting == 100 &&
+		Item[6].usRiotShieldStrength == 0 &&
+		Item[6].sFireResistance == 100 && Item[6].ubWeight == 42,
+		"item XML parser preserves exact masks base-zero and signed booleans while clamping before narrowing");
+	CHECK(baseLoaded && fullDefaultAttachmentsLoaded &&
+		(Item[6].usItemFlag2 & ITEM_cigarette) != 0,
+		"item XML canonical Cigarette tag and full default-attachment capacity load");
 	CHECK(baseLoaded && Item[0].usItemClass == 0 &&
 		Item[0].szItemName[0] == L'\0' &&
 		StoreInventory[0][BOBBY_RAY_NEW] == 3 &&
@@ -782,6 +856,124 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 		"valid item XML exact-end records are ignored before live table access");
 
 	const ItemXmlTablesDigest baseTables = DigestItemXmlTables();
+	const auto rejectsParserDocumentWithoutPublication =
+		[&](const char* phase, const std::string& document) {
+			return WriteItemXmlFixtureWithProgress(
+				phase, parserPath, document) &&
+				!ReadItemXmlWithProgress(phase, parserPath, FALSE) &&
+				DigestItemXmlTables() == baseTables;
+		};
+	const auto itemDocument = [](const std::string& fields) {
+		return "<ITEMLIST><ITEM><uiIndex>1</uiIndex>"
+			"<usItemClass>1</usItemClass>" + fields +
+			"</ITEM></ITEMLIST>";
+	};
+
+	const bool textOverflowRejected =
+		rejectsParserDocumentWithoutPublication("parser text overflow", itemDocument(
+			"<szItemDesc>" + std::string(400, 'X') + "</szItemDesc>"));
+	const std::string invalidUtfDocument = itemDocument(
+		"<szItemName>valid-before-invalid" + std::string("\xc0\xaf", 2) +
+		"</szItemName>");
+	const bool invalidUtfRejected =
+		rejectsParserDocumentWithoutPublication(
+			"parser invalid UTF-8", invalidUtfDocument);
+	const bool narrowOverflowRejected =
+		rejectsParserDocumentWithoutPublication("parser narrow overflow",
+			itemDocument("<ubGraphicType>256</ubGraphicType>"));
+	const bool trailingJunkRejected =
+		rejectsParserDocumentWithoutPublication("parser trailing token",
+			itemDocument("<ubWeight>12tail</ubWeight>"));
+	const bool baseZeroOutsideSchemaRejected =
+		rejectsParserDocumentWithoutPublication("parser schema base",
+			itemDocument("<ubWeight>0x10</ubWeight>"));
+	const bool negativeUnsignedRejected =
+		rejectsParserDocumentWithoutPublication("parser negative mask", itemDocument(
+			"<nasAttachmentClass>-1</nasAttachmentClass>"));
+	const bool uint64OverflowRejected =
+		rejectsParserDocumentWithoutPublication("parser mask overflow", itemDocument(
+			"<nasAttachmentClass>18446744073709551616</nasAttachmentClass>"));
+	const bool negativePriceRejected =
+		rejectsParserDocumentWithoutPublication("parser negative price",
+			itemDocument("<usPrice>-1</usPrice>"));
+	const bool widePriceRejected =
+		rejectsParserDocumentWithoutPublication("parser price overflow",
+			itemDocument("<usPrice>4294967296</usPrice>"));
+	const bool signedWordOverflowRejected =
+		rejectsParserDocumentWithoutPublication("parser signed overflow",
+			itemDocument("<BloodiedItem>32768</BloodiedItem>"));
+	const bool malformedBooleanRejected =
+		rejectsParserDocumentWithoutPublication("parser boolean token",
+			itemDocument("<Damageable>-1tail</Damageable>"));
+	const bool malformedFloatRejected =
+		rejectsParserDocumentWithoutPublication("parser decimal comma",
+			itemDocument("<ScopeMagFactor>1,25</ScopeMagFactor>"));
+	const bool nonFiniteFloatRejected =
+		rejectsParserDocumentWithoutPublication("parser nonfinite float",
+			itemDocument("<ScopeMagFactor>nan</ScopeMagFactor>"));
+	const bool floatRangeRejected =
+		rejectsParserDocumentWithoutPublication("parser float overflow",
+			itemDocument("<ScopeMagFactor>1e100</ScopeMagFactor>"));
+	const bool floatUnderflowRejected =
+		rejectsParserDocumentWithoutPublication("parser float underflow",
+			itemDocument("<ScopeMagFactor>1e-50</ScopeMagFactor>"));
+	const bool missingIndexRejected =
+		rejectsParserDocumentWithoutPublication("parser missing index",
+			"<ITEMLIST><ITEM><usItemClass>1</usItemClass></ITEM></ITEMLIST>");
+	const bool malformedIgnoredIndexRejected =
+		rejectsParserDocumentWithoutPublication("parser ignored-index token",
+			"<ITEMLIST><ITEM><uiIndex>" + std::to_string(MAXITEMS) +
+			"</uiIndex><usItemClass>1</usItemClass>"
+			"<ubWeight>12tail</ubWeight></ITEM></ITEMLIST>");
+	const bool lateFieldOverflowRejected =
+		rejectsParserDocumentWithoutPublication("parser late overflow",
+			"<ITEMLIST><ITEM><uiIndex>1</uiIndex><usItemClass>1</usItemClass>"
+			"<ubWeight>44</ubWeight></ITEM><ITEM><uiIndex>3</uiIndex>"
+			"<usItemClass>1</usItemClass><TransportGroupMaxProgress>128"
+			"</TransportGroupMaxProgress></ITEM></ITEMLIST>");
+	const bool malformedExtraDefaultAttachmentRejected =
+		rejectsParserDocumentWithoutPublication("parser excess attachment", itemDocument(
+			fullDefaultAttachments +
+			"<DefaultAttachment>12tail</DefaultAttachment>"));
+	CHECK(textOverflowRejected && invalidUtfRejected &&
+		narrowOverflowRejected && trailingJunkRejected &&
+		baseZeroOutsideSchemaRejected && negativeUnsignedRejected &&
+		uint64OverflowRejected && negativePriceRejected && widePriceRejected &&
+		signedWordOverflowRejected &&
+		malformedBooleanRejected && malformedFloatRejected &&
+		nonFiniteFloatRejected && floatRangeRejected &&
+		floatUnderflowRejected && missingIndexRejected &&
+		malformedIgnoredIndexRejected && lateFieldOverflowRejected,
+		"item XML strict text scalar and late-field failures roll back every live table");
+	CHECK(malformedExtraDefaultAttachmentRejected,
+		"item XML validates a default attachment after storage capacity is full");
+
+	const char* const currentNumericLocale = std::setlocale(LC_NUMERIC, nullptr);
+	const std::string savedNumericLocale = currentNumericLocale
+		? currentNumericLocale : "C";
+	for (const char* candidate : {
+		"de_DE.UTF-8", "nl_NL.UTF-8", "fr_FR.UTF-8",
+		"German_Germany.1252", "Dutch_Netherlands.1252"})
+	{
+		if (std::setlocale(LC_NUMERIC, candidate)) break;
+	}
+	const std::string recoveryDocument = itemDocument(
+		"<szItemName>Recovered</szItemName>"
+		"<ScopeMagFactor>1.25</ScopeMagFactor><ubWeight>43</ubWeight>");
+	const bool parserStateRecovered = WriteItemXmlFixtureWithProgress(
+		"parser recovery", parserPath, recoveryDocument) &&
+		ReadItemXmlWithProgress("parser recovery", parserPath, FALSE) &&
+		std::wcscmp(Item[1].szItemName, L"Recovered") == 0 &&
+		Item[1].scopemagfactor == 1.25f && Item[1].ubWeight == 43 &&
+		gMAXITEMS_READ == 2;
+	std::setlocale(LC_NUMERIC, savedNumericLocale.c_str());
+	const bool baselineReloaded = WriteItemXmlFixtureWithProgress(
+		"baseline reload", basePath, baseDocument) &&
+		ReadItemXmlWithProgress("baseline reload", basePath, FALSE) &&
+		DigestItemXmlTables() == baseTables;
+	CHECK(parserStateRecovered && baselineReloaded,
+		"item XML parser state is invocation-local and floats ignore the process numeric locale");
+
 	const std::string malformedBaseDocument =
 		"<ITEMLIST><ITEM><uiIndex>1</uiIndex><szItemName>Staged</szItemName>"
 		"<usItemClass>1</usItemClass><BR_NewInventory>99</BR_NewInventory>"
@@ -874,6 +1066,21 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 	CHECK(emptyLocalizedLoaded && DigestItemXmlTables() == localizedTables,
 		"empty localized item XML is a successful no-op");
 
+	const std::string localizedTextOverflowDocument =
+		"<ITEMLIST><ITEM><uiIndex>2</uiIndex><szItemDesc>" +
+		std::string(400, 'Y') + "</szItemDesc></ITEM></ITEMLIST>";
+	const bool localizedTextOverflowRejected =
+		WriteItemXmlFixtureWithProgress("localized text overflow", parserPath,
+			localizedTextOverflowDocument) &&
+		!ReadItemXmlWithProgress(
+			"localized text overflow", parserPath, TRUE);
+	const bool emptyLocalizedAccepted = WriteItemXmlFixtureWithProgress(
+		"empty parser overlay", parserPath, "<ITEMLIST/>") &&
+		ReadItemXmlWithProgress("empty parser overlay", parserPath, TRUE);
+	CHECK(localizedTextOverflowRejected && emptyLocalizedAccepted &&
+		DigestItemXmlTables() == localizedTables,
+		"localized item text overflow rolls back while an empty overlay is a no-op");
+
 	const std::string malformedLocalizedDocument =
 		"<ITEMLIST><ITEM><uiIndex>2</uiIndex>"
 		"<szItemName>Staged Localized Name</szItemName></ITEM>"
@@ -895,7 +1102,6 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 	CHECK(optionalMissingAccepted && requiredMissingRejected &&
 		DigestItemXmlTables() == localizedTables,
 		"item XML required base and optional localization missing-file policies preserve live tables");
-
 	const bool emptyBaseWritten = WriteItemXmlFixtureWithProgress(
 		"empty base", emptyBasePath, "<ITEMLIST></ITEMLIST>");
 	const bool emptyBaseLoaded = emptyBaseWritten && ReadItemXmlWithProgress(
@@ -908,6 +1114,26 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 		emptyBaseTables.maxItemsRead == 0,
 		"empty item base XML publishes a cleared Item table with preserved auxiliary values");
 
+	bool installedItemsCompatible = true;
+	if (const char* installedItems =
+			std::getenv("JA2_TEST_INSTALLED_ITEMS_XML"))
+	{
+		std::ifstream source(installedItems, std::ios::binary);
+		const bool sourceOpened = source.good();
+		const std::string contents{
+			std::istreambuf_iterator<char>(source),
+			std::istreambuf_iterator<char>()};
+		installedItemsCompatible = sourceOpened && !source.bad() &&
+			!contents.empty() &&
+			WriteItemXmlFixtureWithProgress(
+				"installed Items", installedPath, contents) &&
+			ReadItemXmlWithProgress(
+				"installed Items", installedPath, FALSE) &&
+			gMAXITEMS_READ != 0;
+	}
+	CHECK(installedItemsCompatible,
+		"an explicitly requested installed Items.xml remains parser-compatible");
+
 	FileDelete(const_cast<char*>(basePath.c_str()));
 	FileDelete(const_cast<char*>(malformedBasePath.c_str()));
 	FileDelete(const_cast<char*>(missingIndexPath.c_str()));
@@ -917,6 +1143,8 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 	FileDelete(const_cast<char*>(malformedLocalizedPath.c_str()));
 	FileDelete(const_cast<char*>(emptyBasePath.c_str()));
 	FileDelete(const_cast<char*>(emptyLocalizedPath.c_str()));
+	FileDelete(const_cast<char*>(parserPath.c_str()));
+	FileDelete(const_cast<char*>(installedPath.c_str()));
 }
 
 struct TestResourceTag {};

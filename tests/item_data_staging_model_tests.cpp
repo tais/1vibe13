@@ -1,6 +1,8 @@
 #include "ItemDataStagingModel.h"
 
 #include <array>
+#include <clocale>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -345,6 +347,61 @@ namespace
 			signedWord == -32768 &&
 			!TryNarrow<std::int16_t>(65535u, signedWord),
 			"checked integer narrowing rejects signedness and width loss");
+
+		std::uint64_t exactMask = 0;
+		Require(TryParseInteger("9007199254740993", exactMask) &&
+			exactMask == UINT64_C(9007199254740993) &&
+			TryParseInteger("18446744073709551615", exactMask) &&
+			exactMask == std::numeric_limits<std::uint64_t>::max() &&
+			!TryParseInteger("18446744073709551616", exactMask) &&
+			!TryParseInteger("-1", exactMask),
+			"unsigned masks retain exact values above double precision and reject overflow");
+
+		bool boolean = false;
+		Require(TryParseBoolean("-7", boolean) && boolean &&
+			TryParseBoolean("0", boolean) && !boolean &&
+			!TryParseBoolean("1tail", boolean) &&
+			!TryParseBoolean("9223372036854775808", boolean),
+			"boolean parsing preserves signed nonzero semantics with full-token bounds");
+
+		std::uint8_t clampedByte = 77;
+		std::int8_t clampedSignedByte = 0;
+		Require(TryParseClampedInteger("-9", clampedByte, 0, 100) &&
+			clampedByte == 0 &&
+			TryParseClampedInteger("500", clampedByte, 0, 100) &&
+			clampedByte == 100 &&
+			TryParseClampedInteger("200", clampedSignedByte, -20, 20) &&
+			clampedSignedByte == 20 &&
+			TryParseClampedInteger("-200", clampedSignedByte, -20, 20) &&
+			clampedSignedByte == -20 &&
+			!TryParseClampedInteger("20junk", clampedSignedByte, -20, 20),
+			"clamped integers apply schema limits in signed wide storage before narrowing");
+	}
+
+	void TestFloatingInput()
+	{
+		const char* const currentNumericLocale = std::setlocale(LC_NUMERIC, nullptr);
+		const std::string savedNumericLocale = currentNumericLocale
+			? currentNumericLocale : "C";
+		for (const char* candidate : {
+			"de_DE.UTF-8", "nl_NL.UTF-8", "fr_FR.UTF-8",
+			"German_Germany.1252", "Dutch_Netherlands.1252"})
+		{
+			if (std::setlocale(LC_NUMERIC, candidate)) break;
+		}
+
+		float value = 0.0f;
+		const bool localeIndependent =
+			TryParseFiniteFloat(" 1.25 ", value) && value == 1.25f;
+		std::setlocale(LC_NUMERIC, savedNumericLocale.c_str());
+		Require(localeIndependent &&
+			TryParseFiniteFloat("-2.5e1", value) && value == -25.0f &&
+			!TryParseFiniteFloat("1.5tail", value) &&
+			!TryParseFiniteFloat("nan", value) &&
+			!TryParseFiniteFloat("inf", value) &&
+			!TryParseFiniteFloat("1e100", value) &&
+			!TryParseFiniteFloat("1e-50", value),
+			"item floats are locale-independent finite full-token values in float range");
 	}
 
 	void TestCharacterInput()
@@ -363,6 +420,44 @@ namespace
 			"character accumulation reset clears overflow and empty callback state");
 		Require(!characters.append(nullptr, 1) && !characters.valid(),
 			"character accumulation rejects a nonempty null callback fragment");
+
+		CharacterAccumulator<16> splitUtf8;
+		const std::string euro = "\xe2\x82\xac";
+		Require(splitUtf8.append("prefix-", 7) &&
+			splitUtf8.append(euro.data(), 1) &&
+			splitUtf8.append(euro.data() + 1, euro.size() - 1),
+			"character accumulation preserves UTF-8 split across callback chunks");
+
+		std::uint16_t utf16Exact[4] = {9, 9, 9, 9};
+		const std::uint16_t utf16Original[4] = {9, 9, 9, 9};
+		const std::string aAndAstral = "A\xf0\x9f\x98\x80";
+		Require(TryCopyUtf8(aAndAstral, utf16Exact) &&
+			utf16Exact[0] == u'A' && utf16Exact[1] == 0xd83d &&
+			utf16Exact[2] == 0xde00 && utf16Exact[3] == 0,
+			"UTF-8 conversion accepts an exact-fit UTF-16 destination");
+		std::copy(std::begin(utf16Original), std::end(utf16Original),
+			std::begin(utf16Exact));
+		Require(!TryCopyUtf8(aAndAstral + "B", utf16Exact) &&
+			std::equal(std::begin(utf16Exact), std::end(utf16Exact),
+				std::begin(utf16Original)),
+			"UTF-8 conversion rejects a one-unit overflow without partial output");
+
+		std::uint32_t utf32Exact[3]{};
+		Require(TryCopyUtf8(aAndAstral, utf32Exact) &&
+			utf32Exact[0] == U'A' && utf32Exact[1] == 0x1f600 &&
+			utf32Exact[2] == 0,
+			"UTF-8 conversion emits exact scalar values for 32-bit wide text");
+		for (const std::string invalid : {
+			std::string("\xc0\xaf", 2), std::string("\xe2\x82", 2),
+			std::string("\xed\xa0\x80", 3),
+			std::string("\xf4\x90\x80\x80", 4)})
+		{
+			std::uint32_t destination[3] = {7, 8, 9};
+			Require(!TryCopyUtf8(invalid, destination) &&
+				destination[0] == 7 && destination[1] == 8 &&
+				destination[2] == 9,
+				"invalid UTF-8 is rejected without changing destination text");
+		}
 	}
 
 	void TestStanceInheritance()
@@ -732,6 +827,7 @@ namespace
 int main()
 {
 	TestIntegerInput();
+	TestFloatingInput();
 	TestCharacterInput();
 	TestStanceInheritance();
 	TestBoundedOwnershipAndNoFailPublication();

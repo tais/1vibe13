@@ -1,6 +1,8 @@
 #ifndef ITEM_DATA_STAGING_MODEL_H
 #define ITEM_DATA_STAGING_MODEL_H
 
+#include "DataBoundaryModel.h"
+
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -193,6 +195,146 @@ namespace ItemDataStagingModel
 			}
 			destination = static_cast<Integer>(magnitude);
 		}
+		return true;
+	}
+
+	inline bool TryParseBoolean(
+		std::string_view text, bool& destination) noexcept
+	{
+		std::int64_t parsed = 0;
+		if (!UtilsDataBoundaryModel::ParseInt64(text, parsed)) return false;
+		destination = parsed != 0;
+		return true;
+	}
+
+	template <typename Floating>
+	bool TryParseFiniteFloat(
+		std::string_view text, Floating& destination)
+	{
+		static_assert(std::is_floating_point_v<Floating>,
+			"item XML floating fields need a floating-point destination");
+
+		double parsed = 0.0;
+		if (!UtilsDataBoundaryModel::ParseDouble(text, parsed) ||
+			parsed < -static_cast<double>(std::numeric_limits<Floating>::max()) ||
+			parsed > static_cast<double>(std::numeric_limits<Floating>::max()))
+		{
+			return false;
+		}
+		const Floating narrowed = static_cast<Floating>(parsed);
+		if (!std::isfinite(narrowed) ||
+			(parsed != 0.0 && narrowed == static_cast<Floating>(0)))
+		{
+			return false;
+		}
+		destination = narrowed;
+		return true;
+	}
+
+	template <typename Integer>
+	bool TryParseClampedInteger(std::string_view text, Integer& destination,
+		std::int64_t minimum, std::int64_t maximum) noexcept
+	{
+		static_assert(std::is_integral_v<Integer> &&
+			!std::is_same_v<std::remove_cv_t<Integer>, bool>,
+			"item XML clamping needs an integral destination");
+		if (minimum > maximum) return false;
+
+		std::int64_t parsed = 0;
+		if (!UtilsDataBoundaryModel::ParseInt64(text, parsed)) return false;
+		parsed = std::clamp(parsed, minimum, maximum);
+		return TryNarrow(parsed, destination);
+	}
+
+	template <typename WideCharacter, std::size_t Capacity>
+	bool TryCopyUtf8(std::string_view source,
+		WideCharacter (&destination)[Capacity]) noexcept
+	{
+		static_assert(std::is_integral_v<WideCharacter> &&
+			(sizeof(WideCharacter) == 2 || sizeof(WideCharacter) == 4),
+			"item XML text needs a 16-bit or 32-bit Unicode destination");
+		static_assert(Capacity > 0,
+			"item XML text destinations need a terminator slot");
+
+		std::array<WideCharacter, Capacity> staged{};
+		std::size_t input = 0;
+		std::size_t output = 0;
+		while (input < source.size())
+		{
+			const std::uint8_t first =
+				static_cast<std::uint8_t>(source[input]);
+			std::uint32_t codePoint = 0;
+			std::size_t encodedLength = 0;
+			if (first <= 0x7f)
+			{
+				codePoint = first;
+				encodedLength = 1;
+			}
+			else if (first >= 0xc2 && first <= 0xdf)
+			{
+				codePoint = first & 0x1f;
+				encodedLength = 2;
+			}
+			else if (first >= 0xe0 && first <= 0xef)
+			{
+				codePoint = first & 0x0f;
+				encodedLength = 3;
+			}
+			else if (first >= 0xf0 && first <= 0xf4)
+			{
+				codePoint = first & 0x07;
+				encodedLength = 4;
+			}
+			else
+			{
+				return false;
+			}
+
+			if (encodedLength > source.size() - input) return false;
+			for (std::size_t offset = 1; offset < encodedLength; ++offset)
+			{
+				const std::uint8_t continuation =
+					static_cast<std::uint8_t>(source[input + offset]);
+				if ((continuation & 0xc0) != 0x80) return false;
+				codePoint = (codePoint << 6) | (continuation & 0x3f);
+			}
+			const bool overlong =
+				(encodedLength == 2 && codePoint < 0x80) ||
+				(encodedLength == 3 && codePoint < 0x800) ||
+				(encodedLength == 4 && codePoint < 0x10000);
+			if (overlong || codePoint > 0x10ffff ||
+				(codePoint >= 0xd800 && codePoint <= 0xdfff))
+			{
+				return false;
+			}
+			input += encodedLength;
+
+			if constexpr (sizeof(WideCharacter) == 2)
+			{
+				if (codePoint <= 0xffff)
+				{
+					if (output >= Capacity - 1) return false;
+					staged[output++] = static_cast<WideCharacter>(codePoint);
+				}
+				else
+				{
+					if (Capacity - 1 - output < 2) return false;
+					codePoint -= 0x10000;
+					staged[output++] = static_cast<WideCharacter>(
+						0xd800 + (codePoint >> 10));
+					staged[output++] = static_cast<WideCharacter>(
+						0xdc00 + (codePoint & 0x3ff));
+				}
+			}
+			else
+			{
+				if (output >= Capacity - 1) return false;
+				staged[output++] = static_cast<WideCharacter>(codePoint);
+			}
+		}
+
+		staged[output] = static_cast<WideCharacter>(0);
+		std::copy(staged.begin(), staged.end(), destination);
 		return true;
 	}
 
