@@ -1244,7 +1244,9 @@ the engine must not contain SDL types in its public domain model.
   sparse records. Valid out-of-range records are ignored before table access,
   while malformed checked fields still poison the document. Duplicate payloads
   use the last nonzero-class item, and authored auxiliary fields merge
-  independently.
+  independently. The public legacy loader is a `noexcept` BOOLEAN boundary, so
+  setup, allocation, or failure-reporting exceptions reject the transaction
+  even when early startup has not registered the live logger yet.
   Real-VFS tests pin malformed rollback, missing indices, auxiliary overflow,
   sparse/duplicate/unsorted and empty documents, exact-end indices, localized
   partial overlays and ignored auxiliary publication, and

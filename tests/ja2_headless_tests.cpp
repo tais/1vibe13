@@ -553,6 +553,9 @@ static BOOLEAN ReadItemXmlWithProgress(const char* phase,
 	return loaded;
 }
 
+static_assert(noexcept(ReadInItemStats(nullptr, FALSE)),
+	"the Items XML loader contains setup and diagnostic failures at its BOOLEAN boundary");
+
 static_assert(std::is_trivially_copyable_v<INVTYPE>,
 	"headless item rollback snapshots exact object representations");
 

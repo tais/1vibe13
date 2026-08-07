@@ -2000,7 +2000,7 @@ static BOOLEAN CommitLocalizedItemLoad(LocalizedItemLoad& load)
 		PublishLocalizedItemText) ? TRUE : FALSE;
 }
 
-BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion)
+BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion) noexcept try
 {
 	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading Items.xml");
 
@@ -2062,6 +2062,13 @@ BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion)
 
 	baseLoad->complete();
 	return baseLoad->commit(MAXITEMS, PublishBaseItemTables) ? TRUE : FALSE;
+}
+catch (...)
+{
+	// This legacy BOOLEAN boundary is also used before the live logger has
+	// necessarily been registered. Allocation and diagnostic-reporting failures
+	// must reject the transaction, not escape into startup or an Expat caller.
+	return FALSE;
 }
 BOOLEAN WriteItemStats()
 {

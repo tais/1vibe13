@@ -5478,6 +5478,7 @@ endforeach()
 file(READ "${SOURCE_ROOT}/Utils/XML_Items.cpp"
   runtime_item_xml_adapter_contents)
 foreach(required_item_xml_adapter_fragment IN ITEMS
+    "BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion) noexcept"
     "RequiredBaseLoadTransaction<INVTYPE>"
     "OptionalLocalizedLoadTransaction<"
     "SnapshotItemAuxiliaryTables"

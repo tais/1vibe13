@@ -253,6 +253,10 @@ before its first fixed-array write, and both publishers have exact `void`,
 `noexcept` contracts. The harness rollback guard snapshots only nonzero live
 `INVTYPE` records, plus the compact complete auxiliary arrays, rather than
 allocating another unconditional full item table around every integration run.
+The public `ReadInItemStats` BOOLEAN boundary is itself `noexcept`: setup,
+allocation, and failure-reporting exceptions reject the staged load. This is
+important during early startup and headless validation, where the live logger
+may not yet have been registered.
 
 Slice 5 will route production character accumulation and UTF conversion through
 checked staging, close the remaining `WriteItemStats` writer boundary, remove
