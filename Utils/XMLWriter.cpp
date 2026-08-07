@@ -13,7 +13,14 @@ void XMLWriter::addValue(vfs::String const& key)
 
 void XMLWriter::addComment(vfs::String const& comment)
 {
-	m_ssBuffer << indent() << "<!-- " << comment.utf8() << " -->\n"; 
+	std::string sanitized;
+	if (!UtilsDataBoundaryModel::SanitizeXmlComment(
+		comment.utf8(), sanitized))
+	{
+		m_isValid = false;
+		return;
+	}
+	m_ssBuffer << indent() << "<!-- " << sanitized << " -->\n";
 }
 
 void XMLWriter::addFlag(UINT32 const& flags, UINT32 const& flag, vfs::String strFlag)
@@ -36,13 +43,9 @@ void XMLWriter::openNode(vfs::String const& key)
 
 bool XMLWriter::closeNode()
 {
-	if(m_iIndentLevel < 1)
+	if(m_iIndentLevel < 1 || m_stOpenNodes.empty())
 	{
-		// there is nothing to close
-		return false;
-	}
-	if(m_stOpenNodes.empty())
-	{
+		m_isValid = false;
 		return false;
 	}
 	m_iIndentLevel -= 1;
@@ -53,6 +56,7 @@ bool XMLWriter::closeNode()
 
 bool XMLWriter::writeToFile(vfs::Path const& sFileName)
 {
+	if (!isComplete()) return false;
 	try
 	{
 		vfs::COpenWriteFile file(sFileName,true,true);
@@ -72,12 +76,15 @@ bool XMLWriter::writeToFile(vfs::Path const& sFileName)
 
 bool XMLWriter::writeToFile(vfs::tWritableFile* pFile)
 {
+	if (!pFile || !isComplete()) return false;
 	try
 	{
 		vfs::COpenWriteFile file(pFile);
 		std::string const str = m_ssBuffer.str();
-		pFile->write(str.c_str(), str.length() * sizeof(std::string::value_type));
-		return true;
+		const vfs::size_t requested =
+			str.length() * sizeof(std::string::value_type);
+		const vfs::size_t written = pFile->write(str.c_str(), requested);
+		return UtilsDataBoundaryModel::IsExactTransfer(requested, written);
 	}
 	catch(vfs::Exception& ex)
 	{
@@ -109,46 +116,37 @@ void XMLWriter::insertAttributesIntoBuffer()
 	m_stNextValAttributes.clear();
 }
 
-std::string XMLWriter::handleSpecialCharacters(std::string const& str)
+void XMLWriter::addEscapedAttribute(vfs::String const& attribute,
+	std::string const& value)
 {
-	std::stringstream ss;
-	unsigned int current = 0, old = 0;
-	while( current < str.length() )
+	std::string escaped;
+	if (!UtilsDataBoundaryModel::EscapeXml(value, escaped))
 	{
-		char const& c = str.at(current);
-		if( c == '&' )
-		{
-			ss << str.substr(old, current-old) << "&amp;";
-			old = current + 1;
-		}
-		else if( c == '<' )
-		{
-			ss << str.substr(old, current-old) << "&lt;";
-			old = current + 1;
-		}
-		else if( c == '>' )
-		{
-			ss << str.substr(old, current-old) << "&gt;";
-			old = current + 1;
-		}
-		else if( c == '\"' )
-		{
-			ss << str.substr(old, current-old) << "&quot;";
-			old = current + 1;
-		}
-		else if( c == '\'' )
-		{
-			ss << str.substr(old, current-old) << "&apos;";
-			old = current + 1;
-		}
-		current++;
+		m_isValid = false;
+		return;
 	}
-	if(old)
+	m_stNextValAttributes.emplace_back(attribute.utf8(), std::move(escaped));
+}
+
+void XMLWriter::addEscapedValue(vfs::String const& key,
+	std::string const& value)
+{
+	std::string escaped;
+	if (!UtilsDataBoundaryModel::EscapeXml(value, escaped))
 	{
-		ss << str.substr(old, current-old);
-		return ss.str();
+		m_isValid = false;
+		return;
 	}
-	return str;
+	const std::string utf8key = key.utf8();
+	m_ssBuffer << indent() << "<" << utf8key;
+	insertAttributesIntoBuffer();
+	m_ssBuffer << ">" << escaped << "</" << utf8key << ">\n";
+}
+
+bool XMLWriter::isComplete() const
+{
+	return m_isValid && m_iIndentLevel == 0 && m_stOpenNodes.empty() &&
+		m_stNextValAttributes.empty();
 }
 
 void testMXLWriter()

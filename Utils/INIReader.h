@@ -1,6 +1,7 @@
 #ifndef INIREADER_H
 #define INIREADER_H
 #include <algorithm>
+#include <array>
 #include <types.h>
 #include <stack>
 #include <string>
@@ -49,6 +50,7 @@ public:
 	void ReadString(const char* szSection, const char* szKey, const char* szDefaultValue, CHAR8 *input_buffer, size_t buffer_size);
 
 	// WANNE - MP: Old version, currently used by Multiplayer
+	// Borrowed reader-owned storage; valid until the next 3-argument call.
 	CHAR8 *ReadString(const char* szSection, const char* szKey, const char* szDefaultValue);
 	
 	BOOLEAN Is_CIniReader_File_Found(void) {return (CIniReader_File_Found);}
@@ -58,7 +60,8 @@ public:
 private:
 	vfs::PropertyContainer m_oProps;
 	char m_szFileName[MAX_PATH];
-	BOOLEAN CIniReader_File_Found;
+	BOOLEAN CIniReader_File_Found = FALSE;
+	std::array<CHAR8, 255> m_legacyStringBuffer{};
 
 	UINT32 ReadUINT(const STR8 szSection, const STR8 szKey, UINT32 defaultValue, UINT32 minValue, UINT32 maxValue);
 	static std::set<vfs::Path, vfs::Path::Less> m_merge_files;

@@ -117,23 +117,41 @@ Laptop's IMP renderer separately gates display on reader success, while the
 architecture boundary preserves the reader contract and tests in every host
 and AddressSanitizer build.
 
+## Data persistence foundation
+
+| Owner | Faults found | Enforced state |
+| --- | --- | --- |
+| `INIReader.cpp` | INI overlays mutated live properties while parsing, merged-file discovery could report a file that no profile contained, scalar and list conversions accepted trailing or overflowing input, list failure published a valid prefix plus the fallback, zero-capacity string copies underflowed, null destinations were dereferenced, and the legacy pointer overload leaked every result | Each overlay parses into a copy and publishes only on success; both constructors report a merged file only after a profile supplies a valid layer; numeric tokens are complete, finite, and range checked; lists publish whole or become the established single `[0]` fallback; every copy has an explicit capacity including zero; and the compatibility pointer borrows reader-owned storage until the next legacy call |
+| `XMLProperties.cpp` | XML callbacks published keys before document completion, short reads were treated as complete buffers, manual file release leaked open state on exceptions, and missing identifiers could populate empty sections or keys | Existing properties seed a staged overlay; reads must be exact; malformed, truncated, or structurally incomplete documents leave live properties untouched; required identifiers are validated; and balanced unknown subtrees remain forward-compatible and ignored |
+| `XMLWriter.cpp` | Attribute strings bypassed escaping, numeric output followed the process locale, comments could emit forbidden `--`, invalid controls reached output, short writes reported success, and incomplete or already-failed node/attribute state could be persisted | Text and attributes share XML escaping, numbers use the locale-independent XML representation, comments are made structurally valid, invalid controls and failed close operations poison the staged document, writes succeed only for a complete document and exact byte count, and all existing tag names, paths, and schemas remain unchanged |
+
+`DataBoundaryModel.h` owns dependency-free, locale-independent strict
+scalar/list conversion,
+bounded copy, transactional publication, unknown-subtree depth, XML escaping,
+comment, and exact-transfer rules. `utils_data_boundary_model_tests` covers
+overflow, trailing input, non-finite values, partial-list rollback, null and
+zero-capacity destinations, staged publication, nested unknown elements,
+reserved characters, illegal controls/comments, and short transfers.
+`ja2_headless_tests` exercises the real PropertyContainer/VFS adapters for
+overlay preservation, unknown-subtree compatibility, truncated and missing-
+attribute rollback, and escaped writer/reader round trips.
+
 ## Remaining Utils inventory
 
-The following 17 translation units are compiled and covered by the general
+The following 14 translation units are compiled and covered by the general
 build/test matrix, but have not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
 - Input and runtime control: `Cursors.cpp`, `Event Pump.cpp`, `KeyMap.cpp`,
   `Timer Control.cpp`, `Utilities.cpp`, and `Win Util.cpp`.
-- Data and XML boundaries: `INIReader.cpp`, `XMLProperties.cpp`,
-  `XMLWriter.cpp`, `XML_Items.cpp`, `XML_Language.cpp`, and
+- Data and XML boundaries: `XML_Items.cpp`, `XML_Language.cpp`, and
   `XML_SenderNameList.cpp`.
 - Image and developer utilities: `Debug Control.cpp`, `MapUtility.cpp`,
   `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp`.
 
-The next Utils batch should cover the six remaining data/XML boundaries
-because their parsers and persistence adapters carry the highest remaining
-partial-state and untrusted-input risk. Input/runtime control and the offline
-image tools follow.
+The next Utils slice should cover the indexed localization loaders in
+`XML_Language.cpp` and `XML_SenderNameList.cpp`, followed by the larger staged
+`XML_Items.cpp` integration. Input/runtime control and the offline image tools
+follow.
 Existing file formats, resource paths, localization strings, callbacks, visual
 layout, and game behavior remain compatibility constraints throughout the audit.

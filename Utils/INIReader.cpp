@@ -1,11 +1,11 @@
 #include "builddefines.h"
 #include "INIReader.h"
+#include "DataBoundaryModel.h"
 #include "FileMan.h"
 #include "DEBUG.H"
 #include "Font Control.h"
 #include "message.h"
-#include <stdio.h>
-#include <string.h>
+#include <limits>
 #include <sstream>
 
 // Kaiden: INI reading function definitions:
@@ -14,6 +14,66 @@
 
 std::set<vfs::Path,vfs::Path::Less> CIniReader::m_merge_files;
 std::stack<std::string> iniErrorMessages;
+
+namespace
+{
+	const char* SafeString(const char* value)
+	{
+		return value ? value : "";
+	}
+
+	bool LoadIni(vfs::PropertyContainer& properties, vfs::Path const& path)
+	{
+		return UtilsDataBoundaryModel::PublishTransactionally(properties,
+			[&path](vfs::PropertyContainer& staged) {
+				return staged.initFromIniFile(path);
+			});
+	}
+
+	bool LoadIni(vfs::PropertyContainer& properties, vfs::tReadableFile* file)
+	{
+		return UtilsDataBoundaryModel::PublishTransactionally(properties,
+			[file](vfs::PropertyContainer& staged) {
+				return staged.initFromIniFile(file);
+			});
+	}
+
+	bool LoadMergedIni(vfs::PropertyContainer& properties,
+		const char* fileName)
+	{
+		bool loadedAny = false;
+		vfs::CProfileStack* profiles = getVFS()->getProfileStack();
+		if (!profiles) return false;
+
+		vfs::CProfileStack::Iterator it = profiles->begin();
+		std::stack<vfs::CVirtualProfile*> reverseOrder;
+		for (; !it.end(); it.next()) reverseOrder.push(it.value());
+		while (!reverseOrder.empty())
+		{
+			vfs::IBaseFile* file = reverseOrder.top()->getFile(fileName);
+			if (file)
+			{
+				loadedAny = LoadIni(properties,
+					vfs::tReadableFile::cast(file)) || loadedAny;
+			}
+			reverseOrder.pop();
+		}
+		return loadedAny;
+	}
+
+	bool ReadPropertyText(vfs::PropertyContainer& properties,
+		const char* section, const char* key, std::string& value)
+	{
+		vfs::String staged;
+		if (!properties.getStringProperty(
+			SafeString(section), SafeString(key), staged))
+		{
+			return false;
+		}
+		value = staged.utf8();
+		return true;
+	}
+}
 
 template<typename ValueType>
 void PushErrorMessage(std::string const& filename,
@@ -37,27 +97,15 @@ void CIniReader::RegisterFileForMerging(vfs::Path const& filename)
 
 CIniReader::CIniReader(const STR8	szFileName)
 {
-	memset(m_szFileName,0,sizeof(m_szFileName));
-	strncpy(m_szFileName,szFileName, std::min<int>(strlen(szFileName), sizeof(m_szFileName)-1));
+	UtilsDataBoundaryModel::CopyString(m_szFileName, SafeString(szFileName));
+	if (!szFileName || !szFileName[0]) return;
 	if(m_merge_files.find(szFileName) == m_merge_files.end())
 	{
-		m_oProps.initFromIniFile(vfs::Path(szFileName));
+		CIniReader_File_Found = LoadIni(m_oProps, vfs::Path(szFileName));
 	}
 	else
 	{
-		vfs::CProfileStack* profs = getVFS()->getProfileStack();
-		vfs::CProfileStack::Iterator it = profs->begin();
-		std::stack<vfs::CVirtualProfile*> rev_order;
-		for(; !it.end(); it.next()) { rev_order.push(it.value()); }
-		while(!rev_order.empty())
-		{
-			vfs::IBaseFile* file = rev_order.top()->getFile(szFileName);
-			if(file)
-			{
-				m_oProps.initFromIniFile(vfs::tReadableFile::cast(file));
-			}
-			rev_order.pop();
-		}
+		CIniReader_File_Found = LoadMergedIni(m_oProps, szFileName);
 	}
 	// check for override file
 #ifdef _WIN32
@@ -66,56 +114,59 @@ CIniReader::CIniReader(const STR8	szFileName)
 		_splitpath(szFileName, Drive, Dir, Name, Ext);
 		_makepath(OvrFileName, Drive, Dir, Name, "Override");
 		if(getVFS()->fileExists(OvrFileName))
-			m_oProps.initFromIniFile(vfs::Path(OvrFileName));
+		{
+			CIniReader_File_Found = (LoadIni(
+				m_oProps, vfs::Path(OvrFileName)) ||
+				CIniReader_File_Found) ? TRUE : FALSE;
+		}
 	}
 #endif
 }
 
 CIniReader::CIniReader(const STR8	szFileName, BOOLEAN Force_Custom_Data_Path)
 {
-	memset(m_szFileName,0,sizeof(m_szFileName));
+	(void)Force_Custom_Data_Path;
 	// ary-05/05/2009 : force custom data path for potential non existing file -or- force default data path
 	//       : Also, flag file detection to allow functions to determine course of action for case of file [not found/is found].
-	strncpy(m_szFileName,szFileName, std::min<int>(strlen(szFileName), sizeof(m_szFileName)-1));
+	UtilsDataBoundaryModel::CopyString(m_szFileName, SafeString(szFileName));
+	if (!szFileName || !szFileName[0]) return;
 	if(m_merge_files.find(szFileName) == m_merge_files.end())
 	{
-		CIniReader_File_Found = m_oProps.initFromIniFile(vfs::Path(szFileName));
+		CIniReader_File_Found = LoadIni(m_oProps, vfs::Path(szFileName));
 	}
 	else
 	{
-		CIniReader_File_Found = TRUE;
-		vfs::CProfileStack* profs = getVFS()->getProfileStack();
-		vfs::CProfileStack::Iterator it = profs->begin();
-		std::stack<vfs::CVirtualProfile*> rev_order;
-		for(; !it.end(); it.next()) { rev_order.push(it.value()); }
-		while(!rev_order.empty())
-		{
-			vfs::IBaseFile* file = rev_order.top()->getFile(szFileName);
-			if(file)
-			{
-				CIniReader_File_Found = ((CIniReader_File_Found != FALSE) && m_oProps.initFromIniFile(vfs::tReadableFile::cast(file))) ? TRUE : FALSE;
-			}
-			rev_order.pop();
-		}
+		CIniReader_File_Found = LoadMergedIni(m_oProps, szFileName);
 	}
 }
 
 void CIniReader::Clear()
 {
-	memset(m_szFileName, 0, MAX_PATH);
+	UtilsDataBoundaryModel::CopyString(m_szFileName, "");
+	m_legacyStringBuffer.fill(0);
+	CIniReader_File_Found = FALSE;
 	m_oProps.clearContainer();
 }
 
 
 int CIniReader::ReadInteger(const STR8	szSection, const STR8	szKey, int iDefaultValue)
 {
-	return (int)(m_oProps.getIntProperty(szSection, szKey, iDefaultValue));
+	std::string text;
+	std::int64_t parsed = 0;
+	if (!ReadPropertyText(m_oProps, szSection, szKey, text) ||
+		!UtilsDataBoundaryModel::ParseInt64(text, parsed) ||
+		parsed < std::numeric_limits<int>::min() ||
+		parsed > std::numeric_limits<int>::max())
+	{
+		return iDefaultValue;
+	}
+	return static_cast<int>(parsed);
 }
 
 
 int CIniReader::ReadInteger(const STR8 szSection, const STR8 szKey, int defaultValue, int minValue, int maxValue)
 {
-	int iniValueReadFromFile = (int)(m_oProps.getIntProperty(szSection, szKey, defaultValue));
+	int iniValueReadFromFile = ReadInteger(szSection, szKey, defaultValue);
 	//AssertGE(iniValueReadFromFile, minValue);
 	//AssertLE(iniValueReadFromFile, maxValue);
 	if (iniValueReadFromFile < minValue)
@@ -146,8 +197,14 @@ int CIniReader::ReadInteger(const STR8 szSection, const STR8 szKey, int defaultV
 
 double CIniReader::ReadDouble(const STR8 szSection, const STR8 szKey, double defaultValue, double minValue, double maxValue)
 {
-	double iniValueReadFromFile;
-	iniValueReadFromFile = m_oProps.getFloatProperty(szSection, szKey, defaultValue);
+	std::string text;
+	double iniValueReadFromFile = defaultValue;
+	if (ReadPropertyText(m_oProps, szSection, szKey, text))
+	{
+		double parsed = 0.0;
+		if (UtilsDataBoundaryModel::ParseDouble(text, parsed))
+			iniValueReadFromFile = parsed;
+	}
 	//AssertGE(iniValueReadFromFile, minValue);
 	//AssertLE(iniValueReadFromFile, maxValue);
 	if (iniValueReadFromFile < minValue)
@@ -165,8 +222,20 @@ double CIniReader::ReadDouble(const STR8 szSection, const STR8 szKey, double def
 
 FLOAT CIniReader::ReadFloat(const STR8 szSection, const STR8 szKey, FLOAT defaultValue, FLOAT minValue, FLOAT maxValue)
 {
-	FLOAT iniValueReadFromFile;
-	iniValueReadFromFile = (FLOAT) m_oProps.getFloatProperty(szSection, szKey, (float)defaultValue);
+	std::string text;
+	FLOAT iniValueReadFromFile = defaultValue;
+	if (ReadPropertyText(m_oProps, szSection, szKey, text))
+	{
+		double parsed = 0.0;
+		if (UtilsDataBoundaryModel::ParseDouble(text, parsed) &&
+			parsed >= -std::numeric_limits<FLOAT>::max() &&
+			parsed <= std::numeric_limits<FLOAT>::max())
+		{
+			const FLOAT narrowed = static_cast<FLOAT>(parsed);
+			if (parsed == 0.0 || narrowed != 0.0f)
+				iniValueReadFromFile = narrowed;
+		}
+	}
 
 	//AssertGE(iniValueReadFromFile, minValue);
 	//AssertLE(iniValueReadFromFile, maxValue);
@@ -186,81 +255,40 @@ FLOAT CIniReader::ReadFloat(const STR8 szSection, const STR8 szKey, FLOAT defaul
 
 void CIniReader::ReadFloatArray(const STR8 szSection, const STR8 szKey, std::vector<FLOAT>& vec)
 {
-	// read the array as a string
-	STRING512 textBuffer;
-	ReadString(szSection, szKey, "", textBuffer, _countof(textBuffer));
-
-	std::string str, token;
-	std::string delim = ",";
-	size_t offset = 0, prevOffset = 0;
-
-	// sanitise input
-	vec.clear();
-	str = textBuffer;
-	str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
-
-	// split into array
-	try
-	{
-		do
-		{
-			offset = str.find(delim, prevOffset);
-			token = str.substr(prevOffset, offset - prevOffset);
-			prevOffset = offset + delim.length();
-
-			vec.push_back(std::stof(token.c_str()));
-		} while (offset != std::string::npos);
-	}
-	catch (...)
+	std::string text;
+	std::vector<FLOAT> staged;
+	if (!ReadPropertyText(m_oProps, szSection, szKey, text) ||
+		!UtilsDataBoundaryModel::ParseFloatList(text, staged))
 	{
 		std::stringstream errMessage;
 		errMessage << "There was an error reading array [" << szSection << "][" << szKey << "] in file [" << m_szFileName << "]. Defaulting to [0].";
 		iniErrorMessages.push(errMessage.str());
-
-		vec.push_back(0);
+		vec.assign(1, 0);
+		return;
 	}
+	vec = std::move(staged);
 }
 
 void CIniReader::ReadINT32Array(const STR8 szSection, const STR8 szKey, std::vector<INT32>& vec)
 {
-	// read the array as a string
-	STRING512 textBuffer;
-	ReadString(szSection, szKey, "", textBuffer, _countof(textBuffer));
-
-	std::string str, token;
-	std::string delim = ",";
-	size_t offset = 0, prevOffset = 0;
-
-	// sanitise input
-	vec.clear();
-	str = textBuffer;
-	str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
-
-	// split into array
-	try
-	{
-		do
-		{
-			offset = str.find(delim, prevOffset);
-			token = str.substr(prevOffset, offset - prevOffset);
-			prevOffset = offset + delim.length();
-
-			vec.push_back(std::stoi(token.c_str()));
-		} while (offset != std::string::npos);
-	}
-	catch (...)
+	std::string text;
+	std::vector<INT32> staged;
+	if (!ReadPropertyText(m_oProps, szSection, szKey, text) ||
+		!UtilsDataBoundaryModel::ParseInt32List(text, staged))
 	{
 		std::stringstream errMessage;
 		errMessage << "There was an error reading array [" << szSection << "][" << szKey << "] in file [" << m_szFileName << "]. Defaulting to [0].";
 		iniErrorMessages.push(errMessage.str());
-
-		vec.push_back(0);
+		vec.assign(1, 0);
+		return;
 	}
+	vec = std::move(staged);
 }
 
 BOOLEAN CIniReader::ReadBoolean(const STR8 szSection, const STR8 szKey, bool defaultValue, bool bolDisplayError)
 {
-	vfs::String str = m_oProps.getStringProperty(szSection, szKey, L"");
+	vfs::String str = m_oProps.getStringProperty(
+		SafeString(szSection), SafeString(szKey), L"");
 	if( vfs::StrCmp::Equal(str, L"true") )
 	{
 		return TRUE;
@@ -270,8 +298,7 @@ BOOLEAN CIniReader::ReadBoolean(const STR8 szSection, const STR8 szKey, bool def
 		return FALSE;
 	}
 	std::string szResult = str.utf8();
-	char szDefault[255];
-	sprintf(szDefault, "%s", defaultValue? "TRUE" : "FALSE");
+	const char* szDefault = defaultValue ? "TRUE" : "FALSE";
 
 	if(bolDisplayError){
 		std::stringstream errMessage;
@@ -283,27 +310,24 @@ BOOLEAN CIniReader::ReadBoolean(const STR8 szSection, const STR8 szKey, bool def
 }
 
 // ary-05/15/2009 : snippet on how to use CIniReader::ReadString
-//	const  STR8 test_ini_string = new char[255];
-//	memset(test_ini_string, 0x00, 255);
-//	iniReader.ReadString("JA2 Game Settings" , "TEST_STRING" , "default string" , test_ini_string , 255 );
+//	CHAR8 test_ini_string[255]{};
+//	iniReader.ReadString("JA2 Game Settings", "TEST_STRING", "default string",
+//		test_ini_string, std::size(test_ini_string));
 
 void CIniReader::ReadString(const char* szSection, const char* szKey, const char* szDefaultValue, CHAR8 *input_buffer, size_t buffer_size)
 {
-	std::string s = m_oProps.getStringProperty(szSection, szKey, szDefaultValue).utf8();
-	int len = std::min<unsigned int>(s.length(),buffer_size-1);
-	strncpy(input_buffer, s.c_str(), len);
-	input_buffer[len] = 0;
+	std::string value;
+	if (!ReadPropertyText(m_oProps, szSection, szKey, value))
+		value = SafeString(szDefaultValue);
+	UtilsDataBoundaryModel::CopyString(input_buffer, buffer_size, value);
 }
 
 // WANNE - MP: Old version, currently used by Multiplayer
 CHAR8 *	CIniReader::ReadString(const char* szSection, const char* szKey, const char* szDefaultValue)
 {
-	// >>>>> Memory Leak <<<<<
-	CHAR8 *	szResult = new char[255];
-	memset(szResult, 0x00, 255);
-	std::string s = m_oProps.getStringProperty(szSection, szKey, szDefaultValue).utf8();
-	strncpy(szResult, s.c_str(), std::min<int>(s.length(),254));
-	return szResult;
+	ReadString(szSection, szKey, szDefaultValue,
+		m_legacyStringBuffer.data(), m_legacyStringBuffer.size());
+	return m_legacyStringBuffer.data();
 }
 
 UINT8  CIniReader::ReadUINT8(const STR8 szSection, const STR8 szKey, UINT8  defaultValue, UINT8  minValue, UINT8  maxValue)
@@ -338,9 +362,16 @@ UINT32 CIniReader::ReadUINT32(const STR8 szSection, const STR8 szKey, UINT32 def
 }
 
 UINT32 CIniReader::ReadUINT(const STR8 szSection, const STR8 szKey, UINT32 defaultValue, UINT32 minValue, UINT32 maxValue )
-{ 
-	UINT32 iniValueReadFromFile;
-	iniValueReadFromFile = (UINT32) m_oProps.getUIntProperty(szSection, szKey, defaultValue);
+{
+	std::string text;
+	std::uint64_t parsed = 0;
+	UINT32 iniValueReadFromFile = defaultValue;
+	if (ReadPropertyText(m_oProps, szSection, szKey, text) &&
+		UtilsDataBoundaryModel::ParseUInt64(text, parsed) &&
+		parsed <= std::numeric_limits<UINT32>::max())
+	{
+		iniValueReadFromFile = static_cast<UINT32>(parsed);
+	}
 	//AssertGE(iniValueReadFromFile, minValue);
 	//AssertLE(iniValueReadFromFile, maxValue);
 

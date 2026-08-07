@@ -238,6 +238,16 @@ target_include_directories(utils_text_state_model_tests
 add_test(NAME utils_text_state_model
   COMMAND utils_text_state_model_tests)
 
+# INI/property/XML persistence shares strict numeric parsing, transactional
+# publication, bounded destinations, escaping, and exact transfer rules.
+# Keep malformed-input and zero-capacity behavior data-free.
+add_executable(utils_data_boundary_model_tests
+  utils_data_boundary_model_tests.cpp)
+target_include_directories(utils_data_boundary_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Utils)
+add_test(NAME utils_data_boundary_model
+  COMMAND utils_data_boundary_model_tests)
+
 # Shared cinematic, music, and sound adapters own fixed slots, opaque callback
 # epochs, clipped frame geometry, PCM queue limits, and positional attenuation.
 # Keep their reusable boundary rules independently executable and data-free.

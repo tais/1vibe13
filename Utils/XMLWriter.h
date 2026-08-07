@@ -1,12 +1,14 @@
 #ifndef _XMLWRITER_H_
 #define _XMLWRITER_H_
 
+#include "DataBoundaryModel.h"
 #include "FileMan.h"
 #include <vfs/Core/Interface/vfs_file_interface.h>
 #include <vfs/Core/vfs_string.h>
 
 #include <stack>
 #include <string>
+#include <locale>
 #include <sstream>
 #include <vector>
 
@@ -26,26 +28,26 @@ public:
 	void addAttributeToNextValue(vfs::String const& attribute, ValueType const& value)
 	{
 		std::stringstream temp_buffer;
-		temp_buffer << value;
-		m_stNextValAttributes.push_back( attribute_type(attribute.utf8(),temp_buffer.str()) );
+		temp_buffer.imbue(std::locale::classic());
+		if (!(temp_buffer << value))
+		{
+			m_isValid = false;
+			return;
+		}
+		addEscapedAttribute(attribute, temp_buffer.str());
 	}
 
 	template<typename ValueType>
 	void addValue(vfs::String const& key, ValueType const& value)
 	{
-		std::string utf8key = key.utf8();
-		m_ssBuffer << indent() <<  "<" << utf8key;
-		insertAttributesIntoBuffer();
-		m_ssBuffer << ">" << value << "</" << utf8key << ">\n";
-	}
-
-	template<>
-	void addValue<std::string>(vfs::String const& key, std::string const& value)
-	{
-		std::string utf8key = key.utf8();
-		m_ssBuffer << indent() <<  "<" << utf8key;
-		insertAttributesIntoBuffer();
-		m_ssBuffer << ">" << handleSpecialCharacters(value) << "</" << utf8key << ">\n";
+		std::stringstream temp_buffer;
+		temp_buffer.imbue(std::locale::classic());
+		if (!(temp_buffer << value))
+		{
+			m_isValid = false;
+			return;
+		}
+		addEscapedValue(key, temp_buffer.str());
 	}
 
 	void		addValue(vfs::String const& key);
@@ -60,13 +62,18 @@ public:
 
 private:
 	std::string	indent();
-	std::string handleSpecialCharacters(std::string const& str);
+	void		addEscapedAttribute(vfs::String const& attribute,
+				std::string const& value);
+	void		addEscapedValue(vfs::String const& key,
+				std::string const& value);
 	void		insertAttributesIntoBuffer();
+	bool		isComplete() const;
 private:
 	std::stringstream				m_ssBuffer;
 	std::stack<std::string>			m_stOpenNodes;
 	std::vector<attribute_type>		m_stNextValAttributes;
 	int								m_iIndentLevel;
+	bool							m_isValid = true;
 };
 
 

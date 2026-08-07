@@ -4902,6 +4902,188 @@ foreach(utils_text_test_manifest IN ITEMS
   endif()
 endforeach()
 
+# INI and property XML are shared untrusted-data boundaries. Keep conversion,
+# bounded-copy, escaping, nesting, and exact-transfer rules dependency-free;
+# concrete VFS adapters stage complete overlays before publication.
+file(READ "${SOURCE_ROOT}/Utils/DataBoundaryModel.h"
+  runtime_utils_data_boundary_model_contents)
+foreach(required_utils_data_model_fragment IN ITEMS
+    "ParseInt64"
+    "ParseUInt64"
+    "ParseDouble"
+    "std::locale::classic()"
+    "ParseInt32List"
+    "ParseFloatList"
+    "CopyString"
+    "PublishTransactionally"
+    "class UnknownXmlSubtree"
+    "EscapeXml"
+    "SanitizeXmlComment"
+    "IsExactTransfer")
+  string(FIND "${runtime_utils_data_boundary_model_contents}"
+    "${required_utils_data_model_fragment}"
+    required_utils_data_model_position)
+  if(required_utils_data_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils data boundary model lost '${required_utils_data_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/INIReader.cpp"
+  runtime_utils_ini_reader_contents)
+file(READ "${SOURCE_ROOT}/Utils/INIReader.h"
+  runtime_utils_ini_reader_header_contents)
+foreach(required_utils_ini_fragment IN ITEMS
+    "PublishTransactionally(properties"
+    "LoadMergedIni(m_oProps, szFileName)"
+    "ParseInt64(text, parsed)"
+    "ParseUInt64(text, parsed)"
+    "ParseDouble(text, parsed)"
+    "ParseFloatList(text, staged)"
+    "ParseInt32List(text, staged)"
+    "vec.assign(1, 0)"
+    "CopyString(input_buffer, buffer_size, value)"
+    "m_legacyStringBuffer.data()")
+  string(FIND "${runtime_utils_ini_reader_contents}"
+    "${required_utils_ini_fragment}" required_utils_ini_position)
+  if(required_utils_ini_position EQUAL -1)
+    message(FATAL_ERROR
+      "INI reader data boundary lost '${required_utils_ini_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_utils_ini_reader_header_contents}"
+  "std::array<CHAR8, 255> m_legacyStringBuffer"
+  required_utils_ini_owned_compatibility_buffer)
+if(required_utils_ini_owned_compatibility_buffer EQUAL -1)
+  message(FATAL_ERROR
+    "INI legacy string compatibility storage is no longer reader-owned")
+endif()
+foreach(retired_utils_ini_fragment IN ITEMS
+    "std::stof("
+    "std::stoi("
+    "buffer_size-1"
+    "new char[255]"
+    "m_oProps.initFromIniFile")
+  string(FIND "${runtime_utils_ini_reader_contents}"
+    "${retired_utils_ini_fragment}" retired_utils_ini_position)
+  if(NOT retired_utils_ini_position EQUAL -1)
+    message(FATAL_ERROR
+      "INI reader restored unsafe '${retired_utils_ini_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/XMLProperties.cpp"
+  runtime_utils_xml_properties_contents)
+foreach(required_utils_xml_property_fragment IN ITEMS
+    "UnknownXmlSubtree unknown_subtree"
+    "unknown_subtree.active()"
+    "readRequiredAttribute"
+    "IsExactTransfer(size, bytesRead)"
+    "PropertyContainer staged(destination)"
+    "PropertyParserContext context(staged, tagmap)"
+    "context.document.complete()"
+    "destination = std::move(staged)")
+  string(FIND "${runtime_utils_xml_properties_contents}"
+    "${required_utils_xml_property_fragment}"
+    required_utils_xml_property_position)
+  if(required_utils_xml_property_position EQUAL -1)
+    message(FATAL_ERROR
+      "Property XML transactional boundary lost '${required_utils_xml_property_fragment}'")
+  endif()
+endforeach()
+foreach(retired_utils_xml_property_fragment IN ITEMS
+    "PropertyParserContext context(*this"
+    "rfile.release()"
+    "&buffer[0]")
+  string(FIND "${runtime_utils_xml_properties_contents}"
+    "${retired_utils_xml_property_fragment}"
+    retired_utils_xml_property_position)
+  if(NOT retired_utils_xml_property_position EQUAL -1)
+    message(FATAL_ERROR
+      "Property XML restored partial/manual state '${retired_utils_xml_property_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/XMLWriter.cpp"
+  runtime_utils_xml_writer_contents)
+file(READ "${SOURCE_ROOT}/Utils/XMLWriter.h"
+  runtime_utils_xml_writer_header_contents)
+foreach(required_utils_xml_writer_fragment IN ITEMS
+    "addEscapedAttribute(attribute, temp_buffer.str())"
+    "addEscapedValue(key, temp_buffer.str())"
+    "temp_buffer.imbue(std::locale::classic())"
+    "SanitizeXmlComment"
+    "EscapeXml(value, escaped)"
+    "if (!isComplete()) return false"
+    "if (!pFile || !isComplete()) return false"
+    "IsExactTransfer(requested, written)")
+  set(utils_xml_writer_combined
+    "${runtime_utils_xml_writer_header_contents}\n${runtime_utils_xml_writer_contents}")
+  string(FIND "${utils_xml_writer_combined}"
+    "${required_utils_xml_writer_fragment}"
+    required_utils_xml_writer_position)
+  if(required_utils_xml_writer_position EQUAL -1)
+    message(FATAL_ERROR
+      "XML writer integrity boundary lost '${required_utils_xml_writer_fragment}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "temp_buffer\\.imbue\\(std::locale::classic\\(\\)\\)"
+  utils_xml_writer_classic_numeric_streams
+  "${runtime_utils_xml_writer_header_contents}")
+list(LENGTH utils_xml_writer_classic_numeric_streams
+  utils_xml_writer_classic_numeric_stream_count)
+if(NOT utils_xml_writer_classic_numeric_stream_count EQUAL 2)
+  message(FATAL_ERROR
+    "Every XML writer numeric stream must use the classic locale")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/utils_data_boundary_model_tests.cpp"
+  runtime_utils_data_model_test_contents)
+foreach(required_utils_data_model_test_fragment IN ITEMS
+    "numeric conversion rejects trailing text, overflow, signs outside the domain, and non-finite values"
+    "floating conversion remains locale-independent after LC_NUMERIC changes"
+    "malformed and overflowing integer arrays leave prior state untouched"
+    "bounded INI strings reject zero-capacity and null destinations without writing"
+    "failed data loads leave the published state untouched"
+    "unknown property XML subtrees are skipped with balanced nesting depth"
+    "XML text and attribute payloads escape all reserved characters"
+    "file transfers succeed only when every requested byte is written")
+  string(FIND "${runtime_utils_data_model_test_contents}"
+    "${required_utils_data_model_test_fragment}"
+    required_utils_data_model_test_position)
+  if(required_utils_data_model_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils data boundary model tests lost '${required_utils_data_model_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_utils_data_headless_fragment IN ITEMS
+    "INI reader enforces null and zero-capacity strings, strict numbers, whole-list fallback, and owned compatibility text"
+    "INI merged loading reports found only after a profile contributes a valid file"
+    "property XML overlays atomically while ignoring balanced unknown subtrees"
+    "truncated property XML leaves the published overlay untouched"
+    "property XML missing required identifiers rolls back staged state"
+    "property XML writer escapes attribute identifiers and text for round-trip"
+    "XML writer numeric output stays locale-independent"
+    "failed XML writer close poisons the document before file truncation")
+  string(FIND "${runtime_utils_ui_headless_contents}"
+    "${required_utils_data_headless_fragment}"
+    required_utils_data_headless_position)
+  if(required_utils_data_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils property XML headless coverage lost '${required_utils_data_headless_fragment}'")
+  endif()
+endforeach()
+foreach(utils_data_test_manifest IN ITEMS
+    runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
+  string(FIND "${${utils_data_test_manifest}}"
+    "utils_data_boundary_model_tests" required_utils_data_test_position)
+  if(required_utils_data_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils data boundary model tests left the build or AddressSanitizer matrix")
+  endif()
+endforeach()
+
 # Shared media adapters keep callback incarnation, clipped frame geometry, PCM
 # narrowing, volume, and fixed-slot rules dependency-free. The concrete legacy
 # gateways must validate before touching arrays/opaque handles and release
@@ -5073,10 +5255,12 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "Text and localization safety batch"
     "Media lifecycle batch"
     "Encrypted text-record boundary"
+    "Data persistence foundation"
     "Remaining Utils inventory"
-    "following 17 translation units"
+    "following 14 translation units"
     "TextInfrastructureModel.h"
-    "MediaLifecycleModel.h")
+    "MediaLifecycleModel.h"
+    "DataBoundaryModel.h")
   string(FIND "${runtime_utils_walkthrough_contents}"
     "${required_utils_walkthrough_fragment}"
     required_utils_walkthrough_position)
