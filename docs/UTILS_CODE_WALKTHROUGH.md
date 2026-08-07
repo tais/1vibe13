@@ -1,14 +1,14 @@
 # Utils code walkthrough
 
-Status: active architectural refactor, 5 August 2026.
+Status: active architectural refactor, 7 August 2026.
 
 ## Scope and completion criteria
 
 `Utils` contains 36 production translation units used by every application
 host. This walkthrough tracks them explicitly so a successful local fix is not
-mistaken for completion of the directory-wide audit. Four coherent batches now
-cover shared interactive UI, text/localization, and media lifecycle
-infrastructure plus the encrypted text-record boundary. The tactical LBE popup
+mistaken for completion of the directory-wide audit. Five coherent batches now
+cover shared interactive UI, text/localization, media lifecycle, indexed XML
+infrastructure, and the encrypted text-record boundary. The tactical LBE popup
 XML loader is included because it is the persistence boundary for the
 popup-definition graph.
 
@@ -136,22 +136,41 @@ reserved characters, illegal controls/comments, and short transfers.
 overlay preservation, unknown-subtree compatibility, truncated and missing-
 attribute rollback, and escaped writer/reader round trips.
 
+## Indexed localization XML boundary
+
+| Owner | Faults found | Enforced state |
+| --- | --- | --- |
+| `XML_Language.cpp` | Parser mode and destination lived in process globals, records wrote directly into two live tables before the document completed, unchecked unsigned conversion admitted negative/partial/overflowing indices, exact-end indices reached fixed arrays, and UTF-8 conversion silently truncated oversized messages | Parser mode and destinations are per-load state; strict C-style unsigned indices and converted text capacity are validated; sparse records stage in document order; and metadata plus tactical messages publish only after complete parse success, with localized overlays changing text but not base metadata |
+| `XML_SenderNameList.cpp` | A process-global localization flag selected parser behavior, unchecked narrowing accepted invalid indices, names silently truncated, and each record mutated the live sender table before later syntax or content failures | Parser state is local; decimal indices and converted name capacity are checked; sparse and duplicate records stage in document order; and the sender table changes only after the whole document succeeds |
+
+`IndexedXmlModel.h` owns the dependency-free ASCII trimming, strict bounded
+numeric parsing, terminator-aware text-capacity checks, ordered staging, and
+explicit publication rules. Ordered staging intentionally preserves the legacy
+duplicate-last-wins result, while publishing only named indices preserves base
+tables beneath sparse localization overlays. Unknown XML subtrees, established
+resource paths and schemas, and localized missing-file success remain unchanged.
+
+Verification includes `utils_indexed_xml_model_tests` for 999/1000 and 499/500
+boundaries, negative/overflowing/partial numeric input, decimal and legacy
+C-style syntax, zero/exact text capacities, sparse records, duplicates, and
+publication timing. `platform_legacy_tests` exercises both production loaders
+through the real VFS/Expat adapter and proves malformed, exact-end, and
+oversized documents cannot partially replace live text or metadata. Both tests
+run in the normal and AddressSanitizer matrices.
+
 ## Remaining Utils inventory
 
-The following 14 translation units are compiled and covered by the general
+The following 12 translation units are compiled and covered by the general
 build/test matrix, but have not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
 - Input and runtime control: `Cursors.cpp`, `Event Pump.cpp`, `KeyMap.cpp`,
   `Timer Control.cpp`, `Utilities.cpp`, and `Win Util.cpp`.
-- Data and XML boundaries: `XML_Items.cpp`, `XML_Language.cpp`, and
-  `XML_SenderNameList.cpp`.
+- Data and XML boundaries: `XML_Items.cpp`.
 - Image and developer utilities: `Debug Control.cpp`, `MapUtility.cpp`,
   `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp`.
 
-The next Utils slice should cover the indexed localization loaders in
-`XML_Language.cpp` and `XML_SenderNameList.cpp`, followed by the larger staged
-`XML_Items.cpp` integration. Input/runtime control and the offline image tools
-follow.
+The next Utils slice should cover the larger staged `XML_Items.cpp`
+integration. Input/runtime control and the offline image tools follow.
 Existing file formats, resource paths, localization strings, callbacks, visual
 layout, and game behavior remain compatibility constraints throughout the audit.

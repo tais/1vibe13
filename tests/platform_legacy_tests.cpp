@@ -1982,15 +1982,155 @@ int main()
 		!ReadInHistorys("tables/required-history.xml", FALSE),
 		"localized Laptop XML preserves its established missing-file policy");
 
+	std::wcscpy(pSenderNameList[11], L"Sparse Sender");
+	std::wcscpy(pSenderNameList[12], L"Original Sender");
+	std::wcscpy(pSenderNameList[499], L"Edge Sender");
 	const std::string senderNamesXml =
-		"<SENDER_LIST><NAME><uiIndex>499</uiIndex>"
-		"<Name>Adapter Sender</Name></NAME></SENDER_LIST>";
+		"<SENDER_LIST>"
+		"<NAME><uiIndex>12</uiIndex><Name>First Sender</Name></NAME>"
+		"<NAME><IGNORED><uiIndex>500</uiIndex></IGNORED>"
+		"<uiIndex>499</uiIndex><Name>Adapter Sender</Name></NAME>"
+		"<NAME><uiIndex>12</uiIndex><Name>Last Sender</Name></NAME>"
+		"</SENDER_LIST>";
 	Check(storage.writeAll("tables/sender-names-probe.xml",
 			std::vector<std::uint8_t>(
 				senderNamesXml.begin(), senderNamesXml.end())) &&
 		ReadInSenderNameList("TABLES\\SENDER-NAMES-PROBE.XML", FALSE) &&
+		std::wcscmp(pSenderNameList[11], L"Sparse Sender") == 0 &&
+		std::wcscmp(pSenderNameList[12], L"Last Sender") == 0 &&
 		std::wcscmp(pSenderNameList[499], L"Adapter Sender") == 0,
-		"a shared Utils XML loader reads definitions through the bounded adapter");
+		"sender-name XML preserves sparse, duplicate-last-wins, unknown-tag, and index-499 behavior");
+
+	std::wcscpy(pSenderNameList[12], L"Sender Rollback");
+	const std::string senderExactEndXml =
+		"<SENDER_LIST>"
+		"<NAME><uiIndex>12</uiIndex><Name>Must Not Publish</Name></NAME>"
+		"<NAME><uiIndex>500</uiIndex><Name>Out Of Range</Name></NAME>"
+		"</SENDER_LIST>";
+	Check(storage.writeAll("tables/sender-names-exact-end.xml",
+			std::vector<std::uint8_t>(
+				senderExactEndXml.begin(), senderExactEndXml.end())) &&
+		!ReadInSenderNameList("TABLES\\SENDER-NAMES-EXACT-END.XML", FALSE) &&
+		std::wcscmp(pSenderNameList[12], L"Sender Rollback") == 0,
+		"sender-name XML rejects index 500 without publishing earlier records");
+
+	const std::string malformedSenderNamesXml =
+		"<SENDER_LIST><NAME><uiIndex>12</uiIndex>"
+		"<Name>Must Not Publish</Name></NAME><NAME>";
+	Check(storage.writeAll("tables/sender-names-malformed.xml",
+			std::vector<std::uint8_t>(malformedSenderNamesXml.begin(),
+				malformedSenderNamesXml.end())) &&
+		!ReadInSenderNameList("TABLES\\SENDER-NAMES-MALFORMED.XML", FALSE) &&
+		std::wcscmp(pSenderNameList[12], L"Sender Rollback") == 0,
+		"malformed sender-name XML preserves the complete live table");
+
+	const std::string invalidSenderIndexXml =
+		"<SENDER_LIST><NAME><uiIndex>-1</uiIndex>"
+		"<Name>Invalid</Name></NAME></SENDER_LIST>";
+	Check(storage.writeAll("tables/sender-names-negative.xml",
+			std::vector<std::uint8_t>(invalidSenderIndexXml.begin(),
+				invalidSenderIndexXml.end())) &&
+		!ReadInSenderNameList("TABLES\\SENDER-NAMES-NEGATIVE.XML", FALSE) &&
+		ReadInSenderNameList("tables/missing-localized-sender-names.xml", TRUE) &&
+		!ReadInSenderNameList("tables/missing-required-sender-names.xml", FALSE),
+		"sender-name XML rejects negative indices and preserves localized missing-file policy");
+	const std::string oversizedSenderText(MAX_SENDER_NAMES_CHARS, 's');
+	const std::string oversizedSenderXml =
+		"<SENDER_LIST><NAME><uiIndex>12</uiIndex><Name>" +
+		oversizedSenderText + "</Name></NAME></SENDER_LIST>";
+	Check(storage.writeAll("tables/sender-names-oversized.xml",
+			std::vector<std::uint8_t>(oversizedSenderXml.begin(),
+				oversizedSenderXml.end())) &&
+		!ReadInSenderNameList("TABLES\\SENDER-NAMES-OVERSIZED.XML", FALSE) &&
+		std::wcscmp(pSenderNameList[12], L"Sender Rollback") == 0,
+		"sender-name XML rejects oversized converted text without publication");
+
+	std::wcscpy(XMLTacticalMessages[998], L"Sparse Message");
+	std::wcscpy(XMLTacticalMessages[999], L"Edge Message");
+	zlanguageText[998].uiIndex = 37;
+	zlanguageText[999].uiIndex = 38;
+	const std::string languageXml =
+		"<MESSAGES>"
+		"<TEXT><uiIndex>7</uiIndex><Message>First Message</Message></TEXT>"
+		"<TEXT><IGNORED><uiIndex>1000</uiIndex></IGNORED>"
+		"<uiIndex>999</uiIndex><Message>Adapter Message</Message></TEXT>"
+		"<TEXT><uiIndex>7</uiIndex><Message>Last Message</Message></TEXT>"
+		"</MESSAGES>";
+	Check(storage.writeAll("tables/language-probe.xml",
+			std::vector<std::uint8_t>(languageXml.begin(), languageXml.end())) &&
+		ReadInLanguageLocation(
+			"TABLES\\LANGUAGE-PROBE.XML", FALSE, zlanguageText, 0) &&
+		std::wcscmp(XMLTacticalMessages[7], L"Last Message") == 0 &&
+		std::wcscmp(XMLTacticalMessages[998], L"Sparse Message") == 0 &&
+		std::wcscmp(XMLTacticalMessages[999], L"Adapter Message") == 0 &&
+		zlanguageText[998].uiIndex == 37 &&
+		zlanguageText[999].uiIndex == 999,
+		"language XML preserves sparse, duplicate-last-wins, unknown-tag, and index-999 behavior");
+
+	zlanguageText[999].uiIndex = 73;
+	const std::string localizedLanguageXml =
+		"<MESSAGES><TEXT><uiIndex>999</uiIndex>"
+		"<Message>Localized Message</Message></TEXT></MESSAGES>";
+	Check(storage.writeAll("tables/language-localized.xml",
+			std::vector<std::uint8_t>(localizedLanguageXml.begin(),
+				localizedLanguageXml.end())) &&
+		ReadInLanguageLocation(
+			"TABLES\\LANGUAGE-LOCALIZED.XML", TRUE, zlanguageText, 0) &&
+		std::wcscmp(XMLTacticalMessages[999], L"Localized Message") == 0 &&
+		zlanguageText[999].uiIndex == 73,
+		"localized language XML overlays text without replacing base metadata");
+
+	std::wcscpy(XMLTacticalMessages[7], L"Language Rollback");
+	zlanguageText[7].uiIndex = 74;
+	const std::string languageExactEndXml =
+		"<MESSAGES>"
+		"<TEXT><uiIndex>7</uiIndex><Message>Must Not Publish</Message></TEXT>"
+		"<TEXT><uiIndex>1000</uiIndex><Message>Out Of Range</Message></TEXT>"
+		"</MESSAGES>";
+	Check(storage.writeAll("tables/language-exact-end.xml",
+			std::vector<std::uint8_t>(languageExactEndXml.begin(),
+				languageExactEndXml.end())) &&
+		!ReadInLanguageLocation(
+			"TABLES\\LANGUAGE-EXACT-END.XML", FALSE, zlanguageText, 0) &&
+		std::wcscmp(XMLTacticalMessages[7], L"Language Rollback") == 0 &&
+		zlanguageText[7].uiIndex == 74,
+		"language XML rejects index 1000 without publishing earlier records");
+
+	const std::string malformedLanguageXml =
+		"<MESSAGES><TEXT><uiIndex>7</uiIndex>"
+		"<Message>Must Not Publish</Message></TEXT><TEXT>";
+	Check(storage.writeAll("tables/language-malformed.xml",
+			std::vector<std::uint8_t>(malformedLanguageXml.begin(),
+				malformedLanguageXml.end())) &&
+		!ReadInLanguageLocation(
+			"TABLES\\LANGUAGE-MALFORMED.XML", FALSE, zlanguageText, 0) &&
+		std::wcscmp(XMLTacticalMessages[7], L"Language Rollback") == 0 &&
+		zlanguageText[7].uiIndex == 74,
+		"malformed language XML preserves text and metadata atomically");
+
+	const std::string oversizedLanguageText(MAX_MESSAGE_NAMES_CHARS, 'x');
+	const std::string oversizedLanguageXml =
+		"<MESSAGES><TEXT><uiIndex>7</uiIndex><Message>" +
+		oversizedLanguageText + "</Message></TEXT></MESSAGES>";
+	const std::string overflowingLanguageIndexXml =
+		"<MESSAGES><TEXT><uiIndex>18446744073709551616</uiIndex>"
+		"<Message>Invalid</Message></TEXT></MESSAGES>";
+	Check(storage.writeAll("tables/language-oversized.xml",
+			std::vector<std::uint8_t>(oversizedLanguageXml.begin(),
+				oversizedLanguageXml.end())) &&
+		storage.writeAll("tables/language-overflow.xml",
+			std::vector<std::uint8_t>(overflowingLanguageIndexXml.begin(),
+				overflowingLanguageIndexXml.end())) &&
+		!ReadInLanguageLocation(
+			"TABLES\\LANGUAGE-OVERSIZED.XML", FALSE, zlanguageText, 0) &&
+		!ReadInLanguageLocation(
+			"TABLES\\LANGUAGE-OVERFLOW.XML", FALSE, zlanguageText, 0) &&
+		std::wcscmp(XMLTacticalMessages[7], L"Language Rollback") == 0 &&
+		ReadInLanguageLocation(
+			"tables/missing-localized-language.xml", TRUE, zlanguageText, 0) &&
+		!ReadInLanguageLocation(
+			"tables/missing-required-language.xml", FALSE, zlanguageText, 0),
+		"language XML validates text capacity, numeric overflow, and localized missing-file policy");
 
 	Check(storage.remove("adapter.bin") && !storage.exists("adapter.bin"),
 		"platform byte storage removal is idempotent and observable");
