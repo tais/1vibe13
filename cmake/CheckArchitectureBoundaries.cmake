@@ -5398,6 +5398,10 @@ file(READ "${SOURCE_ROOT}/Utils/ItemDataStagingModel.h"
 foreach(required_item_data_staging_model_fragment IN ITEMS
     "TryNarrow"
     "TryParseInteger"
+    "TryParseBoolean"
+    "TryParseFiniteFloat"
+    "TryParseClampedInteger"
+    "TryCopyUtf8"
     "class CharacterAccumulator"
     "StanceModifierFieldCount = 11"
     "ResolveStanceInheritance"
@@ -5406,10 +5410,11 @@ foreach(required_item_data_staging_model_fragment IN ITEMS
     "struct BasePublicationView"
     "class RequiredBaseLoadTransaction"
     "class OptionalLocalizedLoadTransaction"
+    "StagingFailed"
+    "RejectedStagingFailure"
     "stagedAuxiliary_ = liveAuxiliary"
     "itemSlots_"
     "stagedMaxItemsRead_ = std::max"
-    "RejectedStagingFailure"
     "std::is_nothrow_invocable_v<Publisher&"
     "std::is_same_v<std::invoke_result_t<Publisher&"
     "fail(Failure::MissingRequiredResource)"
@@ -5432,7 +5437,7 @@ foreach(forbidden_item_data_staging_model_fragment IN ITEMS
     forbidden_item_data_staging_model_position)
   if(NOT forbidden_item_data_staging_model_position EQUAL -1)
     message(FATAL_ERROR
-      "Item data staging model regained full-table copy '${forbidden_item_data_staging_model_fragment}'")
+      "Item data staging model regained the retired multi-table staging aggregate '${forbidden_item_data_staging_model_fragment}'")
   endif()
 endforeach()
 
@@ -5440,12 +5445,19 @@ file(READ "${SOURCE_ROOT}/tests/item_data_staging_model_tests.cpp"
   runtime_item_data_staging_model_test_contents)
 foreach(required_item_data_staging_model_test_fragment IN ITEMS
     "integer parsing rejects malformed and narrowing overflow"
+    "unsigned masks retain exact values above double precision and reject overflow"
+    "boolean parsing preserves signed nonzero semantics with full-token bounds"
+    "clamped integers apply schema limits in signed wide storage before narrowing"
+    "item floats are locale-independent finite full-token values in float range"
     "character accumulation reports truncation and preserves termination"
+    "UTF-8 conversion accepts an exact-fit UTF-16 destination"
+    "UTF-8 conversion rejects a one-unit overflow without partial output"
+    "invalid UTF-8 is rejected without changing destination text"
     "stance inheritance matches stand crouch prone legacy rules"
     "base staging retains only authored item records"
     "base publication borrows sparse authored records without copying them"
-    "base staging contains allocation and copy failures before C callback unwind"
     "localized staging remains patch-only during validation and publish"
+    "staging contains record and localized allocation/copy failures before C callback unwind"
     "base loads publish atomically and retain unspecified auxiliary values"
     "sparse unsorted and duplicate base indices use deterministic high-water rules"
     "base failures and truncated documents leave every live table unchanged"
@@ -5492,6 +5504,17 @@ foreach(required_item_xml_adapter_fragment IN ITEMS
     "baseLoad->resourceMissing()"
     "pData->curItem = INVTYPE{}"
     "pData->currentAuxiliary = {}"
+    "ItemCharacterDataCapacity"
+    "ParseItemBooleanValue"
+    "ParseItemFloatValue"
+    "ParseItemClampedIntegerValue"
+    "ParseLegacyItemPrice"
+    "ItemDataStagingModel::TryCopyUtf8"
+    "no C++ exception can unwind through the C parser frames"
+    "if (pData->failed) return"
+    "strcmp(name, \"Cigarette\" ) == 0 ||"
+    "const UINT16 attachment = ParseItemIntegerValue<UINT16>(pData)"
+    "strcmp(name, \"RemoteDetonator\")"
     "ItemDataStagingModel::ResolveStanceInheritance(modifiers)"
     "std::is_trivially_copyable_v<INVTYPE>"
     "std::numeric_limits<UINT32>::max()")
@@ -5503,8 +5526,17 @@ foreach(required_item_xml_adapter_fragment IN ITEMS
       "Items XML adapter lost '${required_item_xml_adapter_fragment}'")
   endif()
 endforeach()
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])(atol|atoi|atof|strtoul|MultiByteToWideChar)[ \t\r\n]*\\("
+  retired_item_xml_conversion "${runtime_item_xml_adapter_contents}")
+if(retired_item_xml_conversion)
+  message(FATAL_ERROR
+    "Items XML adapter restored a retired unchecked conversion '${retired_item_xml_conversion}'")
+endif()
 foreach(retired_item_xml_adapter_fragment IN ITEMS
     "BOOLEAN localizedTextOnly"
+    "MAX_CHAR_DATA_LENGTH"
+    "szCharData"
     "pData->curArray"
     "StoreInventory[pData->curItem.uiIndex]"
     "WeaponROF[pData->curItem.uiIndex]"
@@ -5545,7 +5577,14 @@ foreach(required_item_xml_headless_fragment IN ITEMS
     "empty localized item XML is a successful no-op"
     "malformed localized item XML rolls back every staged text patch"
     "item XML required base and optional localization missing-file policies preserve live tables"
-    "empty item base XML publishes a cleared Item table with preserved auxiliary values")
+    "empty item base XML publishes a cleared Item table with preserved auxiliary values"
+    "item XML parser preserves exact masks base-zero and signed booleans while clamping before narrowing"
+    "item XML canonical Cigarette tag and full default-attachment capacity load"
+    "item XML strict text scalar and late-field failures roll back every live table"
+    "item XML validates a default attachment after storage capacity is full"
+    "item XML parser state is invocation-local and floats ignore the process numeric locale"
+    "localized item text overflow rolls back while an empty overlay is a no-op"
+    "an explicitly requested installed Items.xml remains parser-compatible")
   string(FIND "${runtime_utils_ui_headless_contents}"
     "${required_item_xml_headless_fragment}"
     required_item_xml_headless_position)
@@ -5565,9 +5604,9 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "Data persistence foundation"
     "Indexed localization XML boundary"
     "Item XML staging model"
+    "authored nonzero-class item"
     "production reader through"
-    "production rollback for"
-    "invalid UTF"
+    "invalid UTF-8"
     "Remaining Utils inventory"
     "following 12 translation units"
     "TextInfrastructureModel.h"
@@ -5594,7 +5633,8 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "MediaLifecycleModel"
     "DataBoundaryModel"
     "encrypted text-record"
-    "accumulation and UTF conversion remain explicitly deferred"
+    "sparse authored nonzero-class records"
+    "invocation-local character buffer"
     "remaining 12 Utils")
   string(FIND "${runtime_engine_architecture_contents}"
     "${required_utils_architecture_fragment}"

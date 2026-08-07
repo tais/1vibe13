@@ -158,21 +158,24 @@ through the real VFS/Expat adapter and proves malformed, exact-end, and
 oversized documents cannot partially replace live text or metadata. Both tests
 run in the normal and AddressSanitizer matrices.
 
-## Item XML staging model and adapter — data/XML Slices 3–4 of 5
+## Item XML staging model and adapter — data/XML Slices 3–5
 
-`ItemDataStagingModel.h` defines the dependency-free transaction and the legacy
+`ItemDataStagingModel.h` defines the transaction and strict reader primitives,
+reusing the locale-independent data-boundary foundation, and the legacy
 `XML_Items.cpp` Expat adapter now consumes it for both required base files and
 optional localized overlays. Slice 3 established the bounded ownership and
-publication contract; Slice 4 moves the production reader behind that contract
+publication contract; Slice 4 moved the production reader behind that contract;
+the reader half of Slice 5 closes its scalar, UTF-8, and callback-state surface
 without changing resource paths or the XML schema:
 
 - `RequiredBaseLoadTransaction` owns only the authored nonzero-class item
   records, a compact index-to-slot table, and snapshots of the much smaller
   live `StoreInventory` and `WeaponROF` values. It does not preallocate a
   dynamic `MAXITEMS`-sized `INVTYPE` table beside the legacy static `Item[]`;
-  item storage grows only with authored nonzero-class records. At commit, the
-  no-fail publisher clears the complete live `Item[]` capacity and then applies
-  the sparse staged records. This matches the legacy reload rule: the
+  item storage grows only with authored nonzero-class records. The adapter
+  separately reuses one per-record `INVTYPE` parser candidate. At commit, the
+  no-fail publisher clears the complete live `Item[]` capacity and then
+  applies the sparse staged records. This matches the legacy reload rule: the
   `<ITEMLIST>` root clears `Item[]`, while an omitted `BR_NewInventory`,
   `BR_UsedInventory`, or `BR_ROF` field preserves its previous auxiliary value.
   Sparse record allocation and copy failures are contained inside `stage()` so
@@ -205,14 +208,16 @@ without changing resource paths or the XML schema:
   transaction types encode resource policy: `resourceMissing()` always fails a
   base load and always makes an optional localization load a successful no-op,
   so an adapter cannot pass the wrong runtime requirement.
-- The dependency-free model can represent missing indices, strict integer
-  parse/narrowing failures, over-capacity character data, malformed XML, and
-  truncated XML as transaction failures. The Slice 4 production adapter
-  currently wires missing indices, checked index/auxiliary numeric failures,
-  Expat parse failures, truncation, and localized overlay rejection into that
-  rollback contract. Its legacy fixed character accumulator can still truncate
-  text, and UTF conversion success is not yet checked; production rollback for
-  character overflow and invalid UTF is explicitly deferred to Slice 5.
+- Missing indices, strict integer parse/narrowing failures, over-capacity
+  character data, invalid UTF-8, malformed XML, and truncated XML poison the
+  transaction. Character callbacks append into one invocation-local buffer
+  sized for the largest text destination's worst-case UTF-8 representation;
+  conversion validates scalar sequences and the exact 79/399-code-unit payload
+  limits before changing a staged text array.
+  Localized string allocation and staging-copy failures become an explicit
+  `StagingFailed` transaction result. Every Expat callback is a no-throw C
+  boundary; after an unexpected failure, later callbacks perform only balanced
+  depth bookkeeping and never inspect partially updated parser state.
   Neither base nor localized state publishes until the complete document and
   every validation implemented at this boundary succeeds. The only mutating
   boundary is a prevalidated no-fail publisher. Publication is logically atomic
@@ -224,9 +229,27 @@ without changing resource paths or the XML schema:
 - The eleven stance modifier families share one stand-to-crouch-to-prone
   inheritance rule, including the legacy `-10000` unset sentinel and zero
   fallback.
+- All scalar tokens are complete and ASCII-trimmed. Ordinary integer fields are
+  decimal and narrow to their declared storage exactly. Only `usItemClass`,
+  `AttachmentClass`, `DrugType`, `FoodType`, `usActionItemFlag`, and
+  `clothestype` retain C-style hexadecimal/octal syntax. The four 64-bit
+  attachment masks are exact unsigned decimal values rather than floating-point
+  conversions; booleans retain signed nonzero semantics; and finite floats use
+  the classic locale and reject range loss or underflow-to-zero. Bounded fields
+  clamp in signed 64-bit storage before narrowing. One deliberately isolated
+  schema exception preserves the shipped table's established behavior:
+  `usPrice` accepts a complete nonnegative `UINT32` token and maps `70000` to its
+  legacy 16-bit value `4464`. The recognized `ItemFlag`, `fFlags`, `Detonator`,
+  and `RemoteDetonator` compatibility tags are explicit no-ops. The canonical
+  shipped `<Cigarette>` spelling is recognized, with lowercase `<cigarette>`
+  retained as a compatibility alias. Repeated `DefaultAttachment` values are
+  still parsed after all storage slots are full, so malformed excess input
+  poisons the transaction instead of disappearing silently.
 
 `item_data_staging_model_tests` covers chunked and over-capacity character
-callbacks, strict decimal/C-style integer bounds, signed narrowing, stance
+callbacks, split multibyte UTF-8, exact-fit UTF-16/UTF-32 output, invalid scalar
+sequences, strict decimal/C-style integer bounds, exact values above `2^53`,
+signed booleans, classic-locale finite floats, wide-before-narrow clamps, stance
 inheritance, sparse and unsorted inputs, duplicates, ignored exact-end indices,
 zero/default slots, auxiliary retention, required/optional resources,
 incomplete and truncated documents, destination-capacity changes,
@@ -248,21 +271,29 @@ after malformed XML, a missing index, auxiliary overflow, and malformed checked
 numeric input inside an out-of-range record; field-aware localized publication
 and rollback; valid localized BR/ROF tags ignored for publication; preserved
 auxiliary values; and the required-base/optional-localization missing-file
-policy. The base publisher derives the checked exclusive high-water value
-before its first fixed-array write, and both publishers have exact `void`,
-`noexcept` contracts. The harness rollback guard snapshots only nonzero live
-`INVTYPE` records, plus the compact complete auxiliary arrays, rather than
-allocating another unconditional full item table around every integration run.
+policy. Parser fixtures add
+exact-fit and one-unit-overflow text, invalid UTF-8, every scalar syntax class,
+integer width and trailing-token failures, `UINT64` overflow, negative unsigned
+input, signed booleans, locale-independent floats, clamp endpoints, explicit
+no-op tags, the canonical cigarette flag, full default-attachment capacity,
+validation of an excess attachment, sequential-load isolation, and rollback
+after a late field fails.
+Setting `JA2_TEST_INSTALLED_ITEMS_XML` makes the same test parse an installed
+table through the real VFS; the current 2,059,011-byte Data-1.13 table passes.
+The base publisher derives the checked exclusive high-water value before its
+first fixed-array write, and both publishers have exact `void`, `noexcept`
+contracts. The harness rollback guard snapshots only nonzero live `INVTYPE`
+records, plus the compact complete auxiliary arrays, rather than allocating
+another unconditional full item table around every integration run.
 The public `ReadInItemStats` BOOLEAN boundary is itself `noexcept`: setup,
 allocation, and failure-reporting exceptions reject the staged load. This is
 important during early startup and headless validation, where the live logger
 may not yet have been registered.
 
-Slice 5 will route production character accumulation and UTF conversion through
-checked staging, close the remaining `WriteItemStats` writer boundary, remove
-the remaining parser-mode surface, and verify escaping plus exact-write failure
-cleanup. Until that reader/writer completion slice lands, `XML_Items.cpp`
-remains in the remaining-audit inventory below.
+The remaining half of Slice 5 is only the `WriteItemStats` writer boundary:
+escaping, locale-independent serialization, and exact-write failure cleanup.
+Until that writer half lands, `XML_Items.cpp` remains in the remaining-audit
+inventory below.
 
 ## Remaining Utils inventory
 

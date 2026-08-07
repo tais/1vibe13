@@ -1234,25 +1234,38 @@ the engine must not contain SDL types in its public domain model.
   `ItemDataStagingModel` applies the same boundary to the high-fanout
   `Items.xml` reader without unconditionally allocating a second live-size item
   table: required base loads own only sparse authored nonzero-class records,
-  compact index-to-slot metadata, and auxiliary staging, so item working storage
-  follows authored content rather than compiled capacity. Allocation or
+  compact index-to-slot metadata, and auxiliary staging, so item working
+  storage follows authored content rather than compiled capacity. The adapter
+  separately reuses one per-record `INVTYPE` parser candidate. Allocation or
   record-copy failure is contained inside staging rather than unwinding through
-  an Expat C callback. Optional localization owns field-presence patches, and the
-  production adapter publishes only after the complete document passes its
-  Slice 4 structural, checked index/auxiliary numeric, and overlay validations;
-  base publication clears the complete live item capacity before applying the
-  sparse records. Valid out-of-range records are ignored before table access,
-  while malformed checked fields still poison the document. Duplicate payloads
-  use the last nonzero-class item, and authored auxiliary fields merge
-  independently. The public legacy loader is a `noexcept` BOOLEAN boundary, so
-  setup, allocation, or failure-reporting exceptions reject the transaction
-  even when early startup has not registered the live logger yet.
-  Real-VFS tests pin malformed rollback, missing indices, auxiliary overflow,
-  sparse/duplicate/unsorted and empty documents, exact-end indices, localized
-  partial overlays and ignored auxiliary publication, and
-  required-versus-optional missing resources. Checked production character
-  accumulation and UTF conversion remain explicitly deferred to the final
-  Items reader/writer slice.
+  an Expat C callback. Optional localization owns field-presence patches, and
+  the production Expat adapter publishes only after the complete document
+  passes its structural, checked index/auxiliary numeric, text, scalar, and
+  overlay validations. Base
+  publication clears the complete live item capacity before applying the sparse
+  records. Valid out-of-range records are ignored before table access, while
+  malformed checked fields still poison the document. Duplicate payloads use
+  the last
+  nonzero-class item, and authored auxiliary fields merge independently. Its
+  invocation-local character buffer covers the largest destination's worst-case
+  UTF-8, strict decoding rejects invalid or over-capacity text, and every scalar
+  is a complete locale-independent token with schema-specific decimal,
+  C-style, exact-`UINT64`, signed-boolean, finite-float, or wide-clamp semantics.
+  String allocation and staging-copy failures are contained inside the Expat C
+  callback boundary and reject the transaction before publication; later
+  callbacks only balance document depth without revisiting failed parser state.
+  The shipped `usPrice=70000` modulo result is the single documented narrowing
+  compatibility rule. The reader accepts the shipped canonical `<Cigarette>`
+  spelling plus its lowercase compatibility alias, and validates excess
+  `DefaultAttachment` tokens even after every storage slot is occupied.
+  The public legacy loader is a `noexcept` BOOLEAN boundary, so setup,
+  allocation, or failure-reporting exceptions reject the transaction even when
+  early startup has not registered the live logger yet.
+  Real-VFS tests pin malformed and late-field rollback, missing indices,
+  auxiliary overflow, malformed checked fields at ignored indices, UTF-8 and
+  scalar boundaries, parser-state isolation, sparse/duplicate/unsorted and
+  empty documents, exact-end indices, localized partial overlays and ignored
+  auxiliary publication, and required-versus-optional missing resources.
   The remaining 12 Utils
   translation units are deliberately still tracked as unaudited; the detailed
   findings, inventory, and next priority order live in
