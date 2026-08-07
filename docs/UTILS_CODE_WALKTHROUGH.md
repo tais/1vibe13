@@ -158,6 +158,58 @@ through the real VFS/Expat adapter and proves malformed, exact-end, and
 oversized documents cannot partially replace live text or metadata. Both tests
 run in the normal and AddressSanitizer matrices.
 
+## Item XML staging model — data/XML Slice 3 of 5
+
+`ItemDataStagingModel.h` now defines the dependency-free transaction that the
+legacy `XML_Items.cpp` Expat adapter will consume in Slices 4 and 5. This slice
+does not switch the production parser or alter an XML schema. It makes the
+publication contract executable before the high-fanout `INVTYPE` adapter is
+moved:
+
+- A required base load starts with a fresh default item table, but snapshots
+  the live `StoreInventory` and `WeaponROF` values. This matches the legacy
+  reload rule: the `<ITEMLIST>` root clears `Item[]`, while an omitted
+  `BR_NewInventory`, `BR_UsedInventory`, or `BR_ROF` field preserves its
+  previous auxiliary value.
+- Base records may be sparse and duplicate item records remain
+  last-record-wins; independently authored auxiliary fields update only their
+  own value, exactly as the legacy callbacks did.
+  Records at or above the compiled capacity are ignored before access, as they
+  were by the legacy adapter. `maxItemsRead` is the exclusive high-water mark
+  of every accepted nonzero-class record, rather than the last record in file
+  order; this intentionally hardens valid unsorted mod files.
+- A localized load owns field-presence patches. It changes only authored text,
+  never clears an omitted field, auxiliary table, or loaded-item bound, and a
+  duplicate index replaces the earlier whole patch. This removes the accidental
+  dependency on text left in the previous parser record. A missing optional
+  localization file is a successful no-op; a missing required base file fails.
+- Missing indices, strict integer parse/narrowing failures, over-capacity
+  character data, malformed XML, and truncated XML poison the transaction.
+  Neither base nor localized state publishes until the complete document and
+  every overlay application succeeds. Publication swaps a fully prepared
+  snapshot, so all failure paths retain every live table.
+- The eleven stance modifier families share one stand-to-crouch-to-prone
+  inheritance rule, including the legacy `-10000` unset sentinel and zero
+  fallback.
+
+`item_data_staging_model_tests` covers chunked and over-capacity character
+callbacks, strict decimal/C-style integer bounds, signed narrowing, stance
+inheritance, sparse and unsorted inputs, duplicates, ignored exact-end indices,
+zero/default slots, auxiliary retention, required/optional resources,
+incomplete and truncated documents, destination-capacity changes,
+presence-aware localization, and rollback after a late overlay rejection. The
+target runs in normal CTest and the Linux AddressSanitizer matrix. Architecture
+ratchets keep the model API, compatibility cases, documentation, and both test
+manifests present.
+
+Slice 4 will adapt base and localized `Items.xml` callbacks to these typed
+transactions, track field presence per `<ITEM>`, resolve stances before staging,
+and copy the successful snapshot into `Item[]`, `StoreInventory`, `WeaponROF`,
+and `gMAXITEMS_READ` in one startup-only publish step. Slice 5 will close the
+remaining auxiliary/writer boundary, remove parser-mode and destination
+globals, and verify escaping plus exact-write failure cleanup. Until those
+slices land, `XML_Items.cpp` remains in the remaining-audit inventory below.
+
 ## Remaining Utils inventory
 
 The following 12 translation units are compiled and covered by the general

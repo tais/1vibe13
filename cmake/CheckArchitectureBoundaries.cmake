@@ -5390,6 +5390,63 @@ foreach(utils_media_test_manifest IN ITEMS
   endif()
 endforeach()
 
+# Items.xml needs one executable publication contract before the legacy Expat
+# callback can be migrated safely. Keep the model independent from INVTYPE and
+# preserve its compatibility decisions in focused tests and the ASan matrix.
+file(READ "${SOURCE_ROOT}/Utils/ItemDataStagingModel.h"
+  runtime_item_data_staging_model_contents)
+foreach(required_item_data_staging_model_fragment IN ITEMS
+    "TryNarrow"
+    "TryParseInteger"
+    "class CharacterAccumulator"
+    "StanceModifierFieldCount = 11"
+    "ResolveStanceInheritance"
+    "class BaseLoadTransaction"
+    "class LocalizedLoadTransaction"
+    "staged_.storeInventory = liveTables.storeInventory"
+    "staged_.weaponRateOfFire = liveTables.weaponRateOfFire"
+    "staged_.maxItemsRead = std::max"
+    "state_ = Detail::TransactionState::MissingOptional")
+  string(FIND "${runtime_item_data_staging_model_contents}"
+    "${required_item_data_staging_model_fragment}"
+    required_item_data_staging_model_position)
+  if(required_item_data_staging_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Item data staging model lost '${required_item_data_staging_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/tests/item_data_staging_model_tests.cpp"
+  runtime_item_data_staging_model_test_contents)
+foreach(required_item_data_staging_model_test_fragment IN ITEMS
+    "integer parsing rejects malformed and narrowing overflow"
+    "character accumulation reports truncation and preserves termination"
+    "stance inheritance matches stand crouch prone legacy rules"
+    "base loads publish atomically and retain unspecified auxiliary values"
+    "sparse unsorted and duplicate base indices use deterministic high-water rules"
+    "base failures and truncated documents leave every live table unchanged"
+    "zero-capacity base tables reject records before access"
+    "missing optional localized resources succeed without mutation"
+    "localized overlays publish only fields actually present"
+    "localized overlay application failure rolls back every field")
+  string(FIND "${runtime_item_data_staging_model_test_contents}"
+    "${required_item_data_staging_model_test_fragment}"
+    required_item_data_staging_model_test_position)
+  if(required_item_data_staging_model_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Item data staging model tests lost '${required_item_data_staging_model_test_fragment}'")
+  endif()
+endforeach()
+foreach(item_data_staging_test_manifest IN ITEMS
+    runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
+  string(FIND "${${item_data_staging_test_manifest}}"
+    "item_data_staging_model_tests" required_item_data_staging_test_position)
+  if(required_item_data_staging_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Item data staging tests left the build or AddressSanitizer matrix")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
   runtime_utils_walkthrough_contents)
 foreach(required_utils_walkthrough_fragment IN ITEMS
@@ -5399,12 +5456,14 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "Encrypted text-record boundary"
     "Data persistence foundation"
     "Indexed localization XML boundary"
+    "Item XML staging model"
     "Remaining Utils inventory"
     "following 12 translation units"
     "TextInfrastructureModel.h"
     "IndexedXmlModel.h"
     "MediaLifecycleModel.h"
-    "DataBoundaryModel.h")
+    "DataBoundaryModel.h"
+    "ItemDataStagingModel.h")
   string(FIND "${runtime_utils_walkthrough_contents}"
     "${required_utils_walkthrough_fragment}"
     required_utils_walkthrough_position)
