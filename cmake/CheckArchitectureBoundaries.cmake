@@ -4790,6 +4790,108 @@ foreach(required_utils_text_platform_fragment IN ITEMS
       "Utils text platform coverage lost '${required_utils_text_platform_fragment}'")
   endif()
 endforeach()
+
+# Character-panel formatting runs immediately after the initial Laptop exit.
+# Its destinations are small local arrays, so an invented pointer-style count
+# corrupts the caller's stack when sgp_vswprintf enforces termination at the
+# requested boundary. Keep those calls tied to their real array extents.
+file(READ "${SOURCE_ROOT}/Strategic/mapscreen.cpp"
+  runtime_utils_text_mapscreen_contents)
+string(FIND "${runtime_utils_text_mapscreen_contents}"
+  "void DrawPay(INT16 sCharNumber)" mapscreen_character_panel_start)
+string(FIND "${runtime_utils_text_mapscreen_contents}"
+  "// this character is in transit has an item picked up"
+  mapscreen_character_panel_end)
+if(mapscreen_character_panel_start EQUAL -1 OR
+   mapscreen_character_panel_end EQUAL -1 OR
+   mapscreen_character_panel_end LESS mapscreen_character_panel_start)
+  message(FATAL_ERROR
+    "Map-screen character-panel formatting boundary could not be inspected")
+endif()
+math(EXPR mapscreen_character_panel_length
+  "${mapscreen_character_panel_end} - ${mapscreen_character_panel_start}")
+string(SUBSTRING "${runtime_utils_text_mapscreen_contents}"
+  ${mapscreen_character_panel_start} ${mapscreen_character_panel_length}
+  mapscreen_character_panel_contents)
+string(REGEX MATCH
+  "sgp_swprintf\\([ \t]*sString[ \t]*,[ \t]*[0-9]+[ \t]*,"
+  mapscreen_character_panel_literal_capacity
+  "${mapscreen_character_panel_contents}")
+if(mapscreen_character_panel_literal_capacity)
+  message(FATAL_ERROR
+    "Map-screen character-panel formatting must derive local array capacities")
+endif()
+string(FIND "${mapscreen_character_panel_contents}"
+  "std::size(sString)" mapscreen_character_panel_derived_capacity)
+if(mapscreen_character_panel_derived_capacity EQUAL -1)
+  message(FATAL_ERROR
+    "Map-screen character-panel formatting lost extent-derived bounds")
+endif()
+
+# The ETA helpers format through pointer parameters, so their capacity cannot
+# be recovered inside the callee. In particular, DrawCharacterInfo owns an
+# 80-element destination; claiming 128 elements makes the forced terminator
+# overwrite DisplayCharacterInfo's saved x22 register on macOS/arm64.
+foreach(required_mapscreen_time_capacity_fragment IN ITEMS
+    "ConvertMinTimeToETADayHourMinString( pSoldier->deployment().arrivalTime(), sString, std::size(sString) )"
+    "ConvertMinTimeToETADayHourMinString( uiArrivalTime, sString, std::size(sString) )"
+    "void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString, std::size_t capacity )"
+    "sgp_swprintf( sString, capacity, L\"%02d:%02d\""
+    "ConvertMinTimeToDayHourMinString( uiTimeInMin, timestring, std::size(timestring) )"
+    "void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString, std::size_t capacity )"
+    "sgp_swprintf( sString, capacity, L\"%s %s\"")
+  string(FIND "${runtime_utils_text_mapscreen_contents}"
+    "${required_mapscreen_time_capacity_fragment}"
+    required_mapscreen_time_capacity_position)
+  if(required_mapscreen_time_capacity_position EQUAL -1)
+    message(FATAL_ERROR
+      "Map-screen time formatting lost explicit capacity '${required_mapscreen_time_capacity_fragment}'")
+  endif()
+endforeach()
+foreach(retired_mapscreen_time_capacity_fragment IN ITEMS
+    "sgp_swprintf( sString, 64,"
+    "sgp_swprintf( sString, 128,")
+  string(FIND "${runtime_utils_text_mapscreen_contents}"
+    "${retired_mapscreen_time_capacity_fragment}"
+    retired_mapscreen_time_capacity_position)
+  if(NOT retired_mapscreen_time_capacity_position EQUAL -1)
+    message(FATAL_ERROR
+      "Map-screen time formatting restored invented capacity '${retired_mapscreen_time_capacity_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface Map.cpp"
+  runtime_utils_text_map_interface_contents)
+string(FIND "${runtime_utils_text_map_interface_contents}"
+  "ConvertMinTimeToDayHourMinString( uiArrivalTime, timestring, std::size(timestring) )"
+  mapscreen_map_interface_derived_time_capacity)
+if(mapscreen_map_interface_derived_time_capacity EQUAL -1)
+  message(FATAL_ERROR
+    "Map-screen militia ETA formatting lost its array-derived capacity")
+endif()
+
+# Rebel Command had the same pointer-style 500-element assumption on local
+# arrays ranging from 100 to 400 elements. The one pointer-buffer formatter is
+# above this marker; local buffers below it must always derive their capacity.
+file(READ "${SOURCE_ROOT}/Strategic/Rebel Command.cpp"
+  runtime_utils_text_rebel_command_contents)
+string(FIND "${runtime_utils_text_rebel_command_contents}"
+  "void ImproveDirective(const RebelCommandDirectives directive)"
+  rebel_command_local_format_start)
+if(rebel_command_local_format_start EQUAL -1)
+  message(FATAL_ERROR
+    "Rebel Command local-formatting boundary could not be inspected")
+endif()
+string(SUBSTRING "${runtime_utils_text_rebel_command_contents}"
+  ${rebel_command_local_format_start} -1 rebel_command_local_format_contents)
+string(REGEX MATCH
+  "sgp_swprintf\\([ \t]*text[ \t]*,[ \t]*[0-9]+[ \t]*,"
+  rebel_command_local_literal_capacity
+  "${rebel_command_local_format_contents}")
+if(rebel_command_local_literal_capacity)
+  message(FATAL_ERROR
+    "Rebel Command local formatting must not use invented literal capacities")
+endif()
 foreach(utils_text_test_manifest IN ITEMS
     runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
   string(FIND "${${utils_text_test_manifest}}"

@@ -7,6 +7,7 @@
 #include "Overhead Types.h"
 #include "Strategic Path Types.h"
 
+#include <cstddef>
 #include <vector>
 
 class TacticalActor;
@@ -230,8 +231,8 @@ BOOLEAN GetLastMilitiaGroupInSector( INT16 sMapX, INT16 sMapY, UINT8& arId );
 
 BOOLEAN CanGiveStrategicMilitiaMoveOrder( INT16 sMapX, INT16 sMapY );
 
-void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString );
-void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString );
+void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString, std::size_t capacity );
+void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString, std::size_t capacity );
 
 // Flugente: bandaging during retreat
 void RetreatBandageCallback( UINT8 ubResult );

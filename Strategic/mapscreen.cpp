@@ -16,6 +16,7 @@
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include <stdarg.h>
+	#include <iterator>
 	#include "gameloop.h"
 	#include "sgp.h"
 	#include "vobject.h"
@@ -2355,7 +2356,7 @@ void DrawPay(INT16 sCharNumber)
 	SetFontBackground( FONT_BLACK );
 
 	// parse salary
-	sgp_swprintf( sString, 32,L"%d", uiSalary );
+	sgp_swprintf( sString, std::size(sString),L"%d", uiSalary );
 
 	// right justify salary
 	const auto x = UI_CHARPANEL.Text.Pay.x;
@@ -2450,7 +2451,7 @@ void DrawCharStats( INT16 sCharNum )
 	SetFontBackground(FONT_BLACK);
 
 	// strength
-	sgp_swprintf( sString, 32,L"%d", pSoldier->statistics().strength() + pSoldier->condition().extraStrength() );
+	sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->statistics().strength() + pSoldier->condition().extraStrength() );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if ( ( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] > 0 )) || ( UsingFoodSystem() && pSoldier->condition().starvationStrengthDamage() > 0) )
@@ -2488,7 +2489,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.STR.iY,CHAR_FONT );
 
 	// dexterity
-	sgp_swprintf( sString, 32,L"%d", pSoldier->statistics().dexterity() + pSoldier->condition().extraDexterity() );
+	sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->statistics().dexterity() + pSoldier->condition().extraDexterity() );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] > 0 ))
@@ -2526,7 +2527,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.DEX.iY,CHAR_FONT );
 
 	// agility
-	sgp_swprintf( sString, 32,L"%d", pSoldier->statistics().agility() + pSoldier->condition().extraAgility() );
+	sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->statistics().agility() + pSoldier->condition().extraAgility() );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] > 0 ))
@@ -2564,7 +2565,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.AGL.iY,CHAR_FONT );
 
 	// wisdom
-	sgp_swprintf( sString, 32,L"%d", pSoldier->statistics().wisdom() + pSoldier->condition().extraWisdom() );
+	sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->statistics().wisdom() + pSoldier->condition().extraWisdom() );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] > 0 ))
@@ -2602,7 +2603,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.WIS.iY,CHAR_FONT );
 
 	// leadership
-	sgp_swprintf( sString, 32,L"%d", pSoldier->statistics().leadership() );
+	sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->statistics().leadership() );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_LEADERSHIP] > 0 ))
@@ -2636,7 +2637,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.LDR.iY,CHAR_FONT );
 
 	// experience level
-	sgp_swprintf( sString, 32,L"%d", pSoldier->statistics().experienceLevel() + pSoldier->condition().extraExperienceLevel() );
+	sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->statistics().experienceLevel() + pSoldier->condition().extraExperienceLevel() );
 
 	if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Level, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
@@ -2669,7 +2670,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.LVL.iY,CHAR_FONT );
 
 	// marksmanship
-	sgp_swprintf( sString, 32,L"%d", pSoldier->statistics().marksmanship() );
+	sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->statistics().marksmanship() );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MARKSMANSHIP] > 0 ))
@@ -2703,7 +2704,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.MRK.iY,CHAR_FONT );
 
 	// mechanical
-	sgp_swprintf( sString, 32,L"%d", pSoldier->statistics().mechanical() );
+	sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->statistics().mechanical() );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MECHANICAL] > 0 ))
@@ -2737,7 +2738,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.MEC.iY,CHAR_FONT );
 	
 	// explosives
-	sgp_swprintf( sString, 32,L"%d", pSoldier->statistics().explosives() );
+	sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->statistics().explosives() );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_EXPLOSIVES] > 0 ))
@@ -2771,7 +2772,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.EXP.iY,CHAR_FONT );
 
 	// medical
-	sgp_swprintf( sString, 32,L"%d", pSoldier->statistics().medical() );
+	sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->statistics().medical() );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] > 0 ))
@@ -2827,7 +2828,7 @@ void DrawCharHealth( INT16 sCharNum )
 	if( pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND )
 	{
 		// find starting X coordinate by centering all 3 substrings together, then print them separately (different colors)!
-		sgp_swprintf( sString, 32,L"%d/%d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
+		sgp_swprintf( sString, std::size(sString),L"%d/%d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 		FindFontCenterCoordinates(x, y, width, height, sString, CHAR_FONT, &usX, &usY);
 
 
@@ -2861,7 +2862,7 @@ void DrawCharHealth( INT16 sCharNum )
 		}
 
 		// current life
-		sgp_swprintf( sString, 32,L"%d", pSoldier->vitals().health() );
+		sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->vitals().health() );
 		DrawString( sString, usX, y, CHAR_FONT );
 		usX += StringPixLength( sString, CHAR_FONT );
 
@@ -2893,14 +2894,14 @@ void DrawCharHealth( INT16 sCharNum )
 		}
 
 		// maximum life
-		sgp_swprintf( sString, 32,L"%d", pSoldier->vitals().maximumHealth() );
+		sgp_swprintf( sString, std::size(sString),L"%d", pSoldier->vitals().maximumHealth() );
 		DrawString( sString, usX, y, CHAR_FONT );
 	}
 	else
 	{
 		// POW - health unknown
 		SetFontForeground(CHAR_TEXT_FONT_COLOR);
-		sgp_swprintf( sString, 32,pPOWStrings[ 1 ] );
+		sgp_swprintf( sString, std::size(sString),pPOWStrings[ 1 ] );
 		FindFontCenterCoordinates(x, y, width, height, sString, CHAR_FONT, &usX, &usY);
 		DrawString(sString, usX, y, CHAR_FONT);
 	}
@@ -2990,7 +2991,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	}
 		else
 		{
-		sgp_swprintf(sString, 32,L"%s%s", GetRankTitle(pSoldier->statistics().experienceLevel()), gMercProfiles[usMercProfileID].zName);
+		sgp_swprintf(sString, std::size(sString),L"%s%s", GetRankTitle(pSoldier->statistics().experienceLevel()), gMercProfiles[usMercProfileID].zName);
 		}
  	}
 
@@ -3009,7 +3010,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	else
 	{
 		if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->assignment().current() < min(ON_DUTY, gSquadNameVector.size()) )
-			sgp_swprintf( sString, 32,L"%s", gSquadNameVector[pSoldier->assignment().current()].c_str() );
+			sgp_swprintf( sString, std::size(sString),L"%s", gSquadNameVector[pSoldier->assignment().current()].c_str() );
 		else
 			wcscpy( sString, pAssignmentStrings[ pSoldier->assignment().current() ] );
 	}
@@ -3075,14 +3076,14 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	else if( pSoldier->assignment().current() == IN_TRANSIT )
 	{
 		// show ETA
-		ConvertMinTimeToETADayHourMinString( pSoldier->deployment().arrivalTime(), sString );
+		ConvertMinTimeToETADayHourMinString( pSoldier->deployment().arrivalTime(), sString, std::size(sString) );
 	}
 	// traveling ?
 	else if ( PlayerIDGroupInMotion( GetSoldierGroupId( pSoldier ) ) )
 	{
 		// show ETA
 		uiArrivalTime = GetWorldTotalMin( ) + CalculateTravelTimeOfGroupId( GetSoldierGroupId( pSoldier ) );
-		ConvertMinTimeToETADayHourMinString( uiArrivalTime, sString );
+		ConvertMinTimeToETADayHourMinString( uiArrivalTime, sString, std::size(sString) );
 	}
 	else
 	{
@@ -3121,7 +3122,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	// dead?
 	if( pSoldier->vitals().health() <= 0 )
 	{
-		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
+		sgp_swprintf( sString, std::size(sString),L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}
 	// what kind of merc
 	else if(pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ||
@@ -3156,7 +3157,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 				SetFontForeground(FONT_LTGREEN);
 			}
 
-			sgp_swprintf(sString, 32,L"%.1f%s/%d%s", dTimeLeft, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], pSoldier->employment().totalLength(), gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
+			sgp_swprintf(sString, std::size(sString),L"%.1f%s/%d%s", dTimeLeft, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], pSoldier->employment().totalLength(), gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
 		}
 		else
 		{
@@ -3183,18 +3184,18 @@ void DrawCharacterInfo(INT16 sCharNumber)
 				SetFontForeground(FONT_RED);
 			}
 
-		sgp_swprintf(sString, 32,L"%d%s/%d%s",iTimeRemaining, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ], pSoldier->employment().totalLength(), gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
+		sgp_swprintf(sString, std::size(sString),L"%d%s/%d%s",iTimeRemaining, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ], pSoldier->employment().totalLength(), gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
 		}
 	}
 	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 	{
 		INT32 iBeenHiredFor = ( GetWorldTotalMin( ) / NUM_MIN_IN_DAY ) - pSoldier->employment().startTime();
 
-		sgp_swprintf(sString, 32,L"%d%s/%d%s",gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], iBeenHiredFor, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
+		sgp_swprintf(sString, std::size(sString),L"%d%s/%d%s",gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], iBeenHiredFor, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
 	}
 	else
 	{
-		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
+		sgp_swprintf( sString, std::size(sString),L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}
 
 
@@ -3262,7 +3263,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 
 /*
 	// life insurance
-	sgp_swprintf(sString, 32,L"%d",
+	sgp_swprintf(sString, std::size(sString),L"%d",
 		GetJa2SoldierRepository().record(
 			gCharactersList[ sCharNumber ].usSolID ).usLifeInsuranceAmount );
 	InsertCommasForDollarFigure( sString );
@@ -3286,7 +3287,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	else
 	{
 		// POW - morale unknown
-		sgp_swprintf( sString, 32,pPOWStrings[ 1 ] );
+		sgp_swprintf( sString, std::size(sString),pPOWStrings[ 1 ] );
 	}
 
 	{
@@ -16021,7 +16022,7 @@ void CancelPathsOfAllSelectedCharacters()
 }
 
 
-void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString )
+void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString, std::size_t capacity )
 {
 	UINT32 uiDay, uiHour, uiMin;
 
@@ -16032,15 +16033,15 @@ void ConvertMinTimeToDayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString )
 	// there ain't enough room to show both the day and ETA: and without ETA it's confused as the current time
 	//	sgp_swprintf( sString, 32,L"%s %s %d, %02d:%02d", pEtaString[ 0 ], pDayStrings[ 0 ], uiDay, uiHour, uiMin );
 	//	sgp_swprintf( sString, 32,L"%s %d, %02d:%02d", pDayStrings[ 0 ], uiDay, uiHour, uiMin );
-	sgp_swprintf( sString, 64, L"%02d:%02d", uiHour, uiMin );
+	sgp_swprintf( sString, capacity, L"%02d:%02d", uiHour, uiMin );
 }
 
-void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString )
+void ConvertMinTimeToETADayHourMinString( UINT32 uiTimeInMin, CHAR16 *sString, std::size_t capacity )
 {
 	CHAR16 timestring[64];
-	ConvertMinTimeToDayHourMinString( uiTimeInMin, timestring );
+	ConvertMinTimeToDayHourMinString( uiTimeInMin, timestring, std::size(timestring) );
 
-	sgp_swprintf( sString, 128, L"%s %s", pEtaString[0], timestring );
+	sgp_swprintf( sString, capacity, L"%s %s", pEtaString[0], timestring );
 }
 
 
