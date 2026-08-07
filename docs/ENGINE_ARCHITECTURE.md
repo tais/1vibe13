@@ -1230,8 +1230,23 @@ the engine must not contain SDL types in its public domain model.
   language and sender-name XML loaders strict bounded indices,
   terminator-aware text capacities, ordered sparse staging, and explicit
   publication. The loaders retain duplicate-last-wins and localization-overlay
-  semantics without exposing partial tables after malformed input. The
-  remaining 12 Utils
+  semantics without exposing partial tables after malformed input.
+  `ItemDataStagingModel` applies the same boundary to the high-fanout
+  `Items.xml` reader without allocating a second live-size item table: required
+  base loads own one reusable item candidate plus compact auxiliary staging,
+  optional localization owns field-presence patches, and the production Expat
+  adapter publishes only after the complete document passes its Slice 4
+  structural, checked index/auxiliary numeric, and overlay validations. Valid
+  out-of-range records are ignored before table access, while malformed checked
+  fields still poison the document. Duplicate payloads use the last
+  nonzero-class item, and authored auxiliary fields merge independently.
+  Real-VFS tests pin malformed rollback, missing indices, auxiliary overflow,
+  sparse/duplicate/unsorted and empty documents, exact-end indices, localized
+  partial overlays and ignored auxiliary publication, and
+  required-versus-optional missing resources. Checked production character
+  accumulation and UTF conversion remain explicitly deferred to the final
+  Items reader/writer slice.
+  The remaining 12 Utils
   translation units are deliberately still tracked as unaudited; the detailed
   findings, inventory, and next priority order live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,

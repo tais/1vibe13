@@ -1,4 +1,15 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include "ItemDataStagingModel.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <optional>
+#include <string>
+#include <type_traits>
+#include <utility>
 
 	#include "sgp.h"
 	#include "Overhead Types.h"
@@ -40,22 +51,106 @@
 // Flugente: in order not to loop over MAXITEMS items if we only have a few thousand, remember the actual number of items in the xml
 UINT32 gMAXITEMS_READ = 0;
 
-struct
+using ItemText = std::basic_string<CHAR16>;
+
+struct itemLocalizedTextPatch
 {
-	PARSE_STAGE	curElement;
+	std::optional<ItemText> itemName;
+	std::optional<ItemText> longItemName;
+	std::optional<ItemText> itemDescription;
+	std::optional<ItemText> storeName;
+	std::optional<ItemText> storeDescription;
+};
 
-	CHAR8		szCharData[MAX_CHAR_DATA_LENGTH+1];
-	INVTYPE		curItem;
-	INVTYPE *	curArray;
-	UINT32			maxArraySize;
-	INT8		curStance;
-	
-	UINT32			currentDepth;
-	UINT32			maxReadDepth;
+using BaseItemLoad =
+	ItemDataStagingModel::RequiredBaseLoadTransaction<INVTYPE>;
+using LocalizedItemLoad =
+	ItemDataStagingModel::OptionalLocalizedLoadTransaction<
+		itemLocalizedTextPatch>;
+
+struct itemParseData
+{
+	PARSE_STAGE curElement = ELEMENT_NONE;
+
+	CHAR8 szCharData[MAX_CHAR_DATA_LENGTH + 1]{};
+	INVTYPE curItem{};
+	ItemDataStagingModel::AuxiliaryPatch currentAuxiliary;
+	itemLocalizedTextPatch localizedPatch;
+	BaseItemLoad* baseLoad = nullptr;
+	LocalizedItemLoad* localizedLoad = nullptr;
+	INT8 curStance = 0;
+	bool localizedTextOnly = false;
+	bool hasIndex = false;
+	bool failed = false;
+	bool sawItemList = false;
+	bool completedItemList = false;
+
+	UINT32 currentDepth = 0;
+	UINT32 maxReadDepth = 0;
+};
+
+static void FailItemParse(
+	itemParseData* pData, ItemDataStagingModel::Failure failure)
+{
+	pData->failed = true;
+	if (pData->baseLoad) pData->baseLoad->fail(failure);
+	if (pData->localizedLoad) pData->localizedLoad->fail(failure);
 }
-typedef itemParseData;
 
-BOOLEAN localizedTextOnly;
+template <typename Integer>
+static bool ParseItemInteger(
+	itemParseData* pData, Integer& destination,
+	ItemDataStagingModel::IntegerSyntax syntax =
+		ItemDataStagingModel::IntegerSyntax::Decimal)
+{
+	if (ItemDataStagingModel::TryParseInteger(
+			pData->szCharData, destination, syntax))
+	{
+		return true;
+	}
+	FailItemParse(pData, ItemDataStagingModel::Failure::MalformedInput);
+	return false;
+}
+
+template <std::size_t Capacity>
+static bool LocalizedTextFits(
+	const std::optional<ItemText>& text, const CHAR16 (&)[Capacity]) noexcept
+{
+	return !text || text->size() < Capacity;
+}
+
+static bool ValidateLocalizedItemText(std::size_t index,
+	const itemLocalizedTextPatch& patch) noexcept
+{
+	if (index >= MAXITEMS) return false;
+	const INVTYPE& item = Item[index];
+	return LocalizedTextFits(patch.itemName, item.szItemName) &&
+		LocalizedTextFits(patch.longItemName, item.szLongItemName) &&
+		LocalizedTextFits(patch.itemDescription, item.szItemDesc) &&
+		LocalizedTextFits(patch.storeName, item.szBRName) &&
+		LocalizedTextFits(patch.storeDescription, item.szBRDesc);
+}
+
+template <std::size_t Capacity>
+static void PublishLocalizedText(const std::optional<ItemText>& text,
+	CHAR16 (&destination)[Capacity]) noexcept
+{
+	if (!text) return;
+	for (std::size_t index = 0; index < text->size(); ++index)
+		destination[index] = (*text)[index];
+	destination[text->size()] = L'\0';
+}
+
+static void PublishLocalizedItemText(std::size_t index,
+	const itemLocalizedTextPatch& patch) noexcept
+{
+	INVTYPE& item = Item[index];
+	PublishLocalizedText(patch.itemName, item.szItemName);
+	PublishLocalizedText(patch.longItemName, item.szLongItemName);
+	PublishLocalizedText(patch.itemDescription, item.szItemDesc);
+	PublishLocalizedText(patch.storeName, item.szBRName);
+	PublishLocalizedText(patch.storeDescription, item.szBRDesc);
+}
 
 // HEADROCK HAM 4: Inherits data between stance-based modifiers
 void InheritStanceModifiers( itemParseData *pData );
@@ -71,18 +166,17 @@ itemStartElementHandle(void *userData, const XML_Char *name, const XML_Char **at
 		if(strcmp(name, "ITEMLIST") == 0 && pData->curElement == ELEMENT_NONE)
 		{
 			pData->curElement = ELEMENT_LIST;
-
-			if ( !localizedTextOnly )
-				memset(pData->curArray,0,sizeof(INVTYPE)*pData->maxArraySize);
+			pData->sawItemList = true;
 
 			pData->maxReadDepth++; //we are not skipping this element
 		}
 		else if(strcmp(name, "ITEM") == 0 && pData->curElement == ELEMENT_LIST)
 		{
 			pData->curElement = ELEMENT;
-
-			if ( !localizedTextOnly )
-				memset(&pData->curItem,0,sizeof(INVTYPE));
+			pData->curItem = INVTYPE{};
+			pData->currentAuxiliary = {};
+			pData->localizedPatch = {};
+			pData->hasIndex = false;
 
 			// Flugente: default value
 			pData->curItem.usPortionSize = 100;
@@ -422,37 +516,41 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		if(strcmp(name, "ITEMLIST") == 0)
 		{
 			pData->curElement = ELEMENT_NONE;
+			pData->completedItemList = true;
 		}
 		else if(strcmp(name, "ITEM") == 0)
 		{
 			pData->curElement = ELEMENT_LIST;
+			const std::optional<std::size_t> itemIndex = pData->hasIndex
+				? std::optional<std::size_t>(pData->curItem.uiIndex)
+				: std::nullopt;
 
-			if(pData->curItem.uiIndex < pData->maxArraySize) 
+			if (!pData->failed && pData->localizedTextOnly)
 			{
-				if ( pData->curItem.usItemClass != 0 )
+				pData->localizedLoad->stage(
+					itemIndex, std::move(pData->localizedPatch));
+			}
+			else if (!pData->failed)
+			{
+				const bool publishesItem = pData->curItem.usItemClass != 0;
+				if (publishesItem)
 				{
 					// HEADROCK HAM 4: Inherit stance-base modifiers upwards.
 					InheritStanceModifiers( pData );
-
-					pData->curArray[pData->curItem.uiIndex] = pData->curItem; //write the item into the table
-
-					// Flugente: new item -> read items increase
-					gMAXITEMS_READ = pData->curItem.uiIndex;
 				}
-				else if ( sizeof(pData->curItem.szItemName)>0 && localizedTextOnly )
-				{
-					wcscpy(pData->curArray[pData->curItem.uiIndex].szItemName,pData->curItem.szItemName);
-					wcscpy(pData->curArray[pData->curItem.uiIndex].szLongItemName,pData->curItem.szLongItemName);
-					wcscpy(pData->curArray[pData->curItem.uiIndex].szBRName,pData->curItem.szBRName);
-					wcscpy(pData->curArray[pData->curItem.uiIndex].szItemDesc,pData->curItem.szItemDesc);
-					wcscpy(pData->curArray[pData->curItem.uiIndex].szBRDesc,pData->curItem.szBRDesc);
-				}
+				pData->baseLoad->stage(itemIndex, pData->curItem,
+					publishesItem, pData->currentAuxiliary);
 			}
 		}
 		else if(strcmp(name, "uiIndex") == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.uiIndex = atol(pData->szCharData);
+			UINT32 index = 0;
+			if (ParseItemInteger(pData, index))
+			{
+				pData->curItem.uiIndex = index;
+				pData->hasIndex = true;
+			}
 		}
 		else if(strcmp(name, "szItemName") == 0)
 		{
@@ -469,6 +567,8 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 
 			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szItemName, sizeof(pData->curItem.szItemName)/sizeof(pData->curItem.szItemName[0]) );
 			pData->curItem.szItemName[sizeof(pData->curItem.szItemName)/sizeof(pData->curItem.szItemName[0]) - 1] = '\0';
+			if (pData->localizedTextOnly)
+				pData->localizedPatch.itemName = ItemText(pData->curItem.szItemName);
 		}
 		else if(strcmp(name, "szLongItemName") == 0)
 		{
@@ -477,6 +577,8 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 
 			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szLongItemName, sizeof(pData->curItem.szLongItemName)/sizeof(pData->curItem.szLongItemName[0]) );
 			pData->curItem.szLongItemName[sizeof(pData->curItem.szLongItemName)/sizeof(pData->curItem.szLongItemName[0]) - 1] = '\0';
+			if (pData->localizedTextOnly)
+				pData->localizedPatch.longItemName = ItemText(pData->curItem.szLongItemName);
 		}
 		else if(strcmp(name, "szItemDesc") == 0)
 		{
@@ -485,6 +587,8 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 
 			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szItemDesc, sizeof(pData->curItem.szItemDesc)/sizeof(pData->curItem.szItemDesc[0]) );
 			pData->curItem.szItemDesc[sizeof(pData->curItem.szItemDesc)/sizeof(pData->curItem.szItemDesc[0]) - 1] = '\0';
+			if (pData->localizedTextOnly)
+				pData->localizedPatch.itemDescription = ItemText(pData->curItem.szItemDesc);
 		}
 		else if(strcmp(name, "szBRName") == 0)
 		{
@@ -493,6 +597,8 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 
 			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szBRName, sizeof(pData->curItem.szBRName)/sizeof(pData->curItem.szBRName[0]) );
 			pData->curItem.szBRName[sizeof(pData->curItem.szBRName)/sizeof(pData->curItem.szBRName[0]) - 1] = '\0';
+			if (pData->localizedTextOnly)
+				pData->localizedPatch.storeName = ItemText(pData->curItem.szBRName);
 		}
 		else if(strcmp(name, "szBRDesc") == 0)
 		{
@@ -501,6 +607,8 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 
 			MultiByteToWideChar( CP_UTF8, 0, pData->szCharData, -1, pData->curItem.szBRDesc, sizeof(pData->curItem.szBRDesc)/sizeof(pData->curItem.szBRDesc[0]) );
 			pData->curItem.szBRDesc[sizeof(pData->curItem.szBRDesc)/sizeof(pData->curItem.szBRDesc[0]) - 1] = '\0';
+			if (pData->localizedTextOnly)
+				pData->localizedPatch.storeDescription = ItemText(pData->curItem.szBRDesc);
 		}
 		else if(strcmp(name, "usItemClass") == 0)
 		{
@@ -696,17 +804,23 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 		else if(strcmp(name, "BR_NewInventory")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if (pData->curItem.uiIndex < MAXITEMS) StoreInventory[pData->curItem.uiIndex][0] = (UINT8) atol(pData->szCharData);
+			UINT8 value = 0;
+			if (ParseItemInteger(pData, value))
+				pData->currentAuxiliary.newInventory = value;
 		}
 		else if(strcmp(name, "BR_UsedInventory")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			if (pData->curItem.uiIndex < MAXITEMS) StoreInventory[pData->curItem.uiIndex][1] = (UINT8) atol(pData->szCharData);
+			UINT8 value = 0;
+			if (ParseItemInteger(pData, value))
+				pData->currentAuxiliary.usedInventory = value;
 		}
 		else if(strcmp(name, "BR_ROF")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-		 	if (pData->curItem.uiIndex < MAXITEMS) WeaponROF[pData->curItem.uiIndex] = (INT16) atol(pData->szCharData);
+			INT16 value = 0;
+			if (ParseItemInteger(pData, value))
+				pData->currentAuxiliary.weaponRateOfFire = value;
 		}
 		else if(strcmp(name, "CamoBonus")	 == 0)
 		{
@@ -1829,31 +1943,95 @@ itemEndElementHandle(void *userData, const XML_Char *name)
 
 	--pData->currentDepth;
 }
+static_assert(BOBBY_RAY_LISTS == 2,
+	"item XML staging models the established new/used store inventory schema");
+static_assert(std::is_trivially_copyable_v<INVTYPE>,
+	"transactional base publication requires an exact no-throw item copy");
+static_assert(static_cast<std::uintmax_t>(MAXITEMS) <=
+	std::numeric_limits<UINT32>::max(),
+	"the exclusive loaded-item bound must fit gMAXITEMS_READ");
 
-
-
-
-BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion )
+static ItemDataStagingModel::AuxiliaryTables SnapshotItemAuxiliaryTables()
 {
-	itemParseData pData;
+	ItemDataStagingModel::AuxiliaryTables tables(MAXITEMS);
+	for (std::size_t index = 0; index < MAXITEMS; ++index)
+	{
+		tables.storeInventory[index].newInventory =
+			StoreInventory[index][BOBBY_RAY_NEW];
+			tables.storeInventory[index].usedInventory =
+			StoreInventory[index][BOBBY_RAY_USED];
+		tables.weaponRateOfFire[index] = WeaponROF[index];
+	}
+	return tables;
+}
 
-	localizedTextOnly = localizedVersion;
+static void PublishBaseItemTables(
+	const ItemDataStagingModel::BasePublicationView<INVTYPE>& publication)
+	noexcept
+{
+	// RequiredBaseLoadTransaction guarantees maxItemsRead <= its capacity.
+	// MAXITEMS is statically proven to fit UINT32 above, so derive the complete
+	// high-water value before the first live-table write.
+	const UINT32 maxItemsRead =
+		static_cast<UINT32>(publication.maxItemsRead);
+	std::memcpy(Item, publication.items.data(), sizeof(Item));
+	for (std::size_t index = 0; index < MAXITEMS; ++index)
+	{
+		StoreInventory[index][BOBBY_RAY_NEW] =
+			publication.auxiliary.storeInventory[index].newInventory;
+		StoreInventory[index][BOBBY_RAY_USED] =
+			publication.auxiliary.storeInventory[index].usedInventory;
+		WeaponROF[index] = publication.auxiliary.weaponRateOfFire[index];
+	}
+	gMAXITEMS_READ = maxItemsRead;
+}
 
-	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading Items.xml" );
+static BOOLEAN CommitLocalizedItemLoad(LocalizedItemLoad& load)
+{
+	return load.commit(MAXITEMS, ValidateLocalizedItemText,
+		PublishLocalizedItemText) ? TRUE : FALSE;
+}
 
-	memset(&pData,0,sizeof(pData));
-	pData.curArray = Item;
-	pData.maxArraySize = MAXITEMS;
+BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion)
+{
+	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "Loading Items.xml");
+
+	std::optional<ItemDataStagingModel::AuxiliaryTables> liveAuxiliary;
+	std::optional<BaseItemLoad> baseLoad;
+	std::optional<LocalizedItemLoad> localizedLoad;
+	itemParseData pData{};
+	pData.localizedTextOnly = localizedVersion != FALSE;
+	if (pData.localizedTextOnly)
+	{
+		localizedLoad.emplace(MAXITEMS);
+		pData.localizedLoad = &*localizedLoad;
+	}
+	else
+	{
+		liveAuxiliary.emplace(SnapshotItemAuxiliaryTables());
+		baseLoad.emplace(MAXITEMS, *liveAuxiliary);
+		pData.baseLoad = &*baseLoad;
+	}
 
 	const LegacyXmlCallbacks callbacks{
 		&pData, itemStartElementHandle, itemEndElementHandle,
 		itemCharacterDataHandle};
-	const LegacyXmlResult result =
-		ParseLegacyXmlFile(fileName, callbacks);
+	const LegacyXmlResult result = ParseLegacyXmlFile(fileName, callbacks);
 	if (!result)
 	{
 		if (result.status == LegacyXmlStatus::NotFound)
-			return localizedVersion;
+		{
+			if (pData.localizedTextOnly)
+			{
+				localizedLoad->resourceMissing();
+				return CommitLocalizedItemLoad(*localizedLoad);
+			}
+			baseLoad->resourceMissing();
+			return FALSE;
+		}
+		FailItemParse(&pData, result.status == LegacyXmlStatus::ReadError
+			? ItemDataStagingModel::Failure::TruncatedInput
+			: ItemDataStagingModel::Failure::MalformedInput);
 		if (result.status != LegacyXmlStatus::ReadError)
 		{
 			const auto message = FormatLegacyXmlFailure(fileName, result);
@@ -1862,13 +2040,20 @@ BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion )
 		return FALSE;
 	}
 
-	if (localizedTextOnly == false)
+	if (pData.failed || !pData.sawItemList || !pData.completedItemList)
 	{
-		// item read was x -> x+1 items
-		++gMAXITEMS_READ;
+		FailItemParse(&pData, ItemDataStagingModel::Failure::MalformedInput);
+		return FALSE;
 	}
 
-	return( TRUE );
+	if (pData.localizedTextOnly)
+	{
+		localizedLoad->complete();
+		return CommitLocalizedItemLoad(*localizedLoad);
+	}
+
+	baseLoad->complete();
+	return baseLoad->commit(MAXITEMS, PublishBaseItemTables) ? TRUE : FALSE;
 }
 BOOLEAN WriteItemStats()
 {
@@ -2465,69 +2650,42 @@ BOOLEAN WriteItemStats()
 // to inherit their properties from the bonus "above" them, as long as they don't already have their own value defined.
 void InheritStanceModifiers( itemParseData *pData )
 {
-
-	// Create a two-dimensional temp array to hold all the data about stance modifiers.
-	INT16 TempArray[11][3];
-	INT8 count = 0;
-	INT8 arrcount = 0;
-
-	// Copy stance modifier data into this array
-	for (count = 0; count < 3; count++)
+	ItemDataStagingModel::StanceModifierMatrix modifiers;
+	for (std::size_t stance = 0;
+		stance < ItemDataStagingModel::StanceCount; ++stance)
 	{
-		TempArray[0][count] = pData->curItem.flatbasemodifier[count];
-		TempArray[1][count] = pData->curItem.percentbasemodifier[count];
-		TempArray[2][count] = pData->curItem.flataimmodifier[count];
-		TempArray[3][count] = pData->curItem.percentaimmodifier[count];
-		TempArray[4][count] = pData->curItem.percentcapmodifier[count];
-		TempArray[5][count] = pData->curItem.percenthandlingmodifier[count];
-		TempArray[6][count] = pData->curItem.targettrackingmodifier[count];
-		TempArray[7][count] = pData->curItem.percentdropcompensationmodifier[count];
-		TempArray[8][count] = pData->curItem.maxcounterforcemodifier[count];
-		TempArray[9][count] = pData->curItem.counterforceaccuracymodifier[count];
-		TempArray[10][count] = pData->curItem.aimlevelsmodifier[count];
+		modifiers[0][stance] = pData->curItem.flatbasemodifier[stance];
+		modifiers[1][stance] = pData->curItem.percentbasemodifier[stance];
+		modifiers[2][stance] = pData->curItem.flataimmodifier[stance];
+		modifiers[3][stance] = pData->curItem.percentaimmodifier[stance];
+		modifiers[4][stance] = pData->curItem.percentcapmodifier[stance];
+		modifiers[5][stance] = pData->curItem.percenthandlingmodifier[stance];
+		modifiers[6][stance] = pData->curItem.targettrackingmodifier[stance];
+		modifiers[7][stance] =
+			pData->curItem.percentdropcompensationmodifier[stance];
+		modifiers[8][stance] = pData->curItem.maxcounterforcemodifier[stance];
+		modifiers[9][stance] =
+			pData->curItem.counterforceaccuracymodifier[stance];
+		modifiers[10][stance] = pData->curItem.aimlevelsmodifier[stance];
 	}
 
-	for (arrcount = 0; arrcount < 11; arrcount++)
-	{
-		if (TempArray[arrcount][2] == -10000)
-		{
-			if (TempArray[arrcount][1] == -10000)
-			{
-				TempArray[arrcount][1] = TempArray[arrcount][0];
-				TempArray[arrcount][2] = TempArray[arrcount][0];
-			}
-			else
-			{
-				TempArray[arrcount][2] = TempArray[arrcount][1];
-			}
-		}
-		else if (TempArray[arrcount][1] == -10000)
-		{
-			TempArray[arrcount][1] = TempArray[arrcount][0];
-		}
-		for (INT8 X = 0; X < 3; X++)
-		{
-			if (TempArray[arrcount][X] == -10000)
-			{ 
-				TempArray[arrcount][X] = 0; 
-			}
-		}
-	}
+	ItemDataStagingModel::ResolveStanceInheritance(modifiers);
 
-	// Copy stance modifier data back out of the temp array
-	for (count = 0; count < 3; count++)
+	for (std::size_t stance = 0;
+		stance < ItemDataStagingModel::StanceCount; ++stance)
 	{
-		pData->curItem.flatbasemodifier[count] = TempArray[0][count];
-		pData->curItem.percentbasemodifier[count] = TempArray[1][count];
-		pData->curItem.flataimmodifier[count] = TempArray[2][count];
-		pData->curItem.percentaimmodifier[count] = TempArray[3][count];
-		pData->curItem.percentcapmodifier[count] = TempArray[4][count];
-		pData->curItem.percenthandlingmodifier[count] = TempArray[5][count];
-		pData->curItem.targettrackingmodifier[count] = TempArray[6][count];
-		pData->curItem.percentdropcompensationmodifier[count] = TempArray[7][count];
-		pData->curItem.maxcounterforcemodifier[count] = TempArray[8][count];
-		pData->curItem.counterforceaccuracymodifier[count] = TempArray[9][count];
-		pData->curItem.aimlevelsmodifier[count] = TempArray[10][count];
+		pData->curItem.flatbasemodifier[stance] = modifiers[0][stance];
+		pData->curItem.percentbasemodifier[stance] = modifiers[1][stance];
+		pData->curItem.flataimmodifier[stance] = modifiers[2][stance];
+		pData->curItem.percentaimmodifier[stance] = modifiers[3][stance];
+		pData->curItem.percentcapmodifier[stance] = modifiers[4][stance];
+		pData->curItem.percenthandlingmodifier[stance] = modifiers[5][stance];
+		pData->curItem.targettrackingmodifier[stance] = modifiers[6][stance];
+		pData->curItem.percentdropcompensationmodifier[stance] =
+			modifiers[7][stance];
+		pData->curItem.maxcounterforcemodifier[stance] = modifiers[8][stance];
+		pData->curItem.counterforceaccuracymodifier[stance] =
+			modifiers[9][stance];
+		pData->curItem.aimlevelsmodifier[stance] = modifiers[10][stance];
 	}
-
 }

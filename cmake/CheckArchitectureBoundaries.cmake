@@ -5467,6 +5467,84 @@ foreach(item_data_staging_test_manifest IN ITEMS
   endif()
 endforeach()
 
+# Keep the production Items.xml adapter on the bounded transaction. Expat
+# callbacks may build the single candidate or localized patches, but live
+# tables can change only at the checked no-fail publication boundary.
+file(READ "${SOURCE_ROOT}/Utils/XML_Items.cpp"
+  runtime_item_xml_adapter_contents)
+foreach(required_item_xml_adapter_fragment IN ITEMS
+    "RequiredBaseLoadTransaction<INVTYPE>"
+    "OptionalLocalizedLoadTransaction<"
+    "SnapshotItemAuxiliaryTables"
+    "ValidateLocalizedItemText"
+    "PublishLocalizedItemText"
+    "static void PublishBaseItemTables("
+    "std::memcpy(Item, publication.items.data(), sizeof(Item))"
+    "baseLoad->commit(MAXITEMS, PublishBaseItemTables)"
+    "localizedLoad->resourceMissing()"
+    "baseLoad->resourceMissing()"
+    "pData->curItem = INVTYPE{}"
+    "pData->currentAuxiliary = {}"
+    "ItemDataStagingModel::ResolveStanceInheritance(modifiers)"
+    "std::is_trivially_copyable_v<INVTYPE>"
+    "std::numeric_limits<UINT32>::max()")
+  string(FIND "${runtime_item_xml_adapter_contents}"
+    "${required_item_xml_adapter_fragment}"
+    required_item_xml_adapter_position)
+  if(required_item_xml_adapter_position EQUAL -1)
+    message(FATAL_ERROR
+      "Items XML adapter lost '${required_item_xml_adapter_fragment}'")
+  endif()
+endforeach()
+foreach(retired_item_xml_adapter_fragment IN ITEMS
+    "BOOLEAN localizedTextOnly"
+    "pData->curArray"
+    "StoreInventory[pData->curItem.uiIndex]"
+    "WeaponROF[pData->curItem.uiIndex]"
+    "gMAXITEMS_READ = pData->curItem.uiIndex"
+    "std::vector<INVTYPE>")
+  string(FIND "${runtime_item_xml_adapter_contents}"
+    "${retired_item_xml_adapter_fragment}"
+    retired_item_xml_adapter_position)
+  if(NOT retired_item_xml_adapter_position EQUAL -1)
+    message(FATAL_ERROR
+      "Items XML adapter restored retired live-write path '${retired_item_xml_adapter_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_item_xml_adapter_contents}"
+  "const UINT32 maxItemsRead =" item_xml_high_water_validation_position)
+string(FIND "${runtime_item_xml_adapter_contents}"
+  "std::memcpy(Item, publication.items.data(), sizeof(Item))"
+  item_xml_first_publication_position)
+if(item_xml_high_water_validation_position EQUAL -1 OR
+   item_xml_first_publication_position EQUAL -1 OR
+   NOT item_xml_high_water_validation_position LESS item_xml_first_publication_position)
+  message(FATAL_ERROR
+    "Items XML adapter must derive the validated high-water value before publication")
+endif()
+
+foreach(required_item_xml_headless_fragment IN ITEMS
+    "transactional item base loads use the last nonzero-class item, merged auxiliary fields, and an unsorted high-water bound"
+    "valid item XML exact-end records are ignored before live table access"
+    "malformed item base XML rolls back Item StoreInventory WeaponROF and loaded bound"
+    "item XML records without uiIndex poison the full base transaction"
+    "item XML auxiliary integer overflow rolls back every live table"
+    "malformed checked fields poison item XML even in out-of-range records"
+    "localized item overlays publish only authored text and preserve auxiliary tables"
+    "localized item XML ignores valid BR inventory and ROF tags for publication"
+    "empty localized item XML is a successful no-op"
+    "malformed localized item XML rolls back every staged text patch"
+    "item XML required base and optional localization missing-file policies preserve live tables"
+    "empty item base XML publishes a cleared Item table with preserved auxiliary values")
+  string(FIND "${runtime_utils_ui_headless_contents}"
+    "${required_item_xml_headless_fragment}"
+    required_item_xml_headless_position)
+  if(required_item_xml_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Items XML production coverage lost '${required_item_xml_headless_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
   runtime_utils_walkthrough_contents)
 foreach(required_utils_walkthrough_fragment IN ITEMS
@@ -5477,6 +5555,9 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "Data persistence foundation"
     "Indexed localization XML boundary"
     "Item XML staging model"
+    "production reader through"
+    "production rollback for"
+    "invalid UTF"
     "Remaining Utils inventory"
     "following 12 translation units"
     "TextInfrastructureModel.h"
@@ -5499,9 +5580,11 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "UtilsUiStateModel"
     "TextInfrastructureModel"
     "IndexedXmlModel"
+    "ItemDataStagingModel"
     "MediaLifecycleModel"
     "DataBoundaryModel"
     "encrypted text-record"
+    "accumulation and UTF conversion remain explicitly deferred"
     "remaining 12 Utils")
   string(FIND "${runtime_engine_architecture_contents}"
     "${required_utils_architecture_fragment}"
