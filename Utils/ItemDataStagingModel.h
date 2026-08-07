@@ -16,12 +16,6 @@
 
 namespace ItemDataStagingModel
 {
-	enum class ResourceRequirement
-	{
-		Required,
-		Optional,
-	};
-
 	enum class Failure
 	{
 		None,
@@ -48,16 +42,17 @@ namespace ItemDataStagingModel
 		CStyle,
 	};
 
-	namespace Detail
-	{
-		enum class TransactionState
+		namespace Detail
 		{
-			Loading,
-			Complete,
-			MissingOptional,
-			Failed,
-			Committed,
-		};
+			enum class TransactionState
+			{
+				Loading,
+				Complete,
+				MissingOptional,
+				Validating,
+				Failed,
+				Committed,
+			};
 
 		constexpr bool IsAsciiSpace(char character) noexcept
 		{
@@ -313,57 +308,59 @@ namespace ItemDataStagingModel
 		std::optional<std::int16_t> weaponRateOfFire;
 	};
 
-	template <typename ItemRecord>
-	struct ItemTables
+	struct AuxiliaryTables
 	{
-		explicit ItemTables(std::size_t capacity = 0)
-			: items(capacity), storeInventory(capacity),
-			weaponRateOfFire(capacity)
+		explicit AuxiliaryTables(std::size_t capacity = 0)
+			: storeInventory(capacity), weaponRateOfFire(capacity)
 		{
 		}
 
 		bool consistent() const noexcept
 		{
-			return items.size() == storeInventory.size() &&
-				items.size() == weaponRateOfFire.size() &&
-				maxItemsRead <= items.size();
+			return storeInventory.size() == weaponRateOfFire.size();
 		}
 
-		std::size_t capacity() const noexcept { return items.size(); }
+		std::size_t capacity() const noexcept { return storeInventory.size(); }
 
-		void swap(ItemTables& other) noexcept
-		{
-			items.swap(other.items);
-			storeInventory.swap(other.storeInventory);
-			weaponRateOfFire.swap(other.weaponRateOfFire);
-			std::swap(maxItemsRead, other.maxItemsRead);
-		}
-
-		std::vector<ItemRecord> items;
 		std::vector<StoreInventoryValues> storeInventory;
 		std::vector<std::int16_t> weaponRateOfFire;
+	};
+
+	template <typename ItemRecord>
+	struct BasePublicationView
+	{
+		const std::vector<ItemRecord>& items;
+		const AuxiliaryTables& auxiliary;
 		std::size_t maxItemsRead = 0;
 	};
 
 	template <typename ItemRecord>
-	class BaseLoadTransaction
+	class RequiredBaseLoadTransaction
 	{
 	public:
-		using Tables = ItemTables<ItemRecord>;
-
-		explicit BaseLoadTransaction(const Tables& liveTables)
-			: staged_(liveTables.capacity()), seen_(liveTables.capacity(), false)
+		explicit RequiredBaseLoadTransaction(std::size_t capacity,
+			const AuxiliaryTables& liveAuxiliary)
+			: stagedItems_(capacity), stagedAuxiliary_(capacity),
+			seen_(capacity, false)
 		{
-			if (!liveTables.consistent())
+			if (!liveAuxiliary.consistent() ||
+				liveAuxiliary.capacity() != capacity)
 			{
 				fail(Failure::InvalidDestination);
 				return;
 			}
 			// Items.xml historically clears Item[] for a base load, while
 			// omitted BR inventory and ROF fields retain their live values.
-			staged_.storeInventory = liveTables.storeInventory;
-			staged_.weaponRateOfFire = liveTables.weaponRateOfFire;
+			stagedAuxiliary_ = liveAuxiliary;
 		}
+
+		RequiredBaseLoadTransaction(
+			const RequiredBaseLoadTransaction&) = delete;
+		RequiredBaseLoadTransaction& operator=(
+			const RequiredBaseLoadTransaction&) = delete;
+		RequiredBaseLoadTransaction(RequiredBaseLoadTransaction&&) = delete;
+		RequiredBaseLoadTransaction& operator=(
+			RequiredBaseLoadTransaction&&) = delete;
 
 		StageResult stage(std::optional<std::size_t> index,
 			const ItemRecord& item, bool publishesItem,
@@ -376,7 +373,7 @@ namespace ItemDataStagingModel
 				fail(Failure::MissingIndex);
 				return StageResult::RejectedMissingIndex;
 			}
-			if (*index >= staged_.capacity())
+			if (*index >= stagedItems_.size())
 			{
 				++ignoredOutOfRange_;
 				return StageResult::IgnoredOutOfRange;
@@ -385,22 +382,22 @@ namespace ItemDataStagingModel
 			const bool replaced = seen_[*index];
 			seen_[*index] = true;
 			if (auxiliary.newInventory)
-				staged_.storeInventory[*index].newInventory =
+				stagedAuxiliary_.storeInventory[*index].newInventory =
 					*auxiliary.newInventory;
 			if (auxiliary.usedInventory)
-				staged_.storeInventory[*index].usedInventory =
+				stagedAuxiliary_.storeInventory[*index].usedInventory =
 					*auxiliary.usedInventory;
 			if (auxiliary.weaponRateOfFire)
-				staged_.weaponRateOfFire[*index] =
+				stagedAuxiliary_.weaponRateOfFire[*index] =
 					*auxiliary.weaponRateOfFire;
 
 			if (publishesItem)
 			{
-				staged_.items[*index] = item;
+				stagedItems_[*index] = item;
 				// gMAXITEMS_READ is an exclusive bound. Taking the maximum
 				// also makes valid unsorted mod files safe and deterministic.
-				staged_.maxItemsRead = std::max(
-					staged_.maxItemsRead, *index + 1);
+				stagedMaxItemsRead_ = std::max(
+					stagedMaxItemsRead_, *index + 1);
 			}
 			return replaced ? StageResult::Replaced : StageResult::Inserted;
 		}
@@ -411,13 +408,10 @@ namespace ItemDataStagingModel
 				state_ = Detail::TransactionState::Complete;
 		}
 
-		void resourceMissing(ResourceRequirement requirement) noexcept
+		void resourceMissing() noexcept
 		{
 			if (state_ != Detail::TransactionState::Loading) return;
-			if (requirement == ResourceRequirement::Optional)
-				state_ = Detail::TransactionState::MissingOptional;
-			else
-				fail(Failure::MissingRequiredResource);
+			fail(Failure::MissingRequiredResource);
 		}
 
 		void fail(Failure failure) noexcept
@@ -431,23 +425,27 @@ namespace ItemDataStagingModel
 			state_ = Detail::TransactionState::Failed;
 		}
 
-		bool commit(Tables& liveTables)
+		template <typename Publisher>
+		bool commit(std::size_t destinationCapacity,
+			Publisher&& publisher) noexcept
 		{
-			if (state_ == Detail::TransactionState::MissingOptional)
-			{
-				state_ = Detail::TransactionState::Committed;
-				return true;
-			}
+			static_assert(std::is_nothrow_invocable_v<Publisher&,
+				const BasePublicationView<ItemRecord>&>,
+				"base publication must be a prevalidated no-fail operation");
+			static_assert(std::is_same_v<std::invoke_result_t<Publisher&,
+				const BasePublicationView<ItemRecord>&>, void>,
+				"base publication reports no failure after validation");
 			if (state_ != Detail::TransactionState::Complete ||
-				!liveTables.consistent() ||
-				liveTables.capacity() != staged_.capacity())
+				destinationCapacity != stagedItems_.size())
 			{
 				if (state_ == Detail::TransactionState::Complete)
 					fail(Failure::InvalidDestination);
 				return false;
 			}
-			liveTables.swap(staged_);
+			const BasePublicationView<ItemRecord> publication{
+				stagedItems_, stagedAuxiliary_, stagedMaxItemsRead_};
 			state_ = Detail::TransactionState::Committed;
+			publisher(publication);
 			return true;
 		}
 
@@ -458,7 +456,9 @@ namespace ItemDataStagingModel
 		}
 
 	private:
-		Tables staged_;
+		std::vector<ItemRecord> stagedItems_;
+		AuxiliaryTables stagedAuxiliary_;
+		std::size_t stagedMaxItemsRead_ = 0;
 		std::vector<bool> seen_;
 		Detail::TransactionState state_ = Detail::TransactionState::Loading;
 		Failure failure_ = Failure::None;
@@ -466,13 +466,22 @@ namespace ItemDataStagingModel
 	};
 
 	template <typename LocalizedPatch>
-	class LocalizedLoadTransaction
+	class OptionalLocalizedLoadTransaction
 	{
 	public:
-		explicit LocalizedLoadTransaction(std::size_t capacity)
-			: patches_(capacity), seen_(capacity, false)
+		explicit OptionalLocalizedLoadTransaction(std::size_t capacity)
+			: patches_(capacity)
 		{
 		}
+
+		OptionalLocalizedLoadTransaction(
+			const OptionalLocalizedLoadTransaction&) = delete;
+		OptionalLocalizedLoadTransaction& operator=(
+			const OptionalLocalizedLoadTransaction&) = delete;
+		OptionalLocalizedLoadTransaction(
+			OptionalLocalizedLoadTransaction&&) = delete;
+		OptionalLocalizedLoadTransaction& operator=(
+			OptionalLocalizedLoadTransaction&&) = delete;
 
 		StageResult stage(std::optional<std::size_t> index,
 			LocalizedPatch patch)
@@ -489,8 +498,7 @@ namespace ItemDataStagingModel
 				++ignoredOutOfRange_;
 				return StageResult::IgnoredOutOfRange;
 			}
-			const bool replaced = seen_[*index];
-			seen_[*index] = true;
+			const bool replaced = patches_[*index].has_value();
 			patches_[*index] = std::move(patch);
 			return replaced ? StageResult::Replaced : StageResult::Inserted;
 		}
@@ -501,13 +509,10 @@ namespace ItemDataStagingModel
 				state_ = Detail::TransactionState::Complete;
 		}
 
-		void resourceMissing(ResourceRequirement requirement) noexcept
+		void resourceMissing() noexcept
 		{
 			if (state_ != Detail::TransactionState::Loading) return;
-			if (requirement == ResourceRequirement::Optional)
-				state_ = Detail::TransactionState::MissingOptional;
-			else
-				fail(Failure::MissingRequiredResource);
+			state_ = Detail::TransactionState::MissingOptional;
 		}
 
 		void fail(Failure failure) noexcept
@@ -521,36 +526,54 @@ namespace ItemDataStagingModel
 			state_ = Detail::TransactionState::Failed;
 		}
 
-		template <typename ItemRecord, typename ApplyPatch>
-		bool commit(ItemTables<ItemRecord>& liveTables, ApplyPatch&& applyPatch)
+		template <typename Validator, typename Publisher>
+		bool commit(std::size_t destinationCapacity, Validator&& validator,
+			Publisher&& publisher) noexcept
 		{
+			static_assert(std::is_nothrow_invocable_r_v<bool, Validator&,
+				std::size_t, const LocalizedPatch&>,
+				"localized validation must not mutate or throw");
+			static_assert(std::is_same_v<std::invoke_result_t<Validator&,
+				std::size_t, const LocalizedPatch&>, bool>,
+				"localized validation has an exact boolean result");
+			static_assert(std::is_nothrow_invocable_v<Publisher&,
+				std::size_t, const LocalizedPatch&>,
+				"localized publication must be a prevalidated no-fail operation");
+			static_assert(std::is_same_v<std::invoke_result_t<Publisher&,
+				std::size_t, const LocalizedPatch&>, void>,
+				"localized publication reports no failure after validation");
 			if (state_ == Detail::TransactionState::MissingOptional)
 			{
 				state_ = Detail::TransactionState::Committed;
 				return true;
 			}
 			if (state_ != Detail::TransactionState::Complete ||
-				!liveTables.consistent() ||
-				liveTables.capacity() != patches_.size())
+				destinationCapacity != patches_.size())
 			{
 				if (state_ == Detail::TransactionState::Complete)
 					fail(Failure::InvalidDestination);
 				return false;
 			}
 
-			ItemTables<ItemRecord> candidate(liveTables);
+			state_ = Detail::TransactionState::Validating;
 			for (std::size_t index = 0; index < patches_.size(); ++index)
 			{
 				if (!patches_[index]) continue;
-				if (!applyPatch(
-						candidate.items[index], *patches_[index]))
+				const bool accepted = validator(index, *patches_[index]);
+				if (state_ != Detail::TransactionState::Validating)
+					return false;
+				if (!accepted)
 				{
 					fail(Failure::OverlayRejected);
 					return false;
 				}
 			}
-			liveTables.swap(candidate);
 			state_ = Detail::TransactionState::Committed;
+			for (std::size_t index = 0; index < patches_.size(); ++index)
+			{
+				if (!patches_[index]) continue;
+				publisher(index, *patches_[index]);
+			}
 			return true;
 		}
 
@@ -562,7 +585,6 @@ namespace ItemDataStagingModel
 
 	private:
 		std::vector<std::optional<LocalizedPatch>> patches_;
-		std::vector<bool> seen_;
 		Detail::TransactionState state_ = Detail::TransactionState::Loading;
 		Failure failure_ = Failure::None;
 		std::size_t ignoredOutOfRange_ = 0;

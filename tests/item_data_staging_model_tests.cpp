@@ -1,13 +1,17 @@
 #include "ItemDataStagingModel.h"
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -20,15 +24,72 @@ namespace
 		std::exit(1);
 	}
 
+	struct FixedText
+	{
+		FixedText() noexcept = default;
+		FixedText(const char* text) noexcept
+		{
+			assign(text ? std::string_view(text) : std::string_view{});
+		}
+		FixedText(const std::string& text) noexcept { assign(text); }
+		explicit FixedText(std::string_view text) noexcept { assign(text); }
+
+		FixedText& operator=(const char* text) noexcept
+		{
+			assign(text ? std::string_view(text) : std::string_view{});
+			return *this;
+		}
+		FixedText& operator=(const std::string& text) noexcept
+		{
+			assign(text);
+			return *this;
+		}
+
+		void assign(std::string_view text) noexcept
+		{
+			characters.fill('\0');
+			const std::size_t length =
+				std::min(text.size(), characters.size() - 1);
+			std::copy_n(text.begin(), length, characters.begin());
+		}
+
+		std::string_view view() const noexcept
+		{
+			return std::string_view(characters.data(),
+				std::char_traits<char>::length(characters.data()));
+		}
+
+		std::array<char, 64> characters{};
+	};
+
+	bool operator==(const FixedText& left, const FixedText& right) noexcept
+	{
+		return left.characters == right.characters;
+	}
+
+	bool operator==(const FixedText& left, std::string_view right) noexcept
+	{
+		return left.view() == right;
+	}
+	bool operator==(const FixedText& left, const char* right) noexcept
+	{
+		return left == std::string_view(right ? right : "");
+	}
+
+	bool operator!=(const FixedText& left, const char* right) noexcept
+	{
+		return !(left == right);
+	}
+
 	struct TestItem
 	{
 		int itemClass = 0;
 		int payload = 0;
-		std::string name;
-		std::string longName;
-		std::string description;
-		std::string storeName;
-		std::string storeDescription;
+		FixedText name;
+		FixedText longName;
+		FixedText description;
+		FixedText storeName;
+		FixedText storeDescription;
 	};
 
 	bool operator==(const TestItem& left, const TestItem& right)
@@ -52,14 +113,62 @@ namespace
 
 	struct LocalizedTextPatch
 	{
-		std::optional<std::string> name;
-		std::optional<std::string> longName;
-		std::optional<std::string> description;
-		std::optional<std::string> storeName;
-		std::optional<std::string> storeDescription;
+		std::optional<FixedText> name;
+		std::optional<FixedText> longName;
+		std::optional<FixedText> description;
+		std::optional<FixedText> storeName;
+		std::optional<FixedText> storeDescription;
 	};
 
-	bool ApplyLocalizedText(TestItem& item, const LocalizedTextPatch& patch)
+	struct LargeTrackedRecord
+	{
+		LargeTrackedRecord() noexcept { RecordConstruction(); }
+		LargeTrackedRecord(const LargeTrackedRecord&) noexcept
+		{
+			RecordConstruction();
+		}
+		LargeTrackedRecord(LargeTrackedRecord&&) noexcept
+		{
+			RecordConstruction();
+		}
+		LargeTrackedRecord& operator=(const LargeTrackedRecord&) noexcept = default;
+		LargeTrackedRecord& operator=(LargeTrackedRecord&&) noexcept = default;
+		~LargeTrackedRecord() { --liveInstances; }
+
+		static void ResetCounts() noexcept
+		{
+			liveInstances = 0;
+			maximumLiveInstances = 0;
+		}
+
+		static void RecordConstruction() noexcept
+		{
+			++liveInstances;
+			maximumLiveInstances =
+				std::max(maximumLiveInstances, liveInstances);
+		}
+
+		std::array<std::uint8_t, 4096> payload{};
+		static std::size_t liveInstances;
+		static std::size_t maximumLiveInstances;
+	};
+
+	std::size_t LargeTrackedRecord::liveInstances = 0;
+	std::size_t LargeTrackedRecord::maximumLiveInstances = 0;
+
+	static_assert(!std::is_copy_constructible_v<
+		RequiredBaseLoadTransaction<LargeTrackedRecord>> &&
+		!std::is_move_constructible_v<
+			RequiredBaseLoadTransaction<LargeTrackedRecord>>,
+		"a required base transaction cannot duplicate its full candidate");
+	static_assert(!std::is_copy_constructible_v<
+		OptionalLocalizedLoadTransaction<LocalizedTextPatch>> &&
+		!std::is_move_constructible_v<
+			OptionalLocalizedLoadTransaction<LocalizedTextPatch>>,
+		"an optional localized transaction has single transaction state");
+
+	void ApplyLocalizedText(TestItem& item,
+		const LocalizedTextPatch& patch) noexcept
 	{
 		if (patch.name) item.name = *patch.name;
 		if (patch.longName) item.longName = *patch.longName;
@@ -67,12 +176,31 @@ namespace
 		if (patch.storeName) item.storeName = *patch.storeName;
 		if (patch.storeDescription)
 			item.storeDescription = *patch.storeDescription;
-		return true;
 	}
 
-	ItemTables<TestItem> MakeLiveTables(std::size_t capacity)
+	template <typename ItemRecord>
+	struct TestLiveTables
 	{
-		ItemTables<TestItem> tables(capacity);
+		explicit TestLiveTables(std::size_t capacity = 0)
+			: items(capacity), auxiliary(capacity)
+		{
+		}
+
+		bool consistent() const noexcept
+		{
+			return auxiliary.consistent() &&
+				items.size() == auxiliary.capacity() &&
+				maxItemsRead <= items.size();
+		}
+
+		std::vector<ItemRecord> items;
+		AuxiliaryTables auxiliary;
+		std::size_t maxItemsRead = 0;
+	};
+
+	TestLiveTables<TestItem> MakeLiveTables(std::size_t capacity)
+	{
+		TestLiveTables<TestItem> tables(capacity);
 		for (std::size_t index = 0; index < capacity; ++index)
 		{
 			tables.items[index] = TestItem{
@@ -82,39 +210,84 @@ namespace
 				"description-" + std::to_string(index),
 				"store-name-" + std::to_string(index),
 				"store-description-" + std::to_string(index)};
-			tables.storeInventory[index].newInventory =
+			tables.auxiliary.storeInventory[index].newInventory =
 				static_cast<std::uint8_t>(10 + index);
-			tables.storeInventory[index].usedInventory =
+			tables.auxiliary.storeInventory[index].usedInventory =
 				static_cast<std::uint8_t>(20 + index);
-			tables.weaponRateOfFire[index] =
+			tables.auxiliary.weaponRateOfFire[index] =
 				static_cast<std::int16_t>(30 + index);
 		}
 		tables.maxItemsRead = capacity;
 		return tables;
 	}
 
-	bool SameTables(const ItemTables<TestItem>& left,
-		const ItemTables<TestItem>& right)
+	bool SameTables(const TestLiveTables<TestItem>& left,
+		const TestLiveTables<TestItem>& right)
 	{
 		if (!left.consistent() || !right.consistent() ||
 			left.maxItemsRead != right.maxItemsRead ||
 			left.items != right.items ||
-			left.weaponRateOfFire != right.weaponRateOfFire ||
-			left.storeInventory.size() != right.storeInventory.size())
+			left.auxiliary.weaponRateOfFire !=
+				right.auxiliary.weaponRateOfFire ||
+			left.auxiliary.storeInventory.size() !=
+				right.auxiliary.storeInventory.size())
 		{
 			return false;
 		}
-		for (std::size_t index = 0; index < left.storeInventory.size(); ++index)
+		for (std::size_t index = 0;
+			index < left.auxiliary.storeInventory.size(); ++index)
 		{
-			if (left.storeInventory[index].newInventory !=
-					right.storeInventory[index].newInventory ||
-				left.storeInventory[index].usedInventory !=
-					right.storeInventory[index].usedInventory)
+			if (left.auxiliary.storeInventory[index].newInventory !=
+					right.auxiliary.storeInventory[index].newInventory ||
+				left.auxiliary.storeInventory[index].usedInventory !=
+					right.auxiliary.storeInventory[index].usedInventory)
 			{
 				return false;
 			}
 		}
 		return true;
+	}
+
+	bool PublishBase(RequiredBaseLoadTransaction<TestItem>& transaction,
+		TestLiveTables<TestItem>& destination)
+	{
+		return transaction.commit(destination.items.size(),
+			[&destination](
+				const BasePublicationView<TestItem>& publication) noexcept {
+				for (std::size_t index = 0;
+					index < publication.items.size(); ++index)
+				{
+					destination.items[index] = publication.items[index];
+					destination.auxiliary.storeInventory[index] =
+						publication.auxiliary.storeInventory[index];
+					destination.auxiliary.weaponRateOfFire[index] =
+						publication.auxiliary.weaponRateOfFire[index];
+				}
+				destination.maxItemsRead = publication.maxItemsRead;
+			});
+	}
+
+	template <typename Validator>
+	bool PublishLocalized(
+		OptionalLocalizedLoadTransaction<LocalizedTextPatch>& transaction,
+		TestLiveTables<TestItem>& destination, Validator&& validator)
+	{
+		return transaction.commit(destination.items.size(),
+			std::forward<Validator>(validator),
+			[&destination](std::size_t index,
+				const LocalizedTextPatch& patch) noexcept {
+				ApplyLocalizedText(destination.items[index], patch);
+			});
+	}
+
+	bool PublishLocalized(
+		OptionalLocalizedLoadTransaction<LocalizedTextPatch>& transaction,
+		TestLiveTables<TestItem>& destination)
+	{
+		return PublishLocalized(transaction, destination,
+			[](std::size_t, const LocalizedTextPatch&) noexcept {
+				return true;
+			});
 	}
 
 	void TestIntegerInput()
@@ -195,11 +368,70 @@ namespace
 			"stance inheritance matches stand crouch prone legacy rules");
 	}
 
+	void TestBoundedOwnershipAndNoFailPublication()
+	{
+		constexpr std::size_t capacity = 257;
+		AuxiliaryTables liveAuxiliary(capacity);
+		LargeTrackedRecord::ResetCounts();
+		{
+			RequiredBaseLoadTransaction<LargeTrackedRecord> base(
+				capacity, liveAuxiliary);
+			Require(LargeTrackedRecord::liveInstances == capacity &&
+				LargeTrackedRecord::maximumLiveInstances == capacity,
+				"base staging owns exactly one full item candidate");
+
+			base.complete();
+			std::size_t publishedItems = 0;
+			const LargeTrackedRecord* publishedAddress = nullptr;
+			Require(base.commit(capacity,
+					[&](const BasePublicationView<LargeTrackedRecord>&
+						publication) noexcept {
+						publishedItems = publication.items.size();
+						publishedAddress = publication.items.data();
+					}) &&
+				publishedItems == capacity && publishedAddress != nullptr &&
+				LargeTrackedRecord::maximumLiveInstances == capacity,
+				"base publication borrows the sole candidate without copying it");
+		}
+		Require(LargeTrackedRecord::liveInstances == 0,
+			"base staging releases its sole full item candidate");
+
+		LargeTrackedRecord::ResetCounts();
+		{
+			std::vector<LargeTrackedRecord> destination(capacity);
+			OptionalLocalizedLoadTransaction<LocalizedTextPatch> localized(capacity);
+			LocalizedTextPatch patch;
+			patch.name = "localized";
+			localized.stage(capacity - 1, patch);
+			localized.complete();
+			std::size_t validations = 0;
+			std::size_t publications = 0;
+			Require(localized.commit(capacity,
+					[&](std::size_t,
+						const LocalizedTextPatch&) noexcept {
+						++validations;
+						return true;
+					},
+					[&](std::size_t index,
+						const LocalizedTextPatch&) noexcept {
+						++publications;
+						destination[index].payload[0] = 1;
+					}) &&
+				validations == 1 && publications == 1 &&
+				destination.back().payload[0] == 1 &&
+				LargeTrackedRecord::maximumLiveInstances == capacity,
+				"localized staging remains patch-only during validation and publish");
+		}
+		Require(LargeTrackedRecord::liveInstances == 0,
+			"localized publication does not retain an item candidate");
+	}
+
 	void TestBasePublication()
 	{
-		ItemTables<TestItem> live = MakeLiveTables(6);
-		const ItemTables<TestItem> original = live;
-		BaseLoadTransaction<TestItem> transaction(live);
+		TestLiveTables<TestItem> live = MakeLiveTables(6);
+		const TestLiveTables<TestItem> original = live;
+		RequiredBaseLoadTransaction<TestItem> transaction(
+			live.items.size(), live.auxiliary);
 		AuxiliaryPatch firstAuxiliary;
 		firstAuxiliary.newInventory = 1;
 		AuxiliaryPatch secondAuxiliary;
@@ -210,28 +442,30 @@ namespace
 				firstAuxiliary) == StageResult::Inserted &&
 			transaction.stage(4, MakeItem(444, "four"), true,
 				secondAuxiliary) == StageResult::Inserted &&
-			!transaction.commit(live) && SameTables(live, original),
+			!PublishBase(transaction, live) && SameTables(live, original),
 			"base loads cannot publish before a complete document");
 
 		transaction.complete();
-		Require(transaction.commit(live) && live.maxItemsRead == 5 &&
+		Require(PublishBase(transaction, live) && live.maxItemsRead == 5 &&
 			live.items[0] == TestItem{} && live.items[1].payload == 111 &&
 			live.items[4].payload == 444 && live.items[5] == TestItem{} &&
-			live.storeInventory[1].newInventory == 1 &&
-			live.storeInventory[1].usedInventory ==
-				original.storeInventory[1].usedInventory &&
-			live.storeInventory[4].newInventory ==
-				original.storeInventory[4].newInventory &&
-			live.storeInventory[4].usedInventory == 2 &&
-			live.weaponRateOfFire[4] == -7 &&
-			live.weaponRateOfFire[1] == original.weaponRateOfFire[1],
+			live.auxiliary.storeInventory[1].newInventory == 1 &&
+			live.auxiliary.storeInventory[1].usedInventory ==
+				original.auxiliary.storeInventory[1].usedInventory &&
+			live.auxiliary.storeInventory[4].newInventory ==
+				original.auxiliary.storeInventory[4].newInventory &&
+			live.auxiliary.storeInventory[4].usedInventory == 2 &&
+			live.auxiliary.weaponRateOfFire[4] == -7 &&
+			live.auxiliary.weaponRateOfFire[1] ==
+				original.auxiliary.weaponRateOfFire[1],
 			"base loads publish atomically and retain unspecified auxiliary values");
 	}
 
 	void TestSparseDuplicateAndBoundsRules()
 	{
-		ItemTables<TestItem> live = MakeLiveTables(7);
-		BaseLoadTransaction<TestItem> transaction(live);
+		TestLiveTables<TestItem> live = MakeLiveTables(7);
+		RequiredBaseLoadTransaction<TestItem> transaction(
+			live.items.size(), live.auxiliary);
 		AuxiliaryPatch firstAuxiliary;
 		firstAuxiliary.newInventory = 70;
 		AuxiliaryPatch replacementAuxiliary;
@@ -255,46 +489,50 @@ namespace
 			"out-of-range legacy records are ignored before any table access");
 
 		transaction.complete();
-		Require(transaction.commit(live) && live.maxItemsRead == 6 &&
+		Require(PublishBase(transaction, live) && live.maxItemsRead == 6 &&
 			live.items[2].payload == 20 && live.items[5].payload == 51 &&
 			live.items[4] == TestItem{} &&
-			live.storeInventory[5].newInventory == 70 &&
-			live.storeInventory[5].usedInventory == 80 &&
-			live.weaponRateOfFire[2] == 99,
+			live.auxiliary.storeInventory[5].newInventory == 70 &&
+			live.auxiliary.storeInventory[5].usedInventory == 80 &&
+			live.auxiliary.weaponRateOfFire[2] == 99,
 			"sparse unsorted and duplicate base indices use deterministic high-water rules");
 	}
 
 	void TestBaseRollback()
 	{
-		ItemTables<TestItem> live = MakeLiveTables(4);
-		const ItemTables<TestItem> original = live;
+		TestLiveTables<TestItem> live = MakeLiveTables(4);
+		const TestLiveTables<TestItem> original = live;
 
-		BaseLoadTransaction<TestItem> truncated(live);
+		RequiredBaseLoadTransaction<TestItem> truncated(
+			live.items.size(), live.auxiliary);
 		truncated.stage(1, MakeItem(900, "partial"), true);
 		truncated.fail(Failure::TruncatedInput);
 		truncated.complete();
-		Require(!truncated.commit(live) && SameTables(live, original) &&
+		Require(!PublishBase(truncated, live) && SameTables(live, original) &&
 			truncated.failure() == Failure::TruncatedInput,
 			"base failures and truncated documents leave every live table unchanged");
 
-		BaseLoadTransaction<TestItem> missing(live);
-		missing.resourceMissing(ResourceRequirement::Required);
-		Require(!missing.commit(live) && SameTables(live, original) &&
+		RequiredBaseLoadTransaction<TestItem> missing(
+			live.items.size(), live.auxiliary);
+		missing.resourceMissing();
+		Require(!PublishBase(missing, live) && SameTables(live, original) &&
 			missing.failure() == Failure::MissingRequiredResource,
 			"missing required base resources fail without publication");
 
-		BaseLoadTransaction<TestItem> missingIndex(live);
+		RequiredBaseLoadTransaction<TestItem> missingIndex(
+			live.items.size(), live.auxiliary);
 		Require(missingIndex.stage(std::nullopt, MakeItem(1), true) ==
 				StageResult::RejectedMissingIndex &&
 			missingIndex.failure() == Failure::MissingIndex &&
-			!missingIndex.commit(live) && SameTables(live, original),
+			!PublishBase(missingIndex, live) && SameTables(live, original),
 			"missing indices and malformed input poison the transaction");
 
-		BaseLoadTransaction<TestItem> wrongDestination(live);
+		RequiredBaseLoadTransaction<TestItem> wrongDestination(
+			live.items.size(), live.auxiliary);
 		wrongDestination.complete();
-		ItemTables<TestItem> shorter = MakeLiveTables(3);
-		const ItemTables<TestItem> shorterOriginal = shorter;
-		Require(!wrongDestination.commit(shorter) &&
+		TestLiveTables<TestItem> shorter = MakeLiveTables(3);
+		const TestLiveTables<TestItem> shorterOriginal = shorter;
+		Require(!PublishBase(wrongDestination, shorter) &&
 			SameTables(shorter, shorterOriginal) &&
 			wrongDestination.failure() == Failure::InvalidDestination,
 			"publication rejects a destination whose capacity changed during parsing");
@@ -302,40 +540,44 @@ namespace
 
 	void TestZeroCapacity()
 	{
-		ItemTables<TestItem> live;
-		BaseLoadTransaction<TestItem> base(live);
+		TestLiveTables<TestItem> live;
+		RequiredBaseLoadTransaction<TestItem> base(0, live.auxiliary);
 		Require(base.stage(0, MakeItem(1), true) ==
 			StageResult::IgnoredOutOfRange,
 			"zero-capacity base tables reject records before access");
 		base.complete();
-		Require(base.commit(live) && live.consistent() &&
-			live.capacity() == 0 && live.maxItemsRead == 0,
+		Require(PublishBase(base, live) && live.consistent() &&
+			live.items.empty() && live.maxItemsRead == 0,
 			"zero-capacity base tables still publish a complete empty document");
 
-		LocalizedLoadTransaction<LocalizedTextPatch> localized(0);
+		OptionalLocalizedLoadTransaction<LocalizedTextPatch> localized(0);
 		Require(localized.stage(0, LocalizedTextPatch{}) ==
 			StageResult::IgnoredOutOfRange,
 			"zero-capacity localized tables reject records before access");
 		localized.complete();
-		Require(localized.commit(live, ApplyLocalizedText) && live.consistent(),
+		Require(PublishLocalized(localized, live) && live.consistent(),
 			"zero-capacity localized tables complete without mutation");
 	}
 
 	void TestLocalizedPublication()
 	{
-		ItemTables<TestItem> live = MakeLiveTables(4);
-		const ItemTables<TestItem> original = live;
-		LocalizedLoadTransaction<LocalizedTextPatch> missing(live.capacity());
-		missing.resourceMissing(ResourceRequirement::Optional);
+		TestLiveTables<TestItem> live = MakeLiveTables(4);
+		const TestLiveTables<TestItem> original = live;
+		OptionalLocalizedLoadTransaction<LocalizedTextPatch> missing(
+			live.items.size());
+		missing.resourceMissing();
 		int applications = 0;
-		Require(missing.commit(live,
-				[&](TestItem&, const LocalizedTextPatch&) {
-					++applications;
+		Require(missing.commit(live.items.size(),
+				[](std::size_t, const LocalizedTextPatch&) noexcept {
 					return true;
+				},
+				[&](std::size_t, const LocalizedTextPatch&) noexcept {
+					++applications;
 				}) && applications == 0 && SameTables(live, original),
 			"missing optional localized resources succeed without mutation");
 
-		LocalizedLoadTransaction<LocalizedTextPatch> overlay(live.capacity());
+		OptionalLocalizedLoadTransaction<LocalizedTextPatch> overlay(
+			live.items.size());
 		LocalizedTextPatch nameOnly;
 		nameOnly.name = "localized-one";
 		LocalizedTextPatch sparseDescription;
@@ -343,23 +585,25 @@ namespace
 		overlay.stage(1, nameOnly);
 		overlay.stage(3, sparseDescription);
 		overlay.complete();
-		Require(overlay.commit(live, ApplyLocalizedText) &&
+		Require(PublishLocalized(overlay, live) &&
 			live.items[1].name == "localized-one" &&
 			live.items[1].description == original.items[1].description &&
 			live.items[3].description == "localized-three" &&
 			live.items[3].name == original.items[3].name &&
-			live.storeInventory[1].newInventory ==
-				original.storeInventory[1].newInventory &&
-			live.weaponRateOfFire == original.weaponRateOfFire &&
+			live.auxiliary.storeInventory[1].newInventory ==
+				original.auxiliary.storeInventory[1].newInventory &&
+			live.auxiliary.weaponRateOfFire ==
+				original.auxiliary.weaponRateOfFire &&
 			live.maxItemsRead == original.maxItemsRead,
 			"localized overlays publish only fields actually present");
 	}
 
 	void TestLocalizedDuplicatesAndRollback()
 	{
-		ItemTables<TestItem> live = MakeLiveTables(3);
-		const ItemTables<TestItem> original = live;
-		LocalizedLoadTransaction<LocalizedTextPatch> duplicate(live.capacity());
+		TestLiveTables<TestItem> live = MakeLiveTables(3);
+		const TestLiveTables<TestItem> original = live;
+		OptionalLocalizedLoadTransaction<LocalizedTextPatch> duplicate(
+			live.items.size());
 		LocalizedTextPatch first;
 		first.name = "first";
 		first.description = "first-description";
@@ -370,13 +614,14 @@ namespace
 			duplicate.stage(3, second) == StageResult::IgnoredOutOfRange,
 			"duplicate localization indices are explicit and last-record-wins");
 		duplicate.complete();
-		Require(duplicate.commit(live, ApplyLocalizedText) &&
+		Require(PublishLocalized(duplicate, live) &&
 			live.items[1].name == "second" &&
 			live.items[1].description == original.items[1].description,
 			"replacement localization records cannot leak fields from prior records");
 
-		const ItemTables<TestItem> localized = live;
-		LocalizedLoadTransaction<LocalizedTextPatch> rejected(live.capacity());
+		const TestLiveTables<TestItem> localized = live;
+		OptionalLocalizedLoadTransaction<LocalizedTextPatch> rejected(
+			live.items.size());
 		LocalizedTextPatch acceptedPatch;
 		acceptedPatch.name = "accepted-before-rejection";
 		LocalizedTextPatch rejectedPatch;
@@ -384,18 +629,44 @@ namespace
 		rejected.stage(0, acceptedPatch);
 		rejected.stage(2, rejectedPatch);
 		rejected.complete();
-		Require(!rejected.commit(live,
-				[](TestItem& item, const LocalizedTextPatch& patch) {
-					if (patch.name && *patch.name == "reject") return false;
-					return ApplyLocalizedText(item, patch);
-				}) && SameTables(live, localized) &&
+		int rejectedApplications = 0;
+		Require(!rejected.commit(live.items.size(),
+				[](std::size_t, const LocalizedTextPatch& patch) noexcept {
+					return !patch.name || *patch.name != "reject";
+				},
+				[&](std::size_t index,
+					const LocalizedTextPatch& patch) noexcept {
+					++rejectedApplications;
+					ApplyLocalizedText(live.items[index], patch);
+				}) && rejectedApplications == 0 &&
+			SameTables(live, localized) &&
 			rejected.failure() == Failure::OverlayRejected,
-			"localized overlay application failure rolls back every field");
+			"late localized validation rejection performs no live writes");
 
-		LocalizedLoadTransaction<LocalizedTextPatch> missingIndex(live.capacity());
+		OptionalLocalizedLoadTransaction<LocalizedTextPatch> interrupted(
+			live.items.size());
+		interrupted.stage(1, acceptedPatch);
+		interrupted.complete();
+		int interruptedApplications = 0;
+		Require(!interrupted.commit(live.items.size(),
+				[&](std::size_t,
+					const LocalizedTextPatch&) noexcept {
+					interrupted.fail(Failure::MalformedInput);
+					return true;
+				},
+				[&](std::size_t,
+					const LocalizedTextPatch&) noexcept {
+					++interruptedApplications;
+				}) && interruptedApplications == 0 &&
+			interrupted.failure() == Failure::MalformedInput &&
+			SameTables(live, localized),
+			"validation state changes abort before localized publication");
+
+		OptionalLocalizedLoadTransaction<LocalizedTextPatch> missingIndex(
+			live.items.size());
 		Require(missingIndex.stage(std::nullopt, LocalizedTextPatch{}) ==
 				StageResult::RejectedMissingIndex &&
-			!missingIndex.commit(live, ApplyLocalizedText) &&
+			!PublishLocalized(missingIndex, live) &&
 			SameTables(live, localized),
 			"malformed localization records cannot mutate the base table");
 	}
@@ -406,6 +677,7 @@ int main()
 	TestIntegerInput();
 	TestCharacterInput();
 	TestStanceInheritance();
+	TestBoundedOwnershipAndNoFailPublication();
 	TestBasePublication();
 	TestSparseDuplicateAndBoundsRules();
 	TestBaseRollback();
