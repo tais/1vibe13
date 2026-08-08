@@ -5063,6 +5063,7 @@ foreach(required_vfs_atomic_fragment IN ITEMS
     "O_WRONLY | O_CREAT | O_EXCL"
     "::fsync(file)"
     "::rename(temporary.c_str(), target.c_str())"
+    "(std::numeric_limits<DWORD>::max)()"
     "MOVEFILE_WRITE_THROUGH"
     "if(vfs::OS::deleteRealFile(candidate))"
     "if(::unlink(temporary.c_str()) == 0)"
@@ -5126,7 +5127,8 @@ if(vfs_atomic_committed_position EQUAL -1 OR
     "Atomic VFS replacement must record native commitment before releasing temp ownership")
 endif()
 foreach(retired_vfs_atomic_fragment IN ITEMS
-    "MOVEFILE_COPY_ALLOWED")
+    "MOVEFILE_COPY_ALLOWED"
+    "std::numeric_limits<DWORD>::max()")
   string(FIND "${runtime_vfs_atomic_combined}"
     "${retired_vfs_atomic_fragment}" retired_vfs_atomic_position)
   if(NOT retired_vfs_atomic_position EQUAL -1)

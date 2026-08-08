@@ -454,7 +454,8 @@ bool vfs::OS::CAtomicFileReplacement::prepare(
 		{
 			const vfs::size_t remaining = size - offset;
 			const DWORD chunk = static_cast<DWORD>(std::min<vfs::size_t>(
-				remaining, static_cast<vfs::size_t>(std::numeric_limits<DWORD>::max())));
+				remaining, static_cast<vfs::size_t>(
+					(std::numeric_limits<DWORD>::max)())));
 			DWORD written = 0;
 			if(!WriteFile(file, data + offset, chunk, &written, NULL) ||
 				written != chunk)
