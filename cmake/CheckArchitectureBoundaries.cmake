@@ -5615,6 +5615,7 @@ foreach(required_item_xml_adapter_fragment IN ITEMS
     "ParseItemBooleanValue"
     "ParseItemFloatValue"
     "ParseItemClampedIntegerValue"
+    "TryAdjustItemApBonus"
     "ParseLegacyItemPrice"
     "ItemDataStagingModel::TryCopyUtf8"
     "no C++ exception can unwind through the C parser frames"
@@ -5673,6 +5674,7 @@ foreach(required_item_xml_headless_fragment IN ITEMS
     "struct ItemXmlItemSnapshot"
     "std::vector<ItemXmlItemSnapshot> items"
     "ItemXmlItemRecordIsZero"
+    "class ScopedItemXmlTablesRestore"
     "transactional item base loads use the last nonzero-class item, merged auxiliary fields, and an unsorted high-water bound"
     "valid item XML exact-end records are ignored before live table access"
     "malformed item base XML rolls back Item StoreInventory WeaponROF and loaded bound"
@@ -5689,6 +5691,7 @@ foreach(required_item_xml_headless_fragment IN ITEMS
     "item XML canonical Cigarette tag and full default-attachment capacity load"
     "item XML strict text scalar and late-field failures roll back every live table"
     "item XML validates a default attachment after storage capacity is full"
+    "item XML AP bonus scaling rejects invalid bounds transactionally and preserves valid signed legacy rounding"
     "item XML parser state is invocation-local and floats ignore the process numeric locale"
     "localized item text overflow rolls back while an empty overlay is a no-op"
     "an explicitly requested installed Items.xml remains parser-compatible")
@@ -5700,6 +5703,13 @@ foreach(required_item_xml_headless_fragment IN ITEMS
       "Items XML production coverage lost '${required_item_xml_headless_fragment}'")
   endif()
 endforeach()
+string(FIND "${runtime_utils_ui_headless_contents}"
+  "\ttry\n\t{\n\t\tRunTransactionalItemXmlTests(vfsPriorityToken);\n\t\tRunItemXmlWriterTests(vfsPriorityToken);\n\t\tRunAtomicVfsPublicationTests(vfsPriorityToken);"
+  guarded_item_xml_test_invocation_position)
+if(guarded_item_xml_test_invocation_position EQUAL -1)
+  message(FATAL_ERROR
+    "Items XML reader/writer/atomic integration tests lost their shared exception guard")
+endif()
 
 # Keep the item exporter on the shared XMLWriter/data-boundary path. The public
 # seams must preserve the compatibility wrapper while making the requested
@@ -5745,7 +5755,7 @@ foreach(required_item_xml_writer_fragment IN ITEMS
     "allowedItemFlags2 = UINT64_C(0x000007FFFFFFFFFF)"
     "sawZeroAttachment"
     "TrySerializeApBonus("
-    "TryAdjustApBonus("
+    "TryAdjustItemApBonus("
     "roundTripped == liveValue"
     "AddItemInteger(writer, \"AvailableAttachmentPoint\""
     "AddItemInteger(writer, \"AttachmentPoint\""
@@ -5804,6 +5814,10 @@ foreach(retired_item_xml_writer_fragment IN ITEMS
 endforeach()
 
 foreach(required_item_xml_writer_headless_fragment IN ITEMS
+    "const ScopedItemXmlTablesRestore restoreTables(originalTables)"
+    "const ScopedItemXmlSpreadPatternsRestore restoreSpreadPatterns"
+    "const ScopedItemXmlApConstantsRestore restoreApConstants"
+    "const ScopedGlobalLocaleRestore restoreLocale"
     "item XML writer emits escaped UTF-8 and exact 79/399-character text"
     "item XML writer preserves every 64-bit mask above 2^53 as decimal"
     "item XML writer uses round-trip float precision under a comma locale"
@@ -5857,6 +5871,7 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "Indexed localization XML boundary"
     "Item XML transaction and writer closure"
     "production reader through"
+    "authored nonzero-class item"
     "invalid UTF-8"
     "Remaining Utils inventory"
     "following 11 translation units"
@@ -5886,6 +5901,8 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "TextInfrastructureModel"
     "IndexedXmlModel"
     "ItemDataStagingModel"
+    "sparse authored nonzero-class records"
+    "invocation-local character buffer"
     "MediaLifecycleModel"
     "DataBoundaryModel"
     "encrypted text-record"

@@ -171,6 +171,28 @@ static FLOAT ParseItemFloatValue(itemParseData* pData)
 	return value;
 }
 
+static bool TryAdjustItemApBonus(INT16 rawBonus, INT16 maximumActionPoints,
+	INT16& adjustedBonus) noexcept
+{
+	if (maximumActionPoints <= 0) return false;
+
+	// Preserve DynamicAdjustAPConstants' established FLOAT calculation and
+	// truncation for every representable result, but validate the conversion
+	// before narrowing it back into the item schema's INT16 destination.
+	const FLOAT rounded =
+		(static_cast<FLOAT>(rawBonus) *
+			static_cast<FLOAT>(maximumActionPoints) / 100.0f) +
+		(rawBonus < 0 ? -0.5f : 0.5f);
+	const double truncated = std::trunc(static_cast<double>(rounded));
+	if (!std::isfinite(truncated) ||
+		truncated < static_cast<double>(std::numeric_limits<INT16>::min()) ||
+		truncated > static_cast<double>(std::numeric_limits<INT16>::max()))
+		return false;
+
+	adjustedBonus = static_cast<INT16>(truncated);
+	return true;
+}
+
 template <typename Integer>
 static Integer ParseItemClampedIntegerValue(itemParseData* pData,
 	std::int64_t minimum, std::int64_t maximum)
@@ -1028,8 +1050,13 @@ itemEndElementHandleImpl(void *userData, const XML_Char *name)
 		else if(strcmp(name, "APBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.APBonus = ParseItemIntegerValue<INT16>(pData);
-			pData->curItem.APBonus = (INT16)DynamicAdjustAPConstants(pData->curItem.APBonus, pData->curItem.APBonus);
+			const INT16 rawBonus = ParseItemIntegerValue<INT16>(pData);
+			if (!pData->failed && !TryAdjustItemApBonus(rawBonus,
+				APBPConstants[AP_MAXIMUM], pData->curItem.APBonus))
+			{
+				FailItemParse(
+					pData, ItemDataStagingModel::Failure::MalformedInput);
+			}
 		}
 		else if(strcmp(name, "RateOfFireBonus")	 == 0)
 		{
@@ -2388,26 +2415,6 @@ namespace
 		return ItemTextToUtf8(source, utf8);
 	}
 
-	bool TryAdjustApBonus(INT16 value, INT16 maximum, bool reverse,
-		INT16& adjusted)
-	{
-		if (maximum <= 0) return false;
-		const FLOAT expression = reverse
-			? static_cast<FLOAT>(value) / static_cast<FLOAT>(maximum) *
-				static_cast<FLOAT>(100) + (value < 0 ? -0.5f : 0.5f)
-			: static_cast<FLOAT>(value) * static_cast<FLOAT>(maximum) /
-				static_cast<FLOAT>(100) + (value < 0 ? -0.5f : 0.5f);
-		if (!std::isfinite(expression)) return false;
-		const double truncated = std::trunc(static_cast<double>(expression));
-		if (truncated < static_cast<double>(std::numeric_limits<INT16>::min()) ||
-			truncated > static_cast<double>(std::numeric_limits<INT16>::max()))
-		{
-			return false;
-		}
-		adjusted = static_cast<INT16>(truncated);
-		return true;
-	}
-
 	bool TrySerializeApBonus(INT16 liveValue, INT16& serialized)
 	{
 		const INT16 maximum = APBPConstants[AP_MAXIMUM];
@@ -2433,8 +2440,8 @@ namespace
 			}
 			const INT16 encoded = static_cast<INT16>(candidate);
 			INT16 roundTripped = 0;
-			if (TryAdjustApBonus(
-					encoded, maximum, false, roundTripped) &&
+			if (TryAdjustItemApBonus(
+					encoded, maximum, roundTripped) &&
 				roundTripped == liveValue)
 			{
 				serialized = encoded;

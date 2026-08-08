@@ -692,6 +692,80 @@ private:
 	const ItemXmlTablesSnapshot& snapshot_;
 };
 
+class ScopedItemXmlApConstantsRestore
+{
+public:
+	ScopedItemXmlApConstantsRestore() noexcept
+	{
+		std::copy_n(APBPConstants, TOTAL_APBP_VALUES, constants_.begin());
+	}
+
+	~ScopedItemXmlApConstantsRestore() noexcept
+	{
+		std::copy(constants_.begin(), constants_.end(), APBPConstants);
+	}
+
+	ScopedItemXmlApConstantsRestore(
+		const ScopedItemXmlApConstantsRestore&) = delete;
+	ScopedItemXmlApConstantsRestore& operator=(
+		const ScopedItemXmlApConstantsRestore&) = delete;
+
+private:
+	std::array<INT16, TOTAL_APBP_VALUES> constants_{};
+};
+
+class ScopedItemXmlSpreadPatternsRestore
+{
+public:
+	ScopedItemXmlSpreadPatternsRestore() noexcept
+		: patterns_(gpSpreadPattern), count_(giSpreadPatternCount)
+	{
+	}
+
+	~ScopedItemXmlSpreadPatternsRestore() noexcept
+	{
+		gpSpreadPattern = patterns_;
+		giSpreadPatternCount = count_;
+	}
+
+	ScopedItemXmlSpreadPatternsRestore(
+		const ScopedItemXmlSpreadPatternsRestore&) = delete;
+	ScopedItemXmlSpreadPatternsRestore& operator=(
+		const ScopedItemXmlSpreadPatternsRestore&) = delete;
+
+private:
+	t_SpreadPattern* patterns_ = nullptr;
+	INT32 count_ = 0;
+};
+
+class ScopedGlobalLocaleRestore
+{
+public:
+	explicit ScopedGlobalLocaleRestore(const std::locale& replacement)
+		: locale_(std::locale())
+	{
+		std::locale::global(replacement);
+	}
+
+	~ScopedGlobalLocaleRestore() noexcept
+	{
+		try
+		{
+			std::locale::global(locale_);
+		}
+		catch (...)
+		{
+		}
+	}
+
+	ScopedGlobalLocaleRestore(const ScopedGlobalLocaleRestore&) = delete;
+	ScopedGlobalLocaleRestore& operator=(
+		const ScopedGlobalLocaleRestore&) = delete;
+
+private:
+	std::locale locale_;
+};
+
 static std::size_t CountTextOccurrences(
 	const std::string& text, const std::string& needle)
 {
@@ -850,9 +924,9 @@ struct ItemXmlCommaDecimalPunctuation final : std::numpunct<char>
 static void RunItemXmlWriterTests(const std::string& fixtureToken)
 {
 	const ItemXmlTablesSnapshot originalTables = CaptureItemXmlTables();
-	t_SpreadPattern* const originalSpreadPatterns = gpSpreadPattern;
-	const INT32 originalSpreadPatternCount = giSpreadPatternCount;
-	const INT16 originalApMaximum = APBPConstants[AP_MAXIMUM];
+	const ScopedItemXmlTablesRestore restoreTables(originalTables);
+	const ScopedItemXmlSpreadPatternsRestore restoreSpreadPatterns;
+	const ScopedItemXmlApConstantsRestore restoreApConstants;
 	gpSpreadPattern = nullptr;
 	giSpreadPatternCount = 8;
 	APBPConstants[AP_MAXIMUM] = 50;
@@ -909,12 +983,14 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 
 	const std::string path =
 		"item-writer-closure-" + fixtureToken + ".xml";
-	const std::locale previousGlobalLocale = std::locale();
-	std::locale::global(std::locale(std::locale::classic(),
-		new ItemXmlCommaDecimalPunctuation));
-	const bool written = WriteItemStatsToFile(
-		const_cast<char*>(path.c_str()), gMAXITEMS_READ);
-	std::locale::global(previousGlobalLocale);
+	bool written = false;
+	{
+		const ScopedGlobalLocaleRestore restoreLocale(
+			std::locale(std::locale::classic(),
+				new ItemXmlCommaDecimalPunctuation));
+		written = WriteItemStatsToFile(
+			const_cast<char*>(path.c_str()), gMAXITEMS_READ);
+	}
 
 	std::string document;
 	const bool readBack = written && ReadFileManagerText(path, document);
@@ -1314,10 +1390,6 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 
 	FileDelete(const_cast<char*>(path.c_str()));
 	FileDelete(const_cast<char*>(rejectedPath.c_str()));
-	gpSpreadPattern = originalSpreadPatterns;
-	giSpreadPatternCount = originalSpreadPatternCount;
-	APBPConstants[AP_MAXIMUM] = originalApMaximum;
-	RestoreItemXmlTables(originalTables);
 }
 
 static void RunAtomicVfsPublicationTests(const std::string& fixtureToken)
@@ -1803,6 +1875,42 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 		rejectsParserDocumentWithoutPublication("parser excess attachment", itemDocument(
 			fullDefaultAttachments +
 			"<DefaultAttachment>12tail</DefaultAttachment>"));
+	bool zeroApMaximumRejected = false;
+	bool scaledApOverflowRejected = false;
+	bool validApScalingAccepted = false;
+	bool apScalingBaselineReloaded = false;
+	{
+		const ScopedItemXmlApConstantsRestore restoreApConstants;
+		APBPConstants[AP_MAXIMUM] = 0;
+		zeroApMaximumRejected = rejectsParserDocumentWithoutPublication(
+			"parser AP maximum zero",
+			itemDocument("<APBonus>1</APBonus>"));
+
+		APBPConstants[AP_MAXIMUM] = 250;
+		scaledApOverflowRejected = rejectsParserDocumentWithoutPublication(
+			"parser AP bonus scale overflow",
+			itemDocument("<APBonus>32767</APBonus>"));
+		const std::string validApDocument =
+			"<ITEMLIST><ITEM><uiIndex>1</uiIndex>"
+			"<usItemClass>1</usItemClass><APBonus>1</APBonus></ITEM>"
+			"<ITEM><uiIndex>2</uiIndex><usItemClass>1</usItemClass>"
+			"<APBonus>-1</APBonus></ITEM></ITEMLIST>";
+		const bool validApFixtureWritten = WriteItemXmlFixtureWithProgress(
+			"parser AP bonus valid", parserPath,
+			validApDocument);
+		validApScalingAccepted = validApFixtureWritten &&
+			ReadItemXmlWithProgress(
+				"parser AP bonus valid", parserPath, FALSE) &&
+			Item[1].APBonus == 3 && Item[2].APBonus == -3 &&
+			gMAXITEMS_READ == 3;
+
+		const bool apBaselineWritten = WriteItemXmlFixtureWithProgress(
+			"AP baseline reload", basePath, baseDocument);
+		apScalingBaselineReloaded = apBaselineWritten &&
+			ReadItemXmlWithProgress(
+				"AP baseline reload", basePath, FALSE) &&
+			DigestItemXmlTables() == baseTables;
+	}
 	CHECK(textOverflowRejected && invalidUtfRejected &&
 		narrowOverflowRejected && trailingJunkRejected &&
 		baseZeroOutsideSchemaRejected && negativeUnsignedRejected &&
@@ -1815,6 +1923,9 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 		"item XML strict text scalar and late-field failures roll back every live table");
 	CHECK(malformedExtraDefaultAttachmentRejected,
 		"item XML validates a default attachment after storage capacity is full");
+	CHECK(zeroApMaximumRejected && scaledApOverflowRejected &&
+		validApScalingAccepted && apScalingBaselineReloaded,
+		"item XML AP bonus scaling rejects invalid bounds transactionally and preserves valid signed legacy rounding");
 
 	const char* const currentNumericLocale = std::setlocale(LC_NUMERIC, nullptr);
 	const std::string savedNumericLocale = currentNumericLocale
@@ -1986,6 +2097,11 @@ static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
 	if (const char* installedItems =
 			std::getenv("JA2_TEST_INSTALLED_ITEMS_XML"))
 	{
+		const ScopedItemXmlApConstantsRestore restoreApConstants;
+		// Production initializes AP constants before loading Items.xml. The
+		// data-free harness deliberately skips that startup stage, so provide
+		// its established 100-AP default while exercising an installed table.
+		APBPConstants[AP_MAXIMUM] = 100;
 		std::ifstream source(installedItems, std::ios::binary);
 		const bool sourceOpened = source.good();
 		const std::string contents{
