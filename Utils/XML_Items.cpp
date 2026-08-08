@@ -2252,6 +2252,13 @@ BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion) noexcept try
 	baseLoad->complete();
 	return baseLoad->commit(MAXITEMS, PublishBaseItemTables) ? TRUE : FALSE;
 }
+catch (...)
+{
+	// This legacy BOOLEAN boundary is also used before the live logger has
+	// necessarily been registered. Allocation and diagnostic-reporting failures
+	// must reject the transaction, not escape into startup or an Expat caller.
+	return FALSE;
+}
 namespace
 {
 	template <typename Integer>

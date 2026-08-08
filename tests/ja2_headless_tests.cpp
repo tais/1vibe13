@@ -668,6 +668,30 @@ static void RestoreItemXmlTables(const ItemXmlTablesSnapshot& snapshot)
 	gMAXITEMS_READ = snapshot.maxItemsRead;
 }
 
+class ScopedItemXmlTablesRestore
+{
+public:
+	explicit ScopedItemXmlTablesRestore(
+		const ItemXmlTablesSnapshot& snapshot) noexcept
+		: snapshot_(snapshot)
+	{
+	}
+
+	~ScopedItemXmlTablesRestore()
+	{
+		ReportItemXmlTestProgress("live tables", "restore begin");
+		RestoreItemXmlTables(snapshot_);
+		ReportItemXmlTestProgress("live tables", "restore complete");
+	}
+
+	ScopedItemXmlTablesRestore(const ScopedItemXmlTablesRestore&) = delete;
+	ScopedItemXmlTablesRestore& operator=(
+		const ScopedItemXmlTablesRestore&) = delete;
+
+private:
+	const ItemXmlTablesSnapshot& snapshot_;
+};
+
 static std::size_t CountTextOccurrences(
 	const std::string& text, const std::string& needle)
 {
@@ -18269,9 +18293,27 @@ int main( int, char** )
 	vfsConfig.addProfile( testProfile, true );
 	CHECK( vfs_init::initVirtualFileSystem( vfsConfig ), "initialize writable headless VFS profile" );
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
-	RunTransactionalItemXmlTests(vfsPriorityToken);
-	RunItemXmlWriterTests(vfsPriorityToken);
-	RunAtomicVfsPublicationTests(vfsPriorityToken);
+	try
+	{
+		RunTransactionalItemXmlTests(vfsPriorityToken);
+		RunItemXmlWriterTests(vfsPriorityToken);
+		RunAtomicVfsPublicationTests(vfsPriorityToken);
+	}
+	catch (const std::exception& error)
+	{
+		++g_failures;
+		std::printf(
+			"FAIL  item XML boundary tests threw std::exception: %s\n",
+			error.what());
+		std::fflush(stdout);
+	}
+	catch (...)
+	{
+		++g_failures;
+		std::printf(
+			"FAIL  item XML boundary tests threw an unknown exception\n");
+		std::fflush(stdout);
+	}
 	{
 		CIniReader reader( iniPath.c_str() );
 		char zeroCapacity = 'Z';
