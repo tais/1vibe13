@@ -56,8 +56,12 @@ public:
 
 	void		openNode(vfs::String const& key);
 	bool		closeNode();
-	
+
 	bool		writeToFile(vfs::Path const& sFileName);
+	// Exact-transfer stream seam. The file must be closed on entry; this opens
+	// it fresh with truncation and explicitly closes it. Failure is reported but
+	// caller-owned storage cannot be rolled back, so path replacement should use
+	// the atomic overload above.
 	bool		writeToFile(vfs::tWritableFile* pFile);
 
 private:

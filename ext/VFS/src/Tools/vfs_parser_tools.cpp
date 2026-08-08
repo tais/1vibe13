@@ -55,12 +55,13 @@ vfs::CReadLine::CReadLine(vfs::tReadableFile& rFile, bool autoControlFile)
 	rfile.release();
 };
 
-vfs::CReadLine::~CReadLine()
+vfs::CReadLine::~CReadLine() noexcept
 {
-	if (_auto_ctrl_file && _file.isOpenRead())
+	try
 	{
-		_file.close();
+		if (_auto_ctrl_file && _file.isOpenRead()) _file.close();
 	}
+	catch(...) {}
 }
 
 bool vfs::CReadLine::fillBuffer(bool refill)

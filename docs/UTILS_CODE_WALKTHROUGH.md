@@ -158,7 +158,7 @@ through the real VFS/Expat adapter and proves malformed, exact-end, and
 oversized documents cannot partially replace live text or metadata. Both tests
 run in the normal and AddressSanitizer matrices.
 
-## Item XML staging model and adapter — data/XML Slices 3–5
+## Item XML transaction and writer closure — data/XML Slices 3–5 of 5
 
 `ItemDataStagingModel.h` defines the transaction and strict reader primitives,
 reusing the locale-independent data-boundary foundation, and the legacy
@@ -290,24 +290,73 @@ allocation, and failure-reporting exceptions reject the staged load. This is
 important during early startup and headless validation, where the live logger
 may not yet have been registered.
 
-The remaining half of Slice 5 is only the `WriteItemStats` writer boundary:
-escaping, locale-independent serialization, and exact-write failure cleanup.
-Until that writer half lands, `XML_Items.cpp` remains in the remaining-audit
-inventory below.
+Slice 5 closes the production `WriteItemStats` boundary. Before it builds a
+single XML node or opens a destination, the writer preflights every requested
+record against the values the production reader can reproduce exactly. Public
+path/count and writable-file seams make success and failure behavior directly
+testable. The compatibility wrapper retains `TABLEDATA\Items out.xml`, but
+clamps `gMAXITEMS_READ` to `MAXITEMS`; every caller-provided count is likewise
+bounded before touching `Item`, `StoreInventory`, or `WeaponROF`.
+
+Every fixed-capacity `CHAR16` field is converted explicitly to UTF-8 without
+borrowing locale state or mutating the live text. Unterminated arrays, invalid
+surrogate sequences, out-of-range code points, and XML-invalid U+FFFE/U+FFFF
+fail before publication. Literal carriage returns are emitted as `&#13;` so
+XML newline normalization cannot silently turn them into line feeds. Integral
+fields are promoted before streaming, so the four 64-bit attachment/layout
+masks retain exact decimal values above 2^53. Finite floats are promoted exactly to `double` and use the
+classic locale with 17-digit `max_digits10` output, keeping both signed
+`FLT_MAX` endpoints inside the reader's range. Canonical preflight also rejects
+reserved flag bits, default-attachment holes, the stance-inheritance sentinel,
+reader-clamped domains, non-finite values, class/index mismatches, semantic
+class-zero payloads, and a trailing class-zero record that would lower the
+reader's high-water value. `APBonus` export searches the bounded inverse
+neighborhood and proves the reader's forward adjustment returns the exact live
+value; numeric spread output is allowed only when zero or when the loaded table
+resolves that same index. The writer emits the reader schema's canonical names
+and types, including all attachment-point fields, all eleven modifiers in each
+stance, `spreadPattern`, robot and transport fields,
+`TripWireActivation`, and installed-data canonical `Cigarette`. The
+recognized legacy no-op tags `Detonator`, `RemoteDetonator`, `ItemFlag`, and
+`fFlags` remain deliberately absent from exports.
+
+The path overload publishes through a new VFS transaction. It exclusively
+creates a short same-directory sibling, writes and flushes every byte, closes
+it, then performs the native replacement before committing a prepared virtual
+catalogue entry. A failed publish restores the exact former entry (including a
+lower-profile view), removes new empty virtual locations, and leaves the live
+target unchanged. Missing mount-relative directories are resolved from the
+matched physical ancestor so logical case-insensitive lookup preserves actual
+POSIX spelling. CVFS serializes this operation against its lookup/mutation entry
+points; iterator traversal, direct profile-stack mutation, and already-returned
+file objects remain outside that protection. POSIX uses `rename(2)`; Windows
+uses same-volume `MoveFileEx` without a copy fallback and promises no stronger
+behavior than an ordinary local
+filesystem rename. Directory metadata is not synced, so neither platform path
+claims power-loss durability.
+
+The caller-owned writable-file overload is intentionally narrower and cannot
+roll back storage: it rejects a pre-opened stream, opens fresh with truncation,
+requires an exact transfer, explicitly closes, and contains open/write/close
+exceptions. Real-VFS headless coverage pins text and scalar boundaries,
+canonical 64-bit/flag round trips, AP endpoints, auxiliary-only class-zero
+gaps, open/short/throwing stream failures, atomic shorter replacement,
+catalogue rollback, mount casing and exclusivity, and temporary cleanup.
+Architecture ratchets keep the XMLWriter/VFS transaction, canonical spellings,
+preflight, deliberate no-op omissions, seams, tests, and this audit record in
+place.
 
 ## Remaining Utils inventory
 
-The following 12 translation units are compiled and covered by the general
+The following 11 translation units are compiled and covered by the general
 build/test matrix, but have not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
 - Input and runtime control: `Cursors.cpp`, `Event Pump.cpp`, `KeyMap.cpp`,
   `Timer Control.cpp`, `Utilities.cpp`, and `Win Util.cpp`.
-- Data and XML boundaries: `XML_Items.cpp`.
 - Image and developer utilities: `Debug Control.cpp`, `MapUtility.cpp`,
   `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp`.
 
-The next Utils data/XML slice should finish the `XML_Items.cpp` writer boundary.
-Input/runtime control and the offline image tools follow.
+Input/runtime control and the offline image tools are the next audit batches.
 Existing file formats, resource paths, localization strings, callbacks, visual
 layout, and game behavior remain compatibility constraints throughout the audit.

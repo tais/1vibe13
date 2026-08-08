@@ -94,6 +94,36 @@ namespace vfs
 
 		VFS_API bool deleteRealFile(vfs::Path const& sDir);
 
+		/**
+		 * Owns a same-directory replacement file from exclusive creation through
+		 * exact write, checked content flush, checked close, and publication.
+		 * Destruction removes an unpublished temporary file.  This does not claim
+		 * power-loss durability for directory metadata.
+		 *
+		 * POSIX publication uses rename(2), so a failed publish leaves an existing
+		 * target in place.  Windows uses same-volume MoveFileEx without COPY_ALLOWED
+		 * and relies on ordinary local-filesystem rename semantics; it does not claim
+		 * a stronger documented Windows atomicity or power-loss guarantee.
+		 */
+		class VFS_API CAtomicFileReplacement
+		{
+		public:
+			CAtomicFileReplacement();
+			~CAtomicFileReplacement() noexcept;
+
+			bool prepare(vfs::Path const& targetPath,
+				const vfs::Byte* data, vfs::size_t size);
+			bool publish() noexcept;
+			bool isPrepared() const;
+
+		private:
+			CAtomicFileReplacement(CAtomicFileReplacement const&);
+			void operator=(CAtomicFileReplacement const&);
+
+			struct Impl;
+			Impl* m_impl;
+		};
+
 		VFS_API void getExecutablePath(vfs::Path& sDir, vfs::Path& sFile);
 		VFS_API void getCurrentDirectory(vfs::Path& sDir);
 		VFS_API void setCurrectDirectory(vfs::Path const& sPath);

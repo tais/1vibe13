@@ -31,10 +31,22 @@
 #include <vfs/Core/vfs_vfile.h>
 
 #include <map>
+#include <mutex>
 
 namespace vfs
 {
 	class CProfileStack;
+
+	class VFS_API IAtomicFileReplacement
+	{
+	public:
+		virtual ~IAtomicFileReplacement() {}
+		virtual bool prepare(vfs::Path const& realTarget,
+			const vfs::Byte* data, vfs::size_t size) = 0;
+		// Must return false only before physical publication; once committed it
+		// must return true and contain all cleanup failures.
+		virtual bool publish() noexcept = 0;
+	};
 
 	class VFS_API CVirtualFileSystem
 	{
@@ -72,11 +84,25 @@ namespace vfs
 		bool					removeDirectoryFromFS(vfs::Path const& sDir);
 		bool					createNewFile(vfs::Path const& sFileName);
 
+		// Replaces a writable-profile physical file without truncating the live
+		// target first.  Operations through this CVFS instance are serialized while
+		// a new catalogue entry is prepared and either committed or rolled back.
+		// Callers must not concurrently use a previously returned file object for
+		// this logical path; lookup serialization cannot guard external file use.
+		bool					replaceFileAtomically(vfs::Path const& sFileName,
+							const vfs::Byte* data, vfs::size_t size);
+		// Injectable publication seam used to prove catalogue rollback.  Production
+		// callers should use the overload above.
+		bool					replaceFileAtomically(vfs::Path const& sFileName,
+							const vfs::Byte* data, vfs::size_t size,
+							vfs::IAtomicFileReplacement& replacement);
+
 		Iterator				begin();
 		Iterator				begin(vfs::Path const& sPattern);
 	private:
 		vfs::CProfileStack		m_oProfileStack;
 		tVFS					m_mapFS;
+		mutable std::recursive_mutex m_mutex;
 	private:
 		CVirtualFileSystem();
 		static CVirtualFileSystem* m_pSingleton;

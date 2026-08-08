@@ -1241,33 +1241,67 @@ the engine must not contain SDL types in its public domain model.
   an Expat C callback. Optional localization owns field-presence patches, and
   the production Expat adapter publishes only after the complete document
   passes its structural, checked index/auxiliary numeric, text, scalar, and
-  overlay validations. Base
-  publication clears the complete live item capacity before applying the sparse
-  records. Valid out-of-range records are ignored before table access, while
-  malformed checked fields still poison the document. Duplicate payloads use
-  the last
-  nonzero-class item, and authored auxiliary fields merge independently. Its
-  invocation-local character buffer covers the largest destination's worst-case
-  UTF-8, strict decoding rejects invalid or over-capacity text, and every scalar
-  is a complete locale-independent token with schema-specific decimal,
-  C-style, exact-`UINT64`, signed-boolean, finite-float, or wide-clamp semantics.
-  String allocation and staging-copy failures are contained inside the Expat C
+  overlay validations. Base publication clears the complete live item capacity
+  before applying the sparse records. Valid out-of-range records are ignored
+  before table access, while malformed checked fields still poison the
+  document. Duplicate payloads use the last nonzero-class item, and authored
+  auxiliary fields merge independently. Its invocation-local character buffer
+  covers the largest destination's worst-case UTF-8, strict decoding rejects
+  invalid or over-capacity text, and every scalar is a complete
+  locale-independent token with schema-specific decimal, C-style,
+  exact-`UINT64`, signed-boolean, finite-float, or wide-clamp semantics. String
+  allocation and staging-copy failures are contained inside the Expat C
   callback boundary and reject the transaction before publication; later
   callbacks only balance document depth without revisiting failed parser state.
   The shipped `usPrice=70000` modulo result is the single documented narrowing
   compatibility rule. The reader accepts the shipped canonical `<Cigarette>`
   spelling plus its lowercase compatibility alias, and validates excess
-  `DefaultAttachment` tokens even after every storage slot is occupied.
-  The public legacy loader is a `noexcept` BOOLEAN boundary, so setup,
-  allocation, or failure-reporting exceptions reject the transaction even when
-  early startup has not registered the live logger yet.
-  Real-VFS tests pin malformed and late-field rollback, missing indices,
-  auxiliary overflow, malformed checked fields at ignored indices, UTF-8 and
-  scalar boundaries, parser-state isolation, sparse/duplicate/unsorted and
-  empty documents, exact-end indices, localized partial overlays and ignored
-  auxiliary publication, and required-versus-optional missing resources.
-  The remaining 12 Utils
-  translation units are deliberately still tracked as unaudited; the detailed
+  `DefaultAttachment` tokens even after every storage slot is occupied. The
+  public legacy loader is a `noexcept` BOOLEAN boundary, so setup, allocation,
+  or failure-reporting exceptions reject the transaction even when early
+  startup has not registered the live logger yet. Real-VFS tests pin malformed
+  and late-field rollback, missing indices, auxiliary overflow, malformed
+  checked fields at ignored indices, UTF-8 and scalar boundaries, parser-state
+  isolation, sparse/duplicate/unsorted and empty documents, exact-end indices,
+  localized partial overlays and ignored auxiliary publication, and
+  required-versus-optional missing resources.
+  The paired item exporter now preflights the complete requested range before
+  building XML or touching its destination, and clamps every requested count
+  to `MAXITEMS`. It rejects values the production reader would clamp, inherit,
+  reinterpret, or fail to reproduce: reserved flag bits, attachment holes,
+  stance sentinels, invalid class/index and high-water layouts, non-finite or
+  out-of-domain scalars, unavailable spread patterns, and AP bonuses without
+  an exact representable inverse. Fixed-capacity `CHAR16` text is validated and
+  converted explicitly to UTF-8; literal carriage returns use `&#13;` so XML
+  newline normalization cannot change the live text. Integral promotion keeps
+  all four 64-bit masks exact, while finite floats use classic-locale 17-digit
+  `max_digits10` precision, including both signed `FLT_MAX` endpoints. The
+  canonical schema includes attachment points, every stance `PercentAim`,
+  spread pattern, robot/transport fields, `TripWireActivation`, and
+  installed-data `Cigarette`; the four reader-recognized no-op tags remain
+  intentionally absent.
+
+  Path publication now crosses a VFS transaction rather than truncating the
+  live file. A same-directory sibling is exclusively created, written exactly,
+  flushed, and closed before native replacement; a prepared virtual-file entry
+  is committed only after physical publication, or restores the prior/lower
+  catalogue entry without allocation on failure. Mount-relative creation uses
+  the matched physical directory spelling, and one CVFS lock serializes the
+  replacement against CVFS lookup/mutation entry points. Iterator traversal,
+  direct profile-stack mutation, and file objects previously returned to an
+  external caller remain outside that protection and must not race it. POSIX
+  uses same-directory `rename(2)`; Windows uses same-volume `MoveFileEx`
+  without copy fallback and claims only ordinary local-filesystem rename
+  behavior. Neither path claims directory-metadata power-loss durability. The
+  caller-owned writable-file overload remains a deliberately destructive test
+  seam: it requires a closed stream, opens fresh with truncation, checks the
+  exact transfer and explicit close, and cannot roll back bytes after failure.
+  Real-VFS tests cover canonical preflight, escaping and exact-capacity text,
+  locale independence, high indices, corrected mappings, strict round trips,
+  stream failure containment, shorter replacement, catalogue rollback, mount
+  casing, exclusive inheritance, and native temporary cleanup. The
+  remaining 11 Utils translation units are deliberately still tracked as
+  unaudited; the detailed
   findings, inventory, and next priority order live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,
   visual layout, XML schema, and gameplay behavior remain unchanged.

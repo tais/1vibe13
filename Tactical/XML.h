@@ -257,6 +257,7 @@ typedef PARSE_STAGE;
 #define LBT_BODYTYPESFILENAME					"LogicalBodyTypes/LogicalBodyTypes.xml"
 
 extern BOOLEAN ReadInItemStats(STR fileName, BOOLEAN localizedVersion) noexcept;
+extern BOOLEAN WriteItemStatsToFile(STR fileName, UINT32 itemCount);
 extern BOOLEAN WriteItemStats();
 
 extern BOOLEAN ReadInAttachmentStats(STR fileName);

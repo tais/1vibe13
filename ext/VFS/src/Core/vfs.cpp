@@ -29,13 +29,59 @@
 #include <vfs/Core/File/vfs_file.h>
 #include <vfs/Core/File/vfs_dir_file.h>
 #include <vfs/Core/File/vfs_lib_file.h>
+#include <vfs/Core/Location/vfs_directory_tree.h>
 #include <vfs/Core/vfs_file_raii.h>
+#include <vfs/Core/vfs_os_functions.h>
 #include <vfs/Core/vfs_vfile.h>
 
 #include <vfs/Tools/vfs_property_container.h>
 #include <vfs/Tools/vfs_parser_tools.h>
 
+#include <new>
 #include <stack>
+
+namespace
+{
+	class OSAtomicFileReplacement : public vfs::IAtomicFileReplacement
+	{
+	public:
+		virtual bool prepare(vfs::Path const& realTarget,
+			const vfs::Byte* data, vfs::size_t size)
+		{
+			return m_replacement.prepare(realTarget, data, size);
+		}
+
+		virtual bool publish() noexcept
+		{
+			return m_replacement.publish();
+		}
+
+	private:
+		vfs::OS::CAtomicFileReplacement m_replacement;
+	};
+
+	vfs::CDirectoryTree* FindWritableDirectoryTree(
+		vfs::CVirtualProfile* profile, vfs::Path directory,
+		vfs::Path& matchedDirectory)
+	{
+		while(profile)
+		{
+			vfs::IBaseLocation* location = profile->getLocation(directory);
+			if(location)
+			{
+				if(!location->implementsWritable()) return NULL;
+				matchedDirectory = directory;
+				return dynamic_cast<vfs::CDirectoryTree*>(location);
+			}
+			if(directory.empty()) return NULL;
+			vfs::Path parent;
+			vfs::Path leaf;
+			directory.splitLast(parent, leaf);
+			directory = parent;
+		}
+		return NULL;
+	}
+}
 
 template class vfs::TIterator<vfs::tReadableFile>; // explicit instantiation
 
@@ -377,11 +423,13 @@ vfs::CProfileStack* vfs::CVirtualFileSystem::getProfileStack()
 
 vfs::CVirtualFileSystem::Iterator vfs::CVirtualFileSystem::begin()
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	return Iterator(new vfs::CVirtualFileSystem::CRegularIterator(this));
 }
 
 vfs::CVirtualFileSystem::Iterator vfs::CVirtualFileSystem::begin(vfs::Path const& sPattern)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	return Iterator(new vfs::CVirtualFileSystem::CMatchingIterator(sPattern,this));
 }
 
@@ -392,6 +440,7 @@ bool vfs::CVirtualFileSystem::addLocation(vfs::IBaseLocation* pLocation, vfs::CV
 
 bool vfs::CVirtualFileSystem::addLocation(vfs::IBaseLocation* pLocation, vfs::CVirtualProfile *pProfile, bool replaceExisting)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	VFS_THROW_IFF(pLocation != NULL, L"Invalid location object");
 	VFS_THROW_IFF(pProfile!= NULL, L"Invalid location object");
 
@@ -429,6 +478,7 @@ vfs::tWritableFile* vfs::CVirtualFileSystem::getWriteFile(vfs::Path const& rLoca
 
 vfs::IBaseFile* vfs::CVirtualFileSystem::getFile(vfs::Path const& rLocalFilePath, vfs::CVirtualFile::ESearchFile eSF)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	VFS_LOG_DEBUG( (L"Get file : " + rLocalFilePath()).c_str() );
 	vfs::Path sDir,sFile;
 	rLocalFilePath.splitLast(sDir,sFile);
@@ -462,6 +512,7 @@ vfs::tWritableFile* vfs::CVirtualFileSystem::getWriteFile(vfs::Path const& rLoca
 
 vfs::IBaseFile* vfs::CVirtualFileSystem::getFile(vfs::Path const& rLocalFilePath, vfs::String const& sProfileName)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	vfs::Path sDir,sFile;
 	rLocalFilePath.splitLast(sDir,sFile);
 
@@ -490,6 +541,7 @@ bool vfs::CVirtualFileSystem::fileExists(vfs::Path const& rLocalFilePath, vfs::C
 
 vfs::CVirtualLocation* vfs::CVirtualFileSystem::getVirtualLocation(vfs::Path const& sPath, bool bCreate)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	tVFS::iterator it = m_mapFS.find(sPath);
 	if(it == m_mapFS.end())
 	{
@@ -506,6 +558,7 @@ vfs::CVirtualLocation* vfs::CVirtualFileSystem::getVirtualLocation(vfs::Path con
 
 bool vfs::CVirtualFileSystem::removeDirectoryFromFS(vfs::Path const& sDir)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	vfs::Path pattern = sDir + "*";
 	std::list<vfs::Path> files;
 
@@ -528,6 +581,7 @@ bool vfs::CVirtualFileSystem::removeDirectoryFromFS(vfs::Path const& sDir)
 
 bool vfs::CVirtualFileSystem::removeFileFromFS(vfs::Path const& sFilePath)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	vfs::Path sPath,sFile;
 	sFilePath.splitLast(sPath,sFile);
 	vfs::CVirtualProfile *pProf = m_oProfileStack.getWriteProfile();
@@ -562,6 +616,7 @@ bool vfs::CVirtualFileSystem::removeFileFromFS(vfs::Path const& sFilePath)
 
 bool vfs::CVirtualFileSystem::createNewFile(vfs::Path const& sFilename)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	vfs::Path sPath,sFile;
 	sFilename.splitLast(sPath,sFile);
 	vfs::CVirtualProfile *pProf = m_oProfileStack.getWriteProfile();
@@ -616,6 +671,148 @@ bool vfs::CVirtualFileSystem::createNewFile(vfs::Path const& sFilename)
 		}
 	}
 	// throw ?
+	return false;
+}
+
+bool vfs::CVirtualFileSystem::replaceFileAtomically(
+	vfs::Path const& sFilename, const vfs::Byte* data, vfs::size_t size)
+{
+	OSAtomicFileReplacement replacement;
+	return replaceFileAtomically(sFilename, data, size, replacement);
+}
+
+bool vfs::CVirtualFileSystem::replaceFileAtomically(
+	vfs::Path const& sFilename, const vfs::Byte* data, vfs::size_t size,
+	vfs::IAtomicFileReplacement& replacement)
+{
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
+	if(sFilename.empty() || (size && !data)) return false;
+
+	vfs::CVirtualProfile* const profile = m_oProfileStack.getWriteProfile();
+	if(!profile) return false;
+
+	vfs::IBaseFile* existing = profile->getFile(sFilename);
+	vfs::Path realTarget;
+	if(existing)
+	{
+		vfs::tWritableFile* const writable = vfs::tWritableFile::cast(existing);
+		vfs::tReadableFile* const readable = vfs::tReadableFile::cast(existing);
+		if(!writable || !readable || writable->isOpenWrite() ||
+			readable->isOpenRead() || !existing->_getRealPath(realTarget))
+		{
+			return false;
+		}
+		try
+		{
+			return replacement.prepare(realTarget, data, size) &&
+				replacement.publish();
+		}
+		catch(...)
+		{
+			return false;
+		}
+	}
+
+	vfs::Path directory;
+	vfs::Path filename;
+	sFilename.splitLast(directory, filename);
+	if(filename.empty()) return false;
+	vfs::Path writableAncestor;
+	vfs::CDirectoryTree* const tree =
+		FindWritableDirectoryTree(profile, directory, writableAncestor);
+	if(!tree || !tree->resolveRealFilePath(sFilename, true, realTarget))
+	{
+		return false;
+	}
+
+	// Publish the newly created subdirectory catalogue before reserving a file;
+	// this does not create or expose a target file.
+	try
+	{
+		profile->addLocation(tree);
+		if(!replacement.prepare(realTarget, data, size)) return false;
+	}
+	catch(...)
+	{
+		return false;
+	}
+
+	bool inheritedExclusive = false;
+	vfs::Path exclusiveCandidate = writableAncestor;
+	while(true)
+	{
+		const vfs::CVirtualLocation* const location =
+			this->getVirtualLocation(exclusiveCandidate, false);
+		if(location && location->getIsExclusive())
+		{
+			inheritedExclusive = true;
+			break;
+		}
+		if(exclusiveCandidate.empty()) break;
+		vfs::Path parent;
+		vfs::Path leaf;
+		exclusiveCandidate.splitLast(parent, leaf);
+		exclusiveCandidate = parent;
+	}
+
+	vfs::IBaseFile* registered = NULL;
+	vfs::CVirtualLocation* virtualLocation = NULL;
+	tVFS::iterator virtualLocationPosition;
+	bool insertedVirtualLocation = false;
+	try
+	{
+		registered = tree->addFile(sFilename);
+		if(!registered) return false;
+
+		virtualLocationPosition = m_mapFS.find(directory);
+		if(virtualLocationPosition == m_mapFS.end())
+		{
+			vfs::CVirtualLocation* preparedLocation =
+				new vfs::CVirtualLocation(directory);
+			try
+			{
+				virtualLocationPosition = m_mapFS.insert(
+					std::make_pair(directory, preparedLocation)).first;
+				insertedVirtualLocation = true;
+			}
+			catch(...)
+			{
+				delete preparedLocation;
+				throw;
+			}
+		}
+		virtualLocation = virtualLocationPosition->second;
+		if(!virtualLocation) throw std::bad_alloc();
+		vfs::CVirtualLocation::PreparedFileEntry preparedFile;
+		if(!virtualLocation->prepareFileEntry(
+				registered, profile->cName, preparedFile))
+		{
+			throw std::bad_alloc();
+		}
+		if(replacement.publish())
+		{
+			preparedFile.commit();
+			if(inheritedExclusive) virtualLocation->setIsExclusive(true);
+			return true;
+		}
+		// preparedFile restores the exact prior CVirtualFile pointer here,
+		// before the directory-side reservation is removed below.
+	}
+	catch(...)
+	{
+		// Rollback below.  The prepared replacement still owns and removes its
+		// unpublished temporary file.
+	}
+
+	if(insertedVirtualLocation && virtualLocation && virtualLocation->empty())
+	{
+		m_mapFS.erase(virtualLocationPosition);
+		delete virtualLocation;
+	}
+	if(registered)
+	{
+		tree->removePreparedFileFromCatalogue(registered);
+	}
 	return false;
 }
 

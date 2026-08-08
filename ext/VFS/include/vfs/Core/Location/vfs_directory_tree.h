@@ -64,6 +64,15 @@ namespace vfs
 		virtual bool			deleteDirectory(vfs::Path const& sDirPath);
 		virtual bool			deleteFileFromDirectory(vfs::Path const& sFileName);
 
+		// Resolve a logical file below this mount to its physical path.  Parent
+		// directories and their catalogue nodes are created only when requested.
+		bool				resolveRealFilePath(vfs::Path const& sFilename,
+							bool createParents, vfs::Path& realPath);
+		// Remove only the in-memory file object; never deletes the physical file.
+		// Used to roll back a prepared VFS registration before disk publication.
+		bool				removePreparedFileFromCatalogue(
+							vfs::IBaseFile* expectedFile) noexcept;
+
 		/** 
 		 *  TLocation interface
 		 */

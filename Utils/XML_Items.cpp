@@ -1,13 +1,20 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
 #include "ItemDataStagingModel.h"
+#include "ItemXmlWriter.h"
+#include "XMLWriter.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iomanip>
 #include <limits>
+#include <locale>
 #include <optional>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -41,6 +48,7 @@
 	#include "Morale.h"
 	#include "SkillCheck.h"
 	#include "GameSettings.h"
+	#include "Points.h"
 	#include "SaveLoadMap.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -161,6 +169,28 @@ static FLOAT ParseItemFloatValue(itemParseData* pData)
 		FailItemParse(pData, ItemDataStagingModel::Failure::MalformedInput);
 	}
 	return value;
+}
+
+static bool TryAdjustItemApBonus(INT16 rawBonus, INT16 maximumActionPoints,
+	INT16& adjustedBonus) noexcept
+{
+	if (maximumActionPoints <= 0) return false;
+
+	// Preserve DynamicAdjustAPConstants' established FLOAT calculation and
+	// truncation for every representable result, but validate the conversion
+	// before narrowing it back into the item schema's INT16 destination.
+	const FLOAT rounded =
+		(static_cast<FLOAT>(rawBonus) *
+			static_cast<FLOAT>(maximumActionPoints) / 100.0f) +
+		(rawBonus < 0 ? -0.5f : 0.5f);
+	const double truncated = std::trunc(static_cast<double>(rounded));
+	if (!std::isfinite(truncated) ||
+		truncated < static_cast<double>(std::numeric_limits<INT16>::min()) ||
+		truncated > static_cast<double>(std::numeric_limits<INT16>::max()))
+		return false;
+
+	adjustedBonus = static_cast<INT16>(truncated);
+	return true;
 }
 
 template <typename Integer>
@@ -1020,8 +1050,13 @@ itemEndElementHandleImpl(void *userData, const XML_Char *name)
 		else if(strcmp(name, "APBonus")	 == 0)
 		{
 			pData->curElement = ELEMENT;
-			pData->curItem.APBonus = ParseItemIntegerValue<INT16>(pData);
-			pData->curItem.APBonus = (INT16)DynamicAdjustAPConstants(pData->curItem.APBonus, pData->curItem.APBonus);
+			const INT16 rawBonus = ParseItemIntegerValue<INT16>(pData);
+			if (!pData->failed && !TryAdjustItemApBonus(rawBonus,
+				APBPConstants[AP_MAXIMUM], pData->curItem.APBonus))
+			{
+				FailItemParse(
+					pData, ItemDataStagingModel::Failure::MalformedInput);
+			}
 		}
 		else if(strcmp(name, "RateOfFireBonus")	 == 0)
 		{
@@ -2251,597 +2286,876 @@ catch (...)
 	// must reject the transaction, not escape into startup or an Expat caller.
 	return FALSE;
 }
-BOOLEAN WriteItemStats()
+namespace
 {
-	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats");
-	HWFILE		hFile;
-
-	//Debug code; make sure that what we got from the file is the same as what's there
-	// Open a new file
-	hFile = FileOpen( "TABLEDATA\\Items out.xml", FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS, FALSE );
-	if ( !hFile )
-		return( FALSE );
-	
+	template <typename Integer>
+	void AddItemInteger(XMLWriter& writer, const char* tag, Integer value)
 	{
-		UINT32 cnt;
-		CHAR16 str[100];
-		CHAR16 strDesc[500];
-
-		FilePrintf(hFile,"<ITEMLIST>\r\n");
-		for(cnt = 0;cnt < 351; ++cnt)//just do the old limit for now
-		{
-			LoadShortNameItemInfo( (UINT16)cnt, str );
-
-			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: itemname");
-			CHAR16 *szRemainder = str; //the remaining string to be output (for making valid XML)
-
-			FilePrintf(hFile,"\t<ITEM>\r\n");
-			FilePrintf(hFile,"\t\t<uiIndex>%d</uiIndex>\r\n",									cnt);
-
-			FilePrintf(hFile,"\t\t<szItemName>");
-			while(szRemainder[0] != '\0')
-			{
-				UINT32 uiCharLoc = wcscspn(szRemainder, L"&<>\'\"\0");
-				CHAR16 invChar = szRemainder[uiCharLoc];
-				
-				if(uiCharLoc)
-				{
-					szRemainder[uiCharLoc] = '\0';
-					FilePrintf(hFile,"%S",szRemainder);
-					szRemainder[uiCharLoc] = invChar;
-				}
-
-				szRemainder += uiCharLoc;
-
-				switch(invChar)
-				{
-					case '&':
-						FilePrintf(hFile,"&amp;");
-						szRemainder++;
-					break;
-
-					case '<':
-						FilePrintf(hFile,"&lt;");
-						szRemainder++;
-					break;
-
-					case '>':
-						FilePrintf(hFile,"&gt;");
-						szRemainder++;
-					break;
-
-					case '\'':
-						FilePrintf(hFile,"&apos;");
-						szRemainder++;
-					break;
-
-					case '\"':
-						FilePrintf(hFile,"&quot;");
-						szRemainder++;
-					break;
-				}
-			}
-			FilePrintf(hFile,"</szItemName>\r\n");
-
-
-			LoadItemInfo( (UINT16)cnt, str,strDesc );
-
-			szRemainder = str; 
-			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: longitemname");
-
-
-			FilePrintf(hFile,"\t\t<szLongItemName>");
-			while(szRemainder[0] != '\0')
-			{
-				UINT32 uiCharLoc = wcscspn(szRemainder, L"&<>\'\"\0");
-				CHAR16 invChar = szRemainder[uiCharLoc];
-				
-				if(uiCharLoc)
-				{
-					szRemainder[uiCharLoc] = '\0';
-					FilePrintf(hFile,"%S",szRemainder);
-					szRemainder[uiCharLoc] = invChar;
-				}
-
-				szRemainder += uiCharLoc;
-
-				switch(invChar)
-				{
-					case '&':
-						FilePrintf(hFile,"&amp;");
-						szRemainder++;
-					break;
-
-					case '<':
-						FilePrintf(hFile,"&lt;");
-						szRemainder++;
-					break;
-
-					case '>':
-						FilePrintf(hFile,"&gt;");
-						szRemainder++;
-					break;
-
-					case '\'':
-						FilePrintf(hFile,"&apos;");
-						szRemainder++;
-					break;
-
-					case '\"':
-						FilePrintf(hFile,"&quot;");
-						szRemainder++;
-					break;
-				}
-			}
-			FilePrintf(hFile,"</szLongItemName>\r\n");
-
-
-			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: itemdesc");
-			szRemainder = strDesc;
-
-//			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: remainder set");
-
-			FilePrintf(hFile,"\t\t<szItemDesc>");
-			while(szRemainder[0] != '\0')
-			{
-				UINT32 uiCharLoc = wcscspn(szRemainder, L"&<>\'\"\0");
-				CHAR16 invChar = szRemainder[uiCharLoc];
-				
-				//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: characters set");
-	
-				if(uiCharLoc)
-				{
-					//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("writeitemstats: setting remainder[%d] to \0",uiCharLoc));
-					szRemainder[uiCharLoc] = '\0';
-					//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("writeitemstats: printing '%s' to file",szRemainder));
-					FilePrintf(hFile,"%S",szRemainder);
-					//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("writeitemstats: setting remainder[%d] to %d",uiCharLoc,invChar));
-					szRemainder[uiCharLoc] = invChar;
-				}
-
-				//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: remainder incremented");
-				szRemainder += uiCharLoc;
-
-				//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("writeitemstats: switching character %d", invChar));
-				switch(invChar)
-				{
-					case '&':
-						FilePrintf(hFile,"&amp;");
-						szRemainder++;
-					break;
-
-					case '<':
-						FilePrintf(hFile,"&lt;");
-						szRemainder++;
-					break;
-
-					case '>':
-						FilePrintf(hFile,"&gt;");
-						szRemainder++;
-					break;
-
-					case '\'':
-						FilePrintf(hFile,"&apos;");
-						szRemainder++;
-					break;
-
-					case '\"':
-						FilePrintf(hFile,"&quot;");
-						szRemainder++;
-					break;
-				}
-				//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: character switched");
-			}
-			FilePrintf(hFile,"</szItemDesc>\r\n");
-			//DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: end tag printed");
-
-
-			//CHAR16	sText[400];
-			//UINT32	uiStartLoc=0;
-
-//#define		BOBBYR_ITEM_DESC_NAME_SIZE				160
-//#define		BOBBYR_ITEM_DESC_INFO_SIZE				640
-//#define		BOBBYR_ITEM_DESC_FILE_SIZE				800
-
-			//uiStartLoc = 800 * cnt;
-			//LoadEncryptedDataFromFile("BINARYDATA\\BrayDesc.edt", sText, uiStartLoc, 160);
-
-			//szRemainder = sText;
-
-			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: brname");
-			LoadBRName((UINT16)cnt,str);
-			szRemainder = str;
-
-			FilePrintf(hFile,"\t\t<szBRName>");
-			while(szRemainder[0] != '\0')
-			{
-				UINT32 uiCharLoc = wcscspn(szRemainder,L"&<>\'\"\0");
-				CHAR16 invChar = szRemainder[uiCharLoc];
-				
-				if(uiCharLoc)
-				{
-					szRemainder[uiCharLoc] = '\0';
-					FilePrintf(hFile,"%S",szRemainder);
-					szRemainder[uiCharLoc] = invChar;
-				}
-
-				szRemainder += uiCharLoc;
-
-				switch(invChar)
-				{
-					case '&':
-						FilePrintf(hFile,"&amp;");
-						szRemainder++;
-					break;
-
-					case '<':
-						FilePrintf(hFile,"&lt;");
-						szRemainder++;
-					break;
-
-					case '>':
-						FilePrintf(hFile,"&gt;");
-						szRemainder++;
-					break;
-
-					case '\'':
-						FilePrintf(hFile,"&apos;");
-						szRemainder++;
-					break;
-
-					case '\"':
-						FilePrintf(hFile,"&quot;");
-						szRemainder++;
-					break;
-				}
-			}
-			FilePrintf(hFile,"</szBRName>\r\n");
-
-
-
-			//uiStartLoc = 800 * cnt + 160;
-			//LoadEncryptedDataFromFile("BINARYDATA\\BrayDesc.edt", sText, uiStartLoc, 640);
-
-			//szRemainder = sText;
-
-			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"writeitemstats: brdesc");
-			LoadBRDesc((UINT16)cnt,strDesc );
-			szRemainder = strDesc;
-
-			FilePrintf(hFile,"\t\t<szBRDesc>");
-			while(szRemainder[0] != '\0')
-			{
-				UINT32 uiCharLoc = wcscspn(szRemainder,L"&<>\'\"\0");
-				CHAR16 invChar = szRemainder[uiCharLoc];
-				
-				if(uiCharLoc)
-				{
-					szRemainder[uiCharLoc] = '\0';
-					FilePrintf(hFile,"%S",szRemainder);
-					szRemainder[uiCharLoc] = invChar;
-				}
-
-				szRemainder += uiCharLoc;
-
-				switch(invChar)
-				{
-					case '&':
-						FilePrintf(hFile,"&amp;");
-						szRemainder++;
-					break;
-
-					case '<':
-						FilePrintf(hFile,"&lt;");
-						szRemainder++;
-					break;
-
-					case '>':
-						FilePrintf(hFile,"&gt;");
-						szRemainder++;
-					break;
-
-					case '\'':
-						FilePrintf(hFile,"&apos;");
-						szRemainder++;
-					break;
-
-					case '\"':
-						FilePrintf(hFile,"&quot;");
-						szRemainder++;
-					break;
-				}
-			}
-			FilePrintf(hFile,"</szBRDesc>\r\n");
-
-			FilePrintf(hFile,"\t\t<usItemClass>%d</usItemClass>\r\n",						Item[cnt].usItemClass);
-			FilePrintf(hFile,"\t\t<nasAttachmentClass>%d</nasAttachmentClass>\r\n",			Item[cnt].nasAttachmentClass);
-			FilePrintf(hFile,"\t\t<nasLayoutClass>%d</nasLayoutClass>\r\n",					Item[cnt].nasLayoutClass);
-			FilePrintf(hFile,"\t\t<ubClassIndex>%d</ubClassIndex>\r\n",						Item[cnt].ubClassIndex);
-			FilePrintf(hFile,"\t\t<ubCursor>%d</ubCursor>\r\n",								Item[cnt].ubCursor);
-			FilePrintf(hFile,"\t\t<bSoundType>%d</bSoundType>\r\n",							Item[cnt].bSoundType);
-			FilePrintf(hFile,"\t\t<ubGraphicType>%d</ubGraphicType>\r\n",					Item[cnt].ubGraphicType);
-			FilePrintf(hFile,"\t\t<ubGraphicNum>%d</ubGraphicNum>\r\n",						Item[cnt].ubGraphicNum);
-			FilePrintf(hFile,"\t\t<ubWeight>%d</ubWeight>\r\n",								Item[cnt].ubWeight);
-			FilePrintf(hFile,"\t\t<ubPerPocket>%d</ubPerPocket>\r\n",						Item[cnt].ubPerPocket);
-			FilePrintf(hFile,"\t\t<ItemSize>%d</ItemSize>\r\n",								Item[cnt].ItemSize);
-			FilePrintf(hFile,"\t\t<usPrice>%d</usPrice>\r\n",								Item[cnt].usPrice);
-			FilePrintf(hFile,"\t\t<ubCoolness>%d</ubCoolness>\r\n",							Item[cnt].ubCoolness);
-			FilePrintf(hFile,"\t\t<bReliability>%d</bReliability>\r\n",						Item[cnt].bReliability);
-			FilePrintf(hFile,"\t\t<bRepairEase>%d</bRepairEase>\r\n",						Item[cnt].bRepairEase);
-
-			FilePrintf(hFile,"\t\t<AttachmentSystem>%d</AttachmentSystem>\r\n",				Item[cnt].ubAttachmentSystem   );
-			FilePrintf(hFile,"\t\t<Inseparable>%d</Inseparable>\r\n",						Item[cnt].inseparable );
-
-			FilePrintf(hFile,"\t\t<BR_NewInventory>%d</BR_NewInventory>\r\n",				StoreInventory[cnt][0] );
-			FilePrintf(hFile,"\t\t<BR_UsedInventory>%d</BR_UsedInventory>\r\n",				StoreInventory[cnt][1] );
-			FilePrintf(hFile,"\t\t<BR_ROF>%d</BR_ROF>\r\n",									WeaponROF[cnt]);
-
-			FilePrintf(hFile,"\t\t<PercentNoiseReduction>%d</PercentNoiseReduction>\r\n",	Item[cnt].percentnoisereduction  );
-			FilePrintf(hFile,"\t\t<Bipod>%d</Bipod>\r\n",									Item[cnt].bipod  );
-			FilePrintf(hFile,"\t\t<RangeBonus>%d</RangeBonus>\r\n",							Item[cnt].rangebonus   );
-			FilePrintf(hFile,"\t\t<PercentRangeBonus>%d</PercentRangeBonus>\r\n",			Item[cnt].rangebonus   );
-			FilePrintf(hFile,"\t\t<ToHitBonus>%d</ToHitBonus>\r\n",							Item[cnt].tohitbonus    );
-			FilePrintf(hFile,"\t\t<AimBonus>%d</AimBonus>\r\n",								Item[cnt].aimbonus   );
-			FilePrintf(hFile,"\t\t<MinRangeForAimBonus>%d</MinRangeForAimBonus>\r\n",		Item[cnt].minrangeforaimbonus  );
-
-			FilePrintf(hFile,"\t\t<MagSizeBonus>%d</MagSizeBonus>\r\n",						Item[cnt].magsizebonus    );
-			FilePrintf(hFile,"\t\t<RateOfFireBonus>%d</RateOfFireBonus>\r\n",				Item[cnt].rateoffirebonus   );
-			FilePrintf(hFile,"\t\t<BulletSpeedBonus>%d</BulletSpeedBonus>\r\n",				Item[cnt].bulletspeedbonus );
-			FilePrintf(hFile,"\t\t<BurstSizeBonus>%d</BurstSizeBonus>\r\n",					Item[cnt].burstsizebonus );
-			FilePrintf(hFile,"\t\t<BestLaserRange>%d</BestLaserRange>\r\n",					Item[cnt].bestlaserrange );
-			FilePrintf(hFile,"\t\t<BurstToHitBonus>%d</BurstToHitBonus>\r\n",				Item[cnt].bursttohitbonus );
-			FilePrintf(hFile,"\t\t<AutofireToHitBonus>%d</AutofireToHitBonus>\r\n",			Item[cnt].autofiretohitbonus);
-			FilePrintf(hFile,"\t\t<APBonus>%d</APBonus>\r\n",								Item[cnt].APBonus );
-
-			FilePrintf(hFile,"\t\t<PercentBurstFireAPReduction>%d</PercentBurstFireAPReduction>\r\n",		Item[cnt].percentburstfireapreduction    );
-			FilePrintf(hFile,"\t\t<PercentAutofireAPReduction>%d</PercentAutofireAPReduction>\r\n",			Item[cnt].percentautofireapreduction    );
-			FilePrintf(hFile,"\t\t<PercentReadyTimeAPReduction>%d</PercentReadyTimeAPReduction>\r\n",		Item[cnt].percentreadytimeapreduction );
-			FilePrintf(hFile,"\t\t<PercentReloadTimeAPReduction>%d</PercentReloadTimeAPReduction>\r\n",		Item[cnt].percentreloadtimeapreduction );
-			FilePrintf(hFile,"\t\t<PercentAPReduction>%d</PercentAPReduction>\r\n",							Item[cnt].percentapreduction   );
-			FilePrintf(hFile,"\t\t<PercentStatusDrainReduction>%d</PercentStatusDrainReduction>\r\n",		Item[cnt].percentstatusdrainreduction   );
-
-			FilePrintf(hFile,"\t\t<DamageBonus>%d</DamageBonus>\r\n",						Item[cnt].damagebonus   );
-			FilePrintf(hFile,"\t\t<MeleeDamageBonus>%d</MeleeDamageBonus>\r\n",				Item[cnt].meleedamagebonus  );
-			FilePrintf(hFile,"\t\t<DiscardedLauncherItem>%d</DiscardedLauncherItem>\r\n",	Item[cnt].discardedlauncheritem  );
-
-			
-			for(UINT8 cnt2 = 0; cnt2 < MAX_DEFAULT_ATTACHMENTS; cnt2++){
-				if(Item[cnt].defaultattachments[cnt2] != 0){
-					FilePrintf(hFile,"\t\t<DefaultAttachment>%d</DefaultAttachment>\r\n",	Item[cnt].defaultattachments[cnt2]  );
-				}
-			}
-
-
-			FilePrintf(hFile,"\t\t<BloodiedItem>%d</BloodiedItem>\r\n",						Item[cnt].bloodieditem  );
-			FilePrintf(hFile,"\t\t<CamoBonus>%d</CamoBonus>\r\n",							Item[cnt].camobonus  );
-			FilePrintf(hFile,"\t\t<UrbanCamoBonus>%d</UrbanCamoBonus>\r\n",					Item[cnt].urbanCamobonus  );
-			FilePrintf(hFile,"\t\t<DesertCamoBonus>%d</DesertCamoBonus>\r\n",				Item[cnt].desertCamobonus  );
-			FilePrintf(hFile,"\t\t<SnowCamoBonus>%d</SnowCamoBonus>\r\n",					Item[cnt].snowCamobonus );
-			FilePrintf(hFile,"\t\t<StealthBonus>%d</StealthBonus>\r\n",						Item[cnt].stealthbonus  );
-
-			FilePrintf(hFile,"\t\t<HearingRangeBonus>%d</HearingRangeBonus>\r\n",						Item[cnt].hearingrangebonus  );
-			FilePrintf(hFile,"\t\t<VisionRangeBonus>%d</VisionRangeBonus>\r\n",							Item[cnt].visionrangebonus  );
-			FilePrintf(hFile,"\t\t<NightVisionRangeBonus>%d</NightVisionRangeBonus>\r\n",				Item[cnt].nightvisionrangebonus  );
-			FilePrintf(hFile,"\t\t<DayVisionRangeBonus>%d</DayVisionRangeBonus>\r\n",					Item[cnt].dayvisionrangebonus  );
-			FilePrintf(hFile,"\t\t<CaveVisionRangeBonus>%d</CaveVisionRangeBonus>\r\n",					Item[cnt].cavevisionrangebonus  );
-			FilePrintf(hFile,"\t\t<BrightLightVisionRangeBonus>%d</BrightLightVisionRangeBonus>\r\n",	Item[cnt].brightlightvisionrangebonus  );
-			FilePrintf(hFile,"\t\t<ItemSizeBonus>%d</ItemSizeBonus>\r\n",								Item[cnt].itemsizebonus  );
-			FilePrintf(hFile,"\t\t<PercentTunnelVision>%d</PercentTunnelVision>\r\n",					Item[cnt].percenttunnelvision );
-			FilePrintf(hFile,"\t\t<Alcohol>%3.2f</Alcohol>\r\n",											Item[cnt].alcohol  );
-
-			// HEADROCK HAM 4: Print out new values
-			FilePrintf(hFile,"\t\t<ScopeMagFactor>%d</ScopeMagFactor>\r\n",						Item[cnt].scopemagfactor    );
-			FilePrintf(hFile,"\t\t<ProjectionFactor>%d</ProjectionFactor>\r\n",					Item[cnt].projectionfactor    );
-			FilePrintf(hFile,"\t\t<PercentAccuracyModifier>%d</PercentAccuracyModifier>\r\n",	Item[cnt].percentaccuracymodifier    );
-			FilePrintf(hFile,"\t\t<RecoilModifierX>%d</RecoilModifierX>\r\n",					Item[cnt].RecoilModifierX    );
-			FilePrintf(hFile,"\t\t<RecoilModifierY>%d</RecoilModifierY>\r\n",					Item[cnt].RecoilModifierY    );
-			FilePrintf(hFile,"\t\t<PercentRecoilModifier>%d</PercentRecoilModifier>\r\n",		Item[cnt].PercentRecoilModifier		);
-
-			// HEADROCK HAM 4: Print out stance-based values
-			FilePrintf(hFile,"\t\t<STAND_MODIFIERS>\r\n");
-			FilePrintf(hFile,"\t\t\t<FlatBase>%d</FlatBase>\r\n",											Item[cnt].flatbasemodifier[0]    );
-			FilePrintf(hFile,"\t\t\t<PercentBase>%d</PercentBase>\r\n",										Item[cnt].percentbasemodifier[0]    );
-			FilePrintf(hFile,"\t\t\t<FlatAim>%d</FlatAim>\r\n",												Item[cnt].flataimmodifier[0]    );
-			FilePrintf(hFile,"\t\t\t<PercentCap>%d</PercentCap>\r\n",										Item[cnt].percentcapmodifier[0]    );
-			FilePrintf(hFile,"\t\t\t<PercentHandling>%d</PercentHandling>\r\n",								Item[cnt].percenthandlingmodifier[0]    );
-			FilePrintf(hFile,"\t\t\t<PercentTargetTrackingSpeed>%d</PercentTargetTrackingSpeed>\r\n",		Item[cnt].targettrackingmodifier[0]    );
-			FilePrintf(hFile,"\t\t\t<PercentDropCompensation>%d</PercentDropCompensation>\r\n",				Item[cnt].percentdropcompensationmodifier[0]    );
-			FilePrintf(hFile,"\t\t\t<PercentMaxCounterForce>%d</PercentMaxCounterForce>\r\n",				Item[cnt].maxcounterforcemodifier[0]    );
-			FilePrintf(hFile,"\t\t\t<PercentCounterForceAccuracy>%d</PercentCounterForceAccuracy>\r\n",		Item[cnt].counterforceaccuracymodifier[0]    );
-			FilePrintf(hFile,"\t\t\t<AimLevels>%d</AimLevels>\r\n",											Item[cnt].aimlevelsmodifier[0]    );
-			FilePrintf(hFile,"\t\t</STAND_MODIFIERS>\r\n");
-
-			FilePrintf(hFile,"\t\t<CROUCH_MODIFIERS>\r\n");
-			FilePrintf(hFile,"\t\t\t<FlatBase>%d</FlatBase>\r\n",											Item[cnt].flatbasemodifier[1]    );
-			FilePrintf(hFile,"\t\t\t<PercentBase>%d</PercentBase>\r\n",										Item[cnt].percentbasemodifier[1]    );
-			FilePrintf(hFile,"\t\t\t<FlatAim>%d</FlatAim>\r\n",												Item[cnt].flataimmodifier[1]    );
-			FilePrintf(hFile,"\t\t\t<PercentCap>%d</PercentCap>\r\n",										Item[cnt].percentcapmodifier[1]    );
-			FilePrintf(hFile,"\t\t\t<PercentHandling>%d</PercentHandling>\r\n",								Item[cnt].percenthandlingmodifier[1]    );
-			FilePrintf(hFile,"\t\t\t<PercentTargetTrackingSpeed>%d</PercentTargetTrackingSpeed>\r\n",		Item[cnt].targettrackingmodifier[1]    );
-			FilePrintf(hFile,"\t\t\t<PercentDropCompensation>%d</PercentDropCompensation>\r\n",				Item[cnt].percentdropcompensationmodifier[1]    );
-			FilePrintf(hFile,"\t\t\t<PercentMaxCounterForce>%d</PercentMaxCounterForce>\r\n",				Item[cnt].maxcounterforcemodifier[1]    );
-			FilePrintf(hFile,"\t\t\t<PercentCounterForceAccuracy>%d</PercentCounterForceAccuracy>\r\n",		Item[cnt].counterforceaccuracymodifier[1]    );
-			FilePrintf(hFile,"\t\t\t<AimLevels>%d</AimLevels>\r\n",											Item[cnt].aimlevelsmodifier[1]    );
-			FilePrintf(hFile,"\t\t</CROUCH_MODIFIERS>\r\n");
-
-			FilePrintf(hFile,"\t\t<PRONE_MODIFIERS>\r\n");
-			FilePrintf(hFile,"\t\t\t<FlatBase>%d</FlatBase>\r\n",											Item[cnt].flatbasemodifier[2]    );
-			FilePrintf(hFile,"\t\t\t<PercentBase>%d</PercentBase>\r\n",										Item[cnt].percentbasemodifier[2]    );
-			FilePrintf(hFile,"\t\t\t<FlatAim>%d</FlatAim>\r\n",												Item[cnt].flataimmodifier[2]    );
-			FilePrintf(hFile,"\t\t\t<PercentCap>%d</PercentCap>\r\n",										Item[cnt].percentcapmodifier[2]    );
-			FilePrintf(hFile,"\t\t\t<PercentHandling>%d</PercentHandling>\r\n",								Item[cnt].percenthandlingmodifier[2]    );
-			FilePrintf(hFile,"\t\t\t<PercentTargetTrackingSpeed>%d</PercentTargetTrackingSpeed>\r\n",		Item[cnt].targettrackingmodifier[2]    );
-			FilePrintf(hFile,"\t\t\t<PercentDropCompensation>%d</PercentDropCompensation>\r\n",				Item[cnt].percentdropcompensationmodifier[2]    );
-			FilePrintf(hFile,"\t\t\t<PercentMaxCounterForce>%d</PercentMaxCounterForce>\r\n",				Item[cnt].maxcounterforcemodifier[2]    );
-			FilePrintf(hFile,"\t\t\t<PercentCounterForceAccuracy>%d</PercentCounterForceAccuracy>\r\n",		Item[cnt].counterforceaccuracymodifier[2]    );
-			FilePrintf(hFile,"\t\t\t<AimLevels>%d</AimLevels>\r\n",											Item[cnt].aimlevelsmodifier[2]    );
-			FilePrintf(hFile,"\t\t</PRONE_MODIFIERS>\r\n");
-
-			// Flugente FTW 1.2
-			FilePrintf(hFile,"\t\t<usOverheatingCooldownFactor>%4.2f</usOverheatingCooldownFactor>\r\n",				Item[cnt].usOverheatingCooldownFactor    );
-			FilePrintf(hFile,"\t\t<overheatTemperatureModificator>%4.2f</overheatTemperatureModificator>\r\n",		Item[cnt].overheatTemperatureModificator    );
-			FilePrintf(hFile,"\t\t<overheatCooldownModificator>%4.2f</overheatCooldownModificator>\r\n",				Item[cnt].overheatCooldownModificator    );
-			FilePrintf(hFile,"\t\t<overheatJamThresholdModificator>%4.2f</overheatJamThresholdModificator>\r\n",		Item[cnt].overheatJamThresholdModificator    );
-			FilePrintf(hFile,"\t\t<overheatDamageThresholdModificator>%4.2f</overheatDamageThresholdModificator>\r\n",	Item[cnt].overheatDamageThresholdModificator    );
-
-			FilePrintf(hFile,"\t\t<AttachmentClass>%4.2f</AttachmentClass>\r\n",							Item[cnt].attachmentclass );
-			FilePrintf(hFile,"\t\t<DrugType>%d</DrugType>\r\n",											Item[cnt].drugtype );
-			FilePrintf(hFile,"\t\t<FoodType>%d</FoodType>\r\n",											Item[cnt].foodtype );
-			
-			//JMich_SkillModifiers: Adding the values here as well
-			FilePrintf(hFile, "\t\t<LockPickModifier>%d</LockPickModifier>\r\n",							Item[cnt].LockPickModifier );
-			FilePrintf(hFile, "\t\t<CrowbarModifier>%d</CrowbarModifier>\r\n",							Item[cnt].CrowbarModifier );
-			FilePrintf(hFile, "\t\t<DisarmModifier>%d</DisarmModifier>\r\n",								Item[cnt].DisarmModifier );
-			FilePrintf(hFile, "\t\t<RepairModifier>%d</RepairModifier>\r\n",								Item[cnt].RepairModifier );
-			FilePrintf(hFile, "\t\t<usHackingModifier>%d</usHackingModifier>\r\n",						Item[cnt].usHackingModifier );
-			FilePrintf(hFile, "\t\t<usBurialModifier>%d</usBurialModifier>\r\n",							Item[cnt].usBurialModifier );
-			
-			FilePrintf(hFile,"\t\t<DamageChance>%d</DamageChance>\r\n",									Item[cnt].usDamageChance  );
-			FilePrintf(hFile,"\t\t<DirtIncreaseFactor>%4.2f</DirtIncreaseFactor>\r\n",					Item[cnt].dirtIncreaseFactor  );
-
-			FilePrintf(hFile,"\t\t<usActionItemFlag>%d</usActionItemFlag>\r\n",								Item[cnt].usActionItemFlag  );
-			FilePrintf(hFile,"\t\t<clothestype>%d</clothestype>\r\n",										Item[cnt].clothestype  );
-			FilePrintf(hFile,"\t\t<randomitem>%d</randomitem>\r\n",											Item[cnt].randomitem  );
-			FilePrintf(hFile,"\t\t<randomitemcoolnessmodificator>%d</randomitemcoolnessmodificator>\r\n",	Item[cnt].randomitemcoolnessmodificator  );
-			FilePrintf(hFile,"\t\t<FlashLightRange>%d</FlashLightRange>\r\n",								Item[cnt].usFlashLightRange  );
-			FilePrintf(hFile,"\t\t<ItemChoiceTimeSetting>%d</ItemChoiceTimeSetting>\r\n",					Item[cnt].usItemChoiceTimeSetting  );
-			FilePrintf(hFile,"\t\t<buddyitem>%d</buddyitem>\r\n",											Item[cnt].usBuddyItem  );
-			FilePrintf(hFile,"\t\t<SleepModifier>%d</SleepModifier>\r\n",									Item[cnt].ubSleepModifier  );
-			FilePrintf(hFile,"\t\t<usSpotting>%d</usSpotting>\r\n",											Item[cnt].usSpotting  );
-			FilePrintf(hFile,"\t\t<sBackpackWeightModifier>%d</sBackpackWeightModifier>\r\n",				Item[cnt].sBackpackWeightModifier);
-			FilePrintf(hFile,"\t\t<usPortionSize>%d</usPortionSize>\r\n",									Item[cnt].usPortionSize );
-						
-			FilePrintf(hFile,"\t\t<usRiotShieldStrength>%d</usRiotShieldStrength>\r\n",					Item[cnt].usRiotShieldStrength );
-			FilePrintf(hFile,"\t\t<usRiotShieldGraphic>%d</usRiotShieldGraphic>\r\n",					Item[cnt].usRiotShieldGraphic );
-			FilePrintf(hFile,"\t\t<sFireResistance>%d</sFireResistance>\r\n",							Item[cnt].sFireResistance );
-			FilePrintf(hFile,"\t\t<usAdministrationModifier>%d</usAdministrationModifier>\r\n",			Item[cnt].usAdministrationModifier );
-			FilePrintf(hFile,"\t\t<RobotDamageReductionModifier>%f</RobotDamageReductionModifier>\r\n",	Item[cnt].fRobotDamageReductionModifier );
-			FilePrintf(hFile,"\t\t<RobotStrBonus>%d</RobotStrBonus>\r\n",								Item[cnt].bRobotStrBonus );
-			FilePrintf(hFile,"\t\t<RobotAgiBonus>%d</RobotAgiBonus>\r\n",								Item[cnt].bRobotAgiBonus );
-			FilePrintf(hFile,"\t\t<RobotDexBonus>%d</RobotDexBonus>\r\n",								Item[cnt].bRobotDexBonus );
-			FilePrintf(hFile,"\t\t<RobotTargetingSkillGrant>%d</RobotTargetingSkillGrant>\r\n",			Item[cnt].bRobotTargetingSkillGrant );
-			FilePrintf(hFile,"\t\t<RobotChassisSkillGrant>%d</RobotChassisSkillGrant>\r\n",				Item[cnt].bRobotChassisSkillGrant );
-			FilePrintf(hFile,"\t\t<RobotUtilitySkillGrant>%d</RobotUtilitySkillGrant>\r\n",				Item[cnt].bRobotUtilitySkillGrant );
-
-			// usItemFlag
-			if ( HasItemFlag( cnt, BLOOD_BAG ) )				FilePrintf( hFile, "\t\t<Bloodbag>%d</Bloodbag>\r\n", 1 );
-			if ( HasItemFlag( cnt, MANPAD ) )				FilePrintf( hFile, "\t\t<Manpad>%d</Manpad>\r\n", 1 );
-			if ( HasItemFlag( cnt, BEARTRAP ) )				FilePrintf( hFile, "\t\t<Beartrap>%d</Beartrap>\r\n", 1 );
-			if ( HasItemFlag( cnt, CAMERA ) )				FilePrintf( hFile, "\t\t<Camera>%d</Camera>\r\n", 1 );
-			if ( HasItemFlag( cnt, WATER_DRUM ) )			FilePrintf( hFile, "\t\t<Waterdrum>%d</Waterdrum>\r\n", 1 );
-			if ( HasItemFlag( cnt, MEAT_BLOODCAT ) )			FilePrintf( hFile, "\t\t<BloodcatMeat>%d</BloodcatMeat>\r\n", 1 );
-			if ( HasItemFlag( cnt, MEAT_COW ) )				FilePrintf( hFile, "\t\t<CowMeat>%d</CowMeat>\r\n", 1 );
-			if ( HasItemFlag( cnt, BELT_FED ) )				FilePrintf( hFile, "\t\t<Beltfed>%d</Beltfed>\r\n", 1 );
-			if ( HasItemFlag( cnt, AMMO_BELT ) )				FilePrintf( hFile, "\t\t<Ammobelt>%d</Ammobelt>\r\n", 1 );
-			if ( HasItemFlag( cnt, AMMO_BELT_VEST ) )		FilePrintf( hFile, "\t\t<AmmobeltVest>%d</AmmobeltVest>\r\n", 1 );
-			if ( HasItemFlag( cnt, CAMO_REMOVAL ) )			FilePrintf( hFile, "\t\t<CamoRemoval>%d</CamoRemoval>\r\n", 1 );
-			if ( HasItemFlag( cnt, CLEANING_KIT ) )			FilePrintf( hFile, "\t\t<Cleaningkit>%d</Cleaningkit>\r\n", 1 );
-			if ( HasItemFlag( cnt, ATTENTION_ITEM ) )		FilePrintf( hFile, "\t\t<AttentionItem>%d</AttentionItem>\r\n", 1 );
-			if ( HasItemFlag( cnt, GAROTTE ) )				FilePrintf( hFile, "\t\t<Garotte>%d</Garotte>\r\n", 1 );
-			if ( HasItemFlag( cnt, COVERT ) )				FilePrintf( hFile, "\t\t<Covert>%d</Covert>\r\n", 1 );
-			if ( HasItemFlag( cnt, CORPSE ) )				FilePrintf( hFile, "\t\t<Corpse>%d</Corpse>\r\n", 1 );
-			if ( HasItemFlag( cnt, SKIN_BLOODCAT ) )			FilePrintf( hFile, "\t\t<BloodcatSkin>%d</BloodcatSkin>\r\n", 1 );
-			if ( HasItemFlag( cnt, NO_METAL_DETECTION ) )	FilePrintf( hFile, "\t\t<NoMetalDetection>%d</NoMetalDetection>\r\n", 1 );
-			if ( HasItemFlag( cnt, JUMP_GRENADE ) )			FilePrintf( hFile, "\t\t<JumpGrenade>%d</JumpGrenade>\r\n", 1 );
-			if ( HasItemFlag( cnt, HANDCUFFS ) )				FilePrintf( hFile, "\t\t<Handcuffs>%d</Handcuffs>\r\n", 1 );
-			if ( HasItemFlag( cnt, TASER ) )					FilePrintf( hFile, "\t\t<Taser>%d</Taser>\r\n", 1 );
-			if ( HasItemFlag( cnt, SCUBA_BOTTLE ) )			FilePrintf( hFile, "\t\t<ScubaBottle>%d</ScubaBottle>\r\n", 1 );
-			if ( HasItemFlag( cnt, SCUBA_MASK ) )			FilePrintf( hFile, "\t\t<ScubaMask>%d</ScubaMask>\r\n", 1 );
-			if ( HasItemFlag( cnt, SCUBA_FINS ) )			FilePrintf( hFile, "\t\t<ScubaFins>%d</ScubaFins>\r\n", 1 );
-			if ( HasItemFlag( cnt, TRIPWIREROLL ) )			FilePrintf( hFile, "\t\t<TripwireRoll>%d</TripwireRoll>\r\n", 1 );
-			if ( HasItemFlag( cnt, RADIO_SET ) )				FilePrintf( hFile, "\t\t<Radioset>%d</Radioset>\r\n", 1 );
-			if ( HasItemFlag( cnt, SIGNAL_SHELL ) )			FilePrintf( hFile, "\t\t<SignalShell>%d</SignalShell>\r\n", 1 );
-			if ( HasItemFlag( cnt, SODA ) )					FilePrintf( hFile, "\t\t<Soda>%d</Soda>\r\n", 1 );
-			if ( HasItemFlag( cnt, ROOF_COLLAPSE_ITEM ) )	FilePrintf( hFile, "\t\t<RoofcollapseItem>%d</RoofcollapseItem>\r\n", 1 );
-			if ( HasItemFlag( cnt, DISEASEPROTECTION_1 ) )	FilePrintf( hFile, "\t\t<DiseaseprotectionFace>%d</DiseaseprotectionFace>\r\n", 1 );
-			if ( HasItemFlag( cnt, DISEASEPROTECTION_2 ) )	FilePrintf( hFile, "\t\t<DiseaseprotectionHand>%d</DiseaseprotectionHand>\r\n", 1 );
-			if ( HasItemFlag( cnt, LBE_EXPLOSIONPROOF ) )	FilePrintf( hFile, "\t\t<LBEexplosionproof>%d</LBEexplosionproof>\r\n", 1 );
-			if ( HasItemFlag( cnt, EMPTY_BLOOD_BAG ) )		FilePrintf( hFile, "\t\t<EmptyBloodbag>%d</EmptyBloodbag>\r\n", 1 );
-			if ( HasItemFlag( cnt, MEDICAL_SPLINT ) )		FilePrintf( hFile, "\t\t<MedicalSplint>%d</MedicalSplint>\r\n", 1 );
-			if ( ItemIsDamageable( cnt ) )					FilePrintf( hFile, "\t\t<Damageable>%d</Damageable>\r\n", 1 );
-			if ( ItemIsRepairable( cnt ) )					FilePrintf( hFile, "\t\t<Repairable>%d</Repairable>\r\n", 1 );
-			if ( ItemIsDamagedByWater( cnt ) )				FilePrintf( hFile, "\t\t<WaterDamages>%d</WaterDamages>\r\n", 1 );
-			if ( ItemIsMetal( cnt ) )						FilePrintf( hFile, "\t\t<Metal>%d</Metal>\r\n", 1 );
-			if ( ItemSinks( cnt ) )							FilePrintf( hFile, "\t\t<Sinks>%d</Sinks>\r\n", 1 );
-			if ( HasItemFlag( cnt, ITEM_showstatus ) )		FilePrintf( hFile, "\t\t<ShowStatus>%d</ShowStatus>\r\n", 1 );
-			if ( ItemIsHiddenAddon( cnt ) )					FilePrintf( hFile, "\t\t<HiddenAddon>%d</HiddenAddon>\r\n", 1 );
-			if ( ItemIsTwoHanded( cnt ) )					FilePrintf( hFile, "\t\t<TwoHanded>%d</TwoHanded>\r\n", 1 );
-			if ( ItemIsNotBuyable( cnt ) )					FilePrintf( hFile, "\t\t<NotBuyable>%d</NotBuyable>\r\n", 1 );
-			if ( ItemIsAttachment( cnt ) )					FilePrintf( hFile, "\t\t<Attachment>%d</Attachment>\r\n", 1 );
-			if ( ItemIsHiddenAttachment( cnt ) )				FilePrintf( hFile, "\t\t<HiddenAttachment>%d</HiddenAttachment>\r\n", 1 );
-			if ( ItemIsOnlyInTonsOfGuns( cnt ) )				FilePrintf( hFile, "\t\t<BigGunList>%d</BigGunList>\r\n", 1 );
-			if ( ItemIsNotInEditor( cnt ) )					FilePrintf( hFile, "\t\t<NotInEditor>%d</NotInEditor>\r\n", 1 );
-			if ( ItemIsUndroppableByDefault( cnt ) )			FilePrintf( hFile, "\t\t<DefaultUndroppable>%d</DefaultUndroppable>\r\n", 1 );
-			if ( ItemIsUnaerodynamic( cnt ) )				FilePrintf( hFile, "\t\t<Unaerodynamic>%d</Unaerodynamic>\r\n", 1 );
-			if ( ItemIsElectronic( cnt ) )					FilePrintf( hFile, "\t\t<Electronic>%d</Electronic>\r\n", 1 );
-			if ( ItemIsCannon( cnt ) )						FilePrintf( hFile, "\t\t<Cannon>%d</Cannon>\r\n", 1 );
-			if ( ItemIsRocketRifle( cnt ) )					FilePrintf( hFile, "\t\t<RocketRifle>%d</RocketRifle>\r\n", 1 );
-			if ( ItemHasFingerPrintID( cnt ) )				FilePrintf( hFile, "\t\t<FingerPrintID>%d</FingerPrintID>\r\n", 1 );
-			if ( ItemIsMetalDetector( cnt ) )				FilePrintf( hFile, "\t\t<MetalDetector>%d</MetalDetector>\r\n", 1 );
-			if ( ItemIsGasmask( cnt ) )						FilePrintf( hFile, "\t\t<GasMask>%d</GasMask>\r\n", 1 );
-			if ( ItemIsLockBomb( cnt ) )						FilePrintf( hFile, "\t\t<LockBomb>%d</LockBomb>\r\n", 1 );
-			if ( ItemIsFlare( cnt ) )						FilePrintf( hFile, "\t\t<Flare>%d</Flare>\r\n", 1 );
-			if ( ItemIsGrenadeLauncher( cnt ) )				FilePrintf( hFile, "\t\t<GrenadeLauncher>%d</GrenadeLauncher>\r\n", 1 );
-			if ( ItemIsMortar( cnt ) )						FilePrintf( hFile, "\t\t<Mortar>%d</Mortar>\r\n", 1 );
-			if ( ItemIsDuckbill( cnt ) )						FilePrintf( hFile, "\t\t<Duckbill>%d</Duckbill>\r\n", 1 );
-			if ( ItemHasHiddenMuzzleFlash( cnt ) )			FilePrintf( hFile, "\t\t<HideMuzzleFlash>%d</HideMuzzleFlash>\r\n", 1 );
-			if ( ItemIsRocketLauncher( cnt ) )				FilePrintf( hFile, "\t\t<RocketLauncher>%d</RocketLauncher>\r\n", 1 );
-
-			// usItemFlag2
-			if ( ItemIsSingleShotRocketLauncher( cnt ) )		FilePrintf( hFile, "\t\t<SingleShotRocketLauncher>%d</SingleShotRocketLauncher>\r\n", 1 );
-			if ( ItemIsBrassKnuckles( cnt ) )				FilePrintf( hFile, "\t\t<BrassKnuckles>%d</BrassKnuckles>\r\n", 1 );
-			if ( ItemIsCrowbar( cnt ) )						FilePrintf( hFile, "\t\t<Crowbar>%d</Crowbar>\r\n", 1 );
-			if ( ItemIsGLgrenade( cnt ) )					FilePrintf( hFile, "\t\t<GLGrenade>%d</GLGrenade>\r\n", 1 );
-			if ( ItemIsFlakJacket( cnt ) )					FilePrintf( hFile, "\t\t<FlakJacket>%d</FlakJacket>\r\n", 1 );
-			if ( ItemIsLeatherJacket( cnt ) )				FilePrintf( hFile, "\t\t<LeatherJacket>%d</LeatherJacket>\r\n", 1 );
-			if ( ItemIsBatteries( cnt ) )					FilePrintf( hFile, "\t\t<Batteries>%d</Batteries>\r\n", 1 );
-			if ( ItemNeedsBatteries( cnt ) )					FilePrintf( hFile, "\t\t<NeedsBatteries>%d</NeedsBatteries>\r\n", 1 );
-			if ( ItemHasXRay( cnt ) )						FilePrintf( hFile, "\t\t<XRay>%d</XRay>\r\n", 1 );
-			if ( ItemIsWirecutters( cnt ) )					FilePrintf( hFile, "\t\t<WireCutters>%d</WireCutters>\r\n", 1 );
-			if ( ItemIsToolkit( cnt ) )						FilePrintf( hFile, "\t\t<Toolkit>%d</Toolkit>\r\n", 1 );
-			if ( ItemIsFirstAidKit( cnt ) )					FilePrintf( hFile, "\t\t<FirstAidKit>%d</FirstAidKit>\r\n", 1 );
-			if ( ItemIsMedicalKit( cnt ) )					FilePrintf( hFile, "\t\t<MedicalKit>%d</MedicalKit>\r\n", 1 );
-			if ( ItemIsCanteen( cnt ) )						FilePrintf( hFile, "\t\t<Canteen>%d</Canteen>\r\n", 1 );
-			if ( ItemIsJar( cnt ) )							FilePrintf( hFile, "\t\t<Jar>%d</Jar>\r\n", 1 );
-			if ( ItemIsCanAndString( cnt ) )					FilePrintf( hFile, "\t\t<CanAndString>%d</CanAndString>\r\n", 1 );
-			if ( ItemIsMarbles( cnt ) )						FilePrintf( hFile, "\t\t<Marbles>%d</Marbles>\r\n", 1 );
-			if ( ItemIsWalkman( cnt ) )						FilePrintf( hFile, "\t\t<Walkman>%d</Walkman>\r\n", 1 );
-			if ( ItemIsRemoteTrigger( cnt ) )				FilePrintf( hFile, "\t\t<RemoteTrigger>%d</RemoteTrigger>\r\n", 1 );
-			if ( ItemIsRobotRemote( cnt ) )					FilePrintf( hFile, "\t\t<RobotRemoteControl>%d</RobotRemoteControl>\r\n", 1 );
-			if ( ItemIsCamoKit( cnt ) )						FilePrintf( hFile, "\t\t<CamouflageKit>%d</CamouflageKit>\r\n", 1 );
-			if ( ItemIsLocksmithKit( cnt ) )					FilePrintf( hFile, "\t\t<LocksmithKit>%d</LocksmithKit>\r\n", 1 );
-			if ( ItemIsMine( cnt ) )							FilePrintf( hFile, "\t\t<Mine>%d</Mine>\r\n", 1 );
-			if ( ItemIsATMine( cnt ) )						FilePrintf( hFile, "\t\t<AntitankMine>%d</AntitankMine>\r\n", 1 );
-			if ( ItemIsHardware( cnt ) )						FilePrintf( hFile, "\t\t<Hardware>%d</Hardware>\r\n", 1 );
-			if ( ItemIsMedical( cnt ) )						FilePrintf( hFile, "\t\t<Medical>%d</Medical>\r\n", 1 );
-			if ( ItemIsGascan( cnt ) )						FilePrintf( hFile, "\t\t<GasCan>%d</GasCan>\r\n", 1 );
-			if ( ItemContainsLiquid( cnt ) )					FilePrintf( hFile, "\t\t<ContainsLiquid>%d</ContainsLiquid>\r\n", 1 );
-			if ( ItemIsRock( cnt ) )							FilePrintf( hFile, "\t\t<Rock>%d</Rock>\r\n", 1 );
-			if ( ItemIsThermalOptics( cnt ) )				FilePrintf( hFile, "\t\t<ThermalOptics>%d</ThermalOptics>\r\n", 1 );
-			if ( ItemIsOnlyInScifi( cnt ) )					FilePrintf( hFile, "\t\t<SciFi>%d</SciFi>\r\n", 1 );
-			if ( ItemIsOnlyInNIV( cnt ) )					FilePrintf( hFile, "\t\t<NewInv>%d</NewInv>\r\n", 1 );
-			if ( ItemIsOnlyInDisease( cnt ) )				FilePrintf( hFile, "\t\t<DiseaseSystemExclusive>%d</DiseaseSystemExclusive>\r\n", 1 );
-			if ( ItemIsBarrel( cnt ) )						FilePrintf( hFile, "\t\t<Barrel>%d</Barrel>\r\n", 1 );
-			if ( ItemHasTripwireActivation( cnt ) )			FilePrintf( hFile, "\t\t<TripwireActivation>%d</TripwireActivation>\r\n", 1 );
-			if ( ItemIsTripwire( cnt ) )						FilePrintf( hFile, "\t\t<TripWire>%d</TripWire>\r\n", 1 );
-			if ( ItemIsDirectional( cnt ) )					FilePrintf( hFile, "\t\t<Directional>%d</Directional>\r\n", 1 );
-			if ( ItemBlocksIronsight( cnt ) )				FilePrintf( hFile, "\t\t<BlockIronSight>%d</BlockIronSight>\r\n", 1 );
-			if ( ItemAllowsClimbing( cnt ) )					FilePrintf( hFile, "\t\t<AllowClimbing>%d</AllowClimbing>\r\n", 1 );
-			if ( ItemIsCigarette( cnt ) )					FilePrintf( hFile, "\t\t<Cigarette>%d</Cigarette>\r\n", 1 );
-			if ( ItemProvidesRobotCamo( cnt ) )				FilePrintf( hFile, "\t\t<ProvidesRobotCamo>%d</ProvidesRobotCamo>\r\n", 1 );
-			if ( ItemProvidesRobotNightvision( cnt ) )		FilePrintf( hFile, "\t\t<ProvidesRobotNightVision>%d</ProvidesRobotNightVision>\r\n", 1 );
-			if ( ItemProvidesRobotLaserBonus( cnt ) )		FilePrintf( hFile, "\t\t<ProvidesRobotLaserBonus>%d</ProvidesRobotLaserBonus>\r\n", 1 );
-
-
-			FilePrintf(hFile,"\t</ITEM>\r\n");
-		}
-		FilePrintf(hFile,"</ITEMLIST>\r\n");
+		static_assert(std::is_integral_v<Integer>);
+		if constexpr (std::is_signed_v<Integer>)
+			writer.addValue(tag, static_cast<std::intmax_t>(value));
+		else
+			writer.addValue(tag, static_cast<std::uintmax_t>(value));
 	}
-	FileClose( hFile );
 
-	return( TRUE );
+	bool AddItemFloat(XMLWriter& writer, const char* tag, FLOAT value)
+	{
+		if (!std::isfinite(value)) return false;
+		std::ostringstream formatted;
+		formatted.imbue(std::locale::classic());
+		formatted << std::setprecision(
+			std::numeric_limits<double>::max_digits10)
+			<< static_cast<double>(value);
+		if (!formatted) return false;
+		writer.addValue(tag, formatted.str());
+		return true;
+	}
+
+	void AddItemBoolean(XMLWriter& writer, const char* tag, bool value)
+	{
+		if (value) AddItemInteger(writer, tag, 1);
+	}
+
+	bool AppendUtf8CodePoint(std::uint32_t codePoint, std::string& destination)
+	{
+		// XML 1.0 excludes these Unicode noncharacters even though their UTF-8
+		// byte sequences contain no ASCII control byte for XMLWriter to reject.
+		if (codePoint == 0xfffe || codePoint == 0xffff) return false;
+		if (codePoint <= 0x7f)
+		{
+			destination.push_back(static_cast<char>(codePoint));
+		}
+		else if (codePoint <= 0x7ff)
+		{
+			destination.push_back(static_cast<char>(0xc0 | (codePoint >> 6)));
+			destination.push_back(static_cast<char>(
+				0x80 | (codePoint & 0x3f)));
+		}
+		else if (codePoint <= 0xffff)
+		{
+			if (codePoint >= 0xd800 && codePoint <= 0xdfff) return false;
+			destination.push_back(static_cast<char>(0xe0 | (codePoint >> 12)));
+			destination.push_back(static_cast<char>(
+				0x80 | ((codePoint >> 6) & 0x3f)));
+			destination.push_back(static_cast<char>(
+				0x80 | (codePoint & 0x3f)));
+		}
+		else if (codePoint <= 0x10ffff)
+		{
+			destination.push_back(static_cast<char>(0xf0 | (codePoint >> 18)));
+			destination.push_back(static_cast<char>(
+				0x80 | ((codePoint >> 12) & 0x3f)));
+			destination.push_back(static_cast<char>(
+				0x80 | ((codePoint >> 6) & 0x3f)));
+			destination.push_back(static_cast<char>(
+				0x80 | (codePoint & 0x3f)));
+		}
+		else
+		{
+			return false;
+		}
+		return true;
+	}
+
+	template <std::size_t Capacity>
+	bool ItemTextToUtf8(
+		const CHAR16 (&source)[Capacity], std::string& destination)
+	{
+		std::size_t length = 0;
+		while (length < Capacity && source[length] != L'\0') ++length;
+		if (length == Capacity) return false;
+
+		std::string staged;
+		staged.reserve(length * (sizeof(CHAR16) == 2 ? 3 : 4));
+		for (std::size_t index = 0; index < length; ++index)
+		{
+			if constexpr (std::is_signed_v<CHAR16>)
+			{
+				if (source[index] < 0) return false;
+			}
+			std::uint32_t codePoint = static_cast<std::uint32_t>(
+				static_cast<std::make_unsigned_t<CHAR16>>(source[index]));
+			if constexpr (sizeof(CHAR16) == 2)
+			{
+				if (codePoint >= 0xd800 && codePoint <= 0xdbff)
+				{
+					if (++index >= length) return false;
+					const std::uint32_t low = static_cast<std::uint32_t>(
+						static_cast<std::make_unsigned_t<CHAR16>>(
+							source[index]));
+					if (low < 0xdc00 || low > 0xdfff) return false;
+					codePoint = 0x10000 +
+						((codePoint - 0xd800) << 10) + (low - 0xdc00);
+				}
+				else if (codePoint >= 0xdc00 && codePoint <= 0xdfff)
+				{
+					return false;
+				}
+			}
+			if (!AppendUtf8CodePoint(codePoint, staged)) return false;
+		}
+		destination = std::move(staged);
+		return true;
+	}
+
+	template <std::size_t Capacity>
+	bool AddItemText(XMLWriter& writer, const char* tag,
+		const CHAR16 (&source)[Capacity])
+	{
+		std::string utf8;
+		if (!ItemTextToUtf8(source, utf8)) return false;
+		writer.addValue(tag, utf8);
+		return true;
+	}
+
+	template <std::size_t Capacity>
+	bool ValidateItemText(const CHAR16 (&source)[Capacity])
+	{
+		std::string utf8;
+		return ItemTextToUtf8(source, utf8);
+	}
+
+	bool TrySerializeApBonus(INT16 liveValue, INT16& serialized)
+	{
+		const INT16 maximum = APBPConstants[AP_MAXIMUM];
+		if (maximum <= 0) return false;
+		const FLOAT inverse = static_cast<FLOAT>(liveValue) /
+			static_cast<FLOAT>(maximum) * static_cast<FLOAT>(100) +
+			(liveValue < 0 ? -0.5f : 0.5f);
+		if (!std::isfinite(inverse)) return false;
+		const double truncated = std::trunc(static_cast<double>(inverse));
+		const double bounded = std::max(
+			static_cast<double>(std::numeric_limits<INT16>::min()),
+			std::min(static_cast<double>(std::numeric_limits<INT16>::max()),
+				truncated));
+		const int center = static_cast<int>(bounded);
+		constexpr int offsets[] = {0, -1, 1, -2, 2};
+		for (const int offset : offsets)
+		{
+			const int candidate = center + offset;
+			if (candidate < std::numeric_limits<INT16>::min() ||
+				candidate > std::numeric_limits<INT16>::max())
+			{
+				continue;
+			}
+			const INT16 encoded = static_cast<INT16>(candidate);
+			INT16 roundTripped = 0;
+			if (TryAdjustItemApBonus(
+					encoded, maximum, roundTripped) &&
+				roundTripped == liveValue)
+			{
+				serialized = encoded;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool ValidateSpreadPattern(INT32 patternIndex)
+	{
+		if (patternIndex < 0) return false;
+		if (patternIndex == 0) return true;
+		if (giSpreadPatternCount <= patternIndex) return false;
+		const std::string serialized = std::to_string(patternIndex);
+		return FindSpreadPatternIndex(
+			const_cast<char*>(serialized.c_str())) == patternIndex;
+	}
+
+	bool IsSemanticallyEmptyItem(const INVTYPE& item)
+	{
+		if (item.szItemDesc[0] != L'\0' || item.szBRDesc[0] != L'\0' ||
+			item.szItemName[0] != L'\0' || item.szLongItemName[0] != L'\0' ||
+			item.szBRName[0] != L'\0')
+		{
+			return false;
+		}
+		for (const UINT16 attachment : item.defaultattachments)
+			if (attachment != 0) return false;
+		for (std::size_t stance = 0; stance < 3; ++stance)
+		{
+			if (item.flatbasemodifier[stance] != 0 ||
+				item.percentbasemodifier[stance] != 0 ||
+				item.flataimmodifier[stance] != 0 ||
+				item.percentaimmodifier[stance] != 0 ||
+				item.percentcapmodifier[stance] != 0 ||
+				item.percenthandlingmodifier[stance] != 0 ||
+				item.percentdropcompensationmodifier[stance] != 0 ||
+				item.maxcounterforcemodifier[stance] != 0 ||
+				item.counterforceaccuracymodifier[stance] != 0 ||
+				item.targettrackingmodifier[stance] != 0 ||
+				item.aimlevelsmodifier[stance] != 0)
+			{
+				return false;
+			}
+		}
+		const FLOAT zeroFloats[] = {
+			item.alcohol, item.RecoilModifierX, item.RecoilModifierY,
+			item.scopemagfactor, item.projectionfactor,
+			item.usOverheatingCooldownFactor,
+			item.overheatTemperatureModificator,
+			item.overheatCooldownModificator,
+			item.overheatJamThresholdModificator,
+			item.overheatDamageThresholdModificator,
+			item.dirtIncreaseFactor, item.fRobotDamageReductionModifier};
+		for (const FLOAT value : zeroFloats)
+		{
+			if (value != 0.0f || std::signbit(value)) return false;
+		}
+
+#define ITEM_FIELD_MUST_BE_ZERO(field) if (item.field != 0) return false
+		ITEM_FIELD_MUST_BE_ZERO(nasAttachmentClass);
+		ITEM_FIELD_MUST_BE_ZERO(nasLayoutClass);
+		ITEM_FIELD_MUST_BE_ZERO(ulAvailableAttachmentPoint);
+		ITEM_FIELD_MUST_BE_ZERO(ulAttachmentPoint);
+		ITEM_FIELD_MUST_BE_ZERO(usItemFlag);
+		ITEM_FIELD_MUST_BE_ZERO(usItemFlag2);
+		ITEM_FIELD_MUST_BE_ZERO(uiIndex);
+		ITEM_FIELD_MUST_BE_ZERO(usItemClass);
+		ITEM_FIELD_MUST_BE_ZERO(attachmentclass);
+		ITEM_FIELD_MUST_BE_ZERO(drugtype);
+		ITEM_FIELD_MUST_BE_ZERO(foodtype);
+		ITEM_FIELD_MUST_BE_ZERO(usActionItemFlag);
+		ITEM_FIELD_MUST_BE_ZERO(clothestype);
+		ITEM_FIELD_MUST_BE_ZERO(spreadPattern);
+		ITEM_FIELD_MUST_BE_ZERO(alcohol);
+		ITEM_FIELD_MUST_BE_ZERO(RecoilModifierX);
+		ITEM_FIELD_MUST_BE_ZERO(RecoilModifierY);
+		ITEM_FIELD_MUST_BE_ZERO(scopemagfactor);
+		ITEM_FIELD_MUST_BE_ZERO(projectionfactor);
+		ITEM_FIELD_MUST_BE_ZERO(usOverheatingCooldownFactor);
+		ITEM_FIELD_MUST_BE_ZERO(overheatTemperatureModificator);
+		ITEM_FIELD_MUST_BE_ZERO(overheatCooldownModificator);
+		ITEM_FIELD_MUST_BE_ZERO(overheatJamThresholdModificator);
+		ITEM_FIELD_MUST_BE_ZERO(overheatDamageThresholdModificator);
+		ITEM_FIELD_MUST_BE_ZERO(dirtIncreaseFactor);
+		ITEM_FIELD_MUST_BE_ZERO(fRobotDamageReductionModifier);
+		ITEM_FIELD_MUST_BE_ZERO(ubClassIndex);
+		ITEM_FIELD_MUST_BE_ZERO(ubGraphicNum);
+		ITEM_FIELD_MUST_BE_ZERO(ubWeight);
+		ITEM_FIELD_MUST_BE_ZERO(ItemSize);
+		ITEM_FIELD_MUST_BE_ZERO(usPrice);
+		ITEM_FIELD_MUST_BE_ZERO(discardedlauncheritem);
+		ITEM_FIELD_MUST_BE_ZERO(randomitem);
+		ITEM_FIELD_MUST_BE_ZERO(usBuddyItem);
+		ITEM_FIELD_MUST_BE_ZERO(usRiotShieldStrength);
+		ITEM_FIELD_MUST_BE_ZERO(usRiotShieldGraphic);
+		ITEM_FIELD_MUST_BE_ZERO(percentnoisereduction);
+		ITEM_FIELD_MUST_BE_ZERO(bipod);
+		ITEM_FIELD_MUST_BE_ZERO(tohitbonus);
+		ITEM_FIELD_MUST_BE_ZERO(bestlaserrange);
+		ITEM_FIELD_MUST_BE_ZERO(rangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(percentrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(aimbonus);
+		ITEM_FIELD_MUST_BE_ZERO(minrangeforaimbonus);
+		ITEM_FIELD_MUST_BE_ZERO(percentapreduction);
+		ITEM_FIELD_MUST_BE_ZERO(percentstatusdrainreduction);
+		ITEM_FIELD_MUST_BE_ZERO(bloodieditem);
+		ITEM_FIELD_MUST_BE_ZERO(hearingrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(visionrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(nightvisionrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(dayvisionrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(cavevisionrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(brightlightvisionrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(itemsizebonus);
+		ITEM_FIELD_MUST_BE_ZERO(damagebonus);
+		ITEM_FIELD_MUST_BE_ZERO(meleedamagebonus);
+		ITEM_FIELD_MUST_BE_ZERO(magsizebonus);
+		ITEM_FIELD_MUST_BE_ZERO(percentautofireapreduction);
+		ITEM_FIELD_MUST_BE_ZERO(autofiretohitbonus);
+		ITEM_FIELD_MUST_BE_ZERO(APBonus);
+		ITEM_FIELD_MUST_BE_ZERO(rateoffirebonus);
+		ITEM_FIELD_MUST_BE_ZERO(burstsizebonus);
+		ITEM_FIELD_MUST_BE_ZERO(bursttohitbonus);
+		ITEM_FIELD_MUST_BE_ZERO(percentreadytimeapreduction);
+		ITEM_FIELD_MUST_BE_ZERO(bulletspeedbonus);
+		ITEM_FIELD_MUST_BE_ZERO(percentreloadtimeapreduction);
+		ITEM_FIELD_MUST_BE_ZERO(percentburstfireapreduction);
+		ITEM_FIELD_MUST_BE_ZERO(camobonus);
+		ITEM_FIELD_MUST_BE_ZERO(stealthbonus);
+		ITEM_FIELD_MUST_BE_ZERO(urbanCamobonus);
+		ITEM_FIELD_MUST_BE_ZERO(desertCamobonus);
+		ITEM_FIELD_MUST_BE_ZERO(snowCamobonus);
+		ITEM_FIELD_MUST_BE_ZERO(PercentRecoilModifier);
+		ITEM_FIELD_MUST_BE_ZERO(percentaccuracymodifier);
+		ITEM_FIELD_MUST_BE_ZERO(usSpotting);
+		ITEM_FIELD_MUST_BE_ZERO(sBackpackWeightModifier);
+		ITEM_FIELD_MUST_BE_ZERO(sFireResistance);
+		ITEM_FIELD_MUST_BE_ZERO(ubAttachToPointAPCost);
+		ITEM_FIELD_MUST_BE_ZERO(ubCursor);
+		ITEM_FIELD_MUST_BE_ZERO(ubGraphicType);
+		ITEM_FIELD_MUST_BE_ZERO(ubPerPocket);
+		ITEM_FIELD_MUST_BE_ZERO(ubCoolness);
+		ITEM_FIELD_MUST_BE_ZERO(percenttunnelvision);
+		ITEM_FIELD_MUST_BE_ZERO(ubAttachmentSystem);
+		ITEM_FIELD_MUST_BE_ZERO(CrowbarModifier);
+		ITEM_FIELD_MUST_BE_ZERO(DisarmModifier);
+		ITEM_FIELD_MUST_BE_ZERO(usHackingModifier);
+		ITEM_FIELD_MUST_BE_ZERO(usBurialModifier);
+		ITEM_FIELD_MUST_BE_ZERO(usDamageChance);
+		ITEM_FIELD_MUST_BE_ZERO(usFlashLightRange);
+		ITEM_FIELD_MUST_BE_ZERO(usItemChoiceTimeSetting);
+		ITEM_FIELD_MUST_BE_ZERO(ubSleepModifier);
+		ITEM_FIELD_MUST_BE_ZERO(usPortionSize);
+		ITEM_FIELD_MUST_BE_ZERO(usAdministrationModifier);
+		ITEM_FIELD_MUST_BE_ZERO(inseparable);
+		ITEM_FIELD_MUST_BE_ZERO(bSoundType);
+		ITEM_FIELD_MUST_BE_ZERO(bReliability);
+		ITEM_FIELD_MUST_BE_ZERO(bRepairEase);
+		ITEM_FIELD_MUST_BE_ZERO(LockPickModifier);
+		ITEM_FIELD_MUST_BE_ZERO(RepairModifier);
+		ITEM_FIELD_MUST_BE_ZERO(randomitemcoolnessmodificator);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotStrBonus);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotAgiBonus);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotDexBonus);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotTargetingSkillGrant);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotChassisSkillGrant);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotUtilitySkillGrant);
+		ITEM_FIELD_MUST_BE_ZERO(iTransportGroupMinProgress);
+		ITEM_FIELD_MUST_BE_ZERO(iTransportGroupMaxProgress);
+#undef ITEM_FIELD_MUST_BE_ZERO
+		return true;
+	}
+
+	bool ValidateItemRecord(std::size_t index)
+	{
+		const INVTYPE& item = Item[index];
+		if (!ValidateItemText(item.szItemName) ||
+			!ValidateItemText(item.szLongItemName) ||
+			!ValidateItemText(item.szItemDesc) ||
+			!ValidateItemText(item.szBRName) ||
+			!ValidateItemText(item.szBRDesc))
+		{
+			return false;
+		}
+
+		constexpr UINT64 allowedItemFlags = UINT64_C(0xCFFFFFFFFFFFFFFF);
+		constexpr UINT64 allowedItemFlags2 = UINT64_C(0x000007FFFFFFFFFF);
+		if ((item.usItemFlag & ~allowedItemFlags) != 0 ||
+			(item.usItemFlag2 & ~allowedItemFlags2) != 0)
+		{
+			return false;
+		}
+		if (item.usItemClass == 0)
+		{
+			if (!IsSemanticallyEmptyItem(item)) return false;
+		}
+		else if (item.uiIndex != index)
+		{
+			return false;
+		}
+
+		bool sawZeroAttachment = false;
+		for (const UINT16 attachment : item.defaultattachments)
+		{
+			if (attachment == 0) sawZeroAttachment = true;
+			else if (sawZeroAttachment) return false;
+		}
+
+		for (std::size_t stance = 0; stance < 3; ++stance)
+		{
+			if (item.flatbasemodifier[stance] == -10000 ||
+				item.percentbasemodifier[stance] == -10000 ||
+				item.flataimmodifier[stance] == -10000 ||
+				item.percentaimmodifier[stance] == -10000 ||
+				item.percentcapmodifier[stance] == -10000 ||
+				item.percenthandlingmodifier[stance] == -10000 ||
+				item.percentdropcompensationmodifier[stance] == -10000 ||
+				item.maxcounterforcemodifier[stance] == -10000 ||
+				item.counterforceaccuracymodifier[stance] == -10000 ||
+				item.targettrackingmodifier[stance] == -10000 ||
+				item.aimlevelsmodifier[stance] == -10000)
+			{
+				return false;
+			}
+		}
+
+		const FLOAT finiteValues[] = {
+			item.alcohol, item.scopemagfactor, item.projectionfactor,
+			item.RecoilModifierX, item.RecoilModifierY,
+			item.usOverheatingCooldownFactor,
+			item.overheatTemperatureModificator,
+			item.overheatCooldownModificator,
+			item.overheatJamThresholdModificator,
+			item.overheatDamageThresholdModificator,
+			item.dirtIncreaseFactor, item.fRobotDamageReductionModifier};
+		for (const FLOAT value : finiteValues)
+			if (!std::isfinite(value)) return false;
+
+		INT16 serializedApBonus = 0;
+		return item.alcohol >= 0.0f && !std::signbit(item.alcohol) &&
+			item.drugtype < NEW_DRUGS_MAX &&
+			item.usHackingModifier <= 100 && item.usBurialModifier <= 100 &&
+			item.usSpotting >= 0 && item.usSpotting <= 100 &&
+			item.usRiotShieldStrength <= 100 &&
+			item.randomitemcoolnessmodificator >= -20 &&
+			item.randomitemcoolnessmodificator <= 20 &&
+			item.usItemChoiceTimeSetting <= 2 && item.sFireResistance <= 100 &&
+			TrySerializeApBonus(item.APBonus, serializedApBonus) &&
+			ValidateSpreadPattern(item.spreadPattern);
+	}
+
+	bool AddSpreadPattern(XMLWriter& writer, INT32 patternIndex)
+	{
+		if (!ValidateSpreadPattern(patternIndex)) return false;
+		writer.addValue("spreadPattern", std::to_string(patternIndex));
+		return true;
+	}
+
+	void AddStanceModifiers(
+		XMLWriter& writer, const INVTYPE& item, const char* node,
+		std::size_t stance)
+	{
+		writer.openNode(node);
+		AddItemInteger(writer, "FlatBase", item.flatbasemodifier[stance]);
+		AddItemInteger(writer, "PercentBase", item.percentbasemodifier[stance]);
+		AddItemInteger(writer, "FlatAim", item.flataimmodifier[stance]);
+		AddItemInteger(writer, "PercentAim", item.percentaimmodifier[stance]);
+		AddItemInteger(writer, "PercentCap", item.percentcapmodifier[stance]);
+		AddItemInteger(
+			writer, "PercentHandling", item.percenthandlingmodifier[stance]);
+		AddItemInteger(writer, "PercentTargetTrackingSpeed",
+			item.targettrackingmodifier[stance]);
+		AddItemInteger(writer, "PercentDropCompensation",
+			item.percentdropcompensationmodifier[stance]);
+		AddItemInteger(writer, "PercentMaxCounterForce",
+			item.maxcounterforcemodifier[stance]);
+		AddItemInteger(writer, "PercentCounterForceAccuracy",
+			item.counterforceaccuracymodifier[stance]);
+		AddItemInteger(writer, "AimLevels", item.aimlevelsmodifier[stance]);
+	}
+
+	bool AddItemRecord(XMLWriter& writer, std::size_t index)
+	{
+		const INVTYPE& item = Item[index];
+		writer.openNode("ITEM");
+		AddItemInteger(writer, "uiIndex", index);
+		if (!AddItemText(writer, "szItemName", item.szItemName) ||
+			!AddItemText(writer, "szLongItemName", item.szLongItemName) ||
+			!AddItemText(writer, "szItemDesc", item.szItemDesc) ||
+			!AddItemText(writer, "szBRName", item.szBRName) ||
+			!AddItemText(writer, "szBRDesc", item.szBRDesc))
+		{
+			return false;
+		}
+
+		AddItemInteger(writer, "usItemClass", item.usItemClass);
+		AddItemInteger(writer, "nasAttachmentClass", item.nasAttachmentClass);
+		AddItemInteger(writer, "nasLayoutClass", item.nasLayoutClass);
+		AddItemInteger(writer, "AvailableAttachmentPoint",
+			item.ulAvailableAttachmentPoint);
+		AddItemInteger(writer, "AttachmentPoint", item.ulAttachmentPoint);
+		AddItemInteger(writer, "AttachToPointAPCost",
+			item.ubAttachToPointAPCost);
+		AddItemInteger(writer, "ubClassIndex", item.ubClassIndex);
+		AddItemInteger(writer, "ubCursor", item.ubCursor);
+		AddItemInteger(writer, "bSoundType", item.bSoundType);
+		AddItemInteger(writer, "ubGraphicType", item.ubGraphicType);
+		AddItemInteger(writer, "ubGraphicNum", item.ubGraphicNum);
+		AddItemInteger(writer, "ubWeight", item.ubWeight);
+		AddItemInteger(writer, "ubPerPocket", item.ubPerPocket);
+		AddItemInteger(writer, "ItemSize", item.ItemSize);
+		AddItemInteger(writer, "usPrice", item.usPrice);
+		AddItemInteger(writer, "ubCoolness", item.ubCoolness);
+		AddItemInteger(writer, "bReliability", item.bReliability);
+		AddItemInteger(writer, "bRepairEase", item.bRepairEase);
+		AddItemInteger(writer, "AttachmentSystem", item.ubAttachmentSystem);
+		AddItemInteger(writer, "Inseparable", item.inseparable);
+
+		AddItemInteger(writer, "BR_NewInventory",
+			StoreInventory[index][BOBBY_RAY_NEW]);
+		AddItemInteger(writer, "BR_UsedInventory",
+			StoreInventory[index][BOBBY_RAY_USED]);
+		AddItemInteger(writer, "BR_ROF", WeaponROF[index]);
+
+		AddItemInteger(writer, "PercentNoiseReduction",
+			item.percentnoisereduction);
+		AddItemInteger(writer, "Bipod", item.bipod);
+		AddItemInteger(writer, "RangeBonus", item.rangebonus);
+		AddItemInteger(writer, "PercentRangeBonus", item.percentrangebonus);
+		AddItemInteger(writer, "ToHitBonus", item.tohitbonus);
+		AddItemInteger(writer, "AimBonus", item.aimbonus);
+		AddItemInteger(writer, "MinRangeForAimBonus",
+			item.minrangeforaimbonus);
+		AddItemInteger(writer, "MagSizeBonus", item.magsizebonus);
+		AddItemInteger(writer, "RateOfFireBonus", item.rateoffirebonus);
+		AddItemInteger(writer, "BulletSpeedBonus", item.bulletspeedbonus);
+		AddItemInteger(writer, "BurstSizeBonus", item.burstsizebonus);
+		AddItemInteger(writer, "BestLaserRange", item.bestlaserrange);
+		AddItemInteger(writer, "BurstToHitBonus", item.bursttohitbonus);
+		AddItemInteger(writer, "AutoFireToHitBonus",
+			item.autofiretohitbonus);
+		INT16 serializedApBonus = 0;
+		if (!TrySerializeApBonus(item.APBonus, serializedApBonus)) return false;
+		AddItemInteger(writer, "APBonus", serializedApBonus);
+		AddItemInteger(writer, "PercentBurstFireAPReduction",
+			item.percentburstfireapreduction);
+		AddItemInteger(writer, "PercentAutofireAPReduction",
+			item.percentautofireapreduction);
+		AddItemInteger(writer, "PercentReadyTimeAPReduction",
+			item.percentreadytimeapreduction);
+		AddItemInteger(writer, "PercentReloadTimeAPReduction",
+			item.percentreloadtimeapreduction);
+		AddItemInteger(writer, "PercentAPReduction", item.percentapreduction);
+		AddItemInteger(writer, "PercentStatusDrainReduction",
+			item.percentstatusdrainreduction);
+		AddItemInteger(writer, "DamageBonus", item.damagebonus);
+		AddItemInteger(writer, "MeleeDamageBonus", item.meleedamagebonus);
+		AddItemInteger(writer, "DiscardedLauncherItem",
+			item.discardedlauncheritem);
+		for (const UINT16 attachment : item.defaultattachments)
+		{
+			if (attachment != 0)
+				AddItemInteger(writer, "DefaultAttachment", attachment);
+		}
+		AddItemInteger(writer, "BloodiedItem", item.bloodieditem);
+		AddItemInteger(writer, "CamoBonus", item.camobonus);
+		AddItemInteger(writer, "UrbanCamoBonus", item.urbanCamobonus);
+		AddItemInteger(writer, "DesertCamoBonus", item.desertCamobonus);
+		AddItemInteger(writer, "SnowCamoBonus", item.snowCamobonus);
+		AddItemInteger(writer, "StealthBonus", item.stealthbonus);
+		AddItemInteger(writer, "HearingRangeBonus", item.hearingrangebonus);
+		AddItemInteger(writer, "VisionRangeBonus", item.visionrangebonus);
+		AddItemInteger(writer, "NightVisionRangeBonus",
+			item.nightvisionrangebonus);
+		AddItemInteger(writer, "DayVisionRangeBonus",
+			item.dayvisionrangebonus);
+		AddItemInteger(writer, "CaveVisionRangeBonus",
+			item.cavevisionrangebonus);
+		AddItemInteger(writer, "BrightLightVisionRangeBonus",
+			item.brightlightvisionrangebonus);
+		AddItemInteger(writer, "ItemSizeBonus", item.itemsizebonus);
+		AddItemInteger(writer, "PercentTunnelVision",
+			item.percenttunnelvision);
+
+		if (!AddItemFloat(writer, "Alcohol", item.alcohol) ||
+			!AddItemFloat(writer, "ScopeMagFactor", item.scopemagfactor) ||
+			!AddItemFloat(writer, "ProjectionFactor", item.projectionfactor) ||
+			!AddItemFloat(writer, "RecoilModifierX", item.RecoilModifierX) ||
+			!AddItemFloat(writer, "RecoilModifierY", item.RecoilModifierY))
+		{
+			return false;
+		}
+		AddItemInteger(writer, "PercentAccuracyModifier",
+			item.percentaccuracymodifier);
+		AddItemInteger(writer, "PercentRecoilModifier",
+			item.PercentRecoilModifier);
+		if (!AddSpreadPattern(writer, item.spreadPattern)) return false;
+
+		AddStanceModifiers(writer, item, "STAND_MODIFIERS", 0);
+		if (!writer.closeNode()) return false;
+		AddStanceModifiers(writer, item, "CROUCH_MODIFIERS", 1);
+		if (!writer.closeNode()) return false;
+		AddStanceModifiers(writer, item, "PRONE_MODIFIERS", 2);
+		if (!writer.closeNode()) return false;
+
+		if (!AddItemFloat(writer, "usOverheatingCooldownFactor",
+				item.usOverheatingCooldownFactor) ||
+			!AddItemFloat(writer, "overheatTemperatureModificator",
+				item.overheatTemperatureModificator) ||
+			!AddItemFloat(writer, "overheatCooldownModificator",
+				item.overheatCooldownModificator) ||
+			!AddItemFloat(writer, "overheatJamThresholdModificator",
+				item.overheatJamThresholdModificator) ||
+			!AddItemFloat(writer, "overheatDamageThresholdModificator",
+				item.overheatDamageThresholdModificator))
+		{
+			return false;
+		}
+
+		AddItemInteger(writer, "AttachmentClass", item.attachmentclass);
+		AddItemInteger(writer, "DrugType", item.drugtype);
+		AddItemInteger(writer, "FoodType", item.foodtype);
+		AddItemInteger(writer, "LockPickModifier", item.LockPickModifier);
+		AddItemInteger(writer, "CrowbarModifier", item.CrowbarModifier);
+		AddItemInteger(writer, "DisarmModifier", item.DisarmModifier);
+		AddItemInteger(writer, "RepairModifier", item.RepairModifier);
+		AddItemInteger(writer, "usHackingModifier", item.usHackingModifier);
+		AddItemInteger(writer, "usBurialModifier", item.usBurialModifier);
+		AddItemInteger(writer, "DamageChance", item.usDamageChance);
+		if (!AddItemFloat(
+				writer, "DirtIncreaseFactor", item.dirtIncreaseFactor))
+		{
+			return false;
+		}
+		AddItemInteger(writer, "usActionItemFlag", item.usActionItemFlag);
+		AddItemInteger(writer, "clothestype", item.clothestype);
+		AddItemInteger(writer, "randomitem", item.randomitem);
+		AddItemInteger(writer, "randomitemcoolnessmodificator",
+			item.randomitemcoolnessmodificator);
+		AddItemInteger(writer, "FlashLightRange", item.usFlashLightRange);
+		AddItemInteger(writer, "ItemChoiceTimeSetting",
+			item.usItemChoiceTimeSetting);
+		AddItemInteger(writer, "buddyitem", item.usBuddyItem);
+		AddItemInteger(writer, "SleepModifier", item.ubSleepModifier);
+		AddItemInteger(writer, "usSpotting", item.usSpotting);
+		AddItemInteger(writer, "sBackpackWeightModifier",
+			item.sBackpackWeightModifier);
+		AddItemInteger(writer, "usPortionSize", item.usPortionSize);
+		AddItemInteger(writer, "usRiotShieldStrength",
+			item.usRiotShieldStrength);
+		AddItemInteger(writer, "usRiotShieldGraphic",
+			item.usRiotShieldGraphic);
+		AddItemInteger(writer, "sFireResistance", item.sFireResistance);
+		AddItemInteger(writer, "usAdministrationModifier",
+			item.usAdministrationModifier);
+		if (!AddItemFloat(writer, "RobotDamageReduction",
+				item.fRobotDamageReductionModifier))
+		{
+			return false;
+		}
+		AddItemInteger(writer, "RobotStrBonus", item.bRobotStrBonus);
+		AddItemInteger(writer, "RobotAgiBonus", item.bRobotAgiBonus);
+		AddItemInteger(writer, "RobotDexBonus", item.bRobotDexBonus);
+		AddItemInteger(writer, "RobotTargetingSkillGrant",
+			item.bRobotTargetingSkillGrant);
+		AddItemInteger(writer, "RobotChassisSkillGrant",
+			item.bRobotChassisSkillGrant);
+		AddItemInteger(writer, "RobotUtilitySkillGrant",
+			item.bRobotUtilitySkillGrant);
+		AddItemInteger(writer, "TransportGroupMinProgress",
+			item.iTransportGroupMinProgress);
+		AddItemInteger(writer, "TransportGroupMaxProgress",
+			item.iTransportGroupMaxProgress);
+
+		const UINT16 itemIndex = static_cast<UINT16>(index);
+		AddItemBoolean(writer, "Bloodbag", HasItemFlag(itemIndex, BLOOD_BAG));
+		AddItemBoolean(writer, "Manpad", HasItemFlag(itemIndex, MANPAD));
+		AddItemBoolean(writer, "Beartrap", HasItemFlag(itemIndex, BEARTRAP));
+		AddItemBoolean(writer, "Camera", HasItemFlag(itemIndex, CAMERA));
+		AddItemBoolean(writer, "Waterdrum", HasItemFlag(itemIndex, WATER_DRUM));
+		AddItemBoolean(writer, "BloodcatMeat",
+			HasItemFlag(itemIndex, MEAT_BLOODCAT));
+		AddItemBoolean(writer, "CowMeat", HasItemFlag(itemIndex, MEAT_COW));
+		AddItemBoolean(writer, "Beltfed", HasItemFlag(itemIndex, BELT_FED));
+		AddItemBoolean(writer, "Ammobelt", HasItemFlag(itemIndex, AMMO_BELT));
+		AddItemBoolean(writer, "AmmobeltVest",
+			HasItemFlag(itemIndex, AMMO_BELT_VEST));
+		AddItemBoolean(writer, "CamoRemoval",
+			HasItemFlag(itemIndex, CAMO_REMOVAL));
+		AddItemBoolean(writer, "Cleaningkit",
+			HasItemFlag(itemIndex, CLEANING_KIT));
+		AddItemBoolean(writer, "AttentionItem",
+			HasItemFlag(itemIndex, ATTENTION_ITEM));
+		AddItemBoolean(writer, "Garotte", HasItemFlag(itemIndex, GAROTTE));
+		AddItemBoolean(writer, "Covert", HasItemFlag(itemIndex, COVERT));
+		AddItemBoolean(writer, "Corpse", HasItemFlag(itemIndex, CORPSE));
+		AddItemBoolean(writer, "BloodcatSkin",
+			HasItemFlag(itemIndex, SKIN_BLOODCAT));
+		AddItemBoolean(writer, "NoMetalDetection",
+			HasItemFlag(itemIndex, NO_METAL_DETECTION));
+		AddItemBoolean(writer, "JumpGrenade",
+			HasItemFlag(itemIndex, JUMP_GRENADE));
+		AddItemBoolean(writer, "Handcuffs",
+			HasItemFlag(itemIndex, HANDCUFFS));
+		AddItemBoolean(writer, "Taser", HasItemFlag(itemIndex, TASER));
+		AddItemBoolean(writer, "ScubaBottle",
+			HasItemFlag(itemIndex, SCUBA_BOTTLE));
+		AddItemBoolean(writer, "ScubaMask",
+			HasItemFlag(itemIndex, SCUBA_MASK));
+		AddItemBoolean(writer, "ScubaFins",
+			HasItemFlag(itemIndex, SCUBA_FINS));
+		AddItemBoolean(writer, "TripwireRoll",
+			HasItemFlag(itemIndex, TRIPWIREROLL));
+		AddItemBoolean(writer, "Radioset",
+			HasItemFlag(itemIndex, RADIO_SET));
+		AddItemBoolean(writer, "SignalShell",
+			HasItemFlag(itemIndex, SIGNAL_SHELL));
+		AddItemBoolean(writer, "Soda", HasItemFlag(itemIndex, SODA));
+		AddItemBoolean(writer, "RoofcollapseItem",
+			HasItemFlag(itemIndex, ROOF_COLLAPSE_ITEM));
+		AddItemBoolean(writer, "DiseaseprotectionFace",
+			HasItemFlag(itemIndex, DISEASEPROTECTION_1));
+		AddItemBoolean(writer, "DiseaseprotectionHand",
+			HasItemFlag(itemIndex, DISEASEPROTECTION_2));
+		AddItemBoolean(writer, "LBEexplosionproof",
+			HasItemFlag(itemIndex, LBE_EXPLOSIONPROOF));
+		AddItemBoolean(writer, "EmptyBloodbag",
+			HasItemFlag(itemIndex, EMPTY_BLOOD_BAG));
+		AddItemBoolean(writer, "MedicalSplint",
+			HasItemFlag(itemIndex, MEDICAL_SPLINT));
+		AddItemBoolean(writer, "Damageable", ItemIsDamageable(itemIndex));
+		AddItemBoolean(writer, "Repairable", ItemIsRepairable(itemIndex));
+		AddItemBoolean(writer, "WaterDamages",
+			ItemIsDamagedByWater(itemIndex));
+		AddItemBoolean(writer, "Metal", ItemIsMetal(itemIndex));
+		AddItemBoolean(writer, "Sinks", ItemSinks(itemIndex));
+		AddItemBoolean(writer, "ShowStatus",
+			HasItemFlag(itemIndex, ITEM_showstatus));
+		AddItemBoolean(writer, "HiddenAddon", ItemIsHiddenAddon(itemIndex));
+		AddItemBoolean(writer, "TwoHanded", ItemIsTwoHanded(itemIndex));
+		AddItemBoolean(writer, "NotBuyable", ItemIsNotBuyable(itemIndex));
+		AddItemBoolean(writer, "Attachment", ItemIsAttachment(itemIndex));
+		AddItemBoolean(writer, "HiddenAttachment",
+			ItemIsHiddenAttachment(itemIndex));
+		AddItemBoolean(writer, "BigGunList",
+			ItemIsOnlyInTonsOfGuns(itemIndex));
+		AddItemBoolean(writer, "NotInEditor", ItemIsNotInEditor(itemIndex));
+		AddItemBoolean(writer, "DefaultUndroppable",
+			ItemIsUndroppableByDefault(itemIndex));
+		AddItemBoolean(writer, "Unaerodynamic",
+			ItemIsUnaerodynamic(itemIndex));
+		AddItemBoolean(writer, "Electronic", ItemIsElectronic(itemIndex));
+		AddItemBoolean(writer, "Cannon", ItemIsCannon(itemIndex));
+		AddItemBoolean(writer, "RocketRifle", ItemIsRocketRifle(itemIndex));
+		AddItemBoolean(writer, "FingerPrintID",
+			ItemHasFingerPrintID(itemIndex));
+		AddItemBoolean(writer, "MetalDetector",
+			ItemIsMetalDetector(itemIndex));
+		AddItemBoolean(writer, "GasMask", ItemIsGasmask(itemIndex));
+		AddItemBoolean(writer, "LockBomb", ItemIsLockBomb(itemIndex));
+		AddItemBoolean(writer, "Flare", ItemIsFlare(itemIndex));
+		AddItemBoolean(writer, "GrenadeLauncher",
+			ItemIsGrenadeLauncher(itemIndex));
+		AddItemBoolean(writer, "Mortar", ItemIsMortar(itemIndex));
+		AddItemBoolean(writer, "Duckbill", ItemIsDuckbill(itemIndex));
+		AddItemBoolean(writer, "HideMuzzleFlash",
+			ItemHasHiddenMuzzleFlash(itemIndex));
+		AddItemBoolean(writer, "RocketLauncher",
+			ItemIsRocketLauncher(itemIndex));
+		AddItemBoolean(writer, "SingleShotRocketLauncher",
+			ItemIsSingleShotRocketLauncher(itemIndex));
+		AddItemBoolean(writer, "BrassKnuckles",
+			ItemIsBrassKnuckles(itemIndex));
+		AddItemBoolean(writer, "Crowbar", ItemIsCrowbar(itemIndex));
+		AddItemBoolean(writer, "GLGrenade", ItemIsGLgrenade(itemIndex));
+		AddItemBoolean(writer, "FlakJacket", ItemIsFlakJacket(itemIndex));
+		AddItemBoolean(writer, "LeatherJacket",
+			ItemIsLeatherJacket(itemIndex));
+		AddItemBoolean(writer, "Batteries", ItemIsBatteries(itemIndex));
+		AddItemBoolean(writer, "NeedsBatteries",
+			ItemNeedsBatteries(itemIndex));
+		AddItemBoolean(writer, "XRay", ItemHasXRay(itemIndex));
+		AddItemBoolean(writer, "WireCutters", ItemIsWirecutters(itemIndex));
+		AddItemBoolean(writer, "Toolkit", ItemIsToolkit(itemIndex));
+		AddItemBoolean(writer, "FirstAidKit", ItemIsFirstAidKit(itemIndex));
+		AddItemBoolean(writer, "MedicalKit", ItemIsMedicalKit(itemIndex));
+		AddItemBoolean(writer, "Canteen", ItemIsCanteen(itemIndex));
+		AddItemBoolean(writer, "Jar", ItemIsJar(itemIndex));
+		AddItemBoolean(writer, "CanAndString",
+			ItemIsCanAndString(itemIndex));
+		AddItemBoolean(writer, "Marbles", ItemIsMarbles(itemIndex));
+		AddItemBoolean(writer, "Walkman", ItemIsWalkman(itemIndex));
+		AddItemBoolean(writer, "RemoteTrigger",
+			ItemIsRemoteTrigger(itemIndex));
+		AddItemBoolean(writer, "RobotRemoteControl",
+			ItemIsRobotRemote(itemIndex));
+		AddItemBoolean(writer, "CamouflageKit", ItemIsCamoKit(itemIndex));
+		AddItemBoolean(writer, "LocksmithKit",
+			ItemIsLocksmithKit(itemIndex));
+		AddItemBoolean(writer, "Mine", ItemIsMine(itemIndex));
+		AddItemBoolean(writer, "AntitankMine", ItemIsATMine(itemIndex));
+		AddItemBoolean(writer, "Hardware", ItemIsHardware(itemIndex));
+		AddItemBoolean(writer, "Medical", ItemIsMedical(itemIndex));
+		AddItemBoolean(writer, "GasCan", ItemIsGascan(itemIndex));
+		AddItemBoolean(writer, "ContainsLiquid",
+			ItemContainsLiquid(itemIndex));
+		AddItemBoolean(writer, "Rock", ItemIsRock(itemIndex));
+		AddItemBoolean(writer, "ThermalOptics",
+			ItemIsThermalOptics(itemIndex));
+		AddItemBoolean(writer, "SciFi", ItemIsOnlyInScifi(itemIndex));
+		AddItemBoolean(writer, "NewInv", ItemIsOnlyInNIV(itemIndex));
+		AddItemBoolean(writer, "DiseaseSystemExclusive",
+			ItemIsOnlyInDisease(itemIndex));
+		AddItemBoolean(writer, "Barrel", ItemIsBarrel(itemIndex));
+		AddItemBoolean(writer, "TripWireActivation",
+			ItemHasTripwireActivation(itemIndex));
+		AddItemBoolean(writer, "TripWire", ItemIsTripwire(itemIndex));
+		AddItemBoolean(writer, "Directional",
+			ItemIsDirectional(itemIndex));
+		AddItemBoolean(writer, "BlockIronSight",
+			ItemBlocksIronsight(itemIndex));
+		AddItemBoolean(writer, "AllowClimbing",
+			ItemAllowsClimbing(itemIndex));
+		AddItemBoolean(writer, "Cigarette", ItemIsCigarette(itemIndex));
+		AddItemBoolean(writer, "ProvidesRobotCamo",
+			ItemProvidesRobotCamo(itemIndex));
+		AddItemBoolean(writer, "ProvidesRobotNightVision",
+			ItemProvidesRobotNightvision(itemIndex));
+		AddItemBoolean(writer, "ProvidesRobotLaserBonus",
+			ItemProvidesRobotLaserBonus(itemIndex));
+
+		return writer.closeNode();
+	}
+
+	bool BuildItemStatsXml(XMLWriter& writer, std::size_t requestedCount)
+	{
+		static_assert(static_cast<std::uintmax_t>(MAXITEMS) <=
+			std::numeric_limits<UINT16>::max(),
+			"item writer predicates require a representable item index");
+		const std::size_t itemCount = ItemXmlWriter::BoundedItemCount(
+			requestedCount, static_cast<std::size_t>(MAXITEMS));
+		for (std::size_t index = 0; index < itemCount; ++index)
+		{
+			if (!ValidateItemRecord(index)) return false;
+		}
+		// The reader derives gMAXITEMS_READ from the highest nonzero-class item,
+		// not from auxiliary-only gap records.  A trailing gap would silently
+		// lower the requested live-table high-water mark after reload.
+		if (itemCount != 0 && Item[itemCount - 1].usItemClass == 0) return false;
+		writer.openNode("ITEMLIST");
+		for (std::size_t index = 0; index < itemCount; ++index)
+		{
+			if (!AddItemRecord(writer, index)) return false;
+		}
+		return writer.closeNode();
+	}
 }
 
+namespace ItemXmlWriter
+{
+	bool Write(const vfs::Path& path, std::size_t requestedCount)
+	{
+		try
+		{
+			XMLWriter writer;
+			return BuildItemStatsXml(writer, requestedCount) &&
+				writer.writeToFile(path);
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+
+	bool Write(vfs::tWritableFile* file, std::size_t requestedCount)
+	{
+		if (!file) return false;
+		try
+		{
+			XMLWriter writer;
+			return BuildItemStatsXml(writer, requestedCount) &&
+				writer.writeToFile(file);
+		}
+		catch (...)
+		{
+			return false;
+		}
+	}
+}
+
+BOOLEAN WriteItemStatsToFile(STR fileName, UINT32 itemCount)
+{
+	if (!fileName) return FALSE;
+	try
+	{
+		return ItemXmlWriter::Write(
+			vfs::Path(fileName), static_cast<std::size_t>(itemCount))
+			? TRUE : FALSE;
+	}
+	catch (...)
+	{
+		return FALSE;
+	}
+}
+
+BOOLEAN WriteItemStats()
+{
+	DebugMsg(TOPIC_JA2, DBG_LEVEL_3, "writeitemstats");
+	const std::size_t itemCount = std::min<std::size_t>(
+		gMAXITEMS_READ, static_cast<std::size_t>(MAXITEMS));
+	return ItemXmlWriter::Write(
+		vfs::Path("TABLEDATA\\Items out.xml"), itemCount) ? TRUE : FALSE;
+}
 // HEADROCK HAM 4: This function runs just before the items are written into the item array. It causes all stance bonuses
 // to inherit their properties from the bonus "above" them, as long as they don't already have their own value defined.
 void InheritStanceModifiers( itemParseData *pData )
