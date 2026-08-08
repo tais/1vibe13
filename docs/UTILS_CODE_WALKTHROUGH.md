@@ -290,40 +290,61 @@ allocation, and failure-reporting exceptions reject the staged load. This is
 important during early startup and headless validation, where the live logger
 may not yet have been registered.
 
-Slice 5 closes the production `WriteItemStats` boundary. The writer now builds
-one complete document with `XMLWriter` before opening its destination and uses
-the exact-transfer result from that shared boundary. Public path/count and
-writable-file seams make success, open failure, null output, and injected short
-writes directly testable. The compatibility wrapper retains
-`TABLEDATA\Items out.xml`, but clamps `gMAXITEMS_READ` to `MAXITEMS`; the writer
-also clamps every caller-provided count before touching `Item`,
-`StoreInventory`, or `WeaponROF`.
+Slice 5 closes the production `WriteItemStats` boundary. Before it builds a
+single XML node or opens a destination, the writer preflights every requested
+record against the values the production reader can reproduce exactly. Public
+path/count and writable-file seams make success and failure behavior directly
+testable. The compatibility wrapper retains `TABLEDATA\Items out.xml`, but
+clamps `gMAXITEMS_READ` to `MAXITEMS`; every caller-provided count is likewise
+bounded before touching `Item`, `StoreInventory`, or `WeaponROF`.
 
 Every fixed-capacity `CHAR16` field is converted explicitly to UTF-8 without
 borrowing locale state or mutating the live text. Unterminated arrays, invalid
 surrogate sequences, out-of-range code points, and XML-invalid U+FFFE/U+FFFF
-fail before destination truncation. Integral fields are promoted before
-streaming, so the four 64-bit attachment/layout masks retain exact decimal
-values above 2^53. Finite floats are promoted exactly to `double` and use the
+fail before publication. Literal carriage returns are emitted as `&#13;` so
+XML newline normalization cannot silently turn them into line feeds. Integral
+fields are promoted before streaming, so the four 64-bit attachment/layout
+masks retain exact decimal values above 2^53. Finite floats are promoted exactly to `double` and use the
 classic locale with 17-digit `max_digits10` output, keeping both signed
-`FLT_MAX` endpoints inside the reader's range; non-finite values reject the
-export. `APBonus` is reverse-adjusted from the live AP scale before export so
-the reader's established adjustment is a true round trip. The writer emits the
-reader schema's canonical names and types, including all attachment-point
-fields, all eleven modifiers in each stance, `spreadPattern`, robot and
-transport fields,
-`TripWireActivation`, and installed-data canonical `Cigarette`. Numeric spread
-fallbacks round-trip when the matching spread-pattern count is loaded. The
+`FLT_MAX` endpoints inside the reader's range. Canonical preflight also rejects
+reserved flag bits, default-attachment holes, the stance-inheritance sentinel,
+reader-clamped domains, non-finite values, class/index mismatches, semantic
+class-zero payloads, and a trailing class-zero record that would lower the
+reader's high-water value. `APBonus` export searches the bounded inverse
+neighborhood and proves the reader's forward adjustment returns the exact live
+value; numeric spread output is allowed only when zero or when the loaded table
+resolves that same index. The writer emits the reader schema's canonical names
+and types, including all attachment-point fields, all eleven modifiers in each
+stance, `spreadPattern`, robot and transport fields,
+`TripWireActivation`, and installed-data canonical `Cigarette`. The
 recognized legacy no-op tags `Detonator`, `RemoteDetonator`, `ItemFlag`, and
 `fFlags` remain deliberately absent from exports.
 
-Real-VFS headless coverage pins reserved and non-ASCII text, exact 79/399
-character capacities, exact 64-bit decimal output, locale-independent
-round-trip floats, corrected field/tag mappings, stance completeness, index
-351, count clamping, round-trip state, invalid Unicode, and exact open/short
-write failure propagation. Architecture ratchets keep the XMLWriter boundary,
-canonical spellings, deliberate no-op omissions, seams, tests, and this audit
-record in place.
+The path overload publishes through a new VFS transaction. It exclusively
+creates a short same-directory sibling, writes and flushes every byte, closes
+it, then performs the native replacement before committing a prepared virtual
+catalogue entry. A failed publish restores the exact former entry (including a
+lower-profile view), removes new empty virtual locations, and leaves the live
+target unchanged. Missing mount-relative directories are resolved from the
+matched physical ancestor so logical case-insensitive lookup preserves actual
+POSIX spelling. CVFS serializes this operation against its lookup/mutation entry
+points; iterator traversal, direct profile-stack mutation, and already-returned
+file objects remain outside that protection. POSIX uses `rename(2)`; Windows
+uses same-volume `MoveFileEx` without a copy fallback and promises no stronger
+behavior than an ordinary local
+filesystem rename. Directory metadata is not synced, so neither platform path
+claims power-loss durability.
+
+The caller-owned writable-file overload is intentionally narrower and cannot
+roll back storage: it rejects a pre-opened stream, opens fresh with truncation,
+requires an exact transfer, explicitly closes, and contains open/write/close
+exceptions. Real-VFS headless coverage pins text and scalar boundaries,
+canonical 64-bit/flag round trips, AP endpoints, auxiliary-only class-zero
+gaps, open/short/throwing stream failures, atomic shorter replacement,
+catalogue rollback, mount casing and exclusivity, and temporary cleanup.
+Architecture ratchets keep the XMLWriter/VFS transaction, canonical spellings,
+preflight, deliberate no-op omissions, seams, tests, and this audit record in
+place.
 
 ## Remaining Utils inventory
 

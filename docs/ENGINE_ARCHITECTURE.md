@@ -1238,21 +1238,41 @@ the engine must not contain SDL types in its public domain model.
   adapter publishes only after the complete document validates. Real-VFS tests
   pin malformed rollback, sparse/duplicate/unsorted records, exact-end indices,
   localized partial overlays, and required-versus-optional missing resources.
-  The paired item exporter now stages a complete `XMLWriter` document before
-  opening the destination, clamps every requested count to `MAXITEMS`, and
-  exposes path/count plus writable-file seams for exact failure testing. It
-  converts fixed-capacity `CHAR16` text explicitly to validated UTF-8, promotes
-  integral fields so all four 64-bit masks remain exact, and serializes finite
-  floats by exact `double` promotion with classic-locale 17-digit
-  `max_digits10` precision, including both signed `FLT_MAX` endpoints. Live
-  `APBonus` is reverse-adjusted before export so reader adjustment does not
-  scale it twice. Its canonical schema includes attachment points, every
-  stance `PercentAim`, spread pattern,
-  robot/transport fields, `TripWireActivation`, and installed-data
-  `Cigarette`; the four reader-recognized no-op tags remain intentionally
-  absent. Real-VFS tests cover escaping, non-ASCII and exact-capacity text,
-  locale independence, high indices, count bounds, corrected field mappings,
-  round trips, invalid Unicode, and injected open/short-write failures. The
+  The paired item exporter now preflights the complete requested range before
+  building XML or touching its destination, and clamps every requested count
+  to `MAXITEMS`. It rejects values the production reader would clamp, inherit,
+  reinterpret, or fail to reproduce: reserved flag bits, attachment holes,
+  stance sentinels, invalid class/index and high-water layouts, non-finite or
+  out-of-domain scalars, unavailable spread patterns, and AP bonuses without
+  an exact representable inverse. Fixed-capacity `CHAR16` text is validated and
+  converted explicitly to UTF-8; literal carriage returns use `&#13;` so XML
+  newline normalization cannot change the live text. Integral promotion keeps
+  all four 64-bit masks exact, while finite floats use classic-locale 17-digit
+  `max_digits10` precision, including both signed `FLT_MAX` endpoints. The
+  canonical schema includes attachment points, every stance `PercentAim`,
+  spread pattern, robot/transport fields, `TripWireActivation`, and
+  installed-data `Cigarette`; the four reader-recognized no-op tags remain
+  intentionally absent.
+
+  Path publication now crosses a VFS transaction rather than truncating the
+  live file. A same-directory sibling is exclusively created, written exactly,
+  flushed, and closed before native replacement; a prepared virtual-file entry
+  is committed only after physical publication, or restores the prior/lower
+  catalogue entry without allocation on failure. Mount-relative creation uses
+  the matched physical directory spelling, and one CVFS lock serializes the
+  replacement against CVFS lookup/mutation entry points. Iterator traversal,
+  direct profile-stack mutation, and file objects previously returned to an
+  external caller remain outside that protection and must not race it. POSIX
+  uses same-directory `rename(2)`; Windows uses same-volume `MoveFileEx`
+  without copy fallback and claims only ordinary local-filesystem rename
+  behavior. Neither path claims directory-metadata power-loss durability. The
+  caller-owned writable-file overload remains a deliberately destructive test
+  seam: it requires a closed stream, opens fresh with truncation, checks the
+  exact transfer and explicit close, and cannot roll back bytes after failure.
+  Real-VFS tests cover canonical preflight, escaping and exact-capacity text,
+  locale independence, high indices, corrected mappings, strict round trips,
+  stream failure containment, shorter replacement, catalogue rollback, mount
+  casing, exclusive inheritance, and native temporary cleanup. The
   remaining 11 Utils translation units are deliberately still tracked as
   unaudited; the detailed
   findings, inventory, and next priority order live in

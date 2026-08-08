@@ -34,7 +34,7 @@ namespace vfs
 	public:
 		COpenReadFile(vfs::Path const& sPath, vfs::CVirtualFile::ESearchFile eSF = vfs::CVirtualFile::SF_TOP);
 		COpenReadFile(vfs::tReadableFile *pFile);
-		~COpenReadFile();
+		~COpenReadFile() noexcept;
 
 		vfs::tReadableFile*		operator->();
 		vfs::tReadableFile&		file();
@@ -49,9 +49,9 @@ namespace vfs
 		COpenWriteFile(	vfs::Path const& sPath,
 						bool bCreate = false,
 						bool bTruncate = false,
-						vfs::CVirtualFile::ESearchFile eSF = vfs::CVirtualFile::SF_STOP_ON_WRITABLE_PROFILE);
+							vfs::CVirtualFile::ESearchFile eSF = vfs::CVirtualFile::SF_STOP_ON_WRITABLE_PROFILE);
 		COpenWriteFile(vfs::tWritableFile *pFile);
-		~COpenWriteFile();
+		~COpenWriteFile() noexcept;
 
 		vfs::tWritableFile*		operator->();
 		vfs::tWritableFile&		file();

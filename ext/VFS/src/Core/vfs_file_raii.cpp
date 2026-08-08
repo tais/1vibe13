@@ -23,7 +23,9 @@
 
 #include <vfs/Core/vfs_file_raii.h>
 #include <vfs/Core/vfs.h>
+#include <vfs/Tools/vfs_log.h>
 
+#include <exception>
 #include <sstream>
 /********************************************************************************************/
 /********************************************************************************************/
@@ -54,11 +56,23 @@ vfs::COpenReadFile::COpenReadFile(vfs::tReadableFile *pFile)
 		VFS_RETHROW(L"",ex);
 	}
 }
-vfs::COpenReadFile::~COpenReadFile()
+vfs::COpenReadFile::~COpenReadFile() noexcept
 {
 	if(m_pFile)
 	{
-		m_pFile->close();
+		try
+		{
+			m_pFile->close();
+		}
+		catch(std::exception& ex)
+		{
+			try { VFS_LOG_ERROR(ex.what()); } catch(...) {}
+		}
+		catch(...)
+		{
+			try { VFS_LOG_ERROR(L"Unknown error while closing readable file"); }
+			catch(...) {}
+		}
 		m_pFile = NULL;
 	}
 }
@@ -118,11 +132,23 @@ vfs::COpenWriteFile::COpenWriteFile(vfs::tWritableFile *pFile)
 		VFS_RETHROW(L"",ex);
 	};
 }
-vfs::COpenWriteFile::~COpenWriteFile()
+vfs::COpenWriteFile::~COpenWriteFile() noexcept
 {
 	if(m_pFile)
 	{
-		m_pFile->close();
+		try
+		{
+			m_pFile->close();
+		}
+		catch(std::exception& ex)
+		{
+			try { VFS_LOG_ERROR(ex.what()); } catch(...) {}
+		}
+		catch(...)
+		{
+			try { VFS_LOG_ERROR(L"Unknown error while closing writable file"); }
+			catch(...) {}
+		}
 		m_pFile = NULL;
 	}
 }

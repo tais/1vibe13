@@ -47,7 +47,7 @@ namespace vfs
 		typedef vfs::TFileTemplate<vfs::IReadable,WriteType> tBaseClass;
 	public :
 		TFile(vfs::Path const& filename);
-		virtual ~TFile();
+		virtual ~TFile() noexcept;
 
 		virtual vfs::FileAttributes	getAttributes();
 
@@ -83,7 +83,7 @@ namespace vfs
 		typedef vfs::TFile<vfs::IWritable>	tBaseClass;
 	public :
 		CFile(vfs::Path const& filename);
-		virtual ~CFile();
+		virtual ~CFile() noexcept;
 
 		virtual void		close();
 

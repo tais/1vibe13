@@ -38,7 +38,7 @@ namespace vfs
 		static const vfs::size_t BUFFER_SIZE = 1024;
 	public:
 		CReadLine(vfs::tReadableFile& rFile, bool autoControlFile = true);
-		~CReadLine();
+		~CReadLine() noexcept;
 
 		bool fillBuffer(bool refill = false);
 		bool fromBuffer(std::string& line);

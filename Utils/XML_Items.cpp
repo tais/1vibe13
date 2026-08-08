@@ -2374,25 +2374,316 @@ namespace
 		return true;
 	}
 
-	bool AddSpreadPattern(XMLWriter& writer, INT32 patternIndex)
+	template <std::size_t Capacity>
+	bool ValidateItemText(const CHAR16 (&source)[Capacity])
+	{
+		std::string utf8;
+		return ItemTextToUtf8(source, utf8);
+	}
+
+	bool TryAdjustApBonus(INT16 value, INT16 maximum, bool reverse,
+		INT16& adjusted)
+	{
+		if (maximum <= 0) return false;
+		const FLOAT expression = reverse
+			? static_cast<FLOAT>(value) / static_cast<FLOAT>(maximum) *
+				static_cast<FLOAT>(100) + (value < 0 ? -0.5f : 0.5f)
+			: static_cast<FLOAT>(value) * static_cast<FLOAT>(maximum) /
+				static_cast<FLOAT>(100) + (value < 0 ? -0.5f : 0.5f);
+		if (!std::isfinite(expression)) return false;
+		const double truncated = std::trunc(static_cast<double>(expression));
+		if (truncated < static_cast<double>(std::numeric_limits<INT16>::min()) ||
+			truncated > static_cast<double>(std::numeric_limits<INT16>::max()))
+		{
+			return false;
+		}
+		adjusted = static_cast<INT16>(truncated);
+		return true;
+	}
+
+	bool TrySerializeApBonus(INT16 liveValue, INT16& serialized)
+	{
+		const INT16 maximum = APBPConstants[AP_MAXIMUM];
+		if (maximum <= 0) return false;
+		const FLOAT inverse = static_cast<FLOAT>(liveValue) /
+			static_cast<FLOAT>(maximum) * static_cast<FLOAT>(100) +
+			(liveValue < 0 ? -0.5f : 0.5f);
+		if (!std::isfinite(inverse)) return false;
+		const double truncated = std::trunc(static_cast<double>(inverse));
+		const double bounded = std::max(
+			static_cast<double>(std::numeric_limits<INT16>::min()),
+			std::min(static_cast<double>(std::numeric_limits<INT16>::max()),
+				truncated));
+		const int center = static_cast<int>(bounded);
+		constexpr int offsets[] = {0, -1, 1, -2, 2};
+		for (const int offset : offsets)
+		{
+			const int candidate = center + offset;
+			if (candidate < std::numeric_limits<INT16>::min() ||
+				candidate > std::numeric_limits<INT16>::max())
+			{
+				continue;
+			}
+			const INT16 encoded = static_cast<INT16>(candidate);
+			INT16 roundTripped = 0;
+			if (TryAdjustApBonus(
+					encoded, maximum, false, roundTripped) &&
+				roundTripped == liveValue)
+			{
+				serialized = encoded;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool ValidateSpreadPattern(INT32 patternIndex)
 	{
 		if (patternIndex < 0) return false;
-		std::string serialized;
-		if (gpSpreadPattern && patternIndex < giSpreadPatternCount)
+		if (patternIndex == 0) return true;
+		if (giSpreadPatternCount <= patternIndex) return false;
+		const std::string serialized = std::to_string(patternIndex);
+		return FindSpreadPatternIndex(
+			const_cast<char*>(serialized.c_str())) == patternIndex;
+	}
+
+	bool IsSemanticallyEmptyItem(const INVTYPE& item)
+	{
+		if (item.szItemDesc[0] != L'\0' || item.szBRDesc[0] != L'\0' ||
+			item.szItemName[0] != L'\0' || item.szLongItemName[0] != L'\0' ||
+			item.szBRName[0] != L'\0')
 		{
-			const char* name = gpSpreadPattern[patternIndex].Name;
-			std::size_t length = 0;
-			while (length < SPREADPATTERN_NAME_SIZE && name[length] != '\0')
-				++length;
-			if (length == SPREADPATTERN_NAME_SIZE) return false;
-			if (length != 0) serialized.assign(name, length);
+			return false;
 		}
-		// FindSpreadPatternIndex accepts a decimal index as well as a loaded
-		// pattern name. The numeric fallback keeps exports deterministic before
-		// SpreadPatterns.xml has been loaded; reading a nonzero fallback requires
-		// the same spread-pattern table/count to be available.
-		if (serialized.empty()) serialized = std::to_string(patternIndex);
-		writer.addValue("spreadPattern", serialized);
+		for (const UINT16 attachment : item.defaultattachments)
+			if (attachment != 0) return false;
+		for (std::size_t stance = 0; stance < 3; ++stance)
+		{
+			if (item.flatbasemodifier[stance] != 0 ||
+				item.percentbasemodifier[stance] != 0 ||
+				item.flataimmodifier[stance] != 0 ||
+				item.percentaimmodifier[stance] != 0 ||
+				item.percentcapmodifier[stance] != 0 ||
+				item.percenthandlingmodifier[stance] != 0 ||
+				item.percentdropcompensationmodifier[stance] != 0 ||
+				item.maxcounterforcemodifier[stance] != 0 ||
+				item.counterforceaccuracymodifier[stance] != 0 ||
+				item.targettrackingmodifier[stance] != 0 ||
+				item.aimlevelsmodifier[stance] != 0)
+			{
+				return false;
+			}
+		}
+		const FLOAT zeroFloats[] = {
+			item.alcohol, item.RecoilModifierX, item.RecoilModifierY,
+			item.scopemagfactor, item.projectionfactor,
+			item.usOverheatingCooldownFactor,
+			item.overheatTemperatureModificator,
+			item.overheatCooldownModificator,
+			item.overheatJamThresholdModificator,
+			item.overheatDamageThresholdModificator,
+			item.dirtIncreaseFactor, item.fRobotDamageReductionModifier};
+		for (const FLOAT value : zeroFloats)
+		{
+			if (value != 0.0f || std::signbit(value)) return false;
+		}
+
+#define ITEM_FIELD_MUST_BE_ZERO(field) if (item.field != 0) return false
+		ITEM_FIELD_MUST_BE_ZERO(nasAttachmentClass);
+		ITEM_FIELD_MUST_BE_ZERO(nasLayoutClass);
+		ITEM_FIELD_MUST_BE_ZERO(ulAvailableAttachmentPoint);
+		ITEM_FIELD_MUST_BE_ZERO(ulAttachmentPoint);
+		ITEM_FIELD_MUST_BE_ZERO(usItemFlag);
+		ITEM_FIELD_MUST_BE_ZERO(usItemFlag2);
+		ITEM_FIELD_MUST_BE_ZERO(uiIndex);
+		ITEM_FIELD_MUST_BE_ZERO(usItemClass);
+		ITEM_FIELD_MUST_BE_ZERO(attachmentclass);
+		ITEM_FIELD_MUST_BE_ZERO(drugtype);
+		ITEM_FIELD_MUST_BE_ZERO(foodtype);
+		ITEM_FIELD_MUST_BE_ZERO(usActionItemFlag);
+		ITEM_FIELD_MUST_BE_ZERO(clothestype);
+		ITEM_FIELD_MUST_BE_ZERO(spreadPattern);
+		ITEM_FIELD_MUST_BE_ZERO(alcohol);
+		ITEM_FIELD_MUST_BE_ZERO(RecoilModifierX);
+		ITEM_FIELD_MUST_BE_ZERO(RecoilModifierY);
+		ITEM_FIELD_MUST_BE_ZERO(scopemagfactor);
+		ITEM_FIELD_MUST_BE_ZERO(projectionfactor);
+		ITEM_FIELD_MUST_BE_ZERO(usOverheatingCooldownFactor);
+		ITEM_FIELD_MUST_BE_ZERO(overheatTemperatureModificator);
+		ITEM_FIELD_MUST_BE_ZERO(overheatCooldownModificator);
+		ITEM_FIELD_MUST_BE_ZERO(overheatJamThresholdModificator);
+		ITEM_FIELD_MUST_BE_ZERO(overheatDamageThresholdModificator);
+		ITEM_FIELD_MUST_BE_ZERO(dirtIncreaseFactor);
+		ITEM_FIELD_MUST_BE_ZERO(fRobotDamageReductionModifier);
+		ITEM_FIELD_MUST_BE_ZERO(ubClassIndex);
+		ITEM_FIELD_MUST_BE_ZERO(ubGraphicNum);
+		ITEM_FIELD_MUST_BE_ZERO(ubWeight);
+		ITEM_FIELD_MUST_BE_ZERO(ItemSize);
+		ITEM_FIELD_MUST_BE_ZERO(usPrice);
+		ITEM_FIELD_MUST_BE_ZERO(discardedlauncheritem);
+		ITEM_FIELD_MUST_BE_ZERO(randomitem);
+		ITEM_FIELD_MUST_BE_ZERO(usBuddyItem);
+		ITEM_FIELD_MUST_BE_ZERO(usRiotShieldStrength);
+		ITEM_FIELD_MUST_BE_ZERO(usRiotShieldGraphic);
+		ITEM_FIELD_MUST_BE_ZERO(percentnoisereduction);
+		ITEM_FIELD_MUST_BE_ZERO(bipod);
+		ITEM_FIELD_MUST_BE_ZERO(tohitbonus);
+		ITEM_FIELD_MUST_BE_ZERO(bestlaserrange);
+		ITEM_FIELD_MUST_BE_ZERO(rangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(percentrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(aimbonus);
+		ITEM_FIELD_MUST_BE_ZERO(minrangeforaimbonus);
+		ITEM_FIELD_MUST_BE_ZERO(percentapreduction);
+		ITEM_FIELD_MUST_BE_ZERO(percentstatusdrainreduction);
+		ITEM_FIELD_MUST_BE_ZERO(bloodieditem);
+		ITEM_FIELD_MUST_BE_ZERO(hearingrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(visionrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(nightvisionrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(dayvisionrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(cavevisionrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(brightlightvisionrangebonus);
+		ITEM_FIELD_MUST_BE_ZERO(itemsizebonus);
+		ITEM_FIELD_MUST_BE_ZERO(damagebonus);
+		ITEM_FIELD_MUST_BE_ZERO(meleedamagebonus);
+		ITEM_FIELD_MUST_BE_ZERO(magsizebonus);
+		ITEM_FIELD_MUST_BE_ZERO(percentautofireapreduction);
+		ITEM_FIELD_MUST_BE_ZERO(autofiretohitbonus);
+		ITEM_FIELD_MUST_BE_ZERO(APBonus);
+		ITEM_FIELD_MUST_BE_ZERO(rateoffirebonus);
+		ITEM_FIELD_MUST_BE_ZERO(burstsizebonus);
+		ITEM_FIELD_MUST_BE_ZERO(bursttohitbonus);
+		ITEM_FIELD_MUST_BE_ZERO(percentreadytimeapreduction);
+		ITEM_FIELD_MUST_BE_ZERO(bulletspeedbonus);
+		ITEM_FIELD_MUST_BE_ZERO(percentreloadtimeapreduction);
+		ITEM_FIELD_MUST_BE_ZERO(percentburstfireapreduction);
+		ITEM_FIELD_MUST_BE_ZERO(camobonus);
+		ITEM_FIELD_MUST_BE_ZERO(stealthbonus);
+		ITEM_FIELD_MUST_BE_ZERO(urbanCamobonus);
+		ITEM_FIELD_MUST_BE_ZERO(desertCamobonus);
+		ITEM_FIELD_MUST_BE_ZERO(snowCamobonus);
+		ITEM_FIELD_MUST_BE_ZERO(PercentRecoilModifier);
+		ITEM_FIELD_MUST_BE_ZERO(percentaccuracymodifier);
+		ITEM_FIELD_MUST_BE_ZERO(usSpotting);
+		ITEM_FIELD_MUST_BE_ZERO(sBackpackWeightModifier);
+		ITEM_FIELD_MUST_BE_ZERO(sFireResistance);
+		ITEM_FIELD_MUST_BE_ZERO(ubAttachToPointAPCost);
+		ITEM_FIELD_MUST_BE_ZERO(ubCursor);
+		ITEM_FIELD_MUST_BE_ZERO(ubGraphicType);
+		ITEM_FIELD_MUST_BE_ZERO(ubPerPocket);
+		ITEM_FIELD_MUST_BE_ZERO(ubCoolness);
+		ITEM_FIELD_MUST_BE_ZERO(percenttunnelvision);
+		ITEM_FIELD_MUST_BE_ZERO(ubAttachmentSystem);
+		ITEM_FIELD_MUST_BE_ZERO(CrowbarModifier);
+		ITEM_FIELD_MUST_BE_ZERO(DisarmModifier);
+		ITEM_FIELD_MUST_BE_ZERO(usHackingModifier);
+		ITEM_FIELD_MUST_BE_ZERO(usBurialModifier);
+		ITEM_FIELD_MUST_BE_ZERO(usDamageChance);
+		ITEM_FIELD_MUST_BE_ZERO(usFlashLightRange);
+		ITEM_FIELD_MUST_BE_ZERO(usItemChoiceTimeSetting);
+		ITEM_FIELD_MUST_BE_ZERO(ubSleepModifier);
+		ITEM_FIELD_MUST_BE_ZERO(usPortionSize);
+		ITEM_FIELD_MUST_BE_ZERO(usAdministrationModifier);
+		ITEM_FIELD_MUST_BE_ZERO(inseparable);
+		ITEM_FIELD_MUST_BE_ZERO(bSoundType);
+		ITEM_FIELD_MUST_BE_ZERO(bReliability);
+		ITEM_FIELD_MUST_BE_ZERO(bRepairEase);
+		ITEM_FIELD_MUST_BE_ZERO(LockPickModifier);
+		ITEM_FIELD_MUST_BE_ZERO(RepairModifier);
+		ITEM_FIELD_MUST_BE_ZERO(randomitemcoolnessmodificator);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotStrBonus);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotAgiBonus);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotDexBonus);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotTargetingSkillGrant);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotChassisSkillGrant);
+		ITEM_FIELD_MUST_BE_ZERO(bRobotUtilitySkillGrant);
+		ITEM_FIELD_MUST_BE_ZERO(iTransportGroupMinProgress);
+		ITEM_FIELD_MUST_BE_ZERO(iTransportGroupMaxProgress);
+#undef ITEM_FIELD_MUST_BE_ZERO
+		return true;
+	}
+
+	bool ValidateItemRecord(std::size_t index)
+	{
+		const INVTYPE& item = Item[index];
+		if (!ValidateItemText(item.szItemName) ||
+			!ValidateItemText(item.szLongItemName) ||
+			!ValidateItemText(item.szItemDesc) ||
+			!ValidateItemText(item.szBRName) ||
+			!ValidateItemText(item.szBRDesc))
+		{
+			return false;
+		}
+
+		constexpr UINT64 allowedItemFlags = UINT64_C(0xCFFFFFFFFFFFFFFF);
+		constexpr UINT64 allowedItemFlags2 = UINT64_C(0x000007FFFFFFFFFF);
+		if ((item.usItemFlag & ~allowedItemFlags) != 0 ||
+			(item.usItemFlag2 & ~allowedItemFlags2) != 0)
+		{
+			return false;
+		}
+		if (item.usItemClass == 0)
+		{
+			if (!IsSemanticallyEmptyItem(item)) return false;
+		}
+		else if (item.uiIndex != index)
+		{
+			return false;
+		}
+
+		bool sawZeroAttachment = false;
+		for (const UINT16 attachment : item.defaultattachments)
+		{
+			if (attachment == 0) sawZeroAttachment = true;
+			else if (sawZeroAttachment) return false;
+		}
+
+		for (std::size_t stance = 0; stance < 3; ++stance)
+		{
+			if (item.flatbasemodifier[stance] == -10000 ||
+				item.percentbasemodifier[stance] == -10000 ||
+				item.flataimmodifier[stance] == -10000 ||
+				item.percentaimmodifier[stance] == -10000 ||
+				item.percentcapmodifier[stance] == -10000 ||
+				item.percenthandlingmodifier[stance] == -10000 ||
+				item.percentdropcompensationmodifier[stance] == -10000 ||
+				item.maxcounterforcemodifier[stance] == -10000 ||
+				item.counterforceaccuracymodifier[stance] == -10000 ||
+				item.targettrackingmodifier[stance] == -10000 ||
+				item.aimlevelsmodifier[stance] == -10000)
+			{
+				return false;
+			}
+		}
+
+		const FLOAT finiteValues[] = {
+			item.alcohol, item.scopemagfactor, item.projectionfactor,
+			item.RecoilModifierX, item.RecoilModifierY,
+			item.usOverheatingCooldownFactor,
+			item.overheatTemperatureModificator,
+			item.overheatCooldownModificator,
+			item.overheatJamThresholdModificator,
+			item.overheatDamageThresholdModificator,
+			item.dirtIncreaseFactor, item.fRobotDamageReductionModifier};
+		for (const FLOAT value : finiteValues)
+			if (!std::isfinite(value)) return false;
+
+		INT16 serializedApBonus = 0;
+		return item.alcohol >= 0.0f && !std::signbit(item.alcohol) &&
+			item.drugtype < NEW_DRUGS_MAX &&
+			item.usHackingModifier <= 100 && item.usBurialModifier <= 100 &&
+			item.usSpotting >= 0 && item.usSpotting <= 100 &&
+			item.usRiotShieldStrength <= 100 &&
+			item.randomitemcoolnessmodificator >= -20 &&
+			item.randomitemcoolnessmodificator <= 20 &&
+			item.usItemChoiceTimeSetting <= 2 && item.sFireResistance <= 100 &&
+			TrySerializeApBonus(item.APBonus, serializedApBonus) &&
+			ValidateSpreadPattern(item.spreadPattern);
+	}
+
+	bool AddSpreadPattern(XMLWriter& writer, INT32 patternIndex)
+	{
+		if (!ValidateSpreadPattern(patternIndex)) return false;
+		writer.addValue("spreadPattern", std::to_string(patternIndex));
 		return true;
 	}
 
@@ -2479,9 +2770,9 @@ namespace
 		AddItemInteger(writer, "BurstToHitBonus", item.bursttohitbonus);
 		AddItemInteger(writer, "AutoFireToHitBonus",
 			item.autofiretohitbonus);
-		if (APBPConstants[AP_MAXIMUM] == 0) return false;
-		AddItemInteger(writer, "APBonus", DynamicAdjustAPConstants(
-			item.APBonus, item.APBonus, TRUE));
+		INT16 serializedApBonus = 0;
+		if (!TrySerializeApBonus(item.APBonus, serializedApBonus)) return false;
+		AddItemInteger(writer, "APBonus", serializedApBonus);
 		AddItemInteger(writer, "PercentBurstFireAPReduction",
 			item.percentburstfireapreduction);
 		AddItemInteger(writer, "PercentAutofireAPReduction",
@@ -2779,6 +3070,14 @@ namespace
 			"item writer predicates require a representable item index");
 		const std::size_t itemCount = ItemXmlWriter::BoundedItemCount(
 			requestedCount, static_cast<std::size_t>(MAXITEMS));
+		for (std::size_t index = 0; index < itemCount; ++index)
+		{
+			if (!ValidateItemRecord(index)) return false;
+		}
+		// The reader derives gMAXITEMS_READ from the highest nonzero-class item,
+		// not from auxiliary-only gap records.  A trailing gap would silently
+		// lower the requested live-table high-water mark after reload.
+		if (itemCount != 0 && Item[itemCount - 1].usItemClass == 0) return false;
 		writer.openNode("ITEMLIST");
 		for (std::size_t index = 0; index < itemCount; ++index)
 		{

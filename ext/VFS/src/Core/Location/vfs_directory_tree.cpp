@@ -31,6 +31,28 @@
 
 #define ERROR_FILE(msg) (_BS(msg) << L" : " << pFile->getPath() << _BS::wget)
 
+namespace
+{
+	bool RelativeToMount(vfs::Path logical, vfs::Path mount,
+		vfs::Path& relative)
+	{
+		while(!mount.empty())
+		{
+			vfs::Path mountPart;
+			vfs::Path mountTail;
+			vfs::Path logicalPart;
+			vfs::Path logicalTail;
+			mount.splitFirst(mountPart, mountTail);
+			logical.splitFirst(logicalPart, logicalTail);
+			if(logicalPart.empty() || !(logicalPart == mountPart)) return false;
+			mount = mountTail;
+			logical = logicalTail;
+		}
+		relative = logical;
+		return !relative.empty();
+	}
+}
+
 namespace vfs
 {
 	template<typename WriteType>
@@ -105,6 +127,8 @@ namespace vfs
 		virtual bool			createSubDirectory(vfs::Path const& sSubDirPath);
 		virtual bool			deleteDirectory(vfs::Path const& sDirPath);
 		virtual bool			deleteFileFromDirectory(vfs::Path const& sFileName);
+		bool				removePreparedFileFromCatalogue(
+			vfs::IBaseFile* expectedFile) noexcept;
 
 		virtual void			getSubDirList(std::list<vfs::Path>& rlSubDirs);
 
@@ -139,7 +163,6 @@ vfs::TSubDir<WriteType>::~TSubDir()
 	{
 		if(it->second)
 		{
-			it->second->close();
 			delete it->second;
 		}
 	}
@@ -174,39 +197,60 @@ typename vfs::TSubDir<WriteType>::tFileType* vfs::TSubDir<WriteType>::getFileTyp
 template<>
 vfs::TSubDir<vfs::IWriteType>::tFileType* vfs::TSubDir<vfs::IWriteType>::addFile(vfs::Path const& sFilename, bool bDeleteOldFile)
 {
-	tFileType* pFile = m_mapFiles[sFilename];
-	if(pFile)
+	typename tFileCatalogue::iterator existing = m_mapFiles.find(sFilename);
+	if(existing != m_mapFiles.end() && existing->second)
 	{
 		if(!bDeleteOldFile)
 		{
 			// not allowed to replace old file
 			return NULL;
 		}
-		delete pFile;
+		tFileType* const replacement =
+			new vfs::CReadOnlyDirFile(sFilename,this);
+		tFileType* const previous = existing->second;
+		existing->second = replacement;
+		delete previous;
+		return existing->second;
 	}
-	pFile = new vfs::CReadOnlyDirFile(sFilename,this);
-	m_mapFiles[sFilename] = pFile;
-
-	return pFile;
+	tFileType* const file = new vfs::CReadOnlyDirFile(sFilename,this);
+	try
+	{
+		return m_mapFiles.insert(std::make_pair(sFilename, file)).first->second;
+	}
+	catch(...)
+	{
+		delete file;
+		throw;
+	}
 }
 
 template<>
 vfs::TSubDir<vfs::IWritable>::tFileType* vfs::TSubDir<vfs::IWritable>::addFile(vfs::Path const& sFilename, bool bDeleteOldFile)
 {
-	tFileType* pFile = m_mapFiles[sFilename];
-	if(pFile)
+	typename tFileCatalogue::iterator existing = m_mapFiles.find(sFilename);
+	if(existing != m_mapFiles.end() && existing->second)
 	{
 		if(!bDeleteOldFile)
 		{
 			// not allowed to replace old file
 			return NULL;
 		}
-		delete pFile;
+		tFileType* const replacement = new vfs::CDirFile(sFilename,this);
+		tFileType* const previous = existing->second;
+		existing->second = replacement;
+		delete previous;
+		return existing->second;
 	}
-	pFile = new vfs::CDirFile(sFilename,this);
-	m_mapFiles[sFilename] = pFile;
-
-	return pFile;
+	tFileType* const file = new vfs::CDirFile(sFilename,this);
+	try
+	{
+		return m_mapFiles.insert(std::make_pair(sFilename, file)).first->second;
+	}
+	catch(...)
+	{
+		delete file;
+		throw;
+	}
 }
 
 template<typename WriteType>
@@ -216,16 +260,18 @@ bool vfs::TSubDir<WriteType>::addFile(tFileType* pFile, bool bDeleteOldFile)
 	{
 		return false;
 	}
-	tFileType* pOldFile = m_mapFiles[pFile->getName()];
-	if( pOldFile && (pOldFile != pFile) )
+	typename tFileCatalogue::iterator existing =
+		m_mapFiles.find(pFile->getName());
+	if(existing != m_mapFiles.end())
 	{
-		if(bDeleteOldFile)
-		{
-			pOldFile->close();
-			delete pOldFile;
-		}
+		tFileType* const oldFile = existing->second;
+		if(oldFile == pFile) return true;
+		if(oldFile && !bDeleteOldFile) return false;
+		existing->second = pFile;
+		delete oldFile;
+		return true;
 	}
-	m_mapFiles[pFile->getName()] = pFile;
+	m_mapFiles.insert(std::make_pair(pFile->getName(), pFile));
 	return true;
 }
 
@@ -283,6 +329,19 @@ template<>
 bool vfs::TSubDir<vfs::IWriteType>::deleteFileFromDirectory(vfs::Path const& rFileName)
 {
 	return false;
+}
+
+template<typename WriteType>
+bool vfs::TSubDir<WriteType>::removePreparedFileFromCatalogue(
+	vfs::IBaseFile* expectedFile) noexcept
+{
+	if(!expectedFile) return false;
+	typename tFileCatalogue::iterator it =
+		m_mapFiles.find(expectedFile->getName());
+	if(it == m_mapFiles.end() || it->second != expectedFile) return false;
+	delete it->second;
+	m_mapFiles.erase(it);
+	return true;
 }
 
 template<typename WriteType>
@@ -449,7 +508,7 @@ bool vfs::TDirectoryTree<WriteType>::init()
 					vfs::Path sLocal = qSubDirs.front().first + sFilename;
 
 					vfs::Path temp = this->m_mountPoint+sLocal;
-					tSubDir *pNewDir = new tSubDir(sLocal, this->m_realPath+sLocal);
+					tSubDir *pNewDir = new tSubDir(temp, this->m_realPath+sLocal);
 					qSubDirs.push(tDirs(sLocal,pNewDir));
 					m_catDirs[temp] = pNewDir;
 				}
@@ -479,16 +538,11 @@ typename vfs::TDirectoryTree<WriteType>::tFileType* vfs::TDirectoryTree<WriteTyp
 	typename tDirCatalogue::iterator it = m_catDirs.find(sDir);
 	if(it == m_catDirs.end())
 	{
-		vfs::Path sTemp,sCreateDir,sLeft,sRight = sDir;
-		while(!sRight.empty())
+		vfs::Path realFile;
+		if(!this->resolveRealFilePath(sFilename, true, realFile))
 		{
-			sRight.splitFirst(sLeft,sTemp);
-			sRight = sTemp;
-			sCreateDir += sLeft;
-			if(!this->createSubDirectory(sCreateDir))
-			{
-				VFS_THROW(_BS(L"could not create directory : ") << sCreateDir << _BS::wget);
-			}
+			VFS_THROW(_BS(L"could not resolve/create directory for : ") <<
+				sFilename << _BS::wget);
 		}
 		it = m_catDirs.find(sDir);
 		if(it == m_catDirs.end())
@@ -593,13 +647,102 @@ typename vfs::TDirectoryTree<WriteType>::tFileType* vfs::TDirectoryTree<WriteTyp
 template<typename WriteType>
 bool vfs::TDirectoryTree<WriteType>::createSubDirectory(vfs::Path const& sSubDirPath)
 {
-	if(vfs::OS::createRealDirectory( this->m_realPath + sSubDirPath ))
+	vfs::Path relativeDirectory;
+	if(!RelativeToMount(sSubDirPath, this->m_mountPoint, relativeDirectory))
+	{
+		return false;
+	}
+	const vfs::Path physicalDirectory = this->m_realPath + relativeDirectory;
+	if(vfs::OS::createRealDirectory(physicalDirectory))
 	{
 		if( m_catDirs[sSubDirPath] == NULL)
 		{
-			m_catDirs[sSubDirPath] = new vfs::TSubDir<WriteType>(sSubDirPath, this->m_realPath + sSubDirPath);
+			m_catDirs[sSubDirPath] = new vfs::TSubDir<WriteType>(
+				sSubDirPath, physicalDirectory);
 		}
 		return true;
+	}
+	return false;
+}
+
+template<typename WriteType>
+bool vfs::TDirectoryTree<WriteType>::resolveRealFilePath(
+	vfs::Path const& sFilename, bool createParents, vfs::Path& realPath)
+{
+	realPath = vfs::Path();
+	vfs::Path relativeFile;
+	if(!RelativeToMount(sFilename, this->m_mountPoint, relativeFile)) return false;
+
+	vfs::Path relativeDirectory;
+	vfs::Path filename;
+	relativeFile.splitLast(relativeDirectory, filename);
+	if(filename.empty()) return false;
+
+	vfs::Path remaining = relativeDirectory;
+	vfs::Path relativePrefix;
+	typename tDirCatalogue::iterator root = m_catDirs.find(this->m_mountPoint);
+	if(root == m_catDirs.end() || !root->second) return false;
+	vfs::TDirectory<typename TDirectoryTree<WriteType>::tWriteType>*
+		currentDirectory = root->second;
+	while(!remaining.empty())
+	{
+		vfs::Path component;
+		vfs::Path tail;
+		remaining.splitFirst(component, tail);
+		if(component.empty()) return false;
+		relativePrefix += component;
+		const vfs::Path logicalDirectory = this->m_mountPoint + relativePrefix;
+		typename tDirCatalogue::iterator existing =
+			m_catDirs.find(logicalDirectory);
+		if(existing == m_catDirs.end())
+		{
+			if(!createParents) return false;
+			const vfs::Path physicalDirectory =
+				currentDirectory->getRealPath() + component;
+			if(!vfs::OS::createRealDirectory(physicalDirectory)) return false;
+			vfs::TDirectory<typename TDirectoryTree<WriteType>::tWriteType>*
+				newDirectory = new vfs::TSubDir<WriteType>(
+					logicalDirectory, physicalDirectory);
+			try
+			{
+				m_catDirs.insert(std::make_pair(logicalDirectory, newDirectory));
+			}
+			catch(...)
+			{
+				delete newDirectory;
+				throw;
+			}
+			existing = m_catDirs.find(logicalDirectory);
+		}
+		if(existing == m_catDirs.end() || !existing->second) return false;
+		currentDirectory = existing->second;
+		remaining = tail;
+	}
+
+	const vfs::Path logicalParent = this->m_mountPoint + relativeDirectory;
+	typename tDirCatalogue::iterator parent = m_catDirs.find(logicalParent);
+	if(parent == m_catDirs.end() || !parent->second) return false;
+	// Path catalogue comparison is case-insensitive.  Use the matched node's
+	// physical spelling so POSIX writes do not synthesize a different path from
+	// the caller's logical casing.
+	realPath = parent->second->getRealPath() + filename;
+	return true;
+}
+
+template<typename WriteType>
+bool vfs::TDirectoryTree<WriteType>::removePreparedFileFromCatalogue(
+	vfs::IBaseFile* expectedFile) noexcept
+{
+	for(typename tDirCatalogue::iterator it = m_catDirs.begin();
+		it != m_catDirs.end(); ++it)
+	{
+		vfs::TSubDir<WriteType>* subDirectory =
+			dynamic_cast<vfs::TSubDir<WriteType>*>(it->second);
+		if(subDirectory &&
+			subDirectory->removePreparedFileFromCatalogue(expectedFile))
+		{
+			return true;
+		}
 	}
 	return false;
 }

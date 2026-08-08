@@ -206,9 +206,10 @@ namespace UtilsDataBoundaryModel
 			case '>': staged += "&gt;"; break;
 			case '"': staged += "&quot;"; break;
 			case '\'': staged += "&apos;"; break;
+			case '\r': staged += "&#13;"; break;
 			default:
 				if (character < 0x20 && character != '\t' &&
-					character != '\n' && character != '\r')
+					character != '\n')
 				{
 					return false;
 				}

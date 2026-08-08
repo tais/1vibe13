@@ -72,6 +72,52 @@ private:
 
 /************************************************************************/
 
+vfs::CVirtualLocation::PreparedFileEntry::PreparedFileEntry() noexcept
+	: m_owner(NULL), m_previous(NULL), m_prepared(NULL),
+	  m_inserted(false), m_active(false)
+{
+}
+
+vfs::CVirtualLocation::PreparedFileEntry::~PreparedFileEntry() noexcept
+{
+	rollback();
+}
+
+bool vfs::CVirtualLocation::PreparedFileEntry::isActive() const noexcept
+{
+	return m_active;
+}
+
+void vfs::CVirtualLocation::PreparedFileEntry::rollback() noexcept
+{
+	if(!m_active || !m_owner) return;
+	if(m_inserted)
+	{
+		m_owner->m_VFiles.erase(m_position);
+	}
+	else
+	{
+		m_position->second = m_previous;
+	}
+	if(m_prepared) m_prepared->destroy();
+	m_owner = NULL;
+	m_previous = NULL;
+	m_prepared = NULL;
+	m_active = false;
+}
+
+void vfs::CVirtualLocation::PreparedFileEntry::commit() noexcept
+{
+	if(!m_active) return;
+	if(m_previous) m_previous->destroy();
+	m_owner = NULL;
+	m_previous = NULL;
+	m_prepared = NULL;
+	m_active = false;
+}
+
+/************************************************************************/
+
 vfs::CVirtualLocation::CVirtualLocation(vfs::Path const& path)
 : cPath(path), m_exclusive(false)
 {};
@@ -86,11 +132,11 @@ vfs::CVirtualLocation::~CVirtualLocation()
 	m_VFiles.clear();
 }
 
-void vfs::CVirtualLocation::setIsExclusive(bool exclusive)
+void vfs::CVirtualLocation::setIsExclusive(bool exclusive) noexcept
 {
 	m_exclusive = exclusive;
 }
-bool vfs::CVirtualLocation::getIsExclusive()
+bool vfs::CVirtualLocation::getIsExclusive() const noexcept
 {
 	return m_exclusive;
 }
@@ -159,14 +205,60 @@ bool vfs::CVirtualLocation::removeFile(vfs::IBaseFile* file)
 		{
 			if(!it->second->remove(file))
 			{
-				//CVirtualFile* vfile = it->second;
-				//delete vfile;
+				it->second->destroy();
 				m_VFiles.erase(it);
 			}
 			return true;
 		}
 	}
 	return false;
+}
+
+bool vfs::CVirtualLocation::prepareFileEntry(
+	vfs::IBaseFile* file, vfs::String const& profileName,
+	PreparedFileEntry& prepared)
+{
+	if(!file || prepared.m_active) return false;
+	vfs::CVirtualFile* fresh = NULL;
+	try
+	{
+		vfs::CProfileStack& stack = *(getVFS()->getProfileStack());
+		fresh = vfs::CVirtualFile::create(file->getPath(), stack);
+		fresh->add(file, profileName, true);
+
+		tVFiles::iterator position = m_VFiles.find(file->getName());
+		vfs::CVirtualFile* previous = NULL;
+		bool inserted = false;
+		if(position == m_VFiles.end())
+		{
+			position = m_VFiles.insert(
+				std::make_pair(file->getName(), fresh)).first;
+			inserted = true;
+		}
+		else
+		{
+			previous = position->second;
+			position->second = fresh;
+		}
+
+		prepared.m_owner = this;
+		prepared.m_position = position;
+		prepared.m_previous = previous;
+		prepared.m_prepared = fresh;
+		prepared.m_inserted = inserted;
+		prepared.m_active = true;
+		return true;
+	}
+	catch(...)
+	{
+		if(fresh) fresh->destroy();
+		throw;
+	}
+}
+
+bool vfs::CVirtualLocation::empty() const
+{
+	return m_VFiles.empty();
 }
 
 

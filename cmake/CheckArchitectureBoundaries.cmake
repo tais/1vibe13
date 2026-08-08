@@ -4918,6 +4918,7 @@ foreach(required_utils_data_model_fragment IN ITEMS
     "PublishTransactionally"
     "class UnknownXmlSubtree"
     "EscapeXml"
+    "&#13;"
     "SanitizeXmlComment"
     "IsExactTransfer")
   string(FIND "${runtime_utils_data_boundary_model_contents}"
@@ -5016,7 +5017,12 @@ foreach(required_utils_xml_writer_fragment IN ITEMS
     "EscapeXml(value, escaped)"
     "if (!isComplete()) return false"
     "if (!pFile || !isComplete()) return false"
-    "IsExactTransfer(requested, written)")
+    "UtilsDataBoundaryModel::IsExactTransfer("
+    "file->isOpenRead() || file->isOpenWrite()"
+    "file->openWrite(true, true)"
+    "file->close()"
+    "m_ssBuffer.good()"
+    "replaceFileAtomically(sFileName")
   set(utils_xml_writer_combined
     "${runtime_utils_xml_writer_header_contents}\n${runtime_utils_xml_writer_contents}")
   string(FIND "${utils_xml_writer_combined}"
@@ -5025,6 +5031,107 @@ foreach(required_utils_xml_writer_fragment IN ITEMS
   if(required_utils_xml_writer_position EQUAL -1)
     message(FATAL_ERROR
       "XML writer integrity boundary lost '${required_utils_xml_writer_fragment}'")
+  endif()
+endforeach()
+
+# XML path publication is one physical-and-catalogue transaction. Keep the
+# same-directory native replacement, injectable rollback seam, prepared VFS
+# entry, mount-aware physical resolution, and CVFS serialization together.
+file(READ "${SOURCE_ROOT}/ext/VFS/include/vfs/Core/vfs.h"
+  runtime_vfs_atomic_header_contents)
+file(READ "${SOURCE_ROOT}/ext/VFS/include/vfs/Core/vfs_os_functions.h"
+  runtime_vfs_atomic_os_header_contents)
+file(READ "${SOURCE_ROOT}/ext/VFS/include/vfs/Core/vfs_vloc.h"
+  runtime_vfs_atomic_location_header_contents)
+file(READ "${SOURCE_ROOT}/ext/VFS/src/Core/vfs.cpp"
+  runtime_vfs_atomic_contents)
+file(READ "${SOURCE_ROOT}/ext/VFS/src/Core/vfs_os_functions.cpp"
+  runtime_vfs_atomic_os_contents)
+file(READ "${SOURCE_ROOT}/ext/VFS/src/Core/Location/vfs_directory_tree.cpp"
+  runtime_vfs_atomic_tree_contents)
+file(READ "${SOURCE_ROOT}/ext/VFS/src/Core/vfs_vloc.cpp"
+  runtime_vfs_atomic_location_contents)
+set(runtime_vfs_atomic_combined
+  "${runtime_vfs_atomic_header_contents}\n${runtime_vfs_atomic_os_header_contents}\n${runtime_vfs_atomic_location_header_contents}\n${runtime_vfs_atomic_contents}\n${runtime_vfs_atomic_os_contents}\n${runtime_vfs_atomic_tree_contents}\n${runtime_vfs_atomic_location_contents}")
+foreach(required_vfs_atomic_fragment IN ITEMS
+    "class VFS_API IAtomicFileReplacement"
+    "replaceFileAtomically("
+    "std::recursive_mutex m_mutex"
+    "class VFS_API CAtomicFileReplacement"
+    "bool ownsTemporary;"
+    "m_impl->prepared || m_impl->ownsTemporary"
+    "O_WRONLY | O_CREAT | O_EXCL"
+    "::fsync(file)"
+    "::rename(temporary.c_str(), target.c_str())"
+    "MOVEFILE_WRITE_THROUGH"
+    "if(vfs::OS::deleteRealFile(candidate))"
+    "if(::unlink(temporary.c_str()) == 0)"
+    "class VFS_API PreparedFileEntry"
+    "prepareFileEntry("
+    "removePreparedFileFromCatalogue("
+    "resolveRealFilePath("
+    "currentDirectory->getRealPath() + component")
+  string(FIND "${runtime_vfs_atomic_combined}"
+    "${required_vfs_atomic_fragment}" required_vfs_atomic_position)
+  if(required_vfs_atomic_position EQUAL -1)
+    message(FATAL_ERROR
+      "Atomic VFS publication boundary lost '${required_vfs_atomic_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_vfs_atomic_os_contents}"
+  "m_impl->temporary = candidate;" vfs_atomic_staged_path_position)
+string(FIND "${runtime_vfs_atomic_os_contents}"
+  "CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL)"
+  vfs_atomic_windows_exclusive_create_position)
+string(FIND "${runtime_vfs_atomic_os_contents}"
+  "::open(temporary.c_str(), flags" vfs_atomic_posix_exclusive_create_position)
+string(FIND "${runtime_vfs_atomic_os_contents}"
+  "m_impl->ownsTemporary = true;" vfs_atomic_windows_ownership_position)
+if(vfs_atomic_staged_path_position EQUAL -1 OR
+   vfs_atomic_windows_exclusive_create_position EQUAL -1 OR
+   vfs_atomic_posix_exclusive_create_position EQUAL -1 OR
+   vfs_atomic_windows_ownership_position EQUAL -1 OR
+   NOT vfs_atomic_staged_path_position LESS vfs_atomic_windows_exclusive_create_position OR
+   NOT vfs_atomic_staged_path_position LESS vfs_atomic_posix_exclusive_create_position OR
+   NOT vfs_atomic_windows_exclusive_create_position LESS vfs_atomic_windows_ownership_position OR
+   NOT vfs_atomic_windows_ownership_position LESS vfs_atomic_posix_exclusive_create_position)
+  message(FATAL_ERROR
+    "Atomic VFS replacement must stage its Path before and claim ownership after native exclusive creation")
+endif()
+string(SUBSTRING "${runtime_vfs_atomic_os_contents}"
+  ${vfs_atomic_posix_exclusive_create_position} -1
+  runtime_vfs_atomic_posix_create_contents)
+string(FIND "${runtime_vfs_atomic_posix_create_contents}"
+  "m_impl->ownsTemporary = true;" vfs_atomic_posix_ownership_position)
+if(vfs_atomic_posix_ownership_position EQUAL -1)
+  message(FATAL_ERROR
+    "Atomic VFS replacement must claim POSIX temporary ownership after exclusive creation")
+endif()
+string(FIND "${runtime_vfs_atomic_os_contents}"
+  "bool vfs::OS::CAtomicFileReplacement::publish() noexcept"
+  vfs_atomic_publish_start)
+if(vfs_atomic_publish_start EQUAL -1)
+  message(FATAL_ERROR "Atomic VFS replacement lost its no-throw publish boundary")
+endif()
+string(SUBSTRING "${runtime_vfs_atomic_os_contents}"
+  ${vfs_atomic_publish_start} -1 runtime_vfs_atomic_publish_contents)
+string(FIND "${runtime_vfs_atomic_publish_contents}"
+  "committed = true;" vfs_atomic_committed_position)
+string(FIND "${runtime_vfs_atomic_publish_contents}"
+  "m_impl->ownsTemporary = false;" vfs_atomic_release_position)
+if(vfs_atomic_committed_position EQUAL -1 OR
+   vfs_atomic_release_position EQUAL -1 OR
+   NOT vfs_atomic_committed_position LESS vfs_atomic_release_position)
+  message(FATAL_ERROR
+    "Atomic VFS replacement must record native commitment before releasing temp ownership")
+endif()
+foreach(retired_vfs_atomic_fragment IN ITEMS
+    "MOVEFILE_COPY_ALLOWED")
+  string(FIND "${runtime_vfs_atomic_combined}"
+    "${retired_vfs_atomic_fragment}" retired_vfs_atomic_position)
+  if(NOT retired_vfs_atomic_position EQUAL -1)
+    message(FATAL_ERROR
+      "Atomic VFS publication restored cross-volume replacement '${retired_vfs_atomic_fragment}'")
   endif()
 endforeach()
 string(REGEX MATCHALL
@@ -5630,16 +5737,22 @@ foreach(required_item_xml_writer_fragment IN ITEMS
     "codePoint == 0xfffe || codePoint == 0xffff"
     "ItemTextToUtf8("
     "AddSpreadPattern("
-    "patternIndex < giSpreadPatternCount"
-    "serialized = std::to_string(patternIndex)"
+    "giSpreadPatternCount <= patternIndex"
+    "const std::string serialized = std::to_string(patternIndex)"
+    "ValidateItemRecord("
+    "IsSemanticallyEmptyItem("
+    "allowedItemFlags = UINT64_C(0xCFFFFFFFFFFFFFFF)"
+    "allowedItemFlags2 = UINT64_C(0x000007FFFFFFFFFF)"
+    "sawZeroAttachment"
+    "TrySerializeApBonus("
+    "TryAdjustApBonus("
+    "roundTripped == liveValue"
     "AddItemInteger(writer, \"AvailableAttachmentPoint\""
     "AddItemInteger(writer, \"AttachmentPoint\""
     "AddItemInteger(writer, \"AttachToPointAPCost\""
     "AddItemInteger(writer, \"PercentAim\""
     "AddItemInteger(writer, \"PercentRangeBonus\", item.percentrangebonus)"
     "AddItemInteger(writer, \"AutoFireToHitBonus\""
-    "DynamicAdjustAPConstants("
-    "item.APBonus, item.APBonus, TRUE)"
     "AddItemFloat(writer, \"RobotDamageReduction\""
     "AddItemInteger(writer, \"TransportGroupMinProgress\""
     "AddItemInteger(writer, \"TransportGroupMaxProgress\""
@@ -5659,6 +5772,17 @@ foreach(required_item_xml_writer_fragment IN ITEMS
       "Item XML writer lost '${required_item_xml_writer_fragment}'")
   endif()
 endforeach()
+string(FIND "${runtime_item_xml_adapter_contents}"
+  "if (!ValidateItemRecord(index)) return false;"
+  item_xml_writer_preflight_position)
+string(FIND "${runtime_item_xml_adapter_contents}"
+  "writer.openNode(\"ITEMLIST\")" item_xml_writer_document_position)
+if(item_xml_writer_preflight_position EQUAL -1 OR
+   item_xml_writer_document_position EQUAL -1 OR
+   NOT item_xml_writer_preflight_position LESS item_xml_writer_document_position)
+  message(FATAL_ERROR
+    "Item XML writer must validate every live record before building the document")
+endif()
 foreach(retired_item_xml_writer_fragment IN ITEMS
     "FilePrintf(hFile"
     "cnt < 351"
@@ -5692,10 +5816,27 @@ foreach(required_item_xml_writer_headless_fragment IN ITEMS
     "item XML writer propagates open short-write and null-file failures exactly"
     "item XML writer output reloads through the canonical reader schema"
     "item XML writer text round-trips reserved UTF-8 and exact-capacity fields"
+    "item XML writer round-trips four UINT64 masks all known flags and Cigarette"
     "item XML writer modifiers and progress bounds round-trip canonically"
     "item XML writer flags auxiliaries and high indices round-trip canonically"
-    "item XML writer rejects XML-invalid Unicode before truncating an existing file"
-    "item XML writer rejects non-finite floats before truncating an existing file")
+    "item XML stream seam opens fresh truncates trailing bytes and closes explicitly"
+    "item XML stream seam contains throwing open and close while attempting cleanup"
+    "item XML stream seam rejects pre-opened read and write files without mutation"
+    "item XML writer rejects XML-invalid Unicode and non-finite floats before opening the target"
+    "item XML writer rejects clamped scalar domains before opening the target"
+    "item XML writer rejects attachment holes and every inherited stance sentinel"
+    "item XML writer rejects unsafe AP reversal and unavailable spread indices"
+    "item XML writer rejects reserved flags and lossy structural high-water states"
+    "item XML writer accepts spread zero without a loaded spread table"
+    "item XML writer accepts both clamped representable AP inverse endpoints"
+    "item XML writer permits auxiliary publication through a semantic class-zero gap"
+    "atomic VFS failed publish restores lower visibility without a writable ghost"
+    "atomic VFS wholly absent rollback removes the empty virtual location and file entry"
+    "atomic VFS publishes a mounted writable override and shorter replacement exactly"
+    "atomic VFS failed existing-target publish preserves bytes and catalogue identity"
+    "atomic VFS creates and registers a wholly absent file under mixed-case mounted lookup"
+    "atomic VFS resolves caller case through the matched mounted physical directory"
+    "atomic native replacement cleans its temp after a pre-commit publish failure")
   string(FIND "${runtime_utils_ui_headless_contents}"
     "${required_item_xml_writer_headless_fragment}"
     required_item_xml_writer_headless_position)
@@ -5721,6 +5862,9 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "following 11 translation units"
     "XMLWriter"
     "installed-data canonical `Cigarette`"
+    "same-directory sibling"
+    "caller-owned writable-file overload"
+    "power-loss durability"
     "TextInfrastructureModel.h"
     "IndexedXmlModel.h"
     "MediaLifecycleModel.h"
@@ -5746,9 +5890,12 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "DataBoundaryModel"
     "encrypted text-record"
     "remaining 11 Utils"
-    "all four 64-bit masks remain exact"
+    "all four 64-bit masks exact"
     "installed-data"
-    "injected open/short-write failures")
+    "exact representable inverse"
+    "same-directory sibling"
+    "caller-owned writable-file overload remains"
+    "power-loss durability")
   string(FIND "${runtime_engine_architecture_contents}"
     "${required_utils_architecture_fragment}"
     required_utils_architecture_position)

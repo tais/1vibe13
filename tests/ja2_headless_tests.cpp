@@ -237,6 +237,9 @@
 #include <vfs/Tools/vfs_property_container.h>
 #include <vfs/Core/vfs.h>
 #include <vfs/Core/vfs_init.h>
+#include <vfs/Core/Location/vfs_directory_tree.h>
+#include <vfs/Core/vfs_os_functions.h>
+#include <vfs/Core/vfs_profile.h>
 
 // Globals that sgp/sgp.cpp (the game's app shell) defines and the engine
 // libraries reference. This harness supplies its own main() instead of linking
@@ -694,14 +697,23 @@ class InjectedItemXmlWritableFile final : public vfs::tWritableFile
 public:
 	enum class Behavior
 	{
+		ExactWrite,
 		ShortWrite,
-		FailOpen
+		FailOpen,
+		FailOpenAfterOpening,
+		ThrowOpenAfterOpening,
+		ThrowClose,
+		PreopenedRead,
+		PreopenedWrite
 	};
 
-	explicit InjectedItemXmlWritableFile(Behavior behavior)
+	explicit InjectedItemXmlWritableFile(
+		Behavior behavior, std::string initialContent = {})
 		: vfs::tWritableFile(vfs::Path("injected-item-xml-write")),
-		  behavior_(behavior)
+		  content(std::move(initialContent)), behavior_(behavior)
 	{
+		readOpen_ = behavior_ == Behavior::PreopenedRead;
+		writeOpen_ = behavior_ == Behavior::PreopenedWrite;
 	}
 
 	vfs::FileAttributes getAttributes() override
@@ -710,41 +722,100 @@ public:
 			vfs::FileAttributes::LT_DIRECTORY);
 	}
 
-	void close() override { open_ = false; }
-	vfs::size_t getSize() override { return 0; }
+	void close() override
+	{
+		++closeAttempts;
+		readOpen_ = false;
+		writeOpen_ = false;
+		if (behavior_ == Behavior::ThrowClose)
+			throw std::runtime_error("injected XML close failure");
+	}
+	vfs::size_t getSize() override { return content.size(); }
 
-	bool isOpenRead() override { return false; }
+	bool isOpenRead() override { return readOpen_; }
 	bool openRead() override { return false; }
 	vfs::size_t read(vfs::Byte*, vfs::size_t) override { return 0; }
 	vfs::size_t getReadPosition() override { return 0; }
 	void setReadPosition(vfs::size_t) override {}
 	void setReadPosition(vfs::offset_t, vfs::IBaseFile::ESeekDir) override {}
 
-	bool isOpenWrite() override { return open_; }
-	bool openWrite(bool, bool) override
+	bool isOpenWrite() override { return writeOpen_; }
+	bool openWrite(bool createWhenMissing, bool truncate) override
 	{
 		++openAttempts;
-		open_ = behavior_ != Behavior::FailOpen;
-		return open_;
+		lastCreateWhenMissing = createWhenMissing;
+		lastTruncate = truncate;
+		if (behavior_ == Behavior::FailOpen) return false;
+		writeOpen_ = true;
+		writePosition_ = 0;
+		if (truncate) content.clear();
+		if (behavior_ == Behavior::FailOpenAfterOpening) return false;
+		if (behavior_ == Behavior::ThrowOpenAfterOpening)
+			throw std::runtime_error("injected XML open failure");
+		return true;
 	}
-	vfs::size_t write(const vfs::Byte*, vfs::size_t bytesToWrite) override
+	vfs::size_t write(const vfs::Byte* bytes, vfs::size_t bytesToWrite) override
 	{
 		++writeAttempts;
 		requestedBytes = bytesToWrite;
-		return bytesToWrite == 0 ? 0 : bytesToWrite - 1;
+		const vfs::size_t accepted = behavior_ == Behavior::ShortWrite &&
+			bytesToWrite != 0 ? bytesToWrite - 1 : bytesToWrite;
+		const std::size_t required = static_cast<std::size_t>(
+			writePosition_ + accepted);
+		if (content.size() < required) content.resize(required);
+		if (accepted != 0)
+		{
+			std::memcpy(content.data() + writePosition_, bytes,
+				static_cast<std::size_t>(accepted));
+		}
+		writePosition_ += accepted;
+		return accepted;
 	}
-	vfs::size_t getWritePosition() override { return 0; }
-	void setWritePosition(vfs::size_t) override {}
+	vfs::size_t getWritePosition() override { return writePosition_; }
+	void setWritePosition(vfs::size_t position) override
+	{
+		writePosition_ = position;
+	}
 	void setWritePosition(vfs::offset_t, vfs::IBaseFile::ESeekDir) override {}
 	bool deleteFile() override { return false; }
 
 	std::size_t openAttempts = 0;
 	std::size_t writeAttempts = 0;
+	std::size_t closeAttempts = 0;
 	vfs::size_t requestedBytes = 0;
+	bool lastCreateWhenMissing = false;
+	bool lastTruncate = false;
+	std::string content;
 
 private:
 	Behavior behavior_;
-	bool open_ = false;
+	bool readOpen_ = false;
+	bool writeOpen_ = false;
+	vfs::size_t writePosition_ = 0;
+};
+
+class RejectingAtomicFileReplacement final : public vfs::IAtomicFileReplacement
+{
+public:
+	bool prepare(vfs::Path const& realTarget, const vfs::Byte*,
+		vfs::size_t size) override
+	{
+		++prepareAttempts;
+		preparedTarget = realTarget;
+		preparedBytes = size;
+		return true;
+	}
+
+	bool publish() noexcept override
+	{
+		++publishAttempts;
+		return false;
+	}
+
+	std::size_t prepareAttempts = 0;
+	std::size_t publishAttempts = 0;
+	vfs::size_t preparedBytes = 0;
+	vfs::Path preparedTarget;
 };
 
 struct ItemXmlCommaDecimalPunctuation final : std::numpunct<char>
@@ -758,9 +829,6 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 	t_SpreadPattern* const originalSpreadPatterns = gpSpreadPattern;
 	const INT32 originalSpreadPatternCount = giSpreadPatternCount;
 	const INT16 originalApMaximum = APBPConstants[AP_MAXIMUM];
-	// The writer deliberately falls back to a numeric pattern when the table is
-	// unavailable. The reader accepts a nonzero numeric fallback only when its
-	// matching table count has already been loaded.
 	gpSpreadPattern = nullptr;
 	giSpreadPatternCount = 8;
 	APBPConstants[AP_MAXIMUM] = 50;
@@ -768,7 +836,7 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 	std::memset(StoreInventory, 0, sizeof(StoreInventory));
 	std::memset(WeaponROF, 0, sizeof(WeaponROF));
 
-	const std::wstring richName = L"A&<>\"'\u00e9\U0001f642";
+	const std::wstring richName = L"A&<>\"'\u00e9\U0001f642\rR";
 	const std::wstring exactLongName(79, L'N');
 	const std::wstring exactDescription(399, L'D');
 	const bool textPrepared =
@@ -789,6 +857,8 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 	Item[0].percentrangebonus = 19;
 	Item[0].autofiretohitbonus = 23;
 	Item[0].APBonus = 15;
+	Item[0].defaultattachments[0] = 41;
+	Item[0].defaultattachments[1] = 42;
 	Item[0].alcohol = 0.1f;
 	Item[0].scopemagfactor = 1.25f;
 	Item[0].projectionfactor = 2.5f;
@@ -799,13 +869,16 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 	Item[0].fRobotDamageReductionModifier = 0.375f;
 	Item[0].iTransportGroupMinProgress = -12;
 	Item[0].iTransportGroupMaxProgress = 34;
-	Item[0].usItemFlag2 = ITEM_tripwireactivation | ITEM_cigarette;
+	Item[0].sFireResistance = std::numeric_limits<INT16>::min();
+	Item[0].usItemFlag = UINT64_C(0xCFFFFFFFFFFFFFFF);
+	Item[0].usItemFlag2 = UINT64_C(0x000007FFFFFFFFFF);
 	Item[0].percentaimmodifier[0] = 11;
 	Item[0].percentaimmodifier[1] = 22;
 	Item[0].percentaimmodifier[2] = 33;
 	StoreInventory[0][BOBBY_RAY_NEW] = 12;
 	StoreInventory[0][BOBBY_RAY_USED] = 13;
 	WeaponROF[0] = 14;
+	Item[351].uiIndex = 351;
 	Item[351].usItemClass = 1;
 	Item[351].usPrice = 351;
 	gMAXITEMS_READ = 352;
@@ -823,7 +896,7 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 	const bool readBack = written && ReadFileManagerText(path, document);
 	const std::string expectedEscapedName =
 		"<szItemName>A&amp;&lt;&gt;&quot;&apos;"
-		"\xc3\xa9\xf0\x9f\x99\x82</szItemName>";
+		"\xc3\xa9\xf0\x9f\x99\x82&#13;R</szItemName>";
 	CHECK(readBack && document.find(expectedEscapedName) != std::string::npos &&
 		document.find("<szLongItemName>" + std::string(79, 'N') +
 			"</szLongItemName>") != std::string::npos &&
@@ -904,14 +977,66 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 		InjectedItemXmlWritableFile::Behavior::ShortWrite);
 	InjectedItemXmlWritableFile failedOpenFile(
 		InjectedItemXmlWritableFile::Behavior::FailOpen);
+	InjectedItemXmlWritableFile failedOpenAfterOpeningFile(
+		InjectedItemXmlWritableFile::Behavior::FailOpenAfterOpening);
+	InjectedItemXmlWritableFile exactFile(
+		InjectedItemXmlWritableFile::Behavior::ExactWrite,
+		"old XML bytes that must not trail the replacement");
+	InjectedItemXmlWritableFile throwingOpenFile(
+		InjectedItemXmlWritableFile::Behavior::ThrowOpenAfterOpening);
+	InjectedItemXmlWritableFile throwingCloseFile(
+		InjectedItemXmlWritableFile::Behavior::ThrowClose);
+	InjectedItemXmlWritableFile preopenedReadFile(
+		InjectedItemXmlWritableFile::Behavior::PreopenedRead, "read sentinel");
+	InjectedItemXmlWritableFile preopenedWriteFile(
+		InjectedItemXmlWritableFile::Behavior::PreopenedWrite, "write sentinel");
 	const bool shortWriteRejected = !ItemXmlWriter::Write(&shortFile, 1);
 	const bool failedOpenRejected = !ItemXmlWriter::Write(&failedOpenFile, 1);
+	const bool failedOpenAfterOpeningRejected =
+		!ItemXmlWriter::Write(&failedOpenAfterOpeningFile, 1);
+	const bool exactWriteAccepted = ItemXmlWriter::Write(&exactFile, 1);
+	const bool throwingOpenRejected =
+		!ItemXmlWriter::Write(&throwingOpenFile, 1);
+	const bool throwingCloseRejected =
+		!ItemXmlWriter::Write(&throwingCloseFile, 1);
+	const bool preopenedReadRejected =
+		!ItemXmlWriter::Write(&preopenedReadFile, 1);
+	const bool preopenedWriteRejected =
+		!ItemXmlWriter::Write(&preopenedWriteFile, 1);
 	CHECK(shortWriteRejected && shortFile.openAttempts == 1 &&
-		shortFile.writeAttempts == 1 && shortFile.requestedBytes != 0 &&
+		shortFile.writeAttempts == 1 && shortFile.closeAttempts == 1 &&
+		shortFile.requestedBytes != 0 &&
 		failedOpenRejected && failedOpenFile.openAttempts == 1 &&
-		failedOpenFile.writeAttempts == 0 &&
+		failedOpenFile.writeAttempts == 0 && failedOpenFile.closeAttempts == 0 &&
+		failedOpenAfterOpeningRejected &&
+		failedOpenAfterOpeningFile.openAttempts == 1 &&
+		failedOpenAfterOpeningFile.writeAttempts == 0 &&
+		failedOpenAfterOpeningFile.closeAttempts == 1 &&
+		!failedOpenAfterOpeningFile.isOpenWrite() &&
 		!ItemXmlWriter::Write(static_cast<vfs::tWritableFile*>(nullptr), 1),
 		"item XML writer propagates open short-write and null-file failures exactly");
+	CHECK(exactWriteAccepted && exactFile.lastCreateWhenMissing &&
+		exactFile.lastTruncate && exactFile.openAttempts == 1 &&
+		exactFile.writeAttempts == 1 && exactFile.closeAttempts == 1 &&
+		exactFile.content.find("old XML bytes") == std::string::npos &&
+		exactFile.content.rfind("</ITEMLIST>\n") ==
+			exactFile.content.size() - std::string("</ITEMLIST>\n").size(),
+		"item XML stream seam opens fresh truncates trailing bytes and closes explicitly");
+	CHECK(throwingOpenRejected && throwingOpenFile.openAttempts == 1 &&
+		throwingOpenFile.writeAttempts == 0 &&
+		throwingOpenFile.closeAttempts == 1 && throwingCloseRejected &&
+		throwingCloseFile.writeAttempts == 1 &&
+		throwingCloseFile.closeAttempts == 1,
+		"item XML stream seam contains throwing open and close while attempting cleanup");
+	CHECK(preopenedReadRejected && preopenedReadFile.openAttempts == 0 &&
+		preopenedReadFile.writeAttempts == 0 &&
+		preopenedReadFile.closeAttempts == 0 &&
+		preopenedReadFile.content == "read sentinel" &&
+		preopenedWriteRejected && preopenedWriteFile.openAttempts == 0 &&
+		preopenedWriteFile.writeAttempts == 0 &&
+		preopenedWriteFile.closeAttempts == 0 &&
+		preopenedWriteFile.content == "write sentinel",
+		"item XML stream seam rejects pre-opened read and write files without mutation");
 
 	std::memset(Item, 0, sizeof(Item));
 	std::memset(StoreInventory, 0, sizeof(StoreInventory));
@@ -927,6 +1052,15 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 		std::wcscmp(Item[0].szItemDesc, exactDescription.c_str()) == 0,
 		"item XML writer text round-trips reserved UTF-8 and exact-capacity fields");
 	CHECK(roundTripLoaded &&
+		Item[0].nasAttachmentClass == UINT64_C(9007199254740993) &&
+		Item[0].nasLayoutClass == std::numeric_limits<UINT64>::max() &&
+		Item[0].ulAvailableAttachmentPoint == UINT64_C(9007199254740995) &&
+		Item[0].ulAttachmentPoint == UINT64_C(9007199254740997) &&
+		Item[0].usItemFlag == UINT64_C(0xCFFFFFFFFFFFFFFF) &&
+		Item[0].usItemFlag2 == UINT64_C(0x000007FFFFFFFFFF) &&
+		ItemIsCigarette(0),
+		"item XML writer round-trips four UINT64 masks all known flags and Cigarette");
+	CHECK(roundTripLoaded &&
 		Item[0].ubAttachToPointAPCost == 17 &&
 		Item[0].percentrangebonus == 19 &&
 		Item[0].autofiretohitbonus == 23 &&
@@ -940,7 +1074,11 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 		Item[0].RecoilModifierY == -std::numeric_limits<FLOAT>::max() &&
 		Item[0].fRobotDamageReductionModifier == 0.375f &&
 		Item[0].iTransportGroupMinProgress == -12 &&
-		Item[0].iTransportGroupMaxProgress == 34,
+		Item[0].iTransportGroupMaxProgress == 34 &&
+		Item[0].defaultattachments[0] == 41 &&
+		Item[0].defaultattachments[1] == 42 &&
+		Item[0].defaultattachments[2] == 0 &&
+		Item[0].sFireResistance == std::numeric_limits<INT16>::min(),
 		"item XML writer modifiers and progress bounds round-trip canonically");
 	CHECK(roundTripLoaded && ItemHasTripwireActivation(0) &&
 		StoreInventory[0][BOBBY_RAY_NEW] == 12 &&
@@ -952,26 +1090,203 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 		"item-writer-rejected-" + fixtureToken + ".xml";
 	const std::string sentinel = "preserve-item-writer-output";
 	const bool sentinelWritten = WriteFileManagerText(rejectedPath, sentinel);
-	Item[0].szItemName[0] = static_cast<CHAR16>(0xfffe);
-	Item[0].szItemName[1] = L'\0';
-	const bool invalidUnicodeRejected = !WriteItemStatsToFile(
-		const_cast<char*>(rejectedPath.c_str()), 1);
-	std::string afterRejectedWrite;
-	const bool sentinelPreserved = ReadFileManagerText(
-		rejectedPath, afterRejectedWrite);
-	CHECK(sentinelWritten && invalidUnicodeRejected && sentinelPreserved &&
-		afterRejectedWrite == sentinel,
-		"item XML writer rejects XML-invalid Unicode before truncating an existing file");
-	SetItemXmlText(Item[0].szItemName, richName);
-	Item[0].alcohol = std::numeric_limits<FLOAT>::infinity();
-	const bool nonFiniteRejected = !WriteItemStatsToFile(
-		const_cast<char*>(rejectedPath.c_str()), 1);
-	afterRejectedWrite.clear();
-	const bool nonFiniteSentinelPreserved = ReadFileManagerText(
-		rejectedPath, afterRejectedWrite);
-	CHECK(nonFiniteRejected && nonFiniteSentinelPreserved &&
-		afterRejectedWrite == sentinel,
-		"item XML writer rejects non-finite floats before truncating an existing file");
+	const INVTYPE canonicalItem = Item[0];
+	const INVTYPE canonicalSecondItem = Item[1];
+	auto rejectsAndPreserves = [&](UINT32 count, auto&& mutation)
+	{
+		Item[0] = canonicalItem;
+		Item[1] = canonicalSecondItem;
+		const INT16 savedMaximum = APBPConstants[AP_MAXIMUM];
+		const INT32 savedPatternCount = giSpreadPatternCount;
+		mutation();
+		const bool rejected = !WriteItemStatsToFile(
+			const_cast<char*>(rejectedPath.c_str()), count);
+		std::string after;
+		const bool preserved = ReadFileManagerText(rejectedPath, after) &&
+			after == sentinel;
+		APBPConstants[AP_MAXIMUM] = savedMaximum;
+		giSpreadPatternCount = savedPatternCount;
+		Item[0] = canonicalItem;
+		Item[1] = canonicalSecondItem;
+		return rejected && preserved;
+	};
+
+	const bool invalidUnicodeRejected = rejectsAndPreserves(1, [&]
+	{
+		Item[0].szItemName[0] = static_cast<CHAR16>(0xfffe);
+		Item[0].szItemName[1] = L'\0';
+	});
+	const bool nonFiniteRejected = rejectsAndPreserves(1, [&]
+	{
+		Item[0].alcohol = std::numeric_limits<FLOAT>::infinity();
+	});
+	CHECK(sentinelWritten && invalidUnicodeRejected && nonFiniteRejected,
+		"item XML writer rejects XML-invalid Unicode and non-finite floats before opening the target");
+
+	bool scalarDomainRejections = true;
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].alcohol = -0.25f; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].alcohol = -0.0f; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].drugtype = 100; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].usHackingModifier = 101; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].usBurialModifier = 101; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].usSpotting = -1; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].usSpotting = 101; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].usRiotShieldStrength = 101; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].randomitemcoolnessmodificator = -21; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].randomitemcoolnessmodificator = 21; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].usItemChoiceTimeSetting = 3; });
+	scalarDomainRejections &= rejectsAndPreserves(1, [&] { Item[0].sFireResistance = 101; });
+	CHECK(scalarDomainRejections,
+		"item XML writer rejects clamped scalar domains before opening the target");
+
+	const bool attachmentHoleRejected = rejectsAndPreserves(1, [&]
+	{
+		std::fill(std::begin(Item[0].defaultattachments),
+			std::end(Item[0].defaultattachments), 0);
+		Item[0].defaultattachments[0] = 1;
+		Item[0].defaultattachments[2] = 2;
+	});
+	using StanceMember = INT16 (INVTYPE::*)[3];
+	const std::array<StanceMember, 11> stanceMembers = {
+		&INVTYPE::flatbasemodifier, &INVTYPE::percentbasemodifier,
+		&INVTYPE::flataimmodifier, &INVTYPE::percentaimmodifier,
+		&INVTYPE::percentcapmodifier, &INVTYPE::percenthandlingmodifier,
+		&INVTYPE::percentdropcompensationmodifier,
+		&INVTYPE::maxcounterforcemodifier,
+		&INVTYPE::counterforceaccuracymodifier,
+		&INVTYPE::targettrackingmodifier, &INVTYPE::aimlevelsmodifier};
+	bool everyStanceSentinelRejected = true;
+	for (const StanceMember member : stanceMembers)
+	{
+		for (std::size_t stance = 0; stance < 3; ++stance)
+		{
+			everyStanceSentinelRejected &= rejectsAndPreserves(1, [&]
+			{
+				(Item[0].*member)[stance] = -10000;
+			});
+		}
+	}
+	CHECK(attachmentHoleRejected && everyStanceSentinelRejected,
+		"item XML writer rejects attachment holes and every inherited stance sentinel");
+
+	const bool zeroApMaximumRejected = rejectsAndPreserves(1, [&]
+	{
+		APBPConstants[AP_MAXIMUM] = 0;
+	});
+	const bool unsafeApReverseRejected = rejectsAndPreserves(1, [&]
+	{
+		Item[0].APBonus = std::numeric_limits<INT16>::max();
+	});
+	const bool lossyApCompositionRejected = rejectsAndPreserves(1, [&]
+	{
+		APBPConstants[AP_MAXIMUM] = 125;
+		Item[0].APBonus = 2;
+	});
+	const bool positiveApEndpointOverflowRejected = rejectsAndPreserves(1, [&]
+	{
+		APBPConstants[AP_MAXIMUM] = 25;
+		Item[0].APBonus = 8193;
+	});
+	const bool negativeApEndpointOverflowRejected = rejectsAndPreserves(1, [&]
+	{
+		APBPConstants[AP_MAXIMUM] = 25;
+		Item[0].APBonus = -8193;
+	});
+	const bool negativeSpreadRejected = rejectsAndPreserves(1, [&]
+	{
+		Item[0].spreadPattern = -1;
+	});
+	const bool unavailableSpreadRejected = rejectsAndPreserves(1, [&]
+	{
+		Item[0].spreadPattern = giSpreadPatternCount;
+	});
+	CHECK(zeroApMaximumRejected && unsafeApReverseRejected &&
+		lossyApCompositionRejected && positiveApEndpointOverflowRejected &&
+		negativeApEndpointOverflowRejected &&
+		negativeSpreadRejected && unavailableSpreadRejected,
+		"item XML writer rejects unsafe AP reversal and unavailable spread indices");
+
+	const bool reservedPrimaryFlagRejected = rejectsAndPreserves(1, [&]
+	{
+		Item[0].usItemFlag |= UINT64_C(1) << 60;
+	});
+	const bool reservedSecondaryFlagRejected = rejectsAndPreserves(1, [&]
+	{
+		Item[0].usItemFlag2 |= UINT64_C(1) << 43;
+	});
+	const bool mismatchedIndexRejected = rejectsAndPreserves(1, [&]
+	{
+		Item[0].uiIndex = 1;
+	});
+	const bool classZeroPayloadRejected = rejectsAndPreserves(1, [&]
+	{
+		Item[0] = INVTYPE{};
+		Item[0].usPrice = 1;
+	});
+	const bool classZeroNegativeZeroRejected = rejectsAndPreserves(2, [&]
+	{
+		Item[0] = INVTYPE{};
+		Item[0].projectionfactor = -0.0f;
+		Item[1] = canonicalItem;
+		Item[1].uiIndex = 1;
+	});
+	const bool trailingGapRejected = rejectsAndPreserves(2, [&]
+	{
+		Item[1] = INVTYPE{};
+	});
+	CHECK(reservedPrimaryFlagRejected && reservedSecondaryFlagRejected &&
+		mismatchedIndexRejected && classZeroPayloadRejected &&
+		classZeroNegativeZeroRejected && trailingGapRejected,
+		"item XML writer rejects reserved flags and lossy structural high-water states");
+
+	Item[0] = canonicalItem;
+	giSpreadPatternCount = 0;
+	InjectedItemXmlWritableFile zeroSpreadFile(
+		InjectedItemXmlWritableFile::Behavior::ExactWrite);
+	Item[0].spreadPattern = 0;
+	const bool zeroSpreadWithoutTableAccepted =
+		ItemXmlWriter::Write(&zeroSpreadFile, 1);
+	CHECK(zeroSpreadWithoutTableAccepted &&
+		zeroSpreadFile.content.find("<spreadPattern>0</spreadPattern>") !=
+			std::string::npos,
+		"item XML writer accepts spread zero without a loaded spread table");
+	giSpreadPatternCount = 8;
+	Item[0] = canonicalItem;
+	APBPConstants[AP_MAXIMUM] = 25;
+	Item[0].APBonus = 8192;
+	InjectedItemXmlWritableFile endpointApFile(
+		InjectedItemXmlWritableFile::Behavior::ExactWrite);
+	const bool endpointApAccepted = ItemXmlWriter::Write(&endpointApFile, 1);
+	Item[0] = canonicalItem;
+	Item[0].APBonus = -8192;
+	InjectedItemXmlWritableFile negativeEndpointApFile(
+		InjectedItemXmlWritableFile::Behavior::ExactWrite);
+	const bool negativeEndpointApAccepted =
+		ItemXmlWriter::Write(&negativeEndpointApFile, 1);
+	CHECK(endpointApAccepted && negativeEndpointApAccepted &&
+		endpointApFile.content.find("<APBonus>32767</APBonus>") !=
+			std::string::npos &&
+		negativeEndpointApFile.content.find("<APBonus>-32768</APBonus>") !=
+			std::string::npos,
+		"item XML writer accepts both clamped representable AP inverse endpoints");
+	APBPConstants[AP_MAXIMUM] = 50;
+	Item[0] = INVTYPE{};
+	Item[1] = canonicalItem;
+	Item[1].uiIndex = 1;
+	const UINT8 savedGapInventory = StoreInventory[0][BOBBY_RAY_NEW];
+	StoreInventory[0][BOBBY_RAY_NEW] = 77;
+	InjectedItemXmlWritableFile auxiliaryGapFile(
+		InjectedItemXmlWritableFile::Behavior::ExactWrite);
+	const bool auxiliaryGapAccepted = ItemXmlWriter::Write(&auxiliaryGapFile, 2);
+	CHECK(auxiliaryGapAccepted &&
+		auxiliaryGapFile.content.find("<uiIndex>0</uiIndex>") !=
+			std::string::npos &&
+		auxiliaryGapFile.content.find("<BR_NewInventory>77</BR_NewInventory>") !=
+			std::string::npos,
+		"item XML writer permits auxiliary publication through a semantic class-zero gap");
+	StoreInventory[0][BOBBY_RAY_NEW] = savedGapInventory;
+	Item[0] = canonicalItem;
+	Item[1] = canonicalSecondItem;
 
 	FileDelete(const_cast<char*>(path.c_str()));
 	FileDelete(const_cast<char*>(rejectedPath.c_str()));
@@ -979,6 +1294,240 @@ static void RunItemXmlWriterTests(const std::string& fixtureToken)
 	giSpreadPatternCount = originalSpreadPatternCount;
 	APBPConstants[AP_MAXIMUM] = originalApMaximum;
 	RestoreItemXmlTables(originalTables);
+}
+
+static void RunAtomicVfsPublicationTests(const std::string& fixtureToken)
+{
+	const std::filesystem::path fixtureRoot =
+		std::filesystem::current_path() /
+		("vfs-atomic-publication-" + fixtureToken);
+	const std::filesystem::path lowerRoot = fixtureRoot / "lower";
+	const std::filesystem::path writableRoot = fixtureRoot / "writable";
+	const std::filesystem::path lowerSubdirectory = lowerRoot / "SubDir";
+	const std::filesystem::path writableSubdirectory = writableRoot / "subdir";
+	const std::filesystem::path writableCaseDirectory = writableRoot / "CaseDir";
+	std::error_code filesystemError;
+	std::filesystem::create_directories(lowerSubdirectory, filesystemError);
+	std::filesystem::create_directories(writableCaseDirectory, filesystemError);
+	const std::filesystem::path lowerTarget = lowerSubdirectory / "target.xml";
+	{
+		std::ofstream lowerFile(lowerTarget, std::ios::binary | std::ios::trunc);
+		lowerFile << "lower-profile-bytes";
+	}
+
+	auto readNative = [](const std::filesystem::path& path)
+	{
+		std::ifstream input(path, std::ios::binary);
+		return std::string(std::istreambuf_iterator<char>(input),
+			std::istreambuf_iterator<char>());
+	};
+	auto temporaryCount = [](const std::filesystem::path& directory)
+	{
+		std::size_t count = 0;
+		std::error_code error;
+		for (std::filesystem::directory_iterator iterator(directory, error), end;
+			!error && iterator != end; iterator.increment(error))
+		{
+			const std::string name = iterator->path().filename().string();
+			if (name.rfind("~ja2.", 0) == 0 &&
+				name.size() >= 4 && name.substr(name.size() - 4) == ".tmp")
+			{
+				++count;
+			}
+		}
+		return count;
+	};
+
+	vfs::CVirtualFileSystem* const fileSystem = getVFS();
+	vfs::CProfileStack* const stack = fileSystem->getProfileStack();
+	const std::string lowerName = "atomic-lower-" + fixtureToken;
+	const std::string writableName = "atomic-write-" + fixtureToken;
+	auto* lowerProfile = new vfs::CVirtualProfile(
+		vfs::String(lowerName), vfs::Path(lowerRoot.string()), false);
+	auto* lowerTree = new vfs::CReadOnlyDirectoryTree(
+		vfs::Path("WriterMount"), vfs::Path(lowerRoot.string()));
+	auto* writableProfile = new vfs::CVirtualProfile(
+		vfs::String(writableName), vfs::Path(writableRoot.string()), true);
+	auto* writableTree = new vfs::CDirectoryTree(
+		vfs::Path("WriterMount"), vfs::Path(writableRoot.string()));
+	bool lowerPushed = false;
+	bool writablePushed = false;
+	bool setup = false;
+	try
+	{
+		if (!lowerTree->init() || !writableTree->init())
+			throw std::runtime_error("atomic VFS fixture tree init failed");
+		lowerProfile->addLocation(lowerTree);
+		lowerTree = nullptr;
+		stack->pushProfile(lowerProfile);
+		lowerPushed = true;
+		fileSystem->addLocation(
+			lowerProfile->getLocation(vfs::Path("WriterMount")), lowerProfile);
+
+		writableProfile->addLocation(writableTree);
+		writableTree = nullptr;
+		stack->pushProfile(writableProfile);
+		writablePushed = true;
+		fileSystem->addLocation(
+			writableProfile->getLocation(vfs::Path("WriterMount")),
+			writableProfile);
+		setup = true;
+	}
+	catch (...)
+	{
+		setup = false;
+	}
+	CHECK(setup,
+		"atomic VFS fixture mounts lower and writable profiles at a nonempty path");
+
+	if (setup)
+	{
+		vfs::CVirtualLocation* const mountedRoot =
+			fileSystem->getVirtualLocation(vfs::Path("WriterMount"), false);
+		vfs::CVirtualLocation* const mountedChild =
+			fileSystem->getVirtualLocation(vfs::Path("WriterMount/SubDir"), false);
+		if (mountedRoot) mountedRoot->setIsExclusive(true);
+		const bool childInitiallyNonExclusive =
+			mountedChild && !mountedChild->getIsExclusive();
+		const vfs::Path logicalTarget("writermount/subdir/target.xml");
+		vfs::IBaseFile* const originalLower = fileSystem->getFile(
+			logicalTarget, vfs::CVirtualFile::SF_TOP);
+		RejectingAtomicFileReplacement rejectedLowerPublication;
+		const std::string attempted = "replacement-that-must-not-publish";
+		const bool lowerRejected = !fileSystem->replaceFileAtomically(
+			logicalTarget,
+			reinterpret_cast<const vfs::Byte*>(attempted.data()),
+			attempted.size(), rejectedLowerPublication);
+		vfs::IBaseFile* const visibleAfterRollback = fileSystem->getFile(
+			logicalTarget, vfs::CVirtualFile::SF_TOP);
+		const bool noWritableGhost = fileSystem->getFile(
+			logicalTarget, vfs::CVirtualFile::SF_FIRST_WRITABLE) == nullptr;
+		const std::filesystem::path writableTarget =
+			writableSubdirectory / "target.xml";
+		CHECK(lowerRejected && rejectedLowerPublication.prepareAttempts == 1 &&
+			rejectedLowerPublication.publishAttempts == 1 &&
+			originalLower != nullptr && visibleAfterRollback == originalLower &&
+			noWritableGhost && childInitiallyNonExclusive &&
+			mountedChild && !mountedChild->getIsExclusive() &&
+			!std::filesystem::exists(writableTarget) &&
+			rejectedLowerPublication.preparedTarget ==
+				vfs::Path(writableTarget.string()) &&
+			readNative(lowerTarget) == "lower-profile-bytes",
+			"atomic VFS failed publish restores lower visibility without a writable ghost");
+
+		const vfs::Path absentLogical("WriterMount/NewBranch/missing.xml");
+		vfs::Path absentDirectory;
+		vfs::Path absentName;
+		absentLogical.splitLast(absentDirectory, absentName);
+		RejectingAtomicFileReplacement rejectedAbsentPublication;
+		const bool absentRejected = !fileSystem->replaceFileAtomically(
+			absentLogical,
+			reinterpret_cast<const vfs::Byte*>(attempted.data()),
+			attempted.size(), rejectedAbsentPublication);
+		CHECK(absentRejected && fileSystem->getFile(absentLogical) == nullptr &&
+			fileSystem->getVirtualLocation(absentDirectory, false) == nullptr &&
+			!std::filesystem::exists(writableRoot / "NewBranch" / "missing.xml"),
+			"atomic VFS wholly absent rollback removes the empty virtual location and file entry");
+
+		const std::string longReplacement =
+			"published replacement with deliberately longer trailing bytes";
+		const bool lowerOverridePublished = fileSystem->replaceFileAtomically(
+			logicalTarget,
+			reinterpret_cast<const vfs::Byte*>(longReplacement.data()),
+			longReplacement.size());
+		vfs::IBaseFile* const writableOverride = fileSystem->getFile(
+			logicalTarget, vfs::CVirtualFile::SF_FIRST_WRITABLE);
+		const std::string shortReplacement = "short";
+		const bool shorterPublished = fileSystem->replaceFileAtomically(
+			logicalTarget,
+			reinterpret_cast<const vfs::Byte*>(shortReplacement.data()),
+			shortReplacement.size());
+		CHECK(lowerOverridePublished && writableOverride != nullptr &&
+			mountedChild && mountedChild->getIsExclusive() &&
+			shorterPublished && readNative(writableTarget) == shortReplacement &&
+			readNative(lowerTarget) == "lower-profile-bytes",
+			"atomic VFS publishes a mounted writable override and shorter replacement exactly");
+
+		RejectingAtomicFileReplacement rejectedExistingPublication;
+		const bool existingRejected = !fileSystem->replaceFileAtomically(
+			logicalTarget,
+			reinterpret_cast<const vfs::Byte*>(attempted.data()),
+			attempted.size(), rejectedExistingPublication);
+		CHECK(existingRejected && readNative(writableTarget) == shortReplacement &&
+			fileSystem->getFile(logicalTarget,
+				vfs::CVirtualFile::SF_FIRST_WRITABLE) == writableOverride,
+			"atomic VFS failed existing-target publish preserves bytes and catalogue identity");
+
+		const vfs::Path newLogical("WRITERMOUNT/SUBDIR/new.xml");
+		const std::string newContent = "new-file";
+		const bool newPublished = fileSystem->replaceFileAtomically(
+			newLogical, reinterpret_cast<const vfs::Byte*>(newContent.data()),
+			newContent.size());
+		CHECK(newPublished &&
+			readNative(writableSubdirectory / "new.xml") == newContent &&
+			fileSystem->getFile(newLogical,
+				vfs::CVirtualFile::SF_FIRST_WRITABLE) != nullptr,
+			"atomic VFS creates and registers a wholly absent file under mixed-case mounted lookup");
+
+		const vfs::Path caseLogical("writermount/casedir/case.xml");
+		const std::string caseContent = "case-preserved";
+		const bool casePublished = fileSystem->replaceFileAtomically(
+			caseLogical,
+			reinterpret_cast<const vfs::Byte*>(caseContent.data()),
+			caseContent.size());
+		bool foundExactCaseDirectory = false;
+		bool foundLowercaseCaseDirectory = false;
+		for (const std::filesystem::directory_entry& entry :
+			std::filesystem::directory_iterator(writableRoot))
+		{
+			const std::string name = entry.path().filename().string();
+			foundExactCaseDirectory |= name == "CaseDir";
+			foundLowercaseCaseDirectory |= name == "casedir";
+		}
+		CHECK(casePublished &&
+			readNative(writableCaseDirectory / "case.xml") == caseContent &&
+			foundExactCaseDirectory && !foundLowercaseCaseDirectory,
+			"atomic VFS resolves caller case through the matched mounted physical directory");
+
+		const std::filesystem::path blockedTarget =
+			writableSubdirectory / "blocked.xml";
+		const std::size_t temporaryFilesBefore =
+			temporaryCount(writableSubdirectory);
+		bool blockedPrepare = false;
+		bool blockedPublishRejected = false;
+		{
+			vfs::OS::CAtomicFileReplacement replacement;
+			blockedPrepare = replacement.prepare(
+				vfs::Path(blockedTarget.string()),
+				reinterpret_cast<const vfs::Byte*>(attempted.data()),
+				attempted.size());
+			std::filesystem::create_directory(blockedTarget, filesystemError);
+			blockedPublishRejected = !replacement.publish();
+		}
+		const std::size_t temporaryFilesAfter =
+			temporaryCount(writableSubdirectory);
+		CHECK(blockedPrepare && blockedPublishRejected &&
+			temporaryFilesAfter == temporaryFilesBefore &&
+			std::filesystem::is_directory(blockedTarget),
+			"atomic native replacement cleans its temp after a pre-commit publish failure");
+		std::filesystem::remove(blockedTarget, filesystemError);
+	}
+
+	if (writablePushed)
+		stack->removeProfile(vfs::String(writableName));
+	else
+	{
+		delete writableTree;
+		delete writableProfile;
+	}
+	if (lowerPushed)
+		stack->removeProfile(vfs::String(lowerName));
+	else
+	{
+		delete lowerTree;
+		delete lowerProfile;
+	}
+	std::filesystem::remove_all(fixtureRoot, filesystemError);
 }
 
 static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
@@ -17722,6 +18271,7 @@ int main( int, char** )
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
 	RunTransactionalItemXmlTests(vfsPriorityToken);
 	RunItemXmlWriterTests(vfsPriorityToken);
+	RunAtomicVfsPublicationTests(vfsPriorityToken);
 	{
 		CIniReader reader( iniPath.c_str() );
 		char zeroCapacity = 'Z';

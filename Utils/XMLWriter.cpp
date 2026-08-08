@@ -1,8 +1,78 @@
 #include "XMLWriter.h"
 #include "sgp_logger.h"
 
-#include <vfs/Core/vfs_file_raii.h>
-#include <vfs/Core/File/vfs_file.h>
+#include <vfs/Core/vfs.h>
+
+#include <exception>
+
+namespace
+{
+	void ReportXmlWriteFailure(const char* message) noexcept
+	{
+		try { SGP_ERROR(message); } catch (...) {}
+	}
+
+	bool WriteFreshXmlStream(
+		vfs::tWritableFile* file, const std::string& document)
+	{
+		if (!file || file->isOpenRead() || file->isOpenWrite()) return false;
+		bool opened = false;
+		bool transferred = false;
+		try
+		{
+			if (file->openWrite(true, true))
+			{
+				opened = true;
+				const vfs::size_t requested =
+					document.length() * sizeof(std::string::value_type);
+				const vfs::size_t written = file->write(
+					document.c_str(), requested);
+				transferred = UtilsDataBoundaryModel::IsExactTransfer(
+					requested, written);
+			}
+			else
+			{
+				// An implementation may still have acquired its native handle
+				// even when it reports failure.  Observe and contain it below.
+				opened = file->isOpenRead() || file->isOpenWrite();
+			}
+		}
+		catch (const std::exception& ex)
+		{
+			ReportXmlWriteFailure(ex.what());
+		}
+		catch (...)
+		{
+			ReportXmlWriteFailure("Unknown XML stream write failure");
+		}
+
+		bool needsClose = opened;
+		if (!needsClose)
+		{
+			try { needsClose = file->isOpenRead() || file->isOpenWrite(); }
+			catch (...) { needsClose = true; }
+		}
+		bool closed = !needsClose;
+		if (needsClose)
+		{
+			try
+			{
+				file->close();
+				closed = true;
+			}
+			catch (const std::exception& ex)
+			{
+				ReportXmlWriteFailure(ex.what());
+			}
+			catch (...)
+			{
+				ReportXmlWriteFailure("Unknown XML stream close failure");
+			}
+		}
+		return transferred && closed;
+	}
+
+}
 
 void XMLWriter::addValue(vfs::String const& key)
 {
@@ -59,17 +129,18 @@ bool XMLWriter::writeToFile(vfs::Path const& sFileName)
 	if (!isComplete()) return false;
 	try
 	{
-		vfs::COpenWriteFile file(sFileName,true,true);
-		return writeToFile( &file.file() );
+		const std::string document = m_ssBuffer.str();
+		vfs::CVirtualFileSystem* const fileSystem = getVFS();
+		return fileSystem && fileSystem->replaceFileAtomically(sFileName,
+			reinterpret_cast<const vfs::Byte*>(document.data()), document.size());
 	}
-	catch(vfs::Exception& ex)
+	catch(const std::exception& ex)
 	{
-		SGP_ERROR(ex.what());
-		vfs::CFile file(sFileName);
-		if(file.openWrite(true,true))
-		{
-			return writeToFile(vfs::tWritableFile::cast(&file));
-		}
+		ReportXmlWriteFailure(ex.what());
+	}
+	catch (...)
+	{
+		ReportXmlWriteFailure("Unknown XML path write failure");
 	}
 	return false;
 }
@@ -79,18 +150,17 @@ bool XMLWriter::writeToFile(vfs::tWritableFile* pFile)
 	if (!pFile || !isComplete()) return false;
 	try
 	{
-		vfs::COpenWriteFile file(pFile);
-		std::string const str = m_ssBuffer.str();
-		const vfs::size_t requested =
-			str.length() * sizeof(std::string::value_type);
-		const vfs::size_t written = pFile->write(str.c_str(), requested);
-		return UtilsDataBoundaryModel::IsExactTransfer(requested, written);
+		return WriteFreshXmlStream(pFile, m_ssBuffer.str());
 	}
-	catch(vfs::Exception& ex)
+	catch(const std::exception& ex)
 	{
-		SGP_ERROR(ex.what());
-		return false;
+		ReportXmlWriteFailure(ex.what());
 	}
+	catch (...)
+	{
+		ReportXmlWriteFailure("Unknown XML stream staging failure");
+	}
+	return false;
 }
 
 std::string XMLWriter::indent()
@@ -145,7 +215,7 @@ void XMLWriter::addEscapedValue(vfs::String const& key,
 
 bool XMLWriter::isComplete() const
 {
-	return m_isValid && m_iIndentLevel == 0 && m_stOpenNodes.empty() &&
+	return m_isValid && m_ssBuffer.good() && m_iIndentLevel == 0 && m_stOpenNodes.empty() &&
 		m_stNextValAttributes.empty();
 }
 

@@ -27,7 +27,9 @@
 
 #include <vfs/Aspects/vfs_settings.h>
 
+#include <exception>
 #include <sys/stat.h>
+#include <type_traits>
 
 #define ERROR_FILE(msg)		(_BS(L"[") << this->getPath() << L"] - " << (msg) << _BS::wget)
 
@@ -126,7 +128,7 @@ vfs::TFile<WriteType>::TFile(vfs::Path const& filename)
 }
 
 template<typename WriteType>
-vfs::TFile<WriteType>::~TFile()
+vfs::TFile<WriteType>::~TFile() noexcept
 {
 	//VFS_LOCK(m_mutex);
 #ifndef WIN32
@@ -134,7 +136,12 @@ vfs::TFile<WriteType>::~TFile()
 #endif
 	if(m_isOpen_read)
 	{
-		this->close();
+		try { this->close(); }
+		catch(const std::exception& ex)
+		{
+			try { VFS_LOG_ERROR(ex.what()); } catch(...) {}
+		}
+		catch(...) {}
 	}
 }
 
@@ -143,9 +150,12 @@ void vfs::TFile<WriteType>::close()
 {
 	//VFS_LOCK(m_mutex);
 #ifdef WIN32
-	if(isValidFileHandle(m_file))
+	HANDLE file = m_file;
+	m_file = NULL;
+	m_isOpen_read = false;
+	if(isValidFileHandle(file))
 	{
-		if(!CloseHandle(m_file))
+		if(!CloseHandle(file))
 		{
 			DWORD err = GetLastError();
 			if(err != NO_ERROR)
@@ -154,22 +164,19 @@ void vfs::TFile<WriteType>::close()
 			}
 		}
 	}
-	m_file = NULL;
 #else
-	if(m_file)
+	FILE* file = m_file;
+	m_file = NULL;
+	m_isOpen_read = false;
+	if(file)
 	{
-		//clearerr(m_file);
-		fflush(m_file);
-		int error = fclose(m_file);
+		const int error = fclose(file);
 		if(error)
 		{
-			//const char* error_str = perror(error);
 			VFS_THROW( ERROR_FILE(_BS(L"Could not close file : ") << error << _BS::wget) );
 		}
-		m_file = NULL;
 	}
 #endif
-	m_isOpen_read = false;
 }
 
 template<typename WriteType>
@@ -208,6 +215,10 @@ bool vfs::TFile<WriteType>::_internalOpenRead(vfs::Path const& path)
 	//VFS_LOCK(m_mutex);
 	if( m_isOpen_read )
 		return true;
+	if constexpr (std::is_same_v<WriteType, vfs::IWritable>)
+	{
+		if(static_cast<vfs::IWritable*>(this)->isOpenWrite()) return false;
+	}
 #ifdef WIN32
 	m_file = vfs::Settings::getUseUnicode() ? 
 		CreateFileW(path.c_str(),GENERIC_READ,FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL) :
@@ -358,20 +369,25 @@ vfs::CFile::CFile(vfs::Path const& filename)
 {
 }
 
-vfs::CFile::~CFile()
+vfs::CFile::~CFile() noexcept
 {
 	//VFS_LOCK(m_mutex);
 	if(m_isOpen_read || m_isOpen_write)
 	{
-		this->close();
+		try { this->close(); }
+		catch(const std::exception& ex)
+		{
+			try { VFS_LOG_ERROR(ex.what()); } catch(...) {}
+		}
+		catch(...) {}
 	}
 }
 
 void vfs::CFile::close()
 {
 	//VFS_LOCK(m_mutex);
-	tBaseClass::close();
 	m_isOpen_write = false;
+	tBaseClass::close();
 }
 
 bool vfs::CFile::deleteFile()
@@ -392,6 +408,8 @@ bool vfs::CFile::_internalOpenWrite(vfs::Path const& path, bool createWhenNotExi
 	//VFS_LOCK(m_mutex);
 	if( m_isOpen_write )
 		return true;
+	if( m_isOpen_read )
+		return false;
 #ifdef WIN32
 	const DWORD Mode = truncate
 		? (createWhenNotExist ? CREATE_ALWAYS : TRUNCATE_EXISTING)
@@ -410,7 +428,17 @@ bool vfs::CFile::_internalOpenWrite(vfs::Path const& path, bool createWhenNotExi
 	return m_isOpen_write = true;
 #else
 	m_file = fopen(path.to_string().c_str(), "r+");
-	if( (!m_file && createWhenNotExist) || (m_file && truncate))
+	if(m_file && truncate)
+	{
+		FILE* existing = m_file;
+		m_file = NULL;
+		if(fclose(existing) != 0)
+		{
+			return m_isOpen_write = false;
+		}
+		m_file = fopen(path.to_string().c_str(), "w");
+	}
+	else if(!m_file && createWhenNotExist)
 	{
 		m_file = fopen(path.to_string().c_str(), "w");
 	}

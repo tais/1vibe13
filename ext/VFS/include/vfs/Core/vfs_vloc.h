@@ -41,13 +41,34 @@ namespace vfs
 	public:
 		typedef vfs::TIterator<CVirtualFile> Iterator;
 
+		class VFS_API PreparedFileEntry
+		{
+			friend class CVirtualLocation;
+		public:
+			PreparedFileEntry() noexcept;
+			~PreparedFileEntry() noexcept;
+			void commit() noexcept;
+			bool isActive() const noexcept;
+		private:
+			PreparedFileEntry(PreparedFileEntry const&);
+			void operator=(PreparedFileEntry const&);
+			void rollback() noexcept;
+
+			CVirtualLocation* m_owner;
+			tVFiles::iterator m_position;
+			CVirtualFile* m_previous;
+			CVirtualFile* m_prepared;
+			bool m_inserted;
+			bool m_active;
+		};
+
 		CVirtualLocation(vfs::Path const& sPath);
 		~CVirtualLocation();
 
 		const vfs::Path		cPath;
 
-		void				setIsExclusive(bool exclusive);
-		bool				getIsExclusive();
+		void				setIsExclusive(bool exclusive) noexcept;
+		bool				getIsExclusive() const noexcept;
 
 		void				addFile(vfs::IBaseFile* pile, vfs::String const& profileName);
 		void				addFile(vfs::IBaseFile* pile, vfs::String const& profileName, bool replaceExisting);
@@ -55,6 +76,10 @@ namespace vfs
 		vfs::CVirtualFile*	getVirtualFile(vfs::Path const& filename);
 
 		bool				removeFile(vfs::IBaseFile* file);
+		bool				prepareFileEntry(vfs::IBaseFile* file,
+							vfs::String const& profileName,
+							PreparedFileEntry& prepared);
+		bool				empty() const;
 		
 		Iterator			iterate();
 	private:

@@ -33,7 +33,7 @@ namespace vfs
 		typedef vfs::TLocationTemplate<vfs::IReadable,vfs::IWriteType> tBaseClass;
 	public:
 		ILibrary(vfs::tReadableFile *libraryFile, vfs::Path const& mountPoint, bool ownFile = false);
-		virtual ~ILibrary();
+		virtual ~ILibrary() noexcept;
 	
 		virtual bool		init() = 0;
 		virtual void		closeLibrary() = 0;

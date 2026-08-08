@@ -98,11 +98,11 @@ vfs::ILibrary::ILibrary(vfs::tReadableFile *libraryFile, vfs::Path const& mountP
 {
 }
 
-vfs::ILibrary::~ILibrary()
+vfs::ILibrary::~ILibrary() noexcept
 {
 	if(m_libraryFile && m_ownLibFile)
 	{
-		m_libraryFile->close();
+		try { m_libraryFile->close(); } catch(...) {}
 		delete m_libraryFile;
 		m_libraryFile = NULL;
 	}
