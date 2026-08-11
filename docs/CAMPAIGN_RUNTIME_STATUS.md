@@ -71,6 +71,18 @@ implementations are now common Laptop translation units, bringing the current
 partition to 84 common and 14 per-application variants without changing IMP
 profiles, saves, text records, or assets.
 
+Tactical meanwhile-scene follow-through now uses
+`CampaignApplicationPolicy::hasMeanwhileScenes()`. Arulco retains its exact
+dynamic-dialogue suppression, martial-artist idle suppression, Elliot/queen
+response, death-sound suppression, forced melee hit, and radar-map suppression
+while a meanwhile is active. UB retains the opposite no-meanwhile behavior,
+and every legacy `AreInMeanwhile()` probe introduced by this conversion is
+behind a left-hand capability gate, so these converted UB paths never evaluate
+Arulco-only scene state. All eight former `JA2UB` guards across
+`DynamicDialogue.cpp`, `Soldier Ani.cpp`, `Weapons.cpp`, and
+`Radar Screen.cpp` are gone without changing RNG, animation order, dialogue
+records, tactical saves, or artwork.
+
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
 products remain compatibility hosts with their established default campaign.
@@ -176,19 +188,18 @@ behavior remain unchanged.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 78 active conditionals in 30
+milestone its per-file baseline contains 70 active conditionals in 26
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 4 |
-| Tactical gameplay/content | 33 |
+| Tactical gameplay/content | 26 |
 | Strategic gameplay/content | 23 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 8 |
 | Editor | 1 |
 | Multiplayer | 1 |
-| Tile engine | 1 |
 
 The common content loader, tactical game-screen loop, helicopter arrival,
 underground loading-screen selection, XML campaign paths, dealer identity and
@@ -217,8 +228,11 @@ sentinel, and Arulco's surrender completion use
 no longer contribute six more. IMP pass validation and text fallback use
 `CampaignImpPolicy`; `Laptop/IMP HomePage.cpp` and
 `Laptop/IMP Text System.cpp` no longer contribute six more. All eleven policies
-are guarded by data-free tests, headless integration coverage, and named
-architecture checks. The seven remaining
+are guarded by data-free tests and named architecture checks, with headless
+integration coverage where host composition is involved. Tactical meanwhile
+behavior uses the application policy,
+so the four converted tactical/tile implementations no longer contribute
+eight more guards. The seven remaining
 `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
 implementations, product/build labels, and the legacy `GAME_SETTINGS` layout;

@@ -7,6 +7,8 @@
 #include "DynamicDialogue.h"
 #include "TacticalActorModifiers.h"
 #include "DynamicDialogueWidget.h"
+#include "CampaignApplicationPolicy.h"
+#include "GameContext.h"
 
 #include "SaveLoadGame.h"
 #include "GameVersion.h"
@@ -37,9 +39,7 @@
 #include "TacticalActorSkills.h"
 #include "TacticalActorDisease.h"
 
-#ifndef JA2UB
 #include "Meanwhile.h"
-#endif // !JA2UB
 
 
 // event id counter
@@ -955,14 +955,12 @@ BOOLEAN DynamicOpinionTacticalCharacterDialogue( DynamicOpinionSpeechEvent& aEve
 	if ( pSoldier->identity().profile() == NO_PROFILE )
 		return(FALSE);
 
-#if (defined JA2UB) 
-	//Ja25 no meanwhiles
-#else
-	if ( AreInMeanwhile( ) )
+	const CampaignApplicationPolicy campaignPolicy(
+		GetGameContext().capabilities());
+	if ( campaignPolicy.hasMeanwhileScenes() && AreInMeanwhile( ) )
 	{
 		return(FALSE);
 	}
-#endif
 
 	// let's see what happens...
 	if ( pSoldier->vitals().health() < OKLIFE )

@@ -1,5 +1,6 @@
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
+	#include "CampaignApplicationPolicy.h"
 	#include "TacticalActor.h"
 	#include "TacticalActorPendingActionTypes.h"
 	#include "Grid Direction.h"
@@ -60,6 +61,7 @@
 	#include "Morale.h"
 	#include "Meanwhile.h"
 	#include "GameSettings.h"
+	#include "GameContext.h"
 	#include "SaveLoadMap.h"
 	#include "Debug Control.h"
 	#include "expat.h"
@@ -4701,12 +4703,10 @@ BOOLEAN UseHandToHand( TacticalActor *pSoldier, INT32 sTargetGridNo, BOOLEAN fSt
 			}
 
 			// WDS 07/19/2008 - Random number use fix
-#ifdef JA2UB
-//Ja25 no meanwhiles
-	        if ( iDiceRoll < iHitChance )
-#else
-			if ( iDiceRoll < iHitChance || AreInMeanwhile( ) )
-#endif
+			const CampaignApplicationPolicy campaignPolicy(
+				GetGameContext().capabilities());
+			if ( iDiceRoll < iHitChance ||
+				( campaignPolicy.hasMeanwhileScenes() && AreInMeanwhile( ) ) )
 			{
 				// CALCULATE DAMAGE!
 				iImpact = HTHImpact( pSoldier, pTargetSoldier, (iHitChance - iDiceRoll), FALSE );

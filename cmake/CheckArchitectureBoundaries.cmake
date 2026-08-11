@@ -979,6 +979,192 @@ foreach(required_campaign_policy_assertion IN ITEMS
   endif()
 endforeach()
 
+# Tactical dialogue, animation, melee, and radar meanwhile behavior follows the
+# live application capability. The former eight JA2UB guards must stay retired,
+# and every converted legacy scene probe must remain behind the campaign gate.
+string(REGEX REPLACE "#[^\r\n]*" ""
+  runtime_campaign_meanwhile_test_build_executable
+  "${runtime_campaign_policy_test_build_contents}")
+foreach(required_campaign_meanwhile_test_manifest_fragment IN ITEMS
+    "add_executable(campaign_meanwhile_policy_tests"
+    "campaign_meanwhile_policy_tests.cpp"
+    "add_test(NAME campaign_meanwhile_policy COMMAND campaign_meanwhile_policy_tests)")
+  string(FIND "${runtime_campaign_meanwhile_test_build_executable}"
+    "${required_campaign_meanwhile_test_manifest_fragment}"
+    required_campaign_meanwhile_test_manifest_position)
+  if(required_campaign_meanwhile_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign meanwhile policy lost its data-free truth-table target")
+  endif()
+endforeach()
+string(REGEX REPLACE "#[^\r\n]*" ""
+  runtime_campaign_meanwhile_ci_executable
+  "${runtime_campaign_policy_ci_contents}")
+if(NOT runtime_campaign_meanwhile_ci_executable MATCHES
+    "cmake --build build --target[^\r\n]*campaign_meanwhile_policy_tests")
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the runtime campaign meanwhile policy target")
+endif()
+
+function(read_campaign_meanwhile_executable relative_source output_variable)
+  file(READ "${SOURCE_ROOT}/${relative_source}"
+    runtime_campaign_meanwhile_source_contents)
+  # Ignore documentation while retaining legacy `//*` line comments; the
+  # latter must not be mistaken for an unterminated block comment.
+  string(REGEX REPLACE "(^|[^/])/\\*([^*]|\\*+[^*/])*\\*+/" "\\1"
+    runtime_campaign_meanwhile_source_contents
+    "${runtime_campaign_meanwhile_source_contents}")
+  string(REGEX REPLACE "//[^\r\n]*" ""
+    runtime_campaign_meanwhile_source_executable
+    "${runtime_campaign_meanwhile_source_contents}")
+  set(${output_variable} "${runtime_campaign_meanwhile_source_executable}"
+    PARENT_SCOPE)
+endfunction()
+
+foreach(runtime_campaign_meanwhile_source_spec IN ITEMS
+    "Tactical/DynamicDialogue.cpp|1|1"
+    "Tactical/Soldier Ani.cpp|2|3"
+    "Tactical/Weapons.cpp|1|4"
+    "TileEngine/Radar Screen.cpp|1|2")
+  string(REPLACE "|" ";" runtime_campaign_meanwhile_source_parts
+    "${runtime_campaign_meanwhile_source_spec}")
+  list(GET runtime_campaign_meanwhile_source_parts 0
+    runtime_campaign_meanwhile_source)
+  list(GET runtime_campaign_meanwhile_source_parts 1
+    expected_campaign_meanwhile_policy_count)
+  list(GET runtime_campaign_meanwhile_source_parts 2
+    expected_campaign_meanwhile_probe_count)
+  read_campaign_meanwhile_executable(
+    "${runtime_campaign_meanwhile_source}"
+    runtime_campaign_meanwhile_source_executable)
+  string(REGEX REPLACE "[ \t\r\n]+" " "
+    runtime_campaign_meanwhile_source_normalized
+    "${runtime_campaign_meanwhile_source_executable}")
+  foreach(required_campaign_meanwhile_common_fragment IN ITEMS
+      "#include \"CampaignApplicationPolicy.h\""
+      "CampaignApplicationPolicy campaignPolicy( GetGameContext().capabilities());"
+      "campaignPolicy.hasMeanwhileScenes()")
+    string(FIND "${runtime_campaign_meanwhile_source_normalized}"
+      "${required_campaign_meanwhile_common_fragment}"
+      required_campaign_meanwhile_common_position)
+    if(required_campaign_meanwhile_common_position EQUAL -1)
+      message(FATAL_ERROR
+        "Runtime meanwhile integration lost '${required_campaign_meanwhile_common_fragment}' in ${runtime_campaign_meanwhile_source}")
+    endif()
+  endforeach()
+  string(REGEX MATCH
+      "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB"
+    retired_campaign_meanwhile_guard
+    "${runtime_campaign_meanwhile_source_executable}")
+  if(retired_campaign_meanwhile_guard)
+    message(FATAL_ERROR
+      "Tactical meanwhile behavior regained compiled JA2UB identity in ${runtime_campaign_meanwhile_source}")
+  endif()
+
+  string(REGEX MATCHALL
+    "CampaignApplicationPolicy campaignPolicy\\( GetGameContext\\(\\)\\.capabilities\\(\\)\\)"
+    runtime_campaign_meanwhile_policy_constructions
+    "${runtime_campaign_meanwhile_source_normalized}")
+  list(LENGTH runtime_campaign_meanwhile_policy_constructions
+    runtime_campaign_meanwhile_policy_count)
+  if(NOT runtime_campaign_meanwhile_policy_count EQUAL
+      expected_campaign_meanwhile_policy_count)
+    message(FATAL_ERROR
+      "${runtime_campaign_meanwhile_source} must source exactly ${expected_campaign_meanwhile_policy_count} meanwhile policy instance(s) from the immutable GameContext capability")
+  endif()
+
+  string(REGEX MATCHALL
+    "(^|[^A-Za-z0-9_])AreInMeanwhile[ \t\r\n]*\\("
+    runtime_campaign_meanwhile_probes
+    "${runtime_campaign_meanwhile_source_executable}")
+  list(LENGTH runtime_campaign_meanwhile_probes
+    runtime_campaign_meanwhile_probe_count)
+  if(NOT runtime_campaign_meanwhile_probe_count EQUAL
+      expected_campaign_meanwhile_probe_count)
+    message(FATAL_ERROR
+      "${runtime_campaign_meanwhile_source} changed its active meanwhile-probe inventory; preserve the converted gates or review the new call explicitly")
+  endif()
+endforeach()
+
+read_campaign_meanwhile_executable("Tactical/DynamicDialogue.cpp"
+  runtime_campaign_meanwhile_dialogue_contents)
+read_campaign_meanwhile_executable("Tactical/Soldier Ani.cpp"
+  runtime_campaign_meanwhile_animation_contents)
+read_campaign_meanwhile_executable("Tactical/Weapons.cpp"
+  runtime_campaign_meanwhile_weapons_contents)
+read_campaign_meanwhile_executable("TileEngine/Radar Screen.cpp"
+  runtime_campaign_meanwhile_radar_contents)
+foreach(runtime_campaign_meanwhile_code IN ITEMS
+    dialogue animation weapons radar)
+  string(REGEX REPLACE "[ \t\r\n]+" " "
+    runtime_campaign_meanwhile_${runtime_campaign_meanwhile_code}_contents
+    "${runtime_campaign_meanwhile_${runtime_campaign_meanwhile_code}_contents}")
+endforeach()
+foreach(required_campaign_meanwhile_dialogue_fragment IN ITEMS
+    "CampaignApplicationPolicy campaignPolicy( GetGameContext().capabilities());"
+    "if ( campaignPolicy.hasMeanwhileScenes() && AreInMeanwhile( ) )")
+  string(FIND "${runtime_campaign_meanwhile_dialogue_contents}"
+    "${required_campaign_meanwhile_dialogue_fragment}"
+    required_campaign_meanwhile_dialogue_position)
+  if(required_campaign_meanwhile_dialogue_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime dynamic-dialogue meanwhile gate lost '${required_campaign_meanwhile_dialogue_fragment}'")
+  endif()
+endforeach()
+foreach(required_campaign_meanwhile_animation_fragment IN ITEMS
+    "if ( fMartialArtist && ( !campaignPolicy.hasMeanwhileScenes() || !AreInMeanwhile( ) ) )"
+    "if ( campaignPolicy.hasMeanwhileScenes() && AreInMeanwhile( ) )"
+    "if ( !campaignPolicy.hasMeanwhileScenes() || !AreInMeanwhile() )")
+  string(FIND "${runtime_campaign_meanwhile_animation_contents}"
+    "${required_campaign_meanwhile_animation_fragment}"
+    required_campaign_meanwhile_animation_position)
+  if(required_campaign_meanwhile_animation_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime animation meanwhile gate lost '${required_campaign_meanwhile_animation_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_meanwhile_weapons_contents}"
+  "if ( iDiceRoll < iHitChance || ( campaignPolicy.hasMeanwhileScenes() && AreInMeanwhile( ) ) )"
+  required_campaign_meanwhile_weapons_position)
+if(required_campaign_meanwhile_weapons_position EQUAL -1)
+  message(FATAL_ERROR
+    "Runtime melee meanwhile forced-hit gate lost its left-hand campaign policy")
+endif()
+string(FIND "${runtime_campaign_meanwhile_radar_contents}"
+  "if( campaignPolicy.hasMeanwhileScenes() && AreInMeanwhile( ) == TRUE )"
+  required_campaign_meanwhile_radar_position)
+if(required_campaign_meanwhile_radar_position EQUAL -1)
+  message(FATAL_ERROR
+    "Runtime radar meanwhile suppression lost its left-hand campaign policy")
+endif()
+
+read_campaign_meanwhile_executable("tests/campaign_meanwhile_policy_tests.cpp"
+  runtime_campaign_meanwhile_policy_test_contents)
+foreach(required_campaign_meanwhile_policy_test_fragment IN ITEMS
+    "Arulco editor retains the Arulco meanwhile policy"
+    "UB editor retains the no-meanwhile policy"
+    "Arulco follows the live meanwhile state exactly"
+    "Converted UB scene gate never queries Arulco's meanwhile state"
+    "Arulco suppresses the martial-artist idle only in a meanwhile"
+    "Arulco martial idle preserves its left-hand short circuit"
+    "UB martial idle never reads meanwhile state"
+    "Arulco allows dialogue and death sounds outside a meanwhile"
+    "UB dialogue and death sounds never read meanwhile state"
+    "Arulco queen response and radar suppression follow the meanwhile"
+    "UB queen response and radar never read meanwhile state"
+    "Arulco meanwhile melee preserves its forced-hit rule"
+    "Arulco melee preserves the ordinary-hit short circuit"
+    "UB melee follows only the ordinary hit roll"
+    "UB melee never reads meanwhile state")
+  string(FIND "${runtime_campaign_meanwhile_policy_test_contents}"
+    "${required_campaign_meanwhile_policy_test_fragment}"
+    required_campaign_meanwhile_policy_test_position)
+  if(required_campaign_meanwhile_policy_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime campaign meanwhile truth table lost '${required_campaign_meanwhile_policy_test_fragment}'")
+  endif()
+endforeach()
+
 # Door forcing and tunnel feedback are campaign content selected from the live
 # capability set. Both behavior paths must remain compiled in the shared
 # tactical source, and the eight retired JA2UB guards must not return.
@@ -1441,6 +1627,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "campaign_door_policy_tests"
     "campaign_imp_policy_tests"
     "campaign_map_screen_policy_tests"
+    "campaign_meanwhile_policy_tests"
     "campaign_mercenary_policy_tests"
     "laptop_communications_policy_tests")
   string(FIND "${runtime_campaign_policy_ci_contents}"
@@ -1454,19 +1641,24 @@ endforeach()
 
 file(READ "${SOURCE_ROOT}/docs/CAMPAIGN_RUNTIME_STATUS.md"
   runtime_campaign_status_contents)
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_status_normalized
+  "${runtime_campaign_status_contents}")
 foreach(required_campaign_status_fragment IN ITEMS
-    "78 active conditionals in 30"
+    "70 active conditionals in 26"
     "Laptop content/pages | 4"
-    "Tactical gameplay/content | 33"
+    "Tactical gameplay/content | 26"
     "Strategic gameplay/content | 23"
     "CampaignDoorPolicy"
     "CampaignCivilianQuotePolicy"
     "CampaignImpPolicy"
     "CampaignMapScreenPolicy"
+    "Tactical meanwhile-scene follow-through"
+    "All eight former `JA2UB` guards across `DynamicDialogue.cpp`"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
     "All eleven policies")
-  string(FIND "${runtime_campaign_status_contents}"
+  string(FIND "${runtime_campaign_status_normalized}"
     "${required_campaign_status_fragment}"
     required_campaign_status_position)
   if(required_campaign_status_position EQUAL -1)
@@ -1476,6 +1668,9 @@ foreach(required_campaign_status_fragment IN ITEMS
 endforeach()
 file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
   runtime_campaign_architecture_contents)
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_campaign_architecture_normalized
+  "${runtime_campaign_architecture_contents}")
 foreach(required_campaign_architecture_fragment IN ITEMS
     "Civilian tactical dialogue now selects through the value-only"
     "All six"
@@ -1484,11 +1679,14 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "84-common/14-variant Laptop partition"
     "Tactical door behavior now selects through the value-only"
     "The strategic map screen now selects campaign behavior"
+    "Tactical meanwhile-scene follow-through now uses the same value-only"
+    "every converted"
+    "`AreInMeanwhile()` call behind a left-hand `hasMeanwhileScenes()` gate"
     "All five former guards in `Interface.cpp`"
     "All four former guards in `Assignments.cpp`"
     "nine former guards across the"
     "four shell implementations and map header")
-  string(FIND "${runtime_campaign_architecture_contents}"
+  string(FIND "${runtime_campaign_architecture_normalized}"
     "${required_campaign_architecture_fragment}"
     required_campaign_architecture_position)
   if(required_campaign_architecture_position EQUAL -1)

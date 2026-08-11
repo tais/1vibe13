@@ -1053,6 +1053,18 @@ the engine must not contain SDL types in its public domain model.
   `JA2UB` or raw campaign-colliding dealer aliases. This changes no data
   filename, raw item/dealer record, loading-screen ID, save record, map, XML,
   Lua, or package format.
+- Tactical meanwhile-scene follow-through now uses the same value-only
+  `CampaignApplicationPolicy`. Arulco keeps dynamic-dialogue and martial-idle
+  suppression, the Elliot/queen response, death-sound suppression, forced
+  melee hits, and radar-map suppression while its scene state is active. UB
+  keeps the exact no-meanwhile alternatives, with every converted
+  `AreInMeanwhile()` call behind a left-hand `hasMeanwhileScenes()` gate.
+  All eight former `JA2UB` guards across `DynamicDialogue.cpp`,
+  `Soldier Ani.cpp`, `Weapons.cpp`, and `Radar Screen.cpp` are gone.
+  Dependency-free truth tables pin both campaign paths and probe gating;
+  architecture CI prevents the guards or ungated converted calls from
+  returning. RNG, animation and dialogue order, records, saves, and artwork
+  remain unchanged.
 - Tactical door behavior now selects through the value-only
   `CampaignDoorPolicy`. The common implementation preserves Arulco's
   boot-door AP charge, ordinary force attempt, and failed-unlock curse
