@@ -12737,6 +12737,88 @@ if(NOT tactical_actor_save_baseline)
     "The layout-free TacticalActor schema must remain a deliberate save baseline")
 endif()
 
+# Portable save bytes need executable proof on every shipped host, independent
+# of VFS initialization or installed game data. The representative schemas are
+# production field lists rather than copies maintained only by the test.
+file(READ "${SOURCE_ROOT}/tests/save_serializer_golden_tests.cpp"
+  save_serializer_golden_test_contents)
+file(READ "${SOURCE_ROOT}/docs/SAVE_FORMAT.md"
+  save_serializer_format_document_contents)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  save_serializer_ci_contents)
+foreach(required_save_schema_fragment IN ITEMS
+    "XferSaveGameHeaderFields"
+    "XferPathNodeFields")
+  string(FIND "${tactical_actor_persistence_header_contents}"
+    "${required_save_schema_fragment}" required_save_schema_header_position)
+  string(FIND "${tactical_actor_persistence_source_contents}"
+    "${required_save_schema_fragment}" required_save_schema_source_position)
+  if(required_save_schema_header_position EQUAL -1 OR
+     required_save_schema_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Portable save production schema lost '${required_save_schema_fragment}'")
+  endif()
+endforeach()
+foreach(required_save_golden_fragment IN ITEMS
+    "writer.u8(0xA5u)"
+    "writer.u16(0x1234u)"
+    "writer.u32(0x89ABCDEFu)"
+    "writer.u64(UINT64_C(0x0123456789ABCDEF))"
+    "writer.i8(std::numeric_limits<INT8>::min())"
+    "writer.i16(std::numeric_limits<INT16>::min())"
+    "writer.i32(std::numeric_limits<INT32>::min())"
+    "writer.i64(std::numeric_limits<INT64>::min())"
+    "writer.f32(-13.25f)"
+    "writer.f64(-2.5)"
+    "writer.boolean(FALSE)"
+    "writer.wstr(wide, 4)"
+    "writer.str8(narrow, 5)"
+    "writer.bytes(opaque, 4)"
+    "writer.skip(3)"
+    "ar.slong(fixture.legacyLong)"
+    "ar.ptr(fixture.runtimePointer)"
+    "every SaveSerializer primitive has exact little-endian golden bytes"
+    "non-ASCII wstr uses fixed 16-bit code units"
+    "production save-header and path-node visitors match canonical bytes"
+    "canonical save fixture is emitted and consumed without installed game data")
+  string(FIND "${save_serializer_golden_test_contents}"
+    "${required_save_golden_fragment}" required_save_golden_position)
+  if(required_save_golden_position EQUAL -1)
+    message(FATAL_ERROR
+      "Portable save golden coverage lost '${required_save_golden_fragment}'")
+  endif()
+endforeach()
+foreach(required_save_golden_build_fragment IN ITEMS
+    "add_executable(save_serializer_golden_tests"
+    "sgp/SaveSerializer.cpp"
+    "add_test(NAME save_serializer_golden COMMAND save_serializer_golden_tests)")
+  string(FIND "${tactical_test_build_contents}"
+    "${required_save_golden_build_fragment}"
+    required_save_golden_build_position)
+  if(required_save_golden_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Portable save golden target lost '${required_save_golden_build_fragment}'")
+  endif()
+endforeach()
+string(FIND "${save_serializer_ci_contents}"
+  "save_serializer_golden_tests" save_serializer_asan_ci_position)
+if(save_serializer_asan_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "Portable save golden target is no longer built by sanitizer CI")
+endif()
+foreach(required_save_document_fragment IN ITEMS
+    "This was a portability audit"
+    "not a wholesale serializer"
+    "That golden fixture proves deterministic schema bytes"
+    "campaign-state reconstruction remains a separate playtest obligation")
+  string(FIND "${save_serializer_format_document_contents}"
+    "${required_save_document_fragment}" required_save_document_position)
+  if(required_save_document_position EQUAL -1)
+    message(FATAL_ERROR
+      "Portable save verification scope lost '${required_save_document_fragment}'")
+  endif()
+endforeach()
+
 string(FIND "${tactical_actor_map_writer_contents}"
   "uiSoldierSize = 0;"
   layout_free_map_actor_marker)

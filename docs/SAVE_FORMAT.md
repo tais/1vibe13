@@ -206,27 +206,40 @@ on every platform, which also makes saves shareable across Win/Lin/Mac.
   which only persisted garbage pointer values). `signed long` pinned to 32-bit
   via `ar.slong`; `SoldierID` via its UINT16 `.i`. Builds on
   JA2/JA2UB/MAPEDITOR.
-- ☐ Audit the **rest of the save stream** in `SaveLoadGame.cpp` and the other
-  save modules (`Tactical Save`, strategic/laptop/finance/history/email/quest
-  blobs, sector data) for bare `int`/`long`/`enum`/`BOOLEAN` and raw struct
-  blobs written via direct `FileWrite`/`FileRead`. The wide-char-bearing
-  structs (the portability priority) are now all migrated; this is the
-  remaining breadth.
-- ☑ Gate the loader at `PORTABLE_SAVE_FORMAT` / save version 1002 so older
+- ☑ Audit the **rest of the save stream** in `SaveLoadGame.cpp` and the other
+  save modules. This was a portability audit, not a wholesale serializer
+  rewrite: records made only of fixed-width scalars were proven ABI-stable and
+  deliberately retain their established raw bytes, while every record carrying
+  a pointer, `long`, or `CHAR16` breaker was migrated or handled explicitly.
+  The complete classification is recorded under [Cross-platform parity](#cross-platform-parity-done).
+- ☑ Gate the loader at `PORTABLE_SAVE_FORMAT` / save version 1003 so older
   layouts fail before format-dependent reads.
-- ☐ Add direct primitive/struct golden-byte coverage and cross-check a complete
-  save round trip between macOS, Windows, and Linux.
+- ☑ Add direct golden-byte coverage for every `SaveSerializer` primitive,
+  signed edges, floating bit patterns, `str8`, non-ASCII `wstr`, the shared
+  field visitors, and representative production header/path schemas. A
+  canonical four-section, data-free fixture is emitted and consumed in the
+  Windows/macOS/Linux matrix and Linux ASan job.
+- ☐ Cross-check an actual complete campaign save produced and loaded by each
+  platform. This is runtime/playtest verification, separate from the now
+  deterministic byte-schema proof.
 
 ### Verification
 
-The test framework now covers the engine-owned outer container and its
-application transaction: section round trips, bounds, corruption, exact runtime
-matching, package contracts, staged restore, and incomplete-save cleanup run in
-engine-core and headless tests. Full domain serialization is still verified by
-**playtesting** (save → quit → reload). Direct serializer round-trip and
-golden-byte tests for every primitive, including non-ASCII `wstr`, remain useful
-follow-up work to prove cross-platform domain parity rather than infer it from
-the shared implementation.
+The test framework covers the engine-owned outer container and its application
+transaction: section round trips, bounds, corruption, exact runtime matching,
+package contracts, staged restore, and incomplete-save cleanup run in
+engine-core and headless tests. `save_serializer_golden_tests` adds the inner
+byte-schema proof: literal little-endian bytes for every primitive and signed
+edge, floating bit patterns, fixed and non-ASCII strings, visitor-only pointer
+semantics, and the production `SAVED_GAME_HEADER`/`PathSt` field lists. It seals
+those into one canonical four-section fixture and reads it back entirely in
+memory, without installed game data.
+
+That golden fixture proves deterministic schema bytes; it does **not** pretend
+to exercise every live subsystem that contributes to a real campaign save.
+Full-domain serialization and reconstruction still require **runtime
+playtesting** (save → quit → reload), followed by exchanging a complete
+save among Windows, macOS, and Linux.
 
 **Status (macOS playtest):** a save written by the migrated build loads
 end-to-end into the strategic view — soldiers (incl. inventory), merc profiles,
@@ -310,6 +323,9 @@ There is no separate schema file — the layout *is* the per-struct field list:
 
 - Item/object chain, tactical actors, profiles, and dealer/militia leaves:
   `Ja2/SaveLoadGame.cpp` (`Xfer*` templates plus explicit save/load functions).
+  The representative save-header and strategic-path field lists live beside
+  their public records in `Ja2/SaveLoadGame.h`, so the data-free golden target
+  instantiates the production schema rather than a copied test schema.
 - `MILITIA`: `Strategic/MilitiaIndividual.cpp`.
 - Serializer + visitor adapters: `sgp/SaveSerializer.{h,cpp}`.
 
@@ -325,8 +341,7 @@ layout, compatibility tail, and v101 conversion record.) `LoadSavedGame`
 **rejects any save below the current `PORTABLE_SAVE_FORMAT`** up front
 (before any format-dependent read), so pre-migration saves fail cleanly instead of
 mis-reading old bytes as v2. `uiSavedGameVersion` is the first field in the file,
-so the gate reads correctly regardless of the rest of the (not-yet-portable)
-header layout.
+so the gate is available before any version-dependent domain payload is read.
 
 ---
 
@@ -353,11 +368,12 @@ build actually exercises the code.
 
 ---
 
-## Save-stream audit (remaining serialization beyond the migrated structs)
+## Save-stream audit (retained serialization beyond the migrated structs)
 
 The structs migrated to v2 (soldiers/profiles/items/etc.) are the bulk of save
-data and the wide-char-heavy part. The **rest** of the save stream is still a mix
-of ad-hoc length-prefixed strings and raw struct blobs. Audited in two buckets:
+data and the wide-char-heavy part. The **rest** of the save stream deliberately
+retains a mix of ad-hoc length-prefixed strings and ABI-stable raw struct blobs.
+It was audited in two buckets:
 
 ### Same-platform crash / corruption risks (priority — these actually bite)
 
@@ -436,8 +452,9 @@ underflowing the cutoff. No save-version or on-disk layout change is required.
 
 `signed long` fields (e.g. TacticalActor's `lUnregainableBreath`) are pinned to
 32-bit (`ar.slong`). Same-platform saves were always fine; this pass makes saves
-**shareable across Win/Lin/Mac**. Verification remains by playtest until a test
-framework lands (golden-byte cross-platform tests are the ideal coverage).
+**shareable across Win/Lin/Mac**. The golden test now pins `slong` and every
+other serializer operation to exact bytes across the platform matrix. Actual
+campaign-state reconstruction remains a separate playtest obligation.
 
 ---
 

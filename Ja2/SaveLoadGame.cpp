@@ -2578,43 +2578,11 @@ BOOLEAN InitSaveDir()
 	return TRUE;
 }
 
-// --- Portable (save-format v2) serialization of the save-game header. ---
-// The header is the first thing in the file and is read before the version is
-// known (the save/load screen reads every slot's header), so its portable form
-// is unconditional rather than version-gated. CHAR16 description via wstr; the
-// embedded GAME_OPTIONS is scalar-only so it stays a byte block; the legacy
-// ubFiller is preserved as reserved headroom.
-template<class Ar> static void XferSaveGameHeader( Ar& ar, SAVED_GAME_HEADER& h )
-{
-	ar.u32 (h.uiSavedGameVersion);
-	ar.str8(h.zGameVersionNumber, GAME_VERSION_LENGTH);
-	ar.wstr(h.sSavedGameDesc, SIZE_OF_SAVE_GAME_DESC);
-	ar.u32 (h.uiFlags);
-#ifdef CRIPPLED_VERSION
-	ar.bytes(h.ubCrippleFiller, sizeof(h.ubCrippleFiller));
-#endif
-	ar.u32 (h.uiDay);
-	ar.u8  (h.ubHour);
-	ar.u8  (h.ubMin);
-	ar.i16 (h.sSectorX);
-	ar.i16 (h.sSectorY);
-	ar.i8  (h.bSectorZ);
-	ar.u16 (h.ubNumOfMercsOnPlayersTeam);
-	ar.i32 (h.iCurrentBalance);
-	ar.u32 (h.uiCurrentScreen);
-	ar.boolean(h.fAlternateSector);
-	ar.boolean(h.fWorldLoaded);
-	ar.u8  (h.ubLoadScreenID);
-	ar.bytes(&h.sInitialGameOptions, sizeof(GAME_OPTIONS)); // scalar-only -> portable
-	ar.u32 (h.uiRandom);
-	ar.bytes(h.ubFiller, sizeof(h.ubFiller));               // reserved headroom
-}
-
 BOOLEAN SaveSaveGameHeaderToFile( HWFILE hFile, SAVED_GAME_HEADER& h )
 {
 	SaveWriter w(hFile);
 	SaveFieldWriter ar(w);
-	XferSaveGameHeader(ar, h);
+	XferSaveGameHeaderFields(ar, h);
 	return w.good() ? TRUE : FALSE;
 }
 
@@ -2622,7 +2590,7 @@ BOOLEAN LoadSaveGameHeaderFromFile( HWFILE hFile, SAVED_GAME_HEADER& h )
 {
 	SaveReader r(hFile);
 	SaveFieldReader ar(r);
-	XferSaveGameHeader(ar, h);
+	XferSaveGameHeaderFields(ar, h);
 	return r.good() ? TRUE : FALSE;
 }
 
@@ -2633,18 +2601,16 @@ BOOLEAN LoadSaveGameHeaderFromFile( HWFILE hFile, SAVED_GAME_HEADER& h )
 BOOLEAN SavePathNodeToFile( HWFILE hFile, PathSt* p )
 {
 	SaveWriter w(hFile);
-	w.u32(p->uiSectorId);
-	w.u32(p->uiEta);
-	BOOLEAN fSpeed = p->fSpeed; w.boolean(fSpeed);
+	SaveFieldWriter ar(w);
+	XferPathNodeFields(ar, *p);
 	return w.good() ? TRUE : FALSE;
 }
 
 BOOLEAN LoadPathNodeFromFile( HWFILE hFile, PathSt* p )
 {
 	SaveReader r(hFile);
-	p->uiSectorId = r.u32();
-	p->uiEta      = r.u32();
-	p->fSpeed     = r.boolean();
+	SaveFieldReader ar(r);
+	XferPathNodeFields(ar, *p);
 	return r.good() ? TRUE : FALSE;
 }
 

@@ -15,6 +15,20 @@ add_executable(engine_core_tests engine_core_tests.cpp)
 target_link_libraries(engine_core_tests PRIVATE JA2::EngineCore)
 add_test(NAME engine_core COMMAND engine_core_tests)
 
+# The legacy domain serializer still talks through HWFILE, but its byte schema
+# is data-free. Compile the production serializer against a tiny in-memory
+# FileMan surface and pin primitives plus representative production visitors to
+# one canonical fixture on Windows, macOS, Linux, and the sanitizer job.
+add_executable(save_serializer_golden_tests
+  save_serializer_golden_tests.cpp
+  ${CMAKE_SOURCE_DIR}/sgp/SaveSerializer.cpp)
+target_include_directories(save_serializer_golden_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/Ja2
+  ${CMAKE_SOURCE_DIR}/Strategic
+  ${CMAKE_SOURCE_DIR}/sgp)
+add_test(NAME save_serializer_golden COMMAND save_serializer_golden_tests)
+
 # Packed VK configuration and frame-owned legacy scheduling are dependency-free
 # models. This target prevents either from regaining SDL, Win32, or game-global
 # dependencies while exercising aliases, injected input, debt, and discontinuities.
