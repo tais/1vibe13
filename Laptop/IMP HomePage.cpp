@@ -23,11 +23,10 @@
 	// WDS - make number of mercenaries, etc. be configurable
 	#include "Squads.h"
 	#include "Overhead.h"		// added by Flugente for OUR_TEAM_SIZE_NO_VEHICLE
-
-#ifdef JA2UB
-#include "ub_config.h"
-#endif
+#include "CampaignImpPolicy.h"
+#include "GameContext.h"
 #include "ImpPageResourceOwner.h"
+#include "ub_config.h"
 
 void GetPlayerKeyBoardInputForIMPHomePage( void );
 void DisplayPlayerActivationString( void );
@@ -387,12 +386,30 @@ void ProcessPlayerInputActivationString( void )
 	{
 		freeMercSlot = FALSE;
 	}
-#ifdef JA2UB
-	if( ( ( gGameUBOptions.LaptopIMPPassJA2 == TRUE && wcscmp(pPlayerActivationString, L"XEP624") == 0 ) || ( gGameUBOptions.LaptopIMPPassJA2 == TRUE && wcscmp(pPlayerActivationString, L"xep624") == 0 ) ) || ( ( gGameUBOptions.LaptopIMPPassUB == TRUE && wcscmp(pPlayerActivationString, L"GP97SL") == 0 ) || ( gGameUBOptions.LaptopIMPPassUB == TRUE && wcscmp(pPlayerActivationString, L"gp97sl") == 0 ) ) && ( LaptopSaveInfo.gfNewGameLaptop < 2 ) )
-#else
-	//Madd multiple imps if( ( ( wcscmp(pPlayerActivationString, L"XEP624") == 0 ) || ( wcscmp(pPlayerActivationString, L"xep624") == 0 ) )&&( LaptopSaveInfo.fIMPCompletedFlag == FALSE ) &&( LaptopSaveInfo.gfNewGameLaptop < 2 ) )
-	if( ( ( wcscmp(pPlayerActivationString, L"XEP624") == 0 ) || ( wcscmp(pPlayerActivationString, L"xep624") == 0 ) ) &&( LaptopSaveInfo.gfNewGameLaptop < 2 ) )
-#endif
+	const CampaignImpPolicy impPolicy(GetGameContext().capabilities());
+	const bool matchesJa2Pass =
+		wcscmp(pPlayerActivationString, L"XEP624") == 0 ||
+		wcscmp(pPlayerActivationString, L"xep624") == 0;
+	const bool matchesUnfinishedBusinessPass =
+		wcscmp(pPlayerActivationString, L"GP97SL") == 0 ||
+		wcscmp(pPlayerActivationString, L"gp97sl") == 0;
+	bool ja2PassEnabled = false;
+	bool unfinishedBusinessPassEnabled = false;
+	if (impPolicy.usesUnfinishedBusinessImpRules())
+	{
+		ja2PassEnabled = gGameUBOptions.LaptopIMPPassJA2 == TRUE;
+		unfinishedBusinessPassEnabled =
+			gGameUBOptions.LaptopIMPPassUB == TRUE;
+	}
+	const CampaignImpPolicy::ActivationDecision activationDecision =
+		impPolicy.classifyActivation(
+			matchesJa2Pass,
+			matchesUnfinishedBusinessPass,
+			LaptopSaveInfo.gfNewGameLaptop,
+			ja2PassEnabled,
+			unfinishedBusinessPassEnabled);
+	if (activationDecision ==
+		CampaignImpPolicy::ActivationDecision::Authorized)
 	{
 		// WANNE: Check total number of hired mercs
 		if( freeMercSlot == FALSE )
@@ -474,11 +491,8 @@ void ProcessPlayerInputActivationString( void )
 	}
 	else
 	{
-#ifdef JA2UB
-		if( ( ( gGameUBOptions.LaptopIMPPassJA2 == TRUE && wcscmp(pPlayerActivationString, L"XEP624") != 0 ) && ( gGameUBOptions.LaptopIMPPassJA2 == TRUE && wcscmp(pPlayerActivationString, L"xep624") != 0 ) ) || ( ( gGameUBOptions.LaptopIMPPassUB == TRUE && wcscmp(pPlayerActivationString, L"GP97SL") != 0 ) && ( gGameUBOptions.LaptopIMPPassUB == TRUE && wcscmp(pPlayerActivationString, L"gp97sl") != 0 ) ) )
-#else
-		if( ( ( wcscmp(pPlayerActivationString, L"XEP624") != 0 ) && ( wcscmp(pPlayerActivationString, L"xep624") != 0 ) ) )
-#endif
+		if (activationDecision ==
+			CampaignImpPolicy::ActivationDecision::Invalid)
 		{
 			DoLapTopMessageBox( MSG_BOX_IMP_STYLE, pImpPopUpStrings[ 0 ], LAPTOP_SCREEN, MSG_BOX_FLAG_OK, NULL);
 		}

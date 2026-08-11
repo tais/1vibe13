@@ -1256,6 +1256,7 @@ file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
 foreach(required_campaign_follow_through_headless_fragment IN ITEMS
     "#include \"CampaignCivilianQuotePolicy.h\""
     "#include \"CampaignDoorPolicy.h\""
+    "#include \"CampaignImpPolicy.h\""
     "#include \"CampaignLaptopCommunicationsPolicy.h\""
     "#include \"CampaignMapScreenPolicy.h\""
     "#include \"CampaignMercenaryPolicy.h\""
@@ -1273,6 +1274,7 @@ foreach(required_campaign_follow_through_ci_target IN ITEMS
     "ja2_headless_tests"
     "campaign_civilian_quote_policy_tests"
     "campaign_door_policy_tests"
+    "campaign_imp_policy_tests"
     "campaign_map_screen_policy_tests"
     "campaign_mercenary_policy_tests"
     "laptop_communications_policy_tests")
@@ -1288,16 +1290,17 @@ endforeach()
 file(READ "${SOURCE_ROOT}/docs/CAMPAIGN_RUNTIME_STATUS.md"
   runtime_campaign_status_contents)
 foreach(required_campaign_status_fragment IN ITEMS
-    "84 active conditionals in 32"
-    "Laptop content/pages | 10"
+    "78 active conditionals in 30"
+    "Laptop content/pages | 4"
     "Tactical gameplay/content | 33"
     "Strategic gameplay/content | 23"
     "CampaignDoorPolicy"
     "CampaignCivilianQuotePolicy"
+    "CampaignImpPolicy"
     "CampaignMapScreenPolicy"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
-    "All ten policies")
+    "All eleven policies")
   string(FIND "${runtime_campaign_status_contents}"
     "${required_campaign_status_fragment}"
     required_campaign_status_position)
@@ -1312,6 +1315,8 @@ foreach(required_campaign_architecture_fragment IN ITEMS
     "Civilian tactical dialogue now selects through the value-only"
     "All six"
     "former `JA2UB` branches across `Civ Quotes.cpp`"
+    "IMP activation and text selection now use the value-only"
+    "84-common/14-variant Laptop partition"
     "Tactical door behavior now selects through the value-only"
     "The strategic map screen now selects campaign behavior"
     "All five former guards in `Interface.cpp`"
@@ -1324,6 +1329,85 @@ foreach(required_campaign_architecture_fragment IN ITEMS
   if(required_campaign_architecture_position EQUAL -1)
     message(FATAL_ERROR
       "Engine architecture lost '${required_campaign_architecture_fragment}'")
+  endif()
+endforeach()
+
+# IMP activation and text lookup are selected through one dependency-free
+# campaign policy. Production must gate UB option/file reads from the left so
+# Arulco never evaluates UB-only configuration or content probes.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignImpPolicy.h"
+  runtime_campaign_imp_policy_contents)
+foreach(required_campaign_imp_policy_fragment IN ITEMS
+    "enum class ActivationDecision"
+    "KnownButUnavailable"
+    "classifyActivation"
+    "ja2PassEnabled && matchesJa2Pass"
+    "unfinishedBusinessPassEnabled &&"
+    "IMPText25.edt"
+    "IMPText.edt"
+    "IMPText.EDT")
+  string(FIND "${runtime_campaign_imp_policy_contents}"
+    "${required_campaign_imp_policy_fragment}"
+    required_campaign_imp_policy_position)
+  if(required_campaign_imp_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime IMP policy lost '${required_campaign_imp_policy_fragment}'")
+  endif()
+endforeach()
+
+foreach(runtime_campaign_imp_source IN ITEMS
+    "Laptop/IMP HomePage.cpp"
+    "Laptop/IMP Text System.cpp")
+  file(READ "${SOURCE_ROOT}/${runtime_campaign_imp_source}"
+    runtime_campaign_imp_source_contents)
+  string(FIND "${runtime_campaign_imp_source_contents}" "JA2UB"
+    runtime_campaign_imp_guard_position)
+  if(NOT runtime_campaign_imp_guard_position EQUAL -1)
+    message(FATAL_ERROR
+      "${runtime_campaign_imp_source} restored compile-time campaign identity")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Laptop/IMP HomePage.cpp"
+  runtime_campaign_imp_home_contents)
+foreach(required_campaign_imp_home_fragment IN ITEMS
+    "CampaignImpPolicy impPolicy(GetGameContext().capabilities())"
+    "if (impPolicy.usesUnfinishedBusinessImpRules())"
+    "CampaignImpPolicy::ActivationDecision::Authorized"
+    "CampaignImpPolicy::ActivationDecision::Invalid")
+  string(FIND "${runtime_campaign_imp_home_contents}"
+    "${required_campaign_imp_home_fragment}"
+    required_campaign_imp_home_position)
+  if(required_campaign_imp_home_position EQUAL -1)
+    message(FATAL_ERROR
+      "IMP home-page runtime routing lost '${required_campaign_imp_home_fragment}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Laptop/IMP Text System.cpp"
+  runtime_campaign_imp_text_policy_contents)
+foreach(required_campaign_imp_text_policy_fragment IN ITEMS
+    "impPolicy.usesUnfinishedBusinessImpRules() &&"
+    "FileExists(\"BINARYDATA\\\\IMPText25.edt\")"
+    "impPolicy.impTextResource")
+  string(FIND "${runtime_campaign_imp_text_policy_contents}"
+    "${required_campaign_imp_text_policy_fragment}"
+    required_campaign_imp_text_policy_position)
+  if(required_campaign_imp_text_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "IMP text runtime routing lost '${required_campaign_imp_text_policy_fragment}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/tests/campaign_imp_policy_tests.cpp"
+  runtime_campaign_imp_policy_test_contents)
+foreach(required_campaign_imp_test_fragment IN ITEMS
+    "legacy-precedence truth table"
+    "KnownButUnavailable"
+    "IMPText25 with its established IMPText fallback")
+  string(FIND "${runtime_campaign_imp_policy_test_contents}"
+    "${required_campaign_imp_test_fragment}"
+    required_campaign_imp_test_position)
+  if(required_campaign_imp_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Campaign IMP policy tests lost '${required_campaign_imp_test_fragment}'")
   endif()
 endforeach()
 
@@ -2434,6 +2518,8 @@ foreach(required_common_laptop_runtime_source IN ITEMS
     "files.cpp"
     "history.cpp"
     "insurance Contract.cpp"
+    "IMP HomePage.cpp"
+    "IMP Text System.cpp"
     "PostalService.cpp")
   string(FIND "${runtime_laptop_manifest_contents}"
     "${required_common_laptop_runtime_source}"

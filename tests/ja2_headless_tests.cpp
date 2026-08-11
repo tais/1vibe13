@@ -123,6 +123,7 @@
 #include "english.h"
 #include "CampaignCivilianQuotePolicy.h"
 #include "CampaignDoorPolicy.h"
+#include "CampaignImpPolicy.h"
 #include "CampaignLaptopCommunicationsPolicy.h"
 #include "CampaignMapScreenPolicy.h"
 #include "CampaignMercenaryPolicy.h"
@@ -5628,6 +5629,7 @@ int main( int, char** )
 		const CampaignCivilianQuotePolicy civilianQuotePolicy(
 			compiledContext.capabilities());
 		const CampaignDoorPolicy doorPolicy(compiledContext.capabilities());
+		const CampaignImpPolicy impPolicy(compiledContext.capabilities());
 		const CampaignMapScreenPolicy mapScreenPolicy(
 			compiledContext.capabilities());
 		const CampaignMercenaryPolicy mercenaryPolicy(
@@ -5642,6 +5644,8 @@ int main( int, char** )
 		           unfinishedBusiness &&
 		       doorPolicy.shouldAttemptDoorMenuAction(true) ==
 		           !unfinishedBusiness &&
+		       impPolicy.usesUnfinishedBusinessImpRules() ==
+		           unfinishedBusiness &&
 		       mapScreenPolicy.usesUnfinishedBusinessMapRules() ==
 		           unfinishedBusiness &&
 		       mapScreenPolicy.treatsSanMonaAsUnimportant() ==

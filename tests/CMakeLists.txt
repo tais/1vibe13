@@ -101,6 +101,14 @@ target_include_directories(campaign_map_screen_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_map_screen_policy COMMAND campaign_map_screen_policy_tests)
 
+# IMP activation passes and campaign text-resource fallback are selected from
+# the live campaign rather than from the executable's JA2UB definition.
+add_executable(campaign_imp_policy_tests
+  campaign_imp_policy_tests.cpp)
+target_include_directories(campaign_imp_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_imp_policy COMMAND campaign_imp_policy_tests)
+
 # Civilian quote catalogues, dedicated group records, surrender completion,
 # and UB's unavailable-record sentinel follow the live campaign capability.
 add_executable(campaign_civilian_quote_policy_tests

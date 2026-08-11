@@ -13,30 +13,9 @@
 	#include "GameSettings.h"
 	#include "Text.h"
 	#include "_Ja25EnglishText.h"
-#ifdef JA2UB
-	#include "laptop.h"
-	#include "email.h"
-	#include "Utilities.h"
-	#include "WCheck.h"
-	#include "DEBUG.H"
-	#include "WordWrap.h"
-	#include "Encrypted File.h"
-	#include "Cursors.h"
-	#include "Soldier Profile.h"
-	#include "IMP Compile Character.h"
-	#include "IMP Voices.h"
-	#include "IMP Portraits.h"
-	#include "Game Clock.h"
-	#include "environment.h"
-	#include "AimMembers.h"
-	#include "random.h"
-	#include "Text.h"
-	#include "LaptopSave.h"
-	#include "finances.h"
-	#include "PostalService.h"
-	#include "faces.h"
-	#include "GameSettings.h"
-#endif
+#include "CampaignImpPolicy.h"
+#include "FileMan.h"
+#include "GameContext.h"
 
 #include <language.hpp>
 
@@ -67,11 +46,6 @@ void OffSetQuestionForFemaleSpecificQuestions( INT32 *iCurrentOffset );
 #define QTN_FIRST_COLUMN_X					iScreenWidthOffset + 80
 #define QTN_SECOND_COLUMN_X					iScreenWidthOffset + 320
 
-#ifdef JA2UB
-#define		IMPTEXT_EDT_FILE_JA25			"BINARYDATA\\IMPText25.edt"
-#define		IMPTEXT_EDT_FILE_JA2		"BINARYDATA\\IMPText.edt"
-#endif
-
 void LoadAndDisplayIMPText( INT16 sStartX, INT16 sStartY, INT16 sLineLength, INT16 sIMPTextRecordNumber, UINT32 uiFont, UINT8 ubColor, BOOLEAN fShadow, UINT32 uiFlags)
 {
 	// this procedure will load and display to the screen starting at postion X, Y relative to the start of the laptop screen
@@ -84,27 +58,16 @@ void LoadAndDisplayIMPText( INT16 sStartX, INT16 sStartY, INT16 sLineLength, INT
 		SetFontShadow( NO_SHADOW );
 	}
 
-	// load the string
-#ifdef JA2UB
-	BOOLEAN loaded = FALSE;
-	if (FileExists(IMPTEXT_EDT_FILE_JA25))
-	{
-		loaded = LoadEncryptedDataFromFile(IMPTEXT_EDT_FILE_JA25, sString,
-			(UINT32)((sIMPTextRecordNumber) * IMP_SEEK_AMOUNT),
-			IMP_SEEK_AMOUNT);
-	}
-	else
-	{
-		loaded = LoadEncryptedDataFromFile(IMPTEXT_EDT_FILE_JA2, sString,
-			(UINT32)((sIMPTextRecordNumber) * IMP_SEEK_AMOUNT),
-			IMP_SEEK_AMOUNT);
-	}
-#else
+	// Load the campaign-selected string. FileExists is short-circuited so the
+	// Arulco path never probes the UB-only resource.
+	const CampaignImpPolicy impPolicy(GetGameContext().capabilities());
+	const bool unfinishedBusinessResourceExists =
+		impPolicy.usesUnfinishedBusinessImpRules() &&
+		FileExists("BINARYDATA\\IMPText25.edt");
 	const BOOLEAN loaded = LoadEncryptedDataFromFile(
-		"BINARYDATA\\IMPText.EDT", sString,
+		impPolicy.impTextResource(unfinishedBusinessResourceExists), sString,
 		(UINT32)((sIMPTextRecordNumber) * IMP_SEEK_AMOUNT),
 		IMP_SEEK_AMOUNT);
-#endif
 	if (loaded && uiFlags == 0)
 	{
 		uiFlags = LEFT_JUSTIFIED;
