@@ -155,6 +155,9 @@ foreach(required_i18n_test_fragment IN ITEMS
 endforeach()
 file(READ "${SOURCE_ROOT}/docs/RUNTIME_I18N_ARCHITECTURE.md"
   runtime_i18n_architecture_contents)
+string(REGEX REPLACE "[ \t\r\n]+" " "
+  runtime_i18n_architecture_normalized
+  "${runtime_i18n_architecture_contents}")
 foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "482 unique data declarations"
     "58 application/configuration preprocessor"
@@ -165,7 +168,7 @@ foreach(required_runtime_i18n_doc_fragment IN ITEMS
     "520 unique data symbols"
     "59 pre-existing foreign-catalog compatibility gaps"
     "linker is never a fallback mechanism")
-  string(FIND "${runtime_i18n_architecture_contents}"
+  string(FIND "${runtime_i18n_architecture_normalized}"
     "${required_runtime_i18n_doc_fragment}"
     required_runtime_i18n_doc_position)
   if(required_runtime_i18n_doc_position EQUAL -1)
