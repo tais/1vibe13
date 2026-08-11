@@ -8649,10 +8649,10 @@ foreach(tactical_placement_actor_file IN LISTS tactical_placement_actor_files)
   endif()
 endforeach()
 
-# Player weapon-mode, scope-mode, and single-merc reload intent now crosses the
-# deterministic command boundary. Internal weapon compatibility corrections,
-# AI retaliation, attachment changes, and the existing multi-merc bulk reload
-# remain local mechanics rather than pretending to be separate player commands.
+# Player weapon-mode, scope-mode, single-merc reload, and multi-merc reload-all
+# intent now cross the deterministic command boundary. Internal weapon
+# compatibility corrections, AI retaliation, and attachment changes remain
+# local mechanics rather than pretending to be separate player commands.
 set(player_weapon_control_files
   "${SOURCE_ROOT}/Tactical/Turn Based Input.cpp"
   "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
@@ -8688,10 +8688,110 @@ string(REGEX MATCHALL
   "(^|[^A-Za-z0-9_])AutoReload[ \t\r\n]*\\("
   turn_based_bulk_reload_calls "${turn_based_input_contents}")
 list(LENGTH turn_based_bulk_reload_calls turn_based_bulk_reload_count)
-if(turn_based_bulk_reload_count GREATER 3)
+if(NOT turn_based_bulk_reload_count EQUAL 3)
   message(FATAL_ERROR
-    "A new turn-based reload bypasses SimulationCommand; only the three established multi-merc bulk reload mechanics may call AutoReload directly")
+    "The three established AutoReload calls must remain confined to the bulk-reload compatibility executor")
 endif()
+
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommand.h"
+  simulation_command_value_contents)
+foreach(required_bulk_reload_value IN ITEMS
+  "TacticalBulkReloadActorCapacity = 260"
+  "enum class TacticalBulkReloadMode"
+  "struct BulkReloadWeaponsCommand"
+  "std::array<TacticalEntityId, TacticalBulkReloadActorCapacity> soldiers"
+  "value.soldiers[index - 1].slot >=")
+  string(FIND "${simulation_command_value_contents}"
+    "${required_bulk_reload_value}" required_bulk_reload_value_index)
+  if(required_bulk_reload_value_index EQUAL -1)
+    message(FATAL_ERROR
+      "Bulk-reload value boundary lost ${required_bulk_reload_value}")
+  endif()
+endforeach()
+
+foreach(bulk_reload_gateway IN ITEMS
+  "TryDispatchBulkReloadWeaponsCommandNow"
+  "ExecuteBulkReloadWeaponsCommand"
+  "CaptureCanonicalBulkReloadRoster"
+  "CurrentSquad() != command.squad"
+  "CaptureTacticalBulkReloadMode() != command.mode"
+  "canonical.soldierCount != command.soldierCount")
+  string(FIND "${turn_based_input_contents}"
+    "${bulk_reload_gateway}" bulk_reload_gateway_index)
+  if(bulk_reload_gateway_index EQUAL -1)
+    message(FATAL_ERROR
+      "Turn-based reload-all lost ${bulk_reload_gateway}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp"
+  simulation_command_executor_contents)
+foreach(required_bulk_reload_executor IN ITEMS
+  "std::is_same<Command, BulkReloadWeaponsCommand>::value"
+  "ExecuteBulkReloadWeaponsCommand(value)"
+  "InvalidBulkReloadRoster"
+  "TryDispatchBulkReloadWeaponsCommandNow"
+  "disposition != CommandDisposition::Applied"
+  "value.soldierCount > TacticalBulkReloadActorCapacity")
+  string(FIND "${simulation_command_executor_contents}"
+    "${required_bulk_reload_executor}" required_bulk_reload_executor_index)
+  if(required_bulk_reload_executor_index EQUAL -1)
+    message(FATAL_ERROR
+      "Bulk-reload executor lost ${required_bulk_reload_executor}")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Engine/Adapters/JA2/SimulationCommandCodec.cpp"
+  simulation_command_codec_contents)
+foreach(required_bulk_reload_codec IN ITEMS
+  "BulkReloadWeapons = 28"
+  "case CommandTag::BulkReloadWeapons"
+  "value.soldierCount > TacticalBulkReloadActorCapacity")
+  string(FIND "${simulation_command_codec_contents}"
+    "${required_bulk_reload_codec}" required_bulk_reload_codec_index)
+  if(required_bulk_reload_codec_index EQUAL -1)
+    message(FATAL_ERROR
+      "Bulk-reload replay codec lost ${required_bulk_reload_codec}")
+  endif()
+endforeach()
+
+foreach(bulk_reload_test_manifest IN ITEMS
+  "${SOURCE_ROOT}/tests/simulation_command_bulk_reload_model_tests.cpp"
+  "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
+  "${SOURCE_ROOT}/tests/CMakeLists.txt"
+  "${SOURCE_ROOT}/.github/workflows/build_unix.yml")
+  if(NOT EXISTS "${bulk_reload_test_manifest}")
+    message(FATAL_ERROR
+      "Bulk-reload test manifest is missing: ${bulk_reload_test_manifest}")
+  endif()
+  file(READ "${bulk_reload_test_manifest}"
+    bulk_reload_test_manifest_contents)
+  if(bulk_reload_test_manifest MATCHES "\\.cpp$")
+    set(bulk_reload_test_marker "BulkReloadWeaponsCommand")
+  else()
+    set(bulk_reload_test_marker
+      "simulation_command_bulk_reload_model_tests")
+  endif()
+  string(FIND "${bulk_reload_test_manifest_contents}"
+    "${bulk_reload_test_marker}"
+    required_bulk_reload_test_index)
+  if(required_bulk_reload_test_index EQUAL -1)
+    message(FATAL_ERROR
+      "Bulk-reload test manifest lost its target marker: ${bulk_reload_test_manifest}")
+  endif()
+endforeach()
+
+foreach(bulk_reload_document IN ITEMS
+  "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+  "${SOURCE_ROOT}/docs/ENGINE_SDK.md")
+  file(READ "${bulk_reload_document}" bulk_reload_document_contents)
+  string(FIND "${bulk_reload_document_contents}"
+    "BulkReloadWeaponsCommand" bulk_reload_document_index)
+  if(bulk_reload_document_index EQUAL -1)
+    message(FATAL_ERROR
+      "Bulk-reload command contract is undocumented in ${bulk_reload_document}")
+  endif()
+endforeach()
 
 # Player obstacle traversal now enters the same deterministic value-command
 # boundary from keyboard, mouse, and stance UI paths. Pathfinding, AI movement,
@@ -13506,7 +13606,7 @@ foreach(required_exact_roster_deletion_fragment IN ITEMS
 endforeach()
 
 string(FIND "${simulation_command_contents}"
-  "SynchronizeExecutedCommandActors(command)"
+  "SynchronizeExecutedCommandActors(command, disposition)"
   executed_actor_state_position)
 if(executed_actor_state_position EQUAL -1)
   message(FATAL_ERROR

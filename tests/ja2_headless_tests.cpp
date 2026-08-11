@@ -139,6 +139,7 @@
 #include "RuntimeSaveState.h"
 #include "Simulation Command Legacy.h"
 #include "Simulation Commands.h"
+#include "Squads.h"
 #include "StrategicGroupHost.h"
 #include "StrategicSquadHost.h"
 #include "TacticalCommandHost.h"
@@ -6263,6 +6264,99 @@ int main( int, char** )
 			TryDispatchReloadWeaponCommandNow(
 				commandHostActorId,
 				false, SimulationCommandSource::System );
+		const INT8 previousBulkReloadHealth = commandHostActor.vitals().health();
+		const INT8 previousBulkReloadActorTeam =
+			commandHostActor.roster().team();
+		const INT8 previousBulkReloadAssignment =
+			commandHostActor.assignment().current();
+		const auto previousBulkReloadActionPoints =
+			commandHostActor.actionPoints().current();
+		const UINT32 previousBulkReloadFlags =
+			CaptureJa2TacticalStatusFlags();
+		const UINT8 previousBulkReloadTurnTeam = GetJa2TacticalCurrentTeam();
+		const BOOLEAN previousBulkReloadEnemyInSector =
+			gTacticalStatus.fEnemyInSector;
+		const INT32 previousBulkReloadSquad = iCurrentTacticalSquad;
+		const SoldierID previousBulkReloadFirstPlayer =
+			gTacticalStatus.Team[gbPlayerNum].bFirstID;
+		const SoldierID previousBulkReloadLastPlayer =
+			gTacticalStatus.Team[gbPlayerNum].bLastID;
+		const INT32 bulkReloadSquad = FIRST_SQUAD;
+		iCurrentTacticalSquad = bulkReloadSquad;
+		gTacticalStatus.Team[gbPlayerNum].bFirstID = SoldierID{ 0 };
+		gTacticalStatus.Team[gbPlayerNum].bLastID = SoldierID{ 0 };
+		commandHostActor.vitals().health() = OKLIFE;
+		commandHostActor.roster().team() = gbPlayerNum;
+		commandHostActor.assignment().current() =
+			static_cast<INT8>(bulkReloadSquad);
+		commandHostActor.actionPoints().current() = 37;
+		gTacticalStatus.fEnemyInSector = TRUE;
+		RestoreJa2TacticalTurnState(
+			(previousBulkReloadFlags | TURNBASED | INCOMBAT) & ~REALTIME,
+			previousBulkReloadTurnTeam);
+		const std::array<TacticalEntityId, 1> liveBulkReloadRoster{
+			commandHostActorId };
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult liveBulkReload =
+			TryDispatchBulkReloadWeaponsCommandNow(
+				liveBulkReloadRoster.data(),
+				static_cast<std::uint16_t>(liveBulkReloadRoster.size()),
+				static_cast<std::uint8_t>(bulkReloadSquad),
+				TacticalBulkReloadMode::HostileTurnBased );
+		const TacticalActorSnapshot* bulkReloadActorState =
+			compiledContext.runtime().tacticalEntityDirectory().state(
+				commandHostActorId);
+		const bool bulkReloadActorSynchronized =
+			bulkReloadActorState && bulkReloadActorState->actionPoints ==
+				commandHostActor.actionPoints().current();
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleBulkReloadMode =
+			TryDispatchBulkReloadWeaponsCommandNow(
+				liveBulkReloadRoster.data(),
+				static_cast<std::uint16_t>(liveBulkReloadRoster.size()),
+				static_cast<std::uint8_t>(bulkReloadSquad),
+				TacticalBulkReloadMode::PeacefulSector );
+		const std::array<TacticalEntityId, 1> staleBulkReloadRoster{
+			staleActor };
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleBulkReload =
+			TryDispatchBulkReloadWeaponsCommandNow(
+				staleBulkReloadRoster.data(),
+				static_cast<std::uint16_t>(staleBulkReloadRoster.size()),
+				static_cast<std::uint8_t>(bulkReloadSquad),
+				TacticalBulkReloadMode::HostileTurnBased );
+		const std::array<TacticalEntityId, 2> unsortedBulkReloadRoster{
+			TacticalEntityId{ 1, 1 }, TacticalEntityId{ 0, 1 } };
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult invalidBulkReload =
+			TryDispatchBulkReloadWeaponsCommandNow(
+				unsortedBulkReloadRoster.data(),
+				static_cast<std::uint16_t>(unsortedBulkReloadRoster.size()),
+				static_cast<std::uint8_t>(bulkReloadSquad),
+				TacticalBulkReloadMode::PeacefulSector );
+		BulkReloadWeaponsCommand oversizedBulkReload{};
+		oversizedBulkReload.soldierCount =
+			static_cast<std::uint16_t>(TacticalBulkReloadActorCapacity + 1);
+		oversizedBulkReload.squad = static_cast<std::uint8_t>(bulkReloadSquad);
+		oversizedBulkReload.mode = TacticalBulkReloadMode::HostileTurnBased;
+		oversizedBulkReload.source = SimulationCommandSource::LocalPlayer;
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult oversizedBulkReloadResult =
+			TryDispatchSimulationCommandNow(
+				SimulationCommand{oversizedBulkReload});
+		commandHostActor.vitals().health() = previousBulkReloadHealth;
+		commandHostActor.roster().team() = previousBulkReloadActorTeam;
+		commandHostActor.assignment().current() = previousBulkReloadAssignment;
+		commandHostActor.actionPoints().current() =
+			previousBulkReloadActionPoints;
+		gTacticalStatus.fEnemyInSector = previousBulkReloadEnemyInSector;
+		iCurrentTacticalSquad = previousBulkReloadSquad;
+		gTacticalStatus.Team[gbPlayerNum].bFirstID =
+			previousBulkReloadFirstPlayer;
+		gTacticalStatus.Team[gbPlayerNum].bLastID =
+			previousBulkReloadLastPlayer;
+		RestoreJa2TacticalTurnState(
+			previousBulkReloadFlags, previousBulkReloadTurnTeam);
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult readyWithoutWeapon =
 			TryDispatchSetWeaponReadyCommandNow(
@@ -6512,6 +6606,19 @@ int main( int, char** )
 				SimulationCommandDispatchStatus::Discarded &&
 			reloadWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
+			liveBulkReload.status ==
+				SimulationCommandDispatchStatus::Applied &&
+			bulkReloadActorSynchronized &&
+			staleBulkReloadMode.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			staleBulkReload.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			invalidBulkReload.status ==
+				SimulationCommandDispatchStatus::InvalidDomain &&
+			!invalidBulkReload.submitted &&
+			oversizedBulkReloadResult.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			oversizedBulkReloadResult.submitted &&
 			readyWithoutWeapon.status ==
 				SimulationCommandDispatchStatus::Discarded &&
 			staleTraversal.status ==

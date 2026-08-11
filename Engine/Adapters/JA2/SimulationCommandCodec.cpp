@@ -41,7 +41,8 @@ enum class CommandTag : std::uint8_t
 	SynchronizeActorFire = 24,
 	SynchronizeActorStop = 25,
 	SynchronizeTurn = 26,
-	BeginSelectedFireWeapon = 27
+	BeginSelectedFireWeapon = 27,
+	BulkReloadWeapons = 28
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -226,6 +227,21 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 			writer.writeU16(value.soldier.slot);
 			writer.writeU32(value.soldier.incarnation);
 			writer.writeU8(value.reloadEvenIfNotEmpty ? 1u : 0u);
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, BulkReloadWeaponsCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(CommandTag::BulkReloadWeapons));
+			writer.writeU16(value.soldierCount);
+			writer.writeU8(value.squad);
+			writer.writeU8(static_cast<std::uint8_t>(value.mode));
+			for (std::size_t index = 0; index < value.soldierCount; ++index)
+			{
+				writer.writeU16(value.soldiers[index].slot);
+				writer.writeU32(value.soldiers[index].incarnation);
+			}
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 		else if constexpr (std::is_same<Command, SetWeaponReadyCommand>::value)
@@ -603,6 +619,35 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 				reloadEvenIfNotEmpty > 1 ||
 				!ReadSource(reader, value.source)) return false;
 			value.reloadEvenIfNotEmpty = reloadEvenIfNotEmpty != 0;
+			command = value;
+			return true;
+		}
+		case CommandTag::BulkReloadWeapons:
+		{
+			BulkReloadWeaponsCommand value{};
+			std::uint8_t mode = 0;
+			if (!reader.readU16(value.soldierCount) ||
+				value.soldierCount == 0 ||
+				value.soldierCount > TacticalBulkReloadActorCapacity ||
+				!reader.readU8(value.squad) || !reader.readU8(mode) ||
+				!IsValidTacticalBulkReloadMode(
+					static_cast<TacticalBulkReloadMode>(mode)))
+				return false;
+			value.mode = static_cast<TacticalBulkReloadMode>(mode);
+			for (std::size_t index = 0; index < value.soldierCount; ++index)
+			{
+				if (!reader.readU16(value.soldiers[index].slot) ||
+					!reader.readU32(value.soldiers[index].incarnation) ||
+					!value.soldiers[index].valid() ||
+					(index != 0 &&
+						value.soldiers[index - 1].slot >=
+							value.soldiers[index].slot))
+					return false;
+			}
+			if (!ReadSource(reader, value.source) ||
+				(value.source != SimulationCommandSource::LocalPlayer &&
+					value.source != SimulationCommandSource::Replay))
+				return false;
 			command = value;
 			return true;
 		}

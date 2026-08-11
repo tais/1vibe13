@@ -1182,6 +1182,15 @@ UI control and changes no game-data or persistence format.
 The command journal has one current wire layout. It retains a version field so
 a genuinely published format can evolve later, but unsupported versions are
 rejected rather than supported speculatively.
+`BulkReloadWeaponsCommand` represents reload-all as one ordered inventory
+transaction. It carries a canonical, fixed-capacity roster of exact actor
+incarnations plus the selected squad and issued tactical mode; only local-player
+and replay provenance are valid. The portable reference simulation deliberately
+discards it because the reference model owns no JA2 item stacks or world-item
+pool. JA2's compatibility executor alone applies the established inventory
+policy after transactionally rebuilding and matching the complete live roster,
+selected squad, and tactical mode. Any stale or subset command is discarded
+before inventory or world-item state changes.
 The service deliberately does not expose draining or cancellation authority.
 Every callback receives a registry-issued `PackageIdentity`. It can be copied
 and passed to package-aware services, but cannot be constructed from an

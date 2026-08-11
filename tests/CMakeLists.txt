@@ -48,6 +48,16 @@ add_executable(ja2_runtime_adapter_tests ja2_runtime_adapter_tests.cpp)
 target_link_libraries(ja2_runtime_adapter_tests PRIVATE JA2::RuntimeAdapter)
 add_test(NAME ja2_runtime_adapter COMMAND ja2_runtime_adapter_tests)
 
+# Reload-all captures one bounded exact roster and its environment policy before
+# touching legacy inventory state. This adapter-only target pins that value and
+# replay codec without linking the game, SDL, or installed data.
+add_executable(simulation_command_bulk_reload_model_tests
+  simulation_command_bulk_reload_model_tests.cpp)
+target_link_libraries(simulation_command_bulk_reload_model_tests
+  PRIVATE JA2::RuntimeAdapter)
+add_test(NAME simulation_command_bulk_reload_model
+  COMMAND simulation_command_bulk_reload_model_tests)
+
 # Legacy map-temp action bytes overlap between campaign data sets. This tiny
 # data-free test keeps their runtime codec independent from the full game host.
 add_executable(campaign_map_change_code_tests

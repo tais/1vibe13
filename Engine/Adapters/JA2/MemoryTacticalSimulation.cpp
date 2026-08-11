@@ -131,6 +131,13 @@ CommandDisposition MemoryTacticalSimulation::execute(
 			++snapshot_.completedTurns;
 			return CommandDisposition::Applied;
 		}
+		else if constexpr (
+			std::is_same<Command, BulkReloadWeaponsCommand>::value)
+		{
+			// Inventory stacks and world-item ammunition deliberately remain
+			// outside the portable reference model.
+			return CommandDisposition::Discard;
+		}
 		else
 		{
 			TacticalSimulationActorState* actor =

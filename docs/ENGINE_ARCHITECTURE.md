@@ -553,10 +553,29 @@ the engine must not contain SDL types in its public domain model.
   their established behavior was local-only or multiplayer-aware. This event
   policy is independent from provenance, so a received command cannot
   accidentally echo itself and replay retains the original behavior.
-  Equipment-driven mode correction, automatic/pathfinding door handling,
-  low-level path traversal, non-positional dialogue effects, and multi-merc
-  bulk reload remain local mechanics until they receive explicit command
-  semantics rather than masquerading as player intent.
+  Multi-merc reload-all now captures one slot-ordered roster of exact actor
+  incarnations, the selected squad, and the issued peaceful, hostile
+  turn-based, or hostile real-time policy in `BulkReloadWeaponsCommand`.
+  Before any mutation, the compatibility executor rebuilds that canonical
+  roster and rejects a changed selected squad, tactical mode, eligibility,
+  membership, slot, or incarnation. It then preserves the established peaceful
+  two-pass allocation: every merc consumes reachable ground ammunition for
+  weapons before any loose magazine is topped-up. The fixed 260-entry ceiling
+  matches every configurable player-team slot; the replay codec rejects empty,
+  unsorted, duplicate, hidden-tail, and over-capacity rosters. Only an applied
+  transaction republishes every captured actor snapshot, including action-point
+  changes made by hostile turn-based reload. The dependency-free reference
+  simulation explicitly discards this inventory-only mechanic instead of
+  inventing parallel item rules.
+  No RakNet packet, save, item, map, XML, Lua, or installed-content format is
+  changed; reload-all had no peer packet and replay uses the explicit command
+  tag without reinterpreting an existing tag.
+  Four named command gaps remain, in increasing coupling order:
+  equipment-driven weapon/scope correction together with friendly-retaliation
+  mode selection; low-level AI/path-completion traversal; automatic and
+  pathfinding door handling; and non-positional dialogue effects. Each still
+  remains a local mechanic until its distinct event policy and value result are
+  modeled rather than masquerading as player intent.
 - The JA2 adapter's `CommandReplayService` stores those journals in
   integrity-checked runtime
   persistence envelopes. Replay loads are transactional, incomplete bounded

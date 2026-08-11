@@ -51,7 +51,10 @@ enum class SimulationCommandDomainError
 	InvalidVehicleSeat,
 	InvalidWorldItem,
 	InvalidWorldItemRenderHeight,
-	InvalidWorldItemPickupKind
+	InvalidWorldItemPickupKind,
+	InvalidBulkReloadMode,
+	InvalidBulkReloadSquad,
+	InvalidBulkReloadRoster
 };
 
 // Complete value-domain validation shared by package admission and every
@@ -250,6 +253,13 @@ SimulationCommandDispatchResult TryDispatchCycleScopeModeCommandNow(
 SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
 	TacticalEntityId actor,
 	bool reloadEvenIfNotEmpty,
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
+
+SimulationCommandDispatchResult TryDispatchBulkReloadWeaponsCommandNow(
+	const TacticalEntityId* soldiers,
+	std::uint16_t soldierCount,
+	std::uint8_t squad,
+	TacticalBulkReloadMode mode,
 	SimulationCommandSource source = SimulationCommandSource::LocalPlayer) noexcept;
 
 SimulationCommandDispatchResult TryDispatchSetWeaponReadyCommandNow(
