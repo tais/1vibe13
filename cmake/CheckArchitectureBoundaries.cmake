@@ -6014,6 +6014,212 @@ foreach(required_tactical_event_pump_headless_fragment IN ITEMS
   endif()
 endforeach()
 
+# Offline image/developer utilities must validate every legacy dimension before
+# access, own conversion state, stage the complete on-disk representation, and
+# publish through the atomic VFS boundary. Keep both pure rules and real
+# adapters in normal/ASan coverage, and reject the former delete/write sinks.
+file(READ "${SOURCE_ROOT}/Utils/ImageUtilityModel.h"
+  runtime_utils_image_model_contents)
+foreach(required_utils_image_model_fragment IN ITEMS
+    "CheckedImageByteCount"
+    "CheckedEtrleCapacity"
+    "ContainsRectangle"
+    "CanAppendSerializedBytes"
+    "NearestPaletteIndex"
+    "(std::numeric_limits<std::uint32_t>::max)()")
+  string(FIND "${runtime_utils_image_model_contents}"
+    "${required_utils_image_model_fragment}"
+    required_utils_image_model_position)
+  if(required_utils_image_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils image boundary lost '${required_utils_image_model_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/STIConvert.cpp"
+  runtime_utils_sti_convert_contents)
+foreach(required_utils_sti_fragment IN ITEMS
+    "BOOLEAN TryWriteSTIFile("
+    "MemOwner<UINT8> outputOwner"
+    "MemOwner<UINT8> subImageOwner"
+    "CheckedEtrleCapacity("
+    "CanAppendSerializedBytes("
+    "ContainsRectangle("
+    "AppendIndexedHeader("
+    "AppendSubImages("
+    "AppendLittleEndian32("
+    "offsetof(STCIHeader, uiAppDataSize) == 48"
+    "replaceFileAtomically("
+    "*ppDest = NULL"
+    "*ppSubImageBuffer = NULL")
+  string(FIND "${runtime_utils_sti_convert_contents}"
+    "${required_utils_sti_fragment}" required_utils_sti_position)
+  if(required_utils_sti_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils STI conversion boundary lost '${required_utils_sti_fragment}'")
+  endif()
+endforeach()
+foreach(retired_utils_sti_fragment IN ITEMS
+    "FileDelete(cOutputName)"
+    "FileWrite(hFile"
+    "FileOpen(cOutputName"
+    "SplitUINT32"
+    "sWidth * sHeight")
+  string(FIND "${runtime_utils_sti_convert_contents}"
+    "${retired_utils_sti_fragment}" retired_utils_sti_position)
+  if(NOT retired_utils_sti_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils STI conversion restored unsafe '${retired_utils_sti_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Quantize.cpp"
+  runtime_utils_quantizer_contents)
+file(READ "${SOURCE_ROOT}/Utils/Quantize Wrap.cpp"
+  runtime_utils_quantizer_wrap_contents)
+set(runtime_utils_quantizer_combined
+  "${runtime_utils_quantizer_contents}\n${runtime_utils_quantizer_wrap_contents}")
+foreach(required_utils_quantizer_fragment IN ITEMS
+    "new (std::nothrow) NODE{}"
+    "std::uint64_t"
+    "CheckedImageByteCount("
+    "TryMapPalette("
+    "stagedPixels"
+    "stagedPalette"
+    "NearestPaletteIndex(")
+  string(FIND "${runtime_utils_quantizer_combined}"
+    "${required_utils_quantizer_fragment}" required_utils_quantizer_position)
+  if(required_utils_quantizer_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils quantizer boundary lost '${required_utils_quantizer_fragment}'")
+  endif()
+endforeach()
+foreach(retired_utils_quantizer_fragment IN ITEMS
+    "HeapAlloc ("
+    "HeapFree ("
+    "(RGBQUAD*)pPalette"
+    "VGetLength")
+  string(FIND "${runtime_utils_quantizer_combined}"
+    "${retired_utils_quantizer_fragment}" retired_utils_quantizer_position)
+  if(NOT retired_utils_quantizer_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils quantizer restored unsafe '${retired_utils_quantizer_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/MapUtility.cpp"
+  runtime_utils_map_utility_contents)
+foreach(required_utils_map_utility_fragment IN ITEMS
+    "std::vector<UINT8> g24BitValues"
+    "std::array<UINT8, MINIMAP_X_SIZE * MINIMAP_Y_SIZE> quantizedPixels"
+    "static void ReleaseMapFileList()"
+    "FileList = NULL"
+    "FListNode = NULL"
+    "static_cast<std::size_t>(iY) * MINIMAP_X_SIZE"
+    "if (!pDestBuf)"
+    "if (!pSrcBuf)"
+    "uiDestPitchBYTES < MINIMAP_X_SIZE * sizeof(PIXEL)"
+    "if (!QuantizeImage("
+    "TryWriteSTIFile("
+    "std::snprintf(")
+  string(FIND "${runtime_utils_map_utility_contents}"
+    "${required_utils_map_utility_fragment}"
+    required_utils_map_utility_position)
+  if(required_utils_map_utility_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils radar-map boundary lost '${required_utils_map_utility_fragment}'")
+  endif()
+endforeach()
+foreach(retired_utils_map_utility_fragment IN ITEMS
+    "p24BitValues"
+    "RGBValues"
+    "LockVideoSurface(gui8BitMiniMap"
+    "sprintf(zFilename"
+    "WriteSTIFile((INT8*)")
+  string(FIND "${runtime_utils_map_utility_contents}"
+    "${retired_utils_map_utility_fragment}" retired_utils_map_utility_position)
+  if(NOT retired_utils_map_utility_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils radar-map conversion restored unsafe '${retired_utils_map_utility_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Utils/Debug Control.cpp"
+  runtime_utils_debug_control_contents)
+foreach(required_utils_debug_control_fragment IN ITEMS
+    "static const sgp::Logger_ID id = []"
+    "static vfs::Log* const mpMsg"
+    "catch (...)")
+  string(FIND "${runtime_utils_debug_control_contents}"
+    "${required_utils_debug_control_fragment}"
+    required_utils_debug_control_position)
+  if(required_utils_debug_control_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils diagnostic boundary lost '${required_utils_debug_control_fragment}'")
+  endif()
+endforeach()
+foreach(retired_utils_debug_control_fragment IN ITEMS
+    "static struct LiveLog"
+    "static vfs::Log& mpMsg")
+  string(FIND "${runtime_utils_debug_control_contents}"
+    "${retired_utils_debug_control_fragment}"
+    retired_utils_debug_control_position)
+  if(NOT retired_utils_debug_control_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils diagnostic boundary restored eager or unchecked logger state")
+  endif()
+endforeach()
+string(REGEX MATCHALL "if \\(!strMessage\\) return"
+  utils_debug_null_guards "${runtime_utils_debug_control_contents}")
+list(LENGTH utils_debug_null_guards utils_debug_null_guard_count)
+if(NOT utils_debug_null_guard_count EQUAL 5)
+  message(FATAL_ERROR
+    "Every Utils debug/log message boundary must reject null text")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/utils_image_utility_model_tests.cpp"
+  runtime_utils_image_model_test_contents)
+foreach(required_utils_image_model_test_fragment IN ITEMS
+    "checked products reject host-size overflow without publishing a partial result"
+    "image dimensions reject empty, negative, and overflowing byte counts without publishing a partial result"
+    "ETRLE scratch capacity remains representable in the serialized 32-bit format"
+    "subimages reject negative, empty, exact-end, and overflowing geometry"
+    "serialized STI staging rejects 32-bit size overflow"
+    "palette mapping uses bounded integer distance with deterministic first-match ties")
+  string(FIND "${runtime_utils_image_model_test_contents}"
+    "${required_utils_image_model_test_fragment}"
+    required_utils_image_model_test_position)
+  if(required_utils_image_model_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils image model tests lost '${required_utils_image_model_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_utils_image_headless_fragment IN ITEMS
+    "optional diagnostic sinks reject null caller text without initialization or dispatch"
+    "invalid ETRLE subimage geometry is rejected before touching destination bytes"
+    "malformed STI conversion preserves the complete existing destination"
+	"STI writer atomically publishes the exact legacy header palette subimage payload and zeroed app data"
+	"uncompressed STI output writes caller pixels instead of an uninitialized legacy image pointer"
+	"quantizer owns complete palette and pixel staging while preserving legacy RGB results"
+    "invalid quantizer dimensions leave caller pixels and palette untouched")
+  string(FIND "${runtime_utils_ui_headless_contents}"
+    "${required_utils_image_headless_fragment}"
+    required_utils_image_headless_position)
+  if(required_utils_image_headless_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils image adapter coverage lost '${required_utils_image_headless_fragment}'")
+  endif()
+endforeach()
+foreach(utils_image_test_manifest IN ITEMS
+    runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
+  string(FIND "${${utils_image_test_manifest}}"
+    "utils_image_utility_model_tests" required_utils_image_test_position)
+  if(required_utils_image_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils image model tests left the build or AddressSanitizer matrix")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
   runtime_utils_walkthrough_contents)
 foreach(required_utils_walkthrough_fragment IN ITEMS
@@ -6028,11 +6234,12 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "TacticalEventQueueModel.h"
     "now - scheduledAt > delay"
     "tactical_event_queue_model_tests"
+    "Offline image and developer-utility closure"
     "production reader through"
     "authored nonzero-class item"
     "invalid UTF-8"
     "Remaining Utils inventory"
-    "following 10 translation units"
+    "following 5 translation units"
     "XMLWriter"
     "installed-data canonical `Cigarette`"
     "same-directory sibling"
@@ -6068,7 +6275,8 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "MediaLifecycleModel"
     "DataBoundaryModel"
     "encrypted text-record"
-    "remaining 10 Utils"
+    "ImageUtilityModel"
+    "remaining 5 Utils"
     "all four 64-bit masks exact"
     "installed-data"
     "exact representable inverse"

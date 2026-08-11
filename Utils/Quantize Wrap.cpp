@@ -2,90 +2,95 @@
 #include "himage.h"
 #include "Quantize.h"
 #include "Quantize Wrap.h"
-#include "phys math.h"
+#include "ImageUtilityModel.h"
 
-typedef struct
+#include <array>
+#include <cstring>
+#include <vector>
+
+BOOLEAN	QuantizeImage( UINT8 *pDest, const UINT8 *pSrc, INT16 sWidth, INT16 sHeight, SGPPaletteEntry *pPalette )
 {
-	UINT8	r;
-	UINT8	g;
-	UINT8	b;
+	std::size_t sourceSize = 0;
+	std::size_t pixelCount = 0;
+	if (!pDest || !pSrc || !pPalette ||
+		!UtilsImageUtilityModel::CheckedImageByteCount(
+			sWidth, sHeight, 3, sourceSize) ||
+		!UtilsImageUtilityModel::CheckedImageByteCount(
+			sWidth, sHeight, 1, pixelCount))
+	{
+		return FALSE;
+	}
 
-} RGBValues;
+	try
+	{
+		// FIRST CREATE PALETTE
+		CQuantizer q(255, 6);
+		if (!q.ProcessImage(pSrc, sWidth, sHeight)) return FALSE;
+		const UINT colorCount = q.GetColorCount();
+		if (colorCount == 0 || colorCount > 255) return FALSE;
 
+		std::array<RGBQUAD, 256> quantizedPalette{};
+		std::array<SGPPaletteEntry, 256> stagedPalette{};
+		q.GetColorTable(quantizedPalette.data());
+		for (UINT index = 0; index < colorCount; ++index)
+		{
+			// CQuantizer consumes legacy source triples as B,G,R. Explicitly
+			// reverse RGBQUAD instead of relying on incompatible struct layouts.
+			stagedPalette[index].peRed = quantizedPalette[index].rgbBlue;
+			stagedPalette[index].peGreen = quantizedPalette[index].rgbGreen;
+			stagedPalette[index].peBlue = quantizedPalette[index].rgbRed;
+			stagedPalette[index].peFlags = 0;
+		}
 
-BOOLEAN	QuantizeImage( UINT8 *pDest, UINT8 *pSrc, INT16 sWidth, INT16 sHeight, SGPPaletteEntry *pPalette )
-{
-	INT16		sNumColors;
-
-	// FIRST CREATE PALETTE
-	CQuantizer		q( 255, 6 );
-
-	q.ProcessImage( pSrc, sWidth, sHeight );
-
-	sNumColors = q.GetColorCount();
-
-	memset( pPalette, 0,	sizeof( SGPPaletteEntry ) * 256 );
-
-	q.GetColorTable( (RGBQUAD*)pPalette );
-
-	// THEN MAP IMAGE TO PALETTE
-	// OK, MAPIT!
-	MapPalette( pDest, pSrc, sWidth, sHeight, sNumColors, pPalette );
-
-	return( TRUE );
+		// THEN MAP IMAGE TO PALETTE
+		std::vector<UINT8> stagedPixels(pixelCount);
+		if (!TryMapPalette(stagedPixels.data(), pSrc, sWidth, sHeight,
+			static_cast<INT16>(colorCount), stagedPalette.data()))
+		{
+			return FALSE;
+		}
+		std::memcpy(pDest, stagedPixels.data(), pixelCount);
+		std::memcpy(pPalette, stagedPalette.data(), sizeof(stagedPalette));
+		return TRUE;
+	}
+	catch (...)
+	{
+		return FALSE;
+	}
 }
 
+BOOLEAN TryMapPalette( UINT8 *pDest, const UINT8 *pSrc, INT16 sWidth, INT16 sHeight, INT16 sNumColors, const SGPPaletteEntry *pTable )
+{
+	std::size_t sourceSize = 0;
+	std::size_t pixelCount = 0;
+	if (!pDest || !pSrc || !pTable || sNumColors <= 0 || sNumColors > 256 ||
+		!UtilsImageUtilityModel::CheckedImageByteCount(
+			sWidth, sHeight, 3, sourceSize) ||
+		!UtilsImageUtilityModel::CheckedImageByteCount(
+			sWidth, sHeight, 1, pixelCount))
+	{
+		return FALSE;
+	}
+
+	std::array<UINT8, 256 * 3> paletteRgb{};
+	for (INT16 index = 0; index < sNumColors; ++index)
+	{
+		paletteRgb[static_cast<std::size_t>(index) * 3] = pTable[index].peRed;
+		paletteRgb[static_cast<std::size_t>(index) * 3 + 1] = pTable[index].peGreen;
+		paletteRgb[static_cast<std::size_t>(index) * 3 + 2] = pTable[index].peBlue;
+	}
+	for (std::size_t index = 0; index < pixelCount; ++index)
+	{
+		const std::size_t sourceOffset = index * 3;
+		pDest[index] = UtilsImageUtilityModel::NearestPaletteIndex(
+			pSrc[sourceOffset], pSrc[sourceOffset + 1],
+			pSrc[sourceOffset + 2],
+			paletteRgb.data(), static_cast<std::size_t>(sNumColors));
+	}
+	return TRUE;
+}
 
 void MapPalette( UINT8 *pDest, UINT8 *pSrc, INT16 sWidth, INT16 sHeight, INT16 sNumColors, SGPPaletteEntry *pTable )
 {
-	INT32 cX, cY, cnt, bBest;
-	real					dLowestDist;
-	real					dCubeDist;
-	vector_3			vTableVal, vSrcVal, vDiffVal;
-	UINT8					*pData;
-	RGBValues			*pRGBData;
-
-	pRGBData = (RGBValues*)pSrc;
-
-	for ( cX = 0; cX < sWidth; cX++ )
-	{
-		for ( cY = 0; cY < sHeight; cY++ )
-		{
-				// OK, FOR EACH PALETTE ENTRY, FIND CLOSEST
-				bBest					= 0;
-				dLowestDist		= (float)9999999;
-				pData					= &(pSrc[ ( cY * sWidth ) + cX ]);
-
-				for ( cnt = 0; cnt < sNumColors; cnt++ )
-				{
-					vSrcVal.x		= pRGBData[ ( cY * sWidth ) + cX ].r;
-					vSrcVal.y		= pRGBData[ ( cY * sWidth ) + cX ].g;
-					vSrcVal.z		= pRGBData[ ( cY * sWidth ) + cX ].b;
-
-					vTableVal.x = pTable[ cnt ].peRed;
-					vTableVal.y = pTable[ cnt ].peGreen;
-					vTableVal.z = pTable[ cnt ].peBlue;
-
-					// Get Dist
-					vDiffVal = VSubtract( &vSrcVal, &vTableVal );
-
-					// Get mag dist
-					dCubeDist = VGetLength( &(vDiffVal) );
-
-					if ( dCubeDist < dLowestDist )
-					{
-						dLowestDist = dCubeDist;
-						bBest = cnt;
-					}
-				}
-
-				// Now we have the lowest value
-				// Set into dest
-				pData = &(pDest[ ( cY * sWidth ) + cX ]);
-
-				//Set!
-				*pData = (UINT8)bBest;
-		}
-	}
-
+	TryMapPalette(pDest, pSrc, sWidth, sHeight, sNumColors, pTable);
 }

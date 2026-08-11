@@ -63,8 +63,11 @@
 #include "MemMan.h"
 #include "FileMan.h"
 #include "Encrypted File.h"
+#include "Debug Control.h"
 #include "INIReader.h"
 #include "ItemXmlWriter.h"
+#include "Quantize Wrap.h"
+#include "STIConvert.h"
 #include "XMLWriter.h"
 #include "Button System.h"
 #include "message.h"
@@ -1624,6 +1627,153 @@ static void RunAtomicVfsPublicationTests(const std::string& fixtureToken)
 		delete lowerProfile;
 	}
 	std::filesystem::remove_all(fixtureRoot, filesystemError);
+}
+
+static void RunImageUtilityBoundaryTests(const std::string& fixtureToken)
+{
+	LiveMessage(nullptr);
+	MPDebugMsg(nullptr);
+	CHECK(true,
+		"optional diagnostic sinks reject null caller text without initialization or dispatch" );
+
+	const std::string path = "image-utility-boundary-" + fixtureToken + ".sti";
+	auto readNative = [](const std::string& filePath)
+	{
+		std::ifstream input(filePath, std::ios::binary);
+		return std::vector<UINT8>(std::istreambuf_iterator<char>(input),
+			std::istreambuf_iterator<char>());
+	};
+	const std::string sentinel = "preserve-existing-radar-image";
+	{
+		std::ofstream output(path, std::ios::binary | std::ios::trunc);
+		output.write(sentinel.data(), static_cast<std::streamsize>(sentinel.size()));
+	}
+
+	std::array<SGPPaletteEntry, 256> palette{};
+	palette[1].peRed = 12;
+	palette[1].peGreen = 34;
+	palette[1].peBlue = 56;
+	std::array<UINT8, 3> invalidCompressed = { 77, 77, 77 };
+	const std::array<UINT8, 1> oneSourcePixel = { 1 };
+	STCISubImage invalidSubImage{};
+	invalidSubImage.sOffsetX = -1;
+	invalidSubImage.usWidth = 1;
+	invalidSubImage.usHeight = 1;
+	CHECK(ETRLECompressSubImage(invalidCompressed.data(),
+		static_cast<UINT32>(invalidCompressed.size()), oneSourcePixel.data(),
+		1, 1, &invalidSubImage) == 0 &&
+		std::all_of(invalidCompressed.begin(), invalidCompressed.end(),
+			[](UINT8 value) { return value == 77; }),
+		"invalid ETRLE subimage geometry is rejected before touching destination bytes" );
+
+	const std::array<INT8, 1> wall = { static_cast<INT8>(0xff) };
+	const bool malformedRejected = !TryWriteSTIFile(wall.data(), palette.data(),
+		1, 1, path.c_str(), CONVERT_ETRLE_COMPRESS, 0);
+	const std::vector<UINT8> afterMalformed = readNative(path);
+	CHECK(malformedRejected &&
+		std::string(afterMalformed.begin(), afterMalformed.end()) == sentinel,
+		"malformed STI conversion preserves the complete existing destination" );
+
+	const std::array<INT8, 1> pixel = { 1 };
+	const bool written = TryWriteSTIFile(pixel.data(), palette.data(), 1, 1,
+		path.c_str(), CONVERT_ETRLE_COMPRESS, 4);
+	const std::vector<UINT8> bytes = readNative(path);
+	auto readLe16 = [&bytes](std::size_t offset) -> UINT16
+	{
+		return static_cast<UINT16>(bytes[offset]) |
+			(static_cast<UINT16>(bytes[offset + 1]) << 8);
+	};
+	auto readLe32 = [&bytes](std::size_t offset) -> UINT32
+	{
+		return static_cast<UINT32>(bytes[offset]) |
+			(static_cast<UINT32>(bytes[offset + 1]) << 8) |
+			(static_cast<UINT32>(bytes[offset + 2]) << 16) |
+			(static_cast<UINT32>(bytes[offset + 3]) << 24);
+	};
+	STCIHeader header{};
+	STCISubImage subImage{};
+	if (bytes.size() >= STCI_HEADER_SIZE)
+		std::memcpy(&header, bytes.data(), STCI_HEADER_SIZE);
+	constexpr std::size_t subImageOffset =
+		STCI_HEADER_SIZE + 256 * STCI_PALETTE_ELEMENT_SIZE;
+	if (bytes.size() >= subImageOffset + STCI_SUBIMAGE_SIZE)
+		std::memcpy(&subImage, bytes.data() + subImageOffset,
+			STCI_SUBIMAGE_SIZE);
+	constexpr std::size_t imageOffset = subImageOffset + STCI_SUBIMAGE_SIZE;
+	CHECK(written && bytes.size() == imageOffset + 3 + 4 &&
+		readLe32(4) == 1 && readLe32(8) == 3 &&
+		readLe32(12) == 0 &&
+		readLe32(16) == (STCI_INDEXED | STCI_ETRLE_COMPRESSED) &&
+		readLe16(20) == 1 && readLe16(22) == 1 &&
+		readLe32(24) == 256 && readLe16(28) == 1 &&
+		bytes[30] == 8 && bytes[31] == 8 && bytes[32] == 8 &&
+		bytes[44] == 8 && bytes[45] == 0 && bytes[46] == 0 &&
+		bytes[47] == 0 && readLe32(48) == 4 &&
+		std::memcmp(header.cID, STCI_ID_STRING, STCI_ID_LEN) == 0 &&
+		header.usWidth == 1 && header.usHeight == 1 &&
+		header.uiOriginalSize == 1 && header.uiStoredSize == 3 &&
+		header.uiAppDataSize == 4 &&
+		(header.fFlags & (STCI_INDEXED | STCI_ETRLE_COMPRESSED)) ==
+			(STCI_INDEXED | STCI_ETRLE_COMPRESSED) &&
+		header.Indexed.uiNumberOfColours == 256 &&
+		header.Indexed.usNumberOfSubImages == 1 &&
+		bytes[STCI_HEADER_SIZE + STCI_PALETTE_ELEMENT_SIZE] == 12 &&
+		bytes[STCI_HEADER_SIZE + STCI_PALETTE_ELEMENT_SIZE + 1] == 34 &&
+		bytes[STCI_HEADER_SIZE + STCI_PALETTE_ELEMENT_SIZE + 2] == 56 &&
+		subImage.uiDataOffset == 0 && subImage.uiDataLength == 3 &&
+		subImage.usWidth == 1 && subImage.usHeight == 1 &&
+		bytes[imageOffset] == 1 && bytes[imageOffset + 1] == 1 &&
+		bytes[imageOffset + 2] == 0 &&
+		std::all_of(bytes.end() - 4, bytes.end(),
+			[](UINT8 value) { return value == 0; }),
+		"STI writer atomically publishes the exact legacy header palette subimage payload and zeroed app data" );
+
+	const std::array<INT8, 2> uncompressedPixels = { 9, 10 };
+	const bool uncompressedWritten = TryWriteSTIFile(uncompressedPixels.data(),
+		palette.data(), 2, 1, path.c_str(), CONVERT_TO_8_BIT, 0);
+	const std::vector<UINT8> uncompressedBytes = readNative(path);
+	STCIHeader uncompressedHeader{};
+	if (uncompressedBytes.size() >= STCI_HEADER_SIZE)
+		std::memcpy(&uncompressedHeader, uncompressedBytes.data(),
+			STCI_HEADER_SIZE);
+	constexpr std::size_t uncompressedImageOffset =
+		STCI_HEADER_SIZE + 256 * STCI_PALETTE_ELEMENT_SIZE;
+	CHECK(uncompressedWritten &&
+		uncompressedBytes.size() == uncompressedImageOffset + 2 &&
+		uncompressedHeader.uiOriginalSize == 2 &&
+		uncompressedHeader.uiStoredSize == 2 &&
+		uncompressedHeader.Indexed.usNumberOfSubImages == 0 &&
+		(uncompressedHeader.fFlags & STCI_INDEXED) == STCI_INDEXED &&
+		(uncompressedHeader.fFlags & STCI_ETRLE_COMPRESSED) == 0 &&
+		uncompressedBytes[uncompressedImageOffset] == 9 &&
+		uncompressedBytes[uncompressedImageOffset + 1] == 10,
+		"uncompressed STI output writes caller pixels instead of an uninitialized legacy image pointer" );
+
+	std::array<UINT8, 6> rgb = { 255, 0, 0, 0, 255, 0 };
+	std::array<UINT8, 2> indexed = { 77, 77 };
+	std::array<SGPPaletteEntry, 256> quantized{};
+	const bool quantizedOk = QuantizeImage(
+		indexed.data(), rgb.data(), 2, 1, quantized.data());
+	CHECK(quantizedOk && indexed[0] != indexed[1] &&
+		quantized[indexed[0]].peRed == 255 &&
+		quantized[indexed[0]].peGreen == 0 &&
+		quantized[indexed[0]].peBlue == 0 &&
+		quantized[indexed[1]].peRed == 0 &&
+		quantized[indexed[1]].peGreen == 255 &&
+		quantized[indexed[1]].peBlue == 0,
+		"quantizer owns complete palette and pixel staging while preserving legacy RGB results" );
+
+	std::array<UINT8, 2> unchangedIndices = { 91, 92 };
+	std::array<SGPPaletteEntry, 256> unchangedPalette{};
+	unchangedPalette[0].peRed = 93;
+	CHECK(!QuantizeImage(unchangedIndices.data(), rgb.data(), 0, 1,
+			unchangedPalette.data()) &&
+		unchangedIndices[0] == 91 && unchangedIndices[1] == 92 &&
+		unchangedPalette[0].peRed == 93,
+		"invalid quantizer dimensions leave caller pixels and palette untouched" );
+
+	std::error_code ignored;
+	std::filesystem::remove(path, ignored);
 }
 
 static void RunTransactionalItemXmlTests(const std::string& fixtureToken)
@@ -18460,6 +18610,7 @@ int main( int, char** )
 		RunTransactionalItemXmlTests(vfsPriorityToken);
 		RunItemXmlWriterTests(vfsPriorityToken);
 		RunAtomicVfsPublicationTests(vfsPriorityToken);
+		RunImageUtilityBoundaryTests(vfsPriorityToken);
 	}
 	catch (const std::exception& error)
 	{

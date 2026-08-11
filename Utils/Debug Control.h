@@ -20,7 +20,7 @@ void MPDebugMsg( const CHAR8 *strMessage);
 
 #define AnimDebugMsg(c)				AnimDbgMessage( (c) )
 
-extern	void		AnimDbgMessage( CHAR8 *Str);
+extern	void		AnimDbgMessage( const CHAR8 *Str);
 
 #else 
 
@@ -33,7 +33,7 @@ extern	void		AnimDbgMessage( CHAR8 *Str);
 
 #define PhysicsDebugMsg(c)				PhysicsDbgMessage( (c) )
 
-extern	void		PhysicsDbgMessage( CHAR8 *Str);
+extern	void		PhysicsDbgMessage( const CHAR8 *Str);
 
 #else 
 
@@ -47,7 +47,7 @@ extern	void		PhysicsDbgMessage( CHAR8 *Str);
 
 #define AiDebugMsg(c)				AiDbgMessage( (c) )
 
-extern	void		AiDbgMessage( CHAR8 *Str);
+extern	void		AiDbgMessage( const CHAR8 *Str);
 
 #else 
 
