@@ -270,6 +270,16 @@ BOOLEAN AddGameEventFromNetwork( UINT32 uiEvent, UINT16 usDelay, PTR pEventData 
 BOOLEAN DequeAllGameEvents( BOOLEAN fExecute );
 BOOLEAN DequeueAllDemandGameEvents( BOOLEAN fExecute );
 
+struct EventQueueStatistics
+{
+	UINT32 primary = 0;
+	UINT32 delayed = 0;
+	UINT32 demand = 0;
+	UINT32 payloadBytes = 0;
+};
+
+EventQueueStatistics GetEventQueueStatistics();
+
 // clean out the event queue
 BOOLEAN ClearEventQueue( void );
 #endif

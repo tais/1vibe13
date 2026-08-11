@@ -4,12 +4,9 @@
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "TacticalActorWorldPlacement.h"
-#include <stdio.h>
-#include <time.h>
 #include "sgp.h"
-#include "WCheck.h"
 #include "Event Pump.h"
-#include "timer.h"
+#include "TacticalEventQueueModel.h"
 #include "Sound Control.h"
 #include "Overhead.h"
 #include "Weapons.h"
@@ -17,16 +14,18 @@
 #include "opplist.h"
 #include "Tactical Save.h"
 #include "TacticalActorRangedActions.h"
-#include <vector>
-#include <queue>
-
 #ifdef NETWORKED
 #include "Networking.h"
 #include "NetworkEvent.h"
 #endif
-#include "MemMan.h"
 #include "Timer Control.h"
 #include "DEBUG.H"
+
+#include <optional>
+
+#ifdef NETWORKED
+extern BOOLEAN gfAmINetworked;
+#endif
 
 UINT8 gubEncryptionArray4[ BASE_NUMBER_OF_ROTATION_ARRAYS * 3 ][ NEW_ROTATION_ARRAY_SIZE ] =
 {
@@ -601,475 +600,242 @@ UINT8 gubEncryptionArray4[ BASE_NUMBER_OF_ROTATION_ARRAYS * 3 ][ NEW_ROTATION_AR
 	},
 };
 
-struct EVENT
+namespace
 {
-	TIMER	TimeStamp;
-	UINT32	uiFlags;
-	UINT16	usDelay;
-	UINT32	uiEvent;
-	UINT32	uiDataSize;
-	BYTE*	pData;
+	using TacticalEventQueueModel::DispatchMode;
+	using TacticalEventQueueModel::DrainStatus;
+	using TacticalEventQueueModel::EnqueueResult;
+	using TacticalEventQueueModel::EventKind;
+	using TacticalEventQueueModel::EventQueues;
+	using TacticalEventQueueModel::EventSchema;
+	using TacticalEventQueueModel::OwnedEvent;
+	using TacticalEventQueueModel::QueueLimits;
 
-	EVENT(UINT16 delay, UINT32 event, UINT32 dataSize, BYTE* eventData) :
-		TimeStamp(GetJA2Clock()),
-		uiFlags(0),
-		usDelay(delay),
-		uiEvent(event),
-		uiDataSize(dataSize),
-		pData{ eventData }
+	constexpr QueueLimits EventQueueLimits{
+		4096, 4096, 1024, 64 * 1024, 16 * 1024 * 1024};
+	EventQueues gEventQueues(EventQueueLimits);
+
+	static_assert(E_PLAYSOUND == static_cast<UINT32>(EventKind::PlaySound));
+	static_assert(S_CHANGEDEST == static_cast<UINT32>(EventKind::ChangeDestination));
+	static_assert(S_BEGINTURN == static_cast<UINT32>(EventKind::BeginTurn));
+	static_assert(S_CHANGESTANCE == static_cast<UINT32>(EventKind::ChangeStance));
+	static_assert(S_SETDESIREDDIRECTION == static_cast<UINT32>(EventKind::SetDesiredDirection));
+	static_assert(S_BEGINFIREWEAPON == static_cast<UINT32>(EventKind::BeginFireWeapon));
+	static_assert(S_FIREWEAPON == static_cast<UINT32>(EventKind::FireWeapon));
+	static_assert(S_WEAPONHIT == static_cast<UINT32>(EventKind::WeaponHit));
+	static_assert(S_STRUCTUREHIT == static_cast<UINT32>(EventKind::StructureHit));
+	static_assert(S_WINDOWHIT == static_cast<UINT32>(EventKind::WindowHit));
+	static_assert(S_MISS == static_cast<UINT32>(EventKind::Miss));
+	static_assert(S_NOISE == static_cast<UINT32>(EventKind::Noise));
+	static_assert(S_STOP_MERC == static_cast<UINT32>(EventKind::StopMercenary));
+	static_assert(S_GETNEWPATH == static_cast<UINT32>(EventKind::GetNewPath));
+	static_assert(S_SETPOSITION == static_cast<UINT32>(EventKind::SetPosition));
+	static_assert(S_CHANGESTATE == static_cast<UINT32>(EventKind::ChangeState));
+	static_assert(S_SETDIRECTION == static_cast<UINT32>(EventKind::SetDirection));
+	static_assert(S_SENDPATHTONETWORK == static_cast<UINT32>(EventKind::SendPathToNetwork));
+	static_assert(S_UPDATENETWORKSOLDIER == static_cast<UINT32>(EventKind::UpdateNetworkSoldier));
+
+	std::optional<EventSchema> SchemaForLegacyEvent(UINT32 event)
 	{
-	}
-
-	EVENT() :
-		TimeStamp(GetJA2Clock()),
-		uiFlags(0),
-		usDelay(0),
-		uiEvent(0),
-		uiDataSize(0),
-		pData{ nullptr }
-	{}
-};
-
-#define			PRIMARY_EVENT_QUEUE			0
-#define			SECONDARY_EVENT_QUEUE		1
-#define			DEMAND_EVENT_QUEUE			2
-#define			EVENT_EXPIRED				0x00000002
-
-std::queue<EVENT> hEventQueue;
-std::vector<EVENT> hDelayEventQueue;
-std::queue<EVENT> hDemandEventQueue;
-
-// GLobals used here, for each event structure used,
-// Used as globals for stack reasons
-EV_E_PLAYSOUND			EPlaySound;
-
-EV_S_CHANGESTATE			SChangeState;
-EV_S_CHANGEDEST				SChangeDest;
-EV_S_SETPOSITION			SSetPosition;
-EV_S_GETNEWPATH				SGetNewPath;
-EV_S_BEGINTURN				SBeginTurn;
-EV_S_CHANGESTANCE			SChangeStance;
-EV_S_SETDIRECTION			SSetDirection;
-EV_S_SETDESIREDDIRECTION	SSetDesiredDirection;
-EV_S_BEGINFIREWEAPON		SBeginFireWeapon;
-EV_S_FIREWEAPON				SFireWeapon;
-EV_S_WEAPONHIT				SWeaponHit;
-EV_S_STRUCTUREHIT			SStructureHit;
-EV_S_WINDOWHIT				SWindowHit;
-EV_S_MISS					SMiss;
-EV_S_NOISE					SNoise;
-EV_S_STOP_MERC				SStopMerc;
-EV_S_SENDPATHTONETWORK		SUpdateNetworkSoldier;
-
-extern	BOOLEAN				gfAmINetworked;
-
-
-BOOLEAN ExecuteGameEvent( EVENT *pEvent );
-
-
-BOOLEAN AddEvent(UINT32 uiEvent, UINT16 usDelay, PTR pEventData, UINT32 uiDataSize, UINT8 ubQueueID)
-{
-	BYTE* pData = (BYTE*)MemAlloc(uiDataSize);
-	Assert(pData);
-	memcpy(pData, pEventData, uiDataSize);
-
-	// Add event to queue
-	switch (ubQueueID)
-	{
-	case PRIMARY_EVENT_QUEUE:
-		hEventQueue.emplace(usDelay, uiEvent, uiDataSize, pData);
-		break;
-
-	case SECONDARY_EVENT_QUEUE:
-		hDelayEventQueue.emplace_back(usDelay, uiEvent, uiDataSize, pData);
-		break;
-
-	case DEMAND_EVENT_QUEUE:
-		hDemandEventQueue.emplace(usDelay, uiEvent, uiDataSize, pData);
-		break;
-
-	default:
-		Assert(FALSE);
-		break;
-	}
-
-	return(TRUE);
-}
-
-
-static BOOLEAN RemoveEventFromSecondaryEventQueue(EVENT* ppEvent, UINT32 uiIndex)
-{
-	if (uiIndex >= hDelayEventQueue.size())
-	{
-		return(FALSE);
-	}
-
-	*ppEvent = hDelayEventQueue[uiIndex];
-	hDelayEventQueue.erase(hDelayEventQueue.begin() + uiIndex);
-	return(TRUE);
-}
-
-
-static BOOLEAN PopEvent(EVENT* ppEvent, UINT8 ubQueueID)
-{
-	// Get an event from queue, if one exists
-	//
-	switch (ubQueueID)
-	{
-	case PRIMARY_EVENT_QUEUE:
-		if (!hEventQueue.empty())
+		switch (event)
 		{
-			*ppEvent = hEventQueue.front();
-			hEventQueue.pop();
-			return(TRUE);
+		case E_PLAYSOUND:
+			return EventSchema::For<EV_E_PLAYSOUND>(EventKind::PlaySound);
+		case S_CHANGEDEST:
+			return EventSchema::For<EV_S_CHANGEDEST>(EventKind::ChangeDestination);
+		case S_BEGINTURN:
+			return EventSchema::For<EV_S_BEGINTURN>(EventKind::BeginTurn);
+		case S_CHANGESTANCE:
+			return EventSchema::For<EV_S_CHANGESTANCE>(EventKind::ChangeStance);
+		case S_SETDESIREDDIRECTION:
+			return EventSchema::For<EV_S_SETDESIREDDIRECTION>(EventKind::SetDesiredDirection);
+		case S_BEGINFIREWEAPON:
+			return EventSchema::For<EV_S_BEGINFIREWEAPON>(EventKind::BeginFireWeapon);
+		case S_FIREWEAPON:
+			return EventSchema::For<EV_S_FIREWEAPON>(EventKind::FireWeapon);
+		case S_WEAPONHIT:
+			return EventSchema::For<EV_S_WEAPONHIT>(EventKind::WeaponHit);
+		case S_STRUCTUREHIT:
+			return EventSchema::For<EV_S_STRUCTUREHIT>(EventKind::StructureHit);
+		case S_WINDOWHIT:
+			return EventSchema::For<EV_S_WINDOWHIT>(EventKind::WindowHit);
+		case S_MISS:
+			return EventSchema::For<EV_S_MISS>(EventKind::Miss);
+		case S_NOISE:
+			return EventSchema::For<EV_S_NOISE>(EventKind::Noise);
+		case S_STOP_MERC:
+			return EventSchema::For<EV_S_STOP_MERC>(EventKind::StopMercenary);
+		case S_GETNEWPATH:
+			return EventSchema::For<EV_S_GETNEWPATH>(EventKind::GetNewPath);
+		case S_SETPOSITION:
+			return EventSchema::For<EV_S_SETPOSITION>(EventKind::SetPosition);
+		case S_CHANGESTATE:
+			return EventSchema::For<EV_S_CHANGESTATE>(EventKind::ChangeState);
+		case S_SETDIRECTION:
+			return EventSchema::For<EV_S_SETDIRECTION>(EventKind::SetDirection);
+		case S_SENDPATHTONETWORK:
+			return EventSchema::For<EV_S_SENDPATHTONETWORK>(EventKind::SendPathToNetwork);
+		case S_UPDATENETWORKSOLDIER:
+			return EventSchema::For<EV_S_UPDATENETWORKSOLDIER>(EventKind::UpdateNetworkSoldier);
+		default:
+			return std::nullopt;
 		}
-		break;
+	}
 
-	case SECONDARY_EVENT_QUEUE:
-		if (!hDelayEventQueue.empty())
+	BOOLEAN EnqueueLegacyEvent(
+		UINT32 event, UINT16 delay, PTR payload, bool demand)
+	{
+		const std::optional<EventSchema> schema = SchemaForLegacyEvent(event);
+		if (!schema)
 		{
-			*ppEvent = hDelayEventQueue.front();
-			hDelayEventQueue.erase(hDelayEventQueue.begin());
-			return(TRUE);
+			DebugMsg(TOPIC_JA2, DBG_LEVEL_3,
+				"Event Pump: Unknown event type");
+			return FALSE;
 		}
-		break;
 
-	case DEMAND_EVENT_QUEUE:
-		if (!hDemandEventQueue.empty())
-		{
-			*ppEvent = hDemandEventQueue.front();
-			hDemandEventQueue.pop();
-			return(TRUE);
-		}
-		break;
+		const EnqueueResult result = demand
+			? gEventQueues.enqueueDemand(
+				*schema, payload, schema->payloadSize)
+			: gEventQueues.enqueuePrimary(
+				*schema, payload, schema->payloadSize, delay);
+		if (result == EnqueueResult::Accepted) return TRUE;
 
-	default:
-		Assert(FALSE);
-		break;
+		DebugMsg(TOPIC_JA2, DBG_LEVEL_3,
+			"Event Pump: rejected invalid or over-capacity event");
+		return FALSE;
 	}
 
-	return(FALSE);
-}
-
-
-static BOOLEAN FreeEventData(EVENT* pEvent)
-{
-	CHECKF(pEvent != NULL);
-
-	MemFree(pEvent->pData);
-	//MemFree(pEvent);
-
-	return(TRUE);
-}
-
-
-UINT32 EventQueueSize(UINT8 ubQueueID)
-{
-	switch (ubQueueID)
-	{
-	case PRIMARY_EVENT_QUEUE:
-		return(hEventQueue.size());
-		break;
-
-	case SECONDARY_EVENT_QUEUE:
-		return(hDelayEventQueue.size());
-		break;
-
-	case DEMAND_EVENT_QUEUE:
-		return(hDemandEventQueue.size());
-		break;
-
-	default:
-		Assert(FALSE);
-		return(-1);
-		break;
-	}
-}
-
-
-static BOOLEAN AddGameEventToQueue( UINT32 uiEvent, UINT16 usDelay, PTR pEventData, UINT8 ubQueueID )
-{
-	UINT32		uiDataSize;
-
-	// Check range of Event ui
-	if ( uiEvent < 0 || uiEvent > NUM_EVENTS )
-	{
-		// Set debug message!
-			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Event Pump: Unknown event type");
-			return( FALSE );
-	}
-
-	// Switch on event type and set size accordingly
-	switch( uiEvent )
-	{
-			case E_PLAYSOUND:
-
-				uiDataSize = sizeof( EV_E_PLAYSOUND );
-				break;
-
-			case S_CHANGESTATE:
-
-				uiDataSize = sizeof( EV_S_CHANGESTATE );
-				break;
-
-
-			case S_CHANGEDEST:
-
-				uiDataSize = sizeof( EV_S_CHANGEDEST );
-				break;
-
-
-			case S_SETPOSITION:
-
-				uiDataSize = sizeof( EV_S_SETPOSITION );
-				break;
-
-			case S_GETNEWPATH:
-
-				uiDataSize = sizeof( EV_S_GETNEWPATH );
-				break;
-
-			case S_BEGINTURN:
-
-				uiDataSize = sizeof( EV_S_BEGINTURN );
-				break;
-
-			case S_CHANGESTANCE:
-
-				uiDataSize = sizeof( EV_S_CHANGESTANCE );
-				break;
-
-			case S_SETDIRECTION:
-
-				uiDataSize = sizeof( EV_S_SETDIRECTION );
-				break;
-
-			case S_SETDESIREDDIRECTION:
-
-				uiDataSize = sizeof( EV_S_SETDESIREDDIRECTION );
-				break;
-
-			case S_FIREWEAPON:
-
-				uiDataSize = sizeof( EV_S_FIREWEAPON );
-				break;
-
-			case S_BEGINFIREWEAPON:
-
-				uiDataSize = sizeof( EV_S_BEGINFIREWEAPON );
-				//Delay this event
-				break;
-
-			case S_WEAPONHIT:
-
-				uiDataSize = sizeof( EV_S_WEAPONHIT );
-				break;
-
-			case S_STRUCTUREHIT:
-				uiDataSize = sizeof( EV_S_STRUCTUREHIT );
-				break;
-
-			case S_WINDOWHIT:
-				uiDataSize = sizeof( EV_S_STRUCTUREHIT );
-				break;
-
-			case S_MISS:
-				uiDataSize = sizeof( EV_S_MISS );
-				break;
-
-			case S_NOISE:
-				uiDataSize = sizeof( EV_S_NOISE );
-				break;
-
-			case S_STOP_MERC:
-				uiDataSize = sizeof( EV_S_STOP_MERC );
-				break;
-
-			case S_SENDPATHTONETWORK:
-				uiDataSize = sizeof(EV_S_SENDPATHTONETWORK);
-				break;
-
-			case 	S_UPDATENETWORKSOLDIER:
-				uiDataSize = sizeof(EV_S_UPDATENETWORKSOLDIER);
-				break;
-
-			default:
-
-				// Set debug msg: unknown message!
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Event Pump: Event Type mismatch");
-				return( FALSE );
-
-	}
-
-
-	CHECKF( AddEvent( uiEvent, usDelay,	pEventData, uiDataSize, ubQueueID ) );
-
-	// successful
-	return( TRUE );
+	BOOLEAN ExecuteGameEvent(const OwnedEvent& event);
 }
 
 
 BOOLEAN AddGameEvent(UINT32 uiEvent, UINT16 usDelay, PTR pEventData)
 {
+	if (!SchemaForLegacyEvent(uiEvent) || pEventData == nullptr)
+	{
+		DebugMsg(TOPIC_JA2, DBG_LEVEL_3,
+			"Event Pump: rejected unknown event or null payload");
+		return FALSE;
+	}
+
 	if (usDelay == DEMAND_EVENT_DELAY)
 	{
-		//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("AddGameEvent: Sending Local and network #%d", uiEvent));
+		if (!EnqueueLegacyEvent(uiEvent, 0, pEventData, true)) return FALSE;
 #ifdef NETWORKED
 		if (gfAmINetworked)
 			SendEventToNetwork(uiEvent, usDelay, pEventData);
 #endif
-		return(AddGameEventToQueue(uiEvent, 0, pEventData, DEMAND_EVENT_QUEUE));
+		return TRUE;
 	}
-	else if (uiEvent < EVENTS_LOCAL_AND_NETWORK)
+	if (uiEvent < EVENTS_LOCAL_AND_NETWORK)
 	{
-		//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("AddGameEvent: Sending Local and network #%d", uiEvent));
+		if (!EnqueueLegacyEvent(uiEvent, usDelay, pEventData, false)) return FALSE;
 #ifdef NETWORKED
 		if (gfAmINetworked)
 			SendEventToNetwork(uiEvent, usDelay, pEventData);
 #endif
-		return(AddGameEventToQueue(uiEvent, usDelay, pEventData, PRIMARY_EVENT_QUEUE));
+		return TRUE;
 	}
-	else if (uiEvent < EVENTS_ONLY_USED_LOCALLY)
+	if (uiEvent < EVENTS_ONLY_USED_LOCALLY)
 	{
-		//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("AddGameEvent: Sending Local #%d", uiEvent));
-		return(AddGameEventToQueue(uiEvent, usDelay, pEventData, PRIMARY_EVENT_QUEUE));
+		return EnqueueLegacyEvent(uiEvent, usDelay, pEventData, false);
 	}
-	else if (uiEvent < EVENTS_ONLY_SENT_OVER_NETWORK)
+	if (uiEvent < EVENTS_ONLY_SENT_OVER_NETWORK)
 	{
-		//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("AddGameEvent: Sending network #%d", uiEvent));
 #ifdef NETWORKED
 		if (gfAmINetworked)
 			SendEventToNetwork(uiEvent, usDelay, pEventData);
 #endif
-		return(TRUE);
+		return TRUE;
 	}
-	// There is an error with the event
-	else
-		return(FALSE);
+	return FALSE;
 }
 
 
 BOOLEAN AddGameEventFromNetwork(UINT32 uiEvent, UINT16 usDelay, PTR pEventData)
 {
-	return(AddGameEventToQueue(uiEvent, usDelay, pEventData, PRIMARY_EVENT_QUEUE));
+	return EnqueueLegacyEvent(uiEvent, usDelay, pEventData, false);
 }
 
 
 BOOLEAN	DequeAllGameEvents( BOOLEAN fExecute )
 {
-	EVENT pEvent;
-	UINT32 uiQueueSize, i;
-	BOOLEAN fCompleteLoop = FALSE;
-
-
-	// First dequeue all primary events
-	while( EventQueueSize( PRIMARY_EVENT_QUEUE ) > 0 )
-	{
-		// Get Event
-		if (PopEvent( &pEvent, PRIMARY_EVENT_QUEUE) == FALSE )
+	bool dispatchSucceeded = true;
+	const auto report = gEventQueues.drainPrimaryAndExpired(
+		GetJA2Clock(), fExecute ? DispatchMode::Execute : DispatchMode::Discard,
+		[&](const OwnedEvent& event)
 		{
-			return( FALSE );
-		}
-
-		if ( fExecute )
-		{
-			// Check if event has a delay and add to secondary queue if so
-			if ( pEvent.usDelay > 0 )
-			{
-				AddGameEventToQueue( pEvent.uiEvent, pEvent.usDelay, pEvent.pData, SECONDARY_EVENT_QUEUE );
-			}
-			else
-			{
-				ExecuteGameEvent( &pEvent );
-			}
-		}
-
-		// Delete event
-		FreeEventData( &pEvent );
-	};
-
-
-	// NOW CHECK SECONDARY QUEUE FOR EVENTS
-	uiQueueSize = EventQueueSize( SECONDARY_EVENT_QUEUE );
-
-	for ( i = 0; i < uiQueueSize; i++ )
-	{
-		EVENT& pEventRef = hDelayEventQueue[i];
-		// Check time
-		if ( ( GetJA2Clock() - pEventRef.TimeStamp ) > pEventRef.usDelay )
-		{
-			if ( fExecute )
-			{
-				ExecuteGameEvent( &pEventRef );
-			}
-
-			// FLag as expired
-			pEventRef.uiFlags = EVENT_EXPIRED;
-		}
-	}
-
-	// Remove expired events from secondary event queue
-	uiQueueSize = EventQueueSize(SECONDARY_EVENT_QUEUE);
-	for (INT32 i = uiQueueSize-1; i >= 0; i--)
-	{
-		EVENT& pEventRef = hDelayEventQueue[i];
-		if (pEventRef.uiFlags & EVENT_EXPIRED)
-		{
-			RemoveEventFromSecondaryEventQueue(&pEventRef, i);
-			FreeEventData(&pEventRef);
-		}
-	}
-
-	return( TRUE );
+			if (!ExecuteGameEvent(event)) dispatchSucceeded = false;
+		});
+	return report.status == DrainStatus::Complete && dispatchSucceeded
+		? TRUE : FALSE;
 }
 
 
 BOOLEAN DequeueAllDemandGameEvents( BOOLEAN fExecute )
 {
-	EVENT pEvent;
-
-	// Dequeue all events on the demand queue (only)
-
-	while( EventQueueSize( DEMAND_EVENT_QUEUE ) > 0 )
-	{
-		// Get Event
-		if ( PopEvent( &pEvent, DEMAND_EVENT_QUEUE) == FALSE )
+	bool dispatchSucceeded = true;
+	const auto report = gEventQueues.drainDemand(
+		fExecute ? DispatchMode::Execute : DispatchMode::Discard,
+		[&](const OwnedEvent& event)
 		{
-			return( FALSE );
-		}
-
-		if ( fExecute )
-		{
-			// Check if event has a delay and add to secondary queue if so
-			if ( pEvent.usDelay > 0 )
-			{
-				AddGameEventToQueue( pEvent.uiEvent, pEvent.usDelay, pEvent.pData, SECONDARY_EVENT_QUEUE );
-			}
-			else
-			{
-				ExecuteGameEvent( &pEvent );
-			}
-		}
-
-		// Delete event
-		FreeEventData( &pEvent );
-
-	};
-
-	return( TRUE );
+			if (!ExecuteGameEvent(event)) dispatchSucceeded = false;
+		});
+	return report.status == DrainStatus::Complete && dispatchSucceeded
+		? TRUE : FALSE;
 }
 
 
-BOOLEAN ExecuteGameEvent( EVENT *pEvent )
+namespace
 {
+	template <typename Payload>
+	BOOLEAN DecodePayload(
+		const OwnedEvent& event, EventKind kind, Payload& destination)
+	{
+		const auto decoded = event.decode<Payload>(
+			EventSchema::For<Payload>(kind));
+		if (!decoded) return FALSE;
+		destination = *decoded;
+		return TRUE;
+	}
+
+	BOOLEAN ExecuteGameEvent(const OwnedEvent& event)
+	{
+	const std::optional<EventSchema> expected =
+		SchemaForLegacyEvent(static_cast<UINT32>(event.kind()));
+	if (!expected || *expected != event.schema() ||
+		event.payloadSize() != expected->payloadSize)
+	{
+		DebugMsg(TOPIC_JA2, DBG_LEVEL_3,
+			"Event Pump: rejected mismatched dispatch schema");
+		return FALSE;
+	}
+
 	TacticalActor		*pSoldier;
+	EV_E_PLAYSOUND EPlaySound{};
+	EV_S_CHANGESTATE SChangeState{};
+	EV_S_CHANGEDEST SChangeDest{};
+	EV_S_SETPOSITION SSetPosition{};
+	EV_S_GETNEWPATH SGetNewPath{};
+	EV_S_BEGINTURN SBeginTurn{};
+	EV_S_CHANGESTANCE SChangeStance{};
+	EV_S_SETDIRECTION SSetDirection{};
+	EV_S_SETDESIREDDIRECTION SSetDesiredDirection{};
+	EV_S_BEGINFIREWEAPON SBeginFireWeapon{};
+	EV_S_FIREWEAPON SFireWeapon{};
+	EV_S_WEAPONHIT SWeaponHit{};
+	EV_S_STRUCTUREHIT SStructureHit{};
+	EV_S_WINDOWHIT SWindowHit{};
+	EV_S_MISS SMiss{};
+	EV_S_NOISE SNoise{};
+	EV_S_STOP_MERC SStopMerc{};
 
 	// Switch on event type
-	switch( pEvent->uiEvent )
+	switch(static_cast<UINT32>(event.kind()))
 	{
 			case E_PLAYSOUND:
 
-				memcpy( &EPlaySound, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::PlaySound, EPlaySound)) return FALSE;
 
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Event Pump: Play Sound");
 				PlayJA2Sample( EPlaySound.usIndex, EPlaySound.usRate, EPlaySound.ubVolume, EPlaySound.ubLoops, EPlaySound.uiPan );
@@ -1077,7 +843,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_CHANGESTATE:
 
-				memcpy( &SChangeState, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::ChangeState, SChangeState)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SChangeState.usSoldierID ) == FALSE )
@@ -1100,7 +866,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_CHANGEDEST:
 
-				memcpy( &SChangeDest, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::ChangeDestination, SChangeDest)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SChangeDest.usSoldierID ) == FALSE )
@@ -1123,7 +889,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_SETPOSITION:
 
-				memcpy( &SSetPosition, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::SetPosition, SSetPosition)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SSetPosition.usSoldierID ) == FALSE )
@@ -1146,7 +912,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_GETNEWPATH:
 
-				memcpy( &SGetNewPath, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::GetNewPath, SGetNewPath)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SGetNewPath.usSoldierID ) == FALSE )
@@ -1168,7 +934,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_BEGINTURN:
 
-				memcpy( &SBeginTurn, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::BeginTurn, SBeginTurn)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SBeginTurn.usSoldierID ) == FALSE )
@@ -1191,7 +957,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_CHANGESTANCE:
 
-				memcpy( &SChangeStance, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::ChangeStance, SChangeStance)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SChangeStance.usSoldierID ) == FALSE )
@@ -1213,7 +979,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_SETDIRECTION:
 
-				memcpy( &SSetDirection, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::SetDirection, SSetDirection)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SSetDirection.usSoldierID ) == FALSE )
@@ -1236,7 +1002,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_SETDESIREDDIRECTION:
 
-				memcpy( &SSetDesiredDirection, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::SetDesiredDirection, SSetDesiredDirection)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SSetDesiredDirection.usSoldierID ) == FALSE )
@@ -1260,7 +1026,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_BEGINFIREWEAPON:
 
-				memcpy( &SBeginFireWeapon, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::BeginFireWeapon, SBeginFireWeapon)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SBeginFireWeapon.usSoldierID ) == FALSE )
@@ -1289,7 +1055,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_FIREWEAPON:
 
-				memcpy( &SFireWeapon, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::FireWeapon, SFireWeapon)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SFireWeapon.usSoldierID ) == FALSE )
@@ -1317,41 +1083,41 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 			case S_WEAPONHIT:
 
-				memcpy( &SWeaponHit, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::WeaponHit, SWeaponHit)) return FALSE;
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Event Pump: WeaponHit %d Damage", SWeaponHit.sDamage ) );
 				WeaponHit( SWeaponHit.usSoldierID, SWeaponHit.usWeaponIndex, SWeaponHit.sDamage, SWeaponHit.sBreathLoss, SWeaponHit.usDirection, SWeaponHit.sXPos, SWeaponHit.sYPos, SWeaponHit.sZPos, SWeaponHit.sRange, SWeaponHit.ubAttackerID, SWeaponHit.fHit, SWeaponHit.ubSpecial, SWeaponHit.ubLocation );
 				break;
 
 			case S_STRUCTUREHIT:
 
-				memcpy( &SStructureHit, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::StructureHit, SStructureHit)) return FALSE;
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Event Pump: StructureHit" ) );
 				StructureHit( SStructureHit.iBullet, SStructureHit.usWeaponIndex, SStructureHit.bWeaponStatus, SStructureHit.ubAttackerID, SStructureHit.sXPos, SStructureHit.sYPos, SStructureHit.sZPos, SStructureHit.usStructureID, SStructureHit.iImpact, TRUE );
 				break;
 
 			case S_WINDOWHIT:
 
-				memcpy( &SWindowHit, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::WindowHit, SWindowHit)) return FALSE;
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Event Pump: WindowHit" ) );
 				WindowHit( SWindowHit.sGridNo, SWindowHit.usStructureID, SWindowHit.fBlowWindowSouth, SWindowHit.fLargeForce );
 				break;
 
 			case S_MISS:
 
-				memcpy( &SMiss, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::Miss, SMiss)) return FALSE;
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Event Pump: Shot Miss ( obsolete )" ) );
 				//ShotMiss( SMiss.ubAttackerID );
 				break;
 
 			case S_NOISE:
-				memcpy( &SNoise, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::Noise, SNoise)) return FALSE;
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Event Pump: Noise from %d at %d/%d, type %d volume %d", SNoise.ubNoiseMaker, SNoise.sGridNo, SNoise.bLevel, SNoise.ubNoiseType, SNoise.ubVolume ) );
 				OurNoise( SNoise.ubNoiseMaker, SNoise.sGridNo, SNoise.bLevel, SNoise.ubTerrType, SNoise.ubVolume, SNoise.ubNoiseType, SNoise.zNoiseMessage );
 				break;
 
 			case S_STOP_MERC:
 
-				memcpy( &SStopMerc, pEvent->pData, pEvent->uiDataSize );
+				if (!DecodePayload(event, EventKind::StopMercenary, SStopMerc)) return FALSE;
 
 				// Get soldier pointer from ID
 				if ( GetSoldier( &pSoldier, SStopMerc.usSoldierID ) == FALSE )
@@ -1380,22 +1146,21 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 	}
 
 	return( TRUE );
+	}
 }
 
 
 BOOLEAN ClearEventQueue( void )
 {
-	// clear out the event queue
-	EVENT pEvent;
-	while( EventQueueSize( PRIMARY_EVENT_QUEUE ) > 0 )
-	{
-		// Get Event
-		if (PopEvent( &pEvent, PRIMARY_EVENT_QUEUE) == FALSE )
-		{
-			return( FALSE );
-		}
-		FreeEventData(&pEvent);
-	}
+	gEventQueues.clear();
+	return TRUE;
+}
 
-	return( TRUE );
+EventQueueStatistics GetEventQueueStatistics()
+{
+	return {
+		static_cast<UINT32>(gEventQueues.primarySize()),
+		static_cast<UINT32>(gEventQueues.delayedSize()),
+		static_cast<UINT32>(gEventQueues.demandSize()),
+		static_cast<UINT32>(gEventQueues.queuedPayloadBytes())};
 }

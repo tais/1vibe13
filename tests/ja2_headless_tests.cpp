@@ -12065,6 +12065,51 @@ int main( int, char** )
 		const bool extractedEventAdaptersQueueAndDrain =
 			DequeAllGameEvents(FALSE);
 
+		EV_S_WINDOWHIT windowHit{};
+		const bool windowHitQueued =
+			AddGameEvent(S_WINDOWHIT, 0, &windowHit);
+		const EventQueueStatistics windowHitStats =
+			GetEventQueueStatistics();
+		const bool windowHitSchemaIsExact = windowHitQueued &&
+			windowHitStats.primary == 1 &&
+			windowHitStats.payloadBytes == sizeof(EV_S_WINDOWHIT) &&
+			DequeAllGameEvents(FALSE);
+
+		EV_S_MISS miss{};
+		const bool immediateEventExecutes =
+			AddGameEvent(S_MISS, 0, &miss) && DequeAllGameEvents(TRUE);
+		const bool delayedEventPromotes =
+			AddGameEvent(S_MISS, 1000, &miss) && DequeAllGameEvents(TRUE);
+		EV_S_NOISE noise{};
+		const bool demandEventQueues =
+			AddGameEvent(S_NOISE, DEMAND_EVENT_DELAY, &noise);
+		const EventQueueStatistics populatedQueues =
+			GetEventQueueStatistics();
+		const bool everyOwnedQueueIsVisible = delayedEventPromotes &&
+			demandEventQueues && populatedQueues.primary == 0 &&
+			populatedQueues.delayed == 1 && populatedQueues.demand == 1 &&
+			populatedQueues.payloadBytes ==
+				sizeof(EV_S_MISS) + sizeof(EV_S_NOISE);
+		const bool malformedEventsAreRejected =
+			!AddGameEvent(EVENTS_LOCAL_AND_NETWORK, 0, &miss) &&
+			!AddGameEvent(EVENTS_ONLY_USED_LOCALLY, 0, &miss) &&
+			!AddGameEvent(EVENTS_ONLY_SENT_OVER_NETWORK, 0, &miss) &&
+			!AddGameEvent(NUM_EVENTS, 0, &miss) &&
+			!AddGameEvent(S_MISS, 0, nullptr) &&
+			!AddGameEventFromNetwork(NUM_EVENTS, 0, &miss);
+		const bool completeEventClear = ClearEventQueue();
+		const EventQueueStatistics clearedQueues =
+			GetEventQueueStatistics();
+		const bool eventPumpOwnershipIsSafe = windowHitSchemaIsExact &&
+			immediateEventExecutes && everyOwnedQueueIsVisible &&
+			malformedEventsAreRejected && completeEventClear &&
+			clearedQueues.primary == 0 && clearedQueues.delayed == 0 &&
+			clearedQueues.demand == 0 && clearedQueues.payloadBytes == 0;
+		CHECK(windowHitSchemaIsExact,
+			"owned Event Pump binds WindowHit to its exact payload size");
+		CHECK(eventPumpOwnershipIsSafe,
+			"owned Event Pump rejects malformed packets and clears primary delayed and demand queues");
+
 		const bool cardinalDirectionMathIsStable =
 			atan8(0, 0, 0, 1) == SOUTH &&
 			atan8(0, 0, 1, 0) == EAST &&
@@ -12119,6 +12164,7 @@ int main( int, char** )
 		CHECK( nonCrowShadowAdaptersAreNeutral &&
 		       unavailableFacingMovementIsNeutral &&
 		       extractedEventAdaptersQueueAndDrain &&
+		       eventPumpOwnershipIsSafe &&
 		       cardinalDirectionMathIsStable &&
 		       emptyPaletteRegistryRejectsLookup &&
 		       profileGearCopyOwnsInventory &&
