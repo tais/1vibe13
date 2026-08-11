@@ -79,6 +79,12 @@ void	ShutdownJA2Clock( void );
 void PumpJA2Clock( void );
 UINT32 PumpJA2ClockAt( UINT64 nowMicroseconds );
 BOOLEAN ResetJA2ClockSchedule( UINT64 nowMicroseconds );
+// Bind both runtime inputs atomically while the clock is stopped. Null sources
+// restore the platform monotonic clock and KeyMap adapter respectively.
+BOOLEAN BindJA2ClockSources(
+	JA2_CLOCK_TIME_SOURCE timeSource,
+	JA2_CLOCK_KEY_STATE_SOURCE keyStateSource );
+// Compatibility names retained for existing headless fixtures.
 BOOLEAN SetJA2ClockTestTimeSource( JA2_CLOCK_TIME_SOURCE source );
 BOOLEAN SetJA2ClockTestKeyStateSource( JA2_CLOCK_KEY_STATE_SOURCE source );
 

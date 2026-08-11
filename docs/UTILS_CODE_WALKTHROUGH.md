@@ -480,14 +480,55 @@ publication, caller flag preservation, truncated-input rollback, and cleanup.
 Architecture ratchets retain the counted APIs, owned file handles, tests,
 documentation, and removal of the dead Win Util pair.
 
+## Runtime-control boundary: packed input and frame clock
+
+`KeyMap.cpp` and `Timer Control.cpp` now have the same ownership and
+failure-path audit as the earlier Utils slices. Key configuration is decoded by
+the dependency-free `KeyBindingModel`: every host accepts one case-insensitive
+Win32-compatible vocabulary, including the existing aliases, numeric forms,
+extended keys, the 511-byte input ceiling, and fixed four-byte output limit.
+Packing is explicitly low-byte-first rather than native-endian pointer
+aliasing. `KeyMap.cpp` is now only the SDL adapter. It translates persisted VK
+bytes at the edge, supports an injectable state source for headless hosts, and
+contains the sole live keyboard and mouse polling. There is no Windows-only
+parser or `GetAsyncKeyState` path. The raw legacy adapter measures at most 511
+bytes before constructing a view, and function-key decoding rejects values
+above F24 before arithmetic can wrap. Binding and restoration are game-thread
+lifecycle operations: the caller-owned context must outlive the binding, no
+polling may race rebinding, and callbacks are type-enforced nonthrowing. SDL3
+has no state-bearing scancode for a small set of persisted legacy IME/OEM and
+application-launch values; those spellings remain available to injected hosts
+while the default adapter safely reports them as not pressed.
+
+`LegacyClockScheduler` owns monotonic deadlines, strict deadline comparison,
+the 100-step frame budget, old-configuration debt, and one-second
+discontinuity policy without SDL, platform time, actor storage, or game
+globals. Its fixed 1,024-segment ring has no pump-time allocation. `Timer
+Control.cpp` binds the monotonic and packed-input sources while stopped and is
+the adapter that applies emitted steps to legacy counters on the initializing
+game thread. Pause, speed, and key-driven fast-forward transitions first settle
+the old schedule and retain capped debt under that immutable state. Invalid
+floating-point speed/period inputs and invalid timer indexes cannot reach
+undefined conversions or array storage.
+
+The former Utils `JA2UB` guard is gone. Arrival get-up timing follows the
+runtime-owned deployment component: only actors whose campaign policy started
+an arrival-get-up sequence expose an active counter. Dependency-free model
+tests cover the full packed vocabulary boundary, injected chords, cadence,
+transitions, bounded debt, fast-forward edges, and clock discontinuities; the
+headless harness covers the real adapters and legacy global effects. The build
+matrix compiles this common code once for JA2, UB, and editor hosts, and the
+architecture audit prevents platform/parser forks or compiled campaign
+identity from returning.
+
 ## Remaining Utils inventory
 
-The following 3 translation units are compiled and covered by the general
-build/test matrix, but have not yet received this same line-by-line ownership,
+The following 1 translation unit is compiled and covered by the general
+build/test matrix, but has not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
-- Input and runtime control: `Cursors.cpp`, `KeyMap.cpp`, and `Timer Control.cpp`.
+- Input control: `Cursors.cpp`.
 
-The remaining runtime-control files are the final Utils audit batch.
+The remaining cursor translation unit is the final Utils audit slice.
 Existing file formats, resource paths, localization strings, callbacks, visual
 layout, and game behavior remain compatibility constraints throughout the audit.

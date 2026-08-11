@@ -15,6 +15,19 @@ add_executable(engine_core_tests engine_core_tests.cpp)
 target_link_libraries(engine_core_tests PRIVATE JA2::EngineCore)
 add_test(NAME engine_core COMMAND engine_core_tests)
 
+# Packed VK configuration and frame-owned legacy scheduling are dependency-free
+# models. This target prevents either from regaining SDL, Win32, or game-global
+# dependencies while exercising aliases, injected input, debt, and discontinuities.
+add_executable(utils_runtime_control_model_tests
+  utils_runtime_control_model_tests.cpp
+  ${CMAKE_SOURCE_DIR}/Utils/KeyBindingModel.cpp
+  ${CMAKE_SOURCE_DIR}/Utils/LegacyClockScheduler.cpp)
+target_include_directories(utils_runtime_control_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_features(utils_runtime_control_model_tests PRIVATE cxx_std_17)
+add_test(NAME utils_runtime_control_model
+  COMMAND utils_runtime_control_model_tests)
+
 # JA2's command vocabulary and replay schema are an adapter above Core. Keeping
 # this as a separate executable makes both sides of that dependency testable.
 add_executable(ja2_runtime_adapter_tests ja2_runtime_adapter_tests.cpp)

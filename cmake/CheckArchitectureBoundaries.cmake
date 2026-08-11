@@ -6358,7 +6358,7 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "authored nonzero-class item"
     "invalid UTF-8"
     "Remaining Utils inventory"
-    "following 3 translation units"
+    "following 1 translation unit"
     "XMLWriter"
     "installed-data canonical `Cigarette`"
     "same-directory sibling"
@@ -6396,7 +6396,7 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "encrypted text-record"
     "ImageUtilityModel"
     "LegacyUtilitiesModel"
-    "remaining 3 Utils"
+    "remaining 1 Utils"
     "all four 64-bit masks exact"
     "installed-data"
     "exact representable inverse"
@@ -13015,6 +13015,178 @@ string(FIND "${headless_test_contents}"
 if(soldier_control_support_headless_coverage EQUAL -1)
   message(FATAL_ERROR
     "Extracted Soldier Control support services lost their combined headless behavior coverage")
+endif()
+
+# Utils runtime control has one portable persisted-key codec and one
+# dependency-free clock scheduler. SDL/platform state belongs only to the
+# KeyMap/Timer adapters, and campaign identity cannot return to the timer.
+file(READ "${SOURCE_ROOT}/Utils/KeyMap.cpp" utils_key_map_contents)
+file(READ "${SOURCE_ROOT}/Utils/KeyMap.h" utils_key_map_header_contents)
+file(READ "${SOURCE_ROOT}/Utils/KeyBindingModel.cpp"
+  utils_key_binding_model_contents)
+file(READ "${SOURCE_ROOT}/Utils/KeyBindingModel.h"
+  utils_key_binding_model_header_contents)
+file(READ "${SOURCE_ROOT}/Utils/LegacyClockScheduler.cpp"
+  utils_clock_scheduler_contents)
+file(READ "${SOURCE_ROOT}/Utils/LegacyClockScheduler.h"
+  utils_clock_scheduler_header_contents)
+file(READ "${SOURCE_ROOT}/Utils/Timer Control.cpp"
+  utils_timer_control_contents)
+file(READ "${SOURCE_ROOT}/Utils/CMakeLists.txt" utils_build_contents)
+file(READ "${SOURCE_ROOT}/tests/CMakeLists.txt" utils_test_build_contents)
+file(READ "${SOURCE_ROOT}/tests/utils_runtime_control_model_tests.cpp"
+  utils_runtime_control_test_contents)
+file(READ "${SOURCE_ROOT}/.github/workflows/build_unix.yml"
+  utils_runtime_control_ci_contents)
+file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
+  utils_walkthrough_contents)
+
+foreach(retired_keymap_fragment IN ITEMS
+    "GetAsyncKeyState"
+    "#include <windows.h>"
+    "#ifdef _WIN32"
+    "#if defined(_WIN32)")
+  string(FIND "${utils_key_map_contents}" "${retired_keymap_fragment}"
+    retired_keymap_position)
+  if(NOT retired_keymap_position EQUAL -1)
+    message(FATAL_ERROR
+      "KeyMap regained platform-split parsing/polling '${retired_keymap_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_keymap_fragment IN ITEMS
+    "boundedKeyBindingTextLength(value)"
+    "parsePackedKeyBinding(boundedValue)"
+    "isPackedKeyBindingPressed"
+    "class SdlLegacyKeyStateSource"
+    "BindJA2KeyStateSource"
+    "RestoreJA2PlatformKeyStateSource")
+  string(FIND "${utils_key_map_contents}" "${required_keymap_fragment}"
+    required_keymap_position)
+  if(required_keymap_position EQUAL -1)
+    message(FATAL_ERROR
+      "Portable KeyMap boundary lost '${required_keymap_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_keymap_contract_fragment IN ITEMS
+    "must not race"
+    "must keep it alive until restoring"
+    "Callbacks are type-enforced nonthrowing"
+    "default adapter safely reports those as")
+  string(FIND "${utils_key_map_header_contents}"
+    "${required_keymap_contract_fragment}" required_keymap_contract_position)
+  if(required_keymap_contract_position EQUAL -1)
+    message(FATAL_ERROR
+      "KeyMap injection contract lost '${required_keymap_contract_fragment}'")
+  endif()
+endforeach()
+
+foreach(model_contents IN ITEMS
+    utils_key_binding_model_contents
+    utils_key_binding_model_header_contents
+    utils_clock_scheduler_contents
+    utils_clock_scheduler_header_contents)
+  string(REGEX MATCH
+    "#[ \t]*include[ \t]*[<\"](SDL|windows\\.h|types\\.h|TacticalActor|GameContext|PlatformTime)"
+    forbidden_runtime_model_include "${${model_contents}}")
+  if(forbidden_runtime_model_include)
+    message(FATAL_ERROR
+      "Dependency-free Utils runtime model '${model_contents}' regained a platform/game include")
+  endif()
+endforeach()
+
+foreach(model_contents IN ITEMS
+    utils_key_binding_model_contents utils_clock_scheduler_contents)
+  string(REGEX MATCH
+    "SDL|windows\\.h|GetAsyncKeyState|GetPlatformTimeSource|TacticalActor|GameContext"
+    forbidden_runtime_model_dependency "${${model_contents}}")
+  if(forbidden_runtime_model_dependency)
+    message(FATAL_ERROR
+      "Dependency-free Utils runtime model '${model_contents}' regained a platform/game dependency")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB"
+  utils_timer_compiled_campaign_identity "${utils_timer_control_contents}")
+if(utils_timer_compiled_campaign_identity)
+  message(FATAL_ERROR
+    "Timer Control regained compiled JA2UB identity; route through actor runtime state")
+endif()
+
+foreach(required_timer_fragment IN ITEMS
+    "LegacyClockScheduler gClockSchedule"
+    "gClockSchedule.pump("
+    "gClockSchedule.settleBeforeTransition("
+    "BindJA2ClockSources("
+    "arrivalGetupPending()"
+    "deployment().arrivalGetupCounter()")
+  string(FIND "${utils_timer_control_contents}" "${required_timer_fragment}"
+    required_timer_position)
+  if(required_timer_position EQUAL -1)
+    message(FATAL_ERROR
+      "Frame-owned Timer Control boundary lost '${required_timer_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_runtime_control_build_fragment IN ITEMS
+    "KeyBindingModel.cpp"
+    "LegacyClockScheduler.cpp")
+  string(FIND "${utils_build_contents}"
+    "${required_runtime_control_build_fragment}"
+    required_runtime_control_build_position)
+  if(required_runtime_control_build_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils build lost runtime-control model '${required_runtime_control_build_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_runtime_control_test_fragment IN ITEMS
+    "parsePackedKeyBinding"
+    "F4294967297"
+    "MemoryKeyState"
+    "settleBeforeTransition"
+    "maximumRetainedDebtMicroseconds")
+  string(FIND "${utils_runtime_control_test_contents}"
+    "${required_runtime_control_test_fragment}"
+    required_runtime_control_test_position)
+  if(required_runtime_control_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils runtime-control model lost test coverage '${required_runtime_control_test_fragment}'")
+  endif()
+endforeach()
+foreach(required_runtime_control_adapter_test_fragment IN ITEMS
+    "unterminatedKeyBinding"
+    "overlongKeyBinding"
+    "bounds raw configuration reads"
+    "injected hosts may implement persisted keys without SDL scancodes"
+    "SDL adapter safely rejects persisted keys without scancodes")
+  string(FIND "${headless_test_contents}"
+    "${required_runtime_control_adapter_test_fragment}"
+    required_runtime_control_adapter_test_position)
+  if(required_runtime_control_adapter_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Utils runtime-control adapter lost coverage '${required_runtime_control_adapter_test_fragment}'")
+  endif()
+endforeach()
+string(FIND "${utils_test_build_contents}"
+  "utils_runtime_control_model_tests"
+  utils_runtime_control_test_target_position)
+string(FIND "${utils_runtime_control_ci_contents}"
+  "utils_runtime_control_model_tests"
+  utils_runtime_control_ci_position)
+if(utils_runtime_control_test_target_position EQUAL -1 OR
+   utils_runtime_control_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "Utils runtime-control standalone tests are no longer built by CMake/ASan CI")
+endif()
+string(FIND "${utils_walkthrough_contents}"
+  "Runtime-control boundary: packed input and frame clock"
+  utils_runtime_control_audit_position)
+if(utils_runtime_control_audit_position EQUAL -1)
+  message(FATAL_ERROR
+    "Utils runtime-control audit record is missing")
 endif()
 
 message(STATUS
