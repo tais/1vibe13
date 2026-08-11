@@ -966,6 +966,13 @@ the engine must not contain SDL types in its public domain model.
   `JA2UB` or raw campaign-colliding dealer aliases. This changes no data
   filename, raw item/dealer record, loading-screen ID, save record, map, XML,
   Lua, or package format.
+- Tactical door behavior now selects through the value-only
+  `CampaignDoorPolicy`. The common implementation preserves Arulco's
+  boot-door AP charge, ordinary force attempt, and failed-unlock curse
+  opportunity, while preserving UB's open-door AP charge, tunnel quote
+  interception, and forced-gate strategic flag. All eight former `JA2UB`
+  branches in `Handle Doors.cpp` are gone; a data-free policy test exercises
+  both paths and architecture CI prevents their return.
 - Mercenary lifecycle decisions now use the value-only
   `CampaignMercenaryPolicy`. Profile loading selects `Prof.dat` or
   `JA25PROF.DAT` at runtime; hiring gear, initial arrival and helicopter

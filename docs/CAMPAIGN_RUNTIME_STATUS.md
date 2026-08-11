@@ -34,6 +34,10 @@ Bobby Ray shipment record at offset 198.
 File-viewer briefing/text/artwork and history quest-text selection use
 `CampaignLaptopContentPolicy`; both campaigns and the optional UB asset
 fallbacks coexist in the shared `files.cpp` and `history.cpp` implementations.
+Tactical door forcing, failed-lock feedback, and the UB tunnel-gate side effect
+now use `CampaignDoorPolicy`. Arulco retains the boot-door AP cost and
+ordinary force/curse paths, while UB retains its open-door AP cost and tunnel
+quote semantics in the same compiled implementation.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -140,20 +144,19 @@ behavior remain unchanged.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 130 active conditionals in 45
+milestone its per-file baseline contains 120 active conditionals in 42
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
-| Laptop content/pages | 11 |
-| Tactical gameplay/content | 52 |
+| Laptop content/pages | 10 |
+| Tactical gameplay/content | 44 |
 | Strategic gameplay/content | 48 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 8 |
 | Editor | 1 |
 | Multiplayer | 1 |
 | Tile engine | 1 |
-| Utilities | 1 |
 
 The common content loader, tactical game-screen loop, helicopter arrival,
 underground loading-screen selection, XML campaign paths, dealer identity and
@@ -167,7 +170,9 @@ roles. The A.I.M. links/member cluster no longer contributes either: link
 availability, salary/mission-fee presentation, contract charging, and hiring
 controls use `CampaignAimSitePolicy`. Email, insurance, and shipment notices
 use `CampaignLaptopCommunicationsPolicy`; file-viewer and history content uses
-`CampaignLaptopContentPolicy`. All seven policies are guarded by
+`CampaignLaptopContentPolicy`. Door forcing and tunnel feedback use
+`CampaignDoorPolicy`, so `Tactical/Handle Doors.cpp` no longer contributes
+eight compiled branches to the tail. All eight policies are guarded by
 data-free headless tests plus named architecture checks. The seven remaining
 `Ja2` conditionals are the
 compiled host-capability seed, the two alternate new-game-screen
@@ -187,7 +192,6 @@ The largest individual legacy leaves are:
 | --- | ---: |
 | `Strategic/mapscreen.cpp` | 12 |
 | `Strategic/LuaInitNPCs.cpp` | 11 |
-| `Tactical/Handle Doors.cpp` | 8 |
 | `Tactical/Campaign.cpp` | 6 |
 | `Strategic/Luaglobal.cpp` | 5 |
 | `Tactical/Civ Quotes.cpp` | 5 |

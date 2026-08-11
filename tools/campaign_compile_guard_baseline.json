@@ -28,7 +28,6 @@
     "Tactical/Civ Quotes.h": 1,
     "Tactical/DynamicDialogue.cpp": 2,
     "Tactical/Faces.cpp": 4,
-    "Tactical/Handle Doors.cpp": 8,
     "Tactical/Handle Items.cpp": 3,
     "Tactical/Interface.cpp": 5,
     "Tactical/Items.cpp": 2,
@@ -42,9 +41,8 @@
     "TacticalAI/AIMain.cpp": 2,
     "TacticalAI/DecideAction.cpp": 2,
     "TacticalAI/NPC.cpp": 4,
-    "TileEngine/Radar Screen.cpp": 1,
-    "Utils/Timer Control.cpp": 1
+    "TileEngine/Radar Screen.cpp": 1
   },
   "schema": 1,
-  "total": 129
+  "total": 120
 }

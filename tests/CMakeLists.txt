@@ -51,6 +51,14 @@ target_include_directories(campaign_application_policy_tests
   PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
 add_test(NAME campaign_application_policy COMMAND campaign_application_policy_tests)
 
+# Door forcing and tunnel feedback are selected from the live campaign rather
+# than from the executable's JA2UB compile definition.
+add_executable(campaign_door_policy_tests
+  campaign_door_policy_tests.cpp)
+target_include_directories(campaign_door_policy_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Ja2)
+add_test(NAME campaign_door_policy COMMAND campaign_door_policy_tests)
+
 # Dealer identities overlap in the legacy persisted slots. This data-free
 # policy test verifies both complete rosters and their inverse mapping without
 # selecting behavior through a host compile definition.
