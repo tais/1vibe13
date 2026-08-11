@@ -4423,6 +4423,43 @@ int main( int, char** )
 	{
 		const TacticalEntityId actor{ 1, 101 };
 		const TacticalEntityId target{ 2, 202 };
+		ApplyWeaponConfigurationCommand validWeaponConfiguration{};
+		validWeaponConfiguration.soldier = actor;
+		validWeaponConfiguration.result.scopeMode = -1;
+		validWeaponConfiguration.result.barrelMode = 1;
+		validWeaponConfiguration.cause =
+			TacticalWeaponConfigurationCause::LauncherUnavailable;
+		validWeaponConfiguration.postApplyPolicy =
+			TacticalWeaponConfigurationPostApplyPolicy::
+				DirtyMercPanelAndCursor;
+		validWeaponConfiguration.handItem = 17;
+		validWeaponConfiguration.source = SimulationCommandSource::System;
+		ApplyWeaponConfigurationCommand invalidWeaponConfigurationResult =
+			validWeaponConfiguration;
+		invalidWeaponConfigurationResult.result.weaponMode =
+			TacticalWeaponModeCount;
+		ApplyWeaponConfigurationCommand invalidWeaponConfigurationSource =
+			validWeaponConfiguration;
+		invalidWeaponConfigurationSource.source =
+			SimulationCommandSource::LocalPlayer;
+		ApplyWeaponConfigurationCommand invalidWeaponConfigurationContinuation =
+			validWeaponConfiguration;
+		invalidWeaponConfigurationContinuation.continuation =
+			TacticalWeaponConfigurationContinuation::BeginFriendlyRetaliation;
+		ApplyWeaponConfigurationCommand invalidWeaponConfigurationHand =
+			validWeaponConfiguration;
+		invalidWeaponConfigurationHand.handItem = MAXITEMS;
+		ApplyWeaponConfigurationCommand invalidWeaponConfigurationSlot =
+			validWeaponConfiguration;
+		invalidWeaponConfigurationSlot.cause =
+			TacticalWeaponConfigurationCause::EquipmentChanged;
+		invalidWeaponConfigurationSlot.postApplyPolicy =
+			TacticalWeaponConfigurationPostApplyPolicy::None;
+		invalidWeaponConfigurationSlot.continuation =
+			TacticalWeaponConfigurationContinuation::CompleteEquipmentChange;
+		invalidWeaponConfigurationSlot.previousItem = 11;
+		invalidWeaponConfigurationSlot.changedItem = 17;
+		invalidWeaponConfigurationSlot.inventoryPosition = NUM_INV_SLOTS;
 		const SimulationCommand validMove{ MoveToGridCommand{
 			actor, 100, WALKING, false, false,
 			SimulationCommandSource::LocalPlayer } };
@@ -4653,6 +4690,29 @@ int main( int, char** )
 				1, static_cast<SimulationCommandSource>( 0xff ) } } ) ==
 				SimulationCommandDomainError::InvalidSource,
 				"all tactical execution paths share complete value-domain validation" );
+		CHECK(
+			ValidateSimulationCommandDomain(
+				SimulationCommand{validWeaponConfiguration}) ==
+					SimulationCommandDomainError::None &&
+			ValidateSimulationCommandDomain(
+				SimulationCommand{invalidWeaponConfigurationResult}) ==
+					SimulationCommandDomainError::
+						InvalidWeaponConfigurationResult &&
+			ValidateSimulationCommandDomain(
+				SimulationCommand{invalidWeaponConfigurationSource}) ==
+					SimulationCommandDomainError::InvalidSource &&
+			ValidateSimulationCommandDomain(
+				SimulationCommand{invalidWeaponConfigurationContinuation}) ==
+					SimulationCommandDomainError::
+						InvalidWeaponConfigurationContinuation &&
+			ValidateSimulationCommandDomain(
+				SimulationCommand{invalidWeaponConfigurationHand}) ==
+					SimulationCommandDomainError::InvalidAttackingWeapon &&
+			ValidateSimulationCommandDomain(
+				SimulationCommand{invalidWeaponConfigurationSlot}) ==
+					SimulationCommandDomainError::
+						InvalidWeaponConfigurationContinuation,
+			"weapon-configuration domain validation rejects malformed result, provenance, continuation, hand item, and inventory position" );
 	}
 
 	{
@@ -6176,6 +6236,89 @@ int main( int, char** )
 		       commandHostExecutedState->direction == commandHostActor.position().direction() &&
 		       commandHostExecutedState->animation == commandHostActor.animationPlayback().state(),
 		       "structured commands execute and commit the resulting public actor state through one path" );
+
+		const INT8 previousConfigurationWeaponMode =
+			commandHostActor.attackSelection().weaponMode();
+		const INT8 previousConfigurationScopeMode =
+			commandHostActor.attackSelection().scopeMode();
+		const INT8 previousConfigurationBurstCounter =
+			commandHostActor.fireControl().burstCounter();
+		const UINT8 previousConfigurationAutofireShots =
+			commandHostActor.fireControl().autofireShots();
+		const UINT8 previousConfigurationBarrelMode =
+			commandHostActor.fireControl().barrelMode();
+		const INT8 previousConfigurationShownAim =
+			commandHostActor.aiPlanning().shownAimTime();
+		const bool previousConfigurationLauncherDelay =
+			commandHostActor.fireControl().delaysGrenadeLauncherExplosion();
+		const UINT16 configurationHandItem =
+			commandHostActor.inventory()[HANDPOS].usItem;
+		commandHostActor.attackSelection().weaponMode() = WM_ATTACHED_GL;
+		commandHostActor.attackSelection().scopeMode() = -1;
+		commandHostActor.fireControl().burstCounter() = 0;
+		commandHostActor.fireControl().autofireShots() = 0;
+		commandHostActor.fireControl().selectBarrelMode( 2 );
+		commandHostActor.aiPlanning().shownAimTime() = 27;
+		commandHostActor.fireControl().setGrenadeLauncherDelay( true );
+		const TacticalWeaponConfigurationResult exactConfiguration =
+			ResolveDefaultTacticalWeaponConfiguration(
+				commandHostActor, configurationHandItem );
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult exactConfigurationApplied =
+			TryDispatchSystemApplyWeaponConfigurationCommand(
+				commandHostActorId, exactConfiguration,
+				TacticalWeaponConfigurationCause::
+					AttachedLauncherShotCompleted,
+				TacticalWeaponConfigurationPostApplyPolicy::DirtyMercPanel,
+				TacticalWeaponConfigurationContinuation::None,
+				{}, TacticalNoTargetGrid, 0, configurationHandItem );
+		const bool exactFieldsApplied =
+			CaptureTacticalWeaponConfiguration(commandHostActor) ==
+				exactConfiguration;
+		commandHostActor.attackSelection().weaponMode() = WM_ATTACHED_GL;
+		commandHostActor.aiPlanning().shownAimTime() = 18;
+		const TacticalWeaponConfigurationResult staleConfiguration =
+			ResolveDefaultTacticalWeaponConfiguration(
+				commandHostActor, configurationHandItem );
+		// Preserve the same hand item but change one configuration field after
+		// capture. Execution must re-resolve and reject the stale exact result.
+		commandHostActor.aiPlanning().shownAimTime() = 19;
+		beginCommandTestFrame();
+		const SimulationCommandDispatchResult staleConfigurationDiscarded =
+			TryDispatchSystemApplyWeaponConfigurationCommand(
+				commandHostActorId, staleConfiguration,
+				TacticalWeaponConfigurationCause::
+					AttachedLauncherShotCompleted,
+				TacticalWeaponConfigurationPostApplyPolicy::DirtyMercPanel,
+				TacticalWeaponConfigurationContinuation::None,
+				{}, TacticalNoTargetGrid, 0, configurationHandItem );
+		const bool exactConfigurationOwnedByExecutor =
+			exactConfigurationApplied.status ==
+				SimulationCommandDispatchStatus::Applied &&
+			exactFieldsApplied &&
+			staleConfigurationDiscarded.status ==
+				SimulationCommandDispatchStatus::Discarded &&
+			commandHostActor.inventory()[HANDPOS].usItem ==
+				configurationHandItem &&
+			commandHostActor.attackSelection().weaponMode() ==
+				WM_ATTACHED_GL &&
+			commandHostActor.aiPlanning().shownAimTime() == 19;
+		commandHostActor.attackSelection().weaponMode() =
+			previousConfigurationWeaponMode;
+		commandHostActor.attackSelection().scopeMode() =
+			previousConfigurationScopeMode;
+		commandHostActor.fireControl().burstCounter() =
+			previousConfigurationBurstCounter;
+		commandHostActor.fireControl().autofireShots() =
+			previousConfigurationAutofireShots;
+		commandHostActor.fireControl().selectBarrelMode(
+			previousConfigurationBarrelMode);
+		commandHostActor.aiPlanning().shownAimTime() =
+			previousConfigurationShownAim;
+		commandHostActor.fireControl().setGrenadeLauncherDelay(
+			previousConfigurationLauncherDelay);
+		CHECK( exactConfigurationOwnedByExecutor,
+		       "production weapon-configuration execution applies one resolver-consistent result and rejects a same-hand stale configuration without mutation" );
 
 		const UINT32 stanceFlags = CaptureJa2TacticalStatusFlags();
 		const UINT8 stanceTeam = GetJa2TacticalCurrentTeam();
@@ -11649,13 +11792,13 @@ int main( int, char** )
 		rangedActor.inventory()[HANDPOS].usItem = 1;
 		rangedActor.inventory()[HANDPOS].ubNumberOfObjects = 1;
 		rangedActor.attackSelection().weaponMode() = WM_BURST;
-		const bool equipmentChangeNormalizesFireMode =
+		const bool equipmentContinuationPreservesCommandOwnedFireMode =
 			TacticalActorRangedActions::refreshAfterHandItemChange(
 				rangedActor,
 				1,
 				1) &&
 			rangedActor.attackSelection().weaponMode() ==
-				WM_NORMAL;
+				WM_BURST;
 
 		rangedActor.attackSelection().weaponMode() = WM_BURST;
 		const bool malformedEquipmentChangeIsRejected =
@@ -11673,9 +11816,9 @@ int main( int, char** )
 		CHECK( unavailableWorldFireIsRejected &&
 		       malformedFacingIsRejected &&
 		       malformedAnimationIsRejected &&
-		       equipmentChangeNormalizesFireMode &&
+		       equipmentContinuationPreservesCommandOwnedFireMode &&
 		       malformedEquipmentChangeIsRejected,
-		       "tactical actor ranged actions normalize equipment changes and reject unavailable-world or malformed requests without partial mutation" );
+		       "tactical actor ranged actions complete post-command equipment effects without reclaiming weapon configuration and reject unavailable-world or malformed requests without partial mutation" );
 	}
 
 	{

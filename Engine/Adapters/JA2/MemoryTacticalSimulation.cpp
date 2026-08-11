@@ -138,6 +138,13 @@ CommandDisposition MemoryTacticalSimulation::execute(
 			// outside the portable reference model.
 			return CommandDisposition::Discard;
 		}
+		else if constexpr (
+			std::is_same<Command, ApplyWeaponConfigurationCommand>::value)
+		{
+			// Inventory, attachment, UI and JA2 retaliation policy deliberately
+			// remain outside the portable reference model.
+			return CommandDisposition::Discard;
+		}
 		else
 		{
 			TacticalSimulationActorState* actor =

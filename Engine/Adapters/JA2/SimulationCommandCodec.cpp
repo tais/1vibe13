@@ -42,7 +42,8 @@ enum class CommandTag : std::uint8_t
 	SynchronizeActorStop = 25,
 	SynchronizeTurn = 26,
 	BeginSelectedFireWeapon = 27,
-	BulkReloadWeapons = 28
+	BulkReloadWeapons = 28,
+	ApplyWeaponConfiguration = 29
 };
 
 constexpr std::uint8_t MoveReverseFlag = 0x01u;
@@ -58,6 +59,11 @@ constexpr std::uint8_t SynchronizeTurnEnterCombatFlag = 0x01u;
 constexpr std::uint8_t SynchronizeTurnEndClientTurnFlag = 0x02u;
 constexpr std::uint8_t SynchronizeTurnKnownFlags =
 	SynchronizeTurnEnterCombatFlag | SynchronizeTurnEndClientTurnFlag;
+constexpr std::uint8_t WeaponConfigurationGrenadeDelayFlag = 0x01u;
+constexpr std::uint8_t WeaponConfigurationResetAutofireFlag = 0x02u;
+constexpr std::uint8_t WeaponConfigurationKnownFlags =
+	WeaponConfigurationGrenadeDelayFlag |
+	WeaponConfigurationResetAutofireFlag;
 
 bool IsValidSource(std::uint8_t value)
 {
@@ -99,6 +105,24 @@ bool IsValidTraversalKind(std::uint8_t value)
 {
 	return IsValidTacticalTraversalKind(
 		static_cast<TacticalTraversalKind>(value));
+}
+
+bool IsValidWeaponConfigurationCause(std::uint8_t value)
+{
+	return IsValidTacticalWeaponConfigurationCause(
+		static_cast<TacticalWeaponConfigurationCause>(value));
+}
+
+bool IsValidWeaponConfigurationPostApplyPolicy(std::uint8_t value)
+{
+	return IsValidTacticalWeaponConfigurationPostApplyPolicy(
+		static_cast<TacticalWeaponConfigurationPostApplyPolicy>(value));
+}
+
+bool IsValidWeaponConfigurationContinuation(std::uint8_t value)
+{
+	return IsValidTacticalWeaponConfigurationContinuation(
+		static_cast<TacticalWeaponConfigurationContinuation>(value));
 }
 
 void WriteI16(BinaryWriter& writer, std::int16_t value)
@@ -242,6 +266,41 @@ void WriteCommand(BinaryWriter& writer, const SimulationCommand& command)
 				writer.writeU16(value.soldiers[index].slot);
 				writer.writeU32(value.soldiers[index].incarnation);
 			}
+			writer.writeU8(static_cast<std::uint8_t>(value.source));
+		}
+		else if constexpr (
+			std::is_same<Command, ApplyWeaponConfigurationCommand>::value)
+		{
+			writer.writeU8(
+				static_cast<std::uint8_t>(
+					CommandTag::ApplyWeaponConfiguration));
+			writer.writeU16(value.soldier.slot);
+			writer.writeU32(value.soldier.incarnation);
+			writer.writeI8(value.result.weaponMode);
+			writer.writeI8(value.result.scopeMode);
+			writer.writeI8(value.result.burstCounter);
+			writer.writeU8(value.result.autofireShots);
+			writer.writeU8(value.result.barrelMode);
+			writer.writeI8(value.result.shownAimTime);
+			writer.writeU8(
+				(value.result.grenadeLauncherDelay
+					? WeaponConfigurationGrenadeDelayFlag : 0u) |
+				(value.result.resetAutofireBulletInitialization
+					? WeaponConfigurationResetAutofireFlag : 0u));
+			writer.writeU8(static_cast<std::uint8_t>(value.cause));
+			writer.writeU8(
+				static_cast<std::uint8_t>(value.postApplyPolicy));
+			writer.writeU8(
+				static_cast<std::uint8_t>(value.continuation));
+			writer.writeU8(static_cast<std::uint8_t>(value.eventPolicy));
+			writer.writeU16(value.target.slot);
+			writer.writeU32(value.target.incarnation);
+			writer.writeI32(value.targetGrid);
+			writer.writeI8(value.targetLevel);
+			writer.writeU32(value.handItem);
+			writer.writeU32(value.previousItem);
+			writer.writeU32(value.changedItem);
+			writer.writeU32(value.inventoryPosition);
 			writer.writeU8(static_cast<std::uint8_t>(value.source));
 		}
 		else if constexpr (std::is_same<Command, SetWeaponReadyCommand>::value)
@@ -647,6 +706,65 @@ bool ReadCommand(BinaryReader& reader, SimulationCommand& command)
 			if (!ReadSource(reader, value.source) ||
 				(value.source != SimulationCommandSource::LocalPlayer &&
 					value.source != SimulationCommandSource::Replay))
+				return false;
+			command = value;
+			return true;
+		}
+		case CommandTag::ApplyWeaponConfiguration:
+		{
+			ApplyWeaponConfigurationCommand value{};
+			std::uint8_t flags = 0;
+			std::uint8_t cause = 0;
+			std::uint8_t postApplyPolicy = 0;
+			std::uint8_t continuation = 0;
+			std::uint8_t eventPolicy = 0;
+			if (!reader.readU16(value.soldier.slot) ||
+				!reader.readU32(value.soldier.incarnation) ||
+				!value.soldier.valid() ||
+				!reader.readI8(value.result.weaponMode) ||
+				!reader.readI8(value.result.scopeMode) ||
+				!reader.readI8(value.result.burstCounter) ||
+				!reader.readU8(value.result.autofireShots) ||
+				!reader.readU8(value.result.barrelMode) ||
+				!reader.readI8(value.result.shownAimTime) ||
+				!reader.readU8(flags) ||
+				(flags & ~WeaponConfigurationKnownFlags) != 0 ||
+				!reader.readU8(cause) ||
+				!IsValidWeaponConfigurationCause(cause) ||
+				!reader.readU8(postApplyPolicy) ||
+				!IsValidWeaponConfigurationPostApplyPolicy(
+					postApplyPolicy) ||
+				!reader.readU8(continuation) ||
+				!IsValidWeaponConfigurationContinuation(continuation) ||
+				!reader.readU8(eventPolicy) ||
+				!IsValidEventPolicy(eventPolicy) ||
+				!reader.readU16(value.target.slot) ||
+				!reader.readU32(value.target.incarnation) ||
+				!reader.readI32(value.targetGrid) ||
+				!reader.readI8(value.targetLevel) ||
+				!reader.readU32(value.handItem) ||
+				!reader.readU32(value.previousItem) ||
+				!reader.readU32(value.changedItem) ||
+				!reader.readU32(value.inventoryPosition) ||
+				!ReadSource(reader, value.source) ||
+				!IsSimulationSystemSource(value.source))
+				return false;
+			value.result.grenadeLauncherDelay =
+				(flags & WeaponConfigurationGrenadeDelayFlag) != 0;
+			value.result.resetAutofireBulletInitialization =
+				(flags & WeaponConfigurationResetAutofireFlag) != 0;
+			value.cause =
+				static_cast<TacticalWeaponConfigurationCause>(cause);
+			value.postApplyPolicy =
+				static_cast<TacticalWeaponConfigurationPostApplyPolicy>(
+					postApplyPolicy);
+			value.continuation =
+				static_cast<TacticalWeaponConfigurationContinuation>(
+					continuation);
+			value.eventPolicy =
+				static_cast<TacticalEventPolicy>(eventPolicy);
+			if (!IsStructurallyValidSimulationCommand(
+					SimulationCommand{value}))
 				return false;
 			command = value;
 			return true;

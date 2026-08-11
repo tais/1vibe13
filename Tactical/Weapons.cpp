@@ -9915,125 +9915,81 @@ void HandleTacticalEffectsOfEquipmentChange( TacticalActor *pSoldier, UINT32 uiI
 #ifdef ADB_TODO
 	SetBurstAndAutoFireMode(pSoldier, GetWeaponMode(&pSoldier->inventory()[uiInvPos]));
 #endif
-	// if in attached weapon mode and don't have weapon with GL attached in hand, reset weapon mode
-	if ( ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ) && !IsGrenadeLauncherAttached( &(pSoldier->inventory()[ HANDPOS ] ) ) ) ||
-		 ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO ) && !IsWeaponAttached( &(pSoldier->inventory()[ HANDPOS ]), IC_GUN   ) ) ||
-		 ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_BAYONET )																							   && !IsWeaponAttached( &(pSoldier->inventory()[ HANDPOS ]), IC_BLADE ) ) )
-	{
-		if ( !Weapon[pSoldier->inventory()[ HANDPOS ].usItem].NoSemiAuto )
-		{
-			pSoldier->attackSelection().weaponMode() = WM_NORMAL;
-			pSoldier->fireControl().selectSingleShot();
-		}
-		else
-		{
-			pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
-			pSoldier->fireControl().selectAutofire();
-		}
-		if (ItemIsTwoHanded(pSoldier->inventory()[ HANDPOS ].usItem) && Weapon[ pSoldier->inventory()[ HANDPOS ].usItem ].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-			pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
-		else
-			pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
-	}
+	TacticalWeaponConfigurationResult configuration{};
+	bool completesHandItemChange = false;
+	(void)ResolveEquipmentTacticalWeaponConfiguration(
+		*pSoldier, uiInvPos, usOldItem, usNewItem,
+		configuration, completesHandItemChange);
+	(void)TryDispatchSystemApplyWeaponConfigurationCommand(
+		GetJa2TacticalEntityId(*pSoldier), configuration,
+		TacticalWeaponConfigurationCause::EquipmentChanged,
+		TacticalWeaponConfigurationPostApplyPolicy::None,
+		completesHandItemChange
+			? TacticalWeaponConfigurationContinuation::
+				CompleteHandItemChange
+			: TacticalWeaponConfigurationContinuation::
+				CompleteEquipmentChange,
+		{}, TacticalNoTargetGrid, 0,
+		pSoldier->inventory()[HANDPOS].usItem,
+		usOldItem, usNewItem, uiInvPos);
+}
 
+void CompleteEquipmentTacticalEffects(
+	TacticalActor& soldier,
+	UINT32 inventoryPosition,
+	UINT16 oldItem,
+	UINT16 newItem,
+	bool refreshHandItem)
+{
+	if (refreshHandItem)
+		(void)TacticalActorRangedActions::refreshAfterHandItemChange(
+			soldier, oldItem, newItem);
 	// if he is loaded tactically
-	if ( pSoldier->roster().inSector() )
+	if ( soldier.roster().inSector() )
 	{
-		// If this is our main hand
-		if ( uiInvPos == HANDPOS || uiInvPos == SECONDHANDPOS )
-		{
-			// check if we need to change animation!
-			(void)TacticalActorRangedActions::refreshAfterHandItemChange(
-				*pSoldier,
-				usOldItem,
-				usNewItem);
-		}
-
 		// if this is head gear
-		if ( uiInvPos == HEAD1POS || uiInvPos == HEAD2POS )
+		if ( inventoryPosition == HEAD1POS ||
+			inventoryPosition == HEAD2POS )
 		{
 			// Could be because of GOGGLES change...	Re-create light...
 			(void)TacticalActorLighting::destroyPersonalLight(
-				*pSoldier);
+				soldier);
 			(void)TacticalActorLighting::positionPersonalLight(
-				*pSoldier);
+				soldier);
 		}
 	}
-	else
+	if (AM_A_ROBOT((&soldier)) && gGameOptions.fNewTraitSystem )
 	{
-		// as a minimum
-		if ( (Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass & IC_WEAPON) && GetShotsPerBurst(&pSoldier->inventory()[ HANDPOS ]) == 0 )
-		{
-			if ( !Weapon[pSoldier->inventory()[ HANDPOS ].usItem].NoSemiAuto )
-			{
-				pSoldier->attackSelection().weaponMode() = WM_NORMAL;
-				pSoldier->fireControl().selectSingleShot();
-			}
-			else
-			{
-				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
-				pSoldier->fireControl().selectAutofire();
-			}
-			if (ItemIsTwoHanded(pSoldier->inventory()[ HANDPOS ].usItem) && Weapon[ pSoldier->inventory()[ HANDPOS ].usItem ].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-				pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
-			else
-				pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
-		}
-	}
-
-	// Flugente: if we are using dual weapons, only allow iron sights (we can't look through two scopes simultaneously, can we?)
-	if ( uiInvPos == HANDPOS || uiInvPos == SECONDHANDPOS )
-	{
-		if ( (Item[ pSoldier->inventory()[ HANDPOS ].usItem ].usItemClass & IC_WEAPON) && (Item[ pSoldier->inventory()[ SECONDHANDPOS ].usItem ].usItemClass & IC_WEAPON) )
-		{
-			std::map<INT8, OBJECTTYPE*> ObjList;
-			GetScopeLists(pSoldier, &pSoldier->inventory()[ HANDPOS ], ObjList);
-
-			std::map<INT8, OBJECTTYPE*>::iterator itend = ObjList.end();
-			for (std::map<INT8, OBJECTTYPE*>::iterator it = ObjList.begin(); it != itend; ++it)
-			{
-				if ( (*it).second != NULL )
-				{
-					pSoldier->attackSelection().scopeMode() = (*it).first;
-				}
-				else
-					break;
-			}
-		}
-	}
-
-	if (AM_A_ROBOT(pSoldier) && gGameOptions.fNewTraitSystem )
-	{
-		const INT8 targetingSkill = Item[usOldItem].bRobotTargetingSkillGrant;
-		const INT8 chassisSkill = Item[usOldItem].bRobotChassisSkillGrant;
-		const INT8 utilitySkill = Item[usOldItem].bRobotUtilitySkillGrant;
+		const INT8 targetingSkill = Item[oldItem].bRobotTargetingSkillGrant;
+		const INT8 chassisSkill = Item[oldItem].bRobotChassisSkillGrant;
+		const INT8 utilitySkill = Item[oldItem].bRobotUtilitySkillGrant;
 		for (int a = 0; a < 30; ++a)
 		{
 			if (targetingSkill > 0)
 			{
-				if (pSoldier->statistics().skillTrait(a) == targetingSkill)
-					pSoldier->statistics().skillTrait(a) = 0;
+				if (soldier.statistics().skillTrait(a) == targetingSkill)
+					soldier.statistics().skillTrait(a) = 0;
 
-				if (gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] == targetingSkill)
-					gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] = 0;
+				if (gMercProfiles[soldier.identity().profile()].bSkillTraits[a] == targetingSkill)
+					gMercProfiles[soldier.identity().profile()].bSkillTraits[a] = 0;
 			}
 
 			if (chassisSkill > 0)
 			{
-				if (pSoldier->statistics().skillTrait(a) == chassisSkill)
-					pSoldier->statistics().skillTrait(a) = 0;
+				if (soldier.statistics().skillTrait(a) == chassisSkill)
+					soldier.statistics().skillTrait(a) = 0;
 
-				if (gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] == chassisSkill)
-					gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] = 0;
+				if (gMercProfiles[soldier.identity().profile()].bSkillTraits[a] == chassisSkill)
+					gMercProfiles[soldier.identity().profile()].bSkillTraits[a] = 0;
 			}
 
 			if (utilitySkill > 0)
 			{
-				if (pSoldier->statistics().skillTrait(a) == utilitySkill)
-					pSoldier->statistics().skillTrait(a) = 0;
+				if (soldier.statistics().skillTrait(a) == utilitySkill)
+					soldier.statistics().skillTrait(a) = 0;
 
-				if (gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] == utilitySkill)
-					gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] = 0;
+				if (gMercProfiles[soldier.identity().profile()].bSkillTraits[a] == utilitySkill)
+					gMercProfiles[soldier.identity().profile()].bSkillTraits[a] = 0;
 			}
 		}
 	}
@@ -10476,6 +10432,395 @@ UINT32 CalcThrownChanceToHit(TacticalActor *pSoldier, INT32 sGridNo, INT16 ubAim
 
 	//NumMessage("ThrownChanceToHit = ",iChance);
 	return (iChance);
+}
+
+TacticalWeaponConfigurationResult CaptureTacticalWeaponConfiguration(
+	const TacticalActor& soldier) noexcept
+{
+	return TacticalWeaponConfigurationResult{
+		soldier.attackSelection().weaponMode(),
+		soldier.attackSelection().scopeMode(),
+		soldier.fireControl().burstCounter(),
+		soldier.fireControl().autofireShots(),
+		soldier.fireControl().barrelMode(),
+		soldier.aiPlanning().shownAimTime(),
+		soldier.fireControl().delaysGrenadeLauncherExplosion(),
+		false};
+}
+
+namespace
+{
+void SelectSingleShot(TacticalWeaponConfigurationResult& result) noexcept
+{
+	result.burstCounter = 0;
+	result.autofireShots = 0;
+	result.resetAutofireBulletInitialization = false;
+}
+
+void SelectBurst(TacticalWeaponConfigurationResult& result) noexcept
+{
+	result.burstCounter = 1;
+	result.autofireShots = 0;
+	result.resetAutofireBulletInitialization = false;
+}
+
+void SelectAutofire(
+	TacticalWeaponConfigurationResult& result,
+	bool resetInitialization) noexcept
+{
+	result.burstCounter = 1;
+	result.autofireShots = 1;
+	result.resetAutofireBulletInitialization = resetInitialization;
+}
+
+bool IsBurstCapableAtScope(
+	OBJECTTYPE* object,
+	TacticalActor& soldier,
+	INT8 scopeMode)
+{
+	if (!object || !object->exists() ||
+		!(Item[object->usItem].usItemClass & IC_WEAPON) ||
+		GetShotsPerBurst(object) == 0)
+		return false;
+	if (!gGameOptions.fNewTraitSystem ||
+		!gSkillTraitValues.fCanFanTheHammer ||
+		!Weapon[object->usItem].fBurstOnlyByFanTheHammer)
+		return true;
+	return scopeMode == USE_ALT_WEAPON_HOLD &&
+		NUM_SKILL_TRAITS(&soldier, GUNSLINGER_NT) > 0 &&
+		!soldier.inventory()[SECONDHANDPOS].exists();
+}
+
+bool IsWeaponModeCapableAtScope(
+	OBJECTTYPE* object,
+	WeaponMode mode,
+	TacticalActor& soldier,
+	INT8 scopeMode)
+{
+	if (!object) return false;
+	if (HasAttachmentOfClass(object, AC_RIFLEGRENADE))
+	{
+		OBJECTTYPE* device = FindAttachment_GrenadeLauncher(object);
+		if (device && FindLaunchableAttachment(object, device->usItem))
+			return mode == WM_ATTACHED_GL;
+	}
+	switch (mode)
+	{
+		case WM_NORMAL:
+			return object->exists() &&
+				(Item[object->usItem].usItemClass & IC_WEAPON) &&
+				!Weapon[object->usItem].NoSemiAuto;
+		case WM_BURST:
+			return IsBurstCapableAtScope(
+				object, soldier, scopeMode);
+		case WM_AUTOFIRE:
+			return (IsGunAutofireCapable(object) ||
+					Weapon[object->usItem].NoSemiAuto) &&
+				!ItemIsGrenadeLauncher(object->usItem);
+		case WM_ATTACHED_GL:
+			return !ItemIsGrenadeLauncher(object->usItem) &&
+				!IsAttachmentClass(object->usItem, AC_RIFLEGRENADE) &&
+				IsGrenadeLauncherAttached(object) &&
+				FindLaunchableAttachment(
+					object, GetAttachedGrenadeLauncher(object));
+		case WM_ATTACHED_GL_BURST:
+			return !ItemIsGrenadeLauncher(object->usItem) &&
+				!HasAttachmentOfClass(object, AC_RIFLEGRENADE) &&
+				IsGrenadeLauncherAttached(object) &&
+				Weapon[GetAttachedGrenadeLauncher(object)].ubShotsPerBurst > 0 &&
+				FindLaunchableAttachment(
+					object, GetAttachedGrenadeLauncher(object));
+		case WM_ATTACHED_GL_AUTO:
+			return false;
+		case WM_ATTACHED_UB:
+			return IsWeaponAttached(object, IC_GUN) &&
+				!Weapon[FindAttachedWeapon(object, IC_GUN)->usItem].NoSemiAuto;
+		case WM_ATTACHED_UB_BURST:
+			return IsWeaponAttached(object, IC_GUN) &&
+				IsBurstCapableAtScope(
+					FindAttachedWeapon(object, IC_GUN), soldier, scopeMode);
+		case WM_ATTACHED_UB_AUTO:
+			return IsWeaponAttached(object, IC_GUN) &&
+				(IsGunAutofireCapable(
+					FindAttachedWeapon(object, IC_GUN)) ||
+					Weapon[FindAttachedWeapon(
+						object, IC_GUN)->usItem].NoSemiAuto);
+		case WM_ATTACHED_BAYONET:
+			return IsWeaponAttached(object, IC_BLADE);
+		case NUM_WEAPON_MODES:
+			return false;
+	}
+	return false;
+}
+
+void SelectFireControlForMode(
+	TacticalWeaponConfigurationResult& result,
+	bool resetAutofireInitialization) noexcept
+{
+	if (result.weaponMode == WM_AUTOFIRE ||
+		result.weaponMode == WM_ATTACHED_GL_AUTO ||
+		result.weaponMode == WM_ATTACHED_UB_AUTO)
+		SelectAutofire(result, resetAutofireInitialization);
+	else if (result.weaponMode == WM_BURST ||
+		result.weaponMode == WM_ATTACHED_GL_BURST ||
+		result.weaponMode == WM_ATTACHED_UB_BURST)
+		SelectBurst(result);
+	else
+		SelectSingleShot(result);
+}
+
+bool ResolveNextWeaponConfigurationFrom(
+	TacticalActor& soldier,
+	TacticalWeaponConfigurationResult& result)
+{
+	if (!soldier.inventory()[HANDPOS].exists() ||
+		(gAnimControl[soldier.animationPlayback().state()].uiFlags &
+			ANIM_FIRE) != 0)
+		return false;
+	OBJECTTYPE& hand = soldier.inventory()[HANDPOS];
+	if (((result.weaponMode == WM_ATTACHED_GL ||
+			result.weaponMode == WM_ATTACHED_GL_BURST ||
+			result.weaponMode == WM_ATTACHED_GL_AUTO) ||
+			(Item[hand.usItem].usItemClass & IC_LAUNCHER &&
+				!ItemIsRocketLauncher(hand.usItem))) &&
+		!result.grenadeLauncherDelay &&
+		!gGameExternalOptions.fDelayedGrenadeExplosion)
+	{
+		result.grenadeLauncherDelay = true;
+	}
+	else
+	{
+		result.grenadeLauncherDelay = false;
+		result.barrelMode = max(1, result.barrelMode);
+		const UINT8 nextBarrel =
+			GetNextBarrelMode(hand.usItem, result.barrelMode);
+		if (nextBarrel > result.barrelMode)
+		{
+			result.barrelMode = nextBarrel;
+		}
+		else
+		{
+			result.barrelMode = nextBarrel;
+			do
+			{
+				++result.weaponMode;
+				if (result.weaponMode == NUM_WEAPON_MODES)
+				{
+					result.weaponMode = Weapon[hand.usItem].NoSemiAuto
+						? WM_AUTOFIRE : WM_NORMAL;
+					if (HasAttachmentOfClass(&hand, AC_RIFLEGRENADE))
+					{
+						OBJECTTYPE* device =
+							FindAttachment_GrenadeLauncher(&hand);
+						if (device && FindLaunchableAttachment(
+								&hand, device->usItem))
+							result.weaponMode = WM_ATTACHED_GL;
+					}
+				}
+			}
+			while (!IsWeaponModeCapableAtScope(
+				&hand, static_cast<WeaponMode>(result.weaponMode),
+				soldier, result.scopeMode) &&
+				result.weaponMode != WM_NORMAL);
+		}
+	}
+	SelectFireControlForMode(result, true);
+	return true;
+}
+
+bool HasInvalidAttachedMode(const TacticalActor& soldier)
+{
+	const INT8 mode = soldier.attackSelection().weaponMode();
+	OBJECTTYPE* hand = const_cast<OBJECTTYPE*>(
+		&soldier.inventory()[HANDPOS]);
+	return ((mode == WM_ATTACHED_GL || mode == WM_ATTACHED_GL_BURST ||
+			mode == WM_ATTACHED_GL_AUTO) &&
+			!IsGrenadeLauncherAttached(hand)) ||
+		((mode == WM_ATTACHED_UB || mode == WM_ATTACHED_UB_BURST ||
+			mode == WM_ATTACHED_UB_AUTO) &&
+			!IsWeaponAttached(hand, IC_GUN)) ||
+		(mode == WM_ATTACHED_BAYONET &&
+			!IsWeaponAttached(hand, IC_BLADE));
+}
+
+void SelectDualWeaponScope(
+	TacticalActor& soldier,
+	TacticalWeaponConfigurationResult& result)
+{
+	std::map<INT8, OBJECTTYPE*> scopes;
+	GetScopeLists(&soldier, &soldier.inventory()[HANDPOS], scopes);
+	for (const auto& entry : scopes)
+	{
+		if (!entry.second) break;
+		result.scopeMode = entry.first;
+	}
+}
+}
+
+TacticalWeaponConfigurationResult ResolveDefaultTacticalWeaponConfiguration(
+	const TacticalActor& soldier,
+	UINT16 handItem) noexcept
+{
+	TacticalWeaponConfigurationResult result =
+		CaptureTacticalWeaponConfiguration(soldier);
+	if (!Weapon[handItem].NoSemiAuto)
+	{
+		result.weaponMode = WM_NORMAL;
+		SelectSingleShot(result);
+	}
+	else
+	{
+		result.weaponMode = WM_AUTOFIRE;
+		SelectAutofire(result, false);
+	}
+	result.scopeMode =
+		ItemIsTwoHanded(handItem) && Weapon[handItem].HeavyGun &&
+			gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3
+		? USE_ALT_WEAPON_HOLD
+		: USE_BEST_SCOPE;
+	return result;
+}
+
+bool ResolveNextTacticalWeaponConfiguration(
+	TacticalActor& soldier,
+	TacticalWeaponConfigurationResult& result)
+{
+	result = CaptureTacticalWeaponConfiguration(soldier);
+	return ResolveNextWeaponConfigurationFrom(soldier, result);
+}
+
+bool ResolveNextTacticalScopeConfiguration(
+	TacticalActor& soldier,
+	INT32 targetGrid,
+	TacticalWeaponConfigurationResult& result)
+{
+	if (targetGrid != NOWHERE ||
+		!soldier.inventory()[HANDPOS].exists() ||
+		(gAnimControl[soldier.animationPlayback().state()].uiFlags &
+			ANIM_FIRE) != 0)
+		return false;
+	result = CaptureTacticalWeaponConfiguration(soldier);
+	if (HasInvalidAttachedMode(soldier))
+		result = ResolveDefaultTacticalWeaponConfiguration(
+			soldier, soldier.inventory()[HANDPOS].usItem);
+	if (ItemIsTwoHanded(soldier.inventory()[HANDPOS].usItem) &&
+		Weapon[soldier.inventory()[HANDPOS].usItem].HeavyGun &&
+		gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3)
+	{
+		result.scopeMode = USE_ALT_WEAPON_HOLD;
+	}
+	else
+	{
+		std::map<INT8, OBJECTTYPE*> scopes;
+		GetScopeLists(&soldier, &soldier.inventory()[HANDPOS], scopes);
+		do
+		{
+			++result.scopeMode;
+			if (result.scopeMode == NUM_SCOPE_MODES)
+				result.scopeMode = USE_ALT_WEAPON_HOLD;
+		}
+		while (scopes[result.scopeMode] == nullptr &&
+			result.scopeMode != USE_ALT_WEAPON_HOLD);
+		if (result.scopeMode == USE_ALT_WEAPON_HOLD &&
+			(gGameExternalOptions.ubAllowAlternativeWeaponHolding != 3 ||
+				gAnimControl[soldier.animationPlayback().state()].ubEndHeight !=
+					ANIM_STAND ||
+				AM_A_ROBOT((&soldier)) ||
+				ItemIsRocketLauncher(soldier.inventory()[HANDPOS].usItem) ||
+				ItemIsSingleShotRocketLauncher(
+					soldier.inventory()[HANDPOS].usItem)))
+			result.scopeMode = USE_BEST_SCOPE;
+	}
+	result.shownAimTime = 0;
+	const bool burstModeMayBeInvalid =
+		(Weapon[soldier.inventory()[HANDPOS].usItem].fBurstOnlyByFanTheHammer &&
+			result.weaponMode == WM_BURST) ||
+		result.weaponMode == WM_ATTACHED_GL_BURST ||
+		result.weaponMode == WM_ATTACHED_UB_BURST;
+	if (burstModeMayBeInvalid &&
+		!IsWeaponModeCapableAtScope(
+			&soldier.inventory()[HANDPOS],
+			static_cast<WeaponMode>(result.weaponMode), soldier,
+			result.scopeMode))
+		return ResolveNextWeaponConfigurationFrom(soldier, result);
+	return true;
+}
+
+bool ResolveEquipmentTacticalWeaponConfiguration(
+	TacticalActor& soldier,
+	UINT32 inventoryPosition,
+	UINT16 oldItem,
+	UINT16 newItem,
+	TacticalWeaponConfigurationResult& result,
+	bool& completesHandItemChange)
+{
+	result = CaptureTacticalWeaponConfiguration(soldier);
+	bool changed = false;
+	completesHandItemChange = false;
+	const UINT16 handItem = soldier.inventory()[HANDPOS].usItem;
+	if (HasInvalidAttachedMode(soldier))
+	{
+		result = ResolveDefaultTacticalWeaponConfiguration(
+			soldier, handItem);
+		changed = true;
+	}
+	if (soldier.roster().inSector())
+	{
+		if ((inventoryPosition == HANDPOS ||
+				inventoryPosition == SECONDHANDPOS) &&
+			TacticalActorRangedActions::canRefreshAfterHandItemChange(
+				soldier, oldItem, newItem))
+		{
+			if (Weapon[newItem].ubShotsPerBurst == 0 &&
+				!Weapon[handItem].NoSemiAuto)
+			{
+				result.weaponMode = WM_NORMAL;
+				SelectSingleShot(result);
+			}
+			else if (Weapon[newItem].NoSemiAuto)
+			{
+				result.weaponMode = WM_AUTOFIRE;
+				SelectAutofire(result, false);
+			}
+			OBJECTTYPE& hand = soldier.inventory()[HANDPOS];
+			if (HasAttachmentOfClass(&hand, AC_RIFLEGRENADE))
+			{
+				OBJECTTYPE* device = FindAttachment_GrenadeLauncher(&hand);
+				if (device && device->usItem < MAXITEMS &&
+					FindLaunchableAttachment(&hand, device->usItem))
+					result.weaponMode = WM_ATTACHED_GL;
+			}
+			result.scopeMode =
+				ItemIsTwoHanded(newItem) && Weapon[newItem].HeavyGun &&
+					gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3
+				? USE_ALT_WEAPON_HOLD : USE_BEST_SCOPE;
+			result.barrelMode = GetNextBarrelMode(newItem, 1);
+			if (newItem != NOTHING && Item[newItem].usItemClass == IC_GUN &&
+				(Item[hand.usItem].usItemClass & IC_WEAPON) &&
+				(Item[soldier.inventory()[SECONDHANDPOS].usItem].usItemClass &
+					IC_WEAPON))
+				SelectDualWeaponScope(soldier, result);
+			changed = true;
+			completesHandItemChange = true;
+		}
+	}
+	else if ((Item[handItem].usItemClass & IC_WEAPON) &&
+		GetShotsPerBurst(&soldier.inventory()[HANDPOS]) == 0)
+	{
+		result = ResolveDefaultTacticalWeaponConfiguration(
+			soldier, handItem);
+		changed = true;
+	}
+	if ((inventoryPosition == HANDPOS ||
+		inventoryPosition == SECONDHANDPOS) &&
+		(Item[handItem].usItemClass & IC_WEAPON) &&
+		(Item[soldier.inventory()[SECONDHANDPOS].usItem].usItemClass &
+			IC_WEAPON))
+	{
+		SelectDualWeaponScope(soldier, result);
+		changed = true;
+	}
+	return changed;
 }
 
 void ChangeWeaponMode( TacticalActor * pSoldier )

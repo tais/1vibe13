@@ -999,11 +999,19 @@ int main()
 		CommandReplayStageResult::Success) return 31;
 	const std::vector<ScheduledCommand<SimulationCommand>> replayedCommands =
 		replayRuntime.commands().drainThrough(37);
+	const std::vector<RecordedSimulationCommand> replayJournal =
+		replayRuntime.commandJournal().snapshot();
 	if (replayedCommands.size() != 1 || replayedCommands[0].sequence != 0 ||
 		!std::holds_alternative<MoveToGridCommand>(
 			replayedCommands[0].command) ||
 		std::get<MoveToGridCommand>(
-			replayedCommands[0].command).soldier != actorId)
+			replayedCommands[0].command).soldier != actorId ||
+		std::get<MoveToGridCommand>(
+			replayedCommands[0].command).source !=
+			SimulationCommandSource::Replay ||
+		replayJournal.size() != 1 ||
+		std::get<MoveToGridCommand>(replayJournal[0].command).source !=
+			SimulationCommandSource::LocalPlayer)
 		return 32;
 	return 0;
 }

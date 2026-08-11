@@ -1,6 +1,7 @@
 #include "TacticalActorBattleSounds.h"
 #include "TacticalActorDamageResolution.h"
 #include "TacticalActorAnimationTransitions.h"
+#include "TacticalActorEvents.h"
 #include "TacticalActorOrientation.h"
 #include "TacticalActorRouteExecution.h"
 #include "connect.h"
@@ -134,6 +135,14 @@ extern INT32 giItemDescAmmoButton;
 
 namespace
 {
+struct WeaponConfigurationFireContinuation
+{
+	SimulationCommandSource source;
+	TacticalEventPolicy eventPolicy;
+	INT8 targetLevel;
+	INT8 targetCubeLevel;
+};
+
 struct AttackSelectionSnapshot
 {
 	UINT8 hand = 0;
@@ -149,8 +158,25 @@ struct AttackSelectionSnapshot
 
 bool DispatchBeginFireWeaponFromHandleItem(
 	TacticalActor* soldier, INT32 targetGrid, BOOLEAN fromUi,
-	const AttackSelectionSnapshot& rejectedSelection)
+	const AttackSelectionSnapshot& rejectedSelection,
+	const WeaponConfigurationFireContinuation* continuation)
 {
+	if (continuation)
+	{
+		soldier->targeting().gridNo() = targetGrid;
+		soldier->targeting().level() = continuation->targetLevel;
+		soldier->targeting().cubeLevel() =
+			continuation->targetCubeLevel;
+		SendBeginFireWeaponEvent(
+			soldier, targetGrid, continuation->targetLevel,
+			continuation->targetCubeLevel);
+		if (ShouldReplicateWeaponConfigurationFire(
+				continuation->source, continuation->eventPolicy) &&
+			(is_server ||
+				(is_client && soldier->identity().id() < 20)))
+			send_fire(soldier, targetGrid);
+		return true;
+	}
 	const SimulationCommandDispatchResult dispatch = fromUi
 		? TryDispatchBeginFireWeaponCommandNow(
 			GetJa2TacticalEntityId(*soldier),
@@ -590,7 +616,10 @@ BOOLEAN	HandleCheckForBadChangeToGetThrough( TacticalActor *pSoldier, TacticalAc
 
 
 
-INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHandItem, BOOLEAN fFromUI )
+static INT32 HandleItemInternal(
+	TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel,
+	UINT16 usHandItem, BOOLEAN fFromUI,
+	const WeaponConfigurationFireContinuation* fireContinuation)
 {
 	const AttackSelectionSnapshot rejectedFireSelection{
 		pSoldier->attackSelection().hand(),
@@ -1146,7 +1175,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					{
 						if (!DispatchBeginFireWeaponFromHandleItem(
 								pSoldier, pSoldier->fireControl().spreadLocations()[ 0 ], fFromUI,
-								rejectedFireSelection ))
+								rejectedFireSelection, fireContinuation ))
 							return ITEM_HANDLE_OK;
 						if(fFromUI && (is_server || (is_client && pSoldier->identity().id() <20)) )
 							send_fire( pSoldier, pSoldier->fireControl().spreadLocations()[ 0 ] );
@@ -1157,7 +1186,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 					{
 						if (!DispatchBeginFireWeaponFromHandleItem(
 								pSoldier, sTargetGridNo, fFromUI,
-								rejectedFireSelection ))
+								rejectedFireSelection, fireContinuation ))
 							return ITEM_HANDLE_OK;
 						if(fFromUI && (is_server || (is_client && pSoldier->identity().id() <20)) )
 							send_fire( pSoldier, sTargetGridNo );
@@ -1169,7 +1198,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 				{
 					if (!DispatchBeginFireWeaponFromHandleItem(
 							pSoldier, sTargetGridNo, fFromUI,
-							rejectedFireSelection ))
+							rejectedFireSelection, fireContinuation ))
 						return ITEM_HANDLE_OK;
 					if(fFromUI && (is_server || (is_client && pSoldier->identity().id() <20)) ) send_fire( pSoldier, sTargetGridNo );
 				}
@@ -2381,7 +2410,7 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 
 				if (!DispatchBeginFireWeaponFromHandleItem(
 						pSoldier, sTargetGridNo, fFromUI,
-						rejectedFireSelection ))
+						rejectedFireSelection, fireContinuation ))
 					return ITEM_HANDLE_OK;
 				if(fFromUI && (is_server || (is_client && pSoldier->identity().id() <20)) ) send_fire( pSoldier, sTargetGridNo );
 
@@ -2419,6 +2448,28 @@ INT32 HandleItem( TacticalActor *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 us
 	}
 
 	return( ITEM_HANDLE_OK );
+}
+
+INT32 HandleItem(
+	TacticalActor *soldier, INT32 grid, INT8 level,
+	UINT16 handItem, BOOLEAN fromUi)
+{
+	return HandleItemInternal(
+		soldier, grid, level, handItem, fromUi, nullptr);
+}
+
+INT32 HandleItemFromWeaponConfigurationCommand(
+	TacticalActor* soldier,
+	INT32 grid,
+	INT8 level,
+	UINT16 handItem,
+	SimulationCommandSource source,
+	TacticalEventPolicy eventPolicy)
+{
+	const WeaponConfigurationFireContinuation continuation{
+		source, eventPolicy, level, 0};
+	return HandleItemInternal(
+		soldier, grid, level, handItem, FALSE, &continuation);
 }
 
 

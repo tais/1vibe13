@@ -68,6 +68,17 @@ target_link_libraries(simulation_command_bulk_reload_model_tests
 add_test(NAME simulation_command_bulk_reload_model
   COMMAND simulation_command_bulk_reload_model_tests)
 
+# Equipment-driven mode/scope correction captures a complete value result and
+# keeps presentation, continuation, and replication policy independent. This
+# adapter-only target pins the structural contract, codec, and reference-model
+# discard without linking the game, SDL, or installed data.
+add_executable(simulation_command_weapon_configuration_model_tests
+  simulation_command_weapon_configuration_model_tests.cpp)
+target_link_libraries(simulation_command_weapon_configuration_model_tests
+  PRIVATE JA2::RuntimeAdapter)
+add_test(NAME simulation_command_weapon_configuration_model
+  COMMAND simulation_command_weapon_configuration_model_tests)
+
 # Legacy map-temp action bytes overlap between campaign data sets. This tiny
 # data-free test keeps their runtime codec independent from the full game host.
 add_executable(campaign_map_change_code_tests

@@ -577,19 +577,56 @@ the engine must not contain SDL types in its public domain model.
   No RakNet packet, save, item, map, XML, Lua, or installed-content format is
   changed; reload-all had no peer packet and replay uses the explicit command
   tag without reinterpreting an existing tag.
-  Four named command gaps remain, in increasing coupling order:
-  equipment-driven weapon/scope correction together with friendly-retaliation
-  mode selection; low-level AI/path-completion traversal; automatic and
-  pathfinding door handling; and non-positional dialogue effects. Each still
-  remains a local mechanic until its distinct event policy and value result are
-  modeled rather than masquerading as player intent.
+  Equipment-driven weapon/scope correction and friendly-retaliation mode
+  selection now use `ApplyWeaponConfigurationCommand`, a System/Replay-only
+  exact result rather than either player Cycle command. The value captures the
+  expected hand item and complete mode, scope, fire-control, barrel, aim, and
+  launcher-delay result. Equipment commands additionally capture inventory
+  position and old/new item IDs. Stable cause, presentation policy, gameplay
+  continuation, and outbound event policy remain separate dimensions. Before
+  any mutation, the compatibility executor checks actor incarnation, hand item,
+  equipment slot/new item, target identity/location where applicable, and
+  re-runs the cause-specific resolver against current attachments and current
+  configuration. A byte-exact mismatch discards the whole command. Structural
+  validation deliberately permits legacy-captured in-progress fire counters;
+  live semantic consistency comes from this resolver comparison rather than a
+  second, incomplete public weapon-capability model. Equipment continuation
+  preserves configuration, optional hand-item animation/medical cleanup,
+  head-light refresh, and robot-trait cleanup order even when ingress retains
+  the command.
+  Friendly retaliation preserves ready-toward, configuration, UI refresh, and
+  fire ordering, including the captured roof level, without recursively
+  entering the non-reentrant command drain. If a required configuration cannot
+  enter the stream, retaliation fails closed instead of firing in the old mode.
+  Replay performs the same local continuation, but playback normalizes queued
+  execution provenance to `Replay`; only a freshly produced `System` command
+  with replicated event policy emits the established peer fire event. The
+  portable reference simulation explicitly discards this inventory-only JA2
+  policy, and replay tag 29 extends the current wire version without changing
+  any RakNet, save, item, map, XML, Lua, or installed-content format.
+  This wave intentionally leaves three lower-level compatibility writes in
+  `Items.cpp`: rifle-grenade attachment insertion, direct hand placement, and
+  attachment removal. It also leaves `HandleSuppressionFire`'s forced
+  alternative-hold scope reset in `Overhead.cpp`. They remain named migration
+  debt because their callers mutate item/animation state inside lower-level
+  operations and need separate transactional boundaries; this command slice
+  does not claim to own them.
+  Three named command gaps remain, in increasing coupling order: low-level
+  AI/path-completion traversal; automatic and pathfinding door handling; and
+  non-positional dialogue effects. Each remains a local mechanic until its
+  distinct event policy and value result are modeled rather than masquerading
+  as player intent.
 - The JA2 adapter's `CommandReplayService` stores those journals in
   integrity-checked runtime
   persistence envelopes. Replay loads are transactional, incomplete bounded
   captures are refused, and whole batches are staged atomically so duplicate
-  sequence IDs cannot leave a partially mutated simulation queue. Playback
-  retains the recorded tick, sequence, value, and source through the same
-  runtime gateway used by live commands. The data-free headless suite now runs
+  sequence IDs cannot leave a partially mutated simulation queue. Programmatic
+  staging also rejects structurally invalid captured or normalized commands,
+  so changing execution origin cannot launder invalid provenance. Playback
+  retains recorded tick, sequence, value, and source in the diagnostic journal,
+  while the stream's fixed playback policy derives a queued copy whose source
+  is `Replay`. Callers cannot supply separate execution and journal batches.
+  The data-free headless suite now runs
   the installed `MemoryTacticalSimulation`, rather than a parallel test-local
   battle model, for a mixed player, AI/script, and network tactical turn through
   `EngineRuntime`'s bounded command drain, including an authoritative retry. It

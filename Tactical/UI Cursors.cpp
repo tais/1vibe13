@@ -11,6 +11,8 @@
 #include "TacticalActorStateFlags.h"
 	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
+#include "Simulation Commands.h"
+#include "TacticalEntityHost.h"
 	#include "Weapons.h"
 	#include "Interface Cursors.h"
 
@@ -2026,7 +2028,17 @@ UINT8 HandleNonActivatedTossCursor( TacticalActor *pSoldier, INT32 sGridNo, BOOL
 			// recalculate the correct firing mode and be done
 			if ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO) && IsGrenadeLauncherAttached( &(pSoldier->inventory()[HANDPOS]) ) )
 			{
-				ChangeWeaponMode( pSoldier );
+				TacticalWeaponConfigurationResult configuration{};
+				if (ResolveNextTacticalWeaponConfiguration(
+						*pSoldier, configuration))
+					(void)TryDispatchSystemApplyWeaponConfigurationCommand(
+						GetJa2TacticalEntityId(*pSoldier), configuration,
+						TacticalWeaponConfigurationCause::LauncherUnavailable,
+						TacticalWeaponConfigurationPostApplyPolicy::
+							DirtyMercPanelAndCursor,
+						TacticalWeaponConfigurationContinuation::None,
+						{}, TacticalNoTargetGrid, 0,
+						pSoldier->inventory()[HANDPOS].usItem);
 
 				return(BAD_RELOAD_UICURSOR);
 			}

@@ -9527,42 +9527,72 @@ BOOLEAN ProcessImplicationsOfPCAttack( TacticalActor * pSoldier, TacticalActor *
             // firing at one of our own guys who is not a rebel etc
 			else if (pTarget->vitals().health() >= OKLIFE && !(pTarget->collapseState().tactical()) && !AM_A_ROBOT(pTarget) && !(pTarget->status().flags() & SOLDIER_VEHICLE) && (bReason == REASON_NORMAL_ATTACK))
             {
-                // OK, sturn towards the prick
-                // Change to fire ready animation
-                ConvertGridNoToXY( pSoldier->position().gridNo(), &sTargetXPos, &sTargetYPos );
-
-                pTarget->animationActivity().readyCostWaived() = TRUE;
-                // Ready weapon
-                (void)TacticalActorRangedActions::readyToward(
-                    *pTarget,
-                    sTargetXPos,
-                    sTargetYPos,
-                    false,
-                    AIDecideHipOrShoulderStance(
-                        pTarget,
-                        pSoldier->position().gridNo()));
-
                 // ATE: Depending on personality, fire back.....
-
-                // Do we have a gun in a\hand?
-                if ( Item[ pTarget->inventory()[ HANDPOS ].usItem ].usItemClass == IC_GUN )
+                const bool hasGun =
+                    Item[pTarget->inventory()[HANDPOS].usItem].usItemClass ==
+                    IC_GUN;
+                bool retaliationCommandAccepted = false;
+                bool retaliationConfigurationRequired = false;
+                if (hasGun && !pTarget->fireControl().burstCounter() &&
+                    IsGunBurstCapable(
+                        &pTarget->inventory()[HANDPOS], FALSE, pTarget))
                 {
-                    // Toggle burst capable...
-                    if ( !pTarget->fireControl().burstCounter() )
+                    TacticalWeaponConfigurationResult configuration{};
+                    if (ResolveNextTacticalWeaponConfiguration(
+                            *pTarget, configuration))
                     {
-                        // Changed by ADB, 1513
-                        //if ( IsGunBurstCapable( pTarget, HANDPOS , FALSE ) )
-                        if ( IsGunBurstCapable( &pTarget->inventory()[HANDPOS], FALSE, pTarget ) )
-                        {
-                            ChangeWeaponMode( pTarget );
-                        }
+                        retaliationConfigurationRequired = true;
+                        retaliationCommandAccepted =
+                            TryDispatchSystemApplyWeaponConfigurationCommand(
+                                GetJa2TacticalEntityId(*pTarget),
+                                configuration,
+                                TacticalWeaponConfigurationCause::
+                                    FriendlyRetaliation,
+                                TacticalWeaponConfigurationPostApplyPolicy::
+                                    DirtyMercPanelAndCursor,
+                                TacticalWeaponConfigurationContinuation::
+                                    BeginFriendlyRetaliation,
+                                GetJa2TacticalEntityId(*pSoldier),
+                                pSoldier->position().gridNo(),
+                                pSoldier->position().level(),
+                                pTarget->inventory()[HANDPOS].usItem,
+                                0, 0,
+                                TacticalNoInventoryPosition,
+                                TacticalEventPolicy::Replicated)
+                                .accepted();
                     }
-
-                    // Fire back!
-                    HandleItem( pTarget, pSoldier->position().gridNo(), pSoldier->position().level(), pTarget->inventory()[ HANDPOS ].usItem, FALSE );
-
                 }
 
+                if (!retaliationCommandAccepted &&
+                    !retaliationConfigurationRequired)
+                {
+                    // Preserve the legacy ready-before-fire path only when
+                    // ChangeWeaponMode would have been a no-op. If a resolved
+                    // configuration cannot enter the authoritative stream,
+                    // fail closed rather than firing with the wrong mode.
+                    ConvertGridNoToXY(
+                        pSoldier->position().gridNo(),
+                        &sTargetXPos, &sTargetYPos);
+                    pTarget->animationActivity().readyCostWaived() = TRUE;
+                    (void)TacticalActorRangedActions::readyToward(
+                        *pTarget,
+                        sTargetXPos,
+                        sTargetYPos,
+                        false,
+                        AIDecideHipOrShoulderStance(
+                            pTarget,
+                            pSoldier->position().gridNo()));
+
+                    if (hasGun)
+                    {
+                        HandleItem(
+                            pTarget,
+                            pSoldier->position().gridNo(),
+                            pSoldier->position().level(),
+                            pTarget->inventory()[HANDPOS].usItem,
+                            FALSE);
+                    }
+                }
             }
 
             // don't enter combat on attack on one of our own mercs
@@ -9926,24 +9956,14 @@ static TacticalActor *InternalReduceAttackBusyCount( )
 
     if ( pSoldier && (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ))
     {
-        if ( !Weapon[pSoldier->inventory()[HANDPOS].usItem].NoSemiAuto )
-        {
-            // change back to single shot
-            pSoldier->attackSelection().weaponMode() = WM_NORMAL;
-            pSoldier->fireControl().selectSingleShot();
-        }
-        else
-        {
-            // change back to autofire
-            pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
-            pSoldier->fireControl().selectAutofire();
-        }
-        if (ItemIsTwoHanded(pSoldier->inventory()[ HANDPOS ].usItem) && Weapon[pSoldier->inventory()[ HANDPOS ].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-            pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
-        else
-            pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
-
-        DirtyMercPanelInterface(pSoldier, DIRTYLEVEL2 );
+        const UINT16 handItem = pSoldier->inventory()[HANDPOS].usItem;
+        (void)TryDispatchSystemApplyWeaponConfigurationCommand(
+            GetJa2TacticalEntityId(*pSoldier),
+            ResolveDefaultTacticalWeaponConfiguration(*pSoldier, handItem),
+            TacticalWeaponConfigurationCause::AttachedLauncherShotCompleted,
+            TacticalWeaponConfigurationPostApplyPolicy::DirtyMercPanel,
+            TacticalWeaponConfigurationContinuation::None,
+            {}, TacticalNoTargetGrid, 0, handItem);
     }
 
     // record last target

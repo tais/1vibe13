@@ -33,7 +33,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <map>
 
 namespace
 {
@@ -439,68 +438,31 @@ bool TacticalActorRangedActions::beginFire(
 	return true;
 }
 
+bool TacticalActorRangedActions::canRefreshAfterHandItemChange(
+	const TacticalActor& actor,
+	std::uint16_t oldItem,
+	std::uint16_t newItem) noexcept
+{
+	return hasValidItem(oldItem) &&
+		hasValidItem(newItem) &&
+		hasValidAnimation(actor) &&
+		hasValidInventoryItem(actor, HANDPOS) &&
+		hasValidInventoryItem(actor, SECONDHANDPOS);
+}
+
 bool TacticalActorRangedActions::refreshAfterHandItemChange(
 	TacticalActor& actor,
 	std::uint16_t oldItem,
 	std::uint16_t newItem)
 {
-	if (!hasValidItem(oldItem) ||
-		!hasValidItem(newItem) ||
-		!hasValidAnimation(actor) ||
-		!hasValidInventoryItem(actor, HANDPOS) ||
-		!hasValidInventoryItem(actor, SECONDHANDPOS))
+	if (!canRefreshAfterHandItemChange(actor, oldItem, newItem))
 	{
 		return false;
 	}
 
-	const std::uint16_t handItem =
-		actor.inventory()[HANDPOS].usItem;
-	if (Weapon[newItem].ubShotsPerBurst == 0 &&
-		!Weapon[handItem].NoSemiAuto)
-	{
-		actor.fireControl().selectSingleShot();
-		actor.attackSelection().weaponMode() = WM_NORMAL;
-	}
-	else if (Weapon[newItem].NoSemiAuto)
-	{
-		actor.fireControl().selectAutofire();
-		actor.attackSelection().weaponMode() = WM_AUTOFIRE;
-	}
-
-	OBJECTTYPE& hand = actor.inventory()[HANDPOS];
-	if (HasAttachmentOfClass(&hand, AC_RIFLEGRENADE))
-	{
-		OBJECTTYPE* const grenadeLauncher =
-			FindAttachment_GrenadeLauncher(&hand);
-		if (grenadeLauncher &&
-			grenadeLauncher->usItem < MAXITEMS &&
-			FindLaunchableAttachment(
-				&hand,
-				grenadeLauncher->usItem))
-		{
-			actor.attackSelection().weaponMode() =
-				WM_ATTACHED_GL;
-		}
-	}
-
-	if (ItemIsTwoHanded(newItem) &&
-		Weapon[newItem].HeavyGun &&
-		gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3)
-	{
-		actor.attackSelection().scopeMode() =
-			USE_ALT_WEAPON_HOLD;
-	}
-	else
-	{
-		actor.attackSelection().scopeMode() = USE_BEST_SCOPE;
-	}
-
-	actor.fireControl().selectBarrelMode(1);
-	actor.fireControl().selectBarrelMode(
-		GetNextBarrelMode(
-			newItem,
-			actor.fireControl().barrelMode()));
-
+	// Weapon/scope/fire-control selection is applied by the admitted
+	// ApplyWeaponConfigurationCommand immediately before this legacy animation
+	// and medical-service continuation.
 	if (gAnimControl[actor.animationPlayback().state()].uiFlags &
 		ANIM_FIREREADY)
 	{
@@ -511,26 +473,6 @@ bool TacticalActorRangedActions::refreshAfterHandItemChange(
 
 	const bool oldRifle = isRifle(oldItem);
 	const bool newRifle = isRifle(newItem);
-	if (newItem != NOTHING &&
-		Item[newItem].usItemClass == IC_GUN)
-	{
-		const OBJECTTYPE& secondHand =
-			actor.inventory()[SECONDHANDPOS];
-		if ((Item[hand.usItem].usItemClass & IC_WEAPON) &&
-			(Item[secondHand.usItem].usItemClass & IC_WEAPON))
-		{
-			std::map<INT8, OBJECTTYPE*> scopes;
-			GetScopeLists(&actor, &hand, scopes);
-			for (const auto& [scopeMode, scope] : scopes)
-			{
-				if (!scope)
-					break;
-				actor.attackSelection().scopeMode() =
-					scopeMode;
-			}
-		}
-	}
-
 	switch (gAnimControl[actor.animationPlayback().state()]
 		.ubEndHeight)
 	{
