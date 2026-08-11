@@ -114,6 +114,7 @@
 #include <Engine/Adapters/Legacy/PlatformLog.h>
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 #include "random.h"
+#include "KeyBindingModel.h"
 #include "KeyMap.h"
 #include "input.h"
 #include "sdl_input.h"
@@ -300,6 +301,13 @@ static UINT64 InjectedLegacyClockTime()
 static BOOLEAN InjectedLegacyClockKeyState( INT32 key )
 {
 	return key == 42 && gInjectedFastForwardKeyDown;
+}
+
+static BOOLEAN InjectedPackedKeyState( UINT8 key, void* context ) noexcept
+{
+	const std::array<BOOLEAN, 256>* state =
+		static_cast<const std::array<BOOLEAN, 256>*>( context );
+	return state != nullptr ? (*state)[key] : FALSE;
 }
 
 #define CHECK( cond, msg ) \
@@ -9649,8 +9657,8 @@ int main( int, char** )
 
 		gInjectedLegacyClockTime = 1000000;
 		gInjectedFastForwardKeyDown = FALSE;
-		CHECK( SetJA2ClockTestTimeSource( InjectedLegacyClockTime ) &&
-		       SetJA2ClockTestKeyStateSource( InjectedLegacyClockKeyState ),
+		CHECK( BindJA2ClockSources(
+		           InjectedLegacyClockTime, InjectedLegacyClockKeyState ),
 		       "legacy clock accepts deterministic sources before initialization" );
 		SetFastForwardKey( 0 );
 		SetFastForwardPeriod( 500 );
@@ -9824,14 +9832,21 @@ int main( int, char** )
 		CHECK( !workerClaimsOwnership && workerSteps == 0 && IsJA2TimerThread() &&
 		       !IsJA2ClockPaused() && !IsFastForwardModeEnabled(),
 		       "non-owner threads cannot pump, configure, or shut down the clock" );
-		CHECK( !SetJA2ClockTestTimeSource( NULL ) &&
-		       !SetJA2ClockTestKeyStateSource( NULL ),
+		CHECK( !BindJA2ClockSources( NULL, NULL ),
 		       "clock test sources remain immutable throughout the owner lifecycle" );
 
 		ShutdownJA2Clock();
 		CHECK( !IsJA2TimerThread() &&
 		       PumpJA2ClockAt( gInjectedLegacyClockTime + 10001 ) == 0,
 		       "clock shutdown rejects further frame pumps" );
+		const FLOAT speedBeforeInvalidInput = GetClockSpeedPercent();
+		SetClockSpeedPercent( 0.0f );
+		SetClockSpeedPercent( std::numeric_limits<FLOAT>::quiet_NaN() );
+		SetFastForwardPeriod( std::numeric_limits<DOUBLE>::quiet_NaN() );
+		CHECK( GetClockSpeedPercent() == speedBeforeInvalidInput &&
+		       GetFastForwardPeriod() == 1 &&
+		       !UpdateCounter( -1 ) && !CounterDone( NUMTIMERS ),
+		       "legacy clock rejects invalid scalar and timer-index inputs safely" );
 
 		SetFastForwardKey( savedFastForwardKey );
 		SetFastForwardPeriod( savedFastForwardPeriod );
@@ -9845,8 +9860,7 @@ int main( int, char** )
 		           giTimerCounters );
 		gInjectedFastForwardKeyDown = FALSE;
 		gInjectedLegacyClockTime = 0;
-		CHECK( SetJA2ClockTestTimeSource( NULL ) &&
-		       SetJA2ClockTestKeyStateSource( NULL ),
+		CHECK( BindJA2ClockSources( NULL, NULL ),
 		       "legacy clock test sources restore cleanly after shutdown" );
 	}
 
@@ -20769,14 +20783,55 @@ int main( int, char** )
 		       "platform bounded reads distinguish missing files without mutating output" );
 	}
 
-#ifndef _WIN32
 	{
 		const int parsed = ParseKeyString( "CTRL + F12 + A + LEFT + B" );
-		const UINT8* keys = (const UINT8*)&parsed;
-		CHECK( keys[0] == 0x11 && keys[1] == 0x7B && keys[2] == 'A' && keys[3] == 0x25,
-		       "portable key parser preserves four packed VK-compatible keys" );
+		CHECK( static_cast<UINT32>( parsed ) == 0x25417b11u &&
+		       static_cast<UINT32>( ParseKeyString(
+		           "BROWSER_BACK + NUMPAD9 + OEM_CLEAR + F24" ) ) ==
+		           0x87fe69a6u,
+		       "key parser preserves one cross-host packed VK vocabulary" );
+		std::array<CHAR8,
+			ja2::runtime_control::maximumKeyBindingTextLength>
+			unterminatedKeyBinding{};
+		unterminatedKeyBinding.fill( ' ' );
+		unterminatedKeyBinding[0] = 'C';
+		unterminatedKeyBinding[1] = 'T';
+		unterminatedKeyBinding[2] = 'R';
+		unterminatedKeyBinding[3] = 'L';
+		CHECK( static_cast<UINT32>( ParseKeyString(
+		           unterminatedKeyBinding.data() ) ) == 0x11u,
+		       "KeyMap bounds raw configuration reads before constructing a string view" );
+		std::array<CHAR8,
+			ja2::runtime_control::maximumKeyBindingTextLength + 5>
+			overlongKeyBinding{};
+		overlongKeyBinding.fill( ' ' );
+		const std::size_t keyLimit =
+			ja2::runtime_control::maximumKeyBindingTextLength;
+		overlongKeyBinding[keyLimit] = 'C';
+		overlongKeyBinding[keyLimit + 1] = 'T';
+		overlongKeyBinding[keyLimit + 2] = 'R';
+		overlongKeyBinding[keyLimit + 3] = 'L';
+		overlongKeyBinding[keyLimit + 4] = '\0';
+		CHECK( ParseKeyString( overlongKeyBinding.data() ) == 0,
+		       "KeyMap ignores configuration text beyond the 511-byte legacy ceiling" );
+		std::array<BOOLEAN, 256> injectedKeys{};
+		injectedKeys[0x11] = TRUE;
+		injectedKeys[0x7b] = TRUE;
+		injectedKeys['A'] = TRUE;
+		injectedKeys[0x25] = TRUE;
+		CHECK( BindJA2KeyStateSource( InjectedPackedKeyState, &injectedKeys ) &&
+		       IsKeyPressed( parsed ),
+		       "KeyMap evaluates packed bindings through an injected input adapter" );
+		injectedKeys['A'] = FALSE;
+		CHECK( !IsKeyPressed( parsed ),
+		       "KeyMap requires every key in an injected packed chord" );
+		injectedKeys[0xfe] = TRUE;
+		CHECK( IsKeyPressed( ParseKeyString( "OEM_CLEAR" ) ),
+		       "injected hosts may implement persisted keys without SDL scancodes" );
+		RestoreJA2PlatformKeyStateSource();
+		CHECK( !IsKeyPressed( ParseKeyString( "OEM_CLEAR" ) ),
+		       "the SDL adapter safely rejects persisted keys without scancodes" );
 	}
-#endif
 
 	{
 		CHECK( InitializeInputManager(), "InitializeInputManager()" );

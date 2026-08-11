@@ -1340,8 +1340,8 @@ the engine must not contain SDL types in its public domain model.
   files, and publishes a COL palette only after an exact complete read. Dead
   Win9x/demo/CD branches and the uncompiled DirectSound-era `Win Util` pair are
   retired. Dependency-free model tests and real-FileMan palette rollback tests
-  pin that compatibility boundary. The remaining 3 Utils translation units
-  are deliberately still tracked as
+  pin that compatibility boundary. The remaining 1 Utils translation unit is
+  deliberately still tracked as
   unaudited; the detailed
   findings, inventory, and next priority order live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,
@@ -2526,6 +2526,31 @@ the engine must not contain SDL types in its public domain model.
   discarded object layout. Map placements, XML, Lua, multiplayer packets,
   packages, and installed content retain their existing schemas; the ignored
   actor-size map-header slot remains present and is written as zero.
+
+## Legacy runtime-control adapters
+
+The remaining UI/runtime bridge no longer uses the compiled host to decide how
+packed key settings are parsed. `Utils/KeyBindingModel` is a dependency-free
+codec for the persisted four-byte VK-compatible value, while `Utils/KeyMap.cpp`
+is the single SDL key-state adapter and exposes an explicit binding seam for
+headless hosts. Windows and non-Windows builds therefore accept identical
+configuration text and store identical numeric values.
+The legacy pointer adapter performs a bounded scan before creating its string
+view. Injected key-state contexts remain caller-owned and are bound/restored on
+the polling game thread without concurrent use; their callbacks cannot throw.
+Persisted IME/OEM and application-launch values for which SDL3 exposes no
+state-bearing scancode remain injection-only and are safely unavailable from
+the default adapter.
+
+Legacy frame timing follows the same split. `Utils/LegacyClockScheduler` owns
+deadline arithmetic, bounded catch-up debt, configuration transitions, and
+clock-discontinuity rebasing as a deterministic fixed-storage model. `Timer
+Control.cpp` binds time/input sources and applies scheduled steps to legacy
+game state only on its initializing thread. Campaign-specific arrival timing
+is activated by the actor deployment component at runtime; Utils contains no
+compiled `JA2UB` decision. These are compatibility adapters, not simulation
+time APIs: deterministic package/gameplay decisions continue to use simulation
+ticks and the campaign clock.
 
 ## Compatibility policy
 

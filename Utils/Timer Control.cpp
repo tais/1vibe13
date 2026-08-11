@@ -9,6 +9,7 @@
 #include "renderworld.h"
 #include "Interface Control.h"
 #include "KeyMap.h"
+#include "LegacyClockScheduler.h"
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 
 #include "TacticalActor.h"
@@ -16,7 +17,7 @@
 #include "connect.h"
 
 #include <algorithm>
-#include <deque>
+#include <cmath>
 #include <limits>
 #include <thread>
 
@@ -126,30 +127,14 @@ extern void MapScreenMessage(UINT16 usColor, UINT8 ubPriority, STR16 pStringA, .
 // Legacy timer/game globals are not atomic and several tick paths walk live
 // soldier arrays. They therefore have one owner: the thread that initializes
 // the clock (the SDL game thread). A frame may execute several fixed steps to
-// recover elapsed time, but work per frame is bounded and any remaining debt
-// stays represented by gNextClockStepMicroseconds.
+// recover elapsed time, but work per frame is bounded. The dependency-free
+// scheduler owns deadlines and immutable old-configuration debt; this adapter
+// alone mutates the legacy game globals for each emitted step.
 static std::thread::id gClockOwnerThreadId;
 static BOOLEAN gClockInitialized = FALSE;
-static UINT64 gNextClockStepMicroseconds = 0;
-static UINT64 gLastClockPumpMicroseconds = 0;
-static UINT64 gScheduledClockPeriodMicroseconds = 10000;
-static BOOLEAN gScheduledClockPaused = FALSE;
-static BOOLEAN gScheduledFastForward = FALSE;
-static JA2_CLOCK_TIME_SOURCE gClockTestTimeSource = NULL;
-static JA2_CLOCK_KEY_STATE_SOURCE gClockTestKeyStateSource = NULL;
-static const UINT32 MAX_CLOCK_STEPS_PER_PUMP = 100;
-static const UINT64 MAX_RETAINED_CLOCK_DEBT_MICROSECONDS = 1000000;
-static const size_t MAX_CLOCK_DEBT_SEGMENTS = 1024;
-
-struct ClockDebtSegment
-{
-	UINT64 steps;
-	UINT64 periodMicroseconds;
-	BOOLEAN paused;
-};
-
-static std::deque<ClockDebtSegment> gClockDebtSegments;
-static UINT64 gQueuedClockDebtMicroseconds = 0;
+static JA2_CLOCK_TIME_SOURCE gClockTimeSource = NULL;
+static JA2_CLOCK_KEY_STATE_SOURCE gClockKeyStateSource = NULL;
+static ja2::runtime_control::LegacyClockScheduler gClockSchedule;
 
 
 // Local function-pointer alias matching the legacy mmsystem
@@ -164,8 +149,8 @@ void ResetJA2ClockGlobalTimers(void);
 
 static UINT64 ClockNowMicroseconds()
 {
-	return gClockTestTimeSource
-		? gClockTestTimeSource()
+	return gClockTimeSource
+		? gClockTimeSource()
 		: static_cast<UINT64>( GetPlatformTimeSource().nowMicroseconds() );
 }
 
@@ -255,9 +240,12 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::Fade), iTimeLeft );
 					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::NextTile), iTimeLeft );
 					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::PanelAnimation), iTimeLeft );
-#ifdef JA2UB
-					UpdateTimeCounter( pSoldier->deployment().arrivalGetupCounter(), iTimeLeft );
-#endif
+					// Arrival get-up state is a runtime-owned actor component. Arulco
+					// actors leave it inactive; UB actors opt in when their arrival
+					// policy starts the sequence.
+					if ( pSoldier->deployment().arrivalGetupPending() )
+						UpdateTimeCounter(
+							pSoldier->deployment().arrivalGetupCounter(), iTimeLeft );
 				}
 			}
 		}
@@ -283,95 +271,18 @@ static UINT64 ClockStepPeriodMicroseconds( BOOLEAN fastForward )
 		: std::max<UINT32>( 1u, TIME_US_TO_MS( UPDATETIMESLICE ) ) ) * 1000u;
 }
 
-static UINT64 SaturatingAdd( UINT64 value, UINT64 increment )
+static ja2::runtime_control::LegacyClockScheduleState CurrentClockScheduleState()
 {
-	return value > std::numeric_limits<UINT64>::max() - increment
-		? std::numeric_limits<UINT64>::max()
-		: value + increment;
+	const BOOLEAN fastForward = IsFastForwardMode();
+	return ja2::runtime_control::LegacyClockScheduleState{
+		ClockStepPeriodMicroseconds( fastForward ),
+		gfPauseClock != FALSE,
+		fastForward != FALSE };
 }
 
-static UINT64 SaturatingMultiply( UINT64 value, UINT64 multiplier )
+static void ConsumeLegacyClockStep( void*, bool paused )
 {
-	if ( value == 0 || multiplier == 0 ) return 0;
-	return value > std::numeric_limits<UINT64>::max() / multiplier
-		? std::numeric_limits<UINT64>::max()
-		: value * multiplier;
-}
-
-static UINT64 ScheduledStepsDue( UINT64 nowMicroseconds )
-{
-	if ( nowMicroseconds <= gNextClockStepMicroseconds ) return 0;
-	const UINT64 elapsedPastDeadline =
-		nowMicroseconds - gNextClockStepMicroseconds;
-	return 1u +
-		( elapsedPastDeadline - 1u ) / gScheduledClockPeriodMicroseconds;
-}
-
-static void ClearQueuedClockDebt()
-{
-	gClockDebtSegments.clear();
-	gQueuedClockDebtMicroseconds = 0;
-}
-
-static BOOLEAN QueueClockDebt( UINT64 steps, UINT64 periodMicroseconds,
-	BOOLEAN paused )
-{
-	if ( steps == 0 ) return TRUE;
-	const UINT64 duration = SaturatingMultiply( steps, periodMicroseconds );
-	if ( duration > MAX_RETAINED_CLOCK_DEBT_MICROSECONDS ||
-		gQueuedClockDebtMicroseconds >
-			MAX_RETAINED_CLOCK_DEBT_MICROSECONDS - duration )
-		return FALSE;
-
-	if ( !gClockDebtSegments.empty() &&
-		gClockDebtSegments.back().periodMicroseconds == periodMicroseconds &&
-		gClockDebtSegments.back().paused == paused )
-	{
-		gClockDebtSegments.back().steps = SaturatingAdd(
-			gClockDebtSegments.back().steps, steps );
-	}
-	else
-	{
-		if ( gClockDebtSegments.size() >= MAX_CLOCK_DEBT_SEGMENTS ) return FALSE;
-		gClockDebtSegments.push_back(
-			ClockDebtSegment{ steps, periodMicroseconds, paused } );
-	}
-	gQueuedClockDebtMicroseconds += duration;
-	return TRUE;
-}
-
-static UINT32 ProcessQueuedClockDebt( UINT32 limit )
-{
-	UINT32 processed = 0;
-	while ( processed < limit && !gClockDebtSegments.empty() )
-	{
-		ClockDebtSegment& segment = gClockDebtSegments.front();
-		const UINT64 available = static_cast<UINT64>( limit - processed );
-		const UINT32 count = static_cast<UINT32>(
-			std::min<UINT64>( segment.steps, available ) );
-		for ( UINT32 step = 0; step < count; ++step )
-			ProcessLegacyClockStep( segment.paused );
-
-		segment.steps -= count;
-		processed += count;
-		gQueuedClockDebtMicroseconds -=
-			static_cast<UINT64>( count ) * segment.periodMicroseconds;
-		if ( segment.steps == 0 ) gClockDebtSegments.pop_front();
-	}
-	return processed;
-}
-
-static BOOLEAN QueueCurrentScheduleDebt( UINT64 nowMicroseconds )
-{
-	const UINT64 steps = ScheduledStepsDue( nowMicroseconds );
-	if ( !QueueClockDebt( steps, gScheduledClockPeriodMicroseconds,
-		gScheduledClockPaused ) )
-		return FALSE;
-
-	gNextClockStepMicroseconds = SaturatingAdd(
-		gNextClockStepMicroseconds,
-		SaturatingMultiply( steps, gScheduledClockPeriodMicroseconds ) );
-	return TRUE;
+	ProcessLegacyClockStep( paused ? TRUE : FALSE );
 }
 
 static void SynchronizeClockDiagnostics( UINT64 nowMicroseconds )
@@ -379,41 +290,41 @@ static void SynchronizeClockDiagnostics( UINT64 nowMicroseconds )
 	const UINT64 signedMaximum = static_cast<UINT64>( std::numeric_limits<LONGLONG>::max() );
 	gPerfCount = static_cast<LONGLONG>( std::min( nowMicroseconds, signedMaximum ) );
 	gPerfCountNext = static_cast<LONGLONG>(
-		std::min( gNextClockStepMicroseconds, signedMaximum ) );
+		std::min( gClockSchedule.nextStepMicroseconds(), signedMaximum ) );
 }
 
 static void AnchorClockSchedule( UINT64 nowMicroseconds, BOOLEAN immediateStep )
 {
-	gScheduledFastForward = IsFastForwardMode();
-	gScheduledClockPaused = gfPauseClock;
-	gScheduledClockPeriodMicroseconds =
-		ClockStepPeriodMicroseconds( gScheduledFastForward );
-	gNextClockStepMicroseconds = immediateStep
-		? nowMicroseconds
-		: SaturatingAdd( nowMicroseconds, gScheduledClockPeriodMicroseconds );
-	gLastClockPumpMicroseconds = nowMicroseconds;
+	gClockSchedule.anchor(
+		nowMicroseconds, CurrentClockScheduleState(), immediateStep != FALSE );
 	giIncrement = static_cast<LONGLONG>( std::min<UINT64>(
-		gScheduledClockPeriodMicroseconds,
+		gClockSchedule.scheduledState().periodMicroseconds,
 		static_cast<UINT64>( std::numeric_limits<LONGLONG>::max() ) ) );
 	SynchronizeClockDiagnostics( nowMicroseconds );
 	gliTimestampDiff = 0;
 	gliWaitTime = 0;
 }
 
-static BOOLEAN ClockScheduleMatchesCurrentState()
+static void SynchronizeClockPumpResult(
+	UINT64 nowMicroseconds,
+	const ja2::runtime_control::LegacyClockPumpResult& result )
 {
-	const BOOLEAN currentFastForward = IsFastForwardMode();
-	return currentFastForward == gScheduledFastForward &&
-		gfPauseClock == gScheduledClockPaused &&
-		ClockStepPeriodMicroseconds( currentFastForward ) ==
-			gScheduledClockPeriodMicroseconds;
+	giIncrement = static_cast<LONGLONG>( std::min<UINT64>(
+		gClockSchedule.scheduledState().periodMicroseconds,
+		static_cast<UINT64>( std::numeric_limits<LONGLONG>::max() ) ) );
+	SynchronizeClockDiagnostics( nowMicroseconds );
+	if ( result.reanchored )
+	{
+		gliTimestampDiff = 0;
+		gliWaitTime = 0;
+	}
 }
 
 BOOLEAN ResetJA2ClockSchedule( UINT64 nowMicroseconds )
 {
 	if ( !gClockInitialized || !IsJA2TimerThread() ) return FALSE;
 
-	ClearQueuedClockDebt();
+	gClockSchedule.clear();
 	AnchorClockSchedule( nowMicroseconds, FALSE );
 	return TRUE;
 }
@@ -422,65 +333,12 @@ UINT32 PumpJA2ClockAt( UINT64 nowMicroseconds )
 {
 	if ( !gClockInitialized || !IsJA2TimerThread() ) return 0;
 
-	if ( nowMicroseconds < gLastClockPumpMicroseconds )
-	{
-		// A monotonic source should not move backwards. If an injected source does,
-		// rebase instead of turning the unsigned difference into years of debt.
-		ClearQueuedClockDebt();
-		AnchorClockSchedule( nowMicroseconds, FALSE );
-		return 0;
-	}
-
-	const UINT64 liveStepsDue = ScheduledStepsDue( nowMicroseconds );
-	const UINT64 forwardJump = nowMicroseconds - gLastClockPumpMicroseconds;
-	const UINT64 liveRetainedDebt = liveStepsDue > 0
-		? nowMicroseconds - gNextClockStepMicroseconds
-		: 0;
-	const UINT64 retainedDebt = SaturatingAdd(
-		gQueuedClockDebtMicroseconds, liveRetainedDebt );
-	if ( forwardJump > MAX_RETAINED_CLOCK_DEBT_MICROSECONDS ||
-		retainedDebt > MAX_RETAINED_CLOCK_DEBT_MICROSECONDS )
-	{
-		// Suspend/resume and debugger gaps are discontinuities, not simulation
-		// debt. Preserve at most the first old-state tick, then resume from now.
-		UINT32 discontinuityStep = ProcessQueuedClockDebt( 1 );
-		if ( discontinuityStep == 0 && liveStepsDue > 0 )
-		{
-			ProcessLegacyClockStep( gScheduledClockPaused );
-			discontinuityStep = 1;
-		}
-		ClearQueuedClockDebt();
-		AnchorClockSchedule( nowMicroseconds, FALSE );
-		return discontinuityStep;
-	}
-
-	UINT32 steps = ProcessQueuedClockDebt( MAX_CLOCK_STEPS_PER_PUMP );
-	if ( steps < MAX_CLOCK_STEPS_PER_PUMP && liveStepsDue > 0 )
-	{
-		const UINT32 liveSteps = static_cast<UINT32>( std::min<UINT64>(
-			liveStepsDue, MAX_CLOCK_STEPS_PER_PUMP - steps ) );
-
-		for ( UINT32 step = 0; step < liveSteps; ++step )
-			ProcessLegacyClockStep( gScheduledClockPaused );
-
-		gNextClockStepMicroseconds = SaturatingAdd(
-			gNextClockStepMicroseconds,
-			SaturatingMultiply( liveSteps, gScheduledClockPeriodMicroseconds ) );
-		steps += liveSteps;
-	}
-
-	gLastClockPumpMicroseconds = nowMicroseconds;
-	if ( ClockScheduleMatchesCurrentState() )
-		SynchronizeClockDiagnostics( nowMicroseconds );
-	else
-	{
-		// Key-driven fast-forward changes are only observable at a frame boundary.
-		// Preserve any capped old work as its own immutable debt segment.
-		if ( !QueueCurrentScheduleDebt( nowMicroseconds ) )
-			ClearQueuedClockDebt();
-		AnchorClockSchedule( nowMicroseconds, FALSE );
-	}
-	return steps;
+	const ja2::runtime_control::LegacyClockPumpResult result =
+		gClockSchedule.pump(
+			nowMicroseconds, CurrentClockScheduleState(),
+			ConsumeLegacyClockStep, NULL );
+	SynchronizeClockPumpResult( nowMicroseconds, result );
+	return result.steps;
 }
 
 void PumpJA2Clock()
@@ -488,17 +346,27 @@ void PumpJA2Clock()
 	PumpJA2ClockAt( ClockNowMicroseconds() );
 }
 
+BOOLEAN BindJA2ClockSources(
+	JA2_CLOCK_TIME_SOURCE timeSource,
+	JA2_CLOCK_KEY_STATE_SOURCE keyStateSource )
+{
+	if ( gClockInitialized ) return FALSE;
+	gClockTimeSource = timeSource;
+	gClockKeyStateSource = keyStateSource;
+	return TRUE;
+}
+
 BOOLEAN SetJA2ClockTestTimeSource( JA2_CLOCK_TIME_SOURCE source )
 {
 	if ( gClockInitialized ) return FALSE;
-	gClockTestTimeSource = source;
+	gClockTimeSource = source;
 	return TRUE;
 }
 
 BOOLEAN SetJA2ClockTestKeyStateSource( JA2_CLOCK_KEY_STATE_SOURCE source )
 {
 	if ( gClockInitialized ) return FALSE;
-	gClockTestKeyStateSource = source;
+	gClockKeyStateSource = source;
 	return TRUE;
 }
 
@@ -508,9 +376,11 @@ static BOOLEAN BeginClockStateTransition( UINT64& transitionTime )
 	if ( !IsJA2TimerThread() ) return FALSE;
 
 	transitionTime = ClockNowMicroseconds();
-	PumpJA2ClockAt( transitionTime );
-	if ( !QueueCurrentScheduleDebt( transitionTime ) )
-		ClearQueuedClockDebt();
+	const ja2::runtime_control::LegacyClockPumpResult result =
+		gClockSchedule.settleBeforeTransition(
+			transitionTime, CurrentClockScheduleState(),
+			ConsumeLegacyClockStep, NULL );
+	SynchronizeClockPumpResult( transitionTime, result );
 	return TRUE;
 }
 
@@ -529,9 +399,10 @@ UINT32 GetNextCounterDoneTime(void)
 	const UINT64 now = ClockNowMicroseconds();
 	SynchronizeClockDiagnostics( now );
 	const UINT64 signedMaximum = static_cast<UINT64>( std::numeric_limits<LONGLONG>::max() );
-	const UINT64 wait = gClockDebtSegments.empty() &&
-		now < gNextClockStepMicroseconds
-		? gNextClockStepMicroseconds - now
+	const UINT64 nextStep = gClockSchedule.nextStepMicroseconds();
+	const UINT64 wait = !gClockSchedule.hasQueuedDebt() &&
+		now < nextStep
+		? nextStep - now
 		: 0;
 	if ( wait > 0 )
 	{
@@ -539,7 +410,7 @@ UINT32 GetNextCounterDoneTime(void)
 	}
 	else
 	{
-		const UINT64 overdue = now - std::min( now, gNextClockStepMicroseconds );
+		const UINT64 overdue = now - std::min( now, nextStep );
 		gliTimestampDiff = -static_cast<LONGLONG>( std::min( overdue, signedMaximum ) );
 	}
 	gliWaitTime = gliTimestampDiff;
@@ -564,7 +435,7 @@ BOOLEAN InitializeJA2Clock()
 
 	gClockOwnerThreadId = std::this_thread::get_id();
 	gClockInitialized = TRUE;
-	ClearQueuedClockDebt();
+	gClockSchedule.clear();
 	AnchorClockSchedule( ClockNowMicroseconds(), TRUE );
 #endif
 
@@ -578,8 +449,7 @@ void	ShutdownJA2Clock(void)
 
 	gClockInitialized = FALSE;
 	gClockOwnerThreadId = std::thread::id();
-	gLastClockPumpMicroseconds = 0;
-	ClearQueuedClockDebt();
+	gClockSchedule.clear();
 }
 
 
@@ -686,8 +556,14 @@ void SetTileAnimCounter( INT32 iTime )
 
 void SetFastForwardPeriod(DOUBLE value)
 {
-	UINT32 newPeriod = (UINT32)(value);
-	if ( newPeriod <= 1 ) newPeriod = 1;
+	UINT32 newPeriod = 1;
+	if ( std::isfinite( value ) && value > 1.0 )
+	{
+		newPeriod = value >= static_cast<DOUBLE>(
+			std::numeric_limits<UINT32>::max() )
+			? std::numeric_limits<UINT32>::max()
+			: static_cast<UINT32>( value );
+	}
 	if ( giFastForwardPeriod == newPeriod ) return;
 	UINT64 transitionTime = 0;
 	if ( !BeginClockStateTransition( transitionTime ) ) return;
@@ -722,8 +598,8 @@ BOOLEAN IsFastForwardKeyPressed()
 		else if (GetJa2TacticalCurrentTeam() != 1) return false;
 	}
 
-	return giFastForwardKey && ( gClockTestKeyStateSource
-		? gClockTestKeyStateSource( giFastForwardKey )
+	return giFastForwardKey && ( gClockKeyStateSource
+		? gClockKeyStateSource( giFastForwardKey )
 		: IsKeyPressed( giFastForwardKey ) );
 }
 
@@ -760,7 +636,7 @@ BOOLEAN UpdateTimeCounter( INT32 &counter, INT32 &iTimeLeft)
 {
 	if (counter == 0) {
 		return FALSE;
-	} else if ( ( counter - BASETIMESLICE ) < 0 ) {
+	} else if ( counter < BASETIMESLICE ) {
 		counter = 0;
 		return TRUE;
 	} else {
@@ -773,6 +649,7 @@ BOOLEAN UpdateTimeCounter( INT32 &counter, INT32 &iTimeLeft)
 
 BOOLEAN UpdateCounter( INT32 counterIdx, INT32 &iTimeLeft )
 {
+	if ( counterIdx < 0 || counterIdx >= NUMTIMERS ) return FALSE;
 	INT32& counter = giTimerCounters[ counterIdx ];
 	return UpdateTimeCounter(counter, iTimeLeft);
 }
@@ -785,11 +662,13 @@ BOOLEAN UpdateCounter( INT32 counterIdx )
 
 void ResetCounter(INT32 counterIdx)
 {
+	if ( counterIdx < 0 || counterIdx >= NUMTIMERS ) return;
 	giTimerCounters[ counterIdx ] = giTimerIntervals[ counterIdx ];
 }
 
 BOOLEAN CounterDone(INT32 counterIdx)
 {
+	if ( counterIdx < 0 || counterIdx >= NUMTIMERS ) return FALSE;
 	return ( giTimerCounters[ counterIdx ] == 0 ) ? TRUE : FALSE;
 }
 
@@ -849,11 +728,21 @@ void SetNotifyFrequencyKey(INT32 value)
 
 void SetClockSpeedPercent(FLOAT value)
 {
+	if ( !std::isfinite( value ) || value <= 0.0f ) return;
 	if ( gfClockSpeedPercent == value ) return;
+	const DOUBLE requestedTimeslice =
+		static_cast<DOUBLE>( TIME_MS_TO_US( BASETIMESLICE ) ) *
+		100.0 / static_cast<DOUBLE>( value );
+	const UINT32 newTimeslice = requestedTimeslice <= 1.0
+		? 1u
+		: requestedTimeslice >= static_cast<DOUBLE>(
+			std::numeric_limits<UINT32>::max() )
+			? std::numeric_limits<UINT32>::max()
+			: static_cast<UINT32>( requestedTimeslice );
 	UINT64 transitionTime = 0;
 	if ( !BeginClockStateTransition( transitionTime ) ) return;
 	gfClockSpeedPercent = value;
-	UPDATETIMESLICE = (UINT32)((FLOAT)TIME_MS_TO_US(BASETIMESLICE) * 100.0f / value);
+	UPDATETIMESLICE = newTimeslice;
 	CompleteClockStateTransition( transitionTime );
 }
 
