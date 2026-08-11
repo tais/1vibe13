@@ -1322,8 +1322,20 @@ the engine must not contain SDL types in its public domain model.
   references, and partial queue cleanup are gone. Headless/ASan integration
   covers immediate, delayed, demand, discard, WindowHit size, malformed ingress,
   diagnostics, and all-queue teardown while established gameplay callbacks and
-  optional network routing retain their public boundaries. The remaining 10 Utils
-  translation units are deliberately still tracked as
+  optional network routing retain their public boundaries. The
+  offline image/developer-utility batch is also closed.
+  `ImageUtilityModel` supplies checked image byte counts, 32-bit STI staging
+  limits, subimage containment, and deterministic integer palette distance.
+  Quantization owns nonthrowing octree nodes with 64-bit accumulation and
+  publishes complete staged palettes/pixels. Radar-map RGB storage is tightly
+  packed independently from video-surface pitch, and all surface locks,
+  conversion results, and bounded filenames are checked. STI output validates
+  geometry and metadata, owns compression products, builds the exact legacy
+  little-endian byte sequence without compiler-layout assumptions, and uses
+  the same atomic VFS replacement boundary;
+  malformed input and failed publication cannot delete or truncate the live
+  radar image. Focused model and real-adapter tests run in CTest and ASan.
+  The remaining 5 Utils translation units are deliberately still tracked as
   unaudited; the detailed
   findings, inventory, and next priority order live in
   `UTILS_CODE_WALKTHROUGH.md`. Resource paths, callbacks, localized content,

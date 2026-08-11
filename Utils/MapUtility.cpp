@@ -23,6 +23,12 @@
 #include "Cursor Control.h"//dnl ch78 271113
 #include "lighting.h"//dnl ch79 301113
 
+#include <algorithm>
+#include <array>
+#include <cstdio>
+#include <cstring>
+#include <vector>
+
 #define MINIMAP_X_SIZE	88//RADAR_WINDOW_WIDTH
 #define MINIMAP_Y_SIZE	44//RADAR_WINDOW_HEIGHT
 #define WINDOW_SIZE		2
@@ -33,24 +39,24 @@ extern UINT16 iOffsetHorizontal;
 extern UINT16 iOffsetVertical;
 extern FDLG_LIST* FileList;
 
-typedef struct
-{
-	INT8 r;
-	INT8 g;
-	INT8 b;
-}RGBValues;
-
 FLOAT gdXStep, gdYStep;
 UINT32 guiMiniMap=0, gui8BitMiniMap=0, guiBigMap=0;//dnl ch77 121113
 HVSURFACE ghVSurface = NULL;
-RGBValues* p24BitValues = NULL;
+std::vector<UINT8> g24BitValues;
 FDLG_LIST* FListNode = NULL;
 BOOLEAN gfMapUtilityWindowActive = FALSE;
+
+static void ReleaseMapFileList()
+{
+	TrashFDlgList(FileList);
+	FileList = NULL;
+	FListNode = NULL;
+}
 
 void GenerateAllMapsInit(void)
 {
 	GETFILESTRUCT FileInfo;
-	TrashFDlgList(FileList);
+	ReleaseMapFileList();
 	if(GetFileFirst("MAPS\\*.dat", &FileInfo))
 	{
 		FileList = AddToFDlgList(FileList, &FileInfo);
@@ -82,9 +88,15 @@ UINT32 MapUtilScreenInit(void)
 		if(AddVideoSurface(&vs_desc, (UINT32*)&guiMiniMap) == FALSE)
 			return(ERROR_SCREEN);
 	}
-	// Allocate 24 bit Surface
-	if(!p24BitValues)
-		p24BitValues = (RGBValues*)MemAlloc(MINIMAP_X_SIZE * MINIMAP_Y_SIZE * sizeof(RGBValues));
+	// Allocate the tightly packed source independently of video-surface pitch.
+	try
+	{
+		g24BitValues.assign(MINIMAP_X_SIZE * MINIMAP_Y_SIZE * 3, 0);
+	}
+	catch (...)
+	{
+		return(ERROR_SCREEN);
+	}
 	//Allocate 8-bit surface
 	if(!GetVideoSurface(&ghVSurface, gui8BitMiniMap))
 	{
@@ -109,7 +121,7 @@ UINT32 MapUtilScreenInit(void)
 		if(AddVideoSurface(&vs_desc, (UINT32*)&guiBigMap) == FALSE)
 			return(ERROR_SCREEN);
 	}
-	GetVideoSurface(&ghVSurface, gui8BitMiniMap);
+	if (!GetVideoSurface(&ghVSurface, gui8BitMiniMap)) return ERROR_SCREEN;
 	return(TRUE);
 }
 
@@ -118,8 +130,9 @@ UINT32 MapUtilScreenHandle(void)
 {
 	InputAtom InputEvent;
 	SGPPaletteEntry pPalette[256];
+	std::array<UINT8, MINIMAP_X_SIZE * MINIMAP_Y_SIZE> quantizedPixels{};
 	CHAR8 zFilename[260], zFilename2[260];
-	UINT8 *pDataPtr, ubMinorMapVersion;
+	UINT8 ubMinorMapVersion;
 	PIXEL *pDestBuf, *pSrcBuf;
 	UINT32 uiDestPitchBYTES, uiSrcPitchBYTES, uiRGBColor, bR, bG, bB, bAvR, bAvG, bAvB;
 	PIXEL  s16BPPSrc; INT32 sDest16BPPColor;
@@ -134,8 +147,7 @@ UINT32 MapUtilScreenHandle(void)
 			// Exit the program
 			if(fEditModeFirstTime == FALSE)
 			{
-				TrashFDlgList(FileList);
-				FileList = FListNode = NULL;
+					ReleaseMapFileList();
 				EnableEditorTaskbar();
 				EnableAllTextFields();
 				gfMapUtilityWindowActive = FALSE;
@@ -161,9 +173,22 @@ UINT32 MapUtilScreenHandle(void)
 	sDest16BPPColor = -1;
 	bAvR = bAvG = bAvB = 0;
 	// Zero out area!
-	ColorFillVideoSurfaceArea(FRAME_BUFFER, 0, 0, (INT16)(SCREEN_WIDTH), (INT16)(SCREEN_HEIGHT), Get16BPPColor(FROMRGB(0, 0, 0)));
+	if (!ColorFillVideoSurfaceArea(FRAME_BUFFER, 0, 0,
+		static_cast<INT16>(SCREEN_WIDTH), static_cast<INT16>(SCREEN_HEIGHT),
+		Get16BPPColor(FROMRGB(0, 0, 0))))
+	{
+		return ERROR_SCREEN;
+	}
 	if(fEditModeFirstTime == FALSE && IsJa2TacticalWorldLoaded() && FListNode == NULL)// Just create radarmap for current loaded world
-		sprintf(zFilename, "%s", gubFilename);
+	{
+		const int filenameLength = std::snprintf(
+			zFilename, sizeof(zFilename), "%s", gubFilename);
+		if (filenameLength < 0 ||
+			static_cast<std::size_t>(filenameLength) >= sizeof(zFilename))
+		{
+			return ERROR_SCREEN;
+		}
+	}
 	else
 	{
 		// OK, we are here, now loop through files
@@ -172,7 +197,13 @@ UINT32 MapUtilScreenHandle(void)
 			gfProgramIsRunning = FALSE;
 			return(MAPUTILITY_SCREEN);
 		}
-		sprintf(zFilename, "%s", FListNode->FileInfo.zFileName);
+		const int filenameLength = std::snprintf(zFilename, sizeof(zFilename),
+			"%s", FListNode->FileInfo.zFileName);
+		if (filenameLength < 0 ||
+			static_cast<std::size_t>(filenameLength) >= sizeof(zFilename))
+		{
+			return ERROR_SCREEN;
+		}
 		// OK, load maps and do overhead shrinkage of them... //dnl ch79 301113
 		if(!LoadWorld(zFilename, &dMajorMapVersion, &ubMinorMapVersion))
 			return(ERROR_SCREEN);
@@ -187,7 +218,7 @@ UINT32 MapUtilScreenHandle(void)
 	//iOffsetHorizontal = (SCREEN_WIDTH / 2) - (640 / 2);// Horizontal start postion of the overview map
 	//iOffsetVertical = (SCREEN_HEIGHT - 160) / 2 - 160;// Vertical start position of the overview map
 	iOffsetHorizontal = iOffsetVertical = 0;
-	MapUtilScreenInit();//dnl ch79 291113
+	if (MapUtilScreenInit() == ERROR_SCREEN) return ERROR_SCREEN;//dnl ch79 291113
 	//ColorFillVideoSurfaceArea(guiBigMap, 0, 0, (INT16)(640 * WORLD_COLS / OLD_WORLD_COLS), (INT16)(320 * WORLD_ROWS / OLD_WORLD_ROWS), Get16BPPColor(FROMRGB(0, 0, 0)));
 	InitNewOverheadDB((UINT8)giCurrentTilesetID);
 	gfOverheadMapDirty = TRUE;
@@ -216,7 +247,21 @@ UINT32 MapUtilScreenHandle(void)
 	dX = dStartX;
 	dY = dStartY;
 	pDestBuf = (PIXEL *)LockVideoSurface(guiMiniMap, &uiDestPitchBYTES);
+	if (!pDestBuf) return ERROR_SCREEN;
 	pSrcBuf = (PIXEL *)LockVideoSurface(guiBigMap, &uiSrcPitchBYTES);
+	if (!pSrcBuf)
+	{
+		UnLockVideoSurface(guiMiniMap);
+		return ERROR_SCREEN;
+	}
+	if (uiDestPitchBYTES < MINIMAP_X_SIZE * sizeof(PIXEL) ||
+		uiSrcPitchBYTES <
+			(640 * WORLD_COLS / OLD_WORLD_COLS) * sizeof(PIXEL))
+	{
+		UnLockVideoSurface(guiBigMap);
+		UnLockVideoSurface(guiMiniMap);
+		return ERROR_SCREEN;
+	}
 	for ( iX = 0; iX < MINIMAP_X_SIZE; iX++ )
 	{
 		dY = dStartY;
@@ -234,6 +279,8 @@ UINT32 MapUtilScreenHandle(void)
 
 			iCount = 0;
 			bR = bG = bB = 0;
+			bAvR = bAvG = bAvB = 0;
+			sDest16BPPColor = Get16BPPColor(FROMRGB(0, 0, 0));
 
 			for ( iWindowX = iSubX1; iWindowX < iSubX2; iWindowX++ )
 			{
@@ -275,9 +322,11 @@ UINT32 MapUtilScreenHandle(void)
 			//Write into dest!
 			pDestBuf[ ( iY * (uiDestPitchBYTES/sizeof(PIXEL)) ) + iX ] = sDest16BPPColor;
 
-			p24BitValues[ ( iY * (uiDestPitchBYTES/sizeof(PIXEL)) ) + iX ].r = (UINT8)bAvR;
-			p24BitValues[ ( iY * (uiDestPitchBYTES/sizeof(PIXEL)) ) + iX ].g = (UINT8)bAvG;
-			p24BitValues[ ( iY * (uiDestPitchBYTES/sizeof(PIXEL)) ) + iX ].b = (UINT8)bAvB;
+			const std::size_t rgbOffset =
+				(static_cast<std::size_t>(iY) * MINIMAP_X_SIZE + iX) * 3;
+			g24BitValues[rgbOffset] = static_cast<UINT8>(bAvR);
+			g24BitValues[rgbOffset + 1] = static_cast<UINT8>(bAvG);
+			g24BitValues[rgbOffset + 2] = static_cast<UINT8>(bAvB);
 
 			//Increment
 			dY += gdYStep;
@@ -289,16 +338,58 @@ UINT32 MapUtilScreenHandle(void)
 	// RENDER!
 	UnLockVideoSurface(guiMiniMap);
 	iOffsetVertical = SCREEN_HEIGHT - 480;
-	BltVideoSurface(FRAME_BUFFER, guiMiniMap, 0, iOffsetHorizontal+10, iOffsetVertical+360, VS_BLT_FAST|VS_BLT_USECOLORKEY, NULL);
+	if (!BltVideoSurface(FRAME_BUFFER, guiMiniMap, 0,
+		iOffsetHorizontal+10, iOffsetVertical+360,
+		VS_BLT_FAST|VS_BLT_USECOLORKEY, NULL))
+	{
+		UnLockVideoSurface(guiBigMap);
+		return ERROR_SCREEN;
+	}
 	pDestBuf = (PIXEL *)LockVideoSurface(FRAME_BUFFER, &uiDestPitchBYTES);
-	Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES, (PIXEL *)pSrcBuf, uiSrcPitchBYTES, 0, 0, 0, 0, min((640 * WORLD_COLS / OLD_WORLD_COLS), SCREEN_WIDTH), min((320 * WORLD_ROWS / OLD_WORLD_ROWS), SCREEN_HEIGHT - 160));
+	if (!pDestBuf)
+	{
+		UnLockVideoSurface(guiBigMap);
+		return ERROR_SCREEN;
+	}
+	if (uiDestPitchBYTES < static_cast<UINT32>(SCREEN_WIDTH) * sizeof(PIXEL))
+	{
+		UnLockVideoSurface(guiBigMap);
+		UnLockVideoSurface(FRAME_BUFFER);
+		return ERROR_SCREEN;
+	}
+	if (!Blt16BPPTo16BPP((PIXEL *)pDestBuf, uiDestPitchBYTES,
+		(PIXEL *)pSrcBuf, uiSrcPitchBYTES, 0, 0, 0, 0,
+		(std::min)((640 * WORLD_COLS / OLD_WORLD_COLS),
+			static_cast<INT32>(SCREEN_WIDTH)),
+		(std::min)((320 * WORLD_ROWS / OLD_WORLD_ROWS),
+			static_cast<INT32>(SCREEN_HEIGHT) - 160)))
+	{
+		UnLockVideoSurface(guiBigMap);
+		UnLockVideoSurface(FRAME_BUFFER);
+		return ERROR_SCREEN;
+	}
 	UnLockVideoSurface(guiBigMap);
-	//QUantize!
-	pDataPtr = (UINT8*)LockVideoSurface(gui8BitMiniMap, &uiSrcPitchBYTES);
-	QuantizeImage(pDataPtr, (UINT8*)p24BitValues, MINIMAP_X_SIZE, MINIMAP_Y_SIZE, pPalette);
-	SetVideoSurfacePalette(ghVSurface, pPalette);
+	// Quantize into owned, tightly packed pixels. The 8-bit surface supplies
+	// dimensions and palette to the raw-buffer blitter; its pitch is irrelevant.
+	if (!QuantizeImage(quantizedPixels.data(), g24BitValues.data(),
+		MINIMAP_X_SIZE, MINIMAP_Y_SIZE, pPalette))
+	{
+		UnLockVideoSurface(FRAME_BUFFER);
+		return ERROR_SCREEN;
+	}
+	if (!SetVideoSurfacePalette(ghVSurface, pPalette))
+	{
+		UnLockVideoSurface(FRAME_BUFFER);
+		return ERROR_SCREEN;
+	}
 	// Blit!
-	Blt8BPPDataTo16BPPBuffer(pDestBuf, uiDestPitchBYTES, ghVSurface, pDataPtr, iOffsetHorizontal+10+MINIMAP_X_SIZE+20, iOffsetVertical+360);
+	if (!Blt8BPPDataTo16BPPBuffer(pDestBuf, uiDestPitchBYTES, ghVSurface,
+		quantizedPixels.data(), iOffsetHorizontal+10+MINIMAP_X_SIZE+20,
+		iOffsetVertical+360))
+	{
+		UnLockVideoSurface(FRAME_BUFFER);
+		return ERROR_SCREEN;
+	}
 	// Write palette!
 	iX = iOffsetHorizontal + 10;
 	iY = iOffsetVertical + 420;
@@ -313,12 +404,17 @@ UINT32 MapUtilScreenHandle(void)
 	}
 	UnLockVideoSurface(FRAME_BUFFER);
 	// Remove extension
-	for(cnt=strlen(zFilename)-1; cnt>=0; cnt--)
-		if(zFilename[cnt] == '.')
-			zFilename[cnt] = '\0';
-	sprintf(zFilename2, "RADARMAPS\\%s.STI", zFilename);
-	WriteSTIFile((INT8*)pDataPtr, pPalette, MINIMAP_X_SIZE, MINIMAP_Y_SIZE, (STR)zFilename2, CONVERT_ETRLE_COMPRESS, 0);
-	UnLockVideoSurface(gui8BitMiniMap);
+	if (CHAR8* extension = std::strchr(zFilename, '.')) *extension = '\0';
+	const int outputLength = std::snprintf(zFilename2, sizeof(zFilename2),
+		"RADARMAPS\\%s.STI", zFilename);
+	if (outputLength < 0 || static_cast<std::size_t>(outputLength) >= sizeof(zFilename2) ||
+		!TryWriteSTIFile(
+			reinterpret_cast<const INT8*>(quantizedPixels.data()), pPalette,
+			MINIMAP_X_SIZE, MINIMAP_Y_SIZE, zFilename2,
+			CONVERT_ETRLE_COMPRESS, 0))
+	{
+		return ERROR_SCREEN;
+	}
 	SetFont(TINYFONT1);
 	SetFontBackground(FONT_MCOLOR_BLACK);
 	SetFontForeground(FONT_MCOLOR_DKGRAY);
@@ -343,8 +439,8 @@ UINT32 MapUtilScreenHandle(void)
 
 UINT32 MapUtilScreenShutdown(void)
 {
-	TrashFDlgList(FileList);
-	MemFree(p24BitValues);
+	ReleaseMapFileList();
+	std::vector<UINT8>().swap(g24BitValues);
 	return(TRUE);
 }
 

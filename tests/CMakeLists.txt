@@ -278,6 +278,16 @@ target_include_directories(tactical_event_queue_model_tests
 add_test(NAME tactical_event_queue_model
   COMMAND tactical_event_queue_model_tests)
 
+# Offline image conversion has legacy signed dimensions and 32-bit on-disk
+# lengths. Keep its checked geometry, staging, and palette rules executable
+# without the editor, renderer, VFS, or filesystem.
+add_executable(utils_image_utility_model_tests
+  utils_image_utility_model_tests.cpp)
+target_include_directories(utils_image_utility_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR}/Utils)
+add_test(NAME utils_image_utility_model
+  COMMAND utils_image_utility_model_tests)
+
 # Items.xml combines a cleared base item table with persistent auxiliary
 # arrays and optional, field-presence-aware localization overlays. Keep its
 # index, narrowing, inheritance, rollback, and publish rules data-free before

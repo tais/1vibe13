@@ -6,11 +6,11 @@ Status: active architectural refactor, 11 August 2026.
 
 `Utils` contains 36 production translation units used by every application
 host. This walkthrough tracks them explicitly so a successful local fix is not
-mistaken for completion of the directory-wide audit. Five coherent batches now
-cover shared interactive UI, text/localization, media lifecycle, indexed XML
-infrastructure, and the encrypted text-record boundary. The tactical LBE popup
-XML loader is included because it is the persistence boundary for the
-popup-definition graph.
+mistaken for completion of the directory-wide audit. The completed batches now
+cover shared interactive UI, text/localization, media lifecycle, indexed XML,
+item XML, encrypted text records, and offline image/developer utilities. The
+tactical LBE popup XML loader is included because it is the persistence
+boundary for the popup-definition graph.
 
 A batch is complete only when it has:
 
@@ -422,18 +422,44 @@ exact end and null/network inputs, and proves complete shutdown cleanup. The
 WindowHit fixture pins its exact owned byte count and runs under ASan, directly
 covering the former stack over-read.
 
+## Offline image and developer-utility closure
+
+All five image/developer translation units are live maintained code. `Debug
+Control.cpp`, `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp` are in
+the campaign-neutral Utils object library shared by every host. `MapUtility.cpp`
+is a variant source in every host; the complete radar-map generator is selected
+for both editor applications and the non-editor applications compile its safe
+stub.
+
+| Owner | Faults found | Enforced state |
+| --- | --- | --- |
+| `Debug Control.cpp` | Optional debug entry points accepted null text, their declarations discarded constness, and eager/unchecked logger construction could turn diagnostics into startup or dispatch failures | Every logger rejects null at its public boundary, message APIs retain caller-owned constant text, live logging initializes on first use, and logger creation/write failures stay contained at the diagnostic boundary |
+| `MapUtility.cpp` | The tightly allocated RGB image was indexed with padded video-surface pitch, unchecked surface locks were dereferenced, allocation failure escaped, the shared file-list owner remained dangling after release, filenames were formatted without capacity, and conversion/write failures advanced as success | A `std::vector` owns the tightly packed RGB pixels, every allocation/lock/conversion/write transition is checked and paired, file-list release clears every alias, filenames reject truncation, and a map advances only after atomic STI publication |
+| `Quantize Wrap.cpp` / `Quantize.cpp` | Invalid/null dimensions walked caller memory, allocation failure was dereferenced, octree sums could overflow, incompatible palette structs were type-punned, and output pixels/palette mutated incrementally | Checked byte counts precede reads, octree nodes use nonthrowing owned allocation and 64-bit accumulators, explicit RGBQUAD conversion preserves legacy RGB results, integer squared distance is bounded, and complete pixel/palette staging publishes together |
+| `STIConvert.cpp` | The destination was deleted before conversion, all file writes were unchecked, compression failures left output state and allocations inconsistent, successful subimage metadata leaked, size multiplication wrapped, the uncompressed path wrote an uninitialized image pointer, and extent scans dereferenced one-past image edges | Signed dimensions, 32-bit serialized sizes, subimage counts/rectangles, and every buffer are validated; compression products have RAII ownership; fixed-size headers and subimages are emitted field-by-field in the legacy little-endian wire layout rather than through compiler padding; the exact palette/pixel/app-data sequence is staged completely; VFS performs one atomic replacement; failure leaves the existing destination untouched |
+
+`ImageUtilityModel.h` is the dependency-free checked geometry, byte-count,
+serialized-append, and deterministic palette-distance contract. It deliberately
+caps conversion storage at the STI format's 32-bit lengths rather than allowing
+host `size_t` to accept an unrepresentable file.
+
+`utils_image_utility_model_tests` cover negative, zero, exact-end, overflowing,
+and exact-capacity image geometry plus deterministic palette selection.
+`ja2_headless_tests` exercise the real quantizer, ETRLE compressor, STI layout,
+zeroed app data, atomic shorter replacement, and preservation of an existing
+file after malformed input. Both run in normal CTest and the Linux
+AddressSanitizer matrix. Architecture ratchets retain the model, production
+adapters, retired destructive sinks, tests, host manifests, and this record.
+
 ## Remaining Utils inventory
 
-The following 10 translation units are compiled and covered by the general
+The following 5 translation units are compiled and covered by the general
 build/test matrix, but have not yet received this same line-by-line ownership,
 bounds, and failure-path audit:
 
 - Input and runtime control: `Cursors.cpp`, `KeyMap.cpp`, `Timer Control.cpp`,
   `Utilities.cpp`, and `Win Util.cpp`.
-- Image and developer utilities: `Debug Control.cpp`, `MapUtility.cpp`,
-  `Quantize Wrap.cpp`, `Quantize.cpp`, and `STIConvert.cpp`.
 
-The remaining runtime-control and offline image-tool files are the next audit
-batches.
+The remaining runtime-control files are the final Utils audit batch.
 Existing file formats, resource paths, localization strings, callbacks, visual
 layout, and game behavior remain compatibility constraints throughout the audit.
