@@ -42,6 +42,16 @@ target_compile_features(utils_runtime_control_model_tests PRIVATE cxx_std_17)
 add_test(NAME utils_runtime_control_model
   COMMAND utils_runtime_control_model_tests)
 
+# UTF decoding, bounded glyph geometry, deterministic alpha coverage, and
+# legacy metric normalization stay independent from stb, SDL, VFS, and game
+# globals. The production WinFont adapter consumes this same model.
+add_executable(portable_font_model_tests
+  portable_font_model_tests.cpp)
+target_include_directories(portable_font_model_tests
+  PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_features(portable_font_model_tests PRIVATE cxx_std_17)
+add_test(NAME portable_font_model COMMAND portable_font_model_tests)
+
 # JA2's command vocabulary and replay schema are an adapter above Core. Keeping
 # this as a separate executable makes both sides of that dependency testable.
 add_executable(ja2_runtime_adapter_tests ja2_runtime_adapter_tests.cpp)

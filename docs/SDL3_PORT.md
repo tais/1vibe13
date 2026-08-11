@@ -30,7 +30,7 @@ pre-built `.lib` blobs at the repo root are deleted.
 | 6 | RGBA8888 pipeline, rewrite blitters, kill inline asm | ✅ Done — ALL inline asm ported to C (incl. the renderworld multi-Z-strip blitters that were silent no-ops on non-Windows, which had left prone soldiers, corpses and multi-tile structures invisible; tactical playable, FMOD→SDL3_mixer in 6r, Smacker→libsmacker in 6u, cursor + render + tooltip fixes). Internal format is now **RGBA8888** (`SGP_PIXEL_DEPTH 32` in `sgp/pixfmt.h`; `Get16BPPColor`→`Get32BPPColor`; `PixShade`/`PixIntensity`/`PixBlend50` do per-channel arithmetic in place of the 16-bit LUTs; ARGB8888 streaming texture). The `Get16BPPColor`-into-`UINT16` colour-truncation tail was swept across `phase-6c-truecolor-ui`, `fix-truecolor-item-glow`, and `fix-truecolor-ui-remainder`. RGB565 now only survives at asset-decode boundaries (STCI/himage expand stored 16-bit pixels to ARGB on load) and in 16bpp-only-guarded LUTs. |
 | 7 | Audio — SDL3_mixer / SoLoud, drop FMOD | ✅ Done — landed as Phase 6r. SDL3_mixer is the only audio path. |
 | 8 | Cinematics — libsmacker, decide on Bink | ✅ Done — landed as Phase 6u. libsmacker vendored in `ext/libsmacker`; Bink path stubbed (JA2 ships no `.bik` files). |
-| 9 | Fonts — stb_truetype, drop GDI | 🟡 GDI `WinFont.cpp` retired everywhere (no-op stubs in `WinFont.h`, `iUseWinFonts` off); stb_truetype replacement still pending. |
+| 9 | Fonts — stb_truetype, drop GDI | ✅ Done — `sgp/WinFont.cpp` is a cross-platform stb_truetype rasterizer over SDL-owned native-pixel surfaces. The default STI bitmap catalogue is unchanged; scalable text and tooltip scaling use a configured/VFS or bounded platform font fallback and fall back transactionally to bitmap text when unavailable. |
 | 10 | Platform packaging + CI | 🟡 CI compile-check and tagged zip releases are live on **Linux x64, Linux ARM64, macOS, and Windows** (`.github/workflows/build_unix.yml`, `.github/workflows/release.yml`). macOS `.app` bundles are ad-hoc signed and strictly verified after staging; native installers and AppImage packaging remain pending. |
 | ∞ | Multiplayer — port to RakNet 4 or netlib swap | Deferred indefinitely. `Multiplayer/mp_stubs.cpp` (no-op definitions, STATIC) builds on every platform; the main-menu MP button is disabled. The 32-bit Win32 `RakNetLibStatic.lib` is unused. |
 
@@ -326,15 +326,38 @@ will revive them:
 
 #### Phase 9 — fonts
 
-- [sgp/WinFont.cpp](../sgp/WinFont.cpp): entire GDI-backed TrueType
-  font rasterizer gated `_WIN32`. Phase 9 replaces with `stb_truetype`
-  (single-header, public domain).
-- [sgp/WinFont.h](../sgp/WinFont.h): non-Windows branch declares
-  inline no-op stubs for `InitWinFonts`, `CreateWinFont`,
-  `SetWinFontForeColor`, `PrintWinFont`, `GetWinFontHeight`, etc.
-  Phase 9 replaces these with the stb_truetype implementations.
-- [Utils/Font Control.cpp](../Utils/Font%20Control.cpp): two
-  `InitWinFonts` / `ShutdownWinFonts` call sites gated `_WIN32`.
+- [sgp/WinFont.cpp](../sgp/WinFont.cpp) now owns a single portable
+  `stb_truetype` backend. It decodes both 16-bit and 32-bit
+  `wchar_t` hosts into Unicode scalars, bounds font bytes, pixel height and
+  every glyph allocation, clips native-pixel writes, applies kerning and
+  deterministic alpha coverage, and contains all load/raster failures.
+- [sgp/WinFont.h](../sgp/WinFont.h) exposes one platform-neutral descriptor
+  and plain-text render boundary. The former inline no-op branch and localized
+  printf-format path are gone.
+- [Utils/Font Control.cpp](../Utils/Font%20Control.cpp) initializes and shuts
+  the backend down on every host. Initialization is transactional: an absent or
+  invalid scalable font turns `USE_WINFONTS` off and continues with the
+  already-loaded STI catalogue. Tooltip scaling follows the same rule.
+- `WIN_FONT_FILE` and `WIN_FONT_BOLD_FILE` in `[Ja2 Settings]` may name
+  a VFS-relative font or an absolute operating-system path. Without them the
+  backend tries `FONTS\\ja2font3.ttf`/its bold companion and then a short
+  platform font list (Microsoft YaHei/SimSun/Arial/Segoe UI,
+  PingFang/Arial, or Noto/WenQuanYi/DejaVu/Liberation). CJK-capable faces are
+  prioritized for the Chinese language; the other catalogues retain their
+  Latin/Cyrillic-first metrics.
+  A missing bold face uses a bounded one-pixel synthetic bold pass.
+- The legacy catalogue's per-section `Height` and `Weight` overrides,
+  `WIN_FONT_ADJUST`, default colours and mappings are retained. Its
+  `Weight` values select the available regular/bold face at the legacy
+  semibold boundary (`600`); stb does not synthesize intermediate GDI weights.
+  The catalogue defaults are therefore unchanged. Its
+  per-section `Name` value was a GDI installed-family lookup and cannot be
+  reproduced by a platform-neutral file parser; migrate that value to the
+  explicit `WIN_FONT_FILE`/`WIN_FONT_BOLD_FILE` paths above.
+- Font files are limited to 64 MiB and are deliberately a trusted local
+  configuration/content boundary; upstream stb_truetype does not promise safe
+  parsing of adversarial font bytes. Normal game text still uses the shipped
+  bitmap fonts and needs no new asset.
 
 #### Phase 10 — packaging + CI
 
@@ -1264,13 +1287,19 @@ all three platforms.
 
 ## Phase 9 — Fonts & GDI cleanup
 
-- Replace [sgp/WinFont.cpp](../sgp/WinFont.cpp) with stb_truetype
-  (single-header, public domain).
+- [sgp/WinFont.cpp](../sgp/WinFont.cpp) uses a pinned stb_truetype snapshot
+  on Linux, macOS and Windows; no GDI or DirectDraw font code remains.
 - Most of the game uses pre-rendered bitmap fonts shipped in the
   asset bundle, so this code path is only used in a few places
   (mod-added text, debug overlays).
+- Enable the optional whole-game path with `USE_WINFONTS=1`. Select an
+  explicit trusted font with `WIN_FONT_FILE` and optionally
+  `WIN_FONT_BOLD_FILE`; otherwise the backend searches the legacy logical
+  font name and bounded platform fallbacks. If none load, bitmap rendering
+  remains active. `TOOLTIP_SCALE_FACTOR > 100` uses the same backend.
 
-**Exit criterion**: all text renders on all three platforms.
+**Exit criterion: met.** Bitmap text remains the default everywhere, and the
+optional scalable path now renders or falls back safely on all three platforms.
 
 ---
 

@@ -1,8 +1,8 @@
 /* $Id: sgp.c,v 1.4 2004/03/19 06:16:04 digicrab Exp $ */
 // SGP entry point. Portable SDL3 main() replaces the Win32 WinMain +
 // window class + message pump that lived here pre-port; the
-// DirectDraw video manager + WinFont GDI text + cnc-ddraw detection
-// they fed have all been retired in earlier phases. The body below
+// DirectDraw video manager + GDI font text + cnc-ddraw detection
+// they fed have all been retired; WinFont is now portable stb_truetype. The body below
 // runs on every platform: subsystem init, SDL_PollEvent driven
 // game-loop pump, shutdown.
 #include "builddefines.h"

@@ -772,13 +772,9 @@ void DrawMouseTooltip()
 	extern void DisplayTooltipString( const STR16 pStringA, INT16 sX, INT16 sY );
 	extern void j_log(PTR,...);
 
-#ifdef _WIN32
 	UINT16 fontHeight = isTooltipScalingEnabled()
 		? GetWinFontHeight(TOOLTIP_IFONT)
 		: GetFontHeight(FONT10ARIAL);
-#else
-	UINT16 fontHeight = GetFontHeight(FONT10ARIAL);
-#endif
 
 	iX = mouseTT.iX;iY = mouseTT.iY;
 	iW = (INT32)(GetWidthOfString(mouseTT.FastHelpText) + 10 * fTooltipScaleFactor);
