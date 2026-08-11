@@ -53,6 +53,13 @@ Enrico congratulations mail is selected through
 is available to every host. Merc dismissal in `Assignments.cpp` likewise uses
 `CampaignMercenaryPolicy`: only UB blocks dismissal from tunnel column 14
 onward and retains the qualified/unqualified refusal quote choice.
+Civilian tactical dialogue now uses `CampaignCivilianQuotePolicy`. Both quote
+catalogues and both dedicated-group ranges are emitted in every host; Arulco
+retains surrender completion and its complete town/hint/miner logic, while UB
+retains records 40-49, its restricted enemy-action test, and record 255 as an
+unavailable sentinel. The two `CIV_QUOTE_NEW` markers remain campaign-qualified
+at their exact records 1029 and 1039. The common storage uses the larger
+capacity only; no quote record, EDT file, or serialized layout changes.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -159,13 +166,13 @@ behavior remain unchanged.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 90 active conditionals in 34
+milestone its per-file baseline contains 84 active conditionals in 32
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
 | Laptop content/pages | 10 |
-| Tactical gameplay/content | 39 |
+| Tactical gameplay/content | 33 |
 | Strategic gameplay/content | 23 |
 | JA2 compatibility shell/layout | 7 |
 | Tactical AI | 8 |
@@ -193,7 +200,11 @@ from `Strategic/Assignments.cpp`. Strategic-map lifecycle, guidance, and the
 adjoining shell use `CampaignMapScreenPolicy` plus
 `CampaignLaptopCommunicationsPolicy`; `Strategic/mapscreen.cpp` no longer
 contributes twelve compiled branches, while the four converted map-shell
-implementations and common map header no longer contribute nine more. All nine policies
+implementations and common map header no longer contribute nine more. Civilian
+quote catalogue selection, dedicated-group boundaries, UB's unavailable-record
+sentinel, and Arulco's surrender completion use
+`CampaignCivilianQuotePolicy`; `Tactical/Civ Quotes.cpp` and its public header
+no longer contribute six more. All ten policies
 are guarded by data-free tests, headless integration coverage, and named
 architecture checks. The seven remaining
 `Ja2` conditionals are the
@@ -215,7 +226,6 @@ The largest individual legacy leaves are:
 | `Strategic/LuaInitNPCs.cpp` | 11 |
 | `Tactical/Campaign.cpp` | 6 |
 | `Strategic/Luaglobal.cpp` | 5 |
-| `Tactical/Civ Quotes.cpp` | 5 |
 | `Laptop/email.h` | 4 |
 | `Tactical/Faces.cpp` | 4 |
 

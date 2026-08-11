@@ -62,7 +62,10 @@ enum
 	CIV_QUOTE_ENEMY_OFFER_SURRENDER,
 	CIV_QUOTE_HICKS_SEE_US_AT_NIGHT,
 	CIV_QUOTE_DEIDRANNA_DEAD,
-#ifdef JA2UB	
+
+	// Unfinished Business extends the established catalogue at records 40-49.
+	// Both campaigns' identifiers stay available to every host; runtime policy
+	// decides which records may be selected.
 	//40
 	CIV_QUOTE__CIV_ENEMY_CAN_FIGHT,
 	CIV_QUOTE__CIV_ENEMY_GENERIC,
@@ -74,13 +77,20 @@ enum
 	CIV_QUOTE_47,
 	CIV_QUOTE_48,
 	CIV_QUOTE_49,
-	
-	CIV_QUOTE_NEW = CIV_QUOTE_DEIDRANNA_DEAD + 990, // 500 reserved
-#else
-	CIV_QUOTE_NEW = CIV_QUOTE_DEIDRANNA_DEAD + 1000, // 500 reserved
-#endif	
-	NUM_CIV_QUOTES
+
+	CIV_QUOTE_NEW_UNFINISHED_BUSINESS =
+		CIV_QUOTE_DEIDRANNA_DEAD + 990,
+	CIV_QUOTE_NEW_ARULCO = CIV_QUOTE_DEIDRANNA_DEAD + 1000,
+	// Reserve the larger catalogue capacity so both campaigns coexist in one
+	// binary. The ten additional UB-host slots are inert; these arrays are not
+	// serialized and the active campaign still selects its original records.
+	NUM_CIV_QUOTES = CIV_QUOTE_NEW_ARULCO + 1
 };
+
+static_assert(CIV_QUOTE__CIV_ENEMY_CAN_FIGHT == 40);
+static_assert(CIV_QUOTE__CIV_NOT_ENEMY == 43);
+static_assert(CIV_QUOTE_NEW_UNFINISHED_BUSINESS == 1029);
+static_assert(CIV_QUOTE_NEW_ARULCO == 1039);
 
 enum TAUNTTYPE//enemy taunts - SANDRO
 {

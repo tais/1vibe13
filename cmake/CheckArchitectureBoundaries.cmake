@@ -450,6 +450,7 @@ set(runtime_campaign_implementation_files
 set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Ja2/CampaignAimSitePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignApplicationPolicy.h"
+  "${SOURCE_ROOT}/Ja2/CampaignCivilianQuotePolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignDealerPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignLaptopCommunicationsPolicy.h"
   "${SOURCE_ROOT}/Ja2/CampaignMapScreenPolicy.h"
@@ -876,6 +877,115 @@ foreach(required_campaign_map_screen_policy_test_fragment IN ITEMS
   endif()
 endforeach()
 
+# Civilian dialogue catalogue selection, dedicated-group ranges, surrender
+# completion, and UB's unavailable-record sentinel belong to the live campaign.
+# Both source paths and both stable record sets must remain present in every
+# host; the six retired JA2UB guards must not return.
+file(READ "${SOURCE_ROOT}/Ja2/CampaignCivilianQuotePolicy.h"
+  runtime_campaign_civilian_quote_policy_contents)
+foreach(required_campaign_civilian_quote_policy_fragment IN ITEMS
+    "class CampaignCivilianQuotePolicy"
+    "usesUnfinishedBusinessQuoteCatalogue"
+    "completesSurrenderOfferAfterQuote"
+    "civilianGroupQuoteBoundary"
+    "discardsUnavailableQuote")
+  string(FIND "${runtime_campaign_civilian_quote_policy_contents}"
+    "${required_campaign_civilian_quote_policy_fragment}"
+    required_campaign_civilian_quote_policy_position)
+  if(required_campaign_civilian_quote_policy_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime civilian quote policy lost '${required_campaign_civilian_quote_policy_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Civ Quotes.cpp"
+  runtime_campaign_civilian_quote_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Civ Quotes.h"
+  runtime_campaign_civilian_quote_header_contents)
+foreach(required_campaign_civilian_quote_source_fragment IN ITEMS
+    "#include \"CampaignCivilianQuotePolicy.h\""
+    "CampaignCivilianQuotePolicy campaignPolicy("
+    "campaignPolicy.completesSurrenderOfferAfterQuote()"
+    "campaignPolicy.civilianGroupQuoteBoundary("
+    "campaignPolicy.usesUnfinishedBusinessQuoteCatalogue()"
+    "campaignPolicy.discardsUnavailableQuote(ubCivQuoteID)")
+  string(FIND "${runtime_campaign_civilian_quote_source_contents}"
+    "${required_campaign_civilian_quote_source_fragment}"
+    required_campaign_civilian_quote_source_position)
+  if(required_campaign_civilian_quote_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime civilian quote integration lost '${required_campaign_civilian_quote_source_fragment}'")
+  endif()
+endforeach()
+foreach(required_campaign_civilian_quote_header_fragment IN ITEMS
+    "CIV_QUOTE__CIV_ENEMY_CAN_FIGHT"
+    "CIV_QUOTE_NEW_UNFINISHED_BUSINESS"
+    "CIV_QUOTE_NEW_ARULCO"
+    "CIV_QUOTE_NEW_UNFINISHED_BUSINESS == 1029"
+    "CIV_QUOTE_NEW_ARULCO == 1039")
+  string(FIND "${runtime_campaign_civilian_quote_header_contents}"
+    "${required_campaign_civilian_quote_header_fragment}"
+    required_campaign_civilian_quote_header_position)
+  if(required_campaign_civilian_quote_header_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime civilian quote records lost '${required_campaign_civilian_quote_header_fragment}'")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_civilian_quote_header_contents}"
+  "CIV_QUOTE_NEW =" retired_ambiguous_civilian_quote_marker_position)
+if(NOT retired_ambiguous_civilian_quote_marker_position EQUAL -1)
+  message(FATAL_ERROR
+    "Civilian quotes regained the campaign-ambiguous CIV_QUOTE_NEW marker")
+endif()
+foreach(runtime_campaign_civilian_quote_file_contents IN ITEMS
+    runtime_campaign_civilian_quote_source_contents
+    runtime_campaign_civilian_quote_header_contents)
+  string(REGEX MATCH
+    "#[ \t]*(if|ifdef|ifndef|elif)[^\r\n]*JA2UB"
+    retired_campaign_civilian_quote_guard
+    "${${runtime_campaign_civilian_quote_file_contents}}")
+  if(retired_campaign_civilian_quote_guard)
+    message(FATAL_ERROR
+      "Civilian quote behavior regained compiled JA2UB identity")
+  endif()
+endforeach()
+
+foreach(required_campaign_civilian_quote_test_manifest_fragment IN ITEMS
+    "campaign_civilian_quote_policy_tests.cpp"
+    "campaign_civilian_quote_policy")
+  string(FIND "${runtime_campaign_policy_test_build_contents}"
+    "${required_campaign_civilian_quote_test_manifest_fragment}"
+    required_campaign_civilian_quote_test_manifest_position)
+  if(required_campaign_civilian_quote_test_manifest_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime civilian quote policy lost its data-free test target")
+  endif()
+endforeach()
+string(FIND "${runtime_campaign_policy_ci_contents}"
+  "campaign_civilian_quote_policy_tests"
+  required_campaign_civilian_quote_policy_ci_position)
+if(required_campaign_civilian_quote_policy_ci_position EQUAL -1)
+  message(FATAL_ERROR
+    "AddressSanitizer CI lost the runtime civilian quote policy target")
+endif()
+
+file(READ "${SOURCE_ROOT}/tests/campaign_civilian_quote_policy_tests.cpp"
+  runtime_campaign_civilian_quote_policy_test_contents)
+foreach(required_campaign_civilian_quote_policy_test_fragment IN ITEMS
+    "only UB selects the extended civilian quote catalogue"
+    "only Arulco completes surrender after closing the quote"
+    "each campaign retains its exact dedicated-group boundary"
+    "ordinary quote identifiers remain available in both campaigns"
+    "only UB discards its unavailable quote sentinel")
+  string(FIND "${runtime_campaign_civilian_quote_policy_test_contents}"
+    "${required_campaign_civilian_quote_policy_test_fragment}"
+    required_campaign_civilian_quote_policy_test_position)
+  if(required_campaign_civilian_quote_policy_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Runtime civilian quote policy coverage lost '${required_campaign_civilian_quote_policy_test_fragment}'")
+  endif()
+endforeach()
+
 # The tactical door menu, merc dismissal, and adjoining strategic map shell
 # are one behaviorally closed campaign-policy follow-through. The live
 # capability must be evaluated before every UB-only callback or configuration
@@ -1030,6 +1140,7 @@ endforeach()
 file(READ "${SOURCE_ROOT}/tests/ja2_headless_tests.cpp"
   runtime_campaign_follow_through_headless_contents)
 foreach(required_campaign_follow_through_headless_fragment IN ITEMS
+    "#include \"CampaignCivilianQuotePolicy.h\""
     "#include \"CampaignDoorPolicy.h\""
     "#include \"CampaignLaptopCommunicationsPolicy.h\""
     "#include \"CampaignMapScreenPolicy.h\""
@@ -1046,6 +1157,7 @@ endforeach()
 
 foreach(required_campaign_follow_through_ci_target IN ITEMS
     "ja2_headless_tests"
+    "campaign_civilian_quote_policy_tests"
     "campaign_door_policy_tests"
     "campaign_map_screen_policy_tests"
     "campaign_mercenary_policy_tests"
@@ -1062,15 +1174,16 @@ endforeach()
 file(READ "${SOURCE_ROOT}/docs/CAMPAIGN_RUNTIME_STATUS.md"
   runtime_campaign_status_contents)
 foreach(required_campaign_status_fragment IN ITEMS
-    "90 active conditionals in 34"
+    "84 active conditionals in 32"
     "Laptop content/pages | 10"
-    "Tactical gameplay/content | 39"
+    "Tactical gameplay/content | 33"
     "Strategic gameplay/content | 23"
     "CampaignDoorPolicy"
+    "CampaignCivilianQuotePolicy"
     "CampaignMapScreenPolicy"
     "Merc dismissal in `Assignments.cpp`"
     "four converted map-shell"
-    "All nine policies")
+    "All ten policies")
   string(FIND "${runtime_campaign_status_contents}"
     "${required_campaign_status_fragment}"
     required_campaign_status_position)
@@ -1082,6 +1195,9 @@ endforeach()
 file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
   runtime_campaign_architecture_contents)
 foreach(required_campaign_architecture_fragment IN ITEMS
+    "Civilian tactical dialogue now selects through the value-only"
+    "All six"
+    "former `JA2UB` branches across `Civ Quotes.cpp`"
     "Tactical door behavior now selects through the value-only"
     "The strategic map screen now selects campaign behavior"
     "All five former guards in `Interface.cpp`"

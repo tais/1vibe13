@@ -1,4 +1,6 @@
 #include "builddefines.h"
+#include "CampaignCivilianQuotePolicy.h"
+#include "GameContext.h"
 #include "TacticalActorConditions.h"
 #include "TacticalActorCovertOps.h"
 #include "TacticalWorldAdapter.h"
@@ -231,11 +233,13 @@ void ShutDownQuoteBox( BOOLEAN fForce )
 		gCivQuoteData.iDialogueBox = -1;
 
 		gCivQuoteData.bActive = FALSE;
-#ifdef JA2UB
-// no UB
-#else
+		const CampaignCivilianQuotePolicy campaignPolicy(
+			GetGameContext().capabilities());
 		// do we need to do anything at the end of the civ quote?
-		if ( gCivQuoteData.pCiv && gCivQuoteData.pCiv->aiPlanning().action() == AI_ACTION_OFFER_SURRENDER )
+		if ( campaignPolicy.completesSurrenderOfferAfterQuote() &&
+			gCivQuoteData.pCiv &&
+			gCivQuoteData.pCiv->aiPlanning().action() ==
+				AI_ACTION_OFFER_SURRENDER )
 		{
 // Haydent
 			if(!is_networked)
@@ -248,7 +252,6 @@ void ShutDownQuoteBox( BOOLEAN fForce )
 				ActionDone( gCivQuoteData.pCiv );
 			}
 		}
-#endif
 	}
 }
 
@@ -545,13 +548,11 @@ void BeginChatQuote( TacticalActor *pCiv, INT16 sX, INT16 sY )
 UINT16 DetermineCivQuoteEntry( TacticalActor *pCiv, UINT16 *pubCivHintToUse, BOOLEAN fCanUseHints )
 {
 	UINT8	ubCivType;
-#ifdef JA2UB
-
-#else
 	INT8	bTownId;
 	INT8	bCivHint;
 	INT8	bMineId;
-#endif
+	const CampaignCivilianQuotePolicy campaignPolicy(
+		GetGameContext().capabilities());
 
 	BOOLEAN	bCivLowLoyalty = FALSE;
 	BOOLEAN	bCivHighLoyalty = FALSE;
@@ -565,11 +566,10 @@ UINT16 DetermineCivQuoteEntry( TacticalActor *pCiv, UINT16 *pubCivHintToUse, BOO
 
 	if ( pCiv->roster().civilianGroup() < NUM_CIV_GROUPS )
 	{
-#ifdef JA2UB
-		if ( pCiv->roster().civilianGroup() > UNNAMED_CIV_GROUP_19 )
-#else
-		if ( pCiv->roster().civilianGroup() > QUEENS_CIV_GROUP )
-#endif
+		const UINT8 quoteGroupBoundary =
+			campaignPolicy.civilianGroupQuoteBoundary(
+				QUEENS_CIV_GROUP, UNNAMED_CIV_GROUP_19);
+		if ( pCiv->roster().civilianGroup() > quoteGroupBoundary )
 		{
 			if ( pCiv->aiBehavior().neutral() )
 			{
@@ -581,68 +581,68 @@ UINT16 DetermineCivQuoteEntry( TacticalActor *pCiv, UINT16 *pubCivHintToUse, BOO
 			}
 		}
 	}
-		
-#ifdef JA2UB		
-	if( ubCivType != CIV_TYPE_ENEMY )
-	{
-		//if the civ is not an enemy
-		if ( pCiv->aiBehavior().neutral() )
-		{
-			return( CIV_QUOTE__CIV_NOT_ENEMY ); //43
-		}
-		else
-		{
-			//
-			//the civ is an enemy
-			//
 
-			//if the civ can fight
-			if( pCiv->identity().bodyType() == REGMALE || pCiv->identity().bodyType() == REGFEMALE || pCiv->identity().bodyType() == BIGMALE )
+	if ( campaignPolicy.usesUnfinishedBusinessQuoteCatalogue() )
+	{
+		if( ubCivType != CIV_TYPE_ENEMY )
+		{
+			//if the civ is not an enemy
+			if ( pCiv->aiBehavior().neutral() )
 			{
-				return( CIV_QUOTE__CIV_ENEMY_CAN_FIGHT); //40 
-			}
-			else if( pCiv->vitals().health() < pCiv->vitals().maximumHealth() )
-			{
-				return( CIV_QUOTE__CIV_HURT ); //42
+				return( CIV_QUOTE__CIV_NOT_ENEMY ); //43
 			}
 			else
 			{
-				return( CIV_QUOTE__CIV_ENEMY_GENERIC ); //41
+				//
+				//the civ is an enemy
+				//
+
+				//if the civ can fight
+				if( pCiv->identity().bodyType() == REGMALE || pCiv->identity().bodyType() == REGFEMALE || pCiv->identity().bodyType() == BIGMALE )
+				{
+					return( CIV_QUOTE__CIV_ENEMY_CAN_FIGHT); //40
+				}
+				else if( pCiv->vitals().health() < pCiv->vitals().maximumHealth() )
+				{
+					return( CIV_QUOTE__CIV_HURT ); //42
+				}
+				else
+				{
+					return( CIV_QUOTE__CIV_ENEMY_GENERIC ); //41
+				}
 			}
 		}
+
+		if( ubCivType == CIV_TYPE_ENEMY )
+		{
+			// Determine what type of quote to say...
+			// Are are we going to attack?
+
+			if ( pCiv->aiPlanning().action() == AI_ACTION_TOSS_PROJECTILE || pCiv->aiPlanning().action() == AI_ACTION_FIRE_GUN ||
+								pCiv->aiPlanning().action() == AI_ACTION_FIRE_GUN || pCiv->aiPlanning().action() == AI_ACTION_KNIFE_MOVE )
+			{
+				return( CIV_QUOTE_ENEMY_THREAT );
+			}
+
+			// Hurt?
+			else if ( pCiv->vitals().health() < 30 )
+			{
+				return( CIV_QUOTE_ENEMY_HURT );
+			}
+			// elite?
+			else if ( pCiv->roster().soldierClass() == SOLDIER_CLASS_ELITE )
+			{
+				return( CIV_QUOTE_ENEMY_ELITE );
+			}
+			else
+			{
+				return( CIV_QUOTE_ENEMY_ADMIN );
+			}
+		}
+
+		return( 255 );
 	}
 
-
-	if( ubCivType == CIV_TYPE_ENEMY )
-	{
-		// Determine what type of quote to say...
-		// Are are we going to attack?
-
-		if ( pCiv->aiPlanning().action() == AI_ACTION_TOSS_PROJECTILE || pCiv->aiPlanning().action() == AI_ACTION_FIRE_GUN ||
-							pCiv->aiPlanning().action() == AI_ACTION_FIRE_GUN || pCiv->aiPlanning().action() == AI_ACTION_KNIFE_MOVE )
-		{
-			return( CIV_QUOTE_ENEMY_THREAT );
-		}
-
-		// Hurt?
-		else if ( pCiv->vitals().health() < 30 )
-		{
-			return( CIV_QUOTE_ENEMY_HURT );
-		}
-		// elite?
-		else if ( pCiv->roster().soldierClass() == SOLDIER_CLASS_ELITE )
-		{
-			return( CIV_QUOTE_ENEMY_ELITE );
-		}
-		else
-		{
-			return( CIV_QUOTE_ENEMY_ADMIN );
-		}
-	}
-
-	return( 255 );
-#else	
-			
 	if ( ubCivType == CIV_TYPE_ENEMY )
 	{
 		// Determine what type of quote to say...
@@ -917,7 +917,6 @@ UINT16 DetermineCivQuoteEntry( TacticalActor *pCiv, UINT16 *pubCivHintToUse, BOO
 	{
 		return( CIV_QUOTE_KIDS_ALL_PURPOSE );
 	}
-#endif
 }
 
 
@@ -972,16 +971,16 @@ void StartCivQuote( TacticalActor *pCiv )
 	{
 		RandomVal = 3;
 	}
-	else 
+	else
 		RandomVal = 15;
 
-#ifdef JA2UB		
-	if( ubCivQuoteID == 255 )
+	const CampaignCivilianQuotePolicy campaignPolicy(
+		GetGameContext().capabilities());
+	if( campaignPolicy.discardsUnavailableQuote(ubCivQuoteID) )
 	{
 		return;
 	}
-#endif	
-	
+
 	// Determine entry id
 	// ATE: Try and get entry from soldier pointer....
 	if ( ubCivQuoteID != CIV_QUOTE_HINT )
