@@ -19,6 +19,9 @@
 #include "TacticalActorDragging.h"
 #include "TacticalActorRangedActions.h"
 #include "TacticalWorldAdapter.h"
+
+#include <array>
+
 #include <stdio.h>
 #include "stdlib.h"
 #include "DEBUG.H"
@@ -81,6 +84,7 @@
 #include "soldier tile.h"
 #include "Soldier Functions.h"
 #include "SoldierRepository.h"
+#include "Simulation Command Legacy.h"
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldItemHost.h"
@@ -8305,25 +8309,103 @@ void HandleTBReload( void )
 			GetJa2TacticalEntityId(*selectedSoldier),
 			true );
 }
+
+namespace
+{
+struct CanonicalBulkReloadRoster
+{
+	std::array<TacticalEntityId, TacticalBulkReloadActorCapacity> identities{};
+	std::array<TacticalActor*, TacticalBulkReloadActorCapacity> actors{};
+	std::uint16_t soldierCount = 0;
+};
+
+TacticalBulkReloadMode CaptureTacticalBulkReloadMode() noexcept
+{
+	return !gTacticalStatus.fEnemyInSector
+		? TacticalBulkReloadMode::PeacefulSector
+		: IsJa2TacticalCombatActive()
+			? TacticalBulkReloadMode::HostileTurnBased
+			: TacticalBulkReloadMode::HostileRealTime;
+}
+
+bool CaptureCanonicalBulkReloadRoster(
+	INT32 squad, CanonicalBulkReloadRoster& roster) noexcept
+{
+	if (squad < 0 || squad >= NUMBER_OF_SQUADS || gbPlayerNum >= MAXTEAMS)
+		return false;
+
+	const TacticalTeamType& playerTeam = gTacticalStatus.Team[gbPlayerNum];
+	Ja2SoldierRepository& repository = GetJa2SoldierRepository();
+	if (playerTeam.bFirstID.i > playerTeam.bLastID.i ||
+		playerTeam.bLastID.i >= repository.capacity())
+		return false;
+
+	CanonicalBulkReloadRoster captured;
+	for (SoldierID slot = playerTeam.bFirstID;
+		slot <= playerTeam.bLastID; ++slot)
+	{
+		TacticalActor* soldier = repository.resolve(slot.i);
+		if (!soldier || !OK_CONTROLLABLE_MERC(soldier) ||
+			soldier->assignment().current() != squad || AM_A_ROBOT(soldier))
+			continue;
+		if (captured.soldierCount == TacticalBulkReloadActorCapacity)
+			return false;
+
+		const TacticalEntityId identity = GetJa2TacticalEntityId(*soldier);
+		if (!identity.valid()) return false;
+		captured.identities[captured.soldierCount] = identity;
+		captured.actors[captured.soldierCount] = soldier;
+		++captured.soldierCount;
+	}
+	if (captured.soldierCount == 0) return false;
+	roster = captured;
+	return true;
+}
+}
+
 void HandleTBReloadAll( void )
 {
-	if ( !(gTacticalStatus.fEnemyInSector) )
+	const INT32 currentSquad = CurrentSquad();
+	CanonicalBulkReloadRoster roster;
+	if (!CaptureCanonicalBulkReloadRoster(currentSquad, roster)) return;
+	(void)TryDispatchBulkReloadWeaponsCommandNow(
+		roster.identities.data(), roster.soldierCount,
+		static_cast<std::uint8_t>(currentSquad),
+		CaptureTacticalBulkReloadMode());
+}
+
+bool ExecuteBulkReloadWeaponsCommand(
+	const BulkReloadWeaponsCommand& command)
+{
+	if (!IsJa2TacticalWorldLoaded() ||
+		!IsStructurallyValidSimulationCommand(SimulationCommand{command}) ||
+		command.squad >= NUMBER_OF_SQUADS ||
+		CurrentSquad() != command.squad ||
+		CaptureTacticalBulkReloadMode() != command.mode)
+		return false;
+
+	CanonicalBulkReloadRoster canonical;
+	if (!CaptureCanonicalBulkReloadRoster(command.squad, canonical) ||
+		canonical.soldierCount != command.soldierCount)
+		return false;
+	for (std::size_t index = 0; index < command.soldierCount; ++index)
+	{
+		if (canonical.identities[index] != command.soldiers[index])
+			return false;
+	}
+	const auto& soldiers = canonical.actors;
+
+	if (command.mode == TacticalBulkReloadMode::PeacefulSector)
 	{
 		TacticalActor *pTeamSoldier;
-		SoldierID 	bLoop;
 		UINT16		bullets;
 		OBJECTTYPE *pGun, *pAmmo, *pAmmoMags;
 
 		// Search for soldier
-		for ( bLoop = gTacticalStatus.Team[gbPlayerNum].bFirstID; bLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++bLoop )
+		for (std::size_t actorIndex = 0;
+			actorIndex < command.soldierCount; ++actorIndex)
 		{
-			pTeamSoldier =
-				GetJa2SoldierRepository().resolve(bLoop.i);
-			if (!pTeamSoldier)
-			{
-				continue;
-			}
-			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
+			pTeamSoldier = soldiers[actorIndex];
 			{
 				// Search for gun in soldier inventory
 				UINT32 invsize = pTeamSoldier->inventory().size();
@@ -8379,15 +8461,10 @@ void HandleTBReloadAll( void )
 		}
 
 		//MM: loop thru the soldiers again (lazy copy/paste :p).  could do it all at once, but then there may not be enough ammo from the world items to fill everyone's guns first
-		for ( bLoop = gTacticalStatus.Team[gbPlayerNum].bFirstID; bLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++bLoop )
+		for (std::size_t actorIndex = 0;
+			actorIndex < command.soldierCount; ++actorIndex)
 		{
-			pTeamSoldier =
-				GetJa2SoldierRepository().resolve(bLoop.i);
-			if (!pTeamSoldier)
-			{
-				continue;
-			}
-			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
+			pTeamSoldier = soldiers[actorIndex];
 			{
 				// Search for ammo in soldier inventory
 				UINT32 invsize = pTeamSoldier->inventory().size();
@@ -8525,22 +8602,16 @@ void HandleTBReloadAll( void )
 	else
 	{
 		TacticalActor *pTeamSoldier;
-		SoldierID bLoop;
 		OBJECTTYPE *pGun, *pAmmo;
 
-		for ( bLoop = gTacticalStatus.Team[gbPlayerNum].bFirstID; bLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++bLoop )
+		for (std::size_t actorIndex = 0;
+			actorIndex < command.soldierCount; ++actorIndex)
 		{
-			pTeamSoldier =
-				GetJa2SoldierRepository().resolve(bLoop.i);
-			if (!pTeamSoldier)
-			{
-				continue;
-			}
-			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
+			pTeamSoldier = soldiers[actorIndex];
 			{
 				if ( (Item[pTeamSoldier->inventory()[HANDPOS].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
 				{
-					if ( (IsJa2TacticalCombatActive()) )
+					if (command.mode == TacticalBulkReloadMode::HostileTurnBased)
 					{
 						// Flugente: check for underbarrel weapons and use that object if necessary
 						pGun = TacticalActorEquipment::usedWeapon(*pTeamSoldier, &(pTeamSoldier->inventory()[HANDPOS]) );
@@ -8598,6 +8669,7 @@ void HandleTBReloadAll( void )
 			}
 		}
 	}
+	return true;
 }
 
 void HandleTBShowCover( void )

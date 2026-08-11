@@ -211,6 +211,45 @@ struct ReloadWeaponCommand
 	SimulationCommandSource source;
 };
 
+// The configurable player-team storage contains at most 254 mercenary and
+// six vehicle slots. Bulk reload excludes vehicles, but retaining the complete
+// compatibility range keeps the command independent from the current runtime
+// team-size option.
+inline constexpr std::size_t TacticalBulkReloadActorCapacity = 260;
+
+enum class TacticalBulkReloadMode : std::uint8_t
+{
+	PeacefulSector = 0,
+	HostileTurnBased = 1,
+	HostileRealTime = 2
+};
+
+constexpr bool IsValidTacticalBulkReloadMode(
+	TacticalBulkReloadMode mode) noexcept
+{
+	switch (mode)
+	{
+		case TacticalBulkReloadMode::PeacefulSector:
+		case TacticalBulkReloadMode::HostileTurnBased:
+		case TacticalBulkReloadMode::HostileRealTime:
+			return true;
+	}
+	return false;
+}
+
+// Reload-all is one ordered inventory transaction: peaceful sectors first
+// consume ground ammunition for every chosen merc and only then refill loose
+// magazines. Capturing the complete, slot-ordered squad roster prevents a
+// deferred or replayed command from being redirected to reused soldier slots.
+struct BulkReloadWeaponsCommand
+{
+	std::array<TacticalEntityId, TacticalBulkReloadActorCapacity> soldiers{};
+	std::uint16_t soldierCount = 0;
+	std::uint8_t squad = 0;
+	TacticalBulkReloadMode mode = TacticalBulkReloadMode::PeacefulSector;
+	SimulationCommandSource source = SimulationCommandSource::LocalPlayer;
+};
+
 // Ready/lower intent records the resolved eight-way direction rather than a
 // mouse coordinate. The compatibility executor may still select JA2's exact
 // animation, while replay and network producers retain the player's choice.
@@ -492,7 +531,8 @@ using SimulationCommand = std::variant<
 	SynchronizeActorPathCommand,
 	SynchronizeActorFireCommand,
 	SynchronizeActorStopCommand,
-	SynchronizeTurnCommand>;
+	SynchronizeTurnCommand,
+	BulkReloadWeaponsCommand>;
 
 // Shared transport/admission validation deliberately covers only the public
 // value shape. Application-specific ranges and live-world policy belong to the
@@ -512,6 +552,28 @@ inline bool IsStructurallyValidSimulationCommand(
 			if constexpr (
 				std::is_same<Command, SynchronizeTurnCommand>::value)
 				return IsSimulationSynchronizationSource(value.source);
+			return true;
+		}
+		else if constexpr (
+			std::is_same<Command, BulkReloadWeaponsCommand>::value)
+		{
+			if ((value.source != SimulationCommandSource::LocalPlayer &&
+					value.source != SimulationCommandSource::Replay) ||
+				!IsValidTacticalBulkReloadMode(value.mode) ||
+				value.soldierCount == 0 ||
+				value.soldierCount > TacticalBulkReloadActorCapacity)
+				return false;
+			for (std::size_t index = 0; index < value.soldierCount; ++index)
+			{
+				if (!value.soldiers[index].valid() ||
+					(index != 0 &&
+						value.soldiers[index - 1].slot >=
+							value.soldiers[index].slot))
+					return false;
+			}
+			for (std::size_t index = value.soldierCount;
+				index < TacticalBulkReloadActorCapacity; ++index)
+				if (value.soldiers[index] != TacticalEntityId{}) return false;
 			return true;
 		}
 		else

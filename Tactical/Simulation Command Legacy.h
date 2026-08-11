@@ -3,6 +3,8 @@
 
 #include <cstdint>
 
+#include <Engine/Adapters/JA2/SimulationCommand.h>
+
 class TacticalActor;
 
 // Compatibility completion seams for delayed JA2 actions that still store
@@ -21,5 +23,11 @@ bool TryConsumePendingWorldItemPickup(
 	std::int32_t itemIndex,
 	std::int32_t grid,
 	std::int8_t level) noexcept;
+
+// Compatibility executor for the established reload-all inventory policy.
+// Command producers capture the complete exact roster in Simulation Commands.h;
+// this seam owns only the legacy inventory/world-item application.
+bool ExecuteBulkReloadWeaponsCommand(
+	const BulkReloadWeaponsCommand& command);
 
 #endif

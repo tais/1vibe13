@@ -36,6 +36,7 @@
 #include "TacticalActor.h"
 #include "Soldier Functions.h"
 #include "Soldier macros.h"
+#include "Squads.h"
 #include "TacticalEntityHost.h"
 #include "TacticalWorldItemHost.h"
 #include "TeamTurns.h"
@@ -52,6 +53,11 @@ namespace
 	static_assert(
 		TacticalMaximumVehicleSeats == MAXPASSENGERS,
 		"public vehicle command seat bound must match legacy passenger storage");
+	static_assert(
+		TacticalBulkReloadActorCapacity ==
+			CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS +
+			CODE_MAXIMUM_NUMBER_OF_PLAYER_VEHICLES,
+		"public bulk-reload roster bound must match legacy player storage");
 
 	struct SimulationCommandFrameBudget
 	{
@@ -294,6 +300,13 @@ namespace
 				}
 				BeginTeamTurn(value.nextTeam);
 				return CommandDisposition::Applied;
+			}
+			else if constexpr (
+				std::is_same<Command, BulkReloadWeaponsCommand>::value)
+			{
+				return ExecuteBulkReloadWeaponsCommand(value)
+					? CommandDisposition::Applied
+					: CommandDisposition::Discard;
 			}
 			else if constexpr (std::is_same<Command, ChangeStanceCommand>::value)
 			{
@@ -807,12 +820,24 @@ namespace
 	}
 
 	void SynchronizeExecutedCommandActors(
-		const SimulationCommand& command) noexcept
+		const SimulationCommand& command,
+		CommandDisposition disposition) noexcept
 	{
-		if (command.valueless_by_exception()) return;
+		if (disposition != CommandDisposition::Applied ||
+			command.valueless_by_exception())
+			return;
 		std::visit([](const auto& value) noexcept {
 			using Command = typename std::decay<decltype(value)>::type;
 			if constexpr (
+				std::is_same<Command, BulkReloadWeaponsCommand>::value)
+			{
+				if (value.soldierCount > TacticalBulkReloadActorCapacity) return;
+				for (std::size_t index = 0; index < value.soldierCount; ++index)
+					if (TacticalActor* soldier =
+						ResolveLiveCommandActor(value.soldiers[index]))
+						(void)SynchronizeJa2TacticalEntityState(*soldier);
+			}
+			else if constexpr (
 				!std::is_same<Command, EndTurnCommand>::value &&
 				!std::is_same<Command, SynchronizeTurnCommand>::value)
 			{
@@ -853,7 +878,7 @@ namespace
 		{
 			const CommandDisposition disposition =
 				ExecuteSimulationCommand(command);
-			SynchronizeExecutedCommandActors(command);
+			SynchronizeExecutedCommandActors(command, disposition);
 			return disposition;
 		}
 	};
@@ -964,6 +989,34 @@ SimulationCommandDomainError ValidateSimulationCommandDomain(
 				std::is_same<Command, SynchronizeTurnCommand>::value)
 				if (!IsSimulationSynchronizationSource(value.source))
 					return SimulationCommandDomainError::InvalidSource;
+			return SimulationCommandDomainError::None;
+		}
+		else if constexpr (
+			std::is_same<Command, BulkReloadWeaponsCommand>::value)
+		{
+			if (!IsValidTacticalBulkReloadMode(value.mode))
+				return SimulationCommandDomainError::InvalidBulkReloadMode;
+			if (value.squad >= NUMBER_OF_SQUADS)
+				return SimulationCommandDomainError::InvalidBulkReloadSquad;
+			if (value.soldierCount == 0 ||
+				value.soldierCount > TacticalBulkReloadActorCapacity)
+				return SimulationCommandDomainError::InvalidBulkReloadRoster;
+			if (value.source != SimulationCommandSource::LocalPlayer &&
+				value.source != SimulationCommandSource::Replay)
+				return SimulationCommandDomainError::InvalidSource;
+			for (std::size_t index = 0; index < value.soldierCount; ++index)
+			{
+				if (!value.soldiers[index].valid() ||
+					value.soldiers[index].slot >= TOTAL_SOLDIERS ||
+					(index != 0 &&
+						value.soldiers[index - 1].slot >=
+							value.soldiers[index].slot))
+					return SimulationCommandDomainError::InvalidBulkReloadRoster;
+			}
+			for (std::size_t index = value.soldierCount;
+				index < TacticalBulkReloadActorCapacity; ++index)
+				if (value.soldiers[index] != TacticalEntityId{})
+					return SimulationCommandDomainError::InvalidBulkReloadRoster;
 			return SimulationCommandDomainError::None;
 		}
 		else
@@ -1737,6 +1790,35 @@ SimulationCommandDispatchResult TryDispatchReloadWeaponCommandNow(
 			return ReloadWeaponCommand{
 				actor, reloadEvenIfNotEmpty, source};
 		});
+}
+
+SimulationCommandDispatchResult TryDispatchBulkReloadWeaponsCommandNow(
+	const TacticalEntityId* soldiers,
+	std::uint16_t soldierCount,
+	std::uint8_t squad,
+	TacticalBulkReloadMode mode,
+	SimulationCommandSource source) noexcept
+{
+	BulkReloadWeaponsCommand command{};
+	command.soldierCount = soldierCount;
+	command.squad = squad;
+	command.mode = mode;
+	command.source = source;
+	if (soldiers && soldierCount <= TacticalBulkReloadActorCapacity)
+		for (std::size_t index = 0; index < soldierCount; ++index)
+			command.soldiers[index] = soldiers[index];
+
+	if (!soldiers ||
+		ValidateSimulationCommandDomain(SimulationCommand{command}) !=
+			SimulationCommandDomainError::None)
+	{
+		SimulationCommandDispatchResult invalid;
+		invalid.status = SimulationCommandDispatchStatus::InvalidDomain;
+		invalid.tick =
+			GetGameContext().runtime().simulationTicks().completedTickSequence();
+		return invalid;
+	}
+	return TryDispatchSimulationCommandNow(SimulationCommand{std::move(command)});
 }
 
 SimulationCommandDispatchResult TryDispatchSetWeaponReadyCommandNow(
