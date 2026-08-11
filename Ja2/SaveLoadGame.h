@@ -64,6 +64,51 @@ typedef struct
 
 } SAVED_GAME_HEADER;
 
+// The portable save schema is deliberately visible here so production and
+// data-free golden tests instantiate the exact same field visitor. Keeping
+// this list next to the record declaration makes changes to either side
+// reviewable as one save-format decision. The save/load screen reads this
+// header before it knows the version, so the portable form is unconditional:
+// CHAR16 description through wstr, scalar-only GAME_OPTIONS and reserved
+// filler as exact byte blocks.
+template<class Ar>
+inline void XferSaveGameHeaderFields( Ar& ar, SAVED_GAME_HEADER& h )
+{
+	ar.u32 (h.uiSavedGameVersion);
+	ar.str8(h.zGameVersionNumber, GAME_VERSION_LENGTH);
+	ar.wstr(h.sSavedGameDesc, SIZE_OF_SAVE_GAME_DESC);
+	ar.u32 (h.uiFlags);
+#ifdef CRIPPLED_VERSION
+	ar.bytes(h.ubCrippleFiller, sizeof(h.ubCrippleFiller));
+#endif
+	ar.u32 (h.uiDay);
+	ar.u8  (h.ubHour);
+	ar.u8  (h.ubMin);
+	ar.i16 (h.sSectorX);
+	ar.i16 (h.sSectorY);
+	ar.i8  (h.bSectorZ);
+	ar.u16 (h.ubNumOfMercsOnPlayersTeam);
+	ar.i32 (h.iCurrentBalance);
+	ar.u32 (h.uiCurrentScreen);
+	ar.boolean(h.fAlternateSector);
+	ar.boolean(h.fWorldLoaded);
+	ar.u8  (h.ubLoadScreenID);
+	ar.bytes(&h.sInitialGameOptions, sizeof(GAME_OPTIONS));
+	ar.u32 (h.uiRandom);
+	ar.bytes(h.ubFiller, sizeof(h.ubFiller));
+}
+
+// PathSt is forward-declared below, so keep the node type dependent. Runtime
+// links are intentionally absent from the stream and are rebuilt by each
+// route owner after loading.
+template<class Ar, class PathNode>
+inline void XferPathNodeFields( Ar& ar, PathNode& p )
+{
+	ar.u32(p.uiSectorId);
+	ar.u32(p.uiEta);
+	ar.boolean(p.fSpeed);
+}
+
 extern	UINT32		guiScreenToGotoAfterLoadingSavedGame;
 extern UINT32 guiCurrentSaveGameVersion;
 
