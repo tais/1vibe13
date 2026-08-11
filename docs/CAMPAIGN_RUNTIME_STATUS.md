@@ -60,6 +60,16 @@ retains records 40-49, its restricted enemy-action test, and record 255 as an
 unavailable sentinel. The two `CIV_QUOTE_NEW` markers remain campaign-qualified
 at their exact records 1029 and 1039. The common storage uses the larger
 capacity only; no quote record, EDT file, or serialized layout changes.
+The IMP home page and text system now use `CampaignImpPolicy`. Arulco retains
+its XEP624 pass and new-laptop gate. UB retains its independently configurable
+XEP624 and GP97SL passes, including the established expression precedence that
+applies the new-laptop gate only to GP97SL. Invalid and known-but-unavailable
+inputs remain distinct. Every host also emits the exact UB
+`IMPText25.edt`-then-`IMPText.edt` fallback while Arulco keeps `IMPText.EDT`;
+the UB-only file probe is behind a left-hand runtime campaign gate. The two
+implementations are now common Laptop translation units, bringing the current
+partition to 84 common and 14 per-application variants without changing IMP
+profiles, saves, text records, or assets.
 
 The architecture check names those migrated files and rejects any reintroduced
 `JA2UB` conditional. The separate JA2, Unfinished Business, and Map Editor
@@ -166,12 +176,12 @@ behavior remain unchanged.
 ## Literal remaining tail
 
 `tools/lint_campaign_compile_guards.py` is the canonical inventory. At this
-milestone its per-file baseline contains 84 active conditionals in 32
+milestone its per-file baseline contains 78 active conditionals in 30
 first-party files:
 
 | Area | Conditionals |
 | --- | ---: |
-| Laptop content/pages | 10 |
+| Laptop content/pages | 4 |
 | Tactical gameplay/content | 33 |
 | Strategic gameplay/content | 23 |
 | JA2 compatibility shell/layout | 7 |
@@ -204,7 +214,9 @@ implementations and common map header no longer contribute nine more. Civilian
 quote catalogue selection, dedicated-group boundaries, UB's unavailable-record
 sentinel, and Arulco's surrender completion use
 `CampaignCivilianQuotePolicy`; `Tactical/Civ Quotes.cpp` and its public header
-no longer contribute six more. All ten policies
+no longer contribute six more. IMP pass validation and text fallback use
+`CampaignImpPolicy`; `Laptop/IMP HomePage.cpp` and
+`Laptop/IMP Text System.cpp` no longer contribute six more. All eleven policies
 are guarded by data-free tests, headless integration coverage, and named
 architecture checks. The seven remaining
 `Ja2` conditionals are the

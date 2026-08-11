@@ -1043,6 +1043,16 @@ the engine must not contain SDL types in its public domain model.
   qualified at 1029 and 1039, and the common arrays merely reserve the larger
   capacity; quote records, EDT files, and save layouts do not change. All six
   former `JA2UB` branches across `Civ Quotes.cpp` and `Civ Quotes.h` are gone.
+- IMP activation and text selection now use the value-only
+  `CampaignImpPolicy`. Arulco keeps XEP624 plus its new-laptop gate. UB keeps
+  independently configurable XEP624 and GP97SL passes, including the legacy
+  precedence that gates only GP97SL on new-laptop state, and keeps invalid
+  input distinct from a recognized but unavailable pass. Every host emits the
+  exact `IMPText25.edt` to `IMPText.edt` UB fallback and the Arulco
+  `IMPText.EDT` path; the UB probe is left-hand campaign-gated. All six former
+  guards are gone from `IMP HomePage.cpp` and `IMP Text System.cpp`, which are
+  now part of the 84-common/14-variant Laptop partition. IMP text records,
+  profile data, activation strings, and saves do not change.
 - Mercenary lifecycle decisions now use the value-only
   `CampaignMercenaryPolicy`. Profile loading selects `Prof.dat` or
   `JA25PROF.DAT` at runtime; hiring gear, initial arrival and helicopter

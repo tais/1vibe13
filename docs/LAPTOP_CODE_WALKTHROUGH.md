@@ -887,6 +887,23 @@ Focused model tests cover the failure latch; real headless FileMan/button tests
 cover missing, truncated, unterminated, and invalid-handle paths. Architecture
 ratchets preserve the complete failure chain.
 
+## Post-closure IMP campaign selection
+
+The IMP home page and text system previously remained per-application variants
+only because six `JA2UB` guards selected activation passes, redundant includes,
+and one text-resource fallback. `CampaignImpPolicy` now represents both exact
+campaign paths as values. It preserves Arulco's XEP624/new-laptop rule and UB's
+configured XEP624/GP97SL truth table, including the original operator
+precedence and the distinction between invalid and known-but-unavailable
+inputs. Text loading keeps Arulco's `IMPText.EDT` and UB's
+`IMPText25.edt`-then-`IMPText.edt` selection; Arulco never probes the UB asset.
+
+Both translation units are consequently common, taking the Laptop partition
+from 82 common/16 variant to 84 common/14 variant. Dependency-free exhaustive
+tests, a live-capability headless assertion, and architecture/ASan ratchets pin
+the behavior and reject restored compile-time campaign identity. Activation
+strings, IMP text records, profiles, saves, and page resources are unchanged.
+
 ## Post-closure Laptop visual-layout organization
 
 The A.I.M. member page previously encoded its fixed-pixel artwork geometry in
