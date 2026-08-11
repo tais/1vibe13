@@ -5862,6 +5862,86 @@ foreach(required_item_xml_writer_headless_fragment IN ITEMS
   endif()
 endforeach()
 
+# Event Pump's replacement queue contract is dependency-free and owns packet
+# bytes before the production dispatcher is migrated. Keep the three queue
+# semantics, strict legacy expiry rule, bounded failure surface, and staged
+# cutover independently executable under ASan.
+file(READ "${SOURCE_ROOT}/Utils/TacticalEventQueueModel.h"
+  tactical_event_queue_model_contents)
+foreach(required_tactical_event_queue_model_fragment IN ITEMS
+    "enum class EventKind"
+    "struct EventSchema"
+    "class OwnedEvent"
+    "class EventQueues"
+    "enum class EnqueueResult"
+    "maximumQueuedPayloadBytes"
+    "struct AllocationControl"
+    "SequenceExhausted"
+    "AllocationFailure"
+    "drainPrimaryAndExpired"
+    "drainDemand"
+    "static_cast<Tick>(now - event.scheduledAt) > event.event.delay()"
+    "void clear() noexcept")
+  string(FIND "${tactical_event_queue_model_contents}"
+    "${required_tactical_event_queue_model_fragment}"
+    required_tactical_event_queue_model_position)
+  if(required_tactical_event_queue_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical event queue model lost '${required_tactical_event_queue_model_fragment}'")
+  endif()
+endforeach()
+foreach(retired_tactical_event_queue_model_fragment IN ITEMS
+    "#include \""
+    "MemAlloc"
+    "MemFree"
+    "GetJA2Clock"
+    "PTR")
+  string(FIND "${tactical_event_queue_model_contents}"
+    "${retired_tactical_event_queue_model_fragment}"
+    retired_tactical_event_queue_model_position)
+  if(NOT retired_tactical_event_queue_model_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical event queue model gained legacy dependency '${retired_tactical_event_queue_model_fragment}'")
+  endif()
+endforeach()
+
+foreach(tactical_event_queue_test_manifest IN ITEMS
+    runtime_utils_ui_test_build_contents runtime_utils_ui_ci_contents)
+  string(FIND "${${tactical_event_queue_test_manifest}}"
+    "tactical_event_queue_model_tests"
+    required_tactical_event_queue_test_position)
+  if(required_tactical_event_queue_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical event queue model tests left the build or AddressSanitizer matrix")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/tests/tactical_event_queue_model_tests.cpp"
+  tactical_event_queue_model_test_contents)
+foreach(required_tactical_event_queue_test_fragment IN ITEMS
+    "event kinds retain legacy dispatch values and reject category gaps"
+    "queued events own a copy independent from the caller"
+    "primary queue is FIFO and drains same-cycle appended work"
+    "delayed readiness uses the legacy strict-greater-than boundary"
+    "expired delayed events retain deterministic insertion order"
+    "delayed expiry preserves unsigned clock-wrap behavior"
+    "demand queue is FIFO and drains independently from primary work"
+    "schema validation rejects null, mismatched, and sentinel events"
+    "aggregate owned-byte capacity covers every queue"
+    "injected enqueue allocation failure publishes no ownership"
+    "injected delayed allocation failure preserves primary ownership"
+    "allocation failure does not consume the next successful sequence"
+    "full delayed storage preserves the unpromoted primary event"
+    "discard mode drops primary and expired delayed work without execution"
+    "one idempotent clear releases primary, delayed, and demand ownership")
+  string(FIND "${tactical_event_queue_model_test_contents}"
+    "${required_tactical_event_queue_test_fragment}"
+    required_tactical_event_queue_test_position)
+  if(required_tactical_event_queue_test_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical event queue model coverage lost '${required_tactical_event_queue_test_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/docs/UTILS_CODE_WALKTHROUGH.md"
   runtime_utils_walkthrough_contents)
 foreach(required_utils_walkthrough_fragment IN ITEMS
@@ -5872,6 +5952,10 @@ foreach(required_utils_walkthrough_fragment IN ITEMS
     "Data persistence foundation"
     "Indexed localization XML boundary"
     "Item XML transaction and writer closure"
+    "Owned tactical event queue foundation"
+    "TacticalEventQueueModel.h"
+    "now - scheduledAt > delay"
+    "tactical_event_queue_model_tests"
     "production reader through"
     "authored nonzero-class item"
     "invalid UTF-8"
@@ -5903,6 +5987,9 @@ foreach(required_utils_architecture_fragment IN ITEMS
     "TextInfrastructureModel"
     "IndexedXmlModel"
     "ItemDataStagingModel"
+    "TacticalEventQueueModel"
+    "strict unsigned `now - scheduledAt > delay`"
+    "`Event Pump.cpp` is intentionally not cut over"
     "sparse authored nonzero-class records"
     "invocation-local character buffer"
     "MediaLifecycleModel"
