@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "sdk": {
+    "name": "JA2Engine",
+    "version": "@JA2_ENGINE_SDK_VERSION@",
+    "compatibilityLine": "@JA2_ENGINE_SDK_COMPATIBILITY_LINE@",
+    "stability": "@JA2_ENGINE_SDK_STABILITY@",
+    "cxxStandard": 17
+  },
+  "compatibility": {
+    "source": "@JA2_ENGINE_SDK_SOURCE_COMPATIBILITY@",
+    "binary": "@JA2_ENGINE_SDK_BINARY_COMPATIBILITY@",
+    "breakingChange": "increments the 0.x minor version",
+    "patchRelease": "keeps the installed 0.x public source contract"
+  },
+  "components": [
+    {
+      "name": "EngineCore",
+      "target": "JA2::EngineCore"
+    },
+    {
+      "name": "RuntimeAdapter",
+      "target": "JA2::RuntimeAdapter",
+      "requires": "EngineCore"
+    }
+  ]
+}

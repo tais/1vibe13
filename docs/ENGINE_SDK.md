@@ -15,10 +15,36 @@ Build the repository normally, then install only the SDK component:
 cmake --install build --prefix /path/to/ja2-engine-sdk --component EngineSDK
 ```
 
-The SDK currently uses its own `0.1.x` compatibility line while the engine API
-is being extracted. The `EngineSDK` install component contains both static
-archives, their complete public headers under `Engine/Core` and
-`Engine/Adapters/JA2`, and CMake package metadata.
+The SDK currently uses its own experimental `0.1.x` compatibility line while
+the engine API is being extracted. The `EngineSDK` install component contains
+both static archives, their complete public headers under `Engine/Core` and
+`Engine/Adapters/JA2`, CMake package metadata, this guide, a public package-host
+example, and the `0.1` compatibility kit. Tagged release CI publishes this
+install tree as a separate `ja2-engine-sdk-<platform>-<tag>.zip` beside each
+game archive.
+
+### Pre-1.0 compatibility policy
+
+The contract is intentionally narrower than a stable `1.0` ABI:
+
+- Patch releases in one minor line, such as `0.1.0` to `0.1.1`, retain the
+  documented installed public source contract. They may add APIs. A breaking
+  source change advances the minor line, such as `0.1` to `0.2`.
+- `find_package(JA2Engine 0.1 ...)` uses CMake's `SameMinorVersion` rule. A
+  future `0.2` package will not silently satisfy a consumer requesting `0.1`.
+- There is no cross-toolchain C++ ABI promise before `1.0`. Static archives and
+  consumers must match platform, architecture, compiler/standard library,
+  build configuration, and on Windows the exported MSVC runtime-library mode.
+- Versioned service, replay, persistence, content, and message schemas keep
+  their own compatibility rules. The SDK package version does not override
+  those on-disk or runtime protocol versions.
+
+The installed CMake package exposes `JA2Engine_VERSION`,
+`JA2Engine_COMPATIBILITY_LINE`, `JA2Engine_STABILITY`,
+`JA2Engine_SOURCE_COMPATIBILITY`, `JA2Engine_BINARY_COMPATIBILITY`, and the
+path `JA2Engine_COMPATIBILITY_MANIFEST`. The JSON manifest is a
+machine-readable release identity and policy record, not a claim that every
+C++ symbol has a stable binary layout.
 
 ## Consume
 
@@ -47,6 +73,34 @@ endif()
 
 Configure the consumer with either `CMAKE_PREFIX_PATH` pointing at the install
 prefix or `JA2Engine_DIR` pointing at its `lib/cmake/JA2Engine` directory.
+
+## Public example and compatibility kit
+
+The installed `share/JA2Engine/examples/package-host` project is a small real
+host rather than a test-only fixture. It defines an application-owned
+`EnginePackage`, publishes a host capability through `EngineHostOptions`, and
+drives registration, activation, all bootstrap phases, and transactional
+shutdown while linking only `JA2::EngineCore`:
+
+```sh
+cmake -S share/JA2Engine/examples/package-host -B example-build \
+  -DCMAKE_PREFIX_PATH=/path/to/ja2-engine-sdk
+cmake --build example-build \
+  --target run_ja2_engine_sdk_package_host_example
+```
+
+`share/JA2Engine/compatibility` contains the installed `0.1` JSON manifest,
+its standalone verifier, and an executable source probe for both public
+targets. Downstream packagers can run it against an extracted SDK without a
+JA2 checkout:
+
+```sh
+cmake -S share/JA2Engine/compatibility -B compatibility-build \
+  -DJA2Engine_DIR=/path/to/ja2-engine-sdk/lib/cmake/JA2Engine \
+  -DJA2_ENGINE_REQUIRED_COMPATIBILITY_LINE=0.1
+cmake --build compatibility-build \
+  --target run_ja2_engine_sdk_compatibility_probe
+```
 
 `EngineHost` is the smallest reusable composition root: service contracts,
 packages and capabilities, versioned persistence, assets, state control, and
@@ -106,12 +160,15 @@ not include this application policy or test the legacy `JA2UB` build macro.
 The policy does not expose mutable globals, platform services, dealer IDs, or
 save records, and it changes no existing XML path or content format.
 
-The `engine_sdk_consumer` CTest installs the component, copies its fixture away
-from the repository tree, rejects source/build paths in the exported metadata,
-and builds the fresh project against `find_package(JA2Engine)`. It exercises
-Core plus campaign-clock ownership, campaign-event ownership/snapshots, the
-command codec, durable replay, runtime composition, tactical world
-diff/codec/observer, message publisher, and tactical command service surfaces.
+The `engine_sdk_consumer` CTest installs the component, copies its private deep
+fixture away from the repository tree, rejects source/build paths in every
+textual installed artifact, and builds the fresh project against
+`find_package(JA2Engine)`. It also configures, builds, and runs the public
+package-host example and the compatibility kit directly from the installed
+tree. The deep fixture exercises Core plus campaign-clock ownership,
+campaign-event ownership/snapshots, the command codec, durable replay, runtime
+composition, tactical world diff/codec/observer, message publisher, and
+tactical command service surfaces.
 
 `CampaignClockSession` is the value-only strategic-time state owned by each
 `EngineRuntime`. It distinguishes uncommitted event slices from a completed

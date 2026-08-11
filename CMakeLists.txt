@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 3.20)
 
 project(ja2)
 
+# Define one project-wide install layout before any subdirectory consumes it.
+# On newer CMake releases GNUInstallDirs keeps derived paths such as DATADIR as
+# directory-scoped normal variables (the cache entry itself can be empty), so a
+# subdirectory-only include does not make those paths visible to sibling tests.
+include(GNUInstallDirs)
+
 include(cmake/CopyUserPresetTemplate.cmake)
 CopyUserPresetTemplate()
 

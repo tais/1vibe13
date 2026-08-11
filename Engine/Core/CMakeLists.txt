@@ -119,7 +119,7 @@ set_target_properties(ja2_engine_core PROPERTIES
 # tooling publish only the SDK even though the full game has third-party install
 # rules of its own.
 include(CMakePackageConfigHelpers)
-set(JA2_ENGINE_SDK_VERSION "0.1.0" CACHE STRING "JA2 Engine/Core SDK version")
+include(${PROJECT_SOURCE_DIR}/cmake/JA2EngineVersion.cmake)
 
 install(TARGETS ja2_engine_core
   EXPORT JA2EngineTargets
@@ -137,7 +137,14 @@ configure_package_config_file(
 write_basic_package_version_file(
   ${CMAKE_CURRENT_BINARY_DIR}/JA2EngineConfigVersion.cmake
   VERSION ${JA2_ENGINE_SDK_VERSION}
-  COMPATIBILITY SameMajorVersion)
+  # Pre-1.0 minor versions may make breaking source changes.  SameMajorVersion
+  # would incorrectly let a future 0.2 SDK satisfy a 0.1 request.
+  COMPATIBILITY SameMinorVersion)
+
+configure_file(
+  ${PROJECT_SOURCE_DIR}/sdk/compatibility/JA2EngineCompatibility.json.in
+  ${CMAKE_CURRENT_BINARY_DIR}/JA2EngineCompatibility.json
+  @ONLY)
 
 install(EXPORT JA2EngineTargets
   FILE JA2EngineTargets.cmake
@@ -148,4 +155,19 @@ install(FILES
   ${CMAKE_CURRENT_BINARY_DIR}/JA2EngineConfig.cmake
   ${CMAKE_CURRENT_BINARY_DIR}/JA2EngineConfigVersion.cmake
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/JA2Engine
+  COMPONENT EngineSDK)
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/JA2EngineCompatibility.json
+  ${PROJECT_SOURCE_DIR}/sdk/compatibility/VerifyManifest.cmake
+  ${PROJECT_SOURCE_DIR}/sdk/compatibility/CMakeLists.txt
+  ${PROJECT_SOURCE_DIR}/sdk/compatibility/compatibility_probe.cpp
+  ${PROJECT_SOURCE_DIR}/sdk/compatibility/README.md
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/JA2Engine/compatibility
+  COMPONENT EngineSDK)
+install(DIRECTORY
+  ${PROJECT_SOURCE_DIR}/examples/engine_sdk_package_host/
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/JA2Engine/examples/package-host
+  COMPONENT EngineSDK)
+install(FILES ${PROJECT_SOURCE_DIR}/docs/ENGINE_SDK.md
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/JA2Engine
   COMPONENT EngineSDK)

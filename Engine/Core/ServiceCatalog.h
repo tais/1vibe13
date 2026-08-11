@@ -184,7 +184,8 @@ public:
 	{
 		const Entry* entry = findEntry(id);
 		if (!entry)
-			return EngineServiceLookupResult<Service>{EngineServiceLookupError::NotFound};
+			return EngineServiceLookupResult<Service>{
+				EngineServiceLookupError::NotFound, nullptr, {}};
 		if (!entry->descriptor.version.supports(required))
 			return EngineServiceLookupResult<Service>{
 				EngineServiceLookupError::IncompatibleVersion, nullptr,
@@ -204,19 +205,19 @@ public:
 	{
 		if (!contract.id)
 			return EngineServiceLookupResult<Service>{
-				EngineServiceLookupError::InvalidDescriptor};
+				EngineServiceLookupError::InvalidDescriptor, nullptr, {}};
 		try
 		{
 			const std::string id(contract.id);
 			if (!IsValidEngineIdentifier(id) || contract.version.major == 0)
 				return EngineServiceLookupResult<Service>{
-					EngineServiceLookupError::InvalidDescriptor};
+					EngineServiceLookupError::InvalidDescriptor, nullptr, {}};
 			return resolve<Service>(id, contract.version);
 		}
 		catch (...)
 		{
 			return EngineServiceLookupResult<Service>{
-				EngineServiceLookupError::AllocationFailure};
+				EngineServiceLookupError::AllocationFailure, nullptr, {}};
 		}
 	}
 
